@@ -290,7 +290,7 @@ retrycmd_get_access_token_for_oras() {
         response=$(timeout 60 curl -v -s -H "Metadata:true" --noproxy "*" "$url" -w "\n%{http_code}")
         ACCESS_TOKEN_OUTPUT=$(echo "$response" | sed '$d')
         http_code=$(echo "$response" | tail -n1)
-        if [ -n "$ACCESS_TOKEN_OUTPUT" ] && [ "$http_code" -eq 200 ]; then 
+        if [ -n "$ACCESS_TOKEN_OUTPUT" ] && [ "$http_code" -eq 200 ]; then
             echo "$ACCESS_TOKEN_OUTPUT"
             return 0
         fi
@@ -309,7 +309,7 @@ retrycmd_get_refresh_token_for_oras() {
         REFRESH_TOKEN_OUTPUT=$(timeout 60 curl -v -s -X POST -H "Content-Type: application/x-www-form-urlencoded" \
             -d "grant_type=access_token&service=$acr_url&tenant=$tenant_id&access_token=$ACCESS_TOKEN" \
             https://$acr_url/oauth2/exchange)
-        if [ -n "$REFRESH_TOKEN_OUTPUT" ]; then 
+        if [ -n "$REFRESH_TOKEN_OUTPUT" ]; then
             echo "$REFRESH_TOKEN_OUTPUT"
             return 0
         fi
@@ -334,7 +334,7 @@ retrycmd_get_binary_from_registry_with_oras() {
     binary_retries=$1; wait_sleep=$2; binary_path=$3; url=$4
     binary_folder=$(dirname "$binary_path")
     echo "${binary_retries} retries"
-    
+
     for i in $(seq 1 $binary_retries); do
         if [ -f "$binary_path" ]; then
             break
@@ -388,20 +388,20 @@ systemctl_restart() {
     _systemctl_retry_svc_operation "$1" "$2" "$3" "restart" "$4" true
 }
 systemctl_stop() {
-    _systemctl_retry_svc_operation "$1" "$2" "$3" "stop" "$4" 
+    _systemctl_retry_svc_operation "$1" "$2" "$3" "stop" "$4"
 }
 systemctl_disable() {
-    _systemctl_retry_svc_operation "$1" "$2" "$3" "disable" "$4" 
+    _systemctl_retry_svc_operation "$1" "$2" "$3" "disable" "$4"
 }
 sysctl_reload() {
     retrycmd_silent $1 $2 $3 "false" sysctl --system
 }
 version_gte() {
-  test "$(printf '%s\n' "$@" | sort -rV | head -n 1)" == "$1"
+    test "$(printf '%s\n' "$@" | sort -rV | head -n 1)" == "$1"
 }
 
 systemctlEnableAndStart() {
-    service=$1; timeout=$2    
+    service=$1; timeout=$2
     systemctl_restart 100 5 $2 $1
     RESTART_STATUS=$?
     systemctl status $1 --no-pager -l > /var/log/azure/$1-status.log
@@ -647,9 +647,9 @@ updatePackageDownloadURL() {
     RELEASE="current"
     updateRelease "${package}" "${os}" "${osVersion}"
     local osLowerCase=$(echo "${os}" | tr '[:upper:]' '[:lower:]')
-    
+
     #if .downloadURIs.${osLowerCase} exist, then get the downloadURL from there.
-    #otherwise get the downloadURL from .downloadURIs.default 
+    #otherwise get the downloadURL from .downloadURIs.default
     if [ "$(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}")" != "null" ]; then
         downloadURL=$(echo "${package}" | jq ".downloadURIs.${osLowerCase}.${RELEASE}.downloadURL" -r)
         [ "${downloadURL}" = "null" ] && PACKAGE_DOWNLOAD_URL="" || PACKAGE_DOWNLOAD_URL="${downloadURL}"
@@ -657,7 +657,7 @@ updatePackageDownloadURL() {
     fi
     downloadURL=$(echo "${package}" | jq ".downloadURIs.default.${RELEASE}.downloadURL" -r)
     [ "${downloadURL}" = "null" ] && PACKAGE_DOWNLOAD_URL="" || PACKAGE_DOWNLOAD_URL="${downloadURL}"
-    return    
+    return
 }
 
 addKubeletNodeLabel() {
@@ -764,13 +764,13 @@ resolve_packages_source_url() {
 
 update_base_url() {
   initial_url=$1
-  
+
   if [ "$PACKAGE_DOWNLOAD_BASE_URL" = "packages.aks.azure.com" ] && [[ "$initial_url" == *"acs-mirror.azureedge.net"* ]]; then
     initial_url="${initial_url//"acs-mirror.azureedge.net"/$PACKAGE_DOWNLOAD_BASE_URL}"
   elif [ "$PACKAGE_DOWNLOAD_BASE_URL" = "acs-mirror.azureedge.net" ] && [[ "$initial_url" == *"packages.aks.azure.com"* ]]; then
     initial_url="${initial_url//"packages.aks.azure.com"/$PACKAGE_DOWNLOAD_BASE_URL}"
   fi
-  
+
   echo "$initial_url"
 }
 
@@ -781,11 +781,11 @@ oras_login_with_kubelet_identity() {
 
     if [ -z "$client_id" ] || [ -z "$tenant_id" ]; then
         echo "client_id or tenant_id are not set. Oras login is not possible, proceeding with anonymous pull"
-        return 
+        return
     fi
 
     retrycmd_can_oras_ls_acr 10 5 $acr_url
-    ret_code=$? 
+    ret_code=$?
     if [ "$ret_code" -eq 0 ]; then
         echo "anonymous pull is allowed for acr '$acr_url', proceeding with anonymous pull"
         return
@@ -794,10 +794,10 @@ oras_login_with_kubelet_identity() {
         return $ret_code
     fi
 
-    set +x 
+    set +x
     access_url="http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https://management.azure.com/&client_id=$client_id"
     raw_access_token=$(retrycmd_get_access_token_for_oras 5 15 $access_url)
-    ret_code=$? 
+    ret_code=$?
     if [ "$ret_code" -ne 0 ]; then
         echo $raw_access_token
         return $ret_code
@@ -809,7 +809,7 @@ oras_login_with_kubelet_identity() {
     fi
 
     raw_refresh_token=$(retrycmd_get_refresh_token_for_oras 10 5 $acr_url $tenant_id $ACCESS_TOKEN)
-    ret_code=$? 
+    ret_code=$?
     if [ "$ret_code" -ne 0 ]; then
         echo "failed to retrieve refresh token: $ret_code"
         return $ret_code
