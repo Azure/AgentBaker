@@ -332,9 +332,15 @@ testImagesPulled() {
     fi
 
     if [ "$(isARM64)" -eq 1 ]; then
+      echo "ARM64 detected, using only multiArchVersions"
       versions="${MULTI_ARCH_VERSIONS}"
     else
-      versions="${amd64OnlyVersions} ${MULTI_ARCH_VERSIONS}"
+      echo "AMD64 detected, using amd64OnlyVersions and multiArchVersions"
+      if [ "${#MULTI_ARCH_VERSIONS[@]}" -eq 0 ]; then
+        versions="${amd64OnlyVersions}"
+      else
+        versions="${amd64OnlyVersions} ${MULTI_ARCH_VERSIONS[@]}"
+      fi
     fi
     for version in ${versions}; do
       download_URL=$(string_replace $downloadURL $version)
