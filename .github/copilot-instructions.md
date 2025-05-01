@@ -3,18 +3,17 @@
 AgentBaker builds VHDs using Packer for various base OS: Windows, Azure Linux and Ubuntu. For each OS there are various versions (windows 2019, 2022, ubuntu 2004, 2204 etc). The goal is to
 
 - achieve consistency among all builds as much as possible
-- avoid function regression when introducing new features (component updates, new drivers, new binaries), ensure that all supported OS / versions are tested
+- avoid functional regression when introducing new features (component updates, new drivers, new binaries), ensure that all supported OS / versions are tested
 - avoid performance regression when making changes
 
-## AgentBaker Service 
+## AgentBaker Service
 
-[apiserver](../apiserver/) is go based webserver. It receives request from RP and generates CSE and CustomData to be used on the VHD when a new node is created / provisioned.
+[apiserver](../apiserver/) is `go` based webserver. It receives request from external client and generates CSE and CustomData to be used on the VHD when a new node is created / provisioned.
 
 ## VHD Builder
 
 VHDs are built using [Packer](https://developer.hashicorp.com/packer/docs) in [vhdbuilder](../vhdbuilder/).
 
-## Parts
 
 [parts](../parts/) serves both AgentBaker Service and VHD build. AgentBaker service and VHDs are coupled because of this shared component.
 
@@ -22,7 +21,9 @@ Windows uses a different folder [cse](../staging/cse/windows/) for almost the sa
 
 ## Release
 
-AgentBaker follows a weekky release. All VHDs are built and tagged. New versions of AgentBaker service is deployed. Older versions (up to 6 months) of AgentBaker service are kept for the coupling reason above.
+AgentBaker follows a weekky release. All VHDs are built and tagged. New versions of AgentBaker service is deployed. Older versions (up to 6 months) of AgentBaker service are kept for the coupling reason discussed above.
+
+Windows VHD are released separately, following windows patch tuesday schedule.
 
 ## Coding standing
 
@@ -39,6 +40,6 @@ AgentBaker follows a weekky release. All VHDs are built and tagged. New versions
 
 - use shellcheck for sanity checking
 - use ShellSpec for testing
-- the shell scripts are used on both azure linux and ubuntu and cross platform portability is critical.
+- the shell scripts are used on both azure linux/mariner and ubuntu and cross platform portability is critical.
 - when using functions defined in other files, ensure it is sourced properly.
 - prefer to avoid sharing variables between functions unless they are environment variables.
