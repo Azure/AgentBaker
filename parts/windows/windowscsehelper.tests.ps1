@@ -82,7 +82,7 @@ Describe 'Get-WindowsVersion and Get-WindowsPauseVersion' {
     Mock Get-WindowsBuildNumber -MockWith { return "20348" }
     $windowsVersion = Get-WindowsVersion
     $expectedVersion = "ltsc2022"
-    $windowsVersion | Should -Be $expectedVersion    
+    $windowsVersion | Should -Be $expectedVersion
   }
 
   It 'build number is from 23H2' {
@@ -157,11 +157,230 @@ Describe "Mock Write-Log" {
     foreach($script in $cseScripts) {
       $scriptPaths += $script.FullName
     }
-    
+
     foreach($scriptPath in $scriptPaths) {
       Write-Host "Validating $scriptPath"
       $scriptContent = Get-Content -Path $scriptPath
       $scriptContent -join "`n" | Should -Not -Match "Mock Write-Log"
     }
+  }
+}
+
+
+# When using return to return values in a function with using Write-Log, the logs will be returned as well.
+Describe "Resolve-PackagesSourceUrl" {
+  BeforeEach {
+    $global:PackageDownloadFqdn = $null
+  }
+
+  It 'given valid preferred fqdn, returns preferred' {
+    $preferredFqdn = "packages.aks.azure.com"
+    $fallbackFqdn = "acs-mirror.azure.com"
+
+    Resolve-PackagesDownloadFqdn -PreferredFqdn $preferredFqdn -FallbackFqdn $fallbackFqdn -Retries 1 -WaitSleepSeconds 1
+
+    $global:PackageDownloadFqdn | Should -Be $preferredFqdn
+  }
+
+  It 'given invalid preferred fqdn, returns fallback' {
+    $preferredFqdn = "baddomain.aks.azure.com"
+    $fallbackFqdn = "acs-mirror.azure.com"
+
+    Resolve-PackagesDownloadFqdn -PreferredFqdn $preferredFqdn -FallbackFqdn $fallbackFqdn -Retries 1 -WaitSleepSeconds 1
+
+    $global:PackageDownloadFqdn | Should -Be $fallbackFqdn
+  }
+
+  It 'given all invalid fqdns, still returns fallback' {
+    $preferredFqdn = "baddomain.aks.azure.com"
+    $fallbackFqdn = "badacs-mirror.azure.com"
+
+    Resolve-PackagesDownloadFqdn -PreferredFqdn $preferredFqdn -FallbackFqdn $fallbackFqdn -Retries 1 -WaitSleepSeconds 1
+
+    $global:PackageDownloadFqdn | Should -Be $fallbackFqdn
+  }
+
+  It 'should return fallback fqdn when preferred check returns 404' {
+    Mock Invoke-WebRequest -MockWith {
+      # Create a custom object that mimics an Invoke-WebRequest response with StatusCode
+      [PSCustomObject]@{
+        StatusCode = 404  # Set the status code you want to test
+        Content = "Not Found"
+        Headers = @{}
+      }
+    }
+
+    $preferredFqdn = "baddomain.aks.azure.com"
+    $fallbackFqdn = "badacs-mirror.azure.com"
+
+    Resolve-PackagesDownloadFqdn -PreferredFqdn $preferredFqdn -FallbackFqdn $fallbackFqdn -Retries 1 -WaitSleepSeconds 1
+
+    $global:PackageDownloadFqdn | Should -Be $fallbackFqdn
+  }
+
+  It 'should return fallback fqdn when preferred check returns 500' {
+    Mock Invoke-WebRequest -MockWith {
+      [PSCustomObject]@{
+        StatusCode = 500  # Internal server error
+        Content = "Internal Server Error"
+        Headers = @{}
+      }
+    }
+
+    $preferredFqdn = "packages.aks.azure.com"
+    $fallbackFqdn = "acs-mirror.azure.com"
+
+    Resolve-PackagesDownloadFqdn -PreferredFqdn $preferredFqdn -FallbackFqdn $fallbackFqdn -Retries 1 -WaitSleepSeconds 1
+
+    $global:PackageDownloadFqdn | Should -Be $fallbackFqdn
+  }
+
+  It 'should handle exception with no response' {
+    Mock Invoke-WebRequest -MockWith {
+      throw [System.Net.WebException]::new("Connection Timed Out")
+    }
+
+    $preferredFqdn = "packages.aks.azure.com"
+    $fallbackFqdn = "acs-mirror.azure.com"
+
+    Resolve-PackagesDownloadFqdn -PreferredFqdn $preferredFqdn -FallbackFqdn $fallbackFqdn -Retries 1 -WaitSleepSeconds 1
+
+    $global:PackageDownloadFqdn | Should -Be $fallbackFqdn
+  }
+
+  It 'should correctly handle successful response' {
+    Mock Invoke-WebRequest -MockWith {
+      [PSCustomObject]@{
+        StatusCode = 200  # Success
+        Content = "OK"
+        Headers = @{}
+      }
+    }
+
+    $preferredFqdn = "packages.aks.azure.com"
+    $fallbackFqdn = "acs-mirror.azure.com"
+
+    Resolve-PackagesDownloadFqdn -PreferredFqdn $preferredFqdn -FallbackFqdn $fallbackFqdn -Retries 1 -WaitSleepSeconds 1
+
+    $global:PackageDownloadFqdn | Should -Be $preferredFqdn
+  }
+
+  It 'should call Invoke-WebRequest with 2 times when 2 retries and bad fqdn' {
+    Mock Invoke-WebRequest -MockWith {
+      [PSCustomObject]@{
+        StatusCode = 404  # Success
+        Content = "NotFound"
+        Headers = @{}
+      }
+    }
+
+    $preferredFqdn = "packages.aks.azure.com"
+    $fallbackFqdn = "acs-mirror.azure.com"
+
+    Resolve-PackagesDownloadFqdn -PreferredFqdn $preferredFqdn -FallbackFqdn $fallbackFqdn -Retries 2 -WaitSleepSeconds 1
+
+    Assert-MockCalled -CommandName "Invoke-WebRequest" -Exactly -Times 2
+  }
+
+  It 'should call Invoke-WebRequest with 1 times when 2 retries and valid fqdn' {
+    Mock Invoke-WebRequest -MockWith {
+      [PSCustomObject]@{
+        StatusCode = 200  # Success
+        Content = "OK"
+        Headers = @{}
+      }
+    }
+
+    $preferredFqdn = "packages.aks.azure.com"
+    $fallbackFqdn = "acs-mirror.azure.com"
+
+    Resolve-PackagesDownloadFqdn -PreferredFqdn $preferredFqdn -FallbackFqdn $fallbackFqdn -Retries 2 -WaitSleepSeconds 1
+
+    Assert-MockCalled -CommandName "Invoke-WebRequest" -Exactly -Times 1
+  }
+}
+
+Describe "Update-BaseUrl" {
+  BeforeEach {
+    # Reset the PackageDownloadFqdn before each test
+    $global:PackageDownloadFqdn = $null
+  }
+
+  It "should not modify URL when domain is not a match" {
+    $global:PackageDownloadFqdn = "packages.aks.azure.com"
+    $initialUrl = "https://some-other-domain.com/path/to/resource"
+
+    $result = Update-BaseUrl -InitialUrl $initialUrl
+
+    $result | Should -Be $initialUrl
+  }
+
+  It "should replace acs-mirror.azureedge.net with packages.aks.azure.com when appropriate" {
+    $global:PackageDownloadFqdn = "packages.aks.azure.com"
+    $initialUrl = "https://acs-mirror.azureedge.net/path/to/resource"
+    $expectedUrl = "https://packages.aks.azure.com/path/to/resource"
+
+    $result = Update-BaseUrl -InitialUrl $initialUrl
+
+    $result | Should -Be $expectedUrl
+  }
+
+  It "should replace packages.aks.azure.com with acs-mirror.azureedge.net when appropriate" {
+    $global:PackageDownloadFqdn = "acs-mirror.azureedge.net"
+    $initialUrl = "https://packages.aks.azure.com/path/to/resource"
+    $expectedUrl = "https://acs-mirror.azureedge.net/path/to/resource"
+
+    $result = Update-BaseUrl -InitialUrl $initialUrl
+
+    $result | Should -Be $expectedUrl
+  }
+
+  It "should handle URLs with query parameters correctly" {
+    $global:PackageDownloadFqdn = "packages.aks.azure.com"
+    $initialUrl = "https://acs-mirror.azureedge.net/path/to/resource?param=value&param2=value2"
+    $expectedUrl = "https://packages.aks.azure.com/path/to/resource?param=value&param2=value2"
+
+    $result = Update-BaseUrl -InitialUrl $initialUrl
+
+    $result | Should -Be $expectedUrl
+  }
+
+  It "should handle URLs with special characters correctly" {
+    $global:PackageDownloadFqdn = "packages.aks.azure.com"
+    $initialUrl = "https://acs-mirror.azureedge.net/path/to/resource-with-hyphens_and_underscores.tar.gz"
+    $expectedUrl = "https://packages.aks.azure.com/path/to/resource-with-hyphens_and_underscores.tar.gz"
+
+    $result = Update-BaseUrl -InitialUrl $initialUrl
+
+    $result | Should -Be $expectedUrl
+  }
+
+  It "should not modify URL when domain is a match but PackageDownloadFqdn is set to something else" {
+    $global:PackageDownloadFqdn = "some-other-fqdn.com"
+    $initialUrl = "https://acs-mirror.azureedge.net/path/to/resource"
+
+    $result = Update-BaseUrl -InitialUrl $initialUrl
+
+    $result | Should -Be $initialUrl
+  }
+
+  It "should work with domains in the middle of the URL" {
+    $global:PackageDownloadFqdn = "packages.aks.azure.com"
+    $initialUrl = "https://prefix-acs-mirror.azureedge.net-suffix/path/to/resource"
+
+    $result = Update-BaseUrl -InitialUrl $initialUrl
+
+    # Domain should not be replaced since it's not an exact match
+    $result | Should -Be $initialUrl
+  }
+
+  It "should handle multiple occurrences of the domain" {
+    $global:PackageDownloadFqdn = "packages.aks.azure.com"
+    $initialUrl = "https://acs-mirror.azureedge.net/path/to/acs-mirror.azureedge.net/resource"
+    $expectedUrl = "https://packages.aks.azure.com/path/to/packages.aks.azure.com/resource"
+
+    $result = Update-BaseUrl -InitialUrl $initialUrl
+
+    $result | Should -Be $expectedUrl
   }
 }
