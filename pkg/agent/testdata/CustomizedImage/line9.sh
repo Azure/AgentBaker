@@ -417,7 +417,7 @@ version_gte() {
 }
 
 systemctlEnableAndStart() {
-    service=$1; timeout=$2    
+    service=$1; timeout=$2
     systemctl_restart 100 5 $timeout $service
     RESTART_STATUS=$?
     systemctl status $service --no-pager -l > /var/log/azure/$service-status.log
@@ -431,20 +431,20 @@ systemctlEnableAndStart() {
     fi
 }
 
-systemctlEnableAndStartNoBlock() {
+systemctlEnableAndStartNoBlock() {    
     service=$1; timeout=$2; status_check_delay_seconds=${3:-"0"}
     systemctl_restart_no_block 100 5 $timeout $service
 
     RESTART_STATUS=$?
     if [ $RESTART_STATUS -ne 0 ]; then
-        systemctl status $service --no-pager -l > /var/log/azure/$service-status.log
         echo "$service could not be enqueued for startup"
+        systemctl status $service --no-pager -l > /var/log/azure/$service-status.log
         return 1
     fi
 
     if ! retrycmd_if_failure 120 5 25 systemctl enable $1; then
-        systemctl status $service --no-pager -l > /var/log/azure/$service-status.log
         echo "$1 could not be enabled by systemctl"
+        systemctl status $service --no-pager -l > /var/log/azure/$service-status.log
         return 1
     fi
 
@@ -452,12 +452,14 @@ systemctlEnableAndStartNoBlock() {
 
     status=$(systemctl is-active $service)
     if [ "${status,,}" != "active" ] && [ "${status,,}" != "activating" ]; then
-        systemctl status $service --no-pager -l > /var/log/azure/$service-status.log
         echo "$service is not activating or active"
+        systemctl status $service --no-pager -l > /var/log/azure/$service-status.log
         return 1
     fi
 
-    systemctl status $service --no-pager -l > /var/log/azure/$service-status.log
+    if ! systemctl status $service --no-pager -l > /var/log/azure/$service-status.log; then
+        echo "$service is still activating, continuing anyway..."
+    fi
 }
 
 systemctlDisableAndStop() {
