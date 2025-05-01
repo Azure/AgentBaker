@@ -129,7 +129,7 @@ Describe 'long running cse helper functions'
                 It "get_tarball returns 0 if curl tar succeeds"
                     mkdir -p /tmp/test_tarball
                     echo "test content" > /tmp/test_tarball/testfile
-                    tar -czf /tmp/test_tarball/test_tarball.tar.gz -C /tmp/test_tarball .
+                    tar -czf /tmp/test_tarball/test_tarball.tar.gz -C /tmp/test_tarball testfile
                     When call retrycmd_get_tarball 1 1 "/tmp/test_tarball/test_tarball.tar.gz" "https://dummy.url/file.tar"
                     rm -r /tmp/test_tarball
                     The status should eq 0
