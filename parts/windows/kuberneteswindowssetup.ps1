@@ -223,6 +223,7 @@ try
     # Set the global package download domain, e.g. acs-mirror.azureedge.net
     # global:PackageDownloadFqdn is set in windowscsehelper.ps1
     Resolve-PackagesDownloadFqdn -PreferredFqdn $global:PreferredPackageDownloadFqdn -FallbackFqdn $global:FallbackPackageDownloadFqdn -Retries 5 -WaitSleepSeconds 1
+    Logs-To-Event -TaskName "AKS.WindowsCSE.ResolvedPackageDomain" -TaskMessage "Package download FQDN: $global:PackageDownloadFqdn"
 
     # This involes using proxy, log the config before fetching packages
     Write-Log "private egress proxy address is '$global:PrivateEgressProxyAddress'"
