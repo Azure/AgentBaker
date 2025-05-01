@@ -42,4 +42,5 @@ Windows VHD are released separately, following windows patch tuesday schedule.
 - use ShellSpec for testing
 - the shell scripts are used on both azure linux/mariner and ubuntu and cross platform portability is critical.
 - when using functions defined in other files, ensure it is sourced properly.
-- prefer to avoid sharing variables between functions unless they are environment variables.
+- use local variables rather than constants when their scoping allows for it.
+- prefer to avoid using variables declared inside another function, even they are visible. It is hard to reason and might introduce subtle bugs.
