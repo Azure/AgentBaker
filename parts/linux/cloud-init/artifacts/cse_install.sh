@@ -390,6 +390,15 @@ installOras() {
 
 installAKSSecureTLSBootstrapClient() {
     # called during node provisioning
+
+    # TODO(cameissner): can probably remove this once we get to preview
+    if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" != "true" ]; then
+        echo "secure TLS bootstrapping is disabled, will remove secure TLS bootstrap client binary installation"
+        rm -f "${AKS_SECURE_TLS_BOOTSTRAP_CLIENT_BIN_DIR}/aks-secure-tls-bootstrap-client"
+        rm -rf "${AKS_SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_DIR}"
+        return 0
+    fi
+
     if [ -f "${AKS_SECURE_TLS_BOOTSTRAP_CLIENT_BIN_DIR}/aks-secure-tls-bootstrap-client" ]; then
         echo "aks-secure-tls-bootstrap-client is already installed"
         return 0
