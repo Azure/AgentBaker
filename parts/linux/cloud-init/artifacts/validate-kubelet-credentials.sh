@@ -58,6 +58,7 @@ validate() {
 
         if [ $code -ge 200 ] && [ $code -lt 400 ]; then
             echo "(retry=$retry_count) received valid HTTP status code from apiserver: $code"
+            echo "kubelet bootstrap token credential is valid"
             break
         fi
 
@@ -73,7 +74,7 @@ validate() {
                 "${CREDENTIAL_VALIDATION_APISERVER_URL}/version?timeout=${RETRY_TIMEOUT_SECONDS}s"
 
             echo "proceeding to start kubelet..."
-            exit 0
+            return 0
         fi
 
         echo "(retry=$retry_count) received invalid HTTP status code from apiserver: $code"
@@ -82,7 +83,7 @@ validate() {
         if [ $retry_count -eq $MAX_RETRIES ]; then
             echo "unable to validate bootstrap credentials after $retry_count attempts"
             echo "proceeding to start kubelet..."
-            exit 0
+            return 0
         fi
 
         sleep $RETRY_DELAY_SECONDS
@@ -92,28 +93,30 @@ validate() {
 validateKubeletCredentials() {
     if [ -z "${CREDENTIAL_VALIDATION_KUBE_CA_FILE:-}" ]; then
         echo "CREDENTIAL_VALIDATION_KUBE_CA_FILE is not set, skipping kubelet credential validation"
-        exit 0
+        return 0
     fi
     if [ -z "${CREDENTIAL_VALIDATION_TLS_BOOTSTRAP_TOKEN:-}" ]; then
         echo "CREDENTIAL_VALIDATION_TLS_BOOTSTRAP_TOKEN is not set, skipping kubelet credential validation"
-        exit 0
+        return 0
     fi
     if [ -z "${CREDENTIAL_VALIDATION_APISERVER_URL:-}" ]; then
         echo "CREDENTIAL_VALIDATION_APISERVER_URL is not set, skipping kubelet credential validation"
-        exit 0
+        return 0
     fi
     if [ -f "$KUBECONFIG_PATH" ]; then
         echo "client credential already exists within kubeconfig: $KUBECONFIG_PATH, no need to validate bootstrap credentials"
-        exit 0
+        return 0
     fi
     if ! command -v curl >/dev/null 2>&1; then
         echo "curl is not available, unable to validate bootstrap credentials"
-        exit 0
+        return 0
     fi
 
     echo "will validate kubelet bootstrap credentials"
     validate
-    echo "kubelet bootstrap token credential is valid"
 }
+
+# this is to ensure that shellspec won't interpret any further lines below
+${__SOURCED__:+return}
 
 logs_to_events "AKS.Runtime.validateKubeletCredentials" validateKubeletCredentials
