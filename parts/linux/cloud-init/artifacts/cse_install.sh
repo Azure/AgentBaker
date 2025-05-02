@@ -417,6 +417,8 @@ downloadAKSSecureTLSBootstrapClient() {
     mkdir -p $AKS_SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_DIR
     mkdir -p $CLIENT_EXTRACTED_DIR
 
+    CLIENT_DOWNLOAD_URL=$(update_base_url $CLIENT_DOWNLOAD_URL)
+
     echo "Installing aks-secure-tls-bootstrap-client version $CLIENT_VERSION..."
     CLIENT_TMP=${CLIENT_DOWNLOAD_URL##*/}
     retrycmd_curl_file 120 5 60 "${AKS_SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_DIR}/${CLIENT_TMP}" ${CLIENT_DOWNLOAD_URL} || exit $ERR_AKS_SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_ERROR
