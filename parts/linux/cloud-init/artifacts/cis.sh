@@ -342,6 +342,10 @@ scanCIS() {
     fi
 
     pushd /home/packer
+    if [ ! -f cisassessor.tar.gz ]; then
+        echo "cisassessor missing - skipping scan"
+        return
+    fi
     tar xzf cisassessor.tar.gz
     chown packer:packer -R cisassessor
     cisassessor/launch-cis.sh
