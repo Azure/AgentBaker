@@ -1,5 +1,7 @@
 #!/bin/bash
 
+AKS_SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_DIR="/opt/aks-secure-tls-bootstrap-client/downloads"
+AKS_SECURE_TLS_BOOTSTRAP_CLIENT_BIN_DIR="/usr/local/bin"
 CC_SERVICE_IN_TMP=/opt/azure/containers/cc-proxy.service.in
 CC_SOCKET_IN_TMP=/opt/azure/containers/cc-proxy.socket.in
 CNI_CONFIG_DIR="/etc/cni/net.d"
@@ -384,6 +386,47 @@ installOras() {
     sudo tar -zxf "$ORAS_DOWNLOAD_DIR/${ORAS_TMP}" -C $ORAS_EXTRACTED_DIR/
     rm -r "$ORAS_DOWNLOAD_DIR"
     echo "Oras version $ORAS_VERSION installed successfully."
+}
+
+installAKSSecureTLSBootstrapClient() {
+    # called during node provisioning
+    if [ -f "${AKS_SECURE_TLS_BOOTSTRAP_CLIENT_BIN_DIR}/aks-secure-tls-bootstrap-client" ]; then
+        echo "aks-secure-tls-bootstrap-client is already installed"
+        return 0
+    fi
+
+    # TODO(cameissner): we should probably be getting an override URL from the bootstrapper instead of hardcoding a version like this,
+    # though for now this will make development much easier by preventing us from needing to build new VHDs to test new client versions
+    local CLIENT_VERSION="0.1.0-alpha.5"
+    local CLIENT_DOWNLOAD_URL=$(evalPackageDownloadURL "https://github.com/Azure/aks-secure-tls-bootstrap/releases/download/client/v${CLIENT_VERSION}/aks-secure-tls-bootstrap-client-${CPU_ARCH}")
+
+    downloadAKSSecureTLSBootstrapClient "${AKS_SECURE_TLS_BOOTSTRAP_CLIENT_BIN_DIR}" "${CLIENT_DOWNLOAD_URL}" "${CLIENT_VERSION}" || exit $ERR_SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_ERROR
+}
+
+downloadAKSSecureTLSBootstrapClient() {
+    # TODO(cameissner): have this managed by renovate, migrate from github to MCR/packages.microsoft.com
+
+    local CLIENT_EXTRACTED_DIR=${1-$:AKS_SECURE_TLS_BOOTSTRAP_CLIENT_BIN_DIR}
+    local CLIENT_DOWNLOAD_URL=$2
+    local CLIENT_VERSION=$3
+
+    mkdir -p $AKS_SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_DIR
+    mkdir -p $CLIENT_EXTRACTED_DIR
+
+    echo "Installing aks-secure-tls-bootstrap-client version $CLIENT_VERSION..."
+    CLIENT_TGZ_TMP=${CLIENT_DOWNLOAD_URL##*/}
+    retrycmd_curl_file 120 5 60 "${AKS_SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_DIR}/${CLIENT_TGZ_TMP}" ${CLIENT_DOWNLOAD_URL} || exit $ERR_SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_ERROR
+
+    if [ ! -f "${AKS_SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_DIR}/${CLIENT_TGZ_TMP}" ]; then
+        echo "file ${AKS_SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_DIR}/${CLIENT_TGZ_TMP} does not exist, unable to install aks-secure-tls-bootstrap-client version $CLIENT_VERSION"
+        exit $ERR_SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_ERROR
+    fi
+
+    mv "${AKS_SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_DIR}/${CLIENT_TGZ_TMP}" "${CLIENT_EXTRACTED_DIR}/aks-secure-tls-bootstrap-client"
+    chmod 755 "${CLIENT_EXTRACTED_DIR}/aks-secure-tls-bootstrap-client"
+
+    rm -r "${AKS_SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_DIR}"
+    echo "aks-secure-tls-bootstrap-client version $CLIENT_VERSION installed successfully."
 }
 
 evalPackageDownloadURL() {

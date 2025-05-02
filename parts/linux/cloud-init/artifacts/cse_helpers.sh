@@ -127,6 +127,8 @@ ERR_CLEANUP_CONTAINER_IMAGES=214
 
 ERR_DNS_HEALTH_FAIL=215 # Error checking DNS health
 
+ERR_SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_ERROR=216 # Error downloading the secure TLS bootstrap client binary
+
 # ------------------------------ Used by localdns -----------------------------------
 ERR_LOCALDNS_FAIL=216 # Unable to start localdns systemd unit.
 ERR_LOCALDNS_COREFILE_NOTFOUND=217 # Localdns corefile not found.

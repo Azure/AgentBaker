@@ -348,6 +348,13 @@ while IFS= read -r p; do
         echo "  - oras version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
+    "aks-secure-tls-bootstrap-client")
+      for version in ${PACKAGE_VERSIONS[@]}; do
+        evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+        downloadAKSSecureTLSBootstrapClient "${downloadDir}" "${evaluatedURL}" "${version}"
+        echo "  - aks-secure-tls-bootstrap-client version ${version}" >> ${VHD_LOGS_FILEPATH}
+      done
+      ;;
     "azure-acr-credential-provider")
       for version in ${PACKAGE_VERSIONS[@]}; do
         evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})

@@ -55,6 +55,10 @@ source "${CSE_CONFIG_FILEPATH}"
 resolve_packages_source_url
 logs_to_events "AKS.CSE.setPackagesBaseURL" "echo $PACKAGE_DOWNLOAD_BASE_URL"
 
+if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" = "true" ]; then
+    logs_to_events "AKS.CSE.installAKSSecureTLSBootstrapClient" installAKSSecureTLSBootstrapClient
+fi
+
 logs_to_events "AKS.CSE.ensureKubeCACert" ensureKubeCACert
 
 if [ "${DISABLE_SSH}" = "true" ]; then
