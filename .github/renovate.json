@@ -345,7 +345,8 @@
     },
     {
       "matchPackageNames": [
-        "aks/aks-gpu-cuda"
+        "aks/aks-gpu-cuda",
+        "aks/aks-gpu-grid"
       ],
       "groupName": "nvidia-gpu",
       "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<prerelease>\\d{14})$",
