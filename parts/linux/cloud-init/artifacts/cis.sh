@@ -344,16 +344,12 @@ scanCIS() {
     pushd /home/packer
     tar xzf cisassessor.tar.gz
     chown packer:packer -R cisassessor
-    local versionid=$(. /etc/os-release; echo ${VERSION_ID})
-    local benchmark=$(find -name "*${versionid}*xccdf.xml")
-    cisassessor/bin/cisassessor -b "${benchmark}" -txt -json -html
+    cisassessor/launch-cis.sh
     local txtreport=$(find cisassessor/lib/app/reports -name "*.txt")
-    local jsonreport=$(find cisassessor/lib/app/reports -name "*.json")
     local htmlreport=$(find cisassessor/lib/app/reports -name "*.html")
     cp "${txtreport}" /opt/azure/cis-report.txt
-    cp "${jsonreport}" /opt/azure/cis-report.json
     cp "${htmlreport}" /opt/azure/cis-report.html
-    chmod 0644 /opt/azure/cis-report.{txt,json,html}
+    chmod 0644 /opt/azure/cis-report.{txt,html}
     ls -la /opt/azure/
     popd
 }
