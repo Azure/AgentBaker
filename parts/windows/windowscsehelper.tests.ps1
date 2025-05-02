@@ -300,19 +300,12 @@ Describe "Resolve-PackagesSourceUrl" {
   }
 }
 
-
-
-
 Describe "DownloadFileOverHttp" {
   BeforeEach {
     # Reset the PackageDownloadFqdn before each test
     $global:PackageDownloadFqdn = $null
     $global:PreferredPackageDownloadFqdn = "packages.aks.azure.com"
     $global:FallbackPackageDownloadFqdn = "acs-mirror.azureedge.net"
-
-    # Create a test cache directory using $TestDrive which is more cross-platform compatible
-    #$global:CacheDir = Join-Path -Path $TestDrive -ChildPath "cache"
-    #New-Item -ItemType Directory -Path $global:CacheDir -Force | Out-Null
 
     # Mock the main utilities used in DownloadFileOverHttp
     Mock Invoke-RestMethod -MockWith {} -Verifiable
@@ -327,7 +320,7 @@ Describe "DownloadFileOverHttp" {
     Mock Update-BaseUrl -MockWith { return "https://updated.domain.com/test/file.zip" } -Verifiable
 
     # Call the function with a URL containing acs-mirror.azureedge.net
-    $destPath = Join-Path -Path $TestDrive -ChildPath "testfile.zip"
+    $destPath = Join-Path -Path (Get-Location) -ChildPath "testfile.zip"
     DownloadFileOverHttp -Url "https://acs-mirror.azureedge.net/test/file.zip" -DestinationPath $destPath -ExitCode 999
 
     # Verify that Update-BaseUrl was called
@@ -338,7 +331,7 @@ Describe "DownloadFileOverHttp" {
 
   It "should download a file when it's not in the cache" {
     # Call the function
-    $destPath = Join-Path -Path $TestDrive -ChildPath "testfile.zip"
+    $destPath = Join-Path -Path $(Get-Location) -ChildPath "testfile.zip"
     DownloadFileOverHttp -Url "https://acs-mirror.azureedge.net/test/file.zip" -DestinationPath $destPath -ExitCode 999
 
     # Verify Invoke-RestMethod was called to download the file
@@ -357,7 +350,7 @@ Describe "DownloadFileOverHttp" {
     }
 
     # Call the function
-    $destPath = Join-Path -Path $TestDrive -ChildPath "testfile.zip"
+    $destPath = Join-Path -Path (Get-Location) -ChildPath "testfile.zip"
     DownloadFileOverHttp -Url "https://acs-mirror.azureedge.net/test/file.zip" -DestinationPath $destPath -ExitCode 999
 
     # Verify Invoke-RestMethod was called with the updated URL
