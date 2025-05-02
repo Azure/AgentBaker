@@ -17,7 +17,7 @@ if [ ! -f "${PERFORMANCE_DATA_FILE}" ]; then
 fi
 
 SCRIPT_COUNT=$(jq -e 'keys | length' ${PERFORMANCE_DATA_FILE})
-if [ $? -ne 0 ]; then
+if [ "$?" -ne 0 ]; then
   log_and_exit ${PERFORMANCE_DATA_FILE} "contains invalid json" true
 fi
 

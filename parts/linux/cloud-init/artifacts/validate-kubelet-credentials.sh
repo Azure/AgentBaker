@@ -35,12 +35,12 @@ logs_to_events() {
     )
     echo ${json_string} > ${EVENTS_LOGGING_DIR}${eventsFileName}.json
 
-    if [ "$ret" != "0" ]; then
+    if [ "$ret" -ne 0 ]; then
       return $ret
     fi
 }
 
-function validateBootstrapKubeconfig {
+validateBootstrapKubeconfig() {
     local kubeconfig_path=$1
 
     cacert=$(grep -Po "(?<=certificate-authority: ).*$" < "$kubeconfig_path")

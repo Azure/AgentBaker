@@ -39,7 +39,7 @@ Describe 'cse_config.sh'
         End
 
         It 'should only generate the self-signed serving cert when EnableKubeletServingCertificateRotation is false'
-            retrycmd_if_failure_no_stats() { # for mocking IMDS calls
+            retrycmd_silent() { # for mocking IMDS calls
                 echo "false"
             }
             KUBELET_FLAGS="--tls-cert-file=/etc/kubernetes/certs/kubeletserver.crt,--tls-private-key-file=/etc/kubernetes/certs/kubeletserver.key,--rotate-certificates=true,--rotate-server-certificates=false,--node-ip=10.0.0.1,anonymous-auth=false"
@@ -55,7 +55,7 @@ Describe 'cse_config.sh'
         End
 
         It 'should reconfigure kubelet flags to disable kubelet serving certificate rotation if opt-out tag is set'
-            retrycmd_if_failure_no_stats() {
+            retrycmd_silent() {
                 echo "true"
             }
             KUBELET_FLAGS="--tls-cert-file=/etc/kubernetes/certs/kubeletserver.crt,--tls-private-key-file=/etc/kubernetes/certs/kubeletserver.key,--rotate-certificates=true,--rotate-server-certificates=true,--node-ip=10.0.0.1,anonymous-auth=false"
@@ -70,7 +70,7 @@ Describe 'cse_config.sh'
         End
 
         It 'should reconfigure kubelet flags to disable kubelet serving certificate rotation if opt-out tag is set and kubelet config file is enabled'
-            retrycmd_if_failure_no_stats() {
+            retrycmd_silent() {
                 echo "true"
             }
             kubelet_config_file() {
@@ -94,7 +94,7 @@ Describe 'cse_config.sh'
         End
 
         It 'should reconfigure kubelet flags and node labels to disable kubelet serving certificate rotation if opt-out tag is set'
-            retrycmd_if_failure_no_stats() {
+            retrycmd_silent() {
                 echo "true"
             }
             KUBELET_FLAGS="--tls-cert-file=/etc/kubernetes/certs/kubeletserver.crt,--tls-private-key-file=/etc/kubernetes/certs/kubeletserver.key,--rotate-certificates=true,--rotate-server-certificates=true,--node-ip=10.0.0.1,anonymous-auth=false"
@@ -109,7 +109,7 @@ Describe 'cse_config.sh'
         End
 
         It 'should no-op if kubelet flags and node labels are already correct when the opt-out tag is set'
-            retrycmd_if_failure_no_stats() {
+            retrycmd_silent() {
                 echo "true"
             }
             KUBELET_FLAGS="--tls-cert-file=/etc/kubernetes/certs/kubeletserver.crt,--tls-private-key-file=/etc/kubernetes/certs/kubeletserver.key,--rotate-certificates=true,--rotate-server-certificates=false,--node-ip=10.0.0.1,anonymous-auth=false"
@@ -124,7 +124,7 @@ Describe 'cse_config.sh'
         End
 
         It 'should no-op if kubelet flags and node labels are already correct when the opt-out tag is set and kubelet config file is enabled'
-            retrycmd_if_failure_no_stats() {
+            retrycmd_silent() {
                 echo "true"
             }
             kubelet_config_file() {
@@ -148,7 +148,7 @@ Describe 'cse_config.sh'
         End
 
         It 'should reconfigure kubelet flags node labels to enable kubelet serving certificate rotation if opt-out tag is not set'
-            retrycmd_if_failure_no_stats() {
+            retrycmd_silent() {
                 echo "false"
             }
             KUBELET_FLAGS="--tls-cert-file=/etc/kubernetes/certs/kubeletserver.crt,--tls-private-key-file=/etc/kubernetes/certs/kubeletserver.key,--rotate-certificates=true,--rotate-server-certificates=true,--node-ip=10.0.0.1,anonymous-auth=false"
@@ -163,7 +163,7 @@ Describe 'cse_config.sh'
         End
 
         It 'should reconfigure kubelet flags and node labels to enable kubelet serving certificate rotation if opt-out tag is not set and kubelet config file is enabled'
-            retrycmd_if_failure_no_stats() {
+            retrycmd_silent() {
                 echo "false"
             }
             kubelet_config_file() {
@@ -187,7 +187,7 @@ Describe 'cse_config.sh'
         End
 
         It 'should no-op if kubelet flags and node labels are already correct when the opt-out tag is not set'
-            retrycmd_if_failure_no_stats() {
+            retrycmd_silent() {
                 echo "false"
             }
             KUBELET_FLAGS="--rotate-certificates=true,--rotate-server-certificates=true,--node-ip=10.0.0.1,anonymous-auth=false"

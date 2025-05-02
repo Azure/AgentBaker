@@ -99,7 +99,7 @@ create_pull_request() {
     git remote set-url origin https://x-access-token:${github_access_token}@github.com/Azure/AgentBaker.git
     git add .
 
-    if [ $pr_purpose = "ReleaseNotes" ]; then
+    if [ "$pr_purpose" = "ReleaseNotes" ]; then
         post_purpose="update windows release notes"
         title="docs: $post_purpose for ${image_version}B"
         labels="\"windows\",\"documentation\""
@@ -117,7 +117,7 @@ create_pull_request() {
     git push -u origin $branch_name -f
 
     # modify .github/PULL_REQUEST_TEMPLATE.md after pushing the pervious changes in created branch
-    if [ $pr_purpose = "ReleaseNotes" ]; then
+    if [ "$pr_purpose" = "ReleaseNotes" ]; then
         sed -i "/What type of PR is this?/a\/kind documentation" .github/PULL_REQUEST_TEMPLATE.md
         sed -i "/What this PR does/a\Add windows image release notes for new AKS Windows images with ${image_version}B. Reference: #[xxxxx]." .github/PULL_REQUEST_TEMPLATE.md
         sed -i 's/\[ \] uses/\[x\] uses/g' .github/PULL_REQUEST_TEMPLATE.md

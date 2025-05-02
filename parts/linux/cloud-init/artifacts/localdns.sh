@@ -99,7 +99,7 @@ verify_localdns_binary() {
         return 1
     fi
 
-    if [[ ! -f "${COREDNS_BINARY_PATH}" || ! -x "${COREDNS_BINARY_PATH}" ]]; then
+    if [ ! -f "${COREDNS_BINARY_PATH}" ] || [ ! -x "${COREDNS_BINARY_PATH}" ]; then
         echo "Coredns binary either doesn't exist or isn't executable at ${COREDNS_BINARY_PATH}."
         return 1
     fi
@@ -123,14 +123,14 @@ replace_azurednsip_in_corefile() {
         return 1
     fi
 
-    if [[ ! -f "$RESOLV_CONF" ]]; then
+    if [ ! -f "$RESOLV_CONF" ]; then
         echo "$RESOLV_CONF not found."
         return 1
     fi
 
     # Get the upstream VNET DNS servers from /run/systemd/resolve/resolv.conf.
     UPSTREAM_VNET_DNS_SERVERS=$(awk '/nameserver/ {print $2}' "$RESOLV_CONF" | paste -sd' ')
-    if [[ -z "${UPSTREAM_VNET_DNS_SERVERS}" || "$UPSTREAM_VNET_DNS_SERVERS" == '""' ]]; then
+    if [ -z "${UPSTREAM_VNET_DNS_SERVERS}" ] || [ "$UPSTREAM_VNET_DNS_SERVERS" = '""' ]; then
         echo "No Upstream VNET DNS servers found in $RESOLV_CONF."
         return 1
     fi
@@ -139,7 +139,7 @@ replace_azurednsip_in_corefile() {
     # Replace 168.63.129.16 with VNET DNS ServerIPs only if VNET DNS ServerIPs is not equal to 168.63.129.16.
     # Corefile will have 168.63.129.16 when user input has VnetDNS value for forwarddestination.
     # Note - For root domain under VnetDNSOverrides, all DNS traffic should be forwarded to VnetDNS.
-    if [[ "${UPSTREAM_VNET_DNS_SERVERS}" != "${AZURE_DNS_IP}" ]]; then
+    if [ "${UPSTREAM_VNET_DNS_SERVERS}" != "${AZURE_DNS_IP}" ]; then
         sed -i -e "s|${AZURE_DNS_IP}|${UPSTREAM_VNET_DNS_SERVERS}|g" "${LOCALDNS_CORE_FILE}" || {
             echo "Replacing AzureDNSIP in corefile failed."
             return 1 
@@ -166,7 +166,7 @@ build_localdns_iptable_rules() {
 
 # Verify that the default route interface is set and not empty.
 verify_default_route_interface() {
-    if [[ -z "${DEFAULT_ROUTE_INTERFACE:-}" ]]; then
+    if [ -z "${DEFAULT_ROUTE_INTERFACE:-}" ]; then
         echo "Unable to determine the default route interface for ${AZURE_DNS_IP}."
         return 1
     fi
@@ -175,7 +175,7 @@ verify_default_route_interface() {
 
 # Verify that the network file exists and is not empty.
 verify_network_file() {
-    if [[ ! -f "${NETWORK_FILE:-}" ]]; then
+    if [ ! -f "${NETWORK_FILE:-}" ]; then
         echo "Unable to determine network file for interface."
         return 1
     fi
@@ -189,7 +189,7 @@ verify_network_dropin_dir() {
         return 1
     fi
 
-    if [[ ! -d "${NETWORK_DROPIN_DIR}" ]]; then
+    if [ ! -d "${NETWORK_DROPIN_DIR}" ]; then
         echo "Network drop-in directory does not exist."
         return 1
     fi
@@ -232,7 +232,7 @@ wait_for_localdns_ready() {
     local starttime=$(date +%s)
 
     echo "Waiting for localdns to start and be able to serve traffic."
-    until [ "$($CURL_COMMAND)" == "OK" ]; do
+    until [ "$($CURL_COMMAND)" = "OK" ]; do
         if [ $attempts -ge $maxattempts ]; then
             echo "Localdns failed to come online after $maxattempts attempts."
             return 1
@@ -291,7 +291,7 @@ EOF
     chmod -R ugo+rX "${NETWORK_DROPIN_DIR}"
 
     eval "$NETWORKCTL_RELOAD_CMD"
-    if [[ $? -ne 0 ]]; then
+    if [ "$?" -ne 0 ]; then
         echo "Failed to reload networkctl."
         return 1
     fi
@@ -308,7 +308,7 @@ cleanup_localdns_configs() {
     for RULE in "${IPTABLES_RULES[@]}"; do
         if eval "${IPTABLES}" -C "${RULE}" 2>/dev/null; then
             eval "${IPTABLES}" -D "${RULE}"
-            if [ $? -eq 0 ]; then
+            if [ "$?" -eq 0 ]; then
                 echo "Successfully removed iptables rule: ${RULE}."
             else
                 echo "Failed to remove iptables rule: ${RULE}."
@@ -321,12 +321,12 @@ cleanup_localdns_configs() {
     if [ -f "${NETWORK_DROPIN_FILE}" ]; then
         echo "Reverting DNS configuration by removing ${NETWORK_DROPIN_FILE}."
         rm -f "$NETWORK_DROPIN_FILE"
-        if [ $? -ne 0 ]; then
+        if [ "$?" -ne 0 ]; then
             echo "Failed to remove network drop-in file ${NETWORK_DROPIN_FILE}."
             return 1
         fi        
         eval "$NETWORKCTL_RELOAD_CMD"
-        if [[ $? -ne 0 ]]; then
+        if [ "$?" -ne 0 ]; then
             echo "Failed to reload network after removing the DNS configuration."
             return 1
         fi
@@ -336,7 +336,7 @@ cleanup_localdns_configs() {
     if [ ! -z "${COREDNS_PID:-}" ]; then
         # Check if the process exists by using `ps`.
         if ps -p "${COREDNS_PID}" >/dev/null 2>&1; then
-            if [[ "${LOCALDNS_SHUTDOWN_DELAY}" -gt 0 ]]; then
+            if [ "${LOCALDNS_SHUTDOWN_DELAY}" -gt 0 ]; then
                 # Wait after removing iptables rules and DNS configuration so that we can let connections transition.
                 echo "Sleeping ${LOCALDNS_SHUTDOWN_DELAY} seconds to allow connections to terminate."
                 sleep "${LOCALDNS_SHUTDOWN_DELAY}"
@@ -346,7 +346,7 @@ cleanup_localdns_configs() {
             # Send SIGINT to localdns to trigger a graceful shutdown.
             kill -SIGINT "${COREDNS_PID}"
             kill_status=$?
-            if [ $kill_status -eq 0 ]; then
+            if [ "$kill_status" -eq 0 ]; then
                 echo "Successfully sent SIGINT to localdns."
             else
                 echo "Failed to send SIGINT to localdns. Exit status: $kill_status."
@@ -367,7 +367,7 @@ cleanup_localdns_configs() {
     if ip link show dev localdns >/dev/null 2>&1; then
         echo "Removing localdns dummy interface."
         ip link del name localdns
-        if [ $? -eq 0 ]; then
+        if [ "$?" -eq 0 ]; then
             echo "Successfully removed localdns dummy interface."
         else
             echo "Failed to remove localdns dummy interface."
@@ -388,13 +388,13 @@ cleanup_localdns_configs() {
 # The health check is run at 20% of the WATCHDOG_USEC interval.
 # If the health check fails, the script will exit and systemd will restart the service.
 start_localdns_watchdog() {
-    if [[ -n "${NOTIFY_SOCKET:-}" && -n "${WATCHDOG_USEC:-}" ]]; then
+    if [ -n "${NOTIFY_SOCKET:-}" ] && [ -n "${WATCHDOG_USEC:-}" ]; then
         # Health check at 20% of WATCHDOG_USEC; this means that we should check.
         # five times in every watchdog interval, and thus need to fail five checks to get restarted.
         HEALTH_CHECK_INTERVAL=$((${WATCHDOG_USEC:-5000000} * 20 / 100 / 1000000))
         echo "Starting watchdog loop at ${HEALTH_CHECK_INTERVAL} second intervals."
         while true; do
-            if [[ "$($CURL_COMMAND)" == "OK" ]] && dig +short +timeout=1 +tries=1 -f <(printf '%s\n' "$HEALTH_CHECK_DNS_REQUEST"); then
+            if [ "$($CURL_COMMAND)" = "OK" ] && dig +short +timeout=1 +tries=1 -f <(printf '%s\n' "$HEALTH_CHECK_DNS_REQUEST"); then
                 systemd-notify WATCHDOG=1
             else
                 echo "Localdns health check failed - will be restarted."
@@ -463,7 +463,7 @@ add_iptable_rules_to_skip_conntrack_from_pods
 # Start localdns service.
 # --------------------------------------------------------------------------------------------------------------------
 COREDNS_COMMAND="${COREDNS_BINARY_PATH} -conf ${LOCALDNS_CORE_FILE} -pidfile ${LOCALDNS_PID_FILE}"
-if [[ -n "${SYSTEMD_EXEC_PID:-}" ]]; then
+if [ -n "${SYSTEMD_EXEC_PID:-}" ]; then
     # We're running in systemd, so pass the coredns output via systemd-cat.
     COREDNS_COMMAND="systemd-cat --identifier=localdns-coredns --stderr-priority=3 -- ${COREDNS_COMMAND}"
 fi
@@ -481,7 +481,7 @@ echo "Startup complete - serving node and pod DNS traffic."
 
 # Systemd notify: send ready if service is Type=notify.
 # --------------------------------------------------------------------------------------------------------------------
-if [[ -n "${NOTIFY_SOCKET:-}" ]]; then 
+if [ -n "${NOTIFY_SOCKET:-}" ]; then 
    systemd-notify --ready 
 fi
 
