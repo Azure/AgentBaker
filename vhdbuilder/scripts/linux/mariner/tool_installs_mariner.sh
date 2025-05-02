@@ -113,11 +113,12 @@ disableTimesyncd() {
     systemctl mask systemd-timesyncd || exit 1
 
     # Update chrony configuration
-    cat > /etc/chrony.conf <<EOF
+    cat > /etc/chrony/chrony.conf <<EOF
 # Welcome to the chrony configuration file. See chrony.conf(5) for more
 # information about usable directives.
 
 # Load configuration file dropins
+<<<<<<< HEAD
 confdir /etc/chrony.conf.d
 
 # Load NTP sources
@@ -126,6 +127,15 @@ sourcedir /etc/chrony.sources.d
 # This directive specify the file into which chronyd will store the rate
 # information.
 driftfile /var/lib/chrony/drift
+=======
+confdir /etc/chrony/conf.d /etc/chrony/conf.override.d
+
+# Load NTP sources
+sourcedir /etc/chrony/sources.d /etc/chrony/sources.override.d
+
+# This directive specify the file into which chronyd will store the rate
+# information.
+driftfile /var/lib/chrony/chrony.drift
 
 # Dump characteristics on sources when shut down to speed sync on restart.
 dumpdir /var/lib/chrony
@@ -168,9 +178,6 @@ logdir /var/log/chrony
 
 # Don't output the log banner lines (headers)
 #logbanner 0
-
-# Use hardware timestamping when supported for better accuracy
-hwtimestamp *
 
 # Azure hosts are synchronized to internal Microsoft time servers that
 # take their time from Microsoft-owned Stratum 1 devices.  The Hyper-V
