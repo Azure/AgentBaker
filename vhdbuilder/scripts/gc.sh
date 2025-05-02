@@ -35,7 +35,7 @@ function cleanup_rgs() {
 
         if [ "${tag_value,,}" = "$SKIP_TAG_VALUE" ]; then
             now=$(echo "$group_object" | jq -r '.tags.now')
-            if [ "$now" != "null" ] && [ $now -lt $WEEK_AGO ]; then
+            if [ "$now" != "null" ] && [ "$now" -lt "$WEEK_AGO" ]; then
                 echo "resource group $group is tagged with $SKIP_TAG_NAME=$SKIP_TAG_VALUE but is more than 7 days old, will attempt to delete..."
                 delete_group $group || return $?
             fi

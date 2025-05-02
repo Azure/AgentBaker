@@ -10,7 +10,7 @@ declare -a benchmarks_order=()
 check_array_size() {
   declare -n array_name=$1
   local array_size=${#array_name[@]}
-  if [[ ${array_size} -gt 0 ]]; then
+  if [ "${array_size}" -gt 0 ]; then
     last_index=$(( ${#array_name[@]} - 1 ))
   else
     return 1
@@ -25,7 +25,7 @@ capture_benchmark() {
 
   local current_time
   current_time=$(date +%s)
-  if [[ "$is_final_section" == true ]]; then
+  if [ "$is_final_section" = "true" ]; then
     local start_time=$script_start_stopwatch
   else
     local start_time=$section_start_stopwatch
