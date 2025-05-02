@@ -152,7 +152,7 @@ $global:ErrorCodeNames = @(
 )
 
 # The package domain to be used
-$global:PackageDownloadFqdn = "packages.aks.azure.com"
+$global:PackageDownloadFqdn = $null
 # The preferred package FQDN
 $global:PreferredPackageDownloadFqdn = "packages.aks.azure.com"
 # Fallback FQDN if preferred cannot be contacted
@@ -213,19 +213,18 @@ function DownloadFileOverHttp {
         }
         [System.Net.ServicePointManager]::SecurityProtocol = $secureProtocols
 
-        $OriginalUrl = $Url
-        $Url = Update-BaseUrl -InitialUrl $OriginalUrl
-        Write-Log "Updated URL $OriginalUrl -> $Url to download $fileName to $DestinationPath"
+        $MappedUrl = Update-BaseUrl -InitialUrl $Url
+        Write-Log "Updated URL $Url -> $MappedUrl to download $fileName to $DestinationPath"
 
         $oldProgressPreference = $ProgressPreference
         $ProgressPreference = 'SilentlyContinue'
 
         $downloadTimer = [System.Diagnostics.Stopwatch]::StartNew()
         try {
-            $args = @{Uri=$Url; Method="Get"; OutFile=$DestinationPath}
+            $args = @{Uri=$MappedUrl; Method="Get"; OutFile=$DestinationPath}
             Retry-Command -Command "Invoke-RestMethod" -Args $args -Retries 5 -RetryDelaySeconds 10
         } catch {
-            Set-ExitCode -ExitCode $ExitCode -ErrorMessage "Failed in downloading $Url. Error: $_"
+            Set-ExitCode -ExitCode $ExitCode -ErrorMessage "Failed in downloading $MappedUrl. Error: $_"
         }
         $downloadTimer.Stop()
 
@@ -238,7 +237,7 @@ function DownloadFileOverHttp {
         }
 
         $ProgressPreference = $oldProgressPreference
-        Write-Log "Downloaded file $Url to $DestinationPath"
+        Write-Log "Downloaded file $MappedUrl to $DestinationPath"
     }
 }
 
@@ -534,6 +533,8 @@ function Resolve-PackagesDownloadFqdn {
 
     # Use Write-Output explicitly to ensure only this value is returned
     $global:PackageDownloadFqdn = $packageDownloadBaseUrl
+
+    Logs-To-Event -TaskName "AKS.WindowsCSE.ResolvedPackageDomain" -TaskMessage "Package download FQDN: $global:PackageDownloadFqdn"
 }
 
 # This function will swap the domain in the URL based on the verified package download FQDN
@@ -542,6 +543,17 @@ function Update-BaseUrl {
         [Parameter(Mandatory = $true)][string]
         $InitialUrl
     )
+
+    if (!($InitialUrl -match "acs-mirror\.azureedge\.net|packages\.aks\.azure\.com")) {
+        # We're probably not in Public cloud
+        #Write-Log "Not in public cloud, skipping URL update"
+        return $InitialUrl
+    }
+
+    if ($global:PackageDownloadFqdn -eq $null) {
+        # We're in public cloud, but we haven't set the package download FQDN yet
+        $null = Resolve-PackagesDownloadFqdn -PreferredFqdn $global:PreferredPackageDownloadFqdn -FallbackFqdn $global:FallbackPackageDownloadFqdn
+    }
 
     # Replace domain based on the current package download FQDN
     if (($global:PackageDownloadFqdn -eq "packages.aks.azure.com") -and ($InitialUrl -like "https://acs-mirror.azureedge.net/*")) {

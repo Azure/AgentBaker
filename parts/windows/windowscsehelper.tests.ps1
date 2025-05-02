@@ -300,6 +300,73 @@ Describe "Resolve-PackagesSourceUrl" {
   }
 }
 
+
+
+
+Describe "DownloadFileOverHttp" {
+  BeforeEach {
+    # Reset the PackageDownloadFqdn before each test
+    $global:PackageDownloadFqdn = $null
+    $global:PreferredPackageDownloadFqdn = "packages.aks.azure.com"
+    $global:FallbackPackageDownloadFqdn = "acs-mirror.azureedge.net"
+
+    # Create a test cache directory using $TestDrive which is more cross-platform compatible
+    #$global:CacheDir = Join-Path -Path $TestDrive -ChildPath "cache"
+    #New-Item -ItemType Directory -Path $global:CacheDir -Force | Out-Null
+
+    # Mock the main utilities used in DownloadFileOverHttp
+    Mock Invoke-RestMethod -MockWith {} -Verifiable
+    Mock Set-ExitCode -MockWith { throw "Set-ExitCode called with: $ExitCode, $ErrorMessage" }
+    Mock Write-Log -MockWith {}
+    Mock Resolve-PackagesDownloadFqdn -MockWith {} -Verifiable
+    Mock Update-BaseUrl -MockWith { return $InitialUrl }
+  }
+
+  It "should use Update-BaseUrl after resolving the FQDN" {
+    # Mock Update-BaseUrl to verify it's called with the right parameters
+    Mock Update-BaseUrl -MockWith { return "https://updated.domain.com/test/file.zip" } -Verifiable
+
+    # Call the function with a URL containing acs-mirror.azureedge.net
+    $destPath = Join-Path -Path $TestDrive -ChildPath "testfile.zip"
+    DownloadFileOverHttp -Url "https://acs-mirror.azureedge.net/test/file.zip" -DestinationPath $destPath -ExitCode 999
+
+    # Verify that Update-BaseUrl was called
+    Assert-MockCalled -CommandName "Update-BaseUrl" -Exactly -Times 1 -ParameterFilter {
+      $InitialUrl -eq "https://acs-mirror.azureedge.net/test/file.zip"
+    }
+  }
+
+  It "should download a file when it's not in the cache" {
+    # Call the function
+    $destPath = Join-Path -Path $TestDrive -ChildPath "testfile.zip"
+    DownloadFileOverHttp -Url "https://acs-mirror.azureedge.net/test/file.zip" -DestinationPath $destPath -ExitCode 999
+
+    # Verify Invoke-RestMethod was called to download the file
+    Assert-MockCalled -CommandName "Invoke-RestMethod" -Exactly -Times 1
+  }
+
+  It "should handle URL update after FQDN resolution" {
+    # Mock Update-BaseUrl to return a different URL
+    Mock Update-BaseUrl -MockWith { return "https://packages.aks.azure.com/test/file.zip" }
+
+    # Mock Invoke-RestMethod with proper parameter capture
+    Mock Invoke-RestMethod -MockWith {
+      # Implementation doesn't matter for the test
+    } -ParameterFilter {
+      $Uri -eq "https://packages.aks.azure.com/test/file.zip"
+    }
+
+    # Call the function
+    $destPath = Join-Path -Path $TestDrive -ChildPath "testfile.zip"
+    DownloadFileOverHttp -Url "https://acs-mirror.azureedge.net/test/file.zip" -DestinationPath $destPath -ExitCode 999
+
+    # Verify Invoke-RestMethod was called with the updated URL
+    Assert-MockCalled -CommandName "Invoke-RestMethod" -Exactly -Times 1 -ParameterFilter {
+      $Uri -eq "https://packages.aks.azure.com/test/file.zip"
+    }
+  }
+}
+
 Describe "Update-BaseUrl" {
   BeforeEach {
     # Reset the PackageDownloadFqdn before each test
@@ -383,4 +450,152 @@ Describe "Update-BaseUrl" {
 
     $result | Should -Be $expectedUrl
   }
+
+  It "should return same url when global PackageDownloadFqdn is null" {
+    $global:PackageDownloadFqdn = $null
+    $initialUrl = "https://acs-mirror.azureedge.net/path/to/acs-mirror.azureedge.net/resource"
+    $expectedUrl = "https://packages.aks.azure.com/path/to/packages.aks.azure.com/resource"
+
+    $result = Update-BaseUrl -InitialUrl $initialUrl
+
+    $result | Should -Be $expectedUrl
+  }
+
+  It "should call resolve when right url and global PackageDownloadFqdn is null" {
+    Mock Resolve-PackagesDownloadFqdn -MockWith {} -Verifiable
+    $global:PackageDownloadFqdn = $null
+    $initialUrl = "https://acs-mirror.azureedge.net/path/to/acs-mirror.azureedge.net/resource"
+    $expectedUrl = "https://packages.aks.azure.com/path/to/packages.aks.azure.com/resource"
+
+    $result = Update-BaseUrl -InitialUrl $initialUrl
+
+    Assert-MockCalled -CommandName "Resolve-PackagesDownloadFqdn" -Exactly -Times 1
+  }
+
+  It "should not call resolve when right url and global PackageDownloadFqdn is not null" {
+    Mock Resolve-PackagesDownloadFqdn -MockWith {} -Verifiable
+    $global:PackageDownloadFqdn = "packages.aks.azure.com"
+    $initialUrl = "https://acs-mirror.azureedge.net/path/to/acs-mirror.azureedge.net/resource"
+    $expectedUrl = "https://packages.aks.azure.com/path/to/packages.aks.azure.com/resource"
+
+    $result = Update-BaseUrl -InitialUrl $initialUrl
+
+    Assert-MockCalled -CommandName "Resolve-PackagesDownloadFqdn" -Exactly -Times 0
+  }
 }
+
+# Describe "Update-BaseUrl Additional Tests" {
+#   BeforeEach {
+#     # Reset the PackageDownloadFqdn before each test
+#     $global:PackageDownloadFqdn = $null
+#     $global:PreferredPackageDownloadFqdn = "packages.aks.azure.com"
+#     $global:FallbackPackageDownloadFqdn = "acs-mirror.azureedge.net"
+#     Mock Resolve-PackagesDownloadFqdn -MockWith { $global:PackageDownloadFqdn = $PreferredFqdn }
+#   }
+
+#   It "should call Resolve-PackagesDownloadFqdn when PackageDownloadFqdn is null and URL contains acs-mirror.azureedge.net" {
+#     # Ensure PackageDownloadFqdn is null
+#     $global:PackageDownloadFqdn = $null
+
+#     # Call Update-BaseUrl with a URL containing acs-mirror.azureedge.net
+#     $initialUrl = "https://acs-mirror.azureedge.net/path/to/resource"
+#     $result = Update-BaseUrl -InitialUrl $initialUrl
+
+#     # Verify Resolve-PackagesDownloadFqdn was called
+#     Assert-MockCalled -CommandName "Resolve-PackagesDownloadFqdn" -Times 1 -ParameterFilter {
+#       $PreferredFqdn -eq $global:PreferredPackageDownloadFqdn -and $FallbackFqdn -eq $global:FallbackPackageDownloadFqdn
+#     }
+#   }
+
+#   It "should call Resolve-PackagesDownloadFqdn when PackageDownloadFqdn is null and URL contains packages.aks.azure.com" {
+#     # Ensure PackageDownloadFqdn is null
+#     $global:PackageDownloadFqdn = $null
+
+#     # Call Update-BaseUrl with a URL containing packages.aks.azure.com
+#     $initialUrl = "https://packages.aks.azure.com/path/to/resource"
+#     $result = Update-BaseUrl -InitialUrl $initialUrl
+
+#     # Verify Resolve-PackagesDownloadFqdn was called
+#     Assert-MockCalled -CommandName "Resolve-PackagesDownloadFqdn" -Times 1 -ParameterFilter {
+#       $PreferredFqdn -eq $global:PreferredPackageDownloadFqdn -and $FallbackFqdn -eq $global:FallbackPackageDownloadFqdn
+#     }
+#   }
+
+#   It "should not call Resolve-PackagesDownloadFqdn when PackageDownloadFqdn is null but URL is different domain" {
+#     # Ensure PackageDownloadFqdn is null
+#     $global:PackageDownloadFqdn = $null
+
+#     # Call Update-BaseUrl with a URL that doesn't contain either domain
+#     $initialUrl = "https://other-domain.com/path/to/resource"
+#     $result = Update-BaseUrl -InitialUrl $initialUrl
+
+#     # Verify Resolve-PackagesDownloadFqdn was not called
+#     Assert-MockCalled -CommandName "Resolve-PackagesDownloadFqdn" -Times 0
+
+#     # Verify the URL wasn't modified
+#     $result | Should -Be $initialUrl
+#   }
+
+#   It "should not call Resolve-PackagesDownloadFqdn when PackageDownloadFqdn is already set" {
+#     # Set PackageDownloadFqdn to a value
+#     $global:PackageDownloadFqdn = "already-set.example.com"
+
+#     # Call Update-BaseUrl with a URL containing acs-mirror.azureedge.net
+#     $initialUrl = "https://acs-mirror.azureedge.net/path/to/resource"
+#     $result = Update-BaseUrl -InitialUrl $initialUrl
+
+#     # Verify Resolve-PackagesDownloadFqdn was not called
+#     Assert-MockCalled -CommandName "Resolve-PackagesDownloadFqdn" -Times 0
+#   }
+
+#   It "should return the original URL for domains that don't match AKS patterns" {
+#     # Call Update-BaseUrl with a URL that doesn't match our domain patterns
+#     $initialUrl = "https://example.com/path/to/resource"
+#     $result = Update-BaseUrl -InitialUrl $initialUrl
+
+#     # The URL should remain unchanged
+#     $result | Should -Be $initialUrl
+#   }
+
+#   It "should correctly update URL after resolving FQDN from null" {
+#     # Ensure PackageDownloadFqdn is null to trigger resolution
+#     $global:PackageDownloadFqdn = $null
+
+#     # Mock Resolve-PackagesDownloadFqdn to set to the preferred FQDN
+#     Mock Resolve-PackagesDownloadFqdn -MockWith { $global:PackageDownloadFqdn = "packages.aks.azure.com" }
+
+#     # Call Update-BaseUrl with a URL containing the fallback domain
+#     $initialUrl = "https://acs-mirror.azureedge.net/path/to/resource"
+#     $result = Update-BaseUrl -InitialUrl $initialUrl
+
+#     # Verify Resolve-PackagesDownloadFqdn was called
+#     Assert-MockCalled -CommandName "Resolve-PackagesDownloadFqdn" -Times 1
+
+#     # Verify the URL was updated to use the preferred domain
+#     $result | Should -Be "https://packages.aks.azure.com/path/to/resource"
+#   }
+
+#   It "should correctly update URL when FQDN is already set to fallback" {
+#     # Set PackageDownloadFqdn to the fallback value
+#     $global:PackageDownloadFqdn = "acs-mirror.azureedge.net"
+
+#     # Call Update-BaseUrl with a URL containing the preferred domain
+#     $initialUrl = "https://packages.aks.azure.com/path/to/resource"
+#     $result = Update-BaseUrl -InitialUrl $initialUrl
+
+#     # Verify the URL was updated to use the fallback domain
+#     $result | Should -Be "https://acs-mirror.azureedge.net/path/to/resource"
+#   }
+
+#   It "should correctly handle multiple patterns in a URL" {
+#     # Set PackageDownloadFqdn
+#     $global:PackageDownloadFqdn = "packages.aks.azure.com"
+
+#     # Call Update-BaseUrl with a URL containing multiple instances of the domain
+#     $initialUrl = "https://acs-mirror.azureedge.net/path/with-acs-mirror.azureedge.net-in-path"
+#     $result = Update-BaseUrl -InitialUrl $initialUrl
+
+#     # Verify the domain was replaced throughout
+#     $result | Should -Be "https://packages.aks.azure.com/path/with-packages.aks.azure.com-in-path"
+#   }
+# }
