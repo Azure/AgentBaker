@@ -43,8 +43,6 @@ az group create --name "$TEST_VM_RESOURCE_GROUP_NAME" --location "${AZURE_LOCATI
 
 # defer function to cleanup resource group when VHD debug is not enabled
 function cleanup() {
-  echo "VHD debug mode is enabled, please manually delete test vm resource group $TEST_VM_RESOURCE_GROUP_NAME after debugging"
-  return 1
   if [ "$VHD_DEBUG" = "True" ]; then
     echo "VHD debug mode is enabled, please manually delete test vm resource group $TEST_VM_RESOURCE_GROUP_NAME after debugging"
   else

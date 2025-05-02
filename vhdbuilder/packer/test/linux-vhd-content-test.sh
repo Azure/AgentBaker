@@ -321,7 +321,6 @@ testImagesPulled() {
   while IFS= read -r imageToBePulled; do
     echo "checking imageToBePulled: $imageToBePulled ..."
     downloadURL=$(echo "${imageToBePulled}" | jq .downloadURL -r)
-    # check if .amd64OnlyVersions is null before jq it
     if [ $(echo "${imageToBePulled}" | jq -r '.amd64OnlyVersions // empty') = "null" ]; then
       amd64OnlyVersionsStr=""
     else 
@@ -333,7 +332,7 @@ testImagesPulled() {
     amd64OnlyVersions=""
     if [ -n "${amd64OnlyVersionsStr}" ] && [ "${amd64OnlyVersionsStr}" != "null" ]; then
       amd64OnlyVersions=$(echo "${amd64OnlyVersionsStr}" | jq -r ".[]")
-    fi    
+    fi
 
     if [ "$(isARM64)" -eq 1 ]; then
       echo "ARM64 detected, using only multiArchVersions"
