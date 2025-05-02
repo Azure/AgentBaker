@@ -4,6 +4,7 @@
 rm -f /root/.ssh/authorized_keys
 rm -f /home/packer/.ssh/authorized_keys
 rm -rf /home/packer/cisassessor*
+rm -f /opt/azure/cis-report.{txt,html}
 rm -f /var/log/cloud-init.log /var/log/cloud-init-output.log 
 rm -f /etc/machine-id
 touch /etc/machine-id
