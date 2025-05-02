@@ -394,8 +394,8 @@ installAKSSecureTLSBootstrapClient() {
     # TODO(cameissner): can probably remove this once we get to preview
     if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" != "true" ]; then
         echo "secure TLS bootstrapping is disabled, will remove secure TLS bootstrap client binary installation"
-        rm -f "${AKS_SECURE_TLS_BOOTSTRAP_CLIENT_BIN_DIR}/aks-secure-tls-bootstrap-client"
-        rm -rf "${AKS_SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_DIR}"
+        rm -f "${AKS_SECURE_TLS_BOOTSTRAP_CLIENT_BIN_DIR}/aks-secure-tls-bootstrap-client" &
+        rm -rf "${AKS_SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_DIR}" &
         return 0
     fi
 
@@ -423,15 +423,15 @@ downloadAKSSecureTLSBootstrapClient() {
     mkdir -p $CLIENT_EXTRACTED_DIR
 
     echo "Installing aks-secure-tls-bootstrap-client version $CLIENT_VERSION..."
-    CLIENT_TGZ_TMP=${CLIENT_DOWNLOAD_URL##*/}
-    retrycmd_curl_file 120 5 60 "${AKS_SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_DIR}/${CLIENT_TGZ_TMP}" ${CLIENT_DOWNLOAD_URL} || exit $ERR_SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_ERROR
+    CLIENT_TMP=${CLIENT_DOWNLOAD_URL##*/}
+    retrycmd_curl_file 120 5 60 "${AKS_SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_DIR}/${CLIENT_TMP}" ${CLIENT_DOWNLOAD_URL} || exit $ERR_SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_ERROR
 
-    if [ ! -f "${AKS_SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_DIR}/${CLIENT_TGZ_TMP}" ]; then
-        echo "file ${AKS_SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_DIR}/${CLIENT_TGZ_TMP} does not exist, unable to install aks-secure-tls-bootstrap-client version $CLIENT_VERSION"
+    if [ ! -f "${AKS_SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_DIR}/${CLIENT_TMP}" ]; then
+        echo "file ${AKS_SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_DIR}/${CLIENT_TMP} does not exist, unable to install aks-secure-tls-bootstrap-client version $CLIENT_VERSION"
         exit $ERR_SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_ERROR
     fi
 
-    mv "${AKS_SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_DIR}/${CLIENT_TGZ_TMP}" "${CLIENT_EXTRACTED_DIR}/aks-secure-tls-bootstrap-client"
+    mv "${AKS_SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_DIR}/${CLIENT_TMP}" "${CLIENT_EXTRACTED_DIR}/aks-secure-tls-bootstrap-client"
     chmod 755 "${CLIENT_EXTRACTED_DIR}/aks-secure-tls-bootstrap-client"
 
     rm -r "${AKS_SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_DIR}"
