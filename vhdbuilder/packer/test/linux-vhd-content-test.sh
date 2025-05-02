@@ -333,8 +333,15 @@ testImagesPulled() {
 
     if [ "$(isARM64)" -eq 1 ]; then
       echo "ARM64 detected, using only multiArchVersions"
-      echo "devin test: ${MULTI_ARCH_VERSIONS}"
-      versions="${MULTI_ARCH_VERSIONS}"
+      if [ ${#MULTI_ARCH_VERSIONS[@]} -eq 0 ]; then
+        echo "Warning: No multi-arch versions found for ARM64"
+        continue
+      else
+        echo "Found ${#MULTI_ARCH_VERSIONS[@]} multi-arch versions"
+        # Convert array to string with spaces between elements
+        versions="${MULTI_ARCH_VERSIONS[*]}"
+        echo "Using versions: $versions"
+      fi
     else
       echo "AMD64 detected, using amd64OnlyVersions and multiArchVersions"
       if [ "${#MULTI_ARCH_VERSIONS[@]}" -eq 0 ]; then
