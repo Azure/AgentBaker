@@ -127,14 +127,14 @@ ERR_CLEANUP_CONTAINER_IMAGES=214
 
 ERR_DNS_HEALTH_FAIL=215 # Error checking DNS health
 
-ERR_SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_ERROR=216 # Error downloading the secure TLS bootstrap client binary
-
 # ------------------------------ Used by localdns -----------------------------------
 ERR_LOCALDNS_FAIL=216 # Unable to start localdns systemd unit.
 ERR_LOCALDNS_COREFILE_NOTFOUND=217 # Localdns corefile not found.
 ERR_LOCALDNS_SLICEFILE_NOTFOUND=218 # Localdns slicefile not found.
 ERR_LOCALDNS_BINARY_ERR=219 # Localdns binary not found or not executable.
 # ----------------------------------------------------------------------------------
+
+ERR_AKS_SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_ERROR=220 # Error downloading the secure TLS bootstrap client binary
 
 # For both Ubuntu and Mariner, /etc/*-release should exist.
 # For unit tests, the OS and OS_VERSION will be set in the unit test script.
