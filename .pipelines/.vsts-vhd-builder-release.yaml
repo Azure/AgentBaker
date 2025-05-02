@@ -649,7 +649,6 @@ stages:
           - template: ./templates/.builder-release-template.yaml
             parameters:
               artifactName: azurelinuxv3-gen2-arm64
-              VHD_DEBUG: ${{ parameters.VHD_DEBUG }}
       - job: buildAzureLinuxV3ARM64gen2fips
         condition: eq('${{ parameters.buildAzureLinuxV3ARM64gen2fips }}', true)
         dependsOn: [ ]
