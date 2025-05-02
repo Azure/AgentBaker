@@ -326,7 +326,7 @@ testImagesPulled() {
     updateMultiArchVersions "${imageToBePulled}"
 
     amd64OnlyVersions=""
-    if [ "${amd64OnlyVersionsStr}" != "" ]; then
+    if [ -n "${amd64OnlyVersionsStr}" ] && [ "${amd64OnlyVersionsStr}" != "" ]; then
       amd64OnlyVersions=$(echo "${amd64OnlyVersionsStr}" | jq -r ".[]")
     fi
 
@@ -346,7 +346,7 @@ testImagesPulled() {
       if [ "${#MULTI_ARCH_VERSIONS[@]}" -eq 0 ]; then
         versions="${amd64OnlyVersions}"
       else
-        versions="${amd64OnlyVersions} ${MULTI_ARCH_VERSIONS[@]}"
+        versions="${amd64OnlyVersions} ${MULTI_ARCH_VERSIONS[*]}"
       fi
     fi
     for version in ${versions}; do
