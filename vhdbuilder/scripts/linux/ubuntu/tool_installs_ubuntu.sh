@@ -166,7 +166,7 @@ sourcedir /etc/chrony/sources.d /etc/chrony/sources.override.d
 
 # This directive specify the file into which chronyd will store the rate
 # information.
-driftfile /var/lib/chrony/chrony.drift
+driftfile /var/lib/chrony/drift
 
 # Dump characteristics on sources when shut down to speed sync on restart.
 dumpdir /var/lib/chrony

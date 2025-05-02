@@ -117,19 +117,19 @@ disableTimesyncd() {
     systemctl mask systemd-timesyncd || exit 1
 
     # Update chrony configuration
-    cat > /etc/chrony/chrony.conf <<EOF
+    cat > /etc/chrony.conf <<EOF
 # Welcome to the chrony configuration file. See chrony.conf(5) for more
 # information about usable directives.
 
 # Load configuration file dropins
-confdir /etc/chrony/conf.d /etc/chrony/conf.override.d
+confdir /etc/chrony.conf.d
 
 # Load NTP sources
-sourcedir /etc/chrony/sources.d /etc/chrony/sources.override.d
+sourcedir /etc/chrony.sources.d
 
 # This directive specify the file into which chronyd will store the rate
 # information.
-driftfile /var/lib/chrony/chrony.drift
+driftfile /var/lib/chrony/drift
 
 # Dump characteristics on sources when shut down to speed sync on restart.
 dumpdir /var/lib/chrony
