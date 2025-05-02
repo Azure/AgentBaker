@@ -241,7 +241,8 @@ _retry_file_curl_internal() {
     for i in $(seq 1 $retries); do 
         ( eval "$checksToRun" ) && break || if [ "$i" -eq "$retries" ]; then
             return 1
-        elif ! check_cse_timeout; then
+        fi
+        if ! check_cse_timeout; then
             echo "CSE timeout approaching, exiting early." >&2
             return 2
         else

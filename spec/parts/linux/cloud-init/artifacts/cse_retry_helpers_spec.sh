@@ -175,9 +175,13 @@ Describe 'long running cse helper functions'
             End
             Describe 'retry_file_curl_internal'
                 It "returns 1 if checksToRun fail and retries are exhausted"
-                    When call _retry_file_curl_internal 1 1 1 "/tmp/nonexistent" "https://dummy.url/file" "return 2"
+                    timeout() {
+                        echo "curl mock timeout" >> $CURL_OUTPUT
+                        return 124
+                    } 
+                    When call _retry_file_curl_internal 2 1 1 "/tmp/nonexistent" "https://dummy.url/file" "return 2"
                     The status should eq 1
-                    The stdout should eq "1 file curl retries"
+                    The stdout should include "2 file curl retries"
                 End
                 It "returns 0 if checksToRun succeed"
                     When call _retry_file_curl_internal 1 1 1 "/tmp/nonexistent" "https://dummy.url/file" "return 0 && echo working"

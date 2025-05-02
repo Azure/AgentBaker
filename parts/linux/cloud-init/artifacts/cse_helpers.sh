@@ -276,8 +276,9 @@ _retry_file_curl_internal() {
         # Use eval to execute the checksToRun string as a command
         ( eval "$checksToRun" ) && break || if [ "$i" -eq "$retries" ]; then
             return 1
+        fi
         # check if global cse timeout is approaching
-        elif ! check_cse_timeout; then
+        if ! check_cse_timeout; then
             echo "CSE timeout approaching, exiting early." >&2
             return 2
         else
