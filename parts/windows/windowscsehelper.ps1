@@ -178,7 +178,6 @@ function Write-Log($message) {
     $msg = $message | Timestamp
     Write-Output $msg
 }
-
 function DownloadFileOverHttp {
     Param(
         [Parameter(Mandatory = $true)][string]
@@ -194,7 +193,7 @@ function DownloadFileOverHttp {
     $fileName = [IO.Path]::GetFileName($cleanUrl)
 
     $search = @()
-    if (Test-Path $global:CacheDir) {
+    if ($global:CacheDir -and (Test-Path $global:CacheDir)) {
         $search = [IO.Directory]::GetFiles($global:CacheDir, $fileName, [IO.SearchOption]::AllDirectories)
     }
 
