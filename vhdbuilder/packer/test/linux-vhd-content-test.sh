@@ -327,7 +327,7 @@ testImagesPulled() {
     updateMultiArchVersions "${imageToBePulled}"
 
     amd64OnlyVersions=""
-    if [ "${amd64OnlyVersionsStr}" != "null" ]; then
+    if [ "${amd64OnlyVersionsStr}" != "" ]; then
       amd64OnlyVersions=$(echo "${amd64OnlyVersionsStr}" | jq -r ".[]")
     fi
 
