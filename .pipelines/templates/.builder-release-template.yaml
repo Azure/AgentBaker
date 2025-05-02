@@ -92,7 +92,6 @@ steps:
       BUILD_ID: $(Build.BuildId)
       BUILD_DEFINITION_NAME: $(Build.DefinitionName)
       UA_TOKEN: $(ua-token)
-      VHD_DEBUG: ${{ parameters.VHD_DEBUG }}
 
   - bash: |
       PACKER_VNET_RESOURCE_GROUP_NAME="$(cat vhdbuilder/packer/settings.json | grep "vnet_resource_group_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
@@ -144,7 +143,7 @@ steps:
       PACKER_VNET_NAME: $(PACKER_VNET_NAME)
       SKIP_SCANNING: $(SKIP_SCANNING)
       DRY_RUN: $(DRY_RUN)
-      VHD_DEBUG: $(VHD_DEBUG)
+      VHD_DEBUG: $(variables.VHD_DEBUG)
 
   - task: PublishPipelineArtifact@0
     condition: always()

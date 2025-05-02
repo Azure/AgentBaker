@@ -333,6 +333,7 @@ testImagesPulled() {
 
     if [ "$(isARM64)" -eq 1 ]; then
       echo "ARM64 detected, using only multiArchVersions"
+      echo "devin test: ${MULTI_ARCH_VERSIONS}"
       versions="${MULTI_ARCH_VERSIONS}"
     else
       echo "AMD64 detected, using amd64OnlyVersions and multiArchVersions"
