@@ -176,19 +176,15 @@ steps:
       Contents: 'trivy-images-table.txt'
       TargetFolder: '$(Build.ArtifactStagingDirectory)'
 
-  - task: PublishPipelineArtifact@0
-    condition: eq(variables.OS_SKU, 'Ubuntu')
-    displayName: Publish CIS report
+  - task: CopyFiles@2
+    condition: and(eq(variables.OS_SKU, 'Ubuntu'), eq(variables.ARCHITECTURE, 'X86_64'), in(variables.OS_VERSION, '22.04', '24.04'), eq(variables.FEATURE_FLAGS, 'None'))
+    displayName: Copy CIS Reports
     inputs:
-      targetPath: 'cis-report.txt'
-      artifactName: 'cis-report-txt-${{ parameters.artifactName }}'
-
-  - task: PublishPipelineArtifact@0
-    condition: eq(variables.OS_SKU, 'Ubuntu')
-    displayName: Publish CIS report
-    inputs:
-      targetPath: 'cis-report.html'
-      artifactName: 'cis-report-html-${{ parameters.artifactName }}'
+      SourceFolder: '$(System.DefaultWorkingDirectory)'
+      Contents: |
+        cis-report.html
+        cis-report.txt
+      TargetFolder: '$(Build.ArtifactStagingDirectory)'
 
   - task: PublishPipelineArtifact@0
     displayName: Publish Release Notes
