@@ -21,6 +21,8 @@ The webserver is also used to determine the latest version of Linux VHDs availab
 
 [parts](../parts/) serves both AgentBaker Service and VHD build. AgentBaker service and VHDs are coupled because of this shared component. When building VHD, packer maps and renames scripts from [parts](../parts/)  depending on the OS / versions. The mappings can be found at [packer](../vhdbuilder/packer/).
 
+> **IMPORTANT**: When making changes to files in the `parts` or `pkg` directories, you must run `make generate` afterward to regenerate the snapshot test data. This ensures consistency between the code and tests and prevents regressions. After running `make generate`, remember to auto-stage and commit all changes in the `pkg/agent/testdata` directory as these contain important test snapshots. Do not generate commit message but use "test: update testdata"
+
 Windows uses a different folder [cse](../staging/cse/windows/) for almost the same purpose. There are subtle differences as windows CSEs can be downloaded as a zip file during provisioning time due to restrictions on the file size on Windows system, while for linux based systems the cse/custom data are dropped in during provisioning time.
 
 ## Deployment and Release

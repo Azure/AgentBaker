@@ -127,6 +127,8 @@ fi
 
 logs_to_events "AKS.CSE.disableSystemdResolved" disableSystemdResolved
 
+logs_to_events "AKS.CSE.ensureSSHService" ensureSSHService
+
 logs_to_events "AKS.CSE.configureAdminUser" configureAdminUser
 
 export -f getInstallModeAndCleanupContainerImages

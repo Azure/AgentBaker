@@ -508,12 +508,15 @@ systemctlDisableAndStop() {
 
 # return true if a >= b
 semverCompare() {
-    VERSION_A=$(echo $1 | cut -d "+" -f 1)
-    VERSION_B=$(echo $2 | cut -d "+" -f 1)
+    # Remove build metadata (+) from version strings as it doesn't affect precedence
+    VERSION_A=$(echo "$1" | cut -d "+" -f 1)
+    VERSION_B=$(echo "$2" | cut -d "+" -f 1)
+    
+    # If versions are identical, return true immediately
     [ "${VERSION_A}" = "${VERSION_B}" ] && return 0
-    sorted=$(echo ${VERSION_A} ${VERSION_B} | tr ' ' '\n' | sort -V )
+    sorted=$(echo "${VERSION_A}" "${VERSION_B}" | tr ' ' '\n' | sort -V )
     highestVersion=$(IFS= echo "${sorted}" | cut -d$'\n' -f2)
-    [ "${VERSION_A}" = ${highestVersion} ] && return 0
+    [ "${VERSION_A}" = "${highestVersion}" ] && return 0
     return 1
 }
 
@@ -967,6 +970,35 @@ oras_login_with_kubelet_identity() {
     fi
 
     echo "successfully logged in to acr '$acr_url' with identity token"
+}
+
+ensureSSHService() {
+    # If not Ubuntu, no changes needed
+    if [ "$OS" != "$UBUNTU_OS_NAME" ]; then
+        return 0
+    fi
+        # for Ubuntu 22.10+ or newer uses socket activation
+    if ! semverCompare "$OS_VERSION" "22.10"; then
+        return 0
+    fi
+    # For Ubuntu 22.10+ with socket-based SSH activation
+    if ! systemctl is-active --quiet ssh.socket; then
+        return 0
+    fi
+
+    # Socket is active, disable it and switch to service-based activation
+    systemctl disable --now ssh.socket
+    # Remove the socket-based configuration file if present
+    if [ -f /etc/systemd/system/ssh.service.d/00-socket.conf ]; then
+        rm /etc/systemd/system/ssh.service.d/00-socket.conf
+    fi
+    if [ -f /etc/systemd/system/ssh.socket.d/addresses.conf ]; then
+        rm /etc/systemd/system/ssh.socket.d/addresses.conf
+    fi
+    # Enable and start the traditional SSH service
+    systemctlEnableAndStart ssh 30 || return $ERR_SYSTEMCTL_START_FAIL
+
+    return 0
 }
 
 #HELPERSEOF
