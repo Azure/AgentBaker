@@ -263,6 +263,7 @@ prepareTmp() {
 }
 
 configureSsh() {
+    mkdir -p /etc/ssh/sshd_config.d
     cat <<EOF >/etc/ssh/sshd_config.d/99-aks-cis.conf
 ClientAliveInterval 120
 ClientAliveCountMax 3
