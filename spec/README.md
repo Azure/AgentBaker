@@ -34,12 +34,12 @@ Assuming you have run at least once `make shellspec` to build the dockerfile loc
   With `--xtrace`, it will show verbose trace for debugging.
 
 - ```
-  docker run -v "$PWD:/src" shellspec-docker --shell bash --example <test name> -xtrace
+  docker run -t -v "$PWD:/src" shellspec-docker --shell bash --example <test name> -xtrace
   ```
-  You can run a single test case by using `--example` followed by the test name. For example, `docker run -v "$PWD:/src" shellspec-docker --shell bash --example "sets PACKAGE_DOWNLOAD_BASE_URL to packages.aks.azure.com when run locally"`. You can also add `--xtrace` to display verbose trace for this single test case.
+  You can run a single test case by using `--example` followed by the test name. For example, `docker run -t -v "$PWD:/src" shellspec-docker --shell bash --example "sets PACKAGE_DOWNLOAD_BASE_URL to packages.aks.azure.com when run locally"`. You can also add `--xtrace` to display verbose trace for this single test case.
 
 - ```
   docker run -v "$PWD:/src" shellspec-docker --shell bash <path to xxx_spec.sh>
   ```
   By providing a full path a particular spec file, you can run only that spec file instead of all spec files in AgentBaker project. 
-For example, `docker run -v "$PWD:/src" shellspec-docker --shell bash spec/parts/linux/cloud-init/artifacts/cse_helpers_spec.sh`
+For example, `docker run -t -v "$PWD:/src" shellspec-docker --shell bash spec/parts/linux/cloud-init/artifacts/cse_helpers_spec.sh`
