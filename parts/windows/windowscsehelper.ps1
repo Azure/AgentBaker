@@ -257,7 +257,7 @@ function Set-ExitCode
     exit $ExitCode
 }
 
-function Postpone-RestartComputer 
+function Postpone-RestartComputer
 {
     Logs-To-Event -TaskName "AKS.WindowsCSE.PostponeRestartComputer" -TaskMessage "Start to create an one-time task to restart the VM"
     $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument " -Command `"Restart-Computer -Force`""
@@ -277,7 +277,7 @@ function Create-Directory
         [Parameter(Mandatory=$false)][string]
         $DirectoryUsage = "general purpose"
     )
-    
+
     if (-Not (Test-Path $FullPath)) {
         Write-Log "Create directory $FullPath for $DirectoryUsage"
         New-Item -ItemType Directory -Path $FullPath > $null
@@ -449,7 +449,7 @@ function Logs-To-Event {
 
     $eventsFileName=[DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
     $currentTime=$(Get-Date -Format "yyyy-MM-dd HH:mm:ss.fff")
-    
+
     $lastTaskName = ""
     $lastTaskDuration = 0
     if ($global:TaskTimeStamp -ne "") {
@@ -471,7 +471,7 @@ function Logs-To-Event {
     }
 "@
     $messageJson = (echo $messageJson | ConvertTo-Json)
-    
+
     $jsonString = @"
     {
         "Timestamp": "$global:TaskTimeStamp",
@@ -485,6 +485,12 @@ function Logs-To-Event {
     echo $jsonString | Set-Content ${global:EventsLoggingDir}${eventsFileName}.json
 }
 
+# AKS will transition to use packages.aks.azure.com as the default package download acs-mirror.azureedge.net
+# on June 11th, 2025.  Just prior to the transition we want to have fallback logic in place to
+# ensure that if packages.aks.azure.com is not reachable we can fallback to the old CDN URL
+#
+# This function sets the global variable $global:PackageDownloadFqdn to the preferred FQDN
+# It will attempt to use the preferred FQDN first and if that fails it will fallback to the old CDN URL
 function Resolve-PackagesDownloadFqdn {
     Param(
         [Parameter(Mandatory = $true)][string]
@@ -530,6 +536,7 @@ function Resolve-PackagesDownloadFqdn {
     $global:PackageDownloadFqdn = $packageDownloadBaseUrl
 }
 
+# This function will swap the domain in the URL based on the verified package download FQDN
 function Update-BaseUrl {
     Param(
         [Parameter(Mandatory = $true)][string]
