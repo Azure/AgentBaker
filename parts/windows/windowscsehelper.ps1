@@ -546,7 +546,6 @@ function Update-BaseUrl {
 
     if (!($InitialUrl -match "acs-mirror\.azureedge\.net|packages\.aks\.azure\.com")) {
         # We're probably not in Public cloud
-        #Write-Log "Not in public cloud, skipping URL update"
         return $InitialUrl
     }
 
