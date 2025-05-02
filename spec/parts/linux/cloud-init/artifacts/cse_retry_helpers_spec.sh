@@ -5,7 +5,7 @@
 Describe 'long running cse helper functions'
     # unsetting this to test the behavior of check_cse_timeout
     cse_retry_helpers_precheck() {
-        unset CSE_STARTIME_FORMATTED
+        unset CSE_STARTTIME_FORMATTED
         unset CSE_STARTTIME_SECONDS
     }   
     BeforeEach cse_retry_helpers_precheck
@@ -136,8 +136,8 @@ Describe 'long running cse helper functions'
                     The stdout should include "1 file curl retries"
                 End                
                 It "get_tarball returns 2 if global cse timeout is reached"
-                    CSE_STARTIME_FORMATTED=$(date -d "-781 seconds" +"%F %T.%3N")
-                    CSE_STARTTIME_SECONDS=$(date -d "$CSE_STARTIME_FORMATTED" +%s)
+                    CSE_STARTTIME_FORMATTED=$(date -d "-781 seconds" +"%F %T.%3N")
+                    CSE_STARTTIME_SECONDS=$(date -d "$CSE_STARTTIME_FORMATTED" +%s)
                     mkdir -p /tmp/test_tarball
                     When call retrycmd_get_tarball 2 1 "/tmp/test_tarball/test_tarball.tar.gz" "https://dummy.url/file.tar"
                     rm -r /tmp/test_tarball
@@ -165,8 +165,8 @@ Describe 'long running cse helper functions'
                     The stdout should eq "1 file curl retries"
                 End
                 It "curl_file returns 2 if global cse timeout is reached"
-                    CSE_STARTIME_FORMATTED=$(date -d "-781 seconds" +"%F %T.%3N")
-                    CSE_STARTTIME_SECONDS=$(date -d "$CSE_STARTIME_FORMATTED" +%s)
+                    CSE_STARTTIME_FORMATTED=$(date -d "-781 seconds" +"%F %T.%3N")
+                    CSE_STARTTIME_SECONDS=$(date -d "$CSE_STARTTIME_FORMATTED" +%s)
                     When call retrycmd_curl_file 2 1 1 "/tmp/testFile" "https://dummy.url/file"
                     The status should eq 2
                     The stdout should include "2 file curl retries"
@@ -195,7 +195,7 @@ Describe 'long running cse helper functions'
                     The stdout should eq "1 file curl retries"
                 End
                 It "returns 2 if checksToRun fail and global cse timeout is reached"
-                    CSE_STARTIME_FORMATTED=$(date -d "-781 seconds" +"%F %T.%3N")
+                    CSE_STARTTIME_FORMATTED=$(date -d "-781 seconds" +"%F %T.%3N")
                     CSE_STARTTIME_SECONDS=$(date -d "$CSE_STARTTIME_FORMATTED" +%s)
                     When call _retry_file_curl_internal 2 1 1 "/tmp/nonexistent" "https://dummy.url/file" "return 3"
                     The status should eq 2
@@ -222,7 +222,7 @@ Describe 'long running cse helper functions'
                 timeout() {
                     return 124
                 }
-                CSE_STARTIME_FORMATTED=$(date -d "-781 seconds" +"%F %T.%3N")
+                CSE_STARTTIME_FORMATTED=$(date -d "-781 seconds" +"%F %T.%3N")
                 CSE_STARTTIME_SECONDS=$(date -d "$CSE_STARTTIME_FORMATTED" +%s)
                 When call _retrycmd_internal 2 1 5 "true" echo "Failing Command"
                 The status should eq 2
