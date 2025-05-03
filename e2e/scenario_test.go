@@ -1818,7 +1818,7 @@ func runScenarioUbuntu2404GRID(t *testing.T, vmSize string) {
 				// Ensure nvidia-modprobe install does not restart kubelet and temporarily cause node to be unschedulable
 				ValidateNvidiaModProbeInstalled(ctx, s)
 				ValidateNvidiaGRIDLicenseValid(ctx, s)
-				// ValidateKubeletHasNotStopped(ctx, s)
+				ValidateKubeletHasNotStopped(ctx, s)
 				ValidateServicesDoNotRestartKubelet(ctx, s)
 				ValidateNvidiaPersistencedRunning(ctx, s)
 			},
