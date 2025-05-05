@@ -449,10 +449,6 @@ sysctl_reload() {
     retrycmd_silent $1 $2 $3 "false" sysctl --system
 }
 
-version_gte() {
-    test "$(printf '%s\n' "$@" | sort -rV | head -n 1)" = "$1"
-}
-
 systemctlEnableAndStart() {
     service=$1; timeout=$2
     systemctl_restart 100 5 $timeout $service
