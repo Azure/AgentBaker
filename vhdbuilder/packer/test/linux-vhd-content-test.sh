@@ -319,20 +319,39 @@ testImagesPulled() {
   imagesToBePulled=$(echo "${componentsJsonContent}" | jq .ContainerImages[] --monochrome-output --compact-output)
 
   while IFS= read -r imageToBePulled; do
+    echo "checking imageToBePulled: $imageToBePulled ..."
     downloadURL=$(echo "${imageToBePulled}" | jq .downloadURL -r)
-    amd64OnlyVersionsStr=$(echo "${imageToBePulled}" | jq .amd64OnlyVersions -r)
-    MULTI_ARCH_VERSIONS=()
+    if [ $(echo "${imageToBePulled}" | jq -r '.amd64OnlyVersions // empty') = "null" ]; then
+      amd64OnlyVersionsStr=""
+    else 
+      amd64OnlyVersionsStr=$(echo "${imageToBePulled}" | jq -r '.amd64OnlyVersions // empty')
+    fi
+    declare -a MULTI_ARCH_VERSIONS=()
     updateMultiArchVersions "${imageToBePulled}"
 
     amd64OnlyVersions=""
-    if [ "${amd64OnlyVersionsStr}" != "null" ]; then
+    if [ -n "${amd64OnlyVersionsStr}" ] && [ "${amd64OnlyVersionsStr}" != "null" ]; then
       amd64OnlyVersions=$(echo "${amd64OnlyVersionsStr}" | jq -r ".[]")
     fi
 
     if [ "$(isARM64)" -eq 1 ]; then
-      versions="${MULTI_ARCH_VERSIONS}"
+      echo "ARM64 detected, using only multiArchVersions"
+      if [ ${#MULTI_ARCH_VERSIONS[@]} -eq 0 ]; then
+        echo "Warning: No multi-arch versions found for ARM64"
+        continue
+      else
+        echo "Found ${#MULTI_ARCH_VERSIONS[@]} multi-arch versions"
+        # Convert array to string with spaces between elements
+        versions="${MULTI_ARCH_VERSIONS[*]}"
+        echo "Using versions: $versions"
+      fi
     else
-      versions="${amd64OnlyVersions} ${MULTI_ARCH_VERSIONS}"
+      echo "AMD64 detected, using amd64OnlyVersions and multiArchVersions"
+      if [ "${#MULTI_ARCH_VERSIONS[@]}" -eq 0 ]; then
+        versions="${amd64OnlyVersions}"
+      else
+        versions="${amd64OnlyVersions} ${MULTI_ARCH_VERSIONS[*]}"
+      fi
     fi
     for version in ${versions}; do
       download_URL=$(string_replace $downloadURL $version)
@@ -1223,6 +1242,15 @@ testCriCtl() {
   echo "$test: checking if crictl version is $expectedVersion"
   if [ "$crictl_version" != "$expectedVersion" ]; then
     err "$test: crictl version is not $expectedVersion, instead it is $crictl_version"
+    return 1
+  fi
+  # check if the symlink /usr/local/bin/crictl points to /usr/bin/crictl
+  if [ ! -L "/usr/local/bin/crictl" ]; then
+    err "$test: /usr/local/bin/crictl should be a symlink"
+    return 1
+  fi
+  if [ "$(readlink -f /usr/local/bin/crictl)" != "/usr/bin/crictl" ]; then
+    err "$test: /usr/local/bin/crictl should point to /usr/bin/crictl"
     return 1
   fi
   echo "$test: Test finished successfully."

@@ -54,6 +54,7 @@ installCriCtlPackage() {
   fi
   echo "Installing ${packageName} with dnf"
   dnf_install 30 1 600 ${packageName} || exit 1
+  ln -sf /usr/bin/crictl /usr/local/bin/crictl
 }
 
 downloadGPUDrivers() {
