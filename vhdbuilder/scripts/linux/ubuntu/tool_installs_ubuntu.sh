@@ -210,6 +210,9 @@ logdir /var/log/chrony
 # Don't output the log banner lines (headers)
 #logbanner 0
 
+# Use hardware timestamping when supported for better accuracy
+hwtimestamp *
+
 # Azure hosts are synchronized to internal Microsoft time servers that
 # take their time from Microsoft-owned Stratum 1 devices.  The Hyper-V
 # drivers surface this time source as a PTP-based time source in the
