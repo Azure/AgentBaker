@@ -4,6 +4,7 @@ set -uo pipefail
 EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/
 
 KUBECONFIG_PATH="${KUBECONFIG_PATH:-/var/lib/kubelet/kubeconfig}"
+BOOTSTRAP_TOKEN_PATH="${CREDENTIALS_DIRECTORY}/bootstraptoken"
 BOOTSTRAP_KUBECONFIG_PATH="${BOOTSTRAP_KUBECONFIG_PATH:-/var/lib/kubelet/bootstrap-kubeconfig}"
 
 MAX_RETRIES=${CREDENTIAL_VALIDATION_MAX_RETRIES:-30}
@@ -41,10 +42,7 @@ logs_to_events() {
 }
 
 validate() {
-    local kubeconfig_path=$1
-    
-    # extract the bootstrap token from bootstrap-kubeconfig
-    token=$(grep -Po "(?<=token: ).*$" < "$kubeconfig_path")
+    token=$(cat "$BOOTSTRAP_TOKEN_PATH")
     token="${token//\"/}"
 
     echo "will check credential validity against apiserver url: $CREDENTIAL_VALIDATION_APISERVER_URL"
@@ -97,6 +95,10 @@ validate() {
 }
 
 validateKubeletCredentials() {
+    if [ -f "$KUBECONFIG_PATH" ]; then
+        echo "client credential already exists within kubeconfig: $KUBECONFIG_PATH, no need to validate bootstrap credentials"
+        return 0
+    fi
     if [ -z "${CREDENTIAL_VALIDATION_KUBE_CA_FILE:-}" ]; then
         echo "CREDENTIAL_VALIDATION_KUBE_CA_FILE is not set, skipping kubelet credential validation"
         return 0
@@ -105,12 +107,8 @@ validateKubeletCredentials() {
         echo "CREDENTIAL_VALIDATION_APISERVER_URL is not set, skipping kubelet credential validation"
         return 0
     fi
-    if [ -z "${BOOTSTRAP_KUBECONFIG_PATH:-}" ]; then
-        echo "no bootstrap-kubeconfig found at $BOOTSTRAP_KUBECONFIG_PATH, no bootstrap credentials to validate"
-        return 0
-    fi
-    if [ -f "$KUBECONFIG_PATH" ]; then
-        echo "client credential already exists within kubeconfig: $KUBECONFIG_PATH, no need to validate bootstrap credentials"
+    if [ ! -f "${BOOTSTRAP_TOKEN_PATH}" ]; then
+        echo "bootstrap token does not exist at $BOOTSTRAP_TOKEN_PATH, nothing to validate"
         return 0
     fi
     if ! command -v curl >/dev/null 2>&1; then

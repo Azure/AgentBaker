@@ -535,12 +535,19 @@ ensureKubelet() {
     if [ -n "${TLS_BOOTSTRAP_TOKEN}" ]; then
         echo "using bootstrap token to generate a bootstrap-kubeconfig"
 
+        BOOTSTRAP_TOKEN_FILE="/var/lib/kubelet/bootstrap-token"
+        mkdir -p "$(dirname "${BOOTSTRAP_TOKEN_FILE}")"
+        touch "${BOOTSTRAP_TOKEN_FILE}"
+        chmod 0600 "${BOOTSTRAP_TOKEN_FILE}"
+        echo "${TLS_BOOTSTRAP_TOKEN}" > "${BOOTSTRAP_TOKEN_FILE}"
+
         CREDENTIAL_VALIDATION_DROP_IN="/etc/systemd/system/kubelet.service.d/10-credential-validation.conf"
         mkdir -p "$(dirname "${CREDENTIAL_VALIDATION_DROP_IN}")"
         touch "${CREDENTIAL_VALIDATION_DROP_IN}"
         chmod 0600 "${CREDENTIAL_VALIDATION_DROP_IN}"
         tee "${CREDENTIAL_VALIDATION_DROP_IN}" > /dev/null <<EOF
 [Service]
+LoadCredential=bootstraptoken:${BOOTSTRAP_TOKEN_FILE}
 Environment="CREDENTIAL_VALIDATION_KUBE_CA_FILE=/etc/kubernetes/certs/ca.crt"
 Environment="CREDENTIAL_VALIDATION_APISERVER_URL=https://${API_SERVER_NAME}:443"
 EOF
@@ -553,6 +560,7 @@ EOF
 [Service]
 Environment="KUBELET_TLS_BOOTSTRAP_FLAGS=--kubeconfig /var/lib/kubelet/kubeconfig --bootstrap-kubeconfig /var/lib/kubelet/bootstrap-kubeconfig"
 EOF
+
         BOOTSTRAP_KUBECONFIG_FILE=/var/lib/kubelet/bootstrap-kubeconfig
         mkdir -p "$(dirname "${BOOTSTRAP_KUBECONFIG_FILE}")"
         touch "${BOOTSTRAP_KUBECONFIG_FILE}"
