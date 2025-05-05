@@ -1,0 +1,13 @@
+Release notes for security patch 20250505T000000Z timestamp
+Package difference between 20250428T000000Z and 20250505T000000Z
+No reboot required
+Upgrade: libxml2:amd64 (2.9.13+dfsg-1ubuntu0.6, 2.9.13+dfsg-1ubuntu0.7)
+
+Package difference between AKSUbuntu-2204gen2containerd-202504.22.0 and 20250505T000000Z
+No reboot required
+Upgrade: openssh-client:amd64 (1:8.9p1-3ubuntu0.11, 1:8.9p1-3ubuntu0.13), openssh-server:amd64 (1:8.9p1-3ubuntu0.11, 1:8.9p1-3ubuntu0.13), openssh-sftp-server:amd64 (1:8.9p1-3ubuntu0.11, 1:8.9p1-3ubuntu0.13)
+Upgrade: libxml2:amd64 (2.9.13+dfsg-1ubuntu0.6, 2.9.13+dfsg-1ubuntu0.7)
+Upgrade: libarchive13:amd64 (3.6.0-1ubuntu1.3, 3.6.0-1ubuntu1.4)
+Upgrade: linux-tools-common:amd64 (5.15.0-138.148, 5.15.0-139.149)
+Upgrade: linux-cloud-tools-common:amd64 (5.15.0-138.148, 5.15.0-139.149)
+Upgrade: linux-libc-dev:amd64 (5.15.0-138.148, 5.15.0-139.149)
