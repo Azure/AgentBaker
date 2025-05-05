@@ -542,7 +542,6 @@ ensureKubelet() {
         tee "${CREDENTIAL_VALIDATION_DROP_IN}" > /dev/null <<EOF
 [Service]
 Environment="CREDENTIAL_VALIDATION_KUBE_CA_FILE=/etc/kubernetes/certs/ca.crt"
-Environment="CREDENTIAL_VALIDATION_TLS_BOOTSTRAP_TOKEN=${TLS_BOOTSTRAP_TOKEN}"
 Environment="CREDENTIAL_VALIDATION_APISERVER_URL=https://${API_SERVER_NAME}:443"
 EOF
 

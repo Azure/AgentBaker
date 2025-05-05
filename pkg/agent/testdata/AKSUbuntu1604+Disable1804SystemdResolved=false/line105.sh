@@ -8,8 +8,9 @@ After=network-online.target containerd.service
 SyslogIdentifier=kubelet
 Restart=always
 RestartSec=2
-EnvironmentFile=/etc/default/kubelet
+
 SuccessExitStatus=143
+
 ExecStartPre=/bin/bash /opt/azure/containers/kubelet.sh
 ExecStartPre=/bin/bash /opt/azure/containers/ensure_imds_restriction.sh
 ExecStartPre=/bin/mkdir -p /var/lib/kubelet
