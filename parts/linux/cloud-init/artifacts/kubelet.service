@@ -8,6 +8,7 @@ After=network-online.target containerd.service
 SyslogIdentifier=kubelet
 Restart=always
 RestartSec=2
+EnvironmentFile=/etc/default/kubelet
 
 # Graceful termination (SIGTERM)
 SuccessExitStatus=143
