@@ -27,6 +27,13 @@ Windows uses a different folder [cse](../staging/cse/windows/) for almost the sa
 
 ## Deployment and Release
 
+The VHD build is trigger by Azure Devops [pipelines])(.pipelines). For release, the pipelines following the same templates for different OS versions:
+
+- [linux/ubuntu](./../.pipelines/templates/.builder-release-template.yaml)
+- [windows](./../.pipelines/templates/.builder-release-template-windows.yaml)
+
+you can reason the steps by following the steps defined in the pipeline. 
+
 Tags of AgentBaker and corresponding Linux VHDs are released every week. Linux VHDs are built with a particular image version in the YYYYMM.DD.PATCH format. All Linux VHD versions correspond to a particular tag of the AgentBaker go module. AgentBaker go module tags follow the format v0.YYYYMMDD.PATCH. The mapping between AgentBaker tag and Linux VHD version is defined within [linux_sig_version.json](../pkg/agent/datamodel/linux_sig_version.json).
 
 Windows VHD are released separately, following windows patch tuesday schedule.
@@ -41,6 +48,8 @@ The operational goals of this project are:
 - avoid functional regression when introducing new features (component updates, new drivers, new binaries), ensure that all supported OS / versions are tested
 - avoid VHD build performance regressions when making any changes
 - avoid node provisioning performance regression when making any changes
+
+When making changes, reason whether the file is used in VHD building stage, or provision stage, or both. Make sure the changes are valid in its life stage. as an example, [windows-vhd-configuration.ps1](../vhdbuilder/packer/windows/windows-vhd-configuration.ps1) defines container images to be cached in VHD, while [configure-windows-vhd.ps1](../vhdbuilder/packer/windows/configure-windows-vhd.ps1) executes commands at provision time.
 
 The SRE guidelines ground other coding guidelines and practices.
 
