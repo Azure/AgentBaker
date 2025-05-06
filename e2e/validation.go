@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/Azure/agentbaker/e2e/config"
+	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 )
@@ -98,7 +99,7 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 }
 
 func ValidateSystemdWatchdogForKubernetes132Plus(ctx context.Context, s *Scenario) {
-	if IsKubernetesVersionGe(s.Runtime.Cluster.Version, "1.32.0") {
+	if agent.IsKubernetesVersionGe(s.Runtime.NBC.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.32.0") {
 		// Validate systemd watchdog is enabled and configured for kubelet
 		ValidateSystemdUnitIsRunning(ctx, s, "kubelet.service")
 		ValidateFileHasContent(ctx, s, "/etc/systemd/system/kubelet.service.d/10-aks-watchdog.conf", "WatchdogSec=30")

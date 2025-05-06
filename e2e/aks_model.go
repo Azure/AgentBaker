@@ -25,16 +25,22 @@ func getLatestGAKubernetesVersion(location string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to list Kubernetes versions: %w", err)
 	}
-	for _, version := range versions.Versions {
-		if version.IsPreview == nil || !*version.IsPreview {
-			return *version.Name, nil
+	if versions.Values == nil || len(versions.Values) == 0 {
+		return "", fmt.Errorf("no Kubernetes versions available")
+	}
+	for _, k8s_version := range versions.Values {
+		if k8s_version.Version == nil {
+			continue
+		}
+		if k8s_version.IsPreview == nil || !*k8s_version.IsPreview {
+			return *k8s_version.Version, nil
 		}
 	}
 	return "", fmt.Errorf("no GA Kubernetes version found")
 }
 
-// getLatestVersionClusterModel returns a cluster model with the latest GA Kubernetes version.
-func getLatestVersionClusterModel(name string) (*armcontainerservice.ManagedCluster, error) {
+// getLatestKubernetesVersionClusterModel returns a cluster model with the latest GA Kubernetes version.
+func getLatestKubernetesVersionClusterModel(name string) (*armcontainerservice.ManagedCluster, error) {
 	version, err := getLatestGAKubernetesVersion(config.Config.Location)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get latest GA Kubernetes version: %w", err)
@@ -299,7 +305,7 @@ func createPrivateAzureContainerRegistry(ctx context.Context, t *testing.T, clus
 			t.Logf("failed to get private ACR credentials: %v", err)
 			return err
 		}
-		if err := kubeconfig.createKubernetesSecret(ctx, t, "default", kubeconfigPath, config.Config.ACRSecretName, privateACRName, username, password); err != nil {
+		if err := kubeconfig.createKubernetesSecret(ctx, t, "default", config.Config.ACRSecretName, privateACRName, username, password); err != nil {
 			t.Logf("failed to create Kubernetes secret: %v", err)
 			return err
 		}
@@ -611,7 +617,7 @@ func getSecurityRule(name, destinationAddressPrefix string, priority int32) *arm
 			SourcePortRange:          to.Ptr("*"),
 			DestinationAddressPrefix: to.Ptr(destinationAddressPrefix),
 			DestinationPortRange:     to.Ptr("*"),
-			Priority:                 to.Ptr[int32](priority),
+			Priority:                 to.Ptr(priority),
 		},
 	}
 }

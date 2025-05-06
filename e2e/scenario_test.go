@@ -201,7 +201,8 @@ func Test_AzureLinuxV2_GPU(t *testing.T) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 			},
-		})
+		},
+	})
 }
 
 func Test_AzureLinuxV2_GPUAzureCNI(t *testing.T) {
@@ -908,7 +909,8 @@ func Test_Ubuntu2204_CustomCATrust(t *testing.T) {
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateNonEmptyDirectory(ctx, s, "/usr/local/share/ca-certificates/certs")
 			},
-		})
+		},
+	})
 }
 
 func Test_Ubuntu2204_CustomCATrust_Scriptless(t *testing.T) {
@@ -1794,14 +1796,14 @@ func Test_Ubuntu2404ARM(t *testing.T) {
 	})
 }
 
-find Test_Random_VHD_With_Latest_Kubernetes_Version(t *testing.T) {
+func Test_Random_VHD_With_Latest_Kubernetes_Version(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a Random VHD can be properly bootstrapped with the latest kubernetes version",
 		Config: Config{
 			Cluster: ClusterLatestKubernetesVersion,
-			VHD:     config.getRandomOSVHD(),
+			VHD:     config.GetRandomVHD(),
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-			}
+			},
 		},
 	})
 }

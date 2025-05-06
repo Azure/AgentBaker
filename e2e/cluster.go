@@ -84,7 +84,11 @@ func (c *Cluster) MaxPodsPerNode() (int, error) {
 
 func ClusterLatestKubernetesVersion(ctx context.Context, t *testing.T) (*Cluster, error) {
 	clusterLatestKubernetesVersionOnce.Do(func() {
-		clusterLatestKubernetesVersion, clusterLatestKubernetesVersionError = prepareCluster(ctx, t, getLatestKubernetesVersionClusterModel("abe2e-latest-kubernetes-version"), false, false)
+		model, error := getLatestKubernetesVersionClusterModel("abe2e-latest-kubernetes-version")
+		if error != nil {
+			t.Fatalf("failed to get latest kubernetes version cluster model: %v", error)
+		}
+		clusterLatestKubernetesVersion, clusterLatestKubernetesVersionError = prepareCluster(ctx, t, model, false, false)
 	})
 	return clusterLatestKubernetesVersion, clusterLatestKubernetesVersionError
 }
@@ -132,7 +136,7 @@ func prepareCluster(ctx context.Context, t *testing.T, cluster *armcontainerserv
 	}
 
 	t.Logf("node resource group: %s", *cluster.Properties.NodeResourceGroup)
-	subnetID, err := getClusterSubnetID(ctx, *cluster.Properties.NodeResourceGroup, t)
+	subnetID, err := getClusterSubnetID(ctx, *cluster.Properties.NodeResourceGroup)
 	if err != nil {
 		return nil, fmt.Errorf("get cluster subnet: %w", err)
 	}

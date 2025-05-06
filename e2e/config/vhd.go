@@ -266,7 +266,7 @@ func (id VHDResourceID) Short() string {
 	return str
 }
 
-func getRandomVHD() *Image {
+func GetRandomVHD() *Image {
 	// List of VHDs to use for generic tests
 	vhds := []*Image{
 		VHDUbuntu2404Gen2Containerd,
