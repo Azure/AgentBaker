@@ -886,7 +886,7 @@ oras_login_with_kubelet_identity() {
     echo "successfully logged in to acr '$acr_url' with identity token"
 }
 
-ensureSSHService() {
+configureSSHService() {
     if [ "$OS" != "$UBUNTU_OS_NAME" ]; then
         return 0
     fi
