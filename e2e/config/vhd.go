@@ -74,6 +74,13 @@ var (
 		Distro:  datamodel.AKSAzureLinuxV2Gen2,
 		Gallery: imageGallery,
 	}
+	VHDAzureLinuxV3Gen2 = &Image{
+		Name:    "AzureLinuxV3gen2",
+		OS:      OSAzureLinux,
+		Arch:    "amd64",
+		Distro:  datamodel.AKSAzureLinuxV3Gen2,
+		Gallery: imageGallery,
+	}
 	VHDCBLMarinerV2Gen2Arm64 = &Image{
 		Name:    "CBLMarinerV2gen2arm64",
 		OS:      OSMariner,
@@ -266,15 +273,13 @@ func (id VHDResourceID) Short() string {
 	return str
 }
 
-func GetRandomVHD() *Image {
-	// List of VHDs to use for generic tests
+func GetRandomAmd64VHD() *Image {
+	// List of VHDs to use for generic tests, this could be expanded in the future to support a map of VHD and compatible VM Skus
 	vhds := []*Image{
 		VHDUbuntu2404Gen2Containerd,
-		VHDUbuntu2404ArmContainerd,
 		VHDUbuntu2204Gen2Containerd,
-		VHDUbuntu2204Gen2Arm64Containerd,
 		VHDAzureLinuxV2Gen2,
-		VHDAzureLinuxV2Gen2Arm64,
+		VHDAzureLinuxV3Gen2,
 		VHDCBLMarinerV2Gen2,
 	}
 
