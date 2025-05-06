@@ -2,7 +2,9 @@
 
 # validate bootstrap credentials if we can
 if [ -f "/opt/azure/containers/validate-kubelet-credentials.sh" ]; then
-    /bin/bash /opt/azure/containers/validate-kubelet-credentials.sh
+    if ! /bin/bash /opt/azure/containers/validate-kubelet-credentials.sh; then
+        echo "kubelet credential validation faled, will still continue to start kubelet"
+    fi
 fi
 
 # start kubelet
