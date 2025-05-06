@@ -1429,7 +1429,6 @@ testdomain567.com:53 {
 
 				Expect(bootstrapKubeconfig).To(ContainSubstring("token"))
 				Expect(bootstrapKubeconfig).To(ContainSubstring("07401b.f395accd246ae52d"))
-				Expect(bootstrapKubeconfig).ToNot(ContainSubstring("command: /opt/azure/tlsbootstrap/tls-bootstrap-client"))
 
 				kubeconfig := o.files["/var/lib/kubelet/kubeconfig"]
 				Expect(kubeconfig).To(BeNil())
@@ -1438,40 +1437,124 @@ testdomain567.com:53 {
 		Entry("AKSUbuntu2204 with secure TLS bootstrapping enabled", "AKSUbuntu2204+SecureTLSBoostrapping", "1.25.6",
 			func(config *datamodel.NodeBootstrappingConfiguration) {
 				config.EnableSecureTLSBootstrapping = true
+				config.ContainerService.Properties.CertificateProfile = &datamodel.CertificateProfile{
+					CaCertificate: "fooBarBaz",
+				}
 			}, func(o *nodeBootstrappingOutput) {
 				Expect(o.vars["ENABLE_SECURE_TLS_BOOTSTRAPPING"]).To(Equal("true"))
 				Expect(o.vars["CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_SERVER_APP_ID"]).To(BeEmpty())
+				Expect(o.vars["CUSTOM_SECURE_TLS_BOOTSTRAP_CLIENT_URL"]).To(BeEmpty())
 
+				etcDefaultKubelet := o.files["/etc/default/kubelet"].value
+				etcDefaultKubeletService := o.files["/etc/systemd/system/kubelet.service"].value
+				kubeletSh := o.files["/opt/azure/containers/kubelet.sh"].value
+				validateCredentials := o.files["/opt/azure/containers/validate-kubelet-credentials.sh"].value
+				caCRT := o.files["/etc/kubernetes/certs/ca.crt"].value
+				kubeconfig := o.files["/var/lib/kubelet/kubeconfig"].value
+
+				Expect(etcDefaultKubelet).NotTo(BeEmpty())
+				Expect(etcDefaultKubeletService).NotTo(BeEmpty())
+				Expect(kubeletSh).NotTo(BeEmpty())
+				Expect(validateCredentials).ToNot(BeEmpty())
+				Expect(caCRT).NotTo(BeEmpty())
+				Expect(kubeconfig).ToNot(BeEmpty())
+
+				bootstrapKubeconfig := o.files["/var/lib/kubelet/bootstrap-kubeconfig"]
+				Expect(bootstrapKubeconfig).To(BeNil())
+			}),
+
+		Entry("AKSUbuntu2204 with secure TLS bootstrapping enabled with bootstrap token fallback", "AKSUbuntu2204+SecureTLSBoostrapping+BootstrapTokenFallback", "1.25.6",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.EnableSecureTLSBootstrapping = true
+				config.KubeletClientTLSBootstrapToken = to.StringPtr("07401b.f395accd246ae52d")
+				config.ContainerService.Properties.CertificateProfile = &datamodel.CertificateProfile{
+					CaCertificate: "fooBarBaz",
+				}
+			}, func(o *nodeBootstrappingOutput) {
+				Expect(o.vars["ENABLE_SECURE_TLS_BOOTSTRAPPING"]).To(Equal("true"))
+				Expect(o.vars["CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_SERVER_APP_ID"]).To(BeEmpty())
+				Expect(o.vars["CUSTOM_SECURE_TLS_BOOTSTRAP_CLIENT_URL"]).To(BeEmpty())
+
+				etcDefaultKubelet := o.files["/etc/default/kubelet"].value
+				etcDefaultKubeletService := o.files["/etc/systemd/system/kubelet.service"].value
+				kubeletSh := o.files["/opt/azure/containers/kubelet.sh"].value
+				validateCredentials := o.files["/opt/azure/containers/validate-kubelet-credentials.sh"].value
 				bootstrapKubeconfig := o.files["/var/lib/kubelet/bootstrap-kubeconfig"].value
-				Expect(bootstrapKubeconfig).ToNot(BeEmpty())
-				Expect(bootstrapKubeconfig).To(ContainSubstring("apiVersion: client.authentication.k8s.io/v1"))
-				Expect(bootstrapKubeconfig).To(ContainSubstring("command: /opt/azure/tlsbootstrap/tls-bootstrap-client"))
-				Expect(bootstrapKubeconfig).To(ContainSubstring("- bootstrap"))
-				Expect(bootstrapKubeconfig).To(ContainSubstring("--next-proto=aks-tls-bootstrap"))
-				Expect(bootstrapKubeconfig).To(ContainSubstring("--aad-resource=6dae42f8-4368-4678-94ff-3960e28e3630"))
-				Expect(bootstrapKubeconfig).To(ContainSubstring("interactiveMode: Never"))
-				Expect(bootstrapKubeconfig).To(ContainSubstring("provideClusterInfo: true"))
-				Expect(bootstrapKubeconfig).ToNot(ContainSubstring("token:"))
+				caCRT := o.files["/etc/kubernetes/certs/ca.crt"].value
+
+				Expect(etcDefaultKubelet).NotTo(BeEmpty())
+				Expect(bootstrapKubeconfig).NotTo(BeEmpty())
+				Expect(kubeletSh).NotTo(BeEmpty())
+				Expect(etcDefaultKubeletService).NotTo(BeEmpty())
+				Expect(validateCredentials).ToNot(BeEmpty())
+				Expect(caCRT).NotTo(BeEmpty())
+
+				Expect(bootstrapKubeconfig).To(ContainSubstring("token"))
+				Expect(bootstrapKubeconfig).To(ContainSubstring("07401b.f395accd246ae52d"))
+
+				kubeconfig := o.files["/var/lib/kubelet/kubeconfig"]
+				Expect(kubeconfig).To(BeNil())
 			}),
 
 		Entry("AKSUbuntu2204 with secure TLS bootstrapping enabled using custom AAD server application ID", "AKSUbuntu2204+SecureTLSBootstrapping+CustomAADResource", "1.25.6",
 			func(config *datamodel.NodeBootstrappingConfiguration) {
 				config.EnableSecureTLSBootstrapping = true
 				config.CustomSecureTLSBootstrapAADServerAppID = "appID"
+				config.ContainerService.Properties.CertificateProfile = &datamodel.CertificateProfile{
+					CaCertificate: "fooBarBaz",
+				}
 			}, func(o *nodeBootstrappingOutput) {
 				Expect(o.vars["ENABLE_SECURE_TLS_BOOTSTRAPPING"]).To(Equal("true"))
 				Expect(o.vars["CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_SERVER_APP_ID"]).To(Equal("appID"))
+				Expect(o.vars["CUSTOM_SECURE_TLS_BOOTSTRAP_CLIENT_URL"]).To(BeEmpty())
 
-				bootstrapKubeconfig := o.files["/var/lib/kubelet/bootstrap-kubeconfig"].value
-				Expect(bootstrapKubeconfig).ToNot(BeEmpty())
-				Expect(bootstrapKubeconfig).To(ContainSubstring("apiVersion: client.authentication.k8s.io/v1"))
-				Expect(bootstrapKubeconfig).To(ContainSubstring("command: /opt/azure/tlsbootstrap/tls-bootstrap-client"))
-				Expect(bootstrapKubeconfig).To(ContainSubstring("- bootstrap"))
-				Expect(bootstrapKubeconfig).To(ContainSubstring("--next-proto=aks-tls-bootstrap"))
-				Expect(bootstrapKubeconfig).To(ContainSubstring("--aad-resource=appID"))
-				Expect(bootstrapKubeconfig).To(ContainSubstring("interactiveMode: Never"))
-				Expect(bootstrapKubeconfig).To(ContainSubstring("provideClusterInfo: true"))
-				Expect(bootstrapKubeconfig).ToNot(ContainSubstring("token:"))
+				etcDefaultKubelet := o.files["/etc/default/kubelet"].value
+				etcDefaultKubeletService := o.files["/etc/systemd/system/kubelet.service"].value
+				kubeletSh := o.files["/opt/azure/containers/kubelet.sh"].value
+				validateCredentials := o.files["/opt/azure/containers/validate-kubelet-credentials.sh"].value
+				caCRT := o.files["/etc/kubernetes/certs/ca.crt"].value
+				kubeconfig := o.files["/var/lib/kubelet/kubeconfig"].value
+
+				Expect(etcDefaultKubelet).NotTo(BeEmpty())
+				Expect(etcDefaultKubeletService).NotTo(BeEmpty())
+				Expect(kubeletSh).NotTo(BeEmpty())
+				Expect(validateCredentials).ToNot(BeEmpty())
+				Expect(caCRT).NotTo(BeEmpty())
+				Expect(kubeconfig).ToNot(BeEmpty())
+
+				bootstrapKubeconfig := o.files["/var/lib/kubelet/bootstrap-kubeconfig"]
+				Expect(bootstrapKubeconfig).To(BeNil())
+			}),
+
+		Entry("AKSUbuntu2204 with secure TLS bootstrapping enabled using custom AAD server application ID and custom download URL", "AKSUbuntu2204+SecureTLSBootstrapping+CustomAADResource+CustomDownloadURL", "1.25.6",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.EnableSecureTLSBootstrapping = true
+				config.CustomSecureTLSBootstrapAADServerAppID = "appID"
+				config.CustomSecureTLSBootstrapClientURL = "custom-url"
+				config.ContainerService.Properties.CertificateProfile = &datamodel.CertificateProfile{
+					CaCertificate: "fooBarBaz",
+				}
+			}, func(o *nodeBootstrappingOutput) {
+				Expect(o.vars["ENABLE_SECURE_TLS_BOOTSTRAPPING"]).To(Equal("true"))
+				Expect(o.vars["CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_SERVER_APP_ID"]).To(Equal("appID"))
+				Expect(o.vars["CUSTOM_SECURE_TLS_BOOTSTRAP_CLIENT_URL"]).To(Equal("custom-url"))
+
+				etcDefaultKubelet := o.files["/etc/default/kubelet"].value
+				etcDefaultKubeletService := o.files["/etc/systemd/system/kubelet.service"].value
+				kubeletSh := o.files["/opt/azure/containers/kubelet.sh"].value
+				validateCredentials := o.files["/opt/azure/containers/validate-kubelet-credentials.sh"].value
+				caCRT := o.files["/etc/kubernetes/certs/ca.crt"].value
+				kubeconfig := o.files["/var/lib/kubelet/kubeconfig"].value
+
+				Expect(etcDefaultKubelet).NotTo(BeEmpty())
+				Expect(etcDefaultKubeletService).NotTo(BeEmpty())
+				Expect(kubeletSh).NotTo(BeEmpty())
+				Expect(validateCredentials).ToNot(BeEmpty())
+				Expect(caCRT).NotTo(BeEmpty())
+				Expect(kubeconfig).ToNot(BeEmpty())
+
+				bootstrapKubeconfig := o.files["/var/lib/kubelet/bootstrap-kubeconfig"]
+				Expect(bootstrapKubeconfig).To(BeNil())
 			}),
 
 		Entry("AKSUbuntu2204 with kubelet serving certificate rotation implicitly disabled", "AKSUbuntu2204+ImplicitlyDisableKubeletServingCertificateRotation", "1.29.7",

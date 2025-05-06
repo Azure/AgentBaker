@@ -350,8 +350,9 @@ while IFS= read -r p; do
       ;;
     "aks-secure-tls-bootstrap-client")
       for version in ${PACKAGE_VERSIONS[@]}; do
+        # removed at provisioning time if secure TLS bootstrapping is disabled
         evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-        downloadAKSSecureTLSBootstrapClient "${downloadDir}" "${evaluatedURL}" "${version}"
+        downloadSecureTLSBootstrapClient "${downloadDir}" "${evaluatedURL}" "${version}"
         echo "  - aks-secure-tls-bootstrap-client version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;

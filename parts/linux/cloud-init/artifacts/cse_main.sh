@@ -55,7 +55,7 @@ source "${CSE_CONFIG_FILEPATH}"
 resolve_packages_source_url
 logs_to_events "AKS.CSE.setPackagesBaseURL" "echo $PACKAGE_DOWNLOAD_BASE_URL"
 
-logs_to_events "AKS.CSE.installAKSSecureTLSBootstrapClient" installAKSSecureTLSBootstrapClient
+logs_to_events "AKS.CSE.installSecureTLSBootstrapClient" installSecureTLSBootstrapClient
 
 logs_to_events "AKS.CSE.ensureKubeCACert" ensureKubeCACert
 
