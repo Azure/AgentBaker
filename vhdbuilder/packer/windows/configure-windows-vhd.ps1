@@ -1,3 +1,4 @@
+
 <#
     .SYNOPSIS
         Used to produce Windows AKS images.
