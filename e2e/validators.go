@@ -579,7 +579,7 @@ func ValidateLocalDNSService(ctx context.Context, s *Scenario) {
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "localdns service is not up and running")
 }
 
-// ValidateLocalDNSResolution checks if the DNS resolution for an external domain is successful from localdns clusterlistenerIP.
+// ValidateLocalDNSResolution checks if the DNS resolution for an external domain is successful from localdns clusterlistenerIP and nodelistenerIP.
 // It uses the 'dig' command to check the DNS resolution and expects a successful response.
 func ValidateLocalDNSResolution(ctx context.Context, s *Scenario) {
 	testdomain := "bing.com"
