@@ -108,6 +108,10 @@ validateKubeletCredentials() {
         return 0
     fi
     if [ -z "${BOOTSTRAP_KUBECONFIG_PATH:-}" ]; then
+        echo "BOOTSTRAP_KUBECONFIG_PATH is not set, skipping kubelet credential validation"
+        return 0
+    fi
+    if [ ! -f "$BOOTSTRAP_KUBECONFIG_PATH" ]; then
         echo "no bootstrap-kubeconfig found at $BOOTSTRAP_KUBECONFIG_PATH, no bootstrap credentials to validate"
         return 0
     fi

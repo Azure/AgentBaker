@@ -3,47 +3,79 @@
 Describe 'validate-kubelet-credentials.sh'
     Include "./parts/linux/cloud-init/artifacts/validate-kubelet-credentials.sh"
 
-    KUBECONFIG_PATH="mock-kubeconfig"
+    MAX_RETRIES=2
+    MOCK_BOOTSTRAP_KUBECONFIG_PATH="mock-bootstrap-kubeconfig"
+    MOCK_KUBECONFIG_PATH="mock-kubeconfig"
+    
+    setup() {
+        KUBECONFIG_PATH=$MOCK_KUBECONFIG_PATH
+        BOOTSTRAP_KUBECONFIG_PATH=$MOCK_BOOTSTRAP_KUBECONFIG_PATH
+        CREDENTIAL_VALIDATION_KUBE_CA_FILE="ca"
+        CREDENTIAL_VALIDATION_APISERVER_URL="url"
 
+        touch $MOCK_BOOTSTRAP_KUBECONFIG_PATH
+        tee $MOCK_BOOTSTRAP_KUBECONFIG_PATH > /dev/null <<EOF
+apiVersion: v1
+kind: Config
+clusters:
+- name: localcluster
+  cluster:
+    certificate-authority: ca.crt
+    server: url
+users:
+- name: kubelet-bootstrap
+  user:
+    token: token
+contexts:
+- context:
+    cluster: localcluster
+    user: kubelet-bootstrap
+  name: bootstrap-context
+current-context: bootstrap-context
+EOF
+    }
+    cleanup() {
+        rm -f $MOCK_KUBECONFIG_PATH
+        rm -f $MOCK_BOOTSTRAP_KUBECONFIG_PATH
+    }
     sleep() {
         echo "sleep $@"
     }
-    cleanup() {
-        rm -f $KUBECONFIG_PATH
-    }
 
+    BeforeEach 'setup'
     AfterEach 'cleanup'
     
     It 'should exit 0 if CREDENTIAL_VALIDATION_KUBE_CA_FILE is not set'
-        CREDENTIAL_VALIDATION_TLS_BOOTSTRAP_TOKEN="token"
-        CREDENTIAL_VALIDATION_APISERVER_URL="url"
+        CREDENTIAL_VALIDATION_KUBE_CA_FILE=""
         When call validateKubeletCredentials
         The stdout should include 'CREDENTIAL_VALIDATION_KUBE_CA_FILE is not set, skipping kubelet credential validation'
         The status should be success
     End
 
-    It 'should exit 0 if CREDENTIAL_VALIDATION_TLS_BOOTSTRAP_TOKEN is not set'
-        CREDENTIAL_VALIDATION_KUBE_CA_FILE="ca"
-        CREDENTIAL_VALIDATION_APISERVER_URL="url"
-        When call validateKubeletCredentials
-        The stdout should include 'CREDENTIAL_VALIDATION_TLS_BOOTSTRAP_TOKEN is not set, skipping kubelet credential validation'
-        The status should be success
-    End
-
     It 'should exit 0 if CREDENTIAL_VALIDATION_APISERVER_URL is not set'
-        CREDENTIAL_VALIDATION_KUBE_CA_FILE="ca"
-        CREDENTIAL_VALIDATION_TLS_BOOTSTRAP_TOKEN="token"
+        CREDENTIAL_VALIDATION_APISERVER_URL=""
         When call validateKubeletCredentials
         The stdout should include 'CREDENTIAL_VALIDATION_APISERVER_URL is not set, skipping kubelet credential validation'
         The status should be success
     End
 
+    It 'should exit 0 if BOOTSTRAP_KUBECONFIG_PATH is not set'
+        BOOTSTRAP_KUBECONFIG_PATH=""
+        When call validateKubeletCredentials
+        The stdout should include 'BOOTSTRAP_KUBECONFIG_PATH is not set, skipping kubelet credential validation'
+        The status should be success
+    End
+
+    It 'should exit 0 if the bootstrap kubeconfig does not exist'
+        BOOTSTRAP_KUBECONFIG_PATH="does/not/exist"
+        When call validateKubeletCredentials
+        The stdout should include 'no bootstrap-kubeconfig found at does/not/exist, no bootstrap credentials to validate'
+        The status should be success
+    End
+
     It 'should exit 0 if a kubeconfig already exists'
-        KUBECONFIG_PATH="mock-kubeconfig"
         touch $KUBECONFIG_PATH
-        CREDENTIAL_VALIDATION_KUBE_CA_FILE="ca"
-        CREDENTIAL_VALIDATION_TLS_BOOTSTRAP_TOKEN="token"
-        CREDENTIAL_VALIDATION_APISERVER_URL="url"
+
         When call validateKubeletCredentials
         The stdout should include 'client credential already exists within kubeconfig: mock-kubeconfig, no need to validate bootstrap credentials'
         The status should be success
@@ -53,10 +85,7 @@ Describe 'validate-kubelet-credentials.sh'
         command() {
             return 1
         }
-        KUBECONFIG_PATH="mock-kubeconfig"
-        CREDENTIAL_VALIDATION_KUBE_CA_FILE="ca"
-        CREDENTIAL_VALIDATION_TLS_BOOTSTRAP_TOKEN="token"
-        CREDENTIAL_VALIDATION_APISERVER_URL="url"
+
         When call validateKubeletCredentials
         The stdout should include 'curl is not available, unable to validate bootstrap credentials'
         The status should be success
@@ -69,10 +98,7 @@ Describe 'validate-kubelet-credentials.sh'
         curl() {
             echo "200"
         }
-        KUBECONFIG_PATH="mock-kubeconfig"
-        CREDENTIAL_VALIDATION_KUBE_CA_FILE="ca"
-        CREDENTIAL_VALIDATION_TLS_BOOTSTRAP_TOKEN="token"
-        CREDENTIAL_VALIDATION_APISERVER_URL="url"
+
         When call validateKubeletCredentials
         The stdout should include 'will validate kubelet bootstrap credentials'
         The stdout should include 'will check credential validity against apiserver url: url'
@@ -89,11 +115,6 @@ Describe 'validate-kubelet-credentials.sh'
             echo "401"
         }
 
-        KUBECONFIG_PATH="mock-kubeconfig"
-        CREDENTIAL_VALIDATION_KUBE_CA_FILE="ca"
-        CREDENTIAL_VALIDATION_TLS_BOOTSTRAP_TOKEN="token"
-        CREDENTIAL_VALIDATION_APISERVER_URL="url"
-        MAX_RETRIES=2
         When call validateKubeletCredentials
         The stdout should include 'will validate kubelet bootstrap credentials'
         The stdout should include 'will check credential validity against apiserver url: url'
@@ -114,10 +135,6 @@ Describe 'validate-kubelet-credentials.sh'
             return 6
         }
 
-        KUBECONFIG_PATH="mock-kubeconfig"
-        CREDENTIAL_VALIDATION_KUBE_CA_FILE="ca"
-        CREDENTIAL_VALIDATION_TLS_BOOTSTRAP_TOKEN="token"
-        CREDENTIAL_VALIDATION_APISERVER_URL="url"
         When call validateKubeletCredentials
         The stdout should include 'will validate kubelet bootstrap credentials'
         The stdout should include 'will check credential validity against apiserver url: url'
