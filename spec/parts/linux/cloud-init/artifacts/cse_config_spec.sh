@@ -382,4 +382,163 @@ Describe 'cse_config.sh'
             The output should include "Enable localdns failed due to error"
         End
     End
+
+    Describe 'configureSSHService'
+        setup() {
+            # Create a test directory structure for systemd files
+            mkdir -p /tmp/etcsystemd/system/ssh.service.d
+            mkdir -p /tmp/etcsystemd/system/ssh.socket.d
+            touch /tmp/etcsystemd/system/ssh.service.d/00-socket.conf
+            touch /tmp/etcsystemd/system/ssh.socket.d/addresses.conf
+            
+            # Override system commands for testing
+            systemctl() {
+                case "$1" in
+                    "is-active")
+                        if [ "$2" = "--quiet" ] && [ "$3" = "ssh.socket" ]; then
+                            # Mock for systemctl is-active --quiet ssh.socket
+                            if [ "$MOCK_SSH_SOCKET_ACTIVE" = "true" ]; then
+                                return 0 # Socket is active
+                            else
+                                return 1 # Socket is not active
+                            fi
+                        else
+                            echo "Unknown systemctl is-active command: $*"
+                            return 1
+                        fi
+                        ;;
+                    "disable")
+                        echo "Disabling $2"
+                        return 0
+                        ;;
+                    "enable")
+                        echo "Enabling $2"
+                        return 0
+                        ;;
+                    "start")
+                        echo "Starting $2"
+                        return 0
+                        ;;
+                    *)
+                        echo "Unknown systemctl command: $1"
+                        return 1
+                        ;;
+                esac
+            }
+            
+            systemctlEnableAndStart() {
+                echo "Starting and enabling $1"
+                return 0
+            }
+            
+            rm() {
+                echo "Removing $@"
+                return 0
+            }
+            
+            # Save original semverCompare function
+            save_semverCompare() {
+                local a=$1
+                local b=$2
+                if [ "$MOCK_VERSION_GTE" = "true" ]; then
+                    return 0 # Simulate version >= 22.10
+                else
+                    return 1 # Simulate version < 22.10
+                fi
+            }
+            
+            # Save original value
+            if [ -z "$orig_etc_systemd" ]; then
+                orig_etc_systemd=$etc_systemd
+            fi
+            
+            # Mock OS variable for Ubuntu check
+            if [ -z "$orig_OS" ]; then
+                orig_OS=$OS
+            fi
+            
+            # Override variables for testing
+            export etc_systemd=/tmp/etcsystemd
+            export OS="${MOCK_OS:-$UBUNTU_OS_NAME}"
+            export OS_VERSION="${MOCK_OS_VERSION:-22.04}"
+        }
+        
+        cleanup() {
+            # Clean up test directory
+            rm -rf /tmp/etcsystemd
+            # Restore original value if it exists
+            if [ -n "$orig_etc_systemd" ]; then
+                export etc_systemd=$orig_etc_systemd
+            else
+                unset etc_systemd
+            fi
+            unset MOCK_VERSION_GTE
+            unset MOCK_SSH_SOCKET_ACTIVE
+        }
+        
+        BeforeEach "setup"
+        AfterEach "cleanup"
+        
+        It 'should do nothing for Ubuntu 22.04 (supported version below 22.10)'
+            # Mock semverCompare to simulate Ubuntu < 22.10
+            MOCK_VERSION_GTE="false"
+            
+            # Override semverCompare
+            semverCompare() { save_semverCompare "$@"; }
+            
+            When call configureSSHService
+            The status should be success
+            # Should do nothing and silently exit
+        End
+        
+        It 'should configure SSH service for Ubuntu 24.04 (supported version above 22.10)'
+            # Mock semverCompare to simulate Ubuntu >= 22.10
+            MOCK_VERSION_GTE="true"
+            # Mock ssh.socket is active
+            MOCK_SSH_SOCKET_ACTIVE="true"
+            
+            # Override semverCompare
+            semverCompare() { save_semverCompare "$@"; }
+            
+            When call configureSSHService
+            The stdout should include "Disabling ssh.socket"
+            The stdout should include "Removing /tmp/etcsystemd/system/ssh.service.d/00-socket.conf"
+            The stdout should include "Removing /tmp/etcsystemd/system/ssh.socket.d/addresses.conf"
+            The stdout should include "Starting and enabling ssh"
+            The status should be success
+        End
+        
+        It 'should handle missing configuration files gracefully for Ubuntu 24.04'
+            # Mock semverCompare to simulate Ubuntu >= 22.10
+            MOCK_VERSION_GTE="true"
+            # Mock ssh.socket is active
+            MOCK_SSH_SOCKET_ACTIVE="true"
+            
+            # Remove test files to simulate missing files
+            rm -f /tmp/etcsystemd/system/ssh.service.d/00-socket.conf
+            rm -f /tmp/etcsystemd/system/ssh.socket.d/addresses.conf
+            
+            # Override semverCompare
+            semverCompare() { save_semverCompare "$@"; }
+            
+            When call configureSSHService
+            The stdout should include "Disabling ssh.socket"
+            The stdout should include "Starting and enabling ssh"
+            The status should be success
+        End
+        
+        It 'should handle ssh.socket already being disabled for Ubuntu 24.04'
+            # Mock semverCompare to simulate Ubuntu >= 22.10
+            MOCK_VERSION_GTE="true"
+            # Mock ssh.socket is not active
+            MOCK_SSH_SOCKET_ACTIVE="false"
+            
+            # Override semverCompare
+            semverCompare() { save_semverCompare "$@"; }
+            
+            When call configureSSHService
+            # Should do nothing and silently exit since socket is not active
+            The status should be success
+        End
+    End
 End
