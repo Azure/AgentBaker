@@ -23,16 +23,6 @@ The webserver is also used to determine the latest version of Linux VHDs availab
 
 > **IMPORTANT**: When making changes to files in the `parts` or `pkg` directories, you must run `make generate` afterward to regenerate the snapshot test data. This ensures consistency between the code and tests and prevents regressions.
 
-Since the folder is generated, it often subject to conflict when trying to merge. when resolving conflict, use the following strategy: merge `origin/master` first and resolve conflict by accepting theirs, and run the command afterwards.  
-
-```sh
-git checkout --theirs origin/master pkg/agent/testdata
-git add pkg/agent/testdata
-make generate
-```
-
-After that, remember to auto-stage and commit all changes in the `pkg/agent/testdata` directory as these contain important test snapshots. Use commit message but use "test: update testdata".
-
 Windows uses a different folder [cse](../staging/cse/windows/) for almost the same purpose. There are subtle differences as windows CSEs can be downloaded as a zip file during provisioning time due to restrictions on the file size on Windows system, while for linux based systems the cse/custom data are dropped in during provisioning time.
 
 ## Deployment and Release
