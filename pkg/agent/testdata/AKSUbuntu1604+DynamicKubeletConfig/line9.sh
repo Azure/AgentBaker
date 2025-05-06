@@ -410,6 +410,7 @@ sysctl_reload() {
     retrycmd_silent $1 $2 $3 "false" sysctl --system
 }
 <<<<<<< HEAD
+<<<<<<< HEAD
 
 =======
 <<<<<<< HEAD
@@ -419,6 +420,8 @@ version_gte() {
 }
 =======
 >>>>>>> 076debc8e4 (latest test data)
+=======
+>>>>>>> df24d7abb1 (latest test data)
 
 systemctlEnableAndStart() {
     service=$1; timeout=$2
