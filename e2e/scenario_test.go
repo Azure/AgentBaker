@@ -201,8 +201,7 @@ func Test_AzureLinuxV2_GPU(t *testing.T) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 			},
-		},
-	})
+		})
 }
 
 func Test_AzureLinuxV2_GPUAzureCNI(t *testing.T) {
@@ -909,8 +908,7 @@ func Test_Ubuntu2204_CustomCATrust(t *testing.T) {
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateNonEmptyDirectory(ctx, s, "/usr/local/share/ca-certificates/certs")
 			},
-		},
-	})
+		})
 }
 
 func Test_Ubuntu2204_CustomCATrust_Scriptless(t *testing.T) {
@@ -1718,6 +1716,24 @@ func Test_Ubuntu2404Gen2(t *testing.T) {
 				ValidateContainerd2Properties(ctx, s, containerdVersions)
 				ValidateRunc12Properties(ctx, s, runcVersions)
 				ValidateContainerRuntimePlugins(ctx, s)
+			},
+		},
+	})
+}
+
+func Test_K8S132_SystemdKubeletWatchdog(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that systemd kubelet watchdog is enabled and functioning correctly",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.getRandomVHD(),
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				// Validate systemd watchdog is enabled and configured for kubelet
+				ValidateSystemdUnitIsRunning(ctx, s, "kubelet.service")
+				ValidateFileHasContent(ctx, s, "/etc/systemd/system/kubelet.service.d/10-aks-watchdog.conf", "WatchdogSec=30")
+				ValidateJournalctlOutput(ctx, s, "kubelet.service", "Starting systemd watchdog with interval")
 			},
 		},
 	})

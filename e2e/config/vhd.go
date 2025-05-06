@@ -3,6 +3,7 @@ package config
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"strings"
 	"sync"
 	"testing"
@@ -263,4 +264,20 @@ func (id VHDResourceID) Short() string {
 		return strings.Split(str, sep)[1]
 	}
 	return str
+}
+
+func getRandomVHD() *Image {
+	// List of VHDs to use for generic tests
+	vhds := []*Image{
+		VHDUbuntu2404Gen2Containerd,
+		VHDUbuntu2404ArmContainerd,
+		VHDUbuntu2204Gen2Containerd,
+		VHDUbuntu2204Gen2Arm64Containerd,
+		VHDAzureLinuxV2Gen2,
+		VHDAzureLinuxV2Gen2Arm64,
+		VHDCBLMarinerV2Gen2,
+	}
+
+	// Return a random VHD from the list
+	return vhds[rand.Intn(len(vhds))]
 }
