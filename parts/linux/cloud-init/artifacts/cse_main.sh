@@ -127,7 +127,7 @@ fi
 
 logs_to_events "AKS.CSE.disableSystemdResolved" disableSystemdResolved
 
-logs_to_events "AKS.CSE.ensureSSHService" ensureSSHService
+# ensureSSHService has been moved to VHD build phase to improve node provisioning performance
 
 logs_to_events "AKS.CSE.configureAdminUser" configureAdminUser
 
