@@ -220,6 +220,13 @@ try
         return
     }
 
+    ### TODO (christis) remove this!!!
+    # disable packages to test
+    $hosts = "C:\\Windows\\System32\\drivers\\etc\\hosts"
+    # "0.0.0.0 packages.aks.azure.com" > $hosts
+    "0.0.0.1 acs-mirror.azureedge.net" >> $hosts
+    Write-Log "DNS override set"
+
     # This involes using proxy, log the config before fetching packages
     Write-Log "private egress proxy address is '$global:PrivateEgressProxyAddress'"
     # TODO update to use proxy

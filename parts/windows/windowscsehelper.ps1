@@ -193,9 +193,9 @@ function DownloadFileOverHttp {
     $fileName = [IO.Path]::GetFileName($cleanUrl)
 
     $search = @()
-    if ($global:CacheDir -and (Test-Path $global:CacheDir)) {
-        $search = [IO.Directory]::GetFiles($global:CacheDir, $fileName, [IO.SearchOption]::AllDirectories)
-    }
+    # if ($global:CacheDir -and (Test-Path $global:CacheDir)) {
+    #     $search = [IO.Directory]::GetFiles($global:CacheDir, $fileName, [IO.SearchOption]::AllDirectories)
+    # }
 
     if ($search.Count -ne 0) {
         Write-Log "Using cached version of $fileName - Copying file from $($search[0]) to $DestinationPath"
@@ -510,11 +510,12 @@ function Resolve-PackagesDownloadFqdn {
             $responseCode = [int]$response.StatusCode
 
             if ($responseCode -eq 200) {
-                Write-Log "Established connectivity to $PreferredFqdn."
+                Write-Log "Established connectivity to $PreferredFqdn." | Out-Null
                 break
             }
         } catch {
             $responseCode = 0
+            Write-Log "Exception while trying to establish connectivity to $PreferredFqdn. Exception: $_" | Out-Null
             if ($_.Exception.Response) {
                 $responseCode = [int]$_.Exception.Response.StatusCode
             }
@@ -523,7 +524,6 @@ function Resolve-PackagesDownloadFqdn {
         if ($i -eq $Retries) {
             # If we cannot establish connectivity to packages.aks.azure.com, fallback to old CDN URL
             $packageDownloadBaseUrl = $FallbackFqdn
-            Write-Log "Setting packageDownloadBaseUrl to $packageDownloadBaseUrl. Please check to ensure cluster firewall has packages.aks.azure.com on its allowlist"
             break
         } else {
             Start-Sleep -Seconds $WaitSleepSeconds
@@ -543,9 +543,11 @@ function Update-BaseUrl {
         $InitialUrl
     )
 
+    $updatedUrl = $InitialUrl
+
     if (!($InitialUrl -match "acs-mirror\.azureedge\.net|packages\.aks\.azure\.com")) {
         # We're probably not in Public cloud
-        return $InitialUrl
+        return $updatedUrl
     }
 
     if ($global:PackageDownloadFqdn -eq $null) {
@@ -555,10 +557,10 @@ function Update-BaseUrl {
 
     # Replace domain based on the current package download FQDN
     if (($global:PackageDownloadFqdn -eq "packages.aks.azure.com") -and ($InitialUrl -like "https://acs-mirror.azureedge.net/*")) {
-        $InitialUrl = $InitialUrl -replace "acs-mirror.azureedge.net", $global:PackageDownloadFqdn
+        $updatedUrl = $InitialUrl -replace "acs-mirror.azureedge.net", $global:PackageDownloadFqdn
     } elseif (($global:PackageDownloadFqdn -eq "acs-mirror.azureedge.net") -and ($InitialUrl -like "https://packages.aks.azure.com/*")) {
-        $InitialUrl = $InitialUrl -replace "packages.aks.azure.com", $global:PackageDownloadFqdn
+        $updatedUrl = $InitialUrl -replace "packages.aks.azure.com", $global:PackageDownloadFqdn
     }
 
-    return $InitialUrl
+    return $updatedUrl
 }
