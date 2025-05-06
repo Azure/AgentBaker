@@ -99,7 +99,16 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 }
 
 func ValidateSystemdWatchdogForKubernetes132Plus(ctx context.Context, s *Scenario) {
-	if agent.IsKubernetesVersionGe(s.Runtime.NBC.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.32.0") {
+	var k8sVersion string
+	if s.Runtime.NBC != nil && s.Runtime.NBC.ContainerService != nil && 
+		s.Runtime.NBC.ContainerService.Properties != nil && 
+		s.Runtime.NBC.ContainerService.Properties.OrchestratorProfile != nil {
+		k8sVersion = s.Runtime.NBC.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion
+	} else if s.Runtime.AKSNodeConfig != nil {
+		k8sVersion = s.Runtime.AKSNodeConfig.GetKubernetesVersion()
+	}
+
+	if k8sVersion != "" && agent.IsKubernetesVersionGe(k8sVersion, "1.32.0") {
 		// Validate systemd watchdog is enabled and configured for kubelet
 		ValidateSystemdUnitIsRunning(ctx, s, "kubelet.service")
 		ValidateFileHasContent(ctx, s, "/etc/systemd/system/kubelet.service.d/10-aks-watchdog.conf", "WatchdogSec=30")
