@@ -81,7 +81,6 @@ installCriCtlPackage() {
     fi
     echo "Installing ${packageName} with apt-get"
     apt_get_install 20 30 120 ${packageName} || exit 1
-    ln -sf /usr/bin/crictl /usr/local/bin/crictl
 }
 
 installContainerd() {

@@ -464,12 +464,13 @@ systemctlDisableAndStop() {
 }
 
 semverCompare() {
-    VERSION_A=$(echo $1 | cut -d "+" -f 1)
-    VERSION_B=$(echo $2 | cut -d "+" -f 1)
+    VERSION_A=$(echo "$1" | cut -d "+" -f 1)
+    VERSION_B=$(echo "$2" | cut -d "+" -f 1)
+    
     [ "${VERSION_A}" = "${VERSION_B}" ] && return 0
-    sorted=$(echo ${VERSION_A} ${VERSION_B} | tr ' ' '\n' | sort -V )
+    sorted=$(echo "${VERSION_A}" "${VERSION_B}" | tr ' ' '\n' | sort -V )
     highestVersion=$(IFS= echo "${sorted}" | cut -d$'\n' -f2)
-    [ "${VERSION_A}" = ${highestVersion} ] && return 0
+    [ "${VERSION_A}" = "${highestVersion}" ] && return 0
     return 1
 }
 
@@ -666,7 +667,7 @@ updateMultiArchVersions() {
   local imageToBePulled="$1"
 
   #jq the MultiArchVersions from the containerImages. If ContainerImages[i].multiArchVersionsV2 is not null, return that, else return ContainerImages[i].multiArchVersions
-  if [ "$(echo "${imageToBePulled}" | jq -r '.multiArchVersionsV2 // [] | select(. != null and . != [])')" ]; then
+  if [ "$(echo "${imageToBePulled}" | jq .multiArchVersionsV2)" != "null" ]; then
     local latestVersions=($(echo "${imageToBePulled}" | jq -r ".multiArchVersionsV2[] | select(.latestVersion != null) | .latestVersion"))
     local previousLatestVersions=($(echo "${imageToBePulled}" | jq -r ".multiArchVersionsV2[] | select(.previousLatestVersion != null) | .previousLatestVersion"))
     for version in "${latestVersions[@]}"; do
@@ -676,11 +677,6 @@ updateMultiArchVersions() {
       MULTI_ARCH_VERSIONS+=("${version}")
     done
     return
-  fi
-
-  if [ "$(echo "${imageToBePulled}" | jq -r '.multiArchVersions | if . == null then "null" else empty end')" = "null" ]; then
-    MULTI_ARCH_VERSIONS=()
-    return 
   fi
 
   local versions=($(echo "${imageToBePulled}" | jq -r ".multiArchVersions[]"))
@@ -888,6 +884,29 @@ oras_login_with_kubelet_identity() {
     fi
 
     echo "successfully logged in to acr '$acr_url' with identity token"
+}
+
+ensureSSHService() {
+    if [ "$OS" != "$UBUNTU_OS_NAME" ]; then
+        return 0
+    fi
+    if ! semverCompare "$OS_VERSION" "22.10"; then
+        return 0
+    fi
+    if ! systemctl is-active --quiet ssh.socket; then
+        return 0
+    fi
+
+    systemctl disable --now ssh.socket
+    if [ -f /etc/systemd/system/ssh.service.d/00-socket.conf ]; then
+        rm /etc/systemd/system/ssh.service.d/00-socket.conf
+    fi
+    if [ -f /etc/systemd/system/ssh.socket.d/addresses.conf ]; then
+        rm /etc/systemd/system/ssh.socket.d/addresses.conf
+    fi
+    systemctlEnableAndStart ssh 30 || return $ERR_SYSTEMCTL_START_FAIL
+
+    return 0
 }
 
 #HELPERSEOF
