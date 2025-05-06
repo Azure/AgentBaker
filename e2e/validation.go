@@ -95,14 +95,6 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 		ValidateLocalDNSService(ctx, s)
 		ValidateLocalDNSResolution(ctx, s)
 	}
-
-	// validate that kubelet is configured with the systemd watchdog on kubernetes 1.32+
-	if IsKubernetesVersionGe(s.Runtime.Cluster.Version, "1.32.0") {
-		// Validate systemd watchdog is enabled and configured for kubelet
-		ValidateSystemdUnitIsRunning(ctx, s, "kubelet.service")
-		ValidateFileHasContent(ctx, s, "/etc/systemd/system/kubelet.service.d/10-aks-watchdog.conf", "WatchdogSec=30")
-		ValidateJournalctlOutput(ctx, s, "kubelet.service", "Starting systemd watchdog with interval")
-	}
 }
 
 func ValidateSystemdWatchdogForKubernetes132Plus(ctx context.Context, s *Scenario) {
