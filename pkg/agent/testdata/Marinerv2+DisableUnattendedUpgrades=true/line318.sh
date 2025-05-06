@@ -2,7 +2,7 @@
 
 if [ -f "/opt/azure/containers/validate-kubelet-credentials.sh" ]; then
     if ! /bin/bash /opt/azure/containers/validate-kubelet-credentials.sh; then
-        echo "kubelet credential validation faled, will still continue to start kubelet"
+        echo "kubelet credential validation failed, will still continue to start kubelet"
     fi
 fi
 
