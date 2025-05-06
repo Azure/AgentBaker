@@ -972,32 +972,48 @@ oras_login_with_kubelet_identity() {
     echo "successfully logged in to acr '$acr_url' with identity token"
 }
 
-ensureSSHService() {
+configureSSHService() {
     # If not Ubuntu, no changes needed
     if [ "$OS" != "$UBUNTU_OS_NAME" ]; then
         return 0
     fi
-        # for Ubuntu 22.10+ or newer uses socket activation
+    
+    # Only for Ubuntu 22.10+ or newer socket activation is used, for earlier versions no changes needed
     if ! semverCompare "$OS_VERSION" "22.10"; then
+        # For older Ubuntu versions, just make sure ssh service is enabled and running
+        systemctl is-active --quiet ssh || systemctlEnableAndStart ssh 30 || return $ERR_SYSTEMCTL_START_FAIL
         return 0
     fi
+
+    echo "Ubuntu 22.10+ detected. Checking SSH configuration..."
     # For Ubuntu 22.10+ with socket-based SSH activation
-    if ! systemctl is-active --quiet ssh.socket; then
-        return 0
+    # Check if socket is active
+    if systemctl is-active --quiet ssh.socket; then
+        # Socket is active, disable it and switch to service-based activation
+        systemctl disable --now ssh.socket || echo "Warning: Could not disable ssh.socket"
+        
+        # Remove the socket-based configuration files if present
+        if [ -f /etc/systemd/system/ssh.service.d/00-socket.conf ]; then
+            rm /etc/systemd/system/ssh.service.d/00-socket.conf || echo "Warning: Could not remove 00-socket.conf"
+        fi
+        
+        if [ -f /etc/systemd/system/ssh.socket.d/addresses.conf ]; then
+            rm /etc/systemd/system/ssh.socket.d/addresses.conf || echo "Warning: Could not remove addresses.conf"
+        fi
+        
     fi
-
-    # Socket is active, disable it and switch to service-based activation
-    systemctl disable --now ssh.socket
-    # Remove the socket-based configuration file if present
-    if [ -f /etc/systemd/system/ssh.service.d/00-socket.conf ]; then
-        rm /etc/systemd/system/ssh.service.d/00-socket.conf
-    fi
-    if [ -f /etc/systemd/system/ssh.socket.d/addresses.conf ]; then
-        rm /etc/systemd/system/ssh.socket.d/addresses.conf
-    fi
-    # Enable and start the traditional SSH service
+    
+    # Always ensure the SSH service is enabled and running
+    echo "Enabling and starting SSH service..."
     systemctlEnableAndStart ssh 30 || return $ERR_SYSTEMCTL_START_FAIL
-
+    
+    # Verify SSH service is now running
+    if ! systemctl is-active --quiet ssh.service; then
+        echo "Error: Failed to start SSH service after configuration changes"
+        return $ERR_SYSTEMCTL_START_FAIL
+    fi
+    
+    echo "SSH service successfully configured and started"
     return 0
 }
 
