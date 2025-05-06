@@ -29,20 +29,23 @@ import (
 )
 
 var (
-	clusterKubenet              *Cluster
-	clusterKubenetAirgap        *Cluster
-	clusterKubenetNonAnonAirgap *Cluster
-	clusterAzureNetwork         *Cluster
+	clusterLatestKubernetesVersion *Cluster
+	clusterKubenet                 *Cluster
+	clusterKubenetAirgap           *Cluster
+	clusterKubenetNonAnonAirgap    *Cluster
+	clusterAzureNetwork            *Cluster
 
-	clusterKubenetError              error
-	clusterKubenetAirgapError        error
-	clusterKubenetNonAnonAirgapError error
-	clusterAzureNetworkError         error
+	clusterLatestKubernetesVersionError error
+	clusterKubenetError                 error
+	clusterKubenetAirgapError           error
+	clusterKubenetNonAnonAirgapError    error
+	clusterAzureNetworkError            error
 
-	clusterKubenetOnce              sync.Once
-	clusterKubenetAirgapOnce        sync.Once
-	clusterKubenetNonAnonAirgapOnce sync.Once
-	clusterAzureNetworkOnce         sync.Once
+	clusterLatestKubernetesVersionOnce sync.Once
+	clusterKubenetOnce                 sync.Once
+	clusterKubenetAirgapOnce           sync.Once
+	clusterKubenetNonAnonAirgapOnce    sync.Once
+	clusterAzureNetworkOnce            sync.Once
 )
 
 type ClusterParams struct {
@@ -78,6 +81,14 @@ func (c *Cluster) MaxPodsPerNode() (int, error) {
 
 // Same cluster can be attempted to be created concurrently by different tests
 // sync.Once is used to ensure that only one cluster for the set of tests is created
+
+func ClusterLatestKubernetesVersion(ctx context.Context, t *testing.T) (*Cluster, error) {
+	clusterLatestKubernetesVersionOnce.Do(func() {
+		clusterLatestKubernetesVersion, clusterLatestKubernetesVersionError = prepareCluster(ctx, t, getLatestKubernetesVersionClusterModel("abe2e-latest-kubernetes-version"), false, false)
+	})
+	return clusterLatestKubernetesVersion, clusterLatestKubernetesVersionError
+}
+
 func ClusterKubenet(ctx context.Context, t *testing.T) (*Cluster, error) {
 	clusterKubenetOnce.Do(func() {
 		clusterKubenet, clusterKubenetError = prepareCluster(ctx, t, getKubenetClusterModel("abe2e-kubenet"), false, false)

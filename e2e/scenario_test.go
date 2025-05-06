@@ -1721,24 +1721,6 @@ func Test_Ubuntu2404Gen2(t *testing.T) {
 	})
 }
 
-func Test_K8S132_SystemdKubeletWatchdog(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that systemd kubelet watchdog is enabled and functioning correctly",
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.getRandomVHD(),
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				// Validate systemd watchdog is enabled and configured for kubelet
-				ValidateSystemdUnitIsRunning(ctx, s, "kubelet.service")
-				ValidateFileHasContent(ctx, s, "/etc/systemd/system/kubelet.service.d/10-aks-watchdog.conf", "WatchdogSec=30")
-				ValidateJournalctlOutput(ctx, s, "kubelet.service", "Starting systemd watchdog with interval")
-			},
-		},
-	})
-}
-
 func Test_Ubuntu2404Gen2_GPUNoDriver(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a GPU-enabled node using the Ubuntu 2404 VHD opting for skipping gpu driver installation can be properly bootstrapped",
@@ -1808,6 +1790,18 @@ func Test_Ubuntu2404ARM(t *testing.T) {
 				ValidateContainerd2Properties(ctx, s, containerdVersions)
 				ValidateRunc12Properties(ctx, s, runcVersions)
 			},
+		},
+	})
+}
+
+find Test_Random_VHD_With_Latest_Kubernetes_Version(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using a Random VHD can be properly bootstrapped with the latest kubernetes version",
+		Config: Config{
+			Cluster: ClusterLatestKubernetesVersion,
+			VHD:     config.getRandomOSVHD(),
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+			}
 		},
 	})
 }

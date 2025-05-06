@@ -19,6 +19,31 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/privatedns/armprivatedns"
 )
 
+// getLatestGAKubernetesVersion returns the latest GA Kubernetes version for the given location.
+func getLatestGAKubernetesVersion(location string) (string, error) {
+	versions, err := config.Azure.AKS.ListKubernetesVersions(context.Background(), location, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to list Kubernetes versions: %w", err)
+	}
+	for _, version := range versions.Versions {
+		if version.IsPreview == nil || !*version.IsPreview {
+			return *version.Name, nil
+		}
+	}
+	return "", fmt.Errorf("no GA Kubernetes version found")
+}
+
+// getLatestVersionClusterModel returns a cluster model with the latest GA Kubernetes version.
+func getLatestVersionClusterModel(name string) (*armcontainerservice.ManagedCluster, error) {
+	version, err := getLatestGAKubernetesVersion(config.Config.Location)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get latest GA Kubernetes version: %w", err)
+	}
+	model := getBaseClusterModel(name)
+	model.Properties.KubernetesVersion = to.Ptr(version)
+	return model, nil
+}
+
 func getKubenetClusterModel(name string) *armcontainerservice.ManagedCluster {
 	model := getBaseClusterModel(name)
 	model.Properties.NetworkProfile.NetworkPlugin = to.Ptr(armcontainerservice.NetworkPluginKubenet)

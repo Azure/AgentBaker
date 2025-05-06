@@ -46,6 +46,8 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 		"expected to have successfully validated bootstrap token credential before kubelet startup, but did not",
 	)
 
+	ValidateSystemdWatchdogForKubernetes132Plus(ctx, s)
+
 	// ensure aks-log-collector hasn't entered a failed state
 	ValidateSystemdUnitIsNotFailed(ctx, s, "aks-log-collector")
 
@@ -92,6 +94,23 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 	if s.Tags.Scriptless != true && s.VHD != config.VHDUbuntu1804Gen2Containerd && s.VHD != config.VHDUbuntu2204Gen2ContainerdPrivateKubePkg && s.VHD != config.VHDUbuntu2204Gen2ContainerdAirgappedK8sNotCached {
 		ValidateLocalDNSService(ctx, s)
 		ValidateLocalDNSResolution(ctx, s)
+	}
+
+	// validate that kubelet is configured with the systemd watchdog on kubernetes 1.32+
+	if IsKubernetesVersionGe(s.Runtime.Cluster.Version, "1.32.0") {
+		// Validate systemd watchdog is enabled and configured for kubelet
+		ValidateSystemdUnitIsRunning(ctx, s, "kubelet.service")
+		ValidateFileHasContent(ctx, s, "/etc/systemd/system/kubelet.service.d/10-aks-watchdog.conf", "WatchdogSec=30")
+		ValidateJournalctlOutput(ctx, s, "kubelet.service", "Starting systemd watchdog with interval")
+	}
+}
+
+func ValidateSystemdWatchdogForKubernetes132Plus(ctx context.Context, s *Scenario) {
+	if IsKubernetesVersionGe(s.Runtime.Cluster.Version, "1.32.0") {
+		// Validate systemd watchdog is enabled and configured for kubelet
+		ValidateSystemdUnitIsRunning(ctx, s, "kubelet.service")
+		ValidateFileHasContent(ctx, s, "/etc/systemd/system/kubelet.service.d/10-aks-watchdog.conf", "WatchdogSec=30")
+		ValidateJournalctlOutput(ctx, s, "kubelet.service", "Starting systemd watchdog with interval")
 	}
 }
 
