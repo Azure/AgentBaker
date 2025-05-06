@@ -583,8 +583,14 @@ func ValidateLocalDNSService(ctx context.Context, s *Scenario) {
 // It uses the 'dig' command to check the DNS resolution and expects a successful response.
 func ValidateLocalDNSResolution(ctx context.Context, s *Scenario) {
 	testdomain := "bing.com"
-	command := fmt.Sprintf("dig %s +timeout=1 +tries=1", testdomain)
+
+	command := fmt.Sprintf("dig %s +timeout=1 +tries=1 @169.254.10.10", testdomain)
 	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0, "dns resolution failed")
 	assert.Contains(s.T, execResult.stdout.String(), "status: NOERROR")
 	assert.Contains(s.T, execResult.stdout.String(), "SERVER: 169.254.10.10")
+
+	command = fmt.Sprintf("dig %s +timeout=1 +tries=1 @169.254.10.11", testdomain)
+	execResult = execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0, "dns resolution failed")
+	assert.Contains(s.T, execResult.stdout.String(), "status: NOERROR")
+	assert.Contains(s.T, execResult.stdout.String(), "SERVER: 169.254.10.11")
 }
