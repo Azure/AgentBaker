@@ -193,9 +193,9 @@ function DownloadFileOverHttp {
     $fileName = [IO.Path]::GetFileName($cleanUrl)
 
     $search = @()
-    # if ($global:CacheDir -and (Test-Path $global:CacheDir)) {
-    #     $search = [IO.Directory]::GetFiles($global:CacheDir, $fileName, [IO.SearchOption]::AllDirectories)
-    # }
+    if ($global:CacheDir -and (Test-Path $global:CacheDir)) {
+        $search = [IO.Directory]::GetFiles($global:CacheDir, $fileName, [IO.SearchOption]::AllDirectories)
+    }
 
     if ($search.Count -ne 0) {
         Write-Log "Using cached version of $fileName - Copying file from $($search[0]) to $DestinationPath"

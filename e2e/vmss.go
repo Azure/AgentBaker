@@ -201,7 +201,7 @@ hnsdiag list endpoints >> network_config.txt
 func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
 	if !s.T.Failed() {
 		s.T.Logf("skipping logs extraction from windows VM, as the test didn't fail")
-		//return
+		return
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, 4*time.Minute)
