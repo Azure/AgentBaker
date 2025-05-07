@@ -30,38 +30,45 @@ func getLatestGAKubernetesVersion(location string, t *testing.T) (string, error)
 		return "", fmt.Errorf("no Kubernetes versions available")
 	}
 
-	var latestVersion string
+	var latestPatchVersion string
 	// Iterate through the available versions to find the latest GA version
 	t.Logf("Available Kubernetes versions for location %s:", location)
 	for _, k8sVersion := range versions.Values {
-		if k8sVersion.Version != nil {
-			t.Logf(" - %s", *k8sVersion.Version)
-		}
-	}
-	for _, k8sVersion := range versions.Values {
-		if k8sVersion.Version == nil {
+		if k8sVersion == nil {
 			continue
 		}
+		t.Logf("- %s", *k8sVersion.Version)
+
 		// Skip preview versions
 		if k8sVersion.IsPreview != nil && *k8sVersion.IsPreview {
+			t.Log(" - - is in preview, skipping")
 			continue
 		}
-		// Initialize latestVersion with first GA version found
-		if latestVersion == "" {
-			latestVersion = *k8sVersion.Version
-			continue
-		}
-		// Compare versions
-		if agent.IsKubernetesVersionGe(*k8sVersion.Version, latestVersion) {
-			latestVersion = *k8sVersion.Version
+		for patchVersion := range k8sVersion.PatchVersions {
+			if patchVersion == "" {
+				continue
+			}
+			t.Logf("- - %s", patchVersion)
+			// Initialize latestVersion with first GA version found
+			if latestPatchVersion == "" {
+				latestPatchVersion = patchVersion
+				t.Logf(" - - first latest found, updating to: %s", latestPatchVersion)
+				continue
+			}
+			// Compare versions
+			isGreater := agent.IsKubernetesVersionGe(patchVersion, latestPatchVersion)
+			if isGreater {
+				latestPatchVersion = patchVersion
+				t.Logf(" - - new latest found, updating to: %s", latestPatchVersion)
+			}
 		}
 	}
 
-	if latestVersion == "" {
+	if latestPatchVersion == "" {
 		return "", fmt.Errorf("no GA Kubernetes version found")
 	}
-	t.Logf("Latest GA Kubernetes version for location %s: %s", location, latestVersion)
-	return latestVersion, nil
+	t.Logf("Latest GA Kubernetes version for location %s: %s", location, latestPatchVersion)
+	return latestPatchVersion, nil
 }
 
 // getLatestKubernetesVersionClusterModel returns a cluster model with the latest GA Kubernetes version.
