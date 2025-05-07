@@ -80,7 +80,7 @@ installBcc() {
     # we explicitly do not remove build-essential or python
     # these are standard packages we want to keep, they should usually be in the final build anyway.
     # only ensuring they are installed above.
-    if [[ "${VERSION}" == "22.04" || "${VERSION}" == "24.04" ]]; then
+    if [ "${VERSION}" = "22.04" || "${VERSION}" = "24.04" ]; then
         apt_get_purge 120 5 300 bison cmake flex libedit-dev libllvm14 llvm-14-dev libclang-14-dev zlib1g-dev libelf-dev libfl-dev || exit $ERR_BCC_INSTALL_TIMEOUT
     else
         apt_get_purge 120 5 300 git bison cmake flex libedit-dev libllvm6.0 llvm-6.0-dev libclang-6.0-dev zlib1g-dev libelf-dev libfl-dev || exit $ERR_BCC_INSTALL_TIMEOUT
