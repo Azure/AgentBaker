@@ -21,7 +21,7 @@ import (
 )
 
 // getLatestGAKubernetesVersion returns the highest GA Kubernetes version for the given location.
-func getLatestGAKubernetesVersion(location string) (string, error) {
+func getLatestGAKubernetesVersion(location string, t *testing.T) (string, error) {
 	versions, err := config.Azure.AKS.ListKubernetesVersions(context.Background(), location, nil)
 	if err != nil {
 		return "", fmt.Errorf("failed to list Kubernetes versions: %w", err)
@@ -53,12 +53,13 @@ func getLatestGAKubernetesVersion(location string) (string, error) {
 	if latestVersion == "" {
 		return "", fmt.Errorf("no GA Kubernetes version found")
 	}
+	t.Logf("Latest GA Kubernetes version for location %s: %s", location, latestVersion)
 	return latestVersion, nil
 }
 
 // getLatestKubernetesVersionClusterModel returns a cluster model with the latest GA Kubernetes version.
-func getLatestKubernetesVersionClusterModel(name string) (*armcontainerservice.ManagedCluster, error) {
-	version, err := getLatestGAKubernetesVersion(config.Config.Location)
+func getLatestKubernetesVersionClusterModel(name string, t *testing.T) (*armcontainerservice.ManagedCluster, error) {
+	version, err := getLatestGAKubernetesVersion(config.Config.Location, t)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get latest GA Kubernetes version: %w", err)
 	}

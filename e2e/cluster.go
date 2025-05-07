@@ -84,7 +84,7 @@ func (c *Cluster) MaxPodsPerNode() (int, error) {
 
 func ClusterLatestKubernetesVersion(ctx context.Context, t *testing.T) (*Cluster, error) {
 	clusterLatestKubernetesVersionOnce.Do(func() {
-		model, error := getLatestKubernetesVersionClusterModel("abe2e-latest-kubernetes-version")
+		model, error := getLatestKubernetesVersionClusterModel("abe2e-latest-kubernetes-version", t)
 		if error != nil {
 			t.Fatalf("failed to get latest kubernetes version cluster model: %v", error)
 		}
