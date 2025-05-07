@@ -1391,7 +1391,6 @@ testdomain567.com:53 {
 				etcDefaultKubeletService := o.files["/etc/systemd/system/kubelet.service"].value
 				kubeletSh := o.files["/opt/azure/containers/kubelet.sh"].value
 				validateCredentials := o.files["/opt/azure/containers/validate-kubelet-credentials.sh"].value
-				runKubeletSh := o.files["/opt/azure/containers/run-kubelet.sh"].value
 				caCRT := o.files["/etc/kubernetes/certs/ca.crt"].value
 				kubeconfig := o.files["/var/lib/kubelet/kubeconfig"].value
 
@@ -1399,7 +1398,6 @@ testdomain567.com:53 {
 				Expect(etcDefaultKubeletService).NotTo(BeEmpty())
 				Expect(kubeletSh).NotTo(BeEmpty())
 				Expect(validateCredentials).ToNot(BeEmpty())
-				Expect(runKubeletSh).ToNot(BeEmpty())
 				Expect(caCRT).NotTo(BeEmpty())
 				Expect(kubeconfig).ToNot(BeEmpty())
 
@@ -1419,7 +1417,6 @@ testdomain567.com:53 {
 				etcDefaultKubeletService := o.files["/etc/systemd/system/kubelet.service"].value
 				kubeletSh := o.files["/opt/azure/containers/kubelet.sh"].value
 				validateCredentials := o.files["/opt/azure/containers/validate-kubelet-credentials.sh"].value
-				runKubeletSh := o.files["/opt/azure/containers/run-kubelet.sh"].value
 				bootstrapKubeconfig := o.files["/var/lib/kubelet/bootstrap-kubeconfig"].value
 				caCRT := o.files["/etc/kubernetes/certs/ca.crt"].value
 
@@ -1428,7 +1425,6 @@ testdomain567.com:53 {
 				Expect(kubeletSh).NotTo(BeEmpty())
 				Expect(etcDefaultKubeletService).NotTo(BeEmpty())
 				Expect(validateCredentials).ToNot(BeEmpty())
-				Expect(runKubeletSh).ToNot(BeEmpty())
 				Expect(caCRT).NotTo(BeEmpty())
 
 				Expect(bootstrapKubeconfig).To(ContainSubstring("token"))
@@ -1530,7 +1526,7 @@ testdomain567.com:53 {
 				Expect(bootstrapKubeconfig).To(BeNil())
 			}),
 
-		Entry("AKSUbuntu2204 with secure TLS bootstrapping enabled using custom AAD server application ID and custom download URL", "AKSUbuntu2204+SecureTLSBootstrapping+CustomAADResource+CustomDownloadURL", "1.25.6",
+		Entry("AKSUbuntu2204 with secure TLS bootstrapping enabled using custom AAD server application ID and custom download URL", "AKSUbuntu2204+SecureTLSBootstrapping+CustomAADResource+CustomDownloadURL", "1.25.6", //nolint:lll
 			func(config *datamodel.NodeBootstrappingConfiguration) {
 				config.EnableSecureTLSBootstrapping = true
 				config.CustomSecureTLSBootstrapAADServerAppID = "appID"
