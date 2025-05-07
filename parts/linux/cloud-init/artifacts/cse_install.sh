@@ -417,7 +417,7 @@ downloadSecureTLSBootstrapClient() {
 
     CLIENT_DOWNLOAD_URL=$(update_base_url $CLIENT_DOWNLOAD_URL)
 
-    echo "Installing aks-secure-tls-bootstrap-client..."
+    echo "installing aks-secure-tls-bootstrap-client from: $CLIENT_DOWNLOAD_URL"
     CLIENT_TGZ_TMP=${CLIENT_DOWNLOAD_URL##*/}
     retrycmd_get_tarball 120 5 "${SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_DIR}/${CLIENT_TGZ_TMP}" ${CLIENT_DOWNLOAD_URL} || exit $ERR_SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_ERROR
 
@@ -431,7 +431,7 @@ downloadSecureTLSBootstrapClient() {
         rm -f "${CLIENT_EXTRACTED_DIR}/aks-secure-tls-bootstrap-client"
     fi
 
-    sudo tar -zxf "${SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_DIR}/${CLIENT_TGZ_TMP}" -C "${CLIENT_EXTRACTED_DIR}/"
+    tar -zxf "${SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_DIR}/${CLIENT_TGZ_TMP}" -C "${CLIENT_EXTRACTED_DIR}/"
     chmod 755 "${CLIENT_EXTRACTED_DIR}/aks-secure-tls-bootstrap-client"
 
     rm -rf "${SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_DIR}"
