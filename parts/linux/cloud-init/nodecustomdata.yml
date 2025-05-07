@@ -416,6 +416,13 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "validateKubeletCredentialsScript"}}
 
+- path: /opt/azure/containers/run-kubelet.sh
+  permissions: "0755"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "runKubeletScript"}}
+
 - path: /etc/kubernetes/certs/ca.crt
   permissions: "0600"
   encoding: base64

@@ -44,7 +44,9 @@ installDeps() {
         pkg_list+=(irqbalance)
     fi
 
-    pkg_list+=("aznfs=0.3.15")
+    if [ "${OSVERSION}" = "22.04" ] || [ "${OSVERSION}" = "24.04" ]; then
+        pkg_list+=("aznfs=0.3.15")
+    fi
 
     for apt_package in ${pkg_list[*]}; do
         if ! apt_get_install 30 1 600 $apt_package; then
@@ -86,6 +88,7 @@ installCriCtlPackage() {
     fi
     echo "Installing ${packageName} with apt-get"
     apt_get_install 20 30 120 ${packageName} || exit 1
+    ln -sf /usr/bin/crictl /usr/local/bin/crictl
 }
 
 installContainerd() {

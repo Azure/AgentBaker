@@ -149,6 +149,11 @@ Describe 'cse_helpers.sh'
             When call updateMultiArchVersions "$containerImage"
             The variable MULTI_ARCH_VERSIONS[@] should equal "dummyVersion3 dummyVersion4 dummyVersion5"
         End
+        It 'returns multiArchVersions for containerImage mcr.microsoft.com/windows/nanoserver'
+            containerImage=$(readContainerImage "mcr.microsoft.com/windows/windowstestimage")
+            When call updateMultiArchVersions "$containerImage"
+            The variable MULTI_ARCH_VERSIONS[@] should be undefined
+        End
     End
 
         Describe 'addKubeletNodeLabel'

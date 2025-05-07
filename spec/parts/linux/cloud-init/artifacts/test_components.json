@@ -1,6 +1,19 @@
 {
   "ContainerImages": [
     {
+      "downloadURL": "mcr.microsoft.com/windows/windowstestimage:*",
+      "amd64OnlyVersions": [],
+      "multiArchVersionsV2": [],
+      "windowsVersions": [
+        {
+          "comment": "comment",
+          "renovateTag": "<DO_NOT_UPDATE>",
+          "latestVersion": "v1",
+          "windowsSkuMatch": "2019-containerd"
+        }
+      ]
+    },
+    {
       "downloadURL": "mcr.microsoft.com/dummyImageWithMultiArchVersionsV2:*",
       "amd64OnlyVersions": [],
       "multiArchVersionsV2": [

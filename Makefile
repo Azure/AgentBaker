@@ -79,7 +79,7 @@ validate-shell:
 
 .PHONY: shellspec
 shellspec:
-	docker build --platform $(shell uname -m) -t shellspec-docker - < ./spec/shellspec.Dockerfile
+	docker build -t shellspec-docker - < ./spec/shellspec.Dockerfile
 	docker run --rm \
 		-v $(CURDIR):/workspace \
 		-w /workspace \

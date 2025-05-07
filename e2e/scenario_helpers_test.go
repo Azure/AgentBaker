@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"syscall"
@@ -275,6 +276,20 @@ func getCustomScriptExtensionStatus(ctx context.Context, s *Scenario) error {
 			for _, extension := range instanceViewResp.Extensions {
 				for _, status := range extension.Statuses {
 					if s.VHD.OS == config.OSWindows {
+						// Save the CSE output for Windows VMs for better troubleshooting
+						if status.Message != nil {
+							logDir := filepath.Join("scenario-logs", s.T.Name())
+							if err := os.MkdirAll(logDir, 0755); err == nil {
+								logFile := filepath.Join(logDir, "windows-cse-output.log")
+								err = os.WriteFile(logFile, []byte(*status.Message), 0644)
+								if err != nil {
+									s.T.Logf("failed to save Windows CSE output to %s: %v", logFile, err)
+								} else {
+									s.T.Logf("saved Windows CSE output to %s", logFile)
+								}
+							}
+						}
+
 						if status.Code == nil || !strings.EqualFold(*status.Code, "ProvisioningState/succeeded") {
 							return fmt.Errorf("failed to get CSE output, error: %s", *status.Message)
 						}

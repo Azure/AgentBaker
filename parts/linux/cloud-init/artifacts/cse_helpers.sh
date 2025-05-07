@@ -169,47 +169,74 @@ PERMANENT_CACHE_DIR=/root/aptcache/
 EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/
 CURL_OUTPUT=/tmp/curl_verbose.out
 ORAS_OUTPUT=/tmp/oras_verbose.out
-ORAS_REGISTRY_CONFIG_FILE=/etc/oras/config.yaml # oras registry auth config file, not used, but have to define to avoid error "Error: failed to get user home directory: $HOME is not defined" 
+ORAS_REGISTRY_CONFIG_FILE=/etc/oras/config.yaml # oras registry auth config file, not used, but have to define to avoid error "Error: failed to get user home directory: $HOME is not defined"
+
+# Checks if the elapsed time since CSEStartTime exceeds 13 minutes.
+# That value is based on the global CSE timeout which is set to 15 minutes - majority of CSE executions succeed or fail very fast, meaning we can exit slightly before the global timeout without affecting the overall CSE execution.
+# Global cse timeout is set in cse_start.sh: `timeout -k5s 15m /bin/bash /opt/azure/containers/provision.sh`
+# Long running functions can use this helper to gracefully handle global CSE timeout, avoiding exiting with 124 error code without extra context. 
+check_cse_timeout() {
+    shouldLog="${1:-true}"
+    maxDurationSeconds=780 # 780 seconds = 13 minutes
+    if [ -z "${CSE_STARTTIME_SECONDS:-}" ]; then
+        if [ "$shouldLog" = "true" ]; then
+            echo "Warning: CSE_STARTTIME_SECONDS environment variable is not set."
+        fi
+        # Return 0 to avoid in case CSE_STARTTIME_SECONDS is not set - for example during image build or if something went wrong in cse_start.sh
+        return 0
+    fi
+    # Calculate elapsed time based on seconds since epoch
+    elapsedSeconds=$(($(date +%s) - "$CSE_STARTTIME_SECONDS"))
+    if [ "$elapsedSeconds" -gt "$maxDurationSeconds" ]; then
+        if [ "$shouldLog" = "true" ]; then
+            echo "Error: CSE has been running for $elapsedSeconds seconds, exceeding the limit of $maxDurationSeconds seconds." >&2
+        fi
+        return 1
+    fi
+
+    return 0
+}
 
 # Internal helper function for retry logic
 # Not intended for direct use. Use retrycmd or retrycmd_silent based on your needs
+# returns 0 if successful, 1 if failed, 2 if CSE timeout is approaching and global timeout needs to be handled
 _retrycmd_internal() {
     local retries=$1; shift
-    local wait_sleep=$1; shift
-    local timeout_val=$1; shift # Renamed to avoid conflict with timeout command
+    local waitSleep=$1; shift
+    local timeoutVal=$1; shift
     local shouldLog=$1; shift
-    local cmdToRun=("$@") # Capture command for logging/reporting
-    local exit_status=0
+    local cmdToRun=("$@")
+    local exitStatus=0
 
     for i in $(seq 1 "$retries"); do
-        # Execute the command with timeout
-        timeout "$timeout_val" "${@}"
-        exit_status=$?
+        timeout "$timeoutVal" "${@}"
+        exitStatus=$?
 
-        # Check if successful
-        if [ "$exit_status" -eq 0 ]; then
-            break # Success, exit loop
+        if [ "$exitStatus" -eq 0 ]; then
+            break 
         fi
 
-        # Check if it's the last retry
+        # Check if CSE timeout is approaching - exit early to avoid 124 exit code from the global timeout
+        if ! check_cse_timeout "$shouldLog"; then 
+            echo "CSE timeout approaching, exiting early." >&2
+            return 2
+        fi
+
         if [ "$i" -eq "$retries" ]; then
             if [ "$shouldLog" = "true" ]; then
-                echo "Executed \"${cmdToRun[*]}\" $i times; giving up (last exit status: $exit_status)." >&2
+                echo "Executed \"${cmdToRun[*]}\" $i times; giving up (last exit status: "$exitStatus")." >&2
             fi
-            # Return the last exit status on final failure
             return 1
         fi
 
-        # Wait before next retry
-        sleep "$wait_sleep"
+        sleep "$waitSleep"
     done
 
-    # Log success if not silent and command succeeded
-    if [ "$shouldLog" = "true" ] && [ "$exit_status" -eq 0 ]; then
+    if [ "$shouldLog" = "true" ] && [ "$exitStatus" -eq 0 ]; then
         echo "Executed \"${cmdToRun[*]}\" $i times."
     fi
 
-    return $exit_status
+    return "$exitStatus"
 }
 
 # Retry a command with logging.
@@ -240,22 +267,42 @@ retrycmd_nslookup() {
     current_time=$(date +%s)
     echo "Executed nslookup -timeout=$timeout -retry=0 $record for $((current_time - start_time)) seconds";
 }
-retrycmd_get_tarball() {
-    tar_retries=$1; wait_sleep=$2; tarball=$3; url=$4
-    echo "${tar_retries} retries"
-    for i in $(seq 1 $tar_retries); do
-        [ -f "$tarball" ] && tar -tzf "$tarball" && break || \
-        if [ "$i" -eq "$tar_retries" ]; then
+
+_retry_file_curl_internal() {
+    # checksToRun are conditions that need to pass to stop the retry loop. If not passed, eval command will return 0, because checksToRun will be interpreted as an empty string.
+    retries=$1; waitSleep=$2; timeout=$3; filePath=$4; url=$5; checksToRun=( "${@:6}" )
+    echo "${retries} file curl retries"
+    for i in $(seq 1 $retries); do 
+        # Use eval to execute the checksToRun string as a command
+        ( eval "$checksToRun" ) && break || if [ "$i" -eq "$retries" ]; then
             return 1
+        fi
+        # check if global cse timeout is approaching
+        if ! check_cse_timeout; then
+            echo "CSE timeout approaching, exiting early." >&2
+            return 2
         else
-            timeout 60 curl -fsSLv $url -o $tarball > $CURL_OUTPUT 2>&1
+            timeout $timeout curl -fsSLv $url -o $filePath > $CURL_OUTPUT 2>&1
             if [ "$?" -ne 0 ]; then
                 cat $CURL_OUTPUT
             fi
-            sleep $wait_sleep
+            sleep $waitSleep
         fi
     done
 }
+
+retrycmd_get_tarball() {
+    tar_retries=$1; wait_sleep=$2; tarball=$3; url=$4
+    check_tarball_valid="[ -f \"$tarball\" ] && tar -tzf \"$tarball\""
+    _retry_file_curl_internal "$tar_retries" "$wait_sleep" 60 "$tarball" "$url" "$check_tarball_valid"
+}
+
+retrycmd_curl_file() {
+    curl_retries=$1; wait_sleep=$2; timeout=$3; filepath=$4; url=$5
+    check_file_exists="[ -f \"$filepath\" ]"
+    _retry_file_curl_internal "$curl_retries" "$wait_sleep" "$timeout" "$filepath" "$url" "$check_file_exists"
+}
+
 retrycmd_get_tarball_from_registry_with_oras() {
     tar_retries=$1; wait_sleep=$2; tarball=$3; url=$4
     tar_folder=$(dirname "$tarball")
@@ -279,7 +326,7 @@ retrycmd_get_access_token_for_oras() {
         response=$(timeout 60 curl -v -s -H "Metadata:true" --noproxy "*" "$url" -w "\n%{http_code}")
         ACCESS_TOKEN_OUTPUT=$(echo "$response" | sed '$d')
         http_code=$(echo "$response" | tail -n1)
-        if [ -n "$ACCESS_TOKEN_OUTPUT" ] && [ "$http_code" -eq 200 ]; then 
+        if [ -n "$ACCESS_TOKEN_OUTPUT" ] && [ "$http_code" -eq 200 ]; then
             echo "$ACCESS_TOKEN_OUTPUT"
             return 0
         fi
@@ -298,7 +345,7 @@ retrycmd_get_refresh_token_for_oras() {
         REFRESH_TOKEN_OUTPUT=$(timeout 60 curl -v -s -X POST -H "Content-Type: application/x-www-form-urlencoded" \
             -d "grant_type=access_token&service=$acr_url&tenant=$tenant_id&access_token=$ACCESS_TOKEN" \
             https://$acr_url/oauth2/exchange)
-        if [ -n "$REFRESH_TOKEN_OUTPUT" ]; then 
+        if [ -n "$REFRESH_TOKEN_OUTPUT" ]; then
             echo "$REFRESH_TOKEN_OUTPUT"
             return 0
         fi
@@ -323,7 +370,7 @@ retrycmd_get_binary_from_registry_with_oras() {
     binary_retries=$1; wait_sleep=$2; binary_path=$3; url=$4
     binary_folder=$(dirname "$binary_path")
     echo "${binary_retries} retries"
-    
+
     for i in $(seq 1 $binary_retries); do
         if [ -f "$binary_path" ]; then
             break
@@ -358,22 +405,7 @@ retrycmd_can_oras_ls_acr() {
     echo "unexpected response from acr: $output"
     return $ERR_ORAS_PULL_NETWORK_TIMEOUT
 }
-retrycmd_curl_file() {
-    curl_retries=$1; wait_sleep=$2; timeout=$3; filepath=$4; url=$5
-    echo "${curl_retries} retries"
-    for i in $(seq 1 $curl_retries); do
-        [ -f "$filepath" ] && break
-        if [ "$i" -eq "$curl_retries" ]; then
-            return 1
-        else
-            timeout $timeout curl -fsSLv $url -o $filepath > $CURL_OUTPUT 2>&1
-            if [ "$?" -ne 0 ]; then
-                cat $CURL_OUTPUT
-            fi
-            sleep $wait_sleep
-        fi
-    done
-}
+
 # base systemctl retry command, should not be called directly - use systemctl_restart, systemctl_stop, systemctl_disable
 _systemctl_retry_svc_operation() {
     retries=$1; wait_sleep=$2; timeout=$3 operation=$4 svcname=$5 shouldLogRetryInfo=${6:-false}
@@ -395,20 +427,20 @@ systemctl_restart() {
     _systemctl_retry_svc_operation "$1" "$2" "$3" "restart" "$4" true
 }
 systemctl_stop() {
-    _systemctl_retry_svc_operation "$1" "$2" "$3" "stop" "$4" 
+    _systemctl_retry_svc_operation "$1" "$2" "$3" "stop" "$4"
 }
 systemctl_disable() {
-    _systemctl_retry_svc_operation "$1" "$2" "$3" "disable" "$4" 
+    _systemctl_retry_svc_operation "$1" "$2" "$3" "disable" "$4"
 }
 sysctl_reload() {
     retrycmd_silent $1 $2 $3 "false" sysctl --system
 }
 version_gte() {
-  test "$(printf '%s\n' "$@" | sort -rV | head -n 1)" == "$1"
+    test "$(printf '%s\n' "$@" | sort -rV | head -n 1)" = "$1"
 }
 
 systemctlEnableAndStart() {
-    service=$1; timeout=$2    
+    service=$1; timeout=$2
     systemctl_restart 100 5 $2 $1
     RESTART_STATUS=$?
     systemctl status $1 --no-pager -l > /var/log/azure/$1-status.log
@@ -649,7 +681,7 @@ updateMultiArchVersions() {
   local imageToBePulled="$1"
 
   #jq the MultiArchVersions from the containerImages. If ContainerImages[i].multiArchVersionsV2 is not null, return that, else return ContainerImages[i].multiArchVersions
-  if [ "$(echo "${imageToBePulled}" | jq .multiArchVersionsV2)" != "null" ]; then
+  if [ "$(echo "${imageToBePulled}" | jq -r '.multiArchVersionsV2 // [] | select(. != null and . != [])')" ]; then
     local latestVersions=($(echo "${imageToBePulled}" | jq -r ".multiArchVersionsV2[] | select(.latestVersion != null) | .latestVersion"))
     local previousLatestVersions=($(echo "${imageToBePulled}" | jq -r ".multiArchVersionsV2[] | select(.previousLatestVersion != null) | .previousLatestVersion"))
     for version in "${latestVersions[@]}"; do
@@ -659,6 +691,12 @@ updateMultiArchVersions() {
       MULTI_ARCH_VERSIONS+=("${version}")
     done
     return
+  fi
+
+  # check if multiArchVersions not exists
+  if [ "$(echo "${imageToBePulled}" | jq -r '.multiArchVersions | if . == null then "null" else empty end')" = "null" ]; then
+    MULTI_ARCH_VERSIONS=()
+    return 
   fi
 
   local versions=($(echo "${imageToBePulled}" | jq -r ".multiArchVersions[]"))
@@ -674,9 +712,9 @@ updatePackageDownloadURL() {
     RELEASE="current"
     updateRelease "${package}" "${os}" "${osVersion}"
     local osLowerCase=$(echo "${os}" | tr '[:upper:]' '[:lower:]')
-    
+
     #if .downloadURIs.${osLowerCase} exist, then get the downloadURL from there.
-    #otherwise get the downloadURL from .downloadURIs.default 
+    #otherwise get the downloadURL from .downloadURIs.default
     if [ "$(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}")" != "null" ]; then
         downloadURL=$(echo "${package}" | jq ".downloadURIs.${osLowerCase}.${RELEASE}.downloadURL" -r)
         [ "${downloadURL}" = "null" ] && PACKAGE_DOWNLOAD_URL="" || PACKAGE_DOWNLOAD_URL="${downloadURL}"
@@ -684,7 +722,7 @@ updatePackageDownloadURL() {
     fi
     downloadURL=$(echo "${package}" | jq ".downloadURIs.default.${RELEASE}.downloadURL" -r)
     [ "${downloadURL}" = "null" ] && PACKAGE_DOWNLOAD_URL="" || PACKAGE_DOWNLOAD_URL="${downloadURL}"
-    return    
+    return
 }
 
 # adds the specified LABEL_STRING (which should be in the form of 'label=value') to KUBELET_NODE_LABELS
@@ -719,7 +757,7 @@ removeKubeletNodeLabel() {
 # generate kubenode binary registry url from acs-mirror url
 updateKubeBinaryRegistryURL() {
     # if rp already passes registry url, then directly use the registry url that rp passes
-    # this path should have not catch for now, but keep it for future 
+    # this path should have not catch for now, but keep it for future
     if [ -n "${KUBE_BINARY_URL}" ] && isRegistryUrl "${KUBE_BINARY_URL}"; then
         echo "KUBE_BINARY_URL is a registry url, will use it to pull the kube binary"
         KUBE_BINARY_REGISTRY_URL="${KUBE_BINARY_URL}"
@@ -804,14 +842,14 @@ resolve_packages_source_url() {
 
 update_base_url() {
   initial_url=$1
-  
+
   # shellcheck disable=SC3010
   if [ "$PACKAGE_DOWNLOAD_BASE_URL" = "packages.aks.azure.com" ] && [[ "$initial_url" == *"acs-mirror.azureedge.net"* ]]; then
     initial_url="${initial_url//"acs-mirror.azureedge.net"/$PACKAGE_DOWNLOAD_BASE_URL}"
   elif [ "$PACKAGE_DOWNLOAD_BASE_URL" = "acs-mirror.azureedge.net" ] && [[ "$initial_url" == *"packages.aks.azure.com"* ]]; then
     initial_url="${initial_url//"packages.aks.azure.com"/$PACKAGE_DOWNLOAD_BASE_URL}"
   fi
-  
+
   echo "$initial_url"
 }
 
@@ -822,11 +860,11 @@ oras_login_with_kubelet_identity() {
 
     if [ -z "$client_id" ] || [ -z "$tenant_id" ]; then
         echo "client_id or tenant_id are not set. Oras login is not possible, proceeding with anonymous pull"
-        return 
+        return
     fi
 
     retrycmd_can_oras_ls_acr 10 5 $acr_url
-    ret_code=$? 
+    ret_code=$?
     if [ "$ret_code" -eq 0 ]; then
         echo "anonymous pull is allowed for acr '$acr_url', proceeding with anonymous pull"
         return
@@ -835,10 +873,10 @@ oras_login_with_kubelet_identity() {
         return $ret_code
     fi
 
-    set +x 
+    set +x
     access_url="http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https://management.azure.com/&client_id=$client_id"
     raw_access_token=$(retrycmd_get_access_token_for_oras 5 15 $access_url)
-    ret_code=$? 
+    ret_code=$?
     if [ "$ret_code" -ne 0 ]; then
         echo $raw_access_token
         return $ret_code
@@ -850,7 +888,7 @@ oras_login_with_kubelet_identity() {
     fi
 
     raw_refresh_token=$(retrycmd_get_refresh_token_for_oras 10 5 $acr_url $tenant_id $ACCESS_TOKEN)
-    ret_code=$? 
+    ret_code=$?
     if [ "$ret_code" -ne 0 ]; then
         echo "failed to retrieve refresh token: $ret_code"
         return $ret_code
