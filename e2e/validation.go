@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/Azure/agentbaker/e2e/config"
+	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 )
@@ -45,6 +46,8 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 		!strings.Contains(kubeletLogs, "unable to validate bootstrap credentials") && strings.Contains(kubeletLogs, "kubelet bootstrap token credential is valid"),
 		"expected to have successfully validated bootstrap token credential before kubelet startup, but did not",
 	)
+
+	ValidateSystemdWatchdogForKubernetes132Plus(ctx, s)
 
 	// ensure aks-log-collector hasn't entered a failed state
 	ValidateSystemdUnitIsNotFailed(ctx, s, "aks-log-collector")
@@ -92,6 +95,24 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 	if s.Tags.Scriptless != true && s.VHD != config.VHDUbuntu1804Gen2Containerd && s.VHD != config.VHDUbuntu2204Gen2ContainerdPrivateKubePkg && s.VHD != config.VHDUbuntu2204Gen2ContainerdAirgappedK8sNotCached {
 		ValidateLocalDNSService(ctx, s)
 		ValidateLocalDNSResolution(ctx, s)
+	}
+}
+
+func ValidateSystemdWatchdogForKubernetes132Plus(ctx context.Context, s *Scenario) {
+	var k8sVersion string
+	if s.Runtime.NBC != nil && s.Runtime.NBC.ContainerService != nil &&
+		s.Runtime.NBC.ContainerService.Properties != nil &&
+		s.Runtime.NBC.ContainerService.Properties.OrchestratorProfile != nil {
+		k8sVersion = s.Runtime.NBC.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion
+	} else if s.Runtime.AKSNodeConfig != nil {
+		k8sVersion = s.Runtime.AKSNodeConfig.GetKubernetesVersion()
+	}
+
+	if k8sVersion != "" && agent.IsKubernetesVersionGe(k8sVersion, "1.32.0") {
+		// Validate systemd watchdog is enabled and configured for kubelet
+		ValidateSystemdUnitIsRunning(ctx, s, "kubelet.service")
+		ValidateFileHasContent(ctx, s, "/etc/systemd/system/kubelet.service.d/10-watchdog.conf", "WatchdogSec=60s")
+		ValidateJournalctlOutput(ctx, s, "kubelet.service", "Starting systemd watchdog with interval")
 	}
 }
 

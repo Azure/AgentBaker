@@ -519,6 +519,15 @@ ensureKubelet() {
         logs_to_events "AKS.CSE.ensureKubelet.setKubeletNodeIPFlag" setKubeletNodeIPFlag
     fi
 
+    # systemd watchdog support was added in 1.32.0: https://github.com/kubernetes/kubernetes/pull/127566
+    # This is needed to ensure kubelet is restarted if it becomes unresponsive
+    if semverCompare ${KUBERNETES_VERSION:-"0.0.0"} "1.32.0"; then
+        tee "/etc/systemd/system/kubelet.service.d/10-watchdog.conf" > /dev/null <<'EOF'
+[Service]
+WatchdogSec=60s
+EOF
+    fi
+
     echo "KUBELET_FLAGS=${KUBELET_FLAGS}" > "${KUBELET_DEFAULT_FILE}"
     echo "KUBELET_REGISTER_SCHEDULABLE=true" >> "${KUBELET_DEFAULT_FILE}"
     echo "NETWORK_POLICY=${NETWORK_POLICY}" >> "${KUBELET_DEFAULT_FILE}"

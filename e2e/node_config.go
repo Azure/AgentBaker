@@ -880,13 +880,13 @@ var windowsCSEErr error
 
 func windowsCSE(ctx context.Context, t *testing.T) string {
 	uploadWindowsCSEOnce.Do(func() {
-		windowsCSEURL, windowsCSEErr = uploadWindowsCSE(ctx, t)
+		windowsCSEURL, windowsCSEErr = uploadWindowsCSE(ctx)
 	})
 	require.NoError(t, windowsCSEErr)
 	return windowsCSEURL
 }
 
-func uploadWindowsCSE(ctx context.Context, t *testing.T) (string, error) {
+func uploadWindowsCSE(ctx context.Context) (string, error) {
 	blobName := time.Now().UTC().Format("2006-01-02-15-04-05") + "-windows-cse.zip"
 	zipFile, err := zipWindowsCSE()
 	if err != nil {
