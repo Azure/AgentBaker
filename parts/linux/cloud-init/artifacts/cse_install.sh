@@ -398,6 +398,10 @@ installSecureTLSBootstrapClient() {
         return 0
     fi
 
+    # this is mainly for development purposes so we can test different versions of the bootstrap client
+    # without having to tag new versions of AgentBaker, in the end we probably won't honor custom URLs specified
+    # by the bootstrapper for this particular binary. In the end, if we do decide to support this, we will need
+    # to make sure to use oras to download the client binary and ensure the binary itself is hosted within MCR.
     if [ -z "${CUSTOM_SECURE_TLS_BOOTSTRAP_CLIENT_URL}" ]; then
         echo "secure TLS bootstrapping is enabled but no custom client URL was provided, nothing to download"
         return 0
