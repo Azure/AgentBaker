@@ -53,7 +53,6 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 			"packageUpdateTimerMariner":        getBase64EncodedGzippedCustomScript(packageUpdateSystemdTimerMariner, config),
 			"componentManifestFile":            getBase64EncodedGzippedCustomScript(componentManifestFile, config),
 			"validateKubeletCredentialsScript": getBase64EncodedGzippedCustomScript(validateKubeletCredentialsScript, config),
-			"runKubeletScript":                 getBase64EncodedGzippedCustomScript(runKubeletScript, config),
 		},
 	}
 
