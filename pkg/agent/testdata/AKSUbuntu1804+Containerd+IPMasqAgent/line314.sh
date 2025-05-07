@@ -68,12 +68,14 @@ validate() {
             echo "(retry=$retry_count) curl response code is $code, curl exited with code: $curl_code"
             echo "retrying once more to get a more detailed error response..."
 
-            curl -L \
+            if ! curl -L \
                 -m $RETRY_TIMEOUT_SECONDS \
                 -H "Accept: application/json, */*" \
                 -H "Authorization: Bearer $token" \
                 --cacert "$CREDENTIAL_VALIDATION_KUBE_CA_FILE" \
-                "${CREDENTIAL_VALIDATION_APISERVER_URL}/version?timeout=${RETRY_TIMEOUT_SECONDS}s"
+                "${CREDENTIAL_VALIDATION_APISERVER_URL}/version?timeout=${RETRY_TIMEOUT_SECONDS}s"; then
+                echo "curl exited with code: $?"
+            fi
 
             echo "proceeding to start kubelet..."
             return 0
