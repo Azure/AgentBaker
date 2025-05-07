@@ -84,7 +84,6 @@ const (
 	ensureNoDupEbtablesScript  = "linux/cloud-init/artifacts/ensure-no-dup.sh"
 	ensureNoDupEbtablesService = "linux/cloud-init/artifacts/ensure-no-dup.service"
 
-	// drop ins.
 	componentManifestFile = "linux/cloud-init/artifacts/manifest.json"
 )
 

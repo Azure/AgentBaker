@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/Azure/agentbaker/e2e/config"
+	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerregistry/armcontainerregistry"
@@ -19,24 +20,40 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/privatedns/armprivatedns"
 )
 
-// getLatestGAKubernetesVersion returns the latest GA Kubernetes version for the given location.
+// getLatestGAKubernetesVersion returns the highest GA Kubernetes version for the given location.
 func getLatestGAKubernetesVersion(location string) (string, error) {
 	versions, err := config.Azure.AKS.ListKubernetesVersions(context.Background(), location, nil)
 	if err != nil {
 		return "", fmt.Errorf("failed to list Kubernetes versions: %w", err)
 	}
-	if versions.Values == nil || len(versions.Values) == 0 {
+	if len(versions.Values) == 0 {
 		return "", fmt.Errorf("no Kubernetes versions available")
 	}
-	for _, k8s_version := range versions.Values {
-		if k8s_version.Version == nil {
+
+	var latestVersion string
+	for _, k8sVersion := range versions.Values {
+		if k8sVersion.Version == nil {
 			continue
 		}
-		if k8s_version.IsPreview == nil || !*k8s_version.IsPreview {
-			return *k8s_version.Version, nil
+		// Skip preview versions
+		if k8sVersion.IsPreview != nil && *k8sVersion.IsPreview {
+			continue
+		}
+		// Initialize latestVersion with first GA version found
+		if latestVersion == "" {
+			latestVersion = *k8sVersion.Version
+			continue
+		}
+		// Compare versions
+		if agent.IsKubernetesVersionGe(*k8sVersion.Version, latestVersion) {
+			latestVersion = *k8sVersion.Version
 		}
 	}
-	return "", fmt.Errorf("no GA Kubernetes version found")
+
+	if latestVersion == "" {
+		return "", fmt.Errorf("no GA Kubernetes version found")
+	}
+	return latestVersion, nil
 }
 
 // getLatestKubernetesVersionClusterModel returns a cluster model with the latest GA Kubernetes version.
