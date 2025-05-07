@@ -37,16 +37,7 @@ logs_to_events() {
     fi
 }
 
-<<<<<<< HEAD
-<<<<<<< HEAD
 validate() {
-=======
-=======
->>>>>>> 9656979da8 (latest test data)
-=======
->>>>>>> d125047ba1 (latest test data)
-function validateBootstrapKubeconfig {
->>>>>>> bf6b8e97dc (latest test data)
     local kubeconfig_path=$1
     
     token=$(grep -Po "(?<=token: ).*$" < "$kubeconfig_path")
