@@ -84,13 +84,7 @@ const (
 	ensureNoDupEbtablesScript  = "linux/cloud-init/artifacts/ensure-no-dup.sh"
 	ensureNoDupEbtablesService = "linux/cloud-init/artifacts/ensure-no-dup.service"
 
-	// drop ins.
-	containerdKubeletDropin = "linux/cloud-init/artifacts/10-containerd.conf"
-	cgroupv2KubeletDropin   = "linux/cloud-init/artifacts/10-cgroupv2.conf"
-	componentConfigDropin   = "linux/cloud-init/artifacts/10-componentconfig.conf"
-	bindMountDropin         = "linux/cloud-init/artifacts/10-bindmount.conf"
-	httpProxyDropin         = "linux/cloud-init/artifacts/10-httpproxy.conf"
-	componentManifestFile   = "linux/cloud-init/artifacts/manifest.json"
+	componentManifestFile = "linux/cloud-init/artifacts/manifest.json"
 )
 
 // cloud-init destination file references.

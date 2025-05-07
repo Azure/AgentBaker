@@ -519,6 +519,15 @@ ensureKubelet() {
         logs_to_events "AKS.CSE.ensureKubelet.setKubeletNodeIPFlag" setKubeletNodeIPFlag
     fi
 
+    # systemd watchdog support was added in 1.32.0: https://github.com/kubernetes/kubernetes/pull/127566
+    # This is needed to ensure kubelet is restarted if it becomes unresponsive
+    if semverCompare ${KUBERNETES_VERSION:-"0.0.0"} "1.32.0"; then
+        tee "/etc/systemd/system/kubelet.service.d/10-watchdog.conf" > /dev/null <<'EOF'
+[Service]
+WatchdogSec=60s
+EOF
+    fi
+
     echo "KUBELET_FLAGS=${KUBELET_FLAGS}" > "${KUBELET_DEFAULT_FILE}"
     echo "KUBELET_REGISTER_SCHEDULABLE=true" >> "${KUBELET_DEFAULT_FILE}"
     echo "NETWORK_POLICY=${NETWORK_POLICY}" >> "${KUBELET_DEFAULT_FILE}"
@@ -534,6 +543,16 @@ ensureKubelet() {
 
     if [ -n "${TLS_BOOTSTRAP_TOKEN}" ]; then
         echo "using bootstrap token to generate a bootstrap-kubeconfig"
+
+        CREDENTIAL_VALIDATION_DROP_IN="/etc/systemd/system/kubelet.service.d/10-credential-validation.conf"
+        mkdir -p "$(dirname "${CREDENTIAL_VALIDATION_DROP_IN}")"
+        touch "${CREDENTIAL_VALIDATION_DROP_IN}"
+        chmod 0600 "${CREDENTIAL_VALIDATION_DROP_IN}"
+        tee "${CREDENTIAL_VALIDATION_DROP_IN}" > /dev/null <<EOF
+[Service]
+Environment="CREDENTIAL_VALIDATION_KUBE_CA_FILE=/etc/kubernetes/certs/ca.crt"
+Environment="CREDENTIAL_VALIDATION_APISERVER_URL=https://${API_SERVER_NAME}:443"
+EOF
 
         KUBELET_TLS_DROP_IN="/etc/systemd/system/kubelet.service.d/10-tlsbootstrap.conf"
         mkdir -p "$(dirname "${KUBELET_TLS_DROP_IN}")"
@@ -636,8 +655,9 @@ EOF
         logs_to_events "AKS.CSE.ensureKubelet.installCredentialProvider" installCredentialProvider
     fi
 
-    # 4-minute timeout to give enough time to all of kubelet's ExecStartPre scripts before hitting their own respective timeouts
-    systemctlEnableAndStart kubelet 240 || exit $ERR_KUBELET_START_FAIL
+    # start kubelet.service without waiting for the main process to start running, though
+    # wait for at least 1 second before checking kubeket's status to ensure that it hasn't entered a failed state
+    systemctlEnableAndStartNoBlock kubelet 240 || exit $ERR_KUBELET_START_FAIL
 }
 
 ensureSnapshotUpdate() {
