@@ -498,7 +498,6 @@ ensureKubelet() {
         tee "/etc/systemd/system/kubelet.service.d/10-watchdog.conf" > /dev/null <<'EOF'
 [Service]
 WatchdogSec=60s
-NotifyAccess=all
 EOF
     fi
 
