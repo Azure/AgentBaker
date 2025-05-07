@@ -31,6 +31,13 @@ func getLatestGAKubernetesVersion(location string, t *testing.T) (string, error)
 	}
 
 	var latestVersion string
+	// Iterate through the available versions to find the latest GA version
+	t.Logf("Available Kubernetes versions for location %s:", location)
+	for _, k8sVersion := range versions.Values {
+		if k8sVersion.Version != nil {
+			t.Logf(" - %s", *k8sVersion.Version)
+		}
+	}
 	for _, k8sVersion := range versions.Values {
 		if k8sVersion.Version == nil {
 			continue
