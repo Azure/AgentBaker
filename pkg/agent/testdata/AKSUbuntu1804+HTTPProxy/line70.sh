@@ -497,7 +497,8 @@ ensureKubelet() {
     if semverCompare ${KUBERNETES_VERSION:-"0.0.0"} "1.32.0"; then
         tee "/etc/systemd/system/kubelet.service.d/10-watchdog.conf" > /dev/null <<'EOF'
 [Service]
-WatchdogSec=30s
+WatchdogSec=60s
+NotifyAccess=all
 EOF
     fi
 
