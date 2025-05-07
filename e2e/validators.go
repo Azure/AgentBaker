@@ -374,8 +374,9 @@ func ValidateContainerdWASMShims(ctx context.Context, s *Scenario) {
 func ValidateKubeletHasNotStopped(ctx context.Context, s *Scenario) {
 	command := "sudo journalctl -u kubelet"
 	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0, "could not retrieve kubelet logs with journalctl")
-	assert.NotContains(s.T, execResult.stdout.String(), "Stopped Kubelet")
-	assert.Contains(s.T, execResult.stdout.String(), "Started Kubelet")
+	stdout := strings.ToLower(execResult.stdout.String())
+	assert.NotContains(s.T, stdout, "stopped kubelet")
+	assert.Contains(s.T, stdout, "started kubelet")
 }
 
 func ValidateServicesDoNotRestartKubelet(ctx context.Context, s *Scenario) {
