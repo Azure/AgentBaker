@@ -16,8 +16,8 @@ K8S_REGISTRY_REPO="oss/binaries/kubernetes"
 UBUNTU_RELEASE=$(lsb_release -r -s 2>/dev/null || echo "")
 # For Mariner 2.0, this returns "MARINER" and for AzureLinux 3.0, this returns "AZURELINUX"
 OS=$(if ls /etc/*-release 1> /dev/null 2>&1; then sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }'; fi)
-SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_DOWNLOAD_DIR="/opt/azure/tlsbootstrap"
-SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_VERSION="v0.1.0-alpha.2"
+SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_DIR="/opt/aks-secure-tls-bootstrap-client/downloads"
+SECURE_TLS_BOOTSTRAP_CLIENT_BIN_DIR="/usr/local/bin"
 TELEPORTD_PLUGIN_DOWNLOAD_DIR="/opt/teleportd/downloads"
 CREDENTIAL_PROVIDER_DOWNLOAD_DIR="/opt/credentialprovider/downloads"
 CREDENTIAL_PROVIDER_BIN_DIR="/var/lib/kubelet/credential-provider"
@@ -384,6 +384,57 @@ installOras() {
     sudo tar -zxf "$ORAS_DOWNLOAD_DIR/${ORAS_TMP}" -C $ORAS_EXTRACTED_DIR/
     rm -r "$ORAS_DOWNLOAD_DIR"
     echo "Oras version $ORAS_VERSION installed successfully."
+}
+
+# this is called called during node provisioning -
+# if secure TLS bootstrapping is disabled, this will simply remove the client binary from disk.
+# otherwise, if a custom URL is provided, it will use the custom URL to overwrite the existing installation
+installSecureTLSBootstrapClient() {
+    # TODO(cameissner): can probably remove this once we get to preview
+    if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" != "true" ]; then
+        echo "secure TLS bootstrapping is disabled, will remove secure TLS bootstrap client binary installation"
+        rm -f "${SECURE_TLS_BOOTSTRAP_CLIENT_BIN_DIR}/aks-secure-tls-bootstrap-client" &
+        rm -rf "${SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_DIR}" &
+        return 0
+    fi
+
+    # this is mainly for development purposes so we can test different versions of the bootstrap client
+    # without having to tag new versions of AgentBaker, in the end we probably won't honor custom URLs specified
+    # by the bootstrapper for this particular binary. In the end, if we do decide to support this, we will need
+    # to make sure to use oras to download the client binary and ensure the binary itself is hosted within MCR.
+    if [ -z "${CUSTOM_SECURE_TLS_BOOTSTRAP_CLIENT_URL}" ]; then
+        echo "secure TLS bootstrapping is enabled but no custom client URL was provided, nothing to download"
+        return 0
+    fi
+
+    downloadSecureTLSBootstrapClient "${SECURE_TLS_BOOTSTRAP_CLIENT_BIN_DIR}" "${CUSTOM_SECURE_TLS_BOOTSTRAP_CLIENT_URL}" || exit $ERR_SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_ERROR
+}
+
+downloadSecureTLSBootstrapClient() {
+    # TODO(cameissner): have this managed by renovate, migrate from github to MCR/packages.microsoft.com
+
+    local CLIENT_EXTRACTED_DIR=${1-$:SECURE_TLS_BOOTSTRAP_CLIENT_BIN_DIR}
+    local CLIENT_DOWNLOAD_URL=$2
+
+    mkdir -p $SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_DIR
+    mkdir -p $CLIENT_EXTRACTED_DIR
+
+    CLIENT_DOWNLOAD_URL=$(update_base_url $CLIENT_DOWNLOAD_URL)
+
+    echo "installing aks-secure-tls-bootstrap-client from: $CLIENT_DOWNLOAD_URL"
+    CLIENT_TGZ_TMP=${CLIENT_DOWNLOAD_URL##*/}
+    retrycmd_get_tarball 120 5 "${SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_DIR}/${CLIENT_TGZ_TMP}" ${CLIENT_DOWNLOAD_URL} || exit $ERR_SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_ERROR
+
+    if [ -f "${CLIENT_EXTRACTED_DIR}/aks-secure-tls-bootstrap-client" ]; then
+        echo "aks-secure-tls-bootstrap-client already exists in $CLIENT_EXTRACTED_DIR, will overwrite existing aks-secure-tls-bootstrap-client installation at ${CLIENT_EXTRACTED_DIR}/aks-secure-tls-bootstrap-client"
+        rm -f "${CLIENT_EXTRACTED_DIR}/aks-secure-tls-bootstrap-client"
+    fi
+
+    tar -zxf "${SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_DIR}/${CLIENT_TGZ_TMP}" -C "${CLIENT_EXTRACTED_DIR}/"
+    chmod 755 "${CLIENT_EXTRACTED_DIR}/aks-secure-tls-bootstrap-client"
+
+    rm -rf "${SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_DIR}"
+    echo "aks-secure-tls-bootstrap-client installed successfully"
 }
 
 evalPackageDownloadURL() {
