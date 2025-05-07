@@ -235,21 +235,36 @@ retrycmd_nslookup() {
     echo "Executed nslookup -timeout=$timeout -retry=0 $record for $((current_time - start_time)) seconds";
 }
 
-retrycmd_get_tarball() {
-    tar_retries=$1; wait_sleep=$2; tarball=$3; url=$4
-    echo "${tar_retries} retries"
-    for i in $(seq 1 $tar_retries); do
-        [ -f "$tarball" ] && tar -tzf "$tarball" && break || \
-        if [ "$i" -eq "$tar_retries" ]; then
+_retry_file_curl_internal() {
+    retries=$1; waitSleep=$2; timeout=$3; filePath=$4; url=$5; checksToRun=( "${@:6}" )
+    echo "${retries} file curl retries"
+    for i in $(seq 1 $retries); do 
+        ( eval "$checksToRun" ) && break || if [ "$i" -eq "$retries" ]; then
             return 1
+        fi
+        if ! check_cse_timeout; then
+            echo "CSE timeout approaching, exiting early." >&2
+            return 2
         else
-            timeout 60 curl -fsSLv $url -o $tarball > $CURL_OUTPUT 2>&1
+            timeout $timeout curl -fsSLv $url -o $filePath > $CURL_OUTPUT 2>&1
             if [ "$?" -ne 0 ]; then
                 cat $CURL_OUTPUT
             fi
-            sleep $wait_sleep
+            sleep $waitSleep
         fi
     done
+}
+
+retrycmd_get_tarball() {
+    tar_retries=$1; wait_sleep=$2; tarball=$3; url=$4
+    check_tarball_valid="[ -f \"$tarball\" ] && tar -tzf \"$tarball\""
+    _retry_file_curl_internal "$tar_retries" "$wait_sleep" 60 "$tarball" "$url" "$check_tarball_valid"
+}
+
+retrycmd_curl_file() {
+    curl_retries=$1; wait_sleep=$2; timeout=$3; filepath=$4; url=$5
+    check_file_exists="[ -f \"$filepath\" ]"
+    _retry_file_curl_internal "$curl_retries" "$wait_sleep" "$timeout" "$filepath" "$url" "$check_file_exists"
 }
 
 retrycmd_get_tarball_from_registry_with_oras() {
@@ -276,7 +291,7 @@ retrycmd_get_access_token_for_oras() {
         response=$(timeout 60 curl -v -s -H "Metadata:true" --noproxy "*" "$url" -w "\n%{http_code}")
         ACCESS_TOKEN_OUTPUT=$(echo "$response" | sed '$d')
         http_code=$(echo "$response" | tail -n1)
-        if [ -n "$ACCESS_TOKEN_OUTPUT" ] && [ "$http_code" -eq 200 ]; then 
+        if [ -n "$ACCESS_TOKEN_OUTPUT" ] && [ "$http_code" -eq 200 ]; then
             echo "$ACCESS_TOKEN_OUTPUT"
             return 0
         fi
@@ -296,7 +311,7 @@ retrycmd_get_refresh_token_for_oras() {
         REFRESH_TOKEN_OUTPUT=$(timeout 60 curl -v -s -X POST -H "Content-Type: application/x-www-form-urlencoded" \
             -d "grant_type=access_token&service=$acr_url&tenant=$tenant_id&access_token=$ACCESS_TOKEN" \
             https://$acr_url/oauth2/exchange)
-        if [ -n "$REFRESH_TOKEN_OUTPUT" ]; then 
+        if [ -n "$REFRESH_TOKEN_OUTPUT" ]; then
             echo "$REFRESH_TOKEN_OUTPUT"
             return 0
         fi
@@ -323,7 +338,7 @@ retrycmd_get_binary_from_registry_with_oras() {
     binary_retries=$1; wait_sleep=$2; binary_path=$3; url=$4
     binary_folder=$(dirname "$binary_path")
     echo "${binary_retries} retries"
-    
+
     for i in $(seq 1 $binary_retries); do
         if [ -f "$binary_path" ]; then
             break
@@ -358,23 +373,6 @@ retrycmd_can_oras_ls_acr() {
     return $ERR_ORAS_PULL_NETWORK_TIMEOUT
 }
 
-retrycmd_curl_file() {
-    curl_retries=$1; wait_sleep=$2; timeout=$3; filepath=$4; url=$5
-    echo "${curl_retries} retries"
-    for i in $(seq 1 $curl_retries); do
-        [ -f "$filepath" ] && break
-        if [ "$i" -eq "$curl_retries" ]; then
-            return 1
-        else
-            timeout $timeout curl -fsSLv $url -o $filepath > $CURL_OUTPUT 2>&1
-            if [ "$?" -ne 0 ]; then
-                cat $CURL_OUTPUT
-            fi
-            sleep $wait_sleep
-        fi
-    done
-}
-
 _systemctl_retry_svc_operation() {
     retries=$1; wait_sleep=$2; timeout=$3 operation=$4 svcname=$5 shouldLogRetryInfo=${6:-false}
     for i in $(seq 1 $retries); do
@@ -401,11 +399,11 @@ systemctl_restart_no_block() {
 }
 
 systemctl_stop() {
-    _systemctl_retry_svc_operation "$1" "$2" "$3" "stop" "$4" 
+    _systemctl_retry_svc_operation "$1" "$2" "$3" "stop" "$4"
 }
 
 systemctl_disable() {
-    _systemctl_retry_svc_operation "$1" "$2" "$3" "disable" "$4" 
+    _systemctl_retry_svc_operation "$1" "$2" "$3" "disable" "$4"
 }
 
 sysctl_reload() {
@@ -413,7 +411,7 @@ sysctl_reload() {
 }
 
 version_gte() {
-  test "$(printf '%s\n' "$@" | sort -rV | head -n 1)" == "$1"
+    test "$(printf '%s\n' "$@" | sort -rV | head -n 1)" = "$1"
 }
 
 systemctlEnableAndStart() {
@@ -672,7 +670,7 @@ updateMultiArchVersions() {
   local imageToBePulled="$1"
 
   #jq the MultiArchVersions from the containerImages. If ContainerImages[i].multiArchVersionsV2 is not null, return that, else return ContainerImages[i].multiArchVersions
-  if [ "$(echo "${imageToBePulled}" | jq .multiArchVersionsV2)" != "null" ]; then
+  if [ "$(echo "${imageToBePulled}" | jq -r '.multiArchVersionsV2 // [] | select(. != null and . != [])')" ]; then
     local latestVersions=($(echo "${imageToBePulled}" | jq -r ".multiArchVersionsV2[] | select(.latestVersion != null) | .latestVersion"))
     local previousLatestVersions=($(echo "${imageToBePulled}" | jq -r ".multiArchVersionsV2[] | select(.previousLatestVersion != null) | .previousLatestVersion"))
     for version in "${latestVersions[@]}"; do
@@ -682,6 +680,11 @@ updateMultiArchVersions() {
       MULTI_ARCH_VERSIONS+=("${version}")
     done
     return
+  fi
+
+  if [ "$(echo "${imageToBePulled}" | jq -r '.multiArchVersions | if . == null then "null" else empty end')" = "null" ]; then
+    MULTI_ARCH_VERSIONS=()
+    return 
   fi
 
   local versions=($(echo "${imageToBePulled}" | jq -r ".multiArchVersions[]"))
@@ -697,9 +700,9 @@ updatePackageDownloadURL() {
     RELEASE="current"
     updateRelease "${package}" "${os}" "${osVersion}"
     local osLowerCase=$(echo "${os}" | tr '[:upper:]' '[:lower:]')
-    
+
     #if .downloadURIs.${osLowerCase} exist, then get the downloadURL from there.
-    #otherwise get the downloadURL from .downloadURIs.default 
+    #otherwise get the downloadURL from .downloadURIs.default
     if [ "$(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}")" != "null" ]; then
         downloadURL=$(echo "${package}" | jq ".downloadURIs.${osLowerCase}.${RELEASE}.downloadURL" -r)
         [ "${downloadURL}" = "null" ] && PACKAGE_DOWNLOAD_URL="" || PACKAGE_DOWNLOAD_URL="${downloadURL}"
@@ -707,7 +710,7 @@ updatePackageDownloadURL() {
     fi
     downloadURL=$(echo "${package}" | jq ".downloadURIs.default.${RELEASE}.downloadURL" -r)
     [ "${downloadURL}" = "null" ] && PACKAGE_DOWNLOAD_URL="" || PACKAGE_DOWNLOAD_URL="${downloadURL}"
-    return    
+    return
 }
 
 addKubeletNodeLabel() {
@@ -814,13 +817,13 @@ resolve_packages_source_url() {
 
 update_base_url() {
   initial_url=$1
-  
+
   if [ "$PACKAGE_DOWNLOAD_BASE_URL" = "packages.aks.azure.com" ] && [[ "$initial_url" == *"acs-mirror.azureedge.net"* ]]; then
     initial_url="${initial_url//"acs-mirror.azureedge.net"/$PACKAGE_DOWNLOAD_BASE_URL}"
   elif [ "$PACKAGE_DOWNLOAD_BASE_URL" = "acs-mirror.azureedge.net" ] && [[ "$initial_url" == *"packages.aks.azure.com"* ]]; then
     initial_url="${initial_url//"packages.aks.azure.com"/$PACKAGE_DOWNLOAD_BASE_URL}"
   fi
-  
+
   echo "$initial_url"
 }
 
@@ -831,11 +834,11 @@ oras_login_with_kubelet_identity() {
 
     if [ -z "$client_id" ] || [ -z "$tenant_id" ]; then
         echo "client_id or tenant_id are not set. Oras login is not possible, proceeding with anonymous pull"
-        return 
+        return
     fi
 
     retrycmd_can_oras_ls_acr 10 5 $acr_url
-    ret_code=$? 
+    ret_code=$?
     if [ "$ret_code" -eq 0 ]; then
         echo "anonymous pull is allowed for acr '$acr_url', proceeding with anonymous pull"
         return
@@ -844,10 +847,10 @@ oras_login_with_kubelet_identity() {
         return $ret_code
     fi
 
-    set +x 
+    set +x
     access_url="http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https://management.azure.com/&client_id=$client_id"
     raw_access_token=$(retrycmd_get_access_token_for_oras 5 15 $access_url)
-    ret_code=$? 
+    ret_code=$?
     if [ "$ret_code" -ne 0 ]; then
         echo $raw_access_token
         return $ret_code
@@ -859,7 +862,7 @@ oras_login_with_kubelet_identity() {
     fi
 
     raw_refresh_token=$(retrycmd_get_refresh_token_for_oras 10 5 $acr_url $tenant_id $ACCESS_TOKEN)
-    ret_code=$? 
+    ret_code=$?
     if [ "$ret_code" -ne 0 ]; then
         echo "failed to retrieve refresh token: $ret_code"
         return $ret_code
