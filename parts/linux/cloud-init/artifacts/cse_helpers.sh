@@ -470,18 +470,18 @@ systemctlEnableAndStart() {
 
 systemctlEnableAndStartNoBlock() {    
     service=$1; timeout=$2; status_check_delay_seconds=${3:-"0"}
-    systemctl_restart_no_block 100 5 $timeout $service
 
+    systemctl_restart_no_block 100 5 $timeout $service
     RESTART_STATUS=$?
     if [ $RESTART_STATUS -ne 0 ]; then
         echo "$service could not be enqueued for startup"
-        systemctl status $service --no-pager -l > /var/log/azure/$service-status.log
+        systemctl status $service --no-pager -l > /var/log/azure/$service-status.log || true
         return 1
     fi
 
     if ! retrycmd_if_failure 120 5 25 systemctl enable $1; then
         echo "$1 could not be enabled by systemctl"
-        systemctl status $service --no-pager -l > /var/log/azure/$service-status.log
+        systemctl status $service --no-pager -l > /var/log/azure/$service-status.log || true
         return 1
     fi
 
@@ -492,12 +492,12 @@ systemctlEnableAndStartNoBlock() {
     status=$(systemctl is-active $service)
     if [ "${status,,}" != "active" ] && [ "${status,,}" != "activating" ]; then
         echo "$service is not activating or active"
-        systemctl status $service --no-pager -l > /var/log/azure/$service-status.log
+        systemctl status $service --no-pager -l > /var/log/azure/$service-status.log || true
         return 1
     fi
 
     # systemctl status only exits with code 0 iff the service is "active",
-    # thus we handle the "activating" case checking for a non-zero exit code
+    # thus we handle the "activating" case by checking for a non-zero exit code
     if ! systemctl status $service --no-pager -l > /var/log/azure/$service-status.log; then
         echo "$service is still activating, continuing anyway..."
     fi
