@@ -56,8 +56,7 @@ func getLatestGAKubernetesVersion(location string, t *testing.T) (string, error)
 				continue
 			}
 			// Compare versions
-			isGreater := agent.IsKubernetesVersionGe(patchVersion, latestPatchVersion)
-			if isGreater {
+			if agent.IsKubernetesVersionGe(patchVersion, latestPatchVersion) {
 				latestPatchVersion = patchVersion
 				t.Logf(" - - new latest found, updating to: %s", latestPatchVersion)
 			}

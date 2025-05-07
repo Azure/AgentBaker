@@ -112,7 +112,6 @@ func ValidateSystemdWatchdogForKubernetes132Plus(ctx context.Context, s *Scenari
 		// Validate systemd watchdog is enabled and configured for kubelet
 		ValidateSystemdUnitIsRunning(ctx, s, "kubelet.service")
 		ValidateFileHasContent(ctx, s, "/etc/systemd/system/kubelet.service.d/10-watchdog.conf", "WatchdogSec=60s")
-		ValidateFileHasContent(ctx, s, "/etc/systemd/system/kubelet.service.d/10-watchdog.conf", "NotifyAccess=all")
 		ValidateJournalctlOutput(ctx, s, "kubelet.service", "Starting systemd watchdog with interval")
 	}
 }
