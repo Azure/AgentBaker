@@ -37,7 +37,7 @@ err() {
 LOCAL_GIT_BRANCH=${GIT_BRANCH//\//-}
 
 # Git is not present in the base image, so we need to install it.
-if [ "$OS_SKU" == "Ubuntu" ]; then
+if [ "$OS_SKU" = "Ubuntu" ]; then
   sudo apt-get install -y git
 else
   sudo tdnf install -y git
