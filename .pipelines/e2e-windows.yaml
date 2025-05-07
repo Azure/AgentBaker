@@ -1,7 +1,8 @@
 name: $(Date:yyyyMMdd)$(Rev:.r)
 variables:
   TAGS_TO_RUN: "os=windows"
-  SKIP_E2E_TESTS: false
+  SKIP_E2E_TESTS: true
+
 trigger:
   branches:
     include:
@@ -36,7 +37,6 @@ pr:
 
 jobs:
   - template: ./templates/e2e-template.yaml
-    enabled: false
     parameters:
       name: Windows Tests
       IgnoreScenariosWithMissingVhd: false
