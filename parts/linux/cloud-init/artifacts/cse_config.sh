@@ -535,16 +535,6 @@ ensureKubelet() {
     if [ -n "${TLS_BOOTSTRAP_TOKEN}" ]; then
         echo "using bootstrap token to generate a bootstrap-kubeconfig"
 
-        CREDENTIAL_VALIDATION_DROP_IN="/etc/systemd/system/kubelet.service.d/10-credential-validation.conf"
-        mkdir -p "$(dirname "${CREDENTIAL_VALIDATION_DROP_IN}")"
-        touch "${CREDENTIAL_VALIDATION_DROP_IN}"
-        chmod 0600 "${CREDENTIAL_VALIDATION_DROP_IN}"
-        tee "${CREDENTIAL_VALIDATION_DROP_IN}" > /dev/null <<EOF
-[Service]
-Environment="CREDENTIAL_VALIDATION_KUBE_CA_FILE=/etc/kubernetes/certs/ca.crt"
-Environment="CREDENTIAL_VALIDATION_APISERVER_URL=https://${API_SERVER_NAME}:443"
-EOF
-
         KUBELET_TLS_DROP_IN="/etc/systemd/system/kubelet.service.d/10-tlsbootstrap.conf"
         mkdir -p "$(dirname "${KUBELET_TLS_DROP_IN}")"
         touch "${KUBELET_TLS_DROP_IN}"
