@@ -1795,3 +1795,15 @@ func Test_Ubuntu2404ARM(t *testing.T) {
 		},
 	})
 }
+
+func Test_Random_VHD_With_Latest_Kubernetes_Version(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using a Random VHD can be properly bootstrapped with the latest kubernetes version",
+		Config: Config{
+			Cluster: ClusterLatestKubernetesVersion,
+			VHD:     config.GetRandomLinuxAMD64VHD(),
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+			},
+		},
+	})
+}

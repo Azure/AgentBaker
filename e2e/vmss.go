@@ -437,7 +437,7 @@ func generateVMSSNameLinux(t *testing.T) string {
 	return name
 }
 
-func generateVMSSNameWindows(t *testing.T) string {
+func generateVMSSNameWindows() string {
 	// windows has a limit of 9 characters for VMSS name
 	// and doesn't allow "-"
 	return fmt.Sprintf("win%s", randomLowercaseString(4))
@@ -445,7 +445,7 @@ func generateVMSSNameWindows(t *testing.T) string {
 
 func generateVMSSName(s *Scenario) string {
 	if s.VHD.OS == config.OSWindows {
-		return generateVMSSNameWindows(s.T)
+		return generateVMSSNameWindows()
 	}
 	return generateVMSSNameLinux(s.T)
 }
