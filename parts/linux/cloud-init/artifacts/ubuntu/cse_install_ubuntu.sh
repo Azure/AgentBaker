@@ -50,7 +50,9 @@ installDeps() {
         pkg_list+=(irqbalance)
     fi
 
-    pkg_list+=("aznfs=0.3.15")
+    if [ "${OSVERSION}" = "22.04" ] || [ "${OSVERSION}" = "24.04" ]; then
+        pkg_list+=("aznfs=0.3.15")
+    fi
 
     for apt_package in ${pkg_list[*]}; do
         if ! apt_get_install 30 1 600 $apt_package; then
