@@ -409,19 +409,6 @@ systemctl_disable() {
 sysctl_reload() {
     retrycmd_silent $1 $2 $3 "false" sysctl --system
 }
-<<<<<<< HEAD
-<<<<<<< HEAD
-
-=======
-<<<<<<< HEAD
->>>>>>> 657ca68889 (latest test data)
-version_gte() {
-    test "$(printf '%s\n' "$@" | sort -rV | head -n 1)" = "$1"
-}
-=======
->>>>>>> 076debc8e4 (latest test data)
-=======
->>>>>>> df24d7abb1 (latest test data)
 
 systemctlEnableAndStart() {
     service=$1; timeout=$2
