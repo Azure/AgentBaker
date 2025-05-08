@@ -406,6 +406,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"GetCustomSecureTLSBootstrapAADServerAppID": func() string {
 			return config.CustomSecureTLSBootstrapAADServerAppID
 		},
+		"GetCustomSecureTLSBootstrapClientURL": func() string {
+			return config.CustomSecureTLSBootstrapClientURL
+		},
 		"GetTLSBootstrapTokenForKubeConfig": func() string {
 			return GetTLSBootstrapTokenForKubeConfig(config.KubeletClientTLSBootstrapToken)
 		},

@@ -3,6 +3,7 @@ package config
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"strings"
 	"sync"
 	"testing"
@@ -71,6 +72,13 @@ var (
 		OS:      OSAzureLinux,
 		Arch:    "amd64",
 		Distro:  datamodel.AKSAzureLinuxV2Gen2,
+		Gallery: imageGallery,
+	}
+	VHDAzureLinuxV3Gen2 = &Image{
+		Name:    "AzureLinuxV3gen2",
+		OS:      OSAzureLinux,
+		Arch:    "amd64",
+		Distro:  datamodel.AKSAzureLinuxV3Gen2,
 		Gallery: imageGallery,
 	}
 	VHDCBLMarinerV2Gen2Arm64 = &Image{
@@ -263,4 +271,18 @@ func (id VHDResourceID) Short() string {
 		return strings.Split(str, sep)[1]
 	}
 	return str
+}
+
+func GetRandomLinuxAMD64VHD() *Image {
+	// List of VHDs to use for generic tests, this could be expanded in the future to support a map of VHD and compatible VM Skus
+	vhds := []*Image{
+		VHDUbuntu2404Gen2Containerd,
+		VHDUbuntu2204Gen2Containerd,
+		VHDAzureLinuxV2Gen2,
+		VHDAzureLinuxV3Gen2,
+		VHDCBLMarinerV2Gen2,
+	}
+
+	// Return a random VHD from the list
+	return vhds[rand.Intn(len(vhds))]
 }

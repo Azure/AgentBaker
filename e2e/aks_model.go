@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/Azure/agentbaker/e2e/config"
+	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerregistry/armcontainerregistry"
@@ -18,6 +19,67 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v6"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/privatedns/armprivatedns"
 )
+
+// getLatestGAKubernetesVersion returns the highest GA Kubernetes version for the given location.
+func getLatestGAKubernetesVersion(location string, t *testing.T) (string, error) {
+	versions, err := config.Azure.AKS.ListKubernetesVersions(context.Background(), location, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to list Kubernetes versions: %w", err)
+	}
+	if len(versions.Values) == 0 {
+		return "", fmt.Errorf("no Kubernetes versions available")
+	}
+
+	var latestPatchVersion string
+	// Iterate through the available versions to find the latest GA version
+	t.Logf("Available Kubernetes versions for location %s:", location)
+	for _, k8sVersion := range versions.Values {
+		if k8sVersion == nil {
+			continue
+		}
+		t.Logf("- %s", *k8sVersion.Version)
+
+		// Skip preview versions
+		if k8sVersion.IsPreview != nil && *k8sVersion.IsPreview {
+			t.Log(" - - is in preview, skipping")
+			continue
+		}
+		for patchVersion := range k8sVersion.PatchVersions {
+			if patchVersion == "" {
+				continue
+			}
+			t.Logf("- - %s", patchVersion)
+			// Initialize latestVersion with first GA version found
+			if latestPatchVersion == "" {
+				latestPatchVersion = patchVersion
+				t.Logf(" - - first latest found, updating to: %s", latestPatchVersion)
+				continue
+			}
+			// Compare versions
+			if agent.IsKubernetesVersionGe(patchVersion, latestPatchVersion) {
+				latestPatchVersion = patchVersion
+				t.Logf(" - - new latest found, updating to: %s", latestPatchVersion)
+			}
+		}
+	}
+
+	if latestPatchVersion == "" {
+		return "", fmt.Errorf("no GA Kubernetes version found")
+	}
+	t.Logf("Latest GA Kubernetes version for location %s: %s", location, latestPatchVersion)
+	return latestPatchVersion, nil
+}
+
+// getLatestKubernetesVersionClusterModel returns a cluster model with the latest GA Kubernetes version.
+func getLatestKubernetesVersionClusterModel(name string, t *testing.T) (*armcontainerservice.ManagedCluster, error) {
+	version, err := getLatestGAKubernetesVersion(config.Config.Location, t)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get latest GA Kubernetes version: %w", err)
+	}
+	model := getBaseClusterModel(name)
+	model.Properties.KubernetesVersion = to.Ptr(version)
+	return model, nil
+}
 
 func getKubenetClusterModel(name string) *armcontainerservice.ManagedCluster {
 	model := getBaseClusterModel(name)
@@ -274,7 +336,7 @@ func createPrivateAzureContainerRegistry(ctx context.Context, t *testing.T, clus
 			t.Logf("failed to get private ACR credentials: %v", err)
 			return err
 		}
-		if err := kubeconfig.createKubernetesSecret(ctx, t, "default", kubeconfigPath, config.Config.ACRSecretName, privateACRName, username, password); err != nil {
+		if err := kubeconfig.createKubernetesSecret(ctx, t, "default", config.Config.ACRSecretName, privateACRName, username, password); err != nil {
 			t.Logf("failed to create Kubernetes secret: %v", err)
 			return err
 		}
@@ -586,7 +648,7 @@ func getSecurityRule(name, destinationAddressPrefix string, priority int32) *arm
 			SourcePortRange:          to.Ptr("*"),
 			DestinationAddressPrefix: to.Ptr(destinationAddressPrefix),
 			DestinationPortRange:     to.Ptr("*"),
-			Priority:                 to.Ptr[int32](priority),
+			Priority:                 to.Ptr(priority),
 		},
 	}
 }

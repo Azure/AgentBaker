@@ -316,7 +316,7 @@ func (k *Kubeclient) CreateDaemonset(ctx context.Context, ds *appsv1.DaemonSet) 
 	return nil
 }
 
-func (k *Kubeclient) createKubernetesSecret(ctx context.Context, t *testing.T, namespace, kubeconfigPath, secretName, registryName, username, password string) error {
+func (k *Kubeclient) createKubernetesSecret(ctx context.Context, t *testing.T, namespace, secretName, registryName, username, password string) error {
 	t.Logf("Creating Kubernetes secret %s in namespace %s", secretName, namespace)
 	clientset, err := kubernetes.NewForConfig(k.RESTConfig)
 	if err != nil {
@@ -436,7 +436,7 @@ func daemonsetDebug(t *testing.T, deploymentName, targetNodeLabel, privateACRNam
 	}
 }
 
-func getClusterSubnetID(ctx context.Context, mcResourceGroupName string, t *testing.T) (string, error) {
+func getClusterSubnetID(ctx context.Context, mcResourceGroupName string) (string, error) {
 	pager := config.Azure.VNet.NewListPager(mcResourceGroupName, nil)
 	for pager.More() {
 		nextResult, err := pager.NextPage(ctx)

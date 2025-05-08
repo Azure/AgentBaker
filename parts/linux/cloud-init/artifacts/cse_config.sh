@@ -519,6 +519,15 @@ ensureKubelet() {
         logs_to_events "AKS.CSE.ensureKubelet.setKubeletNodeIPFlag" setKubeletNodeIPFlag
     fi
 
+    # systemd watchdog support was added in 1.32.0: https://github.com/kubernetes/kubernetes/pull/127566
+    # This is needed to ensure kubelet is restarted if it becomes unresponsive
+    if semverCompare ${KUBERNETES_VERSION:-"0.0.0"} "1.32.0"; then
+        tee "/etc/systemd/system/kubelet.service.d/10-watchdog.conf" > /dev/null <<'EOF'
+[Service]
+WatchdogSec=60s
+EOF
+    fi
+
     echo "KUBELET_FLAGS=${KUBELET_FLAGS}" > "${KUBELET_DEFAULT_FILE}"
     echo "KUBELET_REGISTER_SCHEDULABLE=true" >> "${KUBELET_DEFAULT_FILE}"
     echo "NETWORK_POLICY=${NETWORK_POLICY}" >> "${KUBELET_DEFAULT_FILE}"
@@ -646,8 +655,9 @@ EOF
         logs_to_events "AKS.CSE.ensureKubelet.installCredentialProvider" installCredentialProvider
     fi
 
-    # 4-minute timeout to give enough time to all of kubelet's ExecStartPre scripts before hitting their own respective timeouts
-    systemctlEnableAndStart kubelet 240 || exit $ERR_KUBELET_START_FAIL
+    # start kubelet.service without waiting for the main process to start running, though
+    # wait for at least 1 second before checking kubeket's status to ensure that it hasn't entered a failed state
+    systemctlEnableAndStartNoBlock kubelet 240 || exit $ERR_KUBELET_START_FAIL
 }
 
 ensureSnapshotUpdate() {

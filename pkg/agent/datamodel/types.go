@@ -1757,21 +1757,23 @@ type NodeBootstrappingConfiguration struct {
 	// CustomSecureTLSBootstrapAADServerAppID serves as an optional override of the AAD server application ID
 	// used by the secure TLS bootstrap client-go credential plugin when requesting JWTs from AAD
 	CustomSecureTLSBootstrapAADServerAppID string
-	FIPSEnabled                            bool
-	HTTPProxyConfig                        *HTTPProxyConfig
-	KubeletConfig                          map[string]string
-	KubeproxyConfig                        map[string]string
-	EnableRuncShimV2                       bool
-	GPUInstanceProfile                     string
-	PrimaryScaleSetName                    string
-	SIGConfig                              SIGConfig
-	IsARM64                                bool
-	CustomCATrustConfig                    *CustomCATrustConfig
-	DisableUnattendedUpgrades              bool
-	SSHStatus                              SSHStatus
-	DisableCustomData                      bool
-	OutboundType                           string
-	EnableIMDSRestriction                  bool
+	// Optional client download URL used to overwrite the secure TLS bootstrap client installation at node provisioning time.
+	CustomSecureTLSBootstrapClientURL string
+	FIPSEnabled                       bool
+	HTTPProxyConfig                   *HTTPProxyConfig
+	KubeletConfig                     map[string]string
+	KubeproxyConfig                   map[string]string
+	EnableRuncShimV2                  bool
+	GPUInstanceProfile                string
+	PrimaryScaleSetName               string
+	SIGConfig                         SIGConfig
+	IsARM64                           bool
+	CustomCATrustConfig               *CustomCATrustConfig
+	DisableUnattendedUpgrades         bool
+	SSHStatus                         SSHStatus
+	DisableCustomData                 bool
+	OutboundType                      string
+	EnableIMDSRestriction             bool
 	// InsertIMDSRestrictionRuleToMangleTable is only checked when EnableIMDSRestriction is true.
 	// When this is true, iptables rule will be inserted to `mangle` table. This is for Linux Cilium
 	// CNI, which will overwrite the `filter` table so that we can only insert to `mangle` table to avoid

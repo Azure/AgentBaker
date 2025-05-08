@@ -494,6 +494,13 @@ ensureKubelet() {
         logs_to_events "AKS.CSE.ensureKubelet.setKubeletNodeIPFlag" setKubeletNodeIPFlag
     fi
 
+    if semverCompare ${KUBERNETES_VERSION:-"0.0.0"} "1.32.0"; then
+        tee "/etc/systemd/system/kubelet.service.d/10-watchdog.conf" > /dev/null <<'EOF'
+[Service]
+WatchdogSec=60s
+EOF
+    fi
+
     echo "KUBELET_FLAGS=${KUBELET_FLAGS}" > "${KUBELET_DEFAULT_FILE}"
     echo "KUBELET_REGISTER_SCHEDULABLE=true" >> "${KUBELET_DEFAULT_FILE}"
     echo "NETWORK_POLICY=${NETWORK_POLICY}" >> "${KUBELET_DEFAULT_FILE}"
@@ -609,7 +616,7 @@ EOF
         logs_to_events "AKS.CSE.ensureKubelet.installCredentialProvider" installCredentialProvider
     fi
 
-    systemctlEnableAndStart kubelet 240 || exit $ERR_KUBELET_START_FAIL
+    systemctlEnableAndStartNoBlock kubelet 240 || exit $ERR_KUBELET_START_FAIL
 }
 
 ensureSnapshotUpdate() {

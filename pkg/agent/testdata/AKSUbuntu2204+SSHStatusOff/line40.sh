@@ -15,8 +15,8 @@ K8S_PRIVATE_PACKAGES_CACHE_DIR="/opt/kubernetes/downloads/private-packages"
 K8S_REGISTRY_REPO="oss/binaries/kubernetes"
 UBUNTU_RELEASE=$(lsb_release -r -s 2>/dev/null || echo "")
 OS=$(if ls /etc/*-release 1> /dev/null 2>&1; then sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }'; fi)
-SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_DOWNLOAD_DIR="/opt/azure/tlsbootstrap"
-SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_VERSION="v0.1.0-alpha.2"
+SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_DIR="/opt/aks-secure-tls-bootstrap-client/downloads"
+SECURE_TLS_BOOTSTRAP_CLIENT_BIN_DIR="/usr/local/bin"
 TELEPORTD_PLUGIN_DOWNLOAD_DIR="/opt/teleportd/downloads"
 CREDENTIAL_PROVIDER_DOWNLOAD_DIR="/opt/credentialprovider/downloads"
 CREDENTIAL_PROVIDER_BIN_DIR="/var/lib/kubelet/credential-provider"
@@ -357,6 +357,48 @@ installOras() {
     sudo tar -zxf "$ORAS_DOWNLOAD_DIR/${ORAS_TMP}" -C $ORAS_EXTRACTED_DIR/
     rm -r "$ORAS_DOWNLOAD_DIR"
     echo "Oras version $ORAS_VERSION installed successfully."
+}
+
+installSecureTLSBootstrapClient() {
+    if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" != "true" ]; then
+        echo "secure TLS bootstrapping is disabled, will remove secure TLS bootstrap client binary installation"
+        rm -f "${SECURE_TLS_BOOTSTRAP_CLIENT_BIN_DIR}/aks-secure-tls-bootstrap-client" &
+        rm -rf "${SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_DIR}" &
+        return 0
+    fi
+
+    if [ -z "${CUSTOM_SECURE_TLS_BOOTSTRAP_CLIENT_URL}" ]; then
+        echo "secure TLS bootstrapping is enabled but no custom client URL was provided, nothing to download"
+        return 0
+    fi
+
+    downloadSecureTLSBootstrapClient "${SECURE_TLS_BOOTSTRAP_CLIENT_BIN_DIR}" "${CUSTOM_SECURE_TLS_BOOTSTRAP_CLIENT_URL}" || exit $ERR_SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_ERROR
+}
+
+downloadSecureTLSBootstrapClient() {
+
+    local CLIENT_EXTRACTED_DIR=${1-$:SECURE_TLS_BOOTSTRAP_CLIENT_BIN_DIR}
+    local CLIENT_DOWNLOAD_URL=$2
+
+    mkdir -p $SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_DIR
+    mkdir -p $CLIENT_EXTRACTED_DIR
+
+    CLIENT_DOWNLOAD_URL=$(update_base_url $CLIENT_DOWNLOAD_URL)
+
+    echo "installing aks-secure-tls-bootstrap-client from: $CLIENT_DOWNLOAD_URL"
+    CLIENT_TGZ_TMP=${CLIENT_DOWNLOAD_URL##*/}
+    retrycmd_get_tarball 120 5 "${SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_DIR}/${CLIENT_TGZ_TMP}" ${CLIENT_DOWNLOAD_URL} || exit $ERR_SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_ERROR
+
+    if [ -f "${CLIENT_EXTRACTED_DIR}/aks-secure-tls-bootstrap-client" ]; then
+        echo "aks-secure-tls-bootstrap-client already exists in $CLIENT_EXTRACTED_DIR, will overwrite existing aks-secure-tls-bootstrap-client installation at ${CLIENT_EXTRACTED_DIR}/aks-secure-tls-bootstrap-client"
+        rm -f "${CLIENT_EXTRACTED_DIR}/aks-secure-tls-bootstrap-client"
+    fi
+
+    tar -zxf "${SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_DIR}/${CLIENT_TGZ_TMP}" -C "${CLIENT_EXTRACTED_DIR}/"
+    chmod 755 "${CLIENT_EXTRACTED_DIR}/aks-secure-tls-bootstrap-client"
+
+    rm -rf "${SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_DIR}"
+    echo "aks-secure-tls-bootstrap-client installed successfully"
 }
 
 evalPackageDownloadURL() {
