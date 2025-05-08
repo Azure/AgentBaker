@@ -40,7 +40,7 @@ you can reason the steps by following the steps defined in the pipeline.
 
 Tags of AgentBaker and corresponding Linux VHDs are released every week. Linux VHDs are built with a particular image version in the YYYYMM.DD.PATCH format. All Linux VHD versions correspond to a particular tag of the AgentBaker go module. AgentBaker go module tags follow the format v0.YYYYMMDD.PATCH. The mapping between AgentBaker tag and Linux VHD version is defined within [linux_sig_version.json](../pkg/agent/datamodel/linux_sig_version.json).
 
-Windows VHD are released separately, following windows patch tuesday schedule. 
+Windows VHD are released separately, following windows patch tuesday schedule.
 
 ## Guidelines
 
