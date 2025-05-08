@@ -127,7 +127,7 @@ if [ "$OS_TYPE" = "Linux" ]; then
   fi
 
   if [ "$OS_VERSION" = "18.04" ]; then
-    export DEBIAN_FRONTEND=noninteractive
+    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y tzdata
   fi
 
   # If the pipeline that called this didn't set a branch, default to master.
