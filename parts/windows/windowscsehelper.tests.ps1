@@ -40,19 +40,19 @@ Describe 'Install-Containerd-Based-On-Kubernetes-Version' {
   }
 
   It 'k8s version is greater than MinimalKubernetesVersionWithLatestContainerd edge case' {
-    $expectedURL = "https://acs-mirror.azureedge.net/containerd/windows/" + $global:LatestContainerdPackage
+    $expectedURL = "https://packages.aks.azure.com/containerd/windows/" + $global:LatestContainerdPackage
     & Install-Containerd-Based-On-Kubernetes-Version -ContainerdUrl "https://acs-mirror.azureedge.net/containerd/windows/" -KubernetesVersion "1.32.9" -CNIBinDir "cniBinPath" -CNIConfDir "cniConfigPath" -KubeDir "kubeDir"
     Assert-MockCalled -CommandName "Install-Containerd" -Exactly -Times 1 -ParameterFilter { $ContainerdUrl -eq $expectedURL }
   }
 
   It 'k8s version is equal to MinimalKubernetesVersionWithContainerd2' {
-    $expectedURL = "https://acs-mirror.azureedge.net/containerd/windows/" + $global:LatestContainerd2Package
+    $expectedURL = "https://packages.aks.azure.com/containerd/windows/" + $global:LatestContainerd2Package
     & Install-Containerd-Based-On-Kubernetes-Version -ContainerdUrl "https://acs-mirror.azureedge.net/containerd/windows/" -KubernetesVersion "1.33.0" -CNIBinDir "cniBinPath" -CNIConfDir "cniConfigPath" -KubeDir "kubeDir"
     Assert-MockCalled -CommandName "Install-Containerd" -Exactly -Times 1 -ParameterFilter { $ContainerdUrl -eq $expectedURL }
   }
 
   It 'k8s version is greater than MinimalKubernetesVersionWithContainerd2' {
-    $expectedURL = "https://acs-mirror.azureedge.net/containerd/windows/" + $global:LatestContainerd2Package
+    $expectedURL = "https://packages.aks.azure.com/containerd/windows/" + $global:LatestContainerd2Package
     & Install-Containerd-Based-On-Kubernetes-Version -ContainerdUrl "https://acs-mirror.azureedge.net/containerd/windows/" -KubernetesVersion "1.34.0" -CNIBinDir "cniBinPath" -CNIConfDir "cniConfigPath" -KubeDir "kubeDir"
     Assert-MockCalled -CommandName "Install-Containerd" -Exactly -Times 1 -ParameterFilter { $ContainerdUrl -eq $expectedURL }
   }
