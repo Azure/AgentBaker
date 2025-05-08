@@ -240,12 +240,7 @@ listInstalledPackages() {
 
 attachUA() {
     echo "attaching ua..."
-    retrycmd_silent 5 10 120 ua attach $UA_TOKEN
-    if [ $? -ne 0 ]; then
-        echo "UA attach failed, attempting detach and then reattempting..."
-        sudo pro detach
-        retrycmd_silent 5 10 120 ua attach $UA_TOKEN || exit $ERR_UA_ATTACH
-    fi
+    retrycmd_silent 5 10 300 ua attach $UA_TOKEN
 
     echo "disabling ua livepatch..."
     retrycmd_if_failure 5 10 300 echo y | ua disable livepatch
