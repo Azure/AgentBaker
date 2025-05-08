@@ -127,7 +127,8 @@ if [ "$OS_TYPE" = "Linux" ]; then
   fi
 
   if [ "$OS_VERSION" = "18.04" ]; then
-    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y tzdata
+    #sudo DEBIAN_FRONTEND=noninteractive apt-get install -y tzdata
+    echo 'debconf debconf/frontend select Noninteractive' | sudo debconf-set-selections
   fi
 
   # If the pipeline that called this didn't set a branch, default to master.
