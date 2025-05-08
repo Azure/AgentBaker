@@ -126,6 +126,9 @@ if [ "$OS_TYPE" = "Linux" ]; then
     ENABLE_FIPS="false"
   fi
 
+  if [ "${OSVERSION}" = "18.04" ]; then
+    export DEBIAN_FRONTEND=noninteractive
+  fi
   # If the pipeline that called this didn't set a branch, default to master.
   GIT_BRANCH="${GIT_BRANCH:-refs/heads/master}"
   SCRIPT_PATH="$CDIR/$LINUX_SCRIPT_PATH"
