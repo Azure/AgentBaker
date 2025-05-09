@@ -337,7 +337,7 @@ function Get-ContainerImages
         {
             Write-Log "Pulling image $image"
             Retry-Command -ScriptBlock {
-                & crictl.exe pull $image
+                & crictl.exe -c crictl.yaml pull $image
             } -ErrorMessage "Failed to pull image $image"
         }
     }
