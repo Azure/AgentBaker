@@ -374,12 +374,12 @@ Describe 'cse_config.sh'
             echo 'localdns corefile' > "$LOCALDNS_CORE_FILE"
             systemctlEnableAndStart() {
                 echo "systemctlEnableAndStart $@"
-                return 217
+                return 1
             }
             When call enableLocalDNS
-            The status should equal 217
+            The status should equal 216
             The output should include "localdns should be enabled."
-            The output should include "Enable localdns failed due to error"
+            The output should include "Enable localdns failed."
         End
     End
 End
