@@ -761,6 +761,22 @@
       "Name": "677922958",
       "Value": "1",
       "Type": "DWORD"
+    },
+    {
+      "Comment": "2025-5B",
+      "WindowsSkuMatch": "23H2*",
+      "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Services\\hns\\State",
+      "Name": "FwPerfImprovementChange",
+      "Value": "1",
+      "Type": "DWORD"
+    },
+    {
+      "Comment": "2025-5B",
+      "WindowsSkuMatch": "23H2*",
+      "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
+      "Name": "2336372879",
+      "Value": "1",
+      "Type": "DWORD"
     }
   ]
 }
