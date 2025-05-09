@@ -33,15 +33,19 @@ installDeps() {
         BLOBFUSE2_VERSION="2.2.0"
     fi
 
-    pkg_list+=(blobfuse2=${BLOBFUSE2_VERSION})
+    pkg_list+=("blobfuse2=${BLOBFUSE2_VERSION}")
     if [ "${OSVERSION}" = "22.04" ] || [ "${OSVERSION}" = "24.04" ]; then
         pkg_list+=(fuse3)
     else
-        pkg_list+=(blobfuse=${BLOBFUSE_VERSION} fuse)
+        pkg_list+=("blobfuse=${BLOBFUSE_VERSION}" fuse)
     fi
 
     if [ "${OSVERSION}" = "24.04" ]; then
         pkg_list+=(irqbalance)
+    fi
+
+    if [ "${OSVERSION}" = "22.04" ] || [ "${OSVERSION}" = "24.04" ]; then
+        pkg_list+=("aznfs=0.3.15")
     fi
 
     for apt_package in ${pkg_list[*]}; do
@@ -50,6 +54,9 @@ installDeps() {
             exit $ERR_APT_INSTALL_TIMEOUT
         fi
     done
+
+    systemctl disable aznfswatchdog
+    systemctl stop aznfswatchdog
 }
 
 updateAptWithMicrosoftPkg() {
