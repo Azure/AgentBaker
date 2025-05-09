@@ -957,7 +957,6 @@ enableLocalDNS() {
 
     # Enabling localdns succeeded.
     echo "Enable localdns succeeded."
-    return 0
 }
 
 #EOF
