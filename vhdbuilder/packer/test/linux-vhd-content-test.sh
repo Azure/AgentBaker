@@ -15,6 +15,11 @@ GIT_BRANCH="$5"
 IMG_SKU="$6"
 FEATURE_FLAGS="$7"
 
+if [ "${OS_VERSION}" = "18.04" ]; then
+  # 18.04 is failing to run az vm run commands during the testing step without these packages installed
+  sudo apt-get install -y dialog readline-common
+fi
+
 # List of "ERROR/WARNING" message we want to ignore in the cloud-init.log
 # 1. "Command ['hostname', '-f']":
 #   Running hostname -f will fail on current AzureLinux AKS image. We don't not have active plan to resolve
