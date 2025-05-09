@@ -67,7 +67,7 @@ Check [config.go](config/config.go) for the default configuration parameters. Yo
 - to run scenarios by tag: Use `TAGS_TO_RUN=` to specify scenarios based on tags. By default, all scenarios run. Multiple tags should be comma-separated and are case-insensitive. Check logs for test tags.
 - to exclude scenarios, use `TAGS_TO_SKIP=`. Scenarios with any specified tags will be skipped (this logic is different to TAGS_TO_RUN).
 - by run scenario by name: `TAGS_TO_RUN="name=`
-- to run against VHD built from a branch other than master, `BUILD_ID=`
+- to run against VHD built from a branch other than master, `SIG_VERSION_TAG_VALUE=` and `SIG_VERSION_TAG_NAME=`
 - to run against VHD in a different gallery, `GALLERY_SUBSCRIPTION_ID=` and `GALLERY_RESOURCE_GROUP=`
 - to keep the vmss for debugging `KEEP_VMSS=true`. remember to delete the node afterwards manually `k delete node`.
 
@@ -76,7 +76,7 @@ for example:
 ```bash
 TAGS_TO_RUN="os=ubuntu,arch=amd64,wasm=false,gpu=false,imagename=1804gen2containerd" ./e2e-local.sh
 TAGS_TO_RUN="name=Test_azurelinuxv2" ./e2e-local.sh 
-GALLERY_SUBSCRIPTION_ID="a15c116e-99e3-4c59-aebc-8f864929b4a0" GALLERY_RESOURCE_GROUP="akswinvhdbuilderrg" BUILD_ID="" TAGS_TO_RUN="name=" ./e2e-local.sh
+GALLERY_SUBSCRIPTION_ID="" GALLERY_RESOURCE_GROUP="" SIG_VERSION_TAG_VALUE="refs/pull/<PR_Number>/merge" TAGS_TO_RUN="name=" ./e2e-local.sh
 ```
 
 When adding tests for a **new** VHD image, ensure to add a delete-lock to prevent the garbage collector from deleting the image version.
