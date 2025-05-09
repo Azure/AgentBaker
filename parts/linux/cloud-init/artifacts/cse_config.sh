@@ -947,12 +947,9 @@ enableLocalDNS() {
     # If the corefile exists and is not empty, attempt to enable localdns.
     echo "localdns should be enabled."
 
-    systemctlEnableAndStart localdns 30
-    local enable_localdns_result=$?
-
-    if [ "$enable_localdns_result" -ne 0 ]; then
-        echo "Enable localdns failed."
-        return $ERR_LOCALDNS_FAIL
+    if ! systemctlEnableAndStart localdns 30; then
+      echo "Enable localdns failed."
+      return $ERR_LOCALDNS_FAIL
     fi
 
     # Enabling localdns succeeded.
