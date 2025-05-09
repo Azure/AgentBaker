@@ -126,12 +126,6 @@ if [ "$OS_TYPE" = "Linux" ]; then
     ENABLE_FIPS="false"
   fi
 
-  if [ "$OS_VERSION" = "18.04" ]; then
-    #sudo DEBIAN_FRONTEND=noninteractive apt-get install -y tzdata
-    #echo 'debconf debconf/frontend select Noninteractive' | sudo debconf-set-selections
-    sudo apt-get install -y dialog readline-common
-  fi
-
   # If the pipeline that called this didn't set a branch, default to master.
   GIT_BRANCH="${GIT_BRANCH:-refs/heads/master}"
   SCRIPT_PATH="$CDIR/$LINUX_SCRIPT_PATH"
