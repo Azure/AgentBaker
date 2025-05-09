@@ -334,10 +334,12 @@ function Get-ContainerImages
             Remove-Item -Path $tmpDest
         }
         else
-        {
+        {   
             Write-Log "Pulling image $image"
             Retry-Command -ScriptBlock {
-                & crictl.exe -c crictl.yaml pull $image
+                $crictlPath = (Get-Command crictl.exe -ErrorAction SilentlyContinue).Path
+                $configPath = Join-Path (Split-Path -Parent $crictlPath) "crictl.yaml"
+                & crictl.exe -c $configPath pull $image
             } -ErrorMessage "Failed to pull image $image"
         }
     }
