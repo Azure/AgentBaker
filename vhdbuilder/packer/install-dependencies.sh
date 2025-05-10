@@ -127,13 +127,11 @@ fi
 if ! isMarinerOrAzureLinux "$OS"; then
   overrideNetworkConfig || exit 1
   disableNtpAndTimesyncdInstallChrony || exit 1
-
-  # Configure SSH service during VHD build for Ubuntu 22.10+
-  if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
-    configureSSHService || echo "SSH Service configuration failed, but continuing VHD build"
-  fi
 fi
 capture_benchmark "${SCRIPT_NAME}_validate_container_runtime_and_override_ubuntu_net_config"
+
+# Configure SSH service during VHD build for Ubuntu 22.10+
+configureSSHService "$OS" "$OS_VERSION" || echo "##vso[task.logissue type=warning]SSH Service configuration failed, but continuing VHD build"
 
 CONTAINERD_SERVICE_DIR="/etc/systemd/system/containerd.service.d"
 mkdir -p "${CONTAINERD_SERVICE_DIR}"

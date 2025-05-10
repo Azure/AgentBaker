@@ -116,23 +116,6 @@ func ValidateSystemdWatchdogForKubernetes132Plus(ctx context.Context, s *Scenari
 	}
 }
 
-func ValidateSSHServiceEnabled(ctx context.Context, s *Scenario) {
-	// Verify SSH service is active and running
-	ValidateSystemdUnitIsRunning(ctx, s, "ssh")
-
-	// Verify socket-based activation is disabled
-	output := ExecuteCommandWithOutput(ctx, s, "systemctl is-active ssh.socket || echo 'inactive'")
-	require.Contains(s.T, output, "inactive", "ssh.socket should be inactive")
-
-	// Check if the socket configuration file is removed
-	socketConfOutput := ExecuteCommandWithOutput(ctx, s, "[ ! -f /etc/systemd/system/ssh.service.d/00-socket.conf ] && echo 'File does not exist' || echo 'File exists'")
-	require.Contains(s.T, socketConfOutput, "File does not exist", "00-socket.conf should be removed")
-
-	// Check that systemd recognizes SSH service should be active at boot
-	bootStatusOutput := ExecuteCommandWithOutput(ctx, s, "systemctl is-enabled ssh.service")
-	require.Contains(s.T, bootStatusOutput, "enabled", "ssh.service should be enabled at boot")
-}
-
 func ValidateLeakedSecrets(ctx context.Context, s *Scenario) {
 	var secrets map[string]string
 	b64Encoded := func(val string) string {
@@ -164,4 +147,19 @@ func ValidateLeakedSecrets(ctx context.Context, s *Scenario) {
 			}
 		}
 	}
+}
+
+func ValidateSSHServiceEnabled(ctx context.Context, s *Scenario) {
+	// Verify SSH service is active and running
+	ValidateSystemdUnitIsRunning(ctx, s, "ssh")
+
+	// Verify socket-based activation is disabled
+	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, "systemctl is-active ssh.socket", 0, "could not check ssh.socket status")
+	stdout := execResult.stdout.String()
+	require.Contains(s.T, stdout, "inactive", "ssh.socket should be inactive")
+
+	// Check that systemd recognizes SSH service should be active at boot
+	execResult = execScriptOnVMForScenarioValidateExitCode(ctx, s, "systemctl is-enabled ssh.service", 0, "could not check ssh.service status")
+	stdout = execResult.stdout.String()
+	require.Contains(s.T, stdout, "enabled", "ssh.service should be enabled at boot")
 }

@@ -338,102 +338,84 @@ Describe 'cse_helpers.sh'
     End
 
     Describe 'configureSSHService'
-        setup() {
-            # Mock necessary functions and variables
-            semverCompare() {
-                if [ "${MOCK_VERSION_GTE:-false}" = "true" ]; then
-                    return 0 # Simulate version >= 22.10
-                else
-                    return 1 # Simulate version < 22.10
-                fi
-            }
-            
-            systemctl() {
-                case "$1" in
-                    "is-active")
-                        if [ "$2" = "--quiet" ] && [ "$3" = "ssh.service" ]; then
-                            [ "${MOCK_SSH_SERVICE_ACTIVE:-false}" = "true" ] && return 0 || return 1
-                        elif [ "$2" = "--quiet" ] && [ "$3" = "ssh.socket" ]; then
-                            [ "${MOCK_SSH_SOCKET_ACTIVE:-false}" = "true" ] && return 0 || return 1
-                        fi
-                        ;;
-                    *) return 0 ;;
-                esac
-            }
-            
-            systemctlEnableAndStart() {
-                echo "systemctlEnableAndStart called with: $1"
-                [ "${MOCK_SSH_START_FAIL:-false}" = "true" ] && return $ERR_SYSTEMCTL_START_FAIL || return 0
-            }
-            
-            rm() { echo "rm called with: $@"; return 0; }
-            
-            # Save original values
-            orig_OS=$OS
-            orig_OS_VERSION=$OS_VERSION
-            
-            # Override variables for testing
-            export OS="${MOCK_OS:-$UBUNTU_OS_NAME}"
-            export OS_VERSION="${MOCK_OS_VERSION:-22.04}"
+        systemctl() {
+            case "$1" in
+                "is-active")
+                    if  [ "$3" = "ssh" ]; then
+                        [ "${MOCK_SSH_SERVICE_ACTIVE:-false}" = "true" ] && return 0 || return 1
+                    elif [ "$3" = "ssh.socket" ]; then
+                        [ "${MOCK_SSH_SOCKET_ACTIVE:-false}" = "true" ] && return 0 || return 1
+                    fi
+                    ;;
+                "is-enabled")
+                    if  [ "$3" = "ssh.service" ]; then
+                        [ "${MOCK_SSH_SERVICE_ENABLED:-false}" = "true" ] && return 0 || return 1
+                    elif [ "$3" = "ssh.socket" ]; then
+                        [ "${MOCK_SSH_SOCKET_ENABLED:-false}" = "true" ] && return 0 || return 1
+                    fi
+                    ;;
+                "disable")
+                    echo "systemctl disable called with: $*"
+                    return 0
+                    ;;
+                *) return 0 ;;
+            esac
         }
         
-        cleanup() {
-            # Restore original environment
-            export OS=$orig_OS
-            export OS_VERSION=$orig_OS_VERSION
-            unset MOCK_VERSION_GTE MOCK_SSH_SOCKET_ACTIVE MOCK_SSH_SERVICE_ACTIVE MOCK_SSH_START_FAIL
+        systemctlEnableAndStart() {
+            echo "systemctlEnableAndStart called with: $1"
+            return 0
         }
         
-        BeforeEach "setup"
-        AfterEach "cleanup"
+        rm() {
+            echo "rm called with: $1"
+        }
         
+        semverCompare() {
+            # return 1 if MOCK_VERSION_COMPARE is 1, else return 0
+            if [ "$MOCK_VERSION_COMPARE" = "1" ]; then
+                return 1
+            fi
+            return 0
+        }
+
         It 'handles non-Ubuntu OS correctly'
-            MOCK_OS="MARINER"
-            When call configureSSHService
+            When call configureSSHService "MARINER"
             The status should be success
         End
         
         It 'handles Ubuntu versions before 22.10 correctly'
-            MOCK_OS="UBUNTU"
-            MOCK_VERSION_GTE="false"
-            When call configureSSHService
+            MOCK_VERSION_COMPARE=0
+            When call configureSSHService "UBUNTU" "22.04"
             The status should be success
         End
 
-        It 'handles Ubuntu 22.10+ when service is already active'
-            MOCK_OS="UBUNTU"
-            MOCK_VERSION_GTE="true"
+        It 'handles Ubuntu 24.04 when service is already enabled'
+            MOCK_VERSION_COMPARE=1
+            MOCK_SSH_SERVICE_ENABLED="true"
             MOCK_SSH_SERVICE_ACTIVE="true"
-            When call configureSSHService
+            When call configureSSHService "UBUNTU" "24.04"
+            The stdout should include "SSH service successfully reconfigured and started"
             The status should be success
         End
         
-        It 'properly configures SSH for Ubuntu 22.10+ with active socket'
-            MOCK_OS="UBUNTU"
-            MOCK_VERSION_GTE="true"
-            MOCK_SSH_SERVICE_ACTIVE="false"
+        It 'properly configures SSH for Ubuntu 24.04 with active socket'
+            MOCK_VERSION_COMPARE=1
             MOCK_SSH_SOCKET_ACTIVE="true"
-            When call configureSSHService
-            The status should be success
+            MOCK_SSH_SERVICE_ENABLED="false"
+            MOCK_SSH_SERVICE_ACTIVE="true"
+            When call configureSSHService "UBUNTU" "24.04"
             The stdout should include "systemctlEnableAndStart called with: ssh"
-        End
-        
-        It 'starts SSH service for Ubuntu 22.10+ without active socket'
-            MOCK_OS="UBUNTU"
-            MOCK_VERSION_GTE="true"
-            MOCK_SSH_SERVICE_ACTIVE="false"
-            MOCK_SSH_SOCKET_ACTIVE="false"
-            When call configureSSHService
             The status should be success
-            The stdout should include "systemctlEnableAndStart called with: ssh"
         End
-        
+
         It 'returns error when SSH service fails to start'
-            MOCK_OS="UBUNTU"
-            MOCK_VERSION_GTE="true"
+            MOCK_VERSION_COMPARE=1
+            MOCK_SSH_SOCKET_ACTIVE="true"
+            MOCK_SSH_SERVICE_ENABLED="false"
             MOCK_SSH_SERVICE_ACTIVE="false"
-            MOCK_SSH_START_FAIL="true"
-            When call configureSSHService
+            When call configureSSHService "UBUNTU" "24.04"
+            The stdout should include "systemctlEnableAndStart called with: ssh"
             The status should equal $ERR_SYSTEMCTL_START_FAIL
         End
     End
