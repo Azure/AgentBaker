@@ -890,16 +890,12 @@ enableLocalDNS() {
 
     echo "localdns should be enabled."
 
-    systemctlEnableAndStart localdns 30
-    local enable_localdns_result=$?
-
-    if [ "$enable_localdns_result" -ne 0 ]; then
-        echo "Enable localdns failed due to error ${enable_localdns_result}."
-        return "$enable_localdns_result"
+    if ! systemctlEnableAndStart localdns 30; then
+      echo "Enable localdns failed."
+      return $ERR_LOCALDNS_FAIL
     fi
 
     echo "Enable localdns succeeded."
-    return 0
 }
 
 #EOF
