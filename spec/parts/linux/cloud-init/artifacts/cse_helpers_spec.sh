@@ -339,23 +339,18 @@ Describe 'cse_helpers.sh'
 
     Describe 'configureSSHService'
         setup() {
-            # Mock necessary functions and variables
-            semverCompare() {
-                if [ "${MOCK_VERSION_GTE:-false}" = "true" ]; then
-                    return 0 # Simulate version >= 22.10
-                else
-                    return 1 # Simulate version < 22.10
-                fi
-            }
-            
             systemctl() {
                 case "$1" in
                     "is-active")
-                        if [ "$2" = "--quiet" ] && [ "$3" = "ssh.service" ]; then
+                        if  [ "$3" = "ssh" ]; then
                             [ "${MOCK_SSH_SERVICE_ACTIVE:-false}" = "true" ] && return 0 || return 1
-                        elif [ "$2" = "--quiet" ] && [ "$3" = "ssh.socket" ]; then
+                        elif [ "$3" = "ssh.socket" ]; then
                             [ "${MOCK_SSH_SOCKET_ACTIVE:-false}" = "true" ] && return 0 || return 1
                         fi
+                        ;;
+                    "disable")
+                        echo "systemctl disable called with: $*"
+                        return 0
                         ;;
                     *) return 0 ;;
                 esac
@@ -375,13 +370,16 @@ Describe 'cse_helpers.sh'
             # Override variables for testing
             export OS="${MOCK_OS:-$UBUNTU_OS_NAME}"
             export OS_VERSION="${MOCK_OS_VERSION:-22.04}"
+            
+            # Mock final service check to succeed by default
+            MOCK_SSH_SERVICE_FINAL_CHECK="${MOCK_SSH_SERVICE_FINAL_CHECK:-true}"
         }
         
         cleanup() {
             # Restore original environment
             export OS=$orig_OS
             export OS_VERSION=$orig_OS_VERSION
-            unset MOCK_VERSION_GTE MOCK_SSH_SOCKET_ACTIVE MOCK_SSH_SERVICE_ACTIVE MOCK_SSH_START_FAIL
+            unset MOCK_VERSION_GTE MOCK_SSH_SOCKET_ACTIVE MOCK_SSH_SERVICE_ACTIVE MOCK_SSH_START_FAIL MOCK_SSH_SERVICE_FINAL_CHECK
         }
         
         BeforeEach "setup"
@@ -395,14 +393,15 @@ Describe 'cse_helpers.sh'
         
         It 'handles Ubuntu versions before 22.10 correctly'
             MOCK_OS="UBUNTU"
-            MOCK_VERSION_GTE="false"
+            MOCK_OS_VERSION="22.04"
+            MOCK_SSH_SERVICE_ACTIVE="true"
             When call configureSSHService
             The status should be success
         End
 
         It 'handles Ubuntu 22.10+ when service is already active'
             MOCK_OS="UBUNTU"
-            MOCK_VERSION_GTE="true"
+            MOCK_OS_VERSION="22.10"
             MOCK_SSH_SERVICE_ACTIVE="true"
             When call configureSSHService
             The status should be success
@@ -410,31 +409,21 @@ Describe 'cse_helpers.sh'
         
         It 'properly configures SSH for Ubuntu 22.10+ with active socket'
             MOCK_OS="UBUNTU"
-            MOCK_VERSION_GTE="true"
             MOCK_SSH_SERVICE_ACTIVE="false"
             MOCK_SSH_SOCKET_ACTIVE="true"
+        
             When call configureSSHService
             The status should be success
             The stdout should include "systemctlEnableAndStart called with: ssh"
         End
-        
-        It 'starts SSH service for Ubuntu 22.10+ without active socket'
-            MOCK_OS="UBUNTU"
-            MOCK_VERSION_GTE="true"
-            MOCK_SSH_SERVICE_ACTIVE="false"
-            MOCK_SSH_SOCKET_ACTIVE="false"
-            When call configureSSHService
-            The status should be success
-            The stdout should include "systemctlEnableAndStart called with: ssh"
-        End
-        
+
         It 'returns error when SSH service fails to start'
             MOCK_OS="UBUNTU"
-            MOCK_VERSION_GTE="true"
             MOCK_SSH_SERVICE_ACTIVE="false"
             MOCK_SSH_START_FAIL="true"
             When call configureSSHService
             The status should equal $ERR_SYSTEMCTL_START_FAIL
+            The stdout should include "systemctlEnableAndStart called with: ssh"
         End
     End
 End

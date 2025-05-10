@@ -985,7 +985,6 @@ configureSSHService() {
         return 0
     fi
 
-    echo "Ubuntu 22.10+ detected. Checking SSH configuration..."
     # For Ubuntu 22.10+ with socket-based SSH activation
     # Check if socket is active
     if systemctl is-active --quiet ssh.socket; then
@@ -1004,7 +1003,6 @@ configureSSHService() {
     fi
     
     # Always ensure the SSH service is enabled and running
-    echo "Enabling and starting SSH service..."
     systemctlEnableAndStart ssh 30 || return $ERR_SYSTEMCTL_START_FAIL
     
     # Verify SSH service is now running
