@@ -127,8 +127,6 @@ fi
 
 logs_to_events "AKS.CSE.disableSystemdResolved" disableSystemdResolved
 
-# ensureSSHService has been moved to VHD build phase to improve node provisioning performance
-
 logs_to_events "AKS.CSE.configureAdminUser" configureAdminUser
 
 export -f getInstallModeAndCleanupContainerImages
