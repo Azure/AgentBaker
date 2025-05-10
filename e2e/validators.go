@@ -599,12 +599,3 @@ func ValidateJournalctlOutput(ctx context.Context, s *Scenario, serviceName stri
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
 		fmt.Sprintf("expected content '%s' not found in %s service logs", expectedContent, serviceName))
 }
-
-// ExecuteCommandWithOutput runs a shell command on the VM under test and returns its output as a string
-func ExecuteCommandWithOutput(ctx context.Context, s *Scenario, cmd string) string {
-	execResult := execScriptOnVMForScenario(ctx, s, cmd)
-	if execResult.stdout.Len() > 0 {
-		return execResult.stdout.String()
-	}
-	return execResult.stderr.String()
-}
