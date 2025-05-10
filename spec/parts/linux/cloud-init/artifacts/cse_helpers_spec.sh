@@ -336,4 +336,77 @@ Describe 'cse_helpers.sh'
             The output line 1 should equal "KUBE_BINARY_URL is formatted unexpectedly, will use the kubernetes version as binary version: v$KUBERNETES_VERSION"
         End
     End
+
+    Describe 'configureSSHService'
+        setup() {
+            systemctl() {
+                case "$1" in
+                    "is-active")
+                        if  [ "$3" = "ssh" ]; then
+                            [ "${MOCK_SSH_SERVICE_ACTIVE:-false}" = "true" ] && return 0 || return 1
+                        elif [ "$3" = "ssh.socket" ]; then
+                            [ "${MOCK_SSH_SOCKET_ACTIVE:-false}" = "true" ] && return 0 || return 1
+                        fi
+                        ;;
+                    "disable")
+                        echo "systemctl disable called with: $*"
+                        return 0
+                        ;;
+                    *) return 0 ;;
+                esac
+            }
+            
+            systemctlEnableAndStart() {
+                echo "systemctlEnableAndStart called with: $1"
+                [ "${MOCK_SSH_START_FAIL:-false}" = "true" ] && return $ERR_SYSTEMCTL_START_FAIL || return 0
+            }
+            
+            rm() { echo "rm called with: $@"; return 0; }
+            
+            
+            # Mock final service check to succeed by default
+            MOCK_SSH_SERVICE_FINAL_CHECK="${MOCK_SSH_SERVICE_FINAL_CHECK:-true}"
+        }
+        
+        cleanup() {
+            # Restore original environment
+              unset  MOCK_SSH_SOCKET_ACTIVE MOCK_SSH_SERVICE_ACTIVE MOCK_SSH_START_FAIL MOCK_SSH_SERVICE_FINAL_CHECK
+        }
+        
+        BeforeEach "setup"
+        AfterEach "cleanup"
+        
+        It 'handles non-Ubuntu OS correctly'
+            When call configureSSHService "MARINER"
+            The status should be success
+        End
+        
+        It 'handles Ubuntu versions before 22.10 correctly'
+            MOCK_SSH_SERVICE_ACTIVE="true"
+            When call configureSSHService "UBUNTU" "22.04"
+            The status should be success
+        End
+
+        It 'handles Ubuntu 24.04 when service is already active'
+            MOCK_SSH_SERVICE_ACTIVE="true"
+            When call configureSSHService "UBUNTU" "24.04"
+            The status should be success
+        End
+        
+        It 'properly configures SSH for Ubuntu 24.04 with active socket'
+            MOCK_SSH_SERVICE_ACTIVE="false"
+            MOCK_SSH_SOCKET_ACTIVE="true"
+            When call configureSSHService "UBUNTU" "24.04"
+            The stdout should include "systemctlEnableAndStart called with: ssh"
+            The status should be success
+        End
+
+        It 'returns error when SSH service fails to start'
+            MOCK_SSH_SERVICE_ACTIVE="false"
+            MOCK_SSH_START_FAIL="true"
+            When call configureSSHService "UBUNTU" "24.04"
+            The status should equal $ERR_SYSTEMCTL_START_FAIL
+            The stdout should include "systemctlEnableAndStart called with: ssh"
+        End
+    End
 End
