@@ -363,13 +363,6 @@ Describe 'cse_helpers.sh'
             
             rm() { echo "rm called with: $@"; return 0; }
             
-            # Save original values
-            orig_OS=$OS
-            orig_OS_VERSION=$OS_VERSION
-            
-            # Override variables for testing
-            export OS="${MOCK_OS:-$UBUNTU_OS_NAME}"
-            export OS_VERSION="${MOCK_OS_VERSION:-22.04}"
             
             # Mock final service check to succeed by default
             MOCK_SSH_SERVICE_FINAL_CHECK="${MOCK_SSH_SERVICE_FINAL_CHECK:-true}"
@@ -377,51 +370,42 @@ Describe 'cse_helpers.sh'
         
         cleanup() {
             # Restore original environment
-            export OS=$orig_OS
-            export OS_VERSION=$orig_OS_VERSION
-            unset MOCK_VERSION_GTE MOCK_SSH_SOCKET_ACTIVE MOCK_SSH_SERVICE_ACTIVE MOCK_SSH_START_FAIL MOCK_SSH_SERVICE_FINAL_CHECK
+              unset  MOCK_SSH_SOCKET_ACTIVE MOCK_SSH_SERVICE_ACTIVE MOCK_SSH_START_FAIL MOCK_SSH_SERVICE_FINAL_CHECK
         }
         
         BeforeEach "setup"
         AfterEach "cleanup"
         
         It 'handles non-Ubuntu OS correctly'
-            MOCK_OS="MARINER"
-            When call configureSSHService
+            When call configureSSHService "MARINER"
             The status should be success
         End
         
         It 'handles Ubuntu versions before 22.10 correctly'
-            MOCK_OS="UBUNTU"
-            MOCK_OS_VERSION="22.04"
             MOCK_SSH_SERVICE_ACTIVE="true"
-            When call configureSSHService
+            When call configureSSHService "UBUNTU" "22.04"
             The status should be success
         End
 
         It 'handles Ubuntu 22.10+ when service is already active'
-            MOCK_OS="UBUNTU"
-            MOCK_OS_VERSION="22.10"
             MOCK_SSH_SERVICE_ACTIVE="true"
-            When call configureSSHService
+            When call configureSSHService "UBUNTU" "24.04"
             The status should be success
         End
         
         It 'properly configures SSH for Ubuntu 22.10+ with active socket'
-            MOCK_OS="UBUNTU"
             MOCK_SSH_SERVICE_ACTIVE="false"
             MOCK_SSH_SOCKET_ACTIVE="true"
         
-            When call configureSSHService
+            When call configureSSHService "UBUNTU" "24.04"
             The status should be success
             The stdout should include "systemctlEnableAndStart called with: ssh"
         End
 
         It 'returns error when SSH service fails to start'
-            MOCK_OS="UBUNTU"
             MOCK_SSH_SERVICE_ACTIVE="false"
             MOCK_SSH_START_FAIL="true"
-            When call configureSSHService
+            When call configureSSHService "UBUNTU" "24.04"
             The status should equal $ERR_SYSTEMCTL_START_FAIL
             The stdout should include "systemctlEnableAndStart called with: ssh"
         End

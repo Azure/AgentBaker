@@ -973,20 +973,25 @@ oras_login_with_kubelet_identity() {
 }
 
 configureSSHService() {
+    local os_param="${1:-$OS}"
+    local os_version_param="${2:-$OS_VERSION}"
+    
     # If not Ubuntu, no changes needed
-    if [ "$OS" != "$UBUNTU_OS_NAME" ]; then
+    if [ "$os_param" != "$UBUNTU_OS_NAME" ]; then
         return 0
     fi
     
     # Only for Ubuntu 22.10+ or newer socket activation is used, for earlier versions no changes needed
-    if ! semverCompare "$OS_VERSION" "22.10"; then
+    if ! semverCompare "$os_version_param" "22.10"; then
         # For older Ubuntu versions, just make sure ssh service is enabled and running
-        systemctl is-active --quiet ssh || systemctlEnableAndStart ssh 30 || return $ERR_SYSTEMCTL_START_FAIL
+        if ! systemctl is-active --quiet ssh; then
+            systemctlEnableAndStart ssh 30 || return $ERR_SYSTEMCTL_START_FAIL
+        fi
         return 0
     fi
 
     # For Ubuntu 22.10+ with socket-based SSH activation
-    # Check if socket is active
+    # disable socket if is active
     if systemctl is-active --quiet ssh.socket; then
         # Socket is active, disable it and switch to service-based activation
         systemctl disable --now ssh.socket || echo "Warning: Could not disable ssh.socket"
@@ -999,14 +1004,14 @@ configureSSHService() {
         if [ -f /etc/systemd/system/ssh.socket.d/addresses.conf ]; then
             rm /etc/systemd/system/ssh.socket.d/addresses.conf || echo "Warning: Could not remove addresses.conf"
         fi
-        
     fi
     
     # Always ensure the SSH service is enabled and running
+    echo "Enabling and starting SSH service..."
     systemctlEnableAndStart ssh 30 || return $ERR_SYSTEMCTL_START_FAIL
     
     # Verify SSH service is now running
-    if ! systemctl is-active --quiet ssh.service; then
+    if ! systemctl is-active --quiet ssh; then
         echo "Error: Failed to start SSH service after configuration changes"
         return $ERR_SYSTEMCTL_START_FAIL
     fi
