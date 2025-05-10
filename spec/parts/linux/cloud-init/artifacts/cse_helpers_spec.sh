@@ -387,16 +387,15 @@ Describe 'cse_helpers.sh'
             The status should be success
         End
 
-        It 'handles Ubuntu 22.10+ when service is already active'
+        It 'handles Ubuntu 24.04 when service is already active'
             MOCK_SSH_SERVICE_ACTIVE="true"
             When call configureSSHService "UBUNTU" "24.04"
             The status should be success
         End
         
-        It 'properly configures SSH for Ubuntu 22.10+ with active socket'
+        It 'properly configures SSH for Ubuntu 24.04 with active socket'
             MOCK_SSH_SERVICE_ACTIVE="false"
             MOCK_SSH_SOCKET_ACTIVE="true"
-        
             When call configureSSHService "UBUNTU" "24.04"
             The stdout should include "systemctlEnableAndStart called with: ssh"
             The status should be success

@@ -995,15 +995,15 @@ configureSSHService() {
     if systemctl is-active --quiet ssh.socket; then
         # Socket is active, disable it and switch to service-based activation
         systemctl disable --now ssh.socket || echo "Warning: Could not disable ssh.socket"
-        
-        # Remove the socket-based configuration files if present
-        if [ -f /etc/systemd/system/ssh.service.d/00-socket.conf ]; then
-            rm /etc/systemd/system/ssh.service.d/00-socket.conf || echo "Warning: Could not remove 00-socket.conf"
-        fi
-        
-        if [ -f /etc/systemd/system/ssh.socket.d/addresses.conf ]; then
-            rm /etc/systemd/system/ssh.socket.d/addresses.conf || echo "Warning: Could not remove addresses.conf"
-        fi
+    fi
+
+    # Remove the socket-based configuration files if present
+    if [ -f /etc/systemd/system/ssh.service.d/00-socket.conf ]; then
+        rm /etc/systemd/system/ssh.service.d/00-socket.conf || echo "Warning: Could not remove 00-socket.conf"
+    fi
+    
+    if [ -f /etc/systemd/system/ssh.socket.d/addresses.conf ]; then
+        rm /etc/systemd/system/ssh.socket.d/addresses.conf || echo "Warning: Could not remove addresses.conf"
     fi
     
     # Always ensure the SSH service is enabled and running
@@ -1016,7 +1016,7 @@ configureSSHService() {
         return $ERR_SYSTEMCTL_START_FAIL
     fi
     
-    echo "SSH service successfully configured and started"
+    echo "SSH service successfully reconfigured and started"
     return 0
 }
 
