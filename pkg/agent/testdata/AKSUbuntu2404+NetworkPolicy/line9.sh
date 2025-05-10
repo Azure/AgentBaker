@@ -908,14 +908,14 @@ configureSSHService() {
 
     if systemctl is-active --quiet ssh.socket; then
         systemctl disable --now ssh.socket || echo "Warning: Could not disable ssh.socket"
-        
-        if [ -f /etc/systemd/system/ssh.service.d/00-socket.conf ]; then
-            rm /etc/systemd/system/ssh.service.d/00-socket.conf || echo "Warning: Could not remove 00-socket.conf"
-        fi
-        
-        if [ -f /etc/systemd/system/ssh.socket.d/addresses.conf ]; then
-            rm /etc/systemd/system/ssh.socket.d/addresses.conf || echo "Warning: Could not remove addresses.conf"
-        fi
+    fi
+
+    if [ -f /etc/systemd/system/ssh.service.d/00-socket.conf ]; then
+        rm /etc/systemd/system/ssh.service.d/00-socket.conf || echo "Warning: Could not remove 00-socket.conf"
+    fi
+    
+    if [ -f /etc/systemd/system/ssh.socket.d/addresses.conf ]; then
+        rm /etc/systemd/system/ssh.socket.d/addresses.conf || echo "Warning: Could not remove addresses.conf"
     fi
     
     echo "Enabling and starting SSH service..."
@@ -926,7 +926,7 @@ configureSSHService() {
         return $ERR_SYSTEMCTL_START_FAIL
     fi
     
-    echo "SSH service successfully configured and started"
+    echo "SSH service successfully reconfigured and started"
     return 0
 }
 
