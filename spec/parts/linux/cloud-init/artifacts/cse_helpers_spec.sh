@@ -398,8 +398,8 @@ Describe 'cse_helpers.sh'
             MOCK_SSH_SOCKET_ACTIVE="true"
         
             When call configureSSHService "UBUNTU" "24.04"
-            The status should be success
             The stdout should include "systemctlEnableAndStart called with: ssh"
+            The status should be success
         End
 
         It 'returns error when SSH service fails to start'
