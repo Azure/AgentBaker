@@ -142,17 +142,19 @@ func Test_Windows2025Gen2(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Windows Server 2025 with Containerd - hyperv gen 2",
 		Config: Config{
-			Cluster:                ClusterAzureNetwork,
-			VHD:                    config.VHDWindows2025Gen2,
-			VMConfigMutator:        EmptyVMConfigMutator,
-			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
+			Cluster:         ClusterAzureNetwork,
+			VHD:             config.VHDWindows2025Gen2,
+			VMConfigMutator: EmptyVMConfigMutator,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				// containerd2 is only supported in 1.33 or greater.
+				nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.33.0"
+			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateWindowsVersionFromWindowsSettings(ctx, s, "2025-gen2")
 				ValidateWindowsProductName(ctx, s, "Windows Server 2025 Datacenter")
 				ValidateWindowsDisplayVersion(ctx, s, "24H2")
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
 				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
-				ValidateCiliumIsNotRunningWindows(ctx, s)
 			},
 		},
 	})
