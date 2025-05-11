@@ -201,7 +201,7 @@ func Test_AzureLinuxV2_GPU(t *testing.T) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 			},
-		}, 
+		},
 	})
 }
 
@@ -254,7 +254,8 @@ func Test_AzureLinuxV2_GPUAzureCNI_Scriptless(t *testing.T) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 			},
-		})
+		},
+	})
 }
 
 func Test_AzureLinuxV2_WASM(t *testing.T) {
@@ -272,7 +273,8 @@ func Test_AzureLinuxV2_WASM(t *testing.T) {
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateContainerdWASMShims(ctx, s)
 			},
-		})
+		},
+	})
 }
 
 func Test_MarinerV2(t *testing.T) {
@@ -286,7 +288,8 @@ func Test_MarinerV2(t *testing.T) {
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", getExpectedPackageVersions("containerd", "mariner", "current")[0])
 			},
-		})
+		},
+	})
 }
 
 func Test_MarinerV2_AirGap(t *testing.T) {
@@ -310,7 +313,8 @@ func Test_MarinerV2_AirGap(t *testing.T) {
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateDirectoryContent(ctx, s, "/run", []string{"outbound-check-skipped"})
 			},
-		})
+		},
+	})
 }
 
 func Test_MarinerV2_ARM64(t *testing.T) {
@@ -327,7 +331,8 @@ func Test_MarinerV2_ARM64(t *testing.T) {
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
 			},
-		})
+		},
+	})
 }
 
 func Test_MarinerV2_ARM64AirGap(t *testing.T) {
@@ -358,7 +363,8 @@ func Test_MarinerV2_ARM64AirGap(t *testing.T) {
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateDirectoryContent(ctx, s, "/run", []string{"outbound-check-skipped"})
 			},
-		})
+		},
+	})
 }
 
 // Merge test case MarinerV2 AzureCNI with MarinerV2 ChronyRestarts
@@ -377,7 +383,8 @@ func Test_MarinerV2_AzureCNI_ChronyRestarts(t *testing.T) {
 				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "Restart=always")
 				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "RestartSec=5")
 			},
-		})
+		},
+	})
 }
 
 // Merge scriptless test case MarinerV2 AzureCNI with MarinerV2 ChronyRestarts
@@ -398,7 +405,8 @@ func Test_MarinerV2_AzureCNI_ChronyRestarts_Scriptless(t *testing.T) {
 				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "Restart=always")
 				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "RestartSec=5")
 			},
-		})
+		},
+	})
 }
 
 func Test_MarinerV2_CustomSysctls(t *testing.T) {
@@ -437,7 +445,8 @@ func Test_MarinerV2_CustomSysctls(t *testing.T) {
 				ValidateUlimitSettings(ctx, s, customContainerdUlimits)
 				ValidateSysctlConfig(ctx, s, customSysctls)
 			},
-		})
+		},
+	})
 }
 
 func Test_MarinerV2_GPU(t *testing.T) {
@@ -460,7 +469,8 @@ func Test_MarinerV2_GPU(t *testing.T) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 			},
-		})
+		},
+	})
 }
 
 func Test_MarinerV2_GPUAzureCNI(t *testing.T) {
@@ -485,7 +495,8 @@ func Test_MarinerV2_GPUAzureCNI(t *testing.T) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 			},
-		})
+		},
+	})
 }
 
 func Test_MarinerV2_WASM(t *testing.T) {
@@ -503,7 +514,8 @@ func Test_MarinerV2_WASM(t *testing.T) {
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateContainerdWASMShims(ctx, s)
 			},
-		})
+		},
+	})
 }
 
 // Returns config for the 'base' E2E scenario
@@ -521,7 +533,8 @@ func Test_Ubuntu1804(t *testing.T) {
 			},
 
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {},
-		})
+		},
+	})
 }
 
 func Test_Ubuntu1804_AzureCNI(t *testing.T) {
@@ -534,7 +547,8 @@ func Test_Ubuntu1804_AzureCNI(t *testing.T) {
 				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
 				nbc.AgentPoolProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
 			},
-		})
+		},
+	})
 }
 
 func Test_Ubuntu1804_ChronyRestarts(t *testing.T) {
@@ -550,7 +564,8 @@ func Test_Ubuntu1804_ChronyRestarts(t *testing.T) {
 				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chrony.service.d/10-chrony-restarts.conf", "Restart=always")
 				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chrony.service.d/10-chrony-restarts.conf", "RestartSec=5")
 			},
-		})
+		},
+	})
 }
 
 func Test_Ubuntu2204_ScriptlessInstaller(t *testing.T) {
@@ -567,7 +582,7 @@ func Test_Ubuntu2204_ScriptlessInstaller(t *testing.T) {
 			},
 			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
 			},
-		})
+		}})
 }
 
 func Test_Ubuntu2404_ScriptlessInstaller(t *testing.T) {
@@ -584,7 +599,7 @@ func Test_Ubuntu2404_ScriptlessInstaller(t *testing.T) {
 			},
 			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
 			},
-		})
+		}})
 }
 
 // Returns config for the 'gpu' E2E scenario
@@ -608,7 +623,7 @@ func Test_Ubuntu1804_GPU(t *testing.T) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 			},
-		})
+		}})
 }
 
 func Test_Ubuntu1804_GPUAzureCNI(t *testing.T) {
@@ -633,7 +648,7 @@ func Test_Ubuntu1804_GPUAzureCNI(t *testing.T) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 			},
-		})
+		}})
 }
 
 func Test_Ubuntu2204(t *testing.T) {
@@ -653,7 +668,7 @@ func Test_Ubuntu2204(t *testing.T) {
 				ValidateInstalledPackageVersion(ctx, s, "moby-runc", getExpectedPackageVersions("runc", "ubuntu", "r2204")[0])
 				ValidateSSHServiceEnabled(ctx, s)
 			},
-		})
+		}})
 }
 
 func Test_Ubuntu2204_AirGap(t *testing.T) {
@@ -677,7 +692,8 @@ func Test_Ubuntu2204_AirGap(t *testing.T) {
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateDirectoryContent(ctx, s, "/run", []string{"outbound-check-skipped"})
 			},
-		})
+		},
+	})
 }
 
 // TODO: refactor NonAnonymous tests to use the same cluster as Anonymous airgap
@@ -713,7 +729,8 @@ func Test_Ubuntu2204_AirGap_NonAnonymousACR(t *testing.T) {
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateDirectoryContent(ctx, s, "/run", []string{"outbound-check-skipped"})
 			},
-		})
+		},
+	})
 }
 
 func Test_Ubuntu2204Gen2_ContainerdAirgappedK8sNotCached(t *testing.T) {
@@ -743,7 +760,7 @@ func Test_Ubuntu2204Gen2_ContainerdAirgappedK8sNotCached(t *testing.T) {
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateDirectoryContent(ctx, s, "/run", []string{"outbound-check-skipped"})
 			},
-		})
+		}})
 }
 
 func Test_Ubuntu2204ARM64(t *testing.T) {
@@ -761,7 +778,7 @@ func Test_Ubuntu2204ARM64(t *testing.T) {
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
 			},
-		})
+		}})
 }
 
 func Test_Ubuntu2204_ArtifactStreaming(t *testing.T) {
@@ -781,7 +798,7 @@ func Test_Ubuntu2204_ArtifactStreaming(t *testing.T) {
 				ValidateSystemdUnitIsRunning(ctx, s, "acr-nodemon.service")
 				ValidateSystemdUnitIsRunning(ctx, s, "containerd.service")
 			},
-		})
+		}})
 }
 
 func Test_Ubuntu2204_ArtifactStreaming_Scriptless(t *testing.T) {
@@ -804,7 +821,7 @@ func Test_Ubuntu2204_ArtifactStreaming_Scriptless(t *testing.T) {
 				ValidateSystemdUnitIsRunning(ctx, s, "acr-nodemon.service")
 				ValidateSystemdUnitIsRunning(ctx, s, "containerd.service")
 			},
-		})
+		}})
 }
 
 func Test_Ubuntu2204_ChronyRestarts_Taints_And_Tolerations(t *testing.T) {
@@ -822,7 +839,7 @@ func Test_Ubuntu2204_ChronyRestarts_Taints_And_Tolerations(t *testing.T) {
 				ServiceCanRestartValidator(ctx, s, "chronyd", 10)
 				ValidateTaints(ctx, s, s.Runtime.NBC.KubeletConfig["--register-with-taints"])
 			},
-		})
+		}})
 }
 
 func Test_Ubuntu2204_ChronyRestarts_Taints_And_Tolerations_Scriptless(t *testing.T) {
@@ -843,7 +860,7 @@ func Test_Ubuntu2204_ChronyRestarts_Taints_And_Tolerations_Scriptless(t *testing
 				ServiceCanRestartValidator(ctx, s, "chronyd", 10)
 				ValidateTaints(ctx, s, s.Runtime.AKSNodeConfig.KubeletConfig.KubeletFlags["--register-with-taints"])
 			},
-		})
+		}})
 }
 
 func Test_AzureLinuxV2_CustomCATrust(t *testing.T) {
@@ -862,7 +879,7 @@ func Test_AzureLinuxV2_CustomCATrust(t *testing.T) {
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateNonEmptyDirectory(ctx, s, "/usr/share/pki/ca-trust-source/anchors")
 			},
-		})
+		}})
 }
 
 func Test_Ubuntu2204_CustomCATrust(t *testing.T) {
@@ -881,7 +898,7 @@ func Test_Ubuntu2204_CustomCATrust(t *testing.T) {
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateNonEmptyDirectory(ctx, s, "/usr/local/share/ca-certificates/certs")
 			},
-		})
+		}})
 }
 
 func Test_Ubuntu2204_CustomCATrust_Scriptless(t *testing.T) {
@@ -899,7 +916,7 @@ func Test_Ubuntu2204_CustomCATrust_Scriptless(t *testing.T) {
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateNonEmptyDirectory(ctx, s, "/usr/local/share/ca-certificates/certs")
 			},
-		})
+		}})
 }
 
 func Test_Ubuntu2204_CustomSysctls(t *testing.T) {
@@ -938,7 +955,7 @@ func Test_Ubuntu2204_CustomSysctls(t *testing.T) {
 				ValidateUlimitSettings(ctx, s, customContainerdUlimits)
 				ValidateSysctlConfig(ctx, s, customSysctls)
 			},
-		})
+		}})
 }
 
 func Test_Ubuntu2204_CustomSysctls_Scriptless(t *testing.T) {
@@ -980,7 +997,7 @@ func Test_Ubuntu2204_CustomSysctls_Scriptless(t *testing.T) {
 				ValidateUlimitSettings(ctx, s, customContainerdUlimits)
 				ValidateSysctlConfig(ctx, s, customSysctls)
 			},
-		})
+		}})
 }
 
 func Test_Ubuntu2204_GPUNC(t *testing.T) {
@@ -1020,7 +1037,7 @@ func runScenarioUbuntu2204GPU(t *testing.T, vmSize string) {
 				ValidateKubeletHasNotStopped(ctx, s)
 				ValidateServicesDoNotRestartKubelet(ctx, s)
 			},
-		})
+		}})
 }
 
 func runScenarioUbuntuGRID(t *testing.T, vmSize string) {
@@ -1049,7 +1066,7 @@ func runScenarioUbuntuGRID(t *testing.T, vmSize string) {
 				ValidateServicesDoNotRestartKubelet(ctx, s)
 				ValidateNvidiaPersistencedRunning(ctx, s)
 			},
-		})
+		}})
 }
 
 func Test_Ubuntu2204_GPUA10_Scriptless(t *testing.T) {
@@ -1077,7 +1094,7 @@ func Test_Ubuntu2204_GPUA10_Scriptless(t *testing.T) {
 				config.GpuConfig.GpuDevicePlugin = false
 				config.GpuConfig.EnableNvidia = to.Ptr(true)
 			},
-		})
+		}})
 }
 
 func Test_Ubuntu2204_GPUGridDriver(t *testing.T) {
@@ -1103,7 +1120,7 @@ func Test_Ubuntu2204_GPUGridDriver(t *testing.T) {
 				ValidateKubeletHasNotStopped(ctx, s)
 				ValidateNvidiaSMIInstalled(ctx, s)
 			},
-		})
+		}})
 }
 
 func Test_Ubuntu2204_GPUNoDriver(t *testing.T) {
@@ -1131,7 +1148,7 @@ func Test_Ubuntu2204_GPUNoDriver(t *testing.T) {
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateNvidiaSMINotInstalled(ctx, s)
 			},
-		})
+		}})
 }
 
 func Test_Ubuntu2204_GPUNoDriver_Scriptless(t *testing.T) {
@@ -1161,7 +1178,7 @@ func Test_Ubuntu2204_GPUNoDriver_Scriptless(t *testing.T) {
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateNvidiaSMINotInstalled(ctx, s)
 			},
-		})
+		}})
 }
 
 func Test_Ubuntu2204_PrivateKubePkg(t *testing.T) {
@@ -1175,7 +1192,7 @@ func Test_Ubuntu2204_PrivateKubePkg(t *testing.T) {
 				nbc.K8sComponents.LinuxPrivatePackageURL = "https://privatekube.blob.core.windows.net/kubernetes/v1.25.6-hotfix.20230612/binaries/v1.25.6-hotfix.20230612.tar.gz"
 				nbc.AgentPoolProfile.LocalDNSProfile = nil
 			},
-		})
+		}})
 }
 
 // These tests were created to verify that the apt-get call in downloadContainerdFromVersion is not executed.
@@ -1198,7 +1215,7 @@ func Test_Ubuntu2204_ContainerdURL_IMDSRestrictionFilterTable(t *testing.T) {
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateInstalledPackageVersion(ctx, s, "containerd", "1.6.9")
 			},
-		})
+		}})
 }
 
 // Combine e2e scriptless tests for scenario Ubuntu2204_ContainerdURL and Ubuntu2204_IMDSRestrictionFilterTable
@@ -1222,7 +1239,7 @@ func Test_Ubuntu2204_ContainerdURL_IMDSRestrictionFilterTable_Scriptless(t *test
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateInstalledPackageVersion(ctx, s, "containerd", "1.6.9")
 			},
-		})
+		}})
 }
 
 func Test_Ubuntu2204_ContainerdHasCurrentVersion(t *testing.T) {
@@ -1236,7 +1253,7 @@ func Test_Ubuntu2204_ContainerdHasCurrentVersion(t *testing.T) {
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", getExpectedPackageVersions("containerd", "ubuntu", "r2204")[0])
 			},
-		})
+		}})
 }
 
 func Test_Ubuntu2204_WASM(t *testing.T) {
@@ -1251,7 +1268,7 @@ func Test_Ubuntu2204_WASM(t *testing.T) {
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateContainerdWASMShims(ctx, s)
 			},
-		})
+		}})
 }
 
 func Test_AzureLinux_Skip_Binary_Cleanup(t *testing.T) {
@@ -1270,7 +1287,7 @@ func Test_AzureLinux_Skip_Binary_Cleanup(t *testing.T) {
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateMultipleKubeProxyVersionsExist(ctx, s)
 			},
-		})
+		}})
 }
 
 func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags(t *testing.T) {
@@ -1302,7 +1319,7 @@ func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags(t *testing
 				ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "kubernetes.azure.com/kubelet-serving-ca=cluster")
 				ValidateDirectoryContent(ctx, s, "/etc/kubernetes/certs", []string{"kubeletserver.crt", "kubeletserver.key"})
 			},
-		})
+		}})
 }
 
 func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_CustomKubeletConfig(t *testing.T) {
@@ -1342,7 +1359,7 @@ func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_CustomKube
 				ValidateFileExcludesContent(ctx, s, "/etc/default/kubeletconfig.json", "\"serverTLSBootstrap\": true")
 				ValidateDirectoryContent(ctx, s, "/etc/kubernetes/certs", []string{"kubeletserver.crt", "kubeletserver.key"})
 			},
-		})
+		}})
 }
 
 func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_CustomKubeletConfig_Scriptless(t *testing.T) {
@@ -1377,7 +1394,7 @@ func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_CustomKube
 				ValidateFileExcludesContent(ctx, s, "/etc/default/kubeletconfig.json", "\"serverTLSBootstrap\": true")
 				ValidateDirectoryContent(ctx, s, "/etc/kubernetes/certs", []string{"kubeletserver.crt", "kubeletserver.key"})
 			},
-		})
+		}})
 }
 
 func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_AlreadyDisabled(t *testing.T) {
@@ -1404,7 +1421,7 @@ func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_AlreadyDis
 				ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "kubernetes.azure.com/kubelet-serving-ca=cluster")
 				ValidateDirectoryContent(ctx, s, "/etc/kubernetes/certs", []string{"kubeletserver.crt", "kubeletserver.key"})
 			},
-		})
+		}})
 }
 
 func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_AlreadyDisabled_CustomKubeletConfig(t *testing.T) {
@@ -1439,7 +1456,7 @@ func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_AlreadyDis
 				ValidateFileExcludesContent(ctx, s, "/etc/default/kubeletconfig.json", "\"serverTLSBootstrap\": true")
 				ValidateDirectoryContent(ctx, s, "/etc/kubernetes/certs", []string{"kubeletserver.crt", "kubeletserver.key"})
 			},
-		})
+		}})
 }
 
 func Test_Ubuntu2204_WASMAirGap(t *testing.T) {
@@ -1466,7 +1483,7 @@ func Test_Ubuntu2204_WASMAirGap(t *testing.T) {
 				ValidateContainerdWASMShims(ctx, s)
 				ValidateDirectoryContent(ctx, s, "/run", []string{"outbound-check-skipped"})
 			},
-		})
+		}})
 }
 
 func Test_Ubuntu1804IMDS_RestrictionMangleTable(t *testing.T) {
@@ -1484,7 +1501,7 @@ func Test_Ubuntu1804IMDS_RestrictionMangleTable(t *testing.T) {
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateIMDSRestrictionRule(ctx, s, "mangle")
 			},
-		})
+		}})
 }
 
 func Test_Ubuntu2204_MessageOfTheDay(t *testing.T) {
@@ -1500,7 +1517,7 @@ func Test_Ubuntu2204_MessageOfTheDay(t *testing.T) {
 				ValidateFileHasContent(ctx, s, "/etc/motd", "foobar")
 				ValidateFileHasContent(ctx, s, "/etc/update-motd.d/99-aks-custom-motd", "cat /etc/motd")
 			},
-		})
+		}})
 }
 
 func Test_AzureLinuxV2_MessageOfTheDay(t *testing.T) {
@@ -1516,7 +1533,7 @@ func Test_AzureLinuxV2_MessageOfTheDay(t *testing.T) {
 				ValidateFileHasContent(ctx, s, "/etc/motd", "foobar")
 				ValidateFileHasContent(ctx, s, "/etc/dnf/automatic.conf", "emit_via = stdio")
 			},
-		})
+		}})
 }
 
 func Test_AzureLinuxV2_MessageOfTheDay_Scriptless(t *testing.T) {
@@ -1535,7 +1552,7 @@ func Test_AzureLinuxV2_MessageOfTheDay_Scriptless(t *testing.T) {
 				ValidateFileHasContent(ctx, s, "/etc/motd", "foobar")
 				ValidateFileHasContent(ctx, s, "/etc/dnf/automatic.conf", "emit_via = stdio")
 			},
-		})
+		}})
 }
 
 func Test_Ubuntu2204_KubeletCustomConfig(t *testing.T) {
@@ -1561,7 +1578,7 @@ func Test_Ubuntu2204_KubeletCustomConfig(t *testing.T) {
 				ValidateFileHasContent(ctx, s, kubeletConfigFilePath, `"seccompDefault": true`)
 				ValidateKubeletHasFlags(ctx, s, kubeletConfigFilePath)
 			},
-		})
+		}})
 }
 
 func Test_AzureLinuxV2_KubeletCustomConfig(t *testing.T) {
@@ -1588,7 +1605,7 @@ func Test_AzureLinuxV2_KubeletCustomConfig(t *testing.T) {
 				ValidateKubeletHasFlags(ctx, s, kubeletConfigFilePath)
 				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", getExpectedPackageVersions("containerd", "mariner", "current")[0])
 			},
-		})
+		}})
 }
 
 func Test_AzureLinuxV2_KubeletCustomConfig_Scpritless(t *testing.T) {
@@ -1610,7 +1627,7 @@ func Test_AzureLinuxV2_KubeletCustomConfig_Scpritless(t *testing.T) {
 				ValidateKubeletHasFlags(ctx, s, kubeletConfigFilePath)
 				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", getExpectedPackageVersions("containerd", "mariner", "current")[0])
 			},
-		})
+		}})
 }
 
 func Test_Ubuntu2204ARM64_KubeletCustomConfig(t *testing.T) {
@@ -1643,7 +1660,7 @@ func Test_Ubuntu2204ARM64_KubeletCustomConfig(t *testing.T) {
 				ValidateFileHasContent(ctx, s, kubeletConfigFilePath, `"seccompDefault": true`)
 				ValidateKubeletHasFlags(ctx, s, kubeletConfigFilePath)
 			},
-		})
+		}})
 }
 
 func Test_Ubuntu2404Gen2(t *testing.T) {
@@ -1662,7 +1679,7 @@ func Test_Ubuntu2404Gen2(t *testing.T) {
 				ValidateContainerRuntimePlugins(ctx, s)
 				ValidateSSHServiceEnabled(ctx, s)
 			},
-		})
+		}})
 }
 
 func Test_Ubuntu2404Gen2_GPUNoDriver(t *testing.T) {
@@ -1695,7 +1712,7 @@ func Test_Ubuntu2404Gen2_GPUNoDriver(t *testing.T) {
 				ValidateContainerd2Properties(ctx, s, containerdVersions)
 				ValidateRunc12Properties(ctx, s, runcVersions)
 			},
-		})
+		}})
 }
 
 func Test_Ubuntu2404Gen1(t *testing.T) {
@@ -1712,7 +1729,7 @@ func Test_Ubuntu2404Gen1(t *testing.T) {
 				ValidateContainerd2Properties(ctx, s, containerdVersions)
 				ValidateRunc12Properties(ctx, s, runcVersions)
 			},
-		})
+		}})
 }
 
 func Test_Ubuntu2404ARM(t *testing.T) {
@@ -1732,7 +1749,7 @@ func Test_Ubuntu2404ARM(t *testing.T) {
 				ValidateContainerd2Properties(ctx, s, containerdVersions)
 				ValidateRunc12Properties(ctx, s, runcVersions)
 			},
-		})
+		}})
 }
 
 func Test_Random_VHD_With_Latest_Kubernetes_Version(t *testing.T) {
