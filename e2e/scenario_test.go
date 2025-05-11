@@ -916,7 +916,8 @@ func Test_Ubuntu2204_CustomCATrust_Scriptless(t *testing.T) {
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateNonEmptyDirectory(ctx, s, "/usr/local/share/ca-certificates/certs")
 			},
-		}})
+		},
+	})
 }
 
 func Test_Ubuntu2204_CustomSysctls(t *testing.T) {
@@ -955,7 +956,8 @@ func Test_Ubuntu2204_CustomSysctls(t *testing.T) {
 				ValidateUlimitSettings(ctx, s, customContainerdUlimits)
 				ValidateSysctlConfig(ctx, s, customSysctls)
 			},
-		}})
+		},
+	})
 }
 
 func Test_Ubuntu2204_CustomSysctls_Scriptless(t *testing.T) {
