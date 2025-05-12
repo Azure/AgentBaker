@@ -30,17 +30,6 @@ pr:
       - parts/windows
       - go.mod
       - go.sum
-
-      # the following are from the windows e2e pipeline and should be removed once that pipeline is working again.
-      - .pipelines/e2e-windows.yaml
-      - .pipelines/templates/e2e-template.yaml
-      - e2e
-      - parts/windows
-      - pkg/agent
-      - parts/common/components.json
-      - staging/cse/windows/
-      - go.mod
-      - go.sum
     exclude:
       - vhdbuilder/release-notes
       - /**/*.md
