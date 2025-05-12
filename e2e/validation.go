@@ -154,7 +154,7 @@ func ValidateSSHServiceEnabled(ctx context.Context, s *Scenario) {
 	ValidateSystemdUnitIsRunning(ctx, s, "ssh")
 
 	// Verify socket-based activation is disabled
-	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, "systemctl is-active ssh.socket", 0, "could not check ssh.socket status")
+	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, "systemctl is-active ssh.socket", 3, "could not check ssh.socket status")
 	stdout := execResult.stdout.String()
 	require.Contains(s.T, stdout, "inactive", "ssh.socket should be inactive")
 
