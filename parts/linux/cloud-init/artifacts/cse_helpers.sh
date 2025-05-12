@@ -517,6 +517,8 @@ semverCompare() {
     return 1
 }
 
+	
+
 apt_get_download() {
   retries=$1; wait_sleep=$2; shift && shift;
   local ret=0
@@ -967,6 +969,51 @@ oras_login_with_kubelet_identity() {
     fi
 
     echo "successfully logged in to acr '$acr_url' with identity token"
+}
+
+configureSSHService() {
+    local os_param="${1:-$OS}"
+    local os_version_param="${2:-$OS_VERSION}"
+    
+    # If not Ubuntu, no changes needed
+    if [ "$os_param" != "$UBUNTU_OS_NAME" ]; then
+        return 0
+    fi
+    
+    # Only for Ubuntu 22.10+ or newer socket activation is used, for earlier versions no changes needed
+    if semverCompare "22.10" "$os_version_param" ; then
+        return 0
+    fi
+
+    # For Ubuntu 22.10+ with socket-based SSH activation
+    # disable socket if is active
+    if systemctl is-active --quiet ssh.socket; then
+        # Socket is active, disable it and switch to service-based activation
+        systemctl disable --now ssh.socket || echo "Warning: Could not disable ssh.socket"
+    fi
+
+    # Remove the socket-based configuration files if present
+    if [ -f /etc/systemd/system/ssh.service.d/00-socket.conf ]; then
+        rm /etc/systemd/system/ssh.service.d/00-socket.conf || echo "Warning: Could not remove 00-socket.conf"
+    fi
+    
+    if [ -f /etc/systemd/system/ssh.socket.d/addresses.conf ]; then
+        rm /etc/systemd/system/ssh.socket.d/addresses.conf || echo "Warning: Could not remove addresses.conf"
+    fi
+    
+    # For all Ubuntu versions, just make sure ssh service is enabled and running
+    if ! systemctl is-enabled --quiet ssh.service; then
+        echo "Enabling SSH service..."
+        systemctlEnableAndStart ssh 30 || return $ERR_SYSTEMCTL_START_FAIL
+    fi
+    # Verify SSH service is now running
+    if ! systemctl is-active --quiet ssh; then
+        echo "Error: Failed to start SSH service after configuration changes"
+        return $ERR_SYSTEMCTL_START_FAIL
+    fi
+    
+    echo "SSH service successfully reconfigured and started"
+    return 0
 }
 
 #HELPERSEOF
