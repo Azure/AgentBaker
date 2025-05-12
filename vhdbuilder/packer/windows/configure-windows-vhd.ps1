@@ -337,6 +337,7 @@ function Get-ContainerImages
         {   
             Write-Log "Pulling image $image"
             Retry-Command -ScriptBlock {
+                # TODO: remove when crictl.exe can find the default config file
                 $crictlPath = (Get-Command crictl.exe -ErrorAction SilentlyContinue).Path
                 $configPath = Join-Path (Split-Path -Parent $crictlPath) "crictl.yaml"
                 & crictl.exe -c $configPath pull $image
