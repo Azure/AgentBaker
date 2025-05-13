@@ -4,8 +4,9 @@ variables:
     value: "os=windows"
   - name: SKIP_E2E_TESTS
     value: false
+  # this is intentionally blank to force the pipeline to use the VHD built from master
   - name: VHD_BUILD_ID
-    value: $(Build.BuildId)
+    value: ""
   - name: LOCATION
     value: $(PACKER_BUILD_LOCATION)
   - name: POOL_NAME
