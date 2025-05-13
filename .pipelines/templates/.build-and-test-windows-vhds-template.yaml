@@ -45,6 +45,10 @@ parameters:
   - name: useOverrides
     displayName: Use component overrides
     type: boolean
+  - name: enableBackfillCleanup
+    displayName: Run cleanup job
+    type: boolean
+    default: false
 
 stages:
   - template: ./.build-and-test-windows-vhd-template.yaml
@@ -201,7 +205,7 @@ stages:
               make -f packer.mk backfill-cleanup
             enabled: true
             displayName: Backfill Clean Up Older Resources
-            condition: eq(variables.ENABLE_BACKFILL_CLEANUP, 'True')
+            condition: eq(parameters.enableBackfillCleanup, 'True')
             env:
               MODE: windowsVhdMode
               SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
