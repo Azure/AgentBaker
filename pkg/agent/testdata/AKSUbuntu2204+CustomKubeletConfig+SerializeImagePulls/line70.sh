@@ -494,6 +494,13 @@ ensureKubelet() {
         logs_to_events "AKS.CSE.ensureKubelet.setKubeletNodeIPFlag" setKubeletNodeIPFlag
     fi
 
+    if semverCompare ${KUBERNETES_VERSION:-"0.0.0"} "1.32.0"; then
+        tee "/etc/systemd/system/kubelet.service.d/10-watchdog.conf" > /dev/null <<'EOF'
+[Service]
+WatchdogSec=60s
+EOF
+    fi
+
     echo "KUBELET_FLAGS=${KUBELET_FLAGS}" > "${KUBELET_DEFAULT_FILE}"
     echo "KUBELET_REGISTER_SCHEDULABLE=true" >> "${KUBELET_DEFAULT_FILE}"
     echo "NETWORK_POLICY=${NETWORK_POLICY}" >> "${KUBELET_DEFAULT_FILE}"
@@ -508,6 +515,16 @@ ensureKubelet() {
 
     if [ -n "${TLS_BOOTSTRAP_TOKEN}" ]; then
         echo "using bootstrap token to generate a bootstrap-kubeconfig"
+
+        CREDENTIAL_VALIDATION_DROP_IN="/etc/systemd/system/kubelet.service.d/10-credential-validation.conf"
+        mkdir -p "$(dirname "${CREDENTIAL_VALIDATION_DROP_IN}")"
+        touch "${CREDENTIAL_VALIDATION_DROP_IN}"
+        chmod 0600 "${CREDENTIAL_VALIDATION_DROP_IN}"
+        tee "${CREDENTIAL_VALIDATION_DROP_IN}" > /dev/null <<EOF
+[Service]
+Environment="CREDENTIAL_VALIDATION_KUBE_CA_FILE=/etc/kubernetes/certs/ca.crt"
+Environment="CREDENTIAL_VALIDATION_APISERVER_URL=https://${API_SERVER_NAME}:443"
+EOF
 
         KUBELET_TLS_DROP_IN="/etc/systemd/system/kubelet.service.d/10-tlsbootstrap.conf"
         mkdir -p "$(dirname "${KUBELET_TLS_DROP_IN}")"
@@ -599,7 +616,7 @@ EOF
         logs_to_events "AKS.CSE.ensureKubelet.installCredentialProvider" installCredentialProvider
     fi
 
-    systemctlEnableAndStart kubelet 240 || exit $ERR_KUBELET_START_FAIL
+    systemctlEnableAndStartNoBlock kubelet 240 || exit $ERR_KUBELET_START_FAIL
 }
 
 ensureSnapshotUpdate() {
@@ -873,16 +890,12 @@ enableLocalDNS() {
 
     echo "localdns should be enabled."
 
-    systemctlEnableAndStart localdns 30
-    local enable_localdns_result=$?
-
-    if [ "$enable_localdns_result" -ne 0 ]; then
-        echo "Enable localdns failed due to error ${enable_localdns_result}."
-        return "$enable_localdns_result"
+    if ! systemctlEnableAndStart localdns 30; then
+      echo "Enable localdns failed."
+      return $ERR_LOCALDNS_FAIL
     fi
 
     echo "Enable localdns succeeded."
-    return 0
 }
 
 #EOF

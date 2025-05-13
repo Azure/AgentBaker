@@ -46,6 +46,7 @@ Fixes #
 - [ ] includes documentation
 - [ ] adds unit tests
 - [ ] tested upgrade from previous version
+- [ ] commits are GPG signed and Github marks them as verified
 
 **Special notes for your reviewer**:
 

@@ -1,5 +1,6 @@
 name: PR_$(Date:yyyyMMdd)$(Rev:.r)_$(Build.SourceBranchName)_$(BuildID)
 trigger: none
+
 pr:
   branches:
     include:

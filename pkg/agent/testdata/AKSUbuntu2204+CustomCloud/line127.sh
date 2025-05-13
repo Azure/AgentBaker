@@ -84,11 +84,21 @@ if [ -z "${live_patching_repo_service}" ]; then
     sed -i 's/http:\/\/azure.archive.ubuntu.com\/ubuntu\//https:\/\/snapshot.ubuntu.com\/ubuntu\/'"${golden_timestamp}"'/g' ${source_list_path}
     sed -i 's/https:\/\/snapshot.ubuntu.com\/ubuntu\/\([0-9]\{8\}T[0-9]\{6\}Z\)/https:\/\/snapshot.ubuntu.com\/ubuntu\/'"${golden_timestamp}"'/g' ${source_list_path}
     sed -i 's/http:\/\/[0-9]\+.[0-9]\+.[0-9]\+.[0-9]\+\/ubuntu\//https:\/\/snapshot.ubuntu.com\/ubuntu\/'"${golden_timestamp}"'/g' ${source_list_path}
+    for f in /etc/apt/sources.list.d/*.list.backup; do
+        if [ -f "$f" ]; then
+            mv "$f" "${f%.backup}"
+        fi
+    done
 else
     echo "live patching repo service is: ${live_patching_repo_service}"
     sed -i 's/http:\/\/azure.archive.ubuntu.com\/ubuntu\//http:\/\/'"${live_patching_repo_service}"'\/ubuntu\//g' ${source_list_path}
     sed -i 's/https:\/\/snapshot.ubuntu.com\/ubuntu\/\([0-9]\{8\}T[0-9]\{6\}Z\)/http:\/\/'"${live_patching_repo_service}"'\/ubuntu\//g' ${source_list_path}
     sed -i 's/http:\/\/[0-9]\+.[0-9]\+.[0-9]\+.[0-9]\+\/ubuntu\//http:\/\/'"${live_patching_repo_service}"'\/ubuntu\//g' ${source_list_path}
+    for f in /etc/apt/sources.list.d/*.list; do
+        if [ -f "$f" ]; then
+            mv "$f" "$f.backup"
+        fi
+    done
 fi
 
 option=apt_preserve_sources_list
