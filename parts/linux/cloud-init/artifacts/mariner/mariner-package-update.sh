@@ -59,15 +59,7 @@ if [ -n "${live_patching_repo_service}" ] && [[ ! "${live_patching_repo_service}
     echo "Ignore invalid live patching repo service: ${live_patching_repo_service}"
     live_patching_repo_service=""
 fi
-for repo in mariner-official-base.repo \
-            mariner-microsoft.repo \
-            mariner-extras.repo \
-            mariner-nvidia.repo \
-            azurelinux-official-base.repo \
-            azurelinux-ms-non-oss.repo \
-            azurelinux-ms-oss.repo \
-            azurelinux-nvidia.repo; do
-    repo_path="/etc/yum.repos.d/${repo}"
+for repo_path in /etc/yum.repos.d/*.repo; do
     if [ -f ${repo_path} ]; then
         old_repo=$(cat ${repo_path})
         if [ -z "${live_patching_repo_service}" ]; then
