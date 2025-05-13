@@ -1765,3 +1765,24 @@ func Test_Random_VHD_With_Latest_Kubernetes_Version(t *testing.T) {
 		},
 	})
 }
+
+func Test_Ubuntu2404GPUCDI(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests a node using the Ubuntu 2404 VHD with GPU and CDI",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2404Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ConfigGPUDriverIfNeeded = true
+				nbc.EnableNvidia = true
+				nbc.EnableCDI = true
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				containerdVersions := getExpectedPackageVersions("containerd", "ubuntu", "r2404")
+				runcVersions := getExpectedPackageVersions("runc", "ubuntu", "r2404")
+				ValidateContainerd2Properties(ctx, s, containerdVersions)
+				ValidateRunc12Properties(ctx, s, runcVersions)
+			},
+		},
+	})
+}
