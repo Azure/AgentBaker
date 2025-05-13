@@ -504,6 +504,41 @@ ensureKubeCACert() {
     chmod 0600 "${KUBE_CA_FILE}"
 }
 
+configureAndStartSecureTLSBootstrapping() {
+    SECURE_TLS_BOOTSTRAPPING_DROP_IN="/etc/systemd/system/secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf"
+    touch "${SECURE_TLS_BOOTSTRAPPING_DROP_IN}"
+    chmod 0600 "${SECURE_TLS_BOOTSTRAPPING_DROP_IN}"
+    cat > "${SECURE_TLS_BOOTSTRAPPING_DROP_IN}" <<EOF
+[Service]
+Environment="BOOTSTRAP_FLAGS=--aad-resource="${CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_SERVER_APP_ID:-6dae42f8-4368-4678-94ff-3960e28e3630}" --apiserver-fdqn=${API_SERVER_NAME} --cloud-provider-config=${AZURE_JSON_PATH}"
+EOF
+
+    systemctlEnableAndStartNoBlock secure-tls-bootstrap || exit $ERR_SECURE_TLS_BOOTSTRAP_START_FAILURE
+}
+
+ensureSecureTLSBootstrapping() {
+    SECURE_TLS_BOOTSTRAP_STATUS="$(systemctl is-active secure-tls-bootstrap)"    
+    while [ "${SECURE_TLS_BOOTSTRAP_STATUS,,}" = "activating" ]; do
+        echo "secure TLS bootstrapping is in-progress, waiting for terminal state..."
+        sleep 0.5
+        SECURE_TLS_BOOTSTRAP_STATUS="$(systemctl is-active secure-tls-bootstrap)"    
+    done
+
+    if [ "${SECURE_TLS_BOOTSTRAP_STATUS,,}" = "failed" ] || [ "${SECURE_TLS_BOOTSTRAP_STATUS,,}" = "is-failed" ]; then
+        log_to_events "AKS.CSE.ensureSecureTLSBootstrapping.BootstrapFailure" "echo secure TLS bootstrapping failed, falling back to TLS bootstrapping with bootstrap token"
+        return 0 # once bootstrap tokens are eliminated, CSE should fail here
+    fi
+
+    if [ ! -f "/var/lib/kubelet/kubeconfig" ]; then
+        logs_to_events "AKS.CSE.ensureSecureTLSBootstrapping.MissingKubeconfig" "echo secure TLS bootstrapping completed but kubeconfig file is missing, falling back to TLS bootstrapping with bootstrap token"
+        return 0 # once bootstrap tokens are eliminated, CSE should fail here
+    fi
+
+    # we now have a kubeconfig file, so we can wipe the bootstrap token
+    # once bootstrap tokens are eliminated this won't be needed
+    unset TLS_BOOTSTRAP_TOKEN
+}
+
 ensureKubelet() {
     KUBELET_DEFAULT_FILE=/etc/default/kubelet
     mkdir -p /etc/default
@@ -541,7 +576,7 @@ EOF
     # to ensure we don't expose bootstrap token secrets in provisioning logs
     set +x
 
-    if [ -n "${TLS_BOOTSTRAP_TOKEN}" ]; then
+    if [ -n "${TLS_BOOTSTRAP_TOKEN:-}" ]; then
         echo "using bootstrap token to generate a bootstrap-kubeconfig"
 
         CREDENTIAL_VALIDATION_DROP_IN="/etc/systemd/system/kubelet.service.d/10-credential-validation.conf"
@@ -577,7 +612,7 @@ clusters:
 users:
 - name: kubelet-bootstrap
   user:
-    token: "${TLS_BOOTSTRAP_TOKEN}"
+    token: "${TLS_BOOTSTRAP_TOKEN:-}"
 contexts:
 - context:
     cluster: localcluster
@@ -585,6 +620,9 @@ contexts:
   name: bootstrap-context
 current-context: bootstrap-context
 EOF
+    elif [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" = "true" ]; then
+        echo "secure TLS bootstrapping is enabled and has succeeded, removing any bootstrap-kubeconfig"
+        rm -f /var/lib/kubelet/bootstrap-kubeconfig
     else
         echo "generating kubeconfig referencing the provided kubelet client certificate"
         
