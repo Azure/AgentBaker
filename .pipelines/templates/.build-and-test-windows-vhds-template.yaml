@@ -198,11 +198,7 @@ stages:
       - job: build
         timeoutInMinutes: 180
         steps:
-          - bash: |
-              # because SUBSCRIPTION_ID is defined as a pipeline variable, setting this in the "env" section below doesn't work.
-              export SUBSCRIPTION_ID=$(AZURE_BUILD_SUBSCRIPTION_ID)
-      
-              make -f packer.mk backfill-cleanup
+          - bash: bash ./.pipelines/scripts/backfill-cleanup.sh
             enabled: true
             displayName: Backfill Clean Up Older Resources
             condition: eq(parameters.enableBackfillCleanup, 'True')
