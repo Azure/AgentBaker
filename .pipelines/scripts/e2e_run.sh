@@ -40,6 +40,8 @@ echo "LOGGING_DIR: ${LOGGING_DIR:-}"
 echo "E2E_SUBSCRIPTION_ID: ${E2E_SUBSCRIPTION_ID:-}"
 echo "TAGS_TO_SKIP: ${TAGS_TO_SKIP:-}"
 echo "TAGS_TO_RUN: ${TAGS_TO_RUN:-}"
+echo "GALLERY_NAME: ${GALLERY_NAME:-}"
+echo "SIG_GALLERY_NAME: ${SIG_GALLERY_NAME:-}"
 
 # set variables that the go program expects if we are running a specific build
 if [ -n "${VHD_BUILD_ID}" ]; then
@@ -48,6 +50,11 @@ if [ -n "${VHD_BUILD_ID}" ]; then
   export SIG_VERSION_TAG_VALUE=$VHD_BUILD_ID
 else
   echo "VHD_BUILD_ID is not specified. Running tests with default SIG version tag selectors."
+fi
+
+if [ -n "${SIG_GALLERY_NAME}" ]; then
+  echo "SIG_GALLERY_NAME is specified (${SIG_GALLERY_NAME}). Updating GALLERY_NAME to $SIG_GALLERY_NAME"
+  export GALLERY_NAME=$SIG_GALLERY_NAME
 fi
 
 # this software is used to take the output of "go test" and produce a junit report that we can upload to the pipeline
