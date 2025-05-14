@@ -11,7 +11,7 @@ RemainAfterExit=no
 ExecStart=/usr/local/bin/aks-secure-tls-bootstrap-client \
     --ensure-authorized \
     --next-proto aks-tls-bootstrap \
-    --cluster-ca-file=/etc/kubernetes/certs/ca.crt
+    --cluster-ca-file=/etc/kubernetes/certs/ca.crt \
     --kubeconfig /var/lib/kubelet/kubeconfig \
     --cert-file /etc/kubernetes/certs/cert.crt \
     --key-file /etc/kubernetes/cert.key \
