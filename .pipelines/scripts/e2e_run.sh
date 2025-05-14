@@ -32,16 +32,25 @@ echo "##vso[task.setvariable variable=LOGGING_DIR]$LOGGING_DIR"
 # make sure the logging directory exists
 mkdir -p "${DefaultWorkingDirectory}/e2e/${LOGGING_DIR}"
 
-# Echo some variables so that we have a chance of debugging the pipeline if it fails due to a pipeline issue
-# use a default syntax in case the var is not set - as that causes the script to fail as we have set -u above.
-echo "VHD_BUILD_ID=${VHD_BUILD_ID:-}"
-echo "IGNORE_SCENARIOS_WITH_MISSING_VHD: ${IGNORE_SCENARIOS_WITH_MISSING_VHD:-}"
-echo "LOGGING_DIR: ${LOGGING_DIR:-}"
-echo "E2E_SUBSCRIPTION_ID: ${E2E_SUBSCRIPTION_ID:-}"
-echo "TAGS_TO_SKIP: ${TAGS_TO_SKIP:-}"
-echo "TAGS_TO_RUN: ${TAGS_TO_RUN:-}"
-echo "GALLERY_NAME: ${GALLERY_NAME:-}"
-echo "SIG_GALLERY_NAME: ${SIG_GALLERY_NAME:-}"
+# default any unbound required variables if necessary
+VHD_BUILD_ID="${VHD_BUILD_ID:-}"
+IGNORE_SCENARIOS_WITH_MISSING_VHD="${IGNORE_SCENARIOS_WITH_MISSING_VHD:-}"
+LOGGING_DIR="${LOGGING_DIR:-}"
+E2E_SUBSCRIPTION_ID="${E2E_SUBSCRIPTION_ID:-}"
+TAGS_TO_SKIP="${TAGS_TO_SKIP:-}"
+TAGS_TO_RUN="${TAGS_TO_RUN:-}"
+GALLERY_NAME="${GALLERY_NAME:-}"
+SIG_GALLERY_NAME="${SIG_GALLERY_NAME:-}"
+
+# echo some variables so that we have a chance of debugging if things fail due to a pipeline issue
+echo "VHD_BUILD_ID: ${VHD_BUILD_ID}"
+echo "IGNORE_SCENARIOS_WITH_MISSING_VHD: ${IGNORE_SCENARIOS_WITH_MISSING_VHD}"
+echo "LOGGING_DIR: ${LOGGING_DIR}"
+echo "E2E_SUBSCRIPTION_ID: ${E2E_SUBSCRIPTION_ID}"
+echo "TAGS_TO_SKIP: ${TAGS_TO_SKIP}"
+echo "TAGS_TO_RUN: ${TAGS_TO_RUN}"
+echo "GALLERY_NAME: ${GALLERY_NAME}"
+echo "SIG_GALLERY_NAME: ${SIG_GALLERY_NAME}"
 
 # set variables that the go program expects if we are running a specific build
 if [ -n "${VHD_BUILD_ID}" ]; then
