@@ -479,8 +479,27 @@ func podHTTPServerLinux(s *Scenario) *corev1.Pod {
 					Args: []string{
 						"mkdir -p /www && echo '<!DOCTYPE html><html><head><title></title></head><body></body></html>' > /www/index.html && httpd -f -p 80 -h /www",
 					},
+					VolumeMounts: []corev1.VolumeMount{
+						{
+							Name:      "crictl",
+							MountPath: "/bin/crictl",
+							SubPath:   "crictl", // ensures the file is mounted as a file, not a directory
+						},
+					},
 				},
 			},
+			// set the volume mount to /usr/local/bin/crictl
+			Volumes: []corev1.Volume{
+				{
+					Name: "crictl",
+					VolumeSource: corev1.VolumeSource{
+						HostPath: &corev1.HostPathVolumeSource{
+							Path: "/usr/local/bin/crictl",
+						},
+					},
+				},
+			},
+
 			// Set Tolerations to tolerate the node with test taints "testkey1=value1:NoSchedule,testkey2=value2:NoSchedule".
 			// This is to ensure that the pod can be scheduled on the node with the taints.
 			// It won't affect other pods running on the same node.

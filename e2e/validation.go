@@ -20,6 +20,11 @@ func ValidatePodRunning(ctx context.Context, s *Scenario) {
 		return podHTTPServerLinux(s)
 	}()
 	ensurePod(ctx, s, testPod)
+	// execute command /bin/crictl --version in the pod to validate the runtime
+	// is running as expected
+	execResult := execOnVMForScenarioOnUnprivilegedPod(ctx, s, "crictl --version")
+	require.Equal(s.T, "1", execResult.exitCode, "crictl should be present in the pod")
+	require.Contains(s.T, execResult.stdout.String(), "1.0", "crictl version should be 1.0")
 	s.T.Logf("node health validation: test pod %q is running on node %q", testPod.Name, s.Runtime.KubeNodeName)
 }
 
