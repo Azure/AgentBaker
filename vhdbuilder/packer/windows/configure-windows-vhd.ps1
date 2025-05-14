@@ -334,7 +334,7 @@ function Get-ContainerImages
             Remove-Item -Path $tmpDest
         }
         else
-        {   
+        {
             Write-Log "Pulling image $image"
             Retry-Command -ScriptBlock {
                 # TODO: remove when crictl.exe can find the default config file
