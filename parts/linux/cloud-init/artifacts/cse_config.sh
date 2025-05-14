@@ -515,6 +515,7 @@ ensureKubeCACert() {
 
 configureAndStartSecureTLSBootstrapping() {
     SECURE_TLS_BOOTSTRAPPING_DROP_IN="/etc/systemd/system/secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf"
+    mkdir -p "$(dirname "${SECURE_TLS_BOOTSTRAPPING_DROP_IN}")"
     touch "${SECURE_TLS_BOOTSTRAPPING_DROP_IN}"
     chmod 0600 "${SECURE_TLS_BOOTSTRAPPING_DROP_IN}"
     cat > "${SECURE_TLS_BOOTSTRAPPING_DROP_IN}" <<EOF
