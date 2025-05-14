@@ -494,7 +494,7 @@ func podHTTPServerLinux(s *Scenario) *corev1.Pod {
 					Name: "crictl",
 					VolumeSource: corev1.VolumeSource{
 						HostPath: &corev1.HostPathVolumeSource{
-							Path: "/usr/local/bin/crictl",
+							Path: "/usr/bin/crictl",
 						},
 					},
 				},
