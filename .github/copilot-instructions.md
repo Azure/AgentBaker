@@ -11,7 +11,7 @@ It builds VHDs using Packer for base OS: Windows, Azure Linux/Mariner and Ubuntu
 
 VHDs are built using [Packer](https://developer.hashicorp.com/packer/docs) in [vhdbuilder](../vhdbuilder/).
 
-Windows VHD uses packer configuration [VHD](../vhdbuilder/packer/windows/windows-vhd-configuration.ps1)
+Windows VHD is configured through [VHD](../vhdbuilder/packer/windows/windows-vhd-configuration.ps1)
 
 ## AgentBaker Service
 
