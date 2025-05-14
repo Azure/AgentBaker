@@ -543,6 +543,8 @@ ensureSecureTLSBootstrapping() {
         return 0 # once bootstrap tokens are eliminated, CSE should fail here
     fi
 
+    logs_to_events "AKS.CSE.ensureSecureTLSBootstrapping.Succeeded" "echo secure TLS bootstrapping suceeded, will unset TLS bootstrap token"
+
     # we now have a kubeconfig file, so we can wipe the bootstrap token
     # once bootstrap tokens are eliminated this won't be needed
     unset TLS_BOOTSTRAP_TOKEN
