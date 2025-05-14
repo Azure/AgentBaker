@@ -168,11 +168,29 @@ EOF
 
 configureK8s() {
     mkdir -p "/etc/kubernetes/certs"
-    
-    APISERVER_PUBLIC_KEY_PATH="/etc/kubernetes/certs/apiserver.crt"
-    touch "${APISERVER_PUBLIC_KEY_PATH}"
-    chmod 0644 "${APISERVER_PUBLIC_KEY_PATH}"
-    chown root:root "${APISERVER_PUBLIC_KEY_PATH}"
+
+    if [ -n "${APISERVER_PUBLIC_KEY}" ]; then
+        APISERVER_PUBLIC_KEY_PATH="/etc/kubernetes/certs/apiserver.crt"
+        touch "${APISERVER_PUBLIC_KEY_PATH}"
+        chmod 0644 "${APISERVER_PUBLIC_KEY_PATH}"
+        chown root:root "${APISERVER_PUBLIC_KEY_PATH}"
+
+        set +x
+        echo "${APISERVER_PUBLIC_KEY}" | base64 --decode > "${APISERVER_PUBLIC_KEY_PATH}"
+        set -x
+    fi
+
+    if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" = "false" ] && [ -z "${TLS_BOOTSTRAP_TOKEN:-}" ]; then
+        # only create the client cert and key if we're not using vanilla/secure TLS bootstrapping
+        set +x
+        if [ -n "${KUBELET_CLIENT_CONTENT}" ]; then
+            echo "${KUBELET_CLIENT_CONTENT}" | base64 -d > /etc/kubernetes/certs/client.key
+        fi
+        if [ -n "${KUBELET_CLIENT_CERT_CONTENT}" ]; then
+            echo "${KUBELET_CLIENT_CERT_CONTENT}" | base64 -d > /etc/kubernetes/certs/client.crt
+        fi
+        set -x
+    fi
 
     AZURE_JSON_PATH="/etc/kubernetes/azure.json"
     touch "${AZURE_JSON_PATH}"
@@ -180,22 +198,12 @@ configureK8s() {
     chown root:root "${AZURE_JSON_PATH}"
 
     set +x
-    if [ -n "${KUBELET_CLIENT_CONTENT}" ]; then
-        echo "${KUBELET_CLIENT_CONTENT}" | base64 -d > /etc/kubernetes/certs/client.key
-    fi
-    if [ -n "${KUBELET_CLIENT_CERT_CONTENT}" ]; then
-        echo "${KUBELET_CLIENT_CERT_CONTENT}" | base64 -d > /etc/kubernetes/certs/client.crt
-    fi
-    if [ -n "${SERVICE_PRINCIPAL_FILE_CONTENT}" ]; then
-        echo "${SERVICE_PRINCIPAL_FILE_CONTENT}" | base64 -d > /etc/kubernetes/sp.txt
-    fi
-
-    echo "${APISERVER_PUBLIC_KEY}" | base64 --decode > "${APISERVER_PUBLIC_KEY_PATH}"
     SP_FILE="/etc/kubernetes/sp.txt"
     SERVICE_PRINCIPAL_CLIENT_SECRET="$(cat "$SP_FILE")"
     SERVICE_PRINCIPAL_CLIENT_SECRET=${SERVICE_PRINCIPAL_CLIENT_SECRET//\\/\\\\}
     SERVICE_PRINCIPAL_CLIENT_SECRET=${SERVICE_PRINCIPAL_CLIENT_SECRET//\"/\\\"}
     rm "$SP_FILE"
+    
     cat << EOF > "${AZURE_JSON_PATH}"
 {
     "cloud": "${TARGET_CLOUD}",
@@ -237,6 +245,7 @@ configureK8s() {
 }
 EOF
     set -x
+
     if [ "${CLOUDPROVIDER_BACKOFF_MODE}" = "v2" ]; then
         sed -i "/cloudProviderBackoffExponent/d" /etc/kubernetes/azure.json
         sed -i "/cloudProviderBackoffJitter/d" /etc/kubernetes/azure.json
