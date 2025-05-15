@@ -365,6 +365,8 @@ ensureArtifactStreaming() {
   sudo /opt/acr/tools/overlaybd/config.sh exporterConfig.port 9863
   modprobe target_core_user
   curl -X PUT 'localhost:8578/config?ns=_default&enable_suffix=azurecr.io&stream_format=overlaybd' -O
+  systemctl link /opt/overlaybd/overlaybd-tcmu.service
+  systemctl link /opt/overlaybd/snapshotter/overlaybd-snapshotter.service
   systemctlEnableAndStart /opt/overlaybd/overlaybd-tcmu.service 30
   systemctlEnableAndStart /opt/overlaybd/snapshotter/overlaybd-snapshotter.service 30
   systemctlEnableAndStart acr-nodemon 30
