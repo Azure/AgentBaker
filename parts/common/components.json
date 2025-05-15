@@ -26,6 +26,12 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore",
+          "latestVersion": "10.0.20348.3453",
+          "previousLatestVersion": "10.0.20348.3328",
+          "windowsSkuMatch": "2025*"
+        },
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore",
           "latestVersion": "10.0.26100.3775",
           "previousLatestVersion": "10.0.26100.3476",
           "windowsSkuMatch": "2025*"
