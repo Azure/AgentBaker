@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"syscall"
@@ -21,6 +22,8 @@ import (
 	"github.com/barkimedes/go-deepcopy"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
+	ctrruntimelog "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 // it's important to share context between tests to allow graceful shutdown
@@ -86,6 +89,8 @@ func RunScenario(t *testing.T, s *Scenario) {
 	s.T = t
 	t.Parallel()
 	ctx := newTestCtx(t)
+	ctrruntimelog.SetLogger(zap.New())
+
 	maybeSkipScenario(ctx, t, s)
 	cluster, err := s.Config.Cluster(ctx, s.T)
 	require.NoError(s.T, err)
@@ -198,9 +203,9 @@ func maybeSkipScenario(ctx context.Context, t *testing.T, s *Scenario) {
 	vhd, err := s.VHD.VHDResourceID(ctx, t)
 	if err != nil {
 		if config.Config.IgnoreScenariosWithMissingVHD && errors.Is(err, config.ErrNotFound) {
-			t.Skipf("skipping scenario %q: could not find image for VHD %s due to %s", t.Name(), s.VHD.String(), err)
+			t.Skipf("skipping scenario %q: could not find image for VHD %s due to %s", t.Name(), s.VHD.Distro, err)
 		} else {
-			t.Fatalf("could not find image for %q (VHD %s): %s", t.Name(), s.VHD.String(), err)
+			t.Fatalf("failing scenario %q: could not find image for VHD %s due to %s", t.Name(), s.VHD.Distro, err)
 		}
 	}
 	t.Logf("VHD: %q, TAGS %+v", vhd, s.Tags)
@@ -271,6 +276,20 @@ func getCustomScriptExtensionStatus(ctx context.Context, s *Scenario) error {
 			for _, extension := range instanceViewResp.Extensions {
 				for _, status := range extension.Statuses {
 					if s.VHD.OS == config.OSWindows {
+						// Save the CSE output for Windows VMs for better troubleshooting
+						if status.Message != nil {
+							logDir := filepath.Join("scenario-logs", s.T.Name())
+							if err := os.MkdirAll(logDir, 0755); err == nil {
+								logFile := filepath.Join(logDir, "windows-cse-output.log")
+								err = os.WriteFile(logFile, []byte(*status.Message), 0644)
+								if err != nil {
+									s.T.Logf("failed to save Windows CSE output to %s: %v", logFile, err)
+								} else {
+									s.T.Logf("saved Windows CSE output to %s", logFile)
+								}
+							}
+						}
+
 						if status.Code == nil || !strings.EqualFold(*status.Code, "ProvisioningState/succeeded") {
 							return fmt.Errorf("failed to get CSE output, error: %s", *status.Message)
 						}

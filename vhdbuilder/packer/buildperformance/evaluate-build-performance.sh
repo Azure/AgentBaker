@@ -17,7 +17,7 @@ if [ ! -f "${PERFORMANCE_DATA_FILE}" ]; then
 fi
 
 SCRIPT_COUNT=$(jq -e 'keys | length' ${PERFORMANCE_DATA_FILE})
-if [ $? -ne 0 ]; then
+if [ "$?" -ne 0 ]; then
   log_and_exit ${PERFORMANCE_DATA_FILE} "contains invalid json" true
 fi
 
@@ -53,7 +53,7 @@ jq . -C ${SIG_IMAGE_NAME}-build-performance.json
 echo "##[endgroup]"
 
 echo -e "\nENVIRONMENT is: ${ENVIRONMENT}"
-if [ "${ENVIRONMENT,,}" = "test" ]; then
+if [ "${ENVIRONMENT,,}" = "tme" ]; then
   mv ${SIG_IMAGE_NAME}-build-performance.json vhdbuilder/packer/buildperformance
   pushd vhdbuilder/packer/buildperformance || exit 0
     echo -e "\nRunning build performance evaluation program...\n"

@@ -130,6 +130,9 @@ if ! isMarinerOrAzureLinux "$OS"; then
 fi
 capture_benchmark "${SCRIPT_NAME}_validate_container_runtime_and_override_ubuntu_net_config"
 
+# Configure SSH service during VHD build for Ubuntu 22.10+
+configureSSHService "$OS" "$OS_VERSION" || echo "##vso[task.logissue type=warning]SSH Service configuration failed, but continuing VHD build"
+
 CONTAINERD_SERVICE_DIR="/etc/systemd/system/containerd.service.d"
 mkdir -p "${CONTAINERD_SERVICE_DIR}"
 tee "${CONTAINERD_SERVICE_DIR}/exec_start.conf" > /dev/null <<EOF
@@ -348,6 +351,14 @@ while IFS= read -r p; do
         echo "  - oras version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
+    "aks-secure-tls-bootstrap-client")
+      for version in ${PACKAGE_VERSIONS[@]}; do
+        # removed at provisioning time if secure TLS bootstrapping is disabled
+        evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+        downloadSecureTLSBootstrapClient "${downloadDir}" "${evaluatedURL}" "${version}"
+        echo "  - aks-secure-tls-bootstrap-client version ${version}" >> ${VHD_LOGS_FILEPATH}
+      done
+      ;;
     "azure-acr-credential-provider")
       for version in ${PACKAGE_VERSIONS[@]}; do
         evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
@@ -405,7 +416,7 @@ installAndConfigureArtifactStreaming() {
 UBUNTU_MAJOR_VERSION=$(echo $UBUNTU_RELEASE | cut -d. -f1)
 # Artifact Streaming currently not supported for 24.04, the deb file isnt present in acs-mirror
 # TODO(amaheshwari/aganeshkumar): Remove the conditional when Artifact Streaming is enabled for 24.04
-if [ "$OS" = "$UBUNTU_OS_NAME" ] && [ "$(isARM64)"  -ne 1 ] && [ "$UBUNTU_MAJOR_VERSION" -ge 20 ] && [ "${UBUNTU_RELEASE}" != "24.04" ]; then
+if [ "$OS" = "$UBUNTU_OS_NAME" ] && [ "$(isARM64)" -ne 1 ] && [ "$UBUNTU_MAJOR_VERSION" -ge 20 ] && [ "${UBUNTU_RELEASE}" != "24.04" ]; then
   installAndConfigureArtifactStreaming acr-mirror-${UBUNTU_RELEASE//.} deb
 fi
 
@@ -521,11 +532,11 @@ while IFS= read -r imageToBePulled; do
     while [ "$(jobs -p | wc -l)" -ge "$parallel_container_image_pull_limit" ]; do
       wait -n || { 
         ret=$?
-        echo "A background job pullContainerImage failed: ${ret}. Exiting..." >&2
+        echo "A background job pullContainerImage failed: ${ret}, ${CONTAINER_IMAGE}. Exiting..." >&2
         for pid in "${image_pids[@]}"; do
           kill -9 "$pid" 2>/dev/null || echo "Failed to kill process $pid"
         done
-        exit ${ret}
+        exit "${ret}"
     }
     done
   done

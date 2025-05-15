@@ -2,7 +2,7 @@ PROVISION_OUTPUT="/var/log/azure/cluster-provision-cse-output.log";
 echo $(date),$(hostname) > ${PROVISION_OUTPUT};
 {{if ShouldEnableCustomData}}
 cloud-init status --wait > /dev/null 2>&1;
-[ $? -ne 0 ] && echo 'cloud-init failed' >> ${PROVISION_OUTPUT} && exit 1;
+[ "$?" -ne 0 ] && echo 'cloud-init failed' >> ${PROVISION_OUTPUT} && exit 1;
 echo "cloud-init succeeded" >> ${PROVISION_OUTPUT};
 {{end}}
 {{if IsAKSCustomCloud}}
@@ -118,6 +118,7 @@ NO_PROXY_URLS="{{GetNoProxy}}"
 PROXY_VARS="{{GetProxyVariables}}"
 ENABLE_SECURE_TLS_BOOTSTRAPPING="{{EnableSecureTLSBootstrapping}}"
 CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_SERVER_APP_ID="{{GetCustomSecureTLSBootstrapAADServerAppID}}"
+CUSTOM_SECURE_TLS_BOOTSTRAP_CLIENT_URL="{{GetCustomSecureTLSBootstrapClientURL}}"
 ENABLE_KUBELET_SERVING_CERTIFICATE_ROTATION="{{EnableKubeletServingCertificateRotation}}"
 DHCPV6_SERVICE_FILEPATH="{{GetDHCPv6ServiceCSEScriptFilepath}}"
 DHCPV6_CONFIG_FILEPATH="{{GetDHCPv6ConfigCSEScriptFilepath}}"

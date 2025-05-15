@@ -35,6 +35,14 @@ err() {
 # The remote branch will be something like 'refs/heads/branch/name' or 'refs/pull/number/head'. Using the same name
 # for the local branch has weird semantics, so we replace '/' with '-' for the local branch name.
 LOCAL_GIT_BRANCH=${GIT_BRANCH//\//-}
+
+# Git is not present in the base image, so we need to install it.
+if [ "$OS_SKU" = "Ubuntu" ]; then
+  sudo DEBIAN_FRONTEND=noninteractive apt-get install -y git
+else
+  sudo tdnf install -y git
+fi
+
 echo "Cloning AgentBaker repo and checking out remote branch '${GIT_BRANCH}' into local branch '${LOCAL_GIT_BRANCH}'"
 COMMAND="git clone --quiet https://github.com/Azure/AgentBaker.git"
 if ! ${COMMAND}; then
@@ -115,7 +123,7 @@ testAcrCredentialProviderInstalled() {
     # then downloadLocation should be /opt/credentialprovider/downloads/azure-acr-credential-provider-linux-amd64-v1.30.0.tar.gz
     downloadLocation="/opt/credentialprovider/downloads/azure-acr-credential-provider-linux-${CPU_ARCH}-${version}.tar.gz"
     validateOrasOCIArtifact $currentDownloadURL $downloadLocation
-    if [ $? -ne 0 ]; then
+    if [ "$?" -ne 0 ]; then
       err $test "File size of ${downloadLocation} from ${currentDownloadURL} is invalid. Expected file size: ${fileSizeInRepo} - downloaded file size: ${fileSizeDownloaded}"
       continue
     fi
@@ -224,7 +232,7 @@ testPackagesInstalled() {
       # -L since some urls are redirects (i.e github)
       # shellcheck disable=SC2086
       validateDownloadPackage "$downloadURL" $downloadedPackage
-      if [ $? -ne 0 ]; then
+      if [ "$?" -ne 0 ]; then
         err $test "File size of ${downloadedPackage} from ${downloadURL} is invalid. Expected file size: ${fileSizeInRepo} - downloaded file size: ${fileSizeDownloaded}"
         continue
       fi
@@ -319,20 +327,39 @@ testImagesPulled() {
   imagesToBePulled=$(echo "${componentsJsonContent}" | jq .ContainerImages[] --monochrome-output --compact-output)
 
   while IFS= read -r imageToBePulled; do
+    echo "checking imageToBePulled: $imageToBePulled ..."
     downloadURL=$(echo "${imageToBePulled}" | jq .downloadURL -r)
-    amd64OnlyVersionsStr=$(echo "${imageToBePulled}" | jq .amd64OnlyVersions -r)
-    MULTI_ARCH_VERSIONS=()
+    if [ $(echo "${imageToBePulled}" | jq -r '.amd64OnlyVersions // empty') = "null" ]; then
+      amd64OnlyVersionsStr=""
+    else 
+      amd64OnlyVersionsStr=$(echo "${imageToBePulled}" | jq -r '.amd64OnlyVersions // empty')
+    fi
+    declare -a MULTI_ARCH_VERSIONS=()
     updateMultiArchVersions "${imageToBePulled}"
 
     amd64OnlyVersions=""
-    if [ "${amd64OnlyVersionsStr}" != "null" ]; then
+    if [ -n "${amd64OnlyVersionsStr}" ] && [ "${amd64OnlyVersionsStr}" != "null" ]; then
       amd64OnlyVersions=$(echo "${amd64OnlyVersionsStr}" | jq -r ".[]")
     fi
 
     if [ "$(isARM64)" -eq 1 ]; then
-      versions="${MULTI_ARCH_VERSIONS}"
+      echo "ARM64 detected, using only multiArchVersions"
+      if [ ${#MULTI_ARCH_VERSIONS[@]} -eq 0 ]; then
+        echo "Warning: No multi-arch versions found for ARM64"
+        continue
+      else
+        echo "Found ${#MULTI_ARCH_VERSIONS[@]} multi-arch versions"
+        # Convert array to string with spaces between elements
+        versions="${MULTI_ARCH_VERSIONS[*]}"
+        echo "Using versions: $versions"
+      fi
     else
-      versions="${amd64OnlyVersions} ${MULTI_ARCH_VERSIONS}"
+      echo "AMD64 detected, using amd64OnlyVersions and multiArchVersions"
+      if [ "${#MULTI_ARCH_VERSIONS[@]}" -eq 0 ]; then
+        versions="${amd64OnlyVersions}"
+      else
+        versions="${amd64OnlyVersions} ${MULTI_ARCH_VERSIONS[*]}"
+      fi
     fi
     for version in ${versions}; do
       download_URL=$(string_replace $downloadURL $version)
@@ -708,7 +735,7 @@ testUserAdd() {
   echo "$test: Checking that INACTIVE is used by useradd"
   useradd -D | grep -E -v "^INACTIVE=30$" >/dev/null
   # shellcheck disable=SC2181
-  if [ $? -ne 0 ]; then
+  if [ "$?" -ne 0 ]; then
     err $test "useradd is not using INACTIVE=30 from $settings_file"
   fi
   echo "$test: useradd is using INACTIVE=30 from $settings_file"
@@ -1225,6 +1252,15 @@ testCriCtl() {
     err "$test: crictl version is not $expectedVersion, instead it is $crictl_version"
     return 1
   fi
+  # check if the symlink /usr/local/bin/crictl points to /usr/bin/crictl
+  if [ ! -L "/usr/local/bin/crictl" ]; then
+    err "$test: /usr/local/bin/crictl should be a symlink"
+    return 1
+  fi
+  if [ "$(readlink -f /usr/local/bin/crictl)" != "/usr/bin/crictl" ]; then
+    err "$test: /usr/local/bin/crictl should point to /usr/bin/crictl"
+    return 1
+  fi
   echo "$test: Test finished successfully."
   return 0
 }
@@ -1306,7 +1342,7 @@ testCorednsBinaryExtractedAndCached() {
 
   local builtInPlugins
   builtInPlugins=$("$binaryPath" --plugins)
-  if [ $? -eq 0 ]; then
+  if [ "$?" -eq 0 ]; then
     echo "$test: Succeeded to execute coredns --plugins command from $binaryPath"
   else
     echo "$test: Failed to execute coredns --plugins command from $binaryPath"

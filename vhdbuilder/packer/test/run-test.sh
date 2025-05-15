@@ -44,7 +44,7 @@ az group create --name "$TEST_VM_RESOURCE_GROUP_NAME" --location "${AZURE_LOCATI
 # defer function to cleanup resource group when VHD debug is not enabled
 function cleanup() {
   if [ "$VHD_DEBUG" = "True" ]; then
-    echo "VHD debug mode is enabled, please manually delete test vm resource group $RESOURCE_GROUP_NAME after debugging"
+    echo "VHD debug mode is enabled, please manually delete test vm resource group $TEST_VM_RESOURCE_GROUP_NAME after debugging"
   else
     echo "Deleting resource group ${TEST_VM_RESOURCE_GROUP_NAME}"
     az group delete --name "$TEST_VM_RESOURCE_GROUP_NAME" --yes --no-wait
@@ -61,7 +61,7 @@ set -x
 # ERROR: This user name 'root' meets the general requirements, but is specifically disallowed for this image. Please try a different value.
 TARGET_COMMAND_STRING=""
 if [ "${ARCHITECTURE,,}" = "arm64" ]; then
-  TARGET_COMMAND_STRING+="--size Standard_D2pds_V5"
+  TARGET_COMMAND_STRING="--size Standard_D2pds_V5"
 else
   TARGET_COMMAND_STRING="--size Standard_D2ds_v5"
 fi
@@ -92,6 +92,7 @@ if [ "${OS_TYPE,,}" = "linux" ]; then
       exit 1
   fi
   az vm create \
+      --debug \
       --resource-group "$TEST_VM_RESOURCE_GROUP_NAME" \
       --name "$VM_NAME" \
       --image "$MANAGED_SIG_ID" \
@@ -101,6 +102,7 @@ if [ "${OS_TYPE,,}" = "linux" ]; then
       ${TARGET_COMMAND_STRING}
 else
   az vm create \
+      --debug \
       --resource-group "$TEST_VM_RESOURCE_GROUP_NAME" \
       --name "$VM_NAME" \
       --image "$MANAGED_SIG_ID" \

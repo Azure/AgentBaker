@@ -72,7 +72,7 @@ current_timestamp=$($KUBECTL get node ${node_name} -o jsonpath="{.metadata.annot
 if [ -n "${current_timestamp}" ]; then
     echo "current timestamp is: ${current_timestamp}"
 
-    if [[ "${golden_timestamp}" == "${current_timestamp}" ]]; then
+    if [ "${golden_timestamp}" = "${current_timestamp}" ]; then
         echo "golden and current timestamp is the same, nothing to patch"
         exit 0
     fi
@@ -86,6 +86,7 @@ old_source_list=$(cat ${source_list_path})
 live_patching_repo_service=$($KUBECTL get node ${node_name} -o jsonpath="{.metadata.annotations['kubernetes\.azure\.com/live-patching-repo-service']}")
 # Limit the live patching repo service to private IPs in the range of 10.x.x.x, 172.16.x.x - 172.31.x.x, and 192.168.x.x
 private_ip_regex="^((10\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})|(172\.(1[6-9]|2[0-9]|3[01])\.[0-9]{1,3}\.[0-9]{1,3})|(192\.168\.[0-9]{1,3}\.[0-9]{1,3}))$"
+# shellcheck disable=SC3010
 if [ -n "${live_patching_repo_service}" ] && [[ ! "${live_patching_repo_service}" =~ $private_ip_regex ]]; then
     echo "Ignore invalid live patching repo service: ${live_patching_repo_service}"
     live_patching_repo_service=""
@@ -101,6 +102,12 @@ if [ -z "${live_patching_repo_service}" ]; then
     # No live patching repo service annotation, so we need to change to use the ubuntu snapshot repo
     # e.g. replace http://10.224.0.5/ubuntu/ with https://snapshot.ubuntu.com/ubuntu/20250318T000000Z
     sed -i 's/http:\/\/[0-9]\+.[0-9]\+.[0-9]\+.[0-9]\+\/ubuntu\//https:\/\/snapshot.ubuntu.com\/ubuntu\/'"${golden_timestamp}"'/g' ${source_list_path}
+    # restore the ignored repo config in /etc/apt/sources.list.d 
+    for f in /etc/apt/sources.list.d/*.list.backup; do
+        if [ -f "$f" ]; then
+            mv "$f" "${f%.backup}"
+        fi
+    done
 else
     echo "live patching repo service is: ${live_patching_repo_service}"
     # upgrade from base image to live patching repo service
@@ -112,6 +119,12 @@ else
     # upgrade the old live patching repo service to the new one
     # e.g. replace http://10.224.0.5/ubuntu/ with http://10.224.0.6/ubuntu/
     sed -i 's/http:\/\/[0-9]\+.[0-9]\+.[0-9]\+.[0-9]\+\/ubuntu\//http:\/\/'"${live_patching_repo_service}"'\/ubuntu\//g' ${source_list_path}
+    # ignore repo in /etc/apt/sources.list.d
+    for f in /etc/apt/sources.list.d/*.list; do
+        if [ -f "$f" ]; then
+            mv "$f" "$f.backup"
+        fi
+    done
 fi
 
 # preserve the sources.list changes
@@ -120,7 +133,7 @@ option_value=true
 cfg_set_option ${cloud_cfg_path} ${option} ${option_value}
 
 new_source_list=$(cat ${source_list_path})
-if [[ "${old_source_list}" != "${new_source_list}" ]]; then
+if [ "${old_source_list}" != "${new_source_list}" ]; then
     # save old sources.list
     echo "$old_source_list" > ${source_list_backup_path}
     echo "/etc/apt/sources.list is updated:"

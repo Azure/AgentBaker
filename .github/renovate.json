@@ -320,7 +320,21 @@
     {
       "matchPackageNames": [
         "windows/nanoserver",
-        "windows/servercore",
+        "windows/servercore"
+      ],
+      "groupName": "windowsbase",
+      "assignees": [
+        "timmy-wright"
+      ],
+      "reviewers": [
+        "timmy-wright"
+      ],
+      "enabled": true,
+      "_comment": "the minor and major are reversed intentionally. Windows versions are formatted 10.0.<winver>.<ver>",
+      "versioning": "regex:^10\\.(?<minor>\\d+)\\.(?<major>\\d+)\\.(?<patch>\\d+)$"
+    },
+    {
+      "matchPackageNames": [
         "windows/servercore/iis",
         "oss/v2/kubernetes/windows-gmsa-webhook"
       ],
@@ -345,7 +359,8 @@
     },
     {
       "matchPackageNames": [
-        "aks/aks-gpu-cuda"
+        "aks/aks-gpu-cuda",
+        "aks/aks-gpu-grid"
       ],
       "groupName": "nvidia-gpu",
       "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<prerelease>\\d{14})$",
