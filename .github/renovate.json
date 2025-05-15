@@ -330,8 +330,7 @@
         "timmy-wright"
       ],
       "enabled": true,
-      "_comment": "the minor and major are reversed intentionally. Windows versions are formatted 10.0.<winver>.<ver>",
-      "versioning": "regex:^10\\.(?<minor>\\d+)\\.(?<major>\\d+)\\.(?<patch>\\d+)$"
+      "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<compatibility>\\d+)\\.(?<patch>\\d+)$"
     },
     {
       "matchPackageNames": [
