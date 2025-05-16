@@ -64,9 +64,6 @@ installCriCtlPackage() {
   fi
   echo "Installing ${packageName} with dnf"
   dnf_install 30 1 600 ${packageName} || exit 1
-  # create a symlink at the old location /usr/local/bin/crictl for backward compatibility
-  # it points to the new location /usr/bin/crictl after apt-get install
-  ln -sf /usr/bin/crictl /usr/local/bin/crictl
 }
 
 downloadGPUDrivers() {
