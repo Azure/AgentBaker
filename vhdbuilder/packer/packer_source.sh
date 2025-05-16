@@ -115,6 +115,8 @@ copyPackerFiles() {
   RECONCILE_PRIVATE_HOSTS_DEST=/opt/azure/containers/reconcilePrivateHosts.sh
   KUBELET_SERVICE_SRC=/home/packer/kubelet.service
   KUBELET_SERVICE_DEST=/etc/systemd/system/kubelet.service
+  SECURE_TLS_BOOTSTRAP_SERVICE_SRC=/home/packer/secure-tls-bootstrap.service
+  SECURE_TLS_BOOTSTRAP_SERVICE_DEST=/etc/systemd/system/secure-tls-bootstrap.service
   USU_SH_SRC=/home/packer/ubuntu-snapshot-update.sh
   USU_SH_DEST=/opt/azure/containers/ubuntu-snapshot-update.sh
   MPU_SH_SRC=/home/packer/mariner-package-update.sh
@@ -305,6 +307,7 @@ copyPackerFiles() {
   fi
 
   cpAndMode $KUBELET_SERVICE_SRC $KUBELET_SERVICE_DEST 600
+  cpAndMode $SECURE_TLS_BOOTSTRAP_SERVICE_SRC $SECURE_TLS_BOOTSTRAP_SERVICE_DEST 600
   cpAndMode $BLOCK_WIRESERVER_SRC $BLOCK_WIRESERVER_DEST 755
   cpAndMode $ENSURE_IMDS_RESTRICTION_SRC $ENSURE_IMDS_RESTRICTION_DEST 755
   cpAndMode $VALIDATE_KUBELET_CREDENTIALS_SCRIPT_SRC $VALIDATE_KUBELET_CREDENTIALS_SCRIPT_DEST 755
