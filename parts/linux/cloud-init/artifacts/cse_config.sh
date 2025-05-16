@@ -520,7 +520,7 @@ configureAndStartSecureTLSBootstrapping() {
     chmod 0600 "${SECURE_TLS_BOOTSTRAPPING_DROP_IN}"
     cat > "${SECURE_TLS_BOOTSTRAPPING_DROP_IN}" <<EOF
 [Service]
-Environment="BOOTSTRAP_FLAGS=--aad-resource="${CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_SERVER_APP_ID:-6dae42f8-4368-4678-94ff-3960e28e3630}" --apiserver-fdqn=${API_SERVER_NAME} --cloud-provider-config=${AZURE_JSON_PATH}"
+Environment="BOOTSTRAP_FLAGS=--aad-resource="${CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_SERVER_APP_ID:-6dae42f8-4368-4678-94ff-3960e28e3630}" --apiserver-fqdn=${API_SERVER_NAME} --cloud-provider-config=${AZURE_JSON_PATH}"
 EOF
 
     systemctlEnableAndStartNoBlock secure-tls-bootstrap 30 || exit $ERR_SECURE_TLS_BOOTSTRAP_START_FAILURE
