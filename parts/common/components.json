@@ -399,15 +399,19 @@
     },
     {
       "downloadURL": "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:*",
-      "windowsDownloadURL": "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-*",
       "amd64OnlyVersions": [],
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=azuremonitor/containerinsights/ciprod",
-          "latestVersion": "3.1.25"
+          "latestVersion": "3.1.27"
         }
       ],
-      "windowsVersions": []
+      "windowsVersions": [
+        {
+          "renovateTag": "<DO_NOT_UPDATE>",
+          "latestVersion": "win-3.1.25"
+        }
+      ]
     },
     {
       "downloadURL": "mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:*",
