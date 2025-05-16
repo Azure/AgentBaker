@@ -198,9 +198,22 @@ stages:
       - job: build
         timeoutInMinutes: 180
         steps:
-          - bash: bash ./.pipelines/scripts/backfill-cleanup.sh
+          - bash: bash ./.pipelines/scripts/windows-sub-cleanup.sh
             enabled: true
-            displayName: Backfill Clean Up Older Resources
+            displayName: Old Windows VHD Cleanup
+            condition: eq(parameters.enableBackfillCleanup, 'True')
+            env:
+              MODE: windowsVhdMode
+              SUBSCRIPTION_ID: $(AZURE_BUILD_SUBSCRIPTION_ID)
+              PROD_SUBSCRIPTION_ID: $(AZURE_PROD_SUBSCRIPTION_ID)
+              AZURE_RESOURCE_GROUP_NAME: $(AZURE_BUILD_RESOURCE_GROUP_NAME)
+              DRY_RUN:  ${{ parameters.dryrun }}
+              SIG_GALLERY_NAME: $(SIG_GALLERY_NAME)
+              OS_TYPE: Windows
+
+          - bash: bash ./vhdbuilder/packer/cleanup.sh
+            enabled: true
+            displayName: Cleanup
             condition: eq(parameters.enableBackfillCleanup, 'True')
             env:
               MODE: windowsVhdMode

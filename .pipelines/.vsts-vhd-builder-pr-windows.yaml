@@ -21,7 +21,7 @@ pr:
       - vhdbuilder/packer/*.ps1
       - vhdbuilder/packer/test/*.ps1
       - vhdbuilder/packer/test/run-test.sh
-      - vhdbuilder/packer/backfill-cleanup.sh
+      - vhdbuilder/packer/windows-sub-cleanup.sh
       - vhdbuilder/packer/cleanup.sh
       - vhdbuilder/packer/convert-sig-to-classic-storage-account-blob.sh
       - vhdbuilder/packer/generate-vhd-publishing-info.sh
