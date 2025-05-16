@@ -10,6 +10,7 @@ pr:
     include:
       - .pipelines/.vsts-vhd-builder-release-windows.yaml
       - .pipelines/.vsts-vhd-builder-pr-windows.yaml
+      - .pipelines/scripts/
       - .pipelines/templates/.template-override-components-json.yaml
       - .pipelines/templates/.template-copy-file.yaml
       - .pipelines/templates/.build-and-test-windows-vhds-template.yaml
