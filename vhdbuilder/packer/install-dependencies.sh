@@ -132,6 +132,7 @@ capture_benchmark "${SCRIPT_NAME}_validate_container_runtime_and_override_ubuntu
 
 # Configure SSH service during VHD build for Ubuntu 22.10+
 configureSSHService "$OS" "$OS_VERSION" || echo "##vso[task.logissue type=warning]SSH Service configuration failed, but continuing VHD build"
+capture_benchmark "${SCRIPT_NAME}_reconfigure_sshd_socket_to_service"
 
 CONTAINERD_SERVICE_DIR="/etc/systemd/system/containerd.service.d"
 mkdir -p "${CONTAINERD_SERVICE_DIR}"
