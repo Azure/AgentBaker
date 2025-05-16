@@ -354,7 +354,7 @@ installOras() {
     fi
 
     echo "File $ORAS_DOWNLOAD_DIR/${ORAS_TMP} exists."
-    sudo tar -zxf "$ORAS_DOWNLOAD_DIR/${ORAS_TMP}" -C $ORAS_EXTRACTED_DIR/
+    sudo tar -zxf "$ORAS_DOWNLOAD_DIR/${ORAS_TMP}" -C $ORAS_EXTRACTED_DIR/ --no-same-owner
     rm -r "$ORAS_DOWNLOAD_DIR"
     echo "Oras version $ORAS_VERSION installed successfully."
 }
