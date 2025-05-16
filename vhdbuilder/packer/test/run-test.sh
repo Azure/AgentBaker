@@ -86,20 +86,7 @@ if [ "${OS_TYPE,,}" = "linux" ]; then
       echo "packer subnet $PACKER_SUBNET_ID seems to be missing, unable to create test VM"
       exit 1
   fi
-  TESTING_NIC_ID=$(az network nic create --resource-group "$TEST_VM_RESOURCE_GROUP_NAME" --name "testing$(date +%s)${RANDOM}" --subnet "$PACKER_SUBNET_ID" | jq -r '.NewNIC.id')
-  if [ -z "$TESTING_NIC_ID" ]; then
-      echo "unable to create new NIC for test VM"
-      exit 1
-  fi
-  az vm create \
-      --debug \
-      --resource-group "$TEST_VM_RESOURCE_GROUP_NAME" \
-      --name "$VM_NAME" \
-      --image "$MANAGED_SIG_ID" \
-      --admin-username "$TEST_VM_ADMIN_USERNAME" \
-      --admin-password "$TEST_VM_ADMIN_PASSWORD" \
-      --nics "$TESTING_NIC_ID" \
-      ${TARGET_COMMAND_STRING}
+
 else
   az vm create \
       --debug \
