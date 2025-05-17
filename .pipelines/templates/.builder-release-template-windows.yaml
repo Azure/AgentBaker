@@ -105,6 +105,8 @@ steps:
 
       ./vhdbuilder/packer/test/run-test.sh
     displayName: Run VHD cache test
+    # I've seen some transient failures which seem timeing related so let's retry for now
+    retryCountOnTaskFailure: 1
     env:
       AZURE_LOCATION: $(AZURE_BUILD_LOCATION)
       WINDOWS_SKU: ${{ parameters.windowsSku }}
