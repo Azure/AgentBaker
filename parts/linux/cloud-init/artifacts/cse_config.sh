@@ -534,7 +534,7 @@ ensureSecureTLSBootstrapping() {
         SECURE_TLS_BOOTSTRAP_STATUS="$(systemctl is-active secure-tls-bootstrap)"    
     done
 
-    if [ "${SECURE_TLS_BOOTSTRAP_STATUS,,}" = "failed" ] || [ "${SECURE_TLS_BOOTSTRAP_STATUS,,}" = "is-failed" ]; then
+    if [ "${SECURE_TLS_BOOTSTRAP_STATUS,,}" != "active" ]; then
         logs_to_events "AKS.CSE.ensureSecureTLSBootstrapping.BootstrapFailure" "echo secure TLS bootstrapping failed, falling back to TLS bootstrapping with bootstrap token"
         return 0 # once bootstrap tokens are eliminated, CSE should fail here
     fi
