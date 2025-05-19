@@ -534,8 +534,8 @@ ensureSecureTLSBootstrapping() {
         SECURE_TLS_BOOTSTRAP_STATUS="$(systemctl is-active secure-tls-bootstrap)"    
     done
 
-    if [ "${SECURE_TLS_BOOTSTRAP_STATUS,,}" = "failed" ] || [ "${SECURE_TLS_BOOTSTRAP_STATUS,,}" = "is-failed" ]; then
-        log_to_events "AKS.CSE.ensureSecureTLSBootstrapping.BootstrapFailure" "echo secure TLS bootstrapping failed, falling back to TLS bootstrapping with bootstrap token"
+    if [ "${SECURE_TLS_BOOTSTRAP_STATUS,,}" != "active" ]; then
+        logs_to_events "AKS.CSE.ensureSecureTLSBootstrapping.BootstrapFailure" "echo secure TLS bootstrapping failed, falling back to TLS bootstrapping with bootstrap token"
         return 0 # once bootstrap tokens are eliminated, CSE should fail here
     fi
 
@@ -544,7 +544,7 @@ ensureSecureTLSBootstrapping() {
         return 0 # once bootstrap tokens are eliminated, CSE should fail here
     fi
 
-    logs_to_events "AKS.CSE.ensureSecureTLSBootstrapping.Succeeded" "echo secure TLS bootstrapping suceeded, will unset TLS bootstrap token"
+    logs_to_events "AKS.CSE.ensureSecureTLSBootstrapping.BootstrapSuccess" "echo secure TLS bootstrapping suceeded, will unset TLS bootstrap token"
 
     # we now have a kubeconfig file, so we can wipe the bootstrap token
     # once bootstrap tokens are eliminated this won't be needed

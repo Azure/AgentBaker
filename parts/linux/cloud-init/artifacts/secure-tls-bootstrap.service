@@ -1,12 +1,12 @@
 [Unit]
-Description=Runs the secure TLS bootstrap client to bootstrap a kubelet client credential
+Description=AKS Secure TLS Bootstrap Client
 ConditionPathExists=/usr/local/bin/aks-secure-tls-bootstrap-client
 Wants=network-online.target
 After=network-online.target
 
 [Service]
 Type=oneshot
-RemainAfterExit=no
+RemainAfterExit=yes
 
 ExecStart=/usr/local/bin/aks-secure-tls-bootstrap-client \
     --ensure-authorized \
