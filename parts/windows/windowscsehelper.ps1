@@ -164,6 +164,10 @@ $global:MinimalKubernetesVersionWithLatestContainerd = "1.28.0" # Will change it
 $global:StableContainerdPackage = "v1.6.35-azure.1/binaries/containerd-v1.6.35-azure.1-windows-amd64.tar.gz"
 # The latest containerd version
 $global:LatestContainerdPackage = "v1.7.20-azure.1/binaries/containerd-v1.7.20-azure.1-windows-amd64.tar.gz"
+# The minimum kubernetes version to use containerd 2.x
+$global:MinimalKubernetesVersionWithLatestContainerd2 = "1.33.0"
+# The latest containerd 2.x package
+$global:LatestContainerd2Package = "v2.0.4-azure.1/binaries/containerd-v2.0.4-azure.1-windows-amd64.tar.gz"
 
 $global:EventsLoggingDir = "C:\WindowsAzure\Logs\Plugins\Microsoft.Compute.CustomScriptExtension\Events\"
 $global:TaskName = ""
