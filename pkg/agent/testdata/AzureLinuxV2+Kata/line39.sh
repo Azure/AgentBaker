@@ -394,8 +394,9 @@ downloadSecureTLSBootstrapClient() {
         rm -f "${CLIENT_EXTRACTED_DIR}/aks-secure-tls-bootstrap-client"
     fi
 
-    tar -zxf "${SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_DIR}/${CLIENT_TGZ_TMP}" -C "${CLIENT_EXTRACTED_DIR}/"
-    chmod 755 "${CLIENT_EXTRACTED_DIR}/aks-secure-tls-bootstrap-client"
+    tar -zxf "${SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_DIR}/${CLIENT_TGZ_TMP}" -C "${SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_DIR}/"
+    mv "${SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_DIR}/aks-secure-tls-bootstrap-client" "${CLIENT_EXTRACTED_DIR}/aks-secure-tls-bootstrap-client"
+    chmod 755 "${CLIENT_EXTRACTED_DIR}/aks-secure-tls-bootstrap-client" || exit $ERR_SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_ERROR
 
     rm -rf "${SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_DIR}"
     echo "aks-secure-tls-bootstrap-client installed successfully"
