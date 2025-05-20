@@ -31,7 +31,7 @@ Windows uses a different folder [cse](../staging/cse/windows/) for almost the sa
 
 ## Deployment and Release
 
-The VHD build is trigger by Azure Devops [pipelines](.pipelines). For release, the pipelines following the same templates for different OS versions:
+The VHD build is triggered by Azure Devops [pipelines](.pipelines/). For release, the pipelines following the same templates for different OS versions:
 
 - [linux/ubuntu](./../.pipelines/templates/.builder-release-template.yaml)
 - [windows](./../.pipelines/templates/.builder-release-template-windows.yaml)
