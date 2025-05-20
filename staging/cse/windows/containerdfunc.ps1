@@ -2,6 +2,9 @@
 $global:ContainerdInstallLocation = "$Env:ProgramFiles\containerd"
 $global:Containerdbinary = (Join-Path $global:ContainerdInstallLocation containerd.exe)
 
+# Minimum Kubernetes version to use containerd v2 template
+$global:ContainerdV2MinKubeVersion = "1.33.0"
+
 function RegisterContainerDService {
   Param(
     [Parameter(Mandatory = $true)][string]
@@ -32,7 +35,6 @@ function RegisterContainerDService {
   & "$KubeDir\nssm.exe" set containerd AppRotateOnline 1 | RemoveNulls
   & "$KubeDir\nssm.exe" set containerd AppRotateSeconds 86400 | RemoveNulls
   & "$KubeDir\nssm.exe" set containerd AppRotateBytes 10485760 | RemoveNulls
-
   $retryCount=0
   $retryInterval=10
   $maxRetryCount=6 # 1 minutes
@@ -49,7 +51,7 @@ function RegisterContainerDService {
     Start-Service containerd
     $retryCount++
     Write-Log "Retry $retryCount : Sleep $retryInterval and check containerd status"
-    Sleep $retryInterval
+    Start-Sleep $retryInterval
   } while ($retryCount -lt $maxRetryCount)
 
   if ($svc.Status -ne "Running") {
@@ -143,12 +145,11 @@ function Install-Containerd {
   # upstream containerd package is a tar 
   $tarfile = [Io.path]::Combine($ENV:TEMP, "containerd.tar.gz")
   DownloadFileOverHttp -Url $ContainerdUrl -DestinationPath $tarfile -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CONTAINERD_PACKAGE
-  Create-Directory -FullPath $global:ContainerdInstallLocation -DirectoryUsage "storing containerd"
-  tar -xzf $tarfile -C $global:ContainerdInstallLocation
+  Create-Directory -FullPath $global:ContainerdInstallLocation -DirectoryUsage "storing containerd"  tar -xzf $tarfile -C $global:ContainerdInstallLocation
   if ($LASTEXITCODE -ne 0) {
     throw "Failed to extract the '$tarfile' archive."
   }
-  mv -Force $global:ContainerdInstallLocation\bin\* $global:ContainerdInstallLocation\
+  Move-Item -Force $global:ContainerdInstallLocation\bin\* $global:ContainerdInstallLocation\
   Remove-Item -Path $tarfile -Force
   Remove-Item -Path $global:ContainerdInstallLocation\bin -Force -Recurse
 
@@ -165,14 +166,16 @@ function Install-Containerd {
   $hypervHandlers = $global:ContainerdWindowsRuntimeHandlers.split(",", [System.StringSplitOptions]::RemoveEmptyEntries)
   $containerAnnotations = 'container_annotations = ["io.microsoft.container.processdumplocation", "io.microsoft.wcow.processdumptype", "io.microsoft.wcow.processdumpcount"]'
   $podAnnotations = 'pod_annotations = ["io.microsoft.container.processdumplocation","io.microsoft.wcow.processdumptype", "io.microsoft.wcow.processdumpcount"]'
-
   # configure
   if ($global:DefaultContainerdWindowsSandboxIsolation -eq "hyperv") {
     Write-Log "default runtime for containerd set to hyperv"
     $sandboxIsolation = 1
   }
 
-  $template = Get-Content -Path "c:\AzureData\windows\containerdtemplate.toml" 
+  # Get the appropriate containerd template based on Kubernetes version
+  $containerdTemplatePath = GetContainerdTemplatePath
+  $template = Get-Content -Path $containerdTemplatePath
+  
   if ($sandboxIsolation -eq 0 -And $hypervHandlers.Count -eq 0) {
     # remove the value hypervisor place holder
     $template = $template | Select-String -Pattern 'hypervisors' -NotMatch
@@ -180,17 +183,16 @@ function Install-Containerd {
   else {
     $hypervRuntimes = CreateHypervisorRuntimes -builds @($hypervHandlers) -image $pauseImage
   }
-
   try {
     # remove the value containerAnnotations and podAnnotations place holder since it is not supported in containerd versions older than 1.7.9
-    pushd $global:ContainerdInstallLocation
+    Push-Location $global:ContainerdInstallLocation
       # Examples:
       #  - containerd github.com/containerd/containerd v1.6.21+azure 3dce8eb055cbb6872793272b4f20ed16117344f8
       #  - containerd github.com/containerd/containerd v1.7.9+azure 4f03e100cb967922bec7459a78d16ccbac9bb81d
       $versionstring=$(.\containerd.exe -v)
       Write-Log "containerd version: $versionstring"
       $containerdVersion=$versionstring.split(" ")[2].Split("+")[0].substring(1)
-    popd
+    Pop-Location
 
     if (([version]$containerdVersion).CompareTo([version]"1.7.9") -lt 0) {
       # remove the value containerAnnotations place holder
@@ -217,4 +219,60 @@ function Install-Containerd {
 
   RegisterContainerDService -KubeDir $KubeDir
   Enable-Logging
+}
+
+function Compare-KubernetesVersion {
+  param(
+    [Parameter(Mandatory = $true)][string]
+    $Version,
+    [Parameter(Mandatory = $true)][string]
+    $ReferenceVersion
+  )
+
+  # Convert version strings to System.Version objects for proper comparison
+  $versionObj = [version]::new($Version)
+  $referenceVersionObj = [version]::new($ReferenceVersion)
+
+  # Return: -1 if Version < ReferenceVersion, 0 if equal, 1 if Version > ReferenceVersion
+  return $versionObj.CompareTo($referenceVersionObj)
+}
+
+function GetContainerdTemplatePath {
+  # Get the current Kubernetes version from the cluster config
+  $kubeVersion = Get-KubernetesVersion
+  Write-Log "Current Kubernetes version: $kubeVersion"
+
+  # Check if the version is greater than or equal to the minimum version for containerd v2
+  if ((Compare-KubernetesVersion -Version $kubeVersion -ReferenceVersion $global:ContainerdV2MinKubeVersion) -ge 0) {
+    Write-Log "Using containerd v2 template for Kubernetes version $kubeVersion"
+    return "c:\AzureData\windows\containerd2template.toml"
+  } else {
+    Write-Log "Using containerd v1 template for Kubernetes version $kubeVersion"
+    return "c:\AzureData\windows\containerdtemplate.toml"
+  }
+}
+
+function Get-KubernetesVersion {
+  # Read the Kubernetes version from the cluster config
+  try {
+    $clusterConfig = ConvertFrom-Json ((Get-Content $global:KubeClusterConfigPath -ErrorAction Stop) | Out-String)
+    
+    # Try to get the Kubernetes version from the cluster config
+    if ($clusterConfig.Kubernetes -and $clusterConfig.Kubernetes.KubernetesVersion) {
+      return $clusterConfig.Kubernetes.KubernetesVersion
+    }
+    # Fallback to the configured KubeBinariesVersion if available
+    elseif ($global:KubeBinariesVersion) {
+      return $global:KubeBinariesVersion
+    }
+    else {
+      Write-Log "Warning: Could not determine Kubernetes version from config. Defaulting to pre-v2 containerd template."
+      return "1.0.0" # Return a version that will use the default containerd template
+    }
+  }
+  catch {
+    Write-Log "Error reading Kubernetes version: $_"
+    Write-Log "Defaulting to pre-v2 containerd template."
+    return "1.0.0" # Return a version that will use the default containerd template
+  }
 }
