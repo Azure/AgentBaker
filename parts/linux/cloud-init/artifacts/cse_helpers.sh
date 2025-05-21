@@ -226,7 +226,7 @@ _retrycmd_internal() {
             if [ "$shouldLog" = "true" ]; then
                 echo "Executed \"${cmdToRun[*]}\" $i times; giving up (last exit status: "$exitStatus")." >&2
             fi
-            return "$exitStatus"
+            return 1
         fi
 
         sleep "$waitSleep"
