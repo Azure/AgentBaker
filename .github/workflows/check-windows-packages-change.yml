@@ -26,7 +26,7 @@ jobs:
         shell: pwsh
         run: |
           cd pr
-          DIFF_DIR="vhd_files"
+          $DIFF_DIR="vhd_files"
 
           mkdir "${DIFF_DIR}"
           
