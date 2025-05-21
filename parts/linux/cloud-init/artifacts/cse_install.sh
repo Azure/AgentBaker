@@ -739,7 +739,7 @@ installKubeletKubectlAndKubeProxy() {
 pullContainerImage() {
     CLI_TOOL=$1
     CONTAINER_IMAGE_URL=$2
-    PULL_RETRIES=3
+    PULL_RETRIES=10
     PULL_WAIT_SLEEP_SECONDS=1
     PULL_TIMEOUT_SECONDS=600 # 10 minutes
 

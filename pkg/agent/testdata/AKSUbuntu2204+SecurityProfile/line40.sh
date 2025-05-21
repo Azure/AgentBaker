@@ -670,9 +670,9 @@ installKubeletKubectlAndKubeProxy() {
 pullContainerImage() {
     CLI_TOOL=$1
     CONTAINER_IMAGE_URL=$2
-    PULL_RETRIES=3
+    PULL_RETRIES=10
     PULL_WAIT_SLEEP_SECONDS=1
-    PULL_TIMEOUT_SECONDS=600
+    PULL_TIMEOUT_SECONDS=600 
 
     echo "pulling the image ${CONTAINER_IMAGE_URL} using ${CLI_TOOL} with a timeout of ${PULL_TIMEOUT_SECONDS}s"
 
@@ -686,7 +686,7 @@ pullContainerImage() {
 
     code=$?
     if [ "$code" -ne 0 ]; then
-        if [ "${code}" -eq 124 ]; then
+        if [ "$code" -eq 124 ]; then
             echo "timed out pulling image ${CONTAINER_IMAGE_URL} via ${CLI_TOOL}"
             if [ "${CLI_TOOL,,}" = "ctr" ]; then
                 return $ERR_CONTAINERD_CTR_IMG_PULL_TIMEOUT
@@ -698,9 +698,9 @@ pullContainerImage() {
         fi
         echo "failed to pull image ${CONTAINER_IMAGE_URL} using ${CLI_TOOL}, exit code: $code"
         return $code
-    else
-        echo "successfully pulled image ${CONTAINER_IMAGE_URL} using ${CLI_TOOL}"
     fi
+    
+    echo "successfully pulled image ${CONTAINER_IMAGE_URL} using ${CLI_TOOL}"
 }
 
 retagContainerImage() {
