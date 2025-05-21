@@ -320,6 +320,10 @@ function Get-ContainerImages
         Write-Output "* $image"
     }
 
+    # TODO: remove when crictl.exe can find the default config file
+    $crictlPath = (Get-Command crictl.exe -ErrorAction SilentlyContinue).Path
+    $configPath = Join-Path (Split-Path -Parent $crictlPath) "crictl.yaml"
+    
     foreach ($image in $imagesToPull)
     {
         $imagePrefix = $image.Split(":")[0]
@@ -362,13 +366,13 @@ function Get-ContainerImages
         {
             Write-Log "Pulling image $image"
             Retry-Command -ScriptBlock {
-                & crictl.exe pull $image
+                & crictl.exe -c $configPath pull $image
             } -ErrorMessage "Failed to pull image $image"
         }
     }
 
     # before stopping containerd, let's echo the cached images and their sizes.
-    crictl images show
+    crictl -c $configPath images show
 
     Stop-Job  -Name containerd
     Remove-Job -Name containerd
