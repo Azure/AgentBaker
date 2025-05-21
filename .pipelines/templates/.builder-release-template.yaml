@@ -84,7 +84,9 @@ steps:
   - bash: |
       set -euo
 
-      make -f packer.mk az-login
+      echo "logging in with agent identity"
+      az login --identity
+      az account set -s "$SUBSCRIPTION_ID"
 
       expiry=$(date +"%Y-%m-%dT%H:%MZ" -d "+1 hour")
 
