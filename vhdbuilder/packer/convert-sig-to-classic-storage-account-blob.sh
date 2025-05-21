@@ -127,8 +127,6 @@ azcopy copy "${sas}" "${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd" --recursive=t
 echo "Uploaded $disk_resource_id to ${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd"
 capture_benchmark "${SCRIPT_NAME}_upload_disk_to_blob"
 
-set +x
-
 if ! az disk revoke-access --ids $disk_resource_id; then
   echo "##vso[task.logissue type=warning]unable to revoke access to $disk_resource_id"
 fi
