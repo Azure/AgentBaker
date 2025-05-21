@@ -110,8 +110,6 @@ steps:
       export AZCOPY_MSI_RESOURCE_STRING="$AZURE_MSI_RESOURCE_STRING"
       export AZCOPY_CONCURRENCY_VALUE="AUTO"
 
-      echo "$(checksum_url)"
-
       azcopy copy "$(checksum_url)$sas_token" "$TARGET_PATH" --recursive=true
 
       echo "Calculating checksum..."
