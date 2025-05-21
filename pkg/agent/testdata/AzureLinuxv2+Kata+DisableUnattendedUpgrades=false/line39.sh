@@ -670,14 +670,36 @@ installKubeletKubectlAndKubeProxy() {
 pullContainerImage() {
     CLI_TOOL=$1
     CONTAINER_IMAGE_URL=$2
+    PULL_RETRIES=3
+    PULL_WAIT_SLEEP_SECONDS=1
     PULL_TIMEOUT_SECONDS=600
+
     echo "pulling the image ${CONTAINER_IMAGE_URL} using ${CLI_TOOL} with a timeout of ${PULL_TIMEOUT_SECONDS}s"
-    if [ "${CLI_TOOL}" = "ctr" ]; then
-        logs_to_events "AKS.CSE.imagepullctr.${CONTAINER_IMAGE_URL}" "retrycmd_if_failure 2 1 $PULL_TIMEOUT_SECONDS ctr --namespace k8s.io image pull $CONTAINER_IMAGE_URL" || (echo "timed out pulling image ${CONTAINER_IMAGE_URL} via ctr" && return $ERR_CONTAINERD_CTR_IMG_PULL_TIMEOUT)
-    elif [ "${CLI_TOOL}" = "crictl" ]; then
-        logs_to_events "AKS.CSE.imagepullcrictl.${CONTAINER_IMAGE_URL}" "retrycmd_if_failure 2 1 $PULL_TIMEOUT_SECONDS crictl pull $CONTAINER_IMAGE_URL" || (echo "timed out pulling image ${CONTAINER_IMAGE_URL} via crictl" && return $ERR_CONTAINERD_CRICTL_IMG_PULL_TIMEOUT)
+
+    if [ "${CLI_TOOL,,}" = "ctr" ]; then
+        retrycmd_if_failure $PULL_RETRIES $PULL_WAIT_SLEEP_SECONDS $PULL_TIMEOUT_SECONDS ctr --namespace k8s.io image pull $CONTAINER_IMAGE_URL
+    elif [ "${CLI_TOOL,,}" = "crictl" ]; then
+        retrycmd_if_failure $PULL_RETRIES $PULL_WAIT_SLEEP_SECONDS $PULL_TIMEOUT_SECONDS crictl pull $CONTAINER_IMAGE_URL
     else
-        logs_to_events "AKS.CSE.imagepull.${CONTAINER_IMAGE_URL}" "retrycmd_if_failure 2 1 $PULL_TIMEOUT_SECONDS docker pull $CONTAINER_IMAGE_URL" || (echo "timed out pulling image ${CONTAINER_IMAGE_URL} via docker" && return $ERR_DOCKER_IMG_PULL_TIMEOUT)
+        retrycmd_if_failure $PULL_RETRIES $PULL_WAIT_SLEEP_SECONDS $PULL_TIMEOUT_SECONDS docker pull $CONTAINER_IMAGE_URL
+    fi
+
+    code=$?
+    if [ "$code" -ne 0 ]; then
+        if [ "${code}" -eq 124 ]; then
+            echo "timed out pulling image ${CONTAINER_IMAGE_URL} via ${CLI_TOOL}"
+            if [ "${CLI_TOOL,,}" = "ctr" ]; then
+                return $ERR_CONTAINERD_CTR_IMG_PULL_TIMEOUT
+            elif [ "${CLI_TOOL,,}" = "crictl" ]; then
+                return $ERR_CONTAINERD_CRICTL_IMG_PULL_TIMEOUT
+            else
+                return $ERR_CONTAINERD_DOCKER_IMG_PULL_TIMEOUT
+            fi
+        fi
+        echo "failed to pull image ${CONTAINER_IMAGE_URL} using ${CLI_TOOL}, exit code: $code"
+        return $code
+    else
+        echo "successfully pulled image ${CONTAINER_IMAGE_URL} using ${CLI_TOOL}"
     fi
 }
 
