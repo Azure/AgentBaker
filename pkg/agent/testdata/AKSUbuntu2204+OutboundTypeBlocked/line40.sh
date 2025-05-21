@@ -678,26 +678,28 @@ pullContainerImage() {
 
     if [ "${CLI_TOOL,,}" = "ctr" ]; then
         retrycmd_if_failure $PULL_RETRIES $PULL_WAIT_SLEEP_SECONDS $PULL_TIMEOUT_SECONDS ctr --namespace k8s.io image pull $CONTAINER_IMAGE_URL
+        code=$?
     elif [ "${CLI_TOOL,,}" = "crictl" ]; then
         retrycmd_if_failure $PULL_RETRIES $PULL_WAIT_SLEEP_SECONDS $PULL_TIMEOUT_SECONDS crictl pull $CONTAINER_IMAGE_URL
+        code=$?
     else
         retrycmd_if_failure $PULL_RETRIES $PULL_WAIT_SLEEP_SECONDS $PULL_TIMEOUT_SECONDS docker pull $CONTAINER_IMAGE_URL
+        code=$?
     fi
 
-    code=$?
     if [ "$code" -ne 0 ]; then
-        if [ "$code" -eq 124 ]; then
-            echo "timed out pulling image ${CONTAINER_IMAGE_URL} via ${CLI_TOOL}"
-            if [ "${CLI_TOOL,,}" = "ctr" ]; then
-                return $ERR_CONTAINERD_CTR_IMG_PULL_TIMEOUT
-            elif [ "${CLI_TOOL,,}" = "crictl" ]; then
-                return $ERR_CONTAINERD_CRICTL_IMG_PULL_TIMEOUT
-            else
-                return $ERR_CONTAINERD_DOCKER_IMG_PULL_TIMEOUT
-            fi
+        if [ "$code" -ne 124 ]; then
+            echo "failed to pull image ${CONTAINER_IMAGE_URL} using ${CLI_TOOL}, exit code: $code"
+            return $code
         fi
-        echo "failed to pull image ${CONTAINER_IMAGE_URL} using ${CLI_TOOL}, exit code: $code"
-        return $code
+        echo "timed out pulling image ${CONTAINER_IMAGE_URL} via ${CLI_TOOL}"
+        if [ "${CLI_TOOL,,}" = "ctr" ]; then
+            return $ERR_CONTAINERD_CTR_IMG_PULL_TIMEOUT
+        elif [ "${CLI_TOOL,,}" = "crictl" ]; then
+            return $ERR_CONTAINERD_CRICTL_IMG_PULL_TIMEOUT
+        else
+            return $ERR_CONTAINERD_DOCKER_IMG_PULL_TIMEOUT
+        fi
     fi
     
     echo "successfully pulled image ${CONTAINER_IMAGE_URL} using ${CLI_TOOL}"
