@@ -101,22 +101,7 @@ steps:
     displayName: Generate user-delegation SAS token
     name: generate
 
-  - bash: |
-      set +x
-      echo "Downloading VHD..."
-      TARGET_PATH="$(Build.SourcesDirectory)/disk.vhd"
-
-      export AZCOPY_AUTO_LOGIN_TYPE="MSI"
-      export AZCOPY_MSI_RESOURCE_STRING="$AZURE_MSI_RESOURCE_STRING"
-      export AZCOPY_CONCURRENCY_VALUE="AUTO"
-
-      azcopy copy "$(checksum_url)$sas_token" "$TARGET_PATH" --recursive=true
-
-      echo "Calculating checksum..."
-      sha256sum "$TARGET_PATH" > "mydisk.sha256"
-      
-      echo "Printing checksum..."
-      cat mydisk.sha256   
+  - bash: make -f packer.mk sign-vhd
     displayName: Computing sha256sum
     name: computeSum
 

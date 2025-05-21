@@ -2,7 +2,7 @@ set -euo
 
 set +x
 echo "Downloading VHD..."
-VHD_RELEASE_CANDIDATE="$(Build.SourcesDirectory)/${sku_name}_release_candidate.vhd"
+VHD_RELEASE_CANDIDATE="$(Build.SourcesDirectory)/${SKU_NAME}_release_candidate.vhd"
 
 export AZCOPY_AUTO_LOGIN_TYPE="MSI"
 export AZCOPY_MSI_RESOURCE_STRING="$AZURE_MSI_RESOURCE_STRING"
