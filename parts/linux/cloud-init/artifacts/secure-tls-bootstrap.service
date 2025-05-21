@@ -13,8 +13,7 @@ ExecStart=/usr/local/bin/aks-secure-tls-bootstrap-client \
     --next-proto=aks-tls-bootstrap \
     --cluster-ca-file=/etc/kubernetes/certs/ca.crt \
     --kubeconfig=/var/lib/kubelet/kubeconfig \
-    --cert-file=/etc/kubernetes/certs/cert.crt \
-    --key-file=/etc/kubernetes/cert.key \
+    --cred-file=/etc/kubernetes/certs/client.pem \
     --log-file=/var/log/azure/aks/secure-tls-bootstrap.log \
     --deadline=15s \
     $BOOTSTRAP_FLAGS
