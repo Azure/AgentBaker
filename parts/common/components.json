@@ -1145,6 +1145,15 @@
             ],
             "downloadURL": "https://packages.aks.azure.com/containerd/windows/${version}/binaries/containerd-${version}-windows-amd64.tar.gz"
           },
+          "ws2025": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "v2.0.4-azure.1"
+              }
+            ],
+            "downloadURL": "https://packages.aks.azure.com/containerd/windows/${version}/binaries/containerd-${version}-windows-amd64.tar.gz"
+          },
           "default": {
             "versionsV2": [
               {
