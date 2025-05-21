@@ -129,11 +129,16 @@ capture_benchmark "${SCRIPT_NAME}_upload_disk_to_blob"
 
 set +x
 
-az disk revoke-access --ids $disk_resource_id 
+if ! az disk revoke-access --ids $disk_resource_id; then
+  echo "##vso[task.logissue type=warning]unable to revoke access to $disk_resource_id"
+fi
 
-az resource delete --ids $disk_resource_id
+if ! az resource delete --ids $disk_resource_id; then
+  echo "##vso[task.logissue type=warning]unable to delete $disk_resource_id"
+else
+  echo "deleted $disk_resource_id"
+fi
 
-echo "Deleted $disk_resource_id"
 capture_benchmark "${SCRIPT_NAME}_revoke_access_and_delete_disk"
 
 capture_benchmark "${SCRIPT_NAME}_overall" true
