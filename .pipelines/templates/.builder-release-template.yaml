@@ -110,14 +110,14 @@ steps:
     displayName: Publish sha256
     inputs:
       artifactName: 'vhd-sha256-${{ parameters.artifactName }}'
-      targetPath: "$(Build.SourcesDirectory)/$(SKU_NAME)_release_candidate.vhd.sha256"
+      targetPath: "$(SKU_NAME)_release_candidate.vhd.sha256"
 
   - task: PublishPipelineArtifact@1
     condition: succeeded()
     displayName: Publish signature
     inputs:
       artifactName: 'vhd-sha256-signature-${{ parameters.artifactName }}'
-      targetPath: "$(Build.SourcesDirectory)/$(SKU_NAME)_release_candidate.vhd.sha256.asc"
+      targetPath: "$(SKU_NAME)_release_candidate.vhd.sha256.asc"
 
   - bash: make -f packer.mk run-packer
     displayName: Build VHD
