@@ -105,6 +105,11 @@ steps:
       set +x
       echo "Downloading VHD..."
       TARGET_PATH="$(Build.SourcesDirectory)/disk.vhd"
+
+      export AZCOPY_AUTO_LOGIN_TYPE="MSI"
+      export AZCOPY_MSI_RESOURCE_STRING="$AZURE_MSI_RESOURCE_STRING"
+      export AZCOPY_CONCURRENCY_VALUE="AUTO"
+      
       azcopy copy "$sas_token" "$checksum_url" "$TARGET_PATH" --recursive=true
 
       echo "Calculating checksum..."
