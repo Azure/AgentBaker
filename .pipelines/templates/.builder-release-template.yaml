@@ -102,11 +102,12 @@ steps:
     name: generate
 
   - bash: |
-      echo "Downloading VHD"
-      TARGET_PATH="$BUILD_SOURCESDIRECTORY/disk.vhd"
+      set +x
+      echo "Downloading VHD..."
+      TARGET_PATH="$(Build.SourcesDirectory)/disk.vhd"
       azcopy copy "$sas_token" "$checksum_url" "$TARGET_PATH" --recursive=true
 
-      echo "Calculating checksum"
+      echo "Calculating checksum..."
       sha256sum "$TARGET_PATH" > "mydisk.sha256"
       
       echo "Printing checksum..."
