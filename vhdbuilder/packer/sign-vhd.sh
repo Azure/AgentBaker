@@ -1,6 +1,5 @@
 set -euo
 
-set +x
 echo "Downloading VHD..."
 VHD_RELEASE_CANDIDATE="$(Build.SourcesDirectory)/${SKU_NAME}_release_candidate.vhd"
 
@@ -8,7 +7,6 @@ export AZCOPY_AUTO_LOGIN_TYPE="MSI"
 export AZCOPY_MSI_RESOURCE_STRING="$AZURE_MSI_RESOURCE_STRING"
 export AZCOPY_CONCURRENCY_VALUE="AUTO"
 
-# Dynamically determine url for checksum
 azcopy copy "${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd${sas_token}" "$VHD_RELEASE_CANDIDATE" --recursive=true
 
 echo "Calculating checksum..."
