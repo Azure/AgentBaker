@@ -9,7 +9,7 @@ export AZCOPY_MSI_RESOURCE_STRING="$AZURE_MSI_RESOURCE_STRING"
 export AZCOPY_CONCURRENCY_VALUE="AUTO"
 
 # Dynamically determine url for checksum
-azcopy copy "${checksum_url}${sas_token}" "$VHD_RELEASE_CANDIDATE" --recursive=true
+azcopy copy "${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd${sas_token}" "$VHD_RELEASE_CANDIDATE" --recursive=true
 
 echo "Calculating checksum..."
 
@@ -19,6 +19,4 @@ echo "Digitally signing sha256 file..."
 
 gpg --armor --detach-sign --output "${VHD_RELEASE_CANDIDATE}.sha256.asc" "${VHD_RELEASE_CANDIDATE}.sha256"
 
-
-echo "Printing checksum..."
-cat mydisk.sha256   
+echo "VHD file checksum created and signed"
