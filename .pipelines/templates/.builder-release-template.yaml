@@ -232,6 +232,20 @@ steps:
     displayName: Computing sha256sum
     name: computeSum
   
+  - task: PublishPipelineArtifact@1
+    condition: succeeded()
+    displayName: Publish sha256
+    inputs:
+      artifactName: 'vhd-sha256-${{ parameters.artifactName }}'
+      targetPath: "$(Build.SourcesDirectory)/$(SKU_NAME)_release_candidate.vhd.sha256"
+
+  - task: PublishPipelineArtifact@1
+    condition: succeeded()
+    displayName: Publish signature
+    inputs:
+      artifactName: 'vhd-sha256-signature-${{ parameters.artifactName }}'
+      targetPath: "$(Build.SourcesDirectory)/$(SKU_NAME)_release_candidate.vhd.sha256.asc"
+  
   - task: DownloadPipelineArtifact@2
     displayName: Download Build Performance Program
     condition: and(succeeded(), eq(variables.ENVIRONMENT, 'tme'))
