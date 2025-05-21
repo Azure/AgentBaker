@@ -202,6 +202,9 @@ Describe 'cse_install.sh'
         tar() {
             echo "tar $@"
         }
+        mv() {
+            echo "mv $@"
+        }
 
         It 'should cleanup binary installation and return when secure TLS bootstrapping is disabled'
             ENABLE_SECURE_TLS_BOOTSTRAPPING="false"
@@ -228,7 +231,8 @@ Describe 'cse_install.sh'
             When call installSecureTLSBootstrapClient
             The output should include "installing aks-secure-tls-bootstrap-client from: https://packages/custom-client-binary-url.tar.gz"
             The output should include "retrycmd_get_tarball 120 5 downloads/custom-client-binary-url.tar.gz https://packages/custom-client-binary-url.tar.gz"
-            The output should include "tar -zxf downloads/custom-client-binary-url.tar.gz -C bin"
+            The output should include "tar -zxf downloads/custom-client-binary-url.tar.gz -C downloads/"
+            The output should include "mv downloads/aks-secure-tls-bootstrap-client bin"
             The output should include "chmod 755 bin/aks-secure-tls-bootstrap-client"
             The output should include "aks-secure-tls-bootstrap-client installed successfully"
             The status should be success
