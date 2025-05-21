@@ -109,8 +109,8 @@ steps:
       export AZCOPY_AUTO_LOGIN_TYPE="MSI"
       export AZCOPY_MSI_RESOURCE_STRING="$AZURE_MSI_RESOURCE_STRING"
       export AZCOPY_CONCURRENCY_VALUE="AUTO"
-      
-      azcopy copy "$sas_token" "$checksum_url" "$TARGET_PATH" --recursive=true
+
+      azcopy copy "$checksum_url" "$TARGET_PATH" --recursive=true
 
       echo "Calculating checksum..."
       sha256sum "$TARGET_PATH" > "mydisk.sha256"
