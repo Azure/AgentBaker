@@ -7,7 +7,8 @@
 
 param (
     $windowsSKU,
-    $skipValidateReofferUpdate
+    $skipValidateReofferUpdate,
+    $validatecontainerBaseImageFromUrl
 )
 
 Set-PSDebug -Trace 1
@@ -321,6 +322,41 @@ function Test-ImagesPulled
     # 2. As select-string with nomatch pattern returns additional line breaks, qurying MatchInfo's Line property keeps
     #    only image reference as a workaround
     $pulledImages = (ctr.exe -n k8s.io image ls -q | Select-String -notmatch "sha256:.*" | % { $_.Line })
+
+    # We need to check the image list from URL to make sure the image list is up to date
+    if ($validatecontainerBaseImageFromUrl -eq $true)
+    {
+        Write-OutputWithTimestamp "validate container base image cached to be sync with the images from URLs"
+        # Find items to remove
+        $targetImagesToPull = $targetImagesToPull | Where-Object {
+            $_ -notmatch '^mcr\.microsoft\.com/windows/(nanoserver|servercore):[^/]+$'
+        }
+        # Find items to add
+        switch -Wildcard ($windowsSKU.ToLower()) {
+            "*2019*" {
+               $targetImagesToPull += "mcr.microsoft.com/windows/nanoserver:1809"
+               $targetImagesToPull += "mcr.microsoft.com/windows/servercore:ltsc2019"
+            }
+            "*2022*" {
+               $targetImagesToPull += "mcr.microsoft.com/windows/nanoserver:ltsc2022"
+               $targetImagesToPull += "mcr.microsoft.com/windows/servercore:ltsc2022"
+            }
+            "*23h2*" {
+               $targetImagesToPull += "mcr.microsoft.com/windows/nanoserver:ltsc2022"
+               $targetImagesToPull += "mcr.microsoft.com/windows/servercore:ltsc2022"
+            }
+            "*2025*" {
+               $targetImagesToPull += "mcr.microsoft.com/windows/nanoserver:ltsc2022"
+               $targetImagesToPull += "mcr.microsoft.com/windows/servercore:ltsc2022"
+               $targetImagesToPull += "mcr.microsoft.com/windows/nanoserver:ltsc2025"
+               $targetImagesToPull += "mcr.microsoft.com/windows/servercore:ltsc2025"
+            }
+            default {
+               Write-OutputWithTimestamp "No additional images to pull for SKU: $windowsSKU"
+               exit 1
+            }
+        }
+    }
 
     $result = (Compare-Object $targetImagesToPull $pulledImages)
     if ($result)

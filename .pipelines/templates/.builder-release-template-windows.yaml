@@ -102,6 +102,12 @@ steps:
       export TEST_VM_RESOURCE_GROUP_NAME="vhd-test-$(date +%s)-$RANDOM"
       echo "ARCHITECTURE: ${{ parameters.architecture }}"
       echo "##vso[task.setvariable variable=TEST_VM_RESOURCE_GROUP_NAME]$TEST_VM_RESOURCE_GROUP_NAME"
+      if [[ -n "${{ parameters.windowsNanoImageUrl }}" || -n "${{ parameters.windowsCoreImageUrl }}" ]]; then
+        export CONTAINTER_BASE_URLS_EXISTING=true
+      else
+        export CONTAINTER_BASE_URLS_EXISTING=false
+      fi
+      echo "CONTAINTER_BASE_URLS_EXISTING is $CONTAINTER_BASE_URLS_EXISTING"
 
       ./vhdbuilder/packer/test/run-test.sh
     displayName: Run VHD cache test
