@@ -444,7 +444,7 @@ systemctlEnableAndStartNoBlock() {
 
     sleep $status_check_delay_seconds
 
-    if systemctl is-failed kubelet; then
+    if systemctl is-failed $service; then
         echo "$service is in a failed state"
         systemctl status $service --no-pager -l > /var/log/azure/$service-status.log || true
         return 1
