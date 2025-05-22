@@ -128,17 +128,18 @@ function GetContainerdTemplatePath {
   return $templatePath
 }
 
-function ProcessAndWriteContainerdTemplate {
+function ProcessAndWriteContainerdConfig {
   Param(
     [Parameter(Mandatory = $true)][string]
     $TemplatePath,
+    [Parameter(Mandatory = $true)][string]
+    $ContainerDVersion,
     [Parameter(Mandatory = $true)][string]
     $CNIBinDir,
     [Parameter(Mandatory = $true)][string]
     $CNIConfDir
   )
   
-
   $sandboxIsolation = 0
   if ($global:DefaultContainerdWindowsSandboxIsolation -eq "hyperv") {
     Write-Log "default runtime for containerd set to hyperv"
@@ -159,27 +160,13 @@ function ProcessAndWriteContainerdTemplate {
   else {
     $hypervRuntimes = CreateHypervisorRuntimes -builds $hypervHandlers -image $pauseImage
   }
-
-  try {
-    # Check containerd version to determine if it supports annotations
-    Push-Location $global:ContainerdInstallLocation
-      # Examples:
-      #  - containerd github.com/containerd/containerd v1.6.21+azure 3dce8eb055cbb6872793272b4f20ed16117344f8
-      #  - containerd github.com/containerd/containerd v1.7.9+azure 4f03e100cb967922bec7459a78d16ccbac9bb81d
-      $versionstring=$(.\containerd.exe -v)
-      Write-Log "containerd version: $versionstring"
-      $containerdVersion=$versionstring.split(" ")[2].Split("+")[0].substring(1)
-    Pop-Location
-    
-    if (([version]$containerdVersion).CompareTo([version]"1.7.9") -lt 0) {
-      # Remove annotations placeholders for older containerd versions
-      $template = $template | Select-String -Pattern 'containerAnnotations' -NotMatch
-      $template = $template | Select-String -Pattern 'podAnnotations' -NotMatch
-    }
-  }catch {
-    Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GET_CONTAINERD_VERSION -ErrorMessage "Failed in getting Windows containerd version. Error: $_"
-  }
   
+  if (([version]$ContainerdVersion).CompareTo([version]"1.7.9") -lt 0) {
+    # Remove annotations placeholders for older containerd versions
+    $template = $template | Select-String -Pattern 'containerAnnotations' -NotMatch
+    $template = $template | Select-String -Pattern 'podAnnotations' -NotMatch
+  }
+
   # Convert template to string for placeholder replacements
   $template = $template | Out-String
   $formatedbin = $(($CNIBinDir).Replace("\", "/"))
@@ -260,10 +247,26 @@ function Install-Containerd {
   # get configuration options
   Add-SystemPathEntry $global:ContainerdInstallLocation
 
+  $containerdVersion =""
+  try {
+    # Check containerd version to determine if it supports annotations
+    Push-Location $global:ContainerdInstallLocation
+      # Examples:
+      #  - containerd github.com/containerd/containerd v1.6.21+azure 3dce8eb055cbb6872793272b4f20ed16117344f8
+      #  - containerd github.com/containerd/containerd v1.7.9+azure 4f03e100cb967922bec7459a78d16ccbac9bb81d
+      $versionstring=$(.\containerd.exe -v)
+      Write-Log "containerd version: $versionstring"
+      $containerdVersion=$versionstring.split(" ")[2].Split("+")[0].substring(1)
+    Pop-Location
+  }catch {
+    Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GET_CONTAINERD_VERSION -ErrorMessage "Failed in getting Windows containerd version. Error: $_"
+  }
+
   # Get the correct template path based on Windows version and Kubernetes version
   $templatePath = GetContainerdTemplatePath -KubernetesVersion $KubernetesVersion -WindowsVersion $WindowsVersion
-  ProcessAndWriteContainerdTemplate `
+  ProcessAndWriteContainerdConfig `
     -TemplatePath $templatePath `
+    -ContainerDVersion $containerdVersion `
     -CNIBinDir $CNIBinDir `
     -CNIConfDir $CNIConfDir
 
