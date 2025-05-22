@@ -8,26 +8,32 @@
         {
           "comment": "should have latest version and natest version -1",
           "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore",
-          "latestVersion": "10.0.17763.7136",
-          "previousLatestVersion": "10.0.17763.7009",
+          "latestVersion": "10.0.17763.7314",
+          "previousLatestVersion": "10.0.17763.7136",
           "windowsSkuMatch": "2019-containerd"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore",
-          "latestVersion": "10.0.20348.3453",
-          "previousLatestVersion": "10.0.20348.3328",
+          "latestVersion": "10.0.20348.3692",
+          "previousLatestVersion": "10.0.20348.3453",
           "windowsSkuMatch": "2022-containerd*"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore",
-          "latestVersion": "10.0.20348.3453",
-          "previousLatestVersion": "10.0.20348.3328",
+          "latestVersion": "10.0.20348.3692",
+          "previousLatestVersion": "10.0.20348.3453",
           "windowsSkuMatch": "23H2*"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore",
-          "latestVersion": "10.0.26100.3775",
-          "previousLatestVersion": "10.0.26100.3476",
+          "latestVersion": "10.0.20348.3692",
+          "previousLatestVersion": "10.0.20348.3453",
+          "windowsSkuMatch": "2025*"
+        },
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore",
+          "latestVersion": "10.0.26100.4061",
+          "previousLatestVersion": "10.0.26100.3775",
           "windowsSkuMatch": "2025*"
         }
       ]
@@ -56,6 +62,11 @@
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=windows/nanoserver",
           "latestVersion": "ltsc2022",
+          "windowsSkuMatch": "2025*"
+        },
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=windows/nanoserver",
+          "latestVersion": "ltsc2025",
           "windowsSkuMatch": "2025*"
         }
       ]
@@ -393,12 +404,11 @@
     },
     {
       "downloadURL": "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:*",
-      "windowsDownloadURL": "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-*",
       "amd64OnlyVersions": [],
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=azuremonitor/containerinsights/ciprod",
-          "latestVersion": "3.1.25"
+          "latestVersion": "3.1.27"
         }
       ],
       "windowsVersions": []
@@ -1136,6 +1146,15 @@
                 "renovateTag": "<DO_NOT_UPDATE>",
                 "latestVersion": "v1.7.20-azure.1",
                 "previousLatestVersion": "v1.7.17-azure.1"
+              }
+            ],
+            "downloadURL": "https://packages.aks.azure.com/containerd/windows/${version}/binaries/containerd-${version}-windows-amd64.tar.gz"
+          },
+          "ws2025": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "v2.0.4-azure.1"
               }
             ],
             "downloadURL": "https://packages.aks.azure.com/containerd/windows/${version}/binaries/containerd-${version}-windows-amd64.tar.gz"

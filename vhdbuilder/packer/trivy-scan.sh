@@ -101,9 +101,10 @@ install_azure_cli() {
 }
 
 login_with_user_assigned_managed_identity() {
-    local USERNAME=$1
+    local TYPE_FLAG="$1"
+    local ID=$2
 
-    LOGIN_FLAGS="--identity --username $USERNAME"
+    LOGIN_FLAGS="--identity $TYPE_FLAG $ID"
     if [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ]; then
         LOGIN_FLAGS="$LOGIN_FLAGS --allow-no-subscriptions"
     fi
@@ -111,10 +112,16 @@ login_with_user_assigned_managed_identity() {
    echo "logging into azure with flags: $LOGIN_FLAGS"
    az login $LOGIN_FLAGS
 }
+login_with_umsi_object_id() {
+    login_with_user_assigned_managed_identity "--object-id" "$1"
+}
+login_with_umsi_resource_id() {
+    login_with_user_assigned_managed_identity "--resource-id" "$1"
+}
 
 install_azure_cli $OS_SKU $OS_VERSION $ARCHITECTURE $TEST_VM_ADMIN_USERNAME
 
-login_with_user_assigned_managed_identity ${UMSI_PRINCIPAL_ID}
+login_with_umsi_object_id ${UMSI_PRINCIPAL_ID}
 
 arch="$(uname -m)"
 if [ "${arch,,}" = "arm64" ] || [ "${arch,,}" = "aarch64" ]; then
@@ -219,7 +226,7 @@ chmod a+r "${TRIVY_REPORT_ROOTFS_JSON_PATH}"
 chmod a+r "${TRIVY_REPORT_IMAGE_TABLE_PATH}"
 chmod a+r "${CVE_LIST_QUERY_OUTPUT_PATH}"
 
-login_with_user_assigned_managed_identity ${AZURE_MSI_RESOURCE_STRING}
+login_with_umsi_resource_id ${AZURE_MSI_RESOURCE_STRING}
 
 az storage blob upload --file ${CVE_DIFF_QUERY_OUTPUT_PATH} \
     --container-name ${SIG_CONTAINER_NAME} \

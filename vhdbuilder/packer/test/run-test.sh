@@ -92,7 +92,6 @@ if [ "${OS_TYPE,,}" = "linux" ]; then
       exit 1
   fi
   az vm create \
-      --debug \
       --resource-group "$TEST_VM_RESOURCE_GROUP_NAME" \
       --name "$VM_NAME" \
       --image "$MANAGED_SIG_ID" \

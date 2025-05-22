@@ -615,7 +615,10 @@ EOF
         logs_to_events "AKS.CSE.ensureKubelet.installCredentialProvider" installCredentialProvider
     fi
 
-    systemctlEnableAndStartNoBlock kubelet 240 || exit $ERR_KUBELET_START_FAIL
+    if ! systemctlEnableAndStartNoBlock kubelet 240; then
+        journalctl -u kubelet.service --no-pager || true
+        exit $ERR_KUBELET_START_FAIL
+    fi
 }
 
 ensureSnapshotUpdate() {

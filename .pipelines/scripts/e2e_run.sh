@@ -16,7 +16,7 @@ set -euo pipefail
 # These are defined in: e2e/config/config.go
 
 # First, login.
-az login --identity --username "${E2E_AGENT_IDENTITY_ID}"
+az login --identity --resource-id "${E2E_AGENT_IDENTITY_ID}"
 az account set -s "${E2E_SUBSCRIPTION_ID}"
 echo "Using subscription ${E2E_SUBSCRIPTION_ID} for e2e tests"
 

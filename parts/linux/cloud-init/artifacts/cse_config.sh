@@ -654,9 +654,12 @@ EOF
         logs_to_events "AKS.CSE.ensureKubelet.installCredentialProvider" installCredentialProvider
     fi
 
-    # start kubelet.service without waiting for the main process to start running, though
-    # wait for at least 1 second before checking kubeket's status to ensure that it hasn't entered a failed state
-    systemctlEnableAndStartNoBlock kubelet 240 || exit $ERR_KUBELET_START_FAIL
+    # start kubelet.service without waiting for the main process to start, though check whether it has entered a failed state after enablement
+    if ! systemctlEnableAndStartNoBlock kubelet 240; then
+        # append kubelet status to CSE output to ensure we can see it
+        journalctl -u kubelet.service --no-pager || true
+        exit $ERR_KUBELET_START_FAIL
+    fi
 }
 
 ensureSnapshotUpdate() {
