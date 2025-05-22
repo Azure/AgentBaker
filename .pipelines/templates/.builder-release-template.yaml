@@ -40,7 +40,7 @@ steps:
       specificBuildWithTriggering: true
       allowPartiallySucceededBuilds: true
       buildVersionToDownload: 'latestFromBranch'
-      branchName: 'master'
+      branchName: 'refs/heads/master'
       artifactName: 'drop_container_job_sign_uvm'
       itemPattern: |
         **/kata-containers-igvm-debug.img**
