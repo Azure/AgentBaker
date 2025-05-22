@@ -104,6 +104,7 @@ steps:
   - bash: make -f packer.mk sign-vhd
     env:
       checksum_url: $(checksum_url)
+      sas_token: $(sas_token)
     displayName: Computing sha256sum
     name: computeSum
   
