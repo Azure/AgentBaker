@@ -49,13 +49,12 @@ function RegisterContainerDService {
     Start-Service containerd
     $retryCount++
     Write-Log "Retry $retryCount : Sleep $retryInterval and check containerd status"
-    Sleep $retryInterval
+    Start-Sleep $retryInterval
   } while ($retryCount -lt $maxRetryCount)
 
   if ($svc.Status -ne "Running") {
     Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_CONTAINERD_NOT_RUNNING -ErrorMessage "containerd service is not running"
   }
-
 }
 
 function CreateHypervisorRuntime {
@@ -107,8 +106,8 @@ function CreateHypervisorRuntimes {
 
 function GetContainerdTemplatePath {
   Param(
-    [Parameter(Mandatory = $false)][string]
-    $KubernetesVersion = "",
+    [Parameter(Mandatory = $true)][string]
+    $KubernetesVersion,
     [Parameter(Mandatory = $false)][string]
     $WindowsVersion = ""
   )
@@ -121,7 +120,6 @@ function GetContainerdTemplatePath {
   $templatePath = "c:\AzureData\windows\containerdtemplate.toml"
   
   # For future Windows versions (like test2025), if needed, use containerd2template.toml
-  # for newer Kubernetes versions
   if ($WindowsVersion -eq "test2025") {
     if (([version]$KubernetesVersion).CompareTo([version]"1.33.0") -ge 0) {
       $templatePath = "c:\AzureData\windows\containerd2template.toml"
@@ -130,43 +128,44 @@ function GetContainerdTemplatePath {
   return $templatePath
 }
 
-function ProcessContainerdTemplate {
+function ProcessAndWriteContainerdTemplate {
   Param(
     [Parameter(Mandatory = $true)][string]
     $TemplatePath,
     [Parameter(Mandatory = $true)][string]
-    $ConfigFile,
+    $CNIBinDir,
     [Parameter(Mandatory = $true)][string]
-    $PauseImage,
-    [Parameter(Mandatory = $true)][string]
-    $FormatedBin,
-    [Parameter(Mandatory = $true)][string]
-    $FormatedConf,
-    [Parameter(Mandatory = $true)][int]
-    $SandboxIsolation,
-    [Parameter(Mandatory = $true)][string]
-    $WindowsVersion,
-    [Parameter(Mandatory = $true)][string[]]
-    $HypervHandlers,
-    [Parameter(Mandatory = $true)][string]
-    $ContainerAnnotations,
-    [Parameter(Mandatory = $true)][string]
-    $PodAnnotations
+    $CNIConfDir
   )
   
-  $template = Get-Content -Path $TemplatePath
-  $hypervRuntimes = ""
+
+  $sandboxIsolation = 0
+  if ($global:DefaultContainerdWindowsSandboxIsolation -eq "hyperv") {
+    Write-Log "default runtime for containerd set to hyperv"
+    $sandboxIsolation = 1
+  }
+
+  $clusterConfig = ConvertFrom-Json ((Get-Content $global:KubeClusterConfigPath -ErrorAction Stop) | Out-String)
+  $pauseImage = $clusterConfig.Cri.Images.Pause
   
-  if ($SandboxIsolation -eq 0 -And $HypervHandlers.Count -eq 0) {
+  $hypervHandlers = $global:ContainerdWindowsRuntimeHandlers.split(",", [System.StringSplitOptions]::RemoveEmptyEntries)
+  $hypervRuntimes = ""
+
+  $template = Get-Content -Path $TemplatePath 
+  if ($SandboxIsolation -eq 0 -And $hypervHandlers.Count -eq 0) {
     # Remove the hypervisors placeholder when not needed
     $template = $template | Select-String -Pattern 'hypervisors' -NotMatch
   }
   else {
-    $hypervRuntimes = CreateHypervisorRuntimes -builds $HypervHandlers -image $PauseImage
+    $hypervRuntimes = CreateHypervisorRuntimes -builds $hypervHandlers -image $pauseImage
   }
-    try {
+
+  try {
     # Check containerd version to determine if it supports annotations
     Push-Location $global:ContainerdInstallLocation
+      # Examples:
+      #  - containerd github.com/containerd/containerd v1.6.21+azure 3dce8eb055cbb6872793272b4f20ed16117344f8
+      #  - containerd github.com/containerd/containerd v1.7.9+azure 4f03e100cb967922bec7459a78d16ccbac9bb81d
       $versionstring=$(.\containerd.exe -v)
       Write-Log "containerd version: $versionstring"
       $containerdVersion=$versionstring.split(" ")[2].Split("+")[0].substring(1)
@@ -183,19 +182,25 @@ function ProcessContainerdTemplate {
   
   # Convert template to string for placeholder replacements
   $template = $template | Out-String
-  
+  $formatedbin = $(($CNIBinDir).Replace("\", "/"))
+  $formatedconf = $(($CNIConfDir).Replace("\", "/"))
+  $containerAnnotations = 'container_annotations = ["io.microsoft.container.processdumplocation", "io.microsoft.wcow.processdumptype", "io.microsoft.wcow.processdumpcount"]'
+  $podAnnotations = 'pod_annotations = ["io.microsoft.container.processdumplocation","io.microsoft.wcow.processdumptype", "io.microsoft.wcow.processdumpcount"]'
+  $pauseWindowsVersion = Get-WindowsPauseVersion
+
   # Replace all placeholders
-  $processedTemplate = $template.Replace('{{sandboxIsolation}}', $SandboxIsolation).
-    Replace('{{pauseImage}}', $PauseImage).
+  $processedTemplate = $template.Replace('{{sandboxIsolation}}', $sandboxIsolation).
+    Replace('{{pauseImage}}', $pauseImage).
     Replace('{{hypervisors}}', $hypervRuntimes).
-    Replace('{{cnibin}}', $FormatedBin).
-    Replace('{{cniconf}}', $FormatedConf).
-    Replace('{{currentversion}}', $WindowsVersion).
-    Replace('{{containerAnnotations}}', $ContainerAnnotations).
-    Replace('{{podAnnotations}}', $PodAnnotations)
+    Replace('{{cnibin}}', $formatedBin).
+    Replace('{{cniconf}}', $formatedConf).
+    Replace('{{currentversion}}', $pauseWindowsVersion).
+    Replace('{{containerAnnotations}}', $containerAnnotations).
+    Replace('{{podAnnotations}}', $podAnnotations)
   
   # Write the processed template to the config file
-  $processedTemplate | Out-File -FilePath $ConfigFile -Encoding ascii
+  $configFile = [Io.Path]::Combine($global:ContainerdInstallLocation, "config.toml")
+  $processedTemplate | Out-File -FilePath $configFile -Encoding ascii
 }
 
 function Enable-Logging {
@@ -222,24 +227,23 @@ function Install-Containerd {
     $CNIConfDir,
     [Parameter(Mandatory = $true)][string]
     $KubeDir,
-    [Parameter(Mandatory = $false)][string]
+    [Parameter(Mandatory = $true)][string]
     $KubernetesVersion,
     [Parameter(Mandatory = $false)][string]
     $WindowsVersion
   )
 
   $svc = Get-Service -Name containerd -ErrorAction SilentlyContinue
+  # TODO: check if containerd is already installed and is the same version before this.
   if ($null -ne $svc) {
     Write-Log "Stopping containerd service"
     $svc | Stop-Service
   }
 
-  # TODO: check if containerd is already installed and is the same version before this.
-  
   if ([string]::IsNullOrEmpty($WindowsVersion)) {
     $WindowsVersion = Get-WindowsVersion
   }
-  $pauseWindowsVersion = Get-WindowsPauseVersion
+
   # Extract the package
   # upstream containerd package is a tar 
   $tarfile = [Io.path]::Combine($ENV:TEMP, "containerd.tar.gz")
@@ -255,66 +259,13 @@ function Install-Containerd {
 
   # get configuration options
   Add-SystemPathEntry $global:ContainerdInstallLocation
-  $configFile = [Io.Path]::Combine($global:ContainerdInstallLocation, "config.toml")
-  $clusterConfig = ConvertFrom-Json ((Get-Content $global:KubeClusterConfigPath -ErrorAction Stop) | Out-String)
-  $pauseImage = $clusterConfig.Cri.Images.Pause
-  $formatedbin = $(($CNIBinDir).Replace("\", "/"))
-  $formatedconf = $(($CNIConfDir).Replace("\", "/"))
-  $sandboxIsolation = 0
-  $hypervRuntimes = ""
-  $hypervHandlers = $global:ContainerdWindowsRuntimeHandlers.split(",", [System.StringSplitOptions]::RemoveEmptyEntries)
-  $containerAnnotations = 'container_annotations = ["io.microsoft.container.processdumplocation", "io.microsoft.wcow.processdumptype", "io.microsoft.wcow.processdumpcount"]'
-  $podAnnotations = 'pod_annotations = ["io.microsoft.container.processdumplocation","io.microsoft.wcow.processdumptype", "io.microsoft.wcow.processdumpcount"]'
-
-  # configure
-  if ($global:DefaultContainerdWindowsSandboxIsolation -eq "hyperv") {
-    Write-Log "default runtime for containerd set to hyperv"
-    $sandboxIsolation = 1
-  }
 
   # Get the correct template path based on Windows version and Kubernetes version
   $templatePath = GetContainerdTemplatePath -KubernetesVersion $KubernetesVersion -WindowsVersion $WindowsVersion
-  $template = Get-Content -Path $templatePath
-
-  if ($sandboxIsolation -eq 0 -And $hypervHandlers.Count -eq 0) {
-    # remove the value hypervisor place holder
-    $template = $template | Select-String -Pattern 'hypervisors' -NotMatch
-  }
-  else {
-    $hypervRuntimes = CreateHypervisorRuntimes -builds @($hypervHandlers) -image $pauseImage
-  }
-  try {
-    # remove the value containerAnnotations and podAnnotations place holder since it is not supported in containerd versions older than 1.7.9
-    Push-Location $global:ContainerdInstallLocation
-      # Examples:
-      #  - containerd github.com/containerd/containerd v1.6.21+azure 3dce8eb055cbb6872793272b4f20ed16117344f8
-      #  - containerd github.com/containerd/containerd v1.7.9+azure 4f03e100cb967922bec7459a78d16ccbac9bb81d
-      $versionstring=$(.\containerd.exe -v)
-      Write-Log "containerd version: $versionstring"
-      $containerdVersion=$versionstring.split(" ")[2].Split("+")[0].substring(1)
-    Pop-Location
-
-    if (([version]$containerdVersion).CompareTo([version]"1.7.9") -lt 0) {
-      # remove the value containerAnnotations place holder
-      $template = $template | Select-String -Pattern 'containerAnnotations' -NotMatch
-      # remove the value podAnnotations place holder
-      $template = $template | Select-String -Pattern 'podAnnotations' -NotMatch
-    }
-  } catch {
-      Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GET_CONTAINERD_VERSION -ErrorMessage "Failed in getting Windows containerd version. Error: $_"
-  }
-  # Need to convert the template to string to replace the place holders but
-  # `Select-String -Pattern [PATTERN] -NotMatch` does not work after converting the template to string
-  $template =  $template | Out-String
-  $template.Replace('{{sandboxIsolation}}', $sandboxIsolation).
-  Replace('{{pauseImage}}', $pauseImage).
-  Replace('{{hypervisors}}', $hypervRuntimes).
-  Replace('{{cnibin}}', $formatedbin).
-  Replace('{{cniconf}}', $formatedconf).
-  Replace('{{currentversion}}', $pauseWindowsVersion).
-  Replace('{{containerAnnotations}}', $containerAnnotations).
-  Replace('{{podAnnotations}}', $podAnnotations) | `
-    Out-File -FilePath "$configFile" -Encoding ascii
+  ProcessAndWriteContainerdTemplate `
+    -TemplatePath $templatePath `
+    -CNIBinDir $CNIBinDir `
+    -CNIConfDir $CNIConfDir
 
   RegisterContainerDService -KubeDir $KubeDir
   Enable-Logging
