@@ -8,7 +8,7 @@ export AZCOPY_MSI_RESOURCE_STRING="$AZURE_MSI_RESOURCE_STRING"
 export AZCOPY_CONCURRENCY_VALUE="AUTO"
 
 #azcopy copy "${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd${sas_token}" "$VHD_RELEASE_CANDIDATE" --recursive=true
-azcopy copy "${checksum_url}${sas_token}" "$VHD_RELEASE_CANDIDATE" --recursive=true
+azcopy copy "$checksum_url$sas_token" "$VHD_RELEASE_CANDIDATE" --recursive=true
 
 echo "Calculating checksum..."
 
