@@ -102,6 +102,8 @@ steps:
     name: generate
 
   - bash: make -f packer.mk sign-vhd
+    env:
+      checksum_url: $(checksum_url)
     displayName: Computing sha256sum
     name: computeSum
   
