@@ -127,20 +127,21 @@ steps:
     name: privateVHDSigningKey
     displayName: Download Private Key
     inputs:
-      secureFile: nodeSIGPrivKey.asc
+      secureFile: 'nodeSIGPrivKey.asc'
       retryCount: 2
 
   - task: DownloadSecureFile@1
     name: publicVHDSigningKey
     displayName: Download Public Key
     inputs:
-      secureFile: nodeSIGPubKey.asc
+      secureFile: 'nodeSIGPubKey.asc'
       retryCount: 2
 
   - bash: |
+      VHD_RELEASE_CANDIDATE="${SKU_NAME}_release_candidate.vhd"
       echo "Importing GPG Keys..."
-      gpg --import "${privateVHDSigningKey.secureFilePath}"
-      gpg --import "${publicVHDSigningKey.secureFilePath}"
+      gpg --import ${PRIVATE_KEY_PATH}
+      gpg --import ${PUBLIC_KEY_PATH}
       
       echo "Parsing Private Key ID..."
       KEY_ID=$(gpg --list-secret-key --keyid-format LONG --with-colons 'aks-node' | grep '^sec' | cut -d: -f5)
