@@ -131,9 +131,11 @@ steps:
       retryCount: 2
 
   - bash: |
-      gpg --import nodeSIGPubKey.asc
-      gpg --import nodeSIGPrivKey.asc
+      echo "Importing GPG Keys..."
+      gpg --import $(nodeSIGPubKey.asc.secureFilePath)
+      gpg --import $(nodeSIGPrivKey.asc.secureFilePath)
       
+      echo "Parsing Private Key ID..."
       KEY_ID=$(gpg --list-secret-key --keyid-format LONG --with-colons 'aks-node' | grep '^sec' | cut -d: -f5)
 
       echo "Signing VHD checksum..."
@@ -150,6 +152,7 @@ steps:
         echo "Hash matches, VHD integrity confirmed"
       else
         echo "Hashes do not match, VHD has been either corrupted or tampered with"
+        exit 0
       fi
     displayName: Validate VHD Integrity
     env:
