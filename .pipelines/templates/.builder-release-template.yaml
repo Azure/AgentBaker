@@ -128,7 +128,7 @@ steps:
     name: privateVHDSigningKey
     displayName: Download Private Key
     inputs:
-      secureFile:
+      secureFile: nodeSIGPrivKey.asc
       retryCount: 2
 
   - bash: |
