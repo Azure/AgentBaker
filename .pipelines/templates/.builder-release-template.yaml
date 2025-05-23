@@ -141,7 +141,18 @@ steps:
 
       echo "Verifying checksum..."
       gpg --verify ${VHD_RELEASE_CANDIDATE}.sha256 ${VHD_RELEASE_CANDIDATE}.sha256.asc
-    displayName: Sign VHD
+
+      echo "Verifying that VHD has not been tampered with"
+
+      current_hash=$(sha256sum "$VHD_RELEASE_CANDIDATE" | awk '{print $1}')
+      expected_hash=$(awk '{print $1}' ${VHD_RELEASE_CANDIDATE}.sha256)
+
+      if [ "$calculated_hash" = "$expected_hash" ]; then
+        echo "Hash matches, VHD integrity confirmed"
+      else
+        echo "Hashes do not match, VHD has been either corrupted or tampered with"
+      fi
+    displayName: Validate VHD Integrity
     env:
       VHD_RELEASE_CANDIDATE: $(VHD_RELEASE_CANDIDATE)
   
