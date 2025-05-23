@@ -41,6 +41,7 @@ pr:
       - .pipelines/e2e-windows.yaml
       - .pipelines/templates/e2e-template.yaml
       - .pipelines/scripts/e2e_run.sh
+      - .pipelines/scripts/e2e_delete_vmss.sh
       - e2e
       - parts/windows
       - pkg/agent
