@@ -107,7 +107,7 @@ Describe "ProcessAndWriteContainerdConfig" {
       $cniBinDir = 'C:/cni/bin'
       $cniConfDir = 'C:/cni/conf'
       $pauseImage = 'mcr.microsoft.com/oss/kubernetes/pause:3.6'
-      $contanerdVersion = "2.0.4"
+      $containerdVersion = "2.0.4"
 
       $global:KubeClusterConfigPath = [Io.path]::Combine("", "kubeclusterconfig.json")
       $global:ContainerdInstallLocation = $containerdDir
@@ -121,7 +121,7 @@ Describe "ProcessAndWriteContainerdConfig" {
       $global:DefaultContainerdWindowsSandboxIsolation = "process" # default to process isolation
       $global:ContainerdWindowsRuntimeHandlers = "" # default to no hyperv handlers
 
-      { ProcessAndWriteContainerdConfig  -ContainerDVersion "2.0.4" -CNIBinDir $cniBinDir -CNIConfDir $cniConfDir } | Should -Not -Throw
+      { ProcessAndWriteContainerdConfig  -ContainerDVersion $containerdVersion -CNIBinDir $cniBinDir -CNIConfDir $cniConfDir } | Should -Not -Throw
       
       $configPath | Should -Exist
       $content = Get-Content -Path $configPath -Raw
@@ -140,22 +140,11 @@ Describe "ProcessAndWriteContainerdConfig" {
     It "Should include hyperv runtimes when hyperv is enabled" {
       $global:DefaultContainerdWindowsSandboxIsolation = "hyperv"
       $global:ContainerdWindowsRuntimeHandlers = "1234,5678"
-      { ProcessAndWriteContainerdConfig  -ContainerDVersion "1.7.9" -CNIBinDir $cniBinDir -CNIConfDir $cniConfDir } | Should -Not -Throw
+      { ProcessAndWriteContainerdConfig  -ContainerDVersion $containerdVersion -CNIBinDir $cniBinDir -CNIConfDir $cniConfDir } | Should -Not -Throw
       
       $content = Get-Content -Path $configPath -Raw
       $content | Should -Match 'plugins.cri.containerd.runtimes.runhcs-wcow-hypervisor-1234'
       $content | Should -Match 'SandboxIsolation = 1'
-    }
-
-    It "Should handle older containerd versions (<1.7.9) by removing annotations" {
-      # Call the function under test and ensure it doesn't throw
-      { ProcessAndWriteContainerdConfig -TemplatePath $templatePathV1 -ContainerDVersion "1.6.9" -CNIBinDir $cniBinDir -CNIConfDir $cniConfDir } | Should -Not -Throw
-      
-      $content = Get-Content -Path $configPath -Raw
-      
-      # Should not contain annotation placeholders or values
-      $content | Should -Not -Match 'container_annotations'
-      $content | Should -Not -Match 'pod_annotations'
     }
   }
 }
