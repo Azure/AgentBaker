@@ -512,8 +512,9 @@ ensureKubeCACert() {
     chmod 0600 "${KUBE_CA_FILE}"
 }
 
+# drop-in path defined outside so configureAndStartSecureTLSBootstrapping can be unit tested
+SECURE_TLS_BOOTSTRAPPING_DROP_IN="/etc/systemd/system/secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf"
 configureAndStartSecureTLSBootstrapping() {
-    SECURE_TLS_BOOTSTRAPPING_DROP_IN="/etc/systemd/system/secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf"
     mkdir -p "$(dirname "${SECURE_TLS_BOOTSTRAPPING_DROP_IN}")"
     touch "${SECURE_TLS_BOOTSTRAPPING_DROP_IN}"
     chmod 0600 "${SECURE_TLS_BOOTSTRAPPING_DROP_IN}"
@@ -525,6 +526,8 @@ EOF
     systemctlEnableAndStartNoBlock secure-tls-bootstrap 30 || exit $ERR_SECURE_TLS_BOOTSTRAP_START_FAILURE
 }
 
+# kubeconfig path defined outside so ensureSecureTLSBootstrapping can be unit tested
+KUBECONFIG_PATH="/var/lib/kubelet/kubeconfig"
 ensureSecureTLSBootstrapping() { 
     while [ "$(systemctl is-active secure-tls-bootstrap)" = "activating" ]; do
         echo "secure TLS bootstrapping is in-progress, waiting for terminal state..."
@@ -532,16 +535,16 @@ ensureSecureTLSBootstrapping() {
     done
 
     if ! systemctl is-active secure-tls-bootstrap; then
-        logs_to_events "AKS.CSE.ensureSecureTLSBootstrapping.BootstrapFailure" "echo secure TLS bootstrapping failed, falling back to TLS bootstrapping with bootstrap token"
+        logs_to_events "AKS.CSE.ensureSecureTLSBootstrapping.BootstrapFailure" echo "secure TLS bootstrapping failed, falling back to TLS bootstrapping with bootstrap token"
         return 0 # once bootstrap tokens are eliminated, CSE should fail here
     fi
 
-    if [ ! -f "/var/lib/kubelet/kubeconfig" ]; then
-        logs_to_events "AKS.CSE.ensureSecureTLSBootstrapping.MissingKubeconfig" "echo secure TLS bootstrapping completed but kubeconfig file is missing, falling back to TLS bootstrapping with bootstrap token"
+    if [ ! -f "$KUBECONFIG_PATH" ]; then
+        logs_to_events "AKS.CSE.ensureSecureTLSBootstrapping.MissingKubeconfig" echo "secure TLS bootstrapping completed but kubeconfig file is missing, falling back to TLS bootstrapping with bootstrap token"
         return 0 # once bootstrap tokens are eliminated, CSE should fail here
     fi
 
-    logs_to_events "AKS.CSE.ensureSecureTLSBootstrapping.BootstrapSuccess" "echo secure TLS bootstrapping suceeded, will unset TLS bootstrap token"
+    logs_to_events "AKS.CSE.ensureSecureTLSBootstrapping.BootstrapSuccess" echo "secure TLS bootstrapping suceeded, will unset TLS bootstrap token"
 
     # we now have a kubeconfig file, so we can wipe the bootstrap token - once bootstrap tokens are eliminated this won't be needed
     unset TLS_BOOTSTRAP_TOKEN
