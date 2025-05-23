@@ -132,7 +132,7 @@ steps:
 
   - task: DownloadSecureFile@1
     name: publicVHDSigningKey
-    displayName: Download Private Key
+    displayName: Download Public Key
     inputs:
       secureFile: nodeSIGPubKey.asc
       retryCount: 2
