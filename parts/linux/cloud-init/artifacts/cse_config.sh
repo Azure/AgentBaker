@@ -375,8 +375,7 @@ ensureTeleportd() {
 }
 
 ensureArtifactStreaming() {
-  systemctl enable acr-mirror.service
-  systemctl start acr-mirror.service
+  systemctlEnableAndStart acr-mirror 30
   sudo /opt/acr/tools/overlaybd/install.sh
   sudo /opt/acr/tools/overlaybd/config-user-agent.sh azure
   sudo /opt/acr/tools/overlaybd/enable-http-auth.sh
@@ -386,11 +385,11 @@ ensureArtifactStreaming() {
   sudo /opt/acr/tools/overlaybd/config.sh exporterConfig.port 9863
   modprobe target_core_user
   curl -X PUT 'localhost:8578/config?ns=_default&enable_suffix=azurecr.io&stream_format=overlaybd' -O
-  systemctl enable /opt/overlaybd/overlaybd-tcmu.service
-  systemctl enable /opt/overlaybd/snapshotter/overlaybd-snapshotter.service
-  systemctl start overlaybd-tcmu
-  systemctl start overlaybd-snapshotter
-  systemctl start acr-nodemon
+  systemctl link /opt/overlaybd/overlaybd-tcmu.service
+  systemctl link /opt/overlaybd/snapshotter/overlaybd-snapshotter.service
+  systemctlEnableAndStart overlaybd-tcmu.service 30
+  systemctlEnableAndStart overlaybd-snapshotter.service 30
+  systemctlEnableAndStart acr-nodemon 30
 }
 
 ensureDocker() {
@@ -513,8 +512,9 @@ ensureKubeCACert() {
     chmod 0600 "${KUBE_CA_FILE}"
 }
 
+# drop-in path defined outside so configureAndStartSecureTLSBootstrapping can be unit tested
+SECURE_TLS_BOOTSTRAPPING_DROP_IN="/etc/systemd/system/secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf"
 configureAndStartSecureTLSBootstrapping() {
-    SECURE_TLS_BOOTSTRAPPING_DROP_IN="/etc/systemd/system/secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf"
     mkdir -p "$(dirname "${SECURE_TLS_BOOTSTRAPPING_DROP_IN}")"
     touch "${SECURE_TLS_BOOTSTRAPPING_DROP_IN}"
     chmod 0600 "${SECURE_TLS_BOOTSTRAPPING_DROP_IN}"
@@ -526,28 +526,27 @@ EOF
     systemctlEnableAndStartNoBlock secure-tls-bootstrap 30 || exit $ERR_SECURE_TLS_BOOTSTRAP_START_FAILURE
 }
 
-ensureSecureTLSBootstrapping() {
-    SECURE_TLS_BOOTSTRAP_STATUS="$(systemctl is-active secure-tls-bootstrap)"    
-    while [ "${SECURE_TLS_BOOTSTRAP_STATUS,,}" = "activating" ]; do
+# kubeconfig path defined outside so ensureSecureTLSBootstrapping can be unit tested
+KUBECONFIG_PATH="/var/lib/kubelet/kubeconfig"
+ensureSecureTLSBootstrapping() { 
+    while [ "$(systemctl is-active secure-tls-bootstrap)" = "activating" ]; do
         echo "secure TLS bootstrapping is in-progress, waiting for terminal state..."
-        sleep 0.5
-        SECURE_TLS_BOOTSTRAP_STATUS="$(systemctl is-active secure-tls-bootstrap)"    
+        sleep 0.5   
     done
 
-    if [ "${SECURE_TLS_BOOTSTRAP_STATUS,,}" != "active" ]; then
-        logs_to_events "AKS.CSE.ensureSecureTLSBootstrapping.BootstrapFailure" "echo secure TLS bootstrapping failed, falling back to TLS bootstrapping with bootstrap token"
+    if ! systemctl is-active secure-tls-bootstrap; then
+        logs_to_events "AKS.CSE.ensureSecureTLSBootstrapping.BootstrapFailure" echo "secure TLS bootstrapping failed, falling back to TLS bootstrapping with bootstrap token"
         return 0 # once bootstrap tokens are eliminated, CSE should fail here
     fi
 
-    if [ ! -f "/var/lib/kubelet/kubeconfig" ]; then
-        logs_to_events "AKS.CSE.ensureSecureTLSBootstrapping.MissingKubeconfig" "echo secure TLS bootstrapping completed but kubeconfig file is missing, falling back to TLS bootstrapping with bootstrap token"
+    if [ ! -f "$KUBECONFIG_PATH" ]; then
+        logs_to_events "AKS.CSE.ensureSecureTLSBootstrapping.MissingKubeconfig" echo "secure TLS bootstrapping completed but kubeconfig file is missing, falling back to TLS bootstrapping with bootstrap token"
         return 0 # once bootstrap tokens are eliminated, CSE should fail here
     fi
 
-    logs_to_events "AKS.CSE.ensureSecureTLSBootstrapping.BootstrapSuccess" "echo secure TLS bootstrapping suceeded, will unset TLS bootstrap token"
+    logs_to_events "AKS.CSE.ensureSecureTLSBootstrapping.BootstrapSuccess" echo "secure TLS bootstrapping suceeded, will unset TLS bootstrap token"
 
-    # we now have a kubeconfig file, so we can wipe the bootstrap token
-    # once bootstrap tokens are eliminated this won't be needed
+    # we now have a kubeconfig file, so we can wipe the bootstrap token - once bootstrap tokens are eliminated this won't be needed
     unset TLS_BOOTSTRAP_TOKEN
 }
 
@@ -705,9 +704,12 @@ EOF
         logs_to_events "AKS.CSE.ensureKubelet.installCredentialProvider" installCredentialProvider
     fi
 
-    # start kubelet.service without waiting for the main process to start running, though
-    # wait for at least 1 second before checking kubeket's status to ensure that it hasn't entered a failed state
-    systemctlEnableAndStartNoBlock kubelet 240 || exit $ERR_KUBELET_START_FAIL
+    # start kubelet.service without waiting for the main process to start, though check whether it has entered a failed state after enablement
+    if ! systemctlEnableAndStartNoBlock kubelet 240; then
+        # append kubelet status to CSE output to ensure we can see it
+        journalctl -u kubelet.service --no-pager || true
+        exit $ERR_KUBELET_START_FAIL
+    fi
 }
 
 ensureSnapshotUpdate() {

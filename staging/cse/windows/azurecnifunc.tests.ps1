@@ -308,6 +308,30 @@ Describe 'Set-AzureCNIConfig' {
             $diffence | Should -Be $null
         }
     }
+
+    Context 'IMDS restriction' {
+        BeforeEach {
+            $hnsServiceName = "hns"
+            Mock Get-Service -MockWith { return $hnsServiceName }
+            Mock Restart-Service -MockWith { Write-Host "Restart-Service -Name $hnsServiceName" } -Verifiable
+        }
+        It "should include IMDS restriction ACL rule when IMDS restriction is enabled" {
+            Set-Default-AzureCNI "AzureCNI.Default.conflist"
+
+            Set-AzureCNIConfig -AzureCNIConfDir $azureCNIConfDir `
+                -KubeDnsSearchPath $kubeDnsSearchPath `
+                -KubeClusterCIDR $kubeClusterCIDR `
+                -KubeServiceCIDR $kubeServiceCIDR `
+                -VNetCIDR $vNetCIDR `
+                -IsDualStackEnabled $isDualStackEnabled `
+                -IsIMDSRestrictionEnabled $true
+            
+            $actualConfigJson = Read-Format-Json $azureCNIConfigFile
+            $expectedConfigJson = Read-Format-Json ([Io.path]::Combine($azureCNIConfDir, "AzureCNI.Expect.EnableIMDSRestriction.conflist"))
+            $diffence = Compare-Object $actualConfigJson $expectedConfigJson
+            $diffence | Should -Be $null
+        }
+    }
 }
 
 Describe 'Get-HnsPsm1' {

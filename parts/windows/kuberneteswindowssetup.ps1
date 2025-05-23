@@ -144,6 +144,7 @@ $global:VNetCNIPluginsURL = "{{GetParameter "vnetCniWindowsPluginsURL"}}"
 $global:IsDualStackEnabled = {{if IsIPv6DualStackFeatureEnabled}}$true{{else}}$false{{end}}
 $global:IsAzureCNIOverlayEnabled = {{if IsAzureCNIOverlayFeatureEnabled}}$true{{else}}$false{{end}}
 $global:CiliumDataplaneEnabled = {{if CiliumDataplaneEnabled}}$true{{else}}$false{{end}}
+$global:IsIMDSRestrictionEnabled = {{if EnableIMDSRestriction}}$true{{else}}$false{{end}}
 
 # Kubelet credential provider
 $global:CredentialProviderURL = "{{GetParameter "windowsCredentialProviderURL"}}"
@@ -382,7 +383,8 @@ try
         -KubeServiceCIDR $global:KubeServiceCIDR `
         -VNetCIDR $global:VNetCIDR `
         -IsDualStackEnabled $global:IsDualStackEnabled `
-        -IsAzureCNIOverlayEnabled $global:IsAzureCNIOverlayEnabled
+        -IsAzureCNIOverlayEnabled $global:IsAzureCNIOverlayEnabled `
+        -IsIMDSRestrictionEnabled $global:IsIMDSRestrictionEnabled
 
 
     if ($TargetEnvironment -ieq "AzureStackCloud") {
