@@ -8,7 +8,7 @@
 param (
     $windowsSKU,
     $skipValidateReofferUpdate,
-    $validatecontainerBaseImageFromUrl
+    $validatecontainerBaseImageFromUrl = $false
 )
 
 Set-PSDebug -Trace 1
@@ -323,7 +323,9 @@ function Test-ImagesPulled
     #    only image reference as a workaround
     $pulledImages = (ctr.exe -n k8s.io image ls -q | Select-String -notmatch "sha256:.*" | % { $_.Line })
 
-    # We need to check the image list from URL to make sure the image list is up to date
+    # Example logic of setting the value of $validatecontainerBaseImageFromUrl:
+    # caller fucntion vhdbuilder/packer/test/run-test.sh get the value from env set from pipeline
+    # .pipelines/templates/.builder-release-template-windows.yaml and pass it to this function.
     if ($validatecontainerBaseImageFromUrl -eq $true)
     {
         Write-OutputWithTimestamp "validate container base image cached to be sync with the images from URLs"
