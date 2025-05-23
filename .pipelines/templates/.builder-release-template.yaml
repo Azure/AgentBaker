@@ -105,8 +105,8 @@ steps:
       set -euo
       VHD_RELEASE_CANDIDATE="${SKU_NAME}_release_candidate.vhd"
       echo "##vso[task.setvariable variable=VHD_RELEASE_CANDIDATE;isOutput=true]$VHD_RELEASE_CANDIDATE"
-      echo "Downloading VHD..."
 
+      echo "Downloading VHD..."
       export AZCOPY_AUTO_LOGIN_TYPE="MSI"
       export AZCOPY_MSI_RESOURCE_STRING="$AZURE_MSI_RESOURCE_STRING"
       export AZCOPY_CONCURRENCY_VALUE="AUTO"
@@ -114,7 +114,6 @@ steps:
       azcopy copy "$(checksum_url)" "$VHD_RELEASE_CANDIDATE" --recursive=true
 
       echo "Calculating checksum..."
-
       sha256sum "$VHD_RELEASE_CANDIDATE" > "${VHD_RELEASE_CANDIDATE}.sha256"
 
       echo "VHD file checksum created"
@@ -151,14 +150,14 @@ steps:
     displayName: Publish sha256
     inputs:
       artifactName: 'vhd-sha256-${{ parameters.artifactName }}'
-      targetPath: "$(SKU_NAME)_release_candidate.vhd.sha256"
+      targetPath: "${VHD_RELEASE_CANDIDATE}.sha256"
 
   - task: PublishPipelineArtifact@1
     condition: succeeded()
     displayName: Publish signature
     inputs:
       artifactName: 'vhd-sha256-signature-${{ parameters.artifactName }}'
-      targetPath: "$(SKU_NAME)_release_candidate.vhd.sha256.asc"
+      targetPath: "${VHD_RELEASE_CANDIDATE}.sha256.asc"
 
   - bash: make -f packer.mk run-packer
     displayName: Build VHD
