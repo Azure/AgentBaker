@@ -139,8 +139,8 @@ steps:
 
   - bash: |
       echo "Importing GPG Keys..."
-      gpg --import ${privateVHDSigningKey.secureFilePath}
-      gpg --import ${publicVHDSigningKey.secureFilePath}
+      gpg --import "${privateVHDSigningKey.secureFilePath}"
+      gpg --import "${publicVHDSigningKey.secureFilePath}"
       
       echo "Parsing Private Key ID..."
       KEY_ID=$(gpg --list-secret-key --keyid-format LONG --with-colons 'aks-node' | grep '^sec' | cut -d: -f5)
@@ -162,8 +162,6 @@ steps:
         exit 0
       fi
     displayName: Validate VHD Integrity
-    env:
-      VHD_RELEASE_CANDIDATE: $(VHD_RELEASE_CANDIDATE)
   
   - task: PublishPipelineArtifact@1
     condition: succeeded()
