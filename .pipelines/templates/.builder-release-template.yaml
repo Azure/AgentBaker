@@ -139,11 +139,10 @@ steps:
       echo "Signing VHD checksum..."
       gpg --local-user "$KEY_ID" --armor --detach-sign ${VHD_RELEASE_CANDIDATE}.sha256
 
-      echo "Verifying checksum..."
+      echo "Verifying checksum integrity..."
       gpg --verify ${VHD_RELEASE_CANDIDATE}.sha256 ${VHD_RELEASE_CANDIDATE}.sha256.asc
 
       echo "Verifying that VHD has not been tampered with"
-
       current_hash=$(sha256sum "$VHD_RELEASE_CANDIDATE" | awk '{print $1}')
       expected_hash=$(awk '{print $1}' ${VHD_RELEASE_CANDIDATE}.sha256)
 
