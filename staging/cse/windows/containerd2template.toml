@@ -39,12 +39,11 @@ state = 'C:\ProgramData\containerd\state'
   [plugins.'io.containerd.cri.v1.runtime']
     enable_selinux = false
     max_container_log_line_size = 16384
-    disable_http2_client = false
 
     [plugins.'io.containerd.cri.v1.runtime'.containerd]
       default_runtime_name = 'default_runtime'
-      [plugins.'io.containerd.cri.v1.runtime'.containerd.runtimes]
 
+      [plugins.'io.containerd.cri.v1.runtime'.containerd.runtimes]
         [plugins.'io.containerd.cri.v1.runtime'.containerd.runtimes.default_runtime]
           runtime_type = 'io.containerd.runhcs.v1'
           {{containerAnnotations}}
@@ -65,9 +64,7 @@ state = 'C:\ProgramData\containerd\state'
             DebugType = 2
             SandboxImage = '{{pauseImage}}-windows-{{currentversion}}-amd64'
             SandboxPlatform = 'windows/amd64'
-
 {{hypervisors}}
-
     [plugins.'io.containerd.cri.v1.runtime'.cni]
       bin_dir = '{{cnibin}}'
       conf_dir = '{{cniconf}}'
