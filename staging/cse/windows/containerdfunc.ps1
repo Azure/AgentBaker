@@ -1,5 +1,6 @@
 # this is $global to persist across all functions since this is dot-sourced
 $global:ContainerdInstallLocation = "$Env:ProgramFiles\containerd"
+$global:ContainerdConfigLocation = "c:\AzureData\windows\"
 $global:Containerdbinary = (Join-Path $global:ContainerdInstallLocation containerd.exe)
 
 function RegisterContainerDService {
@@ -107,31 +108,20 @@ function CreateHypervisorRuntimes {
 function GetContainerdTemplatePath {
   Param(
     [Parameter(Mandatory = $true)][string]
-    $KubernetesVersion,
-    [Parameter(Mandatory = $false)][string]
-    $WindowsVersion = ""
+    $ContainerDVersion
   )
   
-  # If WindowsVersion is not provided, determine it
-  if ([string]::IsNullOrEmpty($WindowsVersion)) {
-    $WindowsVersion = Get-WindowsVersion
-  }
-
-  $templatePath = "c:\AzureData\windows\containerdtemplate.toml"
+  $templatePath = "containerdtemplate.toml"
   
-  # For future Windows versions (like test2025), if needed, use containerd2template.toml
-  if ($WindowsVersion -eq "test2025") {
-    if (([version]$KubernetesVersion).CompareTo([version]"1.33.0") -ge 0) {
-      $templatePath = "c:\AzureData\windows\containerd2template.toml"
-    }
-  }
-  return $templatePath
+  if (([version]$ContainerDVersion).CompareTo([version]"2.0.0") -ge 0) {
+    $templatePath = "containerd2template.toml"
+  } 
+
+  return  Join-Path $global:ContainerdConfigLocation $templatePath
 }
 
 function ProcessAndWriteContainerdConfig {
   Param(
-    [Parameter(Mandatory = $true)][string]
-    $TemplatePath,
     [Parameter(Mandatory = $true)][string]
     $ContainerDVersion,
     [Parameter(Mandatory = $true)][string]
@@ -139,6 +129,8 @@ function ProcessAndWriteContainerdConfig {
     [Parameter(Mandatory = $true)][string]
     $CNIConfDir
   )
+
+  $templatePath = GetContainerdTemplatePath -ContainerDVersion $ContainerDVersion
   
   $sandboxIsolation = 0
   if ($global:DefaultContainerdWindowsSandboxIsolation -eq "hyperv") {
@@ -152,7 +144,7 @@ function ProcessAndWriteContainerdConfig {
   $hypervHandlers = $global:ContainerdWindowsRuntimeHandlers.split(",", [System.StringSplitOptions]::RemoveEmptyEntries)
   $hypervRuntimes = ""
 
-  $template = Get-Content -Path $TemplatePath 
+  $template = Get-Content -Path $templatePath 
   if ($SandboxIsolation -eq 0 -And $hypervHandlers.Count -eq 0) {
     # Remove the hypervisors placeholder when not needed
     $template = $template | Select-String -Pattern 'hypervisors' -NotMatch
@@ -263,9 +255,7 @@ function Install-Containerd {
   }
 
   # Get the correct template path based on Windows version and Kubernetes version
-  $templatePath = GetContainerdTemplatePath -KubernetesVersion $KubernetesVersion -WindowsVersion $WindowsVersion
   ProcessAndWriteContainerdConfig `
-    -TemplatePath $templatePath `
     -ContainerDVersion $containerdVersion `
     -CNIBinDir $CNIBinDir `
     -CNIConfDir $CNIConfDir
