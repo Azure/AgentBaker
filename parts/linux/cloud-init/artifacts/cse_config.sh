@@ -526,15 +526,13 @@ EOF
     systemctlEnableAndStartNoBlock secure-tls-bootstrap 30 || exit $ERR_SECURE_TLS_BOOTSTRAP_START_FAILURE
 }
 
-ensureSecureTLSBootstrapping() {
-    SECURE_TLS_BOOTSTRAP_STATUS="$(systemctl is-active secure-tls-bootstrap)"    
-    while [ "${SECURE_TLS_BOOTSTRAP_STATUS,,}" = "activating" ]; do
+ensureSecureTLSBootstrapping() { 
+    while [ "$(systemctl is-active secure-tls-bootstrap)" = "activating" ]; do
         echo "secure TLS bootstrapping is in-progress, waiting for terminal state..."
-        sleep 0.5
-        SECURE_TLS_BOOTSTRAP_STATUS="$(systemctl is-active secure-tls-bootstrap)"    
+        sleep 0.5   
     done
 
-    if [ "${SECURE_TLS_BOOTSTRAP_STATUS,,}" != "active" ]; then
+    if ! systemctl is-active secure-tls-bootstrap; then
         logs_to_events "AKS.CSE.ensureSecureTLSBootstrapping.BootstrapFailure" "echo secure TLS bootstrapping failed, falling back to TLS bootstrapping with bootstrap token"
         return 0 # once bootstrap tokens are eliminated, CSE should fail here
     fi
