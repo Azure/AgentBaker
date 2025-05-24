@@ -466,7 +466,6 @@
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/azure-cloud-node-manager",
           "latestVersion": "v1.32.5",
           "previousLatestVersion": "v1.32.3"
-
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/azure-cloud-node-manager",
@@ -714,8 +713,8 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=azure-policy/policy-kubernetes-addon-prod",
-          "latestVersion": "1.11.1",
-          "previousLatestVersion": "1.11.0"
+          "latestVersion": "1.12.0",
+          "previousLatestVersion": "1.11.1"
         }
       ],
       "windowsVersions": []
@@ -726,8 +725,8 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=azure-policy/policy-kubernetes-webhook",
-          "latestVersion": "1.11.1",
-          "previousLatestVersion": "1.11.0"
+          "latestVersion": "1.12.0",
+          "previousLatestVersion": "1.11.1"
         }
       ],
       "windowsVersions": []
