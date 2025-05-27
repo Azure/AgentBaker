@@ -475,8 +475,8 @@ systemctlEnableAndStartNoBlock() {
         return 1
     fi
 
-    if ! retrycmd_if_failure 120 5 25 systemctl enable $1; then
-        echo "$1 could not be enabled by systemctl"
+    if ! retrycmd_if_failure 120 5 25 systemctl enable $service; then
+        echo "$service could not be enabled by systemctl"
         systemctl status $service --no-pager -l > /var/log/azure/$service-status.log || true
         return 1
     fi
@@ -485,9 +485,8 @@ systemctlEnableAndStartNoBlock() {
     # it hasn't gone into a failed state
     sleep $status_check_delay_seconds
 
-    status=$(systemctl is-active $service)
-    if [ "${status,,}" != "active" ] && [ "${status,,}" != "activating" ]; then
-        echo "$service is not activating or active"
+    if systemctl is-failed $service; then
+        echo "$service is in a failed state"
         systemctl status $service --no-pager -l > /var/log/azure/$service-status.log || true
         return 1
     fi

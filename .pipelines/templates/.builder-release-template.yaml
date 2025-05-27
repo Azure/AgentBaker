@@ -39,8 +39,8 @@ steps:
       pipeline: 318279
       specificBuildWithTriggering: true
       allowPartiallySucceededBuilds: true
-      buildVersionToDownload: 'latest'
-      downloadType: 'single'
+      buildVersionToDownload: 'latestFromBranch'
+      branchName: 'refs/heads/master'
       artifactName: 'drop_container_job_sign_uvm'
       itemPattern: |
         **/kata-containers-igvm-debug.img**
