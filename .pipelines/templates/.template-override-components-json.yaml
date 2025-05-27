@@ -15,12 +15,12 @@ steps:
     fetchTags: false
     fetchDepth: 1
 
-  - checkout: git://CloudNativeCompute/aks-rp@${{ parameters.overrideBranch }}
-    path: aks-rp
-    condition: and(succeeded(), eq('${{ parameters.useOverrides }}', true))
-    fetchDepth: 1
-    fetchTags: false
-    lfs: false
+#  - checkout: git://CloudNativeCompute/aks-rp@${{ parameters.overrideBranch }}
+#    path: aks-rp
+#    condition: and(succeeded(), eq('${{ parameters.useOverrides }}', true))
+#    fetchDepth: 1
+#    fetchTags: false
+#    lfs: false
 
   - template: ./.template-copy-file.yaml
     parameters:

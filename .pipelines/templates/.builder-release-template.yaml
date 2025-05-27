@@ -30,50 +30,50 @@ steps:
       vstsPackageVersion: '0.0.17'
       downloadDirectory: vhdbuilder/
 
-  - task: DownloadPipelineArtifact@2
-    condition: and(or(eq(variables.OS_SKU, 'CBLMariner'), eq(variables.OS_SKU, 'AzureLinux')), eq(variables.IMG_OFFER, 'cbl-mariner'))
-    displayName: 'Download Kata CC UVM artifact'
-    inputs:
-      source: specific
-      project: CloudNativeCompute
-      pipeline: 318279
-      specificBuildWithTriggering: true
-      allowPartiallySucceededBuilds: false
-      buildVersionToDownload: 'latestFromBranch'
-      branchName: 'refs/heads/master'
-      artifactName: 'drop_container_job_sign_uvm'
-      itemPattern: |
-        **/kata-containers-igvm-debug.img**
-        **/igvm-measurement**
-        **/kata-containers-igvm.img**
-        **/kata-containers-cc.img**
-        **/kata-containers.img**
-        **/kata-containers-initrd-base.img**
-        **/reference-info-base64**
-      downloadPath: $(Build.SourcesDirectory)
+#  - task: DownloadPipelineArtifact@2
+#    condition: and(or(eq(variables.OS_SKU, 'CBLMariner'), eq(variables.OS_SKU, 'AzureLinux')), eq(variables.IMG_OFFER, 'cbl-mariner'))
+#    displayName: 'Download Kata CC UVM artifact'
+#    inputs:
+#      source: specific
+#      project: CloudNativeCompute
+#      pipeline: 318279
+#      specificBuildWithTriggering: true
+#      allowPartiallySucceededBuilds: false
+#      buildVersionToDownload: 'latestFromBranch'
+#      branchName: 'refs/heads/master'
+#      artifactName: 'drop_container_job_sign_uvm'
+#      itemPattern: |
+#        **/kata-containers-igvm-debug.img**
+#        **/igvm-measurement**
+#        **/kata-containers-igvm.img**
+#        **/kata-containers-cc.img**
+#        **/kata-containers.img**
+#        **/kata-containers-initrd-base.img**
+#        **/reference-info-base64**
+#      downloadPath: $(Build.SourcesDirectory)
 
-  - task: DownloadPipelineArtifact@2
-    condition: and(or(eq(variables.OS_SKU, 'CBLMariner'), eq(variables.OS_SKU, 'AzureLinux')), eq(variables.IMG_OFFER, 'azure-linux-3'))
-    displayName: 'Download Kata and Kata CC AzureLinux3_0 UVM artifact'
-    inputs:
-      source: specific
-      project: CloudNativeCompute
-      pipeline: 318279
-      specificBuildWithTriggering: true
-      allowPartiallySucceededBuilds: false
-      buildVersionToDownload: 'latestFromBranch'
-      branchName: 'refs/heads/master'
-      downloadType: 'single'
-      artifactName: 'drop_container_job_sign_uvm_azl3'
-      itemPattern: |
-        **/kata-containers-igvm-debug.img**
-        **/igvm-measurement**
-        **/kata-containers-igvm.img**
-        **/kata-containers-cc.img**
-        **/kata-containers.img**
-        **/kata-containers-initrd-base.img**
-        **/reference-info-base64**
-      downloadPath: $(Build.SourcesDirectory)
+#  - task: DownloadPipelineArtifact@2
+#    condition: and(or(eq(variables.OS_SKU, 'CBLMariner'), eq(variables.OS_SKU, 'AzureLinux')), eq(variables.IMG_OFFER, 'azure-linux-3'))
+#    displayName: 'Download Kata and Kata CC AzureLinux3_0 UVM artifact'
+#    inputs:
+#      source: specific
+#      project: CloudNativeCompute
+#      pipeline: 318279
+#      specificBuildWithTriggering: true
+#      allowPartiallySucceededBuilds: false
+#      buildVersionToDownload: 'latestFromBranch'
+#      branchName: 'refs/heads/master'
+#      downloadType: 'single'
+#      artifactName: 'drop_container_job_sign_uvm_azl3'
+#      itemPattern: |
+#        **/kata-containers-igvm-debug.img**
+#        **/igvm-measurement**
+#        **/kata-containers-igvm.img**
+#        **/kata-containers-cc.img**
+#        **/kata-containers.img**
+#        **/kata-containers-initrd-base.img**
+#        **/reference-info-base64**
+#      downloadPath: $(Build.SourcesDirectory)
 
   - bash: |
       pwd
