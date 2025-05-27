@@ -85,7 +85,6 @@ shellspec:
 		-w /workspace \
 		shellspec-docker --shell bash --format d
 
-# allows usage of focus mode: https://github.com/shellspec/shellspec/tree/master?tab=readme-ov-file#pending-skip-and-focus
 .PHONY: shellspec-focus
 shellspec-focus:
 	docker build -t shellspec-docker - < ./spec/shellspec.Dockerfile

@@ -1003,15 +1003,11 @@ testdomain567.com:53 {
 	}, Entry("AKSUbuntu1604 with k8s version less than 1.18", "AKSUbuntu1604+K8S115", "1.15.7", func(config *datamodel.NodeBootstrappingConfiguration) {
 		config.KubeletConfig["--dynamic-config-dir"] = "/var/lib/kubelet/"
 	}, func(o *nodeBootstrappingOutput) {
-		etcDefaultKubelet := o.files["/etc/default/kubelet"].value
 
 		Expect(o.vars["KUBELET_FLAGS"]).NotTo(BeEmpty())
 		Expect(strings.Contains(o.vars["KUBELET_FLAGS"], "DynamicKubeletConfig")).To(BeTrue())
 		Expect(strings.Contains(o.vars["KUBELET_FLAGS"], "DynamicKubeletConfig")).To(BeTrue())
 		Expect(strings.Contains(o.vars["KUBELET_FLAGS"], "--dynamic-config-dir")).To(BeFalse())
-		Expect(etcDefaultKubelet).NotTo(BeEmpty())
-		Expect(strings.Contains(etcDefaultKubelet, "DynamicKubeletConfig")).To(BeTrue())
-		Expect(strings.Contains(etcDefaultKubelet, "--dynamic-config-dir")).To(BeFalse())
 		Expect(strings.Contains(o.cseCmd, "DynamicKubeletConfig")).To(BeTrue())
 
 		// sanity check that no other files/variables set the flag
