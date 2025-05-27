@@ -1,7 +1,7 @@
-Describe "build_release_package.ps1" {
+Describe "archive_cse_package.ps1" {
     BeforeAll {
         # Path to the script we want to test
-        $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\build_release_package.ps1"
+        $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\archive_cse_package.ps1"
         $testTag = "vtest123"
         $tempDir = Join-Path -Path $env:TEMP -ChildPath "test-cse-$(Get-Random)"
         $sourceDir = "$(Split-Path -Parent $PSScriptRoot)\..\..\..\staging\cse\windows"

@@ -80,6 +80,22 @@
     ],
     "provisioners": [
         {
+            "type": "powershell",
+            "elevated_user": "packer",
+            "elevated_password": "{{.WinRMPassword}}",
+            "scripts": [
+                "vhdbuilder/packer/windows/archive_cse_package.ps1"
+            ]
+        },
+        {
+            "type": "file",
+            "direction": "upload",
+            "sources": [
+                "vhdbuilder/packer/windows/*.zip"
+            ],
+            "destination": "c:/akse-cache/"
+        },
+        {
             "type": "file",
             "direction": "upload",
             "sources": [
