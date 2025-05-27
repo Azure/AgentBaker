@@ -520,7 +520,7 @@ configureAndStartSecureTLSBootstrapping() {
     chmod 0600 "${SECURE_TLS_BOOTSTRAPPING_DROP_IN}"
     cat > "${SECURE_TLS_BOOTSTRAPPING_DROP_IN}" <<EOF
 [Service]
-Environment="BOOTSTRAP_FLAGS=--aad-resource="${CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_SERVER_APP_ID:-6dae42f8-4368-4678-94ff-3960e28e3630}" --apiserver-fqdn=${API_SERVER_NAME} --cloud-provider-config=${AZURE_JSON_PATH}"
+Environment="BOOTSTRAP_FLAGS=--aad-resource="${CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_SERVER_APP_ID:-$AKS_AAD_SERVER_APP_ID}" --apiserver-fqdn=${API_SERVER_NAME} --cloud-provider-config=${AZURE_JSON_PATH}"
 EOF
 
     systemctlEnableAndStartNoBlock secure-tls-bootstrap 30 || exit $ERR_SECURE_TLS_BOOTSTRAP_START_FAILURE
@@ -584,6 +584,8 @@ EOF
     fi
     chmod 0600 "${KUBELET_DEFAULT_FILE}"
 
+    BOOTSTRAP_KUBECONFIG_FILE=/var/lib/kubelet/bootstrap-kubeconfig
+
     # to ensure we don't expose bootstrap token secrets in provisioning logs
     set +x
 
@@ -608,7 +610,6 @@ EOF
 [Service]
 Environment="KUBELET_TLS_BOOTSTRAP_FLAGS=--kubeconfig /var/lib/kubelet/kubeconfig --bootstrap-kubeconfig /var/lib/kubelet/bootstrap-kubeconfig"
 EOF
-        BOOTSTRAP_KUBECONFIG_FILE=/var/lib/kubelet/bootstrap-kubeconfig
         mkdir -p "$(dirname "${BOOTSTRAP_KUBECONFIG_FILE}")"
         touch "${BOOTSTRAP_KUBECONFIG_FILE}"
         chmod 0644 "${BOOTSTRAP_KUBECONFIG_FILE}"
@@ -633,7 +634,7 @@ current-context: bootstrap-context
 EOF
     elif [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" = "true" ]; then
         echo "secure TLS bootstrapping is enabled and has succeeded, removing any bootstrap-kubeconfig"
-        rm -f /var/lib/kubelet/bootstrap-kubeconfig
+        rm -f "$BOOTSTRAP_KUBECONFIG_FILE"
     else
         echo "generating kubeconfig referencing the provided kubelet client certificate"
         
