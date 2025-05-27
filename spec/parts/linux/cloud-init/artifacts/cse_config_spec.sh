@@ -418,9 +418,6 @@ Describe 'cse_config.sh'
         logs_to_events() {
             echo "logs_to_events $@"
         }
-        systemctl() {
-            echo "active"
-        }
 
         cleanup() {
             rm -rf "$KUBECONFIG_PATH"
