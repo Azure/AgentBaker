@@ -39,8 +39,8 @@ steps:
       pipeline: 318279
       specificBuildWithTriggering: true
       allowPartiallySucceededBuilds: true
-      buildVersionToDownload: 'latest'
-      downloadType: 'single'
+      buildVersionToDownload: 'latestFromBranch'
+      branchName: 'refs/heads/master'
       artifactName: 'drop_container_job_sign_uvm'
       itemPattern: |
         **/kata-containers-igvm-debug.img**
@@ -211,7 +211,7 @@ steps:
   
   - task: DownloadPipelineArtifact@2
     displayName: Download Build Performance Program
-    condition: and(succeeded(), eq(variables.ENVIRONMENT, 'test'))
+    condition: and(succeeded(), eq(variables.ENVIRONMENT, 'tme'))
     inputs:
       source: "specific"
       downloadPath: "vhdbuilder/packer/buildperformance"

@@ -16,7 +16,7 @@ installDeps() {
     aptmarkWALinuxAgent hold
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
 
-    pkg_list=(ca-certificates ceph-common cgroup-lite cifs-utils conntrack cracklib-runtime ebtables ethtool git glusterfs-client htop init-system-helpers inotify-tools iotop iproute2 ipset iptables nftables jq libpam-pwquality libpwquality-tools mount nfs-common pigz socat sysfsutils sysstat util-linux xz-utils netcat-openbsd zip rng-tools kmod gcc make dkms initramfs-tools linux-headers-$(uname -r) linux-modules-extra-$(uname -r))
+    pkg_list=(ca-certificates ceph-common cgroup-lite cifs-utils conntrack cracklib-runtime ebtables ethtool glusterfs-client htop init-system-helpers inotify-tools iotop iproute2 ipset iptables nftables jq libpam-pwquality libpwquality-tools mount nfs-common pigz socat sysfsutils sysstat util-linux xz-utils netcat-openbsd zip rng-tools kmod gcc make dkms initramfs-tools linux-headers-$(uname -r) linux-modules-extra-$(uname -r))
 
     if [ "${UBUNTU_RELEASE}" = "18.04" ]; then
         # bind9-dnsutils is not available in the 1804 pkg set
@@ -87,9 +87,6 @@ installCriCtlPackage() {
     fi
     echo "Installing ${packageName} with apt-get"
     apt_get_install 20 30 120 ${packageName} || exit 1
-    # create a symlink at the old location /usr/local/bin/crictl for backward compatibility
-    # it points to the new location /usr/bin/crictl after apt-get install
-    ln -sf /usr/bin/crictl /usr/local/bin/crictl
 }
 
 installContainerd() {

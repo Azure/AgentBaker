@@ -130,6 +130,9 @@ if ! isMarinerOrAzureLinux "$OS"; then
 fi
 capture_benchmark "${SCRIPT_NAME}_validate_container_runtime_and_override_ubuntu_net_config"
 
+# Configure SSH service during VHD build for Ubuntu 22.10+
+configureSSHService "$OS" "$OS_VERSION" || echo "##vso[task.logissue type=warning]SSH Service configuration failed, but continuing VHD build"
+
 CONTAINERD_SERVICE_DIR="/etc/systemd/system/containerd.service.d"
 mkdir -p "${CONTAINERD_SERVICE_DIR}"
 tee "${CONTAINERD_SERVICE_DIR}/exec_start.conf" > /dev/null <<EOF
@@ -348,6 +351,14 @@ while IFS= read -r p; do
         echo "  - oras version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
+    "aks-secure-tls-bootstrap-client")
+      for version in ${PACKAGE_VERSIONS[@]}; do
+        # removed at provisioning time if secure TLS bootstrapping is disabled
+        evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+        downloadSecureTLSBootstrapClient "${downloadDir}" "${evaluatedURL}" "${version}"
+        echo "  - aks-secure-tls-bootstrap-client version ${version}" >> ${VHD_LOGS_FILEPATH}
+      done
+      ;;
     "azure-acr-credential-provider")
       for version in ${PACKAGE_VERSIONS[@]}; do
         evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
@@ -391,7 +402,7 @@ installAndConfigureArtifactStreaming() {
   PACKAGE_NAME=$1
   MCR_IMAGE_PATH=$2
   PACKAGE_EXTENSION=$3
-  MIRROR_PROXY_VERSION='0.2.11'
+  MIRROR_PROXY_VERSION='0.2.12'
   MIRROR_DOWNLOAD_PATH="./$1.$3"
   
   # Use oras to pull the image from MCR

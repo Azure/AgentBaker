@@ -84,7 +84,7 @@ ERR_ARTIFACT_STREAMING_INSTALL=153 # Error installing mirror proxy and overlaybd
 
 ERR_HTTP_PROXY_CA_CONVERT=160 # Error converting http proxy ca cert from pem to crt format
 ERR_UPDATE_CA_CERTS=161 # Error updating ca certs to include user-provided certificates
-ERR_DOWNLOAD_SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_TIMEOUT=169 # Timeout waiting for secure TLS bootrstrap kubelet exec plugin download
+ERR_SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_ERROR=169 # Error downloading the secure TLS bootstrap client binary
 
 ERR_DISBALE_IPTABLES=170 # Error disabling iptables service
 
@@ -169,7 +169,7 @@ PERMANENT_CACHE_DIR=/root/aptcache/
 EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/
 CURL_OUTPUT=/tmp/curl_verbose.out
 ORAS_OUTPUT=/tmp/oras_verbose.out
-ORAS_REGISTRY_CONFIG_FILE=/etc/oras/config.yaml # oras registry auth config file, not used, but have to define to avoid error "Error: failed to get user home directory: $HOME is not defined" 
+ORAS_REGISTRY_CONFIG_FILE=/etc/oras/config.yaml # oras registry auth config file, not used, but have to define to avoid error "Error: failed to get user home directory: $HOME is not defined"
 
 # Checks if the elapsed time since CSEStartTime exceeds 13 minutes.
 # That value is based on the global CSE timeout which is set to 15 minutes - majority of CSE executions succeed or fail very fast, meaning we can exit slightly before the global timeout without affecting the overall CSE execution.
@@ -320,13 +320,14 @@ retrycmd_get_tarball_from_registry_with_oras() {
         fi
     done
 }
+
 retrycmd_get_access_token_for_oras() {
     retries=$1; wait_sleep=$2; url=$3
     for i in $(seq 1 $retries); do
         response=$(timeout 60 curl -v -s -H "Metadata:true" --noproxy "*" "$url" -w "\n%{http_code}")
         ACCESS_TOKEN_OUTPUT=$(echo "$response" | sed '$d')
         http_code=$(echo "$response" | tail -n1)
-        if [ -n "$ACCESS_TOKEN_OUTPUT" ] && [ "$http_code" -eq 200 ]; then 
+        if [ -n "$ACCESS_TOKEN_OUTPUT" ] && [ "$http_code" -eq 200 ]; then
             echo "$ACCESS_TOKEN_OUTPUT"
             return 0
         fi
@@ -339,13 +340,14 @@ retrycmd_get_access_token_for_oras() {
     echo "timeout waiting for IMDS response to retrieve kubelet identity token"
     return $ERR_ORAS_IMDS_TIMEOUT
 }
+
 retrycmd_get_refresh_token_for_oras() {
     retries=$1; wait_sleep=$2; acr_url=$3; tenant_id=$4; ACCESS_TOKEN=$5
     for i in $(seq 1 $retries); do
         REFRESH_TOKEN_OUTPUT=$(timeout 60 curl -v -s -X POST -H "Content-Type: application/x-www-form-urlencoded" \
             -d "grant_type=access_token&service=$acr_url&tenant=$tenant_id&access_token=$ACCESS_TOKEN" \
             https://$acr_url/oauth2/exchange)
-        if [ -n "$REFRESH_TOKEN_OUTPUT" ]; then 
+        if [ -n "$REFRESH_TOKEN_OUTPUT" ]; then
             echo "$REFRESH_TOKEN_OUTPUT"
             return 0
         fi
@@ -353,6 +355,7 @@ retrycmd_get_refresh_token_for_oras() {
     done
     return $ERR_ORAS_PULL_NETWORK_TIMEOUT
 }
+
 retrycmd_oras_login() {
     retries=$1; wait_sleep=$2; acr_url=$3; REFRESH_TOKEN=$4
     for i in $(seq 1 $retries); do
@@ -366,11 +369,12 @@ retrycmd_oras_login() {
     done
     return $exit_code
 }
+
 retrycmd_get_binary_from_registry_with_oras() {
     binary_retries=$1; wait_sleep=$2; binary_path=$3; url=$4
     binary_folder=$(dirname "$binary_path")
     echo "${binary_retries} retries"
-    
+
     for i in $(seq 1 $binary_retries); do
         if [ -f "$binary_path" ]; then
             break
@@ -388,6 +392,7 @@ retrycmd_get_binary_from_registry_with_oras() {
         fi
     done
 }
+
 retrycmd_can_oras_ls_acr() {
     retries=$1; wait_sleep=$2; url=$3
     for i in $(seq 1 $retries); do
@@ -423,34 +428,73 @@ _systemctl_retry_svc_operation() {
         fi
     done
 }
+
 systemctl_restart() {
     _systemctl_retry_svc_operation "$1" "$2" "$3" "restart" "$4" true
 }
+
+systemctl_restart_no_block() {
+    _systemctl_retry_svc_operation "$1" "$2" "$3" "restart --no-block" "$4" true
+}
+
 systemctl_stop() {
-    _systemctl_retry_svc_operation "$1" "$2" "$3" "stop" "$4" 
+    _systemctl_retry_svc_operation "$1" "$2" "$3" "stop" "$4"
 }
+
 systemctl_disable() {
-    _systemctl_retry_svc_operation "$1" "$2" "$3" "disable" "$4" 
+    _systemctl_retry_svc_operation "$1" "$2" "$3" "disable" "$4"
 }
+
 sysctl_reload() {
     retrycmd_silent $1 $2 $3 "false" sysctl --system
 }
-version_gte() {
-  test "$(printf '%s\n' "$@" | sort -rV | head -n 1)" == "$1"
-}
 
 systemctlEnableAndStart() {
-    service=$1; timeout=$2    
-    systemctl_restart 100 5 $2 $1
+    service=$1; timeout=$2
+    systemctl_restart 100 5 $timeout $service
     RESTART_STATUS=$?
-    systemctl status $1 --no-pager -l > /var/log/azure/$1-status.log
+    systemctl status $service --no-pager -l > /var/log/azure/$service-status.log
     if [ $RESTART_STATUS -ne 0 ]; then
-        echo "$1 could not be started"
+        echo "$service could not be started"
         return 1
     fi
-    if ! retrycmd_if_failure 120 5 25 systemctl enable $1; then
-        echo "$1 could not be enabled by systemctl"
+    if ! retrycmd_if_failure 120 5 25 systemctl enable $service; then
+        echo "$service could not be enabled by systemctl"
         return 1
+    fi
+}
+
+systemctlEnableAndStartNoBlock() {    
+    service=$1; timeout=$2; status_check_delay_seconds=${3:-"0"}
+
+    systemctl_restart_no_block 100 5 $timeout $service
+    RESTART_STATUS=$?
+    if [ $RESTART_STATUS -ne 0 ]; then
+        echo "$service could not be enqueued for startup"
+        systemctl status $service --no-pager -l > /var/log/azure/$service-status.log || true
+        return 1
+    fi
+
+    if ! retrycmd_if_failure 120 5 25 systemctl enable $service; then
+        echo "$service could not be enabled by systemctl"
+        systemctl status $service --no-pager -l > /var/log/azure/$service-status.log || true
+        return 1
+    fi
+
+    # wait for the specified delay seconds before checking the service status to make sure
+    # it hasn't gone into a failed state
+    sleep $status_check_delay_seconds
+
+    if systemctl is-failed $service; then
+        echo "$service is in a failed state"
+        systemctl status $service --no-pager -l > /var/log/azure/$service-status.log || true
+        return 1
+    fi
+
+    # systemctl status only exits with code 0 iff the service is "active",
+    # thus we handle the "activating" case by checking for a non-zero exit code
+    if ! systemctl status $service --no-pager -l > /var/log/azure/$service-status.log; then
+        echo "$service is still activating, continuing anyway..."
     fi
 }
 
@@ -471,6 +515,9 @@ semverCompare() {
     [ "${VERSION_A}" = ${highestVersion} ] && return 0
     return 1
 }
+
+	
+
 apt_get_download() {
   retries=$1; wait_sleep=$2; shift && shift;
   local ret=0
@@ -484,6 +531,7 @@ apt_get_download() {
   popd || return 1
   return $ret
 }
+
 getCPUArch() {
     arch=$(uname -m)
     # shellcheck disable=SC3010
@@ -493,6 +541,7 @@ getCPUArch() {
         echo "amd64"
     fi
 }
+
 isARM64() {
     if [ "$(getCPUArch)" = "arm64" ]; then
         echo 1
@@ -712,9 +761,9 @@ updatePackageDownloadURL() {
     RELEASE="current"
     updateRelease "${package}" "${os}" "${osVersion}"
     local osLowerCase=$(echo "${os}" | tr '[:upper:]' '[:lower:]')
-    
+
     #if .downloadURIs.${osLowerCase} exist, then get the downloadURL from there.
-    #otherwise get the downloadURL from .downloadURIs.default 
+    #otherwise get the downloadURL from .downloadURIs.default
     if [ "$(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}")" != "null" ]; then
         downloadURL=$(echo "${package}" | jq ".downloadURIs.${osLowerCase}.${RELEASE}.downloadURL" -r)
         [ "${downloadURL}" = "null" ] && PACKAGE_DOWNLOAD_URL="" || PACKAGE_DOWNLOAD_URL="${downloadURL}"
@@ -722,7 +771,7 @@ updatePackageDownloadURL() {
     fi
     downloadURL=$(echo "${package}" | jq ".downloadURIs.default.${RELEASE}.downloadURL" -r)
     [ "${downloadURL}" = "null" ] && PACKAGE_DOWNLOAD_URL="" || PACKAGE_DOWNLOAD_URL="${downloadURL}"
-    return    
+    return
 }
 
 # adds the specified LABEL_STRING (which should be in the form of 'label=value') to KUBELET_NODE_LABELS
@@ -757,7 +806,7 @@ removeKubeletNodeLabel() {
 # generate kubenode binary registry url from acs-mirror url
 updateKubeBinaryRegistryURL() {
     # if rp already passes registry url, then directly use the registry url that rp passes
-    # this path should have not catch for now, but keep it for future 
+    # this path should have not catch for now, but keep it for future
     if [ -n "${KUBE_BINARY_URL}" ] && isRegistryUrl "${KUBE_BINARY_URL}"; then
         echo "KUBE_BINARY_URL is a registry url, will use it to pull the kube binary"
         KUBE_BINARY_REGISTRY_URL="${KUBE_BINARY_URL}"
@@ -842,14 +891,14 @@ resolve_packages_source_url() {
 
 update_base_url() {
   initial_url=$1
-  
+
   # shellcheck disable=SC3010
   if [ "$PACKAGE_DOWNLOAD_BASE_URL" = "packages.aks.azure.com" ] && [[ "$initial_url" == *"acs-mirror.azureedge.net"* ]]; then
     initial_url="${initial_url//"acs-mirror.azureedge.net"/$PACKAGE_DOWNLOAD_BASE_URL}"
   elif [ "$PACKAGE_DOWNLOAD_BASE_URL" = "acs-mirror.azureedge.net" ] && [[ "$initial_url" == *"packages.aks.azure.com"* ]]; then
     initial_url="${initial_url//"packages.aks.azure.com"/$PACKAGE_DOWNLOAD_BASE_URL}"
   fi
-  
+
   echo "$initial_url"
 }
 
@@ -860,11 +909,11 @@ oras_login_with_kubelet_identity() {
 
     if [ -z "$client_id" ] || [ -z "$tenant_id" ]; then
         echo "client_id or tenant_id are not set. Oras login is not possible, proceeding with anonymous pull"
-        return 
+        return
     fi
 
     retrycmd_can_oras_ls_acr 10 5 $acr_url
-    ret_code=$? 
+    ret_code=$?
     if [ "$ret_code" -eq 0 ]; then
         echo "anonymous pull is allowed for acr '$acr_url', proceeding with anonymous pull"
         return
@@ -873,10 +922,10 @@ oras_login_with_kubelet_identity() {
         return $ret_code
     fi
 
-    set +x 
+    set +x
     access_url="http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https://management.azure.com/&client_id=$client_id"
     raw_access_token=$(retrycmd_get_access_token_for_oras 5 15 $access_url)
-    ret_code=$? 
+    ret_code=$?
     if [ "$ret_code" -ne 0 ]; then
         echo $raw_access_token
         return $ret_code
@@ -888,7 +937,7 @@ oras_login_with_kubelet_identity() {
     fi
 
     raw_refresh_token=$(retrycmd_get_refresh_token_for_oras 10 5 $acr_url $tenant_id $ACCESS_TOKEN)
-    ret_code=$? 
+    ret_code=$?
     if [ "$ret_code" -ne 0 ]; then
         echo "failed to retrieve refresh token: $ret_code"
         return $ret_code
@@ -919,6 +968,51 @@ oras_login_with_kubelet_identity() {
     fi
 
     echo "successfully logged in to acr '$acr_url' with identity token"
+}
+
+configureSSHService() {
+    local os_param="${1:-$OS}"
+    local os_version_param="${2:-$OS_VERSION}"
+    
+    # If not Ubuntu, no changes needed
+    if [ "$os_param" != "$UBUNTU_OS_NAME" ]; then
+        return 0
+    fi
+    
+    # Only for Ubuntu 22.10+ or newer socket activation is used, for earlier versions no changes needed
+    if semverCompare "22.10" "$os_version_param" ; then
+        return 0
+    fi
+
+    # For Ubuntu 22.10+ with socket-based SSH activation
+    # disable socket if is active
+    if systemctl is-active --quiet ssh.socket; then
+        # Socket is active, disable it and switch to service-based activation
+        systemctl disable --now ssh.socket || echo "Warning: Could not disable ssh.socket"
+    fi
+
+    # Remove the socket-based configuration files if present
+    if [ -f /etc/systemd/system/ssh.service.d/00-socket.conf ]; then
+        rm /etc/systemd/system/ssh.service.d/00-socket.conf || echo "Warning: Could not remove 00-socket.conf"
+    fi
+    
+    if [ -f /etc/systemd/system/ssh.socket.d/addresses.conf ]; then
+        rm /etc/systemd/system/ssh.socket.d/addresses.conf || echo "Warning: Could not remove addresses.conf"
+    fi
+    
+    # For all Ubuntu versions, just make sure ssh service is enabled and running
+    if ! systemctl is-enabled --quiet ssh.service; then
+        echo "Enabling SSH service..."
+        systemctlEnableAndStart ssh 30 || return $ERR_SYSTEMCTL_START_FAIL
+    fi
+    # Verify SSH service is now running
+    if ! systemctl is-active --quiet ssh; then
+        echo "Error: Failed to start SSH service after configuration changes"
+        return $ERR_SYSTEMCTL_START_FAIL
+    fi
+    
+    echo "SSH service successfully reconfigured and started"
+    return 0
 }
 
 #HELPERSEOF

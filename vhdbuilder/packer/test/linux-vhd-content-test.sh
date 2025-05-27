@@ -35,6 +35,14 @@ err() {
 # The remote branch will be something like 'refs/heads/branch/name' or 'refs/pull/number/head'. Using the same name
 # for the local branch has weird semantics, so we replace '/' with '-' for the local branch name.
 LOCAL_GIT_BRANCH=${GIT_BRANCH//\//-}
+
+# Git is not present in the base image, so we need to install it.
+if [ "$OS_SKU" = "Ubuntu" ]; then
+  sudo DEBIAN_FRONTEND=noninteractive apt-get install -y git
+else
+  sudo tdnf install -y git
+fi
+
 echo "Cloning AgentBaker repo and checking out remote branch '${GIT_BRANCH}' into local branch '${LOCAL_GIT_BRANCH}'"
 COMMAND="git clone --quiet https://github.com/Azure/AgentBaker.git"
 if ! ${COMMAND}; then
@@ -1242,15 +1250,6 @@ testCriCtl() {
   echo "$test: checking if crictl version is $expectedVersion"
   if [ "$crictl_version" != "$expectedVersion" ]; then
     err "$test: crictl version is not $expectedVersion, instead it is $crictl_version"
-    return 1
-  fi
-  # check if the symlink /usr/local/bin/crictl points to /usr/bin/crictl
-  if [ ! -L "/usr/local/bin/crictl" ]; then
-    err "$test: /usr/local/bin/crictl should be a symlink"
-    return 1
-  fi
-  if [ "$(readlink -f /usr/local/bin/crictl)" != "/usr/bin/crictl" ]; then
-    err "$test: /usr/local/bin/crictl should point to /usr/bin/crictl"
     return 1
   fi
   echo "$test: Test finished successfully."

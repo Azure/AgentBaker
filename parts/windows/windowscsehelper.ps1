@@ -151,12 +151,23 @@ $global:ErrorCodeNames = @(
     "WINDOWS_CSE_ERROR_LOOKUP_INSTANCE_DATA_TAG"
 )
 
+# The package domain to be used
+$global:PackageDownloadFqdn = $null
+# The preferred package FQDN
+$global:PreferredPackageDownloadFqdn = "packages.aks.azure.com"
+# Fallback FQDN if preferred cannot be contacted
+$global:FallbackPackageDownloadFqdn = "acs-mirror.azureedge.net"
+
 # NOTE: KubernetesVersion does not contain "v"
 $global:MinimalKubernetesVersionWithLatestContainerd = "1.28.0" # Will change it to the correct version when we support new Windows containerd version
+# The minimum kubernetes version to use containerd 2.x
+$global:MinimalKubernetesVersionWithLatestContainerd2 = "1.33.0"
 # Although the contianerd package url is set in AKS RP code now, we still need to update the following variables for AgentBaker Windows E2E tests.
 $global:StableContainerdPackage = "v1.6.35-azure.1/binaries/containerd-v1.6.35-azure.1-windows-amd64.tar.gz"
 # The latest containerd version
 $global:LatestContainerdPackage = "v1.7.20-azure.1/binaries/containerd-v1.7.20-azure.1-windows-amd64.tar.gz"
+# The latest containerd 2.x package
+$global:LatestContainerd2Package = "v2.0.4-azure.1/binaries/containerd-v2.0.4-azure.1-windows-amd64.tar.gz"
 
 $global:EventsLoggingDir = "C:\WindowsAzure\Logs\Plugins\Microsoft.Compute.CustomScriptExtension\Events\"
 $global:TaskName = ""
@@ -171,7 +182,6 @@ function Write-Log($message) {
     $msg = $message | Timestamp
     Write-Output $msg
 }
-
 function DownloadFileOverHttp {
     Param(
         [Parameter(Mandatory = $true)][string]
@@ -187,7 +197,7 @@ function DownloadFileOverHttp {
     $fileName = [IO.Path]::GetFileName($cleanUrl)
 
     $search = @()
-    if (Test-Path $global:CacheDir) {
+    if ($global:CacheDir -and (Test-Path $global:CacheDir)) {
         $search = [IO.Directory]::GetFiles($global:CacheDir, $fileName, [IO.SearchOption]::AllDirectories)
     }
 
@@ -206,15 +216,18 @@ function DownloadFileOverHttp {
         }
         [System.Net.ServicePointManager]::SecurityProtocol = $secureProtocols
 
+        $MappedUrl = Update-BaseUrl -InitialUrl $Url
+        Write-Log "Updated URL $Url -> $MappedUrl to download $fileName to $DestinationPath"
+
         $oldProgressPreference = $ProgressPreference
         $ProgressPreference = 'SilentlyContinue'
 
         $downloadTimer = [System.Diagnostics.Stopwatch]::StartNew()
         try {
-            $args = @{Uri=$Url; Method="Get"; OutFile=$DestinationPath}
+            $args = @{Uri=$MappedUrl; Method="Get"; OutFile=$DestinationPath}
             Retry-Command -Command "Invoke-RestMethod" -Args $args -Retries 5 -RetryDelaySeconds 10
         } catch {
-            Set-ExitCode -ExitCode $ExitCode -ErrorMessage "Failed in downloading $Url. Error: $_"
+            Set-ExitCode -ExitCode $ExitCode -ErrorMessage "Failed in downloading $MappedUrl. Error: $_"
         }
         $downloadTimer.Stop()
 
@@ -227,7 +240,7 @@ function DownloadFileOverHttp {
         }
 
         $ProgressPreference = $oldProgressPreference
-        Write-Log "Downloaded file $Url to $DestinationPath"
+        Write-Log "Downloaded file $MappedUrl to $DestinationPath"
     }
 }
 
@@ -246,7 +259,7 @@ function Set-ExitCode
     exit $ExitCode
 }
 
-function Postpone-RestartComputer 
+function Postpone-RestartComputer
 {
     Logs-To-Event -TaskName "AKS.WindowsCSE.PostponeRestartComputer" -TaskMessage "Start to create an one-time task to restart the VM"
     $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument " -Command `"Restart-Computer -Force`""
@@ -266,7 +279,7 @@ function Create-Directory
         [Parameter(Mandatory=$false)][string]
         $DirectoryUsage = "general purpose"
     )
-    
+
     if (-Not (Test-Path $FullPath)) {
         Write-Log "Create directory $FullPath for $DirectoryUsage"
         New-Item -ItemType Directory -Path $FullPath > $null
@@ -400,8 +413,11 @@ function Install-Containerd-Based-On-Kubernetes-Version {
     $KubernetesVersion
   )
 
-  Logs-To-Event -TaskName "AKS.WindowsCSE.InstallContainerdBasedOnKubernetesVersion" -TaskMessage "Start to install ContainerD based on kubernetes version. ContainerdUrl: $global:ContainerdUrl, KubernetesVersion: $global:KubeBinariesVersion"
+  # Get the current Windows version, this is interim since we are progressively supporting containerd 2.0 for all Windows version. for now only test2025
+  $windowsVersion = Get-WindowsVersion
+  Logs-To-Event -TaskName "AKS.WindowsCSE.InstallContainerdBasedOnKubernetesVersion" -TaskMessage "Start to install ContainerD based on kubernetes version. ContainerdUrl: $global:ContainerdUrl, KubernetesVersion: $global:KubeBinariesVersion, Windows Version: $windowsVersion"
 
+  
   # In the past, $global:ContainerdUrl is a full URL to download Windows containerd package.
   # Example: "https://acs-mirror.azureedge.net/containerd/windows/v0.0.46/binaries/containerd-v0.0.46-windows-amd64.tar.gz"
   # To support multiple containerd versions, we only set the endpoint in $global:ContainerdUrl.
@@ -412,7 +428,11 @@ function Install-Containerd-Based-On-Kubernetes-Version {
   if ($ContainerdUrl.EndsWith("/")) {
     Write-Log "ContainerdURL is $ContainerdUrl"
     $containerdPackage=$global:StableContainerdPackage
-    if (([version]$KubernetesVersion).CompareTo([version]$global:MinimalKubernetesVersionWithLatestContainerd) -ge 0) {
+     # Check if we have Windows Server 2025 (not official yet and hence the SKU, as opposed to official name like 23H2 ) and Kubernetes version >= 1.33.0
+    if ($windowsVersion -eq "test2025" -and ([version]$KubernetesVersion).CompareTo([version]$global:MinimalKubernetesVersionWithLatestContainerd2) -ge 0) {
+        $containerdPackage = $global:LatestContainerd2Package
+        Write-Log "Using containerd 2.x ($containerdPackage) for Windows version $windowsVersion and Kubernetes version $KubernetesVersion"
+    } elseif (([version]$KubernetesVersion).CompareTo([version]$global:MinimalKubernetesVersionWithLatestContainerd) -ge 0) {
         $containerdPackage=$global:LatestContainerdPackage
         Write-Log "Kubernetes version $KubernetesVersion is greater than or equal to $global:MinimalKubernetesVersionWithLatestContainerd so the latest containerd version $containerdPackage is used"
     } else {
@@ -421,7 +441,7 @@ function Install-Containerd-Based-On-Kubernetes-Version {
     $ContainerdUrl = $ContainerdUrl + $containerdPackage
   }
   Logs-To-Event -TaskName "AKS.WindowsCSE.InstallContainerd" -TaskMessage "Start to install ContainerD. ContainerdUrl: $ContainerdUrl"
-  Install-Containerd -ContainerdUrl $ContainerdUrl -CNIBinDir $CNIBinDir -CNIConfDir $CNIConfDir -KubeDir $KubeDir
+  Install-Containerd -ContainerdUrl $ContainerdUrl -CNIBinDir $CNIBinDir -CNIConfDir $CNIConfDir -KubeDir $KubeDir -KubernetesVersion $KubernetesVersion -WindowsVersion $windowsVersion
 }
 
 function Logs-To-Event {
@@ -438,7 +458,7 @@ function Logs-To-Event {
 
     $eventsFileName=[DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
     $currentTime=$(Get-Date -Format "yyyy-MM-dd HH:mm:ss.fff")
-    
+
     $lastTaskName = ""
     $lastTaskDuration = 0
     if ($global:TaskTimeStamp -ne "") {
@@ -460,7 +480,7 @@ function Logs-To-Event {
     }
 "@
     $messageJson = (echo $messageJson | ConvertTo-Json)
-    
+
     $jsonString = @"
     {
         "Timestamp": "$global:TaskTimeStamp",
@@ -472,4 +492,86 @@ function Logs-To-Event {
     }
 "@
     echo $jsonString | Set-Content ${global:EventsLoggingDir}${eventsFileName}.json
+}
+
+# AKS will transition to use packages.aks.azure.com as the default package download acs-mirror.azureedge.net
+# on June 11th, 2025.  Just prior to the transition we want to have fallback logic in place to
+# ensure that if packages.aks.azure.com is not reachable we can fallback to the old CDN URL
+#
+# This function sets the global variable $global:PackageDownloadFqdn to the preferred FQDN
+# It will attempt to use the preferred FQDN first and if that fails it will fallback to the old CDN URL
+function Resolve-PackagesDownloadFqdn {
+    Param(
+        [Parameter(Mandatory = $true)][string]
+        $PreferredFqdn,
+        [Parameter(Mandatory = $true)][string]
+        $FallbackFqdn,
+        [Parameter(Mandatory = $false)][int]
+        $Retries = 5,
+        [Parameter(Mandatory = $false)][int]
+        $WaitSleepSeconds = 1
+    )
+
+    $packageDownloadBaseUrl = $PreferredFqdn
+
+    for ($i = 1; $i -le $Retries; $i++) {
+        # Confirm that we can establish connectivity to packages.aks.azure.com before node provisioning starts
+        try {
+            $response = Invoke-WebRequest -Uri "https://${PreferredFqdn}/acs-mirror/healthz" -UseBasicParsing -TimeoutSec 5 -ErrorAction SilentlyContinue
+            $responseCode = [int]$response.StatusCode
+
+            if ($responseCode -eq 200) {
+                Write-Log "Established connectivity to $PreferredFqdn." | Out-Null
+                break
+            }
+        } catch {
+            $responseCode = 0
+            Write-Log "Exception while trying to establish connectivity to $PreferredFqdn. Exception: $_" | Out-Null
+            if ($_.Exception.Response) {
+                $responseCode = [int]$_.Exception.Response.StatusCode
+            }
+        }
+
+        if ($i -eq $Retries) {
+            # If we cannot establish connectivity to packages.aks.azure.com, fallback to old CDN URL
+            $packageDownloadBaseUrl = $FallbackFqdn
+            break
+        } else {
+            Start-Sleep -Seconds $WaitSleepSeconds
+        }
+    }
+
+    # Use Write-Output explicitly to ensure only this value is returned
+    $global:PackageDownloadFqdn = $packageDownloadBaseUrl
+
+    Logs-To-Event -TaskName "AKS.WindowsCSE.ResolvedPackageDomain" -TaskMessage "Package download FQDN: $global:PackageDownloadFqdn"
+}
+
+# This function will swap the domain in the URL based on the verified package download FQDN
+function Update-BaseUrl {
+    Param(
+        [Parameter(Mandatory = $true)][string]
+        $InitialUrl
+    )
+
+    $updatedUrl = $InitialUrl
+
+    if (!($InitialUrl -match "acs-mirror\.azureedge\.net|packages\.aks\.azure\.com")) {
+        # We're probably not in Public cloud
+        return $updatedUrl
+    }
+
+    if ($global:PackageDownloadFqdn -eq $null) {
+        # We're in public cloud, but we haven't set the package download FQDN yet
+        $null = Resolve-PackagesDownloadFqdn -PreferredFqdn $global:PreferredPackageDownloadFqdn -FallbackFqdn $global:FallbackPackageDownloadFqdn
+    }
+
+    # Replace domain based on the current package download FQDN
+    if (($global:PackageDownloadFqdn -eq "packages.aks.azure.com") -and ($InitialUrl -like "https://acs-mirror.azureedge.net/*")) {
+        $updatedUrl = $InitialUrl -replace "acs-mirror.azureedge.net", $global:PackageDownloadFqdn
+    } elseif (($global:PackageDownloadFqdn -eq "acs-mirror.azureedge.net") -and ($InitialUrl -like "https://packages.aks.azure.com/*")) {
+        $updatedUrl = $InitialUrl -replace "packages.aks.azure.com", $global:PackageDownloadFqdn
+    }
+
+    return $updatedUrl
 }

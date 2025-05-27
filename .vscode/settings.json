@@ -39,4 +39,39 @@
       "text": "Generete e2e tests when applicable, following the same pattern as the existing tests.",
     },
   ],
+  "github.copilot.chat.pullRequestGeneration.instructions": [
+    {
+      "text": "When updating Pull Requests, follow these guidelines:",
+    },
+    {
+      "text": "1. Ensure all tests pass before submitting: `make test`",
+    },
+    {
+      "text": "2. If changes were made to parts/ or pkg/ directories, run `make generate` to update testdata",
+    },
+    {
+      "text": "3. Provide a clear description of the changes in the PR description",
+    },
+    {
+      "text": "4. Link any related issues using GitHub keywords (Fixes, Closes, Resolves)",
+    },
+    {
+      "text": "5. Be responsive to code review feedback and make requested changes promptly",
+    },
+    {
+      "text": "When resolving merge conflicts in PRs, use the following strategy for testdata directories:",
+    },
+    {
+      "text": "1. Accept 'theirs' for the testdata directory: `git checkout --theirs origin/master pkg/agent/testdata`",
+    },
+    {
+      "text": "2. Stage the changes: `git add pkg/agent/testdata`",
+    },
+    {
+      "text": "3. Regenerate test data: `make generate`",
+    },
+    {
+      "text": "4. Commit with message 'test: update testdata'",
+    }
+  ]
 }

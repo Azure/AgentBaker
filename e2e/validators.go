@@ -374,8 +374,9 @@ func ValidateContainerdWASMShims(ctx context.Context, s *Scenario) {
 func ValidateKubeletHasNotStopped(ctx context.Context, s *Scenario) {
 	command := "sudo journalctl -u kubelet"
 	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0, "could not retrieve kubelet logs with journalctl")
-	assert.NotContains(s.T, execResult.stdout.String(), "Stopped Kubelet")
-	assert.Contains(s.T, execResult.stdout.String(), "Started Kubelet")
+	stdout := strings.ToLower(execResult.stdout.String())
+	assert.NotContains(s.T, stdout, "stopped kubelet")
+	assert.Contains(s.T, stdout, "started kubelet")
 }
 
 func ValidateServicesDoNotRestartKubelet(ctx context.Context, s *Scenario) {
@@ -587,4 +588,15 @@ func ValidateLocalDNSResolution(ctx context.Context, s *Scenario) {
 	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0, "dns resolution failed")
 	assert.Contains(s.T, execResult.stdout.String(), "status: NOERROR")
 	assert.Contains(s.T, execResult.stdout.String(), "SERVER: 169.254.10.10")
+}
+
+// ValidateJournalctlOutput checks if specific content exists in the systemd service logs
+func ValidateJournalctlOutput(ctx context.Context, s *Scenario, serviceName string, expectedContent string) {
+	command := []string{
+		"set -ex",
+		// Get the service logs and check for the expected content
+		fmt.Sprintf("sudo journalctl -u %s | grep -q '%s'", serviceName, expectedContent),
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
+		fmt.Sprintf("expected content '%s' not found in %s service logs", expectedContent, serviceName))
 }

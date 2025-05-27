@@ -366,8 +366,7 @@ ensureTeleportd() {
 }
 
 ensureArtifactStreaming() {
-  systemctl enable acr-mirror.service
-  systemctl start acr-mirror.service
+  systemctlEnableAndStart acr-mirror 30
   sudo /opt/acr/tools/overlaybd/install.sh
   sudo /opt/acr/tools/overlaybd/config-user-agent.sh azure
   sudo /opt/acr/tools/overlaybd/enable-http-auth.sh
@@ -377,11 +376,11 @@ ensureArtifactStreaming() {
   sudo /opt/acr/tools/overlaybd/config.sh exporterConfig.port 9863
   modprobe target_core_user
   curl -X PUT 'localhost:8578/config?ns=_default&enable_suffix=azurecr.io&stream_format=overlaybd' -O
-  systemctl enable /opt/overlaybd/overlaybd-tcmu.service
-  systemctl enable /opt/overlaybd/snapshotter/overlaybd-snapshotter.service
-  systemctl start overlaybd-tcmu
-  systemctl start overlaybd-snapshotter
-  systemctl start acr-nodemon
+  systemctl link /opt/overlaybd/overlaybd-tcmu.service
+  systemctl link /opt/overlaybd/snapshotter/overlaybd-snapshotter.service
+  systemctlEnableAndStart overlaybd-tcmu.service 30
+  systemctlEnableAndStart overlaybd-snapshotter.service 30
+  systemctlEnableAndStart acr-nodemon 30
 }
 
 ensureDocker() {
@@ -519,6 +518,15 @@ ensureKubelet() {
         logs_to_events "AKS.CSE.ensureKubelet.setKubeletNodeIPFlag" setKubeletNodeIPFlag
     fi
 
+    # systemd watchdog support was added in 1.32.0: https://github.com/kubernetes/kubernetes/pull/127566
+    # This is needed to ensure kubelet is restarted if it becomes unresponsive
+    if semverCompare ${KUBERNETES_VERSION:-"0.0.0"} "1.32.0"; then
+        tee "/etc/systemd/system/kubelet.service.d/10-watchdog.conf" > /dev/null <<'EOF'
+[Service]
+WatchdogSec=60s
+EOF
+    fi
+
     echo "KUBELET_FLAGS=${KUBELET_FLAGS}" > "${KUBELET_DEFAULT_FILE}"
     echo "KUBELET_REGISTER_SCHEDULABLE=true" >> "${KUBELET_DEFAULT_FILE}"
     echo "NETWORK_POLICY=${NETWORK_POLICY}" >> "${KUBELET_DEFAULT_FILE}"
@@ -534,6 +542,16 @@ ensureKubelet() {
 
     if [ -n "${TLS_BOOTSTRAP_TOKEN}" ]; then
         echo "using bootstrap token to generate a bootstrap-kubeconfig"
+
+        CREDENTIAL_VALIDATION_DROP_IN="/etc/systemd/system/kubelet.service.d/10-credential-validation.conf"
+        mkdir -p "$(dirname "${CREDENTIAL_VALIDATION_DROP_IN}")"
+        touch "${CREDENTIAL_VALIDATION_DROP_IN}"
+        chmod 0600 "${CREDENTIAL_VALIDATION_DROP_IN}"
+        tee "${CREDENTIAL_VALIDATION_DROP_IN}" > /dev/null <<EOF
+[Service]
+Environment="CREDENTIAL_VALIDATION_KUBE_CA_FILE=/etc/kubernetes/certs/ca.crt"
+Environment="CREDENTIAL_VALIDATION_APISERVER_URL=https://${API_SERVER_NAME}:443"
+EOF
 
         KUBELET_TLS_DROP_IN="/etc/systemd/system/kubelet.service.d/10-tlsbootstrap.conf"
         mkdir -p "$(dirname "${KUBELET_TLS_DROP_IN}")"
@@ -636,8 +654,12 @@ EOF
         logs_to_events "AKS.CSE.ensureKubelet.installCredentialProvider" installCredentialProvider
     fi
 
-    # 4-minute timeout to give enough time to all of kubelet's ExecStartPre scripts before hitting their own respective timeouts
-    systemctlEnableAndStart kubelet 240 || exit $ERR_KUBELET_START_FAIL
+    # start kubelet.service without waiting for the main process to start, though check whether it has entered a failed state after enablement
+    if ! systemctlEnableAndStartNoBlock kubelet 240; then
+        # append kubelet status to CSE output to ensure we can see it
+        journalctl -u kubelet.service --no-pager || true
+        exit $ERR_KUBELET_START_FAIL
+    fi
 }
 
 ensureSnapshotUpdate() {
@@ -927,17 +949,13 @@ enableLocalDNS() {
     # If the corefile exists and is not empty, attempt to enable localdns.
     echo "localdns should be enabled."
 
-    systemctlEnableAndStart localdns 30
-    local enable_localdns_result=$?
-
-    if [ "$enable_localdns_result" -ne 0 ]; then
-        echo "Enable localdns failed due to error ${enable_localdns_result}."
-        return "$enable_localdns_result"
+    if ! systemctlEnableAndStart localdns 30; then
+      echo "Enable localdns failed."
+      return $ERR_LOCALDNS_FAIL
     fi
 
     # Enabling localdns succeeded.
     echo "Enable localdns succeeded."
-    return 0
 }
 
 #EOF

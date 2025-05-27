@@ -55,7 +55,7 @@ capture_benchmark "${SCRIPT_NAME}_set_variables_for_converting_to_disk"
 
 echo "Converting $sig_resource_id to $disk_resource_id"
 if [ "${OS_TYPE}" = "Linux" ] && [ "${ENABLE_TRUSTED_LAUNCH}" = "True" ]; then
-  az resource create --id $disk_resource_id  --is-full-object --location $LOCATION --properties "{\"location\": \"$LOCATION\", \
+  az resource create --id $disk_resource_id  --api-version 2024-03-02 --is-full-object --location $LOCATION --properties "{\"location\": \"$LOCATION\", \
     \"properties\": { \
       \"osType\": \"$OS_TYPE\", \
       \"securityProfile\": { \
@@ -70,7 +70,7 @@ if [ "${OS_TYPE}" = "Linux" ] && [ "${ENABLE_TRUSTED_LAUNCH}" = "True" ]; then
     } \
   }"
 elif [ "${OS_TYPE}" = "Linux" ] && grep -q "cvm" <<< "$FEATURE_FLAGS"; then
-  az resource create --id $disk_resource_id  --is-full-object --location $LOCATION --properties "{\"location\": \"$LOCATION\", \
+  az resource create --id $disk_resource_id --api-version 2024-03-02 --is-full-object --location $LOCATION --properties "{\"location\": \"$LOCATION\", \
     \"properties\": { \
       \"osType\": \"$OS_TYPE\", \
       \"securityProfile\": { \
@@ -85,7 +85,7 @@ elif [ "${OS_TYPE}" = "Linux" ] && grep -q "cvm" <<< "$FEATURE_FLAGS"; then
     } \
   }"
 else
-  az resource create --id $disk_resource_id  --is-full-object --location $LOCATION --properties "{\"location\": \"$LOCATION\", \
+  az resource create --id $disk_resource_id  --api-version 2024-03-02 --is-full-object --location $LOCATION --properties "{\"location\": \"$LOCATION\", \
     \"properties\": { \
       \"osType\": \"$OS_TYPE\", \
       \"creationData\": { \
@@ -127,11 +127,16 @@ azcopy copy "${sas}" "${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd" --recursive=t
 echo "Uploaded $disk_resource_id to ${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd"
 capture_benchmark "${SCRIPT_NAME}_upload_disk_to_blob"
 
-az disk revoke-access --ids $disk_resource_id 
+if ! az disk revoke-access --ids $disk_resource_id; then
+  echo "##vso[task.logissue type=warning]unable to revoke access to $disk_resource_id"
+fi
 
-az resource delete --ids $disk_resource_id
+if ! az resource delete --ids $disk_resource_id; then
+  echo "##vso[task.logissue type=warning]unable to delete $disk_resource_id"
+else
+  echo "deleted $disk_resource_id"
+fi
 
-echo "Deleted $disk_resource_id"
 capture_benchmark "${SCRIPT_NAME}_revoke_access_and_delete_disk"
 
 capture_benchmark "${SCRIPT_NAME}_overall" true
