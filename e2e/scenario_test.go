@@ -40,7 +40,7 @@ func Test_AzureLinuxV2_AirGap(t *testing.T) {
 	})
 }
 
-func Test_AzureLinuxV2_SecureTLSBootstrapping_Enabled_BootstrapToken_Fallback(t *testing.T) {
+func Test_AzureLinuxV2_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a AzureLinuxV2 (CgroupV2) VHD can be properly bootstrapped even if secure TLS bootstrapping fails",
 		Config: Config{
@@ -1696,6 +1696,20 @@ func Test_Ubuntu2404Gen2(t *testing.T) {
 				ValidateSSHServiceEnabled(ctx, s)
 			},
 		}})
+}
+
+func Test_Ubuntu2404Gen2_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using an Ubuntu 2404 Gen2 VHD can be properly bootstrapped even if secure TLS bootstrapping fails",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2404Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				// secure TLS bootstrapping is not yet enabled in e2e regions, thus this will test the bootstrap token fallback case
+				nbc.EnableSecureTLSBootstrapping = true
+			},
+		},
+	})
 }
 
 func Test_Ubuntu2404Gen2_GPUNoDriver(t *testing.T) {
