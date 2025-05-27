@@ -36,13 +36,13 @@ pr:
 pool:
   name: $(POOL_NAME)
 
-variables:
-  - group: aks-vuln-to-kusto
-  - group: "AKS Node SIG UA Token (KV)"
-  - group: build_performance
-  - group: aks-vuln-to-kusto-tme
-  - name: TAGS_TO_SKIP
-    value: gpu=true,os=windows
+#variables:
+#  - group: aks-vuln-to-kusto
+#  - group: "AKS Node SIG UA Token (KV)"
+#  - group: build_performance
+#  - group: aks-vuln-to-kusto-tme
+#  - name: TAGS_TO_SKIP
+#    value: gpu=true,os=windows
 
 stages:
   - stage: build
