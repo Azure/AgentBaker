@@ -40,7 +40,7 @@ parameters:
   - name: buildAzureLinuxV2gen2
     displayName: Build AzureLinuxV2 Gen2
     type: boolean
-    default: true
+    default: false
   - name: buildAzureLinuxV3gen2
     displayName: Build AzureLinuxV3 Gen2
     type: boolean
