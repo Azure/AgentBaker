@@ -105,7 +105,7 @@
             "environment_vars": [
                 "CacheWindowsCSE=CacheInPlace",
                 "HelperScriptDir=`c:/k/`",
-                "ConfigDir=`c:/k/`",
+                "ComponentConfigDir=`c:/k/`",
                 "CSEScriptDir=`c:/akse-cache`",
                 "CSEOutputDir=`c:/akse-cache`"
             ],
