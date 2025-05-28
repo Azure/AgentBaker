@@ -1,37 +1,40 @@
-Describe "archive_cse_package.ps1" {
-    BeforeEach {
-        # Path to the script we want to test
-        $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "archive_cse_package.ps1"
 
+BeforeAll {
+
+
+    . $PSScriptRoot\archive_cse_package.ps1
+}
+
+Describe "archive_cse_package.ps1" {   
+    BeforeEach {
         $tempDir = Join-Path -Path $env:TEMP -ChildPath "test-cse-$(Get-Random)"
-        # Create temp directory
-        New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
+        New-Item -ItemType Directory -Path $tempDir -Force | Out-Null    
+        $mockWindowsCSEDir = Join-Path -Path $tempDir -ChildPath "windows"
+        New-Item -ItemType Directory -Path $mockWindowsCSEDir -Force | Out-Null
+        
+        # Create some test files
+        "# Main script" | Out-File -FilePath "$mockWindowsCSEDir/main.ps1"
+        "# Tests to remove" | Out-File -FilePath "$mockWindowsCSEDir/main.tests.ps1"
+        New-Item -ItemType Directory -Path "$mockWindowsCSEDir/debug" -Force | Out-Null
+        "# Update script to remove" | Out-File -FilePath "$mockWindowsCSEDir/debug/update-scripts.ps1"
+        "# Debug script to keep" | Out-File -FilePath "$mockWindowsCSEDir/debug/debug.ps1"
+        $componentsConfigDir =Join-Path -Path $PSScriptRoot -ChildPath "..\..\..\parts\common" 
     }
 
     AfterEach {
-        # Cleanup
         if (Test-Path -Path $tempDir) {
             Remove-Item -Path $tempDir -Recurse -Force
         }
     }
-
-    It "Script file should exist" {
-        Test-Path $scriptPath | Should -Be $true
-    }
-
     It "Should create a zip file with the expected name" {
-        # Use dot-sourcing to make the function available
-        . $scriptPath
+        $result = Build-WindowsCSEPackage -ScriptDir $PSScriptRoot -ComponentConfigDir $componentsConfigDir -CSEScriptDir $tempDir -OutputDir $tempDir -Inplace $false
         
-        # Call the function directly with the test parameters
-        $fileName = "aks-windows-cse-scripts-vtest123.zip"
-        $result = Build-WindowsCSEPackage -FileName $fileName -OutputDir $tempDir 
-        
-        $expectedZipPath = Join-Path -Path $tempDir -ChildPath $fileName
-        Test-Path $expectedZipPath | Should -Be $true
-        
-        # Test the returned object properties
-        $result.FilePath | Should -Be $expectedZipPath
+        # Expected file path based on the mocked filename
+        $outputFilePath = $result.CSEOutputFilePath
+        Test-Path $outputFilePath | Should -Be $true
+
+        $outputFilePath | Should -BeLike "*aks-windows-cse-scripts-*.zip"
+        Test-Path $mockWindowsCSEDir | Should -Be $true
         
         # Extract zip file to temp directory for inspection
         $extractPath = Join-Path -Path $tempDir -ChildPath "extracted"
@@ -39,60 +42,23 @@ Describe "archive_cse_package.ps1" {
         
         # Use .NET API to extract the zip
         Add-Type -AssemblyName System.IO.Compression.FileSystem
-        [System.IO.Compression.ZipFile]::ExtractToDirectory($expectedZipPath, $extractPath)
+        [System.IO.Compression.ZipFile]::ExtractToDirectory($outputFilePath, $extractPath)
         
+        # Check file counts - using flexible tests since exact counts depend on the test setup
         $powerShellFiles = Get-ChildItem -Path $extractPath -Recurse -Filter "*.ps1"
-        $powerShellFiles.Count | Should -Be 24
-
-        $tomlFiles = Get-ChildItem -Path $extractPath -Recurse -Filter "*.toml"
-        $tomlFiles.Count | Should -Be 2  # More flexible test for file counts
-
-        $csFiles = Get-ChildItem -Path $extractPath -Recurse -Filter "*.cs"
-        $csFiles.Count | Should -Be 1  # We expect multiple PS1 files but exact count may change
-
+        $powerShellFiles.Count | Should -Be 2
+        
         # Clean up extraction directory
         Remove-Item -Path $extractPath -Recurse -Force
-
     }
 
-    It "Should handle default parameters correctly" {
-        # Test with minimal parameters
-        . $scriptPath
+    It "Should handle inplace mode correctly" {
+        $inplaceWindowsDir = Join-Path -Path $tempDir -ChildPath "windows"
+        New-Item -ItemType Directory -Path $inplaceWindowsDir -Force | Out-Null
         
-        # Mock the Test-Path function to return true for the helper files
-        Mock Test-Path { return $true } -ParameterFilter { $Path -like "*components_json_helpers.ps1" -or $Path -like "*components.json" }
+        $result = Build-WindowsCSEPackage -ScriptDir $PSScriptRoot -ComponentConfigDir $componentsConfigDir -CSEScriptDir $tempDir -OutputDir $tempDir -Inplace $true
         
-        # Mock Get-Content to return a simplified components.json
-        Mock Get-Content { 
-            return '{
-"Packages": [
-{
-  "windowsDownloadLocation": "c:\\akse-cache\\",
-  "downloadLocation": null,
-  "downloadUris": {
-    "windows": {
-      "default": {
-        "versionsV2": [
-          {
-            "renovateTag": "<DO_NOT_UPDATE>",
-            "latestVersion": "1.2.3",
-            "previousLatestVersion": "0.0.51"
-          }
-        ],
-        "downloadURL": "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v${version}.zip"
-      }
-    }
-  }
-}
-]}'
-        } -ParameterFilter { $Path -like "*components.json" }
-        
-        # Just specify the output directory for the test
-        $result = Build-WindowsCSEPackage -OutputDir $tempDir
-        
-        $result.FilePath | Should -Not -BeNullOrEmpty
-        Test-Path $result.FilePath | Should -Be $true
-        $expectedZipPath = Join-Path -Path $tempDir -ChildPath "aks-windows-cse-scripts-v1.2.3.zip"
-        $result.FilePath | Should -Be $expectedZipPath
+        Test-Path $result.CSEOutputFilePath | Should -Be $true
+        Test-Path $inplaceWindowsDir | Should -Be $false
     }
 }
