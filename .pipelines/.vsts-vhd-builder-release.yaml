@@ -121,6 +121,10 @@ parameters:
     displayName: Build AzureLinuxV2 Gen2 Kata - Trusted Launch
     type: boolean
     default: false
+  - name: buildAzureLinuxV3LinuxGuard
+    displayName: Build AzureLinuxV3 Linux Guard
+    type: boolean
+    default: true
   - name: build1804fipscontainerd
     displayName: Build 1804 FIPS containerd
     type: boolean
