@@ -1,92 +1,99 @@
-# Builds a zip file containing all necessary Windows CSE scripts, excluding test files
+<#
+    .SYNOPSIS
+        Used to produce Windows AKS CSE pacakges.
+
+    .DESCRIPTION
+        This script is used by packer to cahce necessary Windows CSE scripts on Windows AKS images.
+#>
 
 param(
     [Parameter(Mandatory=$false)]
-    [string]$OutputDir = "vhdbuilder/packer/windows",
-    
+    [string]$ScriptDir = "vhdbuilder/packer/windows",
     [Parameter(Mandatory=$false)]
-    [string]$FileName = ""
+    [string]$PartsDir = "parts/common",
+    [Parameter(Mandatory=$false)]
+    [string]$CSEScriptDir = "staging/cse", # The source directory containing Windows CSE scripts
+    [Parameter(Mandatory=$false)]
+    [string]$Inplace = false,
+    [Parameter(Mandatory=$false)]
+    [string]$OutputDir = ""   
 )
+
+$ComponentsJsonFile = Join-Path -Path $PartsDir -ChildPath "components.json"
+$HelpersFile =  Join-Path -Path $ScriptDir -ChildPath "components_json_helpers.ps1"
+. "$HelpersFile"
+
+# Get version from components.json if not provided      
+$componentsJson = Get-Content $componentsJsonFile | Out-String | ConvertFrom-Json
+$packages = GetPackagesFromComponentsJson $componentsJson
+
+$cseDownloadLocation = "c:/akse-cache/"
+$csePackages = $packages[$CSEDownloadLocation]
+$cseDownloadurl = $csePackages[0]
+$csePackageFileName = Split-Path -Path $cseDownloadurl -Leaf
 
 function Build-WindowsCSEPackage {
     param(
+        [Parameter(Mandatory=$true)]
+        [string]$CSEScriptDir,
+        [Parameter(Mandatory=$true)]
+        [bool]$Inplace,
         [Parameter(Mandatory=$false)]
-        [string]$OutputDir = "vhdbuilder/packer/windows",
-        
-        [Parameter(Mandatory=$false)]
-        [string]$FileName = ""
+        [string]$OutputDir=""
     )
 
-    if ([string]::IsNullOrEmpty($FileName)) {
-        # Get version from components.json if not provided
-        $HelpersFile = "vhdbuilder/packer/windows/components_json_helpers.ps1"
-        if (Test-Path $HelpersFile) {
-            . "$HelpersFile"
+    $cseScriptPath = Join-Path -Path $CSEScriptDir -ChildPath "windows"
+    $workingDir = $cseScriptPath
 
-            $componentsJsonFile = "parts/common/components.json"
-            if (Test-Path $componentsJsonFile) {
-                $componentsJson = Get-Content $componentsJsonFile | Out-String | ConvertFrom-Json
-                $packages = GetPackagesFromComponentsJson $componentsJson
-                $csePackages = $packages["c:\akse-cache\"]
-                $url = $csePackages[0]
-                # Get the filename from the URL
-                $FileName = Split-Path -Path $url -Leaf
-            }
-            else {
-                Write-Error "Components JSON file not found: $componentsJsonFile"
-                throw "Unable to determine package version. Components JSON file not found: $componentsJsonFile"
-            }
-        }
-        else {
-            Write-Error "Helpers file not found: $HelpersFile"
-            throw "Unable to determine package version. Helpers file not found: $HelpersFile"
-        }
+    if (!$Inplace) {
+        $workingDir = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath ([System.Guid]::NewGuid().ToString())
+        New-Item -ItemType Directory -Path $workingDir -Force | Out-Null
+        Copy-Item -Path "$cseScriptPath/*" -Destination $workingDir -Recurse -Force
     }
-
-    # Define full output file path
-    $outputFilePath = Join-Path -Path $OutputDir -ChildPath $FileName
-    Write-Host "Building Windows CSE scripts package: $outputFilePath"
-
-    $tempDir = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath ([System.Guid]::NewGuid().ToString())
-    New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
-
-    $SourceDir = "staging/cse/windows"
-    Copy-Item -Path "$SourceDir/*" -Destination $tempDir -Recurse -Force
-
-    # Remove files and directories that match exclude patterns
-    Write-Host "Removing unnecessary files and directories..."
-
-    Get-ChildItem -Path $tempDir -Filter "*.tests.ps1" -Recurse | ForEach-Object {
+    
+    Get-ChildItem -Path $workingDir -Filter "*.tests.ps1" -Recurse | ForEach-Object {
         Remove-Item -Path $_.FullName -Force
     }
     
-    Get-ChildItem -Path $tempDir -Directory -Filter "*.tests.suites" -Recurse | ForEach-Object {
+    Get-ChildItem -Path $workingDir -Directory -Filter "*.tests.suites" -Recurse | ForEach-Object {
         Remove-Item -Path $_.FullName -Recurse -Force
     }
     
-    Get-ChildItem -Path "$tempDir\debug" -Filter "update-scripts.ps1" | ForEach-Object {
+    Get-ChildItem -Path "$workingDir\debug" -Filter "update-scripts.ps1" | ForEach-Object {
         Remove-Item -Path $_.FullName -Force
     }
 
-    Get-ChildItem -Path $tempDir -Filter "README*" -Recurse | ForEach-Object {
+    Get-ChildItem -Path $workingDir -Filter "README*" -Recurse | ForEach-Object {
         Remove-Item -Path $_.FullName -Force
     }
 
-    Get-ChildItem -Path $tempDir -Filter "*.md" -Recurse | ForEach-Object {
+    Get-ChildItem -Path $workingDir -Filter "*.md" -Recurse | ForEach-Object {
         Remove-Item -Path $_.FullName -Force
+    }
+
+    if ([string]::IsNullOrEmpty($OutputDir)) {
+        if ($Inplace) {
+            # when not specfied, put zip at the same level as the cse windows/ folder
+            $OutputDir = $CSEScriptDir
+        }
+        else {
+            throw "Missing output directory parameter. Please specify an output directory -OutputDir."
+        }
     }
     
-    # Check if an existing output file exists and remove it
+    $outputFilePath = Join-Path -Path $OutputDir -ChildPath $csePackageFileName
+    Write-Log  "Building Windows CSE scripts package: $outputFilePath"
+
     if (Test-Path -Path $outputFilePath) {
         Remove-Item -Path $outputFilePath -Force
     }
 
     # Create the zip file
     Add-Type -AssemblyName System.IO.Compression.FileSystem
-    [System.IO.Compression.ZipFile]::CreateFromDirectory($tempDir, $outputFilePath)
-    Remove-Item -Path $tempDir -Recurse -Force
+    [System.IO.Compression.ZipFile]::CreateFromDirectory($workingDir, $outputFilePath)
 
-    Write-Host "Package created successfully at: $outputFilePath"
+    Remove-Item -Path $workingDir -Recurse -Force
+    Write-Log "Package created successfully at: $outputFilePath"
     
     # Return an object with file information
     return @{
@@ -95,5 +102,5 @@ function Build-WindowsCSEPackage {
 }
 
 # Execute the function when the script is run directly
-$result = Build-WindowsCSEPackage -OutputDir $OutputDir -FileName $FileName
+$result = Build-WindowsCSEPackage -CSESourceDir $CSEScriptDir -Inplace $Inplace -OutputDir $OutputDir
 return $result
