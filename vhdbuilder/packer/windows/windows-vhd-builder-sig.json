@@ -80,20 +80,12 @@
     ],
     "provisioners": [
         {
-            "type": "powershell",
-            "elevated_user": "packer",
-            "elevated_password": "{{.WinRMPassword}}",
-            "scripts": [
-                "vhdbuilder/packer/windows/archive_cse_package.ps1"
-            ]
-        },
-        {
             "type": "file",
             "direction": "upload",
             "sources": [
-                "vhdbuilder/packer/windows/*.zip"
+                "staging/cse/windows"
             ],
-            "destination": "c:/akse-cache/"
+            "destination": "c:/akse-cache"
         },
         {
             "type": "file",
@@ -103,8 +95,24 @@
                 "vhdbuilder/packer/windows/windows-vhd-configuration.ps1",
                 "vhdbuilder/packer/windows/windows_settings.json",
                 "vhdbuilder/packer/windows/components_json_helpers.ps1"
+ 
             ],
             "destination": "c:/k/"
+        },
+        {
+            "elevated_user": "packer",
+            "elevated_password": "{{.WinRMPassword}}",
+            "environment_vars": [
+                "CacheWindowsCSE=CacheInPlace",
+                "HelperScriptDir=`c:/k/`",
+                "ConfigDir=`c:/k/`",
+                "CSEScriptDir=`c:/akse-cache`",
+                "CSEOutputDir=`c:/akse-cache`"
+            ],
+            "type": "powershell",
+            "scripts": [
+                "vhdbuilder/packer/windows/archive_cse_package.ps1"
+            ]
         },
         {
             "elevated_user": "packer",

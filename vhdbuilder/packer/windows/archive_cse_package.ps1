@@ -155,4 +155,20 @@ function Build-WindowsCSEPackage {
 }
 
 # # Execute the function when the script is run directly
-# Build-WindowsCSEPackage -ScriptDir $ScriptDir -ComponentConfigDir $ComponentConfigDir -CSEScriptDir $CSEScriptDir -OutputDir $OutputDir -Inplace $Inplace
+try
+{
+    switch ($env:CacheWindowsCSE)
+    {
+        "CacheInPlace" {
+            $result = Build-WindowsCSEPackage -ScriptDir $env:HelperScriptDir -ComponentConfigDir $env:ComponentConfigDir -CSEScriptDir $env:CSEScriptDir -OutputDir $env:CSEOutputDir -Inplace $true
+            Write-Log "CSE package created at: $($result.CSEOutputFilePath)"
+        }
+        default {
+            Write-Log "No action specified for phase '$env:CacheWindowsCSE'."
+        }
+    }
+}
+finally {
+    # Ensure that the script cleans up any resources or temporary files if needed
+    Write-Log "Script execution completed."
+}
