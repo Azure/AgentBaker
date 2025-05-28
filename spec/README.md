@@ -43,3 +43,5 @@ Assuming you have run at least once `make shellspec` to build the dockerfile loc
   ```
   By providing a full path a particular spec file, you can run only that spec file instead of all spec files in AgentBaker project. 
 For example, `docker run -t -v "$PWD:/src" shellspec-docker --shell bash spec/parts/linux/cloud-init/artifacts/cse_helpers_spec.sh`
+
+You can also run shellspec in focus mode via the `make shellspec-focus` target. This will run shellspec with the `--focus` flag, which can be useful for debugging multiple test cases at once. For more details, please refer to the official shellspec docs regarding this feature: # allows usage of focus mode: https://github.com/shellspec/shellspec/tree/master?tab=readme-ov-file#fdescribe-fcontext-fexamplegroup---focused-example-group.

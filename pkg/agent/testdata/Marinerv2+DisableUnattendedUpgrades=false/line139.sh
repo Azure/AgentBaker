@@ -1,9 +1,6 @@
 [Unit]
-Description=Runs package update script periodically
+Description=Package Update Service
 
-[Timer]
-OnBootSec=10min
-OnUnitActiveSec=10min
-
-[Install]
-WantedBy=multi-user.target
+[Service]
+Type=oneshot
+ExecStart=/opt/azure/containers/mariner-package-update.sh

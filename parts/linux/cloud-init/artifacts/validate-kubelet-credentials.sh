@@ -101,6 +101,10 @@ validate() {
 }
 
 validateKubeletCredentials() {
+    if [ -n "$KUBECONFIG_PATH" ] && [ -f "$KUBECONFIG_PATH" ]; then
+        echo "client credential already exists within kubeconfig: $KUBECONFIG_PATH, no need to validate bootstrap credentials"
+        return 0
+    fi
     if [ -z "${CREDENTIAL_VALIDATION_KUBE_CA_FILE:-}" ]; then
         echo "CREDENTIAL_VALIDATION_KUBE_CA_FILE is not set, skipping kubelet credential validation"
         return 0
@@ -115,10 +119,6 @@ validateKubeletCredentials() {
     fi
     if [ ! -f "$BOOTSTRAP_KUBECONFIG_PATH" ]; then
         echo "no bootstrap-kubeconfig found at $BOOTSTRAP_KUBECONFIG_PATH, no bootstrap credentials to validate"
-        return 0
-    fi
-    if [ -n "$KUBECONFIG_PATH" ] && [ -f "$KUBECONFIG_PATH" ]; then
-        echo "client credential already exists within kubeconfig: $KUBECONFIG_PATH, no need to validate bootstrap credentials"
         return 0
     fi
     if ! command -v curl >/dev/null 2>&1; then

@@ -85,6 +85,14 @@ shellspec:
 		-w /workspace \
 		shellspec-docker --shell bash --format d
 
+.PHONY: shellspec-focus
+shellspec-focus:
+	docker build -t shellspec-docker - < ./spec/shellspec.Dockerfile
+	docker run --rm \
+		-v $(CURDIR):/workspace \
+		-w /workspace \
+		shellspec-docker --shell bash --format d --focus
+
 .PHONY: validate-image-version
 validate-image-version:
 	@./vhdbuilder/packer/test/run-pretest.sh
