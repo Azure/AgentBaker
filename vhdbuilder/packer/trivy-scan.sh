@@ -118,10 +118,17 @@ login_with_umsi_object_id() {
 login_with_umsi_resource_id() {
     login_with_user_assigned_managed_identity "--resource-id" "$1"
 }
+login_with_umsi_principal_id() {
+    login_with_user_assigned_managed_identity "--username" "$1"
+}
 
 install_azure_cli $OS_SKU $OS_VERSION $ARCHITECTURE $TEST_VM_ADMIN_USERNAME
 
-login_with_umsi_object_id ${UMSI_PRINCIPAL_ID}
+if [ "${OS_VERSION}" = "20.04" ]; then
+    login_with_umsi_principal_id ${UMSI_PRINCIPAL_ID}
+else
+    login_with_umsi_object_id ${UMSI_PRINCIPAL_ID}
+fi
 
 arch="$(uname -m)"
 if [ "${arch,,}" = "arm64" ] || [ "${arch,,}" = "aarch64" ]; then
