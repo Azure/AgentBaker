@@ -103,6 +103,17 @@ steps:
       echo "ARCHITECTURE: ${{ parameters.architecture }}"
       echo "##vso[task.setvariable variable=TEST_VM_RESOURCE_GROUP_NAME]$TEST_VM_RESOURCE_GROUP_NAME"
 
+      # For pipelines where the container base images are provided via storage URLs (e.g., the test pipeline),
+      # the base image tag will be 'ltscxxx', which differs from the values specified in parts/common/component.json.
+      # As a result, cache validation behaves differently. To address this, we check if the container base image URL is set,
+      # and use this environment variable to control the cache validation logic in run-test.sh.
+      if [[ -n "${{ parameters.windowsNanoImageUrl }}" || -n "${{ parameters.windowsCoreImageUrl }}" ]]; then
+        export CONTAINTER_BASE_URLS_EXISTING=true
+      else
+        export CONTAINTER_BASE_URLS_EXISTING=false
+      fi
+      echo "CONTAINTER_BASE_URLS_EXISTING is $CONTAINTER_BASE_URLS_EXISTING"
+
       ./vhdbuilder/packer/test/run-test.sh
     displayName: Run VHD cache test
     # I've seen some transient failures which seem timeing related so let's retry for now
