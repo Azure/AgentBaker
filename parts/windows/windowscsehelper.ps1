@@ -441,7 +441,7 @@ function Install-Containerd-Based-On-Kubernetes-Version {
     $ContainerdUrl = $ContainerdUrl + $containerdPackage
   }
   Logs-To-Event -TaskName "AKS.WindowsCSE.InstallContainerd" -TaskMessage "Start to install ContainerD. ContainerdUrl: $ContainerdUrl"
-  Install-Containerd -ContainerdUrl $ContainerdUrl -CNIBinDir $CNIBinDir -CNIConfDir $CNIConfDir -KubeDir $KubeDir -KubernetesVersion $KubernetesVersion -WindowsVersion $windowsVersion
+  Install-Containerd -ContainerdUrl $ContainerdUrl -CNIBinDir $CNIBinDir -CNIConfDir $CNIConfDir -KubeDir $KubeDir
 }
 
 function Logs-To-Event {
