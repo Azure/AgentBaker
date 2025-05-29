@@ -3,8 +3,42 @@
 set -o nounset
 set -e
 
-# source dnf_update
-source /opt/azure/containers/provision_source_distro.sh
+dnf_update() {
+    retries=10
+    dnf_update_output=/tmp/dnf-update.out
+    versionID=$(grep '^VERSION_ID=' /etc/os-release  | cut -d'=' -f2 | tr -d '"')
+    for i in $(seq 1 $retries); do
+        if [ "${versionID}" = "3.0" ]; then
+            ! (dnf update \
+                --exclude mshv-linuxloader \
+                --exclude kernel-mshv \
+                --repo azurelinux-official-base \
+                --repo azurelinux-official-ms-non-oss \
+                --repo azurelinux-official-ms-oss \
+                --repo azurelinux-official-nvidia \
+                -y --refresh 2>&1 | tee $dnf_update_output | grep -E "^([WE]:.*)|([eE]rr.*)$") && \
+            cat $dnf_update_output && break || \
+            cat $dnf_update_output
+        else
+            ! (dnf update \
+                --exclude mshv-linuxloader \
+                --exclude kernel-mshv \
+                --repo mariner-official-base \
+                --repo mariner-official-microsoft \
+                --repo mariner-official-extras \
+                --repo mariner-official-nvidia \
+                -y --refresh 2>&1 | tee $dnf_update_output | grep -E "^([WE]:.*)|([eE]rr.*)$") && \
+            cat $dnf_update_output && break || \
+            cat $dnf_update_output
+        fi
+
+        if [ $i -eq $retries ]; then
+        return 1
+        else sleep 5
+        fi
+    done
+    echo Executed dnf update -y --refresh $i times
+}
 
 KUBECTL="/usr/local/bin/kubectl --kubeconfig /var/lib/kubelet/kubeconfig"
 
@@ -59,7 +93,15 @@ if [ -n "${live_patching_repo_service}" ] && [[ ! "${live_patching_repo_service}
     echo "Ignore invalid live patching repo service: ${live_patching_repo_service}"
     live_patching_repo_service=""
 fi
-for repo_path in /etc/yum.repos.d/*.repo; do
+for repo in mariner-official-base.repo \
+            mariner-microsoft.repo \
+            mariner-extras.repo \
+            mariner-nvidia.repo \
+            azurelinux-official-base.repo \
+            azurelinux-ms-non-oss.repo \
+            azurelinux-ms-oss.repo \
+            azurelinux-nvidia.repo; do
+    repo_path="/etc/yum.repos.d/${repo}"
     if [ -f ${repo_path} ]; then
         old_repo=$(cat ${repo_path})
         if [ -z "${live_patching_repo_service}" ]; then
