@@ -233,7 +233,11 @@ chmod a+r "${TRIVY_REPORT_ROOTFS_JSON_PATH}"
 chmod a+r "${TRIVY_REPORT_IMAGE_TABLE_PATH}"
 chmod a+r "${CVE_LIST_QUERY_OUTPUT_PATH}"
 
-login_with_umsi_resource_id ${AZURE_MSI_RESOURCE_STRING}
+if [ "${OS_VERSION}" = "20.04" ]; then
+    login_with_umsi_principal_id ${UMSI_PRINCIPAL_ID}
+else
+    login_with_umsi_resource_id ${AZURE_MSI_RESOURCE_STRING}
+fi
 
 az storage blob upload --file ${CVE_DIFF_QUERY_OUTPUT_PATH} \
     --container-name ${SIG_CONTAINER_NAME} \
