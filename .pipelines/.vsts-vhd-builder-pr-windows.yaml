@@ -31,6 +31,7 @@ pr:
       - parts/windows
       - go.mod
       - go.sum
+      - e2e/
     exclude:
       - vhdbuilder/release-notes
       - /**/*.md
