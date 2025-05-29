@@ -323,17 +323,6 @@
       "windowsVersions": []
     },
     {
-      "downloadURL": "mcr.microsoft.com/oss/kubernetes/apiserver-network-proxy/agent:*",
-      "amd64OnlyVersions": [],
-      "multiArchVersionsV2": [
-        {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/apiserver-network-proxy/agent",
-          "latestVersion": "v0.30.3-hotfix.20240819"
-        }
-      ],
-      "windowsVersions": []
-    },
-    {
       "downloadURL": "mcr.microsoft.com/oss/v2/kubernetes/apiserver-network-proxy/agent:*",
       "amd64OnlyVersions": [],
       "multiArchVersionsV2": [
@@ -785,17 +774,17 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/kube-proxy",
-          "latestVersion": "v1.31.8",
-          "previousLatestVersion": "v1.31.7"
+          "latestVersion": "v1.31.9",
+          "previousLatestVersion": "v1.31.8"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/kube-proxy",
-          "latestVersion": "v1.32.4",
-          "previousLatestVersion": "v1.32.3"
+          "latestVersion": "v1.32.5",
+          "previousLatestVersion": "v1.32.4"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/kube-proxy",
-          "latestVersion": "v1.33.0"
+          "latestVersion": "v1.33.1"
         }
       ],
       "windowsVersions": []
@@ -999,7 +988,7 @@
             "versionsV2": [
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "0.1.0-alpha.5"
+                "latestVersion": "0.1.0-alpha.6"
               }
             ],
             "downloadURL": "https://github.com/Azure/aks-secure-tls-bootstrap/releases/download/client/v${version}/linux-${CPU_ARCH}.tar.gz"
@@ -1326,19 +1315,19 @@
               {
                 "k8sVersion": "1.31",
                 "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/binaries/kubernetes/kubernetes-node",
-                "latestVersion": "v1.31.8",
-                "previousLatestVersion": "v1.31.7"
+                "latestVersion": "v1.31.9",
+                "previousLatestVersion": "v1.31.8"
               },
               {
                 "k8sVersion": "1.32",
                 "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/binaries/kubernetes/kubernetes-node",
-                "latestVersion": "v1.32.4",
-                "previousLatestVersion": "v1.32.3"
+                "latestVersion": "v1.32.5",
+                "previousLatestVersion": "v1.32.4"
               },
               {
                 "k8sVersion": "1.33",
                 "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/binaries/kubernetes/kubernetes-node",
-                "latestVersion": "v1.33.0"
+                "latestVersion": "v1.33.1"
               }
             ],
             "downloadURL": "mcr.microsoft.com/oss/binaries/kubernetes/kubernetes-node:${version}-linux-${CPU_ARCH}",

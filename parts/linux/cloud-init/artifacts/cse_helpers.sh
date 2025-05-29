@@ -134,6 +134,10 @@ ERR_LOCALDNS_SLICEFILE_NOTFOUND=218 # Localdns slicefile not found.
 ERR_LOCALDNS_BINARY_ERR=219 # Localdns binary not found or not executable.
 # ----------------------------------------------------------------------------------
 
+ERR_SECURE_TLS_BOOTSTRAP_START_FAILURE=220 # Error starting the secure TLS bootstrap systemd service
+ERR_SECURE_TLS_BOOTSTRAP_CLIENT_FAILURE=221 # Error getting a new kubelet client credential using the secure TLS bootstrap client
+ERR_SECURE_TLS_BOOTSTRAP_MISSING_KUBECONFIG=222 # Error indicating kubelet's kubeconfig is missing after the secure TLS bootstrap client has succeeded
+
 # For both Ubuntu and Mariner, /etc/*-release should exist.
 # For unit tests, the OS and OS_VERSION will be set in the unit test script.
 # So whether it's if or else actually doesn't matter to our unit test.
@@ -170,6 +174,10 @@ EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events
 CURL_OUTPUT=/tmp/curl_verbose.out
 ORAS_OUTPUT=/tmp/oras_verbose.out
 ORAS_REGISTRY_CONFIG_FILE=/etc/oras/config.yaml # oras registry auth config file, not used, but have to define to avoid error "Error: failed to get user home directory: $HOME is not defined"
+
+# used by secure TLS bootstrapping to request AAD tokens - uniquely identifies AKS's Entra ID application.
+# more details: https://learn.microsoft.com/en-us/azure/aks/kubelogin-authentication#how-to-use-kubelogin-with-aks
+AKS_AAD_SERVER_APP_ID="6dae42f8-4368-4678-94ff-3960e28e3630"
 
 # Checks if the elapsed time since CSEStartTime exceeds 13 minutes.
 # That value is based on the global CSE timeout which is set to 15 minutes - majority of CSE executions succeed or fail very fast, meaning we can exit slightly before the global timeout without affecting the overall CSE execution.

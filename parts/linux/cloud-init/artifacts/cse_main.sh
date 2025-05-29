@@ -55,9 +55,20 @@ source "${CSE_CONFIG_FILEPATH}"
 resolve_packages_source_url
 logs_to_events "AKS.CSE.setPackagesBaseURL" "echo $PACKAGE_DOWNLOAD_BASE_URL"
 
-logs_to_events "AKS.CSE.installSecureTLSBootstrapClient" installSecureTLSBootstrapClient
+# IMPORTANT NOTE: We do this here since this function can mutate kubelet flags and node labels, 
+# which is used by configureK8s and other functions. Thus, we need to make sure flag and label content is correct beforehand.
+logs_to_events "AKS.CSE.configureKubeletServing" configureKubeletServing
+
+logs_to_events "AKS.CSE.configureK8s" configureK8s
 
 logs_to_events "AKS.CSE.ensureKubeCACert" ensureKubeCACert
+
+logs_to_events "AKS.CSE.installSecureTLSBootstrapClient" installSecureTLSBootstrapClient
+
+if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" = "true" ]; then
+    # Depends on configureK8s, ensureKubeCACert, and installSecureTLSBootstrapClient
+    logs_to_events "AKS.CSE.configureAndStartSecureTLSBootstrapping" configureAndStartSecureTLSBootstrapping
+fi
 
 if [ "${DISABLE_SSH}" = "true" ]; then
     disableSSH || exit $ERR_DISABLE_SSH
@@ -240,12 +251,6 @@ fi
 # for drop ins, so they don't all have to check/create the dir
 mkdir -p "/etc/systemd/system/kubelet.service.d"
 
-# IMPORTANT NOTE: We do this here since this function can mutate kubelet flags and node labels, 
-# which is used by configureK8s and other functions. Thus, we need to make sure flag and label content is correct beforehand.
-logs_to_events "AKS.CSE.configureKubeletServing" configureKubeletServing
-
-logs_to_events "AKS.CSE.configureK8s" configureK8s
-
 logs_to_events "AKS.CSE.configureCNI" configureCNI
 
 # configure and enable dhcpv6 for dual stack feature
@@ -416,6 +421,10 @@ fi
 
 # Call enableLocalDNS to enable localdns if localdns profile has EnableLocalDNS set to true.
 logs_to_events "AKS.CSE.enableLocalDNS" enableLocalDNS || exit $?
+
+if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" = "true" ]; then
+    logs_to_events "AKS.CSE.ensureSecureTLSBootstrapping" ensureSecureTLSBootstrapping
+fi
 
 logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
 
