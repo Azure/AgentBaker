@@ -180,8 +180,12 @@ testPackagesInstalled() {
           "kubernetes-cri-tools")
             testCriCtl "$version"
             ;;
+          "containerd")
+            testContainerd "$version"
+            ;;
         esac
         break
+        
       fi
       # A downloadURL from a package in components.json will look like this: 
       # "https://acs-mirror.azureedge.net/cni-plugins/v${version}/binaries/cni-plugins-linux-${CPU_ARCH}-v${version}.tgz"
@@ -1240,16 +1244,39 @@ testSpinKubeInstalled() {
 
 testCriCtl() {
   expectedVersion="${1}"
+  local test="testCriCtl"
+  echo "$test: Start"
   # the expectedVersion looks like this, "1.32.0-ubuntu18.04u3", need to extract the version number.
   expectedVersion=$(echo $expectedVersion | cut -d'-' -f1)
   # use command `crictl --version` to get the version
-  local test="testCriCtl"
+  
   local crictl_version=$(crictl --version)
   # the output of crictl_version looks like this "crictl version 1.32.0", need to extract the version number.
   crictl_version=$(echo $crictl_version | cut -d' ' -f3)
   echo "$test: checking if crictl version is $expectedVersion"
   if [ "$crictl_version" != "$expectedVersion" ]; then
     err "$test: crictl version is not $expectedVersion, instead it is $crictl_version"
+    return 1
+  fi
+  echo "$test: Test finished successfully."
+  return 0
+}
+
+testContainerd() {
+  expectedVersion="${1}"
+  local test="testContainerd"
+  echo "$test: Start"
+  # the expectedVersion looks like this, "1.6.24-0ubuntu1~18.04.1" or "containerd2-2.0.0-6.azl3", need to extract the version number.
+  expectedVersion=$(echo $expectedVersion | cut -d'-' -f1)
+  # use command `containerd --version` to get the version
+  local containerd_version=$(containerd --version)
+  # the output of containerd_version looks like the followings, need to extract the version number.
+  # For containerd (v1): containerd github.com/containerd/containerd 1.6.26 
+  # For containerd (v2): containerd github.com/containerd/containerd/v2 2.0.0
+  containerd_version=$(echo $containerd_version | cut -d' ' -f3)
+  echo "$test: checking if containerd version is $expectedVersion"
+  if [ "$containerd_version" != "$expectedVersion" ]; then
+    err "$test: containerd version is not $expectedVersion, instead it is $containerd_version"
     return 1
   fi
   echo "$test: Test finished successfully."
