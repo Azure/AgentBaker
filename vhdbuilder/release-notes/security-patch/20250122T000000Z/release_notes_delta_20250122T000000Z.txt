@@ -1,8 +1,0 @@
-Release notes for security patch 20250122T000000Z timestamp
-Package difference between 20250115T000000Z and 20250122T000000Z
-No reboot required
-Upgrade: vim:amd64 (2:8.2.3995-1ubuntu2.21, 2:8.2.3995-1ubuntu2.22), vim-common:amd64 (2:8.2.3995-1ubuntu2.21, 2:8.2.3995-1ubuntu2.22), vim-tiny:amd64 (2:8.2.3995-1ubuntu2.21, 2:8.2.3995-1ubuntu2.22), vim-runtime:amd64 (2:8.2.3995-1ubuntu2.21, 2:8.2.3995-1ubuntu2.22)
-Upgrade: rsync:amd64 (3.2.7-0ubuntu0.22.04.3, 3.2.7-0ubuntu0.22.04.4)
-Upgrade: python3.10:amd64 (3.10.12-1~22.04.7, 3.10.12-1~22.04.8), libpython3.10-minimal:amd64 (3.10.12-1~22.04.7, 3.10.12-1~22.04.8), libpython3.10-stdlib:amd64 (3.10.12-1~22.04.7, 3.10.12-1~22.04.8), libpython3.10:amd64 (3.10.12-1~22.04.7, 3.10.12-1~22.04.8), python3.10-minimal:amd64 (3.10.12-1~22.04.7, 3.10.12-1~22.04.8)
-Upgrade: xxd:amd64 (2:8.2.3995-1ubuntu2.21, 2:8.2.3995-1ubuntu2.22)
-
