@@ -37,6 +37,15 @@ installDeps() {
       fi
     done
 
+    # install aznfs-mount
+    AZNFS_VERSION="0.1.548"
+    echo "install aznfs v$AZNFS_VERSION...."
+    curl -fsSL "https://github.com/Azure/AZNFS-mount/releases/download/$AZNFS_VERSION/aznfs_install.sh" | bash
+
+    # disable aznfswatchdog since aznfs install and enable aznfswatchdog and aznfswatchdogv4 services at the same time while we only need aznfswatchdogv4
+    systemctl disable aznfswatchdog
+    systemctl stop aznfswatchdog
+
     # install 2.0 specific packages
     # apparmor related packages and the blobfuse package are not available in AzureLinux 3.0
     if [ "$OS_VERSION" = "2.0" ]; then
