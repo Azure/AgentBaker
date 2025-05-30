@@ -762,11 +762,7 @@ function Test-ValidateImageBinarySignature {
         "containernetworking/azure-cni" # dropgz.exe or dropgz
     )
 
-    # TODO: remove when crictl.exe can find the default config file
-    $crictlPath = (Get-Command crictl.exe -ErrorAction SilentlyContinue).Path
-    $configPath = Join-Path (Split-Path -Parent $crictlPath) "crictl.yaml"
-
-    $images = crictl -c $configPath images -o json | ConvertFrom-Json
+    $images = crictl images -o json | ConvertFrom-Json
     foreach ($image in $images.images) {
         $imageTag = $image.repoTags[0]
         $skipImageMatch = $skipImageMapForSignature | Where-Object { $imageTag -match $_ }
