@@ -170,22 +170,15 @@ az vm run-command invoke \
 
 capture_benchmark "${SCRIPT_NAME}_run_az_scan_command"
 
-AUTH_MODE=""
-if [ "${OS_VERSION}" = "20.04" ]; then
-    AUTH_MODE="key"
-else
-    AUTH_MODE="login"
-fi
+az storage blob download --container-name ${SIG_CONTAINER_NAME} --name  ${TRIVY_UPLOAD_REPORT_NAME} --file trivy-report.json --account-name ${STORAGE_ACCOUNT_NAME} --auth-mode login
+az storage blob download --container-name ${SIG_CONTAINER_NAME} --name  ${TRIVY_UPLOAD_TABLE_NAME} --file  trivy-images-table.txt --account-name ${STORAGE_ACCOUNT_NAME} --auth-mode login
+az storage blob download --container-name ${SIG_CONTAINER_NAME} --name  ${CVE_DIFF_UPLOAD_REPORT_NAME} --file  cve-diff.txt --account-name ${STORAGE_ACCOUNT_NAME} --auth-mode login
+az storage blob download --container-name ${SIG_CONTAINER_NAME} --name  ${CVE_LIST_UPLOAD_REPORT_NAME} --file  cve-list.txt --account-name ${STORAGE_ACCOUNT_NAME} --auth-mode login
 
-az storage blob download --container-name ${SIG_CONTAINER_NAME} --name  ${TRIVY_UPLOAD_REPORT_NAME} --file trivy-report.json --account-name ${STORAGE_ACCOUNT_NAME} --auth-mode ${AUTH_MODE}
-az storage blob download --container-name ${SIG_CONTAINER_NAME} --name  ${TRIVY_UPLOAD_TABLE_NAME} --file  trivy-images-table.txt --account-name ${STORAGE_ACCOUNT_NAME} --auth-mode ${AUTH_MODE}
-az storage blob download --container-name ${SIG_CONTAINER_NAME} --name  ${CVE_DIFF_UPLOAD_REPORT_NAME} --file  cve-diff.txt --account-name ${STORAGE_ACCOUNT_NAME} --auth-mode ${AUTH_MODE}
-az storage blob download --container-name ${SIG_CONTAINER_NAME} --name  ${CVE_LIST_UPLOAD_REPORT_NAME} --file  cve-list.txt --account-name ${STORAGE_ACCOUNT_NAME} --auth-mode ${AUTH_MODE}
-
-az storage blob delete --account-name ${STORAGE_ACCOUNT_NAME} --container-name ${SIG_CONTAINER_NAME} --name ${TRIVY_UPLOAD_REPORT_NAME} --auth-mode ${AUTH_MODE}
-az storage blob delete --account-name ${STORAGE_ACCOUNT_NAME} --container-name ${SIG_CONTAINER_NAME} --name ${TRIVY_UPLOAD_TABLE_NAME} --auth-mode ${AUTH_MODE}
-az storage blob delete --account-name ${STORAGE_ACCOUNT_NAME} --container-name ${SIG_CONTAINER_NAME} --name ${CVE_DIFF_UPLOAD_REPORT_NAME} --auth-mode ${AUTH_MODE}
-az storage blob delete --account-name ${STORAGE_ACCOUNT_NAME} --container-name ${SIG_CONTAINER_NAME} --name ${CVE_LIST_UPLOAD_REPORT_NAME} --auth-mode ${AUTH_MODE}
+az storage blob delete --account-name ${STORAGE_ACCOUNT_NAME} --container-name ${SIG_CONTAINER_NAME} --name ${TRIVY_UPLOAD_REPORT_NAME} --auth-mode login
+az storage blob delete --account-name ${STORAGE_ACCOUNT_NAME} --container-name ${SIG_CONTAINER_NAME} --name ${TRIVY_UPLOAD_TABLE_NAME} --auth-mode login
+az storage blob delete --account-name ${STORAGE_ACCOUNT_NAME} --container-name ${SIG_CONTAINER_NAME} --name ${CVE_DIFF_UPLOAD_REPORT_NAME} --auth-mode login
+az storage blob delete --account-name ${STORAGE_ACCOUNT_NAME} --container-name ${SIG_CONTAINER_NAME} --name ${CVE_LIST_UPLOAD_REPORT_NAME} --auth-mode login
 
 capture_benchmark "${SCRIPT_NAME}_download_and_delete_blobs"
 
