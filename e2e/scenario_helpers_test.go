@@ -117,6 +117,10 @@ func prepareAKSNode(ctx context.Context, s *Scenario) {
 
 	nbc := getBaseNBC(s.T, s.Runtime.Cluster, s.VHD)
 
+	if s.VHD.OS == config.OSWindows {
+		nbc.ContainerService.Properties.WindowsProfile.CseScriptsPackageURL = "https://packages.aks.azure.com/aks/windows/cse"
+	}
+
 	if s.BootstrapConfigMutator != nil {
 		// deep copy the nbc so that we can mutate it without affecting the original
 		clonedNbc, err := deepcopy.Anything(nbc)
