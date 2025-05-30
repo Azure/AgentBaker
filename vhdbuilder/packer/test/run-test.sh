@@ -157,6 +157,8 @@ if [ "$OS_TYPE" = "Linux" ]; then
     echo "$ret"
     exit 1
   fi
+  echo "$SCRIPT_PATH test output is: "
+  echo "$ret"
 else
   SCRIPT_PATH="$CDIR/$WIN_SCRIPT_PATH"
   echo "Run $SCRIPT_PATH"
