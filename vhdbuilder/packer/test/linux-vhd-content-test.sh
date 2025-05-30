@@ -1266,14 +1266,16 @@ testContainerd() {
   expectedVersion="${1}"
   local test="testContainerd"
   echo "$test: Start"
-  # the expectedVersion looks like this, "1.6.24-0ubuntu1~18.04.1" or "containerd2-2.0.0-6.azl3", need to extract the version number.
+  # the expectedVersion looks like this, "1.6.24-0ubuntu1~18.04.1" or "containerd2-2.0.0-6.azl3", we need to extract the major.minor.patch version only.
   expectedVersion=$(echo $expectedVersion | cut -d'-' -f1)
   # use command `containerd --version` to get the version
   local containerd_version=$(containerd --version)
-  # the output of containerd_version looks like the followings, need to extract the version number.
+  # the output of containerd_version looks like the followings. We need to extract the major.minor.patch version only.
   # For containerd (v1): containerd github.com/containerd/containerd 1.6.26 
   # For containerd (v2): containerd github.com/containerd/containerd/v2 2.0.0
   containerd_version=$(echo $containerd_version | cut -d' ' -f3)
+  # If the version is in the format "1.6.24-11-ubuntu1~18.04.1" or "containerd2-2.0.0-6.azl3", we need to extract the major.minor.patch version only.
+  echo "$containerd_version" | grep -oE '^[0-9]+\.[0-9]+\.[0-9]+'
   echo "$test: checking if containerd version is $expectedVersion"
   if [ "$containerd_version" != "$expectedVersion" ]; then
     err "$test: containerd version is not $expectedVersion, instead it is $containerd_version"
