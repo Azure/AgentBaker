@@ -105,6 +105,9 @@ login_with_user_assigned_managed_identity() {
     local ID=$2
 
     LOGIN_FLAGS="--identity $TYPE_FLAG $ID"
+    if [ "${OS_VERSION}" = "20.04" ]; then
+        LOGIN_FLAGS+="--api-version 2025-01-05 "
+    fi
     if [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ]; then
         LOGIN_FLAGS="$LOGIN_FLAGS --allow-no-subscriptions"
     fi
@@ -239,33 +242,26 @@ else
     login_with_umsi_resource_id ${AZURE_MSI_RESOURCE_STRING}
 fi
 
-AUTH_MODE=""
-if [ "${OS_VERSION}" = "20.04" ]; then
-    AUTH_MODE="key"
-else
-    AUTH_MODE="login"
-fi
-
 az storage blob upload --file ${CVE_DIFF_QUERY_OUTPUT_PATH} \
     --container-name ${SIG_CONTAINER_NAME} \
     --name ${CVE_DIFF_UPLOAD_REPORT_NAME} \
     --account-name ${STORAGE_ACCOUNT_NAME} \
-    --auth-mode ${AUTH_MODE}
+    --auth-mode login
 
 az storage blob upload --file ${TRIVY_REPORT_ROOTFS_JSON_PATH} \
     --container-name ${SIG_CONTAINER_NAME} \
     --name ${TRIVY_UPLOAD_REPORT_NAME} \
     --account-name ${STORAGE_ACCOUNT_NAME} \
-    --auth-mode ${AUTH_MODE}
+    --auth-mode login
 
 az storage blob upload --file ${TRIVY_REPORT_IMAGE_TABLE_PATH} \
     --container-name ${SIG_CONTAINER_NAME} \
     --name ${TRIVY_UPLOAD_TABLE_NAME} \
     --account-name ${STORAGE_ACCOUNT_NAME} \
-    --auth-mode ${AUTH_MODE}
+    --auth-mode login
 
 az storage blob upload --file ${CVE_LIST_QUERY_OUTPUT_PATH} \
     --container-name ${SIG_CONTAINER_NAME} \
     --name ${CVE_LIST_UPLOAD_REPORT_NAME} \
     --account-name ${STORAGE_ACCOUNT_NAME} \
-    --auth-mode ${AUTH_MODE}
+    --auth-mode login
