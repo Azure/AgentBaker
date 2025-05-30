@@ -46,6 +46,14 @@ Describe 'cse_install.sh'
             When call installContainerRuntime
             The output line 3 should equal "INFO: containerd package versions array is either empty or the first element is <SKIP>. Skipping containerd installation."   
         End         
+        It 'skips the containerd installation for AzureLinux with Kata'
+            UBUNTU_RELEASE="" # mocking Mariner doesn't have command `lsb_release -cs`
+            OS="AZURELINUX"
+            containerdPackage=$(readPackage "containerd")
+            IS_KATA="true"
+            When call installContainerRuntime
+            The output line 3 should equal "INFO: containerd package versions array is either empty or the first element is <SKIP>. Skipping containerd installation."   
+        End         
         It 'returns expected output for successful installation of containerd in AzureLinux'
             UBUNTU_RELEASE="" # mocking AzureLinux doesn't have command `lsb_release -cs`
             OS="AZURELINUX"
