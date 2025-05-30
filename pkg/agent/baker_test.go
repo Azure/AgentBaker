@@ -1485,6 +1485,14 @@ testdomain567.com:53 {
 			}
 		}, nil),
 
+		Entry("AzureLinux v3 with kata", "AzureLinuxV3+Kata", "1.28.0", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.OSSKU = "AzureLinux"
+			config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSAzureLinuxV3Gen2Kata
+			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+				ContainerRuntime: datamodel.Containerd,
+			}
+		}, nil),
+
 		Entry("Mariner v2 with DisableUnattendedUpgrades=true", "Marinerv2+DisableUnattendedUpgrades=true", "1.23.8",
 			func(config *datamodel.NodeBootstrappingConfiguration) {
 				config.OSSKU = "Mariner"
@@ -1547,6 +1555,26 @@ testdomain567.com:53 {
 			func(config *datamodel.NodeBootstrappingConfiguration) {
 				config.OSSKU = "AzureLinux"
 				config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSAzureLinuxV2Gen2Kata
+				config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+					ContainerRuntime: datamodel.Containerd,
+				}
+				config.DisableUnattendedUpgrades = false
+			}, nil),
+
+		Entry("AzureLinux v3 with kata and DisableUnattendedUpgrades=true", "AzureLinuxV3+Kata+DisableUnattendedUpgrades=true", "1.28.0",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.OSSKU = "Mariner"
+				config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSAzureLinuxV3Gen2Kata
+				config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+					ContainerRuntime: datamodel.Containerd,
+				}
+				config.DisableUnattendedUpgrades = true
+			}, nil),
+
+		Entry("AzureLinux v3 with kata and DisableUnattendedUpgrades=false", "AzureLinuxV3+Kata+DisableUnattendedUpgrades=false", "1.28.0",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.OSSKU = "Mariner"
+				config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSAzureLinuxV3Gen2Kata
 				config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
 					ContainerRuntime: datamodel.Containerd,
 				}

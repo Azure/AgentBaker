@@ -62,7 +62,7 @@ steps:
       allowPartiallySucceededBuilds: true
       buildVersionToDownload: 'latest'
       downloadType: 'single'
-      artifactName: 'drop_container_job_sign_uvm'
+      artifactName: 'drop_container_job_sign_uvm_azl3'
       itemPattern: |
         **/kata-containers-igvm-debug.img**
         **/igvm-measurement**
