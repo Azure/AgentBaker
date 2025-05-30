@@ -239,26 +239,33 @@ else
     login_with_umsi_resource_id ${AZURE_MSI_RESOURCE_STRING}
 fi
 
+AUTH_MODE=""
+if [ "${OS_VERSION}" = "20.04" ]; then
+    AUTH_MODE="key"
+else
+    AUTH_MODE="login"
+fi
+
 az storage blob upload --file ${CVE_DIFF_QUERY_OUTPUT_PATH} \
     --container-name ${SIG_CONTAINER_NAME} \
     --name ${CVE_DIFF_UPLOAD_REPORT_NAME} \
     --account-name ${STORAGE_ACCOUNT_NAME} \
-    --auth-mode login
+    --auth-mode ${AUTH_MODE}
 
 az storage blob upload --file ${TRIVY_REPORT_ROOTFS_JSON_PATH} \
     --container-name ${SIG_CONTAINER_NAME} \
     --name ${TRIVY_UPLOAD_REPORT_NAME} \
     --account-name ${STORAGE_ACCOUNT_NAME} \
-    --auth-mode login
+    --auth-mode ${AUTH_MODE}
 
 az storage blob upload --file ${TRIVY_REPORT_IMAGE_TABLE_PATH} \
     --container-name ${SIG_CONTAINER_NAME} \
     --name ${TRIVY_UPLOAD_TABLE_NAME} \
     --account-name ${STORAGE_ACCOUNT_NAME} \
-    --auth-mode login
+    --auth-mode ${AUTH_MODE}
 
 az storage blob upload --file ${CVE_LIST_QUERY_OUTPUT_PATH} \
     --container-name ${SIG_CONTAINER_NAME} \
     --name ${CVE_LIST_UPLOAD_REPORT_NAME} \
     --account-name ${STORAGE_ACCOUNT_NAME} \
-    --auth-mode login
+    --auth-mode ${AUTH_MODE}
