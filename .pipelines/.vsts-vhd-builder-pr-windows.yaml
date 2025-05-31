@@ -31,6 +31,7 @@ pr:
       - parts/windows
       - go.mod
       - go.sum
+      - e2e/
     exclude:
       - vhdbuilder/release-notes
       - /**/*.md
@@ -64,6 +65,8 @@ variables:
     value: $(AZURE_BUILD_RESOURCE_GROUP_NAME)
   - name: GALLERY_SUBSCRIPTION_ID
     value: $(AZURE_BUILD_SUBSCRIPTION_ID)
+  - name: ENABLE_BACKFILL_CLEANUP
+    value: True
 
 stages:
   - template: ./templates/.build-and-test-windows-vhds-template.yaml
