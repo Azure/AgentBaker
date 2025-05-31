@@ -1385,16 +1385,18 @@ root = "{{GetDataDir}}"{{- end}}
   runtime_type = "io.containerd.kata.v2"
 [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.katacli]
   runtime_type = "io.containerd.runc.v1"
-[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.katacli.options]
-  NoPivotRoot = false
-  NoNewKeyring = false
-  ShimCgroup = ""
-  IoUid = 0
-  IoGid = 0
-  BinaryName = "/usr/bin/kata-runtime"
-  Root = ""
-  CriuPath = ""
-  SystemdCgroup = false
+  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.katacli.options]
+    NoPivotRoot = false
+    NoNewKeyring = false
+    ShimCgroup = ""
+    IoUid = 0
+    IoGid = 0
+    BinaryName = "/usr/bin/kata-runtime"
+    Root = ""
+    CriuPath = ""
+    SystemdCgroup = false
+    pod_annotations = ["io.katacontainers.*"]
+    ConfigPath = "/usr/share/defaults/kata-containers/configuration.toml"
 [proxy_plugins]
   [proxy_plugins.tardev]
     type = "snapshot"
