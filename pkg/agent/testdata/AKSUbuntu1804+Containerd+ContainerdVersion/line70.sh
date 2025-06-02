@@ -311,10 +311,6 @@ ensureContainerd() {
 ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
 EOF
 
-  if [ "${ARTIFACT_STREAMING_ENABLED}" = "true" ]; then
-    logs_to_events "AKS.CSE.ensureContainerd.ensureArtifactStreaming" ensureArtifactStreaming || exit $ERR_ARTIFACT_STREAMING_INSTALL
-  fi
-
   mkdir -p /etc/containerd
   if [ "${GPU_NODE}" = "true" ] && [ "${skip_nvidia_driver_install}" = "true" ]; then
     echo "Generating non-GPU containerd config for GPU node due to VM tags"
