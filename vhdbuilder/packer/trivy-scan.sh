@@ -106,7 +106,7 @@ login_with_user_assigned_managed_identity() {
 
     LOGIN_FLAGS="--identity $TYPE_FLAG $ID"
     if [ "${OS_VERSION}" = "20.04" ]; then
-        LOGIN_FLAGS+="--api-version 2025-01-05"
+        LOGIN_FLAGS+=" --api-version 2025-01-05"
     fi
     if [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ]; then
         LOGIN_FLAGS="$LOGIN_FLAGS --allow-no-subscriptions"
