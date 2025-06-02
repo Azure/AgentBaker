@@ -140,3 +140,59 @@ if [ -n "${AZURE_RESOURCE_GROUP_NAME}" ]; then
       echo "Deleted packer resource group $pkr_group"
   done
 fi
+
+# clean up resource group "windows-" which is created over a week ago
+if [[ -n "${SUBSCRIPTION_ID}" ]]; then
+  echo "Looking for resource groups in ${SUBSCRIPTION_ID} created over one week ago..."
+
+ # The timestamp in the resource group name does not represent the creation date of the resource group, but the date when the image version was created.
+ # So we will need to rely on the "tags.createdtime" property in the resource group metadata to determine the creation date.
+  due_date=$(date +%Y-%m-%d -d "7 days ago")
+  rg_groups=$(az group list | jq --arg dl $due_date -r '.[] | select(.name | startswith("windows-")) | select(.tags.createdtime != null and .tags.createdtime < $dl).name')
+  for rg_group in $rg_groups; do
+      echo "Deleting resource group $rg_group"
+      az group delete --name ${rg_group} --yes 
+      echo "Deleted resource group $rg_group"
+  done
+fi
+
+#clean up the image versions generated from successful builds
+if [[ -n "${AZURE_RESOURCE_GROUP_NAME}" ]]; then
+  echo "Looking for image versions in ${AZURE_RESOURCE_GROUP_NAME}, only keep the last 10..."
+  image_defs=("windows-2019-containerd" "windows-2022-containerd" "windows-2022-containerd-gen2" "windows-23h2" "windows-23h2-gen2" "windows-2025" "windows-2025-gen2" "windows-activebranch" "rs_sparc")
+  for image_def in ${image_defs[@]}; do
+    to_keep=$(az sig image-version list -g ${AZURE_RESOURCE_GROUP_NAME} -r ${SIG_GALLERY_NAME} -i $image_def \
+      | jq -r '.[] | {name: .name, publishDate: .publishingProfile.publishedDate}' |  jq -s 'sort_by(.publishDate) | reverse |.[:10] | .[].name')
+
+    echo "Keeping the following image versions for ${image_def}: $to_keep"
+
+    image_versions=$(az sig image-version list -g ${AZURE_RESOURCE_GROUP_NAME} -r ${SIG_GALLERY_NAME} -i $image_def | jq --arg dl $due_date -r '.[] | select(.publishingProfile.publishedDate < $dl).name')
+
+    for image_version in $image_versions; do
+    #keep the last three image versions if there has been no builds for a week
+      if [[ ! ${to_keep} =~  ${image_version} ]];  then
+        echo "Deleting sig image-version ${image_version} ${image_def} from gallery $SIG_GALLERY_NAME rg ${AZURE_RESOURCE_GROUP_NAME}"
+        az sig image-version delete -e $image_version -i ${image_def} -r ${SIG_GALLERY_NAME} -g ${AZURE_RESOURCE_GROUP_NAME}
+        az sig image-version wait --deleted --timeout 1800 -e $image_version -i ${image_def} -r ${SIG_GALLERY_NAME} -g ${AZURE_RESOURCE_GROUP_NAME}
+        echo "Deleted sig image-version ${image_version} ${image_def} from gallery $SIG_GALLERY_NAME rg ${AZURE_RESOURCE_GROUP_NAME}"
+      fi
+    done
+  done
+
+  echo "Removing old image created from image gallery for older than 10 days"
+  (( expirationInSecs = 10 * 60 * 60 ))
+  # deadline = the "date +%s" representation of the oldest age we're willing to keep
+  (( deadline=$(date +%s)-${expirationInSecs%.*} ))
+  images=(az image list -g  wcct-agentbaker-test | jq --arg dl $deadline -r '.[] | select(.name | test("^rs_sparc_ctr_serverdatacentercore")) | select(.tags.TimeStamp < $dl).name')
+    for image in $images; do
+    managed_image_ids+=" /subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/images/${image}"
+    echo "Will delete 1ES published managed image ${image} from resource group ${AZURE_RESOURCE_GROUP_NAME}"
+  done
+
+  if [ -n "${managed_image_ids}" ]; then
+    echo "Attempting to delete $(echo ${managed_image_ids} | wc -w) Windows managed images..."
+    az resource delete --ids ${managed_image_ids} > /dev/null || echo "Windows managed image deletion was not successful, continuing..."
+  else
+    echo "Did not find any published managed images eligible for deletion"
+  fi
+fi

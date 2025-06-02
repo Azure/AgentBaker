@@ -1,0 +1,174 @@
+parameters:
+    - name: vhdName
+      type: string
+      default: latest
+
+steps:
+    - powershell: |
+        az login --identity --username $(AZURE_MSI_RESOURCE_STRING)
+        az account set -s $(AZURE_BUILD_SUBSCRIPTION_ID)
+        #az extension add --name storage-preview --debug --yes
+      displayName: Managed Identity Login
+    - powershell: |
+        $directories = Get-ChildItem -Path 'C:\AzCopy10\AZCopy' -Directory -Filter 'azcopy_*'
+        $env:PATH += ";$($directories[0].FullName)"
+        echo $env:PATH
+        azcopy --version
+
+        $env:AZCOPY_AUTO_LOGIN_TYPE = "MSI"
+        $env:AZCOPY_MSI_RESOURCE_STRING="${AZURE_MSI_RESOURCE_STRING}"
+
+        mkdir $(System.DefaultWorkingDirectory)/azcopy -Force > $null
+        cd $(System.DefaultWorkingDirectory)\azcopy
+
+        #Read version info from SIG directly instead of from storage
+        $version_filename = "sig_image_version.txt"
+        $build_imageversion_url = "https://$(AZURE_E2E_STORAGE_ACCOUNT_NAME).blob.core.windows.net/ssh-vhds/$($version_filename)"
+        # try {
+        #   .\azcopy.exe copy "$aks_imageversion_url" $(System.DefaultWorkingDirectory)\azcopy --recursive
+        #   $aks_imageversion = Get-Content $(System.DefaultWorkingDirectory)\azcopy\$version_filename
+        #   Write-Output "AKS image version is: $aks_imageversion"
+        # } catch {
+        #   Write-Output "image version file $version_filename does not exist, continue"
+        #   $aks_imageversion = ""
+        # }
+        
+        $vhd_filename = "${{ parameters.vhdName }}"
+        if ($vhd_filename -eq "latest") {
+          $vhd_filename = "rs_sparc_ctr_serverdatacentercore"
+        } 
+
+        $fileToDownload = $(az storage blob list --container-name vhds --account-name $(AZURE_E2E_STORAGE_ACCOUNT_NAME) --auth-mode login --query "[?starts_with(name, '$vhd_filename')].[name, properties.lastModified]" --output tsv | Sort-Object { [DateTime]::Parse($_.Split("`t")[1]) } -Descending | Select-Object -First 5)
+        $filesToDownload = @($fileToDownload)
+
+        $openSSHFound = $false
+        $servercoreFound = $false
+
+        foreach ($element in $filesToDownload) {
+          $directoryPath = "$(System.DefaultWorkingDirectory)/azcopy"
+          $vhdPath = Get-ChildItem -Path $directoryPath -Filter *.vhd | Select-Object -ExpandProperty FullName
+          if ($vhdPath) {
+            Remove-Item $vhdPath -Force
+            Write-Output "VHD file deleted: $vhdPath"
+          }
+
+          $fileToDownload = $element.Split("`t")[0]
+          Write-Output "File to download: $fileToDownload"
+
+          $vhd_url = "https://$(AZURE_E2E_STORAGE_ACCOUNT_NAME).blob.core.windows.net/vhds/$($fileToDownload)"
+
+          Write-Output "Download URL: $vhd_url"
+          azcopy copy "$vhd_url" $(System.DefaultWorkingDirectory)\azcopy --recursive
+
+          $vhdPath = Get-ChildItem -Path $directoryPath -Filter *.vhd | Select-Object -ExpandProperty FullName
+          
+          $mountDir = "$(System.DefaultWorkingDirectory)\mountdir"
+          if (Test-Path "$mountDir") {
+              Remove-Item "$mountDir" -Recurse -Force
+          }
+          New-Item "$mountDir" -ItemType "directory"
+
+          Mount-WindowsImage -Path $mountDir -ImagePath $vhdPath -index 1 
+          #Mount-DiskImage -ImagePath $vhdPath
+          #$DiskInfo=(Get-DiskImage -ImagePath $vhdPath | Get-Disk | Get-Partition).DriveLetter
+          $BuildInfo = Get-Item "$(System.DefaultWorkingDirectory)\mountdir\Windows\WinSxS\amd64_microsoft-windows-os-kernel_*\ntoskrnl.exe"
+          $WindowsBuildLabEx = $BuildInfo.VersionInfo.ProductVersion
+          $WindowsBuildLabExWithoutPrefix = $WindowsBuildLabEx -replace '10\.0\.'  | Select-Object -Last 1
+
+          $openSSHPrefix = $WindowsBuildLabExWithoutPrefix + "_OpenSSH-Server-Package"
+          Write-Output "openSSH prefix is: $openSSHPrefix"
+          
+          $openSSHToDownloads = $(az storage blob list --container-name from-sparc --account-name  $(AZURE_E2E_STORAGE_ACCOUNT_NAME) --auth-mode login --query "[?starts_with(name, '$openSSHPrefix')].[name, properties.lastModified]" --output tsv)
+          if ($openSSHToDownloads) {
+              $openSSHToDownload = ($openSSHToDownloads | Sort-Object { [DateTime]::Parse($_.Split("`t")[1]) } -Descending | Select-Object -First 1).Split("`t")[0]
+              $openSSHFound = $true
+          } else {
+            Write-Output "No OpenSSH package with matched version prefix found, the missed one is: $WindowsBuildLabExWithoutPrefix, cointinue to search"
+            #$openSSHToDownload = $(az storage blob list --container-name from-sparc --account-name  $(AZURE_E2E_STORAGE_ACCOUNT_NAME) --auth-mode login --query "[?contains(name, 'OpenSSH-Server-Package')].[name, properties.lastModified]" --output tsv | Sort-Object { [DateTime]::Parse($_.Split("`t")[1]) } -Descending | Select-Object -First 1).Split("`t")[0]
+            Dismount-WindowsImage -Path "$(System.DefaultWorkingDirectory)\mountdir" -Discard
+            continue
+          }
+
+          $servercoreName = "servercore-" + $WindowsBuildLabExWithoutPrefix + ".tar"
+          $servercore= $(az storage blob show --account-name  $(AZURE_E2E_STORAGE_ACCOUNT_NAME) --container-name from-sparc --auth-mode login --name "$servercoreName")
+          if ($servercore) {
+              Write-Output "Use the matched ServerCore container image: $servercoreName"
+              $servercoreFound = $true
+              break
+          } else {
+            Write-Output "No ServerCore container image with matched version prefix found, please upload the one: $WindowsBuildLabExWithoutPrefix"
+            #$servercoreName = $(az storage blob list --container-name from-sparc --account-name  $(AZURE_E2E_STORAGE_ACCOUNT_NAME) --auth-mode login --query "[?contains(name, 'servercore-')].[name, properties.lastModified]" --output tsv | Sort-Object { [DateTime]::Parse($_.Split("`t")[1]) } -Descending | Select-Object -First 1).Split("`t")[0]
+            continue
+          }
+        }
+
+        if ($openSSHFound -and $servercoreFound) {
+          Write-Output "Use the matched OpenSSH package: $openSSHToDownload and ServerCore container image: $servercoreName"
+        } else {
+          Write-Output "No OpenSSH package or servercore with matched version prefix found, please upload the one: $WindowsBuildLabExWithoutPrefix"
+          exit 1
+        }
+
+        $servercore_url = "https://$(AZURE_E2E_STORAGE_ACCOUNT_NAME).blob.core.windows.net/from-sparc/$($servercoreName)"
+        echo "##vso[task.setvariable variable=ServerCoreUrl;isOutput=true]$servercore_url"
+
+        $nanoserverName = "nanoserver-" + $WindowsBuildLabExWithoutPrefix + ".tar"
+        $nanoserver_url = "https://$(AZURE_E2E_STORAGE_ACCOUNT_NAME).blob.core.windows.net/from-sparc/$($nanoserverName)"
+        echo "##vso[task.setvariable variable=NanoServerUrl;isOutput=true]$nanoserver_url"
+
+        $openssh_url = "https://$(AZURE_E2E_STORAGE_ACCOUNT_NAME).blob.core.windows.net/from-sparc/$($openSSHToDownload)"
+        Write-Output "opesn SSH Download URL: $openssh_url"
+        md openssh
+        azcopy copy "$openssh_url" $(System.DefaultWorkingDirectory)\azcopy\openssh --recursive
+        
+        $sshPath = Get-ChildItem -Path $directoryPath\openssh -Filter *.cab | Select-Object -ExpandProperty FullName
+        #copy openssh to the windows directory of the mounted image
+        Copy-Item -Path $sshPath -Destination $(System.DefaultWorkingDirectory)\mountdir\windows\OpenSSH-Server-Package~31bf3856ad364e35~amd64~~.cab
+
+        # $monAgent_url = "https://$(AZURE_E2E_STORAGE_ACCOUNT_NAME).blob.core.windows.net/azcopy/Geneva.zip"
+        # $slioEtwMonitor_url = "https://$(AZURE_E2E_STORAGE_ACCOUNT_NAME).blob.core.windows.net/azcopy/SiloEtwMonitor.zip"
+        #  cd $(System.DefaultWorkingDirectory)\azcopy
+        # .\azcopy.exe copy "$monAgent_url" $(System.DefaultWorkingDirectory)\mountdir\tmp\Geneva.zip --recursive
+        # .\azcopy.exe copy "$slioEtwMonitor_url" $(System.DefaultWorkingDirectory)\mountdir\tmp\SiloEtwMonitor.zip --recursive
+        # Expand-Archive -Path $(System.DefaultWorkingDirectory)\mountdir\tmp\Geneva.zip -DestinationPath $(System.DefaultWorkingDirectory)\mountdir\Geneva
+        # Expand-Archive -Path $(System.DefaultWorkingDirectory)\mountdir\tmp\SiloEtwMonitor.zip -DestinationPath $(System.DefaultWorkingDirectory)\mountdir\SiloEtwMonitor
+
+        # Save the image
+        Dismount-WindowsImage -Path "$(System.DefaultWorkingDirectory)\mountdir" -Save
+
+        $upload_vhd_url = "https://$(AZURE_E2E_STORAGE_ACCOUNT_NAME).blob.core.windows.net/ssh-vhds/$($fileToDownload)"
+        cd $(System.DefaultWorkingDirectory)\azcopy
+        azcopy copy $vhdPath "$upload_vhd_url"
+
+        $gallery_image_def = "windows-activebranch"
+
+        cd $(System.DefaultWorkingDirectory)\azcopy
+        md imageversion -ea 0
+        $WindowsBuildLabExWithoutPrefix | Out-File -FilePath "$(System.DefaultWorkingDirectory)\azcopy\imageversion\$version_filename" -Encoding UTF8
+        $fileToDownload | Out-File -FilePath "$(System.DefaultWorkingDirectory)\azcopy\imageversion\vhdname.txt" -Encoding UTF8
+        ls
+
+        $existing_image = (az sig image-version list --gallery-image-definition $gallery_image_def `
+                  --gallery-name $(SIG_GALLERY_NAME) `
+                  --resource-group $(AZURE_BUILD_RESOURCE_GROUP_NAME) `
+                  --query "[?starts_with(name, '$WindowsBuildLabExWithoutPrefix')].{name:name, id:id, timeCreated:publishingProfile.publishedDate}" `
+                  | ConvertFrom-Json | Sort-Object -Property timeCreated -Descending | Select-Object -First 1).name
+
+        if  ([string]::IsNullOrEmpty($existing_image)) {
+          Write-Output "Sig image version does not equal vhds image version, pipeline will proceed to create new cluster"
+          echo "##vso[task.setvariable variable=imageBuilt;isOutput=true]No"
+        } else {
+          Write-Output "vhds image version already built in the sig, do not need to build new image"
+          azcopy copy $(System.DefaultWorkingDirectory)\azcopy\imageversion\$version_filename "$build_imageversion_url"
+          echo "##vso[task.setvariable variable=imageBuilt;isOutput=true]Yes"
+        }
+      name: GetInfoAndSetVariable
+      displayName: Get Info and Set Variable
+    - task: PublishPipelineArtifact@1
+      inputs:
+        artifactName: 'sig_image_version'
+        targetPath: '$(System.DefaultWorkingDirectory)/azcopy/imageversion/'
+    - task: PublishPipelineArtifact@1
+      inputs:
+        artifactName: 'openssh'
+        targetPath: '$(System.DefaultWorkingDirectory)/azcopy/openssh'
