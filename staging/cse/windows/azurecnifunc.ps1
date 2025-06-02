@@ -43,9 +43,7 @@ function Set-AzureCNIConfig
         [Parameter(Mandatory=$true)][bool]
         $IsDualStackEnabled,
         [Parameter(Mandatory=$false)][bool]
-        $IsAzureCNIOverlayEnabled,
-        [Parameter(Mandatory=$false)][bool]
-        $IsIMDSRestrictionEnabled
+        $IsAzureCNIOverlayEnabled
     )
     Logs-To-Event -TaskName "AKS.WindowsCSE.SetAzureCNIConfig" -TaskMessage "Start to set Azure CNI config. IsDualStackEnabled: $global:IsDualStackEnabled, IsAzureCNIOverlayEnabled: $global:IsAzureCNIOverlayEnabled, IsDisableWindowsOutboundNat: $global:IsDisableWindowsOutboundNat, CiliumDataplaneEnabled: $global:CiliumDataplaneEnabled, IsIMDSRestrictionEnabled: $global:IsIMDSRestrictionEnabled"
 
@@ -210,7 +208,7 @@ function Set-AzureCNIConfig
         }
     }
 
-    if ($IsIMDSRestrictionEnabled) {
+    if ($global:IsIMDSRestrictionEnabled) {
         $aclRuleBlockIMDS = [PSCustomObject]@{
             Type = 'ACL'
             Protocols = '6'

@@ -204,7 +204,7 @@ stages:
             condition: eq(variables.ENABLE_BACKFILL_CLEANUP, 'True')
             env:
               MODE: windowsVhdMode
-              SUBSCRIPTION_ID: $(AZURE_BUILD_SUBSCRIPTION_ID)
+              SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
               PROD_SUBSCRIPTION_ID: $(AZURE_PROD_SUBSCRIPTION_ID)
               AZURE_RESOURCE_GROUP_NAME: $(AZURE_BUILD_RESOURCE_GROUP_NAME)
               DRY_RUN:  ${{ parameters.dryrun }}
