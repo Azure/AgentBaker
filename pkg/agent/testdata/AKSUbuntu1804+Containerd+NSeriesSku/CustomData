@@ -270,6 +270,16 @@ write_files:
     [Install]
     WantedBy=multi-user.target kubelet.service
 
+- path: /etc/default/kubelet
+  permissions: "0644"
+  owner: root
+  content: |
+    KUBELET_FLAGS=--feature-gates=DynamicKubeletConfig=false 
+    KUBELET_REGISTER_SCHEDULABLE=true
+    NETWORK_POLICY=
+    KUBELET_IMAGE=
+    KUBELET_NODE_LABELS=agentpool=agent2,kubernetes.azure.com/agentpool=agent2
+
 - path: /opt/azure/containers/kubelet.sh
   permissions: "0755"
   owner: root
