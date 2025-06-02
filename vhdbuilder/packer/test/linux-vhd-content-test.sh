@@ -5,6 +5,7 @@ VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
 AZURELINUX_OS_NAME="AZURELINUX"
+MARINER_KATA_OS_NAME="MARINERKATA"
 
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
 CONTAINER_RUNTIME="$1"
@@ -149,8 +150,14 @@ testPackagesInstalled() {
     fi
     if [ "$OS_SKU" = "CBLMariner" ] || { [ "$OS_SKU" = "AzureLinux" ] && [ "$OS_VERSION" = "2.0" ]; }; then
       OS=$MARINER_OS_NAME
+      if (echo "$FEATURE_FLAGS" | grep -q "kata"); then
+        OS=${MARINER_KATA_OS_NAME}
+      fi
     elif [ "$OS_SKU" = "AzureLinux" ] && [ "$OS_VERSION" = "3.0" ]; then
       OS=$AZURELINUX_OS_NAME
+      if (echo "$FEATURE_FLAGS" | grep -q "kata"); then
+        OS=${MARINER_KATA_OS_NAME}
+      fi
     else
       OS=$UBUNTU_OS_NAME
     fi
