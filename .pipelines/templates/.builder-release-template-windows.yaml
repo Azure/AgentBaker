@@ -61,6 +61,8 @@ steps:
     env:
       MODE: "windowsVhdMode"
       SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
+  - bash: bash ./.pipelines/scripts/windows_build_cse.sh
+    displayName: Build Windows CSE Package
 
   - bash: bash ./.pipelines/scripts/windows_build_vhd.sh
     displayName: Build and save VHD
