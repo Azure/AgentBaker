@@ -49,6 +49,10 @@ parameters:
     type: string
     displayName: The windows artifact to build. Might be a duplicate of artifactName
 
+variables:
+  windows.cse.working.dir: $(Build.ArtifactStagingDirectory)/windows
+  windows.cse.publish.dir: $(Build.ArtifactStagingDirectory)/packages
+  windows.cse.file: aks-windows-cse-scripts-current.zip
 
 steps:
   - template: ./.template-override-components-json.yaml
@@ -61,9 +65,29 @@ steps:
     env:
       MODE: "windowsVhdMode"
       SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
-  - bash: bash ./.pipelines/scripts/windows_build_cse.sh
-    displayName: Build Windows CSE Package
+  - script: |
+      mkdir -p $(windows.cse.working.dir)
+      cp -r ./staging/cse/windows/* $(windows.cse.working.dir)
+      rm $(windows.cse.working.dir)/*.tests.ps1
+      rm $(windows.cse.working.dir)/*.tests.suites -r
+      rm $(windows.cse.working.dir)/README
+      rm $(windows.cse.working.dir)/provisioningscripts/*.md
+      rm $(windows.cse.working.dir)/debug/update-scripts.ps1
 
+      mkdir -p $(windows.cse.publish.dir)
+      echo "Creating CSE release pacakge $(windows.cse.publish.dir)/$(windows.cse.file)"
+      pushd $(windows.cse.working.dir) || exit 1
+        zip -r $(windows.cse.publish.dir)/$(windows.cse.file) ./*
+      popd || exit 1
+    displayName: Build Windows CSE Package
+  - task: ManifestGeneratorTask@0
+      inputs:
+        BuildDropPath: $(windows.cse.publish.dir)
+  - task: PublishPipelineArtifact@1
+      displayName: Publish Windows CSE Package
+      inputs:
+        artifactName: release
+        targetPath: $(windows.cse.publish.dir)
   - bash: bash ./.pipelines/scripts/windows_build_vhd.sh
     displayName: Build and save VHD
     env:
