@@ -28,7 +28,7 @@ popd || exit 1
 
 # Publish the zip file as an artifact of the pipeline 
 echo "Publishing CSE package as an artifact..."
-echo "##vso[artifact.upload artifactname=CSEPackage;]$ZIP_FILE"
+echo "##vso[artifact.upload artifactname=CSEPackage;]$csePackage"
 echo "CSE package built and published successfully."
 
 rm -rf "$releaseTempDir"
