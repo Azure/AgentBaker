@@ -357,6 +357,10 @@ logs_to_events "AKS.CSE.enableLocalDNS" enableLocalDNS || exit $?
 
 logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
 
+if [ "${ARTIFACT_STREAMING_ENABLED}" = "true" ]; then
+    logs_to_events "AKS.CSE.ensureContainerd.ensureArtifactStreaming" ensureArtifactStreaming || exit $ERR_ARTIFACT_STREAMING_INSTALL
+fi
+
 if [ "${ID}" != "mariner" ] && [ "${ID}" != "azurelinux" ]; then
     echo "Recreating man-db auto-update flag file and kicking off man-db update process at $(date)"
     createManDbAutoUpdateFlagFile
