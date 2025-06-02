@@ -815,13 +815,11 @@ configGPUDrivers() {
         mkdir -p /opt/{actions,gpu}
         if [ "${CONTAINER_RUNTIME}" = "containerd" ]; then
             # if target cloud is AzureUSGovernmentCloud, and NVIDIA_DRIVER_IMAGE contains GRID then use the specific 535 NVIDIA driver image
-            prefix="mcr.microsoft.com/aks/aks-gpu-grid"
-
             if [ "$TARGET_CLOUD" = "AzureUSGovernmentCloud" ] && \
-            [ "${NVIDIA_DRIVER_IMAGE#$prefix}" != "$NVIDIA_DRIVER_IMAGE" ]
-            then
+            [ "${NVIDIA_DRIVER_IMAGE#*GRID}" != "$NVIDIA_DRIVER_IMAGE" ]; then
                 NVIDIA_DRIVER_IMAGE_TAG="535.161.08-20250325114356"
             fi
+
 
             ctr -n k8s.io image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
             retrycmd_if_failure 5 10 600 bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install"
