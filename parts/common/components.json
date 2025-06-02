@@ -815,7 +815,7 @@
             "versionsV2": [
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "0.0.52"
+                "latestVersion": "current"
               }
             ],
             "downloadURL": "https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-v${version}.zip"
