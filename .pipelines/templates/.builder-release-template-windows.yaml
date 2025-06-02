@@ -86,7 +86,7 @@ steps:
   - task: PublishPipelineArtifact@1
       displayName: Publish Windows CSE Package
       inputs:
-        artifactName: release
+        artifactName: windows-cse-package
         targetPath: $(windows.cse.publish.dir)
   - bash: bash ./.pipelines/scripts/windows_build_vhd.sh
     displayName: Build and save VHD
@@ -122,6 +122,8 @@ steps:
       WINDOWS_PRIVATE_PACKAGES_URL: $(PRIVATE_PACKAGES_URL)
       AZURE_MSI_RESOURCE_STRING: $(AZURE_MSI_RESOURCE_STRING)
       BUILD_DATE: $(BUILD_DATE)
+      WINDOWS_CSE_PACKAGE_DIR: $(windows.cse.publish.dir)
+      WINDOWS_CSE_PACKAGE_FILE: $(windows.cse.file)
 
   # Note: use -a to grep MANAGED_SIG_ID (packer-output should be read as a binary file in Linux)
   - script: |
