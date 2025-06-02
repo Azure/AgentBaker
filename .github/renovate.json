@@ -1,6 +1,6 @@
 {
   "extends": [
-    "config:base"
+    "config:recommended"
   ],
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "enabledManagers": [
@@ -16,8 +16,9 @@
   ],
   "rebaseWhen": "automerging",
   "schedule": [
-    "after 10pm and before 5am every weekday",
-    "every weekend"
+    "after 10pm every weekday",
+    "every weekend",
+    "before 5am every weekday"
   ],
   "updateNotScheduled": false,
   "timezone": "America/Los_Angeles",
@@ -320,7 +321,20 @@
     {
       "matchPackageNames": [
         "windows/nanoserver",
-        "windows/servercore",
+        "windows/servercore"
+      ],
+      "groupName": "windowsbase",
+      "assignees": [
+        "timmy-wright"
+      ],
+      "reviewers": [
+        "timmy-wright"
+      ],
+      "enabled": true,
+      "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<compatibility>\\d+)\\.(?<patch>\\d+)$"
+    },
+    {
+      "matchPackageNames": [
         "windows/servercore/iis",
         "oss/v2/kubernetes/windows-gmsa-webhook"
       ],
@@ -359,8 +373,8 @@
     {
       "customType": "regex",
       "description": "auto update containerImages in components.json",
-      "fileMatch": [
-        "parts/common/components.json"
+      "managerFilePatterns": [
+        "/parts/common/components.json/"
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
@@ -372,8 +386,8 @@
     {
       "customType": "regex",
       "description": "auto update OCI artifacts in components.json",
-      "fileMatch": [
-        "parts/common/components.json"
+      "managerFilePatterns": [
+        "/parts/common/components.json/"
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
@@ -385,8 +399,8 @@
     {
       "customType": "regex",
       "description": "auto update packages for OS ubuntu 18.04 in components.json",
-      "fileMatch": [
-        "parts/common/components.json"
+      "managerFilePatterns": [
+        "/parts/common/components.json/"
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
@@ -399,8 +413,8 @@
     {
       "customType": "regex",
       "description": "auto update packages for OS ubuntu 20.04 in components.json",
-      "fileMatch": [
-        "parts/common/components.json"
+      "managerFilePatterns": [
+        "/parts/common/components.json/"
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
@@ -413,8 +427,8 @@
     {
       "customType": "regex",
       "description": "auto update packages for OS ubuntu 22.04 in components.json",
-      "fileMatch": [
-        "parts/common/components.json"
+      "managerFilePatterns": [
+        "/parts/common/components.json/"
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
@@ -427,8 +441,8 @@
     {
       "customType": "regex",
       "description": "auto update packages for OS ubuntu 24.04 in components.json",
-      "fileMatch": [
-        "parts/common/components.json"
+      "managerFilePatterns": [
+        "/parts/common/components.json/"
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
@@ -441,8 +455,8 @@
     {
       "customType": "regex",
       "description": "update version line in any cse_*.sh",
-      "fileMatch": [
-        "^.*cse_.*\\.sh"
+      "managerFilePatterns": [
+        "/^.*cse_.*\\.sh/"
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [

@@ -45,7 +45,7 @@ function Set-AzureCNIConfig
         [Parameter(Mandatory=$false)][bool]
         $IsAzureCNIOverlayEnabled
     )
-    Logs-To-Event -TaskName "AKS.WindowsCSE.SetAzureCNIConfig" -TaskMessage "Start to set Azure CNI config. IsDualStackEnabled: $global:IsDualStackEnabled, IsAzureCNIOverlayEnabled: $global:IsAzureCNIOverlayEnabled, IsDisableWindowsOutboundNat: $global:IsDisableWindowsOutboundNat, CiliumDataplaneEnabled: $global:CiliumDataplaneEnabled"
+    Logs-To-Event -TaskName "AKS.WindowsCSE.SetAzureCNIConfig" -TaskMessage "Start to set Azure CNI config. IsDualStackEnabled: $global:IsDualStackEnabled, IsAzureCNIOverlayEnabled: $global:IsAzureCNIOverlayEnabled, IsDisableWindowsOutboundNat: $global:IsDisableWindowsOutboundNat, CiliumDataplaneEnabled: $global:CiliumDataplaneEnabled, IsIMDSRestrictionEnabled: $global:IsIMDSRestrictionEnabled"
 
     $fileName  = [Io.path]::Combine("$AzureCNIConfDir", "10-azure.conflist")
     $configJson = Get-Content $fileName | ConvertFrom-Json
@@ -208,6 +208,23 @@ function Set-AzureCNIConfig
         }
     }
 
+    if ($global:IsIMDSRestrictionEnabled) {
+        $aclRuleBlockIMDS = [PSCustomObject]@{
+            Type = 'ACL'
+            Protocols = '6'
+            Action = 'Block'
+            Direction = 'Out'
+            RemoteAddresses = '169.254.169.254/32'
+            RemotePorts = '80'
+            Priority = 200
+            RuleType = 'Switch'
+        }
+        $jsonContent = [PSCustomObject]@{
+            Name = 'EndpointPolicy'
+            Value = $aclRuleBlockIMDS
+        }
+        $configJson.plugins[0].AdditionalArgs += $jsonContent
+    }
     $aclRule1 = [PSCustomObject]@{
         Type = 'ACL'
         Protocols = '6'

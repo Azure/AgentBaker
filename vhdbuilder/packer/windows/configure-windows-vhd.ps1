@@ -320,18 +320,28 @@ function Get-ContainerImages
             {
                 $url = $env:WindowsNanoServerImageURL
             }
-            $fileName = [IO.Path]::GetFileName($url.Split("?")[0])
-            $tmpDest = [IO.Path]::Combine([System.IO.Path]::GetTempPath(), $fileName)
-            Write-Log "Downloading image $image to $tmpDest"
-            Download-FileWithAzCopy -URL $url -Dest $tmpDest
 
-            Write-Log "Loading image $image from $tmpDest"
-            Retry-Command -ScriptBlock {
-                & ctr -n k8s.io images import $tmpDest
-            } -ErrorMessage "Failed to load image $image from $tmpDest"
+            # In 2025 case, we will need to cache container base images for both 2022 and 2025
+            # To support multiple versions of container base images, we expect the URL to be provided as a list of strings 
+            # seperated by commas or semicolons, while each string specify a version of the image.
+            # For example: mcr.microsoft.com/windows/servercore:ltsc2022, mcr.microsoft.com/windows/servercore:ltsc2025
+            $containerBaseImageurls = $url -split '\s*[;,]\s*'
 
-            Write-Log "Removing tmp tar file $tmpDest"
-            Remove-Item -Path $tmpDest
+            foreach ($url in $containerBaseImageurls)
+            {
+                $fileName = [IO.Path]::GetFileName($url.Split("?")[0])
+                $tmpDest = [IO.Path]::Combine([System.IO.Path]::GetTempPath(), $fileName)
+                Write-Log "Downloading image $image to $tmpDest"
+                Download-FileWithAzCopy -URL $url -Dest $tmpDest
+
+                Write-Log "Loading image $image from $tmpDest"
+                Retry-Command -ScriptBlock {
+                    & ctr -n k8s.io images import $tmpDest
+                } -ErrorMessage "Failed to load image $image from $tmpDest"
+
+                Write-Log "Removing tmp tar file $tmpDest"
+                Remove-Item -Path $tmpDest
+            }
         }
         else
         {

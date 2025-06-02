@@ -124,6 +124,10 @@ ERR_LOCALDNS_COREFILE_NOTFOUND=217
 ERR_LOCALDNS_SLICEFILE_NOTFOUND=218 
 ERR_LOCALDNS_BINARY_ERR=219 
 
+ERR_SECURE_TLS_BOOTSTRAP_START_FAILURE=220 
+ERR_SECURE_TLS_BOOTSTRAP_CLIENT_FAILURE=221 
+ERR_SECURE_TLS_BOOTSTRAP_MISSING_KUBECONFIG=222 
+
 if find /etc -type f,l -name "*-release" -print -quit 2>/dev/null | grep -q '.'; then
     OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
     OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
@@ -152,6 +156,8 @@ EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events
 CURL_OUTPUT=/tmp/curl_verbose.out
 ORAS_OUTPUT=/tmp/oras_verbose.out
 ORAS_REGISTRY_CONFIG_FILE=/etc/oras/config.yaml 
+
+AKS_AAD_SERVER_APP_ID="6dae42f8-4368-4678-94ff-3960e28e3630"
 
 check_cse_timeout() {
     shouldLog="${1:-true}"
@@ -436,17 +442,16 @@ systemctlEnableAndStartNoBlock() {
         return 1
     fi
 
-    if ! retrycmd_if_failure 120 5 25 systemctl enable $1; then
-        echo "$1 could not be enabled by systemctl"
+    if ! retrycmd_if_failure 120 5 25 systemctl enable $service; then
+        echo "$service could not be enabled by systemctl"
         systemctl status $service --no-pager -l > /var/log/azure/$service-status.log || true
         return 1
     fi
 
     sleep $status_check_delay_seconds
 
-    status=$(systemctl is-active $service)
-    if [ "${status,,}" != "active" ] && [ "${status,,}" != "activating" ]; then
-        echo "$service is not activating or active"
+    if systemctl is-failed $service; then
+        echo "$service is in a failed state"
         systemctl status $service --no-pager -l > /var/log/azure/$service-status.log || true
         return 1
     fi

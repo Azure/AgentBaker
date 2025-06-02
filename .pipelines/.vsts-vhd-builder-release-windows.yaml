@@ -24,6 +24,8 @@ variables:
     value: $(AZURE_BUILD_RESOURCE_GROUP_NAME)
   - name: GALLERY_SUBSCRIPTION_ID
     value: $(AZURE_BUILD_SUBSCRIPTION_ID)
+  - name: SKIP_E2E_TESTS
+    value: False
 
 parameters:
   - name: build2019containerd

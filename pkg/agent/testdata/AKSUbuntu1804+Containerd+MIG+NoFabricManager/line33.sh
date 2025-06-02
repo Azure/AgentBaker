@@ -51,9 +51,17 @@ source "${CSE_CONFIG_FILEPATH}"
 resolve_packages_source_url
 logs_to_events "AKS.CSE.setPackagesBaseURL" "echo $PACKAGE_DOWNLOAD_BASE_URL"
 
-logs_to_events "AKS.CSE.installSecureTLSBootstrapClient" installSecureTLSBootstrapClient
+logs_to_events "AKS.CSE.configureKubeletServing" configureKubeletServing
+
+logs_to_events "AKS.CSE.configureK8s" configureK8s
 
 logs_to_events "AKS.CSE.ensureKubeCACert" ensureKubeCACert
+
+logs_to_events "AKS.CSE.installSecureTLSBootstrapClient" installSecureTLSBootstrapClient
+
+if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" = "true" ]; then
+    logs_to_events "AKS.CSE.configureAndStartSecureTLSBootstrapping" configureAndStartSecureTLSBootstrapping
+fi
 
 if [ "${DISABLE_SSH}" = "true" ]; then
     disableSSH || exit $ERR_DISABLE_SSH
@@ -209,10 +217,6 @@ fi
 
 mkdir -p "/etc/systemd/system/kubelet.service.d"
 
-logs_to_events "AKS.CSE.configureKubeletServing" configureKubeletServing
-
-logs_to_events "AKS.CSE.configureK8s" configureK8s
-
 logs_to_events "AKS.CSE.configureCNI" configureCNI
 
 if [ "${IPV6_DUAL_STACK_ENABLED}" = "true" ]; then
@@ -355,7 +359,15 @@ fi
 
 logs_to_events "AKS.CSE.enableLocalDNS" enableLocalDNS || exit $?
 
+if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" = "true" ]; then
+    logs_to_events "AKS.CSE.ensureSecureTLSBootstrapping" ensureSecureTLSBootstrapping
+fi
+
 logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
+
+if [ "${ARTIFACT_STREAMING_ENABLED}" = "true" ]; then
+    logs_to_events "AKS.CSE.ensureContainerd.ensureArtifactStreaming" ensureArtifactStreaming || exit $ERR_ARTIFACT_STREAMING_INSTALL
+fi
 
 if [ "${ID}" != "mariner" ] && [ "${ID}" != "azurelinux" ]; then
     echo "Recreating man-db auto-update flag file and kicking off man-db update process at $(date)"
