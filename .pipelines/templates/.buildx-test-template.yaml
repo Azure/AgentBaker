@@ -1,0 +1,41 @@
+parameters:
+- name: windowsversion
+  displayName: Windows Version
+  type: string
+  default: "all"
+  values:
+  - "all"
+  - "2019"
+  - "2022"
+  - "2025"
+- name: registry
+  displayName: Container Registry
+  type: string
+  default: "containerrollingregistry"
+steps:
+- bash: |
+    az login --identity --client-id $(Azure_BUILD_MANAGE_IDENTITY)
+    az account set -s $(AZURE_BUILD_SUBSCRIPTION_ID)
+
+    azureRegistry="${{parameters.registry}}.azurecr.io"
+    az acr login --name $azureRegistry
+
+    cd $(System.DefaultWorkingDirectory)/.pipelines/tests
+    chmod a+x ./crossbuild.sh
+
+    docker version
+    
+    # Path for active branch testing is a little different than the others
+    # So we differentiate 2015 from others here
+    if [ "${{ parameters.windowsversion }}" == "all" ]; then
+      echo "Cross build test for 2025"
+      bash ./crossbuild.sh 2025 ${azureRegistry}
+      
+      echo "Cross build test for windows other than 2025"
+      bash ./crossbuild.sh ${{ parameters.windowsversion }} ${azureRegistry}
+    else
+      echo "Cross build test for windows version ${{ parameters.windowsversion }}"
+      bash ./crossbuild.sh ${{ parameters.windowsversion }} ${azureRegistry}
+    fi
+    
+  displayName: 'Cross build test'

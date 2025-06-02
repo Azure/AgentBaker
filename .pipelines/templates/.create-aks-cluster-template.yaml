@@ -1,0 +1,193 @@
+parameters:
+- name: imageName
+  displayName: Gallery Image Name
+  type: string
+  default: windows-2022-containerd-gen2
+- name: imageVersion
+  displayName: Gallery Image Version
+  type: string
+  default: latest
+- name: networkPolicy
+  displayName: Network Policy applied to the AKS cluster
+  type: string
+  default: default
+- name: kubernetesVersion
+  type: string
+  displayName: kubernetes version to use for the tests
+  
+jobs:
+  - job: create
+    timeoutInMinutes: 60
+    pool:
+      name:  $(AZURE_POOL_NAME)
+    variables:
+      SIG_IMAGE_NAME: ${{ parameters.imageName }}
+      SIG_IMAGE_VERSION: ${{ parameters.imageVersion }}
+      NETWORK_POLICY: ${{ parameters.networkPolicy }}
+      K8s_VERSION: ${{ parameters.kubernetesVersion }}
+    steps:
+    - bash: |
+        az login --identity --username $(AZURE_MSI_RESOURCE_STRING)
+        az account set -s $(AZURE_BUILD_SUBSCRIPTION_ID)
+      displayName: Managed Identity Login
+    - bash: |
+        if [[ "$(SIG_IMAGE_VERSION)" == "latest" || "$(SIG_IMAGE_VERSION)" == "" ]]; then
+          latest_image_version=$(az sig image-version list --gallery-image-definition $(SIG_IMAGE_NAME) \
+              --gallery-name $(SIG_GALLERY_NAME) \
+              --resource-group $(AZURE_BUILD_RESOURCE_GROUP_NAME) \
+              | jq -r 'sort_by(.tags.now) | .[-1].name')
+        else
+          latest_image_version=$(SIG_IMAGE_VERSION)
+        fi
+        
+        latest_image=$(az sig image-version show --gallery-image-definition $(SIG_IMAGE_NAME) \
+            --gallery-name $(SIG_GALLERY_NAME) \
+            --resource-group $(AZURE_BUILD_RESOURCE_GROUP_NAME) \
+            --gallery-image-version ${latest_image_version})
+          
+        if [[ -z "$latest_image" ]]; then
+          echo "Image version ${latest_image_version} does not exist in gallery $(SIG_GALLERY_NAME)"
+          exit 1
+        fi
+
+        echo "Using image name  $(SIG_IMAGE_NAME)"
+        echo "Using image version ${latest_image_version}"
+
+        CLUSTER_RG="$(SIG_IMAGE_NAME)-$latest_image_version"
+        if [ "default" != "${NETWORK_POLICY}" ]; then
+          CLUSTER_RG="${CLUSTER_RG}-${NETWORK_POLICY}"
+        fi
+        # if [[ "${{ parameters.imageName }}" == *"gen2"* ]]; then
+        #   CLUSTER_RG="${CLUSTER_RG}-gen2"
+        # fi
+        
+        BUID_IMAGE_VERSION=$latest_image_version
+        echo "##vso[task.setvariable variable=BUID_IMAGE_VERSION;isOutput=true]${BUID_IMAGE_VERSION}"
+        echo "##vso[task.setvariable variable=CLUSTER_RG;isOutput=true]${CLUSTER_RG}"
+        echo "Resource Group is ${CLUSTER_RG}"
+        echo "Build image version is ${BUID_IMAGE_VERSION}"
+      name: setvar
+      displayName: Setup Build Variables
+    - bash: |
+        group_exists=$(az group exists -n $(setvar.CLUSTER_RG))
+        if [[ "$group_exists" == "true" ]]; then
+          echo "Resource group $(setvar.CLUSTER_RG) already exists, please delete it before proceeding further"
+          exit -1
+        else
+          creation_time=$(date +"%Y-%m-%dT%H:%M:%S+00:00")
+          az group create -n $(setvar.CLUSTER_RG) -l $(AZURE_BUILD_LOCATION) --tags "createdtime=$creation_time"
+        fi
+      displayName: Create Resource Group
+    - bash: |
+        provisioning_state=$(az aks show -n testcluster -g $(setvar.CLUSTER_RG) --query provisioningState -o tsv)
+        if [[ "$provisioning_state" == "Succeeded" ]]; then
+          echo "AKS cluster existing with provisioning state: $provisioning_state"
+          echo "##vso[task.setvariable variable=NO_CREATE;isOutput=true]true"
+        else
+          echo "##vso[task.setvariable variable=NO_CREATE;isOutput=true]false"
+          if [ "default" != "${NETWORK_POLICY}" ]; then
+            echo "AKS cluster creating with network policy ${NETWORK_POLICY}"
+            
+            az aks create \
+            --resource-group $(setvar.CLUSTER_RG) \
+            --name testcluster \
+            --enable-addons monitoring \
+            --network-plugin azure \
+            --network-policy ${NETWORK_POLICY} \
+            --vm-set-type VirtualMachineScaleSets \
+            --load-balancer-sku standard \
+            --enable-managed-identity \
+            --assign-identity  $(AZURE_MSI_RESOURCE_STRING) \
+            --assign-kubelet-identity $(AZURE_MSI_RESOURCE_STRING) \
+            --generate-ssh-keys \
+            --kubernetes-version $(K8s_VERSION)
+          else
+            echo "AKS cluster creating with default network policy"
+            az aks create \
+            --resource-group $(setvar.CLUSTER_RG) \
+            --name testcluster \
+            --enable-addons monitoring \
+            --network-plugin azure \
+            --vm-set-type VirtualMachineScaleSets \
+            --load-balancer-sku standard \
+            --enable-managed-identity \
+            --assign-identity  $(AZURE_MSI_RESOURCE_STRING) \
+            --assign-kubelet-identity $(AZURE_MSI_RESOURCE_STRING) \
+            --generate-ssh-keys \
+            --kubernetes-version $(K8s_VERSION)
+          fi
+        fi
+      name: createcluster
+      displayName: Create AKS Cluster
+    - bash: |
+        # if [ "${CUSTOM_CSE}" == "False" ]; then
+        echo "Add windows node pool with generated image"
+        
+        az aks nodepool add \
+        --resource-group $(setvar.CLUSTER_RG) \
+        --cluster-name testcluster \
+        --node-vm-size Standard_D8s_v3 \
+        --node-osdisk-size 256 \
+        --os-type Windows \
+        --name winnp \
+        --node-count 2  \
+        --aks-custom-headers AKSHTTPCustomFeatures=Microsoft.ContainerService/UseCustomizedWindowsOSImage,WindowsOSImageSubscriptionID=$(AZURE_BUILD_SUBSCRIPTION_ID),WindowsOSImageResourceGroup=$(AZURE_BUILD_RESOURCE_GROUP_NAME),WindowsOSImageGallery=$(SIG_GALLERY_NAME),WindowsOSImageName=$(SIG_IMAGE_NAME),WindowsOSImageVersion=$(setvar.BUID_IMAGE_VERSION) \
+        --debug
+        # else
+        #   echo "Add windows node pool with default windows image"
+        #   az aks nodepool add \
+        #   --resource-group $(setvar.CLUSTER_RG) \
+        #   --cluster-name testcluster \
+        #   --node-vm-size Standard_D8s_v3 \
+        #   --node-osdisk-size 256 \
+        #   --os-type Windows \
+        #   --name winnp \
+        #   --node-count 2
+        # fi
+      displayName: Add Windows Node Pool
+    - bash: |
+        mkdir -p $(System.DefaultWorkingDirectory)/kubeconfig
+
+        az aks get-credentials \
+        --resource-group $(setvar.CLUSTER_RG) \
+        --name testcluster \
+        --file $(System.DefaultWorkingDirectory)/kubeconfig/$(setvar.CLUSTER_RG).kubeconfig
+      displayName: Get Kubeconfig
+    - task: PublishPipelineArtifact@1
+      inputs:
+        targetPath: '$(System.DefaultWorkingDirectory)/kubeconfig'
+        artifactName: '$(setvar.CLUSTER_RG)-kubeconfig'
+
+  - job: deploy_monagent
+    timeoutInMinutes: 60
+    dependsOn: 
+      - create
+    variables:
+      cluster_RG: $[ dependencies.create.outputs['setvar.CLUSTER_RG'] ]
+    pool:
+      name:  $(AZURE_POOL_NAME)
+    steps:
+    - task: DownloadPipelineArtifact@2
+      inputs:
+        buildType: 'current'
+        artifactName: '$(cluster_RG)-kubeconfig'
+        path: $(System.DefaultWorkingDirectory)/kubeconfig
+      continueOnError: true
+    - bash: |
+        if [[ ${{ parameters.imageName }} =~ "2019" ]]; then
+          hpc="hpc2019.yaml.template"
+        else
+          hpc="hpc2022.yaml.template"
+        fi
+        sed -e "s,\$managedidentityresourceid,${AZURE_MSI_RESOURCE_STRING}," \
+          -e "s/\$subscription/${AZURE_BUILD_SUBSCRIPTION_ID}/" \
+          -e "s/\$resourcegroup/$(cluster_RG)/" \
+          -e "s/\$clustername/$(AZURE_BUILD_RESOURCE_GROUP_NAME)-aks/" \
+          -e 's/\r//g' \
+          $(System.DefaultWorkingDirectory)/.pipelines/tests/${hpc} > hpc.yaml
+
+        echo "wait for monagent pods to start"
+        kubectl apply -f "hpc.yaml" --kubeconfig $(System.DefaultWorkingDirectory)/kubeconfig/$(cluster_RG).kubeconfig
+        #timeout 8m kubectl wait --for=condition=ready pod --all  --timeout -1s
+        kubectl rollout status daemonsets/hpc --kubeconfig $(System.DefaultWorkingDirectory)/kubeconfig/$(cluster_RG).kubeconfig --timeout=10m
+    displayName: Deploy MonAgent Daemonset

@@ -3,8 +3,9 @@ package e2e
 import (
 	"context"
 	"fmt"
-	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"testing"
+
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
@@ -331,21 +332,44 @@ func Test_Windows2025Gen2(t *testing.T) {
 	})
 }
 
+func Test_WindowsActiveBranch(t *testing.T) {
+	// TODO: re-enable the tests once the Windows E2E tests are fixed in pipeline
+	t.Skip("Skipping testing")
+	RunScenario(t, &Scenario{
+		Description: "Windows Active Branch",
+		Config: Config{
+			Cluster:                ClusterAzureNetwork,
+			VHD:                    config.VHDWindowsActiveBranch,
+			VMConfigMutator:        EmptyVMConfigMutator,
+			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateWindowsVersionFromWindowsSettings(ctx, s, "2025")
+				ValidateWindowsProductName(ctx, s, "Windows Server 2025 Datacenter")
+				ValidateWindowsDisplayVersion(ctx, s, "2025")
+				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
+				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
+				ValidateCiliumIsNotRunningWindows(ctx, s)
+			},
+		},
+	})
+}
+
+// TODO: enable this test once production AKS supports Cilium Windows
 func Test_Windows2022Gen2_k8s_133(t *testing.T) {
 	t.Skip("skipping test for Windows 2022 Gen2 with k8s 1.33, as we are verifying a regression fix for 1.31+")
 	RunScenario(t, &Scenario{
 		Description: "Windows Server 2022 with Containerd 2- hyperv gen 2",
 		Config: Config{
-			Cluster:                ClusterAzureNetwork,
-			VHD:                    config.VHDWindows2022ContainerdGen2,
-			VMConfigMutator:        EmptyVMConfigMutator,
+			Cluster:         ClusterAzureNetwork,
+			VHD:             config.VHDWindows2022ContainerdGen2,
+			VMConfigMutator: EmptyVMConfigMutator,
 			BootstrapConfigMutator: func(configuration *datamodel.NodeBootstrappingConfiguration) {
 				// 2025 supported in 1.32+ .
 				configuration.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.33.1"
 				configuration.K8sComponents.WindowsPackageURL = fmt.Sprintf("https://packages.aks.azure.com/kubernetes/v%s/windowszip/v%s-1int.zip", "1.33.1", "1.33.1")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-		ValidateWindowsVersionFromWindowsSettings(ctx, s, "2022-containerd-gen2")
+				ValidateWindowsVersionFromWindowsSettings(ctx, s, "2022-containerd-gen2")
 				ValidateWindowsProductName(ctx, s, "Windows Server 2022 Datacenter")
 				ValidateWindowsDisplayVersion(ctx, s, "21H2")
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")

@@ -1,0 +1,214 @@
+parameters:
+- name: resourceGroup
+  displayName: resource group name of created k8s cluster
+  type: string
+- name: clusterName
+  displayName: name of created k8s cluster
+  type: string
+- name: clusterType
+  displayName: type of created k8s cluster
+  type: string
+  default: "AKS"
+- name: storageContainerName
+  displayName: container name of Azure storage
+  type: string
+- name: kustoUrl
+  displayName: Kusto URL
+  type: string
+- name: kustoDataBaseName
+  displayName: Kusto Database Name
+  type: string
+- name: kustoTableName
+  displayName: Kusto Table Name
+  type: string
+- name: threshold
+  displayName: threshold for failed cases
+  type: number
+  default: 0
+- name: kubernetesVersion
+  displayName: kubernetes version
+  type: string
+  default: "none"
+- name: testImageRegistry
+  displayName: test image registry
+  type: string
+  default: "none"
+- name: testBinaryUrl
+  displayName: azure storage url for test binary
+  type: string
+  default: "none"
+
+jobs:
+  - job: k8s_e2e
+    timeoutInMinutes: 60
+    pool:
+      name:  $(AZURE_POOL_NAME)
+    steps:
+    - bash: |
+        az login --identity --username $(AZURE_MSI_RESOURCE_STRING)
+        az account set -s $(AZURE_BUILD_SUBSCRIPTION_ID)
+      displayName: Managed Identity Login
+    - bash: |
+        mkdir -p $(System.DefaultWorkingDirectory)/kubeconfig
+
+        az aks get-credentials \
+        --resource-group ${{parameters.resourceGroup}} \
+        --name ${{parameters.clusterName}} \
+        --file $(System.DefaultWorkingDirectory)/kubeconfig/kubeconfig
+
+        export KUBECONFIG="$(System.DefaultWorkingDirectory)/kubeconfig/kubeconfig"
+
+        if [[ "${{ parameters.clusterType }}" == "AKS" ]]; then
+          # do we need these two variables?
+          export KUBERNETES_SERVICE_HOST=$(az aks show -n ${{parameters.clusterName}} -g ${{parameters.resourceGroup}} --query fqdn -o tsv)
+          export KUBERNETES_SERVICE_PORT=443
+        else
+          kubectl get secret  ${{parameters.clusterName}}-kubeconfig -o jsonpath='{.data.value}'|base64 --decode > $(System.DefaultWorkingDirectory)/kubeconfig/capz_kubeconfig
+          export KUBECONFIG="$(System.DefaultWorkingDirectory)/kubeconfig/capz_kubeconfig"
+        fi
+        
+        export ADDITIONAL_E2E_ARGS=()
+        export ADDITIONAL_E2E_ARGS+=("--ginkgo.slow-spec-threshold=120s")
+        export ADDITIONAL_E2E_ARGS+=("--ginkgo.timeout=4h")
+        export WINDOWS_WORKER_MACHINE_COUNT=2
+        export ARTIFACTS="$(System.DefaultWorkingDirectory)/_artifacts"
+        if [[ "${{ parameters.kubernetesVersion }}" == "none" ]]; then
+          if [[ "${{ parameters.clusterType }}" == "AKS" ]]; then
+            export K8S_VERSION=$(az aks show -n ${{parameters.clusterName}} -g ${{parameters.resourceGroup}} |jq -r '.currentKubernetesVersion')
+          else
+            export K8S_VERSION="1.33.1"
+          fi
+        else
+          export K8S_VERSION=${{ parameters.kubernetesVersion }}
+        fi
+        export GINKGO_FOCUS=${GINKGO_FOCUS:-"\[Conformance\]|\[NodeConformance\]|\[sig-windows\]|\[sig-apps\].CronJob|\[sig-api-machinery\].ResourceQuota|\[sig-scheduling\].SchedulerPreemption|External Storage \[Driver: disk.csi.azure.com\]"}
+        export GINKGO_SKIP=${GINKGO_SKIP:-"\[LinuxOnly\]|\[Serial\]|\[Slow\]|\[Excluded:WindowsDocker\]|\[Feature:DynamicResourceAllocation\]|Networking.Granular.Checks(.*)node-pod.communication|Guestbook.application.should.create.and.stop.a.working.application|device.plugin.for.Windows|Container.Lifecycle.Hook.when.create.a.pod.with.lifecycle.hook.should.execute(.*)http.hook.properly|\[sig-api-machinery\].Garbage.collector|\[Alpha\]|\[Beta\].\[Feature:OffByDefault\]"}
+        #export GINKGO_SKIP=${GINKGO_SKIP:-"\[LinuxOnly\]|\[Serial\]|\[Slow\]|\[Excluded:WindowsDocker\]|Networking.Granular.Checks(.*)node-pod.communication|Guestbook.application.should.create.and.stop.a.working.application|device.plugin.for.Windows|Container.Lifecycle.Hook.when.create.a.pod.with.lifecycle.hook.should.execute(.*)http.hook.properly|\[sig-api-machinery\].Garbage.collector|Feature:VolumeSnapshotDataSource|\(block volmode\)"}
+        export GINKGO_NODES="${GINKGO_NODES:-"4"}"
+
+        if [[ "${{ parameters.testBinaryUrl }}" != "none" ]]; then
+          echo "Download test binary from Azure storage"
+          echo "testBinaryUrl: ${{ parameters.testBinaryUrl }}"
+          az storage blob download -f /tmp/kubernetes-test-linux-amd64.tar.gz --auth-mode login --blob-url "${{ parameters.testBinaryUrl }}"
+        else
+          echo "Download test binary from k8s.io" 
+          echo "k8sVersion: $K8S_VERSION"
+          curl -L -o /tmp/kubernetes-test-linux-amd64.tar.gz  https://dl.k8s.io/v${K8S_VERSION}/kubernetes-test-linux-amd64.tar.gz
+        fi
+
+        tar -xzvf /tmp/kubernetes-test-linux-amd64.tar.gz
+
+        # This is for the private registry related tests
+        echo "gcAuthenticatedRegistry: containerrollingregistry.azurecr.io" > repo_list
+        # this is for the test of private generated images
+        if [[ "${{ parameters.testImageRegistry }}" != "none" ]]; then
+          echo "promoterE2eRegistry: ${{ parameters.testImageRegistry }}" >> repo_list 
+        fi
+        export KUBE_TEST_REPO_LIST=$(pwd)/repo_list
+        
+        cat repo_list
+        
+        az acr login --name containerrollingregistry
+        export E2E_DOCKER_CONFIG_FILE=${HOME}/.docker/config.json
+        
+        export DISK_CSI_DRIVER="$(System.DefaultWorkingDirectory)/.pipelines/tests/diskcsidriver.yaml"
+        #export GINKGO_FOCUS="Container Runtime blackbox test when running a container with a new image should be able to pull from private registry with secret"
+
+        set -x
+        "$PWD"/kubernetes/test/bin/ginkgo --nodes="${GINKGO_NODES}" "$PWD"/kubernetes/test/bin/e2e.test -- \
+            --provider=skeleton \
+            --ginkgo.no-color \
+            --ginkgo.focus="$GINKGO_FOCUS" \
+            --ginkgo.skip="$GINKGO_SKIP" \
+            --node-os-distro="windows" \
+            --disable-log-dump \
+            --ginkgo.progress=true \
+            --ginkgo.flakeAttempts=0 \
+            --ginkgo.trace=true \
+            --num-nodes="$WINDOWS_WORKER_MACHINE_COUNT" \
+            --ginkgo.v=true \
+            --dump-logs-on-failure=true \
+            --report-dir="${ARTIFACTS}" \
+            --prepull-images=true \
+            --e2e-docker-config-file="${E2E_DOCKER_CONFIG_FILE:-}" \
+            --v=5 "${ADDITIONAL_E2E_ARGS[@]}"
+
+        #--ginkgo.dry-run=true \
+        # -storage.testdriver=${DISK_CSI_DRIVER} \
+        set +x
+
+        mv "${ARTIFACTS}/junit_01.xml" "${ARTIFACTS}/e2e.xml"
+      name: run_e2e_test
+      displayName: run e2e test
+
+    # - task: PublishPipelineArtifact@1
+    #   inputs:
+    #     artifactName: '${{ parameters.resourceGroup }}'
+    #     targetPath: '$(System.DefaultWorkingDirectory)/_artifacts/e2e.xml'
+    #   displayName: publish raw test result file
+
+    - bash: |
+        export RESOURCE_GROUP=${{parameters.resourceGroup}}
+        export TEST_RESULT="$(System.DefaultWorkingDirectory)/_artifacts/e2e.xml"
+        export TEST_RESULT_CSV="$(System.DefaultWorkingDirectory)/_artifacts/e2eresults.csv"
+        export TEST_SUITES="e2e"
+
+        #This is for test usage only
+        #export XML_FILE_PATH=$(System.DefaultWorkingDirectory)/.pipelines/scripts
+
+        cd $(System.DefaultWorkingDirectory)/.pipelines/scripts
+
+        python3 $(System.DefaultWorkingDirectory)/.pipelines/scripts/parse_sig_result.py
+      name: parse_test_result
+      displayName: parse test result
+    - bash: |
+        blobName=$(date +%Y%m%d%H%M%S)_$RANDOM.csv
+
+        az storage blob upload \
+          --account-name $(AZURE_E2E_STORAGE_ACCOUNT_NAME) \
+          --auth-mode "login" \
+          --container-name ${{parameters.storageContainerName}} \
+          --file $(System.DefaultWorkingDirectory)/_artifacts/e2eresults.csv \
+          --name ${blobName}
+
+        echo "##vso[task.setvariable variable=blobName]${blobName}"
+      displayName: Upload parsed test results to Azure storage
+    - task: Azure-Kusto.ADXAdminCommands.PublishToADX.ADXAdminCommand@3
+      inputs:
+        targetType: 'inline'
+        script: |
+                  .ingest into table ${{parameters.kustoTableName}} (
+                      'https://$(AZURE_E2E_STORAGE_ACCOUNT_NAME).blob.core.windows.net/${{parameters.storageContainerName}}/$(blobName);managed_identity=924da118-3adb-400e-9021-3552a4f351e6'
+                  )
+        kustoUrls: "${{parameters.kustoUrl}}:443?DatabaseName=${{parameters.kustoDataBaseName}}"
+        connectedServiceARM: 'agentbaker_kusto'
+        continueOnError: false
+      displayName: Publish test results into Kusto
+    - task: Azure-Kusto.ADXAdminCommands.ADXQuery.ADXQuery@3
+      displayName: 'ADX Query for test being run'
+      inputs:
+        targetType: 'inline'
+        script: |
+          let resourcegroup = "${{parameters.resourceGroup}}";
+          windowssigtestlogs 
+            |where TIMESTAMP >= ago(2h)
+            |where ResourceGroup == resourcegroup
+            |where ClassName == "e2e"
+        kustoUrls: "${{parameters.kustoUrl}}:443?DatabaseName=${{parameters.kustoDataBaseName}}"
+        connectedServiceARM: 'agentbaker_kusto'
+        minThreshold: 5000
+        maxThreshold: 30000
+    - task: Azure-Kusto.ADXAdminCommands.ADXQuery.ADXQuery@3
+      displayName: 'ADX Query for test result'
+      inputs:
+        targetType: 'inline'
+        script: |
+          let resourcegroup = "${{parameters.resourceGroup}}";
+          windowssigtestlogs 
+            |where TIMESTAMP >= ago(2h)
+            |where ResourceGroup == resourcegroup
+            |where ClassName == "e2e"
+            |where Level < 3
+        kustoUrls: "${{parameters.kustoUrl}}:443?DatabaseName=${{parameters.kustoDataBaseName}}"
+        connectedServiceARM: 'agentbaker_kusto'
+        maxThreshold: ${{parameters.threshold}}

@@ -1,0 +1,118 @@
+name: $(Date:yyyyMMdd)$(Rev:.r)_$(Build.SourceBranchName)_$(BuildID)
+trigger: none
+
+# Configure scheduled trigger
+# This will be an on-demand run
+
+parameters:
+- name: resourceGroup
+  displayName: Resource group of k8s cluster
+  type: string
+- name: clusterName
+  displayName: Name of k8s cluster
+  type: string
+  default: testcluster
+- name: kubernetesVersion
+  displayName: kubernetes version
+  type: string
+  default: "none"
+- name: clusterType
+  displayName: kubernetes cluster type
+  type: string
+  default: "AKS"
+  values:
+    - AKS
+    - CAPZ
+- name: testImageRegistry
+  displayName: test image registry
+  type: string
+  default: "none"
+- name: testBinaryUrl
+  displayName: azure storage url for test binary
+  type: string
+  default: "none"
+- name: e2e_tests
+  displayName: run e2e tests
+  type: boolean
+  default: True
+- name: e2eslow_tests
+  displayName: run e2e slow tests
+  type: boolean
+  default: False  
+- name: azuredisk_tests
+  displayName: run azuredisk tests
+  type: boolean
+  default: False
+- name: azurefile_tests  
+  displayName: run azurefile tests
+  type: boolean
+  default: False 
+
+# variables can be viewed/updated under Pipeline then Library Tab
+variables:
+- group: ab-windows-ms-tenant
+
+pool:
+  name: $(AZURE_POOL_NAME)
+      
+stages:
+  - ${{ if eq(parameters['e2e_tests'], 'True' ) }}:
+    - stage: run_e2e_tests
+      displayName: e2e ${{parameters.resourceGroup}}
+      pool:
+        name:  $(AZURE_POOL_NAME)
+      jobs:
+      - template: ./templates/.k8s-windows-e2e-template.yaml
+        parameters:
+          resourceGroup: ${{parameters.resourceGroup}}
+          clusterName: ${{parameters.clusterName}}
+          clusterType: ${{parameters.clusterType}}
+          storageContainerName: "pipeline-test-logs"
+          kustoUrl: "https://wccttest.eastus.kusto.windows.net"
+          KustoDatabaseName: "wccttest"
+          kustoTableName: "windowssigtestlogs"
+          kubernetesVersion: ${{parameters.kubernetesVersion}}
+          testImageRegistry: ${{parameters.testImageRegistry}}
+          testBinaryUrl: ${{parameters.testBinaryUrl}}
+  - ${{ if eq(parameters['e2eslow_tests'], 'True' ) }}:
+    - stage: run_e2eslow_tests
+      displayName: slow ${{parameters.resourceGroup}}
+      pool:
+        name:  $(AZURE_POOL_NAME)
+      jobs:
+      - template: ./templates/.k8s-windows-e2eslow-template.yaml
+        parameters:
+          resourceGroup: ${{parameters.resourceGroup}}
+          clusterName: ${{parameters.clusterName}}
+          storageContainerName: "pipeline-test-logs"
+          kustoUrl: "https://wccttest.eastus.kusto.windows.net"
+          KustoDatabaseName: "wccttest"
+          kustoTableName: "windowssigtestlogs"
+  - ${{ if eq(parameters['azuredisk_tests'], 'True' ) }}:
+    - stage: run_azuredisk_tests
+      displayName: azuredisk ${{parameters.resourceGroup}}
+      pool:
+        name:  $(AZURE_POOL_NAME)
+      jobs:
+      - template: ./templates/.k8s-windows-azuredisk-template.yaml
+        parameters:
+          resourceGroup: ${{parameters.resourceGroup}}
+          clusterName: ${{parameters.clusterName}}
+          storageContainerName: "pipeline-test-logs"
+          kustoUrl: "https://wccttest.eastus.kusto.windows.net"
+          KustoDatabaseName: "wccttest"
+          kustoTableName: "windowssigtestlogs"
+  - ${{ if eq(parameters['azurefile_tests'], 'True' ) }}:
+    - stage: run_azurefile_tests
+      displayName: azurefile ${{parameters.resourceGroup}}
+      pool:
+        name:  $(AZURE_POOL_NAME)
+      jobs:
+      - template: ./templates/.k8s-windows-azurefile-template.yaml
+        parameters:
+          resourceGroup: ${{parameters.resourceGroup}}
+          clusterName: ${{parameters.clusterName}}
+          storageContainerName: "pipeline-test-logs"
+          kustoUrl: "https://wccttest.eastus.kusto.windows.net"
+          KustoDatabaseName: "wccttest"
+          kustoTableName: "windowssigtestlogs"

@@ -1,0 +1,68 @@
+name: $(Date:yyyyMMdd)$(Rev:.r)_$(Build.SourceBranchName)_$(BuildID)
+trigger: none
+
+# Configure scheduled trigger
+# This will be an on demand run
+
+parameters:
+- name: artifactName
+  displayName: Artifact Name
+  type: string
+  default: windows-2025-gen2
+  values:
+  - windows-2019-containerd
+  - windows-2022-containerd
+  - windows-2022-containerd-gen2
+  - windows-23H2
+  - windows-23H2-gen2
+  - windows-2025
+  - windows-2025-gen2
+  - windows-activebranch
+- name: galleryImageVersion
+  displayName: Gallery Image Version
+  type: string
+  default: latest
+- name: networkPolicy
+  displayName: Network Policy applied to the AKS cluster
+  type: string
+  default: default
+  # we can not have empty string as default value for networkPolicy, so use "default" instead
+  values:
+  - default
+  - azure
+  - cilium
+  - calico
+
+# variables can be viewed/updated under Pipeline then Library Tab
+variables:
+- group: ab-windows-ms-tenant
+
+pool:
+  name: $(AZURE_POOL_NAME)
+
+stages:
+  - stage: aks_cluster
+    displayName: ${{ parameters.artifactName }}
+    jobs:
+      - template: ./templates/.create-aks-cluster-template.yaml
+        parameters:
+          imageName: ${{ parameters.artifactName }}
+          imageVersion: ${{ parameters.galleryImageVersion }}
+          networkPolicy: ${{ parameters.networkPolicy }}
+          kubernetesVersion: $(KUBERNETES_VERSION)
+
+  - stage: k8s_e2e
+    displayName: k8s e2e (${{ parameters.artifactName }})
+    dependsOn: aks_cluster
+    variables:
+      cluster_RG: $[ stageDependencies.aks_cluster.create.outputs['setvar.CLUSTER_RG'] ]
+    jobs:
+      - template: ./templates/.k8s-windows-e2e-template.yaml
+        parameters:
+          resourceGroup: $(CLUSTER_RG)
+          clusterName: testcluster
+          storageContainerName: "pipeline-test-logs"
+          kustoUrl: "https://wccttest.eastus.kusto.windows.net"
+          KustoDatabaseName: "wccttest"
+          kustoTableName: "windowssigtestlogs"
+
