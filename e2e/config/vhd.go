@@ -196,6 +196,15 @@ var (
 		Distro:  datamodel.AKSWindows2025Gen2,
 		Gallery: imageGallery,
 	}
+
+	VHDWindowsActiveBranch = &Image{
+		Name:    "windows-activebranch",
+		OS:      OSWindows,
+		Arch:    "amd64",
+		Distro:  datamodel.AKSWindowsActiveBranch,
+		Latest:  true,
+		Gallery: windowsGallery,
+	}
 )
 
 var ErrNotFound = fmt.Errorf("not found")

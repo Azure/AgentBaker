@@ -56,6 +56,7 @@ parameters:
     displayName: Use component overrides
     type: boolean
 
+
 stages:
   - stage: build_${{ parameters.stageName }}
     # Put the artifact name first so it doesn't get truncated as much in ADO
@@ -91,9 +92,42 @@ stages:
     condition: and(succeeded(), eq('${{ parameters.build }}', True))
     variables:
       TAGS_TO_RUN: imageName=${{ parameters.imageName }}
+      BLOB_CONTAINER: wcct
+      BLOB_STORAGE_ACCOUNT_PREFIX: wcct
+      DEFAULT_VM_SKU: ${{ parameters.buildVmSize }}
+      E2E_LOCATION: $(AZURE_E2E_LOCATION)   #note ${} will not work here, use $()
+      GALLERY_SUBSCRIPTION_ID_WINDOWS: $(AZURE_BUILD_SUBSCRIPTION_ID)
+      GALLERY_RESOURCE_GROUP_WINDOWS: $(AZURE_BUILD_RESOURCE_GROUP_NAME)
     jobs:
       - template: ./e2e-template.yaml
         parameters:
           name: For image ${{ parameters.imageName }}
           IgnoreScenariosWithMissingVhd: false
+
+  - stage: aks_cluster_${{ parameters.stageName }}
+    displayName: aks cluster (${{ parameters.artifactName }})
+    dependsOn: build_${{ parameters.stageName }}
+    condition: and(succeeded(), eq('${{ parameters.build }}', True))
+    jobs:
+      - template: ./.create-aks-cluster-template.yaml
+        parameters:
+          imageName: ${{ parameters.imageName }}
+          kubernetesVersion: $(KUBERNETES_VERSION)
+
+  - stage: k8s_e2e_${{ parameters.stageName }}
+    displayName: k8s e2e (${{ parameters.artifactName }})
+    dependsOn: aks_cluster_${{ parameters.stageName }}
+    condition: and(succeeded(), eq('${{ parameters.build }}', True))
+    variables:
+      cluster_RG: $[ stageDependencies.aks_cluster_${{ parameters.stageName }}.create.outputs['setvar.CLUSTER_RG'] ]
+    jobs:
+      - template: ./.k8s-windows-e2e-template.yaml
+        parameters:
+          resourceGroup: $(CLUSTER_RG)
+          clusterName: testcluster
+          storageContainerName: "pipeline-test-logs"
+          kustoUrl: "https://wccttest.eastus.kusto.windows.net"
+          KustoDatabaseName: "wccttest"
+          kustoTableName: "windowssigtestlogs"
+          
 

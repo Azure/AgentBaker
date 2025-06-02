@@ -51,10 +51,10 @@ parameters:
 
 
 steps:
-  - template: ./.template-override-components-json.yaml
-    parameters:
-      overrideBranch: ${{ parameters.overrideBranch }}
-      useOverrides: ${{ parameters.useOverrides }}
+  # - template: ./.template-override-components-json.yaml
+  #   parameters:
+  #     overrideBranch: ${{ parameters.overrideBranch }}
+  #     useOverrides: ${{ parameters.useOverrides }}
 
   - bash: make -f packer.mk az-login
     displayName: AZ Login

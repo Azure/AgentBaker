@@ -1,0 +1,167 @@
+parameters:
+- name: resourceGroup
+  displayName: resource group name of created AKS cluster
+  type: string
+- name: clusterName
+  displayName: name of created AKS cluster
+  type: string
+- name: containerName
+  displayName: container name of Azure storage
+  type: string
+- name: kustoUrl
+  displayName: Kusto URL
+  type: string
+- name: kustoDataBaseName
+  displayName: Kusto Database Name
+  type: string
+- name: kustoTableName
+  displayName: Kusto Table Name
+  type: string
+- name: threshold
+  displayName: threshold for failed cases
+  type: number
+  default: 0
+
+jobs:
+  - job: k8s_e2eslow
+    timeoutInMinutes: 60
+    pool:
+      name:  $(AZURE_POOL_NAME)
+    steps:
+    - bash: |
+        az login --identity --username $(AZURE_MSI_RESOURCE_STRING)
+        az account set -s $(AZURE_BUILD_SUBSCRIPTION_ID)
+      displayName: Managed Identity Login
+    - bash: |
+        mkdir -p $(System.DefaultWorkingDirectory)/kubeconfig
+
+        az aks get-credentials \
+        --resource-group ${{parameters.resourceGroup}} \
+        --name ${{parameters.clusterName}} \
+        --file $(System.DefaultWorkingDirectory)/kubeconfig/kubeconfig
+        export KUBECONFIG="$(System.DefaultWorkingDirectory)/kubeconfig/kubeconfig"
+
+        export KUBERNETES_SERVICE_HOST=$(az aks show -n ${{parameters.clusterName}} -g ${{parameters.resourceGroup}} --query fqdn -o tsv)
+        export KUBERNETES_SERVICE_PORT=443
+        
+        export ADDITIONAL_E2E_ARGS=()
+        export ADDITIONAL_E2E_ARGS+=("--ginkgo.slow-spec-threshold=120s")
+        export ADDITIONAL_E2E_ARGS+=("--ginkgo.timeout=4h")
+        export WINDOWS_WORKER_MACHINE_COUNT=2
+        export ARTIFACTS="${PWD}/_artifacts"
+        export K8S_VERSION=$(az aks show -n ${{parameters.clusterName}} -g ${{parameters.resourceGroup}} |jq -r '.currentKubernetesVersion')
+        export GINKGO_FOCUS=${GINKGO_FOCUS:-"\[sig-windows\].*Slow.*|\[sig-windows\].*Serial.*|\[sig-windows\].*Disruptive.*"}
+        export GINKGO_SKIP=${GINKGO_SKIP:-"\[LinuxOnly\]|Networking.Granular.Checks(.*)node-pod.communication|Guestbook.application.should.create.and.stop.a.working.application|device.plugin.for.Windows|Container.Lifecycle.Hook.when.create.a.pod.with.lifecycle.hook.should.execute(.*)http.hook.properly|\[sig-api-machinery\].Garbage.collector|Feature:VolumeSnapshotDataSource|\(block volmode\)"}
+        export GINKGO_NODES="${GINKGO_NODES:-"4"}"
+
+        curl -L -o /tmp/kubernetes-test-linux-amd64.tar.gz  https://dl.k8s.io/v${K8S_VERSION}/kubernetes-test-linux-amd64.tar.gz
+
+        tar -xzvf /tmp/kubernetes-test-linux-amd64.tar.gz
+
+        # This is for the private registry related tests
+        echo "gcAuthenticatedRegistry: containerrollingregistry.azurecr.io" > repo_list
+        export KUBE_TEST_REPO_LIST=$(pwd)/repo_list 
+        
+        az acr login --name containerrollingregistry
+        export E2E_DOCKER_CONFIG_FILE=${HOME}/.docker/config.json
+        
+        export DISK_CSI_DRIVER="$(System.DefaultWorkingDirectory)/.pipelines/tests/diskcsidriver.yaml"
+        #export GINKGO_FOCUS="Container Runtime blackbox test when running a container with a new image should be able to pull from private registry with secret"
+
+        set -x
+        "$PWD"/kubernetes/test/bin/ginkgo --nodes="${GINKGO_NODES}" "$PWD"/kubernetes/test/bin/e2e.test -- \
+            --provider=skeleton \
+            --ginkgo.no-color \
+            --ginkgo.focus="$GINKGO_FOCUS" \
+            --ginkgo.skip="$GINKGO_SKIP" \
+            --node-os-distro="windows" \
+            --disable-log-dump \
+            --ginkgo.progress=true \
+            --ginkgo.flakeAttempts=3 \
+            --ginkgo.trace=true \
+            --num-nodes="$WINDOWS_WORKER_MACHINE_COUNT" \
+            --ginkgo.v=true \
+            --dump-logs-on-failure=true \
+            --report-dir="${ARTIFACTS}" \
+            --prepull-images=true \
+            --e2e-docker-config-file="${E2E_DOCKER_CONFIG_FILE:-}" \
+            --v=5 "${ADDITIONAL_E2E_ARGS[@]}"
+
+        #--ginkgo.dry-run=true \
+        # -storage.testdriver=${DISK_CSI_DRIVER} \
+        set +x
+
+        mv "${ARTIFACTS}/junit_01.xml" "${ARTIFACTS}/e2eslow.xml"
+      name: run_e2e_test
+      displayName: run e2e test
+
+    # - task: PublishPipelineArtifact@1
+    #   inputs:
+    #     artifactName: '${{ parameters.resourceGroup }}'
+    #     targetPath: '$(System.DefaultWorkingDirectory)/_artifacts/e2eslow.xml'
+    #   displayName: publish raw test result file
+
+    - bash: |
+        export RESOURCE_GROUP=${{parameters.resourceGroup}}
+        export TEST_RESULT="$(System.DefaultWorkingDirectory)/_artifacts/e2eslow.xml"
+        export TEST_RESULT_CSV="$(System.DefaultWorkingDirectory)/_artifacts/e2eslowresults.csv"
+        export TEST_SUITES="e2eslow"
+
+        #This is for test usage only
+        #export XML_FILE_PATH=$(System.DefaultWorkingDirectory)/.pipelines/scripts
+
+        cd $(System.DefaultWorkingDirectory)/.pipelines/scripts
+
+        python3 $(System.DefaultWorkingDirectory)/.pipelines/scripts/parse_sig_result.py
+      name: parse_test_result
+      displayName: parse test result
+    - bash: |
+        blobName=$(date +%Y%m%d%H%M%S)_$RANDOM.csv
+
+        az storage blob upload \
+          --account-name $(AZURE_E2E_STORAGE_ACCOUNT_NAME) \
+          --account-mode "login" \
+          --container-name ${{parameters.containerName}} \
+          --file $(System.DefaultWorkingDirectory)/_artifacts/e2eslowresults.csv \
+          --name ${blobName}
+
+          echo "##vso[task.setvariable variable=blobName]${blobName}" 
+      displayName: Upload parsed test results to Azure storage
+    - task: Azure-Kusto.ADXAdminCommands.PublishToADX.ADXAdminCommand@3
+      inputs:
+        targetType: 'inline'
+        script: |
+                  .ingest into table ${{parameters.kustoTableName}} (
+                      'https://$(AZURE_E2E_STORAGE_ACCOUNT_NAME).blob.core.windows.net/${{parameters.containerName}}/${blobName};managed_identity=924da118-3adb-400e-9021-3552a4f351e6'
+                  )
+        kustoUrls: "${{parameters.kustoUrl}}:443?DatabaseName=${{parameters.kustoDataBaseName}}"
+        connectedServiceARM: 'agentbaker_kusto'
+      displayName: Publish test results into Kusto
+    - task: Azure-Kusto.ADXAdminCommands.ADXQuery.ADXQuery@3
+      displayName: 'ADX Query for test being run'
+      inputs:
+        targetType: 'inline'
+        script: |
+          let resourcegroup = "${{parameters.resourceGroup}}";
+          windowssigtestlogs 
+            |where TIMESTAMP >= ago(2h)
+            |where ResourceGroup == resourcegroup
+            |where ClassName == "e2eslow"
+        kustoUrls: "${{parameters.kustoUrl}}:443?DatabaseName=${{parameters.kustoDataBaseName}}"
+        connectedServiceARM: 'agentbaker_kusto'
+        minThreshold: 7000
+        maxThreshold: 30000
+    - task: Azure-Kusto.ADXAdminCommands.ADXQuery.ADXQuery@3
+      displayName: 'ADX Query for test result'
+      inputs:
+        targetType: 'inline'
+        script: |
+          let resourcegroup = "${{parameters.resourceGroup}}";
+          windowssigtestlogs 
+            |where TIMESTAMP >= ago(2h)
+            |where ResourceGroup == resourcegroup
+            |where ClassName == "e2eslow"
+            |where Level < 3
+        kustoUrls: "${{parameters.kustoUrl}}:443?DatabaseName=${{parameters.kustoDataBaseName}}"
+        connectedServiceARM: 'agentbaker_kusto'
+        maxThreshold: ${{parameters.threshold}}

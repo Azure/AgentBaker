@@ -1,0 +1,6 @@
+ARG REGISTRY
+ARG EDITION
+ARG TAG
+FROM ${REGISTRY}/${EDITION}:${TAG}
+
+COPY ./emptyfile /emptyfile

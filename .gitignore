@@ -40,3 +40,10 @@ hack/tools/bin
 # migration off of go-bindata
 pkg/templates/templates_generated.go
 e2e/scenario-logs/
+
+.pipelines/local/containerImages/
+.pipelines/local/hostImages/
+.pipelines/local/logs/
+.pipelines/local/ws2019/
+.pipelines/local/ws2022/
+.pipelines/local/*.txt
