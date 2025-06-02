@@ -770,7 +770,6 @@ configGPUDrivers() {
                 NVIDIA_DRIVER_IMAGE_TAG="535.161.08-20250325114356"
             fi
 
-
             ctr -n k8s.io image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
             retrycmd_if_failure 5 10 600 bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install"
             ret=$?
