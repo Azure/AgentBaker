@@ -317,15 +317,14 @@ Describe 'Set-AzureCNIConfig' {
         }
         It "should include IMDS restriction ACL rule when IMDS restriction is enabled" {
             Set-Default-AzureCNI "AzureCNI.Default.conflist"
-
+            $global:IsIMDSRestrictionEnabled = $true
             Set-AzureCNIConfig -AzureCNIConfDir $azureCNIConfDir `
                 -KubeDnsSearchPath $kubeDnsSearchPath `
                 -KubeClusterCIDR $kubeClusterCIDR `
                 -KubeServiceCIDR $kubeServiceCIDR `
                 -VNetCIDR $vNetCIDR `
-                -IsDualStackEnabled $isDualStackEnabled `
-                -IsIMDSRestrictionEnabled $true
-            
+                -IsDualStackEnabled $isDualStackEnabled
+
             $actualConfigJson = Read-Format-Json $azureCNIConfigFile
             $expectedConfigJson = Read-Format-Json ([Io.path]::Combine($azureCNIConfDir, "AzureCNI.Expect.EnableIMDSRestriction.conflist"))
             $diffence = Compare-Object $actualConfigJson $expectedConfigJson
