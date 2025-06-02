@@ -1273,6 +1273,12 @@ testContainerd() {
   expectedVersion="${1}"
   local test="testContainerd"
   echo "$test: Start"
+  # If the version defined in components.json is <SKIP>, that means it will use whatever version is installed on the system.
+  # Therefore, we will just skip the test.
+  if [ "$expectedVersion" = "<SKIP>" ]; then
+    echo "$test: Skipping test for containerd version, as expected version is <SKIP>"
+    return 0
+  fi
   # the expectedVersion looks like this, "1.6.24-0ubuntu1~18.04.1" or "2.0.0-6.azl3", we need to extract the major.minor.patch version only.
   expectedVersion=$(echo $expectedVersion | cut -d'-' -f1)
   # use command `containerd --version` to get the version
