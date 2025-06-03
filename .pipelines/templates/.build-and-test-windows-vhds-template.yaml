@@ -201,7 +201,7 @@ stages:
           - bash: bash ./.pipelines/scripts/windows-sub-cleanup.sh
             enabled: true
             displayName: Old Windows VHD Cleanup
-            condition: eq(parameters.enableBackfillCleanup, 'True')
+            condition: eq(  ${{ parameters.enableBackfillCleanup }} , 'True')
             env:
               MODE: windowsVhdMode
               SUBSCRIPTION_ID: $(AZURE_BUILD_SUBSCRIPTION_ID)

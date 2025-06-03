@@ -77,7 +77,7 @@ stages:
       dryrun: False
       overrideBranch: master
       useOverrides: False
-      enableBackfillCleanup: 'True'
+      enableBackfillCleanup: True
       ${{ if eq( variables.PACKER_VM_SIZE, '') }}:
         buildVmSize: Standard_D4ds_v5
       ${{ else }}:

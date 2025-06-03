@@ -38,6 +38,7 @@ type Configuration struct {
 	EnableAKSNodeControllerTest            bool   `env:"ENABLE_AKS_NODE_CONTROLLER_TEST"`
 
 	// We have separate Linux and Windows consts to have different defaults - they use the same env vars.
+	// The defaults should only be used when running tests locally, as the CI will set these env vars.
 	GallerySubscriptionIDLinux      string `env:"GALLERY_SUBSCRIPTION_ID" envDefault:"c4c3550e-a965-4993-a50c-628fd38cd3e1"`
 	GallerySubscriptionIDWindows    string `env:"GALLERY_SUBSCRIPTION_ID" envDefault:"a15c116e-99e3-4c59-aebc-8f864929b4a0"`
 	GalleryNameLinux                string `env:"GALLERY_NAME" envDefault:"PackerSigGalleryEastUS"`
