@@ -447,7 +447,7 @@ func (a *AzureClient) ensureReplication(ctx context.Context, t *testing.T, image
 		t.Logf("Image version %s is already in region to region %s", *version.ID, Config.Location)
 		return nil
 	}
-	t.Logf("Replicating to region %s: image version %s", Config.Location, *version.ID)
+	t.Logf("##vso[task.logissue type=warning;]Replicating to region %s: image version %s", Config.Location, *version.ID)
 	return a.replicateImageVersionToCurrentRegion(ctx, image, version)
 }
 
