@@ -43,7 +43,7 @@ type Configuration struct {
 	GalleryNameLinux                string `env:"GALLERY_NAME" envDefault:"PackerSigGalleryEastUS"`
 	GalleryNameWindows              string `env:"GALLERY_NAME" envDefault:"PackerSigGalleryEastUS"`
 	GalleryResourceGroupNameLinux   string `env:"GALLERY_RESOURCE_GROUP" envDefault:"aksvhdtestbuildrg"`
-	GalleryResourceGroupNameWindows string `env:"GALLERY_RESOURCE_GROUP" envDefault:"aksvhdtestbuildrg"`
+	GalleryResourceGroupNameWindows string `env:"GALLERY_RESOURCE_GROUP" envDefault:"akswinvhdbuilderrg"`
 
 	IgnoreScenariosWithMissingVHD bool          `env:"IGNORE_SCENARIOS_WITH_MISSING_VHD"`
 	KeepVMSS                      bool          `env:"KEEP_VMSS"`
