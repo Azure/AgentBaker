@@ -30,7 +30,8 @@ set -euox pipefail
 
 echo "Checking SourceBranch: ${BRANCH}"
 
-if [ -z "${IS_RELEASE_PIPELINE}" ]; then
+# Check if IS_RELEASE_PIPELINE is already set in the environment
+if [ -z "${IS_RELEASE_PIPELINE:-}" ]; then
   if echo "${BRANCH}" | grep -E '^refs/heads/windows/v[[:digit:]]{8}$' > /dev/null; then
     echo "The branch ${BRANCH} is a release branch. Setting IS_RELEASE_PIPELINE to True."
     export IS_RELEASE_PIPELINE="True"
