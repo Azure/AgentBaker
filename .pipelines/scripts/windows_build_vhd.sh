@@ -41,7 +41,7 @@ if [ -z "${IS_RELEASE_PIPELINE}" ]; then
   fi
 fi
 
-if [ "${IS_RELEASE_PIPELINE}" = "True"]; then
+if [ "${IS_RELEASE_PIPELINE}" = "True" ]; then
   if [ "${DRY_RUN}" = "True" ]; then
     echo "This is a test build triggered from the release pipeline"
   else
