@@ -98,6 +98,7 @@ steps:
       AZURE_MSI_RESOURCE_STRING: $(AZURE_MSI_RESOURCE_STRING)
       BUILD_DATE: $(BUILD_DATE)
       WINDOWS_CSE_PACKAGE_URI: ${{ parameters.csePackageUri }}
+      DRY_RUN: ${{ parameters.dryrun }}
   # Note: use -a to grep MANAGED_SIG_ID (packer-output should be read as a binary file in Linux)
   - script: |
       export TEST_VM_RESOURCE_GROUP_NAME="vhd-test-$(date +%s)-$RANDOM"

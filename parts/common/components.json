@@ -818,7 +818,7 @@
                 "latestVersion": "current"
               }
             ],
-            "downloadURL": "https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-v${version}.zip"
+            "downloadURL": "https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-${version}.zip"
           }
         }
       }
