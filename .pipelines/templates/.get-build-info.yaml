@@ -5,7 +5,7 @@ parameters:
 
 steps:
     - powershell: |
-        az login --identity --username $(AZURE_MSI_RESOURCE_STRING)
+        az login --identity --resource-id $(AZURE_MSI_RESOURCE_STRING)
         az account set -s $(AZURE_BUILD_SUBSCRIPTION_ID)
         #az extension add --name storage-preview --debug --yes
       displayName: Managed Identity Login
