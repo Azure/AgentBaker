@@ -29,7 +29,19 @@ set -euox pipefail
 # SIG_FOR_PRODUCTION has the side effect of deleting the generated VHD.
 
 echo "Checking SourceBranch: ${BRANCH}"
-if [ -n "${IS_RELEASE_PIPELINE}" ]; then
+
+if [ -z "${IS_RELEASE_PIPELINE}" ]; then
+  if echo "${BRANCH}" | grep -E '^refs/heads/windows/v[[:digit:]]{8}$' > /dev/null; then
+    echo "The branch ${BRANCH} is a release branch. Setting IS_RELEASE_PIPELINE to True."
+    export IS_RELEASE_PIPELINE="True"
+    echo "##vso[task.setvariable variable=IS_RELEASE_PIPELINE]True"
+  else
+    export IS_RELEASE_PIPELINE="False"
+    echo "##vso[task.setvariable variable=IS_RELEASE_PIPELINE]False"
+  fi
+fi
+
+if [ "${IS_RELEASE_PIPELINE}" = "True"]; then
   if [ "${DRY_RUN}" = "True" ]; then
     echo "This is a test build triggered from the release pipeline"
   else
@@ -65,7 +77,6 @@ else
     echo "At least on of the name, prefix or version are empty. Overwriting all values. "
     export SIG_IMAGE_VERSION="$(date +"%y%m%d").$(date +"%H%M%S").$RANDOM"
     export SIG_IMAGE_NAME="windows-${WINDOWS_SKU}"
-    export SIG_GALLERY_NAME="WSGallery$(date +"%y%m%d")"
     export SIG_GALLERY_NAME="PackerSigGalleryEastUS"
 
     export WS_SKU=$(echo $WINDOWS_SKU | tr '-' '_')
