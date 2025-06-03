@@ -49,10 +49,6 @@ parameters:
     type: string
     displayName: The windows artifact to build. Might be a duplicate of artifactName
 
-variables:
-
-  
- 
 steps:
   - template: ./.template-override-components-json.yaml
     parameters:
