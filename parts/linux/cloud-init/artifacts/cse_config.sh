@@ -817,7 +817,7 @@ configGPUDrivers() {
             # if target cloud is AzureUSGovernmentCloud or AzureChinaCloud, and NVIDIA_DRIVER_IMAGE contains GRID then use the specific 535 NVIDIA driver image
             # this is being added because of the host driver in Fairfax is not compatible with the 550 guest drivers now
             # It can be removed and synced with 550/other clouds, once it is moved to a compatible host driver (check with the HPC team)
-            if { [ "$TARGET_CLOUD" = "AzureUSGovernmentCloud" ] || [ "$TARGET_CLOUD" = "AzureChinaCloud" ]; } && \
+            if { [ "${TARGET_CLOUD}" = "AzureUSGovernmentCloud" ] || [ "${TARGET_CLOUD}" = "AzureChinaCloud" ]; } && \
                [ "${NVIDIA_DRIVER_IMAGE#*GRID}" != "$NVIDIA_DRIVER_IMAGE" ]; then
                 NVIDIA_DRIVER_IMAGE_TAG="535.161.08-20250325114356"
             fi
