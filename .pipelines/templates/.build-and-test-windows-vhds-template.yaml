@@ -54,8 +54,10 @@ stages:
   - stage: Package
     displayName: "Package Windows CSE"
     variables:
-    - CSE_PUBLISH_DIR: $(Build.ArtifactStagingDirectory)/packages
-    - CSE_FILE_NAME: aks-windows-cse-scripts-current.zip
+    - name: CSE_PUBLISH_DIR
+      value: $(Build.ArtifactStagingDirectory)/packages
+    - name: CSE_FILE_NAME
+      value: aks-windows-cse-scripts-current.zip
     jobs:
     - job: PackageWindowsCSE
       steps:
