@@ -1,5 +1,5 @@
-#!/usr/bin/env bash
-set -e
+#!/bin/bash
+set -euox pipefail
 
 # This script builds a windows VHD. It has the following steps:
 # 1. Validate the source branch. Releasable VHDs must be created from branches with the right name: windows/vYYYYMMDD
