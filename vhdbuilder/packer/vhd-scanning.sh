@@ -124,10 +124,10 @@ CVE_LIST_UPLOAD_REPORT_NAME="cve-list-${BUILD_ID}-${TIMESTAMP}.txt"
 # Extract date, revision from build number
 BUILD_RUN_NUMBER=$(echo $BUILD_RUN_NUMBER | cut -d_ -f 1)
 
-# image version should always be set
+# set image version locally, if it is not set in environment variable
 if [ -z "${IMAGE_VERSION:-}" ]; then
-    echo "IMAGE_VERSION was not set"
-    exit 1
+    IMAGE_VERSION=$(date +%Y%m.%d.0)
+    echo "IMAGE_VERSION was not set, setting it to ${IMAGE_VERSION} for trivy scan and Kusto ingestion"
 fi
 
 az vm run-command invoke \
