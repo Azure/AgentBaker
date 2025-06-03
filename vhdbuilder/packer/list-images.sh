@@ -3,9 +3,14 @@ set -euxo pipefail
 
 IMAGE_BOM_PATH=/opt/azure/containers/image-bom.json
 
-SKU_NAME="${SKU_NAME:=}"
-IMAGE_VERSION="${IMAGE_VERSION:-$(date +%Y%m.%d.0)}"
+SKU_NAME="${SKU_NAME:-}"
+IMAGE_VERSION="${IMAGE_VERSION:-}"
 CONTAINER_RUNTIME="${CONTAINER_RUNTIME:-containerd}"
+
+if [ -z "${IMAGE_VERSION}" ]; then
+    echo "IMAGE_VERSION must be set when generating image list"
+    exit 1
+fi
 
 if [ -z "${SKU_NAME}" ]; then
     echo "SKU_NAME must be set when generating image list"
