@@ -164,6 +164,11 @@ if [ "${NEEDS_CONTAINERD}" = "true" ] && [ "${TELEPORT_ENABLED}" = "true" ]; the
     logs_to_events "AKS.CSE.installTeleportdPlugin" installTeleportdPlugin
 fi
 
+# If the kubelet.service drop-in directory is empty by the time installContainerRuntime is called, it may be removed
+# as a side-effect of having to go out and install an uncached version of containerd. Thus, we once again create
+# the kubelet.service drop-in directory here before creating any further drop-ins.
+mkdir -p "/etc/systemd/system/kubelet.service.d"
+
 setupCNIDirs
 
 logs_to_events "AKS.CSE.installNetworkPlugin" installNetworkPlugin
