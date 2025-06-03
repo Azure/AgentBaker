@@ -85,6 +85,8 @@ stages:
           artifactName: windows-cse-package
           targetPath: $(CSE_PUBLISH_DIR)
   - template: ./.build-and-test-windows-vhd-template.yaml
+    dependsOn: Package
+    condition: succeeded('Package')
     parameters:
       stageName: win_2019_v1
       artifactName: 2019-containerd
@@ -106,6 +108,8 @@ stages:
       csePackageUri: $(CSE_PUBLISH_DIR)/$(CSE_FILE_NAME)
 
   - template: ./.build-and-test-windows-vhd-template.yaml
+    dependsOn: Package
+    condition: succeeded('Package')
     parameters:
       stageName: win_2022_v1
       artifactName: 2022-containerd
@@ -127,6 +131,8 @@ stages:
       csePackageUri: $(CSE_PUBLISH_DIR)/$(CSE_FILE_NAME)
 
   - template: ./.build-and-test-windows-vhd-template.yaml
+    dependsOn: Package
+    condition: succeeded('Package')
     parameters:
       stageName: win_2022_v2
       artifactName: 2022-containerd-gen2
@@ -148,6 +154,8 @@ stages:
       csePackageUri: $(CSE_PUBLISH_DIR)/$(CSE_FILE_NAME)
 
   - template: ./.build-and-test-windows-vhd-template.yaml
+    dependsOn: Package
+    condition: succeeded('Package')
     parameters:
       stageName: win_23H2_v1
       artifactName: 23H2
@@ -169,6 +177,8 @@ stages:
       csePackageUri: $(CSE_PUBLISH_DIR)/$(CSE_FILE_NAME)
 
   - template: ./.build-and-test-windows-vhd-template.yaml
+    dependsOn: Package
+    condition: succeeded('Package')
     parameters:
       stageName: win_23H2_v2
       artifactName: 23H2-gen2
@@ -190,6 +200,8 @@ stages:
       csePackageUri: $(CSE_PUBLISH_DIR)/$(CSE_FILE_NAME)
 
   - template: ./.build-and-test-windows-vhd-template.yaml
+    dependsOn: Package
+    condition: succeeded('Package')
     parameters:
       stageName: win_2025_v1
       artifactName: "2025"
@@ -211,6 +223,8 @@ stages:
       csePackageUri: $(CSE_PUBLISH_DIR)/$(CSE_FILE_NAME)
 
   - template: ./.build-and-test-windows-vhd-template.yaml
+    dependsOn: Package
+    condition: succeeded('Package')
     parameters:
       stageName: win_2025_v2
       artifactName: 2025-gen2
