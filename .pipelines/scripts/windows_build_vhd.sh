@@ -49,8 +49,6 @@ else
   echo "##vso[task.setvariable variable=SIG_FOR_PRODUCTION]False"
 fi
 
-
-
 export MODE="windowsVhdMode"
 echo "Set build mode to $MODE"
 echo "##vso[task.setvariable variable=MODE]$MODE"

@@ -22,8 +22,7 @@
         "build_date": "{{env `BUILD_DATE`}}",
         "branch": "{{env `BRANCH`}}",
         "vnet_resource_group_name": "{{env `VNET_RESOURCE_GROUP_NAME`}}", 
-        "windows_cse_package_dir": "{{env `WINDOWS_CSE_PUBLISH_DIR`}}", 
-        "windows_cse_pacakge_file": "{{env `WINDOWS_CSE_FILE`}}"
+        "windows_cse_package_uri": "{{env `WINDOWS_CSE_PACKAGE_URI`}}"
     },
     "builders": [
         {
@@ -96,7 +95,7 @@
             "type": "file",
             "direction": "upload",
             "sources": [
-                "{{user `windows_cse_package_dir`}}/{{user `windows_cse_pacakge_file`}}"
+                "{{user `windows_cse_package_uri`}}"
             ],
             "destination": "c:/akse-cache/"
         },

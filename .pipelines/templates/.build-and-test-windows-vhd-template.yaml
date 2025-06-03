@@ -55,6 +55,9 @@ parameters:
   - name: useOverrides
     displayName: Use component overrides
     type: boolean
+  - name: csePackageUri
+    type: string
+    displayName: URI to the CSE package to use for the build.
 
 stages:
   - stage: build_${{ parameters.stageName }}
@@ -84,6 +87,7 @@ stages:
               windowsCoreImageUrl: ${{ parameters.windowsCoreImageUrl }}
               overrideBranch: ${{ parameters.overrideBranch }}
               useOverrides: ${{ parameters.useOverrides }}
+              csePackageUri: ${{ parameters.csePackageUri }}
 
   - stage: e2e_${{ parameters.stageName }}
     displayName: E2E (${{ parameters.artifactName }})

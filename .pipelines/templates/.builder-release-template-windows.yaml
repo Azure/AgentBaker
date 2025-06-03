@@ -48,6 +48,9 @@ parameters:
   - name: windowsSku
     type: string
     displayName: The windows artifact to build. Might be a duplicate of artifactName
+  - name: csePackageUri
+    type: string
+    displayName: URL to the CSE package to use for the build.
 
 steps:
   - template: ./.template-override-components-json.yaml
@@ -60,36 +63,6 @@ steps:
     env:
       MODE: "windowsVhdMode"
       SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
-  - script: |
-      WINDOWS_CSE_PUBLISH_DIR="$(Build.ArtifactStagingDirectory)/packages"
-      WINDOWS_CSE_FILE="windows-cse-current.zip"
-      echo "##vso[task.setvariable variable=WINDOWS_CSE_PUBLISH_DIR]$WINDOWS_CSE_PUBLISH_DIR"
-      echo "##vso[task.setvariable variable=WINDOWS_CSE_FILE]$WINDOWS_CSE_FILE"
-      
-      WINDOWS_CSE_PACKAGE_DIR="$(Build.ArtifactStagingDirectory)/windows"
-      mkdir -p $WINDOWS_CSE_PACKAGE_DIR
-      cp -r ./staging/cse/windows/* $WINDOWS_CSE_PACKAGE_DIR
-      rm $WINDOWS_CSE_PACKAGE_DIR/*.tests.ps1
-      rm $WINDOWS_CSE_PACKAGE_DIR/*.tests.suites -r
-      rm $WINDOWS_CSE_PACKAGE_DIR/README
-      rm $WINDOWS_CSE_PACKAGE_DIR/provisioningscripts/*.md
-      rm $WINDOWS_CSE_PACKAGE_DIR/debug/update-scripts.ps1
-
-      mkdir -p $WINDOWS_CSE_PUBLISH_DIR
-      echo "Creating CSE release pacakge $WINDOWS_CSE_PUBLISH_DIR/$WINDOWS_CSE_FILE"
-      pushd $WINDOWS_CSE_PACKAGE_DIR || exit 1
-        zip -r $WINDOWS_CSE_PUBLISH_DIR/$WINDOWS_CSE_FILE ./*
-      popd || exit 1
-
-    displayName: Build Windows CSE Package
-  - task: ManifestGeneratorTask@0
-    inputs:
-      BuildDropPath: $(WINDOWS_CSE_PUBLISH_DIR)
-  - task: PublishPipelineArtifact@1
-    displayName: Publish Windows CSE Package
-    inputs:
-      artifactName: windows-cse-package
-      targetPath: $(WINDOWS_CSE_PUBLISH_DIR)
   - bash: bash ./.pipelines/scripts/windows_build_vhd.sh
     displayName: Build and save VHD
     env:
@@ -124,9 +97,7 @@ steps:
       WINDOWS_PRIVATE_PACKAGES_URL: $(PRIVATE_PACKAGES_URL)
       AZURE_MSI_RESOURCE_STRING: $(AZURE_MSI_RESOURCE_STRING)
       BUILD_DATE: $(BUILD_DATE)
-      WINDOWS_CSE_PACKAGE_DIR: $(windows.cse.publish.dir)
-      WINDOWS_CSE_PACKAGE_FILE: $(windows.cse.file)
-
+      WINDOWS_CSE_PACKAGE_URI: ${{ parameters.csePackageUri }}
   # Note: use -a to grep MANAGED_SIG_ID (packer-output should be read as a binary file in Linux)
   - script: |
       export TEST_VM_RESOURCE_GROUP_NAME="vhd-test-$(date +%s)-$RANDOM"
