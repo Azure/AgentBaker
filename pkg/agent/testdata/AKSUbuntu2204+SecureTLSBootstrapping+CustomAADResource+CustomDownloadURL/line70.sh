@@ -718,6 +718,11 @@ configGPUDrivers() {
     if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
         mkdir -p /opt/{actions,gpu}
         if [ "${CONTAINER_RUNTIME}" = "containerd" ]; then
+            NVIDIA_DRIVER_IMAGE_LOWER=$(echo "$NVIDIA_DRIVER_IMAGE" | tr '[:upper:]' '[:lower:]')
+            if { [ "${TARGET_CLOUD}" = "AzureUSGovernmentCloud" ] || [ "${TARGET_CLOUD}" = "AzureChinaCloud" ]; } && [ "${NVIDIA_DRIVER_IMAGE_LOWER#*grid}" != "$NVIDIA_DRIVER_IMAGE_LOWER" ]; then
+                NVIDIA_DRIVER_IMAGE_TAG="535.161.08-20250325114356"
+            fi
+
             ctr -n k8s.io image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
             retrycmd_if_failure 5 10 600 bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install"
             ret=$?
