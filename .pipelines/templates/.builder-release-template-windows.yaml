@@ -81,13 +81,13 @@ steps:
       popd || exit 1
     displayName: Build Windows CSE Package
   - task: ManifestGeneratorTask@0
-      inputs:
-        BuildDropPath: $(windows.cse.publish.dir)
+    inputs:
+      BuildDropPath: $(windows.cse.publish.dir)
   - task: PublishPipelineArtifact@1
-      displayName: Publish Windows CSE Package
-      inputs:
-        artifactName: windows-cse-package
-        targetPath: $(windows.cse.publish.dir)
+    displayName: Publish Windows CSE Package
+    inputs:
+      artifactName: windows-cse-package
+      targetPath: $(windows.cse.publish.dir)
   - bash: bash ./.pipelines/scripts/windows_build_vhd.sh
     displayName: Build and save VHD
     env:
