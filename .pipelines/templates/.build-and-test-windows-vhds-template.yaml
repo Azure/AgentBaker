@@ -59,7 +59,6 @@ parameters:
 stages:
   - stage: Package
     displayName: "Package Windows CSE"
-    variables:
     jobs:
     - job: PackageWindowsCSE
       steps:
