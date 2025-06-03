@@ -83,11 +83,11 @@ else
     export WS_SKU=$(echo $WINDOWS_SKU | tr '-' '_')
 fi
 
-if [ "${USE_RELEASE_DATE}" = "False" ]; then
+if [ "${USE_RELEASE_DATE:-}" = "False" ]; then
   echo "use current date as build date";  BUILD_DATE=$(date +"%y%m%d")
 else
   echo "use release date as build date"
-  echo "${RELEASE_DATE}" | grep -E '[[:digit:]]{6}'
+  echo "${RELEASE_DATE:-}" | grep -E '[[:digit:]]{6}'
   if (( $? != 0 )); then
     echo "The release date ${RELEASE_DATE} is not valid date. Release date format: YYMMDD."
     exit 1
@@ -95,7 +95,7 @@ else
   export BUILD_DATE=${RELEASE_DATE}
 fi
 echo "Default BUILD_DATE is $BUILD_DATE"
-if [ -n "${CUSTOM_BUILD_DATE}" ]; then
+if [ -n "${CUSTOM_BUILD_DATE:-}" ]; then
   echo "set BUILD_DATE to ${CUSTOM_BUILD_DATE}"
   export BUILD_DATE=${CUSTOM_BUILD_DATE}
 fi
