@@ -311,10 +311,6 @@ ensureContainerd() {
 ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
 EOF
 
-  if [ "${ARTIFACT_STREAMING_ENABLED}" = "true" ]; then
-    logs_to_events "AKS.CSE.ensureContainerd.ensureArtifactStreaming" ensureArtifactStreaming || exit $ERR_ARTIFACT_STREAMING_INSTALL
-  fi
-
   mkdir -p /etc/containerd
   if [ "${GPU_NODE}" = "true" ] && [ "${skip_nvidia_driver_install}" = "true" ]; then
     echo "Generating non-GPU containerd config for GPU node due to VM tags"
@@ -769,6 +765,11 @@ configGPUDrivers() {
     if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
         mkdir -p /opt/{actions,gpu}
         if [ "${CONTAINER_RUNTIME}" = "containerd" ]; then
+            if [ "$TARGET_CLOUD" = "AzureUSGovernmentCloud" ] && \
+            [ "${NVIDIA_DRIVER_IMAGE#*GRID}" != "$NVIDIA_DRIVER_IMAGE" ]; then
+                NVIDIA_DRIVER_IMAGE_TAG="535.161.08-20250325114356"
+            fi
+
             ctr -n k8s.io image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
             retrycmd_if_failure 5 10 600 bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install"
             ret=$?
