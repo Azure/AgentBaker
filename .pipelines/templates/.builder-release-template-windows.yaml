@@ -63,6 +63,12 @@ steps:
     env:
       MODE: "windowsVhdMode"
       SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
+  - task: DownloadPipelineArtifact@2
+    displayName: Download CSE package
+    inputs:
+      source: current
+      artifactName: windows-cse-package
+      targetPath: ${{ parameters.csePackageUri }}
   - bash: bash ./.pipelines/scripts/windows_build_vhd.sh
     displayName: Build and save VHD
     env:
