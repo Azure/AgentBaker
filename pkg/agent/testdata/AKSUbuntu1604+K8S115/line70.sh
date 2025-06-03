@@ -723,8 +723,8 @@ configGPUDrivers() {
     if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
         mkdir -p /opt/{actions,gpu}
         if [ "${CONTAINER_RUNTIME}" = "containerd" ]; then
-            if [ "$TARGET_CLOUD" = "AzureUSGovernmentCloud" ] && \
-            [ "${NVIDIA_DRIVER_IMAGE#*GRID}" != "$NVIDIA_DRIVER_IMAGE" ]; then
+            NVIDIA_DRIVER_IMAGE_LOWER=$(echo "$NVIDIA_DRIVER_IMAGE" | tr '[:upper:]' '[:lower:]')
+            if { [ "${TARGET_CLOUD}" = "AzureUSGovernmentCloud" ] || [ "${TARGET_CLOUD}" = "AzureChinaCloud" ]; } && [ "${NVIDIA_DRIVER_IMAGE_LOWER#*grid}" != "$NVIDIA_DRIVER_IMAGE_LOWER" ]; then
                 NVIDIA_DRIVER_IMAGE_TAG="535.161.08-20250325114356"
             fi
 
