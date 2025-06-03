@@ -214,7 +214,6 @@ if [ "${HAS_CUSTOM_SEARCH_DOMAIN}" = "true" ]; then
     "${CUSTOM_SEARCH_DOMAIN_FILEPATH}" > /opt/azure/containers/setup-custom-search-domain.log 2>&1 || exit $ERR_CUSTOM_SEARCH_DOMAINS_FAIL
 fi
 
-
 mkdir -p "/etc/systemd/system/kubelet.service.d"
 
 logs_to_events "AKS.CSE.configureCNI" configureCNI

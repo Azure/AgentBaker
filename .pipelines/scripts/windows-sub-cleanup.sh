@@ -9,6 +9,8 @@ if [ ${SUBSCRIPTION_ID} = ${PROD_SUBSCRIPTION_ID} ]; then
   exit 1
 fi
 
+make -f packer.mk az-login
+
 EXPIRATION_IN_HOURS=168
 # convert to seconds so we can compare it against the "tags.now" property in the resource group metadata
 (( expirationInSecs = ${EXPIRATION_IN_HOURS} * 60 * 60 ))

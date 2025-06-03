@@ -1624,7 +1624,7 @@ func Test_AzureLinuxV2_KubeletCustomConfig(t *testing.T) {
 		}})
 }
 
-func Test_AzureLinuxV2_KubeletCustomConfig_Scpritless(t *testing.T) {
+func Test_AzureLinuxV2_KubeletCustomConfig_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Tags: Tags{
 			KubeletCustomConfig: true,

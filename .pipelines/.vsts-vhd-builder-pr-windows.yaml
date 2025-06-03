@@ -10,6 +10,7 @@ pr:
     include:
       - .pipelines/.vsts-vhd-builder-release-windows.yaml
       - .pipelines/.vsts-vhd-builder-pr-windows.yaml
+      - .pipelines/scripts/
       - .pipelines/templates/.template-override-components-json.yaml
       - .pipelines/templates/.template-copy-file.yaml
       - .pipelines/templates/.build-and-test-windows-vhds-template.yaml
@@ -21,7 +22,7 @@ pr:
       - vhdbuilder/packer/*.ps1
       - vhdbuilder/packer/test/*.ps1
       - vhdbuilder/packer/test/run-test.sh
-      - vhdbuilder/packer/backfill-cleanup.sh
+      - vhdbuilder/packer/windows-sub-cleanup.sh
       - vhdbuilder/packer/cleanup.sh
       - vhdbuilder/packer/convert-sig-to-classic-storage-account-blob.sh
       - vhdbuilder/packer/generate-vhd-publishing-info.sh
@@ -74,6 +75,9 @@ stages:
       vhddebug: False
       skipExtensionCheck: true
       dryrun: False
+      overrideBranch: master
+      useOverrides: False
+      enableBackfillCleanup: True
       ${{ if eq( variables.PACKER_VM_SIZE, '') }}:
         buildVmSize: Standard_D4ds_v5
       ${{ else }}:
@@ -83,7 +87,5 @@ stages:
       build2022containerdgen2: True
       build23H2: False
       build23H2gen2: True
-      overrideBranch: master
-      useOverrides: False
       build2025: False
       build2025gen2: True
