@@ -22,8 +22,8 @@
         "build_date": "{{env `BUILD_DATE`}}",
         "branch": "{{env `BRANCH`}}",
         "vnet_resource_group_name": "{{env `VNET_RESOURCE_GROUP_NAME`}}", 
-        "windows_cse_package_dir": "{{env `WINDOWS_CSE_PACKAGE_DIR`}}", 
-        "windows_cse_pacakge_file": "{{env `WINDOWS_CSE_PACKAGE_FILE`}}"
+        "windows_cse_package_dir": "{{env `WINDOWS_CSE_PUBLISH_DIR`}}", 
+        "windows_cse_pacakge_file": "{{env `WINDOWS_CSE_FILE`}}"
     },
     "builders": [
         {
