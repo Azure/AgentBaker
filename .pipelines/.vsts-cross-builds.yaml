@@ -212,7 +212,7 @@ stages:
     steps:
     - pwsh: |
         az version
-        az login --identity --client_id $(AZURE_BUILD_MANAGE_IDENTITY)
+        az login --identity --client-id $(AZURE_BUILD_MANAGE_IDENTITY)
         az account set -s $(AZURE_BUILD_SUBSCRIPTION_ID)
         $(System.DefaultWorkingDirectory)/.pipelines/scripts/cleanup.ps1
         $(System.DefaultWorkingDirectory)/.pipelines/scripts/cleanupACR.ps1
