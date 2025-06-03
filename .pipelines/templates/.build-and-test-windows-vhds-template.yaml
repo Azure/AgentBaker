@@ -211,7 +211,7 @@ stages:
           - bash: bash ./vhdbuilder/packer/cleanup.sh
             enabled: true
             displayName: Cleanup
-            condition: false # eq(parameters.enableBackfillCleanup, 'True')
+            condition: eq(  ${{ parameters.enableBackfillCleanup }} , 'True')
             env:
               MODE: windowsVhdMode
               SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
