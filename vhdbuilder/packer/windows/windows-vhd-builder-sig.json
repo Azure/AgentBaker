@@ -90,14 +90,14 @@
                 "vhdbuilder/packer/windows/components_json_helpers.ps1"
             ],
             "destination": "c:/k/"
-        },
+        },       
         {
-            "type": "file",
-            "direction": "upload",
-            "sources": [
-                "{{user `windows_cse_package_uri`}}"
-            ],
-            "destination": "c:/akse-cache/"
+        "type": "file",
+        "direction": "upload",
+        "sources": [
+            "{{user `windows_cse_package_uri`}}"
+        ],
+        "destination": "c:/akse-cache/"
         },
         {
             "elevated_user": "packer",

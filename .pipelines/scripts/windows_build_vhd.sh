@@ -112,6 +112,8 @@ export MANAGED_SIG_ID="$(cat packer-output | grep -a "ManagedImageSharedImageGal
 
 echo "Found OS_DISK_URI: ${OS_DISK_URI}"
 echo "Found MANAGED_SIG_ID: ${MANAGED_SIG_ID}"
+echo "Use CSE pacakge at URI: ${WINDOWS_CSE_PACKAGE_URI}"
 
 echo "##vso[task.setvariable variable=OS_DISK_URI]${OS_DISK_URI}"
 echo "##vso[task.setvariable variable=MANAGED_SIG_ID]${MANAGED_SIG_ID}"
+echo "##vso[task.setvariable variable=WINDOWS_CSE_PACKAGE_URI]${WINDOWS_CSE_PACKAGE_URI}"
