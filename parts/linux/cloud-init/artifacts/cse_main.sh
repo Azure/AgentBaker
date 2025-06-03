@@ -59,6 +59,8 @@ logs_to_events "AKS.CSE.setPackagesBaseURL" "echo $PACKAGE_DOWNLOAD_BASE_URL"
 # which is used by configureK8s and other functions. Thus, we need to make sure flag and label content is correct beforehand.
 logs_to_events "AKS.CSE.configureKubeletServing" configureKubeletServing
 
+# This function first creates the systemd drop-in directory for kubelet.service.
+# Pay attention to ordering relative to other functions that create kubelet drop-ins.
 logs_to_events "AKS.CSE.configureK8s" configureK8s
 
 logs_to_events "AKS.CSE.ensureKubeCACert" ensureKubeCACert
@@ -247,8 +249,9 @@ if [ "${HAS_CUSTOM_SEARCH_DOMAIN}" = "true" ]; then
     "${CUSTOM_SEARCH_DOMAIN_FILEPATH}" > /opt/azure/containers/setup-custom-search-domain.log 2>&1 || exit $ERR_CUSTOM_SEARCH_DOMAINS_FAIL
 fi
 
-
-# for drop ins, so they don't all have to check/create the dir
+# If the kubelet.service drop-in directory is empty by the time installContainerRuntime is called, it may be removed
+# as a side-effect of having to go out and install an uncached version of containerd. Thus, we once again create
+# the kubelet.service drop-in directory here before creating any further drop-ins.
 mkdir -p "/etc/systemd/system/kubelet.service.d"
 
 logs_to_events "AKS.CSE.configureCNI" configureCNI

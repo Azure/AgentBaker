@@ -45,6 +45,10 @@ parameters:
   - name: useOverrides
     displayName: Use component overrides
     type: boolean
+  - name: enableBackfillCleanup
+    displayName: Run cleanup job
+    type: boolean
+    default: false
 
 stages:
   - template: ./.build-and-test-windows-vhd-template.yaml
@@ -194,14 +198,20 @@ stages:
       - job: build
         timeoutInMinutes: 180
         steps:
-          - bash: |
-              # because SUBSCRIPTION_ID is defined as a pipeline variable, setting this in the "env" section below doesn't work.
-              export SUBSCRIPTION_ID=$(AZURE_BUILD_SUBSCRIPTION_ID)
-      
-              make -f packer.mk backfill-cleanup
+          - bash: bash ./.pipelines/scripts/windows-sub-cleanup.sh
             enabled: true
-            displayName: Backfill Clean Up Older Resources
-            condition: eq(variables.ENABLE_BACKFILL_CLEANUP, 'True')
+            displayName: Old Windows VHD Cleanup
+            condition: eq(  ${{ parameters.enableBackfillCleanup }} , 'True')
+            env:
+              MODE: windowsVhdMode
+              PROD_SUBSCRIPTION_ID: $(AZURE_PROD_SUBSCRIPTION_ID)
+              DRY_RUN:  ${{ parameters.dryrun }}
+              OS_TYPE: Windows
+
+          - bash: bash ./vhdbuilder/packer/cleanup.sh
+            enabled: true
+            displayName: Cleanup
+            condition: eq(  ${{ parameters.enableBackfillCleanup }} , 'True')
             env:
               MODE: windowsVhdMode
               SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)

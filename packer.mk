@@ -92,10 +92,6 @@ init-packer:
 run-packer: az-login
 	@packer init ./vhdbuilder/packer/linux-packer-plugin.pkr.hcl && packer version && ($(MAKE) -f packer.mk init-packer | tee packer-output) && ($(MAKE) -f packer.mk build-packer | tee -a packer-output)
 
-backfill-cleanup: az-login
-	@chmod +x ./vhdbuilder/packer/backfill-cleanup.sh
-	@./vhdbuilder/packer/backfill-cleanup.sh
-
 generate-publishing-info: az-login
 	@./vhdbuilder/packer/generate-vhd-publishing-info.sh
 
