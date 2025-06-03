@@ -158,6 +158,7 @@ EOF
 
 configureK8s() {
     mkdir -p "/etc/kubernetes/certs"
+    mkdir -p "/etc/systemd/system/kubelet.service.d"
 
     if [ -n "${APISERVER_PUBLIC_KEY}" ]; then
         APISERVER_PUBLIC_KEY_PATH="/etc/kubernetes/certs/apiserver.crt"
