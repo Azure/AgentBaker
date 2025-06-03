@@ -209,8 +209,6 @@ stages:
               fi
               echo "will use image version: $IMAGE_VERSION"
               echo "##vso[task.setvariable variable=IMAGE_VERSION;isOutput=true]$IMAGE_VERSION"
-            env:
-              IMAGE_VERSION_OVERRIDE: $(IMAGE_VERSION_OVERRIDE)
             displayName: Set image version
             name: imageVersion
 
