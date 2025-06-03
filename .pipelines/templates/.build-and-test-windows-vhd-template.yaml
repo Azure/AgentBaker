@@ -64,7 +64,7 @@ stages:
     # Put the artifact name first so it doesn't get truncated as much in ADO
     displayName: Build (${{ parameters.artifactName }})
     condition: and(succeeded(), eq('${{ parameters.build }}', True))
-    dependsOn: [ ]
+    dependsOn: Package
     jobs:
       - job: build_${{ parameters.stageName }}
         dependsOn: [ ]
