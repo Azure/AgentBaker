@@ -213,7 +213,7 @@ Write-Host $message; $message | Out-File -FilePath $logFileFullName -Append
 LoginToAzure
 
 az account set --subscription $subscriptionName
-az acr login --name $registryName
+#az acr login --name $registryName
 
 # if ($LastExitCode -eq 0) {
 #     $message = "login to azure successfully."
