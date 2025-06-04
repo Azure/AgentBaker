@@ -173,7 +173,7 @@ downloadCredentialProvider() {
 
 installCredentialProvider() {
     logs_to_events "AKS.CSE.installCredentialProvider.downloadCredentialProvider" downloadCredentialProvider
-    tar -xzf "$CREDENTIAL_PROVIDER_DOWNLOAD_DIR/${CREDENTIAL_PROVIDER_TGZ_TMP}" -C $CREDENTIAL_PROVIDER_DOWNLOAD_DIR
+    extract_tarball "$CREDENTIAL_PROVIDER_DOWNLOAD_DIR/${CREDENTIAL_PROVIDER_TGZ_TMP}" "$CREDENTIAL_PROVIDER_DOWNLOAD_DIR"
     mkdir -p "${CREDENTIAL_PROVIDER_BIN_DIR}"
     chown -R root:root "${CREDENTIAL_PROVIDER_BIN_DIR}"
     mv "${CREDENTIAL_PROVIDER_DOWNLOAD_DIR}/azure-acr-credential-provider" "${CREDENTIAL_PROVIDER_BIN_DIR}/acr-credential-provider"
@@ -242,7 +242,7 @@ downloadContainerdWasmShims() {
         local wasm_shims_tgz_tmp=$containerd_wasm_filepath/containerd-wasm-shims-linux-${CPU_ARCH}.tar.gz
 
         retrycmd_get_tarball_from_registry_with_oras 120 5 "${wasm_shims_tgz_tmp}" ${registry_url} || exit $ERR_ORAS_PULL_CONTAINERD_WASM
-        tar -zxf "$wasm_shims_tgz_tmp" -C $containerd_wasm_filepath
+        extract_tarball "$wasm_shims_tgz_tmp" "$containerd_wasm_filepath"
         mv "$containerd_wasm_filepath/containerd-shim-*-${shim_version}-v1" "$containerd_wasm_filepath/containerd-shim-*-${binary_version}-v1"
         rm -f "$wasm_shims_tgz_tmp"
         return
@@ -354,7 +354,7 @@ installOras() {
     fi
 
     echo "File $ORAS_DOWNLOAD_DIR/${ORAS_TMP} exists."
-    sudo tar -zxf "$ORAS_DOWNLOAD_DIR/${ORAS_TMP}" -C $ORAS_EXTRACTED_DIR/ --no-same-owner
+    extract_tarball "$ORAS_DOWNLOAD_DIR/${ORAS_TMP}" "$ORAS_EXTRACTED_DIR/"
     rm -r "$ORAS_DOWNLOAD_DIR"
     echo "Oras version $ORAS_VERSION installed successfully."
 }
@@ -394,7 +394,7 @@ downloadSecureTLSBootstrapClient() {
         rm -f "${CLIENT_EXTRACTED_DIR}/aks-secure-tls-bootstrap-client"
     fi
 
-    tar -zxf "${SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_DIR}/${CLIENT_TGZ_TMP}" -C "${SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_DIR}/"
+    extract_tarball "${SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_DIR}/${CLIENT_TGZ_TMP}" "${SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_DIR}/"
     mv "${SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_DIR}/aks-secure-tls-bootstrap-client" "${CLIENT_EXTRACTED_DIR}/aks-secure-tls-bootstrap-client"
     chmod 755 "${CLIENT_EXTRACTED_DIR}/aks-secure-tls-bootstrap-client" || exit $ERR_SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_ERROR
 
@@ -451,7 +451,7 @@ installCrictl() {
             return 1
         fi
         echo "Unpacking crictl into ${CRICTL_BIN_DIR}"
-        tar zxvf "$CRICTL_DOWNLOAD_DIR/${CRICTL_TGZ_TEMP}" -C ${CRICTL_BIN_DIR}
+        extract_tarball "$CRICTL_DOWNLOAD_DIR/${CRICTL_TGZ_TEMP}" "${CRICTL_BIN_DIR}"
         chown root:root $CRICTL_BIN_DIR/crictl
         chmod 755 $CRICTL_BIN_DIR/crictl
     fi
@@ -510,7 +510,7 @@ installCNI() {
     if [ ! -f "$COMPONENTS_FILEPATH" ] || ! jq '.Packages[] | select(.name == "cni-plugins")' < $COMPONENTS_FILEPATH > /dev/null; then
         echo "WARNING: no cni-plugins components present falling back to hard coded download of 1.4.1. This should error eventually" 
         retrycmd_get_tarball 120 5 "${CNI_DOWNLOADS_DIR}/refcni.tar.gz" "https://${PACKAGE_DOWNLOAD_BASE_URL}/cni-plugins/v1.4.1/binaries/cni-plugins-linux-amd64-v1.4.1.tgz" || exit $ERR_CNI_DOWNLOAD_TIMEOUT
-        tar -xzf "${CNI_DOWNLOADS_DIR}/refcni.tar.gz" -C $CNI_BIN_DIR
+        extract_tarball "${CNI_DOWNLOADS_DIR}/refcni.tar.gz" "$CNI_BIN_DIR"
         return 
     fi
 
@@ -565,7 +565,7 @@ installAzureCNI() {
             logs_to_events "AKS.CSE.installAzureCNI.downloadAzureCNI" downloadAzureCNI
         fi
 
-        tar -xzf "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" -C $CNI_BIN_DIR
+        extract_tarball "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" "$CNI_BIN_DIR"
     fi
 
     chown -R root:root $CNI_BIN_DIR
@@ -576,8 +576,9 @@ extractKubeBinariesToUsrLocalBin() {
     local k8s_version=$2
     local is_private_url=$3
 
-    tar --transform="s|.*|&-${k8s_version}|" --show-transformed-names -xzvf "${k8s_tgz_tmp}" \
-        --strip-components=3 -C /usr/local/bin kubernetes/node/bin/kubelet kubernetes/node/bin/kubectl || exit $ERR_K8S_INSTALL_ERR
+    extract_tarball "${k8s_tgz_tmp}" "/usr/local/bin" \
+        --transform="s|.*|&-${k8s_version}|" --show-transformed-names --strip-components=3 \
+        kubernetes/node/bin/kubelet kubernetes/node/bin/kubectl || exit $ERR_K8S_INSTALL_ERR
     if [ ! -f "/usr/local/bin/kubectl-${k8s_version}" ] || [ ! -f "/usr/local/bin/kubelet-${k8s_version}" ]; then
         exit $ERR_K8S_INSTALL_ERR
     fi
