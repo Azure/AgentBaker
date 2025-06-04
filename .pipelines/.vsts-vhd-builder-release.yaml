@@ -230,6 +230,7 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 1804-containerd
+              imageVersion: $(IMAGE_VERSION)
       - job: build1804gen2containerd
         condition: eq('${{ parameters.build1804gen2containerd }}', true)
         dependsOn: [ ]
@@ -256,6 +257,7 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 1804-gen2-containerd
+              imageVersion: $(IMAGE_VERSION)
       - job: buildMarinerV2gen1
         condition: eq('${{ parameters.buildMarinerV2gen1 }}', true)
         dependsOn: [ ]
@@ -283,6 +285,7 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: marinerv2-gen1
+              imageVersion: $(IMAGE_VERSION)
       - job: buildAzureLinuxV2gen1
         condition: eq('${{ parameters.buildAzureLinuxV2gen1 }}', true)
         dependsOn: [ ]
@@ -310,6 +313,7 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: azurelinuxv2-gen1
+              imageVersion: $(IMAGE_VERSION)
       - job: buildAzureLinuxV3gen1
         condition: eq('${{ parameters.buildAzureLinuxV3gen1 }}', true)
         dependsOn: [ ]
@@ -335,6 +339,7 @@ stages:
           - template: ./templates/.builder-release-template.yaml
             parameters:
               artifactName: azurelinuxv3-gen1
+              imageVersion: $(IMAGE_VERSION)
       - job: buildMarinerV2gen2
         condition: eq('${{ parameters.buildMarinerV2gen2 }}', true)
         dependsOn: [ ]
@@ -362,6 +367,7 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: marinerv2-gen2
+              imageVersion: $(IMAGE_VERSION)
       - job: buildAzureLinuxV2gen2
         condition: eq('${{ parameters.buildAzureLinuxV2gen2 }}', true)
         dependsOn: [ ]
@@ -389,6 +395,7 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: azurelinuxv2-gen2
+              imageVersion: $(IMAGE_VERSION)
       - job: buildAzureLinuxV3gen2
         condition: eq('${{ parameters.buildAzureLinuxV3gen2 }}', true)
         dependsOn: [ ]
@@ -414,6 +421,7 @@ stages:
           - template: ./templates/.builder-release-template.yaml
             parameters:
               artifactName: azurelinuxv3-gen2
+              imageVersion: $(IMAGE_VERSION)
       - job: buildMarinerV2gen1fips
         condition: eq('${{ parameters.buildMarinerV2gen1fips }}', true)
         dependsOn: [ ]
@@ -441,6 +449,7 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: marinerv2-gen1-fips
+              imageVersion: $(IMAGE_VERSION)
       - job: buildAzureLinuxV2gen1fips
         condition: eq('${{ parameters.buildAzureLinuxV2gen1fips }}', true)
         dependsOn: [ ]
@@ -468,6 +477,7 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: azurelinuxv2-gen1-fips
+              imageVersion: $(IMAGE_VERSION)
       - job: buildAzureLinuxV3gen1fips
         condition: eq('${{ parameters.buildAzureLinuxV3gen1fips }}', true)
         dependsOn: [ ]
@@ -493,6 +503,7 @@ stages:
           - template: ./templates/.builder-release-template.yaml
             parameters:
               artifactName: azurelinuxv3-gen1-fips
+              imageVersion: $(IMAGE_VERSION)
       - job: buildMarinerV2gen2fips
         condition: eq('${{ parameters.buildMarinerV2gen2fips }}', true)
         dependsOn: [ ]
@@ -520,6 +531,7 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: marinerv2-gen2-fips
+              imageVersion: $(IMAGE_VERSION)
       - job: buildAzureLinuxV2gen2fips
         condition: eq('${{ parameters.buildAzureLinuxV2gen2fips }}', true)
         dependsOn: [ ]
@@ -547,6 +559,7 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: azurelinuxv2-gen2-fips
+              imageVersion: $(IMAGE_VERSION)
       - job: buildAzureLinuxV3gen2fips
         condition: eq('${{ parameters.buildAzureLinuxV3gen2fips }}', true)
         dependsOn: [ ]
@@ -572,6 +585,7 @@ stages:
           - template: ./templates/.builder-release-template.yaml
             parameters:
               artifactName: azurelinuxv3-gen2-fips
+              imageVersion: $(IMAGE_VERSION)
       - job: buildMarinerV2ARM64
         condition: eq('${{ parameters.buildMarinerV2ARM64 }}', true)
         dependsOn: [ ]
@@ -599,6 +613,7 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: marinerv2-gen2-arm64
+              imageVersion: $(IMAGE_VERSION)
       - job: buildAzureLinuxV2ARM64
         condition: eq('${{ parameters.buildAzureLinuxV2ARM64 }}', true)
         dependsOn: [ ]
@@ -626,6 +641,7 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: azurelinuxv2-gen2-arm64
+              imageVersion: $(IMAGE_VERSION)
       - job: buildAzureLinuxV3ARM64
         condition: eq('${{ parameters.buildAzureLinuxV3ARM64 }}', true)
         dependsOn: [ ]
@@ -651,6 +667,7 @@ stages:
           - template: ./templates/.builder-release-template.yaml
             parameters:
               artifactName: azurelinuxv3-gen2-arm64
+              imageVersion: $(IMAGE_VERSION)
       - job: buildAzureLinuxV3ARM64gen2fips
         condition: eq('${{ parameters.buildAzureLinuxV3ARM64gen2fips }}', true)
         dependsOn: [ ]
@@ -676,6 +693,7 @@ stages:
           - template: ./templates/.builder-release-template.yaml
             parameters:
               artifactName: azurelinuxv3-gen2-arm64-fips
+              imageVersion: $(IMAGE_VERSION)
       - job: buildMarinerV2gen2kata
         condition: eq('${{ parameters.buildMarinerV2gen2kata }}', true)
         dependsOn: [ ]
@@ -703,6 +721,7 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: marinerv2-gen2-kata
+              imageVersion: $(IMAGE_VERSION)
       - job: buildAzureLinuxV2gen2kata
         condition: eq('${{ parameters.buildAzureLinuxV2gen2kata }}', true)
         dependsOn: [ ]
@@ -730,6 +749,7 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: azurelinuxv2-gen2-kata
+              imageVersion: $(IMAGE_VERSION)
       - job: buildMarinerV2gen2TrustedLaunch
         condition: eq('${{ parameters.buildMarinerV2gen2TrustedLaunch }}', true)
         dependsOn: [ ]
@@ -757,6 +777,7 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: marinerv2-gen2-trustedlaunch
+              imageVersion: $(IMAGE_VERSION)
       - job: buildAzureLinuxV2gen2TrustedLaunch
         condition: eq('${{ parameters.buildAzureLinuxV2gen2TrustedLaunch }}', true)
         dependsOn: [ ]
@@ -784,6 +805,7 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: azurelinuxv2-gen2-trustedlaunch
+              imageVersion: $(IMAGE_VERSION)
       - job: buildAzureLinuxV3gen2TrustedLaunch
         condition: eq('${{ parameters.buildAzureLinuxV3gen2TrustedLaunch }}', true)
         dependsOn: [ ]
@@ -811,6 +833,7 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: azurelinuxv3-gen2-trustedlaunch
+              imageVersion: $(IMAGE_VERSION)
       - job: buildAzureLinuxV3cvmgen2
         condition: eq('${{ parameters.buildAzureLinuxV3cvmgen2 }}', true)
         dependsOn: [ ]
@@ -838,6 +861,7 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: azurelinuxv3-cvm-gen2
+              imageVersion: $(IMAGE_VERSION)
       - job: buildMarinerV2gen2kataTrustedLaunch
         condition: eq('${{ parameters.buildMarinerV2gen2kataTrustedLaunch }}', true)
         dependsOn: [ ]
@@ -865,6 +889,7 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: marinerv2-gen2-kata-trustedlaunch
+              imageVersion: $(IMAGE_VERSION)
       - job: buildAzureLinuxV2gen2kataTrustedLaunch
         condition: eq('${{ parameters.buildAzureLinuxV2gen2kataTrustedLaunch }}', true)
         dependsOn: [ ]
@@ -892,6 +917,7 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: azurelinuxv2-gen2-kata-trustedlaunch
+              imageVersion: $(IMAGE_VERSION)
       - job: build1804fipscontainerd
         condition: eq('${{ parameters.build1804fipscontainerd }}', true)
         dependsOn: [ ]
@@ -918,6 +944,7 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 1804-fips-containerd
+              imageVersion: $(IMAGE_VERSION)
       - job: build1804fipsgen2containerd
         condition: eq('${{ parameters.build1804fipsgen2containerd }}', true)
         dependsOn: [ ]
@@ -944,6 +971,7 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 1804-fips-gen2-containerd
+              imageVersion: $(IMAGE_VERSION)
       - job: build2004fipscontainerd
         condition: eq('${{ parameters.build2004fipscontainerd }}', true)
         dependsOn: [ ]
@@ -970,6 +998,7 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2004-fips-containerd
+              imageVersion: $(IMAGE_VERSION)
       - job: build2004fipsgen2containerd
         condition: eq('${{ parameters.build2004fipsgen2containerd }}', true)
         dependsOn: [ ]
@@ -996,6 +1025,7 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2004-fips-gen2-containerd
+              imageVersion: $(IMAGE_VERSION)
       - job: build2204fipscontainerd
         condition: eq('${{ parameters.build2204fipscontainerd }}', true)
         dependsOn: [ ]
@@ -1023,6 +1053,7 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2204-fips-containerd
+              imageVersion: $(IMAGE_VERSION)
       - job: build2204fipsgen2containerd
         condition: eq('${{ parameters.build2204fipsgen2containerd }}', true)
         dependsOn: [ ]
@@ -1050,6 +1081,7 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2204-fips-gen2-containerd
+              imageVersion: $(IMAGE_VERSION)
       - job: build2204arm64gen2containerd
         condition: eq('${{ parameters.build2204arm64gen2containerd }}', true)
         dependsOn: [ ]
@@ -1076,6 +1108,7 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2204-arm64-gen2-containerd
+              imageVersion: $(IMAGE_VERSION)
       - job: build2404arm64gen2containerd
         condition: eq('${{ parameters.build2404arm64gen2containerd }}', true)
         dependsOn: [ ]
@@ -1102,6 +1135,7 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2404-arm64-gen2-containerd
+              imageVersion: $(IMAGE_VERSION)
       - job: build2204containerd
         condition: eq('${{ parameters.build2204containerd }}', true)
         dependsOn: [ ]
@@ -1128,6 +1162,7 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2204-containerd
+              imageVersion: $(IMAGE_VERSION)
       - job: build2204gen2containerd
         condition: eq('${{ parameters.build2204gen2containerd }}', true)
         dependsOn: [ ]
@@ -1154,6 +1189,7 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2204-gen2-containerd
+              imageVersion: $(IMAGE_VERSION)
       - job: build2404containerd
         condition: eq('${{ parameters.build2404containerd }}', true)
         dependsOn: [ ]
@@ -1180,6 +1216,7 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2404-containerd
+              imageVersion: $(IMAGE_VERSION)
       - job: build2404cvmgen2containerd
         condition: eq('${{ parameters.build2404cvmgen2containerd }}', true)
         dependsOn: [ ]
@@ -1206,6 +1243,7 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2404-cvm-gen2-containerd
+              imageVersion: $(IMAGE_VERSION)
       - job: build2404gen2containerd
         condition: eq('${{ parameters.build2404gen2containerd }}', true)
         dependsOn: [ ]
@@ -1232,6 +1270,7 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2404-gen2-containerd
+              imageVersion: $(IMAGE_VERSION)
       - job: build2404tlgen2containerd
         condition: eq('${{ parameters.build2404tlgen2containerd }}', true)
         dependsOn: [ ]
@@ -1258,6 +1297,7 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2404-tl-gen2-containerd
+              imageVersion: $(IMAGE_VERSION)
       - job: build2004cvmgen2containerd
         condition: eq('${{ parameters.build2004cvmgen2containerd }}', true)
         dependsOn: [ ]
@@ -1284,6 +1324,7 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2004-cvm-gen2-containerd
+              imageVersion: $(IMAGE_VERSION)
       - job: build2204tlgen2containerd
         condition: eq('${{ parameters.build2204tlgen2containerd }}', true)
         dependsOn: [ ]
@@ -1310,6 +1351,7 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2204-tl-gen2-containerd
+              imageVersion: $(IMAGE_VERSION)
       - job: build2204minimalgen1containerd
         condition: eq('${{ parameters.build2204minimalgen1containerd }}', true)
         dependsOn: [ ]
@@ -1336,6 +1378,7 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2204-minimal-gen1-containerd
+              imageVersion: $(IMAGE_VERSION)
       - job: build2204minimalgen2containerd
         condition: eq('${{ parameters.build2204minimalgen2containerd }}', true)
         dependsOn: [ ]
@@ -1362,6 +1405,7 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2204-minimal-gen2-containerd
+              imageVersion: $(IMAGE_VERSION)
 
   - stage: e2e
     condition: and(succeeded(), ne(variables.SKIP_E2E_TESTS, 'true'))
