@@ -9,6 +9,7 @@ if [ -z "$CSE_RELEASE_DIR" ] || [ -z "$CSE_PUBLISH_DIR" ] || [ -z "$CSE_FILE_NAM
   exit 1
 fi
 
+echo "Creating CSE release pacakge $CSE_PUBLISH_DIR/$CSE_FILE_NAME"
 mkdir -p "$CSE_RELEASE_DIR"
 cp -r ./staging/cse/windows/* "$CSE_RELEASE_DIR"
 rm "$CSE_RELEASE_DIR"/*.tests.ps1
@@ -17,7 +18,7 @@ rm "$CSE_RELEASE_DIR"/README
 rm "$CSE_RELEASE_DIR"/debug/update-scripts.ps1
 
 mkdir -p "$CSE_PUBLISH_DIR"
-echo "Creating CSE release pacakge $CSE_PUBLISH_DIR/$CSE_FILE_NAME"
+
 pushd "$CSE_RELEASE_DIR" || exit 1
   zip -r "$CSE_PUBLISH_DIR/$CSE_FILE_NAME" ./*
 popd || exit 1

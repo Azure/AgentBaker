@@ -62,7 +62,7 @@ stages:
     jobs:
     - job: PackageWindowsCSE
       steps:
-      - bash: bash ./.pipelines/scripts/windows-sub-cleanup.sh
+      - bash: bash ./.pipelines/scripts/windows_package_cse.sh
         displayName: Package Windows CSE Scripts
         env:
           CSE_RELEASE_DIR: $(Build.ArtifactStagingDirectory)/windows
