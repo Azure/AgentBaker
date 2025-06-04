@@ -2,6 +2,7 @@ stages:
   - stage: versioning
     jobs:
       - job: set_image_version
+        displayName: Set Image Version
         steps:
           - bash: |
               # YYYYMM.DD.PATCH, PATCH starts at 0
