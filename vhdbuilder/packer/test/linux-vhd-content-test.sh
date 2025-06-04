@@ -5,6 +5,7 @@ VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
 AZURELINUX_OS_NAME="AZURELINUX"
+MARINER_KATA_OS_NAME="MARINERKATA"
 
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
 CONTAINER_RUNTIME="$1"
@@ -149,6 +150,11 @@ testPackagesInstalled() {
     fi
     if [ "$OS_SKU" = "CBLMariner" ] || { [ "$OS_SKU" = "AzureLinux" ] && [ "$OS_VERSION" = "2.0" ]; }; then
       OS=$MARINER_OS_NAME
+      # If the feature flag kata is enabled, we set $MARINER_KATA_OS_NAME as the OS name and it will get the version from that OS from components.json
+      # We have similar logic in install-dependencies.sh
+      if (echo "$FEATURE_FLAGS" | grep -q "kata"); then
+        OS=${MARINER_KATA_OS_NAME}
+      fi
     elif [ "$OS_SKU" = "AzureLinux" ] && [ "$OS_VERSION" = "3.0" ]; then
       OS=$AZURELINUX_OS_NAME
     else
@@ -180,8 +186,12 @@ testPackagesInstalled() {
           "kubernetes-cri-tools")
             testCriCtl "$version"
             ;;
+          "containerd")
+            testContainerd "$version"
+            ;;
         esac
         break
+        
       fi
       # A downloadURL from a package in components.json will look like this: 
       # "https://acs-mirror.azureedge.net/cni-plugins/v${version}/binaries/cni-plugins-linux-${CPU_ARCH}-v${version}.tgz"
@@ -1240,16 +1250,47 @@ testSpinKubeInstalled() {
 
 testCriCtl() {
   expectedVersion="${1}"
+  local test="testCriCtl"
+  echo "$test: Start"
   # the expectedVersion looks like this, "1.32.0-ubuntu18.04u3", need to extract the version number.
   expectedVersion=$(echo $expectedVersion | cut -d'-' -f1)
   # use command `crictl --version` to get the version
-  local test="testCriCtl"
+  
   local crictl_version=$(crictl --version)
   # the output of crictl_version looks like this "crictl version 1.32.0", need to extract the version number.
   crictl_version=$(echo $crictl_version | cut -d' ' -f3)
   echo "$test: checking if crictl version is $expectedVersion"
   if [ "$crictl_version" != "$expectedVersion" ]; then
     err "$test: crictl version is not $expectedVersion, instead it is $crictl_version"
+    return 1
+  fi
+  echo "$test: Test finished successfully."
+  return 0
+}
+
+testContainerd() {
+  expectedVersion="${1}"
+  local test="testContainerd"
+  echo "$test: Start"
+  # If the version defined in components.json is <SKIP>, that means it will use whatever version is installed on the system.
+  # Therefore, we will just skip the test.
+  if [ "$expectedVersion" = "<SKIP>" ]; then
+    echo "$test: Skipping test for containerd version, as expected version is <SKIP>"
+    return 0
+  fi
+  # the expectedVersion looks like this, "1.6.24-0ubuntu1~18.04.1" or "2.0.0-6.azl3", we need to extract the major.minor.patch version only.
+  expectedVersion=$(echo $expectedVersion | cut -d'-' -f1)
+  # use command `containerd --version` to get the version
+  local containerd_version=$(containerd --version)
+  # the output of containerd_version looks like the followings. We need to extract the major.minor.patch version only.
+  # For containerd (v1): containerd github.com/containerd/containerd 1.6.26 
+  # For containerd (v2): containerd github.com/containerd/containerd/v2 2.0.0
+  containerd_version=$(echo $containerd_version | cut -d' ' -f3)
+  # The version could be in the format "1.6.24-11-ubuntu1~18.04.1" or "2.0.0-6.azl3" or just "2.0.0", we need to extract the major.minor.patch version only.
+  containerd_version=$(echo "$containerd_version" | grep -oE '^[0-9]+\.[0-9]+\.[0-9]+')
+  echo "$test: checking if containerd version is $expectedVersion"
+  if [ "$containerd_version" != "$expectedVersion" ]; then
+    err "$test: containerd version is not $expectedVersion, instead it is $containerd_version"
     return 1
   fi
   echo "$test: Test finished successfully."
