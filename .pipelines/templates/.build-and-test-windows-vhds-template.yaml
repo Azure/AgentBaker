@@ -62,21 +62,12 @@ stages:
     jobs:
     - job: PackageWindowsCSE
       steps:
-      - script: |
-          CSE_RELEASE_DIR=$(Build.ArtifactStagingDirectory)/windows
-          mkdir -p $CSE_RELEASE_DIR
-          cp -r ./staging/cse/windows/* $CSE_RELEASE_DIR
-          rm $CSE_RELEASE_DIR/*.tests.ps1
-          rm $CSE_RELEASE_DIR/*.tests.suites -r
-          rm $CSE_RELEASE_DIR/README
-          rm $CSE_RELEASE_DIR/debug/update-scripts.ps1
-
-          mkdir -p ${{ parameters.csePublishDir }}
-          echo "Creating CSE release pacakge ${{ parameters.csePublishDir }}/${{ parameters.cseFileName }}"
-          pushd $CSE_RELEASE_DIR || exit 1
-            zip -r ${{ parameters.csePublishDir }}/${{ parameters.cseFileName }} ./*
-          popd || exit 1
+      - bash: bash ./.pipelines/scripts/windows-sub-cleanup.sh
         displayName: Package Windows CSE Scripts
+        env:
+          CSE_RELEASE_DIR: $(Build.ArtifactStagingDirectory)/windows
+          CSE_PUBLISH_DIR: ${{ parameters.csePublishDir }}
+          CSE_FILE_NAME: ${{ parameters.cseFileName }}
       - task: ManifestGeneratorTask@0
         inputs:
           BuildDropPath: ${{ parameters.csePublishDir }}
