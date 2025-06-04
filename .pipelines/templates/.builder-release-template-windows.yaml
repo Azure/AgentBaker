@@ -71,7 +71,7 @@ steps:
     inputs:
       source: current
       artifactName: windows-cse-package
-      itemPattern: '${{ parameters.csePackageFileName }}.zip'
+      itemPattern: '${{ parameters.csePackageFileName }}'
       targetPath: ${{ parameters.csePackageDir }}
   - bash: bash ./.pipelines/scripts/windows_build_vhd.sh
     displayName: Build and save VHD
