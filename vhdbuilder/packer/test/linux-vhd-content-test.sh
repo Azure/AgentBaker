@@ -1452,6 +1452,26 @@ checkLocaldnsScriptsAndConfigs() {
   echo "$test: All localdnsfiles exist with correct permissions"
   return 0
 }
+
+# Check that no files have a numeric UID or GID, which would indicate a file ownership issue.
+testFileOwnership() {
+  local test="testFileOwnership"
+  echo "$test: Start"
+
+  # Find files with numeric UIDs or GIDs.
+  local files_with_numeric_ownership=$(find /usr -xdev \( -nouser -o -nogroup \) -exec stat --format '%u %g %n' {} \;)
+
+  if [ -n "$files_with_numeric_ownership" ]; then
+    err "$test: File ownership test failed. Files with numeric ownership found:"
+    err "$files_with_numeric_ownership"
+    return 1
+  fi
+
+  echo "$test: No files with numeric ownership found."
+  echo "$test: Finish"
+  return 0
+}
+
 #------------------------ End of test code related to localdns ------------------------
 
 # As we call these tests, we need to bear in mind how the test results are processed by the
@@ -1499,3 +1519,4 @@ testLtsKernel $OS_VERSION $OS_SKU $ENABLE_FIPS
 testCorednsBinaryExtractedAndCached $OS_VERSION
 checkLocaldnsScriptsAndConfigs
 testPackageDownloadURLFallbackLogic
+testFileOwnership

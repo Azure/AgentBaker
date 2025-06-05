@@ -933,4 +933,18 @@ configureSSHService() {
     return 0
 }
 
+extract_tarball() {
+    local tarball="$1"
+    local dest="$2"
+    shift 2
+    case "$tarball" in
+        *.tar.gz|*.tgz)
+            sudo tar -xvzf "$tarball" -C "$dest" --no-same-owner "$@"
+            ;;
+        *)
+            sudo tar -xvf "$tarball" -C "$dest" --no-same-owner "$@"
+            ;;
+    esac
+}
+
 #HELPERSEOF
