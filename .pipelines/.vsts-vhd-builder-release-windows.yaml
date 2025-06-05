@@ -75,7 +75,7 @@ parameters:
   - name: buildVmSize
     displayName: Build VM Size
     type: string
-    default: Standard_D4ds_v5
+    default: Standard_D4s_v3
   - name: useOverrides
     displayName: Use component overrides
     type: boolean

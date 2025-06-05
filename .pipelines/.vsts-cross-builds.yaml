@@ -1,0 +1,219 @@
+name: $(Date:yyyyMMdd)$(Rev:.r)_$(Build.SourceBranchName)_$(BuildID)
+trigger: none
+# Configure scheduled trigger
+schedules:
+  - cron: '0 5 * * 0' # every sunday at 5 am
+    displayName: Daily Vhds Builds and Validations
+    branches:
+      include:
+        - validation
+    always: true
+
+variables:
+- group: crossbuild
+
+pool:
+  name: $(AZURE_WIN_POOL_NAME)
+
+stages:
+# - stage: copy_builds
+#   jobs:
+#   - job: run
+#     timeoutInMinutes: 60
+
+#     steps:
+#       - pwsh: |
+#           az version
+#           az login --identity --username $(AZURE_BUILD_MANAGE_IDENTITY)
+#           az account set -s $(AZURE_BUILD_SUBSCRIPTION_ID)
+#         displayName: Managed Identity Login
+#       - pwsh: |
+#           $(System.DefaultWorkingDirectory)/.pipelines/scripts/query_builds.ps1 -aadAppId $(AZURE_BUILD_CLIENT_ID) `
+#               -managedIdentityClientId $(AZURE_BUILD_MANAGE_IDENTITY) `
+#               -tenantId $(AZURE_BUILD_TENANT_ID) `
+#               -subscriptionId $(AZURE_BUILD_SUBSCRIPTION_ID) `
+#               -outputDirectory "$(System.DefaultWorkingDirectory)/buildsInfo"
+#         displayName: Query Media builds
+
+#       - task: PublishPipelineArtifact@1
+#         inputs:
+#           artifactName: 'builds'
+#           targetPath: '$(System.DefaultWorkingDirectory)/buildsInfo'
+
+#       - pwsh: |
+#           $env:AZCOPY_AUTO_LOGIN_TYPE = "MSI"
+#           $env:AZCOPY_MSI_OBJECT_ID="${AZURE_BUILD_MANAGE_IDENTITY}"
+
+#           $directories = Get-ChildItem -Path 'C:\AzCopy10\AZCopy' -Directory -Filter 'azcopy_*'
+#           $env:PATH += ";$($directories[0].FullName)"
+#           echo $env:PATH
+#           azcopy --version
+
+#           $(System.DefaultWorkingDirectory)/.pipelines/scripts/copy_builds.ps1 -dropPat "MAPPED_PAT" `
+#           -buildJsonPath "$(System.DefaultWorkingDirectory)/buildsInfo\builds.json" `
+#           -storageAccount $(AZURE_E2E_STORAGE_ACCOUNT_NAME)
+#         env:
+#           MAPPED_PAT: $(DROP_TOKEN)
+#         displayName: Copy Builds to Storage Account
+        
+- stage: export_container_images
+  dependsOn: []
+  jobs:
+  - job: run
+    pool:
+      name:  $(AZURE_WIN_PRERELEASE_POOL)
+    timeoutInMinutes: 60
+    steps:
+      - pwsh: |
+          az version
+          az login --identity --client-id $(AZURE_BUILD_MANAGE_IDENTITY)
+          az account set -s $(AZURE_BUILD_SUBSCRIPTION_ID)
+        displayName: Managed Identity Login
+
+      # - pwsh: |
+      #     $(System.DefaultWorkingDirectory)/.pipelines/scripts/install_azcopy.ps1
+      #   displayName: Install AzCopy
+
+      # - powershell: |
+      #     $(System.DefaultWorkingDirectory)/.pipelines/scripts/export_images.ps1 -managedIdentity $(AZURE_BUILD_MANAGE_IDENTITY) `
+      #     -keyvaultName $(AZURE_BUILD_KEYVAULT) `
+      #     -storageAccount $(AZURE_E2E_STORAGE_ACCOUNT_NAME) `
+      #     -containerName "validation"
+      #   displayName: Export container base image
+
+      - pwsh: |
+          $env:AZCOPY_AUTO_LOGIN_TYPE = "MSI"
+          $env:AZCOPY_MSI_OBJECT_ID="${AZURE_BUILD_MANAGE_IDENTITY}"
+
+          $directories = Get-ChildItem -Path 'C:\AzCopy10\AZCopy' -Directory -Filter 'azcopy_*'
+          $env:PATH += ";$($directories[0].FullName)"
+          echo $env:PATH
+          azcopy --version
+
+          $csvName = "imageinfo-$(Get-Date -Format 'yyyyMMddHHmmss')_$(Get-Random -Minimum 1000 -Maximum 9999).csv"
+          $csvPath = Join-Path (Get-Location) -ChildPath $csvName
+          echo "Generated filename for active branch: $csvPath"
+
+          $(System.DefaultWorkingDirectory)/.pipelines/scripts/export_sparc_images.ps1 -StorageAccount $(AZURE_E2E_STORAGE_ACCOUNT_NAME) `
+          -StorageContainer "from-sparc" `
+          -ContainerRegistry $(AZURE_REGISTRY_NAME) `
+          -CsvFile $csvPath 
+
+          azcopy copy $csvPath "https://$(AZURE_E2E_STORAGE_ACCOUNT_NAME).blob.core.windows.net/pipeline-test-logs/${csvName}"
+
+          echo "##vso[task.setvariable variable=csvName]${csvName}"
+        displayName: Export wcct container base image
+      - task: Azure-Kusto.ADXAdminCommands.PublishToADX.ADXAdminCommand@3
+        inputs:
+          targetType: 'inline'
+          script: |
+                    .ingest into table WindowsContainerInfo (
+                        'https://$(AZURE_E2E_STORAGE_ACCOUNT_NAME).blob.core.windows.net/pipeline-test-logs/$(csvName);managed_identity=924da118-3adb-400e-9021-3552a4f351e6')
+                        with (format="csv", ingestionMappingMode='auto', ignoreFirstRecord=true)
+          kustoUrls: "https://wccttest.eastus.kusto.windows.net:443?DatabaseName=wccttest"
+          connectedServiceARM: 'agentbaker_kusto'
+          continueOnError: false
+        displayName: Publish wcct container info into Kusto
+      - pwsh: |
+          $env:AZCOPY_AUTO_LOGIN_TYPE = "MSI"
+          $env:AZCOPY_MSI_OBJECT_ID="${AZURE_BUILD_MANAGE_IDENTITY}"
+
+          $path = "$(System.DefaultWorkingDirectory)/WCCT"
+          if (Test-Path -Path $path) {
+              Remove-Item $path -Recurse -Force 
+          }
+          
+          New-Item -ItemType Directory -Path $path
+          $env:root = $path
+          
+          # login to azure ACR
+          az acr login --name $(AZURE_REGISTRY_NAME)
+          if ($LastExitCode -eq 0) {
+              Write-Host "login to azure ACR $(AZURE_REGISTRY_NAME) successfully."
+          }
+          else {
+               Write-Host "Error happaned when try to login to azure ACR $(AZURE_REGISTRY_NAME): $_"
+              return -1
+          }
+
+          $directories = Get-ChildItem -Path 'C:\AzCopy10\AZCopy' -Directory -Filter 'azcopy_*'
+          $env:PATH += ";$($directories[0].FullName)"
+          echo $env:PATH
+          azcopy --version
+
+          $goPath = go env GOPATH
+          $goBin = Join-Path $goPath "bin"
+          $env:GOBIN = $goBin
+          echo "GOBIN: $env:GOBIN"
+          $env:PATH += ";$env:GOBIN"
+          echo "PATH: $env:PATH"
+
+          echo "Docker version:"
+          docker version
+          echo "Download nano layers from storage and push to image registry"
+          $csvName = "imageinfo-$(Get-Date -Format 'yyyyMMddHHmmss')_$(Get-Random -Minimum 1000 -Maximum 9999).csv"
+          $csvPath = Join-Path (Get-Location) -ChildPath $csvName
+          echo "Generated filename: $csvPath"
+          $(System.DefaultWorkingDirectory)/.pipelines/scripts/export_nano_images.ps1 -StorageAccount $(AZURE_E2E_STORAGE_ACCOUNT_NAME) `
+                -ContainerRegistry $(AZURE_REGISTRY_NAME) -CsvFile $csvPath
+
+          echo "Download servercore layers from storage"
+          $(System.DefaultWorkingDirectory)/.pipelines/scripts/download_layers_from_storage.ps1 -StorageAccount $(AZURE_E2E_STORAGE_ACCOUNT_NAME)
+
+          echo "Install registry.exe"
+          go install -v github.com/distribution/distribution/v3/cmd/registry@latest > $null 2>&1
+          & "$env:GOBIN\registry" --version
+
+          $products = @("ws2022","ws2019")
+          $productMap = @{}
+          foreach ($product in $products) {
+            $productMap[$product] = "$path/$product/ServerDatacenterCore"
+          }
+          
+          echo "Pushing images to container registry"
+          $(System.DefaultWorkingDirectory)/.pipelines/scripts/import_layers.ps1 -ProductMap $productMap `
+                -ContainerRegistry $(AZURE_REGISTRY_NAME) `
+                -StroageAccount $(AZURE_E2E_STORAGE_ACCOUNT_NAME) `
+                -CsvFile $csvPath
+
+          azcopy copy $csvPath "https://$(AZURE_E2E_STORAGE_ACCOUNT_NAME).blob.core.windows.net/pipeline-test-logs/${csvName}"
+
+          echo "##vso[task.setvariable variable=csvName]${csvName}"
+        displayName: Export container base image
+      - task: Azure-Kusto.ADXAdminCommands.PublishToADX.ADXAdminCommand@3
+        inputs:
+          targetType: 'inline'
+          script: |
+                    .ingest into table WindowsContainerInfo (
+                        'https://$(AZURE_E2E_STORAGE_ACCOUNT_NAME).blob.core.windows.net/pipeline-test-logs/$(csvName);managed_identity=924da118-3adb-400e-9021-3552a4f351e6')
+                       with (format="csv", ingestionMappingMode='auto', ignoreFirstRecord=true)
+          kustoUrls: "https://wccttest.eastus.kusto.windows.net:443?DatabaseName=wccttest"
+          connectedServiceARM: 'agentbaker_kusto'
+          continueOnError: false
+        displayName: Publish wcct container info into Kusto
+- stage: crossbuild_container_images
+  jobs:
+  - job: run
+    displayName: Run cross build test
+    timeoutInMinutes: 120
+    pool:
+      name:  $(AZURE_POOL_NAME)
+    steps:
+    - template: ./templates/.buildx-test-template.yaml
+
+- stage: cleanup_ACR_and_storage
+  displayName: Clean up ACR and storage account
+  dependsOn: [ ]
+  condition: always()
+  jobs:
+  - job: run
+    displayName: Clean up
+    timeoutInMinutes: 120
+    steps:
+    - pwsh: |
+        az version
+        az login --identity --client-id $(AZURE_BUILD_MANAGE_IDENTITY)
+        az account set -s $(AZURE_BUILD_SUBSCRIPTION_ID)
+        $(System.DefaultWorkingDirectory)/.pipelines/scripts/cleanup.ps1
+        $(System.DefaultWorkingDirectory)/.pipelines/scripts/cleanupACR.ps1
+

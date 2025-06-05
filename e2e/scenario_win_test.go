@@ -158,6 +158,28 @@ func Test_Windows2025Gen2(t *testing.T) {
 	})
 }
 
+func Test_WindowsActiveBranch(t *testing.T) {
+	// TODO: re-enable the tests once the Windows E2E tests are fixed in pipeline
+	t.Skip("Skipping testing")
+	RunScenario(t, &Scenario{
+		Description: "Windows Active Branch",
+		Config: Config{
+			Cluster:                ClusterAzureNetwork,
+			VHD:                    config.VHDWindowsActiveBranch,
+			VMConfigMutator:        EmptyVMConfigMutator,
+			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateWindowsVersionFromWindowsSettings(ctx, s, "2025")
+				ValidateWindowsProductName(ctx, s, "Windows Server 2025 Datacenter")
+				ValidateWindowsDisplayVersion(ctx, s, "2025")
+				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
+				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
+				ValidateCiliumIsNotRunningWindows(ctx, s)
+			},
+		},
+	})
+}
+
 // TODO: enable this test once production AKS supports Cilium Windows
 /*
 func Test_Windows23H2_Cilium2(t *testing.T) {
