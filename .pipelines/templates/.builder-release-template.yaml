@@ -38,7 +38,7 @@ steps:
       project: CloudNativeCompute
       pipeline: 318279
       specificBuildWithTriggering: true
-      allowPartiallySucceededBuilds: true
+      allowPartiallySucceededBuilds: false
       buildVersionToDownload: 'latestFromBranch'
       branchName: 'refs/heads/master'
       artifactName: 'drop_container_job_sign_uvm'
