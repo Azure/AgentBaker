@@ -159,14 +159,14 @@ func Test_Windows2025Gen2(t *testing.T) {
 }
 
 // TODO: enable this test once production AKS supports Cilium Windows
-/*
 func Test_Windows23H2_Cilium2(t *testing.T) {
+	t.Skip("skipping test for Cilium on Windows 23H2, as it is not supported in production AKS yet")
 	RunScenario(t, &Scenario{
 		Description: "Windows Server 2022 with Containerd",
 		Config: Config{
-			Cluster:         ClusterAzureNetwork,
+			Cluster:         ClusterCiliumNetwork,
 			VHD:             config.VHDWindows23H2Gen2,
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {},
+			VMConfigMutator: EmptyVMConfigMutator,
 			BootstrapConfigMutator: func(configuration *datamodel.NodeBootstrappingConfiguration) {
 				// cilium is only supported in 1.30 or greater.
 				configuration.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.30.9"
@@ -180,4 +180,3 @@ func Test_Windows23H2_Cilium2(t *testing.T) {
 		},
 	})
 }
-*/

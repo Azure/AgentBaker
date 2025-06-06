@@ -98,6 +98,19 @@ func getAzureNetworkClusterModel(name string) *armcontainerservice.ManagedCluste
 	return cluster
 }
 
+func getCiliumNetworkClusterModel(name string) *armcontainerservice.ManagedCluster {
+	cluster := getBaseClusterModel(name)
+	cluster.Properties.NetworkProfile.NetworkPlugin = to.Ptr(armcontainerservice.NetworkPluginAzure)
+	cluster.Properties.NetworkProfile.NetworkDataplane = to.Ptr(armcontainerservice.NetworkDataplaneCilium)
+	cluster.Properties.NetworkProfile.NetworkPolicy = to.Ptr(armcontainerservice.NetworkPolicyCilium)
+	if cluster.Properties.AgentPoolProfiles != nil {
+		for _, app := range cluster.Properties.AgentPoolProfiles {
+			app.MaxPods = to.Ptr[int32](30)
+		}
+	}
+	return cluster
+}
+
 func getBaseClusterModel(clusterName string) *armcontainerservice.ManagedCluster {
 	return &armcontainerservice.ManagedCluster{
 		Name:     to.Ptr(clusterName),
