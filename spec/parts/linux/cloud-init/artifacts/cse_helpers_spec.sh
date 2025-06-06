@@ -17,6 +17,73 @@ readContainerImage() {
 
 Describe 'cse_helpers.sh'
     Include "./parts/linux/cloud-init/artifacts/cse_helpers.sh"
+    Describe 'cloudInitStatusCheck'
+       cleanUpLoggingDirs() {
+            # Clean up the logging directories to avoid conflicts in tests
+            rm -rf /tmp/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/
+            rm -f /tmp/var/test-log.txt
+            touch /tmp/var/test-log.txt
+        }
+        setEventsDir() {
+            export EVENTS_LOGGING_DIR=/tmp/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/
+        }   
+        unsetEventsDir() {
+            unset EVENTS_LOGGING_DIR
+        }
+        mkdir -p /tmp/var
+        Include "./parts/linux/cloud-init/artifacts/cloud_init_status_check.sh"
+        Describe 'cloud-init failure error handling'
+
+            BeforeAll setEventsDir
+            AfterAll unsetEventsDir
+            BeforeEach cleanUpLoggingDirs
+            It "should correctly handle cloud-init returning code 1 and log the error"
+                cloud-init() {
+                    return 1
+                } 
+                When call handleCloudInitStatus "/tmp/var/test-log.txt"
+                The status should be failure
+                The status should eq 223 
+                The contents of file /tmp/var/test-log.txt should include "ERROR: cloud-init finished with fatal error (exit code 1)"
+                eventsFilePath=$(ls -t /tmp/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/*.json | head -n 1)
+                The contents of file ${eventsFilePath} should include "ERROR: cloud-init finished with fatal error (exit code 1)"
+            End
+            It "should correctly handle cloud-init returning code 2 and log extra information"
+                cloud-init() {
+                    return 2
+                } 
+                When call handleCloudInitStatus "/tmp/var/test-log.txt"
+                The status should be success
+                The status should eq 0 
+                The contents of file /tmp/var/test-log.txt should include "WARNING: cloud-init finished with recoverable errors (exit code 2)"
+                eventsFilePath=$(ls -t /tmp/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/*.json | head -n 1)
+                The contents of file ${eventsFilePath} should include "WARNING: cloud-init finished with recoverable errors (exit code 2)"
+            End
+            It "should correctly handle cloud-init returning code 0 and log success"
+                cloud-init() {
+                    return 0
+                } 
+                When call handleCloudInitStatus "/tmp/var/test-log.txt"
+                The status should be success
+                The status should eq 0 
+                The contents of file /tmp/var/test-log.txt should include "cloud-init succeeded"
+                eventsFilePath=$(ls -t /tmp/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/*.json | head -n 1)
+                The contents of file ${eventsFilePath} should include "cloud-init succeeded"
+            End
+            It "should correctly handle cloud-init returning an unexpected code and log information"
+                cloud-init() {
+                    # return an unexpected code, e.g. 123
+                    return 123
+                } 
+                When call handleCloudInitStatus "/tmp/var/test-log.txt"
+                The status should be success
+                The status should eq 0 
+                The contents of file /tmp/var/test-log.txt should include "WARNING: cloud-init exited with unexpected code: 123"
+                eventsFilePath=$(ls -t /tmp/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/*.json | head -n 1)
+                The contents of file ${eventsFilePath} should include "WARNING: cloud-init exited with unexpected code: 123"
+            End  
+        End
+    End
     Describe 'updatePackageVersions'
         It 'returns downloadURIs.ubuntu.r2204.versionsV2 of package pkgVersionsV2 for UBUNTU 22.04'
             package=$(readPackage "pkgVersionsV2")

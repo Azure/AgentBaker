@@ -128,6 +128,8 @@ ERR_SECURE_TLS_BOOTSTRAP_START_FAILURE=220
 ERR_SECURE_TLS_BOOTSTRAP_CLIENT_FAILURE=221 
 ERR_SECURE_TLS_BOOTSTRAP_MISSING_KUBECONFIG=222 
 
+ERR_CLOUD_INIT_FAILED=223 
+
 if find /etc -type f,l -name "*-release" -print -quit 2>/dev/null | grep -q '.'; then
     OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
     OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
@@ -945,6 +947,63 @@ extract_tarball() {
             sudo tar -xvf "$tarball" -C "$dest" --no-same-owner "$@"
             ;;
     esac
+}
+
+    
+    
+
+
+
+
+handleCloudInitStatus() {
+    local provisionOutput="$1"
+    local cloudInitMessage=""
+    
+    cloud-init status --wait > /dev/null 2>&1;
+    local cloudInitExitCode=$?;
+    
+    if [ "$cloudInitExitCode" -eq 1 ]; then
+        cloudInitMessage="ERROR: cloud-init finished with fatal error (exit code 1)"
+        echo "${cloudInitMessage}" >> "${provisionOutput}";
+    elif [ "$cloudInitExitCode" -eq 2 ]; then
+        cloudInitMessage="WARNING: cloud-init finished with recoverable errors (exit code 2)"
+        echo "${cloudInitMessage}" >> "${provisionOutput}";
+    elif [ "$cloudInitExitCode" -eq 0 ]; then
+        cloudInitMessage="cloud-init succeeded"
+        echo "${cloudInitMessage}" >> "${provisionOutput}";
+    else
+        cloudInitMessage="WARNING: cloud-init exited with unexpected code: $cloudInitExitCode"
+        echo "${cloudInitMessage}" >> "${provisionOutput}";
+    fi
+
+    cloudInitLongStatus=$(cloud-init status --long)
+    echo -e "Cloud-init detailed status: ${cloudInitLongStatus}" >> "${provisionOutput}"
+    
+    local eventMessage="${cloudInitMessage}. Cloud-init detailed status: ${cloudInitLongStatus}"
+
+    local startTime=$(date +"%F %T.%3N")
+    local endTime=$(date +"%F %T.%3N")
+    local task="AKS.CSE.CloudInitStatusCheck"
+    local eventsFileName=$(date +%s%3N)
+    jsonString=$( jq -n \
+        --arg Timestamp   "${startTime}" \
+        --arg OperationId "${endTime}" \
+        --arg Version     "1.23" \
+        --arg TaskName    "${task}" \
+        --arg EventLevel  "Informational" \
+        --arg Message     "${eventMessage}" \
+        --arg EventPid    "0" \
+        --arg EventTid    "0" \
+        '{Timestamp: $Timestamp, OperationId: $OperationId, Version: $Version, TaskName: $TaskName, EventLevel: $EventLevel, Message: $Message, EventPid: $EventPid, EventTid: $EventTid}'
+    )
+    mkdir -p ${EVENTS_LOGGING_DIR}
+    echo ${jsonString} > ${EVENTS_LOGGING_DIR}${eventsFileName}.json
+
+    if [ "$cloudInitExitCode" -eq 1 ]; then
+        return $ERR_CLOUD_INIT_FAILED
+    else
+        return 0
+    fi  
 }
 
 #HELPERSEOF

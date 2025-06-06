@@ -138,6 +138,8 @@ ERR_SECURE_TLS_BOOTSTRAP_START_FAILURE=220 # Error starting the secure TLS boots
 ERR_SECURE_TLS_BOOTSTRAP_CLIENT_FAILURE=221 # Error getting a new kubelet client credential using the secure TLS bootstrap client
 ERR_SECURE_TLS_BOOTSTRAP_MISSING_KUBECONFIG=222 # Error indicating kubelet's kubeconfig is missing after the secure TLS bootstrap client has succeeded
 
+ERR_CLOUD_INIT_FAILED=223 # Error indicating that cloud-init returned exit code 1 in cse_cmd.sh
+
 # For both Ubuntu and Mariner, /etc/*-release should exist.
 # For unit tests, the OS and OS_VERSION will be set in the unit test script.
 # So whether it's if or else actually doesn't matter to our unit test.
@@ -1038,6 +1040,110 @@ extract_tarball() {
             sudo tar -xvf "$tarball" -C "$dest" --no-same-owner "$@"
             ;;
     esac
+}
+
+# handleCloudInitStatus() {
+#     local provisionOutput="$1"
+    
+#     cloud-init status --wait > /dev/null 2>&1;
+#     local cloudInitExitCode=$?;
+    
+#     if [ "$cloudInitExitCode" -eq 1 ]; then
+#         echo "ERROR: cloud-init finished with fatal error (exit code 1)" >> "${provisionOutput}";
+#     elif [ "$cloudInitExitCode" -eq 2 ]; then
+#         echo "WARNING: cloud-init finished with recoverable errors (exit code 2)" >> "${provisionOutput}";
+#     elif [ "$cloudInitExitCode" -eq 0 ]; then
+#         echo "cloud-init succeeded" >> "${provisionOutput}";
+#     else
+#         echo "WARNING: cloud-init exited with unexpected code: $cloudInitExitCode" >> "${provisionOutput}";
+#     fi
+
+#     # Capture detailed cloud-init status for tracking of different errors
+#     cloudInitLongStatus=$(cloud-init status --long)
+#     echo -e "Cloud-init detailed status: ${cloudInitLongStatus}" >> "${provisionOutput}"
+
+#     # based on logs_to_events from cse_helpers.sh, copying this over to avoid sourcing the entire file
+#     # arg names are defined by GA and all these are required to be correctly read by GA
+#     # EventPid, EventTid are required to be int. No use case for them at this point.
+#     local startTime=$(date +"%F %T.%3N")
+#     local endTime=$(date +"%F %T.%3N")
+#     local task="AKS.CSE.CloudInitStatusCheck"
+#     local eventsFileName=$(date +%s%3N)
+#     jsonString=$( jq -n \
+#         --arg Timestamp   "${startTime}" \
+#         --arg OperationId "${endTime}" \
+#         --arg Version     "1.23" \
+#         --arg TaskName    "${task}" \
+#         --arg EventLevel  "Informational" \
+#         --arg Message     "$(cat "${provisionOutput}")" \
+#         --arg EventPid    "0" \
+#         --arg EventTid    "0" \
+#         '{Timestamp: $Timestamp, OperationId: $OperationId, Version: $Version, TaskName: $TaskName, EventLevel: $EventLevel, Message: $Message, EventPid: $EventPid, EventTid: $EventTid}'
+#     )
+#     mkdir -p ${EVENTS_LOGGING_DIR}
+#     echo ${jsonString} > ${EVENTS_LOGGING_DIR}${eventsFileName}.json
+
+#     if [ "$cloudInitExitCode" -eq 1 ]; then
+#         return $ERR_CLOUD_INIT_FAILED
+#     else
+#         return 0
+#     fi  
+# }
+
+handleCloudInitStatus() {
+    local provisionOutput="$1"
+    local cloudInitMessage=""
+    
+    cloud-init status --wait > /dev/null 2>&1;
+    local cloudInitExitCode=$?;
+    
+    if [ "$cloudInitExitCode" -eq 1 ]; then
+        cloudInitMessage="ERROR: cloud-init finished with fatal error (exit code 1)"
+        echo "${cloudInitMessage}" >> "${provisionOutput}";
+    elif [ "$cloudInitExitCode" -eq 2 ]; then
+        cloudInitMessage="WARNING: cloud-init finished with recoverable errors (exit code 2)"
+        echo "${cloudInitMessage}" >> "${provisionOutput}";
+    elif [ "$cloudInitExitCode" -eq 0 ]; then
+        cloudInitMessage="cloud-init succeeded"
+        echo "${cloudInitMessage}" >> "${provisionOutput}";
+    else
+        cloudInitMessage="WARNING: cloud-init exited with unexpected code: $cloudInitExitCode"
+        echo "${cloudInitMessage}" >> "${provisionOutput}";
+    fi
+
+    # Capture detailed cloud-init status for tracking of different errors
+    cloudInitLongStatus=$(cloud-init status --long)
+    echo -e "Cloud-init detailed status: ${cloudInitLongStatus}" >> "${provisionOutput}"
+    
+    # Combine the status message with detailed status for the event message
+    local eventMessage="${cloudInitMessage}. Cloud-init detailed status: ${cloudInitLongStatus}"
+
+    # based on logs_to_events from cse_helpers.sh, copying this over to avoid sourcing the entire file
+    # arg names are defined by GA and all these are required to be correctly read by GA
+    # EventPid, EventTid are required to be int. No use case for them at this point.
+    local startTime=$(date +"%F %T.%3N")
+    local endTime=$(date +"%F %T.%3N")
+    local task="AKS.CSE.CloudInitStatusCheck"
+    local eventsFileName=$(date +%s%3N)
+    jsonString=$( jq -n \
+        --arg Timestamp   "${startTime}" \
+        --arg OperationId "${endTime}" \
+        --arg Version     "1.23" \
+        --arg TaskName    "${task}" \
+        --arg EventLevel  "Informational" \
+        --arg Message     "${eventMessage}" \
+        --arg EventPid    "0" \
+        --arg EventTid    "0" \
+        '{Timestamp: $Timestamp, OperationId: $OperationId, Version: $Version, TaskName: $TaskName, EventLevel: $EventLevel, Message: $Message, EventPid: $EventPid, EventTid: $EventTid}'
+    )
+    mkdir -p ${EVENTS_LOGGING_DIR}
+    echo ${jsonString} > ${EVENTS_LOGGING_DIR}${eventsFileName}.json
+
+    if [ "$cloudInitExitCode" -eq 1 ]; then
+        return $ERR_CLOUD_INIT_FAILED
+    else
+        return 0
+    fi  
 }
 
 #HELPERSEOF
