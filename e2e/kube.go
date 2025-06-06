@@ -108,7 +108,8 @@ func (k *Kubeclient) WaitUntilPodRunning(ctx context.Context, t *testing.T, name
 			if pod != nil {
 				logPodDebugInfo(ctx, k, pod, t)
 
-				// Annoyingly, when a pod sandbox is failed to create, the pod is left in Pending state and no events are generated.
+				// Annoyingly, when a pod sandbox is failed to create, the pod is left in Pending state and no events are sent
+				// to the ResultChan from the watcher below.
 				// The lack of events means we can't abort in the case statement below. So we have to check here
 				// for the FailedCreatePodSandBox event manually.
 				events, err := k.Typed.CoreV1().Events(pod.Namespace).List(ctx, metav1.ListOptions{FieldSelector: "involvedObject.name=" + pod.Name})
