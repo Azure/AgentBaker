@@ -107,9 +107,23 @@ func (k *Kubeclient) WaitUntilPodRunning(ctx context.Context, t *testing.T, name
 			}
 			if pod != nil {
 				logPodDebugInfo(ctx, k, pod, t)
+
+				// Annoyingly, when a pod sandbox is failed to create, the pod is left in Pending state and no events are sent
+				// to the ResultChan from the watcher below.
+				// The lack of events means we can't abort in the case statement below. So we have to check here
+				// for the FailedCreatePodSandBox event manually.
+				events, err := k.Typed.CoreV1().Events(pod.Namespace).List(ctx, metav1.ListOptions{FieldSelector: "involvedObject.name=" + pod.Name})
+				if err == nil {
+					for _, event := range events.Items {
+						if event.Reason == "FailedCreatePodSandBox" {
+							return nil, fmt.Errorf("pod %s has FailedCreatePodSandBox event: %s", pod.Name, event.Message)
+						}
+					}
+				}
 			}
 		case event := <-watcher.ResultChan():
 			if event.Type != "ADDED" && event.Type != "MODIFIED" {
+				t.Logf("skipping event %s", event.Type)
 				continue
 			}
 			pod = event.Object.(*corev1.Pod)
@@ -122,6 +136,9 @@ func (k *Kubeclient) WaitUntilPodRunning(ctx context.Context, t *testing.T, name
 			}
 
 			switch pod.Status.Phase {
+			case corev1.PodFailed:
+				logPodDebugInfo(ctx, k, pod, t)
+				return nil, fmt.Errorf("pod %s is has failed", pod.Name)
 			case corev1.PodPending:
 				continue
 			case corev1.PodSucceeded:
