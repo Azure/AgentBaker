@@ -219,6 +219,50 @@ applyCIS() {
     addFailLockDir
 }
 
+isUnsupportedUbuntu() {
+    local os=$1
+    local version=$2
+    if [ "$os" = "UBUNTU" ] && { [ "$version" = "18.04" ] || [ "$version" = "20.04" ]; }; then
+        return 0
+    fi
+    return 1
+}
+
+scanCIS() {
+    local txtreport
+    local htmlreport
+    if isMarinerOrAzureLinux "$OS"; then
+        echo "No CIS benchmark defined for Azure Linux"
+        return
+    fi
+    if isUnsupportedUbuntu "$OS" "$OS_VERSION"; then
+        echo "No CIS benchmark available for Ubuntu ${OS_VERSION}"
+        # FIPS/18.04/20.04 builds use the same base packer template and I can't
+        # find a way to make file download conditional, so we have to create
+        # the expected files even if they're ignored after the build.
+        touch /opt/azure/cis-report.{txt,html}
+        chmod 0644 /opt/azure/cis-report.{txt,html}
+        return
+    fi
+
+    pushd /home/packer || exit 1
+    if [ ! -f cisassessor.tar.gz ]; then
+        echo "cisassessor missing - skipping scan"
+        return
+    fi
+    tar xzf cisassessor.tar.gz
+    chown packer:packer -R cisassessor
+    cisassessor/launch-cis.sh
+    txtreport=$(find cisassessor/lib/app/reports -name "*.txt")
+    htmlreport=$(find cisassessor/lib/app/reports -name "*.html")
+    cp "${txtreport}" /opt/azure/cis-report.txt
+    cp "${htmlreport}" /opt/azure/cis-report.html
+    chmod 0644 /opt/azure/cis-report.{txt,html}
+    ls -la /opt/azure/
+    popd || exit 1
+}
+
 applyCIS
+scanCIS
 
 #EOF
