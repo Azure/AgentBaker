@@ -19,10 +19,10 @@ variables:
     # These next vars are used for the e2e tests
   - name: AZURE_RESOURCE_GROUP_NAME
     value:  $(AZURE_BUILD_RESOURCE_GROUP_NAME)
-  - name: GALLERY_RESOURCE_GROUP
+  - name: "AKS-Windows"
     value: $(AZURE_BUILD_RESOURCE_GROUP_NAME)
   - name: GALLERY_SUBSCRIPTION_ID
-    value: $(AZURE_BUILD_SUBSCRIPTION_ID)
+    value: "4be8920b-2978-43d7-ab14-04d8549c1d05"
 
 
 trigger:
