@@ -226,16 +226,24 @@ try
     # TODO update to use proxy
 
     $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-current.zip"
-    Write-Log "CSEScriptsPackageUrl is $global:CSEScriptsPackageUrl"
-    Write-Log "WindowsCSEScriptsPackage is $WindowsCSEScriptsPackage"
     # CSEScriptsPackage is cached on VHD.
     # RP can use fully qualified URL to download CSE scripts package out of VHD release cycle.
     # In future, AKS RP only sets the endpoint with the pacakge name, for example, https://acs-mirror.azureedge.net/aks/windows/cse/
     if ($global:CSEScriptsPackageUrl.EndsWith("/")) {
+        $search = @()
+        if ($global:CacheDir -and (Test-Path $global:CacheDir)) {
+            $search = [IO.Directory]::GetFiles($global:CacheDir, $WindowsCSEScriptsPackageCurrent, [IO.SearchOption]::AllDirectories)
+        }
+ 
+        if ($search.Count -eq 0) {
+            Write-Log "Could not find windows cse package on VHD. Use remote version instead."
+            $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-0.0.52.zip"
+        }
+        Write-Log "WindowsCSEScriptsPackage is $WindowsCSEScriptsPackage"
         $global:CSEScriptsPackageUrl = $global:CSEScriptsPackageUrl + $WindowsCSEScriptsPackage
         Write-Log "CSEScriptsPackageUrl is set to $global:CSEScriptsPackageUrl"
     }
-
+    Write-Log "CSEScriptsPackageUrl is $global:CSEScriptsPackageUrl"
     # Download CSE function scripts
     Logs-To-Event -TaskName "AKS.WindowsCSE.DownloadAndExpandCSEScriptPackageUrl" -TaskMessage "Start to get CSE scripts. CSEScriptsPackageUrl: $global:CSEScriptsPackageUrl"
     $tempfile = 'c:\csescripts.zip'
