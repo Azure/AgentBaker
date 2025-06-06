@@ -24,7 +24,6 @@ variables:
   - name: GALLERY_SUBSCRIPTION_ID
     value: "4be8920b-2978-43d7-ab14-04d8549c1d05"
 
-
 trigger:
   branches:
     include:
@@ -38,7 +37,7 @@ pr:
       - dev
   paths:
     include:
-      - .pipelines/e2e-windows.yaml
+      - .pipelines/e2e-windows-regression.yaml
       - .pipelines/templates/e2e-template.yaml
       - .pipelines/scripts/e2e_run.sh
       - .pipelines/scripts/e2e_delete_vmss.sh
