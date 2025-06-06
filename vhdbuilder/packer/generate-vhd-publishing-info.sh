@@ -51,7 +51,7 @@ do
         if [ "${OS_NAME,,}" = "linux" ]; then
             if [ "$v" = "IMAGE_VERSION" ]; then
                 IMAGE_VERSION=$(date +%Y%m.%d.0)
-                echo "$v was not set, set it to ${!v}"
+                echo "##vso[task.logissue type=warning]$v was not set, set it to ${!v}"
             else
                 echo "$v was not set!"
                 exit 1

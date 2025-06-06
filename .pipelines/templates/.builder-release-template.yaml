@@ -8,6 +8,8 @@ parameters:
   - name: overrideBranch
     type: string
     default: master
+  - name: imageVersion
+    type: string
 
 steps:
   - template: ./.template-override-components-json.yaml
@@ -92,6 +94,7 @@ steps:
       BUILD_ID: $(Build.BuildId)
       BUILD_DEFINITION_NAME: $(Build.DefinitionName)
       UA_TOKEN: $(ua-token)
+      IMAGE_VERSION: ${{ parameters.imageVersion }}
 
   - bash: |
       PACKER_VNET_RESOURCE_GROUP_NAME="$(cat vhdbuilder/packer/settings.json | grep "vnet_resource_group_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
@@ -143,6 +146,7 @@ steps:
       PACKER_VNET_NAME: $(PACKER_VNET_NAME)
       SKIP_SCANNING: $(SKIP_SCANNING)
       DRY_RUN: $(DRY_RUN)
+      IMAGE_VERSION: ${{ parameters.imageVersion }}
 
   - task: PublishPipelineArtifact@0
     condition: always()
@@ -231,6 +235,7 @@ steps:
       RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
       STORAGE_ACCT_BLOB_URL: $(CLASSIC_BLOB)
       OFFER_NAME: $(OS_SKU)
+      IMAGE_VERSION: ${{ parameters.imageVersion }}
 
   - task: PublishPipelineArtifact@1
     condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'))
