@@ -233,7 +233,7 @@ try
  
         if ($search.Count -eq 0) {
             Write-Log "Could not find windows cse package on VHD. Use remote version instead."
-            $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-0.0.52.zip"
+            $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.52.zip"
         }
         Write-Log "WindowsCSEScriptsPackage is $WindowsCSEScriptsPackage"
         $global:CSEScriptsPackageUrl = $global:CSEScriptsPackageUrl + $WindowsCSEScriptsPackage
