@@ -219,11 +219,24 @@ applyCIS() {
     addFailLockDir
 }
 
+isUnsupportedUbuntu() {
+    local os=$1
+    local version=$2
+    if [ "$os" = "UBUNTU" ] && { [ "$version" = "18.04" ] || [ "$version" = "20.04" ]; }; then
+        return 0
+    fi
+    return 1
+}
+
 scanCIS() {
     local txtreport
     local htmlreport
     if isMarinerOrAzureLinux "$OS"; then
         echo "No CIS benchmark defined for Azure Linux"
+        return
+    fi
+    if isUnsupportedUbuntu "$OS" "$OS_VERSION"; then
+        echo "No CIS benchmark available for Ubuntu ${OS_VERSION}"
         return
     fi
 
