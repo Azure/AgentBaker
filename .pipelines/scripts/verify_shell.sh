@@ -25,17 +25,7 @@ else
     echo "shellcheck installed"
 fi
 
-filesToCheck=$(find . -type f -name "*.sh" -not -path './pkg/agent/testdata/*' -not -path './vendor/*' -not -path './hack/tools/vendor/*' -not -path './.git/*' -not -path './hack/tools/bin/shellspecsrc/*' -not -path './spec/parts/linux/cloud-init/artifacts/*')
-
-# also shell-check generated test data
-generatedTestData=$(find ./pkg/agent/testdata -type f -name "*.sh" )
-for file in $generatedTestData; do
-    firstLine=$(awk 'NR==1 {print; exit}' ${file})
-    # shellcheck disable=SC3010
-    if [[ "${firstLine}" =~ "#!/bin/bash" || "${firstLine}" =~ "#!/usr/bin/env bash" ]]; then
-        filesToCheck+=(${file})
-    fi
-done
+filesToCheck=$(find . -type f -name "*.sh" -not -path './vendor/*' -not -path './hack/tools/vendor/*' -not -path './.git/*' -not -path './hack/tools/bin/shellspecsrc/*' -not -path './spec/parts/linux/cloud-init/artifacts/*')
 
 # couple of blank lines between the skipped files and the shellchecked files.
 echo

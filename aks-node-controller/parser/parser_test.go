@@ -340,8 +340,6 @@ oom_score = -999
 			cseCMD, err := BuildCSECmd(context.TODO(), aksNodeConfig)
 			require.NoError(t, err)
 
-			generateTestDataIfRequested(t, tt.folder, cseCMD)
-
 			if tt.validator != nil {
 				tt.validator(cseCMD)
 			}
@@ -405,8 +403,6 @@ func TestAKSNodeConfigCompatibilityFromJsonToCSECommand(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			cseCMD, err := BuildCSECmd(context.TODO(), &aksnodeconfigv1.Configuration{})
 			require.NoError(t, err)
-
-			generateTestDataIfRequested(t, tt.folder, cseCMD)
 
 			if tt.validator != nil {
 				tt.validator(cseCMD)
@@ -482,15 +478,4 @@ func loadAKSNodeConfig(jsonFilePath string) *aksnodeconfigv1.Configuration {
 		log.Printf("Failed to unmarshal the aksnodeconfigv1 from json: %v", err)
 	}
 	return cfg
-}
-
-func generateTestDataIfRequested(t *testing.T, folder string, cmd *exec.Cmd) {
-	if os.Getenv("GENERATE_TEST_DATA") == "true" {
-		if _, err := os.Stat(fmt.Sprintf("./testdata/%s", folder)); os.IsNotExist(err) {
-			e := os.MkdirAll(fmt.Sprintf("./testdata/%s", folder), 0755)
-			assert.NoError(t, e)
-		}
-		err := os.WriteFile(fmt.Sprintf("./testdata/%s/generatedCSECommand", folder), []byte(cmd.String()), 0644)
-		assert.NoError(t, err)
-	}
 }
