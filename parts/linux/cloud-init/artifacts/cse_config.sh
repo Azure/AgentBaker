@@ -517,34 +517,13 @@ configureAndStartSecureTLSBootstrapping() {
     chmod 0600 "${SECURE_TLS_BOOTSTRAPPING_DROP_IN}"
     cat > "${SECURE_TLS_BOOTSTRAPPING_DROP_IN}" <<EOF
 [Service]
-Environment="BOOTSTRAP_FLAGS=--aad-resource="${CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_SERVER_APP_ID:-$AKS_AAD_SERVER_APP_ID}" --apiserver-fqdn=${API_SERVER_NAME} --cloud-provider-config=${AZURE_JSON_PATH}"
+Environment="BOOTSTRAP_FLAGS=--aad-resource=${CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_SERVER_APP_ID:-$AKS_AAD_SERVER_APP_ID} --apiserver-fqdn=${API_SERVER_NAME} --cloud-provider-config=${AZURE_JSON_PATH}"
 EOF
 
+    # explicitly start secure TLS bootstrapping ahead of starting kubelet
     systemctlEnableAndStartNoBlock secure-tls-bootstrap 30 || exit $ERR_SECURE_TLS_BOOTSTRAP_START_FAILURE
-}
 
-# kubeconfig path defined outside so ensureSecureTLSBootstrapping can be unit tested
-KUBECONFIG_PATH="/var/lib/kubelet/kubeconfig"
-ensureSecureTLSBootstrapping() { 
-    while [ "$(systemctl is-active secure-tls-bootstrap)" = "activating" ]; do
-        echo "secure TLS bootstrapping is in-progress, waiting for terminal state..."
-        sleep 0.5   
-    done
-
-    if ! systemctl is-active secure-tls-bootstrap; then
-        logs_to_events "AKS.CSE.ensureSecureTLSBootstrapping.BootstrapFailure" echo "secure TLS bootstrapping failed, falling back to TLS bootstrapping with bootstrap token"
-        return 0 # once bootstrap tokens are eliminated, CSE should fail here
-    fi
-
-    if [ ! -f "$KUBECONFIG_PATH" ]; then
-        logs_to_events "AKS.CSE.ensureSecureTLSBootstrapping.MissingKubeconfig" echo "secure TLS bootstrapping completed but kubeconfig file is missing, falling back to TLS bootstrapping with bootstrap token"
-        return 0 # once bootstrap tokens are eliminated, CSE should fail here
-    fi
-
-    logs_to_events "AKS.CSE.ensureSecureTLSBootstrapping.BootstrapSuccess" echo "secure TLS bootstrapping suceeded, will unset TLS bootstrap token"
-
-    # we now have a kubeconfig file, so we can wipe the bootstrap token - once bootstrap tokens are eliminated this won't be needed
-    unset TLS_BOOTSTRAP_TOKEN
+    # once we can no longer rely on bootstrap tokens, we can make sure it's unset here via unsetting TLS_BOOTSTRAP_TOKEN
 }
 
 ensureKubelet() {
@@ -629,9 +608,6 @@ contexts:
   name: bootstrap-context
 current-context: bootstrap-context
 EOF
-    elif [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" = "true" ]; then
-        echo "secure TLS bootstrapping is enabled and has succeeded, removing any bootstrap-kubeconfig"
-        rm -f "$BOOTSTRAP_KUBECONFIG_FILE"
     else
         echo "generating kubeconfig referencing the provided kubelet client certificate"
         

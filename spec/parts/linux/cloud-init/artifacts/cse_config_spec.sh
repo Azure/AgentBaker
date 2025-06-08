@@ -410,48 +410,4 @@ Describe 'cse_config.sh'
             The status should be success
         End
     End
-
-    Describe 'ensureSecureTLSBootstrapping'
-        TLS_BOOTSTRAP_TOKEN="token"
-        KUBECONFIG_PATH="kubeconfig"
-
-        logs_to_events() {
-            echo "logs_to_events $@"
-        }
-
-        cleanup() {
-            rm -rf "$KUBECONFIG_PATH"
-        }
-
-        AfterEach 'cleanup'
-
-        It 'should echo if the secure-tls-bootstrap unit has entered a failed state'
-            systemctl() {
-                echo "failed"
-                return 1
-            }
-            When call ensureSecureTLSBootstrapping
-            The output should include "AKS.CSE.ensureSecureTLSBootstrapping.BootstrapFailure"
-            The variable TLS_BOOTSTRAP_TOKEN should equal 'token'
-        End
-
-        It 'should echo if a kubeconfig is missing after the secure-tls-bootstrap unit is active'
-            systemctl() {
-                echo "active"
-            }
-            When call ensureSecureTLSBootstrapping
-            The output should include "AKS.CSE.ensureSecureTLSBootstrapping.MissingKubeconfig"
-            The variable TLS_BOOTSTRAP_TOKEN should equal 'token'
-        End
-
-        It 'should echo if secure TLS bootstrapping completed successfully and unset the TLS_BOOTSTRAP_TOKEN variable'
-            systemctl() {
-                echo "active"
-            }
-            touch $KUBECONFIG_PATH
-            When call ensureSecureTLSBootstrapping
-            The output should include "AKS.CSE.ensureSecureTLSBootstrapping.BootstrapSuccess"
-            The variable TLS_BOOTSTRAP_TOKEN should be blank
-        End
-    End
 End

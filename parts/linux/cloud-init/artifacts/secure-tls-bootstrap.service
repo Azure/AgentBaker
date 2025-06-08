@@ -3,6 +3,7 @@ Description=AKS Secure TLS Bootstrap Client
 ConditionPathExists=/usr/local/bin/aks-secure-tls-bootstrap-client
 Wants=network-online.target
 After=network-online.target
+Before=kubelet.service
 
 [Service]
 Type=oneshot
@@ -19,4 +20,4 @@ ExecStart=/usr/local/bin/aks-secure-tls-bootstrap-client \
     $BOOTSTRAP_FLAGS
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=multi-user.target kubelet.service
