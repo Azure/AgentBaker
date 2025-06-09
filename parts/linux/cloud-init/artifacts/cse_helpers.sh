@@ -135,8 +135,6 @@ ERR_LOCALDNS_BINARY_ERR=219 # Localdns binary not found or not executable.
 # ----------------------------------------------------------------------------------
 
 ERR_SECURE_TLS_BOOTSTRAP_START_FAILURE=220 # Error starting the secure TLS bootstrap systemd service
-ERR_SECURE_TLS_BOOTSTRAP_CLIENT_FAILURE=221 # Error getting a new kubelet client credential using the secure TLS bootstrap client
-ERR_SECURE_TLS_BOOTSTRAP_MISSING_KUBECONFIG=222 # Error indicating kubelet's kubeconfig is missing after the secure TLS bootstrap client has succeeded
 
 # For both Ubuntu and Mariner, /etc/*-release should exist.
 # For unit tests, the OS and OS_VERSION will be set in the unit test script.
