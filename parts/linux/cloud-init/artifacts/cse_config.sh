@@ -516,14 +516,19 @@ configureAndStartSecureTLSBootstrapping() {
     touch "${SECURE_TLS_BOOTSTRAPPING_DROP_IN}"
     chmod 0600 "${SECURE_TLS_BOOTSTRAPPING_DROP_IN}"
     cat > "${SECURE_TLS_BOOTSTRAPPING_DROP_IN}" <<EOF
+[Unit]
+Before=kubelet.service
 [Service]
 Environment="BOOTSTRAP_FLAGS=--aad-resource=${CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_SERVER_APP_ID:-$AKS_AAD_SERVER_APP_ID} --apiserver-fqdn=${API_SERVER_NAME} --cloud-provider-config=${AZURE_JSON_PATH}"
+[Install]
+# once bootstrap tokens are no longer a fallback, kubelet.service needs to be a RequiredBy=
+WantedBy=kubelet.service
 EOF
 
-    # explicitly start secure TLS bootstrapping ahead of starting kubelet
+    # explicitly start secure TLS bootstrapping ahead of kubelet
     systemctlEnableAndStartNoBlock secure-tls-bootstrap 30 || exit $ERR_SECURE_TLS_BOOTSTRAP_START_FAILURE
 
-    # once we can no longer rely on bootstrap tokens, we can make sure it's unset here via unsetting TLS_BOOTSTRAP_TOKEN
+    # once bootstrap tokens are no longer a fallback, we can unset TLS_BOOTSTRAP_TOKEN here if needed
 }
 
 ensureKubelet() {
