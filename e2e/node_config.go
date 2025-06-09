@@ -3,10 +3,11 @@ package e2e
 import (
 	"encoding/base64"
 	"fmt"
+	"testing"
+
 	"github.com/Azure/agentbaker/aks-node-controller/helpers"
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Masterminds/semver"
-	"testing"
 
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/pkg/agent"
@@ -468,7 +469,7 @@ func baseTemplateLinux(t *testing.T, location string, k8sVersion string, arch st
 				WindowsProvisioningScriptsPackageURL: "https://packages.aks.azure.com/aks-engine/windows/provisioning/signedscripts-v0.2.2.zip",
 				WindowsPauseImageURL:                 "mcr.microsoft.com/oss/kubernetes/pause:1.4.0",
 				AlwaysPullWindowsPauseImage:          false,
-				CseScriptsPackageURL:                 "https://packages.aks.azure.com/aks/windows/cse/csescripts-v0.0.1.zip",
+				CseScriptsPackageURL:                 "https://packages.aks.azure.com/aks/windows/cse/",
 				CNIARM64PluginsDownloadURL:           "https://acs-mirror.azureedge.net/cni-plugins/v0.8.7/binaries/cni-plugins-linux-arm64-v0.8.7.tgz",
 				VnetCNIARM64LinuxPluginsDownloadURL:  "https://acs-mirror.azureedge.net/azure-cni/v1.4.13/binaries/azure-vnet-cni-linux-arm64-v1.4.14.tgz",
 			},
@@ -762,16 +763,17 @@ DXRqvV7TWO2hndliQq3BW385ZkiephlrmpUVM= r2k1@arturs-mbp.lan`,
 				DockerComposeDownloadURL: "https://github.com/docker/compose/releases/download",
 			},
 			KubernetesSpecConfig: datamodel.KubernetesSpecConfig{
-				ACIConnectorImageBase:                "microsoft/",
-				AlwaysPullWindowsPauseImage:          false,
-				AzureCNIImageBase:                    "mcr.microsoft.com/containernetworking/",
-				AzureTelemetryPID:                    "",
-				CNIARM64PluginsDownloadURL:           "https://acs-mirror.azureedge.net/cni-plugins/v0.8.7/binaries/cni-plugins-linux-arm64-v0.8.7.tgz",
-				CNIPluginsDownloadURL:                "https://acs-mirror.azureedge.net/cni/cni-plugins-amd64-v0.7.6.tgz",
-				CSIProxyDownloadURL:                  "https://packages.aks.azure.com/csi-proxy/v0.1.0/binaries/csi-proxy.tar.gz",
-				CalicoImageBase:                      "calico/",
-				ContainerdDownloadURLBase:            "https://storage.googleapis.com/cri-containerd-release/",
-				CseScriptsPackageURL:                 "https://packages.aks.azure.com/aks/windows/cse/csescripts-v0.0.1.zip",
+				ACIConnectorImageBase:       "microsoft/",
+				AlwaysPullWindowsPauseImage: false,
+				AzureCNIImageBase:           "mcr.microsoft.com/containernetworking/",
+				AzureTelemetryPID:           "",
+				CNIARM64PluginsDownloadURL:  "https://acs-mirror.azureedge.net/cni-plugins/v0.8.7/binaries/cni-plugins-linux-arm64-v0.8.7.tgz",
+				CNIPluginsDownloadURL:       "https://acs-mirror.azureedge.net/cni/cni-plugins-amd64-v0.7.6.tgz",
+				CSIProxyDownloadURL:         "https://packages.aks.azure.com/csi-proxy/v0.1.0/binaries/csi-proxy.tar.gz",
+				CalicoImageBase:             "calico/",
+				ContainerdDownloadURLBase:   "https://storage.googleapis.com/cri-containerd-release/",
+				// CseScriptsPackageURL is used to download the CSE scripts for Windows nodes, when use filename it is pinned to that version insteaf of current as defined in components.json
+				CseScriptsPackageURL:                 "https://packages.aks.azure.com/aks/windows/cse/",
 				EtcdDownloadURLBase:                  "",
 				KubeBinariesSASURLBase:               "https://packages.aks.azure.com/kubernetes/",
 				KubernetesImageBase:                  "k8s.gcr.io/",
