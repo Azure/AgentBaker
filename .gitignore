@@ -1,4 +1,5 @@
 debug
+__debug_bin*
 _output/
 _input/
 .vscode
