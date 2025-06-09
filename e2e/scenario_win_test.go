@@ -118,6 +118,27 @@ func Test_Windows23H2Gen2(t *testing.T) {
 	})
 }
 
+func Test_WindowsCachingRegression(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Windows VHD built before local cache enabled should still work",
+		Config: Config{
+			Cluster:                ClusterAzureNetwork,
+			VHD:                    config.VHDWindows23H2Gen2,
+			VMConfigMutator:        EmptyVMConfigMutator,
+			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateWindowsVersionFromWindowsSettings(ctx, s, "23H2-gen2")
+				ValidateWindowsProductName(ctx, s, "Windows Server 2022 Datacenter")
+				ValidateWindowsDisplayVersion(ctx, s, "23H2")
+				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
+				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
+				ValidateCiliumIsNotRunningWindows(ctx, s)
+				ValidateFileHasContent(ctx, s, "/k/test.txt", "this is a test file")
+			},
+		},
+	})
+}
+
 // TODO: enable this test once containerd2 config is properly updated.
 // func Test_Windows2025(t *testing.T) {
 // 	RunScenario(t, &Scenario{
@@ -159,7 +180,6 @@ func Test_Windows23H2Gen2(t *testing.T) {
 // 	})
 // }
 
-// TODO: enable this test once production AKS supports Cilium Windows
 func Test_Windows23H2_Cilium2(t *testing.T) {
 	t.Skip("skipping test for Cilium on Windows 23H2, as it is not supported in production AKS yet")
 	RunScenario(t, &Scenario{
