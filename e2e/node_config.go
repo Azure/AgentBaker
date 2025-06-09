@@ -724,8 +724,6 @@ func baseTemplateWindows(t *testing.T, location string) *datamodel.NodeBootstrap
 					EnableWinDSR: true,
 				},
 				WindowsProfile: &datamodel.WindowsProfile{
-					//CseScriptsPackageURL:           csePackageURL,
-					//GpuDriverURL:                   windowsGpuDriverURL,
 					AlwaysPullWindowsPauseImage:    to.Ptr(false),
 					CSIProxyURL:                    "https://packages.aks.azure.com/csi-proxy/v0.2.2/binaries/csi-proxy-v0.2.2.tar.gz",
 					EnableAutomaticUpdates:         to.Ptr(false),
