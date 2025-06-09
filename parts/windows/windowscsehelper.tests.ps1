@@ -2,6 +2,13 @@ BeforeAll {
   . $PSScriptRoot\windowscsehelper.ps1
   . $PSScriptRoot\..\..\staging\cse\windows\containerdfunc.ps1
   . $PSCommandPath.Replace('.tests.ps1','.ps1')
+
+  # Basic mock of Set-Content
+  $capturedContent = $null
+  Mock Set-Content -MockWith { 
+      param($Path, $Value)
+      $script:capturedContent = $Value 
+  } -Verifiable
 }
 
 Describe 'Install-Containerd-Based-On-Kubernetes-Version' {
@@ -171,13 +178,6 @@ Describe "Mock Write-Log" {
 Describe "Resolve-PackagesSourceUrl" {
   BeforeEach {
     $global:PackageDownloadFqdn = $null
-
-    # Basic mock of Set-Content
-    $capturedContent = $null
-    Mock Set-Content -MockWith { 
-        param($Path, $Value)
-        $script:capturedContent = $Value 
-    } -Verifiable
   }
 
   It 'given valid preferred fqdn, returns preferred' {
