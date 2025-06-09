@@ -20,4 +20,5 @@ ExecStart=/usr/local/bin/aks-secure-tls-bootstrap-client \
     $BOOTSTRAP_FLAGS
 
 [Install]
+# once we can no longer rely on bootstrap tokens as a fallback, kubelet.service needs to be a RequiredBy=
 WantedBy=multi-user.target kubelet.service
