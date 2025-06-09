@@ -225,6 +225,13 @@ Describe "Mock Write-Log" {
 Describe "Resolve-PackagesSourceUrl" {
   BeforeEach {
     $global:PackageDownloadFqdn = $null
+
+    # Basic mock of Set-Content
+    $capturedContent = $null
+    Mock Set-Content -MockWith { 
+        param($Path, $Value)
+        $script:capturedContent = $Value 
+    } -Verifiable
   }
 
   It 'given valid preferred fqdn, returns preferred' {
