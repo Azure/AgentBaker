@@ -3,7 +3,6 @@ BeforeAll {
   . $PSScriptRoot\..\..\staging\cse\windows\containerdfunc.ps1
   . $PSCommandPath.Replace('.tests.ps1','.ps1')
 
-  # Basic mock of Set-Content
   $capturedContent = $null
   Mock Set-Content -MockWith { 
       param($Path, $Value)

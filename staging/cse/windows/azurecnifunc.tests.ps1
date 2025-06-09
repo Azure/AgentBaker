@@ -1,6 +1,12 @@
 BeforeAll {
     . $PSScriptRoot\..\..\..\parts\windows\windowscsehelper.ps1
     . $PSCommandPath.Replace('.tests.ps1','.ps1')
+
+    $capturedContent = $null
+    Mock Set-Content -MockWith { 
+        param($Path, $Value)
+        $script:capturedContent = $Value 
+    } -Verifiable
 }
 
 Describe 'GetBroadestRangesForEachAddress' {
