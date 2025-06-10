@@ -58,8 +58,10 @@ installDeps() {
     done
 
     if [ "${OSVERSION}" = "22.04" ] || [ "${OSVERSION}" = "24.04" ]; then
-        systemctl disable aznfswatchdog
-        systemctl stop aznfswatchdog
+        if [ "$(isARM64)" -eq 0 ]; then
+            systemctl disable aznfswatchdog
+            systemctl stop aznfswatchdog
+        fi
     fi
 }
 
