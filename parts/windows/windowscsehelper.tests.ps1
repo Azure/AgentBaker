@@ -2,6 +2,12 @@ BeforeAll {
   . $PSScriptRoot\windowscsehelper.ps1
   . $PSScriptRoot\..\..\staging\cse\windows\containerdfunc.ps1
   . $PSCommandPath.Replace('.tests.ps1','.ps1')
+
+  $capturedContent = $null
+  Mock Set-Content -MockWith { 
+      param($Path, $Value)
+      $script:capturedContent = $Value 
+  } -Verifiable
 }
 
 Describe 'Install-Containerd-Based-On-Kubernetes-Version' {

@@ -196,6 +196,9 @@ Describe 'cse_install.sh'
         SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_DIR="downloads"
         CUSTOM_SECURE_TLS_BOOTSTRAP_CLIENT_URL="https://packages/custom-client-binary-url.tar.gz"
 
+        sudo() {
+            echo "sudo $@"
+        }
         chmod() {
             echo "chmod $@"
         }
@@ -231,7 +234,7 @@ Describe 'cse_install.sh'
             When call installSecureTLSBootstrapClient
             The output should include "installing aks-secure-tls-bootstrap-client from: https://packages/custom-client-binary-url.tar.gz"
             The output should include "retrycmd_get_tarball 120 5 downloads/custom-client-binary-url.tar.gz https://packages/custom-client-binary-url.tar.gz"
-            The output should include "tar -zxf downloads/custom-client-binary-url.tar.gz -C downloads/"
+            The output should include "tar -xvzf downloads/custom-client-binary-url.tar.gz -C downloads/"
             The output should include "mv downloads/aks-secure-tls-bootstrap-client bin"
             The output should include "chmod 755 bin/aks-secure-tls-bootstrap-client"
             The output should include "aks-secure-tls-bootstrap-client installed successfully"
