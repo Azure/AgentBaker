@@ -45,7 +45,9 @@ installDeps() {
     fi
 
     if [ "${OSVERSION}" = "22.04" ] || [ "${OSVERSION}" = "24.04" ]; then
-        pkg_list+=("aznfs=0.3.15")
+        if [ "$(isARM64)" -eq 0 ]; then
+            pkg_list+=("aznfs=0.3.15")
+        fi
     fi
 
     for apt_package in ${pkg_list[*]}; do
@@ -56,8 +58,10 @@ installDeps() {
     done
 
     if [ "${OSVERSION}" = "22.04" ] || [ "${OSVERSION}" = "24.04" ]; then
-        systemctl disable aznfswatchdog
-        systemctl stop aznfswatchdog
+        if [ "$(isARM64)" -eq 0 ]; then
+            systemctl disable aznfswatchdog
+            systemctl stop aznfswatchdog
+        fi
     fi
 }
 
