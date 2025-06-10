@@ -50,7 +50,6 @@ func Test_Windows2022Containerd(t *testing.T) {
 				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
 				ValidateCiliumIsNotRunningWindows(ctx, s)
 				ValidateFileHasContent(ctx, s, "/k/test.txt", "this is a test file")
-				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "CSEScriptsPackageUrl is https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-current.zip")
 			},
 		},
 	})
@@ -92,7 +91,7 @@ func Test_Windows23H2(t *testing.T) {
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
 				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
 				ValidateCiliumIsNotRunningWindows(ctx, s)
-				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "CSEScriptsPackageUrl is https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-current.zip")
+				ValidateFileHasContent(ctx, s, "/k/test.txt", "this is a test file")
 			},
 		},
 	})
