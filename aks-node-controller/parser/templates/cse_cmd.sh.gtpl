@@ -1,6 +1,5 @@
 echo $(date),$(hostname) > ${PROVISION_OUTPUT};
 {{if not .GetDisableCustomData}}
-. /does/not/exist.sh
 /bin/bash -c "source /opt/azure/containers/cloud-init-status-check.sh; handleCloudInitStatus \"${PROVISION_OUTPUT}\"; returnStatus=\$?; echo \"Cloud init status check exit code: \$returnStatus\" >> ${PROVISION_OUTPUT}; exit \$returnStatus" >> ${PROVISION_OUTPUT} 2>&1;
 cloudInitExitCode=$?;
 [ "$cloudInitExitCode" -ne 0 ] && echo "cloud-init failed with exit code ${cloudInitExitCode}" >> ${PROVISION_OUTPUT} && exit ${cloudInitExitCode};
