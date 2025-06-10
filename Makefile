@@ -106,15 +106,8 @@ generate-manifest:
 	./hack/tools/bin/cue export ./schemas/manifest.cue > ./parts/linux/cloud-init/artifacts/manifest.json
 	@echo "#EOF" >> ./parts/linux/cloud-init/artifacts/manifest.json
 
-.PHONY: generate-testdata
-generate-testdata:
-	@echo $(GOFLAGS)
-	GENERATE_TEST_DATA="true" go test ./pkg/agent...
-
-.PHONY: generate # TODO: ONLY generate go testdata
+.PHONY: generate
 generate: bootstrap
-	@echo "Generating go testdata"
-	@$(MAKE) generate-testdata
 	@echo "Generating manifest.cue"
 	@$(MAKE) generate-manifest
 	@echo "Running validate-shell to make sure generated cse scripts are correct"

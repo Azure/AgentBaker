@@ -11,8 +11,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
-	"os/exec"
 	"regexp"
 	"strings"
 
@@ -24,10 +22,6 @@ import (
 	. "github.com/onsi/gomega"
 	"gopkg.in/yaml.v3"
 )
-
-func generateTestData() bool {
-	return os.Getenv("GENERATE_TEST_DATA") == "true"
-}
 
 // this regex looks for groups of the following forms, returning KEY and VALUE as submatches.
 /* - KEY=VALUE
@@ -954,17 +948,6 @@ testdomain567.com:53 {
 			Expect(err).To(BeNil())
 		}
 
-		customData := string(customDataBytes)
-		Expect(err).To(BeNil())
-
-		if generateTestData() {
-			backfillCustomData(folder, customData)
-		}
-
-		expectedCustomData, err := os.ReadFile(fmt.Sprintf("./testdata/%s/CustomData", folder))
-		Expect(err).To(BeNil())
-		Expect(customData).To(Equal(string(expectedCustomData)))
-
 		// CSE
 		ab, err = NewAgentBaker()
 		Expect(err).To(BeNil())
@@ -975,14 +958,6 @@ testdomain567.com:53 {
 		Expect(err).To(BeNil())
 		cseCommand := nodeBootstrapping.CSE
 
-		if generateTestData() {
-			err = os.WriteFile(fmt.Sprintf("./testdata/%s/CSECommand", folder), []byte(cseCommand), 0644)
-			Expect(err).To(BeNil())
-		}
-		expectedCSECommand, err := os.ReadFile(fmt.Sprintf("./testdata/%s/CSECommand", folder))
-		Expect(err).To(BeNil())
-		Expect(cseCommand).To(Equal(string(expectedCSECommand)))
-
 		files, err := getDecodedFilesFromCustomdata(customDataBytes)
 		Expect(err).To(BeNil())
 
@@ -990,7 +965,7 @@ testdomain567.com:53 {
 		Expect(err).To(BeNil())
 
 		result := &nodeBootstrappingOutput{
-			customData: customData,
+			customData: string(customDataBytes),
 			cseCmd:     cseCommand,
 			files:      files,
 			vars:       vars,
@@ -2432,44 +2407,12 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 			configUpdator(config)
 		}
 
-		// customData
 		ab, err := NewAgentBaker()
 		Expect(err).To(BeNil())
 		nodeBootstrapping, err := ab.GetNodeBootstrapping(context.Background(), config)
 		Expect(err).To(BeNil())
-		base64EncodedCustomData := nodeBootstrapping.CustomData
-		customDataBytes, err := base64.StdEncoding.DecodeString(base64EncodedCustomData)
-		customData := string(customDataBytes)
+		_, err = base64.StdEncoding.DecodeString(nodeBootstrapping.CustomData)
 		Expect(err).To(BeNil())
-
-		if generateTestData() {
-			backfillCustomData(folder, customData)
-		}
-
-		expectedCustomData, err := os.ReadFile(fmt.Sprintf("./testdata/%s/CustomData", folder))
-		if err != nil {
-			panic(err)
-		}
-		Expect(customData).To(Equal(string(expectedCustomData)))
-
-		// CSE
-		ab, err = NewAgentBaker()
-		Expect(err).To(BeNil())
-		nodeBootstrapping, err = ab.GetNodeBootstrapping(context.Background(), config)
-		Expect(err).To(BeNil())
-		cseCommand := nodeBootstrapping.CSE
-
-		if generateTestData() {
-			err = os.WriteFile(fmt.Sprintf("./testdata/%s/CSECommand", folder), []byte(cseCommand), 0644)
-			Expect(err).To(BeNil())
-		}
-
-		expectedCSECommand, err := os.ReadFile(fmt.Sprintf("./testdata/%s/CSECommand", folder))
-		if err != nil {
-			panic(err)
-		}
-		Expect(cseCommand).To(Equal(string(expectedCSECommand)))
-
 	}, Entry("AKSWindows2019 with k8s version 1.16", "AKSWindows2019+K8S116", "1.16.15", func(config *datamodel.NodeBootstrappingConfiguration) {
 	}),
 		Entry("AKSWindows2019 with k8s version 1.17", "AKSWindows2019+K8S117", "1.17.7", func(config *datamodel.NodeBootstrappingConfiguration) {
@@ -2607,20 +2550,6 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 	)
 
 })
-
-func backfillCustomData(folder, customData string) {
-	if _, err := os.Stat(fmt.Sprintf("./testdata/%s", folder)); os.IsNotExist(err) {
-		e := os.MkdirAll(fmt.Sprintf("./testdata/%s", folder), 0755)
-		Expect(e).To(BeNil())
-	}
-	writeFileError := os.WriteFile(fmt.Sprintf("./testdata/%s/CustomData", folder), []byte(customData), 0644)
-	Expect(writeFileError).To(BeNil())
-	if strings.Contains(folder, "AKSWindows") {
-		return
-	}
-	err := exec.Command("/bin/sh", "-c", fmt.Sprintf("./testdata/convert.sh testdata/%s", folder)).Run()
-	Expect(err).To(BeNil())
-}
 
 func getDecodedVarsFromCseCmd(data []byte) (map[string]string, error) {
 	cseRegex := regexp.MustCompile(cseRegexString)

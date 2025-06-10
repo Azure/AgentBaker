@@ -27,8 +27,6 @@ If you change code or artifacts used to generate custom data or custom script ex
 
 This re-runs code to embed static files in Go code, which is what will actually be used at runtime.
 
-This additionally runs unit tests (equivalent of `go test ./...`) and regenerates snapshot testdata.
-
 ## Style
 
 We use [golangci-lint](https://golangci-lint.run/) to enforce style.
