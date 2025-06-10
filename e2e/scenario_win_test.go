@@ -50,6 +50,7 @@ func Test_Windows2022Containerd(t *testing.T) {
 				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
 				ValidateCiliumIsNotRunningWindows(ctx, s)
 				ValidateFileHasContent(ctx, s, "/k/test.txt", "this is a test file")
+				ValidateFileHasContent(ctx, s, "/c/AzureData/CustomDataSetupScript.log", "CSEScriptsPackageUrl is https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-current.zip")
 			},
 		},
 	})
@@ -91,7 +92,7 @@ func Test_Windows23H2(t *testing.T) {
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
 				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
 				ValidateCiliumIsNotRunningWindows(ctx, s)
-				ValidateFileHasContent(ctx, s, "/k/test.txt", "this is a test file")
+				ValidateFileHasContent(ctx, s, "/c/AzureData/CustomDataSetupScript.log", "CSEScriptsPackageUrl is https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-current.zip")
 			},
 		},
 	})
@@ -180,7 +181,7 @@ func Test_Windows23H2Gen2CachingRegression(t *testing.T) {
 				nbc.CloudSpecConfig.KubernetesSpecConfig.CseScriptsPackageURL = "https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-v0.0.52.zip"
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFileHasContent(ctx, s, "/k/test.txt", "this is a test file")
+				ValidateFileHasContent(ctx, s, "/c/AzureData/CustomDataSetupScript.log", "CSEScriptsPackageUrl is https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-v0.0.52.zip")
 			},
 		},
 	})
@@ -197,7 +198,7 @@ func Test_Windows2022CachingRegression(t *testing.T) {
 				nbc.CloudSpecConfig.KubernetesSpecConfig.CseScriptsPackageURL = "https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-v0.0.52.zip"
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFileHasContent(ctx, s, "/k/test.txt", "this is a test file")
+				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "CSEScriptsPackageUrl is https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-v0.0.52.zip")
 			},
 		},
 	})
@@ -214,7 +215,7 @@ func Test_Windows2019CachingRegression(t *testing.T) {
 				nbc.CloudSpecConfig.KubernetesSpecConfig.CseScriptsPackageURL = "https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-v0.0.52.zip"
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFileHasContent(ctx, s, "/k/test.txt", "this is a test file")
+				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "CSEScriptsPackageUrl is https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-v0.0.52.zip")
 			},
 		},
 	})
