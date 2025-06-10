@@ -207,8 +207,7 @@ var (
 		OS:      OSWindows,
 		Arch:    "amd64",
 		Distro:  datamodel.AKSWindowsActiveBranch,
-		Latest:  true,
-		Gallery: windowsGallery,
+		Gallery: imageGalleryWindows,
 	}
 )
 
