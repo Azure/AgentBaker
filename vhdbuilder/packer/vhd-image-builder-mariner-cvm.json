@@ -106,6 +106,11 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cloud-init-status-check.sh",
+      "destination": "/home/packer/cloud-init-status-check.sh"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/aks-node-controller.service",
       "destination": "/home/packer/aks-node-controller.service"
     },
@@ -661,11 +666,6 @@
       "direction": "download",
       "source": "/opt/azure/vhd-build-performance-data.json",
       "destination": "vhd-build-performance-data.json"
-    },
-    {
-      "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/cloud-init-status-check.sh",
-      "destination": "/home/packer/cloud-init-status-check.sh"
     },
     {
       "type": "shell",
