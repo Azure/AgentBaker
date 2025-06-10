@@ -49,8 +49,33 @@ parameters:
     displayName: Run cleanup job
     type: boolean
     default: false
-
+  - name: cseFileName
+    displayName: CSE Package File Name
+    type: string
+    default: aks-windows-cse-scripts-current.zip
+  - name: csePublishDir
+    type: string
+    default: $(Build.ArtifactStagingDirectory)/packages
 stages:
+  - stage: Package
+    displayName: "Package Windows CSE"
+    jobs:
+    - job: PackageWindowsCSE
+      steps:
+      - bash: bash ./.pipelines/scripts/windows_package_cse.sh
+        displayName: Package Windows CSE Scripts
+        env:
+          CSE_RELEASE_DIR: $(Build.ArtifactStagingDirectory)/windows
+          CSE_PUBLISH_DIR: ${{ parameters.csePublishDir }}
+          CSE_FILE_NAME: ${{ parameters.cseFileName }}
+      - task: ManifestGeneratorTask@0
+        inputs:
+          BuildDropPath: ${{ parameters.csePublishDir }}
+      - task: PublishPipelineArtifact@1
+        displayName: Publish Windows CSE Package
+        inputs:
+          artifactName: windows-cse-package
+          targetPath: ${{ parameters.csePublishDir }}
   - template: ./.build-and-test-windows-vhd-template.yaml
     parameters:
       stageName: win_2019_v1
@@ -70,6 +95,8 @@ stages:
       windowsCoreImageUrl: $(WINDOWS_2019_CORE_IMAGE_URL)
       overrideBranch: ${{ parameters.overrideBranch }}
       useOverrides: ${{ parameters.useOverrides }}
+      csePackageDir: ${{ parameters.csePublishDir }}
+      cseFileName: ${{ parameters.cseFileName }}
 
   - template: ./.build-and-test-windows-vhd-template.yaml
     parameters:
@@ -90,6 +117,8 @@ stages:
       windowsCoreImageUrl: $(WINDOWS_2022_CORE_IMAGE_URL)
       overrideBranch: ${{ parameters.overrideBranch }}
       useOverrides: ${{ parameters.useOverrides }}
+      csePackageDir: ${{ parameters.csePublishDir }}
+      cseFileName: ${{ parameters.cseFileName }}
 
   - template: ./.build-and-test-windows-vhd-template.yaml
     parameters:
@@ -110,6 +139,8 @@ stages:
       windowsCoreImageUrl: $(WINDOWS_2022_CORE_IMAGE_URL)
       overrideBranch: ${{ parameters.overrideBranch }}
       useOverrides: ${{ parameters.useOverrides }}
+      csePackageDir: ${{ parameters.csePublishDir }}
+      cseFileName: ${{ parameters.cseFileName }}
 
   - template: ./.build-and-test-windows-vhd-template.yaml
     parameters:
@@ -130,6 +161,8 @@ stages:
       windowsCoreImageUrl: $(WINDOWS_2022_CORE_IMAGE_URL)
       overrideBranch: ${{ parameters.overrideBranch }}
       useOverrides: ${{ parameters.useOverrides }}
+      csePackageDir: ${{ parameters.csePublishDir }}
+      cseFileName: ${{ parameters.cseFileName }}
 
   - template: ./.build-and-test-windows-vhd-template.yaml
     parameters:
@@ -150,6 +183,8 @@ stages:
       windowsCoreImageUrl: $(WINDOWS_2022_CORE_IMAGE_URL)
       overrideBranch: ${{ parameters.overrideBranch }}
       useOverrides: ${{ parameters.useOverrides }}
+      csePackageDir: ${{ parameters.csePublishDir }}
+      cseFileName: ${{ parameters.cseFileName }}
 
   - template: ./.build-and-test-windows-vhd-template.yaml
     parameters:
@@ -170,6 +205,8 @@ stages:
       windowsCoreImageUrl: $(WINDOWS_2025_CORE_IMAGE_URL)
       overrideBranch: ${{ parameters.overrideBranch }}
       useOverrides: ${{ parameters.useOverrides }}
+      csePackageDir: ${{ parameters.csePublishDir }}
+      cseFileName: ${{ parameters.cseFileName }}
 
   - template: ./.build-and-test-windows-vhd-template.yaml
     parameters:
@@ -190,6 +227,8 @@ stages:
       windowsCoreImageUrl: $(WINDOWS_2025_CORE_IMAGE_URL)
       overrideBranch: ${{ parameters.overrideBranch }}
       useOverrides: ${{ parameters.useOverrides }}
+      csePackageDir: ${{ parameters.csePublishDir }}
+      cseFileName: ${{ parameters.cseFileName }}
 
   - stage: backfill_cleanup_outdated_resources
     dependsOn: [ ]

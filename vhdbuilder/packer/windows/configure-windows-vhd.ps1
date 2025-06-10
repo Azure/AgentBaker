@@ -78,6 +78,22 @@ function Download-File
         $retryDelay = 0,
         [Switch]$redactUrl = $false
     )
+    # replicate same check as in windowscsehelper.ps1, check if the file already exists before downloading
+    $cleanUrl = $URL.Split('?')[0]
+    $fileName = [IO.Path]::GetFileName($cleanUrl)
+
+    $search = @()
+    if ($global:cacheDir -and (Test-Path $global:cacheDir)) {
+        $search = [IO.Directory]::GetFiles($global:cacheDir, $fileName, [IO.SearchOption]::AllDirectories)
+    }
+
+    if ($search.Count -ne 0) {
+        Write-Log "Package exist $fileName in cache dir $global:CacheDir, skipping download"
+        Get-ChildItem "$Dest"
+        return
+    } 
+
+    Write-Log "Downloading $URL to $Dest"
     curl.exe -f --retry $retryCount --retry-delay $retryDelay -L $URL -o $Dest
     $curlExitCode = $LASTEXITCODE
     if ($curlExitCode)
@@ -94,8 +110,7 @@ function Download-File
         }
         throw "Curl exited with '$curlExitCode' while attempting to download '$logURL' to '$Dest'"
     }
-
-    dir "$Dest"
+    Get-ChildItem "$Dest"
 }
 
 function Download-FileWithAzCopy

@@ -1,6 +1,8 @@
 BeforeAll {
     . $PSScriptRoot\..\..\..\parts\windows\windowscsehelper.ps1
     . $PSCommandPath.Replace('.tests.ps1', '.ps1')
+
+    Mock Set-Content
 }
 
 Describe 'Start-InstallGPUDriver' {

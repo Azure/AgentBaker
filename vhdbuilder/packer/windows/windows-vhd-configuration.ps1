@@ -10,6 +10,9 @@ $global:aksTempDir = "c:\akstemp"
 # We use the same dir for all tools that will be used in AKS Windows nodes
 $global:aksToolsDir = "c:\aks-tools"
 
+# We cache images and packages in this directory.
+$global:cacheDir = "c:\akse-cache"
+
 # We need to guarantee that the node provisioning will not fail because the vhd is full before resize-osdisk is called in AKS Windows CSE script.
 $global:lowestFreeSpace = 1*1024*1024*1024 # 1GB
 
