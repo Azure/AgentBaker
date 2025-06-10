@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"regexp"
 	"strings"
 
@@ -2618,8 +2617,6 @@ func backfillCustomData(folder, customData string) {
 	if strings.Contains(folder, "AKSWindows") {
 		return
 	}
-	err := exec.Command("/bin/sh", "-c", fmt.Sprintf("./testdata/convert.sh testdata/%s", folder)).Run()
-	Expect(err).To(BeNil())
 }
 
 func getDecodedVarsFromCseCmd(data []byte) (map[string]string, error) {
