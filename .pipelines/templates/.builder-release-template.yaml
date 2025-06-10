@@ -28,7 +28,7 @@ steps:
       vstsFeed: AzCoreLinux-Compliance
       vstsFeedPackage: cisassessor
       vstsPackageVersion: '0.0.17'
-      downloadDirectory: vhdbuilder/packer
+      downloadDirectory: vhdbuilder/
 
   - task: DownloadPipelineArtifact@2
     condition: or(eq(variables.OS_SKU, 'CBLMariner'), eq(variables.OS_SKU, 'AzureLinux'))

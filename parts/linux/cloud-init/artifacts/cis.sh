@@ -263,6 +263,7 @@ scanCIS() {
 }
 
 applyCIS
-scanCIS
+# scanCIS is now handled remotely in vhd-scanning.sh, so we do not run it here.
+# scanCIS
 
 #EOF
