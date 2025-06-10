@@ -75,6 +75,7 @@ const (
 	ensureIMDSRestrictionScript         = "linux/cloud-init/artifacts/ensure_imds_restriction.sh"
 	validateKubeletCredentialsScript    = "linux/cloud-init/artifacts/validate-kubelet-credentials.sh"
 	secureTLSBootstrapService           = "linux/cloud-init/artifacts/secure-tls-bootstrap.service"
+	cloudInitStatusCheckScript          = "linux/cloud-init/artifacts/cloud-init-status-check.sh"
 
 	// scripts and service for enabling ipv6 dual stack.
 	dhcpv6SystemdService            = "linux/cloud-init/artifacts/dhcpv6.service"

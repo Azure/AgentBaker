@@ -256,6 +256,10 @@ copyPackerFiles() {
   AKS_NODE_CONTROLLER_SERVICE_DEST=/etc/systemd/system/aks-node-controller.service
   cpAndMode $AKS_NODE_CONTROLLER_SERVICE_SRC $AKS_NODE_CONTROLLER_SERVICE_DEST 0644
 
+  CLOUD_INIT_STATUS_CHECK_SRC=/home/packer/cloud-init-status-check.sh
+  CLOUD_INIT_STATUS_CHECK_DEST=/opt/azure/containers/cloud-init-status-check.sh
+  cpAndMode $CLOUD_INIT_STATUS_CHECK_SRC $CLOUD_INIT_STATUS_CHECK_DEST 0744
+
   NOTICE_SRC=/home/packer/NOTICE.txt
   NOTICE_DEST=/NOTICE.txt
 

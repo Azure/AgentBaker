@@ -334,6 +334,13 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "ensureIMDSRestrictionScript"}}
 
+- path: /opt/azure/containers/cloud-init-status-check.sh
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "cloudInitStatusCheckScript"}}
+
 - path: /opt/azure/containers/validate-kubelet-credentials.sh
   permissions: "0755"
   encoding: gzip

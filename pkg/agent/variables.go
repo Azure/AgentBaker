@@ -49,6 +49,7 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 			"componentManifestFile":            getBase64EncodedGzippedCustomScript(componentManifestFile, config),
 			"validateKubeletCredentialsScript": getBase64EncodedGzippedCustomScript(validateKubeletCredentialsScript, config),
 			"secureTLSBootstrapService":        getBase64EncodedGzippedCustomScript(secureTLSBootstrapService, config),
+			"cloudInitStatusCheckScript":       getBase64EncodedGzippedCustomScript(cloudInitStatusCheckScript, config),
 		},
 	}
 
