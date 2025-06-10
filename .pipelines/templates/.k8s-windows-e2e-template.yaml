@@ -1,9 +1,12 @@
 parameters:
 - name: resourceGroup
-  displayName: resource group name of created AKS cluster
+  displayName: resource group name of created k8s cluster
   type: string
 - name: clusterName
-  displayName: name of created AKS cluster
+  displayName: name of created k8s cluster
+  type: string
+- name: clusterType
+  displayName: type of created k8s cluster
   type: string
 - name: storageContainerName
   displayName: container name of Azure storage
@@ -51,10 +54,17 @@ jobs:
         --resource-group ${{parameters.resourceGroup}} \
         --name ${{parameters.clusterName}} \
         --file $(System.DefaultWorkingDirectory)/kubeconfig/kubeconfig
+
         export KUBECONFIG="$(System.DefaultWorkingDirectory)/kubeconfig/kubeconfig"
 
-        export KUBERNETES_SERVICE_HOST=$(az aks show -n ${{parameters.clusterName}} -g ${{parameters.resourceGroup}} --query fqdn -o tsv)
-        export KUBERNETES_SERVICE_PORT=443
+        if [[ "${{ parameters.clusterType }}" == "AKS" ]]; then
+          # do we need these two variables?
+          export KUBERNETES_SERVICE_HOST=$(az aks show -n ${{parameters.clusterName}} -g ${{parameters.resourceGroup}} --query fqdn -o tsv)
+          export KUBERNETES_SERVICE_PORT=443
+        else
+          kubectl get secret  ${{parameters.clusterName}}-kubeconfig -o jsonpath='{.data.value}'|base64 --decode > $(System.DefaultWorkingDirectory)/kubeconfig/capz_kubeconfig
+          export KUBECONFIG="$(System.DefaultWorkingDirectory)/kubeconfig/capz_kubeconfig"
+        fi
         
         export ADDITIONAL_E2E_ARGS=()
         export ADDITIONAL_E2E_ARGS+=("--ginkgo.slow-spec-threshold=120s")
