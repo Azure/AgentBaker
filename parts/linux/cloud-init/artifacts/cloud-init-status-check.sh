@@ -62,8 +62,7 @@ handleCloudInitStatus() {
     if [ "$cloudInitExitCode" -eq 1 ]; then 
         # if cloud-init exited with code 1, we exit with ERR_CLOUD_INIT_FAILED indicating non-recoverable error in cloud init
         return $ERR_CLOUD_INIT_FAILED
-    else
-        # if cloud-init exited with code 2 (recoverable errors), we return 0 to allow CSE to progress
-        return 0
     fi
+    # if cloud-init exited with code 2 (recoverable errors), we return 0 to allow CSE to progress
+    return 0
 }
