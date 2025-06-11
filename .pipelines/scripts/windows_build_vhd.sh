@@ -106,14 +106,6 @@ echo "Modified SIG_GALLERY_NAME: ${SIG_GALLERY_NAME}"
 echo "Set build date to $BUILD_DATE"
 echo "Use CSE pacakge at URI: ${WINDOWS_CSE_PACKAGE_URI}"
 
-echo "##vso[task.setvariable variable=SIG_GALLERY_NAME]$SIG_GALLERY_NAME"
-echo "##vso[task.setvariable variable=SIG_IMAGE_NAME]$SIG_IMAGE_NAME"
-echo "##vso[task.setvariable variable=SIG_IMAGE_VERSION]$SIG_IMAGE_VERSION"
-echo "##vso[task.setvariable variable=SKIPVALIDATEREOFFERUPDATE]True"
-echo "##vso[task.setvariable variable=BUILD_DATE]$BUILD_DATE"
-echo "##vso[task.setvariable variable=DRY_RUN]${DRY_RUN}"
-echo "##vso[task.setvariable variable=WINDOWS_CSE_PACKAGE_URI]${WINDOWS_CSE_PACKAGE_URI}"
-
 # Finally, we invoke packer to build the VHD.
 make -f packer.mk az-login
 packer init ./vhdbuilder/packer/packer-plugin.pkr.hcl
@@ -127,6 +119,14 @@ export MANAGED_SIG_ID="$(cat packer-output | grep -a "ManagedImageSharedImageGal
 echo "Found OS_DISK_URI: ${OS_DISK_URI}"
 echo "Found MANAGED_SIG_ID: ${MANAGED_SIG_ID}"
 
+set +x
+echo "##vso[task.setvariable variable=SIG_GALLERY_NAME]$SIG_GALLERY_NAME"
+echo "##vso[task.setvariable variable=SIG_IMAGE_NAME]$SIG_IMAGE_NAME"
+echo "##vso[task.setvariable variable=SIG_IMAGE_VERSION]$SIG_IMAGE_VERSION"
+echo "##vso[task.setvariable variable=SKIPVALIDATEREOFFERUPDATE]True"
+echo "##vso[task.setvariable variable=BUILD_DATE]$BUILD_DATE"
+echo "##vso[task.setvariable variable=DRY_RUN]${DRY_RUN}"
+echo "##vso[task.setvariable variable=WINDOWS_CSE_PACKAGE_URI]${WINDOWS_CSE_PACKAGE_URI}"
 echo "##vso[task.setvariable variable=OS_DISK_URI]${OS_DISK_URI}"
 echo "##vso[task.setvariable variable=MANAGED_SIG_ID]${MANAGED_SIG_ID}"
 
