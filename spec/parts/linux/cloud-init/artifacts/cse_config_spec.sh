@@ -405,53 +405,13 @@ Describe 'cse_config.sh'
             When call configureAndStartSecureTLSBootstrapping
             The output should include "chmod 0600 secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf"
             The output should include "systemctlEnableAndStartNoBlock secure-tls-bootstrap 30"
+            The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "[Unit]"
+            The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "Before=kubelet.service"
             The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "[Service]"
-            The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include 'Environment="BOOTSTRAP_FLAGS=--aad-resource="6dae42f8-4368-4678-94ff-3960e28e3630" --apiserver-fqdn=fqdn --cloud-provider-config=/etc/kubernetes/azure.json"'
+            The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include 'Environment="BOOTSTRAP_FLAGS=--aad-resource=6dae42f8-4368-4678-94ff-3960e28e3630 --apiserver-fqdn=fqdn --cloud-provider-config=/etc/kubernetes/azure.json"'
+            The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "[Install]"
+            The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "WantedBy=kubelet.service"
             The status should be success
-        End
-    End
-
-    Describe 'ensureSecureTLSBootstrapping'
-        TLS_BOOTSTRAP_TOKEN="token"
-        KUBECONFIG_PATH="kubeconfig"
-
-        logs_to_events() {
-            echo "logs_to_events $@"
-        }
-
-        cleanup() {
-            rm -rf "$KUBECONFIG_PATH"
-        }
-
-        AfterEach 'cleanup'
-
-        It 'should echo if the secure-tls-bootstrap unit has entered a failed state'
-            systemctl() {
-                echo "failed"
-                return 1
-            }
-            When call ensureSecureTLSBootstrapping
-            The output should include "AKS.CSE.ensureSecureTLSBootstrapping.BootstrapFailure"
-            The variable TLS_BOOTSTRAP_TOKEN should equal 'token'
-        End
-
-        It 'should echo if a kubeconfig is missing after the secure-tls-bootstrap unit is active'
-            systemctl() {
-                echo "active"
-            }
-            When call ensureSecureTLSBootstrapping
-            The output should include "AKS.CSE.ensureSecureTLSBootstrapping.MissingKubeconfig"
-            The variable TLS_BOOTSTRAP_TOKEN should equal 'token'
-        End
-
-        It 'should echo if secure TLS bootstrapping completed successfully and unset the TLS_BOOTSTRAP_TOKEN variable'
-            systemctl() {
-                echo "active"
-            }
-            touch $KUBECONFIG_PATH
-            When call ensureSecureTLSBootstrapping
-            The output should include "AKS.CSE.ensureSecureTLSBootstrapping.BootstrapSuccess"
-            The variable TLS_BOOTSTRAP_TOKEN should be blank
         End
     End
 End
