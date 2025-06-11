@@ -415,9 +415,9 @@ function Install-Containerd-Based-On-Kubernetes-Version {
 
   # Get the current Windows version, this is interim since we are progressively supporting containerd 2.0 for all Windows version. for now only test2025
   $windowsVersion = Get-WindowsVersion
+  Write-Log "Install Containerd with ContainerdURL: $ContainerdUrl, KubernetesVersion: $KubernetesVersion, WindowsVersion: $windowsVersion" 
   Logs-To-Event -TaskName "AKS.WindowsCSE.InstallContainerdBasedOnKubernetesVersion" -TaskMessage "Start to install ContainerD based on kubernetes version. ContainerdUrl: $global:ContainerdUrl, KubernetesVersion: $global:KubeBinariesVersion, Windows Version: $windowsVersion"
 
-  
   # In the past, $global:ContainerdUrl is a full URL to download Windows containerd package.
   # Example: "https://acs-mirror.azureedge.net/containerd/windows/v0.0.46/binaries/containerd-v0.0.46-windows-amd64.tar.gz"
   # To support multiple containerd versions, we only set the endpoint in $global:ContainerdUrl.
@@ -426,18 +426,14 @@ function Install-Containerd-Based-On-Kubernetes-Version {
   #   1. Current behavior to set the full URL
   #   2. Setting containerd package in toggle for test purpose or hotfix
   if ($ContainerdUrl.EndsWith("/")) {
-    Write-Log "ContainerdURL is $ContainerdUrl"
     $containerdPackage=$global:StableContainerdPackage
      # Check if we have Windows Server 2025 (not official yet and hence the SKU, as opposed to official name like 23H2 ) and Kubernetes version >= 1.33.0
     if ($windowsVersion -eq "test2025" -and ([version]$KubernetesVersion).CompareTo([version]$global:MinimalKubernetesVersionWithLatestContainerd2) -ge 0) {
         $containerdPackage = $global:LatestContainerd2Package
-        Write-Log "Using containerd 2.x ($containerdPackage) for Windows version $windowsVersion and Kubernetes version $KubernetesVersion"
     } elseif (([version]$KubernetesVersion).CompareTo([version]$global:MinimalKubernetesVersionWithLatestContainerd) -ge 0) {
         $containerdPackage=$global:LatestContainerdPackage
-        Write-Log "Kubernetes version $KubernetesVersion is greater than or equal to $global:MinimalKubernetesVersionWithLatestContainerd so the latest containerd version $containerdPackage is used"
-    } else {
-      Write-Log "Kubernetes version $KubernetesVersion is less than $global:MinimalKubernetesVersionWithLatestContainerd so the stable containerd version $containerdPackage is used"
     }
+    Write-Log "Resolved containerd pacakge version: $containerdPackage"
     $ContainerdUrl = $ContainerdUrl + $containerdPackage
   }
   Logs-To-Event -TaskName "AKS.WindowsCSE.InstallContainerd" -TaskMessage "Start to install ContainerD. ContainerdUrl: $ContainerdUrl"
