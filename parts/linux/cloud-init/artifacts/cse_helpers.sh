@@ -136,6 +136,8 @@ ERR_LOCALDNS_BINARY_ERR=219 # Localdns binary not found or not executable.
 
 ERR_SECURE_TLS_BOOTSTRAP_START_FAILURE=220 # Error starting the secure TLS bootstrap systemd service
 
+ERR_CLOUD_INIT_FAILED=223 # Error indicating that cloud-init returned exit code 1 in cse_cmd.sh
+
 # For both Ubuntu and Mariner, /etc/*-release should exist.
 # For unit tests, the OS and OS_VERSION will be set in the unit test script.
 # So whether it's if or else actually doesn't matter to our unit test.
