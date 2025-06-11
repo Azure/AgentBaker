@@ -160,7 +160,7 @@ func Test_Windows2019CachingRegression(t *testing.T) {
 			VHD:             config.VHDWindows2019Containerd,
 			VMConfigMutator: EmptyVMConfigMutator,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.CloudSpecConfig.KubernetesSpecConfig.CseScriptsPackageURL = "https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-v0.0.52.zip"
+				nbc.ContainerService.Properties.WindowsProfile.CseScriptsPackageURL = "https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-v0.0.52.zip"
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "CSEScriptsPackageUrl is https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-v0.0.52.zip")
