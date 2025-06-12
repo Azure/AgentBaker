@@ -19,7 +19,9 @@ func ensureTestPodRunning(ctx context.Context, s *Scenario, testPod *corev1.Pod)
 
 func ValidatePodRunning(ctx context.Context, s *Scenario) {
 	if s.VHD.OS == config.OSWindows {
-		ensureTestPodRunning(ctx, s, podNanoServerWindows(s))
+		//serverCorePods := getExpectedContainerImagesWindows(s.T, "mcr.microsoft.com/windows/servercore:*", s.VHD.Version)
+		//nanoServerPods := getExpectedContainerImagesWindows(s.T, "mcr.microsoft.com/windows/nanoserver:*", s.VHD.Version)
+		ensureTestPodRunning(ctx, s, podWindows(s, "nanoserver", "mcr.microsoft.com/windows/nanoserver:latest"))
 	} else {
 		ensureTestPodRunning(ctx, s, podHTTPServerLinux(s))
 	}
