@@ -270,6 +270,48 @@ func getExpectedPackageVersions(packageName, distro, release string) []string {
 	return expectedVersions
 }
 
+func getExpectedContainerImagesWindows(containerName string, windowsVersion string) []string {
+	var expectedVersions []string
+	// since we control this json, we assume its going to be properly formatted here
+	jsonBytes, _ := os.ReadFile("../parts/common/components.json")
+
+	containerImages := gjson.GetBytes(jsonBytes, "ContainerImages") //fmt.Sprintf("ContainerImages", containerName))
+
+	for _, containerImage := range containerImages.Array() {
+		imageDownloadUrl := containerImage.Get("downloadURL").String()
+		if strings.EqualFold(imageDownloadUrl, containerName) {
+			packages := containerImage.Get("windowsVersions")
+			//t.Logf("got packages: %s", packages.String())
+
+			for _, packageItem := range packages.Array() {
+				// check if versionsV2 exists
+				if packageItem.Get("windowsSkuMatch").Exists() {
+					windowsSkuMatch := packageItem.Get("windowsSkuMatch").String()
+					matched, err := filepath.Match(windowsSkuMatch, windowsVersion)
+					if matched && err == nil {
+
+						// get versions.latestVersion and append to expectedVersions
+						expectedVersions = append(expectedVersions, packageItem.Get("latestVersion").String())
+						// get versions.previousLatestVersion (if exists) and append to expectedVersions
+						if packageItem.Get("previousLatestVersion").Exists() {
+							expectedVersions = append(expectedVersions, packageItem.Get("previousLatestVersion").String())
+						}
+					}
+				} else {
+					// get versions.latestVersion and append to expectedVersions
+					expectedVersions = append(expectedVersions, packageItem.Get("latestVersion").String())
+					// get versions.previousLatestVersion (if exists) and append to expectedVersions
+					if packageItem.Get("previousLatestVersion").Exists() {
+						expectedVersions = append(expectedVersions, packageItem.Get("previousLatestVersion").String())
+					}
+				}
+			}
+		}
+	}
+
+	return expectedVersions
+}
+
 func getCustomScriptExtensionStatus(ctx context.Context, s *Scenario) error {
 	pager := config.Azure.VMSSVM.NewListPager(*s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, nil)
 	for pager.More() {

@@ -529,17 +529,17 @@ func podHTTPServerLinux(s *Scenario) *corev1.Pod {
 	}
 }
 
-func podNanoServerWindows(s *Scenario) *corev1.Pod {
+func podWindows(s *Scenario, podName string, imageName string) *corev1.Pod {
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-test-nanoserver-pod", s.Runtime.KubeNodeName),
+			Name:      fmt.Sprintf("%s-test-%s-pod", s.Runtime.KubeNodeName, podName),
 			Namespace: "default",
 		},
 		Spec: corev1.PodSpec{
 			Containers: []corev1.Container{
 				{
-					Name:  "iis-container",
-					Image: "mcr.microsoft.com/windows/nanoserver:latest",
+					Name:  podName,
+					Image: imageName,
 				},
 			},
 			NodeSelector: map[string]string{
