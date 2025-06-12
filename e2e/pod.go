@@ -3,6 +3,7 @@ package e2e
 import (
 	"context"
 	"fmt"
+	"github.com/Azure/agentbaker/e2e/toolkit"
 	"strings"
 	"testing"
 	"time"
@@ -35,8 +36,7 @@ func ensurePod(ctx context.Context, s *Scenario, pod *corev1.Pod) {
 	require.NoErrorf(s.T, err, "failed to wait for pod %q to be in running state", pod.Name)
 
 	timeForReady := time.Since(start)
-	fmt.Printf("##vso[task.logissue type=information;]Time for pod %q to get ready was %s\n", pod.Name, timeForReady)
-
+	toolkit.LogDuration(timeForReady, time.Minute, fmt.Sprintf("Time for pod %q to get ready was %s\n", pod.Name, timeForReady))
 }
 
 func truncatePodName(t *testing.T, pod *corev1.Pod) {

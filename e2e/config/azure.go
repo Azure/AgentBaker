@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"github.com/Azure/agentbaker/e2e/toolkit"
 	"net"
 	"net/http"
 	"os"
@@ -447,13 +448,13 @@ func (a *AzureClient) ensureReplication(ctx context.Context, t *testing.T, image
 		t.Logf("Image version %s is already in region to region %s", *version.ID, Config.Location)
 		return nil
 	}
-	t.Logf("##vso[task.logissue type=information;]Replicating to region %s: image version %s", Config.Location, *version.ID)
+	t.Logf("##vso[task.logissue type=warning;]Replicating to region %s: image version %s", Config.Location, *version.ID)
 
 	start := time.Now() // Record the start time
 	err := a.replicateImageVersionToCurrentRegion(ctx, image, version)
 	elapsed := time.Since(start) // Calculate the elapsed time
 
-	fmt.Printf("##vso[task.logissue type=warning;]Replication took: %s (%s)\n", elapsed, *version.ID)
+	toolkit.LogDuration(elapsed, 3*time.Minute, fmt.Sprintf("Replication took: %s (%s)\n", elapsed, *version.ID))
 
 	return err
 }
