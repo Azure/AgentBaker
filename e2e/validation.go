@@ -13,12 +13,12 @@ import (
 )
 
 func ValidatePodRunning(ctx context.Context, s *Scenario) {
-	testPod := func() *corev1.Pod {
-		if s.VHD.OS == config.OSWindows {
-			return podNanoServerWindows(s)
-		}
-		return podHTTPServerLinux(s)
-	}()
+	var testPod *corev1.Pod
+	if s.VHD.OS == config.OSWindows {
+		testPod = podNanoServerWindows(s)
+	} else {
+		testPod = podHTTPServerLinux(s)
+	}
 	ensurePod(ctx, s, testPod)
 	s.T.Logf("node health validation: test pod %q is running on node %q", testPod.Name, s.Runtime.KubeNodeName)
 }
