@@ -1,5 +1,7 @@
 #!/bin/bash
 set -euo pipefail
+# Don't echo commands to the console, as this will cause Azure DevOps to do odd things with setvariable.
+set +x
 
 # This script builds a windows VHD. It has the following steps:
 # 1. Validate the source branch. Releasable VHDs must be created from branches with the right name: windows/vYYYYMMDD
