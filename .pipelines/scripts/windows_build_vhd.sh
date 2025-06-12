@@ -66,12 +66,12 @@ export MODE="windowsVhdMode"
 echo "Set build mode to $MODE"
 echo "##vso[task.setvariable variable=MODE]$MODE"
 
-echo "Original SIG_GALLERY_NAME: ${SIG_GALLERY_NAME}"
-echo "Original SIG_IMAGE_NAME_PREFIX: ${SIG_IMAGE_NAME_PREFIX}"
-echo "Original SIG_IMAGE_VERSION: ${SIG_IMAGE_VERSION}"
+echo "Original SIG_GALLERY_NAME: ${SIG_GALLERY_NAME:-}"
+echo "Original SIG_IMAGE_NAME_PREFIX: ${SIG_IMAGE_NAME_PREFIX:-}"
+echo "Original SIG_IMAGE_VERSION: ${SIG_IMAGE_VERSION:-}"
 
 # -n is "not empty"
-if [ -n "${SIG_GALLERY_NAME}" ] && [ -n "${SIG_IMAGE_NAME_PREFIX}" ] && [ -n "${SIG_IMAGE_VERSION}" ]; then
+if [ -n "${SIG_GALLERY_NAME:-}" ] && [ -n "${SIG_IMAGE_NAME_PREFIX:-}" ] && [ -n "${SIG_IMAGE_VERSION:-}" ]; then
     echo "All of Name, Prefix, and Version have been set"
     export SIG_IMAGE_NAME="${SIG_IMAGE_NAME_PREFIX}-${WINDOWS_SKU}"
 else
