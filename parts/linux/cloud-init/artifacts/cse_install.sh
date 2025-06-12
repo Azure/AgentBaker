@@ -789,6 +789,14 @@ retagContainerImage() {
     fi
 }
 
+labelContainerImage() {
+    CONTAINER_IMAGE_URL=$1
+    LABEL_KEY=$2
+    LABEL_VALUE=$3
+    echo "labeling image ${CONTAINER_IMAGE_URL} with ${LABEL_KEY}=${LABEL_VALUE} using ctr"
+    ctr --namespace k8s.io image label $CONTAINER_IMAGE_URL $LABEL_KEY=$LABEL_VALUE
+}
+
 retagMCRImagesForChina() {
     if [ "${CONTAINER_RUNTIME}" = "containerd" ]; then
         # shellcheck disable=SC2016
