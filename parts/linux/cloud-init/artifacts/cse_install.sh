@@ -790,6 +790,7 @@ retagContainerImage() {
 }
 
 labelContainerImage() {
+    # ctr must be used to label container images, as docker and crictl do not support labeling.
     CONTAINER_IMAGE_URL=$1
     LABEL_KEY=$2
     LABEL_VALUE=$3
