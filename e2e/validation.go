@@ -12,19 +12,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-func ensureTestPodRunning(ctx context.Context, s *Scenario, testPod *corev1.Pod) {
+func ValidatePodRunning(ctx context.Context, s *Scenario, testPod *corev1.Pod) {
 	ensurePod(ctx, s, testPod)
 	s.T.Logf("node health validation: test pod %q is running on node %q", testPod.Name, s.Runtime.KubeNodeName)
-}
-
-func ValidatePodRunning(ctx context.Context, s *Scenario) {
-	if s.VHD.OS == config.OSWindows {
-		//serverCorePods := getExpectedContainerImagesWindows(s.T, "mcr.microsoft.com/windows/servercore:*", s.VHD.Version)
-		//nanoServerPods := getExpectedContainerImagesWindows(s.T, "mcr.microsoft.com/windows/nanoserver:*", s.VHD.Version)
-		ensureTestPodRunning(ctx, s, podWindows(s, "nanoserver", "mcr.microsoft.com/windows/nanoserver:latest"))
-	} else {
-		ensureTestPodRunning(ctx, s, podHTTPServerLinux(s))
-	}
 }
 
 func ValidateWASM(ctx context.Context, s *Scenario, nodeName string) {
