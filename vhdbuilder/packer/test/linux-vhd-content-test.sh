@@ -399,7 +399,7 @@ testImagesCompleted() {
   fi
 
   # Check if there are any incomplete images
-  if [ -n $incompleteImages ]; then
+  if [ -n "$incompleteImages" ]; then
     err $test "Incomplete images found: $incompleteImages"
     return
   fi
@@ -419,7 +419,7 @@ testPodSandboxImagePinned() {
   fi
 
   # Check if the pod sandbox image is pinned
-  if [ -z $pinnedImages ]; then
+  if [ -z "$pinnedImages" ]; then
     pauseImage=$(ctr -n k8s.io images ls | grep pause)
     err $test "Pod sandbox image is not pinned to a specific version: $pauseImage"
     return
