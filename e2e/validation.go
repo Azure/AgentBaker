@@ -15,7 +15,7 @@ import (
 func ValidatePodRunning(ctx context.Context, s *Scenario) {
 	testPod := func() *corev1.Pod {
 		if s.VHD.OS == config.OSWindows {
-			return podNanoserverWindows(s)
+			return podNanoServerWindows(s)
 		}
 		return podHTTPServerLinux(s)
 	}()
