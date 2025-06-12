@@ -221,8 +221,36 @@ func maybeSkipScenario(ctx context.Context, t *testing.T, s *Scenario) {
 	t.Logf("VHD: %q, TAGS %+v", vhd, s.Tags)
 }
 
+func getWindowsEnvVarForName(vhd *config.Image) string {
+	return strings.TrimPrefix(vhd.Name, "windows-")
+}
+
+func getServercoreImagesForVHD(vhd *config.Image) []string {
+	return getContainerImages("mcr.microsoft.com/windows/servercore:*", getWindowsEnvVarForName(vhd))
+}
+
+func getNanoserverImagesForVhd(vhd *config.Image) []string {
+	return getContainerImages("mcr.microsoft.com/windows/nanoserver:*", getWindowsEnvVarForName(vhd))
+}
+
+func validateNodeCanRunAPod(ctx context.Context, s *Scenario) {
+	if s.VHD.OS == config.OSWindows {
+		serverCorePods := getServercoreImagesForVHD(s.VHD)
+		for i, pod := range serverCorePods {
+			ValidatePodRunning(ctx, s, podWindows(s, fmt.Sprintf("servercore%s", i), pod))
+		}
+
+		nanoServerPods := getNanoserverImagesForVhd(s.VHD)
+		for i, pod := range nanoServerPods {
+			ValidatePodRunning(ctx, s, podWindows(s, fmt.Sprintf("nanoserver%s", i), pod))
+		}
+	} else {
+		ValidatePodRunning(ctx, s, podHTTPServerLinux(s))
+	}
+}
+
 func validateVM(ctx context.Context, s *Scenario) {
-	ValidatePodRunning(ctx, s)
+	validateNodeCanRunAPod(ctx, s)
 
 	// skip when outbound type is block as the wasm will create pod from gcr, however, network isolated cluster scenario will block egress traffic of gcr.
 	// TODO(xinhl): add another way to validate
@@ -270,7 +298,21 @@ func getExpectedPackageVersions(packageName, distro, release string) []string {
 	return expectedVersions
 }
 
-func getExpectedContainerImagesWindows(containerName string, windowsVersion string) []string {
+func Map[T, U any](ts []T, f func(T) U) []U {
+	us := make([]U, len(ts))
+	for i := range ts {
+		us[i] = f(ts[i])
+	}
+	return us
+}
+
+func getContainerImages(containerName string, windowsVersion string) []string {
+	return Map(getContainerImageTags(containerName, windowsVersion), func(tag string) string {
+		return strings.Replace(containerName, "*", tag, 1)
+	})
+}
+
+func getContainerImageTags(containerName string, windowsVersion string) []string {
 	var expectedVersions []string
 	// since we control this json, we assume its going to be properly formatted here
 	jsonBytes, _ := os.ReadFile("../parts/common/components.json")
