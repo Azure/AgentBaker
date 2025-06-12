@@ -132,11 +132,11 @@ if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]] && ! gre
       echo "LTS kernel is available for ${UBUNTU_RELEASE}, proceeding with purging current kernel and installing LTS kernel..."
 
       # Purge all current kernels and dependencies
-      DEBIAN_FRONTEND=noninteractive apt-get remove --purge -y $(dpkg-query -W 'linux-*azure*' | awk '$2 != "" { print $1 }' | paste -s)
+      DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=60 remove --purge -y $(dpkg-query -W 'linux-*azure*' | awk '$2 != "" { print $1 }' | paste -s)
       echo "After purging kernel, dpkg list should be empty"; dpkg -l 'linux-*azure*'
 
       # Install LTS kernel
-      DEBIAN_FRONTEND=noninteractive apt-get install -y "$LTS_KERNEL" "$LTS_TOOLS" "$LTS_CLOUD_TOOLS" "$LTS_HEADERS" "$LTS_MODULES"
+      DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=60 install -y "$LTS_KERNEL" "$LTS_TOOLS" "$LTS_CLOUD_TOOLS" "$LTS_HEADERS" "$LTS_MODULES"
       echo "After installing new kernel, here is a list of kernels/headers installed:"; dpkg -l 'linux-*azure*'
   else
       echo "LTS kernel for Ubuntu ${UBUNTU_RELEASE} is not available. Skipping purging and subsequent installation."

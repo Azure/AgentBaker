@@ -39,7 +39,7 @@ LOCAL_GIT_BRANCH=${GIT_BRANCH//\//-}
 
 # Git is not present in the base image, so we need to install it.
 if [ "$OS_SKU" = "Ubuntu" ]; then
-  sudo DEBIAN_FRONTEND=noninteractive apt-get install -y git
+  sudo DEBIAN_FRONTEND=noninteractive apt-get install -y git -o DPkg::Lock::Timeout=60
 else
   sudo tdnf install -y git
 fi

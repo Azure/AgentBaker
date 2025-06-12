@@ -8,7 +8,7 @@ source parts/linux/cloud-init/artifacts/ubuntu/cse_helpers_ubuntu.sh
 wait_for_apt_locks
 AZ_VER_REQUIRED=2.70.0
 AZ_DIST=$(lsb_release -cs)
-sudo apt-get install azure-cli=${AZ_VER_REQUIRED}-1~${AZ_DIST} -y --allow-downgrades
+sudo apt-get -o DPkg::Lock::Timeout=60 install azure-cli=${AZ_VER_REQUIRED}-1~${AZ_DIST} -y --allow-downgrades
 AZ_VER_ACTUAL=$(az --version | head -n 1 | awk '{print $2}')
 if [ "$AZ_VER_ACTUAL" != "$AZ_VER_REQUIRED" ]; then
 	echo -e "Required Azure CLI Version: $AZ_VER_REQUIRED\nActual Azure CLI Version: $AZ_VER_ACTUAL"

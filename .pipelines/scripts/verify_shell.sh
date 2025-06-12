@@ -14,7 +14,7 @@ if [ "${installed}" -ne 0 ]; then
         DISTRO="$(grep ^ID= < /etc/os-release | cut -d= -f2)"
     fi
     if [ "${DISTRO}" = "ubuntu" ]; then
-        sudo apt-get install shellcheck -y
+        sudo apt-get install shellcheck -y -o DPkg::Lock::Timeout=60
     elif [ "${DISTRO}" = "darwin" ]; then
         brew install cabal-install shellcheck
     else 

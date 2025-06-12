@@ -23,18 +23,18 @@ if [ $OS = $UBUNTU_OS_NAME ]; then
   current_kernel="$(uname -r | cut -d- -f-2)"
   # shellcheck disable=SC3010
   if [[ "${ENABLE_FIPS,,}" == "true" ]]; then
-    dpkg --get-selections | grep -e "linux-\(headers\|modules\|image\)" | grep -v "$current_kernel" | grep -v "fips" | tr -s '[[:space:]]' | tr '\t' ' ' | cut -d' ' -f1 | xargs -I{} apt-get --purge remove -yq {}
+    dpkg --get-selections | grep -e "linux-\(headers\|modules\|image\)" | grep -v "$current_kernel" | grep -v "fips" | tr -s '[[:space:]]' | tr '\t' ' ' | cut -d' ' -f1 | xargs -I{} apt-get -o DPkg::Lock::Timeout=60 --purge remove -yq {}
   else
-    dpkg --get-selections | grep -e "linux-\(headers\|modules\|image\)" | grep -v "linux-\(headers\|modules\|image\)-azure" | grep -v "$current_kernel" | tr -s '[[:space:]]' | tr '\t' ' ' | cut -d' ' -f1 | xargs -I{} apt-get --purge remove -yq {}
+    dpkg --get-selections | grep -e "linux-\(headers\|modules\|image\)" | grep -v "linux-\(headers\|modules\|image\)-azure" | grep -v "$current_kernel" | tr -s '[[:space:]]' | tr '\t' ' ' | cut -d' ' -f1 | xargs -I{} apt-get -o DPkg::Lock::Timeout=60 --purge remove -yq {}
   fi
 
   # remove apport
-  retrycmd_if_failure 10 2 60 apt-get purge --auto-remove apport open-vm-tools -y || exit 1
+  retrycmd_if_failure 10 2 60 apt-get p-o DPkg::Lock::Timeout=60 urge --auto-remove apport open-vm-tools -y || exit 1
 
   # strip old kernels/packages
-  retrycmd_if_failure 10 2 60 apt-get -y autoclean || exit 1
-  retrycmd_if_failure 10 2 60 apt-get -y autoremove --purge || exit 1
-  retrycmd_if_failure 10 2 60 apt-get -y clean || exit 1
+  retrycmd_if_failure 10 2 60 apt-get -o DPkg::Lock::Timeout=60 -y autoclean || exit 1
+  retrycmd_if_failure 10 2 60 apt-get -o DPkg::Lock::Timeout=60 -y autoremove --purge || exit 1
+  retrycmd_if_failure 10 2 60 apt-get -o DPkg::Lock::Timeout=60 -y clean || exit 1
   capture_benchmark "${SCRIPT_NAME}_purge_ubuntu_kernels_and_packages"
 
   # Final step, if 18.04 or FIPS, log ua status, detach UA and clean up
