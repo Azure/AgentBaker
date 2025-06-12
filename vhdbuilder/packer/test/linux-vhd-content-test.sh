@@ -387,6 +387,47 @@ testImagesPulled() {
   echo "$test:Finish"
 }
 
+testImagesCompleted() {
+  test="testImagesCompleted"
+  echo "$test:Start"
+  containerRuntime=$1
+  if [ $containerRuntime = 'containerd' ]; then
+    incompleteImages=$(ctr -n k8s.io image check | grep "incomplete")
+  else
+    err $test "unsupported container runtime $containerRuntime"
+    return
+  fi
+
+  # Check if there are any incomplete images
+  if [[ -n "$incompleteImages" ]]; then
+    err $test "Incomplete images found: $incompleteImages"
+    return
+  fi
+
+  echo "$test:Finish"
+}
+
+testPodSandboxImagePinned() {
+  test="testPodSandboxImagePinned"
+  echo "$test:Start"
+  containerRuntime=$1
+  if [ $containerRuntime = 'containerd' ]; then
+    pinnedImages=$(ctr -n k8s.io image ls | grep pinned)
+  else
+    err $test "unsupported container runtime $containerRuntime"
+    return
+  fi
+
+  # Check if the pod sandbox image is pinned
+  if [[ -z $pinnedImages ]]; then
+    pauseImage=$(ctr -n k8s.io images ls | grep pause)
+    err $test "Pod sandbox image is not pinned to a specific version: $pauseImage"
+    return
+  fi
+
+  echo "$test:Finish"
+}
+
 # check all the mcr images retagged for mooncake
 testImagesRetagged() {
   containerRuntime=$1
@@ -1491,6 +1532,8 @@ testVHDBuildLogsExist
 testCriticalTools
 testPackagesInstalled $CONTAINER_RUNTIME
 testImagesPulled $CONTAINER_RUNTIME "$(cat $COMPONENTS_FILEPATH)"
+testImagesCompleted $CONTAINER_RUNTIME
+testPodSandboxImagePinned $CONTAINER_RUNTIME
 testChrony $OS_SKU
 testAuditDNotPresent
 testFips $OS_VERSION $ENABLE_FIPS
