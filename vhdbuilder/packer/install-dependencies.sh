@@ -561,15 +561,16 @@ retagAKSNodeCAWatcher() {
   # may be intercepted by an untrusted TLS MITM firewall.
   watcherStaticImg=${watcherBaseImg//\*/static}
 
-  # can't use cliTool because crictl doesn't support retagging.
+  # can't use $cliTool variable because crictl doesn't support retagging.
   retagContainerImage "ctr" ${watcherFullImg} ${watcherStaticImg}
 }
 retagAKSNodeCAWatcher
 capture_benchmark "${SCRIPT_NAME}_retag_aks_node_ca_watcher"
 
 pinPodSandboxImage() {
-  # This function pins the pod sandbox image to avoid he GC from removing it.
+  # This function pins the pod sandbox image to avoid Kubelet's Garbage Collector (GC) from removing it.
   # This is achieved by setting the "io.cri-containerd.pinned" label on the image with a value of "pinned".
+  # This image is critical for pod startup and it isn't supported with private ACR since containerd won't be using azure-acr-credential to fetch it.
 
   podSandbox=$(jq '.ContainerImages[] | select(.downloadURL | contains("pause"))' $COMPONENTS_FILEPATH)
   podSandboxBaseImg=$(echo $podSandbox | jq -r .downloadURL)
