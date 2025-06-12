@@ -35,7 +35,7 @@ func ensurePod(ctx context.Context, s *Scenario, pod *corev1.Pod) {
 	require.NoErrorf(s.T, err, "failed to wait for pod %q to be in running state", pod.Name)
 
 	timeForReady := time.Since(start)
-	fmt.Printf("##vso[task.logissue type=warning;]Time for pod %q to get ready was %s\n", pod.Name, timeForReady)
+	fmt.Printf("##vso[task.logissue type=information;]Time for pod %q to get ready was %s\n", pod.Name, timeForReady)
 
 }
 
