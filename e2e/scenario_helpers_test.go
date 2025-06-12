@@ -1,16 +1,19 @@
 package e2e
 
 import (
+	"archive/zip"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 	"syscall"
 	"testing"
 	"time"
@@ -345,4 +348,118 @@ func parseLinuxCSEMessage(status armcompute.InstanceViewStatus) (*datamodel.CSES
 		return nil, fmt.Errorf("CSE Json does not contain exit code, raw CSE Message: %s", *status.Message)
 	}
 	return &cseStatus, nil
+}
+
+var uploadWindowsCSEOnce sync.Once
+var windowsCSEURL string
+var windowsCSEErr error
+
+func windowsScripts(ctx context.Context, t *testing.T) string {
+	uploadWindowsCSEOnce.Do(func() {
+		windowsCSEURL, windowsCSEErr = uploadWindowsScripts(ctx)
+	})
+	require.NoError(t, windowsCSEErr)
+	return windowsCSEURL
+}
+
+func uploadWindowsScripts(ctx context.Context) (string, error) {
+	blobName := time.Now().UTC().Format("2006-01-02-15-04-05") + "-windows-cse.zip"
+	zipFile, err := zipWindowsScripts()
+	if err != nil {
+		return "", err
+	}
+	url, err := config.Azure.UploadAndGetSignedLink(ctx, blobName, zipFile)
+	if err != nil {
+		return "", err
+	}
+	return url, nil
+}
+
+// zipWindowsScripts creates a zip archive of the sourceFolder in a temporary directory, excluding specified patterns.
+// It returns an open *os.File pointing to the created archive.
+func zipWindowsScripts() (*os.File, error) {
+	sourceFolder := "../staging/cse/windows"
+	excludePatterns := []string{
+		"*.tests.ps1",
+		"*azurecnifunc.tests.suites*",
+		"README",
+		"provisioningscripts/*.md",
+		"debug/update-scripts.ps1",
+	}
+
+	shouldExclude := func(path string) bool {
+		for _, pattern := range excludePatterns {
+			if matched, _ := filepath.Match(pattern, path); matched {
+				return true
+			}
+		}
+		return false
+	}
+
+	// Create a temporary file in the system's temporary directory
+	zipFile, err := os.CreateTemp("", "archive-*.zip")
+	if err != nil {
+		return nil, err
+	}
+
+	zipWriter := zip.NewWriter(zipFile)
+	defer func() {
+		zipWriter.Close() // Ensure resources are cleaned up if the function exits early
+		if err != nil {
+			zipFile.Close()
+			os.Remove(zipFile.Name()) // Clean up the file if there’s an error
+		}
+	}()
+
+	err = filepath.WalkDir(sourceFolder, func(path string, d os.DirEntry, err error) error {
+		if err != nil || shouldExclude(path) {
+			return err
+		}
+
+		relPath, _ := filepath.Rel(sourceFolder, path) // Relative path within zip
+		if d.IsDir() {
+			relPath += "/"
+		}
+
+		info, err := d.Info()
+		if err != nil {
+			return err
+		}
+
+		header, err := zip.FileInfoHeader(info)
+		if err != nil {
+			return err
+		}
+		header.Name = relPath
+		header.Method = zip.Deflate
+
+		writer, err := zipWriter.CreateHeader(header)
+		if err != nil || d.IsDir() {
+			return err
+		}
+
+		file, err := os.Open(path)
+		if err != nil {
+			return err
+		}
+		defer file.Close()
+
+		_, err = io.Copy(writer, file)
+		return err
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Close the zip writer before returning the file
+	zipWriter.Close()
+
+	// Seek to the start of the file so it can be read if needed
+	if _, err = zipFile.Seek(0, io.SeekStart); err != nil {
+		zipFile.Close()
+		return nil, err
+	}
+
+	return zipFile, nil
 }
