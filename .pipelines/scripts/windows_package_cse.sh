@@ -1,5 +1,7 @@
 #!/bin/bash
-set -euox pipefail
+set -euo pipefail
+# Don't echo commands to the console, as this will cause Azure DevOps to do odd things with setvariable.
+set +x
 
 # This script packages the CSE for Windows into a zip file.
 

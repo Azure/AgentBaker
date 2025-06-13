@@ -1,8 +1,10 @@
 package toolkit
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
+	"time"
 )
 
 func StrToBoolMap(str string) map[string]bool {
@@ -24,4 +26,13 @@ func StrToInt32(s string) int32 {
 		panic(err)
 	}
 	return int32(i)
+}
+
+func LogDuration(duration time.Duration, warningDuration time.Duration, message string) {
+	if duration > warningDuration {
+		fmt.Printf("##vso[task.logissue type=warning;]", message)
+	} else {
+		fmt.Print(message)
+	}
+
 }

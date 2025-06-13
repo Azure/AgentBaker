@@ -28,6 +28,7 @@ go version
 export LOGGING_DIR="scenario-logs-$(date +%s)"
 echo "setting logging dir to $LOGGING_DIR"
 # tell DevOps to set the variable so later pipeline steps can use it.
+
 echo "##vso[task.setvariable variable=LOGGING_DIR]$LOGGING_DIR"
 # make sure the logging directory exists
 mkdir -p "${DefaultWorkingDirectory}/e2e/${LOGGING_DIR}"
