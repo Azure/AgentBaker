@@ -639,9 +639,9 @@ if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
   apt_get_purge 20 30 120 snapd || exit 1
   apt_get_purge 20 30 120 apache2-utils || exit 1
 
-  apt-get -o DPkg::Lock::Timeout=60 -y autoclean || exit 1
-  apt-get -o DPkg::Lock::Timeout=60 -y autoremove --purge || exit 1
-  apt-get -o DPkg::Lock::Timeout=60 -y clean || exit 1
+  apt-get -y autoclean || exit 1
+  apt-get -y autoremove --purge || exit 1
+  apt-get -y clean || exit 1
   # update message-of-the-day to start after multi-user.target
   # multi-user.target usually start at the end of the boot sequence
   sed -i 's/After=network-online.target/After=multi-user.target/g' /lib/systemd/system/motd-news.service
