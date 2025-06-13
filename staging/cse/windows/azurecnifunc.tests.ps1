@@ -42,6 +42,7 @@ Describe 'Set-AzureCNIConfig' {
         $isDualStackEnabled = $False
         $KubeDnsServiceIp = "10.0.0.10"
         $global:IsDisableWindowsOutboundNat = $false
+        $global:IsIMDSRestrictionEnabled = $false
         $global:CiliumDataplaneEnabled = $false
         $global:KubeproxyFeatureGates = @("WinDSR=true")
         $azureCNIConfigFile = [Io.path]::Combine($azureCNIConfDir, "10-azure.conflist")
@@ -50,7 +51,8 @@ Describe 'Set-AzureCNIConfig' {
         function Set-Default-AzureCNI ([string]$fileName) {
             $defaultFile = [Io.path]::Combine($azureCNIConfDir, $fileName)    
             Copy-Item -Path $defaultFile -Destination $azureCNIConfigFile
-        }        # Read Json with the same format (depth = 20) for Json Comparation
+        }       
+
         function Read-Format-Json ([string]$JsonFile) {
             function Sort-ArraysInObject {
                 param(
