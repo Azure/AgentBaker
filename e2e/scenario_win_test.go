@@ -28,7 +28,7 @@ func Test_Windows2019Containerd(t *testing.T) {
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
 				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
 				ValidateCiliumIsNotRunningWindows(ctx, s)
-				ValidateFileHasContent(ctx, s, "/k/test.txt", "this is a test file")
+				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "CSEScriptsPackageUrl used for provision is https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-current.zip")
 			},
 		},
 	})
@@ -70,7 +70,7 @@ func Test_Windows2022ContainerdGen2(t *testing.T) {
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
 				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
 				ValidateCiliumIsNotRunningWindows(ctx, s)
-				ValidateFileHasContent(ctx, s, "/k/test.txt", "this is a test file")
+				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "CSEScriptsPackageUrl used for provision is https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-current.zip")
 			},
 		},
 	})
@@ -112,13 +112,66 @@ func Test_Windows23H2Gen2(t *testing.T) {
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
 				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
 				ValidateCiliumIsNotRunningWindows(ctx, s)
-				ValidateFileHasContent(ctx, s, "/k/test.txt", "this is a test file")
+				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "CSEScriptsPackageUrl used for provision is https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-current.zip")
 			},
 		},
 	})
 }
 
+func Test_Windows23H2Gen2CachingRegression(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Windows 23H2 VHD built before local cache enabled should still work - overwrite the CSE scripts package URL",
+		Config: Config{
+			Cluster:         ClusterAzureNetwork,
+			VHD:             config.VHDWindows23H2Gen2,
+			VMConfigMutator: EmptyVMConfigMutator,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.WindowsProfile.CseScriptsPackageURL = "https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-v0.0.52.zip"
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "CSEScriptsPackageUrl used for provision is https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-v0.0.52.zip")
+			},
+		},
+	})
+}
+
+func Test_Windows2022CachingRegression(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Windows 2022 VHD built before local cache enabled should still work - overwrite the CSE scripts package URL",
+		Config: Config{
+			Cluster:         ClusterAzureNetwork,
+			VHD:             config.VHDWindows2022ContainerdGen2,
+			VMConfigMutator: EmptyVMConfigMutator,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.WindowsProfile.CseScriptsPackageURL = "https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-v0.0.52.zip"
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "CSEScriptsPackageUrl used for provision is https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-v0.0.52.zip")
+			},
+		},
+	})
+}
+
+func Test_Windows2019CachingRegression(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Windows 2019 VHD built before local cache enabled should still work - overwrite the CSE scripts package URL",
+		Config: Config{
+			Cluster:         ClusterAzureNetwork,
+			VHD:             config.VHDWindows2019Containerd,
+			VMConfigMutator: EmptyVMConfigMutator,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.WindowsProfile.CseScriptsPackageURL = "https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-v0.0.52.zip"
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "CSEScriptsPackageUrl used for provision is https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-v0.0.52.zip")
+			},
+		},
+	})
+}
+
+// TODO: enable this test once containerd2 config is properly updated.
 func Test_Windows2025(t *testing.T) {
+	t.Skipf("skipping test for Windows 2025, as it is not supported in production AKS yet. Please update the test once the VHD is available and the config is updated.")
 	RunScenario(t, &Scenario{
 		Description: "Windows Server 2025 with Containerd",
 		Config: Config{
@@ -139,6 +192,7 @@ func Test_Windows2025(t *testing.T) {
 }
 
 func Test_Windows2025Gen2(t *testing.T) {
+	t.Skipf("skipping test for Windows 2025, as it is not supported in production AKS yet. Please update the test once the VHD is available and the config is updated.")
 	RunScenario(t, &Scenario{
 		Description: "Windows Server 2025 with Containerd - hyperv gen 2",
 		Config: Config{
@@ -158,7 +212,6 @@ func Test_Windows2025Gen2(t *testing.T) {
 	})
 }
 
-// TODO: enable this test once production AKS supports Cilium Windows
 func Test_Windows23H2_Cilium2(t *testing.T) {
 	t.Skip("skipping test for Cilium on Windows 23H2, as it is not supported in production AKS yet")
 	RunScenario(t, &Scenario{

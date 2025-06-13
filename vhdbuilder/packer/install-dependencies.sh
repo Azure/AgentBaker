@@ -543,26 +543,49 @@ while IFS= read -r imageToBePulled; do
 done <<< "$ContainerImages"
 echo "Waiting for container image pulls to finish. PID: ${image_pids[@]}"
 wait ${image_pids[@]}
+capture_benchmark "${SCRIPT_NAME}_caching_container_images"
 
-watcher=$(jq '.ContainerImages[] | select(.downloadURL | contains("aks-node-ca-watcher"))' $COMPONENTS_FILEPATH)
-watcherBaseImg=$(echo $watcher | jq -r .downloadURL)
-watcherVersion=$(echo $watcher | jq -r .multiArchVersionsV2[0].latestVersion)
-watcherFullImg=${watcherBaseImg//\*/$watcherVersion}
+retagAKSNodeCAWatcher() {
+  # This function retags the aks-node-ca-watcher image to a static tag
+  # The static tag is used to bootstrap custom CA trust when MCR egress may be intercepted by an untrusted TLS MITM firewall.
+  # The image is never pulled, it is only retagged.
 
-# this image will never get pulled, the tag must be the same across different SHAs.
-# it will only ever be upgraded via node image changes.
-# we do this because the image is used to bootstrap custom CA trust when MCR egress
-# may be intercepted by an untrusted TLS MITM firewall.
-watcherStaticImg=${watcherBaseImg//\*/static}
+  watcher=$(jq '.ContainerImages[] | select(.downloadURL | contains("aks-node-ca-watcher"))' $COMPONENTS_FILEPATH)
+  watcherBaseImg=$(echo $watcher | jq -r .downloadURL)
+  watcherVersion=$(echo $watcher | jq -r .multiArchVersionsV2[0].latestVersion)
+  watcherFullImg=${watcherBaseImg//\*/$watcherVersion}
 
-# can't use cliTool because crictl doesn't support retagging.
-retagContainerImage "ctr" ${watcherFullImg} ${watcherStaticImg}
+  # this image will never get pulled, the tag must be the same across different SHAs.
+  # it will only ever be upgraded via node image changes.
+  # we do this because the image is used to bootstrap custom CA trust when MCR egress
+  # may be intercepted by an untrusted TLS MITM firewall.
+  watcherStaticImg=${watcherBaseImg//\*/static}
+
+  # can't use $cliTool variable because crictl doesn't support retagging.
+  retagContainerImage "ctr" ${watcherFullImg} ${watcherStaticImg}
+}
+retagAKSNodeCAWatcher
+capture_benchmark "${SCRIPT_NAME}_retag_aks_node_ca_watcher"
+
+pinPodSandboxImage() {
+  # This function pins the pod sandbox image to avoid Kubelet's Garbage Collector (GC) from removing it.
+  # This is achieved by setting the "io.cri-containerd.pinned" label on the image with a value of "pinned".
+  # This image is critical for pod startup and it isn't supported with private ACR since containerd won't be using azure-acr-credential to fetch it.
+
+  podSandbox=$(jq '.ContainerImages[] | select(.downloadURL | contains("pause"))' $COMPONENTS_FILEPATH)
+  podSandboxBaseImg=$(echo $podSandbox | jq -r .downloadURL)
+  podSandboxVersion=$(echo $podSandbox | jq -r .multiArchVersionsV2[0].latestVersion)
+  podSandboxFullImg=${podSandboxBaseImg//\*/$podSandboxVersion}
+
+  labelContainerImage ${podSandboxFullImg} "io.cri-containerd.pinned" "pinned"
+}
+pinPodSandboxImage
+capture_benchmark "${SCRIPT_NAME}_pin_pod_sandbox_image"
 
 # IPv6 nftables rules are only available on Ubuntu or Mariner/AzureLinux
 if [ $OS = $UBUNTU_OS_NAME ] || isMarinerOrAzureLinux "$OS"; then
   systemctlEnableAndStart ipv6_nftables 30 || exit 1
 fi
-capture_benchmark "${SCRIPT_NAME}_pull_and_retag_container_images"
 
 mkdir -p /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events
 

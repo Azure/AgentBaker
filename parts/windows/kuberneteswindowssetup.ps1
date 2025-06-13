@@ -226,13 +226,17 @@ try
     # TODO update to use proxy
 
     $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-current.zip"
-    # CSEScriptsPackage is cached on VHD.
-    # RP can use fully qualified URL to download CSE scripts package out of VHD release cycle.
-    # In future, AKS RP only sets the endpoint with the pacakge name, for example, https://acs-mirror.azureedge.net/aks/windows/cse/
+    # CSEScriptsPackage is cached on VHD. Previously the cse package version was managed in components.json, whereas RP set the package URL which is a storage account.
+    # From 2025-06 The CSE packages is eleased on the VHD. RP can use fully qualified URL to download CSE scripts package when required out of VHD release cycle. 
+    # In the transition period, it is important that when deal with older VHD versions, the agentbaker runtime provision script needs to be compatible with the latest known storage account package, 0.0.52.
+    Write-Log "Requested CSEScriptsPackageUrl is $global:CSEScriptsPackageUrl"
     if ($global:CSEScriptsPackageUrl.EndsWith("/")) {
         $search = @()
         if ($global:CacheDir -and (Test-Path $global:CacheDir)) {
-            $search = [IO.Directory]::GetFiles($global:CacheDir, $WindowsCSEScriptsPackageCurrent, [IO.SearchOption]::AllDirectories)
+            $search = [IO.Directory]::GetFiles($global:CacheDir, $WindowsCSEScriptsPackage, [IO.SearchOption]::AllDirectories)
+            # list files in the cache directory. 
+            Write-Log "the directory $global:CacheDir contains the following files:"
+            Get-ChildItem -Path $global:CacheDir | ForEach-Object { Write-Log "  $_" }
         }
  
         if ($search.Count -eq 0) {
@@ -241,9 +245,9 @@ try
         }
         Write-Log "WindowsCSEScriptsPackage is $WindowsCSEScriptsPackage"
         $global:CSEScriptsPackageUrl = $global:CSEScriptsPackageUrl + $WindowsCSEScriptsPackage
-        Write-Log "CSEScriptsPackageUrl is set to $global:CSEScriptsPackageUrl"
     }
-    Write-Log "CSEScriptsPackageUrl is $global:CSEScriptsPackageUrl"
+    Write-Log "CSEScriptsPackageUrl used for provision is $global:CSEScriptsPackageUrl"
+
     # Download CSE function scripts
     Logs-To-Event -TaskName "AKS.WindowsCSE.DownloadAndExpandCSEScriptPackageUrl" -TaskMessage "Start to get CSE scripts. CSEScriptsPackageUrl: $global:CSEScriptsPackageUrl"
     $tempfile = 'c:\csescripts.zip'
