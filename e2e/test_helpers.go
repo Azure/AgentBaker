@@ -7,6 +7,7 @@ import (
 	"fmt"
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Azure/agentbaker/e2e/config"
+	"github.com/Azure/agentbaker/e2e/toolkit"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 	"github.com/barkimedes/go-deepcopy"
@@ -271,16 +272,8 @@ func getExpectedPackageVersions(packageName, distro, release string) []string {
 	return expectedVersions
 }
 
-func Map[T, U any](ts []T, f func(T) U) []U {
-	us := make([]U, len(ts))
-	for i := range ts {
-		us[i] = f(ts[i])
-	}
-	return us
-}
-
 func getWindowsContainerImages(containerName string, windowsVersion string) []string {
-	return Map(getWindowsContainerImageTags(containerName, windowsVersion), func(tag string) string {
+	return toolkit.Map(getWindowsContainerImageTags(containerName, windowsVersion), func(tag string) string {
 		return strings.Replace(containerName, "*", tag, 1)
 	})
 }
