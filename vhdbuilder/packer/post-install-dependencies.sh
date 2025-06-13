@@ -29,7 +29,7 @@ if [ $OS = $UBUNTU_OS_NAME ]; then
   fi
 
   # remove apport
-  retrycmd_if_failure 10 2 60 apt-get p-o DPkg::Lock::Timeout=60 urge --auto-remove apport open-vm-tools -y || exit 1
+  retrycmd_if_failure 10 2 60 apt-get purge --auto-remove apport open-vm-tools -y || exit 1
 
   # strip old kernels/packages
   retrycmd_if_failure 10 2 60 apt-get -y autoclean || exit 1
