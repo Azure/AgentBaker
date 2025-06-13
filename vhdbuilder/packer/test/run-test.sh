@@ -1,14 +1,8 @@
 #!/bin/bash
 set -eux
-
-set
-
 : "${CONTAINTER_BASE_URLS_EXISTING:=false}"
 
 source ./parts/linux/cloud-init/artifacts/cse_benchmark_functions.sh
-
-
-set
 
 PERFORMANCE_DATA_FILE=vhd-build-performance-data.json
 LINUX_SCRIPT_PATH="linux-vhd-content-test.sh"
