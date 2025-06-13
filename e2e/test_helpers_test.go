@@ -8,93 +8,93 @@ import (
 )
 
 func TestImagesAreFullySpecified(t *testing.T) {
-	images := getContainerImages("mcr.microsoft.com/windows/servercore:*", "2025-gen2")
-	tags := getContainerImageTags("mcr.microsoft.com/windows/servercore:*", "2025-gen2")
+	images := getWindowsContainerImages("mcr.microsoft.com/windows/servercore:*", "2025-gen2")
+	tags := getWindowsContainerImageTags("mcr.microsoft.com/windows/servercore:*", "2025-gen2")
 	image := images[0]
 	tag := tags[0]
 	require.Equal(t, fmt.Sprintf("mcr.microsoft.com/windows/servercore:%s", tag), image, "Image does not contain the expected tag")
 }
 
 func TestWs2025Gen2ServerCore(t *testing.T) {
-	serverCoreVersions := getContainerImageTags("mcr.microsoft.com/windows/servercore:*", "2025-gen2")
+	serverCoreVersions := getWindowsContainerImageTags("mcr.microsoft.com/windows/servercore:*", "2025-gen2")
 	t.Logf("found servercore version %v", serverCoreVersions)
 	require.Len(t, serverCoreVersions, 4)
 }
 
 func TestWs2025Gen2Nanoserver(t *testing.T) {
-	serverCoreVersions := getContainerImages("mcr.microsoft.com/windows/nanoserver:*", "2025-gen2")
+	serverCoreVersions := getWindowsContainerImages("mcr.microsoft.com/windows/nanoserver:*", "2025-gen2")
 	t.Logf("found servercore version %v", serverCoreVersions)
 	require.Len(t, serverCoreVersions, 2)
 }
 
 func TestWs2025ServerCore(t *testing.T) {
-	serverCoreVersions := getContainerImages("mcr.microsoft.com/windows/servercore:*", "2025")
+	serverCoreVersions := getWindowsContainerImages("mcr.microsoft.com/windows/servercore:*", "2025")
 	t.Logf("found servercore version %v", serverCoreVersions)
 	require.Len(t, serverCoreVersions, 4)
 }
 
 func TestWs2025Nanoserver(t *testing.T) {
-	serverCoreVersions := getContainerImages("mcr.microsoft.com/windows/nanoserver:*", "2025")
+	serverCoreVersions := getWindowsContainerImages("mcr.microsoft.com/windows/nanoserver:*", "2025")
 	t.Logf("found servercore version %v", serverCoreVersions)
 	require.Len(t, serverCoreVersions, 2)
 }
 
 func TestWs23H2ServerCore(t *testing.T) {
-	serverCoreVersions := getContainerImages("mcr.microsoft.com/windows/servercore:*", "23H2")
+	serverCoreVersions := getWindowsContainerImages("mcr.microsoft.com/windows/servercore:*", "23H2")
 	t.Logf("found servercore version %v", serverCoreVersions)
 	require.Len(t, serverCoreVersions, 2)
 }
 
 func TestWs23H2Nanoserver(t *testing.T) {
-	serverCoreVersions := getContainerImages("mcr.microsoft.com/windows/nanoserver:*", "23H2")
+	serverCoreVersions := getWindowsContainerImages("mcr.microsoft.com/windows/nanoserver:*", "23H2")
 	t.Logf("found servercore version %v", serverCoreVersions)
 	require.Len(t, serverCoreVersions, 1)
 }
 
 func TestWs23H2ServerCoreGen2(t *testing.T) {
-	serverCoreVersions := getContainerImages("mcr.microsoft.com/windows/servercore:*", "23H2-gen2")
+	serverCoreVersions := getWindowsContainerImages("mcr.microsoft.com/windows/servercore:*", "23H2-gen2")
 	t.Logf("found servercore version %v", serverCoreVersions)
 	require.Len(t, serverCoreVersions, 2)
 }
 
 func TestWs23H2NanoserverGen2(t *testing.T) {
-	serverCoreVersions := getContainerImages("mcr.microsoft.com/windows/nanoserver:*", "23H2-gen2")
+	serverCoreVersions := getWindowsContainerImages("mcr.microsoft.com/windows/nanoserver:*", "23H2-gen2")
 	t.Logf("found servercore version %v", serverCoreVersions)
 	require.Len(t, serverCoreVersions, 1)
 }
 
 func TestWs2022ServerCore(t *testing.T) {
-	serverCoreVersions := getContainerImages("mcr.microsoft.com/windows/servercore:*", "2022-containerd")
+	serverCoreVersions := getWindowsContainerImages("mcr.microsoft.com/windows/servercore:*", "2022-containerd")
 	t.Logf("found servercore version %v", serverCoreVersions)
 	require.Len(t, serverCoreVersions, 2)
 }
 
 func TestWs2022Nanoserver(t *testing.T) {
-	serverCoreVersions := getContainerImages("mcr.microsoft.com/windows/nanoserver:*", "2022-containerd")
+	serverCoreVersions := getWindowsContainerImages("mcr.microsoft.com/windows/nanoserver:*", "2022-containerd")
 	t.Logf("found servercore version %v", serverCoreVersions)
 	require.Len(t, serverCoreVersions, 1)
 }
 
 func TestWs2022ServerCoreGen2(t *testing.T) {
-	serverCoreVersions := getContainerImages("mcr.microsoft.com/windows/servercore:*", "2022-containerd-gen2")
+	serverCoreVersions := getWindowsContainerImages("mcr.microsoft.com/windows/servercore:*", "2022-containerd-gen2")
 	t.Logf("found servercore version %v", serverCoreVersions)
 	require.Len(t, serverCoreVersions, 2)
 }
 
 func TestWs2022NanoserverGen2(t *testing.T) {
-	serverCoreVersions := getContainerImages("mcr.microsoft.com/windows/nanoserver:*", "2022-containerd-gen2")
+	serverCoreVersions := getWindowsContainerImages("mcr.microsoft.com/windows/nanoserver:*", "2022-containerd-gen2")
 	t.Logf("found servercore version %v", serverCoreVersions)
 	require.Len(t, serverCoreVersions, 1)
 }
 
 func TestWs2019ServerCore(t *testing.T) {
-	serverCoreVersions := getContainerImages("mcr.microsoft.com/windows/servercore:*", "2019-containerd")
+	serverCoreVersions := getWindowsContainerImages("mcr.microsoft.com/windows/servercore:*", "2019-containerd")
 	t.Logf("found servercore version %v", serverCoreVersions)
 	require.Len(t, serverCoreVersions, 2)
 }
 
 func TestWs2019Nanoserver(t *testing.T) {
-	serverCoreVersions := getContainerImages("mcr.microsoft.com/windows/nanoserver:*", "2019-containerd")
+	serverCoreVersions := getWindowsContainerImages("mcr.microsoft.com/windows/nanoserver:*", "2019-containerd")
 	t.Logf("found servercore version %v", serverCoreVersions)
 	require.Len(t, serverCoreVersions, 1)
 }
