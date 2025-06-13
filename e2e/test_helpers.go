@@ -5,28 +5,60 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/Azure/agentbaker/e2e/toolkit"
-	"log"
-	"os"
-	"testing"
-	"time"
-
+	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Azure/agentbaker/e2e/config"
+	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
+	"github.com/barkimedes/go-deepcopy"
+	"github.com/stretchr/testify/require"
+	"github.com/tidwall/gjson"
+	"os"
+	"os/signal"
+	"path/filepath"
+	"regexp"
+	ctrruntimelog "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"strings"
+	"syscall"
+	"testing"
 )
 
-func TestMain(m *testing.M) {
-	log.Printf("using E2E environment configuration:\n%s\n", config.Config)
-	// clean up logs from previous run
-	if _, err := os.Stat("scenario-logs"); err == nil {
-		_ = os.RemoveAll("scenario-logs")
+// it's important to share context between tests to allow graceful shutdown
+// cancellation signal can be sent before a test starts, without shared context such test will miss the signal
+var testCtx = setupSignalHandler()
+
+// setupSignalHandler handles OS signals to gracefully shutdown the test suite
+func setupSignalHandler() context.Context {
+	ctx, cancel := context.WithCancel(context.Background())
+	ch := make(chan os.Signal, 2)
+	signal.Notify(ch, os.Interrupt, syscall.SIGTERM)
+
+	red := func(text string) string {
+		return "\033[31m" + text + "\033[0m"
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-	defer cancel()
-	err := ensureResourceGroup(ctx)
-	mustNoError(err)
-	_, err = config.Azure.CreateVMManagedIdentity(ctx)
-	mustNoError(err)
-	m.Run()
+
+	go func() {
+		// block until signal is received
+		<-ch
+		fmt.Println(red("Received cancellation signal, gracefully shutting down the test suite. Cancel again to force exit. (Created Azure resources will not be deleted in this case)"))
+		cancel()
+
+		// block until second signal is received
+		<-ch
+		msg := fmt.Sprintf("Received second cancellation signal, forcing exit.\nPlease check https://ms.portal.azure.com/#@microsoft.onmicrosoft.com/resource/subscriptions/%s/resourceGroups/%s/overview and delete any resources created by the test suite", config.Config.SubscriptionID, config.ResourceGroupName)
+		fmt.Println(red(msg))
+		os.Exit(1)
+	}()
+	return ctx
+}
+
+func newTestCtx(t *testing.T) context.Context {
+	if testCtx.Err() != nil {
+		t.Skip("test suite is shutting down")
+	}
+	ctx, cancel := context.WithTimeout(testCtx, config.Config.TestTimeout)
+	t.Cleanup(cancel)
+	return ctx
 }
 
 func mustNoError(err error) {
@@ -113,22 +145,14 @@ func prepareAKSNode(ctx context.Context, s *Scenario) {
 
 	require.NoError(s.T, err)
 
-	start := time.Now() // Record the start time
 	createVMSS(ctx, s)
 
 	err = getCustomScriptExtensionStatus(ctx, s)
 	require.NoError(s.T, err)
-	vmssCreatedAt := time.Now()         // Record the start time
-	creationElapse := time.Since(start) // Calculate the elapsed time
-
 	s.T.Logf("vmss %s creation succeeded", s.Runtime.VMSSName)
 
 	s.Runtime.KubeNodeName = s.Runtime.Cluster.Kube.WaitUntilNodeReady(ctx, s.T, s.Runtime.VMSSName)
-	readyElapse := time.Since(vmssCreatedAt) // Calculate the elapsed time
-	totalElapse := time.Since(start)
 	s.T.Logf("node %s is ready", s.Runtime.VMSSName)
-
-	toolkit.LogDuration(totalElapse, 3*time.Minute, fmt.Sprintf("Node %s took %s to be created and %s to be ready\n", s.Runtime.VMSSName, creationElapse, readyElapse))
 
 	s.Runtime.VMPrivateIP, err = getVMPrivateIPAddress(ctx, s)
 	require.NoError(s.T, err, "failed to get VM private IP address")
