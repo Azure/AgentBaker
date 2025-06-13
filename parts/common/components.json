@@ -678,13 +678,13 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/csi-node-driver-registrar",
-          "latestVersion": "v2.13.0"
+          "latestVersion": "v2.14.0"
         }
       ],
       "windowsVersions": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/csi-node-driver-registrar",
-          "latestVersion": "v2.13.0"
+          "latestVersion": "v2.14.0"
         }
       ]
     },
