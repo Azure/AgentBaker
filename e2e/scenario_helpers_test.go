@@ -226,11 +226,11 @@ func getWindowsEnvVarForName(vhd *config.Image) string {
 }
 
 func getServercoreImagesForVHD(vhd *config.Image) []string {
-	return getContainerImages("mcr.microsoft.com/windows/servercore:*", getWindowsEnvVarForName(vhd))
+	return getWindowsContainerImages("mcr.microsoft.com/windows/servercore:*", getWindowsEnvVarForName(vhd))
 }
 
 func getNanoserverImagesForVhd(vhd *config.Image) []string {
-	return getContainerImages("mcr.microsoft.com/windows/nanoserver:*", getWindowsEnvVarForName(vhd))
+	return getWindowsContainerImages("mcr.microsoft.com/windows/nanoserver:*", getWindowsEnvVarForName(vhd))
 }
 
 func validateNodeCanRunAPod(ctx context.Context, s *Scenario) {
@@ -306,13 +306,14 @@ func Map[T, U any](ts []T, f func(T) U) []U {
 	return us
 }
 
-func getContainerImages(containerName string, windowsVersion string) []string {
-	return Map(getContainerImageTags(containerName, windowsVersion), func(tag string) string {
+func getWindowsContainerImages(containerName string, windowsVersion string) []string {
+	return Map(getWindowsContainerImageTags(containerName, windowsVersion), func(tag string) string {
 		return strings.Replace(containerName, "*", tag, 1)
 	})
 }
 
-func getContainerImageTags(containerName string, windowsVersion string) []string {
+// TODO: expand this logic to support linux container images as well
+func getWindowsContainerImageTags(containerName string, windowsVersion string) []string {
 	var expectedVersions []string
 	// since we control this json, we assume its going to be properly formatted here
 	jsonBytes, _ := os.ReadFile("../parts/common/components.json")
