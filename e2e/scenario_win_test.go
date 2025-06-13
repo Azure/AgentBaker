@@ -169,52 +169,41 @@ func Test_Windows2019CachingRegression(t *testing.T) {
 	})
 }
 
-func Test_Windows23H2Gen2CachingRegression(t *testing.T) {
+func Test_Windows2025(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "Windows 23H2 VHD built before local cache enabled should still work - overwrite the CSE scripts package URL",
+		Description: "Windows Server 2025 with Containerd",
 		Config: Config{
-			Cluster:         ClusterAzureNetwork,
-			VHD:             config.VHDWindows23H2Gen2,
-			VMConfigMutator: EmptyVMConfigMutator,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.CloudSpecConfig.KubernetesSpecConfig.CseScriptsPackageURL = "https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-v0.0.52.zip"
-			},
+			Cluster:                ClusterAzureNetwork,
+			VHD:                    config.VHDWindows2025,
+			VMConfigMutator:        EmptyVMConfigMutator,
+			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
 			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "CSEScriptsPackageUrl is https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-v0.0.52.zip")
+				ValidateWindowsVersionFromWindowsSettings(ctx, s, "2025")
+				ValidateWindowsProductName(ctx, s, "Windows Server 2025 Datacenter")
+				ValidateWindowsDisplayVersion(ctx, s, "24H2")
+				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
+				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
+				ValidateCiliumIsNotRunningWindows(ctx, s)
 			},
 		},
 	})
 }
 
-func Test_Windows2022CachingRegression(t *testing.T) {
+func Test_Windows2025Gen2(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "Windows 2022 VHD built before local cache enabled should still work - overwrite the CSE scripts package URL",
+		Description: "Windows Server 2025 with Containerd - hyperv gen 2",
 		Config: Config{
-			Cluster:         ClusterAzureNetwork,
-			VHD:             config.VHDWindows2022ContainerdGen2,
-			VMConfigMutator: EmptyVMConfigMutator,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.CloudSpecConfig.KubernetesSpecConfig.CseScriptsPackageURL = "https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-v0.0.52.zip"
-			},
+			Cluster:                ClusterAzureNetwork,
+			VHD:                    config.VHDWindows2025Gen2,
+			VMConfigMutator:        EmptyVMConfigMutator,
+			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
 			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "CSEScriptsPackageUrl is https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-v0.0.52.zip")
-			},
-		},
-	})
-}
-
-func Test_Windows2019CachingRegression(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Windows 2019 VHD built before local cache enabled should still work - overwrite the CSE scripts package URL",
-		Config: Config{
-			Cluster:         ClusterAzureNetwork,
-			VHD:             config.VHDWindows2019Containerd,
-			VMConfigMutator: EmptyVMConfigMutator,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.CloudSpecConfig.KubernetesSpecConfig.CseScriptsPackageURL = "https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-v0.0.52.zip"
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "CSEScriptsPackageUrl is https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-v0.0.52.zip")
+				ValidateWindowsVersionFromWindowsSettings(ctx, s, "2025-gen2")
+				ValidateWindowsProductName(ctx, s, "Windows Server 2025 Datacenter")
+				ValidateWindowsDisplayVersion(ctx, s, "24H2")
+				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
+				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
+				ValidateCiliumIsNotRunningWindows(ctx, s)
 			},
 		},
 	})
@@ -241,27 +230,3 @@ func Test_Windows23H2_Cilium2(t *testing.T) {
 		},
 	})
 }
-
-func Test_Windows2025Gen2(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Windows Server 2025 with Containerd - hyperv gen 2",
-		Config: Config{
-			Cluster:                ClusterAzureNetwork,
-			VHD:                    config.VHDWindows2025Gen2,
-			VMConfigMutator:        EmptyVMConfigMutator,
-			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateWindowsVersionFromWindowsSettings(ctx, s, "2025-gen2")
-				ValidateWindowsProductName(ctx, s, "Windows Server 2025 Datacenter")
-				ValidateWindowsDisplayVersion(ctx, s, "24H2")
-				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
-				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
-				ValidateCiliumIsNotRunningWindows(ctx, s)
-				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "CSEScriptsPackageUrl is https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-current.zip")
-				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "Resolved containerd pacakge version: 2.0")
-			},
-		},
-	})
-}
-
-// All 2025 VHDs are built after caching is enabled, we are not testing CSE regression for 2025 VHDs.

@@ -126,7 +126,7 @@ Describe "Install-Containerd" {
   Context "GetContainerdTemplatePath function" {
       # Create a test case for each version we want to test
       $testCases = @(
-          @{ Version = "1.33.0"; WindowsVersion = "ltsc2022"; ExpectedTemplate = "containerdtemplate.toml" }
+          @{ Version = "1.32.0"; WindowsVersion = "ltsc2022"; ExpectedTemplate = "containerdtemplate.toml" }
           @{ Version = "1.28.0"; WindowsVersion = "ltsc2022"; ExpectedTemplate = "containerdtemplate.toml" }
           @{ Version = "1.27.0"; WindowsVersion = "ltsc2022"; ExpectedTemplate = "containerdtemplate.toml" }
       )
@@ -139,7 +139,7 @@ Describe "Install-Containerd" {
       
       # Test cases for Windows test2025 (Windows 2025 preview)
       $test2025TestCases = @(
-          @{ Version = "1.33.0"; WindowsVersion = "test2025"; ExpectedTemplate = "containerd2template.toml" }
+          @{ Version = "1.32.0"; WindowsVersion = "test2025"; ExpectedTemplate = "containerd2template.toml" }
           @{ Version = "1.32.5"; WindowsVersion = "test2025"; ExpectedTemplate = "containerdtemplate.toml" }
       )
       
