@@ -82,8 +82,7 @@ fi
 
 # This variable is used within linux builds to inform which region that packer build itself will be running,
 # and subsequently the region in which the 1ES pool the build is running on is in.
-# Note that this variable is ONLY used for linux builds, windows builds simply use AZURE_LOCATION.
-if [ "$MODE" = "linuxVhdMode" ] && [ -z "${PACKER_BUILD_LOCATION}" ]; then
+if [ -z "${PACKER_BUILD_LOCATION}" ]; then
 	echo "PACKER_BUILD_LOCATION is not set, cannot compute VNET_RG_NAME for packer templates"
 	exit 1
 fi
@@ -490,11 +489,9 @@ if [ -n "${PRIVATE_PACKAGES_URL}" ]; then
 	private_packages_url="${PRIVATE_PACKAGES_URL}"
 fi
 
-# set PACKER_BUILD_LOCATION to the value of AZURE_LOCATION for windows
-# since windows doesn't currently distinguish between the 2.
-# also do this in cases where we're running a linux build in AME (for now)
+# set PACKER_BUILD_LOCATION to the value of AZURE_LOCATION where we're running a linux build in AME (for now)
 # TODO(cameissner): remove conditionals for prod once new pool config has been deployed to AME.
-if [ "$MODE" = "windowsVhdMode" ] || [ "${ENVIRONMENT,,}" = "prod" ]; then
+if [ "${ENVIRONMENT,,}" = "prod" ]; then
 	PACKER_BUILD_LOCATION=$AZURE_LOCATION
 fi
 
