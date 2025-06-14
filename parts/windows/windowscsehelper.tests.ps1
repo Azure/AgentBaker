@@ -140,9 +140,8 @@ Describe "Install-Containerd" {
       # Test cases for Windows test2025 (Windows 2025 preview)
       $test2025TestCases = @(
           @{ Version = "1.32.0"; WindowsVersion = "test2025"; ExpectedTemplate = "containerd2template.toml" }
-          @{ Version = "1.32.5"; WindowsVersion = "test2025"; ExpectedTemplate = "containerdtemplate.toml" }
+          @{ Version = "1.31.5"; WindowsVersion = "test2025"; ExpectedTemplate = "containerdtemplate.toml" }
       )
-      
       It "Should select containerd2template.toml for Windows test2025 with Kubernetes <Version>" -TestCases $test2025TestCases {
           param($Version, $WindowsVersion, $ExpectedTemplate)
           $result = GetContainerdTemplatePath -KubernetesVersion $Version -WindowsVersion $WindowsVersion

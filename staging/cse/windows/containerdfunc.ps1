@@ -1,6 +1,8 @@
 # this is $global to persist across all functions since this is dot-sourced
 $global:ContainerdInstallLocation = "$Env:ProgramFiles\containerd"
 $global:Containerdbinary = (Join-Path $global:ContainerdInstallLocation containerd.exe)
+# The minimum kubernetes version to use containerd 2.x
+$global:MinimalKubernetesVersionWithLatestContainerd2 = "1.32.0"
 
 function RegisterContainerDService {
   Param(
@@ -121,7 +123,7 @@ function GetContainerdTemplatePath {
   
   # For future Windows versions (like test2025), if needed, use containerd2template.toml
   if ($WindowsVersion -eq "test2025") {
-    if (([version]$KubernetesVersion).CompareTo([version]"1.33.0") -ge 0) {
+    if (([version]$KubernetesVersion).CompareTo([version]$global:MinimalKubernetesVersionWithLatestContainerd2) -ge 0) {
       $templatePath = "c:\AzureData\windows\containerd2template.toml"
     }
   }
