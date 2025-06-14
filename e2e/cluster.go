@@ -34,18 +34,21 @@ var (
 	clusterKubenetAirgap           *Cluster
 	clusterKubenetNonAnonAirgap    *Cluster
 	clusterAzureNetwork            *Cluster
+	clusterCiliumNetwork           *Cluster
 
 	clusterLatestKubernetesVersionError error
 	clusterKubenetError                 error
 	clusterKubenetAirgapError           error
 	clusterKubenetNonAnonAirgapError    error
 	clusterAzureNetworkError            error
+	clusterCiliumNetworkError           error
 
 	clusterLatestKubernetesVersionOnce sync.Once
 	clusterKubenetOnce                 sync.Once
 	clusterKubenetAirgapOnce           sync.Once
 	clusterKubenetNonAnonAirgapOnce    sync.Once
 	clusterAzureNetworkOnce            sync.Once
+	clusterCiliumNetworkOnce           sync.Once
 )
 
 type ClusterParams struct {
@@ -119,6 +122,13 @@ func ClusterAzureNetwork(ctx context.Context, t *testing.T) (*Cluster, error) {
 		clusterAzureNetwork, clusterAzureNetworkError = prepareCluster(ctx, t, getAzureNetworkClusterModel("abe2e-azure-network"), false, false)
 	})
 	return clusterAzureNetwork, clusterAzureNetworkError
+}
+
+func ClusterCiliumNetwork(ctx context.Context, t *testing.T) (*Cluster, error) {
+	clusterCiliumNetworkOnce.Do(func() {
+		clusterCiliumNetwork, clusterCiliumNetworkError = prepareCluster(ctx, t, getCiliumNetworkClusterModel("abe2e-cilium-network"), false, false)
+	})
+	return clusterCiliumNetwork, clusterCiliumNetworkError
 }
 
 func prepareCluster(ctx context.Context, t *testing.T, cluster *armcontainerservice.ManagedCluster, isAirgap, isNonAnonymousPull bool) (*Cluster, error) {

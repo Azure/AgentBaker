@@ -425,10 +425,6 @@ fi
 # Call enableLocalDNS to enable localdns if localdns profile has EnableLocalDNS set to true.
 logs_to_events "AKS.CSE.enableLocalDNS" enableLocalDNS || exit $?
 
-if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" = "true" ]; then
-    logs_to_events "AKS.CSE.ensureSecureTLSBootstrapping" ensureSecureTLSBootstrapping
-fi
-
 logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
 
 if [ "${ARTIFACT_STREAMING_ENABLED}" = "true" ]; then

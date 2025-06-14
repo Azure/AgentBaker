@@ -387,6 +387,47 @@ testImagesPulled() {
   echo "$test:Finish"
 }
 
+testImagesCompleted() {
+  test="testImagesCompleted"
+  echo "$test:Start"
+  containerRuntime=$1
+  if [ $containerRuntime = 'containerd' ]; then
+    incompleteImages=$(ctr -n k8s.io image check | grep "incomplete")
+  else
+    err $test "unsupported container runtime $containerRuntime"
+    return
+  fi
+
+  # Check if there are any incomplete images
+  if [ -n "$incompleteImages" ]; then
+    err $test "Incomplete images found: $incompleteImages"
+    return
+  fi
+
+  echo "$test:Finish"
+}
+
+testPodSandboxImagePinned() {
+  test="testPodSandboxImagePinned"
+  echo "$test:Start"
+  containerRuntime=$1
+  if [ $containerRuntime = 'containerd' ]; then
+    pinnedImages=$(ctr -n k8s.io image ls | grep pinned)
+  else
+    err $test "unsupported container runtime $containerRuntime"
+    return
+  fi
+
+  # Check if the pod sandbox image is pinned
+  if [ -z "$pinnedImages" ]; then
+    pauseImage=$(ctr -n k8s.io images ls | grep pause)
+    err $test "Pod sandbox image is not pinned to a specific version: $pauseImage"
+    return
+  fi
+
+  echo "$test:Finish"
+}
+
 # check all the mcr images retagged for mooncake
 testImagesRetagged() {
   containerRuntime=$1
@@ -522,8 +563,8 @@ testLtsKernel() {
   enable_fips=$3
 
   # shellcheck disable=SC3010
-  if [[ "$os_sku" == "Ubuntu" && ${enable_fips,,} != "true" ]]; then
-    echo "OS is Ubuntu and FIPS is not enabled, check LTS kernel version"
+  if [[ "$os_sku" == "Ubuntu" && ${enable_fips,,} != "true" ]] && ! grep -q "cvm" <<< "$FEATURE_FLAGS" ; then
+    echo "OS is Ubuntu, FIPS is not enabled, and this is not a CVM; check LTS kernel version"
     # Check the Ubuntu version and set the expected kernel version
     if [ "$os_version" = "2204" ]; then
       expected_kernel="5.15"
@@ -1491,6 +1532,8 @@ testVHDBuildLogsExist
 testCriticalTools
 testPackagesInstalled $CONTAINER_RUNTIME
 testImagesPulled $CONTAINER_RUNTIME "$(cat $COMPONENTS_FILEPATH)"
+testImagesCompleted $CONTAINER_RUNTIME
+testPodSandboxImagePinned $CONTAINER_RUNTIME
 testChrony $OS_SKU
 testAuditDNotPresent
 testFips $OS_VERSION $ENABLE_FIPS

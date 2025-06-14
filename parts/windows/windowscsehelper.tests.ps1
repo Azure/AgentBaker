@@ -2,6 +2,12 @@ BeforeAll {
   . $PSScriptRoot\windowscsehelper.ps1
   . $PSScriptRoot\..\..\staging\cse\windows\containerdfunc.ps1
   . $PSCommandPath.Replace('.tests.ps1','.ps1')
+
+  $capturedContent = $null
+  Mock Set-Content -MockWith { 
+      param($Path, $Value)
+      $script:capturedContent = $Value 
+  } -Verifiable
 }
 
 Describe 'Install-Containerd-Based-On-Kubernetes-Version' {
@@ -20,29 +26,73 @@ Describe 'Install-Containerd-Based-On-Kubernetes-Version' {
         Write-Host $ContainerdUrl
     } -Verifiable
   }
+  
+  Context 'Windows Server 2022 (ltsc2022)' {
+    # for windows versions other than test2025, containerd version is not changed and should not include containerd2
+    BeforeAll {
+      Mock Get-WindowsVersion -MockWith { return "ltsc2022" }
+    }
 
-  It 'k8s version is less than MinimalKubernetesVersionWithLatestContainerd' {
-    $expectedURL = "https://packages.aks.azure.com/containerd/windows/" + $global:StableContainerdPackage
-    & Install-Containerd-Based-On-Kubernetes-Version -ContainerdUrl "https://packages.aks.azure.com/containerd/windows/" -KubernetesVersion "1.27.0" -CNIBinDir "cniBinPath" -CNIConfDir "cniConfigPath" -KubeDir "kubeDir"
-    Assert-MockCalled -CommandName "Install-Containerd" -Exactly -Times 1 -ParameterFilter { $ContainerdUrl -eq $expectedURL }
+    It 'k8s version is less than MinimalKubernetesVersionWithLatestContainerd' {
+      $expectedURL = "https://packages.aks.azure.com/containerd/windows/" + $global:StableContainerdPackage
+      & Install-Containerd-Based-On-Kubernetes-Version -ContainerdUrl "https://packages.aks.azure.com/containerd/windows/" -KubernetesVersion "1.27.0" -CNIBinDir "cniBinPath" -CNIConfDir "cniConfigPath" -KubeDir "kubeDir"
+      Assert-MockCalled -CommandName "Install-Containerd" -Exactly -Times 1 -ParameterFilter { $ContainerdUrl -eq $expectedURL }
+    }
+
+    It 'k8s version is equal to MinimalKubernetesVersionWithLatestContainerd' {
+      $expectedURL = "https://packages.aks.azure.com/containerd/windows/" + $global:LatestContainerdPackage
+      & Install-Containerd-Based-On-Kubernetes-Version -ContainerdUrl "https://packages.aks.azure.com/containerd/windows/" -KubernetesVersion "1.28.0" -CNIBinDir "cniBinPath" -CNIConfDir "cniConfigPath" -KubeDir "kubeDir"
+      Assert-MockCalled -CommandName "Install-Containerd" -Exactly -Times 1 -ParameterFilter { $ContainerdUrl -eq $expectedURL }
+    }
+
+    It 'k8s version is greater than MinimalKubernetesVersionWithLatestContainerd' {
+      $expectedURL = "https://packages.aks.azure.com/containerd/windows/" + $global:LatestContainerdPackage
+      & Install-Containerd-Based-On-Kubernetes-Version -ContainerdUrl "https://packages.aks.azure.com/containerd/windows/" -KubernetesVersion "1.28.1" -CNIBinDir "cniBinPath" -CNIConfDir "cniConfigPath" -KubeDir "kubeDir"
+      Assert-MockCalled -CommandName "Install-Containerd" -Exactly -Times 1 -ParameterFilter { $ContainerdUrl -eq $expectedURL }
+    }
+
+    It 'k8s version is greater than MinimalKubernetesVersionWithLatestContainerd2' {
+      $expectedURL = "https://packages.aks.azure.com/containerd/windows/" + $global:LatestContainerdPackage
+      & Install-Containerd-Based-On-Kubernetes-Version -ContainerdUrl "https://packages.aks.azure.com/containerd/windows/" -KubernetesVersion "1.33.1" -CNIBinDir "cniBinPath" -CNIConfDir "cniConfigPath" -KubeDir "kubeDir"
+      Assert-MockCalled -CommandName "Install-Containerd" -Exactly -Times 1 -ParameterFilter { $ContainerdUrl -eq $expectedURL }
+    }
+
+    It 'full URL is set' {
+      $expectedURL = "https://privatecotnainer.com/windows-containerd-v1.2.3.tar.gz"
+      & Install-Containerd-Based-On-Kubernetes-Version -ContainerdUrl "https://privatecotnainer.com/windows-containerd-v1.2.3.tar.gz" -KubernetesVersion "1.26.1" -CNIBinDir "cniBinPath" -CNIConfDir "cniConfigPath" -KubeDir "kubeDir"
+      Assert-MockCalled -CommandName "Install-Containerd" -Exactly -Times 1 -ParameterFilter { $ContainerdUrl -eq $expectedURL }
+    }
   }
 
-  It 'k8s version is equal to MinimalKubernetesVersionWithLatestContainerd' {
-    $expectedURL = "https://packages.aks.azure.com/containerd/windows/" + $global:LatestContainerdPackage
-    & Install-Containerd-Based-On-Kubernetes-Version -ContainerdUrl "https://packages.aks.azure.com/containerd/windows/" -KubernetesVersion "1.28.0" -CNIBinDir "cniBinPath" -CNIConfDir "cniConfigPath" -KubeDir "kubeDir"
-    Assert-MockCalled -CommandName "Install-Containerd" -Exactly -Times 1 -ParameterFilter { $ContainerdUrl -eq $expectedURL }
-  }
+  Context 'Windows Server 2025 (test2025)' {
+    # for windows versions other than test2025, containerd version is not changed and should not include containerd2
+    BeforeAll {
+      Mock Get-WindowsVersion -MockWith { return "test2025" }
+    }
 
-  It 'k8s version is greater than MinimalKubernetesVersionWithLatestContainerd' {
-    $expectedURL = "https://packages.aks.azure.com/containerd/windows/" + $global:LatestContainerdPackage
-    & Install-Containerd-Based-On-Kubernetes-Version -ContainerdUrl "https://packages.aks.azure.com/containerd/windows/" -KubernetesVersion "1.28.1" -CNIBinDir "cniBinPath" -CNIConfDir "cniConfigPath" -KubeDir "kubeDir"
-    Assert-MockCalled -CommandName "Install-Containerd" -Exactly -Times 1 -ParameterFilter { $ContainerdUrl -eq $expectedURL }
-  }
+    It 'k8s version is less to MinimalKubernetesVersionWithLatestContainerd2' {
+      $expectedURL = "https://packages.aks.azure.com/containerd/windows/" + $global:LatestContainerdPackage
+      & Install-Containerd-Based-On-Kubernetes-Version -ContainerdUrl "https://packages.aks.azure.com/containerd/windows/" -KubernetesVersion "1.31.0" -CNIBinDir "cniBinPath" -CNIConfDir "cniConfigPath" -KubeDir "kubeDir"
+      Assert-MockCalled -CommandName "Install-Containerd" -Exactly -Times 1 -ParameterFilter { $ContainerdUrl -eq $expectedURL }
+    }
 
-  It 'full URL is set' {
-    $expectedURL = "https://privatecotnainer.com/windows-containerd-v1.2.3.tar.gz"
-    & Install-Containerd-Based-On-Kubernetes-Version -ContainerdUrl "https://privatecotnainer.com/windows-containerd-v1.2.3.tar.gz" -KubernetesVersion "1.26.1" -CNIBinDir "cniBinPath" -CNIConfDir "cniConfigPath" -KubeDir "kubeDir"
-    Assert-MockCalled -CommandName "Install-Containerd" -Exactly -Times 1 -ParameterFilter { $ContainerdUrl -eq $expectedURL }
+    It 'k8s version is equal to MinimalKubernetesVersionWithLatestContainerd2' {
+      $expectedURL = "https://packages.aks.azure.com/containerd/windows/" + $global:LatestContainerd2Package
+      & Install-Containerd-Based-On-Kubernetes-Version -ContainerdUrl "https://packages.aks.azure.com/containerd/windows/" -KubernetesVersion "1.32.0" -CNIBinDir "cniBinPath" -CNIConfDir "cniConfigPath" -KubeDir "kubeDir"
+      Assert-MockCalled -CommandName "Install-Containerd" -Exactly -Times 1 -ParameterFilter { $ContainerdUrl -eq $expectedURL }
+    }
+
+    It 'k8s version is greater than MinimalKubernetesVersionWithLatestContainerd2' {
+      $expectedURL = "https://packages.aks.azure.com/containerd/windows/" + $global:LatestContainerd2Package
+      & Install-Containerd-Based-On-Kubernetes-Version -ContainerdUrl "https://packages.aks.azure.com/containerd/windows/" -KubernetesVersion "1.33.0" -CNIBinDir "cniBinPath" -CNIConfDir "cniConfigPath" -KubeDir "kubeDir"
+      Assert-MockCalled -CommandName "Install-Containerd" -Exactly -Times 1 -ParameterFilter { $ContainerdUrl -eq $expectedURL }
+    }
+
+    It 'full URL is set' {
+      $expectedURL = "https://privatecotnainer.com/windows-containerd-v1.2.3.tar.gz"
+      & Install-Containerd-Based-On-Kubernetes-Version -ContainerdUrl "https://privatecotnainer.com/windows-containerd-v1.2.3.tar.gz" -KubernetesVersion "1.32.1" -CNIBinDir "cniBinPath" -CNIConfDir "cniConfigPath" -KubeDir "kubeDir"
+      Assert-MockCalled -CommandName "Install-Containerd" -Exactly -Times 1 -ParameterFilter { $ContainerdUrl -eq $expectedURL }
+    }
   }
 
   # It retrieves the containerd version from containerd URL in Install-Containerd in staging/cse/windows/containerdfunc.ps1
@@ -52,6 +102,10 @@ Describe 'Install-Containerd-Based-On-Kubernetes-Version' {
     {Write-Host ([version]$containerdVersion)} | Should -Not -Throw
 
     $fileName = [IO.Path]::GetFileName($global:LatestContainerdPackage)
+    $containerdVersion = $fileName.Split("-")[1].SubString(1)
+    {Write-Host ([version]$containerdVersion)} | Should -Not -Throw
+
+    $fileName = [IO.Path]::GetFileName($global:LatestContainerd2Package)
     $containerdVersion = $fileName.Split("-")[1].SubString(1)
     {Write-Host ([version]$containerdVersion)} | Should -Not -Throw
   }

@@ -48,7 +48,12 @@ parameters:
   - name: windowsSku
     type: string
     displayName: The windows artifact to build. Might be a duplicate of artifactName
-
+  - name: csePackageDir
+    type: string
+    displayName: Path to the CSE package to use for the build.
+  - name: csePackageFileName
+    type: string
+    displayName: CSE package filename.
 
 steps:
   # - template: ./.template-override-components-json.yaml
@@ -61,7 +66,13 @@ steps:
     env:
       MODE: "windowsVhdMode"
       SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
-
+  - task: DownloadPipelineArtifact@2
+    displayName: Download CSE package
+    inputs:
+      source: current
+      artifactName: windows-cse-package
+      itemPattern: '${{ parameters.csePackageFileName }}'
+      targetPath: ${{ parameters.csePackageDir }}
   - bash: bash ./.pipelines/scripts/windows_build_vhd.sh
     displayName: Build and save VHD
     env:
@@ -97,7 +108,8 @@ steps:
       WINDOWS_PRIVATE_PACKAGES_URL: $(PRIVATE_PACKAGES_URL)
       AZURE_MSI_RESOURCE_STRING: $(AZURE_MSI_RESOURCE_STRING)
       BUILD_DATE: $(BUILD_DATE)
-
+      WINDOWS_CSE_PACKAGE_URI: ${{ parameters.csePackageDir }}/${{ parameters.csePackageFileName }}
+      DRY_RUN: ${{ parameters.dryrun }}
   # Note: use -a to grep MANAGED_SIG_ID (packer-output should be read as a binary file in Linux)
   - script: |
       export TEST_VM_RESOURCE_GROUP_NAME="vhd-test-$(date +%s)-$RANDOM"

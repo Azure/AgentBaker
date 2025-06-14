@@ -105,6 +105,11 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cloud-init-status-check.sh",
+      "destination": "/home/packer/cloud-init-status-check.sh"
+    },
+    {
+      "type": "file",
       "source": "vhdbuilder/packer/prefetch.sh",
       "destination": "/home/packer/prefetch.sh"
     },

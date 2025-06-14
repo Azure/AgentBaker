@@ -55,6 +55,12 @@ parameters:
   - name: useOverrides
     displayName: Use component overrides
     type: boolean
+  - name: csePackageDir
+    type: string
+    displayName: Path to the CSE package to use for the build.
+  - name: cseFileName
+    type: string
+    displayName: CSE package filename.
 
 
 stages:
@@ -62,7 +68,7 @@ stages:
     # Put the artifact name first so it doesn't get truncated as much in ADO
     displayName: Build (${{ parameters.artifactName }})
     condition: and(succeeded(), eq('${{ parameters.build }}', True))
-    dependsOn: [ ]
+    dependsOn: Package
     jobs:
       - job: build_${{ parameters.stageName }}
         dependsOn: [ ]
@@ -85,6 +91,8 @@ stages:
               windowsCoreImageUrl: ${{ parameters.windowsCoreImageUrl }}
               overrideBranch: ${{ parameters.overrideBranch }}
               useOverrides: ${{ parameters.useOverrides }}
+              csePackageDir: ${{ parameters.csePackageDir }}
+              csePackageFileName: ${{ parameters.cseFileName }}
 
   - stage: e2e_${{ parameters.stageName }}
     displayName: E2E (${{ parameters.artifactName }})
