@@ -121,35 +121,6 @@ Describe 'Install-Containerd-Based-On-Kubernetes-Version' {
   }
 }
 
-Describe "Install-Containerd" {
-
-  Context "GetContainerdTemplatePath function" {
-      # Create a test case for each version we want to test
-      $testCases = @(
-          @{ Version = "1.32.0"; WindowsVersion = "ltsc2022"; ExpectedTemplate = "containerdtemplate.toml" }
-          @{ Version = "1.28.0"; WindowsVersion = "ltsc2022"; ExpectedTemplate = "containerdtemplate.toml" }
-          @{ Version = "1.27.0"; WindowsVersion = "ltsc2022"; ExpectedTemplate = "containerdtemplate.toml" }
-      )
-      
-      It "Should select the <ExpectedTemplate> template for Kubernetes <Version> on Windows <WindowsVersion>" -TestCases $testCases {
-          param($Version, $WindowsVersion, $ExpectedTemplate)
-          $result = GetContainerdTemplatePath -KubernetesVersion $Version -WindowsVersion $WindowsVersion
-          $result | Should -BeLike "*\$ExpectedTemplate"
-      }
-      
-      # Test cases for Windows test2025 (Windows 2025 preview)
-      $test2025TestCases = @(
-          @{ Version = "1.32.0"; WindowsVersion = "test2025"; ExpectedTemplate = "containerd2template.toml" }
-          @{ Version = "1.31.5"; WindowsVersion = "test2025"; ExpectedTemplate = "containerdtemplate.toml" }
-      )
-      It "Should select containerd2template.toml for Windows test2025 with Kubernetes <Version>" -TestCases $test2025TestCases {
-          param($Version, $WindowsVersion, $ExpectedTemplate)
-          $result = GetContainerdTemplatePath -KubernetesVersion $Version -WindowsVersion $WindowsVersion
-          $result | Should -BeLike "*\$ExpectedTemplate"
-      }    
-  }
-}
-
 Describe 'Get-WindowsVersion and Get-WindowsPauseVersion' {
   BeforeAll {
     Mock Set-ExitCode -MockWith {

@@ -29,6 +29,34 @@ BeforeAll {
   # . $PSScriptRoot\..\..\parts\windows\windowscsehelper.ps1
 }
 
+Describe "GetContainerdTemplatePath" {
+  Context "Determining template path based on containerd version" {
+    It "Should return standard template for containerd v1.x" {
+      # Test with containerd v1.x
+      $result = GetContainerdTemplatePath -ContainerdVersion "1.7.16"
+      $result | Should -Be "c:\AzureData\windows\containerdtemplate.toml"
+    }
+
+    It "Should return v2 template for containerd v2.x" {
+      # Test with containerd v2.x
+      $result = GetContainerdTemplatePath -ContainerdVersion "2.0.5"
+      $result | Should -Be "c:\AzureData\windows\containerd2template.toml"
+    }
+
+    It "Should handle borderline version correctly" {
+      # Test with containerd v1.9.9 (still below v2.0)
+      $result = GetContainerdTemplatePath -ContainerdVersion "1.9.9"
+      $result | Should -Be "c:\AzureData\windows\containerdtemplate.toml"
+    }
+
+    It "Should return v2 template for minimum v2.0.0" {
+      # Test with containerd v2.0.0 exactly
+      $result = GetContainerdTemplatePath -ContainerdVersion "2.0.0"
+      $result | Should -Be "c:\AzureData\windows\containerd2template.toml"
+    }
+  }
+}
+
 Describe "ProcessAndWriteContainerdConfig" {
   BeforeAll{
     Mock Get-Content -ParameterFilter { $Path -like "*kubeclusterconfig.json" } -MockWith { 

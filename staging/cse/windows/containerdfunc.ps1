@@ -109,27 +109,14 @@ function CreateHypervisorRuntimes {
 function GetContainerdTemplatePath {
   Param(
     [Parameter(Mandatory = $true)][string]
-    $KubernetesVersion,
-    [Parameter(Mandatory = $false)][string]
-    $WindowsVersion = ""
+    $ContainerdVersion
   )
-  
-  # If WindowsVersion is not provided, determine it
-  if ([string]::IsNullOrEmpty($WindowsVersion)) {
-    $WindowsVersion = Get-WindowsVersion
+  # sample values of version is 1.7.9 or 2.0.0
+  if (([version]$ContainerdVersion).CompareTo([version]"2.0.0") -ge 0) {
+    return "c:\AzureData\windows\containerd2template.toml"
   }
-
-  $templatePath = "c:\AzureData\windows\containerdtemplate.toml"
-  
-  # For future Windows versions (like test2025), if needed, use containerd2template.toml
-  if ($WindowsVersion -eq "test2025") {
-    if (([version]$KubernetesVersion).CompareTo([version]$global:MinimalKubernetesVersionWithLatestContainerd2) -ge 0) {
-      $templatePath = "c:\AzureData\windows\containerd2template.toml"
-    }
-  }
-  return $templatePath
+  return "c:\AzureData\windows\containerdtemplate.toml"
 }
-
 function ProcessAndWriteContainerdConfig {
   Param(
     [Parameter(Mandatory = $true)][string]
@@ -215,11 +202,7 @@ function Install-Containerd {
     [Parameter(Mandatory = $true)][string]
     $CNIConfDir,
     [Parameter(Mandatory = $true)][string]
-    $KubeDir,
-    [Parameter(Mandatory = $true)][string]
-    $KubernetesVersion,
-    [Parameter(Mandatory = $false)][string]
-    $WindowsVersion
+    $KubeDir
   )
 
   $svc = Get-Service -Name containerd -ErrorAction SilentlyContinue
@@ -227,10 +210,6 @@ function Install-Containerd {
   if ($null -ne $svc) {
     Write-Log "Stopping containerd service"
     $svc | Stop-Service
-  }
-
-  if ([string]::IsNullOrEmpty($WindowsVersion)) {
-    $WindowsVersion = Get-WindowsVersion
   }
 
   # Extract the package
@@ -265,7 +244,7 @@ function Install-Containerd {
   }
 
   # Get the correct template path based on Windows version and Kubernetes version
-  $templatePath = GetContainerdTemplatePath -KubernetesVersion $KubernetesVersion -WindowsVersion $WindowsVersion
+  $templatePath = GetContainerdTemplatePath -ContainerdVersion $containerdVersion
   ProcessAndWriteContainerdConfig `
     -TemplatePath $templatePath `
     -ContainerDVersion $containerdVersion `
