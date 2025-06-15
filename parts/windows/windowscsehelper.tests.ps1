@@ -1,4 +1,10 @@
 BeforeAll {
+  # Mock Set-Content to avoid permission denied errors
+  Mock Set-Content -MockWith {
+    param($Path, $Value)
+    Write-Host "SET-CONTENT: Path: $Path, Content: $Value"
+  }
+  
   . $PSScriptRoot\windowscsehelper.ps1
   . $PSScriptRoot\..\..\staging\cse\windows\containerdfunc.ps1
   . $PSCommandPath.Replace('.tests.ps1','.ps1')
@@ -21,7 +27,11 @@ Describe 'Install-Containerd-Based-On-Kubernetes-Version' {
           [Parameter(Mandatory = $true)][string]
           $CNIConfDir,
           [Parameter(Mandatory = $true)][string]
-          $KubeDir
+          $KubeDir,
+          [Parameter(Mandatory = $false)][string]
+          $KubernetesVersion,
+          [Parameter(Mandatory = $false)][string]
+          $WindowsVersion
         )
         Write-Host $ContainerdUrl
     } -Verifiable
@@ -170,7 +180,7 @@ Describe 'Get-WindowsVersion and Get-WindowsPauseVersion' {
     Assert-MockCalled -CommandName 'Set-ExitCode' -Exactly -Times 1 -ParameterFilter { $ExitCode -eq $global:WINDOWS_CSE_ERROR_NOT_FOUND_BUILD_NUMBER }
   }
 
-    It 'build number is from prerelease of windows 2025' {
+  It 'build number is from prerelease of windows 2025' {
     Mock Get-WindowsBuildNumber -MockWith { return "25399" }
     $windowsPauseVersion = Get-WindowsPauseVersion
     $expectedPauseVersion = "ltsc2022"
