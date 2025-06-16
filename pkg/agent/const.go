@@ -54,7 +54,6 @@ const (
 	kubernetesCSEConfig                 = "linux/cloud-init/artifacts/cse_config.sh"
 	kubernetesCSESendLogs               = "linux/cloud-init/artifacts/cse_send_logs.py"
 	kubernetesCSERedactCloudConfig      = "linux/cloud-init/artifacts/cse_redact_cloud_config.py"
-	kubernetesCISScript                 = "linux/cloud-init/artifacts/cis.sh"
 	kubernetesCustomSearchDomainsScript = "linux/cloud-init/artifacts/setup-custom-search-domains.sh"
 	kubeletSystemdService               = "linux/cloud-init/artifacts/kubelet.service"
 	kmsSystemdService                   = "linux/cloud-init/artifacts/kms.service"
