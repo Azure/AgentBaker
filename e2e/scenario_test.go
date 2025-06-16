@@ -595,6 +595,9 @@ func Test_Ubuntu2204_Scriptless(t *testing.T) {
 				ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.log", "aks-node-controller finished successfully")
 			},
 			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+				if config.AuthConfig == nil {
+					config.AuthConfig = &aksnodeconfigv1.AuthConfig{}
+				}
 				config.AuthConfig.ServicePrincipalId = "SP client ID"
 				config.AuthConfig.ServicePrincipalSecret = "SP secret"
 			},
@@ -614,6 +617,9 @@ func Test_Ubuntu2404_Scriptless(t *testing.T) {
 				ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.log", "aks-node-controller finished successfully")
 			},
 			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+				if config.AuthConfig == nil {
+					config.AuthConfig = &aksnodeconfigv1.AuthConfig{}
+				}
 				config.AuthConfig.ServicePrincipalId = "SP client ID"
 				config.AuthConfig.ServicePrincipalSecret = "SP secret"
 			},
