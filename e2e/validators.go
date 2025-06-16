@@ -339,38 +339,6 @@ func ValidateMultipleKubeProxyVersionsExist(ctx context.Context, s *Scenario) {
 	}
 }
 
-func ValidateContainerdWASMShims(ctx context.Context, s *Scenario) {
-	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo cat /etc/containerd/config.toml", 0, "could not get containerd config content")
-	expectedShims := []string{
-		`[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin]`,
-		`runtime_type = "io.containerd.spin.v2"`,
-		`[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight]`,
-		`runtime_type = "io.containerd.slight-v0-3-0.v1"`,
-		`[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin-v0-3-0]`,
-		`runtime_type = "io.containerd.spin-v0-3-0.v1"`,
-		`[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight-v0-3-0]`,
-		`runtime_type = "io.containerd.slight-v0-3-0.v1"`,
-		`[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin-v0-5-1]`,
-		`runtime_type = "io.containerd.spin-v0-5-1.v1"`,
-		`[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight-v0-5-1]`,
-		`runtime_type = "io.containerd.slight-v0-5-1.v1"`,
-		`[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin-v0-8-0]`,
-		`runtime_type = "io.containerd.spin-v0-8-0.v1"`,
-		`[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight-v0-8-0]`,
-		`runtime_type = "io.containerd.slight-v0-8-0.v1"`,
-		`[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.wws-v0-8-0]`,
-		`runtime_type = "io.containerd.wws-v0-8-0.v1"`,
-		`[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin-v0-15-1]`,
-		`runtime_type = "io.containerd.spin.v2"`,
-	}
-	for i := 0; i < len(expectedShims); i += 2 {
-		section := expectedShims[i]
-		runtimeType := expectedShims[i+1]
-		require.Contains(s.T, execResult.stdout.String(), section, "expected to find section in containerd config.toml, but it was not found")
-		require.Contains(s.T, execResult.stdout.String(), runtimeType, "expected to find section in containerd config.toml, but it was not found")
-	}
-}
-
 func ValidateKubeletHasNotStopped(ctx context.Context, s *Scenario) {
 	command := "sudo journalctl -u kubelet"
 	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0, "could not retrieve kubelet logs with journalctl")

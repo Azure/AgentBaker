@@ -561,37 +561,6 @@ func podHTTPServerWindows(s *Scenario) *corev1.Pod {
 	}
 }
 
-func podWASMSpin(s *Scenario) *corev1.Pod {
-	return &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-wasm-spin", s.Runtime.KubeNodeName),
-			Namespace: "default",
-		},
-		Spec: corev1.PodSpec{
-			NodeSelector: map[string]string{
-				"kubernetes.io/hostname": s.Runtime.KubeNodeName,
-			},
-			RuntimeClassName: to.Ptr("wasmtime-spin"),
-			Containers: []corev1.Container{
-				{
-					Name:    "spin-hello",
-					Image:   "ghcr.io/spinkube/containerd-shim-spin/examples/spin-rust-hello:v0.15.1",
-					Command: []string{"/"},
-					ReadinessProbe: &corev1.Probe{
-						PeriodSeconds: 1,
-						ProbeHandler: corev1.ProbeHandler{
-							HTTPGet: &corev1.HTTPGetAction{
-								Path: "/hello",
-								Port: intstr.FromInt32(80),
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-}
-
 func podRunNvidiaWorkload(s *Scenario) *corev1.Pod {
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{

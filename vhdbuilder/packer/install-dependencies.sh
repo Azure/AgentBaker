@@ -367,14 +367,6 @@ while IFS= read -r p; do
         # ORAS will be used to install other packages for network isolated clusters, it must go first.
       done
       ;;
-    "containerd-wasm-shims")
-      installContainerdWasmShims "${downloadDir}" "${PACKAGE_DOWNLOAD_URL}" "${PACKAGE_VERSIONS[@]}"
-      echo "  - containerd-wasm-shims version ${PACKAGE_VERSIONS[@]}" >> ${VHD_LOGS_FILEPATH}
-      ;;
-    "spinkube")
-      installSpinKube "${downloadDir}" "${PACKAGE_DOWNLOAD_URL}" "${PACKAGE_VERSIONS[@]}"
-      echo "  - spinkube version ${PACKAGE_VERSIONS[@]}" >> ${VHD_LOGS_FILEPATH}
-      ;;
     "kubernetes-binaries")
       # kubelet and kubectl
       # need to cover previously supported version for VMAS scale up scenario
