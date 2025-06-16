@@ -87,7 +87,7 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 	// base NBC templates define a mock service principal profile that we can still use to test
 	// the correct bootstrapping logic: https://github.com/Azure/AgentBaker/blob/master/e2e/node_config.go#L438-L441
 	if hasServicePrincipalData(s) {
-		execResult = execScriptOnVMForScenarioValidateExitCode(
+		_ = execScriptOnVMForScenarioValidateExitCode(
 			ctx,
 			s,
 			`sudo test -n "$(sudo cat /etc/kubernetes/azure.json | jq -r '.aadClientId')" && sudo test -n "$(sudo cat /etc/kubernetes/azure.json | jq -r '.aadClientSecret')"`,
