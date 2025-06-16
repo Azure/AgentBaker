@@ -84,7 +84,7 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 	execResult = execOnVMForScenarioOnUnprivilegedPod(ctx, s, "curl http://168.63.129.16:32526/vmSettings --connect-timeout 4")
 	require.Equal(s.T, "28", execResult.exitCode, "curl to wireserver port 32526 shouldn't succeed")
 
-	if s.Runtime.NBC.ContainerService.Properties.ServicePrincipalProfile != nil || (s.Runtime.AKSNodeConfig.AuthConfig.ServicePrincipalId != "" && s.Runtime.AKSNodeConfig.AuthConfig.ServicePrincipalSecret != "") {
+	if isUsingServicePrincipal(s) {
 		execResult = execScriptOnVMForScenario(ctx, s, `test -n "$(jq -r '.aadClientId' < /etc/kubernetes/azure.json)"`)
 		require.Equal(s.T, 0, execResult.exitCode, "AAD client ID should be present in /etc/kubernetes/azure.json")
 		execResult = execScriptOnVMForScenario(ctx, s, `test -n "$(jq -r '.aadClientSecret' < /etc/kubernetes/azure.json)"`)
@@ -169,4 +169,17 @@ func ValidateSSHServiceEnabled(ctx context.Context, s *Scenario) {
 	execResult = execScriptOnVMForScenarioValidateExitCode(ctx, s, "systemctl is-enabled ssh.service", 0, "could not check ssh.service status")
 	stdout = execResult.stdout.String()
 	require.Contains(s.T, stdout, "enabled", "ssh.service should be enabled at boot")
+}
+
+func isUsingServicePrincipal(s *Scenario) bool {
+	if s.Runtime == nil {
+		return false
+	}
+	if s.Runtime.AKSNodeConfig != nil && s.Runtime.AKSNodeConfig.AuthConfig != nil {
+		return s.Runtime.AKSNodeConfig.AuthConfig.ServicePrincipalId != "" && s.Runtime.AKSNodeConfig.AuthConfig.ServicePrincipalSecret != ""
+	}
+	if s.Runtime.NBC != nil && s.Runtime.NBC.ContainerService != nil && s.Runtime.NBC.ContainerService.Properties != nil {
+		return s.Runtime.NBC.ContainerService.Properties.ServicePrincipalProfile != nil
+	}
+	return false
 }
