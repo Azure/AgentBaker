@@ -50,7 +50,6 @@ package components
 
 #UbuntuOSDistro: {
 	current?: #ReleaseDownloadURI
-	r1804?:   #ReleaseDownloadURI
 	r2004?:   #ReleaseDownloadURI
 	r2204?:   #ReleaseDownloadURI
 	r2404?:   #ReleaseDownloadURI

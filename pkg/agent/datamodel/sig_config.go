@@ -394,10 +394,15 @@ const (
 	//  of support and image builds have stopped.
 	FrozenCBLMarinerV1SIGImageVersionForDeprecation string = "202308.28.0"
 
-	// DO NOT MODIFY: 1804GPUContainerd Gen1 & Gen2 pinned to the last image build as
-	// GPU Dedicated preview image is being deprecated and image builds have stopped.
-	Frozen1804GPUContainerdSIGImageVersionForDeprecation     string = "202501.05.0"
-	Frozen1804Gen2GPUContainerdSIGImageVersionForDeprecation string = "202501.05.0"
+	// DO NOT MODIFY: All 1804 are frozen since they are EOL
+	// 1804GPUContainerd Gen1 & Gen2 pinned to the last image build as GPU Dedicated preview image is being deprecated and image builds have stopped.
+
+	Frozen1804ContainerdSIGImageVersionForDeprecation         string = "202506.03.0"
+	Frozen1804Gen2ContainerdSIGImageVersionForDeprecation     string = "202506.03.0"
+	Frozen1804FipsContainerdSIGImageVersionForDeprecation     string = "202506.03.0"
+	Frozen1804FipsGen2ContainerdSIGImageVersionForDeprecation string = "202506.03.0"
+	Frozen1804GPUContainerdSIGImageVersionForDeprecation      string = "202501.05.0"
+	Frozen1804Gen2GPUContainerdSIGImageVersionForDeprecation  string = "202501.05.0"
 
 	// DO NOT MODIFY: used for freezing MarinerV2KataGen2TL.
 	FrozenCBLMarinerV2KataGen2TLSIGImageVersion = "2022.12.15"
@@ -477,14 +482,14 @@ var (
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "1804containerd",
-		Version:       LinuxSIGImageVersion,
+		Version:       Frozen1804ContainerdSIGImageVersionForDeprecation,
 	}
 
 	SIGUbuntuContainerd1804Gen2ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "1804gen2containerd",
-		Version:       LinuxSIGImageVersion,
+		Version:       Frozen1804Gen2ContainerdSIGImageVersionForDeprecation,
 	}
 
 	SIGUbuntuGPUContainerd1804ImageConfigTemplate = SigImageConfigTemplate{
@@ -505,7 +510,7 @@ var (
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "1804fipscontainerd",
-		Version:       LinuxSIGImageVersion,
+		Version:       Frozen1804FipsContainerdSIGImageVersionForDeprecation,
 	}
 
 	// not a typo, this image was generated on 2021.05.20 UTC and assigned this version.
@@ -513,7 +518,7 @@ var (
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "1804gen2fipscontainerd",
-		Version:       LinuxSIGImageVersion,
+		Version:       Frozen1804FipsGen2ContainerdSIGImageVersionForDeprecation,
 	}
 
 	SIGUbuntuFipsContainerd2004ImageConfigTemplate = SigImageConfigTemplate{
@@ -971,7 +976,7 @@ func getSigUbuntuEdgeZoneImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[D
 		ResourceGroup: AKSUbuntuEdgeZoneResourceGroup,
 		Gallery:       AKSUbuntuEdgeZoneGalleryName,
 		Definition:    "1804containerd",
-		Version:       LinuxSIGImageVersion,
+		Version:       Frozen1804ContainerdSIGImageVersionForDeprecation,
 	}
 
 	// This image is using a specific resource group and gallery name for edge zone scenario.
@@ -979,7 +984,7 @@ func getSigUbuntuEdgeZoneImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[D
 		ResourceGroup: AKSUbuntuEdgeZoneResourceGroup,
 		Gallery:       AKSUbuntuEdgeZoneGalleryName,
 		Definition:    "1804gen2containerd",
-		Version:       LinuxSIGImageVersion,
+		Version:       Frozen1804Gen2ContainerdSIGImageVersionForDeprecation,
 	}
 
 	// This image is using a specific resource group and gallery name for edge zone scenario.

@@ -1021,14 +1021,6 @@
           }
         },
         "ubuntu": {
-          "r1804": {
-            "versionsV2": [
-              {
-                "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.1.14-ubuntu18.04u1"
-              }
-            ]
-          },
           "r2004": {
             "versionsV2": [
               {
@@ -1083,14 +1075,6 @@
               {
                 "renovateTag": "name=moby-containerd, os=ubuntu, release=20.04",
                 "latestVersion": "1.7.27-ubuntu20.04u1"
-              }
-            ]
-          },
-          "r1804": {
-            "versionsV2": [
-              {
-                "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.7.1-1"
               }
             ]
           }
@@ -1250,14 +1234,6 @@
           }
         },
         "ubuntu": {
-          "r1804": {
-            "versionsV2": [
-              {
-                "renovateTag": "name=kubernetes-cri-tools, os=ubuntu, release=18.04",
-                "latestVersion": "1.32.0-ubuntu18.04u3"
-              }
-            ]
-          },
           "r2004": {
             "versionsV2": [
               {
