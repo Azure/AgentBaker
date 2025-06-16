@@ -411,7 +411,6 @@ if [ "$OS_TYPE" = "Windows" ]; then
 			echo "Successfully downloaded the latest artifact: $filename"
 		else
 			echo "Failed to download the latest artifact"
-			exit 1
 		fi
 
 		# Parse the json artifact to get the image urls
@@ -435,21 +434,6 @@ if [ "$OS_TYPE" = "Windows" ]; then
 		W23H2_BASE_IMAGE_URL="$(jq -r '.images[] | select(.name == "WINDOWS_23H2_BASE_IMAGE_URL") | .value' "$artifact_path")"
 		W23H2_GEN2_BASE_IMAGE_URL="$(jq -r '.images[] | select(.name == "WINDOWS_23H2_GEN2_BASE_IMAGE_URL") | .value' "$artifact_path")"
 
-
-		echo "##vso[task.setvariable variable=W2019_BASE_IMAGE_URL;isOutput=true]$W2019_BASE_IMAGE_URL"
-		echo "##vso[task.setvariable variable=W2019_CORE_IMAGE_URL;isOutput=true]$W2019_CORE_IMAGE_URL" 
-		echo "##vso[task.setvariable variable=W2019_NANO_IMAGE_URL;isOutput=true]$W2019_NANO_IMAGE_URL"
-		echo "##vso[task.setvariable variable=W2022_BASE_IMAGE_URL;isOutput=true]$W2022_BASE_IMAGE_URL"
-		echo "##vso[task.setvariable variable=W2022_CORE_IMAGE_URL;isOutput=true]$W2022_CORE_IMAGE_URL"
-		echo "##vso[task.setvariable variable=W2022_NANO_IMAGE_URL;isOutput=true]$W2022_NANO_IMAGE_URL"
-		echo "##vso[task.setvariable variable=W2022_GEN2_BASE_IMAGE_URL;isOutput=true]$W2022_GEN2_BASE_IMAGE_URL"
-		echo "##vso[task.setvariable variable=W2025_BASE_IMAGE_URL;isOutput=true]$W2025_BASE_IMAGE_URL"
-		echo "##vso[task.setvariable variable=W2025_CORE_IMAGE_URL;isOutput=true]$W2025_CORE_IMAGE_URL"
-		echo "##vso[task.setvariable variable=W2025_NANO_IMAGE_URL;isOutput=true]$W2025_NANO_IMAGE_URL"
-		echo "##vso[task.setvariable variable=W2025_GEN2_BASE_IMAGE_URL;isOutput=true]$W2025_GEN2_BASE_IMAGE_URL"
-		echo "##vso[task.setvariable variable=W23H2_BASE_IMAGE_URL;isOutput=true]$W23H2_BASE_IMAGE_URL"
-		echo "##vso[task.setvariable variable=W23H2_GEN2_BASE_IMAGE_URL;isOutput=true]$W23H2_GEN2_BASE_IMAGE_URL"
-
 		# Based on the windows_sku, set the windows_nanoserver_image_url and windows_servercore_image_url
 		if [ "${WINDOWS_SKU}" = "2019-containerd" ]; then
 			WINDOWS_BASE_IMAGE_URL="${W2019_BASE_IMAGE_URL}"
@@ -465,12 +449,12 @@ if [ "$OS_TYPE" = "Windows" ]; then
 			windows_servercore_image_url="${W2022_CORE_IMAGE_URL}"
 		elif [ "${WINDOWS_SKU}" = "2025" ]; then
 			WINDOWS_BASE_IMAGE_URL="${W2025_BASE_IMAGE_URL}"
-			windows_nanoserver_image_url="${W2025_NANO_IMAGE_URL}"
-			windows_servercore_image_url="${W2025_CORE_IMAGE_URL}"
+			windows_nanoserver_image_url="${W2025_NANO_IMAGE_URL},${W2022_NANO_IMAGE_URL}"
+			windows_servercore_image_url="${W2025_CORE_IMAGE_URL},${W2022_CORE_IMAGE_URL}"
 		elif [ "${WINDOWS_SKU}" = "2025-gen2" ]; then
 			WINDOWS_BASE_IMAGE_URL="${W2025_GEN2_BASE_IMAGE_URL}"
-			windows_nanoserver_image_url="${W2025_NANO_IMAGE_URL}"
-			windows_servercore_image_url="${W2025_CORE_IMAGE_URL}"
+			windows_nanoserver_image_url="${W2025_NANO_IMAGE_URL},${W2022_NANO_IMAGE_URL}"
+			windows_servercore_image_url="${W2025_CORE_IMAGE_URL},${W2022_CORE_IMAGE_URL}"
 		elif [ "${WINDOWS_SKU}" = "23H2" ]; then
 			WINDOWS_BASE_IMAGE_URL="${W23H2_BASE_IMAGE_URL}"
 			windows_nanoserver_image_url="${W2022_NANO_IMAGE_URL}"
@@ -481,14 +465,12 @@ if [ "$OS_TYPE" = "Windows" ]; then
 			windows_servercore_image_url="${W2022_CORE_IMAGE_URL}"
 		else
 			echo "Unsupported WINDOWS_SKU: ${WINDOWS_SKU}"
-			exit 1
 		fi	
 	fi
 		
 	# Check if nano and core urls are set
 	if [ -z "${windows_nanoserver_image_url}" ] || [ -z "${windows_servercore_image_url}" ]; then
 		echo "Error: One or both Windows image URLs are not set."
-		exit 1
 	fi
 
 	# build from a pre-supplied VHD blob a.k.a. external raw VHD
@@ -555,13 +537,13 @@ if [ "$OS_TYPE" = "Windows" ]; then
 	fi
 
 	# Set nanoserver image url if the pipeline variable is set and the parameter is not already set
-	if [ -n "${WINDOWS_NANO_IMAGE_URL}" ]; then
+	if [ -n "${WINDOWS_NANO_IMAGE_URL}" ] && [ -z "${windows_nanoserver_image_url}" ]; then
 		echo "WINDOWS_NANO_IMAGE_URL is set in pipeline variables"
 		windows_nanoserver_image_url="${WINDOWS_NANO_IMAGE_URL}"	
 	fi
 
 	# Set servercore image url if the pipeline variable is set and the parameter is not already set
-	if [ -n "${WINDOWS_CORE_IMAGE_URL}" ]; then
+	if [ -n "${WINDOWS_CORE_IMAGE_URL}" ] && [ -z "${windows_servercore_image_url}" ]; then
 		echo "WINDOWS_CORE_IMAGE_URL is set in pipeline variables"
 		windows_servercore_image_url="${WINDOWS_CORE_IMAGE_URL}"
 	fi
