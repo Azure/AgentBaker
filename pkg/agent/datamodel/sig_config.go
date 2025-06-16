@@ -397,10 +397,10 @@ const (
 	// DO NOT MODIFY: All 1804 are frozen since they are EOL
 	// 1804GPUContainerd Gen1 & Gen2 pinned to the last image build as GPU Dedicated preview image is being deprecated and image builds have stopped.
 
-	Frozen1804ContainerdSIGImageVersionForDeprecation         string = "202506.16.0"
-	Frozen1804Gen2ContainerdSIGImageVersionForDeprecation     string = "202506.16.0"
-	Frozen1804FipsContainerdSIGImageVersionForDeprecation     string = "202506.16.0"
-	Frozen1804FipsGen2ContainerdSIGImageVersionForDeprecation string = "202506.16.0"
+	Frozen1804ContainerdSIGImageVersionForDeprecation         string = "202506.03.0"
+	Frozen1804Gen2ContainerdSIGImageVersionForDeprecation     string = "202506.03.0"
+	Frozen1804FipsContainerdSIGImageVersionForDeprecation     string = "202506.03.0"
+	Frozen1804FipsGen2ContainerdSIGImageVersionForDeprecation string = "202506.03.0"
 	Frozen1804GPUContainerdSIGImageVersionForDeprecation      string = "202501.05.0"
 	Frozen1804Gen2GPUContainerdSIGImageVersionForDeprecation  string = "202501.05.0"
 
