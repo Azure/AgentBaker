@@ -114,7 +114,6 @@ steps:
       echo "##vso[task.setvariable variable=SIG_GALLERY_NAME]$(cat vhdbuilder/packer/settings.json | grep "sig_gallery_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
       echo "##vso[task.setvariable variable=PERFORMANCE_DATA_FILE]vhd-build-performance-data.json" && \
       echo "##vso[task.setvariable variable=PKR_RG_NAME]$(cat packer-output | grep "ResourceGroupName" | cut -d "'" -f 2 | head -1)" && \
-      echo "##vso[task.setvariable variable=IS_NOT_1804]$( [[ "${OS_VERSION}" != "18.04" ]] && echo true || echo false )" && \
       echo "##vso[task.setvariable variable=OS_NAME]Linux" && \
       echo "##vso[task.setvariable variable=OS_TYPE]Linux" && \
       echo "##vso[task.setvariable variable=GIT_VERSION]$(Build.SourceVersion)" && \
@@ -161,7 +160,6 @@ steps:
       TargetFolder: '$(Build.ArtifactStagingDirectory)'
 
   - task: CopyFiles@2
-    condition: eq(variables['IS_NOT_1804'], 'true')
     displayName: Copy Trivy Report
     inputs:
       SourceFolder: '$(System.DefaultWorkingDirectory)'
@@ -169,7 +167,6 @@ steps:
       TargetFolder: '$(Build.ArtifactStagingDirectory)'
 
   - task: CopyFiles@2
-    condition: eq(variables['IS_NOT_1804'], 'true')
     displayName: Copy Trivy Table
     inputs:
       SourceFolder: '$(System.DefaultWorkingDirectory)'

@@ -1021,14 +1021,6 @@
           }
         },
         "ubuntu": {
-          "r1804": {
-            "versionsV2": [
-              {
-                "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.1.14-ubuntu18.04u1"
-              }
-            ]
-          },
           "r2004": {
             "versionsV2": [
               {
@@ -1085,14 +1077,6 @@
                 "latestVersion": "1.7.27-ubuntu20.04u1"
               }
             ]
-          },
-          "r1804": {
-            "versionsV2": [
-              {
-                "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.7.1-1"
-              }
-            ]
           }
         },
         "mariner": {
@@ -1120,7 +1104,7 @@
             "versionsV2": [
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "2.0.0-6.azl3"
+                "latestVersion": "2.0.0-8.azl3"
               }
             ]
           }
@@ -1250,14 +1234,6 @@
           }
         },
         "ubuntu": {
-          "r1804": {
-            "versionsV2": [
-              {
-                "renovateTag": "name=kubernetes-cri-tools, os=ubuntu, release=18.04",
-                "latestVersion": "1.32.0-ubuntu18.04u3"
-              }
-            ]
-          },
           "r2004": {
             "versionsV2": [
               {
