@@ -85,10 +85,18 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 	require.Equal(s.T, "28", execResult.exitCode, "curl to wireserver port 32526 shouldn't succeed")
 
 	if isUsingServicePrincipal(s) {
-		execResult = execScriptOnVMForScenario(ctx, s, `test -n "$(jq -r '.aadClientId' < /etc/kubernetes/azure.json)"`)
-		require.Equal(s.T, 0, execResult.exitCode, "AAD client ID should be present in /etc/kubernetes/azure.json")
-		execResult = execScriptOnVMForScenario(ctx, s, `test -n "$(jq -r '.aadClientSecret' < /etc/kubernetes/azure.json)"`)
-		require.Equal(s.T, 0, execResult.exitCode, "AAD client secret should be present in /etc/kubernetes/azure.json")
+		execResult = execScriptOnVMForScenarioValidateExitCode(
+			ctx,
+			s,
+			`test -n "$(jq -r '.aadClientId' < /etc/kubernetes/azure.json)"`,
+			0,
+			"AAD client ID should be present in /etc/kubernetes/azure.json")
+		execResult = execScriptOnVMForScenarioValidateExitCode(
+			ctx,
+			s,
+			`test -n "$(jq -r '.aadClientSecret' < /etc/kubernetes/azure.json)"`,
+			0,
+			"AAD client ID should be present in /etc/kubernetes/azure.json")
 	}
 
 	ValidateLeakedSecrets(ctx, s)
@@ -178,8 +186,8 @@ func isUsingServicePrincipal(s *Scenario) bool {
 	if s.Runtime.AKSNodeConfig != nil && s.Runtime.AKSNodeConfig.AuthConfig != nil {
 		return s.Runtime.AKSNodeConfig.AuthConfig.ServicePrincipalId != "" && s.Runtime.AKSNodeConfig.AuthConfig.ServicePrincipalSecret != ""
 	}
-	if s.Runtime.NBC != nil && s.Runtime.NBC.ContainerService != nil && s.Runtime.NBC.ContainerService.Properties != nil {
-		return s.Runtime.NBC.ContainerService.Properties.ServicePrincipalProfile != nil
+	if s.Runtime.NBC != nil && s.Runtime.NBC.ContainerService != nil && s.Runtime.NBC.ContainerService.Properties != nil && s.Runtime.NBC.ContainerService.Properties.ServicePrincipalProfile != nil {
+		return s.Runtime.NBC.ContainerService.Properties.ServicePrincipalProfile.ClientID != "" && s.Runtime.NBC.ContainerService.Properties.ServicePrincipalProfile.Secret != ""
 	}
 	return false
 }
