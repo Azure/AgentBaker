@@ -123,7 +123,9 @@ func (k *Kubeclient) WaitUntilPodRunning(ctx context.Context, t *testing.T, name
 			}
 		case event := <-watcher.ResultChan():
 			if event.Type != "ADDED" && event.Type != "MODIFIED" {
-				t.Logf("skipping event %s", event.Type)
+				if event.Type != "" {
+					t.Logf("skipping event %s", event.Type)
+				}
 				continue
 			}
 			pod = event.Object.(*corev1.Pod)

@@ -88,13 +88,13 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 		execResult = execScriptOnVMForScenarioValidateExitCode(
 			ctx,
 			s,
-			`test -n "$(jq -r '.aadClientId' < /etc/kubernetes/azure.json)"`,
+			`sudo test -n "$(sudo cat /etc/kubernetes/azure.json | jq -r '.aadClientId')"`,
 			0,
 			"AAD client ID should be present in /etc/kubernetes/azure.json")
 		execResult = execScriptOnVMForScenarioValidateExitCode(
 			ctx,
 			s,
-			`test -n "$(jq -r '.aadClientSecret' < /etc/kubernetes/azure.json)"`,
+			`sudo test -n "$(sudo cat /etc/kubernetes/azure.json | jq -r '.aadClientSecret')"`,
 			0,
 			"AAD client ID should be present in /etc/kubernetes/azure.json")
 	}
