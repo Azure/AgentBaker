@@ -92,7 +92,7 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 			s,
 			`sudo test -n "$(sudo cat /etc/kubernetes/azure.json | jq -r '.aadClientId')" && sudo test -n "$(sudo cat /etc/kubernetes/azure.json | jq -r '.aadClientSecret')"`,
 			0,
-			"AAD client ID should be present in /etc/kubernetes/azure.json")
+			"AAD client ID and secret should be present in /etc/kubernetes/azure.json")
 	}
 
 	ValidateLeakedSecrets(ctx, s)
