@@ -84,7 +84,7 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 	execResult = execOnVMForScenarioOnUnprivilegedPod(ctx, s, "curl http://168.63.129.16:32526/vmSettings --connect-timeout 4")
 	require.Equal(s.T, "28", execResult.exitCode, "curl to wireserver port 32526 shouldn't succeed")
 
-	if isUsingServicePrincipal(s) {
+	if hasServicePrincipalProfile(s) {
 		execResult = execScriptOnVMForScenarioValidateExitCode(
 			ctx,
 			s,
@@ -179,7 +179,7 @@ func ValidateSSHServiceEnabled(ctx context.Context, s *Scenario) {
 	require.Contains(s.T, stdout, "enabled", "ssh.service should be enabled at boot")
 }
 
-func isUsingServicePrincipal(s *Scenario) bool {
+func hasServicePrincipalProfile(s *Scenario) bool {
 	if s.Runtime == nil {
 		return false
 	}

@@ -595,11 +595,6 @@ func Test_Ubuntu2204_Scriptless(t *testing.T) {
 				ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.log", "aks-node-controller finished successfully")
 			},
 			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
-				if config.AuthConfig == nil {
-					config.AuthConfig = &aksnodeconfigv1.AuthConfig{}
-				}
-				config.AuthConfig.ServicePrincipalId = "SP client ID"
-				config.AuthConfig.ServicePrincipalSecret = "SP secret"
 			},
 		}})
 }
@@ -617,11 +612,6 @@ func Test_Ubuntu2404_Scriptless(t *testing.T) {
 				ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.log", "aks-node-controller finished successfully")
 			},
 			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
-				if config.AuthConfig == nil {
-					config.AuthConfig = &aksnodeconfigv1.AuthConfig{}
-				}
-				config.AuthConfig.ServicePrincipalId = "SP client ID"
-				config.AuthConfig.ServicePrincipalSecret = "SP secret"
 			},
 		}})
 }
@@ -685,7 +675,6 @@ func Test_Ubuntu2204(t *testing.T) {
 				// Check that we don't leak these secrets if they're
 				// set (which they mostly aren't in these scenarios).
 				nbc.ContainerService.Properties.CertificateProfile.ClientPrivateKey = "client cert private key"
-				nbc.ContainerService.Properties.ServicePrincipalProfile.ClientID = "SP client ID"
 				nbc.ContainerService.Properties.ServicePrincipalProfile.Secret = "SP secret"
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
