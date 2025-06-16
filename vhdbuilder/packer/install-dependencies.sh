@@ -4,6 +4,7 @@ UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
 MARINER_KATA_OS_NAME="MARINERKATA"
 AZURELINUX_OS_NAME="AZURELINUX"
+AZURELINUX_KATA_OS_NAME="AZURELINUXKATA"
 
 # Real world examples from the command outputs
 # For Azure Linux V3: ID=azurelinux VERSION_ID="3.0"
@@ -219,7 +220,9 @@ if isMarinerOrAzureLinux "$OS"; then
     overrideNetworkConfig || exit 1
     if grep -q "kata" <<< "$FEATURE_FLAGS"; then
       installKataDeps
-      enableMarinerKata
+      if [ "${OS}" != "3.0" ]; then
+        enableMarinerKata
+      fi
     fi
     disableTimesyncd
     disableDNFAutomatic
@@ -288,7 +291,11 @@ while IFS= read -r p; do
   name=$(echo "${p}" | jq .name -r)
   PACKAGE_VERSIONS=()
   os=${OS}
+  # TODO(mheberling): Remove this once kata uses standard containerd. This OS is referenced
+  # in file `parts/common/component.json` with the same ${MARINER_KATA_OS_NAME}.
   if isMarinerOrAzureLinux "${OS}" && [ "${IS_KATA}" = "true" ]; then
+    # This is temporary for kata-cc because it uses a modified version of containerd and 
+    # name is referenced in parts/common.json marinerkata.
     os=${MARINER_KATA_OS_NAME}
   fi
   updatePackageVersions "${p}" "${os}" "${OS_VERSION}"
