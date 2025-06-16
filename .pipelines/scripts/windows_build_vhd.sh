@@ -1,5 +1,7 @@
 #!/bin/bash
 set -euo pipefail
+# Don't echo commands to the console, as this will cause Azure DevOps to do odd things with setvariable.
+set +x
 
 # This script builds a windows VHD. It has the following steps:
 # 1. Validate the source branch. Releasable VHDs must be created from branches with the right name: windows/vYYYYMMDD
@@ -37,6 +39,7 @@ if [ -z "${IS_RELEASE_PIPELINE:-}" ]; then
     export IS_RELEASE_PIPELINE="True"
     echo "##vso[task.setvariable variable=IS_RELEASE_PIPELINE]True"
   else
+    echo "The branch ${BRANCH} is not a release branch. Setting IS_RELEASE_PIPELINE to True."
     export IS_RELEASE_PIPELINE="False"
     echo "##vso[task.setvariable variable=IS_RELEASE_PIPELINE]False"
   fi
@@ -119,6 +122,9 @@ export MANAGED_SIG_ID="$(cat packer-output | grep -a "ManagedImageSharedImageGal
 echo "Found OS_DISK_URI: ${OS_DISK_URI}"
 echo "Found MANAGED_SIG_ID: ${MANAGED_SIG_ID}"
 
+# if bash is echoing the commands, then ADO processes both the echo of the command to set the variable and the command itself.
+# This causes super odd behavior in ADO.
+set +x
 echo "##vso[task.setvariable variable=SIG_GALLERY_NAME]$SIG_GALLERY_NAME"
 echo "##vso[task.setvariable variable=SIG_IMAGE_NAME]$SIG_IMAGE_NAME"
 echo "##vso[task.setvariable variable=SIG_IMAGE_VERSION]$SIG_IMAGE_VERSION"

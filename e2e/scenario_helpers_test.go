@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/Azure/agentbaker/e2e/toolkit"
 	"log"
 	"os"
 	"os/signal"
@@ -163,14 +164,22 @@ func prepareAKSNode(ctx context.Context, s *Scenario) {
 
 	require.NoError(s.T, err)
 
+	start := time.Now() // Record the start time
 	createVMSS(ctx, s)
 
 	err = getCustomScriptExtensionStatus(ctx, s)
 	require.NoError(s.T, err)
+	vmssCreatedAt := time.Now()         // Record the start time
+	creationElapse := time.Since(start) // Calculate the elapsed time
+
 	s.T.Logf("vmss %s creation succeeded", s.Runtime.VMSSName)
 
 	s.Runtime.KubeNodeName = s.Runtime.Cluster.Kube.WaitUntilNodeReady(ctx, s.T, s.Runtime.VMSSName)
+	readyElapse := time.Since(vmssCreatedAt) // Calculate the elapsed time
+	totalElapse := time.Since(start)
 	s.T.Logf("node %s is ready", s.Runtime.VMSSName)
+
+	toolkit.LogDuration(totalElapse, 3*time.Minute, fmt.Sprintf("Node %s took %s to be created and %s to be ready\n", s.Runtime.VMSSName, creationElapse, readyElapse))
 
 	s.Runtime.VMPrivateIP, err = getVMPrivateIPAddress(ctx, s)
 	require.NoError(s.T, err, "failed to get VM private IP address")
