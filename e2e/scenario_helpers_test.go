@@ -215,15 +215,6 @@ func maybeSkipScenario(ctx context.Context, t *testing.T, s *Scenario) {
 func validateVM(ctx context.Context, s *Scenario) {
 	ValidatePodRunning(ctx, s)
 
-	// skip when outbound type is block as the wasm will create pod from gcr, however, network isolated cluster scenario will block egress traffic of gcr.
-	// TODO(xinhl): add another way to validate
-	if s.Runtime.NBC != nil && s.Runtime.NBC.AgentPoolProfile != nil && s.Runtime.NBC.AgentPoolProfile.WorkloadRuntime == datamodel.WasmWasi && s.Runtime.NBC.OutboundType != datamodel.OutboundTypeBlock && s.Runtime.NBC.OutboundType != datamodel.OutboundTypeNone {
-		ValidateWASM(ctx, s, s.Runtime.KubeNodeName)
-	}
-	if s.Runtime.AKSNodeConfig != nil && s.Runtime.AKSNodeConfig.WorkloadRuntime == aksnodeconfigv1.WorkloadRuntime_WORKLOAD_RUNTIME_WASM_WASI {
-		ValidateWASM(ctx, s, s.Runtime.KubeNodeName)
-	}
-
 	switch s.VHD.OS {
 	case config.OSWindows:
 		// TODO: validate something

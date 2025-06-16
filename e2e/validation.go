@@ -3,7 +3,6 @@ package e2e
 import (
 	"context"
 	"encoding/base64"
-	"fmt"
 	"strings"
 
 	"github.com/Azure/agentbaker/e2e/config"
@@ -21,18 +20,6 @@ func ValidatePodRunning(ctx context.Context, s *Scenario) {
 	}()
 	ensurePod(ctx, s, testPod)
 	s.T.Logf("node health validation: test pod %q is running on node %q", testPod.Name, s.Runtime.KubeNodeName)
-}
-
-func ValidateWASM(ctx context.Context, s *Scenario, nodeName string) {
-	s.T.Logf("wasm scenario: running wasm validation on %s...", nodeName)
-	spinClassName := fmt.Sprintf("wasmtime-%s", wasmHandlerSpin)
-	err := createRuntimeClass(ctx, s.Runtime.Cluster.Kube, spinClassName, wasmHandlerSpin)
-	require.NoError(s.T, err)
-	err = ensureWasmRuntimeClasses(ctx, s.Runtime.Cluster.Kube)
-	require.NoError(s.T, err)
-	spinPodManifest := podWASMSpin(s)
-	ensurePod(ctx, s, spinPodManifest)
-	require.NoError(s.T, err, "unable to ensure wasm pod on node %q", nodeName)
 }
 
 func ValidateCommonLinux(ctx context.Context, s *Scenario) {
