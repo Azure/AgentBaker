@@ -169,9 +169,7 @@ func Test_Windows2019CachingRegression(t *testing.T) {
 	})
 }
 
-// TODO: enable this test once containerd2 config is properly updated.
 func Test_Windows2025(t *testing.T) {
-	t.Skipf("skipping test for Windows 2025, as it is not supported in production AKS yet. Please update the test once the VHD is available and the config is updated.")
 	RunScenario(t, &Scenario{
 		Description: "Windows Server 2025 with Containerd",
 		Config: Config{
@@ -192,7 +190,6 @@ func Test_Windows2025(t *testing.T) {
 }
 
 func Test_Windows2025Gen2(t *testing.T) {
-	t.Skipf("skipping test for Windows 2025, as it is not supported in production AKS yet. Please update the test once the VHD is available and the config is updated.")
 	RunScenario(t, &Scenario{
 		Description: "Windows Server 2025 with Containerd - hyperv gen 2",
 		Config: Config{
