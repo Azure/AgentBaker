@@ -15,7 +15,6 @@ Describe 'cse_config.sh'
         RESOURCE_GROUP="resource-group"
         LOCATION="eastus"
 
-
         chmod () {
             echo "chmod $@"
         }
