@@ -63,6 +63,8 @@ logs_to_events "AKS.CSE.configureKubeletServing" configureKubeletServing
 # Pay attention to ordering relative to other functions that create kubelet drop-ins.
 logs_to_events "AKS.CSE.configureK8s" configureK8s
 
+logs_to_events "AKS.CSE.configureAzureJson" configureAzureJson
+
 logs_to_events "AKS.CSE.ensureKubeCACert" ensureKubeCACert
 
 logs_to_events "AKS.CSE.installSecureTLSBootstrapClient" installSecureTLSBootstrapClient
