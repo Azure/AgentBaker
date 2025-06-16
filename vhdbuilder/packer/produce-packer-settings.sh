@@ -401,13 +401,13 @@ if [ "$OS_TYPE" = "Windows" ]; then
 	IMPORTED_IMAGE_NAME=$imported_windows_image_name
 	IMPORTED_IMAGE_URL="https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net/system/$IMPORTED_IMAGE_NAME.vhd"
 
-	if [ -n "${PAYLOAD_URL}" ]; then
+	if [ -n "${WINDOWS_CONTAINERIMAGE_JSON_URL}" ]; then
 		# Download the json artifact from the url
-		filename=$(basename "$PAYLOAD_URL")
+		filename=$(basename "$WINDOWS_CONTAINERIMAGE_JSON_URL")
 		echo "Downloading $filename from wcct storage account using AzCopy with Managed Identity Auth"
 		export AZCOPY_AUTO_LOGIN_TYPE="MSI"
 
-		if azcopy copy "${PAYLOAD_URL}" "${BUILD_ARTIFACTSTAGINGDIRECTORY}/"; then
+		if azcopy copy "${WINDOWS_CONTAINERIMAGE_JSON_URL}" "${BUILD_ARTIFACTSTAGINGDIRECTORY}/"; then
 			echo "Successfully downloaded the latest artifact: $filename"
 		else
 			echo "Failed to download the latest artifact"
