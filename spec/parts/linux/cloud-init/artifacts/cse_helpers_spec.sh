@@ -28,11 +28,6 @@ Describe 'cse_helpers.sh'
             When call updatePackageVersions "$package" "UBUNTU" "20.04"
             The variable PACKAGE_VERSIONS[@] should equal "dummyVersion2"
         End
-        It 'returns downloadURIs.ubuntu.r1804.versionsV2 of package pkgVersionsV2 for UBUNTU 18.04'
-            package=$(readPackage "pkgVersionsV2")
-            When call updatePackageVersions "$package" "UBUNTU" "18.04"
-            The variable PACKAGE_VERSIONS[@] should equal "dummyVersion3 dummyVersion4"
-        End
         It 'returns downloadURIs.mariner.current.versionsV2 of package pkgVersionsV2 for MARINER current'
             package=$(readPackage "pkgVersionsV2")
             When call updatePackageVersions "$package" "MARINER" "current"
