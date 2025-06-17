@@ -39,12 +39,8 @@ python3 /opt/azure/containers/provision_redact_cloud_config.py \
     --cloud-config-path /var/lib/cloud/instance/cloud-config.txt \
     --output-path ${LOG_DIR}/cloud-config.txt
 
-UBUNTU_RELEASE=$(lsb_release -r -s 2>/dev/null || echo "")
-if [ "${UBUNTU_RELEASE}" = "16.04" ]; then
-    sudo apt-get -y autoremove chrony
-    echo $?
-    sudo systemctl restart systemd-timesyncd
-fi
+# TODO (djsly) is this still needed?
+UBUNTU_RELEASE=$(lsb_release -r -s 2>/dev/null || echo "") 
 
 echo $(date),$(hostname), startcustomscript>>/opt/m
 
@@ -405,12 +401,7 @@ if ! [[ ${API_SERVER_NAME} =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             VALIDATION_ERR=$ERR_K8S_API_SERVER_DNS_LOOKUP_FAIL
         fi
     else
-        if [ "${UBUNTU_RELEASE}" = "18.04" ]; then
-            #TODO (djsly): remove this once 18.04 isn't supported anymore
-            logs_to_events "AKS.CSE.apiserverNC" "retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443" || time nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
-        else
-            logs_to_events "AKS.CSE.apiserverCurl" "retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 curl -v --cacert /etc/kubernetes/certs/ca.crt https://${API_SERVER_NAME}:443" || time curl -v --cacert /etc/kubernetes/certs/ca.crt "https://${API_SERVER_NAME}:443" || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
-        fi
+        logs_to_events "AKS.CSE.apiserverCurl" "retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 curl -v --cacert /etc/kubernetes/certs/ca.crt https://${API_SERVER_NAME}:443" || time curl -v --cacert /etc/kubernetes/certs/ca.crt "https://${API_SERVER_NAME}:443" || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
     fi
 else
     # an IP address is provided for the API server, skip the DNS lookup

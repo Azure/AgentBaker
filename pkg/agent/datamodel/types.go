@@ -143,17 +143,6 @@ type Distro string
 // Distro string consts.
 const (
 	Ubuntu                              Distro = "ubuntu"
-	Ubuntu1804                          Distro = "ubuntu-18.04"
-	Ubuntu1804Gen2                      Distro = "ubuntu-18.04-gen2"
-	AKSUbuntu1804Gen2                   Distro = "ubuntu-18.04-gen2" // same distro as Ubuntu1804Gen2, renamed for clarity
-	AKSUbuntu1604                       Distro = "aks-ubuntu-16.04"
-	AKSUbuntu1804                       Distro = "aks-ubuntu-18.04"
-	AKSUbuntuGPU1804                    Distro = "aks-ubuntu-gpu-18.04"
-	AKSUbuntuGPU1804Gen2                Distro = "aks-ubuntu-gpu-18.04-gen2"
-	AKSUbuntuContainerd1804             Distro = "aks-ubuntu-containerd-18.04"
-	AKSUbuntuContainerd1804Gen2         Distro = "aks-ubuntu-containerd-18.04-gen2"
-	AKSUbuntuGPUContainerd1804          Distro = "aks-ubuntu-gpu-containerd-18.04"
-	AKSUbuntuGPUContainerd1804Gen2      Distro = "aks-ubuntu-gpu-containerd-18.04-gen2"
 	AKSCBLMarinerV1                     Distro = "aks-cblmariner-v1"
 	AKSCBLMarinerV2                     Distro = "aks-cblmariner-v2"
 	AKSAzureLinuxV2                     Distro = "aks-azurelinux-v2"
@@ -174,14 +163,10 @@ const (
 	AKSAzureLinuxV2Gen2TL               Distro = "aks-azurelinux-v2-gen2-tl"
 	AKSAzureLinuxV3Gen2TL               Distro = "aks-azurelinux-v3-gen2-tl"
 	AKSCBLMarinerV2KataGen2TL           Distro = "aks-cblmariner-v2-kata-gen2-tl"
-	AKSUbuntuFipsContainerd1804         Distro = "aks-ubuntu-fips-containerd-18.04"
-	AKSUbuntuFipsContainerd1804Gen2     Distro = "aks-ubuntu-fips-containerd-18.04-gen2"
 	AKSUbuntuFipsContainerd2004         Distro = "aks-ubuntu-fips-containerd-20.04"
 	AKSUbuntuFipsContainerd2004Gen2     Distro = "aks-ubuntu-fips-containerd-20.04-gen2"
 	AKSUbuntuFipsContainerd2204         Distro = "aks-ubuntu-fips-containerd-22.04"
 	AKSUbuntuFipsContainerd2204Gen2     Distro = "aks-ubuntu-fips-containerd-22.04-gen2"
-	AKSUbuntuEdgeZoneContainerd1804     Distro = "aks-ubuntu-edgezone-containerd-18.04"
-	AKSUbuntuEdgeZoneContainerd1804Gen2 Distro = "aks-ubuntu-edgezone-containerd-18.04-gen2"
 	AKSUbuntuEdgeZoneContainerd2204     Distro = "aks-ubuntu-edgezone-containerd-22.04"
 	AKSUbuntuEdgeZoneContainerd2204Gen2 Distro = "aks-ubuntu-edgezone-containerd-22.04-gen2"
 	AKSUbuntuContainerd2204             Distro = "aks-ubuntu-containerd-22.04"
@@ -203,11 +188,6 @@ const (
 	AKSAzureLinuxV3CVMGen2              Distro = "aks-azurelinux-v3-cvm-gen2"
 	AKSUbuntuContainerd2404TLGen2       Distro = "aks-ubuntu-containerd-24.04-tl-gen2"
 
-	RHEL              Distro = "rhel"
-	CoreOS            Distro = "coreos"
-	AKS1604Deprecated Distro = "aks"      // deprecated AKS 16.04 distro. Equivalent to aks-ubuntu-16.04.
-	AKS1804Deprecated Distro = "aks-1804" // deprecated AKS 18.04 distro. Equivalent to aks-ubuntu-18.04.
-
 	// Windows string const.
 	// AKSWindows2019 stands for distro of windows server 2019 SIG image with docker.
 	AKSWindows2019 Distro = "aks-windows-2019"
@@ -225,8 +205,7 @@ const (
 	AKSWindows2025 Distro = "aks-windows-2025"
 	// AKSWindows2025Gen2 stands for distro for windows server 2025 Gen 2 SIG image.
 	AKSWindows2025Gen2 Distro = "aks-windows-2025-gen2"
-	// AKSWindows2019PIR stands for distro of windows server 2019 PIR image with docker.
-	AKSWindows2019PIR        Distro = "aks-windows-2019-pir"
+
 	CustomizedImage          Distro = "CustomizedImage"
 	CustomizedImageKata      Distro = "CustomizedImageKata"
 	CustomizedWindowsOSImage Distro = "CustomizedWindowsOSImage"
@@ -239,15 +218,6 @@ const (
 
 //nolint:gochecknoglobals
 var AKSDistrosAvailableOnVHD = []Distro{
-	AKSUbuntu1604,
-	AKSUbuntu1804,
-	AKSUbuntu1804Gen2,
-	AKSUbuntuGPU1804,
-	AKSUbuntuGPU1804Gen2,
-	AKSUbuntuContainerd1804,
-	AKSUbuntuContainerd1804Gen2,
-	AKSUbuntuGPUContainerd1804,
-	AKSUbuntuGPUContainerd1804Gen2,
 	AKSCBLMarinerV1,
 	AKSCBLMarinerV2,
 	AKSAzureLinuxV2,
@@ -267,14 +237,10 @@ var AKSDistrosAvailableOnVHD = []Distro{
 	AKSAzureLinuxV2Gen2TL,
 	AKSAzureLinuxV3Gen2TL,
 	AKSCBLMarinerV2KataGen2TL,
-	AKSUbuntuFipsContainerd1804,
-	AKSUbuntuFipsContainerd1804Gen2,
 	AKSUbuntuFipsContainerd2004,
 	AKSUbuntuFipsContainerd2004Gen2,
 	AKSUbuntuFipsContainerd2204,
 	AKSUbuntuFipsContainerd2204Gen2,
-	AKSUbuntuEdgeZoneContainerd1804,
-	AKSUbuntuEdgeZoneContainerd1804Gen2,
 	AKSUbuntuEdgeZoneContainerd2204,
 	AKSUbuntuEdgeZoneContainerd2204Gen2,
 	AKSUbuntuContainerd2204,
@@ -1731,7 +1697,6 @@ type NodeBootstrappingConfiguration struct {
 	UserAssignedIdentityClientID  string
 	OSSKU                         string
 	ConfigGPUDriverIfNeeded       bool
-	Disable1804SystemdResolved    bool
 	EnableGPUDevicePluginIfNeeded bool
 	EnableKubeletConfigFile       bool
 	EnableNvidia                  bool

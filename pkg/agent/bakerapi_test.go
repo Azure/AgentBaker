@@ -50,7 +50,7 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 						OSType:              datamodel.Linux,
 						VnetSubnetID:        "/subscriptions/359833f5/resourceGroups/MC_rg/providers/Microsoft.Network/virtualNetworks/aks-vnet-07752737/subnet/subnet1",
 						AvailabilityProfile: datamodel.VirtualMachineScaleSets,
-						Distro:              datamodel.AKSUbuntu1604,
+						Distro:              datamodel.AKSUbuntuContainerd2404,
 					},
 				},
 				LinuxProfile: &datamodel.LinuxProfile{
@@ -166,13 +166,13 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 			Expect(nodeBootStrapping.CSE).NotTo(Equal(""))
 
 			Expect(nodeBootStrapping.OSImageConfig.ImageOffer).To(Equal("aks"))
-			Expect(nodeBootStrapping.OSImageConfig.ImageSku).To(Equal("aks-ubuntu-1604-2021-q3"))
+			Expect(nodeBootStrapping.OSImageConfig.ImageSku).To(Equal("aks-ubuntu-2404"))
 			Expect(nodeBootStrapping.OSImageConfig.ImagePublisher).To(Equal("microsoft-aks"))
 			Expect(nodeBootStrapping.OSImageConfig.ImageVersion).To(Equal("2021.11.06"))
 
 			Expect(nodeBootStrapping.SigImageConfig.ResourceGroup).To(Equal("resourcegroup"))
 			Expect(nodeBootStrapping.SigImageConfig.Gallery).To(Equal("aksubuntu"))
-			Expect(nodeBootStrapping.SigImageConfig.Definition).To(Equal("1604"))
+			Expect(nodeBootStrapping.SigImageConfig.Definition).To(Equal("2404"))
 			Expect(nodeBootStrapping.SigImageConfig.Version).To(Equal("2021.11.06"))
 		})
 
@@ -195,7 +195,7 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 
 			Expect(nodeBootStrapping.SigImageConfig.ResourceGroup).To(Equal("resourcegroup"))
 			Expect(nodeBootStrapping.SigImageConfig.Gallery).To(Equal("aksubuntu"))
-			Expect(nodeBootStrapping.SigImageConfig.Definition).To(Equal("1604"))
+			Expect(nodeBootStrapping.SigImageConfig.Definition).To(Equal("2404"))
 			Expect(nodeBootStrapping.SigImageConfig.Version).To(Equal(nodeImageVersionOverride))
 		})
 
@@ -257,7 +257,7 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 			agentBaker, err := NewAgentBaker()
 			Expect(err).NotTo(HaveOccurred())
 
-			sigImageConfig, err := agentBaker.GetLatestSigImageConfig(config.SIGConfig, datamodel.AKSUbuntu1604, &datamodel.EnvironmentInfo{
+			sigImageConfig, err := agentBaker.GetLatestSigImageConfig(config.SIGConfig, datamodel.AKSUbuntuContainerd2404, &datamodel.EnvironmentInfo{
 				SubscriptionID: config.SubscriptionID,
 				TenantID:       config.TenantID,
 				Region:         cs.Location,
@@ -266,7 +266,7 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 
 			Expect(sigImageConfig.ResourceGroup).To(Equal("resourcegroup"))
 			Expect(sigImageConfig.Gallery).To(Equal("aksubuntu"))
-			Expect(sigImageConfig.Definition).To(Equal("1604"))
+			Expect(sigImageConfig.Definition).To(Equal("2404"))
 			Expect(sigImageConfig.Version).To(Equal("2021.11.06"))
 		})
 
@@ -293,12 +293,6 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 
 		BeforeEach(func() {
 			ubuntuDistros = []datamodel.Distro{
-				datamodel.AKSUbuntuContainerd1804,
-				datamodel.AKSUbuntuContainerd1804Gen2,
-				datamodel.AKSUbuntuGPUContainerd1804,
-				datamodel.AKSUbuntuGPUContainerd1804Gen2,
-				datamodel.AKSUbuntuFipsContainerd1804,
-				datamodel.AKSUbuntuFipsContainerd1804Gen2,
 				datamodel.AKSUbuntuFipsContainerd2004,
 				datamodel.AKSUbuntuFipsContainerd2004Gen2,
 				datamodel.AKSUbuntuContainerd2204,

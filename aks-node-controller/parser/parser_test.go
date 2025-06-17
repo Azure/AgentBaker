@@ -162,54 +162,6 @@ oom_score = -999
 				assert.Equal(t, "true", vars["NEEDS_CGROUPV2"])
 			},
 		},
-		{
-			name:       "AKSUbuntu1804 with containerd and kubenet cni",
-			folder:     "AKSUbuntu1804+Containerd+Kubenet",
-			k8sVersion: "1.19.13",
-			aksNodeConfigUpdator: func(aksNodeConfig *aksnodeconfigv1.Configuration) {
-				aksNodeConfig.NetworkConfig.NetworkPlugin = helpers.GetNetworkPluginType(helpers.NetworkPluginKubenet)
-			},
-			validator: func(cmd *exec.Cmd) {
-				vars := environToMap(cmd.Env)
-				assert.NotEmpty(t, vars["CONTAINERD_CONFIG_CONTENT"])
-				assert.Equal(t, "kubenet", vars["NETWORK_PLUGIN"])
-			},
-		},
-		{
-			name:       "AKSUbuntu1804 with http proxy config",
-			folder:     "AKSUbuntu1804+HTTPProxy",
-			k8sVersion: "1.18.14",
-			aksNodeConfigUpdator: func(aksNodeConfig *aksnodeconfigv1.Configuration) {
-				aksNodeConfig.HttpProxyConfig = &aksnodeconfigv1.HttpProxyConfig{
-					HttpProxy:  "http://myproxy.server.com:8080/",
-					HttpsProxy: "https://myproxy.server.com:8080/",
-					NoProxyEntries: []string{
-						"localhost",
-						"127.0.0.1",
-					},
-					ProxyTrustedCa: encodedTestCert,
-				}
-			},
-			validator: func(cmd *exec.Cmd) {
-				httpProxyStr := "export http_proxy=\"http://myproxy.server.com:8080/\""
-				vars := environToMap(cmd.Env)
-				assert.Contains(t, vars["PROXY_VARS"], httpProxyStr)
-			},
-		},
-		{
-			name:       "AKSUbuntu1804 with custom ca trust",
-			folder:     "AKSUbuntu1804+CustomCATrust",
-			k8sVersion: "1.18.14",
-			aksNodeConfigUpdator: func(aksNodeConfig *aksnodeconfigv1.Configuration) {
-				aksNodeConfig.CustomCaCerts = []string{encodedTestCert, encodedTestCert, encodedTestCert}
-			},
-			validator: func(cmd *exec.Cmd) {
-				vars := environToMap(cmd.Env)
-				assert.Equal(t, "3", vars["CUSTOM_CA_TRUST_COUNT"])
-				assert.Equal(t, "true", vars["SHOULD_CONFIGURE_CUSTOM_CA_TRUST"])
-				assert.Equal(t, encodedTestCert, vars["CUSTOM_CA_CERT_0"])
-			},
-		},
 	}
 
 	for _, tt := range tests {
@@ -234,7 +186,7 @@ oom_score = -999
 							OSType:              datamodel.Linux,
 							VnetSubnetID:        "/subscriptions/359833f5/resourceGroups/MC_rg/providers/Microsoft.Network/virtualNetworks/aks-vnet-07752737/subnet/subnet1",
 							AvailabilityProfile: datamodel.VirtualMachineScaleSets,
-							Distro:              datamodel.AKSUbuntu1604,
+							Distro:              datamodel.AKSUbuntuContainerd2404,
 						},
 					},
 					LinuxProfile: &datamodel.LinuxProfile{
