@@ -533,7 +533,7 @@ func Test_MarinerV2_WASM(t *testing.T) {
 
 // Returns config for the 'base' E2E scenario
 
-func Test_Ubuntu2204_ScriptlessInstaller(t *testing.T) {
+func Test_Ubuntu2204_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that a new ubuntu 2204 node using self contained installer can be properly bootstrapped",
 		Tags: Tags{
@@ -550,7 +550,7 @@ func Test_Ubuntu2204_ScriptlessInstaller(t *testing.T) {
 		}})
 }
 
-func Test_Ubuntu2404_ScriptlessInstaller(t *testing.T) {
+func Test_Ubuntu2404_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "testing that a new ubuntu 2404 node using self contained installer can be properly bootstrapped",
 		Tags: Tags{
