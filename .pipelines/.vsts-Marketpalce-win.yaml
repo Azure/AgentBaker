@@ -2,7 +2,7 @@ name: $(Date:yyyyMMdd)$(Rev:.r)_$(Build.SourceBranchName)_$(BuildID)
 trigger: none
 
 pool:
-  vmImage: ubuntu-18.04
+  vmImage: ubuntu-24.04
 
 variables:
   CONTAINER_IMAGE: 'mcr.microsoft.com/oss/azcu/go-dev:v1.34.7'

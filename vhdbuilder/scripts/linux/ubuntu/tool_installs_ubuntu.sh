@@ -45,14 +45,8 @@ installBcc() {
     git clone https://github.com/iovisor/bcc.git
     mkdir bcc/build; cd bcc/build
 
-    if [ "${VERSION}" = "18.04" ]; then
-      git checkout v0.24.0
-    else
-      # v0.24.0 is not supported for kernels 6.x and there are some python packages not available in 18.04 repository that are needed to build v0.24.0
-      # Hence this distinction
-      git checkout v0.29.0
-    fi
-
+    git checkout v0.29.0
+    
     cmake -DENABLE_EXAMPLES=off .. || exit 1
     make
     sudo make install || exit 1

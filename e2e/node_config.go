@@ -30,7 +30,7 @@ var baseKubeletConfig = &aksnodeconfigv1.KubeletConfig{
 		"kubernetes.azure.com/agentpool":          "nodepool2",
 		"kubernetes.azure.com/cluster":            "test-cluster",
 		"kubernetes.azure.com/mode":               "system",
-		"kubernetes.azure.com/node-image-version": "AKSUbuntu-1804gen2containerd-2022.01.19",
+		"kubernetes.azure.com/node-image-version": "AKSUbuntu-2404gen2containerd-2025.06.02",
 	},
 	KubeletConfigFileConfig: &aksnodeconfigv1.KubeletConfigFileConfig{
 		Kind:              "KubeletConfiguration",
@@ -356,11 +356,11 @@ func baseTemplateLinux(t testing.TB, location string, k8sVersion string, arch st
 						AvailabilityProfile: "VirtualMachineScaleSets",
 						StorageProfile:      "ManagedDisks",
 						VnetSubnetID:        "",
-						Distro:              "aks-ubuntu-containerd-18.04-gen2",
+						Distro:              "aks-ubuntu-containerd-24.04-gen2",
 						CustomNodeLabels: map[string]string{
 							"kubernetes.azure.com/cluster":            "test-cluster", // Some AKS daemonsets require that this exists, but the value doesn't matter.
 							"kubernetes.azure.com/mode":               "system",
-							"kubernetes.azure.com/node-image-version": "AKSUbuntu-1804gen2containerd-2022.01.19",
+							"kubernetes.azure.com/node-image-version": "AKSUbuntu-2404gen2containerd-2025.06.02",
 						},
 						PreprovisionExtension: nil,
 						KubernetesConfig: &datamodel.KubernetesConfig{
@@ -565,11 +565,11 @@ func baseTemplateLinux(t testing.TB, location string, k8sVersion string, arch st
 			AvailabilityProfile: "VirtualMachineScaleSets",
 			StorageProfile:      "ManagedDisks",
 			VnetSubnetID:        "",
-			Distro:              "aks-ubuntu-containerd-18.04-gen2",
+			Distro:              "aks-ubuntu-containerd-24.04-gen2",
 			CustomNodeLabels: map[string]string{
 				"kubernetes.azure.com/cluster":            "test-cluster", // Some AKS daemonsets require that this exists, but the value doesn't matter.
 				"kubernetes.azure.com/mode":               "system",
-				"kubernetes.azure.com/node-image-version": "AKSUbuntu-1804gen2containerd-2022.01.19",
+				"kubernetes.azure.com/node-image-version": "AKSUbuntu-2404gen2containerd-2025.06.02",
 			},
 			PreprovisionExtension: nil,
 			KubernetesConfig: &datamodel.KubernetesConfig{

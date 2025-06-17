@@ -76,7 +76,7 @@ comma-separated and are case-insensitive. Check logs for test tags.
 Example:
 
 ```bash
-TAGS_TO_RUN="os=ubuntu,arch=amd64,wasm=false,gpu=false,imagename=1804gen2containerd" ./e2e-local.sh
+TAGS_TO_RUN="os=ubuntu,arch=amd64,wasm=false,gpu=false,imagename=2404gen2containerd" ./e2e-local.sh
 ```
 
 To exclude scenarios, use `TAGS_TO_SKIP=`. Scenarios with any specified tags will be skipped (this logic is different to

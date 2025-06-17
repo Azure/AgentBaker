@@ -75,10 +75,6 @@ else
   # The following packages are required for an Ubuntu Minimal Image to build and successfully run CSE
   # blobfuse2 and fuse3 - ubuntu 22.04 supports blobfuse2 and is fuse3 compatible
   BLOBFUSE2_VERSION="2.5.1"
-  if [ "${OS_VERSION}" = "18.04" ]; then
-    # keep legacy version on ubuntu 18.04
-    BLOBFUSE2_VERSION="2.2.0"
-  fi
   required_pkg_list=("blobfuse2="${BLOBFUSE2_VERSION} fuse3)
   for apt_package in ${required_pkg_list[*]}; do
       if ! apt_get_install 30 1 600 $apt_package; then
@@ -89,11 +85,6 @@ else
 fi
 
 CHRONYD_DIR=/etc/systemd/system/chronyd.service.d
-if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
-  if [ "${OS_VERSION}" = "18.04" ]; then
-    CHRONYD_DIR=/etc/systemd/system/chrony.service.d
-  fi
-fi
 
 mkdir -p "${CHRONYD_DIR}"
 cat >> "${CHRONYD_DIR}"/10-chrony-restarts.conf <<EOF
@@ -119,7 +110,7 @@ if [ "$(isARM64)" -eq 1 ]; then
   fi
 fi
 
-# Since we do not build Ubuntu 16.04 images anymore, always override network config and disable NTP + Timesyncd and install Chrony
+# Always override network config and disable NTP + Timesyncd and install Chrony
 # Mariner does this differently, so only do it for Ubuntu
 if ! isMarinerOrAzureLinux "$OS"; then
   overrideNetworkConfig || exit 1
