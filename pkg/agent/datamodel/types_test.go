@@ -180,7 +180,7 @@ func TestOSType(t *testing.T) {
 			},
 			{
 				OSType: "Linux",
-				Distro: AKSUbuntuContainerd2404,
+				Distro: AKSUbuntuContainerd2404Gen2,
 			},
 		},
 	}
@@ -479,7 +479,7 @@ func TestIsVHDDistroForAllNodes(t *testing.T) {
 			p: Properties{
 				AgentPoolProfiles: []*AgentPoolProfile{
 					{
-						Distro: AKSUbuntuContainerd2404,
+						Distro: AKSUbuntuContainerd2404Gen2,
 					},
 				},
 			},

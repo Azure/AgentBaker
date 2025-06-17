@@ -798,7 +798,7 @@ testdomain567.com:53 {
 						OSType:              datamodel.Linux,
 						VnetSubnetID:        "/subscriptions/359833f5/resourceGroups/MC_rg/providers/Microsoft.Network/virtualNetworks/aks-vnet-07752737/subnet/subnet1",
 						AvailabilityProfile: datamodel.VirtualMachineScaleSets,
-						Distro:              datamodel.AKSUbuntuContainerd2404,
+						Distro:              datamodel.AKSUbuntuContainerd2204Gen2,
 					},
 				},
 				LinuxProfile: &datamodel.LinuxProfile{
@@ -994,14 +994,6 @@ testdomain567.com:53 {
 		}
 
 	},
-		Entry("RawUbuntu with Containerd", "RawUbuntuContainerd", "1.19.1", func(config *datamodel.NodeBootstrappingConfiguration) {
-			config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.Ubuntu
-			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
-				ContainerRuntime: datamodel.Containerd,
-			}
-			config.KubeletConfig = map[string]string{}
-		}, nil),
-
 		Entry("AKSUbuntu2204 with kubelet serving certificate rotation implicitly disabled", "AKSUbuntu2204+ImplicitlyDisableKubeletServingCertificateRotation", "1.29.7",
 			func(config *datamodel.NodeBootstrappingConfiguration) {
 			}, func(o *nodeBootstrappingOutput) {

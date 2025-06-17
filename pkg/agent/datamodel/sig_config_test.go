@@ -89,7 +89,7 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(sigConfig.SigTenantID).To(Equal("sometenantid"))
 		Expect(sigConfig.SubscriptionID).To(Equal("somesubid"))
 
-		Expect(len(sigConfig.SigUbuntuImageConfig)).To(Equal(28))
+		Expect(len(sigConfig.SigUbuntuImageConfig)).To(Equal(17))
 
 		Expect(len(sigConfig.SigCBLMarinerImageConfig)).To(Equal(9))
 
@@ -229,7 +229,7 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(aksUbuntu2204TLGen2Containerd.Definition).To(Equal("2204gen2TLcontainerd"))
 		Expect(aksUbuntu2204TLGen2Containerd.Version).To(Equal(LinuxSIGImageVersion))
 
-		Expect(len(sigConfig.SigUbuntuEdgeZoneImageConfig)).To(Equal(4))
+		Expect(len(sigConfig.SigUbuntuEdgeZoneImageConfig)).To(Equal(2))
 
 		aksUbuntuEdgeZoneContainerd2204 := sigConfig.SigUbuntuEdgeZoneImageConfig[AKSUbuntuEdgeZoneContainerd2204]
 		Expect(aksUbuntuEdgeZoneContainerd2204.ResourceGroup).To(Equal("AKS-Ubuntu-EdgeZone"))
