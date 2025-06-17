@@ -91,8 +91,8 @@ if isMarinerOrAzureLinux "$OS"; then
     installFIPS
   fi
 else
-  # Enable ESM only for 18.04, 20.04, and FIPS
-  if [ "${UBUNTU_RELEASE}" = "18.04" ] || [ "${UBUNTU_RELEASE}" = "20.04" ] || [ "${ENABLE_FIPS,,}" = "true" ]; then
+  # Enable ESM only for 20.04, and FIPS
+  if [ "${UBUNTU_RELEASE}" = "20.04" ] || [ "${ENABLE_FIPS,,}" = "true" ]; then
     set +x
     attachUA
     set -x
