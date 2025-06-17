@@ -180,7 +180,7 @@ func TestOSType(t *testing.T) {
 			},
 			{
 				OSType: "Linux",
-				Distro: AKSUbuntu1604,
+				Distro: AKSUbuntuContainerd2404Gen2,
 			},
 		},
 	}
@@ -479,7 +479,7 @@ func TestIsVHDDistroForAllNodes(t *testing.T) {
 			p: Properties{
 				AgentPoolProfiles: []*AgentPoolProfile{
 					{
-						Distro: AKSUbuntu1604,
+						Distro: AKSUbuntuContainerd2404Gen2,
 					},
 				},
 			},
@@ -905,39 +905,11 @@ func TestAgentPoolProfileIsVHDDistro(t *testing.T) {
 		expected bool
 	}{
 		{
-			name: "16.04 VHD distro",
-			ap: AgentPoolProfile{
-				Distro: AKSUbuntu1604,
-			},
-			expected: true,
-		},
-		{
-			name: "18.04 VHD distro",
-			ap: AgentPoolProfile{
-				Distro: AKSUbuntu1804,
-			},
-			expected: true,
-		},
-		{
 			name: "ubuntu distro",
 			ap: AgentPoolProfile{
 				Distro: Ubuntu,
 			},
 			expected: false,
-		},
-		{
-			name: "ubuntu 18.04 non-VHD distro",
-			ap: AgentPoolProfile{
-				Distro: Ubuntu1804,
-			},
-			expected: false,
-		},
-		{
-			name: "ubuntu 18.04 gen2 non-VHD distro",
-			ap: AgentPoolProfile{
-				Distro: Ubuntu1804Gen2,
-			},
-			expected: true,
 		},
 	}
 
@@ -986,27 +958,6 @@ func TestAgentPoolProfileIs2204VHDDistro(t *testing.T) {
 			},
 			expected: true,
 		},
-		{
-			name: "ubuntu 18.04 non-VHD distro",
-			ap: AgentPoolProfile{
-				Distro: Ubuntu1804,
-			},
-			expected: false,
-		},
-		{
-			name: "ubuntu 18.04 gen2 non-VHD distro",
-			ap: AgentPoolProfile{
-				Distro: Ubuntu1804Gen2,
-			},
-			expected: false,
-		},
-		{
-			name: "18.04 Ubuntu VHD distro",
-			ap: AgentPoolProfile{
-				Distro: AKSUbuntuContainerd1804,
-			},
-			expected: false,
-		},
 	}
 
 	for _, c := range cases {
@@ -1046,27 +997,6 @@ func TestAgentPoolProfileIs2404VHDDistro(t *testing.T) {
 				Distro: AKSUbuntuArm64Containerd2404Gen2,
 			},
 			expected: true,
-		},
-		{
-			name: "ubuntu 18.04 non-VHD distro",
-			ap: AgentPoolProfile{
-				Distro: Ubuntu1804,
-			},
-			expected: false,
-		},
-		{
-			name: "ubuntu 18.04 gen2 non-VHD distro",
-			ap: AgentPoolProfile{
-				Distro: Ubuntu1804Gen2,
-			},
-			expected: false,
-		},
-		{
-			name: "18.04 Ubuntu VHD distro",
-			ap: AgentPoolProfile{
-				Distro: AKSUbuntuContainerd1804,
-			},
-			expected: false,
 		},
 		{
 			name: "Ubuntu 2404 CVM VHD distro",
@@ -1224,13 +1154,6 @@ func TestAgentPoolProfileIsAzureLinuxCgroupV2VHDDistro(t *testing.T) {
 			name: "CBLMariner V2 Gen2 TrustedLaunch VHD distro",
 			ap: AgentPoolProfile{
 				Distro: AKSCBLMarinerV2Gen2TL,
-			},
-			expected: false,
-		},
-		{
-			name: "18.04 Ubuntu VHD distro",
-			ap: AgentPoolProfile{
-				Distro: AKSUbuntuContainerd1804,
 			},
 			expected: false,
 		},
