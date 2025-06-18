@@ -22,13 +22,13 @@ steps:
     displayName: Get Build Mode
 
   - task: UniversalPackages@0
-    displayName: Download Asc Baseline
+    displayName: Download CIS scanner
     inputs:
       command: download
-      vstsFeed: ASMPackages
-      vstsFeedPackage: asc-baseline
-      vstsPackageVersion: '1.1.0-268'
-      downloadDirectory: vhdbuilder/packer
+      vstsFeed: AzCoreLinux-Compliance
+      vstsFeedPackage: cisassessor
+      vstsPackageVersion: '0.0.17'
+      downloadDirectory: vhdbuilder/
 
   - task: DownloadPipelineArtifact@2
     condition: and(or(eq(variables.OS_SKU, 'CBLMariner'), eq(variables.OS_SKU, 'AzureLinux')), eq(variables.IMG_OFFER, 'cbl-mariner'))
@@ -195,6 +195,16 @@ steps:
     inputs:
       SourceFolder: '$(System.DefaultWorkingDirectory)'
       Contents: 'trivy-images-table.txt'
+      TargetFolder: '$(Build.ArtifactStagingDirectory)'
+
+  - task: CopyFiles@2
+    condition: and(eq(variables.OS_SKU, 'Ubuntu'), in(variables.OS_VERSION, '22.04', '24.04'), eq(variables.FEATURE_FLAGS, 'None'))
+    displayName: Copy CIS Reports
+    inputs:
+      SourceFolder: '$(System.DefaultWorkingDirectory)'
+      Contents: |
+        cis-report.html
+        cis-report.txt
       TargetFolder: '$(Build.ArtifactStagingDirectory)'
 
   - task: PublishPipelineArtifact@0
