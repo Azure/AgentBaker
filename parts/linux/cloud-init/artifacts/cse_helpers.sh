@@ -663,7 +663,7 @@ installJq() {
 }
 
 # sets RELEASE to proper release metadata for the package based on the os and osVersion
-# e.g., For os UBUNTU 18.04, if there is a release "r1804" defined in components.json, then set RELEASE to "r1804".
+# e.g., For os UBUNTU 20.04, if there is a release "r2004" defined in components.json, then set RELEASE to "r2004".
 # Otherwise set RELEASE to "current"
 updateRelease() {
     local package="$1"
@@ -671,8 +671,8 @@ updateRelease() {
     local osVersion="$3"
     RELEASE="current"
     local osLowerCase=$(echo "${os}" | tr '[:upper:]' '[:lower:]')
-    #For UBUNTU, if $osVersion is 18.04 and "r1804" is also defined in components.json, then $release is set to "r1804"
-    #Similarly for 20.04 and 22.04. Otherwise $release is set to .current.
+    #For UBUNTU, if $osVersion is 20.04 and "r2004" is also defined in components.json, then $release is set to "r2004"
+    #Similarly for 22.04 and 24.04. Otherwise $release is set to .current.
     #For MARINER, the release is always set to "current" now.
     #For AZURELINUX, if $osVersion is 3.0 and "v3.0" is also defined in components.json, then $RELEASE is set to "v3.0"
     if isMarinerOrAzureLinux "${os}"; then

@@ -300,7 +300,7 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-npm",
-          "latestVersion": "v1.5.45"
+          "latestVersion": "v1.5.48"
         }
       ],
       "windowsVersions": []
@@ -583,7 +583,7 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/azurefile-csi",
-          "latestVersion": "v1.33.1"
+          "latestVersion": "v1.33.2"
         }
       ],
       "windowsVersions": [
@@ -601,7 +601,7 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/azurefile-csi",
-          "latestVersion": "v1.33.1-windows-hp"
+          "latestVersion": "v1.33.2-windows-hp"
         }
       ]
     },
@@ -646,13 +646,13 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/livenessprobe",
-          "latestVersion": "v2.15.0"
+          "latestVersion": "v2.16.0"
         }
       ],
       "windowsVersions": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/livenessprobe",
-          "latestVersion": "v2.15.0"
+          "latestVersion": "v2.16.0"
         }
       ]
     },
@@ -678,13 +678,13 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/csi-node-driver-registrar",
-          "latestVersion": "v2.13.0"
+          "latestVersion": "v2.14.0"
         }
       ],
       "windowsVersions": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/csi-node-driver-registrar",
-          "latestVersion": "v2.13.0"
+          "latestVersion": "v2.14.0"
         }
       ]
     },
@@ -718,8 +718,8 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=azure-policy/policy-kubernetes-addon-prod",
-          "latestVersion": "1.12.1",
-          "previousLatestVersion": "1.11.1"
+          "latestVersion": "1.12.2",
+          "previousLatestVersion": "1.12.1"
         }
       ],
       "windowsVersions": []
@@ -730,8 +730,8 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=azure-policy/policy-kubernetes-webhook",
-          "latestVersion": "1.12.1",
-          "previousLatestVersion": "1.11.1"
+          "latestVersion": "1.12.2",
+          "previousLatestVersion": "1.12.1"
         }
       ],
       "windowsVersions": []
@@ -1021,14 +1021,6 @@
           }
         },
         "ubuntu": {
-          "r1804": {
-            "versionsV2": [
-              {
-                "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.1.14-ubuntu18.04u1"
-              }
-            ]
-          },
           "r2004": {
             "versionsV2": [
               {
@@ -1085,14 +1077,6 @@
                 "latestVersion": "1.7.27-ubuntu20.04u1"
               }
             ]
-          },
-          "r1804": {
-            "versionsV2": [
-              {
-                "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.7.1-1"
-              }
-            ]
           }
         },
         "mariner": {
@@ -1120,7 +1104,7 @@
             "versionsV2": [
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "2.0.0-6.azl3"
+                "latestVersion": "2.0.0-8.azl3"
               }
             ]
           }
@@ -1250,14 +1234,6 @@
           }
         },
         "ubuntu": {
-          "r1804": {
-            "versionsV2": [
-              {
-                "renovateTag": "name=kubernetes-cri-tools, os=ubuntu, release=18.04",
-                "latestVersion": "1.32.0-ubuntu18.04u3"
-              }
-            ]
-          },
           "r2004": {
             "versionsV2": [
               {
@@ -1371,17 +1347,17 @@
               {
                 "k8sVersion": "1.30",
                 "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/binaries/kubernetes/azure-acr-credential-provider",
-                "latestVersion": "v1.30.12"
+                "latestVersion": "v1.30.13"
               },
               {
                 "k8sVersion": "1.31",
                 "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/binaries/kubernetes/azure-acr-credential-provider",
-                "latestVersion": "v1.31.6"
+                "latestVersion": "v1.31.7"
               },
               {
                 "k8sVersion": "1.32",
                 "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/binaries/kubernetes/azure-acr-credential-provider",
-                "latestVersion": "v1.32.5"
+                "latestVersion": "v1.32.6"
               }
             ],
             "downloadURL": "mcr.microsoft.com/oss/binaries/kubernetes/azure-acr-credential-provider:${version}-linux-${CPU_ARCH}"

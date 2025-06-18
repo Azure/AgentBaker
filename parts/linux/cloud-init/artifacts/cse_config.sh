@@ -166,47 +166,21 @@ EOF
   systemctl restart containerd
 }
 
-configureK8s() {
-    mkdir -p "/etc/kubernetes/certs"
-    mkdir -p "/etc/systemd/system/kubelet.service.d"
-
-    if [ -n "${APISERVER_PUBLIC_KEY}" ]; then
-        APISERVER_PUBLIC_KEY_PATH="/etc/kubernetes/certs/apiserver.crt"
-        touch "${APISERVER_PUBLIC_KEY_PATH}"
-        chmod 0644 "${APISERVER_PUBLIC_KEY_PATH}"
-        chown root:root "${APISERVER_PUBLIC_KEY_PATH}"
-
-        set +x
-        echo "${APISERVER_PUBLIC_KEY}" | base64 --decode > "${APISERVER_PUBLIC_KEY_PATH}"
-        set -x
-    fi
-
-    if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" = "false" ] && [ -z "${TLS_BOOTSTRAP_TOKEN:-}" ]; then
-        # only create the client cert and key if we're not using vanilla/secure TLS bootstrapping
-        set +x
-        if [ -n "${KUBELET_CLIENT_CONTENT}" ]; then
-            echo "${KUBELET_CLIENT_CONTENT}" | base64 -d > /etc/kubernetes/certs/client.key
-        fi
-        if [ -n "${KUBELET_CLIENT_CERT_CONTENT}" ]; then
-            echo "${KUBELET_CLIENT_CERT_CONTENT}" | base64 -d > /etc/kubernetes/certs/client.crt
-        fi
-        set -x
-    fi
-
-    AZURE_JSON_PATH="/etc/kubernetes/azure.json"
+# file paths defined outside so configureAzureJson can be unit tested
+# TODO: move common file path definitions to cse_helpers.sh
+AZURE_JSON_PATH="/etc/kubernetes/azure.json"
+AKS_CUSTOM_CLOUD_JSON_PATH="/etc/kubernetes/${TARGET_ENVIRONMENT}.json"
+configureAzureJson() {
     touch "${AZURE_JSON_PATH}"
     chmod 0600 "${AZURE_JSON_PATH}"
     chown root:root "${AZURE_JSON_PATH}"
 
     set +x
     if [ -n "${SERVICE_PRINCIPAL_FILE_CONTENT}" ]; then
-        echo "${SERVICE_PRINCIPAL_FILE_CONTENT}" | base64 -d > /etc/kubernetes/sp.txt
+        SERVICE_PRINCIPAL_CLIENT_SECRET="$(base64 -d <<< "${SERVICE_PRINCIPAL_FILE_CONTENT}")"
     fi
-    SP_FILE="/etc/kubernetes/sp.txt"
-    SERVICE_PRINCIPAL_CLIENT_SECRET="$(cat "$SP_FILE")"
     SERVICE_PRINCIPAL_CLIENT_SECRET=${SERVICE_PRINCIPAL_CLIENT_SECRET//\\/\\\\}
     SERVICE_PRINCIPAL_CLIENT_SECRET=${SERVICE_PRINCIPAL_CLIENT_SECRET//\"/\\\"}
-    rm "$SP_FILE"
     
     cat << EOF > "${AZURE_JSON_PATH}"
 {
@@ -251,18 +225,45 @@ EOF
     set -x
 
     if [ "${CLOUDPROVIDER_BACKOFF_MODE}" = "v2" ]; then
-        sed -i "/cloudProviderBackoffExponent/d" /etc/kubernetes/azure.json
-        sed -i "/cloudProviderBackoffJitter/d" /etc/kubernetes/azure.json
+        sed -i "/cloudProviderBackoffExponent/d" $AZURE_JSON_PATH
+        sed -i "/cloudProviderBackoffJitter/d" $AZURE_JSON_PATH
     fi
 
     if [ "${IS_CUSTOM_CLOUD}" = "true" ]; then
         set +x
-        AKS_CUSTOM_CLOUD_JSON_PATH="/etc/kubernetes/${TARGET_ENVIRONMENT}.json"
         touch "${AKS_CUSTOM_CLOUD_JSON_PATH}"
         chmod 0600 "${AKS_CUSTOM_CLOUD_JSON_PATH}"
         chown root:root "${AKS_CUSTOM_CLOUD_JSON_PATH}"
 
         echo "${CUSTOM_ENV_JSON}" | base64 -d > "${AKS_CUSTOM_CLOUD_JSON_PATH}"
+        set -x
+    fi
+}
+
+configureK8s() {
+    mkdir -p "/etc/kubernetes/certs"
+    mkdir -p "/etc/systemd/system/kubelet.service.d"
+
+    if [ -n "${APISERVER_PUBLIC_KEY}" ]; then
+        APISERVER_PUBLIC_KEY_PATH="/etc/kubernetes/certs/apiserver.crt"
+        touch "${APISERVER_PUBLIC_KEY_PATH}"
+        chmod 0644 "${APISERVER_PUBLIC_KEY_PATH}"
+        chown root:root "${APISERVER_PUBLIC_KEY_PATH}"
+
+        set +x
+        echo "${APISERVER_PUBLIC_KEY}" | base64 --decode > "${APISERVER_PUBLIC_KEY_PATH}"
+        set -x
+    fi
+
+    if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" = "false" ] && [ -z "${TLS_BOOTSTRAP_TOKEN:-}" ]; then
+        # only create the client cert and key if we're not using vanilla/secure TLS bootstrapping
+        set +x
+        if [ -n "${KUBELET_CLIENT_CONTENT}" ]; then
+            echo "${KUBELET_CLIENT_CONTENT}" | base64 -d > /etc/kubernetes/certs/client.key
+        fi
+        if [ -n "${KUBELET_CLIENT_CERT_CONTENT}" ]; then
+            echo "${KUBELET_CLIENT_CERT_CONTENT}" | base64 -d > /etc/kubernetes/certs/client.crt
+        fi
         set -x
     fi
 

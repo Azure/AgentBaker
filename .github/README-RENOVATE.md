@@ -43,7 +43,7 @@ We defined some packageRule blocks in the renovate.json. Here are some examples.
 ### Disable `minor` update
 ```
     {
-      "matchDatasources": ["docker", "custom.deb1804", "custom.deb2004", "custom.deb2204", "custom.deb2404"],
+      "matchDatasources": ["docker", "custom.deb2004", "custom.deb2204", "custom.deb2404"],
       "matchUpdateTypes": [
         "minor"
       ],
@@ -51,7 +51,7 @@ We defined some packageRule blocks in the renovate.json. Here are some examples.
       "enabled": false
     },
 ```
-- `matchDatasources`: specifies which datasources the rule should apply to. In this example, we define if a datasource is either `docker`, custom defined `custom.deb1804`, `custom.deb2004`, `custom.deb2204` and `custom.deb2404`, the package rule will apply. You will find the custom defined ones in the next block.
+- `matchDatasources`: specifies which datasources the rule should apply to. In this example, we define if a datasource is either `docker`, custom defined `custom.deb2004`, `custom.deb2204` and `custom.deb2404`, the package rule will apply. You will find the custom defined ones in the next block.
 - `matchUpdateTypes`: allows you to apply specific rules to dependencies based on the type of update. In this example, if the update type is `minor`, this package rule will apply.
 - `automerge`:allows you to specify whether pull requests created by Renovate should be automatically merged. `false` here mean the PR needs to be approved before it can merge.
 - `enabled`: allows you to control whether a specific rule is active or not. `false` in this example means this package rule is inactive.
@@ -63,7 +63,7 @@ This package rule will make more sense if you continue looking at the next packa
 
 ```
     {
-      "matchDatasources": ["docker", "custom.deb1804", "custom.deb2004", "custom.deb2204", "custom.deb2404"],
+      "matchDatasources": ["docker", "custom.deb2004", "custom.deb2204", "custom.deb2404"],
       "matchUpdateTypes": [
         "patch",
         "pin",
@@ -198,15 +198,15 @@ Each custom manager will ensure it only finds one type of renovateTag.
 ## Custom data sources
 We have some custom data sources in the renovate.json now. Let's walk through an example to explain the details.
 ```
-    "deb1804": {
-      "defaultRegistryUrlTemplate": "https://packages.microsoft.com/ubuntu/18.04/prod/dists/testing/main/binary-amd64/Packages",
+    "deb2404": {
+      "defaultRegistryUrlTemplate": "https://packages.microsoft.com/ubuntu/24.04/prod/dists/noble/main/binary-amd64/Packages",
       "format": "plain",
       "transformTemplates": [
-        "{\"releases\": $map(($index := releases#$i[version=\"Package: {{packageName}}\"].$i; $map($index, function($i) { $replace(releases[$i + 1].version, /^Version:\\s*/, \"v\") })), function($v) { {\"version\": $v} })}"
+        "{\"releases\": $map(($index := releases#$i[version=\"Package: {{packageName}}\"].$i; $map($index, function($i) { $substringAfter(releases[$i + 1].version, \"Version: \") })), function($v) { {\"version\": $v} })[]}"
       ]
     }
 ```
-- The name is this custom data source is `deb1804`. We are referencing to it in the earlier section custom manager with `"datasourceTemplate": "custom.deb1804",`
+- The name is this custom data source is `deb2404`. We are referencing to it in the earlier section custom manager with `"datasourceTemplate": "custom.deb2404",`
 - `defaultRegistryUrlTemplate`: specifies the default URL template for accessing the registry of a custom datasource. In this example, it is the packages.microsoft.com/xxx URL.
 - `format`: specifies the format of the data returned by the registry. In this example, it's neither json, html nor yaml but a `Debian Control File`. So we have to use `plain` and then construct the data in `transformTemplates` by ourselves.
 - `transformTemplates`: allows you to define custom transformations for data fetched from a custom datasource. It uses `JSONata rules` to transform the API output in a certain format. This one is really challenging to me (Devin). Please read the official doc to try and error a correct JSONata query. At the end of the day, you will need to at least populate something like
@@ -452,7 +452,6 @@ PS C:\Users\devinwon\git\AgentBaker> npx renovate --platform=local --dry-run=tru
        }
  WARN: Package lookup failures (repository=local)
        "warnings": [
-         "Failed to look up custom.deb1804 package kubernetes-cri-tools",
          "Failed to look up custom.deb2004 package kubernetes-cri-tools",
          "Failed to look up custom.deb2404 package kubernetes-cri-tools"
        ],
@@ -490,7 +489,7 @@ TRACE: Dependency lookup success (repository=local)
          "warnings": [
            {
              "topic": "kubernetes-cri-tools",
-             "message": "Failed to look up custom.deb1804 package kubernetes-cri-tools"
+             "message": "Failed to look up custom.deb2004 package kubernetes-cri-tools"
            }
          ]
        }

@@ -150,6 +150,8 @@ steps:
   # Use jq to reformat the image-bom.json file
   - bash: |
       set -e
+      # don't echo commands otherwise ADO processes the setvariable twice and all goes wrong.
+      set +x
       sudo chmod 777 image-bom.json
       jq . image-bom.json > tmp.json
 
