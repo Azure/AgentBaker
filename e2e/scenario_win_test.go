@@ -176,7 +176,10 @@ func Test_Windows2025(t *testing.T) {
 			Cluster:                ClusterAzureNetwork,
 			VHD:                    config.VHDWindows2025,
 			VMConfigMutator:        EmptyVMConfigMutator,
-			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
+			BootstrapConfigMutator: func(configuration *datamodel.NodeBootstrappingConfiguration) {
+				// 2025 supported in 1.32+ .
+				configuration.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.32.5"
+			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateWindowsVersionFromWindowsSettings(ctx, s, "2025")
 				ValidateWindowsProductName(ctx, s, "Windows Server 2025 Datacenter")
@@ -196,7 +199,10 @@ func Test_Windows2025Gen2(t *testing.T) {
 			Cluster:                ClusterAzureNetwork,
 			VHD:                    config.VHDWindows2025Gen2,
 			VMConfigMutator:        EmptyVMConfigMutator,
-			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
+			BootstrapConfigMutator: func(configuration *datamodel.NodeBootstrappingConfiguration) {
+				// 2025 supported in 1.32+ .
+				configuration.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.32.5"
+			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateWindowsVersionFromWindowsSettings(ctx, s, "2025-gen2")
 				ValidateWindowsProductName(ctx, s, "Windows Server 2025 Datacenter")
