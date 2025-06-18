@@ -43,7 +43,7 @@ logs_to_events() {
 validate() {
     local kubeconfig_path=$1
     
-    # extract the bootstrap token directly from bootstrap-kubeconfig using environment variables poses security risks. 
+    # extract the bootstrap token directly from bootstrap-kubeconfig since using environment variables poses security risks. 
     # We'd rather use yq/jq to do this, though we can't guarantee either utility will be available on all future node images.
     token=$(grep -Po "(?<=token: ).*$" < "$kubeconfig_path")
     token="${token//\"/}"
