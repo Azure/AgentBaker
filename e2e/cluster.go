@@ -456,11 +456,6 @@ func createNewMaintenanceConfiguration(ctx context.Context, t *testing.T, cluste
 						DayOfWeek:     to.Ptr(armcontainerservice.WeekDayMonday),
 						IntervalWeeks: to.Ptr[int32](4),
 					},
-					// RelativeMonthly: &armcontainerservice.RelativeMonthlySchedule{
-					// 	DayOfWeek:      to.Ptr(armcontainerservice.WeekDayMonday),
-					// 	IntervalMonths: to.Ptr[int32](3),
-					// 	WeekIndex:      to.Ptr(armcontainerservice.TypeFirst),
-					// },
 				},
 			},
 		},
