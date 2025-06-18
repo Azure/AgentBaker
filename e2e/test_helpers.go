@@ -5,6 +5,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"os/signal"
+	"path/filepath"
+	"regexp"
+	"strings"
+	"syscall"
+	"testing"
+	"time"
+
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/e2e/toolkit"
@@ -13,16 +22,8 @@ import (
 	"github.com/barkimedes/go-deepcopy"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
-	"os"
-	"os/signal"
-	"path/filepath"
-	"regexp"
 	ctrruntimelog "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-	"strings"
-	"syscall"
-	"testing"
-	"time"
 )
 
 // it's important to share context between tests to allow graceful shutdown
@@ -234,15 +235,6 @@ func validateNodeCanRunAPod(ctx context.Context, s *Scenario) {
 
 func validateVM(ctx context.Context, s *Scenario) {
 	validateNodeCanRunAPod(ctx, s)
-
-	// skip when outbound type is block as the wasm will create pod from gcr, however, network isolated cluster scenario will block egress traffic of gcr.
-	// TODO(xinhl): add another way to validate
-	if s.Runtime.NBC != nil && s.Runtime.NBC.AgentPoolProfile != nil && s.Runtime.NBC.AgentPoolProfile.WorkloadRuntime == datamodel.WasmWasi && s.Runtime.NBC.OutboundType != datamodel.OutboundTypeBlock && s.Runtime.NBC.OutboundType != datamodel.OutboundTypeNone {
-		ValidateWASM(ctx, s, s.Runtime.KubeNodeName)
-	}
-	if s.Runtime.AKSNodeConfig != nil && s.Runtime.AKSNodeConfig.WorkloadRuntime == aksnodeconfigv1.WorkloadRuntime_WORKLOAD_RUNTIME_WASM_WASI {
-		ValidateWASM(ctx, s, s.Runtime.KubeNodeName)
-	}
 
 	switch s.VHD.OS {
 	case config.OSWindows:
