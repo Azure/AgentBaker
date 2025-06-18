@@ -452,11 +452,15 @@ func createNewMaintenanceConfiguration(ctx context.Context, t *testing.T, cluste
 				StartTime:     to.Ptr("00:00"),  //PST
 				UTCOffset:     to.Ptr("+08:00"), //PST
 				Schedule: &armcontainerservice.Schedule{
-					RelativeMonthly: &armcontainerservice.RelativeMonthlySchedule{
-						DayOfWeek:      to.Ptr(armcontainerservice.WeekDayMonday),
-						IntervalMonths: to.Ptr[int32](3),
-						WeekIndex:      to.Ptr(armcontainerservice.TypeFirst),
+					Weekly: &armcontainerservice.WeeklySchedule{
+						DayOfWeek:     to.Ptr(armcontainerservice.WeekDayMonday),
+						IntervalWeeks: to.Ptr[int32](4),
 					},
+					// RelativeMonthly: &armcontainerservice.RelativeMonthlySchedule{
+					// 	DayOfWeek:      to.Ptr(armcontainerservice.WeekDayMonday),
+					// 	IntervalMonths: to.Ptr[int32](3),
+					// 	WeekIndex:      to.Ptr(armcontainerservice.TypeFirst),
+					// },
 				},
 			},
 		},
