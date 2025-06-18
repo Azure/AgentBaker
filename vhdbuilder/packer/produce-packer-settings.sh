@@ -400,17 +400,18 @@ if [ "$OS_TYPE" = "Windows" ]; then
 	# default: build VHD images from a marketplace base image
 	IMPORTED_IMAGE_NAME=$imported_windows_image_name
 	IMPORTED_IMAGE_URL="https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net/system/$IMPORTED_IMAGE_NAME.vhd"
- 
+ 	export AZCOPY_AUTO_LOGIN_TYPE="MSI" # use Managed Identity for AzCopy authentication
+
 	if [ -n "${WINDOWS_CONTAINERIMAGE_JSON_URL}" ]; then
 		# Download the json artifact from the url
 		filename=$(basename "$WINDOWS_CONTAINERIMAGE_JSON_URL")
 		echo "Downloading $filename from wcct storage account using AzCopy with Managed Identity Auth"
-		export AZCOPY_AUTO_LOGIN_TYPE="MSI"
 
 		if azcopy copy "${WINDOWS_CONTAINERIMAGE_JSON_URL}" "${BUILD_ARTIFACTSTAGINGDIRECTORY}/"; then
 			echo "Successfully downloaded the latest artifact: $filename"
 		else
 			echo "Failed to download the latest artifact"
+			exit 1
 		fi
 
 		# Parse the json artifact to get the image urls
@@ -481,7 +482,6 @@ if [ "$OS_TYPE" = "Windows" ]; then
 		WINDOWS_IMAGE_URL=${IMPORTED_IMAGE_URL}
 
 		echo "Copy Windows base image to ${WINDOWS_IMAGE_URL}"
-		export AZCOPY_AUTO_LOGIN_TYPE="MSI"
 		export AZCOPY_MSI_RESOURCE_STRING="${AZURE_MSI_RESOURCE_STRING}"
 		azcopy copy "${WINDOWS_BASE_IMAGE_URL}" "${WINDOWS_IMAGE_URL}"
 		# https://www.packer.io/plugins/builders/azure/arm#image_url
