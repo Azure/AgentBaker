@@ -64,7 +64,7 @@ Describe "ProcessAndWriteContainerdConfig" {
     }
   }
 
-  Context 'v1 containerdtemplate.toml' {
+  Context 'containerd template v1 ' {
 
     BeforeAll {
       $containerdDir = "$PSScriptRoot\containerdfunc.tests.suites"
@@ -73,7 +73,6 @@ Describe "ProcessAndWriteContainerdConfig" {
       $pauseImage = 'mcr.microsoft.com/oss/kubernetes/pause:3.6'
 
       $templatePathV1 = Join-Path $PSScriptRoot "containerdtemplate.toml"
-      $templatePathV2 = Join-Path $PSScriptRoot "containerdtemplate_v2.toml"
 
       $global:KubeClusterConfigPath = [Io.path]::Combine("", "kubeclusterconfig.json")
       $global:ContainerdInstallLocation = $containerdDir
@@ -120,6 +119,54 @@ Describe "ProcessAndWriteContainerdConfig" {
       # Should not contain annotation placeholders or values
       $content | Should -Not -Match 'container_annotations'
       $content | Should -Not -Match 'pod_annotations'
+    }
+  }
+
+  
+  Context 'containerd template v2' {
+
+    BeforeAll {
+      $containerdDir = "$PSScriptRoot\containerdfunc.tests.suites"
+      $cniBinDir = 'C:/cni/bin'
+      $cniConfDir = 'C:/cni/conf'
+      $pauseImage = 'mcr.microsoft.com/oss/kubernetes/pause:3.6'
+
+      $templatePathV2 = Join-Path $PSScriptRoot "containerd2template.toml"
+
+      $global:KubeClusterConfigPath = [Io.path]::Combine("", "kubeclusterconfig.json")
+      $global:ContainerdInstallLocation = $containerdDir
+      $configPath = Join-Path $global:ContainerdInstallLocation "config.toml"
+    }
+
+    It "Should process containerdtemplate.toml with basic configuration" {
+      # Set up paths for the test
+      $global:DefaultContainerdWindowsSandboxIsolation = "process" # default to process isolation
+      $global:ContainerdWindowsRuntimeHandlers = "" # default to no hyperv handlers
+
+      { ProcessAndWriteContainerdConfig -TemplatePath $templatePathV2 -ContainerDVersion "2.0.5" -CNIBinDir $cniBinDir -CNIConfDir $cniConfDir } | Should -Not -Throw
+      
+      $configPath | Should -Exist
+      $content = Get-Content -Path $configPath -Raw
+      $content | Should -Not -BeNullOrEmpty
+      
+      # Check that placeholders are replaced
+      $content | Should -Not -Match ([regex]::Escape("{{"))
+      
+      # Check that the values were replaced correctly
+      $content | Should -Match $pauseImage
+      $content | Should -Match $cniBinDir
+      $content | Should -Match $cniConfDir
+      $content | Should -Match 'SandboxIsolation = 0'
+    }
+
+    It "Should include hyperv runtimes when hyperv is enabled" {
+      $global:DefaultContainerdWindowsSandboxIsolation = "hyperv"
+      $global:ContainerdWindowsRuntimeHandlers = "1234,5678"
+      { ProcessAndWriteContainerdConfig -TemplatePath $templatePathV1 -ContainerDVersion "2.0.5" -CNIBinDir $cniBinDir -CNIConfDir $cniConfDir } | Should -Not -Throw
+      
+      $content = Get-Content -Path $configPath -Raw
+      $content | Should -Match 'plugins.cri.containerd.runtimes.runhcs-wcow-hypervisor-1234'
+      $content | Should -Match 'SandboxIsolation = 1'
     }
   }
 }
