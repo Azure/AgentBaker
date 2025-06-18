@@ -2,7 +2,7 @@ BeforeAll {
   # Define mock functions before loading the scripts
   function Write-Log {
     param($Message)
-    # Do nothing in tests - this is a mock implementation
+    Write-Host "$Message"
   }
 
   function Set-ExitCode {
