@@ -1825,7 +1825,7 @@ health-check.localdns.local:53 {
         max_concurrent {{$override.MaxConcurrent}}
     }
     ready {{$.NodeListenerIP}}:8181
-    cache {{$override.CacheDurationInSeconds}}s {
+    cache {{$override.CacheDurationInSeconds}} {
         success 9984
         denial 9984
         {{- if ne $override.ServeStale "Disable"}}
@@ -1882,7 +1882,7 @@ health-check.localdns.local:53 {
         max_concurrent {{$override.MaxConcurrent}}
     }
     ready {{$.ClusterListenerIP}}:8181
-    cache {{$override.CacheDurationInSeconds}}s {
+    cache {{$override.CacheDurationInSeconds}} {
         success 9984
         denial 9984
         {{- if ne $override.ServeStale "Disable"}}
