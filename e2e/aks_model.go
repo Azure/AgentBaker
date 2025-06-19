@@ -278,6 +278,28 @@ func privateEndpointExists(ctx context.Context, t *testing.T, nodeResourceGroup,
 	return false, nil
 }
 
+func createPrivateAzureContainerRegistryPullSecret(ctx context.Context, t *testing.T, cluster *armcontainerservice.ManagedCluster, kubeconfig *Kubeclient, resourceGroup string, isNonAnonymousPull bool) error {
+	privateACRName := config.GetPrivateACRName(isNonAnonymousPull)
+	if isNonAnonymousPull {
+		t.Logf("Creating the secret for non-anonymous pull ACR for the e2e debug pods")
+		kubeconfigPath := os.Getenv("HOME") + "/.kube/config"
+		if err := fetchAndSaveKubeconfig(ctx, t, resourceGroup, *cluster.Name, kubeconfigPath); err != nil {
+			t.Logf("failed to fetch kubeconfig: %v", err)
+			return err
+		}
+		username, password, err := getAzureContainerRegistryCredentials(ctx, t, resourceGroup, privateACRName)
+		if err != nil {
+			t.Logf("failed to get private ACR credentials: %v", err)
+			return err
+		}
+		if err := kubeconfig.createKubernetesSecret(ctx, t, "default", config.Config.ACRSecretName, privateACRName, username, password); err != nil {
+			t.Logf("failed to create Kubernetes secret: %v", err)
+			return err
+		}
+	}
+	return nil
+}
+
 func createPrivateAzureContainerRegistry(ctx context.Context, t *testing.T, cluster *armcontainerservice.ManagedCluster, kubeconfig *Kubeclient, resourceGroup string, isNonAnonymousPull bool) error {
 	privateACRName := config.GetPrivateACRName(isNonAnonymousPull)
 	t.Logf("Creating private Azure Container Registry %s in rg %s", privateACRName, resourceGroup)
@@ -336,24 +358,6 @@ func createPrivateAzureContainerRegistry(ctx context.Context, t *testing.T, clus
 	}
 
 	t.Logf("Private Azure Container Registry created")
-
-	if isNonAnonymousPull {
-		t.Logf("Creating the secret for non-anonymous pull ACR for the e2e debug pods")
-		kubeconfigPath := os.Getenv("HOME") + "/.kube/config"
-		if err := fetchAndSaveKubeconfig(ctx, t, resourceGroup, *cluster.Name, kubeconfigPath); err != nil {
-			t.Logf("failed to fetch kubeconfig: %v", err)
-			return err
-		}
-		username, password, err := getAzureContainerRegistryCredentials(ctx, t, resourceGroup, privateACRName)
-		if err != nil {
-			t.Logf("failed to get private ACR credentials: %v", err)
-			return err
-		}
-		if err := kubeconfig.createKubernetesSecret(ctx, t, "default", config.Config.ACRSecretName, privateACRName, username, password); err != nil {
-			t.Logf("failed to create Kubernetes secret: %v", err)
-			return err
-		}
-	}
 
 	if err := addCacheRulesToPrivateAzureContainerRegistry(ctx, t, config.ResourceGroupName, privateACRName); err != nil {
 		return fmt.Errorf("failed to add cache rules to private acr: %w", err)
