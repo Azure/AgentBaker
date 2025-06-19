@@ -407,11 +407,12 @@ if [ "$OS_TYPE" = "Windows" ]; then
 		filename=$(basename "$WINDOWS_CONTAINERIMAGE_JSON_URL")
 		echo "Downloading $filename from wcct storage account using AzCopy with Managed Identity Auth"
 
+		# For details on the expected format and how to manually retrieve the JSON blob,
+		# see: [WINDOWS-CONTAINERIMAGE-JSON.MD](vhdbuilder/packer/WINDOWS-CONTAINERIMAGE-JSON.MD)
 		if azcopy copy "${WINDOWS_CONTAINERIMAGE_JSON_URL}" "${BUILD_ARTIFACTSTAGINGDIRECTORY}/"; then
 			echo "Successfully downloaded the latest artifact: $filename"
 		else
 			echo "Failed to download the latest artifact"
-			exit 1
 		fi
 
 		# Parse the json artifact to get the image urls
