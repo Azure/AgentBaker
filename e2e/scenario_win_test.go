@@ -202,6 +202,7 @@ func Test_Windows2025Gen2(t *testing.T) {
 			Cluster:         ClusterAzureNetwork,
 			VHD:             config.VHDWindows2025Gen2,
 			VMConfigMutator: EmptyVMConfigMutator,
+			// BootstrapConfigMutator: EmptyBootstrapConfigMutator,
 			BootstrapConfigMutator: func(configuration *datamodel.NodeBootstrappingConfiguration) {
 				// 2025 supported in 1.32+ .
 				configuration.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.32.5"
