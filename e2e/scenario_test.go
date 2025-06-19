@@ -1712,3 +1712,70 @@ func runScenarioUbuntu2404GRID(t *testing.T, vmSize string) {
 func Test_Ubuntu2404_GPUA10(t *testing.T) {
 	runScenarioUbuntu2404GRID(t, "Standard_NV6ads_A10_v5")
 }
+
+func addAKSVMExtension(properties *armcompute.VirtualMachineScaleSetProperties) *armcompute.VirtualMachineScaleSetProperties {
+	if properties == nil {
+		properties = &armcompute.VirtualMachineScaleSetProperties{}
+	}
+
+	if properties.VirtualMachineProfile == nil {
+		properties.VirtualMachineProfile = &armcompute.VirtualMachineScaleSetVMProfile{}
+	}
+
+	if properties.VirtualMachineProfile.ExtensionProfile == nil {
+		properties.VirtualMachineProfile.ExtensionProfile = &armcompute.VirtualMachineScaleSetExtensionProfile{}
+	}
+
+	if properties.VirtualMachineProfile.ExtensionProfile.Extensions == nil {
+		properties.VirtualMachineProfile.ExtensionProfile.Extensions = []*armcompute.VirtualMachineScaleSetExtension{}
+	}
+
+	extension := &armcompute.VirtualMachineScaleSetExtension{
+		Name: to.Ptr("Compute.AKS.Linux.AKSNode"),
+		Properties: &armcompute.VirtualMachineScaleSetExtensionProperties{
+			Publisher: to.Ptr("Microsoft.AKS"),
+			Type:      to.Ptr("Compute.AKS.Linux.AKSNode"),
+
+			// TODO: Remove this hardcoding of the version.
+			TypeHandlerVersion: to.Ptr("1.268"),
+		},
+	}
+
+	properties.VirtualMachineProfile.ExtensionProfile.Extensions = append(properties.VirtualMachineProfile.ExtensionProfile.Extensions, extension)
+	return properties
+}
+
+func Test_Ubuntu2404_GPU_H100(t *testing.T) {
+	vmSize := "Standard_ND96isr_H100_v5"
+	RunScenario(t, &Scenario{
+		Description: fmt.Sprintf("Tests that a GPU-enabled node with VM size %s using an Ubuntu 2404 VHD can be properly bootstrapped and NPD tests are valid", vmSize),
+		Tags: Tags{
+			GPU: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2404Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.AgentPoolProfile.VMSize = vmSize
+				nbc.ConfigGPUDriverIfNeeded = true
+				nbc.EnableGPUDevicePluginIfNeeded = false
+				nbc.EnableNvidia = true
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr(vmSize)
+				vmss.Properties = addAKSVMExtension(vmss.Properties)
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				// First, ensure nvidia-modprobe install does not restart kubelet and temporarily cause node to be unschedulable
+				ValidateNvidiaModProbeInstalled(ctx, s)
+				ValidateKubeletHasNotStopped(ctx, s)
+				ValidateServicesDoNotRestartKubelet(ctx, s)
+
+				// Then validate NPD configuration and GPU monitoring
+				ValidateNPDGPUCountPlugin(ctx, s)
+				ValidateNPDGPUCountCondition(ctx, s)
+				ValidateNPDGPUCountAfterFailure(ctx, s)
+				ValidateNPDReportingGPUMetrics(ctx, s)
+			},
+		}})
+}
