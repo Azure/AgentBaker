@@ -38,8 +38,9 @@ parameters:
     displayName: Windows core base container image URL Override
     type: string
   - name: windowsContainerImageJsonUrl
-    displayName: Windows container image JSON URL
+    displayName: Windows container image JSON URL Override
     type: string
+    default: ""
   - name: skipExtensionCheck
     displayName: Skip Extension Check
     type: boolean
