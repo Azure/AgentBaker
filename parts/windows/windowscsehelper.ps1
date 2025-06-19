@@ -161,7 +161,7 @@ $global:FallbackPackageDownloadFqdn = "acs-mirror.azureedge.net"
 # NOTE: KubernetesVersion does not contain "v"
 $global:MinimalKubernetesVersionWithLatestContainerd = "1.28.0" # Will change it to the correct version when we support new Windows containerd version
 # The minimum kubernetes version to use containerd 2.x
-$global:MinimalKubernetesVersionWithLatestContainerd2 = "1.32.0"
+$global:MinimalKubernetesVersionWithLatestContainerd2 = "1.33.0"
 # Although the contianerd package url is set in AKS RP code now, we still need to update the following variables for AgentBaker Windows E2E tests.
 
 # Define containerd version template
@@ -434,9 +434,9 @@ function Install-Containerd-Based-On-Kubernetes-Version {
   # Currently RP almost alwasy sets the full URL; and the decision for containderd + k8s version is made in the RP code. 
   # while ws2025 is not official yet, force the latest containerd2 package for ws2025 
   
-  $useContainerd2 = $windowsVersion -eq "test2025" -and ([version]$KubernetesVersion).CompareTo([version]$global:MinimalKubernetesVersionWithLatestContainerd2) -ge 0
+  $useContainerd2 = $windowsVersion -eq "test2025" #-or ([version]$KubernetesVersion).CompareTo([version]$global:MinimalKubernetesVersionWithLatestContainerd2) -ge 0
 
- if ($ContainerdUrl.EndsWith("/")) {
+  if ($ContainerdUrl.EndsWith("/")) {
     $containerdVersion=$global:StableContainerdVersion
     if ($useContainerd2) {
         $containerdVersion=$global:LatestContainerd2Version
