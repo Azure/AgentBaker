@@ -1678,3 +1678,44 @@ func Test_AlternateLocation_BasicDeployment(t *testing.T) {
 		},
 	})
 }
+
+func Test_Ubuntu2404_GPU_H100(t *testing.T) {
+	vmSize := "Standard_ND96isr_H100_v5"
+	RunScenario(t, &Scenario{
+		Description: fmt.Sprintf("Tests that a GPU-enabled node with VM size %s using an Ubuntu 2404 VHD can be properly bootstrapped and NPD tests are valid", vmSize),
+		Location:    "southafricanorth",
+		Tags: Tags{
+			GPU: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2404Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.AgentPoolProfile.VMSize = vmSize
+				nbc.ConfigGPUDriverIfNeeded = true
+				nbc.EnableGPUDevicePluginIfNeeded = false
+				nbc.EnableNvidia = true
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr(vmSize)
+
+				extension, err := createVMExtensionLinuxAKSNode(vmss.Location)
+				if err != nil {
+					t.Fatalf("creating AKS VM extension: %v", err)
+				}
+				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				EnableGPUNPDToggle(ctx, s)
+				// First, ensure nvidia-modprobe install does not restart kubelet and temporarily cause node to be unschedulable
+				ValidateNvidiaModProbeInstalled(ctx, s)
+				ValidateKubeletHasNotStopped(ctx, s)
+				ValidateServicesDoNotRestartKubelet(ctx, s)
+
+				// Then validate NPD configuration and GPU monitoring
+				ValidateNPDGPUCountPlugin(ctx, s)
+				ValidateNPDGPUCountCondition(ctx, s)
+				ValidateNPDGPUCountAfterFailure(ctx, s)
+			},
+		}})
+}
