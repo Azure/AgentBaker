@@ -163,11 +163,16 @@ $global:MinimalKubernetesVersionWithLatestContainerd = "1.28.0" # Will change it
 # The minimum kubernetes version to use containerd 2.x
 $global:MinimalKubernetesVersionWithLatestContainerd2 = "1.32.0"
 # Although the contianerd package url is set in AKS RP code now, we still need to update the following variables for AgentBaker Windows E2E tests.
-$global:StableContainerdPackage = "v1.6.35-azure.1/binaries/containerd-v1.6.35-azure.1-windows-amd64.tar.gz"
-# The latest containerd version
-$global:LatestContainerdPackage = "v1.7.20-azure.1/binaries/containerd-v1.7.20-azure.1-windows-amd64.tar.gz"
-# The latest containerd 2.x package
-$global:LatestContainerd2Package = "v2.0.4-azure.1/binaries/containerd-v2.0.4-azure.1-windows-amd64.tar.gz"
+
+# Define containerd version template
+$global:ContainerdPackageTemplate = "v{0}-azure.1/binaries/containerd-v{0}-azure.1-windows-amd64.tar.gz"
+
+# Version numbers only - used in various places
+$global:StableContainerdVersion = "1.6.35"
+$global:LatestContainerdVersion = "1.7.20"
+$global:LatestContainerd2Version = "2.0.4"
+
+# Full package paths are generated using [string]::Format($global:ContainerdPackageTemplate, $version) when needed
 
 $global:EventsLoggingDir = "C:\WindowsAzure\Logs\Plugins\Microsoft.Compute.CustomScriptExtension\Events\"
 $global:TaskName = ""
@@ -419,23 +424,37 @@ function Install-Containerd-Based-On-Kubernetes-Version {
   Logs-To-Event -TaskName "AKS.WindowsCSE.InstallContainerdBasedOnKubernetesVersion" -TaskMessage "Start to install ContainerD based on kubernetes version. ContainerdUrl: $global:ContainerdUrl, KubernetesVersion: $global:KubeBinariesVersion, Windows Version: $windowsVersion"
 
   # In the past, $global:ContainerdUrl is a full URL to download Windows containerd package.
-  # Example: "https://acs-mirror.azureedge.net/containerd/windows/v0.0.46/binaries/containerd-v0.0.46-windows-amd64.tar.gz"
+  # Example: https://packages.aks.azure.com/containerd/windows/v0.0.46/binaries/containerd-v0.0.46-windows-amd64.tar.gz"
   # To support multiple containerd versions, we only set the endpoint in $global:ContainerdUrl.
-  # Example: "https://acs-mirror.azureedge.net/containerd/windows/"
+  # Example: "https://packages.aks.azure.com/containerd/windows/"
   # We only set containerd package based on kubernetes version when $global:ContainerdUrl ends with "/" so we support:
   #   1. Current behavior to set the full URL
   #   2. Setting containerd package in toggle for test purpose or hotfix
-  if ($ContainerdUrl.EndsWith("/")) {
-    $containerdPackage=$global:StableContainerdPackage
-     # Check if we have Windows Server 2025 (not official yet and hence the SKU, as opposed to official name like 23H2 ) and Kubernetes version >= 1.33.0
-    if ($windowsVersion -eq "test2025" -and ([version]$KubernetesVersion).CompareTo([version]$global:MinimalKubernetesVersionWithLatestContainerd2) -ge 0) {
-        $containerdPackage = $global:LatestContainerd2Package
-    } elseif (([version]$KubernetesVersion).CompareTo([version]$global:MinimalKubernetesVersionWithLatestContainerd) -ge 0) {
-        $containerdPackage=$global:LatestContainerdPackage
-    }
-    Write-Log "Resolved containerd pacakge version: $containerdPackage"
+
+  # Currently RP almost alwasy sets the full URL; and the decision for containderd + k8s version is made in the RP code. 
+  # while ws2025 is not official yet, force the latest containerd2 package for ws2025 
+  
+  $useContainerd2 = $windowsVersion -eq "test2025" -and ([version]$KubernetesVersion).CompareTo([version]$global:MinimalKubernetesVersionWithLatestContainerd2) -ge 0
+
+ if ($ContainerdUrl.EndsWith("/")) {
+    $containerdVersion=$global:StableContainerdVersion
+    if ($useContainerd2) {
+        $containerdVersion=$global:LatestContainerd2Version
+    }elseif (([version]$KubernetesVersion).CompareTo([version]$global:MinimalKubernetesVersionWithLatestContainerd) -ge 0) {
+        $containerdVersion=$global:LatestContainerdVersion
+    } 
+    $containerdPackage = [string]::Format($global:ContainerdPackageTemplate, $containerdVersion)
     $ContainerdUrl = $ContainerdUrl + $containerdPackage
+  } elseif($useContainerd2) {
+    # fully qualified URL, but we are testing containerd2 for ws2025. No-op for others
+    $containerdPattern = "v\d+\.\d+\.\d+-azure\.\d+/binaries/containerd-v\d+\.\d+\.\d+-azure\.\d+-windows-amd64\.tar\.gz"
+    if ($ContainerdUrl -match $containerdPattern) {
+        $matchedPath = $matches[0]
+        $containerd2Package = [string]::Format($global:ContainerdPackageTemplate, $global:LatestContainerd2Version)
+        $ContainerdUrl = $ContainerdUrl.Replace($matchedPath, $containerd2Package)
+    } 
   }
+  Write-Log "Resolved containerd pacakge url: $ContainerdUrl for Kubernetes version: $KubernetesVersion and Windows version: $windowsVersion."
   Logs-To-Event -TaskName "AKS.WindowsCSE.InstallContainerd" -TaskMessage "Start to install ContainerD. ContainerdUrl: $ContainerdUrl"
   Install-Containerd -ContainerdUrl $ContainerdUrl -CNIBinDir $CNIBinDir -CNIConfDir $CNIConfDir -KubeDir $KubeDir
 }
