@@ -471,9 +471,14 @@ if [ "$OS_TYPE" = "Windows" ]; then
 		fi	
 	fi
 		
-	# Check if nano and core urls are set
-	if [ -z "${windows_nanoserver_image_url}" ] || [ -z "${windows_servercore_image_url}" ]; then
-		echo "Error: One or both Windows image URLs are not set."
+	# Check if base, nano, and servercore urls are set
+	if [ -z "${windows_nanoserver_image_url}" ] || [ -z "${windows_servercore_image_url}" ] || [ -z "${WINDOWS_BASE_IMAGE_URL}" ]; then
+		echo "Error: One of the Windows image URLs are not set."
+	else
+		# If all URLs are set, print them
+		echo "Using Windows base image URL: ${WINDOWS_BASE_IMAGE_URL}"
+		echo "Using Windows Nano Server image URL: ${windows_nanoserver_image_url}"
+		echo "Using Windows Server Core image URL: ${windows_servercore_image_url}"
 	fi
 
 	# build from a pre-supplied VHD blob a.k.a. external raw VHD
