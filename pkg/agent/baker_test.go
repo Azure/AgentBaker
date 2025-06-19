@@ -470,7 +470,7 @@ health-check.localdns.local:53 {
         max_concurrent 1000
     }
     ready 169.254.10.10:8181
-    cache 3600s {
+    cache 3600 {
         success 9984
         denial 9984
         serve_stale 3600s immediate
@@ -497,7 +497,7 @@ cluster.local:53 {
         max_concurrent 1000
     }
     ready 169.254.10.10:8181
-    cache 3600s {
+    cache 3600 {
         success 9984
         denial 9984
         servfail 0
@@ -514,7 +514,7 @@ testdomain456.com:53 {
         max_concurrent 1000
     }
     ready 169.254.10.10:8181
-    cache 3600s {
+    cache 3600 {
         success 9984
         denial 9984
         serve_stale 3600s verify
@@ -533,7 +533,7 @@ testdomain456.com:53 {
         max_concurrent 2000
     }
     ready 169.254.10.11:8181
-    cache 3600s {
+    cache 3600 {
         success 9984
         denial 9984
         serve_stale 72000s verify
@@ -658,7 +658,7 @@ health-check.localdns.local:53 {
         max_concurrent 1000
     }
     ready 169.254.10.10:8181
-    cache 3600s {
+    cache 3600 {
         success 9984
         denial 9984
         serve_stale 3600s verify
@@ -685,7 +685,7 @@ cluster.local:53 {
         max_concurrent 1000
     }
     ready 169.254.10.10:8181
-    cache 3600s {
+    cache 3600 {
         success 9984
         denial 9984
         servfail 0
@@ -702,7 +702,7 @@ testdomain456.com:53 {
         max_concurrent 1000
     }
     ready 169.254.10.10:8181
-    cache 3600s {
+    cache 3600 {
         success 9984
         denial 9984
         serve_stale 3600s verify
@@ -721,7 +721,7 @@ testdomain456.com:53 {
         max_concurrent 1000
     }
     ready 169.254.10.11:8181
-    cache 3600s {
+    cache 3600 {
         success 9984
         denial 9984
         serve_stale 3600s verify
@@ -748,7 +748,7 @@ cluster.local:53 {
         max_concurrent 1000
     }
     ready 169.254.10.11:8181
-    cache 3600s {
+    cache 3600 {
         success 9984
         denial 9984
         servfail 0
@@ -765,7 +765,7 @@ testdomain567.com:53 {
         max_concurrent 1000
     }
     ready 169.254.10.11:8181
-    cache 3600s {
+    cache 3600 {
         success 9984
         denial 9984
         serve_stale 3600s immediate
