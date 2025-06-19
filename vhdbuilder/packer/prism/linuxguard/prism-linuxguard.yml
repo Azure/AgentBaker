@@ -1,0 +1,504 @@
+storage:
+  bootType: efi
+
+  disks:
+  - partitionTableType: gpt
+    # The repart.d configurations in files/repart.d must be kept in sync with these partitions
+    partitions:
+    - id: esp
+      type: esp
+      label: esp
+      size: 512M
+
+    - id: trident
+      type: linux-generic
+      label: trident
+      size: 512M
+
+    - id: boot-a
+      type: linux-generic
+      label: boot-a
+      size: 100M
+
+    - id: root-a
+      type: root
+      label: root-a
+      size: 2G
+
+    - id: root-hash-a
+      type: root-verity
+      label: root-hash-a
+      size: 128M
+
+    - id: var-a
+      type: linux-generic
+      label: var-a
+      size: 600M
+
+  verity:
+  - id: rootverity
+    name: root
+    dataDeviceId: root-a
+    hashDeviceId: root-hash-a
+    dataDeviceMountIdType: uuid
+    hashDeviceMountIdType: uuid
+    hashSignaturePath: /boot/root.hash.sig
+
+  filesystems:
+  - deviceId: esp
+    type: fat32
+    mountPoint:
+      idType: part-label
+      path: /boot/efi
+      options: umask=0077
+
+  - deviceId: boot-a
+    type: ext4
+    mountPoint:
+      idType: uuid
+      path: /boot
+
+  - deviceId: rootverity
+    type: ext4
+    mountPoint:
+      path: /
+      options: ro
+
+  - deviceId: var-a
+    type: ext4
+    mountPoint:
+      idType: uuid
+      path: /var
+      options: defaults,x-initrd.mount,x-systemd.growfs
+
+  - deviceId: trident
+    type: ext4
+    mountPoint:
+      idType: part-label
+      path: /var/lib/trident
+
+os:
+  packages:
+    remove:
+    - kernel-ipe
+    - dnf
+    - python3-curses
+    - python3-gpg
+    - python3-hawkey
+    - python3-libcomps
+    - python3-libdnf
+    - python3-rpm
+    - libdnf
+    - dnf-data
+    #- policycoreutils-devel
+    - moby-engine
+    - docker-cli
+    # Temporarily remove the initramfs package and reinstall it at the end of the install list to avoid repeated dracut calls
+    - initramfs
+
+    install:
+    # Explicitly reinstall the kernel-ipe with baked in test key for dm-verity
+    - kernel-ipe
+    - systemd-ukify
+    - systemd-boot
+    - efibootmgr
+    - vim
+    - lvm2
+    - veritysetup
+    - selinux-policy
+    - selinux-policy-modules
+    # =====AKS=====
+    # Omit git, dnf-automatic, check-restart, kernel-devel, pigz
+    - ca-certificates
+    - cifs-utils
+    - cloud-init-azure-kvp
+    - conntrack-tools
+    - cracklib
+    - ebtables
+    - ethtool
+    - fuse
+    - inotify-tools
+    - iotop
+    - iproute
+    - ipset
+    - iptables
+    - jq
+    - logrotate
+    - lsof
+    - nmap-ncat
+    - nfs-utils
+    - pam
+    - psmisc
+    - rsyslog
+    - socat
+    - sysstat
+    - traceroute
+    - util-linux
+    - xz
+    - zip
+    - blobfuse2
+    - nftables
+    - iscsi-initiator-utils
+    - netplan
+    # Postinstall ORAS until https://github.com/microsoft/azure-linux-image-tools/pull/242 is published
+    # - oras
+    # =====AKS END =====
+    # ===== AKSNode Extension =====
+    #- ig
+    #- node-exporter
+    #- node-problem-detector-v0.8.19-amd64.rpm
+    #- node-problem-detector-aks-config
+    # ===== AKSNode Extension END =====
+    # Installing initramfs at the very end for one dracut call instead of many
+    - initramfs
+  additionalDirs:
+    - source: ../../artifacts/cni
+      destination: /opt/cni/bin
+    # systemd-repart configs to dynamically generate partitions on boot
+    - source: files/repart.d
+      destination: /etc/repart.d
+      childFilePermissions: 644
+  additionalFiles:
+    # Include systemd-repart in the initrd
+    - source: files/10-repart.conf
+      destination: /etc/dracut.conf.d/10-repart.conf
+      permissions: "644"
+    # Set chrony to use /dev/ptp_hyperv
+    - source: files/chrony.conf
+      destination: /etc/chrony.conf
+      permissions: "644"
+      #=====AKS=====
+    # Fix Systemd resolved caching
+    - source: files/resolv-uplink-override.service
+      destination: /etc/systemd/system/resolv-uplink-override.service
+      permissions: "600"
+    # Fix cloud-init to use netplan and not writefiles
+    - source: files/cloud.cfg
+      destination: /etc/cloud/cloud.cfg
+      permissions: "644"
+    # Fix additional IPs from azure datasource from being assigned to eth0
+    - source: files/80_azure_net_config.cfg
+      destination: /etc/cloud/cloud.cfg.d/80_azure_net_config.cfg
+      permissions: "644"
+    # Add kubernetes sysexts for multiple versions
+    - source: ../../artifacts/mkosi.output/kubernetes_v1.30.11.raw
+      destination: /var/lib/kubernetes_v1.30.11.raw
+      permissions: "644"
+    - source: ../../artifacts/mkosi.output/kubernetes_v1.30.12.raw
+      destination: /var/lib/kubernetes_v1.30.12.raw
+      permissions: "644"
+    - source: ../../artifacts/mkosi.output/kubernetes_v1.31.7.raw
+      destination: /var/lib/kubernetes_v1.31.7.raw
+      permissions: "644"
+    - source: ../../artifacts/mkosi.output/kubernetes_v1.31.8.raw
+      destination: /var/lib/kubernetes_v1.31.8.raw
+      permissions: "644"
+    # CSE scripts
+    - source: ../../artifacts/AgentBaker/parts/linux/cloud-init/artifacts/cse_main.sh
+      destination: /opt/azure/containers/provision.sh
+      permissions: "744"
+    - source: ../../artifacts/AgentBaker/parts/linux/cloud-init/artifacts/cse_start.sh
+      destination: /opt/azure/containers/provision_start.sh
+      permissions: "744"
+    - source: ../../artifacts/AgentBaker/parts/linux/cloud-init/artifacts/cse_config.sh
+      destination: /opt/azure/containers/provision_configs.sh
+      permissions: "744"
+    - source: ../../artifacts/AgentBaker/parts/linux/cloud-init/artifacts/cse_helpers.sh
+      destination: /opt/azure/containers/provision_source.sh
+      permissions: "744"
+    - source: ../../artifacts/AgentBaker/parts/linux/cloud-init/artifacts/cse_install.sh
+      destination: /opt/azure/containers/provision_installs.sh
+      permissions: "744"
+    - source: ../../artifacts/AgentBaker/parts/linux/cloud-init/artifacts/mariner/cse_install_mariner.sh
+      destination: /opt/azure/containers/provision_installs_distro.sh
+      permissions: "744"
+    - source: ../../artifacts/AgentBaker/parts/linux/cloud-init/artifacts/containerd_exec_start.conf
+      destination: /etc/systemd/system/containerd.service.d/exec_start.conf
+      permissions: "644"
+    # sysctls
+    - source: files/99-force-bridge-forward.conf
+      destination: /etc/sysctl.d/99-force-bridge-forward.conf
+      permissions: "644"
+    - source: files/999-sysctl-aks.conf
+      destination: /etc/sysctl.d/999-sysctl-aks.conf
+      permissions: "644"
+    # kubelet
+    - source: ../../artifacts/AgentBaker/parts/linux/cloud-init/artifacts/kubelet.service
+      destination: /etc/systemd/system/kubelet.service
+      permissions: "600"
+    - source: ../../artifacts/AgentBaker/parts/linux/cloud-init/artifacts/validate-kubelet-credentials.sh
+      destination: /opt/azure/containers/validate-kubelet-credentials.sh
+      permissions: "755"
+    # network lockdown
+    - source: ../../artifacts/AgentBaker/parts/linux/cloud-init/artifacts/block_wireserver.sh
+      destination: /opt/azure/containers/kubelet.sh
+      permissions: "755"
+    - source: ../../artifacts/AgentBaker/parts/linux/cloud-init/artifacts/ensure_imds_restriction.sh
+      destination: /opt/azure/containers/ensure_imds_restriction.sh
+      permissions: "755"
+    # cse support
+    - source: ../../artifacts/AgentBaker/parts/linux/cloud-init/artifacts/cse_redact_cloud_config.py
+      destination: /opt/azure/containers/provision_redact_cloud_config.py
+      permissions: "744"
+    - source: ../../artifacts/AgentBaker/parts/linux/cloud-init/artifacts/cse_send_logs.py
+      destination: /opt/azure/containers/provision_send_logs.py
+      permissions: "744"
+    # private hosts
+    - source: ../../artifacts/AgentBaker/parts/linux/cloud-init/artifacts/reconcile-private-hosts.service
+      destination: /etc/systemd/system/reconcile-private-hosts.service
+      permissions: "600"
+    - source: ../../artifacts/AgentBaker/parts/linux/cloud-init/artifacts/reconcile-private-hosts.sh
+      destination: /opt/azure/containers/reconcilePrivateHosts.sh
+      permissions: "744"
+    # bind mount kubelet
+    - source: ../../artifacts/AgentBaker/parts/linux/cloud-init/artifacts/bind-mount.sh
+      destination: /opt/azure/containers/bind-mount.sh
+      permissions: "544"
+    - source: ../../artifacts/AgentBaker/parts/linux/cloud-init/artifacts/bind-mount.service
+      destination: /etc/systemd/system/bind-mount.service
+      permissions: "600"
+    # dhcpv6
+    - source: ../../artifacts/AgentBaker/parts/linux/cloud-init/artifacts/enable-dhcpv6.sh
+      destination: /opt/azure/containers/enable-dhcpv6.sh
+      permissions: "544"
+    - source: ../../artifacts/AgentBaker/parts/linux/cloud-init/artifacts/dhcpv6.service
+      destination: /etc/systemd/system/dhcpv6.service
+      permissions: "600"
+    # sync container logs
+    - source: ../../artifacts/AgentBaker/parts/linux/cloud-init/artifacts/sync-container-logs.sh
+      destination: /opt/azure/containers/sync-container-logs.sh
+      permissions: "544"
+    - source: ../../artifacts/AgentBaker/parts/linux/cloud-init/artifacts/sync-container-logs.service
+      destination: /etc/systemd/system/sync-container-logs.service
+      permissions: "600"
+    # crictl settings
+    - source: ../../artifacts/AgentBaker/parts/linux/cloud-init/artifacts/crictl.yaml
+      destination: /etc/crictl.yaml
+      permissions: "644"
+    # ensure no dupe packets
+    - source: ../../artifacts/AgentBaker/parts/linux/cloud-init/artifacts/ensure-no-dup.sh
+      destination: /opt/azure/containers/ensure-no-dup.sh
+      permissions: "755"
+    - source: ../../artifacts/AgentBaker/parts/linux/cloud-init/artifacts/ensure-no-dup.service
+      destination: /etc/systemd/system/ensure-no-dup.service
+      permissions: "600"
+    # CIS hardening
+    - source: ../../artifacts/AgentBaker/parts/linux/cloud-init/artifacts/sysctl-d-60-CIS.conf
+      destination: /etc/sysctl.d/60-CIS.conf
+      permissions: "644"
+    - source: ../../artifacts/AgentBaker/parts/linux/cloud-init/artifacts/sshd_config
+      destination: /etc/ssh/sshd_config
+      permissions: "600"
+    - source: ../../artifacts/AgentBaker/parts/linux/cloud-init/artifacts/rsyslog-d-60-CIS.conf
+      destination: /etc/rsyslog.d/60-CIS.conf
+      permissions: "644"
+    - source: ../../artifacts/AgentBaker/parts/linux/cloud-init/artifacts/logrotate-d-rsyslog-CIS.conf
+      destination: /etc/logrotate.d/rsyslog-cis.conf
+      permissions: "644"
+    - source: ../../artifacts/AgentBaker/parts/linux/cloud-init/artifacts/modprobe-CIS.conf
+      destination: /etc/modprobe.d/CIS.conf
+      permissions: "644"
+    - source: ../../artifacts/AgentBaker/parts/linux/cloud-init/artifacts/pwquality-CIS.conf
+      destination: /etc/security/pwquality.conf
+      permissions: "600"
+    - source: ../../artifacts/AgentBaker/parts/linux/cloud-init/artifacts/pam-d-su
+      destination: /etc/pam.d/su
+      permissions: "644"
+    - source: ../../artifacts/AgentBaker/parts/linux/cloud-init/artifacts/mariner/pam-d-system-auth
+      destination: /etc/pam.d/system-auth
+      permissions: "644"
+    - source: ../../artifacts/AgentBaker/parts/linux/cloud-init/artifacts/mariner/pam-d-system-password
+      destination: /etc/pam.d/system-password
+      permissions: "644"
+    - source: ../../artifacts/AgentBaker/parts/linux/cloud-init/artifacts/profile-d-cis.sh
+      destination: /etc/profile.d/CIS.sh
+      permissions: "755"
+    # disk queue perf tuning
+    - source: ../../artifacts/AgentBaker/parts/linux/cloud-init/artifacts/disk_queue.service
+      destination: /etc/systemd/system/disk_queue.service
+      permissions: "644"
+    # cgroup-memory
+    - source: ../../artifacts/AgentBaker/parts/linux/cloud-init/artifacts/cgroup-memory-telemetry.sh
+      destination: /opt/scripts/cgroup-memory-telemetry.sh
+      permissions: "755"
+    - source: ../../artifacts/AgentBaker/parts/linux/cloud-init/artifacts/cgroup-memory-telemetry.service
+      destination: /etc/systemd/system/cgroup-memory-telemetry.service
+      permissions: "600"
+    - source: ../../artifacts/AgentBaker/parts/linux/cloud-init/artifacts/cgroup-memory-telemetry.timer
+      destination: /etc/systemd/system/cgroup-memory-telemetry.timer
+      permissions: "600"
+    # cgroup-pressure
+    - source: ../../artifacts/AgentBaker/parts/linux/cloud-init/artifacts/cgroup-pressure-telemetry.sh
+      destination: /opt/scripts/cgroup-pressure-telemetry.sh
+      permissions: "755"
+    - source: ../../artifacts/AgentBaker/parts/linux/cloud-init/artifacts/cgroup-pressure-telemetry.service
+      destination: /etc/systemd/system/cgroup-pressure-telemetry.service
+      permissions: "600"
+    - source: ../../artifacts/AgentBaker/parts/linux/cloud-init/artifacts/cgroup-pressure-telemetry.timer
+      destination: /etc/systemd/system/cgroup-pressure-telemetry.timer
+      permissions: "600"
+    # ci-syslog-watcher
+    - source: ../../artifacts/AgentBaker/parts/linux/cloud-init/artifacts/ci-syslog-watcher.sh
+      destination: /usr/local/bin/ci-syslog-watcher.sh
+      permissions: "755"
+    - source: ../../artifacts/AgentBaker/parts/linux/cloud-init/artifacts/ci-syslog-watcher.service
+      destination: /etc/systemd/system/ci-syslog-watcher.service
+      permissions: "600"
+    - source: ../../artifacts/AgentBaker/parts/linux/cloud-init/artifacts/ci-syslog-watcher.path
+      destination: /etc/systemd/system/ci-syslog-watcher.path
+      permissions: "600"
+    # aks log collector
+    - source: ../../artifacts/AgentBaker/parts/linux/cloud-init/artifacts/aks-log-collector.sh
+      destination: /opt/azure/containers/aks-log-collector.sh
+      permissions: "755"
+    - source: ../../artifacts/AgentBaker/parts/linux/cloud-init/artifacts/aks-log-collector-send.py
+      destination: /opt/azure/containers/aks-log-collector-send.py
+      permissions: "755"
+    - source: ../../artifacts/AgentBaker/parts/linux/cloud-init/artifacts/aks-log-collector.service
+      destination: /etc/systemd/system/aks-log-collector.service
+      permissions: "600"
+    - source: ../../artifacts/AgentBaker/parts/linux/cloud-init/artifacts/aks-log-collector.slice
+      destination: /etc/systemd/system/aks-log-collector.slice
+      permissions: "600"
+    - source: ../../artifacts/AgentBaker/parts/linux/cloud-init/artifacts/aks-log-collector.timer
+      destination: /etc/systemd/system/aks-log-collector.timer
+      permissions: "600"
+    # aks check network
+    - source: ../../artifacts/AgentBaker/parts/linux/cloud-init/artifacts/aks-check-network.sh
+      destination: /opt/azure/containers/aks-check-network.sh
+      permissions: "755"
+    - source: ../../artifacts/AgentBaker/parts/linux/cloud-init/artifacts/aks-check-network.service
+      destination: /etc/systemd/system/aks-check-network.service
+      permissions: "600"
+    # aks logrotate
+    - source: ../../artifacts/AgentBaker/parts/linux/cloud-init/artifacts/aks-logrotate-override.conf
+      destination: /etc/systemd/system/logrotate.timer.d/override.conf
+      permissions: "644"
+    # nftables
+    - source: ../../artifacts/AgentBaker/parts/linux/cloud-init/artifacts/ipv6_nftables
+      destination: /etc/systemd/system/ipv6_nftables
+      permissions: "644"
+    - source: ../../artifacts/AgentBaker/parts/linux/cloud-init/artifacts/ipv6_nftables.service
+      destination: /etc/systemd/system/ipv6_nftables.service
+      permissions: "600"
+    - source: ../../artifacts/AgentBaker/parts/linux/cloud-init/artifacts/ipv6_nftables.sh
+      destination: /opt/scripts/ipv6_nftables.sh
+      permissions: "744"
+    # kms
+    - source: ../../artifacts/AgentBaker/parts/linux/cloud-init/artifacts/kms.service
+      destination: /etc/systemd/system/kms.service
+      permissions: "600"
+    # containerd
+    - source: ../../artifacts/AgentBaker/parts/linux/cloud-init/artifacts/containerd.service
+      destination: /etc/systemd/system/containerd.service
+      permissions: "600"
+    # notice
+    - source: ../../artifacts/AgentBaker/vhdbuilder/notice.txt
+      destination: /NOTICE.txt
+      permissions: "444"
+    #=====AKS END=====
+    #===== FIXUPS =====
+    # Stop the AKSNode extension from trying to install packages
+    - source: files/fix-aksnode.service
+      destination: /etc/systemd/system/fix-aksnode.service
+      permissions: "600"
+    - source: files/fix-aksnode.sh
+      destination: /usr/local/bin/fix-aksnode.sh
+      permissions: "744"
+    # Temporary to postinstall ORAS until https://github.com/microsoft/azure-linux-image-tools/pull/242 is published
+    - source: files/azurelinux-cloud-native.repo
+      destination: /etc/yum.repos.d/azurelinux-cloud-native.repo
+      permissions: "644"
+    #===== FIXUPS END =====
+    #===== Snapshotter Signatures =====
+    - source: ../../artifacts/container_signatures.json
+      destination: /var/lib/containerd/io.containerd.snapshotter.v1.tardev/signatures/container_signatures.json
+    #===== Snapshotter Signatures END =====
+
+    #===== LinuxGuard Development Tools =====
+    - source: files/lgaksaudit.rules
+      destination: /etc/audit/rules.d/lgaksaudit.rules
+      permissions: "644"
+    #===== LinuxGuard Development Tools END =====
+
+  services:
+    enable:
+    - kubelet
+    - resolv-uplink-override
+    - systemd-sysext
+    - fix-aksnode
+    - ipv6_nftables
+    # Disable the AKSNode services for now
+    #- node-problem-detector
+    #- node-exporter
+    disable:
+    - iptables
+    - docker
+
+  bootloader:
+    resetType: hard-reset
+
+# Explicitly enable iptable_nat for prometheus
+  modules:
+  - name: iptable_nat
+    loadMode: always
+
+  kernelCommandLine:
+    extraCommandLine:
+      - "console=tty0"
+      - "console=tty1"
+      - "console=ttyS0"
+      - "rd.luks=0"
+      - "ipe.enforce=0"
+      - "rd.hostonly=0"
+
+  uki:
+    kernels: auto
+
+  selinux:
+    mode: permissive
+
+  users:
+  - name: azuresu
+    secondaryGroups:
+    - sudo
+
+  overlays:
+  - mountPoint: /etc
+    lowerDirs: [/etc]
+    upperDir: /var/lib/overlays/etc/upper
+    workDir: /var/lib/overlays/etc/work
+    mountDependencies: [/var]
+    isInitrdOverlay: true
+  - mountPoint: /root
+    lowerDirs: [/root]
+    upperDir: /var/lib/overlays/root/upper
+    workDir: /var/lib/overlays/root/work
+    mountDependencies: [/var]
+  - mountPoint: /home
+    lowerDirs: [/home]
+    upperDir: /var/lib/overlays/home/upper
+    workDir: /var/lib/overlays/home/work
+    mountDependencies: [/var]
+  - mountPoint: /opt
+    lowerDirs: [/opt]
+    upperDir: /var/lib/overlays/opt/upper
+    workDir: /var/lib/overlays/opt/work
+    mountDependencies: [/var]
+
+output:
+  artifacts:
+    items: 
+    - ukis
+    - shim
+    - systemd-boot
+    - verity-hash
+    path: ./output
+
+previewFeatures:
+  - uki
+  - output-artifacts
+
+scripts:
+  postCustomization:
+    - path: scripts/fixup.sh
