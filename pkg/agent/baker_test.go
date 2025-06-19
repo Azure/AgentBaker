@@ -1704,59 +1704,6 @@ testdomain567.com:53 {
 				config.GPUInstanceProfile = "MIG7g"
 			}, nil),
 
-		Entry("AKSUbuntu1804 with krustlet", "AKSUbuntu1804+krustlet", "1.20.7", func(config *datamodel.NodeBootstrappingConfiguration) {
-			config.ContainerService.Properties.AgentPoolProfiles[0].WorkloadRuntime = datamodel.WasmWasi
-			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
-				ContainerRuntime: datamodel.Containerd,
-			}
-			config.ContainerService.Properties.CertificateProfile = &datamodel.CertificateProfile{
-				CaCertificate: "fooBarBaz",
-			}
-			config.KubeletClientTLSBootstrapToken = to.StringPtr("07401b.f395accd246ae52d")
-		},
-			func(o *nodeBootstrappingOutput) {
-
-				Expect(o.vars["CONTAINERD_CONFIG_CONTENT"]).NotTo(BeEmpty())
-				containerdConfigFileContent, err := getBase64DecodedValue([]byte(o.vars["CONTAINERD_CONFIG_CONTENT"]))
-				Expect(err).To(BeNil())
-				expectedShimConfig := `version = 2
-oom_score = -999
-[plugins."io.containerd.grpc.v1.cri"]
-  sandbox_image = ""
-  [plugins."io.containerd.grpc.v1.cri".containerd]
-    default_runtime_name = "runc"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
-      runtime_type = "io.containerd.runc.v2"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
-      BinaryName = "/usr/bin/runc"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted]
-      runtime_type = "io.containerd.runc.v2"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted.options]
-      BinaryName = "/usr/bin/runc"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin]
-      runtime_type = "io.containerd.spin.v2"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight]
-      runtime_type = "io.containerd.slight-v0-3-0.v1"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin-v0-3-0]
-      runtime_type = "io.containerd.spin-v0-3-0.v1"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight-v0-3-0]
-      runtime_type = "io.containerd.slight-v0-3-0.v1"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin-v0-5-1]
-      runtime_type = "io.containerd.spin-v0-5-1.v1"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight-v0-5-1]
-      runtime_type = "io.containerd.slight-v0-5-1.v1"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin-v0-8-0]
-      runtime_type = "io.containerd.spin-v0-8-0.v1"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight-v0-8-0]
-      runtime_type = "io.containerd.slight-v0-8-0.v1"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.wws-v0-8-0]
-      runtime_type = "io.containerd.wws-v0-8-0.v1"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin-v0-15-1]
-      runtime_type = "io.containerd.spin.v2"`
-
-				Expect(containerdConfigFileContent).To(ContainSubstring(expectedShimConfig))
-			},
-		),
 		Entry("AKSUbuntu2204 with artifact streaming", "AKSUbuntu1804+ArtifactStreaming", "1.25.7", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.EnableArtifactStreaming = true
 			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{

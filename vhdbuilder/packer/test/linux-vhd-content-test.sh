@@ -224,14 +224,6 @@ testPackagesInstalled() {
         if command -v "$name" >/dev/null 2>&1; then
           echo "$name is installed."
           continue
-        elif [ "$name" = "containerd-wasm-shims" ]; then
-          testWasmRuntimesInstalled $downloadLocation $version
-          echo "$test $name binaries are in the expected location of $downloadLocation"
-          continue
-        elif [ "$name" = "spinkube" ]; then
-          testSpinKubeInstalled $downloadLocation $version
-          echo "$test $name binaries are in the expected location of $downloadLocation"
-          continue
         else
           err $test "$name is not installed. Expected to be installed in $downloadLocation"
           continue
@@ -268,7 +260,7 @@ testPackageInAzureChinaCloud() {
   proxyLocation=$(echo "$downloadURL" | awk -F'/' '{print $4}')
 
   # root paths like cri-tools can be ignored since they are only cached in VHD and won't be referenced in control plane.
-  rootPathExceptions=("cri-tools" "spinkube")
+  rootPathExceptions=("cri-tools")
   for rootPathException in "${rootPathExceptions[@]}"; do
     if [ "$rootPathException" = "$proxyLocation" ]; then
       return
@@ -1241,52 +1233,6 @@ testAKSNodeControllerService() {
   fi
 
   echo "$test:Finish"
-}
-
-testWasmRuntimesInstalled() {
-  local test="testWasmRuntimesInstalled"
-  local wasm_runtimes_path=${1}
-  local shim_version=${2}
-
-  echo "$test: checking existence of Spin Wasm Runtime in $wasm_runtimes_path"
-
-  local shims_to_download=("spin" "slight")
-  if [ "${shim_version}" = "0.8.0" ]; then
-    shims_to_download+=("wws")
-  fi
-
-  binary_version="$(echo "${shim_version}" | tr . -)"
-  for shim in "${shims_to_download[@]}"; do
-    binary_path_pattern="${wasm_runtimes_path}/containerd-shim-${shim}-${binary_version}-*"
-    if ! ls $binary_path_pattern >/dev/null 2>&1; then
-      output=$(ls -la /usr/local/bin)
-      err "$test: Spin Wasm Runtime binary does not exist at $binary_path_pattern\n ls -la output:\n $output"
-      return 1
-    else
-      echo "$test: Spin Wasm Runtime binary exists at $binary_path_pattern"
-    fi
-  done
-}
-
-testSpinKubeInstalled() {
-  local test="testSpinKubeInstalled"
-  local spinKube_runtimes_path=${1}
-  local shim_version=${2}
-  shim_version="v${shim_version}"
-  binary_version="$(echo "${shim_version}" | tr . -)"
-
-  # v0.15.1 does not have a version encoded in the binary name
-  binary_path_pattern="${spinKube_runtimes_path}/containerd-shim-spin-v2"
-  if [ ! -f "$binary_path_pattern" ]; then
-    output=$(ls -la /usr/local/bin)
-    err "$test: Spin Wasm Runtime binary does not exist at $binary_path_pattern\n ls -la output:\n $output"
-    return 1
-  else
-    echo "$test: Spin Wasm Runtime binary exists at $binary_path_pattern"
-  fi
-
-  echo "$test: Test finished successfully."
-  return 0
 }
 
 testCriCtl() {

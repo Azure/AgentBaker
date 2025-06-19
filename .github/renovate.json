@@ -55,7 +55,6 @@
         "oss/kubernetes/kube-proxy",
         "oss/binaries/kubernetes/kubernetes-node",
         "oss/binaries/kubernetes/azure-acr-credential-provider",
-        "oss/binaries/deislabs/containerd-wasm-shims",
         "containernetworking/azure-npm"
       ],
       "matchUpdateTypes": [
@@ -351,8 +350,7 @@
       ],
       "matchPackageNames": [
         "oss/binaries/kubernetes/kubernetes-node",
-        "oss/binaries/kubernetes/azure-acr-credential-provider",
-        "oss/binaries/deislabs/containerd-wasm-shims"
+        "oss/binaries/kubernetes/azure-acr-credential-provider"
       ],
       "extractVersion": "^(?P<version>.*?)-[^-]*-[^-]*$"
     },
