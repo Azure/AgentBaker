@@ -86,7 +86,7 @@ Describe 'Install-Containerd-Based-On-Kubernetes-Version' {
     }
 
     It 'k8s version is less to MinimalKubernetesVersionWithLatestContainerd2' {
-      $expectedURL = $ContainerdWindowsPackageDownloadURL + $LatestContainerdPackage
+      $expectedURL = $ContainerdWindowsPackageDownloadURL + $LatestContainerd2Package
       & Install-Containerd-Based-On-Kubernetes-Version -ContainerdUrl $ContainerdWindowsPackageDownloadURL -KubernetesVersion "1.31.0" -CNIBinDir "cniBinPath" -CNIConfDir "cniConfigPath" -KubeDir "kubeDir"
       Assert-MockCalled -CommandName "Install-Containerd" -Exactly -Times 1 -ParameterFilter { $ContainerdUrl -eq $expectedURL }
     }
