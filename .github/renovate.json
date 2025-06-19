@@ -55,8 +55,7 @@
         "oss/kubernetes/kube-proxy",
         "oss/binaries/kubernetes/kubernetes-node",
         "oss/binaries/kubernetes/azure-acr-credential-provider",
-        "containernetworking/azure-npm",
-        "rpm"
+        "containernetworking/azure-npm"
       ],
       "matchUpdateTypes": [
         "minor"
