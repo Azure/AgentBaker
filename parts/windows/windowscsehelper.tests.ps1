@@ -82,7 +82,7 @@ Describe 'Install-Containerd-Based-On-Kubernetes-Version' {
   Context 'Windows Server 2025 (test2025)' {
     # for windows versions other than test2025, containerd version is not changed and should not include containerd2
     BeforeAll {
-      Mock Get-WindowsVersion -MockWith { return "test2025" }
+      Mock Get-WindowsVersion -MockWith { return $golobal:WindowsVersion2025 }
     }
 
     It 'k8s version is less to MinimalKubernetesVersionWithLatestContainerd2' {

@@ -172,9 +172,11 @@ $global:StableContainerdVersion = "1.6.35"
 $global:LatestContainerdVersion = "1.7.20"
 $global:LatestContainerd2Version = "2.0.4"
 
+$global:WindowsVersion2025 = "2025"
+
 # Full package paths are generated using [string]::Format($global:ContainerdPackageTemplate, $version) when needed
 
-$global:EventsLoggingDir = "C:\WindowsAzure\Logs\Plugins\Microsoft.Compute.CustomScriptExtension\Events\"
+$global:EventsLoggingDir = "C:\WindowsAzure\Logs\Plugins\Microsoft.Compute.CustomScindowsriptExtension\Events\"
 $global:TaskName = ""
 $global:TaskTimeStamp = ""
 
@@ -432,9 +434,8 @@ function Install-Containerd-Based-On-Kubernetes-Version {
   #   2. Setting containerd package in toggle for test purpose or hotfix
 
   # Currently RP almost alwasy sets the full URL; and the decision for containderd + k8s version is made in the RP code. 
-  # while ws2025 is not official yet, force the latest containerd2 package for ws2025 
-  
-  $useContainerd2 = $windowsVersion -eq "test2025" #-or ([version]$KubernetesVersion).CompareTo([version]$global:MinimalKubernetesVersionWithLatestContainerd2) -ge 0
+  # Now only support containerd 2.0 for Windows Server 2025, later we will support containerd 2.0 for all Windows versions when meet min k8s versions.
+  $useContainerd2 = $windowsVersion -eq $global:WindowsVersion2025 #-or ([version]$KubernetesVersion).CompareTo([version]$global:MinimalKubernetesVersionWithLatestContainerd2) -ge 0
 
   if ($ContainerdUrl.EndsWith("/")) {
     $containerdVersion=$global:StableContainerdVersion
