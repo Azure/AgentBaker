@@ -85,9 +85,18 @@
       "enabled": true
     },
     {
+      "matchDatasources": [
+        "rpm"
+      ],
+      "versioning": "regex:(?<major>\\d+)(\\.(?<minor>\\d+))?(\\.(?<patch>\\d+))?(-(?<prerelease>.*))?$",
+      "automerge": false,
+      "enabled": true
+    },
+    {
       "matchPackageNames": [
         "moby-runc",
         "moby-containerd",
+        "containerd2",
         "aks/aks-node-ca-watcher"
       ],
       "matchUpdateTypes": [
@@ -100,10 +109,8 @@
         "devinwong",
         "anujmaheshwari1",
         "cameronmeissner",
-        "AlisonB319",
         "lilypan26",
         "djsly",
-        "jason1028kr",
         "UtheMan",
         "zachary-bailey",
         "ganeshkumarashok"
@@ -112,10 +119,8 @@
         "devinwong",
         "anujmaheshwari1",
         "cameronmeissner",
-        "AlisonB319",
         "lilypan26",
         "djsly",
-        "jason1028kr",
         "UtheMan",
         "zachary-bailey",
         "ganeshkumarashok"
@@ -124,7 +129,8 @@
     {
       "matchPackageNames": [
         "moby-runc",
-        "moby-containerd"
+        "moby-containerd",
+        "containerd2"
       ],
       "matchUpdateTypes": [
         "minor"
@@ -136,10 +142,8 @@
         "devinwong",
         "anujmaheshwari1",
         "cameronmeissner",
-        "AlisonB319",
         "lilypan26",
         "djsly",
-        "jason1028kr",
         "UtheMan",
         "zachary-bailey",
         "ganeshkumarashok"
@@ -148,10 +152,8 @@
         "devinwong",
         "anujmaheshwari1",
         "cameronmeissner",
-        "AlisonB319",
         "lilypan26",
         "djsly",
-        "jason1028kr",
         "UtheMan",
         "zachary-bailey",
         "ganeshkumarashok"
@@ -267,6 +269,30 @@
         "mainred",
         "MartinForReal",
         "nilo19"
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "kubernetes-cri-tools"
+      ],
+      "groupName": "kubernetes-cri-tools",
+      "assignees": [
+        "devinwong",
+        "anujmaheshwari1",
+        "cameronmeissner",
+        "lilypan26",
+        "djsly",
+        "zachary-bailey",
+        "ganeshkumarashok"
+      ],
+      "reviewers": [
+        "devinwong",
+        "anujmaheshwari1",
+        "cameronmeissner",
+        "lilypan26",
+        "djsly",
+        "zachary-bailey",
+        "ganeshkumarashok"
       ]
     },
     {
@@ -455,6 +481,32 @@
       "datasourceTemplate": "custom.deb2404",
       "versioningTemplate": "deb",
       "autoReplaceStringTemplate": "\"renovateTag\": \"name={{{packageName}}}, os=ubuntu, release=24.04\",\n                \"latestVersion\": \"{{{newValue}}}\"{{#if depType}},\n                \"previousLatestVersion\": \"{{{currentValue}}}\"{{/if}}"
+    },
+    {
+      "customType": "regex",
+      "description": "auto update packages for OS Mariner 2.0 in components.json",
+      "fileMatch": [
+        "parts/common/components.json"
+      ],
+      "matchStringsStrategy": "any",
+      "matchStrings": [
+        "\"renovateTag\":\\s*\"registry=(?<registryUrl>[^,]+), name=(?<packageName>[^,]+), os=mariner, release=2\\.0\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\"(?:[^}]*\"previousLatestVersion\":\\s*\"(?<depType>[^\"]+)\")?"
+      ],
+      "datasourceTemplate": "rpm",
+      "autoReplaceStringTemplate": "\"renovateTag\": \"registry={{{registryUrl}}}, name={{{packageName}}}, os=mariner, release=2.0\",\n                \"latestVersion\": \"{{{newValue}}}\"{{#if depType}},\n                \"previousLatestVersion\": \"{{{currentValue}}}\"{{/if}}"
+    },
+    {
+      "customType": "regex",
+      "description": "auto update packages for OS AzureLinux 3.0 in components.json",
+      "fileMatch": [
+        "parts/common/components.json"
+      ],
+      "matchStringsStrategy": "any",
+      "matchStrings": [
+        "\"renovateTag\":\\s*\"registry=(?<registryUrl>[^,]+), name=(?<packageName>[^,]+), os=azurelinux, release=3\\.0\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\"(?:[^}]*\"previousLatestVersion\":\\s*\"(?<depType>[^\"]+)\")?"
+      ],
+      "datasourceTemplate": "rpm",
+      "autoReplaceStringTemplate": "\"renovateTag\": \"registry={{{registryUrl}}}, name={{{packageName}}}, os=azurelinux, release=3.0\",\n                \"latestVersion\": \"{{{newValue}}}\"{{#if depType}},\n                \"previousLatestVersion\": \"{{{currentValue}}}\"{{/if}}"
     },
     {
       "customType": "regex",
