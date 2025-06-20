@@ -161,14 +161,14 @@ Describe 'Get-WindowsVersion and Get-WindowsPauseVersion' {
   It 'build number is from prerelease of windows 2025' {
     Mock Get-WindowsBuildNumber -MockWith { return "25399" }
     $windowsVersion = Get-WindowsVersion
-    $expectedVersion = "test2025"
+    $expectedVersion = "2025"
     $windowsVersion | Should -Be $expectedVersion
   }
 
   It 'build number is from prerelease of windows 2025' {
     Mock Get-WindowsBuildNumber -MockWith { return "30397" }
     $windowsVersion = Get-WindowsVersion
-    $expectedVersion = "test2025"
+    $expectedVersion = "2025"
     $windowsVersion | Should -Be $expectedVersion
   }
 
