@@ -364,6 +364,27 @@
       "automerge": true,
       "enabled": true,
       "ignoreUnstable": false
+    },
+    {
+      "matchPackageNames": [
+        "azuremonitor/containerinsights/ciprod/prometheus-collector/images"
+      ],
+      "groupName": "ama-metrics",
+      "automerge": false,
+      "enabled": true,
+      "ignoreUnstable": false,
+      "assignees": [
+        "gracewehner",
+        "vishiy",
+        "rashmichandrashekar",
+        "bragi92"
+      ],
+      "reviewers": [
+        "gracewehner",
+        "vishiy",
+        "rashmichandrashekar",
+        "bragi92"
+      ],
     }
   ],
   "customManagers": [
