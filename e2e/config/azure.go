@@ -5,14 +5,16 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
-	"github.com/Azure/agentbaker/e2e/toolkit"
 	"net"
 	"net/http"
 	"os"
+	"sort"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/Azure/agentbaker/e2e/toolkit"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
@@ -60,6 +62,7 @@ type AzureClient struct {
 	VirutalNetworkLinksClient *armprivatedns.VirtualNetworkLinksClient
 	ArmOptions                *arm.ClientOptions
 	VMSSVMRunCommands         *armcompute.VirtualMachineScaleSetVMRunCommandsClient
+	VMExtensionImages         *armcompute.VirtualMachineExtensionImagesClient
 }
 
 func mustNewAzureClient() *AzureClient {
@@ -241,6 +244,11 @@ func NewAzureClient() (*AzureClient, error) {
 	cloud.VMSSVMRunCommands, err = armcompute.NewVirtualMachineScaleSetVMRunCommandsClient(Config.SubscriptionID, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("create vmss vm run command client: %w", err)
+	}
+
+	cloud.VMExtensionImages, err = armcompute.NewVirtualMachineExtensionImagesClient(Config.SubscriptionID, credential, opts)
+	if err != nil {
+		return nil, fmt.Errorf("create vm extension images client: %w", err)
 	}
 
 	cloud.Credential = credential
@@ -599,4 +607,71 @@ func (a *AzureClient) createVMSS(ctx context.Context, resourceGroupName string, 
 	}
 	return &vmssResp.VirtualMachineScaleSet, nil
 
+}
+
+// GetLatestVMExtensionImageVersion lists VM extension images for a given extension name and returns the latest version.
+// This is equivalent to: az vm extension image list -n Compute.AKS.Linux.AKSNode --latest
+func (a *AzureClient) GetLatestVMExtensionImageVersion(ctx context.Context, location, extType, extPublisher string) (string, error) {
+	// List extension versions
+	resp, err := a.VMExtensionImages.ListVersions(ctx, location, extPublisher, extType, &armcompute.VirtualMachineExtensionImagesClientListVersionsOptions{})
+	if err != nil {
+		return "", fmt.Errorf("listing extension versions: %w", err)
+	}
+
+	version := make([]Version, len(resp.VirtualMachineExtensionImageArray))
+	for i, ext := range resp.VirtualMachineExtensionImageArray {
+		version[i] = parseVersion(ext)
+	}
+
+	sort.Slice(version, func(i, j int) bool {
+		return version[i].Less(version[j])
+	})
+
+	return *version[len(version)-1].Original.Name, nil
+}
+
+// Version represents a parsed version of a VM extension image.
+type Version struct {
+	Original *armcompute.VirtualMachineExtensionImage
+	Major    int
+	Minor    int
+	Patch    int
+}
+
+// parseVersion parses the version from a VM extension image name, which can be in the format 1.151, 1.0.1, etc.
+// You can find all the versions of a specific VM extension by running:
+// az vm extension image list -n Compute.AKS.Linux.AKSNode
+func parseVersion(v *armcompute.VirtualMachineExtensionImage) Version {
+	// Split by dots
+	parts := strings.Split(*v.Name, ".")
+
+	version := Version{Original: v}
+
+	if len(parts) >= 1 {
+		if major, err := strconv.Atoi(parts[0]); err == nil {
+			version.Major = major
+		}
+	}
+	if len(parts) >= 2 {
+		if minor, err := strconv.Atoi(parts[1]); err == nil {
+			version.Minor = minor
+		}
+	}
+	if len(parts) >= 3 {
+		if patch, err := strconv.Atoi(parts[2]); err == nil {
+			version.Patch = patch
+		}
+	}
+
+	return version
+}
+
+func (v Version) Less(other Version) bool {
+	if v.Major != other.Major {
+		return v.Major < other.Major
+	}
+	if v.Minor != other.Minor {
+		return v.Minor < other.Minor
+	}
+	return v.Patch < other.Patch
 }

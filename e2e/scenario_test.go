@@ -1713,7 +1713,7 @@ func Test_Ubuntu2404_GPUA10(t *testing.T) {
 	runScenarioUbuntu2404GRID(t, "Standard_NV6ads_A10_v5")
 }
 
-func addAKSVMExtension(properties *armcompute.VirtualMachineScaleSetProperties) *armcompute.VirtualMachineScaleSetProperties {
+func addVMExtensionToVMSS(properties *armcompute.VirtualMachineScaleSetProperties, extension *armcompute.VirtualMachineScaleSetExtension) *armcompute.VirtualMachineScaleSetProperties {
 	if properties == nil {
 		properties = &armcompute.VirtualMachineScaleSetProperties{}
 	}
@@ -1730,19 +1730,35 @@ func addAKSVMExtension(properties *armcompute.VirtualMachineScaleSetProperties) 
 		properties.VirtualMachineProfile.ExtensionProfile.Extensions = []*armcompute.VirtualMachineScaleSetExtension{}
 	}
 
-	extension := &armcompute.VirtualMachineScaleSetExtension{
-		Name: to.Ptr("Compute.AKS.Linux.AKSNode"),
-		Properties: &armcompute.VirtualMachineScaleSetExtensionProperties{
-			Publisher: to.Ptr("Microsoft.AKS"),
-			Type:      to.Ptr("Compute.AKS.Linux.AKSNode"),
-
-			// TODO: Remove this hardcoding of the version.
-			TypeHandlerVersion: to.Ptr("1.268"),
-		},
-	}
-
+	// NOTE: This is not checking if we are adding a duplicate extension.
 	properties.VirtualMachineProfile.ExtensionProfile.Extensions = append(properties.VirtualMachineProfile.ExtensionProfile.Extensions, extension)
 	return properties
+}
+
+func createAKSVMExtension(location *string) (*armcompute.VirtualMachineScaleSetExtension, error) {
+	// Default to "westus" if location is nil.
+	region := "westus"
+	if location != nil {
+		region = *location
+	}
+
+	extensionName := "Compute.AKS.Linux.AKSNode"
+	publisher := "Microsoft.AKS"
+
+	// NOTE: If this is gonna be called multiple times, then find a way to cache the latest version.
+	extensionVersion, err := config.Azure.GetLatestVMExtensionImageVersion(context.TODO(), region, extensionName, publisher)
+	if err != nil {
+		return nil, fmt.Errorf("getting latest VM extension image version: %v", err)
+	}
+
+	return &armcompute.VirtualMachineScaleSetExtension{
+		Name: to.Ptr(extensionName),
+		Properties: &armcompute.VirtualMachineScaleSetExtensionProperties{
+			Publisher:          to.Ptr(publisher),
+			Type:               to.Ptr(extensionName),
+			TypeHandlerVersion: to.Ptr(extensionVersion),
+		},
+	}, nil
 }
 
 func Test_Ubuntu2404_GPU_H100(t *testing.T) {
@@ -1763,7 +1779,12 @@ func Test_Ubuntu2404_GPU_H100(t *testing.T) {
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr(vmSize)
-				vmss.Properties = addAKSVMExtension(vmss.Properties)
+
+				extension, err := createAKSVMExtension(vmss.Location)
+				if err != nil {
+					t.Fatalf("creating AKS VM extension: %v", err)
+				}
+				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				// First, ensure nvidia-modprobe install does not restart kubelet and temporarily cause node to be unschedulable
