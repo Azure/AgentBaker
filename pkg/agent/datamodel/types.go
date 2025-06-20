@@ -118,7 +118,7 @@ type WorkloadRuntime string
 const (
 	// OCIContainer indicates that kubelet will be used for a container workload.
 	OCIContainer WorkloadRuntime = "OCIContainer"
-	// WasmWasi indicates Krustlet will be used for a WebAssembly workload.
+	// Deprecated. WasmWasi indicates Krustlet will be used for a WebAssembly workload.
 	WasmWasi WorkloadRuntime = "WasmWasi"
 )
 

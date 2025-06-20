@@ -40,6 +40,11 @@ Describe 'Install-Containerd-Based-On-Kubernetes-Version' {
     $StableContainerdPackage = [string]::Format($global:ContainerdPackageTemplate, $global:StableContainerdVersion)
     $LatestContainerdPackage = [string]::Format($global:ContainerdPackageTemplate, $global:LatestContainerdVersion)
     $LatestContainerd2Package = [string]::Format($global:ContainerdPackageTemplate, $global:LatestContainerd2Version)
+
+    $ContainerdWindowsPackageDownloadURL = "https://packages.aks.azure.com/containerd/windows/"
+    $StableContainerdPackage = [string]::Format($global:ContainerdPackageTemplate, $global:StableContainerdVersion)
+    $LatestContainerdPackage = [string]::Format($global:ContainerdPackageTemplate, $global:LatestContainerdVersion)
+    $LatestContainerd2Package = [string]::Format($global:ContainerdPackageTemplate, $global:LatestContainerd2Version)
   }
   
   Context 'Windows Server 2022 (ltsc2022)' {

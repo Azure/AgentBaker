@@ -682,9 +682,6 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			}
 			return ""
 		},
-		"IsKrustlet": func() bool {
-			return strings.EqualFold(string(profile.WorkloadRuntime), string(datamodel.WasmWasi))
-		},
 		"GetBase64CertificateAuthorityData": func() string {
 			if cs != nil && cs.Properties != nil && cs.Properties.CertificateProfile != nil && cs.Properties.CertificateProfile.CaCertificate != "" {
 				data := cs.Properties.CertificateProfile.CaCertificate
@@ -1332,28 +1329,6 @@ root = "{{GetDataDir}}"{{- end}}
     [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted.options]
       BinaryName = "/usr/bin/runc"
     {{- end}}
-    {{- if IsKrustlet }}
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin]
-      runtime_type = "io.containerd.spin.v2"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight]
-      runtime_type = "io.containerd.slight-v0-3-0.v1"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin-v0-3-0]
-      runtime_type = "io.containerd.spin-v0-3-0.v1"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight-v0-3-0]
-      runtime_type = "io.containerd.slight-v0-3-0.v1"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin-v0-5-1]
-      runtime_type = "io.containerd.spin-v0-5-1.v1"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight-v0-5-1]
-      runtime_type = "io.containerd.slight-v0-5-1.v1"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin-v0-8-0]
-      runtime_type = "io.containerd.spin-v0-8-0.v1"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight-v0-8-0]
-      runtime_type = "io.containerd.slight-v0-8-0.v1"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.wws-v0-8-0]
-      runtime_type = "io.containerd.wws-v0-8-0.v1"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin-v0-15-1]
-      runtime_type = "io.containerd.spin.v2"
-    {{- end}}
   {{- if and (IsKubenet) (not HasCalicoNetworkPolicy) }}
   [plugins."io.containerd.grpc.v1.cri".cni]
     bin_dir = "/opt/cni/bin"
@@ -1454,28 +1429,6 @@ root = "{{GetDataDir}}"{{- end}}
     [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted.options]
       BinaryName = "/usr/bin/runc"
 {{- end}}
-{{- if IsKrustlet }}
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.spin]
-    runtime_type = "io.containerd.spin.v2"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.slight]
-    runtime_type = "io.containerd.slight-v0-3-0.v1"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.spin-v0-3-0]
-    runtime_type = "io.containerd.spin-v0-3-0.v1"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.slight-v0-3-0]
-    runtime_type = "io.containerd.slight-v0-3-0.v1"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.spin-v0-5-1]
-    runtime_type = "io.containerd.spin-v0-5-1.v1"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.slight-v0-5-1]
-    runtime_type = "io.containerd.slight-v0-5-1.v1"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.spin-v0-8-0]
-    runtime_type = "io.containerd.spin-v0-8-0.v1"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.slight-v0-8-0]
-    runtime_type = "io.containerd.slight-v0-8-0.v1"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.wws-v0-8-0]
-    runtime_type = "io.containerd.wws-v0-8-0.v1"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.spin-v0-15-1]
-    runtime_type = "io.containerd.spin.v2"
-{{- end}}
 {{- if and (IsKubenet) (not HasCalicoNetworkPolicy) }}
 [plugins."io.containerd.cri.v1.runtime".cni]
   bin_dir = "/opt/cni/bin"
@@ -1560,28 +1513,6 @@ root = "{{GetDataDir}}"{{- end}}
     runtime_type = "io.containerd.runc.v2"
   [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted.options]
     BinaryName = "/usr/bin/runc"
-{{- if IsKrustlet }}
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.spin]
-    runtime_type = "io.containerd.spin.v2"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.slight]
-    runtime_type = "io.containerd.slight-v0-3-0.v1"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.spin-v0-3-0]
-    runtime_type = "io.containerd.spin-v0-3-0.v1"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.slight-v0-3-0]
-    runtime_type = "io.containerd.slight-v0-3-0.v1"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.spin-v0-5-1]
-    runtime_type = "io.containerd.spin-v0-5-1.v1"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.slight-v0-5-1]
-    runtime_type = "io.containerd.slight-v0-5-1.v1"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.spin-v0-8-0]
-    runtime_type = "io.containerd.spin-v0-8-0.v1"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.slight-v0-8-0]
-    runtime_type = "io.containerd.slight-v0-8-0.v1"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.wws-v0-8-0]
-    runtime_type = "io.containerd.wws-v0-8-0.v1"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.spin-v0-15-1]
-    runtime_type = "io.containerd.spin.v2"
-{{- end}}
 {{- if and (IsKubenet) (not HasCalicoNetworkPolicy) }}
 [plugins."io.containerd.cri.v1.runtime".cni]
   bin_dir = "/opt/cni/bin"
@@ -1654,28 +1585,6 @@ root = "{{GetDataDir}}"{{- end}}
       runtime_type = "io.containerd.runc.v2"
     [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted.options]
       BinaryName = "/usr/bin/runc"
-    {{- if IsKrustlet }}
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin]
-      runtime_type = "io.containerd.spin.v2"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight]
-      runtime_type = "io.containerd.slight-v0-3-0.v1"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin-v0-3-0]
-      runtime_type = "io.containerd.spin-v0-3-0.v1"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight-v0-3-0]
-      runtime_type = "io.containerd.slight-v0-3-0.v1"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin-v0-5-1]
-      runtime_type = "io.containerd.spin-v0-5-1.v1"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight-v0-5-1]
-      runtime_type = "io.containerd.slight-v0-5-1.v1"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin-v0-8-0]
-      runtime_type = "io.containerd.spin-v0-8-0.v1"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight-v0-8-0]
-      runtime_type = "io.containerd.slight-v0-8-0.v1"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.wws-v0-8-0]
-      runtime_type = "io.containerd.wws-v0-8-0.v1"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin-v0-15-1]
-      runtime_type = "io.containerd.spin.v2"
-    {{- end}}
   {{- if and (IsKubenet) (not HasCalicoNetworkPolicy) }}
   [plugins."io.containerd.grpc.v1.cri".cni]
     bin_dir = "/opt/cni/bin"
@@ -1825,7 +1734,7 @@ health-check.localdns.local:53 {
         max_concurrent {{$override.MaxConcurrent}}
     }
     ready {{$.NodeListenerIP}}:8181
-    cache {{$override.CacheDurationInSeconds}}s {
+    cache {{$override.CacheDurationInSeconds}} {
         success 9984
         denial 9984
         {{- if ne $override.ServeStale "Disable"}}
@@ -1882,7 +1791,7 @@ health-check.localdns.local:53 {
         max_concurrent {{$override.MaxConcurrent}}
     }
     ready {{$.ClusterListenerIP}}:8181
-    cache {{$override.CacheDurationInSeconds}}s {
+    cache {{$override.CacheDurationInSeconds}} {
         success 9984
         denial 9984
         {{- if ne $override.ServeStale "Disable"}}

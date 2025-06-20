@@ -82,7 +82,6 @@ CUSTOM_CA_TRUST_COUNT="{{len GetCustomCATrustConfigCerts}}"
 {{range $i, $cert := GetCustomCATrustConfigCerts}}
 CUSTOM_CA_CERT_{{$i}}="{{$cert}}"
 {{end}}
-IS_KRUSTLET="{{IsKrustlet}}"
 GPU_NEEDS_FABRIC_MANAGER="{{GPUNeedsFabricManager}}"
 NEEDS_DOCKER_LOGIN="{{and IsDockerContainerRuntime HasPrivateAzureRegistryServer}}"
 IPV6_DUAL_STACK_ENABLED="{{IsIPv6DualStackFeatureEnabled}}"
