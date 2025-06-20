@@ -1632,3 +1632,91 @@ func runScenarioUbuntu2404GRID(t *testing.T, vmSize string) {
 func Test_Ubuntu2404_GPUA10(t *testing.T) {
 	runScenarioUbuntu2404GRID(t, "Standard_NV6ads_A10_v5")
 }
+
+func addVMExtensionToVMSS(properties *armcompute.VirtualMachineScaleSetProperties, extension *armcompute.VirtualMachineScaleSetExtension) *armcompute.VirtualMachineScaleSetProperties {
+	if properties == nil {
+		properties = &armcompute.VirtualMachineScaleSetProperties{}
+	}
+
+	if properties.VirtualMachineProfile == nil {
+		properties.VirtualMachineProfile = &armcompute.VirtualMachineScaleSetVMProfile{}
+	}
+
+	if properties.VirtualMachineProfile.ExtensionProfile == nil {
+		properties.VirtualMachineProfile.ExtensionProfile = &armcompute.VirtualMachineScaleSetExtensionProfile{}
+	}
+
+	if properties.VirtualMachineProfile.ExtensionProfile.Extensions == nil {
+		properties.VirtualMachineProfile.ExtensionProfile.Extensions = []*armcompute.VirtualMachineScaleSetExtension{}
+	}
+
+	// NOTE: This is not checking if we are adding a duplicate extension.
+	properties.VirtualMachineProfile.ExtensionProfile.Extensions = append(properties.VirtualMachineProfile.ExtensionProfile.Extensions, extension)
+	return properties
+}
+
+func createAKSVMExtension(location *string) (*armcompute.VirtualMachineScaleSetExtension, error) {
+	// Default to "westus" if location is nil.
+	region := "westus"
+	if location != nil {
+		region = *location
+	}
+
+	extensionName := "Compute.AKS.Linux.AKSNode"
+	publisher := "Microsoft.AKS"
+
+	// NOTE: If this is gonna be called multiple times, then find a way to cache the latest version.
+	extensionVersion, err := config.Azure.GetLatestVMExtensionImageVersion(context.TODO(), region, extensionName, publisher)
+	if err != nil {
+		return nil, fmt.Errorf("getting latest VM extension image version: %v", err)
+	}
+
+	return &armcompute.VirtualMachineScaleSetExtension{
+		Name: to.Ptr(extensionName),
+		Properties: &armcompute.VirtualMachineScaleSetExtensionProperties{
+			Publisher:          to.Ptr(publisher),
+			Type:               to.Ptr(extensionName),
+			TypeHandlerVersion: to.Ptr(extensionVersion),
+		},
+	}, nil
+}
+
+func Test_Ubuntu2404_GPU_H100(t *testing.T) {
+	vmSize := "Standard_ND96isr_H100_v5"
+	RunScenario(t, &Scenario{
+		Description: fmt.Sprintf("Tests that a GPU-enabled node with VM size %s using an Ubuntu 2404 VHD can be properly bootstrapped and NPD tests are valid", vmSize),
+		Tags: Tags{
+			GPU: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2404Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.AgentPoolProfile.VMSize = vmSize
+				nbc.ConfigGPUDriverIfNeeded = true
+				nbc.EnableGPUDevicePluginIfNeeded = false
+				nbc.EnableNvidia = true
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr(vmSize)
+
+				extension, err := createAKSVMExtension(vmss.Location)
+				if err != nil {
+					t.Fatalf("creating AKS VM extension: %v", err)
+				}
+				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				// First, ensure nvidia-modprobe install does not restart kubelet and temporarily cause node to be unschedulable
+				ValidateNvidiaModProbeInstalled(ctx, s)
+				ValidateKubeletHasNotStopped(ctx, s)
+				ValidateServicesDoNotRestartKubelet(ctx, s)
+
+				// Then validate NPD configuration and GPU monitoring
+				ValidateNPDGPUCountPlugin(ctx, s)
+				ValidateNPDGPUCountCondition(ctx, s)
+				ValidateNPDGPUCountAfterFailure(ctx, s)
+				ValidateNPDReportingGPUMetrics(ctx, s)
+			},
+		}})
+}
