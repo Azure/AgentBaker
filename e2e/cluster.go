@@ -163,6 +163,10 @@ func prepareCluster(ctx context.Context, t *testing.T, cluster *armcontainerserv
 			return nil, fmt.Errorf("failed to create private acr: %w", err)
 		}
 
+		if err := createPrivateAzureContainerRegistryPullSecret(ctx, t, cluster, kube, config.ResourceGroupName, isNonAnonymousPull); err != nil {
+			return nil, fmt.Errorf("create private acr pull secret: %w", err)
+		}
+
 		if err := addAirgapNetworkSettings(ctx, t, cluster, config.GetPrivateACRName(isNonAnonymousPull)); err != nil {
 			return nil, fmt.Errorf("add airgap network settings: %w", err)
 		}
