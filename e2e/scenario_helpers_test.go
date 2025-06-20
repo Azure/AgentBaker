@@ -20,7 +20,7 @@ func TestMain(m *testing.M) {
 	defer cancel()
 	err := ensureResourceGroup(ctx)
 	mustNoError(err)
-	_, err = config.Azure.CreateVMManagedIdentity(ctx)
-	mustNoError(err)
+	// _, err = config.Azure.CreateVMManagedIdentity(ctx)
+	// mustNoError(err)
 	m.Run()
 }
