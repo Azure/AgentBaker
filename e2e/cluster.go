@@ -372,7 +372,7 @@ func isExistingResourceGroup(ctx context.Context, resourceGroupName string) (boo
 }
 
 func createNewAKSCluster(ctx context.Context, t *testing.T, cluster *armcontainerservice.ManagedCluster) (*armcontainerservice.ManagedCluster, error) {
-	t.Logf("creating or updating cluster %s in rg %s", *cluster.Name, *cluster.Location)
+	t.Logf("creating or updating cluster %s in region %s", *cluster.Name, *cluster.Location)
 	// Note, it seems like the operation still can start a trigger a new operation even if nothing has changes
 	pollerResp, err := config.Azure.AKS.BeginCreateOrUpdate(
 		ctx,
