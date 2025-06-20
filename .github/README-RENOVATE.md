@@ -354,7 +354,7 @@ In general, if a component has the `"renovateTag": "<DO_NOT_UPDATE>"`, it means 
 As of 01/23/2025,
 - All the container images are onboarded to Renovate for auto-update.
 - PMC hosted packages, namely `runc` and `containerd`, are configured as auto-merge patch version.
-- OCI artifacts hosted on MAR(aka MCR) such as `kubernetes-binaries`, `azure-acr-credential-provider` and `containerd-wasm-shims` are onboarded for auto-update.
+- OCI artifacts hosted on MAR(aka MCR) such as `kubernetes-binaries` and `azure-acr-credential-provider` are onboarded for auto-update.
 - For Linux, the cni-plugins, azure-cni, cri-tools binaries are hosted at packages.aks.azure.com and are not onboarded for auto-update yet. The team has been working on this. cri-tools package will soon be available, then cni-plugins and azure-cni.
 
 For the most up-to-date information, please refer to the actual configuration file `components.json`.
@@ -365,7 +365,7 @@ The `renovate.json` file is configured to support OCI artifact now. There is a p
 ```
     {
       "matchDatasources": ["docker"],
-      "matchPackageNames": ["oss/binaries/kubernetes/kubernetes-node", "oss/binaries/kubernetes/azure-acr-credential-provider", "oss/binaries/deislabs/containerd-wasm-shims"],
+      "matchPackageNames": ["oss/binaries/kubernetes/kubernetes-node", "oss/binaries/kubernetes/azure-acr-credential-provider"],
       "extractVersion": "^(?P<version>.*?)-[^-]*-[^-]*$"
     },
 ```
@@ -376,7 +376,7 @@ Explanations as below.
 
 Take `kubernetes-binaries` as an example. If you view all the tags from this list https://mcr.microsoft.com/v2/oss/binaries/kubernetes/kubernetes-node/tags/list?n=10000, you will notice that the format of the tags is quite varied, like, `v1.27.100-akslts-linux-amd64` , `v1.30.0-linux-amd64`, `v1.31.1-linux-arm64`. This regex is to capture only the values before the second-to-last dash (-). For example, if the tag is `v1.27.100-akslts-linux-amd64`, we capture `v1.27.100-akslts` as the version to be stored in `latestVersion` in `components.json`. If the tag is `v1.30.0-linux-amd64`, we capture `v1.30.0`. We do not capture the CPU architecture (amd64|arm64) to keep it generic, avoiding the need to define the same thing for both `amd64` and `arm64`. 
 
-3 packages in `components.json` are onboarded now: `oss/binaries/kubernetes/kubernetes-node`, `oss/binaries/kubernetes/azure-acr-credential-provider` and `oss/binaries/deislabs/containerd-wasm-shims`. You will see a new tag `OCI_registry` in `renovateTag`. 
+Packages in `components.json` are onboarded now: `oss/binaries/kubernetes/kubernetes-node`, `oss/binaries/kubernetes/azure-acr-credential-provider`, etc. You will see a new tag `OCI_registry` in `renovateTag`. 
 
 Continue using `kubernetes-binaries` as an example. Here is a block of version information defined as follows.
 ```
@@ -389,8 +389,8 @@ Continue using `kubernetes-binaries` as an example. Here is a block of version i
 ```
 where
 1. `k8sVersion` is optional and specifies that it is tied to Kubernetes  v1.31.
-1. `renovateTag` defines the OCI registry and artifact name that Renovate should look up from its datasource.
-1. `latestVersion` and `previousLatestVersion` define the versions to be cached as usual.
+2. `renovateTag` defines the OCI registry and artifact name that Renovate should look up from its datasource.
+3. `latestVersion` and `previousLatestVersion` define the versions to be cached as usual.
 
 And next you will see
 ```

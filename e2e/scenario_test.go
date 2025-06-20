@@ -271,25 +271,6 @@ func Test_AzureLinuxV2_GPUAzureCNI_Scriptless(t *testing.T) {
 	})
 }
 
-func Test_AzureLinuxV2_WASM(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "tests that a new AzureLinuxV2 (CgroupV2) node using krustlet can be properly bootstrapped",
-		Tags: Tags{
-			WASM: true,
-		},
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDAzureLinuxV2Gen2,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.AgentPoolProfile.WorkloadRuntime = datamodel.WasmWasi
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateContainerdWASMShims(ctx, s)
-			},
-		},
-	})
-}
-
 func Test_MarinerV2(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a MarinerV2 VHD can be properly bootstrapped",
@@ -507,25 +488,6 @@ func Test_MarinerV2_GPUAzureCNI(t *testing.T) {
 				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-			},
-		},
-	})
-}
-
-func Test_MarinerV2_WASM(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "tests that a new marinerv2 node using krustlet can be properly bootstrapped",
-		Tags: Tags{
-			WASM: true,
-		},
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDCBLMarinerV2Gen2,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.AgentPoolProfile.WorkloadRuntime = datamodel.WasmWasi
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateContainerdWASMShims(ctx, s)
 			},
 		},
 	})
@@ -1175,21 +1137,6 @@ func Test_Ubuntu2204_ContainerdHasCurrentVersion(t *testing.T) {
 		}})
 }
 
-func Test_Ubuntu2204_WASM(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "tests that a new ubuntu 2204 node using krustlet can be properly bootstrapepd",
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2204Gen2Containerd,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.AgentPoolProfile.WorkloadRuntime = datamodel.WasmWasi
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateContainerdWASMShims(ctx, s)
-			},
-		}})
-}
-
 func Test_AzureLinux_Skip_Binary_Cleanup(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that an AzureLinux node will skip binary cleanup and can be properly bootstrapped",
@@ -1374,33 +1321,6 @@ func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_AlreadyDis
 				ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "kubernetes.azure.com/kubelet-serving-ca=cluster")
 				ValidateFileExcludesContent(ctx, s, "/etc/default/kubeletconfig.json", "\"serverTLSBootstrap\": true")
 				ValidateDirectoryContent(ctx, s, "/etc/kubernetes/certs", []string{"kubeletserver.crt", "kubeletserver.key"})
-			},
-		}})
-}
-
-func Test_Ubuntu2204_WASMAirGap(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "tests that a new ubuntu 2204 node using krustlet can be properly bootstrapepd when it is network isolated cluster",
-		Tags: Tags{
-			Airgap: true,
-		},
-		Config: Config{
-			Cluster: ClusterKubenetAirgap,
-			VHD:     config.VHDUbuntu2204Gen2Containerd,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.AgentPoolProfile.WorkloadRuntime = datamodel.WasmWasi
-
-				nbc.OutboundType = datamodel.OutboundTypeBlock
-				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
-					PrivateEgress: &datamodel.PrivateEgress{
-						Enabled:                 true,
-						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io", config.PrivateACRName),
-					},
-				}
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateContainerdWASMShims(ctx, s)
-				ValidateDirectoryContent(ctx, s, "/run", []string{"outbound-check-skipped"})
 			},
 		}})
 }

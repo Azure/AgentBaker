@@ -572,7 +572,7 @@ var (
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "2404gen2CVMcontainerd",
-		Version:       "202505.14.0", // TODO: Update version when the broken vhd build is fixed
+		Version:       LinuxSIGImageVersion,
 	}
 
 	SIGUbuntuContainerd2204ImageConfigTemplate = SigImageConfigTemplate{
