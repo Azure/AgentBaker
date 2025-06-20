@@ -1260,11 +1260,11 @@
           }
         },
         "mariner": {
-          "v2.0": {
+          "current": {
             "versionsV2": [
               {
                 "renovateTag": "registry=https://packages.microsoft.com/cbl-mariner/2.0/prod/base/x86_64/repodata, name=kubernetes-cri-tools, os=mariner, release=2.0",
-                "latestVersion": "1.32.0-2.azl2"
+                "latestVersion": "1.32.0-3.cm2"
               }
             ]
           }
@@ -1274,7 +1274,7 @@
             "versionsV2": [
               {
                 "renovateTag": "registry=https://packages.microsoft.com/azurelinux/3.0/prod/base/x86_64/repodata, name=kubernetes-cri-tools, os=azurelinux, release=3.0",
-                "latestVersion": "1.32.0-2.azl3"
+                "latestVersion": "1.32.0-3.azl3"
               }
             ]
           }
