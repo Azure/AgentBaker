@@ -124,7 +124,7 @@ steps:
       # the base image tag will be 'ltscxxx', which differs from the values specified in parts/common/component.json.
       # As a result, cache validation behaves differently. To address this, we check if the container base image URL is set,
       # and use this environment variable to control the cache validation logic in run-test.sh.
-      if [[ -n "${{ parameters.windowsNanoImageUrl }}" || -n "${{ parameters.windowsCoreImageUrl }}" || -n "${{ parameters.windowsContainerImageJsonUrl }}"]]; then
+      if [[ -n "${{ parameters.windowsNanoImageUrl }}" || -n "${{ parameters.windowsCoreImageUrl }}" || -n "${{ parameters.windowsContainerImageJsonUrl }}" ]]; then
         export CONTAINTER_BASE_URLS_EXISTING=true
       else
         export CONTAINTER_BASE_URLS_EXISTING=false
