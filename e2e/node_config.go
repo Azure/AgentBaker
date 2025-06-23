@@ -670,7 +670,9 @@ func baseTemplateLinux(t *testing.T, location string, k8sVersion string, arch st
 // and we hope to move on to a different config, so I don't want to invest any more time in this-
 // please keep the kubernetesVersion in sync with componets.json so that during e2e no extra binaries are required.
 func baseTemplateWindows(t *testing.T, location string) *datamodel.NodeBootstrappingConfiguration {
-	kubernetesVersion := "1.31.5"
+	kubernetesVersion := "1.30.12"
+	// kubernetesVersion := "1.31.9"
+	// kubernetesVersion := "v1.32.5"
 	config := &datamodel.NodeBootstrappingConfiguration{
 		TenantID:          "tenantID",
 		SubscriptionID:    config.Config.SubscriptionID,
@@ -693,7 +695,7 @@ func baseTemplateWindows(t *testing.T, location string) *datamodel.NodeBootstrap
 						NetworkPluginMode:    "overlay",
 						ServiceCIDR:          "10.0.0.0/16",
 						UseInstanceMetadata:  to.Ptr(true),
-						UseManagedIdentity:   true,
+						UseManagedIdentity:   false,
 						WindowsContainerdURL: "https://packages.aks.azure.com/containerd/windows/",
 					},
 				},
@@ -766,8 +768,8 @@ DXRqvV7TWO2hndliQq3BW385ZkiephlrmpUVM= r2k1@arturs-mbp.lan`,
 				AlwaysPullWindowsPauseImage: false,
 				AzureCNIImageBase:           "mcr.microsoft.com/containernetworking/",
 				AzureTelemetryPID:           "",
-				CNIARM64PluginsDownloadURL:  "https://packages.aks.azure.com/cni-plugins/v0.8.7/binaries/cni-plugins-linux-arm64-v0.8.7.tgz",
-				CNIPluginsDownloadURL:       "https://packages.aks.azure.com/cni/cni-plugins-amd64-v0.7.6.tgz",
+				// CNIARM64PluginsDownloadURL:  "https://packages.aks.azure.com/cni-plugins/v0.8.7/binaries/cni-plugins-linux-arm64-v0.8.7.tgz",
+				// CNIPluginsDownloadURL:       "https://packages.aks.azure.com/cni/cni-plugins-amd64-v0.7.6.tgz",
 				CSIProxyDownloadURL:         "https://packages.aks.azure.com/csi-proxy/v1.1.2-hotfix.20230807/binaries/csi-proxy-v1.1.2-hotfix.20230807.tar.gz",
 				CalicoImageBase:             "calico/",
 				ContainerdDownloadURLBase:   "https://storage.googleapis.com/cri-containerd-release/",
@@ -779,8 +781,8 @@ DXRqvV7TWO2hndliQq3BW385ZkiephlrmpUVM= r2k1@arturs-mbp.lan`,
 				MCRKubernetesImageBase:               "mcr.microsoft.com/",
 				NVIDIAImageBase:                      "nvidia/",
 				TillerImageBase:                      "gcr.io/kubernetes-helm/",
-				VnetCNIARM64LinuxPluginsDownloadURL:  "https://packages.aks.azure.com/azure-cni/v1.4.13/binaries/azure-vnet-cni-linux-arm64-v1.4.14.tgz",
-				VnetCNILinuxPluginsDownloadURL:       "https://packages.aks.azure.com/azure-cni/v1.1.3/binaries/azure-vnet-cni-linux-amd64-v1.1.3.tgz",
+				// VnetCNIARM64LinuxPluginsDownloadURL:  "https://packages.aks.azure.com/azure-cni/v1.4.13/binaries/azure-vnet-cni-linux-arm64-v1.4.14.tgz",
+				// VnetCNILinuxPluginsDownloadURL:       "https://packages.aks.azure.com/azure-cni/v1.1.3/binaries/azure-vnet-cni-linux-amd64-v1.1.3.tgz",
 				VnetCNIWindowsPluginsDownloadURL:     "https://packages.aks.azure.com/azure-cni/v1.6.21/binaries/azure-vnet-cni-windows-amd64-v1.6.21.zip",
 				WindowsPauseImageURL:                 "mcr.microsoft.com/oss/kubernetes/pause:3.9-hotfix-20230808",
 				WindowsProvisioningScriptsPackageURL: "https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-v0.0.52.zip",
