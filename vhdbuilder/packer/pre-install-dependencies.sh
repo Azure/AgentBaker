@@ -118,32 +118,65 @@ fi
 capture_benchmark "${SCRIPT_NAME}_enable_cgroupv2_for_azurelinux"
 
 # shellcheck disable=SC3010
-if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]] && ! grep -q "cvm" <<< "$FEATURE_FLAGS"; then
-  LTS_KERNEL="linux-image-azure-lts-${UBUNTU_RELEASE}"
-  LTS_TOOLS="linux-tools-azure-lts-${UBUNTU_RELEASE}"
-  LTS_CLOUD_TOOLS="linux-cloud-tools-azure-lts-${UBUNTU_RELEASE}"
-  LTS_HEADERS="linux-headers-azure-lts-${UBUNTU_RELEASE}"
-  LTS_MODULES="linux-modules-extra-azure-lts-${UBUNTU_RELEASE}"
+# if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]] && ! grep -q "cvm" <<< "$FEATURE_FLAGS"; then
+#   LTS_KERNEL="linux-image-azure-lts-${UBUNTU_RELEASE}"
+#   LTS_TOOLS="linux-tools-azure-lts-${UBUNTU_RELEASE}"
+#   LTS_CLOUD_TOOLS="linux-cloud-tools-azure-lts-${UBUNTU_RELEASE}"
+#   LTS_HEADERS="linux-headers-azure-lts-${UBUNTU_RELEASE}"
+#   LTS_MODULES="linux-modules-extra-azure-lts-${UBUNTU_RELEASE}"
 
-  echo "Logging the currently running kernel: $(uname -r)"
-  echo "Before purging kernel, here is a list of kernels/headers installed:"; dpkg -l 'linux-*azure*'
+#   echo "Logging the currently running kernel: $(uname -r)"
+#   echo "Before purging kernel, here is a list of kernels/headers installed:"; dpkg -l 'linux-*azure*'
 
-  if apt-cache show "$LTS_KERNEL" &>/dev/null; then
-      echo "LTS kernel is available for ${UBUNTU_RELEASE}, proceeding with purging current kernel and installing LTS kernel..."
+#   if apt-cache show "$LTS_KERNEL" &>/dev/null; then
+#       echo "LTS kernel is available for ${UBUNTU_RELEASE}, proceeding with purging current kernel and installing LTS kernel..."
 
-      # Purge all current kernels and dependencies
-      DEBIAN_FRONTEND=noninteractive apt-get remove --purge -y $(dpkg-query -W 'linux-*azure*' | awk '$2 != "" { print $1 }' | paste -s)
-      echo "After purging kernel, dpkg list should be empty"; dpkg -l 'linux-*azure*'
+#       # Purge all current kernels and dependencies
+#       DEBIAN_FRONTEND=noninteractive apt-get remove --purge -y $(dpkg-query -W 'linux-*azure*' | awk '$2 != "" { print $1 }' | paste -s)
+#       echo "After purging kernel, dpkg list should be empty"; dpkg -l 'linux-*azure*'
 
-      # Install LTS kernel
-      DEBIAN_FRONTEND=noninteractive apt-get install -y "$LTS_KERNEL" "$LTS_TOOLS" "$LTS_CLOUD_TOOLS" "$LTS_HEADERS" "$LTS_MODULES"
-      echo "After installing new kernel, here is a list of kernels/headers installed:"; dpkg -l 'linux-*azure*'
-  else
-      echo "LTS kernel for Ubuntu ${UBUNTU_RELEASE} is not available. Skipping purging and subsequent installation."
-  fi
+#       # Install LTS kernel
+#       DEBIAN_FRONTEND=noninteractive apt-get install -y "$LTS_KERNEL" "$LTS_TOOLS" "$LTS_CLOUD_TOOLS" "$LTS_HEADERS" "$LTS_MODULES"
+#       echo "After installing new kernel, here is a list of kernels/headers installed:"; dpkg -l 'linux-*azure*'
+#   else
+#       echo "LTS kernel for Ubuntu ${UBUNTU_RELEASE} is not available. Skipping purging and subsequent installation."
+#   fi
 
-  update-grub
+#   update-grub
+#fi
+
+CUSTOM_KERNEL_VERSION="6.8.0-1016-azure-nvidia"
+
+echo "Adding PPA for Canonical Kernel Team..."
+add-apt-repository -y ppa:canonical-kernel-team/ppa
+apt-get update
+
+echo "Logging the currently running kernel: $(uname -r)"
+echo "Before purging kernel, here is a list of kernels/headers installed:"
+dpkg -l 'linux-*azure*'
+
+# Check if the custom kernel exists
+if apt-cache show "linux-image-${CUSTOM_KERNEL_VERSION}" &>/dev/null; then
+    echo "Custom kernel ${CUSTOM_KERNEL_VERSION} is available. Proceeding..."
+
+    # Purge old azure kernels
+    DEBIAN_FRONTEND=noninteractive apt-get remove --purge -y $(dpkg-query -W 'linux-*azure*' | awk '$2 != "" { print $1 }' | paste -s)
+
+    # Install the new custom kernel
+    DEBIAN_FRONTEND=noninteractive apt-get install -y \
+      linux-image-${CUSTOM_KERNEL_VERSION} \
+      linux-headers-${CUSTOM_KERNEL_VERSION} \
+      linux-modules-${CUSTOM_KERNEL_VERSION} \
+      linux-modules-extra-${CUSTOM_KERNEL_VERSION}
+
+    echo "After installation:"
+    dpkg -l | grep ${CUSTOM_KERNEL_VERSION}
+else
+    echo "Kernel ${CUSTOM_KERNEL_VERSION} not found in apt. Exiting..."
 fi
+
+update-grub
+
 capture_benchmark "${SCRIPT_NAME}_purge_ubuntu_kernel_if_2204"
 echo "pre-install-dependencies step finished successfully"
 capture_benchmark "${SCRIPT_NAME}_overall" true
