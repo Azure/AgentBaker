@@ -1109,6 +1109,16 @@
             ]
           }
         },
+        "azurelinuxkata": {
+          "v3.0": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "<SKIP>"
+              }
+            ]
+          }
+        },
         "windows": {
           "ws2019": {
             "versionsV2": [
