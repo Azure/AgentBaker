@@ -401,12 +401,14 @@ if [ "$OS_TYPE" = "Windows" ]; then
 	IMPORTED_IMAGE_NAME=$imported_windows_image_name
 	IMPORTED_IMAGE_URL="https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net/system/$IMPORTED_IMAGE_NAME.vhd"
  	export AZCOPY_AUTO_LOGIN_TYPE="MSI" # use Managed Identity for AzCopy authentication
+	export AZCOPY_MSI_RESOURCE_STRING="${AZURE_MSI_RESOURCE_STRING}"
 
 	if [ -n "${WINDOWS_CONTAINERIMAGE_JSON_URL}" ]; then
 		# Download the json artifact from the url
 		filename=$(basename "$WINDOWS_CONTAINERIMAGE_JSON_URL")
 		echo "Downloading $filename from wcct storage account using AzCopy with Managed Identity Auth"
 
+		# The JSON blob is formatted where each build image name is mapped to its corresponding image URL.
 		# For details on the expected format and how to manually retrieve the JSON blob,
 		# see: [WINDOWS-CONTAINERIMAGE-JSON.MD](vhdbuilder/packer/WINDOWS-CONTAINERIMAGE-JSON.MD)
 		if azcopy copy "${WINDOWS_CONTAINERIMAGE_JSON_URL}" "${BUILD_ARTIFACTSTAGINGDIRECTORY}/"; then
@@ -488,7 +490,6 @@ if [ "$OS_TYPE" = "Windows" ]; then
 		WINDOWS_IMAGE_URL=${IMPORTED_IMAGE_URL}
 
 		echo "Copy Windows base image to ${WINDOWS_IMAGE_URL}"
-		export AZCOPY_MSI_RESOURCE_STRING="${AZURE_MSI_RESOURCE_STRING}"
 		azcopy copy "${WINDOWS_BASE_IMAGE_URL}" "${WINDOWS_IMAGE_URL}"
 		# https://www.packer.io/plugins/builders/azure/arm#image_url
 		# WINDOWS_IMAGE_URL to a custom VHD to use for your base image. If this value is set, image_publisher, image_offer, image_sku, or image_version should not be set.
