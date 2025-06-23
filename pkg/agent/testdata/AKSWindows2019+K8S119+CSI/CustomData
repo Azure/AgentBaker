@@ -215,24 +215,26 @@ try
         return
     }
 
+    Write-Log "Test CSE"
+
     # This involes using proxy, log the config before fetching packages
     Write-Log "private egress proxy address is '$global:PrivateEgressProxyAddress'"
     # TODO update to use proxy
 
     $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-current.zip"
     # CSEScriptsPackage is cached on VHD. Previously the cse package version was managed in components.json, whereas RP set the package URL which is a storage account.
-    # From 2025-06 The CSE packages is eleased on the VHD. RP can use fully qualified URL to download CSE scripts package when required out of VHD release cycle. 
+    # From 2025-06 The CSE packages is eleased on the VHD. RP can use fully qualified URL to download CSE scripts package when required out of VHD release cycle.
     # In the transition period, it is important that when deal with older VHD versions, the agentbaker runtime provision script needs to be compatible with the latest known storage account package, 0.0.52.
     Write-Log "Requested CSEScriptsPackageUrl is $global:CSEScriptsPackageUrl"
     if ($global:CSEScriptsPackageUrl.EndsWith("/")) {
         $search = @()
         if ($global:CacheDir -and (Test-Path $global:CacheDir)) {
             $search = [IO.Directory]::GetFiles($global:CacheDir, $WindowsCSEScriptsPackage, [IO.SearchOption]::AllDirectories)
-            # list files in the cache directory. 
+            # list files in the cache directory.
             Write-Log "the directory $global:CacheDir contains the following files:"
             Get-ChildItem -Path $global:CacheDir | ForEach-Object { Write-Log "  $_" }
         }
- 
+
         if ($search.Count -eq 0) {
             Write-Log "Could not find windows cse package on VHD. Use remote version instead."
             $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.52.zip"
