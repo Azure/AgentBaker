@@ -650,7 +650,7 @@ isMariner() {
 
 isAzureLinux() {
     local os=$1
-    if [ "$os" = "$AZURELINUX_KATA_OS_NAME" ]; then
+    if [ "$os" = "$AZURELINUX_OS_NAME" ] || [ "$os" = "$AZURELINUX_KATA_OS_NAME" ]; then
         return 0
     fi
     return 1
