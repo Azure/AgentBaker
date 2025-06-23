@@ -670,7 +670,7 @@ func baseTemplateLinux(t *testing.T, location string, k8sVersion string, arch st
 // and we hope to move on to a different config, so I don't want to invest any more time in this-
 // please keep the kubernetesVersion in sync with componets.json so that during e2e no extra binaries are required.
 func baseTemplateWindows(t *testing.T, location string) *datamodel.NodeBootstrappingConfiguration {
-	kubernetesVersion := "1.31.8"
+	kubernetesVersion := "1.31.5"
 	config := &datamodel.NodeBootstrappingConfiguration{
 		TenantID:          "tenantID",
 		SubscriptionID:    config.Config.SubscriptionID,
@@ -685,7 +685,7 @@ func baseTemplateWindows(t *testing.T, location string) *datamodel.NodeBootstrap
 					OrchestratorType:    "Kubernetes",
 					OrchestratorVersion: kubernetesVersion,
 					KubernetesConfig: &datamodel.KubernetesConfig{
-						AzureCNIURLWindows:   "https://packages.aks.azure.com/azure-cni/v1.4.35/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.4.35.zip",
+						AzureCNIURLWindows:   "https://packages.aks.azure.com/azure-cni/v1.6.21/binaries/azure-vnet-cni-windows-amd64-v1.6.21.zip",
 						ClusterSubnet:        "10.224.0.0/16",
 						DNSServiceIP:         "10.0.0.10",
 						LoadBalancerSku:      "Standard",
@@ -726,7 +726,7 @@ func baseTemplateWindows(t *testing.T, location string) *datamodel.NodeBootstrap
 				},
 				WindowsProfile: &datamodel.WindowsProfile{
 					AlwaysPullWindowsPauseImage:    to.Ptr(false),
-					CSIProxyURL:                    "https://packages.aks.azure.com/csi-proxy/v0.2.2/binaries/csi-proxy-v0.2.2.tar.gz",
+					CSIProxyURL:                    "https://packages.aks.azure.com/csi-proxy/v1.1.2-hotfix.20230807/binaries/csi-proxy-v1.1.2-hotfix.20230807.tar.gz",
 					EnableAutomaticUpdates:         to.Ptr(false),
 					EnableCSIProxy:                 to.Ptr(true),
 					HnsRemediatorIntervalInMinutes: to.Ptr[uint32](1),
@@ -735,7 +735,7 @@ func baseTemplateWindows(t *testing.T, location string) *datamodel.NodeBootstrap
 					WindowsDockerVersion:           "",
 					WindowsImageSourceURL:          "",
 					WindowsOffer:                   "aks-windows",
-					WindowsPauseImageURL:           "mcr.microsoft.com/oss/kubernetes/pause:3.9",
+					WindowsPauseImageURL:           "mcr.microsoft.com/oss/kubernetes/pause:3.9-hotfix-20230808",
 					WindowsPublisher:               "microsoft-aks",
 					WindowsSku:                     "",
 				},
@@ -782,7 +782,7 @@ DXRqvV7TWO2hndliQq3BW385ZkiephlrmpUVM= r2k1@arturs-mbp.lan`,
 				VnetCNIARM64LinuxPluginsDownloadURL:  "https://packages.aks.azure.com/azure-cni/v1.4.13/binaries/azure-vnet-cni-linux-arm64-v1.4.14.tgz",
 				VnetCNILinuxPluginsDownloadURL:       "https://packages.aks.azure.com/azure-cni/v1.1.3/binaries/azure-vnet-cni-linux-amd64-v1.1.3.tgz",
 				VnetCNIWindowsPluginsDownloadURL:     "https://packages.aks.azure.com/azure-cni/v1.6.21/binaries/azure-vnet-cni-windows-amd64-v1.6.21.zip",
-				WindowsPauseImageURL:                 "mcr.microsoft.com/oss/kubernetes/pause:3.9.0",
+				WindowsPauseImageURL:                 "mcr.microsoft.com/oss/kubernetes/pause:3.9-hotfix-20230808",
 				WindowsProvisioningScriptsPackageURL: "https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-v0.0.52.zip",
 				WindowsTelemetryGUID:                 "fb801154-36b9-41bc-89c2-f4d4f05472b0",
 			},
@@ -828,7 +828,7 @@ DXRqvV7TWO2hndliQq3BW385ZkiephlrmpUVM= r2k1@arturs-mbp.lan`,
 			"--kube-reserved":                   "cpu=100m,memory=3891Mi",
 			"--kubeconfig":                      "c:\\k\\config",
 			"--max-pods":                        "30",
-			"--pod-infra-container-image":       "mcr.microsoft.com/oss/kubernetes/pause:3.9",
+			"--pod-infra-container-image":       "mcr.microsoft.com/oss/kubernetes/pause:3.9-hotfix-20230808",
 			"--resolv-conf":                     "\"\"\"\"",
 			"--cluster-dns":                     "10.0.0.10",
 			"--cluster-domain":                  "cluster.local",
