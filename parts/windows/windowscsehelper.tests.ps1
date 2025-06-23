@@ -48,7 +48,6 @@ Describe 'Install-Containerd-Based-On-Kubernetes-Version' {
   }
   
   Context 'Windows Server 2022 (ltsc2022)' {
-    # for windows versions other than test2025, containerd version is not changed and should not include containerd2
     BeforeAll {
       Mock Get-WindowsVersion -MockWith { return "ltsc2022" }
     }
@@ -71,9 +70,9 @@ Describe 'Install-Containerd-Based-On-Kubernetes-Version' {
       Assert-MockCalled -CommandName "Install-Containerd" -Exactly -Times 1 -ParameterFilter { $ContainerdUrl -eq $expectedURL }
     }
 
-    It 'k8s version is greater than MinimalKubernetesVersionWithLatestContainerd2' {
-      $expectedURL = $ContainerdWindowsPackageDownloadURL + $LatestContainerdPackage
-      & Install-Containerd-Based-On-Kubernetes-Version -ContainerdUrl $ContainerdWindowsPackageDownloadURL -KubernetesVersion "1.33.1" -CNIBinDir "cniBinPath" -CNIConfDir "cniConfigPath" -KubeDir "kubeDir"
+    It 'k8s version is equal to MinimalKubernetesVersionWithLatestContainerd2' {
+      $expectedURL = $ContainerdWindowsPackageDownloadURL + $LatestContainerd2Package
+      & Install-Containerd-Based-On-Kubernetes-Version -ContainerdUrl $ContainerdWindowsPackageDownloadURL -KubernetesVersion "1.33.0" -CNIBinDir "cniBinPath" -CNIConfDir "cniConfigPath" -KubeDir "kubeDir"
       Assert-MockCalled -CommandName "Install-Containerd" -Exactly -Times 1 -ParameterFilter { $ContainerdUrl -eq $expectedURL }
     }
 
@@ -85,7 +84,6 @@ Describe 'Install-Containerd-Based-On-Kubernetes-Version' {
   }
 
   Context 'Windows Server 2025 (2025)' {
-    # for windows versions other than test2025, containerd version is not changed and should not include containerd2
     BeforeAll {
       Mock Get-WindowsVersion -MockWith { 
         return $global:WindowsVersion2025 

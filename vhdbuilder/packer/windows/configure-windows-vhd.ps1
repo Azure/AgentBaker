@@ -320,7 +320,7 @@ function Get-ContainerImages
         Write-Output "* $image"
     }
 
-    # ./.clusterfuzzliteThere is a regression in crictl.exe in kube-tools 1.33 for windows that it cannot find the default config file. Has been discussed with upstream and pending fix
+    # There is a regression in crictl.exe in kube-tools 1.33 for windows that it cannot find the default config file. Has been discussed with upstream and pending fix
     $crictlPath = (Get-Command crictl.exe -ErrorAction SilentlyContinue).Path
     $configPath = Join-Path (Split-Path -Parent $crictlPath) "crictl.yaml"
     
