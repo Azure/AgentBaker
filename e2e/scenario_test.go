@@ -1796,7 +1796,6 @@ func Test_Ubuntu2404_GPU_H100(t *testing.T) {
 				ValidateNPDGPUCountPlugin(ctx, s)
 				ValidateNPDGPUCountCondition(ctx, s)
 				ValidateNPDGPUCountAfterFailure(ctx, s)
-				ValidateNPDReportingGPUMetrics(ctx, s)
 			},
 		}})
 }

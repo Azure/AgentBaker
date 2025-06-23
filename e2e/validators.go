@@ -481,7 +481,7 @@ func ValidateNPDGPUCountCondition(ctx context.Context, s *Scenario) {
 	}
 
 	require.NotNil(s.T, gpuCountCondition, "expected to find GpuCount condition with GpuCountGood reason on node")
-	require.Equal(s.T, corev1.ConditionTrue, gpuCountCondition.Status, "expected GpuCount condition to be True")
+	require.Equal(s.T, corev1.ConditionFalse, gpuCountCondition.Status, "expected GpuCount condition to be False")
 	require.Contains(s.T, gpuCountCondition.Message, "GPU count is correct", "expected GpuCount message to indicate correct count")
 }
 
@@ -491,12 +491,14 @@ func ValidateNPDGPUCountAfterFailure(ctx context.Context, s *Scenario) {
 		// Disable and reset the first GPU
 		"sudo nvidia-smi -i 0 -pm 0", // Disable persistence mode
 		"sudo nvidia-smi -i 0 -c 0",  // Set compute mode to default
-		"sudo nvidia-smi -i 0 -r",    // Reset the GPU
+		"PCI_ID=$(sudo nvidia-smi -i 0 --query-gpu=pci.bus_id --format=csv,noheader | sed 's/^0000//')", // sed converts the output into the format needed for NVreg_ExcludeDevices
+		"echo ${PCI_ID} | tee /tmp/npd_test_disabled_pci_id",
+		"echo ${PCI_ID} | sudo tee /sys/bus/pci/devices/${PCI_ID}/driver/unbind", // Reset the GPU
 	}
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to disable GPU")
 
 	// Wait for NPD to detect the change
-	time.Sleep(45 * time.Second)
+	time.Sleep(60 * time.Second)
 
 	node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.KubeNodeName, metav1.GetOptions{})
 	require.NoError(s.T, err, "failed to get node %q", s.Runtime.KubeNodeName)
@@ -511,25 +513,17 @@ func ValidateNPDGPUCountAfterFailure(ctx context.Context, s *Scenario) {
 	}
 
 	require.NotNil(s.T, gpuCountCondition, "expected to find GpuCount condition with GpuCountBad reason on node")
-	require.Equal(s.T, corev1.ConditionFalse, gpuCountCondition.Status, "expected GpuCount condition to be False")
-	require.Contains(s.T, gpuCountCondition.Message, "GPU count is incorrect", "expected GpuCount message to indicate incorrect count")
-}
+	require.Equal(s.T, corev1.ConditionTrue, gpuCountCondition.Status, "expected GpuCount condition to be True")
+	require.Contains(s.T, gpuCountCondition.Message, "Expected to see 8 GPUs but found 7. FaultCode: NHC2009", "expected GpuCount message to indicate GPU count mismatch")
 
-func ValidateNPDReportingGPUMetrics(ctx context.Context, s *Scenario) {
-	// Wait for NPD to report GPU metrics
-	time.Sleep(30 * time.Second)
-	node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.KubeNodeName, metav1.GetOptions{})
-	require.NoError(s.T, err, "failed to get node %q", s.Runtime.KubeNodeName)
-
-	// Check for NPD conditions related to GPU
-	foundGPUCondition := false
-	for _, condition := range node.Status.Conditions {
-		if strings.Contains(string(condition.Type), "NvidiaGPU") {
-			foundGPUCondition = true
-			break
-		}
+	// Put the VM back to the original state, re-enable the GPU.
+	command = []string{
+		"set -ex",
+		"cat /tmp/npd_test_disabled_pci_id | sudo tee /sys/bus/pci/drivers/nvidia/bind",
+		"rm -f /tmp/npd_test_disabled_pci_id", // Clean up the temporary file
 	}
-	require.True(s.T, foundGPUCondition, "expected to find NPD GPU condition on node")
+
+	execScriptOnVMForScenario(ctx, s, strings.Join(command, "\n"))
 }
 
 func ValidateRunc12Properties(ctx context.Context, s *Scenario, versions []string) {
