@@ -634,7 +634,7 @@ should_skip_binary_cleanup() {
 
 isMarinerOrAzureLinux() {
     local os=$1
-    if [ "$os" = "$MARINER_OS_NAME" ] || [ "$os" = "$MARINER_KATA_OS_NAME" ] || [ "$os" = "$AZURELINUX_OS_NAME" ]; then
+    if [ "$os" = "$MARINER_OS_NAME" ] || [ "$os" = "$MARINER_KATA_OS_NAME" ] || [ "$os" = "$AZURELINUX_OS_NAME" ] || [ "$os" = "$AZURELINUX_KATA_OS_NAME" ]; then
         return 0
     fi
     return 1
