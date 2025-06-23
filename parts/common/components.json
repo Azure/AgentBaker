@@ -1288,6 +1288,16 @@
               }
             ]
           }
+        },
+        "azurelinuxkata": {
+          "v3.0": {
+            "versionsV2": [
+              {
+                "renovateTag": "registry=https://packages.microsoft.com/azurelinux/3.0/prod/base/x86_64/repodata, name=kubernetes-cri-tools, os=azurelinux, release=3.0",
+                "latestVersion": "1.32.0-3.azl3"
+              }
+            ]
+          }
         }
       }
     },
