@@ -1134,6 +1134,10 @@
                 "renovateTag": "<DO_NOT_UPDATE>",
                 "latestVersion": "v1.7.20-azure.1",
                 "previousLatestVersion": "v1.7.17-azure.1"
+              },
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "v2.0.4-azure.1"
               }
             ],
             "downloadURL": "https://packages.aks.azure.com/containerd/windows/${version}/binaries/containerd-${version}-windows-amd64.tar.gz"
