@@ -440,7 +440,7 @@ function Install-Containerd-Based-On-Kubernetes-Version {
   
   if ($windowsVersion -eq $global:WindowsVersion2025) {
     $useContainerd2 = $true
-  } elseif ([version]$KubernetesVersion).CompareTo([version]$global:MinimalKubernetesVersionWithLatestContainerd2) -ge 0) {
+  } elseif (([version]$KubernetesVersion).CompareTo([version]$global:MinimalKubernetesVersionWithLatestContainerd2) -ge 0) {
     Write-Log "Kubernetes version $KubernetesVersion is greater than or equal to $global:MinimalKubernetesVersionWithLatestContainerd2, should use containerd 2.0 => since 1.33 is now releasing, we will only set to true when we have tested contained2."
     # $useContainerd2 = $true
   }
