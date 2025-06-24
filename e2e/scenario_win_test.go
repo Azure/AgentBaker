@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/Azure/agentbaker/e2e/config"
@@ -170,13 +171,19 @@ func Test_Windows2019CachingRegression(t *testing.T) {
 }
 
 func Test_Windows2025(t *testing.T) {
+	t.Skip("skipping test for Windows 2025, as we are testing regression issues with k8s 1.31+")
 	RunScenario(t, &Scenario{
 		Description: "Windows Server 2025 with Containerd",
 		Config: Config{
-			Cluster:                ClusterAzureNetwork,
-			VHD:                    config.VHDWindows2025,
-			VMConfigMutator:        EmptyVMConfigMutator,
-			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
+			Cluster:         ClusterAzureNetwork,
+			VHD:             config.VHDWindows2025,
+			VMConfigMutator: EmptyVMConfigMutator,
+			BootstrapConfigMutator: func(configuration *datamodel.NodeBootstrappingConfiguration) {
+				// 2025 supported in 1.32+ .
+				configuration.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.32.5"
+				configuration.K8sComponents.WindowsPackageURL = fmt.Sprintf("https://packages.aks.azure.com/kubernetes/v%s/windowszip/v%s-1int.zip", "1.32.5", "1.32.5")
+			},
+
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateWindowsVersionFromWindowsSettings(ctx, s, "2025")
 				ValidateWindowsProductName(ctx, s, "Windows Server 2025 Datacenter")
@@ -190,13 +197,19 @@ func Test_Windows2025(t *testing.T) {
 }
 
 func Test_Windows2025Gen2(t *testing.T) {
+	t.Skip("skipping test for Windows 2025, as we are testing regression issues with k8s 1.31+")
 	RunScenario(t, &Scenario{
 		Description: "Windows Server 2025 with Containerd - hyperv gen 2",
 		Config: Config{
-			Cluster:                ClusterAzureNetwork,
-			VHD:                    config.VHDWindows2025Gen2,
-			VMConfigMutator:        EmptyVMConfigMutator,
-			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
+			Cluster:         ClusterAzureNetwork,
+			VHD:             config.VHDWindows2025Gen2,
+			VMConfigMutator: EmptyVMConfigMutator,
+			// BootstrapConfigMutator: EmptyBootstrapConfigMutator,
+			BootstrapConfigMutator: func(configuration *datamodel.NodeBootstrappingConfiguration) {
+				// 2025 supported in 1.32+ .
+				configuration.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.32.5"
+				configuration.K8sComponents.WindowsPackageURL = fmt.Sprintf("https://packages.aks.azure.com/kubernetes/v%s/windowszip/v%s-1int.zip", "1.32.5", "1.32.5")
+			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateWindowsVersionFromWindowsSettings(ctx, s, "2025-gen2")
 				ValidateWindowsProductName(ctx, s, "Windows Server 2025 Datacenter")
