@@ -403,6 +403,7 @@ if [ "$OS_TYPE" = "Windows" ]; then
  	export AZCOPY_AUTO_LOGIN_TYPE="MSI" # use Managed Identity for AzCopy authentication
 	export AZCOPY_MSI_RESOURCE_STRING="${AZURE_MSI_RESOURCE_STRING}"
 
+	echo "VALID IMAGE URL: ${WINDOWS_CONTAINERIMAGE_JSON_URL}"
 	if [ -n "${WINDOWS_CONTAINERIMAGE_JSON_URL}" ]; then
 		# Download the json artifact from the url
 		filename=$(basename "$WINDOWS_CONTAINERIMAGE_JSON_URL")

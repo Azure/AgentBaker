@@ -40,6 +40,7 @@ parameters:
   - name: windowsContainerImageJsonUrl
     displayName: Windows container image JSON URL Override
     type: string
+    default: https://wcctagentbakerstorage.blob.core.windows.net/simship/2025/06B/payload.json
   - name: skipExtensionCheck
     displayName: Skip Extension Check
     type: boolean
