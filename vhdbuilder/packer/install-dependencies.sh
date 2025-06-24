@@ -668,6 +668,56 @@ else
 fi
 capture_benchmark "${SCRIPT_NAME}_finish_installing_bcc_tools"
 
+# Configure LSM modules to include BPF
+configureLsmWithBpf() {
+  echo "Configuring LSM modules to include BPF..."
+  
+  # Read current LSM modules
+  if [ ! -f /sys/kernel/security/lsm ]; then
+    echo "Warning: /sys/kernel/security/lsm not found, skipping LSM configuration"
+    return 0
+  fi
+  
+  local current_lsm=$(cat /sys/kernel/security/lsm)
+  echo "Current LSM modules: $current_lsm"
+  
+  # Prepend bpf to the LSM list if not already present
+  if [[ "$current_lsm" != *"bpf"* ]]; then
+    local new_lsm="bpf,$current_lsm"
+    echo "New LSM configuration: $new_lsm"
+    
+    # Update GRUB configuration
+    if [ -f /etc/default/grub ]; then
+      # Check if lsm= is already in GRUB_CMDLINE_LINUX_DEFAULT
+      if grep -q "lsm=" /etc/default/grub; then
+        # Replace existing lsm= parameter
+        sed -i "s/lsm=[^[:space:]]*/lsm=$new_lsm/g" /etc/default/grub
+      else
+        # Add lsm= parameter to existing GRUB_CMDLINE_LINUX_DEFAULT
+        sed -i "s/GRUB_CMDLINE_LINUX_DEFAULT=\"/GRUB_CMDLINE_LINUX_DEFAULT=\"lsm=$new_lsm /" /etc/default/grub
+      fi
+      
+      # Update GRUB based on OS
+      if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
+        echo "Updating GRUB configuration for Ubuntu..."
+        update-grub || echo "Warning: Failed to update GRUB configuration"
+      elif isMarinerOrAzureLinux "$OS"; then
+        echo "Updating GRUB configuration for Mariner/Azure Linux..."
+        grub2-mkconfig -o /boot/grub2/grub.cfg || echo "Warning: Failed to update GRUB configuration"
+      fi
+      
+      echo "LSM configuration updated successfully"
+    else
+      echo "Warning: /etc/default/grub not found, skipping LSM configuration"
+    fi
+  else
+    echo "BPF LSM already configured, skipping"
+  fi
+}
+
+configureLsmWithBpf
+capture_benchmark "${SCRIPT_NAME}_configure_lsm_with_bpf"
+
 # use the private_packages_url to download and cache packages
 if [ -n "${PRIVATE_PACKAGES_URL}" ]; then
   IFS=',' read -ra PRIVATE_URLS <<< "${PRIVATE_PACKAGES_URL}"
@@ -677,6 +727,9 @@ if [ -n "${PRIVATE_PACKAGES_URL}" ]; then
     cacheKubePackageFromPrivateUrl "$private_url"
   done
 fi
+
+
+
 
 LOCALDNS_BINARY_PATH="/opt/azure/containers/localdns/binary"
 # This function extracts CoreDNS binary from cached coredns images (n-1 image version and latest revision version)
