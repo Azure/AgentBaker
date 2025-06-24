@@ -3,7 +3,7 @@ $global:ContainerdInstallLocation = "$Env:ProgramFiles\containerd"
 $global:Containerdbinary = (Join-Path $global:ContainerdInstallLocation containerd.exe)
 # The minimum kubernetes version to use containerd 2.x
 $global:MinimalKubernetesVersionWithLatestContainerd2 = "1.32.0"
-
+$global:WindowsDataDir = "C:\AzureData\windows"
 function RegisterContainerDService {
   Param(
     [Parameter(Mandatory = $true)][string]
@@ -106,21 +106,8 @@ function CreateHypervisorRuntimes {
   return $hypervRuntimes
 }
 
-function GetContainerdTemplatePath {
-  Param(
-    [Parameter(Mandatory = $true)][string]
-    $ContainerdVersion
-  )
-  # sample values of version is 1.7.9 or 2.0.0
-  if (([version]$ContainerdVersion).CompareTo([version]"2.0.0") -ge 0) {
-    return "c:\AzureData\windows\containerd2template.toml"
-  }
-  return "c:\AzureData\windows\containerdtemplate.toml"
-}
 function ProcessAndWriteContainerdConfig {
   Param(
-    [Parameter(Mandatory = $true)][string]
-    $TemplatePath,
     [Parameter(Mandatory = $true)][string]
     $ContainerDVersion,
     [Parameter(Mandatory = $true)][string]
@@ -141,7 +128,14 @@ function ProcessAndWriteContainerdConfig {
   $hypervHandlers = $global:ContainerdWindowsRuntimeHandlers.split(",", [System.StringSplitOptions]::RemoveEmptyEntries)
   $hypervRuntimes = ""
 
-  $template = Get-Content -Path $TemplatePath 
+  $templateFilePath =  "containerdtemplate.toml"
+  if (([version]$ContainerdVersion).CompareTo([version]"2.0.0") -ge 0) {
+    $templateFilePath= "containerd2template.toml"
+  }
+
+  $templatePath = [Io.Path]::Combine( $global:WindowsDataDir, $templateFilePath)
+
+  $template = Get-Content -Path $templatePath 
   if ($SandboxIsolation -eq 0 -And $hypervHandlers.Count -eq 0) {
     # Remove the hypervisors placeholder when not needed
     $template = $template | Select-String -Pattern 'hypervisors' -NotMatch
@@ -176,6 +170,7 @@ function ProcessAndWriteContainerdConfig {
   
   # Write the processed template to the config file
   $configFile = [Io.Path]::Combine($global:ContainerdInstallLocation, "config.toml")
+  Write-Log "using template $templatePath to write containerd config to $configFile"
   $processedTemplate | Out-File -FilePath $configFile -Encoding ascii
 }
 
@@ -243,10 +238,7 @@ function Install-Containerd {
     Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GET_CONTAINERD_VERSION -ErrorMessage "Failed in getting Windows containerd version. Error: $_"
   }
 
-  # Get the correct template path based on Windows version and Kubernetes version
-  $templatePath = GetContainerdTemplatePath -ContainerdVersion $containerdVersion
   ProcessAndWriteContainerdConfig `
-    -TemplatePath $templatePath `
     -ContainerDVersion $containerdVersion `
     -CNIBinDir $CNIBinDir `
     -CNIConfDir $CNIConfDir
