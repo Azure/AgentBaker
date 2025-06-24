@@ -40,7 +40,6 @@ parameters:
   - name: windowsContainerImageJsonUrl
     displayName: Windows container image JSON URL Override
     type: string
-    default: ""
   - name: skipExtensionCheck
     displayName: Skip Extension Check
     type: boolean
