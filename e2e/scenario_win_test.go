@@ -2,7 +2,6 @@ package e2e
 
 import (
 	"context"
-	"fmt"
 	"testing"
 
 	"github.com/Azure/agentbaker/e2e/config"
@@ -20,6 +19,7 @@ func EmptyVMConfigMutator(vmss *armcompute.VirtualMachineScaleSet)              
 // Network (CNI related): optional and when new features are added) - Azure, Cilium, Kubenet
 // CSE packaging: new AgentBaker CSE should work with old VHDs, dated back 6 month (managed in RP)
 
+// Azure Network, Current K8S version (1.30), All Supported SKUs (2019, 2022, 23H2)
 func Test_Windows2019Containerd(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Windows Server 2019 with Containerd",
@@ -67,7 +67,7 @@ func Test_Windows2022ContainerdGen2(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Windows Server 2022 with Containerd - hyperv gen 2",
 		Config: Config{
-			Cluster:                ClusterLatestKubernetesVersion,
+			Cluster:                ClusterAzureNetwork,
 			VHD:                    config.VHDWindows2022ContainerdGen2,
 			VMConfigMutator:        EmptyVMConfigMutator,
 			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
@@ -126,12 +126,13 @@ func Test_Windows23H2Gen2(t *testing.T) {
 	})
 }
 
-func Test_Windows23H2Gen2CachingRegression(t *testing.T) {
+// Azure Network, Current K8S version (1.30), All Impacted VHD SKUs (2019, 2022, 23H2), CSE package	regression
+func Test_Windows2019CachingRegression(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "Windows 23H2 VHD built before local cache enabled should still work - overwrite the CSE scripts package URL",
+		Description: "Windows 2019 VHD built before local cache enabled should still work - overwrite the CSE scripts package URL",
 		Config: Config{
 			Cluster:         ClusterAzureNetwork,
-			VHD:             config.VHDWindows23H2Gen2,
+			VHD:             config.VHDWindows2019Containerd,
 			VMConfigMutator: EmptyVMConfigMutator,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.WindowsProfile.CseScriptsPackageURL = "https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-v0.0.52.zip"
@@ -160,12 +161,12 @@ func Test_Windows2022CachingRegression(t *testing.T) {
 	})
 }
 
-func Test_Windows2019CachingRegression(t *testing.T) {
+func Test_Windows23H2Gen2CachingRegression(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "Windows 2019 VHD built before local cache enabled should still work - overwrite the CSE scripts package URL",
+		Description: "Windows 23H2 VHD built before local cache enabled should still work - overwrite the CSE scripts package URL",
 		Config: Config{
 			Cluster:         ClusterAzureNetwork,
-			VHD:             config.VHDWindows2019Containerd,
+			VHD:             config.VHDWindows23H2Gen2,
 			VMConfigMutator: EmptyVMConfigMutator,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.WindowsProfile.CseScriptsPackageURL = "https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-v0.0.52.zip"
@@ -177,20 +178,60 @@ func Test_Windows2019CachingRegression(t *testing.T) {
 	})
 }
 
-func Test_Windows2025(t *testing.T) {
-	t.Skip("skipping test for Windows 2025, as we are testing regression issues with k8s 1.31+")
+// Azure Network, Latest K8S version (1.32), All Supported SKUs (2022, 2023H2)
+func Test_Windows2022ContainerdGen2_latest(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Windows Server 2022 with Containerd - hyperv gen 2",
+		Config: Config{
+			Cluster:                ClusterLatestKubernetesVersion,
+			VHD:                    config.VHDWindows2022ContainerdGen2,
+			VMConfigMutator:        EmptyVMConfigMutator,
+			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateWindowsVersionFromWindowsSettings(ctx, s, "2022-containerd-gen2")
+				ValidateWindowsProductName(ctx, s, "Windows Server 2022 Datacenter")
+				ValidateWindowsDisplayVersion(ctx, s, "21H2")
+				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
+				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
+				ValidateCiliumIsNotRunningWindows(ctx, s)
+				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "CSEScriptsPackageUrl used for provision is https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-current.zip")
+			},
+		},
+	})
+}
+
+func Test_Windows23H2Gen2_latest(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Windows Server 23H2 with Containerd - hyperv gen2",
+		Config: Config{
+			Cluster:                ClusterLatestKubernetesVersion,
+			VHD:                    config.VHDWindows23H2Gen2,
+			VMConfigMutator:        EmptyVMConfigMutator,
+			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateWindowsVersionFromWindowsSettings(ctx, s, "23H2-gen2")
+				ValidateWindowsProductName(ctx, s, "Windows Server 2022 Datacenter")
+				ValidateWindowsDisplayVersion(ctx, s, "23H2")
+				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
+				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
+				ValidateCiliumIsNotRunningWindows(ctx, s)
+				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "CSEScriptsPackageUrl used for provision is https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-current.zip")
+			},
+		},
+	})
+}
+
+// preview release 1.33
+
+// preview release 2025
+func Test_Windows2025_latest(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Windows Server 2025 with Containerd",
 		Config: Config{
-			Cluster:         ClusterAzureNetwork,
-			VHD:             config.VHDWindows2025,
-			VMConfigMutator: EmptyVMConfigMutator,
-			BootstrapConfigMutator: func(configuration *datamodel.NodeBootstrappingConfiguration) {
-				// 2025 supported in 1.32+ .
-				configuration.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.32.5"
-				configuration.K8sComponents.WindowsPackageURL = fmt.Sprintf("https://packages.aks.azure.com/kubernetes/v%s/windowszip/v%s-1int.zip", "1.32.5", "1.32.5")
-			},
-
+			Cluster:                ClusterLatestKubernetesVersion,
+			VHD:                    config.VHDWindows2025,
+			VMConfigMutator:        EmptyVMConfigMutator,
+			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateWindowsVersionFromWindowsSettings(ctx, s, "2025")
 				ValidateWindowsProductName(ctx, s, "Windows Server 2025 Datacenter")
@@ -203,20 +244,14 @@ func Test_Windows2025(t *testing.T) {
 	})
 }
 
-func Test_Windows2025Gen2(t *testing.T) {
-	t.Skip("skipping test for Windows 2025, as we are testing regression issues with k8s 1.31+")
+func Test_Windows2025Gen2_latest(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Windows Server 2025 with Containerd - hyperv gen 2",
 		Config: Config{
-			Cluster:         ClusterAzureNetwork,
-			VHD:             config.VHDWindows2025Gen2,
-			VMConfigMutator: EmptyVMConfigMutator,
-			// BootstrapConfigMutator: EmptyBootstrapConfigMutator,
-			BootstrapConfigMutator: func(configuration *datamodel.NodeBootstrappingConfiguration) {
-				// 2025 supported in 1.32+ .
-				configuration.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.32.5"
-				configuration.K8sComponents.WindowsPackageURL = fmt.Sprintf("https://packages.aks.azure.com/kubernetes/v%s/windowszip/v%s-1int.zip", "1.32.5", "1.32.5")
-			},
+			Cluster:                ClusterLatestKubernetesVersion,
+			VHD:                    config.VHDWindows2025Gen2,
+			VMConfigMutator:        EmptyVMConfigMutator,
+			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateWindowsVersionFromWindowsSettings(ctx, s, "2025-gen2")
 				ValidateWindowsProductName(ctx, s, "Windows Server 2025 Datacenter")
@@ -229,29 +264,7 @@ func Test_Windows2025Gen2(t *testing.T) {
 	})
 }
 
-func Test_Windows2022Gen2_k8s_133(t *testing.T) {
-	t.Skip("skipping test for Windows 2022 Gen2 with k8s 1.33, as we are verifying a regression fix for 1.31+")
-	RunScenario(t, &Scenario{
-		Description: "Windows Server 2022 with Containerd 2- hyperv gen 2",
-		Config: Config{
-			Cluster:         ClusterAzureNetwork,
-			VHD:             config.VHDWindows2022ContainerdGen2,
-			VMConfigMutator: EmptyVMConfigMutator,
-			BootstrapConfigMutator: func(configuration *datamodel.NodeBootstrappingConfiguration) {
-				// 2025 supported in 1.32+ .
-				configuration.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.33.1"
-				configuration.K8sComponents.WindowsPackageURL = fmt.Sprintf("https://packages.aks.azure.com/kubernetes/v%s/windowszip/v%s-1int.zip", "1.33.1", "1.33.1")
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateWindowsVersionFromWindowsSettings(ctx, s, "2022-containerd-gen2")
-				ValidateWindowsProductName(ctx, s, "Windows Server 2022 Datacenter")
-				ValidateWindowsDisplayVersion(ctx, s, "21H2")
-				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
-				ValidateCiliumIsNotRunningWindows(ctx, s)
-			},
-		},
-	})
-}
+// Network feature, Cilium + 23H2
 func Test_Windows23H2_Cilium2(t *testing.T) {
 	t.Skip("skipping test for Cilium on Windows 23H2, as it is not supported in production AKS yet")
 	RunScenario(t, &Scenario{
