@@ -30,7 +30,7 @@ func StrToInt32(s string) int32 {
 
 func LogDuration(duration time.Duration, warningDuration time.Duration, message string) {
 	if duration > warningDuration {
-		fmt.Printf("##vso[task.logissue type=warning;]", message)
+		fmt.Printf("##vso[task.logissue type=warning;]%s", message)
 	} else {
 		fmt.Print(message)
 	}

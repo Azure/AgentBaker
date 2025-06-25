@@ -101,7 +101,7 @@ func getBaseNBC(t *testing.T, cluster *Cluster, vhd *config.Image) *datamodel.No
 	var nbc *datamodel.NodeBootstrappingConfiguration
 
 	if vhd.Distro.IsWindowsDistro() {
-		nbc = baseTemplateWindows(t, config.Config.Location)
+		nbc = baseTemplateWindows(t, config.Config.Location, *cluster.Model.Properties.KubernetesVersion)
 
 		// these aren't needed since we use TLS bootstrapping instead, though windows bootstrapping expects non-empty values
 		nbc.ContainerService.Properties.CertificateProfile.ClientCertificate = "none"
@@ -668,11 +668,8 @@ func baseTemplateLinux(t *testing.T, location string, k8sVersion string, arch st
 
 // this been crafted with a lot of trial and pain, some values are not needed, but it takes a lot of time to figure out which ones.
 // and we hope to move on to a different config, so I don't want to invest any more time in this-
-// please keep the kubernetesVersion in sync with componets.json so that during e2e no extra binaries are required.
-func baseTemplateWindows(t *testing.T, location string) *datamodel.NodeBootstrappingConfiguration {
-	kubernetesVersion := "1.30.12"
-	// kubernetesVersion := "1.31.9"
-	// kubernetesVersion := "v1.32.5"
+// TODO parse  componets.json for the actual images and binaries
+func baseTemplateWindows(t *testing.T, location string, k8sVersion string) *datamodel.NodeBootstrappingConfiguration {
 	config := &datamodel.NodeBootstrappingConfiguration{
 		TenantID:          "tenantID",
 		SubscriptionID:    config.Config.SubscriptionID,
@@ -685,7 +682,7 @@ func baseTemplateWindows(t *testing.T, location string) *datamodel.NodeBootstrap
 				CertificateProfile:  &datamodel.CertificateProfile{},
 				OrchestratorProfile: &datamodel.OrchestratorProfile{
 					OrchestratorType:    "Kubernetes",
-					OrchestratorVersion: kubernetesVersion,
+					OrchestratorVersion: k8sVersion,
 					KubernetesConfig: &datamodel.KubernetesConfig{
 						AzureCNIURLWindows:   "https://packages.aks.azure.com/azure-cni/v1.6.21/binaries/azure-vnet-cni-windows-amd64-v1.6.21.zip",
 						ClusterSubnet:        "10.224.0.0/16",
@@ -770,17 +767,17 @@ DXRqvV7TWO2hndliQq3BW385ZkiephlrmpUVM= r2k1@arturs-mbp.lan`,
 				AzureTelemetryPID:           "",
 				// CNIARM64PluginsDownloadURL:  "https://packages.aks.azure.com/cni-plugins/v0.8.7/binaries/cni-plugins-linux-arm64-v0.8.7.tgz",
 				// CNIPluginsDownloadURL:       "https://packages.aks.azure.com/cni/cni-plugins-amd64-v0.7.6.tgz",
-				CSIProxyDownloadURL:         "https://packages.aks.azure.com/csi-proxy/v1.1.2-hotfix.20230807/binaries/csi-proxy-v1.1.2-hotfix.20230807.tar.gz",
-				CalicoImageBase:             "calico/",
-				ContainerdDownloadURLBase:   "https://storage.googleapis.com/cri-containerd-release/",
+				CSIProxyDownloadURL:       "https://packages.aks.azure.com/csi-proxy/v1.1.2-hotfix.20230807/binaries/csi-proxy-v1.1.2-hotfix.20230807.tar.gz",
+				CalicoImageBase:           "calico/",
+				ContainerdDownloadURLBase: "https://storage.googleapis.com/cri-containerd-release/",
 				// CseScriptsPackageURL is used to download the CSE scripts for Windows nodes, when use filename it is pinned to that version insteaf of current as defined in components.json
-				CseScriptsPackageURL:                 "https://packages.aks.azure.com/aks/windows/cse/",
-				EtcdDownloadURLBase:                  "",
-				KubeBinariesSASURLBase:               "https://packages.aks.azure.com/kubernetes/",
-				KubernetesImageBase:                  "k8s.gcr.io/",
-				MCRKubernetesImageBase:               "mcr.microsoft.com/",
-				NVIDIAImageBase:                      "nvidia/",
-				TillerImageBase:                      "gcr.io/kubernetes-helm/",
+				CseScriptsPackageURL:   "https://packages.aks.azure.com/aks/windows/cse/",
+				EtcdDownloadURLBase:    "",
+				KubeBinariesSASURLBase: "https://packages.aks.azure.com/kubernetes/",
+				KubernetesImageBase:    "k8s.gcr.io/",
+				MCRKubernetesImageBase: "mcr.microsoft.com/",
+				NVIDIAImageBase:        "nvidia/",
+				TillerImageBase:        "gcr.io/kubernetes-helm/",
 				// VnetCNIARM64LinuxPluginsDownloadURL:  "https://packages.aks.azure.com/azure-cni/v1.4.13/binaries/azure-vnet-cni-linux-arm64-v1.4.14.tgz",
 				// VnetCNILinuxPluginsDownloadURL:       "https://packages.aks.azure.com/azure-cni/v1.1.3/binaries/azure-vnet-cni-linux-amd64-v1.1.3.tgz",
 				VnetCNIWindowsPluginsDownloadURL:     "https://packages.aks.azure.com/azure-cni/v1.6.21/binaries/azure-vnet-cni-windows-amd64-v1.6.21.zip",
@@ -794,7 +791,7 @@ DXRqvV7TWO2hndliQq3BW385ZkiephlrmpUVM= r2k1@arturs-mbp.lan`,
 			OSImageConfig: map[datamodel.Distro]datamodel.AzureOSImageConfig(nil),
 		},
 		K8sComponents: &datamodel.K8sComponents{
-			WindowsPackageURL: fmt.Sprintf("https://packages.aks.azure.com/kubernetes/v%s/windowszip/v%s-1int.zip", kubernetesVersion, kubernetesVersion),
+			WindowsPackageURL: fmt.Sprintf("https://packages.aks.azure.com/kubernetes/v%s/windowszip/v%s-1int.zip", k8sVersion, k8sVersion),
 		},
 		AgentPoolProfile: &datamodel.AgentPoolProfile{
 			Name:                "winnp",
@@ -864,8 +861,9 @@ DXRqvV7TWO2hndliQq3BW385ZkiephlrmpUVM= r2k1@arturs-mbp.lan`,
 			},
 		},
 	}
-	config, err := pruneKubeletConfig(kubernetesVersion, config)
+	config, err := pruneKubeletConfig(k8sVersion, config)
 	require.NoError(t, err)
+
 	return config
 }
 
