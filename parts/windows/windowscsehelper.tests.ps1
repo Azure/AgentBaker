@@ -38,7 +38,7 @@ Describe 'Install-Containerd-Based-On-Kubernetes-Version' {
   }
   
   Context 'Windows Server 2022 (ltsc2022)' {
-    # for windows versions other than test2025, containerd version is not changed and should not include containerd2
+    # for windows versions other than 2025, containerd version is not changed and should not include containerd2
     BeforeAll {
       Mock Get-WindowsVersion -MockWith { return "ltsc2022" }
     }
@@ -74,10 +74,10 @@ Describe 'Install-Containerd-Based-On-Kubernetes-Version' {
     }
   }
 
-  Context 'Windows Server 2025 (test2025)' {
-    # for windows versions other than test2025, containerd version is not changed and should not include containerd2
+  Context 'Windows Server 2025 (2025)' {
+    # for windows versions other than 2025, containerd version is not changed and should not include containerd2
     BeforeAll {
-      Mock Get-WindowsVersion -MockWith { return "test2025" }
+      Mock Get-WindowsVersion -MockWith { return "2025" }
     }
 
     It 'k8s version is less to MinimalKubernetesVersionWithLatestContainerd2' {
@@ -159,7 +159,7 @@ Describe 'Get-WindowsVersion and Get-WindowsPauseVersion' {
   It 'build number is from Windows 2025' {
     Mock Get-WindowsBuildNumber -MockWith { return "26100" }
     $windowsVersion = Get-WindowsVersion
-    $expectedVersion = "test2025"
+    $expectedVersion = "2025"
     $windowsVersion | Should -Be $expectedVersion
   }
 
