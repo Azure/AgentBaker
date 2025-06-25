@@ -15,10 +15,13 @@ func EmptyVMConfigMutator(vmss *armcompute.VirtualMachineScaleSet)              
 // Windows e2e in AgentBaker should cover the matrix:
 // SKU: Windows Server 2019, 2022, 2023H2, 2025
 // K8S version: latest (using cluster ClusterLatestKubernetesVersion), current (using cluster ClusterAzureNetwork) in line with linux
+
 // Container runtime: Containerd1 (not 2025), Containerd2 (not 2019)
 // Network (CNI related): optional and when new features are added) - Azure, Cilium, Kubenet
-// CSE packaging: new AgentBaker CSE should work with old VHDs, dated back 6 month (managed in RP)
 
+// CSE packaging: new AgentBaker CSE should work with old VHDs, dated back 6 month (Test  in RP)
+
+// ==============================
 // Azure Network, Current K8S version (1.30), All Supported SKUs (2019, 2022, 23H2)
 func Test_Windows2019Containerd(t *testing.T) {
 	RunScenario(t, &Scenario{
@@ -126,6 +129,7 @@ func Test_Windows23H2Gen2(t *testing.T) {
 	})
 }
 
+// ==============================
 // Azure Network, Current K8S version (1.30), All Impacted VHD SKUs (2019, 2022, 23H2), CSE package	regression
 func Test_Windows2019CachingRegression(t *testing.T) {
 	RunScenario(t, &Scenario{
@@ -178,7 +182,7 @@ func Test_Windows23H2Gen2CachingRegression(t *testing.T) {
 	})
 }
 
-// Azure Network, Latest K8S version (1.32), All Supported SKUs (2022, 2023H2)
+// Azure Network, Latest K8S version (1.32), All Supported SKUs (2022, 23H2)
 func Test_Windows2022ContainerdGen2_latest(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Windows Server 2022 with Containerd - hyperv gen 2",
@@ -221,8 +225,10 @@ func Test_Windows23H2Gen2_latest(t *testing.T) {
 	})
 }
 
+// ==============================
 // preview release 1.33
 
+// ==============================
 // preview release 2025
 func Test_Windows2025_latest(t *testing.T) {
 	RunScenario(t, &Scenario{

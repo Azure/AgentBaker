@@ -668,9 +668,8 @@ func baseTemplateLinux(t *testing.T, location string, k8sVersion string, arch st
 
 // this been crafted with a lot of trial and pain, some values are not needed, but it takes a lot of time to figure out which ones.
 // and we hope to move on to a different config, so I don't want to invest any more time in this-
-// please keep the kubernetesVersion in sync with componets.json so that during e2e no extra binaries are required.
+// TODO parse  componets.json for the actual images and binaries
 func baseTemplateWindows(t *testing.T, location string, k8sVersion string) *datamodel.NodeBootstrappingConfiguration {
-	kubernetesVersion := "1.30.12"
 	config := &datamodel.NodeBootstrappingConfiguration{
 		TenantID:          "tenantID",
 		SubscriptionID:    config.Config.SubscriptionID,
@@ -683,7 +682,7 @@ func baseTemplateWindows(t *testing.T, location string, k8sVersion string) *data
 				CertificateProfile:  &datamodel.CertificateProfile{},
 				OrchestratorProfile: &datamodel.OrchestratorProfile{
 					OrchestratorType:    "Kubernetes",
-					OrchestratorVersion: kubernetesVersion,
+					OrchestratorVersion: k8sVersion,
 					KubernetesConfig: &datamodel.KubernetesConfig{
 						AzureCNIURLWindows:   "https://packages.aks.azure.com/azure-cni/v1.6.21/binaries/azure-vnet-cni-windows-amd64-v1.6.21.zip",
 						ClusterSubnet:        "10.224.0.0/16",
@@ -792,7 +791,7 @@ DXRqvV7TWO2hndliQq3BW385ZkiephlrmpUVM= r2k1@arturs-mbp.lan`,
 			OSImageConfig: map[datamodel.Distro]datamodel.AzureOSImageConfig(nil),
 		},
 		K8sComponents: &datamodel.K8sComponents{
-			WindowsPackageURL: fmt.Sprintf("https://packages.aks.azure.com/kubernetes/v%s/windowszip/v%s-1int.zip", kubernetesVersion, kubernetesVersion),
+			WindowsPackageURL: fmt.Sprintf("https://packages.aks.azure.com/kubernetes/v%s/windowszip/v%s-1int.zip", k8sVersion, k8sVersion),
 		},
 		AgentPoolProfile: &datamodel.AgentPoolProfile{
 			Name:                "winnp",
@@ -862,15 +861,9 @@ DXRqvV7TWO2hndliQq3BW385ZkiephlrmpUVM= r2k1@arturs-mbp.lan`,
 			},
 		},
 	}
-	config, err := pruneKubeletConfig(kubernetesVersion, config)
+	config, err := pruneKubeletConfig(k8sVersion, config)
 	require.NoError(t, err)
 
-	currVersion, err := semver.NewVersion(kubernetesVersion)
-	targetVersion, err := semver.NewVersion(k8sVersion)
-
-	if targetVersion.GreaterThan(currVersion) {
-		latestK8sBootstrapConfigurator(k8sVersion, config)
-	}
 	return config
 }
 
@@ -888,9 +881,4 @@ func pruneKubeletConfig(kubernetesVersion string, datamodel *datamodel.NodeBoots
 		delete(datamodel.KubeletConfig, "--azure-container-registry-config")
 	}
 	return datamodel, nil
-}
-
-func latestK8sBootstrapConfigurator(kubernetesVersion string, configuration *datamodel.NodeBootstrappingConfiguration) {
-	configuration.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = kubernetesVersion
-	configuration.K8sComponents.WindowsPackageURL = fmt.Sprintf("https://packages.aks.azure.com/kubernetes/v%s/windowszip/v%s-1int.zip", kubernetesVersion, kubernetesVersion)
 }
