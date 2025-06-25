@@ -15,9 +15,10 @@ func EmptyVMConfigMutator(vmss *armcompute.VirtualMachineScaleSet)              
 
 // Windows e2e in AgentBaker should cover the matrix:
 // SKU: Windows Server 2019, 2022, 2023H2, 2025
-// K8S version: latest (using cluster ClusterLatestKubernetesVersion), latest-1 (using cluster ClusterLatestKubernetesVersionMinusOne)
-// Container runtime: Containerd1, Containerd2
-// Network (CNI related, optional - when new features are added): Azure, Cilium, Kubenet
+// K8S version: latest (using cluster ClusterLatestKubernetesVersion), current (using cluster ClusterAzureNetwork) in line with linux
+// Container runtime: Containerd1 (not 2025), Containerd2 (not 2019)
+// Network (CNI related): optional and when new features are added) - Azure, Cilium, Kubenet
+// CSE packaging: new AgentBaker CSE should work with old VHDs, dated back 6 month (managed in RP)
 
 func Test_Windows2019Containerd(t *testing.T) {
 	RunScenario(t, &Scenario{
@@ -66,7 +67,7 @@ func Test_Windows2022ContainerdGen2(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Windows Server 2022 with Containerd - hyperv gen 2",
 		Config: Config{
-			Cluster:                ClusterAzureNetwork,
+			Cluster:                ClusterLatestKubernetesVersion,
 			VHD:                    config.VHDWindows2022ContainerdGen2,
 			VMConfigMutator:        EmptyVMConfigMutator,
 			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
@@ -228,6 +229,29 @@ func Test_Windows2025Gen2(t *testing.T) {
 	})
 }
 
+func Test_Windows2022Gen2_k8s_133(t *testing.T) {
+	t.Skip("skipping test for Windows 2022 Gen2 with k8s 1.33, as we are verifying a regression fix for 1.31+")
+	RunScenario(t, &Scenario{
+		Description: "Windows Server 2022 with Containerd 2- hyperv gen 2",
+		Config: Config{
+			Cluster:         ClusterAzureNetwork,
+			VHD:             config.VHDWindows2022ContainerdGen2,
+			VMConfigMutator: EmptyVMConfigMutator,
+			BootstrapConfigMutator: func(configuration *datamodel.NodeBootstrappingConfiguration) {
+				// 2025 supported in 1.32+ .
+				configuration.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.33.1"
+				configuration.K8sComponents.WindowsPackageURL = fmt.Sprintf("https://packages.aks.azure.com/kubernetes/v%s/windowszip/v%s-1int.zip", "1.33.1", "1.33.1")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateWindowsVersionFromWindowsSettings(ctx, s, "2022-containerd-gen2")
+				ValidateWindowsProductName(ctx, s, "Windows Server 2022 Datacenter")
+				ValidateWindowsDisplayVersion(ctx, s, "21H2")
+				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
+				ValidateCiliumIsNotRunningWindows(ctx, s)
+			},
+		},
+	})
+}
 func Test_Windows23H2_Cilium2(t *testing.T) {
 	t.Skip("skipping test for Cilium on Windows 23H2, as it is not supported in production AKS yet")
 	RunScenario(t, &Scenario{
