@@ -13,6 +13,12 @@ import (
 func EmptyBootstrapConfigMutator(configuration *datamodel.NodeBootstrappingConfiguration) {}
 func EmptyVMConfigMutator(vmss *armcompute.VirtualMachineScaleSet)                        {}
 
+// Windows e2e in AgentBaker should cover the matrix:
+// SKU: Windows Server 2019, 2022, 2023H2, 2025
+// K8S version: latest (using cluster ClusterLatestKubernetesVersion), latest-1 (using cluster ClusterLatestKubernetesVersionMinusOne)
+// Container runtime: Containerd1, Containerd2
+// Network (CNI related, optional - when new features are added): Azure, Cilium, Kubenet
+
 func Test_Windows2019Containerd(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Windows Server 2019 with Containerd",
