@@ -156,18 +156,21 @@ Describe 'Get-WindowsVersion and Get-WindowsPauseVersion' {
     $windowsVersion | Should -Be $expectedVersion
   }
 
-  It 'build number is from prerelease of windows 2025' {
-    Mock Get-WindowsBuildNumber -MockWith { return "25399" }
+  It 'build number is from Windows 2025' {
+    Mock Get-WindowsBuildNumber -MockWith { return "26100" }
     $windowsVersion = Get-WindowsVersion
     $expectedVersion = "test2025"
     $windowsVersion | Should -Be $expectedVersion
   }
 
-  It 'build number is from prerelease of windows 2025' {
+  It 'build number is from prerelease of windows 2025 (should now fail)' {
     Mock Get-WindowsBuildNumber -MockWith { return "30397" }
-    $windowsVersion = Get-WindowsVersion
-    $expectedVersion = "test2025"
-    $windowsVersion | Should -Be $expectedVersion
+    try {
+      $windowsVersion = Get-WindowsVersion
+    } catch {
+      Write-Host "Expected exception: $_"
+    }
+    Assert-MockCalled -CommandName 'Set-ExitCode' -Exactly -Times 1 -ParameterFilter { $ExitCode -eq $global:WINDOWS_CSE_ERROR_NOT_FOUND_BUILD_NUMBER }
   }
 
   It 'build number is unknown' {
@@ -180,18 +183,21 @@ Describe 'Get-WindowsVersion and Get-WindowsPauseVersion' {
     Assert-MockCalled -CommandName 'Set-ExitCode' -Exactly -Times 1 -ParameterFilter { $ExitCode -eq $global:WINDOWS_CSE_ERROR_NOT_FOUND_BUILD_NUMBER }
   }
 
-  It 'build number is from prerelease of windows 2025' {
-    Mock Get-WindowsBuildNumber -MockWith { return "25399" }
+  It 'build number is from Windows 2025' {
+    Mock Get-WindowsBuildNumber -MockWith { return "26100" }
     $windowsPauseVersion = Get-WindowsPauseVersion
     $expectedPauseVersion = "ltsc2022"
     $windowsPauseVersion | Should -Be $expectedPauseVersion
   }
 
-  It 'build number is from prerelease of windows 2025' {
+  It 'build number is from prerelease of windows 2025 (should now fail)' {
     Mock Get-WindowsBuildNumber -MockWith { return "30397" }
-    $windowsPauseVersion = Get-WindowsPauseVersion
-    $expectedPauseVersion = "ltsc2022"
-    $windowsPauseVersion | Should -Be $expectedPauseVersion
+    try {
+      $windowsPauseVersion = Get-WindowsPauseVersion
+    } catch {
+      Write-Host "Expected exception: $_"
+    }
+    Assert-MockCalled -CommandName 'Set-ExitCode' -Exactly -Times 1 -ParameterFilter { $ExitCode -eq $global:WINDOWS_CSE_ERROR_NOT_FOUND_BUILD_NUMBER }
   }
 }
 
