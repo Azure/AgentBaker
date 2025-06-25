@@ -52,6 +52,7 @@ parameters:
   - name: windowsContainerImageJsonUrl
     displayName: Windows container image JSON URL Override
     type: string
+    default: ""
   - name: overrideBranch
     type: string
     default: master
