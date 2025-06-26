@@ -142,7 +142,8 @@ if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]] && ! gre
       echo "LTS kernel for Ubuntu ${UBUNTU_RELEASE} is not available. Skipping purging and subsequent installation."
   fi
   NVIDIA_KERNEL="linux-azure-nvidia"
-  if "${CPU_ARCH}" == "arm64"; then
+  if [["${CPU_ARCH}" == "arm64" && "${UBUNTU_RELEASE}" = "24.04"]]; then
+    # This is the ubuntu 2404arm64gen2containerd image.
     sudo add-apt-repository ppa:canonical-kernel-team/ppa
     sudo apt update
     if apt-cache show "${NVIDIA_KERNEL}" &> /dev/null; then
