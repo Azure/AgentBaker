@@ -38,7 +38,7 @@ Describe 'Install-Containerd-Based-On-Kubernetes-Version' {
   }
   
   Context 'Windows Server 2022 (ltsc2022)' {
-    # for windows versions other than test2025, containerd version is not changed and should not include containerd2
+    # for windows versions other than 2025, containerd version is not changed and should not include containerd2
     BeforeAll {
       Mock Get-WindowsVersion -MockWith { return "ltsc2022" }
     }
@@ -74,10 +74,10 @@ Describe 'Install-Containerd-Based-On-Kubernetes-Version' {
     }
   }
 
-  Context 'Windows Server 2025 (test2025)' {
-    # for windows versions other than test2025, containerd version is not changed and should not include containerd2
+  Context 'Windows Server 2025 (2025)' {
+    # for windows versions other than 2025, containerd version is not changed and should not include containerd2
     BeforeAll {
-      Mock Get-WindowsVersion -MockWith { return "test2025" }
+      Mock Get-WindowsVersion -MockWith { return "2025" }
     }
 
     It 'k8s version is less to MinimalKubernetesVersionWithLatestContainerd2' {
@@ -156,18 +156,21 @@ Describe 'Get-WindowsVersion and Get-WindowsPauseVersion' {
     $windowsVersion | Should -Be $expectedVersion
   }
 
-  It 'build number is from prerelease of windows 2025' {
-    Mock Get-WindowsBuildNumber -MockWith { return "25399" }
+  It 'build number is from Windows 2025' {
+    Mock Get-WindowsBuildNumber -MockWith { return "26100" }
     $windowsVersion = Get-WindowsVersion
-    $expectedVersion = "test2025"
+    $expectedVersion = "2025"
     $windowsVersion | Should -Be $expectedVersion
   }
 
-  It 'build number is from prerelease of windows 2025' {
+  It 'build number is from prerelease of windows 2025 (should now fail)' {
     Mock Get-WindowsBuildNumber -MockWith { return "30397" }
-    $windowsVersion = Get-WindowsVersion
-    $expectedVersion = "test2025"
-    $windowsVersion | Should -Be $expectedVersion
+    try {
+      $windowsVersion = Get-WindowsVersion
+    } catch {
+      Write-Host "Expected exception: $_"
+    }
+    Assert-MockCalled -CommandName 'Set-ExitCode' -Exactly -Times 1 -ParameterFilter { $ExitCode -eq $global:WINDOWS_CSE_ERROR_NOT_FOUND_BUILD_NUMBER }
   }
 
   It 'build number is unknown' {
@@ -180,18 +183,21 @@ Describe 'Get-WindowsVersion and Get-WindowsPauseVersion' {
     Assert-MockCalled -CommandName 'Set-ExitCode' -Exactly -Times 1 -ParameterFilter { $ExitCode -eq $global:WINDOWS_CSE_ERROR_NOT_FOUND_BUILD_NUMBER }
   }
 
-  It 'build number is from prerelease of windows 2025' {
-    Mock Get-WindowsBuildNumber -MockWith { return "25399" }
+  It 'build number is from Windows 2025' {
+    Mock Get-WindowsBuildNumber -MockWith { return "26100" }
     $windowsPauseVersion = Get-WindowsPauseVersion
     $expectedPauseVersion = "ltsc2022"
     $windowsPauseVersion | Should -Be $expectedPauseVersion
   }
 
-  It 'build number is from prerelease of windows 2025' {
+  It 'build number is from prerelease of windows 2025 (should now fail)' {
     Mock Get-WindowsBuildNumber -MockWith { return "30397" }
-    $windowsPauseVersion = Get-WindowsPauseVersion
-    $expectedPauseVersion = "ltsc2022"
-    $windowsPauseVersion | Should -Be $expectedPauseVersion
+    try {
+      $windowsPauseVersion = Get-WindowsPauseVersion
+    } catch {
+      Write-Host "Expected exception: $_"
+    }
+    Assert-MockCalled -CommandName 'Set-ExitCode' -Exactly -Times 1 -ParameterFilter { $ExitCode -eq $global:WINDOWS_CSE_ERROR_NOT_FOUND_BUILD_NUMBER }
   }
 }
 

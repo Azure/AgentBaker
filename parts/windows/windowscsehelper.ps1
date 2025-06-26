@@ -379,7 +379,7 @@ function Get-WindowsVersion {
         "17763" { return "1809" }
         "20348" { return "ltsc2022" }
         "25398" { return "23H2" }
-        {$_ -ge "25399" -and $_ -le "30397"} { return "test2025" }
+        "26100" { return "2025" }
         Default {
             Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_NOT_FOUND_BUILD_NUMBER -ErrorMessage "Failed to find the windows build number: $buildNumber"
         }
@@ -392,7 +392,7 @@ function Get-WindowsPauseVersion {
         "17763" { return "1809" }
         "20348" { return "ltsc2022" }
         "25398" { return "ltsc2022" }
-        {$_ -ge "25399" -and $_ -le "30397"} { return "ltsc2022" }
+        "26100" { return "ltsc2022" }
         Default {
             Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_NOT_FOUND_BUILD_NUMBER -ErrorMessage "Failed to find the windows build number: $buildNumber"
         }
@@ -413,7 +413,7 @@ function Install-Containerd-Based-On-Kubernetes-Version {
     $KubernetesVersion
   )
 
-  # Get the current Windows version, this is interim since we are progressively supporting containerd 2.0 for all Windows version. for now only test2025
+  # Get the current Windows version, this is interim since we are progressively supporting containerd 2.0 for all Windows version. for now only 2025
   $windowsVersion = Get-WindowsVersion
   Write-Log "Install Containerd with ContainerdURL: $ContainerdUrl, KubernetesVersion: $KubernetesVersion, WindowsVersion: $windowsVersion" 
   Logs-To-Event -TaskName "AKS.WindowsCSE.InstallContainerdBasedOnKubernetesVersion" -TaskMessage "Start to install ContainerD based on kubernetes version. ContainerdUrl: $global:ContainerdUrl, KubernetesVersion: $global:KubeBinariesVersion, Windows Version: $windowsVersion"
@@ -428,7 +428,7 @@ function Install-Containerd-Based-On-Kubernetes-Version {
   if ($ContainerdUrl.EndsWith("/")) {
     $containerdPackage=$global:StableContainerdPackage
      # Check if we have Windows Server 2025 (not official yet and hence the SKU, as opposed to official name like 23H2 ) and Kubernetes version >= 1.33.0
-    if ($windowsVersion -eq "test2025" -and ([version]$KubernetesVersion).CompareTo([version]$global:MinimalKubernetesVersionWithLatestContainerd2) -ge 0) {
+    if ($windowsVersion -eq "2025" -and ([version]$KubernetesVersion).CompareTo([version]$global:MinimalKubernetesVersionWithLatestContainerd2) -ge 0) {
         $containerdPackage = $global:LatestContainerd2Package
     } elseif (([version]$KubernetesVersion).CompareTo([version]$global:MinimalKubernetesVersionWithLatestContainerd) -ge 0) {
         $containerdPackage=$global:LatestContainerdPackage
