@@ -103,6 +103,38 @@ func ValidateNonEmptyDirectory(ctx context.Context, s *Scenario, dirName string)
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "either could not find expected file, or something went wrong")
 }
 
+func ValidateFileExists(ctx context.Context, s *Scenario, fileName string) {
+	if s.VHD.OS == config.OSWindows {
+		steps := []string{
+			"$ErrorActionPreference = \"Stop\"",
+			fmt.Sprintf("if ( -not ( Test-Path -Path %s ) ) { exit 1 }", fileName),
+		}
+		execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "expected file does not exist")
+	} else {
+		steps := []string{
+			"set -ex",
+			fmt.Sprintf("test -f %s", fileName),
+		}
+		execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "expected file does not exist")
+	}
+}
+
+func ValidateFileDoesNotExist(ctx context.Context, s *Scenario, fileName string) {
+	if s.VHD.OS == config.OSWindows {
+		steps := []string{
+			"$ErrorActionPreference = \"Stop\"",
+			fmt.Sprintf("if ( Test-Path -Path %s ) { exit 1 }", fileName),
+		}
+		execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "expected file should not exist but it does")
+	} else {
+		steps := []string{
+			"set -ex",
+			fmt.Sprintf("test ! -f %s", fileName),
+		}
+		execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "expected file should not exist but it does")
+	}
+}
+
 func ValidateFileHasContent(ctx context.Context, s *Scenario, fileName string, contents string) {
 	if s.VHD.OS == config.OSWindows {
 		steps := []string{
@@ -255,10 +287,9 @@ func execScriptOnVMForScenarioValidateExitCode(ctx context.Context, s *Scenario,
 		s.T,
 		expectedExitCodeStr,
 		execResult.exitCode,
-		"exec command failed with exit code %q, expected exit code %s\nCommand: %s\nAdditional detail: %s\nSTDOUT:\n%s\n\nSTDERR:\n%s",
-		execResult.exitCode, expectedExitCodeStr, cmd, additionalErrorMessage, execResult.stdout, execResult.stderr,
+		"exec command failed with exit code %q, expected %s\nCommand: %s\n%s",
+		execResult.exitCode, expectedExitCodeStr, cmd, additionalErrorMessage,
 	)
-
 	return execResult
 }
 

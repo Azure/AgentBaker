@@ -341,6 +341,13 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "cloudInitStatusCheckScript"}}
 
+- path: /opt/azure/containers/complete-kubelet-config.sh
+  permissions: "0755"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "kubeletCompleteScript"}}
+
 - path: /opt/azure/containers/validate-kubelet-credentials.sh
   permissions: "0755"
   encoding: gzip

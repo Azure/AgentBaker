@@ -1781,8 +1781,27 @@ type NodeBootstrappingConfiguration struct {
 	// our added rule is overwritten by Cilium.
 	InsertIMDSRestrictionRuleToMangleTable bool
 
+	// SkipKubeletConfiguration - when true, skips kubelet configuration during node provisioning
+	// This allows for VHD creation where the base image has everything configured except kubelet.
+	// Later, VMs created from the VHD will run normal CSE with kubelet-specific configuration.
+	SkipKubeletConfiguration bool
+
+	// KubeletOnly - when true, runs only kubelet configuration steps, skipping all other node setup
+	// This is used for VMs created from VHD that need only kubelet enablement after base image creation.
+	// This mode assumes the VM already has all dependencies installed and configured.
+	KubeletOnly bool
+
 	// Version is required for aks-node-controller application to determine the version of the config file.
 	Version string
+}
+
+// Validate checks for logical consistency in the NodeBootstrappingConfiguration
+func (config *NodeBootstrappingConfiguration) Validate() error {
+	// Ensure KubeletOnly and SkipKubeletConfiguration are mutually exclusive
+	if config.KubeletOnly && config.SkipKubeletConfiguration {
+		return fmt.Errorf("KubeletOnly and SkipKubeletConfiguration cannot both be true")
+	}
+	return nil
 }
 
 type SSHStatus int

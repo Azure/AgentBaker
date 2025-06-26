@@ -695,6 +695,14 @@ EOF
     fi
 }
 
+# completeKubeletConfiguration runs only the kubelet-specific configuration
+# This function can be called independently to complete kubelet setup after
+# the initial node provisioning with SkipKubeletConfiguration=true
+completeKubeletConfiguration() {
+    logs_to_events "AKS.CSE.configureKubeletServing" configureKubeletServing
+    logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
+}
+
 ensureSnapshotUpdate() {
     systemctlEnableAndStart snapshot-update.timer 30 || exit $ERR_SNAPSHOT_UPDATE_START_FAIL
 }
