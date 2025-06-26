@@ -178,6 +178,8 @@ if apt-cache show "linux-image-${CUSTOM_KERNEL_VERSION}" &>/dev/null; then
     if apt-cache show "${NVIDIA_KERNEL_PACKAGE}" &> /dev/null; then
       echo "ARM64 image. Installing NVIDIA kernel and its packages alongside LTS kernel"
       sudo apt install -y "${NVIDIA_KERNEL_PACKAGE}"
+      echo "after installation:"
+      dpkg -l | grep "linux-.*-azure-nvidia"
     else
       echo "ARM64 image. NVIDIA kernel not available, skipping installation."
     fi
