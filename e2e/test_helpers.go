@@ -441,7 +441,7 @@ func createAKSVMExtension(location *string) (*armcompute.VirtualMachineScaleSetE
 	extensionName := "Compute.AKS.Linux.AKSNode"
 	publisher := "Microsoft.AKS"
 
-	// NOTE: If this is gonna be called multiple times, then find a way to cache the latest version.
+	// NOTE (@surajssd): If this is gonna be called multiple times, then find a way to cache the latest version.
 	extensionVersion, err := config.Azure.GetLatestVMExtensionImageVersion(context.TODO(), region, extensionName, publisher)
 	if err != nil {
 		return nil, fmt.Errorf("getting latest VM extension image version: %v", err)

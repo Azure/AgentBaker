@@ -622,7 +622,7 @@ func (a *AzureClient) GetLatestVMExtensionImageVersion(ctx context.Context, loca
 		return "", fmt.Errorf("no extension versions found")
 	}
 
-	version := make([]Version, len(resp.VirtualMachineExtensionImageArray))
+	version := make([]VMExtenstionVersion, len(resp.VirtualMachineExtensionImageArray))
 	for i, ext := range resp.VirtualMachineExtensionImageArray {
 		version[i] = parseVersion(ext)
 	}
@@ -634,8 +634,8 @@ func (a *AzureClient) GetLatestVMExtensionImageVersion(ctx context.Context, loca
 	return *version[len(version)-1].Original.Name, nil
 }
 
-// Version represents a parsed version of a VM extension image.
-type Version struct {
+// VMExtenstionVersion represents a parsed version of a VM extension image.
+type VMExtenstionVersion struct {
 	Original *armcompute.VirtualMachineExtensionImage
 	Major    int
 	Minor    int
@@ -645,11 +645,11 @@ type Version struct {
 // parseVersion parses the version from a VM extension image name, which can be in the format 1.151, 1.0.1, etc.
 // You can find all the versions of a specific VM extension by running:
 // az vm extension image list -n Compute.AKS.Linux.AKSNode
-func parseVersion(v *armcompute.VirtualMachineExtensionImage) Version {
+func parseVersion(v *armcompute.VirtualMachineExtensionImage) VMExtenstionVersion {
 	// Split by dots
 	parts := strings.Split(*v.Name, ".")
 
-	version := Version{Original: v}
+	version := VMExtenstionVersion{Original: v}
 
 	if len(parts) >= 1 {
 		if major, err := strconv.Atoi(parts[0]); err == nil {
@@ -670,7 +670,7 @@ func parseVersion(v *armcompute.VirtualMachineExtensionImage) Version {
 	return version
 }
 
-func (v Version) Less(other Version) bool {
+func (v VMExtenstionVersion) Less(other VMExtenstionVersion) bool {
 	if v.Major != other.Major {
 		return v.Major < other.Major
 	}
