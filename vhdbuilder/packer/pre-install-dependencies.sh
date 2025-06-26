@@ -150,6 +150,8 @@ if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]] && ! gre
     if apt-cache show "${NVIDIA_KERNEL_PACKAGE}" &> /dev/null; then
       echo "ARM64 image. Installing NVIDIA kernel and its packages alongside LTS kernel"
       sudo apt install -y "${NVIDIA_KERNEL_PACKAGE}"
+      echo "after installation:"
+      dpkg -l | grep "linux-.*-azure-nvidia"
     else
       echo "ARM64 image. NVIDIA kernel not available, skipping installation."
     fi
