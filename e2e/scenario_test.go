@@ -1642,7 +1642,7 @@ func Test_Ubuntu2404_NPD_Basic(t *testing.T) {
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				extension, err := createAKSVMExtension(vmss.Location)
+				extension, err := createVMExtensionLinuxAKSNode(vmss.Location)
 				if err != nil {
 					t.Fatalf("creating AKS VM extension: %v", err)
 				}

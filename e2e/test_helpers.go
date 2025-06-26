@@ -431,7 +431,7 @@ func addVMExtensionToVMSS(properties *armcompute.VirtualMachineScaleSetPropertie
 	return properties
 }
 
-func createAKSVMExtension(location *string) (*armcompute.VirtualMachineScaleSetExtension, error) {
+func createVMExtensionLinuxAKSNode(location *string) (*armcompute.VirtualMachineScaleSetExtension, error) {
 	// Default to "westus" if location is nil.
 	region := "westus"
 	if location != nil {
