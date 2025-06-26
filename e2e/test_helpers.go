@@ -18,6 +18,7 @@ import (
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/e2e/toolkit"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 	"github.com/barkimedes/go-deepcopy"
 	"github.com/stretchr/testify/require"
@@ -406,4 +407,52 @@ func parseLinuxCSEMessage(status armcompute.InstanceViewStatus) (*datamodel.CSES
 		return nil, fmt.Errorf("CSE Json does not contain exit code, raw CSE Message: %s", *status.Message)
 	}
 	return &cseStatus, nil
+}
+
+func addVMExtensionToVMSS(properties *armcompute.VirtualMachineScaleSetProperties, extension *armcompute.VirtualMachineScaleSetExtension) *armcompute.VirtualMachineScaleSetProperties {
+	if properties == nil {
+		properties = &armcompute.VirtualMachineScaleSetProperties{}
+	}
+
+	if properties.VirtualMachineProfile == nil {
+		properties.VirtualMachineProfile = &armcompute.VirtualMachineScaleSetVMProfile{}
+	}
+
+	if properties.VirtualMachineProfile.ExtensionProfile == nil {
+		properties.VirtualMachineProfile.ExtensionProfile = &armcompute.VirtualMachineScaleSetExtensionProfile{}
+	}
+
+	if properties.VirtualMachineProfile.ExtensionProfile.Extensions == nil {
+		properties.VirtualMachineProfile.ExtensionProfile.Extensions = []*armcompute.VirtualMachineScaleSetExtension{}
+	}
+
+	// NOTE: This is not checking if we are adding a duplicate extension.
+	properties.VirtualMachineProfile.ExtensionProfile.Extensions = append(properties.VirtualMachineProfile.ExtensionProfile.Extensions, extension)
+	return properties
+}
+
+func createVMExtensionLinuxAKSNode(location *string) (*armcompute.VirtualMachineScaleSetExtension, error) {
+	// Default to "westus" if location is nil.
+	region := "westus"
+	if location != nil {
+		region = *location
+	}
+
+	extensionName := "Compute.AKS.Linux.AKSNode"
+	publisher := "Microsoft.AKS"
+
+	// NOTE (@surajssd): If this is gonna be called multiple times, then find a way to cache the latest version.
+	extensionVersion, err := config.Azure.GetLatestVMExtensionImageVersion(context.TODO(), region, extensionName, publisher)
+	if err != nil {
+		return nil, fmt.Errorf("getting latest VM extension image version: %v", err)
+	}
+
+	return &armcompute.VirtualMachineScaleSetExtension{
+		Name: to.Ptr(extensionName),
+		Properties: &armcompute.VirtualMachineScaleSetExtensionProperties{
+			Publisher:          to.Ptr(publisher),
+			Type:               to.Ptr(extensionName),
+			TypeHandlerVersion: to.Ptr(extensionVersion),
+		},
+	}, nil
 }
