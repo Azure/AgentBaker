@@ -118,18 +118,46 @@ fi
 capture_benchmark "${SCRIPT_NAME}_enable_cgroupv2_for_azurelinux"
 
 # shellcheck disable=SC3010
-if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]] && ! grep -q "cvm" <<< "$FEATURE_FLAGS"; then
-  LTS_KERNEL="linux-image-azure-lts-${UBUNTU_RELEASE}"
-  LTS_TOOLS="linux-tools-azure-lts-${UBUNTU_RELEASE}"
-  LTS_CLOUD_TOOLS="linux-cloud-tools-azure-lts-${UBUNTU_RELEASE}"
-  LTS_HEADERS="linux-headers-azure-lts-${UBUNTU_RELEASE}"
-  LTS_MODULES="linux-modules-extra-azure-lts-${UBUNTU_RELEASE}"
+# if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]] && ! grep -q "cvm" <<< "$FEATURE_FLAGS"; then
+#   LTS_KERNEL="linux-image-azure-lts-${UBUNTU_RELEASE}"
+#   LTS_TOOLS="linux-tools-azure-lts-${UBUNTU_RELEASE}"
+#   LTS_CLOUD_TOOLS="linux-cloud-tools-azure-lts-${UBUNTU_RELEASE}"
+#   LTS_HEADERS="linux-headers-azure-lts-${UBUNTU_RELEASE}"
+#   LTS_MODULES="linux-modules-extra-azure-lts-${UBUNTU_RELEASE}"
 
-  echo "Logging the currently running kernel: $(uname -r)"
-  echo "Before purging kernel, here is a list of kernels/headers installed:"; dpkg -l 'linux-*azure*'
+#   echo "Logging the currently running kernel: $(uname -r)"
+#   echo "Before purging kernel, here is a list of kernels/headers installed:"; dpkg -l 'linux-*azure*'
 
-  if apt-cache show "$LTS_KERNEL" &>/dev/null; then
-      echo "LTS kernel is available for ${UBUNTU_RELEASE}, proceeding with purging current kernel and installing LTS kernel..."
+#   if apt-cache show "$LTS_KERNEL" &>/dev/null; then
+#       echo "LTS kernel is available for ${UBUNTU_RELEASE}, proceeding with purging current kernel and installing LTS kernel..."
+
+#       # Purge all current kernels and dependencies
+#       DEBIAN_FRONTEND=noninteractive apt-get remove --purge -y $(dpkg-query -W 'linux-*azure*' | awk '$2 != "" { print $1 }' | paste -s)
+#       echo "After purging kernel, dpkg list should be empty"; dpkg -l 'linux-*azure*'
+
+#       # Install LTS kernel
+#       DEBIAN_FRONTEND=noninteractive apt-get install -y "$LTS_KERNEL" "$LTS_TOOLS" "$LTS_CLOUD_TOOLS" "$LTS_HEADERS" "$LTS_MODULES"
+#       echo "After installing new kernel, here is a list of kernels/headers installed:"; dpkg -l 'linux-*azure*'
+#   else
+#       echo "LTS kernel for Ubuntu ${UBUNTU_RELEASE} is not available. Skipping purging and subsequent installation."
+#   fi
+
+#   update-grub
+#fi
+
+CUSTOM_KERNEL_VERSION="6.8.0-1016-azure-nvidia"
+
+echo "Adding PPA for Canonical Kernel Team..."
+add-apt-repository -y ppa:canonical-kernel-team/ppa
+apt-get update
+
+echo "Logging the currently running kernel: $(uname -r)"
+echo "Before purging kernel, here is a list of kernels/headers installed:"
+dpkg -l 'linux-*azure*'
+
+# Check if the custom kernel exists
+if apt-cache show "linux-image-${CUSTOM_KERNEL_VERSION}" &>/dev/null; then
+    echo "Custom kernel ${CUSTOM_KERNEL_VERSION} is available. Proceeding..."
 
       # Purge all current kernels and dependencies
       DEBIAN_FRONTEND=noninteractive apt-get remove --purge -y $(dpkg-query -W 'linux-*azure*' | awk '$2 != "" { print $1 }' | paste -s)
@@ -142,7 +170,8 @@ if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]] && ! gre
       echo "LTS kernel for Ubuntu ${UBUNTU_RELEASE} is not available. Skipping purging and subsequent installation."
   fi
   NVIDIA_KERNEL="linux-azure-nvidia"
-  if "${CPU_ARCH}" == "arm64"; then
+  if [["${CPU_ARCH}" == "arm64" && "${UBUNTU_RELEASE}" = "24.04"]]; then
+    # This is the ubuntu 2404arm64gen2containerd image.
     sudo add-apt-repository ppa:canonical-kernel-team/ppa
     sudo apt update
     if apt-cache show "${NVIDIA_KERNEL}" &> /dev/null; then
