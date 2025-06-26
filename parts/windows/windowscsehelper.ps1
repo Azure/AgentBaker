@@ -446,6 +446,14 @@ function Install-Containerd-Based-On-Kubernetes-Version {
     } 
     $containerdPackage = [string]::Format($global:ContainerdPackageTemplate, $containerdVersion)
     $ContainerdUrl = $ContainerdUrl + $containerdPackage
+  } elseif ( $windowsVersion -eq $global:WindowsVersion2025) {
+    # TODO (beileihuang) : remove this else if block when RP is release to set the correct versions for 2025
+    $containerdPattern = "v\d+\.\d+\.\d+-azure\.\d+/binaries/containerd-v\d+\.\d+\.\d+-azure\.\d+-windows-amd64\.tar\.gz"
+    if ($ContainerdUrl -match $containerdPattern) {
+        $matchedPath = $matches[0]
+        $containerd2Package = [string]::Format($global:ContainerdPackageTemplate, $global:LatestContainerd2Version)
+        $ContainerdUrl = $ContainerdUrl.Replace($matchedPath, $containerd2Package)
+    } 
   }
   
   Write-Log "Install Containerd with resolved containerd pacakge url: $ContainerdUrl, Kubernetes version: $KubernetesVersion, Windows version: $windowsVersion."
