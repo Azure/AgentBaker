@@ -159,9 +159,6 @@ dpkg -l 'linux-*azure*'
 if apt-cache show "linux-image-${CUSTOM_KERNEL_VERSION}" &>/dev/null; then
     echo "Custom kernel ${CUSTOM_KERNEL_VERSION} is available. Proceeding..."
 
-    # Purge old azure kernels
-    DEBIAN_FRONTEND=noninteractive apt-get remove --purge -y $(dpkg-query -W 'linux-*azure*' | awk '$2 != "" { print $1 }' | paste -s)
-
     # Install the new custom kernel
     DEBIAN_FRONTEND=noninteractive apt-get install -y \
       linux-image-${CUSTOM_KERNEL_VERSION} \

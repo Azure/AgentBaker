@@ -378,6 +378,16 @@ copyPackerFiles() {
     cpAndMode $PAM_D_COMMON_AUTH_SRC $PAM_D_COMMON_AUTH_DEST 644
     cpAndMode $PAM_D_COMMON_PASSWORD_SRC $PAM_D_COMMON_PASSWORD_DEST 644
     cpAndMode $USU_SH_SRC $USU_SH_DEST 544
+
+    if [[ ${UBUNTU_RELEASE} == "24.04" && ${CPU_ARCH} == "arm64" ]]; then
+      GRUB_AZ_NV_SCRIPT_SRC=/home/packer/10_azure_nvidia
+      GRUB_AZ_NV_SCRIPT_DEST=/etc/grub.d/10_azure_nvidia
+      cpAndMode $GRUB_AZ_NV_SCRIPT_SRC $GRUB_AZ_NV_SCRIPT_DEST 755
+
+      GRUB_AZ_NV_ENV_SRC=/home/packer/51-azure-nvidia.cfg
+      GRUB_AZ_NV_ENV_DEST=/etc/default/grub.d/51-azure-nvidia.cfg
+      cpAndMode $GRUB_AZ_NV_ENV_SRC $GRUB_AZ_NV_ENV_DEST 644
+    fi
   fi
 
   cpAndMode $NOTICE_SRC $NOTICE_DEST 444
