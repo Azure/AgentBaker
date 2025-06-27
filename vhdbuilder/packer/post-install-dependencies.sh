@@ -20,7 +20,7 @@ capture_benchmark "${SCRIPT_NAME}_source_packer_files_and_declare_variables"
 
 if [ $OS = $UBUNTU_OS_NAME ]; then
   # We do not purge extra kernels from the Ubuntu 24.04 ARM image, since that image must dual-boot for GB200.
-  if [ $CPU_ARCH != "arm64" ] && [ $UBUNTU_RELEASE != "24.04" ]; then
+  if [ $CPU_ARCH != "arm64" ] || [ $UBUNTU_RELEASE != "24.04" ]; then
     # shellcheck disable=SC2021
     current_kernel="$(uname -r | cut -d- -f-2)"
     # shellcheck disable=SC3010
