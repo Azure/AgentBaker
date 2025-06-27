@@ -19,13 +19,16 @@ MAX_BLOCK_COUNT=30298176 # 30 GB
 capture_benchmark "${SCRIPT_NAME}_source_packer_files_and_declare_variables"
 
 if [ $OS = $UBUNTU_OS_NAME ]; then
-  # shellcheck disable=SC2021
-  current_kernel="$(uname -r | cut -d- -f-2)"
-  # shellcheck disable=SC3010
-  if [[ "${ENABLE_FIPS,,}" == "true" ]]; then
-    dpkg --get-selections | grep -e "linux-\(headers\|modules\|image\)" | grep -v "$current_kernel" | grep -v "fips" | tr -s '[[:space:]]' | tr '\t' ' ' | cut -d' ' -f1 | xargs -I{} apt-get --purge remove -yq {}
-  else
-    dpkg --get-selections | grep -e "linux-\(headers\|modules\|image\)" | grep -v "linux-\(headers\|modules\|image\)-azure" | grep -v "$current_kernel" | tr -s '[[:space:]]' | tr '\t' ' ' | cut -d' ' -f1 | xargs -I{} apt-get --purge remove -yq {}
+  # We do not purge extra kernels from the Ubuntu 24.04 ARM image, since that image must dual-boot for GB200.
+  if [ $CPU_ARCH != "arm64" ] && [ $UBUNTU_RELEASE != "24.04" ]; then
+    # shellcheck disable=SC2021
+    current_kernel="$(uname -r | cut -d- -f-2)"
+    # shellcheck disable=SC3010
+    if [[ "${ENABLE_FIPS,,}" == "true" ]]; then
+      dpkg --get-selections | grep -e "linux-\(headers\|modules\|image\)" | grep -v "$current_kernel" | grep -v "fips" | tr -s '[[:space:]]' | tr '\t' ' ' | cut -d' ' -f1 | xargs -I{} apt-get --purge remove -yq {}
+    else
+      dpkg --get-selections | grep -e "linux-\(headers\|modules\|image\)" | grep -v "linux-\(headers\|modules\|image\)-azure" | grep -v "$current_kernel" | tr -s '[[:space:]]' | tr '\t' ' ' | cut -d' ' -f1 | xargs -I{} apt-get --purge remove -yq {}
+    fi
   fi
 
   # remove apport
