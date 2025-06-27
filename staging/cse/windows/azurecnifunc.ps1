@@ -459,7 +459,8 @@ function New-ExternalHnsNetwork
         if ($netIP)
         {
             $prefixOrigin = $netIP.PrefixOrigin
-            # Some VMs have multiple NICs
+            # Some VMs have multiple physical NICs where one NIC is Inteliband and should be ignored for kubelet. It's internal and used for
+            # comms with other VMs in the same cluster. Standard_HC44rs is a sample SKU. Note that this code path is not unit tested.
             if ($prefixOrigin -ne "WellKnown" -and $prefixOrigin -ne "Dhcp") {
                 Write-Log "Skipping adapter $($na.Name) with PrefixOrigin $prefixOrigin"
                 continue
