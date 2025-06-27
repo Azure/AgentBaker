@@ -64,45 +64,36 @@ source "${CSE_INSTALL_FILEPATH}"
 source "${CSE_DISTRO_INSTALL_FILEPATH}"
 source "${CSE_CONFIG_FILEPATH}"
 
-# Function to configure kubelet and its dependencies
-configure_kubelet_and_dependencies() {
-    resolve_packages_source_url
-    logs_to_events "AKS.CSE.setPackagesBaseURL" "echo $PACKAGE_DOWNLOAD_BASE_URL"
-    
-    # IMPORTANT NOTE: We do this here since this function can mutate kubelet flags and node labels, 
-    # which is used by configureK8s and other functions. Thus, we need to make sure flag and label content is correct beforehand.
-    if [ "${SKIP_KUBELET_CONFIGURATION}" != "true" ]; then
-        logs_to_events "AKS.CSE.configureKubeletServing" configureKubeletServing
-    fi
-    
-    # This function first creates the systemd drop-in directory for kubelet.service.
-    # Pay attention to ordering relative to other functions that create kubelet drop-ins.
-    logs_to_events "AKS.CSE.configureK8s" configureK8s
-    
-    # This function creates the /etc/kubernetes/azure.json file. It also creates the custom
-    # cloud configuration file if running in a custom cloud environment.
-    logs_to_events "AKS.CSE.configureAzureJson" configureAzureJson
-    
-    logs_to_events "AKS.CSE.ensureKubeCACert" ensureKubeCACert
-    
-    logs_to_events "AKS.CSE.installSecureTLSBootstrapClient" installSecureTLSBootstrapClient
-    
-    if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" = "true" ]; then
-        # Depends on configureK8s, ensureKubeCACert, and installSecureTLSBootstrapClient
-        logs_to_events "AKS.CSE.configureAndStartSecureTLSBootstrapping" configureAndStartSecureTLSBootstrapping
-    fi
-}
+resolve_packages_source_url
+logs_to_events "AKS.CSE.setPackagesBaseURL" "echo $PACKAGE_DOWNLOAD_BASE_URL"
+
+# IMPORTANT NOTE: We do this here since this function can mutate kubelet flags and node labels,
+# which is used by configureK8s and other functions. Thus, we need to make sure flag and label content is correct beforehand.
+logs_to_events "AKS.CSE.configureKubeletServing" configureKubeletServing
+
+# This function first creates the systemd drop-in directory for kubelet.service.
+# Pay attention to ordering relative to other functions that create kubelet drop-ins.
+logs_to_events "AKS.CSE.configureK8s" configureK8s
+
+# This function creates the /etc/kubernetes/azure.json file. It also creates the custom
+# cloud configuration file if running in a custom cloud environment.
+logs_to_events "AKS.CSE.configureAzureJson" configureAzureJson
+
+logs_to_events "AKS.CSE.ensureKubeCACert" ensureKubeCACert
+
+logs_to_events "AKS.CSE.installSecureTLSBootstrapClient" installSecureTLSBootstrapClient
+
+if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" = "true" ]; then
+    # Depends on configureK8s, ensureKubeCACert, and installSecureTLSBootstrapClient
+    logs_to_events "AKS.CSE.configureAndStartSecureTLSBootstrapping" configureAndStartSecureTLSBootstrapping
+fi
 
 # Handle kubelet-only mode: run only kubelet configuration and exit
 if [ "${KUBELET_ONLY}" = "true" ]; then
-    echo "Executing kubelet-only configuration..."
-    
-    # Configure kubelet dependencies and kubelet itself
-    configure_kubelet_and_dependencies
-    
+    # Configure kubelet dependencies and kubelet itself    
     # In kubelet-only mode, always ensure kubelet (skip check doesn't apply)
     logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
-    
+
     # Create standard completion marker (provision.complete) for kubelet-only mode
     # This allows Stage 2 to properly mark completion after kubelet is configured
     mkdir -p /opt/azure/containers && touch /opt/azure/containers/provision.complete
@@ -110,8 +101,6 @@ if [ "${KUBELET_ONLY}" = "true" ]; then
     exit 0
 fi
 
-# Configure kubelet dependencies for normal (non-kubelet-only) flow
-configure_kubelet_and_dependencies
 
 if [ "${DISABLE_SSH}" = "true" ]; then
     disableSSH || exit $ERR_DISABLE_SSH

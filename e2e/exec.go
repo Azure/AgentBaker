@@ -52,9 +52,11 @@ const (
 type Script struct {
 	script      string
 	interpreter Interpreter
+	skipLogging bool
 }
 
 func execScriptOnVm(ctx context.Context, s *Scenario, vmPrivateIP, jumpboxPodName, sshPrivateKey string, script Script) (*podExecResult, error) {
+	s.T.Helper()
 	/*
 		This works in a way that doesn't rely on the node having joined the cluster:
 		* We create a linux pod on a different node.
@@ -88,7 +90,9 @@ func execScriptOnVm(ctx context.Context, s *Scenario, vmPrivateIP, jumpboxPodNam
 
 	joinedSteps := strings.Join(steps, " && ")
 
-	s.T.Logf("Executing script %[1]s using %[2]s:\n---START-SCRIPT---\n%[3]s\n---END-SCRIPT---\n", scriptFileName, interpreter, script.script)
+	if !script.skipLogging {
+		s.T.Logf("Executing script %[1]s using %[2]s:\n---START-SCRIPT---\n%[3]s\n---END-SCRIPT---\n", scriptFileName, interpreter, script.script)
+	}
 
 	kube := s.Runtime.Cluster.Kube
 	execResult, err := execOnPrivilegedPod(ctx, kube, defaultNamespace, jumpboxPodName, joinedSteps)

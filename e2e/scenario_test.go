@@ -1637,7 +1637,6 @@ func Test_Ubuntu2404_GPUA10(t *testing.T) {
 	runScenarioUbuntu2404GRID(t, "Standard_NV6ads_A10_v5")
 }
 
-
 func Test_TwoStageKubeletConfiguration_Linux(t *testing.T) {
 	runTwoStageKubeletTest(t, &TwoStageTestConfig{
 		Description:       "Tests complete two-stage workflow: Stage 1 (SkipKubeletConfiguration) then Stage 2 (KubeletOnly) on same VM",
@@ -1679,7 +1678,7 @@ type TwoStageTestConfig struct {
 func runTwoStageKubeletTest(t *testing.T, config *TwoStageTestConfig) {
 	t.Parallel()
 	ctx := newTestCtx(t)
-	
+
 	// Create scenario with SkipKubeletConfiguration=true for Stage 1
 	s := &Scenario{
 		Description: config.Description,
@@ -1692,7 +1691,7 @@ func runTwoStageKubeletTest(t *testing.T, config *TwoStageTestConfig) {
 		},
 		T: t,
 	}
-	
+
 	// Get cluster and set up scenario runtime (similar to RunScenario but without node readiness wait)
 	cluster, err := s.Config.Cluster(ctx, s.T)
 	require.NoError(s.T, err)
@@ -1700,18 +1699,17 @@ func runTwoStageKubeletTest(t *testing.T, config *TwoStageTestConfig) {
 	s.Runtime = &ScenarioRuntime{
 		Cluster: cluster,
 	}
-	
+
 	// Stage 1: Create VM with SkipKubeletConfiguration=true (but don't wait for node readiness)
 	s.T.Log("=== STAGE 1: Creating VM with SkipKubeletConfiguration=true ===")
 	runStage1WithoutNodeWait(ctx, s)
-	
+
 	// Stage 1 validation: Verify kubelet is skipped and stage1-complete marker exists
 	s.T.Log("=== STAGE 1 VALIDATION: Verifying kubelet is skipped ===")
 	if config.IsWindows {
 		ValidateFileHasContent(ctx, s, config.LogFile, "Skipping kubelet configuration as requested")
 		ValidateFileExists(ctx, s, "C:\\AzureData\\stage1-complete")
 	} else {
-		ValidateFileHasContent(ctx, s, config.LogFile, "SKIP_KUBELET_CONFIGURATION=true")
 		ValidateFileHasContent(ctx, s, config.LogFile, "Skipping kubelet configuration as requested")
 		ValidateFileExists(ctx, s, config.ContainerdConfig)
 		ValidateSystemdUnitIsRunning(ctx, s, config.ContainerdService)
@@ -1719,7 +1717,7 @@ func runTwoStageKubeletTest(t *testing.T, config *TwoStageTestConfig) {
 	}
 	// provision.complete should still be created to satisfy CSE framework validation
 	ValidateFileExists(ctx, s, config.CompletionMarker)
-	
+
 	// Stage 2: Run CSE again with KubeletOnly=true (simulate VM from VHD)
 	s.T.Log("=== STAGE 2: Running KubeletOnly configuration on same VM ===")
 	if config.IsWindows {
@@ -1727,22 +1725,22 @@ func runTwoStageKubeletTest(t *testing.T, config *TwoStageTestConfig) {
 	} else {
 		runKubeletOnlyConfiguration(ctx, s)
 	}
-	
+
 	// Stage 2 validation: Verify kubelet is now working and provision.complete exists
 	s.T.Log("=== STAGE 2 VALIDATION: Verifying kubelet is working ===")
 	if config.IsWindows {
 		ValidateFileHasContent(ctx, s, config.LogFile, "Skipping kubelet configuration as requested") // From Stage 1
-		ValidateFileHasContent(ctx, s, config.LogFile, "Running in kubelet-only mode...")              // From Stage 2
+		ValidateFileHasContent(ctx, s, config.LogFile, "Running in kubelet-only mode...")             // From Stage 2
 	} else {
-		ValidateFileHasContent(ctx, s, config.LogFile, "SKIP_KUBELET_CONFIGURATION=true")     // From Stage 1
-		ValidateFileHasContent(ctx, s, config.LogFile, "KUBELET_ONLY=true")                  // From Stage 2
+		ValidateFileHasContent(ctx, s, config.LogFile, "SKIP_KUBELET_CONFIGURATION=true")      // From Stage 1
+		ValidateFileHasContent(ctx, s, config.LogFile, "KUBELET_ONLY=true")                    // From Stage 2
 		ValidateFileHasContent(ctx, s, config.LogFile, "Executing kubelet-only configuration") // From Stage 2
 		ValidateSystemdUnitIsRunning(ctx, s, config.KubeletService)
 	}
-	
+
 	// Verify completion marker is now created
 	ValidateFileExists(ctx, s, config.CompletionMarker)
-	
+
 	s.T.Log("Two-stage kubelet configuration test completed successfully!")
 }
 
@@ -1750,14 +1748,14 @@ func runTwoStageKubeletTest(t *testing.T, config *TwoStageTestConfig) {
 func runStage1WithoutNodeWait(ctx context.Context, s *Scenario) {
 	// Generate VMSS name
 	s.Runtime.VMSSName = generateVMSSName(s)
-	
+
 	// Set up NBC (copied from prepareAKSNode in test_helpers.go)
 	nbc := getBaseNBC(s.T, s.Runtime.Cluster, s.VHD)
-	
+
 	if s.VHD.OS == config.OSWindows {
 		nbc.ContainerService.Properties.WindowsProfile.CseScriptsPackageURL = "https://packages.aks.azure.com/aks/windows/cse/"
 	}
-	
+
 	// Apply the bootstrap config mutator (sets SkipKubeletConfiguration=true)
 	if s.BootstrapConfigMutator != nil {
 		clonedNbc, err := deepcopy.Anything(nbc)
@@ -1767,44 +1765,44 @@ func runStage1WithoutNodeWait(ctx context.Context, s *Scenario) {
 		s.BootstrapConfigMutator(clonedNbc.(*datamodel.NodeBootstrappingConfiguration))
 		s.Runtime.NBC = clonedNbc.(*datamodel.NodeBootstrappingConfiguration)
 	}
-	
+
 	// Generate SSH keys
 	var err error
 	s.Runtime.SSHKeyPrivate, s.Runtime.SSHKeyPublic, err = getNewRSAKeyPair()
 	if err != nil {
 		s.T.Fatalf("Failed to generate SSH keys: %v", err)
 	}
-	
+
 	publicKeyData := datamodel.PublicKey{KeyData: string(s.Runtime.SSHKeyPublic)}
-	if s.Runtime.NBC != nil && s.Runtime.NBC.ContainerService != nil && 
-	   s.Runtime.NBC.ContainerService.Properties != nil && 
-	   s.Runtime.NBC.ContainerService.Properties.LinuxProfile != nil {
+	if s.Runtime.NBC != nil && s.Runtime.NBC.ContainerService != nil &&
+		s.Runtime.NBC.ContainerService.Properties != nil &&
+		s.Runtime.NBC.ContainerService.Properties.LinuxProfile != nil {
 		if s.Runtime.NBC.ContainerService.Properties.LinuxProfile.SSH.PublicKeys == nil {
 			s.Runtime.NBC.ContainerService.Properties.LinuxProfile.SSH.PublicKeys = []datamodel.PublicKey{}
 		}
 		s.Runtime.NBC.ContainerService.Properties.LinuxProfile.SSH.PublicKeys = append(
 			s.Runtime.NBC.ContainerService.Properties.LinuxProfile.SSH.PublicKeys, publicKeyData)
 	}
-	
+
 	// Create VMSS (this will run CSE with SkipKubeletConfiguration=true)
 	start := time.Now()
 	createVMSS(ctx, s)
-	
+
 	// Wait for CSE to complete (but don't wait for node readiness since kubelet won't start)
 	err = getCustomScriptExtensionStatus(ctx, s)
 	if err != nil {
 		s.T.Fatalf("CSE failed in Stage 1: %v", err)
 	}
-	
+
 	creationElapse := time.Since(start)
 	s.T.Logf("Stage 1: VMSS %s creation succeeded in %s", s.Runtime.VMSSName, creationElapse)
-	
+
 	// Get VM IP for Stage 2 SSH access
 	s.Runtime.VMPrivateIP, err = getVMPrivateIPAddress(ctx, s)
 	if err != nil {
 		s.T.Fatalf("failed to get VM private IP address: %v", err)
 	}
-	
+
 	s.T.Logf("Stage 1: VM private IP is %s", s.Runtime.VMPrivateIP)
 }
 
@@ -1814,7 +1812,7 @@ func runKubeletOnlyConfiguration(ctx context.Context, s *Scenario) {
 	kubeletOnlyNBC := *s.Runtime.NBC // Make a copy to avoid modifying original
 	kubeletOnlyNBC.KubeletOnly = true
 	kubeletOnlyNBC.SkipKubeletConfiguration = false
-	
+
 	// Generate the CSE command for Stage 2 using AgentBaker
 	ab, err := agent.NewAgentBaker()
 	if err != nil {
@@ -1824,23 +1822,25 @@ func runKubeletOnlyConfiguration(ctx context.Context, s *Scenario) {
 	if err != nil {
 		s.T.Fatalf("Failed to generate kubelet-only CSE command: %v", err)
 	}
-	
+
 	// Execute the CSE command on the VM for Stage 2
 	cseCommand := kubeletOnlyBootstrapping.CSE
-	s.T.Logf("Executing Stage 2 CSE command: %s", cseCommand)
-	
+	s.T.Logf("Executing Stage 2 CSE command")
+
 	script := Script{
 		interpreter: Bash,
 		script:      cseCommand,
+		skipLogging: true, // Script contains sensitive information
 	}
-	
+
 	result, err := execScriptOnVm(ctx, s, s.Runtime.VMPrivateIP, s.Runtime.Cluster.DebugPod.Name, string(s.Runtime.SSHKeyPrivate), script)
 	if err != nil {
 		s.T.Fatalf("Failed to execute Stage 2 CSE: %v", err)
 	}
-	
+
 	if result.exitCode != "0" {
-		s.T.Fatalf("Stage 2 CSE command failed with exit code %s. STDOUT: %s, STDERR: %s", 
+		// TODO: hide sensitive information in logs?
+		s.T.Fatalf("Stage 2 CSE command failed with exit code %s. STDOUT: %s, STDERR: %s",
 			result.exitCode, result.stdout.String(), result.stderr.String())
 	}
 }
@@ -1851,7 +1851,7 @@ func runKubeletOnlyConfigurationWindows(ctx context.Context, s *Scenario) {
 	kubeletOnlyNBC := *s.Runtime.NBC // Make a copy to avoid modifying original
 	kubeletOnlyNBC.KubeletOnly = true
 	kubeletOnlyNBC.SkipKubeletConfiguration = false
-	
+
 	// Generate the CSE command for Stage 2 using AgentBaker
 	ab, err := agent.NewAgentBaker()
 	if err != nil {
@@ -1861,24 +1861,23 @@ func runKubeletOnlyConfigurationWindows(ctx context.Context, s *Scenario) {
 	if err != nil {
 		s.T.Fatalf("Failed to generate kubelet-only CSE command: %v", err)
 	}
-	
-	// Execute the CSE command on the VM for Stage 2  
+
+	// Execute the CSE command on the VM for Stage 2
 	cseCommand := kubeletOnlyBootstrapping.CSE
 	s.T.Logf("Executing Stage 2 CSE command: %s", cseCommand)
-	
+
 	script := Script{
 		interpreter: Powershell,
 		script:      cseCommand,
 	}
-	
+
 	result, err := execScriptOnVm(ctx, s, s.Runtime.VMPrivateIP, s.Runtime.Cluster.DebugPod.Name, string(s.Runtime.SSHKeyPrivate), script)
 	if err != nil {
 		s.T.Fatalf("Failed to execute Stage 2 CSE: %v", err)
 	}
-	
+
 	if result.exitCode != "0" {
-		s.T.Fatalf("Stage 2 CSE command failed with exit code %s. STDOUT: %s, STDERR: %s", 
+		s.T.Fatalf("Stage 2 CSE command failed with exit code %s. STDOUT: %s, STDERR: %s",
 			result.exitCode, result.stdout.String(), result.stderr.String())
 	}
 }
-
