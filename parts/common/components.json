@@ -397,7 +397,7 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=azuremonitor/containerinsights/ciprod",
-          "latestVersion": "3.1.27"
+          "latestVersion": "3.1.28"
         }
       ],
       "windowsVersions": []
