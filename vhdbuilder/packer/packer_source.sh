@@ -182,6 +182,10 @@ copyPackerFiles() {
     IGVM_DEBUG_BIN_DEST=$KATACC_CONFIG_DIR/kata-containers-igvm-debug.img
     cpAndMode $IGVM_DEBUG_BIN_SRC $IGVM_DEBUG_BIN_DEST 0755
 
+    IGVM_BIN_SRC=/home/packer/kata-containers-igvm.img
+    IGVM_BIN_DEST=$KATACC_CONFIG_DIR/kata-containers-igvm.img
+    cpAndMode $IGVM_BIN_SRC $IGVM_BIN_DEST 0755
+
     REF_INFO_SRC=/home/packer/reference-info-base64
     REF_INFO_DEST=$KATACC_CONFIG_DIR/reference-info-base64
     cpAndMode $REF_INFO_SRC $REF_INFO_DEST 0755
