@@ -18,6 +18,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 func ValidateDirectoryContent(ctx context.Context, s *Scenario, path string, files []string) {
@@ -567,4 +568,52 @@ func ValidateJournalctlOutput(ctx context.Context, s *Scenario, serviceName stri
 	}
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
 		fmt.Sprintf("expected content '%s' not found in %s service logs", expectedContent, serviceName))
+}
+
+func ValidateNodeProblemDetector(ctx context.Context, s *Scenario) {
+	command := []string{
+		"set -ex",
+		// Verify node-problem-detector service is running
+		"systemctl is-active node-problem-detector",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "Node Problem Detector (NPD) service validation failed")
+}
+
+func ValidateNPDFilesystemCorruption(ctx context.Context, s *Scenario) {
+	command := []string{
+		"set -ex",
+		// Check if the filesystem corruption monitor NPD plugin configuration file exists
+		"test -f /etc/node-problem-detector.d/custom-plugin-monitor/custom-fs-corruption-monitor.json",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "NPD Custom Plugin configuration for FilesystemCorruptionProblem not found")
+
+	command = []string{
+		"set -ex",
+		// Simulate a filesystem corruption problem
+		"sudo systemd-run --unit=docker --no-block bash -c 'echo \"structure needs cleaning\"'",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "Failed to simulate filesystem corruption problem")
+
+	// Wait for NPD to detect the problem using Kubernetes native waiting
+	var filesystemCorruptionProblem *corev1.NodeCondition
+	err := wait.PollUntilContextTimeout(ctx, 10*time.Second, 6*time.Minute, true, func(ctx context.Context) (bool, error) {
+		node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.KubeNodeName, metav1.GetOptions{})
+		if err != nil {
+			s.T.Logf("Failed to get node %q: %v", s.Runtime.KubeNodeName, err)
+			return false, nil // Continue polling on transient errors
+		}
+
+		for i := range node.Status.Conditions {
+			if node.Status.Conditions[i].Type == "FilesystemCorruptionProblem" && node.Status.Conditions[i].Reason == "FilesystemCorruptionDetected" {
+				filesystemCorruptionProblem = &node.Status.Conditions[i]
+				return true, nil
+			}
+		}
+		return false, nil // Continue polling
+	})
+	require.NoError(s.T, err, "timed out waiting for FilesystemCorruptionProblem condition to appear on node %q", s.Runtime.KubeNodeName)
+
+	require.NotNil(s.T, filesystemCorruptionProblem, "expected FilesystemCorruptionProblem condition to be present on node")
+	require.Equal(s.T, corev1.ConditionTrue, filesystemCorruptionProblem.Status, "expected FilesystemCorruptionProblem condition to be True on node")
+	require.Contains(s.T, filesystemCorruptionProblem.Message, "Found 'structure needs cleaning' in Docker journal.", "expected FilesystemCorruptionProblem condition message to contain: Found 'structure needs cleaning' in Docker journal.")
 }
