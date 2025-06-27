@@ -1,4 +1,4 @@
-Starting build on  Tue Jun 24 16:54:43 UTC 2025
+Starting build on  Mon Jun 16 21:15:58 UTC 2025
 Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):
   - oras version 1.2.2
   - aks-secure-tls-bootstrap-client version 0.1.0-alpha.6
@@ -22,9 +22,11 @@ Components downloaded in this VHD build (some of the below components might get 
   - kubernetes-binaries version v1.31.8
   - kubernetes-binaries version v1.32.4
   - azure-acr-credential-provider version v1.29.15
-  - azure-acr-credential-provider version v1.30.13
-  - azure-acr-credential-provider version v1.31.7
-  - azure-acr-credential-provider version v1.32.6
+  - azure-acr-credential-provider version v1.30.12
+  - azure-acr-credential-provider version v1.31.6
+  - azure-acr-credential-provider version v1.32.5
+  - containerd-wasm-shims version v0.3.0 v0.5.1 v0.8.0
+  - spinkube version 0.15.1
   - runc version 1.1.9
   - bpftrace v0.16.0
 containerd images pre-pulled:
@@ -46,7 +48,7 @@ containerd images pre-pulled:
   - mcr.microsoft.com/containernetworking/azure-ipam:v0.0.7
   - mcr.microsoft.com/containernetworking/azure-ipam:v0.2.1
   - mcr.microsoft.com/containernetworking/azure-ipam:v0.2.0
-  - mcr.microsoft.com/containernetworking/azure-npm:v1.5.48
+  - mcr.microsoft.com/containernetworking/azure-npm:v1.5.45
   - mcr.microsoft.com/containernetworking/cilium/cilium:v1.14.19-250129
   - mcr.microsoft.com/containernetworking/cilium/cilium:v1.16.6-250129
   - mcr.microsoft.com/containernetworking/cilium/cilium:v1.14.18-250107
@@ -81,20 +83,20 @@ containerd images pre-pulled:
   - mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.30.10
   - mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.31.6
   - mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.32.4
-  - mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.33.2
+  - mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.33.1
   - mcr.microsoft.com/oss/kubernetes-csi/blob-csi:v1.24.10
   - mcr.microsoft.com/oss/kubernetes-csi/blob-csi:v1.25.8
   - mcr.microsoft.com/oss/kubernetes-csi/blob-csi:v1.26.5
   - mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.15.0
-  - mcr.microsoft.com/oss/v2/kubernetes-csi/livenessprobe:v2.16.0
+  - mcr.microsoft.com/oss/v2/kubernetes-csi/livenessprobe:v2.15.0
   - mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.13.0
-  - mcr.microsoft.com/oss/v2/kubernetes-csi/csi-node-driver-registrar:v2.14.0
+  - mcr.microsoft.com/oss/v2/kubernetes-csi/csi-node-driver-registrar:v2.13.0
   - mcr.microsoft.com/oss/v2/open-policy-agent/gatekeeper:v3.19.1-1
   - mcr.microsoft.com/oss/v2/open-policy-agent/gatekeeper:v3.18.2-1
-  - mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:1.12.2
   - mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:1.12.1
-  - mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:1.12.2
+  - mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:1.11.1
   - mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:1.12.1
+  - mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:1.11.1
   - mcr.microsoft.com/aks/aks-node-ca-watcher:master.241021.1
   - mcr.microsoft.com/oss/v2/kubernetes/windows-gmsa-webhook:v0.12.1-2
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.27.103-akslts
@@ -114,8 +116,8 @@ containerd images pre-pulled:
   - libbcc-examples
 Successfully copied coredns binary of v1.11.3-8
 kubelet/kubectl downloaded:
--rwxr-xr-x 1 root root  10334343 Dec 17  2024 /usr/local/bin/oras
--rw-r--r-- 1 root root     11343 Dec 19  2024 /usr/local/bin/LICENSE
+-rwxr-xr-x 1 root root  10334343 Dec 17 09:51 /usr/local/bin/oras
+-rw-r--r-- 1 root root     11343 Dec 19 08:28 /usr/local/bin/LICENSE
 -rwxr-xr-x 1 root root 108712196 Jan 28 23:01 /usr/local/bin/kubelet-1.27.102-akslts
 -rwxr-xr-x 1 root root  49066136 Jan 28 23:01 /usr/local/bin/kubectl-1.27.102-akslts
 -rwxr-xr-x 1 root root 110649604 Jan 29 02:21 /usr/local/bin/kubelet-1.28.100-akslts
@@ -147,7 +149,14 @@ lrwxrwxrwx 1 root root        32 Apr  2 01:47 /usr/local/bin/containerd-shim-kat
 -rwxr-xr-x 1 root root  77312440 May 23 19:14 /usr/local/bin/kubelet-1.31.9
 -rwxr-xr-x 1 root root  56930456 May 23 19:14 /usr/local/bin/kubectl-1.31.9
 -rwxr-xr-x 1 root root  56239089 May 28 15:56 /usr/local/bin/aks-secure-tls-bootstrap-client
--rwxr-xr-x 1 root root       699 Jun 24 16:55 /usr/local/bin/ci-syslog-watcher.sh
+-rwxr-xr-x 1 root root       699 Jun 16 21:16 /usr/local/bin/ci-syslog-watcher.sh
+-rwxr-xr-x 1 root root      9905 Jun 16 21:22 /usr/local/bin/containerd-shim-slight-v0-3-0-v1
+-rwxr-xr-x 1 root root      9903 Jun 16 21:22 /usr/local/bin/containerd-shim-spin-v0-5-1-v1
+-rwxr-xr-x 1 root root      9903 Jun 16 21:22 /usr/local/bin/containerd-shim-slight-v0-5-1-v1
+-rwxr-xr-x 1 root root      9903 Jun 16 21:22 /usr/local/bin/containerd-shim-spin-v0-3-0-v1
+-rwxr-xr-x 1 root root      9905 Jun 16 21:22 /usr/local/bin/containerd-shim-slight-v0-8-0-v1
+-rwxr-xr-x 1 root root      9903 Jun 16 21:22 /usr/local/bin/containerd-shim-spin-v0-8-0-v1
+-rwxr-xr-x 1 root root  63515504 Jun 16 21:22 /usr/local/bin/containerd-shim-spin-v2
 === Installed Packages Begin
 filesystem-1.1-20.cm2.x86_64
 glibc-2.35-7.cm2.x86_64
@@ -172,6 +181,7 @@ kmod-29-2.cm2.x86_64
 kernel-5.15.182.1-1.cm2.x86_64
 mariner-release-2.0-75.cm2.noarch
 shim-15.8-1.cm2.x86_64
+grub2-efi-binary-2.06-13.cm2.x86_64
 popt-1.18-1.cm2.x86_64
 slang-2.3.2-4.cm2.x86_64
 newt-0.52.21-5.cm2.x86_64
@@ -357,6 +367,7 @@ gptfdisk-1.0.8-1.cm2.x86_64
 mpfr-4.1.0-2.cm2.x86_64
 gawk-5.1.1-1.cm2.x86_64
 cloud-utils-growpart-0.32-3.cm2.noarch
+grub2-2.06-13.cm2.x86_64
 installkernel-1.0.0-2.cm2.noarch
 grubby-8.40-46.cm2.x86_64
 hyperv-daemons-license-5.15.182.1-1.cm2.noarch
@@ -596,8 +607,6 @@ gpg-pubkey-be1229cf-5631588c
 oniguruma-6.9.7.1-2.cm2.x86_64
 jq-1.6-2.cm2.x86_64
 inotify-tools-3.22.1.0-1.cm2.x86_64
-grub2-efi-binary-2.06-14.cm2.x86_64
-grub2-2.06-14.cm2.x86_64
 mariner-repos-cloud-native-2.0-9.cm2.noarch
 python3-dbus-1.2.16-3.cm2.x86_64
 python3-dateutil-2.7.3-5.cm2.noarch
@@ -658,7 +667,7 @@ moby-runc-1.1.9-8.cm2.x86_64
 moby-containerd-cc-1.7.7-11.cm2.x86_64
 kata-containers-cc-3.2.0.azl2-6.cm2.x86_64
 hvloader-1.0.1-12.cm2.x86_64
-grub2-configuration-2.06-14.cm2.x86_64
+grub2-configuration-2.06-13.cm2.x86_64
 kernel-mshv-5.15.157.mshv1-2.cm2.x86_64
 cloud-hypervisor-cvm-38.0.72.2-5.cm2.x86_64
 busybox-1.35.0-14.cm2.x86_64
@@ -681,7 +690,7 @@ bcc-examples-0.27.0-2.cm2.x86_64
 === Installed Packages End
 Disk usage:
 Filesystem      Size  Used Avail Use% Mounted on
-/dev/root        29G   24G  4.1G  86% /
+/dev/root        29G   24G  4.2G  85% /
 devtmpfs         32G     0   32G   0% /dev
 tmpfs            32G     0   32G   0% /dev/shm
 tmpfs            13G  672K   13G   1% /run
@@ -704,10 +713,10 @@ SUPPORT_URL="https://aka.ms/cbl-mariner"
 === os-release End
 Using kernel:
 Linux version 5.15.157.mshv1-2.cm2 (root@CBL-Mariner) (gcc (GCC) 11.2.0, GNU ld (GNU Binutils) 2.37) #1 SMP Tue Mar 4 02:02:00 UTC 2025
-Install completed successfully on  Tue Jun 24 17:11:44 UTC 2025
-VSTS Build NUMBER: 20250624.1_master_128265548
-VSTS Build ID: 128265548
-Commit: 7bbfda09a001cf3f43428d8bcdeded8c27028315
+Install completed successfully on  Mon Jun 16 21:27:32 UTC 2025
+VSTS Build NUMBER: 20250616.2_master_127449288
+VSTS Build ID: 127449288
+Commit: 2f00a2ad625d575bf85df24ef8e5b11cfa29d72b
 Ubuntu version: 
 Hyperv generation: V2
 Feature flags: kata
