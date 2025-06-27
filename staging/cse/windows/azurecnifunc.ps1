@@ -458,6 +458,13 @@ function New-ExternalHnsNetwork
         $netIP = Get-NetIPAddress -ifIndex $na.ifIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue -ErrorVariable netIPErr
         if ($netIP)
         {
+            $prefixOrigin = $netIP.PrefixOrigin
+            # Some VMs have multiple NICs
+            if ($prefixOrigin -ne "WellKnown" -and $prefixOrigin -ne "Dhcp") {
+                Write-Log "Skipping adapter $($na.Name) with PrefixOrigin $prefixOrigin"
+                continue
+            }
+
             $managementIP = $netIP.IPAddress
             $adapterName = $na.Name
 
