@@ -13,6 +13,10 @@ VHDs are built using [Packer](https://developer.hashicorp.com/packer/docs) in [v
 
 Windows VHD is configured through [VHD](../vhdbuilder/packer/windows/windows-vhd-configuration.ps1)
 
+Ignore vhdbuilder/release-notes directory, 
+it is used to generate release notes for the VHDs with security scanner results 
+and is not relevant to the VHD build process.
+
 ## AgentBaker Service
 
 [apiserver](../apiserver/) is `go` based webserver. It receives request from external client and generates CSE and CustomData to be used on the VHD when a new node is created / provisioned.
