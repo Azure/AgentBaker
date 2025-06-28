@@ -5,13 +5,14 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
-	"github.com/Azure/agentbaker/e2e/toolkit"
 	"net"
 	"net/http"
 	"os"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/Azure/agentbaker/e2e/toolkit"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
@@ -406,7 +407,7 @@ func (a *AzureClient) LatestSIGImageVersionByTag(ctx context.Context, t *testing
 			if tagName != "" {
 				tag, ok := version.Tags[tagName]
 				if !ok || tag == nil || *tag != tagValue {
-					t.Logf("Skipping version %s as it doesn't have tag %s=%s", *version.ID, tagName, tagValue)
+					//t.Logf("Skipping version %s as it doesn't have tag %s=%s", *version.ID, tagName, tagValue)
 					continue
 				}
 			}
@@ -417,7 +418,6 @@ func (a *AzureClient) LatestSIGImageVersionByTag(ctx context.Context, t *testing
 			}
 
 			if latestVersion == nil || version.Properties.PublishingProfile.PublishedDate.After(*latestVersion.Properties.PublishingProfile.PublishedDate) {
-				t.Logf("Found version %s with tag %s=%s", *version.ID, tagName, tagValue)
 				latestVersion = version
 			}
 		}
@@ -448,7 +448,11 @@ func (a *AzureClient) ensureReplication(ctx context.Context, t *testing.T, image
 		t.Logf("Image version %s is already in region to region %s", *version.ID, Config.Location)
 		return nil
 	}
-	t.Logf("##vso[task.logissue type=warning;]Replicating to region %s: image version %s", Config.Location, *version.ID)
+	regions := make([]string, 0, len(version.Properties.PublishingProfile.TargetRegions))
+	for _, targetRegion := range version.Properties.PublishingProfile.TargetRegions {
+		regions = append(regions, *targetRegion.Name)
+	}
+	t.Logf("##vso[task.logissue type=warning;]Replicating to region %s, available region: %s, image version %s", Config.Location, strings.Join(regions, ", "), *version.ID)
 
 	start := time.Now() // Record the start time
 	err := a.replicateImageVersionToCurrentRegion(ctx, image, version)

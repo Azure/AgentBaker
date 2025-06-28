@@ -164,6 +164,6 @@ BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="{{GetBootstrapProfileContainerRegis
 MCR_REPOSITORY_BASE="{{GetMCRRepositoryBase}}"
 ENABLE_IMDS_RESTRICTION="{{EnableIMDSRestriction}}"
 INSERT_IMDS_RESTRICTION_RULE_TO_MANGLE_TABLE="{{InsertIMDSRestrictionRuleToMangleTable}}"
-SKIP_KUBELET_CONFIGURATION="{{GetVariable "skipKubeletConfiguration"}}"
-KUBELET_ONLY="{{GetVariable "kubeletOnly"}}"
+SKIP_KUBELET_CONFIGURATION="{{GetSkipKubeletConfiguration}}"
+KUBELET_ONLY="{{GetKubeletOnly}}"
 /usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"

@@ -3,17 +3,54 @@ package e2e
 import (
 	"context"
 	"encoding/base64"
+	"fmt"
 	"strings"
+	"testing"
+	"time"
 
 	"github.com/Azure/agentbaker/e2e/config"
+	"github.com/Azure/agentbaker/e2e/toolkit"
 	"github.com/Azure/agentbaker/pkg/agent"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func ValidatePodRunning(ctx context.Context, s *Scenario, testPod *corev1.Pod) {
-	ensurePod(ctx, s, testPod)
-	s.T.Logf("node health validation: test pod %q is running on node %q", testPod.Name, s.Runtime.KubeNodeName)
+func ValidatePodRunning(ctx context.Context, s *Scenario, pod *corev1.Pod) {
+	kube := s.Runtime.Cluster.Kube
+	truncatePodName(s.T, pod)
+	start := time.Now()
+
+	s.T.Logf("creating pod %q", pod.Name)
+	_, err := kube.Typed.CoreV1().Pods(pod.Namespace).Create(ctx, pod, v1.CreateOptions{})
+	require.NoErrorf(s.T, err, "failed to create pod %q", pod.Name)
+	s.T.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Minute)
+		defer cancel()
+		err := kube.Typed.CoreV1().Pods(pod.Namespace).Delete(ctx, pod.Name, v1.DeleteOptions{GracePeriodSeconds: to.Ptr(int64(0))})
+		if err != nil {
+			s.T.Logf("couldn't not delete pod %s: %v", pod.Name, err)
+		}
+		s.T.Logf("deleted pod %q", pod.Name)
+	})
+
+	_, err = kube.WaitUntilPodRunning(ctx, s.T, pod.Namespace, "", "metadata.name="+pod.Name)
+	require.NoErrorf(s.T, err, "failed to wait for pod %q to be in running state", pod.Name)
+
+	timeForReady := time.Since(start)
+	toolkit.LogDuration(timeForReady, time.Minute, fmt.Sprintf("Time for pod %q to get ready was %s\n", pod.Name, timeForReady))
+	s.T.Logf("node health validation: test pod %q is running on node %q", pod.Name, s.Runtime.KubeNodeName)
+}
+
+func truncatePodName(t *testing.T, pod *corev1.Pod) {
+	name := pod.Name
+	if len(pod.Name) < 63 {
+		return
+	}
+	pod.Name = pod.Name[:63]
+	pod.Name = strings.TrimRight(pod.Name, "-")
+	t.Logf("truncated pod name %q to %q", name, pod.Name)
 }
 
 func ValidateCommonLinux(ctx context.Context, s *Scenario) {

@@ -47,7 +47,7 @@ func createVMSS(ctx context.Context, s *Scenario) *armcompute.VirtualMachineScal
 		customData, err = nodeconfigutils.CustomData(s.Runtime.AKSNodeConfig)
 		require.NoError(s.T, err)
 	} else {
-		s.T.Logf("creating VMSS %q with AKSNodeConfig", s.Runtime.VMSSName)
+		s.T.Logf("creating VMSS %q with BootstrapConfigMutator/NBC", s.Runtime.VMSSName)
 		nodeBootstrapping, err = ab.GetNodeBootstrapping(ctx, s.Runtime.NBC)
 		require.NoError(s.T, err)
 		cse = nodeBootstrapping.CSE
@@ -106,7 +106,7 @@ func cleanupVMSS(ctx context.Context, s *Scenario) {
 }
 
 func extractLogsFromVM(ctx context.Context, s *Scenario) {
-	if s.VHD.OS == config.OSWindows {
+	if s.IsWindows() {
 		extractLogsFromVMWindows(ctx, s)
 	} else {
 		extractLogsFromVMLinux(ctx, s)
@@ -266,6 +266,9 @@ func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
 		s.T.Logf("failed to execute run command on VMSS instance: %s", err)
 		return
 	}
+	respJSON, _ := json.MarshalIndent(runCommandResp, "", "  ")
+	s.T.Logf("run command executed successfully:\n%s", respJSON)
+
 	s.T.Logf("run command executed successfully: %v", runCommandResp)
 
 	s.T.Logf("uploaded logs to %s", blobUrl)
@@ -444,7 +447,7 @@ func generateVMSSNameWindows() string {
 }
 
 func generateVMSSName(s *Scenario) string {
-	if s.VHD.OS == config.OSWindows {
+	if s.IsWindows() {
 		return generateVMSSNameWindows()
 	}
 	return generateVMSSNameLinux(s.T)
@@ -544,7 +547,7 @@ func getBaseVMSSModel(s *Scenario, customData, cseCmd string) armcompute.Virtual
 			},
 		}
 	}
-	if s.VHD.OS == config.OSWindows {
+	if s.IsWindows() {
 		model.Identity = &armcompute.VirtualMachineScaleSetIdentity{
 			Type: to.Ptr(armcompute.ResourceIdentityTypeSystemAssignedUserAssigned),
 			UserAssignedIdentities: map[string]*armcompute.UserAssignedIdentitiesValue{

@@ -104,82 +104,72 @@ func ValidateNonEmptyDirectory(ctx context.Context, s *Scenario, dirName string)
 }
 
 func ValidateFileExists(ctx context.Context, s *Scenario, fileName string) {
-	if s.VHD.OS == config.OSWindows {
+	s.T.Helper()
+	if !fileExist(ctx, s, fileName) {
+		s.T.Errorf("expected file %s, but it does not", fileName)
+	}
+}
+
+func ValidateFileDoesNotExist(ctx context.Context, s *Scenario, fileName string) {
+	s.T.Helper()
+	if fileExist(ctx, s, fileName) {
+		s.T.Errorf("expected file %s to no exist, but it does", fileName)
+	}
+}
+
+func fileExist(ctx context.Context, s *Scenario, fileName string) bool {
+	if s.IsWindows() {
 		steps := []string{
 			"$ErrorActionPreference = \"Stop\"",
-			fmt.Sprintf("if ( -not ( Test-Path -Path %s ) ) { exit 1 }", fileName),
+			fmt.Sprintf("Test-Path -Path %s", fileName),
 		}
-		execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "expected file does not exist")
+		execResult := execScriptOnVMForScenario(ctx, s, strings.Join(steps, "\n"))
+		return execResult.exitCode == "0"
 	} else {
 		steps := []string{
 			"set -ex",
 			fmt.Sprintf("test -f %s", fileName),
 		}
-		execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "expected file does not exist")
+		execResult := execScriptOnVMForScenario(ctx, s, strings.Join(steps, "\n"))
+		return execResult.exitCode == "0"
 	}
+
 }
 
-func ValidateFileDoesNotExist(ctx context.Context, s *Scenario, fileName string) {
-	if s.VHD.OS == config.OSWindows {
+func fileHasContent(ctx context.Context, s *Scenario, fileName string, contents string) bool {
+	require.NotEmpty(s.T, contents, "Test setup failure: Can't validate that a file has contents with an empty string. Filename: %s", fileName)
+	if s.IsWindows() {
 		steps := []string{
 			"$ErrorActionPreference = \"Stop\"",
-			fmt.Sprintf("if ( Test-Path -Path %s ) { exit 1 }", fileName),
-		}
-		execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "expected file should not exist but it does")
-	} else {
-		steps := []string{
-			"set -ex",
-			fmt.Sprintf("test ! -f %s", fileName),
-		}
-		execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "expected file should not exist but it does")
-	}
-}
-
-func ValidateFileHasContent(ctx context.Context, s *Scenario, fileName string, contents string) {
-	if s.VHD.OS == config.OSWindows {
-		steps := []string{
-			"$ErrorActionPreference = \"Stop\"",
-			fmt.Sprintf("dir %[1]s", fileName),
-			fmt.Sprintf("Get-Content %[1]s", fileName),
+			fmt.Sprintf("Get-Content %s", fileName),
 			fmt.Sprintf("if ( -not ( Test-Path -Path %s ) ) { exit 2 }", fileName),
 			fmt.Sprintf("if (Select-String -Path %s -Pattern \"%s\" -SimpleMatch -Quiet) { exit 0 } else { exit 1 }", fileName, contents),
 		}
-
-		execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "could not validate file has contents - might mean file does not have contents, might mean something went wrong")
+		execResult := execScriptOnVMForScenario(ctx, s, strings.Join(steps, "\n"))
+		return execResult.exitCode == "0"
 	} else {
 		steps := []string{
 			"set -ex",
-			fmt.Sprintf("ls -la %[1]s", fileName),
-			fmt.Sprintf("sudo cat %[1]s", fileName),
-			fmt.Sprintf("(sudo cat %[1]s | grep -q -F -e %[2]q)", fileName, contents),
+			fmt.Sprintf("sudo cat %s", fileName),
+			fmt.Sprintf("(sudo cat %s | grep -q -F -e %q)", fileName, contents),
 		}
+		execResult := execScriptOnVMForScenario(ctx, s, strings.Join(steps, "\n"))
+		return execResult.exitCode == "0"
+	}
 
-		execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "could not validate file has contents - might mean file does not have contents, might mean something went wrong")
+}
+
+func ValidateFileHasContent(ctx context.Context, s *Scenario, fileName string, contents string) {
+	s.T.Helper()
+	if !fileHasContent(ctx, s, fileName, contents) {
+		s.T.Fatalf("expected file %s to have contents %q, but it does not", fileName, contents)
 	}
 }
 
 func ValidateFileExcludesContent(ctx context.Context, s *Scenario, fileName string, contents string) {
-	require.NotEqual(s.T, "", contents, "Test setup failure: Can't validate that a file excludes an empty string. Filename: %s", fileName)
-
-	if s.VHD.OS == config.OSWindows {
-		steps := []string{
-			"$ErrorActionPreference = \"Stop\"",
-			fmt.Sprintf("dir %[1]s", fileName),
-			fmt.Sprintf("Get-Content %[1]s", fileName),
-			fmt.Sprintf("if ( -not ( Test-Path -Path %s ) ) { exit 2 }", fileName),
-			fmt.Sprintf("if (Select-String -Path %s -Pattern \"%s\" -SimpleMatch -Quiet) { exit 1 } else { exit 0 }", fileName, contents),
-		}
-
-		execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "could not validate file has contents - might mean file does not have contents, might mean something went wrong")
-	} else {
-		steps := []string{
-			"set -ex",
-			fmt.Sprintf("test -f %[1]s || exit 0", fileName),
-			fmt.Sprintf("ls -la %[1]s", fileName),
-			fmt.Sprintf("sudo cat %[1]s", fileName),
-			fmt.Sprintf("(sudo cat %[1]s | grep -q -v -F -e %[2]q)", fileName, contents),
-		}
-		execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "could not validate file excludes contents - might mean file does have contents, might mean something went wrong")
+	s.T.Helper()
+	if fileHasContent(ctx, s, fileName, contents) {
+		s.T.Fatalf("expected file %s to not have contents %q, but it does", fileName, contents)
 	}
 }
 
@@ -268,7 +258,7 @@ func execScriptOnVMForScenario(ctx context.Context, s *Scenario, cmd string) *po
 	script := Script{
 		script: cmd,
 	}
-	if s.VHD.OS == config.OSWindows {
+	if s.IsWindows() {
 		script.interpreter = Powershell
 	} else {
 		script.interpreter = Bash
@@ -399,7 +389,7 @@ func ValidatePodUsingNVidiaGPU(ctx context.Context, s *Scenario) {
 	// device can be allocatable, but not healthy
 	// ugly hack, but I don't see a better solution
 	time.Sleep(20 * time.Second)
-	ensurePod(ctx, s, podRunNvidiaWorkload(s))
+	ValidatePodRunning(ctx, s, podRunNvidiaWorkload(s))
 }
 
 // Waits until the specified resource is available on the given node.

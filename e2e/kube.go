@@ -211,6 +211,7 @@ func (k *Kubeclient) GetHostNetworkDebugPod(ctx context.Context, t *testing.T) (
 // GetPodNetworkDebugPodForNode returns a pod that's a member of the 'debugnonhost' daemonset running in the cluster - this will return
 // the name of the pod that is running on the node created for specifically for the test case which is running validation checks.
 func (k *Kubeclient) GetPodNetworkDebugPodForNode(ctx context.Context, kubeNodeName string, t *testing.T) (*corev1.Pod, error) {
+	require.NotEmpty(t, kubeNodeName, "kubeNodeName must not be empty")
 	return k.WaitUntilPodRunning(ctx, t, defaultNamespace, fmt.Sprintf("app=%s", podNetworkDebugAppLabel), "spec.nodeName="+kubeNodeName)
 }
 

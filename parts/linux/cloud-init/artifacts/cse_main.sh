@@ -5,31 +5,31 @@ set -x
 
 # Check if this is a kubelet-only configuration run
 if [ "${KUBELET_ONLY}" = "true" ]; then
-    echo "Running in kubelet-only mode..."
+    echo "Running in kubelet-only mode..." >> /var/log/azure/cluster-provision.log
     # Verify that Stage 1 was completed first
     if [ ! -f /opt/azure/containers/stage1-complete ]; then
-        echo "ERROR: KubeletOnly mode requires Stage 1 to be completed first (stage1-complete marker not found)"
+        echo "ERROR: KubeletOnly mode requires Stage 1 to be completed first (stage1-complete marker not found)" >> /var/log/azure/cluster-provision.log
         exit 1
     fi
-    echo "Stage 1 marker found - proceeding with kubelet configuration"
-else
-    if [ -f /opt/azure/containers/provision.complete ]; then
-          echo "Already ran to success exiting..."
-          exit 0
-    fi
+    echo "Stage 1 marker found - proceeding with kubelet configuration" >> /var/log/azure/cluster-provision.log
 fi
 
-for i in $(seq 1 3600); do
+if [ -f /opt/azure/containers/provision.complete ]; then
+    echo "Already ran to success exiting..."
+    exit 0
+fi
+
+for i in $(seq 1 120); do
     if [ -s "${CSE_HELPERS_FILEPATH}" ]; then
         grep -Fq '#HELPERSEOF' "${CSE_HELPERS_FILEPATH}" && break
     fi
-    if [ $i -eq 3600 ]; then
+    if [ $i -eq 120 ]; then
         exit $ERR_FILE_WATCH_TIMEOUT
     else
         sleep 1
     fi
 done
-sed -i "/#HELPERSEOF/d" "${CSE_HELPERS_FILEPATH}"
+#sed -i "/#HELPERSEOF/d" "${CSE_HELPERS_FILEPATH}"
 source "${CSE_HELPERS_FILEPATH}"
 source "${CSE_DISTRO_HELPERS_FILEPATH}"
 
@@ -90,7 +90,7 @@ fi
 
 # Handle kubelet-only mode: run only kubelet configuration and exit
 if [ "${KUBELET_ONLY}" = "true" ]; then
-    # Configure kubelet dependencies and kubelet itself    
+    # Configure kubelet dependencies and kubelet itself
     # In kubelet-only mode, always ensure kubelet (skip check doesn't apply)
     logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
 

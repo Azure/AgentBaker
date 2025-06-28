@@ -102,7 +102,7 @@ func prepareAKSNode(ctx context.Context, s *Scenario) {
 
 	nbc := getBaseNBC(s.T, s.Runtime.Cluster, s.VHD)
 
-	if s.VHD.OS == config.OSWindows {
+	if s.IsWindows() {
 		nbc.ContainerService.Properties.WindowsProfile.CseScriptsPackageURL = "https://packages.aks.azure.com/aks/windows/cse/"
 	}
 
@@ -153,17 +153,18 @@ func prepareAKSNode(ctx context.Context, s *Scenario) {
 
 	err = getCustomScriptExtensionStatus(ctx, s)
 	require.NoError(s.T, err)
-	vmssCreatedAt := time.Now()         // Record the start time
-	creationElapse := time.Since(start) // Calculate the elapsed time
 
 	s.T.Logf("vmss %s creation succeeded", s.Runtime.VMSSName)
 
-	s.Runtime.KubeNodeName = s.Runtime.Cluster.Kube.WaitUntilNodeReady(ctx, s.T, s.Runtime.VMSSName)
-	readyElapse := time.Since(vmssCreatedAt) // Calculate the elapsed time
-	totalElapse := time.Since(start)
-	s.T.Logf("node %s is ready", s.Runtime.VMSSName)
-
-	toolkit.LogDuration(totalElapse, 3*time.Minute, fmt.Sprintf("Node %s took %s to be created and %s to be ready\n", s.Runtime.VMSSName, creationElapse, readyElapse))
+	if !s.Config.SkipDefaultValidation {
+		vmssCreatedAt := time.Now()         // Record the start time
+		creationElapse := time.Since(start) // Calculate the elapsed time
+		s.Runtime.KubeNodeName = s.Runtime.Cluster.Kube.WaitUntilNodeReady(ctx, s.T, s.Runtime.VMSSName)
+		readyElapse := time.Since(vmssCreatedAt) // Calculate the elapsed time
+		totalElapse := time.Since(start)
+		s.T.Logf("node %s is ready", s.Runtime.VMSSName)
+		toolkit.LogDuration(totalElapse, 3*time.Minute, fmt.Sprintf("Node %s took %s to be created and %s to be ready\n", s.Runtime.VMSSName, creationElapse, readyElapse))
+	}
 
 	s.Runtime.VMPrivateIP, err = getVMPrivateIPAddress(ctx, s)
 	require.NoError(s.T, err, "failed to get VM private IP address")
@@ -217,8 +218,8 @@ func getNanoserverImagesForVhd(vhd *config.Image) []string {
 	return getWindowsContainerImages("mcr.microsoft.com/windows/nanoserver:*", getWindowsEnvVarForName(vhd))
 }
 
-func validateNodeCanRunAPod(ctx context.Context, s *Scenario) {
-	if s.VHD.OS == config.OSWindows {
+func ValidateNodeCanRunAPod(ctx context.Context, s *Scenario) {
+	if s.IsWindows() {
 		serverCorePods := getServercoreImagesForVHD(s.VHD)
 		for i, pod := range serverCorePods {
 			ValidatePodRunning(ctx, s, podWindows(s, fmt.Sprintf("servercore%d", i), pod))
@@ -234,13 +235,14 @@ func validateNodeCanRunAPod(ctx context.Context, s *Scenario) {
 }
 
 func validateVM(ctx context.Context, s *Scenario) {
-	validateNodeCanRunAPod(ctx, s)
-
-	switch s.VHD.OS {
-	case config.OSWindows:
-		// TODO: validate something
-	default:
-		ValidateCommonLinux(ctx, s)
+	if !s.Config.SkipDefaultValidation {
+		ValidateNodeCanRunAPod(ctx, s)
+		switch s.VHD.OS {
+		case config.OSWindows:
+			// TODO: validate something
+		default:
+			ValidateCommonLinux(ctx, s)
+		}
 	}
 
 	// test-specific validation
@@ -337,7 +339,7 @@ func getCustomScriptExtensionStatus(ctx context.Context, s *Scenario) error {
 			}
 			for _, extension := range instanceViewResp.Extensions {
 				for _, status := range extension.Statuses {
-					if s.VHD.OS == config.OSWindows {
+					if s.IsWindows() {
 						// Save the CSE output for Windows VMs for better troubleshooting
 						if status.Message != nil {
 							logDir := filepath.Join("scenario-logs", s.T.Name())

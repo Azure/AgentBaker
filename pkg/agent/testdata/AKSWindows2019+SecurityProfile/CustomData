@@ -212,9 +212,20 @@ try
     Logs-To-Event -TaskName "AKS.WindowsCSE.ExecuteCustomDataSetupScript" -TaskMessage ".\CustomDataSetupScript.ps1 -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp -MasterFQDNPrefix $MasterFQDNPrefix -Location $Location -AADClientId $AADClientId -NetworkAPIVersion $NetworkAPIVersion -TargetEnvironment $TargetEnvironment -CSEResultFilePath $CSEResultFilePath"
 
     # Exit early if the script has been executed (unless running in kubelet-only mode)
-    if ((Test-Path -Path $CSEResultFilePath -PathType Leaf) -and (-not $global:KubeletOnly)) {
-        Write-Log "The script has been executed before, will exit without doing anything."
-        return
+    if (Test-Path -Path $CSEResultFilePath -PathType Leaf) {
+        if ($global:KubeletOnly) {
+            # For KubeletOnly mode, verify that Stage 1 was completed first
+            if (-not (Test-Path -Path "C:\AzureData\stage1-complete" -PathType Leaf)) {
+                Write-Log "KubeletOnly mode requires Stage 1 to be completed first (stage1-complete marker not found)"
+                $global:ExitCode = 1
+                $global:ErrorMessage = "Stage 1 must be completed before running KubeletOnly configuration"
+                return
+            }
+            Write-Log "KubeletOnly mode detected - proceeding with kubelet configuration"
+        } else {
+            Write-Log "The script has been executed before, will exit without doing anything."
+            return
+        }
     }
     
     # Function to download and extract CSE scripts package
@@ -531,18 +542,22 @@ finally
     Logs-To-Event -TaskName "AKS.WindowsCSE.cse_main" -TaskMessage "ExitCode: $global:ExitCode. ErrorMessage: $global:ErrorMessage."
 
     # $CSEResultFilePath is used to avoid running CSE multiple times
-    # Only create completion marker if we are not skipping kubelet configuration
-    # (Stage 1 of two-stage workflow should not create completion marker)
-    if (-not $global:SkipKubeletConfiguration) {
-        if ($global:ExitCode -ne 0) {
-            # $JsonString = "ExitCode: |{0}|, Output: |{1}|, Error: |{2}|"
-            # Max length of the full error message returned by Windows CSE is ~256. We use 240 to be safe.
-            $errorMessageLength = "ExitCode: |$global:ExitCode|, Output: |$($global:ErrorCodeNames[$global:ExitCode])|, Error: ||".Length
-            $turncatedErrorMessage = $global:ErrorMessage.Substring(0, [Math]::Min(240 - $errorMessageLength, $global:ErrorMessage.Length))
-            Set-Content -Path $CSEResultFilePath -Value "ExitCode: |$global:ExitCode|, Output: |$($global:ErrorCodeNames[$global:ExitCode])|, Error: |$turncatedErrorMessage|"
-        }
-        else {
-            Set-Content -Path $CSEResultFilePath -Value $global:ExitCode -Force
+    # Always create completion marker to satisfy CSE framework validation
+    if ($global:ExitCode -ne 0) {
+        # $JsonString = "ExitCode: |{0}|, Output: |{1}|, Error: |{2}|"
+        # Max length of the full error message returned by Windows CSE is ~256. We use 240 to be safe.
+        $errorMessageLength = "ExitCode: |$global:ExitCode|, Output: |$($global:ErrorCodeNames[$global:ExitCode])|, Error: ||".Length
+        $turncatedErrorMessage = $global:ErrorMessage.Substring(0, [Math]::Min(240 - $errorMessageLength, $global:ErrorMessage.Length))
+        Set-Content -Path $CSEResultFilePath -Value "ExitCode: |$global:ExitCode|, Output: |$($global:ErrorCodeNames[$global:ExitCode])|, Error: |$turncatedErrorMessage|"
+    }
+    else {
+        Set-Content -Path $CSEResultFilePath -Value $global:ExitCode -Force
+        
+        # Create stage marker for two-stage workflow
+        if ($global:SkipKubeletConfiguration) {
+            # Stage 1: Create marker indicating Stage 2 is needed
+            Set-Content -Path "C:\AzureData\stage1-complete" -Value "1" -Force
+            Write-Log "Stage 1 complete - kubelet configuration skipped, Stage 2 required"
         }
     }
 
