@@ -523,30 +523,19 @@ function New-ExternalHnsNetwork
     }
 
     # we need the default gateway interface to create the external network
-    $defaultGatewayInterface = (Get-NetRoute "0.0.0.0/0").ifIndex
-    if (!$defaultGatewayInterface)
-    {
-        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_NETWORK_ADAPTER_NOT_EXIST -ErrorMessage "Could not find default gateway interface. Please check the network configuration."
-    }
-
-    $na = get-netadapter -ifindex $defaultGatewayInterface
+    $netIP = Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue -ErrorVariable netIPErr -IpAddress $ipv4Address
     if (!$netIP)
     {
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_NETWORK_ADAPTER_NOT_EXIST -ErrorMessage "Failed to find any network adaptor with default gateway"
     }
-    $adapterName = $na.Name
 
-    $netIP = Get-NetIPAddress -ifIndex $defaultGatewayInterface -AddressFamily IPv4 -ErrorAction SilentlyContinue -ErrorVariable netIPErr
-    if (!$netIP)
+    $na = get-netadapter -ifindex $netIP.ifIndex
+    if (!$na)
     {
-        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_NETWORK_ADAPTER_NOT_EXIST -ErrorMessage "Failed to find any IP address info with default gateway"
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_NETWORK_ADAPTER_NOT_EXIST -ErrorMessage "Could not find default gateway interface. Please check the network configuration."
     }
 
-    $managementIP = $netIP.IPAddress
-    $externalNetwork = "ext"
-
-    Write-Log "Creating new HNS network `"ext`""
-
+    Write-Log "Configuring node ip for kubelet"
     # https://github.com/kubernetes/kubernetes/pull/121028
     if (([version]$global:KubeBinariesVersion).CompareTo([version]("1.29.0")) -ge 0)
     {
@@ -564,7 +553,11 @@ function New-ExternalHnsNetwork
         }
     }
 
-    Write-Log "Using adapter $adapterName with IP address $managementIP"
+    $adapterName = $na.Name
+    $externalNetwork = "ext"
+
+    Write-Log "Creating new HNS network `"${externalNetwork}`""
+    Write-Log "Using adapter $adapterName with IP address $ipv4Address"
 
     $stopWatch = New-Object System.Diagnostics.Stopwatch
     $stopWatch.Start()
@@ -580,7 +573,7 @@ function New-ExternalHnsNetwork
     }
     # Wait for the switch to be created and the ip address to be assigned.
     for ($i = 0; $i -lt 60; $i++) {
-        $mgmtIPAfterNetworkCreate = Get-NetIPAddress $managementIP -ErrorAction SilentlyContinue
+        $mgmtIPAfterNetworkCreate = Get-NetIPAddress $ipv4Address -ErrorAction SilentlyContinue
         if ($mgmtIPAfterNetworkCreate)
         {
             break
@@ -591,7 +584,7 @@ function New-ExternalHnsNetwork
     $stopWatch.Stop()
     if (-not $mgmtIPAfterNetworkCreate)
     {
-        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_MANAGEMENT_IP_NOT_EXIST -ErrorMessage "Failed to find $managementIP after creating $externalNetwork network"
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_MANAGEMENT_IP_NOT_EXIST -ErrorMessage "Failed to find $ipv4Address after creating $externalNetwork network"
     }
 
     write-log $mgmtIPAfterNetworkCreate
