@@ -503,9 +503,7 @@ function New-ExternalHnsNetwork
     Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Start to create new external hns network"
 
     Write-Log "Creating new HNS network `"ext`""
-    $externalNetwork = "ext"
     $nas = @(Get-NetAdapter -Physical)
-    $nodeIPs = @()
 
     if ($nas.Count -eq 0)
     {
@@ -541,34 +539,6 @@ function New-ExternalHnsNetwork
         }
     }
 
-    # Annoyingly, no appropriate network adapters found that are using DHCP. Fall back to other protocols
-    foreach ($na in $nas)
-    {
-        # Some VMs have multiple physical NICs where one NIC is Inteliband and should be ignored for kubelet. It's internal and used for
-        # comms with other VMs in the same cluster. Standard_HC44rs is a sample SKU. Note that this code path is not unit tested.
-        # To avoid assigning the Infiniband adapter, we only look at DHCP adaptors
-        $netIP = Get-NetIPAddress -ifIndex $na.ifIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue -ErrorVariable netIPErr
-        if (!$netIP)
-        {
-            continue
-        }
-
-        $success = TrySetupNetwork -IsDualStackEnabled $IsDualStackEnabled -na $na -netIP $netIP
-
-        if ($success -eq $true)
-        {
-            return
-        }
-        else
-        {
-            Write-Log "No IPv4 found on the network adapter $( $na.Name ); trying the next adapter ..."
-            if ($netIPErr)
-            {
-                Write-Log "error when retrieving IPAddress: $netIPErr"
-                $netIPErr.Clear()
-            }
-        }
-    }
     Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_NOT_FOUND_MANAGEMENT_IP -ErrorMessage "None of the physical network adapters has an IP address"
 }
 
@@ -585,6 +555,8 @@ function TrySetupNetwork
 
     $adapterName = $na.Name
     $managementIP = $netIP.IPAddress
+    $externalNetwork = "ext"
+    $nodeIPs = @()
 
     Write-Log "Get node IPv4 address assigned to the adapter $( $na.Name ): $( $managementIP )"
     $nodeIPs += $managementIP
