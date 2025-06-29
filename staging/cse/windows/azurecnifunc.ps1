@@ -502,103 +502,55 @@ function New-ExternalHnsNetwork
     )
     Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Start to create new external hns network"
 
-    Write-Log "Creating new HNS network `"ext`""
-    $nas = @(Get-NetAdapter -Physical)
-
-    if ($nas.Count -eq 0)
-    {
-        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_NETWORK_ADAPTER_NOT_EXIST -ErrorMessage "Failed to find any physical network adapters"
-    }
-
-    # If there is more than one adapter, use the first adapter that is assigned an ipaddress.
-    foreach ($na in $nas)
-    {
-        # Some VMs have multiple physical NICs where one NIC is Inteliband and should be ignored for kubelet. It's internal and used for
-        # comms with other VMs in the same cluster. Standard_HC44rs is a sample SKU. Note that this code path is not unit tested.
-        # To avoid assigning the Infiniband adapter, we only look at DHCP adaptors
-        $netIP = Get-NetIPAddress -ifIndex $na.ifIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue -ErrorVariable netIPErr -PrefixOrigin Dhcp
-        if (!$netIP)
-        {
-            continue
-        }
-
-        $success = TrySetupNetwork -IsDualStackEnabled $IsDualStackEnabled -na $na -netIP $netIP
-
-        if ($success -eq $true)
-        {
-            return
-        }
-        else
-        {
-            Write-Log "No Dhcp IPv4 found on the network adapter $( $na.Name ); trying the next adapter ..."
-            if ($netIPErr)
-            {
-                Write-Log "error when retrieving IPAddress: $netIPErr"
-                $netIPErr.Clear()
-            }
-        }
-    }
-
-    Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_NOT_FOUND_MANAGEMENT_IP -ErrorMessage "None of the physical network adapters has an IP address"
-}
-
-function TrySetupNetwork
-{
-    param (
-        [Parameter(Mandatory = $true)][bool]
-        $IsDualStackEnabled,
-        [Parameter(Mandatory = $true)]
-        $na,
-        [Parameter(Mandatory = $true)]
-        $netIP
-    )
-
-    $adapterName = $na.Name
-    $managementIP = $netIP.IPAddress
-    $externalNetwork = "ext"
-    $nodeIPs = @()
-
-    Write-Log "Get node IPv4 address assigned to the adapter $( $na.Name ): $( $managementIP )"
-    $nodeIPs += $managementIP
+    # lookup the ip address defaults from IMDS
+    $MetadataContent = invoke-webrequest -usebasicparsing -uri "http://169.254.169.254/metadata/instance/network/interface?api-version=2021-02-01" -Headers @{ "metadata" = "true" }
+    $ipv4Address = ($MetadataContent.Content | ConvertFrom-Json)[0].ipv4.ipAddress[0].privateIpAddress
+    Write-Log "Get node IPv4 address: $( $ipv4Address )"
+    $nodeIPs = @($ipv4Address)
 
     if ($IsDualStackEnabled)
     {
-        $netIPv6s = Get-NetIPAddress -ifIndex $na.ifIndex -AddressFamily IPv6 -ErrorAction SilentlyContinue -ErrorVariable netIPErr
-        foreach ($ipv6 in $netIPv6s)
+        $ipv6Address = ($MetadataContent.Content | ConvertFrom-Json)[0].ipv6.ipAddress[0].privateIpAddress
+        if ($ipv6Address)
         {
-            # On an Azure Windows VM, there are two IPv6 IP addresses. Below is an example. It is same in an Azure Linux VM.
-            # ifIndex IPAddress                                       PrefixLength PrefixOrigin SuffixOrigin AddressState PolicyStore
-            # ------- ---------                                       ------------ ------------ ------------ ------------ -----------
-            # 6       fe80::97bd:baf7:2853:f73d%6                               64 WellKnown    Link         Preferred    ActiveStore
-            # 6       2404:f800:8000:122::4                                    128 Dhcp         Dhcp         Preferred    ActiveStore
-            #
-            # From the found docuements. fe80: with WellKnown is the link-local address so we should ignore it.
-            # IPv6 link-local is a special type of unicast address that is auto-configured on any interface using a combination of
-            # the link-local prefix FE80::/10 (first 10 bits equal to 1111 1110 10) and the MAC address of the interface.
-            #
-            # https://learn.microsoft.com/en-us/dotnet/api/system.net.networkinformation.prefixorigin?view=net-8.0
-            # WellKnown | 2 | The prefix is a well-known prefix. Well-known prefixes are specified in standard-track Request for
-            # Comments (RFC) documents and assigned by the Internet Assigned Numbers Authority (Iana) or an address registry. Such
-            # prefixes are reserved for special purposes. -- | -- | --
-            if ($ipv6.PrefixOrigin -ne "WellKnown")
-            {
-                Write-Log "Get node IPv6 address assigned to the adapter $( $na.Name ): $( $ipv6.IPAddress )"
-                $nodeIPs += $ipv6.IPAddress
-            }
+            Write-Log "Get node IPv6 address a: $( $ipv6Address )"
+            $nodeIPs += $ipv6Address
+        }
+        else
+        {
+            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GET_NODE_IPV6_IP -ErrorMessage "Failed to get node IPv6 IP address"
         }
     }
+
+    # we need the default gateway interface to create the external network
+    $defaultGatewayInterface = (Get-NetRoute "0.0.0.0/0").ifIndex
+    if (!$defaultGatewayInterface)
+    {
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_NETWORK_ADAPTER_NOT_EXIST -ErrorMessage "Could not find default gateway interface. Please check the network configuration."
+    }
+
+    $na = get-netadapter -ifindex $defaultGatewayInterface
+    if (!$netIP)
+    {
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_NETWORK_ADAPTER_NOT_EXIST -ErrorMessage "Failed to find any network adaptor with default gateway"
+    }
+    $adapterName = $na.Name
+
+    $netIP = Get-NetIPAddress -ifIndex $defaultGatewayInterface -AddressFamily IPv4 -ErrorAction SilentlyContinue -ErrorVariable netIPErr
+    if (!$netIP)
+    {
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_NETWORK_ADAPTER_NOT_EXIST -ErrorMessage "Failed to find any IP address info with default gateway"
+    }
+
+    $managementIP = $netIP.IPAddress
+    $externalNetwork = "ext"
+
+    Write-Log "Creating new HNS network `"ext`""
 
     # https://github.com/kubernetes/kubernetes/pull/121028
     if (([version]$global:KubeBinariesVersion).CompareTo([version]("1.29.0")) -ge 0)
     {
         Logs-To-Event -TaskName "AKS.WindowsCSE.UpdateKubeClusterConfig" -TaskMessage "Start to update KubeCluster Config. NodeIPs: $nodeIPs"
-
-        # It should always get ipv4 address. Otherwise, it will throw WINDOWS_CSE_ERROR_NOT_FOUND_MANAGEMENT_IP
-        if ($IsDualStackEnabled -and $nodeIPs.Count -eq 1)
-        {
-
-            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GET_NODE_IPV6_IP -ErrorMessage "Failed to get node IPv6 IP address"
-        }
 
         try
         {
@@ -613,7 +565,6 @@ function TrySetupNetwork
     }
 
     Write-Log "Using adapter $adapterName with IP address $managementIP"
-    $mgmtIPAfterNetworkCreate
 
     $stopWatch = New-Object System.Diagnostics.Stopwatch
     $stopWatch.Start()
@@ -642,6 +593,9 @@ function TrySetupNetwork
     {
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_MANAGEMENT_IP_NOT_EXIST -ErrorMessage "Failed to find $managementIP after creating $externalNetwork network"
     }
+
+    write-log $mgmtIPAfterNetworkCreate
+
     Write-Log "It took $( $StopWatch.Elapsed.Seconds ) seconds to create the $externalNetwork network."
 
     Write-Log "Log network adapter info after creating $externalNetwork network"
@@ -652,10 +606,7 @@ function TrySetupNetwork
     {
         Write-Log "DNS Servers are: $( $dnsServers.ServerAddresses )"
     }
-
-    return $true
 }
-
 
 function Get-HnsPsm1
 {
