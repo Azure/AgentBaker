@@ -41,6 +41,7 @@ AgentBaker is a collection of components for provisioning Kubernetes nodes in Az
 - VHDs serve as base images for AKS cluster nodes
 - Configuration: `vhdbuilder/packer/` directory
 - Windows VHD: `vhdbuilder/packer/windows/windows-vhd-configuration.ps1`
+- Ignore `vhdbuilder/release-notes/` directory 
 
 ### AgentBaker Service
 - Go-based web server (`apiserver/`) that generates CSE (Custom Script Extension) and CustomData
