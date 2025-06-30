@@ -657,7 +657,6 @@ type KubernetesConfig struct {
 	KubernetesImageBase               string            `json:"kubernetesImageBase,omitempty"`
 	MCRKubernetesImageBase            string            `json:"mcrKubernetesImageBase,omitempty"`
 	ClusterSubnet                     string            `json:"clusterSubnet,omitempty"`
-	ClusterSubnets                    []string          `json:"clusterSubnets,omitempty"`
 	NetworkPolicy                     string            `json:"networkPolicy,omitempty"`
 	NetworkPlugin                     string            `json:"networkPlugin,omitempty"`
 	NetworkMode                       string            `json:"networkMode,omitempty"`
@@ -666,7 +665,6 @@ type KubernetesConfig struct {
 	DockerBridgeSubnet                string            `json:"dockerBridgeSubnet,omitempty"`
 	DNSServiceIP                      string            `json:"dnsServiceIP,omitempty"`
 	ServiceCIDR                       string            `json:"serviceCidr,omitempty"`
-	ServiceCIDRs                      []string          `json:"serviceCidrs,omitempty"`
 	UseManagedIdentity                bool              `json:"useManagedIdentity,omitempty"`
 	UserAssignedID                    string            `json:"userAssignedID,omitempty"`
 	UserAssignedClientID              string            `json:"userAssignedClientID,omitempty"` //nolint: lll // Note: cannot be provided in config. Used *only* for transferring this to azure.json.
