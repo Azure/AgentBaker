@@ -1,0 +1,1 @@
+{"ignition":{"version":"3.4.0"},"storage":{"files":[{"path":"/etc/extensions/aks-sysext/usr/lib/extension-release.d/extension-release.aks-sysext","contents":{"compression":"","source":"data:,ID%3Dflatcar%0ASYSEXT_LEVEL%3D1.0%0A"},"mode":420}],"links":[{"path":"/etc/extensions/aks-sysext/usr/local/bin","hard":false,"target":"/opt/bin"}]}}

@@ -32,6 +32,7 @@
   },
   "builders": [
     {
+      "custom_data_file": "./vhdbuilder/packer/flatcar-customdata.json",
       "type": "azure-arm",
       "subscription_id": "{{user `subscription_id`}}",
       "virtual_network_resource_group_name": "{{user `vnet_resource_group_name`}}",
