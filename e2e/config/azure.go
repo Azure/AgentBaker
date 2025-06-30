@@ -554,7 +554,10 @@ func (a *AzureClient) CreateVMSSWithRetry(ctx context.Context, t *testing.T, res
 		// It's not a quota issue
 		return errors.As(err, &respErr) && respErr.StatusCode == 200 && respErr.ErrorCode == "AllocationFailed"
 	}
+	
+	maxAttempts := 10
 	attempt := 0
+
 	for {
 		attempt++
 		vmss, err := a.createVMSS(ctx, resourceGroupName, vmssName, parameters)
@@ -568,8 +571,8 @@ func (a *AzureClient) CreateVMSSWithRetry(ctx context.Context, t *testing.T, res
 			return nil, err
 		}
 
-		if attempt >= 10 {
-			return nil, fmt.Errorf("failed to create VMSS after 10 retries: %w", err)
+		if attempt >= maxAttempts {
+			return nil, fmt.Errorf("failed to create VMSS after %d retries: %w", maxAttempts, err)
 		}
 
 		t.Logf("failed to create VMSS: %v, attempt: %v, retrying in %v", err, attempt, delay)

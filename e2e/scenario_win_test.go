@@ -3,6 +3,8 @@ package e2e
 import (
 	"context"
 	"fmt"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
+	"strings"
 	"testing"
 
 	"github.com/Azure/agentbaker/e2e/config"
@@ -14,15 +16,25 @@ func EmptyBootstrapConfigMutator(configuration *datamodel.NodeBootstrappingConfi
 func EmptyVMConfigMutator(vmss *armcompute.VirtualMachineScaleSet)                        {}
 
 func DualStackConfigMutator(configuration *datamodel.NodeBootstrappingConfiguration) {
-	configuration.ContainerService.Properties.FeatureFlags.EnableIPv6DualStack = true
-	configuration.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.ServiceCIDRs = []string{
-		configuration.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.ServiceCIDR,
+	properties := configuration.ContainerService.Properties
+	properties.FeatureFlags.EnableIPv6DualStack = true
+	kubernetesConfig := properties.OrchestratorProfile.KubernetesConfig
+	kubernetesConfig.ServiceCIDRs = []string{
+		kubernetesConfig.ServiceCIDR,
 		"fd12::/108",
 	}
-	configuration.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.ClusterSubnets = []string{
-		configuration.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.ClusterSubnet,
+	kubernetesConfig.ClusterSubnets = []string{
+		kubernetesConfig.ClusterSubnet,
 		"fd13::/64",
 	}
+
+	allClusterCidrs := getAllClusterCidrs(kubernetesConfig)
+	kubernetesConfig.ClusterSubnet = strings.Join(allClusterCidrs, ",")
+
+}
+
+func getAllClusterCidrs(k *datamodel.KubernetesConfig) []string {
+	return k.ClusterSubnets
 }
 
 // WS2019 doesn't support IPv6, so we don't test it with dual-stack.
@@ -37,8 +49,6 @@ func Test_Windows2019AzureNetwork(t *testing.T) {
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateWindowsVersionFromWindowsSettings(ctx, s, "2019-containerd")
 				ValidateWindowsProductName(ctx, s, "Windows Server 2019 Datacenter")
-				// TODO: currently the command used to get the display name returns an empty string on WS2019. Need to find a better command.
-				//ValidateWindowsDisplayVersion(ctx, s, "???")
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
 				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
 				ValidateCiliumIsNotRunningWindows(ctx, s)
@@ -73,9 +83,27 @@ func Test_Windows2022AzureOverlayNetworkDualStack(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Windows Server 2022 Azure Overlay Network Dual Stack",
 		Config: Config{
-			Cluster:                ClusterAzureOverlayNetworkDualStack,
-			VHD:                    config.VHDWindows2022Containerd,
-			VMConfigMutator:        EmptyVMConfigMutator,
+			Cluster: ClusterAzureOverlayNetworkDualStack,
+			VHD:     config.VHDWindows2022Containerd,
+			VMConfigMutator: func(set *armcompute.VirtualMachineScaleSet) {
+				ip4Config := set.Properties.VirtualMachineProfile.NetworkProfile.NetworkInterfaceConfigurations[0].Properties.IPConfigurations[0]
+
+				ip6Config := &armcompute.VirtualMachineScaleSetIPConfiguration{
+					Name: to.Ptr(fmt.Sprintf("%s_1", *ip4Config.Name)),
+					Properties: &armcompute.VirtualMachineScaleSetIPConfigurationProperties{
+						Primary:                 to.Ptr(false),
+						PrivateIPAddressVersion: to.Ptr(armcompute.IPVersionIPv6),
+						Subnet: &armcompute.APIEntityReference{
+							ID: ip4Config.Properties.Subnet.ID,
+						},
+					},
+				}
+
+				set.Properties.VirtualMachineProfile.NetworkProfile.NetworkInterfaceConfigurations[0].Properties.IPConfigurations = []*armcompute.VirtualMachineScaleSetIPConfiguration{
+					ip4Config,
+					ip6Config,
+				}
+			},
 			BootstrapConfigMutator: DualStackConfigMutator,
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateWindowsVersionFromWindowsSettings(ctx, s, "2022-containerd")
