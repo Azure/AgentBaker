@@ -97,14 +97,6 @@ func getAzureOverlayNetworkClusterModel(name string) *armcontainerservice.Manage
 
 func getAzureOverlayNetworkDualStackClusterModel(name string) *armcontainerservice.ManagedCluster {
 	model := getAzureOverlayNetworkClusterModel(name)
-	model.Properties.OrchestratorProfile.KubernetesConfig.ServiceCIDRs = []string{
-		model.Properties.OrchestratorProfile.KubernetesConfig.ServiceCIDR,
-		"fd12::/108",
-	}
-	model.Properties.OrchestratorProfile.KubernetesConfig.ClusterSubnets = []string{
-		model.Properties.OrchestratorProfile.KubernetesConfig.ClusterSubnet,
-		"fd13::/64",
-	}
 
 	model.Properties.NetworkProfile.IPFamilies = []*armcontainerservice.IPFamily{
 		to.Ptr(armcontainerservice.IPFamilyIPv4),

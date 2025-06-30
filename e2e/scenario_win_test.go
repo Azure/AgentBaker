@@ -13,6 +13,18 @@ import (
 func EmptyBootstrapConfigMutator(configuration *datamodel.NodeBootstrappingConfiguration) {}
 func EmptyVMConfigMutator(vmss *armcompute.VirtualMachineScaleSet)                        {}
 
+func DualStackConfigMutator(configuration *datamodel.NodeBootstrappingConfiguration) {
+	configuration.ContainerService.Properties.FeatureFlags.EnableIPv6DualStack = true
+	configuration.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.ServiceCIDRs = []string{
+		configuration.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.ServiceCIDR,
+		"fd12::/108",
+	}
+	configuration.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.ClusterSubnets = []string{
+		configuration.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.ClusterSubnet,
+		"fd13::/64",
+	}
+}
+
 // WS2019 doesn't support IPv6, so we don't test it with dual-stack.
 func Test_Windows2019AzureNetwork(t *testing.T) {
 	RunScenario(t, &Scenario{
@@ -61,12 +73,10 @@ func Test_Windows2022AzureOverlayNetworkDualStack(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Windows Server 2022 Azure Overlay Network Dual Stack",
 		Config: Config{
-			Cluster:         ClusterAzureOverlayNetworkDualStack,
-			VHD:             config.VHDWindows2022Containerd,
-			VMConfigMutator: EmptyVMConfigMutator,
-			BootstrapConfigMutator: func(configuration *datamodel.NodeBootstrappingConfiguration) {
-				configuration.ContainerService.Properties.FeatureFlags.EnableIPv6DualStack = true
-			},
+			Cluster:                ClusterAzureOverlayNetworkDualStack,
+			VHD:                    config.VHDWindows2022Containerd,
+			VMConfigMutator:        EmptyVMConfigMutator,
+			BootstrapConfigMutator: DualStackConfigMutator,
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateWindowsVersionFromWindowsSettings(ctx, s, "2022-containerd")
 				ValidateWindowsProductName(ctx, s, "Windows Server 2022 Datacenter")
@@ -105,12 +115,10 @@ func Test_Windows2022Gen2AzureOverlayNetworkDualStack(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Windows Server 2022 with Azure Overlay Network Dual Stack - hyperv gen 2",
 		Config: Config{
-			Cluster:         ClusterAzureOverlayNetworkDualStack,
-			VHD:             config.VHDWindows2022ContainerdGen2,
-			VMConfigMutator: EmptyVMConfigMutator,
-			BootstrapConfigMutator: func(configuration *datamodel.NodeBootstrappingConfiguration) {
-				configuration.ContainerService.Properties.FeatureFlags.EnableIPv6DualStack = true
-			},
+			Cluster:                ClusterAzureOverlayNetworkDualStack,
+			VHD:                    config.VHDWindows2022ContainerdGen2,
+			VMConfigMutator:        EmptyVMConfigMutator,
+			BootstrapConfigMutator: DualStackConfigMutator,
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateWindowsVersionFromWindowsSettings(ctx, s, "2022-containerd-gen2")
 				ValidateWindowsProductName(ctx, s, "Windows Server 2022 Datacenter")
@@ -149,12 +157,10 @@ func Test_Windows23H2AzureOverlayNetworkDualStack(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Windows Server 23H2 with Azure Overlay Network Dual Stack",
 		Config: Config{
-			Cluster:         ClusterAzureOverlayNetworkDualStack,
-			VHD:             config.VHDWindows23H2,
-			VMConfigMutator: EmptyVMConfigMutator,
-			BootstrapConfigMutator: func(configuration *datamodel.NodeBootstrappingConfiguration) {
-				configuration.ContainerService.Properties.FeatureFlags.EnableIPv6DualStack = true
-			},
+			Cluster:                ClusterAzureOverlayNetworkDualStack,
+			VHD:                    config.VHDWindows23H2,
+			VMConfigMutator:        EmptyVMConfigMutator,
+			BootstrapConfigMutator: DualStackConfigMutator,
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateWindowsVersionFromWindowsSettings(ctx, s, "23H2")
 				ValidateWindowsProductName(ctx, s, "Windows Server 2022 Datacenter")
@@ -193,12 +199,10 @@ func Test_Windows23H2Gen2AzureOverlayDualStack(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Windows Server 23H2 with Azure Overlay Network Dual Stack - hyperv gen2",
 		Config: Config{
-			Cluster:         ClusterAzureOverlayNetworkDualStack,
-			VHD:             config.VHDWindows23H2Gen2,
-			VMConfigMutator: EmptyVMConfigMutator,
-			BootstrapConfigMutator: func(configuration *datamodel.NodeBootstrappingConfiguration) {
-				configuration.ContainerService.Properties.FeatureFlags.EnableIPv6DualStack = true
-			},
+			Cluster:                ClusterAzureOverlayNetworkDualStack,
+			VHD:                    config.VHDWindows23H2Gen2,
+			VMConfigMutator:        EmptyVMConfigMutator,
+			BootstrapConfigMutator: DualStackConfigMutator,
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateWindowsVersionFromWindowsSettings(ctx, s, "23H2-gen2")
 				ValidateWindowsProductName(ctx, s, "Windows Server 2022 Datacenter")
