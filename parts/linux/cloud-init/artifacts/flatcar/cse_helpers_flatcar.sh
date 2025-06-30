@@ -13,4 +13,12 @@ aptmarkWALinuxAgent() {
     stub
 }
 
+apt_get_update() {
+    stub
+}
+
+apt_get_dist_upgrade() {
+    stub
+}
+
 #EOF
