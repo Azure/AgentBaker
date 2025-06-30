@@ -46,7 +46,9 @@ else
 fi
 systemctl daemon-reload
 systemctlEnableAndStart systemd-journald 30 || exit 1
-systemctlEnableAndStart rsyslog 30 || exit 1
+if ! isFlatcar "$OS" ; then
+    systemctlEnableAndStart rsyslog 30 || exit 1
+fi
 
 systemctlEnableAndStart disk_queue 30 || exit 1
 capture_benchmark "${SCRIPT_NAME}_copy_packer_files_and_enable_logging"
