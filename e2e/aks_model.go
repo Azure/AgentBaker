@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"k8s.io/utils/ptr"
 	"net"
 	"os"
 	"path/filepath"
@@ -115,16 +114,6 @@ func getAzureNetworkClusterModel(name string) *armcontainerservice.ManagedCluste
 	}
 	return cluster
 }
-
-func getKubenetNetworkDualStackClusterModel(name string) *armcontainerservice.ManagedCluster {
-	cluster := getKubenetClusterModel(name)
-	cluster.Properties.NetworkProfile.IPFamilies = []*armcontainerservice.IPFamily{
-		ptr.To(armcontainerservice.IPFamilyIPv4),
-		ptr.To(armcontainerservice.IPFamilyIPv6),
-	}
-	return cluster
-}
-
 func getCiliumNetworkClusterModel(name string) *armcontainerservice.ManagedCluster {
 	cluster := getBaseClusterModel(name)
 	cluster.Properties.NetworkProfile.NetworkPlugin = to.Ptr(armcontainerservice.NetworkPluginAzure)

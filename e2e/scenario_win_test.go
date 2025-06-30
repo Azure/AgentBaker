@@ -79,7 +79,7 @@ func Test_Windows2022_AzureNetwork(t *testing.T) {
 }
 
 func Test_Windows2022AzureOverlayNetworkDualStack(t *testing.T) {
-	t.Skip("Dual stack tests are not working yet")
+	//t.Skip("Dual stack tests are not working yet")
 	RunScenario(t, &Scenario{
 		Description: "Windows Server 2022 Azure Overlay Network Dual Stack",
 		Config: Config{
