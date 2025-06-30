@@ -1672,41 +1672,10 @@ func Test_TwoStageKubeletConfiguration_Linux(t *testing.T) {
 	})
 }
 
-func Test_TwoStageKubeletConfiguration_Windows(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests complete two-stage workflow: Stage 1 (SkipKubeletConfiguration) then Stage 2 (KubeletOnly) on same VM",
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDWindows2019Containerd,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.SkipKubeletConfiguration = true
-			},
-			SkipDefaultValidation: true,
-			Validator: func(ctx context.Context, s *Scenario) {
-				// Stage 1 validation: Verify kubelet was skipped
-				// Note: Windows creates provision.complete even when kubelet config is skipped (different from Linux)
-
-				ValidateFileExists(ctx, s, "/AzureData/stage1-complete")
-				ValidateFileDoesNotExist(ctx, s, "/AzureData/provision.complete")
-
-				// Stage 2: Run kubelet-only configuration
-				RunKubeletOnlyStage(ctx, s)
-
-				// Stage 2 validation: Verify kubelet is now working
-				ValidateFileExists(ctx, s, "/AzureData/provision.complete")
-
-				s.Runtime.KubeNodeName = s.Runtime.Cluster.Kube.WaitUntilNodeReady(ctx, s.T, s.Runtime.VMSSName)
-				ValidateNodeCanRunAPod(ctx, s)
-			},
-		},
-	})
-}
-
 // RunKubeletOnlyStage executes Stage 2 kubelet-only configuration on Linux
 func RunKubeletOnlyStage(ctx context.Context, s *Scenario) {
 	s.T.Log("=== STAGE 2: Running KubeletOnly configuration on same VM ===")
 
-	// Create a copy of the original configuration with KubeletOnly=true
 	s.Runtime.NBC.KubeletOnly = true
 	s.Runtime.NBC.SkipKubeletConfiguration = false
 
@@ -1724,13 +1693,14 @@ func RunKubeletOnlyStage(ctx context.Context, s *Scenario) {
 	s.T.Logf("Executing Stage 2 CSE command")
 
 	script := Script{
-		interpreter: Bash,
-		script:      kubeletOnlyBootstrapping.CSE,
-		skipLogging: true, // Script contains sensitive information
-		sudo:        true,
+		script: kubeletOnlyBootstrapping.CSE,
 	}
 	if s.IsWindows() {
 		script.interpreter = Powershell
+		script.skipLogging = true // Script contains sensitive information
+	} else {
+		script.interpreter = Bash
+		script.sudo = true
 	}
 
 	result, err := execScriptOnVm(ctx, s, s.Runtime.VMPrivateIP, s.Runtime.Cluster.DebugPod.Name, string(s.Runtime.SSHKeyPrivate), script)
@@ -1742,5 +1712,11 @@ func RunKubeletOnlyStage(ctx context.Context, s *Scenario) {
 		s.T.Fatalf("Stage 2 CSE command failed with exit code %s. STDOUT: %s, STDERR: %s",
 			result.exitCode, result.stdout.String(), result.stderr.String())
 	}
+	s.T.Cleanup(func() {
+		if s.T.Failed() {
+			s.T.Logf("Stage 2 CSE command output: %s", result.stdout.String())
+			s.T.Logf("Stage 2 CSE command error output: %s", result.stderr.String())
+		}
+	})
 	s.T.Log("Stage 2 CSE command executed successfully")
 }

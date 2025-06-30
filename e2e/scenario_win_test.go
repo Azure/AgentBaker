@@ -230,3 +230,33 @@ func Test_Windows23H2_Cilium2(t *testing.T) {
 		},
 	})
 }
+
+func Test_TwoStageKubeletConfiguration_Windows(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests complete two-stage workflow: Stage 1 (SkipKubeletConfiguration) then Stage 2 (KubeletOnly) on same VM",
+		Config: Config{
+			Cluster: ClusterAzureNetwork,
+			VHD:     config.VHDWindows2025,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.SkipKubeletConfiguration = true
+			},
+			SkipDefaultValidation: true,
+			Validator: func(ctx context.Context, s *Scenario) {
+				// Stage 1 validation: Verify kubelet was skipped
+				// Windows should create stage1-complete and NOT create provision.complete when kubelet config is skipped
+
+				ValidateFileExists(ctx, s, "/AzureData/stage1-complete")
+				ValidateFileDoesNotExist(ctx, s, "/AzureData/provision.complete")
+
+				// Stage 2: Run kubelet-only configuration
+				RunKubeletOnlyStage(ctx, s)
+
+				// Stage 2 validation: Verify kubelet is now working
+				ValidateFileExists(ctx, s, "/AzureData/provision.complete")
+
+				s.Runtime.KubeNodeName = s.Runtime.Cluster.Kube.WaitUntilNodeReady(ctx, s.T, s.Runtime.VMSSName)
+				ValidateNodeCanRunAPod(ctx, s)
+			},
+		},
+	})
+}

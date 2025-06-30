@@ -106,14 +106,14 @@ func ValidateNonEmptyDirectory(ctx context.Context, s *Scenario, dirName string)
 func ValidateFileExists(ctx context.Context, s *Scenario, fileName string) {
 	s.T.Helper()
 	if !fileExist(ctx, s, fileName) {
-		s.T.Errorf("expected file %s, but it does not", fileName)
+		s.T.Fatalf("expected file %s, but it does not", fileName)
 	}
 }
 
 func ValidateFileDoesNotExist(ctx context.Context, s *Scenario, fileName string) {
 	s.T.Helper()
 	if fileExist(ctx, s, fileName) {
-		s.T.Errorf("expected file %s to no exist, but it does", fileName)
+		s.T.Fatalf("expected file %s to no exist, but it does", fileName)
 	}
 }
 
@@ -121,7 +121,7 @@ func fileExist(ctx context.Context, s *Scenario, fileName string) bool {
 	if s.IsWindows() {
 		steps := []string{
 			"$ErrorActionPreference = \"Stop\"",
-			fmt.Sprintf("Test-Path -Path %s", fileName),
+			fmt.Sprintf("if (Test-Path -Path '%s') { exit 0 } else { exit 1 }", fileName),
 		}
 		execResult := execScriptOnVMForScenario(ctx, s, strings.Join(steps, "\n"))
 		return execResult.exitCode == "0"

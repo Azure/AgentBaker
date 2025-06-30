@@ -269,8 +269,6 @@ func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
 	respJSON, _ := json.MarshalIndent(runCommandResp, "", "  ")
 	s.T.Logf("run command executed successfully:\n%s", respJSON)
 
-	s.T.Logf("run command executed successfully: %v", runCommandResp)
-
 	s.T.Logf("uploaded logs to %s", blobUrl)
 
 	downloadBlob := func(blobSuffix string) {

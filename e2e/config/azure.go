@@ -445,14 +445,14 @@ func (a *AzureClient) LatestSIGImageVersionByTag(ctx context.Context, t *testing
 
 func (a *AzureClient) ensureReplication(ctx context.Context, t *testing.T, image *Image, version *armcompute.GalleryImageVersion) error {
 	if replicatedToCurrentRegion(version) {
-		t.Logf("Image version %s is already in region to region %s", *version.ID, Config.Location)
+		t.Logf("Image version %s is already in region %s", *version.ID, Config.Location)
 		return nil
 	}
 	regions := make([]string, 0, len(version.Properties.PublishingProfile.TargetRegions))
 	for _, targetRegion := range version.Properties.PublishingProfile.TargetRegions {
 		regions = append(regions, *targetRegion.Name)
 	}
-	t.Logf("##vso[task.logissue type=warning;]Replicating to region %s, available region: %s, image version %s", Config.Location, strings.Join(regions, ", "), *version.ID)
+	t.Logf("##vso[task.logissue type=warning;]Replicating to region %s, available regions: %s, image version %s", Config.Location, strings.Join(regions, ", "), *version.ID)
 
 	start := time.Now() // Record the start time
 	err := a.replicateImageVersionToCurrentRegion(ctx, image, version)
