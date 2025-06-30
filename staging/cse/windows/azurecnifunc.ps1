@@ -503,8 +503,7 @@ function New-ExternalHnsNetwork
     Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Start to create new external hns network"
 
     # lookup the ip address defaults from IMDS
-    # TODO: add retry and flag to avoid proxy
-    $MetadataContent = Invoke-Webrequest -NoProxy -usebasicparsing -uri "http://169.254.169.254/metadata/instance/network/interface?api-version=2021-02-01" -Headers @{ "metadata" = "true" }
+    $MetadataContent = Invoke-Webrequest -MaximumRetryCount 5 -NoProxy -usebasicparsing -uri "http://169.254.169.254/metadata/instance/network/interface?api-version=2021-02-01" -Headers @{ "metadata" = "true" }
     $ipv4Address = ($MetadataContent.Content | ConvertFrom-Json)[0].ipv4.ipAddress[0].privateIpAddress
     Write-Log "Get node IPv4 address: $( $ipv4Address )"
     $nodeIPs = @($ipv4Address)
