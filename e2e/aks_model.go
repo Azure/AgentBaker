@@ -101,6 +101,24 @@ func getAzureOverlayNetworkDualStackClusterModel(name string) *armcontainerservi
 		to.Ptr(armcontainerservice.IPFamilyIPv4),
 		to.Ptr(armcontainerservice.IPFamilyIPv6),
 	}
+
+	networkProfile := model.Properties.NetworkProfile
+	networkProfile.PodCidr = to.Ptr("10.244.0.0/16")
+	networkProfile.PodCidrs = []*string{
+		networkProfile.PodCidr,
+		to.Ptr("fd12:3456:789a::/64 "),
+	}
+	networkProfile.ServiceCidr = to.Ptr("10.0.0.0/16")
+	networkProfile.ServiceCidrs = []*string{
+		networkProfile.ServiceCidr,
+		to.Ptr("fd12:3456:789a:1::/108"),
+	}
+
+	networkProfile.PodCidr = nil
+	networkProfile.PodCidrs = nil
+	networkProfile.ServiceCidr = nil
+	networkProfile.ServiceCidrs = nil
+
 	return model
 }
 

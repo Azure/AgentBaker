@@ -139,7 +139,7 @@ func ClusterAzureOverlayNetwork(ctx context.Context, t *testing.T) (*Cluster, er
 
 func ClusterAzureOverlayNetworkDualStack(ctx context.Context, t *testing.T) (*Cluster, error) {
 	clusterAzureOverlayNetworkDualStackOnce.Do(func() {
-		clusterAzureOverlayNetworkDualStack, clusterAzureOverlayNetworkDualStackError = prepareCluster(ctx, t, getAzureOverlayNetworkDualStackClusterModel("abe2e-azure-overlay-dualstack-network"), false, false)
+		clusterAzureOverlayNetworkDualStack, clusterAzureOverlayNetworkDualStackError = prepareCluster(ctx, t, getAzureOverlayNetworkDualStackClusterModel("abe2e-azure-overlay-dualstack"), false, false)
 	})
 	return clusterAzureOverlayNetworkDualStack, clusterAzureOverlayNetworkDualStackError
 }

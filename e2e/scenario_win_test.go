@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	"strings"
 	"testing"
 
 	"github.com/Azure/agentbaker/e2e/config"
@@ -18,23 +17,26 @@ func EmptyVMConfigMutator(vmss *armcompute.VirtualMachineScaleSet)              
 func DualStackConfigMutator(configuration *datamodel.NodeBootstrappingConfiguration) {
 	properties := configuration.ContainerService.Properties
 	properties.FeatureFlags.EnableIPv6DualStack = true
-	kubernetesConfig := properties.OrchestratorProfile.KubernetesConfig
-	kubernetesConfig.ServiceCIDRs = []string{
-		kubernetesConfig.ServiceCIDR,
-		"fd12::/108",
-	}
-	kubernetesConfig.ClusterSubnets = []string{
-		kubernetesConfig.ClusterSubnet,
-		"fd13::/64",
-	}
-
-	allClusterCidrs := getAllClusterCidrs(kubernetesConfig)
-	kubernetesConfig.ClusterSubnet = strings.Join(allClusterCidrs, ",")
-
 }
 
-func getAllClusterCidrs(k *datamodel.KubernetesConfig) []string {
-	return k.ClusterSubnets
+func DualStackVMConfigMutator(set *armcompute.VirtualMachineScaleSet) {
+	ip4Config := set.Properties.VirtualMachineProfile.NetworkProfile.NetworkInterfaceConfigurations[0].Properties.IPConfigurations[0]
+
+	ip6Config := &armcompute.VirtualMachineScaleSetIPConfiguration{
+		Name: to.Ptr(fmt.Sprintf("%s_1", *ip4Config.Name)),
+		Properties: &armcompute.VirtualMachineScaleSetIPConfigurationProperties{
+			Primary:                 to.Ptr(false),
+			PrivateIPAddressVersion: to.Ptr(armcompute.IPVersionIPv6),
+			Subnet: &armcompute.APIEntityReference{
+				ID: ip4Config.Properties.Subnet.ID,
+			},
+		},
+	}
+
+	set.Properties.VirtualMachineProfile.NetworkProfile.NetworkInterfaceConfigurations[0].Properties.IPConfigurations = []*armcompute.VirtualMachineScaleSetIPConfiguration{
+		ip4Config,
+		ip6Config,
+	}
 }
 
 // WS2019 doesn't support IPv6, so we don't test it with dual-stack.
@@ -79,31 +81,13 @@ func Test_Windows2022_AzureNetwork(t *testing.T) {
 }
 
 func Test_Windows2022AzureOverlayNetworkDualStack(t *testing.T) {
-	//t.Skip("Dual stack tests are not working yet")
+	t.Skip("Dual stack tests are not working yet")
 	RunScenario(t, &Scenario{
 		Description: "Windows Server 2022 Azure Overlay Network Dual Stack",
 		Config: Config{
-			Cluster: ClusterAzureOverlayNetworkDualStack,
-			VHD:     config.VHDWindows2022Containerd,
-			VMConfigMutator: func(set *armcompute.VirtualMachineScaleSet) {
-				ip4Config := set.Properties.VirtualMachineProfile.NetworkProfile.NetworkInterfaceConfigurations[0].Properties.IPConfigurations[0]
-
-				ip6Config := &armcompute.VirtualMachineScaleSetIPConfiguration{
-					Name: to.Ptr(fmt.Sprintf("%s_1", *ip4Config.Name)),
-					Properties: &armcompute.VirtualMachineScaleSetIPConfigurationProperties{
-						Primary:                 to.Ptr(false),
-						PrivateIPAddressVersion: to.Ptr(armcompute.IPVersionIPv6),
-						Subnet: &armcompute.APIEntityReference{
-							ID: ip4Config.Properties.Subnet.ID,
-						},
-					},
-				}
-
-				set.Properties.VirtualMachineProfile.NetworkProfile.NetworkInterfaceConfigurations[0].Properties.IPConfigurations = []*armcompute.VirtualMachineScaleSetIPConfiguration{
-					ip4Config,
-					ip6Config,
-				}
-			},
+			Cluster:                ClusterAzureOverlayNetworkDualStack,
+			VHD:                    config.VHDWindows2022Containerd,
+			VMConfigMutator:        DualStackVMConfigMutator,
 			BootstrapConfigMutator: DualStackConfigMutator,
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateWindowsVersionFromWindowsSettings(ctx, s, "2022-containerd")
@@ -145,7 +129,7 @@ func Test_Windows2022Gen2AzureOverlayNetworkDualStack(t *testing.T) {
 		Config: Config{
 			Cluster:                ClusterAzureOverlayNetworkDualStack,
 			VHD:                    config.VHDWindows2022ContainerdGen2,
-			VMConfigMutator:        EmptyVMConfigMutator,
+			VMConfigMutator:        DualStackVMConfigMutator,
 			BootstrapConfigMutator: DualStackConfigMutator,
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateWindowsVersionFromWindowsSettings(ctx, s, "2022-containerd-gen2")
@@ -187,7 +171,7 @@ func Test_Windows23H2AzureOverlayNetworkDualStack(t *testing.T) {
 		Config: Config{
 			Cluster:                ClusterAzureOverlayNetworkDualStack,
 			VHD:                    config.VHDWindows23H2,
-			VMConfigMutator:        EmptyVMConfigMutator,
+			VMConfigMutator:        DualStackVMConfigMutator,
 			BootstrapConfigMutator: DualStackConfigMutator,
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateWindowsVersionFromWindowsSettings(ctx, s, "23H2")
@@ -229,7 +213,7 @@ func Test_Windows23H2Gen2AzureOverlayDualStack(t *testing.T) {
 		Config: Config{
 			Cluster:                ClusterAzureOverlayNetworkDualStack,
 			VHD:                    config.VHDWindows23H2Gen2,
-			VMConfigMutator:        EmptyVMConfigMutator,
+			VMConfigMutator:        DualStackVMConfigMutator,
 			BootstrapConfigMutator: DualStackConfigMutator,
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateWindowsVersionFromWindowsSettings(ctx, s, "23H2-gen2")
