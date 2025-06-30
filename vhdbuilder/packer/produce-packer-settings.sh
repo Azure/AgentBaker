@@ -311,6 +311,10 @@ if [ "$MODE" = "linuxVhdMode" ] || [ "$MODE" = "windowsVhdMode" ]; then
 		else
 		  # TL can only be enabled on Gen2 VMs, therefore if TL enabled = true, mark features for both TL and NVMe
 		  if [ ${ENABLE_TRUSTED_LAUNCH} = "True" ]; then
+		    TL_VALUE="TrustedLaunch"
+		    if [ "${OS_SKU,,}" = "flatcar" ]; then
+		      TL_VALUE="TrustedLaunchSupported"
+		    fi
 		    az sig image-definition create \
           --resource-group ${AZURE_RESOURCE_GROUP_NAME} \
           --gallery-name ${SIG_GALLERY_NAME} \
@@ -321,7 +325,7 @@ if [ "$MODE" = "linuxVhdMode" ] || [ "$MODE" = "windowsVhdMode" ]; then
           --os-type ${OS_TYPE} \
           --hyper-v-generation ${HYPERV_GENERATION} \
           --location ${AZURE_LOCATION} \
-          --features "DiskControllerTypes=SCSI,NVMe SecurityType=TrustedLaunch"
+          --features "DiskControllerTypes=SCSI,NVMe SecurityType=${TL_VALUE}"
       else
         # For vanilla Gen2, mark only NVMe
         az sig image-definition create \
