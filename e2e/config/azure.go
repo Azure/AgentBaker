@@ -454,7 +454,7 @@ func (a *AzureClient) ensureReplication(ctx context.Context, t *testing.T, image
 	err := a.replicateImageVersionToCurrentRegion(ctx, image, version)
 	elapsed := time.Since(start) // Calculate the elapsed time
 
-	toolkit.LogDuration(elapsed, 3*time.Minute, fmt.Sprintf("Replication took: %s (%s)\n", elapsed, *version.ID))
+	toolkit.LogDuration(elapsed, 3*time.Minute, fmt.Sprintf("Replication took: %s (%s)\n", toolkit.FormatDuration(elapsed), *version.ID))
 
 	return err
 }

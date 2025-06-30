@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"k8s.io/utils/ptr"
 	"net"
 	"os"
 	"path/filepath"
@@ -87,6 +88,31 @@ func getKubenetClusterModel(name string) *armcontainerservice.ManagedCluster {
 	return model
 }
 
+func getAzureOverlayNetworkClusterModel(name string) *armcontainerservice.ManagedCluster {
+	model := getBaseClusterModel(name)
+	model.Properties.NetworkProfile.NetworkPlugin = to.Ptr(armcontainerservice.NetworkPluginAzure)
+	model.Properties.NetworkProfile.NetworkPluginMode = to.Ptr(armcontainerservice.NetworkPluginModeOverlay)
+	return model
+}
+
+func getAzureOverlayNetworkDualStackClusterModel(name string) *armcontainerservice.ManagedCluster {
+	model := getAzureOverlayNetworkClusterModel(name)
+	model.Properties.OrchestratorProfile.KubernetesConfig.ServiceCIDRs = []string{
+		model.Properties.OrchestratorProfile.KubernetesConfig.ServiceCIDR,
+		"fd12::/108",
+	}
+	model.Properties.OrchestratorProfile.KubernetesConfig.ClusterSubnets = []string{
+		model.Properties.OrchestratorProfile.KubernetesConfig.ClusterSubnet,
+		"fd13::/64",
+	}
+
+	model.Properties.NetworkProfile.IPFamilies = []*armcontainerservice.IPFamily{
+		to.Ptr(armcontainerservice.IPFamilyIPv4),
+		to.Ptr(armcontainerservice.IPFamilyIPv6),
+	}
+	return model
+}
+
 func getAzureNetworkClusterModel(name string) *armcontainerservice.ManagedCluster {
 	cluster := getBaseClusterModel(name)
 	cluster.Properties.NetworkProfile.NetworkPlugin = to.Ptr(armcontainerservice.NetworkPluginAzure)
@@ -94,6 +120,15 @@ func getAzureNetworkClusterModel(name string) *armcontainerservice.ManagedCluste
 		for _, app := range cluster.Properties.AgentPoolProfiles {
 			app.MaxPods = to.Ptr[int32](30)
 		}
+	}
+	return cluster
+}
+
+func getKubenetNetworkDualStackClusterModel(name string) *armcontainerservice.ManagedCluster {
+	cluster := getKubenetClusterModel(name)
+	cluster.Properties.NetworkProfile.IPFamilies = []*armcontainerservice.IPFamily{
+		ptr.To(armcontainerservice.IPFamilyIPv4),
+		ptr.To(armcontainerservice.IPFamilyIPv6),
 	}
 	return cluster
 }

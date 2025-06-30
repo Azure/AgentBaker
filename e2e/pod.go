@@ -36,7 +36,7 @@ func ensurePod(ctx context.Context, s *Scenario, pod *corev1.Pod) {
 	require.NoErrorf(s.T, err, "failed to wait for pod %q to be in running state", pod.Name)
 
 	timeForReady := time.Since(start)
-	toolkit.LogDuration(timeForReady, time.Minute, fmt.Sprintf("Time for pod %q to get ready was %s\n", pod.Name, timeForReady))
+	toolkit.LogDuration(timeForReady, time.Minute, fmt.Sprintf("Time for pod %q to get ready was %s\n", pod.Name, toolkit.FormatDuration(timeForReady)))
 }
 
 func truncatePodName(t *testing.T, pod *corev1.Pod) {

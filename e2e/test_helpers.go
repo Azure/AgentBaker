@@ -163,7 +163,7 @@ func prepareAKSNode(ctx context.Context, s *Scenario) {
 	totalElapse := time.Since(start)
 	s.T.Logf("node %s is ready", s.Runtime.VMSSName)
 
-	toolkit.LogDuration(totalElapse, 3*time.Minute, fmt.Sprintf("Node %s took %s to be created and %s to be ready\n", s.Runtime.VMSSName, creationElapse, readyElapse))
+	toolkit.LogDuration(totalElapse, 3*time.Minute, fmt.Sprintf("Node %s took %s to be created and %s to be ready\n", s.Runtime.VMSSName, toolkit.FormatDuration(creationElapse), toolkit.FormatDuration(readyElapse)))
 
 	s.Runtime.VMPrivateIP, err = getVMPrivateIPAddress(ctx, s)
 	require.NoError(s.T, err, "failed to get VM private IP address")
