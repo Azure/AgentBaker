@@ -62,6 +62,11 @@ capture_benchmark "${SCRIPT_NAME}_make_certs_directory_and_update_certs"
 systemctlEnableAndStart ci-syslog-watcher.path 30 || exit 1
 systemctlEnableAndStart ci-syslog-watcher.service 30 || exit 1
 
+if isFlatcar "$OS"; then
+    # "copy-on-write"; this starts out as a symlink to a R/O location
+    cp /etc/waagent.conf{,.new}
+    mv /etc/waagent.conf{.new,}
+fi
 # enable AKS log collector
 echo -e "\n# Disable WALA log collection because AKS Log Collector is installed.\nLogs.Collect=n" >> /etc/waagent.conf || exit 1
 systemctlEnableAndStart aks-log-collector.timer 30 || exit 1
