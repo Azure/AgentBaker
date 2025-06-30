@@ -87,6 +87,41 @@ func getKubenetClusterModel(name string) *armcontainerservice.ManagedCluster {
 	return model
 }
 
+func getAzureOverlayNetworkClusterModel(name string) *armcontainerservice.ManagedCluster {
+	model := getBaseClusterModel(name)
+	model.Properties.NetworkProfile.NetworkPlugin = to.Ptr(armcontainerservice.NetworkPluginAzure)
+	model.Properties.NetworkProfile.NetworkPluginMode = to.Ptr(armcontainerservice.NetworkPluginModeOverlay)
+	return model
+}
+
+func getAzureOverlayNetworkDualStackClusterModel(name string) *armcontainerservice.ManagedCluster {
+	model := getAzureOverlayNetworkClusterModel(name)
+
+	model.Properties.NetworkProfile.IPFamilies = []*armcontainerservice.IPFamily{
+		to.Ptr(armcontainerservice.IPFamilyIPv4),
+		to.Ptr(armcontainerservice.IPFamilyIPv6),
+	}
+
+	networkProfile := model.Properties.NetworkProfile
+	networkProfile.PodCidr = to.Ptr("10.244.0.0/16")
+	networkProfile.PodCidrs = []*string{
+		networkProfile.PodCidr,
+		to.Ptr("fd12:3456:789a::/64 "),
+	}
+	networkProfile.ServiceCidr = to.Ptr("10.0.0.0/16")
+	networkProfile.ServiceCidrs = []*string{
+		networkProfile.ServiceCidr,
+		to.Ptr("fd12:3456:789a:1::/108"),
+	}
+
+	networkProfile.PodCidr = nil
+	networkProfile.PodCidrs = nil
+	networkProfile.ServiceCidr = nil
+	networkProfile.ServiceCidrs = nil
+
+	return model
+}
+
 func getAzureNetworkClusterModel(name string) *armcontainerservice.ManagedCluster {
 	cluster := getBaseClusterModel(name)
 	cluster.Properties.NetworkProfile.NetworkPlugin = to.Ptr(armcontainerservice.NetworkPluginAzure)
@@ -97,7 +132,6 @@ func getAzureNetworkClusterModel(name string) *armcontainerservice.ManagedCluste
 	}
 	return cluster
 }
-
 func getCiliumNetworkClusterModel(name string) *armcontainerservice.ManagedCluster {
 	cluster := getBaseClusterModel(name)
 	cluster.Properties.NetworkProfile.NetworkPlugin = to.Ptr(armcontainerservice.NetworkPluginAzure)
