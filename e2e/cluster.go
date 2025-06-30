@@ -29,26 +29,32 @@ import (
 )
 
 var (
-	clusterLatestKubernetesVersion *Cluster
-	clusterKubenet                 *Cluster
-	clusterKubenetAirgap           *Cluster
-	clusterKubenetNonAnonAirgap    *Cluster
-	clusterAzureNetwork            *Cluster
-	clusterCiliumNetwork           *Cluster
+	clusterLatestKubernetesVersion      *Cluster
+	clusterKubenet                      *Cluster
+	clusterKubenetAirgap                *Cluster
+	clusterKubenetNonAnonAirgap         *Cluster
+	clusterAzureNetwork                 *Cluster
+	clusterAzureOverlayNetwork          *Cluster
+	clusterAzureOverlayNetworkDualStack *Cluster
+	clusterCiliumNetwork                *Cluster
 
-	clusterLatestKubernetesVersionError error
-	clusterKubenetError                 error
-	clusterKubenetAirgapError           error
-	clusterKubenetNonAnonAirgapError    error
-	clusterAzureNetworkError            error
-	clusterCiliumNetworkError           error
+	clusterLatestKubernetesVersionError      error
+	clusterKubenetError                      error
+	clusterKubenetAirgapError                error
+	clusterKubenetNonAnonAirgapError         error
+	clusterAzureNetworkError                 error
+	clusterAzureOverlayNetworkError          error
+	clusterAzureOverlayNetworkDualStackError error
+	clusterCiliumNetworkError                error
 
-	clusterLatestKubernetesVersionOnce sync.Once
-	clusterKubenetOnce                 sync.Once
-	clusterKubenetAirgapOnce           sync.Once
-	clusterKubenetNonAnonAirgapOnce    sync.Once
-	clusterAzureNetworkOnce            sync.Once
-	clusterCiliumNetworkOnce           sync.Once
+	clusterLatestKubernetesVersionOnce      sync.Once
+	clusterKubenetOnce                      sync.Once
+	clusterKubenetAirgapOnce                sync.Once
+	clusterKubenetNonAnonAirgapOnce         sync.Once
+	clusterAzureNetworkOnce                 sync.Once
+	clusterAzureOverlayNetworkOnce          sync.Once
+	clusterAzureOverlayNetworkDualStackOnce sync.Once
+	clusterCiliumNetworkOnce                sync.Once
 )
 
 type ClusterParams struct {
@@ -122,6 +128,20 @@ func ClusterAzureNetwork(ctx context.Context, t *testing.T) (*Cluster, error) {
 		clusterAzureNetwork, clusterAzureNetworkError = prepareCluster(ctx, t, getAzureNetworkClusterModel("abe2e-azure-network"), false, false)
 	})
 	return clusterAzureNetwork, clusterAzureNetworkError
+}
+
+func ClusterAzureOverlayNetwork(ctx context.Context, t *testing.T) (*Cluster, error) {
+	clusterAzureOverlayNetworkOnce.Do(func() {
+		clusterAzureOverlayNetwork, clusterAzureOverlayNetworkError = prepareCluster(ctx, t, getAzureOverlayNetworkClusterModel("abe2e-azure-overlay-network"), false, false)
+	})
+	return clusterAzureOverlayNetwork, clusterAzureOverlayNetworkError
+}
+
+func ClusterAzureOverlayNetworkDualStack(ctx context.Context, t *testing.T) (*Cluster, error) {
+	clusterAzureOverlayNetworkDualStackOnce.Do(func() {
+		clusterAzureOverlayNetworkDualStack, clusterAzureOverlayNetworkDualStackError = prepareCluster(ctx, t, getAzureOverlayNetworkDualStackClusterModel("abe2e-azure-overlay-dualstack"), false, false)
+	})
+	return clusterAzureOverlayNetworkDualStack, clusterAzureOverlayNetworkDualStackError
 }
 
 func ClusterCiliumNetwork(ctx context.Context, t *testing.T) (*Cluster, error) {

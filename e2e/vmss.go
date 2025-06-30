@@ -500,7 +500,8 @@ func getBaseVMSSModel(s *Scenario, customData, cseCmd string) armcompute.Virtual
 									{
 										Name: to.Ptr(fmt.Sprintf("%s0", s.Runtime.VMSSName)),
 										Properties: &armcompute.VirtualMachineScaleSetIPConfigurationProperties{
-											Primary: to.Ptr(true),
+											Primary:                 to.Ptr(true),
+											PrivateIPAddressVersion: to.Ptr(armcompute.IPVersionIPv4),
 											LoadBalancerBackendAddressPools: []*armcompute.SubResource{
 												{
 													ID: to.Ptr(

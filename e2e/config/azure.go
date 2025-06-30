@@ -462,7 +462,7 @@ func (a *AzureClient) ensureReplication(ctx context.Context, t *testing.T, image
 	err := a.replicateImageVersionToCurrentRegion(ctx, image, version)
 	elapsed := time.Since(start) // Calculate the elapsed time
 
-	toolkit.LogDuration(elapsed, 3*time.Minute, fmt.Sprintf("Replication took: %s (%s)\n", elapsed, *version.ID))
+	toolkit.LogDuration(elapsed, 3*time.Minute, fmt.Sprintf("Replication took: %s (%s)\n", toolkit.FormatDuration(elapsed), *version.ID))
 
 	return err
 }
@@ -562,7 +562,10 @@ func (a *AzureClient) CreateVMSSWithRetry(ctx context.Context, t *testing.T, res
 		// It's not a quota issue
 		return errors.As(err, &respErr) && respErr.StatusCode == 200 && respErr.ErrorCode == "AllocationFailed"
 	}
+	
+	maxAttempts := 10
 	attempt := 0
+
 	for {
 		attempt++
 		vmss, err := a.createVMSS(ctx, resourceGroupName, vmssName, parameters)
@@ -576,8 +579,8 @@ func (a *AzureClient) CreateVMSSWithRetry(ctx context.Context, t *testing.T, res
 			return nil, err
 		}
 
-		if attempt >= 10 {
-			return nil, fmt.Errorf("failed to create VMSS after 10 retries: %w", err)
+		if attempt >= maxAttempts {
+			return nil, fmt.Errorf("failed to create VMSS after %d retries: %w", maxAttempts, err)
 		}
 
 		t.Logf("failed to create VMSS: %v, attempt: %v, retrying in %v", err, attempt, delay)
