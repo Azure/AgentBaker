@@ -23,6 +23,9 @@ var (
 	DefaultPollUntilDoneOptions = &runtime.PollUntilDoneOptions{
 		Frequency: time.Second,
 	}
+
+	TestSIGName      = "abe2e"
+	TestSIGImageName = "abe2e"
 )
 
 type Configuration struct {

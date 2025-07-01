@@ -72,7 +72,6 @@ func mustNoError(err error) {
 
 func RunScenario(t *testing.T, s *Scenario) {
 	s.T = t
-	t.Parallel()
 	ctx := newTestCtx(t)
 	ctrruntimelog.SetLogger(zap.New())
 
@@ -92,6 +91,7 @@ func RunScenario(t *testing.T, s *Scenario) {
 
 	t.Logf("Choosing the private ACR %q for the vm validation", config.GetPrivateACRName(s.Tags.NonAnonymousACR))
 	validateVM(ctx, s)
+
 }
 
 func prepareAKSNode(ctx context.Context, s *Scenario) {
@@ -235,6 +235,14 @@ func ValidateNodeCanRunAPod(ctx context.Context, s *Scenario) {
 }
 
 func validateVM(ctx context.Context, s *Scenario) {
+	// the instructions belows expects the SSH key to be uploaded to the user pool VM.
+	// which happens as a side-effect of execCommandOnVMForScenario, it's ugly but works.
+	// maybe we should use a single ssh key per cluster, but need to be careful with parallel test runs.
+	err := uploadSSHKey(ctx, s)
+	if err != nil {
+		s.T.Logf("failed to upload SSH key: %v", err)
+	}
+
 	if !s.Config.SkipDefaultValidation {
 		ValidateNodeCanRunAPod(ctx, s)
 		switch s.VHD.OS {

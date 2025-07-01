@@ -1703,7 +1703,7 @@ func RunKubeletOnlyStage(ctx context.Context, s *Scenario) {
 		script.sudo = true
 	}
 
-	result, err := execScriptOnVm(ctx, s, s.Runtime.VMPrivateIP, s.Runtime.Cluster.DebugPod.Name, string(s.Runtime.SSHKeyPrivate), script)
+	result, err := execScriptOnVm(ctx, s, s.Runtime.VMPrivateIP, s.Runtime.Cluster.DebugPod.Name, script)
 	if err != nil {
 		s.T.Fatalf("Failed to execute Stage 2 CSE: %v", err)
 	}

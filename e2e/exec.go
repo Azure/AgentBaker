@@ -56,7 +56,8 @@ type Script struct {
 	sudo        bool
 }
 
-func execScriptOnVm(ctx context.Context, s *Scenario, vmPrivateIP, jumpboxPodName, sshPrivateKey string, script Script) (*podExecResult, error) {
+func execScriptOnVm(ctx context.Context, s *Scenario, vmPrivateIP, jumpboxPodName string, script Script) (*podExecResult, error) {
+	// Assuming uploadSSHKey has been called before this function
 	s.T.Helper()
 	/*
 		This works in a way that doesn't rely on the node having joined the cluster:
@@ -80,10 +81,8 @@ func execScriptOnVm(ctx context.Context, s *Scenario, vmPrivateIP, jumpboxPodNam
 	}
 
 	steps := []string{
-		fmt.Sprintf("echo '%[1]s' > %[2]s", sshPrivateKey, sshKeyName(vmPrivateIP)),
 		"set -x",
 		fmt.Sprintf("echo %[1]s > %[2]s", quoteForBash(script.script), scriptFileName),
-		fmt.Sprintf("chmod 0600 %s", sshKeyName(vmPrivateIP)),
 		fmt.Sprintf("chmod 0755 %s", scriptFileName),
 		fmt.Sprintf(`scp -i %[1]s -o PasswordAuthentication=no -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o ConnectTimeout=5 %[3]s azureuser@%[2]s:%[4]s`, sshKeyName(vmPrivateIP), vmPrivateIP, scriptFileName, remoteScriptFileName),
 	}
@@ -181,7 +180,18 @@ func unprivilegedCommandArray() []string {
 	}
 }
 
-func logSSHInstructions(s *Scenario) {
+func uploadSSHKey(ctx context.Context, s *Scenario) error {
+	steps := []string{
+		fmt.Sprintf("echo '%[1]s' > %[2]s", string(s.Runtime.SSHKeyPrivate), sshKeyName(s.Runtime.VMPrivateIP)),
+		fmt.Sprintf("chmod 0600 %s", sshKeyName(s.Runtime.VMPrivateIP)),
+	}
+	joinedSteps := strings.Join(steps, " && ")
+	kube := s.Runtime.Cluster.Kube
+	_, err := execOnPrivilegedPod(ctx, kube, defaultNamespace, s.Runtime.Cluster.DebugPod.Name, joinedSteps)
+	if err != nil {
+		return fmt.Errorf("error executing command on pod: %w", err)
+	}
+
 	result := "SSH Instructions:"
 	if !config.Config.KeepVMSS {
 		result += " (VM will be automatically deleted after the test finishes, set KEEP_VMSS=true to preserve it or pause the test with a breakpoint before the test finishes)"
@@ -191,5 +201,5 @@ func logSSHInstructions(s *Scenario) {
 	result += fmt.Sprintf("az aks get-credentials --resource-group %s --name %s --overwrite-existing\n", config.ResourceGroupName, *s.Runtime.Cluster.Model.Name)
 	result += fmt.Sprintf(`kubectl exec -it %s -- bash -c "chroot /proc/1/root /bin/bash -c '%s'"`, s.Runtime.Cluster.DebugPod.Name, sshString(s.Runtime.VMPrivateIP))
 	s.T.Log(result)
-	//runtime.Breakpoint() // uncomment to pause the test
+	return nil
 }
