@@ -17,3 +17,7 @@ installBpftrace() {
 listInstalledPackages() {
     stub
 }
+
+disableNtpAndTimesyncdInstallChrony() {
+    stub
+}
