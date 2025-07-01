@@ -3,7 +3,125 @@
 Describe 'cse_config.sh'
     Include "./parts/linux/cloud-init/artifacts/cse_config.sh"
     Include "./parts/linux/cloud-init/artifacts/cse_helpers.sh"
-    Describe 'getPrimaryNicIP()'
+
+    Describe 'configureAzureJson'
+        AZURE_JSON_PATH="azure.json"
+        AKS_CUSTOM_CLOUD_JSON_PATH="customcloud.json"
+        CLOUDPROVIDER_BACKOFF_EXPONENT="1"
+        CLOUDPROVIDER_BACKOFF_JITTER="0.1"
+        TARGET_CLOUD="AzurePublicCloud"
+        TENANT_ID="tenant-id"
+        SUBSCRIPTION_ID="subscription-id"
+        RESOURCE_GROUP="resource-group"
+        LOCATION="eastus"
+
+        chmod () {
+            echo "chmod $@"
+        }
+        chown() {
+            echo "chown $@"
+        }
+
+        cleanup() {
+            rm -f "$AZURE_JSON_PATH"
+            rm -f "$AKS_CUSTOM_CLOUD_JSON_PATH"
+        }
+
+        AfterEach 'cleanup'
+
+        It 'should configure the azure.json file'
+            SERVICE_PRINCIPAL_CLIENT_ID="sp-client-id"
+            SERVICE_PRINCIPAL_FILE_CONTENT="c3Atc2VjcmV0Cg==" # base64 encoding of "sp-secret"
+            CLOUDPROVIDER_BACKOFF_MODE="v1"
+            # using "run" instead of "call" since configureAzureJson modifies shell opts with set +/-x which conflicts with shellspec
+            When run configureAzureJson
+            The output should include "chmod 0600 azure.json"
+            The output should include "chown root:root azure.json"
+            The contents of file "azure.json" should include '"cloud": "AzurePublicCloud"'
+            The contents of file "azure.json" should include '"aadClientId": "sp-client-id"'
+            The contents of file "azure.json" should include '"aadClientSecret": "sp-secret"'
+            The contents of file "azure.json" should include '"tenantId": "tenant-id"'
+            The contents of file "azure.json" should include '"subscriptionId": "subscription-id"'
+            The contents of file "azure.json" should include '"resourceGroup": "resource-group"'
+            The contents of file "azure.json" should include '"location": "eastus"'
+            The contents of file "azure.json" should include '"cloudProviderBackoffExponent": 1'
+            The contents of file "azure.json" should include '"cloudProviderBackoffJitter": 0.1'
+            The contents of file "azure.json" should include '"cloudProviderBackoffMode": "v1"'
+            The stderr should not eq '' # since we're calling "set" with +/-x numerous times
+            The status should be success
+        End
+
+        It 'should configure the azure.json file without a service principal secret if no service principal file content is supplied'
+            SERVICE_PRINCIPAL_CLIENT_ID=""
+            SERVICE_PRINCIPAL_FILE_CONTENT=""
+            CLOUDPROVIDER_BACKOFF_MODE="v1"
+            When run configureAzureJson
+            The output should include "chmod 0600 azure.json"
+            The output should include "chown root:root azure.json"
+            The contents of file "azure.json" should include '"cloud": "AzurePublicCloud"'
+            The contents of file "azure.json" should include '"aadClientId": ""'
+            The contents of file "azure.json" should include '"aadClientSecret": ""'
+            The contents of file "azure.json" should include '"tenantId": "tenant-id"'
+            The contents of file "azure.json" should include '"subscriptionId": "subscription-id"'
+            The contents of file "azure.json" should include '"resourceGroup": "resource-group"'
+            The contents of file "azure.json" should include '"location": "eastus"'
+            The contents of file "azure.json" should include '"cloudProviderBackoffExponent": 1'
+            The contents of file "azure.json" should include '"cloudProviderBackoffJitter": 0.1'
+            The contents of file "azure.json" should include '"cloudProviderBackoffMode": "v1"'
+            The contents of file "azure.json" should not include "sp-secret"
+            The stderr should not eq '' # since we're calling "set" with +/-x numerous times
+            The status should be success
+        End
+
+        It 'should reconfigure azure json if cloud provider backoff mode is "v2"'
+            SERVICE_PRINCIPAL_CLIENT_ID="sp-client-id"
+            SERVICE_PRINCIPAL_FILE_CONTENT="c3Atc2VjcmV0Cg==" # base64 encoding of "sp-secret"
+            CLOUDPROVIDER_BACKOFF_MODE="v2"
+            When run configureAzureJson
+            The output should include "chmod 0600 azure.json"
+            The output should include "chown root:root azure.json"
+            The contents of file "azure.json" should include '"cloud": "AzurePublicCloud"'
+            The contents of file "azure.json" should include '"aadClientId": "sp-client-id"'
+            The contents of file "azure.json" should include '"aadClientSecret": "sp-secret"'
+            The contents of file "azure.json" should include '"tenantId": "tenant-id"'
+            The contents of file "azure.json" should include '"subscriptionId": "subscription-id"'
+            The contents of file "azure.json" should include '"resourceGroup": "resource-group"'
+            The contents of file "azure.json" should include '"location": "eastus"'
+            The contents of file "azure.json" should include '"cloudProviderBackoffMode": "v2"'
+            The contents of file "azure.json" should not include "cloudProviderBackoffExponent"
+            The contents of file "azure.json" should not include "cloudProviderBackoffJitter"
+            The stderr should not eq '' # since we're calling "set" with +/-x numerous times
+            The status should be success
+        End
+
+        It 'should create the AKS custom cloud json file if running in custom cloud environment'
+            SERVICE_PRINCIPAL_CLIENT_ID="sp-client-id"
+            SERVICE_PRINCIPAL_FILE_CONTENT="c3Atc2VjcmV0Cg==" # base64 encoding of "sp-secret"
+            CLOUDPROVIDER_BACKOFF_MODE="v2"
+            IS_CUSTOM_CLOUD="true"
+            CUSTOM_ENV_JSON="eyJjdXN0b20iOnRydWV9Cg==" # base64 encoding of '{"custom":true}'
+            When run configureAzureJson
+            The output should include "chmod 0600 azure.json"
+            The output should include "chown root:root azure.json"
+            The output should include "chmod 0600 customcloud.json"
+            The output should include "chown root:root customcloud.json"
+            The contents of file "azure.json" should include '"cloud": "AzurePublicCloud"'
+            The contents of file "azure.json" should include '"aadClientId": "sp-client-id"'
+            The contents of file "azure.json" should include '"aadClientSecret": "sp-secret"'
+            The contents of file "azure.json" should include '"tenantId": "tenant-id"'
+            The contents of file "azure.json" should include '"subscriptionId": "subscription-id"'
+            The contents of file "azure.json" should include '"resourceGroup": "resource-group"'
+            The contents of file "azure.json" should include '"location": "eastus"'
+            The contents of file "azure.json" should include '"cloudProviderBackoffMode": "v2"'
+            The contents of file "azure.json" should not include "cloudProviderBackoffExponent"
+            The contents of file "azure.json" should not include "cloudProviderBackoffJitter"
+            The contents of file "customcloud.json" should include '"custom":true'
+            The stderr should not eq '' # since we're calling "set" with +/-x numerous times
+            The status should be success
+        End
+    End
+
+    Describe 'getPrimaryNicIP'
         It 'should return the correct IP when a single network interface is attached to the VM'
             curl() {
                 cat spec/parts/linux/cloud-init/artifacts/imds_mocks/network/single_nic.json
@@ -374,12 +492,44 @@ Describe 'cse_config.sh'
             echo 'localdns corefile' > "$LOCALDNS_CORE_FILE"
             systemctlEnableAndStart() {
                 echo "systemctlEnableAndStart $@"
-                return 217
+                return 1
             }
             When call enableLocalDNS
-            The status should equal 217
+            The status should equal 216
             The output should include "localdns should be enabled."
-            The output should include "Enable localdns failed due to error"
+            The output should include "Enable localdns failed."
+        End
+    End
+
+    Describe 'configureAndStartSecureTLSBootstrapping'
+        SECURE_TLS_BOOTSTRAPPING_DROP_IN="secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf"
+        API_SERVER_NAME="fqdn"
+        AZURE_JSON_PATH="/etc/kubernetes/azure.json"
+
+        chmod() {
+            echo "chmod $@"
+        }
+
+        cleanup() {
+            rm -rf "$SECURE_TLS_BOOTSTRAPPING_DROP_IN"
+        }
+
+        AfterEach 'cleanup'
+
+        It 'should configure and start secure TLS bootstrapping'
+            systemctlEnableAndStartNoBlock() {
+                echo "systemctlEnableAndStartNoBlock $@"
+            }
+            When call configureAndStartSecureTLSBootstrapping
+            The output should include "chmod 0600 secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf"
+            The output should include "systemctlEnableAndStartNoBlock secure-tls-bootstrap 30"
+            The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "[Unit]"
+            The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "Before=kubelet.service"
+            The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "[Service]"
+            The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include 'Environment="BOOTSTRAP_FLAGS=--aad-resource=6dae42f8-4368-4678-94ff-3960e28e3630 --apiserver-fqdn=fqdn --cloud-provider-config=/etc/kubernetes/azure.json"'
+            The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "[Install]"
+            The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "WantedBy=kubelet.service"
+            The status should be success
         End
     End
 End

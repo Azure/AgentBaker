@@ -101,7 +101,6 @@ func getCSEEnv(config *aksnodeconfigv1.Configuration) map[string]string {
 		"HTTP_PROXY_TRUSTED_CA":                          config.GetHttpProxyConfig().GetProxyTrustedCa(),
 		"SHOULD_CONFIGURE_CUSTOM_CA_TRUST":               fmt.Sprintf("%v", getCustomCACertsStatus(config.GetCustomCaCerts())),
 		"CUSTOM_CA_TRUST_COUNT":                          fmt.Sprintf("%v", len(config.GetCustomCaCerts())),
-		"IS_KRUSTLET":                                    fmt.Sprintf("%v", getIsKrustlet(config.GetWorkloadRuntime())),
 		"GPU_NEEDS_FABRIC_MANAGER":                       fmt.Sprintf("%v", getGPUNeedsFabricManager(config.GetVmSize())),
 		"IPV6_DUAL_STACK_ENABLED":                        fmt.Sprintf("%v", config.GetIpv6DualStackEnabled()),
 		"OUTBOUND_COMMAND":                               config.GetOutboundCommand(),

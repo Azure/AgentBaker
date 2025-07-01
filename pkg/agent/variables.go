@@ -40,11 +40,6 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 			"migPartitionSystemdService":       getBase64EncodedGzippedCustomScript(migPartitionSystemdService, config),
 			"migPartitionScript":               getBase64EncodedGzippedCustomScript(migPartitionScript, config),
 			"ensureIMDSRestrictionScript":      getBase64EncodedGzippedCustomScript(ensureIMDSRestrictionScript, config),
-			"containerdKubeletDropin":          getBase64EncodedGzippedCustomScript(containerdKubeletDropin, config),
-			"cgroupv2KubeletDropin":            getBase64EncodedGzippedCustomScript(cgroupv2KubeletDropin, config),
-			"componentConfigDropin":            getBase64EncodedGzippedCustomScript(componentConfigDropin, config),
-			"bindMountDropin":                  getBase64EncodedGzippedCustomScript(bindMountDropin, config),
-			"httpProxyDropin":                  getBase64EncodedGzippedCustomScript(httpProxyDropin, config),
 			"snapshotUpdateScript":             getBase64EncodedGzippedCustomScript(snapshotUpdateScript, config),
 			"snapshotUpdateService":            getBase64EncodedGzippedCustomScript(snapshotUpdateSystemdService, config),
 			"snapshotUpdateTimer":              getBase64EncodedGzippedCustomScript(snapshotUpdateSystemdTimer, config),
@@ -53,6 +48,8 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 			"packageUpdateTimerMariner":        getBase64EncodedGzippedCustomScript(packageUpdateSystemdTimerMariner, config),
 			"componentManifestFile":            getBase64EncodedGzippedCustomScript(componentManifestFile, config),
 			"validateKubeletCredentialsScript": getBase64EncodedGzippedCustomScript(validateKubeletCredentialsScript, config),
+			"secureTLSBootstrapService":        getBase64EncodedGzippedCustomScript(secureTLSBootstrapService, config),
+			"cloudInitStatusCheckScript":       getBase64EncodedGzippedCustomScript(cloudInitStatusCheckScript, config),
 		},
 	}
 
@@ -67,7 +64,6 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 	}
 
 	if !cs.Properties.IsVHDDistroForAllNodes() {
-		cloudInitData["provisionCIS"] = getBase64EncodedGzippedCustomScript(kubernetesCISScript, config)
 		cloudInitData["kmsSystemdService"] = getBase64EncodedGzippedCustomScript(kmsSystemdService, config)
 		cloudInitData["aptPreferences"] = getBase64EncodedGzippedCustomScript(aptPreferences, config)
 		cloudInitData["dockerClearMountPropagationFlags"] = getBase64EncodedGzippedCustomScript(dockerClearMountPropagationFlags, config)

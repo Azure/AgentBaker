@@ -55,7 +55,26 @@ source "${CSE_CONFIG_FILEPATH}"
 resolve_packages_source_url
 logs_to_events "AKS.CSE.setPackagesBaseURL" "echo $PACKAGE_DOWNLOAD_BASE_URL"
 
+# IMPORTANT NOTE: We do this here since this function can mutate kubelet flags and node labels, 
+# which is used by configureK8s and other functions. Thus, we need to make sure flag and label content is correct beforehand.
+logs_to_events "AKS.CSE.configureKubeletServing" configureKubeletServing
+
+# This function first creates the systemd drop-in directory for kubelet.service.
+# Pay attention to ordering relative to other functions that create kubelet drop-ins.
+logs_to_events "AKS.CSE.configureK8s" configureK8s
+
+# This function creates the /etc/kubernetes/azure.json file. It also creates the custom
+# cloud configuration file if running in a custom cloud environment.
+logs_to_events "AKS.CSE.configureAzureJson" configureAzureJson
+
 logs_to_events "AKS.CSE.ensureKubeCACert" ensureKubeCACert
+
+logs_to_events "AKS.CSE.installSecureTLSBootstrapClient" installSecureTLSBootstrapClient
+
+if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" = "true" ]; then
+    # Depends on configureK8s, ensureKubeCACert, and installSecureTLSBootstrapClient
+    logs_to_events "AKS.CSE.configureAndStartSecureTLSBootstrapping" configureAndStartSecureTLSBootstrapping
+fi
 
 if [ "${DISABLE_SSH}" = "true" ]; then
     disableSSH || exit $ERR_DISABLE_SSH
@@ -153,18 +172,6 @@ setupCNIDirs
 
 logs_to_events "AKS.CSE.installNetworkPlugin" installNetworkPlugin
 
-if [ "${IS_KRUSTLET}" = "true" ]; then
-    versionsWasm=$(jq -r '.Packages[] | select(.name == "containerd-wasm-shims") | .downloadURIs.default.current.versionsV2[].latestVersion' "$COMPONENTS_FILEPATH")
-    downloadLocationWasm=$(jq -r '.Packages[] | select(.name == "containerd-wasm-shims") | .downloadLocation' "$COMPONENTS_FILEPATH")
-    downloadURLWasm=$(jq -r '.Packages[] | select(.name == "containerd-wasm-shims") | .downloadURIs.default.current.downloadURL' "$COMPONENTS_FILEPATH")
-    logs_to_events "AKS.CSE.installContainerdWasmShims" installContainerdWasmShims "$downloadLocationWasm" "$downloadURLWasm" "$versionsWasm"
-
-    versionsSpinKube=$(jq -r '.Packages[] | select(.name == spinkube") | .downloadURIs.default.current.versionsV2[].latestVersion' "$COMPONENTS_FILEPATH")
-    downloadLocationSpinKube=$(jq -r '.Packages[] | select(.name == "spinkube) | .downloadLocation' "$COMPONENTS_FILEPATH")
-    downloadURLSpinKube=$(jq -r '.Packages[] | select(.name == "spinkube") | .downloadURIs.default.current.downloadURL' "$COMPONENTS_FILEPATH")
-    logs_to_events "AKS.CSE.installSpinKube" installSpinKube  "$downloadLocationSpinKube" "$downloadURLSpinKube" "$versionsSpinKube"
-fi
-
 # By default, never reboot new nodes.
 REBOOTREQUIRED=false
 
@@ -234,15 +241,10 @@ if [ "${HAS_CUSTOM_SEARCH_DOMAIN}" = "true" ]; then
     "${CUSTOM_SEARCH_DOMAIN_FILEPATH}" > /opt/azure/containers/setup-custom-search-domain.log 2>&1 || exit $ERR_CUSTOM_SEARCH_DOMAINS_FAIL
 fi
 
-
-# for drop ins, so they don't all have to check/create the dir
+# If the kubelet.service drop-in directory is empty by the time installContainerRuntime is called, it may be removed
+# as a side-effect of having to go out and install an uncached version of containerd. Thus, we once again create
+# the kubelet.service drop-in directory here before creating any further drop-ins.
 mkdir -p "/etc/systemd/system/kubelet.service.d"
-
-# IMPORTANT NOTE: We do this here since this function can mutate kubelet flags and node labels, 
-# which is used by configureK8s and other functions. Thus, we need to make sure flag and label content is correct beforehand.
-logs_to_events "AKS.CSE.configureKubeletServing" configureKubeletServing
-
-logs_to_events "AKS.CSE.configureK8s" configureK8s
 
 logs_to_events "AKS.CSE.configureCNI" configureCNI
 
@@ -416,6 +418,10 @@ fi
 logs_to_events "AKS.CSE.enableLocalDNS" enableLocalDNS || exit $?
 
 logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
+
+if [ "${ARTIFACT_STREAMING_ENABLED}" = "true" ]; then
+    logs_to_events "AKS.CSE.ensureContainerd.ensureArtifactStreaming" ensureArtifactStreaming || exit $ERR_ARTIFACT_STREAMING_INSTALL
+fi
 
 if [ "${ID}" != "mariner" ] && [ "${ID}" != "azurelinux" ]; then
     echo "Recreating man-db auto-update flag file and kicking off man-db update process at $(date)"

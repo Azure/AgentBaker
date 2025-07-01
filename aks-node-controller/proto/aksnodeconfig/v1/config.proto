@@ -24,7 +24,6 @@ option go_package = "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aks
 enum WorkloadRuntime {
   WORKLOAD_RUNTIME_UNSPECIFIED = 0;
   WORKLOAD_RUNTIME_OCI_CONTAINER = 1;
-  WORKLOAD_RUNTIME_WASM_WASI = 2;
 }
 
 message Configuration {
@@ -116,7 +115,7 @@ message Configuration {
   // A local file path where cluster provision cse output should be stored
   string provision_output = 28;
 
-  // Workload runtime, e.g., either "OCIContainer" or "WasmWasi", currently.
+  // Workload runtime, only "OCIContainer" currently.
   WorkloadRuntime workload_runtime = 29;
 
   // Specifies whether IPv6 dual stack is enabled or disabled on the VM node

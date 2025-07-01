@@ -1,5 +1,6 @@
 #!/bin/bash
 set -eux
+: "${CONTAINTER_BASE_URLS_EXISTING:=false}"
 
 source ./parts/linux/cloud-init/artifacts/cse_benchmark_functions.sh
 
@@ -44,7 +45,7 @@ az group create --name "$TEST_VM_RESOURCE_GROUP_NAME" --location "${AZURE_LOCATI
 # defer function to cleanup resource group when VHD debug is not enabled
 function cleanup() {
   if [ "$VHD_DEBUG" = "True" ]; then
-    echo "VHD debug mode is enabled, please manually delete test vm resource group $RESOURCE_GROUP_NAME after debugging"
+    echo "VHD debug mode is enabled, please manually delete test vm resource group $TEST_VM_RESOURCE_GROUP_NAME after debugging"
   else
     echo "Deleting resource group ${TEST_VM_RESOURCE_GROUP_NAME}"
     az group delete --name "$TEST_VM_RESOURCE_GROUP_NAME" --yes --no-wait
@@ -92,7 +93,6 @@ if [ "${OS_TYPE,,}" = "linux" ]; then
       exit 1
   fi
   az vm create \
-      --debug \
       --resource-group "$TEST_VM_RESOURCE_GROUP_NAME" \
       --name "$VM_NAME" \
       --image "$MANAGED_SIG_ID" \
@@ -165,7 +165,7 @@ else
     --resource-group "$TEST_VM_RESOURCE_GROUP_NAME" \
     --scripts "@$SCRIPT_PATH" \
     --output json \
-    --parameters "windowsSKU=${WINDOWS_SKU}" "skipValidateReofferUpdate=${SKIPVALIDATEREOFFERUPDATE}")
+    --parameters "windowsSKU=${WINDOWS_SKU}" "skipValidateReofferUpdate=${SKIPVALIDATEREOFFERUPDATE}" "validatecontainerBaseImageFromUrl=${CONTAINTER_BASE_URLS_EXISTING}")
   # An example of failed run-command output:
   # {
   #   "value": [

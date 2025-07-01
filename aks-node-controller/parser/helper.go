@@ -62,7 +62,6 @@ func getFuncMap() template.FuncMap {
 func getFuncMapForContainerdConfigTemplate() template.FuncMap {
 	return template.FuncMap{
 		"derefBool":                        deref[bool],
-		"getIsKrustlet":                    getIsKrustlet,
 		"getEnsureNoDupePromiscuousBridge": getEnsureNoDupePromiscuousBridge,
 		"isKubernetesVersionGe":            helpers.IsKubernetesVersionGe,
 		"getHasDataDir":                    getHasDataDir,
@@ -207,10 +206,6 @@ func getTLSBootstrapToken(bootstrapConfig *aksnodeconfigv1.BootstrappingConfig) 
 
 func getCustomSecureTLSBootstrapAADServerAppID(bootstrapConfig *aksnodeconfigv1.BootstrappingConfig) string {
 	return bootstrapConfig.GetCustomAadResource()
-}
-
-func getIsKrustlet(wr aksnodeconfigv1.WorkloadRuntime) bool {
-	return wr == aksnodeconfigv1.WorkloadRuntime_WORKLOAD_RUNTIME_WASM_WASI
 }
 
 func getEnsureNoDupePromiscuousBridge(nc *aksnodeconfigv1.NetworkConfig) bool {

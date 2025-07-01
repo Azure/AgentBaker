@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/Azure/agentbaker/e2e/config"
+	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerregistry/armcontainerregistry"
@@ -19,15 +20,123 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/privatedns/armprivatedns"
 )
 
+// getLatestGAKubernetesVersion returns the highest GA Kubernetes version for the given location.
+func getLatestGAKubernetesVersion(location string, t *testing.T) (string, error) {
+	versions, err := config.Azure.AKS.ListKubernetesVersions(context.Background(), location, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to list Kubernetes versions: %w", err)
+	}
+	if len(versions.Values) == 0 {
+		return "", fmt.Errorf("no Kubernetes versions available")
+	}
+
+	var latestPatchVersion string
+	// Iterate through the available versions to find the latest GA version
+	t.Logf("Available Kubernetes versions for location %s:", location)
+	for _, k8sVersion := range versions.Values {
+		if k8sVersion == nil {
+			continue
+		}
+		t.Logf("- %s", *k8sVersion.Version)
+
+		// Skip preview versions
+		if k8sVersion.IsPreview != nil && *k8sVersion.IsPreview {
+			t.Log(" - - is in preview, skipping")
+			continue
+		}
+		for patchVersion := range k8sVersion.PatchVersions {
+			if patchVersion == "" {
+				continue
+			}
+			t.Logf("- - %s", patchVersion)
+			// Initialize latestVersion with first GA version found
+			if latestPatchVersion == "" {
+				latestPatchVersion = patchVersion
+				t.Logf(" - - first latest found, updating to: %s", latestPatchVersion)
+				continue
+			}
+			// Compare versions
+			if agent.IsKubernetesVersionGe(patchVersion, latestPatchVersion) {
+				latestPatchVersion = patchVersion
+				t.Logf(" - - new latest found, updating to: %s", latestPatchVersion)
+			}
+		}
+	}
+
+	if latestPatchVersion == "" {
+		return "", fmt.Errorf("no GA Kubernetes version found")
+	}
+	t.Logf("Latest GA Kubernetes version for location %s: %s", location, latestPatchVersion)
+	return latestPatchVersion, nil
+}
+
+// getLatestKubernetesVersionClusterModel returns a cluster model with the latest GA Kubernetes version.
+func getLatestKubernetesVersionClusterModel(name string, t *testing.T) (*armcontainerservice.ManagedCluster, error) {
+	version, err := getLatestGAKubernetesVersion(config.Config.Location, t)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get latest GA Kubernetes version: %w", err)
+	}
+	model := getBaseClusterModel(name)
+	model.Properties.KubernetesVersion = to.Ptr(version)
+	return model, nil
+}
+
 func getKubenetClusterModel(name string) *armcontainerservice.ManagedCluster {
 	model := getBaseClusterModel(name)
 	model.Properties.NetworkProfile.NetworkPlugin = to.Ptr(armcontainerservice.NetworkPluginKubenet)
 	return model
 }
 
+func getAzureOverlayNetworkClusterModel(name string) *armcontainerservice.ManagedCluster {
+	model := getBaseClusterModel(name)
+	model.Properties.NetworkProfile.NetworkPlugin = to.Ptr(armcontainerservice.NetworkPluginAzure)
+	model.Properties.NetworkProfile.NetworkPluginMode = to.Ptr(armcontainerservice.NetworkPluginModeOverlay)
+	return model
+}
+
+func getAzureOverlayNetworkDualStackClusterModel(name string) *armcontainerservice.ManagedCluster {
+	model := getAzureOverlayNetworkClusterModel(name)
+
+	model.Properties.NetworkProfile.IPFamilies = []*armcontainerservice.IPFamily{
+		to.Ptr(armcontainerservice.IPFamilyIPv4),
+		to.Ptr(armcontainerservice.IPFamilyIPv6),
+	}
+
+	networkProfile := model.Properties.NetworkProfile
+	networkProfile.PodCidr = to.Ptr("10.244.0.0/16")
+	networkProfile.PodCidrs = []*string{
+		networkProfile.PodCidr,
+		to.Ptr("fd12:3456:789a::/64 "),
+	}
+	networkProfile.ServiceCidr = to.Ptr("10.0.0.0/16")
+	networkProfile.ServiceCidrs = []*string{
+		networkProfile.ServiceCidr,
+		to.Ptr("fd12:3456:789a:1::/108"),
+	}
+
+	networkProfile.PodCidr = nil
+	networkProfile.PodCidrs = nil
+	networkProfile.ServiceCidr = nil
+	networkProfile.ServiceCidrs = nil
+
+	return model
+}
+
 func getAzureNetworkClusterModel(name string) *armcontainerservice.ManagedCluster {
 	cluster := getBaseClusterModel(name)
 	cluster.Properties.NetworkProfile.NetworkPlugin = to.Ptr(armcontainerservice.NetworkPluginAzure)
+	if cluster.Properties.AgentPoolProfiles != nil {
+		for _, app := range cluster.Properties.AgentPoolProfiles {
+			app.MaxPods = to.Ptr[int32](30)
+		}
+	}
+	return cluster
+}
+func getCiliumNetworkClusterModel(name string) *armcontainerservice.ManagedCluster {
+	cluster := getBaseClusterModel(name)
+	cluster.Properties.NetworkProfile.NetworkPlugin = to.Ptr(armcontainerservice.NetworkPluginAzure)
+	cluster.Properties.NetworkProfile.NetworkDataplane = to.Ptr(armcontainerservice.NetworkDataplaneCilium)
+	cluster.Properties.NetworkProfile.NetworkPolicy = to.Ptr(armcontainerservice.NetworkPolicyCilium)
 	if cluster.Properties.AgentPoolProfiles != nil {
 		for _, app := range cluster.Properties.AgentPoolProfiles {
 			app.MaxPods = to.Ptr[int32](30)
@@ -46,7 +155,7 @@ func getBaseClusterModel(clusterName string) *armcontainerservice.ManagedCluster
 				{
 					Name:         to.Ptr("nodepool1"),
 					Count:        to.Ptr[int32](1),
-					VMSize:       to.Ptr("standard_d2ds_v5"),
+					VMSize:       to.Ptr(config.Config.DefaultVMSKU),
 					MaxPods:      to.Ptr[int32](110),
 					OSType:       to.Ptr(armcontainerservice.OSTypeLinux),
 					Type:         to.Ptr(armcontainerservice.AgentPoolTypeVirtualMachineScaleSets),
@@ -203,6 +312,28 @@ func privateEndpointExists(ctx context.Context, t *testing.T, nodeResourceGroup,
 	return false, nil
 }
 
+func createPrivateAzureContainerRegistryPullSecret(ctx context.Context, t *testing.T, cluster *armcontainerservice.ManagedCluster, kubeconfig *Kubeclient, resourceGroup string, isNonAnonymousPull bool) error {
+	privateACRName := config.GetPrivateACRName(isNonAnonymousPull)
+	if isNonAnonymousPull {
+		t.Logf("Creating the secret for non-anonymous pull ACR for the e2e debug pods")
+		kubeconfigPath := os.Getenv("HOME") + "/.kube/config"
+		if err := fetchAndSaveKubeconfig(ctx, t, resourceGroup, *cluster.Name, kubeconfigPath); err != nil {
+			t.Logf("failed to fetch kubeconfig: %v", err)
+			return err
+		}
+		username, password, err := getAzureContainerRegistryCredentials(ctx, t, resourceGroup, privateACRName)
+		if err != nil {
+			t.Logf("failed to get private ACR credentials: %v", err)
+			return err
+		}
+		if err := kubeconfig.createKubernetesSecret(ctx, t, "default", config.Config.ACRSecretName, privateACRName, username, password); err != nil {
+			t.Logf("failed to create Kubernetes secret: %v", err)
+			return err
+		}
+	}
+	return nil
+}
+
 func createPrivateAzureContainerRegistry(ctx context.Context, t *testing.T, cluster *armcontainerservice.ManagedCluster, kubeconfig *Kubeclient, resourceGroup string, isNonAnonymousPull bool) error {
 	privateACRName := config.GetPrivateACRName(isNonAnonymousPull)
 	t.Logf("Creating private Azure Container Registry %s in rg %s", privateACRName, resourceGroup)
@@ -261,24 +392,6 @@ func createPrivateAzureContainerRegistry(ctx context.Context, t *testing.T, clus
 	}
 
 	t.Logf("Private Azure Container Registry created")
-
-	if isNonAnonymousPull {
-		t.Logf("Creating the secret for non-anonymous pull ACR for the e2e debug pods")
-		kubeconfigPath := os.Getenv("HOME") + "/.kube/config"
-		if err := fetchAndSaveKubeconfig(ctx, t, resourceGroup, *cluster.Name, kubeconfigPath); err != nil {
-			t.Logf("failed to fetch kubeconfig: %v", err)
-			return err
-		}
-		username, password, err := getAzureContainerRegistryCredentials(ctx, t, resourceGroup, privateACRName)
-		if err != nil {
-			t.Logf("failed to get private ACR credentials: %v", err)
-			return err
-		}
-		if err := kubeconfig.createKubernetesSecret(ctx, t, "default", kubeconfigPath, config.Config.ACRSecretName, privateACRName, username, password); err != nil {
-			t.Logf("failed to create Kubernetes secret: %v", err)
-			return err
-		}
-	}
 
 	if err := addCacheRulesToPrivateAzureContainerRegistry(ctx, t, config.ResourceGroupName, privateACRName); err != nil {
 		return fmt.Errorf("failed to add cache rules to private acr: %w", err)
@@ -586,7 +699,7 @@ func getSecurityRule(name, destinationAddressPrefix string, priority int32) *arm
 			SourcePortRange:          to.Ptr("*"),
 			DestinationAddressPrefix: to.Ptr(destinationAddressPrefix),
 			DestinationPortRange:     to.Ptr("*"),
-			Priority:                 to.Ptr[int32](priority),
+			Priority:                 to.Ptr(priority),
 		},
 	}
 }

@@ -50,7 +50,6 @@ package components
 
 #UbuntuOSDistro: {
 	current?: #ReleaseDownloadURI
-	r1804?:   #ReleaseDownloadURI
 	r2004?:   #ReleaseDownloadURI
 	r2204?:   #ReleaseDownloadURI
 	r2404?:   #ReleaseDownloadURI
@@ -78,12 +77,13 @@ package components
 }
 
 #DownloadURIs: {
-	default?:      #DefaultOSDistro
-	ubuntu?:       #UbuntuOSDistro
-	mariner?:      #MarinerOSDistro
-	marinerkata?:  #MarinerOSDistro
-	azurelinux?:   #AzureLinuxOSDistro
-	windows?:      #WindowsOsDistro
+	default?:          #DefaultOSDistro
+	ubuntu?:           #UbuntuOSDistro
+	mariner?:          #MarinerOSDistro
+	marinerkata?:      #MarinerOSDistro
+	azurelinux?:       #AzureLinuxOSDistro
+	azurelinuxkata?:   #AzureLinuxOSDistro
+	windows?:          #WindowsOsDistro
 }
 
 #Package: {

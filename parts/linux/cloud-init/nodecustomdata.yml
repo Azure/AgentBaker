@@ -120,6 +120,13 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "kubeletSystemdService"}}
 
+- path: /etc/systemd/system/secure-tls-bootstrap.service
+  permissions: "0600"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "secureTLSBootstrapService"}}
+
 - path: /etc/systemd/system/mig-partition.service
   permissions: "0644"
   encoding: gzip
@@ -301,88 +308,6 @@ write_files:
     [Install]
     WantedBy=multi-user.target kubelet.service
 
-- path: /etc/default/kubelet
-  permissions: "0644"
-  owner: root
-  content: |
-    KUBELET_FLAGS={{GetKubeletConfigKeyVals}}
-    KUBELET_REGISTER_SCHEDULABLE=true
-    NETWORK_POLICY={{GetParameter "networkPolicy"}}
-{{- if not (IsKubernetesVersionGe "1.17.0")}}
-    KUBELET_IMAGE={{GetHyperkubeImageReference}}
-{{- end}}
-{{- if IsKubernetesVersionGe "1.16.0"}}
-    KUBELET_NODE_LABELS={{GetAgentKubernetesLabels . }}
-{{- else}}
-    KUBELET_NODE_LABELS={{GetAgentKubernetesLabelsDeprecated . }}
-{{- end}}
-{{- if IsAKSCustomCloud}}
-    AZURE_ENVIRONMENT_FILEPATH=/etc/kubernetes/{{GetTargetEnvironment}}.json
-{{- end}}
-
-{{ if (or EnableSecureTLSBootstrapping GetTLSBootstrapTokenForKubeConfig) -}}
-- path: /var/lib/kubelet/bootstrap-kubeconfig
-  permissions: "0644"
-  owner: root
-  content: |
-    apiVersion: v1
-    kind: Config
-    clusters:
-    - name: localcluster
-      cluster:
-        certificate-authority: /etc/kubernetes/certs/ca.crt
-        server: https://{{GetKubernetesEndpoint}}:443
-    users:
-    - name: kubelet-bootstrap
-      user:
-      {{- if EnableSecureTLSBootstrapping }}
-        exec:
-          apiVersion: client.authentication.k8s.io/v1
-          command: /opt/azure/tlsbootstrap/tls-bootstrap-client
-          args:
-          - bootstrap
-          - --next-proto=aks-tls-bootstrap
-          {{- if GetCustomSecureTLSBootstrapAADServerAppID}}
-          - --aad-resource={{GetCustomSecureTLSBootstrapAADServerAppID}}
-          {{- else}}
-          - --aad-resource=6dae42f8-4368-4678-94ff-3960e28e3630
-          {{- end}}
-          interactiveMode: Never
-          provideClusterInfo: true
-      {{- else }}
-        token: "{{GetTLSBootstrapTokenForKubeConfig}}"
-      {{- end }}
-    contexts:
-    - context:
-        cluster: localcluster
-        user: kubelet-bootstrap
-      name: bootstrap-context
-    current-context: bootstrap-context
-{{else -}}
-- path: /var/lib/kubelet/kubeconfig
-  permissions: "0644"
-  owner: root
-  content: |
-    apiVersion: v1
-    kind: Config
-    clusters:
-    - name: localcluster
-      cluster:
-        certificate-authority: /etc/kubernetes/certs/ca.crt
-        server: https://{{GetKubernetesEndpoint}}:443
-    users:
-    - name: client
-      user:
-        client-certificate: /etc/kubernetes/certs/client.crt
-        client-key: /etc/kubernetes/certs/client.key
-    contexts:
-    - context:
-        cluster: localcluster
-        user: client
-      name: localclustercontext
-    current-context: localclustercontext
-{{- end}}
-
 - path: /opt/azure/containers/kubelet.sh
   permissions: "0755"
   owner: root
@@ -408,6 +333,13 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "ensureIMDSRestrictionScript"}}
+
+- path: /opt/azure/containers/cloud-init-status-check.sh
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "cloudInitStatusCheckScript"}}
 
 - path: /opt/azure/containers/validate-kubelet-credentials.sh
   permissions: "0755"

@@ -77,11 +77,11 @@ ifeq ($(origin MANAGED_IDENTITY_ID), undefined)
 	@az login --identity
 else
 	@echo "Logging in with Hosted Pool's Managed Identity: ${MANAGED_IDENTITY_ID}"
-	@az login --identity --username ${MANAGED_IDENTITY_ID}
+	@az login --identity --client-id ${MANAGED_IDENTITY_ID}
 endif
 else
 	@echo "Logging into Azure with identity: ${AZURE_MSI_RESOURCE_STRING}..."
-	@az login --identity --username ${AZURE_MSI_RESOURCE_STRING}
+	@az login --identity --resource-id ${AZURE_MSI_RESOURCE_STRING}
 endif
 	@echo "Using the subscription ${SUBSCRIPTION_ID}"
 	@az account set -s ${SUBSCRIPTION_ID}
@@ -91,10 +91,6 @@ init-packer:
 
 run-packer: az-login
 	@packer init ./vhdbuilder/packer/linux-packer-plugin.pkr.hcl && packer version && ($(MAKE) -f packer.mk init-packer | tee packer-output) && ($(MAKE) -f packer.mk build-packer | tee -a packer-output)
-
-backfill-cleanup: az-login
-	@chmod +x ./vhdbuilder/packer/backfill-cleanup.sh
-	@./vhdbuilder/packer/backfill-cleanup.sh
 
 generate-publishing-info: az-login
 	@./vhdbuilder/packer/generate-vhd-publishing-info.sh

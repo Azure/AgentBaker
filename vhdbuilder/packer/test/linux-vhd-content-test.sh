@@ -5,6 +5,8 @@ VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
 AZURELINUX_OS_NAME="AZURELINUX"
+MARINER_KATA_OS_NAME="MARINERKATA"
+AZURELINUX_KATA_OS_NAME="AZURELINUXKATA"
 
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
 CONTAINER_RUNTIME="$1"
@@ -35,6 +37,14 @@ err() {
 # The remote branch will be something like 'refs/heads/branch/name' or 'refs/pull/number/head'. Using the same name
 # for the local branch has weird semantics, so we replace '/' with '-' for the local branch name.
 LOCAL_GIT_BRANCH=${GIT_BRANCH//\//-}
+
+# Git is not present in the base image, so we need to install it.
+if [ "$OS_SKU" = "Ubuntu" ]; then
+  sudo DEBIAN_FRONTEND=noninteractive apt-get install -y git
+else
+  sudo tdnf install -y git
+fi
+
 echo "Cloning AgentBaker repo and checking out remote branch '${GIT_BRANCH}' into local branch '${LOCAL_GIT_BRANCH}'"
 COMMAND="git clone --quiet https://github.com/Azure/AgentBaker.git"
 if ! ${COMMAND}; then
@@ -141,8 +151,16 @@ testPackagesInstalled() {
     fi
     if [ "$OS_SKU" = "CBLMariner" ] || { [ "$OS_SKU" = "AzureLinux" ] && [ "$OS_VERSION" = "2.0" ]; }; then
       OS=$MARINER_OS_NAME
+      # If the feature flag kata is enabled, we set $MARINER_KATA_OS_NAME as the OS name and it will get the version from that OS from components.json
+      # We have similar logic in install-dependencies.sh
+      if (echo "$FEATURE_FLAGS" | grep -q "kata"); then
+        OS=${MARINER_KATA_OS_NAME}
+      fi
     elif [ "$OS_SKU" = "AzureLinux" ] && [ "$OS_VERSION" = "3.0" ]; then
       OS=$AZURELINUX_OS_NAME
+      if (echo "$FEATURE_FLAGS" | grep -q "kata"); then
+        OS=${AZURELINUX_KATA_OS_NAME}
+      fi
     else
       OS=$UBUNTU_OS_NAME
     fi
@@ -172,8 +190,12 @@ testPackagesInstalled() {
           "kubernetes-cri-tools")
             testCriCtl "$version"
             ;;
+          "containerd")
+            testContainerd "$version"
+            ;;
         esac
         break
+        
       fi
       # A downloadURL from a package in components.json will look like this: 
       # "https://acs-mirror.azureedge.net/cni-plugins/v${version}/binaries/cni-plugins-linux-${CPU_ARCH}-v${version}.tgz"
@@ -205,14 +227,6 @@ testPackagesInstalled() {
       if [ "$downloadLocation" = "/usr/local/bin" ]; then
         if command -v "$name" >/dev/null 2>&1; then
           echo "$name is installed."
-          continue
-        elif [ "$name" = "containerd-wasm-shims" ]; then
-          testWasmRuntimesInstalled $downloadLocation $version
-          echo "$test $name binaries are in the expected location of $downloadLocation"
-          continue
-        elif [ "$name" = "spinkube" ]; then
-          testSpinKubeInstalled $downloadLocation $version
-          echo "$test $name binaries are in the expected location of $downloadLocation"
           continue
         else
           err $test "$name is not installed. Expected to be installed in $downloadLocation"
@@ -250,7 +264,7 @@ testPackageInAzureChinaCloud() {
   proxyLocation=$(echo "$downloadURL" | awk -F'/' '{print $4}')
 
   # root paths like cri-tools can be ignored since they are only cached in VHD and won't be referenced in control plane.
-  rootPathExceptions=("cri-tools" "spinkube")
+  rootPathExceptions=("cri-tools")
   for rootPathException in "${rootPathExceptions[@]}"; do
     if [ "$rootPathException" = "$proxyLocation" ]; then
       return
@@ -319,20 +333,39 @@ testImagesPulled() {
   imagesToBePulled=$(echo "${componentsJsonContent}" | jq .ContainerImages[] --monochrome-output --compact-output)
 
   while IFS= read -r imageToBePulled; do
+    echo "checking imageToBePulled: $imageToBePulled ..."
     downloadURL=$(echo "${imageToBePulled}" | jq .downloadURL -r)
-    amd64OnlyVersionsStr=$(echo "${imageToBePulled}" | jq .amd64OnlyVersions -r)
-    MULTI_ARCH_VERSIONS=()
+    if [ $(echo "${imageToBePulled}" | jq -r '.amd64OnlyVersions // empty') = "null" ]; then
+      amd64OnlyVersionsStr=""
+    else 
+      amd64OnlyVersionsStr=$(echo "${imageToBePulled}" | jq -r '.amd64OnlyVersions // empty')
+    fi
+    declare -a MULTI_ARCH_VERSIONS=()
     updateMultiArchVersions "${imageToBePulled}"
 
     amd64OnlyVersions=""
-    if [ "${amd64OnlyVersionsStr}" != "null" ]; then
+    if [ -n "${amd64OnlyVersionsStr}" ] && [ "${amd64OnlyVersionsStr}" != "null" ]; then
       amd64OnlyVersions=$(echo "${amd64OnlyVersionsStr}" | jq -r ".[]")
     fi
 
     if [ "$(isARM64)" -eq 1 ]; then
-      versions="${MULTI_ARCH_VERSIONS}"
+      echo "ARM64 detected, using only multiArchVersions"
+      if [ ${#MULTI_ARCH_VERSIONS[@]} -eq 0 ]; then
+        echo "Warning: No multi-arch versions found for ARM64"
+        continue
+      else
+        echo "Found ${#MULTI_ARCH_VERSIONS[@]} multi-arch versions"
+        # Convert array to string with spaces between elements
+        versions="${MULTI_ARCH_VERSIONS[*]}"
+        echo "Using versions: $versions"
+      fi
     else
-      versions="${amd64OnlyVersions} ${MULTI_ARCH_VERSIONS}"
+      echo "AMD64 detected, using amd64OnlyVersions and multiArchVersions"
+      if [ "${#MULTI_ARCH_VERSIONS[@]}" -eq 0 ]; then
+        versions="${amd64OnlyVersions}"
+      else
+        versions="${amd64OnlyVersions} ${MULTI_ARCH_VERSIONS[*]}"
+      fi
     fi
     for version in ${versions}; do
       download_URL=$(string_replace $downloadURL $version)
@@ -347,6 +380,47 @@ testImagesPulled() {
 
     echo "---"
   done <<<"$imagesToBePulled"
+  echo "$test:Finish"
+}
+
+testImagesCompleted() {
+  test="testImagesCompleted"
+  echo "$test:Start"
+  containerRuntime=$1
+  if [ $containerRuntime = 'containerd' ]; then
+    incompleteImages=$(ctr -n k8s.io image check | grep "incomplete")
+  else
+    err $test "unsupported container runtime $containerRuntime"
+    return
+  fi
+
+  # Check if there are any incomplete images
+  if [ -n "$incompleteImages" ]; then
+    err $test "Incomplete images found: $incompleteImages"
+    return
+  fi
+
+  echo "$test:Finish"
+}
+
+testPodSandboxImagePinned() {
+  test="testPodSandboxImagePinned"
+  echo "$test:Start"
+  containerRuntime=$1
+  if [ $containerRuntime = 'containerd' ]; then
+    pinnedImages=$(ctr -n k8s.io image ls | grep pinned)
+  else
+    err $test "unsupported container runtime $containerRuntime"
+    return
+  fi
+
+  # Check if the pod sandbox image is pinned
+  if [ -z "$pinnedImages" ]; then
+    pauseImage=$(ctr -n k8s.io images ls | grep pause)
+    err $test "Pod sandbox image is not pinned to a specific version: $pauseImage"
+    return
+  fi
+
   echo "$test:Finish"
 }
 
@@ -485,8 +559,8 @@ testLtsKernel() {
   enable_fips=$3
 
   # shellcheck disable=SC3010
-  if [[ "$os_sku" == "Ubuntu" && ${enable_fips,,} != "true" ]]; then
-    echo "OS is Ubuntu and FIPS is not enabled, check LTS kernel version"
+  if [[ "$os_sku" == "Ubuntu" && ${enable_fips,,} != "true" ]] && ! grep -q "cvm" <<< "$FEATURE_FLAGS" ; then
+    echo "OS is Ubuntu, FIPS is not enabled, and this is not a CVM; check LTS kernel version"
     # Check the Ubuntu version and set the expected kernel version
     if [ "$os_version" = "2204" ]; then
       expected_kernel="5.15"
@@ -1165,64 +1239,49 @@ testAKSNodeControllerService() {
   echo "$test:Finish"
 }
 
-testWasmRuntimesInstalled() {
-  local test="testWasmRuntimesInstalled"
-  local wasm_runtimes_path=${1}
-  local shim_version=${2}
-
-  echo "$test: checking existence of Spin Wasm Runtime in $wasm_runtimes_path"
-
-  local shims_to_download=("spin" "slight")
-  if [ "${shim_version}" = "0.8.0" ]; then
-    shims_to_download+=("wws")
-  fi
-
-  binary_version="$(echo "${shim_version}" | tr . -)"
-  for shim in "${shims_to_download[@]}"; do
-    binary_path_pattern="${wasm_runtimes_path}/containerd-shim-${shim}-${binary_version}-*"
-    if ! ls $binary_path_pattern >/dev/null 2>&1; then
-      output=$(ls -la /usr/local/bin)
-      err "$test: Spin Wasm Runtime binary does not exist at $binary_path_pattern\n ls -la output:\n $output"
-      return 1
-    else
-      echo "$test: Spin Wasm Runtime binary exists at $binary_path_pattern"
-    fi
-  done
-}
-
-testSpinKubeInstalled() {
-  local test="testSpinKubeInstalled"
-  local spinKube_runtimes_path=${1}
-  local shim_version=${2}
-  shim_version="v${shim_version}"
-  binary_version="$(echo "${shim_version}" | tr . -)"
-
-  # v0.15.1 does not have a version encoded in the binary name
-  binary_path_pattern="${spinKube_runtimes_path}/containerd-shim-spin-v2"
-  if [ ! -f "$binary_path_pattern" ]; then
-    output=$(ls -la /usr/local/bin)
-    err "$test: Spin Wasm Runtime binary does not exist at $binary_path_pattern\n ls -la output:\n $output"
-    return 1
-  else
-    echo "$test: Spin Wasm Runtime binary exists at $binary_path_pattern"
-  fi
-
-  echo "$test: Test finished successfully."
-  return 0
-}
-
 testCriCtl() {
   expectedVersion="${1}"
+  local test="testCriCtl"
+  echo "$test: Start"
   # the expectedVersion looks like this, "1.32.0-ubuntu18.04u3", need to extract the version number.
   expectedVersion=$(echo $expectedVersion | cut -d'-' -f1)
   # use command `crictl --version` to get the version
-  local test="testCriCtl"
+  
   local crictl_version=$(crictl --version)
   # the output of crictl_version looks like this "crictl version 1.32.0", need to extract the version number.
   crictl_version=$(echo $crictl_version | cut -d' ' -f3)
   echo "$test: checking if crictl version is $expectedVersion"
   if [ "$crictl_version" != "$expectedVersion" ]; then
     err "$test: crictl version is not $expectedVersion, instead it is $crictl_version"
+    return 1
+  fi
+  echo "$test: Test finished successfully."
+  return 0
+}
+
+testContainerd() {
+  expectedVersion="${1}"
+  local test="testContainerd"
+  echo "$test: Start"
+  # If the version defined in components.json is <SKIP>, that means it will use whatever version is installed on the system.
+  # Therefore, we will just skip the test.
+  if [ "$expectedVersion" = "<SKIP>" ]; then
+    echo "$test: Skipping test for containerd version, as expected version is <SKIP>"
+    return 0
+  fi
+  # the expectedVersion looks like this, "1.6.24-0ubuntu1~18.04.1" or "2.0.0-6.azl3", we need to extract the major.minor.patch version only.
+  expectedVersion=$(echo $expectedVersion | cut -d'-' -f1)
+  # use command `containerd --version` to get the version
+  local containerd_version=$(containerd --version)
+  # the output of containerd_version looks like the followings. We need to extract the major.minor.patch version only.
+  # For containerd (v1): containerd github.com/containerd/containerd 1.6.26 
+  # For containerd (v2): containerd github.com/containerd/containerd/v2 2.0.0
+  containerd_version=$(echo $containerd_version | cut -d' ' -f3)
+  # The version could be in the format "1.6.24-11-ubuntu1~18.04.1" or "2.0.0-6.azl3" or just "2.0.0", we need to extract the major.minor.patch version only.
+  containerd_version=$(echo "$containerd_version" | grep -oE '^[0-9]+\.[0-9]+\.[0-9]+')
+  echo "$test: checking if containerd version is $expectedVersion"
+  if [ "$containerd_version" != "$expectedVersion" ]; then
+    err "$test: containerd version is not $expectedVersion, instead it is $containerd_version"
     return 1
   fi
   echo "$test: Test finished successfully."
@@ -1384,6 +1443,26 @@ checkLocaldnsScriptsAndConfigs() {
   echo "$test: All localdnsfiles exist with correct permissions"
   return 0
 }
+
+# Check that no files have a numeric UID or GID, which would indicate a file ownership issue.
+testFileOwnership() {
+  local test="testFileOwnership"
+  echo "$test: Start"
+
+  # Find files with numeric UIDs or GIDs.
+  local files_with_numeric_ownership=$(find /usr -xdev \( -nouser -o -nogroup \) -exec stat --format '%u %g %n' {} \;)
+
+  if [ -n "$files_with_numeric_ownership" ]; then
+    err "$test: File ownership test failed. Files with numeric ownership found:"
+    err "$files_with_numeric_ownership"
+    return 1
+  fi
+
+  echo "$test: No files with numeric ownership found."
+  echo "$test: Finish"
+  return 0
+}
+
 #------------------------ End of test code related to localdns ------------------------
 
 # As we call these tests, we need to bear in mind how the test results are processed by the
@@ -1403,6 +1482,8 @@ testVHDBuildLogsExist
 testCriticalTools
 testPackagesInstalled $CONTAINER_RUNTIME
 testImagesPulled $CONTAINER_RUNTIME "$(cat $COMPONENTS_FILEPATH)"
+testImagesCompleted $CONTAINER_RUNTIME
+testPodSandboxImagePinned $CONTAINER_RUNTIME
 testChrony $OS_SKU
 testAuditDNotPresent
 testFips $OS_VERSION $ENABLE_FIPS
@@ -1431,3 +1512,4 @@ testLtsKernel $OS_VERSION $OS_SKU $ENABLE_FIPS
 testCorednsBinaryExtractedAndCached $OS_VERSION
 checkLocaldnsScriptsAndConfigs
 testPackageDownloadURLFallbackLogic
+testFileOwnership

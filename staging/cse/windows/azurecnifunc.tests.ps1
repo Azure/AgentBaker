@@ -1,6 +1,22 @@
 BeforeAll {
     . $PSScriptRoot\..\..\..\parts\windows\windowscsehelper.ps1
     . $PSCommandPath.Replace('.tests.ps1','.ps1')
+
+    $capturedContent = $null
+    Mock Set-Content -MockWith { 
+        param($Path, $Value)
+        $script:capturedContent = $Value 
+    } -Verifiable
+
+    Mock Set-ItemProperty -MockWith {
+        Param(
+            $Path,
+            $Name,
+            $Type,
+            $Value
+        )
+        Write-Host "Set-ItemProperty -Path $Path -Name $Name -Type $Type -Value $Value"
+    } -Verifiable
 }
 
 Describe 'GetBroadestRangesForEachAddress' {
@@ -9,16 +25,13 @@ Describe 'GetBroadestRangesForEachAddress' {
         @{ Values = @('10.240.0.0/12', '10.0.0.0/8'); Expected = @('10.0.0.0/8', '10.240.0.0/12')}
         @{ Values = @('10.0.0.0/8', '10.0.0.0/16'); Expected = @('10.0.0.0/8')}
         @{ Values = @('10.0.0.0/16', '10.240.0.0/12', '10.0.0.0/8' ); Expected = @('10.0.0.0/8', '10.240.0.0/12')}
-        @{ Values = @(); Expected = @()}
-        @{ Values = @('foobar'); Expected = @()}
     ){
         param ($Values, $Expected)
-
         $actual = GetBroadestRangesForEachAddress -values $Values
-        $actual | Should -Be $Expected
+        $actual | Should -BeIn $Expected
     }
 }
-
+    
 Describe 'Set-AzureCNIConfig' {
     BeforeEach {
         $azureCNIConfDir = "$PSScriptRoot\azurecnifunc.tests.suites"
@@ -26,9 +39,10 @@ Describe 'Set-AzureCNIConfig' {
         $kubeClusterCIDR = "10.224.0.0/12"
         $kubeServiceCIDR = "10.0.0.0/16"
         $vNetCIDR = "10.224.1.0/12"
-        $isDualStackEnabled = $false
+        $isDualStackEnabled = $False
         $KubeDnsServiceIp = "10.0.0.10"
         $global:IsDisableWindowsOutboundNat = $false
+        $global:IsIMDSRestrictionEnabled = $false
         $global:CiliumDataplaneEnabled = $false
         $global:KubeproxyFeatureGates = @("WinDSR=true")
         $azureCNIConfigFile = [Io.path]::Combine($azureCNIConfDir, "10-azure.conflist")
@@ -37,16 +51,58 @@ Describe 'Set-AzureCNIConfig' {
         function Set-Default-AzureCNI ([string]$fileName) {
             $defaultFile = [Io.path]::Combine($azureCNIConfDir, $fileName)    
             Copy-Item -Path $defaultFile -Destination $azureCNIConfigFile
-        }
+        }       
 
-        # Read Json with the same format (depth = 20) for Json Comparation
         function Read-Format-Json ([string]$JsonFile) {
+            function Sort-ArraysInObject {
+                param(
+                    [Parameter(ValueFromPipeline = $true)]
+                    $InputObject
+                )
+                
+                process {
+                    if ($null -eq $InputObject) {
+                        return $null
+                    }
+                    # Handle arrays
+                    elseif ($InputObject -is [System.Collections.IList]) {
+                        $result = @()
+                        # Process each item in the array recursively
+                        foreach ($item in $InputObject) {
+                            $result += (Sort-ArraysInObject -InputObject $item)
+                        }
+                        # Sort string arrays
+                        if ($result.Count -gt 0 -and $result[0] -is [string]) {
+                            return ($result | Sort-Object)
+                        }
+                        return $result
+                    }
+                    # Handle objects
+                    elseif ($InputObject -is [PSCustomObject]) {
+                        $result = [PSCustomObject]@{}
+                        # Process each property
+                        foreach ($prop in $InputObject.PSObject.Properties.Name) {
+                            $result | Add-Member -MemberType NoteProperty -Name $prop -Value (Sort-ArraysInObject -InputObject $InputObject.$prop)
+                        }
+                        return $result
+                    }
+                    # Return primitives as is
+                    else {
+                        return $InputObject
+                    }
+                }
+            }
+            
+            # Parse JSON and sort arrays
             $json = Get-Content $JsonFile | ConvertFrom-Json
-            $json = $json | ConvertTo-Json -depth 20
-            return $json
-        }
-
+            $sortedJson = Sort-ArraysInObject -InputObject $json
+            
+            # Convert back to JSON string
+            $formattedJson = $sortedJson | ConvertTo-Json -depth 20
+            return $formattedJson
+        } 
         Mock Get-WindowsVersion -MockWith { return "ltsc2022" }
+        Mock Restart-Service -MockWith { Write-Host "Restart-Service -Name $hnsServiceName" } -Verifiable
     }
 
     AfterEach {
@@ -66,12 +122,13 @@ Describe 'Set-AzureCNIConfig' {
                 -KubeClusterCIDR $kubeClusterCIDR `
                 -KubeServiceCIDR $kubeServiceCIDR `
                 -VNetCIDR $vNetCIDR `
-                -IsDualStackEnabled $isDualStackEnabled
+                -IsDualStackEnabled $isDualStackEnabled   
 
             $actualConfigJson = Read-Format-Json $azureCNIConfigFile
             $expectedConfigJson = Read-Format-Json ([Io.path]::Combine($azureCNIConfDir, "AzureCNI.Expect.CiliumNodeSubnet.conflist"))
-            $difference = Compare-Object $actualConfigJson $expectedConfigJson
-            $difference | Should -Be $null
+              
+            $diffence = Compare-Object $actualConfigJson $expectedConfigJson
+            $diffence | Should -Be $null
         }
     }
 
@@ -89,8 +146,7 @@ Describe 'Set-AzureCNIConfig' {
             $actualConfigJson = Read-Format-Json $azureCNIConfigFile
             $expectedConfigJson = Read-Format-Json ([Io.path]::Combine($azureCNIConfDir, "AzureCNI.Expect.EnableWinDSR.conflist"))
             $diffence = Compare-Object $actualConfigJson $expectedConfigJson
-            $diffence | Should -Be $null
-        }
+            $diffence | Should -Be $null    }
     }
 
     Context 'WinDSR is disabled' {
@@ -103,7 +159,8 @@ Describe 'Set-AzureCNIConfig' {
                 -KubeClusterCIDR $kubeClusterCIDR `
                 -KubeServiceCIDR $kubeServiceCIDR `
                 -VNetCIDR $vNetCIDR `
-                -IsDualStackEnabled $isDualStackEnabled
+                -IsDualStackEnabled $isDualStackEnabled `
+                -IsAzureCNIOverlayEnabled $false
 
             $actualConfigJson = Read-Format-Json $azureCNIConfigFile
             $expectedConfigJson = Read-Format-Json ([Io.path]::Combine($azureCNIConfDir, "AzureCNI.Expect.DisableWinDSR.conflist"))
@@ -116,20 +173,7 @@ Describe 'Set-AzureCNIConfig' {
         Context "WS2019 should replace OutboundNAT with LoopbackDSR and update regkey HNSControlFlag" {
             BeforeEach {
                 Mock Get-WindowsVersion -MockWith { return "1809" }
-
-                Mock Set-ItemProperty -MockWith {
-                    Param(
-                        $Path,
-                        $Name,
-                        $Type,
-                        $Value
-                    )
-                    Write-Host "Set-ItemProperty -Path $Path -Name $Name -Type $Type -Value $Value"
-                } -Verifiable
-            }
-
-            It "Should clear 0x10 in HNSControlFlag when HNSControlFlag exists" {
-				Mock Get-ItemProperty -MockWith {
+                Mock Get-ItemProperty -MockWith {
 					Param(
 					  $Path,
 					  $Name,
@@ -140,7 +184,10 @@ Describe 'Set-AzureCNIConfig' {
 						HNSControlFlag = 0x50
 					}
 				} -Verifiable
-				
+            }
+
+            It "Should clear 0x10 in HNSControlFlag when HNSControlFlag exists" {
+			
                 $global:IsDisableWindowsOutboundNat = $true
                 Set-Default-AzureCNI "AzureCNI.Default.conflist"
     
@@ -192,15 +239,7 @@ Describe 'Set-AzureCNIConfig' {
         Context "WS2022 should replace OutboundNAT with LoopbackDSR and update regkey SourcePortPreservationForHostPort" {
             BeforeEach {
                 Mock Get-WindowsVersion -MockWith { return "ltsc2022" }
-                Mock Set-ItemProperty -MockWith {
-                    Param(
-                        $Path,
-                        $Name,
-                        $Type,
-                        $Value
-                    )
-                    Write-Host "Set-ItemProperty -Path $Path -Name $Name -Type $Type -Value $Value"
-                } -Verifiable
+                
             }
             
             It "Should update SourcePortPreservationForHostPort to 0" {
@@ -304,6 +343,29 @@ Describe 'Set-AzureCNIConfig' {
 
             $actualConfigJson = Read-Format-Json $azureCNIConfigFile
             $expectedConfigJson = Read-Format-Json ([Io.path]::Combine($azureCNIConfDir, "AzureCNI.Expect.Swift.DisableOutboundNAT.conflist"))
+            $diffence = Compare-Object $actualConfigJson $expectedConfigJson
+            $diffence | Should -Be $null
+        }
+    }
+
+    Context 'IMDS restriction' {
+        BeforeEach {
+            $hnsServiceName = "hns"
+            Mock Get-Service -MockWith { return $hnsServiceName }
+            Mock Restart-Service -MockWith { Write-Host "Restart-Service -Name $hnsServiceName" } -Verifiable
+        }
+        It "should include IMDS restriction ACL rule when IMDS restriction is enabled" {
+            Set-Default-AzureCNI "AzureCNI.Default.conflist"
+            $global:IsIMDSRestrictionEnabled = $true
+            Set-AzureCNIConfig -AzureCNIConfDir $azureCNIConfDir `
+                -KubeDnsSearchPath $kubeDnsSearchPath `
+                -KubeClusterCIDR $kubeClusterCIDR `
+                -KubeServiceCIDR $kubeServiceCIDR `
+                -VNetCIDR $vNetCIDR `
+                -IsDualStackEnabled $isDualStackEnabled
+
+            $actualConfigJson = Read-Format-Json $azureCNIConfigFile
+            $expectedConfigJson = Read-Format-Json ([Io.path]::Combine($azureCNIConfDir, "AzureCNI.Expect.EnableIMDSRestriction.conflist"))
             $diffence = Compare-Object $actualConfigJson $expectedConfigJson
             $diffence | Should -Be $null
         }

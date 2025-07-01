@@ -94,25 +94,41 @@ fi
 if [ -z "${live_patching_repo_service}" ]; then
     echo "live patching repo service is not set, use ubuntu snapshot repo"
     # upgrade from base image to a timestamp
-    # e.g. replace https://azure.archive.ubuntu.com/ubuntu/ with https://snapshot.ubuntu.com/ubuntu/20230727T000000Z
+    # e.g. replace http://azure.archive.ubuntu.com/ubuntu/ with https://snapshot.ubuntu.com/ubuntu/20230727T000000Z
     sed -i 's/http:\/\/azure.archive.ubuntu.com\/ubuntu\//https:\/\/snapshot.ubuntu.com\/ubuntu\/'"${golden_timestamp}"'/g' ${source_list_path}
+    # e.g. replace http://ports.ubuntu.com/ubuntu-ports with https://snapshot.ubuntu.com/ubuntu/20230727T000000Z
+    sed -i 's/http:\/\/ports.ubuntu.com\/ubuntu-ports/https:\/\/snapshot.ubuntu.com\/ubuntu\/'"${golden_timestamp}"'/g' ${source_list_path}
     # upgrade from one timestamp to another timestamp
     # e.g. replace https://snapshot.ubuntu.com/ubuntu/20250310T000000Z with https://snapshot.ubuntu.com/ubuntu/20250318T000000Z
     sed -i 's/https:\/\/snapshot.ubuntu.com\/ubuntu\/\([0-9]\{8\}T[0-9]\{6\}Z\)/https:\/\/snapshot.ubuntu.com\/ubuntu\/'"${golden_timestamp}"'/g' ${source_list_path}
     # No live patching repo service annotation, so we need to change to use the ubuntu snapshot repo
     # e.g. replace http://10.224.0.5/ubuntu/ with https://snapshot.ubuntu.com/ubuntu/20250318T000000Z
     sed -i 's/http:\/\/[0-9]\+.[0-9]\+.[0-9]\+.[0-9]\+\/ubuntu\//https:\/\/snapshot.ubuntu.com\/ubuntu\/'"${golden_timestamp}"'/g' ${source_list_path}
+    # restore the ignored repo config in /etc/apt/sources.list.d 
+    for f in /etc/apt/sources.list.d/*.list.backup; do
+        if [ -f "$f" ]; then
+            mv "$f" "${f%.backup}"
+        fi
+    done
 else
     echo "live patching repo service is: ${live_patching_repo_service}"
     # upgrade from base image to live patching repo service
-    # e.g. replace https://azure.archive.ubuntu.com/ubuntu/ with http://10.224.0.5/ubuntu/
+    # e.g. replace http://azure.archive.ubuntu.com/ubuntu/ with http://10.224.0.5/ubuntu/
     sed -i 's/http:\/\/azure.archive.ubuntu.com\/ubuntu\//http:\/\/'"${live_patching_repo_service}"'\/ubuntu\//g' ${source_list_path}
+    # e.g. replace http://ports.ubuntu.com/ubuntu-ports with http://10.224.0.5/ubuntu/
+    sed -i 's/http:\/\/ports.ubuntu.com\/ubuntu-ports/http:\/\/'"${live_patching_repo_service}"'\/ubuntu\//g' ${source_list_path}
     # upgrade from one ubuntu repo timestamp to live patching repo service
     # e.g. replace https://snapshot.ubuntu.com/ubuntu/20250310T000000Z with http://10.224.0.5/ubuntu/
     sed -i 's/https:\/\/snapshot.ubuntu.com\/ubuntu\/\([0-9]\{8\}T[0-9]\{6\}Z\)/http:\/\/'"${live_patching_repo_service}"'\/ubuntu\//g' ${source_list_path}
     # upgrade the old live patching repo service to the new one
     # e.g. replace http://10.224.0.5/ubuntu/ with http://10.224.0.6/ubuntu/
     sed -i 's/http:\/\/[0-9]\+.[0-9]\+.[0-9]\+.[0-9]\+\/ubuntu\//http:\/\/'"${live_patching_repo_service}"'\/ubuntu\//g' ${source_list_path}
+    # ignore repo in /etc/apt/sources.list.d
+    for f in /etc/apt/sources.list.d/*.list; do
+        if [ -f "$f" ]; then
+            mv "$f" "$f.backup"
+        fi
+    done
 fi
 
 # preserve the sources.list changes

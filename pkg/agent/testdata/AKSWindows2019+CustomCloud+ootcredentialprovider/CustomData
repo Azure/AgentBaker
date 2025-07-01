@@ -138,6 +138,7 @@ $global:VNetCNIPluginsURL = "https://acs-mirror.azureedge.net/azure-cni/v1.1.3/b
 $global:IsDualStackEnabled = $false
 $global:IsAzureCNIOverlayEnabled = $false
 $global:CiliumDataplaneEnabled = $false
+$global:IsIMDSRestrictionEnabled = $false
 
 # Kubelet credential provider
 $global:CredentialProviderURL = "https://acs-mirror.azureedge.net/cloud-provider-azure/v1.29.0/binaries/azure-acr-credential-provider-windows-amd64-v1.29.0.tar.gz"
@@ -175,7 +176,7 @@ $global:TLSBootstrapToken = ""
 $global:IsDisableWindowsOutboundNat = [System.Convert]::ToBoolean("false");
 
 # Base64 representation of ZIP archive
-$zippedFiles = "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"
+$zippedFiles = "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"
 
 $global:KubeClusterConfigPath = "c:\k\kubeclusterconfig.json"
 $fipsEnabled = [System.Convert]::ToBoolean("false")
@@ -218,17 +219,28 @@ try
     Write-Log "private egress proxy address is '$global:PrivateEgressProxyAddress'"
     # TODO update to use proxy
 
-    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.52.zip"
-    Write-Log "CSEScriptsPackageUrl is $global:CSEScriptsPackageUrl"
-    Write-Log "WindowsCSEScriptsPackage is $WindowsCSEScriptsPackage"
-    # Old AKS RP sets the full URL (https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.11.zip) in CSEScriptsPackageUrl
-    # but it is better to set the CSE package version in Windows CSE in AgentBaker
-    # since most changes in CSE package also need the change in Windows CSE in AgentBaker
-    # In future, AKS RP only sets the endpoint with the pacakge name, for example, https://acs-mirror.azureedge.net/aks/windows/cse/
+    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-current.zip"
+    # CSEScriptsPackage is cached on VHD. Previously the cse package version was managed in components.json, whereas RP set the package URL which is a storage account.
+    # From 2025-06 The CSE packages is eleased on the VHD. RP can use fully qualified URL to download CSE scripts package when required out of VHD release cycle. 
+    # In the transition period, it is important that when deal with older VHD versions, the agentbaker runtime provision script needs to be compatible with the latest known storage account package, 0.0.52.
+    Write-Log "Requested CSEScriptsPackageUrl is $global:CSEScriptsPackageUrl"
     if ($global:CSEScriptsPackageUrl.EndsWith("/")) {
+        $search = @()
+        if ($global:CacheDir -and (Test-Path $global:CacheDir)) {
+            $search = [IO.Directory]::GetFiles($global:CacheDir, $WindowsCSEScriptsPackage, [IO.SearchOption]::AllDirectories)
+            # list files in the cache directory. 
+            Write-Log "the directory $global:CacheDir contains the following files:"
+            Get-ChildItem -Path $global:CacheDir | ForEach-Object { Write-Log "  $_" }
+        }
+ 
+        if ($search.Count -eq 0) {
+            Write-Log "Could not find windows cse package on VHD. Use remote version instead."
+            $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.52.zip"
+        }
+        Write-Log "WindowsCSEScriptsPackage is $WindowsCSEScriptsPackage"
         $global:CSEScriptsPackageUrl = $global:CSEScriptsPackageUrl + $WindowsCSEScriptsPackage
-        Write-Log "CSEScriptsPackageUrl is set to $global:CSEScriptsPackageUrl"
     }
+    Write-Log "CSEScriptsPackageUrl used for provision is $global:CSEScriptsPackageUrl"
 
     # Download CSE function scripts
     Logs-To-Event -TaskName "AKS.WindowsCSE.DownloadAndExpandCSEScriptPackageUrl" -TaskMessage "Start to get CSE scripts. CSEScriptsPackageUrl: $global:CSEScriptsPackageUrl"
@@ -236,7 +248,7 @@ try
     DownloadFileOverHttp -Url $global:CSEScriptsPackageUrl -DestinationPath $tempfile -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CSE_PACKAGE
     Expand-Archive $tempfile -DestinationPath "C:\\AzureData\\windows" -Force
     Remove-Item -Path $tempfile -Force
-    
+
     # Dot-source cse scripts with functions that are called in this script
     . c:\AzureData\windows\azurecnifunc.ps1
     . c:\AzureData\windows\calicofunc.ps1
@@ -256,11 +268,11 @@ try
     Set-TelemetrySetting -WindowsTelemetryGUID $global:WindowsTelemetryGUID
 
     Resize-OSDrive
-    
+
     Initialize-DataDisks
-    
+
     Initialize-DataDirectories
-    
+
     Logs-To-Event -TaskName "AKS.WindowsCSE.GetProvisioningAndLogCollectionScripts" -TaskMessage "Start to get provisioning scripts and log collection scripts"
     Create-Directory -FullPath "c:\k"
     Write-Log "Remove `"NT AUTHORITY\Authenticated Users`" write permissions on files in c:\k"
@@ -276,13 +288,13 @@ try
     # NOTE: this function MUST be called before Write-KubeClusterConfig since it has the potential
     # to mutate both kubelet config args and kubelet node labels.
     Configure-KubeletServingCertificateRotation
-    
+
     Write-KubeClusterConfig -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp
 
-    Install-CredentialProvider -KubeDir $global:KubeDir -CustomCloudContainerRegistryDNSSuffix ".azurecr.microsoft.fakecustomcloud" 
+    Install-CredentialProvider -KubeDir $global:KubeDir -CustomCloudContainerRegistryDNSSuffix ".azurecr.microsoft.fakecustomcloud"
 
     Get-KubePackage -KubeBinariesSASURL $global:KubeBinariesPackageSASURL
-    
+
     $cniBinPath = $global:AzureCNIBinDir
     $cniConfigPath = $global:AzureCNIConfDir
     if ($global:NetworkPlugin -eq "kubenet") {
@@ -291,9 +303,9 @@ try
     }
 
     Install-Containerd-Based-On-Kubernetes-Version -ContainerdUrl $global:ContainerdUrl -CNIBinDir $cniBinPath -CNIConfDir $cniConfigPath -KubeDir $global:KubeDir -KubernetesVersion $global:KubeBinariesVersion
-    
+
     Retag-ImagesForAzureChinaCloud -TargetEnvironment $TargetEnvironment
-    
+
     # For AKSClustomCloud, TargetEnvironment must be set to AzureStackCloud
     Write-AzureConfig `
         -KubeDir $global:KubeDir `
@@ -315,10 +327,10 @@ try
         -UseInstanceMetadata $global:UseInstanceMetadata `
         -LoadBalancerSku $global:LoadBalancerSku `
         -ExcludeMasterFromStandardLB $global:ExcludeMasterFromStandardLB `
-        -TargetEnvironment "AzureStackCloud" 
+        -TargetEnvironment "AzureStackCloud"
 
-    # we borrow the logic of AzureStackCloud to achieve AKSCustomCloud. 
-    # In case of AKSCustomCloud, customer cloud env will be loaded from azurestackcloud.json 
+    # we borrow the logic of AzureStackCloud to achieve AKSCustomCloud.
+    # In case of AKSCustomCloud, customer cloud env will be loaded from azurestackcloud.json
     
     $azureStackConfigFile = [io.path]::Combine($global:KubeDir, "azurestackcloud.json")
     $envJSON = "eyJuYW1lIjoiQXp1cmVTdGFja0Nsb3VkIiwiTmFtZSI6IkF6dXJlU3RhY2tDbG91ZCIsIm1jclVSTCI6Im1jci5taWNyb3NvZnQuZmFrZWN1c3RvbWNsb3VkIiwicmVwb0RlcG90RW5kcG9pbnQiOiJodHRwczovL3JlcG9kZXBvdC5henVyZS5taWNyb3NvZnQuZmFrZWN1c3RvbWNsb3VkL3VidW50dSIsIm1hbmFnZW1lbnRQb3J0YWxVUkwiOiJodHRwczovL3BvcnRhbC5henVyZS5taWNyb3NvZnQuZmFrZWN1c3RvbWNsb3VkLyIsInNlcnZpY2VNYW5hZ2VtZW50RW5kcG9pbnQiOiJodHRwczovL21hbmFnZW1lbnQuY29yZS5taWNyb3NvZnQuZmFrZWN1c3RvbWNsb3VkLyIsInJlc291cmNlTWFuYWdlckVuZHBvaW50IjoiaHR0cHM6Ly9tYW5hZ2VtZW50LmF6dXJlLm1pY3Jvc29mdC5mYWtlY3VzdG9tY2xvdWQvIiwiYWN0aXZlRGlyZWN0b3J5RW5kcG9pbnQiOiJodHRwczovL2xvZ2luLm1pY3Jvc29mdG9ubGluZS5taWNyb3NvZnQuZmFrZWN1c3RvbWNsb3VkLyIsImtleVZhdWx0RW5kcG9pbnQiOiJodHRwczovL3ZhdWx0LmNsb3VkYXBpLm1pY3Jvc29mdC5mYWtlY3VzdG9tY2xvdWQvIiwiZ3JhcGhFbmRwb2ludCI6Imh0dHBzOi8vZ3JhcGguY2xvdWRhcGkubWljcm9zb2Z0LmZha2VjdXN0b21jbG91ZC8iLCJzdG9yYWdlRW5kcG9pbnRTdWZmaXgiOiJjb3JlLm1pY3Jvc29mdC5mYWtlY3VzdG9tY2xvdWQiLCJzcWxEYXRhYmFzZUROU1N1ZmZpeCI6ImRhdGFiYXNlLmNsb3VkYXBpLm1pY3Jvc29mdC5mYWtlY3VzdG9tY2xvdWQiLCJrZXlWYXVsdEROU1N1ZmZpeCI6InZhdWx0LmNsb3VkYXBpLm1pY3Jvc29mdC5mYWtlY3VzdG9tY2xvdWQiLCJyZXNvdXJjZU1hbmFnZXJWTUROU1N1ZmZpeCI6ImNsb3VkYXBwLmF6dXJlLm1pY3Jvc29mdC5mYWtlY3VzdG9tY2xvdWQvIiwiY29udGFpbmVyUmVnaXN0cnlETlNTdWZmaXgiOiIuYXp1cmVjci5taWNyb3NvZnQuZmFrZWN1c3RvbWNsb3VkIiwiY29zbW9zREJETlNTdWZmaXgiOiJkb2N1bWVudHMuY29yZS5taWNyb3NvZnQuZmFrZWN1c3RvbWNsb3VkLyIsInRva2VuQXVkaWVuY2UiOiJodHRwczovL21hbmFnZW1lbnQuY29yZS5taWNyb3NvZnQuZmFrZWN1c3RvbWNsb3VkLyIsInJlc291cmNlSWRlbnRpZmllcnMiOnt9fQ=="
@@ -329,7 +341,7 @@ try
 
     Write-CACert -CACertificate $global:CACertificate `
         -KubeDir $global:KubeDir
-    
+
     if ($global:EnableCsiProxy) {
         New-CsiProxyService -CsiProxyPackageUrl $global:CsiProxyUrl -KubeDir $global:KubeDir
     }
@@ -340,7 +352,7 @@ try
             -MasterFQDNPrefix $MasterFQDNPrefix `
             -MasterIP $MasterIP `
             -TLSBootstrapToken $global:TLSBootstrapToken
-        
+
         # NOTE: we need kubeconfig to setup calico even if TLS bootstrapping is enabled
         #       This kubeconfig will deleted after calico installation.
         # TODO(hbc): once TLS bootstrap is fully enabled, remove this if block
@@ -355,7 +367,7 @@ try
         -MasterIP $MasterIP `
         -AgentKey $AgentKey `
         -AgentCertificate $global:AgentCertificate
-    
+
     if ($global:EnableHostsConfigAgent) {
         New-HostsConfigService
     }
@@ -365,11 +377,11 @@ try
     # Configure network policy.
     Get-HnsPsm1 -HNSModule $global:HNSModule
     Import-Module $global:HNSModule
-    
+
     Install-VnetPlugins -AzureCNIConfDir $global:AzureCNIConfDir `
         -AzureCNIBinDir $global:AzureCNIBinDir `
         -VNetCNIPluginsURL $global:VNetCNIPluginsURL
-    
+
     Set-AzureCNIConfig -AzureCNIConfDir $global:AzureCNIConfDir `
         -KubeDnsSearchPath $global:KubeDnsSearchPath `
         -KubeClusterCIDR $global:KubeClusterCIDR `
@@ -377,8 +389,8 @@ try
         -VNetCIDR $global:VNetCIDR `
         -IsDualStackEnabled $global:IsDualStackEnabled `
         -IsAzureCNIOverlayEnabled $global:IsAzureCNIOverlayEnabled
-        
-    
+
+
     if ($TargetEnvironment -ieq "AzureStackCloud") {
         GenerateAzureStackCNIConfig `
             -TenantId $global:TenantId `
@@ -393,7 +405,7 @@ try
     }
 
     New-ExternalHnsNetwork -IsDualStackEnabled $global:IsDualStackEnabled
-    
+
     Install-KubernetesServices `
         -KubeDir $global:KubeDir
 
@@ -433,7 +445,7 @@ try
     }
 
     Start-InstallGPUDriver -EnableInstall $global:ConfigGPUDriverIfNeeded -GpuDriverURL $global:GpuDriverURL
-    
+
     if (Test-Path $CacheDir)
     {
         Write-Log "Removing aks cache directory"
@@ -482,7 +494,7 @@ finally
     $ExecutionDuration=$(New-Timespan -Start $StartTime -End $(Get-Date))
     Write-Log "CSE ExecutionDuration: $ExecutionDuration. ExitCode: $global:ExitCode"
 
-    Logs-To-Event -TaskName "AKS.WindowsCSE.cse_main" -TaskMessage "ExitCode: $global:ExitCode. ErrorMessage: $global:ErrorMessage." 
+    Logs-To-Event -TaskName "AKS.WindowsCSE.cse_main" -TaskMessage "ExitCode: $global:ExitCode. ErrorMessage: $global:ErrorMessage."
 
     # $CSEResultFilePath is used to avoid running CSE multiple times
     if ($global:ExitCode -ne 0) {

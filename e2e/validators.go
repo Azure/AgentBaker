@@ -18,6 +18,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 func ValidateDirectoryContent(ctx context.Context, s *Scenario, path string, files []string) {
@@ -339,43 +340,12 @@ func ValidateMultipleKubeProxyVersionsExist(ctx context.Context, s *Scenario) {
 	}
 }
 
-func ValidateContainerdWASMShims(ctx context.Context, s *Scenario) {
-	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo cat /etc/containerd/config.toml", 0, "could not get containerd config content")
-	expectedShims := []string{
-		`[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin]`,
-		`runtime_type = "io.containerd.spin.v2"`,
-		`[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight]`,
-		`runtime_type = "io.containerd.slight-v0-3-0.v1"`,
-		`[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin-v0-3-0]`,
-		`runtime_type = "io.containerd.spin-v0-3-0.v1"`,
-		`[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight-v0-3-0]`,
-		`runtime_type = "io.containerd.slight-v0-3-0.v1"`,
-		`[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin-v0-5-1]`,
-		`runtime_type = "io.containerd.spin-v0-5-1.v1"`,
-		`[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight-v0-5-1]`,
-		`runtime_type = "io.containerd.slight-v0-5-1.v1"`,
-		`[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin-v0-8-0]`,
-		`runtime_type = "io.containerd.spin-v0-8-0.v1"`,
-		`[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight-v0-8-0]`,
-		`runtime_type = "io.containerd.slight-v0-8-0.v1"`,
-		`[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.wws-v0-8-0]`,
-		`runtime_type = "io.containerd.wws-v0-8-0.v1"`,
-		`[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin-v0-15-1]`,
-		`runtime_type = "io.containerd.spin.v2"`,
-	}
-	for i := 0; i < len(expectedShims); i += 2 {
-		section := expectedShims[i]
-		runtimeType := expectedShims[i+1]
-		require.Contains(s.T, execResult.stdout.String(), section, "expected to find section in containerd config.toml, but it was not found")
-		require.Contains(s.T, execResult.stdout.String(), runtimeType, "expected to find section in containerd config.toml, but it was not found")
-	}
-}
-
 func ValidateKubeletHasNotStopped(ctx context.Context, s *Scenario) {
 	command := "sudo journalctl -u kubelet"
 	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0, "could not retrieve kubelet logs with journalctl")
-	assert.NotContains(s.T, execResult.stdout.String(), "Stopped Kubelet")
-	assert.Contains(s.T, execResult.stdout.String(), "Started Kubelet")
+	stdout := strings.ToLower(execResult.stdout.String())
+	assert.NotContains(s.T, stdout, "stopped kubelet")
+	assert.Contains(s.T, stdout, "started kubelet")
 }
 
 func ValidateServicesDoNotRestartKubelet(ctx context.Context, s *Scenario) {
@@ -587,4 +557,63 @@ func ValidateLocalDNSResolution(ctx context.Context, s *Scenario) {
 	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0, "dns resolution failed")
 	assert.Contains(s.T, execResult.stdout.String(), "status: NOERROR")
 	assert.Contains(s.T, execResult.stdout.String(), "SERVER: 169.254.10.10")
+}
+
+// ValidateJournalctlOutput checks if specific content exists in the systemd service logs
+func ValidateJournalctlOutput(ctx context.Context, s *Scenario, serviceName string, expectedContent string) {
+	command := []string{
+		"set -ex",
+		// Get the service logs and check for the expected content
+		fmt.Sprintf("sudo journalctl -u %s | grep -q '%s'", serviceName, expectedContent),
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
+		fmt.Sprintf("expected content '%s' not found in %s service logs", expectedContent, serviceName))
+}
+
+func ValidateNodeProblemDetector(ctx context.Context, s *Scenario) {
+	command := []string{
+		"set -ex",
+		// Verify node-problem-detector service is running
+		"systemctl is-active node-problem-detector",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "Node Problem Detector (NPD) service validation failed")
+}
+
+func ValidateNPDFilesystemCorruption(ctx context.Context, s *Scenario) {
+	command := []string{
+		"set -ex",
+		// Check if the filesystem corruption monitor NPD plugin configuration file exists
+		"test -f /etc/node-problem-detector.d/custom-plugin-monitor/custom-fs-corruption-monitor.json",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "NPD Custom Plugin configuration for FilesystemCorruptionProblem not found")
+
+	command = []string{
+		"set -ex",
+		// Simulate a filesystem corruption problem
+		"sudo systemd-run --unit=docker --no-block bash -c 'echo \"structure needs cleaning\"'",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "Failed to simulate filesystem corruption problem")
+
+	// Wait for NPD to detect the problem using Kubernetes native waiting
+	var filesystemCorruptionProblem *corev1.NodeCondition
+	err := wait.PollUntilContextTimeout(ctx, 10*time.Second, 6*time.Minute, true, func(ctx context.Context) (bool, error) {
+		node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.KubeNodeName, metav1.GetOptions{})
+		if err != nil {
+			s.T.Logf("Failed to get node %q: %v", s.Runtime.KubeNodeName, err)
+			return false, nil // Continue polling on transient errors
+		}
+
+		for i := range node.Status.Conditions {
+			if node.Status.Conditions[i].Type == "FilesystemCorruptionProblem" && node.Status.Conditions[i].Reason == "FilesystemCorruptionDetected" {
+				filesystemCorruptionProblem = &node.Status.Conditions[i]
+				return true, nil
+			}
+		}
+		return false, nil // Continue polling
+	})
+	require.NoError(s.T, err, "timed out waiting for FilesystemCorruptionProblem condition to appear on node %q", s.Runtime.KubeNodeName)
+
+	require.NotNil(s.T, filesystemCorruptionProblem, "expected FilesystemCorruptionProblem condition to be present on node")
+	require.Equal(s.T, corev1.ConditionTrue, filesystemCorruptionProblem.Status, "expected FilesystemCorruptionProblem condition to be True on node")
+	require.Contains(s.T, filesystemCorruptionProblem.Message, "Found 'structure needs cleaning' in Docker journal.", "expected FilesystemCorruptionProblem condition message to contain: Found 'structure needs cleaning' in Docker journal.")
 }

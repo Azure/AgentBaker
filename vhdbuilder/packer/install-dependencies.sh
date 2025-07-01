@@ -4,6 +4,7 @@ UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
 MARINER_KATA_OS_NAME="MARINERKATA"
 AZURELINUX_OS_NAME="AZURELINUX"
+AZURELINUX_KATA_OS_NAME="AZURELINUXKATA"
 
 # Real world examples from the command outputs
 # For Azure Linux V3: ID=azurelinux VERSION_ID="3.0"
@@ -130,6 +131,9 @@ if ! isMarinerOrAzureLinux "$OS"; then
 fi
 capture_benchmark "${SCRIPT_NAME}_validate_container_runtime_and_override_ubuntu_net_config"
 
+# Configure SSH service during VHD build for Ubuntu 22.10+
+configureSSHService "$OS" "$OS_VERSION" || echo "##vso[task.logissue type=warning]SSH Service configuration failed, but continuing VHD build"
+
 CONTAINERD_SERVICE_DIR="/etc/systemd/system/containerd.service.d"
 mkdir -p "${CONTAINERD_SERVICE_DIR}"
 tee "${CONTAINERD_SERVICE_DIR}/exec_start.conf" > /dev/null <<EOF
@@ -216,7 +220,9 @@ if isMarinerOrAzureLinux "$OS"; then
     overrideNetworkConfig || exit 1
     if grep -q "kata" <<< "$FEATURE_FLAGS"; then
       installKataDeps
-      enableMarinerKata
+      if [ "${OS}" != "3.0" ]; then
+        enableMarinerKata
+      fi
     fi
     disableTimesyncd
     disableDNFAutomatic
@@ -285,8 +291,17 @@ while IFS= read -r p; do
   name=$(echo "${p}" | jq .name -r)
   PACKAGE_VERSIONS=()
   os=${OS}
-  if isMarinerOrAzureLinux "${OS}" && [ "${IS_KATA}" = "true" ]; then
+  # TODO(mheberling): Remove this once kata uses standard containerd. This OS is referenced
+  # in file `parts/common/component.json` with the same ${MARINER_KATA_OS_NAME}.
+  if isMariner "${OS}" && [ "${IS_KATA}" = "true" ]; then
+    # This is temporary for kata-cc because it uses a modified version of containerd and 
+    # name is referenced in parts/common.json marinerkata.
     os=${MARINER_KATA_OS_NAME}
+  fi
+  if isAzureLinux "${OS}" && [ "${IS_KATA}" = "true" ]; then
+    # This is temporary for kata-cc because it uses a modified version of containerd and 
+    # name is referenced in parts/common.json azurelinuxkata.
+    os=${AZURELINUX_KATA_OS_NAME}
   fi
   updatePackageVersions "${p}" "${os}" "${OS_VERSION}"
   PACKAGE_DOWNLOAD_URL=""
@@ -348,6 +363,14 @@ while IFS= read -r p; do
         echo "  - oras version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
+    "aks-secure-tls-bootstrap-client")
+      for version in ${PACKAGE_VERSIONS[@]}; do
+        # removed at provisioning time if secure TLS bootstrapping is disabled
+        evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+        downloadSecureTLSBootstrapClient "${downloadDir}" "${evaluatedURL}" "${version}"
+        echo "  - aks-secure-tls-bootstrap-client version ${version}" >> ${VHD_LOGS_FILEPATH}
+      done
+      ;;
     "azure-acr-credential-provider")
       for version in ${PACKAGE_VERSIONS[@]}; do
         evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
@@ -355,14 +378,6 @@ while IFS= read -r p; do
         echo "  - azure-acr-credential-provider version ${version}" >> ${VHD_LOGS_FILEPATH}
         # ORAS will be used to install other packages for network isolated clusters, it must go first.
       done
-      ;;
-    "containerd-wasm-shims")
-      installContainerdWasmShims "${downloadDir}" "${PACKAGE_DOWNLOAD_URL}" "${PACKAGE_VERSIONS[@]}"
-      echo "  - containerd-wasm-shims version ${PACKAGE_VERSIONS[@]}" >> ${VHD_LOGS_FILEPATH}
-      ;;
-    "spinkube")
-      installSpinKube "${downloadDir}" "${PACKAGE_DOWNLOAD_URL}" "${PACKAGE_VERSIONS[@]}"
-      echo "  - spinkube version ${PACKAGE_VERSIONS[@]}" >> ${VHD_LOGS_FILEPATH}
       ;;
     "kubernetes-binaries")
       # kubelet and kubectl
@@ -390,7 +405,7 @@ installAndConfigureArtifactStreaming() {
   # arguments: package name, package extension
   PACKAGE_NAME=$1
   PACKAGE_EXTENSION=$2
-  MIRROR_PROXY_VERSION='0.2.11'
+  MIRROR_PROXY_VERSION='0.2.12'
   MIRROR_DOWNLOAD_PATH="./$1.$2"
   MIRROR_PROXY_URL="https://acrstreamingpackage.blob.core.windows.net/bin/${MIRROR_PROXY_VERSION}/${PACKAGE_NAME}.${PACKAGE_EXTENSION}"
   retrycmd_curl_file 10 5 60 $MIRROR_DOWNLOAD_PATH $MIRROR_PROXY_URL || exit ${ERR_ARTIFACT_STREAMING_DOWNLOAD}
@@ -532,26 +547,49 @@ while IFS= read -r imageToBePulled; do
 done <<< "$ContainerImages"
 echo "Waiting for container image pulls to finish. PID: ${image_pids[@]}"
 wait ${image_pids[@]}
+capture_benchmark "${SCRIPT_NAME}_caching_container_images"
 
-watcher=$(jq '.ContainerImages[] | select(.downloadURL | contains("aks-node-ca-watcher"))' $COMPONENTS_FILEPATH)
-watcherBaseImg=$(echo $watcher | jq -r .downloadURL)
-watcherVersion=$(echo $watcher | jq -r .multiArchVersionsV2[0].latestVersion)
-watcherFullImg=${watcherBaseImg//\*/$watcherVersion}
+retagAKSNodeCAWatcher() {
+  # This function retags the aks-node-ca-watcher image to a static tag
+  # The static tag is used to bootstrap custom CA trust when MCR egress may be intercepted by an untrusted TLS MITM firewall.
+  # The image is never pulled, it is only retagged.
 
-# this image will never get pulled, the tag must be the same across different SHAs.
-# it will only ever be upgraded via node image changes.
-# we do this because the image is used to bootstrap custom CA trust when MCR egress
-# may be intercepted by an untrusted TLS MITM firewall.
-watcherStaticImg=${watcherBaseImg//\*/static}
+  watcher=$(jq '.ContainerImages[] | select(.downloadURL | contains("aks-node-ca-watcher"))' $COMPONENTS_FILEPATH)
+  watcherBaseImg=$(echo $watcher | jq -r .downloadURL)
+  watcherVersion=$(echo $watcher | jq -r .multiArchVersionsV2[0].latestVersion)
+  watcherFullImg=${watcherBaseImg//\*/$watcherVersion}
 
-# can't use cliTool because crictl doesn't support retagging.
-retagContainerImage "ctr" ${watcherFullImg} ${watcherStaticImg}
+  # this image will never get pulled, the tag must be the same across different SHAs.
+  # it will only ever be upgraded via node image changes.
+  # we do this because the image is used to bootstrap custom CA trust when MCR egress
+  # may be intercepted by an untrusted TLS MITM firewall.
+  watcherStaticImg=${watcherBaseImg//\*/static}
+
+  # can't use $cliTool variable because crictl doesn't support retagging.
+  retagContainerImage "ctr" ${watcherFullImg} ${watcherStaticImg}
+}
+retagAKSNodeCAWatcher
+capture_benchmark "${SCRIPT_NAME}_retag_aks_node_ca_watcher"
+
+pinPodSandboxImage() {
+  # This function pins the pod sandbox image to avoid Kubelet's Garbage Collector (GC) from removing it.
+  # This is achieved by setting the "io.cri-containerd.pinned" label on the image with a value of "pinned".
+  # This image is critical for pod startup and it isn't supported with private ACR since containerd won't be using azure-acr-credential to fetch it.
+
+  podSandbox=$(jq '.ContainerImages[] | select(.downloadURL | contains("pause"))' $COMPONENTS_FILEPATH)
+  podSandboxBaseImg=$(echo $podSandbox | jq -r .downloadURL)
+  podSandboxVersion=$(echo $podSandbox | jq -r .multiArchVersionsV2[0].latestVersion)
+  podSandboxFullImg=${podSandboxBaseImg//\*/$podSandboxVersion}
+
+  labelContainerImage ${podSandboxFullImg} "io.cri-containerd.pinned" "pinned"
+}
+pinPodSandboxImage
+capture_benchmark "${SCRIPT_NAME}_pin_pod_sandbox_image"
 
 # IPv6 nftables rules are only available on Ubuntu or Mariner/AzureLinux
 if [ $OS = $UBUNTU_OS_NAME ] || isMarinerOrAzureLinux "$OS"; then
   systemctlEnableAndStart ipv6_nftables 30 || exit 1
 fi
-capture_benchmark "${SCRIPT_NAME}_pull_and_retag_container_images"
 
 mkdir -p /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events
 

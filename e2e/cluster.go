@@ -29,20 +29,32 @@ import (
 )
 
 var (
-	clusterKubenet              *Cluster
-	clusterKubenetAirgap        *Cluster
-	clusterKubenetNonAnonAirgap *Cluster
-	clusterAzureNetwork         *Cluster
+	clusterLatestKubernetesVersion      *Cluster
+	clusterKubenet                      *Cluster
+	clusterKubenetAirgap                *Cluster
+	clusterKubenetNonAnonAirgap         *Cluster
+	clusterAzureNetwork                 *Cluster
+	clusterAzureOverlayNetwork          *Cluster
+	clusterAzureOverlayNetworkDualStack *Cluster
+	clusterCiliumNetwork                *Cluster
 
-	clusterKubenetError              error
-	clusterKubenetAirgapError        error
-	clusterKubenetNonAnonAirgapError error
-	clusterAzureNetworkError         error
+	clusterLatestKubernetesVersionError      error
+	clusterKubenetError                      error
+	clusterKubenetAirgapError                error
+	clusterKubenetNonAnonAirgapError         error
+	clusterAzureNetworkError                 error
+	clusterAzureOverlayNetworkError          error
+	clusterAzureOverlayNetworkDualStackError error
+	clusterCiliumNetworkError                error
 
-	clusterKubenetOnce              sync.Once
-	clusterKubenetAirgapOnce        sync.Once
-	clusterKubenetNonAnonAirgapOnce sync.Once
-	clusterAzureNetworkOnce         sync.Once
+	clusterLatestKubernetesVersionOnce      sync.Once
+	clusterKubenetOnce                      sync.Once
+	clusterKubenetAirgapOnce                sync.Once
+	clusterKubenetNonAnonAirgapOnce         sync.Once
+	clusterAzureNetworkOnce                 sync.Once
+	clusterAzureOverlayNetworkOnce          sync.Once
+	clusterAzureOverlayNetworkDualStackOnce sync.Once
+	clusterCiliumNetworkOnce                sync.Once
 )
 
 type ClusterParams struct {
@@ -78,6 +90,18 @@ func (c *Cluster) MaxPodsPerNode() (int, error) {
 
 // Same cluster can be attempted to be created concurrently by different tests
 // sync.Once is used to ensure that only one cluster for the set of tests is created
+
+func ClusterLatestKubernetesVersion(ctx context.Context, t *testing.T) (*Cluster, error) {
+	clusterLatestKubernetesVersionOnce.Do(func() {
+		model, error := getLatestKubernetesVersionClusterModel("abe2e-latest-kubernetes-version", t)
+		if error != nil {
+			t.Fatalf("failed to get latest kubernetes version cluster model: %v", error)
+		}
+		clusterLatestKubernetesVersion, clusterLatestKubernetesVersionError = prepareCluster(ctx, t, model, false, false)
+	})
+	return clusterLatestKubernetesVersion, clusterLatestKubernetesVersionError
+}
+
 func ClusterKubenet(ctx context.Context, t *testing.T) (*Cluster, error) {
 	clusterKubenetOnce.Do(func() {
 		clusterKubenet, clusterKubenetError = prepareCluster(ctx, t, getKubenetClusterModel("abe2e-kubenet"), false, false)
@@ -106,6 +130,27 @@ func ClusterAzureNetwork(ctx context.Context, t *testing.T) (*Cluster, error) {
 	return clusterAzureNetwork, clusterAzureNetworkError
 }
 
+func ClusterAzureOverlayNetwork(ctx context.Context, t *testing.T) (*Cluster, error) {
+	clusterAzureOverlayNetworkOnce.Do(func() {
+		clusterAzureOverlayNetwork, clusterAzureOverlayNetworkError = prepareCluster(ctx, t, getAzureOverlayNetworkClusterModel("abe2e-azure-overlay-network"), false, false)
+	})
+	return clusterAzureOverlayNetwork, clusterAzureOverlayNetworkError
+}
+
+func ClusterAzureOverlayNetworkDualStack(ctx context.Context, t *testing.T) (*Cluster, error) {
+	clusterAzureOverlayNetworkDualStackOnce.Do(func() {
+		clusterAzureOverlayNetworkDualStack, clusterAzureOverlayNetworkDualStackError = prepareCluster(ctx, t, getAzureOverlayNetworkDualStackClusterModel("abe2e-azure-overlay-dualstack"), false, false)
+	})
+	return clusterAzureOverlayNetworkDualStack, clusterAzureOverlayNetworkDualStackError
+}
+
+func ClusterCiliumNetwork(ctx context.Context, t *testing.T) (*Cluster, error) {
+	clusterCiliumNetworkOnce.Do(func() {
+		clusterCiliumNetwork, clusterCiliumNetworkError = prepareCluster(ctx, t, getCiliumNetworkClusterModel("abe2e-cilium-network"), false, false)
+	})
+	return clusterCiliumNetwork, clusterCiliumNetworkError
+}
+
 func prepareCluster(ctx context.Context, t *testing.T, cluster *armcontainerservice.ManagedCluster, isAirgap, isNonAnonymousPull bool) (*Cluster, error) {
 	ctx, cancel := context.WithTimeout(ctx, config.Config.TestTimeoutCluster)
 	defer cancel()
@@ -121,7 +166,7 @@ func prepareCluster(ctx context.Context, t *testing.T, cluster *armcontainerserv
 	}
 
 	t.Logf("node resource group: %s", *cluster.Properties.NodeResourceGroup)
-	subnetID, err := getClusterSubnetID(ctx, *cluster.Properties.NodeResourceGroup, t)
+	subnetID, err := getClusterSubnetID(ctx, *cluster.Properties.NodeResourceGroup)
 	if err != nil {
 		return nil, fmt.Errorf("get cluster subnet: %w", err)
 	}
@@ -136,6 +181,10 @@ func prepareCluster(ctx context.Context, t *testing.T, cluster *armcontainerserv
 		// private acr must be created before we add the debug daemonsets
 		if err := createPrivateAzureContainerRegistry(ctx, t, cluster, kube, config.ResourceGroupName, isNonAnonymousPull); err != nil {
 			return nil, fmt.Errorf("failed to create private acr: %w", err)
+		}
+
+		if err := createPrivateAzureContainerRegistryPullSecret(ctx, t, cluster, kube, config.ResourceGroupName, isNonAnonymousPull); err != nil {
+			return nil, fmt.Errorf("create private acr pull secret: %w", err)
 		}
 
 		if err := addAirgapNetworkSettings(ctx, t, cluster, config.GetPrivateACRName(isNonAnonymousPull)); err != nil {
@@ -427,10 +476,9 @@ func createNewMaintenanceConfiguration(ctx context.Context, t *testing.T, cluste
 				StartTime:     to.Ptr("00:00"),  //PST
 				UTCOffset:     to.Ptr("+08:00"), //PST
 				Schedule: &armcontainerservice.Schedule{
-					RelativeMonthly: &armcontainerservice.RelativeMonthlySchedule{
-						DayOfWeek:      to.Ptr(armcontainerservice.WeekDayMonday),
-						IntervalMonths: to.Ptr[int32](3),
-						WeekIndex:      to.Ptr(armcontainerservice.TypeFirst),
+					Weekly: &armcontainerservice.WeeklySchedule{
+						DayOfWeek:     to.Ptr(armcontainerservice.WeekDayMonday),
+						IntervalWeeks: to.Ptr[int32](4),
 					},
 				},
 			},

@@ -3,8 +3,31 @@
 set -o nounset
 set -e
 
-# source dnf_update
-source /opt/azure/containers/provision_source_distro.sh
+dnf_update() {
+    retries=10
+    dnf_update_output=/tmp/dnf-update.out
+    versionID=$(grep '^VERSION_ID=' /etc/os-release  | cut -d'=' -f2 | tr -d '"')
+    if [ "${versionID}" = "3.0" ]; then
+        repo_list=(--repo azurelinux-official-base --repo azurelinux-official-ms-non-oss --repo azurelinux-official-ms-oss --repo azurelinux-official-nvidia) 
+    else
+        repo_list=(--repo mariner-official-base --repo mariner-official-microsoft --repo mariner-official-extras --repo mariner-official-nvidia) 
+    fi
+    for i in $(seq 1 $retries); do
+        ! (dnf update \
+            --exclude mshv-linuxloader \
+            --exclude kernel-mshv \
+            "${repo_list[@]}" \
+            -y --refresh 2>&1 | tee $dnf_update_output | grep -E "^([WE]:.*)|([eE]rr.*)$") && \
+        cat $dnf_update_output && break || \
+        cat $dnf_update_output
+
+        if [ $i -eq $retries ]; then
+        return 1
+        else sleep 5
+        fi
+    done
+    echo Executed dnf update -y --refresh $i times
+}
 
 KUBECTL="/usr/local/bin/kubectl --kubeconfig /var/lib/kubelet/kubeconfig"
 

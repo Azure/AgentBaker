@@ -20,7 +20,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -107,9 +106,25 @@ func (k *Kubeclient) WaitUntilPodRunning(ctx context.Context, t *testing.T, name
 			}
 			if pod != nil {
 				logPodDebugInfo(ctx, k, pod, t)
+
+				// Annoyingly, when a pod sandbox is failed to create, the pod is left in Pending state and no events are sent
+				// to the ResultChan from the watcher below.
+				// The lack of events means we can't abort in the case statement below. So we have to check here
+				// for the FailedCreatePodSandBox event manually.
+				events, err := k.Typed.CoreV1().Events(pod.Namespace).List(ctx, metav1.ListOptions{FieldSelector: "involvedObject.name=" + pod.Name})
+				if err == nil {
+					for _, event := range events.Items {
+						if event.Reason == "FailedCreatePodSandBox" {
+							return nil, fmt.Errorf("pod %s has FailedCreatePodSandBox event: %s", pod.Name, event.Message)
+						}
+					}
+				}
 			}
 		case event := <-watcher.ResultChan():
 			if event.Type != "ADDED" && event.Type != "MODIFIED" {
+				if event.Type != "" {
+					t.Logf("skipping event %s", event.Type)
+				}
 				continue
 			}
 			pod = event.Object.(*corev1.Pod)
@@ -122,6 +137,9 @@ func (k *Kubeclient) WaitUntilPodRunning(ctx context.Context, t *testing.T, name
 			}
 
 			switch pod.Status.Phase {
+			case corev1.PodFailed:
+				logPodDebugInfo(ctx, k, pod, t)
+				return nil, fmt.Errorf("pod %s is has failed", pod.Name)
 			case corev1.PodPending:
 				continue
 			case corev1.PodSucceeded:
@@ -316,7 +334,7 @@ func (k *Kubeclient) CreateDaemonset(ctx context.Context, ds *appsv1.DaemonSet) 
 	return nil
 }
 
-func (k *Kubeclient) createKubernetesSecret(ctx context.Context, t *testing.T, namespace, kubeconfigPath, secretName, registryName, username, password string) error {
+func (k *Kubeclient) createKubernetesSecret(ctx context.Context, t *testing.T, namespace, secretName, registryName, username, password string) error {
 	t.Logf("Creating Kubernetes secret %s in namespace %s", secretName, namespace)
 	clientset, err := kubernetes.NewForConfig(k.RESTConfig)
 	if err != nil {
@@ -436,7 +454,7 @@ func daemonsetDebug(t *testing.T, deploymentName, targetNodeLabel, privateACRNam
 	}
 }
 
-func getClusterSubnetID(ctx context.Context, mcResourceGroupName string, t *testing.T) (string, error) {
+func getClusterSubnetID(ctx context.Context, mcResourceGroupName string) (string, error) {
 	pager := config.Azure.VNet.NewListPager(mcResourceGroupName, nil)
 	for pager.More() {
 		nextResult, err := pager.NextPage(ctx)
@@ -510,66 +528,21 @@ func podHTTPServerLinux(s *Scenario) *corev1.Pod {
 	}
 }
 
-func podHTTPServerWindows(s *Scenario) *corev1.Pod {
+func podWindows(s *Scenario, podName string, imageName string) *corev1.Pod {
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-test-pod", s.Runtime.KubeNodeName),
+			Name:      fmt.Sprintf("%s-test-%s-pod", s.Runtime.KubeNodeName, podName),
 			Namespace: "default",
 		},
 		Spec: corev1.PodSpec{
 			Containers: []corev1.Container{
 				{
-					Name:  "iis-container",
-					Image: "mcr.microsoft.com/windows/servercore/iis",
-					Ports: []corev1.ContainerPort{
-						{
-							ContainerPort: 80,
-						},
-					},
-					ReadinessProbe: &corev1.Probe{
-						PeriodSeconds: 1,
-						ProbeHandler: corev1.ProbeHandler{
-							HTTPGet: &corev1.HTTPGetAction{
-								Path: "/",
-								Port: intstr.FromInt32(80),
-							},
-						},
-					},
+					Name:  podName,
+					Image: imageName,
 				},
 			},
 			NodeSelector: map[string]string{
 				"kubernetes.io/hostname": s.Runtime.KubeNodeName,
-			},
-		},
-	}
-}
-
-func podWASMSpin(s *Scenario) *corev1.Pod {
-	return &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-wasm-spin", s.Runtime.KubeNodeName),
-			Namespace: "default",
-		},
-		Spec: corev1.PodSpec{
-			NodeSelector: map[string]string{
-				"kubernetes.io/hostname": s.Runtime.KubeNodeName,
-			},
-			RuntimeClassName: to.Ptr("wasmtime-spin"),
-			Containers: []corev1.Container{
-				{
-					Name:    "spin-hello",
-					Image:   "ghcr.io/spinkube/containerd-shim-spin/examples/spin-rust-hello:v0.15.1",
-					Command: []string{"/"},
-					ReadinessProbe: &corev1.Probe{
-						PeriodSeconds: 1,
-						ProbeHandler: corev1.ProbeHandler{
-							HTTPGet: &corev1.HTTPGetAction{
-								Path: "/hello",
-								Port: intstr.FromInt32(80),
-							},
-						},
-					},
-				},
 			},
 		},
 	}
@@ -619,6 +592,9 @@ func nvidiaDevicePluginDaemonSet() *appsv1.DaemonSet {
 					},
 				},
 				Spec: corev1.PodSpec{
+					NodeSelector: map[string]string{
+						"kubernetes.io/os": "linux",
+					},
 					Tolerations: []corev1.Toleration{
 						{
 							Key:      "sku",

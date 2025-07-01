@@ -42,10 +42,12 @@ func createVMSS(ctx context.Context, s *Scenario) *armcompute.VirtualMachineScal
 	require.NoError(s.T, err)
 	var cse, customData string
 	if s.AKSNodeConfigMutator != nil {
+		s.T.Logf("creating VMSS %q with AKSNodeConfigMutator", s.Runtime.VMSSName)
 		cse = nodeconfigutils.CSE
 		customData, err = nodeconfigutils.CustomData(s.Runtime.AKSNodeConfig)
 		require.NoError(s.T, err)
 	} else {
+		s.T.Logf("creating VMSS %q with AKSNodeConfig", s.Runtime.VMSSName)
 		nodeBootstrapping, err = ab.GetNodeBootstrapping(ctx, s.Runtime.NBC)
 		require.NoError(s.T, err)
 		cse = nodeBootstrapping.CSE
@@ -178,6 +180,20 @@ $CollectedLogs=(Get-ChildItem . -Filter "*_logs.zip" -File)[0].Name
 .\azcopy.exe copy "C:\AzureData\provision.complete" "$arg1/provision.complete"
 .\azcopy.exe copy "C:\k\kubelet.err.log" "$arg1/kubelet.err.log"
 .\azcopy.exe copy "C:\k\containerd.err.log" "$arg1/containerd.err.log"
+
+# Collect network configuration information
+ipconfig /all > network_config.txt
+Get-NetIPConfiguration -Detailed >> network_config.txt
+Get-NetAdapter | Format-Table -AutoSize >> network_config.txt
+Get-DnsClientServerAddress >> network_config.txt
+Get-NetRoute >> network_config.txt
+Get-NetNat >> network_config.txt
+Get-NetIPAddress >> network_config.txt
+Get-NetNeighbor >> network_config.txt
+Get-NetConnectionProfile >> network_config.txt
+hnsdiag list networks >> network_config.txt
+hnsdiag list endpoints >> network_config.txt
+.\azcopy.exe copy "network_config.txt" "$arg1/network_config.txt"
 `
 
 // extractLogsFromVMWindows runs a script on windows VM to collect logs and upload them to a blob storage
@@ -280,6 +296,7 @@ func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
 	downloadBlob("collected-node-logs.zip")
 	downloadBlob("cse.log")
 	downloadBlob("provision.complete")
+	downloadBlob("network_config.txt")
 	s.T.Logf("logs collected to %s", testDir(s.T))
 }
 
@@ -420,7 +437,7 @@ func generateVMSSNameLinux(t *testing.T) string {
 	return name
 }
 
-func generateVMSSNameWindows(t *testing.T) string {
+func generateVMSSNameWindows() string {
 	// windows has a limit of 9 characters for VMSS name
 	// and doesn't allow "-"
 	return fmt.Sprintf("win%s", randomLowercaseString(4))
@@ -428,7 +445,7 @@ func generateVMSSNameWindows(t *testing.T) string {
 
 func generateVMSSName(s *Scenario) string {
 	if s.VHD.OS == config.OSWindows {
-		return generateVMSSNameWindows(s.T)
+		return generateVMSSNameWindows()
 	}
 	return generateVMSSNameLinux(s.T)
 }
@@ -437,7 +454,7 @@ func getBaseVMSSModel(s *Scenario, customData, cseCmd string) armcompute.Virtual
 	model := armcompute.VirtualMachineScaleSet{
 		Location: to.Ptr(config.Config.Location),
 		SKU: &armcompute.SKU{
-			Name:     to.Ptr("Standard_D2ds_v5"),
+			Name:     to.Ptr(config.Config.DefaultVMSKU),
 			Capacity: to.Ptr[int64](1),
 		},
 		Properties: &armcompute.VirtualMachineScaleSetProperties{
@@ -483,7 +500,8 @@ func getBaseVMSSModel(s *Scenario, customData, cseCmd string) armcompute.Virtual
 									{
 										Name: to.Ptr(fmt.Sprintf("%s0", s.Runtime.VMSSName)),
 										Properties: &armcompute.VirtualMachineScaleSetIPConfigurationProperties{
-											Primary: to.Ptr(true),
+											Primary:                 to.Ptr(true),
+											PrivateIPAddressVersion: to.Ptr(armcompute.IPVersionIPv4),
 											LoadBalancerBackendAddressPools: []*armcompute.SubResource{
 												{
 													ID: to.Ptr(

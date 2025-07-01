@@ -43,7 +43,7 @@ We defined some packageRule blocks in the renovate.json. Here are some examples.
 ### Disable `minor` update
 ```
     {
-      "matchDatasources": ["docker", "custom.deb1804", "custom.deb2004", "custom.deb2204", "custom.deb2404"],
+      "matchDatasources": ["docker", "custom.deb2004", "custom.deb2204", "custom.deb2404"],
       "matchUpdateTypes": [
         "minor"
       ],
@@ -51,7 +51,7 @@ We defined some packageRule blocks in the renovate.json. Here are some examples.
       "enabled": false
     },
 ```
-- `matchDatasources`: specifies which datasources the rule should apply to. In this example, we define if a datasource is either `docker`, custom defined `custom.deb1804`, `custom.deb2004`, `custom.deb2204` and `custom.deb2404`, the package rule will apply. You will find the custom defined ones in the next block.
+- `matchDatasources`: specifies which datasources the rule should apply to. In this example, we define if a datasource is either `docker`, custom defined `custom.deb2004`, `custom.deb2204` and `custom.deb2404`, the package rule will apply. You will find the custom defined ones in the next block.
 - `matchUpdateTypes`: allows you to apply specific rules to dependencies based on the type of update. In this example, if the update type is `minor`, this package rule will apply.
 - `automerge`:allows you to specify whether pull requests created by Renovate should be automatically merged. `false` here mean the PR needs to be approved before it can merge.
 - `enabled`: allows you to control whether a specific rule is active or not. `false` in this example means this package rule is inactive.
@@ -63,7 +63,7 @@ This package rule will make more sense if you continue looking at the next packa
 
 ```
     {
-      "matchDatasources": ["docker", "custom.deb1804", "custom.deb2004", "custom.deb2204", "custom.deb2404"],
+      "matchDatasources": ["docker", "custom.deb2004", "custom.deb2204", "custom.deb2404"],
       "matchUpdateTypes": [
         "patch",
         "pin",
@@ -198,15 +198,15 @@ Each custom manager will ensure it only finds one type of renovateTag.
 ## Custom data sources
 We have some custom data sources in the renovate.json now. Let's walk through an example to explain the details.
 ```
-    "deb1804": {
-      "defaultRegistryUrlTemplate": "https://packages.microsoft.com/ubuntu/18.04/prod/dists/testing/main/binary-amd64/Packages",
+    "deb2404": {
+      "defaultRegistryUrlTemplate": "https://packages.microsoft.com/ubuntu/24.04/prod/dists/noble/main/binary-amd64/Packages",
       "format": "plain",
       "transformTemplates": [
-        "{\"releases\": $map(($index := releases#$i[version=\"Package: {{packageName}}\"].$i; $map($index, function($i) { $replace(releases[$i + 1].version, /^Version:\\s*/, \"v\") })), function($v) { {\"version\": $v} })}"
+        "{\"releases\": $map(($index := releases#$i[version=\"Package: {{packageName}}\"].$i; $map($index, function($i) { $substringAfter(releases[$i + 1].version, \"Version: \") })), function($v) { {\"version\": $v} })[]}"
       ]
     }
 ```
-- The name is this custom data source is `deb1804`. We are referencing to it in the earlier section custom manager with `"datasourceTemplate": "custom.deb1804",`
+- The name is this custom data source is `deb2404`. We are referencing to it in the earlier section custom manager with `"datasourceTemplate": "custom.deb2404",`
 - `defaultRegistryUrlTemplate`: specifies the default URL template for accessing the registry of a custom datasource. In this example, it is the packages.microsoft.com/xxx URL.
 - `format`: specifies the format of the data returned by the registry. In this example, it's neither json, html nor yaml but a `Debian Control File`. So we have to use `plain` and then construct the data in `transformTemplates` by ourselves.
 - `transformTemplates`: allows you to define custom transformations for data fetched from a custom datasource. It uses `JSONata rules` to transform the API output in a certain format. This one is really challenging to me (Devin). Please read the official doc to try and error a correct JSONata query. At the end of the day, you will need to at least populate something like
@@ -354,7 +354,7 @@ In general, if a component has the `"renovateTag": "<DO_NOT_UPDATE>"`, it means 
 As of 01/23/2025,
 - All the container images are onboarded to Renovate for auto-update.
 - PMC hosted packages, namely `runc` and `containerd`, are configured as auto-merge patch version.
-- OCI artifacts hosted on MAR(aka MCR) such as `kubernetes-binaries`, `azure-acr-credential-provider` and `containerd-wasm-shims` are onboarded for auto-update.
+- OCI artifacts hosted on MAR(aka MCR) such as `kubernetes-binaries` and `azure-acr-credential-provider` are onboarded for auto-update.
 - For Linux, the cni-plugins, azure-cni, cri-tools binaries are hosted at packages.aks.azure.com and are not onboarded for auto-update yet. The team has been working on this. cri-tools package will soon be available, then cni-plugins and azure-cni.
 
 For the most up-to-date information, please refer to the actual configuration file `components.json`.
@@ -365,7 +365,7 @@ The `renovate.json` file is configured to support OCI artifact now. There is a p
 ```
     {
       "matchDatasources": ["docker"],
-      "matchPackageNames": ["oss/binaries/kubernetes/kubernetes-node", "oss/binaries/kubernetes/azure-acr-credential-provider", "oss/binaries/deislabs/containerd-wasm-shims"],
+      "matchPackageNames": ["oss/binaries/kubernetes/kubernetes-node", "oss/binaries/kubernetes/azure-acr-credential-provider"],
       "extractVersion": "^(?P<version>.*?)-[^-]*-[^-]*$"
     },
 ```
@@ -376,7 +376,7 @@ Explanations as below.
 
 Take `kubernetes-binaries` as an example. If you view all the tags from this list https://mcr.microsoft.com/v2/oss/binaries/kubernetes/kubernetes-node/tags/list?n=10000, you will notice that the format of the tags is quite varied, like, `v1.27.100-akslts-linux-amd64` , `v1.30.0-linux-amd64`, `v1.31.1-linux-arm64`. This regex is to capture only the values before the second-to-last dash (-). For example, if the tag is `v1.27.100-akslts-linux-amd64`, we capture `v1.27.100-akslts` as the version to be stored in `latestVersion` in `components.json`. If the tag is `v1.30.0-linux-amd64`, we capture `v1.30.0`. We do not capture the CPU architecture (amd64|arm64) to keep it generic, avoiding the need to define the same thing for both `amd64` and `arm64`. 
 
-3 packages in `components.json` are onboarded now: `oss/binaries/kubernetes/kubernetes-node`, `oss/binaries/kubernetes/azure-acr-credential-provider` and `oss/binaries/deislabs/containerd-wasm-shims`. You will see a new tag `OCI_registry` in `renovateTag`. 
+Packages in `components.json` are onboarded now: `oss/binaries/kubernetes/kubernetes-node`, `oss/binaries/kubernetes/azure-acr-credential-provider`, etc. You will see a new tag `OCI_registry` in `renovateTag`. 
 
 Continue using `kubernetes-binaries` as an example. Here is a block of version information defined as follows.
 ```
@@ -389,8 +389,8 @@ Continue using `kubernetes-binaries` as an example. Here is a block of version i
 ```
 where
 1. `k8sVersion` is optional and specifies that it is tied to Kubernetes  v1.31.
-1. `renovateTag` defines the OCI registry and artifact name that Renovate should look up from its datasource.
-1. `latestVersion` and `previousLatestVersion` define the versions to be cached as usual.
+2. `renovateTag` defines the OCI registry and artifact name that Renovate should look up from its datasource.
+3. `latestVersion` and `previousLatestVersion` define the versions to be cached as usual.
 
 And next you will see
 ```
@@ -452,7 +452,6 @@ PS C:\Users\devinwon\git\AgentBaker> npx renovate --platform=local --dry-run=tru
        }
  WARN: Package lookup failures (repository=local)
        "warnings": [
-         "Failed to look up custom.deb1804 package kubernetes-cri-tools",
          "Failed to look up custom.deb2004 package kubernetes-cri-tools",
          "Failed to look up custom.deb2404 package kubernetes-cri-tools"
        ],
@@ -490,7 +489,7 @@ TRACE: Dependency lookup success (repository=local)
          "warnings": [
            {
              "topic": "kubernetes-cri-tools",
-             "message": "Failed to look up custom.deb1804 package kubernetes-cri-tools"
+             "message": "Failed to look up custom.deb2004 package kubernetes-cri-tools"
            }
          ]
        }

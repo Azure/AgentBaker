@@ -166,36 +166,22 @@ EOF
   systemctl restart containerd
 }
 
-configureK8s() {
-    mkdir -p "/etc/kubernetes/certs"
-    
-    APISERVER_PUBLIC_KEY_PATH="/etc/kubernetes/certs/apiserver.crt"
-    touch "${APISERVER_PUBLIC_KEY_PATH}"
-    chmod 0644 "${APISERVER_PUBLIC_KEY_PATH}"
-    chown root:root "${APISERVER_PUBLIC_KEY_PATH}"
-
-    AZURE_JSON_PATH="/etc/kubernetes/azure.json"
+# file paths defined outside so configureAzureJson can be unit tested
+# TODO: move common file path definitions to cse_helpers.sh
+AZURE_JSON_PATH="/etc/kubernetes/azure.json"
+AKS_CUSTOM_CLOUD_JSON_PATH="/etc/kubernetes/${TARGET_ENVIRONMENT}.json"
+configureAzureJson() {
     touch "${AZURE_JSON_PATH}"
     chmod 0600 "${AZURE_JSON_PATH}"
     chown root:root "${AZURE_JSON_PATH}"
 
     set +x
-    if [ -n "${KUBELET_CLIENT_CONTENT}" ]; then
-        echo "${KUBELET_CLIENT_CONTENT}" | base64 -d > /etc/kubernetes/certs/client.key
-    fi
-    if [ -n "${KUBELET_CLIENT_CERT_CONTENT}" ]; then
-        echo "${KUBELET_CLIENT_CERT_CONTENT}" | base64 -d > /etc/kubernetes/certs/client.crt
-    fi
     if [ -n "${SERVICE_PRINCIPAL_FILE_CONTENT}" ]; then
-        echo "${SERVICE_PRINCIPAL_FILE_CONTENT}" | base64 -d > /etc/kubernetes/sp.txt
+        SERVICE_PRINCIPAL_CLIENT_SECRET="$(base64 -d <<< "${SERVICE_PRINCIPAL_FILE_CONTENT}")"
     fi
-
-    echo "${APISERVER_PUBLIC_KEY}" | base64 --decode > "${APISERVER_PUBLIC_KEY_PATH}"
-    SP_FILE="/etc/kubernetes/sp.txt"
-    SERVICE_PRINCIPAL_CLIENT_SECRET="$(cat "$SP_FILE")"
     SERVICE_PRINCIPAL_CLIENT_SECRET=${SERVICE_PRINCIPAL_CLIENT_SECRET//\\/\\\\}
     SERVICE_PRINCIPAL_CLIENT_SECRET=${SERVICE_PRINCIPAL_CLIENT_SECRET//\"/\\\"}
-    rm "$SP_FILE"
+    
     cat << EOF > "${AZURE_JSON_PATH}"
 {
     "cloud": "${TARGET_CLOUD}",
@@ -237,19 +223,47 @@ configureK8s() {
 }
 EOF
     set -x
+
     if [ "${CLOUDPROVIDER_BACKOFF_MODE}" = "v2" ]; then
-        sed -i "/cloudProviderBackoffExponent/d" /etc/kubernetes/azure.json
-        sed -i "/cloudProviderBackoffJitter/d" /etc/kubernetes/azure.json
+        sed -i "/cloudProviderBackoffExponent/d" $AZURE_JSON_PATH
+        sed -i "/cloudProviderBackoffJitter/d" $AZURE_JSON_PATH
     fi
 
     if [ "${IS_CUSTOM_CLOUD}" = "true" ]; then
         set +x
-        AKS_CUSTOM_CLOUD_JSON_PATH="/etc/kubernetes/${TARGET_ENVIRONMENT}.json"
         touch "${AKS_CUSTOM_CLOUD_JSON_PATH}"
         chmod 0600 "${AKS_CUSTOM_CLOUD_JSON_PATH}"
         chown root:root "${AKS_CUSTOM_CLOUD_JSON_PATH}"
 
         echo "${CUSTOM_ENV_JSON}" | base64 -d > "${AKS_CUSTOM_CLOUD_JSON_PATH}"
+        set -x
+    fi
+}
+
+configureK8s() {
+    mkdir -p "/etc/kubernetes/certs"
+    mkdir -p "/etc/systemd/system/kubelet.service.d"
+
+    if [ -n "${APISERVER_PUBLIC_KEY}" ]; then
+        APISERVER_PUBLIC_KEY_PATH="/etc/kubernetes/certs/apiserver.crt"
+        touch "${APISERVER_PUBLIC_KEY_PATH}"
+        chmod 0644 "${APISERVER_PUBLIC_KEY_PATH}"
+        chown root:root "${APISERVER_PUBLIC_KEY_PATH}"
+
+        set +x
+        echo "${APISERVER_PUBLIC_KEY}" | base64 --decode > "${APISERVER_PUBLIC_KEY_PATH}"
+        set -x
+    fi
+
+    if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" = "false" ] && [ -z "${TLS_BOOTSTRAP_TOKEN:-}" ]; then
+        # only create the client cert and key if we're not using vanilla/secure TLS bootstrapping
+        set +x
+        if [ -n "${KUBELET_CLIENT_CONTENT}" ]; then
+            echo "${KUBELET_CLIENT_CONTENT}" | base64 -d > /etc/kubernetes/certs/client.key
+        fi
+        if [ -n "${KUBELET_CLIENT_CERT_CONTENT}" ]; then
+            echo "${KUBELET_CLIENT_CERT_CONTENT}" | base64 -d > /etc/kubernetes/certs/client.crt
+        fi
         set -x
     fi
 
@@ -314,10 +328,6 @@ ensureContainerd() {
 ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
 EOF
 
-  if [ "${ARTIFACT_STREAMING_ENABLED}" = "true" ]; then
-    logs_to_events "AKS.CSE.ensureContainerd.ensureArtifactStreaming" ensureArtifactStreaming || exit $ERR_ARTIFACT_STREAMING_INSTALL
-  fi
-
   mkdir -p /etc/containerd
   if [ "${GPU_NODE}" = "true" ] && [ "${skip_nvidia_driver_install}" = "true" ]; then
     echo "Generating non-GPU containerd config for GPU node due to VM tags"
@@ -366,8 +376,7 @@ ensureTeleportd() {
 }
 
 ensureArtifactStreaming() {
-  systemctl enable acr-mirror.service
-  systemctl start acr-mirror.service
+  systemctlEnableAndStart acr-mirror 30
   sudo /opt/acr/tools/overlaybd/install.sh
   sudo /opt/acr/tools/overlaybd/config-user-agent.sh azure
   sudo /opt/acr/tools/overlaybd/enable-http-auth.sh
@@ -377,11 +386,11 @@ ensureArtifactStreaming() {
   sudo /opt/acr/tools/overlaybd/config.sh exporterConfig.port 9863
   modprobe target_core_user
   curl -X PUT 'localhost:8578/config?ns=_default&enable_suffix=azurecr.io&stream_format=overlaybd' -O
-  systemctl enable /opt/overlaybd/overlaybd-tcmu.service
-  systemctl enable /opt/overlaybd/snapshotter/overlaybd-snapshotter.service
-  systemctl start overlaybd-tcmu
-  systemctl start overlaybd-snapshotter
-  systemctl start acr-nodemon
+  systemctl link /opt/overlaybd/overlaybd-tcmu.service
+  systemctl link /opt/overlaybd/snapshotter/overlaybd-snapshotter.service
+  systemctlEnableAndStart overlaybd-tcmu.service 30
+  systemctlEnableAndStart overlaybd-snapshotter.service 30
+  systemctlEnableAndStart acr-nodemon 30
 }
 
 ensureDocker() {
@@ -504,6 +513,28 @@ ensureKubeCACert() {
     chmod 0600 "${KUBE_CA_FILE}"
 }
 
+# drop-in path defined outside so configureAndStartSecureTLSBootstrapping can be unit tested
+SECURE_TLS_BOOTSTRAPPING_DROP_IN="/etc/systemd/system/secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf"
+configureAndStartSecureTLSBootstrapping() {
+    mkdir -p "$(dirname "${SECURE_TLS_BOOTSTRAPPING_DROP_IN}")"
+    touch "${SECURE_TLS_BOOTSTRAPPING_DROP_IN}"
+    chmod 0600 "${SECURE_TLS_BOOTSTRAPPING_DROP_IN}"
+    cat > "${SECURE_TLS_BOOTSTRAPPING_DROP_IN}" <<EOF
+[Unit]
+Before=kubelet.service
+[Service]
+Environment="BOOTSTRAP_FLAGS=--aad-resource=${CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_SERVER_APP_ID:-$AKS_AAD_SERVER_APP_ID} --apiserver-fqdn=${API_SERVER_NAME} --cloud-provider-config=${AZURE_JSON_PATH}"
+[Install]
+# once bootstrap tokens are no longer a fallback, kubelet.service needs to be a RequiredBy=
+WantedBy=kubelet.service
+EOF
+
+    # explicitly start secure TLS bootstrapping ahead of kubelet
+    systemctlEnableAndStartNoBlock secure-tls-bootstrap 30 || exit $ERR_SECURE_TLS_BOOTSTRAP_START_FAILURE
+
+    # once bootstrap tokens are no longer a fallback, we can unset TLS_BOOTSTRAP_TOKEN here if needed
+}
+
 ensureKubelet() {
     KUBELET_DEFAULT_FILE=/etc/default/kubelet
     mkdir -p /etc/default
@@ -519,6 +550,15 @@ ensureKubelet() {
         logs_to_events "AKS.CSE.ensureKubelet.setKubeletNodeIPFlag" setKubeletNodeIPFlag
     fi
 
+    # systemd watchdog support was added in 1.32.0: https://github.com/kubernetes/kubernetes/pull/127566
+    # This is needed to ensure kubelet is restarted if it becomes unresponsive
+    if semverCompare ${KUBERNETES_VERSION:-"0.0.0"} "1.32.0"; then
+        tee "/etc/systemd/system/kubelet.service.d/10-watchdog.conf" > /dev/null <<'EOF'
+[Service]
+WatchdogSec=60s
+EOF
+    fi
+
     echo "KUBELET_FLAGS=${KUBELET_FLAGS}" > "${KUBELET_DEFAULT_FILE}"
     echo "KUBELET_REGISTER_SCHEDULABLE=true" >> "${KUBELET_DEFAULT_FILE}"
     echo "NETWORK_POLICY=${NETWORK_POLICY}" >> "${KUBELET_DEFAULT_FILE}"
@@ -529,11 +569,23 @@ ensureKubelet() {
     fi
     chmod 0600 "${KUBELET_DEFAULT_FILE}"
 
+    BOOTSTRAP_KUBECONFIG_FILE=/var/lib/kubelet/bootstrap-kubeconfig
+
     # to ensure we don't expose bootstrap token secrets in provisioning logs
     set +x
 
-    if [ -n "${TLS_BOOTSTRAP_TOKEN}" ]; then
+    if [ -n "${TLS_BOOTSTRAP_TOKEN:-}" ]; then
         echo "using bootstrap token to generate a bootstrap-kubeconfig"
+
+        CREDENTIAL_VALIDATION_DROP_IN="/etc/systemd/system/kubelet.service.d/10-credential-validation.conf"
+        mkdir -p "$(dirname "${CREDENTIAL_VALIDATION_DROP_IN}")"
+        touch "${CREDENTIAL_VALIDATION_DROP_IN}"
+        chmod 0600 "${CREDENTIAL_VALIDATION_DROP_IN}"
+        tee "${CREDENTIAL_VALIDATION_DROP_IN}" > /dev/null <<EOF
+[Service]
+Environment="CREDENTIAL_VALIDATION_KUBE_CA_FILE=/etc/kubernetes/certs/ca.crt"
+Environment="CREDENTIAL_VALIDATION_APISERVER_URL=https://${API_SERVER_NAME}:443"
+EOF
 
         KUBELET_TLS_DROP_IN="/etc/systemd/system/kubelet.service.d/10-tlsbootstrap.conf"
         mkdir -p "$(dirname "${KUBELET_TLS_DROP_IN}")"
@@ -543,7 +595,6 @@ ensureKubelet() {
 [Service]
 Environment="KUBELET_TLS_BOOTSTRAP_FLAGS=--kubeconfig /var/lib/kubelet/kubeconfig --bootstrap-kubeconfig /var/lib/kubelet/bootstrap-kubeconfig"
 EOF
-        BOOTSTRAP_KUBECONFIG_FILE=/var/lib/kubelet/bootstrap-kubeconfig
         mkdir -p "$(dirname "${BOOTSTRAP_KUBECONFIG_FILE}")"
         touch "${BOOTSTRAP_KUBECONFIG_FILE}"
         chmod 0644 "${BOOTSTRAP_KUBECONFIG_FILE}"
@@ -558,7 +609,7 @@ clusters:
 users:
 - name: kubelet-bootstrap
   user:
-    token: "${TLS_BOOTSTRAP_TOKEN}"
+    token: "${TLS_BOOTSTRAP_TOKEN:-}"
 contexts:
 - context:
     cluster: localcluster
@@ -636,8 +687,12 @@ EOF
         logs_to_events "AKS.CSE.ensureKubelet.installCredentialProvider" installCredentialProvider
     fi
 
-    # 4-minute timeout to give enough time to all of kubelet's ExecStartPre scripts before hitting their own respective timeouts
-    systemctlEnableAndStart kubelet 240 || exit $ERR_KUBELET_START_FAIL
+    # start kubelet.service without waiting for the main process to start, though check whether it has entered a failed state after enablement
+    if ! systemctlEnableAndStartNoBlock kubelet 240; then
+        # append kubelet status to CSE output to ensure we can see it
+        journalctl -u kubelet.service --no-pager || true
+        exit $ERR_KUBELET_START_FAIL
+    fi
 }
 
 ensureSnapshotUpdate() {
@@ -745,6 +800,15 @@ configGPUDrivers() {
     if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
         mkdir -p /opt/{actions,gpu}
         if [ "${CONTAINER_RUNTIME}" = "containerd" ]; then
+            # if target cloud is AzureUSGovernmentCloud or AzureChinaCloud, and NVIDIA_DRIVER_IMAGE contains GRID then use the specific 535 NVIDIA driver image
+            # this is being added because of the host driver in Fairfax is not compatible with the 550 guest drivers now
+            # It can be removed and synced with 550/other clouds, once it is moved to a compatible host driver (check with the HPC team)
+            # Convert to lowercase for case-insensitive comparison
+            NVIDIA_DRIVER_IMAGE_LOWER=$(echo "$NVIDIA_DRIVER_IMAGE" | tr '[:upper:]' '[:lower:]')
+            if { [ "${TARGET_CLOUD}" = "AzureUSGovernmentCloud" ] || [ "${TARGET_CLOUD}" = "AzureChinaCloud" ]; } && [ "${NVIDIA_DRIVER_IMAGE_LOWER#*grid}" != "$NVIDIA_DRIVER_IMAGE_LOWER" ]; then
+                NVIDIA_DRIVER_IMAGE_TAG="535.161.08-20250325114356"
+            fi
+
             ctr -n k8s.io image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
             retrycmd_if_failure 5 10 600 bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install"
             ret=$?
@@ -927,17 +991,13 @@ enableLocalDNS() {
     # If the corefile exists and is not empty, attempt to enable localdns.
     echo "localdns should be enabled."
 
-    systemctlEnableAndStart localdns 30
-    local enable_localdns_result=$?
-
-    if [ "$enable_localdns_result" -ne 0 ]; then
-        echo "Enable localdns failed due to error ${enable_localdns_result}."
-        return "$enable_localdns_result"
+    if ! systemctlEnableAndStart localdns 30; then
+      echo "Enable localdns failed."
+      return $ERR_LOCALDNS_FAIL
     fi
 
     # Enabling localdns succeeded.
     echo "Enable localdns succeeded."
-    return 0
 }
 
 #EOF

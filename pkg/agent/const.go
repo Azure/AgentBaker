@@ -54,7 +54,6 @@ const (
 	kubernetesCSEConfig                 = "linux/cloud-init/artifacts/cse_config.sh"
 	kubernetesCSESendLogs               = "linux/cloud-init/artifacts/cse_send_logs.py"
 	kubernetesCSERedactCloudConfig      = "linux/cloud-init/artifacts/cse_redact_cloud_config.py"
-	kubernetesCISScript                 = "linux/cloud-init/artifacts/cis.sh"
 	kubernetesCustomSearchDomainsScript = "linux/cloud-init/artifacts/setup-custom-search-domains.sh"
 	kubeletSystemdService               = "linux/cloud-init/artifacts/kubelet.service"
 	kmsSystemdService                   = "linux/cloud-init/artifacts/kms.service"
@@ -74,6 +73,8 @@ const (
 	migPartitionSystemdService          = "linux/cloud-init/artifacts/mig-partition.service"
 	ensureIMDSRestrictionScript         = "linux/cloud-init/artifacts/ensure_imds_restriction.sh"
 	validateKubeletCredentialsScript    = "linux/cloud-init/artifacts/validate-kubelet-credentials.sh"
+	secureTLSBootstrapService           = "linux/cloud-init/artifacts/secure-tls-bootstrap.service"
+	cloudInitStatusCheckScript          = "linux/cloud-init/artifacts/cloud-init-status-check.sh"
 
 	// scripts and service for enabling ipv6 dual stack.
 	dhcpv6SystemdService            = "linux/cloud-init/artifacts/dhcpv6.service"
@@ -84,13 +85,7 @@ const (
 	ensureNoDupEbtablesScript  = "linux/cloud-init/artifacts/ensure-no-dup.sh"
 	ensureNoDupEbtablesService = "linux/cloud-init/artifacts/ensure-no-dup.service"
 
-	// drop ins.
-	containerdKubeletDropin = "linux/cloud-init/artifacts/10-containerd.conf"
-	cgroupv2KubeletDropin   = "linux/cloud-init/artifacts/10-cgroupv2.conf"
-	componentConfigDropin   = "linux/cloud-init/artifacts/10-componentconfig.conf"
-	bindMountDropin         = "linux/cloud-init/artifacts/10-bindmount.conf"
-	httpProxyDropin         = "linux/cloud-init/artifacts/10-httpproxy.conf"
-	componentManifestFile   = "linux/cloud-init/artifacts/manifest.json"
+	componentManifestFile = "linux/cloud-init/artifacts/manifest.json"
 )
 
 // cloud-init destination file references.

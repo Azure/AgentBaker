@@ -78,6 +78,22 @@ function Download-File
         $retryDelay = 0,
         [Switch]$redactUrl = $false
     )
+    # replicate same check as in windowscsehelper.ps1, check if the file already exists before downloading
+    $cleanUrl = $URL.Split('?')[0]
+    $fileName = [IO.Path]::GetFileName($cleanUrl)
+
+    $search = @()
+    if ($global:cacheDir -and (Test-Path $global:cacheDir)) {
+        $search = [IO.Directory]::GetFiles($global:cacheDir, $fileName, [IO.SearchOption]::AllDirectories)
+    }
+
+    if ($search.Count -ne 0) {
+        Write-Log "Package exist $fileName in cache dir $global:CacheDir, skipping download"
+        Get-ChildItem "$Dest"
+        return
+    } 
+
+    Write-Log "Downloading $URL to $Dest"
     curl.exe -f --retry $retryCount --retry-delay $retryDelay -L $URL -o $Dest
     $curlExitCode = $LASTEXITCODE
     if ($curlExitCode)
@@ -94,8 +110,7 @@ function Download-File
         }
         throw "Curl exited with '$curlExitCode' while attempting to download '$logURL' to '$Dest'"
     }
-
-    dir "$Dest"
+    Get-ChildItem "$Dest"
 }
 
 function Download-FileWithAzCopy
@@ -305,6 +320,10 @@ function Get-ContainerImages
         Write-Output "* $image"
     }
 
+    # ./.clusterfuzzliteThere is a regression in crictl.exe in kube-tools 1.33 for windows that it cannot find the default config file. Has been discussed with upstream and pending fix
+    $crictlPath = (Get-Command crictl.exe -ErrorAction SilentlyContinue).Path
+    $configPath = Join-Path (Split-Path -Parent $crictlPath) "crictl.yaml"
+    
     foreach ($image in $imagesToPull)
     {
         $imagePrefix = $image.Split(":")[0]
@@ -320,30 +339,40 @@ function Get-ContainerImages
             {
                 $url = $env:WindowsNanoServerImageURL
             }
-            $fileName = [IO.Path]::GetFileName($url.Split("?")[0])
-            $tmpDest = [IO.Path]::Combine([System.IO.Path]::GetTempPath(), $fileName)
-            Write-Log "Downloading image $image to $tmpDest"
-            Download-FileWithAzCopy -URL $url -Dest $tmpDest
 
-            Write-Log "Loading image $image from $tmpDest"
-            Retry-Command -ScriptBlock {
-                & ctr -n k8s.io images import $tmpDest
-            } -ErrorMessage "Failed to load image $image from $tmpDest"
+            # In 2025 case, we will need to cache container base images for both 2022 and 2025
+            # To support multiple versions of container base images, we expect the URL to be provided as a list of strings 
+            # seperated by commas or semicolons, while each string specify a version of the image.
+            # For example: mcr.microsoft.com/windows/servercore:ltsc2022, mcr.microsoft.com/windows/servercore:ltsc2025
+            $containerBaseImageurls = $url -split '\s*[;,]\s*'
 
-            Write-Log "Removing tmp tar file $tmpDest"
-            Remove-Item -Path $tmpDest
+            foreach ($url in $containerBaseImageurls)
+            {
+                $fileName = [IO.Path]::GetFileName($url.Split("?")[0])
+                $tmpDest = [IO.Path]::Combine([System.IO.Path]::GetTempPath(), $fileName)
+                Write-Log "Downloading image $image to $tmpDest"
+                Download-FileWithAzCopy -URL $url -Dest $tmpDest
+
+                Write-Log "Loading image $image from $tmpDest"
+                Retry-Command -ScriptBlock {
+                    & ctr -n k8s.io images import $tmpDest
+                } -ErrorMessage "Failed to load image $image from $tmpDest"
+
+                Write-Log "Removing tmp tar file $tmpDest"
+                Remove-Item -Path $tmpDest
+            }
         }
         else
         {
             Write-Log "Pulling image $image"
             Retry-Command -ScriptBlock {
-                & crictl.exe pull $image
+                & crictl.exe -c $configPath pull $image
             } -ErrorMessage "Failed to pull image $image"
         }
     }
 
     # before stopping containerd, let's echo the cached images and their sizes.
-    crictl images show
+    crictl -c $configPath images show
 
     Stop-Job  -Name containerd
     Remove-Job -Name containerd
@@ -906,9 +935,6 @@ try
             Clear-TempFolder
             Log-VHDFreeSize
             Test-AzureExtensions
-
-            Write-Output "creating test.txt file"
-            Write-Output "this is a test file" > "c:\k\test.txt"
         }
         default {
             Write-Log "Unable to determine provisiong phase... exiting"

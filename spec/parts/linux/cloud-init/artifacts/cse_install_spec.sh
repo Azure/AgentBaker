@@ -12,6 +12,7 @@ readPackage() {
 Describe 'cse_install.sh'
     Include "./parts/linux/cloud-init/artifacts/cse_install.sh"
     Include "./parts/linux/cloud-init/artifacts/cse_helpers.sh"
+
     Describe 'installContainerRuntime'
         logs_to_events() {
             echo "mock logs to events calling with $1"
@@ -37,9 +38,19 @@ Describe 'cse_install.sh'
             The output line 3 should equal "mock logs to events calling with AKS.CSE.installContainerRuntime.installStandaloneContainerd"
             The output line 4 should equal "in installContainerRuntime - CONTAINERD_VERSION = 1.2.3-5.fake"
         End
+        # TODO(mheberling): In a ~month this will probably be removed when we use the standard containerd.
         It 'skips the containerd installation for Mariner with Kata'
             UBUNTU_RELEASE="" # mocking Mariner doesn't have command `lsb_release -cs`
             OS="MARINER"
+            containerdPackage=$(readPackage "containerd")
+            IS_KATA="true"
+            When call installContainerRuntime
+            The output line 3 should equal "INFO: containerd package versions array is either empty or the first element is <SKIP>. Skipping containerd installation."   
+        End         
+        # TODO(mheberling): In a ~month this will probably be removed when we use the standard containerd.
+        It 'skips the containerd installation for AzureLinux with Kata'
+            UBUNTU_RELEASE="" # mocking Mariner doesn't have command `lsb_release -cs`
+            OS="AZURELINUX"
             containerdPackage=$(readPackage "containerd")
             IS_KATA="true"
             When call installContainerRuntime
@@ -65,6 +76,7 @@ Describe 'cse_install.sh'
             The output line 3 should equal "mock installContainerdWithManifestJson calling"
         End
     End
+
     Describe 'getInstallModeAndCleanupContainerImages'
         logs_to_events() {
             echo "mock logs to events calling with $1"
@@ -118,6 +130,7 @@ Describe 'cse_install.sh'
             The output line 2 should equal "true"
         End
     End
+
     Describe 'extractKubeBinaries'
         k8s_version="1.31.5"        
         is_private_url="false"
@@ -185,6 +198,57 @@ Describe 'cse_install.sh'
             When call extractKubeBinaries $k8s_version $kube_binary_url $is_private_url $k8s_downloads_dir
             The status should be failure
             The output line 2 should include "cached package /opt/kubernetes/downloads/private-packages/kubernetes-node-linux-amd64.tar.gz not found"
+        End
+    End
+
+    Describe 'installSecureTLSBootstrapClient'
+        SECURE_TLS_BOOTSTRAP_CLIENT_BIN_DIR="bin"
+        SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_DIR="downloads"
+        CUSTOM_SECURE_TLS_BOOTSTRAP_CLIENT_URL="https://packages/custom-client-binary-url.tar.gz"
+
+        sudo() {
+            echo "sudo $@"
+        }
+        chmod() {
+            echo "chmod $@"
+        }
+        tar() {
+            echo "tar $@"
+        }
+        mv() {
+            echo "mv $@"
+        }
+
+        It 'should cleanup binary installation and return when secure TLS bootstrapping is disabled'
+            ENABLE_SECURE_TLS_BOOTSTRAPPING="false"
+            When call installSecureTLSBootstrapClient
+            The output line 1 should equal "secure TLS bootstrapping is disabled, will remove secure TLS bootstrap client binary installation"
+            The status should be success
+        End
+
+        It 'should return with a no-op if CUSTOM_SECURE_TLS_BOOTSTRAP_CLIENT_URL is not set'
+            ENABLE_SECURE_TLS_BOOTSTRAPPING="true"
+            CUSTOM_SECURE_TLS_BOOTSTRAP_CLIENT_URL=""
+            When call installSecureTLSBootstrapClient
+            The output line 1 should equal "secure TLS bootstrapping is enabled but no custom client URL was provided, nothing to download"
+            The status should be success
+        End
+
+        It 'should download the secure TLS bootstrap client from the provided custom URL if set'
+            retrycmd_get_tarball() {
+                echo "retrycmd_get_tarball $@"
+                touch "${SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_DIR}/custom-client-binary-url.tar.gz"
+            }
+
+            ENABLE_SECURE_TLS_BOOTSTRAPPING="true"
+            When call installSecureTLSBootstrapClient
+            The output should include "installing aks-secure-tls-bootstrap-client from: https://packages/custom-client-binary-url.tar.gz"
+            The output should include "retrycmd_get_tarball 120 5 downloads/custom-client-binary-url.tar.gz https://packages/custom-client-binary-url.tar.gz"
+            The output should include "tar -xvzf downloads/custom-client-binary-url.tar.gz -C downloads/"
+            The output should include "mv downloads/aks-secure-tls-bootstrap-client bin"
+            The output should include "chmod 755 bin/aks-secure-tls-bootstrap-client"
+            The output should include "aks-secure-tls-bootstrap-client installed successfully"
+            The status should be success
         End
     End
 End

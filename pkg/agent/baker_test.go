@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"regexp"
 	"strings"
 
@@ -471,7 +470,7 @@ health-check.localdns.local:53 {
         max_concurrent 1000
     }
     ready 169.254.10.10:8181
-    cache 3600s {
+    cache 3600 {
         success 9984
         denial 9984
         serve_stale 3600s immediate
@@ -498,7 +497,7 @@ cluster.local:53 {
         max_concurrent 1000
     }
     ready 169.254.10.10:8181
-    cache 3600s {
+    cache 3600 {
         success 9984
         denial 9984
         servfail 0
@@ -515,7 +514,7 @@ testdomain456.com:53 {
         max_concurrent 1000
     }
     ready 169.254.10.10:8181
-    cache 3600s {
+    cache 3600 {
         success 9984
         denial 9984
         serve_stale 3600s verify
@@ -534,7 +533,7 @@ testdomain456.com:53 {
         max_concurrent 2000
     }
     ready 169.254.10.11:8181
-    cache 3600s {
+    cache 3600 {
         success 9984
         denial 9984
         serve_stale 72000s verify
@@ -659,7 +658,7 @@ health-check.localdns.local:53 {
         max_concurrent 1000
     }
     ready 169.254.10.10:8181
-    cache 3600s {
+    cache 3600 {
         success 9984
         denial 9984
         serve_stale 3600s verify
@@ -686,7 +685,7 @@ cluster.local:53 {
         max_concurrent 1000
     }
     ready 169.254.10.10:8181
-    cache 3600s {
+    cache 3600 {
         success 9984
         denial 9984
         servfail 0
@@ -703,7 +702,7 @@ testdomain456.com:53 {
         max_concurrent 1000
     }
     ready 169.254.10.10:8181
-    cache 3600s {
+    cache 3600 {
         success 9984
         denial 9984
         serve_stale 3600s verify
@@ -722,7 +721,7 @@ testdomain456.com:53 {
         max_concurrent 1000
     }
     ready 169.254.10.11:8181
-    cache 3600s {
+    cache 3600 {
         success 9984
         denial 9984
         serve_stale 3600s verify
@@ -749,7 +748,7 @@ cluster.local:53 {
         max_concurrent 1000
     }
     ready 169.254.10.11:8181
-    cache 3600s {
+    cache 3600 {
         success 9984
         denial 9984
         servfail 0
@@ -766,7 +765,7 @@ testdomain567.com:53 {
         max_concurrent 1000
     }
     ready 169.254.10.11:8181
-    cache 3600s {
+    cache 3600 {
         success 9984
         denial 9984
         serve_stale 3600s immediate
@@ -1003,15 +1002,11 @@ testdomain567.com:53 {
 	}, Entry("AKSUbuntu1604 with k8s version less than 1.18", "AKSUbuntu1604+K8S115", "1.15.7", func(config *datamodel.NodeBootstrappingConfiguration) {
 		config.KubeletConfig["--dynamic-config-dir"] = "/var/lib/kubelet/"
 	}, func(o *nodeBootstrappingOutput) {
-		etcDefaultKubelet := o.files["/etc/default/kubelet"].value
 
 		Expect(o.vars["KUBELET_FLAGS"]).NotTo(BeEmpty())
 		Expect(strings.Contains(o.vars["KUBELET_FLAGS"], "DynamicKubeletConfig")).To(BeTrue())
 		Expect(strings.Contains(o.vars["KUBELET_FLAGS"], "DynamicKubeletConfig")).To(BeTrue())
 		Expect(strings.Contains(o.vars["KUBELET_FLAGS"], "--dynamic-config-dir")).To(BeFalse())
-		Expect(etcDefaultKubelet).NotTo(BeEmpty())
-		Expect(strings.Contains(etcDefaultKubelet, "DynamicKubeletConfig")).To(BeTrue())
-		Expect(strings.Contains(etcDefaultKubelet, "--dynamic-config-dir")).To(BeFalse())
 		Expect(strings.Contains(o.cseCmd, "DynamicKubeletConfig")).To(BeTrue())
 
 		// sanity check that no other files/variables set the flag
@@ -1379,101 +1374,6 @@ testdomain567.com:53 {
 				config.KubeletConfig = map[string]string{}
 			}, nil),
 
-		Entry("AKSUbuntu1804 with kubelet client certificate", "AKSUbuntu1804+WithKubeletClientCert", "1.18.3",
-			func(config *datamodel.NodeBootstrappingConfiguration) {
-				config.ContainerService.Properties.CertificateProfile = &datamodel.CertificateProfile{
-					ClientCertificate: "fooBarBaz",
-					ClientPrivateKey:  "fooBarBaz",
-					CaCertificate:     "fooBarBaz",
-				}
-			}, func(o *nodeBootstrappingOutput) {
-				etcDefaultKubelet := o.files["/etc/default/kubelet"].value
-				etcDefaultKubeletService := o.files["/etc/systemd/system/kubelet.service"].value
-				kubeletSh := o.files["/opt/azure/containers/kubelet.sh"].value
-				validateCredentials := o.files["/opt/azure/containers/validate-kubelet-credentials.sh"].value
-				caCRT := o.files["/etc/kubernetes/certs/ca.crt"].value
-				kubeconfig := o.files["/var/lib/kubelet/kubeconfig"].value
-
-				Expect(etcDefaultKubelet).NotTo(BeEmpty())
-				Expect(etcDefaultKubeletService).NotTo(BeEmpty())
-				Expect(kubeletSh).NotTo(BeEmpty())
-				Expect(validateCredentials).ToNot(BeEmpty())
-				Expect(caCRT).NotTo(BeEmpty())
-				Expect(kubeconfig).ToNot(BeEmpty())
-
-				bootstrapKubeconfig := o.files["/var/lib/kubelet/bootstrap-kubeconfig"]
-				Expect(bootstrapKubeconfig).To(BeNil())
-			}),
-
-		Entry("AKSUbuntu1804 with kubelet client TLS bootstrapping enabled", "AKSUbuntu1804+KubeletClientTLSBootstrapping", "1.18.3",
-			func(config *datamodel.NodeBootstrappingConfiguration) {
-				config.KubeletClientTLSBootstrapToken = to.StringPtr("07401b.f395accd246ae52d")
-				config.ContainerService.Properties.CertificateProfile = &datamodel.CertificateProfile{
-					CaCertificate: "fooBarBaz",
-				}
-			}, func(o *nodeBootstrappingOutput) {
-				// Please see #2815 for more details
-				etcDefaultKubelet := o.files["/etc/default/kubelet"].value
-				etcDefaultKubeletService := o.files["/etc/systemd/system/kubelet.service"].value
-				kubeletSh := o.files["/opt/azure/containers/kubelet.sh"].value
-				validateCredentials := o.files["/opt/azure/containers/validate-kubelet-credentials.sh"].value
-				bootstrapKubeconfig := o.files["/var/lib/kubelet/bootstrap-kubeconfig"].value
-				caCRT := o.files["/etc/kubernetes/certs/ca.crt"].value
-
-				Expect(etcDefaultKubelet).NotTo(BeEmpty())
-				Expect(bootstrapKubeconfig).NotTo(BeEmpty())
-				Expect(kubeletSh).NotTo(BeEmpty())
-				Expect(etcDefaultKubeletService).NotTo(BeEmpty())
-				Expect(validateCredentials).ToNot(BeEmpty())
-				Expect(caCRT).NotTo(BeEmpty())
-
-				Expect(bootstrapKubeconfig).To(ContainSubstring("token"))
-				Expect(bootstrapKubeconfig).To(ContainSubstring("07401b.f395accd246ae52d"))
-				Expect(bootstrapKubeconfig).ToNot(ContainSubstring("command: /opt/azure/tlsbootstrap/tls-bootstrap-client"))
-
-				kubeconfig := o.files["/var/lib/kubelet/kubeconfig"]
-				Expect(kubeconfig).To(BeNil())
-			}),
-
-		Entry("AKSUbuntu2204 with secure TLS bootstrapping enabled", "AKSUbuntu2204+SecureTLSBoostrapping", "1.25.6",
-			func(config *datamodel.NodeBootstrappingConfiguration) {
-				config.EnableSecureTLSBootstrapping = true
-			}, func(o *nodeBootstrappingOutput) {
-				Expect(o.vars["ENABLE_SECURE_TLS_BOOTSTRAPPING"]).To(Equal("true"))
-				Expect(o.vars["CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_SERVER_APP_ID"]).To(BeEmpty())
-
-				bootstrapKubeconfig := o.files["/var/lib/kubelet/bootstrap-kubeconfig"].value
-				Expect(bootstrapKubeconfig).ToNot(BeEmpty())
-				Expect(bootstrapKubeconfig).To(ContainSubstring("apiVersion: client.authentication.k8s.io/v1"))
-				Expect(bootstrapKubeconfig).To(ContainSubstring("command: /opt/azure/tlsbootstrap/tls-bootstrap-client"))
-				Expect(bootstrapKubeconfig).To(ContainSubstring("- bootstrap"))
-				Expect(bootstrapKubeconfig).To(ContainSubstring("--next-proto=aks-tls-bootstrap"))
-				Expect(bootstrapKubeconfig).To(ContainSubstring("--aad-resource=6dae42f8-4368-4678-94ff-3960e28e3630"))
-				Expect(bootstrapKubeconfig).To(ContainSubstring("interactiveMode: Never"))
-				Expect(bootstrapKubeconfig).To(ContainSubstring("provideClusterInfo: true"))
-				Expect(bootstrapKubeconfig).ToNot(ContainSubstring("token:"))
-			}),
-
-		Entry("AKSUbuntu2204 with secure TLS bootstrapping enabled using custom AAD server application ID", "AKSUbuntu2204+SecureTLSBootstrapping+CustomAADResource", "1.25.6",
-			func(config *datamodel.NodeBootstrappingConfiguration) {
-				config.EnableSecureTLSBootstrapping = true
-				config.CustomSecureTLSBootstrapAADServerAppID = "appID"
-			}, func(o *nodeBootstrappingOutput) {
-				Expect(o.vars["ENABLE_SECURE_TLS_BOOTSTRAPPING"]).To(Equal("true"))
-				Expect(o.vars["CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_SERVER_APP_ID"]).To(Equal("appID"))
-
-				bootstrapKubeconfig := o.files["/var/lib/kubelet/bootstrap-kubeconfig"].value
-				Expect(bootstrapKubeconfig).ToNot(BeEmpty())
-				Expect(bootstrapKubeconfig).To(ContainSubstring("apiVersion: client.authentication.k8s.io/v1"))
-				Expect(bootstrapKubeconfig).To(ContainSubstring("command: /opt/azure/tlsbootstrap/tls-bootstrap-client"))
-				Expect(bootstrapKubeconfig).To(ContainSubstring("- bootstrap"))
-				Expect(bootstrapKubeconfig).To(ContainSubstring("--next-proto=aks-tls-bootstrap"))
-				Expect(bootstrapKubeconfig).To(ContainSubstring("--aad-resource=appID"))
-				Expect(bootstrapKubeconfig).To(ContainSubstring("interactiveMode: Never"))
-				Expect(bootstrapKubeconfig).To(ContainSubstring("provideClusterInfo: true"))
-				Expect(bootstrapKubeconfig).ToNot(ContainSubstring("token:"))
-			}),
-
 		Entry("AKSUbuntu2204 with kubelet serving certificate rotation implicitly disabled", "AKSUbuntu2204+ImplicitlyDisableKubeletServingCertificateRotation", "1.29.7",
 			func(config *datamodel.NodeBootstrappingConfiguration) {
 			}, func(o *nodeBootstrappingOutput) {
@@ -1584,6 +1484,14 @@ testdomain567.com:53 {
 			}
 		}, nil),
 
+		Entry("AzureLinux v3 with kata", "AzureLinuxV3+Kata", "1.28.0", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.OSSKU = "AzureLinux"
+			config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSAzureLinuxV3Gen2Kata
+			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+				ContainerRuntime: datamodel.Containerd,
+			}
+		}, nil),
+
 		Entry("Mariner v2 with DisableUnattendedUpgrades=true", "Marinerv2+DisableUnattendedUpgrades=true", "1.23.8",
 			func(config *datamodel.NodeBootstrappingConfiguration) {
 				config.OSSKU = "Mariner"
@@ -1646,6 +1554,26 @@ testdomain567.com:53 {
 			func(config *datamodel.NodeBootstrappingConfiguration) {
 				config.OSSKU = "AzureLinux"
 				config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSAzureLinuxV2Gen2Kata
+				config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+					ContainerRuntime: datamodel.Containerd,
+				}
+				config.DisableUnattendedUpgrades = false
+			}, nil),
+
+		Entry("AzureLinux v3 with kata and DisableUnattendedUpgrades=true", "AzureLinuxV3+Kata+DisableUnattendedUpgrades=true", "1.28.0",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.OSSKU = "AzureLinux"
+				config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSAzureLinuxV3Gen2Kata
+				config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+					ContainerRuntime: datamodel.Containerd,
+				}
+				config.DisableUnattendedUpgrades = true
+			}, nil),
+
+		Entry("AzureLinux v3 with kata and DisableUnattendedUpgrades=false", "AzureLinuxV3+Kata+DisableUnattendedUpgrades=false", "1.28.0",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.OSSKU = "AzureLinux"
+				config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSAzureLinuxV3Gen2Kata
 				config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
 					ContainerRuntime: datamodel.Containerd,
 				}
@@ -1776,59 +1704,6 @@ testdomain567.com:53 {
 				config.GPUInstanceProfile = "MIG7g"
 			}, nil),
 
-		Entry("AKSUbuntu1804 with krustlet", "AKSUbuntu1804+krustlet", "1.20.7", func(config *datamodel.NodeBootstrappingConfiguration) {
-			config.ContainerService.Properties.AgentPoolProfiles[0].WorkloadRuntime = datamodel.WasmWasi
-			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
-				ContainerRuntime: datamodel.Containerd,
-			}
-			config.ContainerService.Properties.CertificateProfile = &datamodel.CertificateProfile{
-				CaCertificate: "fooBarBaz",
-			}
-			config.KubeletClientTLSBootstrapToken = to.StringPtr("07401b.f395accd246ae52d")
-		},
-			func(o *nodeBootstrappingOutput) {
-
-				Expect(o.vars["CONTAINERD_CONFIG_CONTENT"]).NotTo(BeEmpty())
-				containerdConfigFileContent, err := getBase64DecodedValue([]byte(o.vars["CONTAINERD_CONFIG_CONTENT"]))
-				Expect(err).To(BeNil())
-				expectedShimConfig := `version = 2
-oom_score = -999
-[plugins."io.containerd.grpc.v1.cri"]
-  sandbox_image = ""
-  [plugins."io.containerd.grpc.v1.cri".containerd]
-    default_runtime_name = "runc"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
-      runtime_type = "io.containerd.runc.v2"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
-      BinaryName = "/usr/bin/runc"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted]
-      runtime_type = "io.containerd.runc.v2"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted.options]
-      BinaryName = "/usr/bin/runc"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin]
-      runtime_type = "io.containerd.spin.v2"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight]
-      runtime_type = "io.containerd.slight-v0-3-0.v1"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin-v0-3-0]
-      runtime_type = "io.containerd.spin-v0-3-0.v1"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight-v0-3-0]
-      runtime_type = "io.containerd.slight-v0-3-0.v1"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin-v0-5-1]
-      runtime_type = "io.containerd.spin-v0-5-1.v1"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight-v0-5-1]
-      runtime_type = "io.containerd.slight-v0-5-1.v1"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin-v0-8-0]
-      runtime_type = "io.containerd.spin-v0-8-0.v1"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight-v0-8-0]
-      runtime_type = "io.containerd.slight-v0-8-0.v1"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.wws-v0-8-0]
-      runtime_type = "io.containerd.wws-v0-8-0.v1"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin-v0-15-1]
-      runtime_type = "io.containerd.spin.v2"`
-
-				Expect(containerdConfigFileContent).To(ContainSubstring(expectedShimConfig))
-			},
-		),
 		Entry("AKSUbuntu2204 with artifact streaming", "AKSUbuntu1804+ArtifactStreaming", "1.25.7", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.EnableArtifactStreaming = true
 			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
@@ -2717,8 +2592,6 @@ func backfillCustomData(folder, customData string) {
 	if strings.Contains(folder, "AKSWindows") {
 		return
 	}
-	err := exec.Command("/bin/sh", "-c", fmt.Sprintf("./testdata/convert.sh testdata/%s", folder)).Run()
-	Expect(err).To(BeNil())
 }
 
 func getDecodedVarsFromCseCmd(data []byte) (map[string]string, error) {
