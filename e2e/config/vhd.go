@@ -226,6 +226,10 @@ func (i *Image) String() string {
 func (i *Image) VHDResourceID(ctx context.Context, t *testing.T) (VHDResourceID, error) {
 	i.vhdOnce.Do(func() {
 		switch {
+		case i.Gallery != nil && i.Gallery.Name == "managed-images":
+			// This is a managed image - use the Version field as the resource ID
+			i.vhd = VHDResourceID(i.Version)
+			t.Logf("Using managed image directly: %s", i.Version)
 		case i.Version != "":
 			i.vhd, i.vhdErr = Azure.EnsureSIGImageVersion(ctx, t, i)
 			if i.vhd != "" {

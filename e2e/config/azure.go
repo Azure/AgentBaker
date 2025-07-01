@@ -57,6 +57,11 @@ type AzureClient struct {
 	UserAssignedIdentities    *armmsi.UserAssignedIdentitiesClient
 	VMSS                      *armcompute.VirtualMachineScaleSetsClient
 	VMSSVM                    *armcompute.VirtualMachineScaleSetVMsClient
+	VMs                       *armcompute.VirtualMachinesClient
+	Images                    *armcompute.ImagesClient
+	Snapshots                 *armcompute.SnapshotsClient
+	GalleryImages             *armcompute.GalleryImagesClient
+	GalleryImageVersions      *armcompute.GalleryImageVersionsClient
 	VNet                      *armnetwork.VirtualNetworksClient
 	VirutalNetworkLinksClient *armprivatedns.VirtualNetworkLinksClient
 	ArmOptions                *arm.ClientOptions
@@ -197,6 +202,31 @@ func NewAzureClient() (*AzureClient, error) {
 	cloud.VMSSVM, err = armcompute.NewVirtualMachineScaleSetVMsClient(Config.SubscriptionID, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("create vmss vm client: %w", err)
+	}
+
+	cloud.VMs, err = armcompute.NewVirtualMachinesClient(Config.SubscriptionID, credential, opts)
+	if err != nil {
+		return nil, fmt.Errorf("create vms client: %w", err)
+	}
+
+	cloud.Images, err = armcompute.NewImagesClient(Config.SubscriptionID, credential, opts)
+	if err != nil {
+		return nil, fmt.Errorf("create images client: %w", err)
+	}
+
+	cloud.Snapshots, err = armcompute.NewSnapshotsClient(Config.SubscriptionID, credential, opts)
+	if err != nil {
+		return nil, fmt.Errorf("create snapshots client: %w", err)
+	}
+
+	cloud.GalleryImages, err = armcompute.NewGalleryImagesClient(Config.SubscriptionID, credential, opts)
+	if err != nil {
+		return nil, fmt.Errorf("create gallery images client: %w", err)
+	}
+
+	cloud.GalleryImageVersions, err = armcompute.NewGalleryImageVersionsClient(Config.SubscriptionID, credential, opts)
+	if err != nil {
+		return nil, fmt.Errorf("create gallery image versions client: %w", err)
 	}
 
 	cloud.Resource, err = armresources.NewClient(Config.SubscriptionID, credential, opts)
@@ -603,4 +633,366 @@ func (a *AzureClient) createVMSS(ctx context.Context, resourceGroupName string, 
 	}
 	return &vmssResp.VirtualMachineScaleSet, nil
 
+}
+
+// GeneralizeAndCaptureVMSSVMAsImage runs sysprep and captures the VM as a generalized managed image
+func (a *AzureClient) GeneralizeAndCaptureVMSSVMAsImage(ctx context.Context, resourceGroupName, vmssName, instanceID, imageName string) (*armcompute.Image, error) {
+	// Run sysprep to generalize the Windows VM
+	sysprepScript := `
+$ErrorActionPreference = "Stop"
+Write-Host "Starting sysprep to generalize Windows VM..."
+& $env:SystemRoot\System32\Sysprep\sysprep.exe /generalize /oobe /shutdown /quiet
+Write-Host "Sysprep command executed, VM will shutdown"
+`
+
+	runCommand := armcompute.VirtualMachineRunCommand{
+		Properties: &armcompute.VirtualMachineRunCommandProperties{
+			Source: &armcompute.VirtualMachineRunCommandScriptSource{
+				Script: to.Ptr(sysprepScript),
+			},
+		},
+	}
+
+	runOp, err := a.VMSSVMRunCommands.BeginCreateOrUpdate(ctx, resourceGroupName, vmssName, instanceID, "sysprep-command", runCommand, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to start sysprep: %w", err)
+	}
+
+	_, err = runOp.PollUntilDone(ctx, DefaultPollUntilDoneOptions)
+	if err != nil {
+		return nil, fmt.Errorf("failed to complete sysprep: %w", err)
+	}
+
+	// Check if VM has been deallocated by sysprep, if not force deallocate
+	vm, err := a.VMSSVM.Get(ctx, resourceGroupName, vmssName, instanceID, &armcompute.VirtualMachineScaleSetVMsClientGetOptions{
+		Expand: to.Ptr(armcompute.InstanceViewTypesInstanceView),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get VM status: %w", err)
+	}
+
+	// Check power state
+	deallocated := false
+	if vm.Properties != nil && vm.Properties.InstanceView != nil {
+		for _, status := range vm.Properties.InstanceView.Statuses {
+			if status.Code != nil && strings.Contains(*status.Code, "PowerState/deallocated") {
+				deallocated = true
+				break
+			}
+		}
+	}
+
+	if !deallocated {
+		// Force deallocate the VM since sysprep should have shut it down
+		deallocateOp, err := a.VMSSVM.BeginDeallocate(ctx, resourceGroupName, vmssName, instanceID, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to deallocate VM after sysprep: %w", err)
+		}
+
+		_, err = deallocateOp.PollUntilDone(ctx, DefaultPollUntilDoneOptions)
+		if err != nil {
+			return nil, fmt.Errorf("failed to complete VM deallocation: %w", err)
+		}
+	}
+
+	// Get the VM again to access its OS disk
+	vm, err = a.VMSSVM.Get(ctx, resourceGroupName, vmssName, instanceID, &armcompute.VirtualMachineScaleSetVMsClientGetOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get VMSS VM: %w", err)
+	}
+
+	if vm.Properties.StorageProfile == nil || vm.Properties.StorageProfile.OSDisk == nil {
+		return nil, fmt.Errorf("VM storage profile or OS disk is nil")
+	}
+
+	osDisk := vm.Properties.StorageProfile.OSDisk
+	if osDisk.ManagedDisk == nil || osDisk.ManagedDisk.ID == nil {
+		return nil, fmt.Errorf("VM does not have a managed OS disk")
+	}
+
+	// Create image from the OS disk (generalized since we ran sysprep)
+	imageParams := armcompute.Image{
+		Location: vm.Location,
+		Properties: &armcompute.ImageProperties{
+			StorageProfile: &armcompute.ImageStorageProfile{
+				OSDisk: &armcompute.ImageOSDisk{
+					OSType:  to.Ptr(armcompute.OperatingSystemTypesWindows),
+					OSState: to.Ptr(armcompute.OperatingSystemStateTypesGeneralized),
+					ManagedDisk: &armcompute.SubResource{
+						ID: osDisk.ManagedDisk.ID,
+					},
+				},
+			},
+		},
+	}
+
+	createOp, err := a.Images.BeginCreateOrUpdate(ctx, resourceGroupName, imageName, imageParams, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create image: %w", err)
+	}
+
+	imageResp, err := createOp.PollUntilDone(ctx, DefaultPollUntilDoneOptions)
+	if err != nil {
+		return nil, fmt.Errorf("failed to complete image creation: %w", err)
+	}
+
+	return &imageResp.Image, nil
+}
+
+// CaptureVMSSVMAsImage captures a VMSS VM as a managed image using disk snapshots
+// Note: This function requires the VM to use persistent disks (not ephemeral)
+func (a *AzureClient) CaptureVMSSVMAsImage(ctx context.Context, resourceGroupName, vmssName, instanceID, imageName string) (*armcompute.Image, error) {
+	// First, get the VM
+	vm, err := a.VMSSVM.Get(ctx, resourceGroupName, vmssName, instanceID, &armcompute.VirtualMachineScaleSetVMsClientGetOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get VMSS VM: %w", err)
+	}
+
+	// Deallocate the VM
+	deallocateOp, err := a.VMSSVM.BeginDeallocate(ctx, resourceGroupName, vmssName, instanceID, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to deallocate VM: %w", err)
+	}
+	_, err = deallocateOp.PollUntilDone(ctx, DefaultPollUntilDoneOptions)
+	if err != nil {
+		return nil, fmt.Errorf("failed to complete VM deallocation: %w", err)
+	}
+
+	// For VMSS VMs, we need to create an image from the OS disk rather than the VM directly
+	if vm.Properties.StorageProfile == nil || vm.Properties.StorageProfile.OSDisk == nil {
+		return nil, fmt.Errorf("VM storage profile or OS disk is nil")
+	}
+
+	osDisk := vm.Properties.StorageProfile.OSDisk
+	if osDisk.ManagedDisk == nil || osDisk.ManagedDisk.ID == nil {
+		return nil, fmt.Errorf("VM does not have a managed OS disk")
+	}
+
+	// Create image from the OS disk
+	imageParams := armcompute.Image{
+		Location: vm.Location,
+		Properties: &armcompute.ImageProperties{
+			StorageProfile: &armcompute.ImageStorageProfile{
+				OSDisk: &armcompute.ImageOSDisk{
+					OSType:  to.Ptr(armcompute.OperatingSystemTypesWindows),
+					OSState: to.Ptr(armcompute.OperatingSystemStateTypesGeneralized),
+					ManagedDisk: &armcompute.SubResource{
+						ID: osDisk.ManagedDisk.ID,
+					},
+				},
+			},
+		},
+	}
+
+	createOp, err := a.Images.BeginCreateOrUpdate(ctx, resourceGroupName, imageName, imageParams, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create image from OS disk: %w", err)
+	}
+
+	imageResp, err := createOp.PollUntilDone(ctx, DefaultPollUntilDoneOptions)
+	if err != nil {
+		return nil, fmt.Errorf("failed to complete image creation from OS disk: %w", err)
+	}
+
+	return &imageResp.Image, nil
+}
+
+// DeleteImage deletes a managed image
+func (a *AzureClient) DeleteImage(ctx context.Context, resourceGroupName, imageName string) error {
+	deleteOp, err := a.Images.BeginDelete(ctx, resourceGroupName, imageName, nil)
+	if err != nil {
+		return fmt.Errorf("failed to delete image: %w", err)
+	}
+
+	_, err = deleteOp.PollUntilDone(ctx, DefaultPollUntilDoneOptions)
+	if err != nil {
+		return fmt.Errorf("failed to complete image deletion: %w", err)
+	}
+
+	return nil
+}
+
+// CreateVMSSFromImage creates a VMSS from a managed image
+func (a *AzureClient) CreateVMSSFromImage(ctx context.Context, resourceGroupName, vmssName string, vmssTemplate armcompute.VirtualMachineScaleSet, imageResourceID string) (*armcompute.VirtualMachineScaleSet, error) {
+	// Modify the VMSS template to use the custom image
+	if vmssTemplate.Properties.VirtualMachineProfile.StorageProfile.ImageReference == nil {
+		vmssTemplate.Properties.VirtualMachineProfile.StorageProfile.ImageReference = &armcompute.ImageReference{}
+	}
+
+	vmssTemplate.Properties.VirtualMachineProfile.StorageProfile.ImageReference.ID = to.Ptr(imageResourceID)
+	// Clear marketplace image reference properties when using custom image
+	vmssTemplate.Properties.VirtualMachineProfile.StorageProfile.ImageReference.Publisher = nil
+	vmssTemplate.Properties.VirtualMachineProfile.StorageProfile.ImageReference.Offer = nil
+	vmssTemplate.Properties.VirtualMachineProfile.StorageProfile.ImageReference.SKU = nil
+	vmssTemplate.Properties.VirtualMachineProfile.StorageProfile.ImageReference.Version = nil
+
+	return a.createVMSS(ctx, resourceGroupName, vmssName, vmssTemplate)
+}
+
+// CreateSIGImageVersionFromManagedImage creates a new SIG image version from a managed image
+func (a *AzureClient) CreateSIGImageVersionFromManagedImage(ctx context.Context, resourceGroup, galleryName, imageName, version, managedImageResourceID string) (*armcompute.GalleryImageVersion, error) {
+	// Parse the managed image resource ID to get the correct resource group and name
+	// managedImageResourceID format: /subscriptions/{sub}/resourceGroups/{rg}/providers/Microsoft.Compute/images/{name}
+	resourceIDParts := strings.Split(managedImageResourceID, "/")
+	if len(resourceIDParts) < 8 {
+		return nil, fmt.Errorf("invalid managed image resource ID format: %s", managedImageResourceID)
+	}
+	managedImageRG := resourceIDParts[4]
+	managedImageName := resourceIDParts[8]
+
+	// First, get the managed image to detect its properties
+	managedImage, err := a.Images.Get(ctx, managedImageRG, managedImageName, &armcompute.ImagesClientGetOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get managed image: %w", err)
+	}
+
+	// Detect HyperV generation and OS type from the managed image
+	hyperVGen := armcompute.HyperVGenerationV1 // Default to V1
+	if managedImage.Properties != nil && managedImage.Properties.HyperVGeneration != nil {
+		switch *managedImage.Properties.HyperVGeneration {
+		case armcompute.HyperVGenerationTypesV1:
+			hyperVGen = armcompute.HyperVGenerationV1
+		case armcompute.HyperVGenerationTypesV2:
+			hyperVGen = armcompute.HyperVGenerationV2
+		default:
+			hyperVGen = armcompute.HyperVGenerationV1 // Default to V1 for unknown types
+		}
+	}
+
+	osType := armcompute.OperatingSystemTypesWindows // Default to Windows
+	if managedImage.Properties != nil && managedImage.Properties.StorageProfile != nil &&
+		managedImage.Properties.StorageProfile.OSDisk != nil && managedImage.Properties.StorageProfile.OSDisk.OSType != nil {
+		osType = *managedImage.Properties.StorageProfile.OSDisk.OSType
+	}
+
+	// Ensure the gallery exists
+	galleries, err := armcompute.NewGalleriesClient(Config.SubscriptionID, a.Credential, a.ArmOptions)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create galleries client: %w", err)
+	}
+
+	_, err = galleries.Get(ctx, resourceGroup, galleryName, nil)
+	if err != nil {
+		// Create the gallery if it doesn't exist
+		gallery := armcompute.Gallery{
+			Location: to.Ptr(Config.Location),
+			Properties: &armcompute.GalleryProperties{
+				Description: to.Ptr("E2E test gallery for two-stage kubelet configuration"),
+			},
+		}
+
+		createGalleryOp, err := galleries.BeginCreateOrUpdate(ctx, resourceGroup, galleryName, gallery, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create gallery: %w", err)
+		}
+
+		_, err = createGalleryOp.PollUntilDone(ctx, DefaultPollUntilDoneOptions)
+		if err != nil {
+			return nil, fmt.Errorf("failed to complete gallery creation: %w", err)
+		}
+	}
+
+	// Next, ensure the gallery image exists
+	_, err = a.GalleryImages.Get(ctx, resourceGroup, galleryName, imageName, &armcompute.GalleryImagesClientGetOptions{})
+	if err != nil {
+		// Create the gallery image if it doesn't exist, matching the managed image properties
+		galleryImage := armcompute.GalleryImage{
+			Location: to.Ptr(Config.Location),
+			Properties: &armcompute.GalleryImageProperties{
+				OSType:  to.Ptr(osType),
+				OSState: to.Ptr(armcompute.OperatingSystemStateTypesGeneralized),
+				Identifier: &armcompute.GalleryImageIdentifier{
+					Publisher: to.Ptr("akse2e"),
+					Offer:     to.Ptr("akse2e"),
+					SKU:       to.Ptr("akse2e"),
+				},
+				HyperVGeneration: to.Ptr(hyperVGen), // Use detected generation
+			},
+		}
+
+		createImageOp, err := a.GalleryImages.BeginCreateOrUpdate(ctx, resourceGroup, galleryName, imageName, galleryImage, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create gallery image: %w", err)
+		}
+
+		_, err = createImageOp.PollUntilDone(ctx, DefaultPollUntilDoneOptions)
+		if err != nil {
+			return nil, fmt.Errorf("failed to complete gallery image creation: %w", err)
+		}
+	}
+
+	// Create the image version from the managed image
+	imageVersion := armcompute.GalleryImageVersion{
+		Location: to.Ptr(Config.Location),
+		Properties: &armcompute.GalleryImageVersionProperties{
+			StorageProfile: &armcompute.GalleryImageVersionStorageProfile{
+				Source: &armcompute.GalleryArtifactVersionFullSource{
+					ID: to.Ptr(managedImageResourceID),
+				},
+			},
+			PublishingProfile: &armcompute.GalleryImageVersionPublishingProfile{
+				TargetRegions: []*armcompute.TargetRegion{
+					{
+						Name:                 to.Ptr(Config.Location),
+						RegionalReplicaCount: to.Ptr[int32](1),
+						StorageAccountType:   to.Ptr(armcompute.StorageAccountTypeStandardLRS),
+					},
+				},
+				ReplicaCount: to.Ptr[int32](1),
+			},
+		},
+	}
+
+	createVersionOp, err := a.GalleryImageVersions.BeginCreateOrUpdate(ctx, resourceGroup, galleryName, imageName, version, imageVersion, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create image version: %w", err)
+	}
+
+	versionResp, err := createVersionOp.PollUntilDone(ctx, DefaultPollUntilDoneOptions)
+	if err != nil {
+		return nil, fmt.Errorf("failed to complete image version creation: %w", err)
+	}
+
+	return &versionResp.GalleryImageVersion, nil
+}
+
+// DeleteSIGImageVersion deletes a SIG image version
+func (a *AzureClient) DeleteSIGImageVersion(ctx context.Context, galleryResourceGroup, galleryName, imageName, version string) {
+	// Ignore errors, don't need to wait for the deletion to complete
+	_, _ = a.GalleryImageVersions.BeginDelete(ctx, galleryResourceGroup, galleryName, imageName, version, nil)
+}
+
+// DeleteDisk deletes a managed disk
+func (a *AzureClient) DeleteDisk(ctx context.Context, resourceGroupName, diskName string) error {
+	disks, err := armcompute.NewDisksClient(Config.SubscriptionID, a.Credential, a.ArmOptions)
+	if err != nil {
+		return fmt.Errorf("failed to create disks client: %w", err)
+	}
+
+	deleteOp, err := disks.BeginDelete(ctx, resourceGroupName, diskName, nil)
+	if err != nil {
+		return fmt.Errorf("failed to delete disk: %w", err)
+	}
+
+	_, err = deleteOp.PollUntilDone(ctx, DefaultPollUntilDoneOptions)
+	if err != nil {
+		return fmt.Errorf("failed to complete disk deletion: %w", err)
+	}
+
+	return nil
+}
+
+// DeleteSnapshot deletes a disk snapshot
+func (a *AzureClient) DeleteSnapshot(ctx context.Context, resourceGroupName, snapshotName string) error {
+	deleteOp, err := a.Snapshots.BeginDelete(ctx, resourceGroupName, snapshotName, nil)
+	if err != nil {
+		return fmt.Errorf("failed to delete snapshot: %w", err)
+	}
+
+	_, err = deleteOp.PollUntilDone(ctx, DefaultPollUntilDoneOptions)
+	if err != nil {
+		return fmt.Errorf("failed to complete snapshot deletion: %w", err)
+	}
+
+	return nil
 }
