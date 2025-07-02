@@ -877,6 +877,12 @@ var (
 	}
 )
 
+// GomegaString provides a custom string representation for Gomega assertions to avoid truncation when comparing large maps or structs.
+func (s SigImageConfig) GomegaString() string {
+	return fmt.Sprintf("SigImageConfig{ResourceGroup: %s, Gallery: %s, Definition: %s, Version: %s}",
+		s.ResourceGroup, s.Gallery, s.Definition, s.Version)
+}
+
 // GetMaintainedLinuxSIGImageConfigMap returns a set of Distro -> SigImageConfig mappings
 // for ALL Linux distros that are currently built and maintained by AKS Node SIG (Version == LinuxSIGImageVersion).
 // Note that each distro's SigImageConfig SubscriptionID field will be empty.
