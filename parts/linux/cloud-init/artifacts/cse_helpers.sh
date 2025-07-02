@@ -287,11 +287,13 @@ _retry_file_curl_internal() {
             echo "CSE timeout approaching, exiting early." >&2
             return 2
         else
+            if [ "$i" -gt 1 ]; then
+                sleep $waitSleep
+            fi
             timeout $timeout curl -fsSLv $url -o $filePath > $CURL_OUTPUT 2>&1
             if [ "$?" -ne 0 ]; then
                 cat $CURL_OUTPUT
             fi
-            sleep $waitSleep
         fi
     done
 }
@@ -317,11 +319,13 @@ retrycmd_get_tarball_from_registry_with_oras() {
         if [ "$i" -eq "$tar_retries" ]; then
             return 1
         else
+            if [ "$i" -gt 1 ]; then
+                sleep $wait_sleep
+            fi
             timeout 60 oras pull $url -o $tar_folder --registry-config ${ORAS_REGISTRY_CONFIG_FILE} > $ORAS_OUTPUT 2>&1
             if [ "$?" -ne 0 ]; then
                 cat $ORAS_OUTPUT
             fi
-            sleep $wait_sleep
         fi
     done
 }
