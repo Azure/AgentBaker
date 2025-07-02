@@ -255,6 +255,7 @@ func execOnVMForScenarioOnUnprivilegedPod(ctx context.Context, s *Scenario, cmd 
 }
 
 func execScriptOnVMForScenario(ctx context.Context, s *Scenario, cmd string) *podExecResult {
+	s.T.Helper()
 	script := Script{
 		script: cmd,
 	}

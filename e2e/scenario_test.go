@@ -3,17 +3,36 @@ package e2e
 import (
 	"context"
 	"fmt"
+	"log"
+	"os"
+	"strings"
 	"testing"
+	"time"
 
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/e2e/toolkit"
-	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v6"
+	"github.com/stretchr/testify/require"
 )
+
+func TestMain(m *testing.M) {
+	log.Printf("using E2E environment configuration:\n%s\n", config.Config)
+	// clean up logs from previous run
+	if _, err := os.Stat("scenario-logs"); err == nil {
+		_ = os.RemoveAll("scenario-logs")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	err := ensureResourceGroup(ctx)
+	mustNoError(err)
+	_, err = config.Azure.CreateVMManagedIdentity(ctx)
+	mustNoError(err)
+	m.Run()
+}
 
 func Test_AzureLinuxV2_AirGap(t *testing.T) {
 	RunScenario(t, &Scenario{
@@ -1640,8 +1659,15 @@ func Test_TwoStageKubeletConfiguration_Linux(t *testing.T) {
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV2Gen2,
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				// Configure VM to use persistent disk instead of ephemeral for image capture
+				if vmss.Properties.VirtualMachineProfile.StorageProfile.OSDisk != nil {
+					vmss.Properties.VirtualMachineProfile.StorageProfile.OSDisk.DiffDiskSettings = nil
+				}
+			},
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.SkipKubeletConfiguration = true
+
 			},
 			SkipDefaultValidation: true,
 			Validator: func(ctx context.Context, s *Scenario) {
@@ -1652,71 +1678,153 @@ func Test_TwoStageKubeletConfiguration_Linux(t *testing.T) {
 				ValidateFileExists(ctx, s, "/opt/azure/containers/stage1-complete")
 				ValidateFileDoesNotExist(ctx, s, "/opt/azure/containers/provision.complete")
 
-				// Stage 2: Run kubelet-only configuration
-				RunKubeletOnlyStage(ctx, s)
+				t.Log("=== Stage 1 validation complete, proceeding to Stage 2 ===")
+				customVHD := CreateImage(ctx, s)
 
-				// Stage 2 validation: Verify kubelet is now working
-				ValidateFileHasContent(ctx, s, "/var/log/azure/cluster-provision.log", "Running in kubelet-only mode")
-				ValidateSystemdUnitIsRunning(ctx, s, "kubelet")
-				ValidateFileExists(ctx, s, "/opt/azure/containers/provision.complete")
+				// Create a subtest so RunScenario won't fail on t.Parallel()
+				s.T.Run("SecondStage", func(t *testing.T) {
+					// Run Stage 2 scenario using the custom VHD
+					// RunScenario fails due to the running of the t.Parallel() for the second time
+					RunScenario(t, &Scenario{
+						Description: "Stage 2: Create VMSS from captured VHD via SIG",
+						Config: Config{
+							Cluster: s.Config.Cluster,
+							VHD:     customVHD,
+							BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+								nbc.KubeletOnly = true
+							},
+							Validator: func(ctx context.Context, s *Scenario) {
+								// Stage 2 validation: Verify kubelet is now working
+								ValidateFileHasContent(ctx, s, "/var/log/azure/cluster-provision.log", "Running in kubelet-only mode")
+								ValidateSystemdUnitIsRunning(ctx, s, "kubelet")
+								ValidateFileExists(ctx, s, "/opt/azure/containers/provision.complete")
+							},
+						},
+					})
+				})
 
-				s.Runtime.KubeNodeName = s.Runtime.Cluster.Kube.WaitUntilNodeReady(ctx, s.T, s.Runtime.VMSSName)
-
-				// After Stage 2, now we can validate Linux common things (kubelet config files exist)
-				ValidateCommonLinux(ctx, s)
-
-				// After Stage 2, now we can validate that pods can run (node should be ready)
-				ValidateNodeCanRunAPod(ctx, s)
 			},
 		},
 	})
 }
 
-// RunKubeletOnlyStage executes Stage 2 kubelet-only configuration on Linux
-func RunKubeletOnlyStage(ctx context.Context, s *Scenario) {
-	s.T.Log("=== STAGE 2: Running KubeletOnly configuration on same VM ===")
-
-	s.Runtime.NBC.KubeletOnly = true
-	s.Runtime.NBC.SkipKubeletConfiguration = false
-
-	// Generate the CSE command for Stage 2 using AgentBaker
-	ab, err := agent.NewAgentBaker()
-	if err != nil {
-		s.T.Fatalf("Failed to create AgentBaker: %v", err)
-	}
-	kubeletOnlyBootstrapping, err := ab.GetNodeBootstrapping(ctx, s.Runtime.NBC)
-	if err != nil {
-		s.T.Fatalf("Failed to generate kubelet-only CSE command: %v", err)
-	}
-
-	// Execute the CSE command on the VM for Stage 2
-	s.T.Logf("Executing Stage 2 CSE command")
-
-	script := Script{
-		script: kubeletOnlyBootstrapping.CSE,
-	}
-	if s.IsWindows() {
-		script.interpreter = Powershell
-		script.skipLogging = true // Script contains sensitive information
+func CreateImage(ctx context.Context, s *Scenario) *config.Image {
+	if s.IsLinux() {
+		execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo waagent -deprovision", 0, "Failed to deprovision the VM for image creation")
 	} else {
-		script.interpreter = Bash
-		script.sudo = true
+		// https://learn.microsoft.com/en-us/windows-hardware/manufacture/desktop/sysprep-command-line-options?view=windows-11
+		result := execScriptOnVMForScenarioValidateExitCode(ctx, s, `
+		Write-Host "Stopping services before sysprep..."
+		try { Stop-Service -Name "csi-proxy" -Force -ErrorAction SilentlyContinue } catch { }
+		
+		Write-Host "Running sysprep to generalize Windows VM..."
+		& $env:SystemRoot\System32\Sysprep\sysprep.exe /generalize /mode:vm /shutdown /quiet
+		`, 0, "Failed to run sysprep on Windows VM for image creation")
+		s.T.Logf("Sysprep output: %s", result.stdout)
+		s.T.Logf("Sysprep error: %s", result.stderr)
+
+		waitForVMShutdown(ctx, s) // wait for sysprep to complete
 	}
 
-	result, err := execScriptOnVm(ctx, s, s.Runtime.VMPrivateIP, s.Runtime.Cluster.DebugPod.Name, script)
-	if err != nil {
-		s.T.Fatalf("Failed to execute Stage 2 CSE: %v", err)
-	}
+	// VMSS can't be "Generalized"
+	// Azure can't create an image from VMSS instance directly
+	// So use snapshots
 
-	if result.exitCode != "0" {
-		s.T.Fatalf("Stage 2 CSE command failed with exit code %s. STDOUT: %s, STDERR: %s",
-			result.exitCode, result.stdout.String(), result.stderr.String())
-	}
+	vm, err := config.Azure.VMSSVM.Get(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, "0", &armcompute.VirtualMachineScaleSetVMsClientGetOptions{})
+	require.NoError(s.T, err, "Failed to get VMSS VM for image creation")
+
+	poll, err := config.Azure.VMSSVM.BeginDeallocate(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, "0", nil)
+	require.NoError(s.T, err, "Failed to begin deallocate")
+	_, err = poll.PollUntilDone(ctx, nil)
+	require.NoError(s.T, err, "Failed to deallocate")
+	s.T.Log("VMSS VM deallocated successfully for image creation")
+
+	diskName := *vm.Properties.StorageProfile.OSDisk.Name
+	snapshotName := fmt.Sprintf("snap-%s", time.Now().Format("20250701-1527"))
+
+	snapshotPoller, err := config.Azure.Snapshots.BeginCreateOrUpdate(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, snapshotName,
+		armcompute.Snapshot{
+			Location: to.Ptr("westus3"),
+			Properties: &armcompute.SnapshotProperties{
+				CreationData: &armcompute.CreationData{
+					CreateOption: to.Ptr(armcompute.DiskCreateOptionCopy),
+					SourceResourceID: to.Ptr(fmt.Sprintf(
+						"/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/disks/%s",
+						config.Config.SubscriptionID, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, diskName)),
+				},
+			},
+		}, nil)
+
 	s.T.Cleanup(func() {
-		if s.T.Failed() {
-			s.T.Logf("Stage 2 CSE command output: %s", result.stdout.String())
-			s.T.Logf("Stage 2 CSE command error output: %s", result.stderr.String())
-		}
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_, _ = config.Azure.Snapshots.BeginDelete(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, snapshotName, nil)
 	})
-	s.T.Log("Stage 2 CSE command executed successfully")
+
+	snapshot, err := snapshotPoller.PollUntilDone(ctx, nil)
+	require.NoError(s.T, err, "Failed to create snapshot for image creation")
+
+	imageName := "image-" + snapshotName
+
+	imagePoller, err := config.Azure.Images.BeginCreateOrUpdate(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, imageName, armcompute.Image{
+		Location: vm.Location,
+		Properties: &armcompute.ImageProperties{
+			StorageProfile: &armcompute.ImageStorageProfile{
+				OSDisk: &armcompute.ImageOSDisk{
+					OSType: func() *armcompute.OperatingSystemTypes {
+						if s.IsWindows() {
+							return to.Ptr(armcompute.OperatingSystemTypesWindows)
+						}
+						return to.Ptr(armcompute.OperatingSystemTypesLinux)
+					}(),
+					OSState: to.Ptr(armcompute.OperatingSystemStateTypesGeneralized),
+					Snapshot: &armcompute.SubResource{
+						ID: snapshot.ID,
+					},
+				},
+			},
+		},
+	}, nil)
+	require.NoError(s.T, err, "Failed to begin create image snapshot")
+	s.T.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_, _ = config.Azure.Images.BeginDelete(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, imageName, nil)
+	})
+
+	image, err := imagePoller.PollUntilDone(ctx, nil)
+	require.NoError(s.T, err, "Failed to create image snapshot")
+
+	return &config.Image{
+		Name:   imageName,
+		OS:     s.Config.VHD.OS,
+		Arch:   s.Config.VHD.Arch,
+		Distro: s.Config.VHD.Distro,
+		Gallery: &config.Gallery{
+			SubscriptionID:    config.Config.SubscriptionID,
+			ResourceGroupName: *s.Runtime.Cluster.Model.Properties.NodeResourceGroup,
+			Name:              "managed-images", // Special marker for managed images
+		},
+		Version: *image.ID, // Store the managed image ID in Version field
+	}
+}
+
+func waitForVMShutdown(ctx context.Context, s *Scenario) {
+	for ctx.Err() == nil {
+		vm, err := config.Azure.VMSSVM.Get(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, "0", &armcompute.VirtualMachineScaleSetVMsClientGetOptions{
+			Expand: to.Ptr(armcompute.InstanceViewTypesInstanceView), // Otherwise InstanceView is nil
+		})
+		require.NoError(s.T, err)
+		if vm.Properties.InstanceView != nil &&
+			len(vm.Properties.InstanceView.Statuses) > 0 {
+			// Check if VM is stopped/deallocated
+			for _, status := range vm.Properties.InstanceView.Statuses {
+				if strings.Contains(*status.Code, "PowerState/stopped") {
+					s.T.Log("VM is stopped")
+					return
+				}
+			}
+		}
+		time.Sleep(time.Second)
+	}
 }
