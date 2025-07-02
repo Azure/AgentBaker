@@ -494,6 +494,80 @@ function GenerateAzureStackCNIConfig
     Set-ItemProperty -Path $azureCNIConfigFile -Name IsReadOnly -Value $true
 }
 
+
+function GetIpv4AddressFromParsedContent
+{
+    param (
+        [Parameter(Mandatory = $true)]
+        $ParsedContent
+    )
+
+    if ($ParsedContent[0].ipv4 -and $ParsedContent[0].ipv4.ipAddress -and $ParsedContent[0].ipv4.ipAddress.Count -gt 0)
+    {
+        return $ParsedContent[0].ipv4.ipAddress[0].privateIpAddress
+    }
+    else
+    {
+        return $null
+    }
+}
+
+function GetIpv6AddressFromParsedContent
+{
+    param (
+        [Parameter(Mandatory = $true)]
+        $ParsedContent
+    )
+
+    if ($ParsedContent[0].ipv6 -and $ParsedContent[0].ipv6.ipAddress -and $ParsedContent[0].ipv6.ipAddress.Count -gt 0)
+    {
+        return $ParsedContent[0].ipv6.ipAddress[0].privateIpAddress
+    }
+    else
+    {
+        return $null
+    }
+}
+
+function GetMetadataContent
+{
+    # try every second for 2 minutes to get the metadata content
+    $Retries = 120
+    $RetryDelaySeconds = 1
+
+    for ($i = 0; $i -lt $Retries; $i++) {
+        try
+        {
+            $MetadataContent = Invoke-WebRequest -UseBasicParsing -Uri "http://169.254.169.254/metadata/instance/network/interface?api-version=2021-02-01" -Headers @{ "metadata" = "true" } -TimeoutSec 10 -ErrorAction Stop
+            $ParsedContent = $MetadataContent.Content | ConvertFrom-Json
+            $ipv4Address = GetIpv4AddressFromParsedContent -ParsedContent $ParsedContent
+            if (-not $ipv4Address)
+            {
+                Write-Log "Failed to retrieve IPv4 address from metadata. Will retry in $RetryDelaySeconds seconds. Attempt $( $i + 1 ) of $Retries."
+                if ($i -lt ($Retries - 1))
+                {
+                    Start-Sleep -Seconds $RetryDelaySeconds
+                }
+            }
+            else
+            {
+                return $ParsedContent
+            }
+        }
+        catch
+        {
+            Write-Log "Failed to connect to metadata service: $( $_.Exception.Message ). Will retry in $RetryDelaySeconds seconds. Attempt $( $i + 1 ) of $Retries."
+            if ($i -lt ($Retries - 1))
+            {
+                Start-Sleep -Seconds $RetryDelaySeconds
+            }
+        }
+    }
+
+    Write-Host "Failed to retrieve IPv4 address from metadata after $Retries attempts."
+    throw "No IPv4 address found in metadata."
+}
+
 function New-ExternalHnsNetwork
 {
     param (
@@ -502,16 +576,26 @@ function New-ExternalHnsNetwork
     )
     Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Start to create new external hns network"
 
-    # lookup the ip address defaults from IMDS
-    # TODO: add code to handle retries and to not use proxy. The parameters "-MaximumRetryCount" and "-Proxy" are not supported in PowerShell Core.
-    $MetadataContent = Invoke-Webrequest -UseBasicParsing -URI "http://169.254.169.254/metadata/instance/network/interface?api-version=2021-02-01" -Headers @{ "metadata" = "true" }
-    $ipv4Address = ($MetadataContent.Content | ConvertFrom-Json)[0].ipv4.ipAddress[0].privateIpAddress
-    Write-Log "Get node IPv4 address: $( $ipv4Address )"
+    $ParsedContent = GetMetadataContent
+    if (-not $ParsedContent)
+    {
+        Write-Log "Failed to retrieve metadata content."
+        exit 1
+    }
+
+    $ipv4Address = GetIpv4AddressFromParsedContent -ParsedContent $ParsedContent
+    if (-not $ipv4Address)
+    {
+        Write-Log "Failed to retrieve IPv4 address from metadata."
+        throw "No IPv4 address found in metadata."
+    }
+
+    Write-Log "Got node IPv4 address: $( $ipv4Address )"
     $nodeIPs = @($ipv4Address)
 
     if ($IsDualStackEnabled)
     {
-        $ipv6Address = ($MetadataContent.Content | ConvertFrom-Json)[0].ipv6.ipAddress[0].privateIpAddress
+        $ipv6Address = GetIpv6AddressFromParsedContent -ParsedContent $ParsedContent
         if ($ipv6Address)
         {
             Write-Log "Get node IPv6 address a: $( $ipv6Address )"
