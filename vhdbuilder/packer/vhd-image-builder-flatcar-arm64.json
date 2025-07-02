@@ -622,10 +622,10 @@
     },
     {
       "type": "shell",
-      "inline": "sudo reboot",
+      "inline": ": reboot",
       "expect_disconnect": true,
       "skip_clean": true,
-      "pause_after": "60s"
+      "pause_after": "0s"
     },
     {
       "type": "shell",
@@ -647,10 +647,10 @@
     },
     {
       "type": "shell",
-      "inline": "sudo reboot",
+      "inline": ": reboot",
       "expect_disconnect": true,
       "skip_clean": true,
-      "pause_after": "60s"
+      "pause_after": "0s"
     },
     {
       "type": "shell",
