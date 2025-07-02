@@ -2381,7 +2381,7 @@ type LocalDNSOverrides struct {
 // This will tell if localdns should be enabled for the agent pool or not.
 // If this function returns true only then we generate localdns systemd unit and corefile.
 func (a *AgentPoolProfile) ShouldEnableLocalDNS() bool {
-	return a != nil && a.LocalDNSProfile != nil && a.LocalDNSProfile.EnableLocalDNS && !a.IsFlatcar()
+	return a != nil && a.LocalDNSProfile != nil && a.LocalDNSProfile.EnableLocalDNS
 }
 
 // GetLocalDNSNodeListenerIP returns APIPA-IP address that will be used in localdns systemd unit.

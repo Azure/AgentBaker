@@ -94,6 +94,13 @@ var (
 		Distro:  datamodel.AKSFlatcarGen2TL,
 		Gallery: flatcarTestGallery,
 	}
+	VHDFlatcarGen2 = &Image{
+		Distro:  datamodel.AKSFlatcarGen2,
+		OS:      OSFlatcar,
+		Arch:    "amd64",
+		Name:    "flatcargen2",
+		Gallery: imageGallery,
+	}
 
 	VHDUbuntu1804Gen2Containerd = &Image{
 		Name:    "1804gen2containerd",

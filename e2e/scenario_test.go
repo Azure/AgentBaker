@@ -42,6 +42,34 @@ func Test_FlatcarTL(t *testing.T) {
 		},
 	})
 }
+func Test_FlatcarGallery(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Test Flatcar image",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDFlatcarGen2,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.Properties.VirtualMachineProfile.DiagnosticsProfile = &armcompute.DiagnosticsProfile{
+					BootDiagnostics: &armcompute.BootDiagnostics{
+						Enabled: to.Ptr(true),
+					},
+				}
+				vmss.Properties.VirtualMachineProfile.SecurityProfile = &armcompute.SecurityProfile{
+					SecurityType: to.Ptr(armcompute.SecurityTypesTrustedLaunch),
+					UefiSettings: &armcompute.UefiSettings{
+						SecureBootEnabled: to.Ptr(false),
+						VTpmEnabled:       to.Ptr(true),
+					},
+				}
+			},
+		},
+	})
+}
+
 func Test_Flatcar(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Test Flatcar image",
@@ -55,6 +83,7 @@ func Test_Flatcar(t *testing.T) {
 		},
 	})
 }
+
 func Test_FlatcarArm64(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that an Flatcar node using ARM64 architecture can be properly bootstrapped",

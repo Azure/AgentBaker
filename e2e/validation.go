@@ -86,7 +86,7 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 	}
 
 	// localdns is not supported on 1804, scriptless, privatekube and VHDUbuntu2204Gen2ContainerdAirgappedK8sNotCached.
-	if s.Tags.Scriptless != true && s.VHD != config.VHDUbuntu1804Gen2Containerd && s.VHD != config.VHDUbuntu2204Gen2ContainerdPrivateKubePkg && s.VHD != config.VHDUbuntu2204Gen2ContainerdAirgappedK8sNotCached && !s.VHD.Distro.IsFlatcar() {
+	if s.Tags.Scriptless != true && s.VHD != config.VHDUbuntu1804Gen2Containerd && s.VHD != config.VHDUbuntu2204Gen2ContainerdPrivateKubePkg && s.VHD != config.VHDUbuntu2204Gen2ContainerdAirgappedK8sNotCached {
 		ValidateLocalDNSService(ctx, s)
 		ValidateLocalDNSResolution(ctx, s)
 	}
