@@ -495,50 +495,71 @@ function GenerateAzureStackCNIConfig
 }
 
 
-function GetIpv4AddressFromParsedContent {
+function GetIpv4AddressFromParsedContent
+{
     param (
         [Parameter(Mandatory = $true)]
         $ParsedContent
     )
 
-    if ($ParsedContent[0].ipv4 -and $ParsedContent[0].ipv4.ipAddress -and $ParsedContent[0].ipv4.ipAddress.Count -gt 0) {
+    if ($ParsedContent[0].ipv4 -and $ParsedContent[0].ipv4.ipAddress -and $ParsedContent[0].ipv4.ipAddress.Count -gt 0)
+    {
         return $ParsedContent[0].ipv4.ipAddress[0].privateIpAddress
-    } else {
+    }
+    else
+    {
         return $null
     }
 }
 
-function GetIpv6AddressFromParsedContent {
+function GetIpv6AddressFromParsedContent
+{
     param (
         [Parameter(Mandatory = $true)]
         $ParsedContent
     )
 
-    if ($ParsedContent[0].ipv6 -and $ParsedContent[0].ipv6.ipAddress -and $ParsedContent[0].ipv6.ipAddress.Count -gt 0) {
+    if ($ParsedContent[0].ipv6 -and $ParsedContent[0].ipv6.ipAddress -and $ParsedContent[0].ipv6.ipAddress.Count -gt 0)
+    {
         return $ParsedContent[0].ipv6.ipAddress[0].privateIpAddress
-    } else {
+    }
+    else
+    {
         return $null
     }
 }
 
-function GetMetadataContent {
+function GetMetadataContent
+{
     $Retries = 10
     $RetryDelaySeconds = 15
 
     for ($i = 0; $i -lt $Retries; $i++) {
-        try {
+        try
+        {
             $MetadataContent = Invoke-WebRequest -UseBasicParsing -Uri "http://169.254.169.254/metadata/instance/network/interface?api-version=2021-02-01" -Headers @{ "metadata" = "true" } -TimeoutSec 10 -ErrorAction Stop
             $ParsedContent = $MetadataContent.Content | ConvertFrom-Json
             $ipv4Address = GetIpv4AddressFromParsedContent -ParsedContent $ParsedContent
-            if (-not $ipv4Address) {
-                Write-Log "Failed to retrieve IPv4 address from metadata. Will retry in $RetryDelaySeconds seconds. Attempt $($i + 1) of $Retries."
-                if ($i -lt ($Retries - 1)) { Start-Sleep -Seconds $RetryDelaySeconds }
-            } else {
+            if (-not $ipv4Address)
+            {
+                Write-Log "Failed to retrieve IPv4 address from metadata. Will retry in $RetryDelaySeconds seconds. Attempt $( $i + 1 ) of $Retries."
+                if ($i -lt ($Retries - 1))
+                {
+                    Start-Sleep -Seconds $RetryDelaySeconds
+                }
+            }
+            else
+            {
                 return $ParsedContent
             }
-        } catch {
-            Write-Log "Failed to connect to metadata service: $($_.Exception.Message). Will retry in $RetryDelaySeconds seconds. Attempt $($i + 1) of $Retries."
-            if ($i -lt ($Retries - 1)) { Start-Sleep -Seconds $RetryDelaySeconds }
+        }
+        catch
+        {
+            Write-Log "Failed to connect to metadata service: $( $_.Exception.Message ). Will retry in $RetryDelaySeconds seconds. Attempt $( $i + 1 ) of $Retries."
+            if ($i -lt ($Retries - 1))
+            {
+                Start-Sleep -Seconds $RetryDelaySeconds
+            }
         }
     }
 
@@ -555,13 +576,15 @@ function New-ExternalHnsNetwork
     Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Start to create new external hns network"
 
     $ParsedContent = GetMetadataContent
-    if (-not $ParsedContent) {
+    if (-not $ParsedContent)
+    {
         Write-Log "Failed to retrieve metadata content."
         exit 1
     }
 
     $ipv4Address = GetIpv4AddressFromParsedContent -ParsedContent $ParsedContent
-    if (-not $ipv4Address) {
+    if (-not $ipv4Address)
+    {
         Write-Log "Failed to retrieve IPv4 address from metadata."
         throw "No IPv4 address found in metadata."
     }
@@ -572,7 +595,7 @@ function New-ExternalHnsNetwork
     if ($IsDualStackEnabled)
     {
         $ipv6Address = GetIpv6AddressFromParsedContent -ParsedContent $ParsedContent
-        if ($ipv6Address) {
+        if ($ipv6Address)
         {
             Write-Log "Get node IPv6 address a: $( $ipv6Address )"
             $nodeIPs += $ipv6Address
