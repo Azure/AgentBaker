@@ -877,8 +877,7 @@ var (
 	}
 )
 
-// GomegaString provides a custom string representation for Gomega assertions
-// to avoid truncation when comparing large maps or structs
+// GomegaString provides a custom string representation for Gomega assertions to avoid truncation when comparing large maps or structs
 func (s SigImageConfig) GomegaString() string {
 	return fmt.Sprintf("SigImageConfig{ResourceGroup: %s, Gallery: %s, Definition: %s, Version: %s}",
 		s.ResourceGroup, s.Gallery, s.Definition, s.Version)
