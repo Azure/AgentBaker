@@ -531,8 +531,9 @@ function GetIpv6AddressFromParsedContent
 
 function GetMetadataContent
 {
-    $Retries = 10
-    $RetryDelaySeconds = 15
+    # try every second for 2 minutes to get the metadata content
+    $Retries = 120
+    $RetryDelaySeconds = 1
 
     for ($i = 0; $i -lt $Retries; $i++) {
         try
