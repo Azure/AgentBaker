@@ -395,10 +395,13 @@
       "matchPackageNames": [
         "azuremonitor/containerinsights/ciprod/prometheus-collector/images"
       ],
+      "matchDatasources": [
+        "docker"
+      ],
+      "versioning": "regex:^(\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)?-(\\w+)-(\\d+)-(\\d+)-(\\d+)-(\\w+-*)(?<compatibility>.*)$",
       "groupName": "ama-metrics",
       "automerge": false,
       "enabled": true,
-      "ignoreUnstable": false,
       "assignees": [
         "gracewehner",
         "vishiy",
