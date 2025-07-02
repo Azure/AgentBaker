@@ -6,7 +6,7 @@ import (
 )
 
 var _ = Describe("GetMaintainedLinuxSIGImageConfigMap", func() {
-	FIt("should return the correct value", func() {
+	It("should return the correct value", func() {
 		expected := map[Distro]SigImageConfig{
 			AKSUbuntuFipsContainerd2004:      SIGUbuntuFipsContainerd2004ImageConfigTemplate.WithOptions(),
 			AKSUbuntuFipsContainerd2004Gen2:  SIGUbuntuFipsContainerd2004Gen2ImageConfigTemplate.WithOptions(),
