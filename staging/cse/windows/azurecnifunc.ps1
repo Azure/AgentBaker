@@ -495,71 +495,50 @@ function GenerateAzureStackCNIConfig
 }
 
 
-function GetIpv4AddressFromParsedContent
-{
+function GetIpv4AddressFromParsedContent {
     param (
         [Parameter(Mandatory = $true)]
         $ParsedContent
     )
 
-    if ($ParsedContent[0].ipv4 -and $ParsedContent[0].ipv4.ipAddress -and $ParsedContent[0].ipv4.ipAddress.Count -gt 0)
-    {
+    if ($ParsedContent[0].ipv4 -and $ParsedContent[0].ipv4.ipAddress -and $ParsedContent[0].ipv4.ipAddress.Count -gt 0) {
         return $ParsedContent[0].ipv4.ipAddress[0].privateIpAddress
-    }
-    else
-    {
+    } else {
         return $null
     }
 }
 
-function GetIpv6AddressFromParsedContent
-{
+function GetIpv6AddressFromParsedContent {
     param (
         [Parameter(Mandatory = $true)]
         $ParsedContent
     )
 
-    if ($ParsedContent[0].ipv6 -and $ParsedContent[0].ipv6.ipAddress -and $ParsedContent[0].ipv6.ipAddress.Count -gt 0)
-    {
+    if ($ParsedContent[0].ipv6 -and $ParsedContent[0].ipv6.ipAddress -and $ParsedContent[0].ipv6.ipAddress.Count -gt 0) {
         return $ParsedContent[0].ipv6.ipAddress[0].privateIpAddress
-    }
-    else
-    {
+    } else {
         return $null
     }
 }
 
-function GetMetadataContent
-{
+function GetMetadataContent {
     $Retries = 10
     $RetryDelaySeconds = 15
 
     for ($i = 0; $i -lt $Retries; $i++) {
-        try
-        {
+        try {
             $MetadataContent = Invoke-WebRequest -UseBasicParsing -Uri "http://169.254.169.254/metadata/instance/network/interface?api-version=2021-02-01" -Headers @{ "metadata" = "true" } -TimeoutSec 10 -ErrorAction Stop
             $ParsedContent = $MetadataContent.Content | ConvertFrom-Json
             $ipv4Address = GetIpv4AddressFromParsedContent -ParsedContent $ParsedContent
-            if (-not $ipv4Address)
-            {
-                Write-Log "Failed to retrieve IPv4 address from metadata. Will retry in $RetryDelaySeconds seconds. Attempt $( $i + 1 ) of $Retries."
-                if ($i -lt ($Retries - 1))
-                {
-                    Start-Sleep -Seconds $RetryDelaySeconds
-                }
-            }
-            else
-            {
+            if (-not $ipv4Address) {
+                Write-Log "Failed to retrieve IPv4 address from metadata. Will retry in $RetryDelaySeconds seconds. Attempt $($i + 1) of $Retries."
+                if ($i -lt ($Retries - 1)) { Start-Sleep -Seconds $RetryDelaySeconds }
+            } else {
                 return $ParsedContent
             }
-        }
-        catch
-        {
-            Write-Log "Failed to connect to metadata service: $( $_.Exception.Message ). Will retry in $RetryDelaySeconds seconds. Attempt $( $i + 1 ) of $Retries."
-            if ($i -lt ($Retries - 1))
-            {
-                Start-Sleep -Seconds $RetryDelaySeconds
-            }
+        } catch {
+            Write-Log "Failed to connect to metadata service: $($_.Exception.Message). Will retry in $RetryDelaySeconds seconds. Attempt $($i + 1) of $Retries."
+            if ($i -lt ($Retries - 1)) { Start-Sleep -Seconds $RetryDelaySeconds }
         }
     }
 
@@ -576,15 +555,13 @@ function New-ExternalHnsNetwork
     Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Start to create new external hns network"
 
     $ParsedContent = GetMetadataContent
-    if (-not $ParsedContent)
-    {
+    if (-not $ParsedContent) {
         Write-Log "Failed to retrieve metadata content."
         exit 1
     }
 
     $ipv4Address = GetIpv4AddressFromParsedContent -ParsedContent $ParsedContent
-    if (-not $ipv4Address)
-    {
+    if (-not $ipv4Address) {
         Write-Log "Failed to retrieve IPv4 address from metadata."
         throw "No IPv4 address found in metadata."
     }
@@ -595,116 +572,115 @@ function New-ExternalHnsNetwork
     if ($IsDualStackEnabled)
     {
         $ipv6Address = GetIpv6AddressFromParsedContent -ParsedContent $ParsedContent
-        if ($ipv6Address)
+        if ($ipv6Address) {
         {
-            {
-                Write-Log "Get node IPv6 address a: $( $ipv6Address )"
-                $nodeIPs += $ipv6Address
-            }
-            else
-            {
-                Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GET_NODE_IPV6_IP -ErrorMessage "Failed to get node IPv6 IP address"
-            }
-        }
-
-        # we need the default gateway interface to create the external network
-        $netIP = Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue -ErrorVariable netIPErr -IpAddress $ipv4Address
-        if (!$netIP)
-        {
-            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_NETWORK_ADAPTER_NOT_EXIST -ErrorMessage "Failed to find any network adaptor with default gateway"
-        }
-
-        $na = get-netadapter -ifindex $netIP.ifIndex
-        if (!$na)
-        {
-            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_NETWORK_ADAPTER_NOT_EXIST -ErrorMessage "Could not find default gateway interface. Please check the network configuration."
-        }
-
-        Write-Log "Configuring node ip for kubelet"
-        # https://github.com/kubernetes/kubernetes/pull/121028
-        if (([version]$global:KubeBinariesVersion).CompareTo([version]("1.29.0")) -ge 0)
-        {
-            Logs-To-Event -TaskName "AKS.WindowsCSE.UpdateKubeClusterConfig" -TaskMessage "Start to update KubeCluster Config. NodeIPs: $nodeIPs"
-
-            try
-            {
-                $clusterConfiguration = ConvertFrom-Json ((Get-Content $global:KubeClusterConfigPath -ErrorAction Stop) | Out-String)
-                $clusterConfiguration.Kubernetes.Kubelet.ConfigArgs += "--node-ip=$( $nodeIPs -join ',' )"
-                $clusterConfiguration | ConvertTo-Json -Depth 10 | Out-File -FilePath $global:KubeClusterConfigPath
-            }
-            catch
-            {
-                Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_UPDATING_KUBE_CLUSTER_CONFIG -ErrorMessage "Failed in updating kube cluster config. Error: $_"
-            }
-        }
-
-        $adapterName = $na.Name
-        $externalNetwork = "ext"
-
-        Write-Log "Creating new HNS network `"${externalNetwork}`""
-        Write-Log "Using adapter $adapterName with IP address $ipv4Address"
-
-        $stopWatch = New-Object System.Diagnostics.Stopwatch
-        $stopWatch.Start()
-
-        # Fixme : use a smallest range possible, that will not collide with any pod space
-        if ($IsDualStackEnabled)
-        {
-            New-HNSNetwork -Type $global:NetworkMode -AddressPrefix @("192.168.255.0/30", "192:168:255::0/127") -Gateway @("192.168.255.1", "192:168:255::1") -AdapterName $adapterName -Name $externalNetwork -Verbose
+            Write-Log "Get node IPv6 address a: $( $ipv6Address )"
+            $nodeIPs += $ipv6Address
         }
         else
         {
-            New-HNSNetwork -Type $global:NetworkMode -AddressPrefix "192.168.255.0/30" -Gateway "192.168.255.1" -AdapterName $adapterName -Name $externalNetwork -Verbose
-        }
-        # Wait for the switch to be created and the ip address to be assigned.
-        for ($i = 0; $i -lt 60; $i++) {
-            $mgmtIPAfterNetworkCreate = Get-NetIPAddress $ipv4Address -ErrorAction SilentlyContinue
-            if ($mgmtIPAfterNetworkCreate)
-            {
-                break
-            }
-            Start-Sleep -Milliseconds 500
-        }
-
-        $stopWatch.Stop()
-        if (-not $mgmtIPAfterNetworkCreate)
-        {
-            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_MANAGEMENT_IP_NOT_EXIST -ErrorMessage "Failed to find $ipv4Address after creating $externalNetwork network"
-        }
-
-        write-log $mgmtIPAfterNetworkCreate
-
-        Write-Log "It took $( $StopWatch.Elapsed.Seconds ) seconds to create the $externalNetwork network."
-
-        Write-Log "Log network adapter info after creating $externalNetwork network"
-        Get-NetIPConfiguration -AllCompartments -ErrorAction Ignore
-
-        $dnsServers = Get-DnsClientServerAddress -ErrorAction Ignore
-        if ($dnsServers)
-        {
-            Write-Log "DNS Servers are: $( $dnsServers.ServerAddresses )"
+            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GET_NODE_IPV6_IP -ErrorMessage "Failed to get node IPv6 IP address"
         }
     }
 
-    function Get-HnsPsm1
+    # we need the default gateway interface to create the external network
+    $netIP = Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue -ErrorVariable netIPErr -IpAddress $ipv4Address
+    if (!$netIP)
     {
-        Param(
-            [Parameter(Mandatory = $true)][string]
-            $HNSModule
-        )
-        Logs-To-Event "ASK.WindowsCSE.GetAndImportHNSModule" -TaskMessage "Start to get and import hns module. NetworkPlugin: $global:NetworkPlugin"
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_NETWORK_ADAPTER_NOT_EXIST -ErrorMessage "Failed to find any network adaptor with default gateway"
+    }
 
-        # HNSModule is C:\k\hns.v2.psm1 when container runtime is Containerd
-        $fileName = [IO.Path]::GetFileName($HNSModule)
-        # Get-LogCollectionScripts will copy hns module file to C:\k\debug
-        $sourceFile = [IO.Path]::Combine('C:\k\debug\', $fileName)
+    $na = get-netadapter -ifindex $netIP.ifIndex
+    if (!$na)
+    {
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_NETWORK_ADAPTER_NOT_EXIST -ErrorMessage "Could not find default gateway interface. Please check the network configuration."
+    }
+
+    Write-Log "Configuring node ip for kubelet"
+    # https://github.com/kubernetes/kubernetes/pull/121028
+    if (([version]$global:KubeBinariesVersion).CompareTo([version]("1.29.0")) -ge 0)
+    {
+        Logs-To-Event -TaskName "AKS.WindowsCSE.UpdateKubeClusterConfig" -TaskMessage "Start to update KubeCluster Config. NodeIPs: $nodeIPs"
+
         try
         {
-            Write-Log "Copying $sourceFile to $HNSModule."
-            Copy-Item -Path $sourceFile -Destination "$HNSModule"
+            $clusterConfiguration = ConvertFrom-Json ((Get-Content $global:KubeClusterConfigPath -ErrorAction Stop) | Out-String)
+            $clusterConfiguration.Kubernetes.Kubelet.ConfigArgs += "--node-ip=$( $nodeIPs -join ',' )"
+            $clusterConfiguration | ConvertTo-Json -Depth 10 | Out-File -FilePath $global:KubeClusterConfigPath
         }
         catch
         {
-            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_HNS_MODULE -ErrorMessage "Failed to copy $sourceFile to $HNSModule. Error: $_"
+            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_UPDATING_KUBE_CLUSTER_CONFIG -ErrorMessage "Failed in updating kube cluster config. Error: $_"
         }
     }
+
+    $adapterName = $na.Name
+    $externalNetwork = "ext"
+
+    Write-Log "Creating new HNS network `"${externalNetwork}`""
+    Write-Log "Using adapter $adapterName with IP address $ipv4Address"
+
+    $stopWatch = New-Object System.Diagnostics.Stopwatch
+    $stopWatch.Start()
+
+    # Fixme : use a smallest range possible, that will not collide with any pod space
+    if ($IsDualStackEnabled)
+    {
+        New-HNSNetwork -Type $global:NetworkMode -AddressPrefix @("192.168.255.0/30", "192:168:255::0/127") -Gateway @("192.168.255.1", "192:168:255::1") -AdapterName $adapterName -Name $externalNetwork -Verbose
+    }
+    else
+    {
+        New-HNSNetwork -Type $global:NetworkMode -AddressPrefix "192.168.255.0/30" -Gateway "192.168.255.1" -AdapterName $adapterName -Name $externalNetwork -Verbose
+    }
+    # Wait for the switch to be created and the ip address to be assigned.
+    for ($i = 0; $i -lt 60; $i++) {
+        $mgmtIPAfterNetworkCreate = Get-NetIPAddress $ipv4Address -ErrorAction SilentlyContinue
+        if ($mgmtIPAfterNetworkCreate)
+        {
+            break
+        }
+        Start-Sleep -Milliseconds 500
+    }
+
+    $stopWatch.Stop()
+    if (-not $mgmtIPAfterNetworkCreate)
+    {
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_MANAGEMENT_IP_NOT_EXIST -ErrorMessage "Failed to find $ipv4Address after creating $externalNetwork network"
+    }
+
+    write-log $mgmtIPAfterNetworkCreate
+
+    Write-Log "It took $( $StopWatch.Elapsed.Seconds ) seconds to create the $externalNetwork network."
+
+    Write-Log "Log network adapter info after creating $externalNetwork network"
+    Get-NetIPConfiguration -AllCompartments -ErrorAction Ignore
+
+    $dnsServers = Get-DnsClientServerAddress -ErrorAction Ignore
+    if ($dnsServers)
+    {
+        Write-Log "DNS Servers are: $( $dnsServers.ServerAddresses )"
+    }
+}
+
+function Get-HnsPsm1
+{
+    Param(
+        [Parameter(Mandatory = $true)][string]
+        $HNSModule
+    )
+    Logs-To-Event "ASK.WindowsCSE.GetAndImportHNSModule" -TaskMessage "Start to get and import hns module. NetworkPlugin: $global:NetworkPlugin"
+
+    # HNSModule is C:\k\hns.v2.psm1 when container runtime is Containerd
+    $fileName = [IO.Path]::GetFileName($HNSModule)
+    # Get-LogCollectionScripts will copy hns module file to C:\k\debug
+    $sourceFile = [IO.Path]::Combine('C:\k\debug\', $fileName)
+    try
+    {
+        Write-Log "Copying $sourceFile to $HNSModule."
+        Copy-Item -Path $sourceFile -Destination "$HNSModule"
+    }
+    catch
+    {
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_HNS_MODULE -ErrorMessage "Failed to copy $sourceFile to $HNSModule. Error: $_"
+    }
+}
