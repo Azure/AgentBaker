@@ -1000,4 +1000,44 @@ enableLocalDNS() {
     echo "Enable localdns succeeded."
 }
 
+configureLsmWithBpf() {
+    echo "Configuring LSM modules to include BPF..."
+
+    local current_lsm
+    current_lsm=$(cat /sys/kernel/security/lsm)
+    echo "Current LSM modules: $current_lsm"
+
+    local new_lsm="bpf,$current_lsm"
+    echo "New LSM configuration: $new_lsm"
+
+    if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
+        local grub_cfg="/etc/default/grub.d/50-cloudimg-settings.cfg"
+        if [ -f "$grub_cfg" ]; then
+            if grep -q "lsm=" "$grub_cfg"; then
+                sed -i "s/lsm=[^[:space:]]*/lsm=$new_lsm/g" "$grub_cfg"
+            else
+                sed -i "s/GRUB_CMDLINE_LINUX_DEFAULT=\"/GRUB_CMDLINE_LINUX_DEFAULT=\"lsm=$new_lsm /" "$grub_cfg"
+            fi
+            echo "Updating GRUB configuration for Ubuntu..."
+            update-grub2 /boot/grub/grub.cfg || echo "Warning: Failed to update GRUB configuration"
+        else
+            echo "Warning: $grub_cfg not found, skipping LSM configuration"
+        fi
+    elif isMarinerOrAzureLinux "$OS"; then
+        if [ -f /etc/default/grub ]; then
+            if grep -q "lsm=" /etc/default/grub; then
+                sed -i "s/lsm=[^[:space:]]*/lsm=$new_lsm/g" /etc/default/grub
+            else
+                sed -i "s/GRUB_CMDLINE_LINUX_DEFAULT=\"/GRUB_CMDLINE_LINUX_DEFAULT=\"lsm=$new_lsm /" /etc/default/grub
+            fi
+            echo "Updating GRUB configuration for Mariner/Azure Linux..."
+            grub2-mkconfig -o /boot/grub2/grub.cfg || echo "Warning: Failed to update GRUB configuration"
+        else
+            echo "Warning: /etc/default/grub not found, skipping LSM configuration"
+        fi
+    fi
+
+    echo "LSM configuration updated successfully"
+}
+
 #EOF

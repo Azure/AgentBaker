@@ -1,6 +1,7 @@
 #!/bin/bash
 # Timeout waiting for a file
-ERR_FILE_WATCH_TIMEOUT=6 
+ERR_FILE_WATCH_TIMEOUT=6
+ACNS_PERF=true
 set -x
 if [ -f /opt/azure/containers/provision.complete ]; then
       echo "Already ran to success exiting..."
@@ -428,6 +429,16 @@ if [ "${ID}" != "mariner" ] && [ "${ID}" != "azurelinux" ]; then
     createManDbAutoUpdateFlagFile
     /usr/bin/mandb && echo "man-db finished updates at $(date)" &
 fi
+
+if [ "${ACNS_PERF}" = "true" ]; then
+    if shouldConfigureLsmWithBpf; then
+        logs_to_events "AKS.CSE.configureLsmWithBpf" configureLsmWithBpf
+        REBOOTREQUIRED=true
+    else
+        echo "Skipping LSM with BPF configuration"
+    fi
+fi
+
 
 if $REBOOTREQUIRED; then
     echo 'reboot required, rebooting node in 1 minute'
