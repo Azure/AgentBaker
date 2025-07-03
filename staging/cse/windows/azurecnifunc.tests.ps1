@@ -721,3 +721,341 @@ Describe 'GetIpv4AddressFromParsedContent' {
         }
     }
 }
+
+Describe 'GetMetadataContent' {
+    BeforeEach {
+        # Mock Write-Log to prevent output during tests
+        Mock Write-Log -MockWith { } -Verifiable
+        
+        # Mock Start-Sleep to speed up tests
+        Mock Start-Sleep -MockWith { } -Verifiable
+        
+        # Mock Write-Host
+        Mock Write-Host -MockWith { } -Verifiable
+    }
+    
+    Context 'Successful metadata retrieval' {
+        It "Should return parsed content when metadata service responds with valid IPv4 address" {
+            $mockMetadataResponse = @{
+                Content = @'
+[
+    {
+        "ipv4": {
+            "ipAddress": [
+                {
+                    "privateIpAddress": "10.0.0.1",
+                    "publicIpAddress": "203.0.113.1"
+                }
+            ]
+        }
+    }
+]
+'@
+            }
+            
+            Mock Invoke-WebRequest -MockWith { return $mockMetadataResponse } -Verifiable
+            Mock GetIpv4AddressFromParsedContent -MockWith { return "10.0.0.1" } -Verifiable
+            
+            $result = GetMetadataContent
+            
+            $result | Should -Not -Be $null
+            $result[0].ipv4.ipAddress[0].privateIpAddress | Should -Be "10.0.0.1"
+            
+            Assert-MockCalled -CommandName "Invoke-WebRequest" -Exactly -Times 1 -ParameterFilter { 
+                $Uri -eq "http://169.254.169.254/metadata/instance/network/interface?api-version=2021-02-01" -and
+                $Headers["metadata"] -eq "true" -and
+                $TimeoutSec -eq 10 -and
+                $UseBasicParsing -eq $true
+            }
+            Assert-MockCalled -CommandName "GetIpv4AddressFromParsedContent" -Exactly -Times 1
+        }
+        
+        It "Should return parsed content with both IPv4 and IPv6 addresses" {
+            $mockMetadataResponse = @{
+                Content = @'
+[
+    {
+        "ipv4": {
+            "ipAddress": [
+                {
+                    "privateIpAddress": "10.0.0.1"
+                }
+            ]
+        },
+        "ipv6": {
+            "ipAddress": [
+                {
+                    "privateIpAddress": "2001:db8::1"
+                }
+            ]
+        }
+    }
+]
+'@
+            }
+            
+            Mock Invoke-WebRequest -MockWith { return $mockMetadataResponse } -Verifiable
+            Mock GetIpv4AddressFromParsedContent -MockWith { return "10.0.0.1" } -Verifiable
+            
+            $result = GetMetadataContent
+            
+            $result | Should -Not -Be $null
+            $result[0].ipv4.ipAddress[0].privateIpAddress | Should -Be "10.0.0.1"
+            $result[0].ipv6.ipAddress[0].privateIpAddress | Should -Be "2001:db8::1"
+        }
+    }
+    
+    Context 'Retry scenarios with eventual success' {
+        It "Should retry when IPv4 address is not found initially but succeeds on second attempt" {
+            $callCount = 0
+            Mock Invoke-WebRequest -MockWith { 
+                $script:callCount++
+                return @{
+                    Content = @'
+[
+    {
+        "ipv4": {
+            "ipAddress": [
+                {
+                    "privateIpAddress": "10.0.0.1"
+                }
+            ]
+        }
+    }
+]
+'@
+                }
+            } -Verifiable
+            
+            Mock GetIpv4AddressFromParsedContent -MockWith { 
+                if ($script:callCount -eq 1) {
+                    return $null  # First call fails
+                } else {
+                    return "10.0.0.1"  # Second call succeeds
+                }
+            } -Verifiable
+            
+            $result = GetMetadataContent
+            
+            $result | Should -Not -Be $null
+            Assert-MockCalled -CommandName "Invoke-WebRequest" -Exactly -Times 2
+            Assert-MockCalled -CommandName "GetIpv4AddressFromParsedContent" -Exactly -Times 2
+            Assert-MockCalled -CommandName "Start-Sleep" -Exactly -Times 1
+        }
+        
+        It "Should retry when Invoke-WebRequest throws exception but succeeds on retry" {
+            $script:callCount = 0
+            Mock Invoke-WebRequest -MockWith { 
+                $script:callCount++
+                if ($script:callCount -eq 1) {
+                    throw "Connection timeout"
+                } else {
+                    return @{
+                        Content = @'
+[
+    {
+        "ipv4": {
+            "ipAddress": [
+                {
+                    "privateIpAddress": "10.0.0.1"
+                }
+            ]
+        }
+    }
+]
+'@
+                    }
+                }
+            } -Verifiable
+            
+            Mock GetIpv4AddressFromParsedContent -MockWith { return "10.0.0.1" } -Verifiable
+            
+            $result = GetMetadataContent
+            
+            $result | Should -Not -Be $null
+            Assert-MockCalled -CommandName "Invoke-WebRequest" -Exactly -Times 2
+            Assert-MockCalled -CommandName "Start-Sleep" -Exactly -Times 1
+        }
+    }
+    
+    Context 'Failure scenarios' {
+        It "Should throw exception when all retries are exhausted due to no IPv4 address" {
+            Mock Invoke-WebRequest -MockWith { 
+                return @{
+                    Content = @'
+[
+    {
+        "ipv6": {
+            "ipAddress": [
+                {
+                    "privateIpAddress": "2001:db8::1"
+                }
+            ]
+        }
+    }
+]
+'@
+                }
+            } -Verifiable
+            
+            Mock GetIpv4AddressFromParsedContent -MockWith { return $null } -Verifiable
+            
+            { GetMetadataContent } | Should -Throw "No IPv4 address found in metadata."
+            
+            # Should attempt all 120 retries
+            Assert-MockCalled -CommandName "Invoke-WebRequest" -Exactly -Times 120
+            Assert-MockCalled -CommandName "GetIpv4AddressFromParsedContent" -Exactly -Times 120
+            Assert-MockCalled -CommandName "Start-Sleep" -Exactly -Times 119  # No sleep after last attempt
+        }
+        
+        It "Should throw exception when all retries are exhausted due to network errors" {
+            Mock Invoke-WebRequest -MockWith { 
+                throw "Network unreachable"
+            } -Verifiable
+            
+            { GetMetadataContent } | Should -Throw "No IPv4 address found in metadata."
+            
+            # Should attempt all 120 retries
+            Assert-MockCalled -CommandName "Invoke-WebRequest" -Exactly -Times 120
+            Assert-MockCalled -CommandName "Start-Sleep" -Exactly -Times 119  # No sleep after last attempt
+        }
+        
+        It "Should handle ConvertFrom-Json errors gracefully" {
+            Mock Invoke-WebRequest -MockWith { 
+                return @{
+                    Content = "invalid json content"
+                }
+            } -Verifiable
+            
+            { GetMetadataContent } | Should -Throw "No IPv4 address found in metadata."
+            
+            Assert-MockCalled -CommandName "Invoke-WebRequest" -Exactly -Times 120
+        }
+    }
+    
+    Context 'Logging behavior' {
+        It "Should log retry attempts when IPv4 address is not found" {
+            Mock Invoke-WebRequest -MockWith { 
+                return @{
+                    Content = @'
+[
+    {
+        "ipv6": {
+            "ipAddress": [
+                {
+                    "privateIpAddress": "2001:db8::1"
+                }
+            ]
+        }
+    }
+]
+'@
+                }
+            } -Verifiable
+            
+            Mock GetIpv4AddressFromParsedContent -MockWith { return $null } -Verifiable
+            
+            try {
+                GetMetadataContent
+            } catch {
+                # Expected to throw
+            }
+            
+            Assert-MockCalled -CommandName "Write-Log" -ParameterFilter { 
+                $Message -like "*Failed to retrieve IPv4 address from metadata. Will retry*" 
+            }
+        }
+        
+        It "Should log network errors during retry attempts" {
+            Mock Invoke-WebRequest -MockWith { 
+                throw "Connection timeout"
+            } -Verifiable
+            
+            try {
+                GetMetadataContent
+            } catch {
+                # Expected to throw
+            }
+            
+            Assert-MockCalled -CommandName "Write-Log" -ParameterFilter { 
+                $Message -like "*Failed to connect to metadata service: Connection timeout*" 
+            }
+        }
+        
+        It "Should not sleep on the last retry attempt" {
+            $script:callCount = 0
+            Mock Invoke-WebRequest -MockWith { 
+                $script:callCount++
+                if ($script:callCount -lt 120) {
+                    throw "Network error"
+                } else {
+                    return @{
+                        Content = @'
+[
+    {
+        "ipv4": {
+            "ipAddress": [
+                {
+                    "privateIpAddress": "10.0.0.1"
+                }
+            ]
+        }
+    }
+]
+'@
+                    }
+                }
+            } -Verifiable
+            
+            Mock GetIpv4AddressFromParsedContent -MockWith { return "10.0.0.1" } -Verifiable
+            
+            $result = GetMetadataContent
+            
+            $result | Should -Not -Be $null
+            # Should sleep 119 times (not on the last successful attempt)
+            Assert-MockCalled -CommandName "Start-Sleep" -Exactly -Times 119
+        }
+    }
+    
+    Context 'Edge cases' {
+        It "Should handle empty metadata response" {
+            Mock Invoke-WebRequest -MockWith { 
+                return @{
+                    Content = "[]"
+                }
+            } -Verifiable
+            
+            Mock GetIpv4AddressFromParsedContent -MockWith { return $null } -Verifiable
+            
+            { GetMetadataContent } | Should -Throw "No IPv4 address found in metadata."
+        }
+        
+        It "Should succeed immediately if first attempt returns valid IPv4" {
+            Mock Invoke-WebRequest -MockWith { 
+                return @{
+                    Content = @'
+[
+    {
+        "ipv4": {
+            "ipAddress": [
+                {
+                    "privateIpAddress": "10.0.0.1"
+                }
+            ]
+        }
+    }
+]
+'@
+                }
+            } -Verifiable
+            
+            Mock GetIpv4AddressFromParsedContent -MockWith { return "10.0.0.1" } -Verifiable
+            
+            $result = GetMetadataContent
+            
+            $result | Should -Not -Be $null
+            Assert-MockCalled -CommandName "Invoke-WebRequest" -Exactly -Times 1
+            Assert-MockCalled -CommandName "Start-Sleep" -Exactly -Times 0
+        }
+    }
+}
