@@ -40,7 +40,11 @@ parameters:
   - name: windowsContainerImageJsonUrl
     displayName: Windows container image JSON URL Override
     type: string
-    default: ""
+    default: https://wcctagentbakerstorage.blob.core.windows.net/simship/2025/07B/payload.json
+  - name: useContainerUrlsFromJson
+    displayName: Use container base URLs
+    type: boolean
+    default: False
   - name: skipExtensionCheck
     displayName: Skip Extension Check
     type: boolean
@@ -109,6 +113,7 @@ steps:
       WINDOWS_NANO_IMAGE_URL: ${{ parameters.windowsNanoImageUrl }}
       WINDOWS_CORE_IMAGE_URL: ${{ parameters.windowsCoreImageUrl }}
       WINDOWS_CONTAINERIMAGE_JSON_URL: ${{ parameters.windowsContainerImageJsonUrl }}
+      USE_CONTAINER_URLS_FROM_JSON: ${{ parameters.useContainerUrlsFromJson }}
       WINDOWS_PRIVATE_PACKAGES_URL: $(PRIVATE_PACKAGES_URL)
       AZURE_MSI_RESOURCE_STRING: $(AZURE_MSI_RESOURCE_STRING)
       BUILD_DATE: $(BUILD_DATE)

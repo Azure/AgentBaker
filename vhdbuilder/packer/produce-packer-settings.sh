@@ -404,7 +404,7 @@ if [ "$OS_TYPE" = "Windows" ]; then
 	export AZCOPY_MSI_RESOURCE_STRING="${AZURE_MSI_RESOURCE_STRING}"
 
 	echo "VALID IMAGE URL: ${WINDOWS_CONTAINERIMAGE_JSON_URL}"
-	if [ -n "${WINDOWS_CONTAINERIMAGE_JSON_URL}" ]; then
+	if [ "${USE_CONTAINER_URLS_FROM_JSON}" = true ]; then
 		# Download the json artifact from the url
 		filename=$(basename "$WINDOWS_CONTAINERIMAGE_JSON_URL")
 		echo "Downloading $filename from wcct storage account using AzCopy with Managed Identity Auth"
@@ -472,8 +472,11 @@ if [ "$OS_TYPE" = "Windows" ]; then
 		else
 			echo "Unsupported WINDOWS_SKU: ${WINDOWS_SKU}"
 		fi	
+	else
+		# If USE_CONTAINER_URLS_FROM_JSON is not true, fall back to default URLs
+		echo "Falling back to default Windows image URLs"
 	fi
-		
+
 	# Check if base, nano, and servercore urls are set
 	if [ -z "${windows_nanoserver_image_url}" ] || [ -z "${windows_servercore_image_url}" ] || [ -z "${WINDOWS_BASE_IMAGE_URL}" ]; then
 		echo "Error: One of the Windows image URLs are not set."

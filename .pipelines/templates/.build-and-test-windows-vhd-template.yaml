@@ -52,7 +52,11 @@ parameters:
   - name: windowsContainerImageJsonUrl
     displayName: Windows container image JSON URL Override
     type: string
-    default: ""
+    default: https://wcctagentbakerstorage.blob.core.windows.net/simship/2025/07B/payload.json
+  - name: useContainerUrlsFromJson
+    displayName: Use container base URLs
+    type: boolean
+    default: False
   - name: overrideBranch
     type: string
     default: master

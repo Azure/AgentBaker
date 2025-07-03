@@ -59,7 +59,11 @@ parameters:
   - name: windowsContainerImageJsonUrl
     displayName: Windows Container Image Json URL
     type: string
-    default: ""
+    default: https://wcctagentbakerstorage.blob.core.windows.net/simship/2025/07B/payload.json
+  - name: useContainerUrlsFromJson
+    displayName: Use container base URLs
+    type: boolean
+    default: False
   - name: dryrun
     displayName: Dry run
     type: boolean
