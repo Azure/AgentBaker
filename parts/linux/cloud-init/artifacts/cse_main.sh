@@ -431,8 +431,12 @@ if [ "${ID}" != "mariner" ] && [ "${ID}" != "azurelinux" ]; then
 fi
 
 if [ "${ACNS_PERF}" = "true" ]; then
-    logs_to_events "AKS.CSE.configureLsmWithBpf" configureLsmWithBpf
-    REBOOTREQUIRED=true
+    if shouldConfigureLsmWithBpf; then
+        logs_to_events "AKS.CSE.configureLsmWithBpf" configureLsmWithBpf
+        REBOOTREQUIRED=true
+    else
+        echo "Skipping LSM with BPF configuration"
+    fi
 fi
 
 

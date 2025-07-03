@@ -1053,4 +1053,23 @@ extract_tarball() {
     esac
 }
 
+# Check if LSM BPF configuration is needed/possible
+# Returns 0 if BPF LSM should be configured, 1 if it is already configured or can't be.
+shouldConfigureLsmWithBpf() {
+    # Return 1 (false) if /sys/kernel/security/lsm does not exist
+    if [ ! -f /sys/kernel/security/lsm ]; then
+        echo "Warning: /sys/kernel/security/lsm not found, skipping LSM configuration"
+        return 1
+    fi
+
+    local current_lsm
+    current_lsm=$(cat /sys/kernel/security/lsm)
+    if [[ "$current_lsm" == *"bpf"* ]]; then
+        echo "BPF LSM already configured, skipping"
+        return 1
+    fi
+
+    return 0
+}
+
 #HELPERSEOF
