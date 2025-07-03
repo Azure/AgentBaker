@@ -26,7 +26,7 @@ func ValidatePodRunning(ctx context.Context, s *Scenario, pod *corev1.Pod) {
 	_, err := kube.Typed.CoreV1().Pods(pod.Namespace).Create(ctx, pod, v1.CreateOptions{})
 	require.NoErrorf(s.T, err, "failed to create pod %q", pod.Name)
 	s.T.Cleanup(func() {
-		ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Minute)
+		ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 		defer cancel()
 		err := kube.Typed.CoreV1().Pods(pod.Namespace).Delete(ctx, pod.Name, v1.DeleteOptions{GracePeriodSeconds: to.Ptr(int64(0))})
 		if err != nil {

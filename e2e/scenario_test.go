@@ -1723,7 +1723,8 @@ C:\Windows\System32\Sysprep\Sysprep.exe /oobe /generalize /mode:vm /quiet /quit;
 
 		runResp, err := runPoller.PollUntilDone(ctx, nil)
 		require.NoError(s.T, err, "Failed to run command on Windows VM for image creation")
-		s.T.Logf("Run command output: %+v", *runResp.Value[0])
+		respJson, _ := runResp.MarshalJSON()
+		s.T.Logf("Run command output: %s", string(respJson))
 	}
 
 	vm, err := config.Azure.VMSSVM.Get(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, "0", &armcompute.VirtualMachineScaleSetVMsClientGetOptions{})
@@ -1755,7 +1756,7 @@ C:\Windows\System32\Sysprep\Sysprep.exe /oobe /generalize /mode:vm /quiet /quit;
 
 	s.T.Cleanup(func() {
 		s.T.Logf("Cleaning up snapshot '%s'...", snapshotName)
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		_, _ = config.Azure.Snapshots.BeginDelete(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, snapshotName, nil)
 	})

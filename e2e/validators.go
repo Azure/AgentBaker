@@ -21,6 +21,7 @@ import (
 )
 
 func ValidateDirectoryContent(ctx context.Context, s *Scenario, path string, files []string) {
+	s.T.Helper()
 	steps := []string{
 		"set -ex",
 		fmt.Sprintf("sudo ls -la %s", path),
@@ -33,6 +34,7 @@ func ValidateDirectoryContent(ctx context.Context, s *Scenario, path string, fil
 }
 
 func ValidateSysctlConfig(ctx context.Context, s *Scenario, customSysctls map[string]string) {
+	s.T.Helper()
 	keysToCheck := make([]string, len(customSysctls))
 	for k := range customSysctls {
 		keysToCheck = append(keysToCheck, k)
@@ -49,6 +51,7 @@ func ValidateSysctlConfig(ctx context.Context, s *Scenario, customSysctls map[st
 }
 
 func ValidateNvidiaSMINotInstalled(ctx context.Context, s *Scenario) {
+	s.T.Helper()
 	command := []string{
 		"set -ex",
 		"sudo nvidia-smi",
@@ -59,11 +62,13 @@ func ValidateNvidiaSMINotInstalled(ctx context.Context, s *Scenario) {
 }
 
 func ValidateNvidiaSMIInstalled(ctx context.Context, s *Scenario) {
+	s.T.Helper()
 	command := []string{"set -ex", "sudo nvidia-smi"}
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "could not execute nvidia-smi command")
 }
 
 func ValidateNvidiaModProbeInstalled(ctx context.Context, s *Scenario) {
+	s.T.Helper()
 	command := []string{
 		"set -ex",
 		"sudo nvidia-modprobe",
@@ -72,6 +77,7 @@ func ValidateNvidiaModProbeInstalled(ctx context.Context, s *Scenario) {
 }
 
 func ValidateNvidiaGRIDLicenseValid(ctx context.Context, s *Scenario) {
+	s.T.Helper()
 	command := []string{
 		"set -ex",
 		// Capture the license status output, or continue silently if not found
@@ -86,6 +92,7 @@ func ValidateNvidiaGRIDLicenseValid(ctx context.Context, s *Scenario) {
 }
 
 func ValidateNvidiaPersistencedRunning(ctx context.Context, s *Scenario) {
+	s.T.Helper()
 	command := []string{
 		"set -ex",
 		// Check that nvidia-persistenced.service is active by capturing its is-active output
@@ -96,6 +103,7 @@ func ValidateNvidiaPersistencedRunning(ctx context.Context, s *Scenario) {
 }
 
 func ValidateNonEmptyDirectory(ctx context.Context, s *Scenario, dirName string) {
+	s.T.Helper()
 	command := []string{
 		"set -ex",
 		fmt.Sprintf("sudo ls -1q %s | grep -q '^.*$' && true || false", dirName),
@@ -137,6 +145,7 @@ func fileExist(ctx context.Context, s *Scenario, fileName string) bool {
 }
 
 func fileHasContent(ctx context.Context, s *Scenario, fileName string, contents string) bool {
+	s.T.Helper()
 	require.NotEmpty(s.T, contents, "Test setup failure: Can't validate that a file has contents with an empty string. Filename: %s", fileName)
 	if s.IsWindows() {
 		steps := []string{
@@ -174,6 +183,7 @@ func ValidateFileExcludesContent(ctx context.Context, s *Scenario, fileName stri
 }
 
 func ServiceCanRestartValidator(ctx context.Context, s *Scenario, serviceName string, restartTimeoutInSeconds int) {
+	s.T.Helper()
 	steps := []string{
 		"set -ex",
 		// Verify the service is active - print the state then verify so we have logs
@@ -206,6 +216,7 @@ func ServiceCanRestartValidator(ctx context.Context, s *Scenario, serviceName st
 }
 
 func ValidateSystemdUnitIsRunning(ctx context.Context, s *Scenario, serviceName string) {
+	s.T.Helper()
 	command := []string{
 		"set -ex",
 		// Print the service status for logging purposes
@@ -218,6 +229,7 @@ func ValidateSystemdUnitIsRunning(ctx context.Context, s *Scenario, serviceName 
 }
 
 func ValidateWindowsServiceIsRunning(ctx context.Context, s *Scenario, serviceName string) {
+	s.T.Helper()
 	command := []string{
 		"$ErrorActionPreference = \"Stop\"",
 		// Print the service status for logging purposes
@@ -231,6 +243,7 @@ func ValidateWindowsServiceIsRunning(ctx context.Context, s *Scenario, serviceNa
 }
 
 func ValidateWindowsServiceIsNotRunning(ctx context.Context, s *Scenario, serviceName string) {
+	s.T.Helper()
 	command := []string{
 		"$ErrorActionPreference = \"Continue\"",
 		// Print the service status for logging purposes
@@ -246,6 +259,7 @@ func ValidateWindowsServiceIsNotRunning(ctx context.Context, s *Scenario, servic
 }
 
 func ValidateSystemdUnitIsNotFailed(ctx context.Context, s *Scenario, serviceName string) {
+	s.T.Helper()
 	command := []string{
 		"set -ex",
 		fmt.Sprintf("systemctl --no-pager -n 5 status %s || true", serviceName),
@@ -261,6 +275,7 @@ func ValidateSystemdUnitIsNotFailed(ctx context.Context, s *Scenario, serviceNam
 }
 
 func ValidateUlimitSettings(ctx context.Context, s *Scenario, ulimits map[string]string) {
+	s.T.Helper()
 	ulimitKeys := make([]string, 0, len(ulimits))
 	for k := range ulimits {
 		ulimitKeys = append(ulimitKeys, k)
@@ -275,6 +290,7 @@ func ValidateUlimitSettings(ctx context.Context, s *Scenario, ulimits map[string
 }
 
 func execOnVMForScenarioOnUnprivilegedPod(ctx context.Context, s *Scenario, cmd string) *podExecResult {
+	s.T.Helper()
 	nonHostPod, err := s.Runtime.Cluster.Kube.GetPodNetworkDebugPodForNode(ctx, s.Runtime.KubeNodeName, s.T)
 	require.NoError(s.T, err, "failed to get non host debug pod name")
 	execResult, err := execOnUnprivilegedPod(ctx, s.Runtime.Cluster.Kube, nonHostPod.Namespace, nonHostPod.Name, cmd)

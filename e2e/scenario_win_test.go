@@ -254,6 +254,7 @@ func Test_TwoStageKubeletConfiguration_Windows(t *testing.T) {
 
 				t.Log("=== Stage 1 validation complete, proceeding to Stage 2 ===")
 				customVHD := CreateImage(ctx, s)
+				stage1SSHKeys := s.Runtime.NBC.ContainerService.Properties.LinuxProfile.SSH.PublicKeys
 
 				// Create a subtest so RunScenario won't fail on t.Parallel()
 				t.Run("SecondStage", func(t *testing.T) {
@@ -266,9 +267,13 @@ func Test_TwoStageKubeletConfiguration_Windows(t *testing.T) {
 							VHD:     customVHD,
 							BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 								nbc.KubeletOnly = true
+								if nbc.ContainerService.Properties.LinuxProfile != nil {
+									nbc.ContainerService.Properties.LinuxProfile.SSH.PublicKeys = stage1SSHKeys
+								}
 							},
 							Validator: func(ctx context.Context, s *Scenario) {
 								// Stage 2 validation: Verify kubelet is now working
+								ValidateFileExists(ctx, s, "C:\\AzureData\\stage1-complete") // Test with known existing file first
 								ValidateFileExists(ctx, s, "C:\\AzureData\\provision.complete")
 								ValidateWindowsServiceIsRunning(ctx, s, "kubelet")
 							},

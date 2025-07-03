@@ -223,23 +223,6 @@ try
         return
     }
 
-    if ($KubeletOnly) {
-        Write-Log "Running kubelet-only configuration"
-        if (-not (Test-Path -Path "C:\AzureData\stage1-complete")) {
-            Write-Log "Stage 1 marker missing. Cannot proceed with kubelet-only mode."
-            Set-ExitCode -ExitCode 1 -ErrorMessage "Stage 1 incomplete"
-            return
-        }
-        . c:\AzureData\windows\windowscsehelper.ps1
-        . c:\AzureData\windows\kubeletfunc.ps1
-
-        Install-KubernetesServices -KubeDir $global:KubeDir
-
-        Set-Content -Path $CSEResultFilePath -Value "0" -Force
-        Write-Log "Kubelet-only configuration completed successfully"
-        return
-    }
-
     # This involes using proxy, log the config before fetching packages
     Write-Log "private egress proxy address is '$global:PrivateEgressProxyAddress'"
     # TODO update to use proxy
@@ -289,6 +272,23 @@ try
     if ( $sshEnabled ) {
         Install-OpenSSH -SSHKeys $SSHKeys
     }
+
+    if ($KubeletOnly) {
+        Write-Log "Running kubelet-only configuration"
+        if (-not (Test-Path -Path "C:\AzureData\stage1-complete")) {
+            Write-Log "Stage 1 marker missing. Cannot proceed with kubelet-only mode."
+            Set-ExitCode -ExitCode 1 -ErrorMessage "Stage 1 incomplete"
+            return
+        }
+        . c:\AzureData\windows\kubeletfunc.ps1
+
+        Install-KubernetesServices -KubeDir $global:KubeDir
+
+        Set-Content -Path $CSEResultFilePath -Value "0" -Force
+        Write-Log "Kubelet-only configuration completed successfully"
+        return
+    }
+
 
     Set-TelemetrySetting -WindowsTelemetryGUID $global:WindowsTelemetryGUID
 
