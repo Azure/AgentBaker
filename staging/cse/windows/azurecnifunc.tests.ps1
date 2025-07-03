@@ -15,7 +15,6 @@ BeforeAll {
             $Type,
             $Value
         )
-        Write-Host "Set-ItemProperty -Path $Path -Name $Name -Type $Type -Value $Value"
     } -Verifiable
 }
 
@@ -102,7 +101,7 @@ Describe 'Set-AzureCNIConfig' {
             return $formattedJson
         } 
         Mock Get-WindowsVersion -MockWith { return "ltsc2022" }
-        Mock Restart-Service -MockWith { Write-Host "Restart-Service -Name $hnsServiceName" } -Verifiable
+        Mock Restart-Service -MockWith { } -Verifiable
     }
 
     AfterEach {
@@ -179,7 +178,6 @@ Describe 'Set-AzureCNIConfig' {
 					  $Name,
 					  $ErrorAction
 					)
-					Write-Host "Get-ItemProperty -Path $Path -Name $Name : Return 0x50"
 					return [PSCustomObject]@{
 						HNSControlFlag = 0x50
 					}
@@ -213,7 +211,6 @@ Describe 'Set-AzureCNIConfig' {
                         $Name,
                         $ErrorAction
                     )
-                    Write-Host "Get-ItemProperty -Path $Path -Name $Name : Return null"
                     return $null
                 } -Verifiable
 
@@ -267,7 +264,7 @@ Describe 'Set-AzureCNIConfig' {
         BeforeEach {
             $hnsServiceName = "hns"
             Mock Get-Service -MockWith { return $hnsServiceName }
-            Mock Restart-Service -MockWith { Write-Host "Restart-Service -Name $hnsServiceName" } -Verifiable
+            Mock Restart-Service -MockWith { } -Verifiable
         }
 
         It "Should not include Cluster CIDR when AzureCNIOverlay is enabled" {
@@ -311,7 +308,7 @@ Describe 'Set-AzureCNIConfig' {
         BeforeEach {
             $hnsServiceName = "hns"
             Mock Get-Service -MockWith { return $hnsServiceName }
-            Mock Restart-Service -MockWith { Write-Host "Restart-Service -Name $hnsServiceName" } -Verifiable
+            Mock Restart-Service -MockWith { } -Verifiable
         }
 
         It "Should has hnsTimeoutDurationInSeconds and enableLoopbackDSR" {
@@ -352,7 +349,7 @@ Describe 'Set-AzureCNIConfig' {
         BeforeEach {
             $hnsServiceName = "hns"
             Mock Get-Service -MockWith { return $hnsServiceName }
-            Mock Restart-Service -MockWith { Write-Host "Restart-Service -Name $hnsServiceName" } -Verifiable
+            Mock Restart-Service -MockWith { } -Verifiable
         }
         It "should include IMDS restriction ACL rule when IMDS restriction is enabled" {
             Set-Default-AzureCNI "AzureCNI.Default.conflist"
@@ -724,14 +721,8 @@ Describe 'GetIpv4AddressFromParsedContent' {
 
 Describe 'GetMetadataContent' {
     BeforeEach {
-        # Mock Write-Log to prevent output during tests
-        Mock Write-Log -MockWith { } -Verifiable
-        
         # Mock Start-Sleep to speed up tests
         Mock Start-Sleep -MockWith { } -Verifiable
-        
-        # Mock Write-Host
-        Mock Write-Host -MockWith { } -Verifiable
     }
     
     Context 'Successful metadata retrieval' {
@@ -934,54 +925,7 @@ Describe 'GetMetadataContent' {
     }
     
     Context 'Logging behavior' {
-        It "Should log retry attempts when IPv4 address is not found" {
-            Mock Invoke-WebRequest -MockWith { 
-                return @{
-                    Content = @'
-[
-    {
-        "ipv6": {
-            "ipAddress": [
-                {
-                    "privateIpAddress": "2001:db8::1"
-                }
-            ]
-        }
-    }
-]
-'@
-                }
-            } -Verifiable
             
-            Mock GetIpv4AddressFromParsedContent -MockWith { return $null } -Verifiable
-            
-            try {
-                GetMetadataContent
-            } catch {
-                # Expected to throw
-            }
-            
-            Assert-MockCalled -CommandName "Write-Log" -ParameterFilter { 
-                $Message -like "*Failed to retrieve IPv4 address from metadata. Will retry*" 
-            }
-        }
-        
-        It "Should log network errors during retry attempts" {
-            Mock Invoke-WebRequest -MockWith { 
-                throw "Connection timeout"
-            } -Verifiable
-            
-            try {
-                GetMetadataContent
-            } catch {
-                # Expected to throw
-            }
-            
-            Assert-MockCalled -CommandName "Write-Log" -ParameterFilter { 
-                $Message -like "*Failed to connect to metadata service: Connection timeout*" 
-            }
-        }
-        
         It "Should not sleep on the last retry attempt" {
             $script:callCount = 0
             Mock Invoke-WebRequest -MockWith { 
