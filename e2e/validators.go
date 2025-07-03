@@ -217,6 +217,34 @@ func ValidateSystemdUnitIsRunning(ctx context.Context, s *Scenario, serviceName 
 		fmt.Sprintf("service %s is not running", serviceName))
 }
 
+func ValidateWindowsServiceIsRunning(ctx context.Context, s *Scenario, serviceName string) {
+	command := []string{
+		"$ErrorActionPreference = \"Stop\"",
+		// Print the service status for logging purposes
+		fmt.Sprintf("Get-Service -Name %s", serviceName),
+		// Verify the service is running
+		fmt.Sprintf("$service = Get-Service -Name %s", serviceName),
+		"if ($service.Status -ne 'Running') { throw \"Service is not running: $($service.Status)\" }",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
+		fmt.Sprintf("Windows service %s is not running", serviceName))
+}
+
+func ValidateWindowsServiceIsNotRunning(ctx context.Context, s *Scenario, serviceName string) {
+	command := []string{
+		"$ErrorActionPreference = \"Continue\"",
+		// Print the service status for logging purposes
+		fmt.Sprintf("Get-Service -Name %s -ErrorAction SilentlyContinue", serviceName),
+		// Check if service exists and is not running
+		fmt.Sprintf("$service = Get-Service -Name %s -ErrorAction SilentlyContinue", serviceName),
+		"if ($service -and $service.Status -eq 'Running') { throw \"Service is unexpectedly running: $($service.Status)\" }",
+		"if ($service -and $service.Status -ne 'Running') { Write-Host \"Service exists but is not running: $($service.Status)\" }",
+		"if (-not $service) { Write-Host \"Service does not exist\" }",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
+		fmt.Sprintf("Windows service %s validation failed", serviceName))
+}
+
 func ValidateSystemdUnitIsNotFailed(ctx context.Context, s *Scenario, serviceName string) {
 	command := []string{
 		"set -ex",
@@ -271,6 +299,7 @@ func execScriptOnVMForScenario(ctx context.Context, s *Scenario, cmd string) *po
 }
 
 func execScriptOnVMForScenarioValidateExitCode(ctx context.Context, s *Scenario, cmd string, expectedExitCode int, additionalErrorMessage string) *podExecResult {
+	s.T.Helper()
 	execResult := execScriptOnVMForScenario(ctx, s, cmd)
 
 	expectedExitCodeStr := fmt.Sprint(expectedExitCode)

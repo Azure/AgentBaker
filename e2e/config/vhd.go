@@ -230,6 +230,10 @@ func (i *Image) VHDResourceID(ctx context.Context, t *testing.T) (VHDResourceID,
 			// This is a managed image - use the Version field as the resource ID
 			i.vhd = VHDResourceID(i.Version)
 			t.Logf("Using managed image directly: %s", i.Version)
+		case i.Gallery != nil && i.Gallery.Name == "managed-disks":
+			// This is a managed disk - use the Version field as the resource ID
+			i.vhd = VHDResourceID(i.Version)
+			t.Logf("Using managed disk directly: %s", i.Version)
 		case i.Version != "":
 			i.vhd, i.vhdErr = Azure.EnsureSIGImageVersion(ctx, t, i)
 			if i.vhd != "" {

@@ -192,8 +192,8 @@ $global:EnableIncreaseDynamicPortRange = $false
 $global:RebootNeeded = $false
 
 $global:IsSkipCleanupNetwork = [System.Convert]::ToBoolean("false");
-$global:SkipKubeletConfiguration = [System.Convert]::ToBoolean("false")
-$global:KubeletOnly = [System.Convert]::ToBoolean("false")
+$SkipKubeletConfiguration = [System.Convert]::ToBoolean("false");
+$KubeletOnly = [System.Convert]::ToBoolean("false");
 
 $global:EnableKubeletServingCertificateRotation = [System.Convert]::ToBoolean("true")
 
@@ -211,76 +211,24 @@ try
 {
     Logs-To-Event -TaskName "AKS.WindowsCSE.ExecuteCustomDataSetupScript" -TaskMessage ".\CustomDataSetupScript.ps1 -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp -MasterFQDNPrefix $MasterFQDNPrefix -Location $Location -AADClientId $AADClientId -NetworkAPIVersion $NetworkAPIVersion -TargetEnvironment $TargetEnvironment -CSEResultFilePath $CSEResultFilePath"
 
-    # Exit early if the script has been executed (unless running in kubelet-only mode)
+    # Exit early if the script has been executed
     if (Test-Path -Path $CSEResultFilePath -PathType Leaf) {
-        if ($global:KubeletOnly) {
-            # For KubeletOnly mode, verify that Stage 1 was completed first
-            if (-not (Test-Path -Path "C:\AzureData\stage1-complete" -PathType Leaf)) {
-                Write-Log "KubeletOnly mode requires Stage 1 to be completed first (stage1-complete marker not found)"
-                $global:ExitCode = 1
-                $global:ErrorMessage = "Stage 1 must be completed before running KubeletOnly configuration"
-                return
-            }
-            Write-Log "KubeletOnly mode detected - proceeding with kubelet configuration"
-        } else {
-            Write-Log "The script has been executed before, will exit without doing anything."
+        Write-Log "The script has been executed before, will exit without doing anything."
+        return
+    }
+
+    if ($KubeletOnly) {
+        Write-Log "Running kubelet-only configuration"
+        if (-not (Test-Path -Path "C:\AzureData\stage1-complete")) {
+            Write-Log "Stage 1 marker missing. Cannot proceed with kubelet-only mode."
+            Set-ExitCode -ExitCode 1 -ErrorMessage "Stage 1 incomplete"
             return
         }
-    }
-    
-    # Function to download and extract CSE scripts package
-    function Download-And-Extract-CSEScripts {
-        param([string]$DestinationPath)
-        
-        $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-current.zip"
-        
-        # CSEScriptsPackage is cached on VHD. Previously the cse package version was managed in components.json, whereas RP set the package URL which is a storage account.
-        # From 2025-06 The CSE packages is eleased on the VHD. RP can use fully qualified URL to download CSE scripts package when required out of VHD release cycle. 
-        # In the transition period, it is important that when deal with older VHD versions, the agentbaker runtime provision script needs to be compatible with the latest known storage account package, 0.0.52.
-        Write-Log "Requested CSEScriptsPackageUrl is $global:CSEScriptsPackageUrl"
-        if ($global:CSEScriptsPackageUrl.EndsWith("/")) {
-            $search = @()
-            if ($global:CacheDir -and (Test-Path $global:CacheDir)) {
-                $search = [IO.Directory]::GetFiles($global:CacheDir, $WindowsCSEScriptsPackage, [IO.SearchOption]::AllDirectories)
-                # list files in the cache directory. 
-                Write-Log "the directory $global:CacheDir contains the following files:"
-                Get-ChildItem -Path $global:CacheDir | ForEach-Object { Write-Log "  $_" }
-            }
-     
-            if ($search.Count -eq 0) {
-                Write-Log "Could not find windows cse package on VHD. Use remote version instead."
-                $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.52.zip"
-            }
-            Write-Log "WindowsCSEScriptsPackage is $WindowsCSEScriptsPackage"
-            $global:CSEScriptsPackageUrl = $global:CSEScriptsPackageUrl + $WindowsCSEScriptsPackage
-        }
-        Write-Log "CSEScriptsPackageUrl used for provision is $global:CSEScriptsPackageUrl"
+        . c:\AzureData\windows\windowscsehelper.ps1
+        . c:\AzureData\windows\kubeletfunc.ps1
 
-        # Download CSE function scripts
-        Logs-To-Event -TaskName "AKS.WindowsCSE.DownloadAndExpandCSEScriptPackageUrl" -TaskMessage "Start to get CSE scripts. CSEScriptsPackageUrl: $global:CSEScriptsPackageUrl"
-        $tempfile = 'c:\csescripts.zip'
-        DownloadFileOverHttp -Url $global:CSEScriptsPackageUrl -DestinationPath $tempfile -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CSE_PACKAGE
-        Expand-Archive $tempfile -DestinationPath $DestinationPath -Force
-        Remove-Item -Path $tempfile -Force
-    }
+        Install-KubernetesServices -KubeDir $global:KubeDir
 
-    # Handle kubelet-only mode
-    if ($global:KubeletOnly) {
-        Write-Log "Running in kubelet-only mode..."
-        Logs-To-Event -TaskName "AKS.WindowsCSE.KubeletOnlyMode" -TaskMessage "Executing kubelet-only configuration"
-        
-        # Download and extract CSE scripts to c:\k for kubelet-only mode
-        Download-And-Extract-CSEScripts -DestinationPath "c:\k"
-        
-        # Source the necessary functions
-        . c:\k\windowscsehelper.ps1
-        . c:\k\kubeletfunc.ps1
-        
-        # Only run kubelet configuration
-        Install-KubernetesServices -KubeDir "c:\k"
-        
-        # Create standard completion marker (provision.complete) for kubelet-only mode
-        # This allows Stage 2 to properly mark completion after kubelet is configured
         Set-Content -Path $CSEResultFilePath -Value "0" -Force
         Write-Log "Kubelet-only configuration completed successfully"
         return
@@ -290,8 +238,35 @@ try
     Write-Log "private egress proxy address is '$global:PrivateEgressProxyAddress'"
     # TODO update to use proxy
 
-    # Download and extract CSE scripts for normal CSE flow
-    Download-And-Extract-CSEScripts -DestinationPath "C:\\AzureData\\windows"
+    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-current.zip"
+    # CSEScriptsPackage is cached on VHD. Previously the cse package version was managed in components.json, whereas RP set the package URL which is a storage account.
+    # From 2025-06 The CSE packages is eleased on the VHD. RP can use fully qualified URL to download CSE scripts package when required out of VHD release cycle. 
+    # In the transition period, it is important that when deal with older VHD versions, the agentbaker runtime provision script needs to be compatible with the latest known storage account package, 0.0.52.
+    Write-Log "Requested CSEScriptsPackageUrl is $global:CSEScriptsPackageUrl"
+    if ($global:CSEScriptsPackageUrl.EndsWith("/")) {
+        $search = @()
+        if ($global:CacheDir -and (Test-Path $global:CacheDir)) {
+            $search = [IO.Directory]::GetFiles($global:CacheDir, $WindowsCSEScriptsPackage, [IO.SearchOption]::AllDirectories)
+            # list files in the cache directory. 
+            Write-Log "the directory $global:CacheDir contains the following files:"
+            Get-ChildItem -Path $global:CacheDir | ForEach-Object { Write-Log "  $_" }
+        }
+ 
+        if ($search.Count -eq 0) {
+            Write-Log "Could not find windows cse package on VHD. Use remote version instead."
+            $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.52.zip"
+        }
+        Write-Log "WindowsCSEScriptsPackage is $WindowsCSEScriptsPackage"
+        $global:CSEScriptsPackageUrl = $global:CSEScriptsPackageUrl + $WindowsCSEScriptsPackage
+    }
+    Write-Log "CSEScriptsPackageUrl used for provision is $global:CSEScriptsPackageUrl"
+
+    # Download CSE function scripts
+    Logs-To-Event -TaskName "AKS.WindowsCSE.DownloadAndExpandCSEScriptPackageUrl" -TaskMessage "Start to get CSE scripts. CSEScriptsPackageUrl: $global:CSEScriptsPackageUrl"
+    $tempfile = 'c:\csescripts.zip'
+    DownloadFileOverHttp -Url $global:CSEScriptsPackageUrl -DestinationPath $tempfile -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CSE_PACKAGE
+    Expand-Archive $tempfile -DestinationPath "C:\\AzureData\\windows" -Force
+    Remove-Item -Path $tempfile -Force
 
     # Dot-source cse scripts with functions that are called in this script
     . c:\AzureData\windows\azurecnifunc.ps1
@@ -445,13 +420,11 @@ try
     New-ExternalHnsNetwork -IsDualStackEnabled $global:IsDualStackEnabled
 
     # Conditionally install kubelet services based on configuration
-    if (-not $global:SkipKubeletConfiguration) {
-        Logs-To-Event -TaskName "AKS.WindowsCSE.InstallKubernetesServices" -TaskMessage "Installing Kubernetes services"
-        Install-KubernetesServices `
-            -KubeDir $global:KubeDir
+    if (-not $SkipKubeletConfiguration) {
+        Write-Log "Installing kubelet services"
+        Install-KubernetesServices -KubeDir $global:KubeDir
     } else {
-        Logs-To-Event -TaskName "AKS.WindowsCSE.SkipKubeletConfiguration" -TaskMessage "Skipping kubelet configuration as requested. Use c:\k\windowskubeletcomplete.ps1 to complete later."
-        Write-Log "Skipping kubelet configuration. Kubelet services will need to be installed later using completion script."
+        Write-Log "Skipping kubelet configuration as per SkipKubeletConfiguration setting"
     }
 
     Set-Explorer
@@ -542,7 +515,6 @@ finally
     Logs-To-Event -TaskName "AKS.WindowsCSE.cse_main" -TaskMessage "ExitCode: $global:ExitCode. ErrorMessage: $global:ErrorMessage."
 
     # $CSEResultFilePath is used to avoid running CSE multiple times
-    # Always create completion marker to satisfy CSE framework validation
     if ($global:ExitCode -ne 0) {
         # $JsonString = "ExitCode: |{0}|, Output: |{1}|, Error: |{2}|"
         # Max length of the full error message returned by Windows CSE is ~256. We use 240 to be safe.
@@ -551,13 +523,11 @@ finally
         Set-Content -Path $CSEResultFilePath -Value "ExitCode: |$global:ExitCode|, Output: |$($global:ErrorCodeNames[$global:ExitCode])|, Error: |$turncatedErrorMessage|"
     }
     else {
-        Set-Content -Path $CSEResultFilePath -Value $global:ExitCode -Force
-        
-        # Create stage marker for two-stage workflow
-        if ($global:SkipKubeletConfiguration) {
+        if (-not $SkipKubeletConfiguration) {
+            Set-Content -Path $CSEResultFilePath -Value $global:ExitCode -Force
+        } else {
             # Stage 1: Create marker indicating Stage 2 is needed
-            Set-Content -Path "C:\AzureData\stage1-complete" -Value "1" -Force
-            Write-Log "Stage 1 complete - kubelet configuration skipped, Stage 2 required"
+            Set-Content -Path "C:\AzureData\stage1-complete" -Value $global:ExitCode -Force
         }
     }
 

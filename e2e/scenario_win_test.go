@@ -248,8 +248,9 @@ func Test_TwoStageKubeletConfiguration_Windows(t *testing.T) {
 			},
 			SkipDefaultValidation: true, // Skip default validation since Stage 1 CSE may fail
 			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFileExists(ctx, s, "/AzureData/stage1-complete")
-				ValidateFileDoesNotExist(ctx, s, "/AzureData/provision.complete")
+				ValidateFileExists(ctx, s, "C:\\AzureData\\stage1-complete")
+				ValidateFileDoesNotExist(ctx, s, "C:\\AzureData\\provision.complete")
+				ValidateWindowsServiceIsNotRunning(ctx, s, "kubelet")
 
 				t.Log("=== Stage 1 validation complete, proceeding to Stage 2 ===")
 				customVHD := CreateImage(ctx, s)
@@ -268,8 +269,8 @@ func Test_TwoStageKubeletConfiguration_Windows(t *testing.T) {
 							},
 							Validator: func(ctx context.Context, s *Scenario) {
 								// Stage 2 validation: Verify kubelet is now working
-								ValidateSystemdUnitIsRunning(ctx, s, "kubelet")
-								ValidateFileExists(ctx, s, "/AzureData/provision.complete")
+								ValidateFileExists(ctx, s, "C:\\AzureData\\provision.complete")
+								ValidateWindowsServiceIsRunning(ctx, s, "kubelet")
 							},
 						},
 					})

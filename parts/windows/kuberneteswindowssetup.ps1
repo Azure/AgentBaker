@@ -230,8 +230,8 @@ try
             Set-ExitCode -ExitCode 1 -ErrorMessage "Stage 1 incomplete"
             return
         }
-        . c:\k\windowscsehelper.ps1
-        . c:\k\kubeletfunc.ps1
+        . c:\AzureData\windows\windowscsehelper.ps1
+        . c:\AzureData\windows\kubeletfunc.ps1
 
         Install-KubernetesServices -KubeDir $global:KubeDir
 

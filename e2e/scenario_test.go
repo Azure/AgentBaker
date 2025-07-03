@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"strings"
 	"testing"
 	"time"
 
@@ -1709,38 +1708,36 @@ func Test_TwoStageKubeletConfiguration_Linux(t *testing.T) {
 }
 
 func CreateImage(ctx context.Context, s *Scenario) *config.Image {
+	s.T.Log("Generalizing VM")
 	if s.IsLinux() {
 		execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo waagent -deprovision", 0, "Failed to deprovision the VM for image creation")
 	} else {
-		// https://learn.microsoft.com/en-us/windows-hardware/manufacture/desktop/sysprep-command-line-options?view=windows-11
-		result := execScriptOnVMForScenarioValidateExitCode(ctx, s, `
-		Write-Host "Stopping services before sysprep..."
-		try { Stop-Service -Name "csi-proxy" -Force -ErrorAction SilentlyContinue } catch { }
-		
-		Write-Host "Running sysprep to generalize Windows VM..."
-		& $env:SystemRoot\System32\Sysprep\sysprep.exe /generalize /mode:vm /shutdown /quiet
-		`, 0, "Failed to run sysprep on Windows VM for image creation")
-		s.T.Logf("Sysprep output: %s", result.stdout)
-		s.T.Logf("Sysprep error: %s", result.stderr)
+		runPoller, err := config.Azure.VMSSVM.BeginRunCommand(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, "0", armcompute.RunCommandInput{
+			CommandID: to.Ptr("RunPowerShellScript"),
+			Script: []*string{to.Ptr(`if(Test-Path C:\system32\Sysprep\unattend.xml) {
+Remove-Item C:\system32\Sysprep\unattend.xml -Force
+};
+C:\Windows\System32\Sysprep\Sysprep.exe /oobe /generalize /mode:vm /quiet /quit;`)},
+		}, nil)
+		require.NoError(s.T, err, "Failed to run command on Windows VM for image creation")
 
-		waitForVMShutdown(ctx, s) // wait for sysprep to complete
+		runResp, err := runPoller.PollUntilDone(ctx, nil)
+		require.NoError(s.T, err, "Failed to run command on Windows VM for image creation")
+		s.T.Logf("Run command output: %+v", *runResp.Value[0])
 	}
-
-	// VMSS can't be "Generalized"
-	// Azure can't create an image from VMSS instance directly
-	// So use snapshots
 
 	vm, err := config.Azure.VMSSVM.Get(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, "0", &armcompute.VirtualMachineScaleSetVMsClientGetOptions{})
 	require.NoError(s.T, err, "Failed to get VMSS VM for image creation")
 
+	s.T.Log("Deallocating VMSS VM...")
 	poll, err := config.Azure.VMSSVM.BeginDeallocate(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, "0", nil)
 	require.NoError(s.T, err, "Failed to begin deallocate")
 	_, err = poll.PollUntilDone(ctx, nil)
 	require.NoError(s.T, err, "Failed to deallocate")
-	s.T.Log("VMSS VM deallocated successfully for image creation")
 
 	diskName := *vm.Properties.StorageProfile.OSDisk.Name
-	snapshotName := fmt.Sprintf("snap-%s", time.Now().Format("20250701-1527"))
+	snapshotName := fmt.Sprintf("snap-%s", time.Now().Format("20060102-150405"))
+	s.T.Logf("Creating snapshot '%s' from disk '%s'...", snapshotName, diskName)
 
 	snapshotPoller, err := config.Azure.Snapshots.BeginCreateOrUpdate(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, snapshotName,
 		armcompute.Snapshot{
@@ -1754,15 +1751,18 @@ func CreateImage(ctx context.Context, s *Scenario) *config.Image {
 				},
 			},
 		}, nil)
+	require.NoError(s.T, err, "Failed to begin snapshot creation")
 
 	s.T.Cleanup(func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		s.T.Logf("Cleaning up snapshot '%s'...", snapshotName)
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 		defer cancel()
 		_, _ = config.Azure.Snapshots.BeginDelete(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, snapshotName, nil)
 	})
 
 	snapshot, err := snapshotPoller.PollUntilDone(ctx, nil)
-	require.NoError(s.T, err, "Failed to create snapshot for image creation")
+	require.NoError(s.T, err, "Failed to create snapshot for disk creation")
+	s.T.Logf("Snapshot '%s' created successfully.", snapshotName)
 
 	imageName := "image-" + snapshotName
 
@@ -1803,28 +1803,8 @@ func CreateImage(ctx context.Context, s *Scenario) *config.Image {
 		Gallery: &config.Gallery{
 			SubscriptionID:    config.Config.SubscriptionID,
 			ResourceGroupName: *s.Runtime.Cluster.Model.Properties.NodeResourceGroup,
-			Name:              "managed-images", // Special marker for managed images
+			Name:              "managed-disks", // Special marker for managed disks
 		},
 		Version: *image.ID, // Store the managed image ID in Version field
-	}
-}
-
-func waitForVMShutdown(ctx context.Context, s *Scenario) {
-	for ctx.Err() == nil {
-		vm, err := config.Azure.VMSSVM.Get(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, "0", &armcompute.VirtualMachineScaleSetVMsClientGetOptions{
-			Expand: to.Ptr(armcompute.InstanceViewTypesInstanceView), // Otherwise InstanceView is nil
-		})
-		require.NoError(s.T, err)
-		if vm.Properties.InstanceView != nil &&
-			len(vm.Properties.InstanceView.Statuses) > 0 {
-			// Check if VM is stopped/deallocated
-			for _, status := range vm.Properties.InstanceView.Statuses {
-				if strings.Contains(*status.Code, "PowerState/stopped") {
-					s.T.Log("VM is stopped")
-					return
-				}
-			}
-		}
-		time.Sleep(time.Second)
 	}
 }
