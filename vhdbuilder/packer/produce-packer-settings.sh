@@ -154,7 +154,13 @@ if [ "$MODE" != "linuxVhdMode" ]; then
 	avail=$(az storage account check-name -n "${STORAGE_ACCOUNT_NAME}" -o json | jq -r .nameAvailable)
 	if $avail ; then
 		echo "creating new storage account ${STORAGE_ACCOUNT_NAME}"
-		az storage account create -n "$STORAGE_ACCOUNT_NAME" -g "$AZURE_RESOURCE_GROUP_NAME" --sku "Standard_RAGRS" --tags "now=${CREATE_TIME}" --location ${AZURE_LOCATION}
+		az storage account create \
+			-n "$STORAGE_ACCOUNT_NAME" \
+			-g "$AZURE_RESOURCE_GROUP_NAME" \
+			--sku "Standard_RAGRS" \
+			--tags "now=${CREATE_TIME}" \
+			--allow-shared-key-access false \
+			--location ${AZURE_LOCATION}
 		echo "creating new container system"
 		az storage container create --name system --account-name=$STORAGE_ACCOUNT_NAME --auth-mode login
 	else
@@ -421,7 +427,7 @@ if [ "$OS_TYPE" = "Windows" ]; then
 		# Parse the json artifact to get the image urls
 		echo "Filename: $filename"
 		artifact_path="${BUILD_ARTIFACTSTAGINGDIRECTORY}/$filename"
-		
+
 		sudo chmod 600 "$artifact_path"
 		echo "Reading image URLs from $artifact_path"
 
@@ -471,9 +477,9 @@ if [ "$OS_TYPE" = "Windows" ]; then
 			windows_servercore_image_url="${W2022_CORE_IMAGE_URL}"
 		else
 			echo "Unsupported WINDOWS_SKU: ${WINDOWS_SKU}"
-		fi	
+		fi
 	fi
-		
+
 	# Check if base, nano, and servercore urls are set
 	if [ -z "${windows_nanoserver_image_url}" ] || [ -z "${windows_servercore_image_url}" ] || [ -z "${WINDOWS_BASE_IMAGE_URL}" ]; then
 		echo "Error: One of the Windows image URLs are not set."
@@ -548,7 +554,7 @@ if [ "$OS_TYPE" = "Windows" ]; then
 	# Set nanoserver image url if the pipeline variable is set and the parameter is not already set
 	if [ -n "${WINDOWS_NANO_IMAGE_URL}" ] && [ -z "${windows_nanoserver_image_url}" ]; then
 		echo "WINDOWS_NANO_IMAGE_URL is set in pipeline variables"
-		windows_nanoserver_image_url="${WINDOWS_NANO_IMAGE_URL}"	
+		windows_nanoserver_image_url="${WINDOWS_NANO_IMAGE_URL}"
 	fi
 
 	# Set servercore image url if the pipeline variable is set and the parameter is not already set
@@ -597,7 +603,7 @@ fi
 
 # windows_image_version refers to the version from azure gallery
 cat <<EOF > vhdbuilder/packer/settings.json
-{ 
+{
   "subscription_id": "${SUBSCRIPTION_ID}",
   "resource_group_name": "${AZURE_RESOURCE_GROUP_NAME}",
   "location": "${PACKER_BUILD_LOCATION}",
