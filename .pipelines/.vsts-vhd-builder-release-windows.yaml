@@ -26,8 +26,6 @@ variables:
     value: $(AZURE_BUILD_SUBSCRIPTION_ID)
   - name: SKIP_E2E_TESTS
     value: False
-  - name: WINDOWS_CONTAINER_IMAGE_JSON_URL
-    value: $(WINDOWS_CONTAINER_IMAGE_JSON_URL)
 
 parameters:
   - name: build2019containerd
@@ -104,7 +102,7 @@ stages:
       build23H2gen2: ${{ parameters.build23H2gen2 }}
       build2025:  ${{ parameters.build2025 }}
       build2025gen2:  ${{ parameters.build2025gen2 }}
-      windowsContainerImageJsonUrl: $(WINDOWS_CONTAINER_IMAGE_JSON_URL)
+      windowsContainerImageJsonUrl: ""
       skipExtensionCheck: ${{ parameters.skipExtensionCheck }}
       installOpenSshServer: ${{ parameters.installOpenSshServer }}
       overrideBranch: ${{ parameters.overrideBranch }}
