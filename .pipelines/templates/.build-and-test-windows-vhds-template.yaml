@@ -20,10 +20,6 @@ parameters:
   - name: build2025gen2
     displayName: Build 2025 Gen 2
     type: boolean
-  - name: windowsContainerImageJsonUrl
-    displayName: Windows container image JSON URL Override
-    type: string
-    default: ""
   - name: dryrun
     displayName: Dry run
     type: boolean
@@ -97,7 +93,6 @@ stages:
       windowsBaseImageUrl: $(WINDOWS_2019_BASE_IMAGE_URL)
       windowsNanoImageUrl: $(WINDOWS_2019_NANO_IMAGE_URL)
       windowsCoreImageUrl: $(WINDOWS_2019_CORE_IMAGE_URL)
-      windowsContainerImageJsonUrl: ${{ parameters.windowsContainerImageJsonUrl }}
       overrideBranch: ${{ parameters.overrideBranch }}
       useOverrides: ${{ parameters.useOverrides }}
       csePackageDir: ${{ parameters.csePublishDir }}
@@ -120,7 +115,6 @@ stages:
       windowsBaseImageUrl: $(WINDOWS_2022_BASE_IMAGE_URL)
       windowsNanoImageUrl: $(WINDOWS_2022_NANO_IMAGE_URL)
       windowsCoreImageUrl: $(WINDOWS_2022_CORE_IMAGE_URL)
-      windowsContainerImageJsonUrl: ${{ parameters.windowsContainerImageJsonUrl }}
       overrideBranch: ${{ parameters.overrideBranch }}
       useOverrides: ${{ parameters.useOverrides }}
       csePackageDir: ${{ parameters.csePublishDir }}
@@ -143,7 +137,6 @@ stages:
       windowsBaseImageUrl: $(WINDOWS_2022_GEN2_BASE_IMAGE_URL)
       windowsNanoImageUrl: $(WINDOWS_2022_NANO_IMAGE_URL)
       windowsCoreImageUrl: $(WINDOWS_2022_CORE_IMAGE_URL)
-      windowsContainerImageJsonUrl: ${{ parameters.windowsContainerImageJsonUrl }}
       overrideBranch: ${{ parameters.overrideBranch }}
       useOverrides: ${{ parameters.useOverrides }}
       csePackageDir: ${{ parameters.csePublishDir }}
@@ -166,7 +159,6 @@ stages:
       windowsBaseImageUrl: $(WINDOWS_23H2_BASE_IMAGE_URL)
       windowsNanoImageUrl: $(WINDOWS_2022_NANO_IMAGE_URL)
       windowsCoreImageUrl: $(WINDOWS_2022_CORE_IMAGE_URL)
-      windowsContainerImageJsonUrl: ${{ parameters.windowsContainerImageJsonUrl }}
       overrideBranch: ${{ parameters.overrideBranch }}
       useOverrides: ${{ parameters.useOverrides }}
       csePackageDir: ${{ parameters.csePublishDir }}
@@ -189,7 +181,6 @@ stages:
       windowsBaseImageUrl: $(WINDOWS_23H2_GEN2_BASE_IMAGE_URL)
       windowsNanoImageUrl: $(WINDOWS_2022_NANO_IMAGE_URL)
       windowsCoreImageUrl: $(WINDOWS_2022_CORE_IMAGE_URL)
-      windowsContainerImageJsonUrl: ${{ parameters.windowsContainerImageJsonUrl }}
       overrideBranch: ${{ parameters.overrideBranch }}
       useOverrides: ${{ parameters.useOverrides }}
       csePackageDir: ${{ parameters.csePublishDir }}
@@ -212,7 +203,6 @@ stages:
       windowsBaseImageUrl: $(WINDOWS_2025_BASE_IMAGE_URL)
       windowsNanoImageUrl: $(WINDOWS_2025_NANO_IMAGE_URL)
       windowsCoreImageUrl: $(WINDOWS_2025_CORE_IMAGE_URL)
-      windowsContainerImageJsonUrl: ${{ parameters.windowsContainerImageJsonUrl }}
       overrideBranch: ${{ parameters.overrideBranch }}
       useOverrides: ${{ parameters.useOverrides }}
       csePackageDir: ${{ parameters.csePublishDir }}
@@ -235,7 +225,6 @@ stages:
       windowsBaseImageUrl: $(WINDOWS_2025_GEN2_BASE_IMAGE_URL)
       windowsNanoImageUrl: $(WINDOWS_2025_NANO_IMAGE_URL)
       windowsCoreImageUrl: $(WINDOWS_2025_CORE_IMAGE_URL)
-      windowsContainerImageJsonUrl: ${{ parameters.windowsContainerImageJsonUrl }}
       overrideBranch: ${{ parameters.overrideBranch }}
       useOverrides: ${{ parameters.useOverrides }}
       csePackageDir: ${{ parameters.csePublishDir }}

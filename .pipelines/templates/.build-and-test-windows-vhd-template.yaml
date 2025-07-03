@@ -49,10 +49,6 @@ parameters:
   - name: windowsCoreImageUrl
     displayName: Windows core base container image URL Override
     type: string
-  - name: windowsContainerImageJsonUrl
-    displayName: Windows container image JSON URL Override
-    type: string
-    default: ""
   - name: overrideBranch
     type: string
     default: master
@@ -92,7 +88,6 @@ stages:
               windowsBaseImageUrl: ${{ parameters.windowsBaseImageUrl }}
               windowsNanoImageUrl: ${{ parameters.windowsNanoImageUrl }}
               windowsCoreImageUrl: ${{ parameters.windowsCoreImageUrl }}
-              windowsContainerImageJsonUrl: ${{ parameters.windowsContainerImageJsonUrl }}
               overrideBranch: ${{ parameters.overrideBranch }}
               useOverrides: ${{ parameters.useOverrides }}
               csePackageDir: ${{ parameters.csePackageDir }}
