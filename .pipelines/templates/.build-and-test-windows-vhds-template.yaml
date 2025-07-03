@@ -27,7 +27,7 @@ parameters:
   - name: useContainerUrlsFromJson
     displayName: Use container base URLs
     type: boolean
-    default: False
+    default: True
   - name: dryrun
     displayName: Dry run
     type: boolean
