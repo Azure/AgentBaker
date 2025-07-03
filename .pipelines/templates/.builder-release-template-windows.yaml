@@ -37,10 +37,6 @@ parameters:
   - name: windowsCoreImageUrl
     displayName: Windows core base container image URL Override
     type: string
-  - name: windowsContainerImageJsonUrl
-    displayName: Windows container image JSON URL Override
-    type: string
-    default: ""
   - name: skipExtensionCheck
     displayName: Skip Extension Check
     type: boolean
@@ -108,7 +104,6 @@ steps:
       WINDOWS_BASE_IMAGE_URL: ${{ parameters.windowsBaseImageUrl }}
       WINDOWS_NANO_IMAGE_URL: ${{ parameters.windowsNanoImageUrl }}
       WINDOWS_CORE_IMAGE_URL: ${{ parameters.windowsCoreImageUrl }}
-      WINDOWS_CONTAINERIMAGE_JSON_URL: ${{ parameters.windowsContainerImageJsonUrl }}
       WINDOWS_PRIVATE_PACKAGES_URL: $(PRIVATE_PACKAGES_URL)
       AZURE_MSI_RESOURCE_STRING: $(AZURE_MSI_RESOURCE_STRING)
       BUILD_DATE: $(BUILD_DATE)
@@ -124,7 +119,7 @@ steps:
       # the base image tag will be 'ltscxxx', which differs from the values specified in parts/common/component.json.
       # As a result, cache validation behaves differently. To address this, we check if the container base image URL is set,
       # and use this environment variable to control the cache validation logic in run-test.sh.
-      if [[ -n "${{ parameters.windowsNanoImageUrl }}" || -n "${{ parameters.windowsCoreImageUrl }}" || -n "${{ parameters.windowsContainerImageJsonUrl }}" ]]; then
+      if [[ -n "${{ parameters.windowsNanoImageUrl }}" || -n "${{ parameters.windowsCoreImageUrl }}" ]]; then
         export CONTAINTER_BASE_URLS_EXISTING=true
       else
         export CONTAINTER_BASE_URLS_EXISTING=false
