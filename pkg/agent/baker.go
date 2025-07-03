@@ -1021,8 +1021,6 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"GetLocalDNSMemoryLimitInMB": func() string {
 			return profile.GetLocalDNSMemoryLimitInMB()
 		},
-		"GetSkipKubeletConfiguration": func() bool { return config.SkipKubeletConfiguration },
-		"GetKubeletOnly":              func() bool { return config.KubeletOnly },
 	}
 }
 
