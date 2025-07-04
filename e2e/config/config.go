@@ -23,9 +23,6 @@ var (
 	DefaultPollUntilDoneOptions = &runtime.PollUntilDoneOptions{
 		Frequency: time.Second,
 	}
-
-	TestSIGName      = "abe2e"
-	TestSIGImageName = "abe2e"
 )
 
 type Configuration struct {
@@ -62,6 +59,7 @@ type Configuration struct {
 	TestTimeoutCluster            time.Duration `env:"TEST_TIMEOUT_CLUSTER" envDefault:"20m"`
 	TestTimeoutVMSS               time.Duration `env:"TEST_TIMEOUT_VMSS" envDefault:"17m"`
 	WindowsAdminPassword          string        `env:"WINDOWS_ADMIN_PASSWORD"`
+	TestPreProvision              bool          `env:"TEST_PRE_PROVISION" envDefault:"true"`
 }
 
 func (c *Configuration) BlobStorageAccount() string {

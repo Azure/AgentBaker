@@ -70,6 +70,106 @@ func mustNoError(err error) {
 }
 
 func RunScenario(t *testing.T, s *Scenario) {
+	t.Parallel()
+	if config.Config.TestPreProvision {
+		// Run two versions of the same scenario, one with pre-provisioning enabled and one without.
+		// In parallel
+		t.Run("Original", func(t *testing.T) {
+			t.Parallel()
+			runScenario(t, s)
+		})
+		t.Run("PreProvision", func(t *testing.T) {
+			t.Parallel()
+			runScenarioWithPreProvision(t, s)
+		})
+	} else {
+		runScenario(t, s)
+	}
+
+}
+
+func runScenarioWithPreProvision(t *testing.T, original *Scenario) {
+	// This is hard to understand. Some functional magic is used to run the original scenario in two stages.
+	// 1. Stage 1: Run the original scenario with pre-provisioning enabled, but skip the main validation and validate only pre-provisioning.
+	// 2. Create a new Image from the VMSS created in Stage 1
+	// 3. Stage 2: Run the original scenario again, but this time using the custom VHD created in a previous step, with validators,
+	// The goal here is to test pre-provisioning logic on the variety of existing scenarios
+	runScenario(t, &Scenario{
+		Description: original.Description,
+		Tags:        original.Tags,
+		Config: Config{
+			Cluster:               original.Cluster,
+			VHD:                   original.VHD,
+			SkipDefaultValidation: true, // Skip default validation, VM isn't ready at stage 1
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				original.VMConfigMutator(vmss)
+				// Configure VM to use persistent disk instead of ephemeral for image capture
+				if vmss.Properties.VirtualMachineProfile.StorageProfile.OSDisk != nil {
+					vmss.Properties.VirtualMachineProfile.StorageProfile.OSDisk.DiffDiskSettings = nil
+				}
+			},
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				original.BootstrapConfigMutator(nbc)
+				nbc.PreProvisionOnly = true
+			},
+			Validator: func(ctx context.Context, stage1 *Scenario) {
+				if stage1.IsWindows() {
+					ValidateFileExists(ctx, stage1, "C:\\AzureData\\preprovision.complete")
+					ValidateFileDoesNotExist(ctx, stage1, "C:\\AzureData\\provision.complete")
+					ValidateWindowsServiceIsNotRunning(ctx, stage1, "kubelet")
+				} else {
+					ValidateFileExists(ctx, stage1, "/etc/containerd/config.toml")
+					ValidateSystemdUnitIsRunning(ctx, stage1, "containerd")
+					ValidateFileExists(ctx, stage1, "/opt/azure/containers/preprovision.complete")
+					ValidateFileDoesNotExist(ctx, stage1, "/opt/azure/containers/provision.complete")
+				}
+
+				t.Log("=== Stage 1 validation complete, proceeding to Stage 2 ===")
+
+				// VM is automatically deleted after the test.
+				// We run Subtest in the Validator to capture VHD before it's deleted
+				customVHD := CreateImage(ctx, stage1)
+				stage1SSHKeys := stage1.Runtime.NBC.ContainerService.Properties.LinuxProfile.SSH.PublicKeys
+
+				// Create a subtest so RunScenario won't fail on t.Parallel()
+				t.Run("SecondStage", func(t *testing.T) {
+					// Run Stage 2 scenario using the custom VHD
+					// RunScenario fails due to the running of the t.Parallel() for the second time
+					runScenario(t, &Scenario{
+						Description: "Stage 2: Create VMSS from captured VHD via SIG",
+						Tags:        stage1.Tags,
+						Config: Config{
+							Cluster:               stage1.Config.Cluster,
+							VHD:                   customVHD,
+							SkipDefaultValidation: original.Config.SkipDefaultValidation,
+							BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+								if nbc.ContainerService.Properties.LinuxProfile != nil {
+									nbc.ContainerService.Properties.LinuxProfile.SSH.PublicKeys = stage1SSHKeys
+								}
+							},
+							VMConfigMutator: original.VMConfigMutator,
+							Validator: func(ctx context.Context, s *Scenario) {
+								// Stage 2 validation: Verify kubelet is now working
+								if s.IsWindows() {
+									ValidateFileExists(ctx, s, "C:\\AzureData\\preprovision.complete") // Test with known existing file first
+									ValidateFileExists(ctx, s, "C:\\AzureData\\provision.complete")
+									ValidateWindowsServiceIsRunning(ctx, s, "kubelet")
+								} else {
+									ValidateFileHasContent(ctx, s, "/var/log/azure/cluster-provision.log", "Running in kubelet-only mode")
+									ValidateSystemdUnitIsRunning(ctx, s, "kubelet")
+									ValidateFileExists(ctx, s, "/opt/azure/containers/provision.complete")
+								}
+								original.Config.Validator(ctx, s)
+							},
+						},
+					})
+				})
+			},
+		},
+	})
+}
+
+func runScenario(t *testing.T, s *Scenario) {
 	s.T = t
 	ctx := newTestCtx(t)
 	ctrruntimelog.SetLogger(zap.New())
@@ -90,7 +190,6 @@ func RunScenario(t *testing.T, s *Scenario) {
 
 	t.Logf("Choosing the private ACR %q for the vm validation", config.GetPrivateACRName(s.Tags.NonAnonymousACR))
 	validateVM(ctx, s)
-
 }
 
 func prepareAKSNode(ctx context.Context, s *Scenario) {
