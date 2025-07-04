@@ -3,17 +3,6 @@
 ERR_FILE_WATCH_TIMEOUT=6 
 set -x
 
-# Check if this is a kubelet-only configuration run
-if [ "${KUBELET_ONLY}" = "true" ]; then
-    echo "Running in kubelet-only mode..." >> /var/log/azure/cluster-provision.log
-    # Verify that Stage 1 was completed first
-    if [ ! -f /opt/azure/containers/stage1-complete ]; then
-        echo "ERROR: KubeletOnly mode requires Stage 1 to be completed first (stage1-complete marker not found)" >> /var/log/azure/cluster-provision.log
-        exit 1
-    fi
-    echo "Stage 1 marker found - proceeding with kubelet configuration" >> /var/log/azure/cluster-provision.log
-fi
-
 if [ -f /opt/azure/containers/provision.complete ]; then
     echo "Already ran to success exiting..."
     exit 0
@@ -88,8 +77,8 @@ if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" = "true" ]; then
     logs_to_events "AKS.CSE.configureAndStartSecureTLSBootstrapping" configureAndStartSecureTLSBootstrapping
 fi
 
-# Handle kubelet-only mode: run only kubelet configuration and exit
-if [ "${KUBELET_ONLY}" = "true" ]; then
+# Node has been pre-provisioned before. Complete provisioning and skip the rest of the script.
+if [ -f /opt/azure/containers/preprovision.complete ]; then
     # Configure kubelet dependencies and kubelet itself
     # In kubelet-only mode, always ensure kubelet (skip check doesn't apply)
     logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
@@ -97,7 +86,7 @@ if [ "${KUBELET_ONLY}" = "true" ]; then
     # Create standard completion marker (provision.complete) for kubelet-only mode
     # This allows Stage 2 to properly mark completion after kubelet is configured
     mkdir -p /opt/azure/containers && touch /opt/azure/containers/provision.complete
-    echo "Kubelet-only configuration completed successfully"
+    echo "Stage 2: Kubelet configuration completed successfully - node is ready to join cluster"
     exit 0
 fi
 
@@ -443,10 +432,8 @@ fi
 # Call enableLocalDNS to enable localdns if localdns profile has EnableLocalDNS set to true.
 logs_to_events "AKS.CSE.enableLocalDNS" enableLocalDNS || exit $?
 
-if [ "${SKIP_KUBELET_CONFIGURATION}" != "true" ]; then
+if [ "${PRE_PROVISION_ONLY}" != "true" ]; then
     logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
-else
-    logs_to_events "AKS.CSE.skipKubelet" "echo 'Skipping kubelet configuration as requested. Use /opt/azure/containers/complete-kubelet-config.sh to complete later.'"
 fi
 
 if [ "${ARTIFACT_STREAMING_ENABLED}" = "true" ]; then

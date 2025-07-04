@@ -697,7 +697,7 @@ EOF
 
 # completeKubeletConfiguration runs only the kubelet-specific configuration
 # This function can be called independently to complete kubelet setup after
-# the initial node provisioning with SkipKubeletConfiguration=true
+# the initial node provisioning with PreProvisionOnly=true
 completeKubeletConfiguration() {
     logs_to_events "AKS.CSE.configureKubeletServing" configureKubeletServing
     logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet

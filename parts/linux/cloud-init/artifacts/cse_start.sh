@@ -50,11 +50,11 @@ mkdir -p /var/log/azure/aks
 echo $JSON_STRING | tee /var/log/azure/aks/provision.json
 
 # Create stage marker for two-stage workflow
-if [ "${SKIP_KUBELET_CONFIGURATION}" = "true" ]; then
+if [ "${PRE_PROVISION_ONLY}" = "true" ]; then
     # Stage 1: Create marker indicating Stage 2 is needed
-    mkdir -p /opt/azure/containers && touch /opt/azure/containers/stage1-complete
+    mkdir -p /opt/azure/containers && touch /opt/azure/containers/preprovision.complete
     echo "Stage 1 complete - kubelet configuration skipped, Stage 2 required" >> /var/log/azure/cluster-provision.log
-    echo "Created stage1-complete marker file" >> /var/log/azure/cluster-provision.log
+    echo "Created preprovision.complete marker file" >> /var/log/azure/cluster-provision.log
     exit 0
 fi
 # Always create provision.complete to satisfy CSE framework validation

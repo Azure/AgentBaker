@@ -198,8 +198,7 @@ $global:EnableIncreaseDynamicPortRange = $false
 $global:RebootNeeded = $false
 
 $global:IsSkipCleanupNetwork = [System.Convert]::ToBoolean("{{GetVariable "isSkipCleanupNetwork" }}");
-$SkipKubeletConfiguration = [System.Convert]::ToBoolean("{{GetSkipKubeletConfiguration}}");
-$KubeletOnly = [System.Convert]::ToBoolean("{{GetKubeletOnly}}");
+$PreProvisionOnly = [System.Convert]::ToBoolean("{{GetPreProvisionOnly}}");
 
 $global:EnableKubeletServingCertificateRotation = [System.Convert]::ToBoolean("{{EnableKubeletServingCertificateRotation}}")
 
@@ -273,13 +272,9 @@ try
         Install-OpenSSH -SSHKeys $SSHKeys
     }
 
-    if ($KubeletOnly) {
+    if (Test-Path C:\AzureData\preprovision.complete) {
         Write-Log "Running kubelet-only configuration"
-        if (-not (Test-Path -Path "C:\AzureData\stage1-complete")) {
-            Write-Log "Stage 1 marker missing. Cannot proceed with kubelet-only mode."
-            Set-ExitCode -ExitCode 1 -ErrorMessage "Stage 1 incomplete"
-            return
-        }
+
         . c:\AzureData\windows\kubeletfunc.ps1
 
         Install-KubernetesServices -KubeDir $global:KubeDir
@@ -432,11 +427,11 @@ try
     New-ExternalHnsNetwork -IsDualStackEnabled $global:IsDualStackEnabled
 
     # Conditionally install kubelet services based on configuration
-    if (-not $SkipKubeletConfiguration) {
+    if (-not $PreProvisionOnly) {
         Write-Log "Installing kubelet services"
         Install-KubernetesServices -KubeDir $global:KubeDir
     } else {
-        Write-Log "Skipping kubelet configuration as per SkipKubeletConfiguration setting"
+        Write-Log "Skipping kubelet configuration as per PreProvisionOnly setting"
     }
 
     Set-Explorer
@@ -535,11 +530,12 @@ finally
         Set-Content -Path $CSEResultFilePath -Value "ExitCode: |$global:ExitCode|, Output: |$($global:ErrorCodeNames[$global:ExitCode])|, Error: |$turncatedErrorMessage|"
     }
     else {
-        if (-not $SkipKubeletConfiguration) {
-            Set-Content -Path $CSEResultFilePath -Value $global:ExitCode -Force
+        if ($PreProvisionOnly) {
+            # Stage1 in two-sage processing
+            Set-Content -Path "C:\AzureData\preprovision.complete" -Value $global:ExitCode -Force
         } else {
-            # Stage 1: Create marker indicating Stage 2 is needed
-            Set-Content -Path "C:\AzureData\stage1-complete" -Value $global:ExitCode -Force
+            Set-Content -Path $CSEResultFilePath -Value $global:ExitCode -Force
+
         }
     }
 

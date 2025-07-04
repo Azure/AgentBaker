@@ -17,6 +17,7 @@ import (
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/e2e/toolkit"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
@@ -401,4 +402,106 @@ func parseLinuxCSEMessage(status armcompute.InstanceViewStatus) (*datamodel.CSES
 		return nil, fmt.Errorf("CSE Json does not contain exit code, raw CSE Message: %s", *status.Message)
 	}
 	return &cseStatus, nil
+}
+
+func CreateImage(ctx context.Context, s *Scenario) *config.Image {
+	s.T.Log("Generalizing VM")
+	if s.IsLinux() {
+		execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo waagent -deprovision", 0, "Failed to deprovision the VM for image creation")
+	} else {
+		runPoller, err := config.Azure.VMSSVM.BeginRunCommand(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, "0", armcompute.RunCommandInput{
+			CommandID: to.Ptr("RunPowerShellScript"),
+			Script: []*string{to.Ptr(`if(Test-Path C:\system32\Sysprep\unattend.xml) {
+Remove-Item C:\system32\Sysprep\unattend.xml -Force
+};
+C:\Windows\System32\Sysprep\Sysprep.exe /oobe /generalize /mode:vm /quiet /quit;`)},
+		}, nil)
+		require.NoError(s.T, err, "Failed to run command on Windows VM for image creation")
+
+		runResp, err := runPoller.PollUntilDone(ctx, nil)
+		require.NoError(s.T, err, "Failed to run command on Windows VM for image creation")
+		respJson, _ := runResp.MarshalJSON()
+		s.T.Logf("Run command output: %s", string(respJson))
+	}
+
+	vm, err := config.Azure.VMSSVM.Get(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, "0", &armcompute.VirtualMachineScaleSetVMsClientGetOptions{})
+	require.NoError(s.T, err, "Failed to get VMSS VM for image creation")
+
+	s.T.Log("Deallocating VMSS VM...")
+	poll, err := config.Azure.VMSSVM.BeginDeallocate(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, "0", nil)
+	require.NoError(s.T, err, "Failed to begin deallocate")
+	_, err = poll.PollUntilDone(ctx, nil)
+	require.NoError(s.T, err, "Failed to deallocate")
+
+	diskName := *vm.Properties.StorageProfile.OSDisk.Name
+	snapshotName := fmt.Sprintf("snap-%s", time.Now().Format("20060102-150405"))
+	s.T.Logf("Creating snapshot '%s' from disk '%s'...", snapshotName, diskName)
+
+	snapshotPoller, err := config.Azure.Snapshots.BeginCreateOrUpdate(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, snapshotName,
+		armcompute.Snapshot{
+			Location: to.Ptr("westus3"),
+			Properties: &armcompute.SnapshotProperties{
+				CreationData: &armcompute.CreationData{
+					CreateOption: to.Ptr(armcompute.DiskCreateOptionCopy),
+					SourceResourceID: to.Ptr(fmt.Sprintf(
+						"/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/disks/%s",
+						config.Config.SubscriptionID, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, diskName)),
+				},
+			},
+		}, nil)
+	require.NoError(s.T, err, "Failed to begin snapshot creation")
+
+	s.T.Cleanup(func() {
+		s.T.Logf("Cleaning up snapshot '%s'...", snapshotName)
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_, _ = config.Azure.Snapshots.BeginDelete(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, snapshotName, nil)
+	})
+
+	snapshot, err := snapshotPoller.PollUntilDone(ctx, nil)
+	require.NoError(s.T, err, "Failed to create snapshot for disk creation")
+
+	imageName := "image-" + snapshotName
+	s.T.Logf("Creating image '%s' from snapshot '%s'...", imageName, snapshotName)
+	imagePoller, err := config.Azure.Images.BeginCreateOrUpdate(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, imageName, armcompute.Image{
+		Location: vm.Location,
+		Properties: &armcompute.ImageProperties{
+			StorageProfile: &armcompute.ImageStorageProfile{
+				OSDisk: &armcompute.ImageOSDisk{
+					OSType: func() *armcompute.OperatingSystemTypes {
+						if s.IsWindows() {
+							return to.Ptr(armcompute.OperatingSystemTypesWindows)
+						}
+						return to.Ptr(armcompute.OperatingSystemTypesLinux)
+					}(),
+					OSState: to.Ptr(armcompute.OperatingSystemStateTypesGeneralized),
+					Snapshot: &armcompute.SubResource{
+						ID: snapshot.ID,
+					},
+				},
+			},
+		},
+	}, nil)
+	require.NoError(s.T, err, "Failed to begin create image snapshot")
+	s.T.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_, _ = config.Azure.Images.BeginDelete(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, imageName, nil)
+	})
+
+	image, err := imagePoller.PollUntilDone(ctx, nil)
+	require.NoError(s.T, err, "Failed to create image snapshot")
+
+	return &config.Image{
+		Name:   imageName,
+		OS:     s.Config.VHD.OS,
+		Arch:   s.Config.VHD.Arch,
+		Distro: s.Config.VHD.Distro,
+		Gallery: &config.Gallery{
+			SubscriptionID:    config.Config.SubscriptionID,
+			ResourceGroupName: *s.Runtime.Cluster.Model.Properties.NodeResourceGroup,
+			Name:              "managed-disks", // Special marker for managed disks
+		},
+		Version: *image.ID, // Store the managed image ID in Version field
+	}
 }

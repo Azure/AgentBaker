@@ -252,27 +252,6 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 		})
 	})
 
-	Context("KubeletOnly Validation", func() {
-		It("should validate that KubeletOnly and SkipKubeletConfiguration are mutually exclusive", func() {
-			invalidConfig := *config
-			invalidConfig.KubeletOnly = true
-			invalidConfig.SkipKubeletConfiguration = true
-
-			err := invalidConfig.Validate()
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("KubeletOnly and SkipKubeletConfiguration cannot both be true"))
-		})
-
-		It("should allow KubeletOnly mode when SkipKubeletConfiguration is false", func() {
-			validConfig := *config
-			validConfig.KubeletOnly = true
-			validConfig.SkipKubeletConfiguration = false
-
-			err := validConfig.Validate()
-			Expect(err).NotTo(HaveOccurred())
-		})
-	})
-
 	Context("GetLatestSigImageConfig", func() {
 		It("should return correct value for existing distro", func() {
 			agentBaker, err := NewAgentBaker()

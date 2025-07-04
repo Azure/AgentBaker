@@ -126,8 +126,6 @@ func getCSECommandVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 		"windowsCSEScriptsPackageURL":          windowsProfile.CseScriptsPackageURL,
 		"isDisableWindowsOutboundNat":          strconv.FormatBool(config.AgentPoolProfile.IsDisableWindowsOutboundNat()),
 		"isSkipCleanupNetwork":                 strconv.FormatBool(config.AgentPoolProfile.IsSkipCleanupNetwork()),
-		"skipKubeletConfiguration":             strconv.FormatBool(config.SkipKubeletConfiguration),
-		"kubeletOnly":                          strconv.FormatBool(config.KubeletOnly),
 	}
 }
 
