@@ -181,6 +181,7 @@ func unprivilegedCommandArray() []string {
 }
 
 func uploadSSHKey(ctx context.Context, s *Scenario) error {
+	s.T.Helper()
 	steps := []string{
 		fmt.Sprintf("echo '%[1]s' > %[2]s", string(s.Runtime.SSHKeyPrivate), sshKeyName(s.Runtime.VMPrivateIP)),
 		fmt.Sprintf("chmod 0600 %s", sshKeyName(s.Runtime.VMPrivateIP)),

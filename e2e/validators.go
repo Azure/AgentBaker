@@ -126,12 +126,14 @@ func ValidateFileDoesNotExist(ctx context.Context, s *Scenario, fileName string)
 }
 
 func fileExist(ctx context.Context, s *Scenario, fileName string) bool {
+	s.T.Helper()
 	if s.IsWindows() {
 		steps := []string{
 			"$ErrorActionPreference = \"Stop\"",
 			fmt.Sprintf("if (Test-Path -Path '%s') { exit 0 } else { exit 1 }", fileName),
 		}
 		execResult := execScriptOnVMForScenario(ctx, s, strings.Join(steps, "\n"))
+		s.T.Logf("stdout: %s\nstderr: %s", execResult.stdout.String(), execResult.stderr.String())
 		return execResult.exitCode == "0"
 	} else {
 		steps := []string{
@@ -330,6 +332,7 @@ func execScriptOnVMForScenarioValidateExitCode(ctx context.Context, s *Scenario,
 }
 
 func ValidateInstalledPackageVersion(ctx context.Context, s *Scenario, component, version string) {
+	s.T.Helper()
 	s.T.Logf("assert %s %s is installed on the VM", component, version)
 	installedCommand := func() string {
 		switch s.VHD.OS {
@@ -358,6 +361,7 @@ func ValidateInstalledPackageVersion(ctx context.Context, s *Scenario, component
 }
 
 func ValidateKubeletNodeIP(ctx context.Context, s *Scenario) {
+	s.T.Helper()
 	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo cat /etc/default/kubelet", 0, "could not read kubelet config")
 	stdout := execResult.stdout.String()
 
@@ -377,11 +381,13 @@ func ValidateKubeletNodeIP(ctx context.Context, s *Scenario) {
 }
 
 func ValidateIMDSRestrictionRule(ctx context.Context, s *Scenario, table string) {
+	s.T.Helper()
 	cmd := fmt.Sprintf("sudo iptables -t %s -S | grep -q 'AKS managed: added by AgentBaker ensureIMDSRestriction for IMDS restriction feature'", table)
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, cmd, 0, "expected to find IMDS restriction rule, but did not")
 }
 
 func ValidateMultipleKubeProxyVersionsExist(ctx context.Context, s *Scenario) {
+	s.T.Helper()
 	execResult := execScriptOnVMForScenario(ctx, s, "sudo ctr --namespace k8s.io images list | grep kube-proxy | awk '{print $1}' | grep -oE '[0-9]+\\.[0-9]+\\.[0-9]+'")
 	if execResult.exitCode != "0" {
 		s.T.Errorf("Failed to list kube-proxy images: %s", execResult.stderr)
@@ -407,6 +413,7 @@ func ValidateMultipleKubeProxyVersionsExist(ctx context.Context, s *Scenario) {
 }
 
 func ValidateKubeletHasNotStopped(ctx context.Context, s *Scenario) {
+	s.T.Helper()
 	command := "sudo journalctl -u kubelet"
 	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0, "could not retrieve kubelet logs with journalctl")
 	stdout := strings.ToLower(execResult.stdout.String())
@@ -415,6 +422,7 @@ func ValidateKubeletHasNotStopped(ctx context.Context, s *Scenario) {
 }
 
 func ValidateServicesDoNotRestartKubelet(ctx context.Context, s *Scenario) {
+	s.T.Helper()
 	// grep all filesin /etc/systemd/system/ for /restart\s+kubelet/ and count results
 	command := "sudo grep -rl 'restart[[:space:]]\\+kubelet' /etc/systemd/system/"
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 1, "expected to find no services containing 'restart kubelet' in /etc/systemd/system/")
@@ -422,12 +430,14 @@ func ValidateServicesDoNotRestartKubelet(ctx context.Context, s *Scenario) {
 
 // ValidateKubeletHasFlags checks kubelet is started with the right flags and configs.
 func ValidateKubeletHasFlags(ctx context.Context, s *Scenario, filePath string) {
+	s.T.Helper()
 	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo journalctl -u kubelet", 0, "could not retrieve kubelet logs with journalctl")
 	configFileFlags := fmt.Sprintf("FLAG: --config=\"%s\"", filePath)
 	require.Containsf(s.T, execResult.stdout.String(), configFileFlags, "expected to find flag %s, but not found", "config")
 }
 
 func ValidatePodUsingNVidiaGPU(ctx context.Context, s *Scenario) {
+	s.T.Helper()
 	s.T.Logf("validating pod using nvidia GPU")
 	// NVidia pod can be ready, but resources may not be available yet
 	// a hacky way to ensure the next pod is schedulable
@@ -441,6 +451,7 @@ func ValidatePodUsingNVidiaGPU(ctx context.Context, s *Scenario) {
 // Waits until the specified resource is available on the given node.
 // Returns an error if the resource is not available within the specified timeout period.
 func waitUntilResourceAvailable(ctx context.Context, s *Scenario, resourceName string) {
+	s.T.Helper()
 	nodeName := s.Runtime.KubeNodeName
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
@@ -472,6 +483,7 @@ func isResourceAvailable(node *corev1.Node, resourceName string) bool {
 }
 
 func ValidateContainerd2Properties(ctx context.Context, s *Scenario, versions []string) {
+	s.T.Helper()
 	require.Lenf(s.T, versions, 1, "Expected exactly one version for moby-containerd but got %d", len(versions))
 	// assert versions[0] value starts with '2.'
 	require.Truef(s.T, strings.HasPrefix(versions[0], "2."), "expected moby-containerd version to start with '2.', got %v", versions[0])
@@ -490,6 +502,7 @@ func ValidateContainerRuntimePlugins(ctx context.Context, s *Scenario) {
 }
 
 func ValidateRunc12Properties(ctx context.Context, s *Scenario, versions []string) {
+	s.T.Helper()
 	require.Lenf(s.T, versions, 1, "Expected exactly one version for moby-runc but got %d", len(versions))
 	// assert versions[0] value starts with '1.2.'
 	require.Truef(s.T, strings.HasPrefix(versions[0], "1.2."), "expected moby-runc version to start with '1.2.', got %v", versions[0])
@@ -512,6 +525,7 @@ func ValidateWindowsProcessHasCliArguments(ctx context.Context, s *Scenario, pro
 }
 
 func ValidateWindowsVersionFromWindowsSettings(ctx context.Context, s *Scenario, windowsVersion string) {
+	s.T.Helper()
 	steps := []string{
 		"(Get-ItemProperty -Path \"HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\" -Name BuildLabEx).BuildLabEx",
 	}
@@ -531,6 +545,7 @@ func ValidateWindowsVersionFromWindowsSettings(ctx context.Context, s *Scenario,
 }
 
 func ValidateWindowsProductName(ctx context.Context, s *Scenario, productName string) {
+	s.T.Helper()
 	steps := []string{
 		"(Get-ItemProperty \"HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\").ProductName",
 	}
@@ -544,6 +559,7 @@ func ValidateWindowsProductName(ctx context.Context, s *Scenario, productName st
 }
 
 func ValidateWindowsDisplayVersion(ctx context.Context, s *Scenario, displayVersion string) {
+	s.T.Helper()
 	steps := []string{
 		"(Get-ItemProperty \"HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\").DisplayVersion",
 	}
@@ -562,18 +578,22 @@ func getWindowsSettingsJson() []byte {
 }
 
 func ValidateCiliumIsRunningWindows(ctx context.Context, s *Scenario) {
+	s.T.Helper()
 	ValidateJsonFileHasField(ctx, s, "/k/azurecni/netconf/10-azure.conflist", "plugins.ipam.type", "azure-cns")
 }
 
 func ValidateCiliumIsNotRunningWindows(ctx context.Context, s *Scenario) {
+	s.T.Helper()
 	ValidateJsonFileDoesNotHaveField(ctx, s, "/k/azurecni/netconf/10-azure.conflist", "plugins.ipam.type", "azure-cns")
 }
 
 func ValidateJsonFileHasField(ctx context.Context, s *Scenario, fileName string, jsonPath string, expectedValue string) {
+	s.T.Helper()
 	require.Equal(s.T, GetFieldFromJsonObjectOnNode(ctx, s, fileName, jsonPath), expectedValue)
 }
 
 func ValidateJsonFileDoesNotHaveField(ctx context.Context, s *Scenario, fileName string, jsonPath string, valueNotToBe string) {
+	s.T.Helper()
 	require.NotEqual(s.T, GetFieldFromJsonObjectOnNode(ctx, s, fileName, jsonPath), valueNotToBe)
 }
 
@@ -590,6 +610,7 @@ func GetFieldFromJsonObjectOnNode(ctx context.Context, s *Scenario, fileName str
 
 // ValidateTaints checks if the node has the expected taints that are set in the kubelet config with --register-with-taints flag
 func ValidateTaints(ctx context.Context, s *Scenario, expectedTaints string) {
+	s.T.Helper()
 	node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.KubeNodeName, metav1.GetOptions{})
 	require.NoError(s.T, err, "failed to get node %q", s.Runtime.KubeNodeName)
 	actualTaints := ""
@@ -605,6 +626,7 @@ func ValidateTaints(ctx context.Context, s *Scenario, expectedTaints string) {
 
 // ValidateLocalDNSService checks if the localdns service is running and active.
 func ValidateLocalDNSService(ctx context.Context, s *Scenario) {
+	s.T.Helper()
 	serviceName := "localdns"
 	steps := []string{
 		"set -ex",
@@ -618,6 +640,7 @@ func ValidateLocalDNSService(ctx context.Context, s *Scenario) {
 // ValidateLocalDNSResolution checks if the DNS resolution for an external domain is successful from localdns clusterlistenerIP.
 // It uses the 'dig' command to check the DNS resolution and expects a successful response.
 func ValidateLocalDNSResolution(ctx context.Context, s *Scenario) {
+	s.T.Helper()
 	testdomain := "bing.com"
 	command := fmt.Sprintf("dig %s +timeout=1 +tries=1", testdomain)
 	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0, "dns resolution failed")
@@ -627,6 +650,7 @@ func ValidateLocalDNSResolution(ctx context.Context, s *Scenario) {
 
 // ValidateJournalctlOutput checks if specific content exists in the systemd service logs
 func ValidateJournalctlOutput(ctx context.Context, s *Scenario, serviceName string, expectedContent string) {
+	s.T.Helper()
 	command := []string{
 		"set -ex",
 		// Get the service logs and check for the expected content

@@ -131,7 +131,7 @@ func runScenarioWithPreProvision(t *testing.T, original *Scenario) {
 				customVHD := CreateImage(ctx, stage1)
 				stage1SSHKeys := stage1.Runtime.NBC.ContainerService.Properties.LinuxProfile.SSH.PublicKeys
 
-				// Create a subtest so RunScenario won't fail on t.Parallel()
+				// Create a subtest so RunScenario won't fail on t.Parallel() and log to a different directory
 				t.Run("SecondStage", func(t *testing.T) {
 					// Run Stage 2 scenario using the custom VHD
 					// RunScenario fails due to the running of the t.Parallel() for the second time
@@ -320,13 +320,13 @@ func ValidateNodeCanRunAPod(ctx context.Context, s *Scenario) {
 }
 
 func validateVM(ctx context.Context, s *Scenario) {
-	// the instructions belows expects the SSH key to be uploaded to the user pool VM.
-	// which happens as a side-effect of execCommandOnVMForScenario, it's ugly but works.
-	// maybe we should use a single ssh key per cluster, but need to be careful with parallel test runs.
 	err := uploadSSHKey(ctx, s)
 	if err != nil {
 		s.T.Logf("failed to upload SSH key: %v", err)
 	}
+
+	// Test SSH connectivity once per test to distinguish SSH issues from script failures
+	validateSSHConnectivity(ctx, s)
 
 	if !s.Config.SkipDefaultValidation {
 		ValidateNodeCanRunAPod(ctx, s)
@@ -603,4 +603,15 @@ C:\Windows\System32\Sysprep\Sysprep.exe /oobe /generalize /mode:vm /quiet /quit;
 		},
 		Version: *image.ID, // Store the managed image ID in Version field
 	}
+}
+
+func validateSSHConnectivity(ctx context.Context, s *Scenario) {
+	connectionTest := fmt.Sprintf("%s echo 'SSH_CONNECTION_OK'", sshString(s.Runtime.VMPrivateIP))
+	connectionResult, err := execOnPrivilegedPod(ctx, s.Runtime.Cluster.Kube, defaultNamespace, s.Runtime.Cluster.DebugPod.Name, connectionTest)
+
+	if err != nil || !strings.Contains(connectionResult.stdout.String(), "SSH_CONNECTION_OK") {
+		s.T.Fatalf("SSH connection to %s failed: %v\nStderr: %s", s.Runtime.VMPrivateIP, err, connectionResult.stderr.String())
+	}
+
+	s.T.Logf("SSH connectivity to %s verified successfully", s.Runtime.VMPrivateIP)
 }
