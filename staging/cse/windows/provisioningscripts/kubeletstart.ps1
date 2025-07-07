@@ -63,10 +63,6 @@ $KubeletArgListStr = "@($KubeletArgListStr`)"
 # Used in Azure-CNI version of kubeletstart.ps1
 $KubeletCommandLine = "$global:KubeDir\kubelet.exe " + ($KubeletArgList -join " ")
 
-# Turn off Firewall to enable pods to talk to service endpoints. (Kubelet should eventually do this)
-# TODO move this to CSE
-netsh advfirewall set allprofiles state off
-
 # Required to clean up the HNS policy lists properly
 Write-Host "Stopping kubeproxy service"
 Stop-Service kubeproxy

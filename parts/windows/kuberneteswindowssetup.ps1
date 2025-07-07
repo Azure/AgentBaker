@@ -426,6 +426,9 @@ try
 
     New-ExternalHnsNetwork -IsDualStackEnabled $global:IsDualStackEnabled
 
+    # Turn off Firewall to enable pods to talk to service endpoints. (Kubelet should eventually do this)
+    netsh advfirewall set allprofiles state off
+
     # Conditionally install kubelet services based on configuration
     if (-not $PreProvisionOnly) {
         Write-Log "Installing kubelet services"
