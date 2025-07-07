@@ -6,23 +6,16 @@ trigger: none
 
 parameters:
 - name: resourceGroup
-  displayName: Resource group of k8s cluster
+  displayName: Resource group of aks cluster
   type: string
 - name: clusterName
-  displayName: Name of k8s cluster
+  displayName: Name of aks cluster
   type: string
   default: testcluster
 - name: kubernetesVersion
   displayName: kubernetes version
   type: string
   default: "none"
-- name: clusterType
-  displayName: kubernetes cluster type
-  type: string
-  default: "AKS"
-  values:
-    - AKS
-    - CAPZ
 - name: testImageRegistry
   displayName: test image registry
   type: string
@@ -66,7 +59,6 @@ stages:
         parameters:
           resourceGroup: ${{parameters.resourceGroup}}
           clusterName: ${{parameters.clusterName}}
-          clusterType: ${{parameters.clusterType}}
           storageContainerName: "pipeline-test-logs"
           kustoUrl: "https://wccttest.eastus.kusto.windows.net"
           KustoDatabaseName: "wccttest"

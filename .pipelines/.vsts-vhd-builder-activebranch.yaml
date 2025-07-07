@@ -65,38 +65,10 @@ parameters:
   displayName: Branch in aks-rp to use for overrides
   type: string
   default: master
-- name: cseFileName
-  displayName: CSE Package File Name
-  type: string
-  default: aks-windows-cse-scripts-current.zip
-- name: csePublishDir
-  type: string
-  default: $(Build.ArtifactStagingDirectory)/packages
-- name: enableBackfillCleanup
-  displayName: Run cleanup job
-  type: boolean
-  default: false
+
 stages:
-  - stage: Package
-    displayName: "Package Windows CSE"
-    jobs:
-    - job: PackageWindowsCSE
-      steps:
-      - bash: bash ./.pipelines/scripts/windows_package_cse.sh
-        displayName: Package Windows CSE Scripts
-        env:
-          CSE_RELEASE_DIR: $(Build.ArtifactStagingDirectory)/windows
-          CSE_PUBLISH_DIR: ${{ parameters.csePublishDir }}
-          CSE_FILE_NAME: ${{ parameters.cseFileName }}
-      - task: ManifestGeneratorTask@0
-        inputs:
-          BuildDropPath: ${{ parameters.csePublishDir }}
-      - task: PublishPipelineArtifact@1
-        displayName: Publish Windows CSE Package
-        inputs:
-          artifactName: windows-cse-package
-          targetPath: ${{ parameters.csePublishDir }}
   - stage: get_build_info
+    dependsOn: []
     pool:
       name: wcct-agentbaker-test-win-pool
     jobs:
@@ -167,8 +139,6 @@ stages:
             windowsCoreImageUrl: $(WINDOWS_CORE_IMAGE_URL)
             overrideBranch: ${{ parameters.overrideBranch }}
             useOverrides: ${{ parameters.useOverrides }}
-            csePackageDir: $(Build.ArtifactStagingDirectory)/packages
-            csePackageFileName: "aks-windows-cse-scripts-current.zip"
 
   - stage: e2e
     displayName: E2E
@@ -219,23 +189,16 @@ stages:
       - job: build
         timeoutInMinutes: 180
         steps:
-          - bash: bash ./.pipelines/scripts/windows-sub-cleanup.sh
+          - bash: |
+              # because SUBSCRIPTION_ID is defined as a pipeline variable, setting this in the "env" section below doesn't work.
+              export SUBSCRIPTION_ID=$(AZURE_BUILD_SUBSCRIPTION_ID)
+      
+              make -f packer.mk backfill-cleanup
             enabled: true
-            displayName: Old Windows VHD Cleanup
-            condition: eq(  ${{ parameters.enableBackfillCleanup }} , 'True')
+            displayName: Backfill Clean Up Older Resources
             env:
               MODE: windowsVhdMode
-              PROD_SUBSCRIPTION_ID: $(AZURE_PROD_SUBSCRIPTION_ID)
-              DRY_RUN:  ${{ parameters.dryrun }}
-              OS_TYPE: Windows
-
-          - bash: bash ./vhdbuilder/packer/cleanup.sh
-            enabled: true
-            displayName: Cleanup
-            condition: eq(  ${{ parameters.enableBackfillCleanup }} , 'True')
-            env:
-              MODE: windowsVhdMode
-              SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
+              SUBSCRIPTION_ID: $(AZURE_BUILD_SUBSCRIPTION_ID)
               PROD_SUBSCRIPTION_ID: $(AZURE_PROD_SUBSCRIPTION_ID)
               AZURE_RESOURCE_GROUP_NAME: $(AZURE_BUILD_RESOURCE_GROUP_NAME)
               DRY_RUN:  ${{ parameters.dryrun }}

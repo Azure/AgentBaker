@@ -1,14 +1,10 @@
 parameters:
 - name: resourceGroup
-  displayName: resource group name of created k8s cluster
+  displayName: resource group name of created AKS cluster
   type: string
 - name: clusterName
-  displayName: name of created k8s cluster
+  displayName: name of created AKS cluster
   type: string
-- name: clusterType
-  displayName: type of created k8s cluster
-  type: string
-  default: "AKS"
 - name: storageContainerName
   displayName: container name of Azure storage
   type: string
@@ -55,17 +51,10 @@ jobs:
         --resource-group ${{parameters.resourceGroup}} \
         --name ${{parameters.clusterName}} \
         --file $(System.DefaultWorkingDirectory)/kubeconfig/kubeconfig
-
         export KUBECONFIG="$(System.DefaultWorkingDirectory)/kubeconfig/kubeconfig"
 
-        if [[ "${{ parameters.clusterType }}" == "AKS" ]]; then
-          # do we need these two variables?
-          export KUBERNETES_SERVICE_HOST=$(az aks show -n ${{parameters.clusterName}} -g ${{parameters.resourceGroup}} --query fqdn -o tsv)
-          export KUBERNETES_SERVICE_PORT=443
-        else
-          kubectl get secret  ${{parameters.clusterName}}-kubeconfig -o jsonpath='{.data.value}'|base64 --decode > $(System.DefaultWorkingDirectory)/kubeconfig/capz_kubeconfig
-          export KUBECONFIG="$(System.DefaultWorkingDirectory)/kubeconfig/capz_kubeconfig"
-        fi
+        export KUBERNETES_SERVICE_HOST=$(az aks show -n ${{parameters.clusterName}} -g ${{parameters.resourceGroup}} --query fqdn -o tsv)
+        export KUBERNETES_SERVICE_PORT=443
         
         export ADDITIONAL_E2E_ARGS=()
         export ADDITIONAL_E2E_ARGS+=("--ginkgo.slow-spec-threshold=120s")
@@ -73,11 +62,7 @@ jobs:
         export WINDOWS_WORKER_MACHINE_COUNT=2
         export ARTIFACTS="$(System.DefaultWorkingDirectory)/_artifacts"
         if [[ "${{ parameters.kubernetesVersion }}" == "none" ]]; then
-          if [[ "${{ parameters.clusterType }}" == "AKS" ]]; then
-            export K8S_VERSION=$(az aks show -n ${{parameters.clusterName}} -g ${{parameters.resourceGroup}} |jq -r '.currentKubernetesVersion')
-          else
-            export K8S_VERSION="1.33.1"
-          fi
+          export K8S_VERSION=$(az aks show -n ${{parameters.clusterName}} -g ${{parameters.resourceGroup}} |jq -r '.currentKubernetesVersion')
         else
           export K8S_VERSION=${{ parameters.kubernetesVersion }}
         fi
