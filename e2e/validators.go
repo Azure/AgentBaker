@@ -230,6 +230,19 @@ func ValidateSystemdUnitIsRunning(ctx context.Context, s *Scenario, serviceName 
 		fmt.Sprintf("service %s is not running", serviceName))
 }
 
+func ValidateSystemdUnitIsNotRunning(ctx context.Context, s *Scenario, serviceName string) {
+	s.T.Helper()
+	command := []string{
+		"set -ex",
+		// Print the service status for logging purposes (allow failure)
+		fmt.Sprintf("systemctl -n 5 status %s || true", serviceName),
+		// Check if service is active - we expect this to fail
+		fmt.Sprintf("! systemctl is-active %s", serviceName),
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
+		fmt.Sprintf("service %s is unexpectedly running", serviceName))
+}
+
 func ValidateWindowsServiceIsRunning(ctx context.Context, s *Scenario, serviceName string) {
 	s.T.Helper()
 	command := []string{

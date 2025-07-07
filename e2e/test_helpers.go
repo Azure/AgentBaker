@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/e2e/toolkit"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
@@ -94,7 +95,7 @@ func runScenarioWithPreProvision(t *testing.T, original *Scenario) {
 	// 2. Create a new Image from the VMSS created in Stage 1
 	// 3. Stage 2: Run the original scenario again, but this time using the custom VHD created in a previous step, with validators,
 	// The goal here is to test pre-provisioning logic on the variety of existing scenarios
-	runScenario(t, &Scenario{
+	s := &Scenario{
 		Description: original.Description,
 		Tags:        original.Tags,
 		Config: Config{
@@ -102,15 +103,13 @@ func runScenarioWithPreProvision(t *testing.T, original *Scenario) {
 			VHD:                   original.VHD,
 			SkipDefaultValidation: true, // Skip default validation, VM isn't ready at stage 1
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				original.VMConfigMutator(vmss)
+				if original.VMConfigMutator != nil {
+					original.VMConfigMutator(vmss)
+				}
 				// Configure VM to use persistent disk instead of ephemeral for image capture
 				if vmss.Properties.VirtualMachineProfile.StorageProfile.OSDisk != nil {
 					vmss.Properties.VirtualMachineProfile.StorageProfile.OSDisk.DiffDiskSettings = nil
 				}
-			},
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				original.BootstrapConfigMutator(nbc)
-				nbc.PreProvisionOnly = true
 			},
 			Validator: func(ctx context.Context, stage1 *Scenario) {
 				if stage1.IsWindows() {
@@ -119,9 +118,10 @@ func runScenarioWithPreProvision(t *testing.T, original *Scenario) {
 					ValidateWindowsServiceIsNotRunning(ctx, stage1, "kubelet")
 				} else {
 					ValidateFileExists(ctx, stage1, "/etc/containerd/config.toml")
-					ValidateSystemdUnitIsRunning(ctx, stage1, "containerd")
 					ValidateFileExists(ctx, stage1, "/opt/azure/containers/preprovision.complete")
 					ValidateFileDoesNotExist(ctx, stage1, "/opt/azure/containers/provision.complete")
+					ValidateSystemdUnitIsRunning(ctx, stage1, "containerd")
+					ValidateSystemdUnitIsNotRunning(ctx, stage1, "kubelet")
 				}
 
 				t.Log("=== Stage 1 validation complete, proceeding to Stage 2 ===")
@@ -155,9 +155,9 @@ func runScenarioWithPreProvision(t *testing.T, original *Scenario) {
 									ValidateFileExists(ctx, s, "C:\\AzureData\\provision.complete")
 									ValidateWindowsServiceIsRunning(ctx, s, "kubelet")
 								} else {
-									ValidateFileHasContent(ctx, s, "/var/log/azure/cluster-provision.log", "Running in kubelet-only mode")
-									ValidateSystemdUnitIsRunning(ctx, s, "kubelet")
+									ValidateFileExists(ctx, s, "/opt/azure/containers/preprovision.complete")
 									ValidateFileExists(ctx, s, "/opt/azure/containers/provision.complete")
+									ValidateSystemdUnitIsRunning(ctx, s, "kubelet")
 								}
 								original.Config.Validator(ctx, s)
 							},
@@ -166,7 +166,20 @@ func runScenarioWithPreProvision(t *testing.T, original *Scenario) {
 				})
 			},
 		},
-	})
+	}
+	if original.BootstrapConfigMutator != nil {
+		s.BootstrapConfigMutator = func(nbc *datamodel.NodeBootstrappingConfiguration) {
+			original.BootstrapConfigMutator(nbc)
+			nbc.PreProvisionOnly = true
+		}
+	}
+	if original.AKSNodeConfigMutator != nil {
+		s.AKSNodeConfigMutator = func(nodeconfig *aksnodeconfigv1.Configuration) {
+			original.AKSNodeConfigMutator(nodeconfig)
+			nodeconfig.PreProvisionOnly = true
+		}
+	}
+	runScenario(t, s)
 }
 
 func runScenario(t *testing.T, s *Scenario) {
@@ -248,7 +261,7 @@ func prepareAKSNode(ctx context.Context, s *Scenario) {
 		readyElapse := time.Since(vmssCreatedAt) // Calculate the elapsed time
 		totalElapse := time.Since(start)
 		s.T.Logf("node %s is ready", s.Runtime.VMSSName)
-		toolkit.LogDuration(totalElapse, 3*time.Minute, fmt.Sprintf("Node %s took %s to be created and %s to be ready\n", s.Runtime.VMSSName, creationElapse, readyElapse))
+		toolkit.LogDuration(s.T, totalElapse, 3*time.Minute, fmt.Sprintf("Node %s took %s to be created and %s to be ready\n", s.Runtime.VMSSName, creationElapse, readyElapse))
 	}
 
 	s.Runtime.VMPrivateIP, err = getVMPrivateIPAddress(ctx, s)
@@ -321,12 +334,7 @@ func ValidateNodeCanRunAPod(ctx context.Context, s *Scenario) {
 
 func validateVM(ctx context.Context, s *Scenario) {
 	err := uploadSSHKey(ctx, s)
-	if err != nil {
-		s.T.Logf("failed to upload SSH key: %v", err)
-	}
-
-	// Test SSH connectivity once per test to distinguish SSH issues from script failures
-	validateSSHConnectivity(ctx, s)
+	require.NoError(s.T, err)
 
 	if !s.Config.SkipDefaultValidation {
 		ValidateNodeCanRunAPod(ctx, s)
@@ -533,7 +541,7 @@ C:\Windows\System32\Sysprep\Sysprep.exe /oobe /generalize /mode:vm /quiet /quit;
 	require.NoError(s.T, err, "Failed to deallocate")
 
 	diskName := *vm.Properties.StorageProfile.OSDisk.Name
-	snapshotName := fmt.Sprintf("snap-%s", time.Now().Format("20060102-150405"))
+	snapshotName := fmt.Sprintf("snap-%s-%s", time.Now().Format("20060102"), randomLowercaseString(6))
 	s.T.Logf("Creating snapshot '%s' from disk '%s'...", snapshotName, diskName)
 
 	snapshotPoller, err := config.Azure.Snapshots.BeginCreateOrUpdate(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, snapshotName,
@@ -605,13 +613,14 @@ C:\Windows\System32\Sysprep\Sysprep.exe /oobe /generalize /mode:vm /quiet /quit;
 	}
 }
 
-func validateSSHConnectivity(ctx context.Context, s *Scenario) {
+func validateSSHConnectivity(ctx context.Context, s *Scenario) error {
 	connectionTest := fmt.Sprintf("%s echo 'SSH_CONNECTION_OK'", sshString(s.Runtime.VMPrivateIP))
 	connectionResult, err := execOnPrivilegedPod(ctx, s.Runtime.Cluster.Kube, defaultNamespace, s.Runtime.Cluster.DebugPod.Name, connectionTest)
 
 	if err != nil || !strings.Contains(connectionResult.stdout.String(), "SSH_CONNECTION_OK") {
-		s.T.Fatalf("SSH connection to %s failed: %v\nStderr: %s", s.Runtime.VMPrivateIP, err, connectionResult.stderr.String())
+		return fmt.Errorf("SSH connection to %s failed: %v\nStderr: %s", s.Runtime.VMPrivateIP, err, connectionResult.stderr.String())
 	}
 
 	s.T.Logf("SSH connectivity to %s verified successfully", s.Runtime.VMPrivateIP)
+	return nil
 }
