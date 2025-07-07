@@ -138,6 +138,11 @@ func getBaseClusterModel(clusterName string) *armcontainerservice.ManagedCluster
 			NetworkProfile: &armcontainerservice.NetworkProfile{
 				NetworkPlugin: to.Ptr(armcontainerservice.NetworkPluginKubenet),
 			},
+			AddonProfiles: map[string]*armcontainerservice.ManagedClusterAddonProfile{
+				"omsagent": {
+					Enabled: to.Ptr(false),
+				},
+			},
 		},
 		Identity: &armcontainerservice.ManagedClusterIdentity{
 			Type: to.Ptr(armcontainerservice.ResourceIdentityTypeSystemAssigned),
