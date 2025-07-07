@@ -202,6 +202,8 @@ const (
 	AKSUbuntuContainerd2404Gen2         Distro = "aks-ubuntu-containerd-24.04-gen2"
 	AKSAzureLinuxV3CVMGen2              Distro = "aks-azurelinux-v3-cvm-gen2"
 	AKSUbuntuContainerd2404TLGen2       Distro = "aks-ubuntu-containerd-24.04-tl-gen2"
+	AKSFlatcarGen2                      Distro = "aks-flatcar-gen2"
+	AKSFlatcarArm64Gen2                 Distro = "aks-flatcar-arm64-gen2"
 
 	RHEL              Distro = "rhel"
 	CoreOS            Distro = "coreos"
