@@ -19,6 +19,10 @@ $(LOCALBIN)/golangci-lint:
 $(LOCALBIN)/cue:
 	GOBIN=$(LOCALBIN) $(GO) install cuelang.org/go/cmd/cue@v0.4.2
 
+$(LOCALBIN)/butane:
+	GOBIN=$(LOCALBIN) $(GO) install github.com/coreos/butane/internal@v0.24.0
+	mv $(LOCALBIN)/internal $(LOCALBIN)/butane
+
 .PHONY: reload
 reload: clean install
 
