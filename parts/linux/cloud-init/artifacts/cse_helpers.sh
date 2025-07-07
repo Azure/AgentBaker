@@ -86,7 +86,6 @@ ERR_SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_ERROR=169 # Error downloading the secur
 
 ERR_DISBALE_IPTABLES=170 # Error disabling iptables service
 
-ERR_KRUSTLET_DOWNLOAD_TIMEOUT=171 # Timeout waiting for krustlet downloads
 ERR_DISABLE_SSH=172 # Error disabling ssh service
 ERR_PRIMARY_NIC_IP_NOT_FOUND=173 # Error fetching primary NIC IP address
 ERR_INSERT_IMDS_RESTRICTION_RULE_INTO_MANGLE_TABLE=174 # Error insert imds restriction rule into mangle table
@@ -112,7 +111,6 @@ ERR_CNI_VERSION_INVALID=206 # reference CNI (not azure cni) needs a valid versio
 
 ERR_ORAS_PULL_K8S_FAIL=207 # Error pulling kube-node artifact via oras from registry
 ERR_ORAS_PULL_CREDENTIAL_PROVIDER=208 # Error pulling credential provider artifact with oras from registry
-ERR_ORAS_PULL_CONTAINERD_WASM=209 # Error pulling containerd wasm artifact with oras from registry
 ERR_ORAS_IMDS_TIMEOUT=210 # Error timeout waiting for IMDS response
 ERR_ORAS_PULL_NETWORK_TIMEOUT=211 # Error pulling oras tokens for login
 ERR_ORAS_PULL_UNAUTHORIZED=212 # Error pulling artifact with oras from registry with authorization issue
@@ -150,6 +148,7 @@ fi
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
 MARINER_KATA_OS_NAME="MARINERKATA"
+AZURELINUX_KATA_OS_NAME="AZURELINUXKATA"
 AZURELINUX_OS_NAME="AZURELINUX"
 KUBECTL=/usr/local/bin/kubectl
 DOCKER=/usr/bin/docker
@@ -287,11 +286,13 @@ _retry_file_curl_internal() {
             echo "CSE timeout approaching, exiting early." >&2
             return 2
         else
+            if [ "$i" -gt 1 ]; then
+                sleep $waitSleep
+            fi
             timeout $timeout curl -fsSLv $url -o $filePath > $CURL_OUTPUT 2>&1
             if [ "$?" -ne 0 ]; then
                 cat $CURL_OUTPUT
             fi
-            sleep $waitSleep
         fi
     done
 }
@@ -317,11 +318,13 @@ retrycmd_get_tarball_from_registry_with_oras() {
         if [ "$i" -eq "$tar_retries" ]; then
             return 1
         else
+            if [ "$i" -gt 1 ]; then
+                sleep $wait_sleep
+            fi
             timeout 60 oras pull $url -o $tar_folder --registry-config ${ORAS_REGISTRY_CONFIG_FILE} > $ORAS_OUTPUT 2>&1
             if [ "$?" -ne 0 ]; then
                 cat $ORAS_OUTPUT
             fi
-            sleep $wait_sleep
         fi
     done
 }
@@ -373,29 +376,6 @@ retrycmd_oras_login() {
         sleep "$wait_sleep"
     done
     return $exit_code
-}
-
-retrycmd_get_binary_from_registry_with_oras() {
-    binary_retries=$1; wait_sleep=$2; binary_path=$3; url=$4
-    binary_folder=$(dirname "$binary_path")
-    echo "${binary_retries} retries"
-
-    for i in $(seq 1 $binary_retries); do
-        if [ -f "$binary_path" ]; then
-            break
-        else
-            if [ $i -eq $binary_retries ]; then
-                return 1
-            else
-                # TODO: support private acr via kubelet identity
-                timeout 60 oras pull $url -o $binary_folder --registry-config ${ORAS_REGISTRY_CONFIG_FILE} > $ORAS_OUTPUT 2>&1
-                if [ "$?" -ne 0 ]; then
-                    cat $ORAS_OUTPUT
-                fi
-                sleep $wait_sleep
-            fi
-        fi
-    done
 }
 
 retrycmd_can_oras_ls_acr() {
@@ -589,10 +569,9 @@ logs_to_events() {
         --arg EventTid    "0" \
         '{Timestamp: $Timestamp, OperationId: $OperationId, Version: $Version, TaskName: $TaskName, EventLevel: $EventLevel, Message: $Message, EventPid: $EventPid, EventTid: $EventTid}'
     )
+    
     mkdir -p ${EVENTS_LOGGING_DIR}
-    if [ -f ${EVENTS_LOGGING_DIR}${eventsFileName}.json ]; then
-        echo ${json_string} >> ${EVENTS_LOGGING_DIR}${eventsFileName}.json
-    fi
+    echo ${json_string} > ${EVENTS_LOGGING_DIR}${eventsFileName}.json
 
     # this allows an error from the command at ${@} to be returned and correct code assigned in cse_main
     if [ "$ret" -ne 0 ]; then
@@ -635,7 +614,23 @@ should_skip_binary_cleanup() {
 
 isMarinerOrAzureLinux() {
     local os=$1
-    if [ "$os" = "$MARINER_OS_NAME" ] || [ "$os" = "$MARINER_KATA_OS_NAME" ] || [ "$os" = "$AZURELINUX_OS_NAME" ]; then
+    if [ "$os" = "$MARINER_OS_NAME" ] || [ "$os" = "$MARINER_KATA_OS_NAME" ] || [ "$os" = "$AZURELINUX_OS_NAME" ] || [ "$os" = "$AZURELINUX_KATA_OS_NAME" ]; then
+        return 0
+    fi
+    return 1
+}
+
+isMariner() {
+    local os=$1
+    if [ "$os" = "$MARINER_OS_NAME" ] || [ "$os" = "$MARINER_KATA_OS_NAME" ]; then
+        return 0
+    fi
+    return 1
+}
+
+isAzureLinux() {
+    local os=$1
+    if [ "$os" = "$AZURELINUX_OS_NAME" ] || [ "$os" = "$AZURELINUX_KATA_OS_NAME" ]; then
         return 0
     fi
     return 1
@@ -665,7 +660,7 @@ installJq() {
 }
 
 # sets RELEASE to proper release metadata for the package based on the os and osVersion
-# e.g., For os UBUNTU 18.04, if there is a release "r1804" defined in components.json, then set RELEASE to "r1804".
+# e.g., For os UBUNTU 20.04, if there is a release "r2004" defined in components.json, then set RELEASE to "r2004".
 # Otherwise set RELEASE to "current"
 updateRelease() {
     local package="$1"
@@ -673,8 +668,8 @@ updateRelease() {
     local osVersion="$3"
     RELEASE="current"
     local osLowerCase=$(echo "${os}" | tr '[:upper:]' '[:lower:]')
-    #For UBUNTU, if $osVersion is 18.04 and "r1804" is also defined in components.json, then $release is set to "r1804"
-    #Similarly for 20.04 and 22.04. Otherwise $release is set to .current.
+    #For UBUNTU, if $osVersion is 20.04 and "r2004" is also defined in components.json, then $release is set to "r2004"
+    #Similarly for 22.04 and 24.04. Otherwise $release is set to .current.
     #For MARINER, the release is always set to "current" now.
     #For AZURELINUX, if $osVersion is 3.0 and "v3.0" is also defined in components.json, then $RELEASE is set to "v3.0"
     if isMarinerOrAzureLinux "${os}"; then

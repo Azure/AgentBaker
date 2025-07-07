@@ -30,8 +30,6 @@ CURL_OUTPUT=/tmp/curl_verbose.out
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
 CPU_ARCH=""
-declare -a WASMSHIMPIDS=()
-declare -a SPINKUBEPIDS=()
 
 setCPUArch() {
     CPU_ARCH=$(getCPUArch)
@@ -61,8 +59,11 @@ installContainerdWithComponentsJson() {
     
     containerdPackage=$(jq ".Packages" "$COMPONENTS_FILEPATH" | jq ".[] | select(.name == \"containerd\")") || exit $ERR_CONTAINERD_VERSION_INVALID
     PACKAGE_VERSIONS=()
-    if isMarinerOrAzureLinux "${OS}" && [ "${IS_KATA}" = "true" ]; then
+    if isMariner "${OS}" && [ "${IS_KATA}" = "true" ]; then
         os=${MARINER_KATA_OS_NAME}
+    fi
+    if isAzureLinux "${OS}" && [ "${IS_KATA}" = "true" ]; then
+        os=${AZURELINUX_KATA_OS_NAME}
     fi
     updatePackageVersions "${containerdPackage}" "${os}" "${os_version}"
     
@@ -107,9 +108,6 @@ installContainerdWithManifestJson() {
     if [ -f "$MANIFEST_FILEPATH" ]; then
         local containerd_version
         containerd_version="$(jq -r .containerd.edge "$MANIFEST_FILEPATH")"
-        if [ "${UBUNTU_RELEASE}" = "18.04" ]; then
-            containerd_version="$(jq -r '.containerd.pinned."1804"' "$MANIFEST_FILEPATH")"
-        fi
     else
         echo "WARNING: containerd version not found in manifest, defaulting to hardcoded."
     fi
@@ -200,166 +198,6 @@ installCredentialProvider() {
     mv "${CREDENTIAL_PROVIDER_DOWNLOAD_DIR}/azure-acr-credential-provider" "${CREDENTIAL_PROVIDER_BIN_DIR}/acr-credential-provider"
     chmod 755 "${CREDENTIAL_PROVIDER_BIN_DIR}/acr-credential-provider"
     rm -rf ${CREDENTIAL_PROVIDER_DOWNLOAD_DIR}
-}
-
-wasmFilesExist() {
-    local containerd_wasm_filepath=${1}
-    local shim_version=${2}
-    local version_suffix=${3}
-    local shims_to_download=("${@:4}") # Capture all arguments starting from the fourth indx
-
-    local binary_version="$(echo "${shim_version}" | tr . -)"
-    for shim in "${shims_to_download[@]}"; do
-        if [ ! -f "${containerd_wasm_filepath}/containerd-shim-${shim}-${binary_version}-${version_suffix}" ]; then
-            return 1 # file is missing
-        fi
-    done
-    echo "all wasm files exist for ${containerd_wasm_filepath}/containerd-shim-*-${binary_version}-${version_suffix}"
-    return 0 
-}
-
-# Install, download, update wasm must all be run from the same function call
-# in order to ensure WASMSHIMPIDS persists correctly since in bash a new
-# function call from install-dependnecies will create a new shell process.
-installContainerdWasmShims(){
-    local download_location=${1}
-    PACKAGE_DOWNLOAD_URL=${2} # global URL that is set from the components.json
-    local package_versions=("${@:3}") # Capture all arguments starting from the third indx
-    
-    WASMSHIMPIDS=()
-    for version in "${package_versions[@]}"; do
-        local shims_to_download=("spin" "slight")
-        if [ "$version" = "0.8.0" ]; then
-            shims_to_download+=("wws")
-        fi
-        containerd_wasm_url=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-        logs_to_events "AKS.CSE.logDownloadURL" "echo $containerd_wasm_url"
-        containerd_wasm_url=$(update_base_url $containerd_wasm_url)
-        downloadContainerdWasmShims $download_location $containerd_wasm_url "$version" "${shims_to_download[@]}"
-    done
-    # wait for file downloads to complete before updating file permissions
-    wait ${WASMSHIMPIDS[@]}
-    for version in "${package_versions[@]}"; do
-        local shims_to_download=("spin" "slight")
-        if [ "$version" = "0.8.0" ]; then
-            shims_to_download+=("wws")
-        fi
-        updateContainerdWasmShimsPermissions $download_location "$version" "${shims_to_download[@]}"
-    done
-}
-
-downloadContainerdWasmShims() {
-    local containerd_wasm_filepath=${1}
-    local containerd_wasm_url=${2}
-    local shim_version=${3}
-    local shims_to_download=("${@:4}") # Capture all arguments starting from the fourth indx
-
-    local binary_version="$(echo "${shim_version}" | tr . -)" # replaces . with - == 1.2.3 -> 1-2-3
-
-    if wasmFilesExist "$containerd_wasm_filepath" "$shim_version" "-v1" "${shims_to_download[@]}"; then
-        echo "containerd-wasm-shims already exists in $containerd_wasm_filepath, will not be downloading."
-        return
-    fi
-
-    # Oras download for WASM for Network Isolated Clusters
-    BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER:=}"
-    if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then 
-        local registry_url="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}/oss/binaries/deislabs/containerd-wasm-shims:${shim_version}-linux-${CPU_ARCH}"
-        local wasm_shims_tgz_tmp=$containerd_wasm_filepath/containerd-wasm-shims-linux-${CPU_ARCH}.tar.gz
-
-        retrycmd_get_tarball_from_registry_with_oras 120 5 "${wasm_shims_tgz_tmp}" ${registry_url} || exit $ERR_ORAS_PULL_CONTAINERD_WASM
-        extract_tarball "$wasm_shims_tgz_tmp" "$containerd_wasm_filepath"
-        mv "$containerd_wasm_filepath/containerd-shim-*-${shim_version}-v1" "$containerd_wasm_filepath/containerd-shim-*-${binary_version}-v1"
-        rm -f "$wasm_shims_tgz_tmp"
-        return
-    fi
-
-    for shim in "${shims_to_download[@]}"; do
-        {
-            output_file="$containerd_wasm_filepath/containerd-shim-${shim}-${binary_version}-v1"
-            download_url="$containerd_wasm_url/containerd-shim-${shim}-v1"
-            retrycmd_if_failure 30 5 60 curl -fSLv -o "$output_file" "$download_url" 2>&1 | tee $CURL_OUTPUT
-            curl_exit_status=$?
-            if grep -E "^(curl:.*)|([eE]rr.*)$" $CURL_OUTPUT; then
-                echo "curl command failed with error: $(grep -E "^(curl:.*)|([eE]rr.*)$" $CURL_OUTPUT)"
-                flock /tmp/curl_output.lock cat $CURL_OUTPUT
-                exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT
-            fi
-            if [ "$curl_exit_status" -ne 0 ]; then
-                echo "curl command failed with exit status $curl_exit_status"
-                exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT
-            fi
-        } &
-        WASMSHIMPIDS+=($!)  # Add the PID of the monitoring subshell to the array
-    done
-}
-
-updateContainerdWasmShimsPermissions() {
-    local containerd_wasm_filepath=${1}
-    local shim_version=${2}
-    local shims_to_download=("${@:3}") # Capture all arguments starting from the third indx
-
-    local binary_version="$(echo "${shim_version}" | tr . -)"
-
-    for shim in "${shims_to_download[@]}"; do
-        chmod 755 "$containerd_wasm_filepath/containerd-shim-${shim}-${binary_version}-v1"
-    done
-}
-
-installSpinKube(){
-    local download_location=${1}
-    PACKAGE_DOWNLOAD_URL=${2}
-    local package_versions=("${@:3}") # Capture all arguments starting from the third indx
-
-    SPINKUBEPIDS=()
-    for version in "${package_versions[@]}"; do
-        containerd_spinkube_url=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-        logs_to_events "AKS.CSE.logDownloadURL" "echo $containerd_spinkube_url"
-        containerd_spinkube_url=$(update_base_url $containerd_spinkube_url)
-        downloadSpinKube $download_location $containerd_spinkube_url "$version"
-    done
-    echo "Waiting for all downloads to complete. PIDs: ${SPINKUBEPIDS[@]}"
-    wait ${SPINKUBEPIDS[@]}
-    for version in "${package_versions[@]}"; do
-        chmod 755 "$download_location/containerd-shim-spin-v2"
-    done
-}
-
-downloadSpinKube(){
-    local containerd_spinkube_filepath=${1}
-    local containerd_spinkube_url=${2}
-    local shim_version=${3}
-    local shims_to_download=("${@:4}") # Capture all arguments starting from the fourth indx
-
-    if [ -f "$containerd_spinkube_filepath/containerd-shim-spin-v2" ]; then
-        echo "containerd-shim-spin-v2 already exists in $containerd_spinkube_filepath, will not be downloading."
-        return
-    fi
-
-    BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER:=}"
-    if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then 
-        local registry_url="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}/oss/binaries/spinkube/containerd-shim-spin:${shim_version}-linux-${CPU_ARCH}"
-        local wasm_shims_tgz_tmp="${containerd_spinkube_filepath}/containerd-shim-spin-v2"
-        retrycmd_get_binary_from_registry_with_oras 120 5 "${wasm_shims_tgz_tmp}" "${registry_url}" || exit $ERR_ORAS_PULL_CONTAINERD_WASM
-        rm -f "$wasm_shims_tgz_tmp"
-        return 
-    fi
-
-    {
-        output_file="$containerd_spinkube_filepath/containerd-shim-spin-v2"
-        download_url="$containerd_spinkube_url/containerd-shim-spin-v2"
-        retrycmd_if_failure 30 5 60 curl -fSLv -o "$output_file" "$download_url" 2>&1 | tee $CURL_OUTPUT
-        curl_exit_status=$?
-        if grep -E "^(curl:.*)|([eE]rr.*)$" $CURL_OUTPUT; then
-            flock /tmp/curl_output.lock cat $CURL_OUTPUT
-            exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT
-        fi
-        if [ "$curl_exit_status" -ne 0 ]; then
-            echo "curl command failed with exit status $curl_exit_status"
-            exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT
-        fi
-    } &
-    SPINKUBEPIDS+=($!)  # Add the PID of the monitoring subshell to the array
 }
 
 # TODO (alburgess) have oras version managed by dependant or Renovate

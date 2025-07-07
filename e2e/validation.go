@@ -3,7 +3,6 @@ package e2e
 import (
 	"context"
 	"encoding/base64"
-	"fmt"
 	"strings"
 
 	"github.com/Azure/agentbaker/e2e/config"
@@ -12,27 +11,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-func ValidatePodRunning(ctx context.Context, s *Scenario) {
-	testPod := func() *corev1.Pod {
-		if s.VHD.OS == config.OSWindows {
-			return podHTTPServerWindows(s)
-		}
-		return podHTTPServerLinux(s)
-	}()
+func ValidatePodRunning(ctx context.Context, s *Scenario, testPod *corev1.Pod) {
 	ensurePod(ctx, s, testPod)
 	s.T.Logf("node health validation: test pod %q is running on node %q", testPod.Name, s.Runtime.KubeNodeName)
-}
-
-func ValidateWASM(ctx context.Context, s *Scenario, nodeName string) {
-	s.T.Logf("wasm scenario: running wasm validation on %s...", nodeName)
-	spinClassName := fmt.Sprintf("wasmtime-%s", wasmHandlerSpin)
-	err := createRuntimeClass(ctx, s.Runtime.Cluster.Kube, spinClassName, wasmHandlerSpin)
-	require.NoError(s.T, err)
-	err = ensureWasmRuntimeClasses(ctx, s.Runtime.Cluster.Kube)
-	require.NoError(s.T, err)
-	spinPodManifest := podWASMSpin(s)
-	ensurePod(ctx, s, spinPodManifest)
-	require.NoError(s.T, err, "unable to ensure wasm pod on node %q", nodeName)
 }
 
 func ValidateCommonLinux(ctx context.Context, s *Scenario) {
@@ -83,6 +64,17 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 
 	execResult = execOnVMForScenarioOnUnprivilegedPod(ctx, s, "curl http://168.63.129.16:32526/vmSettings --connect-timeout 4")
 	require.Equal(s.T, "28", execResult.exitCode, "curl to wireserver port 32526 shouldn't succeed")
+
+	// base NBC templates define a mock service principal profile that we can still use to test
+	// the correct bootstrapping logic: https://github.com/Azure/AgentBaker/blob/master/e2e/node_config.go#L438-L441
+	if hasServicePrincipalData(s) {
+		_ = execScriptOnVMForScenarioValidateExitCode(
+			ctx,
+			s,
+			`sudo test -n "$(sudo cat /etc/kubernetes/azure.json | jq -r '.aadClientId')" && sudo test -n "$(sudo cat /etc/kubernetes/azure.json | jq -r '.aadClientSecret')"`,
+			0,
+			"AAD client ID and secret should be present in /etc/kubernetes/azure.json")
+	}
 
 	ValidateLeakedSecrets(ctx, s)
 
@@ -162,4 +154,17 @@ func ValidateSSHServiceEnabled(ctx context.Context, s *Scenario) {
 	execResult = execScriptOnVMForScenarioValidateExitCode(ctx, s, "systemctl is-enabled ssh.service", 0, "could not check ssh.service status")
 	stdout = execResult.stdout.String()
 	require.Contains(s.T, stdout, "enabled", "ssh.service should be enabled at boot")
+}
+
+func hasServicePrincipalData(s *Scenario) bool {
+	if s.Runtime == nil {
+		return false
+	}
+	if s.Runtime.AKSNodeConfig != nil && s.Runtime.AKSNodeConfig.AuthConfig != nil {
+		return s.Runtime.AKSNodeConfig.AuthConfig.ServicePrincipalId != "" && s.Runtime.AKSNodeConfig.AuthConfig.ServicePrincipalSecret != ""
+	}
+	if s.Runtime.NBC != nil && s.Runtime.NBC.ContainerService != nil && s.Runtime.NBC.ContainerService.Properties != nil && s.Runtime.NBC.ContainerService.Properties.ServicePrincipalProfile != nil {
+		return s.Runtime.NBC.ContainerService.Properties.ServicePrincipalProfile.ClientID != "" && s.Runtime.NBC.ContainerService.Properties.ServicePrincipalProfile.Secret != ""
+	}
+	return false
 }

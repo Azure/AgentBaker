@@ -19,21 +19,6 @@ ERR_CHRONY_START_TIMEOUT=15 {{/* Unable to start CHRONY */}}
 
 echo "Sourcing tool_installs_ubuntu.sh"
 
-installAscBaseline() {
-   echo "Installing ASC Baseline tools..."
-   ASC_BASELINE_TMP=/home/packer/asc-baseline.deb
-   retrycmd_silent 120 5 25 dpkg -i $ASC_BASELINE_TMP || exit $ERR_APT_INSTALL_TIMEOUT
-   cd /opt/microsoft/asc-baseline
-   sudo ./ascbaseline -d baselines
-   sudo ./ascremediate -d baselines -m all
-   sudo ./ascbaseline -d baselines | grep -B2 -A6 "FAIL"
-   cd -
-   echo "Check UDF"
-   cat /etc/modprobe.d/*.conf | grep udf
-   echo "Finished Setting up ASC Baseline"
-   apt_get_purge 20 30 120 asc-baseline || exit $ERR_APT_PURGE_TIMEOUT
-}
-
 installBcc() {
     echo "Installing BCC tools..."
     wait_for_apt_locks

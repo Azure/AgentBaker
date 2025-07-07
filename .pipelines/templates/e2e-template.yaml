@@ -33,6 +33,7 @@ jobs:
           DefaultWorkingDirectory: $(Build.SourcesDirectory)
           VHD_BUILD_ID: $(VHD_BUILD_ID)
           IGNORE_SCENARIOS_WITH_MISSING_VHD: ${{parameters.IgnoreScenariosWithMissingVhd}}
+          DefaultVMSKU: standard_d2s_v3
 
       - task: PublishTestResults@2
         displayName: Upload test results

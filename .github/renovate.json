@@ -55,7 +55,6 @@
         "oss/kubernetes/kube-proxy",
         "oss/binaries/kubernetes/kubernetes-node",
         "oss/binaries/kubernetes/azure-acr-credential-provider",
-        "oss/binaries/deislabs/containerd-wasm-shims",
         "containernetworking/azure-npm"
       ],
       "matchUpdateTypes": [
@@ -75,7 +74,6 @@
     },
     {
       "matchDatasources": [
-        "custom.deb1804",
         "custom.deb2004",
         "custom.deb2204",
         "custom.deb2404"
@@ -87,9 +85,18 @@
       "enabled": true
     },
     {
+      "matchDatasources": [
+        "rpm"
+      ],
+      "versioning": "regex:(?<major>\\d+)(\\.(?<minor>\\d+))?(\\.(?<patch>\\d+))?(-(?<prerelease>.*))?$",
+      "automerge": false,
+      "enabled": true
+    },
+    {
       "matchPackageNames": [
         "moby-runc",
         "moby-containerd",
+        "containerd2",
         "aks/aks-node-ca-watcher"
       ],
       "matchUpdateTypes": [
@@ -102,10 +109,8 @@
         "devinwong",
         "anujmaheshwari1",
         "cameronmeissner",
-        "AlisonB319",
         "lilypan26",
         "djsly",
-        "jason1028kr",
         "UtheMan",
         "zachary-bailey",
         "ganeshkumarashok"
@@ -114,10 +119,8 @@
         "devinwong",
         "anujmaheshwari1",
         "cameronmeissner",
-        "AlisonB319",
         "lilypan26",
         "djsly",
-        "jason1028kr",
         "UtheMan",
         "zachary-bailey",
         "ganeshkumarashok"
@@ -126,7 +129,8 @@
     {
       "matchPackageNames": [
         "moby-runc",
-        "moby-containerd"
+        "moby-containerd",
+        "containerd2"
       ],
       "matchUpdateTypes": [
         "minor"
@@ -138,10 +142,8 @@
         "devinwong",
         "anujmaheshwari1",
         "cameronmeissner",
-        "AlisonB319",
         "lilypan26",
         "djsly",
-        "jason1028kr",
         "UtheMan",
         "zachary-bailey",
         "ganeshkumarashok"
@@ -150,10 +152,8 @@
         "devinwong",
         "anujmaheshwari1",
         "cameronmeissner",
-        "AlisonB319",
         "lilypan26",
         "djsly",
-        "jason1028kr",
         "UtheMan",
         "zachary-bailey",
         "ganeshkumarashok"
@@ -273,6 +273,30 @@
     },
     {
       "matchPackageNames": [
+        "kubernetes-cri-tools"
+      ],
+      "groupName": "kubernetes-cri-tools",
+      "assignees": [
+        "devinwong",
+        "anujmaheshwari1",
+        "cameronmeissner",
+        "lilypan26",
+        "djsly",
+        "zachary-bailey",
+        "ganeshkumarashok"
+      ],
+      "reviewers": [
+        "devinwong",
+        "anujmaheshwari1",
+        "cameronmeissner",
+        "lilypan26",
+        "djsly",
+        "zachary-bailey",
+        "ganeshkumarashok"
+      ]
+    },
+    {
+      "matchPackageNames": [
         "oss/kubernetes-csi/**"
       ],
       "groupName": "csi",
@@ -352,8 +376,7 @@
       ],
       "matchPackageNames": [
         "oss/binaries/kubernetes/kubernetes-node",
-        "oss/binaries/kubernetes/azure-acr-credential-provider",
-        "oss/binaries/deislabs/containerd-wasm-shims"
+        "oss/binaries/kubernetes/azure-acr-credential-provider"
       ],
       "extractVersion": "^(?P<version>.*?)-[^-]*-[^-]*$"
     },
@@ -367,6 +390,30 @@
       "automerge": true,
       "enabled": true,
       "ignoreUnstable": false
+    },
+    {
+      "matchPackageNames": [
+        "azuremonitor/containerinsights/ciprod/prometheus-collector/images"
+      ],
+      "matchDatasources": [
+        "docker"
+      ],
+      "versioning": "regex:^(\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)?-(\\w+)-(\\d+)-(\\d+)-(\\d+)-(\\w+-*)(?<compatibility>.*)$",
+      "groupName": "ama-metrics",
+      "automerge": false,
+      "enabled": true,
+      "assignees": [
+        "gracewehner",
+        "vishiy",
+        "rashmichandrashekar",
+        "bragi92"
+      ],
+      "reviewers": [
+        "gracewehner",
+        "vishiy",
+        "rashmichandrashekar",
+        "bragi92"
+      ]
     }
   ],
   "customManagers": [
@@ -395,20 +442,6 @@
       ],
       "datasourceTemplate": "docker",
       "autoReplaceStringTemplate": "\"renovateTag\": \"OCI_registry={{{registryUrl}}}, name={{{packageName}}}\",\n                \"latestVersion\": \"{{{newValue}}}\"{{#if depType}},\n                \"previousLatestVersion\": \"{{{currentValue}}}\"{{/if}}"
-    },
-    {
-      "customType": "regex",
-      "description": "auto update packages for OS ubuntu 18.04 in components.json",
-      "managerFilePatterns": [
-        "/parts/common/components.json/"
-      ],
-      "matchStringsStrategy": "any",
-      "matchStrings": [
-        "\"renovateTag\":\\s*\"name=(?<packageName>[^\"]+), os=ubuntu, release=18\\.04\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\"(?:[^}]*\"previousLatestVersion\":\\s*\"(?<depType>[^\"]+)\")?"
-      ],
-      "datasourceTemplate": "custom.deb1804",
-      "versioningTemplate": "deb",
-      "autoReplaceStringTemplate": "\"renovateTag\": \"name={{{packageName}}}, os=ubuntu, release=18.04\",\n                \"latestVersion\": \"{{{newValue}}}\"{{#if depType}},\n                \"previousLatestVersion\": \"{{{currentValue}}}\"{{/if}}"
     },
     {
       "customType": "regex",
@@ -454,6 +487,32 @@
     },
     {
       "customType": "regex",
+      "description": "auto update packages for OS Mariner 2.0 in components.json",
+      "fileMatch": [
+        "parts/common/components.json"
+      ],
+      "matchStringsStrategy": "any",
+      "matchStrings": [
+        "\"renovateTag\":\\s*\"RPM_registry=(?<registryUrl>[^,]+), name=(?<packageName>[^,]+), os=mariner, release=2\\.0\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\"(?:[^}]*\"previousLatestVersion\":\\s*\"(?<depType>[^\"]+)\")?"
+      ],
+      "datasourceTemplate": "rpm",
+      "autoReplaceStringTemplate": "\"renovateTag\": \"RPM_registry={{{registryUrl}}}, name={{{packageName}}}, os=mariner, release=2.0\",\n                \"latestVersion\": \"{{{newValue}}}\"{{#if depType}},\n                \"previousLatestVersion\": \"{{{currentValue}}}\"{{/if}}"
+    },
+    {
+      "customType": "regex",
+      "description": "auto update packages for OS AzureLinux 3.0 in components.json",
+      "fileMatch": [
+        "parts/common/components.json"
+      ],
+      "matchStringsStrategy": "any",
+      "matchStrings": [
+        "\"renovateTag\":\\s*\"RPM_registry=(?<registryUrl>[^,]+), name=(?<packageName>[^,]+), os=azurelinux, release=3\\.0\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\"(?:[^}]*\"previousLatestVersion\":\\s*\"(?<depType>[^\"]+)\")?"
+      ],
+      "datasourceTemplate": "rpm",
+      "autoReplaceStringTemplate": "\"renovateTag\": \"RPM_registry={{{registryUrl}}}, name={{{packageName}}}, os=azurelinux, release=3.0\",\n                \"latestVersion\": \"{{{newValue}}}\"{{#if depType}},\n                \"previousLatestVersion\": \"{{{currentValue}}}\"{{/if}}"
+    },
+    {
+      "customType": "regex",
       "description": "update version line in any cse_*.sh",
       "managerFilePatterns": [
         "/^.*cse_.*\\.sh/"
@@ -465,13 +524,6 @@
     }
   ],
   "customDatasources": {
-    "deb1804": {
-      "defaultRegistryUrlTemplate": "https://packages.microsoft.com/ubuntu/18.04/prod/dists/bionic/main/binary-amd64/Packages",
-      "format": "plain",
-      "transformTemplates": [
-        "{\"releases\": $map(($index := releases#$i[version=\"Package: {{packageName}}\"].$i; $map($index, function($i) { $substringAfter(releases[$i + 1].version, \"Version: \") })), function($v) { {\"version\": $v} })[]}"
-      ]
-    },
     "deb2004": {
       "defaultRegistryUrlTemplate": "https://packages.microsoft.com/ubuntu/20.04/prod/dists/focal/main/binary-amd64/Packages",
       "format": "plain",

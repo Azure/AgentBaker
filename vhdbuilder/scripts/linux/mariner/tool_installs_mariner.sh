@@ -2,10 +2,6 @@
 
 echo "Sourcing tool_installs_mariner.sh"
 
-installAscBaseline() {
-   echo "Mariner TODO: installAscBaseline"
-}
-
 installBcc() {
     echo "Installing BCC tools..."
     dnf_makecache || exit $ERR_APT_UPDATE_TIMEOUT

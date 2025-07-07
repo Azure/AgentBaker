@@ -118,7 +118,7 @@ type WorkloadRuntime string
 const (
 	// OCIContainer indicates that kubelet will be used for a container workload.
 	OCIContainer WorkloadRuntime = "OCIContainer"
-	// WasmWasi indicates Krustlet will be used for a WebAssembly workload.
+	// Deprecated. WasmWasi indicates Krustlet will be used for a WebAssembly workload.
 	WasmWasi WorkloadRuntime = "WasmWasi"
 )
 
@@ -169,6 +169,7 @@ const (
 	AKSAzureLinuxV3Gen2FIPS             Distro = "aks-azurelinux-v3-gen2-fips"
 	AKSCBLMarinerV2Gen2Kata             Distro = "aks-cblmariner-v2-gen2-kata"
 	AKSAzureLinuxV2Gen2Kata             Distro = "aks-azurelinux-v2-gen2-kata"
+	AKSAzureLinuxV3Gen2Kata             Distro = "aks-azurelinux-v3-gen2-kata"
 	AKSCBLMarinerV2Gen2TL               Distro = "aks-cblmariner-v2-gen2-tl"
 	AKSAzureLinuxV2Gen2TL               Distro = "aks-azurelinux-v2-gen2-tl"
 	AKSAzureLinuxV3Gen2TL               Distro = "aks-azurelinux-v3-gen2-tl"
@@ -342,7 +343,7 @@ func (d Distro) IsAzureLinuxCgroupV2VHDDistro() bool {
 }
 
 func (d Distro) IsKataDistro() bool {
-	return d == AKSCBLMarinerV2Gen2Kata || d == AKSAzureLinuxV2Gen2Kata || d == AKSCBLMarinerV2KataGen2TL || d == CustomizedImageKata
+	return d == AKSCBLMarinerV2Gen2Kata || d == AKSAzureLinuxV3Gen2Kata || d == AKSAzureLinuxV2Gen2Kata || d == AKSCBLMarinerV2KataGen2TL || d == CustomizedImageKata
 }
 
 /*

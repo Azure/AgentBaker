@@ -1,4 +1,5 @@
-#!/bin/bash -x
+#!/bin/bash
+set -x
 
 if [ "${MODE}" != "windowsVhdMode" ]; then
   exit 0

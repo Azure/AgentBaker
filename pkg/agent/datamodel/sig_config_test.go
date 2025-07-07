@@ -8,10 +8,6 @@ import (
 var _ = Describe("GetMaintainedLinuxSIGImageConfigMap", func() {
 	It("should return the correct value", func() {
 		expected := map[Distro]SigImageConfig{
-			AKSUbuntuContainerd1804:          SIGUbuntuContainerd1804ImageConfigTemplate.WithOptions(),
-			AKSUbuntuContainerd1804Gen2:      SIGUbuntuContainerd1804Gen2ImageConfigTemplate.WithOptions(),
-			AKSUbuntuFipsContainerd1804:      SIGUbuntuFipsContainerd1804ImageConfigTemplate.WithOptions(),
-			AKSUbuntuFipsContainerd1804Gen2:  SIGUbuntuFipsContainerd1804Gen2ImageConfigTemplate.WithOptions(),
 			AKSUbuntuFipsContainerd2004:      SIGUbuntuFipsContainerd2004ImageConfigTemplate.WithOptions(),
 			AKSUbuntuFipsContainerd2004Gen2:  SIGUbuntuFipsContainerd2004Gen2ImageConfigTemplate.WithOptions(),
 			AKSUbuntuArm64Containerd2204Gen2: SIGUbuntuArm64Containerd2204Gen2ImageConfigTemplate.WithOptions(),
@@ -37,6 +33,7 @@ var _ = Describe("GetMaintainedLinuxSIGImageConfigMap", func() {
 			AKSAzureLinuxV3Gen2FIPS:          SIGAzureLinuxV3Gen2FIPSImageConfigTemplate.WithOptions(),
 			AKSCBLMarinerV2Gen2Kata:          SIGCBLMarinerV2KataImageConfigTemplate.WithOptions(),
 			AKSAzureLinuxV2Gen2Kata:          SIGAzureLinuxV2KataImageConfigTemplate.WithOptions(),
+			AKSAzureLinuxV3Gen2Kata:          SIGAzureLinuxV3KataImageConfigTemplate.WithOptions(),
 			AKSCBLMarinerV2Arm64Gen2:         SIGCBLMarinerV2Arm64ImageConfigTemplate.WithOptions(),
 			AKSAzureLinuxV2Arm64Gen2:         SIGAzureLinuxV2Arm64ImageConfigTemplate.WithOptions(),
 			AKSAzureLinuxV3Arm64Gen2:         SIGAzureLinuxV3Arm64ImageConfigTemplate.WithOptions(),
@@ -44,6 +41,7 @@ var _ = Describe("GetMaintainedLinuxSIGImageConfigMap", func() {
 			AKSCBLMarinerV2Gen2TL:            SIGCBLMarinerV2TLImageConfigTemplate.WithOptions(),
 			AKSAzureLinuxV2Gen2TL:            SIGAzureLinuxV2TLImageConfigTemplate.WithOptions(),
 			AKSAzureLinuxV3Gen2TL:            SIGAzureLinuxV3TLImageConfigTemplate.WithOptions(),
+			AKSUbuntuContainerd2404CVMGen2:   SIGUbuntuContainerd2404CVMGen2ImageConfigTemplate.WithOptions(),
 			AKSUbuntuContainerd2404TLGen2:    SIGUbuntuContainerd2404TLGen2ImageConfigTemplate.WithOptions(),
 		}
 		Expect(GetMaintainedLinuxSIGImageConfigMap()).To(Equal(expected))
@@ -108,7 +106,7 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(mariner.Definition).To(Equal("V1"))
 		Expect(mariner.Version).To(Equal(FrozenCBLMarinerV1SIGImageVersionForDeprecation))
 
-		Expect(len(sigConfig.SigAzureLinuxImageConfig)).To(Equal(15))
+		Expect(len(sigConfig.SigAzureLinuxImageConfig)).To(Equal(16))
 
 		azurelinuxV2 := sigConfig.SigAzureLinuxImageConfig[AKSAzureLinuxV2]
 		Expect(azurelinuxV2.ResourceGroup).To(Equal("resourcegroup"))
@@ -250,13 +248,13 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(aksUbuntuEdgeZoneContainerd1804.ResourceGroup).To(Equal("AKS-Ubuntu-EdgeZone"))
 		Expect(aksUbuntuEdgeZoneContainerd1804.Gallery).To(Equal("AKSUbuntuEdgeZone"))
 		Expect(aksUbuntuEdgeZoneContainerd1804.Definition).To(Equal("1804containerd"))
-		Expect(aksUbuntuEdgeZoneContainerd1804.Version).To(Equal(LinuxSIGImageVersion))
+		Expect(aksUbuntuEdgeZoneContainerd1804.Version).To(Equal(Frozen1804ContainerdSIGImageVersionForDeprecation))
 
 		aksUbuntuEdgeZoneContainerd1804Gen2 := sigConfig.SigUbuntuEdgeZoneImageConfig[AKSUbuntuEdgeZoneContainerd1804Gen2]
 		Expect(aksUbuntuEdgeZoneContainerd1804Gen2.ResourceGroup).To(Equal("AKS-Ubuntu-EdgeZone"))
 		Expect(aksUbuntuEdgeZoneContainerd1804Gen2.Gallery).To(Equal("AKSUbuntuEdgeZone"))
 		Expect(aksUbuntuEdgeZoneContainerd1804Gen2.Definition).To(Equal("1804gen2containerd"))
-		Expect(aksUbuntuEdgeZoneContainerd1804Gen2.Version).To(Equal(LinuxSIGImageVersion))
+		Expect(aksUbuntuEdgeZoneContainerd1804Gen2.Version).To(Equal(Frozen1804Gen2ContainerdSIGImageVersionForDeprecation))
 
 		aksUbuntuEdgeZoneContainerd2204 := sigConfig.SigUbuntuEdgeZoneImageConfig[AKSUbuntuEdgeZoneContainerd2204]
 		Expect(aksUbuntuEdgeZoneContainerd2204.ResourceGroup).To(Equal("AKS-Ubuntu-EdgeZone"))
@@ -342,6 +340,12 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(azurelinuxV2Gen2Kata.Definition).To(Equal("V2katagen2"))
 		Expect(azurelinuxV2Gen2Kata.Version).To(Equal(LinuxSIGImageVersion))
 
+		azurelinuxV3Gen2Kata := sigConfig.SigAzureLinuxImageConfig[AKSAzureLinuxV3Gen2Kata]
+		Expect(azurelinuxV3Gen2Kata.ResourceGroup).To(Equal("resourcegroup"))
+		Expect(azurelinuxV3Gen2Kata.Gallery).To(Equal("aksazurelinux"))
+		Expect(azurelinuxV3Gen2Kata.Definition).To(Equal("V3katagen2"))
+		Expect(azurelinuxV3Gen2Kata.Version).To(Equal(LinuxSIGImageVersion))
+
 		aksUbuntuMinimalContainerd2204 := sigConfig.SigUbuntuImageConfig[AKSUbuntuMinimalContainerd2204]
 		Expect(aksUbuntuMinimalContainerd2204.ResourceGroup).To(Equal("resourcegroup"))
 		Expect(aksUbuntuMinimalContainerd2204.Gallery).To(Equal("aksubuntu"))
@@ -382,7 +386,7 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(aksUbuntu2404CVMGen2Containerd.ResourceGroup).To(Equal("resourcegroup"))
 		Expect(aksUbuntu2404CVMGen2Containerd.Gallery).To(Equal("aksubuntu"))
 		Expect(aksUbuntu2404CVMGen2Containerd.Definition).To(Equal("2404gen2CVMcontainerd"))
-		Expect(aksUbuntu2404CVMGen2Containerd.Version).To(Equal("202505.14.0"))
+		Expect(aksUbuntu2404CVMGen2Containerd.Version).To(Equal(LinuxSIGImageVersion))
 
 		aksUbuntu2404TLGen2Containerd := sigConfig.SigUbuntuImageConfig[AKSUbuntuContainerd2404TLGen2]
 		Expect(aksUbuntu2404TLGen2Containerd.ResourceGroup).To(Equal("resourcegroup"))

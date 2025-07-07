@@ -2,6 +2,8 @@ package e2e
 
 import (
 	"context"
+	"fmt"
+	"github.com/Azure/agentbaker/e2e/toolkit"
 	"strings"
 	"testing"
 	"time"
@@ -15,6 +17,8 @@ import (
 func ensurePod(ctx context.Context, s *Scenario, pod *corev1.Pod) {
 	kube := s.Runtime.Cluster.Kube
 	truncatePodName(s.T, pod)
+	start := time.Now()
+
 	s.T.Logf("creating pod %q", pod.Name)
 	_, err := kube.Typed.CoreV1().Pods(pod.Namespace).Create(ctx, pod, metav1.CreateOptions{})
 	require.NoErrorf(s.T, err, "failed to create pod %q", pod.Name)
@@ -30,6 +34,9 @@ func ensurePod(ctx context.Context, s *Scenario, pod *corev1.Pod) {
 
 	_, err = kube.WaitUntilPodRunning(ctx, s.T, pod.Namespace, "", "metadata.name="+pod.Name)
 	require.NoErrorf(s.T, err, "failed to wait for pod %q to be in running state", pod.Name)
+
+	timeForReady := time.Since(start)
+	toolkit.LogDuration(timeForReady, time.Minute, fmt.Sprintf("Time for pod %q to get ready was %s\n", pod.Name, toolkit.FormatDuration(timeForReady)))
 }
 
 func truncatePodName(t *testing.T, pod *corev1.Pod) {

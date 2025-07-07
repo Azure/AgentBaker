@@ -29,26 +29,32 @@ import (
 )
 
 var (
-	clusterLatestKubernetesVersion *Cluster
-	clusterKubenet                 *Cluster
-	clusterKubenetAirgap           *Cluster
-	clusterKubenetNonAnonAirgap    *Cluster
-	clusterAzureNetwork            *Cluster
-	clusterCiliumNetwork           *Cluster
+	clusterLatestKubernetesVersion      *Cluster
+	clusterKubenet                      *Cluster
+	clusterKubenetAirgap                *Cluster
+	clusterKubenetNonAnonAirgap         *Cluster
+	clusterAzureNetwork                 *Cluster
+	clusterAzureOverlayNetwork          *Cluster
+	clusterAzureOverlayNetworkDualStack *Cluster
+	clusterCiliumNetwork                *Cluster
 
-	clusterLatestKubernetesVersionError error
-	clusterKubenetError                 error
-	clusterKubenetAirgapError           error
-	clusterKubenetNonAnonAirgapError    error
-	clusterAzureNetworkError            error
-	clusterCiliumNetworkError           error
+	clusterLatestKubernetesVersionError      error
+	clusterKubenetError                      error
+	clusterKubenetAirgapError                error
+	clusterKubenetNonAnonAirgapError         error
+	clusterAzureNetworkError                 error
+	clusterAzureOverlayNetworkError          error
+	clusterAzureOverlayNetworkDualStackError error
+	clusterCiliumNetworkError                error
 
-	clusterLatestKubernetesVersionOnce sync.Once
-	clusterKubenetOnce                 sync.Once
-	clusterKubenetAirgapOnce           sync.Once
-	clusterKubenetNonAnonAirgapOnce    sync.Once
-	clusterAzureNetworkOnce            sync.Once
-	clusterCiliumNetworkOnce           sync.Once
+	clusterLatestKubernetesVersionOnce      sync.Once
+	clusterKubenetOnce                      sync.Once
+	clusterKubenetAirgapOnce                sync.Once
+	clusterKubenetNonAnonAirgapOnce         sync.Once
+	clusterAzureNetworkOnce                 sync.Once
+	clusterAzureOverlayNetworkOnce          sync.Once
+	clusterAzureOverlayNetworkDualStackOnce sync.Once
+	clusterCiliumNetworkOnce                sync.Once
 )
 
 type ClusterParams struct {
@@ -124,6 +130,20 @@ func ClusterAzureNetwork(ctx context.Context, t *testing.T) (*Cluster, error) {
 	return clusterAzureNetwork, clusterAzureNetworkError
 }
 
+func ClusterAzureOverlayNetwork(ctx context.Context, t *testing.T) (*Cluster, error) {
+	clusterAzureOverlayNetworkOnce.Do(func() {
+		clusterAzureOverlayNetwork, clusterAzureOverlayNetworkError = prepareCluster(ctx, t, getAzureOverlayNetworkClusterModel("abe2e-azure-overlay-network"), false, false)
+	})
+	return clusterAzureOverlayNetwork, clusterAzureOverlayNetworkError
+}
+
+func ClusterAzureOverlayNetworkDualStack(ctx context.Context, t *testing.T) (*Cluster, error) {
+	clusterAzureOverlayNetworkDualStackOnce.Do(func() {
+		clusterAzureOverlayNetworkDualStack, clusterAzureOverlayNetworkDualStackError = prepareCluster(ctx, t, getAzureOverlayNetworkDualStackClusterModel("abe2e-azure-overlay-dualstack"), false, false)
+	})
+	return clusterAzureOverlayNetworkDualStack, clusterAzureOverlayNetworkDualStackError
+}
+
 func ClusterCiliumNetwork(ctx context.Context, t *testing.T) (*Cluster, error) {
 	clusterCiliumNetworkOnce.Do(func() {
 		clusterCiliumNetwork, clusterCiliumNetworkError = prepareCluster(ctx, t, getCiliumNetworkClusterModel("abe2e-cilium-network"), false, false)
@@ -161,6 +181,10 @@ func prepareCluster(ctx context.Context, t *testing.T, cluster *armcontainerserv
 		// private acr must be created before we add the debug daemonsets
 		if err := createPrivateAzureContainerRegistry(ctx, t, cluster, kube, config.ResourceGroupName, isNonAnonymousPull); err != nil {
 			return nil, fmt.Errorf("failed to create private acr: %w", err)
+		}
+
+		if err := createPrivateAzureContainerRegistryPullSecret(ctx, t, cluster, kube, config.ResourceGroupName, isNonAnonymousPull); err != nil {
+			return nil, fmt.Errorf("create private acr pull secret: %w", err)
 		}
 
 		if err := addAirgapNetworkSettings(ctx, t, cluster, config.GetPrivateACRName(isNonAnonymousPull)); err != nil {
@@ -452,10 +476,9 @@ func createNewMaintenanceConfiguration(ctx context.Context, t *testing.T, cluste
 				StartTime:     to.Ptr("00:00"),  //PST
 				UTCOffset:     to.Ptr("+08:00"), //PST
 				Schedule: &armcontainerservice.Schedule{
-					RelativeMonthly: &armcontainerservice.RelativeMonthlySchedule{
-						DayOfWeek:      to.Ptr(armcontainerservice.WeekDayMonday),
-						IntervalMonths: to.Ptr[int32](3),
-						WeekIndex:      to.Ptr(armcontainerservice.TypeFirst),
+					Weekly: &armcontainerservice.WeeklySchedule{
+						DayOfWeek:     to.Ptr(armcontainerservice.WeekDayMonday),
+						IntervalWeeks: to.Ptr[int32](4),
 					},
 				},
 			},

@@ -4,6 +4,7 @@ UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
 MARINER_KATA_OS_NAME="MARINERKATA"
 AZURELINUX_OS_NAME="AZURELINUX"
+AZURELINUX_KATA_OS_NAME="AZURELINUXKATA"
 
 # Real world examples from the command outputs
 # For Azure Linux V3: ID=azurelinux VERSION_ID="3.0"
@@ -219,7 +220,9 @@ if isMarinerOrAzureLinux "$OS"; then
     overrideNetworkConfig || exit 1
     if grep -q "kata" <<< "$FEATURE_FLAGS"; then
       installKataDeps
-      enableMarinerKata
+      if [ "${OS}" != "3.0" ]; then
+        enableMarinerKata
+      fi
     fi
     disableTimesyncd
     disableDNFAutomatic
@@ -288,8 +291,17 @@ while IFS= read -r p; do
   name=$(echo "${p}" | jq .name -r)
   PACKAGE_VERSIONS=()
   os=${OS}
-  if isMarinerOrAzureLinux "${OS}" && [ "${IS_KATA}" = "true" ]; then
+  # TODO(mheberling): Remove this once kata uses standard containerd. This OS is referenced
+  # in file `parts/common/component.json` with the same ${MARINER_KATA_OS_NAME}.
+  if isMariner "${OS}" && [ "${IS_KATA}" = "true" ]; then
+    # This is temporary for kata-cc because it uses a modified version of containerd and 
+    # name is referenced in parts/common.json marinerkata.
     os=${MARINER_KATA_OS_NAME}
+  fi
+  if isAzureLinux "${OS}" && [ "${IS_KATA}" = "true" ]; then
+    # This is temporary for kata-cc because it uses a modified version of containerd and 
+    # name is referenced in parts/common.json azurelinuxkata.
+    os=${AZURELINUX_KATA_OS_NAME}
   fi
   updatePackageVersions "${p}" "${os}" "${OS_VERSION}"
   PACKAGE_DOWNLOAD_URL=""
@@ -366,14 +378,6 @@ while IFS= read -r p; do
         echo "  - azure-acr-credential-provider version ${version}" >> ${VHD_LOGS_FILEPATH}
         # ORAS will be used to install other packages for network isolated clusters, it must go first.
       done
-      ;;
-    "containerd-wasm-shims")
-      installContainerdWasmShims "${downloadDir}" "${PACKAGE_DOWNLOAD_URL}" "${PACKAGE_VERSIONS[@]}"
-      echo "  - containerd-wasm-shims version ${PACKAGE_VERSIONS[@]}" >> ${VHD_LOGS_FILEPATH}
-      ;;
-    "spinkube")
-      installSpinKube "${downloadDir}" "${PACKAGE_DOWNLOAD_URL}" "${PACKAGE_VERSIONS[@]}"
-      echo "  - spinkube version ${PACKAGE_VERSIONS[@]}" >> ${VHD_LOGS_FILEPATH}
       ;;
     "kubernetes-binaries")
       # kubelet and kubectl

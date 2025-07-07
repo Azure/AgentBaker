@@ -87,6 +87,41 @@ func getKubenetClusterModel(name string) *armcontainerservice.ManagedCluster {
 	return model
 }
 
+func getAzureOverlayNetworkClusterModel(name string) *armcontainerservice.ManagedCluster {
+	model := getBaseClusterModel(name)
+	model.Properties.NetworkProfile.NetworkPlugin = to.Ptr(armcontainerservice.NetworkPluginAzure)
+	model.Properties.NetworkProfile.NetworkPluginMode = to.Ptr(armcontainerservice.NetworkPluginModeOverlay)
+	return model
+}
+
+func getAzureOverlayNetworkDualStackClusterModel(name string) *armcontainerservice.ManagedCluster {
+	model := getAzureOverlayNetworkClusterModel(name)
+
+	model.Properties.NetworkProfile.IPFamilies = []*armcontainerservice.IPFamily{
+		to.Ptr(armcontainerservice.IPFamilyIPv4),
+		to.Ptr(armcontainerservice.IPFamilyIPv6),
+	}
+
+	networkProfile := model.Properties.NetworkProfile
+	networkProfile.PodCidr = to.Ptr("10.244.0.0/16")
+	networkProfile.PodCidrs = []*string{
+		networkProfile.PodCidr,
+		to.Ptr("fd12:3456:789a::/64 "),
+	}
+	networkProfile.ServiceCidr = to.Ptr("10.0.0.0/16")
+	networkProfile.ServiceCidrs = []*string{
+		networkProfile.ServiceCidr,
+		to.Ptr("fd12:3456:789a:1::/108"),
+	}
+
+	networkProfile.PodCidr = nil
+	networkProfile.PodCidrs = nil
+	networkProfile.ServiceCidr = nil
+	networkProfile.ServiceCidrs = nil
+
+	return model
+}
+
 func getAzureNetworkClusterModel(name string) *armcontainerservice.ManagedCluster {
 	cluster := getBaseClusterModel(name)
 	cluster.Properties.NetworkProfile.NetworkPlugin = to.Ptr(armcontainerservice.NetworkPluginAzure)
@@ -97,7 +132,6 @@ func getAzureNetworkClusterModel(name string) *armcontainerservice.ManagedCluste
 	}
 	return cluster
 }
-
 func getCiliumNetworkClusterModel(name string) *armcontainerservice.ManagedCluster {
 	cluster := getBaseClusterModel(name)
 	cluster.Properties.NetworkProfile.NetworkPlugin = to.Ptr(armcontainerservice.NetworkPluginAzure)
@@ -121,7 +155,7 @@ func getBaseClusterModel(clusterName string) *armcontainerservice.ManagedCluster
 				{
 					Name:         to.Ptr("nodepool1"),
 					Count:        to.Ptr[int32](1),
-					VMSize:       to.Ptr("standard_d2ds_v5"),
+					VMSize:       to.Ptr(config.Config.DefaultVMSKU),
 					MaxPods:      to.Ptr[int32](110),
 					OSType:       to.Ptr(armcontainerservice.OSTypeLinux),
 					Type:         to.Ptr(armcontainerservice.AgentPoolTypeVirtualMachineScaleSets),
@@ -278,6 +312,28 @@ func privateEndpointExists(ctx context.Context, t *testing.T, nodeResourceGroup,
 	return false, nil
 }
 
+func createPrivateAzureContainerRegistryPullSecret(ctx context.Context, t *testing.T, cluster *armcontainerservice.ManagedCluster, kubeconfig *Kubeclient, resourceGroup string, isNonAnonymousPull bool) error {
+	privateACRName := config.GetPrivateACRName(isNonAnonymousPull)
+	if isNonAnonymousPull {
+		t.Logf("Creating the secret for non-anonymous pull ACR for the e2e debug pods")
+		kubeconfigPath := os.Getenv("HOME") + "/.kube/config"
+		if err := fetchAndSaveKubeconfig(ctx, t, resourceGroup, *cluster.Name, kubeconfigPath); err != nil {
+			t.Logf("failed to fetch kubeconfig: %v", err)
+			return err
+		}
+		username, password, err := getAzureContainerRegistryCredentials(ctx, t, resourceGroup, privateACRName)
+		if err != nil {
+			t.Logf("failed to get private ACR credentials: %v", err)
+			return err
+		}
+		if err := kubeconfig.createKubernetesSecret(ctx, t, "default", config.Config.ACRSecretName, privateACRName, username, password); err != nil {
+			t.Logf("failed to create Kubernetes secret: %v", err)
+			return err
+		}
+	}
+	return nil
+}
+
 func createPrivateAzureContainerRegistry(ctx context.Context, t *testing.T, cluster *armcontainerservice.ManagedCluster, kubeconfig *Kubeclient, resourceGroup string, isNonAnonymousPull bool) error {
 	privateACRName := config.GetPrivateACRName(isNonAnonymousPull)
 	t.Logf("Creating private Azure Container Registry %s in rg %s", privateACRName, resourceGroup)
@@ -336,24 +392,6 @@ func createPrivateAzureContainerRegistry(ctx context.Context, t *testing.T, clus
 	}
 
 	t.Logf("Private Azure Container Registry created")
-
-	if isNonAnonymousPull {
-		t.Logf("Creating the secret for non-anonymous pull ACR for the e2e debug pods")
-		kubeconfigPath := os.Getenv("HOME") + "/.kube/config"
-		if err := fetchAndSaveKubeconfig(ctx, t, resourceGroup, *cluster.Name, kubeconfigPath); err != nil {
-			t.Logf("failed to fetch kubeconfig: %v", err)
-			return err
-		}
-		username, password, err := getAzureContainerRegistryCredentials(ctx, t, resourceGroup, privateACRName)
-		if err != nil {
-			t.Logf("failed to get private ACR credentials: %v", err)
-			return err
-		}
-		if err := kubeconfig.createKubernetesSecret(ctx, t, "default", config.Config.ACRSecretName, privateACRName, username, password); err != nil {
-			t.Logf("failed to create Kubernetes secret: %v", err)
-			return err
-		}
-	}
 
 	if err := addCacheRulesToPrivateAzureContainerRegistry(ctx, t, config.ResourceGroupName, privateACRName); err != nil {
 		return fmt.Errorf("failed to add cache rules to private acr: %w", err)
