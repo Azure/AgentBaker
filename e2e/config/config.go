@@ -98,7 +98,10 @@ func (c *Configuration) VMIdentityResourceID() string {
 }
 
 func mustLoadConfig() *Configuration {
-	_ = godotenv.Load(".env")
+	err := godotenv.Load(".env")
+	if err != nil {
+		fmt.Printf("Error loading .env file: %s\n", err)
+	}
 	cfg := &Configuration{}
 	if err := env.Parse(cfg); err != nil {
 		panic(err)

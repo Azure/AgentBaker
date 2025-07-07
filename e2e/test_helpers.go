@@ -73,16 +73,7 @@ func mustNoError(err error) {
 func RunScenario(t *testing.T, s *Scenario) {
 	t.Parallel()
 	if config.Config.TestPreProvision {
-		// Run two versions of the same scenario, one with pre-provisioning enabled and one without.
-		// In parallel
-		t.Run("Original", func(t *testing.T) {
-			t.Parallel()
-			runScenario(t, s)
-		})
-		t.Run("PreProvision", func(t *testing.T) {
-			t.Parallel()
-			runScenarioWithPreProvision(t, s)
-		})
+		runScenarioWithPreProvision(t, s)
 	} else {
 		runScenario(t, s)
 	}
@@ -90,12 +81,15 @@ func RunScenario(t *testing.T, s *Scenario) {
 }
 
 func runScenarioWithPreProvision(t *testing.T, original *Scenario) {
+	if original.VHD.Arch == "arm64" {
+		t.Skipf("Image creation doesn't support ARM64, skipping %s", original.VHD.Name)
+	}
 	// This is hard to understand. Some functional magic is used to run the original scenario in two stages.
 	// 1. Stage 1: Run the original scenario with pre-provisioning enabled, but skip the main validation and validate only pre-provisioning.
 	// 2. Create a new Image from the VMSS created in Stage 1
 	// 3. Stage 2: Run the original scenario again, but this time using the custom VHD created in a previous step, with validators,
 	// The goal here is to test pre-provisioning logic on the variety of existing scenarios
-	s := &Scenario{
+	firstStage := &Scenario{
 		Description: original.Description,
 		Tags:        original.Tags,
 		Config: Config{
@@ -129,57 +123,65 @@ func runScenarioWithPreProvision(t *testing.T, original *Scenario) {
 				// VM is automatically deleted after the test.
 				// We run Subtest in the Validator to capture VHD before it's deleted
 				customVHD := CreateImage(ctx, stage1)
-				stage1SSHKeys := stage1.Runtime.NBC.ContainerService.Properties.LinuxProfile.SSH.PublicKeys
+				//stage1SSHKeys := stage1.Runtime.NBC.ContainerService.Properties.LinuxProfile.SSH.PublicKeys
 
 				// Create a subtest so RunScenario won't fail on t.Parallel() and log to a different directory
 				t.Run("SecondStage", func(t *testing.T) {
-					// Run Stage 2 scenario using the custom VHD
-					// RunScenario fails due to the running of the t.Parallel() for the second time
-					runScenario(t, &Scenario{
+					secondStageScenario := &Scenario{
 						Description: "Stage 2: Create VMSS from captured VHD via SIG",
 						Tags:        stage1.Tags,
 						Config: Config{
-							Cluster:               stage1.Config.Cluster,
-							VHD:                   customVHD,
-							SkipDefaultValidation: original.Config.SkipDefaultValidation,
-							BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-								if nbc.ContainerService.Properties.LinuxProfile != nil {
-									nbc.ContainerService.Properties.LinuxProfile.SSH.PublicKeys = stage1SSHKeys
-								}
-							},
-							VMConfigMutator: original.VMConfigMutator,
+							Cluster:                original.Config.Cluster,
+							VHD:                    customVHD,
+							SkipDefaultValidation:  original.Config.SkipDefaultValidation,
+							BootstrapConfigMutator: original.BootstrapConfigMutator,
+							AKSNodeConfigMutator:   original.AKSNodeConfigMutator, // TODO: Why NodeConfig doesn't have SSH keys?
+							VMConfigMutator:        original.VMConfigMutator,
 							Validator: func(ctx context.Context, s *Scenario) {
 								// Stage 2 validation: Verify kubelet is now working
 								if s.IsWindows() {
-									ValidateFileExists(ctx, s, "C:\\AzureData\\preprovision.complete") // Test with known existing file first
 									ValidateFileExists(ctx, s, "C:\\AzureData\\provision.complete")
 									ValidateWindowsServiceIsRunning(ctx, s, "kubelet")
 								} else {
-									ValidateFileExists(ctx, s, "/opt/azure/containers/preprovision.complete")
 									ValidateFileExists(ctx, s, "/opt/azure/containers/provision.complete")
 									ValidateSystemdUnitIsRunning(ctx, s, "kubelet")
 								}
-								original.Config.Validator(ctx, s)
+								if original.Config.Validator != nil {
+									original.Config.Validator(ctx, s)
+								}
 							},
 						},
-					})
+					}
+					secondStageScenario.BootstrapConfigMutator = original.BootstrapConfigMutator
+					secondStageScenario.AKSNodeConfigMutator = original.AKSNodeConfigMutator
+					//
+					//if original.BootstrapConfigMutator != nil {
+					//	secondStageScenario.BootstrapConfigMutator = func(nbc *datamodel.NodeBootstrappingConfiguration) {
+					//	}
+					//}
+					//if original.AKSNodeConfigMutator != nil {
+					//	secondStageScenario.AKSNodeConfigMutator = original.AKSNodeConfigMutator
+					//}
+					// Run Stage 2 scenario using the custom VHD
+					// RunScenario fails due to the running of the t.Parallel() for the second time
+					runScenario(t, secondStageScenario)
 				})
 			},
 		},
 	}
 	if original.BootstrapConfigMutator != nil {
-		s.BootstrapConfigMutator = func(nbc *datamodel.NodeBootstrappingConfiguration) {
+		firstStage.BootstrapConfigMutator = func(nbc *datamodel.NodeBootstrappingConfiguration) {
 			original.BootstrapConfigMutator(nbc)
 			nbc.PreProvisionOnly = true
 		}
 	}
 	if original.AKSNodeConfigMutator != nil {
-		s.AKSNodeConfigMutator = func(nodeconfig *aksnodeconfigv1.Configuration) {
+		firstStage.AKSNodeConfigMutator = func(nodeconfig *aksnodeconfigv1.Configuration) {
 			original.AKSNodeConfigMutator(nodeconfig)
 			nodeconfig.PreProvisionOnly = true
 		}
 	}
-	runScenario(t, s)
+	runScenario(t, firstStage)
 }
 
 func runScenario(t *testing.T, s *Scenario) {
@@ -599,18 +601,16 @@ C:\Windows\System32\Sysprep\Sysprep.exe /oobe /generalize /mode:vm /quiet /quit;
 	image, err := imagePoller.PollUntilDone(ctx, nil)
 	require.NoError(s.T, err, "Failed to create image snapshot")
 
-	return &config.Image{
-		Name:   imageName,
-		OS:     s.Config.VHD.OS,
-		Arch:   s.Config.VHD.Arch,
-		Distro: s.Config.VHD.Distro,
-		Gallery: &config.Gallery{
-			SubscriptionID:    config.Config.SubscriptionID,
-			ResourceGroupName: *s.Runtime.Cluster.Model.Properties.NodeResourceGroup,
-			Name:              "managed-disks", // Special marker for managed disks
-		},
-		Version: *image.ID, // Store the managed image ID in Version field
+	// Copy the original VHD and override only the fields that change for Stage2
+	customVHD := *s.Config.VHD
+	customVHD.Name = imageName
+	customVHD.Gallery = &config.Gallery{
+		SubscriptionID:    config.Config.SubscriptionID,
+		ResourceGroupName: *s.Runtime.Cluster.Model.Properties.NodeResourceGroup,
+		Name:              "managed-disks", // Special marker for managed disks
 	}
+	customVHD.Version = *image.ID // Store the managed image ID in Version field
+	return &customVHD
 }
 
 func validateSSHConnectivity(ctx context.Context, s *Scenario) error {

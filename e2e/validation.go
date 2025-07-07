@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/e2e/toolkit"
 	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
@@ -111,12 +110,12 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 	ValidateLeakedSecrets(ctx, s)
 
 	// kubeletNodeIPValidator cannot be run on older VHDs with kubelet < 1.29
-	if s.VHD.Version != config.VHDUbuntu2204Gen2ContainerdPrivateKubePkg.Version {
+	if !s.VHD.UnsupportedKubeletNodeIP {
 		ValidateKubeletNodeIP(ctx, s)
 	}
 
-	// localdns is not supported on 1804, scriptless, privatekube and VHDUbuntu2204Gen2ContainerdAirgappedK8sNotCached.
-	if s.Tags.Scriptless != true && s.VHD != config.VHDUbuntu1804Gen2Containerd && s.VHD != config.VHDUbuntu2204Gen2ContainerdPrivateKubePkg && s.VHD != config.VHDUbuntu2204Gen2ContainerdAirgappedK8sNotCached {
+	// TODO: Add support for AKSNodeConfig
+	if s.Runtime.NBC != nil && s.Runtime.NBC.AgentPoolProfile.LocalDNSProfile != nil {
 		ValidateLocalDNSService(ctx, s)
 		ValidateLocalDNSResolution(ctx, s)
 	}

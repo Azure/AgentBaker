@@ -194,7 +194,7 @@ func (k *Kubeclient) WaitUntilNodeReady(ctx context.Context, t *testing.T, vmssN
 	}
 
 	if node == nil {
-		t.Fatalf("failed to find wait for %q to appear in the API server", vmssName)
+		t.Fatalf("failed to wait for %q to appear in the API server", vmssName)
 		return ""
 	}
 
@@ -413,11 +413,16 @@ func daemonsetDebug(t *testing.T, deploymentName, targetNodeLabel, privateACRNam
 					NodeSelector: map[string]string{
 						"kubernetes.azure.com/agentpool": targetNodeLabel,
 					},
-					ImagePullSecrets: []corev1.LocalObjectReference{
-						{
-							Name: secretName,
-						},
-					},
+					ImagePullSecrets: func() []corev1.LocalObjectReference {
+						if secretName == "" {
+							return nil
+						}
+						return []corev1.LocalObjectReference{
+							{
+								Name: secretName,
+							},
+						}
+					}(),
 					HostPID: true,
 					Containers: []corev1.Container{
 						{
@@ -520,11 +525,16 @@ func podHTTPServerLinux(s *Scenario) *corev1.Pod {
 			NodeSelector: map[string]string{
 				"kubernetes.io/hostname": s.Runtime.KubeNodeName,
 			},
-			ImagePullSecrets: []corev1.LocalObjectReference{
-				{
-					Name: secretName,
-				},
-			},
+			ImagePullSecrets: func() []corev1.LocalObjectReference {
+				if secretName == "" {
+					return nil
+				}
+				return []corev1.LocalObjectReference{
+					{
+						Name: secretName,
+					},
+				}
+			}(),
 		},
 	}
 }

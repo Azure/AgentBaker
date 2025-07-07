@@ -50,7 +50,7 @@ func getLatestGAKubernetesVersion(location string, t *testing.T) (string, error)
 			if patchVersion == "" {
 				continue
 			}
-			t.Logf("- - %s", patchVersion)
+			msg += fmt.Sprintf(" - - %s\n", patchVersion)
 			// Initialize latestVersion with first GA version found
 			if latestPatchVersion == "" {
 				latestPatchVersion = patchVersion
