@@ -52,8 +52,6 @@ const (
 type Script struct {
 	script      string
 	interpreter Interpreter
-	skipLogging bool
-	sudo        bool
 }
 
 func execScriptOnVm(ctx context.Context, s *Scenario, vmPrivateIP, jumpboxPodName string, script Script) (*podExecResult, error) {
@@ -86,17 +84,9 @@ func execScriptOnVm(ctx context.Context, s *Scenario, vmPrivateIP, jumpboxPodNam
 		fmt.Sprintf("chmod 0755 %s", scriptFileName),
 		fmt.Sprintf(`scp -i %[1]s -o PasswordAuthentication=no -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o ConnectTimeout=5 %[3]s azureuser@%[2]s:%[4]s`, sshKeyName(vmPrivateIP), vmPrivateIP, scriptFileName, remoteScriptFileName),
 	}
-	if script.sudo {
-		steps = append(steps, fmt.Sprintf("%s sudo %s %s", sshString(vmPrivateIP), interpreter, remoteScriptFileName))
-	} else {
-		steps = append(steps, fmt.Sprintf("%s %s %s", sshString(vmPrivateIP), interpreter, remoteScriptFileName))
-	}
+	steps = append(steps, fmt.Sprintf("%s %s %s", sshString(vmPrivateIP), interpreter, remoteScriptFileName))
 
 	joinedSteps := strings.Join(steps, " && ")
-
-	if !script.skipLogging {
-		s.T.Logf("Executing script %[1]s using %[2]s:\n---START-SCRIPT---\n%[3]s\n---END-SCRIPT---\n", scriptFileName, interpreter, script.script)
-	}
 
 	kube := s.Runtime.Cluster.Kube
 	execResult, err := execOnPrivilegedPod(ctx, kube, defaultNamespace, jumpboxPodName, joinedSteps)

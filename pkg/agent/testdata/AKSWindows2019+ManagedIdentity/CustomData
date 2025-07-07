@@ -194,8 +194,7 @@ $global:EnableIncreaseDynamicPortRange = $false
 $global:RebootNeeded = $false
 
 $global:IsSkipCleanupNetwork = [System.Convert]::ToBoolean("false");
-$SkipKubeletConfiguration = [System.Convert]::ToBoolean("false");
-$KubeletOnly = [System.Convert]::ToBoolean("false");
+$PreProvisionOnly = [System.Convert]::ToBoolean("false");
 
 $global:EnableKubeletServingCertificateRotation = [System.Convert]::ToBoolean("false")
 
@@ -216,23 +215,6 @@ try
     # Exit early if the script has been executed
     if (Test-Path -Path $CSEResultFilePath -PathType Leaf) {
         Write-Log "The script has been executed before, will exit without doing anything."
-        return
-    }
-
-    if ($KubeletOnly) {
-        Write-Log "Running kubelet-only configuration"
-        if (-not (Test-Path -Path "C:\AzureData\stage1-complete")) {
-            Write-Log "Stage 1 marker missing. Cannot proceed with kubelet-only mode."
-            Set-ExitCode -ExitCode 1 -ErrorMessage "Stage 1 incomplete"
-            return
-        }
-        . c:\AzureData\windows\windowscsehelper.ps1
-        . c:\AzureData\windows\kubeletfunc.ps1
-
-        Install-KubernetesServices -KubeDir $global:KubeDir
-
-        Set-Content -Path $CSEResultFilePath -Value "0" -Force
-        Write-Log "Kubelet-only configuration completed successfully"
         return
     }
 
@@ -285,6 +267,19 @@ try
     if ( $sshEnabled ) {
         Install-OpenSSH -SSHKeys $SSHKeys
     }
+
+    if (Test-Path C:\AzureData\preprovision.complete) {
+        Write-Log "Running kubelet-only configuration"
+
+        . c:\AzureData\windows\kubeletfunc.ps1
+
+        Install-KubernetesServices -KubeDir $global:KubeDir
+
+        Set-Content -Path $CSEResultFilePath -Value "0" -Force
+        Write-Log "Kubelet-only configuration completed successfully"
+        return
+    }
+
 
     Set-TelemetrySetting -WindowsTelemetryGUID $global:WindowsTelemetryGUID
 
@@ -421,12 +416,15 @@ try
 
     New-ExternalHnsNetwork -IsDualStackEnabled $global:IsDualStackEnabled
 
+    # Turn off Firewall to enable pods to talk to service endpoints. (Kubelet should eventually do this)
+    netsh advfirewall set allprofiles state off
+
     # Conditionally install kubelet services based on configuration
-    if (-not $SkipKubeletConfiguration) {
+    if (-not $PreProvisionOnly) {
         Write-Log "Installing kubelet services"
         Install-KubernetesServices -KubeDir $global:KubeDir
     } else {
-        Write-Log "Skipping kubelet configuration as per SkipKubeletConfiguration setting"
+        Write-Log "Skipping kubelet configuration as per PreProvisionOnly setting"
     }
 
     Set-Explorer
@@ -525,11 +523,12 @@ finally
         Set-Content -Path $CSEResultFilePath -Value "ExitCode: |$global:ExitCode|, Output: |$($global:ErrorCodeNames[$global:ExitCode])|, Error: |$turncatedErrorMessage|"
     }
     else {
-        if (-not $SkipKubeletConfiguration) {
-            Set-Content -Path $CSEResultFilePath -Value $global:ExitCode -Force
+        if ($PreProvisionOnly) {
+            # Stage1 in two-sage processing
+            Set-Content -Path "C:\AzureData\preprovision.complete" -Value $global:ExitCode -Force
         } else {
-            # Stage 1: Create marker indicating Stage 2 is needed
-            Set-Content -Path "C:\AzureData\stage1-complete" -Value $global:ExitCode -Force
+            Set-Content -Path $CSEResultFilePath -Value $global:ExitCode -Force
+
         }
     }
 
