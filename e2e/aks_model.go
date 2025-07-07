@@ -31,17 +31,19 @@ func getLatestGAKubernetesVersion(location string, t *testing.T) (string, error)
 	}
 
 	var latestPatchVersion string
+	msg := ""
+	defer func() { t.Log(msg) }()
 	// Iterate through the available versions to find the latest GA version
-	t.Logf("Available Kubernetes versions for location %s:", location)
+	msg = fmt.Sprintf("Available Kubernetes versions for location %s:\n", location)
 	for _, k8sVersion := range versions.Values {
 		if k8sVersion == nil {
 			continue
 		}
-		t.Logf("- %s", *k8sVersion.Version)
+		msg += fmt.Sprintf("- %s\n", *k8sVersion.Version)
 
 		// Skip preview versions
 		if k8sVersion.IsPreview != nil && *k8sVersion.IsPreview {
-			t.Log(" - - is in preview, skipping")
+			msg += " - - is in preview, skipping\n"
 			continue
 		}
 		for patchVersion := range k8sVersion.PatchVersions {
@@ -52,13 +54,13 @@ func getLatestGAKubernetesVersion(location string, t *testing.T) (string, error)
 			// Initialize latestVersion with first GA version found
 			if latestPatchVersion == "" {
 				latestPatchVersion = patchVersion
-				t.Logf(" - - first latest found, updating to: %s", latestPatchVersion)
+				msg += fmt.Sprintf(" - - first latest found, updating to: %s\n", latestPatchVersion)
 				continue
 			}
 			// Compare versions
 			if agent.IsKubernetesVersionGe(patchVersion, latestPatchVersion) {
 				latestPatchVersion = patchVersion
-				t.Logf(" - - new latest found, updating to: %s", latestPatchVersion)
+				msg += fmt.Sprintf(" - - new latest found, updating to: %s\n", latestPatchVersion)
 			}
 		}
 	}
@@ -66,7 +68,7 @@ func getLatestGAKubernetesVersion(location string, t *testing.T) (string, error)
 	if latestPatchVersion == "" {
 		return "", fmt.Errorf("no GA Kubernetes version found")
 	}
-	t.Logf("Latest GA Kubernetes version for location %s: %s", location, latestPatchVersion)
+	msg += fmt.Sprintf("Latest GA Kubernetes version for location %s: %s\n", location, latestPatchVersion)
 	return latestPatchVersion, nil
 }
 

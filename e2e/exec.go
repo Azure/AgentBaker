@@ -202,5 +202,12 @@ func uploadSSHKey(ctx context.Context, s *Scenario) error {
 	result += fmt.Sprintf("az aks get-credentials --resource-group %s --name %s --overwrite-existing\n", config.ResourceGroupName, *s.Runtime.Cluster.Model.Name)
 	result += fmt.Sprintf(`kubectl exec -it %s -- bash -c "chroot /proc/1/root /bin/bash -c '%s'"`, s.Runtime.Cluster.DebugPod.Name, sshString(s.Runtime.VMPrivateIP))
 	s.T.Log(result)
+
+	// Test SSH connectivity once per test to distinguish SSH issues from script failures
+	err = validateSSHConnectivity(ctx, s)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }

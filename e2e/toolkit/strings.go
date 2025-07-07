@@ -1,9 +1,9 @@
 package toolkit
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
+	"testing"
 	"time"
 )
 
@@ -28,11 +28,11 @@ func StrToInt32(s string) int32 {
 	return int32(i)
 }
 
-func LogDuration(duration time.Duration, warningDuration time.Duration, message string) {
+func LogDuration(t *testing.T, duration time.Duration, warningDuration time.Duration, message string) {
 	if duration > warningDuration {
-		fmt.Printf("##vso[task.logissue type=warning;] %s", message)
+		t.Logf("##vso[task.logissue type=warning;] %s", message)
 	} else {
-		fmt.Print(message)
+		t.Log(message)
 	}
 
 }

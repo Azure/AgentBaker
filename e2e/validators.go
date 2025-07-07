@@ -553,8 +553,6 @@ func ValidateWindowsProductName(ctx context.Context, s *Scenario, productName st
 	podExecResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "could not validate command has parameters - might mean file does not have params, might mean something went wrong")
 	podExecResultStdout := strings.TrimSpace(podExecResult.stdout.String())
 
-	s.T.Logf("Winddows product name from VM  %s. Expected product name %s", podExecResultStdout, productName)
-
 	require.Contains(s.T, podExecResultStdout, productName)
 }
 
