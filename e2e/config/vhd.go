@@ -41,6 +41,7 @@ var (
 	OSUbuntu     OS = "ubuntu"
 	OSMariner    OS = "mariner"
 	OSAzureLinux OS = "azurelinux"
+	OSFlatcar    OS = "flatcar"
 )
 
 var (
@@ -143,6 +144,22 @@ var (
 		OS:      OSUbuntu,
 		Arch:    "arm64",
 		Distro:  datamodel.AKSUbuntuArm64Containerd2404Gen2,
+		Gallery: imageGalleryLinux,
+	}
+
+	VHDFlatcarGen2 = &Image{
+		Name:    "flatcargen2TL",
+		OS:      OSFlatcar,
+		Arch:    "amd64",
+		Distro:  datamodel.AKSFlatcarGen2,
+		Gallery: imageGalleryLinux,
+	}
+
+	VHDFlatcarGen2Arm64 = &Image{
+		Name:    "flatcargen2arm64TL",
+		OS:      OSFlatcar,
+		Arch:    "arm64",
+		Distro:  datamodel.AKSFlatcarArm64Gen2,
 		Gallery: imageGalleryLinux,
 	}
 
