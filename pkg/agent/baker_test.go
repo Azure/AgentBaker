@@ -18,9 +18,11 @@ import (
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/barkimedes/go-deepcopy"
+	ign3_4 "github.com/coreos/ignition/v2/config/v3_4/types"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
+	"github.com/vincent-petithory/dataurl"
 	"gopkg.in/yaml.v3"
 )
 
@@ -945,7 +947,7 @@ testdomain567.com:53 {
 		Expect(err).To(BeNil())
 
 		var customDataBytes []byte
-		if config.AgentPoolProfile.IsWindows() {
+		if config.AgentPoolProfile.IsWindows() || config.AgentPoolProfile.IsFlatcar() {
 			customDataBytes, err = base64.StdEncoding.DecodeString(nodeBootstrapping.CustomData)
 			Expect(err).To(BeNil())
 		} else {
@@ -1942,6 +1944,13 @@ oom_score = -999
 				Expect(exist).To(BeFalse())
 			},
 		),
+		Entry("Flatcar", "Flatcar", "1.31.0", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.OSSKU = "Flatcar"
+			config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSFlatcarGen2
+			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+				ContainerRuntime: datamodel.Containerd,
+			}
+		}, nil),
 		Entry("AKSUbuntu2204 DisableSSH with enabled ssh", "AKSUbuntu2204+SSHStatusOn", "1.24.2", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.SSHStatus = datamodel.SSHOn
 		}, nil),
@@ -2590,6 +2599,51 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 
 })
 
+func ignitionUnwrapEnvelope(ignitionFile []byte) []byte {
+	// Unwrap the Ignition envelope
+	var outer ign3_4.Config
+	err := json.Unmarshal(ignitionFile, &outer)
+	if err != nil {
+		panic(err)
+	}
+	innerencoded := outer.Ignition.Config.Replace
+	if innerencoded.Source == nil {
+		panic("ignition missing replacement config")
+	}
+	inner, err := ignitionDecodeFileContents(innerencoded)
+	if err != nil {
+		panic(err)
+	}
+	return inner
+}
+
+func ignitionDecodeFileContents(input ign3_4.Resource) ([]byte, error) {
+	// Decode data url format
+	decodeddata, err := dataurl.DecodeString(*input.Source)
+	if err != nil {
+		return nil, err
+	}
+	contents := decodeddata.Data
+	if input.Compression != nil && *input.Compression == "gzip" {
+		contents, err = getGzipDecodedValue(contents)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return contents, nil
+}
+
+func writeInnerCustomData(outputname, customData string) error {
+	ignitionInner := ignitionUnwrapEnvelope([]byte(customData))
+	ignitionJson := json.RawMessage(ignitionInner)
+	ignitionIndented, err := json.MarshalIndent(ignitionJson, "", "  ")
+	if err != nil {
+		return err
+	}
+	os.WriteFile(outputname, ignitionIndented, 0644)
+	return nil
+}
+
 func backfillCustomData(folder, customData string) {
 	if _, err := os.Stat(fmt.Sprintf("./testdata/%s", folder)); os.IsNotExist(err) {
 		e := os.MkdirAll(fmt.Sprintf("./testdata/%s", folder), 0755)
@@ -2598,6 +2652,11 @@ func backfillCustomData(folder, customData string) {
 	writeFileError := os.WriteFile(fmt.Sprintf("./testdata/%s/CustomData", folder), []byte(customData), 0644)
 	Expect(writeFileError).To(BeNil())
 	if strings.Contains(folder, "AKSWindows") {
+		return
+	}
+	if strings.Contains(folder, "Flatcar") {
+		err := writeInnerCustomData(fmt.Sprintf("testdata/%s/CustomData.inner", folder), customData)
+		Expect(err).To(BeNil())
 		return
 	}
 }
@@ -2707,16 +2766,6 @@ func getDecodedFilesFromCustomdata(data []byte) (map[string]*decodedValue, error
 	}
 
 	return files, nil
-}
-
-type cloudInit struct {
-	WriteFiles []struct {
-		Path        string `yaml:"path"`
-		Permissions string `yaml:"permissions"`
-		Encoding    string `yaml:"encoding,omitempty"`
-		Owner       string `yaml:"owner"`
-		Content     string `yaml:"content"`
-	} `yaml:"write_files"`
 }
 
 var _ = Describe("Test normalizeResourceGroupNameForLabel", func() {
