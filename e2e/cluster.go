@@ -557,7 +557,7 @@ func ensureResourceGroup(ctx context.Context) error {
 		ctx,
 		config.ResourceGroupName,
 		armresources.ResourceGroup{
-			Location: to.Ptr(config.Config.Location),
+			Location: to.Ptr(config.Config.DefaultLocation),
 			Name:     to.Ptr(config.ResourceGroupName),
 		},
 		nil)
