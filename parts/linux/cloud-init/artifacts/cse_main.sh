@@ -49,6 +49,9 @@ fi
 
 echo $(date),$(hostname), startcustomscript>>/opt/m
 
+# ====== STAGE 1: BASE IMAGE PREPARATION ======
+# All operations that prepare the base VHD image (runs in both stages)
+
 source "${CSE_INSTALL_FILEPATH}"
 source "${CSE_DISTRO_INSTALL_FILEPATH}"
 source "${CSE_CONFIG_FILEPATH}"
@@ -123,26 +126,12 @@ if [ "${SHOULD_CONFIGURE_HTTP_PROXY}" != "true" ]; then
     # verify_DNS_health $registry_domain_name || exit $ERR_DNS_HEALTH_FAIL
 fi
 
-if [ -n "${OUTBOUND_COMMAND}" ]; then
-    if [ -n "${PROXY_VARS}" ]; then
-        eval $PROXY_VARS
-    fi
-    retrycmd_if_failure 60 1 5 $OUTBOUND_COMMAND >> /var/log/azure/cluster-provision-cse-output.log 2>&1 || exit $ERR_OUTBOUND_CONN_FAIL;
-else
-    # This file indicates the cluster doesn't have outbound connectivity and should be excluded in future external outbound checks
-    touch /var/run/outbound-check-skipped
-fi
-
 logs_to_events "AKS.CSE.setCPUArch" setCPUArch
 source /etc/os-release
 
 if [ "${ID}" != "mariner" ] && [ "${ID}" != "azurelinux" ]; then
     echo "Removing man-db auto-update flag file..."
     logs_to_events "AKS.CSE.removeManDbAutoUpdateFlagFile" removeManDbAutoUpdateFlagFile
-fi
-
-if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then 
-    logs_to_events "AKS.CSE.orasLogin.oras_login_with_kubelet_identity" oras_login_with_kubelet_identity "${registry_domain_name}" $USER_ASSIGNED_IDENTITY_ID $TENANT_ID || exit $?
 fi
 
 export -f should_skip_nvidia_drivers
@@ -192,35 +181,9 @@ REBOOTREQUIRED=false
 
 echo $(date),$(hostname), "Start configuring GPU drivers"
 if [ "${GPU_NODE}" = "true" ] && [ "${skip_nvidia_driver_install}" != "true" ]; then
+    # Install GPU drivers in both stages - drivers are part of the base image
     logs_to_events "AKS.CSE.ensureGPUDrivers" ensureGPUDrivers
-    if [ "${ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED}" = "true" ]; then
-        if [ "${MIG_NODE}" = "true" ] && [ -f "/etc/systemd/system/nvidia-device-plugin.service" ]; then
-            mkdir -p "/etc/systemd/system/nvidia-device-plugin.service.d"
-            tee "/etc/systemd/system/nvidia-device-plugin.service.d/10-mig_strategy.conf" > /dev/null <<'EOF'
-[Service]
-Environment="MIG_STRATEGY=--mig-strategy single"
-ExecStart=
-ExecStart=/usr/local/nvidia/bin/nvidia-device-plugin $MIG_STRATEGY    
-EOF
-        fi
-        logs_to_events "AKS.CSE.start.nvidia-device-plugin" "systemctlEnableAndStart nvidia-device-plugin 30" || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
-    else
-        logs_to_events "AKS.CSE.stop.nvidia-device-plugin" "systemctlDisableAndStop nvidia-device-plugin"
-    fi
 
-    if [ "${GPU_NEEDS_FABRIC_MANAGER}" = "true" ]; then
-        # fabric manager trains nvlink connections between multi instance gpus.
-        # it appears this is only necessary for systems with *multiple cards*.
-        # i.e., an A100 can be partitioned a maximum of 7 ways.
-        # An NC24ads_A100_v4 has one A100.
-        # An ND96asr_v4 has eight A100, for a maximum of 56 partitions.
-        # ND96 seems to require fabric manager *even when not using mig partitions*
-        # while it fails to install on NC24.
-        if isMarinerOrAzureLinux "$OS"; then
-            logs_to_events "AKS.CSE.installNvidiaFabricManager" installNvidiaFabricManager
-        fi
-        logs_to_events "AKS.CSE.nvidia-fabricmanager" "systemctlEnableAndStart nvidia-fabricmanager 30" || exit $ERR_GPU_DRIVERS_START_FAIL
-    fi
 
     # This will only be true for multi-instance capable VM sizes
     # for which the user has specified a partitioning profile.
@@ -241,12 +204,6 @@ EOF
 fi
 
 echo $(date),$(hostname), "End configuring GPU drivers"
-
-if [ "${NEEDS_DOCKER_LOGIN}" = "true" ]; then
-    set +x
-    docker login -u $SERVICE_PRINCIPAL_CLIENT_ID -p $SERVICE_PRINCIPAL_CLIENT_SECRET "${AZURE_PRIVATE_REGISTRY_SERVER}"
-    set -x
-fi
 
 logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy" installKubeletKubectlAndKubeProxy
 
@@ -374,70 +331,140 @@ if [ "$FULL_INSTALL_REQUIRED" = "true" ]; then
     fi
 fi
 
-VALIDATION_ERR=0
-
-# TODO(djsly): Look at leveraging the `aks-check-network.sh` script for this validation instead of duplicating the logic here
-
-# Edge case scenarios:
-# high retry times to wait for new API server DNS record to replicate (e.g. stop and start cluster)
-# high timeout to address high latency for private dns server to forward request to Azure DNS
-# dns check will be done only if we use FQDN for API_SERVER_NAME
-API_SERVER_CONN_RETRIES=50
-# shellcheck disable=SC3010
-if [[ $API_SERVER_NAME == *.privatelink.* ]]; then
-    API_SERVER_CONN_RETRIES=100
-fi
-# shellcheck disable=SC3010
-if ! [[ ${API_SERVER_NAME} =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-    API_SERVER_DNS_RETRY_TIMEOUT=300
-    if [[ $API_SERVER_NAME == *.privatelink.* ]]; then
-       API_SERVER_DNS_RETRY_TIMEOUT=600
-    fi
-    if [ "${ENABLE_HOSTS_CONFIG_AGENT}" != "true" ]; then
-        RES=$(logs_to_events "AKS.CSE.apiserverNslookup" "retrycmd_nslookup 1 15 ${API_SERVER_DNS_RETRY_TIMEOUT} ${API_SERVER_NAME}")
-        STS=$?
-    else
-        STS=0
-    fi
-    if [ "$STS" -ne 0 ]; then
-        time nslookup ${API_SERVER_NAME}
-        # shellcheck disable=SC3010
-        if [[ $RES == *"168.63.129.16"*  ]]; then
-            VALIDATION_ERR=$ERR_K8S_API_SERVER_AZURE_DNS_LOOKUP_FAIL
-        else
-            VALIDATION_ERR=$ERR_K8S_API_SERVER_DNS_LOOKUP_FAIL
-        fi
-    else
-        if [ "${UBUNTU_RELEASE}" = "18.04" ]; then
-            #TODO (djsly): remove this once 18.04 isn't supported anymore
-            logs_to_events "AKS.CSE.apiserverNC" "retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443" || time nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
-        else
-            logs_to_events "AKS.CSE.apiserverCurl" "retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 curl -v --cacert /etc/kubernetes/certs/ca.crt https://${API_SERVER_NAME}:443" || time curl -v --cacert /etc/kubernetes/certs/ca.crt "https://${API_SERVER_NAME}:443" || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
-        fi
-    fi
-else
-    # an IP address is provided for the API server, skip the DNS lookup
-    # this is the scenario for APIServerVnetIntegration. Currently we need more time to wait for the API server to be ready when feature is in preview.
-    # switching back from curl to netcat for VNETIntegration scenario in combination with HTTP Proxy due to curl 7.81.0 not supporting CIDRs(no_proxy)
-    # Once curl is available at 7.86.0 or higher, move this check from netcat to curl
-    API_SERVER_CONN_RETRIES=300
-    logs_to_events "AKS.CSE.apiserverNC" "retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443" || time nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
-fi
-
-echo "API server connection check code: $VALIDATION_ERR"
-if [ "$VALIDATION_ERR" -ne 0 ]; then
-    exit $VALIDATION_ERR
-fi
+# API server connectivity will be validated in Stage 2 cluster integration block
 
 # Call enableLocalDNS to enable localdns if localdns profile has EnableLocalDNS set to true.
 logs_to_events "AKS.CSE.enableLocalDNS" enableLocalDNS || exit $?
 
+# ====== STAGE 2: CLUSTER INTEGRATION ======
+# All operations that should only run when connecting to the actual cluster
 if [ "${PRE_PROVISION_ONLY}" != "true" ]; then
+    echo "Starting Stage 2: Cluster Integration"
+    
+    # Network connectivity and authentication
+    echo "Configuring network connectivity and authentication..."
+    
+    # Outbound connectivity check
+    if [ -n "${OUTBOUND_COMMAND}" ]; then
+        if [ -n "${PROXY_VARS}" ]; then
+            eval $PROXY_VARS
+        fi
+        retrycmd_if_failure 60 1 5 $OUTBOUND_COMMAND >> /var/log/azure/cluster-provision-cse-output.log 2>&1 || exit $ERR_OUTBOUND_CONN_FAIL;
+    else
+        # This file indicates the cluster doesn't have outbound connectivity and should be excluded in future external outbound checks
+        touch /var/run/outbound-check-skipped
+    fi
+    
+    # Container registry authentication
+    if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then 
+        logs_to_events "AKS.CSE.orasLogin.oras_login_with_kubelet_identity" oras_login_with_kubelet_identity "${registry_domain_name}" $USER_ASSIGNED_IDENTITY_ID $TENANT_ID || exit $?
+    fi
+    
+    if [ "${NEEDS_DOCKER_LOGIN}" = "true" ]; then
+        set +x
+        docker login -u $SERVICE_PRINCIPAL_CLIENT_ID -p $SERVICE_PRINCIPAL_CLIENT_SECRET "${AZURE_PRIVATE_REGISTRY_SERVER}"
+        set -x
+    fi
+    
+    # GPU runtime services
+    echo "Configuring GPU runtime services..."
+    if [ "${GPU_NODE}" = "true" ] && [ "${skip_nvidia_driver_install}" != "true" ]; then
+        if [ "${ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED}" = "true" ]; then
+            if [ "${MIG_NODE}" = "true" ] && [ -f "/etc/systemd/system/nvidia-device-plugin.service" ]; then
+                mkdir -p "/etc/systemd/system/nvidia-device-plugin.service.d"
+                tee "/etc/systemd/system/nvidia-device-plugin.service.d/10-mig_strategy.conf" > /dev/null <<'EOF'
+[Service]
+Environment="MIG_STRATEGY=--mig-strategy single"
+ExecStart=
+ExecStart=/usr/local/nvidia/bin/nvidia-device-plugin $MIG_STRATEGY    
+EOF
+            fi
+            logs_to_events "AKS.CSE.start.nvidia-device-plugin" "systemctlEnableAndStart nvidia-device-plugin 30" || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
+        else
+            logs_to_events "AKS.CSE.stop.nvidia-device-plugin" "systemctlDisableAndStop nvidia-device-plugin"
+        fi
+
+        if [ "${GPU_NEEDS_FABRIC_MANAGER}" = "true" ]; then
+            # fabric manager trains nvlink connections between multi instance gpus.
+            # it appears this is only necessary for systems with *multiple cards*.
+            # i.e., an A100 can be partitioned a maximum of 7 ways.
+            # An NC24ads_A100_v4 has one A100.
+            # An ND96asr_v4 has eight A100, for a maximum of 56 partitions.
+            # ND96 seems to require fabric manager *even when not using mig partitions*
+            # while it fails to install on NC24.
+            if isMarinerOrAzureLinux "$OS"; then
+                logs_to_events "AKS.CSE.installNvidiaFabricManager" installNvidiaFabricManager
+            fi
+            logs_to_events "AKS.CSE.nvidia-fabricmanager" "systemctlEnableAndStart nvidia-fabricmanager 30" || exit $ERR_GPU_DRIVERS_START_FAIL
+        fi
+    fi
+    
+    # API server connectivity validation
+    echo "Validating API server connectivity..."
+    VALIDATION_ERR=0
+
+    # TODO(djsly): Look at leveraging the `aks-check-network.sh` script for this validation instead of duplicating the logic here
+
+    # Edge case scenarios:
+    # high retry times to wait for new API server DNS record to replicate (e.g. stop and start cluster)
+    # high timeout to address high latency for private dns server to forward request to Azure DNS
+    # dns check will be done only if we use FQDN for API_SERVER_NAME
+    API_SERVER_CONN_RETRIES=50
+    # shellcheck disable=SC3010
+    if [[ $API_SERVER_NAME == *.privatelink.* ]]; then
+        API_SERVER_CONN_RETRIES=100
+    fi
+    # shellcheck disable=SC3010
+    if ! [[ ${API_SERVER_NAME} =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        API_SERVER_DNS_RETRY_TIMEOUT=300
+        if [[ $API_SERVER_NAME == *.privatelink.* ]]; then
+           API_SERVER_DNS_RETRY_TIMEOUT=600
+        fi
+        if [ "${ENABLE_HOSTS_CONFIG_AGENT}" != "true" ]; then
+            RES=$(logs_to_events "AKS.CSE.apiserverNslookup" "retrycmd_nslookup 1 15 ${API_SERVER_DNS_RETRY_TIMEOUT} ${API_SERVER_NAME}")
+            STS=$?
+        else
+            STS=0
+        fi
+        if [ "$STS" -ne 0 ]; then
+            time nslookup ${API_SERVER_NAME}
+            # shellcheck disable=SC3010
+            if [[ $RES == *"168.63.129.16"*  ]]; then
+                VALIDATION_ERR=$ERR_K8S_API_SERVER_AZURE_DNS_LOOKUP_FAIL
+            else
+                VALIDATION_ERR=$ERR_K8S_API_SERVER_DNS_LOOKUP_FAIL
+            fi
+        else
+            if [ "${UBUNTU_RELEASE}" = "18.04" ]; then
+                #TODO (djsly): remove this once 18.04 isn't supported anymore
+                logs_to_events "AKS.CSE.apiserverNC" "retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443" || time nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
+            else
+                logs_to_events "AKS.CSE.apiserverCurl" "retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 curl -v --cacert /etc/kubernetes/certs/ca.crt https://${API_SERVER_NAME}:443" || time curl -v --cacert /etc/kubernetes/certs/ca.crt "https://${API_SERVER_NAME}:443" || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
+            fi
+        fi
+    else
+        # an IP address is provided for the API server, skip the DNS lookup
+        # this is the scenario for APIServerVnetIntegration. Currently we need more time to wait for the API server to be ready when feature is in preview.
+        # switching back from curl to netcat for VNETIntegration scenario in combination with HTTP Proxy due to curl 7.81.0 not supporting CIDRs(no_proxy)
+        # Once curl is available at 7.86.0 or higher, move this check from netcat to curl
+        API_SERVER_CONN_RETRIES=300
+        logs_to_events "AKS.CSE.apiserverNC" "retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443" || time nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
+    fi
+
+    echo "API server connection check code: $VALIDATION_ERR"
+    if [ "$VALIDATION_ERR" -ne 0 ]; then
+        exit $VALIDATION_ERR
+    fi
+    
+    # Kubelet and cluster services
+    echo "Starting kubelet and cluster services..."
     logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
     
     if [ "${ARTIFACT_STREAMING_ENABLED}" = "true" ]; then
         logs_to_events "AKS.CSE.ensureContainerd.ensureArtifactStreaming" ensureArtifactStreaming || exit $ERR_ARTIFACT_STREAMING_INSTALL
     fi
+    
+    echo "Stage 2: Cluster Integration completed successfully"
 fi
 
 if [ "${ID}" != "mariner" ] && [ "${ID}" != "azurelinux" ]; then
