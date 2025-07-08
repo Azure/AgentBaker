@@ -653,6 +653,10 @@ func baseTemplateLinux(t *testing.T, location string, k8sVersion string, arch st
 					GalleryName:   "AKSUbuntuEdgeZone",
 					ResourceGroup: "AKS-Ubuntu-EdgeZone",
 				},
+				"AKSFlatcar": {
+					GalleryName:   "aksflatcar",
+					ResourceGroup: "resourcegroup",
+				},
 			},
 		},
 		IsARM64:                   false,
