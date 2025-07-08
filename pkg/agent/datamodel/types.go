@@ -346,6 +346,10 @@ func (d Distro) IsKataDistro() bool {
 	return d == AKSCBLMarinerV2Gen2Kata || d == AKSAzureLinuxV3Gen2Kata || d == AKSAzureLinuxV2Gen2Kata || d == AKSCBLMarinerV2KataGen2TL || d == CustomizedImageKata
 }
 
+func (d Distro) IsFlatcar() bool {
+	return d == AKSFlatcarGen2 || d == AKSFlatcarArm64Gen2
+}
+
 /*
 KeyvaultSecretRef specifies path to the Azure keyvault along with secret name and (optionaly) version
 for Service Principal's secret.
@@ -1204,6 +1208,9 @@ func (a *AgentPoolProfile) IsCustomVNET() bool {
 // IsWindows returns true if the agent pool is windows.
 func (a *AgentPoolProfile) IsWindows() bool {
 	return strings.EqualFold(string(a.OSType), string(Windows))
+}
+func (a *AgentPoolProfile) IsFlatcar() bool {
+	return a.Distro.IsFlatcar()
 }
 
 // IsSkipCleanupNetwork returns true if AKS-RP sets the field NotRebootWindowsNode to true.
