@@ -15,10 +15,10 @@ import (
 var (
 	Config                = mustLoadConfig()
 	Azure                 = mustNewAzureClient()
-	ResourceGroupName     = "abe2e-" + Config.Location
+	ResourceGroupName     = "abe2e-" + Config.DefaultLocation
 	VMIdentityName        = "abe2e-vm-identity"
-	PrivateACRNameNotAnon = "privateace2enonanonpull" + Config.Location // will have anonymous pull enabled
-	PrivateACRName        = "privateacre2e" + Config.Location           // will not have anonymous pull enabled
+	PrivateACRNameNotAnon = "privateace2enonanonpull" + Config.DefaultLocation // will have anonymous pull enabled
+	PrivateACRName        = "privateacre2e" + Config.DefaultLocation           // will not have anonymous pull enabled
 
 	DefaultPollUntilDoneOptions = &runtime.PollUntilDoneOptions{
 		Frequency: time.Second,
@@ -48,7 +48,7 @@ type Configuration struct {
 
 	IgnoreScenariosWithMissingVHD bool          `env:"IGNORE_SCENARIOS_WITH_MISSING_VHD"`
 	KeepVMSS                      bool          `env:"KEEP_VMSS"`
-	Location                      string        `env:"E2E_LOCATION" envDefault:"westus3"`
+	DefaultLocation               string        `env:"E2E_LOCATION" envDefault:"westus3"`
 	SIGVersionTagName             string        `env:"SIG_VERSION_TAG_NAME" envDefault:"branch"`
 	SIGVersionTagValue            string        `env:"SIG_VERSION_TAG_VALUE" envDefault:"refs/heads/master"`
 	SkipTestsWithSKUCapacityIssue bool          `env:"SKIP_TESTS_WITH_SKU_CAPACITY_ISSUE"`
@@ -62,7 +62,7 @@ type Configuration struct {
 }
 
 func (c *Configuration) BlobStorageAccount() string {
-	return c.BlobStorageAccountPrefix + c.Location
+	return c.BlobStorageAccountPrefix + c.DefaultLocation
 }
 
 func (c *Configuration) BlobStorageAccountURL() string {
