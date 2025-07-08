@@ -301,7 +301,7 @@ func (a *AzureClient) UploadAndGetSignedLink(ctx context.Context, blobName strin
 
 func (a *AzureClient) CreateVMManagedIdentity(ctx context.Context) (string, error) {
 	identity, err := a.UserAssignedIdentities.CreateOrUpdate(ctx, ResourceGroupName, VMIdentityName, armmsi.Identity{
-		Location: to.Ptr(Config.Location),
+		Location: to.Ptr(Config.DefaultLocation),
 	}, nil)
 	if err != nil {
 		return "", fmt.Errorf("create managed identity: %w", err)
@@ -324,7 +324,7 @@ func (a *AzureClient) CreateVMManagedIdentity(ctx context.Context) (string, erro
 func (a *AzureClient) createBlobStorageAccount(ctx context.Context) error {
 	poller, err := a.StorageAccounts.BeginCreate(ctx, ResourceGroupName, Config.BlobStorageAccount(), armstorage.AccountCreateParameters{
 		Kind:     to.Ptr(armstorage.KindStorageV2),
-		Location: &Config.Location,
+		Location: &Config.DefaultLocation,
 		SKU: &armstorage.SKU{
 			Name: to.Ptr(armstorage.SKUNameStandardLRS),
 		},
@@ -453,10 +453,10 @@ func (a *AzureClient) LatestSIGImageVersionByTag(ctx context.Context, t *testing
 
 func (a *AzureClient) ensureReplication(ctx context.Context, t *testing.T, image *Image, version *armcompute.GalleryImageVersion) error {
 	if replicatedToCurrentRegion(version) {
-		t.Logf("Image version %s is already in region to region %s", *version.ID, Config.Location)
+		t.Logf("Image version %s is already in region to region %s", *version.ID, Config.DefaultLocation)
 		return nil
 	}
-	t.Logf("##vso[task.logissue type=warning;]Replicating to region %s: image version %s", Config.Location, *version.ID)
+	t.Logf("##vso[task.logissue type=warning;]Replicating to region %s: image version %s", Config.DefaultLocation, *version.ID)
 
 	start := time.Now() // Record the start time
 	err := a.replicateImageVersionToCurrentRegion(ctx, image, version)
@@ -473,7 +473,7 @@ func (a *AzureClient) replicateImageVersionToCurrentRegion(ctx context.Context, 
 		return fmt.Errorf("create a new images client: %v", err)
 	}
 	version.Properties.PublishingProfile.TargetRegions = append(version.Properties.PublishingProfile.TargetRegions, &armcompute.TargetRegion{
-		Name:                 &Config.Location,
+		Name:                 &Config.DefaultLocation,
 		RegionalReplicaCount: to.Ptr[int32](1),
 		StorageAccountType:   to.Ptr(armcompute.StorageAccountTypeStandardLRS),
 	})
@@ -539,7 +539,7 @@ func DefaultRetryOpts() policy.RetryOptions {
 
 func replicatedToCurrentRegion(version *armcompute.GalleryImageVersion) bool {
 	for _, targetRegion := range version.Properties.PublishingProfile.TargetRegions {
-		if strings.EqualFold(strings.ReplaceAll(*targetRegion.Name, " ", ""), Config.Location) {
+		if strings.EqualFold(strings.ReplaceAll(*targetRegion.Name, " ", ""), Config.DefaultLocation) {
 			return true
 		}
 	}
@@ -562,7 +562,7 @@ func (a *AzureClient) CreateVMSSWithRetry(ctx context.Context, t *testing.T, res
 		// It's not a quota issue
 		return errors.As(err, &respErr) && respErr.StatusCode == 200 && respErr.ErrorCode == "AllocationFailed"
 	}
-	
+
 	maxAttempts := 10
 	attempt := 0
 

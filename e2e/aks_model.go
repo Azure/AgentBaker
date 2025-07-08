@@ -72,7 +72,7 @@ func getLatestGAKubernetesVersion(location string, t *testing.T) (string, error)
 
 // getLatestKubernetesVersionClusterModel returns a cluster model with the latest GA Kubernetes version.
 func getLatestKubernetesVersionClusterModel(name string, t *testing.T) (*armcontainerservice.ManagedCluster, error) {
-	version, err := getLatestGAKubernetesVersion(config.Config.Location, t)
+	version, err := getLatestGAKubernetesVersion(config.Config.DefaultLocation, t)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get latest GA Kubernetes version: %w", err)
 	}
@@ -148,7 +148,7 @@ func getCiliumNetworkClusterModel(name string) *armcontainerservice.ManagedClust
 func getBaseClusterModel(clusterName string) *armcontainerservice.ManagedCluster {
 	return &armcontainerservice.ManagedCluster{
 		Name:     to.Ptr(clusterName),
-		Location: to.Ptr(config.Config.Location),
+		Location: to.Ptr(config.Config.DefaultLocation),
 		Properties: &armcontainerservice.ManagedClusterProperties{
 			DNSPrefix: to.Ptr(clusterName),
 			AgentPoolProfiles: []*armcontainerservice.ManagedClusterAgentPoolProfile{
@@ -186,7 +186,7 @@ func addAirgapNetworkSettings(ctx context.Context, t *testing.T, clusterModel *a
 	}
 	subnetId := vnet.subnetId
 
-	nsgParams, err := airGapSecurityGroup(config.Config.Location, *clusterModel.Properties.Fqdn)
+	nsgParams, err := airGapSecurityGroup(config.Config.DefaultLocation, *clusterModel.Properties.Fqdn)
 	if err != nil {
 		return err
 	}
@@ -367,7 +367,7 @@ func createPrivateAzureContainerRegistry(ctx context.Context, t *testing.T, clus
 
 	t.Logf("ACR does not exist, creating...")
 	createParams := armcontainerregistry.Registry{
-		Location: to.Ptr(config.Config.Location),
+		Location: to.Ptr(config.Config.DefaultLocation),
 		SKU: &armcontainerregistry.SKU{
 			Name: to.Ptr(armcontainerregistry.SKUNamePremium),
 		},
@@ -501,7 +501,7 @@ func createPrivateEndpoint(ctx context.Context, t *testing.T, nodeResourceGroup,
 	acrID := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.ContainerRegistry/registries/%s", config.Config.SubscriptionID, config.ResourceGroupName, privateACRName)
 
 	peParams := armnetwork.PrivateEndpoint{
-		Location: to.Ptr(config.Config.Location),
+		Location: to.Ptr(config.Config.DefaultLocation),
 		Properties: &armnetwork.PrivateEndpointProperties{
 			Subnet: &armnetwork.Subnet{
 				ID: to.Ptr(vnet.subnetId),
