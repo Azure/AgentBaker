@@ -73,7 +73,15 @@ func mustNoError(err error) {
 func RunScenario(t *testing.T, s *Scenario) {
 	t.Parallel()
 	if config.Config.TestPreProvision {
-		runScenarioWithPreProvision(t, s)
+		t.Run("Original", func(t *testing.T) {
+			t.Parallel()
+			runScenario(t, s)
+		})
+		t.Run("FirstStage", func(t *testing.T) {
+			t.Parallel()
+			runScenarioWithPreProvision(t, s)
+
+		})
 	} else {
 		runScenario(t, s)
 	}
@@ -84,6 +92,9 @@ func runScenarioWithPreProvision(t *testing.T, original *Scenario) {
 	if original.VHD.Arch == "arm64" {
 		t.Skipf("Image creation doesn't support ARM64, skipping %s", original.VHD.Name)
 	}
+
+	var customVHD *config.Image
+
 	// This is hard to understand. Some functional magic is used to run the original scenario in two stages.
 	// 1. Stage 1: Run the original scenario with pre-provisioning enabled, but skip the main validation and validate only pre-provisioning.
 	// 2. Create a new Image from the VMSS created in Stage 1
@@ -122,50 +133,7 @@ func runScenarioWithPreProvision(t *testing.T, original *Scenario) {
 
 				// VM is automatically deleted after the test.
 				// We run Subtest in the Validator to capture VHD before it's deleted
-				customVHD := CreateImage(ctx, stage1)
-				//stage1SSHKeys := stage1.Runtime.NBC.ContainerService.Properties.LinuxProfile.SSH.PublicKeys
-
-				// Create a subtest so RunScenario won't fail on t.Parallel() and log to a different directory
-				t.Run("SecondStage", func(t *testing.T) {
-					secondStageScenario := &Scenario{
-						Description: "Stage 2: Create VMSS from captured VHD via SIG",
-						Tags:        stage1.Tags,
-						Config: Config{
-							Cluster:                original.Config.Cluster,
-							VHD:                    customVHD,
-							SkipDefaultValidation:  original.Config.SkipDefaultValidation,
-							BootstrapConfigMutator: original.BootstrapConfigMutator,
-							AKSNodeConfigMutator:   original.AKSNodeConfigMutator, // TODO: Why NodeConfig doesn't have SSH keys?
-							VMConfigMutator:        original.VMConfigMutator,
-							Validator: func(ctx context.Context, s *Scenario) {
-								// Stage 2 validation: Verify kubelet is now working
-								if s.IsWindows() {
-									ValidateFileExists(ctx, s, "C:\\AzureData\\provision.complete")
-									ValidateWindowsServiceIsRunning(ctx, s, "kubelet")
-								} else {
-									ValidateFileExists(ctx, s, "/opt/azure/containers/provision.complete")
-									ValidateSystemdUnitIsRunning(ctx, s, "kubelet")
-								}
-								if original.Config.Validator != nil {
-									original.Config.Validator(ctx, s)
-								}
-							},
-						},
-					}
-					secondStageScenario.BootstrapConfigMutator = original.BootstrapConfigMutator
-					secondStageScenario.AKSNodeConfigMutator = original.AKSNodeConfigMutator
-					//
-					//if original.BootstrapConfigMutator != nil {
-					//	secondStageScenario.BootstrapConfigMutator = func(nbc *datamodel.NodeBootstrappingConfiguration) {
-					//	}
-					//}
-					//if original.AKSNodeConfigMutator != nil {
-					//	secondStageScenario.AKSNodeConfigMutator = original.AKSNodeConfigMutator
-					//}
-					// Run Stage 2 scenario using the custom VHD
-					// RunScenario fails due to the running of the t.Parallel() for the second time
-					runScenario(t, secondStageScenario)
-				})
+				customVHD = CreateImage(ctx, stage1)
 			},
 		},
 	}
@@ -182,6 +150,44 @@ func runScenarioWithPreProvision(t *testing.T, original *Scenario) {
 		}
 	}
 	runScenario(t, firstStage)
+
+	if t.Failed() {
+		return // first stage failed, no point in proceeding to the second stage
+	}
+
+	// Create a subtest for proper logging and test reporting
+	t.Run("SecondStage", func(t *testing.T) {
+		secondStageScenario := &Scenario{
+			Description: "Stage 2: Create VMSS from captured VHD via SIG",
+			Tags:        original.Tags,
+			Config: Config{
+				Cluster:                original.Config.Cluster,
+				VHD:                    customVHD,
+				SkipDefaultValidation:  original.Config.SkipDefaultValidation,
+				BootstrapConfigMutator: original.BootstrapConfigMutator,
+				AKSNodeConfigMutator:   original.AKSNodeConfigMutator, // TODO: Why NodeConfig doesn't have SSH keys?
+				VMConfigMutator:        original.VMConfigMutator,
+				Validator: func(ctx context.Context, s *Scenario) {
+					// Stage 2 validation: Verify kubelet is now working
+					if s.IsWindows() {
+						ValidateFileExists(ctx, s, "C:\\AzureData\\provision.complete")
+						ValidateWindowsServiceIsRunning(ctx, s, "kubelet")
+					} else {
+						ValidateFileExists(ctx, s, "/opt/azure/containers/provision.complete")
+						ValidateSystemdUnitIsRunning(ctx, s, "kubelet")
+					}
+					if original.Config.Validator != nil {
+						original.Config.Validator(ctx, s)
+					}
+				},
+			},
+		}
+		secondStageScenario.BootstrapConfigMutator = original.BootstrapConfigMutator
+		secondStageScenario.AKSNodeConfigMutator = original.AKSNodeConfigMutator
+		// Run Stage 2 scenario using the custom VHD
+		// RunScenario fails due to the running of the t.Parallel() for the second time
+		runScenario(t, secondStageScenario)
+	})
 }
 
 func runScenario(t *testing.T, s *Scenario) {

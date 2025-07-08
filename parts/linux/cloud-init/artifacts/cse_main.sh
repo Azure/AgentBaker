@@ -434,10 +434,10 @@ logs_to_events "AKS.CSE.enableLocalDNS" enableLocalDNS || exit $?
 
 if [ "${PRE_PROVISION_ONLY}" != "true" ]; then
     logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
-fi
-
-if [ "${ARTIFACT_STREAMING_ENABLED}" = "true" ]; then
-    logs_to_events "AKS.CSE.ensureContainerd.ensureArtifactStreaming" ensureArtifactStreaming || exit $ERR_ARTIFACT_STREAMING_INSTALL
+    
+    if [ "${ARTIFACT_STREAMING_ENABLED}" = "true" ]; then
+        logs_to_events "AKS.CSE.ensureContainerd.ensureArtifactStreaming" ensureArtifactStreaming || exit $ERR_ARTIFACT_STREAMING_INSTALL
+    fi
 fi
 
 if [ "${ID}" != "mariner" ] && [ "${ID}" != "azurelinux" ]; then
