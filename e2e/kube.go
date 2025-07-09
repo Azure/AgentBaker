@@ -475,7 +475,7 @@ func podHTTPServerLinux(s *Scenario) *corev1.Pod {
 	image := "mcr.microsoft.com/cbl-mariner/busybox:2.0"
 	secretName := ""
 	if s.Tags.Airgap {
-		image = fmt.Sprintf("%s.azurecr.io/cbl-mariner/busybox:2.0", config.GetPrivateACRName(s.Tags.NonAnonymousACR))
+		image = fmt.Sprintf("%s.azurecr.io/cbl-mariner/busybox:2.0", config.GetPrivateACRName(s.Tags.NonAnonymousACR, s.Location))
 		secretName = config.Config.ACRSecretName
 	}
 	return &corev1.Pod{

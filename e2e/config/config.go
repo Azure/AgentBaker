@@ -13,17 +13,26 @@ import (
 )
 
 var (
-	Config                = mustLoadConfig()
-	Azure                 = mustNewAzureClient()
-	ResourceGroupName     = "abe2e-" + Config.DefaultLocation
-	VMIdentityName        = "abe2e-vm-identity"
-	PrivateACRNameNotAnon = "privateace2enonanonpull" + Config.DefaultLocation // will have anonymous pull enabled
-	PrivateACRName        = "privateacre2e" + Config.DefaultLocation           // will not have anonymous pull enabled
+	Config         = mustLoadConfig()
+	Azure          = mustNewAzureClient()
+	VMIdentityName = "abe2e-vm-identity"
 
 	DefaultPollUntilDoneOptions = &runtime.PollUntilDoneOptions{
 		Frequency: time.Second,
 	}
 )
+
+func ResourceGroupName(location string) string {
+	return "abe2e-" + location
+}
+
+func PrivateACRNameNotAnon(location string) string {
+	return "privateace2enonanonpull" + location // will have anonymous pull enabled
+}
+
+func PrivateACRName(location string) string {
+	return "privateacre2e" + location // will not have anonymous pull enabled
+}
 
 type Configuration struct {
 	AirgapNSGName                          string `env:"AIRGAP_NSG_NAME" envDefault:"abe2e-airgap-securityGroup"`
@@ -62,6 +71,8 @@ type Configuration struct {
 }
 
 func (c *Configuration) BlobStorageAccount() string {
+	// This DefaultLocation is used because the azure blob client requires the
+	// full URL to the storage account.
 	return c.BlobStorageAccountPrefix + c.DefaultLocation
 }
 
@@ -92,8 +103,8 @@ func (c *Configuration) String() string {
 	return strings.Join(data, "\n")
 }
 
-func (c *Configuration) VMIdentityResourceID() string {
-	return fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.ManagedIdentity/userAssignedIdentities/%s", c.SubscriptionID, ResourceGroupName, VMIdentityName)
+func (c *Configuration) VMIdentityResourceID(location string) string {
+	return fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.ManagedIdentity/userAssignedIdentities/%s", c.SubscriptionID, ResourceGroupName(location), VMIdentityName)
 }
 
 func mustLoadConfig() *Configuration {
@@ -105,10 +116,10 @@ func mustLoadConfig() *Configuration {
 	return cfg
 }
 
-func GetPrivateACRName(isNonAnonymousPull bool) string {
-	privateACRName := PrivateACRName
+func GetPrivateACRName(isNonAnonymousPull bool, location string) string {
+	privateACRName := PrivateACRName(location)
 	if isNonAnonymousPull {
-		privateACRName = PrivateACRNameNotAnon
+		privateACRName = PrivateACRNameNotAnon(location)
 	}
 	return privateACRName
 }
