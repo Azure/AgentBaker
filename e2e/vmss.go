@@ -270,6 +270,15 @@ func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
 
 	s.T.Logf("uploaded logs to %s", blobUrl)
 
+	// Create a reusable URL for the Azure portal link to the storage account
+	azurePortalURL := fmt.Sprintf("https://portal.azure.com/?feature.customportal=false#@microsoft.onmicrosoft.com/resource/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Storage/storageAccounts/%s/overview",
+		config.Config.SubscriptionID,
+		config.ResourceGroupName,
+		config.Config.BlobStorageAccount())
+
+	s.T.Logf("Storage account in Azure portal: %s", azurePortalURL)
+	s.T.Logf("##vso[task.logissue type=warning;]%s", azurePortalURL)
+
 	downloadBlob := func(blobSuffix string) {
 		fileName := filepath.Join(testDir(s.T), blobSuffix)
 		err := os.MkdirAll(testDir(s.T), 0755)
