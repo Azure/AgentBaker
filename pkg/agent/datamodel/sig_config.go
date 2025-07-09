@@ -1082,7 +1082,8 @@ func GetSIGAzureCloudSpecConfig(sigConfig SIGConfig, region string) (SIGAzureEnv
 	}
 	c.SigAzureLinuxImageConfig = getSigAzureLinuxImageConfigMapWithOpts(fromACSAzureLinux)
 
-	fromACSFlatcar, err := withACSSIGConfig(sigConfig, "AKSFlatcar")
+	//fromACSFlatcar, err := withACSSIGConfig(sigConfig, "AKSFlatcar")
+	fromACSFlatcar, err := withDevSIG()
 	if err != nil {
 		return SIGAzureEnvironmentSpecConfig{}, fmt.Errorf("unexpected error while constructing env-aware sig configuration for AKSFlatcar: %w", err)
 	}
@@ -1115,6 +1116,15 @@ func GetAzurePublicSIGConfigForTest() SIGAzureEnvironmentSpecConfig {
 		SigUbuntuEdgeZoneImageConfig: getSigUbuntuEdgeZoneImageConfigMapWithOpts(withSubscription(AzurePublicCloudSigSubscription)),
 		SigFlatcarImageConfig:        getSigFlatcarImageConfigMapWithOpts(withSubscription(AzurePublicCloudSigSubscription)),
 	}
+}
+
+func withDevSIG() (SigImageConfigOpt, error) {
+	return func(c *SigImageConfig) {
+		c.Gallery = "PackerSigGalleryEastUS"
+		c.SubscriptionID = "3be1ff13-7eef-458c-b1ef-97a01af1b2f4"
+		c.ResourceGroup = "aksvhdtestbuildrg"
+		c.Version = "latest"
+	}, nil
 }
 
 func withACSSIGConfig(acsSigConfig SIGConfig, osSKU string) (SigImageConfigOpt, error) {
