@@ -269,6 +269,10 @@ func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
 	s.T.Logf("run command executed successfully: %v", runCommandResp)
 
 	s.T.Logf("uploaded logs to %s", blobUrl)
+	s.T.Logf("view storage account in Azure portal: https://portal.azure.com/?feature.customportal=false#@microsoft.onmicrosoft.com/resource/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Storage/storageAccounts/%s/overview",
+		config.Config.SubscriptionID,
+		config.ResourceGroupName,
+		config.Config.BlobStorageAccount())
 
 	downloadBlob := func(blobSuffix string) {
 		fileName := filepath.Join(testDir(s.T), blobSuffix)
