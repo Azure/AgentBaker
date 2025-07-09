@@ -7,6 +7,12 @@ import (
 	"testing"
 )
 
+// this is mostly for WS2019 - as WS2019 doesn't support anything after 1.32.
+func TestVersion1_32IsCached(t *testing.T) {
+	version := GetKubeletVersionByMinorVersion("v1.32")
+	require.NotEmpty(t, version)
+}
+
 func TestImagesAreFullySpecified(t *testing.T) {
 	images := getWindowsContainerImages("mcr.microsoft.com/windows/servercore:*", "2025-gen2")
 	tags := getWindowsContainerImageTags("mcr.microsoft.com/windows/servercore:*", "2025-gen2")
@@ -123,6 +129,26 @@ func TestWindowsImagesHaveServercoreAndNanoserverSpecified(t *testing.T) {
 			images := getNanoserverImagesForVhd(image)
 			t.Logf("found servercore version %v", images)
 			require.NotEmpty(t, images, "No Windows nanoserver images found")
+		})
+	}
+}
+
+type versionCheck struct {
+	input    string
+	expected string
+}
+
+func TestRemoveLeadingV(t *testing.T) {
+	tests := []versionCheck{
+		{input: "v1.30.0", expected: "1.30.0"},
+		{input: "v1.32.6", expected: "1.32.6"},
+		{input: "1.30.0", expected: "1.30.0"},
+		{input: "", expected: ""},
+	}
+
+	for _, test := range tests {
+		t.Run(fmt.Sprintf("testing removing leading v of \"%s\" gives \"%s\"", test.input, test.expected), func(t *testing.T) {
+			require.Equal(t, test.expected, RemoveLeadingV(test.input))
 		})
 	}
 }
