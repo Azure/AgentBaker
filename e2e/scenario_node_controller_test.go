@@ -26,12 +26,13 @@ import (
 // it's intended to be used for quick testing without rebuilding VHD images
 // mostly executed locally
 func Test_Ubuntu2204AKSNodeController(t *testing.T) {
-	ctx := newTestCtx(t)
+	location := config.Config.DefaultLocation
+	ctx := newTestCtx(t, location)
 	if !config.Config.EnableAKSNodeControllerTest {
 		t.Skip("ENABLE_AKS_NODE_CONTROLLER_TEST is not set")
 	}
 	// TODO: figure out how to properly parallelize test, maybe move t.Parallel to the top of each test?
-	cluster, err := ClusterKubenet(ctx, t)
+	cluster, err := ClusterKubenet(ctx, location, t)
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		log, err := os.ReadFile("./scenario-logs/" + t.Name() + "/aks-node-controller.stdout.txt")
@@ -40,7 +41,7 @@ func Test_Ubuntu2204AKSNodeController(t *testing.T) {
 		}
 		t.Logf("aks-node-controller log: %s", string(log))
 	})
-	identity, err := config.Azure.CreateVMManagedIdentity(ctx)
+	identity, err := config.Azure.CreateVMManagedIdentity(ctx, location)
 	require.NoError(t, err)
 	binary := compileAKSNodeController(t)
 	url, err := config.Azure.UploadAndGetLink(ctx, time.Now().UTC().Format("2006-01-02-15-04-05")+"/aks-node-controller", binary)
@@ -56,7 +57,7 @@ func Test_Ubuntu2204AKSNodeController(t *testing.T) {
 				model.Identity = &armcompute.VirtualMachineScaleSetIdentity{
 					Type: to.Ptr(armcompute.ResourceIdentityTypeSystemAssignedUserAssigned),
 					UserAssignedIdentities: map[string]*armcompute.UserAssignedIdentitiesValue{
-						config.Config.VMIdentityResourceID(): {},
+						config.Config.VMIdentityResourceID(location): {},
 					},
 				}
 				model.Properties.VirtualMachineProfile.ExtensionProfile = &armcompute.VirtualMachineScaleSetExtensionProfile{
