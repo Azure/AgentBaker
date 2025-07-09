@@ -24,7 +24,7 @@ func Windows2019BootstrapConfigMutator(t *testing.T, configuration *datamodel.No
 	// 2019 is not supported in 1.33+
 	version := GetKubeletVersionByMinorVersion("v1.32")
 	require.NotEmpty(t, version)
-	configuration.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = version
+	configuration.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = RemoveLeadingV(version)
 }
 
 func DualStackVMConfigMutator(set *armcompute.VirtualMachineScaleSet) {

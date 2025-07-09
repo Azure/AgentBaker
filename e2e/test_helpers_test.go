@@ -132,3 +132,23 @@ func TestWindowsImagesHaveServercoreAndNanoserverSpecified(t *testing.T) {
 		})
 	}
 }
+
+type versionCheck struct {
+	input    string
+	expected string
+}
+
+func TestRemoveLeadingV(t *testing.T) {
+	tests := []versionCheck{
+		{input: "v1.30.0", expected: "1.30.0"},
+		{input: "v1.32.6", expected: "1.32.6"},
+		{input: "1.30.0", expected: "1.30.0"},
+		{input: "", expected: ""},
+	}
+
+	for _, test := range tests {
+		t.Run(fmt.Sprintf("testing removing leading v of \"%s\" gives \"%s\"", test.input, test.expected), func(t *testing.T) {
+			require.Equal(t, test.expected, RemoveLeadingV(test.input))
+		})
+	}
+}

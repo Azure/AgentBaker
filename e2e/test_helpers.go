@@ -471,3 +471,10 @@ func GetKubeletVersionByMinorVersion(minorVersion string) string {
 	})
 	return rightVersion
 }
+
+func RemoveLeadingV(version string) string {
+	if len(version) > 0 && version[0] == 'v' {
+		return version[1:]
+	}
+	return version
+}
