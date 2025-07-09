@@ -456,3 +456,25 @@ func createVMExtensionLinuxAKSNode(location *string) (*armcompute.VirtualMachine
 		},
 	}, nil
 }
+
+func GetKubeletVersionByMinorVersion(minorVersion string) string {
+	allCachedKubeletVersions := getExpectedPackageVersions("kubernetes-binaries", "default", "current")
+	rightVersions := toolkit.Filter(allCachedKubeletVersions, func(v string) bool { return strings.HasPrefix(v, minorVersion) })
+	rightVersion := toolkit.Reduce(rightVersions, "", func(sum string, next string) string {
+		if sum == "" {
+			return next
+		}
+		if next > sum {
+			return next
+		}
+		return sum
+	})
+	return rightVersion
+}
+
+func RemoveLeadingV(version string) string {
+	if len(version) > 0 && version[0] == 'v' {
+		return version[1:]
+	}
+	return version
+}
