@@ -19,6 +19,11 @@ func DualStackConfigMutator(configuration *datamodel.NodeBootstrappingConfigurat
 	properties.FeatureFlags.EnableIPv6DualStack = true
 }
 
+func Windows2019BootstrapConfigMutator(configuration *datamodel.NodeBootstrappingConfiguration) {
+	// 2019 is not supported in 1.33+
+	configuration.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.32.6"
+}
+
 func DualStackVMConfigMutator(set *armcompute.VirtualMachineScaleSet) {
 	ip4Config := set.Properties.VirtualMachineProfile.NetworkProfile.NetworkInterfaceConfigurations[0].Properties.IPConfigurations[0]
 
@@ -47,7 +52,7 @@ func Test_Windows2019AzureNetwork(t *testing.T) {
 			Cluster:                ClusterAzureNetwork,
 			VHD:                    config.VHDWindows2019Containerd,
 			VMConfigMutator:        EmptyVMConfigMutator,
-			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
+			BootstrapConfigMutator: Windows2019BootstrapConfigMutator,
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateWindowsVersionFromWindowsSettings(ctx, s, "2019-containerd")
 				ValidateWindowsProductName(ctx, s, "Windows Server 2019 Datacenter")
@@ -336,16 +341,16 @@ func Test_Windows2022Gen2_k8s_133(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Windows Server 2022 with Containerd 2- hyperv gen 2",
 		Config: Config{
-			Cluster:                ClusterAzureNetwork,
-			VHD:                    config.VHDWindows2022ContainerdGen2,
-			VMConfigMutator:        EmptyVMConfigMutator,
+			Cluster:         ClusterAzureNetwork,
+			VHD:             config.VHDWindows2022ContainerdGen2,
+			VMConfigMutator: EmptyVMConfigMutator,
 			BootstrapConfigMutator: func(configuration *datamodel.NodeBootstrappingConfiguration) {
 				// 2025 supported in 1.32+ .
 				configuration.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.33.1"
 				configuration.K8sComponents.WindowsPackageURL = fmt.Sprintf("https://packages.aks.azure.com/kubernetes/v%s/windowszip/v%s-1int.zip", "1.33.1", "1.33.1")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-		ValidateWindowsVersionFromWindowsSettings(ctx, s, "2022-containerd-gen2")
+				ValidateWindowsVersionFromWindowsSettings(ctx, s, "2022-containerd-gen2")
 				ValidateWindowsProductName(ctx, s, "Windows Server 2022 Datacenter")
 				ValidateWindowsDisplayVersion(ctx, s, "21H2")
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
