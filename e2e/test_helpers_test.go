@@ -7,6 +7,12 @@ import (
 	"testing"
 )
 
+// this is mostly for WS2019 - as WS2019 doesn't support anything after 1.32.
+func TestVersion1_32IsCached(t *testing.T) {
+	version := GetKubeletVersionByMinorVersion("v1.32")
+	require.NotEmpty(t, version)
+}
+
 func TestImagesAreFullySpecified(t *testing.T) {
 	images := getWindowsContainerImages("mcr.microsoft.com/windows/servercore:*", "2025-gen2")
 	tags := getWindowsContainerImageTags("mcr.microsoft.com/windows/servercore:*", "2025-gen2")

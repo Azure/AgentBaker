@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
+	"github.com/stretchr/testify/require"
 	"testing"
 
 	"github.com/Azure/agentbaker/e2e/config"
@@ -19,9 +20,11 @@ func DualStackConfigMutator(configuration *datamodel.NodeBootstrappingConfigurat
 	properties.FeatureFlags.EnableIPv6DualStack = true
 }
 
-func Windows2019BootstrapConfigMutator(configuration *datamodel.NodeBootstrappingConfiguration) {
+func Windows2019BootstrapConfigMutator(t *testing.T, configuration *datamodel.NodeBootstrappingConfiguration) {
 	// 2019 is not supported in 1.33+
-	configuration.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.32.6"
+	version := GetKubeletVersionByMinorVersion("v1.32")
+	require.NotEmpty(t, version)
+	configuration.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = version
 }
 
 func DualStackVMConfigMutator(set *armcompute.VirtualMachineScaleSet) {
@@ -49,10 +52,12 @@ func Test_Windows2019AzureNetwork(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Windows Server 2019 Azure Network",
 		Config: Config{
-			Cluster:                ClusterAzureNetwork,
-			VHD:                    config.VHDWindows2019Containerd,
-			VMConfigMutator:        EmptyVMConfigMutator,
-			BootstrapConfigMutator: Windows2019BootstrapConfigMutator,
+			Cluster:         ClusterAzureNetwork,
+			VHD:             config.VHDWindows2019Containerd,
+			VMConfigMutator: EmptyVMConfigMutator,
+			BootstrapConfigMutator: func(configuration *datamodel.NodeBootstrappingConfiguration) {
+				Windows2019BootstrapConfigMutator(t, configuration)
+			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateWindowsVersionFromWindowsSettings(ctx, s, "2019-containerd")
 				ValidateWindowsProductName(ctx, s, "Windows Server 2019 Datacenter")
