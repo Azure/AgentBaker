@@ -273,6 +273,22 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 			Expect(sigImageConfig.Definition).To(Equal("1604"))
 			Expect(sigImageConfig.Version).To(Equal("2021.11.06"))
 		})
+		It("should return correct value for existing flatcar", func() {
+			agentBaker, err := NewAgentBaker()
+			Expect(err).NotTo(HaveOccurred())
+
+			sigImageConfig, err := agentBaker.GetLatestSigImageConfig(config.SIGConfig, datamodel.AKSFlatcarGen2, &datamodel.EnvironmentInfo{
+				SubscriptionID: config.SubscriptionID,
+				TenantID:       config.TenantID,
+				Region:         cs.Location,
+			})
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(sigImageConfig.ResourceGroup).To(Equal("resourcegroup"))
+			Expect(sigImageConfig.Gallery).To(Equal("aksubuntu"))
+			Expect(sigImageConfig.Definition).To(Equal("1604"))
+			Expect(sigImageConfig.Version).To(Equal("2021.11.06"))
+		})
 
 		It("should return error if image config not found for distro", func() {
 			agentBaker, err := NewAgentBaker()
