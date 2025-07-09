@@ -101,7 +101,7 @@ func getBaseNBC(t *testing.T, cluster *Cluster, vhd *config.Image) *datamodel.No
 	var nbc *datamodel.NodeBootstrappingConfiguration
 
 	if vhd.Distro.IsWindowsDistro() {
-		nbc = baseTemplateWindows(t, config.Config.DefaultLocation)
+		nbc = baseTemplateWindows(t, *cluster.Model.Location)
 
 		// these aren't needed since we use TLS bootstrapping instead, though windows bootstrapping expects non-empty values
 		nbc.ContainerService.Properties.CertificateProfile.ClientCertificate = "none"
@@ -112,7 +112,7 @@ func getBaseNBC(t *testing.T, cluster *Cluster, vhd *config.Image) *datamodel.No
 		nbc.ResourceGroupName = *cluster.Model.Properties.NodeResourceGroup
 		nbc.TenantID = *cluster.Model.Identity.TenantID
 	} else {
-		nbc = baseTemplateLinux(t, config.Config.DefaultLocation, *cluster.Model.Properties.CurrentKubernetesVersion, vhd.Arch)
+		nbc = baseTemplateLinux(t, *cluster.Model.Location, *cluster.Model.Properties.CurrentKubernetesVersion, vhd.Arch)
 	}
 
 	nbc.ContainerService.Properties.CertificateProfile.CaCertificate = string(cluster.ClusterParams.CACert)

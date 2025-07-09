@@ -112,6 +112,8 @@ type Scenario struct {
 	// Config contains the configuration of the scenario
 	Config
 
+	Location string
+
 	// Runtime contains the runtime state of the scenario. It's populated in the beginning of the test run
 	Runtime *ScenarioRuntime
 	T       *testing.T
@@ -131,7 +133,7 @@ type ScenarioRuntime struct {
 // Config represents the configuration of an AgentBaker E2E scenario.
 type Config struct {
 	// Cluster creates, updates or re-uses an AKS cluster for the scenario
-	Cluster func(ctx context.Context, t *testing.T) (*Cluster, error)
+	Cluster func(ctx context.Context, location string, t *testing.T) (*Cluster, error)
 
 	// VHD is the node image used by the scenario.
 	VHD *config.Image
@@ -156,7 +158,7 @@ func (s *Scenario) PrepareAKSNodeConfig() {
 // PrepareVMSSModel mutates the input VirtualMachineScaleSet based on the scenario's VMConfigMutator, if configured.
 // This method will also use the scenario's configured VHD selector to modify the input VMSS to reference the correct VHD resource.
 func (s *Scenario) PrepareVMSSModel(ctx context.Context, t *testing.T, vmss *armcompute.VirtualMachineScaleSet) {
-	resourceID, err := s.VHD.VHDResourceID(ctx, t)
+	resourceID, err := s.VHD.VHDResourceID(ctx, t, s.Location)
 	require.NoError(t, err)
 	require.NotEmpty(t, resourceID, "VHDSelector.ResourceID")
 	require.NotNil(t, vmss, "input VirtualMachineScaleSet")
