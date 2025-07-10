@@ -6,6 +6,8 @@ set -uo pipefail
 # if the kubeconfig file is created within the timeout period, a guest agent event will be emitted so we can measure how long it took kubelet
 # to acquire a fresh client certificate from the control plane.
 
+EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/
+
 KUBECONFIG_PATH="${KUBECONFIG_PATH:-/var/lib/kubelet/kubeconfig}"
 KUBECONFIG_DIR="$(dirname "$KUBECONFIG_PATH")"
 
