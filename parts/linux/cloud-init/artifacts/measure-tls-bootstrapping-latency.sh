@@ -1,5 +1,5 @@
 #!/bin/bash
-set -uo pipefail
+set -uxo pipefail
 
 # this script is used to watch for the kubelet TLS bootstrapping process to completed, whether that be via vanilla or secure TLS bootstrapping.
 # specifically this script will watch for the creation of a kubeconfig file at the path specified by KUBECONFIG_PATH with a timeout.
