@@ -694,7 +694,7 @@ EOF
         exit $ERR_KUBELET_START_FAIL
     fi
 
-    if ! systemctlEnableAndStartNoBlock measure-tls-bootstrapping-latency; then
+    if ! systemctlEnableAndStartNoBlock measure-tls-bootstrapping-latency 30; then
         echo "failed to start measure-tls-bootstrapping-latency.service"
     fi
 }
