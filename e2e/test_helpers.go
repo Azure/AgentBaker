@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 	"syscall"
 	"testing"
 	"time"
@@ -73,6 +74,39 @@ func mustNoError(err error) {
 	}
 }
 
+// Global state to track which regions have been initialized
+var (
+	// Track which regions have been initialized
+	initializedRegions = make(map[string]bool)
+	// Mutex to protect the map access
+	regionMutex sync.Mutex
+)
+
+// ensureRegionInitialized ensures that both resource group and managed identity
+// are created for a region, but only runs once per region across all tests
+func ensureRegionInitialized(ctx context.Context, location string) error {
+	regionMutex.Lock()
+	defer regionMutex.Unlock()
+
+	// Check if this region has already been initialized
+	if initializedRegions[location] {
+		return nil
+	}
+
+	// Initialize the region
+	if err := ensureResourceGroup(ctx, location); err != nil {
+		return fmt.Errorf("ensuring resource group for region %s: %w", location, err)
+	}
+
+	if _, err := config.Azure.CreateVMManagedIdentity(ctx, location); err != nil {
+		return fmt.Errorf("creating VM managed identity for region %s: %w", location, err)
+	}
+
+	// Mark this region as initialized
+	initializedRegions[location] = true
+	return nil
+}
+
 func RunScenario(t *testing.T, s *Scenario) {
 	s.T = t
 	t.Parallel()
@@ -82,9 +116,7 @@ func RunScenario(t *testing.T, s *Scenario) {
 	}
 
 	ctx := newTestCtx(t, s.Location)
-	err := ensureResourceGroup(ctx, s.Location)
-	mustNoError(err)
-	_, err = config.Azure.CreateVMManagedIdentity(ctx, s.Location)
+	err := ensureRegionInitialized(ctx, s.Location)
 	mustNoError(err)
 
 	ctrruntimelog.SetLogger(zap.New())
