@@ -59,7 +59,7 @@ waitForTLSBootstrapping() {
     # to avoid data skewing, we don't emit a guest agent event in this case
     # this would only happen if we hit a race condition between first checking kubeconfig existence and starting inotifywait
     if [ -f "$KUBECONFIG_PATH" ]; then
-        echo "new kubeconfig created at: $KUBECONFIG_PATH"
+        echo "kubeconfig now exists at: $KUBECONFIG_PATH"
     else
         echo "kubeconfig was not created after ${WATCH_TIMEOUT_SECONDS}s"
     fi
