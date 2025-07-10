@@ -44,10 +44,10 @@ waitForTLSBootstrapping() {
     echo "watching for kubeconfig to be created at $KUBECONFIG_PATH with ${WATCH_TIMEOUT_SECONDS}s timeout..."
 
     START_TIME=$(date +"%F %T.%3N")
-    inotifywait -t $WATCH_TIMEOUT_SECONDS -qmre create "$KUBECONFIG_DIR" | while read -r DIR EVENT FILE; do
-        if [ "${EVENT,,}" = "create" ] && [ "${DIR}/${FILE}" = "$KUBECONFIG_PATH" ]; then
+    inotifywait -t $WATCH_TIMEOUT_SECONDS -qme create "$KUBECONFIG_DIR" | while read -r DIR EVENT FILE; do
+        if [ "${EVENT,,}" = "create" ] && [ "${DIR}${FILE}" = "$KUBECONFIG_PATH" ]; then
             END_TIME=$(date +"%F %T.%3N")
-            echo "new kubeconfig created at: $DIR/$FILE"
+            echo "new kubeconfig created at: $KUBECONFIG_PATH"
 
             # we only create the guest agent event if the certificate was created while we were watching
             createGuestAgentEvent "AKS.Runtime.waitForTLSBootstrapping" "$START_TIME" "$END_TIME"
