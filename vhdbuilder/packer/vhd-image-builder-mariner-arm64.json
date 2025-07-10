@@ -194,6 +194,16 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/measure-tls-bootstrapping-latency.sh",
+      "destination": "/home/packer/measure-tls-bootstrapping-latency.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/measure-tls-bootstrapping-latency.service",
+      "destination": "/home/packer/measure-tls-bootstrapping-latency.service"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/validate-kubelet-credentials.sh",
       "destination": "/home/packer/validate-kubelet-credentials.sh"
     },

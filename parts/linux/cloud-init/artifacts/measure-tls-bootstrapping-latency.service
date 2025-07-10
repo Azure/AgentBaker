@@ -1,0 +1,14 @@
+[Unit]
+Description=Measure TLS Bootstrapping
+ConditionPathExists=/opt/azure/containers/measure-tls-bootstrapping-latency.sh
+After=kubelet.service
+
+[Service]
+Type=oneshot
+Restart=no
+RemainAfterExit=no
+
+ExecStart=/bin/bash /opt/azure/containers/measure-tls-bootstrapping-latency.sh
+
+[Install]
+WantedBy=multi-user.target
