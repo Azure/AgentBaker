@@ -1283,7 +1283,7 @@
           "current": {
             "versionsV2": [
               {
-                "renovateTag": "RPM_registry=https://packages.microsoft.com/cbl-mariner/2.0/prod/base/x86_64/repodata, name=kubernetes-cri-tools, os=mariner, release=2.0",
+                "renovateTag": "RPM_registry=https://packages.microsoft.com/cbl-mariner/2.0/prod/cloud-native/x86_64/repodata, name=kubernetes-cri-tools, os=mariner, release=2.0",
                 "latestVersion": "1.32.0-3.cm2"
               }
             ]
@@ -1293,7 +1293,7 @@
           "current": {
             "versionsV2": [
              {
-                "renovateTag": "RPM_registry=https://packages.microsoft.com/cbl-mariner/2.0/prod/base/x86_64/repodata, name=kubernetes-cri-tools, os=mariner, release=2.0",
+                "renovateTag": "RPM_registry=https://packages.microsoft.com/cbl-mariner/2.0/prod/cloud-native/x86_64/repodata, name=kubernetes-cri-tools, os=mariner, release=2.0",
                 "latestVersion": "1.32.0-3.cm2"
               }
             ]
@@ -1303,7 +1303,7 @@
           "v3.0": {
             "versionsV2": [
               {
-                "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/base/x86_64/repodata, name=kubernetes-cri-tools, os=azurelinux, release=3.0",
+                "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=kubernetes-cri-tools, os=azurelinux, release=3.0",
                 "latestVersion": "1.32.0-3.azl3"
               }
             ]
@@ -1313,7 +1313,7 @@
           "v3.0": {
             "versionsV2": [
               {
-                "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/base/x86_64/repodata, name=kubernetes-cri-tools, os=azurelinux, release=3.0",
+                "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=kubernetes-cri-tools, os=azurelinux, release=3.0",
                 "latestVersion": "1.32.0-3.azl3"
               }
             ]
