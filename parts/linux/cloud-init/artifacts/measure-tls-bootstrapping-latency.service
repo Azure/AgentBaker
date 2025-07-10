@@ -1,5 +1,5 @@
 [Unit]
-Description=Measure TLS Bootstrapping
+Description=Measure TLS Bootstrapping Latency
 ConditionPathExists=/opt/azure/containers/measure-tls-bootstrapping-latency.sh
 
 [Service]
