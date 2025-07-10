@@ -2640,8 +2640,8 @@ func writeInnerCustomData(outputname, customData string) error {
 	if err != nil {
 		return err
 	}
-	os.WriteFile(outputname, ignitionIndented, 0644)
-	return nil
+	err = os.WriteFile(outputname, ignitionIndented, 0644)
+	return err
 }
 
 func backfillCustomData(folder, customData string) {
