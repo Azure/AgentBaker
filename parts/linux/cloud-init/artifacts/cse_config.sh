@@ -693,6 +693,10 @@ EOF
         journalctl -u kubelet.service --no-pager || true
         exit $ERR_KUBELET_START_FAIL
     fi
+
+    if ! systemctlEnableAndStartNoBlock measure-tls-bootstrapping-latency; then
+        echo "failed to start measure-tls-bootstrapping-latency.service"
+    fi
 }
 
 ensureSnapshotUpdate() {

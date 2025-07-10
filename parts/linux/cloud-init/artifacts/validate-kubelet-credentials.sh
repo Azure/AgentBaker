@@ -134,5 +134,3 @@ validateKubeletCredentials() {
 ${__SOURCED__:+return}
 
 logs_to_events "AKS.Runtime.validateKubeletCredentials" validateKubeletCredentials
-
-/bin/bash /opt/azure/containers/measure-tls-bootstrapping-latency.sh &
