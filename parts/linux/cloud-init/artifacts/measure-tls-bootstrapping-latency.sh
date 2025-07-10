@@ -51,7 +51,9 @@ waitForTLSBootstrapping() {
 
             # we only create the guest agent event if the certificate was created while we were watching
             createGuestAgentEvent "AKS.Runtime.waitForTLSBootstrapping" "$START_TIME" "$END_TIME"
-            break
+
+            # this is ugly, but it's the best way to ensure that we don't leave inotifywait running in the background consuming resources
+            kill -- -$$
         fi
     done
 
@@ -74,6 +76,3 @@ if ! command -v inotifywait >/dev/null 2>&1; then
 fi
 
 waitForTLSBootstrapping
-
-# to make sure we don't leave the inotifywait process running in the background
-kill -- -$$

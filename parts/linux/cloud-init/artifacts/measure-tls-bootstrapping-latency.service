@@ -6,6 +6,7 @@ ConditionPathExists=/opt/azure/containers/measure-tls-bootstrapping-latency.sh
 Type=oneshot
 Restart=no
 RemainAfterExit=no
+SuccessExitStatus=SIGTERM
 
 ExecStart=/bin/bash /opt/azure/containers/measure-tls-bootstrapping-latency.sh
 
