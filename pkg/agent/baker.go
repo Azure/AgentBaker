@@ -79,6 +79,38 @@ func (t *TemplateGenerator) getLinuxNodeCustomDataJSONObject(config *datamodel.N
 	return fmt.Sprintf("{\"customData\": \"%s\"}", str)
 }
 
+func toButaneFile(file cloudInitWriteFile) (*base0_5.File, error) {
+	newfile := base0_5.File{}
+	newfile.Path = file.Path
+	newfile.User.Name = &file.Owner
+	newfile.Overwrite = to.BoolPtr(true)
+	mode, e := strconv.ParseInt(file.Permissions, 8, 32)
+	if e != nil {
+		return nil, fmt.Errorf("failed to parse file mode: %w", e)
+	}
+	newfile.Mode = to.IntPtr(int(mode))
+	switch file.Encoding {
+	case "gzip":
+		newfile.Contents.Inline = &file.Content
+		// This is hit for AKSCustomCloud file
+		if file.Content != "" {
+			newfile.Contents.Compression = &file.Encoding
+		}
+	case "base64":
+		inline, e := base64.StdEncoding.DecodeString(file.Content)
+		if e != nil {
+			return nil, fmt.Errorf("failed to decode base64 content: %w", e)
+		}
+		newfile.Contents.Inline = to.StringPtr(string(inline))
+		newfile.Contents.Compression = nil
+	case "":
+		newfile.Contents.Inline = to.StringPtr(file.Content)
+	default:
+		return nil, fmt.Errorf("unsupported encoding: %s", file.Encoding)
+	}
+	return &newfile, nil
+}
+
 // GetLinuxNodeCustomDataJSONObject returns Linux customData JSON object in the form.
 // { "customData": "<customData string>" }.
 func (t *TemplateGenerator) getFlatcarLinuxNodeCustomDataJSONObject(config *datamodel.NodeBootstrappingConfiguration) string {
@@ -105,38 +137,17 @@ func (t *TemplateGenerator) getFlatcarLinuxNodeCustomDataJSONObject(config *data
 	if e = yaml.Unmarshal(b, &butaneconfig); e != nil {
 		panic(fmt.Errorf("failed to unmarshal butane config: %w", e))
 	}
+
 	newfiles := make([]base0_5.File, 0)
+	var newfile *base0_5.File
 	for _, file := range customData.WriteFiles {
-		newfile := base0_5.File{}
-		newfile.Path = file.Path
-		newfile.User.Name = &file.Owner
-		newfile.Overwrite = to.BoolPtr(true)
-		mode, e := strconv.ParseInt(file.Permissions, 8, 32)
+		newfile, e = toButaneFile(file)
 		if e != nil {
-			panic(fmt.Errorf("failed to parse file mode: %w", e))
+			panic(fmt.Errorf("failed to convert cloudInit file to butane file: %w", e))
 		}
-		newfile.Mode = to.IntPtr(int(mode))
-		switch file.Encoding {
-		case "gzip":
-			newfile.Contents.Inline = &file.Content
-			// This is hit for AKSCustomCloud file
-			if file.Content != "" {
-				newfile.Contents.Compression = &file.Encoding
-			}
-		case "base64":
-			inline, e := base64.StdEncoding.DecodeString(file.Content)
-			if e != nil {
-				panic(fmt.Errorf("failed to decode base64 content: %w", e))
-			}
-			newfile.Contents.Inline = to.StringPtr(string(inline))
-			newfile.Contents.Compression = nil
-		case "":
-			newfile.Contents.Inline = to.StringPtr(file.Content)
-		default:
-			panic(fmt.Errorf("unsupported encoding: %s", file.Encoding))
-		}
-		newfiles = append(newfiles, newfile)
+		newfiles = append(newfiles, *newfile)
 	}
+
 	butaneconfig.Storage.Files = append(newfiles, butaneconfig.Storage.Files...)
 	ignition, report, e := butaneconfig.ToIgn3_4(butanecommon.TranslateOptions{})
 	if e != nil {
