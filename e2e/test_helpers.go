@@ -84,27 +84,24 @@ var (
 
 // ensureRegionInitialized ensures that both resource group and managed identity
 // are created for a region, but only runs once per region across all tests
-func ensureRegionInitialized(ctx context.Context, location string) error {
+func ensureRegionInitialized(ctx context.Context, t *testing.T, location string) {
 	regionMutex.Lock()
 	defer regionMutex.Unlock()
 
 	// Check if this region has already been initialized
 	if initializedRegions[location] {
-		return nil
+		t.Logf("Region %s is already initialized, skipping", location)
+		return
 	}
 
 	// Initialize the region
-	if err := ensureResourceGroup(ctx, location); err != nil {
-		return fmt.Errorf("ensuring resource group for region %s: %w", location, err)
-	}
-
-	if _, err := config.Azure.CreateVMManagedIdentity(ctx, location); err != nil {
-		return fmt.Errorf("creating VM managed identity for region %s: %w", location, err)
-	}
+	err := ensureResourceGroup(ctx, location)
+	mustNoError(err)
+	_, err = config.Azure.CreateVMManagedIdentity(ctx, location)
+	mustNoError(err)
 
 	// Mark this region as initialized
 	initializedRegions[location] = true
-	return nil
 }
 
 func RunScenario(t *testing.T, s *Scenario) {
@@ -116,8 +113,7 @@ func RunScenario(t *testing.T, s *Scenario) {
 	}
 
 	ctx := newTestCtx(t, s.Location)
-	err := ensureRegionInitialized(ctx, s.Location)
-	mustNoError(err)
+	ensureRegionInitialized(ctx, t, s.Location)
 
 	ctrruntimelog.SetLogger(zap.New())
 
