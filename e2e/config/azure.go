@@ -306,6 +306,10 @@ func (a *AzureClient) CreateVMManagedIdentity(ctx context.Context, location stri
 	if err != nil {
 		return "", fmt.Errorf("create managed identity: %w", err)
 	}
+
+	// We are not creating new storage account per location, we will use the one
+	// that's already created in the default location.
+	location = Config.DefaultLocation
 	err = a.createBlobStorageAccount(ctx, location)
 	if err != nil {
 		return "", err
@@ -315,7 +319,7 @@ func (a *AzureClient) CreateVMManagedIdentity(ctx context.Context, location stri
 		return "", err
 	}
 
-	if err := a.assignRolesToVMIdentity(ctx, identity.Properties.PrincipalID, location); err != nil {
+	if err := a.assignRolesToVMIdentity(ctx, identity.Properties.PrincipalID); err != nil {
 		return "", err
 	}
 	return *identity.Properties.ClientID, nil
@@ -351,8 +355,8 @@ func (a *AzureClient) createBlobStorageContainer(ctx context.Context, location s
 	return nil
 }
 
-func (a *AzureClient) assignRolesToVMIdentity(ctx context.Context, principalID *string, location string) error {
-	scope := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Storage/storageAccounts/%s", Config.SubscriptionID, ResourceGroupName(location), Config.BlobStorageAccount())
+func (a *AzureClient) assignRolesToVMIdentity(ctx context.Context, principalID *string) error {
+	scope := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Storage/storageAccounts/%s", Config.SubscriptionID, ResourceGroupName(Config.DefaultLocation), Config.BlobStorageAccount())
 	// Role assignment requires uid to be provided
 	uid := uuid.New().String()
 	_, err := a.RoleAssignments.Create(ctx, scope, uid, armauthorization.RoleAssignmentCreateParameters{
