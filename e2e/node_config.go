@@ -865,6 +865,10 @@ DXRqvV7TWO2hndliQq3BW385ZkiephlrmpUVM= r2k1@arturs-mbp.lan`,
 					GalleryName:   "AKSUbuntuEdgeZone",
 					ResourceGroup: "AKS-Ubuntu-EdgeZone",
 				},
+				"AKSFlatcar": {
+					GalleryName:   "aksflatcar",
+					ResourceGroup: "resourcegroup",
+				},
 			},
 		},
 	}
