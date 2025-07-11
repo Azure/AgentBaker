@@ -72,7 +72,8 @@ type Configuration struct {
 
 func (c *Configuration) BlobStorageAccount() string {
 	// This DefaultLocation is used because the azure blob client requires the
-	// full URL to the storage account.
+	// full URL to the storage account. We are not sharding the storage account
+	// by region, so we use the default location.
 	return c.BlobStorageAccountPrefix + c.DefaultLocation
 }
 

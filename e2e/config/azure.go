@@ -299,22 +299,21 @@ func (a *AzureClient) UploadAndGetSignedLink(ctx context.Context, blobName strin
 	return fmt.Sprintf("%s/%s/%s?%s", Config.BlobStorageAccountURL(), Config.BlobContainer, blobName, sig.Encode()), nil
 }
 
-func (a *AzureClient) CreateVMManagedIdentity(ctx context.Context, location string) (string, error) {
-	identity, err := a.UserAssignedIdentities.CreateOrUpdate(ctx, ResourceGroupName(location), VMIdentityName, armmsi.Identity{
-		Location: to.Ptr(location),
+func (a *AzureClient) CreateVMManagedIdentity(ctx context.Context, identityLocation string) (string, error) {
+	identity, err := a.UserAssignedIdentities.CreateOrUpdate(ctx, ResourceGroupName(identityLocation), VMIdentityName, armmsi.Identity{
+		Location: to.Ptr(identityLocation),
 	}, nil)
 	if err != nil {
 		return "", fmt.Errorf("create managed identity: %w", err)
 	}
 
-	// We are not creating new storage account per location, we will use the one
+	// NOTE: We are not creating new storage account per location, we will use the one
 	// that's already created in the default location.
-	location = Config.DefaultLocation
-	err = a.createBlobStorageAccount(ctx, location)
+	err = a.createBlobStorageAccount(ctx)
 	if err != nil {
 		return "", err
 	}
-	err = a.createBlobStorageContainer(ctx, location)
+	err = a.createBlobStorageContainer(ctx)
 	if err != nil {
 		return "", err
 	}
@@ -325,10 +324,10 @@ func (a *AzureClient) CreateVMManagedIdentity(ctx context.Context, location stri
 	return *identity.Properties.ClientID, nil
 }
 
-func (a *AzureClient) createBlobStorageAccount(ctx context.Context, location string) error {
-	poller, err := a.StorageAccounts.BeginCreate(ctx, ResourceGroupName(location), Config.BlobStorageAccount(), armstorage.AccountCreateParameters{
+func (a *AzureClient) createBlobStorageAccount(ctx context.Context) error {
+	poller, err := a.StorageAccounts.BeginCreate(ctx, ResourceGroupName(Config.DefaultLocation), Config.BlobStorageAccount(), armstorage.AccountCreateParameters{
 		Kind:     to.Ptr(armstorage.KindStorageV2),
-		Location: &location,
+		Location: to.Ptr(Config.DefaultLocation),
 		SKU: &armstorage.SKU{
 			Name: to.Ptr(armstorage.SKUNameStandardLRS),
 		},
@@ -347,8 +346,8 @@ func (a *AzureClient) createBlobStorageAccount(ctx context.Context, location str
 	return nil
 }
 
-func (a *AzureClient) createBlobStorageContainer(ctx context.Context, location string) error {
-	_, err := a.StorageContainers.Create(ctx, ResourceGroupName(location), Config.BlobStorageAccount(), Config.BlobContainer, armstorage.BlobContainer{}, nil)
+func (a *AzureClient) createBlobStorageContainer(ctx context.Context) error {
+	_, err := a.StorageContainers.Create(ctx, ResourceGroupName(Config.DefaultLocation), Config.BlobStorageAccount(), Config.BlobContainer, armstorage.BlobContainer{}, nil)
 	if err != nil {
 		return fmt.Errorf("create blob container: %w", err)
 	}
