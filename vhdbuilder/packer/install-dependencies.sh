@@ -9,7 +9,7 @@ AZURELINUX_KATA_OS_NAME="AZURELINUXKATA"
 # Real world examples from the command outputs
 # For Azure Linux V3: ID=azurelinux VERSION_ID="3.0"
 # For Azure Linux V2: ID=mariner VERSION_ID="2.0"
-OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
+OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID=(.*))$/, a) { print toupper(a[2]); exit }')
 IS_KATA="false"
 if grep -q "kata" <<< "$FEATURE_FLAGS"; then
   IS_KATA="true"
@@ -351,6 +351,8 @@ while IFS= read -r p; do
         if [ "${OS}" = "${UBUNTU_OS_NAME}" ]; then
           installContainerd "${downloadDir}" "${evaluatedURL}" "${version}"
         elif isMarinerOrAzureLinux "$OS"; then
+          installStandaloneContainerd "${version}"
+        elif isFlatcar "$OS"; then
           installStandaloneContainerd "${version}"
         fi
         echo "  - containerd version ${version}" >> ${VHD_LOGS_FILEPATH}
