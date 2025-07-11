@@ -71,9 +71,11 @@ type Configuration struct {
 }
 
 func (c *Configuration) BlobStorageAccount() string {
-	// This DefaultLocation is used because the azure blob client requires the
-	// full URL to the storage account. We are not sharding the storage account
-	// by region, so we use the default location.
+	// Here DefaultLocation is used because the azure blob client requires the
+	// full URL to the storage account, which means creating a new client per
+	// location. While everything else for running AB tests is sharded per
+	// location, but we continue to use the same storage account for all
+	// locations.
 	return c.BlobStorageAccountPrefix + c.DefaultLocation
 }
 

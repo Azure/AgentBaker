@@ -51,16 +51,20 @@ func setupSignalHandler() context.Context {
 		// block until second signal is received
 		<-ch
 		// This DefaultLocation is used on purpose.
-		msg := fmt.Sprintf("Received second cancellation signal, forcing exit.\nPlease check https://ms.portal.azure.com/#@microsoft.onmicrosoft.com/resource/subscriptions/%s/resourceGroups/%s/overview and delete any resources created by the test suite", config.Config.SubscriptionID, config.ResourceGroupName(config.Config.DefaultLocation))
+		msg := constructErrorMessage(config.Config.SubscriptionID, config.Config.DefaultLocation)
 		fmt.Println(red(msg))
 		os.Exit(1)
 	}()
 	return ctx
 }
 
+func constructErrorMessage(subscriptionID, location string) string {
+	return fmt.Sprintf("Received second cancellation signal, forcing exit.\nPlease check https://ms.portal.azure.com/#@microsoft.onmicrosoft.com/resource/subscriptions/%s/resourceGroups/%s/overview and delete any resources created by the test suite", subscriptionID, config.ResourceGroupName(location))
+}
+
 func newTestCtx(t *testing.T, location string) context.Context {
 	if testCtx.Err() != nil {
-		msg := fmt.Sprintf("Received second cancellation signal, forcing exit.\nPlease check https://ms.portal.azure.com/#@microsoft.onmicrosoft.com/resource/subscriptions/%s/resourceGroups/%s/overview and delete any resources created by the test suite", config.Config.SubscriptionID, config.ResourceGroupName(location))
+		msg := constructErrorMessage(config.Config.SubscriptionID, location)
 		t.Skip("test suite is shutting down: " + msg)
 	}
 	ctx, cancel := context.WithTimeout(testCtx, config.Config.TestTimeout)
@@ -74,34 +78,34 @@ func mustNoError(err error) {
 	}
 }
 
-// Global state to track which regions have been initialized
+// Global state to track which locations have been initialized
 var (
-	// Track which regions have been initialized
-	initializedRegions = make(map[string]bool)
+	// Track which locations have been initialized
+	initializedLocations = make(map[string]bool)
 	// Mutex to protect the map access
-	regionMutex sync.Mutex
+	locationMutex sync.Mutex
 )
 
-// ensureRegionInitialized ensures that both resource group and managed identity
-// are created for a region, but only runs once per region across all tests
-func ensureRegionInitialized(ctx context.Context, t *testing.T, location string) {
-	regionMutex.Lock()
-	defer regionMutex.Unlock()
+// ensureLocationInitialized ensures that both resource group and managed identity
+// are created for a location, but only runs once per location across all tests
+func ensureLocationInitialized(ctx context.Context, t *testing.T, location string) {
+	locationMutex.Lock()
+	defer locationMutex.Unlock()
 
-	// Check if this region has already been initialized
-	if initializedRegions[location] {
-		t.Logf("Region %s is already initialized, skipping", location)
+	// Check if this location has already been initialized
+	if initializedLocations[location] {
+		t.Logf("Location %s is already initialized, skipping", location)
 		return
 	}
 
-	// Initialize the region
+	// Initialize the location
 	err := ensureResourceGroup(ctx, location)
 	mustNoError(err)
 	_, err = config.Azure.CreateVMManagedIdentity(ctx, location)
 	mustNoError(err)
 
-	// Mark this region as initialized
-	initializedRegions[location] = true
+	// Mark this location as initialized
+	initializedLocations[location] = true
 }
 
 func RunScenario(t *testing.T, s *Scenario) {
@@ -113,7 +117,7 @@ func RunScenario(t *testing.T, s *Scenario) {
 	}
 
 	ctx := newTestCtx(t, s.Location)
-	ensureRegionInitialized(ctx, t, s.Location)
+	ensureLocationInitialized(ctx, t, s.Location)
 
 	ctrruntimelog.SetLogger(zap.New())
 

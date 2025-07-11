@@ -1657,11 +1657,11 @@ func Test_Ubuntu2404_NPD_Basic(t *testing.T) {
 		}})
 }
 
-func Test_AlternateRegion_BasicDeployment(t *testing.T) {
-	location := "southafricanorth" // Set the alternate region for the test
+func Test_AlternateLocation_BasicDeployment(t *testing.T) {
+	location := "southafricanorth" // Set the alternate location for the test
 
 	RunScenario(t, &Scenario{
-		Description: "Tests basic node deployment in configured region",
+		Description: "Tests basic node deployment in configured location",
 		Location:    location, // Override location for this test
 		Config: Config{
 			Cluster: ClusterKubenet,
@@ -1673,7 +1673,7 @@ func Test_AlternateRegion_BasicDeployment(t *testing.T) {
 				// Validate kubelet is running
 				ValidateSystemdUnitIsRunning(ctx, s, "kubelet")
 				// Add your custom validations here
-				t.Logf("Successfully validated deployment in region: %s", location)
+				t.Logf("Successfully validated deployment in location: %s", location)
 			},
 		},
 	})

@@ -398,7 +398,7 @@ func deleteCluster(ctx context.Context, t *testing.T, cluster *armcontainerservi
 	return nil
 }
 
-func waitUntilClusterReady(ctx context.Context, name string, location string) (*armcontainerservice.ManagedCluster, error) {
+func waitUntilClusterReady(ctx context.Context, name, location string) (*armcontainerservice.ManagedCluster, error) {
 	var cluster armcontainerservice.ManagedClustersClientGetResponse
 	err := wait.PollUntilContextCancel(ctx, time.Second, true, func(ctx context.Context) (bool, error) {
 		var err error
