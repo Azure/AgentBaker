@@ -64,7 +64,7 @@ Describe 'measure-tls-bootstrapping-latency.sh'
         When run waitForTLSBootstrapping
         The stdout should include 'watching for kubeconfig to be created at spec-test/kubeconfig with 3s timeout...'
         The stdout should include 'kubeconfig was not created after 3s'
-        The stdout should not include 'createGuestAgentEvent AKS.Runtime.waitForTLSBootstrapping'
+        The stdout should include 'createGuestAgentEvent AKS.Runtime.waitForTLSBootstrappingTimeout'
         The stdout should not include 'kill -- -'
         The status should be success
     End
@@ -78,7 +78,7 @@ Describe 'measure-tls-bootstrapping-latency.sh'
         When run waitForTLSBootstrapping
         The stdout should include 'watching for kubeconfig to be created at spec-test/kubeconfig with 3s timeout...'
         The stdout should include 'kubeconfig was not created after 3s'
-        The stdout should not include 'createGuestAgentEvent AKS.Runtime.waitForTLSBootstrapping'
+        The stdout should include 'createGuestAgentEvent AKS.Runtime.waitForTLSBootstrappingTimeout'
         The stdout should not include 'kill -- -'
         The status should be success
     End

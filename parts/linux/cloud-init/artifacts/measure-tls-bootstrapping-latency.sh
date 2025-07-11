@@ -1,10 +1,11 @@
 #!/bin/bash
 set -uo pipefail
 
-# this script is used to watch for the kubelet TLS bootstrapping process to completed, whether that be via vanilla or secure TLS bootstrapping.
+# This script is used to watch for the kubelet TLS bootstrapping process to completed, whether that be via vanilla or secure TLS bootstrapping.
 # specifically this script will watch for the creation of a kubeconfig file at the path specified by KUBECONFIG_PATH with a timeout.
 # if the kubeconfig file is created within the timeout period, a guest agent event will be emitted so we can measure how long it took kubelet
-# to acquire a fresh client certificate from the control plane.
+# to acquire a fresh client certificate from the control plane. If a kubeconfig file is not created within the timeout period, a guest agent event will
+# also be emitted as an indication that TLS bootstrapping seemingly failed.
 
 EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/
 
@@ -32,6 +33,7 @@ createGuestAgentEvent() {
 }
 
 waitForTLSBootstrapping() {
+    # exit without doing anything if we don't have inotifywait available
     if ! command -v inotifywait >/dev/null 2>&1; then
         echo "inotifywait is not available, unable to wait for TLS bootstrapping"
         exit 0
@@ -68,7 +70,9 @@ waitForTLSBootstrapping() {
     if [ -f "$KUBECONFIG_PATH" ]; then
         echo "kubeconfig now exists at: $KUBECONFIG_PATH"
     else
+        END_TIME=$(date +"%F %T.%3N")
         echo "kubeconfig was not created after ${WATCH_TIMEOUT_SECONDS}s"
+        createGuestAgentEvent "AKS.Runtime.waitForTLSBootstrappingTimeout" "$START_TIME" "$END_TIME"
     fi
 }
 
