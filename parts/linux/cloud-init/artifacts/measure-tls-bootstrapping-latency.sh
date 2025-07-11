@@ -32,6 +32,11 @@ createGuestAgentEvent() {
 }
 
 waitForTLSBootstrapping() {
+    if ! command -v inotifywait >/dev/null 2>&1; then
+        echo "inotifywait is not available, unable to wait for TLS bootstrapping"
+        exit 0
+    fi
+
     # ensure the kubeconfig dir exists
     mkdir -p "$KUBECONFIG_DIR"
 
@@ -69,10 +74,5 @@ waitForTLSBootstrapping() {
 
 # this is to ensure that shellspec won't interpret any further lines below
 ${__SOURCED__:+return}
-
-if ! command -v inotifywait >/dev/null 2>&1; then
-    echo "inotifywait is not available, unable to wait for TLS bootstrapping"
-    exit 0
-fi
 
 waitForTLSBootstrapping
