@@ -101,7 +101,7 @@ func getBaseNBC(t *testing.T, cluster *Cluster, vhd *config.Image) *datamodel.No
 	var nbc *datamodel.NodeBootstrappingConfiguration
 
 	if vhd.Distro.IsWindowsDistro() {
-		nbc = baseTemplateWindows(t, config.Config.Location)
+		nbc = baseTemplateWindows(t, *cluster.Model.Location)
 
 		// these aren't needed since we use TLS bootstrapping instead, though windows bootstrapping expects non-empty values
 		nbc.ContainerService.Properties.CertificateProfile.ClientCertificate = "none"
@@ -112,7 +112,7 @@ func getBaseNBC(t *testing.T, cluster *Cluster, vhd *config.Image) *datamodel.No
 		nbc.ResourceGroupName = *cluster.Model.Properties.NodeResourceGroup
 		nbc.TenantID = *cluster.Model.Identity.TenantID
 	} else {
-		nbc = baseTemplateLinux(t, config.Config.Location, *cluster.Model.Properties.CurrentKubernetesVersion, vhd.Arch)
+		nbc = baseTemplateLinux(t, *cluster.Model.Location, *cluster.Model.Properties.CurrentKubernetesVersion, vhd.Arch)
 	}
 
 	nbc.ContainerService.Properties.CertificateProfile.CaCertificate = string(cluster.ClusterParams.CACert)
@@ -770,17 +770,17 @@ DXRqvV7TWO2hndliQq3BW385ZkiephlrmpUVM= r2k1@arturs-mbp.lan`,
 				AzureTelemetryPID:           "",
 				// CNIARM64PluginsDownloadURL:  "https://packages.aks.azure.com/cni-plugins/v0.8.7/binaries/cni-plugins-linux-arm64-v0.8.7.tgz",
 				// CNIPluginsDownloadURL:       "https://packages.aks.azure.com/cni/cni-plugins-amd64-v0.7.6.tgz",
-				CSIProxyDownloadURL:         "https://packages.aks.azure.com/csi-proxy/v1.1.2-hotfix.20230807/binaries/csi-proxy-v1.1.2-hotfix.20230807.tar.gz",
-				CalicoImageBase:             "calico/",
-				ContainerdDownloadURLBase:   "https://storage.googleapis.com/cri-containerd-release/",
+				CSIProxyDownloadURL:       "https://packages.aks.azure.com/csi-proxy/v1.1.2-hotfix.20230807/binaries/csi-proxy-v1.1.2-hotfix.20230807.tar.gz",
+				CalicoImageBase:           "calico/",
+				ContainerdDownloadURLBase: "https://storage.googleapis.com/cri-containerd-release/",
 				// CseScriptsPackageURL is used to download the CSE scripts for Windows nodes, when use filename it is pinned to that version insteaf of current as defined in components.json
-				CseScriptsPackageURL:                 "https://packages.aks.azure.com/aks/windows/cse/",
-				EtcdDownloadURLBase:                  "",
-				KubeBinariesSASURLBase:               "https://packages.aks.azure.com/kubernetes/",
-				KubernetesImageBase:                  "k8s.gcr.io/",
-				MCRKubernetesImageBase:               "mcr.microsoft.com/",
-				NVIDIAImageBase:                      "nvidia/",
-				TillerImageBase:                      "gcr.io/kubernetes-helm/",
+				CseScriptsPackageURL:   "https://packages.aks.azure.com/aks/windows/cse/",
+				EtcdDownloadURLBase:    "",
+				KubeBinariesSASURLBase: "https://packages.aks.azure.com/kubernetes/",
+				KubernetesImageBase:    "k8s.gcr.io/",
+				MCRKubernetesImageBase: "mcr.microsoft.com/",
+				NVIDIAImageBase:        "nvidia/",
+				TillerImageBase:        "gcr.io/kubernetes-helm/",
 				// VnetCNIARM64LinuxPluginsDownloadURL:  "https://packages.aks.azure.com/azure-cni/v1.4.13/binaries/azure-vnet-cni-linux-arm64-v1.4.14.tgz",
 				// VnetCNILinuxPluginsDownloadURL:       "https://packages.aks.azure.com/azure-cni/v1.1.3/binaries/azure-vnet-cni-linux-amd64-v1.1.3.tgz",
 				VnetCNIWindowsPluginsDownloadURL:     "https://packages.aks.azure.com/azure-cni/v1.6.21/binaries/azure-vnet-cni-windows-amd64-v1.6.21.zip",

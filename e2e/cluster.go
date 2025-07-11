@@ -28,33 +28,28 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
+// ClusterConfig represents the configuration that uniquely identifies a cluster type
+type ClusterConfig struct {
+	Type            string // "kubenet", "azure-network", "latest-k8s", etc.
+	Location        string
+	KubernetesVersion string // optional, empty means default
+	IsAirgap        bool
+	IsNonAnonymous  bool
+	// Add more configuration fields as needed
+}
+
+// ClusterSingleton holds a cluster instance and its creation state
+type ClusterSingleton struct {
+	cluster *Cluster
+	err     error
+	once    sync.Once
+}
+
 var (
-	clusterLatestKubernetesVersion      *Cluster
-	clusterKubenet                      *Cluster
-	clusterKubenetAirgap                *Cluster
-	clusterKubenetNonAnonAirgap         *Cluster
-	clusterAzureNetwork                 *Cluster
-	clusterAzureOverlayNetwork          *Cluster
-	clusterAzureOverlayNetworkDualStack *Cluster
-	clusterCiliumNetwork                *Cluster
-
-	clusterLatestKubernetesVersionError      error
-	clusterKubenetError                      error
-	clusterKubenetAirgapError                error
-	clusterKubenetNonAnonAirgapError         error
-	clusterAzureNetworkError                 error
-	clusterAzureOverlayNetworkError          error
-	clusterAzureOverlayNetworkDualStackError error
-	clusterCiliumNetworkError                error
-
-	clusterLatestKubernetesVersionOnce      sync.Once
-	clusterKubenetOnce                      sync.Once
-	clusterKubenetAirgapOnce                sync.Once
-	clusterKubenetNonAnonAirgapOnce         sync.Once
-	clusterAzureNetworkOnce                 sync.Once
-	clusterAzureOverlayNetworkOnce          sync.Once
-	clusterAzureOverlayNetworkDualStackOnce sync.Once
-	clusterCiliumNetworkOnce                sync.Once
+	// clusterSingletons maps cluster configuration keys to their singletons
+	clusterSingletons = make(map[string]*ClusterSingleton)
+	// clusterSingletonsMutex protects the clusterSingletons map
+	clusterSingletonsMutex sync.RWMutex
 )
 
 type ClusterParams struct {
@@ -91,64 +86,115 @@ func (c *Cluster) MaxPodsPerNode() (int, error) {
 // Same cluster can be attempted to be created concurrently by different tests
 // sync.Once is used to ensure that only one cluster for the set of tests is created
 
-func ClusterLatestKubernetesVersion(ctx context.Context, t *testing.T) (*Cluster, error) {
-	clusterLatestKubernetesVersionOnce.Do(func() {
-		model, error := getLatestKubernetesVersionClusterModel("abe2e-latest-kubernetes-version", t)
+func ClusterLatestKubernetesVersion(ctx context.Context, location string, t *testing.T) (*Cluster, error) {
+	config := ClusterConfig{
+		Type:     "latest-k8s",
+		Location: location,
+	}
+	singleton := getOrCreateClusterSingleton(config)
+	
+	singleton.once.Do(func() {
+		model, error := getLatestKubernetesVersionClusterModel("abe2e-latest-kubernetes-version", location, t)
 		if error != nil {
 			t.Fatalf("failed to get latest kubernetes version cluster model: %v", error)
 		}
-		clusterLatestKubernetesVersion, clusterLatestKubernetesVersionError = prepareCluster(ctx, t, model, false, false)
+		singleton.cluster, singleton.err = prepareCluster(ctx, t, model, false, false)
 	})
-	return clusterLatestKubernetesVersion, clusterLatestKubernetesVersionError
+	return singleton.cluster, singleton.err
 }
 
-func ClusterKubenet(ctx context.Context, t *testing.T) (*Cluster, error) {
-	clusterKubenetOnce.Do(func() {
-		clusterKubenet, clusterKubenetError = prepareCluster(ctx, t, getKubenetClusterModel("abe2e-kubenet"), false, false)
+func ClusterKubenet(ctx context.Context, location string, t *testing.T) (*Cluster, error) {
+	config := ClusterConfig{
+		Type:     "kubenet",
+		Location: location,
+	}
+	singleton := getOrCreateClusterSingleton(config)
+	
+	singleton.once.Do(func() {
+		singleton.cluster, singleton.err = prepareCluster(ctx, t, getKubenetClusterModel("abe2e-kubenet", location), false, false)
 	})
-	return clusterKubenet, clusterKubenetError
+	return singleton.cluster, singleton.err
 }
 
-func ClusterKubenetAirgap(ctx context.Context, t *testing.T) (*Cluster, error) {
-	clusterKubenetAirgapOnce.Do(func() {
-		clusterKubenetAirgap, clusterKubenetAirgapError = prepareCluster(ctx, t, getKubenetClusterModel("abe2e-kubenet-airgap"), true, false)
+func ClusterKubenetAirgap(ctx context.Context, location string, t *testing.T) (*Cluster, error) {
+	config := ClusterConfig{
+		Type:     "kubenet",
+		Location: location,
+		IsAirgap: true,
+	}
+	singleton := getOrCreateClusterSingleton(config)
+	
+	singleton.once.Do(func() {
+		singleton.cluster, singleton.err = prepareCluster(ctx, t, getKubenetClusterModel("abe2e-kubenet-airgap", location), true, false)
 	})
-	return clusterKubenetAirgap, clusterKubenetAirgapError
+	return singleton.cluster, singleton.err
 }
 
-func ClusterKubenetAirgapNonAnon(ctx context.Context, t *testing.T) (*Cluster, error) {
-	clusterKubenetNonAnonAirgapOnce.Do(func() {
-		clusterKubenetNonAnonAirgap, clusterKubenetNonAnonAirgapError = prepareCluster(ctx, t, getKubenetClusterModel("abe2e-kubenet-nonanonpull-airgap"), true, true)
+func ClusterKubenetAirgapNonAnon(ctx context.Context, location string, t *testing.T) (*Cluster, error) {
+	config := ClusterConfig{
+		Type:           "kubenet",
+		Location:       location,
+		IsAirgap:       true,
+		IsNonAnonymous: true,
+	}
+	singleton := getOrCreateClusterSingleton(config)
+	
+	singleton.once.Do(func() {
+		singleton.cluster, singleton.err = prepareCluster(ctx, t, getKubenetClusterModel("abe2e-kubenet-nonanonpull-airgap", location), true, true)
 	})
-	return clusterKubenetNonAnonAirgap, clusterKubenetNonAnonAirgapError
+	return singleton.cluster, singleton.err
 }
 
-func ClusterAzureNetwork(ctx context.Context, t *testing.T) (*Cluster, error) {
-	clusterAzureNetworkOnce.Do(func() {
-		clusterAzureNetwork, clusterAzureNetworkError = prepareCluster(ctx, t, getAzureNetworkClusterModel("abe2e-azure-network"), false, false)
+func ClusterAzureNetwork(ctx context.Context, location string, t *testing.T) (*Cluster, error) {
+	config := ClusterConfig{
+		Type:     "azure-network",
+		Location: location,
+	}
+	singleton := getOrCreateClusterSingleton(config)
+	
+	singleton.once.Do(func() {
+		singleton.cluster, singleton.err = prepareCluster(ctx, t, getAzureNetworkClusterModel("abe2e-azure-network", location), false, false)
 	})
-	return clusterAzureNetwork, clusterAzureNetworkError
+	return singleton.cluster, singleton.err
 }
 
-func ClusterAzureOverlayNetwork(ctx context.Context, t *testing.T) (*Cluster, error) {
-	clusterAzureOverlayNetworkOnce.Do(func() {
-		clusterAzureOverlayNetwork, clusterAzureOverlayNetworkError = prepareCluster(ctx, t, getAzureOverlayNetworkClusterModel("abe2e-azure-overlay-network"), false, false)
+func ClusterAzureOverlayNetwork(ctx context.Context, location string, t *testing.T) (*Cluster, error) {
+	config := ClusterConfig{
+		Type:     "azure-overlay-network",
+		Location: location,
+	}
+	singleton := getOrCreateClusterSingleton(config)
+	
+	singleton.once.Do(func() {
+		singleton.cluster, singleton.err = prepareCluster(ctx, t, getAzureOverlayNetworkClusterModel("abe2e-azure-overlay-network", location), false, false)
 	})
-	return clusterAzureOverlayNetwork, clusterAzureOverlayNetworkError
+	return singleton.cluster, singleton.err
 }
 
-func ClusterAzureOverlayNetworkDualStack(ctx context.Context, t *testing.T) (*Cluster, error) {
-	clusterAzureOverlayNetworkDualStackOnce.Do(func() {
-		clusterAzureOverlayNetworkDualStack, clusterAzureOverlayNetworkDualStackError = prepareCluster(ctx, t, getAzureOverlayNetworkDualStackClusterModel("abe2e-azure-overlay-dualstack"), false, false)
+func ClusterAzureOverlayNetworkDualStack(ctx context.Context, location string, t *testing.T) (*Cluster, error) {
+	config := ClusterConfig{
+		Type:     "azure-overlay-dualstack",
+		Location: location,
+	}
+	singleton := getOrCreateClusterSingleton(config)
+	
+	singleton.once.Do(func() {
+		singleton.cluster, singleton.err = prepareCluster(ctx, t, getAzureOverlayNetworkDualStackClusterModel("abe2e-azure-overlay-dualstack", location), false, false)
 	})
-	return clusterAzureOverlayNetworkDualStack, clusterAzureOverlayNetworkDualStackError
+	return singleton.cluster, singleton.err
 }
 
-func ClusterCiliumNetwork(ctx context.Context, t *testing.T) (*Cluster, error) {
-	clusterCiliumNetworkOnce.Do(func() {
-		clusterCiliumNetwork, clusterCiliumNetworkError = prepareCluster(ctx, t, getCiliumNetworkClusterModel("abe2e-cilium-network"), false, false)
+func ClusterCiliumNetwork(ctx context.Context, location string, t *testing.T) (*Cluster, error) {
+	config := ClusterConfig{
+		Type:     "cilium-network",
+		Location: location,
+	}
+	singleton := getOrCreateClusterSingleton(config)
+	
+	singleton.once.Do(func() {
+		singleton.cluster, singleton.err = prepareCluster(ctx, t, getCiliumNetworkClusterModel("abe2e-cilium-network", location), false, false)
 	})
-	return clusterCiliumNetwork, clusterCiliumNetworkError
+	return singleton.cluster, singleton.err
 }
 
 func prepareCluster(ctx context.Context, t *testing.T, cluster *armcontainerservice.ManagedCluster, isAirgap, isNonAnonymousPull bool) (*Cluster, error) {
@@ -171,38 +217,40 @@ func prepareCluster(ctx context.Context, t *testing.T, cluster *armcontainerserv
 		return nil, fmt.Errorf("get cluster subnet: %w", err)
 	}
 
-	kube, err := getClusterKubeClient(ctx, config.ResourceGroupName, *cluster.Name)
+	resourceGroupName := config.ResourceGroupName(*cluster.Location)
+
+	kube, err := getClusterKubeClient(ctx, resourceGroupName, *cluster.Name)
 	if err != nil {
 		return nil, fmt.Errorf("get kube client using cluster %q: %w", *cluster.Name, err)
 	}
 
-	t.Logf("using private acr %q isAnonyomusPull %v", config.GetPrivateACRName(isNonAnonymousPull), isNonAnonymousPull)
+	t.Logf("using private acr %q isAnonyomusPull %v", config.GetPrivateACRName(isNonAnonymousPull, *cluster.Location), isNonAnonymousPull)
 	if isAirgap {
 		// private acr must be created before we add the debug daemonsets
-		if err := createPrivateAzureContainerRegistry(ctx, t, cluster, kube, config.ResourceGroupName, isNonAnonymousPull); err != nil {
+		if err := createPrivateAzureContainerRegistry(ctx, t, cluster, kube, resourceGroupName, isNonAnonymousPull); err != nil {
 			return nil, fmt.Errorf("failed to create private acr: %w", err)
 		}
 
-		if err := createPrivateAzureContainerRegistryPullSecret(ctx, t, cluster, kube, config.ResourceGroupName, isNonAnonymousPull); err != nil {
+		if err := createPrivateAzureContainerRegistryPullSecret(ctx, t, cluster, kube, resourceGroupName, isNonAnonymousPull); err != nil {
 			return nil, fmt.Errorf("create private acr pull secret: %w", err)
 		}
 
-		if err := addAirgapNetworkSettings(ctx, t, cluster, config.GetPrivateACRName(isNonAnonymousPull)); err != nil {
+		if err := addAirgapNetworkSettings(ctx, t, cluster, config.GetPrivateACRName(isNonAnonymousPull, *cluster.Location), *cluster.Location); err != nil {
 			return nil, fmt.Errorf("add airgap network settings: %w", err)
 		}
 	}
 
 	if isNonAnonymousPull {
-		identity, err := config.Azure.UserAssignedIdentities.Get(ctx, config.ResourceGroupName, config.VMIdentityName, nil)
+		identity, err := config.Azure.UserAssignedIdentities.Get(ctx, resourceGroupName, config.VMIdentityName, nil)
 		if err != nil {
 			t.Fatalf("failed to get VM identity: %v", err)
 		}
-		if err := assignACRPullToIdentity(ctx, t, config.GetPrivateACRName(isNonAnonymousPull), *identity.Properties.PrincipalID); err != nil {
+		if err := assignACRPullToIdentity(ctx, t, config.GetPrivateACRName(isNonAnonymousPull, *cluster.Location), *identity.Properties.PrincipalID, *cluster.Location); err != nil {
 			return nil, fmt.Errorf("assign acr pull to the managed identity: %w", err)
 		}
 	}
 
-	if err := kube.EnsureDebugDaemonsets(ctx, t, isAirgap, config.GetPrivateACRName(isNonAnonymousPull)); err != nil {
+	if err := kube.EnsureDebugDaemonsets(ctx, t, isAirgap, config.GetPrivateACRName(isNonAnonymousPull, *cluster.Location)); err != nil {
 		return nil, fmt.Errorf("ensure debug daemonsets for %q: %w", *cluster.Name, err)
 	}
 
@@ -248,9 +296,9 @@ func extractClusterParameters(ctx context.Context, t *testing.T, kube *Kubeclien
 	}, nil
 }
 
-func assignACRPullToIdentity(ctx context.Context, t *testing.T, privateACRName, principalID string) error {
+func assignACRPullToIdentity(ctx context.Context, t *testing.T, privateACRName, principalID string, location string) error {
 	t.Logf("assigning ACR-Pull role to %s", principalID)
-	scope := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.ContainerRegistry/registries/%s", config.Config.SubscriptionID, config.ResourceGroupName, privateACRName)
+	scope := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.ContainerRegistry/registries/%s", config.Config.SubscriptionID, config.ResourceGroupName(location), privateACRName)
 
 	uid := uuid.New().String()
 	_, err := config.Azure.RoleAssignments.Create(ctx, scope, uid, armauthorization.RoleAssignmentCreateParameters{
@@ -305,7 +353,9 @@ func hash(cluster *armcontainerservice.ManagedCluster) string {
 }
 
 func getOrCreateCluster(ctx context.Context, t *testing.T, cluster *armcontainerservice.ManagedCluster) (*armcontainerservice.ManagedCluster, error) {
-	existingCluster, err := config.Azure.AKS.Get(ctx, config.ResourceGroupName, *cluster.Name, nil)
+	resourceGroupName := config.ResourceGroupName(*cluster.Location)
+
+	existingCluster, err := config.Azure.AKS.Get(ctx, resourceGroupName, *cluster.Name, nil)
 	var azErr *azcore.ResponseError
 	if errors.As(err, &azErr) && azErr.StatusCode == 404 {
 		return createNewAKSClusterWithRetry(ctx, t, cluster)
@@ -313,7 +363,7 @@ func getOrCreateCluster(ctx context.Context, t *testing.T, cluster *armcontainer
 	if err != nil {
 		return nil, fmt.Errorf("failed to get cluster %q: %w", *cluster.Name, err)
 	}
-	t.Logf("cluster %s already exists in rg %s", *cluster.Name, config.ResourceGroupName)
+	t.Logf("cluster %s already exists in rg %s", *cluster.Name, resourceGroupName)
 	switch *existingCluster.Properties.ProvisioningState {
 	case "Succeeded":
 		nodeRGExists, err := isExistingResourceGroup(ctx, *existingCluster.Properties.NodeResourceGroup)
@@ -328,7 +378,7 @@ func getOrCreateCluster(ctx context.Context, t *testing.T, cluster *armcontainer
 		}
 		return &existingCluster.ManagedCluster, nil
 	case "Creating", "Updating":
-		return waitUntilClusterReady(ctx, *cluster.Name)
+		return waitUntilClusterReady(ctx, *cluster.Name, *cluster.Location)
 	default:
 		// this operation will try to update the cluster if it's in a failed state
 		return createNewAKSClusterWithRetry(ctx, t, cluster)
@@ -336,18 +386,19 @@ func getOrCreateCluster(ctx context.Context, t *testing.T, cluster *armcontainer
 }
 
 func deleteCluster(ctx context.Context, t *testing.T, cluster *armcontainerservice.ManagedCluster) error {
-	t.Logf("deleting cluster %s in rg %s", *cluster.Name, config.ResourceGroupName)
-	_, err := config.Azure.AKS.Get(ctx, config.ResourceGroupName, *cluster.Name, nil)
+	resourceGroupName := config.ResourceGroupName(*cluster.Location)
+	t.Logf("deleting cluster %s in rg %s", *cluster.Name, resourceGroupName)
+	_, err := config.Azure.AKS.Get(ctx, resourceGroupName, *cluster.Name, nil)
 	if err != nil {
 		var azErr *azcore.ResponseError
 		if errors.As(err, &azErr) && azErr.StatusCode == 404 {
-			t.Logf("cluster %s does not exist in rg %s", *cluster.Name, config.ResourceGroupName)
+			t.Logf("cluster %s does not exist in rg %s", *cluster.Name, resourceGroupName)
 			return nil
 		}
 		return fmt.Errorf("failed to get cluster %q: %w", *cluster.Name, err)
 	}
 
-	pollerResp, err := config.Azure.AKS.BeginDelete(ctx, config.ResourceGroupName, *cluster.Name, nil)
+	pollerResp, err := config.Azure.AKS.BeginDelete(ctx, resourceGroupName, *cluster.Name, nil)
 	if err != nil {
 		return fmt.Errorf("failed to delete cluster %q: %w", *cluster.Name, err)
 	}
@@ -355,15 +406,15 @@ func deleteCluster(ctx context.Context, t *testing.T, cluster *armcontainerservi
 	if err != nil {
 		return fmt.Errorf("failed to wait for cluster deletion %w", err)
 	}
-	t.Logf("deleted cluster %s in rg %s", *cluster.Name, config.ResourceGroupName)
+	t.Logf("deleted cluster %s in rg %s", *cluster.Name, resourceGroupName)
 	return nil
 }
 
-func waitUntilClusterReady(ctx context.Context, name string) (*armcontainerservice.ManagedCluster, error) {
+func waitUntilClusterReady(ctx context.Context, name string, location string) (*armcontainerservice.ManagedCluster, error) {
 	var cluster armcontainerservice.ManagedClustersClientGetResponse
 	err := wait.PollUntilContextCancel(ctx, time.Second, true, func(ctx context.Context) (bool, error) {
 		var err error
-		cluster, err = config.Azure.AKS.Get(ctx, config.ResourceGroupName, name, nil)
+		cluster, err = config.Azure.AKS.Get(ctx, config.ResourceGroupName(location), name, nil)
 		if err != nil {
 			return false, err
 		}
@@ -396,7 +447,7 @@ func createNewAKSCluster(ctx context.Context, t *testing.T, cluster *armcontaine
 	// Note, it seems like the operation still can start a trigger a new operation even if nothing has changes
 	pollerResp, err := config.Azure.AKS.BeginCreateOrUpdate(
 		ctx,
-		config.ResourceGroupName,
+		config.ResourceGroupName(*cluster.Location),
 		*cluster.Name,
 		*cluster,
 		nil,
@@ -422,7 +473,7 @@ func createNewAKSClusterWithRetry(ctx context.Context, t *testing.T, cluster *ar
 	retryInterval := 30 * time.Second
 	var lastErr error
 	for attempt := 0; attempt < maxRetries; attempt++ {
-		t.Logf("Attempt %d: creating or updating cluster %s in region %s and rg %s", attempt+1, *cluster.Name, *cluster.Location, config.ResourceGroupName)
+		t.Logf("Attempt %d: creating or updating cluster %s in region %s and rg %s", attempt+1, *cluster.Name, *cluster.Location, config.ResourceGroupName(*cluster.Location))
 
 		createdCluster, err := createNewAKSCluster(ctx, t, cluster)
 		if err == nil {
@@ -451,7 +502,7 @@ func createNewAKSClusterWithRetry(ctx context.Context, t *testing.T, cluster *ar
 }
 
 func getOrCreateMaintenanceConfiguration(ctx context.Context, t *testing.T, cluster *armcontainerservice.ManagedCluster) (*armcontainerservice.MaintenanceConfiguration, error) {
-	existingMaintenance, err := config.Azure.Maintenance.Get(ctx, config.ResourceGroupName, *cluster.Name, "default", nil)
+	existingMaintenance, err := config.Azure.Maintenance.Get(ctx, config.ResourceGroupName(*cluster.Location), *cluster.Name, "default", nil)
 	var azErr *azcore.ResponseError
 	if errors.As(err, &azErr) && azErr.StatusCode == 404 {
 		return createNewMaintenanceConfiguration(ctx, t, cluster)
@@ -463,7 +514,7 @@ func getOrCreateMaintenanceConfiguration(ctx context.Context, t *testing.T, clus
 }
 
 func createNewMaintenanceConfiguration(ctx context.Context, t *testing.T, cluster *armcontainerservice.ManagedCluster) (*armcontainerservice.MaintenanceConfiguration, error) {
-	t.Logf("creating maintenance configuration for cluster %s in rg %s", *cluster.Name, config.ResourceGroupName)
+	t.Logf("creating maintenance configuration for cluster %s in rg %s", *cluster.Name, config.ResourceGroupName(*cluster.Location))
 	maintenance := armcontainerservice.MaintenanceConfiguration{
 		Properties: &armcontainerservice.MaintenanceConfigurationProperties{
 			MaintenanceWindow: &armcontainerservice.MaintenanceWindow{
@@ -485,7 +536,7 @@ func createNewMaintenanceConfiguration(ctx context.Context, t *testing.T, cluste
 		},
 	}
 
-	_, err := config.Azure.Maintenance.CreateOrUpdate(ctx, config.ResourceGroupName, *cluster.Name, "default", maintenance, nil)
+	_, err := config.Azure.Maintenance.CreateOrUpdate(ctx, config.ResourceGroupName(*cluster.Location), *cluster.Name, "default", maintenance, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create maintenance configuration: %w", err)
 	}
@@ -552,18 +603,97 @@ func collectGarbageVMSS(ctx context.Context, t *testing.T, cluster *armcontainer
 	return nil
 }
 
-func ensureResourceGroup(ctx context.Context) error {
+func ensureResourceGroup(ctx context.Context, location string) error {
+	resourceGroupName := config.ResourceGroupName(location)
 	_, err := config.Azure.ResourceGroup.CreateOrUpdate(
 		ctx,
-		config.ResourceGroupName,
+		resourceGroupName,
 		armresources.ResourceGroup{
-			Location: to.Ptr(config.Config.Location),
-			Name:     to.Ptr(config.ResourceGroupName),
+			Location: to.Ptr(location),
+			Name:     to.Ptr(resourceGroupName),
 		},
 		nil)
 
 	if err != nil {
-		return fmt.Errorf("failed to create RG %q: %w", config.ResourceGroupName, err)
+		return fmt.Errorf("failed to create RG %q: %w", resourceGroupName, err)
 	}
 	return nil
+}
+
+// generateClusterKey creates a unique key for the cluster configuration
+func (cc ClusterConfig) generateClusterKey() string {
+	return fmt.Sprintf("%s_%s_%s_%t_%t", cc.Type, cc.Location, cc.KubernetesVersion, cc.IsAirgap, cc.IsNonAnonymous)
+}
+
+// getOrCreateClusterSingleton safely retrieves or creates a cluster singleton
+func getOrCreateClusterSingleton(config ClusterConfig) *ClusterSingleton {
+	key := config.generateClusterKey()
+
+	clusterSingletonsMutex.RLock()
+	singleton, exists := clusterSingletons[key]
+	clusterSingletonsMutex.RUnlock()
+
+	if exists {
+		return singleton
+	}
+
+	// Create new singleton if it doesn't exist
+	clusterSingletonsMutex.Lock()
+	defer clusterSingletonsMutex.Unlock()
+
+	// Double-check after acquiring write lock
+	if singleton, exists := clusterSingletons[key]; exists {
+		return singleton
+	}
+
+	singleton = &ClusterSingleton{}
+	clusterSingletons[key] = singleton
+	return singleton
+}
+
+// CreateClusterWithConfig creates or retrieves a cluster with the specified configuration
+// This is useful for tests that need specific configurations (e.g., different regions or K8s versions)
+func CreateClusterWithConfig(ctx context.Context, t *testing.T, config ClusterConfig) (*Cluster, error) {
+	singleton := getOrCreateClusterSingleton(config)
+	
+	singleton.once.Do(func() {
+		var model *armcontainerservice.ManagedCluster
+		var err error
+		
+		switch config.Type {
+		case "kubenet":
+			model = getKubenetClusterModel(fmt.Sprintf("abe2e-kubenet-%s", config.Location), config.Location)
+		case "azure-network":
+			model = getAzureNetworkClusterModel(fmt.Sprintf("abe2e-azure-network-%s", config.Location), config.Location)
+		case "azure-overlay-network":
+			model = getAzureOverlayNetworkClusterModel(fmt.Sprintf("abe2e-azure-overlay-%s", config.Location), config.Location)
+		case "azure-overlay-dualstack":
+			model = getAzureOverlayNetworkDualStackClusterModel(fmt.Sprintf("abe2e-overlay-ds-%s", config.Location), config.Location)
+		case "cilium-network":
+			model = getCiliumNetworkClusterModel(fmt.Sprintf("abe2e-cilium-%s", config.Location), config.Location)
+		case "latest-k8s":
+			model, err = getLatestKubernetesVersionClusterModel(fmt.Sprintf("abe2e-latest-k8s-%s", config.Location), config.Location, t)
+			if err != nil {
+				t.Fatalf("failed to get latest kubernetes version cluster model: %v", err)
+			}
+		default:
+			singleton.err = fmt.Errorf("unsupported cluster type: %s", config.Type)
+			return
+		}
+		
+		// Apply Kubernetes version override if specified
+		if config.KubernetesVersion != "" && model != nil {
+			if model.Properties == nil {
+				model.Properties = &armcontainerservice.ManagedClusterProperties{}
+			}
+			if model.Properties.OrchestratorProfile == nil {
+				model.Properties.OrchestratorProfile = &armcontainerservice.ContainerServiceOrchestratorProfile{}
+			}
+			model.Properties.OrchestratorProfile.OrchestratorVersion = &config.KubernetesVersion
+		}
+		
+		singleton.cluster, singleton.err = prepareCluster(ctx, t, model, config.IsAirgap, config.IsNonAnonymous)
+	})
+	
+	return singleton.cluster, singleton.err
 }
