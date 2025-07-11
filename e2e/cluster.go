@@ -28,33 +28,26 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
+type ClusterSingleton struct {
+	cluster *Cluster
+	once    *sync.Once
+	err     error
+}
+
+type ClusterCollection struct {
+	latestKubernetesVersion      *ClusterSingleton
+	kubenet                      *ClusterSingleton
+	kubenetAirgap                *ClusterSingleton
+	kubenetNonAnonAirgap         *ClusterSingleton
+	azureNetwork                 *ClusterSingleton
+	azureOverlayNetwork          *ClusterSingleton
+	azureOverlayNetworkDualStack *ClusterSingleton
+	ciliumNetwork                *ClusterSingleton
+}
+
 var (
-	clusterLatestKubernetesVersion      *Cluster
-	clusterKubenet                      *Cluster
-	clusterKubenetAirgap                *Cluster
-	clusterKubenetNonAnonAirgap         *Cluster
-	clusterAzureNetwork                 *Cluster
-	clusterAzureOverlayNetwork          *Cluster
-	clusterAzureOverlayNetworkDualStack *Cluster
-	clusterCiliumNetwork                *Cluster
-
-	clusterLatestKubernetesVersionError      error
-	clusterKubenetError                      error
-	clusterKubenetAirgapError                error
-	clusterKubenetNonAnonAirgapError         error
-	clusterAzureNetworkError                 error
-	clusterAzureOverlayNetworkError          error
-	clusterAzureOverlayNetworkDualStackError error
-	clusterCiliumNetworkError                error
-
-	clusterLatestKubernetesVersionOnce      sync.Once
-	clusterKubenetOnce                      sync.Once
-	clusterKubenetAirgapOnce                sync.Once
-	clusterKubenetNonAnonAirgapOnce         sync.Once
-	clusterAzureNetworkOnce                 sync.Once
-	clusterAzureOverlayNetworkOnce          sync.Once
-	clusterAzureOverlayNetworkDualStackOnce sync.Once
-	clusterCiliumNetworkOnce                sync.Once
+	clusterCache = make(map[string]*ClusterCollection)
+	cacheMutex   sync.RWMutex
 )
 
 type ClusterParams struct {
@@ -88,67 +81,108 @@ func (c *Cluster) MaxPodsPerNode() (int, error) {
 	return 0, fmt.Errorf("cluster agentpool profiles were nil or empty: %+v", c.Model)
 }
 
+func getOrInitializeClusterCache(location string) *ClusterCollection {
+	// First, try with read lock for common case
+	cacheMutex.RLock()
+	if collection, exists := clusterCache[location]; exists {
+		cacheMutex.RUnlock()
+		return collection
+	}
+	cacheMutex.RUnlock()
+
+	// Need to initialize - acquire write lock
+	cacheMutex.Lock()
+	defer cacheMutex.Unlock()
+
+	// Double-check after acquiring write lock
+	if collection, exists := clusterCache[location]; exists {
+		return collection
+	}
+
+	// Initialize new collection
+	collection := &ClusterCollection{
+		latestKubernetesVersion:      &ClusterSingleton{once: &sync.Once{}},
+		kubenet:                      &ClusterSingleton{once: &sync.Once{}},
+		kubenetAirgap:                &ClusterSingleton{once: &sync.Once{}},
+		kubenetNonAnonAirgap:         &ClusterSingleton{once: &sync.Once{}},
+		azureNetwork:                 &ClusterSingleton{once: &sync.Once{}},
+		azureOverlayNetwork:          &ClusterSingleton{once: &sync.Once{}},
+		azureOverlayNetworkDualStack: &ClusterSingleton{once: &sync.Once{}},
+		ciliumNetwork:                &ClusterSingleton{once: &sync.Once{}},
+	}
+	clusterCache[location] = collection
+	return collection
+}
+
 // Same cluster can be attempted to be created concurrently by different tests
 // sync.Once is used to ensure that only one cluster for the set of tests is created
 
 func ClusterLatestKubernetesVersion(ctx context.Context, location string, t *testing.T) (*Cluster, error) {
-	clusterLatestKubernetesVersionOnce.Do(func() {
+	collection := getOrInitializeClusterCache(location)
+	collection.latestKubernetesVersion.once.Do(func() {
 		model, error := getLatestKubernetesVersionClusterModel("abe2e-latest-kubernetes-version", location, t)
 		if error != nil {
 			t.Fatalf("failed to get latest kubernetes version cluster model: %v", error)
 		}
-		clusterLatestKubernetesVersion, clusterLatestKubernetesVersionError = prepareCluster(ctx, t, model, false, false)
+		collection.latestKubernetesVersion.cluster, collection.latestKubernetesVersion.err = prepareCluster(ctx, t, model, false, false)
 	})
-	return clusterLatestKubernetesVersion, clusterLatestKubernetesVersionError
+	return collection.latestKubernetesVersion.cluster, collection.latestKubernetesVersion.err
 }
 
 func ClusterKubenet(ctx context.Context, location string, t *testing.T) (*Cluster, error) {
-	clusterKubenetOnce.Do(func() {
-		clusterKubenet, clusterKubenetError = prepareCluster(ctx, t, getKubenetClusterModel("abe2e-kubenet", location), false, false)
+	collection := getOrInitializeClusterCache(location)
+	collection.kubenet.once.Do(func() {
+		collection.kubenet.cluster, collection.kubenet.err = prepareCluster(ctx, t, getKubenetClusterModel("abe2e-kubenet", location), false, false)
 	})
-	return clusterKubenet, clusterKubenetError
+	return collection.kubenet.cluster, collection.kubenet.err
 }
 
 func ClusterKubenetAirgap(ctx context.Context, location string, t *testing.T) (*Cluster, error) {
-	clusterKubenetAirgapOnce.Do(func() {
-		clusterKubenetAirgap, clusterKubenetAirgapError = prepareCluster(ctx, t, getKubenetClusterModel("abe2e-kubenet-airgap", location), true, false)
+	collection := getOrInitializeClusterCache(location)
+	collection.kubenetAirgap.once.Do(func() {
+		collection.kubenetAirgap.cluster, collection.kubenetAirgap.err = prepareCluster(ctx, t, getKubenetClusterModel("abe2e-kubenet-airgap", location), true, false)
 	})
-	return clusterKubenetAirgap, clusterKubenetAirgapError
+	return collection.kubenetAirgap.cluster, collection.kubenetAirgap.err
 }
 
 func ClusterKubenetAirgapNonAnon(ctx context.Context, location string, t *testing.T) (*Cluster, error) {
-	clusterKubenetNonAnonAirgapOnce.Do(func() {
-		clusterKubenetNonAnonAirgap, clusterKubenetNonAnonAirgapError = prepareCluster(ctx, t, getKubenetClusterModel("abe2e-kubenet-nonanonpull-airgap", location), true, true)
+	collection := getOrInitializeClusterCache(location)
+	collection.kubenetNonAnonAirgap.once.Do(func() {
+		collection.kubenetNonAnonAirgap.cluster, collection.kubenetNonAnonAirgap.err = prepareCluster(ctx, t, getKubenetClusterModel("abe2e-kubenet-nonanonpull-airgap", location), true, true)
 	})
-	return clusterKubenetNonAnonAirgap, clusterKubenetNonAnonAirgapError
+	return collection.kubenetNonAnonAirgap.cluster, collection.kubenetNonAnonAirgap.err
 }
 
 func ClusterAzureNetwork(ctx context.Context, location string, t *testing.T) (*Cluster, error) {
-	clusterAzureNetworkOnce.Do(func() {
-		clusterAzureNetwork, clusterAzureNetworkError = prepareCluster(ctx, t, getAzureNetworkClusterModel("abe2e-azure-network", location), false, false)
+	collection := getOrInitializeClusterCache(location)
+	collection.azureNetwork.once.Do(func() {
+		collection.azureNetwork.cluster, collection.azureNetwork.err = prepareCluster(ctx, t, getAzureNetworkClusterModel("abe2e-azure-network", location), false, false)
 	})
-	return clusterAzureNetwork, clusterAzureNetworkError
+	return collection.azureNetwork.cluster, collection.azureNetwork.err
 }
 
 func ClusterAzureOverlayNetwork(ctx context.Context, location string, t *testing.T) (*Cluster, error) {
-	clusterAzureOverlayNetworkOnce.Do(func() {
-		clusterAzureOverlayNetwork, clusterAzureOverlayNetworkError = prepareCluster(ctx, t, getAzureOverlayNetworkClusterModel("abe2e-azure-overlay-network", location), false, false)
+	collection := getOrInitializeClusterCache(location)
+	collection.azureOverlayNetwork.once.Do(func() {
+		collection.azureOverlayNetwork.cluster, collection.azureOverlayNetwork.err = prepareCluster(ctx, t, getAzureOverlayNetworkClusterModel("abe2e-azure-overlay-network", location), false, false)
 	})
-	return clusterAzureOverlayNetwork, clusterAzureOverlayNetworkError
+	return collection.azureOverlayNetwork.cluster, collection.azureOverlayNetwork.err
 }
 
 func ClusterAzureOverlayNetworkDualStack(ctx context.Context, location string, t *testing.T) (*Cluster, error) {
-	clusterAzureOverlayNetworkDualStackOnce.Do(func() {
-		clusterAzureOverlayNetworkDualStack, clusterAzureOverlayNetworkDualStackError = prepareCluster(ctx, t, getAzureOverlayNetworkDualStackClusterModel("abe2e-azure-overlay-dualstack", location), false, false)
+	collection := getOrInitializeClusterCache(location)
+	collection.azureOverlayNetworkDualStack.once.Do(func() {
+		collection.azureOverlayNetworkDualStack.cluster, collection.azureOverlayNetworkDualStack.err = prepareCluster(ctx, t, getAzureOverlayNetworkDualStackClusterModel("abe2e-azure-overlay-dualstack", location), false, false)
 	})
-	return clusterAzureOverlayNetworkDualStack, clusterAzureOverlayNetworkDualStackError
+	return collection.azureOverlayNetworkDualStack.cluster, collection.azureOverlayNetworkDualStack.err
 }
 
 func ClusterCiliumNetwork(ctx context.Context, location string, t *testing.T) (*Cluster, error) {
-	clusterCiliumNetworkOnce.Do(func() {
-		clusterCiliumNetwork, clusterCiliumNetworkError = prepareCluster(ctx, t, getCiliumNetworkClusterModel("abe2e-cilium-network", location), false, false)
+	collection := getOrInitializeClusterCache(location)
+	collection.ciliumNetwork.once.Do(func() {
+		collection.ciliumNetwork.cluster, collection.ciliumNetwork.err = prepareCluster(ctx, t, getCiliumNetworkClusterModel("abe2e-cilium-network", location), false, false)
 	})
-	return clusterCiliumNetwork, clusterCiliumNetworkError
+	return collection.ciliumNetwork.cluster, collection.ciliumNetwork.err
 }
 
 func prepareCluster(ctx context.Context, t *testing.T, cluster *armcontainerservice.ManagedCluster, isAirgap, isNonAnonymousPull bool) (*Cluster, error) {
