@@ -1657,21 +1657,17 @@ func Test_Ubuntu2404_NPD_Basic(t *testing.T) {
 		}})
 }
 
-// Custom test for running in southcentralus region
-func Test_MyScenario_BasicDeployment(t *testing.T) {
-	location := "southafricanorth" // Set the region for the test
+func Test_AlternateRegion_BasicDeployment(t *testing.T) {
+	location := "southafricanorth" // Set the alternate region for the test
 
 	RunScenario(t, &Scenario{
 		Description: "Tests basic node deployment in configured region",
 		Location:    location, // Override location for this test
 		Config: Config{
-			Cluster: ClusterKubenet, // Uses config.Config.Location
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				// Add your custom configuration here
-			},
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.Location = to.Ptr(location)
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				// Validate kubelet is running
