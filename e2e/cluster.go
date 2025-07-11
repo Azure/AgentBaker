@@ -28,33 +28,28 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
+// ClusterConfig represents the configuration that uniquely identifies a cluster type
+type ClusterConfig struct {
+	Type            string // "kubenet", "azure-network", "latest-k8s", etc.
+	Location        string
+	KubernetesVersion string // optional, empty means default
+	IsAirgap        bool
+	IsNonAnonymous  bool
+	// Add more configuration fields as needed
+}
+
+// ClusterSingleton holds a cluster instance and its creation state
+type ClusterSingleton struct {
+	cluster *Cluster
+	err     error
+	once    sync.Once
+}
+
 var (
-	clusterLatestKubernetesVersion      *Cluster
-	clusterKubenet                      *Cluster
-	clusterKubenetAirgap                *Cluster
-	clusterKubenetNonAnonAirgap         *Cluster
-	clusterAzureNetwork                 *Cluster
-	clusterAzureOverlayNetwork          *Cluster
-	clusterAzureOverlayNetworkDualStack *Cluster
-	clusterCiliumNetwork                *Cluster
-
-	clusterLatestKubernetesVersionError      error
-	clusterKubenetError                      error
-	clusterKubenetAirgapError                error
-	clusterKubenetNonAnonAirgapError         error
-	clusterAzureNetworkError                 error
-	clusterAzureOverlayNetworkError          error
-	clusterAzureOverlayNetworkDualStackError error
-	clusterCiliumNetworkError                error
-
-	clusterLatestKubernetesVersionOnce      sync.Once
-	clusterKubenetOnce                      sync.Once
-	clusterKubenetAirgapOnce                sync.Once
-	clusterKubenetNonAnonAirgapOnce         sync.Once
-	clusterAzureNetworkOnce                 sync.Once
-	clusterAzureOverlayNetworkOnce          sync.Once
-	clusterAzureOverlayNetworkDualStackOnce sync.Once
-	clusterCiliumNetworkOnce                sync.Once
+	// clusterSingletons maps cluster configuration keys to their singletons
+	clusterSingletons = make(map[string]*ClusterSingleton)
+	// clusterSingletonsMutex protects the clusterSingletons map
+	clusterSingletonsMutex sync.RWMutex
 )
 
 type ClusterParams struct {
@@ -92,63 +87,114 @@ func (c *Cluster) MaxPodsPerNode() (int, error) {
 // sync.Once is used to ensure that only one cluster for the set of tests is created
 
 func ClusterLatestKubernetesVersion(ctx context.Context, location string, t *testing.T) (*Cluster, error) {
-	clusterLatestKubernetesVersionOnce.Do(func() {
+	config := ClusterConfig{
+		Type:     "latest-k8s",
+		Location: location,
+	}
+	singleton := getOrCreateClusterSingleton(config)
+	
+	singleton.once.Do(func() {
 		model, error := getLatestKubernetesVersionClusterModel("abe2e-latest-kubernetes-version", location, t)
 		if error != nil {
 			t.Fatalf("failed to get latest kubernetes version cluster model: %v", error)
 		}
-		clusterLatestKubernetesVersion, clusterLatestKubernetesVersionError = prepareCluster(ctx, t, model, false, false)
+		singleton.cluster, singleton.err = prepareCluster(ctx, t, model, false, false)
 	})
-	return clusterLatestKubernetesVersion, clusterLatestKubernetesVersionError
+	return singleton.cluster, singleton.err
 }
 
 func ClusterKubenet(ctx context.Context, location string, t *testing.T) (*Cluster, error) {
-	clusterKubenetOnce.Do(func() {
-		clusterKubenet, clusterKubenetError = prepareCluster(ctx, t, getKubenetClusterModel("abe2e-kubenet", location), false, false)
+	config := ClusterConfig{
+		Type:     "kubenet",
+		Location: location,
+	}
+	singleton := getOrCreateClusterSingleton(config)
+	
+	singleton.once.Do(func() {
+		singleton.cluster, singleton.err = prepareCluster(ctx, t, getKubenetClusterModel("abe2e-kubenet", location), false, false)
 	})
-	return clusterKubenet, clusterKubenetError
+	return singleton.cluster, singleton.err
 }
 
 func ClusterKubenetAirgap(ctx context.Context, location string, t *testing.T) (*Cluster, error) {
-	clusterKubenetAirgapOnce.Do(func() {
-		clusterKubenetAirgap, clusterKubenetAirgapError = prepareCluster(ctx, t, getKubenetClusterModel("abe2e-kubenet-airgap", location), true, false)
+	config := ClusterConfig{
+		Type:     "kubenet",
+		Location: location,
+		IsAirgap: true,
+	}
+	singleton := getOrCreateClusterSingleton(config)
+	
+	singleton.once.Do(func() {
+		singleton.cluster, singleton.err = prepareCluster(ctx, t, getKubenetClusterModel("abe2e-kubenet-airgap", location), true, false)
 	})
-	return clusterKubenetAirgap, clusterKubenetAirgapError
+	return singleton.cluster, singleton.err
 }
 
 func ClusterKubenetAirgapNonAnon(ctx context.Context, location string, t *testing.T) (*Cluster, error) {
-	clusterKubenetNonAnonAirgapOnce.Do(func() {
-		clusterKubenetNonAnonAirgap, clusterKubenetNonAnonAirgapError = prepareCluster(ctx, t, getKubenetClusterModel("abe2e-kubenet-nonanonpull-airgap", location), true, true)
+	config := ClusterConfig{
+		Type:           "kubenet",
+		Location:       location,
+		IsAirgap:       true,
+		IsNonAnonymous: true,
+	}
+	singleton := getOrCreateClusterSingleton(config)
+	
+	singleton.once.Do(func() {
+		singleton.cluster, singleton.err = prepareCluster(ctx, t, getKubenetClusterModel("abe2e-kubenet-nonanonpull-airgap", location), true, true)
 	})
-	return clusterKubenetNonAnonAirgap, clusterKubenetNonAnonAirgapError
+	return singleton.cluster, singleton.err
 }
 
 func ClusterAzureNetwork(ctx context.Context, location string, t *testing.T) (*Cluster, error) {
-	clusterAzureNetworkOnce.Do(func() {
-		clusterAzureNetwork, clusterAzureNetworkError = prepareCluster(ctx, t, getAzureNetworkClusterModel("abe2e-azure-network", location), false, false)
+	config := ClusterConfig{
+		Type:     "azure-network",
+		Location: location,
+	}
+	singleton := getOrCreateClusterSingleton(config)
+	
+	singleton.once.Do(func() {
+		singleton.cluster, singleton.err = prepareCluster(ctx, t, getAzureNetworkClusterModel("abe2e-azure-network", location), false, false)
 	})
-	return clusterAzureNetwork, clusterAzureNetworkError
+	return singleton.cluster, singleton.err
 }
 
 func ClusterAzureOverlayNetwork(ctx context.Context, location string, t *testing.T) (*Cluster, error) {
-	clusterAzureOverlayNetworkOnce.Do(func() {
-		clusterAzureOverlayNetwork, clusterAzureOverlayNetworkError = prepareCluster(ctx, t, getAzureOverlayNetworkClusterModel("abe2e-azure-overlay-network", location), false, false)
+	config := ClusterConfig{
+		Type:     "azure-overlay-network",
+		Location: location,
+	}
+	singleton := getOrCreateClusterSingleton(config)
+	
+	singleton.once.Do(func() {
+		singleton.cluster, singleton.err = prepareCluster(ctx, t, getAzureOverlayNetworkClusterModel("abe2e-azure-overlay-network", location), false, false)
 	})
-	return clusterAzureOverlayNetwork, clusterAzureOverlayNetworkError
+	return singleton.cluster, singleton.err
 }
 
 func ClusterAzureOverlayNetworkDualStack(ctx context.Context, location string, t *testing.T) (*Cluster, error) {
-	clusterAzureOverlayNetworkDualStackOnce.Do(func() {
-		clusterAzureOverlayNetworkDualStack, clusterAzureOverlayNetworkDualStackError = prepareCluster(ctx, t, getAzureOverlayNetworkDualStackClusterModel("abe2e-azure-overlay-dualstack", location), false, false)
+	config := ClusterConfig{
+		Type:     "azure-overlay-dualstack",
+		Location: location,
+	}
+	singleton := getOrCreateClusterSingleton(config)
+	
+	singleton.once.Do(func() {
+		singleton.cluster, singleton.err = prepareCluster(ctx, t, getAzureOverlayNetworkDualStackClusterModel("abe2e-azure-overlay-dualstack", location), false, false)
 	})
-	return clusterAzureOverlayNetworkDualStack, clusterAzureOverlayNetworkDualStackError
+	return singleton.cluster, singleton.err
 }
 
 func ClusterCiliumNetwork(ctx context.Context, location string, t *testing.T) (*Cluster, error) {
-	clusterCiliumNetworkOnce.Do(func() {
-		clusterCiliumNetwork, clusterCiliumNetworkError = prepareCluster(ctx, t, getCiliumNetworkClusterModel("abe2e-cilium-network", location), false, false)
+	config := ClusterConfig{
+		Type:     "cilium-network",
+		Location: location,
+	}
+	singleton := getOrCreateClusterSingleton(config)
+	
+	singleton.once.Do(func() {
+		singleton.cluster, singleton.err = prepareCluster(ctx, t, getCiliumNetworkClusterModel("abe2e-cilium-network", location), false, false)
 	})
-	return clusterCiliumNetwork, clusterCiliumNetworkError
+	return singleton.cluster, singleton.err
 }
 
 func prepareCluster(ctx context.Context, t *testing.T, cluster *armcontainerservice.ManagedCluster, isAirgap, isNonAnonymousPull bool) (*Cluster, error) {
@@ -572,4 +618,82 @@ func ensureResourceGroup(ctx context.Context, location string) error {
 		return fmt.Errorf("failed to create RG %q: %w", resourceGroupName, err)
 	}
 	return nil
+}
+
+// generateClusterKey creates a unique key for the cluster configuration
+func (cc ClusterConfig) generateClusterKey() string {
+	return fmt.Sprintf("%s_%s_%s_%t_%t", cc.Type, cc.Location, cc.KubernetesVersion, cc.IsAirgap, cc.IsNonAnonymous)
+}
+
+// getOrCreateClusterSingleton safely retrieves or creates a cluster singleton
+func getOrCreateClusterSingleton(config ClusterConfig) *ClusterSingleton {
+	key := config.generateClusterKey()
+
+	clusterSingletonsMutex.RLock()
+	singleton, exists := clusterSingletons[key]
+	clusterSingletonsMutex.RUnlock()
+
+	if exists {
+		return singleton
+	}
+
+	// Create new singleton if it doesn't exist
+	clusterSingletonsMutex.Lock()
+	defer clusterSingletonsMutex.Unlock()
+
+	// Double-check after acquiring write lock
+	if singleton, exists := clusterSingletons[key]; exists {
+		return singleton
+	}
+
+	singleton = &ClusterSingleton{}
+	clusterSingletons[key] = singleton
+	return singleton
+}
+
+// CreateClusterWithConfig creates or retrieves a cluster with the specified configuration
+// This is useful for tests that need specific configurations (e.g., different regions or K8s versions)
+func CreateClusterWithConfig(ctx context.Context, t *testing.T, config ClusterConfig) (*Cluster, error) {
+	singleton := getOrCreateClusterSingleton(config)
+	
+	singleton.once.Do(func() {
+		var model *armcontainerservice.ManagedCluster
+		var err error
+		
+		switch config.Type {
+		case "kubenet":
+			model = getKubenetClusterModel(fmt.Sprintf("abe2e-kubenet-%s", config.Location), config.Location)
+		case "azure-network":
+			model = getAzureNetworkClusterModel(fmt.Sprintf("abe2e-azure-network-%s", config.Location), config.Location)
+		case "azure-overlay-network":
+			model = getAzureOverlayNetworkClusterModel(fmt.Sprintf("abe2e-azure-overlay-%s", config.Location), config.Location)
+		case "azure-overlay-dualstack":
+			model = getAzureOverlayNetworkDualStackClusterModel(fmt.Sprintf("abe2e-overlay-ds-%s", config.Location), config.Location)
+		case "cilium-network":
+			model = getCiliumNetworkClusterModel(fmt.Sprintf("abe2e-cilium-%s", config.Location), config.Location)
+		case "latest-k8s":
+			model, err = getLatestKubernetesVersionClusterModel(fmt.Sprintf("abe2e-latest-k8s-%s", config.Location), config.Location, t)
+			if err != nil {
+				t.Fatalf("failed to get latest kubernetes version cluster model: %v", err)
+			}
+		default:
+			singleton.err = fmt.Errorf("unsupported cluster type: %s", config.Type)
+			return
+		}
+		
+		// Apply Kubernetes version override if specified
+		if config.KubernetesVersion != "" && model != nil {
+			if model.Properties == nil {
+				model.Properties = &armcontainerservice.ManagedClusterProperties{}
+			}
+			if model.Properties.OrchestratorProfile == nil {
+				model.Properties.OrchestratorProfile = &armcontainerservice.ContainerServiceOrchestratorProfile{}
+			}
+			model.Properties.OrchestratorProfile.OrchestratorVersion = &config.KubernetesVersion
+		}
+		
+		singleton.cluster, singleton.err = prepareCluster(ctx, t, model, config.IsAirgap, config.IsNonAnonymous)
+	})
+	
+	return singleton.cluster, singleton.err
 }
