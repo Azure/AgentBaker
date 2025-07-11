@@ -115,10 +115,10 @@ for repo in mariner-official-base.repo \
     fi
 done
 
-if ! dnf_update; then
-    echo "dnf_update failed"
-    exit 1
-fi
+# if ! dnf_update; then
+#     echo "dnf_update failed"
+#     exit 1
+# fi
 
 # update current timestamp
 $KUBECTL annotate --overwrite node ${node_name} kubernetes.azure.com/live-patching-current-timestamp=${golden_timestamp}
