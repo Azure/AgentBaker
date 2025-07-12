@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 	"syscall"
 	"testing"
 	"time"
@@ -49,16 +50,22 @@ func setupSignalHandler() context.Context {
 
 		// block until second signal is received
 		<-ch
-		msg := fmt.Sprintf("Received second cancellation signal, forcing exit.\nPlease check https://ms.portal.azure.com/#@microsoft.onmicrosoft.com/resource/subscriptions/%s/resourceGroups/%s/overview and delete any resources created by the test suite", config.Config.SubscriptionID, config.ResourceGroupName)
+		// This DefaultLocation is used on purpose.
+		msg := constructErrorMessage(config.Config.SubscriptionID, config.Config.DefaultLocation)
 		fmt.Println(red(msg))
 		os.Exit(1)
 	}()
 	return ctx
 }
 
-func newTestCtx(t *testing.T) context.Context {
+func constructErrorMessage(subscriptionID, location string) string {
+	return fmt.Sprintf("Received second cancellation signal, forcing exit.\nPlease check https://ms.portal.azure.com/#@microsoft.onmicrosoft.com/resource/subscriptions/%s/resourceGroups/%s/overview and delete any resources created by the test suite", subscriptionID, config.ResourceGroupName(location))
+}
+
+func newTestCtx(t *testing.T, location string) context.Context {
 	if testCtx.Err() != nil {
-		t.Skip("test suite is shutting down")
+		msg := constructErrorMessage(config.Config.SubscriptionID, location)
+		t.Skip("test suite is shutting down: " + msg)
 	}
 	ctx, cancel := context.WithTimeout(testCtx, config.Config.TestTimeout)
 	t.Cleanup(cancel)
@@ -71,14 +78,52 @@ func mustNoError(err error) {
 	}
 }
 
+// Global state to track which locations have been initialized
+var (
+	// Track which locations have been initialized
+	initializedLocations = make(map[string]bool)
+	// Mutex to protect the map access
+	locationMutex sync.Mutex
+)
+
+// ensureLocationInitialized ensures that both resource group and managed identity
+// are created for a location, but only runs once per location across all tests
+func ensureLocationInitialized(ctx context.Context, t *testing.T, location string) {
+	locationMutex.Lock()
+	defer locationMutex.Unlock()
+
+	// Check if this location has already been initialized
+	if initializedLocations[location] {
+		t.Logf("Location %s is already initialized, skipping", location)
+		return
+	}
+
+	// Initialize the location
+	err := ensureResourceGroup(ctx, location)
+	mustNoError(err)
+	_, err = config.Azure.CreateVMManagedIdentity(ctx, location)
+	mustNoError(err)
+
+	// Mark this location as initialized
+	initializedLocations[location] = true
+}
+
 func RunScenario(t *testing.T, s *Scenario) {
 	s.T = t
 	t.Parallel()
-	ctx := newTestCtx(t)
+
+	if s.Location == "" {
+		s.Location = config.Config.DefaultLocation
+	}
+
+	ctx := newTestCtx(t, s.Location)
+	ensureLocationInitialized(ctx, t, s.Location)
+
 	ctrruntimelog.SetLogger(zap.New())
 
 	maybeSkipScenario(ctx, t, s)
-	cluster, err := s.Config.Cluster(ctx, s.T)
+
+	cluster, err := s.Config.Cluster(ctx, s.Location, s.T)
 	require.NoError(s.T, err)
 	// in some edge cases cluster cache is broken and nil cluster is returned
 	// need to find the root cause and fix it, this should help to catch such cases
@@ -91,7 +136,7 @@ func RunScenario(t *testing.T, s *Scenario) {
 	defer cancel()
 	prepareAKSNode(ctx, s)
 
-	t.Logf("Choosing the private ACR %q for the vm validation", config.GetPrivateACRName(s.Tags.NonAnonymousACR))
+	t.Logf("Choosing the private ACR %q for the vm validation", config.GetPrivateACRName(s.Tags.NonAnonymousACR, s.Location))
 	validateVM(ctx, s)
 }
 
@@ -195,7 +240,7 @@ func maybeSkipScenario(ctx context.Context, t *testing.T, s *Scenario) {
 		}
 	}
 
-	vhd, err := s.VHD.VHDResourceID(ctx, t)
+	vhd, err := s.VHD.VHDResourceID(ctx, t, s.Location)
 	if err != nil {
 		if config.Config.IgnoreScenariosWithMissingVHD && errors.Is(err, config.ErrNotFound) {
 			t.Skipf("skipping scenario %q: could not find image for VHD %s due to %s", t.Name(), s.VHD.Distro, err)
