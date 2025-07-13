@@ -271,8 +271,6 @@ try
     if (Test-Path C:\AzureData\preprovision.complete) {
         Write-Log "Running kubelet-only configuration"
 
-        . c:\AzureData\windows\kubeletfunc.ps1
-
         Install-KubernetesServices -KubeDir $global:KubeDir
 
         Set-Content -Path $CSEResultFilePath -Value "0" -Force
@@ -435,6 +433,7 @@ try
     Adjust-DynamicPortRange
     Register-LogsCleanupScriptTask
     Register-NodeResetScriptTask
+    
     Update-DefenderPreferences
 
     $windowsVersion = Get-WindowsVersion
@@ -456,48 +455,58 @@ try
         Install-GmsaPlugin -GmsaPackageUrl $global:WindowsGmsaPackageUrl
     }
 
-    Check-APIServerConnectivity -MasterIP $MasterIP
+    # Additional operations only for full provisioning mode
+    if (-not $PreProvisionOnly) {
+        Write-Log "Running full provisioning cluster connectivity and component installation"
+        
+        # Turn off Firewall to enable pods to talk to service endpoints. (Kubelet should eventually do this)
+        netsh advfirewall set allprofiles state off
+        
+        Check-APIServerConnectivity -MasterIP $MasterIP
 
-    if ($global:WindowsCalicoPackageURL) {
-        Start-InstallCalico -RootDir "c:\" -KubeServiceCIDR $global:KubeServiceCIDR -KubeDnsServiceIp $KubeDnsServiceIp
-    }
-
-    Start-InstallGPUDriver -EnableInstall $global:ConfigGPUDriverIfNeeded -GpuDriverURL $global:GpuDriverURL
-
-    if (Test-Path $CacheDir)
-    {
-        Write-Log "Removing aks cache directory"
-        Remove-Item $CacheDir -Recurse -Force
-    }
-
-    if ($global:TLSBootstrapToken) {
-        Write-Log "Removing temporary kube config"
-        $kubeConfigFile = [io.path]::Combine($KubeDir, "config")
-        Remove-Item $kubeConfigFile
-    }
-
-    Enable-GuestVMLogs -IntervalInMinutes $global:LogGeneratorIntervalInMinutes
-
-    if ($global:RebootNeeded) {
-        Logs-To-Event -TaskName "AKS.WindowsCSE.RestartComputer" -TaskMessage "Setup Complete, calling Postpone-RestartComputer with reboot"
-        Postpone-RestartComputer
-    } else {
-        Logs-To-Event -TaskName "AKS.WindowsCSE.StartScheduledTask" -TaskMessage "Setup Complete, start NodeResetScriptTask to register Windows node without reboot"
-        Start-ScheduledTask -TaskName "k8s-restart-job"
-
-        $timeout = 180 ##  seconds
-        $timer = [Diagnostics.Stopwatch]::StartNew()
-        while ((Get-ScheduledTask -TaskName 'k8s-restart-job').State -ne 'Ready') {
-            # The task `k8s-restart-job` needs ~8 seconds.
-            if ($timer.Elapsed.TotalSeconds -gt $timeout) {
-                Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_START_NODE_RESET_SCRIPT_TASK -ErrorMessage "NodeResetScriptTask is not finished after [$($timer.Elapsed.TotalSeconds)] seconds"
-            }
-
-            Write-Log -Message "Waiting on NodeResetScriptTask..."
-            Start-Sleep -Seconds 3
+        if ($global:WindowsCalicoPackageURL) {
+            Start-InstallCalico -RootDir "c:\" -KubeServiceCIDR $global:KubeServiceCIDR -KubeDnsServiceIp $KubeDnsServiceIp
         }
-        $timer.Stop()
-        Write-Log -Message "We waited [$($timer.Elapsed.TotalSeconds)] seconds on NodeResetScriptTask"
+
+        Start-InstallGPUDriver -EnableInstall $global:ConfigGPUDriverIfNeeded -GpuDriverURL $global:GpuDriverURL
+
+        if (Test-Path $CacheDir)
+        {
+            Write-Log "Removing aks cache directory"
+            Remove-Item $CacheDir -Recurse -Force
+        }
+
+        if ($global:TLSBootstrapToken) {
+            Write-Log "Removing temporary kube config"
+            $kubeConfigFile = [io.path]::Combine($KubeDir, "config")
+            Remove-Item $kubeConfigFile
+        }
+
+        Enable-GuestVMLogs -IntervalInMinutes $global:LogGeneratorIntervalInMinutes
+
+        if ($global:RebootNeeded) {
+            Logs-To-Event -TaskName "AKS.WindowsCSE.RestartComputer" -TaskMessage "Setup Complete, calling Postpone-RestartComputer with reboot"
+            Postpone-RestartComputer
+        } else {
+            Logs-To-Event -TaskName "AKS.WindowsCSE.StartScheduledTask" -TaskMessage "Setup Complete, start NodeResetScriptTask to register Windows node without reboot"
+            Start-ScheduledTask -TaskName "k8s-restart-job"
+
+            $timeout = 180 ##  seconds
+            $timer = [Diagnostics.Stopwatch]::StartNew()
+            while ((Get-ScheduledTask -TaskName 'k8s-restart-job').State -ne 'Ready') {
+                # The task `k8s-restart-job` needs ~8 seconds.
+                if ($timer.Elapsed.TotalSeconds -gt $timeout) {
+                    Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_START_NODE_RESET_SCRIPT_TASK -ErrorMessage "NodeResetScriptTask is not finished after [$($timer.Elapsed.TotalSeconds)] seconds"
+                }
+
+                Write-Log -Message "Waiting on NodeResetScriptTask..."
+                Start-Sleep -Seconds 3
+            }
+            $timer.Stop()
+            Write-Log -Message "We waited [$($timer.Elapsed.TotalSeconds)] seconds on NodeResetScriptTask"
+        }
+    } else {
+        Write-Log "Preprovision mode complete - skipping cluster operations"
     }
 }
 catch
