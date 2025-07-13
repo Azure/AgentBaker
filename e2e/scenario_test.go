@@ -3,10 +3,7 @@ package e2e
 import (
 	"context"
 	"fmt"
-	"log"
-	"os"
 	"testing"
-	"time"
 
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Azure/agentbaker/e2e/config"
@@ -16,21 +13,6 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v6"
 )
-
-func TestMain(m *testing.M) {
-	log.Printf("using E2E environment configuration:\n%s\n", config.Config)
-	// clean up logs from previous run
-	if _, err := os.Stat("scenario-logs"); err == nil {
-		_ = os.RemoveAll("scenario-logs")
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-	defer cancel()
-	err := ensureResourceGroup(ctx)
-	mustNoError(err)
-	_, err = config.Azure.CreateVMManagedIdentity(ctx)
-	mustNoError(err)
-	m.Run()
-}
 
 func Test_AzureLinuxV2_AirGap(t *testing.T) {
 	RunScenario(t, &Scenario{
@@ -46,7 +28,7 @@ func Test_AzureLinuxV2_AirGap(t *testing.T) {
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
 						Enabled:                 true,
-						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io", config.PrivateACRName),
+						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io", config.PrivateACRName(config.Config.DefaultLocation)),
 					},
 				}
 			},
@@ -126,7 +108,7 @@ func Test_AzureLinuxV2_ARM64AirGap(t *testing.T) {
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
 						Enabled:                 true,
-						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io", config.PrivateACRName),
+						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io", config.PrivateACRName(config.Config.DefaultLocation)),
 					},
 				}
 			},
@@ -318,7 +300,7 @@ func Test_MarinerV2_AirGap(t *testing.T) {
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
 						Enabled:                 true,
-						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io", config.PrivateACRName),
+						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io", config.PrivateACRName(config.Config.DefaultLocation)),
 					},
 				}
 			},
@@ -364,7 +346,7 @@ func Test_MarinerV2_ARM64AirGap(t *testing.T) {
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
 						Enabled:                 true,
-						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io", config.PrivateACRName),
+						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io", config.PrivateACRName(config.Config.DefaultLocation)),
 					},
 				}
 
@@ -582,7 +564,7 @@ func Test_Ubuntu2204_AirGap(t *testing.T) {
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
 						Enabled:                 true,
-						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io", config.PrivateACRName),
+						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io", config.PrivateACRName(config.Config.DefaultLocation)),
 					},
 				}
 			},
@@ -596,8 +578,10 @@ func Test_Ubuntu2204_AirGap(t *testing.T) {
 // TODO: refactor NonAnonymous tests to use the same cluster as Anonymous airgap
 // or deprecate anonymous ACR airgap tests once it is unsupported
 func Test_Ubuntu2204_AirGap_NonAnonymousACR(t *testing.T) {
-	ctx := newTestCtx(t)
-	identity, err := config.Azure.UserAssignedIdentities.Get(ctx, config.ResourceGroupName, config.VMIdentityName, nil)
+	location := config.Config.DefaultLocation
+
+	ctx := newTestCtx(t, location)
+	identity, err := config.Azure.UserAssignedIdentities.Get(ctx, config.ResourceGroupName(location), config.VMIdentityName, nil)
 	if err != nil {
 		t.Fatalf("failed to get identity: %v", err)
 	}
@@ -619,7 +603,7 @@ func Test_Ubuntu2204_AirGap_NonAnonymousACR(t *testing.T) {
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
 						Enabled:                 true,
-						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io", config.PrivateACRNameNotAnon),
+						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io", config.PrivateACRNameNotAnon(config.Config.DefaultLocation)),
 					},
 				}
 			},
@@ -644,14 +628,14 @@ func Test_Ubuntu2204Gen2_ContainerdAirgappedK8sNotCached(t *testing.T) {
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
 						Enabled:                 true,
-						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io", config.PrivateACRName),
+						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io", config.PrivateACRName(config.Config.DefaultLocation)),
 					},
 				}
 				nbc.AgentPoolProfile.LocalDNSProfile = nil
 				// intentionally using private acr url to get kube binaries
 				nbc.AgentPoolProfile.KubernetesConfig.CustomKubeBinaryURL = fmt.Sprintf(
 					"%s.azurecr.io/oss/binaries/kubernetes/kubernetes-node:v%s-linux-amd64",
-					config.PrivateACRName,
+					config.PrivateACRName(config.Config.DefaultLocation),
 					nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion)
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
@@ -1649,4 +1633,48 @@ func runScenarioUbuntu2404GRID(t *testing.T, vmSize string) {
 
 func Test_Ubuntu2404_GPUA10(t *testing.T) {
 	runScenarioUbuntu2404GRID(t, "Standard_NV6ads_A10_v5")
+}
+
+func Test_Ubuntu2404_NPD_Basic(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Test that a node with AKS VM Extension enabled can report simulated node problem detector events",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2404Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				extension, err := createVMExtensionLinuxAKSNode(vmss.Location)
+				if err != nil {
+					t.Fatalf("creating AKS VM extension: %v", err)
+				}
+				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateNodeProblemDetector(ctx, s)
+				ValidateNPDFilesystemCorruption(ctx, s)
+			},
+		}})
+}
+
+func Test_AlternateLocation_BasicDeployment(t *testing.T) {
+	location := "southafricanorth" // Set the alternate location for the test
+
+	RunScenario(t, &Scenario{
+		Description: "Tests basic node deployment in configured location",
+		Location:    location, // Override location for this test
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDAzureLinuxV2Gen2,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				// Add your custom configuration here
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				// Validate kubelet is running
+				ValidateSystemdUnitIsRunning(ctx, s, "kubelet")
+				// Add your custom validations here
+				t.Logf("Successfully validated deployment in location: %s", location)
+			},
+		},
+	})
 }

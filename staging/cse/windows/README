@@ -6,7 +6,7 @@
     - Courses: https://docs.microsoft.com/en-us/shows/testing-powershell-with-pester/
   1. You need to run unit tests on Windows.
   1. If your git repo is stored in WSL, you can invoke the tests by doing something like this in powershell from windows (not from a WSL shell itself):
-     - ` cd \\wsl$\Ubuntu\home\tim\git\AgentBaker`
+     - `cd \\wsl$\Ubuntu\home\tim\git\AgentBaker`
      - `Invoke-Pester vhdbuilder/packer/windows/*.tests.ps1 -Passthru` (or whatever pester test you want to run)
  1. Run unit test:
     - `Invoke-Pester parts/windows/*.tests.ps1 -Passthru`

@@ -395,10 +395,13 @@
       "matchPackageNames": [
         "azuremonitor/containerinsights/ciprod/prometheus-collector/images"
       ],
+      "matchDatasources": [
+        "docker"
+      ],
+      "versioning": "regex:^(\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)?-(\\w+)-(\\d+)-(\\d+)-(\\d+)-(\\w+-*)(?<compatibility>.*)$",
       "groupName": "ama-metrics",
       "automerge": false,
       "enabled": true,
-      "ignoreUnstable": false,
       "assignees": [
         "gracewehner",
         "vishiy",
@@ -490,10 +493,10 @@
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
-        "\"renovateTag\":\\s*\"registry=(?<registryUrl>[^,]+), name=(?<packageName>[^,]+), os=mariner, release=2\\.0\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\"(?:[^}]*\"previousLatestVersion\":\\s*\"(?<depType>[^\"]+)\")?"
+        "\"renovateTag\":\\s*\"RPM_registry=(?<registryUrl>[^,]+), name=(?<packageName>[^,]+), os=mariner, release=2\\.0\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\"(?:[^}]*\"previousLatestVersion\":\\s*\"(?<depType>[^\"]+)\")?"
       ],
       "datasourceTemplate": "rpm",
-      "autoReplaceStringTemplate": "\"renovateTag\": \"registry={{{registryUrl}}}, name={{{packageName}}}, os=mariner, release=2.0\",\n                \"latestVersion\": \"{{{newValue}}}\"{{#if depType}},\n                \"previousLatestVersion\": \"{{{currentValue}}}\"{{/if}}"
+      "autoReplaceStringTemplate": "\"renovateTag\": \"RPM_registry={{{registryUrl}}}, name={{{packageName}}}, os=mariner, release=2.0\",\n                \"latestVersion\": \"{{{newValue}}}\"{{#if depType}},\n                \"previousLatestVersion\": \"{{{currentValue}}}\"{{/if}}"
     },
     {
       "customType": "regex",
@@ -503,10 +506,10 @@
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
-        "\"renovateTag\":\\s*\"registry=(?<registryUrl>[^,]+), name=(?<packageName>[^,]+), os=azurelinux, release=3\\.0\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\"(?:[^}]*\"previousLatestVersion\":\\s*\"(?<depType>[^\"]+)\")?"
+        "\"renovateTag\":\\s*\"RPM_registry=(?<registryUrl>[^,]+), name=(?<packageName>[^,]+), os=azurelinux, release=3\\.0\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\"(?:[^}]*\"previousLatestVersion\":\\s*\"(?<depType>[^\"]+)\")?"
       ],
       "datasourceTemplate": "rpm",
-      "autoReplaceStringTemplate": "\"renovateTag\": \"registry={{{registryUrl}}}, name={{{packageName}}}, os=azurelinux, release=3.0\",\n                \"latestVersion\": \"{{{newValue}}}\"{{#if depType}},\n                \"previousLatestVersion\": \"{{{currentValue}}}\"{{/if}}"
+      "autoReplaceStringTemplate": "\"renovateTag\": \"RPM_registry={{{registryUrl}}}, name={{{packageName}}}, os=azurelinux, release=3.0\",\n                \"latestVersion\": \"{{{newValue}}}\"{{#if depType}},\n                \"previousLatestVersion\": \"{{{currentValue}}}\"{{/if}}"
     },
     {
       "customType": "regex",

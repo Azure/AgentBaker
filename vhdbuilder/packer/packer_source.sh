@@ -109,6 +109,10 @@ copyPackerFiles() {
   BLOCK_WIRESERVER_DEST=/opt/azure/containers/kubelet.sh
   ENSURE_IMDS_RESTRICTION_SRC=/home/packer/ensure_imds_restriction.sh
   ENSURE_IMDS_RESTRICTION_DEST=/opt/azure/containers/ensure_imds_restriction.sh
+  MEASURE_TLS_BOOTSTRAPPING_LATENCY_SCRIPT_SRC=/home/packer/measure-tls-bootstrapping-latency.sh
+  MEASURE_TLS_BOOTSTRAPPING_LATENCY_SCRIPT_DEST=/opt/azure/containers/measure-tls-bootstrapping-latency.sh
+  MEASURE_TLS_BOOTSTRAPPING_LATENCY_SERVICE_SRC=/home/packer/measure-tls-bootstrapping-latency.service
+  MEASURE_TLS_BOOTSTRAPPING_LATENCY_SERVICE_DEST=/etc/systemd/system/measure-tls-bootstrapping-latency.service
   VALIDATE_KUBELET_CREDENTIALS_SCRIPT_SRC=/home/packer/validate-kubelet-credentials.sh
   VALIDATE_KUBELET_CREDENTIALS_SCRIPT_DEST=/opt/azure/containers/validate-kubelet-credentials.sh
   RECONCILE_PRIVATE_HOSTS_SRC=/home/packer/reconcile-private-hosts.sh
@@ -181,6 +185,10 @@ copyPackerFiles() {
     IGVM_DEBUG_BIN_SRC=/home/packer/kata-containers-igvm-debug.img
     IGVM_DEBUG_BIN_DEST=$KATACC_CONFIG_DIR/kata-containers-igvm-debug.img
     cpAndMode $IGVM_DEBUG_BIN_SRC $IGVM_DEBUG_BIN_DEST 0755
+
+    IGVM_BIN_SRC=/home/packer/kata-containers-igvm.img
+    IGVM_BIN_DEST=$KATACC_CONFIG_DIR/kata-containers-igvm.img
+    cpAndMode $IGVM_BIN_SRC $IGVM_BIN_DEST 0755
 
     REF_INFO_SRC=/home/packer/reference-info-base64
     REF_INFO_DEST=$KATACC_CONFIG_DIR/reference-info-base64
@@ -329,6 +337,8 @@ copyPackerFiles() {
   cpAndMode $SECURE_TLS_BOOTSTRAP_SERVICE_SRC $SECURE_TLS_BOOTSTRAP_SERVICE_DEST 600
   cpAndMode $BLOCK_WIRESERVER_SRC $BLOCK_WIRESERVER_DEST 755
   cpAndMode $ENSURE_IMDS_RESTRICTION_SRC $ENSURE_IMDS_RESTRICTION_DEST 755
+  cpAndMode $MEASURE_TLS_BOOTSTRAPPING_LATENCY_SCRIPT_SRC $MEASURE_TLS_BOOTSTRAPPING_LATENCY_SCRIPT_DEST 755
+  cpAndMode $MEASURE_TLS_BOOTSTRAPPING_LATENCY_SERVICE_SRC $MEASURE_TLS_BOOTSTRAPPING_LATENCY_SERVICE_DEST 644
   cpAndMode $VALIDATE_KUBELET_CREDENTIALS_SCRIPT_SRC $VALIDATE_KUBELET_CREDENTIALS_SCRIPT_DEST 755
   cpAndMode $RECONCILE_PRIVATE_HOSTS_SRC $RECONCILE_PRIVATE_HOSTS_DEST 744
   cpAndMode $SYSCTL_CONFIG_SRC $SYSCTL_CONFIG_DEST 644
@@ -378,6 +388,16 @@ copyPackerFiles() {
     cpAndMode $PAM_D_COMMON_AUTH_SRC $PAM_D_COMMON_AUTH_DEST 644
     cpAndMode $PAM_D_COMMON_PASSWORD_SRC $PAM_D_COMMON_PASSWORD_DEST 644
     cpAndMode $USU_SH_SRC $USU_SH_DEST 544
+
+    if [ "$UBUNTU_RELEASE" = "24.04" ] && [ "$CPU_ARCH" = "arm64" ]; then
+      GRUB_AZ_NV_SCRIPT_SRC=/home/packer/10_azure_nvidia
+      GRUB_AZ_NV_SCRIPT_DEST=/etc/grub.d/10_azure_nvidia
+      cpAndMode $GRUB_AZ_NV_SCRIPT_SRC $GRUB_AZ_NV_SCRIPT_DEST 755
+
+      GRUB_AZ_NV_ENV_SRC=/home/packer/51-azure-nvidia.cfg
+      GRUB_AZ_NV_ENV_DEST=/etc/default/grub.d/51-azure-nvidia.cfg
+      cpAndMode $GRUB_AZ_NV_ENV_SRC $GRUB_AZ_NV_ENV_DEST 644
+    fi
   fi
 
   cpAndMode $NOTICE_SRC $NOTICE_DEST 444

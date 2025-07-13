@@ -59,8 +59,11 @@ installContainerdWithComponentsJson() {
     
     containerdPackage=$(jq ".Packages" "$COMPONENTS_FILEPATH" | jq ".[] | select(.name == \"containerd\")") || exit $ERR_CONTAINERD_VERSION_INVALID
     PACKAGE_VERSIONS=()
-    if isMarinerOrAzureLinux "${OS}" && [ "${IS_KATA}" = "true" ]; then
+    if isMariner "${OS}" && [ "${IS_KATA}" = "true" ]; then
         os=${MARINER_KATA_OS_NAME}
+    fi
+    if isAzureLinux "${OS}" && [ "${IS_KATA}" = "true" ]; then
+        os=${AZURELINUX_KATA_OS_NAME}
     fi
     updatePackageVersions "${containerdPackage}" "${os}" "${os_version}"
     

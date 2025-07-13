@@ -141,7 +141,21 @@ if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]] && ! gre
   else
       echo "LTS kernel for Ubuntu ${UBUNTU_RELEASE} is not available. Skipping purging and subsequent installation."
   fi
-
+  NVIDIA_KERNEL_PACKAGE="linux-azure-nvidia"
+  if [[ "${CPU_ARCH}" == "arm64" && "${UBUNTU_RELEASE}" = "24.04" ]]; then
+    # This is the ubuntu 2404arm64gen2containerd image.
+    # Uncomment if we have trouble finding the kernel package.
+    # sudo add-apt-repository ppa:canonical-kernel-team/ppa
+    sudo apt update
+    if apt-cache show "${NVIDIA_KERNEL_PACKAGE}" &> /dev/null; then
+      echo "ARM64 image. Installing NVIDIA kernel and its packages alongside LTS kernel"
+      sudo apt install -y "${NVIDIA_KERNEL_PACKAGE}"
+      echo "after installation:"
+      dpkg -l | grep "linux-.*-azure-nvidia"
+    else
+      echo "ARM64 image. NVIDIA kernel not available, skipping installation."
+    fi
+  fi
   update-grub
 fi
 capture_benchmark "${SCRIPT_NAME}_purge_ubuntu_kernel_if_2204"

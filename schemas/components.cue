@@ -77,12 +77,13 @@ package components
 }
 
 #DownloadURIs: {
-	default?:      #DefaultOSDistro
-	ubuntu?:       #UbuntuOSDistro
-	mariner?:      #MarinerOSDistro
-	marinerkata?:  #MarinerOSDistro
-	azurelinux?:   #AzureLinuxOSDistro
-	windows?:      #WindowsOsDistro
+	default?:          #DefaultOSDistro
+	ubuntu?:           #UbuntuOSDistro
+	mariner?:          #MarinerOSDistro
+	marinerkata?:      #MarinerOSDistro
+	azurelinux?:       #AzureLinuxOSDistro
+	azurelinuxkata?:   #AzureLinuxOSDistro
+	windows?:          #WindowsOsDistro
 }
 
 #Package: {

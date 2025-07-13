@@ -293,10 +293,15 @@ while IFS= read -r p; do
   os=${OS}
   # TODO(mheberling): Remove this once kata uses standard containerd. This OS is referenced
   # in file `parts/common/component.json` with the same ${MARINER_KATA_OS_NAME}.
-  if isMarinerOrAzureLinux "${OS}" && [ "${IS_KATA}" = "true" ]; then
+  if isMariner "${OS}" && [ "${IS_KATA}" = "true" ]; then
     # This is temporary for kata-cc because it uses a modified version of containerd and 
     # name is referenced in parts/common.json marinerkata.
     os=${MARINER_KATA_OS_NAME}
+  fi
+  if isAzureLinux "${OS}" && [ "${IS_KATA}" = "true" ]; then
+    # This is temporary for kata-cc because it uses a modified version of containerd and 
+    # name is referenced in parts/common.json azurelinuxkata.
+    os=${AZURELINUX_KATA_OS_NAME}
   fi
   updatePackageVersions "${p}" "${os}" "${OS_VERSION}"
   PACKAGE_DOWNLOAD_URL=""

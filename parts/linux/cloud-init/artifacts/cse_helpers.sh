@@ -148,6 +148,7 @@ fi
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
 MARINER_KATA_OS_NAME="MARINERKATA"
+AZURELINUX_KATA_OS_NAME="AZURELINUXKATA"
 AZURELINUX_OS_NAME="AZURELINUX"
 KUBECTL=/usr/local/bin/kubectl
 DOCKER=/usr/bin/docker
@@ -285,11 +286,13 @@ _retry_file_curl_internal() {
             echo "CSE timeout approaching, exiting early." >&2
             return 2
         else
+            if [ "$i" -gt 1 ]; then
+                sleep $waitSleep
+            fi
             timeout $timeout curl -fsSLv $url -o $filePath > $CURL_OUTPUT 2>&1
             if [ "$?" -ne 0 ]; then
                 cat $CURL_OUTPUT
             fi
-            sleep $waitSleep
         fi
     done
 }
@@ -315,11 +318,13 @@ retrycmd_get_tarball_from_registry_with_oras() {
         if [ "$i" -eq "$tar_retries" ]; then
             return 1
         else
+            if [ "$i" -gt 1 ]; then
+                sleep $wait_sleep
+            fi
             timeout 60 oras pull $url -o $tar_folder --registry-config ${ORAS_REGISTRY_CONFIG_FILE} > $ORAS_OUTPUT 2>&1
             if [ "$?" -ne 0 ]; then
                 cat $ORAS_OUTPUT
             fi
-            sleep $wait_sleep
         fi
     done
 }
@@ -371,29 +376,6 @@ retrycmd_oras_login() {
         sleep "$wait_sleep"
     done
     return $exit_code
-}
-
-retrycmd_get_binary_from_registry_with_oras() {
-    binary_retries=$1; wait_sleep=$2; binary_path=$3; url=$4
-    binary_folder=$(dirname "$binary_path")
-    echo "${binary_retries} retries"
-
-    for i in $(seq 1 $binary_retries); do
-        if [ -f "$binary_path" ]; then
-            break
-        else
-            if [ $i -eq $binary_retries ]; then
-                return 1
-            else
-                # TODO: support private acr via kubelet identity
-                timeout 60 oras pull $url -o $binary_folder --registry-config ${ORAS_REGISTRY_CONFIG_FILE} > $ORAS_OUTPUT 2>&1
-                if [ "$?" -ne 0 ]; then
-                    cat $ORAS_OUTPUT
-                fi
-                sleep $wait_sleep
-            fi
-        fi
-    done
 }
 
 retrycmd_can_oras_ls_acr() {
@@ -587,10 +569,9 @@ logs_to_events() {
         --arg EventTid    "0" \
         '{Timestamp: $Timestamp, OperationId: $OperationId, Version: $Version, TaskName: $TaskName, EventLevel: $EventLevel, Message: $Message, EventPid: $EventPid, EventTid: $EventTid}'
     )
+    
     mkdir -p ${EVENTS_LOGGING_DIR}
-    if [ -f ${EVENTS_LOGGING_DIR}${eventsFileName}.json ]; then
-        echo ${json_string} >> ${EVENTS_LOGGING_DIR}${eventsFileName}.json
-    fi
+    echo ${json_string} > ${EVENTS_LOGGING_DIR}${eventsFileName}.json
 
     # this allows an error from the command at ${@} to be returned and correct code assigned in cse_main
     if [ "$ret" -ne 0 ]; then
@@ -633,7 +614,23 @@ should_skip_binary_cleanup() {
 
 isMarinerOrAzureLinux() {
     local os=$1
-    if [ "$os" = "$MARINER_OS_NAME" ] || [ "$os" = "$MARINER_KATA_OS_NAME" ] || [ "$os" = "$AZURELINUX_OS_NAME" ]; then
+    if [ "$os" = "$MARINER_OS_NAME" ] || [ "$os" = "$MARINER_KATA_OS_NAME" ] || [ "$os" = "$AZURELINUX_OS_NAME" ] || [ "$os" = "$AZURELINUX_KATA_OS_NAME" ]; then
+        return 0
+    fi
+    return 1
+}
+
+isMariner() {
+    local os=$1
+    if [ "$os" = "$MARINER_OS_NAME" ] || [ "$os" = "$MARINER_KATA_OS_NAME" ]; then
+        return 0
+    fi
+    return 1
+}
+
+isAzureLinux() {
+    local os=$1
+    if [ "$os" = "$AZURELINUX_OS_NAME" ] || [ "$os" = "$AZURELINUX_KATA_OS_NAME" ]; then
         return 0
     fi
     return 1

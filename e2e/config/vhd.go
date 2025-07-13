@@ -225,7 +225,7 @@ func (i *Image) String() string {
 	return fmt.Sprintf("%s %s %s %s", i.OS, i.Name, i.Version, i.Arch)
 }
 
-func (i *Image) VHDResourceID(ctx context.Context, t *testing.T) (VHDResourceID, error) {
+func (i *Image) VHDResourceID(ctx context.Context, t *testing.T, location string) (VHDResourceID, error) {
 	i.vhdOnce.Do(func() {
 		switch {
 		case i.Gallery != nil && i.Gallery.Name == "managed-images":
@@ -237,12 +237,12 @@ func (i *Image) VHDResourceID(ctx context.Context, t *testing.T) (VHDResourceID,
 			i.vhd = VHDResourceID(i.Version)
 			t.Logf("Using managed disk directly: %s", i.Version)
 		case i.Version != "":
-			i.vhd, i.vhdErr = Azure.EnsureSIGImageVersion(ctx, t, i)
+			i.vhd, i.vhdErr = Azure.EnsureSIGImageVersion(ctx, t, i, location)
 			if i.vhd != "" {
 				t.Logf("Got image by version: %s", i.azurePortalImageVersionUrl())
 			}
 		default:
-			i.vhd, i.vhdErr = Azure.LatestSIGImageVersionByTag(ctx, t, i, Config.SIGVersionTagName, Config.SIGVersionTagValue)
+			i.vhd, i.vhdErr = Azure.LatestSIGImageVersionByTag(ctx, t, i, Config.SIGVersionTagName, Config.SIGVersionTagValue, location)
 			if i.vhd != "" {
 				t.Logf("got version by tag %s=%s: %s", Config.SIGVersionTagName, Config.SIGVersionTagValue, i.azurePortalImageVersionUrl())
 			} else {

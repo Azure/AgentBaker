@@ -23,7 +23,7 @@ Describe 'long running cse helper functions'
             "retrycmd_silent"   1 1 1 1 sleep 5
             "_retrycmd_internal"    1 1 1 1 false sleep 
             "retrycmd_get_tarball"  1 1 1 "/tmp/nonexistent.tar" "https://dummy.url/file.tar"
-            "retrycmd_get_binary_from_registry_with_oras"   1 3 1 "/tmp/nonexistent" "dummy.registry/binary:v1"
+            "retrycmd_get_tarball_from_registry_with_oras"   1 3 1 "/tmp/nonexistent.tar" "dummy.registry/binary:v1"
             "systemctl_restart" 1 1 1 1 "nonexistent.service"
             "systemctl_stop"    1 1 1 1 "nonexistent.service"
             "systemctl_disable" 1 1 1 1 "nonexistent.service"

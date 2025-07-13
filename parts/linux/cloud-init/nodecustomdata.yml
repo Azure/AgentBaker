@@ -341,6 +341,20 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "cloudInitStatusCheckScript"}}
 
+- path: /opt/azure/containers/measure-tls-bootstrapping-latency.sh
+  permissions: "0755"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "measureTLSBootstrappingLatencyScript"}}
+
+- path: /etc/systemd/system/measure-tls-bootstrapping-latency.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "measureTLSBootstrappingLatencyService"}}
+
 - path: /opt/azure/containers/validate-kubelet-credentials.sh
   permissions: "0755"
   encoding: gzip

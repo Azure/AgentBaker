@@ -1,6 +1,7 @@
 package toolkit
 
 import (
+	"k8s.io/apimachinery/pkg/util/duration"
 	"strconv"
 	"strings"
 	"testing"
@@ -34,5 +35,8 @@ func LogDuration(t *testing.T, duration time.Duration, warningDuration time.Dura
 	} else {
 		t.Log(message)
 	}
+}
 
+func FormatDuration(length time.Duration) string {
+	return duration.ShortHumanDuration(length)
 }
