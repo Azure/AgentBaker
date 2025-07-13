@@ -121,6 +121,8 @@ func runScenarioWithPreProvision(t *testing.T, original *Scenario) {
 					ValidateFileExists(ctx, stage1, "C:\\AzureData\\preprovision.complete")
 					ValidateFileDoesNotExist(ctx, stage1, "C:\\AzureData\\provision.complete")
 					ValidateWindowsServiceIsNotRunning(ctx, stage1, "kubelet")
+					// Ensure containerd service is running to enable container operations
+					ValidateWindowsServiceIsRunning(ctx, stage1, "containerd")
 				} else {
 					ValidateFileExists(ctx, stage1, "/etc/containerd/config.toml")
 					ValidateFileExists(ctx, stage1, "/opt/azure/containers/preprovision.complete")
