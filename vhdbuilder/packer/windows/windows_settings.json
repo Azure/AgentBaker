@@ -18,21 +18,21 @@
       "os_disk_size": "30",
       "base_image_sku": "2019-Datacenter-Core-smalldisk",
       "windows_image_name": "windows-2019-containerd",
-      "base_image_version": "17763.7434.250605",
+      "base_image_version": "17763.7558.250705",
       "patches_to_apply": []
     },
     "2022-containerd": {
       "os_disk_size": "35",
       "base_image_sku": "2022-Datacenter-Core-smalldisk",
       "windows_image_name": "windows-2022-containerd",
-      "base_image_version": "20348.3807.250605",
+      "base_image_version": "20348.3932.250705",
       "patches_to_apply": []
     },
     "2022-containerd-gen2": {
       "os_disk_size": "35",
       "base_image_sku": "2022-datacenter-core-smalldisk-g2",
       "windows_image_name": "windows-2022-containerd",
-      "base_image_version": "20348.3807.250605",
+      "base_image_version": "20348.3932.250705",
       "patches_to_apply": []
     },
     "2025": {
@@ -53,14 +53,14 @@
       "os_disk_size": "35",
       "base_image_sku": "23h2-datacenter-core",
       "windows_image_name": "windows-23H2",
-      "base_image_version": "25398.1665.250605",
+      "base_image_version": "25398.1732.250705",
       "patches_to_apply": []
     },
     "23H2-gen2": {
       "os_disk_size": "35",
       "base_image_sku": "23h2-datacenter-core-g2",
       "windows_image_name": "windows-23H2",
-      "base_image_version": "25398.1665.250605",
+      "base_image_version": "25398.1732.250705",
       "patches_to_apply": []
     }
   },
@@ -738,7 +738,7 @@
       "Value": "1",
       "Type": "DWORD"
     },
-        {
+    {
       "Comment": "2025-6B",
       "WindowsSkuMatch": "2022*",
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
@@ -785,7 +785,7 @@
       "Name": "2336372879",
       "Value": "1",
       "Type": "DWORD"
-    },	
+    },
     {
       "Comment": "2025-6B",
       "WindowsSkuMatch": "23H2*",
@@ -801,7 +801,7 @@
       "Name": "1846288527",
       "Value": "1",
       "Type": "DWORD"
-    }, 
+    },
     {
       "Comment": "2025-7B",
       "WindowsSkuMatch": "23H2*",
@@ -809,6 +809,6 @@
       "Name": "502146190",
       "Value": "1",
       "Type": "DWORD"
-    }    
+    }
   ]
 }
