@@ -580,7 +580,7 @@ func Test_Ubuntu2204_AirGap(t *testing.T) {
 func Test_Ubuntu2204_AirGap_NonAnonymousACR(t *testing.T) {
 	location := config.Config.DefaultLocation
 
-	ctx := newTestCtx(t, location)
+	ctx := newTestCtx(t)
 	identity, err := config.Azure.UserAssignedIdentities.Get(ctx, config.ResourceGroupName(location), config.VMIdentityName, nil)
 	if err != nil {
 		t.Fatalf("failed to get identity: %v", err)

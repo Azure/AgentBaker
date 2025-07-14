@@ -61,10 +61,9 @@ func constructErrorMessage(subscriptionID, location string) string {
 	return fmt.Sprintf("Received second cancellation signal, forcing exit.\nPlease check https://ms.portal.azure.com/#@microsoft.onmicrosoft.com/resource/subscriptions/%s/resourceGroups/%s/overview and delete any resources created by the test suite", subscriptionID, config.ResourceGroupName(location))
 }
 
-func newTestCtx(t *testing.T, location string) context.Context {
+func newTestCtx(t *testing.T) context.Context {
 	if testCtx.Err() != nil {
-		msg := constructErrorMessage(config.Config.SubscriptionID, location)
-		t.Skip("test suite is shutting down: " + msg)
+		t.Skip("test suite is shutting down: ")
 	}
 	ctx, cancel := context.WithTimeout(testCtx, config.Config.TestTimeout)
 	t.Cleanup(cancel)
@@ -114,7 +113,7 @@ func RunScenario(t *testing.T, s *Scenario) {
 		s.Location = config.Config.DefaultLocation
 	}
 
-	ctx := newTestCtx(t, s.Location)
+	ctx := newTestCtx(t)
 	ensureLocationInitialized(ctx, t, s.Location)
 
 	if config.Config.TestPreProvision {
@@ -239,7 +238,7 @@ func runScenarioWithPreProvision(t *testing.T, original *Scenario) {
 
 func runScenario(t *testing.T, s *Scenario) {
 	s.T = t
-	ctx := newTestCtx(t, s.Location)
+	ctx := newTestCtx(t)
 	ctrruntimelog.SetLogger(zap.New())
 
 	maybeSkipScenario(ctx, t, s)
