@@ -180,11 +180,11 @@ parameters:
   - name: buildflatcargen2
     displayName: Build Flatcar Gen2
     type: boolean
-    default: false
+    default: true
   - name: buildflatcargen2arm64
     displayName: Build Flatcar Gen2 ARM64
     type: boolean
-    default: false
+    default: true
 
 variables:
   - group: aks-vuln-to-kusto
