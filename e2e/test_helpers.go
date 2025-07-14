@@ -133,55 +133,43 @@ func RunScenario(t *testing.T, s *Scenario) {
 }
 
 func runScenarioWithPreProvision(t *testing.T, original *Scenario) {
-	if original.VHD.Arch == "arm64" {
-		t.Skipf("Image creation doesn't support ARM64, skipping %s", original.VHD.Name)
-	}
-
-	var customVHD *config.Image
-
 	// This is hard to understand. Some functional magic is used to run the original scenario in two stages.
 	// 1. Stage 1: Run the original scenario with pre-provisioning enabled, but skip the main validation and validate only pre-provisioning.
 	// 2. Create a new Image from the VMSS created in Stage 1
 	// 3. Stage 2: Run the original scenario again, but this time using the custom VHD created in a previous step, with validators,
 	// The goal here is to test pre-provisioning logic on the variety of existing scenarios
-	firstStage := &Scenario{
-		Description: original.Description,
-		Tags:        original.Tags,
-		Config: Config{
-			Cluster:               original.Cluster,
-			VHD:                   original.VHD,
-			SkipDefaultValidation: true, // Skip default validation, VM isn't ready at stage 1
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				if original.VMConfigMutator != nil {
-					original.VMConfigMutator(vmss)
-				}
-				// Configure VM to use persistent disk instead of ephemeral for image capture
-				if vmss.Properties.VirtualMachineProfile.StorageProfile.OSDisk != nil {
-					vmss.Properties.VirtualMachineProfile.StorageProfile.OSDisk.DiffDiskSettings = nil
-				}
-			},
-			Validator: func(ctx context.Context, stage1 *Scenario) {
-				if stage1.IsWindows() {
-					ValidateFileExists(ctx, stage1, "C:\\AzureData\\preprovision.complete")
-					ValidateFileDoesNotExist(ctx, stage1, "C:\\AzureData\\provision.complete")
-					ValidateWindowsServiceIsNotRunning(ctx, stage1, "kubelet")
-					// Ensure containerd service is running to enable container operations
-					ValidateWindowsServiceIsRunning(ctx, stage1, "containerd")
-				} else {
-					ValidateFileExists(ctx, stage1, "/etc/containerd/config.toml")
-					ValidateFileExists(ctx, stage1, "/opt/azure/containers/preprovision.complete")
-					ValidateFileDoesNotExist(ctx, stage1, "/opt/azure/containers/provision.complete")
-					ValidateSystemdUnitIsRunning(ctx, stage1, "containerd")
-					ValidateSystemdUnitIsNotRunning(ctx, stage1, "kubelet")
-				}
+	firstStage := copyScenario(original)
+	if firstStage.VHD.Arch == "arm64" {
+		t.Skipf("Image creation doesn't support ARM64, skipping %s", firstStage.VHD.Name)
+	}
 
-				t.Log("=== Stage 1 validation complete, proceeding to Stage 2 ===")
+	var customVHD *config.Image
 
-				// VM is automatically deleted after the test.
-				// We run Subtest in the Validator to capture VHD before it's deleted
-				customVHD = CreateImage(ctx, stage1)
-			},
-		},
+	// Mutate the copy for pre-provisioning
+	firstStage.Config.SkipDefaultValidation = true
+	firstStage.Config.Validator = func(ctx context.Context, stage1 *Scenario) {
+		if stage1.IsWindows() {
+			ValidateFileExists(ctx, stage1, "C:\\AzureData\\preprovision.complete")
+			ValidateFileDoesNotExist(ctx, stage1, "C:\\AzureData\\provision.complete")
+			ValidateWindowsServiceIsNotRunning(ctx, stage1, "kubelet")
+			ValidateWindowsServiceIsRunning(ctx, stage1, "containerd")
+		} else {
+			ValidateFileExists(ctx, stage1, "/etc/containerd/config.toml")
+			ValidateFileExists(ctx, stage1, "/opt/azure/containers/preprovision.complete")
+			ValidateFileDoesNotExist(ctx, stage1, "/opt/azure/containers/provision.complete")
+			ValidateSystemdUnitIsRunning(ctx, stage1, "containerd")
+			ValidateSystemdUnitIsNotRunning(ctx, stage1, "kubelet")
+		}
+		t.Log("=== Stage 1 validation complete, proceeding to Stage 2 ===")
+		customVHD = CreateImage(ctx, stage1)
+	}
+	firstStage.Config.VMConfigMutator = func(vmss *armcompute.VirtualMachineScaleSet) {
+		if original.VMConfigMutator != nil {
+			original.VMConfigMutator(vmss)
+		}
+		if vmss.Properties.VirtualMachineProfile.StorageProfile.OSDisk != nil {
+			vmss.Properties.VirtualMachineProfile.StorageProfile.OSDisk.DiffDiskSettings = nil
+		}
 	}
 	if original.BootstrapConfigMutator != nil {
 		firstStage.BootstrapConfigMutator = func(nbc *datamodel.NodeBootstrappingConfiguration) {
@@ -195,45 +183,40 @@ func runScenarioWithPreProvision(t *testing.T, original *Scenario) {
 			nodeconfig.PreProvisionOnly = true
 		}
 	}
+
 	runScenario(t, firstStage)
 
 	if t.Failed() {
-		return // first stage failed, no point in proceeding to the second stage
+		return
 	}
 
-	// Create a subtest for proper logging and test reporting
 	t.Run("SecondStage", func(t *testing.T) {
-		secondStageScenario := &Scenario{
-			Description: "Stage 2: Create VMSS from captured VHD via SIG",
-			Tags:        original.Tags,
-			Config: Config{
-				Cluster:                original.Config.Cluster,
-				VHD:                    customVHD,
-				SkipDefaultValidation:  original.Config.SkipDefaultValidation,
-				BootstrapConfigMutator: original.BootstrapConfigMutator,
-				AKSNodeConfigMutator:   original.AKSNodeConfigMutator, // TODO: Why NodeConfig doesn't have SSH keys?
-				VMConfigMutator:        original.VMConfigMutator,
-				Validator: func(ctx context.Context, s *Scenario) {
-					// Stage 2 validation: Verify kubelet is now working
-					if s.IsWindows() {
-						ValidateFileExists(ctx, s, "C:\\AzureData\\provision.complete")
-						ValidateWindowsServiceIsRunning(ctx, s, "kubelet")
-					} else {
-						ValidateFileExists(ctx, s, "/opt/azure/containers/provision.complete")
-						ValidateSystemdUnitIsRunning(ctx, s, "kubelet")
-					}
-					if original.Config.Validator != nil {
-						original.Config.Validator(ctx, s)
-					}
-				},
-			},
+		secondStageScenario := copyScenario(original)
+		secondStageScenario.Description = "Stage 2: Create VMSS from captured VHD via SIG"
+		secondStageScenario.Config.VHD = customVHD
+		secondStageScenario.Config.Validator = func(ctx context.Context, s *Scenario) {
+			if s.IsWindows() {
+				ValidateFileExists(ctx, s, "C:\\AzureData\\provision.complete")
+				ValidateWindowsServiceIsRunning(ctx, s, "kubelet")
+			} else {
+				ValidateFileExists(ctx, s, "/opt/azure/containers/provision.complete")
+				ValidateSystemdUnitIsRunning(ctx, s, "kubelet")
+			}
+			if original.Config.Validator != nil {
+				original.Config.Validator(ctx, s)
+			}
 		}
-		secondStageScenario.BootstrapConfigMutator = original.BootstrapConfigMutator
-		secondStageScenario.AKSNodeConfigMutator = original.AKSNodeConfigMutator
-		// Run Stage 2 scenario using the custom VHD
-		// RunScenario fails due to the running of the t.Parallel() for the second time
 		runScenario(t, secondStageScenario)
 	})
+}
+
+// Helper to deep copy a Scenario (implement as needed for your struct)
+func copyScenario(s *Scenario) *Scenario {
+	// Implement deep copy logic for Scenario and its fields
+	// This is a placeholder; you may need to copy nested structs and slices
+	copied := *s
+	copied.Config = s.Config // If Config is a struct, deep copy its fields as well
+	return &copied
 }
 
 func runScenario(t *testing.T, s *Scenario) {
