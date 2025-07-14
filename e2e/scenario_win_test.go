@@ -297,9 +297,6 @@ func Test_Windows2025(t *testing.T) {
 			VHD:             config.VHDWindows2025,
 			VMConfigMutator: EmptyVMConfigMutator,
 			BootstrapConfigMutator: func(configuration *datamodel.NodeBootstrappingConfiguration) {
-				// 2025 supported in 1.32+ .
-				configuration.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.32.5"
-				configuration.K8sComponents.WindowsPackageURL = fmt.Sprintf("https://packages.aks.azure.com/kubernetes/v%s/windowszip/v%s-1int.zip", "1.32.5", "1.32.5")
 			},
 
 			Validator: func(ctx context.Context, s *Scenario) {
@@ -323,9 +320,6 @@ func Test_Windows2025Gen2(t *testing.T) {
 			VMConfigMutator: EmptyVMConfigMutator,
 			// BootstrapConfigMutator: EmptyBootstrapConfigMutator,
 			BootstrapConfigMutator: func(configuration *datamodel.NodeBootstrappingConfiguration) {
-				// 2025 supported in 1.32+ .
-				configuration.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.32.5"
-				configuration.K8sComponents.WindowsPackageURL = fmt.Sprintf("https://packages.aks.azure.com/kubernetes/v%s/windowszip/v%s-1int.zip", "1.32.5", "1.32.5")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateWindowsVersionFromWindowsSettings(ctx, s, "2025-gen2")
