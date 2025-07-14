@@ -99,7 +99,7 @@ func ensureLocationInitialized(ctx context.Context, t *testing.T, location strin
 	}
 
 	// Initialize the location
-	t.Logf("Initializing region %s", location)
+	t.Logf("Initializing location %s", location)
 	err := ensureResourceGroup(ctx, location)
 	mustNoError(err)
 	_, err = config.Azure.CreateVMManagedIdentity(ctx, location)
@@ -107,7 +107,7 @@ func ensureLocationInitialized(ctx context.Context, t *testing.T, location strin
 
 	// Mark this location as initialized
 	initializedLocations[location] = true
-	t.Logf("Region %s initialized successfully", location)
+	t.Logf("Location %s initialized successfully", location)
 }
 
 func RunScenario(t *testing.T, s *Scenario) {
