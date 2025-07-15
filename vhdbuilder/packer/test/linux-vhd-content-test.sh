@@ -591,7 +591,7 @@ testLSMBPF() {
   os_sku=$2
 
   # Only test on Ubuntu 24.04 and Azure Linux 3.0 where LSM BPF is configured
-  if ( [ "$os_sku" = "Ubuntu" ] && [ "$os_version" = "24.04" ] ) || ( [ "$os_sku" = "AzureLinux" ] && [ "$os_version" = "3.0" ] ); then
+  if { [ "$os_sku" = "Ubuntu" ] && [ "$os_version" = "24.04" ]; } || { [ "$os_sku" = "AzureLinux" ] && [ "$os_version" = "3.0" ]; }; then
     echo "$test: Testing LSM BPF configuration for $os_sku $os_version"
     
     if [ -f /sys/kernel/security/lsm ]; then
