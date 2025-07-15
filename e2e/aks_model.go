@@ -31,10 +31,9 @@ func getLatestGAKubernetesVersion(location string, t *testing.T) (string, error)
 	}
 
 	var latestPatchVersion string
-	msg := ""
+	msg := fmt.Sprintf("Available Kubernetes versions for location %s:\n", location)
 	defer func() { t.Log(msg) }()
 	// Iterate through the available versions to find the latest GA version
-	msg = fmt.Sprintf("Available Kubernetes versions for location %s:\n", location)
 	for _, k8sVersion := range versions.Values {
 		if k8sVersion == nil {
 			continue

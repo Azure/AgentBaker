@@ -83,8 +83,8 @@ func execScriptOnVm(ctx context.Context, s *Scenario, vmPrivateIP, jumpboxPodNam
 		fmt.Sprintf("echo %[1]s > %[2]s", quoteForBash(script.script), scriptFileName),
 		fmt.Sprintf("chmod 0755 %s", scriptFileName),
 		fmt.Sprintf(`scp -i %[1]s -o PasswordAuthentication=no -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o ConnectTimeout=5 %[3]s azureuser@%[2]s:%[4]s`, sshKeyName(vmPrivateIP), vmPrivateIP, scriptFileName, remoteScriptFileName),
+		fmt.Sprintf("%s %s %s", sshString(vmPrivateIP), interpreter, remoteScriptFileName),
 	}
-	steps = append(steps, fmt.Sprintf("%s %s %s", sshString(vmPrivateIP), interpreter, remoteScriptFileName))
 
 	joinedSteps := strings.Join(steps, " && ")
 

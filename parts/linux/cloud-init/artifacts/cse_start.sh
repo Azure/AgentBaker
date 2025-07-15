@@ -57,7 +57,8 @@ if [ "${PRE_PROVISION_ONLY}" = "true" ]; then
     echo "Created preprovision.complete marker file" >> /var/log/azure/cluster-provision.log
     exit 0
 fi
-# Always create provision.complete to satisfy CSE framework validation
+
+# provision.complete is the marker for the second stage of the workflow
 mkdir -p /opt/azure/containers && touch /opt/azure/containers/provision.complete
 
 # messsage_string is here because GA only accepts strings in Message.
