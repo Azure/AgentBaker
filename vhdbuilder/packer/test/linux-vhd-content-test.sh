@@ -584,6 +584,47 @@ testLtsKernel() {
 
 }
 
+testLSMBPF() {
+  test="testLSMBPF"
+  echo "$test:Start"
+  os_version=$1
+  os_sku=$2
+
+  # Only test on Ubuntu 24.04 and Azure Linux 3.0 where LSM BPF is configured
+  if [[ ("$os_sku" = "Ubuntu" && "$os_version" = "24.04") || ("$os_sku" = "AzureLinux" && "$os_version" = "3.0") ]]; then
+    echo "$test: Testing LSM BPF configuration for $os_sku $os_version"
+    
+    if [ -f /sys/kernel/security/lsm ]; then
+      current_lsm=$(cat /sys/kernel/security/lsm)
+      echo "$test: Current LSM modules: $current_lsm"
+      
+      if echo "$current_lsm" | grep -q "bpf"; then
+        echo "$test: BPF is present in LSM modules"
+      else
+        err $test "BPF is not present in LSM modules: $current_lsm"
+      fi
+    else
+      err $test "/sys/kernel/security/lsm file does not exist"
+    fi
+  else
+    if [ -f /sys/kernel/security/lsm ]; then
+      current_lsm=$(cat /sys/kernel/security/lsm)
+      echo "$test: Current LSM modules: $current_lsm"
+
+      if echo "$current_lsm" | grep -q "bpf"; then
+        echo "$test BPF is not present in LSM modules: $current_lsm"
+      else
+        err $test "BPF is present in LSM modules: $current_lsm"
+      fi
+    else
+      echo "$test: /sys/kernel/security/lsm file does not exist, skipping LSM BPF test"
+    fi
+  fi
+
+  echo "$test:Finish"
+}
+
+
 testCloudInit() {
   test="testCloudInit"
   echo "$test:Start"
