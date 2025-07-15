@@ -58,6 +58,8 @@ type Configuration struct {
 	IgnoreScenariosWithMissingVHD bool          `env:"IGNORE_SCENARIOS_WITH_MISSING_VHD"`
 	KeepVMSS                      bool          `env:"KEEP_VMSS"`
 	DefaultLocation               string        `env:"E2E_LOCATION" envDefault:"westus3"`
+	TestGalleryNamePrefix         string        `env:"TEST_GALLERY_NAME_PREFIX" envDefault:"abe2etest"`
+	TestGalleryImagePrefix        string        `env:"TEST_GALLERY_IMAGE_PREFIX" envDefault:"abe2etest"`
 	SIGVersionTagName             string        `env:"SIG_VERSION_TAG_NAME" envDefault:"branch"`
 	SIGVersionTagValue            string        `env:"SIG_VERSION_TAG_VALUE" envDefault:"refs/heads/master"`
 	SkipTestsWithSKUCapacityIssue bool          `env:"SKIP_TESTS_WITH_SKU_CAPACITY_ISSUE"`

@@ -62,6 +62,7 @@ type AzureClient struct {
 	VMs                       *armcompute.VirtualMachinesClient
 	Images                    *armcompute.ImagesClient
 	Snapshots                 *armcompute.SnapshotsClient
+	Galleries                 *armcompute.GalleriesClient
 	GalleryImages             *armcompute.GalleryImagesClient
 	GalleryImageVersions      *armcompute.GalleryImageVersionsClient
 	VNet                      *armnetwork.VirtualNetworksClient
@@ -282,6 +283,12 @@ func NewAzureClient() (*AzureClient, error) {
 		return nil, fmt.Errorf("create vm extension images client: %w", err)
 	}
 
+	// Ensure the gallery exists
+	cloud.Galleries, err = armcompute.NewGalleriesClient(Config.SubscriptionID, credential, opts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create galleries client: %w", err)
+	}
+
 	cloud.Credential = credential
 	cloud.ArmOptions = opts
 
@@ -499,7 +506,7 @@ func (a *AzureClient) ensureReplication(ctx context.Context, t *testing.T, image
 	err := a.replicateImageVersionToCurrentRegion(ctx, image, version, location)
 	elapsed := time.Since(start) // Calculate the elapsed time
 
-	toolkit.LogDuration(t, elapsed, 3*time.Minute, fmt.Sprintf("Replication took: %s (%s)\n", toolkit.FormatDuration(elapsed), *version.ID))
+	toolkit.LogDuration(t, elapsed, 3*time.Minute, fmt.Sprintf("Replication took: %s (%s)", toolkit.FormatDuration(elapsed), *version.ID))
 
 	return err
 }
@@ -677,133 +684,6 @@ func (a *AzureClient) CreateVMSSFromImage(ctx context.Context, resourceGroupName
 	vmssTemplate.Properties.VirtualMachineProfile.StorageProfile.ImageReference.Version = nil
 
 	return a.createVMSS(ctx, resourceGroupName, vmssName, vmssTemplate)
-}
-
-// CreateSIGImageVersionFromManagedImage creates a new SIG image version from a managed image
-func (a *AzureClient) CreateSIGImageVersionFromManagedImage(ctx context.Context, resourceGroup, galleryName, imageName, version, managedImageResourceID string) (*armcompute.GalleryImageVersion, error) {
-	// Parse the managed image resource ID to get the correct resource group and name
-	// managedImageResourceID format: /subscriptions/{sub}/resourceGroups/{rg}/providers/Microsoft.Compute/images/{name}
-	resourceIDParts := strings.Split(managedImageResourceID, "/")
-	if len(resourceIDParts) < 8 {
-		return nil, fmt.Errorf("invalid managed image resource ID format: %s", managedImageResourceID)
-	}
-	managedImageRG := resourceIDParts[4]
-	managedImageName := resourceIDParts[8]
-
-	// First, get the managed image to detect its properties
-	managedImage, err := a.Images.Get(ctx, managedImageRG, managedImageName, &armcompute.ImagesClientGetOptions{})
-	if err != nil {
-		return nil, fmt.Errorf("failed to get managed image: %w", err)
-	}
-
-	// Detect HyperV generation and OS type from the managed image
-	hyperVGen := armcompute.HyperVGenerationV1 // Default to V1
-	if managedImage.Properties != nil && managedImage.Properties.HyperVGeneration != nil {
-		switch *managedImage.Properties.HyperVGeneration {
-		case armcompute.HyperVGenerationTypesV1:
-			hyperVGen = armcompute.HyperVGenerationV1
-		case armcompute.HyperVGenerationTypesV2:
-			hyperVGen = armcompute.HyperVGenerationV2
-		default:
-			hyperVGen = armcompute.HyperVGenerationV1 // Default to V1 for unknown types
-		}
-	}
-
-	osType := armcompute.OperatingSystemTypesWindows // Default to Windows
-	if managedImage.Properties != nil && managedImage.Properties.StorageProfile != nil &&
-		managedImage.Properties.StorageProfile.OSDisk != nil && managedImage.Properties.StorageProfile.OSDisk.OSType != nil {
-		osType = *managedImage.Properties.StorageProfile.OSDisk.OSType
-	}
-
-	// Ensure the gallery exists
-	galleries, err := armcompute.NewGalleriesClient(Config.SubscriptionID, a.Credential, a.ArmOptions)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create galleries client: %w", err)
-	}
-
-	_, err = galleries.Get(ctx, resourceGroup, galleryName, nil)
-	if err != nil {
-		// Create the gallery if it doesn't exist
-		gallery := armcompute.Gallery{
-			Location: to.Ptr(Config.DefaultLocation),
-			Properties: &armcompute.GalleryProperties{
-				Description: to.Ptr("E2E test gallery for two-stage kubelet configuration"),
-			},
-		}
-
-		createGalleryOp, err := galleries.BeginCreateOrUpdate(ctx, resourceGroup, galleryName, gallery, nil)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create gallery: %w", err)
-		}
-
-		_, err = createGalleryOp.PollUntilDone(ctx, DefaultPollUntilDoneOptions)
-		if err != nil {
-			return nil, fmt.Errorf("failed to complete gallery creation: %w", err)
-		}
-	}
-
-	// Next, ensure the gallery image exists
-	_, err = a.GalleryImages.Get(ctx, resourceGroup, galleryName, imageName, &armcompute.GalleryImagesClientGetOptions{})
-	if err != nil {
-		// Create the gallery image if it doesn't exist, matching the managed image properties
-		galleryImage := armcompute.GalleryImage{
-			Location: to.Ptr(Config.DefaultLocation),
-			Properties: &armcompute.GalleryImageProperties{
-				OSType:  to.Ptr(osType),
-				OSState: to.Ptr(armcompute.OperatingSystemStateTypesGeneralized),
-				Identifier: &armcompute.GalleryImageIdentifier{
-					Publisher: to.Ptr("akse2e"),
-					Offer:     to.Ptr("akse2e"),
-					SKU:       to.Ptr("akse2e"),
-				},
-				HyperVGeneration: to.Ptr(hyperVGen), // Use detected generation
-			},
-		}
-
-		createImageOp, err := a.GalleryImages.BeginCreateOrUpdate(ctx, resourceGroup, galleryName, imageName, galleryImage, nil)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create gallery image: %w", err)
-		}
-
-		_, err = createImageOp.PollUntilDone(ctx, DefaultPollUntilDoneOptions)
-		if err != nil {
-			return nil, fmt.Errorf("failed to complete gallery image creation: %w", err)
-		}
-	}
-
-	// Create the image version from the managed image
-	imageVersion := armcompute.GalleryImageVersion{
-		Location: to.Ptr(Config.DefaultLocation),
-		Properties: &armcompute.GalleryImageVersionProperties{
-			StorageProfile: &armcompute.GalleryImageVersionStorageProfile{
-				Source: &armcompute.GalleryArtifactVersionFullSource{
-					ID: to.Ptr(managedImageResourceID),
-				},
-			},
-			PublishingProfile: &armcompute.GalleryImageVersionPublishingProfile{
-				TargetRegions: []*armcompute.TargetRegion{
-					{
-						Name:                 to.Ptr(Config.DefaultLocation),
-						RegionalReplicaCount: to.Ptr[int32](1),
-						StorageAccountType:   to.Ptr(armcompute.StorageAccountTypeStandardLRS),
-					},
-				},
-				ReplicaCount: to.Ptr[int32](1),
-			},
-		},
-	}
-
-	createVersionOp, err := a.GalleryImageVersions.BeginCreateOrUpdate(ctx, resourceGroup, galleryName, imageName, version, imageVersion, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create image version: %w", err)
-	}
-
-	versionResp, err := createVersionOp.PollUntilDone(ctx, DefaultPollUntilDoneOptions)
-	if err != nil {
-		return nil, fmt.Errorf("failed to complete image version creation: %w", err)
-	}
-
-	return &versionResp.GalleryImageVersion, nil
 }
 
 // DeleteSIGImageVersion deletes a SIG image version

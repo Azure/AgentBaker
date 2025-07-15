@@ -139,10 +139,6 @@ func runScenarioWithPreProvision(t *testing.T, original *Scenario) {
 	// 3. Stage 2: Run the original scenario again, but this time using the custom VHD created in a previous step, with validators,
 	// The goal here is to test pre-provisioning logic on the variety of existing scenarios
 	firstStage := copyScenario(original)
-	if firstStage.VHD.Arch == "arm64" {
-		t.Skipf("Image creation doesn't support ARM64, skipping %s", firstStage.VHD.Name)
-	}
-
 	var customVHD *config.Image
 
 	// Mutate the copy for pre-provisioning
@@ -299,7 +295,7 @@ func prepareAKSNode(ctx context.Context, s *Scenario) {
 		readyElapse := time.Since(vmssCreatedAt) // Calculate the elapsed time
 		totalElapse := time.Since(start)
 		s.T.Logf("node %s is ready", s.Runtime.VMSSName)
-		toolkit.LogDuration(s.T, totalElapse, 3*time.Minute, fmt.Sprintf("Node %s took %s to be created and %s to be ready\n", s.Runtime.VMSSName, toolkit.FormatDuration(creationElapse), toolkit.FormatDuration(readyElapse)))
+		toolkit.LogDuration(s.T, totalElapse, 3*time.Minute, fmt.Sprintf("Node %s took %s to be created and %s to be ready", s.Runtime.VMSSName, toolkit.FormatDuration(creationElapse), toolkit.FormatDuration(readyElapse)))
 	}
 
 	s.Runtime.VMPrivateIP, err = getVMPrivateIPAddress(ctx, s)
@@ -648,74 +644,92 @@ C:\Windows\System32\Sysprep\Sysprep.exe /oobe /generalize /mode:vm /quiet /quit;
 	_, err = poll.PollUntilDone(ctx, nil)
 	require.NoError(s.T, err, "Failed to deallocate")
 
+	// Create version using smaller integers that fit within Azure's limits
+	// Use Unix timestamp for guaranteed uniqueness in concurrent runs
+	now := time.Now()
+	nanos := now.UnixNano()
+	// Take last 9 digits to ensure it fits in 32-bit integer range
+	patchVersion := nanos % 1000000000
+	version := fmt.Sprintf("1.%s.%d", now.Format("20060102"), patchVersion)
+
+	// Get the OS disk resource ID directly from the VM
 	diskName := *vm.Properties.StorageProfile.OSDisk.Name
-	snapshotName := fmt.Sprintf("snap-%s-%s", time.Now().Format("20060102"), randomLowercaseString(6))
-	s.T.Logf("Creating snapshot '%s' from disk '%s'...", snapshotName, diskName)
+	diskResourceID := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/disks/%s",
+		config.Config.SubscriptionID, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, diskName)
 
-	snapshotPoller, err := config.Azure.Snapshots.BeginCreateOrUpdate(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, snapshotName,
-		armcompute.Snapshot{
-			Location: to.Ptr("westus3"),
-			Properties: &armcompute.SnapshotProperties{
-				CreationData: &armcompute.CreationData{
-					CreateOption: to.Ptr(armcompute.DiskCreateOptionCopy),
-					SourceResourceID: to.Ptr(fmt.Sprintf(
-						"/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/disks/%s",
-						config.Config.SubscriptionID, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, diskName)),
-				},
-			},
-		}, nil)
-	require.NoError(s.T, err, "Failed to begin snapshot creation")
+	return CreateSIGImageVersionFromDisk(
+		ctx,
+		s,
+		version,
+		diskResourceID,
+	)
+}
 
-	s.T.Cleanup(func() {
-		s.T.Logf("Cleaning up snapshot '%s'...", snapshotName)
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		_, _ = config.Azure.Snapshots.BeginDelete(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, snapshotName, nil)
+// CreateSIGImageVersionFromDisk creates a new SIG image version directly from a VM disk
+func CreateSIGImageVersionFromDisk(ctx context.Context, s *Scenario, version string, diskResourceID string) *config.Image {
+	rg := config.ResourceGroupName(s.Location)
+	gallery, err := CachedCreateGallery(ctx, CreateGalleryRequest{
+		ResourceGroup: rg,
+		Location:      s.Location,
 	})
+	require.NoError(s.T, err, "failed to create or get gallery")
 
-	snapshot, err := snapshotPoller.PollUntilDone(ctx, nil)
-	require.NoError(s.T, err, "Failed to create snapshot for disk creation")
+	image, err := CachedCreateGalleryImage(ctx, CreateGalleryImageRequest{
+		ResourceGroup: rg,
+		GalleryName:   *gallery.Name,
+		Location:      s.Location,
+		Arch:          s.VHD.Arch,
+		Windows:       s.IsWindows(),
+	})
+	require.NoError(s.T, err, "failed to create or get gallery image")
 
-	imageName := "image-" + snapshotName
-	s.T.Logf("Creating image '%s' from snapshot '%s'...", imageName, snapshotName)
-	imagePoller, err := config.Azure.Images.BeginCreateOrUpdate(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, imageName, armcompute.Image{
-		Location: vm.Location,
-		Properties: &armcompute.ImageProperties{
-			StorageProfile: &armcompute.ImageStorageProfile{
-				OSDisk: &armcompute.ImageOSDisk{
-					OSType: func() *armcompute.OperatingSystemTypes {
-						if s.IsWindows() {
-							return to.Ptr(armcompute.OperatingSystemTypesWindows)
-						}
-						return to.Ptr(armcompute.OperatingSystemTypesLinux)
-					}(),
-					OSState: to.Ptr(armcompute.OperatingSystemStateTypesGeneralized),
-					Snapshot: &armcompute.SubResource{
-						ID: snapshot.ID,
+	// Create the image version directly from the disk
+	s.T.Logf("Creating gallery image version: %s", version)
+	createVersionOp, err := config.Azure.GalleryImageVersions.BeginCreateOrUpdate(ctx, rg, *gallery.Name, *image.Name, version, armcompute.GalleryImageVersion{
+		Location: to.Ptr(s.Location),
+		Properties: &armcompute.GalleryImageVersionProperties{
+			StorageProfile: &armcompute.GalleryImageVersionStorageProfile{
+				OSDiskImage: &armcompute.GalleryOSDiskImage{
+					Source: &armcompute.GalleryDiskImageSource{
+						ID: to.Ptr(diskResourceID),
 					},
 				},
 			},
+			PublishingProfile: &armcompute.GalleryImageVersionPublishingProfile{
+				ReplicationMode: to.Ptr(armcompute.ReplicationModeShallow),
+				TargetRegions: []*armcompute.TargetRegion{
+					{
+						Name:                 to.Ptr(s.Location),
+						RegionalReplicaCount: to.Ptr[int32](1),
+						StorageAccountType:   to.Ptr(armcompute.StorageAccountTypePremiumLRS),
+					},
+				},
+				ReplicaCount: to.Ptr[int32](1),
+			},
 		},
 	}, nil)
-	require.NoError(s.T, err, "Failed to begin create image snapshot")
+	require.NoError(s.T, err, "Failed to create gallery image version")
+
+	_, err = createVersionOp.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
+	require.NoError(s.T, err, "Failed to complete gallery image version creation")
+
 	s.T.Cleanup(func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
-		_, _ = config.Azure.Images.BeginDelete(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, imageName, nil)
+		config.Azure.DeleteSIGImageVersion(ctx, rg, *gallery.Name, *image.Name, version)
 	})
-
-	image, err := imagePoller.PollUntilDone(ctx, nil)
-	require.NoError(s.T, err, "Failed to create image snapshot")
-
-	// Copy the original VHD and override only the fields that change for Stage2
+	// Create a new VHD config for Stage2 (ignore lock copying warning for now)
 	customVHD := *s.Config.VHD
-	customVHD.Name = imageName
+	customVHD.Name = *image.Name // Use the architecture-specific image name
 	customVHD.Gallery = &config.Gallery{
 		SubscriptionID:    config.Config.SubscriptionID,
-		ResourceGroupName: *s.Runtime.Cluster.Model.Properties.NodeResourceGroup,
-		Name:              "managed-disks", // Special marker for managed disks
+		ResourceGroupName: rg,
+		Name:              *gallery.Name,
 	}
-	customVHD.Version = *image.ID // Store the managed image ID in Version field
+	customVHD.Version = version
+
+	s.T.Logf("Created SIG image version: %s", version)
+
 	return &customVHD
 }
 
@@ -724,7 +738,12 @@ func validateSSHConnectivity(ctx context.Context, s *Scenario) error {
 	connectionResult, err := execOnPrivilegedPod(ctx, s.Runtime.Cluster.Kube, defaultNamespace, s.Runtime.Cluster.DebugPod.Name, connectionTest)
 
 	if err != nil || !strings.Contains(connectionResult.stdout.String(), "SSH_CONNECTION_OK") {
-		return fmt.Errorf("SSH connection to %s failed: %v\nStderr: %s", s.Runtime.VMPrivateIP, err, connectionResult.stderr.String())
+		stderr := ""
+		if connectionResult != nil {
+			stderr = connectionResult.stderr.String()
+		}
+
+		return fmt.Errorf("SSH connection to %s failed: %v\nStderr: %s", s.Runtime.VMPrivateIP, err, stderr)
 	}
 
 	s.T.Logf("SSH connectivity to %s verified successfully", s.Runtime.VMPrivateIP)

@@ -12,6 +12,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v6"
+	"github.com/stretchr/testify/require"
 )
 
 func Test_AzureLinuxV2_AirGap(t *testing.T) {
@@ -1645,9 +1646,7 @@ func Test_Ubuntu2404_NPD_Basic(t *testing.T) {
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				extension, err := createVMExtensionLinuxAKSNode(vmss.Location)
-				if err != nil {
-					t.Fatalf("creating AKS VM extension: %v", err)
-				}
+				require.NoError(t, err, "creating AKS VM extension")
 				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
