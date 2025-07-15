@@ -302,7 +302,7 @@ func getClusterKubeconfigBytes(ctx context.Context, resourceGroupName, clusterNa
 }
 
 // this is a bit ugly, but we don't want to execute this piece concurrently with other tests
-func (k *Kubeclient) EnsureDebugDaemonsets(ctx context.Context, t *testing.T, isAirgap bool, privateACRName string) error {
+func (k *Kubeclient) EnsureDebugDaemonsets(ctx context.Context, t *testing.T, isAirgap bool, privateACRName string, installNvidiaDevicePlugin bool) error {
 	ds := daemonsetDebug(t, hostNetworkDebugAppLabel, "nodepool1", privateACRName, true, isAirgap)
 	err := k.CreateDaemonset(ctx, ds)
 	if err != nil {
@@ -315,10 +315,13 @@ func (k *Kubeclient) EnsureDebugDaemonsets(ctx context.Context, t *testing.T, is
 		return err
 	}
 
-	err = k.CreateDaemonset(ctx, nvidiaDevicePluginDaemonSet())
-	if err != nil {
-		return err
+	if installNvidiaDevicePlugin {
+		err = k.CreateDaemonset(ctx, nvidiaDevicePluginDaemonSet())
+		if err != nil {
+			return err
+		}
 	}
+
 	return nil
 }
 
