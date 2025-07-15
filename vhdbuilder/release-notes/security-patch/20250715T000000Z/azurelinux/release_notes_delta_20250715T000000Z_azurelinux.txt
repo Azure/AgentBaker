@@ -1,0 +1,5 @@
+Release notes for security patch 20250715T000000Z timestamp
+Package difference between 20250702T000000Z and 20250715T000000Z
+Install:  ()
+Upgrade:  ( → )
+No reboot required
