@@ -678,7 +678,8 @@ configureLsmWithBpf() {
     return 0
   fi
 
-  local current_lsm=$(cat /sys/kernel/security/lsm)
+  local current_lsm
+  current_lsm=$(cat /sys/kernel/security/lsm)
   echo "Current LSM modules: $current_lsm"
 
   # Prepend bpf to the LSM list if not already present
@@ -686,7 +687,7 @@ configureLsmWithBpf() {
     local new_lsm="bpf,$current_lsm"
     echo "New LSM configuration: $new_lsm"
 
-    if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
+    if [ "$OS" = "$UBUNTU_OS_NAME" ] && [ "$OS_VERSION" = "24.04" ]; then
       local grub_cfg="/etc/default/grub.d/50-cloudimg-settings.cfg"
       if [ -f "$grub_cfg" ]; then
         if grep -q "lsm=" "$grub_cfg"; then
@@ -694,26 +695,28 @@ configureLsmWithBpf() {
         else
           sed -i "s/GRUB_CMDLINE_LINUX_DEFAULT=\"/GRUB_CMDLINE_LINUX_DEFAULT=\"lsm=$new_lsm /" "$grub_cfg"
         fi
-        echo "Updating GRUB configuration for Ubuntu..."
+        echo "Updating GRUB configuration for Ubuntu 24.04..."
         update-grub2 /boot/grub/grub.cfg || echo "Warning: Failed to update GRUB configuration"
       else
         echo "Warning: $grub_cfg not found, skipping LSM configuration"
       fi
-    elif isMarinerOrAzureLinux "$OS"; then
+    elif isMarinerOrAzureLinux "$OS" && [ "$OS_VERSION" = "3.0" ]; then
       if [ -f /etc/default/grub ]; then
         if grep -q "lsm=" /etc/default/grub; then
           sed -i "s/lsm=[^[:space:]]*/lsm=$new_lsm/g" /etc/default/grub
         else
           sed -i "s/GRUB_CMDLINE_LINUX_DEFAULT=\"/GRUB_CMDLINE_LINUX_DEFAULT=\"lsm=$new_lsm /" /etc/default/grub
         fi
-        echo "Updating GRUB configuration for Mariner/Azure Linux..."
+        echo "Updating GRUB configuration for Azure Linux 3.0..."
         grub2-mkconfig -o /boot/grub2/grub.cfg || echo "Warning: Failed to update GRUB configuration"
       else
         echo "Warning: /etc/default/grub not found, skipping LSM configuration"
       fi
+    else
+      echo "LSM BPF configuration is only enabled for Ubuntu 24.04 and Azure Linux 3.0, skipping"
     fi
 
-    echo "LSM configuration updated successfully"
+    echo "LSM configuration update completed"
   else
     echo "BPF LSM already configured, skipping"
   fi
