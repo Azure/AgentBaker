@@ -683,7 +683,8 @@ configureLsmWithBpf() {
   echo "Current LSM modules: $current_lsm"
 
   # Prepend bpf to the LSM list if not already present
-  if [[ "$current_lsm" != *"bpf"* ]]; then
+  echo "$current_lsm" | grep bpf >/dev/null 2>&1
+  if [ $? -ne 0 ]; then
     local new_lsm="bpf,$current_lsm"
     echo "New LSM configuration: $new_lsm"
 
