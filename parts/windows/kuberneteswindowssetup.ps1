@@ -212,17 +212,36 @@ Expand-Archive scripts.zip -DestinationPath "C:\\AzureData\\" -Force
 
 $global:OperationId = New-Guid
 
-try
-{
-    Logs-To-Event -TaskName "AKS.WindowsCSE.ExecuteCustomDataSetupScript" -TaskMessage ".\CustomDataSetupScript.ps1 -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp -MasterFQDNPrefix $MasterFQDNPrefix -Location $Location -AADClientId $AADClientId -NetworkAPIVersion $NetworkAPIVersion -TargetEnvironment $TargetEnvironment -CSEResultFilePath $CSEResultFilePath"
+# ====== HELPER FUNCTIONS ======
+function Load-CSEScripts {
+    <#
+    .SYNOPSIS
+        Loads all CSE PowerShell scripts required for Windows node provisioning.
+    .DESCRIPTION
+        Dot-sources all CSE function scripts from C:\AzureData\windows\ directory.
+        This function ensures all required functions are available for both Stage1 and Stage2.
+    #>
+    . c:\AzureData\windows\azurecnifunc.ps1
+    . c:\AzureData\windows\calicofunc.ps1
+    . c:\AzureData\windows\configfunc.ps1
+    . c:\AzureData\windows\containerdfunc.ps1
+    . c:\AzureData\windows\kubeletfunc.ps1
+    . c:\AzureData\windows\kubernetesfunc.ps1
+    . c:\AzureData\windows\nvidiagpudriverfunc.ps1
+}
 
-    # Exit early if the script has been executed
-    if (Test-Path -Path $CSEResultFilePath -PathType Leaf) {
-        Write-Log "The script has been executed before, will exit without doing anything."
+# ====== STAGE 1: BASE IMAGE PREPARATION ======
+# All operations that prepare the base VHD image
+function Stage1 {
+    if (Test-Path "C:\AzureData\preprovision.complete") {
+        Write-Log "Skipping stage1 - preprovision.complete file exists"
         return
     }
 
-    # This involes using proxy, log the config before fetching packages
+    Write-Log "Starting Stage1 - Base image preparation"
+    Logs-To-Event -TaskName "AKS.WindowsCSE.Stage1" -TaskMessage "Starting Stage1 - Base image preparation"
+
+    # This involves using proxy, log the config before fetching packages
     Write-Log "private egress proxy address is '$global:PrivateEgressProxyAddress'"
     # TODO update to use proxy
 
@@ -257,31 +276,13 @@ try
     Remove-Item -Path $tempfile -Force
 
     # Dot-source cse scripts with functions that are called in this script
-    . c:\AzureData\windows\azurecnifunc.ps1
-    . c:\AzureData\windows\calicofunc.ps1
-    . c:\AzureData\windows\configfunc.ps1
-    . c:\AzureData\windows\containerdfunc.ps1
-    . c:\AzureData\windows\kubeletfunc.ps1
-    . c:\AzureData\windows\kubernetesfunc.ps1
-    . c:\AzureData\windows\nvidiagpudriverfunc.ps1
+    Load-CSEScripts
 
     # Install OpenSSH if SSH enabled
     $sshEnabled = [System.Convert]::ToBoolean("{{ WindowsSSHEnabled }}")
-
     if ( $sshEnabled ) {
         Install-OpenSSH -SSHKeys $SSHKeys
     }
-
-    if (Test-Path C:\AzureData\preprovision.complete) {
-        Write-Log "Running kubelet-only configuration"
-
-        Install-KubernetesServices -KubeDir $global:KubeDir
-
-        Set-Content -Path $CSEResultFilePath -Value "0" -Force
-        Write-Log "Kubelet-only configuration completed successfully"
-        return
-    }
-
 
     Set-TelemetrySetting -WindowsTelemetryGUID $global:WindowsTelemetryGUID
 
@@ -408,7 +409,6 @@ try
         -IsDualStackEnabled $global:IsDualStackEnabled `
         -IsAzureCNIOverlayEnabled $global:IsAzureCNIOverlayEnabled
 
-
     if ($TargetEnvironment -ieq "AzureStackCloud") {
         GenerateAzureStackCNIConfig `
             -TenantId $global:TenantId `
@@ -426,14 +426,6 @@ try
 
     # Turn off Firewall to enable pods to talk to service endpoints. (Kubelet should eventually do this)
     netsh advfirewall set allprofiles state off
-
-    # Conditionally install kubelet services based on configuration
-    if (-not $PreProvisionOnly) {
-        Write-Log "Installing kubelet services"
-        Install-KubernetesServices -KubeDir $global:KubeDir
-    } else {
-        Write-Log "Skipping kubelet configuration as per PreProvisionOnly setting"
-    }
 
     Set-Explorer
     Adjust-PageFileSize
@@ -465,59 +457,94 @@ try
         Install-GmsaPlugin -GmsaPackageUrl $global:WindowsGmsaPackageUrl
     }
 
-    # Additional operations only for full provisioning mode
-    if (-not $PreProvisionOnly) {
-        Write-Log "Running full provisioning cluster connectivity and component installation"
-        
-        # Turn off Firewall to enable pods to talk to service endpoints. (Kubelet should eventually do this)
-        netsh advfirewall set allprofiles state off
-        
-        Check-APIServerConnectivity -MasterIP $MasterIP
+    Write-Log "Stage1 completed successfully"
+    Logs-To-Event -TaskName "AKS.WindowsCSE.Stage1" -TaskMessage "Stage1 completed successfully"
+    Set-Content -Path "C:\AzureData\preprovision.complete" -Value $global:ExitCode -Force
+}
 
-        if ($global:WindowsCalicoPackageURL) {
-            Start-InstallCalico -RootDir "c:\" -KubeServiceCIDR $global:KubeServiceCIDR -KubeDnsServiceIp $KubeDnsServiceIp
-        }
-
-        Start-InstallGPUDriver -EnableInstall $global:ConfigGPUDriverIfNeeded -GpuDriverURL $global:GpuDriverURL
-
-        if (Test-Path $CacheDir)
-        {
-            Write-Log "Removing aks cache directory"
-            Remove-Item $CacheDir -Recurse -Force
-        }
-
-        if ($global:TLSBootstrapToken) {
-            Write-Log "Removing temporary kube config"
-            $kubeConfigFile = [io.path]::Combine($KubeDir, "config")
-            Remove-Item $kubeConfigFile
-        }
-
-        Enable-GuestVMLogs -IntervalInMinutes $global:LogGeneratorIntervalInMinutes
-
-        if ($global:RebootNeeded) {
-            Logs-To-Event -TaskName "AKS.WindowsCSE.RestartComputer" -TaskMessage "Setup Complete, calling Postpone-RestartComputer with reboot"
-            Postpone-RestartComputer
-        } else {
-            Logs-To-Event -TaskName "AKS.WindowsCSE.StartScheduledTask" -TaskMessage "Setup Complete, start NodeResetScriptTask to register Windows node without reboot"
-            Start-ScheduledTask -TaskName "k8s-restart-job"
-
-            $timeout = 180 ##  seconds
-            $timer = [Diagnostics.Stopwatch]::StartNew()
-            while ((Get-ScheduledTask -TaskName 'k8s-restart-job').State -ne 'Ready') {
-                # The task `k8s-restart-job` needs ~8 seconds.
-                if ($timer.Elapsed.TotalSeconds -gt $timeout) {
-                    Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_START_NODE_RESET_SCRIPT_TASK -ErrorMessage "NodeResetScriptTask is not finished after [$($timer.Elapsed.TotalSeconds)] seconds"
-                }
-
-                Write-Log -Message "Waiting on NodeResetScriptTask..."
-                Start-Sleep -Seconds 3
-            }
-            $timer.Stop()
-            Write-Log -Message "We waited [$($timer.Elapsed.TotalSeconds)] seconds on NodeResetScriptTask"
-        }
-    } else {
-        Write-Log "Preprovision mode complete - skipping cluster operations"
+# ====== STAGE 2: CLUSTER INTEGRATION ======
+# All operations that should only run when connecting to the actual cluster
+function Stage2 {
+    if ($PreProvisionOnly) {
+        Write-Log "Skipping stage2 - pre-provision only mode"
+        return
     }
+
+    # Ensure CSE functions are available for Stage2
+    if (-not (Get-Command "Install-KubernetesServices" -ErrorAction SilentlyContinue)) {
+        Load-CSEScripts
+    }
+
+    Install-KubernetesServices -KubeDir $global:KubeDir
+
+    Write-Log "Starting Stage2 - Cluster integration"
+    Logs-To-Event -TaskName "AKS.WindowsCSE.Stage2" -TaskMessage "Starting Stage2 - Cluster integration"
+
+    # Turn off Firewall to enable pods to talk to service endpoints. (Kubelet should eventually do this)
+    netsh advfirewall set allprofiles state off
+    
+    Check-APIServerConnectivity -MasterIP $MasterIP
+
+    if ($global:WindowsCalicoPackageURL) {
+        Start-InstallCalico -RootDir "c:\" -KubeServiceCIDR $global:KubeServiceCIDR -KubeDnsServiceIp $KubeDnsServiceIp
+    }
+
+    Start-InstallGPUDriver -EnableInstall $global:ConfigGPUDriverIfNeeded -GpuDriverURL $global:GpuDriverURL
+
+    if (Test-Path $CacheDir)
+    {
+        Write-Log "Removing aks cache directory"
+        Remove-Item $CacheDir -Recurse -Force
+    }
+
+    if ($global:TLSBootstrapToken) {
+        Write-Log "Removing temporary kube config"
+        $kubeConfigFile = [io.path]::Combine($KubeDir, "config")
+        Remove-Item $kubeConfigFile
+    }
+
+    Enable-GuestVMLogs -IntervalInMinutes $global:LogGeneratorIntervalInMinutes
+
+    if ($global:RebootNeeded) {
+        Logs-To-Event -TaskName "AKS.WindowsCSE.RestartComputer" -TaskMessage "Setup Complete, calling Postpone-RestartComputer with reboot"
+        Postpone-RestartComputer
+    } else {
+        Logs-To-Event -TaskName "AKS.WindowsCSE.StartScheduledTask" -TaskMessage "Setup Complete, start NodeResetScriptTask to register Windows node without reboot"
+        Start-ScheduledTask -TaskName "k8s-restart-job"
+
+        $timeout = 180 ##  seconds
+        $timer = [Diagnostics.Stopwatch]::StartNew()
+        while ((Get-ScheduledTask -TaskName 'k8s-restart-job').State -ne 'Ready') {
+            # The task `k8s-restart-job` needs ~8 seconds.
+            if ($timer.Elapsed.TotalSeconds -gt $timeout) {
+                Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_START_NODE_RESET_SCRIPT_TASK -ErrorMessage "NodeResetScriptTask is not finished after [$($timer.Elapsed.TotalSeconds)] seconds"
+            }
+
+            Write-Log -Message "Waiting on NodeResetScriptTask..."
+            Start-Sleep -Seconds 3
+        }
+        $timer.Stop()
+        Write-Log -Message "We waited [$($timer.Elapsed.TotalSeconds)] seconds on NodeResetScriptTask"
+    }
+
+    Write-Log "Stage2 completed successfully"
+    Logs-To-Event -TaskName "AKS.WindowsCSE.Stage2" -TaskMessage "Stage2 completed successfully"
+    Set-Content -Path $CSEResultFilePath -Value $global:ExitCode -Force
+}
+
+try
+{
+    Logs-To-Event -TaskName "AKS.WindowsCSE.ExecuteCustomDataSetupScript" -TaskMessage ".\CustomDataSetupScript.ps1 -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp -MasterFQDNPrefix $MasterFQDNPrefix -Location $Location -AADClientId $AADClientId -NetworkAPIVersion $NetworkAPIVersion -TargetEnvironment $TargetEnvironment -CSEResultFilePath $CSEResultFilePath"
+
+    # Exit early if the script has been executed
+    if (Test-Path -Path $CSEResultFilePath -PathType Leaf) {
+        Write-Log "The script has been executed before, will exit without doing anything."
+        return
+    }
+
+    # Under typical conditions both stages will run
+    Stage1
+    Stage2
 }
 catch
 {
@@ -540,15 +567,6 @@ finally
         $errorMessageLength = "ExitCode: |$global:ExitCode|, Output: |$($global:ErrorCodeNames[$global:ExitCode])|, Error: ||".Length
         $turncatedErrorMessage = $global:ErrorMessage.Substring(0, [Math]::Min(240 - $errorMessageLength, $global:ErrorMessage.Length))
         Set-Content -Path $CSEResultFilePath -Value "ExitCode: |$global:ExitCode|, Output: |$($global:ErrorCodeNames[$global:ExitCode])|, Error: |$turncatedErrorMessage|"
-    }
-    else {
-        if ($PreProvisionOnly) {
-            # Stage1 in two-sage processing
-            Set-Content -Path "C:\AzureData\preprovision.complete" -Value $global:ExitCode -Force
-        } else {
-            Set-Content -Path $CSEResultFilePath -Value $global:ExitCode -Force
-
-        }
     }
 
     if ($global:ExitCode -eq $global:WINDOWS_CSE_ERROR_DOWNLOAD_CSE_PACKAGE) {
