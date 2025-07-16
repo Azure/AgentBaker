@@ -613,7 +613,7 @@ testLSMBPF() {
       echo "$test: Current LSM modules: $current_lsm"
 
       if echo "$current_lsm" | grep -q "bpf"; then
-        err "$test "BPF is present in LSM modules: $current_lsm"
+        err $test "BPF is present in LSM modules: $current_lsm"
       else
         echo "$test BPF is not present in LSM modules: $current_lsm"
       fi
