@@ -15,7 +15,7 @@ import (
 var CachedCreateGallery = cachedFunc(createGallery)
 var CachedCreateGalleryImage = cachedFunc(createGalleryImage)
 
-// Func creates a memoized version of a function
+// cachedFunc creates a memoized version of a function
 func cachedFunc[K comparable, V any](fn func(context.Context, K) (V, error)) func(context.Context, K) (V, error) {
 	type entry struct {
 		once  sync.Once
@@ -39,8 +39,7 @@ func cachedFunc[K comparable, V any](fn func(context.Context, K) (V, error)) fun
 
 // Request structs are used as a cache key.
 // The cache key must uniquely identify the request
-// The cache key must not container pointers, maps or slices,
-
+// The cache key should not container pointers, maps or slices to avoid issues with comparing the keys.
 type CreateGalleryRequest struct {
 	Location      string
 	ResourceGroup string

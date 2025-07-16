@@ -684,7 +684,7 @@ func CreateSIGImageVersionFromDisk(ctx context.Context, s *Scenario, version str
 	require.NoError(s.T, err, "failed to create or get gallery image")
 
 	// Create the image version directly from the disk
-	s.T.Logf("Creating gallery image version: %s", version)
+	s.T.Logf("Creating gallery image version: %s in %s", version, *image.ID)
 	createVersionOp, err := config.Azure.GalleryImageVersions.BeginCreateOrUpdate(ctx, rg, *gallery.Name, *image.Name, version, armcompute.GalleryImageVersion{
 		Location: to.Ptr(s.Location),
 		Properties: &armcompute.GalleryImageVersionProperties{
