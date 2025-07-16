@@ -587,8 +587,9 @@ testLtsKernel() {
 testLSMBPF() {
   test="testLSMBPF"
   echo "$test:Start"
-  os_version=$1
-  os_sku=$2
+  os_sku=$1
+  os_version=$2
+
 
   # Only test on Ubuntu 24.04 and Azure Linux 3.0 where LSM BPF is configured
   if { [ "$os_sku" = "Ubuntu" ] && [ "$os_version" = "24.04" ]; } || { [ "$os_sku" = "AzureLinux" ] && [ "$os_version" = "3.0" ]; }; then
@@ -1528,6 +1529,7 @@ testPodSandboxImagePinned $CONTAINER_RUNTIME
 testChrony $OS_SKU
 testAuditDNotPresent
 testFips $OS_VERSION $ENABLE_FIPS
+testLSMBPF $OS_SKU $OS_VERSION
 testCloudInit $OS_SKU
 # Commenting out testImagesRetagged because at present it fails, but writes errors to stdout
 # which means the test failures haven't been caught. It also calles exit 1 on a failure,
