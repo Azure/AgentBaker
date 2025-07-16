@@ -423,6 +423,7 @@ func ValidateContainerRuntimePlugins(ctx context.Context, s *Scenario) {
 }
 
 func EnableGPUNPDToggle(ctx context.Context, s *Scenario) {
+	s.T.Helper()
 	command := []string{
 		"set -ex",
 		"echo '{\"enable-npd-gpu-checks\": \"true\"}' | sudo tee /etc/node-problem-detector.d/public-settings.json",
@@ -433,6 +434,7 @@ func EnableGPUNPDToggle(ctx context.Context, s *Scenario) {
 }
 
 func ValidateNPDGPUCountPlugin(ctx context.Context, s *Scenario) {
+	s.T.Helper()
 	command := []string{
 		"set -ex",
 		// Check NPD GPU count plugin config exists
@@ -442,9 +444,10 @@ func ValidateNPDGPUCountPlugin(ctx context.Context, s *Scenario) {
 }
 
 func ValidateNPDGPUCountCondition(ctx context.Context, s *Scenario) {
+	s.T.Helper()
 	// Wait for NPD to report initial GPU count
 	var gpuCountCondition *corev1.NodeCondition
-	err := wait.PollUntilContextTimeout(ctx, 10*time.Second, 3*time.Minute, true, func(ctx context.Context) (bool, error) {
+	err := wait.PollUntilContextTimeout(ctx, 2*time.Second, 3*time.Minute, true, func(ctx context.Context) (bool, error) {
 		node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.KubeNodeName, metav1.GetOptions{})
 		if err != nil {
 			s.T.Logf("Failed to get node %q: %v", s.Runtime.KubeNodeName, err)
@@ -470,6 +473,7 @@ func ValidateNPDGPUCountCondition(ctx context.Context, s *Scenario) {
 }
 
 func ValidateNPDGPUCountAfterFailure(ctx context.Context, s *Scenario) {
+	s.T.Helper()
 	command := []string{
 		"set -ex",
 		// Disable and reset the first GPU
@@ -492,7 +496,7 @@ func ValidateNPDGPUCountAfterFailure(ctx context.Context, s *Scenario) {
 
 	// Wait for NPD to detect the change
 	var gpuCountCondition *corev1.NodeCondition
-	err := wait.PollUntilContextTimeout(ctx, 10*time.Second, 3*time.Minute, true, func(ctx context.Context) (bool, error) {
+	err := wait.PollUntilContextTimeout(ctx, 2*time.Second, 3*time.Minute, true, func(ctx context.Context) (bool, error) {
 		node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.KubeNodeName, metav1.GetOptions{})
 		if err != nil {
 			s.T.Logf("Failed to get node %q: %v", s.Runtime.KubeNodeName, err)
