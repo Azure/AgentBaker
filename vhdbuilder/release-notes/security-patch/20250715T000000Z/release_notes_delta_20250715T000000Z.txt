@@ -1,0 +1,7 @@
+Release notes for security patch 20250715T000000Z timestamp
+Package difference between 20250702T000000Z and 20250715T000000Z
+No packages found
+No reboot required
+Package difference between AKSUbuntu-2204gen2containerd-202506.16.0 and 20250715T000000Z
+No packages found
+No reboot required
