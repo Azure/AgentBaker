@@ -1,0 +1,28 @@
+Release notes for security patch 20250715T000000Z timestamp
+Package difference between 20250702T000000Z and 20250715T000000Z
+
+=== New Packages ===
+kernel           x86_64       6.6.92.2-2.azl3  azurelinux-official-base  52.98M    44.89M
+
+=== Package Updates ===
+sudo             x86_64       1.9.17-1.azl3    azurelinux-official-base   8.42M     2.24M
+python3-requests noarch       2.31.0-3.azl3    azurelinux-official-base 456.02k   152.48k
+python3-dbus     x86_64       1.3.2-1.azl3     azurelinux-official-base 535.17k   168.48k
+postgresql-libs  x86_64       16.9-1.azl3      azurelinux-official-base   4.39M     1.11M
+pam              x86_64       1.5.3-5.azl3     azurelinux-official-base   1.25M   401.58k
+libcap           x86_64       2.69-5.azl3      azurelinux-official-base 197.42k    82.28k
+jq               x86_64       1.7.1-3.azl3     azurelinux-official-base 491.49k   246.17k
+libgpg-error     x86_64       1.48-1.azl3      azurelinux-official-base 263.02k   125.04k
+gnupg2           x86_64       2.4.7-1.azl3     azurelinux-official-base   6.36M     2.34M
+glibc            x86_64       2.38-11.azl3     azurelinux-official-base  10.20M     3.64M
+glib             x86_64       2.78.6-2.azl3    azurelinux-official-base   4.31M     1.70M
+elfutils-libelf  x86_64       0.189-5.azl3     azurelinux-official-base 109.34k    60.12k
+elfutils-default-yama-scope noarch       0.189-5.azl3     azurelinux-official-base   1.77k     8.96k
+elfutils         x86_64       0.189-5.azl3     azurelinux-official-base   3.41M   796.11k
+containerd2      x86_64       2.0.0-12.azl3    azurelinux-official-base 106.06M    33.36M
+binutils-devel   x86_64       2.41-6.azl3      azurelinux-official-base  13.13M     2.81M
+binutils         x86_64       2.41-6.azl3      azurelinux-official-base  30.85M     8.15M
+azurelinux-release noarch       3.0-30.azl3      azurelinux-official-base   4.41k    21.67k
+SymCrypt-OpenSSL x86_64       1.9.0-1.azl3     azurelinux-official-base 504.40k   168.24k
+
+Reboot required (kernel update)
