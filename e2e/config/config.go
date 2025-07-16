@@ -13,17 +13,26 @@ import (
 )
 
 var (
-	Config                = mustLoadConfig()
-	Azure                 = mustNewAzureClient()
-	ResourceGroupName     = "abe2e-" + Config.Location
-	VMIdentityName        = "abe2e-vm-identity"
-	PrivateACRNameNotAnon = "privateace2enonanonpull" + Config.Location // will have anonymous pull enabled
-	PrivateACRName        = "privateacre2e" + Config.Location           // will not have anonymous pull enabled
+	Config         = mustLoadConfig()
+	Azure          = mustNewAzureClient()
+	VMIdentityName = "abe2e-vm-identity"
 
 	DefaultPollUntilDoneOptions = &runtime.PollUntilDoneOptions{
 		Frequency: time.Second,
 	}
 )
+
+func ResourceGroupName(location string) string {
+	return "abe2e-" + location
+}
+
+func PrivateACRNameNotAnon(location string) string {
+	return "privateace2enonanonpull" + location // will have anonymous pull enabled
+}
+
+func PrivateACRName(location string) string {
+	return "privateacre2e" + location // will not have anonymous pull enabled
+}
 
 type Configuration struct {
 	AirgapNSGName                          string `env:"AIRGAP_NSG_NAME" envDefault:"abe2e-airgap-securityGroup"`
@@ -48,7 +57,7 @@ type Configuration struct {
 
 	IgnoreScenariosWithMissingVHD bool          `env:"IGNORE_SCENARIOS_WITH_MISSING_VHD"`
 	KeepVMSS                      bool          `env:"KEEP_VMSS"`
-	Location                      string        `env:"E2E_LOCATION" envDefault:"westus3"`
+	DefaultLocation               string        `env:"E2E_LOCATION" envDefault:"westus3"`
 	SIGVersionTagName             string        `env:"SIG_VERSION_TAG_NAME" envDefault:"branch"`
 	SIGVersionTagValue            string        `env:"SIG_VERSION_TAG_VALUE" envDefault:"refs/heads/master"`
 	SkipTestsWithSKUCapacityIssue bool          `env:"SKIP_TESTS_WITH_SKU_CAPACITY_ISSUE"`
@@ -62,7 +71,12 @@ type Configuration struct {
 }
 
 func (c *Configuration) BlobStorageAccount() string {
-	return c.BlobStorageAccountPrefix + c.Location
+	// Here DefaultLocation is used because the azure blob client requires the
+	// full URL to the storage account, which means creating a new client per
+	// location. While everything else for running AB tests is sharded per
+	// location, but we continue to use the same storage account for all
+	// locations.
+	return c.BlobStorageAccountPrefix + c.DefaultLocation
 }
 
 func (c *Configuration) BlobStorageAccountURL() string {
@@ -92,8 +106,8 @@ func (c *Configuration) String() string {
 	return strings.Join(data, "\n")
 }
 
-func (c *Configuration) VMIdentityResourceID() string {
-	return fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.ManagedIdentity/userAssignedIdentities/%s", c.SubscriptionID, ResourceGroupName, VMIdentityName)
+func (c *Configuration) VMIdentityResourceID(location string) string {
+	return fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.ManagedIdentity/userAssignedIdentities/%s", c.SubscriptionID, ResourceGroupName(location), VMIdentityName)
 }
 
 func mustLoadConfig() *Configuration {
@@ -105,10 +119,10 @@ func mustLoadConfig() *Configuration {
 	return cfg
 }
 
-func GetPrivateACRName(isNonAnonymousPull bool) string {
-	privateACRName := PrivateACRName
+func GetPrivateACRName(isNonAnonymousPull bool, location string) string {
+	privateACRName := PrivateACRName(location)
 	if isNonAnonymousPull {
-		privateACRName = PrivateACRNameNotAnon
+		privateACRName = PrivateACRNameNotAnon(location)
 	}
 	return privateACRName
 }

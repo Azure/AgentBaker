@@ -54,10 +54,10 @@ func createVMSS(ctx context.Context, s *Scenario) *armcompute.VirtualMachineScal
 		customData = nodeBootstrapping.CustomData
 	}
 
-	model := getBaseVMSSModel(s, customData, cse)
+	model := getBaseVMSSModel(s, customData, cse, s.Location)
 	if s.Tags.NonAnonymousACR {
 		// add acr pull identity
-		userAssignedIdentity := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.ManagedIdentity/userAssignedIdentities/%s", config.Config.SubscriptionID, config.ResourceGroupName, config.VMIdentityName)
+		userAssignedIdentity := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.ManagedIdentity/userAssignedIdentities/%s", config.Config.SubscriptionID, config.ResourceGroupName(s.Location), config.VMIdentityName)
 		model.Identity = &armcompute.VirtualMachineScaleSetIdentity{
 			Type: to.Ptr(armcompute.ResourceIdentityTypeSystemAssignedUserAssigned),
 			UserAssignedIdentities: map[string]*armcompute.UserAssignedIdentitiesValue{
@@ -248,7 +248,7 @@ func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
 					},
 					{
 						Name:  to.Ptr("arg3"),
-						Value: to.Ptr(config.Config.VMIdentityResourceID()),
+						Value: to.Ptr(config.Config.VMIdentityResourceID(s.Location)),
 					},
 				},
 			},
@@ -269,6 +269,15 @@ func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
 	s.T.Logf("run command executed successfully: %v", runCommandResp)
 
 	s.T.Logf("uploaded logs to %s", blobUrl)
+
+	// Create a reusable URL for the Azure portal link to the storage account
+	azurePortalURL := fmt.Sprintf("https://portal.azure.com/?feature.customportal=false#@microsoft.onmicrosoft.com/resource/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Storage/storageAccounts/%s/overview",
+		config.Config.SubscriptionID,
+		config.ResourceGroupName(s.Location),
+		config.Config.BlobStorageAccount())
+
+	s.T.Logf("Storage account in Azure portal: %s", azurePortalURL)
+	s.T.Logf("##vso[task.logissue type=warning;]%s", azurePortalURL)
 
 	downloadBlob := func(blobSuffix string) {
 		fileName := filepath.Join(testDir(s.T), blobSuffix)
@@ -450,9 +459,9 @@ func generateVMSSName(s *Scenario) string {
 	return generateVMSSNameLinux(s.T)
 }
 
-func getBaseVMSSModel(s *Scenario, customData, cseCmd string) armcompute.VirtualMachineScaleSet {
+func getBaseVMSSModel(s *Scenario, customData, cseCmd, location string) armcompute.VirtualMachineScaleSet {
 	model := armcompute.VirtualMachineScaleSet{
-		Location: to.Ptr(config.Config.Location),
+		Location: to.Ptr(location),
 		SKU: &armcompute.SKU{
 			Name:     to.Ptr(config.Config.DefaultVMSKU),
 			Capacity: to.Ptr[int64](1),
@@ -500,7 +509,8 @@ func getBaseVMSSModel(s *Scenario, customData, cseCmd string) armcompute.Virtual
 									{
 										Name: to.Ptr(fmt.Sprintf("%s0", s.Runtime.VMSSName)),
 										Properties: &armcompute.VirtualMachineScaleSetIPConfigurationProperties{
-											Primary: to.Ptr(true),
+											Primary:                 to.Ptr(true),
+											PrivateIPAddressVersion: to.Ptr(armcompute.IPVersionIPv4),
 											LoadBalancerBackendAddressPools: []*armcompute.SubResource{
 												{
 													ID: to.Ptr(
@@ -548,7 +558,7 @@ func getBaseVMSSModel(s *Scenario, customData, cseCmd string) armcompute.Virtual
 		model.Identity = &armcompute.VirtualMachineScaleSetIdentity{
 			Type: to.Ptr(armcompute.ResourceIdentityTypeSystemAssignedUserAssigned),
 			UserAssignedIdentities: map[string]*armcompute.UserAssignedIdentitiesValue{
-				config.Config.VMIdentityResourceID(): {},
+				config.Config.VMIdentityResourceID(s.Location): {},
 			},
 		}
 		model.Properties.VirtualMachineProfile.StorageProfile.OSDisk.OSType = to.Ptr(armcompute.OperatingSystemTypesWindows)

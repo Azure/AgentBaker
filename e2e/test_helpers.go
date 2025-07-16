@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 	"syscall"
 	"testing"
 	"time"
@@ -18,6 +19,7 @@ import (
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/e2e/toolkit"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 	"github.com/barkimedes/go-deepcopy"
 	"github.com/stretchr/testify/require"
@@ -48,16 +50,22 @@ func setupSignalHandler() context.Context {
 
 		// block until second signal is received
 		<-ch
-		msg := fmt.Sprintf("Received second cancellation signal, forcing exit.\nPlease check https://ms.portal.azure.com/#@microsoft.onmicrosoft.com/resource/subscriptions/%s/resourceGroups/%s/overview and delete any resources created by the test suite", config.Config.SubscriptionID, config.ResourceGroupName)
+		// This DefaultLocation is used on purpose.
+		msg := constructErrorMessage(config.Config.SubscriptionID, config.Config.DefaultLocation)
 		fmt.Println(red(msg))
 		os.Exit(1)
 	}()
 	return ctx
 }
 
-func newTestCtx(t *testing.T) context.Context {
+func constructErrorMessage(subscriptionID, location string) string {
+	return fmt.Sprintf("Received second cancellation signal, forcing exit.\nPlease check https://ms.portal.azure.com/#@microsoft.onmicrosoft.com/resource/subscriptions/%s/resourceGroups/%s/overview and delete any resources created by the test suite", subscriptionID, config.ResourceGroupName(location))
+}
+
+func newTestCtx(t *testing.T, location string) context.Context {
 	if testCtx.Err() != nil {
-		t.Skip("test suite is shutting down")
+		msg := constructErrorMessage(config.Config.SubscriptionID, location)
+		t.Skip("test suite is shutting down: " + msg)
 	}
 	ctx, cancel := context.WithTimeout(testCtx, config.Config.TestTimeout)
 	t.Cleanup(cancel)
@@ -70,14 +78,54 @@ func mustNoError(err error) {
 	}
 }
 
+// Global state to track which locations have been initialized
+var (
+	// Track which locations have been initialized
+	initializedLocations = make(map[string]bool)
+	// Mutex to protect the map access
+	locationMutex sync.Mutex
+)
+
+// ensureLocationInitialized ensures that both resource group and managed identity
+// are created for a location, but only runs once per location across all tests
+func ensureLocationInitialized(ctx context.Context, t *testing.T, location string) {
+	locationMutex.Lock()
+	defer locationMutex.Unlock()
+
+	// Check if this location has already been initialized
+	if initializedLocations[location] {
+		t.Logf("Location %s is already initialized, skipping", location)
+		return
+	}
+
+	// Initialize the location
+	t.Logf("Initializing location %s", location)
+	err := ensureResourceGroup(ctx, location)
+	mustNoError(err)
+	_, err = config.Azure.CreateVMManagedIdentity(ctx, location)
+	mustNoError(err)
+
+	// Mark this location as initialized
+	initializedLocations[location] = true
+	t.Logf("Location %s initialized successfully", location)
+}
+
 func RunScenario(t *testing.T, s *Scenario) {
 	s.T = t
 	t.Parallel()
-	ctx := newTestCtx(t)
+
+	if s.Location == "" {
+		s.Location = config.Config.DefaultLocation
+	}
+
+	ctx := newTestCtx(t, s.Location)
+	ensureLocationInitialized(ctx, t, s.Location)
+
 	ctrruntimelog.SetLogger(zap.New())
 
 	maybeSkipScenario(ctx, t, s)
-	cluster, err := s.Config.Cluster(ctx, s.T)
+
+	cluster, err := s.Config.Cluster(ctx, s.Location, s.T)
 	require.NoError(s.T, err)
 	// in some edge cases cluster cache is broken and nil cluster is returned
 	// need to find the root cause and fix it, this should help to catch such cases
@@ -90,7 +138,7 @@ func RunScenario(t *testing.T, s *Scenario) {
 	defer cancel()
 	prepareAKSNode(ctx, s)
 
-	t.Logf("Choosing the private ACR %q for the vm validation", config.GetPrivateACRName(s.Tags.NonAnonymousACR))
+	t.Logf("Choosing the private ACR %q for the vm validation", config.GetPrivateACRName(s.Tags.NonAnonymousACR, s.Location))
 	validateVM(ctx, s)
 }
 
@@ -163,7 +211,7 @@ func prepareAKSNode(ctx context.Context, s *Scenario) {
 	totalElapse := time.Since(start)
 	s.T.Logf("node %s is ready", s.Runtime.VMSSName)
 
-	toolkit.LogDuration(totalElapse, 3*time.Minute, fmt.Sprintf("Node %s took %s to be created and %s to be ready\n", s.Runtime.VMSSName, creationElapse, readyElapse))
+	toolkit.LogDuration(totalElapse, 3*time.Minute, fmt.Sprintf("Node %s took %s to be created and %s to be ready\n", s.Runtime.VMSSName, toolkit.FormatDuration(creationElapse), toolkit.FormatDuration(readyElapse)))
 
 	s.Runtime.VMPrivateIP, err = getVMPrivateIPAddress(ctx, s)
 	require.NoError(s.T, err, "failed to get VM private IP address")
@@ -194,7 +242,7 @@ func maybeSkipScenario(ctx context.Context, t *testing.T, s *Scenario) {
 		}
 	}
 
-	vhd, err := s.VHD.VHDResourceID(ctx, t)
+	vhd, err := s.VHD.VHDResourceID(ctx, t, s.Location)
 	if err != nil {
 		if config.Config.IgnoreScenariosWithMissingVHD && errors.Is(err, config.ErrNotFound) {
 			t.Skipf("skipping scenario %q: could not find image for VHD %s due to %s", t.Name(), s.VHD.Distro, err)
@@ -406,4 +454,74 @@ func parseLinuxCSEMessage(status armcompute.InstanceViewStatus) (*datamodel.CSES
 		return nil, fmt.Errorf("CSE Json does not contain exit code, raw CSE Message: %s", *status.Message)
 	}
 	return &cseStatus, nil
+}
+
+func addVMExtensionToVMSS(properties *armcompute.VirtualMachineScaleSetProperties, extension *armcompute.VirtualMachineScaleSetExtension) *armcompute.VirtualMachineScaleSetProperties {
+	if properties == nil {
+		properties = &armcompute.VirtualMachineScaleSetProperties{}
+	}
+
+	if properties.VirtualMachineProfile == nil {
+		properties.VirtualMachineProfile = &armcompute.VirtualMachineScaleSetVMProfile{}
+	}
+
+	if properties.VirtualMachineProfile.ExtensionProfile == nil {
+		properties.VirtualMachineProfile.ExtensionProfile = &armcompute.VirtualMachineScaleSetExtensionProfile{}
+	}
+
+	if properties.VirtualMachineProfile.ExtensionProfile.Extensions == nil {
+		properties.VirtualMachineProfile.ExtensionProfile.Extensions = []*armcompute.VirtualMachineScaleSetExtension{}
+	}
+
+	// NOTE: This is not checking if we are adding a duplicate extension.
+	properties.VirtualMachineProfile.ExtensionProfile.Extensions = append(properties.VirtualMachineProfile.ExtensionProfile.Extensions, extension)
+	return properties
+}
+
+func createVMExtensionLinuxAKSNode(location *string) (*armcompute.VirtualMachineScaleSetExtension, error) {
+	// Default to "westus" if location is nil.
+	region := "westus"
+	if location != nil {
+		region = *location
+	}
+
+	extensionName := "Compute.AKS.Linux.AKSNode"
+	publisher := "Microsoft.AKS"
+
+	// NOTE (@surajssd): If this is gonna be called multiple times, then find a way to cache the latest version.
+	extensionVersion, err := config.Azure.GetLatestVMExtensionImageVersion(context.TODO(), region, extensionName, publisher)
+	if err != nil {
+		return nil, fmt.Errorf("getting latest VM extension image version: %v", err)
+	}
+
+	return &armcompute.VirtualMachineScaleSetExtension{
+		Name: to.Ptr(extensionName),
+		Properties: &armcompute.VirtualMachineScaleSetExtensionProperties{
+			Publisher:          to.Ptr(publisher),
+			Type:               to.Ptr(extensionName),
+			TypeHandlerVersion: to.Ptr(extensionVersion),
+		},
+	}, nil
+}
+
+func GetKubeletVersionByMinorVersion(minorVersion string) string {
+	allCachedKubeletVersions := getExpectedPackageVersions("kubernetes-binaries", "default", "current")
+	rightVersions := toolkit.Filter(allCachedKubeletVersions, func(v string) bool { return strings.HasPrefix(v, minorVersion) })
+	rightVersion := toolkit.Reduce(rightVersions, "", func(sum string, next string) string {
+		if sum == "" {
+			return next
+		}
+		if next > sum {
+			return next
+		}
+		return sum
+	})
+	return rightVersion
+}
+
+func RemoveLeadingV(version string) string {
+	if len(version) > 0 && version[0] == 'v' {
+		return version[1:]
+	}
+	return version
 }
