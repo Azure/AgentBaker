@@ -1,0 +1,28 @@
+Release notes for security patch 20250715T000000Z timestamp
+Package difference between 20250702T000000Z and 20250715T000000Z
+
+Reboot required (kernel update)
+
+=== New Packages ===
+kernel  6.6.92.2-2.azl3  azurelinux-official-base
+
+=== Package Updates ===
+sudo  1.9.17-1.azl3  azurelinux-official-base
+python3-requests  2.31.0-3.azl3  azurelinux-official-base
+python3-dbus  1.3.2-1.azl3  azurelinux-official-base
+postgresql-libs  16.9-1.azl3  azurelinux-official-base
+pam  1.5.3-5.azl3  azurelinux-official-base
+libcap  2.69-5.azl3  azurelinux-official-base
+jq  1.7.1-3.azl3  azurelinux-official-base
+libgpg-error  1.48-1.azl3  azurelinux-official-base
+gnupg2  2.4.7-1.azl3  azurelinux-official-base
+glibc  2.38-11.azl3  azurelinux-official-base
+glib  2.78.6-2.azl3  azurelinux-official-base
+elfutils-libelf  0.189-5.azl3  azurelinux-official-base
+elfutils-default-yama-scope  0.189-5.azl3  azurelinux-official-base
+elfutils  0.189-5.azl3  azurelinux-official-base
+containerd2  2.0.0-12.azl3  azurelinux-official-base
+binutils-devel  2.41-6.azl3  azurelinux-official-base
+binutils  2.41-6.azl3  azurelinux-official-base
+azurelinux-release  3.0-30.azl3  azurelinux-official-base
+SymCrypt-OpenSSL  1.9.0-1.azl3  azurelinux-official-base
