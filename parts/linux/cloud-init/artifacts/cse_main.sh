@@ -48,7 +48,10 @@ get_ubuntu_release() {
 }
 
 # ====== STAGE 1: BASE IMAGE PREPARATION ======
-# All operations that prepare the base VHD image
+# This stage prepares the base VHD image with all necessary components and configurations.
+# IMPORTANT: This stage must NOT join the node to the cluster.
+# After completion, this VHD can be used as a base image for creating new node pools.
+# Users may add custom configurations or pull additional container images after this stage.
 function stage1 {
     if [ -f /opt/azure/containers/preprovision.complete ]; then
         echo "Skipping stage1 - preprovision.complete file exists"
@@ -105,8 +108,6 @@ function stage1 {
     if [ "${SHOULD_CONFIGURE_CUSTOM_CA_TRUST}" = "true" ]; then
         logs_to_events "AKS.CSE.configureCustomCaCertificate" configureCustomCaCertificate || exit $ERR_UPDATE_CA_CERTS
     fi
-
-    # Registry domain name logic moved to stage2 where it's actually used
 
     logs_to_events "AKS.CSE.setCPUArch" setCPUArch
     source /etc/os-release
@@ -281,11 +282,18 @@ EOF
         createManDbAutoUpdateFlagFile
         /usr/bin/mandb && echo "man-db finished updates at $(date)" &
     fi
+
+    if [ "${NEEDS_DOCKER_LOGIN}" = "true" ]; then
+        set +x
+        docker login -u $SERVICE_PRINCIPAL_CLIENT_ID -p $SERVICE_PRINCIPAL_CLIENT_SECRET "${AZURE_PRIVATE_REGISTRY_SERVER}"
+        set -x
+    fi
 }
 
 # ====== STAGE 2: CLUSTER INTEGRATION ======
-# All operations that should only run when connecting to the actual cluster
-# Or hardware specific operations that should not run in the base image
+# This stage performs cluster-specific operations and hardware configurations.
+# After this stage the node should be fully integrated into the cluster.
+# IMPORTANT: This stage should only run when actually joining a node to the cluster. This step should not be run when creating a VHD image
 function stage2 {
     if [ "${PRE_PROVISION_ONLY}" = "true" ]; then
           echo "Skipping stage2 - pre-provision only mode"
@@ -311,12 +319,6 @@ function stage2 {
         fi
         
         logs_to_events "AKS.CSE.orasLogin.oras_login_with_kubelet_identity" oras_login_with_kubelet_identity "${registry_domain_name}" $USER_ASSIGNED_IDENTITY_ID $TENANT_ID || exit $?
-    fi
-
-    if [ "${NEEDS_DOCKER_LOGIN}" = "true" ]; then
-        set +x
-        docker login -u $SERVICE_PRINCIPAL_CLIENT_ID -p $SERVICE_PRINCIPAL_CLIENT_SECRET "${AZURE_PRIVATE_REGISTRY_SERVER}"
-        set -x
     fi
     
     # Determine if GPU driver installation should be skipped
