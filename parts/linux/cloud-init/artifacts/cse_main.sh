@@ -511,7 +511,25 @@ EOF
     fi
 }
 
-# Under typical conditions both stages will run.
+# The provisioning is split into two stages to support VHD image creation workflows:
+#
+# Stage 1: Base image preparation
+#   - Installs and configures all required components (kubelet, containerd, etc.)
+#   - Sets up system configurations that are common across all nodes
+#   - DOES NOT join the node to any cluster
+#   - After this stage, users can add customizations (e.g., pre-pull additional container images)
+#   - The VM can then be captured as a VHD image for use as a node pool base image
+#
+# Stage 2: Cluster integration and hardware setup
+#   - Performs cluster-specific configurations
+#   - Configures hardware-specific components (GPU drivers, MIG partitions, etc.)
+#   - Establishes connection to the API server
+#   - Joins the node to the cluster
+#   - Only runs when actually provisioning a node, not when creating VHD images
+#
+# In typical deployments, both stages run sequentially during node provisioning.
+# For VHD image creation workflows, only stage1 runs initially, and stage2 runs later
+# when nodes are created from that VHD image.
 stage1
 stage2
 
