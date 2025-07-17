@@ -136,6 +136,8 @@ var AvailableContainerdDistros = []Distro{
 	AKSUbuntuFipsContainerd2204Gen2,
 	AKSUbuntuEdgeZoneContainerd1804,
 	AKSUbuntuEdgeZoneContainerd1804Gen2,
+	AKSFlatcarGen2,
+	AKSFlatcarArm64Gen2,
 	AKSCBLMarinerV1,
 	AKSCBLMarinerV2,
 	AKSAzureLinuxV2,
@@ -205,6 +207,8 @@ var AvailableGen2Distros = []Distro{
 	AKSUbuntuMinimalContainerd2204Gen2,
 	AKSUbuntuContainerd2404Gen2,
 	AKSUbuntuContainerd2404TLGen2,
+	AKSFlatcarGen2,
+	AKSFlatcarArm64Gen2,
 	AKSCBLMarinerV2Gen2,
 	AKSAzureLinuxV2Gen2,
 	AKSAzureLinuxV3Gen2,
@@ -272,6 +276,12 @@ var AvailableAzureLinuxCgroupV2Distros = []Distro{
 	AKSAzureLinuxV2Gen2TL,
 	AKSAzureLinuxV3Gen2TL,
 	AKSAzureLinuxV3CVMGen2,
+}
+
+//nolint:gochecknoglobals
+var AvailableFlatcarDistros = []Distro{
+	AKSFlatcarGen2,
+	AKSFlatcarArm64Gen2,
 }
 
 // IsContainerdSKU returns true if distro type is containerd-enabled.
