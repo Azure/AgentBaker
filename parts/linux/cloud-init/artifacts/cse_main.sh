@@ -122,18 +122,6 @@ function stage1 {
         logs_to_events "AKS.CSE.removeManDbAutoUpdateFlagFile" removeManDbAutoUpdateFlagFile
     fi
 
-    export -f should_skip_nvidia_drivers
-    skip_nvidia_driver_install=$(retrycmd_silent 10 1 10 bash -cx should_skip_nvidia_drivers)
-
-    if [ "$?" -ne 0 ]; then
-        echo "Failed to determine if nvidia driver install should be skipped"
-        exit $ERR_NVIDIA_DRIVER_INSTALL
-    fi
-
-    if [ "${GPU_NODE}" != "true" ] || [ "${skip_nvidia_driver_install}" = "true" ]; then
-        logs_to_events "AKS.CSE.cleanUpGPUDrivers" cleanUpGPUDrivers
-    fi
-
     logs_to_events "AKS.CSE.disableSystemdResolved" disableSystemdResolved
 
     logs_to_events "AKS.CSE.configureAdminUser" configureAdminUser
@@ -164,44 +152,6 @@ function stage1 {
 
     logs_to_events "AKS.CSE.installNetworkPlugin" installNetworkPlugin
 
-    # By default, never reboot new nodes.
-    REBOOTREQUIRED=false
-
-    echo $(date),$(hostname), "Start configuring GPU drivers"
-    if [ "${GPU_NODE}" = "true" ] && [ "${skip_nvidia_driver_install}" != "true" ]; then
-        logs_to_events "AKS.CSE.ensureGPUDrivers" ensureGPUDrivers
-        if [ "${GPU_NEEDS_FABRIC_MANAGER}" = "true" ]; then
-            # fabric manager trains nvlink connections between multi instance gpus.
-            # it appears this is only necessary for systems with *multiple cards*.
-            # i.e., an A100 can be partitioned a maximum of 7 ways.
-            # An NC24ads_A100_v4 has one A100.
-            # An ND96asr_v4 has eight A100, for a maximum of 56 partitions.
-            # ND96 seems to require fabric manager *even when not using mig partitions*
-            # while it fails to install on NC24.
-            if isMarinerOrAzureLinux "$OS"; then
-                logs_to_events "AKS.CSE.installNvidiaFabricManager" installNvidiaFabricManager
-            fi
-        fi
-
-        # This will only be true for multi-instance capable VM sizes
-        # for which the user has specified a partitioning profile.
-        # it is valid to use mig-capable gpus without a partitioning profile.
-        if [ "${MIG_NODE}" = "true" ]; then
-            # A100 GPU has a bit in the physical card (infoROM) to enable mig mode.
-            # Changing this bit in either direction requires a VM reboot on Azure (hypervisor/plaform stuff).
-            # Commands such as `nvidia-smi --gpu-reset` may succeed,
-            # while commands such as `nvidia-smi -q` will show mismatched current/pending mig mode.
-            # this will not be required per nvidia for next gen H100.
-            REBOOTREQUIRED=true
-
-            # this service applies the partitioning scheme with nvidia-smi.
-            # we should consider moving to mig-parted which is simpler/newer.
-            # we couldn't because of old drivers but that has long been fixed.
-            logs_to_events "AKS.CSE.ensureMigPartition" ensureMigPartition
-        fi
-    fi
-
-    echo $(date),$(hostname), "End configuring GPU drivers"
 
     logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy" installKubeletKubectlAndKubeProxy
 
@@ -340,11 +290,9 @@ EOF
 
     # Save stage1 variables for stage2
     cat > /opt/azure/containers/stage1-vars.sh <<EOF
-export skip_nvidia_driver_install="${skip_nvidia_driver_install}"
 export registry_domain_name="${registry_domain_name}"
 export FULL_INSTALL_REQUIRED="${FULL_INSTALL_REQUIRED}"
 export UBUNTU_RELEASE="${UBUNTU_RELEASE}"
-export REBOOTREQUIRED="${REBOOTREQUIRED}"
 EOF
 }
 
@@ -357,12 +305,11 @@ function stage2 {
           return 0
     fi
 
-    # Load stage1 variables if they exist
+    # Load stage1 variables if they exist (GPU variables computed here)
     if [ -f /opt/azure/containers/stage1-vars.sh ]; then
         source /opt/azure/containers/stage1-vars.sh
     else
         # Set defaults if stage1 was skipped
-        skip_nvidia_driver_install=${skip_nvidia_driver_install:-"false"}
         registry_domain_name=${registry_domain_name:-"${MCR_REPOSITORY_BASE:-mcr.microsoft.com}"}
         registry_domain_name="${registry_domain_name%/}"
         if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
@@ -370,7 +317,6 @@ function stage2 {
         fi
         FULL_INSTALL_REQUIRED=${FULL_INSTALL_REQUIRED:-"true"}
         UBUNTU_RELEASE=${UBUNTU_RELEASE:-$(lsb_release -r -s 2>/dev/null || echo "")}
-        REBOOTREQUIRED=${REBOOTREQUIRED:-false}
     fi
 
     if [ -n "${OUTBOUND_COMMAND}" ]; then
@@ -392,8 +338,66 @@ function stage2 {
         docker login -u $SERVICE_PRINCIPAL_CLIENT_ID -p $SERVICE_PRINCIPAL_CLIENT_SECRET "${AZURE_PRIVATE_REGISTRY_SERVER}"
         set -x
     fi
+    
+    # Determine if GPU driver installation should be skipped
+    export -f should_skip_nvidia_drivers
+    skip_nvidia_driver_install=$(retrycmd_silent 10 1 10 bash -cx should_skip_nvidia_drivers)
+    
+    if [ "$?" -ne 0 ]; then
+        echo "Failed to determine if nvidia driver install should be skipped"
+        exit $ERR_NVIDIA_DRIVER_INSTALL
+    fi
 
+    # By default, never reboot new nodes.
+    REBOOTREQUIRED=false
+
+    # Clean up GPU drivers if not a GPU node or if skipping driver install
+    if [ "${GPU_NODE}" != "true" ] || [ "${skip_nvidia_driver_install}" = "true" ]; then
+        logs_to_events "AKS.CSE.cleanUpGPUDrivers" cleanUpGPUDrivers
+    fi
+
+    # Install and configure GPU drivers if this is a GPU node
     if [ "${GPU_NODE}" = "true" ] && [ "${skip_nvidia_driver_install}" != "true" ]; then
+        echo $(date),$(hostname), "Start configuring GPU drivers"
+        
+        # Install GPU drivers
+        logs_to_events "AKS.CSE.ensureGPUDrivers" ensureGPUDrivers
+        
+        # Install fabric manager if needed
+        if [ "${GPU_NEEDS_FABRIC_MANAGER}" = "true" ]; then
+            # fabric manager trains nvlink connections between multi instance gpus.
+            # it appears this is only necessary for systems with *multiple cards*.
+            # i.e., an A100 can be partitioned a maximum of 7 ways.
+            # An NC24ads_A100_v4 has one A100.
+            # An ND96asr_v4 has eight A100, for a maximum of 56 partitions.
+            # ND96 seems to require fabric manager *even when not using mig partitions*
+            # while it fails to install on NC24.
+            if isMarinerOrAzureLinux "$OS"; then
+                logs_to_events "AKS.CSE.installNvidiaFabricManager" installNvidiaFabricManager
+            fi
+            # Start fabric manager service
+            logs_to_events "AKS.CSE.nvidia-fabricmanager" "systemctlEnableAndStart nvidia-fabricmanager 30" || exit $ERR_GPU_DRIVERS_START_FAIL
+        fi
+
+        # Configure MIG partitions if needed
+        # This will only be true for multi-instance capable VM sizes
+        # for which the user has specified a partitioning profile.
+        # it is valid to use mig-capable gpus without a partitioning profile.
+        if [ "${MIG_NODE}" = "true" ]; then
+            # A100 GPU has a bit in the physical card (infoROM) to enable mig mode.
+            # Changing this bit in either direction requires a VM reboot on Azure (hypervisor/plaform stuff).
+            # Commands such as `nvidia-smi --gpu-reset` may succeed,
+            # while commands such as `nvidia-smi -q` will show mismatched current/pending mig mode.
+            # this will not be required per nvidia for next gen H100.
+            REBOOTREQUIRED=true
+
+            # this service applies the partitioning scheme with nvidia-smi.
+            # we should consider moving to mig-parted which is simpler/newer.
+            # we couldn't because of old drivers but that has long been fixed.
+            logs_to_events "AKS.CSE.ensureMigPartition" ensureMigPartition
+        fi
+
+        # Configure GPU device plugin
         if [ "${ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED}" = "true" ]; then
             if [ "${MIG_NODE}" = "true" ] && [ -f "/etc/systemd/system/nvidia-device-plugin.service" ]; then
                 mkdir -p "/etc/systemd/system/nvidia-device-plugin.service.d"
@@ -408,10 +412,8 @@ EOF
         else
             logs_to_events "AKS.CSE.stop.nvidia-device-plugin" "systemctlDisableAndStop nvidia-device-plugin"
         fi
-
-        if [ "${GPU_NEEDS_FABRIC_MANAGER}" = "true" ]; then
-            logs_to_events "AKS.CSE.nvidia-fabricmanager" "systemctlEnableAndStart nvidia-fabricmanager 30" || exit $ERR_GPU_DRIVERS_START_FAIL
-        fi
+        
+        echo $(date),$(hostname), "End configuring GPU drivers"
     fi
 
     VALIDATION_ERR=0
