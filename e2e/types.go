@@ -112,6 +112,8 @@ type Scenario struct {
 	// Config contains the configuration of the scenario
 	Config
 
+	// Location is the Azure location where the scenario will run. This can be
+	// used to override the default location.
 	Location string
 
 	// Runtime contains the runtime state of the scenario. It's populated in the beginning of the test run

@@ -118,6 +118,8 @@ func RunScenario(t *testing.T, s *Scenario) {
 		s.Location = config.Config.DefaultLocation
 	}
 
+	s.Location = strings.ToLower(s.Location)
+
 	ctx := newTestCtx(t, s.Location)
 	ensureLocationInitialized(ctx, t, s.Location)
 

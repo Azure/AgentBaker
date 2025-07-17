@@ -39,6 +39,7 @@ type ClusterCollection struct {
 	kubenet                      *ClusterSingleton
 	kubenetAirgap                *ClusterSingleton
 	kubenetNonAnonAirgap         *ClusterSingleton
+	kubenetNoNvidiaDevicePlugin  *ClusterSingleton
 	azureNetwork                 *ClusterSingleton
 	azureOverlayNetwork          *ClusterSingleton
 	azureOverlayNetworkDualStack *ClusterSingleton
@@ -105,6 +106,7 @@ func getOrInitializeClusterCache(location string) *ClusterCollection {
 		kubenet:                      &ClusterSingleton{once: &sync.Once{}},
 		kubenetAirgap:                &ClusterSingleton{once: &sync.Once{}},
 		kubenetNonAnonAirgap:         &ClusterSingleton{once: &sync.Once{}},
+		kubenetNoNvidiaDevicePlugin:  &ClusterSingleton{once: &sync.Once{}},
 		azureNetwork:                 &ClusterSingleton{once: &sync.Once{}},
 		azureOverlayNetwork:          &ClusterSingleton{once: &sync.Once{}},
 		azureOverlayNetworkDualStack: &ClusterSingleton{once: &sync.Once{}},
@@ -124,7 +126,7 @@ func ClusterLatestKubernetesVersion(ctx context.Context, location string, t *tes
 		if error != nil {
 			t.Fatalf("failed to get latest kubernetes version cluster model: %v", error)
 		}
-		collection.latestKubernetesVersion.cluster, collection.latestKubernetesVersion.err = prepareCluster(ctx, t, model, false, false)
+		collection.latestKubernetesVersion.cluster, collection.latestKubernetesVersion.err = prepareCluster(ctx, t, model, false, false, true)
 	})
 	return collection.latestKubernetesVersion.cluster, collection.latestKubernetesVersion.err
 }
@@ -132,15 +134,27 @@ func ClusterLatestKubernetesVersion(ctx context.Context, location string, t *tes
 func ClusterKubenet(ctx context.Context, location string, t *testing.T) (*Cluster, error) {
 	collection := getOrInitializeClusterCache(location)
 	collection.kubenet.once.Do(func() {
-		collection.kubenet.cluster, collection.kubenet.err = prepareCluster(ctx, t, getKubenetClusterModel("abe2e-kubenet", location), false, false)
+		collection.kubenet.cluster, collection.kubenet.err = prepareCluster(ctx, t, getKubenetClusterModel("abe2e-kubenet", location), false, false, true)
 	})
 	return collection.kubenet.cluster, collection.kubenet.err
+}
+
+func ClusterKubenetNoNvidiaDevicePlugin(ctx context.Context, location string, t *testing.T) (*Cluster, error) {
+	collection := getOrInitializeClusterCache(location)
+	collection.kubenetNoNvidiaDevicePlugin.once.Do(func() {
+		// This is purposefully named in short form to avoid going over the 80
+		// char limit of the resource groups.
+		clusterName := "abe2e-kubenet-no-nvidia-dev"
+		collection.kubenetNoNvidiaDevicePlugin.cluster, collection.kubenetNoNvidiaDevicePlugin.err = prepareCluster(
+			ctx, t, getKubenetClusterModel(clusterName, location), false, false, false)
+	})
+	return collection.kubenetNoNvidiaDevicePlugin.cluster, collection.kubenetNoNvidiaDevicePlugin.err
 }
 
 func ClusterKubenetAirgap(ctx context.Context, location string, t *testing.T) (*Cluster, error) {
 	collection := getOrInitializeClusterCache(location)
 	collection.kubenetAirgap.once.Do(func() {
-		collection.kubenetAirgap.cluster, collection.kubenetAirgap.err = prepareCluster(ctx, t, getKubenetClusterModel("abe2e-kubenet-airgap", location), true, false)
+		collection.kubenetAirgap.cluster, collection.kubenetAirgap.err = prepareCluster(ctx, t, getKubenetClusterModel("abe2e-kubenet-airgap", location), true, false, true)
 	})
 	return collection.kubenetAirgap.cluster, collection.kubenetAirgap.err
 }
@@ -148,7 +162,7 @@ func ClusterKubenetAirgap(ctx context.Context, location string, t *testing.T) (*
 func ClusterKubenetAirgapNonAnon(ctx context.Context, location string, t *testing.T) (*Cluster, error) {
 	collection := getOrInitializeClusterCache(location)
 	collection.kubenetNonAnonAirgap.once.Do(func() {
-		collection.kubenetNonAnonAirgap.cluster, collection.kubenetNonAnonAirgap.err = prepareCluster(ctx, t, getKubenetClusterModel("abe2e-kubenet-nonanonpull-airgap", location), true, true)
+		collection.kubenetNonAnonAirgap.cluster, collection.kubenetNonAnonAirgap.err = prepareCluster(ctx, t, getKubenetClusterModel("abe2e-kubenet-nonanonpull-airgap", location), true, true, true)
 	})
 	return collection.kubenetNonAnonAirgap.cluster, collection.kubenetNonAnonAirgap.err
 }
@@ -156,7 +170,7 @@ func ClusterKubenetAirgapNonAnon(ctx context.Context, location string, t *testin
 func ClusterAzureNetwork(ctx context.Context, location string, t *testing.T) (*Cluster, error) {
 	collection := getOrInitializeClusterCache(location)
 	collection.azureNetwork.once.Do(func() {
-		collection.azureNetwork.cluster, collection.azureNetwork.err = prepareCluster(ctx, t, getAzureNetworkClusterModel("abe2e-azure-network", location), false, false)
+		collection.azureNetwork.cluster, collection.azureNetwork.err = prepareCluster(ctx, t, getAzureNetworkClusterModel("abe2e-azure-network", location), false, false, true)
 	})
 	return collection.azureNetwork.cluster, collection.azureNetwork.err
 }
@@ -164,7 +178,7 @@ func ClusterAzureNetwork(ctx context.Context, location string, t *testing.T) (*C
 func ClusterAzureOverlayNetwork(ctx context.Context, location string, t *testing.T) (*Cluster, error) {
 	collection := getOrInitializeClusterCache(location)
 	collection.azureOverlayNetwork.once.Do(func() {
-		collection.azureOverlayNetwork.cluster, collection.azureOverlayNetwork.err = prepareCluster(ctx, t, getAzureOverlayNetworkClusterModel("abe2e-azure-overlay-network", location), false, false)
+		collection.azureOverlayNetwork.cluster, collection.azureOverlayNetwork.err = prepareCluster(ctx, t, getAzureOverlayNetworkClusterModel("abe2e-azure-overlay-network", location), false, false, true)
 	})
 	return collection.azureOverlayNetwork.cluster, collection.azureOverlayNetwork.err
 }
@@ -172,7 +186,7 @@ func ClusterAzureOverlayNetwork(ctx context.Context, location string, t *testing
 func ClusterAzureOverlayNetworkDualStack(ctx context.Context, location string, t *testing.T) (*Cluster, error) {
 	collection := getOrInitializeClusterCache(location)
 	collection.azureOverlayNetworkDualStack.once.Do(func() {
-		collection.azureOverlayNetworkDualStack.cluster, collection.azureOverlayNetworkDualStack.err = prepareCluster(ctx, t, getAzureOverlayNetworkDualStackClusterModel("abe2e-azure-overlay-dualstack", location), false, false)
+		collection.azureOverlayNetworkDualStack.cluster, collection.azureOverlayNetworkDualStack.err = prepareCluster(ctx, t, getAzureOverlayNetworkDualStackClusterModel("abe2e-azure-overlay-dualstack", location), false, false, true)
 	})
 	return collection.azureOverlayNetworkDualStack.cluster, collection.azureOverlayNetworkDualStack.err
 }
@@ -180,12 +194,12 @@ func ClusterAzureOverlayNetworkDualStack(ctx context.Context, location string, t
 func ClusterCiliumNetwork(ctx context.Context, location string, t *testing.T) (*Cluster, error) {
 	collection := getOrInitializeClusterCache(location)
 	collection.ciliumNetwork.once.Do(func() {
-		collection.ciliumNetwork.cluster, collection.ciliumNetwork.err = prepareCluster(ctx, t, getCiliumNetworkClusterModel("abe2e-cilium-network", location), false, false)
+		collection.ciliumNetwork.cluster, collection.ciliumNetwork.err = prepareCluster(ctx, t, getCiliumNetworkClusterModel("abe2e-cilium-network", location), false, false, true)
 	})
 	return collection.ciliumNetwork.cluster, collection.ciliumNetwork.err
 }
 
-func prepareCluster(ctx context.Context, t *testing.T, cluster *armcontainerservice.ManagedCluster, isAirgap, isNonAnonymousPull bool) (*Cluster, error) {
+func prepareCluster(ctx context.Context, t *testing.T, cluster *armcontainerservice.ManagedCluster, isAirgap, isNonAnonymousPull, installNvidiaDevicePlugin bool) (*Cluster, error) {
 	ctx, cancel := context.WithTimeout(ctx, config.Config.TestTimeoutCluster)
 	defer cancel()
 	cluster.Name = to.Ptr(fmt.Sprintf("%s-%s", *cluster.Name, hash(cluster)))
@@ -238,7 +252,7 @@ func prepareCluster(ctx context.Context, t *testing.T, cluster *armcontainerserv
 		}
 	}
 
-	if err := kube.EnsureDebugDaemonsets(ctx, t, isAirgap, config.GetPrivateACRName(isNonAnonymousPull, *cluster.Location)); err != nil {
+	if err := kube.EnsureDebugDaemonsets(ctx, t, isAirgap, config.GetPrivateACRName(isNonAnonymousPull, *cluster.Location), installNvidiaDevicePlugin); err != nil {
 		return nil, fmt.Errorf("ensure debug daemonsets for %q: %w", *cluster.Name, err)
 	}
 
