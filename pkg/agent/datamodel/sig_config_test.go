@@ -75,6 +75,10 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 				GalleryName:   "AKSUbuntuEdgeZone",
 				ResourceGroup: "AKS-Ubuntu-EdgeZone",
 			},
+			"AKSFlatcar": {
+				GalleryName:   "aksflatcar",
+				ResourceGroup: "resourcegroup",
+			},
 		}
 		config = SIGConfig{
 			TenantID:       "sometenantid",
