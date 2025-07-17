@@ -102,17 +102,7 @@ function stage1 {
         logs_to_events "AKS.CSE.configureCustomCaCertificate" configureCustomCaCertificate || exit $ERR_UPDATE_CA_CERTS
     fi
 
-    # Avoid DNS check when http proxy is configured since the DNS resolution will be done through the proxy
-    if [ "${SHOULD_CONFIGURE_HTTP_PROXY}" != "true" ]; then
-        registry_domain_name="${MCR_REPOSITORY_BASE:-mcr.microsoft.com}"
-        registry_domain_name="${registry_domain_name%/}"
-
-        if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
-            registry_domain_name="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER%%/*}"
-        fi
-        # Disabling DNS health check until better E2E are created.
-        # verify_DNS_health $registry_domain_name || exit $ERR_DNS_HEALTH_FAIL
-    fi
+    # Registry domain name logic moved to stage2 where it's actually used
 
     logs_to_events "AKS.CSE.setCPUArch" setCPUArch
     source /etc/os-release
@@ -288,9 +278,8 @@ EOF
         /usr/bin/mandb && echo "man-db finished updates at $(date)" &
     fi
 
-    # Save stage1 variables for stage2
+    # Save stage1 variables for stage2 (registry variables removed - computed in stage2)
     cat > /opt/azure/containers/stage1-vars.sh <<EOF
-export registry_domain_name="${registry_domain_name}"
 export FULL_INSTALL_REQUIRED="${FULL_INSTALL_REQUIRED}"
 export UBUNTU_RELEASE="${UBUNTU_RELEASE}"
 EOF
@@ -305,16 +294,11 @@ function stage2 {
           return 0
     fi
 
-    # Load stage1 variables if they exist (GPU variables computed here)
+    # Load stage1 variables if they exist (registry variables computed here)
     if [ -f /opt/azure/containers/stage1-vars.sh ]; then
         source /opt/azure/containers/stage1-vars.sh
     else
         # Set defaults if stage1 was skipped
-        registry_domain_name=${registry_domain_name:-"${MCR_REPOSITORY_BASE:-mcr.microsoft.com}"}
-        registry_domain_name="${registry_domain_name%/}"
-        if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
-            registry_domain_name="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER%%/*}"
-        fi
         FULL_INSTALL_REQUIRED=${FULL_INSTALL_REQUIRED:-"true"}
         UBUNTU_RELEASE=${UBUNTU_RELEASE:-$(lsb_release -r -s 2>/dev/null || echo "")}
     fi
@@ -330,6 +314,13 @@ function stage2 {
     fi
 
     if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
+        # Compute registry domain name for ORAS login
+        registry_domain_name="${MCR_REPOSITORY_BASE:-mcr.microsoft.com}"
+        registry_domain_name="${registry_domain_name%/}"
+        if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
+            registry_domain_name="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER%%/*}"
+        fi
+        
         logs_to_events "AKS.CSE.orasLogin.oras_login_with_kubelet_identity" oras_login_with_kubelet_identity "${registry_domain_name}" $USER_ASSIGNED_IDENTITY_ID $TENANT_ID || exit $?
     fi
 
