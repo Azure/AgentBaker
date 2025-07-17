@@ -459,7 +459,6 @@ function Stage1 {
 
     Write-Log "Stage1 completed successfully"
     Logs-To-Event -TaskName "AKS.WindowsCSE.Stage1" -TaskMessage "Stage1 completed successfully"
-    Set-Content -Path "C:\AzureData\preprovision.complete" -Value $global:ExitCode -Force
 }
 
 # ====== STAGE 2: CLUSTER INTEGRATION ======
@@ -479,9 +478,6 @@ function Stage2 {
 
     Write-Log "Starting Stage2 - Cluster integration"
     Logs-To-Event -TaskName "AKS.WindowsCSE.Stage2" -TaskMessage "Starting Stage2 - Cluster integration"
-
-    # Turn off Firewall to enable pods to talk to service endpoints. (Kubelet should eventually do this)
-    netsh advfirewall set allprofiles state off
     
     Check-APIServerConnectivity -MasterIP $MasterIP
 
@@ -529,7 +525,6 @@ function Stage2 {
 
     Write-Log "Stage2 completed successfully"
     Logs-To-Event -TaskName "AKS.WindowsCSE.Stage2" -TaskMessage "Stage2 completed successfully"
-    Set-Content -Path $CSEResultFilePath -Value $global:ExitCode -Force
 }
 
 try
@@ -542,7 +537,25 @@ try
         return
     }
 
-    # Under typical conditions both stages will run
+    # The provisioning is split into two stages to support VHD image creation workflows:
+    #
+    # Stage 1: Base image preparation
+    #   - Installs and configures all required components (kubelet, containerd, etc.)
+    #   - Sets up system configurations that are common across all nodes
+    #   - DOES NOT join the node to any cluster
+    #   - After this stage, users can add customizations (e.g., pre-pull additional container images)
+    #   - The VM can then be captured as a VHD image for use as a node pool base image
+    #
+    # Stage 2: Cluster integration and hardware setup
+    #   - Performs cluster-specific configurations
+    #   - Configures hardware-specific components (GPU drivers, MIG partitions, etc.)
+    #   - Establishes connection to the API server
+    #   - Joins the node to the cluster
+    #   - Only runs when actually provisioning a node, not when creating VHD images
+    #
+    # In typical deployments, both stages run sequentially during node provisioning.
+    # For VHD image creation workflows, only stage1 runs initially, and stage2 runs later
+    # when nodes are created from that VHD image.
     Stage1
     Stage2
 }
@@ -560,13 +573,18 @@ finally
 
     Logs-To-Event -TaskName "AKS.WindowsCSE.cse_main" -TaskMessage "ExitCode: $global:ExitCode. ErrorMessage: $global:ErrorMessage."
 
-    # $CSEResultFilePath is used to avoid running CSE multiple times
-    if ($global:ExitCode -ne 0) {
-        # $JsonString = "ExitCode: |{0}|, Output: |{1}|, Error: |{2}|"
-        # Max length of the full error message returned by Windows CSE is ~256. We use 240 to be safe.
-        $errorMessageLength = "ExitCode: |$global:ExitCode|, Output: |$($global:ErrorCodeNames[$global:ExitCode])|, Error: ||".Length
-        $turncatedErrorMessage = $global:ErrorMessage.Substring(0, [Math]::Min(240 - $errorMessageLength, $global:ErrorMessage.Length))
-        Set-Content -Path $CSEResultFilePath -Value "ExitCode: |$global:ExitCode|, Output: |$($global:ErrorCodeNames[$global:ExitCode])|, Error: |$turncatedErrorMessage|"
+    # Only create provision.complete when not in pre-provision-only mode
+    if (-not $PreProvisionOnly) {
+        # $CSEResultFilePath is used to avoid running CSE multiple times
+        if ($global:ExitCode -eq 0) {
+            Set-Content -Path $CSEResultFilePath -Value $global:ExitCode -Force
+        } else {
+            # $JsonString = "ExitCode: |{0}|, Output: |{1}|, Error: |{2}|"
+            # Max length of the full error message returned by Windows CSE is ~256. We use 240 to be safe.
+            $errorMessageLength = "ExitCode: |$global:ExitCode|, Output: |$($global:ErrorCodeNames[$global:ExitCode])|, Error: ||".Length
+            $turncatedErrorMessage = $global:ErrorMessage.Substring(0, [Math]::Min(240 - $errorMessageLength, $global:ErrorMessage.Length))
+            Set-Content -Path $CSEResultFilePath -Value "ExitCode: |$global:ExitCode|, Output: |$($global:ErrorCodeNames[$global:ExitCode])|, Error: |$turncatedErrorMessage|"
+        }
     }
 
     if ($global:ExitCode -eq $global:WINDOWS_CSE_ERROR_DOWNLOAD_CSE_PACKAGE) {
