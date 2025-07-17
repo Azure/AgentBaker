@@ -43,6 +43,10 @@ source "${CSE_INSTALL_FILEPATH}"
 source "${CSE_DISTRO_INSTALL_FILEPATH}"
 source "${CSE_CONFIG_FILEPATH}"
 
+get_ubuntu_release() {
+    lsb_release -r -s 2>/dev/null || echo ""
+}
+
 # ====== STAGE 1: BASE IMAGE PREPARATION ======
 # All operations that prepare the base VHD image
 function stage1 {
@@ -52,7 +56,7 @@ function stage1 {
     fi
     aptmarkWALinuxAgent hold &
 
-    UBUNTU_RELEASE=$(lsb_release -r -s 2>/dev/null || echo "")
+    UBUNTU_RELEASE=$(get_ubuntu_release)
     if [ "${UBUNTU_RELEASE}" = "16.04" ]; then
         sudo apt-get -y autoremove chrony
         echo $?
@@ -277,12 +281,6 @@ EOF
         createManDbAutoUpdateFlagFile
         /usr/bin/mandb && echo "man-db finished updates at $(date)" &
     fi
-
-    # Save stage1 variables for stage2 (registry variables removed - computed in stage2)
-    cat > /opt/azure/containers/stage1-vars.sh <<EOF
-export FULL_INSTALL_REQUIRED="${FULL_INSTALL_REQUIRED}"
-export UBUNTU_RELEASE="${UBUNTU_RELEASE}"
-EOF
 }
 
 # ====== STAGE 2: CLUSTER INTEGRATION ======
@@ -292,15 +290,6 @@ function stage2 {
     if [ "${PRE_PROVISION_ONLY}" = "true" ]; then
           echo "Skipping stage2 - pre-provision only mode"
           return 0
-    fi
-
-    # Load stage1 variables if they exist (registry variables computed here)
-    if [ -f /opt/azure/containers/stage1-vars.sh ]; then
-        source /opt/azure/containers/stage1-vars.sh
-    else
-        # Set defaults if stage1 was skipped
-        FULL_INSTALL_REQUIRED=${FULL_INSTALL_REQUIRED:-"true"}
-        UBUNTU_RELEASE=${UBUNTU_RELEASE:-$(lsb_release -r -s 2>/dev/null || echo "")}
     fi
 
     if [ -n "${OUTBOUND_COMMAND}" ]; then
@@ -441,7 +430,7 @@ EOF
                 VALIDATION_ERR=$ERR_K8S_API_SERVER_DNS_LOOKUP_FAIL
             fi
         else
-            if [ "${UBUNTU_RELEASE}" = "18.04" ]; then
+            if [ "$(get_ubuntu_release)" = "18.04" ]; then
                 #TODO (djsly): remove this once 18.04 isn't supported anymore
                 logs_to_events "AKS.CSE.apiserverNC" "retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443" || time nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
             else
