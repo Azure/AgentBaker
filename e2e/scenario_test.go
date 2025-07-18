@@ -15,6 +15,40 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func Test_Flatcar(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using a Flatcar VHD can be properly bootstrapped",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDFlatcarGen2,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+			},
+		},
+	})
+}
+
+func Test_Flatcar_ARM64(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using a Flatcar VHD on ARM64 architecture can be properly bootstrapped",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDFlatcarGen2Arm64,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.CustomKubeBinaryURL = "https://acs-mirror.azureedge.net/kubernetes/v1.24.9/binaries/kubernetes-node-linux-arm64.tar.gz"
+				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
+				nbc.IsARM64 = true
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
+			},
+		},
+	})
+}
+
 func Test_AzureLinuxV2_AirGap(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a AzureLinuxV2 (CgroupV2) VHD can be properly bootstrapped",
@@ -1676,4 +1710,44 @@ func Test_AlternateLocation_BasicDeployment(t *testing.T) {
 			},
 		},
 	})
+}
+
+func Test_Ubuntu2404_GPU_H100(t *testing.T) {
+	vmSize := "Standard_ND96isr_H100_v5"
+	RunScenario(t, &Scenario{
+		Description: fmt.Sprintf("Tests that a GPU-enabled node with VM size %s using an Ubuntu 2404 VHD can be properly bootstrapped and NPD tests are valid", vmSize),
+		Location:    "southafricanorth",
+		Tags: Tags{
+			GPU: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenetNoNvidiaDevicePlugin,
+			VHD:     config.VHDUbuntu2404Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.AgentPoolProfile.VMSize = vmSize
+				nbc.ConfigGPUDriverIfNeeded = true
+				nbc.EnableNvidia = true
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr(vmSize)
+
+				extension, err := createVMExtensionLinuxAKSNode(vmss.Location)
+				if err != nil {
+					t.Fatalf("creating AKS VM extension: %v", err)
+				}
+				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				EnableGPUNPDToggle(ctx, s)
+				// First, ensure nvidia-modprobe install does not restart kubelet and temporarily cause node to be unschedulable
+				ValidateNvidiaModProbeInstalled(ctx, s)
+				ValidateKubeletHasNotStopped(ctx, s)
+				ValidateServicesDoNotRestartKubelet(ctx, s)
+
+				// Then validate NPD configuration and GPU monitoring
+				ValidateNPDGPUCountPlugin(ctx, s)
+				ValidateNPDGPUCountCondition(ctx, s)
+				ValidateNPDGPUCountAfterFailure(ctx, s)
+			},
+		}})
 }

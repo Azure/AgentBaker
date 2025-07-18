@@ -41,6 +41,7 @@ const (
 
 // cloud-init (i.e. ARM customData) source file references.
 const (
+	kubernetesFlatcarNodeCustomDataYaml   = "linux/cloud-init/flatcar.yml"
 	kubernetesNodeCustomDataYaml          = "linux/cloud-init/nodecustomdata.yml"
 	kubernetesCSECommandString            = "linux/cloud-init/artifacts/cse_cmd.sh"
 	kubernetesCSEStartScript              = "linux/cloud-init/artifacts/cse_start.sh"
@@ -48,9 +49,11 @@ const (
 	kubernetesCSEHelpersScript            = "linux/cloud-init/artifacts/cse_helpers.sh"
 	kubernetesCSEHelpersScriptUbuntu      = "linux/cloud-init/artifacts/ubuntu/cse_helpers_ubuntu.sh"
 	kubernetesCSEHelpersScriptMariner     = "linux/cloud-init/artifacts/mariner/cse_helpers_mariner.sh"
+	kubernetesCSEHelpersScriptFlatcar     = "linux/cloud-init/artifacts/flatcar/cse_helpers_flatcar.sh"
 	kubernetesCSEInstall                  = "linux/cloud-init/artifacts/cse_install.sh"
 	kubernetesCSEInstallUbuntu            = "linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh"
 	kubernetesCSEInstallMariner           = "linux/cloud-init/artifacts/mariner/cse_install_mariner.sh"
+	kubernetesCSEInstallFlatcar           = "linux/cloud-init/artifacts/flatcar/cse_install_flatcar.sh"
 	kubernetesCSEConfig                   = "linux/cloud-init/artifacts/cse_config.sh"
 	kubernetesCSESendLogs                 = "linux/cloud-init/artifacts/cse_send_logs.py"
 	kubernetesCSERedactCloudConfig        = "linux/cloud-init/artifacts/cse_redact_cloud_config.py"

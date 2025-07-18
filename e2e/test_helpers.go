@@ -70,12 +70,6 @@ func newTestCtx(t *testing.T) context.Context {
 	return ctx
 }
 
-func mustNoError(err error) {
-	if err != nil {
-		panic(err)
-	}
-}
-
 // Global state to track which locations have been initialized
 var (
 	// Track which locations have been initialized
@@ -98,9 +92,9 @@ func ensureLocationInitialized(ctx context.Context, t *testing.T, location strin
 
 	// Initialize the location
 	err := ensureResourceGroup(ctx, location)
-	mustNoError(err)
+	require.NoError(t, err, "ensuring resource group")
 	_, err = config.Azure.CreateVMManagedIdentity(ctx, location)
-	mustNoError(err)
+	require.NoError(t, err, "ensuring VM managed identity")
 
 	// Mark this location as initialized
 	initializedLocations[location] = true
@@ -112,6 +106,8 @@ func RunScenario(t *testing.T, s *Scenario) {
 	if s.Location == "" {
 		s.Location = config.Config.DefaultLocation
 	}
+
+	s.Location = strings.ToLower(s.Location)
 
 	ctx := newTestCtx(t)
 	ensureLocationInitialized(ctx, t, s.Location)

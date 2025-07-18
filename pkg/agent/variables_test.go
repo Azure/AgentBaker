@@ -733,6 +733,10 @@ func getDefaultNBC() *datamodel.NodeBootstrappingConfiguration {
 			GalleryName:   "AKSUbuntuEdgeZone",
 			ResourceGroup: "AKS-Ubuntu-EdgeZone",
 		},
+		"AKSFlatcar": {
+			GalleryName:   "aksflatcar",
+			ResourceGroup: "resourcegroup",
+		},
 	}
 	sigConfig := &datamodel.SIGConfig{
 		TenantID:       "sometenantid",

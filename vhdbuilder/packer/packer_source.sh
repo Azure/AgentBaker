@@ -178,7 +178,7 @@ copyPackerFiles() {
       cpAndMode $KATA_IMAGE_SRC $KATA_IMAGE_DEST 0755
 
       KATACC_IMAGE_SRC=/home/packer/kata-containers-cc.img
-      KATACC_IMAGE_DEST=$KATACC_CONFIG_DIR/kata-containers-cc.img
+      KATACC_IMAGE_DEST=$KATACC_CONFIG_DIR/kata-containers.img
       cpAndMode $KATACC_IMAGE_SRC $KATACC_IMAGE_DEST 0755
     fi
 
