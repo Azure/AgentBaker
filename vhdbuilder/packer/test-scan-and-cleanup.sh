@@ -34,6 +34,12 @@ done
 
 echo "Present working directory: ${PWD}"
 
+# Set GALLERY_SUBSCRIPTION_ID to default to SUBSCRIPTION_ID if not set
+if [ -z "${GALLERY_SUBSCRIPTION_ID}" ]; then
+  GALLERY_SUBSCRIPTION_ID="${SUBSCRIPTION_ID}"
+fi
+echo "Using GALLERY_SUBSCRIPTION_ID: ${GALLERY_SUBSCRIPTION_ID}"
+
 retrycmd_if_failure() {
   RETRIES=${1}; WAIT_SLEEP=${2}; CMD=${3}; TARGET=$(basename ${3} .sh)
   echo "##[group]$TARGET" >> ${TARGET}-output.txt
@@ -63,6 +69,7 @@ SIG_VERSION=$(az sig image-version show \
   -i ${SIG_IMAGE_NAME} \
   -r ${SIG_GALLERY_NAME} \
   -g ${AZURE_RESOURCE_GROUP_NAME} \
+  --subscription ${GALLERY_SUBSCRIPTION_ID} \
   --query id --output tsv)
 
 if [ -z "${SIG_VERSION}" ]; then
