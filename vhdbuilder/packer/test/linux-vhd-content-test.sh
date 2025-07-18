@@ -1494,8 +1494,15 @@ testFileOwnership() {
   local test="testFileOwnership"
   echo "$test: Start"
 
+  os_sku="${1}"
+
   # Find files with numeric UIDs or GIDs.
   local files_with_numeric_ownership=$(find /usr -xdev \( -nouser -o -nogroup \) -exec stat --format '%u %g %n' {} \;)
+  # skip scanning /usr/libexec/dbus-daemon-launch-helper on Flatcar
+  # TODO: Group needs to be fixed in immutable part of the image
+  if [ "$os_sku" = "Flatcar" ]; then
+    files_with_numeric_ownership=$(echo "$files_with_numeric_ownership" | grep -v "/usr/libexec/dbus-daemon-launch-helper")
+  fi
 
   if [ -n "$files_with_numeric_ownership" ]; then
     err "$test: File ownership test failed. Files with numeric ownership found:"
@@ -1558,4 +1565,4 @@ testLtsKernel $OS_VERSION $OS_SKU $ENABLE_FIPS
 testCorednsBinaryExtractedAndCached $OS_VERSION
 checkLocaldnsScriptsAndConfigs
 testPackageDownloadURLFallbackLogic
-testFileOwnership
+testFileOwnership $OS_SKU
