@@ -63,6 +63,10 @@ $KubeletArgListStr = "@($KubeletArgListStr`)"
 # Used in Azure-CNI version of kubeletstart.ps1
 $KubeletCommandLine = "$global:KubeDir\kubelet.exe " + ($KubeletArgList -join " ")
 
+# TODO: This line has been move to the main CSE script
+# We wait until the change is propagated. Soon it will be safe to remove this line.
+netsh advfirewall set allprofiles state off
+
 # Required to clean up the HNS policy lists properly
 Write-Host "Stopping kubeproxy service"
 Stop-Service kubeproxy
