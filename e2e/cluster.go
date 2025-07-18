@@ -617,7 +617,7 @@ func ensureResourceGroup(ctx context.Context, location string) error {
 		nil)
 
 	if err != nil {
-		return fmt.Errorf("failed to create RG %q: %w", resourceGroupName, err)
+		return fmt.Errorf("creating or updating RG %q: %w", resourceGroupName, err)
 	}
 	return nil
 }
