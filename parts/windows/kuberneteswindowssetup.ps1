@@ -212,53 +212,22 @@ Expand-Archive scripts.zip -DestinationPath "C:\\AzureData\\" -Force
 
 $global:OperationId = New-Guid
 
-# ====== HELPER FUNCTIONS ======
-function Load-CSEScripts {
-    <#
-    .SYNOPSIS
-        Loads all CSE PowerShell scripts required for Windows node provisioning.
-    .DESCRIPTION
-        Dot-sources all CSE function scripts from C:\AzureData\windows\ directory.
-        This function ensures all required functions are available for both Stage1 and Stage2.
-    #>
-    . c:\AzureData\windows\azurecnifunc.ps1
-    . c:\AzureData\windows\calicofunc.ps1
-    . c:\AzureData\windows\configfunc.ps1
-    . c:\AzureData\windows\containerdfunc.ps1
-    . c:\AzureData\windows\kubeletfunc.ps1
-    . c:\AzureData\windows\kubernetesfunc.ps1
-    . c:\AzureData\windows\nvidiagpudriverfunc.ps1
-}
-
-# ====== STAGE 1: BASE IMAGE PREPARATION ======
-# All operations that prepare the base VHD image
-function Stage1 {
-    if (Test-Path "C:\AzureData\preprovision.complete") {
-        Write-Log "Skipping stage1 - preprovision.complete file exists"
-        return
-    }
-
-    Write-Log "Starting Stage1 - Base image preparation"
-    Logs-To-Event -TaskName "AKS.WindowsCSE.Stage1" -TaskMessage "Starting Stage1 - Base image preparation"
-
-    # This involves using proxy, log the config before fetching packages
-    Write-Log "private egress proxy address is '$global:PrivateEgressProxyAddress'"
-    # TODO update to use proxy
-
+if (-not (Test-Path "C:\AzureData\windows\azurecnifunc.ps1")) {
+    # Determine the CSE package URL
     $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-current.zip"
     # CSEScriptsPackage is cached on VHD. Previously the cse package version was managed in components.json, whereas RP set the package URL which is a storage account.
-    # From 2025-06 The CSE packages is eleased on the VHD. RP can use fully qualified URL to download CSE scripts package when required out of VHD release cycle. 
+    # From 2025-06 The CSE packages is eleased on the VHD. RP can use fully qualified URL to download CSE scripts package when required out of VHD release cycle.
     # In the transition period, it is important that when deal with older VHD versions, the agentbaker runtime provision script needs to be compatible with the latest known storage account package, 0.0.52.
     Write-Log "Requested CSEScriptsPackageUrl is $global:CSEScriptsPackageUrl"
     if ($global:CSEScriptsPackageUrl.EndsWith("/")) {
         $search = @()
         if ($global:CacheDir -and (Test-Path $global:CacheDir)) {
             $search = [IO.Directory]::GetFiles($global:CacheDir, $WindowsCSEScriptsPackage, [IO.SearchOption]::AllDirectories)
-            # list files in the cache directory. 
+            # list files in the cache directory.
             Write-Log "the directory $global:CacheDir contains the following files:"
             Get-ChildItem -Path $global:CacheDir | ForEach-Object { Write-Log "  $_" }
         }
- 
+
         if ($search.Count -eq 0) {
             Write-Log "Could not find windows cse package on VHD. Use remote version instead."
             $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.52.zip"
@@ -274,9 +243,34 @@ function Stage1 {
     DownloadFileOverHttp -Url $global:CSEScriptsPackageUrl -DestinationPath $tempfile -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CSE_PACKAGE
     Expand-Archive $tempfile -DestinationPath "C:\\AzureData\\windows" -Force
     Remove-Item -Path $tempfile -Force
+} else {
+    Write-Log "CSE scripts already exist, skipping download"
+}
 
-    # Dot-source cse scripts with functions that are called in this script
-    Load-CSEScripts
+# Dot-source cse scripts with functions that are called in this script
+. c:\AzureData\windows\azurecnifunc.ps1
+. c:\AzureData\windows\calicofunc.ps1
+. c:\AzureData\windows\configfunc.ps1
+. c:\AzureData\windows\containerdfunc.ps1
+. c:\AzureData\windows\kubeletfunc.ps1
+. c:\AzureData\windows\kubernetesfunc.ps1
+. c:\AzureData\windows\nvidiagpudriverfunc.ps1
+
+
+# ====== STAGE 1: BASE IMAGE PREPARATION ======
+# All operations that prepare the base VHD image
+function Stage1 {
+    if (Test-Path "C:\AzureData\preprovision.complete") {
+        Write-Log "Skipping stage1 - preprovision.complete file exists"
+        return
+    }
+
+    Write-Log "Starting Stage1 - Base image preparation"
+    Logs-To-Event -TaskName "AKS.WindowsCSE.Stage1" -TaskMessage "Starting Stage1 - Base image preparation"
+
+    # This involves using proxy, log the config before fetching packages
+    Write-Log "private egress proxy address is '$global:PrivateEgressProxyAddress'"
+    # TODO update to use proxy
 
     # Install OpenSSH if SSH enabled
     $sshEnabled = [System.Convert]::ToBoolean("{{ WindowsSSHEnabled }}")
@@ -469,11 +463,6 @@ function Stage2 {
         return
     }
 
-    # Ensure CSE functions are available for Stage2
-    if (-not (Get-Command "Install-KubernetesServices" -ErrorAction SilentlyContinue)) {
-        Load-CSEScripts
-    }
-
     Install-KubernetesServices -KubeDir $global:KubeDir
 
     Write-Log "Starting Stage2 - Cluster integration"
@@ -573,8 +562,19 @@ finally
 
     Logs-To-Event -TaskName "AKS.WindowsCSE.cse_main" -TaskMessage "ExitCode: $global:ExitCode. ErrorMessage: $global:ErrorMessage."
 
-    # Only create provision.complete when not in pre-provision-only mode
-    if (-not $PreProvisionOnly) {
+    # Create appropriate completion file based on mode
+    if ($PreProvisionOnly) {
+        # Create preprovision.complete for pre-provision-only mode
+        if ($global:ExitCode -eq 0) {
+            Set-Content -Path "C:\AzureData\preprovision.complete" -Value $global:ExitCode -Force
+        } else {
+            # $JsonString = "ExitCode: |{0}|, Output: |{1}|, Error: |{2}|"
+            # Max length of the full error message returned by Windows CSE is ~256. We use 240 to be safe.
+            $errorMessageLength = "ExitCode: |$global:ExitCode|, Output: |$($global:ErrorCodeNames[$global:ExitCode])|, Error: ||".Length
+            $turncatedErrorMessage = $global:ErrorMessage.Substring(0, [Math]::Min(240 - $errorMessageLength, $global:ErrorMessage.Length))
+            Set-Content -Path "C:\AzureData\preprovision.complete" -Value "ExitCode: |$global:ExitCode|, Output: |$($global:ErrorCodeNames[$global:ExitCode])|, Error: |$turncatedErrorMessage|"
+        }
+    } else {
         # $CSEResultFilePath is used to avoid running CSE multiple times
         if ($global:ExitCode -eq 0) {
             Set-Content -Path $CSEResultFilePath -Value $global:ExitCode -Force
