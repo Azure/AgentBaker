@@ -105,12 +105,13 @@ var (
 	// if we ever want to update this then we'd need to run a new VHD build using private package overrides
 	VHDUbuntu2204Gen2ContainerdPrivateKubePkg = &Image{
 		// 2204Gen2 is a special image definition holding historical VHDs used by agentbaker e2e's.
-		Name:    "2204Gen2",
-		OS:      OSUbuntu,
-		Arch:    "amd64",
-		Version: "1.1704411049.2812",
-		Distro:  datamodel.AKSUbuntuContainerd2204Gen2,
-		Gallery: imageGalleryLinux,
+		Name:                     "2204Gen2",
+		OS:                       OSUbuntu,
+		Arch:                     "amd64",
+		Version:                  "1.1704411049.2812",
+		Distro:                   datamodel.AKSUbuntuContainerd2204Gen2,
+		Gallery:                  imageGalleryLinux,
+		UnsupportedKubeletNodeIP: true,
 	}
 
 	// without kubelet, kubectl, credential-provider and wasm
@@ -229,12 +230,13 @@ type perLocationVHDCache struct {
 }
 
 type Image struct {
-	Arch    string
-	Distro  datamodel.Distro
-	Name    string
-	OS      OS
-	Version string
-	Gallery *Gallery
+	Arch                     string
+	Distro                   datamodel.Distro
+	Name                     string
+	OS                       OS
+	Version                  string
+	Gallery                  *Gallery
+	UnsupportedKubeletNodeIP bool
 
 	vhdLocationCache map[string]*perLocationVHDCache
 	vhdMutex         sync.Mutex
@@ -262,6 +264,14 @@ func (i *Image) VHDResourceID(ctx context.Context, t *testing.T, location string
 		var vhd VHDResourceID
 		var err error
 		switch {
+		case i.Gallery != nil && i.Gallery.Name == "managed-images":
+			// This is a managed image - use the Version field as the resource ID
+			i.vhd = VHDResourceID(i.Version)
+			t.Logf("Using managed image directly: %s", i.Version)
+		case i.Gallery != nil && i.Gallery.Name == "managed-disks":
+			// This is a managed disk - use the Version field as the resource ID
+			i.vhd = VHDResourceID(i.Version)
+			t.Logf("Using managed disk directly: %s", i.Version)
 		case i.Version != "":
 			vhd, err = Azure.EnsureSIGImageVersion(ctx, t, i, location)
 			if vhd != "" {

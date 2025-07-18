@@ -1151,6 +1151,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"GetLocalDNSMemoryLimitInMB": func() string {
 			return profile.GetLocalDNSMemoryLimitInMB()
 		},
+		"GetPreProvisionOnly": func() bool { return config.PreProvisionOnly },
 	}
 }
 

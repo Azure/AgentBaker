@@ -27,7 +27,7 @@ import (
 // mostly executed locally
 func Test_Ubuntu2204AKSNodeController(t *testing.T) {
 	location := config.Config.DefaultLocation
-	ctx := newTestCtx(t, location)
+	ctx := newTestCtx(t)
 	if !config.Config.EnableAKSNodeControllerTest {
 		t.Skip("ENABLE_AKS_NODE_CONTROLLER_TEST is not set")
 	}
