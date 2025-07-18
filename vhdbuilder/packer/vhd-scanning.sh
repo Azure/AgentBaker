@@ -272,7 +272,9 @@ ret=$(az vm run-command invoke \
         "AZURE_MSI_RESOURCE_STRING=${AZURE_MSI_RESOURCE_STRING}" \
         "ENABLE_TRUSTED_LAUNCH=${ENABLE_TRUSTED_LAUNCH}" \
         "CIS_REPORT_TXT_NAME=${CIS_REPORT_TXT_NAME}" \
-        "CIS_REPORT_HTML_NAME=${CIS_REPORT_HTML_NAME}"
+        "CIS_REPORT_HTML_NAME=${CIS_REPORT_HTML_NAME}" \
+        "TEST_VM_ADMIN_USERNAME=${SCAN_VM_ADMIN_USERNAME}" \
+        "OS_SKU=${OS_SKU}"
 )
 echo "$ret"
 msg=$(echo -E "$ret" | jq -r '.value[].message')
