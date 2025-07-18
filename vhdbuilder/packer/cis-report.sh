@@ -10,6 +10,14 @@ AZURE_MSI_RESOURCE_STRING=${AZURE_MSI_RESOURCE_STRING:-""}
 ENABLE_TRUSTED_LAUNCH=${ENABLE_TRUSTED_LAUNCH:-""}
 CIS_REPORT_TXT_NAME=${CIS_REPORT_TXT_NAME:-"cis-report.txt"}
 CIS_REPORT_HTML_NAME=${CIS_REPORT_HTML_NAME:-"cis-report.html"}
+OS_SKU=${OS_SKU:-""}
+TEST_VM_ADMIN_USERNAME=${TEST_VM_ADMIN_USERNAME:-"azureuser"}
+
+if [ "$OS_SKU" = "Flatcar" ]; then
+    # The venv with azure-cli is created in trivy-scan.sh but PATH changes are
+    # not preserved across scripts.
+    export PATH="/home/$TEST_VM_ADMIN_USERNAME/venv/bin:$PATH"
+fi
 
 # Azure login helper
 login_with_user_assigned_managed_identity() {
