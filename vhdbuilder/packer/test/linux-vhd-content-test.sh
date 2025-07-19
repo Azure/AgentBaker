@@ -41,6 +41,8 @@ LOCAL_GIT_BRANCH=${GIT_BRANCH//\//-}
 # Git is not present in the base image, so we need to install it.
 if [ "$OS_SKU" = "Ubuntu" ]; then
   sudo DEBIAN_FRONTEND=noninteractive apt-get install -y git
+elif [ "$OS_SKU" = "Flatcar" ]; then
+  : # Flatcar comes with git pre-installed
 else
   sudo tdnf install -y git
 fi
@@ -485,7 +487,7 @@ testChrony() {
   #test chrony is running
   #if mariner/azurelinux check chronyd, else check chrony
   os_chrony="chrony"
-  if [ "$os_sku" = "CBLMariner" ] || [ "$os_sku" = "AzureLinux" ]; then
+  if [ "$os_sku" = "CBLMariner" ] || [ "$os_sku" = "AzureLinux" ] || [ "$os_sku" = "Flatcar" ]; then
     os_chrony="chronyd"
   fi
   status=$(systemctl show -p SubState --value $os_chrony)
@@ -883,6 +885,7 @@ testCronPermissions() {
   echo "$test:Start"
 
   image_sku="${1}"
+  os_sku="${2}"
   declare -A required_paths=(
     ['/etc/cron.allow']=640
     ['/etc/cron.hourly']=600
@@ -901,7 +904,7 @@ testCronPermissions() {
   )
 
   # shellcheck disable=SC3010
-  if [[ "${image_sku}" != *"minimal"* ]]; then
+  if [[ "${image_sku}" != *"minimal"* ]] && [[ "${os_sku}" != "Flatcar" ]]; then
     echo "$test: Checking required paths"
     for path in "${!required_paths[@]}"; do
       checkPathPermissions $test $path ${required_paths[$path]} 1
@@ -1491,8 +1494,15 @@ testFileOwnership() {
   local test="testFileOwnership"
   echo "$test: Start"
 
+  os_sku="${1}"
+
   # Find files with numeric UIDs or GIDs.
   local files_with_numeric_ownership=$(find /usr -xdev \( -nouser -o -nogroup \) -exec stat --format '%u %g %n' {} \;)
+  # skip scanning /usr/libexec/dbus-daemon-launch-helper on Flatcar
+  # TODO: Group needs to be fixed in immutable part of the image
+  if [ "$os_sku" = "Flatcar" ]; then
+    files_with_numeric_ownership=$(echo "$files_with_numeric_ownership" | grep -v "/usr/libexec/dbus-daemon-launch-helper")
+  fi
 
   if [ -n "$files_with_numeric_ownership" ]; then
     err "$test: File ownership test failed. Files with numeric ownership found:"
@@ -1542,7 +1552,7 @@ testCustomCATrustNodeCAWatcherRetagged
 testLoginDefs
 testUserAdd
 testNetworkSettings
-testCronPermissions $IMG_SKU
+testCronPermissions $IMG_SKU $OS_SKU
 testCoreDumpSettings
 testNfsServerService
 testPamDSettings $OS_SKU $OS_VERSION
@@ -1555,4 +1565,4 @@ testLtsKernel $OS_VERSION $OS_SKU $ENABLE_FIPS
 testCorednsBinaryExtractedAndCached $OS_VERSION
 checkLocaldnsScriptsAndConfigs
 testPackageDownloadURLFallbackLogic
-testFileOwnership
+testFileOwnership $OS_SKU
