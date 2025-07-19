@@ -687,6 +687,11 @@ EOF
         logs_to_events "AKS.CSE.ensureKubelet.installCredentialProvider" installCredentialProvider
     fi
 
+    # start measure-tls-bootstrapping-latency.service without waiting for the main process to start, while ignoring any failures
+    if ! systemctlEnableAndStartNoBlock measure-tls-bootstrapping-latency 30; then
+        echo "failed to start measure-tls-bootstrapping-latency.service"
+    fi
+
     # start kubelet.service without waiting for the main process to start, though check whether it has entered a failed state after enablement
     if ! systemctlEnableAndStartNoBlock kubelet 240; then
         # append kubelet status to CSE output to ensure we can see it

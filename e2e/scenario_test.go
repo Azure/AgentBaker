@@ -14,6 +14,40 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v6"
 )
 
+func Test_Flatcar(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using a Flatcar VHD can be properly bootstrapped",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDFlatcarGen2,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+			},
+		},
+	})
+}
+
+func Test_Flatcar_ARM64(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using a Flatcar VHD on ARM64 architecture can be properly bootstrapped",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDFlatcarGen2Arm64,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.CustomKubeBinaryURL = "https://acs-mirror.azureedge.net/kubernetes/v1.24.9/binaries/kubernetes-node-linux-arm64.tar.gz"
+				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
+				nbc.IsARM64 = true
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
+			},
+		},
+	})
+}
+
 func Test_AzureLinuxV2_AirGap(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a AzureLinuxV2 (CgroupV2) VHD can be properly bootstrapped",
@@ -28,7 +62,7 @@ func Test_AzureLinuxV2_AirGap(t *testing.T) {
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
 						Enabled:                 true,
-						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io", config.PrivateACRName),
+						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io", config.PrivateACRName(config.Config.DefaultLocation)),
 					},
 				}
 			},
@@ -108,7 +142,7 @@ func Test_AzureLinuxV2_ARM64AirGap(t *testing.T) {
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
 						Enabled:                 true,
-						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io", config.PrivateACRName),
+						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io", config.PrivateACRName(config.Config.DefaultLocation)),
 					},
 				}
 			},
@@ -300,7 +334,7 @@ func Test_MarinerV2_AirGap(t *testing.T) {
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
 						Enabled:                 true,
-						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io", config.PrivateACRName),
+						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io", config.PrivateACRName(config.Config.DefaultLocation)),
 					},
 				}
 			},
@@ -346,7 +380,7 @@ func Test_MarinerV2_ARM64AirGap(t *testing.T) {
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
 						Enabled:                 true,
-						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io", config.PrivateACRName),
+						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io", config.PrivateACRName(config.Config.DefaultLocation)),
 					},
 				}
 
@@ -564,7 +598,7 @@ func Test_Ubuntu2204_AirGap(t *testing.T) {
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
 						Enabled:                 true,
-						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io", config.PrivateACRName),
+						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io", config.PrivateACRName(config.Config.DefaultLocation)),
 					},
 				}
 			},
@@ -578,8 +612,10 @@ func Test_Ubuntu2204_AirGap(t *testing.T) {
 // TODO: refactor NonAnonymous tests to use the same cluster as Anonymous airgap
 // or deprecate anonymous ACR airgap tests once it is unsupported
 func Test_Ubuntu2204_AirGap_NonAnonymousACR(t *testing.T) {
-	ctx := newTestCtx(t)
-	identity, err := config.Azure.UserAssignedIdentities.Get(ctx, config.ResourceGroupName, config.VMIdentityName, nil)
+	location := config.Config.DefaultLocation
+
+	ctx := newTestCtx(t, location)
+	identity, err := config.Azure.UserAssignedIdentities.Get(ctx, config.ResourceGroupName(location), config.VMIdentityName, nil)
 	if err != nil {
 		t.Fatalf("failed to get identity: %v", err)
 	}
@@ -601,7 +637,7 @@ func Test_Ubuntu2204_AirGap_NonAnonymousACR(t *testing.T) {
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
 						Enabled:                 true,
-						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io", config.PrivateACRNameNotAnon),
+						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io", config.PrivateACRNameNotAnon(config.Config.DefaultLocation)),
 					},
 				}
 			},
@@ -626,14 +662,14 @@ func Test_Ubuntu2204Gen2_ContainerdAirgappedK8sNotCached(t *testing.T) {
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
 						Enabled:                 true,
-						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io", config.PrivateACRName),
+						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io", config.PrivateACRName(config.Config.DefaultLocation)),
 					},
 				}
 				nbc.AgentPoolProfile.LocalDNSProfile = nil
 				// intentionally using private acr url to get kube binaries
 				nbc.AgentPoolProfile.KubernetesConfig.CustomKubeBinaryURL = fmt.Sprintf(
 					"%s.azurecr.io/oss/binaries/kubernetes/kubernetes-node:v%s-linux-amd64",
-					config.PrivateACRName,
+					config.PrivateACRName(config.Config.DefaultLocation),
 					nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion)
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
@@ -1651,6 +1687,68 @@ func Test_Ubuntu2404_NPD_Basic(t *testing.T) {
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateNodeProblemDetector(ctx, s)
 				ValidateNPDFilesystemCorruption(ctx, s)
+			},
+		}})
+}
+
+func Test_AlternateLocation_BasicDeployment(t *testing.T) {
+	location := "southafricanorth" // Set the alternate location for the test
+
+	RunScenario(t, &Scenario{
+		Description: "Tests basic node deployment in configured location",
+		Location:    location, // Override location for this test
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDAzureLinuxV2Gen2,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				// Add your custom configuration here
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				// Validate kubelet is running
+				ValidateSystemdUnitIsRunning(ctx, s, "kubelet")
+				// Add your custom validations here
+				t.Logf("Successfully validated deployment in location: %s", location)
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2404_GPU_H100(t *testing.T) {
+	vmSize := "Standard_ND96isr_H100_v5"
+	RunScenario(t, &Scenario{
+		Description: fmt.Sprintf("Tests that a GPU-enabled node with VM size %s using an Ubuntu 2404 VHD can be properly bootstrapped and NPD tests are valid", vmSize),
+		Location:    "southafricanorth",
+		Tags: Tags{
+			GPU: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenetNoNvidiaDevicePlugin,
+			VHD:     config.VHDUbuntu2404Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.AgentPoolProfile.VMSize = vmSize
+				nbc.ConfigGPUDriverIfNeeded = true
+				nbc.EnableNvidia = true
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr(vmSize)
+
+				extension, err := createVMExtensionLinuxAKSNode(vmss.Location)
+				if err != nil {
+					t.Fatalf("creating AKS VM extension: %v", err)
+				}
+				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				EnableGPUNPDToggle(ctx, s)
+				// First, ensure nvidia-modprobe install does not restart kubelet and temporarily cause node to be unschedulable
+				ValidateNvidiaModProbeInstalled(ctx, s)
+				ValidateKubeletHasNotStopped(ctx, s)
+				ValidateServicesDoNotRestartKubelet(ctx, s)
+
+				// Then validate NPD configuration and GPU monitoring
+				ValidateNPDGPUCountPlugin(ctx, s)
+				ValidateNPDGPUCountCondition(ctx, s)
+				ValidateNPDGPUCountAfterFailure(ctx, s)
 			},
 		}})
 }

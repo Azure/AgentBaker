@@ -299,13 +299,16 @@ func (a *AzureClient) UploadAndGetSignedLink(ctx context.Context, blobName strin
 	return fmt.Sprintf("%s/%s/%s?%s", Config.BlobStorageAccountURL(), Config.BlobContainer, blobName, sig.Encode()), nil
 }
 
-func (a *AzureClient) CreateVMManagedIdentity(ctx context.Context) (string, error) {
-	identity, err := a.UserAssignedIdentities.CreateOrUpdate(ctx, ResourceGroupName, VMIdentityName, armmsi.Identity{
-		Location: to.Ptr(Config.Location),
+func (a *AzureClient) CreateVMManagedIdentity(ctx context.Context, identityLocation string) (string, error) {
+	identity, err := a.UserAssignedIdentities.CreateOrUpdate(ctx, ResourceGroupName(identityLocation), VMIdentityName, armmsi.Identity{
+		Location: to.Ptr(identityLocation),
 	}, nil)
 	if err != nil {
 		return "", fmt.Errorf("create managed identity: %w", err)
 	}
+
+	// NOTE: We are not creating new storage account per location, we will use the one
+	// that's already created in the default location.
 	err = a.createBlobStorageAccount(ctx)
 	if err != nil {
 		return "", err
@@ -322,9 +325,9 @@ func (a *AzureClient) CreateVMManagedIdentity(ctx context.Context) (string, erro
 }
 
 func (a *AzureClient) createBlobStorageAccount(ctx context.Context) error {
-	poller, err := a.StorageAccounts.BeginCreate(ctx, ResourceGroupName, Config.BlobStorageAccount(), armstorage.AccountCreateParameters{
+	poller, err := a.StorageAccounts.BeginCreate(ctx, ResourceGroupName(Config.DefaultLocation), Config.BlobStorageAccount(), armstorage.AccountCreateParameters{
 		Kind:     to.Ptr(armstorage.KindStorageV2),
-		Location: &Config.Location,
+		Location: to.Ptr(Config.DefaultLocation),
 		SKU: &armstorage.SKU{
 			Name: to.Ptr(armstorage.SKUNameStandardLRS),
 		},
@@ -344,7 +347,7 @@ func (a *AzureClient) createBlobStorageAccount(ctx context.Context) error {
 }
 
 func (a *AzureClient) createBlobStorageContainer(ctx context.Context) error {
-	_, err := a.StorageContainers.Create(ctx, ResourceGroupName, Config.BlobStorageAccount(), Config.BlobContainer, armstorage.BlobContainer{}, nil)
+	_, err := a.StorageContainers.Create(ctx, ResourceGroupName(Config.DefaultLocation), Config.BlobStorageAccount(), Config.BlobContainer, armstorage.BlobContainer{}, nil)
 	if err != nil {
 		return fmt.Errorf("create blob container: %w", err)
 	}
@@ -352,7 +355,7 @@ func (a *AzureClient) createBlobStorageContainer(ctx context.Context) error {
 }
 
 func (a *AzureClient) assignRolesToVMIdentity(ctx context.Context, principalID *string) error {
-	scope := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Storage/storageAccounts/%s", Config.SubscriptionID, ResourceGroupName, Config.BlobStorageAccount())
+	scope := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Storage/storageAccounts/%s", Config.SubscriptionID, ResourceGroupName(Config.DefaultLocation), Config.BlobStorageAccount())
 	// Role assignment requires uid to be provided
 	uid := uuid.New().String()
 	_, err := a.RoleAssignments.Create(ctx, scope, uid, armauthorization.RoleAssignmentCreateParameters{
@@ -374,7 +377,7 @@ func (a *AzureClient) assignRolesToVMIdentity(ctx context.Context, principalID *
 	return nil
 }
 
-func (a *AzureClient) LatestSIGImageVersionByTag(ctx context.Context, t *testing.T, image *Image, tagName, tagValue string) (VHDResourceID, error) {
+func (a *AzureClient) LatestSIGImageVersionByTag(ctx context.Context, t *testing.T, image *Image, tagName, tagValue, location string) (VHDResourceID, error) {
 	t.Logf("Looking up images in %s", image.azurePortalImageUrl())
 
 	imagesClient, imagesClientErr := armcompute.NewGalleryImagesClient(image.Gallery.SubscriptionID, a.Credential, a.ArmOptions)
@@ -442,7 +445,7 @@ func (a *AzureClient) LatestSIGImageVersionByTag(ctx context.Context, t *testing
 		return "", ErrNotFound
 	}
 
-	if err := a.ensureReplication(ctx, t, image, latestVersion); err != nil {
+	if err := a.ensureReplication(ctx, t, image, latestVersion, location); err != nil {
 		return "", fmt.Errorf("failed ensuring image replication: %w", err)
 	}
 
@@ -451,15 +454,15 @@ func (a *AzureClient) LatestSIGImageVersionByTag(ctx context.Context, t *testing
 	return VHDResourceID(*latestVersion.ID), nil
 }
 
-func (a *AzureClient) ensureReplication(ctx context.Context, t *testing.T, image *Image, version *armcompute.GalleryImageVersion) error {
-	if replicatedToCurrentRegion(version) {
-		t.Logf("Image version %s is already in region to region %s", *version.ID, Config.Location)
+func (a *AzureClient) ensureReplication(ctx context.Context, t *testing.T, image *Image, version *armcompute.GalleryImageVersion, location string) error {
+	if replicatedToCurrentRegion(version, location) {
+		t.Logf("Image version %s is already in region to region %s", *version.ID, location)
 		return nil
 	}
-	t.Logf("##vso[task.logissue type=warning;]Replicating to region %s: image version %s", Config.Location, *version.ID)
+	t.Logf("##vso[task.logissue type=warning;]Replicating to region %s: image version %s", location, *version.ID)
 
 	start := time.Now() // Record the start time
-	err := a.replicateImageVersionToCurrentRegion(ctx, image, version)
+	err := a.replicateImageVersionToCurrentRegion(ctx, image, version, location)
 	elapsed := time.Since(start) // Calculate the elapsed time
 
 	toolkit.LogDuration(elapsed, 3*time.Minute, fmt.Sprintf("Replication took: %s (%s)\n", toolkit.FormatDuration(elapsed), *version.ID))
@@ -467,13 +470,13 @@ func (a *AzureClient) ensureReplication(ctx context.Context, t *testing.T, image
 	return err
 }
 
-func (a *AzureClient) replicateImageVersionToCurrentRegion(ctx context.Context, image *Image, version *armcompute.GalleryImageVersion) error {
+func (a *AzureClient) replicateImageVersionToCurrentRegion(ctx context.Context, image *Image, version *armcompute.GalleryImageVersion, location string) error {
 	galleryImageVersion, err := armcompute.NewGalleryImageVersionsClient(image.Gallery.SubscriptionID, a.Credential, a.ArmOptions)
 	if err != nil {
 		return fmt.Errorf("create a new images client: %v", err)
 	}
 	version.Properties.PublishingProfile.TargetRegions = append(version.Properties.PublishingProfile.TargetRegions, &armcompute.TargetRegion{
-		Name:                 &Config.Location,
+		Name:                 &location,
 		RegionalReplicaCount: to.Ptr[int32](1),
 		StorageAccountType:   to.Ptr(armcompute.StorageAccountTypeStandardLRS),
 	})
@@ -489,7 +492,7 @@ func (a *AzureClient) replicateImageVersionToCurrentRegion(ctx context.Context, 
 	return nil
 }
 
-func (a *AzureClient) EnsureSIGImageVersion(ctx context.Context, t *testing.T, image *Image) (VHDResourceID, error) {
+func (a *AzureClient) EnsureSIGImageVersion(ctx context.Context, t *testing.T, image *Image, location string) (VHDResourceID, error) {
 	t.Logf("Looking up gallery images for subcription %s", image.Gallery.SubscriptionID)
 	galleryImageVersion, err := armcompute.NewGalleryImageVersionsClient(image.Gallery.SubscriptionID, a.Credential, a.ArmOptions)
 	if err != nil {
@@ -514,7 +517,7 @@ func (a *AzureClient) EnsureSIGImageVersion(ctx context.Context, t *testing.T, i
 		return "", fmt.Errorf("Failed ensuring image version provisioning state: %w", err)
 	}
 
-	if err := a.ensureReplication(ctx, t, image, liveVersion); err != nil {
+	if err := a.ensureReplication(ctx, t, image, liveVersion, location); err != nil {
 		return "", fmt.Errorf("Failed ensuring image replication: %w", err)
 	}
 
@@ -537,9 +540,9 @@ func DefaultRetryOpts() policy.RetryOptions {
 	}
 }
 
-func replicatedToCurrentRegion(version *armcompute.GalleryImageVersion) bool {
+func replicatedToCurrentRegion(version *armcompute.GalleryImageVersion, location string) bool {
 	for _, targetRegion := range version.Properties.PublishingProfile.TargetRegions {
-		if strings.EqualFold(strings.ReplaceAll(*targetRegion.Name, " ", ""), Config.Location) {
+		if strings.EqualFold(strings.ReplaceAll(*targetRegion.Name, " ", ""), location) {
 			return true
 		}
 	}
@@ -562,7 +565,7 @@ func (a *AzureClient) CreateVMSSWithRetry(ctx context.Context, t *testing.T, res
 		// It's not a quota issue
 		return errors.As(err, &respErr) && respErr.StatusCode == 200 && respErr.ErrorCode == "AllocationFailed"
 	}
-	
+
 	maxAttempts := 10
 	attempt := 0
 

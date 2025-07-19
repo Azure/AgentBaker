@@ -24,6 +24,7 @@ type SIGAzureEnvironmentSpecConfig struct {
 	SigAzureLinuxImageConfig     map[Distro]SigImageConfig `json:"sigAzureLinuxImageConfig,omitempty"`
 	SigWindowsImageConfig        map[Distro]SigImageConfig `json:"sigWindowsImageConfig,omitempty"`
 	SigUbuntuEdgeZoneImageConfig map[Distro]SigImageConfig `json:"sigUbuntuEdgeZoneImageConfig,omitempty"`
+	SigFlatcarImageConfig        map[Distro]SigImageConfig `json:"sigFlatcarImageConfig,omitempty"`
 	// TODO(adadilli) add PIR constants as well
 }
 
@@ -135,6 +136,8 @@ var AvailableContainerdDistros = []Distro{
 	AKSUbuntuFipsContainerd2204Gen2,
 	AKSUbuntuEdgeZoneContainerd1804,
 	AKSUbuntuEdgeZoneContainerd1804Gen2,
+	AKSFlatcarGen2,
+	AKSFlatcarArm64Gen2,
 	AKSCBLMarinerV1,
 	AKSCBLMarinerV2,
 	AKSAzureLinuxV2,
@@ -204,6 +207,8 @@ var AvailableGen2Distros = []Distro{
 	AKSUbuntuMinimalContainerd2204Gen2,
 	AKSUbuntuContainerd2404Gen2,
 	AKSUbuntuContainerd2404TLGen2,
+	AKSFlatcarGen2,
+	AKSFlatcarArm64Gen2,
 	AKSCBLMarinerV2Gen2,
 	AKSAzureLinuxV2Gen2,
 	AKSAzureLinuxV3Gen2,
@@ -271,6 +276,12 @@ var AvailableAzureLinuxCgroupV2Distros = []Distro{
 	AKSAzureLinuxV2Gen2TL,
 	AKSAzureLinuxV3Gen2TL,
 	AKSAzureLinuxV3CVMGen2,
+}
+
+//nolint:gochecknoglobals
+var AvailableFlatcarDistros = []Distro{
+	AKSFlatcarGen2,
+	AKSFlatcarArm64Gen2,
 }
 
 // IsContainerdSKU returns true if distro type is containerd-enabled.
@@ -385,6 +396,8 @@ const (
 	AKSAzureLinuxResourceGroup     string = "AKS-AzureLinux"
 	AKSUbuntuEdgeZoneGalleryName   string = "AKSUbuntuEdgeZone"
 	AKSUbuntuEdgeZoneResourceGroup string = "AKS-Ubuntu-EdgeZone"
+	AKSFlatcarGalleryName          string = "AKSFlatcar"
+	AKSFlatcarResourceGroup        string = "AKS-Flatcar"
 )
 
 const (
@@ -813,6 +826,20 @@ var (
 		Version:       FrozenCBLMarinerV2KataGen2TLSIGImageVersion,
 	}
 
+	SIGFlatcarGen2ImageConfigTemplate = SigImageConfigTemplate{
+		ResourceGroup: AKSFlatcarResourceGroup,
+		Gallery:       AKSFlatcarGalleryName,
+		Definition:    "flatcargen2",
+		Version:       LinuxSIGImageVersion,
+	}
+
+	SIGFlatcarArm64Gen2ImageConfigTemplate = SigImageConfigTemplate{
+		ResourceGroup: AKSFlatcarResourceGroup,
+		Gallery:       AKSFlatcarGalleryName,
+		Definition:    "flatcargen2arm64",
+		Version:       LinuxSIGImageVersion,
+	}
+
 	SIGWindows2019ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSWindowsResourceGroup,
 		Gallery:       AKSWindowsGalleryName,
@@ -975,6 +1002,13 @@ func getSigAzureLinuxImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distr
 	}
 }
 
+func getSigFlatcarImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]SigImageConfig {
+	return map[Distro]SigImageConfig{
+		AKSFlatcarGen2:      SIGFlatcarGen2ImageConfigTemplate.WithOptions(opts...),
+		AKSFlatcarArm64Gen2: SIGFlatcarArm64Gen2ImageConfigTemplate.WithOptions(opts...),
+	}
+}
+
 func getSigWindowsImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]SigImageConfig {
 	return map[Distro]SigImageConfig{
 		AKSWindows2019:               SIGWindows2019ImageConfigTemplate.WithOptions(opts...),
@@ -1058,6 +1092,12 @@ func GetSIGAzureCloudSpecConfig(sigConfig SIGConfig, region string) (SIGAzureEnv
 	}
 	c.SigAzureLinuxImageConfig = getSigAzureLinuxImageConfigMapWithOpts(fromACSAzureLinux)
 
+	fromACSFlatcar, err := withACSSIGConfig(sigConfig, "AKSFlatcar")
+	if err != nil {
+		return SIGAzureEnvironmentSpecConfig{}, fmt.Errorf("unexpected error while constructing env-aware sig configuration for AKSFlatcar: %w", err)
+	}
+	c.SigFlatcarImageConfig = getSigFlatcarImageConfigMapWithOpts(fromACSFlatcar)
+
 	fromACSWindows, err := withACSSIGConfig(sigConfig, "AKSWindows")
 	if err != nil {
 		return SIGAzureEnvironmentSpecConfig{}, fmt.Errorf("unexpected error while constructing env-aware sig configuration for Windows: %w", err)
@@ -1083,6 +1123,7 @@ func GetAzurePublicSIGConfigForTest() SIGAzureEnvironmentSpecConfig {
 		SigAzureLinuxImageConfig:     getSigAzureLinuxImageConfigMapWithOpts(withSubscription(AzurePublicCloudSigSubscription)),
 		SigWindowsImageConfig:        getSigWindowsImageConfigMapWithOpts(withSubscription(AzurePublicCloudSigSubscription)),
 		SigUbuntuEdgeZoneImageConfig: getSigUbuntuEdgeZoneImageConfigMapWithOpts(withSubscription(AzurePublicCloudSigSubscription)),
+		SigFlatcarImageConfig:        getSigFlatcarImageConfigMapWithOpts(withSubscription(AzurePublicCloudSigSubscription)),
 	}
 }
 

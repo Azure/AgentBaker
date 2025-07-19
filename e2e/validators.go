@@ -420,7 +420,103 @@ func ValidateContainerd2Properties(ctx context.Context, s *Scenario, versions []
 func ValidateContainerRuntimePlugins(ctx context.Context, s *Scenario) {
 	// nri plugin is enabled by default
 	ValidateDirectoryContent(ctx, s, "/var/run/nri", []string{"nri.sock"})
+}
 
+func EnableGPUNPDToggle(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	command := []string{
+		"set -ex",
+		"echo '{\"enable-npd-gpu-checks\": \"true\"}' | sudo tee /etc/node-problem-detector.d/public-settings.json",
+		"sudo systemctl restart node-problem-detector",
+		"sudo systemctl is-active node-problem-detector",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "could not enable GPU NPD toggle and restart the node-problem-detector service")
+}
+
+func ValidateNPDGPUCountPlugin(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	command := []string{
+		"set -ex",
+		// Check NPD GPU count plugin config exists
+		"test -f /etc/node-problem-detector.d/custom-plugin-monitor/gpu_checks/custom-plugin-gpu-count.json",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "NPD GPU count plugin configuration does not exist")
+}
+
+func ValidateNPDGPUCountCondition(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	// Wait for NPD to report initial GPU count
+	var gpuCountCondition *corev1.NodeCondition
+	err := wait.PollUntilContextTimeout(ctx, 2*time.Second, 3*time.Minute, true, func(ctx context.Context) (bool, error) {
+		node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.KubeNodeName, metav1.GetOptions{})
+		if err != nil {
+			s.T.Logf("Failed to get node %q: %v", s.Runtime.KubeNodeName, err)
+			return false, nil // Continue polling on transient errors
+		}
+
+		// Check for GpuCount condition with correct reason
+		for i := range node.Status.Conditions {
+			if node.Status.Conditions[i].Type == "GPUMissing" && node.Status.Conditions[i].Reason == "NoGPUMissing" {
+				gpuCountCondition = &node.Status.Conditions[i]
+				return true, nil // Found the condition we are looking for
+			}
+		}
+
+		return false, nil // Continue polling until the condition is found or timeout occurs
+
+	})
+	require.NoError(s.T, err, "timed out waiting for NoGPUMissing condition to appear on node %q", s.Runtime.KubeNodeName)
+
+	require.NotNil(s.T, gpuCountCondition, "expected to find GPUMissing condition with NoGPUMissing reason on node")
+	require.Equal(s.T, corev1.ConditionFalse, gpuCountCondition.Status, "expected GPUMissing condition to be False")
+	require.Contains(s.T, gpuCountCondition.Message, "All GPUs are present", "expected GPUMissing message to indicate correct count")
+}
+
+func ValidateNPDGPUCountAfterFailure(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	command := []string{
+		"set -ex",
+		// Disable and reset the first GPU
+		"sudo systemctl stop nvidia-persistenced.service",
+		"sudo nvidia-smi -i 0 -pm 0", // Disable persistence mode
+		"sudo nvidia-smi -i 0 -c 0",  // Set compute mode to default
+		"PCI_ID=$(sudo nvidia-smi -i 0 --query-gpu=pci.bus_id --format=csv,noheader | sed 's/^0000//')", // sed converts the output into the format needed for NVreg_ExcludeDevices
+		"echo ${PCI_ID} | tee /tmp/npd_test_disabled_pci_id",
+		"echo ${PCI_ID} | sudo tee /sys/bus/pci/drivers/nvidia/unbind", // Reset the GPU
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to disable GPU")
+
+	// Put the VM back to the original state, re-enable the GPU.
+	command = []string{
+		"set -ex",
+		"cat /tmp/npd_test_disabled_pci_id | sudo tee /sys/bus/pci/drivers/nvidia/bind",
+		"rm -f /tmp/npd_test_disabled_pci_id", // Clean up the temporary file
+	}
+	defer execScriptOnVMForScenario(ctx, s, strings.Join(command, "\n"))
+
+	// Wait for NPD to detect the change
+	var gpuCountCondition *corev1.NodeCondition
+	err := wait.PollUntilContextTimeout(ctx, 2*time.Second, 3*time.Minute, true, func(ctx context.Context) (bool, error) {
+		node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.KubeNodeName, metav1.GetOptions{})
+		if err != nil {
+			s.T.Logf("Failed to get node %q: %v", s.Runtime.KubeNodeName, err)
+			return false, nil // Continue polling on transient errors
+		}
+
+		for i := range node.Status.Conditions {
+			if node.Status.Conditions[i].Type == "GPUMissing" && node.Status.Conditions[i].Reason == "GPUMissing" {
+				gpuCountCondition = &node.Status.Conditions[i]
+				return true, nil // Found the condition we are looking for
+			}
+		}
+
+		return false, nil // Continue polling
+	})
+	require.NoError(s.T, err, "timed out waiting for GPUMissing condition to appear on node %q", s.Runtime.KubeNodeName)
+
+	require.NotNil(s.T, gpuCountCondition, "expected to find GPUMissing condition with GPUMissing reason on node")
+	require.Equal(s.T, corev1.ConditionTrue, gpuCountCondition.Status, "expected GPUMissing condition to be True")
+	require.Contains(s.T, gpuCountCondition.Message, "Expected to see 8 GPUs but found 7. FaultCode: NHC2009", "expected GPUMissing message to indicate GPU count mismatch")
 }
 
 func ValidateRunc12Properties(ctx context.Context, s *Scenario, versions []string) {

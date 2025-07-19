@@ -179,7 +179,7 @@ func logSSHInstructions(s *Scenario) {
 	}
 	result += "\n========================\n"
 	result += fmt.Sprintf("az account set --subscription %s\n", config.Config.SubscriptionID)
-	result += fmt.Sprintf("az aks get-credentials --resource-group %s --name %s --overwrite-existing\n", config.ResourceGroupName, *s.Runtime.Cluster.Model.Name)
+	result += fmt.Sprintf("az aks get-credentials --resource-group %s --name %s --overwrite-existing\n", config.ResourceGroupName(s.Location), *s.Runtime.Cluster.Model.Name)
 	result += fmt.Sprintf(`kubectl exec -it %s -- bash -c "chroot /proc/1/root /bin/bash -c '%s'"`, s.Runtime.Cluster.DebugPod.Name, sshString(s.Runtime.VMPrivateIP))
 	s.T.Log(result)
 	//runtime.Breakpoint() // uncomment to pause the test

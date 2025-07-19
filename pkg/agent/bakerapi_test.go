@@ -125,6 +125,10 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 				GalleryName:   "AKSUbuntuEdgeZone",
 				ResourceGroup: "AKS-Ubuntu-EdgeZone",
 			},
+			"AKSFlatcar": {
+				GalleryName:   "aksflatcar",
+				ResourceGroup: "resourcegroup",
+			},
 		}
 		sigConfig = &datamodel.SIGConfig{
 			TenantID:       "sometenantid",
@@ -297,6 +301,7 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 			ubuntuDistros     []datamodel.Distro
 			marinerDistros    []datamodel.Distro
 			azureLinuxDistros []datamodel.Distro
+			flatcarDistros    []datamodel.Distro
 			allLinuxDistros   []datamodel.Distro
 		)
 
@@ -350,9 +355,15 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 				datamodel.AKSAzureLinuxV3CVMGen2,
 			}
 
+			flatcarDistros = []datamodel.Distro{
+				datamodel.AKSFlatcarGen2,
+				datamodel.AKSFlatcarArm64Gen2,
+			}
+
 			allLinuxDistros = append(allLinuxDistros, ubuntuDistros...)
 			allLinuxDistros = append(allLinuxDistros, marinerDistros...)
 			allLinuxDistros = append(allLinuxDistros, azureLinuxDistros...)
+			allLinuxDistros = append(allLinuxDistros, flatcarDistros...)
 		})
 
 		It("should return correct value for all existing distros", func() {
@@ -390,6 +401,11 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 				config := configs[distro]
 				Expect(config.Gallery).To(Equal("aksazurelinux"))
 			}
+
+			for _, distro := range flatcarDistros {
+				config := configs[distro]
+				Expect(config.Gallery).To(Equal("aksflatcar"))
+			}
 		})
 
 		It("should return correct value for all existing distros with linux node image version override", func() {
@@ -397,6 +413,7 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 				ubuntuOverrideVersion     = "202402.25.0"
 				marinerOverrideVersion    = "202402.25.1"
 				azureLinuxOverrideVersion = "202402.25.2"
+				flatcarOverrideVersion    = "202402.25.2"
 			)
 			imageVersionOverrides := map[datamodel.Distro]string{}
 			for _, distro := range ubuntuDistros {
@@ -407,6 +424,9 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 			}
 			for _, distro := range azureLinuxDistros {
 				imageVersionOverrides[distro] = azureLinuxOverrideVersion
+			}
+			for _, distro := range flatcarDistros {
+				imageVersionOverrides[distro] = flatcarOverrideVersion
 			}
 			toggles := &testToggles{
 				nodeImageVersionOverrides: imageVersionOverrides,
@@ -447,6 +467,12 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 				config := configs[distro]
 				Expect(config.Gallery).To(Equal("aksazurelinux"))
 				Expect(config.Version).To(Equal(azureLinuxOverrideVersion))
+			}
+
+			for _, distro := range flatcarDistros {
+				config := configs[distro]
+				Expect(config.Gallery).To(Equal("aksflatcar"))
+				Expect(config.Version).To(Equal(flatcarOverrideVersion))
 			}
 		})
 
