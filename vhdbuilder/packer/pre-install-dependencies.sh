@@ -1,5 +1,5 @@
 #!/bin/bash
-OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
+OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID=(.*))$/, a) { print toupper(a[2]); exit }')
 OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
 
@@ -46,7 +46,9 @@ else
 fi
 systemctl daemon-reload
 systemctlEnableAndStart systemd-journald 30 || exit 1
-systemctlEnableAndStart rsyslog 30 || exit 1
+if ! isFlatcar "$OS" ; then
+    systemctlEnableAndStart rsyslog 30 || exit 1
+fi
 
 systemctlEnableAndStart disk_queue 30 || exit 1
 capture_benchmark "${SCRIPT_NAME}_copy_packer_files_and_enable_logging"
@@ -60,6 +62,19 @@ capture_benchmark "${SCRIPT_NAME}_make_certs_directory_and_update_certs"
 systemctlEnableAndStart ci-syslog-watcher.path 30 || exit 1
 systemctlEnableAndStart ci-syslog-watcher.service 30 || exit 1
 
+if isFlatcar "$OS"; then
+    # "copy-on-write"; this starts out as a symlink to a R/O location
+    cp /etc/waagent.conf{,.new}
+    mv /etc/waagent.conf{.new,}
+    # urllib3 is not installed on Flatcar and can't be installed systemd-wide
+    # due to immutability
+    python3 -m venv /opt/py3 || exit 1
+    /opt/py3/bin/pip install --upgrade urllib3 || exit 1
+    mkdir -p /etc/systemd/system/aks-log-collector.service.d || exit 1
+    pushd /etc/systemd/system/aks-log-collector.service.d || exit 1
+    echo -e "[Service]\nEnvironment=PATH=/opt/py3/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" > override.conf || exit 1
+    popd || exit 1
+fi
 # enable AKS log collector
 echo -e "\n# Disable WALA log collection because AKS Log Collector is installed.\nLogs.Collect=n" >> /etc/waagent.conf || exit 1
 systemctlEnableAndStart aks-log-collector.timer 30 || exit 1

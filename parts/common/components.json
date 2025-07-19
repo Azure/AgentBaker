@@ -213,7 +213,7 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
-          "latestVersion": "v1.6.27"
+          "latestVersion": "v1.6.30"
         }
       ],
       "multiArchVersionsV2": [
@@ -247,8 +247,8 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
-          "latestVersion": "v1.6.27",
-          "previousLatestVersion": "v1.6.26",
+          "latestVersion": "v1.6.30",
+          "previousLatestVersion": "v1.6.29",
           "containerImagePrefetch": {
             "latestVersion": {
               "binaries": [
@@ -412,15 +412,15 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=azuremonitor/containerinsights/ciprod/prometheus-collector/images",
-          "latestVersion": "6.18.0-main-06-19-2025-4901e151"
+          "latestVersion": "6.19.0-main-07-10-2025-36d292f8"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=azuremonitor/containerinsights/ciprod/prometheus-collector/images",
-          "latestVersion": "6.18.0-main-06-19-2025-4901e151-targetallocator"
+          "latestVersion": "6.19.0-main-07-10-2025-36d292f8-targetallocator"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=azuremonitor/containerinsights/ciprod/prometheus-collector/images",
-          "latestVersion": "6.18.0-main-06-19-2025-4901e151-cfg"
+          "latestVersion": "6.19.0-main-07-10-2025-36d292f8-cfg"
         }
       ],
       "windowsVersions": []
@@ -816,14 +816,14 @@
       "downloadURL": "mcr.microsoft.com/aks/aks-gpu-cuda:*",
       "gpuVersion": {
         "renovateTag": "registry=https://mcr.microsoft.com, name=aks/aks-gpu-cuda",
-        "latestVersion": "550.144.03-20250328201547"
+        "latestVersion": "550.144.03-20250609191705"
       }
     },
     {
       "downloadURL": "mcr.microsoft.com/aks/aks-gpu-grid:*",
       "gpuVersion": {
         "renovateTag": "registry=https://mcr.microsoft.com, name=aks/aks-gpu-grid",
-        "latestVersion": "550.144.06-20250512225043"
+        "latestVersion": "550.144.06-20250609191703"
       }
     }
   ],
@@ -1009,7 +1009,7 @@
             "versionsV2": [
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "0.1.0-alpha.7"
+                "latestVersion": "0.1.0-alpha.8"
               }
             ],
             "downloadURL": "https://github.com/Azure/aks-secure-tls-bootstrap/releases/download/client/v${version}/linux-${CPU_ARCH}.tar.gz"
@@ -1283,7 +1283,7 @@
           "current": {
             "versionsV2": [
               {
-                "renovateTag": "RPM_registry=https://packages.microsoft.com/cbl-mariner/2.0/prod/base/x86_64/repodata, name=kubernetes-cri-tools, os=mariner, release=2.0",
+                "renovateTag": "RPM_registry=https://packages.microsoft.com/cbl-mariner/2.0/prod/cloud-native/x86_64/repodata, name=kubernetes-cri-tools, os=mariner, release=2.0",
                 "latestVersion": "1.32.0-3.cm2"
               }
             ]
@@ -1293,7 +1293,7 @@
           "current": {
             "versionsV2": [
              {
-                "renovateTag": "RPM_registry=https://packages.microsoft.com/cbl-mariner/2.0/prod/base/x86_64/repodata, name=kubernetes-cri-tools, os=mariner, release=2.0",
+                "renovateTag": "RPM_registry=https://packages.microsoft.com/cbl-mariner/2.0/prod/cloud-native/x86_64/repodata, name=kubernetes-cri-tools, os=mariner, release=2.0",
                 "latestVersion": "1.32.0-3.cm2"
               }
             ]
@@ -1303,7 +1303,7 @@
           "v3.0": {
             "versionsV2": [
               {
-                "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/base/x86_64/repodata, name=kubernetes-cri-tools, os=azurelinux, release=3.0",
+                "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=kubernetes-cri-tools, os=azurelinux, release=3.0",
                 "latestVersion": "1.32.0-3.azl3"
               }
             ]
@@ -1313,7 +1313,7 @@
           "v3.0": {
             "versionsV2": [
               {
-                "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/base/x86_64/repodata, name=kubernetes-cri-tools, os=azurelinux, release=3.0",
+                "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=kubernetes-cri-tools, os=azurelinux, release=3.0",
                 "latestVersion": "1.32.0-3.azl3"
               }
             ]

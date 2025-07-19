@@ -109,6 +109,10 @@ copyPackerFiles() {
   BLOCK_WIRESERVER_DEST=/opt/azure/containers/kubelet.sh
   ENSURE_IMDS_RESTRICTION_SRC=/home/packer/ensure_imds_restriction.sh
   ENSURE_IMDS_RESTRICTION_DEST=/opt/azure/containers/ensure_imds_restriction.sh
+  MEASURE_TLS_BOOTSTRAPPING_LATENCY_SCRIPT_SRC=/home/packer/measure-tls-bootstrapping-latency.sh
+  MEASURE_TLS_BOOTSTRAPPING_LATENCY_SCRIPT_DEST=/opt/azure/containers/measure-tls-bootstrapping-latency.sh
+  MEASURE_TLS_BOOTSTRAPPING_LATENCY_SERVICE_SRC=/home/packer/measure-tls-bootstrapping-latency.service
+  MEASURE_TLS_BOOTSTRAPPING_LATENCY_SERVICE_DEST=/etc/systemd/system/measure-tls-bootstrapping-latency.service
   VALIDATE_KUBELET_CREDENTIALS_SCRIPT_SRC=/home/packer/validate-kubelet-credentials.sh
   VALIDATE_KUBELET_CREDENTIALS_SCRIPT_DEST=/opt/azure/containers/validate-kubelet-credentials.sh
   RECONCILE_PRIVATE_HOSTS_SRC=/home/packer/reconcile-private-hosts.sh
@@ -174,7 +178,7 @@ copyPackerFiles() {
       cpAndMode $KATA_IMAGE_SRC $KATA_IMAGE_DEST 0755
 
       KATACC_IMAGE_SRC=/home/packer/kata-containers-cc.img
-      KATACC_IMAGE_DEST=$KATACC_CONFIG_DIR/kata-containers-cc.img
+      KATACC_IMAGE_DEST=$KATACC_CONFIG_DIR/kata-containers.img
       cpAndMode $KATACC_IMAGE_SRC $KATACC_IMAGE_DEST 0755
     fi
 
@@ -333,6 +337,8 @@ copyPackerFiles() {
   cpAndMode $SECURE_TLS_BOOTSTRAP_SERVICE_SRC $SECURE_TLS_BOOTSTRAP_SERVICE_DEST 600
   cpAndMode $BLOCK_WIRESERVER_SRC $BLOCK_WIRESERVER_DEST 755
   cpAndMode $ENSURE_IMDS_RESTRICTION_SRC $ENSURE_IMDS_RESTRICTION_DEST 755
+  cpAndMode $MEASURE_TLS_BOOTSTRAPPING_LATENCY_SCRIPT_SRC $MEASURE_TLS_BOOTSTRAPPING_LATENCY_SCRIPT_DEST 755
+  cpAndMode $MEASURE_TLS_BOOTSTRAPPING_LATENCY_SERVICE_SRC $MEASURE_TLS_BOOTSTRAPPING_LATENCY_SERVICE_DEST 644
   cpAndMode $VALIDATE_KUBELET_CREDENTIALS_SCRIPT_SRC $VALIDATE_KUBELET_CREDENTIALS_SCRIPT_DEST 755
   cpAndMode $RECONCILE_PRIVATE_HOSTS_SRC $RECONCILE_PRIVATE_HOSTS_DEST 744
   cpAndMode $SYSCTL_CONFIG_SRC $SYSCTL_CONFIG_DEST 644
