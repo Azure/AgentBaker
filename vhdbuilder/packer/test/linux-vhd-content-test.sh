@@ -599,8 +599,8 @@ testLSMBPF() {
     return 0
   fi
 
-  # Skip testing for BPF LSM modules on CVM or Kata SKUs for now
-  # TODO: fix BPF LSM module configuration on CVM and Kata SKUs
+  # Skip testing that LSM BPF is configured correctly on Kata and CVM SKUs for now
+  # TODO: fix LSM BPF module configuration Kata and CVM SKUs
   if echo "$FEATURE_FLAGS" | grep -q "kata" || echo "$FEATURE_FLAGS" | grep -q "cvm"; then
     echo "$test: will not test for BPF to be present within LSM modules for CVM or Kata SKUs"
     echo "$test:Finish"
