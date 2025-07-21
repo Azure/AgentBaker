@@ -1957,7 +1957,7 @@ oom_score = -999
 			},
 		),
 		Entry("Flatcar", "Flatcar", "1.31.0", func(config *datamodel.NodeBootstrappingConfiguration) {
-			config.OSSKU = "Flatcar"
+			config.OSSKU = datamodel.OSSKUFlatcar
 			config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSFlatcarGen2
 			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
 				ContainerRuntime: datamodel.Containerd,
