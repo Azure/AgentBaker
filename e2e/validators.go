@@ -477,7 +477,7 @@ func ValidateNPDGPUCountAfterFailure(ctx context.Context, s *Scenario) {
 	command := []string{
 		"set -ex",
 		// Disable and reset the first GPU
-		"sudo systemctl stop nvidia-persistenced.service",
+		"sudo systemctl stop nvidia-persistenced.service || true",
 		"sudo nvidia-smi -i 0 -pm 0", // Disable persistence mode
 		"sudo nvidia-smi -i 0 -c 0",  // Set compute mode to default
 		"PCI_ID=$(sudo nvidia-smi -i 0 --query-gpu=pci.bus_id --format=csv,noheader | sed 's/^0000//')", // sed converts the output into the format needed for NVreg_ExcludeDevices
