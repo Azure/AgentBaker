@@ -293,6 +293,10 @@ if [ "${SHOULD_CONFIG_TRANSPARENT_HUGE_PAGE}" = "true" ]; then
     logs_to_events "AKS.CSE.configureTransparentHugePage" configureTransparentHugePage
 fi
 
+if [ "${SHOULD_CONFIG_ETHTOOL}" = "true" ]; then
+    logs_to_events "AKS.CSE.configureEthtool" configureEthtool
+fi
+
 if [ "${SHOULD_CONFIG_SWAP_FILE}" = "true" ]; then
     logs_to_events "AKS.CSE.configureSwapFile" configureSwapFile
 fi

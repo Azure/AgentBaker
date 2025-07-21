@@ -1401,136 +1401,19 @@ func Test_getKubeletFlags(t *testing.T) {
 	}
 }
 
-func Test_getCPUCores(t *testing.T) {
-	type args struct {
-		vmSize string
-	}
-	tests := []struct {
-		name string
-		args args
-		want int
-	}{
-		{
-			name: "Standard_D2s_v3 should return 2 cores",
-			args: args{
-				vmSize: "Standard_D2s_v3",
-			},
-			want: 2,
-		},
-		{
-			name: "Standard_D4s_v3 should return 4 cores",
-			args: args{
-				vmSize: "Standard_D4s_v3",
-			},
-			want: 4,
-		},
-		{
-			name: "Standard_D8s_v3 should return 8 cores",
-			args: args{
-				vmSize: "Standard_D8s_v3",
-			},
-			want: 8,
-		},
-		{
-			name: "Standard_E4s_v4 should return 4 cores",
-			args: args{
-				vmSize: "Standard_E4s_v4",
-			},
-			want: 4,
-		},
-		{
-			name: "Standard_F8s_v2 should return 8 cores",
-			args: args{
-				vmSize: "Standard_F8s_v2",
-			},
-			want: 8,
-		},
-		{
-			name: "Standard_B1s should return 1 core",
-			args: args{
-				vmSize: "Standard_B1s",
-			},
-			want: 1,
-		},
-		{
-			name: "Unknown VM size should return 0",
-			args: args{
-				vmSize: "Unknown_VM_Size",
-			},
-			want: 0,
-		},
-		{
-			name: "Empty VM size should return 0",
-			args: args{
-				vmSize: "",
-			},
-			want: 0,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := getCPUCores(tt.args.vmSize); got != tt.want {
-				t.Errorf("getCPUCores() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
 func Test_getShouldConfigEthtool(t *testing.T) {
-	type args struct {
-		vmSize string
-	}
 	tests := []struct {
 		name string
-		args args
 		want bool
 	}{
 		{
-			name: "Standard_D2s_v3 (2 cores) should return false",
-			args: args{
-				vmSize: "Standard_D2s_v3",
-			},
-			want: false,
-		},
-		{
-			name: "Standard_D4s_v3 (4 cores) should return true",
-			args: args{
-				vmSize: "Standard_D4s_v3",
-			},
+			name: "should always return true for runtime CPU detection",
 			want: true,
-		},
-		{
-			name: "Standard_D8s_v3 (8 cores) should return true",
-			args: args{
-				vmSize: "Standard_D8s_v3",
-			},
-			want: true,
-		},
-		{
-			name: "Standard_B1s (1 core) should return false",
-			args: args{
-				vmSize: "Standard_B1s",
-			},
-			want: false,
-		},
-		{
-			name: "Unknown VM size should return false",
-			args: args{
-				vmSize: "Unknown_VM_Size",
-			},
-			want: false,
-		},
-		{
-			name: "Empty VM size should return false",
-			args: args{
-				vmSize: "",
-			},
-			want: false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := getShouldConfigEthtool(tt.args.vmSize); got != tt.want {
+			if got := getShouldConfigEthtool(); got != tt.want {
 				t.Errorf("getShouldConfigEthtool() = %v, want %v", got, tt.want)
 			}
 		})
@@ -1538,60 +1421,18 @@ func Test_getShouldConfigEthtool(t *testing.T) {
 }
 
 func Test_getEthtoolRxBufferSize(t *testing.T) {
-	type args struct {
-		vmSize string
-	}
 	tests := []struct {
 		name string
-		args args
 		want string
 	}{
 		{
-			name: "Standard_D2s_v3 (2 cores) should return empty string",
-			args: args{
-				vmSize: "Standard_D2s_v3",
-			},
-			want: "",
-		},
-		{
-			name: "Standard_D4s_v3 (4 cores) should return 2048",
-			args: args{
-				vmSize: "Standard_D4s_v3",
-			},
+			name: "should always return 2048",
 			want: "2048",
-		},
-		{
-			name: "Standard_D8s_v3 (8 cores) should return 2048",
-			args: args{
-				vmSize: "Standard_D8s_v3",
-			},
-			want: "2048",
-		},
-		{
-			name: "Standard_E16s_v4 (16 cores) should return 2048",
-			args: args{
-				vmSize: "Standard_E16s_v4",
-			},
-			want: "2048",
-		},
-		{
-			name: "Standard_B1s (1 core) should return empty string",
-			args: args{
-				vmSize: "Standard_B1s",
-			},
-			want: "",
-		},
-		{
-			name: "Unknown VM size should return empty string",
-			args: args{
-				vmSize: "Unknown_VM_Size",
-			},
-			want: "",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := getEthtoolRxBufferSize(tt.args.vmSize); got != tt.want {
+			if got := getEthtoolRxBufferSize(); got != tt.want {
 				t.Errorf("getEthtoolRxBufferSize() = %v, want %v", got, tt.want)
 			}
 		})

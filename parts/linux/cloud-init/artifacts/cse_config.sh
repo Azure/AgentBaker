@@ -28,6 +28,24 @@ configureTransparentHugePage() {
     fi
 }
 
+configureEthtool() {
+    # Check if the system has 4 or more CPU cores using nproc
+    cpu_cores=$(nproc)
+    if [ "${cpu_cores}" -ge 4 ] && [ -n "${ETHTOOL_RX_BUFFER_SIZE}" ]; then
+        # Find the primary network interface (exclude loopback)
+        primary_interface=$(ip route | grep default | awk '{print $5}' | head -n1)
+        if [ -n "${primary_interface}" ]; then
+            echo "Configuring ethtool RX buffer size to ${ETHTOOL_RX_BUFFER_SIZE} on interface ${primary_interface} (CPU cores: ${cpu_cores})"
+            # Set RX buffer size
+            ethtool -G "${primary_interface}" rx "${ETHTOOL_RX_BUFFER_SIZE}" || echo "Failed to set ethtool RX buffer size, continuing..."
+        else
+            echo "Could not determine primary network interface, skipping ethtool configuration"
+        fi
+    else
+        echo "Skipping ethtool configuration: CPU cores=${cpu_cores}, required=4+, ETHTOOL_RX_BUFFER_SIZE=${ETHTOOL_RX_BUFFER_SIZE}"
+    fi
+}
+
 configureSystemdUseDomains() {
     NETWORK_CONFIG_FILE="/etc/systemd/networkd.conf"
 

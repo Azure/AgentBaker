@@ -705,88 +705,15 @@ func getEnableNvidia(config *aksnodeconfigv1.Configuration) bool {
 	return false
 }
 
-// getCPUCores returns the number of CPU cores from VM size.
-// This is a simplified implementation that extracts CPU cores from common VM size patterns.
-func getCPUCores(vmSize string) int {
-	// Common Azure VM size patterns and their CPU cores
-	vmCoreMap := map[string]int{
-		// Standard_D series
-		"Standard_D2s_v3":   2,
-		"Standard_D4s_v3":   4,
-		"Standard_D8s_v3":   8,
-		"Standard_D16s_v3":  16,
-		"Standard_D32s_v3":  32,
-		"Standard_D64s_v3":  64,
-		"Standard_D2s_v4":   2,
-		"Standard_D4s_v4":   4,
-		"Standard_D8s_v4":   8,
-		"Standard_D16s_v4":  16,
-		"Standard_D32s_v4":  32,
-		"Standard_D64s_v4":  64,
-		"Standard_D2s_v5":   2,
-		"Standard_D4s_v5":   4,
-		"Standard_D8s_v5":   8,
-		"Standard_D16s_v5":  16,
-		"Standard_D32s_v5":  32,
-		"Standard_D64s_v5":  64,
-		// Standard_E series (memory optimized)
-		"Standard_E2s_v3":   2,
-		"Standard_E4s_v3":   4,
-		"Standard_E8s_v3":   8,
-		"Standard_E16s_v3":  16,
-		"Standard_E32s_v3":  32,
-		"Standard_E64s_v3":  64,
-		"Standard_E2s_v4":   2,
-		"Standard_E4s_v4":   4,
-		"Standard_E8s_v4":   8,
-		"Standard_E16s_v4":  16,
-		"Standard_E32s_v4":  32,
-		"Standard_E64s_v4":  64,
-		"Standard_E2s_v5":   2,
-		"Standard_E4s_v5":   4,
-		"Standard_E8s_v5":   8,
-		"Standard_E16s_v5":  16,
-		"Standard_E32s_v5":  32,
-		"Standard_E64s_v5":  64,
-		// Standard_F series (compute optimized)
-		"Standard_F2s_v2":   2,
-		"Standard_F4s_v2":   4,
-		"Standard_F8s_v2":   8,
-		"Standard_F16s_v2":  16,
-		"Standard_F32s_v2":  32,
-		"Standard_F64s_v2":  64,
-		// Standard_B series (burstable)
-		"Standard_B1s":      1,
-		"Standard_B1ms":     1,
-		"Standard_B2s":      2,
-		"Standard_B2ms":     2,
-		"Standard_B4ms":     4,
-		"Standard_B8ms":     8,
-		"Standard_B12ms":    12,
-		"Standard_B16ms":    16,
-		"Standard_B20ms":    20,
-	}
-
-	if cores, exists := vmCoreMap[vmSize]; exists {
-		return cores
-	}
-
-	// For unknown VM sizes, return 0 to indicate unknown
-	return 0
-}
-
-// getShouldConfigEthtool determines if ethtool RX buffer tuning should be enabled
-// based on the number of CPU cores (4 or more).
-func getShouldConfigEthtool(vmSize string) bool {
-	cores := getCPUCores(vmSize)
-	return cores >= 4
+// getShouldConfigEthtool determines if ethtool RX buffer tuning should be enabled.
+// This always returns true as the actual CPU core check will be done at runtime
+// during node provisioning using nproc command.
+func getShouldConfigEthtool() bool {
+	return true
 }
 
 // getEthtoolRxBufferSize returns the ethtool RX buffer size configuration.
-// Returns empty string if ethtool should not be configured.
-func getEthtoolRxBufferSize(vmSize string) string {
-	if getShouldConfigEthtool(vmSize) {
-		return "2048"
-	}
-	return ""
+// The actual decision to apply this will be made at runtime based on CPU cores.
+func getEthtoolRxBufferSize() string {
+	return "2048"
 }
