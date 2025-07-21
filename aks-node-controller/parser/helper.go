@@ -24,6 +24,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"os"
+	"os/exec"
 	"sort"
 	"strconv"
 	"strings"
@@ -716,4 +718,32 @@ func getShouldConfigEthtool() bool {
 // The actual decision to apply this will be made at runtime based on CPU cores.
 func getEthtoolRxBufferSize() string {
 	return "2048"
+}
+
+// configureEthtoolService creates the environment file and enables the ethtool systemd service
+func configureEthtoolService() error {
+	// Skip configuration in test environments or when not running as root
+	if os.Getenv("SKIP_ETHTOOL_CONFIG") == "true" || os.Geteuid() != 0 {
+		return nil
+	}
+
+	// Create the environment file for the systemd service
+	envContent := fmt.Sprintf("ETHTOOL_RX_BUFFER_SIZE=%s\n", getEthtoolRxBufferSize())
+	if err := os.WriteFile("/etc/default/ethtool-config", []byte(envContent), 0644); err != nil {
+		return fmt.Errorf("failed to write ethtool environment file: %w", err)
+	}
+
+	// Enable the ethtool-rx-buffer systemd service
+	cmd := exec.Command("systemctl", "enable", "ethtool-rx-buffer.service")
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to enable ethtool-rx-buffer service: %w", err)
+	}
+
+	// Start the ethtool-rx-buffer systemd service
+	cmd = exec.Command("systemctl", "start", "ethtool-rx-buffer.service")
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to start ethtool-rx-buffer service: %w", err)
+	}
+
+	return nil
 }

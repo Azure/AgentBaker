@@ -166,8 +166,6 @@ func getCSEEnv(config *aksnodeconfigv1.Configuration) map[string]string {
 		"BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER":    config.GetBootstrapProfileContainerRegistryServer(),
 		"ENABLE_IMDS_RESTRICTION":                        fmt.Sprintf("%v", config.GetImdsRestrictionConfig().GetEnableImdsRestriction()),
 		"INSERT_IMDS_RESTRICTION_RULE_TO_MANGLE_TABLE":   fmt.Sprintf("%v", config.GetImdsRestrictionConfig().GetInsertImdsRestrictionRuleToMangleTable()),
-		"SHOULD_CONFIG_ETHTOOL":                          fmt.Sprintf("%v", getShouldConfigEthtool()),
-		"ETHTOOL_RX_BUFFER_SIZE":                         getEthtoolRxBufferSize(),
 	}
 
 	for i, cert := range config.CustomCaCerts {
@@ -186,6 +184,13 @@ func mapToEnviron(input map[string]string) []string {
 }
 
 func BuildCSECmd(ctx context.Context, config *aksnodeconfigv1.Configuration) (*exec.Cmd, error) {
+	// Configure ethtool systemd service if enabled
+	if getShouldConfigEthtool() {
+		if err := configureEthtoolService(); err != nil {
+			return nil, fmt.Errorf("failed to configure ethtool service: %w", err)
+		}
+	}
+
 	triggerBootstrapScript, err := executeBootstrapTemplate(config)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute the template: %w", err)
