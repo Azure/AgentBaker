@@ -166,6 +166,8 @@ func getCSEEnv(config *aksnodeconfigv1.Configuration) map[string]string {
 		"BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER":    config.GetBootstrapProfileContainerRegistryServer(),
 		"ENABLE_IMDS_RESTRICTION":                        fmt.Sprintf("%v", config.GetImdsRestrictionConfig().GetEnableImdsRestriction()),
 		"INSERT_IMDS_RESTRICTION_RULE_TO_MANGLE_TABLE":   fmt.Sprintf("%v", config.GetImdsRestrictionConfig().GetInsertImdsRestrictionRuleToMangleTable()),
+		"SHOULD_CONFIG_ETHTOOL":                          fmt.Sprintf("%v", getShouldConfigEthtool(config.GetVmSize())),
+		"ETHTOOL_RX_BUFFER_SIZE":                         getEthtoolRxBufferSize(config.GetVmSize()),
 	}
 
 	for i, cert := range config.CustomCaCerts {
