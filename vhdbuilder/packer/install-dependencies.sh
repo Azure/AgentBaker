@@ -670,63 +670,6 @@ else
 fi
 capture_benchmark "${SCRIPT_NAME}_finish_installing_bcc_tools"
 
-# Configure LSM modules to include BPF
-configureLsmWithBpf() {
-  echo "Configuring LSM modules to include BPF..."
-
-  # Read current LSM modules
-  if [ ! -f /sys/kernel/security/lsm ]; then
-    echo "Warning: /sys/kernel/security/lsm not found, skipping LSM configuration"
-    return 0
-  fi
-
-  local current_lsm
-  current_lsm=$(cat /sys/kernel/security/lsm)
-  echo "Current LSM modules: $current_lsm"
-
-  # Prepend bpf to the LSM list if not already present
-  if ! echo "$current_lsm" | grep -q bpf; then
-    local new_lsm="bpf,$current_lsm"
-    echo "New LSM configuration: $new_lsm"
-
-    if [ "$OS" = "$UBUNTU_OS_NAME" ] && [ "$OS_VERSION" = "24.04" ]; then
-      local grub_cfg="/etc/default/grub.d/50-cloudimg-settings.cfg"
-      if [ -f "$grub_cfg" ]; then
-        if grep -q "lsm=" "$grub_cfg"; then
-          sed -i "s/lsm=[^[:space:]]*/lsm=$new_lsm/g" "$grub_cfg"
-        else
-          sed -i "s/GRUB_CMDLINE_LINUX_DEFAULT=\"/GRUB_CMDLINE_LINUX_DEFAULT=\"lsm=$new_lsm /" "$grub_cfg"
-        fi
-        echo "Updating GRUB configuration for Ubuntu 24.04..."
-        update-grub2 /boot/grub/grub.cfg || echo "Warning: Failed to update GRUB configuration"
-      else
-        echo "Warning: $grub_cfg not found, skipping LSM configuration"
-      fi
-    elif isMarinerOrAzureLinux "$OS" && [ "$OS_VERSION" = "3.0" ]; then
-      if [ -f /etc/default/grub ]; then
-        if grep -q "lsm=" /etc/default/grub; then
-          sed -i "s/lsm=[^[:space:]]*/lsm=$new_lsm/g" /etc/default/grub
-        else
-          sed -i "s/GRUB_CMDLINE_LINUX_DEFAULT=\"/GRUB_CMDLINE_LINUX_DEFAULT=\"lsm=$new_lsm /" /etc/default/grub
-        fi
-        echo "Updating GRUB configuration for Azure Linux 3.0..."
-        grub2-mkconfig -o /boot/grub2/grub.cfg || echo "Warning: Failed to update GRUB configuration"
-      else
-        echo "Warning: /etc/default/grub not found, skipping LSM configuration"
-      fi
-    else
-      echo "LSM BPF configuration is only enabled for Ubuntu 24.04 and Azure Linux 3.0, skipping"
-    fi
-
-    echo "LSM configuration update completed"
-  else
-    echo "BPF LSM already configured, skipping"
-  fi
-}
-
-configureLsmWithBpf
-capture_benchmark "${SCRIPT_NAME}_configure_lsm_with_bpf"
-
 # use the private_packages_url to download and cache packages
 if [ -n "${PRIVATE_PACKAGES_URL}" ]; then
   IFS=',' read -ra PRIVATE_URLS <<< "${PRIVATE_PACKAGES_URL}"
@@ -736,9 +679,6 @@ if [ -n "${PRIVATE_PACKAGES_URL}" ]; then
     cacheKubePackageFromPrivateUrl "$private_url"
   done
 fi
-
-
-
 
 LOCALDNS_BINARY_PATH="/opt/azure/containers/localdns/binary"
 # This function extracts CoreDNS binary from cached coredns images (n-1 image version and latest revision version)
