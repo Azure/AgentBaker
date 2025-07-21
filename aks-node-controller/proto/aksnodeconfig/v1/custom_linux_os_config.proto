@@ -24,6 +24,20 @@ message CustomLinuxOsConfig {
   // Valid values are "always", "madvise" and "never"
   // If it's unset or set to empty string, it will use the default value in the VHD "madvise"
   string transparent_defrag = 6;
+
+  // Ethtool configuration for network tuning
+  EthtoolConfig ethtool_config = 7;
+}
+
+message EthtoolConfig {
+  // Enable ethtool RX buffer size tuning for multi-core machines
+  bool enable_rx_buffer_tuning = 1;
+
+  // RX buffer size to set (default: 2048)
+  int32 rx_buffer_size = 2;
+
+  // Minimum CPU cores required to enable tuning (default: 4)
+  int32 min_cpu_cores = 3;
 }
 
 message SysctlConfig {
