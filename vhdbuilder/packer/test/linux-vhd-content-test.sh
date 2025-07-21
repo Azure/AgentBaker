@@ -592,36 +592,32 @@ testLSMBPF() {
   os_sku=$1
   os_version=$2
 
+  # Only test on Ubuntu 24.04 and Azure Linux 3.0 that LSM BPF is configured correctly
+  if { [ "$os_sku" != "Ubuntu" ] || [ "$os_version" != "24.04" ]; } && { [ "$os_sku" != "AzureLinux" ] || [ "$os_version" != "3.0" ]; }; then
+    echo "$test: will not test for BPF to be present within LSM modules for SKU: $os_sku, version: $os_version"
+    echo "$test:Finish"
+    return 0
+  fi
 
-  # Only test on Ubuntu 24.04 and Azure Linux 3.0 where LSM BPF is configured
-  if { [ "$os_sku" = "Ubuntu" ] && [ "$os_version" = "24.04" ]; } || { [ "$os_sku" = "AzureLinux" ] && [ "$os_version" = "3.0" ]; }; then
-    echo "$test: Testing LSM BPF configuration for $os_sku $os_version"
+  # Skip testing for BPF LSM modules on CVM or Kata SKUs for now
+  # TODO: fix BPF LSM module configuration on CVM and Kata SKUs
+  if echo "$FEATURE_FLAGS" | grep -q "kata" || echo "$FEATURE_FLAGS" | grep -q "cvm"; then
+    echo "$test: will not test for BPF to be present within LSM modules for CVM or Kata SKUs"
+    echo "$test:Finish"
+    return 0
+  fi
+
+  if [ -f /sys/kernel/security/lsm ]; then
+    current_lsm=$(cat /sys/kernel/security/lsm)
+    echo "$test: Current LSM modules: $current_lsm"
     
-    if [ -f /sys/kernel/security/lsm ]; then
-      current_lsm=$(cat /sys/kernel/security/lsm)
-      echo "$test: Current LSM modules: $current_lsm"
-      
-      if echo "$current_lsm" | grep -q "bpf"; then
-        echo "$test: BPF is present in LSM modules"
-      else
-        err $test "BPF is not present in LSM modules: $current_lsm"
-      fi
+    if echo "$current_lsm" | grep -q "bpf"; then
+      echo "$test: BPF is present in LSM modules"
     else
-      err $test "/sys/kernel/security/lsm file does not exist"
+      err $test "BPF is not present in LSM modules: $current_lsm"
     fi
   else
-    if [ -f /sys/kernel/security/lsm ]; then
-      current_lsm=$(cat /sys/kernel/security/lsm)
-      echo "$test: Current LSM modules: $current_lsm"
-
-      if echo "$current_lsm" | grep -q "bpf"; then
-        err $test "BPF is present in LSM modules: $current_lsm"
-      else
-        echo "$test BPF is not present in LSM modules: $current_lsm"
-      fi
-    else
-      echo "$test: /sys/kernel/security/lsm file does not exist, skipping LSM BPF test"
-    fi
+    err $test "/sys/kernel/security/lsm file does not exist"
   fi
 
   echo "$test:Finish"

@@ -686,6 +686,11 @@ configureLsmWithBpf() {
 
   # Prepend bpf to the LSM list if not already present
   if ! echo "$current_lsm" | grep -q bpf; then
+    if [ "$IS_KATA" = "true" ] || echo "$FEATURE_FLAGS" | grep -q "cvm"; then
+      echo "Warning: this is a Kata/CVM SKU - will not add BPF to LSM configuration"
+      return 0
+    fi
+    
     local new_lsm="bpf,$current_lsm"
     echo "New LSM configuration: $new_lsm"
 
