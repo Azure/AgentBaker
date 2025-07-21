@@ -947,7 +947,7 @@ testdomain567.com:53 {
 		Expect(err).To(BeNil())
 
 		var customDataBytes []byte
-		if config.AgentPoolProfile.IsWindows() || config.AgentPoolProfile.IsFlatcar() {
+		if config.AgentPoolProfile.IsWindows() || config.IsFlatcar() {
 			customDataBytes, err = base64.StdEncoding.DecodeString(nodeBootstrapping.CustomData)
 			Expect(err).To(BeNil())
 		} else {

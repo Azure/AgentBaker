@@ -53,7 +53,7 @@ func (t *TemplateGenerator) getLinuxNodeBootstrappingPayload(config *datamodel.N
 	// this might seem strange that we're encoding the custom data to a JSON string and then extracting it, but without that serialisation and deserialisation
 	// lots of tests fail.
 	var encoded string
-	if config.AgentPoolProfile.IsFlatcar() {
+	if config.IsFlatcar() {
 		customData := getCustomDataFromJSON(t.getFlatcarLinuxNodeCustomDataJSONObject(config))
 		encoded = base64.StdEncoding.EncodeToString([]byte(customData))
 	} else {
@@ -629,7 +629,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return cs.Properties.OrchestratorProfile.IsNoneCNI()
 		},
 		"IsFlatcar": func() bool {
-			return profile.IsFlatcar()
+			return config.IsFlatcar()
 		},
 		"IsMariner": func() bool {
 			// TODO(ace): do we care about both? 2nd one should be more general and catch custom VHD for mariner
@@ -1114,7 +1114,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return base64.StdEncoding.EncodeToString(b.Bytes()), nil
 		},
 		"ShouldEnableCustomData": func() bool {
-			return !config.DisableCustomData && !profile.IsFlatcar()
+			return !config.DisableCustomData && !config.IsFlatcar()
 		},
 		"GetPrivateEgressProxyAddress": func() string {
 			return config.ContainerService.Properties.SecurityProfile.GetProxyAddress()
