@@ -156,7 +156,13 @@ func (agentBaker *agentBakerImpl) GetDistroSigImageConfig(
 		allDistros[distro] = sigConfig
 	}
 
-	// TOOD: add overrides for Flatcar distros once ACSConfig has been updated with Flatcar gallery config entries
+	for distro, sigConfig := range allAzureSigConfig.SigFlatcarImageConfig {
+		imageVersion := agentBaker.toggles.GetLinuxNodeImageVersion(e, distro)
+		if imageVersion != "" {
+			sigConfig.Version = imageVersion
+		}
+		allDistros[distro] = sigConfig
+	}
 
 	return allDistros, nil
 }
