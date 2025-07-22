@@ -386,7 +386,6 @@
       ],
       "groupName": "nvidia-gpu-cuda",
       "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<prerelease>\\d{14})$",
-      "matchUpdateTypes": ["major", "minor", "patch"],
       "automerge": true,
       "enabled": true,
       "ignoreUnstable": false
