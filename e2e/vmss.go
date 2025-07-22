@@ -134,6 +134,9 @@ func extractLogsFromVMLinux(ctx context.Context, s *Scenario) error {
 		"aks-node-controller.log":          "sudo cat /var/log/azure/aks-node-controller.log",
 		"syslog":                           "sudo cat /var/log/" + syslogHandle,
 	}
+	if s.VHD.OS == config.OSFlatcar {
+		commandList["journald"] = "sudo journalctl --boot=0 --no-pager"
+	}
 
 	pod, err := s.Runtime.Cluster.Kube.GetHostNetworkDebugPod(ctx)
 	if err != nil {
