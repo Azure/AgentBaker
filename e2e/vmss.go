@@ -104,13 +104,20 @@ func extractLogsFromVM(ctx context.Context, s *Scenario) {
 	if s.IsWindows() {
 		extractLogsFromVMWindows(ctx, s)
 	} else {
-		extractLogsFromVMLinux(ctx, s)
+		err := extractLogsFromVMLinux(ctx, s)
+		if err != nil {
+			s.T.Logf("failed to extract logs from VM: %s", err)
+		} else {
+			s.T.Logf("logs extracted successfully from VM %q", s.Runtime.VMSSName)
+		}
 	}
 }
 
-func extractLogsFromVMLinux(ctx context.Context, s *Scenario) {
+func extractLogsFromVMLinux(ctx context.Context, s *Scenario) error {
 	privateIP, err := getVMPrivateIPAddress(ctx, s)
-	require.NoError(s.T, err)
+	if err != nil {
+		return fmt.Errorf("failed to get VM private IP address: %w", err)
+	}
 
 	syslogHandle := "syslog"
 	if s.VHD.OS == config.OSMariner || s.VHD.OS == config.OSAzureLinux {
@@ -129,7 +136,7 @@ func extractLogsFromVMLinux(ctx context.Context, s *Scenario) {
 
 	pod, err := s.Runtime.Cluster.Kube.GetHostNetworkDebugPod(ctx, s.T)
 	if err != nil {
-		require.NoError(s.T, err)
+		return fmt.Errorf("failed to get host network debug pod: %w", err)
 	}
 
 	var logFiles = map[string]string{}
@@ -143,9 +150,9 @@ func extractLogsFromVMLinux(ctx context.Context, s *Scenario) {
 	}
 	err = dumpFileMapToDir(s.T, logFiles)
 	if err != nil {
-		s.T.Logf("error dumping file to directory  %d: %s", len(logFiles), err)
+		return fmt.Errorf("failed to dump log files: %w", err)
 	}
-	require.NoError(s.T, err)
+	return nil
 }
 
 func execBashCommandOnVM(ctx context.Context, s *Scenario, vmPrivateIP, jumpboxPodName, command string) (*podExecResult, error) {
