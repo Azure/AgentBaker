@@ -720,7 +720,7 @@ func getEthtoolRxBufferSize() string {
 	return "2048"
 }
 
-// configureEthtoolService creates the environment file and enables the ethtool systemd service
+// configureEthtoolService creates the environment file and enables the ethtool systemd service.
 func configureEthtoolService() error {
 	// Skip configuration in test environments or when not running as root
 	if os.Getenv("SKIP_ETHTOOL_CONFIG") == "true" || os.Geteuid() != 0 {
@@ -729,7 +729,7 @@ func configureEthtoolService() error {
 
 	// Create the environment file for the systemd service
 	envContent := fmt.Sprintf("ETHTOOL_RX_BUFFER_SIZE=%s\n", getEthtoolRxBufferSize())
-	if err := os.WriteFile("/etc/default/ethtool-config", []byte(envContent), 0644); err != nil {
+	if err := os.WriteFile("/etc/default/ethtool-config", []byte(envContent), 0600); err != nil {
 		return fmt.Errorf("failed to write ethtool environment file: %w", err)
 	}
 
