@@ -355,6 +355,7 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 				datamodel.AKSAzureLinuxV3CVMGen2,
 			}
 
+			// TODO: validate flatcar distros once ACSConfig has been updated with Flatcar gallery config entries
 			flatcarDistros = []datamodel.Distro{
 				datamodel.AKSFlatcarGen2,
 				datamodel.AKSFlatcarArm64Gen2,
@@ -363,7 +364,6 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 			allLinuxDistros = append(allLinuxDistros, ubuntuDistros...)
 			allLinuxDistros = append(allLinuxDistros, marinerDistros...)
 			allLinuxDistros = append(allLinuxDistros, azureLinuxDistros...)
-			allLinuxDistros = append(allLinuxDistros, flatcarDistros...)
 		})
 
 		It("should return correct value for all existing distros", func() {
@@ -400,11 +400,6 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 			for _, distro := range azureLinuxDistros {
 				config := configs[distro]
 				Expect(config.Gallery).To(Equal("aksazurelinux"))
-			}
-
-			for _, distro := range flatcarDistros {
-				config := configs[distro]
-				Expect(config.Gallery).To(Equal("aksflatcar"))
 			}
 		})
 
@@ -467,12 +462,6 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 				config := configs[distro]
 				Expect(config.Gallery).To(Equal("aksazurelinux"))
 				Expect(config.Version).To(Equal(azureLinuxOverrideVersion))
-			}
-
-			for _, distro := range flatcarDistros {
-				config := configs[distro]
-				Expect(config.Gallery).To(Equal("aksflatcar"))
-				Expect(config.Version).To(Equal(flatcarOverrideVersion))
 			}
 		})
 
