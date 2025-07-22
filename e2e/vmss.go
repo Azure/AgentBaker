@@ -5,11 +5,9 @@ import (
 	crand "crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
-	"encoding/json"
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"io"
 	"math/big"
 	"os"
 	"path/filepath"
@@ -22,7 +20,6 @@ import (
 	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
-	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 	"github.com/stretchr/testify/require"
@@ -30,7 +27,6 @@ import (
 )
 
 const (
-	listVMSSNetworkInterfaceURLTemplate      = "https://management.azure.com/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/virtualMachineScaleSets/%s/virtualMachines/%d/networkInterfaces?api-version=2018-10-01"
 	loadBalancerBackendAddressPoolIDTemplate = "/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/loadBalancers/kubernetes/backendAddressPools/aksOutboundBackendPool"
 )
 
@@ -361,42 +357,37 @@ func addPodIPConfigsForAzureCNI(vmss *armcompute.VirtualMachineScaleSet, vmssNam
 }
 
 func getVMPrivateIPAddress(ctx context.Context, s *Scenario) (string, error) {
-	pl := config.Azure.Core.Pipeline()
-	url := fmt.Sprintf(listVMSSNetworkInterfaceURLTemplate,
-		config.Config.SubscriptionID,
+	pager := config.Azure.NetworkInterfaces.NewListVirtualMachineScaleSetVMNetworkInterfacesPager(
 		*s.Runtime.Cluster.Model.Properties.NodeResourceGroup,
 		s.Runtime.VMSSName,
-		0,
+		"0", // VM instance index
+		nil,
 	)
-	req, err := runtime.NewRequest(ctx, "GET", url)
+
+	if !pager.More() {
+		return "", fmt.Errorf("no network interfaces found for VMSS %s", s.Runtime.VMSSName)
+	}
+
+	page, err := pager.NextPage(ctx)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to get network interfaces for VMSS %s: %w", s.Runtime.VMSSName, err)
 	}
 
-	resp, err := pl.Do(req)
-	if err != nil {
-		return "", err
+	if len(page.Value) == 0 {
+		return "", fmt.Errorf("no network interfaces found for VMSS %s", s.Runtime.VMSSName)
 	}
 
-	defer resp.Body.Close()
-
-	respBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", err
+	networkInterface := page.Value[0]
+	if networkInterface.Properties == nil || networkInterface.Properties.IPConfigurations == nil || len(networkInterface.Properties.IPConfigurations) == 0 {
+		return "", fmt.Errorf("no IP configurations found for network interface %s", *networkInterface.ID)
 	}
 
-	var instanceNICResult listVMSSVMNetworkInterfaceResult
-
-	if err := json.Unmarshal(respBytes, &instanceNICResult); err != nil {
-		return "", err
+	ipConfig := networkInterface.Properties.IPConfigurations[0]
+	if ipConfig.Properties == nil || ipConfig.Properties.PrivateIPAddress == nil {
+		return "", fmt.Errorf("no private IP address found for IP configuration %s", *ipConfig.ID)
 	}
 
-	privateIP, err := getPrivateIP(instanceNICResult)
-	if err != nil {
-		return "", err
-	}
-
-	return privateIP, nil
+	return *ipConfig.Properties.PrivateIPAddress, nil
 }
 
 // Returns a newly generated RSA public/private key pair with the private key in PEM format.
@@ -610,17 +601,6 @@ func randomInt(bound int) int {
 	return int(n.Int64())
 }
 
-func getPrivateIP(res listVMSSVMNetworkInterfaceResult) (string, error) {
-	if len(res.Value) > 0 {
-		v := res.Value[0]
-		if len(v.Properties.IPConfigurations) > 0 {
-			ipconfig := v.Properties.IPConfigurations[0]
-			return ipconfig.Properties.PrivateIPAddress, nil
-		}
-	}
-	return "", fmt.Errorf("unable to extract private IP address from listVMSSNetworkInterfaceResult:\n%+v", res)
-}
-
 func getVMSSNICConfig(vmss *armcompute.VirtualMachineScaleSet) (*armcompute.VirtualMachineScaleSetNetworkConfiguration, error) {
 	if vmss != nil && vmss.Properties != nil &&
 		vmss.Properties.VirtualMachineProfile != nil && vmss.Properties.VirtualMachineProfile.NetworkProfile != nil {
@@ -630,52 +610,4 @@ func getVMSSNICConfig(vmss *armcompute.VirtualMachineScaleSet) (*armcompute.Virt
 		}
 	}
 	return nil, fmt.Errorf("unable to extract vmss nic info, vmss model or vmss model properties were nil/empty:\n%+v", vmss)
-}
-
-type listVMSSVMNetworkInterfaceResult struct {
-	Value []struct {
-		Name       string `json:"name,omitempty"`
-		ID         string `json:"id,omitempty"`
-		Properties struct {
-			ProvisioningState string `json:"provisioningState,omitempty"`
-			IPConfigurations  []struct {
-				Name       string `json:"name,omitempty"`
-				ID         string `json:"id,omitempty"`
-				Properties struct {
-					ProvisioningState         string `json:"provisioningState,omitempty"`
-					PrivateIPAddress          string `json:"privateIPAddress,omitempty"`
-					PrivateIPAllocationMethod string `json:"privateIPAllocationMethod,omitempty"`
-					PublicIPAddress           struct {
-						ID string `json:"id,omitempty"`
-					} `json:"publicIPAddress,omitempty"`
-					Subnet struct {
-						ID string `json:"id,omitempty"`
-					} `json:"subnet,omitempty"`
-					Primary                         bool   `json:"primary,omitempty"`
-					PrivateIPAddressVersion         string `json:"privateIPAddressVersion,omitempty"`
-					LoadBalancerBackendAddressPools []struct {
-						ID string `json:"id,omitempty"`
-					} `json:"loadBalancerBackendAddressPools,omitempty"`
-					LoadBalancerInboundNatRules []struct {
-						ID string `json:"id,omitempty"`
-					} `json:"loadBalancerInboundNatRules,omitempty"`
-				} `json:"properties,omitempty"`
-			} `json:"ipConfigurations,omitempty"`
-			DNSSettings struct {
-				DNSServers               []interface{} `json:"dnsServers,omitempty"`
-				AppliedDNSServers        []interface{} `json:"appliedDnsServers,omitempty"`
-				InternalDomainNameSuffix string        `json:"internalDomainNameSuffix,omitempty"`
-			} `json:"dnsSettings,omitempty"`
-			MacAddress                  string `json:"macAddress,omitempty"`
-			EnableAcceleratedNetworking bool   `json:"enableAcceleratedNetworking,omitempty"`
-			EnableIPForwarding          bool   `json:"enableIPForwarding,omitempty"`
-			NetworkSecurityGroup        struct {
-				ID string `json:"id,omitempty"`
-			} `json:"networkSecurityGroup,omitempty"`
-			Primary        bool `json:"primary,omitempty"`
-			VirtualMachine struct {
-				ID string `json:"id,omitempty"`
-			} `json:"virtualMachine,omitempty"`
-		} `json:"properties,omitempty"`
-	} `json:"value,omitempty"`
 }

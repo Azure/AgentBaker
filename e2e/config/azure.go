@@ -44,6 +44,7 @@ type AzureClient struct {
 	Core                      *azcore.Client
 	Credential                *azidentity.DefaultAzureCredential
 	Maintenance               *armcontainerservice.MaintenanceConfigurationsClient
+	NetworkInterfaces         *armnetwork.InterfacesClient
 	PrivateDNSZoneGroup       *armnetwork.PrivateDNSZoneGroupsClient
 	PrivateEndpointClient     *armnetwork.PrivateEndpointsClient
 	PrivateZonesClient        *armprivatedns.PrivateZonesClient
@@ -189,6 +190,11 @@ func NewAzureClient() (*AzureClient, error) {
 	cloud.Maintenance, err = armcontainerservice.NewMaintenanceConfigurationsClient(Config.SubscriptionID, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create maintenance client: %w", err)
+	}
+
+	cloud.NetworkInterfaces, err = armnetwork.NewInterfacesClient(Config.SubscriptionID, credential, opts)
+	if err != nil {
+		return nil, fmt.Errorf("create network interfaces client: %w", err)
 	}
 
 	cloud.VMSS, err = armcompute.NewVirtualMachineScaleSetsClient(Config.SubscriptionID, credential, opts)
