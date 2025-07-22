@@ -1093,13 +1093,6 @@ func GetSIGAzureCloudSpecConfig(sigConfig SIGConfig, region string) (SIGAzureEnv
 	}
 	c.SigAzureLinuxImageConfig = getSigAzureLinuxImageConfigMapWithOpts(fromACSAzureLinux)
 
-	// TODO: enable this once Flatcar config is available within SIGConfig (ACSConfig) provided by the resource provider.
-	// fromACSFlatcar, err := withACSSIGConfig(sigConfig, "AKSFlatcar")
-	// if err != nil {
-	// 	return SIGAzureEnvironmentSpecConfig{}, fmt.Errorf("unexpected error while constructing env-aware sig configuration for AKSFlatcar: %w", err)
-	// }
-	// c.SigFlatcarImageConfig = getSigFlatcarImageConfigMapWithOpts(fromACSFlatcar)
-
 	fromACSWindows, err := withACSSIGConfig(sigConfig, "AKSWindows")
 	if err != nil {
 		return SIGAzureEnvironmentSpecConfig{}, fmt.Errorf("unexpected error while constructing env-aware sig configuration for Windows: %w", err)
