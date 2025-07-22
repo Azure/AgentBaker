@@ -253,11 +253,11 @@ if (-not (Test-Path "C:\AzureData\windows\azurecnifunc.ps1")) {
 . c:\AzureData\windows\nvidiagpudriverfunc.ps1
 
 
-# ====== STAGE 1: BASE IMAGE PREPARATION ======
+# ====== BASE PREP: BASE IMAGE PREPARATION ======
 # All operations that prepare the base VHD image
-function Stage1 {
-    Write-Log "Starting Stage1 - Base image preparation"
-    Logs-To-Event -TaskName "AKS.WindowsCSE.Stage1" -TaskMessage "Starting Stage1 - Base image preparation"
+function BasePrep {
+    Write-Log "Starting BasePrep - Base image preparation"
+    Logs-To-Event -TaskName "AKS.WindowsCSE.BasePrep" -TaskMessage "Starting BasePrep - Base image preparation"
 
     # This involves using proxy, log the config before fetching packages
     Write-Log "private egress proxy address is '$global:PrivateEgressProxyAddress'"
@@ -436,17 +436,17 @@ function Stage1 {
         Install-GmsaPlugin -GmsaPackageUrl $global:WindowsGmsaPackageUrl
     }
 
-    Write-Log "Stage1 completed successfully"
-    Logs-To-Event -TaskName "AKS.WindowsCSE.Stage1" -TaskMessage "Stage1 completed successfully"
+    Write-Log "BasePrep completed successfully"
+    Logs-To-Event -TaskName "AKS.WindowsCSE.BasePrep" -TaskMessage "BasePrep completed successfully"
 }
 
-# ====== STAGE 2: CLUSTER INTEGRATION ======
+# ====== NODE PREP: CLUSTER INTEGRATION ======
 # All operations that should only run when connecting to the actual cluster
-function Stage2 {
+function NodePrep {
     Install-KubernetesServices -KubeDir $global:KubeDir
 
-    Write-Log "Starting Stage2 - Cluster integration"
-    Logs-To-Event -TaskName "AKS.WindowsCSE.Stage2" -TaskMessage "Starting Stage2 - Cluster integration"
+    Write-Log "Starting NodePrep - Cluster integration"
+    Logs-To-Event -TaskName "AKS.WindowsCSE.NodePrep" -TaskMessage "Starting NodePrep - Cluster integration"
     
     Check-APIServerConnectivity -MasterIP $MasterIP
 
@@ -492,8 +492,8 @@ function Stage2 {
         Write-Log -Message "We waited [$($timer.Elapsed.TotalSeconds)] seconds on NodeResetScriptTask"
     }
 
-    Write-Log "Stage2 completed successfully"
-    Logs-To-Event -TaskName "AKS.WindowsCSE.Stage2" -TaskMessage "Stage2 completed successfully"
+    Write-Log "NodePrep completed successfully"
+    Logs-To-Event -TaskName "AKS.WindowsCSE.NodePrep" -TaskMessage "NodePrep completed successfully"
 }
 
 try
@@ -523,17 +523,17 @@ try
     #   - Only runs when actually provisioning a node, not when creating VHD images
     #
     # In typical deployments, both stages run sequentially during node provisioning.
-    # For VHD image creation workflows, only stage1 runs initially, and stage2 runs later
+    # For VHD image creation workflows, only basePrep runs initially, and nodePrep runs later
     # when nodes are created from that VHD image.
-    if (-not (Test-Path "C:\AzureData\preprovision.complete")) {
-        Stage1
+    if (-not (Test-Path "C:\AzureData\base_prep.complete")) {
+        BasePrep
     } else {
-        Write-Log "Skipping stage1 - preprovision.complete file exists"
+        Write-Log "Skipping basePrep - base_prep.complete file exists"
     }
     if (-not $PreProvisionOnly) {
-        Stage2
+        NodePrep
     } else {
-        Write-Log "Skipping stage2 - pre-provision only mode"
+        Write-Log "Skipping nodePrep - pre-provision only mode"
     }
 }
 catch
@@ -551,7 +551,7 @@ finally
     Logs-To-Event -TaskName "AKS.WindowsCSE.cse_main" -TaskMessage "ExitCode: $global:ExitCode. ErrorMessage: $global:ErrorMessage."
 
     # Create appropriate completion file based on mode
-    $completionFilePath = if ($PreProvisionOnly) { "C:\AzureData\preprovision.complete" } else { $CSEResultFilePath }
+    $completionFilePath = if ($PreProvisionOnly) { "C:\AzureData\base_prep.complete" } else { $CSEResultFilePath }
     
     if ($global:ExitCode -eq 0) {
         Set-Content -Path $completionFilePath -Value $global:ExitCode -Force

@@ -52,9 +52,9 @@ echo $JSON_STRING | tee /var/log/azure/aks/provision.json
 # Create stage marker for two-stage workflow
 if [ "${PRE_PROVISION_ONLY}" = "true" ]; then
     # Stage 1: Create marker indicating Stage 2 is needed
-    mkdir -p /opt/azure/containers && touch /opt/azure/containers/preprovision.complete
+    mkdir -p /opt/azure/containers && touch /opt/azure/containers/base_prep.complete
     echo "Stage 1 complete - kubelet configuration skipped, Stage 2 required" >> /var/log/azure/cluster-provision.log
-    echo "Created preprovision.complete marker file" >> /var/log/azure/cluster-provision.log
+    echo "Created base_prep.complete marker file" >> /var/log/azure/cluster-provision.log
     exit 0
 fi
 

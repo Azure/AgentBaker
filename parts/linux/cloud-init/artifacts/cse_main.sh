@@ -47,16 +47,12 @@ get_ubuntu_release() {
     lsb_release -r -s 2>/dev/null || echo ""
 }
 
-# ====== STAGE 1: BASE IMAGE PREPARATION ======
+# ====== BASE PREP: BASE IMAGE PREPARATION ======
 # This stage prepares the base VHD image with all necessary components and configurations.
 # IMPORTANT: This stage must NOT join the node to the cluster.
 # After completion, this VHD can be used as a base image for creating new node pools.
 # Users may add custom configurations or pull additional container images after this stage.
-function stage1 {
-    if [ -f /opt/azure/containers/preprovision.complete ]; then
-        echo "Skipping stage1 - preprovision.complete file exists"
-        return 0
-    fi
+function basePrep {
     aptmarkWALinuxAgent hold &
 
     UBUNTU_RELEASE=$(get_ubuntu_release)
@@ -290,16 +286,11 @@ EOF
     fi
 }
 
-# ====== STAGE 2: CLUSTER INTEGRATION ======
+# ====== NODE PREP: CLUSTER INTEGRATION ======
 # This stage performs cluster-specific operations and hardware configurations.
 # After this stage the node should be fully integrated into the cluster.
 # IMPORTANT: This stage should only run when actually joining a node to the cluster. This step should not be run when creating a VHD image
-function stage2 {
-    if [ "${PRE_PROVISION_ONLY}" = "true" ]; then
-          echo "Skipping stage2 - pre-provision only mode"
-          return 0
-    fi
-
+function nodePrep {
     if [ -n "${OUTBOUND_COMMAND}" ]; then
         if [ -n "${PROXY_VARS}" ]; then
             eval $PROXY_VARS
@@ -513,14 +504,14 @@ EOF
 
 # The provisioning is split into two stages to support VHD image creation workflows:
 #
-# Stage 1: Base image preparation
+basePrep: Base image preparation
 #   - Installs and configures all required components (kubelet, containerd, etc.)
 #   - Sets up system configurations that are common across all nodes
 #   - DOES NOT join the node to any cluster
 #   - After this stage, users can add customizations (e.g., pre-pull additional container images)
 #   - The VM can then be captured as a VHD image for use as a node pool base image
 #
-# Stage 2: Cluster integration and hardware setup
+nodePrep: Cluster integration and hardware setup
 #   - Performs cluster-specific configurations
 #   - Configures hardware-specific components (GPU drivers, MIG partitions, etc.)
 #   - Establishes connection to the API server
@@ -528,10 +519,18 @@ EOF
 #   - Only runs when actually provisioning a node, not when creating VHD images
 #
 # In typical deployments, both stages run sequentially during node provisioning.
-# For VHD image creation workflows, only stage1 runs initially, and stage2 runs later
+# For VHD image creation workflows, only basePrep runs initially, and nodePrep runs later
 # when nodes are created from that VHD image.
-stage1
-stage2
+if [ ! -f /opt/azure/containers/base_prep.complete ]; then
+    basePrep
+else
+    echo "Skipping basePrep - base_prep.complete file exists"
+fi
+if [ "${PRE_PROVISION_ONLY}" != "true" ]; then
+    nodePrep
+else
+    echo "Skipping nodePrep - pre-provision only mode"
+fi
 
 echo "Custom script finished."
 echo $(date),$(hostname), endcustomscript>>/opt/m

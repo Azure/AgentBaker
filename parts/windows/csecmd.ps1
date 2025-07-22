@@ -10,8 +10,8 @@ PowerShell
 -CSEResultFilePath %SYSTEMDRIVE%\AzureData\provision.complete >> %SYSTEMDRIVE%\AzureData\CustomDataSetupScript.log 2>&1;
 
 {{ if GetPreProvisionOnly }}
-    if (!(Test-Path %SYSTEMDRIVE%\AzureData\preprovision.complete)) { throw 'ExitCode: |50|, Output: |WINDOWS_CSE_ERROR_NO_CSE_RESULT_LOG|, Error: |C:\AzureData\preprovision.complete is not generated.|'; };
-    $result=(Get-Content %SYSTEMDRIVE%\AzureData\preprovision.complete);
+    if (!(Test-Path %SYSTEMDRIVE%\AzureData\base_prep.complete)) { throw 'ExitCode: |50|, Output: |WINDOWS_CSE_ERROR_NO_CSE_RESULT_LOG|, Error: |C:\AzureData\base_prep.complete is not generated.|'; };
+    $result=(Get-Content %SYSTEMDRIVE%\AzureData\base_prep.complete);
     if ($result -ne '0') { throw $result; };
 {{ else }}
     if (!(Test-Path %SYSTEMDRIVE%\AzureData\provision.complete)) { throw 'ExitCode: |50|, Output: |WINDOWS_CSE_ERROR_NO_CSE_RESULT_LOG|, Error: |C:\AzureData\provision.complete is not generated.|'; };

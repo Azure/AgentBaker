@@ -140,13 +140,13 @@ func runScenarioWithPreProvision(t *testing.T, original *Scenario) {
 	firstStage.Config.SkipDefaultValidation = true
 	firstStage.Config.Validator = func(ctx context.Context, stage1 *Scenario) {
 		if stage1.IsWindows() {
-			ValidateFileExists(ctx, stage1, "C:\\AzureData\\preprovision.complete")
+			ValidateFileExists(ctx, stage1, "C:\\AzureData\\base_prep.complete")
 			ValidateFileDoesNotExist(ctx, stage1, "C:\\AzureData\\provision.complete")
 			ValidateWindowsServiceIsNotRunning(ctx, stage1, "kubelet")
 			ValidateWindowsServiceIsRunning(ctx, stage1, "containerd")
 		} else {
 			ValidateFileExists(ctx, stage1, "/etc/containerd/config.toml")
-			ValidateFileExists(ctx, stage1, "/opt/azure/containers/preprovision.complete")
+			ValidateFileExists(ctx, stage1, "/opt/azure/containers/base_prep.complete")
 			ValidateFileDoesNotExist(ctx, stage1, "/opt/azure/containers/provision.complete")
 			ValidateSystemdUnitIsRunning(ctx, stage1, "containerd")
 			ValidateSystemdUnitIsNotRunning(ctx, stage1, "kubelet")
