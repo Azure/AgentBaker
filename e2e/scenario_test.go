@@ -14,40 +14,6 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v6"
 )
 
-func Test_Flatcar(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that a node using a Flatcar VHD can be properly bootstrapped",
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDFlatcarGen2,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-			},
-		},
-	})
-}
-
-func Test_Flatcar_ARM64(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that a node using a Flatcar VHD on ARM64 architecture can be properly bootstrapped",
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDFlatcarGen2Arm64,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.CustomKubeBinaryURL = "https://acs-mirror.azureedge.net/kubernetes/v1.24.9/binaries/kubernetes-node-linux-arm64.tar.gz"
-				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
-				nbc.IsARM64 = true
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-			},
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
-			},
-		},
-	})
-}
-
 func Test_AzureLinuxV2_AirGap(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a AzureLinuxV2 (CgroupV2) VHD can be properly bootstrapped",

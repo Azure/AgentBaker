@@ -138,7 +138,7 @@ ERR_CLOUD_INIT_FAILED=223 # Error indicating that cloud-init returned exit code 
 # For unit tests, the OS and OS_VERSION will be set in the unit test script.
 # So whether it's if or else actually doesn't matter to our unit test.
 if find /etc -type f,l -name "*-release" -print -quit 2>/dev/null | grep -q '.'; then
-    OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID=(.*))$/, a) { print toupper(a[2]); exit }')
+    OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
     OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
 else
 # This is only for unit test purpose. For example, a Mac OS dev box doesn't have /etc/*-release, then the unit test will continue.
@@ -150,7 +150,6 @@ MARINER_OS_NAME="MARINER"
 MARINER_KATA_OS_NAME="MARINERKATA"
 AZURELINUX_KATA_OS_NAME="AZURELINUXKATA"
 AZURELINUX_OS_NAME="AZURELINUX"
-FLATCAR_OS_NAME="FLATCAR"
 KUBECTL=/usr/local/bin/kubectl
 DOCKER=/usr/bin/docker
 # this will be empty during VHD build
@@ -632,14 +631,6 @@ isMariner() {
 isAzureLinux() {
     local os=$1
     if [ "$os" = "$AZURELINUX_OS_NAME" ] || [ "$os" = "$AZURELINUX_KATA_OS_NAME" ]; then
-        return 0
-    fi
-    return 1
-}
-
-isFlatcar() {
-    local os=$1
-    if [ "$os" = "$FLATCAR_OS_NAME" ]; then
         return 0
     fi
     return 1

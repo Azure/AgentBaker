@@ -472,11 +472,6 @@ func getBaseVMSSModel(s *Scenario, customData, cseCmd, location string) armcompu
 				Mode: to.Ptr(armcompute.UpgradeModeAutomatic),
 			},
 			VirtualMachineProfile: &armcompute.VirtualMachineScaleSetVMProfile{
-				DiagnosticsProfile: &armcompute.DiagnosticsProfile{
-					BootDiagnostics: &armcompute.BootDiagnostics{
-						Enabled: to.Ptr(true),
-					},
-				},
 				OSProfile: &armcompute.VirtualMachineScaleSetOSProfile{
 					ComputerNamePrefix: to.Ptr(s.Runtime.VMSSName),
 					AdminUsername:      to.Ptr("azureuser"),

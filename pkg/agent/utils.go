@@ -252,22 +252,17 @@ func newGzipWriter(buf *bytes.Buffer) *gzip.Writer {
 	return gzip.NewWriter(buf)
 }
 
-func getGzippedBufferFromBytes(b []byte) []byte {
+// getBase64EncodedGzippedCustomScriptFromStr will return a base64-encoded string of the gzip'd source data.
+func getBase64EncodedGzippedCustomScriptFromStr(str string) string {
 	var gzipB bytes.Buffer
 	w := newGzipWriter(&gzipB)
-	_, err := w.Write(b)
+	_, err := w.Write([]byte(str))
 	if err != nil {
 		// this should never happen and this is a bug.
 		panic(fmt.Sprintf("BUG: %s", err.Error()))
 	}
 	w.Close()
-	return gzipB.Bytes()
-}
-
-// getBase64EncodedGzippedCustomScriptFromStr will return a base64-encoded string of the gzip'd source data.
-func getBase64EncodedGzippedCustomScriptFromStr(str string) string {
-	gzip := getGzippedBufferFromBytes([]byte(str))
-	return base64.StdEncoding.EncodeToString(gzip)
+	return base64.StdEncoding.EncodeToString(gzipB.Bytes())
 }
 
 func getExtensionURL(rootURL, extensionName, version, fileName, query string) string {
@@ -681,16 +676,4 @@ func addFeatureGateString(featureGates string, key string, value bool) string {
 		pairs = append(pairs, fmt.Sprintf("%s=%t", k, fgMap[k]))
 	}
 	return strings.Join(pairs, ",")
-}
-
-type cloudInitWriteFile struct {
-	Path        string `yaml:"path"`
-	Permissions string `yaml:"permissions"`
-	Encoding    string `yaml:"encoding,omitempty"`
-	Owner       string `yaml:"owner"`
-	Content     string `yaml:"content"`
-}
-
-type cloudInit struct {
-	WriteFiles []cloudInitWriteFile `yaml:"write_files"`
 }

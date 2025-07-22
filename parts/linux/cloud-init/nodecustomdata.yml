@@ -16,14 +16,7 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "provisionSourceMariner"}}
-{{- else if IsFlatcar }}
-- path: {{GetCSEHelpersScriptDistroFilepath}}
-  permissions: "0744"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "provisionSourceFlatcar"}}
-{{- else }}
+{{- else}}
 - path: {{GetCSEHelpersScriptDistroFilepath}}
   permissions: "0744"
   encoding: gzip
@@ -76,14 +69,7 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "provisionInstallsMariner"}}
-{{- else if IsFlatcar }}
-- path: {{GetCSEInstallScriptDistroFilepath}}
-  permissions: "0744"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "provisionInstallsFlatcar"}}
-{{- else }}
+{{- else}}
 - path: {{GetCSEInstallScriptDistroFilepath}}
   permissions: "0744"
   encoding: gzip

@@ -22,7 +22,6 @@ SETTINGS_JSON="${SETTINGS_JSON:-./packer/settings.json}"
 PUBLISHER_BASE_IMAGE_VERSION_JSON="${PUBLISHER_BASE_IMAGE_VERSION_JSON:-./vhdbuilder/publisher_base_image_version.json}"
 VHD_BUILD_TIMESTAMP_JSON="${VHD_BUILD_TIMESTAMP_JSON:-./vhdbuilder/vhd_build_timestamp.json}"
 SUBSCRIPTION_ID="${SUBSCRIPTION_ID:-$(az account show -o json --query="id" | tr -d '"')}"
-GALLERY_SUBSCRIPTION_ID="${GALLERY_SUBSCRIPTION_ID:-${SUBSCRIPTION_ID}}"
 CREATE_TIME="$(date +%s)"
 STORAGE_ACCOUNT_NAME="aksimages${CREATE_TIME}$RANDOM"
 
@@ -144,7 +143,6 @@ echo "VNET_RG_NAME set to: ${VNET_RG_NAME}"
 echo "CAPTURED_SIG_VERSION set to: ${CAPTURED_SIG_VERSION}"
 
 echo "Subscription ID: ${SUBSCRIPTION_ID}"
-echo "Gallery Subscription ID: ${GALLERY_SUBSCRIPTION_ID}"
 
 rg_id=$(az group show --name $AZURE_RESOURCE_GROUP_NAME) || rg_id=""
 if [ -z "$rg_id" ]; then
@@ -217,10 +215,6 @@ if [[ "${MODE}" == "windowsVhdMode" ]] && [[ ${ARCHITECTURE,,} == "arm64" ]]; th
 fi
 
 echo "Using finalized SIG_IMAGE_NAME: ${SIG_IMAGE_NAME}, SIG_GALLERY_NAME: ${SIG_GALLERY_NAME}"
-
-if [ "${SUBSCRIPTION_ID}" != "${GALLERY_SUBSCRIPTION_ID}" ]; then
-    az account set -s "${GALLERY_SUBSCRIPTION_ID}"
-fi
 
 # If we're building a Linux VHD or we're building a windows VHD in windowsVhdMode, ensure SIG resources
 if [ "$MODE" = "linuxVhdMode" ] || [ "$MODE" = "windowsVhdMode" ]; then
@@ -348,10 +342,6 @@ if [ "$MODE" = "linuxVhdMode" ] || [ "$MODE" = "windowsVhdMode" ]; then
 	fi
 else
 	echo "Skipping SIG check for $MODE, os-type: ${OS_TYPE}"
-fi
-
-if [ "${SUBSCRIPTION_ID}" != "${GALLERY_SUBSCRIPTION_ID}" ]; then
-    az account set -s "${SUBSCRIPTION_ID}"
 fi
 
 # considerations to also add the windows support here instead of an extra script to initialize windows variables:
@@ -534,7 +524,6 @@ fi
 cat <<EOF > vhdbuilder/packer/settings.json
 {
   "subscription_id": "${SUBSCRIPTION_ID}",
-  "gallery_subscription_id": "${GALLERY_SUBSCRIPTION_ID}",
   "resource_group_name": "${AZURE_RESOURCE_GROUP_NAME}",
   "location": "${PACKER_BUILD_LOCATION}",
   "storage_account_name": "${STORAGE_ACCOUNT_NAME}",

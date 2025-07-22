@@ -177,14 +177,6 @@ parameters:
     displayName: Build 2204 Minimal Gen2 Containerd
     type: boolean
     default: false
-  - name: buildflatcargen2
-    displayName: Build Flatcar Gen2
-    type: boolean
-    default: true
-  - name: buildflatcargen2arm64
-    displayName: Build Flatcar Gen2 ARM64
-    type: boolean
-    default: true
 
 variables:
   - group: aks-vuln-to-kusto
@@ -1234,56 +1226,6 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2204-minimal-gen2-containerd
-      - job: buildflatcargen2
-        condition: eq('${{ parameters.buildflatcargen2 }}', true)
-        dependsOn: [ ]
-        timeoutInMinutes: 180
-        steps:
-          - bash: |
-              echo '##vso[task.setvariable variable=OS_SKU]Flatcar'
-              echo '##vso[task.setvariable variable=OS_VERSION]flatcar'
-              echo '##vso[task.setvariable variable=IMG_PUBLISHER]kinvolk'
-              echo '##vso[task.setvariable variable=IMG_OFFER]flatcar-container-linux-corevm-amd64'
-              echo '##vso[task.setvariable variable=IMG_SKU]alpha-gen2'
-              echo '##vso[task.setvariable variable=IMG_VERSION]latest'
-              echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
-              echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
-              echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
-              echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
-              echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
-              echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
-              echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
-            displayName: Setup Build Variables
-          - template: ./templates/.builder-release-template.yaml
-            parameters:
-              useOverrides: ${{ parameters.useOverrides }}
-              overrideBranch: ${{ parameters.overrideBranch }}
-              artifactName: flatcar-gen2
-      - job: buildflatcargen2arm64
-        condition: eq('${{ parameters.buildflatcargen2arm64 }}', true)
-        dependsOn: [ ]
-        timeoutInMinutes: 180
-        steps:
-          - bash: |
-              echo '##vso[task.setvariable variable=OS_SKU]Flatcar'
-              echo '##vso[task.setvariable variable=OS_VERSION]flatcar'
-              echo '##vso[task.setvariable variable=IMG_PUBLISHER]kinvolk'
-              echo '##vso[task.setvariable variable=IMG_OFFER]flatcar-container-linux-corevm'
-              echo '##vso[task.setvariable variable=IMG_SKU]alpha'
-              echo '##vso[task.setvariable variable=IMG_VERSION]latest'
-              echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
-              echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16pds_v5'
-              echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
-              echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
-              echo '##vso[task.setvariable variable=ARCHITECTURE]ARM64'
-              echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
-              echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
-            displayName: Setup Build Variables
-          - template: ./templates/.builder-release-template.yaml
-            parameters:
-              useOverrides: ${{ parameters.useOverrides }}
-              overrideBranch: ${{ parameters.overrideBranch }}
-              artifactName: flatcar-gen2-arm64
   - stage: e2e
     condition: and(succeeded(), ne(variables.SKIP_E2E_TESTS, 'true'))
     variables:

@@ -442,7 +442,7 @@ verify_default_route_interface || exit $ERR_LOCALDNS_FAIL
 NETWORK_FILE="$(networkctl --json=short status "${DEFAULT_ROUTE_INTERFACE}" 2>/dev/null | jq -r '.NetworkFile')"
 verify_network_file || exit $ERR_LOCALDNS_FAIL
 
-NETWORK_DROPIN_DIR="/run/systemd/network/${NETWORK_FILE##*/}.d"
+NETWORK_DROPIN_DIR="${NETWORK_FILE}.d"
 NETWORK_DROPIN_FILE="${NETWORK_DROPIN_DIR}/70-localdns.conf"
 
 # Setup traps to trigger cleanup_localdns_configs if anything goes wrong.

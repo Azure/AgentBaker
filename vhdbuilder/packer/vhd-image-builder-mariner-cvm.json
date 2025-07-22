@@ -1,7 +1,6 @@
 {
   "variables": {
     "subscription_id": "{{env `AZURE_SUBSCRIPTION_ID`}}",
-    "gallery_subscription_id": "{{user `gallery_subscription_id`}}",
     "location": "{{env `PACKER_BUILD_LOCATION`}}",
     "vm_size": "{{env `AZURE_VM_SIZE`}}",
     "build_definition_name": "{{env `BUILD_DEFINITION_NAME`}}",
@@ -66,7 +65,6 @@
       "shared_image_gallery_destination": {
         "specialized": true,
         "confidential_vm_image_encryption_type": "EncryptedVMGuestStateOnlyWithPmk",
-        "subscription": "{{user `gallery_subscription_id`}}",
         "resource_group": "{{user `resource_group_name`}}",
         "gallery_name": "{{user `sig_gallery_name`}}",
         "image_name": "{{user `sig_image_name`}}",

@@ -7,7 +7,6 @@ import (
 	"archive/zip"
 	"bytes"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -17,10 +16,6 @@ import (
 	"github.com/Azure/agentbaker/parts"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/go-autorest/autorest/to"
-	base0_5 "github.com/coreos/butane/base/v0_5"
-	butanecommon "github.com/coreos/butane/config/common"
-	flatcar1_1 "github.com/coreos/butane/config/flatcar/v1_1"
-	"gopkg.in/yaml.v3"
 )
 
 // TemplateGenerator represents the object that performs the template generation.
@@ -52,15 +47,8 @@ func (t *TemplateGenerator) getWindowsNodeBootstrappingPayload(config *datamodel
 func (t *TemplateGenerator) getLinuxNodeBootstrappingPayload(config *datamodel.NodeBootstrappingConfiguration) string {
 	// this might seem strange that we're encoding the custom data to a JSON string and then extracting it, but without that serialisation and deserialisation
 	// lots of tests fail.
-	var encoded string
-	if config.AgentPoolProfile.IsFlatcar() {
-		customData := getCustomDataFromJSON(t.getFlatcarLinuxNodeCustomDataJSONObject(config))
-		encoded = base64.StdEncoding.EncodeToString([]byte(customData))
-	} else {
-		customData := getCustomDataFromJSON(t.getLinuxNodeCustomDataJSONObject(config))
-		encoded = getBase64EncodedGzippedCustomScriptFromStr(customData)
-	}
-	return encoded
+	customData := getCustomDataFromJSON(t.getLinuxNodeCustomDataJSONObject(config))
+	return getBase64EncodedGzippedCustomScriptFromStr(customData)
 }
 
 // GetLinuxNodeCustomDataJSONObject returns Linux customData JSON object in the form.
@@ -77,121 +65,6 @@ func (t *TemplateGenerator) getLinuxNodeCustomDataJSONObject(config *datamodel.N
 	}
 
 	return fmt.Sprintf("{\"customData\": \"%s\"}", str)
-}
-
-func toButaneFile(file cloudInitWriteFile) (*base0_5.File, error) {
-	newfile := base0_5.File{}
-	newfile.Path = file.Path
-	newfile.User.Name = &file.Owner
-	newfile.Overwrite = to.BoolPtr(true)
-	mode, e := strconv.ParseInt(file.Permissions, 8, 32)
-	if e != nil {
-		return nil, fmt.Errorf("failed to parse file mode: %w", e)
-	}
-	newfile.Mode = to.IntPtr(int(mode))
-	switch file.Encoding {
-	case "gzip":
-		newfile.Contents.Inline = &file.Content
-		// This is hit for AKSCustomCloud file
-		if file.Content != "" {
-			newfile.Contents.Compression = &file.Encoding
-		}
-	case "base64":
-		inline, e := base64.StdEncoding.DecodeString(file.Content)
-		if e != nil {
-			return nil, fmt.Errorf("failed to decode base64 content: %w", e)
-		}
-		newfile.Contents.Inline = to.StringPtr(string(inline))
-		newfile.Contents.Compression = nil
-	case "":
-		newfile.Contents.Inline = to.StringPtr(file.Content)
-	default:
-		return nil, fmt.Errorf("unsupported encoding: %s", file.Encoding)
-	}
-	return &newfile, nil
-}
-
-// GetLinuxNodeCustomDataJSONObject returns Linux customData JSON object in the form.
-// { "customData": "<customData string>" }.
-func (t *TemplateGenerator) getFlatcarLinuxNodeCustomDataJSONObject(config *datamodel.NodeBootstrappingConfiguration) string {
-	// get parameters
-	parameters := getParameters(config)
-	// get variable cloudInit
-	variables := getCustomDataVariables(config)
-	str, e := t.getSingleLine(kubernetesNodeCustomDataYaml, config.AgentPoolProfile, getBakerFuncMap(config, parameters, variables), true)
-	if e != nil {
-		panic(e)
-	}
-	var customData cloudInit
-	if e = yaml.Unmarshal([]byte(str), &customData); e != nil {
-		panic(fmt.Errorf("failed to unmarshal customData: %w", e))
-	}
-	if len(customData.WriteFiles) == 0 {
-		panic(fmt.Errorf("no write files found in customData"))
-	}
-	butaneconfig := flatcar1_1.Config{}
-	b, e := parts.Templates.ReadFile(kubernetesFlatcarNodeCustomDataYaml)
-	if e != nil {
-		panic(fmt.Errorf("yaml file %s does not exist", kubernetesFlatcarNodeCustomDataYaml))
-	}
-	if e = yaml.Unmarshal(b, &butaneconfig); e != nil {
-		panic(fmt.Errorf("failed to unmarshal butane config: %w", e))
-	}
-
-	newfiles := make([]base0_5.File, 0)
-	var newfile *base0_5.File
-	for _, file := range customData.WriteFiles {
-		newfile, e = toButaneFile(file)
-		if e != nil {
-			panic(fmt.Errorf("failed to convert cloudInit file to butane file: %w", e))
-		}
-		newfiles = append(newfiles, *newfile)
-	}
-
-	butaneconfig.Storage.Files = append(newfiles, butaneconfig.Storage.Files...)
-	ignition, report, e := butaneconfig.ToIgn3_4(butanecommon.TranslateOptions{})
-	if e != nil {
-		panic(fmt.Errorf("butane -> ignition: error: %w:\n%s", e, report.String()))
-	}
-	if len(report.Entries) > 0 {
-		panic(fmt.Errorf("butane -> ignition: warning:\n%s", report.String()))
-	}
-	ignjson, e := json.Marshal(ignition)
-	if e != nil {
-		panic(fmt.Errorf("failed to marshal Ignition config: %w", e))
-	}
-
-	envelope := flatcar1_1.Config{
-		Config: base0_5.Config{
-			Variant: "flatcar",
-			Version: "1.1.0",
-			Ignition: base0_5.Ignition{
-				Config: base0_5.IgnitionConfig{
-					Replace: base0_5.Resource{
-						Inline: to.StringPtr(string(ignjson)),
-						// TODO: butane 0.24.0 broke support for explicit compression
-						// so we depend on automatic resource compression.
-						//Compression: to.StringPtr("gzip"),
-					},
-				},
-			},
-		},
-	}
-	wrapped, report, e := envelope.ToIgn3_4(butanecommon.TranslateOptions{})
-	if e != nil {
-		panic(fmt.Errorf("butane -> ignition: error: %w:\n%s", e, report.String()))
-	}
-	if len(report.Entries) > 0 {
-		panic(fmt.Errorf("butane -> ignition: warning:\n%s", report.String()))
-	}
-	// Marshal the Ignition config to JSON
-	enc, err := json.Marshal(wrapped)
-	if err != nil {
-		panic(fmt.Errorf("failed to marshal Ignition config: %w", err))
-	}
-	escstr := escapeSingleLine(string(enc))
-
-	return fmt.Sprintf("{\"customData\": \"%s\"}", escstr)
 }
 
 // GetWindowsNodeCustomDataJSONObject returns Windows customData JSON object in the form.
@@ -552,7 +425,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return config.GetOrderedKubeproxyConfigStringForPowershell()
 		},
 		"IsCgroupV2": func() bool {
-			return profile.Is2204VHDDistro() || profile.IsAzureLinuxCgroupV2VHDDistro() || profile.Is2404VHDDistro() || profile.IsFlatcar()
+			return profile.Is2204VHDDistro() || profile.IsAzureLinuxCgroupV2VHDDistro() || profile.Is2404VHDDistro()
 		},
 		"GetKubeProxyFeatureGatesPsh": func() string {
 			return cs.Properties.GetKubeProxyFeatureGatesWindowsArguments()
@@ -627,9 +500,6 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"IsNoneCNI": func() bool {
 			return cs.Properties.OrchestratorProfile.IsNoneCNI()
-		},
-		"IsFlatcar": func() bool {
-			return profile.IsFlatcar()
 		},
 		"IsMariner": func() bool {
 			// TODO(ace): do we care about both? 2nd one should be more general and catch custom VHD for mariner
@@ -1112,7 +982,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return base64.StdEncoding.EncodeToString(b.Bytes()), nil
 		},
 		"ShouldEnableCustomData": func() bool {
-			return !config.DisableCustomData && !profile.IsFlatcar()
+			return !config.DisableCustomData
 		},
 		"GetPrivateEgressProxyAddress": func() string {
 			return config.ContainerService.Properties.SecurityProfile.GetProxyAddress()
