@@ -24,8 +24,7 @@ type SIGAzureEnvironmentSpecConfig struct {
 	SigAzureLinuxImageConfig     map[Distro]SigImageConfig `json:"sigAzureLinuxImageConfig,omitempty"`
 	SigWindowsImageConfig        map[Distro]SigImageConfig `json:"sigWindowsImageConfig,omitempty"`
 	SigUbuntuEdgeZoneImageConfig map[Distro]SigImageConfig `json:"sigUbuntuEdgeZoneImageConfig,omitempty"`
-	// TODO: populate Flatcar image config once ACSConfig has been updated with Flatcar gallery config entries
-	SigFlatcarImageConfig map[Distro]SigImageConfig `json:"sigFlatcarImageConfig,omitempty"`
+	SigFlatcarImageConfig        map[Distro]SigImageConfig `json:"sigFlatcarImageConfig,omitempty"`
 	// TODO(adadilli) add PIR constants as well
 }
 
@@ -1093,6 +1092,10 @@ func GetSIGAzureCloudSpecConfig(sigConfig SIGConfig, region string) (SIGAzureEnv
 	}
 	c.SigAzureLinuxImageConfig = getSigAzureLinuxImageConfigMapWithOpts(fromACSAzureLinux)
 
+	// TODO: use withACSConfig for Flatcar when the gallery config is available within SIGConfig (ACSConfig) provided by the resource provider.
+	fromACSFlatcar := withACSSIGConfigForTest(sigConfig, "AKSFlatcar")
+	c.SigFlatcarImageConfig = getSigFlatcarImageConfigMapWithOpts(fromACSFlatcar)
+
 	fromACSWindows, err := withACSSIGConfig(sigConfig, "AKSWindows")
 	if err != nil {
 		return SIGAzureEnvironmentSpecConfig{}, fmt.Errorf("unexpected error while constructing env-aware sig configuration for Windows: %w", err)
@@ -1119,6 +1122,27 @@ func GetAzurePublicSIGConfigForTest() SIGAzureEnvironmentSpecConfig {
 		SigWindowsImageConfig:        getSigWindowsImageConfigMapWithOpts(withSubscription(AzurePublicCloudSigSubscription)),
 		SigUbuntuEdgeZoneImageConfig: getSigUbuntuEdgeZoneImageConfigMapWithOpts(withSubscription(AzurePublicCloudSigSubscription)),
 		SigFlatcarImageConfig:        getSigFlatcarImageConfigMapWithOpts(withSubscription(AzurePublicCloudSigSubscription)),
+	}
+}
+
+// withACSSIGConfigForTest functions the same as withACSSIGConfig, but uses a default gallery and resource group
+// if no corresponding gallery config is found for the particular OS SKU.
+// This is needed to support agentbaker E2E tests using the specified SKU while also ignoring cases where
+// ACSConfig provided by the resource provider in production doesn't contain the required gallery config.
+func withACSSIGConfigForTest(acsSigConfig SIGConfig, osSKU string) SigImageConfigOpt {
+	galleryName := "gallery"
+	resourceGroup := "resourcegroup"
+
+	gallery, k := acsSigConfig.Galleries[osSKU]
+	if k {
+		galleryName = gallery.GalleryName
+		resourceGroup = gallery.ResourceGroup
+	}
+
+	return func(c *SigImageConfig) {
+		c.Gallery = galleryName
+		c.SubscriptionID = acsSigConfig.SubscriptionID
+		c.ResourceGroup = resourceGroup
 	}
 }
 

@@ -1957,7 +1957,6 @@ oom_score = -999
 			},
 		),
 		Entry("Flatcar", "Flatcar", "1.31.0", func(config *datamodel.NodeBootstrappingConfiguration) {
-			Skip("skipped for now due to ACSConfig missing Flatcar gallery config entries")
 			config.OSSKU = "Flatcar"
 			config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSFlatcarGen2
 			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
