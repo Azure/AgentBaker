@@ -21,7 +21,6 @@ import (
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
-	"github.com/barkimedes/go-deepcopy"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 	ctrruntimelog "sigs.k8s.io/controller-runtime/pkg/log"
@@ -62,10 +61,9 @@ func constructErrorMessage(subscriptionID, location string) string {
 	return fmt.Sprintf("Received second cancellation signal, forcing exit.\nPlease check https://ms.portal.azure.com/#@microsoft.onmicrosoft.com/resource/subscriptions/%s/resourceGroups/%s/overview and delete any resources created by the test suite", subscriptionID, config.ResourceGroupName(location))
 }
 
-func newTestCtx(t *testing.T, location string) context.Context {
+func newTestCtx(t *testing.T) context.Context {
 	if testCtx.Err() != nil {
-		msg := constructErrorMessage(config.Config.SubscriptionID, location)
-		t.Skip("test suite is shutting down: " + msg)
+		t.Skip("test suite is shutting down")
 	}
 	ctx, cancel := context.WithTimeout(testCtx, config.Config.TestTimeout)
 	t.Cleanup(cancel)
@@ -93,7 +91,6 @@ func ensureLocationInitialized(ctx context.Context, t *testing.T, location strin
 	}
 
 	// Initialize the location
-	t.Logf("Initializing location %s", location)
 	err := ensureResourceGroup(ctx, location)
 	require.NoError(t, err, "ensuring resource group")
 	_, err = config.Azure.CreateVMManagedIdentity(ctx, location)
@@ -101,12 +98,9 @@ func ensureLocationInitialized(ctx context.Context, t *testing.T, location strin
 
 	// Mark this location as initialized
 	initializedLocations[location] = true
-	t.Logf("Location %s initialized successfully", location)
 }
 
 func RunScenario(t *testing.T, s *Scenario) {
-	s.T = t
-	t.Parallel()
 
 	if s.Location == "" {
 		s.Location = config.Config.DefaultLocation
@@ -114,9 +108,112 @@ func RunScenario(t *testing.T, s *Scenario) {
 
 	s.Location = strings.ToLower(s.Location)
 
-	ctx := newTestCtx(t, s.Location)
+	ctx := newTestCtx(t)
 	ensureLocationInitialized(ctx, t, s.Location)
 
+	if config.Config.TestPreProvision {
+		t.Run("Original", func(t *testing.T) {
+			t.Parallel()
+			runScenario(t, s)
+		})
+		t.Run("FirstStage", func(t *testing.T) {
+			t.Parallel()
+			runScenarioWithPreProvision(t, s)
+
+		})
+	} else {
+		runScenario(t, s)
+	}
+
+}
+
+func runScenarioWithPreProvision(t *testing.T, original *Scenario) {
+	// This is hard to understand. Some functional magic is used to run the original scenario in two stages.
+	// 1. Stage 1: Run the original scenario with pre-provisioning enabled, but skip the main validation and validate only pre-provisioning.
+	// 2. Create a new Image from the VMSS created in Stage 1
+	// 3. Stage 2: Run the original scenario again, but this time using the custom VHD created in a previous step, with validators,
+	// The goal here is to test pre-provisioning logic on the variety of existing scenarios
+	firstStage := copyScenario(original)
+	var customVHD *config.Image
+
+	// Mutate the copy for pre-provisioning
+	firstStage.Config.SkipDefaultValidation = true
+	firstStage.Config.Validator = func(ctx context.Context, stage1 *Scenario) {
+		if stage1.IsWindows() {
+			ValidateFileExists(ctx, stage1, "C:\\AzureData\\preprovision.complete")
+			ValidateFileDoesNotExist(ctx, stage1, "C:\\AzureData\\provision.complete")
+			ValidateWindowsServiceIsNotRunning(ctx, stage1, "kubelet")
+			ValidateWindowsServiceIsRunning(ctx, stage1, "containerd")
+		} else {
+			ValidateFileExists(ctx, stage1, "/etc/containerd/config.toml")
+			ValidateFileExists(ctx, stage1, "/opt/azure/containers/preprovision.complete")
+			ValidateFileDoesNotExist(ctx, stage1, "/opt/azure/containers/provision.complete")
+			ValidateSystemdUnitIsRunning(ctx, stage1, "containerd")
+			ValidateSystemdUnitIsNotRunning(ctx, stage1, "kubelet")
+		}
+		t.Log("=== Stage 1 validation complete, proceeding to Stage 2 ===")
+		customVHD = CreateImage(ctx, stage1)
+	}
+	firstStage.Config.VMConfigMutator = func(vmss *armcompute.VirtualMachineScaleSet) {
+		if original.VMConfigMutator != nil {
+			original.VMConfigMutator(vmss)
+		}
+		if vmss.Properties.VirtualMachineProfile.StorageProfile.OSDisk != nil {
+			vmss.Properties.VirtualMachineProfile.StorageProfile.OSDisk.DiffDiskSettings = nil
+		}
+	}
+	if original.BootstrapConfigMutator != nil {
+		firstStage.BootstrapConfigMutator = func(nbc *datamodel.NodeBootstrappingConfiguration) {
+			original.BootstrapConfigMutator(nbc)
+			nbc.PreProvisionOnly = true
+		}
+	}
+	if original.AKSNodeConfigMutator != nil {
+		firstStage.AKSNodeConfigMutator = func(nodeconfig *aksnodeconfigv1.Configuration) {
+			original.AKSNodeConfigMutator(nodeconfig)
+			nodeconfig.PreProvisionOnly = true
+		}
+	}
+
+	runScenario(t, firstStage)
+
+	if t.Failed() {
+		return
+	}
+
+	t.Run("SecondStage", func(t *testing.T) {
+		secondStageScenario := copyScenario(original)
+		secondStageScenario.Description = "Stage 2: Create VMSS from captured VHD via SIG"
+		secondStageScenario.Config.VHD = customVHD
+		secondStageScenario.Config.Validator = func(ctx context.Context, s *Scenario) {
+			if s.IsWindows() {
+				ValidateFileExists(ctx, s, "C:\\AzureData\\provision.complete")
+				ValidateWindowsServiceIsRunning(ctx, s, "kubelet")
+			} else {
+				ValidateFileExists(ctx, s, "/opt/azure/containers/provision.complete")
+				ValidateSystemdUnitIsRunning(ctx, s, "kubelet")
+			}
+			if original.Config.Validator != nil {
+				original.Config.Validator(ctx, s)
+			}
+		}
+		runScenario(t, secondStageScenario)
+	})
+}
+
+// Helper to deep copy a Scenario (implement as needed for your struct)
+func copyScenario(s *Scenario) *Scenario {
+	// Implement deep copy logic for Scenario and its fields
+	// This is a placeholder; you may need to copy nested structs and slices
+	copied := *s
+	copied.Config = s.Config // If Config is a struct, deep copy its fields as well
+	return &copied
+}
+
+func runScenario(t *testing.T, s *Scenario) {
+	t.Parallel()
+	s.T = t
+	ctx := newTestCtx(t)
 	ctrruntimelog.SetLogger(zap.New())
 
 	maybeSkipScenario(ctx, t, s)
@@ -146,35 +243,18 @@ func prepareAKSNode(ctx context.Context, s *Scenario) {
 
 	nbc := getBaseNBC(s.T, s.Runtime.Cluster, s.VHD)
 
-	if s.VHD.OS == config.OSWindows {
+	if s.IsWindows() {
 		nbc.ContainerService.Properties.WindowsProfile.CseScriptsPackageURL = "https://packages.aks.azure.com/aks/windows/cse/"
 	}
 
 	if s.BootstrapConfigMutator != nil {
-		// deep copy the nbc so that we can mutate it without affecting the original
-		clonedNbc, err := deepcopy.Anything(nbc)
-		if err != nil {
-			s.T.Fatalf("failed to deep copy node config: %v", err)
-		}
-
-		// Pass the cloned nbc to BootstrapConfigMutator so that it can mutate the properties but not affecting the original one.
-		// Without this, it will cause a race condition when running multiple tests in parallel.
-		s.BootstrapConfigMutator(clonedNbc.(*datamodel.NodeBootstrappingConfiguration))
-		s.Runtime.NBC = clonedNbc.(*datamodel.NodeBootstrappingConfiguration)
+		s.BootstrapConfigMutator(nbc)
+		s.Runtime.NBC = nbc
 	}
 	if s.AKSNodeConfigMutator != nil {
 		nodeconfig := nbcToAKSNodeConfigV1(nbc)
-
-		// deep copy the node config so that we can mutate it without affecting the original
-		clonedNodeConfig, err := deepcopy.Anything(nodeconfig)
-		if err != nil {
-			s.T.Fatalf("failed to deep copy node config: %v", err)
-		}
-
-		// Pass the cloned clonedNodeConfig to AKSNodeConfigMutator so that it can mutate the properties but not affecting the original one.
-		// Without this, it will cause a race condition when running multiple tests in parallel.
-		s.AKSNodeConfigMutator(clonedNodeConfig.(*aksnodeconfigv1.Configuration))
-		s.Runtime.AKSNodeConfig = clonedNodeConfig.(*aksnodeconfigv1.Configuration)
+		s.AKSNodeConfigMutator(nodeconfig)
+		s.Runtime.AKSNodeConfig = nodeconfig
 	}
 	var err error
 	s.Runtime.SSHKeyPrivate, s.Runtime.SSHKeyPublic, err = getNewRSAKeyPair()
@@ -197,17 +277,18 @@ func prepareAKSNode(ctx context.Context, s *Scenario) {
 
 	err = getCustomScriptExtensionStatus(ctx, s)
 	require.NoError(s.T, err)
-	vmssCreatedAt := time.Now()         // Record the start time
-	creationElapse := time.Since(start) // Calculate the elapsed time
 
 	s.T.Logf("vmss %s creation succeeded", s.Runtime.VMSSName)
 
-	s.Runtime.KubeNodeName = s.Runtime.Cluster.Kube.WaitUntilNodeReady(ctx, s.T, s.Runtime.VMSSName)
-	readyElapse := time.Since(vmssCreatedAt) // Calculate the elapsed time
-	totalElapse := time.Since(start)
-	s.T.Logf("node %s is ready", s.Runtime.VMSSName)
-
-	toolkit.LogDuration(totalElapse, 3*time.Minute, fmt.Sprintf("Node %s took %s to be created and %s to be ready\n", s.Runtime.VMSSName, toolkit.FormatDuration(creationElapse), toolkit.FormatDuration(readyElapse)))
+	if !s.Config.SkipDefaultValidation {
+		vmssCreatedAt := time.Now()         // Record the start time
+		creationElapse := time.Since(start) // Calculate the elapsed time
+		s.Runtime.KubeNodeName = s.Runtime.Cluster.Kube.WaitUntilNodeReady(ctx, s.T, s.Runtime.VMSSName)
+		readyElapse := time.Since(vmssCreatedAt) // Calculate the elapsed time
+		totalElapse := time.Since(start)
+		s.T.Logf("node %s is ready", s.Runtime.VMSSName)
+		toolkit.LogDuration(s.T, totalElapse, 3*time.Minute, fmt.Sprintf("Node %s took %s to be created and %s to be ready", s.Runtime.VMSSName, toolkit.FormatDuration(creationElapse), toolkit.FormatDuration(readyElapse)))
+	}
 
 	s.Runtime.VMPrivateIP, err = getVMPrivateIPAddress(ctx, s)
 	require.NoError(s.T, err, "failed to get VM private IP address")
@@ -261,8 +342,8 @@ func getNanoserverImagesForVhd(vhd *config.Image) []string {
 	return getWindowsContainerImages("mcr.microsoft.com/windows/nanoserver:*", getWindowsEnvVarForName(vhd))
 }
 
-func validateNodeCanRunAPod(ctx context.Context, s *Scenario) {
-	if s.VHD.OS == config.OSWindows {
+func ValidateNodeCanRunAPod(ctx context.Context, s *Scenario) {
+	if s.IsWindows() {
 		serverCorePods := getServercoreImagesForVHD(s.VHD)
 		for i, pod := range serverCorePods {
 			ValidatePodRunning(ctx, s, podWindows(s, fmt.Sprintf("servercore%d", i), pod))
@@ -278,13 +359,17 @@ func validateNodeCanRunAPod(ctx context.Context, s *Scenario) {
 }
 
 func validateVM(ctx context.Context, s *Scenario) {
-	validateNodeCanRunAPod(ctx, s)
+	err := uploadSSHKey(ctx, s)
+	require.NoError(s.T, err)
 
-	switch s.VHD.OS {
-	case config.OSWindows:
-		// TODO: validate something
-	default:
-		ValidateCommonLinux(ctx, s)
+	if !s.Config.SkipDefaultValidation {
+		ValidateNodeCanRunAPod(ctx, s)
+		switch s.VHD.OS {
+		case config.OSWindows:
+			// TODO: validate something
+		default:
+			ValidateCommonLinux(ctx, s)
+		}
 	}
 
 	// test-specific validation
@@ -381,7 +466,7 @@ func getCustomScriptExtensionStatus(ctx context.Context, s *Scenario) error {
 			}
 			for _, extension := range instanceViewResp.Extensions {
 				for _, status := range extension.Statuses {
-					if s.VHD.OS == config.OSWindows {
+					if s.IsWindows() {
 						// Save the CSE output for Windows VMs for better troubleshooting
 						if status.Message != nil {
 							logDir := filepath.Join("scenario-logs", s.T.Name())
@@ -520,4 +605,139 @@ func RemoveLeadingV(version string) string {
 		return version[1:]
 	}
 	return version
+}
+
+func CreateImage(ctx context.Context, s *Scenario) *config.Image {
+	s.T.Log("Generalizing VM")
+	if s.IsLinux() {
+		execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo waagent -deprovision", 0, "Failed to deprovision the VM for image creation")
+	} else {
+		runPoller, err := config.Azure.VMSSVM.BeginRunCommand(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, "0", armcompute.RunCommandInput{
+			CommandID: to.Ptr("RunPowerShellScript"),
+			Script: []*string{to.Ptr(`if(Test-Path C:\system32\Sysprep\unattend.xml) {
+Remove-Item C:\system32\Sysprep\unattend.xml -Force
+};
+C:\Windows\System32\Sysprep\Sysprep.exe /oobe /generalize /mode:vm /quiet /quit;`)},
+		}, nil)
+		require.NoError(s.T, err, "Failed to run command on Windows VM for image creation")
+
+		runResp, err := runPoller.PollUntilDone(ctx, nil)
+		require.NoError(s.T, err, "Failed to run command on Windows VM for image creation")
+		respJson, _ := runResp.MarshalJSON()
+		s.T.Logf("Run command output: %s", string(respJson))
+	}
+
+	vm, err := config.Azure.VMSSVM.Get(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, "0", &armcompute.VirtualMachineScaleSetVMsClientGetOptions{})
+	require.NoError(s.T, err, "Failed to get VMSS VM for image creation")
+
+	s.T.Log("Deallocating VMSS VM...")
+	poll, err := config.Azure.VMSSVM.BeginDeallocate(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, "0", nil)
+	require.NoError(s.T, err, "Failed to begin deallocate")
+	_, err = poll.PollUntilDone(ctx, nil)
+	require.NoError(s.T, err, "Failed to deallocate")
+
+	// Create version using smaller integers that fit within Azure's limits
+	// Use Unix timestamp for guaranteed uniqueness in concurrent runs
+	now := time.Now()
+	nanos := now.UnixNano()
+	// Take last 9 digits to ensure it fits in 32-bit integer range
+	patchVersion := nanos % 1000000000
+	version := fmt.Sprintf("1.%s.%d", now.Format("20060102"), patchVersion)
+
+	// Get the OS disk resource ID directly from the VM
+	diskName := *vm.Properties.StorageProfile.OSDisk.Name
+	diskResourceID := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/disks/%s",
+		config.Config.SubscriptionID, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, diskName)
+
+	return CreateSIGImageVersionFromDisk(
+		ctx,
+		s,
+		version,
+		diskResourceID,
+	)
+}
+
+// CreateSIGImageVersionFromDisk creates a new SIG image version directly from a VM disk
+func CreateSIGImageVersionFromDisk(ctx context.Context, s *Scenario, version string, diskResourceID string) *config.Image {
+	rg := config.ResourceGroupName(s.Location)
+	gallery, err := CachedCreateGallery(ctx, CreateGalleryRequest{
+		ResourceGroup: rg,
+		Location:      s.Location,
+	})
+	require.NoError(s.T, err, "failed to create or get gallery")
+
+	image, err := CachedCreateGalleryImage(ctx, CreateGalleryImageRequest{
+		ResourceGroup: rg,
+		GalleryName:   *gallery.Name,
+		Location:      s.Location,
+		Arch:          s.VHD.Arch,
+		Windows:       s.IsWindows(),
+	})
+	require.NoError(s.T, err, "failed to create or get gallery image")
+
+	// Create the image version directly from the disk
+	s.T.Logf("Creating gallery image version: %s in %s", version, *image.ID)
+	createVersionOp, err := config.Azure.GalleryImageVersions.BeginCreateOrUpdate(ctx, rg, *gallery.Name, *image.Name, version, armcompute.GalleryImageVersion{
+		Location: to.Ptr(s.Location),
+		Properties: &armcompute.GalleryImageVersionProperties{
+			StorageProfile: &armcompute.GalleryImageVersionStorageProfile{
+				OSDiskImage: &armcompute.GalleryOSDiskImage{
+					Source: &armcompute.GalleryDiskImageSource{
+						ID: to.Ptr(diskResourceID),
+					},
+				},
+			},
+			PublishingProfile: &armcompute.GalleryImageVersionPublishingProfile{
+				ReplicationMode: to.Ptr(armcompute.ReplicationModeShallow),
+				TargetRegions: []*armcompute.TargetRegion{
+					{
+						Name:                 to.Ptr(s.Location),
+						RegionalReplicaCount: to.Ptr[int32](1),
+						StorageAccountType:   to.Ptr(armcompute.StorageAccountTypePremiumLRS),
+					},
+				},
+				ReplicaCount: to.Ptr[int32](1),
+			},
+		},
+	}, nil)
+	require.NoError(s.T, err, "Failed to create gallery image version")
+
+	_, err = createVersionOp.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
+	require.NoError(s.T, err, "Failed to complete gallery image version creation")
+
+	s.T.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		config.Azure.DeleteSIGImageVersion(ctx, rg, *gallery.Name, *image.Name, version)
+	})
+	// Create a new VHD config for Stage2 (ignore lock copying warning for now)
+	customVHD := *s.Config.VHD
+	customVHD.Name = *image.Name // Use the architecture-specific image name
+	customVHD.Gallery = &config.Gallery{
+		SubscriptionID:    config.Config.SubscriptionID,
+		ResourceGroupName: rg,
+		Name:              *gallery.Name,
+	}
+	customVHD.Version = version
+
+	s.T.Logf("Created SIG image version: %s", version)
+
+	return &customVHD
+}
+
+func validateSSHConnectivity(ctx context.Context, s *Scenario) error {
+	connectionTest := fmt.Sprintf("%s echo 'SSH_CONNECTION_OK'", sshString(s.Runtime.VMPrivateIP))
+	connectionResult, err := execOnPrivilegedPod(ctx, s.Runtime.Cluster.Kube, defaultNamespace, s.Runtime.Cluster.DebugPod.Name, connectionTest)
+
+	if err != nil || !strings.Contains(connectionResult.stdout.String(), "SSH_CONNECTION_OK") {
+		stderr := ""
+		if connectionResult != nil {
+			stderr = connectionResult.stderr.String()
+		}
+
+		return fmt.Errorf("SSH connection to %s failed: %v\nStderr: %s", s.Runtime.VMPrivateIP, err, stderr)
+	}
+
+	s.T.Logf("SSH connectivity to %s verified successfully", s.Runtime.VMPrivateIP)
+	return nil
 }

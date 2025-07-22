@@ -255,17 +255,17 @@ configureK8s() {
         set -x
     fi
 
+    set +x
     if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" = "false" ] && [ -z "${TLS_BOOTSTRAP_TOKEN:-}" ]; then
         # only create the client cert and key if we're not using vanilla/secure TLS bootstrapping
-        set +x
         if [ -n "${KUBELET_CLIENT_CONTENT}" ]; then
             echo "${KUBELET_CLIENT_CONTENT}" | base64 -d > /etc/kubernetes/certs/client.key
         fi
         if [ -n "${KUBELET_CLIENT_CERT_CONTENT}" ]; then
             echo "${KUBELET_CLIENT_CERT_CONTENT}" | base64 -d > /etc/kubernetes/certs/client.crt
         fi
-        set -x
     fi
+    set -x
 
     if [ "${KUBELET_CONFIG_FILE_ENABLED}" = "true" ]; then
         set +x

@@ -32,18 +32,17 @@ const (
 
 func createVMSS(ctx context.Context, s *Scenario) *armcompute.VirtualMachineScaleSet {
 	cluster := s.Runtime.Cluster
-	s.T.Logf("creating VMSS %q in resource group %q", s.Runtime.VMSSName, *cluster.Model.Properties.NodeResourceGroup)
 	var nodeBootstrapping *datamodel.NodeBootstrapping
 	ab, err := agent.NewAgentBaker()
 	require.NoError(s.T, err)
 	var cse, customData string
 	if s.AKSNodeConfigMutator != nil {
-		s.T.Logf("creating VMSS %q with AKSNodeConfigMutator", s.Runtime.VMSSName)
+		s.T.Logf("creating VMSS %q with AKSNodeConfigMutator in resource group %s", s.Runtime.VMSSName, *cluster.Model.Properties.NodeResourceGroup)
 		cse = nodeconfigutils.CSE
 		customData, err = nodeconfigutils.CustomData(s.Runtime.AKSNodeConfig)
 		require.NoError(s.T, err)
 	} else {
-		s.T.Logf("creating VMSS %q with AKSNodeConfig", s.Runtime.VMSSName)
+		s.T.Logf("creating VMSS %q with BootstrapConfigMutator/NBC in resource group %s", s.Runtime.VMSSName, *cluster.Model.Properties.NodeResourceGroup)
 		nodeBootstrapping, err = ab.GetNodeBootstrapping(ctx, s.Runtime.NBC)
 		require.NoError(s.T, err)
 		cse = nodeBootstrapping.CSE
@@ -102,7 +101,7 @@ func cleanupVMSS(ctx context.Context, s *Scenario) {
 }
 
 func extractLogsFromVM(ctx context.Context, s *Scenario) {
-	if s.VHD.OS == config.OSWindows {
+	if s.IsWindows() {
 		extractLogsFromVMWindows(ctx, s)
 	} else {
 		extractLogsFromVMLinux(ctx, s)
@@ -135,7 +134,7 @@ func extractLogsFromVMLinux(ctx context.Context, s *Scenario) {
 
 	var logFiles = map[string]string{}
 	for file, sourceCmd := range commandList {
-		execResult, err := execBashCommandOnVM(ctx, s, privateIP, pod.Name, string(s.Runtime.SSHKeyPrivate), sourceCmd)
+		execResult, err := execBashCommandOnVM(ctx, s, privateIP, pod.Name, sourceCmd)
 		if err != nil {
 			s.T.Logf("error executing %s: %s", sourceCmd, err)
 			continue
@@ -149,12 +148,12 @@ func extractLogsFromVMLinux(ctx context.Context, s *Scenario) {
 	require.NoError(s.T, err)
 }
 
-func execBashCommandOnVM(ctx context.Context, s *Scenario, vmPrivateIP, jumpboxPodName, sshPrivateKey, command string) (*podExecResult, error) {
+func execBashCommandOnVM(ctx context.Context, s *Scenario, vmPrivateIP, jumpboxPodName, command string) (*podExecResult, error) {
 	script := Script{
 		interpreter: Bash,
 		script:      command,
 	}
-	return execScriptOnVm(ctx, s, vmPrivateIP, jumpboxPodName, sshPrivateKey, script)
+	return execScriptOnVm(ctx, s, vmPrivateIP, jumpboxPodName, script)
 }
 
 const uploadLogsPowershellScript = `
@@ -251,18 +250,14 @@ func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
 		},
 		nil,
 	)
-	if err != nil {
-		s.T.Logf("failed to initiate run command on VMSS instance: %s", err)
-		return
-	}
+	require.NoError(s.T, err, "failed to initiate run command on VMSS instance %s", instanceID)
 
 	// Poll the result until the operation is completed
 	runCommandResp, err := pollerResp.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
-	if err != nil {
-		s.T.Logf("failed to execute run command on VMSS instance: %s", err)
-		return
-	}
-	s.T.Logf("run command executed successfully: %v", runCommandResp)
+	require.NoError(s.T, err, "failed to poll run command on VMSS instance %s", instanceID)
+
+	respJSON, _ := json.MarshalIndent(runCommandResp, "", "  ")
+	s.T.Logf("run command executed successfully:\n%s", respJSON)
 
 	s.T.Logf("uploaded logs to %s", blobUrl)
 
@@ -444,7 +439,7 @@ func generateVMSSNameWindows() string {
 }
 
 func generateVMSSName(s *Scenario) string {
-	if s.VHD.OS == config.OSWindows {
+	if s.IsWindows() {
 		return generateVMSSNameWindows()
 	}
 	return generateVMSSNameLinux(s.T)
@@ -550,7 +545,7 @@ func getBaseVMSSModel(s *Scenario, customData, cseCmd, location string) armcompu
 			},
 		}
 	}
-	if s.VHD.OS == config.OSWindows {
+	if s.IsWindows() {
 		model.Identity = &armcompute.VirtualMachineScaleSetIdentity{
 			Type: to.Ptr(armcompute.ResourceIdentityTypeSystemAssignedUserAssigned),
 			UserAssignedIdentities: map[string]*armcompute.UserAssignedIdentitiesValue{

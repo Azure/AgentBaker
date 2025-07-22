@@ -151,6 +151,10 @@ type Config struct {
 
 	// Validator is a function where the scenario can perform any extra validation checks
 	Validator func(ctx context.Context, s *Scenario)
+
+	// SkipDefaultValidation is a flag to indicate whether the common validation (like spawning a pod) should be skipped.
+	// It shouldn't be used for majority of scenarios, currently only used for preparing VHD in a two-stage scenario
+	SkipDefaultValidation bool
 }
 
 func (s *Scenario) PrepareAKSNodeConfig() {
@@ -165,8 +169,6 @@ func (s *Scenario) PrepareVMSSModel(ctx context.Context, t *testing.T, vmss *arm
 	require.NotEmpty(t, resourceID, "VHDSelector.ResourceID")
 	require.NotNil(t, vmss, "input VirtualMachineScaleSet")
 	require.NotNil(t, vmss.Properties, "input VirtualMachineScaleSet.Properties")
-
-	s.T.Logf("got vhd resource id %s", resourceID)
 
 	if s.VMConfigMutator != nil {
 		s.VMConfigMutator(vmss)
@@ -196,4 +198,12 @@ func (s *Scenario) PrepareVMSSModel(ctx context.Context, t *testing.T, vmss *arm
 		}
 		vmss.Tags[buildIDTagKey] = &config.Config.BuildID
 	}
+}
+
+func (s *Scenario) IsWindows() bool {
+	return s.VHD.OS == config.OSWindows
+}
+
+func (s *Scenario) IsLinux() bool {
+	return !s.IsWindows()
 }

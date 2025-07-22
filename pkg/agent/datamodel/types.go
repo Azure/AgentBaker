@@ -1797,9 +1797,12 @@ type NodeBootstrappingConfiguration struct {
 	// CNI, which will overwrite the `filter` table so that we can only insert to `mangle` table to avoid
 	// our added rule is overwritten by Cilium.
 	InsertIMDSRestrictionRuleToMangleTable bool
-
 	// Version is required for aks-node-controller application to determine the version of the config file.
 	Version string
+
+	// PreProvisionOnly creates a pre-provisioned image for later node spawning.
+	// Skips kubelet and some component configuration for image capture scenarios.
+	PreProvisionOnly bool
 }
 
 type SSHStatus int

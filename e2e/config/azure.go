@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/Azure/agentbaker/e2e/toolkit"
+
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
@@ -59,6 +60,12 @@ type AzureClient struct {
 	UserAssignedIdentities    *armmsi.UserAssignedIdentitiesClient
 	VMSS                      *armcompute.VirtualMachineScaleSetsClient
 	VMSSVM                    *armcompute.VirtualMachineScaleSetVMsClient
+	VMs                       *armcompute.VirtualMachinesClient
+	Images                    *armcompute.ImagesClient
+	Snapshots                 *armcompute.SnapshotsClient
+	Galleries                 *armcompute.GalleriesClient
+	GalleryImages             *armcompute.GalleryImagesClient
+	GalleryImageVersions      *armcompute.GalleryImageVersionsClient
 	VNet                      *armnetwork.VirtualNetworksClient
 	VirutalNetworkLinksClient *armprivatedns.VirtualNetworkLinksClient
 	ArmOptions                *arm.ClientOptions
@@ -207,6 +214,31 @@ func NewAzureClient() (*AzureClient, error) {
 		return nil, fmt.Errorf("create vmss vm client: %w", err)
 	}
 
+	cloud.VMs, err = armcompute.NewVirtualMachinesClient(Config.SubscriptionID, credential, opts)
+	if err != nil {
+		return nil, fmt.Errorf("create vms client: %w", err)
+	}
+
+	cloud.Images, err = armcompute.NewImagesClient(Config.SubscriptionID, credential, opts)
+	if err != nil {
+		return nil, fmt.Errorf("create images client: %w", err)
+	}
+
+	cloud.Snapshots, err = armcompute.NewSnapshotsClient(Config.SubscriptionID, credential, opts)
+	if err != nil {
+		return nil, fmt.Errorf("create snapshots client: %w", err)
+	}
+
+	cloud.GalleryImages, err = armcompute.NewGalleryImagesClient(Config.SubscriptionID, credential, opts)
+	if err != nil {
+		return nil, fmt.Errorf("create gallery images client: %w", err)
+	}
+
+	cloud.GalleryImageVersions, err = armcompute.NewGalleryImageVersionsClient(Config.SubscriptionID, credential, opts)
+	if err != nil {
+		return nil, fmt.Errorf("create gallery image versions client: %w", err)
+	}
+
 	cloud.Resource, err = armresources.NewClient(Config.SubscriptionID, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("create resource client: %w", err)
@@ -255,6 +287,12 @@ func NewAzureClient() (*AzureClient, error) {
 	cloud.VMExtensionImages, err = armcompute.NewVirtualMachineExtensionImagesClient(Config.SubscriptionID, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("create vm extension images client: %w", err)
+	}
+
+	// Ensure the gallery exists
+	cloud.Galleries, err = armcompute.NewGalleriesClient(Config.SubscriptionID, credential, opts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create galleries client: %w", err)
 	}
 
 	cloud.Credential = credential
@@ -423,7 +461,6 @@ func (a *AzureClient) LatestSIGImageVersionByTag(ctx context.Context, t *testing
 			if tagName != "" {
 				tag, ok := version.Tags[tagName]
 				if !ok || tag == nil || *tag != tagValue {
-					t.Logf("Skipping version %s as it doesn't have tag %s=%s", *version.ID, tagName, tagValue)
 					continue
 				}
 			}
@@ -434,7 +471,6 @@ func (a *AzureClient) LatestSIGImageVersionByTag(ctx context.Context, t *testing
 			}
 
 			if latestVersion == nil || version.Properties.PublishingProfile.PublishedDate.After(*latestVersion.Properties.PublishingProfile.PublishedDate) {
-				t.Logf("Found version %s with tag %s=%s", *version.ID, tagName, tagValue)
 				latestVersion = version
 			}
 		}
@@ -462,16 +498,20 @@ func (a *AzureClient) LatestSIGImageVersionByTag(ctx context.Context, t *testing
 
 func (a *AzureClient) ensureReplication(ctx context.Context, t *testing.T, image *Image, version *armcompute.GalleryImageVersion, location string) error {
 	if replicatedToCurrentRegion(version, location) {
-		t.Logf("Image version %s is already in region to region %s", *version.ID, location)
+		t.Logf("Image version %s is already in region %s", *version.ID, location)
 		return nil
 	}
-	t.Logf("##vso[task.logissue type=warning;]Replicating to region %s: image version %s", location, *version.ID)
+	regions := make([]string, 0, len(version.Properties.PublishingProfile.TargetRegions))
+	for _, targetRegion := range version.Properties.PublishingProfile.TargetRegions {
+		regions = append(regions, *targetRegion.Name)
+	}
+	t.Logf("##vso[task.logissue type=warning;]Replicating to region %s, available regions: %s, image version %s", location, strings.Join(regions, ", "), *version.ID)
 
 	start := time.Now() // Record the start time
 	err := a.replicateImageVersionToCurrentRegion(ctx, image, version, location)
 	elapsed := time.Since(start) // Calculate the elapsed time
 
-	toolkit.LogDuration(elapsed, 3*time.Minute, fmt.Sprintf("Replication took: %s (%s)\n", toolkit.FormatDuration(elapsed), *version.ID))
+	toolkit.LogDuration(t, elapsed, 3*time.Minute, fmt.Sprintf("Replication took: %s (%s)", toolkit.FormatDuration(elapsed), *version.ID))
 
 	return err
 }
@@ -563,7 +603,6 @@ func ensureProvisioningState(version *armcompute.GalleryImageVersion) error {
 }
 
 func (a *AzureClient) CreateVMSSWithRetry(ctx context.Context, t *testing.T, resourceGroupName string, vmssName string, parameters armcompute.VirtualMachineScaleSet) (*armcompute.VirtualMachineScaleSet, error) {
-	t.Logf("creating VMSS %s in resource group %s", vmssName, resourceGroupName)
 	delay := 5 * time.Second
 	retryOn := func(err error) bool {
 		var respErr *azcore.ResponseError
@@ -618,7 +657,79 @@ func (a *AzureClient) createVMSS(ctx context.Context, resourceGroupName string, 
 		return nil, err
 	}
 	return &vmssResp.VirtualMachineScaleSet, nil
+}
 
+// DeleteImage deletes a managed image
+func (a *AzureClient) DeleteImage(ctx context.Context, resourceGroupName, imageName string) error {
+	deleteOp, err := a.Images.BeginDelete(ctx, resourceGroupName, imageName, nil)
+	if err != nil {
+		return fmt.Errorf("failed to delete image: %w", err)
+	}
+
+	_, err = deleteOp.PollUntilDone(ctx, DefaultPollUntilDoneOptions)
+	if err != nil {
+		return fmt.Errorf("failed to complete image deletion: %w", err)
+	}
+
+	return nil
+}
+
+// CreateVMSSFromImage creates a VMSS from a managed image
+func (a *AzureClient) CreateVMSSFromImage(ctx context.Context, resourceGroupName, vmssName string, vmssTemplate armcompute.VirtualMachineScaleSet, imageResourceID string) (*armcompute.VirtualMachineScaleSet, error) {
+	// Modify the VMSS template to use the custom image
+	if vmssTemplate.Properties.VirtualMachineProfile.StorageProfile.ImageReference == nil {
+		vmssTemplate.Properties.VirtualMachineProfile.StorageProfile.ImageReference = &armcompute.ImageReference{}
+	}
+
+	vmssTemplate.Properties.VirtualMachineProfile.StorageProfile.ImageReference.ID = to.Ptr(imageResourceID)
+	// Clear marketplace image reference properties when using custom image
+	vmssTemplate.Properties.VirtualMachineProfile.StorageProfile.ImageReference.Publisher = nil
+	vmssTemplate.Properties.VirtualMachineProfile.StorageProfile.ImageReference.Offer = nil
+	vmssTemplate.Properties.VirtualMachineProfile.StorageProfile.ImageReference.SKU = nil
+	vmssTemplate.Properties.VirtualMachineProfile.StorageProfile.ImageReference.Version = nil
+
+	return a.createVMSS(ctx, resourceGroupName, vmssName, vmssTemplate)
+}
+
+// DeleteSIGImageVersion deletes a SIG image version
+func (a *AzureClient) DeleteSIGImageVersion(ctx context.Context, galleryResourceGroup, galleryName, imageName, version string) {
+	// Ignore errors, don't need to wait for the deletion to complete
+	_, _ = a.GalleryImageVersions.BeginDelete(ctx, galleryResourceGroup, galleryName, imageName, version, nil)
+}
+
+// DeleteDisk deletes a managed disk
+func (a *AzureClient) DeleteDisk(ctx context.Context, resourceGroupName, diskName string) error {
+	disks, err := armcompute.NewDisksClient(Config.SubscriptionID, a.Credential, a.ArmOptions)
+	if err != nil {
+		return fmt.Errorf("failed to create disks client: %w", err)
+	}
+
+	deleteOp, err := disks.BeginDelete(ctx, resourceGroupName, diskName, nil)
+	if err != nil {
+		return fmt.Errorf("failed to delete disk: %w", err)
+	}
+
+	_, err = deleteOp.PollUntilDone(ctx, DefaultPollUntilDoneOptions)
+	if err != nil {
+		return fmt.Errorf("failed to complete disk deletion: %w", err)
+	}
+
+	return nil
+}
+
+// DeleteSnapshot deletes a disk snapshot
+func (a *AzureClient) DeleteSnapshot(ctx context.Context, resourceGroupName, snapshotName string) error {
+	deleteOp, err := a.Snapshots.BeginDelete(ctx, resourceGroupName, snapshotName, nil)
+	if err != nil {
+		return fmt.Errorf("failed to delete snapshot: %w", err)
+	}
+
+	_, err = deleteOp.PollUntilDone(ctx, DefaultPollUntilDoneOptions)
+	if err != nil {
+		return fmt.Errorf("failed to complete snapshot deletion: %w", err)
+	}
+
+	return nil
 }
 
 // GetLatestVMExtensionImageVersion lists VM extension images for a given extension name and returns the latest version.

@@ -192,6 +192,7 @@ $global:EnableIncreaseDynamicPortRange = $false
 $global:RebootNeeded = $false
 
 $global:IsSkipCleanupNetwork = [System.Convert]::ToBoolean("false");
+$PreProvisionOnly = [System.Convert]::ToBoolean("false");
 
 $global:EnableKubeletServingCertificateRotation = [System.Convert]::ToBoolean("true")
 
@@ -205,34 +206,22 @@ Expand-Archive scripts.zip -DestinationPath "C:\\AzureData\\" -Force
 
 $global:OperationId = New-Guid
 
-try
-{
-    Logs-To-Event -TaskName "AKS.WindowsCSE.ExecuteCustomDataSetupScript" -TaskMessage ".\CustomDataSetupScript.ps1 -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp -MasterFQDNPrefix $MasterFQDNPrefix -Location $Location -AADClientId $AADClientId -NetworkAPIVersion $NetworkAPIVersion -TargetEnvironment $TargetEnvironment -CSEResultFilePath $CSEResultFilePath"
-
-    # Exit early if the script has been executed
-    if (Test-Path -Path $CSEResultFilePath -PathType Leaf) {
-        Write-Log "The script has been executed before, will exit without doing anything."
-        return
-    }
-
-    # This involes using proxy, log the config before fetching packages
-    Write-Log "private egress proxy address is '$global:PrivateEgressProxyAddress'"
-    # TODO update to use proxy
-
+if (-not (Test-Path "C:\AzureData\windows\azurecnifunc.ps1")) {
+    # Determine the CSE package URL
     $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-current.zip"
     # CSEScriptsPackage is cached on VHD. Previously the cse package version was managed in components.json, whereas RP set the package URL which is a storage account.
-    # From 2025-06 The CSE packages is eleased on the VHD. RP can use fully qualified URL to download CSE scripts package when required out of VHD release cycle. 
+    # From 2025-06 The CSE packages is eleased on the VHD. RP can use fully qualified URL to download CSE scripts package when required out of VHD release cycle.
     # In the transition period, it is important that when deal with older VHD versions, the agentbaker runtime provision script needs to be compatible with the latest known storage account package, 0.0.52.
     Write-Log "Requested CSEScriptsPackageUrl is $global:CSEScriptsPackageUrl"
     if ($global:CSEScriptsPackageUrl.EndsWith("/")) {
         $search = @()
         if ($global:CacheDir -and (Test-Path $global:CacheDir)) {
             $search = [IO.Directory]::GetFiles($global:CacheDir, $WindowsCSEScriptsPackage, [IO.SearchOption]::AllDirectories)
-            # list files in the cache directory. 
+            # list files in the cache directory.
             Write-Log "the directory $global:CacheDir contains the following files:"
             Get-ChildItem -Path $global:CacheDir | ForEach-Object { Write-Log "  $_" }
         }
- 
+
         if ($search.Count -eq 0) {
             Write-Log "Could not find windows cse package on VHD. Use remote version instead."
             $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.52.zip"
@@ -248,19 +237,32 @@ try
     DownloadFileOverHttp -Url $global:CSEScriptsPackageUrl -DestinationPath $tempfile -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CSE_PACKAGE
     Expand-Archive $tempfile -DestinationPath "C:\\AzureData\\windows" -Force
     Remove-Item -Path $tempfile -Force
+} else {
+    Write-Log "CSE scripts already exist, skipping download"
+}
 
-    # Dot-source cse scripts with functions that are called in this script
-    . c:\AzureData\windows\azurecnifunc.ps1
-    . c:\AzureData\windows\calicofunc.ps1
-    . c:\AzureData\windows\configfunc.ps1
-    . c:\AzureData\windows\containerdfunc.ps1
-    . c:\AzureData\windows\kubeletfunc.ps1
-    . c:\AzureData\windows\kubernetesfunc.ps1
-    . c:\AzureData\windows\nvidiagpudriverfunc.ps1
+# Dot-source cse scripts with functions that are called in this script
+. c:\AzureData\windows\azurecnifunc.ps1
+. c:\AzureData\windows\calicofunc.ps1
+. c:\AzureData\windows\configfunc.ps1
+. c:\AzureData\windows\containerdfunc.ps1
+. c:\AzureData\windows\kubeletfunc.ps1
+. c:\AzureData\windows\kubernetesfunc.ps1
+. c:\AzureData\windows\nvidiagpudriverfunc.ps1
+
+
+# ====== STAGE 1: BASE IMAGE PREPARATION ======
+# All operations that prepare the base VHD image
+function Stage1 {
+    Write-Log "Starting Stage1 - Base image preparation"
+    Logs-To-Event -TaskName "AKS.WindowsCSE.Stage1" -TaskMessage "Starting Stage1 - Base image preparation"
+
+    # This involves using proxy, log the config before fetching packages
+    Write-Log "private egress proxy address is '$global:PrivateEgressProxyAddress'"
+    # TODO update to use proxy
 
     # Install OpenSSH if SSH enabled
     $sshEnabled = [System.Convert]::ToBoolean("true")
-
     if ( $sshEnabled ) {
         Install-OpenSSH -SSHKeys $SSHKeys
     }
@@ -384,7 +386,6 @@ try
         -IsDualStackEnabled $global:IsDualStackEnabled `
         -IsAzureCNIOverlayEnabled $global:IsAzureCNIOverlayEnabled
 
-
     if ($TargetEnvironment -ieq "AzureStackCloud") {
         GenerateAzureStackCNIConfig `
             -TenantId $global:TenantId `
@@ -400,8 +401,8 @@ try
 
     New-ExternalHnsNetwork -IsDualStackEnabled $global:IsDualStackEnabled
 
-    Install-KubernetesServices `
-        -KubeDir $global:KubeDir
+    # Turn off Firewall to enable pods to talk to service endpoints. (Kubelet should eventually do this)
+    netsh advfirewall set allprofiles state off
 
     Set-Explorer
     Adjust-PageFileSize
@@ -411,6 +412,7 @@ try
     Adjust-DynamicPortRange
     Register-LogsCleanupScriptTask
     Register-NodeResetScriptTask
+    
     Update-DefenderPreferences
 
     $windowsVersion = Get-WindowsVersion
@@ -432,6 +434,18 @@ try
         Install-GmsaPlugin -GmsaPackageUrl $global:WindowsGmsaPackageUrl
     }
 
+    Write-Log "Stage1 completed successfully"
+    Logs-To-Event -TaskName "AKS.WindowsCSE.Stage1" -TaskMessage "Stage1 completed successfully"
+}
+
+# ====== STAGE 2: CLUSTER INTEGRATION ======
+# All operations that should only run when connecting to the actual cluster
+function Stage2 {
+    Install-KubernetesServices -KubeDir $global:KubeDir
+
+    Write-Log "Starting Stage2 - Cluster integration"
+    Logs-To-Event -TaskName "AKS.WindowsCSE.Stage2" -TaskMessage "Starting Stage2 - Cluster integration"
+    
     Check-APIServerConnectivity -MasterIP $MasterIP
 
     if ($global:WindowsCalicoPackageURL) {
@@ -475,6 +489,50 @@ try
         $timer.Stop()
         Write-Log -Message "We waited [$($timer.Elapsed.TotalSeconds)] seconds on NodeResetScriptTask"
     }
+
+    Write-Log "Stage2 completed successfully"
+    Logs-To-Event -TaskName "AKS.WindowsCSE.Stage2" -TaskMessage "Stage2 completed successfully"
+}
+
+try
+{
+    Logs-To-Event -TaskName "AKS.WindowsCSE.ExecuteCustomDataSetupScript" -TaskMessage ".\CustomDataSetupScript.ps1 -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp -MasterFQDNPrefix $MasterFQDNPrefix -Location $Location -AADClientId $AADClientId -NetworkAPIVersion $NetworkAPIVersion -TargetEnvironment $TargetEnvironment -CSEResultFilePath $CSEResultFilePath"
+
+    # Exit early if the script has been executed
+    if (Test-Path -Path $CSEResultFilePath -PathType Leaf) {
+        Write-Log "The script has been executed before, will exit without doing anything."
+        return
+    }
+
+    # The provisioning is split into two stages to support VHD image creation workflows:
+    #
+    # Stage 1: Base image preparation
+    #   - Installs and configures all required components (kubelet, containerd, etc.)
+    #   - Sets up system configurations that are common across all nodes
+    #   - DOES NOT join the node to any cluster
+    #   - After this stage, users can add customizations (e.g., pre-pull additional container images)
+    #   - The VM can then be captured as a VHD image for use as a node pool base image
+    #
+    # Stage 2: Cluster integration and hardware setup
+    #   - Performs cluster-specific configurations
+    #   - Configures hardware-specific components (GPU drivers, MIG partitions, etc.)
+    #   - Establishes connection to the API server
+    #   - Joins the node to the cluster
+    #   - Only runs when actually provisioning a node, not when creating VHD images
+    #
+    # In typical deployments, both stages run sequentially during node provisioning.
+    # For VHD image creation workflows, only stage1 runs initially, and stage2 runs later
+    # when nodes are created from that VHD image.
+    if (-not (Test-Path "C:\AzureData\preprovision.complete")) {
+        Stage1
+    } else {
+        Write-Log "Skipping stage1 - preprovision.complete file exists"
+    }
+    if (-not $PreProvisionOnly) {
+        Stage2
+    } else {
+        Write-Log "Skipping stage2 - pre-provision only mode"
+    }
 }
 catch
 {
@@ -490,16 +548,17 @@ finally
 
     Logs-To-Event -TaskName "AKS.WindowsCSE.cse_main" -TaskMessage "ExitCode: $global:ExitCode. ErrorMessage: $global:ErrorMessage."
 
-    # $CSEResultFilePath is used to avoid running CSE multiple times
-    if ($global:ExitCode -ne 0) {
+    # Create appropriate completion file based on mode
+    $completionFilePath = if ($PreProvisionOnly) { "C:\AzureData\preprovision.complete" } else { $CSEResultFilePath }
+    
+    if ($global:ExitCode -eq 0) {
+        Set-Content -Path $completionFilePath -Value $global:ExitCode -Force
+    } else {
         # $JsonString = "ExitCode: |{0}|, Output: |{1}|, Error: |{2}|"
         # Max length of the full error message returned by Windows CSE is ~256. We use 240 to be safe.
         $errorMessageLength = "ExitCode: |$global:ExitCode|, Output: |$($global:ErrorCodeNames[$global:ExitCode])|, Error: ||".Length
         $turncatedErrorMessage = $global:ErrorMessage.Substring(0, [Math]::Min(240 - $errorMessageLength, $global:ErrorMessage.Length))
-        Set-Content -Path $CSEResultFilePath -Value "ExitCode: |$global:ExitCode|, Output: |$($global:ErrorCodeNames[$global:ExitCode])|, Error: |$turncatedErrorMessage|"
-    }
-    else {
-        Set-Content -Path $CSEResultFilePath -Value $global:ExitCode -Force
+        Set-Content -Path $completionFilePath -Value "ExitCode: |$global:ExitCode|, Output: |$($global:ErrorCodeNames[$global:ExitCode])|, Error: |$turncatedErrorMessage|"
     }
 
     if ($global:ExitCode -eq $global:WINDOWS_CSE_ERROR_DOWNLOAD_CSE_PACKAGE) {
