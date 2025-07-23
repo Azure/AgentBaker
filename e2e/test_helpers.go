@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	stdlog "log"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -67,7 +68,26 @@ func newTestCtx(t *testing.T) context.Context {
 	}
 	ctx, cancel := context.WithTimeout(testCtx, config.Config.TestTimeout)
 	t.Cleanup(cancel)
+	// T should be used only for logging, not for assertions or any other logic
+	ctx = context.WithValue(ctx, "T", t)
 	return ctx
+}
+
+func logf(ctx context.Context, format string, args ...any) {
+	t, ok := ctx.Value("T").(*testing.T)
+	if !ok || t == nil {
+		stdlog.Printf(format+"WARNING: No *testing.T in Context, this function should only be called from ", args...)
+	}
+	t.Logf(format, args...)
+}
+
+func log(ctx context.Context, args ...any) {
+	t, ok := ctx.Value("T").(*testing.T)
+	if !ok || t == nil {
+		stdlog.Println("WARNING: No *testing.T in Context, this function should only be called from a test")
+		return
+	}
+	t.Log(args...)
 }
 
 // Global state to track which locations have been initialized
@@ -218,7 +238,7 @@ func runScenario(t *testing.T, s *Scenario) {
 
 	maybeSkipScenario(ctx, t, s)
 
-	cluster, err := s.Config.Cluster(ctx, s.Location, s.T)
+	cluster, err := s.Config.Cluster(ctx, s.Location)
 	require.NoError(s.T, err, "failed to get cluster")
 	// in some edge cases cluster cache is broken and nil cluster is returned
 	// need to find the root cause and fix it, this should help to catch such cases

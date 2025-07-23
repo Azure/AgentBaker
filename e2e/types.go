@@ -135,7 +135,7 @@ type ScenarioRuntime struct {
 // Config represents the configuration of an AgentBaker E2E scenario.
 type Config struct {
 	// Cluster creates, updates or re-uses an AKS cluster for the scenario
-	Cluster func(ctx context.Context, location string, t *testing.T) (*Cluster, error)
+	Cluster func(ctx context.Context, location string) (*Cluster, error)
 
 	// VHD is the node image used by the scenario.
 	VHD *config.Image

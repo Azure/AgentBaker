@@ -135,7 +135,7 @@ func extractLogsFromVMLinux(ctx context.Context, s *Scenario) error {
 		"syslog":                           "sudo cat /var/log/" + syslogHandle,
 	}
 
-	pod, err := s.Runtime.Cluster.Kube.GetHostNetworkDebugPod(ctx, s.T)
+	pod, err := s.Runtime.Cluster.Kube.GetHostNetworkDebugPod(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get host network debug pod: %w", err)
 	}

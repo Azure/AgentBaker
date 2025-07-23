@@ -32,7 +32,7 @@ func Test_Ubuntu2204AKSNodeController(t *testing.T) {
 		t.Skip("ENABLE_AKS_NODE_CONTROLLER_TEST is not set")
 	}
 	// TODO: figure out how to properly parallelize test, maybe move t.Parallel to the top of each test?
-	cluster, err := ClusterKubenet(ctx, location, t)
+	cluster, err := ClusterKubenet(ctx, location)
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		log, err := os.ReadFile("./scenario-logs/" + t.Name() + "/aks-node-controller.stdout.txt")
