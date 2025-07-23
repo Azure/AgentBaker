@@ -205,7 +205,7 @@ func prepareCluster(ctx context.Context, t *testing.T, cluster *armcontainerserv
 	cluster.Name = to.Ptr(fmt.Sprintf("%s-%s", *cluster.Name, hash(cluster)))
 	cluster, err := getOrCreateCluster(ctx, t, cluster)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("get or create cluster: %w", err)
 	}
 
 	maintenance, err := getOrCreateMaintenanceConfiguration(ctx, t, cluster)
@@ -380,6 +380,7 @@ func getOrCreateCluster(ctx context.Context, t *testing.T, cluster *armcontainer
 		}
 		return &existingCluster.ManagedCluster, nil
 	case "Creating", "Updating":
+		t.Logf("cluster %s is in %s state, waiting for it to be ready", *cluster.Name, *existingCluster.Properties.ProvisioningState)
 		return waitUntilClusterReady(ctx, *cluster.Name, *cluster.Location)
 	default:
 		// this operation will try to update the cluster if it's in a failed state
@@ -430,9 +431,9 @@ func waitUntilClusterReady(ctx context.Context, name, location string) (*armcont
 		}
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to wait for cluster %s to be ready: %w", name, err)
 	}
-	return &cluster.ManagedCluster, err
+	return &cluster.ManagedCluster, nil
 }
 
 func isExistingResourceGroup(ctx context.Context, resourceGroupName string) (bool, error) {
