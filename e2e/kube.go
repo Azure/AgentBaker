@@ -456,6 +456,11 @@ func daemonsetDebug(t *testing.T, deploymentName, targetNodeLabel, privateACRNam
 							Value:    "value2",
 							Effect:   corev1.TaintEffectNoSchedule,
 						},
+						{
+							Key:      "node.cloudprovider.kubernetes.io/uninitialized",
+							Operator: corev1.TolerationOpExists,
+							Effect:   corev1.TaintEffectNoSchedule,
+						},
 					},
 				},
 			},
