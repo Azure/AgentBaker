@@ -723,6 +723,7 @@ type KubernetesConfig struct {
 	PrivateAzureRegistryServer        string            `json:"privateAzureRegistryServer,omitempty"`
 	NetworkPluginMode                 string            `json:"networkPluginMode,omitempty"`
 	EbpfDataplane                     EbpfDataplane     `json:"ebpfDataplane,omitempty"`
+	BlockIptables                     bool              `json:"blockIptables,omitempty"`
 }
 
 /*
@@ -1217,6 +1218,7 @@ func (a *AgentPoolProfile) IsCustomVNET() bool {
 func (a *AgentPoolProfile) IsWindows() bool {
 	return strings.EqualFold(string(a.OSType), string(Windows))
 }
+
 func (a *AgentPoolProfile) IsFlatcar() bool {
 	return a.Distro.IsFlatcarDistro()
 }
