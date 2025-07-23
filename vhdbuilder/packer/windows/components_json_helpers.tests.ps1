@@ -1073,4 +1073,16 @@ Describe 'Tests of components-test.json ' {
 
         $containerDUrl | Should -Be "https://acs-mirror.azureedge.net/containerd/windows/v1.7.20-azure.1/binaries/containerd-v1.7.20-azure.1-windows-amd64.tar.gz"
     }
+
+    It 'has latest revision' {
+        $packages = GetPackagesFromComponentsJson $componentsJson
+
+        $packages["c:\akse-cache\"] | Should -Contain "https://packages.aks.azure.com/dalec-packages/kubelet/1.34.0~alpha.1/windows/amd64/kubelet_1.34.0~alpha.1-2_amd64.zip"
+    }
+
+    It 'has previous latest revision' {
+        $packages = GetPackagesFromComponentsJson $componentsJson
+
+        $packages["c:\akse-cache\"] | Should -Contain "https://packages.aks.azure.com/dalec-packages/kubectl/1.34.1/windows/amd64/kubectl_1.34.1-2_amd64.zip"
+    }
 }
