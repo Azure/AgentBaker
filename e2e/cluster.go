@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/Azure/agentbaker/e2e/config"
@@ -24,29 +23,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/clientcmd"
-)
-
-type ClusterSingleton struct {
-	cluster *Cluster
-	once    *sync.Once
-	err     error
-}
-
-type ClusterCollection struct {
-	latestKubernetesVersion      *ClusterSingleton
-	kubenet                      *ClusterSingleton
-	kubenetAirgap                *ClusterSingleton
-	kubenetNonAnonAirgap         *ClusterSingleton
-	kubenetNoNvidiaDevicePlugin  *ClusterSingleton
-	azureNetwork                 *ClusterSingleton
-	azureOverlayNetwork          *ClusterSingleton
-	azureOverlayNetworkDualStack *ClusterSingleton
-	ciliumNetwork                *ClusterSingleton
-}
-
-var (
-	clusterCache = make(map[string]*ClusterCollection)
-	cacheMutex   sync.RWMutex
 )
 
 type ClusterParams struct {
@@ -78,123 +54,6 @@ func (c *Cluster) MaxPodsPerNode() (int, error) {
 		return int(*c.Model.Properties.AgentPoolProfiles[0].MaxPods), nil
 	}
 	return 0, fmt.Errorf("cluster agentpool profiles were nil or empty: %+v", c.Model)
-}
-
-func getOrInitializeClusterCache(location string) *ClusterCollection {
-	// First, try with read lock for common case
-	cacheMutex.RLock()
-	if collection, exists := clusterCache[location]; exists {
-		cacheMutex.RUnlock()
-		return collection
-	}
-	cacheMutex.RUnlock()
-
-	// Need to initialize - acquire write lock
-	cacheMutex.Lock()
-	defer cacheMutex.Unlock()
-
-	// Double-check after acquiring write lock
-	if collection, exists := clusterCache[location]; exists {
-		return collection
-	}
-
-	// Initialize new collection
-	collection := &ClusterCollection{
-		latestKubernetesVersion:      &ClusterSingleton{once: &sync.Once{}},
-		kubenet:                      &ClusterSingleton{once: &sync.Once{}},
-		kubenetAirgap:                &ClusterSingleton{once: &sync.Once{}},
-		kubenetNonAnonAirgap:         &ClusterSingleton{once: &sync.Once{}},
-		kubenetNoNvidiaDevicePlugin:  &ClusterSingleton{once: &sync.Once{}},
-		azureNetwork:                 &ClusterSingleton{once: &sync.Once{}},
-		azureOverlayNetwork:          &ClusterSingleton{once: &sync.Once{}},
-		azureOverlayNetworkDualStack: &ClusterSingleton{once: &sync.Once{}},
-		ciliumNetwork:                &ClusterSingleton{once: &sync.Once{}},
-	}
-	clusterCache[location] = collection
-	return collection
-}
-
-// Same cluster can be attempted to be created concurrently by different tests
-// sync.Once is used to ensure that only one cluster for the set of tests is created
-
-func ClusterLatestKubernetesVersion(ctx context.Context, location string) (*Cluster, error) {
-	collection := getOrInitializeClusterCache(location)
-	collection.latestKubernetesVersion.once.Do(func() {
-		model, err := getLatestKubernetesVersionClusterModel(ctx, "abe2e-latest-kubernetes-version", location)
-		if err != nil {
-			panic(err)
-		}
-		collection.latestKubernetesVersion.cluster, collection.latestKubernetesVersion.err = prepareCluster(ctx, model, false, false, true)
-	})
-	return collection.latestKubernetesVersion.cluster, collection.latestKubernetesVersion.err
-}
-
-func ClusterKubenet(ctx context.Context, location string) (*Cluster, error) {
-	collection := getOrInitializeClusterCache(location)
-	collection.kubenet.once.Do(func() {
-		collection.kubenet.cluster, collection.kubenet.err = prepareCluster(ctx, getKubenetClusterModel("abe2e-kubenet", location), false, false, true)
-	})
-	return collection.kubenet.cluster, collection.kubenet.err
-}
-
-func ClusterKubenetNoNvidiaDevicePlugin(ctx context.Context, location string) (*Cluster, error) {
-	collection := getOrInitializeClusterCache(location)
-	collection.kubenetNoNvidiaDevicePlugin.once.Do(func() {
-		// This is purposefully named in short form to avoid going over the 80
-		// char limit of the resource groups.
-		clusterName := "abe2e-kubenet-no-nvidia-dev"
-		collection.kubenetNoNvidiaDevicePlugin.cluster, collection.kubenetNoNvidiaDevicePlugin.err = prepareCluster(
-			ctx, getKubenetClusterModel(clusterName, location), false, false, false)
-	})
-	return collection.kubenetNoNvidiaDevicePlugin.cluster, collection.kubenetNoNvidiaDevicePlugin.err
-}
-
-func ClusterKubenetAirgap(ctx context.Context, location string) (*Cluster, error) {
-	collection := getOrInitializeClusterCache(location)
-	collection.kubenetAirgap.once.Do(func() {
-		collection.kubenetAirgap.cluster, collection.kubenetAirgap.err = prepareCluster(ctx, getKubenetClusterModel("abe2e-kubenet-airgap", location), true, false, true)
-	})
-	return collection.kubenetAirgap.cluster, collection.kubenetAirgap.err
-}
-
-func ClusterKubenetAirgapNonAnon(ctx context.Context, location string) (*Cluster, error) {
-	collection := getOrInitializeClusterCache(location)
-	collection.kubenetNonAnonAirgap.once.Do(func() {
-		collection.kubenetNonAnonAirgap.cluster, collection.kubenetNonAnonAirgap.err = prepareCluster(ctx, getKubenetClusterModel("abe2e-kubenet-nonanonpull-airgap", location), true, true, true)
-	})
-	return collection.kubenetNonAnonAirgap.cluster, collection.kubenetNonAnonAirgap.err
-}
-
-func ClusterAzureNetwork(ctx context.Context, location string) (*Cluster, error) {
-	collection := getOrInitializeClusterCache(location)
-	collection.azureNetwork.once.Do(func() {
-		collection.azureNetwork.cluster, collection.azureNetwork.err = prepareCluster(ctx, getAzureNetworkClusterModel("abe2e-azure-network", location), false, false, true)
-	})
-	return collection.azureNetwork.cluster, collection.azureNetwork.err
-}
-
-func ClusterAzureOverlayNetwork(ctx context.Context, location string) (*Cluster, error) {
-	collection := getOrInitializeClusterCache(location)
-	collection.azureOverlayNetwork.once.Do(func() {
-		collection.azureOverlayNetwork.cluster, collection.azureOverlayNetwork.err = prepareCluster(ctx, getAzureOverlayNetworkClusterModel("abe2e-azure-overlay-network", location), false, false, true)
-	})
-	return collection.azureOverlayNetwork.cluster, collection.azureOverlayNetwork.err
-}
-
-func ClusterAzureOverlayNetworkDualStack(ctx context.Context, location string) (*Cluster, error) {
-	collection := getOrInitializeClusterCache(location)
-	collection.azureOverlayNetworkDualStack.once.Do(func() {
-		collection.azureOverlayNetworkDualStack.cluster, collection.azureOverlayNetworkDualStack.err = prepareCluster(ctx, getAzureOverlayNetworkDualStackClusterModel("abe2e-azure-overlay-dualstack", location), false, false, true)
-	})
-	return collection.azureOverlayNetworkDualStack.cluster, collection.azureOverlayNetworkDualStack.err
-}
-
-func ClusterCiliumNetwork(ctx context.Context, location string) (*Cluster, error) {
-	collection := getOrInitializeClusterCache(location)
-	collection.ciliumNetwork.once.Do(func() {
-		collection.ciliumNetwork.cluster, collection.ciliumNetwork.err = prepareCluster(ctx, getCiliumNetworkClusterModel("abe2e-cilium-network", location), false, false, true)
-	})
-	return collection.ciliumNetwork.cluster, collection.ciliumNetwork.err
 }
 
 func prepareCluster(ctx context.Context, cluster *armcontainerservice.ManagedCluster, isAirgap, isNonAnonymousPull, installNvidiaDevicePlugin bool) (*Cluster, error) {

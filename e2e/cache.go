@@ -12,9 +12,6 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 )
 
-var CachedCreateGallery = cachedFunc(createGallery)
-var CachedCreateGalleryImage = cachedFunc(createGalleryImage)
-
 // cachedFunc creates a memoized version of a function
 func cachedFunc[K comparable, V any](fn func(context.Context, K) (V, error)) func(context.Context, K) (V, error) {
 	type entry struct {
@@ -52,6 +49,8 @@ type CreateGalleryImageRequest struct {
 	Windows       bool
 }
 
+var CachedCreateGallery = cachedFunc(createGallery)
+
 func createGallery(ctx context.Context, request CreateGalleryRequest) (armcompute.Gallery, error) {
 	// gallery name should be unique within the subscription
 	// minus isn't allowed
@@ -80,6 +79,8 @@ func createGallery(ctx context.Context, request CreateGalleryRequest) (armcomput
 	}
 	return resp.Gallery, nil
 }
+
+var CachedCreateGalleryImage = cachedFunc(createGalleryImage)
 
 func createGalleryImage(ctx context.Context, request CreateGalleryImageRequest) (armcompute.GalleryImage, error) {
 	imageName := fmt.Sprintf("%s-%s-%s", config.Config.TestGalleryImagePrefix, request.Location, request.Arch)
@@ -128,6 +129,66 @@ func createGalleryImage(ctx context.Context, request CreateGalleryImageRequest) 
 		return armcompute.GalleryImage{}, fmt.Errorf("failed to poll gallery image creation: %w", err)
 	}
 	return resp.GalleryImage, nil
+}
+
+var ClusterLatestKubernetesVersion = cachedFunc(clusterLatestKubernetesVersion)
+
+func clusterLatestKubernetesVersion(ctx context.Context, location string) (*Cluster, error) {
+	model, err := getLatestKubernetesVersionClusterModel(ctx, "abe2e-latest-kubernetes-version", location)
+	if err != nil {
+		return nil, fmt.Errorf("getting latest kubernetes version cluster model: %w", err)
+	}
+	return prepareCluster(ctx, model, false, false, true)
+}
+
+var ClusterKubenet = cachedFunc(clusterKubenet)
+
+func clusterKubenet(ctx context.Context, location string) (*Cluster, error) {
+	return prepareCluster(ctx, getKubenetClusterModel("abe2e-kubenet", location), false, false, true)
+}
+
+var ClusterKubenetNoNvidiaDevicePlugin = cachedFunc(clusterKubenetNoNvidiaDevicePlugin)
+
+func clusterKubenetNoNvidiaDevicePlugin(ctx context.Context, location string) (*Cluster, error) {
+	// This is purposefully named in short form to avoid going over the 80
+	// char limit of the resource groups.
+	return prepareCluster(ctx, getKubenetClusterModel("abe2e-kubenet-no-nvidia-dev", location), false, false, false)
+}
+
+var ClusterKubenetAirgap = cachedFunc(clusterKubenetAirgap)
+
+func clusterKubenetAirgap(ctx context.Context, location string) (*Cluster, error) {
+	return prepareCluster(ctx, getKubenetClusterModel("abe2e-kubenet-airgap", location), true, false, true)
+}
+
+var ClusterKubenetAirgapNonAnon = cachedFunc(clusterKubenetAirgapNonAnon)
+
+func clusterKubenetAirgapNonAnon(ctx context.Context, location string) (*Cluster, error) {
+	return prepareCluster(ctx, getKubenetClusterModel("abe2e-kubenet-nonanonpull-airgap", location), true, true, true)
+}
+
+var ClusterAzureNetwork = cachedFunc(clusterAzureNetwork)
+
+func clusterAzureNetwork(ctx context.Context, location string) (*Cluster, error) {
+	return prepareCluster(ctx, getAzureNetworkClusterModel("abe2e-azure-network", location), false, false, true)
+}
+
+var ClusterAzureOverlayNetwork = cachedFunc(clusterAzureOverlayNetwork)
+
+func clusterAzureOverlayNetwork(ctx context.Context, location string) (*Cluster, error) {
+	return prepareCluster(ctx, getAzureOverlayNetworkClusterModel("abe2e-azure-overlay-network", location), false, false, true)
+}
+
+var ClusterAzureOverlayNetworkDualStack = cachedFunc(clusterAzureOverlayNetworkDualStack)
+
+func clusterAzureOverlayNetworkDualStack(ctx context.Context, location string) (*Cluster, error) {
+	return prepareCluster(ctx, getAzureOverlayNetworkDualStackClusterModel("abe2e-azure-overlay-dualstack", location), false, false, true)
+}
+
+var ClusterCiliumNetwork = cachedFunc(clusterCiliumNetwork)
+
+func clusterCiliumNetwork(ctx context.Context, location string) (*Cluster, error) {
+	return prepareCluster(ctx, getCiliumNetworkClusterModel("abe2e-cilium-network", location), false, false, true)
 }
 
 func isNotFoundErr(err error) bool {
