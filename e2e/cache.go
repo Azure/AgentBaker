@@ -12,10 +12,11 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 )
 
-// cachedFunc creates a memoized version of a function
-// It remembers the result of the first call for each unique request
-// and returns the cached result for subsequent calls with the same request.
-// The function must be safe to call concurrently.
+// cachedFunc creates a thread-safe memoized version of a function.
+// Results are cached per unique Request key using sync.Once for single execution.
+// Request type must be comparable (no slices/maps/pointers).
+// Cache persists for program lifetime with no TTL or invalidation.
+// WARNING: Incorrect keys can cause hard-to-debug cache collisions.
 func cachedFunc[Request comparable, Response any](fn func(context.Context, Request) (Response, error)) func(context.Context, Request) (Response, error) {
 	type entry struct {
 		once  sync.Once
@@ -37,9 +38,6 @@ func cachedFunc[Request comparable, Response any](fn func(context.Context, Reque
 	}
 }
 
-// Request structs are used as a cache key.
-// The cache key must uniquely identify the request
-// The cache key should not container pointers, maps or slices to avoid issues with comparing the keys.
 var CachedCreateGallery = cachedFunc(createGallery)
 
 type CreateGalleryRequest struct {
@@ -47,6 +45,7 @@ type CreateGalleryRequest struct {
 	ResourceGroup string
 }
 
+// createGallery creates or retrieves an Azure Compute Gallery for e2e testing
 func createGallery(ctx context.Context, request CreateGalleryRequest) (armcompute.Gallery, error) {
 	// gallery name should be unique within the subscription
 	// minus isn't allowed
@@ -86,6 +85,7 @@ type CreateGalleryImageRequest struct {
 	Windows       bool
 }
 
+// createGalleryImage creates or retrieves an Azure Compute Gallery Image for e2e testing
 func createGalleryImage(ctx context.Context, request CreateGalleryImageRequest) (armcompute.GalleryImage, error) {
 	imageName := fmt.Sprintf("%s-%s-%s", config.Config.TestGalleryImagePrefix, request.Location, request.Arch)
 	if request.Windows {
@@ -137,6 +137,7 @@ func createGalleryImage(ctx context.Context, request CreateGalleryImageRequest) 
 
 var ClusterLatestKubernetesVersion = cachedFunc(clusterLatestKubernetesVersion)
 
+// clusterLatestKubernetesVersion creates a cluster with the latest available Kubernetes version
 func clusterLatestKubernetesVersion(ctx context.Context, location string) (*Cluster, error) {
 	model, err := getLatestKubernetesVersionClusterModel(ctx, "abe2e-latest-kubernetes-version", location)
 	if err != nil {
@@ -147,12 +148,14 @@ func clusterLatestKubernetesVersion(ctx context.Context, location string) (*Clus
 
 var ClusterKubenet = cachedFunc(clusterKubenet)
 
+// clusterKubenet creates a basic cluster using kubenet networking
 func clusterKubenet(ctx context.Context, location string) (*Cluster, error) {
 	return prepareCluster(ctx, getKubenetClusterModel("abe2e-kubenet", location), false, false, true)
 }
 
 var ClusterKubenetNoNvidiaDevicePlugin = cachedFunc(clusterKubenetNoNvidiaDevicePlugin)
 
+// clusterKubenetNoNvidiaDevicePlugin creates a kubenet cluster without NVIDIA device plugin
 func clusterKubenetNoNvidiaDevicePlugin(ctx context.Context, location string) (*Cluster, error) {
 	// This is purposefully named in short form to avoid going over the 80
 	// char limit of the resource groups.
@@ -161,40 +164,47 @@ func clusterKubenetNoNvidiaDevicePlugin(ctx context.Context, location string) (*
 
 var ClusterKubenetAirgap = cachedFunc(clusterKubenetAirgap)
 
+// clusterKubenetAirgap creates an airgapped kubenet cluster (no internet access)
 func clusterKubenetAirgap(ctx context.Context, location string) (*Cluster, error) {
 	return prepareCluster(ctx, getKubenetClusterModel("abe2e-kubenet-airgap", location), true, false, true)
 }
 
 var ClusterKubenetAirgapNonAnon = cachedFunc(clusterKubenetAirgapNonAnon)
 
+// clusterKubenetAirgapNonAnon creates an airgapped kubenet cluster with non-anonymous image pulls
 func clusterKubenetAirgapNonAnon(ctx context.Context, location string) (*Cluster, error) {
 	return prepareCluster(ctx, getKubenetClusterModel("abe2e-kubenet-nonanonpull-airgap", location), true, true, true)
 }
 
 var ClusterAzureNetwork = cachedFunc(clusterAzureNetwork)
 
+// clusterAzureNetwork creates a cluster with Azure CNI networking
 func clusterAzureNetwork(ctx context.Context, location string) (*Cluster, error) {
 	return prepareCluster(ctx, getAzureNetworkClusterModel("abe2e-azure-network", location), false, false, true)
 }
 
 var ClusterAzureOverlayNetwork = cachedFunc(clusterAzureOverlayNetwork)
 
+// clusterAzureOverlayNetwork creates a cluster with Azure CNI Overlay networking
 func clusterAzureOverlayNetwork(ctx context.Context, location string) (*Cluster, error) {
 	return prepareCluster(ctx, getAzureOverlayNetworkClusterModel("abe2e-azure-overlay-network", location), false, false, true)
 }
 
 var ClusterAzureOverlayNetworkDualStack = cachedFunc(clusterAzureOverlayNetworkDualStack)
 
+// clusterAzureOverlayNetworkDualStack creates a dual-stack (IPv4+IPv6) Azure CNI Overlay cluster
 func clusterAzureOverlayNetworkDualStack(ctx context.Context, location string) (*Cluster, error) {
 	return prepareCluster(ctx, getAzureOverlayNetworkDualStackClusterModel("abe2e-azure-overlay-dualstack", location), false, false, true)
 }
 
 var ClusterCiliumNetwork = cachedFunc(clusterCiliumNetwork)
 
+// clusterCiliumNetwork creates a cluster with Cilium CNI networking
 func clusterCiliumNetwork(ctx context.Context, location string) (*Cluster, error) {
 	return prepareCluster(ctx, getCiliumNetworkClusterModel("abe2e-cilium-network", location), false, false, true)
 }
 
+// isNotFoundErr checks if an error represents a "not found" response from Azure API
 func isNotFoundErr(err error) bool {
 	var respErr *azcore.ResponseError
 	if errors.As(err, &respErr) {
@@ -210,6 +220,7 @@ type GetVHDRequest struct {
 	Image    config.Image
 }
 
+// getVHD retrieves the Azure resource ID for a VHD image
 func getVHD(ctx context.Context, request GetVHDRequest) (config.VHDResourceID, error) {
 	return config.GetVHDResourceID(ctx, request.Image, request.Location)
 }
