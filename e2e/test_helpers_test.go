@@ -2,9 +2,10 @@ package e2e
 
 import (
 	"fmt"
+	"testing"
+
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/stretchr/testify/require"
-	"testing"
 )
 
 // this is mostly for WS2019 - as WS2019 doesn't support anything after 1.32.
