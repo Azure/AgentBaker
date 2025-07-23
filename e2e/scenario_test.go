@@ -617,9 +617,7 @@ func Test_Ubuntu2204_AirGap_NonAnonymousACR(t *testing.T) {
 
 	ctx := newTestCtx(t)
 	identity, err := config.Azure.UserAssignedIdentities.Get(ctx, config.ResourceGroupName(location), config.VMIdentityName, nil)
-	if err != nil {
-		t.Fatalf("failed to get identity: %v", err)
-	}
+	require.NoError(t, err)
 
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2204 VHD and is airgap can be properly bootstrapped",
@@ -954,6 +952,7 @@ func runScenarioUbuntu2204GPU(t *testing.T, vmSize string) {
 				ValidateNvidiaModProbeInstalled(ctx, s)
 				ValidateKubeletHasNotStopped(ctx, s)
 				ValidateServicesDoNotRestartKubelet(ctx, s)
+				ValidateEnableNvidiaResource(ctx, s)
 			},
 		}})
 }
@@ -982,6 +981,7 @@ func runScenarioUbuntuGRID(t *testing.T, vmSize string) {
 				ValidateNvidiaGRIDLicenseValid(ctx, s)
 				ValidateKubeletHasNotStopped(ctx, s)
 				ValidateServicesDoNotRestartKubelet(ctx, s)
+				ValidateEnableNvidiaResource(ctx, s)
 				ValidateNvidiaPersistencedRunning(ctx, s)
 			},
 		}})
@@ -1037,6 +1037,7 @@ func Test_Ubuntu2204_GPUGridDriver(t *testing.T) {
 				ValidateNvidiaModProbeInstalled(ctx, s)
 				ValidateKubeletHasNotStopped(ctx, s)
 				ValidateNvidiaSMIInstalled(ctx, s)
+				ValidateEnableNvidiaResource(ctx, s)
 			},
 		}})
 }
@@ -1661,6 +1662,7 @@ func runScenarioUbuntu2404GRID(t *testing.T, vmSize string) {
 				ValidateKubeletHasNotStopped(ctx, s)
 				ValidateServicesDoNotRestartKubelet(ctx, s)
 				ValidateNvidiaPersistencedRunning(ctx, s)
+				ValidateEnableNvidiaResource(ctx, s)
 			},
 		},
 	})
@@ -1721,7 +1723,7 @@ func Test_Ubuntu2404_GPU_H100(t *testing.T) {
 			GPU: true,
 		},
 		Config: Config{
-			Cluster: ClusterKubenetNoNvidiaDevicePlugin,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2404Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.VMSize = vmSize
@@ -1748,6 +1750,7 @@ func Test_Ubuntu2404_GPU_H100(t *testing.T) {
 				ValidateNPDGPUCountPlugin(ctx, s)
 				ValidateNPDGPUCountCondition(ctx, s)
 				ValidateNPDGPUCountAfterFailure(ctx, s)
+				ValidateEnableNvidiaResource(ctx, s)
 			},
 		}})
 }

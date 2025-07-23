@@ -812,3 +812,10 @@ func ValidateNPDFilesystemCorruption(ctx context.Context, s *Scenario) {
 	require.Equal(s.T, corev1.ConditionTrue, filesystemCorruptionProblem.Status, "expected FilesystemCorruptionProblem condition to be True on node")
 	require.Contains(s.T, filesystemCorruptionProblem.Message, "Found 'structure needs cleaning' in Docker journal.", "expected FilesystemCorruptionProblem condition message to contain: Found 'structure needs cleaning' in Docker journal.")
 }
+
+func ValidateEnableNvidiaResource(ctx context.Context, s *Scenario) {
+	s.T.Logf("validating pod using NVidia GPU")
+	ValidatePodRunning(ctx, s, podNvidiaDevicePlugin(s))
+	s.T.Logf("waiting for Nvidia GPU resource to be available")
+	waitUntilResourceAvailable(ctx, s, "nvidia.com/gpu")
+}

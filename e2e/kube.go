@@ -303,7 +303,7 @@ func getClusterKubeconfigBytes(ctx context.Context, resourceGroupName, clusterNa
 }
 
 // this is a bit ugly, but we don't want to execute this piece concurrently with other tests
-func (k *Kubeclient) EnsureDebugDaemonsets(ctx context.Context, t *testing.T, isAirgap bool, privateACRName string, installNvidiaDevicePlugin bool) error {
+func (k *Kubeclient) EnsureDebugDaemonsets(ctx context.Context, t *testing.T, isAirgap bool, privateACRName string) error {
 	ds := daemonsetDebug(t, hostNetworkDebugAppLabel, "nodepool1", privateACRName, true, isAirgap)
 	err := k.CreateDaemonset(ctx, ds)
 	if err != nil {
@@ -314,13 +314,6 @@ func (k *Kubeclient) EnsureDebugDaemonsets(ctx context.Context, t *testing.T, is
 	err = k.CreateDaemonset(ctx, nonHostDS)
 	if err != nil {
 		return err
-	}
-
-	if installNvidiaDevicePlugin {
-		err = k.CreateDaemonset(ctx, nvidiaDevicePluginDaemonSet())
-		if err != nil {
-			return err
-		}
 	}
 
 	return nil
@@ -592,69 +585,58 @@ func podRunNvidiaWorkload(s *Scenario) *corev1.Pod {
 	}
 }
 
-func nvidiaDevicePluginDaemonSet() *appsv1.DaemonSet {
-	return &appsv1.DaemonSet{
+func podNvidiaDevicePlugin(s *Scenario) *corev1.Pod {
+	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "nvidia-device-plugin-daemonset",
+			Name:      fmt.Sprintf("%s-nvidia-device-plugin", s.Runtime.KubeNodeName),
 			Namespace: "kube-system",
+			Labels: map[string]string{
+				"name": "nvidia-device-plugin-ds",
+			},
 		},
-		Spec: appsv1.DaemonSetSpec{
-			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{
-					"name": "nvidia-device-plugin-ds",
+		Spec: corev1.PodSpec{
+			NodeSelector: map[string]string{
+				"kubernetes.io/hostname": s.Runtime.KubeNodeName,
+			},
+			Tolerations: []corev1.Toleration{
+				{
+					Key:      "sku",
+					Operator: corev1.TolerationOpEqual,
+					Value:    "gpu",
+					Effect:   corev1.TaintEffectNoSchedule,
 				},
 			},
-			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{
-						"name": "nvidia-device-plugin-ds",
+			PriorityClassName: "system-node-critical",
+			Containers: []corev1.Container{
+				{
+					Image: "nvcr.io/nvidia/k8s-device-plugin:v0.15.0",
+					Name:  "nvidia-device-plugin-ctr",
+					Env: []corev1.EnvVar{
+						{
+							Name:  "FAIL_ON_INIT_ERROR",
+							Value: "false",
+						},
+					},
+					SecurityContext: &corev1.SecurityContext{
+						AllowPrivilegeEscalation: to.Ptr(false),
+						Capabilities: &corev1.Capabilities{
+							Drop: []corev1.Capability{"ALL"},
+						},
+					},
+					VolumeMounts: []corev1.VolumeMount{
+						{
+							Name:      "device-plugin",
+							MountPath: "/var/lib/kubelet/device-plugins",
+						},
 					},
 				},
-				Spec: corev1.PodSpec{
-					NodeSelector: map[string]string{
-						"kubernetes.io/os": "linux",
-					},
-					Tolerations: []corev1.Toleration{
-						{
-							Key:      "sku",
-							Operator: corev1.TolerationOpEqual,
-							Value:    "gpu",
-							Effect:   corev1.TaintEffectNoSchedule,
-						},
-					},
-					PriorityClassName: "system-node-critical",
-					Containers: []corev1.Container{
-						{
-							Image: "nvcr.io/nvidia/k8s-device-plugin:v0.15.0",
-							Name:  "nvidia-device-plugin-ctr",
-							Env: []corev1.EnvVar{
-								{
-									Name:  "FAIL_ON_INIT_ERROR",
-									Value: "false",
-								},
-							},
-							SecurityContext: &corev1.SecurityContext{
-								AllowPrivilegeEscalation: to.Ptr(false),
-								Capabilities: &corev1.Capabilities{
-									Drop: []corev1.Capability{"ALL"},
-								},
-							},
-							VolumeMounts: []corev1.VolumeMount{
-								{
-									Name:      "device-plugin",
-									MountPath: "/var/lib/kubelet/device-plugins",
-								},
-							},
-						},
-					},
-					Volumes: []corev1.Volume{
-						{
-							Name: "device-plugin",
-							VolumeSource: corev1.VolumeSource{
-								HostPath: &corev1.HostPathVolumeSource{
-									Path: "/var/lib/kubelet/device-plugins",
-								},
-							},
+			},
+			Volumes: []corev1.Volume{
+				{
+					Name: "device-plugin",
+					VolumeSource: corev1.VolumeSource{
+						HostPath: &corev1.HostPathVolumeSource{
+							Path: "/var/lib/kubelet/device-plugins",
 						},
 					},
 				},
