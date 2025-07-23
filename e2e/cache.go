@@ -213,14 +213,15 @@ func isNotFoundErr(err error) bool {
 	return false
 }
 
-var CachedGetVHD = cachedFunc(getVHD)
+var CachedPrepareVHD = cachedFunc(prepareVHD)
 
 type GetVHDRequest struct {
 	Location string
 	Image    config.Image
 }
 
-// getVHD retrieves the Azure resource ID for a VHD image
-func getVHD(ctx context.Context, request GetVHDRequest) (config.VHDResourceID, error) {
+// prepareVHD retrieves the Azure resource ID for a VHD image. A gallery is scanned for the correct version
+// and replicated to the location specified in the request if it does not already exist.
+func prepareVHD(ctx context.Context, request GetVHDRequest) (config.VHDResourceID, error) {
 	return config.GetVHDResourceID(ctx, request.Image, request.Location)
 }

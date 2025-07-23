@@ -324,7 +324,7 @@ func maybeSkipScenario(ctx context.Context, t *testing.T, s *Scenario) {
 		}
 	}
 
-	vhd, err := CachedGetVHD(ctx, GetVHDRequest{
+	vhd, err := CachedPrepareVHD(ctx, GetVHDRequest{
 		Image:    *s.VHD,
 		Location: s.Location,
 	})
