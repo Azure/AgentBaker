@@ -1002,42 +1002,6 @@
       }
     },
     {
-      "name": "kubectl-windows",
-      "windowsDownloadLocation": "c:\\akse-cache\\",
-      "downloadURIs": {
-        "windows": {
-          "default": {
-            "versionsV2": [
-              {
-                "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.34.0~alpha.1",
-                "latestRevision": "2"
-              }
-            ],
-            "downloadURL": "https://packages.aks.azure.com/dalec-packages/kubectl/${version}/windows/amd64/kubectl_${version}-${revision}_amd64.zip"
-          }
-        }
-      }
-    },
-    {
-      "name": "kube-proxy-windows",
-      "windowsDownloadLocation": "c:\\akse-cache\\",
-      "downloadURIs": {
-        "windows": {
-          "default": {
-            "versionsV2": [
-              {
-                "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.34.0~alpha.1",
-                "latestRevision": "2"
-              }
-            ],
-            "downloadURL": "https://packages.aks.azure.com/dalec-packages/kube-proxy/${version}/windows/amd64/kube-proxy_${version}-${revision}_amd64.zip"
-          }
-        }
-      }
-    },
-    {
       "name": "oras",
       "downloadLocation": "/usr/local/bin",
       "downloadURIs": {
