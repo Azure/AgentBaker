@@ -9,7 +9,7 @@ import (
 // testLoggerKey is a private key to prevent *testing.T from being easily accessed
 type testLoggerKey struct{}
 
-func ContextWithLog(ctx context.Context, t *testing.T) context.Context {
+func ContextWithT(ctx context.Context, t *testing.T) context.Context {
 	if t == nil {
 		log.Println("WARNING: No *testing.T provided, this function should only be called from a test")
 		return ctx

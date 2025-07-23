@@ -16,6 +16,11 @@ const (
 )
 
 var (
+	logf = toolkit.Logf
+	log  = toolkit.Log
+)
+
+var (
 	imageGalleryLinux = &Gallery{
 		SubscriptionID:    Config.GallerySubscriptionIDLinux,
 		ResourceGroupName: Config.GalleryResourceGroupNameLinux,
@@ -243,9 +248,6 @@ func (i *Image) String() string {
 	// a starter for a string for debugging.
 	return fmt.Sprintf("%s %s %s %s", i.OS, i.Name, i.Version, i.Arch)
 }
-
-var logf = toolkit.Logf
-var log = toolkit.Log
 
 func GetVHDResourceID(ctx context.Context, i Image, location string) (VHDResourceID, error) {
 	switch {

@@ -27,6 +27,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
+var (
+	logf = toolkit.Logf
+	log  = toolkit.Log
+)
+
 // it's important to share context between tests to allow graceful shutdown
 // cancellation signal can be sent before a test starts, without shared context such test will miss the signal
 var testCtx = setupSignalHandler()
@@ -68,12 +73,9 @@ func newTestCtx(t *testing.T) context.Context {
 	ctx, cancel := context.WithTimeout(testCtx, config.Config.TestTimeout)
 	t.Cleanup(cancel)
 	// T should be used only for logging, not for assertions or any other logic
-	ctx = toolkit.ContextWithLog(ctx, t)
+	ctx = toolkit.ContextWithT(ctx, t)
 	return ctx
 }
-
-var logf = toolkit.Logf
-var log = toolkit.Log
 
 // Global state to track which locations have been initialized
 var (
