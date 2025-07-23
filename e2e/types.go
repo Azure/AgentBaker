@@ -164,7 +164,10 @@ func (s *Scenario) PrepareAKSNodeConfig() {
 // PrepareVMSSModel mutates the input VirtualMachineScaleSet based on the scenario's VMConfigMutator, if configured.
 // This method will also use the scenario's configured VHD selector to modify the input VMSS to reference the correct VHD resource.
 func (s *Scenario) PrepareVMSSModel(ctx context.Context, t *testing.T, vmss *armcompute.VirtualMachineScaleSet) {
-	resourceID, err := s.VHD.VHDResourceID(ctx, t, s.Location)
+	resourceID, err := CachedGetVHD(ctx, GetVHDRequest{
+		Image:    *s.VHD,
+		Location: s.Location,
+	})
 	require.NoError(t, err)
 	require.NotEmpty(t, resourceID, "VHDSelector.ResourceID")
 	require.NotNil(t, vmss, "input VirtualMachineScaleSet")

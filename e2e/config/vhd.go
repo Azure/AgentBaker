@@ -6,8 +6,8 @@ import (
 	"math/rand"
 	"strings"
 	"sync"
-	"testing"
 
+	"github.com/Azure/agentbaker/e2e/toolkit"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 )
 
@@ -237,9 +237,6 @@ type Image struct {
 	Version                  string
 	Gallery                  *Gallery
 	UnsupportedKubeletNodeIP bool
-
-	vhdLocationCache map[string]*perLocationVHDCache
-	vhdMutex         sync.Mutex
 }
 
 func (i *Image) String() string {
@@ -247,43 +244,30 @@ func (i *Image) String() string {
 	return fmt.Sprintf("%s %s %s %s", i.OS, i.Name, i.Version, i.Arch)
 }
 
-func (i *Image) VHDResourceID(ctx context.Context, t *testing.T, location string) (VHDResourceID, error) {
-	i.vhdMutex.Lock()
-	if i.vhdLocationCache == nil {
-		i.vhdLocationCache = make(map[string]*perLocationVHDCache)
-	}
+var logf = toolkit.Logf
+var log = toolkit.Log
 
-	cache, ok := i.vhdLocationCache[location]
-	if !ok {
-		cache = &perLocationVHDCache{once: &sync.Once{}}
-		i.vhdLocationCache[location] = cache
-	}
-	i.vhdMutex.Unlock()
-
-	cache.once.Do(func() {
-		var vhd VHDResourceID
-		var err error
-		switch {
-		case i.Version != "":
-			vhd, err = Azure.EnsureSIGImageVersion(ctx, t, i, location)
-			if vhd != "" {
-				t.Logf("Got image by version: %s", i.azurePortalImageVersionUrl())
-			}
-		default:
-			vhd, err = Azure.LatestSIGImageVersionByTag(ctx, t, i, Config.SIGVersionTagName, Config.SIGVersionTagValue, location)
-			if vhd != "" {
-				t.Logf("got version by tag %s=%s: %s", Config.SIGVersionTagName, Config.SIGVersionTagValue, i.azurePortalImageVersionUrl())
-			} else {
-				t.Logf("Could not find version by tag %s=%s: %s", Config.SIGVersionTagName, Config.SIGVersionTagValue, i.azurePortalImageUrl())
-			}
-		}
+func GetVHDResourceID(ctx context.Context, i Image, location string) (VHDResourceID, error) {
+	switch {
+	case i.Version != "":
+		vhd, err := Azure.EnsureSIGImageVersion(ctx, &i, location)
 		if err != nil {
-			err = fmt.Errorf("img: %s, tag %s=%s, err %w", i.azurePortalImageUrl(), Config.SIGVersionTagName, Config.SIGVersionTagValue, err)
+			return "", fmt.Errorf("failed to ensure image version %s: %w", i.Version, err)
 		}
-		cache.vhd = vhd
-		cache.err = err
-	})
-	return cache.vhd, cache.err
+		logf(ctx, "Got image by version: %s", i.azurePortalImageVersionUrl())
+		return vhd, nil
+	default:
+		vhd, err := Azure.LatestSIGImageVersionByTag(ctx, &i, Config.SIGVersionTagName, Config.SIGVersionTagValue, location)
+		if err != nil {
+			return "", fmt.Errorf("failed to get latest image by tag %s=%s: %w", Config.SIGVersionTagName, Config.SIGVersionTagValue, err)
+		}
+		if vhd != "" {
+			logf(ctx, "got version by tag %s=%s: %s", Config.SIGVersionTagName, Config.SIGVersionTagValue, i.azurePortalImageVersionUrl())
+		} else {
+			logf(ctx, "Could not find version by tag %s=%s: %s", Config.SIGVersionTagName, Config.SIGVersionTagValue, i.azurePortalImageUrl())
+		}
+		return vhd, nil
+	}
 }
 
 func (i *Image) azurePortalImageUrl() string {

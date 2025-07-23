@@ -13,16 +13,19 @@ import (
 )
 
 // cachedFunc creates a memoized version of a function
-func cachedFunc[K comparable, V any](fn func(context.Context, K) (V, error)) func(context.Context, K) (V, error) {
+// It remembers the result of the first call for each unique request
+// and returns the cached result for subsequent calls with the same request.
+// The function must be safe to call concurrently.
+func cachedFunc[Request comparable, Response any](fn func(context.Context, Request) (Response, error)) func(context.Context, Request) (Response, error) {
 	type entry struct {
 		once  sync.Once
-		value V
+		value Response
 		err   error
 	}
 
 	var cache sync.Map
 
-	return func(ctx context.Context, key K) (V, error) {
+	return func(ctx context.Context, key Request) (Response, error) {
 		actual, _ := cache.LoadOrStore(key, &entry{})
 		e := actual.(*entry)
 
@@ -37,19 +40,12 @@ func cachedFunc[K comparable, V any](fn func(context.Context, K) (V, error)) fun
 // Request structs are used as a cache key.
 // The cache key must uniquely identify the request
 // The cache key should not container pointers, maps or slices to avoid issues with comparing the keys.
+var CachedCreateGallery = cachedFunc(createGallery)
+
 type CreateGalleryRequest struct {
 	Location      string
 	ResourceGroup string
 }
-type CreateGalleryImageRequest struct {
-	ResourceGroup string
-	GalleryName   string
-	Location      string
-	Arch          string
-	Windows       bool
-}
-
-var CachedCreateGallery = cachedFunc(createGallery)
 
 func createGallery(ctx context.Context, request CreateGalleryRequest) (armcompute.Gallery, error) {
 	// gallery name should be unique within the subscription
@@ -81,6 +77,14 @@ func createGallery(ctx context.Context, request CreateGalleryRequest) (armcomput
 }
 
 var CachedCreateGalleryImage = cachedFunc(createGalleryImage)
+
+type CreateGalleryImageRequest struct {
+	ResourceGroup string
+	GalleryName   string
+	Location      string
+	Arch          string
+	Windows       bool
+}
 
 func createGalleryImage(ctx context.Context, request CreateGalleryImageRequest) (armcompute.GalleryImage, error) {
 	imageName := fmt.Sprintf("%s-%s-%s", config.Config.TestGalleryImagePrefix, request.Location, request.Arch)
@@ -197,4 +201,15 @@ func isNotFoundErr(err error) bool {
 		return respErr.StatusCode == 404
 	}
 	return false
+}
+
+var CachedGetVHD = cachedFunc(getVHD)
+
+type GetVHDRequest struct {
+	Location string
+	Image    config.Image
+}
+
+func getVHD(ctx context.Context, request GetVHDRequest) (config.VHDResourceID, error) {
+	return config.GetVHDResourceID(ctx, request.Image, request.Location)
 }

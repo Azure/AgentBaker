@@ -72,7 +72,7 @@ func createVMSS(ctx context.Context, s *Scenario) *armcompute.VirtualMachineScal
 
 	s.PrepareVMSSModel(ctx, s.T, &model)
 
-	vmss, err := config.Azure.CreateVMSSWithRetry(ctx, s.T, *cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, model)
+	vmss, err := config.Azure.CreateVMSSWithRetry(ctx, *cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, model)
 	s.T.Cleanup(func() {
 		cleanupVMSS(ctx, s)
 	})

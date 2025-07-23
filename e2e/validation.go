@@ -38,7 +38,7 @@ func ValidatePodRunning(ctx context.Context, s *Scenario, pod *corev1.Pod) {
 	require.NoErrorf(s.T, err, "failed to wait for pod %q to be in running state", pod.Name)
 
 	timeForReady := time.Since(start)
-	toolkit.LogDuration(s.T, timeForReady, time.Minute, fmt.Sprintf("Time for pod %q to get ready was %s", pod.Name, timeForReady))
+	toolkit.LogDuration(ctx, timeForReady, time.Minute, fmt.Sprintf("Time for pod %q to get ready was %s", pod.Name, timeForReady))
 	s.T.Logf("node health validation: test pod %q is running on node %q", pod.Name, s.Runtime.KubeNodeName)
 }
 
