@@ -734,6 +734,47 @@ updatePackageVersions() {
     return 0
 }
 
+# sets PACKAGE_VERSIONS to the versions of the package based on the os and osVersion
+updatePackageVersionFromK8sVersion() {
+    local package="$1"
+    local os="$2"
+    local osVersion="$3"
+    RELEASE="current"
+    updateRelease "${package}" "${os}" "${osVersion}"
+    local osLowerCase=$(echo "${os}" | tr '[:upper:]' '[:lower:]')
+    PACKAGE_VERSIONS=()
+
+    # if .downloadURIs.${osLowerCase} doesn't exist, it will get the versions from .downloadURIs.default.
+    # Otherwise get the versions from .downloadURIs.${osLowerCase
+    if [ "$(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}" 2>/dev/null)" = "null" ]; then
+        osLowerCase="default"
+    fi
+
+    # jq the versions from the package. If downloadURIs.$osLowerCase.$release.versionsV2 is not null, then get the versions from there.
+    # Otherwise get the versions from .downloadURIs.$osLowerCase.$release.versions
+    if [ "$(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}.${RELEASE}.versionsV2")" != "null" ]; then
+        local latestVersions=($(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}.${RELEASE}.versionsV2[] | select(.latestVersion != null) | .latestVersion"))
+        local previousLatestVersions=($(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}.${RELEASE}.versionsV2[] | select(.previousLatestVersion != null) | .previousLatestVersion"))
+        for version in "${latestVersions[@]}"; do
+            PACKAGE_VERSIONS+=("${version}")
+        done
+        for version in "${previousLatestVersions[@]}"; do
+            PACKAGE_VERSIONS+=("${version}")
+        done
+        return 0
+    fi
+
+    # Fallback to versions if versionsV2 is null
+    if [ "$(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}.${RELEASE}.versions")" = "null" ]; then
+        return 0
+    fi
+    local versions=($(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}.${RELEASE}.versions[]"))
+    for version in "${versions[@]}"; do
+        PACKAGE_VERSIONS+=("${version}")
+    done
+    return 0
+}
+
 # sets MULTI_ARCH_VERSIONS to multiArchVersionsV2 if it exists, otherwise multiArchVersions
 updateMultiArchVersions() {
   local imageToBePulled="$1"
