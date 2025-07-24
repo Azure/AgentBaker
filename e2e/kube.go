@@ -591,10 +591,7 @@ func podNvidiaDevicePlugin(s *Scenario) *corev1.Pod {
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-nvidia-device-plugin", s.Runtime.KubeNodeName),
-			Namespace: "kube-system",
-			Labels: map[string]string{
-				"name": "nvidia-device-plugin-ds",
-			},
+			Namespace: defaultNamespace,
 		},
 		Spec: corev1.PodSpec{
 			NodeSelector: map[string]string{

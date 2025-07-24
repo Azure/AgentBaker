@@ -982,8 +982,8 @@ func runScenarioUbuntuGRID(t *testing.T, vmSize string) {
 				ValidateNvidiaGRIDLicenseValid(ctx, s)
 				ValidateKubeletHasNotStopped(ctx, s)
 				ValidateServicesDoNotRestartKubelet(ctx, s)
-				ValidateEnableNvidiaResource(ctx, s)
 				ValidateNvidiaPersistencedRunning(ctx, s)
+				ValidateEnableNvidiaResource(ctx, s)
 			},
 		}})
 }
