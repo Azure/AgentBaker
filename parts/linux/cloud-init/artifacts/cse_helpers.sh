@@ -49,6 +49,7 @@ ERR_GPU_DRIVERS_START_FAIL=84 # nvidia-modprobe could not be started by systemct
 ERR_GPU_DRIVERS_INSTALL_TIMEOUT=85 # Timeout waiting for GPU drivers install
 ERR_GPU_DEVICE_PLUGIN_START_FAIL=86 # nvidia device plugin could not be started by systemctl
 ERR_GPU_INFO_ROM_CORRUPTED=87 # info ROM corrupted error when executing nvidia-smi
+ERR_NVIDIA_DRIVER_INSTALL=88 # Error determining if nvidia driver install should be skipped
 ERR_SGX_DRIVERS_INSTALL_TIMEOUT=90 # Timeout waiting for SGX prereqs to download
 ERR_SGX_DRIVERS_START_FAIL=91 # Failed to execute SGX driver binary
 ERR_APT_DAILY_TIMEOUT=98 # Timeout waiting for apt daily updates

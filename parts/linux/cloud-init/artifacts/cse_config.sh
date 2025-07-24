@@ -329,9 +329,17 @@ ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
 EOF
 
   mkdir -p /etc/containerd
-  if [ "${GPU_NODE}" = "true" ] && [ "${skip_nvidia_driver_install}" = "true" ]; then
-    echo "Generating non-GPU containerd config for GPU node due to VM tags"
-    echo "${CONTAINERD_CONFIG_NO_GPU_CONTENT}" | base64 -d > /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
+  if [ "${GPU_NODE}" = "true" ]; then
+    # Check VM tag directly to determine if GPU drivers should be skipped
+    export -f should_skip_nvidia_drivers
+    should_skip=$(retrycmd_silent 10 1 10 bash -cx should_skip_nvidia_drivers)
+    if [ "$?" -eq 0 ] && [ "${should_skip}" = "true" ]; then
+      echo "Generating non-GPU containerd config for GPU node due to VM tags"
+      echo "${CONTAINERD_CONFIG_NO_GPU_CONTENT}" | base64 -d > /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
+    else
+      echo "Generating GPU containerd config..."
+      echo "${CONTAINERD_CONFIG_CONTENT}" | base64 -d > /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
+    fi
   else
     echo "Generating containerd config..."
     echo "${CONTAINERD_CONFIG_CONTENT}" | base64 -d > /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
