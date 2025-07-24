@@ -27,6 +27,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
+var (
+	logf = toolkit.Logf
+	log  = toolkit.Log
+)
+
 // it's important to share context between tests to allow graceful shutdown
 // cancellation signal can be sent before a test starts, without shared context such test will miss the signal
 var testCtx = setupSignalHandler()
@@ -44,7 +49,7 @@ func setupSignalHandler() context.Context {
 	go func() {
 		// block until signal is received
 		<-ch
-		fmt.Println(red("Received cancellation signal, gracefully shutting down the test suite. Cancel again to force exit. (Created Azure resources will not be deleted in this case)"))
+		fmt.Println(red("Received cancellation signal, gracefully shutting down the test suite. Deleting Azure Resources. Cancel again to force exit. (Created Azure resources will not be deleted in this case)"))
 		cancel()
 
 		// block until second signal is received
@@ -67,6 +72,8 @@ func newTestCtx(t *testing.T) context.Context {
 	}
 	ctx, cancel := context.WithTimeout(testCtx, config.Config.TestTimeout)
 	t.Cleanup(cancel)
+	// T should be used only for logging, not for assertions or any other logic
+	ctx = toolkit.ContextWithT(ctx, t)
 	return ctx
 }
 
@@ -218,7 +225,7 @@ func runScenario(t *testing.T, s *Scenario) {
 
 	maybeSkipScenario(ctx, t, s)
 
-	cluster, err := s.Config.Cluster(ctx, s.Location, s.T)
+	cluster, err := s.Config.Cluster(ctx, s.Location)
 	require.NoError(s.T, err, "failed to get cluster")
 	// in some edge cases cluster cache is broken and nil cluster is returned
 	// need to find the root cause and fix it, this should help to catch such cases
@@ -287,7 +294,7 @@ func prepareAKSNode(ctx context.Context, s *Scenario) {
 		readyElapse := time.Since(vmssCreatedAt) // Calculate the elapsed time
 		totalElapse := time.Since(start)
 		s.T.Logf("node %s is ready", s.Runtime.VMSSName)
-		toolkit.LogDuration(s.T, totalElapse, 3*time.Minute, fmt.Sprintf("Node %s took %s to be created and %s to be ready", s.Runtime.VMSSName, toolkit.FormatDuration(creationElapse), toolkit.FormatDuration(readyElapse)))
+		toolkit.LogDuration(ctx, totalElapse, 3*time.Minute, fmt.Sprintf("Node %s took %s to be created and %s to be ready", s.Runtime.VMSSName, toolkit.FormatDuration(creationElapse), toolkit.FormatDuration(readyElapse)))
 	}
 
 	s.Runtime.VMPrivateIP, err = getVMPrivateIPAddress(ctx, s)
@@ -319,7 +326,10 @@ func maybeSkipScenario(ctx context.Context, t *testing.T, s *Scenario) {
 		}
 	}
 
-	vhd, err := s.VHD.VHDResourceID(ctx, t, s.Location)
+	vhd, err := CachedPrepareVHD(ctx, GetVHDRequest{
+		Image:    *s.VHD,
+		Location: s.Location,
+	})
 	if err != nil {
 		if config.Config.IgnoreScenariosWithMissingVHD && errors.Is(err, config.ErrNotFound) {
 			t.Skipf("skipping scenario %q: could not find image for VHD %s due to %s", t.Name(), s.VHD.Distro, err)
