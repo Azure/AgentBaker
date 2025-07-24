@@ -1040,6 +1040,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			if config.HTTPProxyConfig != nil && config.HTTPProxyConfig.TrustedCA != nil {
 				// remove newline so it does not interfere with cse script formatting
 				trustedCA := strings.ReplaceAll(*config.HTTPProxyConfig.TrustedCA, "\n", "")
+				trustedCA = strings.ReplaceAll(*config.HTTPProxyConfig.TrustedCA, "\r", "")
 				return trustedCA
 			}
 			return ""
@@ -1089,8 +1090,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 				var customCATrustCerts []string
 				for _, cert := range config.CustomCATrustConfig.CustomCATrustCerts {
 					// remove newline so it does not interfere with cse script formatting
-					cert = strings.ReplaceAll(cert, "\n", "")
-					customCATrustCerts = append(customCATrustCerts, cert)
+					caCert := strings.ReplaceAll(cert, "\n", "")
+					caCert = strings.ReplaceAll(caCert, "\r", "")
+					customCATrustCerts = append(customCATrustCerts, caCert)
 				}
 				return customCATrustCerts
 			}
