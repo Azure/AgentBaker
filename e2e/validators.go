@@ -575,14 +575,6 @@ func ValidateNPDGPUCountAfterFailure(ctx context.Context, s *Scenario) {
 	}
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to disable GPU")
 
-	// Put the VM back to the original state, re-enable the GPU.
-	command = []string{
-		"set -ex",
-		"cat /tmp/npd_test_disabled_pci_id | sudo tee /sys/bus/pci/drivers/nvidia/bind",
-		"rm -f /tmp/npd_test_disabled_pci_id", // Clean up the temporary file
-	}
-	defer execScriptOnVMForScenario(ctx, s, strings.Join(command, "\n"))
-
 	// Wait for NPD to detect the change
 	var gpuCountCondition *corev1.NodeCondition
 	err := wait.PollUntilContextTimeout(ctx, 2*time.Second, 3*time.Minute, true, func(ctx context.Context) (bool, error) {
@@ -606,6 +598,14 @@ func ValidateNPDGPUCountAfterFailure(ctx context.Context, s *Scenario) {
 	require.NotNil(s.T, gpuCountCondition, "expected to find GPUMissing condition with GPUMissing reason on node")
 	require.Equal(s.T, corev1.ConditionTrue, gpuCountCondition.Status, "expected GPUMissing condition to be True")
 	require.Contains(s.T, gpuCountCondition.Message, "Expected to see 8 GPUs but found 7. FaultCode: NHC2009", "expected GPUMissing message to indicate GPU count mismatch")
+
+	command = []string{
+		"set -ex",
+		"cat /tmp/npd_test_disabled_pci_id | sudo tee /sys/bus/pci/drivers/nvidia/bind",
+		"rm -f /tmp/npd_test_disabled_pci_id", // Clean up the temporary file
+	}
+	// Put the VM back to the original state, re-enable the GPU.
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to re-enable GPU")
 }
 
 func ValidateRunc12Properties(ctx context.Context, s *Scenario, versions []string) {
