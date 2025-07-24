@@ -80,8 +80,8 @@ func getClusterKubeClient(ctx context.Context, resourceGroupName, clusterName st
 	}, nil
 }
 
-func (k *Kubeclient) WaitUntilPodRunning(ctx context.Context, t *testing.T, namespace string, labelSelector string, fieldSelector string) (*corev1.Pod, error) {
-	t.Logf("waiting for pod %s %s in %q namespace to be ready", labelSelector, fieldSelector, namespace)
+func (k *Kubeclient) WaitUntilPodRunning(ctx context.Context, namespace string, labelSelector string, fieldSelector string) (*corev1.Pod, error) {
+	logf(ctx, "waiting for pod %s %s in %q namespace to be ready", labelSelector, fieldSelector, namespace)
 
 	watcher, err := k.Typed.CoreV1().Pods(namespace).Watch(ctx, metav1.ListOptions{
 		FieldSelector: fieldSelector,
@@ -102,10 +102,10 @@ func (k *Kubeclient) WaitUntilPodRunning(ctx context.Context, t *testing.T, name
 		case <-logTicker.C:
 			if deadline, ok := ctx.Deadline(); ok {
 				remaining := time.Until(deadline)
-				t.Logf("time before timeout: %v\n", remaining)
+				logf(ctx, "time before timeout: %v\n", remaining)
 			}
 			if pod != nil {
-				logPodDebugInfo(ctx, k, pod, t)
+				logPodDebugInfo(ctx, k, pod)
 
 				// Annoyingly, when a pod sandbox is failed to create, the pod is left in Pending state and no events are sent
 				// to the ResultChan from the watcher below.
@@ -123,7 +123,7 @@ func (k *Kubeclient) WaitUntilPodRunning(ctx context.Context, t *testing.T, name
 		case event := <-watcher.ResultChan():
 			if event.Type != "ADDED" && event.Type != "MODIFIED" {
 				if event.Type != "" {
-					t.Logf("skipping event %s", event.Type)
+					logf(ctx, "skipping event %s", event.Type)
 				}
 				continue
 			}
@@ -131,14 +131,14 @@ func (k *Kubeclient) WaitUntilPodRunning(ctx context.Context, t *testing.T, name
 
 			for _, containerStatus := range pod.Status.ContainerStatuses {
 				if containerStatus.State.Waiting != nil && containerStatus.State.Waiting.Reason == "CrashLoopBackOff" {
-					logPodDebugInfo(ctx, k, pod, t)
+					logPodDebugInfo(ctx, k, pod)
 					return nil, fmt.Errorf("pod %s is in CrashLoopBackOff state", pod.Name)
 				}
 			}
 
 			switch pod.Status.Phase {
 			case corev1.PodFailed:
-				logPodDebugInfo(ctx, k, pod, t)
+				logPodDebugInfo(ctx, k, pod)
 				return nil, fmt.Errorf("pod %s is has failed", pod.Name)
 			case corev1.PodPending:
 				continue
@@ -148,12 +148,12 @@ func (k *Kubeclient) WaitUntilPodRunning(ctx context.Context, t *testing.T, name
 				// Check if the pod is ready
 				for _, cond := range pod.Status.Conditions {
 					if cond.Type == "Ready" && cond.Status == "True" {
-						t.Logf("pod %s is ready", pod.Name)
+						logf(ctx, "pod %s is ready", pod.Name)
 						return pod, nil
 					}
 				}
 			default:
-				logPodDebugInfo(ctx, k, pod, t)
+				logPodDebugInfo(ctx, k, pod)
 				return nil, fmt.Errorf("pod %s is in %s phase", pod.Name, pod.Status.Phase)
 			}
 		}
@@ -204,18 +204,20 @@ func (k *Kubeclient) WaitUntilNodeReady(ctx context.Context, t *testing.T, vmssN
 }
 
 // GetHostNetworkDebugPod returns a pod that's a member of the 'debug' daemonset, running on an aks-nodepool node.
-func (k *Kubeclient) GetHostNetworkDebugPod(ctx context.Context, t *testing.T) (*corev1.Pod, error) {
-	return k.WaitUntilPodRunning(ctx, t, defaultNamespace, fmt.Sprintf("app=%s", hostNetworkDebugAppLabel), "")
+func (k *Kubeclient) GetHostNetworkDebugPod(ctx context.Context) (*corev1.Pod, error) {
+	return k.WaitUntilPodRunning(ctx, defaultNamespace, fmt.Sprintf("app=%s", hostNetworkDebugAppLabel), "")
 }
 
 // GetPodNetworkDebugPodForNode returns a pod that's a member of the 'debugnonhost' daemonset running in the cluster - this will return
 // the name of the pod that is running on the node created for specifically for the test case which is running validation checks.
-func (k *Kubeclient) GetPodNetworkDebugPodForNode(ctx context.Context, kubeNodeName string, t *testing.T) (*corev1.Pod, error) {
-	require.NotEmpty(t, kubeNodeName, "kubeNodeName must not be empty")
-	return k.WaitUntilPodRunning(ctx, t, defaultNamespace, fmt.Sprintf("app=%s", podNetworkDebugAppLabel), "spec.nodeName="+kubeNodeName)
+func (k *Kubeclient) GetPodNetworkDebugPodForNode(ctx context.Context, kubeNodeName string) (*corev1.Pod, error) {
+	if kubeNodeName == "" {
+		return nil, fmt.Errorf("kubeNodeName must not be empty")
+	}
+	return k.WaitUntilPodRunning(ctx, defaultNamespace, fmt.Sprintf("app=%s", podNetworkDebugAppLabel), "spec.nodeName="+kubeNodeName)
 }
 
-func logPodDebugInfo(ctx context.Context, kube *Kubeclient, pod *corev1.Pod, t *testing.T) {
+func logPodDebugInfo(ctx context.Context, kube *Kubeclient, pod *corev1.Pod) {
 	if pod == nil {
 		return
 	}
@@ -284,9 +286,9 @@ func logPodDebugInfo(ctx context.Context, kube *Kubeclient, pod *corev1.Pod, t *
 		Logs:       string(logs),
 	}, "", "  ")
 	if err != nil {
-		t.Logf("couldn't debug info: %s", info)
+		logf(ctx, "couldn't debug info: %s", info)
 	}
-	t.Log(string(info))
+	logf(ctx, string(info))
 }
 
 func getClusterKubeconfigBytes(ctx context.Context, resourceGroupName, clusterName string) ([]byte, error) {
@@ -303,14 +305,14 @@ func getClusterKubeconfigBytes(ctx context.Context, resourceGroupName, clusterNa
 }
 
 // this is a bit ugly, but we don't want to execute this piece concurrently with other tests
-func (k *Kubeclient) EnsureDebugDaemonsets(ctx context.Context, t *testing.T, isAirgap bool, privateACRName string) error {
-	ds := daemonsetDebug(t, hostNetworkDebugAppLabel, "nodepool1", privateACRName, true, isAirgap)
+func (k *Kubeclient) EnsureDebugDaemonsets(ctx context.Context, isAirgap bool, privateACRName string) error {
+	ds := daemonsetDebug(ctx, hostNetworkDebugAppLabel, "nodepool1", privateACRName, true, isAirgap)
 	err := k.CreateDaemonset(ctx, ds)
 	if err != nil {
 		return err
 	}
 
-	nonHostDS := daemonsetDebug(t, podNetworkDebugAppLabel, "nodepool2", privateACRName, false, isAirgap)
+	nonHostDS := daemonsetDebug(ctx, podNetworkDebugAppLabel, "nodepool2", privateACRName, false, isAirgap)
 	err = k.CreateDaemonset(ctx, nonHostDS)
 	if err != nil {
 		return err
@@ -331,11 +333,11 @@ func (k *Kubeclient) CreateDaemonset(ctx context.Context, ds *appsv1.DaemonSet) 
 	return nil
 }
 
-func (k *Kubeclient) createKubernetesSecret(ctx context.Context, t *testing.T, namespace, secretName, registryName, username, password string) error {
-	t.Logf("Creating Kubernetes secret %s in namespace %s", secretName, namespace)
+func (k *Kubeclient) createKubernetesSecret(ctx context.Context, namespace, secretName, registryName, username, password string) error {
+	logf(ctx, "Creating Kubernetes secret %s in namespace %s", secretName, namespace)
 	clientset, err := kubernetes.NewForConfig(k.RESTConfig)
 	if err != nil {
-		t.Logf("failed to create Kubernetes client: %v", err)
+		logf(ctx, "failed to create Kubernetes client: %v", err)
 		return err
 	}
 
@@ -363,22 +365,22 @@ func (k *Kubeclient) createKubernetesSecret(ctx context.Context, t *testing.T, n
 	_, err = clientset.CoreV1().Secrets(namespace).Create(ctx, secret, metav1.CreateOptions{})
 	if err != nil {
 		if !errorsk8s.IsAlreadyExists(err) {
-			t.Logf("failed to create Kubernetes secret: %v", err)
+			logf(ctx, "failed to create Kubernetes secret: %v", err)
 			return err
 		}
 	}
-	t.Logf("Kubernetes secret %s created", secretName)
+	logf(ctx, "Kubernetes secret %s created", secretName)
 	return nil
 }
 
-func daemonsetDebug(t *testing.T, deploymentName, targetNodeLabel, privateACRName string, isHostNetwork, isAirgap bool) *appsv1.DaemonSet {
+func daemonsetDebug(ctx context.Context, deploymentName, targetNodeLabel, privateACRName string, isHostNetwork, isAirgap bool) *appsv1.DaemonSet {
 	image := "mcr.microsoft.com/cbl-mariner/base/core:2.0"
 	secretName := ""
 	if isAirgap {
 		image = fmt.Sprintf("%s.azurecr.io/cbl-mariner/base/core:2.0", privateACRName)
 		secretName = config.Config.ACRSecretName
 	}
-	t.Logf("Creating daemonset %s with image %s", deploymentName, image)
+	logf(ctx, "Creating daemonset %s with image %s", deploymentName, image)
 
 	return &appsv1.DaemonSet{
 		TypeMeta: metav1.TypeMeta{

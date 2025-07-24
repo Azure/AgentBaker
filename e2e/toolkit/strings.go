@@ -1,11 +1,12 @@
 package toolkit
 
 import (
-	"k8s.io/apimachinery/pkg/util/duration"
+	"context"
 	"strconv"
 	"strings"
-	"testing"
 	"time"
+
+	"k8s.io/apimachinery/pkg/util/duration"
 )
 
 func StrToBoolMap(str string) map[string]bool {
@@ -29,11 +30,11 @@ func StrToInt32(s string) int32 {
 	return int32(i)
 }
 
-func LogDuration(t *testing.T, duration time.Duration, warningDuration time.Duration, message string) {
+func LogDuration(ctx context.Context, duration time.Duration, warningDuration time.Duration, message string) {
 	if duration > warningDuration {
-		t.Logf("##vso[task.logissue type=warning;] %s", message)
+		Logf(ctx, "##vso[task.logissue type=warning;] %s", message)
 	} else {
-		t.Log(message)
+		Log(ctx, message)
 	}
 }
 
