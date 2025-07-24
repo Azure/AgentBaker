@@ -49,7 +49,6 @@ ERR_GPU_DRIVERS_START_FAIL=84 # nvidia-modprobe could not be started by systemct
 ERR_GPU_DRIVERS_INSTALL_TIMEOUT=85 # Timeout waiting for GPU drivers install
 ERR_GPU_DEVICE_PLUGIN_START_FAIL=86 # nvidia device plugin could not be started by systemctl
 ERR_GPU_INFO_ROM_CORRUPTED=87 # info ROM corrupted error when executing nvidia-smi
-ERR_NVIDIA_DRIVER_INSTALL=88 # Error determining if nvidia driver install should be skipped
 ERR_SGX_DRIVERS_INSTALL_TIMEOUT=90 # Timeout waiting for SGX prereqs to download
 ERR_SGX_DRIVERS_START_FAIL=91 # Failed to execute SGX driver binary
 ERR_APT_DAILY_TIMEOUT=98 # Timeout waiting for apt daily updates
@@ -134,6 +133,7 @@ ERR_LOCALDNS_BINARY_ERR=219 # Localdns binary not found or not executable.
 ERR_SECURE_TLS_BOOTSTRAP_START_FAILURE=220 # Error starting the secure TLS bootstrap systemd service
 
 ERR_CLOUD_INIT_FAILED=223 # Error indicating that cloud-init returned exit code 1 in cse_cmd.sh
+ERR_NVIDIA_DRIVER_INSTALL=224 # Error determining if nvidia driver install should be skipped
 
 # For both Ubuntu and Mariner, /etc/*-release should exist.
 # For unit tests, the OS and OS_VERSION will be set in the unit test script.
