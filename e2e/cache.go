@@ -137,3 +137,6 @@ func isNotFoundErr(err error) bool {
 	}
 	return false
 }
+
+var CachedEnsureResourceGroup = cachedFunc(ensureResourceGroup)
+var CachedCreateVMManagedIdentity = cachedFunc(config.Azure.CreateVMManagedIdentity)

@@ -591,9 +591,9 @@ func collectGarbageVMSS(ctx context.Context, t *testing.T, cluster *armcontainer
 	return nil
 }
 
-func ensureResourceGroup(ctx context.Context, location string) error {
+func ensureResourceGroup(ctx context.Context, location string) (armresources.ResourceGroup, error) {
 	resourceGroupName := config.ResourceGroupName(location)
-	_, err := config.Azure.ResourceGroup.CreateOrUpdate(
+	rg, err := config.Azure.ResourceGroup.CreateOrUpdate(
 		ctx,
 		resourceGroupName,
 		armresources.ResourceGroup{
@@ -603,7 +603,7 @@ func ensureResourceGroup(ctx context.Context, location string) error {
 		nil)
 
 	if err != nil {
-		return fmt.Errorf("creating or updating RG %q: %w", resourceGroupName, err)
+		return armresources.ResourceGroup{}, fmt.Errorf("creating or updating RG %q: %w", resourceGroupName, err)
 	}
-	return nil
+	return rg.ResourceGroup, nil
 }

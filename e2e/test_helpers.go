@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
-	"sync"
 	"syscall"
 	"testing"
 	"time"
@@ -70,38 +69,7 @@ func newTestCtx(t *testing.T) context.Context {
 	return ctx
 }
 
-// Global state to track which locations have been initialized
-var (
-	// Track which locations have been initialized
-	initializedLocations = make(map[string]bool)
-	// Mutex to protect the map access
-	locationMutex sync.Mutex
-)
-
-// ensureLocationInitialized ensures that both resource group and managed identity
-// are created for a location, but only runs once per location across all tests
-func ensureLocationInitialized(ctx context.Context, t *testing.T, location string) {
-	locationMutex.Lock()
-	defer locationMutex.Unlock()
-
-	// Check if this location has already been initialized
-	if initializedLocations[location] {
-		t.Logf("Location %s is already initialized, skipping", location)
-		return
-	}
-
-	// Initialize the location
-	err := ensureResourceGroup(ctx, location)
-	require.NoError(t, err, "ensuring resource group")
-	_, err = config.Azure.CreateVMManagedIdentity(ctx, location)
-	require.NoError(t, err, "ensuring VM managed identity")
-
-	// Mark this location as initialized
-	initializedLocations[location] = true
-}
-
 func RunScenario(t *testing.T, s *Scenario) {
-
 	if s.Location == "" {
 		s.Location = config.Config.DefaultLocation
 	}
@@ -109,7 +77,10 @@ func RunScenario(t *testing.T, s *Scenario) {
 	s.Location = strings.ToLower(s.Location)
 
 	ctx := newTestCtx(t)
-	ensureLocationInitialized(ctx, t, s.Location)
+	_, err := CachedEnsureResourceGroup(ctx, s.Location)
+	require.NoError(t, err)
+	_, err = CachedCreateVMManagedIdentity(ctx, s.Location)
+	require.NoError(t, err)
 
 	if config.Config.TestPreProvision {
 		t.Run("Original", func(t *testing.T) {
