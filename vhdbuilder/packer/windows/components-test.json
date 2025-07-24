@@ -900,7 +900,7 @@
                 "latestRevision": "2"
               }
             ],
-            "downloadURL": "https://packages.aks.azure.com/dalec-packages/kubelet/{version}/windows/amd64/kubelet_${version}-${revision}_amd64.zip"
+            "downloadURL": "https://packages.aks.azure.com/dalec-packages/kubelet/${version}/windows/amd64/kubelet_${version}-${revision}_amd64.zip"
           }
         }
       }
