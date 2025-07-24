@@ -506,7 +506,7 @@ EOF
 #
 # basePrep: Base image preparation
 #   - Installs and configures all required components (kubelet, containerd, etc.)
-#   - Sets up system[] configurations that are common across all nodes
+#   - Sets up system configurations that are common across all nodes
 #   - DOES NOT join the node to any cluster
 #   - After this stage, users can add customizations (e.g., pre-pull additional container images)
 #   - The VM can then be captured as a VHD image for use as a node pool base image
