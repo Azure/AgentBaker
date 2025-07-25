@@ -10,19 +10,18 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
-	"sync"
 	"syscall"
 	"testing"
 	"time"
 
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
+	"github.com/Azure/agentbaker/e2e/components"
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/e2e/toolkit"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 	"github.com/stretchr/testify/require"
-	"github.com/tidwall/gjson"
 	ctrruntimelog "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
@@ -77,38 +76,7 @@ func newTestCtx(t *testing.T) context.Context {
 	return ctx
 }
 
-// Global state to track which locations have been initialized
-var (
-	// Track which locations have been initialized
-	initializedLocations = make(map[string]bool)
-	// Mutex to protect the map access
-	locationMutex sync.Mutex
-)
-
-// ensureLocationInitialized ensures that both resource group and managed identity
-// are created for a location, but only runs once per location across all tests
-func ensureLocationInitialized(ctx context.Context, t *testing.T, location string) {
-	locationMutex.Lock()
-	defer locationMutex.Unlock()
-
-	// Check if this location has already been initialized
-	if initializedLocations[location] {
-		t.Logf("Location %s is already initialized, skipping", location)
-		return
-	}
-
-	// Initialize the location
-	err := ensureResourceGroup(ctx, location)
-	require.NoError(t, err, "ensuring resource group")
-	_, err = config.Azure.CreateVMManagedIdentity(ctx, location)
-	require.NoError(t, err, "ensuring VM managed identity")
-
-	// Mark this location as initialized
-	initializedLocations[location] = true
-}
-
 func RunScenario(t *testing.T, s *Scenario) {
-
 	if s.Location == "" {
 		s.Location = config.Config.DefaultLocation
 	}
@@ -116,7 +84,10 @@ func RunScenario(t *testing.T, s *Scenario) {
 	s.Location = strings.ToLower(s.Location)
 
 	ctx := newTestCtx(t)
-	ensureLocationInitialized(ctx, t, s.Location)
+	_, err := CachedEnsureResourceGroup(ctx, s.Location)
+	require.NoError(t, err)
+	_, err = CachedCreateVMManagedIdentity(ctx, s.Location)
+	require.NoError(t, err)
 
 	if config.Config.TestPreProvision {
 		t.Run("Original", func(t *testing.T) {
@@ -340,26 +311,14 @@ func maybeSkipScenario(ctx context.Context, t *testing.T, s *Scenario) {
 	t.Logf("VHD: %q, TAGS %+v", vhd, s.Tags)
 }
 
-func getWindowsEnvVarForName(vhd *config.Image) string {
-	return strings.TrimPrefix(vhd.Name, "windows-")
-}
-
-func getServercoreImagesForVHD(vhd *config.Image) []string {
-	return getWindowsContainerImages("mcr.microsoft.com/windows/servercore:*", getWindowsEnvVarForName(vhd))
-}
-
-func getNanoserverImagesForVhd(vhd *config.Image) []string {
-	return getWindowsContainerImages("mcr.microsoft.com/windows/nanoserver:*", getWindowsEnvVarForName(vhd))
-}
-
 func ValidateNodeCanRunAPod(ctx context.Context, s *Scenario) {
 	if s.IsWindows() {
-		serverCorePods := getServercoreImagesForVHD(s.VHD)
+		serverCorePods := components.GetServercoreImagesForVHD(s.VHD)
 		for i, pod := range serverCorePods {
 			ValidatePodRunning(ctx, s, podWindows(s, fmt.Sprintf("servercore%d", i), pod))
 		}
 
-		nanoServerPods := getNanoserverImagesForVhd(s.VHD)
+		nanoServerPods := components.GetNanoserverImagesForVhd(s.VHD)
 		for i, pod := range nanoServerPods {
 			ValidatePodRunning(ctx, s, podWindows(s, fmt.Sprintf("nanoserver%d", i), pod))
 		}
@@ -387,78 +346,6 @@ func validateVM(ctx context.Context, s *Scenario) {
 		s.Config.Validator(ctx, s)
 	}
 	s.T.Log("validation succeeded")
-}
-
-func getExpectedPackageVersions(packageName, distro, release string) []string {
-	var expectedVersions []string
-	// since we control this json, we assume its going to be properly formatted here
-	jsonBytes, _ := os.ReadFile("../parts/common/components.json")
-	packages := gjson.GetBytes(jsonBytes, fmt.Sprintf("Packages.#(name=%s).downloadURIs", packageName))
-
-	for _, packageItem := range packages.Array() {
-		// check if versionsV2 exists
-		if packageItem.Get(fmt.Sprintf("%s.%s.versionsV2", distro, release)).Exists() {
-			versions := packageItem.Get(fmt.Sprintf("%s.%s.versionsV2", distro, release))
-			for _, version := range versions.Array() {
-				// get versions.latestVersion and append to expectedVersions
-				expectedVersions = append(expectedVersions, version.Get("latestVersion").String())
-				// get versions.previousLatestVersion (if exists) and append to expectedVersions
-				if version.Get("previousLatestVersion").Exists() {
-					expectedVersions = append(expectedVersions, version.Get("previousLatestVersion").String())
-				}
-			}
-		}
-	}
-	return expectedVersions
-}
-
-func getWindowsContainerImages(containerName string, windowsVersion string) []string {
-	return toolkit.Map(getWindowsContainerImageTags(containerName, windowsVersion), func(tag string) string {
-		return strings.Replace(containerName, "*", tag, 1)
-	})
-}
-
-// TODO: expand this logic to support linux container images as well
-func getWindowsContainerImageTags(containerName string, windowsVersion string) []string {
-	var expectedVersions []string
-	// since we control this json, we assume its going to be properly formatted here
-	jsonBytes, _ := os.ReadFile("../parts/common/components.json")
-
-	containerImages := gjson.GetBytes(jsonBytes, "ContainerImages") //fmt.Sprintf("ContainerImages", containerName))
-
-	for _, containerImage := range containerImages.Array() {
-		imageDownloadUrl := containerImage.Get("downloadURL").String()
-		if strings.EqualFold(imageDownloadUrl, containerName) {
-			packages := containerImage.Get("windowsVersions")
-			//t.Logf("got packages: %s", packages.String())
-
-			for _, packageItem := range packages.Array() {
-				// check if versionsV2 exists
-				if packageItem.Get("windowsSkuMatch").Exists() {
-					windowsSkuMatch := packageItem.Get("windowsSkuMatch").String()
-					matched, err := filepath.Match(windowsSkuMatch, windowsVersion)
-					if matched && err == nil {
-
-						// get versions.latestVersion and append to expectedVersions
-						expectedVersions = append(expectedVersions, packageItem.Get("latestVersion").String())
-						// get versions.previousLatestVersion (if exists) and append to expectedVersions
-						if packageItem.Get("previousLatestVersion").Exists() {
-							expectedVersions = append(expectedVersions, packageItem.Get("previousLatestVersion").String())
-						}
-					}
-				} else {
-					// get versions.latestVersion and append to expectedVersions
-					expectedVersions = append(expectedVersions, packageItem.Get("latestVersion").String())
-					// get versions.previousLatestVersion (if exists) and append to expectedVersions
-					if packageItem.Get("previousLatestVersion").Exists() {
-						expectedVersions = append(expectedVersions, packageItem.Get("previousLatestVersion").String())
-					}
-				}
-			}
-		}
-	}
-
-	return expectedVersions
 }
 
 func getCustomScriptExtensionStatus(ctx context.Context, s *Scenario) error {
@@ -593,28 +480,6 @@ func createVMExtensionLinuxAKSNode(location *string) (*armcompute.VirtualMachine
 			TypeHandlerVersion: to.Ptr(extensionVersion),
 		},
 	}, nil
-}
-
-func GetKubeletVersionByMinorVersion(minorVersion string) string {
-	allCachedKubeletVersions := getExpectedPackageVersions("kubernetes-binaries", "default", "current")
-	rightVersions := toolkit.Filter(allCachedKubeletVersions, func(v string) bool { return strings.HasPrefix(v, minorVersion) })
-	rightVersion := toolkit.Reduce(rightVersions, "", func(sum string, next string) string {
-		if sum == "" {
-			return next
-		}
-		if next > sum {
-			return next
-		}
-		return sum
-	})
-	return rightVersion
-}
-
-func RemoveLeadingV(version string) string {
-	if len(version) > 0 && version[0] == 'v' {
-		return version[1:]
-	}
-	return version
 }
 
 func CreateImage(ctx context.Context, s *Scenario) *config.Image {

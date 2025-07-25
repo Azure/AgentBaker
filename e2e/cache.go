@@ -150,16 +150,7 @@ var ClusterKubenet = cachedFunc(clusterKubenet)
 
 // clusterKubenet creates a basic cluster using kubenet networking
 func clusterKubenet(ctx context.Context, location string) (*Cluster, error) {
-	return prepareCluster(ctx, getKubenetClusterModel("abe2e-kubenet", location), false, false, true)
-}
-
-var ClusterKubenetNoNvidiaDevicePlugin = cachedFunc(clusterKubenetNoNvidiaDevicePlugin)
-
-// clusterKubenetNoNvidiaDevicePlugin creates a kubenet cluster without NVIDIA device plugin
-func clusterKubenetNoNvidiaDevicePlugin(ctx context.Context, location string) (*Cluster, error) {
-	// This is purposefully named in short form to avoid going over the 80
-	// char limit of the resource groups.
-	return prepareCluster(ctx, getKubenetClusterModel("abe2e-kubenet-no-nvidia-dev", location), false, false, false)
+	return prepareCluster(ctx, getKubenetClusterModel("abe2e-kubenet-v2", location), false, false, true)
 }
 
 var ClusterKubenetAirgap = cachedFunc(clusterKubenetAirgap)
@@ -225,3 +216,6 @@ type GetVHDRequest struct {
 func prepareVHD(ctx context.Context, request GetVHDRequest) (config.VHDResourceID, error) {
 	return config.GetVHDResourceID(ctx, request.Image, request.Location)
 }
+
+var CachedEnsureResourceGroup = cachedFunc(ensureResourceGroup)
+var CachedCreateVMManagedIdentity = cachedFunc(config.Azure.CreateVMManagedIdentity)

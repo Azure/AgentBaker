@@ -109,7 +109,7 @@ func prepareCluster(ctx context.Context, cluster *armcontainerservice.ManagedClu
 		}
 	}
 
-	if err := kube.EnsureDebugDaemonsets(ctx, isAirgap, config.GetPrivateACRName(isNonAnonymousPull, *cluster.Location), installNvidiaDevicePlugin); err != nil {
+	if err := kube.EnsureDebugDaemonsets(ctx, isAirgap, config.GetPrivateACRName(isNonAnonymousPull, *cluster.Location)); err != nil {
 		return nil, fmt.Errorf("ensure debug daemonsets for %q: %w", *cluster.Name, err)
 	}
 
@@ -471,9 +471,9 @@ func collectGarbageVMSS(ctx context.Context, cluster *armcontainerservice.Manage
 	return nil
 }
 
-func ensureResourceGroup(ctx context.Context, location string) error {
+func ensureResourceGroup(ctx context.Context, location string) (armresources.ResourceGroup, error) {
 	resourceGroupName := config.ResourceGroupName(location)
-	_, err := config.Azure.ResourceGroup.CreateOrUpdate(
+	rg, err := config.Azure.ResourceGroup.CreateOrUpdate(
 		ctx,
 		resourceGroupName,
 		armresources.ResourceGroup{
@@ -483,7 +483,7 @@ func ensureResourceGroup(ctx context.Context, location string) error {
 		nil)
 
 	if err != nil {
-		return fmt.Errorf("creating or updating RG %q: %w", resourceGroupName, err)
+		return armresources.ResourceGroup{}, fmt.Errorf("creating or updating RG %q: %w", resourceGroupName, err)
 	}
-	return nil
+	return rg.ResourceGroup, nil
 }

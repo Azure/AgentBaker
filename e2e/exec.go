@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/google/uuid"
@@ -107,7 +108,45 @@ func execOnUnprivilegedPod(ctx context.Context, kube *Kubeclient, namespace stri
 	return execOnPod(ctx, kube, namespace, podName, nonPrivilegedCommand)
 }
 
+// isRetryableConnectionError checks if the error is a transient connection issue that should be retried
+func isRetryableConnectionError(err error) bool {
+	errorMsg := err.Error()
+	return strings.Contains(errorMsg, "error dialing backend: EOF") ||
+		strings.Contains(errorMsg, "connection refused") ||
+		strings.Contains(errorMsg, "dial tcp") ||
+		strings.Contains(errorMsg, "i/o timeout") ||
+		strings.Contains(errorMsg, "connection reset by peer")
+}
+
 func execOnPod(ctx context.Context, kube *Kubeclient, namespace, podName string, command []string) (*podExecResult, error) {
+	maxRetries := 3
+	retryDelay := 1 * time.Second
+
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		result, err := attemptExecOnPod(ctx, kube, namespace, podName, command)
+		if err == nil {
+			return result, nil
+		}
+
+		// If it's a retryable connection error and we have retries left, retry
+		if isRetryableConnectionError(err) && attempt < maxRetries-1 {
+			select {
+			case <-time.After(retryDelay):
+				// Continue to next attempt
+			case <-ctx.Done():
+				return nil, fmt.Errorf("context cancelled during retry attempt %d: %w", attempt+1, ctx.Err())
+			}
+			continue
+		}
+
+		// For non-retryable errors or final attempt, return the error
+		return nil, err
+	}
+
+	return nil, fmt.Errorf("failed after %d attempts", maxRetries)
+}
+
+func attemptExecOnPod(ctx context.Context, kube *Kubeclient, namespace, podName string, command []string) (*podExecResult, error) {
 	req := kube.Typed.CoreV1().RESTClient().Post().Resource("pods").Name(podName).Namespace(namespace).SubResource("exec")
 
 	option := &corev1.PodExecOptions{
