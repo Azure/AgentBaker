@@ -5,51 +5,18 @@ ifeq (${ARCHITECTURE},ARM64)
 	GOARCH=arm64
 endif
 
-build-prism: generate-prefetch-scripts build-aks-node-controller build-lister-binary
+#build-prism: generate-prefetch-scripts build-aks-node-controller build-lister-binary
+build-prism:
 ifeq (${ARCHITECTURE},ARM64)
-	@echo "${MODE}: Building with Hyper-v generation 2 ARM64 VM"
-ifeq (${OS_SKU},Ubuntu)
-	@echo "Using packer template file vhd-image-builder-arm64-gen2.json"
-	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-arm64-gen2.json
-else ifeq (${OS_SKU},CBLMariner)
-	@echo "Using packer template file vhd-image-builder-mariner-arm64.json"
-	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner-arm64.json
-else ifeq (${OS_SKU},AzureLinux)
-	@echo "Using packer template file vhd-image-builder-mariner-arm64.json"
-	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner-arm64.json
-else
-	$(error OS_SKU was invalid ${OS_SKU})
-endif
+	@echo "ARM64 stub"
 else ifeq (${ARCHITECTURE},X86_64)
-ifeq (${HYPERV_GENERATION},V2)
-	@echo "${MODE}: Building with Hyper-v generation 2 x86_64 VM"
-else ifeq (${HYPERV_GENERATION},V1)
-	@echo "${MODE}: Building with Hyper-v generation 1 X86_64 VM"
-else
-	$(error HYPERV_GENERATION was invalid ${HYPERV_GENERATION})
-endif
-ifeq (${OS_SKU},Ubuntu)
-ifeq ($(findstring cvm,$(FEATURE_FLAGS)),cvm)
-	@echo "Using packer template file vhd-image-builder-cvm.json"
-	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-cvm.json
-else
-	@echo "Using packer template file vhd-image-builder-base.json"
-	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-base.json
-endif
-else ifeq (${OS_SKU},CBLMariner)
-	@echo "Using packer template file vhd-image-builder-mariner.json"
-	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner.json
-else ifeq (${OS_SKU},AzureLinux)
-ifeq ($(findstring cvm,$(FEATURE_FLAGS)),cvm)
-	@echo "Using packer template file vhd-image-builder-mariner-cvm.json"
-	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner-cvm.json
-else
-	@echo "Using packer template file vhd-image-builder-mariner.json"
-	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner.json
-endif
+ifeq (${OS_SKU},ImmutableAzureLinux)
+	@./vhdbuilder/packer/imagecustomizer/scripts/build-imagecustomizer-image.sh immutableazl
 else
 	$(error OS_SKU was invalid ${OS_SKU})
 endif
+else
+	$(error ARCHITECTURE was invalid ${ARCHITECTURE})
 endif
 
 az-login:
@@ -72,7 +39,7 @@ init-prism:
 	@./vhdbuilder/packer/produce-packer-settings.sh
 
 run-prism:
-	($(MAKE) -f prism.mk init-prism | tee prism-output) && ($(MAKE) -f prism.mk build-prism | tee -a prism-output)
+	($(MAKE) -f prism.mk build-prism | tee -a prism-output)
 
 backfill-cleanup: az-login
 	@chmod +x ./vhdbuilder/packer/backfill-cleanup.sh
