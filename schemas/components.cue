@@ -38,7 +38,9 @@ package components
 	k8sVersion?:             string
 	renovateTag?:            string
 	latestVersion:           string
+	latestRevision?:         string
 	previousLatestVersion?:  string
+	previousLatestRevision?: string
 	containerImagePrefetch?: #ContainerImagePrefetchOptimizations
 }
 
