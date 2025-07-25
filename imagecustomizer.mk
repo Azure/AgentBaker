@@ -6,18 +6,8 @@ ifeq (${ARCHITECTURE},ARM64)
 endif
 
 #build-prism: generate-prefetch-scripts build-aks-node-controller build-lister-binary
-build-prism:
-ifeq (${ARCHITECTURE},ARM64)
-	@echo "ARM64 stub"
-else ifeq (${ARCHITECTURE},X86_64)
-ifeq (${OS_SKU},ImmutableAzureLinux)
-	@./vhdbuilder/packer/imagecustomizer/scripts/build-imagecustomizer-image.sh immutableazl
-else
-	$(error OS_SKU was invalid ${OS_SKU})
-endif
-else
-	$(error ARCHITECTURE was invalid ${ARCHITECTURE})
-endif
+build-imagecustomizer:
+	@./vhdbuilder/packer/imagecustomizer/scripts/build-imagecustomizer-image.sh
 
 az-login:
 ifeq (${MODE},windowsVhdMode)
@@ -38,8 +28,8 @@ endif
 init-prism:
 	@./vhdbuilder/packer/produce-packer-settings.sh
 
-run-prism:
-	($(MAKE) -f prism.mk build-prism | tee -a prism-output)
+run-imagecustomizer:
+	($(MAKE) -f imagecustomizer.mk build-imagecustomizer | tee -a imagecustomizer-output)
 
 backfill-cleanup: az-login
 	@chmod +x ./vhdbuilder/packer/backfill-cleanup.sh

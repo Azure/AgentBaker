@@ -121,8 +121,8 @@ parameters:
     displayName: Build AzureLinuxV2 Gen2 Kata - Trusted Launch
     type: boolean
     default: false
-  - name: buildAzureLinuxV3LinuxGuard
-    displayName: Build AzureLinuxV3 Linux Guard
+  - name: buildImmutableAzureLinux
+    displayName: Build Immutable AzureLinux 
     type: boolean
     default: true
   - name: build1804fipscontainerd
@@ -200,11 +200,11 @@ parameters:
   - name: buildflatcargen2
     displayName: Build Flatcar Gen2
     type: boolean
-    default: true
+    default: false
   - name: buildflatcargen2arm64
     displayName: Build Flatcar Gen2 ARM64
     type: boolean
-    default: true
+    default: false
 
 #variables:
 #  - group: aks-vuln-to-kusto
@@ -852,18 +852,19 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: azurelinuxv2-gen2-kata-trustedlaunch
-      - job: buildAzureLinuxV3LinuxGuard
-        condition: eq('${{ parameters.buildAzureLinuxV3LinuxGuard }}', true)
+      - job: buildImmutableAzureLinux
+        condition: eq('${{ parameters.buildImmutableAzureLinux }}', true)
         dependsOn: [ ]
         timeoutInMinutes: 180
         steps:
           - bash: |
-              echo '##vso[task.setvariable variable=OS_SKU]AzureLinux'
-              echo '##vso[task.setvariable variable=OS_VERSION]V3LinuxGuard'
-              echo '##vso[task.setvariable variable=PRISM_IMG_REFERENCE]acrafoimages.azurecr.io/imagecustomizer'
-              echo '##vso[task.setvariable variable=PRISM_IMG_VERSION]0.15.0-dev.812769'
-              echo '##vso[task.setvariable variable=BASE_IMG_REFERENCE]hebeberm.azurecr.io/lgbase'
-              echo '##vso[task.setvariable variable=IMG_VERSION]20250520.6.1'
+              echo '##vso[task.setvariable variable=OS_SKU]ImmutableAzureLinux'
+              echo '##vso[task.setvariable variable=OS_VERSION]V3'
+              echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER]mcr.microsoft.com/azurelinux/imagecustomizer'
+              echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_VERSION]0.16.0'
+              echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONFIG]immutableazl'
+              echo '##vso[task.setvariable variable=BASE_IMG]hebeberm.azurecr.io/lgtest/base'
+              echo '##vso[task.setvariable variable=BASE_IMG_VERSION]20250721.1.1'
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]linuxguard'
               echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
@@ -873,11 +874,11 @@ stages:
               echo '##vso[task.setvariable variable=SGX_INSTALL]False'
               echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
             displayName: Setup Build Variables
-          - template: ./templates/.builder-release-template-prism.yaml
+          - template: ./templates/.builder-release-template-imagecustomizer.yaml
             parameters:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
-              artifactName: azurelinuxv3-linux-guard
+              artifactName: immutable-azurelinuxv3
       - job: build1804fipscontainerd
         condition: eq('${{ parameters.build1804fipscontainerd }}', true)
         dependsOn: [ ]

@@ -12,22 +12,7 @@ OUT_DIR="${AGENTBAKER_DIR}/out"
 mkdir -p ${OUT_DIR}
 mkdir -p ${BUILD_DIR}
 
-# Function to show usage
-usage() {
-    echo "Usage: $0 <CONFIG>"
-    echo "  CONFIG: Configuration name (e.g., 'immutableazl')"
-    echo "          Must correspond to a directory under vhdbuilder/packer/imagecustomizer/<CONFIG>/"
-    echo "          containing <CONFIG>.yml file"
-    exit 1
-}
-
-# Check arguments
-if [[ $# -ne 1 ]]; then
-    echo "Error: Invalid number of arguments. Expected 1, got $#" >&2
-    usage
-fi
-
-CONFIG="$1"
+CONFIG=$IMG_CUSTOMIZER_CONFIG
 
 # Validate CONFIG and config file
 CONFIG_FILE="$AGENTBAKER_DIR/vhdbuilder/packer/imagecustomizer/$CONFIG/$CONFIG.yml"
@@ -45,9 +30,9 @@ fi
 echo "Using following Image Customizer config:"
 cat $CONFIG_FILE
 
-IMAGE_PATH="${OUT_DIR}/image/$CONFIG.vhd"
+IMAGE_PATH="${OUT_DIR}/$CONFIG/$CONFIG.vhd"
 
-BASE_IMAGE_ORAS=hebeberm.azurecr.io/lgtest/base:20250721.1.1
+BASE_IMAGE_ORAS=$BASE_IMG:$BASE_IMG_VERSION
 
 if [ ! -f "$BUILD_DIR/$CONFIG/image.vhd" ]; then
     echo "Pulling base image from ORAS registry..."
@@ -70,14 +55,14 @@ docker run \
     -v "$(realpath "$(dirname "$CONFIG_FILE")")":/container/config \
     -v /dev:/dev \
     -v "$AGENTBAKER_DIR/:/AgentBaker:z" \
-    marinerhcistaging.azurecr.io/imagecustomizer:0.16.0-main.868189 \
+    $IMG_CUSTOMIZER_CONTAINER:$IMG_CUSTOMIZER_VERSION \
     imagecustomizer \
         --log-level "debug" \
         --config-file /container/config/"$(basename "$CONFIG_FILE")" \
         --build-dir /container/build \
         --image-file /container/build/$CONFIG/image.vhd \
         --output-image-format vhd-fixed \
-        --output-image-file /container/out/"$(basename "$IMAGE_PATH")" \
+        --output-image-file /container/out/$CONFIG/"$(basename "$IMAGE_PATH")" \
         --rpm-source "/container/config/azurelinux-cloud-native.repo"
 
 cp $IMAGE_PATH $OUT_DIR/$CONFIG.vhd
