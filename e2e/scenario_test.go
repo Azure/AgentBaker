@@ -1836,6 +1836,10 @@ func Test_Ubuntu2404_GPU_H100(t *testing.T) {
 	RunScenario(t, runScenarioGPUNPD(t, "Standard_ND96isr_H100_v5", "uaenorth"))
 }
 
+func Test_Ubuntu2404_GPU_A100(t *testing.T) {
+	RunScenario(t, runScenarioGPUNPD(t, "Standard_ND96asr_v4", "southcentralus"))
+}
+
 func Test_AzureLinux3_Kube_Package_Install(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that an AzureLinux node will install kube pkgs from PMC and can be properly bootstrapped",
