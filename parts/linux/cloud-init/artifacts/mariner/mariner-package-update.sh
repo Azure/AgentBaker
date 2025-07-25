@@ -8,12 +8,18 @@ dnf_update() {
     dnf_update_output=/tmp/dnf-update.out
     versionID=$(grep '^VERSION_ID=' /etc/os-release  | cut -d'=' -f2 | tr -d '"')
     if [ "${versionID}" = "3.0" ]; then
+        # Convert the golden timestamp (format: YYYYMMDDTHHMMSSZ) to a timestamp in seconds
+        # e.g. 20250623T000000Z -> 2025-06-23 00:00:00 -> 1750636800
+        snapshottime=$(date -d "$(echo ${golden_timestamp} | sed 's/\([0-9]\{4\}\)\([0-9]\{2\}\)\([0-9]\{2\}\)T\([0-9]\{2\}\)\([0-9]\{2\}\)\([0-9]\{2\}\)Z/\1-\2-\3 \4:\5:\6/')" +%s)
+        echo "using snapshottime ${snapshottime} for azurelinux 3.0 snapshot-based update"
+        update_cmd="tdnf --snapshottime ${snapshottime}"
         repo_list=(--repo azurelinux-official-base --repo azurelinux-official-ms-non-oss --repo azurelinux-official-ms-oss --repo azurelinux-official-nvidia) 
     else
+        update_cmd="dnf"
         repo_list=(--repo mariner-official-base --repo mariner-official-microsoft --repo mariner-official-extras --repo mariner-official-nvidia) 
     fi
     for i in $(seq 1 $retries); do
-        ! (dnf update \
+        ! ($update_cmd update \
             --exclude mshv-linuxloader \
             --exclude kernel-mshv \
             "${repo_list[@]}" \
