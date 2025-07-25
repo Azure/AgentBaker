@@ -1693,3 +1693,7 @@ func Test_Ubuntu2404_NPD_Basic(t *testing.T) {
 func Test_Ubuntu2404_GPU_H100(t *testing.T) {
 	RunScenario(t, runScenarioGPUNPD(t, "Standard_ND96isr_H100_v5", "southafricanorth"))
 }
+
+func Test_Ubuntu2404_GPU_A100(t *testing.T) {
+	RunScenario(t, runScenarioGPUNPD(t, "Standard_ND96asr_v4", "southcentralus"))
+}
