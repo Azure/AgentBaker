@@ -135,15 +135,22 @@ replace_azurednsip_in_corefile() {
         return 1
     fi
 
+    echo "Found upstream VNET DNS servers: ${UPSTREAM_VNET_DNS_SERVERS}"
+
     # Based on customer input, corefile was generated in pkg/agent/baker.go.
-    # Replace 168.63.129.16 with VNET DNS ServerIPs only if VNET DNS ServerIPs is not equal to 168.63.129.16.
+    # Replace 168.63.129.16 with VNET DNS ServerIPs only if VNET DNS ServerIPs is not equal to 168.63.129.16
+    # and also not equal to the localdns node listener IP to avoid creating a circular dependency.
     # Corefile will have 168.63.129.16 when user input has VnetDNS value for forwarddestination.
     # Note - For root domain under VnetDNSOverrides, all DNS traffic should be forwarded to VnetDNS.
-    if [ "${UPSTREAM_VNET_DNS_SERVERS}" != "${AZURE_DNS_IP}" ]; then
+    if [ "${UPSTREAM_VNET_DNS_SERVERS}" != "${AZURE_DNS_IP}" ] && [ "${UPSTREAM_VNET_DNS_SERVERS}" != "${LOCALDNS_NODE_LISTENER_IP}" ]; then
+        echo "Replacing Azure DNS IP ${AZURE_DNS_IP} with upstream VNET DNS servers ${UPSTREAM_VNET_DNS_SERVERS} in corefile ${LOCALDNS_CORE_FILE}"
         sed -i -e "s|${AZURE_DNS_IP}|${UPSTREAM_VNET_DNS_SERVERS}|g" "${LOCALDNS_CORE_FILE}" || {
             echo "Replacing AzureDNSIP in corefile failed."
             return 1 
         }
+        echo "Successfully replaced Azure DNS IP with upstream VNET DNS servers in corefile"
+    else
+        echo "Skipping DNS IP replacement. Upstream VNET DNS servers (${UPSTREAM_VNET_DNS_SERVERS}) match either Azure DNS IP (${AZURE_DNS_IP}) or localdns node listener IP (${LOCALDNS_NODE_LISTENER_IP})"
     fi
     return 0
 }
@@ -298,11 +305,8 @@ EOF
     return 0
 }
 
-# Cleanup function to remove localdns related configurations.
-cleanup_localdns_configs() {
-    # Disable error handling so that we don't get into a recursive loop.
-    set +e
-    
+# Remove iptables rules and revert DNS configuration.
+cleanup_iptables_and_dns() {
     IPTABLES_RULES=("${IPTABLES_RULES[@]:-}")
     # Remove iptables rules to stop forwarding DNS traffic.
     for RULE in "${IPTABLES_RULES[@]}"; do
@@ -331,6 +335,16 @@ cleanup_localdns_configs() {
             return 1
         fi
     fi
+    return 0
+}
+
+# Cleanup function to remove localdns related configurations.
+cleanup_localdns_configs() {
+    # Disable error handling so that we don't get into a recursive loop.
+    set +e
+    
+    # Remove iptables rules and revert DNS configuration
+    cleanup_iptables_and_dns || return 1
 
     # Trigger localdns shutdown, if running.
     if [ ! -z "${COREDNS_PID:-}" ]; then
@@ -423,9 +437,13 @@ verify_localdns_slicefile || exit $ERR_LOCALDNS_SLICEFILE_NOTFOUND
 # /opt/azure/containers/localdns/binary/coredns.
 verify_localdns_binary || exit $ERR_LOCALDNS_BINARY_ERR
 
+# Clean up any existing iptables rules and DNS configuration before starting.
+# ---------------------------------------------------------------------------------------------------------------------
+cleanup_iptables_and_dns || exit $ERR_LOCALDNS_FAIL
+
 # Replace AzureDNSIP in corefile with VNET DNS ServerIPs.
 # ---------------------------------------------------------------------------------------------------------------------
-replace_azurednsip_in_corefile || $ERR_LOCALDNS_FAIL
+replace_azurednsip_in_corefile || exit $ERR_LOCALDNS_FAIL
 
 # Build IPtable rules.
 # ---------------------------------------------------------------------------------------------------------------------
