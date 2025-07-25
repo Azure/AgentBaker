@@ -81,7 +81,7 @@ func mustNewAzureClient() *AzureClient {
 
 }
 
-func NewAzureClient() (*AzureClient, error) {
+func NewHttpClient() *http.Client {
 	httpClient := &http.Client{
 		// use a bunch of connections for load balancing
 		// ensure all timeouts are defined and reasonable
@@ -105,7 +105,11 @@ func NewAzureClient() (*AzureClient, error) {
 			},
 		},
 	}
+	return httpClient
+}
 
+func NewAzureClient() (*AzureClient, error) {
+	httpClient := NewHttpClient()
 	logger := runtime.NewLogPolicy(&policy.LogOptions{
 		IncludeBody: true,
 	})

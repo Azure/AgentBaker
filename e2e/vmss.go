@@ -9,6 +9,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"io"
 	"math/big"
 	"os"
 	"path/filepath"
@@ -111,7 +112,72 @@ func extractLogsFromVM(ctx context.Context, s *Scenario) {
 		} else {
 			s.T.Logf("logs extracted successfully from VM %q", s.Runtime.VMSSName)
 		}
+		err = extractBootDiagnostics(ctx, s)
+		if err != nil {
+			s.T.Logf("failed to extract boot diagnostics from VM: %s", err)
+		}
 	}
+}
+
+func extractBootDiagnostics(ctx context.Context, s *Scenario) error {
+	// Only extract boot diagnostics for Linux VMs
+	if s.VHD.OS == config.OSWindows {
+		return nil
+	}
+
+	pager := config.Azure.VMSSVM.NewListPager(*s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, nil)
+	for pager.More() {
+		page, err := pager.NextPage(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to get VMSS instances: %v", err)
+		}
+
+		for _, vmInstance := range page.Value {
+			// Get boot diagnostics data
+			bootDiagResp, err := config.Azure.VMSSVM.RetrieveBootDiagnosticsData(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, *vmInstance.InstanceID, nil)
+			if err != nil {
+				return fmt.Errorf("failed to get boot diagnostics for VM %s: %v", *vmInstance.InstanceID, err)
+			}
+
+			if bootDiagResp.SerialConsoleLogBlobURI == nil {
+				continue
+			}
+			if *bootDiagResp.SerialConsoleLogBlobURI == "" {
+				continue
+			}
+			// Save serial console log if available
+			logFile := fmt.Sprintf("serial-console-vm-%s.log", *vmInstance.InstanceID)
+			attempts := 0
+			for {
+				if attempts >= 3 {
+					s.T.Logf("failed to download serial console log for VM %s after 3 attempts", *vmInstance.InstanceID)
+					break
+				}
+				attempts++
+
+				httpClient := config.NewHttpClient()
+				resp, err := httpClient.Get(*bootDiagResp.SerialConsoleLogBlobURI)
+				if err != nil {
+					s.T.Logf("failed to download serial console log for VM %s: %v", *vmInstance.InstanceID, err)
+					continue
+				}
+				body := resp.Body
+				defer body.Close()
+
+				contents, err := io.ReadAll(body)
+				if err != nil {
+					s.T.Logf("failed to read serial console log for VM %s: %v", *vmInstance.InstanceID, err)
+					continue
+				}
+				if err := writeToFile(s.T, logFile, string(contents)); err != nil {
+					s.T.Logf("failed to write serial console log for VM %s: %v", *vmInstance.InstanceID, err)
+					continue
+				}
+				break
+			}
+		}
+	}
+	return nil
 }
 
 func extractLogsFromVMLinux(ctx context.Context, s *Scenario) error {
@@ -133,6 +199,9 @@ func extractLogsFromVMLinux(ctx context.Context, s *Scenario) error {
 		"sysctl-out.log":                   "sudo sysctl -a",
 		"aks-node-controller.log":          "sudo cat /var/log/azure/aks-node-controller.log",
 		"syslog":                           "sudo cat /var/log/" + syslogHandle,
+	}
+	if s.VHD.OS == config.OSFlatcar {
+		commandList["journald"] = "sudo journalctl --boot=0 --no-pager"
 	}
 
 	pod, err := s.Runtime.Cluster.Kube.GetHostNetworkDebugPod(ctx)
