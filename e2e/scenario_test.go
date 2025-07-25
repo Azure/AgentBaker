@@ -1748,6 +1748,10 @@ func Test_Ubuntu2404_GPU_H100(t *testing.T) {
 				ValidateNPDGPUCountPlugin(ctx, s)
 				ValidateNPDGPUCountCondition(ctx, s)
 				ValidateNPDGPUCountAfterFailure(ctx, s)
+
+				// Validate NPD GPU XID plugin
+				ValidateNPDGPUXIDPlugin(ctx, s)
+				ValidateNPDGPUXIDErrorAfterFailure(ctx, s)
 			},
 		}})
 }
