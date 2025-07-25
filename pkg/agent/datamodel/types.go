@@ -1805,6 +1805,10 @@ type NodeBootstrappingConfiguration struct {
 	PreProvisionOnly bool
 }
 
+func (config *NodeBootstrappingConfiguration) IsFlatcar() bool {
+	return config.OSSKU == OSSKUFlatcar || config.AgentPoolProfile.IsFlatcar()
+}
+
 type SSHStatus int
 
 const (

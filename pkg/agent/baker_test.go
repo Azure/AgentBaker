@@ -947,7 +947,7 @@ testdomain567.com:53 {
 		Expect(err).To(BeNil())
 
 		var customDataBytes []byte
-		if config.AgentPoolProfile.IsWindows() || config.AgentPoolProfile.IsFlatcar() {
+		if config.AgentPoolProfile.IsWindows() || config.IsFlatcar() {
 			customDataBytes, err = base64.StdEncoding.DecodeString(nodeBootstrapping.CustomData)
 			Expect(err).To(BeNil())
 		} else {
@@ -1957,7 +1957,7 @@ oom_score = -999
 			},
 		),
 		Entry("Flatcar", "Flatcar", "1.31.0", func(config *datamodel.NodeBootstrappingConfiguration) {
-			config.OSSKU = "Flatcar"
+			config.OSSKU = datamodel.OSSKUFlatcar
 			config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSFlatcarGen2
 			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
 				ContainerRuntime: datamodel.Containerd,
