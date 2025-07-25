@@ -185,6 +185,13 @@ func mapToEnviron(input map[string]string) []string {
 }
 
 func BuildCSECmd(ctx context.Context, config *aksnodeconfigv1.Configuration) (*exec.Cmd, error) {
+	// Configure ethtool systemd service if enabled
+	if getShouldConfigEthtool() {
+		if err := configureEthtoolService(); err != nil {
+			return nil, fmt.Errorf("failed to configure ethtool service: %w", err)
+		}
+	}
+
 	triggerBootstrapScript, err := executeBootstrapTemplate(config)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute the template: %w", err)

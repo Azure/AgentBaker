@@ -1400,3 +1400,41 @@ func Test_getKubeletFlags(t *testing.T) {
 		})
 	}
 }
+
+func Test_getShouldConfigEthtool(t *testing.T) {
+	tests := []struct {
+		name string
+		want bool
+	}{
+		{
+			name: "should always return true for runtime CPU detection",
+			want: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := getShouldConfigEthtool(); got != tt.want {
+				t.Errorf("getShouldConfigEthtool() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_getEthtoolRxBufferSize(t *testing.T) {
+	tests := []struct {
+		name string
+		want string
+	}{
+		{
+			name: "should always return 2048",
+			want: "2048",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := getEthtoolRxBufferSize(); got != tt.want {
+				t.Errorf("getEthtoolRxBufferSize() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
