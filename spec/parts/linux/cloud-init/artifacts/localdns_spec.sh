@@ -139,6 +139,9 @@ EOF
             The status should be success
             The file "${LOCALDNS_CORE_FILE}" should be exist
             The contents of file "${LOCALDNS_CORE_FILE}" should include "forward . 10.0.0.1 10.0.0.2"
+            The stdout should include "Found upstream VNET DNS servers: 10.0.0.1 10.0.0.2"
+            The stdout should include "Replacing Azure DNS IP 168.63.129.16 with upstream VNET DNS servers 10.0.0.1 10.0.0.2"
+            The stdout should include "Successfully replaced Azure DNS IP with upstream VNET DNS servers in corefile"
         End
 
         It 'should fail if resolv.conf not found'
@@ -189,6 +192,19 @@ EOF
             The status should be success
             The file "${LOCALDNS_CORE_FILE}" should be exist
             The contents of file "${LOCALDNS_CORE_FILE}" should include "forward . 168.63.129.16"
+            The stdout should include "Found upstream VNET DNS servers: 168.63.129.16"
+            The stdout should include "Skipping DNS IP replacement. Upstream VNET DNS servers (168.63.129.16) match either Azure DNS IP (168.63.129.16) or localdns node listener IP (169.254.10.10)"
+        End
+
+        It 'should not replace 168.63.129.16 with UpstreamDNSIP if it is same as localdns node listener IP'
+cat <<EOF > "$RESOLV_CONF"
+nameserver 169.254.10.10
+EOF
+            When run replace_azurednsip_in_corefile
+            The status should be success
+            The file "${LOCALDNS_CORE_FILE}" should be exist
+            The contents of file "${LOCALDNS_CORE_FILE}" should include "forward . 168.63.129.16"
+            The stdout should include "Skipping DNS IP replacement. Upstream VNET DNS servers (169.254.10.10) match either Azure DNS IP (168.63.129.16) or localdns node listener IP (169.254.10.10)"
         End
 
         It 'should return failure if AZURE_DNS_IP is unset'
@@ -510,6 +526,67 @@ EOF
     End
 
 
+# This section tests - cleanup_iptables_and_dns
+# This function is defined in parts/linux/cloud-init/artifacts/localdns.sh file.
+#------------------------------------------------------------------------------------------------------------------------------------
+    Describe 'cleanup_iptables_and_dns'
+        setup() {
+            IPTABLES_RULES=("OUTPUT -p tcp -d 169.254.10.10 --dport 53 -j NOTRACK" "OUTPUT -p udp -d 169.254.10.10 --dport 53 -j NOTRACK")
+            NETWORK_DROPIN_FILE="/tmp/test-network-dropin.conf"
+            mock_iptables() {
+                echo "iptables -C $1"
+                return 0
+            }
+            Include "./parts/linux/cloud-init/artifacts/localdns.sh"
+        }
+        cleanup() {
+            rm -rf "/tmp/test-network-dropin.conf"
+        }
+        BeforeEach 'setup'
+        AfterEach 'cleanup'
+        #------------------------- cleanup_iptables_and_dns -------------------------------------------------------
+        It "should clean up iptables rules and DNS configuration"
+            IPTABLES="mock_iptables"
+            NETWORKCTL_RELOAD_CMD="true"
+            touch "$NETWORK_DROPIN_FILE"
+            When call cleanup_iptables_and_dns
+            The status should be success
+            The stdout should include "Successfully removed iptables rule: OUTPUT -p tcp -d 169.254.10.10 --dport 53 -j NOTRACK."
+            The stdout should include "Successfully removed iptables rule: OUTPUT -p udp -d 169.254.10.10 --dport 53 -j NOTRACK."
+            The stdout should include "Reverting DNS configuration by removing /tmp/test-network-dropin.conf."
+            The file "${NETWORK_DROPIN_FILE}" should not be exist
+        End
+
+        It 'should return failure if iptables rule removal fails'
+            IPTABLES="mock_failing_delete_iptables"
+            mock_failing_delete_iptables() {
+                if [[ "$1" == "-C" ]]; then return 0; fi
+                if [[ "$1" == "-D" ]]; then return 1; fi
+            }
+            When call cleanup_iptables_and_dns
+            The status should be failure
+            The output should include "Failed to remove iptables rule"
+        End
+
+        It 'should return failure if network reload fails'
+            IPTABLES=""
+            NETWORK_DROPIN_FILE="/tmp/test-network-dropin.conf"
+            touch "$NETWORK_DROPIN_FILE"
+            NETWORKCTL_RELOAD_CMD="false"
+            When call cleanup_iptables_and_dns
+            The status should be failure
+            The output should include "Failed to reload network after removing the DNS configuration."
+        End
+
+        It 'should return success if no network file exists'
+            IPTABLES=""
+            NETWORK_DROPIN_FILE="/tmp/nonexistent-file.conf"
+            When call cleanup_iptables_and_dns
+            The status should be success
+        End
+    End
+
+
 # This section tests - cleanup_localdns_configs
 # These functions is defined in parts/linux/cloud-init/artifacts/localdns.sh file.
 #------------------------------------------------------------------------------------------------------------------------------------
@@ -531,7 +608,7 @@ EOF
         BeforeEach 'setup'
         AfterEach 'cleanup'
         #------------------------- cleanup_localdns_configs ------------------------------------------------------------
-        It "should clean up iptables rules"
+        It "should clean up iptables rules via cleanup_iptables_and_dns"
             IPTABLES_RULES=(
             "OUTPUT -p tcp -d 169.254.10.10 --dport 53 -j NOTRACK"
             "OUTPUT -p udp -d 169.254.10.10 --dport 53 -j NOTRACK"
@@ -555,7 +632,7 @@ EOF
             The stdout should include "Successfully cleanup localdns related configurations."
         End
 
-        It 'should return failure if iptables rule removal fails'
+        It 'should return failure if cleanup_iptables_and_dns fails'
             IPTABLES_RULES=("INPUT -p udp --dport 53 -j ACCEPT")
             IPTABLES="mock_failing_delete_iptables"
             mock_failing_delete_iptables() {
