@@ -307,19 +307,28 @@ EOF
 
 # Remove iptables rules and revert DNS configuration.
 cleanup_iptables_and_dns() {
-    IPTABLES_RULES=("${IPTABLES_RULES[@]:-}")
-    # Remove iptables rules to stop forwarding DNS traffic.
-    for RULE in "${IPTABLES_RULES[@]}"; do
-        if eval "${IPTABLES}" -C "${RULE}" 2>/dev/null; then
-            eval "${IPTABLES}" -D "${RULE}"
-            if [ "$?" -eq 0 ]; then
-                echo "Successfully removed iptables rule: ${RULE}."
-            else
-                echo "Failed to remove iptables rule: ${RULE}."
-                return 1
-            fi
-        fi
-    done
+    # Remove any existing localdns iptables rules by searching for our comment
+    echo "Cleaning up any existing localdns iptables rules..."
+    
+    # Get list of existing localdns rules by searching for our comment
+    existing_rules=$(iptables -w -t raw -L --line-numbers -n | grep "localdns: skip conntrack" | awk '{print $1}' | sort -nr)
+    
+    if [ -n "$existing_rules" ]; then
+        echo "Found existing localdns iptables rules, removing them..."
+        for chain in OUTPUT PREROUTING; do
+            # Get rule numbers for this chain and remove them (in reverse order to maintain line numbers)
+            chain_rules=$(iptables -w -t raw -L "$chain" --line-numbers -n | grep "localdns: skip conntrack" | awk '{print $1}' | sort -nr)
+            for rule_num in $chain_rules; do
+                if iptables -w -t raw -D "$chain" "$rule_num" 2>/dev/null; then
+                    echo "Successfully removed existing localdns iptables rule from $chain chain (rule $rule_num)."
+                else
+                    echo "Failed to remove existing localdns iptables rule from $chain chain (rule $rule_num)."
+                fi
+            done
+        done
+    else
+        echo "No existing localdns iptables rules found."
+    fi
 
     # Revert the changes made to the DNS configuration if present.
     if [ -f "${NETWORK_DROPIN_FILE}" ]; then
