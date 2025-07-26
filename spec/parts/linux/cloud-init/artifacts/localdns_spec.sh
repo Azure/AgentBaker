@@ -616,7 +616,25 @@ EOF
         End
 
         It 'should return success if no network file exists'
-            iptables() { mock_iptables "$@"; }
+            # Mock iptables to return no localdns rules (empty output except for chain headers)
+            mock_iptables_no_rules() {
+                case "$1" in
+                    "-w")
+                        if [[ "$2" == "-t" && "$3" == "raw" && "$4" == "-L" ]]; then
+                            echo "Chain OUTPUT (policy ACCEPT 0 packets, 0 bytes)"
+                            echo "Chain PREROUTING (policy ACCEPT 0 packets, 0 bytes)"
+                        elif [[ "$2" == "-t" && "$3" == "raw" && "$4" == "-L" && "$5" == "OUTPUT" ]]; then
+                            # Empty output for chain-specific listing
+                            return 0
+                        elif [[ "$2" == "-t" && "$3" == "raw" && "$4" == "-L" && "$5" == "PREROUTING" ]]; then
+                            # Empty output for chain-specific listing
+                            return 0
+                        fi
+                        ;;
+                esac
+                return 0
+            }
+            iptables() { mock_iptables_no_rules "$@"; }
             NETWORK_DROPIN_FILE="/tmp/nonexistent-file.conf"
             When call cleanup_iptables_and_dns
             The status should be success

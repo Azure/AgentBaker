@@ -315,6 +315,7 @@ cleanup_iptables_and_dns() {
     
     if [ -n "$existing_rules" ]; then
         echo "Found existing localdns iptables rules, removing them..."
+        failure_occurred=false
         for chain in OUTPUT PREROUTING; do
             # Get rule numbers for this chain and remove them (in reverse order to maintain line numbers)
             chain_rules=$(iptables -w -t raw -L "$chain" --line-numbers -n | grep "localdns: skip conntrack" | awk '{print $1}' | sort -nr)
@@ -323,9 +324,13 @@ cleanup_iptables_and_dns() {
                     echo "Successfully removed existing localdns iptables rule from $chain chain (rule $rule_num)."
                 else
                     echo "Failed to remove existing localdns iptables rule from $chain chain (rule $rule_num)."
+                    failure_occurred=true
                 fi
             done
         done
+        if [ "$failure_occurred" = true ]; then
+            return 1
+        fi
     else
         echo "No existing localdns iptables rules found."
     fi
