@@ -1752,6 +1752,10 @@ func Test_Ubuntu2404_GPU_H100(t *testing.T) {
 				ValidateNPDGPUCountCondition(ctx, s)
 				ValidateNPDGPUCountAfterFailure(ctx, s)
 				ValidateEnableNvidiaResource(ctx, s)
+
+				// Validate the if IB NPD is reporting the flapping condition
+				ValidateNPDIBLinkFlappingCondition(ctx, s)
+				ValidateNPDIBLinkFlappingAfterFailure(ctx, s)
 			},
 		}})
 }
