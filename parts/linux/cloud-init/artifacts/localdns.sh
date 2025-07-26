@@ -336,7 +336,7 @@ cleanup_iptables_and_dns() {
     fi
 
     # Revert the changes made to the DNS configuration if present.
-    if [ -f "${NETWORK_DROPIN_FILE}" ]; then
+    if [ -n "${NETWORK_DROPIN_FILE:-}" ] && [ -f "${NETWORK_DROPIN_FILE}" ]; then
         echo "Reverting DNS configuration by removing ${NETWORK_DROPIN_FILE}."
         rm -f "$NETWORK_DROPIN_FILE"
         if [ "$?" -ne 0 ]; then
