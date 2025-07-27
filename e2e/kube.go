@@ -84,8 +84,11 @@ func (k *Kubeclient) WaitUntilPodRunning(ctx context.Context, namespace string, 
 	logf(ctx, "waiting for pod %s %s in %q namespace to be ready", labelSelector, fieldSelector, namespace)
 
 	watcher, err := k.Typed.CoreV1().Pods(namespace).Watch(ctx, metav1.ListOptions{
-		FieldSelector: fieldSelector,
-		LabelSelector: labelSelector,
+		FieldSelector:        fieldSelector,
+		LabelSelector:        labelSelector,
+		SendInitialEvents:    to.Ptr(true),
+		ResourceVersion:      "0",
+		ResourceVersionMatch: metav1.ResourceVersionMatchNotOlderThan,
 	})
 
 	if err != nil {
