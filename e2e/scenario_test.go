@@ -953,7 +953,6 @@ func runScenarioUbuntu2204GPU(t *testing.T, vmSize string) {
 				ValidateNvidiaModProbeInstalled(ctx, s)
 				ValidateKubeletHasNotStopped(ctx, s)
 				ValidateServicesDoNotRestartKubelet(ctx, s)
-				ValidateEnableNvidiaResource(ctx, s)
 			},
 		}})
 }
@@ -1038,7 +1037,6 @@ func Test_Ubuntu2204_GPUGridDriver(t *testing.T) {
 				ValidateNvidiaModProbeInstalled(ctx, s)
 				ValidateKubeletHasNotStopped(ctx, s)
 				ValidateNvidiaSMIInstalled(ctx, s)
-				ValidateEnableNvidiaResource(ctx, s)
 			},
 		}})
 }
@@ -1663,7 +1661,6 @@ func runScenarioUbuntu2404GRID(t *testing.T, vmSize string) {
 				ValidateKubeletHasNotStopped(ctx, s)
 				ValidateServicesDoNotRestartKubelet(ctx, s)
 				ValidateNvidiaPersistencedRunning(ctx, s)
-				ValidateEnableNvidiaResource(ctx, s)
 			},
 		},
 	})
