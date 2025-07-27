@@ -608,7 +608,7 @@ func podNvidiaDevicePlugin(s *Scenario) *corev1.Pod {
 			PriorityClassName: "system-node-critical",
 			Containers: []corev1.Container{
 				{
-					Image: "nvcr.io/nvidia/k8s-device-plugin:v0.15.0",
+					Image: "mcr.microsoft.com/oss/v2/nvidia/k8s-device-plugin",
 					Name:  "nvidia-device-plugin-ctr",
 					Env: []corev1.EnvVar{
 						{
