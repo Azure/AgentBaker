@@ -178,6 +178,11 @@ $global:WindowsGmsaPackageUrl = "{{GetVariable "windowsGmsaPackageUrl" }}";
 # TLS Bootstrap Token
 $global:TLSBootstrapToken = "{{GetTLSBootstrapTokenForKubeConfig}}"
 
+# Secure TLS Bootstrap settings
+$global:EnableSecureTLSBootstrapping = [System.Convert]::ToBoolean("{{EnableSecureTLSBootstrapping}}");
+$global:CustomSecureTLSBootstrapAADServerAppID = "{{GetCustomSecureTLSBootstrapAADServerAppID}}";
+$global:CustomSecureTLSBootstrapClientURL = "{{GetCustomSecureTLSBootstrapClientURL}}";
+
 # Disable OutBoundNAT in Azure CNI configuration
 $global:IsDisableWindowsOutboundNat = [System.Convert]::ToBoolean("{{GetVariable "isDisableWindowsOutboundNat" }}");
 
@@ -255,6 +260,7 @@ if (-not (Test-Path "C:\AzureData\windows\azurecnifunc.ps1")) {
 . c:\AzureData\windows\kubeletfunc.ps1
 . c:\AzureData\windows\kubernetesfunc.ps1
 . c:\AzureData\windows\nvidiagpudriverfunc.ps1
+. c:\AzureData\windows\securetlsbootstrapfunc.ps1
 
 
 # ====== BASE PREP: BASE IMAGE PREPARATION ======
@@ -354,7 +360,13 @@ function BasePrep {
         New-CsiProxyService -CsiProxyPackageUrl $global:CsiProxyUrl -KubeDir $global:KubeDir
     }
 
-    if ($global:TLSBootstrapToken) {
+    if ($global:EnableSecureTLSBootstrapping) {
+
+        # Install-SecureTLSBootstrapClient
+        
+        # ConfigureAndStart-SecureTLSBootstrapping
+
+    } elseif ($global:TLSBootstrapToken) {
         Write-BootstrapKubeConfig -CACertificate $global:CACertificate `
             -KubeDir $global:KubeDir `
             -MasterFQDNPrefix $MasterFQDNPrefix `

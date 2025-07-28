@@ -15,6 +15,9 @@ $global:NetworkPlugin = $Global:ClusterConfiguration.Cni.Name
 $global:KubeletNodeLabels = $Global:ClusterConfiguration.Kubernetes.Kubelet.NodeLabels
 $global:IsSkipCleanupNetwork = [System.Convert]::ToBoolean($Global:ClusterConfiguration.Services.IsSkipCleanupNetwork)
 
+$global:EnableSecureTLSBootstrapping = [System.Convert]::ToBoolean($Global:ClusterConfiguration.Kubernetes.Kubelet.SecureTLSBootstrapArgs.Enabled)
+$global:SecureTLSBootstrapServiceName = "secure-tls-bootstrap"
+
 $global:AzureCNIDir = [Io.path]::Combine("$global:KubeDir", "azurecni")
 $global:AzureCNIBinDir = [Io.path]::Combine("$global:AzureCNIDir", "bin")
 $global:AzureCNIConfDir = [Io.path]::Combine("$global:AzureCNIDir", "netconf")
@@ -90,6 +93,23 @@ if ($global:NetworkPlugin -eq "azure") {
 
     # Set env file for Azure Stack
     $env:AZURE_ENVIRONMENT_FILEPATH = "c:\k\azurestackcloud.json"
+}
+
+# If secure TLS bootstrapping is enabled, Wait for the secure TLS bootstrapping service
+# to have stopped, meaning aks-secure-tls-bootstrap-client.exe reached a terminal state
+if ($global:EnableSecureTLSBootstrapping) {
+    while ($true) {
+        $svc = Get-Service -Name $global:SecureTLSBootstrapServiceName -ErrorAction SilentlyContinue
+        if ($svc -eq $null) {
+            Write-Host "Unable to get $global:SecureTLSBootstrapServiceName service status, starting kubelet without waiting for secure TLS bootstrapping"
+            break
+        }
+        if ($svc.Status -eq "Stopped") {
+            Write-Host "$global:SecureTLSBootstrapServiceName service has stopped, starting kubelet"
+            break
+        }
+        Start-Sleep -Milliseconds 500
+    }
 }
 
 # Start the kubelet

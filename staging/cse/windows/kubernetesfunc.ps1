@@ -75,7 +75,9 @@ function Write-KubeClusterConfig {
         [Parameter(Mandatory = $true)][string]
         $MasterIP,
         [Parameter(Mandatory = $true)][string]
-        $KubeDnsServiceIp
+        $KubeDnsServiceIp,
+        [Parameter(Mandatory = $false)][bool]
+        $EnableSecureTLSBootstrapping = $false
     )
 
     Logs-To-Event -TaskName "AKS.WindowsCSE.WriteKubeClusterConfig" -TaskMessage "Start to write KubeCluster Config. WindowsPauseImageURL: $global:WindowsPauseImageURL"
@@ -125,6 +127,9 @@ function Write-KubeClusterConfig {
         Kubelet      = @{
             NodeLabels = $global:KubeletNodeLabels;
             ConfigArgs = $global:KubeletConfigArgs
+            SecureTLSBootstrapArgs = @{
+                Enabled = $EnableSecureTLSBootstrapping;
+            };
         };
         Kubeproxy    = @{
             FeatureGates = $global:KubeproxyFeatureGates;
