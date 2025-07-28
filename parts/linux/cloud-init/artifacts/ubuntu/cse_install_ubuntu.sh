@@ -97,10 +97,9 @@ installCriCtlPackage() {
 }
 
 installKubelet() {
-    packageVersion="${3:-}"
+    packageVersion="${1}"
     kubeletMajorMinorPatchVersion="$(echo "$packageVersion" | cut -d- -f1)"
     kubeletHotFixVersion="$(echo "$packageVersion" | cut -d- -f2)"
-    KUBELET_DOWNLOADS_DIR="${1:-$KUBELET_DOWNLOADS_DIR}"
     # eval kubeletOverrideDownloadURL="${2:-}"
 
     # # the user-defined package URL is always picked first, and the other options won't be tried when this one fails
@@ -108,64 +107,48 @@ installKubelet() {
     #     installKubeletFromOverride ${kubeletOverrideDownloadURL} || exit $ERR_KUBELET_INSTALL_TIMEOUT
     #     return 0
     # fi
-    installKubeletWithAptGet "${kubeletMajorMinorPatchVersion}" "${kubeletHotFixVersion}" "${KUBELET_DOWNLOADS_DIR}" || exit $ERR_KUBELET_INSTALL_TIMEOUT
+    KUBELET_DOWNLOADS_DIR="/opt/kubelet/downloads"
+    installKubePkgWithAptGet "kubelet" "${kubeletMajorMinorPatchVersion}" "${kubeletHotFixVersion}" "${KUBELET_DOWNLOADS_DIR}" || exit $ERR_KUBELET_INSTALL_TIMEOUT
 }
 
-installKubeletWithAptGet() {
-    local kubeletMajorMinorPatchVersion="${1}"
-    local kubeletHotFixVersion="${2}"
-    KUBELET_DOWNLOADS_DIR="${3:-$KUBELET_DOWNLOADS_DIR}"
-    # azure-built runtimes have a "+azure" suffix in their version strings (i.e 1.4.1+azure). remove that here.
-    currentVersion=""
-    if command -v kubelet &> /dev/null; then
-        currentVersion=$(kubelet --version | cut -d " " -f 2 | sed 's|v||')
-    fi
-    # v1.4.1 is our lowest supported version of kubelet
+installKubePkgWithAptGet() {
+    packageName="${1:-}"
+    local majorMinorPatchVersion="${2}"
+    local hotFixVersion="${3}"
+    downloadDir="${4:-"/opt/${packageName}/downloads"}"
 
-    if [ -z "$currentVersion" ]; then
-        currentVersion="0.0.0"
-    fi
+    echo "installing ${packageName} version ${majorMinorPatchVersion}"
 
-    currentMajorMinor="$(echo $currentVersion | tr '.' '\n' | head -n 2 | paste -sd.)"
-    desiredMajorMinor="$(echo $kubeletMajorMinorPatchVersion | tr '.' '\n' | head -n 2 | paste -sd.)"
-    semverCompare "$currentVersion" "$kubeletMajorMinorPatchVersion"
-    hasGreaterVersion="$?"
-
-    if [ "$hasGreaterVersion" = "0" ] && [ "$currentMajorMinor" = "$desiredMajorMinor" ]; then
-        echo "currently installed kubelet version ${currentVersion} matches major.minor with higher patch ${kubeletMajorMinorPatchVersion}. skipping installStandaloneKubelet."
-    else
-        echo "installing kubelet version ${kubeletMajorMinorPatchVersion}"
-        logs_to_events "AKS.CSE.installContainerRuntime.removeKubelet" removeKubelet
-
-        # if kubelet version has been overriden then there should exist a local .deb file for it on aks VHDs (best-effort)
-        # if no files found then try fetching from packages.microsoft repo
-        kubeletDebFile=$(find "${KUBELET_DOWNLOADS_DIR}" -maxdepth 1 -name "kubelet_${kubeletMajorMinorPatchVersion}*" -print -quit 2>/dev/null) || kubeletDebFile=""
-        if [ -n "${kubeletDebFile}" ]; then
-            logs_to_events "AKS.CSE.installContainerRuntime.installDebPackageFromFile" "installDebPackageFromFile ${kubeletDebFile}" || exit $ERR_KUBELET_INSTALL_TIMEOUT
-            return 0
-        fi
-        logs_to_events "AKS.CSE.installContainerRuntime.downloadKubeletFromVersion" "downloadKubeletFromVersion ${kubeletMajorMinorPatchVersion} ${kubeletHotFixVersion}"
-        kubeletDebFile=$(find "${KUBELET_DOWNLOADS_DIR}" -maxdepth 1 -name "kubelet_${kubeletMajorMinorPatchVersion}*" -print -quit 2>/dev/null) || kubeletDebFile=""
-        if [ -z "${kubeletDebFile}" ]; then
-            echo "Failed to locate cached kubelet deb"
-            exit $ERR_KUBELET_INSTALL_TIMEOUT
-        fi
+    # if kubelet version has been overriden then there should exist a local .deb file for it on aks VHDs (best-effort)
+    # if no files found then try fetching from packages.microsoft repo
+    kubeletDebFile=$(find "${downloadDir}" -maxdepth 1 -name "kubelet_${majorMinorPatchVersion}*" -print -quit 2>/dev/null) || kubeletDebFile=""
+    if [ -n "${kubeletDebFile}" ]; then
         logs_to_events "AKS.CSE.installContainerRuntime.installDebPackageFromFile" "installDebPackageFromFile ${kubeletDebFile}" || exit $ERR_KUBELET_INSTALL_TIMEOUT
+        mv "/usr/bin/${packageName}" "/usr/local/bin/${packageName}"
+        rm -rf ${downloadDir} &
         return 0
     fi
+    logs_to_events "AKS.CSE.installContainerRuntime.downloadKubePkgFromVersion" "downloadKubePkgFromVersion ${majorMinorPatchVersion} ${hotFixVersion}"
+    debFile=$(find "${downloadDir}" -maxdepth 1 -name "kubelet_${majorMinorPatchVersion}*" -print -quit 2>/dev/null) || debFile=""
+    if [ -z "${debFile}" ]; then
+        echo "Failed to locate cached kubelet deb"
+        exit $ERR_KUBELET_INSTALL_TIMEOUT
+    fi
+    logs_to_events "AKS.CSE.installContainerRuntime.installDebPackageFromFile" "installDebPackageFromFile ${debFile}" || exit $ERR_KUBELET_INSTALL_TIMEOUT
+    mv "/usr/bin/${packageName}" "/usr/local/bin/${packageName}"
+    rm -rf ${downloadDir} &
+    return 0
 }
 
-downloadKubeletFromVersion() {
-    # Patch version isn't used here...?
-    KUBELET_VERSION=$1
-    mkdir -p $KUBELET_DOWNLOADS_DIR
-    # Adding updateAptWithMicrosoftPkg since AB e2e uses an older image version with uncached kubelet 1.6 so it needs to download from testing repo.
-    # And RP no image pull e2e has apt update restrictions that prevent calls to packages.microsoft.com in CSE
-    # This won't be called for new VHDs as they have kubelet 1.6 cached
+downloadKubePkgFromVersion() {
+    packageName="${1:-}"
+    downloadDir="${2:-"/opt/${packageName}/downloads"}"
+    packageVersion="${4:-}"
+    mkdir -p ${downloadDir}
     updateAptWithMicrosoftPkg
-    apt_get_download 20 30 kubelet=${KUBELET_VERSION}* || exit $ERR_KUBELET_INSTALL_TIMEOUT
-    cp -al ${APT_CACHE_DIR}kubelet_${KUBELET_VERSION}* $KUBELET_DOWNLOADS_DIR/ || exit $ERR_KUBELET_INSTALL_TIMEOUT
-    echo "Succeeded to download kubelet version ${KUBELET_VERSION}"
+    apt_get_download 20 30 ${packageName}=${packageVersion}* || exit $ERR_APT_DOWNLOAD_TIMEOUT
+    cp -al ${APT_CACHE_DIR}${packageName}_${packageVersion}* ${downloadDir}/ || exit $ERR_APT_DOWNLOAD_TIMEOUT
+    echo "Succeeded to download ${packageName} version ${packageVersion}"
 }
 
 installContainerd() {

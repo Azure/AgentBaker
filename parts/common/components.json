@@ -1401,8 +1401,106 @@
           "v3.0": {
             "versionsV2": [
               {
-                "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/base/x86_64/repodata, name=containerd2, os=azurelinux, release=3.0",
-                "latestVersion": "2.0.0-12.azl3"
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "<SKIP>"
+              }
+            ]
+          }
+        },
+        "azurelinuxkata": {
+          "v3.0": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "<SKIP>"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "kubectl",
+      "downloadLocation": "/opt/kubectl/downloads",
+      "windowsDownloadLocation": "c:\\akse-cache\\kubectl\\",
+      "downloadURIs": {
+        "ubuntu": {
+          "r2404": {
+            "versionsV2": [
+              {
+                "renovateTag": "name=kubectl, os=ubuntu, release=24.04",
+                "latestVersion": "2.0.4-ubuntu24.04u1"
+              }
+            ]
+          },
+          "r2204": {
+            "versionsV2": [
+              {
+                "k8sVersion": "1.29",
+                "renovateTag":  "name=kubectl, os=ubuntu, release=22.04",
+                "latestVersion": " 1.29.13-ubuntu22.04u3"
+              },
+              {
+                "k8sVersion": "1.30",
+                "renovateTag": "name=kubectl, os=ubuntu, release=22.04",
+                "latestVersion": "1.30.14-ubuntu22.04u1",
+                "previousLatestVersion": "1.30.13-ubuntu22.04u1"
+              },
+              {
+                "k8sVersion": "1.31",
+                "renovateTag": "name=kubectl, os=ubuntu, release=22.04",
+                "latestVersion": "1.31.10-ubuntu22.04u1",
+                "previousLatestVersion": "1.31.9-ubuntu22.04u1"
+              },
+              {
+                "k8sVersion": "1.32",
+                "renovateTag": "name=kubectl, os=ubuntu, release=22.04",
+                "latestVersion": "1.32.6-ubuntu22.04u1",
+                "previousLatestVersion": "1.32.5-ubuntu22.04u1"
+              },
+              {
+                "k8sVersion": "1.33",
+                "renovateTag": "name=kubectl, os=ubuntu, release=22.04",
+                "latestVersion": "1.33.2-ubuntu22.04u1",
+                "previousLatestVersion": "1.33.1-ubuntu22.04u1"
+              }
+            ]
+          },
+          "r2004": {
+            "versionsV2": [
+              {
+                "renovateTag": "name=moby-containerd, os=ubuntu, release=20.04",
+                "latestVersion": "1.7.27-ubuntu20.04u1"
+              }
+            ]
+          }
+        },
+        "mariner": {
+          "current": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "<SKIP>"
+              }
+            ]
+          }
+        },
+        "marinerkata": {
+          "current": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "<SKIP>"
+              }
+            ]
+          }
+        },
+        "azurelinux": {
+          "v3.0": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "<SKIP>"
               }
             ]
           }
