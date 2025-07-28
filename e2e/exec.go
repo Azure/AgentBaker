@@ -228,7 +228,7 @@ func uploadSSHKey(ctx context.Context, s *Scenario) error {
 	}
 	result += "\n========================\n"
 	// We combine the az aks get credentials in the same line so we don't overwrite the user's kubeconfig.
-	result += fmt.Sprintf(`kubectl --kubeconfig <(az aks get-credentials --name "${CLUSTER_NAME}" --resource-group "${RESOURCE_GROUP}"  --subscription "${SUBSCRIPTION}" -f -) exec -it %s -- bash -c "chroot /proc/1/root /bin/bash -c '%s'"`, config.Config.SubscriptionID, config.ResourceGroupName(s.Location), *s.Runtime.Cluster.Model.Name, s.Runtime.Cluster.DebugPod.Name, sshString(s.Runtime.VMPrivateIP))
+	result += fmt.Sprintf(`kubectl --kubeconfig <(az aks get-credentials --name "%s" --resource-group "%s"  --subscription "%s" -f -) exec -it %s -- bash -c "chroot /proc/1/root /bin/bash -c '%s'"`, config.Config.SubscriptionID, config.ResourceGroupName(s.Location), *s.Runtime.Cluster.Model.Name, s.Runtime.Cluster.DebugPod.Name, sshString(s.Runtime.VMPrivateIP))
 	s.T.Log(result)
 
 	// Test SSH connectivity once per test to distinguish SSH issues from script failures
