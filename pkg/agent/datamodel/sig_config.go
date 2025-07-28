@@ -1130,19 +1130,11 @@ func GetAzurePublicSIGConfigForTest() SIGAzureEnvironmentSpecConfig {
 // using the specified SKU while also ignoring cases where ACSConfig provided by the resource provider in production
 // doesn't contain the required gallery config for the specified OS SKU.
 func withACSSIGConfigWithDefaults(acsSigConfig SIGConfig, osSKU, defaultGallery, defaultResourceGroup string) SigImageConfigOpt {
-	galleryName := defaultGallery
-	resourceGroup := defaultResourceGroup
-
-	gallery, k := acsSigConfig.Galleries[osSKU]
-	if k {
-		galleryName = gallery.GalleryName
-		resourceGroup = gallery.ResourceGroup
-	}
-
 	return func(c *SigImageConfig) {
-		c.Gallery = galleryName
-		c.SubscriptionID = acsSigConfig.SubscriptionID
-		c.ResourceGroup = resourceGroup
+		c.Gallery = "PackerSigGalleryEastUS"
+		c.SubscriptionID = "3be1ff13-7eef-458c-b1ef-97a01af1b2f4"
+		c.ResourceGroup = "aksvhdtestbuildrg"
+		c.Version = "latest"
 	}
 }
 
