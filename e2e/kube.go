@@ -20,6 +20,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -83,81 +84,65 @@ func getClusterKubeClient(ctx context.Context, resourceGroupName, clusterName st
 func (k *Kubeclient) WaitUntilPodRunning(ctx context.Context, namespace string, labelSelector string, fieldSelector string) (*corev1.Pod, error) {
 	logf(ctx, "waiting for pod %s %s in %q namespace to be ready", labelSelector, fieldSelector, namespace)
 
-	watcher, err := k.Typed.CoreV1().Pods(namespace).Watch(ctx, metav1.ListOptions{
-		FieldSelector: fieldSelector,
-		LabelSelector: labelSelector,
-	})
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to start watching pod: %v", err)
-	}
-	defer watcher.Stop()
-
-	logTicker := time.NewTicker(5 * time.Minute)
 	var pod *corev1.Pod
-	for {
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		case <-logTicker.C:
-			if deadline, ok := ctx.Deadline(); ok {
-				remaining := time.Until(deadline)
-				logf(ctx, "time before timeout: %v\n", remaining)
-			}
-			if pod != nil {
-				logPodDebugInfo(ctx, k, pod)
 
-				// Annoyingly, when a pod sandbox is failed to create, the pod is left in Pending state and no events are sent
-				// to the ResultChan from the watcher below.
-				// The lack of events means we can't abort in the case statement below. So we have to check here
-				// for the FailedCreatePodSandBox event manually.
-				events, err := k.Typed.CoreV1().Events(pod.Namespace).List(ctx, metav1.ListOptions{FieldSelector: "involvedObject.name=" + pod.Name})
-				if err == nil {
-					for _, event := range events.Items {
-						if event.Reason == "FailedCreatePodSandBox" {
-							return nil, fmt.Errorf("pod %s has FailedCreatePodSandBox event: %s", pod.Name, event.Message)
-						}
-					}
-				}
-			}
-		case event := <-watcher.ResultChan():
-			if event.Type != "ADDED" && event.Type != "MODIFIED" {
-				if event.Type != "" {
-					logf(ctx, "skipping event %s", event.Type)
-				}
-				continue
-			}
-			pod = event.Object.(*corev1.Pod)
+	err := wait.PollUntilContextTimeout(ctx, time.Second, 5*time.Minute, true, func(ctx context.Context) (bool, error) {
+		pods, err := k.Typed.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{
+			FieldSelector: fieldSelector,
+			LabelSelector: labelSelector,
+		})
+		if err != nil {
+			return false, err
+		}
 
-			for _, containerStatus := range pod.Status.ContainerStatuses {
-				if containerStatus.State.Waiting != nil && containerStatus.State.Waiting.Reason == "CrashLoopBackOff" {
-					logPodDebugInfo(ctx, k, pod)
-					return nil, fmt.Errorf("pod %s is in CrashLoopBackOff state", pod.Name)
-				}
-			}
+		if len(pods.Items) == 0 {
+			return false, nil // Keep polling
+		}
 
-			switch pod.Status.Phase {
-			case corev1.PodFailed:
+		pod = &pods.Items[0]
+
+		// Check for container failure states
+		for _, containerStatus := range pod.Status.ContainerStatuses {
+			if containerStatus.State.Waiting != nil && containerStatus.State.Waiting.Reason == "CrashLoopBackOff" {
 				logPodDebugInfo(ctx, k, pod)
-				return nil, fmt.Errorf("pod %s is has failed", pod.Name)
-			case corev1.PodPending:
-				continue
-			case corev1.PodSucceeded:
-				//return pod, nil
-			case corev1.PodRunning:
-				// Check if the pod is ready
-				for _, cond := range pod.Status.Conditions {
-					if cond.Type == "Ready" && cond.Status == "True" {
-						logf(ctx, "pod %s is ready", pod.Name)
-						return pod, nil
-					}
-				}
-			default:
-				logPodDebugInfo(ctx, k, pod)
-				return nil, fmt.Errorf("pod %s is in %s phase", pod.Name, pod.Status.Phase)
+				return false, fmt.Errorf("pod %s is in CrashLoopBackOff state", pod.Name)
 			}
 		}
-	}
+
+		// Check for FailedCreatePodSandBox events
+		events, err := k.Typed.CoreV1().Events(pod.Namespace).List(ctx, metav1.ListOptions{FieldSelector: "involvedObject.name=" + pod.Name})
+		if err == nil {
+			for _, event := range events.Items {
+				if event.Reason == "FailedCreatePodSandBox" {
+					return false, fmt.Errorf("pod %s has FailedCreatePodSandBox event: %s", pod.Name, event.Message)
+				}
+			}
+		}
+
+		switch pod.Status.Phase {
+		case corev1.PodFailed:
+			logPodDebugInfo(ctx, k, pod)
+			return false, fmt.Errorf("pod %s has failed", pod.Name)
+		case corev1.PodPending:
+			return false, nil // Keep polling
+		case corev1.PodSucceeded:
+			return true, nil // Pod completed successfully
+		case corev1.PodRunning:
+			// Check if the pod is ready
+			for _, cond := range pod.Status.Conditions {
+				if cond.Type == "Ready" && cond.Status == "True" {
+					logf(ctx, "pod %s is ready", pod.Name)
+					return true, nil
+				}
+			}
+			return false, nil // Running but not ready yet
+		default:
+			logPodDebugInfo(ctx, k, pod)
+			return false, fmt.Errorf("pod %s is in unexpected phase %s", pod.Name, pod.Status.Phase)
+		}
+	})
+
+	return pod, err
 }
 
 func (k *Kubeclient) WaitUntilNodeReady(ctx context.Context, t *testing.T, vmssName string) string {
@@ -579,63 +564,6 @@ func podRunNvidiaWorkload(s *Scenario) *corev1.Pod {
 					Resources: corev1.ResourceRequirements{
 						Limits: corev1.ResourceList{
 							"nvidia.com/gpu": resource.MustParse("1"),
-						},
-					},
-				},
-			},
-		},
-	}
-}
-
-func podNvidiaDevicePlugin(s *Scenario) *corev1.Pod {
-	return &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-nvidia-device-plugin", s.Runtime.KubeNodeName),
-			Namespace: defaultNamespace,
-		},
-		Spec: corev1.PodSpec{
-			NodeSelector: map[string]string{
-				"kubernetes.io/hostname": s.Runtime.KubeNodeName,
-			},
-			Tolerations: []corev1.Toleration{
-				{
-					Key:      "sku",
-					Operator: corev1.TolerationOpEqual,
-					Value:    "gpu",
-					Effect:   corev1.TaintEffectNoSchedule,
-				},
-			},
-			PriorityClassName: "system-node-critical",
-			Containers: []corev1.Container{
-				{
-					Image: "nvcr.io/nvidia/k8s-device-plugin:v0.15.0",
-					Name:  "nvidia-device-plugin-ctr",
-					Env: []corev1.EnvVar{
-						{
-							Name:  "FAIL_ON_INIT_ERROR",
-							Value: "false",
-						},
-					},
-					SecurityContext: &corev1.SecurityContext{
-						AllowPrivilegeEscalation: to.Ptr(false),
-						Capabilities: &corev1.Capabilities{
-							Drop: []corev1.Capability{"ALL"},
-						},
-					},
-					VolumeMounts: []corev1.VolumeMount{
-						{
-							Name:      "device-plugin",
-							MountPath: "/var/lib/kubelet/device-plugins",
-						},
-					},
-				},
-			},
-			Volumes: []corev1.Volume{
-				{
-					Name: "device-plugin",
-					VolumeSource: corev1.VolumeSource{
-						HostPath: &corev1.HostPathVolumeSource{
-							Path: "/var/lib/kubelet/device-plugins",
 						},
 					},
 				},

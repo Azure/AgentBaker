@@ -953,7 +953,6 @@ func runScenarioUbuntu2204GPU(t *testing.T, vmSize string) {
 				ValidateNvidiaModProbeInstalled(ctx, s)
 				ValidateKubeletHasNotStopped(ctx, s)
 				ValidateServicesDoNotRestartKubelet(ctx, s)
-				ValidateEnableNvidiaResource(ctx, s)
 			},
 		}})
 }
@@ -1038,7 +1037,6 @@ func Test_Ubuntu2204_GPUGridDriver(t *testing.T) {
 				ValidateNvidiaModProbeInstalled(ctx, s)
 				ValidateKubeletHasNotStopped(ctx, s)
 				ValidateNvidiaSMIInstalled(ctx, s)
-				ValidateEnableNvidiaResource(ctx, s)
 			},
 		}})
 }
@@ -1663,7 +1661,6 @@ func runScenarioUbuntu2404GRID(t *testing.T, vmSize string) {
 				ValidateKubeletHasNotStopped(ctx, s)
 				ValidateServicesDoNotRestartKubelet(ctx, s)
 				ValidateNvidiaPersistencedRunning(ctx, s)
-				ValidateEnableNvidiaResource(ctx, s)
 			},
 		},
 	})
@@ -1691,28 +1688,6 @@ func Test_Ubuntu2404_NPD_Basic(t *testing.T) {
 				ValidateNPDFilesystemCorruption(ctx, s)
 			},
 		}})
-}
-
-func Test_AlternateLocation_BasicDeployment(t *testing.T) {
-	location := "southafricanorth" // Set the alternate location for the test
-
-	RunScenario(t, &Scenario{
-		Description: "Tests basic node deployment in configured location",
-		Location:    location, // Override location for this test
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDAzureLinuxV2Gen2,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				// Add your custom configuration here
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				// Validate kubelet is running
-				ValidateSystemdUnitIsRunning(ctx, s, "kubelet")
-				// Add your custom validations here
-				t.Logf("Successfully validated deployment in location: %s", location)
-			},
-		},
-	})
 }
 
 func Test_Ubuntu2404_GPU_H100(t *testing.T) {

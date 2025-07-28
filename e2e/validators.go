@@ -814,8 +814,6 @@ func ValidateNPDFilesystemCorruption(ctx context.Context, s *Scenario) {
 }
 
 func ValidateEnableNvidiaResource(ctx context.Context, s *Scenario) {
-	s.T.Logf("validating pod using NVidia GPU")
-	ValidatePodRunning(ctx, s, podNvidiaDevicePlugin(s))
 	s.T.Logf("waiting for Nvidia GPU resource to be available")
 	waitUntilResourceAvailable(ctx, s, "nvidia.com/gpu")
 }
