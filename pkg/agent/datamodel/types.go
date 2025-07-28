@@ -228,10 +228,11 @@ const (
 	// AKSWindows2025Gen2 stands for distro for windows server 2025 Gen 2 SIG image.
 	AKSWindows2025Gen2 Distro = "aks-windows-2025-gen2"
 	// AKSWindows2019PIR stands for distro of windows server 2019 PIR image with docker.
-	AKSWindows2019PIR        Distro = "aks-windows-2019-pir"
-	CustomizedImage          Distro = "CustomizedImage"
-	CustomizedImageKata      Distro = "CustomizedImageKata"
-	CustomizedWindowsOSImage Distro = "CustomizedWindowsOSImage"
+	AKSWindows2019PIR         Distro = "aks-windows-2019-pir"
+	CustomizedImage           Distro = "CustomizedImage"
+	CustomizedImageKata       Distro = "CustomizedImageKata"
+	CustomizedImageLinuxGuard Distro = "CustomizedImageLinuxGuard"
+	CustomizedWindowsOSImage  Distro = "CustomizedWindowsOSImage"
 
 	// USNatCloud is a const string reference identifier for USNat.
 	USNatCloud = "USNatCloud"
@@ -1796,9 +1797,16 @@ type NodeBootstrappingConfiguration struct {
 	// CNI, which will overwrite the `filter` table so that we can only insert to `mangle` table to avoid
 	// our added rule is overwritten by Cilium.
 	InsertIMDSRestrictionRuleToMangleTable bool
-
 	// Version is required for aks-node-controller application to determine the version of the config file.
 	Version string
+
+	// PreProvisionOnly creates a pre-provisioned image for later node spawning.
+	// Skips kubelet and some component configuration for image capture scenarios.
+	PreProvisionOnly bool
+}
+
+func (config *NodeBootstrappingConfiguration) IsFlatcar() bool {
+	return config.OSSKU == OSSKUFlatcar || config.AgentPoolProfile.IsFlatcar()
 }
 
 type SSHStatus int

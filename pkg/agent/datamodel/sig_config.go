@@ -1092,10 +1092,8 @@ func GetSIGAzureCloudSpecConfig(sigConfig SIGConfig, region string) (SIGAzureEnv
 	}
 	c.SigAzureLinuxImageConfig = getSigAzureLinuxImageConfigMapWithOpts(fromACSAzureLinux)
 
-	fromACSFlatcar, err := withACSSIGConfig(sigConfig, "AKSFlatcar")
-	if err != nil {
-		return SIGAzureEnvironmentSpecConfig{}, fmt.Errorf("unexpected error while constructing env-aware sig configuration for AKSFlatcar: %w", err)
-	}
+	// TODO: use withACSConfig when the gallery config is available within SIGConfig (ACSConfig) provided by the resource provider.
+	fromACSFlatcar := withACSSIGConfigWithDefaults(sigConfig, "AKSFlatcar", AKSFlatcarGalleryName, AKSFlatcarResourceGroup)
 	c.SigFlatcarImageConfig = getSigFlatcarImageConfigMapWithOpts(fromACSFlatcar)
 
 	fromACSWindows, err := withACSSIGConfig(sigConfig, "AKSWindows")
@@ -1124,6 +1122,27 @@ func GetAzurePublicSIGConfigForTest() SIGAzureEnvironmentSpecConfig {
 		SigWindowsImageConfig:        getSigWindowsImageConfigMapWithOpts(withSubscription(AzurePublicCloudSigSubscription)),
 		SigUbuntuEdgeZoneImageConfig: getSigUbuntuEdgeZoneImageConfigMapWithOpts(withSubscription(AzurePublicCloudSigSubscription)),
 		SigFlatcarImageConfig:        getSigFlatcarImageConfigMapWithOpts(withSubscription(AzurePublicCloudSigSubscription)),
+	}
+}
+
+// withACSSIGConfigWithDefaults functions the same as withACSSIGConfig, but uses a default gallery and resource group
+// if no corresponding gallery config is found for the particular OS SKU. This is needed to support agentbaker E2E tests
+// using the specified SKU while also ignoring cases where ACSConfig provided by the resource provider in production
+// doesn't contain the required gallery config for the specified OS SKU.
+func withACSSIGConfigWithDefaults(acsSigConfig SIGConfig, osSKU, defaultGallery, defaultResourceGroup string) SigImageConfigOpt {
+	galleryName := defaultGallery
+	resourceGroup := defaultResourceGroup
+
+	gallery, k := acsSigConfig.Galleries[osSKU]
+	if k {
+		galleryName = gallery.GalleryName
+		resourceGroup = gallery.ResourceGroup
+	}
+
+	return func(c *SigImageConfig) {
+		c.Gallery = galleryName
+		c.SubscriptionID = acsSigConfig.SubscriptionID
+		c.ResourceGroup = resourceGroup
 	}
 }
 

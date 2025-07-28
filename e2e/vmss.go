@@ -22,7 +22,6 @@ import (
 	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
-	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 	"github.com/stretchr/testify/require"
@@ -30,24 +29,22 @@ import (
 )
 
 const (
-	listVMSSNetworkInterfaceURLTemplate      = "https://management.azure.com/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/virtualMachineScaleSets/%s/virtualMachines/%d/networkInterfaces?api-version=2018-10-01"
 	loadBalancerBackendAddressPoolIDTemplate = "/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/loadBalancers/kubernetes/backendAddressPools/aksOutboundBackendPool"
 )
 
 func createVMSS(ctx context.Context, s *Scenario) *armcompute.VirtualMachineScaleSet {
 	cluster := s.Runtime.Cluster
-	s.T.Logf("creating VMSS %q in resource group %q", s.Runtime.VMSSName, *cluster.Model.Properties.NodeResourceGroup)
 	var nodeBootstrapping *datamodel.NodeBootstrapping
 	ab, err := agent.NewAgentBaker()
 	require.NoError(s.T, err)
 	var cse, customData string
 	if s.AKSNodeConfigMutator != nil {
-		s.T.Logf("creating VMSS %q with AKSNodeConfigMutator", s.Runtime.VMSSName)
+		s.T.Logf("creating VMSS %q with AKSNodeConfigMutator in resource group %s", s.Runtime.VMSSName, *cluster.Model.Properties.NodeResourceGroup)
 		cse = nodeconfigutils.CSE
 		customData, err = nodeconfigutils.CustomData(s.Runtime.AKSNodeConfig)
 		require.NoError(s.T, err)
 	} else {
-		s.T.Logf("creating VMSS %q with AKSNodeConfig", s.Runtime.VMSSName)
+		s.T.Logf("creating VMSS %q with BootstrapConfigMutator/NBC in resource group %s", s.Runtime.VMSSName, *cluster.Model.Properties.NodeResourceGroup)
 		nodeBootstrapping, err = ab.GetNodeBootstrapping(ctx, s.Runtime.NBC)
 		require.NoError(s.T, err)
 		cse = nodeBootstrapping.CSE
@@ -76,7 +73,7 @@ func createVMSS(ctx context.Context, s *Scenario) *armcompute.VirtualMachineScal
 
 	s.PrepareVMSSModel(ctx, s.T, &model)
 
-	vmss, err := config.Azure.CreateVMSSWithRetry(ctx, s.T, *cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, model)
+	vmss, err := config.Azure.CreateVMSSWithRetry(ctx, *cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, model)
 	s.T.Cleanup(func() {
 		cleanupVMSS(ctx, s)
 	})
@@ -106,16 +103,88 @@ func cleanupVMSS(ctx context.Context, s *Scenario) {
 }
 
 func extractLogsFromVM(ctx context.Context, s *Scenario) {
-	if s.VHD.OS == config.OSWindows {
+	if s.IsWindows() {
 		extractLogsFromVMWindows(ctx, s)
 	} else {
-		extractLogsFromVMLinux(ctx, s)
+		err := extractLogsFromVMLinux(ctx, s)
+		if err != nil {
+			s.T.Logf("failed to extract logs from VM: %s", err)
+		} else {
+			s.T.Logf("logs extracted successfully from VM %q", s.Runtime.VMSSName)
+		}
+		err = extractBootDiagnostics(ctx, s)
+		if err != nil {
+			s.T.Logf("failed to extract boot diagnostics from VM: %s", err)
+		}
 	}
 }
 
-func extractLogsFromVMLinux(ctx context.Context, s *Scenario) {
+func extractBootDiagnostics(ctx context.Context, s *Scenario) error {
+	// Only extract boot diagnostics for Linux VMs
+	if s.VHD.OS == config.OSWindows {
+		return nil
+	}
+
+	pager := config.Azure.VMSSVM.NewListPager(*s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, nil)
+	for pager.More() {
+		page, err := pager.NextPage(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to get VMSS instances: %v", err)
+		}
+
+		for _, vmInstance := range page.Value {
+			// Get boot diagnostics data
+			bootDiagResp, err := config.Azure.VMSSVM.RetrieveBootDiagnosticsData(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, *vmInstance.InstanceID, nil)
+			if err != nil {
+				return fmt.Errorf("failed to get boot diagnostics for VM %s: %v", *vmInstance.InstanceID, err)
+			}
+
+			if bootDiagResp.SerialConsoleLogBlobURI == nil {
+				continue
+			}
+			if *bootDiagResp.SerialConsoleLogBlobURI == "" {
+				continue
+			}
+			// Save serial console log if available
+			logFile := fmt.Sprintf("serial-console-vm-%s.log", *vmInstance.InstanceID)
+			attempts := 0
+			for {
+				if attempts >= 3 {
+					s.T.Logf("failed to download serial console log for VM %s after 3 attempts", *vmInstance.InstanceID)
+					break
+				}
+				attempts++
+
+				httpClient := config.NewHttpClient()
+				resp, err := httpClient.Get(*bootDiagResp.SerialConsoleLogBlobURI)
+				if err != nil {
+					s.T.Logf("failed to download serial console log for VM %s: %v", *vmInstance.InstanceID, err)
+					continue
+				}
+				body := resp.Body
+				defer body.Close()
+
+				contents, err := io.ReadAll(body)
+				if err != nil {
+					s.T.Logf("failed to read serial console log for VM %s: %v", *vmInstance.InstanceID, err)
+					continue
+				}
+				if err := writeToFile(s.T, logFile, string(contents)); err != nil {
+					s.T.Logf("failed to write serial console log for VM %s: %v", *vmInstance.InstanceID, err)
+					continue
+				}
+				break
+			}
+		}
+	}
+	return nil
+}
+
+func extractLogsFromVMLinux(ctx context.Context, s *Scenario) error {
 	privateIP, err := getVMPrivateIPAddress(ctx, s)
-	require.NoError(s.T, err)
+	if err != nil {
+		return fmt.Errorf("failed to get VM private IP address: %w", err)
+	}
 
 	syslogHandle := "syslog"
 	if s.VHD.OS == config.OSMariner || s.VHD.OS == config.OSAzureLinux {
@@ -131,15 +200,18 @@ func extractLogsFromVMLinux(ctx context.Context, s *Scenario) {
 		"aks-node-controller.log":          "sudo cat /var/log/azure/aks-node-controller.log",
 		"syslog":                           "sudo cat /var/log/" + syslogHandle,
 	}
+	if s.VHD.OS == config.OSFlatcar {
+		commandList["journald"] = "sudo journalctl --boot=0 --no-pager"
+	}
 
-	pod, err := s.Runtime.Cluster.Kube.GetHostNetworkDebugPod(ctx, s.T)
+	pod, err := s.Runtime.Cluster.Kube.GetHostNetworkDebugPod(ctx)
 	if err != nil {
-		require.NoError(s.T, err)
+		return fmt.Errorf("failed to get host network debug pod: %w", err)
 	}
 
 	var logFiles = map[string]string{}
 	for file, sourceCmd := range commandList {
-		execResult, err := execBashCommandOnVM(ctx, s, privateIP, pod.Name, string(s.Runtime.SSHKeyPrivate), sourceCmd)
+		execResult, err := execBashCommandOnVM(ctx, s, privateIP, pod.Name, sourceCmd)
 		if err != nil {
 			s.T.Logf("error executing %s: %s", sourceCmd, err)
 			continue
@@ -148,17 +220,17 @@ func extractLogsFromVMLinux(ctx context.Context, s *Scenario) {
 	}
 	err = dumpFileMapToDir(s.T, logFiles)
 	if err != nil {
-		s.T.Logf("error dumping file to directory  %d: %s", len(logFiles), err)
+		return fmt.Errorf("failed to dump log files: %w", err)
 	}
-	require.NoError(s.T, err)
+	return nil
 }
 
-func execBashCommandOnVM(ctx context.Context, s *Scenario, vmPrivateIP, jumpboxPodName, sshPrivateKey, command string) (*podExecResult, error) {
+func execBashCommandOnVM(ctx context.Context, s *Scenario, vmPrivateIP, jumpboxPodName, command string) (*podExecResult, error) {
 	script := Script{
 		interpreter: Bash,
 		script:      command,
 	}
-	return execScriptOnVm(ctx, s, vmPrivateIP, jumpboxPodName, sshPrivateKey, script)
+	return execScriptOnVm(ctx, s, vmPrivateIP, jumpboxPodName, script)
 }
 
 const uploadLogsPowershellScript = `
@@ -255,18 +327,14 @@ func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
 		},
 		nil,
 	)
-	if err != nil {
-		s.T.Logf("failed to initiate run command on VMSS instance: %s", err)
-		return
-	}
+	require.NoError(s.T, err, "failed to initiate run command on VMSS instance %s", instanceID)
 
 	// Poll the result until the operation is completed
 	runCommandResp, err := pollerResp.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
-	if err != nil {
-		s.T.Logf("failed to execute run command on VMSS instance: %s", err)
-		return
-	}
-	s.T.Logf("run command executed successfully: %v", runCommandResp)
+	require.NoError(s.T, err, "failed to poll run command on VMSS instance %s", instanceID)
+
+	respJSON, _ := json.MarshalIndent(runCommandResp, "", "  ")
+	s.T.Logf("run command executed successfully:\n%s", respJSON)
 
 	s.T.Logf("uploaded logs to %s", blobUrl)
 
@@ -361,42 +429,37 @@ func addPodIPConfigsForAzureCNI(vmss *armcompute.VirtualMachineScaleSet, vmssNam
 }
 
 func getVMPrivateIPAddress(ctx context.Context, s *Scenario) (string, error) {
-	pl := config.Azure.Core.Pipeline()
-	url := fmt.Sprintf(listVMSSNetworkInterfaceURLTemplate,
-		config.Config.SubscriptionID,
+	pager := config.Azure.NetworkInterfaces.NewListVirtualMachineScaleSetVMNetworkInterfacesPager(
 		*s.Runtime.Cluster.Model.Properties.NodeResourceGroup,
 		s.Runtime.VMSSName,
-		0,
+		"0", // VM instance index
+		nil,
 	)
-	req, err := runtime.NewRequest(ctx, "GET", url)
+
+	if !pager.More() {
+		return "", fmt.Errorf("no network interfaces found for VMSS %s", s.Runtime.VMSSName)
+	}
+
+	page, err := pager.NextPage(ctx)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to get network interfaces for VMSS %s: %w", s.Runtime.VMSSName, err)
 	}
 
-	resp, err := pl.Do(req)
-	if err != nil {
-		return "", err
+	if len(page.Value) == 0 {
+		return "", fmt.Errorf("no network interfaces found for VMSS %s", s.Runtime.VMSSName)
 	}
 
-	defer resp.Body.Close()
-
-	respBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", err
+	networkInterface := page.Value[0]
+	if networkInterface.Properties == nil || networkInterface.Properties.IPConfigurations == nil || len(networkInterface.Properties.IPConfigurations) == 0 {
+		return "", fmt.Errorf("no IP configurations found for network interface %s", *networkInterface.ID)
 	}
 
-	var instanceNICResult listVMSSVMNetworkInterfaceResult
-
-	if err := json.Unmarshal(respBytes, &instanceNICResult); err != nil {
-		return "", err
+	ipConfig := networkInterface.Properties.IPConfigurations[0]
+	if ipConfig.Properties == nil || ipConfig.Properties.PrivateIPAddress == nil {
+		return "", fmt.Errorf("no private IP address found for IP configuration %s", *ipConfig.ID)
 	}
 
-	privateIP, err := getPrivateIP(instanceNICResult)
-	if err != nil {
-		return "", err
-	}
-
-	return privateIP, nil
+	return *ipConfig.Properties.PrivateIPAddress, nil
 }
 
 // Returns a newly generated RSA public/private key pair with the private key in PEM format.
@@ -453,7 +516,7 @@ func generateVMSSNameWindows() string {
 }
 
 func generateVMSSName(s *Scenario) string {
-	if s.VHD.OS == config.OSWindows {
+	if s.IsWindows() {
 		return generateVMSSNameWindows()
 	}
 	return generateVMSSNameLinux(s.T)
@@ -559,7 +622,7 @@ func getBaseVMSSModel(s *Scenario, customData, cseCmd, location string) armcompu
 			},
 		}
 	}
-	if s.VHD.OS == config.OSWindows {
+	if s.IsWindows() {
 		model.Identity = &armcompute.VirtualMachineScaleSetIdentity{
 			Type: to.Ptr(armcompute.ResourceIdentityTypeSystemAssignedUserAssigned),
 			UserAssignedIdentities: map[string]*armcompute.UserAssignedIdentitiesValue{
@@ -610,17 +673,6 @@ func randomInt(bound int) int {
 	return int(n.Int64())
 }
 
-func getPrivateIP(res listVMSSVMNetworkInterfaceResult) (string, error) {
-	if len(res.Value) > 0 {
-		v := res.Value[0]
-		if len(v.Properties.IPConfigurations) > 0 {
-			ipconfig := v.Properties.IPConfigurations[0]
-			return ipconfig.Properties.PrivateIPAddress, nil
-		}
-	}
-	return "", fmt.Errorf("unable to extract private IP address from listVMSSNetworkInterfaceResult:\n%+v", res)
-}
-
 func getVMSSNICConfig(vmss *armcompute.VirtualMachineScaleSet) (*armcompute.VirtualMachineScaleSetNetworkConfiguration, error) {
 	if vmss != nil && vmss.Properties != nil &&
 		vmss.Properties.VirtualMachineProfile != nil && vmss.Properties.VirtualMachineProfile.NetworkProfile != nil {
@@ -630,52 +682,4 @@ func getVMSSNICConfig(vmss *armcompute.VirtualMachineScaleSet) (*armcompute.Virt
 		}
 	}
 	return nil, fmt.Errorf("unable to extract vmss nic info, vmss model or vmss model properties were nil/empty:\n%+v", vmss)
-}
-
-type listVMSSVMNetworkInterfaceResult struct {
-	Value []struct {
-		Name       string `json:"name,omitempty"`
-		ID         string `json:"id,omitempty"`
-		Properties struct {
-			ProvisioningState string `json:"provisioningState,omitempty"`
-			IPConfigurations  []struct {
-				Name       string `json:"name,omitempty"`
-				ID         string `json:"id,omitempty"`
-				Properties struct {
-					ProvisioningState         string `json:"provisioningState,omitempty"`
-					PrivateIPAddress          string `json:"privateIPAddress,omitempty"`
-					PrivateIPAllocationMethod string `json:"privateIPAllocationMethod,omitempty"`
-					PublicIPAddress           struct {
-						ID string `json:"id,omitempty"`
-					} `json:"publicIPAddress,omitempty"`
-					Subnet struct {
-						ID string `json:"id,omitempty"`
-					} `json:"subnet,omitempty"`
-					Primary                         bool   `json:"primary,omitempty"`
-					PrivateIPAddressVersion         string `json:"privateIPAddressVersion,omitempty"`
-					LoadBalancerBackendAddressPools []struct {
-						ID string `json:"id,omitempty"`
-					} `json:"loadBalancerBackendAddressPools,omitempty"`
-					LoadBalancerInboundNatRules []struct {
-						ID string `json:"id,omitempty"`
-					} `json:"loadBalancerInboundNatRules,omitempty"`
-				} `json:"properties,omitempty"`
-			} `json:"ipConfigurations,omitempty"`
-			DNSSettings struct {
-				DNSServers               []interface{} `json:"dnsServers,omitempty"`
-				AppliedDNSServers        []interface{} `json:"appliedDnsServers,omitempty"`
-				InternalDomainNameSuffix string        `json:"internalDomainNameSuffix,omitempty"`
-			} `json:"dnsSettings,omitempty"`
-			MacAddress                  string `json:"macAddress,omitempty"`
-			EnableAcceleratedNetworking bool   `json:"enableAcceleratedNetworking,omitempty"`
-			EnableIPForwarding          bool   `json:"enableIPForwarding,omitempty"`
-			NetworkSecurityGroup        struct {
-				ID string `json:"id,omitempty"`
-			} `json:"networkSecurityGroup,omitempty"`
-			Primary        bool `json:"primary,omitempty"`
-			VirtualMachine struct {
-				ID string `json:"id,omitempty"`
-			} `json:"virtualMachine,omitempty"`
-		} `json:"properties,omitempty"`
-	} `json:"value,omitempty"`
 }
