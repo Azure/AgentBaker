@@ -227,9 +227,7 @@ func uploadSSHKey(ctx context.Context, s *Scenario) error {
 		result += " (VM will be automatically deleted after the test finishes, set KEEP_VMSS=true to preserve it or pause the test with a breakpoint before the test finishes)"
 	}
 	result += "\n========================\n"
-	result += fmt.Sprintf("az account set --subscription %s\n", config.Config.SubscriptionID)
-	result += fmt.Sprintf("az aks get-credentials --resource-group %s --name %s --overwrite-existing\n", config.ResourceGroupName(s.Location), *s.Runtime.Cluster.Model.Name)
-	result += fmt.Sprintf(`kubectl exec -it %s -- bash -c "chroot /proc/1/root /bin/bash -c '%s'"`, s.Runtime.Cluster.DebugPod.Name, sshString(s.Runtime.VMPrivateIP))
+	result += fmt.Sprintf(`kubectl  kubectl --kubeconfig <(az aks get-credentials --name "${CLUSTER_NAME}" --resource-group "${RESOURCE_GROUP}"  --subscription "${SUBSCRIPTION}" -f -) exec -it %s -- bash -c "chroot /proc/1/root /bin/bash -c '%s'"`, config.Config.SubscriptionID, config.ResourceGroupName(s.Location), *s.Runtime.Cluster.Model.Name, s.Runtime.Cluster.DebugPod.Name, sshString(s.Runtime.VMPrivateIP))
 	s.T.Log(result)
 
 	// Test SSH connectivity once per test to distinguish SSH issues from script failures
