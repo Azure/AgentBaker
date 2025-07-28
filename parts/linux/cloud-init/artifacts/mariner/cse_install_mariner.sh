@@ -149,6 +149,17 @@ EOF
     systemctl restart nvidia-persistenced.service || exit 1
 }
 
+installStandaloneKubelet() {
+    local desiredVersion="${1}"
+    echo "installing kubelet version ${desiredVersion}"
+    kubeletPackageName="kubelet-${desiredVersion}*"
+
+    if ! tdnf_install 30 1 600 $kubeletPackageName; then
+        exit $ERR_KUBELET_INSTALL_TIMEOUT
+    fi
+    mv "/usr/bin/kubelet" "/usr/local/bin/kubelet"
+}
+
 # CSE+VHD can dictate the containerd version, users don't care as long as it works
 installStandaloneContainerd() {
     local desiredVersion="${1:-}"

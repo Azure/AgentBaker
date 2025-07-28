@@ -234,7 +234,12 @@ if [ "${NEEDS_DOCKER_LOGIN}" = "true" ]; then
 fi
 
 logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy" installKubeletKubectlAndKubeProxy
-logs_to_events "AKS.CSE.installKubelet" installKubelet
+if isMarinerOrAzureLinux "$OS"; then
+    installStandaloneKubelet "${KUBERNETES_VERSION}"
+elif [ "${OS}" = "${UBUNTU_OS_NAME}" ]; then
+    installKubelet "${KUBERNETES_VERSION}"
+fi
+logs_to_events "AKS.CSE.installKubelet" "installKubelet ${KUBERNETES_VERSION}"
 
 createKubeManifestDir
 

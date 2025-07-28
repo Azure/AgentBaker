@@ -399,9 +399,8 @@ while IFS= read -r p; do
         evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
         if [ "${OS}" = "${UBUNTU_OS_NAME}" ]; then
           downloadKubeletFromVersion "${downloadDir}" "${evaluatedURL}" "${version}"
-        elif isMarinerOrAzureLinux "$OS"; then
-          installStandaloneKubelet "${version}"
         fi
+        # tdnf does not support downloading rpms so skip kubelet download for Mariner/AzureLinux during build
         echo "  - kubelet version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;

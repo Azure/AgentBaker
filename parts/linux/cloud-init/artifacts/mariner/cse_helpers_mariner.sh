@@ -24,6 +24,19 @@ dnf_makecache() {
     done
     echo Executed dnf makecache -y $i times
 }
+tdnf_install() {
+    retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
+    for i in $(seq 1 $retries); do
+        tdnf install -y ${@} && break || \
+        if [ $i -eq $retries ]; then
+            return 1
+        else
+            sleep $wait_sleep
+            #tdnf_makecache
+        fi
+    done
+    echo Executed tdnf install -y \"$@\" $i times;
+}
 dnf_install() {
     retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
     for i in $(seq 1 $retries); do
