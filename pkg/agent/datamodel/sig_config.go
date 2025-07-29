@@ -63,6 +63,8 @@ func GetCloudTargetEnv(location string) string {
 		return AzureGermanCloud
 	case strings.HasPrefix(loc, "usgov") || strings.HasPrefix(loc, "usdod"):
 		return AzureUSGovernmentCloud
+	case strings.HasPrefix(loc, "bleu"):
+		return AzureBleuCloud
 	case strings.HasPrefix(strings.ToLower(loc), "usnat"):
 		return USNatCloud
 	case strings.HasPrefix(strings.ToLower(loc), "ussec"):
