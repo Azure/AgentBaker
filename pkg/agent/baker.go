@@ -171,7 +171,7 @@ func (t *TemplateGenerator) getFlatcarLinuxNodeCustomDataJSONObject(config *data
 						Inline: to.StringPtr(string(ignjson)),
 						// TODO: butane 0.24.0 broke support for explicit compression
 						// so we depend on automatic resource compression.
-						//Compression: to.StringPtr("gzip"),
+						// Compression: to.StringPtr("gzip"),
 					},
 				},
 			},
@@ -843,7 +843,6 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 				}
 				return containerdV1NoGPUConfigTemplate
 			}(profile))
-
 			if err != nil {
 				panic(err)
 			}
@@ -1154,6 +1153,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return profile.GetLocalDNSMemoryLimitInMB()
 		},
 		"GetPreProvisionOnly": func() bool { return config.PreProvisionOnly },
+		"BlockIptables": func() bool {
+			return cs.Properties.OrchestratorProfile.KubernetesConfig.BlockIptables
+		},
 	}
 }
 
