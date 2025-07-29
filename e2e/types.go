@@ -135,7 +135,7 @@ type ScenarioRuntime struct {
 // Config represents the configuration of an AgentBaker E2E scenario.
 type Config struct {
 	// Cluster creates, updates or re-uses an AKS cluster for the scenario
-	Cluster func(ctx context.Context, location string, t *testing.T) (*Cluster, error)
+	Cluster func(ctx context.Context, location string) (*Cluster, error)
 
 	// VHD is the node image used by the scenario.
 	VHD *config.Image
@@ -151,6 +151,10 @@ type Config struct {
 
 	// Validator is a function where the scenario can perform any extra validation checks
 	Validator func(ctx context.Context, s *Scenario)
+
+	// SkipDefaultValidation is a flag to indicate whether the common validation (like spawning a pod) should be skipped.
+	// It shouldn't be used for majority of scenarios, currently only used for preparing VHD in a two-stage scenario
+	SkipDefaultValidation bool
 }
 
 func (s *Scenario) PrepareAKSNodeConfig() {
@@ -160,13 +164,14 @@ func (s *Scenario) PrepareAKSNodeConfig() {
 // PrepareVMSSModel mutates the input VirtualMachineScaleSet based on the scenario's VMConfigMutator, if configured.
 // This method will also use the scenario's configured VHD selector to modify the input VMSS to reference the correct VHD resource.
 func (s *Scenario) PrepareVMSSModel(ctx context.Context, t *testing.T, vmss *armcompute.VirtualMachineScaleSet) {
-	resourceID, err := s.VHD.VHDResourceID(ctx, t, s.Location)
+	resourceID, err := CachedPrepareVHD(ctx, GetVHDRequest{
+		Image:    *s.VHD,
+		Location: s.Location,
+	})
 	require.NoError(t, err)
 	require.NotEmpty(t, resourceID, "VHDSelector.ResourceID")
 	require.NotNil(t, vmss, "input VirtualMachineScaleSet")
 	require.NotNil(t, vmss.Properties, "input VirtualMachineScaleSet.Properties")
-
-	s.T.Logf("got vhd resource id %s", resourceID)
 
 	if s.VMConfigMutator != nil {
 		s.VMConfigMutator(vmss)
@@ -196,4 +201,12 @@ func (s *Scenario) PrepareVMSSModel(ctx context.Context, t *testing.T, vmss *arm
 		}
 		vmss.Tags[buildIDTagKey] = &config.Config.BuildID
 	}
+}
+
+func (s *Scenario) IsWindows() bool {
+	return s.VHD.OS == config.OSWindows
+}
+
+func (s *Scenario) IsLinux() bool {
+	return !s.IsWindows()
 }

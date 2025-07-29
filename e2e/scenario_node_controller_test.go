@@ -12,6 +12,7 @@ import (
 	"time"
 
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
+	"github.com/Azure/agentbaker/e2e/components"
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
@@ -27,12 +28,12 @@ import (
 // mostly executed locally
 func Test_Ubuntu2204AKSNodeController(t *testing.T) {
 	location := config.Config.DefaultLocation
-	ctx := newTestCtx(t, location)
+	ctx := newTestCtx(t)
 	if !config.Config.EnableAKSNodeControllerTest {
 		t.Skip("ENABLE_AKS_NODE_CONTROLLER_TEST is not set")
 	}
 	// TODO: figure out how to properly parallelize test, maybe move t.Parallel to the top of each test?
-	cluster, err := ClusterKubenet(ctx, location, t)
+	cluster, err := ClusterKubenet(ctx, location)
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		log, err := os.ReadFile("./scenario-logs/" + t.Name() + "/aks-node-controller.stdout.txt")
@@ -83,8 +84,8 @@ func Test_Ubuntu2204AKSNodeController(t *testing.T) {
 				}
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", getExpectedPackageVersions("containerd", "ubuntu", "r2204")[0])
-				ValidateInstalledPackageVersion(ctx, s, "moby-runc", getExpectedPackageVersions("runc", "ubuntu", "r2204")[0])
+				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", components.GetExpectedPackageVersions("containerd", "ubuntu", "r2204")[0])
+				ValidateInstalledPackageVersion(ctx, s, "moby-runc", components.GetExpectedPackageVersions("runc", "ubuntu", "r2204")[0])
 				ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.log", "aks-node-controller finished successfully")
 			},
 			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {},

@@ -3,9 +3,11 @@ package e2e
 import (
 	"context"
 	"fmt"
+	"testing"
+
+	"github.com/Azure/agentbaker/e2e/components"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/stretchr/testify/require"
-	"testing"
 
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
@@ -22,9 +24,9 @@ func DualStackConfigMutator(configuration *datamodel.NodeBootstrappingConfigurat
 
 func Windows2019BootstrapConfigMutator(t *testing.T, configuration *datamodel.NodeBootstrappingConfiguration) {
 	// 2019 is not supported in 1.33+
-	version := GetKubeletVersionByMinorVersion("v1.32")
+	version := components.GetKubeletVersionByMinorVersion("v1.32")
 	require.NotEmpty(t, version)
-	configuration.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = RemoveLeadingV(version)
+	configuration.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = components.RemoveLeadingV(version)
 }
 
 func DualStackVMConfigMutator(set *armcompute.VirtualMachineScaleSet) {
