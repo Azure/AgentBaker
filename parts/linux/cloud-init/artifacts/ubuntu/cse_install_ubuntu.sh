@@ -93,26 +93,14 @@ installCriCtlPackage() {
 
 installKubelet() {
     k8sVersion="${1}"
-    # eval kubeletOverrideDownloadURL="${2:-}"
 
-    # # the user-defined package URL is always picked first, and the other options won't be tried when this one fails
-    # if [ ! -z "${kubeletOverrideDownloadURL}" ]; then
-    #     installKubeletFromOverride ${kubeletOverrideDownloadURL} || exit $ERR_KUBELET_INSTALL_TIMEOUT
-    #     return 0
-    # fi
     KUBELET_DOWNLOADS_DIR="/opt/kubelet/downloads"
     installKubePkgWithAptGet "kubelet" "${k8sVersion}" "${KUBELET_DOWNLOADS_DIR}" || exit $ERR_KUBELET_INSTALL_TIMEOUT
 }
 
 installKubectl() {
     k8sVersion="${1}"
-    # eval kubeletOverrideDownloadURL="${2:-}"
 
-    # # the user-defined package URL is always picked first, and the other options won't be tried when this one fails
-    # if [ ! -z "${kubeletOverrideDownloadURL}" ]; then
-    #     installKubeletFromOverride ${kubeletOverrideDownloadURL} || exit $ERR_KUBELET_INSTALL_TIMEOUT
-    #     return 0
-    # fi
     KUBECTL_DOWNLOADS_DIR="/opt/kubectl/downloads"
     installKubePkgWithAptGet "kubectl" "${k8sVersion}" "${KUBECTL_DOWNLOADS_DIR}" || exit $ERR_KUBECTL_INSTALL_TIMEOUT
 }
