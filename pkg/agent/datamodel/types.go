@@ -1823,7 +1823,6 @@ const (
 type NodeBootstrapping struct {
 	CustomData     string
 	CSE            string
-	OSImageConfig  *AzureOSImageConfig
 	SigImageConfig *SigImageConfig
 }
 

@@ -475,7 +475,6 @@ func baseTemplateLinux(t *testing.T, location string, k8sVersion string, arch st
 			EndpointConfig: datamodel.AzureEndpointConfig{
 				ResourceManagerVMDNSSuffix: "cloudapp.azure.com",
 			},
-			OSImageConfig: map[datamodel.Distro]datamodel.AzureOSImageConfig(nil),
 		},
 		K8sComponents: &datamodel.K8sComponents{
 			PodInfraContainerImageURL:  "mcr.microsoft.com/oss/kubernetes/pause:3.6",
@@ -794,7 +793,6 @@ DXRqvV7TWO2hndliQq3BW385ZkiephlrmpUVM= r2k1@arturs-mbp.lan`,
 			EndpointConfig: datamodel.AzureEndpointConfig{
 				ResourceManagerVMDNSSuffix: "cloudapp.azure.com",
 			},
-			OSImageConfig: map[datamodel.Distro]datamodel.AzureOSImageConfig(nil),
 		},
 		K8sComponents: &datamodel.K8sComponents{
 			WindowsPackageURL: fmt.Sprintf("https://packages.aks.azure.com/kubernetes/v%s/windowszip/v%s-1int.zip", kubernetesVersion, kubernetesVersion),
