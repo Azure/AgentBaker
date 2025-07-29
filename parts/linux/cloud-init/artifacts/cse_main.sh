@@ -233,13 +233,21 @@ if [ "${NEEDS_DOCKER_LOGIN}" = "true" ]; then
     set -x
 fi
 
-#logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy" installKubeletKubectlAndKubeProxy
-if isMarinerOrAzureLinux "$OS"; then
-    logs_to_events "AKS.CSE.installStandaloneKubelet" "installStandaloneKubelet ${KUBERNETES_VERSION}"
-    logs_to_events "AKS.CSE.installStandaloneKubectl" "installStandaloneKubectl ${KUBERNETES_VERSION}"
-elif [ "${OS}" = "${UBUNTU_OS_NAME}" ]; then
-   logs_to_events "AKS.CSE.installKubelet" "installKubelet ${KUBERNETES_VERSION}"
-   logs_to_events "AKS.CSE.installKubectl" "installKubectl ${KUBERNETES_VERSION}"
+if ! semverCompare ${KUBERNETES_VERSION:-"0.0.0"} "1.34.0"; then
+    logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy" installKubeletKubectlAndKubeProxy
+else
+    if isMarinerOrAzureLinux "$OS"; then
+        if [ "$OS_VERSION" = "2.0" ]; then
+            # we do not publish packages for azurelinux V2
+            logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy" installKubeletKubectlAndKubeProxy
+        else
+            logs_to_events "AKS.CSE.installStandaloneKubelet" "installStandaloneKubelet ${KUBERNETES_VERSION}"
+            logs_to_events "AKS.CSE.installStandaloneKubectl" "installStandaloneKubectl ${KUBERNETES_VERSION}"
+        fi
+    elif [ "${OS}" = "${UBUNTU_OS_NAME}" ]; then
+        logs_to_events "AKS.CSE.installKubelet" "installKubelet ${KUBERNETES_VERSION}"
+        logs_to_events "AKS.CSE.installKubectl" "installKubectl ${KUBERNETES_VERSION}"
+    fi
 fi
 
 createKubeManifestDir
