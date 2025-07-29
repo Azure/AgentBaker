@@ -5,11 +5,10 @@ package datamodel
 
 // AzureEnvironmentSpecConfig is the overall configuration differences in different cloud environments.
 type AzureEnvironmentSpecConfig struct {
-	CloudName            string                        `json:"cloudName,omitempty"`
-	DockerSpecConfig     DockerSpecConfig              `json:"dockerSpecConfig,omitempty"`
-	KubernetesSpecConfig KubernetesSpecConfig          `json:"kubernetesSpecConfig,omitempty"`
-	EndpointConfig       AzureEndpointConfig           `json:"endpointConfig,omitempty"`
-	OSImageConfig        map[Distro]AzureOSImageConfig `json:"osImageConfig,omitempty"`
+	CloudName            string               `json:"cloudName,omitempty"`
+	DockerSpecConfig     DockerSpecConfig     `json:"dockerSpecConfig,omitempty"`
+	KubernetesSpecConfig KubernetesSpecConfig `json:"kubernetesSpecConfig,omitempty"`
+	EndpointConfig       AzureEndpointConfig  `json:"endpointConfig,omitempty"`
 }
 
 // DockerSpecConfig is the configurations of docker.
@@ -48,12 +47,4 @@ type KubernetesSpecConfig struct {
 // AzureEndpointConfig describes an Azure endpoint.
 type AzureEndpointConfig struct {
 	ResourceManagerVMDNSSuffix string `json:"resourceManagerVMDNSSuffix,omitempty"`
-}
-
-// AzureOSImageConfig describes an Azure OS image.
-type AzureOSImageConfig struct {
-	ImageOffer     string `json:"imageOffer,omitempty"`
-	ImageSku       string `json:"imageSku,omitempty"`
-	ImagePublisher string `json:"imagePublisher,omitempty"`
-	ImageVersion   string `json:"imageVersion,omitempty"`
 }

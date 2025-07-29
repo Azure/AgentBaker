@@ -57,22 +57,13 @@ func (agentBaker *agentBakerImpl) GetNodeBootstrapping(ctx context.Context, conf
 		return nodeBootstrapping, nil
 	}
 
-	osImageConfigMap, hasCloud := datamodel.AzureCloudToOSImageMap[config.CloudSpecConfig.CloudName]
-	if !hasCloud {
-		return nil, fmt.Errorf("don't have settings for cloud %s", config.CloudSpecConfig.CloudName)
-	}
-
-	if osImageConfig, hasImage := osImageConfigMap[distro]; hasImage {
-		nodeBootstrapping.OSImageConfig = &osImageConfig
-	}
-
 	sigAzureEnvironmentSpecConfig, err := datamodel.GetSIGAzureCloudSpecConfig(config.SIGConfig, config.ContainerService.Location)
 	if err != nil {
 		return nil, err
 	}
 
 	nodeBootstrapping.SigImageConfig = findSIGImageConfig(sigAzureEnvironmentSpecConfig, distro)
-	if nodeBootstrapping.SigImageConfig == nil && nodeBootstrapping.OSImageConfig == nil {
+	if nodeBootstrapping.SigImageConfig == nil {
 		return nil, fmt.Errorf("can't find image for distro %s", distro)
 	}
 

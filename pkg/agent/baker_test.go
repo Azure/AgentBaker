@@ -1090,9 +1090,6 @@ testdomain567.com:53 {
 
 				config.KubeletConfig = map[string]string{}
 			}, nil),
-		Entry("AKSUbuntu1604 with RawUbuntu", "RawUbuntu", "1.15.7", func(config *datamodel.NodeBootstrappingConfiguration) {
-			config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.Ubuntu
-		}, nil),
 		Entry("AKSUbuntu1604 EnablePrivateClusterHostsConfigAgent", "AKSUbuntu1604+EnablePrivateClusterHostsConfigAgent", "1.18.2",
 			func(config *datamodel.NodeBootstrappingConfiguration) {
 				cs := config.ContainerService
@@ -1331,14 +1328,6 @@ testdomain567.com:53 {
 					"--dynamic-config-dir":                "",
 				}
 			}, nil),
-
-		Entry("RawUbuntu with Containerd", "RawUbuntuContainerd", "1.19.1", func(config *datamodel.NodeBootstrappingConfiguration) {
-			config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.Ubuntu
-			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
-				ContainerRuntime: datamodel.Containerd,
-			}
-			config.KubeletConfig = map[string]string{}
-		}, nil),
 
 		Entry("AKSUbuntu1604 with Disable1804SystemdResolved=true", "AKSUbuntu1604+Disable1804SystemdResolved=true", "1.16.13",
 			func(config *datamodel.NodeBootstrappingConfiguration) {

@@ -5,7 +5,6 @@ import (
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	agenttoggles "github.com/Azure/agentbaker/pkg/agent/toggles"
-	"github.com/barkimedes/go-deepcopy"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -169,11 +168,6 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 			Expect(nodeBootStrapping.CustomData).NotTo(Equal(""))
 			Expect(nodeBootStrapping.CSE).NotTo(Equal(""))
 
-			Expect(nodeBootStrapping.OSImageConfig.ImageOffer).To(Equal("aks"))
-			Expect(nodeBootStrapping.OSImageConfig.ImageSku).To(Equal("aks-ubuntu-1604-2021-q3"))
-			Expect(nodeBootStrapping.OSImageConfig.ImagePublisher).To(Equal("microsoft-aks"))
-			Expect(nodeBootStrapping.OSImageConfig.ImageVersion).To(Equal("2021.11.06"))
-
 			Expect(nodeBootStrapping.SigImageConfig.ResourceGroup).To(Equal("resourcegroup"))
 			Expect(nodeBootStrapping.SigImageConfig.Gallery).To(Equal("aksubuntu"))
 			Expect(nodeBootStrapping.SigImageConfig.Definition).To(Equal("1604"))
@@ -201,22 +195,6 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 			Expect(nodeBootStrapping.SigImageConfig.Gallery).To(Equal("aksubuntu"))
 			Expect(nodeBootStrapping.SigImageConfig.Definition).To(Equal("1604"))
 			Expect(nodeBootStrapping.SigImageConfig.Version).To(Equal(nodeImageVersionOverride))
-		})
-
-		It("should return an error if cloud is not found", func() {
-			// this CloudSpecConfig is shared across all AgentBaker UTs,
-			// thus we need to make and use a copy when performing mutations for mocking
-			cloudSpecConfigCopy, err := deepcopy.Anything(config.CloudSpecConfig)
-			Expect(err).To(BeNil())
-			cloudSpecConfig, ok := cloudSpecConfigCopy.(*datamodel.AzureEnvironmentSpecConfig)
-			Expect(ok).To(BeTrue())
-			config.CloudSpecConfig = cloudSpecConfig
-
-			config.CloudSpecConfig.CloudName = "UnknownCloud"
-			agentBaker, err := NewAgentBaker()
-			Expect(err).NotTo(HaveOccurred())
-			_, err = agentBaker.GetNodeBootstrapping(context.Background(), config)
-			Expect(err).To(HaveOccurred())
 		})
 
 		It("should return an error if distro is neither found in PIR nor found in SIG", func() {
