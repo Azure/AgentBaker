@@ -160,6 +160,17 @@ installStandaloneKubelet() {
     mv "/usr/bin/kubelet" "/usr/local/bin/kubelet"
 }
 
+installStandaloneKubectl() {
+    local desiredVersion="${1}"
+    echo "installing kubectl version ${desiredVersion}"
+    kubectlPackageName="kubectl-${desiredVersion}*"
+
+    if ! tdnf_install 30 1 600 $kubectlPackageName; then
+        exit $ERR_KUBECTL_INSTALL_TIMEOUT
+    fi
+    mv "/usr/bin/kubectl" "/usr/local/bin/kubectl"
+}
+
 # CSE+VHD can dictate the containerd version, users don't care as long as it works
 installStandaloneContainerd() {
     local desiredVersion="${1:-}"

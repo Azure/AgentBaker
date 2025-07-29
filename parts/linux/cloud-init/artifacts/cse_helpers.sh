@@ -67,6 +67,7 @@ ERR_CRICTL_OPERATION_ERROR=118 # Error executing a crictl operation
 ERR_CTR_OPERATION_ERROR=119 # Error executing a ctr containerd cli operation
 ERR_INVALID_CLI_TOOL=120 # Invalid CLI tool specified, should be one of ctr, crictl, docker
 ERR_KUBELET_INSTALL_TIMEOUT=121 # Timeout waiting for kubelet install
+ERR_KUBECTL_INSTALL_TIMEOUT=122 # Timeout waiting for kubectl install
 
 # 121, 122, 123 are free for use
 
