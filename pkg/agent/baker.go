@@ -1042,7 +1042,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			if config.HTTPProxyConfig != nil && config.HTTPProxyConfig.TrustedCA != nil {
 				// remove newline so it does not interfere with cse script formatting
 				trustedCA := strings.ReplaceAll(*config.HTTPProxyConfig.TrustedCA, "\n", "")
-				trustedCA = strings.ReplaceAll(*config.HTTPProxyConfig.TrustedCA, "\r", "")
+				trustedCA = strings.ReplaceAll(trustedCA, "\r", "")
 				return trustedCA
 			}
 			return ""
