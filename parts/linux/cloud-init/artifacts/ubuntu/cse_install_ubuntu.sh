@@ -97,9 +97,7 @@ installCriCtlPackage() {
 }
 
 installKubelet() {
-    packageVersion="${1}"
-    kubeletMajorMinorPatchVersion="$(echo "$packageVersion" | cut -d- -f1)"
-    kubeletHotFixVersion="$(echo "$packageVersion" | cut -d- -f2)"
+    k8sVersion="${1}"
     # eval kubeletOverrideDownloadURL="${2:-}"
 
     # # the user-defined package URL is always picked first, and the other options won't be tried when this one fails
@@ -108,30 +106,30 @@ installKubelet() {
     #     return 0
     # fi
     KUBELET_DOWNLOADS_DIR="/opt/kubelet/downloads"
-    installKubePkgWithAptGet "kubelet" "${kubeletMajorMinorPatchVersion}" "${kubeletHotFixVersion}" "${KUBELET_DOWNLOADS_DIR}" || exit $ERR_KUBELET_INSTALL_TIMEOUT
+    installKubePkgWithAptGet "kubelet" "${k8sVersion}" "${KUBELET_DOWNLOADS_DIR}" || exit $ERR_KUBELET_INSTALL_TIMEOUT
 }
 
 installKubePkgWithAptGet() {
     packageName="${1:-}"
-    local majorMinorPatchVersion="${2}"
-    local hotFixVersion="${3}"
+    local k8sVersion="${2}"
     downloadDir="${4:-"/opt/${packageName}/downloads"}"
 
-    echo "installing ${packageName} version ${majorMinorPatchVersion}"
+    echo "installing ${packageName} version ${k8sVersion}"
 
     # if kubelet version has been overriden then there should exist a local .deb file for it on aks VHDs (best-effort)
     # if no files found then try fetching from packages.microsoft repo
-    kubeletDebFile=$(find "${downloadDir}" -maxdepth 1 -name "kubelet_${majorMinorPatchVersion}*" -print -quit 2>/dev/null) || kubeletDebFile=""
+    kubeletDebFile=$(find "${downloadDir}" -maxdepth 1 -name "kubelet_${k8sVersion}*" -print -quit 2>/dev/null) || kubeletDebFile=""
     if [ -n "${kubeletDebFile}" ]; then
+        echo "Found cached kubelet deb: ${kubeletDebFile}"
         logs_to_events "AKS.CSE.installContainerRuntime.installDebPackageFromFile" "installDebPackageFromFile ${kubeletDebFile}" || exit $ERR_KUBELET_INSTALL_TIMEOUT
         mv "/usr/bin/${packageName}" "/usr/local/bin/${packageName}"
         rm -rf ${downloadDir} &
         return 0
     fi
-    logs_to_events "AKS.CSE.installContainerRuntime.downloadKubePkgFromVersion" "downloadKubePkgFromVersion ${majorMinorPatchVersion} ${hotFixVersion}"
-    debFile=$(find "${downloadDir}" -maxdepth 1 -name "kubelet_${majorMinorPatchVersion}*" -print -quit 2>/dev/null) || debFile=""
+    logs_to_events "AKS.CSE.installContainerRuntime.downloadKubePkgFromVersion" "downloadKubePkgFromVersion kubelet ${k8sVersion} ${downloadDir}"
+    debFile=$(find "${downloadDir}" -maxdepth 1 -name "kubelet_${k8sVersion}*" -print -quit 2>/dev/null) || debFile=""
     if [ -z "${debFile}" ]; then
-        echo "Failed to locate cached kubelet deb"
+        echo "Failed to locate kubelet deb"
         exit $ERR_KUBELET_INSTALL_TIMEOUT
     fi
     logs_to_events "AKS.CSE.installContainerRuntime.installDebPackageFromFile" "installDebPackageFromFile ${debFile}" || exit $ERR_KUBELET_INSTALL_TIMEOUT
@@ -142,12 +140,12 @@ installKubePkgWithAptGet() {
 
 downloadKubePkgFromVersion() {
     packageName="${1:-}"
-    downloadDir="${2:-"/opt/${packageName}/downloads"}"
-    packageVersion="${4:-}"
+    packageVersion="${2:-}"
+    downloadDir="${3:-"/opt/${packageName}/downloads"}"
     mkdir -p ${downloadDir}
-    updateAptWithMicrosoftPkg
-    apt_get_download 20 30 ${packageName}=${packageVersion}* || exit $ERR_APT_DOWNLOAD_TIMEOUT
-    cp -al ${APT_CACHE_DIR}${packageName}_${packageVersion}* ${downloadDir}/ || exit $ERR_APT_DOWNLOAD_TIMEOUT
+    # updateAptWithMicrosoftPkg
+    apt_get_download 20 30 ${packageName}=${packageVersion}* || exit $ERR_APT_INSTALL_TIMEOUT
+    cp -al ${APT_CACHE_DIR}${packageName}_${packageVersion}* ${downloadDir}/ || exit $ERR_APT_INSTALL_TIMEOUT
     echo "Succeeded to download ${packageName} version ${packageVersion}"
 }
 

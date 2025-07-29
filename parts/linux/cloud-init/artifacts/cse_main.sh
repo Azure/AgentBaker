@@ -235,11 +235,10 @@ fi
 
 logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy" installKubeletKubectlAndKubeProxy
 if isMarinerOrAzureLinux "$OS"; then
-    installStandaloneKubelet "${KUBERNETES_VERSION}"
+    logs_to_events "AKS.CSE.installStandaloneKubelet" "installStandaloneKubelet ${KUBERNETES_VERSION}"
 elif [ "${OS}" = "${UBUNTU_OS_NAME}" ]; then
-    installKubelet "${KUBERNETES_VERSION}"
+   logs_to_events "AKS.CSE.installKubelet" "installKubelet ${KUBERNETES_VERSION}"
 fi
-logs_to_events "AKS.CSE.installKubelet" "installKubelet ${KUBERNETES_VERSION}"
 
 createKubeManifestDir
 
