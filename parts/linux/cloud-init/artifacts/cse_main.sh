@@ -233,7 +233,7 @@ if [ "${NEEDS_DOCKER_LOGIN}" = "true" ]; then
     set -x
 fi
 
-if ! semverCompare ${KUBERNETES_VERSION:-"0.0.0"} "1.34.0"; then
+if ! semverCompare ${KUBERNETES_VERSION:-"0.0.0"} "1.32.0"; then
     logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy" installKubeletKubectlAndKubeProxy
 else
     if isMarinerOrAzureLinux "$OS"; then
