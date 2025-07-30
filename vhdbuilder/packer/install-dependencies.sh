@@ -397,7 +397,7 @@ while IFS= read -r p; do
     "kubelet")
       for version in ${PACKAGE_VERSIONS[@]}; do
         if [ "${OS}" = "${UBUNTU_OS_NAME}" ]; then
-          downloadKubePkgFromVersion "kubelet" "${downloadDir}" "${version}"
+          downloadKubePkgFromVersion "kubelet" "${version}" "${downloadDir}"
         fi
         # tdnf does not support downloading rpms so skip kubelet download for Mariner/AzureLinux during build
         echo "  - kubelet version ${version}" >> ${VHD_LOGS_FILEPATH}
@@ -406,7 +406,7 @@ while IFS= read -r p; do
     "kubectl")
       for version in ${PACKAGE_VERSIONS[@]}; do
         if [ "${OS}" = "${UBUNTU_OS_NAME}" ]; then
-          downloadKubePkgFromVersion "kubectl" "${downloadDir}" "${version}"
+          downloadKubePkgFromVersion "kubectl" "${version}" "${downloadDir}"
         fi
         # tdnf does not support downloading rpms so skip kubelet download for Mariner/AzureLinux during build
         echo "  - kubectl version ${version}" >> ${VHD_LOGS_FILEPATH}

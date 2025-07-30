@@ -236,11 +236,12 @@ fi
 export -f should_bypass_k8s_version_check
 SKIP_BYPASS_K8S_VERSION_CHECK=$(retrycmd_silent 10 1 10 bash -cx should_bypass_k8s_version_check)
 
-if [ ! semverCompare ${KUBERNETES_VERSION:-"0.0.0"} "1.34.0" ] || [ ! $SKIP_BYPASS_K8S_VERSION_CHECK ]; then
+# only install kube pkgs from pmc if k8s version > 1.34.0 or skip_bypass_k8s_version_check is true
+if [ "${SKIP_BYPASS_K8S_VERSION_CHECK}" != "true" ] && ! semverCompare ${KUBERNETES_VERSION:-"0.0.0"} "1.34.0"; then
+    logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy" installKubeletKubectlAndKubeProxy
     # Install kubelet and kubectl binaries from URL for Network Isolated, Custom Kube binary, and Private Kube binary
-    if [ ! -z "${CUSTOM_KUBE_BINARY_DOWNLOAD_URL}" ] || [ ! -z "${PRIVATE_KUBE_BINARY_DOWNLOAD_URL}" ] || [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
-        logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy" installKubeletKubectlAndKubeProxy
-    fi
+elif [ ! -z "${CUSTOM_KUBE_BINARY_DOWNLOAD_URL}" ] || [ ! -z "${PRIVATE_KUBE_BINARY_DOWNLOAD_URL}" ] || [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
+    logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy" installKubeletKubectlAndKubeProxy
 else
     if isMarinerOrAzureLinux "$OS"; then
         if [ "$OS_VERSION" = "2.0" ]; then

@@ -1330,8 +1330,43 @@
           "r2404": {
             "versionsV2": [
               {
+                "k8sVersion": "1.27",
+                "renovateTag":  "name=kubelet, os=ubuntu, release=24.04",
+                "latestVersion": " 1.27.103-ubuntu24.04u2"
+              },
+              {
+                "k8sVersion": "1.28",
+                "renovateTag":  "name=kubelet, os=ubuntu, release=24.04",
+                "latestVersion": " 1.28.101-ubuntu24.04u2"
+              },
+              {
+                "k8sVersion": "1.29",
+                "renovateTag":  "name=kubelet, os=ubuntu, release=24.04",
+                "latestVersion": " 1.29.13-ubuntu24.04u3"
+              },
+              {
+                "k8sVersion": "1.30",
                 "renovateTag": "name=kubelet, os=ubuntu, release=24.04",
-                "latestVersion": "2.0.4-ubuntu24.04u1"
+                "latestVersion": "1.30.14-ubuntu24.04u1",
+                "previousLatestVersion": "1.30.13-ubuntu24.04u1"
+              },
+              {
+                "k8sVersion": "1.31",
+                "renovateTag": "name=kubelet, os=ubuntu, release=24.04",
+                "latestVersion": "1.31.10-ubuntu24.04u1",
+                "previousLatestVersion": "1.31.9-ubuntu24.04u1"
+              },
+              {
+                "k8sVersion": "1.32",
+                "renovateTag": "name=kubelet, os=ubuntu, release=24.04",
+                "latestVersion": "1.32.6-ubuntu24.04u1",
+                "previousLatestVersion": "1.32.5-ubuntu24.04u1"
+              },
+              {
+                "k8sVersion": "1.33",
+                "renovateTag": "name=kubelet, os=ubuntu, release=24.04",
+                "latestVersion": "1.33.2-ubuntu24.04u1",
+                "previousLatestVersion": "1.33.1-ubuntu24.04u1"
               }
             ]
           },
@@ -1371,28 +1406,43 @@
           "r2004": {
             "versionsV2": [
               {
-                "renovateTag": "name=moby-containerd, os=ubuntu, release=20.04",
-                "latestVersion": "1.7.27-ubuntu20.04u1"
-              }
-            ]
-          }
-        },
-        "mariner": {
-          "current": {
-            "versionsV2": [
+                "k8sVersion": "1.27",
+                "renovateTag":  "name=kubelet, os=ubuntu, release=20.04",
+                "latestVersion": " 1.27.103-ubuntu20.04u2"
+              },
               {
-                "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "<SKIP>"
-              }
-            ]
-          }
-        },
-        "marinerkata": {
-          "current": {
-            "versionsV2": [
+                "k8sVersion": "1.28",
+                "renovateTag":  "name=kubelet, os=ubuntu, release=20.04",
+                "latestVersion": " 1.28.101-ubuntu20.04u2"
+              },
               {
-                "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "<SKIP>"
+                "k8sVersion": "1.29",
+                "renovateTag":  "name=kubelet, os=ubuntu, release=20.04",
+                "latestVersion": " 1.29.13-ubuntu20.04u3"
+              },
+              {
+                "k8sVersion": "1.30",
+                "renovateTag": "name=kubelet, os=ubuntu, release=20.04",
+                "latestVersion": "1.30.14-ubuntu20.04u1",
+                "previousLatestVersion": "1.30.13-ubuntu20.04u1"
+              },
+              {
+                "k8sVersion": "1.31",
+                "renovateTag": "name=kubelet, os=ubuntu, release=20.04",
+                "latestVersion": "1.31.10-ubuntu20.04u1",
+                "previousLatestVersion": "1.31.9-ubuntu20.04u1"
+              },
+              {
+                "k8sVersion": "1.32",
+                "renovateTag": "name=kubelet, os=ubuntu, release=20.04",
+                "latestVersion": "1.32.6-ubuntu20.04u1",
+                "previousLatestVersion": "1.32.5-ubuntu20.04u1"
+              },
+              {
+                "k8sVersion": "1.33",
+                "renovateTag": "name=kubelet, os=ubuntu, release=20.04",
+                "latestVersion": "1.33.2-ubuntu20.04u1",
+                "previousLatestVersion": "1.33.1-ubuntu20.04u1"
               }
             ]
           }
@@ -1401,18 +1451,43 @@
           "v3.0": {
             "versionsV2": [
               {
-                "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "<SKIP>"
-              }
-            ]
-          }
-        },
-        "azurelinuxkata": {
-          "v3.0": {
-            "versionsV2": [
+                "k8sVersion": "1.27",
+                "renovateTag":  "name=kubectl, os=azurelinux, release=3.0",
+                "latestVersion": " 1.27.103-2.azl3"
+              },
               {
-                "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "<SKIP>"
+                "k8sVersion": "1.28",
+                "renovateTag":  "name=kubectl, os=azurelinux, release=3.0",
+                "latestVersion": " 1.28.101-2.azl3"
+              },
+              {
+                "k8sVersion": "1.29",
+                "renovateTag":  "name=kubectl, os=azurelinux, release=3.0",
+                "latestVersion": " 1.29.13-3.azl3"
+              },
+              {
+                "k8sVersion": "1.30",
+                "renovateTag": "name=kubectl, os=azurelinux, release=3.0",
+                "latestVersion": "1.30.14-1.azl3",
+                "previousLatestVersion": "1.30.13-2.azl3"
+              },
+              {
+                "k8sVersion": "1.31",
+                "renovateTag": "name=kubectl, os=azurelinux, release=3.0",
+                "latestVersion": "1.31.11-1.azl3",
+                "previousLatestVersion": "1.31.10-2.azl3"
+              },
+              {
+                "k8sVersion": "1.32",
+                "renovateTag": "name=kubectl, os=azurelinux, release=3.0",
+                "latestVersion": "1.32.7-1.azl3",
+                "previousLatestVersion": "1.32.6-1.azl3"
+              },
+              {
+                "k8sVersion": "1.33",
+                "renovateTag": "name=kubectl, os=azurelinux, release=3.0",
+                "latestVersion": "1.33.3-1.azl3",
+                "previousLatestVersion": "1.33.2-1.azl3"
               }
             ]
           }
@@ -1426,15 +1501,60 @@
       "downloadURIs": {
         "ubuntu": {
           "r2404": {
-            "versionsV2": [
+          "versionsV2": [
               {
+                "k8sVersion": "1.27",
+                "renovateTag":  "name=kubectl, os=ubuntu, release=24.04",
+                "latestVersion": " 1.27.103-ubuntu24.04u2"
+              },
+              {
+                "k8sVersion": "1.28",
+                "renovateTag":  "name=kubectl, os=ubuntu, release=24.04",
+                "latestVersion": " 1.28.101-ubuntu24.04u2"
+              },
+              {
+                "k8sVersion": "1.29",
+                "renovateTag":  "name=kubectl, os=ubuntu, release=24.04",
+                "latestVersion": " 1.29.13-ubuntu24.04u3"
+              },
+              {
+                "k8sVersion": "1.30",
                 "renovateTag": "name=kubectl, os=ubuntu, release=24.04",
-                "latestVersion": "2.0.4-ubuntu24.04u1"
+                "latestVersion": "1.30.14-ubuntu24.04u1",
+                "previousLatestVersion": "1.30.13-ubuntu24.04u1"
+              },
+              {
+                "k8sVersion": "1.31",
+                "renovateTag": "name=kubectl, os=ubuntu, release=24.04",
+                "latestVersion": "1.31.10-ubuntu24.04u1",
+                "previousLatestVersion": "1.31.9-ubuntu24.04u1"
+              },
+              {
+                "k8sVersion": "1.32",
+                "renovateTag": "name=kubectl, os=ubuntu, release=24.04",
+                "latestVersion": "1.32.6-ubuntu24.04u1",
+                "previousLatestVersion": "1.32.5-ubuntu24.04u1"
+              },
+              {
+                "k8sVersion": "1.33",
+                "renovateTag": "name=kubectl, os=ubuntu, release=24.04",
+                "latestVersion": "1.33.2-ubuntu24.04u1",
+                "previousLatestVersion": "1.33.1-ubuntu24.04u1"
               }
             ]
           },
           "r2204": {
             "versionsV2": [
+              {
+                "k8sVersion": "1.27",
+                "renovateTag":  "name=kubectl, os=ubuntu, release=22.04",
+                "latestVersion": " 1.27.103-ubuntu22.04u2"
+              },
+              {
+                "k8sVersion": "1.28",
+                "renovateTag":  "name=kubectl, os=ubuntu, release=22.04",
+                "latestVersion": " 1.28.101-ubuntu22.04u2"
+              },
               {
                 "k8sVersion": "1.29",
                 "renovateTag":  "name=kubectl, os=ubuntu, release=22.04",
@@ -1467,30 +1587,45 @@
             ]
           },
           "r2004": {
-            "versionsV2": [
+          "versionsV2": [
               {
-                "renovateTag": "name=moby-containerd, os=ubuntu, release=20.04",
-                "latestVersion": "1.7.27-ubuntu20.04u1"
-              }
-            ]
-          }
-        },
-        "mariner": {
-          "current": {
-            "versionsV2": [
+                "k8sVersion": "1.27",
+                "renovateTag":  "name=kubectl, os=ubuntu, release=20.04",
+                "latestVersion": " 1.27.103-ubuntu20.04u2"
+              },
               {
-                "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "<SKIP>"
-              }
-            ]
-          }
-        },
-        "marinerkata": {
-          "current": {
-            "versionsV2": [
+                "k8sVersion": "1.28",
+                "renovateTag":  "name=kubectl, os=ubuntu, release=20.04",
+                "latestVersion": " 1.28.101-ubuntu20.04u2"
+              },
               {
-                "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "<SKIP>"
+                "k8sVersion": "1.29",
+                "renovateTag":  "name=kubectl, os=ubuntu, release=20.04",
+                "latestVersion": " 1.29.13-ubuntu20.04u3"
+              },
+              {
+                "k8sVersion": "1.30",
+                "renovateTag": "name=kubectl, os=ubuntu, release=20.04",
+                "latestVersion": "1.30.14-ubuntu20.04u1",
+                "previousLatestVersion": "1.30.13-ubuntu20.04u1"
+              },
+              {
+                "k8sVersion": "1.31",
+                "renovateTag": "name=kubectl, os=ubuntu, release=20.04",
+                "latestVersion": "1.31.10-ubuntu20.04u1",
+                "previousLatestVersion": "1.31.9-ubuntu20.04u1"
+              },
+              {
+                "k8sVersion": "1.32",
+                "renovateTag": "name=kubectl, os=ubuntu, release=20.04",
+                "latestVersion": "1.32.6-ubuntu20.04u1",
+                "previousLatestVersion": "1.32.5-ubuntu20.04u1"
+              },
+              {
+                "k8sVersion": "1.33",
+                "renovateTag": "name=kubectl, os=ubuntu, release=20.04",
+                "latestVersion": "1.33.2-ubuntu20.04u1",
+                "previousLatestVersion": "1.33.1-ubuntu20.04u1"
               }
             ]
           }
@@ -1499,18 +1634,43 @@
           "v3.0": {
             "versionsV2": [
               {
-                "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "<SKIP>"
-              }
-            ]
-          }
-        },
-        "azurelinuxkata": {
-          "v3.0": {
-            "versionsV2": [
+                "k8sVersion": "1.27",
+                "renovateTag":  "name=kubectl, os=azurelinux, release=3.0",
+                "latestVersion": " 1.27.103-2.azl3"
+              },
               {
-                "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "<SKIP>"
+                "k8sVersion": "1.28",
+                "renovateTag":  "name=kubectl, os=azurelinux, release=3.0",
+                "latestVersion": " 1.28.101-2.azl3"
+              },
+              {
+                "k8sVersion": "1.29",
+                "renovateTag":  "name=kubectl, os=azurelinux, release=3.0",
+                "latestVersion": " 1.29.13-3.azl3"
+              },
+              {
+                "k8sVersion": "1.30",
+                "renovateTag": "name=kubectl, os=azurelinux, release=3.0",
+                "latestVersion": "1.30.14-1.azl3",
+                "previousLatestVersion": "1.30.13-2.azl3"
+              },
+              {
+                "k8sVersion": "1.31",
+                "renovateTag": "name=kubectl, os=azurelinux, release=3.0",
+                "latestVersion": "1.31.11-1.azl3",
+                "previousLatestVersion": "1.31.10-2.azl3"
+              },
+              {
+                "k8sVersion": "1.32",
+                "renovateTag": "name=kubectl, os=azurelinux, release=3.0",
+                "latestVersion": "1.32.7-1.azl3",
+                "previousLatestVersion": "1.32.6-1.azl3"
+              },
+              {
+                "k8sVersion": "1.33",
+                "renovateTag": "name=kubectl, os=azurelinux, release=3.0",
+                "latestVersion": "1.33.3-1.azl3",
+                "previousLatestVersion": "1.33.2-1.azl3"
               }
             ]
           }
