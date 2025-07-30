@@ -615,6 +615,17 @@ should_skip_binary_cleanup() {
     echo "${should_skip,,}"
 }
 
+should_bypass_k8s_version_check() {
+    set -x
+    body=$(curl -fsSL -H "Metadata: true" --noproxy "*" "http://169.254.169.254/metadata/instance?api-version=2021-02-01")
+    ret=$?
+    if [ "$ret" -ne 0 ]; then
+      return $ret
+    fi
+    should_bypass=$(echo "$body" | jq -r '.compute.tagsList[] | select(.name == "ShouldBypassK8sVersionCheck") | .value')
+    echo "${should_bypass,,}"
+}
+
 isMarinerOrAzureLinux() {
     local os=$1
     if [ "$os" = "$MARINER_OS_NAME" ] || [ "$os" = "$MARINER_KATA_OS_NAME" ] || [ "$os" = "$AZURELINUX_OS_NAME" ] || [ "$os" = "$AZURELINUX_KATA_OS_NAME" ]; then

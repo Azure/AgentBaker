@@ -77,7 +77,7 @@ func Test_AzureLinuxV2_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a AzureLinuxV2 (CgroupV2) VHD can be properly bootstrapped even if secure TLS bootstrapping fails",
 		Config: Config{
-			Cluster: ClusterLatestKubernetesVersion,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				// secure TLS bootstrapping is not yet enabled in e2e regions, thus this will test the bootstrap token fallback case
@@ -91,7 +91,7 @@ func Test_AzureLinuxV2_ARM64(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a AzureLinuxV2 (CgroupV2) VHD on ARM64 architecture can be properly bootstrapped",
 		Config: Config{
-			Cluster: ClusterLatestKubernetesVersion,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV2Gen2Arm64,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.CustomKubeBinaryURL = "https://acs-mirror.azureedge.net/kubernetes/v1.24.9/binaries/kubernetes-node-linux-arm64.tar.gz"
@@ -174,7 +174,7 @@ func Test_AzureLinuxV2_ChronyRestarts(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that the chrony service restarts if it is killed",
 		Config: Config{
-			Cluster: ClusterLatestKubernetesVersion,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 			},
@@ -202,7 +202,7 @@ func Test_AzureLinuxV2_CustomSysctls(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that a AzureLinuxV2 (CgroupV2) VHD can be properly bootstrapped when supplied custom node config that contains custom sysctl settings",
 		Config: Config{
-			Cluster: ClusterLatestKubernetesVersion,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				customLinuxConfig := &datamodel.CustomLinuxOSConfig{
@@ -235,7 +235,7 @@ func Test_AzureLinuxV2_GPU(t *testing.T) {
 			GPU: true,
 		},
 		Config: Config{
-			Cluster: ClusterLatestKubernetesVersion,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.VMSize = "Standard_NC6s_v3"
@@ -349,7 +349,7 @@ func Test_MarinerV2_ARM64(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a MarinerV2 VHD on ARM64 architecture can be properly bootstrapped",
 		Config: Config{
-			Cluster: ClusterLatestKubernetesVersion,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDCBLMarinerV2Gen2Arm64,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.CustomKubeBinaryURL = "https://acs-mirror.azureedge.net/kubernetes/v1.24.9/binaries/kubernetes-node-linux-arm64.tar.gz"
@@ -452,7 +452,7 @@ func Test_MarinerV2_CustomSysctls(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that a MarinerV2 VHD can be properly bootstrapped when supplied custom node config that contains custom sysctl settings",
 		Config: Config{
-			Cluster: ClusterLatestKubernetesVersion,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDCBLMarinerV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				customLinuxConfig := &datamodel.CustomLinuxOSConfig{
@@ -484,7 +484,7 @@ func Test_MarinerV2_GPU(t *testing.T) {
 			GPU: true,
 		},
 		Config: Config{
-			Cluster: ClusterLatestKubernetesVersion,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDCBLMarinerV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.VMSize = "Standard_NC6s_v3"
@@ -568,7 +568,7 @@ func Test_Ubuntu2204(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2204 VHD can be properly bootstrapped",
 		Config: Config{
-			Cluster: ClusterLatestKubernetesVersion,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				// Check that we don't leak these secrets if they're
@@ -1749,6 +1749,51 @@ func Test_Ubuntu2404_GPU_H100(t *testing.T) {
 				ValidateNPDGPUCountPlugin(ctx, s)
 				ValidateNPDGPUCountCondition(ctx, s)
 				ValidateNPDGPUCountAfterFailure(ctx, s)
+			},
+		}})
+}
+
+func Test_AzureLinux_Kube_Package_Install(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "tests that an AzureLinux node will skip binary cleanup and can be properly bootstrapped",
+		Config: Config{
+			Cluster:                ClusterLatestKubernetesVersion,
+			VHD:                    config.VHDAzureLinuxV2Gen2,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				if vmss.Tags == nil {
+					vmss.Tags = map[string]*string{}
+				}
+				vmss.Tags["BypassK8sVersionCheck"] = to.Ptr("true")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateMultipleKubeProxyVersionsExist(ctx, s)
+			},
+		}})
+}
+
+func Test_Ubuntu2204_Kube_Package_Install(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using the Ubuntu 2204 VHD can be properly bootstrapped",
+		Config: Config{
+			Cluster: ClusterLatestKubernetesVersion,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				// Check that we don't leak these secrets if they're
+				// set (which they mostly aren't in these scenarios).
+				nbc.ContainerService.Properties.CertificateProfile.ClientPrivateKey = "client cert private key"
+				nbc.ContainerService.Properties.ServicePrincipalProfile.Secret = "SP secret"
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				if vmss.Tags == nil {
+					vmss.Tags = map[string]*string{}
+				}
+				vmss.Tags["ShouldBypassK8sVersionCheck"] = to.Ptr("true")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", getExpectedPackageVersions("containerd", "ubuntu", "r2204")[0])
+				ValidateInstalledPackageVersion(ctx, s, "moby-runc", getExpectedPackageVersions("runc", "ubuntu", "r2204")[0])
+				ValidateSSHServiceEnabled(ctx, s)
 			},
 		}})
 }

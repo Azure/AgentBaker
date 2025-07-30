@@ -233,8 +233,14 @@ if [ "${NEEDS_DOCKER_LOGIN}" = "true" ]; then
     set -x
 fi
 
-if ! semverCompare ${KUBERNETES_VERSION:-"0.0.0"} "1.32.0"; then
-    logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy" installKubeletKubectlAndKubeProxy
+export -f should_bypass_k8s_version_check
+SKIP_BYPASS_K8S_VERSION_CHECK=$(retrycmd_silent 10 1 10 bash -cx should_bypass_k8s_version_check)
+
+if [ ! semverCompare ${KUBERNETES_VERSION:-"0.0.0"} "1.34.0" ] || [ ! $SKIP_BYPASS_K8S_VERSION_CHECK ]; then
+    # Install kubelet and kubectl binaries from URL for Network Isolated, Custom Kube binary, and Private Kube binary
+    if [ ! -z "${CUSTOM_KUBE_BINARY_DOWNLOAD_URL}" ] || [ ! -z "${PRIVATE_KUBE_BINARY_DOWNLOAD_URL}" ] || [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
+        logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy" installKubeletKubectlAndKubeProxy
+    fi
 else
     if isMarinerOrAzureLinux "$OS"; then
         if [ "$OS_VERSION" = "2.0" ]; then
