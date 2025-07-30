@@ -187,6 +187,7 @@ func copyScenario(s *Scenario) *Scenario {
 }
 
 func runScenario(t *testing.T, s *Scenario) {
+	t.Parallel()
 	s.T = t
 	ctx := newTestCtx(t)
 	ctrruntimelog.SetLogger(zap.New())
