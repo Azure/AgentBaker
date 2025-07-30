@@ -535,6 +535,29 @@ EOF
     # once bootstrap tokens are no longer a fallback, we can unset TLS_BOOTSTRAP_TOKEN here if needed
 }
 
+configKubeletAndKubectl() {
+    # only install kube pkgs from pmc if k8s version > 1.34.0 or skip_bypass_k8s_version_check is true
+    if [ "${SKIP_BYPASS_K8S_VERSION_CHECK}" != "true" ] && ! semverCompare ${KUBERNETES_VERSION:-"0.0.0"} "1.34.0"; then
+        logs_to_events "AKS.CSE.configKubeletAndKubectl.installKubeletKubectlFromURL" installKubeletKubectlFromURL
+    # Install kubelet and kubectl binaries from URL for Network Isolated, Custom Kube binary, and Private Kube binary
+    elif [ ! -z "${CUSTOM_KUBE_BINARY_DOWNLOAD_URL}" ] || [ ! -z "${PRIVATE_KUBE_BINARY_DOWNLOAD_URL}" ] || [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
+        logs_to_events "AKS.CSE.configKubeletAndKubectl.installKubeletKubectlFromURL" installKubeletKubectlFromURL
+    else
+        if isMarinerOrAzureLinux "$OS"; then
+            if [ "$OS_VERSION" = "2.0" ]; then
+                # we do not publish packages to PMC for azurelinux V2
+                logs_to_events "AKS.CSE.configKubeletAndKubectl.installKubeletKubectlFromURL" installKubeletKubectlFromURL
+            else
+                logs_to_events "AKS.CSE.configKubeletAndKubectl.installStandaloneKubeletPkgFromPMC" "installStandaloneKubeletPkgFromPMC ${KUBERNETES_VERSION}"
+                logs_to_events "AKS.CSE.configKubeletAndKubectl.installStandaloneKubectlPkgFromPMC" "installStandaloneKubectlPkgFromPMC ${KUBERNETES_VERSION}"
+            fi
+        elif [ "${OS}" = "${UBUNTU_OS_NAME}" ]; then
+            logs_to_events "AKS.CSE.configKubeletAndKubectl.installKubeletPkgFromPMC" "installKubeletPkgFromPMC ${KUBERNETES_VERSION}"
+            logs_to_events "AKS.CSE.configKubeletAndKubectl.installKubectlPkgFromPMC" "installKubectlPkgFromPMC ${KUBERNETES_VERSION}"
+        fi
+    fi
+}
+
 ensureKubelet() {
     KUBELET_DEFAULT_FILE=/etc/default/kubelet
     mkdir -p /etc/default

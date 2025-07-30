@@ -91,14 +91,14 @@ installCriCtlPackage() {
     apt_get_install 20 30 120 ${packageName} || exit 1
 }
 
-installKubelet() {
+installKubeletPkgFromPMC() {
     k8sVersion="${1}"
 
     KUBELET_DOWNLOADS_DIR="/opt/kubelet/downloads"
     installKubePkgWithAptGet "kubelet" "${k8sVersion}" "${KUBELET_DOWNLOADS_DIR}" || exit $ERR_KUBELET_INSTALL_TIMEOUT
 }
 
-installKubectl() {
+installKubectlPkgFromPMC() {
     k8sVersion="${1}"
 
     KUBECTL_DOWNLOADS_DIR="/opt/kubectl/downloads"
@@ -117,18 +117,18 @@ installKubePkgWithAptGet() {
     debFile=$(find "${downloadDir}" -maxdepth 1 -name "${packageName}_${k8sVersion}*" -print -quit 2>/dev/null) || debFile=""
     if [ -n "${debFile}" ]; then
         echo "Found cached ${packageName} deb: ${debFile}"
-        logs_to_events "AKS.CSE.installContainerRuntime.installDebPackageFromFile" "installDebPackageFromFile ${debFile}" || exit $ERR_APT_INSTALL_TIMEOUT
+        logs_to_events "AKS.CSE.install${packageName}PkgFromPMC.installDebPackageFromFile" "installDebPackageFromFile ${debFile}" || exit $ERR_APT_INSTALL_TIMEOUT
         mv "/usr/bin/${packageName}" "/usr/local/bin/${packageName}"
         rm -rf ${downloadDir} &
         return 0
     fi
-    logs_to_events "AKS.CSE.installContainerRuntime.downloadKubePkgFromVersion" "downloadKubePkgFromVersion ${packageName} ${k8sVersion} ${downloadDir}"
+    logs_to_events "AKS.CSE.install${packageName}PkgFromPMC.downloadKubePkgFromVersion" "downloadKubePkgFromVersion ${packageName} ${k8sVersion} ${downloadDir}"
     debFile=$(find "${downloadDir}" -maxdepth 1 -name "${packageName}_${k8sVersion}*" -print -quit 2>/dev/null) || debFile=""
     if [ -z "${debFile}" ]; then
         echo "Failed to locate ${packageName} deb"
         exit $ERR_APT_INSTALL_TIMEOUT
     fi
-    logs_to_events "AKS.CSE.installContainerRuntime.installDebPackageFromFile" "installDebPackageFromFile ${debFile}" || exit $ERR_APT_INSTALL_TIMEOUT
+    logs_to_events "AKS.CSE.install${packageName}.installDebPackageFromFile" "installDebPackageFromFile ${debFile}" || exit $ERR_APT_INSTALL_TIMEOUT
     mv "/usr/bin/${packageName}" "/usr/local/bin/${packageName}"
     rm -rf ${downloadDir} &
     return 0
