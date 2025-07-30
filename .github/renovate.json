@@ -201,11 +201,7 @@
       "groupName": "ciprod",      
       "ignoreUnstable": false,
       "reviewers": [
-        "ganga1980",
-        "suyadav1",
-        "wanlonghenry",
-        "zanejohnson-azure",
-        "joby-thomas"
+        "team:containerinsights"
       ],
       "assignees": [
         "ganga1980",
