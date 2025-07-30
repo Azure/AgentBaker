@@ -91,11 +91,9 @@ func RunScenario(t *testing.T, s *Scenario) {
 
 	if config.Config.TestPreProvision {
 		t.Run("Original", func(t *testing.T) {
-			t.Parallel()
 			runScenario(t, s)
 		})
 		t.Run("FirstStage", func(t *testing.T) {
-			t.Parallel()
 			runScenarioWithPreProvision(t, s)
 
 		})
@@ -189,7 +187,6 @@ func copyScenario(s *Scenario) *Scenario {
 }
 
 func runScenario(t *testing.T, s *Scenario) {
-	t.Parallel()
 	s.T = t
 	ctx := newTestCtx(t)
 	ctrruntimelog.SetLogger(zap.New())
