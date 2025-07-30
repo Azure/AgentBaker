@@ -41,6 +41,7 @@
         "oss/kubernetes/apiserver-network-proxy/agent",
         "oss/kubernetes-csi/secrets-store/driver",
         "oss/azure/secrets-store/provider-azure",
+        "azuremonitor/containerinsights/ciprod",
         "azuremonitor/containerinsights/ciprod/prometheus-collector/images",
         "oss/kubernetes/azure-cloud-node-manager",
         "aks/ip-masq-agent-v2",
@@ -191,6 +192,23 @@
         "behzad-mir",
         "jpayne3506",
         "QxBytes"
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "azuremonitor/containerinsights/ciprod"
+      ],
+      "groupName": "ciprod",      
+      "ignoreUnstable": false,
+      "reviewers": [
+        "team:containerinsights"
+      ],
+      "assignees": [
+        "ganga1980",
+        "suyadav1",
+        "wanlonghenry",
+        "zanejohnson-azure",
+        "joby-thomas"
       ]
     },
     {
