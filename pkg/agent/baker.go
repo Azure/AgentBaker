@@ -1424,6 +1424,7 @@ oom_score = -999{{if HasDataDir }}
 root = "{{GetDataDir}}"{{- end}}
 [plugins."io.containerd.grpc.v1.cri"]
   sandbox_image = "{{GetPodInfraContainerSpec}}"
+  enable_cdi = true
   [plugins."io.containerd.grpc.v1.cri".containerd]
     {{- if TeleportEnabled }}
     snapshotter = "teleportd"
