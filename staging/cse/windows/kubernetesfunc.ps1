@@ -125,6 +125,9 @@ function Write-KubeClusterConfig {
         Kubelet      = @{
             NodeLabels = $global:KubeletNodeLabels;
             ConfigArgs = $global:KubeletConfigArgs
+            SecureTLSBootstrapArgs = @{
+                Enabled = $global:EnableSecureTLSBootstrapping;
+            };
         };
         Kubeproxy    = @{
             FeatureGates = $global:KubeproxyFeatureGates;

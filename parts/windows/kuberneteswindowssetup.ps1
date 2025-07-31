@@ -178,6 +178,15 @@ $global:WindowsGmsaPackageUrl = "{{GetVariable "windowsGmsaPackageUrl" }}";
 # TLS Bootstrap Token
 $global:TLSBootstrapToken = "{{GetTLSBootstrapTokenForKubeConfig}}"
 
+# Secure TLS Bootstrap settings
+$global:EnableSecureTLSBootstrapping = [System.Convert]::ToBoolean("{{EnableSecureTLSBootstrapping}}");
+$global:CustomSecureTLSBootstrapAADServerAppID = "{{GetCustomSecureTLSBootstrapAADServerAppID}}";
+$global:CustomSecureTLSBootstrapClientURL = "{{GetCustomSecureTLSBootstrapClientURL}}";
+
+# used by secure TLS bootstrapping to request AAD tokens - uniquely identifies AKS's Entra ID application.
+# more details: https://learn.microsoft.com/en-us/azure/aks/kubelogin-authentication#how-to-use-kubelogin-with-aks
+$global:AKSAADServerAppID = "6dae42f8-4368-4678-94ff-3960e28e3630"
+
 # Disable OutBoundNAT in Azure CNI configuration
 $global:IsDisableWindowsOutboundNat = [System.Convert]::ToBoolean("{{GetVariable "isDisableWindowsOutboundNat" }}");
 
@@ -255,6 +264,7 @@ if (-not (Test-Path "C:\AzureData\windows\azurecnifunc.ps1")) {
 . c:\AzureData\windows\kubeletfunc.ps1
 . c:\AzureData\windows\kubernetesfunc.ps1
 . c:\AzureData\windows\nvidiagpudriverfunc.ps1
+. c:\AzureData\windows\securetlsbootstrapfunc.ps1
 
 
 # ====== BASE PREP: BASE IMAGE PREPARATION ======
@@ -298,6 +308,8 @@ function BasePrep {
     Configure-KubeletServingCertificateRotation
 
     Write-KubeClusterConfig -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp
+
+    Install-SecureTLSBootstrapClient -KubeDir $global:KubeDir -CustomSecureTLSBootstrapClientDownloadUrl $global:CustomSecureTLSBootstrapClientURL
 
     Install-CredentialProvider -KubeDir $global:KubeDir -CustomCloudContainerRegistryDNSSuffix {{if IsAKSCustomCloud}}"{{ AKSCustomCloudContainerRegistryDNSSuffix }}"{{else}}""{{end}}
 
@@ -463,6 +475,14 @@ function NodePrep {
     if ($global:WindowsCalicoPackageURL) {
         Start-InstallCalico -RootDir "c:\" -KubeServiceCIDR $global:KubeServiceCIDR -KubeDnsServiceIp $KubeDnsServiceIp
     }
+    if ($global:TLSBootstrapToken -or $global:EnableSecureTLSBootstrapping) {
+        Write-Log "Removing temporary kube config"
+        $kubeConfigFile = [io.path]::Combine($KubeDir, "config")
+        Remove-Item $kubeConfigFile
+    }
+
+    # Depends on ca.crt and azure.json
+    ConfigureAndStart-SecureTLSBootstrapping -KubeDir $global:KubeDir -APIServerFQDN $MasterIP -CustomSecureTLSBootstrapAADResource $global:CustomSecureTLSBootstrapAADServerAppID
 
     Start-InstallGPUDriver -EnableInstall $global:ConfigGPUDriverIfNeeded -GpuDriverURL $global:GpuDriverURL
 
@@ -470,12 +490,6 @@ function NodePrep {
     {
         Write-Log "Removing aks cache directory"
         Remove-Item $CacheDir -Recurse -Force
-    }
-
-    if ($global:TLSBootstrapToken) {
-        Write-Log "Removing temporary kube config"
-        $kubeConfigFile = [io.path]::Combine($KubeDir, "config")
-        Remove-Item $kubeConfigFile
     }
 
     Enable-GuestVMLogs -IntervalInMinutes $global:LogGeneratorIntervalInMinutes
