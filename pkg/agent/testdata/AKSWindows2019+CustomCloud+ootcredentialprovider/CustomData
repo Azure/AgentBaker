@@ -299,6 +299,8 @@ function BasePrep {
 
     Write-KubeClusterConfig -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp
 
+    Install-SecureTLSBootstrapClient -KubeDir $global:KubeDir -CustomSecureTLSBootstrapClientDownloadUrl $global:CustomSecureTLSBootstrapClientURL
+
     Install-CredentialProvider -KubeDir $global:KubeDir -CustomCloudContainerRegistryDNSSuffix ".azurecr.microsoft.fakecustomcloud"
 
     Get-KubePackage -KubeBinariesSASURL $global:KubeBinariesPackageSASURL
@@ -354,13 +356,7 @@ function BasePrep {
         New-CsiProxyService -CsiProxyPackageUrl $global:CsiProxyUrl -KubeDir $global:KubeDir
     }
 
-    if ($global:EnableSecureTLSBootstrapping) {
-
-        # Install-SecureTLSBootstrapClient
-        
-        # ConfigureAndStart-SecureTLSBootstrapping
-
-    } elseif ($global:TLSBootstrapToken) {
+    if ($global:TLSBootstrapToken) {
         Write-BootstrapKubeConfig -CACertificate $global:CACertificate `
             -KubeDir $global:KubeDir `
             -MasterFQDNPrefix $MasterFQDNPrefix `
@@ -469,6 +465,14 @@ function NodePrep {
     if ($global:WindowsCalicoPackageURL) {
         Start-InstallCalico -RootDir "c:\" -KubeServiceCIDR $global:KubeServiceCIDR -KubeDnsServiceIp $KubeDnsServiceIp
     }
+    if ($global:TLSBootstrapToken -or $global:EnableSecureTLSBootstrapping) {
+        Write-Log "Removing temporary kube config"
+        $kubeConfigFile = [io.path]::Combine($KubeDir, "config")
+        Remove-Item $kubeConfigFile
+    }
+
+    # Depends on ca.crt and azure.json
+    ConfigureAndStart-SecureTLSBootstrapping -KubeDir $global:KubeDir -APIServerFQDN $MasterIP -AADResource 
 
     Start-InstallGPUDriver -EnableInstall $global:ConfigGPUDriverIfNeeded -GpuDriverURL $global:GpuDriverURL
 
@@ -476,12 +480,6 @@ function NodePrep {
     {
         Write-Log "Removing aks cache directory"
         Remove-Item $CacheDir -Recurse -Force
-    }
-
-    if ($global:TLSBootstrapToken) {
-        Write-Log "Removing temporary kube config"
-        $kubeConfigFile = [io.path]::Combine($KubeDir, "config")
-        Remove-Item $kubeConfigFile
     }
 
     Enable-GuestVMLogs -IntervalInMinutes $global:LogGeneratorIntervalInMinutes

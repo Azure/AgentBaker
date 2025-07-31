@@ -101,7 +101,9 @@ if ($global:EnableSecureTLSBootstrapping) {
     while ($true) {
         $svc = Get-Service -Name $global:SecureTLSBootstrapServiceName -ErrorAction SilentlyContinue
         if ($svc -eq $null) {
-            Write-Host "Unable to get $global:SecureTLSBootstrapServiceName service status, starting kubelet without waiting for secure TLS bootstrapping"
+            Write-Host "Unable to get $global:SecureTLSBootstrapServiceName service status, attempting to forcefully stop $global:SecureTLSBootstrapServiceName"
+            Write-Host "Starting kubelet without waiting for secure TLS bootstrapping"
+            Stop-Service $global:SecureTLSBootstrapServiceName -ErrorAction SilentlyContinue
             break
         }
         if ($svc.Status -eq "Stopped") {
