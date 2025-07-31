@@ -13,7 +13,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func ValidatePodRunning(ctx context.Context, s *Scenario, pod *corev1.Pod) {
@@ -115,7 +115,7 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 	}
 
 	// TODO: Add support for AKSNodeConfig
-	if s.Runtime.NBC != nil && s.Runtime.NBC.AgentPoolProfile.LocalDNSProfile != nil {
+	if s.Runtime.NBC != nil && s.Runtime.NBC.AgentPoolProfile.LocalDNSProfile.EnableLocalDNS != false {
 		ValidateLocalDNSService(ctx, s)
 		ValidateLocalDNSResolution(ctx, s)
 	}
