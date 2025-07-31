@@ -338,12 +338,12 @@
       "windowsVersions": []
     },
     {
-      "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:*",
+      "downloadURL": "mcr.microsoft.com/oss/v2/kubernetes-csi/secrets-store/driver:*",
       "amd64OnlyVersions": [],
       "multiArchVersionsV2": [
         {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/secrets-store/driver",
-          "latestVersion": "v1.4.8"
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/secrets-store/driver",
+          "latestVersion": "v1.5.2"
         }
       ]
     },
