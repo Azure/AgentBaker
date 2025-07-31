@@ -63,6 +63,8 @@ func GetCloudTargetEnv(location string) string {
 		return AzureGermanCloud
 	case strings.HasPrefix(loc, "usgov") || strings.HasPrefix(loc, "usdod"):
 		return AzureUSGovernmentCloud
+	case strings.HasPrefix(loc, "bleu"):
+		return AzureBleuCloud
 	case strings.HasPrefix(strings.ToLower(loc), "usnat"):
 		return USNatCloud
 	case strings.HasPrefix(strings.ToLower(loc), "ussec"):
@@ -268,6 +270,7 @@ var AvailableAzureLinuxCgroupV2Distros = []Distro{
 	AKSAzureLinuxV3FIPS,
 	AKSAzureLinuxV2Gen2FIPS,
 	AKSAzureLinuxV3Gen2FIPS,
+	AKSCBLMarinerV2Gen2Kata, // Per mheberling, AKSCBLMarinerV2Gen2Kata is equal to AKSAzureLinuxV2Gen2Kata. AKSCBLMarinerV2Gen2Kata is added for now to unblock scenario_kata.
 	AKSAzureLinuxV2Gen2Kata,
 	AKSAzureLinuxV3Gen2Kata,
 	AKSAzureLinuxV2Arm64Gen2,
