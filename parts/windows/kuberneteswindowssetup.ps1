@@ -183,6 +183,10 @@ $global:EnableSecureTLSBootstrapping = [System.Convert]::ToBoolean("{{EnableSecu
 $global:CustomSecureTLSBootstrapAADServerAppID = "{{GetCustomSecureTLSBootstrapAADServerAppID}}";
 $global:CustomSecureTLSBootstrapClientURL = "{{GetCustomSecureTLSBootstrapClientURL}}";
 
+# used by secure TLS bootstrapping to request AAD tokens - uniquely identifies AKS's Entra ID application.
+# more details: https://learn.microsoft.com/en-us/azure/aks/kubelogin-authentication#how-to-use-kubelogin-with-aks
+$global:AKSAADServerAppID = "6dae42f8-4368-4678-94ff-3960e28e3630"
+
 # Disable OutBoundNAT in Azure CNI configuration
 $global:IsDisableWindowsOutboundNat = [System.Convert]::ToBoolean("{{GetVariable "isDisableWindowsOutboundNat" }}");
 
@@ -478,7 +482,7 @@ function NodePrep {
     }
 
     # Depends on ca.crt and azure.json
-    ConfigureAndStart-SecureTLSBootstrapping -KubeDir $global:KubeDir -APIServerFQDN $MasterIP -AADResource $global:CustomSecureTLSBootstrapAADServerAppID
+    ConfigureAndStart-SecureTLSBootstrapping -KubeDir $global:KubeDir -APIServerFQDN $MasterIP -CustomSecureTLSBootstrapAADResource $global:CustomSecureTLSBootstrapAADServerAppID
 
     Start-InstallGPUDriver -EnableInstall $global:ConfigGPUDriverIfNeeded -GpuDriverURL $global:GpuDriverURL
 

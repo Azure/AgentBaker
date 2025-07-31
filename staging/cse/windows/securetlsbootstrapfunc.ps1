@@ -78,7 +78,7 @@ function ConfigureAndStart-SecureTLSBootstrapping {
         [Parameter(Mandatory=$true)][string]
         $APIServerFQDN,
         [Parameter(Mandatory=$true)][string]
-        $AADResource,
+        $CustomSecureTLSBootstrapAADResource,
         [Parameter(Mandatory=$false)][string]
         $KubeconfigPath = [Io.path]::Combine("$KubeDir", "config"),
         [Parameter(Mandatory=$false)][string]
@@ -92,15 +92,16 @@ function ConfigureAndStart-SecureTLSBootstrapping {
     )
 
     $secureTLSBootstrapBinPath = [Io.path]::Combine("$KubeDir", "aks-secure-tls-bootstrap-client.exe")
+    $aadResource = ([string]::IsNullOrEmpty($CustomSecureTLSBootstrapAADResource)) ? $global:AKSAADServerAppID : $CustomSecureTLSBootstrapAADResource
     $args = @(
         "--verbose",
         "--ensure-authorized",
         "--next-proto=aks-tls-bootstrap",
+        "--aad-resource=$aadResource",
         "--cluster-ca-file=$ClusterCAFilePath",
         "--kubeconfig=$KubeconfigPath",
         "--cred-file=$CredFilePath",
         "--log-file=$LogFilePath",
-        "--aad-resource=$AADResource",
         "--apiserver-fqdn=$APIServerFQDN",
         "--cloud-provider-config=$AzureConfigPath",
         "--deadline=$global:SecureTLSBootstrappingDeadline",
