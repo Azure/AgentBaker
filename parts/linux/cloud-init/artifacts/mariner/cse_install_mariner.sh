@@ -149,26 +149,51 @@ EOF
     systemctl restart nvidia-persistenced.service || exit 1
 }
 
-installStandaloneKubeletPkgFromPMC() {
+installKubeletPkgFromPMC() {
     local desiredVersion="${1}"
     echo "installing kubelet version ${desiredVersion}"
-    kubeletPackageName="kubelet-${desiredVersion}*"
-
-    if ! tdnf_install 30 1 600 $kubeletPackageName; then
-        exit $ERR_KUBELET_INSTALL_TIMEOUT
-    fi
-    mv "/usr/bin/kubelet" "/usr/local/bin/kubelet"
+	installRPMPackageFromFile "kubelet" $desiredVersion || exit $ERR_KUBELET_INSTALL_TIMEOUT
 }
 
-installStandaloneKubectlPkgFromPMC() {
-    local desiredVersion="${1}"
-    echo "installing kubectl version ${desiredVersion}"
-    kubectlPackageName="kubectl-${desiredVersion}*"
 
-    if ! tdnf_install 30 1 600 $kubectlPackageName; then
-        exit $ERR_KUBECTL_INSTALL_TIMEOUT
+installKubectlPkgFromPMC() {
+    local desiredVersion="${1}"
+    echo "installing kubelet version ${desiredVersion}"
+	installRPMPackageFromFile "kubectl" $desiredVersion || exit $ERR_KUBECTL_INSTALL_TIMEOUT
+}
+
+installRPMPackageFromFile() {
+    local packageName="${1}"
+    local desiredVersion="${2}"
+    echo "installing ${packageName} version ${desiredVersion}"
+	downloadDir="/opt/${packageName}/downloads"
+
+    rpmFile=$(find "${downloadDir}" -maxdepth 1 -name "${packageName}-${desiredVersion}*" -print -quit 2>/dev/null) || rpmFile=""
+	fullPackageVersion=$(tdnf list ${packageName} | grep ${desiredVersion} | awk '{print $2}')
+    if [ -z "${rpmFile}" ]; then
+        echo "kubectl package not found at ${pathToKubectlRPM}. Attempting to download it."
+        downloadKubePkgFromVersion "${packageName}" ${fullPackageVersion} "${downloadDir}" || exit $ERR_APT_INSTALL_TIMEOUT
     fi
-    mv "/usr/bin/kubectl" "/usr/local/bin/kubectl"
+	if [ -z "${rpmFile}" ]; then
+        echo "Failed to locate ${packageName} rpm"
+        exit $ERR_APT_INSTALL_TIMEOUT
+    fi
+
+    if ! tdnf_install 30 1 600 ${downloadDir}/${packageName}-${desiredVersion}*; then
+        exit $ERR_APT_INSTALL_TIMEOUT
+    fi
+    mv "/usr/bin/${packageName}" "/usr/local/bin/${packageName}"
+	rm -rf ${downloadDir} &
+}
+
+downloadKubePkgFromVersion() {
+    packageName="${1:-}"
+    packageVersion="${2:-}"
+    downloadDir="${3:-"/opt/${packageName}/downloads"}"
+    mkdir -p ${downloadDir}
+    tdnf_download 30 1 600 ${downloadDir} ${packageName}=${packageVersion}  || exit $ERR_APT_INSTALL_TIMEOUT
+    # cp -al ${APT_CACHE_DIR}${packageName}_${packageVersion}* ${downloadDir}/ || exit $ERR_APT_INSTALL_TIMEOUT
+    echo "Succeeded to download ${packageName} version ${packageVersion}"
 }
 
 # CSE+VHD can dictate the containerd version, users don't care as long as it works

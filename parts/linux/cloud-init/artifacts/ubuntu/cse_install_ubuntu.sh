@@ -115,15 +115,11 @@ installKubePkgWithAptGet() {
     # if kubelet version has been overriden then there should exist a local .deb file for it on aks VHDs (best-effort)
     # if no files found then try fetching from packages.microsoft repo
     debFile=$(find "${downloadDir}" -maxdepth 1 -name "${packageName}_${k8sVersion}*" -print -quit 2>/dev/null) || debFile=""
-    if [ -n "${debFile}" ]; then
-        echo "Found cached ${packageName} deb: ${debFile}"
-        logs_to_events "AKS.CSE.install${packageName}PkgFromPMC.installDebPackageFromFile" "installDebPackageFromFile ${debFile}" || exit $ERR_APT_INSTALL_TIMEOUT
-        mv "/usr/bin/${packageName}" "/usr/local/bin/${packageName}"
-        rm -rf ${downloadDir} &
-        return 0
+    if [ -z "${debFile}" ]; then
+        echo "Did not find cached deb file, downloading ${packageName} version ${k8sVersion}"
+        logs_to_events "AKS.CSE.install${packageName}PkgFromPMC.downloadKubePkgFromVersion" "downloadKubePkgFromVersion ${packageName} ${k8sVersion} ${downloadDir}"
+        debFile=$(find "${downloadDir}" -maxdepth 1 -name "${packageName}_${k8sVersion}*" -print -quit 2>/dev/null) || debFile=""
     fi
-    logs_to_events "AKS.CSE.install${packageName}PkgFromPMC.downloadKubePkgFromVersion" "downloadKubePkgFromVersion ${packageName} ${k8sVersion} ${downloadDir}"
-    debFile=$(find "${downloadDir}" -maxdepth 1 -name "${packageName}_${k8sVersion}*" -print -quit 2>/dev/null) || debFile=""
     if [ -z "${debFile}" ]; then
         echo "Failed to locate ${packageName} deb"
         exit $ERR_APT_INSTALL_TIMEOUT

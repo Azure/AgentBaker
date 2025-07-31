@@ -1764,7 +1764,7 @@ func Test_AzureLinux_Kube_Package_Install(t *testing.T) {
 				if vmss.Tags == nil {
 					vmss.Tags = map[string]*string{}
 				}
-				vmss.Tags["ShouldBypassK8sVersionCheck"] = to.Ptr("true")
+				vmss.Tags["ShouldEnforceKubePMCInstall"] = to.Ptr("true")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 			},
@@ -1787,7 +1787,7 @@ func Test_Ubuntu2204_Kube_Package_Install(t *testing.T) {
 				if vmss.Tags == nil {
 					vmss.Tags = map[string]*string{}
 				}
-				vmss.Tags["ShouldBypassK8sVersionCheck"] = to.Ptr("true")
+				vmss.Tags["ShouldEnforceKubePMCInstall"] = to.Ptr("true")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", getExpectedPackageVersions("containerd", "ubuntu", "r2204")[0])

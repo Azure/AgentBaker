@@ -615,15 +615,15 @@ should_skip_binary_cleanup() {
     echo "${should_skip,,}"
 }
 
-should_bypass_k8s_version_check() {
+should_enforce_kube_pmc_install() {
     set -x
     body=$(curl -fsSL -H "Metadata: true" --noproxy "*" "http://169.254.169.254/metadata/instance?api-version=2021-02-01")
     ret=$?
     if [ "$ret" -ne 0 ]; then
       return $ret
     fi
-    should_bypass=$(echo "$body" | jq -r '.compute.tagsList[] | select(.name == "ShouldBypassK8sVersionCheck") | .value')
-    echo "${should_bypass,,}"
+    should_enforce=$(echo "$body" | jq -r '.compute.tagsList[] | select(.name == "ShouldEnforceKubePMCInstall") | .value')
+    echo "${should_enforce,,}"
 }
 
 isMarinerOrAzureLinux() {
