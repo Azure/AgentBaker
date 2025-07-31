@@ -233,9 +233,6 @@ if [ "${NEEDS_DOCKER_LOGIN}" = "true" ]; then
     set -x
 fi
 
-export -f should_bypass_k8s_version_check
-SKIP_BYPASS_K8S_VERSION_CHECK=$(retrycmd_silent 10 1 10 bash -cx should_bypass_k8s_version_check)
-
 logs_to_events "AKS.CSE.configKubeletAndKubectl" configKubeletAndKubectl
 
 createKubeManifestDir
