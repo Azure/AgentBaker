@@ -1,7 +1,7 @@
-Starting build on  Tue Jul 29 14:22:29 UTC 2025
+Starting build on  Tue Jul 15 16:57:15 UTC 2025
 Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):
   - oras version 1.2.2
-  - aks-secure-tls-bootstrap-client version 0.1.0-alpha.8
+  - aks-secure-tls-bootstrap-client version 0.1.0-alpha.7
   - runc version 1.2.6-ubuntu22.04u1
   - containerd version 1.7.27-ubuntu22.04u1
   - CNI plugin version 1.6.2
@@ -16,14 +16,14 @@ Components downloaded in this VHD build (some of the below components might get 
   - kubernetes-binaries version v1.30.14
   - kubernetes-binaries version v1.31.10
   - kubernetes-binaries version v1.32.6
-  - kubernetes-binaries version v1.33.3
+  - kubernetes-binaries version v1.33.2
   - kubernetes-binaries version v1.27.102-akslts
   - kubernetes-binaries version v1.28.100-akslts
   - kubernetes-binaries version v1.29.14
   - kubernetes-binaries version v1.30.13
   - kubernetes-binaries version v1.31.9
   - kubernetes-binaries version v1.32.5
-  - kubernetes-binaries version v1.33.2
+  - kubernetes-binaries version v1.33.1
   - azure-acr-credential-provider version v1.29.15
   - azure-acr-credential-provider version v1.30.13
   - azure-acr-credential-provider version v1.31.7
@@ -43,13 +43,13 @@ containerd images pre-pulled:
   - mcr.microsoft.com/containernetworking/azure-cni:v1.6.20
   - mcr.microsoft.com/containernetworking/azure-cns:v1.4.59
   - mcr.microsoft.com/containernetworking/azure-cns:v1.5.48
-  - mcr.microsoft.com/containernetworking/azure-cns:v1.6.30
-  - mcr.microsoft.com/containernetworking/azure-cns:v1.5.45
   - mcr.microsoft.com/containernetworking/azure-cns:v1.6.29
+  - mcr.microsoft.com/containernetworking/azure-cns:v1.5.45
+  - mcr.microsoft.com/containernetworking/azure-cns:v1.6.27
   - mcr.microsoft.com/containernetworking/azure-ipam:v0.0.7
   - mcr.microsoft.com/containernetworking/azure-ipam:v0.2.1
   - mcr.microsoft.com/containernetworking/azure-ipam:v0.2.0
-  - mcr.microsoft.com/containernetworking/azure-npm:v1.6.29
+  - mcr.microsoft.com/containernetworking/azure-npm:v1.5.48
   - mcr.microsoft.com/containernetworking/cilium/cilium:v1.14.19-250129
   - mcr.microsoft.com/containernetworking/cilium/cilium:v1.16.6-250129
   - mcr.microsoft.com/containernetworking/cilium/cilium:v1.14.18-250107
@@ -57,13 +57,13 @@ containerd images pre-pulled:
   - mcr.microsoft.com/oss/v2/kubernetes/apiserver-network-proxy/agent:v0.30.3-1
   - mcr.microsoft.com/oss/v2/kubernetes/apiserver-network-proxy/agent:v0.30.3-3
   - mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.4.8
-  - mcr.microsoft.com/oss/v2/kubernetes-csi/secrets-store/driver:v1.5.3
+  - mcr.microsoft.com/oss/v2/kubernetes-csi/secrets-store/driver:v1.5.2
   - mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.6.2
   - mcr.microsoft.com/oss/v2/azure/secrets-store/provider-azure:v1.7.0
   - mcr.microsoft.com/azuremonitor/containerinsights/ciprod:3.1.28
-  - mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.20.0-main-07-24-2025-756981f2
-  - mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.20.0-main-07-24-2025-756981f2-targetallocator
-  - mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.20.0-main-07-24-2025-756981f2-cfg
+  - mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.18.0-main-06-19-2025-4901e151
+  - mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.18.0-main-06-19-2025-4901e151-targetallocator
+  - mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.18.0-main-06-19-2025-4901e151-cfg
   - mcr.microsoft.com/oss/v2/kubernetes/kube-state-metrics:v2.15.0-4
   - mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.29.15
   - mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.30.13
@@ -108,14 +108,14 @@ containerd images pre-pulled:
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.30.14
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.31.10
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.32.6
-  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.33.3
+  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.33.2
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.27.102-akslts
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.28.100-akslts
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.29.14
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.30.13
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.31.9
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.32.5
-  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.33.2
+  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.33.1
   - bcc-tools
   - libbcc-examples
 Successfully copied coredns binary of v1.11.3-8
@@ -136,6 +136,8 @@ kubelet/kubectl downloaded:
 -rwxr-xr-x 1 root root  48169112 Apr 11 03:59 /usr/local/bin/kubectl-1.28.101-akslts
 -rwxr-xr-x 1 root root  75235588 May 21 16:56 /usr/local/bin/kubelet-1.32.5
 -rwxr-xr-x 1 root root  55836824 May 21 16:56 /usr/local/bin/kubectl-1.32.5
+-rwxr-xr-x 1 root root  78184740 May 21 17:00 /usr/local/bin/kubelet-1.33.1
+-rwxr-xr-x 1 root root  57671864 May 21 17:00 /usr/local/bin/kubectl-1.33.1
 -rwxr-xr-x 1 root root  75088696 May 23 19:14 /usr/local/bin/kubelet-1.31.9
 -rwxr-xr-x 1 root root  55509144 May 23 19:14 /usr/local/bin/kubectl-1.31.9
 -rwxr-xr-x 1 root root  96893720 Jun 30 16:34 /usr/local/bin/kubelet-1.30.14
@@ -148,10 +150,8 @@ kubelet/kubectl downloaded:
 -rwxr-xr-x 1 root root  55509144 Jun 30 17:07 /usr/local/bin/kubectl-1.31.10
 -rwxr-xr-x 1 root root  96893720 Jul  1 19:56 /usr/local/bin/kubelet-1.30.13
 -rwxr-xr-x 1 root root  50462872 Jul  1 19:56 /usr/local/bin/kubectl-1.30.13
--rwxr-xr-x 1 root root  78184740 Jul 17 00:30 /usr/local/bin/kubelet-1.33.3
--rwxr-xr-x 1 root root  57671864 Jul 17 00:30 /usr/local/bin/kubectl-1.33.3
--rwxr-xr-x 1 root root  54777278 Jul 18 22:45 /usr/local/bin/aks-secure-tls-bootstrap-client
--rwxr-xr-x 1 root root       699 Jul 29 14:22 /usr/local/bin/ci-syslog-watcher.sh
+-rwxr-xr-x 1 root root  54758551 Jul  7 18:57 /usr/local/bin/aks-secure-tls-bootstrap-client
+-rwxr-xr-x 1 root root       699 Jul 15 16:57 /usr/local/bin/ci-syslog-watcher.sh
 === Installed Packages Begin
 Listing...
 adduser/jammy,now 3.118ubuntu5 all [installed,automatic]
@@ -171,7 +171,7 @@ bind9-libs/jammy-updates,jammy-security,now 1:9.18.30-0ubuntu0.22.04.2 arm64 [in
 binutils-aarch64-linux-gnu/jammy-updates,jammy-security,now 2.38-4ubuntu2.8 arm64 [installed,automatic]
 binutils-common/jammy-updates,jammy-security,now 2.38-4ubuntu2.8 arm64 [installed,automatic]
 binutils/jammy-updates,jammy-security,now 2.38-4ubuntu2.8 arm64 [installed,automatic]
-blobfuse2/jammy,now 2.5.0 arm64 [installed]
+blobfuse2/jammy,now 2.4.1 arm64 [installed,upgradable to: 2.5.0~preview.1]
 bolt/jammy,now 0.9.2-1 arm64 [installed]
 bpftrace/jammy,now 0.14.0-1 arm64 [installed]
 bsdextrautils/jammy-updates,jammy-security,now 2.37.2-4ubuntu3.4 arm64 [installed,automatic]
@@ -293,13 +293,13 @@ iotop/jammy-updates,now 0.6-24-g733f3f8-1.1ubuntu0.1 arm64 [installed]
 iproute2/jammy,now 5.15.0-1ubuntu2 arm64 [installed]
 ipset/jammy,now 7.15-1build1 arm64 [installed]
 iptables/jammy-updates,now 1.8.7-1ubuntu5.2 arm64 [installed]
-iputils-ping/jammy-updates,jammy-security,now 3:20211215-1ubuntu0.1 arm64 [installed,automatic]
-iputils-tracepath/jammy-updates,jammy-security,now 3:20211215-1ubuntu0.1 arm64 [installed,automatic]
+iputils-ping/jammy,now 3:20211215-1 arm64 [installed,automatic]
+iputils-tracepath/jammy,now 3:20211215-1 arm64 [installed,automatic]
 irqbalance/jammy-updates,now 1.8.0-1ubuntu0.2 arm64 [installed,automatic]
 isc-dhcp-client/jammy-updates,now 4.4.1-2.3ubuntu2.4 arm64 [installed,automatic]
 isc-dhcp-common/jammy-updates,now 4.4.1-2.3ubuntu2.4 arm64 [installed,automatic]
 iso-codes/jammy,now 4.9.0-1 all [installed,automatic]
-jq/jammy-updates,jammy-security,now 1.6-2.1ubuntu3.1 arm64 [installed]
+jq/jammy,now 1.6-2.1ubuntu3 arm64 [installed]
 kbd/jammy-updates,now 2.3.0-3ubuntu4.22.04 arm64 [installed,automatic]
 keyboard-configuration/jammy,now 1.205ubuntu3 all [installed,automatic]
 keyutils/jammy,now 1.6.1-2ubuntu3 arm64 [installed]
@@ -447,7 +447,7 @@ libisns0/jammy,now 0.101-0ubuntu2 arm64 [installed,automatic]
 libitm1/jammy-updates,jammy-security,now 12.3.0-1ubuntu1~22.04 arm64 [installed,automatic]
 libjansson4/jammy,now 2.13.1-1.1build3 arm64 [installed,automatic]
 libjcat1/jammy,now 0.1.9-1 arm64 [installed]
-libjq1/jammy-updates,jammy-security,now 1.6-2.1ubuntu3.1 arm64 [installed,automatic]
+libjq1/jammy,now 1.6-2.1ubuntu3 arm64 [installed,automatic]
 libjson-c5/jammy-updates,jammy-security,now 0.15-3~ubuntu1.22.04.2 arm64 [installed,automatic]
 libjson-glib-1.0-0/jammy,now 1.6.6-1build1 arm64 [installed]
 libjson-glib-1.0-common/jammy,now 1.6.6-1build1 all [installed]
@@ -569,7 +569,7 @@ libsmartcols1/jammy-updates,jammy-security,now 2.37.2-4ubuntu3.4 arm64 [installe
 libsnappy1v5/jammy,now 1.1.8-1build3 arm64 [installed,automatic]
 libsodium23/jammy,now 1.0.18-1build2 arm64 [installed,automatic]
 libsort-naturally-perl/jammy,now 1.03-2 all [installed,automatic]
-libsqlite3-0/jammy-updates,jammy-security,now 3.37.2-2ubuntu0.5 arm64 [installed,automatic]
+libsqlite3-0/jammy-updates,jammy-security,now 3.37.2-2ubuntu0.4 arm64 [installed,automatic]
 libss2/jammy-updates,now 1.46.5-2ubuntu1.2 arm64 [installed,automatic]
 libssh-4/jammy-updates,jammy-security,now 0.9.6-2ubuntu0.22.04.4 arm64 [installed,automatic]
 libssl3/jammy-updates,jammy-security,now 3.0.2-0ubuntu1.19 arm64 [installed,automatic]
@@ -637,17 +637,17 @@ linux-base-sgx/jammy-updates,now 4.5ubuntu9+22.04.1 all [installed,automatic]
 linux-base/jammy-updates,now 4.5ubuntu9+22.04.1 all [installed]
 linux-cloud-tools-5.15.0-1091-azure/jammy-updates,jammy-security,now 5.15.0-1091.100 arm64 [installed,automatic]
 linux-cloud-tools-azure-lts-22.04/jammy-updates,jammy-security,now 5.15.0.1091.89 arm64 [installed]
-linux-cloud-tools-common/jammy-updates,now 5.15.0-151.161 all [installed,automatic]
+linux-cloud-tools-common/jammy-updates,jammy-security,now 5.15.0-143.153 all [installed,automatic]
 linux-headers-5.15.0-1091-azure/jammy-updates,jammy-security,now 5.15.0-1091.100 arm64 [installed]
 linux-headers-azure-lts-22.04/jammy-updates,jammy-security,now 5.15.0.1091.89 arm64 [installed]
 linux-image-5.15.0-1091-azure/jammy-updates,jammy-security,now 5.15.0-1091.100 arm64 [installed,automatic]
 linux-image-azure-lts-22.04/jammy-updates,jammy-security,now 5.15.0.1091.89 arm64 [installed]
-linux-libc-dev/jammy-updates,now 5.15.0-151.161 arm64 [installed,automatic]
+linux-libc-dev/jammy-updates,jammy-security,now 5.15.0-143.153 arm64 [installed,automatic]
 linux-modules-5.15.0-1091-azure/jammy-updates,jammy-security,now 5.15.0-1091.100 arm64 [installed,automatic]
 linux-modules-extra-5.15.0-1091-azure/jammy-updates,jammy-security,now 5.15.0-1091.100 arm64 [installed]
 linux-tools-5.15.0-1091-azure/jammy-updates,jammy-security,now 5.15.0-1091.100 arm64 [installed,automatic]
 linux-tools-azure-lts-22.04/jammy-updates,jammy-security,now 5.15.0.1091.89 arm64 [installed]
-linux-tools-common/jammy-updates,now 5.15.0-151.161 all [installed,automatic]
+linux-tools-common/jammy-updates,jammy-security,now 5.15.0-143.153 all [installed,automatic]
 locales/jammy-updates,jammy-security,now 2.35-0ubuntu3.10 all [installed,automatic]
 login/jammy-updates,jammy-security,now 1:4.8.1-2ubuntu2.2 arm64 [installed]
 logrotate/jammy-updates,jammy-security,now 3.19.0-1ubuntu1.1 arm64 [installed,automatic]
@@ -695,7 +695,7 @@ openssl/jammy-updates,jammy-security,now 3.0.2-0ubuntu1.19 arm64 [installed,auto
 overlayroot/jammy,now 0.47ubuntu1 all [installed]
 packagekit-tools/jammy-updates,now 1.2.5-2ubuntu3 arm64 [installed,automatic]
 packagekit/jammy-updates,now 1.2.5-2ubuntu3 arm64 [installed,automatic]
-packages-microsoft-prod/jammy,now 1.2-ubuntu22.04 all [installed]
+packages-microsoft-prod/jammy,now 1.0-ubuntu22.04.1 all [installed]
 parted/jammy,now 3.4-2build1 arm64 [installed,automatic]
 passwd/jammy-updates,jammy-security,now 1:4.8.1-2ubuntu2.2 arm64 [installed,automatic]
 pastebinit/jammy,now 1.5.1-1ubuntu1 all [installed,automatic]
@@ -882,7 +882,7 @@ zstd/jammy,now 1.4.8+dfsg-3build1 arm64 [installed,automatic]
 === Installed Packages End
 Disk usage:
 Filesystem      Size  Used Avail Use% Mounted on
-/dev/root        29G   23G  6.1G  80% /
+/dev/root        29G   23G  6.2G  79% /
 tmpfs            32G     0   32G   0% /dev/shm
 tmpfs            13G  776K   13G   1% /run
 tmpfs           5.0M     0  5.0M   0% /run/lock
@@ -905,10 +905,10 @@ UBUNTU_CODENAME=jammy
 === os-release End
 Using kernel:
 Linux version 5.15.0-1091-azure (buildd@bos03-arm64-001) (gcc (Ubuntu 11.4.0-1ubuntu1~22.04) 11.4.0, GNU ld (GNU Binutils for Ubuntu) 2.38) #100-Ubuntu SMP Tue May 27 21:44:43 UTC 2025
-Install completed successfully on  Tue Jul 29 14:41:20 UTC 2025
-VSTS Build NUMBER: 20250729.1_master_132002574
-VSTS Build ID: 132002574
-Commit: 9a468c20e2c53bf723426e45df369e530c9c1b34
+Install completed successfully on  Tue Jul 15 17:21:25 UTC 2025
+VSTS Build NUMBER: 20250715.1_master_130460009
+VSTS Build ID: 130460009
+Commit: be8083df166f8957667632d3c50f167b613deea5
 Ubuntu version: 22.04
 Hyperv generation: V2
 Feature flags: None

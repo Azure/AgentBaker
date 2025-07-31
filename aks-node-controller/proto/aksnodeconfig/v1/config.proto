@@ -149,8 +149,4 @@ message Configuration {
 
   // IMDS restriction configuration
   ImdsRestrictionConfig imds_restriction_config = 39;
-
-  // Creates a pre-provisioned image for later node spawning.
-  // Skips kubelet and some component configuration for image capture scenarios.
-  bool pre_provision_only = 40;
 }

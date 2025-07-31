@@ -53,7 +53,7 @@ func (t *TemplateGenerator) getLinuxNodeBootstrappingPayload(config *datamodel.N
 	// this might seem strange that we're encoding the custom data to a JSON string and then extracting it, but without that serialisation and deserialisation
 	// lots of tests fail.
 	var encoded string
-	if config.IsFlatcar() {
+	if config.AgentPoolProfile.IsFlatcar() {
 		customData := getCustomDataFromJSON(t.getFlatcarLinuxNodeCustomDataJSONObject(config))
 		encoded = base64.StdEncoding.EncodeToString([]byte(customData))
 	} else {
@@ -171,7 +171,7 @@ func (t *TemplateGenerator) getFlatcarLinuxNodeCustomDataJSONObject(config *data
 						Inline: to.StringPtr(string(ignjson)),
 						// TODO: butane 0.24.0 broke support for explicit compression
 						// so we depend on automatic resource compression.
-						// Compression: to.StringPtr("gzip"),
+						//Compression: to.StringPtr("gzip"),
 					},
 				},
 			},
@@ -629,7 +629,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return cs.Properties.OrchestratorProfile.IsNoneCNI()
 		},
 		"IsFlatcar": func() bool {
-			return config.IsFlatcar()
+			return profile.IsFlatcar()
 		},
 		"IsMariner": func() bool {
 			// TODO(ace): do we care about both? 2nd one should be more general and catch custom VHD for mariner
@@ -639,9 +639,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return profile.Distro.IsKataDistro()
 		},
 		"IsCustomImage": func() bool {
-			return profile.Distro == datamodel.CustomizedImage ||
-				profile.Distro == datamodel.CustomizedImageKata ||
-				profile.Distro == datamodel.CustomizedImageLinuxGuard
+			return profile.Distro == datamodel.CustomizedImage || profile.Distro == datamodel.CustomizedImageKata
 		},
 		"EnableHostsConfigAgent": func() bool {
 			return cs.Properties.OrchestratorProfile.KubernetesConfig != nil &&
@@ -843,6 +841,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 				}
 				return containerdV1NoGPUConfigTemplate
 			}(profile))
+
 			if err != nil {
 				panic(err)
 			}
@@ -1113,7 +1112,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return base64.StdEncoding.EncodeToString(b.Bytes()), nil
 		},
 		"ShouldEnableCustomData": func() bool {
-			return !config.DisableCustomData && !config.IsFlatcar()
+			return !config.DisableCustomData && !profile.IsFlatcar()
 		},
 		"GetPrivateEgressProxyAddress": func() string {
 			return config.ContainerService.Properties.SecurityProfile.GetProxyAddress()
@@ -1151,10 +1150,6 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"GetLocalDNSMemoryLimitInMB": func() string {
 			return profile.GetLocalDNSMemoryLimitInMB()
-		},
-		"GetPreProvisionOnly": func() bool { return config.PreProvisionOnly },
-		"BlockIptables": func() bool {
-			return cs.Properties.OrchestratorProfile.KubernetesConfig.BlockIptables
 		},
 	}
 }

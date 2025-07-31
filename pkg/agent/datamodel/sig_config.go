@@ -63,8 +63,6 @@ func GetCloudTargetEnv(location string) string {
 		return AzureGermanCloud
 	case strings.HasPrefix(loc, "usgov") || strings.HasPrefix(loc, "usdod"):
 		return AzureUSGovernmentCloud
-	case strings.HasPrefix(loc, "bleu"):
-		return AzureBleuCloud
 	case strings.HasPrefix(strings.ToLower(loc), "usnat"):
 		return USNatCloud
 	case strings.HasPrefix(strings.ToLower(loc), "ussec"):
@@ -270,7 +268,6 @@ var AvailableAzureLinuxCgroupV2Distros = []Distro{
 	AKSAzureLinuxV3FIPS,
 	AKSAzureLinuxV2Gen2FIPS,
 	AKSAzureLinuxV3Gen2FIPS,
-	AKSCBLMarinerV2Gen2Kata, // Per mheberling, AKSCBLMarinerV2Gen2Kata is equal to AKSAzureLinuxV2Gen2Kata. AKSCBLMarinerV2Gen2Kata is added for now to unblock scenario_kata.
 	AKSAzureLinuxV2Gen2Kata,
 	AKSAzureLinuxV3Gen2Kata,
 	AKSAzureLinuxV2Arm64Gen2,
@@ -1095,8 +1092,10 @@ func GetSIGAzureCloudSpecConfig(sigConfig SIGConfig, region string) (SIGAzureEnv
 	}
 	c.SigAzureLinuxImageConfig = getSigAzureLinuxImageConfigMapWithOpts(fromACSAzureLinux)
 
-	// TODO: use withACSConfig when the gallery config is available within SIGConfig (ACSConfig) provided by the resource provider.
-	fromACSFlatcar := withACSSIGConfigWithDefaults(sigConfig, "AKSFlatcar", AKSFlatcarGalleryName, AKSFlatcarResourceGroup)
+	fromACSFlatcar, err := withACSSIGConfig(sigConfig, "AKSFlatcar")
+	if err != nil {
+		return SIGAzureEnvironmentSpecConfig{}, fmt.Errorf("unexpected error while constructing env-aware sig configuration for AKSFlatcar: %w", err)
+	}
 	c.SigFlatcarImageConfig = getSigFlatcarImageConfigMapWithOpts(fromACSFlatcar)
 
 	fromACSWindows, err := withACSSIGConfig(sigConfig, "AKSWindows")
@@ -1125,27 +1124,6 @@ func GetAzurePublicSIGConfigForTest() SIGAzureEnvironmentSpecConfig {
 		SigWindowsImageConfig:        getSigWindowsImageConfigMapWithOpts(withSubscription(AzurePublicCloudSigSubscription)),
 		SigUbuntuEdgeZoneImageConfig: getSigUbuntuEdgeZoneImageConfigMapWithOpts(withSubscription(AzurePublicCloudSigSubscription)),
 		SigFlatcarImageConfig:        getSigFlatcarImageConfigMapWithOpts(withSubscription(AzurePublicCloudSigSubscription)),
-	}
-}
-
-// withACSSIGConfigWithDefaults functions the same as withACSSIGConfig, but uses a default gallery and resource group
-// if no corresponding gallery config is found for the particular OS SKU. This is needed to support agentbaker E2E tests
-// using the specified SKU while also ignoring cases where ACSConfig provided by the resource provider in production
-// doesn't contain the required gallery config for the specified OS SKU.
-func withACSSIGConfigWithDefaults(acsSigConfig SIGConfig, osSKU, defaultGallery, defaultResourceGroup string) SigImageConfigOpt {
-	galleryName := defaultGallery
-	resourceGroup := defaultResourceGroup
-
-	gallery, k := acsSigConfig.Galleries[osSKU]
-	if k {
-		galleryName = gallery.GalleryName
-		resourceGroup = gallery.ResourceGroup
-	}
-
-	return func(c *SigImageConfig) {
-		c.Gallery = galleryName
-		c.SubscriptionID = acsSigConfig.SubscriptionID
-		c.ResourceGroup = resourceGroup
 	}
 }
 

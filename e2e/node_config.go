@@ -130,7 +130,7 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnod
 	agent.ValidateAndSetLinuxNodeBootstrappingConfiguration(nbc)
 
 	config := &aksnodeconfigv1.Configuration{
-		Version:            "v1",
+		Version:            "v0",
 		DisableCustomData:  false,
 		LinuxAdminUsername: "azureuser",
 		VmSize:             config.Config.DefaultVMSKU,
@@ -199,6 +199,7 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnod
 // which itself was extracted from baker_test.go logic, which was inherited from aks-engine.
 func baseTemplateLinux(t *testing.T, location string, k8sVersion string, arch string) *datamodel.NodeBootstrappingConfiguration {
 	config := &datamodel.NodeBootstrappingConfiguration{
+		Version: "v0",
 		ContainerService: &datamodel.ContainerService{
 			ID:       "",
 			Location: location,

@@ -255,17 +255,17 @@ configureK8s() {
         set -x
     fi
 
-    set +x
     if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" = "false" ] && [ -z "${TLS_BOOTSTRAP_TOKEN:-}" ]; then
         # only create the client cert and key if we're not using vanilla/secure TLS bootstrapping
+        set +x
         if [ -n "${KUBELET_CLIENT_CONTENT}" ]; then
             echo "${KUBELET_CLIENT_CONTENT}" | base64 -d > /etc/kubernetes/certs/client.key
         fi
         if [ -n "${KUBELET_CLIENT_CERT_CONTENT}" ]; then
             echo "${KUBELET_CLIENT_CERT_CONTENT}" | base64 -d > /etc/kubernetes/certs/client.crt
         fi
+        set -x
     fi
-    set -x
 
     if [ "${KUBELET_CONFIG_FILE_ENABLED}" = "true" ]; then
         set +x
@@ -329,17 +329,9 @@ ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
 EOF
 
   mkdir -p /etc/containerd
-  if [ "${GPU_NODE}" = "true" ]; then
-    # Check VM tag directly to determine if GPU drivers should be skipped
-    export -f should_skip_nvidia_drivers
-    should_skip=$(retrycmd_silent 10 1 10 bash -cx should_skip_nvidia_drivers)
-    if [ "$?" -eq 0 ] && [ "${should_skip}" = "true" ]; then
-      echo "Generating non-GPU containerd config for GPU node due to VM tags"
-      echo "${CONTAINERD_CONFIG_NO_GPU_CONTENT}" | base64 -d > /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
-    else
-      echo "Generating GPU containerd config..."
-      echo "${CONTAINERD_CONFIG_CONTENT}" | base64 -d > /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
-    fi
+  if [ "${GPU_NODE}" = "true" ] && [ "${skip_nvidia_driver_install}" = "true" ]; then
+    echo "Generating non-GPU containerd config for GPU node due to VM tags"
+    echo "${CONTAINERD_CONFIG_NO_GPU_CONTENT}" | base64 -d > /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
   else
     echo "Generating containerd config..."
     echo "${CONTAINERD_CONFIG_CONTENT}" | base64 -d > /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT

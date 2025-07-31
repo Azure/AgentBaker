@@ -58,8 +58,6 @@ type Configuration struct {
 	IgnoreScenariosWithMissingVHD bool          `env:"IGNORE_SCENARIOS_WITH_MISSING_VHD"`
 	KeepVMSS                      bool          `env:"KEEP_VMSS"`
 	DefaultLocation               string        `env:"E2E_LOCATION" envDefault:"westus3"`
-	TestGalleryNamePrefix         string        `env:"TEST_GALLERY_NAME_PREFIX" envDefault:"abe2etest"`
-	TestGalleryImagePrefix        string        `env:"TEST_GALLERY_IMAGE_PREFIX" envDefault:"abe2etest"`
 	SIGVersionTagName             string        `env:"SIG_VERSION_TAG_NAME" envDefault:"branch"`
 	SIGVersionTagValue            string        `env:"SIG_VERSION_TAG_VALUE" envDefault:"refs/heads/master"`
 	SkipTestsWithSKUCapacityIssue bool          `env:"SKIP_TESTS_WITH_SKU_CAPACITY_ISSUE"`
@@ -70,7 +68,6 @@ type Configuration struct {
 	TestTimeoutCluster            time.Duration `env:"TEST_TIMEOUT_CLUSTER" envDefault:"20m"`
 	TestTimeoutVMSS               time.Duration `env:"TEST_TIMEOUT_VMSS" envDefault:"17m"`
 	WindowsAdminPassword          string        `env:"WINDOWS_ADMIN_PASSWORD"`
-	TestPreProvision              bool          `env:"TEST_PRE_PROVISION" envDefault:"false"`
 }
 
 func (c *Configuration) BlobStorageAccount() string {
@@ -114,10 +111,7 @@ func (c *Configuration) VMIdentityResourceID(location string) string {
 }
 
 func mustLoadConfig() *Configuration {
-	err := godotenv.Load(".env")
-	if err != nil {
-		fmt.Printf("Error loading .env file: %s\n", err)
-	}
+	_ = godotenv.Load(".env")
 	cfg := &Configuration{}
 	if err := env.Parse(cfg); err != nil {
 		panic(err)

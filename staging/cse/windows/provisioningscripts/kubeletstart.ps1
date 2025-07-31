@@ -63,8 +63,8 @@ $KubeletArgListStr = "@($KubeletArgListStr`)"
 # Used in Azure-CNI version of kubeletstart.ps1
 $KubeletCommandLine = "$global:KubeDir\kubelet.exe " + ($KubeletArgList -join " ")
 
-# TODO: This line has been move to the main CSE script
-# We wait until the change is propagated. Soon it will be safe to remove this line.
+# Turn off Firewall to enable pods to talk to service endpoints. (Kubelet should eventually do this)
+# TODO move this to CSE
 netsh advfirewall set allprofiles state off
 
 # Required to clean up the HNS policy lists properly

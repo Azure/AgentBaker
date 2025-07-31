@@ -5,7 +5,7 @@ make proto-generate
 Note: This command uses Docker to compile the proto files so you need to have Docker running otherwise you will see corresponing error message.
 
 # Public data contract `AKSNodeConfig`
-This table is describing the all the `AKSNodeConfig` Fields converted to .go files. The naming convention is a bit different in the .proto files. For example, in _config.proto_ file, you will see `api_server_config`, but in _config.pb.go_, it's automatically renamed to `ApiServerConfig`. In the following table, we will use the names defined in the .go files.
+This table is describing the all the AKSNodeConfig Fields converted to .go files. The naming convention is a bit different in the .proto files. For example, in _config.proto_ file, you will see `api_server_config`, but in _config.pb.go_, it's automatically renamed to `ApiServerConfig`. In the following table, we will use the names defined in the .go files.
 
 | AKSNodeConfig Fields | Types | Descriptions                                                                                                                                                                                                                                                             | OLD CSE env variables mapping |
 |------------|------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------|
@@ -118,43 +118,31 @@ Nevertheless, it’s not a big harm to use `optional` even though it’s not nee
 ## Detailed steps with example
 Example: IMDSRestrictionConfig [Example PR](https://github.com/Azure/AgentBaker/pull/5154)
 1. Create a proto file with name `imdsrestrictionconfig.proto` with the following contents.
-    ```
-      syntax = "proto3";
-      package aksnodeconfig.v1;
+```
+syntax = "proto3";
+package aksnodeconfig.v1;
 
-      message IMDSRestrictionConfig {
-        // Enable IMDS restriction for the node.
-        bool enable_imds_restriction = 1;
+message IMDSRestrictionConfig {
+  // Enable IMDS restriction for the node.
+  bool enable_imds_restriction = 1;
 
-        // Insert IMDS restriction rule to mangle table.
-        bool insert_imds_restriction_rule_to_mangle_table = 2;
-      }
-    ```
+  // Insert IMDS restriction rule to mangle table.
+  bool insert_imds_restriction_rule_to_mangle_table = 2;
+}
+```
 2. In the root level .proto file `config.proto`, import the newly created file with `import "pkg/proto/aksnodeconfig/v1/imdsrestrictionconfig.proto";`. Add `IMDSRestrictionConfig` in the message body such as:
-    ```
-      // IMDS restriction configuration
-      IMDSRestrictionConfig imds_restriction_config = 39;
-    ```
+```
+  // IMDS restriction configuration
+  IMDSRestrictionConfig imds_restriction_config = 39;
+```
 
 3. Once you finished step 2, `proto3` actually created some getters that we can use. For example, in the `imdsrestrictionconfig.pb.go` that was automatically created, you can find `GetEnableImdsRestriction` and `GetInsertImdsRestrictionRuleToMangleTable`. Therefore, in `aks-node-controller/parser/parser.go`, which is a Go func that will be used to generate the bootstrap command, you can add the following lines: [parser.go](https://github.com/Azure/AgentBaker/blob/dev/aks-node-controller/parser/parser.go#L165-L166)
 
-    ```
-    "ENABLE_IMDS_RESTRICTION":                        fmt.Sprintf("%v", config.GetImdsRestrictionConfig().GetEnableImdsRestriction()),
-        "INSERT_IMDS_RESTRICTION_RULE_TO_MANGLE_TABLE":   fmt.Sprintf("%v", config.GetImdsRestrictionConfig().GetInsertImdsRestrictionRuleToMangleTable()),
-    ```
+```
+"ENABLE_IMDS_RESTRICTION":                        fmt.Sprintf("%v", config.GetImdsRestrictionConfig().GetEnableImdsRestriction()),
+		"INSERT_IMDS_RESTRICTION_RULE_TO_MANGLE_TABLE":   fmt.Sprintf("%v", config.GetImdsRestrictionConfig().GetInsertImdsRestrictionRuleToMangleTable()),
+```
 
-    **Default value behavior:**
-If the client (such as AKS-RP) doesn't specify a value for `EnableImdsRestriction`, it will default to `false`. You can see this defaulting logic in the generated `GetEnableImdsRestriction` method in `imdsrestrictionconfig.pb.go`. 
+If the client (such as AKS-RP) which provides this AKSNodeConfig, doesn't specify a value to `EnableImdsRestriction`, it will be defaulted to `false`. You can also see this logic in the `GetEnableImdsRestriction` in `imdsrestrictionconfig.pb.go`. 
 
-    This should fit most use cases. However, if you need to explicitly distinguish between a client setting `false` versus not setting the value at all (which defaults to `false`), you'll need to use the `optional` label for explicit presence. In that case, refer to the earlier section _When to use the label `optional` specifically in `proto3`?_
-
-4. Add comprehensive tests to cover your changes.
-   
-   **Testing with AKSNodeConfig approach:**
-   - Add test cases using the `AKSNodeConfig` approach, such as `Test_AzureLinuxV2_ARM64_Scriptless` in `e2e/scenario_test.go`
-   - The key difference between the legacy and new approaches is the configuration interface:
-     - **Legacy approach:** Uses `datamodel.NodeBootstrappingConfiguration`
-     - **New approach:** Uses `AKSNodeConfig`
-   - In e2e tests (`scenario_test.go`), this means:
-     - **Legacy:** Use `BootstrapConfigMutator` to set configurations
-     - **New:** Use `AKSNodeConfigMutator` to set configurations
+This should fit most of the use cases. However, for some reasons if you want to explicitly know if the client really sets `false` (because you can't tell this variable is really set to `false` or client doesn't set it and it was set by defaulting), then you will need to set it with a label `optional` explicity presence. Now you will need to read through an earlier section _When to use the label `optional` specifically in `proto3`?_
