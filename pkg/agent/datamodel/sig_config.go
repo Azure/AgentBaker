@@ -159,6 +159,7 @@ var AvailableContainerdDistros = []Distro{
 	AKSCBLMarinerV2Gen2TL,
 	AKSAzureLinuxV2Gen2TL,
 	AKSAzureLinuxV3Gen2TL,
+	AKSAzureLinuxOSGuardGen2,
 	AKSCBLMarinerV2KataGen2TL,
 	AKSUbuntuArm64Containerd2204Gen2,
 	AKSUbuntuArm64Containerd2404Gen2,
@@ -223,6 +224,7 @@ var AvailableGen2Distros = []Distro{
 	AKSCBLMarinerV2Gen2TL,
 	AKSAzureLinuxV2Gen2TL,
 	AKSAzureLinuxV3Gen2TL,
+	AKSAzureLinuxOSGuardGen2,
 	AKSCBLMarinerV2KataGen2TL,
 	AKSCBLMarinerV2Arm64Gen2,
 	AKSAzureLinuxV2Arm64Gen2,
@@ -285,6 +287,11 @@ var AvailableAzureLinuxCgroupV2Distros = []Distro{
 var AvailableFlatcarDistros = []Distro{
 	AKSFlatcarGen2,
 	AKSFlatcarArm64Gen2,
+}
+
+//nolint:gochecknoglobals
+var AvailableAzureLinuxOSGuardDistros = []Distro{
+	AKSAzureLinuxOSGuardGen2,
 }
 
 // IsContainerdSKU returns true if distro type is containerd-enabled.
@@ -388,19 +395,21 @@ var AvailableWindowsPIRDistros = []Distro{
 
 // SIG const.
 const (
-	AKSSIGImagePublisher           string = "microsoft-aks"
-	AKSWindowsGalleryName          string = "AKSWindows"
-	AKSWindowsResourceGroup        string = "AKS-Windows"
-	AKSUbuntuGalleryName           string = "AKSUbuntu"
-	AKSUbuntuResourceGroup         string = "AKS-Ubuntu"
-	AKSCBLMarinerGalleryName       string = "AKSCBLMariner"
-	AKSCBLMarinerResourceGroup     string = "AKS-CBLMariner"
-	AKSAzureLinuxGalleryName       string = "AKSAzureLinux"
-	AKSAzureLinuxResourceGroup     string = "AKS-AzureLinux"
-	AKSUbuntuEdgeZoneGalleryName   string = "AKSUbuntuEdgeZone"
-	AKSUbuntuEdgeZoneResourceGroup string = "AKS-Ubuntu-EdgeZone"
-	AKSFlatcarGalleryName          string = "AKSFlatcar"
-	AKSFlatcarResourceGroup        string = "AKS-Flatcar"
+	AKSSIGImagePublisher              string = "microsoft-aks"
+	AKSWindowsGalleryName             string = "AKSWindows"
+	AKSWindowsResourceGroup           string = "AKS-Windows"
+	AKSUbuntuGalleryName              string = "AKSUbuntu"
+	AKSUbuntuResourceGroup            string = "AKS-Ubuntu"
+	AKSCBLMarinerGalleryName          string = "AKSCBLMariner"
+	AKSCBLMarinerResourceGroup        string = "AKS-CBLMariner"
+	AKSAzureLinuxGalleryName          string = "AKSAzureLinux"
+	AKSAzureLinuxResourceGroup        string = "AKS-AzureLinux"
+	AKSAzureLinuxOSGuardResourceGroup string = "linuxguard" // is it necessary to create a new resource group and gallery
+	AKSAzureLinuxOSGuardGalleryName   string = "linuxguardaksdev"
+	AKSUbuntuEdgeZoneGalleryName      string = "AKSUbuntuEdgeZone"
+	AKSUbuntuEdgeZoneResourceGroup    string = "AKS-Ubuntu-EdgeZone"
+	AKSFlatcarGalleryName             string = "AKSFlatcar"
+	AKSFlatcarResourceGroup           string = "AKS-Flatcar"
 )
 
 const (
@@ -710,6 +719,13 @@ var (
 		Version:       LinuxSIGImageVersion,
 	}
 
+	SIGAzureLinuxOSGuardGen2ImageConfigTemplate = SigImageConfigTemplate{
+		ResourceGroup: AKSAzureLinuxOSGuardResourceGroup,
+		Gallery:       AKSAzureLinuxOSGuardGalleryName,
+		Definition:    "V3gen2OSGuard",
+		Version:       LinuxSIGImageVersion,
+	}
+
 	SIGCBLMarinerV2Gen1FIPSImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSCBLMarinerResourceGroup,
 		Gallery:       AKSCBLMarinerGalleryName,
@@ -1002,6 +1018,12 @@ func getSigAzureLinuxImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distr
 		AKSAzureLinuxV2Gen2TL:        SIGAzureLinuxV2TLImageConfigTemplate.WithOptions(opts...),
 		AKSAzureLinuxV3Gen2TL:        SIGAzureLinuxV3TLImageConfigTemplate.WithOptions(opts...),
 		AKSAzureLinuxV3CVMGen2:       SIGAzureLinuxV3CVMGen2ImageConfigTemplate.WithOptions(opts...),
+	}
+}
+
+func getSigAzureLinuxOSGuardImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]SigImageConfig {
+	return map[Distro]SigImageConfig{
+		AKSAzureLinuxOSGuardGen2: SIGAzureLinuxOSGuardGen2ImageConfigTemplate.WithOptions(),
 	}
 }
 

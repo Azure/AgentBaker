@@ -173,6 +173,7 @@ const (
 	AKSCBLMarinerV2Gen2TL               Distro = "aks-cblmariner-v2-gen2-tl"
 	AKSAzureLinuxV2Gen2TL               Distro = "aks-azurelinux-v2-gen2-tl"
 	AKSAzureLinuxV3Gen2TL               Distro = "aks-azurelinux-v3-gen2-tl"
+	AKSAzureLinuxOSGuardGen2            Distro = "aks-azurelinux-osguard-gen2"
 	AKSCBLMarinerV2KataGen2TL           Distro = "aks-cblmariner-v2-kata-gen2-tl"
 	AKSUbuntuFipsContainerd1804         Distro = "aks-ubuntu-fips-containerd-18.04"
 	AKSUbuntuFipsContainerd1804Gen2     Distro = "aks-ubuntu-fips-containerd-18.04-gen2"
@@ -228,11 +229,10 @@ const (
 	// AKSWindows2025Gen2 stands for distro for windows server 2025 Gen 2 SIG image.
 	AKSWindows2025Gen2 Distro = "aks-windows-2025-gen2"
 	// AKSWindows2019PIR stands for distro of windows server 2019 PIR image with docker.
-	AKSWindows2019PIR         Distro = "aks-windows-2019-pir"
-	CustomizedImage           Distro = "CustomizedImage"
-	CustomizedImageKata       Distro = "CustomizedImageKata"
-	CustomizedImageLinuxGuard Distro = "CustomizedImageLinuxGuard"
-	CustomizedWindowsOSImage  Distro = "CustomizedWindowsOSImage"
+	AKSWindows2019PIR        Distro = "aks-windows-2019-pir"
+	CustomizedImage          Distro = "CustomizedImage"
+	CustomizedImageKata      Distro = "CustomizedImageKata"
+	CustomizedWindowsOSImage Distro = "CustomizedWindowsOSImage"
 
 	// USNatCloud is a const string reference identifier for USNat.
 	USNatCloud = "USNatCloud"
@@ -269,6 +269,7 @@ var AKSDistrosAvailableOnVHD = []Distro{
 	AKSCBLMarinerV2Gen2TL,
 	AKSAzureLinuxV2Gen2TL,
 	AKSAzureLinuxV3Gen2TL,
+	AKSAzureLinuxOSGuardGen2,
 	AKSCBLMarinerV2KataGen2TL,
 	AKSUbuntuFipsContainerd1804,
 	AKSUbuntuFipsContainerd1804Gen2,
@@ -351,6 +352,15 @@ func (d Distro) IsKataDistro() bool {
 
 func (d Distro) IsFlatcarDistro() bool {
 	for _, distro := range AvailableFlatcarDistros {
+		if d == distro {
+			return true
+		}
+	}
+	return false
+}
+
+func (d Distro) IsAzureLinuxOSGuardDistro() bool {
+	for _, distro := range AvailableAzureLinuxOSGuardDistros {
 		if d == distro {
 			return true
 		}
@@ -1223,6 +1233,10 @@ func (a *AgentPoolProfile) IsFlatcar() bool {
 	return a.Distro.IsFlatcarDistro()
 }
 
+func (a *AgentPoolProfile) IsAzureLinuxOSGuard() bool {
+	return a.Distro.IsAzureLinuxOSGuardDistro()
+}
+
 // IsSkipCleanupNetwork returns true if AKS-RP sets the field NotRebootWindowsNode to true.
 func (a *AgentPoolProfile) IsSkipCleanupNetwork() bool {
 	// Reuse the existing field NotRebootWindowsNode to avoid adding a new field because it is a temporary toggle value from AKS-RP.
@@ -1809,6 +1823,10 @@ type NodeBootstrappingConfiguration struct {
 
 func (config *NodeBootstrappingConfiguration) IsFlatcar() bool {
 	return config.OSSKU == OSSKUFlatcar || config.AgentPoolProfile.IsFlatcar()
+}
+
+func (config *NodeBootstrappingConfiguration) IsAzureLinuxOSGuard() bool {
+	return config.OSSKU == OSSKUAzureLinuxOSGuard || config.AgentPoolProfile.IsAzureLinuxOSGuard()
 }
 
 type SSHStatus int

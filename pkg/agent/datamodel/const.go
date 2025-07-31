@@ -120,10 +120,11 @@ const (
 )
 
 const (
-	OSSKUCBLMariner = "CBLMariner"
-	OSSKUMariner    = "Mariner"
-	OSSKUAzureLinux = "AzureLinux"
-	OSSKUFlatcar    = "Flatcar"
+	OSSKUCBLMariner        = "CBLMariner"
+	OSSKUMariner           = "Mariner"
+	OSSKUAzureLinux        = "AzureLinux"
+	OSSKUAzureLinuxOSGuard = "AzureLinuxOSGuard"
+	OSSKUFlatcar           = "Flatcar"
 )
 
 // Feature Flags.
