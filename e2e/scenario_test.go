@@ -1735,17 +1735,17 @@ func Test_AzureLinux_Kube_Package_Install(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that an AzureLinux node will skip binary cleanup and can be properly bootstrapped",
 		Config: Config{
-			Cluster:                ClusterLatestKubernetesVersion,
-			VHD:                    config.VHDAzureLinuxV2Gen2,
+			Cluster:                ClusterKubenet,
+			VHD:                    config.VHDAzureLinuxV3Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				if vmss.Tags == nil {
 					vmss.Tags = map[string]*string{}
 				}
-				vmss.Tags["BypassK8sVersionCheck"] = to.Ptr("true")
+				vmss.Tags["ShouldBypassK8sVersionCheck"] = to.Ptr("true")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateMultipleKubeProxyVersionsExist(ctx, s)
+				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", components.GetExpectedPackageVersions("containerd", "mariner", "current")[0])
 			},
 		}})
 }
@@ -1754,7 +1754,7 @@ func Test_Ubuntu2204_Kube_Package_Install(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2204 VHD can be properly bootstrapped",
 		Config: Config{
-			Cluster: ClusterLatestKubernetesVersion,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				// Check that we don't leak these secrets if they're
@@ -1769,8 +1769,8 @@ func Test_Ubuntu2204_Kube_Package_Install(t *testing.T) {
 				vmss.Tags["ShouldBypassK8sVersionCheck"] = to.Ptr("true")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", getExpectedPackageVersions("containerd", "ubuntu", "r2204")[0])
-				ValidateInstalledPackageVersion(ctx, s, "moby-runc", getExpectedPackageVersions("runc", "ubuntu", "r2204")[0])
+				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", components.GetExpectedPackageVersions("containerd", "ubuntu", "r2204")[0])
+				ValidateInstalledPackageVersion(ctx, s, "moby-runc", components.GetExpectedPackageVersions("runc", "ubuntu", "r2204")[0])
 				ValidateSSHServiceEnabled(ctx, s)
 			},
 		}})

@@ -544,6 +544,9 @@ EOF
 }
 
 configKubeletAndKubectl() {
+    export -f should_bypass_k8s_version_check
+    SKIP_BYPASS_K8S_VERSION_CHECK=$(retrycmd_silent 10 1 10 bash -cx should_bypass_k8s_version_check)
+
     # only install kube pkgs from pmc if k8s version > 1.34.0 or skip_bypass_k8s_version_check is true
     if [ "${SKIP_BYPASS_K8S_VERSION_CHECK}" != "true" ] && ! semverCompare ${KUBERNETES_VERSION:-"0.0.0"} "1.34.0"; then
         logs_to_events "AKS.CSE.configKubeletAndKubectl.installKubeletKubectlFromURL" installKubeletKubectlFromURL

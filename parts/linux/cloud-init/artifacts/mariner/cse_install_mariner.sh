@@ -149,7 +149,7 @@ EOF
     systemctl restart nvidia-persistenced.service || exit 1
 }
 
-installStandaloneKubelet() {
+installStandaloneKubeletPkgFromPMC() {
     local desiredVersion="${1}"
     echo "installing kubelet version ${desiredVersion}"
     kubeletPackageName="kubelet-${desiredVersion}*"
@@ -160,7 +160,7 @@ installStandaloneKubelet() {
     mv "/usr/bin/kubelet" "/usr/local/bin/kubelet"
 }
 
-installStandaloneKubectl() {
+installStandaloneKubectlPkgFromPMC() {
     local desiredVersion="${1}"
     echo "installing kubectl version ${desiredVersion}"
     kubectlPackageName="kubectl-${desiredVersion}*"
