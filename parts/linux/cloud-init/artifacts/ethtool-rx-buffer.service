@@ -1,0 +1,14 @@
+[Unit]
+Description=Configure ethtool RX buffer size for multi-core machines
+After=network-online.target
+Wants=network-online.target
+Before=kubelet.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=true
+ExecStart=/opt/scripts/ethtool-rx-buffer.sh
+EnvironmentFile=-/etc/default/ethtool-config
+
+[Install]
+WantedBy=multi-user.target
