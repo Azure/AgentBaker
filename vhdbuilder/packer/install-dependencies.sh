@@ -45,7 +45,8 @@ if [ "$OS" = "$UBUNTU_OS_NAME" ] && echo "$FEATURE_FLAGS" | grep -q "cvm"; then
   apt_get_install 30 1 600 grub-efi || exit 1
 fi
 capture_benchmark "${SCRIPT_NAME}_reinstall_grub_for_cvm"
-
+echo "VM rebooted successfully....exiting...."
+exit 1
 if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
   # disable and mask all UU timers/services
   # save some background io/latency
