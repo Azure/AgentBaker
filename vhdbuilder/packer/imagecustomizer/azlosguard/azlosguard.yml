@@ -75,6 +75,11 @@ storage:
       path: /var/lib/trident
 
 os:
+  packages:
+    install:
+    - vim
+    - wget
+
   additionalFiles:
     # Fix systemd resolved caching
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/resolv-uplink-override.service

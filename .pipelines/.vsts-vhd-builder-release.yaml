@@ -850,6 +850,7 @@ stages:
               echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONFIG]azlosguard'
               echo '##vso[task.setvariable variable=BASE_IMG]azlplatform.azurecr.io/azurelinux/3.0/image/osguard'
               echo '##vso[task.setvariable variable=BASE_IMG_VERSION]3.0.20250731.3'
+              echo '##vso[task.setvariable variable=IMG_SKU]azure-linux-osguard'
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]osguard'
               echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
