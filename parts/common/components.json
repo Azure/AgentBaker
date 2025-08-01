@@ -160,11 +160,6 @@
               "binaries": [
                 "/dropgz"
               ]
-            },
-            "previousLatestVersion": {
-              "binaries": [
-                "/dropgz"
-              ]
             }
           }
         },
@@ -173,11 +168,6 @@
           "latestVersion": "v1.6.30",
           "containerImagePrefetch": {
             "latestVersion": {
-              "binaries": [
-                "/dropgz"
-              ]
-            },
-            "previousLatestVersion": {
               "binaries": [
                 "/dropgz"
               ]
@@ -223,11 +213,6 @@
               "binaries": [
                 "/usr/local/bin/azure-cns"
               ]
-            },
-            "previousLatestVersion": {
-              "binaries": [
-                "/usr/local/bin/azure-cns"
-              ]
             }
           }
         },
@@ -236,11 +221,6 @@
           "latestVersion": "v1.6.30",
           "containerImagePrefetch": {
             "latestVersion": {
-              "binaries": [
-                "/usr/local/bin/azure-cns"
-              ]
-            },
-            "previousLatestVersion": {
               "binaries": [
                 "/usr/local/bin/azure-cns"
               ]
