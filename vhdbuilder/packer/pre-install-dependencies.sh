@@ -140,6 +140,10 @@ if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]] && ! gre
   LTS_HEADERS="linux-headers-azure-lts-${UBUNTU_RELEASE}"
   LTS_MODULES="linux-modules-extra-azure-lts-${UBUNTU_RELEASE}"
 
+  # Acquiring kernel packages to be removed now to prevent lock conflicts during removal and install
+  wait_for_apt_locks
+  OLD_KERNEL_PACKAGES=$(dpkg-query -W 'linux-*azure*' | awk '$2 != "" { print $1 }' | paste -s)
+
   echo "Logging the currently running kernel: $(uname -r)"
   echo "Before purging kernel, here is a list of kernels/headers installed:"; dpkg -l 'linux-*azure*'
 
@@ -148,7 +152,7 @@ if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]] && ! gre
 
       # Purge all current kernels and dependencies
       wait_for_apt_locks
-      DEBIAN_FRONTEND=noninteractive apt-get remove --purge -y $(dpkg-query -W 'linux-*azure*' | awk '$2 != "" { print $1 }' | paste -s)
+      DEBIAN_FRONTEND=noninteractive apt-get remove --purge -y $OLD_KERNEL_PACKAGES
       echo "After purging kernel, dpkg list should be empty"; dpkg -l 'linux-*azure*'
 
       # Install LTS kernel
