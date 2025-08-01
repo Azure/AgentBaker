@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Azure/agentbaker/e2e/toolkit"
@@ -70,6 +71,7 @@ type AzureClient struct {
 	ArmOptions                *arm.ClientOptions
 	VMSSVMRunCommands         *armcompute.VirtualMachineScaleSetVMRunCommandsClient
 	VMExtensionImages         *armcompute.VirtualMachineExtensionImagesClient
+	replicationMutex          sync.Mutex
 }
 
 func mustNewAzureClient() *AzureClient {
@@ -504,12 +506,6 @@ func (a *AzureClient) ensureReplication(ctx context.Context, image *Image, versi
 		logf(ctx, "Image version %s is already in region %s", *version.ID, location)
 		return nil
 	}
-	regions := make([]string, 0, len(version.Properties.PublishingProfile.TargetRegions))
-	for _, targetRegion := range version.Properties.PublishingProfile.TargetRegions {
-		regions = append(regions, *targetRegion.Name)
-	}
-	logf(ctx, "##vso[task.logissue type=warning;]Replicating to region %s, available regions: %s, image version %s", location, strings.Join(regions, ", "), *version.ID)
-
 	start := time.Now() // Record the start time
 	err := a.replicateImageVersionToCurrentRegion(ctx, image, version, location)
 	elapsed := time.Since(start) // Calculate the elapsed time
@@ -520,19 +516,36 @@ func (a *AzureClient) ensureReplication(ctx context.Context, image *Image, versi
 }
 
 func (a *AzureClient) replicateImageVersionToCurrentRegion(ctx context.Context, image *Image, version *armcompute.GalleryImageVersion, location string) error {
-	galleryImageVersion, err := armcompute.NewGalleryImageVersionsClient(image.Gallery.SubscriptionID, a.Credential, a.ArmOptions)
-	if err != nil {
-		return fmt.Errorf("create a new images client: %v", err)
-	}
-	version.Properties.PublishingProfile.TargetRegions = append(version.Properties.PublishingProfile.TargetRegions, &armcompute.TargetRegion{
-		Name:                 &location,
-		RegionalReplicaCount: to.Ptr[int32](1),
-		StorageAccountType:   to.Ptr(armcompute.StorageAccountTypeStandardLRS),
-	})
+	resp, err := func() (*runtime.Poller[armcompute.GalleryImageVersionsClientCreateOrUpdateResponse], error) {
+		client, err := armcompute.NewGalleryImageVersionsClient(image.Gallery.SubscriptionID, a.Credential, a.ArmOptions)
+		if err != nil {
+			return nil, fmt.Errorf("create a new images client: %v", err)
+		}
+		a.replicationMutex.Lock()
+		defer a.replicationMutex.Unlock()
+		resp, err := client.Get(ctx, image.Gallery.ResourceGroupName, image.Gallery.Name, image.Name, image.Version, nil)
+		if err != nil {
+			return nil, fmt.Errorf("getting live image version info: %w", err)
+		}
+		regions := make([]string, 0, len(version.Properties.PublishingProfile.TargetRegions))
+		for _, targetRegion := range resp.Properties.PublishingProfile.TargetRegions {
+			regions = append(regions, *targetRegion.Name)
+		}
+		logf(ctx, "##vso[task.logissue type=warning;]Replicating to region %s, available regions: %s, image version %s", location, strings.Join(regions, ", "), *version.ID)
+		resp.Properties.PublishingProfile.TargetRegions = append(resp.Properties.PublishingProfile.TargetRegions, &armcompute.TargetRegion{
+			Name:                 &location,
+			RegionalReplicaCount: to.Ptr[int32](1),
+			StorageAccountType:   to.Ptr(armcompute.StorageAccountTypeStandardLRS),
+		})
 
-	resp, err := galleryImageVersion.BeginCreateOrUpdate(ctx, image.Gallery.ResourceGroupName, image.Gallery.Name, image.Name, *version.Name, *version, nil)
+		replicateResp, err := client.BeginCreateOrUpdate(ctx, image.Gallery.ResourceGroupName, image.Gallery.Name, image.Name, *version.Name, *version, nil)
+		if err != nil {
+			return nil, fmt.Errorf("begin updating image version target regions: %w", err)
+		}
+		return replicateResp, nil
+	}()
 	if err != nil {
-		return fmt.Errorf("begin updating image version target regions: %w", err)
+		return fmt.Errorf("failed to start replication: %w", err)
 	}
 	if _, err := resp.PollUntilDone(ctx, DefaultPollUntilDoneOptions); err != nil {
 		return fmt.Errorf("updating image version target regions: %w", err)
