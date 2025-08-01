@@ -395,21 +395,19 @@ var AvailableWindowsPIRDistros = []Distro{
 
 // SIG const.
 const (
-	AKSSIGImagePublisher              string = "microsoft-aks"
-	AKSWindowsGalleryName             string = "AKSWindows"
-	AKSWindowsResourceGroup           string = "AKS-Windows"
-	AKSUbuntuGalleryName              string = "AKSUbuntu"
-	AKSUbuntuResourceGroup            string = "AKS-Ubuntu"
-	AKSCBLMarinerGalleryName          string = "AKSCBLMariner"
-	AKSCBLMarinerResourceGroup        string = "AKS-CBLMariner"
-	AKSAzureLinuxGalleryName          string = "AKSAzureLinux"
-	AKSAzureLinuxResourceGroup        string = "AKS-AzureLinux"
-	AKSAzureLinuxOSGuardResourceGroup string = "linuxguard" // is it necessary to create a new resource group and gallery
-	AKSAzureLinuxOSGuardGalleryName   string = "linuxguardaksdev"
-	AKSUbuntuEdgeZoneGalleryName      string = "AKSUbuntuEdgeZone"
-	AKSUbuntuEdgeZoneResourceGroup    string = "AKS-Ubuntu-EdgeZone"
-	AKSFlatcarGalleryName             string = "AKSFlatcar"
-	AKSFlatcarResourceGroup           string = "AKS-Flatcar"
+	AKSSIGImagePublisher           string = "microsoft-aks"
+	AKSWindowsGalleryName          string = "AKSWindows"
+	AKSWindowsResourceGroup        string = "AKS-Windows"
+	AKSUbuntuGalleryName           string = "AKSUbuntu"
+	AKSUbuntuResourceGroup         string = "AKS-Ubuntu"
+	AKSCBLMarinerGalleryName       string = "AKSCBLMariner"
+	AKSCBLMarinerResourceGroup     string = "AKS-CBLMariner"
+	AKSAzureLinuxGalleryName       string = "AKSAzureLinux"
+	AKSAzureLinuxResourceGroup     string = "AKS-AzureLinux"
+	AKSUbuntuEdgeZoneGalleryName   string = "AKSUbuntuEdgeZone"
+	AKSUbuntuEdgeZoneResourceGroup string = "AKS-Ubuntu-EdgeZone"
+	AKSFlatcarGalleryName          string = "AKSFlatcar"
+	AKSFlatcarResourceGroup        string = "AKS-Flatcar"
 )
 
 const (
@@ -719,12 +717,19 @@ var (
 		Version:       LinuxSIGImageVersion,
 	}
 
+	// set to 3.0 image for testing, swap to linuxguard image once available in gallery
 	SIGAzureLinuxOSGuardGen2ImageConfigTemplate = SigImageConfigTemplate{
-		ResourceGroup: AKSAzureLinuxOSGuardResourceGroup,
-		Gallery:       AKSAzureLinuxOSGuardGalleryName,
-		Definition:    "V3gen2OSGuard",
+		ResourceGroup: AKSAzureLinuxResourceGroup,
+		Gallery:       AKSAzureLinuxGalleryName,
+		Definition:    "V3gen2",
 		Version:       LinuxSIGImageVersion,
 	}
+	// SIGAzureLinuxOSGuardGen2ImageConfigTemplate = SigImageConfigTemplate{
+	// 	ResourceGroup: AKSAzureLinuxResourceGroup,
+	// 	Gallery:       AKSAzureLinuxGalleryName,
+	// 	Definition:    "V3gen2OSGuard",
+	// 	Version:       LinuxSIGImageVersion,
+	// }
 
 	SIGCBLMarinerV2Gen1FIPSImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSCBLMarinerResourceGroup,
