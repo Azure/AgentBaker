@@ -77,18 +77,7 @@ func newTestCtx(t *testing.T) context.Context {
 }
 
 func RunScenario(t *testing.T, s *Scenario) {
-	if s.Location == "" {
-		s.Location = config.Config.DefaultLocation
-	}
-
-	s.Location = strings.ToLower(s.Location)
-
-	ctx := newTestCtx(t)
-	_, err := CachedEnsureResourceGroup(ctx, s.Location)
-	require.NoError(t, err)
-	_, err = CachedCreateVMManagedIdentity(ctx, s.Location)
-	require.NoError(t, err)
-
+	t.Parallel()
 	if config.Config.TestPreProvision {
 		t.Run("Original", func(t *testing.T) {
 			t.Parallel()
@@ -160,6 +149,7 @@ func runScenarioWithPreProvision(t *testing.T, original *Scenario) {
 	}
 
 	t.Run("SecondStage", func(t *testing.T) {
+		t.Parallel()
 		secondStageScenario := copyScenario(original)
 		secondStageScenario.Description = "Stage 2: Create VMSS from captured VHD via SIG"
 		secondStageScenario.Config.VHD = customVHD
@@ -189,9 +179,17 @@ func copyScenario(s *Scenario) *Scenario {
 }
 
 func runScenario(t *testing.T, s *Scenario) {
-	t.Parallel()
-	s.T = t
+	if s.Location == "" {
+		s.Location = config.Config.DefaultLocation
+	}
+
+	s.Location = strings.ToLower(s.Location)
 	ctx := newTestCtx(t)
+	_, err := CachedEnsureResourceGroup(ctx, s.Location)
+	require.NoError(t, err)
+	_, err = CachedCreateVMManagedIdentity(ctx, s.Location)
+	require.NoError(t, err)
+	s.T = t
 	ctrruntimelog.SetLogger(zap.New())
 
 	maybeSkipScenario(ctx, t, s)
