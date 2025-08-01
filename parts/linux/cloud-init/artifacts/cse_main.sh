@@ -138,8 +138,7 @@ function basePrep {
 
     logs_to_events "AKS.CSE.installNetworkPlugin" installNetworkPlugin
 
-
-    logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy" installKubeletKubectlAndKubeProxy
+    logs_to_events "AKS.CSE.configKubeletAndKubectl" configKubeletAndKubectl
 
     createKubeManifestDir
 
