@@ -81,11 +81,6 @@ function basePrep {
 
     logs_to_events "AKS.CSE.installSecureTLSBootstrapClient" installSecureTLSBootstrapClient
 
-    if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" = "true" ]; then
-        # Depends on configureK8s, ensureKubeCACert, and installSecureTLSBootstrapClient
-        logs_to_events "AKS.CSE.configureAndStartSecureTLSBootstrapping" configureAndStartSecureTLSBootstrapping
-    fi
-
     if [ "${DISABLE_SSH}" = "true" ]; then
         disableSSH || exit $ERR_DISABLE_SSH
     fi
@@ -291,6 +286,11 @@ EOF
 # After this stage the node should be fully integrated into the cluster.
 # IMPORTANT: This stage should only run when actually joining a node to the cluster. This step should not be run when creating a VHD image
 function nodePrep {
+    if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" = "true" ]; then
+        # Depends on configureK8s, ensureKubeCACert, and installSecureTLSBootstrapClient
+        logs_to_events "AKS.CSE.configureAndStartSecureTLSBootstrapping" configureAndStartSecureTLSBootstrapping
+    fi
+
     if [ -n "${OUTBOUND_COMMAND}" ]; then
         if [ -n "${PROXY_VARS}" ]; then
             eval $PROXY_VARS
