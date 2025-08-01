@@ -115,7 +115,7 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 	}
 
 	// TODO: Add support for AKSNodeConfig
-	if s.Runtime.NBC != nil && s.Runtime.NBC.AgentPoolProfile.LocalDNSProfile.EnableLocalDNS {
+	if s.Runtime.NBC != nil && s.Runtime.NBC.AgentPoolProfile.LocalDNSProfile != nil && s.Runtime.NBC.AgentPoolProfile.LocalDNSProfile.EnableLocalDNS {
 		ValidateLocalDNSService(ctx, s)
 		ValidateLocalDNSResolution(ctx, s)
 	}
