@@ -155,7 +155,6 @@
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cni",
           "latestVersion": "v1.5.44",
-          "previousLatestVersion": "v1.5.42",
           "containerImagePrefetch": {
             "latestVersion": {
               "binaries": [
@@ -172,7 +171,6 @@
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cni",
           "latestVersion": "v1.6.30",
-          "previousLatestVersion": "v1.6.29",
           "containerImagePrefetch": {
             "latestVersion": {
               "binaries": [
@@ -220,7 +218,6 @@
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
           "latestVersion": "v1.5.48",
-          "previousLatestVersion": "v1.5.45",
           "containerImagePrefetch": {
             "latestVersion": {
               "binaries": [
@@ -237,7 +234,6 @@
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
           "latestVersion": "v1.6.30",
-          "previousLatestVersion": "v1.6.29",
           "containerImagePrefetch": {
             "latestVersion": {
               "binaries": [
@@ -919,8 +915,7 @@
               },
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.6.30",
-                "previousLatestVersion": "1.6.29"
+                "latestVersion": "1.6.30"
               }
             ],
             "downloadURL": "https://packages.aks.azure.com/azure-cni/v${version}/binaries/azure-vnet-cni-windows-amd64-v${version}.zip"
@@ -1211,13 +1206,11 @@
               },
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.5.38",
-                "previousLatestVersion": "1.5.35"
+                "latestVersion": "1.5.38"
               },
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.6.30",
-                "previousLatestVersion": "1.6.29"
+                "latestVersion": "1.6.30"
               }
             ],
             "downloadURL": "https://packages.aks.azure.com/azure-cni/v${version}/binaries/azure-vnet-cni-linux-${CPU_ARCH}-v${version}.tgz"
