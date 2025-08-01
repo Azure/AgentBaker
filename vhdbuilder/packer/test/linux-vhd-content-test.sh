@@ -564,9 +564,9 @@ testLtsKernel() {
   if [[ "$os_sku" == "Ubuntu" && ${enable_fips,,} != "true" ]] && ! grep -q "cvm" <<< "$FEATURE_FLAGS" ; then
     echo "OS is Ubuntu, FIPS is not enabled, and this is not a CVM; check LTS kernel version"
     # Check the Ubuntu version and set the expected kernel version
-    if [ "$os_version" = "2204" ]; then
+    if [ "$os_version" = "22.04" ]; then
       expected_kernel="5.15"
-    elif [ "$os_version" = "2404" ]; then
+    elif [ "$os_version" = "24.04" ]; then
       expected_kernel="6.8"
     else
       echo "LTS kernel not installed for: $os_version"
