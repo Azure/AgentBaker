@@ -817,3 +817,113 @@ func ValidateEnableNvidiaResource(ctx context.Context, s *Scenario) {
 	s.T.Logf("waiting for Nvidia GPU resource to be available")
 	waitUntilResourceAvailable(ctx, s, "nvidia.com/gpu")
 }
+
+func ValidateNVLinkStatusCondition(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	s.T.Logf("validating initial NVLink status condition")
+
+	// Wait for NPD to report initial NVLink status
+	var nvlinkCondition *corev1.NodeCondition
+	err := wait.PollUntilContextTimeout(ctx, 2*time.Second, 3*time.Minute, true, func(ctx context.Context) (bool, error) {
+		node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.KubeNodeName, metav1.GetOptions{})
+		if err != nil {
+			s.T.Logf("Failed to get node %q: %v", s.Runtime.KubeNodeName, err)
+			return false, nil // Continue polling on transient errors
+		}
+
+		// Check for NVLinkFailure condition with correct reason
+		for i := range node.Status.Conditions {
+			if node.Status.Conditions[i].Type == "NVLinkFailure" && node.Status.Conditions[i].Reason == "NoNVLinkFailure" {
+				nvlinkCondition = &node.Status.Conditions[i]
+				return true, nil // Found the condition we are looking for
+			}
+		}
+
+		return false, nil // Continue polling until the condition is found or timeout occurs
+	})
+	require.NoError(s.T, err, "timed out waiting for NoNVLinkFailure condition to appear on node %q", s.Runtime.KubeNodeName)
+
+	require.NotNil(s.T, nvlinkCondition, "expected to find NVLinkFailure condition with NoNVLinkFailure reason on node")
+	require.Equal(s.T, corev1.ConditionFalse, nvlinkCondition.Status, "expected NVLinkFailure condition to be False")
+	require.Contains(s.T, nvlinkCondition.Message, "No NVLink failures detected", "expected NVLinkFailure message to indicate no failures")
+}
+
+func InduceNVLinkFailuresStressTest(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	s.T.Logf("inducing NVLink failures using stress test")
+
+	command := []string{
+		"set -ex",
+		// Set exclusive compute mode for all GPUs
+		"for i in {0..7}; do",
+		"  sudo nvidia-smi -i $i -c 1 || true", // Exclusive compute mode
+		"done",
+		"",
+		// Try to trigger memory pressure via power/thermal limits
+		"for i in {0..7}; do",
+		"  sudo nvidia-smi -i $i --power-limit=700 2>/dev/null || true",
+		"  # Force maximum memory and compute clocks",
+		"  sudo nvidia-smi -i $i --applications-clocks-permission=UNRESTRICTED 2>/dev/null || true",
+		"done",
+		"",
+		// Start dmesg monitoring in background
+		"sudo timeout 30 dmesg -w | grep -E '(xid|XID|NVRM|nvidia|gpu|error)' > /tmp/nvlink_stress_log &",
+		"DMESG_PID=$!",
+		"",
+		// Try PCIe stress - Check PCIe device paths first
+		"echo 'Checking PCIe devices for GPUs...'",
+		"ls -la /sys/bus/pci/devices/ | grep -E '000[0-9a-c]:00:00.0' || true",
+		"",
+		// Try to force PCIe link resets (this can trigger XIDs)
+		"for pci_id in 0001 0002 0003 0008 0009 000a 000b 000c; do",
+		"  echo \"Attempting reset on ${pci_id}:00:00.0\"",
+		"  echo 1 > /sys/bus/pci/devices/${pci_id}:00:00.0/reset 2>/dev/null || echo \"Reset failed/not supported for ${pci_id}\"",
+		"  sleep 2",
+		"done",
+		"",
+		// Allow stress test to run
+		"sleep 10",
+		"",
+		// Stop dmesg monitoring
+		"sudo kill $DMESG_PID 2>/dev/null || true",
+		"wait $DMESG_PID 2>/dev/null || true",
+		"",
+		// Check if we captured any errors
+		"if [ -f /tmp/nvlink_stress_log ]; then",
+		"  echo 'Stress test log contents:'",
+		"  cat /tmp/nvlink_stress_log",
+		"else",
+		"  echo 'No stress test log generated'",
+		"fi",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to run NVLink stress test")
+}
+
+func ValidateNVLinkFailureAfterStress(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	s.T.Logf("validating NVLink failure condition after stress test")
+
+	// Wait for NPD to detect the NVLink failure
+	var nvlinkCondition *corev1.NodeCondition
+	err := wait.PollUntilContextTimeout(ctx, 5*time.Second, 5*time.Minute, true, func(ctx context.Context) (bool, error) {
+		node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.KubeNodeName, metav1.GetOptions{})
+		if err != nil {
+			s.T.Logf("Failed to get node %q: %v", s.Runtime.KubeNodeName, err)
+			return false, nil // Continue polling on transient errors
+		}
+
+		for i := range node.Status.Conditions {
+			if node.Status.Conditions[i].Type == "NVLinkFailure" && node.Status.Conditions[i].Reason == "NVLinkFailure" {
+				nvlinkCondition = &node.Status.Conditions[i]
+				return true, nil // Found the condition we are looking for
+			}
+		}
+
+		return false, nil // Continue polling
+	})
+	require.NoError(s.T, err, "timed out waiting for NVLinkFailure condition to appear on node %q", s.Runtime.KubeNodeName)
+
+	require.NotNil(s.T, nvlinkCondition, "expected to find NVLinkFailure condition with NVLinkFailure reason on node")
+	require.Equal(s.T, corev1.ConditionTrue, nvlinkCondition.Status, "expected NVLinkFailure condition to be True")
+	require.Contains(s.T, nvlinkCondition.Message, "NVLink failure detected", "expected NVLinkFailure message to indicate failure detected")
+}

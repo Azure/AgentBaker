@@ -1727,6 +1727,10 @@ func Test_Ubuntu2404_GPU_H100(t *testing.T) {
 				ValidateNPDGPUCountCondition(ctx, s)
 				ValidateNPDGPUCountAfterFailure(ctx, s)
 				ValidateEnableNvidiaResource(ctx, s)
+
+				ValidateNVLinkStatusCondition(ctx, s)
+				InduceNVLinkFailuresStressTest(ctx, s)
+				ValidateNVLinkFailureAfterStress(ctx, s)
 			},
 		}})
 }
