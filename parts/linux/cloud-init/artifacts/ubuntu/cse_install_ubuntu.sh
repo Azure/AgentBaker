@@ -135,7 +135,7 @@ downloadKubePkgFromVersion() {
     packageVersion="${2:-}"
     downloadDir="${3:-"/opt/${packageName}/downloads"}"
     mkdir -p ${downloadDir}
-    # updateAptWithMicrosoftPkg
+    updateAptWithMicrosoftPkg
     apt_get_download 20 30 ${packageName}=${packageVersion}* || exit $ERR_APT_INSTALL_TIMEOUT
     cp -al ${APT_CACHE_DIR}${packageName}_${packageVersion}* ${downloadDir}/ || exit $ERR_APT_INSTALL_TIMEOUT
     echo "Succeeded to download ${packageName} version ${packageVersion}"
