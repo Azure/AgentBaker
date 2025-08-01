@@ -149,17 +149,10 @@ EOF
     systemctl restart nvidia-persistenced.service || exit 1
 }
 
-installKubeletPkgFromPMC() {
+installKubeletKubectlPkgFromPMC() {
     local desiredVersion="${1}"
-    echo "installing kubelet version ${desiredVersion}"
-	installRPMPackageFromFile "kubelet" $desiredVersion || exit $ERR_KUBELET_INSTALL_TIMEOUT
-}
-
-
-installKubectlPkgFromPMC() {
-    local desiredVersion="${1}"
-    echo "installing kubelet version ${desiredVersion}"
-	installRPMPackageFromFile "kubectl" $desiredVersion || exit $ERR_KUBECTL_INSTALL_TIMEOUT
+	  installRPMPackageFromFile "kubelet" $desiredVersion || exit $ERR_KUBELET_INSTALL_TIMEOUT
+    installRPMPackageFromFile "kubectl" $desiredVersion || exit $ERR_KUBECTL_INSTALL_TIMEOUT
 }
 
 installRPMPackageFromFile() {
@@ -193,7 +186,6 @@ downloadKubePkgFromVersion() {
     downloadDir="${3:-"/opt/${packageName}/downloads"}"
     mkdir -p ${downloadDir}
     tdnf_download 30 1 600 ${downloadDir} ${packageName}=${packageVersion}  || exit $ERR_APT_INSTALL_TIMEOUT
-    # cp -al ${APT_CACHE_DIR}${packageName}_${packageVersion}* ${downloadDir}/ || exit $ERR_APT_INSTALL_TIMEOUT
     echo "Succeeded to download ${packageName} version ${packageVersion}"
 }
 

@@ -311,7 +311,7 @@ func Test_MarinerV2(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a MarinerV2 VHD can be properly bootstrapped",
 		Config: Config{
-			Cluster: ClusterLatestKubernetesVersion,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDCBLMarinerV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 			},
@@ -1731,9 +1731,9 @@ func Test_Ubuntu2404_GPU_H100(t *testing.T) {
 		}})
 }
 
-func Test_AzureLinux_Kube_Package_Install(t *testing.T) {
+func Test_AzureLinux3_Kube_Package_Install(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "tests that an AzureLinux node will skip binary cleanup and can be properly bootstrapped",
+		Description: "tests that an AzureLinux node will install kube pkgs from PMC and can be properly bootstrapped",
 		Config: Config{
 			Cluster:                ClusterKubenet,
 			VHD:                    config.VHDAzureLinuxV3Gen2,
@@ -1751,7 +1751,7 @@ func Test_AzureLinux_Kube_Package_Install(t *testing.T) {
 
 func Test_Ubuntu2204_Kube_Package_Install(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "Tests that a node using the Ubuntu 2204 VHD can be properly bootstrapped",
+		Description: "Tests that a node using the Ubuntu 2204 VHD and install kube pkgs from PMC can be properly bootstrapped",
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,

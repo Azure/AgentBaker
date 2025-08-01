@@ -559,12 +559,10 @@ configKubeletAndKubectl() {
                 # we do not publish packages to PMC for azurelinux V2
                 logs_to_events "AKS.CSE.configKubeletAndKubectl.installKubeletKubectlFromURL" installKubeletKubectlFromURL
             else
-                logs_to_events "AKS.CSE.configKubeletAndKubectl.installKubeletPkgFromPMC" "installKubeletPkgFromPMC ${KUBERNETES_VERSION}"
-                logs_to_events "AKS.CSE.configKubeletAndKubectl.installKubectlPkgFromPMC" "installKubectlPkgFromPMC ${KUBERNETES_VERSION}"
+                logs_to_events "AKS.CSE.configKubeletAndKubectl.installKubeletKubectlPkgFromPMC" "installKubeletKubectlPkgFromPMC ${KUBERNETES_VERSION}"
             fi
         elif [ "${OS}" = "${UBUNTU_OS_NAME}" ]; then
-            logs_to_events "AKS.CSE.configKubeletAndKubectl.installKubeletPkgFromPMC" "installKubeletPkgFromPMC ${KUBERNETES_VERSION}"
-            logs_to_events "AKS.CSE.configKubeletAndKubectl.installKubectlPkgFromPMC" "installKubectlPkgFromPMC ${KUBERNETES_VERSION}"
+            logs_to_events "AKS.CSE.configKubeletAndKubectl.installKubeletKubectlPkgFromPMC" "installKubeletKubectlPkgFromPMC ${KUBERNETES_VERSION}"
         fi
     fi
 }

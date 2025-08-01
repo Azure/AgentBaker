@@ -33,7 +33,6 @@ tdnf_install() {
             return 1
         else
             sleep $wait_sleep
-            #tdnf_makecache
         fi
     done
     echo Executed tdnf install -y \"$@\" $i times;
@@ -47,7 +46,6 @@ tdnf_download() {
             return 1
         else
             sleep $wait_sleep
-            #tdnf_makecache
         fi
     done
     echo Executed tdnf install -y \"$@\" $i times;

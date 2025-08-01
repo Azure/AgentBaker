@@ -91,29 +91,20 @@ installCriCtlPackage() {
     apt_get_install 20 30 120 ${packageName} || exit 1
 }
 
-installKubeletPkgFromPMC() {
+installKubeletKubectlPkgFromPMC() {
     k8sVersion="${1}"
-
-    KUBELET_DOWNLOADS_DIR="/opt/kubelet/downloads"
-    installKubePkgWithAptGet "kubelet" "${k8sVersion}" "${KUBELET_DOWNLOADS_DIR}" || exit $ERR_KUBELET_INSTALL_TIMEOUT
-}
-
-installKubectlPkgFromPMC() {
-    k8sVersion="${1}"
-
-    KUBECTL_DOWNLOADS_DIR="/opt/kubectl/downloads"
-    installKubePkgWithAptGet "kubectl" "${k8sVersion}" "${KUBECTL_DOWNLOADS_DIR}" || exit $ERR_KUBECTL_INSTALL_TIMEOUT
+    installKubePkgWithAptGet "kubelet" "${k8sVersion}" || exit $ERR_KUBELET_INSTALL_TIMEOUT
+    installKubePkgWithAptGet "kubectl" "${k8sVersion}" || exit $ERR_KUBECTL_INSTALL_TIMEOUT
 }
 
 installKubePkgWithAptGet() {
     packageName="${1:-}"
-    local k8sVersion="${2}"
-    downloadDir="${3:-"/opt/${packageName}/downloads"}"
+    k8sVersion="${2}"
+    downloadDir="/opt/${packageName}/downloads"
 
     echo "installing ${packageName} version ${k8sVersion}"
 
-    # if kubelet version has been overriden then there should exist a local .deb file for it on aks VHDs (best-effort)
-    # if no files found then try fetching from packages.microsoft repo
+    # if no deb file with desired version found then try fetching from packages.microsoft repo
     debFile=$(find "${downloadDir}" -maxdepth 1 -name "${packageName}_${k8sVersion}*" -print -quit 2>/dev/null) || debFile=""
     if [ -z "${debFile}" ]; then
         echo "Did not find cached deb file, downloading ${packageName} version ${k8sVersion}"
