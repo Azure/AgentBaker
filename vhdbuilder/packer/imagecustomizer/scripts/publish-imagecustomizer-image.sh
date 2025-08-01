@@ -15,6 +15,7 @@ required_env_vars=(
     "SIG_IMAGE_NAME"
     "SUBSCRIPTION_ID"
     "CAPTURED_SIG_VERSION"
+    "PACKER_BUILD_LOCATION"
 )
 
 for v in "${required_env_vars[@]}"
@@ -61,13 +62,15 @@ fi
 sig_resource_id="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/galleries/${SIG_GALLERY_NAME}/images/${SIG_IMAGE_NAME}/versions/${CAPTURED_SIG_VERSION}"
 
 echo "Creating SIG image version: $sig_resource_id"
+echo "Uploading to eastus and ${PACKER_BUILD_LOCATION}"
 az sig image-version create \
     --resource-group ${RESOURCE_GROUP_NAME} \
     --gallery-name ${SIG_GALLERY_NAME} \
     --gallery-image-definition ${SIG_IMAGE_NAME} \
     --gallery-image-version ${CAPTURED_SIG_VERSION} \
     --os-vhd-storage-account /subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP_NAME}/providers/Microsoft.Storage/storageAccounts/${STORAGE_ACCOUNT_NAME} \
-    --os-vhd-uri ${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd
+    --os-vhd-uri ${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd \
+    --target-regions eastus ${PACKER_BUILD_LOCATION}
 capture_benchmark "${SCRIPT_NAME}_create_sig_image_version"
 
 # Set SIG ID in pipeline for use during testing 
