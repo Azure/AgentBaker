@@ -166,15 +166,16 @@ installRPMPackageFromFile() {
     local packageName="${1}"
     local desiredVersion="${2}"
     echo "installing ${packageName} version ${desiredVersion}"
-	downloadDir="/opt/${packageName}/downloads"
+    downloadDir="/opt/${packageName}/downloads"
 
     rpmFile=$(find "${downloadDir}" -maxdepth 1 -name "${packageName}-${desiredVersion}*" -print -quit 2>/dev/null) || rpmFile=""
-	fullPackageVersion=$(tdnf list ${packageName} | grep ${desiredVersion} | awk '{print $2}')
+    fullPackageVersion=$(tdnf list ${packageName} | grep ${desiredVersion} | awk '{print $2}')
     if [ -z "${rpmFile}" ]; then
         echo "kubectl package not found at ${pathToKubectlRPM}. Attempting to download it."
         downloadKubePkgFromVersion "${packageName}" ${fullPackageVersion} "${downloadDir}" || exit $ERR_APT_INSTALL_TIMEOUT
+        rpmFile=$(find "${downloadDir}" -maxdepth 1 -name "${packageName}-${desiredVersion}*" -print -quit 2>/dev/null) || rpmFile=""
     fi
-	if [ -z "${rpmFile}" ]; then
+	  if [ -z "${rpmFile}" ]; then
         echo "Failed to locate ${packageName} rpm"
         exit $ERR_APT_INSTALL_TIMEOUT
     fi

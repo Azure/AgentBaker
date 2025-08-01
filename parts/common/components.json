@@ -1395,18 +1395,18 @@
       "downloadURIs": {
         "ubuntu": {
           "r2404": {
-          "versionsV2": [
+            "versionsV2": [
               {
                 "k8sVersion": "1.32",
                 "renovateTag": "name=kubectl, os=ubuntu, release=24.04",
-                "latestVersion": "1.32.6-ubuntu24.04u1",
-                "previousLatestVersion": "1.32.5-ubuntu24.04u1"
+                "latestVersion": "1.32.6-ubuntu24.04u2",
+                "previousLatestVersion": "1.32.5-ubuntu24.04u2"
               },
               {
                 "k8sVersion": "1.33",
                 "renovateTag": "name=kubectl, os=ubuntu, release=24.04",
-                "latestVersion": "1.33.2-ubuntu24.04u1",
-                "previousLatestVersion": "1.33.1-ubuntu24.04u1"
+                "latestVersion": "1.33.2-ubuntu24.04u2",
+                "previousLatestVersion": "1.33.1-ubuntu24.04u2"
               }
             ]
           },
@@ -1415,30 +1415,30 @@
               {
                 "k8sVersion": "1.32",
                 "renovateTag": "name=kubectl, os=ubuntu, release=22.04",
-                "latestVersion": "1.32.6-ubuntu22.04u1",
-                "previousLatestVersion": "1.32.5-ubuntu22.04u1"
+                "latestVersion": "1.32.6-ubuntu22.04u2",
+                "previousLatestVersion": "1.32.5-ubuntu22.04u2"
               },
               {
                 "k8sVersion": "1.33",
                 "renovateTag": "name=kubectl, os=ubuntu, release=22.04",
-                "latestVersion": "1.33.2-ubuntu22.04u1",
-                "previousLatestVersion": "1.33.1-ubuntu22.04u1"
+                "latestVersion": "1.33.2-ubuntu22.04u2",
+                "previousLatestVersion": "1.33.1-ubuntu22.04u2"
               }
             ]
           },
           "r2004": {
-          "versionsV2": [
+            "versionsV2": [
               {
                 "k8sVersion": "1.32",
                 "renovateTag": "name=kubectl, os=ubuntu, release=20.04",
-                "latestVersion": "1.32.6-ubuntu20.04u1",
-                "previousLatestVersion": "1.32.5-ubuntu20.04u1"
+                "latestVersion": "1.32.6-ubuntu20.04u2",
+                "previousLatestVersion": "1.32.5-ubuntu20.04u2"
               },
               {
                 "k8sVersion": "1.33",
                 "renovateTag": "name=kubectl, os=ubuntu, release=20.04",
-                "latestVersion": "1.33.2-ubuntu20.04u1",
-                "previousLatestVersion": "1.33.1-ubuntu20.04u1"
+                "latestVersion": "1.33.2-ubuntu20.04u2",
+                "previousLatestVersion": "1.33.1-ubuntu20.04u2"
               }
             ]
           }
