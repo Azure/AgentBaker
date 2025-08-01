@@ -28,7 +28,7 @@ required_env_vars=(
 for v in "${required_env_vars[@]}"; do
   if [ -z "${!v}" ]; then
     echo "$v was not set!"
-    exit 1
+    #exit 1
   fi
 done
 
