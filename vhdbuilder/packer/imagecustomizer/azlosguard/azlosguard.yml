@@ -326,12 +326,13 @@ os:
 
   kernelCommandLine:
     extraCommandLine:
-      - "console=tty0"
-      - "console=tty1"
-      - "console=ttyS0"
-      - "rd.luks=0"
-      - "ipe.enforce=0"
-      - "rd.hostonly=0"
+      - console=tty0
+      - console=tty1
+      - console=ttyS0
+      - rd.luks=0
+      - rd.hostonly=0
+      - ipe.enforce=0
+      - fips=1
 
   uki:
     kernels: auto
