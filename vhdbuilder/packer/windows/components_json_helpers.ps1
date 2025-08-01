@@ -6,7 +6,7 @@ function SafeReplaceString {
     )
 
     $stringToReplace = &{
-        Clear-Variable -Name * -Exclude version,CPU_ARCH,stringToReplace -ErrorAction SilentlyContinue
+        Clear-Variable -Name * -Exclude version,revision,CPU_ARCH,stringToReplace -ErrorAction SilentlyContinue
         $executionContext.InvokeCommand.ExpandString($stringToReplace)
     }
 
@@ -130,12 +130,14 @@ function GetPackagesFromComponentsJson
         foreach ($windowsVersion in $items)
         {
             $version = $windowsVersion.latestVersion
+            $revision = $windowsVersion.latestRevision
             $url = SafeReplaceString($downloadUrl)
             $thisList += $url
 
             if (-not [string]::IsNullOrEmpty($windowsVersion.previousLatestVersion))
             {
                 $version = $windowsVersion.previousLatestVersion
+                $revision = $windowsVersion.previousLatestRevision
                 $url = SafeReplaceString($downloadUrl)
                 $thisList += $url
             }
