@@ -70,7 +70,8 @@ az sig image-version create \
     --gallery-image-version ${CAPTURED_SIG_VERSION} \
     --os-vhd-storage-account /subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP_NAME}/providers/Microsoft.Storage/storageAccounts/${STORAGE_ACCOUNT_NAME} \
     --os-vhd-uri ${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd \
-    --target-regions eastus ${PACKER_BUILD_LOCATION}
+    --target-regions eastus westus westus2
+#    --target-regions eastus westus ${PACKER_BUILD_LOCATION}
 capture_benchmark "${SCRIPT_NAME}_create_sig_image_version"
 
 # Set SIG ID in pipeline for use during testing 
