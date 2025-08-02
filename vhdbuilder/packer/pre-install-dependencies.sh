@@ -133,7 +133,7 @@ fi
 capture_benchmark "${SCRIPT_NAME}_enable_cgroupv2_for_azurelinux"
 
 # shellcheck disable=SC3010
-if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]] && ! grep -q "cvm" <<< "$FEATURE_FLAGS"; then
+if [[ ${UBUNTU_RELEASE//./} -eq 2204 && "${ENABLE_FIPS,,}" != "true" ]] && ! grep -q "cvm" <<< "$FEATURE_FLAGS"; then
   LTS_KERNEL="linux-image-azure-lts-${UBUNTU_RELEASE}"
   LTS_TOOLS="linux-tools-azure-lts-${UBUNTU_RELEASE}"
   LTS_CLOUD_TOOLS="linux-cloud-tools-azure-lts-${UBUNTU_RELEASE}"
