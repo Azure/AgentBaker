@@ -704,3 +704,9 @@ func getEnableNvidia(config *aksnodeconfigv1.Configuration) bool {
 	}
 	return false
 }
+
+func removeNewlines(str string) string {
+	sanitizedStr := strings.ReplaceAll(str, "\n", "")
+	sanitizedStr = strings.ReplaceAll(sanitizedStr, "\r", "")
+	return sanitizedStr
+}

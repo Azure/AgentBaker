@@ -98,7 +98,7 @@ func getCSEEnv(config *aksnodeconfigv1.Configuration) map[string]string {
 		"TELEPORT_ENABLED":                               fmt.Sprintf("%v", config.GetTeleportConfig().GetStatus()),
 		"SHOULD_CONFIGURE_HTTP_PROXY":                    fmt.Sprintf("%v", getShouldConfigureHTTPProxy(config.GetHttpProxyConfig())),
 		"SHOULD_CONFIGURE_HTTP_PROXY_CA":                 fmt.Sprintf("%v", getShouldConfigureHTTPProxyCA(config.GetHttpProxyConfig())),
-		"HTTP_PROXY_TRUSTED_CA":                          config.GetHttpProxyConfig().GetProxyTrustedCa(),
+		"HTTP_PROXY_TRUSTED_CA":                          removeNewlines(config.GetHttpProxyConfig().GetProxyTrustedCa()),
 		"SHOULD_CONFIGURE_CUSTOM_CA_TRUST":               fmt.Sprintf("%v", getCustomCACertsStatus(config.GetCustomCaCerts())),
 		"CUSTOM_CA_TRUST_COUNT":                          fmt.Sprintf("%v", len(config.GetCustomCaCerts())),
 		"GPU_NEEDS_FABRIC_MANAGER":                       fmt.Sprintf("%v", getGPUNeedsFabricManager(config.GetVmSize())),
@@ -170,7 +170,7 @@ func getCSEEnv(config *aksnodeconfigv1.Configuration) map[string]string {
 	}
 
 	for i, cert := range config.CustomCaCerts {
-		env[fmt.Sprintf("CUSTOM_CA_CERT_%d", i)] = cert
+		env[fmt.Sprintf("CUSTOM_CA_CERT_%d", i)] = removeNewlines(cert)
 	}
 	return env
 }
