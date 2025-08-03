@@ -279,6 +279,14 @@ copyPackerFiles() {
   AKS_NODE_CONTROLLER_SERVICE_DEST=/etc/systemd/system/aks-node-controller.service
   cpAndMode $AKS_NODE_CONTROLLER_SERVICE_SRC $AKS_NODE_CONTROLLER_SERVICE_DEST 0644
 
+  ETHTOOL_RX_BUFFER_SERVICE_SRC=/home/packer/ethtool-rx-buffer.service
+  ETHTOOL_RX_BUFFER_SERVICE_DEST=/etc/systemd/system/ethtool-rx-buffer.service
+  cpAndMode $ETHTOOL_RX_BUFFER_SERVICE_SRC $ETHTOOL_RX_BUFFER_SERVICE_DEST 0644
+
+  ETHTOOL_RX_BUFFER_SCRIPT_SRC=/home/packer/ethtool-rx-buffer.sh
+  ETHTOOL_RX_BUFFER_SCRIPT_DEST=/opt/scripts/ethtool-rx-buffer.sh
+  cpAndMode $ETHTOOL_RX_BUFFER_SCRIPT_SRC $ETHTOOL_RX_BUFFER_SCRIPT_DEST 0755
+
   CLOUD_INIT_STATUS_CHECK_SRC=/home/packer/cloud-init-status-check.sh
   CLOUD_INIT_STATUS_CHECK_DEST=/opt/azure/containers/cloud-init-status-check.sh
   cpAndMode $CLOUD_INIT_STATUS_CHECK_SRC $CLOUD_INIT_STATUS_CHECK_DEST 0744
