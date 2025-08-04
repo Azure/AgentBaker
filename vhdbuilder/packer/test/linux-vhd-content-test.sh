@@ -181,6 +181,14 @@ testPackagesInstalled() {
       testAcrCredentialProviderInstalled "$PACKAGE_DOWNLOAD_URL" "${PACKAGE_VERSIONS[@]}"
       continue
     fi
+    if [ "${name}" = "kubelet" ]; then
+      testPkgDownloaded "kubelet" "${PACKAGE_VERSIONS[@]}"
+      continue
+    fi
+      if [ "${name}" = "kubectl" ]; then
+      testPkgDownloaded "kubectl" "${PACKAGE_VERSIONS[@]}"
+      continue
+    fi
 
     resolve_packages_source_url
     for version in "${PACKAGE_VERSIONS[@]}"; do
@@ -704,6 +712,30 @@ testKubeBinariesPresent() {
     if [[ ! $kubeletLongVersion =~ $k8sVersion ]]; then
       err $test "The kubelet version is not correct: expected kubelet version $k8sVersion existing: $kubeletLongVersion"
     fi
+  done
+  echo "$test:Finish"
+}
+
+testPkgDownloaded() {
+  test="testPkgDownloaded"
+  echo "$test:Start"
+  local packageName=$1; shift
+  local packageVersions=("$@")
+  downloadLocation="/opt/${packageName}/downloads"
+  for packageVersion in "${packageVersions[@]}"; do
+    echo "checking package version: $packageVersion ..."
+    if [ $OS = $UBUNTU_OS_NAME ]; then
+      debFile=$(find "${downloadDir}" -maxdepth 1 -name "${packageName}_${packageVersion}*" -print -quit 2>/dev/null) || debFile=""
+      if [ -z "${debFile}" ]; then
+        err $test "Package ${packageName}_${packageVersion} does not exist"
+      fi
+    elif [ $OS = $AZURELINUX_OS_NAME ] && [ $OS_VERSION = "3.0" ]; then
+      rpmFile=$(find "${downloadDir}" -maxdepth 1 -name "${packageName}-${packageVersion}*" -print -quit 2>/dev/null) || rpmFile=""
+      if [ -z "${rpmFile}" ]; then
+        err $test "Package ${packageName}-${packageVersion} does not exist"
+      fi
+    fi
+
   done
   echo "$test:Finish"
 }
