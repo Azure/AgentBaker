@@ -104,7 +104,7 @@ function ConfigureAndStart-SecureTLSBootstrapping {
         "--log-file=$LogFilePath",
         "--apiserver-fqdn=$APIServerFQDN",
         "--cloud-provider-config=$AzureConfigPath",
-        "--deadline=$global:SecureTLSBootstrappingDeadline",
+        "--deadline=$global:SecureTLSBootstrappingDeadline"
     )
 
     Write-Log "Registering and starting the $global:SecureTLSBootstrapServiceName service"
