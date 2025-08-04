@@ -20,7 +20,7 @@ ln -s /opt/bin /etc/extensions/lg-redirect-sysext/usr/local/bin
 mv /opt/scripts/ci-syslog-watcher.sh /usr/local/bin/ci-syslog-watcher.sh
 
 # Create release-notes.txt
-VHD_LOGS_FILEPATH=/_imageconfigs/out/release-notes.txt
+VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 mkdir -p /_imageconfigs/out
 echo "release notes stub" >> /_imageconfigs/out/release-notes.txt
 
@@ -34,3 +34,5 @@ df -h >> ${VHD_LOGS_FILEPATH}
 echo -e "=== os-release Begin" >> ${VHD_LOGS_FILEPATH}
 cat /etc/os-release >> ${VHD_LOGS_FILEPATH}
 echo -e "=== os-release End" >> ${VHD_LOGS_FILEPATH}
+
+cp ${VHD_LOGS_FILEPATH} /_imageconfigs/out/release-notes.txt
