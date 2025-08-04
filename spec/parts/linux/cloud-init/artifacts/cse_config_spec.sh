@@ -537,26 +537,17 @@ Describe 'cse_config.sh'
 
     Describe 'configureKubeletAndKubectl'
         OS="Ubuntu"
-        
-        installKubeletKubectlFromURL() {
-            echo "installKubeletKubectlFromURL"
-        }
-        installKubeletKubectlPkgFromPMC() {
-            echo "installKubeletKubectlPkgFromPMC"
-        }
+        SHOULD_ENFORCE_KUBE_PMC_INSTALL=""
+        CUSTOM_KUBE_BINARY_DOWNLOAD_URL=""
+        PRIVATE_KUBE_BINARY_DOWNLOAD_URL=""
+        BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER=""
 
-        It 'should install from URL if custom URL specified'
-            CUSTOM_KUBE_BINARY_DOWNLOAD_URL="https://custom-kube-url.com/kube.tar.gz"
-            When call configureKubeletAndKubectl
-            The output should include "installKubeletKubectlFromURL"
-            The output should not include "installKubeletKubectlPkgFromPMC"
+        Mock installKubeletKubectlFromURL {
+            echo "installKubeletKubectlFromURL"
         End
 
-        It 'should install using URL if k8s version < 1.34'
-            KUBERNETES_VERSION="1.32.5"
-            When call configureKubeletAndKubectl
-            The output should include "installKubeletKubectlFromURL"
-            The output should not include "installKubeletKubectlPkgFromPMC"
+        Mock installKubeletKubectlPkgFromPMC {
+            echo "installKubeletKubectlPkgFromPMC"
         End
 
         It 'should install from PMC if k8s version >= 1.34'
@@ -567,11 +558,25 @@ Describe 'cse_config.sh'
         End
 
         It 'should install from PMC with nodepool tag enforce_pmc_kube_pkg_install and k8s version < 1.34'
-            SHOULD_ENFORCE_KUBE_PMC_INSTALL="false"
+            SHOULD_ENFORCE_KUBE_PMC_INSTALL="true"
             KUBERNETES_VERSION="1.32.5"
             When call configureKubeletAndKubectl
             The output should include "installKubeletKubectlPkgFromPMC"
             The output should not include "installKubeletKubectlFromURL"
+        End
+        
+        It 'should install using URL if k8s version < 1.34'
+            KUBERNETES_VERSION="1.32.5"
+            When call configureKubeletAndKubectl
+            The output should include "installKubeletKubectlFromURL"
+            The output should not include "installKubeletKubectlPkgFromPMC"
+        End
+
+        It 'should install from URL if custom URL specified'
+            CUSTOM_KUBE_BINARY_DOWNLOAD_URL="https://custom-kube-url.com/kube.tar.gz"
+            When call configureKubeletAndKubectl
+            The output should include "installKubeletKubectlFromURL"
+            The output should not include "installKubeletKubectlPkgFromPMC"
         End
     End
 End
