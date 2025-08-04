@@ -534,6 +534,13 @@ Describe 'cse_config.sh'
     End
 
     Describe 'configKubeletAndKubectl'
+        installKubeletKubectlFromURL() {
+            echo "installKubeletKubectlFromURL"
+        }
+        installKubeletKubectlPkgFromPMC() {
+            echo "installKubeletKubectlPkgFromPMC"
+        }
+
         It 'should install from URL if custom URL specified'
             CUSTOM_KUBE_BINARY_DOWNLOAD_URL="https://custom-kube-url.com/kube.tar.gz"
             When call configKubeletAndKubectl

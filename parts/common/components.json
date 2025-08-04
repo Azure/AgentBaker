@@ -1332,6 +1332,12 @@
                 "renovateTag": "name=kubelet, os=ubuntu, release=24.04",
                 "latestVersion": "1.33.2-ubuntu24.04u1",
                 "previousLatestVersion": "1.33.1-ubuntu24.04u1"
+              },
+              {
+                "k8sVersion": "1.34",
+                "renovateTag": "name=kubelet, os=ubuntu, release=24.04",
+                "latestVersion": "1.34.0~beta.0-ubuntu24.04u1",
+                "previousLatestVersion": "1.34.0~alpha.1-ubuntu24.04u2"
               }
             ]
           },
@@ -1348,6 +1354,12 @@
                 "renovateTag": "name=kubelet, os=ubuntu, release=22.04",
                 "latestVersion": "1.33.2-ubuntu22.04u1",
                 "previousLatestVersion": "1.33.1-ubuntu22.04u1"
+              },
+              {
+                "k8sVersion": "1.34",
+                "renovateTag": "name=kubelet, os=ubuntu, release=22.04",
+                "latestVersion": "1.34.0~beta.0-ubuntu22.04u1",
+                "previousLatestVersion": "1.34.0~alpha.1-ubuntu22.04u2"
               }
             ]
           },
@@ -1364,6 +1376,12 @@
                 "renovateTag": "name=kubelet, os=ubuntu, release=20.04",
                 "latestVersion": "1.33.2-ubuntu20.04u1",
                 "previousLatestVersion": "1.33.1-ubuntu20.04u1"
+              },
+              {
+                "k8sVersion": "1.34",
+                "renovateTag": "name=kubelet, os=ubuntu, release=20.04",
+                "latestVersion": "1.34.0~beta.0-ubuntu20.04u1",
+                "previousLatestVersion": "1.34.0~alpha.1-ubuntu20.04u2"
               }
             ]
           }
@@ -1407,6 +1425,11 @@
                 "renovateTag": "name=kubectl, os=ubuntu, release=24.04",
                 "latestVersion": "1.33.2-ubuntu24.04u2",
                 "previousLatestVersion": "1.33.1-ubuntu24.04u2"
+              },
+              {
+                "k8sVersion": "1.34",
+                "renovateTag": "name=kubectl, os=ubuntu, release=24.04",
+                "latestVersion": "1.34.0~beta.0-ubuntu24.04u2"
               }
             ]
           },
@@ -1423,6 +1446,11 @@
                 "renovateTag": "name=kubectl, os=ubuntu, release=22.04",
                 "latestVersion": "1.33.2-ubuntu22.04u2",
                 "previousLatestVersion": "1.33.1-ubuntu22.04u2"
+              },
+              {
+                "k8sVersion": "1.34",
+                "renovateTag": "name=kubectl, os=ubuntu, release=22.04",
+                "latestVersion": "1.34.0~beta.0-ubuntu22.04u2"
               }
             ]
           },
@@ -1439,6 +1467,11 @@
                 "renovateTag": "name=kubectl, os=ubuntu, release=20.04",
                 "latestVersion": "1.33.2-ubuntu20.04u2",
                 "previousLatestVersion": "1.33.1-ubuntu20.04u2"
+              },
+              {
+                "k8sVersion": "1.34",
+                "renovateTag": "name=kubectl, os=ubuntu, release=20.04",
+                "latestVersion": "1.34.0~beta.0-ubuntu20.04u2"
               }
             ]
           }
