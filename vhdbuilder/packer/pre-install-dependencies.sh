@@ -140,6 +140,10 @@ if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]] && ! gre
   LTS_HEADERS="linux-headers-azure-lts-${UBUNTU_RELEASE}"
   LTS_MODULES="linux-modules-extra-azure-lts-${UBUNTU_RELEASE}"
 
+  # Acquiring kernel packages to be removed now to prevent lock conflicts during removal and install
+  wait_for_apt_locks
+  OLD_KERNEL_PACKAGES=$(dpkg-query -W 'linux-*azure*' | awk '$2 != "" { print $1 }' | paste -s)
+
   echo "Logging the currently running kernel: $(uname -r)"
   echo "Before purging kernel, here is a list of kernels/headers installed:"; dpkg -l 'linux-*azure*'
 
@@ -147,10 +151,12 @@ if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]] && ! gre
       echo "LTS kernel is available for ${UBUNTU_RELEASE}, proceeding with purging current kernel and installing LTS kernel..."
 
       # Purge all current kernels and dependencies
-      DEBIAN_FRONTEND=noninteractive apt-get remove --purge -y $(dpkg-query -W 'linux-*azure*' | awk '$2 != "" { print $1 }' | paste -s)
+      wait_for_apt_locks
+      DEBIAN_FRONTEND=noninteractive apt-get remove --purge -y $OLD_KERNEL_PACKAGES
       echo "After purging kernel, dpkg list should be empty"; dpkg -l 'linux-*azure*'
 
       # Install LTS kernel
+      wait_for_apt_locks
       DEBIAN_FRONTEND=noninteractive apt-get install -y "$LTS_KERNEL" "$LTS_TOOLS" "$LTS_CLOUD_TOOLS" "$LTS_HEADERS" "$LTS_MODULES"
       echo "After installing new kernel, here is a list of kernels/headers installed:"; dpkg -l 'linux-*azure*'
   else
@@ -164,6 +170,7 @@ if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]] && ! gre
     sudo apt update
     if apt-cache show "${NVIDIA_KERNEL_PACKAGE}" &> /dev/null; then
       echo "ARM64 image. Installing NVIDIA kernel and its packages alongside LTS kernel"
+      wait_for_apt_locks
       sudo apt install -y "${NVIDIA_KERNEL_PACKAGE}"
       echo "after installation:"
       dpkg -l | grep "linux-.*-azure-nvidia"
@@ -171,6 +178,7 @@ if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]] && ! gre
       echo "ARM64 image. NVIDIA kernel not available, skipping installation."
     fi
   fi
+  wait_for_apt_locks
   update-grub
 fi
 capture_benchmark "${SCRIPT_NAME}_purge_ubuntu_kernel_if_2204"
