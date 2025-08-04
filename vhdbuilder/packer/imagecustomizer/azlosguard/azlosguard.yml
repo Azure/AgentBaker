@@ -83,6 +83,10 @@ os:
     - chrony
 
   additionalFiles:
+    # Prefetch
+    - source: /AgentBaker/vhdbuilder/packer/prefetch.sh
+      destination: /opt/azure/containers/prefetch.sh
+      permissions: 755
     # Update Certs
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/update_certs.sh
       destination: /opt/scripts/update_certs.sh
@@ -349,6 +353,7 @@ os:
     - systemd-sysext
     - ipv6_nftables
     - aks-node-controller
+    - chronyd
     disable:
     # Disable Azure Linux iptables service so k8s has control
     - iptables
