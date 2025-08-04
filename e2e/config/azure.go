@@ -491,7 +491,12 @@ func (a *AzureClient) LatestSIGImageVersionByTag(ctx context.Context, image *Ima
 		return "", ErrNotFound
 	}
 
-	if err := a.ensureReplication(ctx, image, latestVersion, location, mutex); err != nil {
+	// fetch replication status
+	version, err := a.getGalleryImageVersion(ctx, imageVersionsClient, image, *latestVersion.Name)
+	if err != nil {
+		return "", fmt.Errorf("failed to get gallery image version: %w", err)
+	}
+	if err := a.ensureReplication(ctx, image, version, location, mutex); err != nil {
 		return "", fmt.Errorf("failed ensuring image replication: %w", err)
 	}
 
@@ -500,7 +505,7 @@ func (a *AzureClient) LatestSIGImageVersionByTag(ctx context.Context, image *Ima
 	return VHDResourceID(*latestVersion.ID), nil
 }
 
-func (a *AzureClient) ensureReplication(ctx context.Context, image *Image, version *armcompute.GalleryImageVersion, location string, mutex *sync.Mutex) error {
+func (a *AzureClient) ensureReplication(ctx context.Context, image *Image, version *GalleryImageVersionWithReplicationStatus, location string, mutex *sync.Mutex) error {
 	if replicatedToCurrentRegion(version, location) {
 		logf(ctx, "Image version %s is already in region %s", *version.ID, location)
 		return nil
@@ -556,9 +561,28 @@ func (a *AzureClient) replicateImageVersionToCurrentRegion(ctx context.Context, 
 	return nil
 }
 
+// Tagged type to ensure the data contains ReplicationStatus
+type GalleryImageVersionWithReplicationStatus struct {
+	armcompute.GalleryImageVersion
+}
+
+// GetGalleryImageVersion with expanded ReplicationStatus
+func (a *AzureClient) getGalleryImageVersion(ctx context.Context, client *armcompute.GalleryImageVersionsClient, image *Image, versionName string) (*GalleryImageVersionWithReplicationStatus, error) {
+	resp, err := client.Get(ctx, image.Gallery.ResourceGroupName, image.Gallery.Name, image.Name, versionName, &armcompute.GalleryImageVersionsClientGetOptions{
+		Expand: to.Ptr(armcompute.ReplicationStatusTypesReplicationStatus),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("getting live image version info: %w", err)
+	}
+	if resp.Properties.ReplicationStatus == nil {
+		return nil, fmt.Errorf("response missing replication status, unable to proceed")
+	}
+	return &GalleryImageVersionWithReplicationStatus{resp.GalleryImageVersion}, nil
+}
+
 func (a *AzureClient) EnsureSIGImageVersion(ctx context.Context, image *Image, location string, mutex *sync.Mutex) (VHDResourceID, error) {
 	logf(ctx, "Looking up gallery images for subcription %s", image.Gallery.SubscriptionID)
-	galleryImageVersion, err := armcompute.NewGalleryImageVersionsClient(image.Gallery.SubscriptionID, a.Credential, a.ArmOptions)
+	client, err := armcompute.NewGalleryImageVersionsClient(image.Gallery.SubscriptionID, a.Credential, a.ArmOptions)
 	if err != nil {
 		return "", fmt.Errorf("create a new images client: %v", err)
 	}
@@ -569,23 +593,22 @@ func (a *AzureClient) EnsureSIGImageVersion(ctx context.Context, image *Image, l
 		image.Name,
 		image.Version)
 
-	resp, err := galleryImageVersion.Get(ctx, image.Gallery.ResourceGroupName, image.Gallery.Name, image.Name, image.Version, nil)
+	version, err := a.getGalleryImageVersion(ctx, client, image, image.Version)
 	if err != nil {
 		return "", fmt.Errorf("getting live image version info: %w", err)
 	}
 
-	logf(ctx, "Found image with id %s", *resp.ID)
+	logf(ctx, "Found image with id %s", *version.ID)
 
-	liveVersion := &resp.GalleryImageVersion
-	if err := ensureProvisioningState(liveVersion); err != nil {
+	if err := ensureProvisioningState(&version.GalleryImageVersion); err != nil {
 		return "", fmt.Errorf("Failed ensuring image version provisioning state: %w", err)
 	}
 
-	if err := a.ensureReplication(ctx, image, liveVersion, location, mutex); err != nil {
+	if err := a.ensureReplication(ctx, image, version, location, mutex); err != nil {
 		return "", fmt.Errorf("Failed ensuring image replication: %w", err)
 	}
 
-	return VHDResourceID(*resp.ID), nil
+	return VHDResourceID(*version.ID), nil
 }
 
 func DefaultRetryOpts() policy.RetryOptions {
@@ -604,9 +627,17 @@ func DefaultRetryOpts() policy.RetryOptions {
 	}
 }
 
-func replicatedToCurrentRegion(version *armcompute.GalleryImageVersion, location string) bool {
-	for _, targetRegion := range version.Properties.PublishingProfile.TargetRegions {
-		if strings.EqualFold(strings.ReplaceAll(*targetRegion.Name, " ", ""), location) {
+func replicatedToCurrentRegion(version *GalleryImageVersionWithReplicationStatus, location string) bool {
+	for _, replicationStatus := range version.Properties.ReplicationStatus.Summary {
+		if replicationStatus.Region == nil || replicationStatus.State == nil {
+			continue
+		}
+		region := *replicationStatus.Region
+		state := *replicationStatus.State
+		if !strings.EqualFold(strings.ReplaceAll(region, " ", ""), location) {
+			continue
+		}
+		if state == armcompute.ReplicationStateCompleted {
 			return true
 		}
 	}
@@ -614,8 +645,10 @@ func replicatedToCurrentRegion(version *armcompute.GalleryImageVersion, location
 }
 
 func ensureProvisioningState(version *armcompute.GalleryImageVersion) error {
-	if *version.Properties.ProvisioningState != armcompute.GalleryProvisioningStateSucceeded {
-		return fmt.Errorf("unexpected provisioning state: %q", *version.Properties.ProvisioningState)
+	// If the image is currently replicating we might be in Updating
+	provisioningState := *version.Properties.ProvisioningState
+	if provisioningState != armcompute.GalleryProvisioningStateSucceeded && provisioningState != armcompute.GalleryProvisioningStateUpdating {
+		return fmt.Errorf("unexpected provisioning state: %q", provisioningState)
 	}
 	return nil
 }
