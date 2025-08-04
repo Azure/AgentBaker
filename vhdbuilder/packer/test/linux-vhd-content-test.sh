@@ -487,7 +487,7 @@ testChrony() {
   #test chrony is running
   #if mariner/azurelinux check chronyd, else check chrony
   os_chrony="chrony"
-  if [ "$os_sku" = "CBLMariner" ] || [ "$os_sku" = "AzureLinux" ] || [ "$os_sku" = "Flatcar" ]; then
+  if [ "$os_sku" = "CBLMariner" ] || [ "$os_sku" = "AzureLinux" ] || [ "$os_sku" = "AzureLinuxOSGuard" ] || [ "$os_sku" = "Flatcar" ]; then
     os_chrony="chronyd"
   fi
   status=$(systemctl show -p SubState --value $os_chrony)

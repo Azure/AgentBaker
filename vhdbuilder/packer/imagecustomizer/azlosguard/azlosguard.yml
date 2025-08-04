@@ -83,6 +83,10 @@ os:
     - chrony
 
   additionalFiles:
+    # Components
+    - source: /AgentBaker/parts/common/components.json
+      destination: /opt/azure/components.json
+      permissions: 644
     # Prefetch
     - source: /AgentBaker/vhdbuilder/packer/prefetch.sh
       destination: /opt/azure/containers/prefetch.sh
@@ -353,7 +357,6 @@ os:
     - systemd-sysext
     - ipv6_nftables
     - aks-node-controller
-    - chronyd
     disable:
     # Disable Azure Linux iptables service so k8s has control
     - iptables
