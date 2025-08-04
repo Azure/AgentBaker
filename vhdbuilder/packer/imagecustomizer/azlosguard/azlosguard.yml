@@ -79,6 +79,7 @@ os:
     install:
     - vim
     - wget
+    - git # linux-vhd-content-test.sh
 
   additionalFiles:
     # Fix systemd resolved caching
