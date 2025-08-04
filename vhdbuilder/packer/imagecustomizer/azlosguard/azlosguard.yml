@@ -80,8 +80,26 @@ os:
     - vim
     - wget
     - git # linux-vhd-content-test.sh
+    - chrony
 
   additionalFiles:
+    # Update Certs
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/update_certs.sh
+      destination: /opt/scripts/update_certs.sh
+      permissions: 755
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/mariner/update_certs_mariner.service
+      destination: /etc/systemd/system/update_certs.service
+      permissions: 600
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/update_certs.path
+      destination: /etc/systemd/system/update_certs.path
+      permissions: 600
+    # Node Controller
+    - source: /AgentBaker/aks-node-controller/bin/aks-node-controller-linux-amd64
+      destination: /opt/azure/containers/aks-node-controller
+      permissions: 755
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/aks-node-controller.service
+      destination: /etc/systemd/system/aks-node-controller.service
+      permissions: 600
     # Helper Script
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/cse_helpers.sh
       destination: /opt/azure/containers/provision_source.sh
@@ -330,9 +348,11 @@ os:
     - measure-tls-bootstrapping-latency
     - systemd-sysext
     - ipv6_nftables
+    - aks-node-controller
     disable:
     # Disable Azure Linux iptables service so k8s has control
     - iptables
+    - auditd
 
   bootloader:
     resetType: hard-reset

@@ -19,7 +19,7 @@ mkdir -p /opt/bin
 ln -s /opt/bin /etc/extensions/lg-redirect-sysext/usr/local/bin
 
 # Place ci-syslog.watcher.sh into the /usr/local/bin overlay
-mv /opt/scripts/ci-syslog-watcher.sh /usr/local/bin/ci-syslog-watcher.sh
+mv /opt/scripts/ci-syslog-watcher.sh /opt/bin/ci-syslog-watcher.sh
 
 # Create release-notes.txt
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
