@@ -93,11 +93,11 @@ installCriCtlPackage() {
 
 installKubeletKubectlPkgFromPMC() {
     k8sVersion="${1}"
-    installKubePkgWithAptGet "kubelet" "${k8sVersion}" || exit $ERR_KUBELET_INSTALL_TIMEOUT
-    installKubePkgWithAptGet "kubectl" "${k8sVersion}" || exit $ERR_KUBECTL_INSTALL_TIMEOUT
+    installPkgWithAptGet "kubelet" "${k8sVersion}" || exit $ERR_KUBELET_INSTALL_TIMEOUT
+    installPkgWithAptGet "kubectl" "${k8sVersion}" || exit $ERR_KUBECTL_INSTALL_TIMEOUT
 }
 
-installKubePkgWithAptGet() {
+installPkgWithAptGet() {
     packageName="${1:-}"
     k8sVersion="${2}"
     downloadDir="/opt/${packageName}/downloads"
@@ -108,7 +108,7 @@ installKubePkgWithAptGet() {
     debFile=$(find "${downloadDir}" -maxdepth 1 -name "${packageName}_${k8sVersion}*" -print -quit 2>/dev/null) || debFile=""
     if [ -z "${debFile}" ]; then
         echo "Did not find cached deb file, downloading ${packageName} version ${k8sVersion}"
-        logs_to_events "AKS.CSE.install${packageName}PkgFromPMC.downloadKubePkgFromVersion" "downloadKubePkgFromVersion ${packageName} ${k8sVersion} ${downloadDir}"
+        logs_to_events "AKS.CSE.install${packageName}PkgFromPMC.downloadPkgFromVersion" "downloadPkgFromVersion ${packageName} ${k8sVersion} ${downloadDir}"
         debFile=$(find "${downloadDir}" -maxdepth 1 -name "${packageName}_${k8sVersion}*" -print -quit 2>/dev/null) || debFile=""
     fi
     if [ -z "${debFile}" ]; then
@@ -121,7 +121,7 @@ installKubePkgWithAptGet() {
     return 0
 }
 
-downloadKubePkgFromVersion() {
+downloadPkgFromVersion() {
     packageName="${1:-}"
     packageVersion="${2:-}"
     downloadDir="${3:-"/opt/${packageName}/downloads"}"

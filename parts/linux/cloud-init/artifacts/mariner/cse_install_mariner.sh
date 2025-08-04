@@ -165,7 +165,7 @@ installRPMPackageFromFile() {
     fullPackageVersion=$(tdnf list ${packageName} | grep ${desiredVersion} | awk '{print $2}')
     if [ -z "${rpmFile}" ]; then
         echo "kubectl package not found at ${pathToKubectlRPM}. Attempting to download it."
-        downloadKubePkgFromVersion "${packageName}" ${fullPackageVersion} "${downloadDir}" || exit $ERR_APT_INSTALL_TIMEOUT
+        downloadPkgFromVersion "${packageName}" ${fullPackageVersion} "${downloadDir}" || exit $ERR_APT_INSTALL_TIMEOUT
         rpmFile=$(find "${downloadDir}" -maxdepth 1 -name "${packageName}-${desiredVersion}*" -print -quit 2>/dev/null) || rpmFile=""
     fi
 	  if [ -z "${rpmFile}" ]; then
@@ -180,7 +180,7 @@ installRPMPackageFromFile() {
 	rm -rf ${downloadDir} &
 }
 
-downloadKubePkgFromVersion() {
+downloadPkgFromVersion() {
     packageName="${1:-}"
     packageVersion="${2:-}"
     downloadDir="${3:-"/opt/${packageName}/downloads"}"

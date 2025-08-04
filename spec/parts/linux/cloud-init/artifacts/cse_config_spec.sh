@@ -536,6 +536,8 @@ Describe 'cse_config.sh'
     End
 
     Describe 'configureKubeletAndKubectl'
+        OS="Ubuntu"
+        
         installKubeletKubectlFromURL() {
             echo "installKubeletKubectlFromURL"
         }
@@ -564,8 +566,9 @@ Describe 'cse_config.sh'
             The output should not include "installKubeletKubectlFromURL"
         End
 
-        It 'should install from PMC with nodepool tag enforce_pmc_kube_pkg_install'
-            SHOULD_ENFORCE_KUBE_PMC_INSTALL="true"
+        It 'should install from PMC with nodepool tag enforce_pmc_kube_pkg_install and k8s version < 1.34'
+            SHOULD_ENFORCE_KUBE_PMC_INSTALL="false"
+            KUBERNETES_VERSION="1.32.5"
             When call configureKubeletAndKubectl
             The output should include "installKubeletKubectlPkgFromPMC"
             The output should not include "installKubeletKubectlFromURL"

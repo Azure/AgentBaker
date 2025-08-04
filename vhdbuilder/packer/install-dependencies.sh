@@ -397,7 +397,7 @@ while IFS= read -r p; do
     "kubelet")
       for version in ${PACKAGE_VERSIONS[@]}; do
         if [ "${OS}" = "${UBUNTU_OS_NAME}" ] || isMarinerOrAzureLinux "$OS"; then
-          downloadKubePkgFromVersion "kubelet" "${version}" "${downloadDir}"
+          downloadPkgFromVersion "kubelet" "${version}" "${downloadDir}"
         fi
         echo "  - kubelet version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
@@ -405,7 +405,7 @@ while IFS= read -r p; do
     "kubectl")
       for version in ${PACKAGE_VERSIONS[@]}; do
         if [ "${OS}" = "${UBUNTU_OS_NAME}" ] || isMarinerOrAzureLinux "$OS"; then
-          downloadKubePkgFromVersion "kubectl" "${version}" "${downloadDir}"
+          downloadPkgFromVersion "kubectl" "${version}" "${downloadDir}"
         fi
         echo "  - kubectl version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
