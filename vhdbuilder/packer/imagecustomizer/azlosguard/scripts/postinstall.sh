@@ -2,6 +2,8 @@
 
 set -e
 
+/opt/azure/containers/cis.sh
+
 # Disable waagent autoupdate
 echo AutoUpdate.Enabled=n >> /etc/waagent.conf
 
