@@ -3,6 +3,8 @@
 Describe 'cse_config.sh'
     Include "./parts/linux/cloud-init/artifacts/cse_config.sh"
     Include "./parts/linux/cloud-init/artifacts/cse_helpers.sh"
+    Include "./parts/linux/cloud-init/artifacts/ubuntu/cse_helpers_ubuntu.sh"
+    Include "./parts/linux/cloud-init/artifacts/mariner/cse_helpers_mariner.sh"
 
     Describe 'configureAzureJson'
         AZURE_JSON_PATH="azure.json"
@@ -533,7 +535,7 @@ Describe 'cse_config.sh'
         End
     End
 
-    Describe 'configKubeletAndKubectl'
+    Describe 'configureKubeletAndKubectl'
         installKubeletKubectlFromURL() {
             echo "installKubeletKubectlFromURL"
         }
@@ -543,28 +545,28 @@ Describe 'cse_config.sh'
 
         It 'should install from URL if custom URL specified'
             CUSTOM_KUBE_BINARY_DOWNLOAD_URL="https://custom-kube-url.com/kube.tar.gz"
-            When call configKubeletAndKubectl
+            When call configureKubeletAndKubectl
             The output should include "installKubeletKubectlFromURL"
             The output should not include "installKubeletKubectlPkgFromPMC"
         End
 
         It 'should install using URL if k8s version < 1.34'
             KUBERNETES_VERSION="1.32.5"
-            When call configKubeletAndKubectl
+            When call configureKubeletAndKubectl
             The output should include "installKubeletKubectlFromURL"
             The output should not include "installKubeletKubectlPkgFromPMC"
         End
 
         It 'should install from PMC if k8s version >= 1.34'
             KUBERNETES_VERSION="1.34.0"
-            When call configKubeletAndKubectl
+            When call configureKubeletAndKubectl
             The output should include "installKubeletKubectlPkgFromPMC"
             The output should not include "installKubeletKubectlFromURL"
         End
 
         It 'should install from PMC with nodepool tag enforce_pmc_kube_pkg_install'
             SHOULD_ENFORCE_KUBE_PMC_INSTALL="true"
-            When call configKubeletAndKubectl
+            When call configureKubeletAndKubectl
             The output should include "installKubeletKubectlPkgFromPMC"
             The output should not include "installKubeletKubectlFromURL"
         End

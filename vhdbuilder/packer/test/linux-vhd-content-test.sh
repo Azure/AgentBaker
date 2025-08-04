@@ -727,12 +727,12 @@ testPkgDownloaded() {
     if [ $OS = $UBUNTU_OS_NAME ]; then
       debFile=$(find "${downloadDir}" -maxdepth 1 -name "${packageName}_${packageVersion}*" -print -quit 2>/dev/null) || debFile=""
       if [ -z "${debFile}" ]; then
-        err $test "Package ${packageName}_${packageVersion} does not exist"
+        err $test "Package ${packageName}_${packageVersion} does not exist, content of downloads dir is $(ls -al ${downloadDir})"
       fi
     elif [ $OS = $AZURELINUX_OS_NAME ] && [ $OS_VERSION = "3.0" ]; then
       rpmFile=$(find "${downloadDir}" -maxdepth 1 -name "${packageName}-${packageVersion}*" -print -quit 2>/dev/null) || rpmFile=""
       if [ -z "${rpmFile}" ]; then
-        err $test "Package ${packageName}-${packageVersion} does not exist"
+        err $test "Package ${packageName}-${packageVersion} does not exist, content of downloads dir is $(ls -al ${downloadDir})"
       fi
     fi
 

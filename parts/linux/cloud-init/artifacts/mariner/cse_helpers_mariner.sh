@@ -40,6 +40,7 @@ tdnf_install() {
 
 tdnf_download() {
     retries=$1; wait_sleep=$2; timeout=$3; downloadDir=$4; shift && shift && shift && shift
+    mkdir -p ${downloadDir}
     for i in $(seq 1 $retries); do
         tdnf install -y ${@} --downloadonly --downloaddir=${downloadDir} && break || \
         if [ $i -eq $retries ]; then
