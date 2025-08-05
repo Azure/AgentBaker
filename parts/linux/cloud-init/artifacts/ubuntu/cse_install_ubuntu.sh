@@ -91,6 +91,47 @@ installCriCtlPackage() {
     apt_get_install 20 30 120 ${packageName} || exit 1
 }
 
+installKubeletKubectlPkgFromPMC() {
+    k8sVersion="${1}"
+    installPkgWithAptGet "kubelet" "${k8sVersion}" || exit $ERR_KUBELET_INSTALL_TIMEOUT
+    installPkgWithAptGet "kubectl" "${k8sVersion}" || exit $ERR_KUBECTL_INSTALL_TIMEOUT
+}
+
+installPkgWithAptGet() {
+    packageName="${1:-}"
+    k8sVersion="${2}"
+    downloadDir="/opt/${packageName}/downloads"
+
+    echo "installing ${packageName} version ${k8sVersion}"
+
+    # if no deb file with desired version found then try fetching from packages.microsoft repo
+    debFile=$(find "${downloadDir}" -maxdepth 1 -name "${packageName}_${k8sVersion}*" -print -quit 2>/dev/null) || debFile=""
+    if [ -z "${debFile}" ]; then
+        echo "Did not find cached deb file, downloading ${packageName} version ${k8sVersion}"
+        logs_to_events "AKS.CSE.install${packageName}PkgFromPMC.downloadPkgFromVersion" "downloadPkgFromVersion ${packageName} ${k8sVersion} ${downloadDir}"
+        debFile=$(find "${downloadDir}" -maxdepth 1 -name "${packageName}_${k8sVersion}*" -print -quit 2>/dev/null) || debFile=""
+    fi
+    if [ -z "${debFile}" ]; then
+        echo "Failed to locate ${packageName} deb"
+        exit $ERR_APT_INSTALL_TIMEOUT
+    fi
+    logs_to_events "AKS.CSE.install${packageName}.installDebPackageFromFile" "installDebPackageFromFile ${debFile}" || exit $ERR_APT_INSTALL_TIMEOUT
+    mv "/usr/bin/${packageName}" "/usr/local/bin/${packageName}"
+    rm -rf ${downloadDir} &
+    return 0
+}
+
+downloadPkgFromVersion() {
+    packageName="${1:-}"
+    packageVersion="${2:-}"
+    downloadDir="${3:-"/opt/${packageName}/downloads"}"
+    mkdir -p ${downloadDir}
+    updateAptWithMicrosoftPkg
+    apt_get_download 20 30 ${packageName}=${packageVersion}* || exit $ERR_APT_INSTALL_TIMEOUT
+    cp -al ${APT_CACHE_DIR}${packageName}_${packageVersion}* ${downloadDir}/ || exit $ERR_APT_INSTALL_TIMEOUT
+    echo "Succeeded to download ${packageName} version ${packageVersion}"
+}
+
 installContainerd() {
     packageVersion="${3:-}"
     containerdMajorMinorPatchVersion="$(echo "$packageVersion" | cut -d- -f1)"
