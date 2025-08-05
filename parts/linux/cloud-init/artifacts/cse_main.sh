@@ -266,6 +266,10 @@ EOF
         fi
     fi
 
+    if [ "${ARTIFACT_STREAMING_ENABLED}" = "true" ]; then
+        logs_to_events "AKS.CSE.ensureContainerd.ensureArtifactStreaming" ensureArtifactStreaming || exit $ERR_ARTIFACT_STREAMING_INSTALL
+    fi
+
     # Call enableLocalDNS to enable localdns if localdns profile has EnableLocalDNS set to true.
     logs_to_events "AKS.CSE.enableLocalDNS" enableLocalDNS || exit $?
 
@@ -448,7 +452,7 @@ EOF
     logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
 
     if [ "${ARTIFACT_STREAMING_ENABLED}" = "true" ]; then
-        logs_to_events "AKS.CSE.ensureContainerd.ensureArtifactStreaming" ensureArtifactStreaming || exit $ERR_ARTIFACT_STREAMING_INSTALL
+        logs_to_events "AKS.CSE.ensureContainerd.ensureAcrNodeMon" ensureAcrNodeMon || exit $ERR_ARTIFACT_STREAMING_ACR_NODEMON_START_FAIL
     fi
 
     if $REBOOTREQUIRED; then

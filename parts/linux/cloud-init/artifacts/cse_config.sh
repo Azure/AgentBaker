@@ -398,7 +398,11 @@ ensureArtifactStreaming() {
   systemctl link /opt/overlaybd/snapshotter/overlaybd-snapshotter.service
   systemctlEnableAndStart overlaybd-tcmu.service 30
   systemctlEnableAndStart overlaybd-snapshotter.service 30
-  systemctlEnableAndStart acr-nodemon 30
+  
+}
+
+ensureAcrNodeMon() {
+    systemctlEnableAndStart acr-nodemon 30
 }
 
 ensureDocker() {
