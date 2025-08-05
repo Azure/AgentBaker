@@ -468,7 +468,7 @@ func (a *AzureClient) LatestSIGImageVersionByTag(ctx context.Context, image *Ima
 				}
 			}
 
-			if err := ensureProvisioningState(version); err != nil {
+			if *version.Properties.ProvisioningState != armcompute.GalleryProvisioningStateSucceeded {
 				logf(ctx, "Skipping version %s with tag %s=%s due to %s", *version.ID, tagName, tagValue, err)
 				continue
 			}
@@ -562,8 +562,8 @@ func (a *AzureClient) EnsureSIGImageVersion(ctx context.Context, image *Image, l
 	logf(ctx, "Found image with id %s", *resp.ID)
 
 	liveVersion := &resp.GalleryImageVersion
-	if err := ensureProvisioningState(liveVersion); err != nil {
-		return "", fmt.Errorf("Failed ensuring image version provisioning state: %w", err)
+	if *liveVersion.Properties.ProvisioningState != armcompute.GalleryProvisioningStateSucceeded {
+		return "", fmt.Errorf("unexpected provisioning state: %q", *liveVersion.Properties.ProvisioningState)
 	}
 
 	if err := a.ensureReplication(ctx, image, liveVersion, location); err != nil {
