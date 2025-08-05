@@ -1188,6 +1188,107 @@ func TestAgentPoolProfileIsAzureLinuxCgroupV2VHDDistro(t *testing.T) {
 		})
 	}
 }
+func TestAgentPoolProfileIsFlatcarVHDDistro(t *testing.T) {
+	cases := []struct {
+		name     string
+		ap       AgentPoolProfile
+		expected bool
+	}{
+		{
+			name: "flatcar VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSFlatcarGen2,
+			},
+			expected: true,
+		},
+		{
+			name: "flatcar arm64 VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSFlatcarArm64Gen2,
+			},
+			expected: true,
+		},
+		{
+			name: "ubuntu distro",
+			ap: AgentPoolProfile{
+				Distro: Ubuntu,
+			},
+			expected: false,
+		},
+	}
+
+	for _, c := range cases {
+		c := c
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			isFlatcar := c.ap.IsFlatcar()
+			if c.expected != isFlatcar {
+				t.Fatalf("Got unexpected AgentPoolProfile.IsFlatcar() result for %s. Expected: %t. Got: %t.", c.ap.Distro, c.expected, isFlatcar)
+			}
+		})
+	}
+}
+
+func TestFlatcarAndCustomDistro(t *testing.T) {
+	cases := []struct {
+		name     string
+		nbc      NodeBootstrappingConfiguration
+		expected bool
+	}{
+		{
+			name: "flatcar OSSKU with custom distro",
+			nbc: NodeBootstrappingConfiguration{
+				ContainerService: &ContainerService{
+					Properties: &Properties{
+						AgentPoolProfiles: []*AgentPoolProfile{
+							{
+								Distro: CustomizedImage,
+							},
+						},
+					},
+				},
+				AgentPoolProfile: &AgentPoolProfile{
+					Distro: CustomizedImage,
+				},
+				OSSKU: OSSKUFlatcar,
+			},
+			expected: true,
+		},
+		{
+			name: "no ossku with Flatcar distro (like e2e)",
+			nbc: NodeBootstrappingConfiguration{
+				ContainerService: &ContainerService{
+					Properties: &Properties{
+						AgentPoolProfiles: []*AgentPoolProfile{
+							{
+								Distro: AKSFlatcarGen2,
+							},
+						},
+					},
+				},
+				AgentPoolProfile: &AgentPoolProfile{
+					Distro: AKSFlatcarGen2,
+				},
+				OSSKU: "",
+			},
+			expected: true,
+		},
+	}
+
+	for _, c := range cases {
+		c := c
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			if c.nbc.AgentPoolProfile.Distro != c.nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro {
+				t.Fatalf("Expected Distros to match in test case %s", c.name)
+			}
+			isFlatcar := c.nbc.IsFlatcar()
+			if c.expected != isFlatcar {
+				t.Fatalf("Got unexpected NodeBootstrappingConfiguration.IsFlatcar() result for %s. Expected: %t. Got: %t.", c.name, c.expected, isFlatcar)
+			}
+		})
+	}
+}
 
 func TestIsCustomVNET(t *testing.T) {
 	cases := []struct {

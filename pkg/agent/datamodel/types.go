@@ -723,6 +723,7 @@ type KubernetesConfig struct {
 	PrivateAzureRegistryServer        string            `json:"privateAzureRegistryServer,omitempty"`
 	NetworkPluginMode                 string            `json:"networkPluginMode,omitempty"`
 	EbpfDataplane                     EbpfDataplane     `json:"ebpfDataplane,omitempty"`
+	BlockIptables                     bool              `json:"blockIptables,omitempty"`
 }
 
 /*
@@ -1217,6 +1218,7 @@ func (a *AgentPoolProfile) IsCustomVNET() bool {
 func (a *AgentPoolProfile) IsWindows() bool {
 	return strings.EqualFold(string(a.OSType), string(Windows))
 }
+
 func (a *AgentPoolProfile) IsFlatcar() bool {
 	return a.Distro.IsFlatcarDistro()
 }
@@ -1797,9 +1799,16 @@ type NodeBootstrappingConfiguration struct {
 	// CNI, which will overwrite the `filter` table so that we can only insert to `mangle` table to avoid
 	// our added rule is overwritten by Cilium.
 	InsertIMDSRestrictionRuleToMangleTable bool
-
 	// Version is required for aks-node-controller application to determine the version of the config file.
 	Version string
+
+	// PreProvisionOnly creates a pre-provisioned image for later node spawning.
+	// Skips kubelet and some component configuration for image capture scenarios.
+	PreProvisionOnly bool
+}
+
+func (config *NodeBootstrappingConfiguration) IsFlatcar() bool {
+	return config.OSSKU == OSSKUFlatcar || config.AgentPoolProfile.IsFlatcar()
 }
 
 type SSHStatus int
