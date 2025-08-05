@@ -168,7 +168,7 @@
       "matchUpdateTypes": [
         "patch"
       ],
-      "automerge": true,
+      "automerge": false,
       "enabled": true,
       "groupName": "kubelet-kubectl",
       "assignees": [
