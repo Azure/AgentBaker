@@ -551,15 +551,9 @@ Describe 'cse_config.sh'
             echo "installKubeletKubectlPkgFromPMC $1"
         }
 
-        isMarinerOrAzureLinux() {
-            # Return true if OS is CBLMariner or AzureLinux
-            [ "$1" = "CBLMariner" ] || [ "$1" = "AzureLinux" ]
-        }
-
         # Set default values for common variables
         BeforeEach() {
-            OS="Ubuntu"
-            UBUNTU_OS_NAME="UBUNTU"
+            OS="UBUNTU"
             SHOULD_ENFORCE_KUBE_PMC_INSTALL=""
             CUSTOM_KUBE_BINARY_DOWNLOAD_URL=""
             PRIVATE_KUBE_BINARY_DOWNLOAD_URL=""
