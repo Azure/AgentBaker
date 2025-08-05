@@ -544,7 +544,6 @@ EOF
 }
 
 configureKubeletAndKubectl() {
-
     # Install kubelet and kubectl binaries from URL for Network Isolated, Custom Kube binary, and Private Kube binary
     if [ -n "${CUSTOM_KUBE_BINARY_DOWNLOAD_URL}" ] || [ -n "${PRIVATE_KUBE_BINARY_DOWNLOAD_URL}" ] || [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
         logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromURL" installKubeletKubectlFromURL
