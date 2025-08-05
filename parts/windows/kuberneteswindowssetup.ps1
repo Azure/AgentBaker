@@ -482,6 +482,7 @@ function NodePrep {
     }
 
     if ($global:EnableSecureTLSBootstrapping) {
+        Write-Log "Secure TLS Bootstrapping is enabled, configuring and starting secure TLS bootstrap service"
         # Depends on ca.crt and azure.json
         ConfigureAndStart-SecureTLSBootstrapping -KubeDir $global:KubeDir -APIServerFQDN $MasterIP -CustomSecureTLSBootstrapAADResource $global:CustomSecureTLSBootstrapAADServerAppID
     }
