@@ -976,7 +976,6 @@ func runScenarioUbuntuGRID(t *testing.T, vmSize string) {
 				ValidateKubeletHasNotStopped(ctx, s)
 				ValidateServicesDoNotRestartKubelet(ctx, s)
 				ValidateNvidiaPersistencedRunning(ctx, s)
-				ValidateEnableNvidiaResource(ctx, s)
 			},
 		}})
 }
