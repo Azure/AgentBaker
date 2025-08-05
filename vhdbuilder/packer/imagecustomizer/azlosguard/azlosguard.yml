@@ -80,6 +80,7 @@ os:
     - vim
     - wget
     - git # linux-vhd-content-test.sh
+    - chrony
 
   additionalFiles:
     # Components
