@@ -92,7 +92,11 @@ function ConfigureAndStart-SecureTLSBootstrapping {
     )
 
     $secureTLSBootstrapBinPath = [Io.path]::Combine("$KubeDir", "aks-secure-tls-bootstrap-client.exe")
-    $aadResource = ([string]::IsNullOrEmpty($CustomSecureTLSBootstrapAADResource)) ? $global:AKSAADServerAppID : $CustomSecureTLSBootstrapAADResource
+    $aadResource = $CustomSecureTLSBootstrapAADResource
+    if ([string]::IsNullOrEmpty($aadResource)) {
+        $aadResource = $global:AKSAADServerAppID
+    }
+
     $args = @(
         "--verbose",
         "--ensure-authorized",
