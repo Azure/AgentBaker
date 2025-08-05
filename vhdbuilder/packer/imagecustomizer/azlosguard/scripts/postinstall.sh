@@ -2,6 +2,16 @@
 
 set -e
 
+# Start containerd to enable container precaching
+containerd &
+CONTAINERD_PID=$!
+echo "Started containerd with PID $CONTAINERD_PID"
+
+# Precache a container
+ctr -n k8s.io images pull mcr.microsoft.com/oss/kubernetes/pause:3.6
+
+kill $CONTAINERD_PID
+
 /opt/azure/containers/cis.sh
 
 # Disable waagent autoupdate
