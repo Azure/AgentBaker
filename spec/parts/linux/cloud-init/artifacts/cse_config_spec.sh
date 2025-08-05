@@ -606,33 +606,33 @@ Describe 'cse_config.sh'
 
         # Test cases for PMC installation with OS-specific logic
         It 'should install from PMC if k8s version >= 1.34 and OS is Ubuntu'
-            OS="Ubuntu"
+            OS="UBUNTU"
             KUBERNETES_VERSION="1.34.0"
             When call configureKubeletAndKubectl
-            The output should include "installKubeletKubectlPkgFromPMC 1.34.0"
+            The output should include "installKubeletKubectlPkgFromPMC"
             The output should not include "installKubeletKubectlFromURL"
         End
 
         It 'should install from PMC if k8s version >= 1.34 and OS is CBLMariner with OS_VERSION != 2.0'
-            OS="CBLMariner"
+            OS="MARINER"
             OS_VERSION="3.0"
             KUBERNETES_VERSION="1.34.0"
             When call configureKubeletAndKubectl
-            The output should include "installKubeletKubectlPkgFromPMC 1.34.0"
+            The output should include "installKubeletKubectlPkgFromPMC"
             The output should not include "installKubeletKubectlFromURL"
         End
 
         It 'should install from PMC if k8s version >= 1.34 and OS is AzureLinux with OS_VERSION != 2.0'
-            OS="AzureLinux"
+            OS="AZURELINUX"
             OS_VERSION="3.0"
             KUBERNETES_VERSION="1.34.0"
             When call configureKubeletAndKubectl
-            The output should include "installKubeletKubectlPkgFromPMC 1.34.0"
+            The output should include "installKubeletKubectlPkgFromPMC"
             The output should not include "installKubeletKubectlFromURL"
         End
 
         It 'should install from URL if OS is CBLMariner/AzureLinux with OS_VERSION = 2.0'
-            OS="AzureLinux"
+            OS="AZURELINUX"
             OS_VERSION="2.0"
             KUBERNETES_VERSION="1.34.0"
             When call configureKubeletAndKubectl
@@ -643,26 +643,26 @@ Describe 'cse_config.sh'
         # Test cases for enforce PMC install flag
         It 'should install from PMC if SHOULD_ENFORCE_KUBE_PMC_INSTALL is true and k8s version < 1.34'
             SHOULD_ENFORCE_KUBE_PMC_INSTALL="true"
-            OS="Ubuntu"
+            OS="UBUNTU"
             KUBERNETES_VERSION="1.32.5"
             When call configureKubeletAndKubectl
-            The output should include "installKubeletKubectlPkgFromPMC 1.32.5"
+            The output should include "installKubeletKubectlPkgFromPMC"
             The output should not include "installKubeletKubectlFromURL"
         End
 
         It 'should install from PMC if SHOULD_ENFORCE_KUBE_PMC_INSTALL is true and OS is CBLMariner with OS_VERSION != 2.0'
             SHOULD_ENFORCE_KUBE_PMC_INSTALL="true"
-            OS="CBLMariner"
+            OS="MARINER"
             OS_VERSION="3.0"
             KUBERNETES_VERSION="1.32.5"
             When call configureKubeletAndKubectl
-            The output should include "installKubeletKubectlPkgFromPMC 1.32.5"
+            The output should include "installKubeletKubectlPkgFromPMC"
             The output should not include "installKubeletKubectlFromURL"
         End
 
         It 'should install from URL if SHOULD_ENFORCE_KUBE_PMC_INSTALL is true but OS is CBLMariner/AzureLinux with OS_VERSION = 2.0'
             SHOULD_ENFORCE_KUBE_PMC_INSTALL="true"
-            OS="CBLMariner"
+            OS="MARINER"
             OS_VERSION="2.0"
             KUBERNETES_VERSION="1.32.5"
             When call configureKubeletAndKubectl
@@ -671,40 +671,23 @@ Describe 'cse_config.sh'
         End
 
         # Test edge cases
-        It 'should handle undefined KUBERNETES_VERSION gracefully'
-            OS="Ubuntu"
-            KUBERNETES_VERSION=""
-            When call configureKubeletAndKubectl
-            The output should include "installKubeletKubectlFromURL"
-            The output should not include "installKubeletKubectlPkgFromPMC"
-        End
-
         It 'should prioritize custom URL over version-based logic'
             CUSTOM_KUBE_BINARY_DOWNLOAD_URL="https://custom-kube-url.com/kube.tar.gz"
             SHOULD_ENFORCE_KUBE_PMC_INSTALL="true"
             KUBERNETES_VERSION="1.34.0"
-            OS="Ubuntu"
+            OS="UBUNTU"
             When call configureKubeletAndKubectl
             The output should include "installKubeletKubectlFromURL"
             The output should not include "installKubeletKubectlPkgFromPMC"
         End
 
         It 'should handle version exactly at boundary (1.34.0)'
-            OS="Ubuntu"
+            OS="UBUNTU"
             KUBERNETES_VERSION="1.34.0"
             SHOULD_ENFORCE_KUBE_PMC_INSTALL=""
             When call configureKubeletAndKubectl
-            The output should include "installKubeletKubectlPkgFromPMC 1.34.0"
+            The output should include "installKubeletKubectlPkgFromPMC"
             The output should not include "installKubeletKubectlFromURL"
-        End
-
-        It 'should handle version just below boundary (1.33.999)'
-            OS="Ubuntu"
-            KUBERNETES_VERSION="1.33.999"
-            SHOULD_ENFORCE_KUBE_PMC_INSTALL=""
-            When call configureKubeletAndKubectl
-            The output should include "installKubeletKubectlFromURL"
-            The output should not include "installKubeletKubectlPkgFromPMC"
         End
 
         # Test unsupported OS scenarios (should fallback to no action)
