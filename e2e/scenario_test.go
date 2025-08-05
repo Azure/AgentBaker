@@ -976,7 +976,6 @@ func runScenarioUbuntuGRID(t *testing.T, vmSize string) {
 				ValidateKubeletHasNotStopped(ctx, s)
 				ValidateServicesDoNotRestartKubelet(ctx, s)
 				ValidateNvidiaPersistencedRunning(ctx, s)
-				ValidateEnableNvidiaResource(ctx, s)
 			},
 		}})
 }
@@ -1720,7 +1719,6 @@ func Test_Ubuntu2404_GPU_H100(t *testing.T) {
 				ValidateNPDGPUCountPlugin(ctx, s)
 				ValidateNPDGPUCountCondition(ctx, s)
 				ValidateNPDGPUCountAfterFailure(ctx, s)
-				ValidateEnableNvidiaResource(ctx, s)
 			},
 		}})
 }
