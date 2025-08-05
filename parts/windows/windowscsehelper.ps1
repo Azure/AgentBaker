@@ -176,7 +176,7 @@ $global:WindowsVersion2025 = "2025"
 
 # Full package paths are generated using [string]::Format($global:ContainerdPackageTemplate, $version) when needed
 
-$global:EventsLoggingDir = "C:\WindowsAzure\Logs\Plugins\Microsoft.Compute.CustomScindowsriptExtension\Events\"
+$global:EventsLoggingDir = "C:\WindowsAzure\Logs\Plugins\Microsoft.Compute.CustomScriptExtension\Events\"
 $global:TaskName = ""
 $global:TaskTimeStamp = ""
 
