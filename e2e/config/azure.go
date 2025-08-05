@@ -34,6 +34,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/sas"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/service"
 	"github.com/google/uuid"
+	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 type AzureClient struct {
@@ -468,7 +469,7 @@ func (a *AzureClient) LatestSIGImageVersionByTag(ctx context.Context, image *Ima
 				}
 			}
 
-			if err := ensureProvisioningState(version); err != nil {
+			if *version.Properties.ProvisioningState != armcompute.GalleryProvisioningStateSucceeded && *version.Properties.ProvisioningState != armcompute.GalleryProvisioningStateUpdating {
 				logf(ctx, "Skipping version %s with tag %s=%s due to %s", *version.ID, tagName, tagValue, err)
 				continue
 			}
@@ -500,6 +501,11 @@ func (a *AzureClient) LatestSIGImageVersionByTag(ctx context.Context, image *Ima
 }
 
 func (a *AzureClient) ensureReplication(ctx context.Context, image *Image, version *armcompute.GalleryImageVersion, location string) error {
+	// Wait for any ongoing update operations to complete first
+	if err := a.waitForVersionOperationCompletion(ctx, image, version); err != nil {
+		return fmt.Errorf("waiting for version operation completion: %w", err)
+	}
+
 	if replicatedToCurrentRegion(version, location) {
 		logf(ctx, "Image version %s is already in region %s", *version.ID, location)
 		return nil
@@ -517,6 +523,50 @@ func (a *AzureClient) ensureReplication(ctx context.Context, image *Image, versi
 	toolkit.LogDuration(ctx, elapsed, 3*time.Minute, fmt.Sprintf("Replication took: %s (%s)", toolkit.FormatDuration(elapsed), *version.ID))
 
 	return err
+}
+
+func (a *AzureClient) waitForVersionOperationCompletion(ctx context.Context, image *Image, version *armcompute.GalleryImageVersion) error {
+	// If not in updating state, no need to wait
+	if *version.Properties.ProvisioningState != armcompute.GalleryProvisioningStateUpdating {
+		return nil
+	}
+
+	logf(ctx, "Image version %s is in 'Updating' state, waiting for operation to complete", *version.ID)
+
+	// Use the standard wait.PollUntilContextTimeout helper used throughout the codebase
+	err := wait.PollUntilContextTimeout(ctx, 5*time.Second, 10*time.Minute, true, func(ctx context.Context) (bool, error) {
+		// Get the latest version state using the existing client
+		resp, err := a.GalleryImageVersions.Get(ctx, image.Gallery.ResourceGroupName, image.Gallery.Name, image.Name, *version.Name, nil)
+		if err != nil {
+			// Return error to stop polling on permanent errors
+			return false, fmt.Errorf("get image version during wait: %w", err)
+		}
+
+		currentState := *resp.Properties.ProvisioningState
+		logf(ctx, "Image version %s current state: %s", *version.ID, currentState)
+
+		// Check if operation completed
+		if currentState != armcompute.GalleryProvisioningStateUpdating {
+			if currentState == armcompute.GalleryProvisioningStateSucceeded {
+				logf(ctx, "Image version %s operation completed successfully", *version.ID)
+				// Update the version object with the latest state
+				*version = resp.GalleryImageVersion
+				return true, nil // Done successfully
+			} else {
+				// Operation failed
+				return false, fmt.Errorf("image version %s operation failed with state: %s", *version.ID, currentState)
+			}
+		}
+
+		// Still updating, continue polling
+		return false, nil
+	})
+
+	if err != nil {
+		return fmt.Errorf("waiting for image version operation completion: %w", err)
+	}
+
+	return nil
 }
 
 func (a *AzureClient) replicateImageVersionToCurrentRegion(ctx context.Context, image *Image, version *armcompute.GalleryImageVersion, location string) error {
@@ -562,8 +612,8 @@ func (a *AzureClient) EnsureSIGImageVersion(ctx context.Context, image *Image, l
 	logf(ctx, "Found image with id %s", *resp.ID)
 
 	liveVersion := &resp.GalleryImageVersion
-	if err := ensureProvisioningState(liveVersion); err != nil {
-		return "", fmt.Errorf("Failed ensuring image version provisioning state: %w", err)
+	if *liveVersion.Properties.ProvisioningState != armcompute.GalleryProvisioningStateSucceeded && *liveVersion.Properties.ProvisioningState != armcompute.GalleryProvisioningStateUpdating {
+		return "", fmt.Errorf("unexpected provisioning state: %q", *liveVersion.Properties.ProvisioningState)
 	}
 
 	if err := a.ensureReplication(ctx, image, liveVersion, location); err != nil {

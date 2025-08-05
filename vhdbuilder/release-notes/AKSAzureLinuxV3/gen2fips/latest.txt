@@ -1,4 +1,4 @@
-Starting build on  Tue Jul 29 14:23:13 UTC 2025
+Starting build on  Mon Jul 21 18:15:18 UTC 2025
 Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):
   - oras version 1.2.2
   - aks-secure-tls-bootstrap-client version 0.1.0-alpha.8
@@ -15,14 +15,14 @@ Components downloaded in this VHD build (some of the below components might get 
   - kubernetes-binaries version v1.30.14
   - kubernetes-binaries version v1.31.10
   - kubernetes-binaries version v1.32.6
-  - kubernetes-binaries version v1.33.3
+  - kubernetes-binaries version v1.33.2
   - kubernetes-binaries version v1.27.102-akslts
   - kubernetes-binaries version v1.28.100-akslts
   - kubernetes-binaries version v1.29.14
   - kubernetes-binaries version v1.30.13
   - kubernetes-binaries version v1.31.9
   - kubernetes-binaries version v1.32.5
-  - kubernetes-binaries version v1.33.2
+  - kubernetes-binaries version v1.33.1
   - azure-acr-credential-provider version v1.29.15
   - azure-acr-credential-provider version v1.30.13
   - azure-acr-credential-provider version v1.31.7
@@ -48,7 +48,7 @@ containerd images pre-pulled:
   - mcr.microsoft.com/containernetworking/azure-ipam:v0.0.7
   - mcr.microsoft.com/containernetworking/azure-ipam:v0.2.1
   - mcr.microsoft.com/containernetworking/azure-ipam:v0.2.0
-  - mcr.microsoft.com/containernetworking/azure-npm:v1.6.29
+  - mcr.microsoft.com/containernetworking/azure-npm:v1.5.48
   - mcr.microsoft.com/containernetworking/cilium/cilium:v1.14.19-250129
   - mcr.microsoft.com/containernetworking/cilium/cilium:v1.16.6-250129
   - mcr.microsoft.com/containernetworking/cilium/cilium:v1.14.18-250107
@@ -56,13 +56,13 @@ containerd images pre-pulled:
   - mcr.microsoft.com/oss/v2/kubernetes/apiserver-network-proxy/agent:v0.30.3-1
   - mcr.microsoft.com/oss/v2/kubernetes/apiserver-network-proxy/agent:v0.30.3-3
   - mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.4.8
-  - mcr.microsoft.com/oss/v2/kubernetes-csi/secrets-store/driver:v1.5.3
+  - mcr.microsoft.com/oss/v2/kubernetes-csi/secrets-store/driver:v1.5.2
   - mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.6.2
   - mcr.microsoft.com/oss/v2/azure/secrets-store/provider-azure:v1.7.0
   - mcr.microsoft.com/azuremonitor/containerinsights/ciprod:3.1.28
-  - mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.20.0-main-07-24-2025-756981f2
-  - mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.20.0-main-07-24-2025-756981f2-targetallocator
-  - mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.20.0-main-07-24-2025-756981f2-cfg
+  - mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.19.0-main-07-10-2025-36d292f8
+  - mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.19.0-main-07-10-2025-36d292f8-targetallocator
+  - mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.19.0-main-07-10-2025-36d292f8-cfg
   - mcr.microsoft.com/oss/v2/kubernetes/kube-state-metrics:v2.15.0-4
   - mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.29.15
   - mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.30.13
@@ -107,14 +107,14 @@ containerd images pre-pulled:
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.30.14
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.31.10
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.32.6
-  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.33.3
+  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.33.2
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.27.102-akslts
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.28.100-akslts
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.29.14
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.30.13
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.31.9
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.32.5
-  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.33.2
+  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.33.1
   - bcc-tools
   - libbcc-examples
 Successfully copied coredns binary of v1.11.3-8
@@ -135,6 +135,8 @@ kubelet/kubectl downloaded:
 -rwxr-xr-x 1 root root  49623192 Apr 11 03:58 /usr/local/bin/kubectl-1.28.101-akslts
 -rwxr-xr-x 1 root root  77410564 May 21 16:55 /usr/local/bin/kubelet-1.32.5
 -rwxr-xr-x 1 root root  57327768 May 21 16:55 /usr/local/bin/kubectl-1.32.5
+-rwxr-xr-x 1 root root  81690916 May 21 16:59 /usr/local/bin/kubelet-1.33.1
+-rwxr-xr-x 1 root root  60121272 May 21 16:59 /usr/local/bin/kubectl-1.33.1
 -rwxr-xr-x 1 root root  77312440 May 23 19:14 /usr/local/bin/kubelet-1.31.9
 -rwxr-xr-x 1 root root  56930456 May 23 19:14 /usr/local/bin/kubectl-1.31.9
 -rwxr-xr-x 1 root root 100530648 Jun 30 16:33 /usr/local/bin/kubelet-1.30.14
@@ -147,10 +149,8 @@ kubelet/kubectl downloaded:
 -rwxr-xr-x 1 root root  56930456 Jun 30 17:07 /usr/local/bin/kubectl-1.31.10
 -rwxr-xr-x 1 root root 100526552 Jul  1 19:56 /usr/local/bin/kubelet-1.30.13
 -rwxr-xr-x 1 root root  51994776 Jul  1 19:56 /usr/local/bin/kubectl-1.30.13
--rwxr-xr-x 1 root root  81703204 Jul 17 00:30 /usr/local/bin/kubelet-1.33.3
--rwxr-xr-x 1 root root  60129464 Jul 17 00:30 /usr/local/bin/kubectl-1.33.3
 -rwxr-xr-x 1 root root  56276836 Jul 18 22:43 /usr/local/bin/aks-secure-tls-bootstrap-client
--rwxr-xr-x 1 root root       699 Jul 29 14:23 /usr/local/bin/ci-syslog-watcher.sh
+-rwxr-xr-x 1 root root       699 Jul 21 18:15 /usr/local/bin/ci-syslog-watcher.sh
 === Installed Packages Begin
 filesystem-1.1-21.azl3.x86_64
 glibc-2.38-11.azl3.x86_64
@@ -222,6 +222,7 @@ util-linux-2.40.2-1.azl3.x86_64
 json-c-0.17-1.azl3.x86_64
 cryptsetup-libs-2.4.3-6.azl3.x86_64
 diffutils-3.10-1.azl3.x86_64
+libxml2-2.11.5-5.azl3.x86_64
 xkeyboard-config-2.40-1.azl3.noarch
 libxkbcommon-1.6.0-2.azl3.x86_64
 libunistring-1.1-1.azl3.x86_64
@@ -422,11 +423,10 @@ wireless-regdb-2023.05.03-1.azl3.noarch
 initramfs-3.0-5.azl3.x86_64
 gpg-pubkey-3135ce90-5e6fda74
 oniguruma-6.9.8-1.azl3.x86_64
-jq-1.7.1-4.azl3.x86_64
+jq-1.7.1-3.azl3.x86_64
 inotify-tools-4.23.9.0-1.azl3.x86_64
 cloud-init-24.3.1-2.azl3.noarch
 cloud-init-azure-kvp-24.3.1-2.azl3.noarch
-libxml2-2.11.5-6.azl3.x86_64
 gnutls-3.8.3-6.azl3.x86_64
 nspr-4.35-2.azl3.x86_64
 nss-libs-3.96.1-3.azl3.x86_64
@@ -565,10 +565,10 @@ SUPPORT_URL="https://aka.ms/azurelinux"
 === os-release End
 Using kernel:
 Linux version 6.6.92.2-2.azl3 (root@CBL-Mariner) (gcc (GCC) 13.2.0, GNU ld (GNU Binutils) 2.41) #1 SMP PREEMPT_DYNAMIC Wed Jul  2 02:54:28 UTC 2025
-Install completed successfully on  Tue Jul 29 14:35:21 UTC 2025
-VSTS Build NUMBER: 20250729.1_master_132002574
-VSTS Build ID: 132002574
-Commit: 9a468c20e2c53bf723426e45df369e530c9c1b34
+Install completed successfully on  Mon Jul 21 18:26:23 UTC 2025
+VSTS Build NUMBER: 20250721.1_master_131102356
+VSTS Build ID: 131102356
+Commit: d8a1192afc2f674a581b43b708d4213e10ccd6fa
 Ubuntu version: 
 Hyperv generation: V2
 Feature flags: None
