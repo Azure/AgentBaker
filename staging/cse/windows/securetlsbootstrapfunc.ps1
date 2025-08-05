@@ -77,7 +77,7 @@ function ConfigureAndStart-SecureTLSBootstrapping {
         $KubeDir,
         [Parameter(Mandatory=$true)][string]
         $APIServerFQDN,
-        [Parameter(Mandatory=$true)][string]
+        [Parameter(Mandatory=$true)][AllowEmptyString()][string]
         $CustomSecureTLSBootstrapAADResource,
         [Parameter(Mandatory=$false)][string]
         $KubeconfigPath = [Io.path]::Combine("$KubeDir", "config"),

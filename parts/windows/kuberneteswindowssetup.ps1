@@ -481,8 +481,10 @@ function NodePrep {
         Remove-Item $kubeConfigFile
     }
 
-    # Depends on ca.crt and azure.json
-    ConfigureAndStart-SecureTLSBootstrapping -KubeDir $global:KubeDir -APIServerFQDN $MasterIP -CustomSecureTLSBootstrapAADResource $global:CustomSecureTLSBootstrapAADServerAppID
+    if ($global:EnableSecureTLSBootstrapping) {
+        # Depends on ca.crt and azure.json
+        ConfigureAndStart-SecureTLSBootstrapping -KubeDir $global:KubeDir -APIServerFQDN $MasterIP -CustomSecureTLSBootstrapAADResource $global:CustomSecureTLSBootstrapAADServerAppID
+    }
 
     Start-InstallGPUDriver -EnableInstall $global:ConfigGPUDriverIfNeeded -GpuDriverURL $global:GpuDriverURL
 
