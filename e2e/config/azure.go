@@ -612,7 +612,7 @@ func (a *AzureClient) EnsureSIGImageVersion(ctx context.Context, image *Image, l
 	logf(ctx, "Found image with id %s", *resp.ID)
 
 	liveVersion := &resp.GalleryImageVersion
-	if *liveVersion.Properties.ProvisioningState != armcompute.GalleryProvisioningStateSucceeded {
+	if *liveVersion.Properties.ProvisioningState != armcompute.GalleryProvisioningStateSucceeded && *liveVersion.Properties.ProvisioningState != armcompute.GalleryProvisioningStateUpdating {
 		return "", fmt.Errorf("unexpected provisioning state: %q", *liveVersion.Properties.ProvisioningState)
 	}
 
