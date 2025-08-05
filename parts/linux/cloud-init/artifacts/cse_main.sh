@@ -138,8 +138,9 @@ function basePrep {
 
     logs_to_events "AKS.CSE.installNetworkPlugin" installNetworkPlugin
 
-
-    logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy" installKubeletKubectlAndKubeProxy
+    export -f should_enforce_kube_pmc_install
+    SHOULD_ENFORCE_KUBE_PMC_INSTALL=$(retrycmd_silent 10 1 10 bash -cx should_enforce_kube_pmc_install)
+    logs_to_events "AKS.CSE.configureKubeletAndKubectl" configureKubeletAndKubectl
 
     createKubeManifestDir
 
