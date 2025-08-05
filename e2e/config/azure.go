@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Azure/agentbaker/e2e/toolkit"
@@ -424,7 +425,7 @@ func (a *AzureClient) assignRolesToVMIdentity(ctx context.Context, principalID *
 	return nil
 }
 
-func (a *AzureClient) LatestSIGImageVersionByTag(ctx context.Context, image *Image, tagName, tagValue, location string) (VHDResourceID, error) {
+func (a *AzureClient) LatestSIGImageVersionByTag(ctx context.Context, image *Image, tagName, tagValue, location string, mutex *sync.Mutex) (VHDResourceID, error) {
 	logf(ctx, "Looking up images in %s", image.azurePortalImageUrl())
 
 	imagesClient, imagesClientErr := armcompute.NewGalleryImagesClient(image.Gallery.SubscriptionID, a.Credential, a.ArmOptions)
@@ -490,7 +491,7 @@ func (a *AzureClient) LatestSIGImageVersionByTag(ctx context.Context, image *Ima
 		return "", ErrNotFound
 	}
 
-	if err := a.ensureReplication(ctx, image, latestVersion, location); err != nil {
+	if err := a.ensureReplication(ctx, image, latestVersion, location, mutex); err != nil {
 		return "", fmt.Errorf("failed ensuring image replication: %w", err)
 	}
 
@@ -499,19 +500,16 @@ func (a *AzureClient) LatestSIGImageVersionByTag(ctx context.Context, image *Ima
 	return VHDResourceID(*latestVersion.ID), nil
 }
 
-func (a *AzureClient) ensureReplication(ctx context.Context, image *Image, version *armcompute.GalleryImageVersion, location string) error {
+func (a *AzureClient) ensureReplication(ctx context.Context, image *Image, version *armcompute.GalleryImageVersion, location string, mutex *sync.Mutex) error {
 	if replicatedToCurrentRegion(version, location) {
 		logf(ctx, "Image version %s is already in region %s", *version.ID, location)
 		return nil
 	}
-	regions := make([]string, 0, len(version.Properties.PublishingProfile.TargetRegions))
-	for _, targetRegion := range version.Properties.PublishingProfile.TargetRegions {
-		regions = append(regions, *targetRegion.Name)
+	if version.Name == nil {
+		return fmt.Errorf("image version name is nil for image %s", image.Name)
 	}
-	logf(ctx, "##vso[task.logissue type=warning;]Replicating to region %s, available regions: %s, image version %s", location, strings.Join(regions, ", "), *version.ID)
-
 	start := time.Now() // Record the start time
-	err := a.replicateImageVersionToCurrentRegion(ctx, image, version, location)
+	err := a.replicateImageVersionToCurrentRegion(ctx, image, *version.Name, location, mutex)
 	elapsed := time.Since(start) // Calculate the elapsed time
 
 	toolkit.LogDuration(ctx, elapsed, 3*time.Minute, fmt.Sprintf("Replication took: %s (%s)", toolkit.FormatDuration(elapsed), *version.ID))
@@ -519,20 +517,37 @@ func (a *AzureClient) ensureReplication(ctx context.Context, image *Image, versi
 	return err
 }
 
-func (a *AzureClient) replicateImageVersionToCurrentRegion(ctx context.Context, image *Image, version *armcompute.GalleryImageVersion, location string) error {
-	galleryImageVersion, err := armcompute.NewGalleryImageVersionsClient(image.Gallery.SubscriptionID, a.Credential, a.ArmOptions)
-	if err != nil {
-		return fmt.Errorf("create a new images client: %v", err)
-	}
-	version.Properties.PublishingProfile.TargetRegions = append(version.Properties.PublishingProfile.TargetRegions, &armcompute.TargetRegion{
-		Name:                 &location,
-		RegionalReplicaCount: to.Ptr[int32](1),
-		StorageAccountType:   to.Ptr(armcompute.StorageAccountTypeStandardLRS),
-	})
+func (a *AzureClient) replicateImageVersionToCurrentRegion(ctx context.Context, image *Image, versionName string, location string, mutex *sync.Mutex) error {
+	resp, err := func() (*runtime.Poller[armcompute.GalleryImageVersionsClientCreateOrUpdateResponse], error) {
+		client, err := armcompute.NewGalleryImageVersionsClient(image.Gallery.SubscriptionID, a.Credential, a.ArmOptions)
+		if err != nil {
+			return nil, fmt.Errorf("create a new images client: %v", err)
+		}
+		mutex.Lock()
+		defer mutex.Unlock()
+		resp, err := client.Get(ctx, image.Gallery.ResourceGroupName, image.Gallery.Name, image.Name, versionName, nil)
+		if err != nil {
+			return nil, fmt.Errorf("getting live image version info: %w", err)
+		}
+		regions := make([]string, 0, len(resp.Properties.PublishingProfile.TargetRegions))
+		for _, targetRegion := range resp.Properties.PublishingProfile.TargetRegions {
+			regions = append(regions, *targetRegion.Name)
+		}
+		logf(ctx, "##vso[task.logissue type=warning;]Replicating to region %s, available regions: %s, image version %s", location, strings.Join(regions, ", "), *resp.ID)
+		resp.Properties.PublishingProfile.TargetRegions = append(resp.Properties.PublishingProfile.TargetRegions, &armcompute.TargetRegion{
+			Name:                 &location,
+			RegionalReplicaCount: to.Ptr[int32](1),
+			StorageAccountType:   to.Ptr(armcompute.StorageAccountTypeStandardLRS),
+		})
 
-	resp, err := galleryImageVersion.BeginCreateOrUpdate(ctx, image.Gallery.ResourceGroupName, image.Gallery.Name, image.Name, *version.Name, *version, nil)
+		replicateResp, err := client.BeginCreateOrUpdate(ctx, image.Gallery.ResourceGroupName, image.Gallery.Name, image.Name, versionName, resp.GalleryImageVersion, nil)
+		if err != nil {
+			return nil, fmt.Errorf("begin updating image version target regions: %w", err)
+		}
+		return replicateResp, nil
+	}()
 	if err != nil {
-		return fmt.Errorf("begin updating image version target regions: %w", err)
+		return fmt.Errorf("failed to start replication: %w", err)
 	}
 	if _, err := resp.PollUntilDone(ctx, DefaultPollUntilDoneOptions); err != nil {
 		return fmt.Errorf("updating image version target regions: %w", err)
@@ -541,7 +556,7 @@ func (a *AzureClient) replicateImageVersionToCurrentRegion(ctx context.Context, 
 	return nil
 }
 
-func (a *AzureClient) EnsureSIGImageVersion(ctx context.Context, image *Image, location string) (VHDResourceID, error) {
+func (a *AzureClient) EnsureSIGImageVersion(ctx context.Context, image *Image, location string, mutex *sync.Mutex) (VHDResourceID, error) {
 	logf(ctx, "Looking up gallery images for subcription %s", image.Gallery.SubscriptionID)
 	galleryImageVersion, err := armcompute.NewGalleryImageVersionsClient(image.Gallery.SubscriptionID, a.Credential, a.ArmOptions)
 	if err != nil {
@@ -566,7 +581,7 @@ func (a *AzureClient) EnsureSIGImageVersion(ctx context.Context, image *Image, l
 		return "", fmt.Errorf("Failed ensuring image version provisioning state: %w", err)
 	}
 
-	if err := a.ensureReplication(ctx, image, liveVersion, location); err != nil {
+	if err := a.ensureReplication(ctx, image, liveVersion, location, mutex); err != nil {
 		return "", fmt.Errorf("Failed ensuring image replication: %w", err)
 	}
 

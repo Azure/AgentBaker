@@ -204,6 +204,12 @@ func isNotFoundErr(err error) bool {
 	return false
 }
 
+var CachedReplicationMutex = cachedFunc(prepareReplicationMutex)
+
+func prepareReplicationMutex(ctx context.Context, request config.Image) (*sync.Mutex, error) {
+	return &sync.Mutex{}, nil
+}
+
 var CachedPrepareVHD = cachedFunc(prepareVHD)
 
 type GetVHDRequest struct {
@@ -214,7 +220,12 @@ type GetVHDRequest struct {
 // prepareVHD retrieves the Azure resource ID for a VHD image. A gallery is scanned for the correct version
 // and replicated to the location specified in the request if it does not already exist.
 func prepareVHD(ctx context.Context, request GetVHDRequest) (config.VHDResourceID, error) {
-	return config.GetVHDResourceID(ctx, request.Image, request.Location)
+	// Mutex to be used when starting a replication task
+	mutex, err := CachedReplicationMutex(ctx, request.Image)
+	if err != nil {
+		return "", fmt.Errorf("failed to get replication mutex: %w", err)
+	}
+	return config.GetVHDResourceID(ctx, request.Image, request.Location, mutex)
 }
 
 var CachedEnsureResourceGroup = cachedFunc(ensureResourceGroup)

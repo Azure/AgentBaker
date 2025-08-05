@@ -228,12 +228,6 @@ var (
 
 var ErrNotFound = fmt.Errorf("not found")
 
-type perLocationVHDCache struct {
-	vhd  VHDResourceID
-	err  error
-	once *sync.Once
-}
-
 type Image struct {
 	Arch                     string
 	Distro                   datamodel.Distro
@@ -249,17 +243,17 @@ func (i *Image) String() string {
 	return fmt.Sprintf("%s %s %s %s", i.OS, i.Name, i.Version, i.Arch)
 }
 
-func GetVHDResourceID(ctx context.Context, i Image, location string) (VHDResourceID, error) {
+func GetVHDResourceID(ctx context.Context, i Image, location string, m *sync.Mutex) (VHDResourceID, error) {
 	switch {
 	case i.Version != "":
-		vhd, err := Azure.EnsureSIGImageVersion(ctx, &i, location)
+		vhd, err := Azure.EnsureSIGImageVersion(ctx, &i, location, m)
 		if err != nil {
 			return "", fmt.Errorf("failed to ensure image version %s: %w", i.Version, err)
 		}
 		logf(ctx, "Got image by version: %s", i.azurePortalImageVersionUrl())
 		return vhd, nil
 	default:
-		vhd, err := Azure.LatestSIGImageVersionByTag(ctx, &i, Config.SIGVersionTagName, Config.SIGVersionTagValue, location)
+		vhd, err := Azure.LatestSIGImageVersionByTag(ctx, &i, Config.SIGVersionTagName, Config.SIGVersionTagValue, location, m)
 		if err != nil {
 			return "", fmt.Errorf("failed to get latest image by tag %s=%s: %w", Config.SIGVersionTagName, Config.SIGVersionTagValue, err)
 		}
