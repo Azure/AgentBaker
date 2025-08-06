@@ -98,6 +98,7 @@ if ($global:NetworkPlugin -eq "azure") {
 # If secure TLS bootstrapping is enabled, Wait for the secure TLS bootstrapping service
 # to have stopped, meaning aks-secure-tls-bootstrap-client.exe reached a terminal state
 if ($global:EnableSecureTLSBootstrapping) {
+    Write-Host "Secure TLS bootstrapping is enabled, waiting for $global:SecureTLSBootstrapServiceName service to stop before starting kubelet"
     while ($true) {
         $svc = Get-Service -Name $global:SecureTLSBootstrapServiceName -ErrorAction SilentlyContinue
         if ($svc -eq $null) {

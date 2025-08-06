@@ -15,6 +15,7 @@ function Install-SecureTLSBootstrapClient {
     )
 
     $secureTLSBootstrapClientDownloadPath = [Io.path]::Combine("$SecureTLSBootstrapClientDownloadDir", "aks-secure-tls-bootstrap-client.zip")
+    $secureTLSBootstrapClientCacheDir = [Io.path]::Combine("$global:CacheDir", "aks-secure-tls-bootstrap-client")
     $secureTLSBootstrapBinPath = [Io.path]::Combine("$KubeDir", "aks-secure-tls-bootstrap-client.exe")
     
     # secure TLS bootstrapping is disabled, cleanup any client binary installations and return
@@ -33,7 +34,7 @@ function Install-SecureTLSBootstrapClient {
     if (![string]::IsNullOrEmpty($CustomSecureTLSBootstrapClientDownloadUrl)) {
         # remove any cached client binary versions from CacheDir so DownloadFileOverHttp will be forced to download the desired version from remote storage
         Write-Log "Install-SecureTLSBootstrapClient: CustomSecureTLSBootstrapClientDownloadUrl is set to: $CustomSecureTLSBootstrapClientDownloadUrl, will clear aks-cache before downloading custom client"
-        Remove-Item -Path [Io.path]::Combine("$global:CacheDir", "aks-secure-tls-bootstrap-client") -Force -Recurse
+        Remove-Item -Path $secureTLSBootstrapClientCacheDir -Force -Recurse
 
         Logs-To-Event -TaskName "AKS.WindowsCSE.DownloadSecureTLSBootstrapClient" -TaskMessage "Start to download the secure TLS bootstrap client and unzip. CustomSecureTLSBootstrapClientDownloadUrl: $CustomSecureTLSBootstrapClientDownloadUrl"
         DownloadFileOverHttp -Url $CustomSecureTLSBootstrapClientDownloadUrl -DestinationPath $secureTLSBootstrapClientDownloadPath -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_SECURE_TLS_BOOTSTRAP_CLIENT
@@ -41,7 +42,6 @@ function Install-SecureTLSBootstrapClient {
     } else { # install the cached client binary by moving it from CacheDir to KubeDir
         $search = @()
         if ($global:CacheDir -and (Test-Path $global:CacheDir)) {
-            $secureTLSBootstrapClientCacheDir = [Io.path]::Combine("$global:CacheDir", "aks-secure-tls-bootstrap-client")
             $search = [IO.Directory]::GetFiles($secureTLSBootstrapClientCacheDir, "windows-amd64.zip", [IO.SearchOption]::AllDirectories)
         } else {
             Write-Log "CacheDir: $global:CacheDir does not exist, unable to install secure TLS bootstrap client"
@@ -62,7 +62,7 @@ function Install-SecureTLSBootstrapClient {
         Write-Log "Failed to extract secure TLS bootstrap client archive"
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_INSTALL_SECURE_TLS_BOOTSTRAP_CLIENT -ErrorMessage "Failed to extract secure TLS bootstrap client archive"
     }
-    if (!(Test-Path -Path [Io.path]::Combine("$KubeDir", "aks-secure-tls-bootstrap-client.exe"))) {
+    if (!(Test-Path -Path $secureTLSBootstrapBinPath)) {
         Write-Log "Secure TLS bootstrap client is missing from KubeDir: $global:KubeDir after zip extraction"
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_INSTALL_SECURE_TLS_BOOTSTRAP_CLIENT -ErrorMessage "Secure TLS bootstrap client is missing from KubeDir after zip extraction"
     }
