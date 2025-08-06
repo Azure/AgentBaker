@@ -81,7 +81,7 @@ stages:
       useOverrides: False
       enableBackfillCleanup: True
       ${{ if eq( variables.PACKER_VM_SIZE, '') }}:
-        buildVmSize: Standard_D4ds_v5
+        buildVmSize: Standard_D16ds_v5
       ${{ else }}:
         buildVmSize: ${{ variables.PACKER_VM_SIZE }}
       build2019containerd: True
