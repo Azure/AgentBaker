@@ -155,11 +155,11 @@ func Test_AzureLinuxV2_ARM64AirGap(t *testing.T) {
 	})
 }
 
-func Test_AzureLinuxV2_ARM64AirGap_Only_ArtifactSourceCache(t *testing.T) {
+func Test_AzureLinuxV2_ARM64_ArtifactSourceCache(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a AzureLinuxV2 (CgroupV2) VHD on ARM64 architecture can be properly bootstrapped",
 		Tags: Tags{
-			Airgap: true,
+			Airgap: false,
 		},
 		Config: Config{
 			Cluster: ClusterKubenet,
@@ -171,7 +171,7 @@ func Test_AzureLinuxV2_ARM64AirGap_Only_ArtifactSourceCache(t *testing.T) {
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
 						Enabled:                 true,
-						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io", config.PrivateACRName(config.Config.DefaultLocation)),
+						ContainerRegistryServer: "mcr.microsoft.com",
 					},
 				}
 			},
