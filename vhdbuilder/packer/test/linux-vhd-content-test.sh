@@ -181,6 +181,14 @@ testPackagesInstalled() {
       testAcrCredentialProviderInstalled "$PACKAGE_DOWNLOAD_URL" "${PACKAGE_VERSIONS[@]}"
       continue
     fi
+    if [ "${name}" = "kubelet" ]; then
+      testPkgDownloaded "kubelet" "${PACKAGE_VERSIONS[@]}"
+      continue
+    fi
+      if [ "${name}" = "kubectl" ]; then
+      testPkgDownloaded "kubectl" "${PACKAGE_VERSIONS[@]}"
+      continue
+    fi
 
     resolve_packages_source_url
     for version in "${PACKAGE_VERSIONS[@]}"; do
@@ -564,9 +572,9 @@ testLtsKernel() {
   if [[ "$os_sku" == "Ubuntu" && ${enable_fips,,} != "true" ]] && ! grep -q "cvm" <<< "$FEATURE_FLAGS" ; then
     echo "OS is Ubuntu, FIPS is not enabled, and this is not a CVM; check LTS kernel version"
     # Check the Ubuntu version and set the expected kernel version
-    if [ "$os_version" = "2204" ]; then
+    if [ "$os_version" = "22.04" ]; then
       expected_kernel="5.15"
-    elif [ "$os_version" = "2404" ]; then
+    elif [ "$os_version" = "24.04" ]; then
       expected_kernel="6.8"
     else
       echo "LTS kernel not installed for: $os_version"
@@ -578,7 +586,7 @@ testLtsKernel() {
     if [[ "$kernel" == *"$expected_kernel"* ]]; then
       echo "Kernel version is as expected ($expected_kernel)."
     else
-      echo "Kernel version is not as expected. Expected $expected_kernel, found $kernel."
+      err $test "Kernel version is not as expected. Expected $expected_kernel, found $kernel."
     fi
   else
     echo "OS is not Ubuntu OR OS is Ubuntu and FIPS is true, skip LTS kernel test"
@@ -704,6 +712,30 @@ testKubeBinariesPresent() {
     if [[ ! $kubeletLongVersion =~ $k8sVersion ]]; then
       err $test "The kubelet version is not correct: expected kubelet version $k8sVersion existing: $kubeletLongVersion"
     fi
+  done
+  echo "$test:Finish"
+}
+
+testPkgDownloaded() {
+  test="testPkgDownloaded"
+  echo "$test:Start"
+  local packageName=$1; shift
+  local packageVersions=("$@")
+  downloadLocation="/opt/${packageName}/downloads"
+  for packageVersion in "${packageVersions[@]}"; do
+    echo "checking package version: $packageVersion ..."
+    if [ $OS = $UBUNTU_OS_NAME ]; then
+      debFile=$(find "${downloadLocation}" -maxdepth 1 -name "${packageName}_${packageVersion}*" -print -quit 2>/dev/null) || debFile=""
+      if [ -z "${debFile}" ]; then
+        err $test "Package ${packageName}_${packageVersion} does not exist, content of downloads dir is $(ls -al ${downloadLocation})"
+      fi
+    elif [ $OS = $AZURELINUX_OS_NAME ] && [ $OS_VERSION = "3.0" ]; then
+      rpmFile=$(find "${downloadLocation}" -maxdepth 1 -name "${packageName}-${packageVersion}*" -print -quit 2>/dev/null) || rpmFile=""
+      if [ -z "${rpmFile}" ]; then
+        err $test "Package ${packageName}-${packageVersion} does not exist, content of downloads dir is $(ls -al ${downloadLocation})"
+      fi
+    fi
+
   done
   echo "$test:Finish"
 }

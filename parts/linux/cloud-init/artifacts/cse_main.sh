@@ -138,8 +138,9 @@ function basePrep {
 
     logs_to_events "AKS.CSE.installNetworkPlugin" installNetworkPlugin
 
-
-    logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy" installKubeletKubectlAndKubeProxy
+    export -f should_enforce_kube_pmc_install
+    SHOULD_ENFORCE_KUBE_PMC_INSTALL=$(retrycmd_silent 10 1 10 bash -cx should_enforce_kube_pmc_install)
+    logs_to_events "AKS.CSE.configureKubeletAndKubectl" configureKubeletAndKubectl
 
     createKubeManifestDir
 
@@ -263,6 +264,10 @@ EOF
             echo 2dd1ce17-079e-403c-b352-a1921ee207ee > /sys/bus/vmbus/drivers/hv_util/unbind
             sed -i "13i\echo 2dd1ce17-079e-403c-b352-a1921ee207ee > /sys/bus/vmbus/drivers/hv_util/unbind\n" /etc/rc.local
         fi
+    fi
+
+    if [ "${ARTIFACT_STREAMING_ENABLED}" = "true" ]; then
+        logs_to_events "AKS.CSE.ensureContainerd.ensureArtifactStreaming" ensureArtifactStreaming || exit $ERR_ARTIFACT_STREAMING_INSTALL
     fi
 
     # Call enableLocalDNS to enable localdns if localdns profile has EnableLocalDNS set to true.
@@ -447,7 +452,7 @@ EOF
     logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
 
     if [ "${ARTIFACT_STREAMING_ENABLED}" = "true" ]; then
-        logs_to_events "AKS.CSE.ensureContainerd.ensureArtifactStreaming" ensureArtifactStreaming || exit $ERR_ARTIFACT_STREAMING_INSTALL
+        logs_to_events "AKS.CSE.ensureContainerd.ensureAcrNodeMon" ensureAcrNodeMon || exit $ERR_ARTIFACT_STREAMING_ACR_NODEMON_START_FAIL
     fi
 
     if $REBOOTREQUIRED; then

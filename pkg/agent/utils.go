@@ -683,6 +683,12 @@ func addFeatureGateString(featureGates string, key string, value bool) string {
 	return strings.Join(pairs, ",")
 }
 
+func removeNewlines(str string) string {
+	sanitizedStr := strings.ReplaceAll(str, "\n", "")
+	sanitizedStr = strings.ReplaceAll(sanitizedStr, "\r", "")
+	return sanitizedStr
+}
+
 type cloudInitWriteFile struct {
 	Path        string `yaml:"path"`
 	Permissions string `yaml:"permissions"`
