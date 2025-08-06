@@ -1330,8 +1330,8 @@
               {
                 "k8sVersion": "1.33",
                 "renovateTag": "name=kubelet, os=ubuntu, release=24.04",
-                "latestVersion": "1.33.2-ubuntu24.04u1",
-                "previousLatestVersion": "1.33.1-ubuntu24.04u1"
+                "latestVersion": "1.33.3-ubuntu24.04u1",
+                "previousLatestVersion": "1.33.2-ubuntu24.04u1"
               },
               {
                 "k8sVersion": "1.34",
@@ -1352,8 +1352,8 @@
               {
                 "k8sVersion": "1.33",
                 "renovateTag": "name=kubelet, os=ubuntu, release=22.04",
-                "latestVersion": "1.33.2-ubuntu22.04u1",
-                "previousLatestVersion": "1.33.1-ubuntu22.04u1"
+                "latestVersion": "1.33.3-ubuntu22.04u1",
+                "previousLatestVersion": "1.33.2-ubuntu22.04u1"
               },
               {
                 "k8sVersion": "1.34",
@@ -1374,8 +1374,8 @@
               {
                 "k8sVersion": "1.33",
                 "renovateTag": "name=kubelet, os=ubuntu, release=20.04",
-                "latestVersion": "1.33.2-ubuntu20.04u1",
-                "previousLatestVersion": "1.33.1-ubuntu20.04u1"
+                "latestVersion": "1.33.3-ubuntu20.04u1",
+                "previousLatestVersion": "1.33.2-ubuntu20.04u1"
               },
               {
                 "k8sVersion": "1.34",
