@@ -155,14 +155,14 @@ func Test_AzureLinuxV2_ARM64AirGap(t *testing.T) {
 	})
 }
 
-func Test_AzureLinuxV2_ARM64AirGap_OnlyCache(t *testing.T) {
+func Test_AzureLinuxV2_ARM64AirGap_Only_ArtifactSourceCache(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a AzureLinuxV2 (CgroupV2) VHD on ARM64 architecture can be properly bootstrapped",
 		Tags: Tags{
 			Airgap: true,
 		},
 		Config: Config{
-			Cluster: ClusterKubenetAirgap,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV2Gen2Arm64,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
