@@ -76,15 +76,15 @@ fi
 
 echo "POOL_NAME is set to $POOL_NAME"
 
-if [ "$MODE" = "linuxVhdMode" ] && [ -z "${SKU_NAME}" ]; then
-	echo "SKU_NAME must be set for linux VHD builds"
+if [ -z "${SKU_NAME}" ]; then
+	echo "SKU_NAME must be set"
 	exit 1
 fi
 
 # This variable is used within linux builds to inform which region that packer build itself will be running,
 # and subsequently the region in which the 1ES pool the build is running on is in.
 # Note that this variable is ONLY used for linux builds, windows builds simply use AZURE_LOCATION.
-if [ "$MODE" = "linuxVhdMode" ] && [ -z "${PACKER_BUILD_LOCATION}" ]; then
+if  [ -z "${PACKER_BUILD_LOCATION}" ]; then
 	echo "PACKER_BUILD_LOCATION is not set, cannot compute VNET_RG_NAME for packer templates"
 	exit 1
 fi
@@ -97,7 +97,7 @@ fi
 # Currently only used for linux builds. This determines the environment in which the build is running (either prod or test).
 # Used to construct the name of the resource group in which the 1ES pool the build is running on lives in, which also happens.
 # to be the resource group in which the packer VNET lives in.
-if [ "$MODE" = "linuxVhdMode" ] && [ -z "${ENVIRONMENT}" ]; then
+if [ -z "${ENVIRONMENT}" ]; then
 	echo "ENVIRONMENT is not set, cannot compute VNET_RG_NAME or VNET_NAME for packer templates"
 	exit 1
 fi
