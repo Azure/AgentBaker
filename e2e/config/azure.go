@@ -533,10 +533,15 @@ func (a *AzureClient) waitForVersionOperationCompletion(ctx context.Context, ima
 
 	logf(ctx, "Image version %s is in 'Updating' state, waiting for operation to complete", *version.ID)
 
+	imgVersionClient, err := armcompute.NewGalleryImageVersionsClient(image.Gallery.SubscriptionID, a.Credential, a.ArmOptions)
+	if err != nil {
+		return fmt.Errorf("create a new image version client: %v", err)
+	}
+
 	// Use the standard wait.PollUntilContextTimeout helper used throughout the codebase
-	err := wait.PollUntilContextTimeout(ctx, 5*time.Second, 10*time.Minute, true, func(ctx context.Context) (bool, error) {
+	err = wait.PollUntilContextTimeout(ctx, 5*time.Second, 10*time.Minute, true, func(ctx context.Context) (bool, error) {
 		// Get the latest version state using the existing client
-		resp, err := a.GalleryImageVersions.Get(ctx, image.Gallery.ResourceGroupName, image.Gallery.Name, image.Name, *version.Name, nil)
+		resp, err := imgVersionClient.Get(ctx, image.Gallery.ResourceGroupName, image.Gallery.Name, image.Name, *version.Name, nil)
 		if err != nil {
 			// Return error to stop polling on permanent errors
 			return false, fmt.Errorf("get image version during wait: %w", err)
