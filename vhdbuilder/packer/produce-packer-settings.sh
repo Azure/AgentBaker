@@ -103,22 +103,12 @@ if [ "$MODE" = "linuxVhdMode" ] && [ -z "${ENVIRONMENT}" ]; then
 fi
 
 if [ -z "${VNET_RG_NAME}" ]; then
-	if [ "$MODE" = "linuxVhdMode" ]; then
-		if [ "${ENVIRONMENT,,}" = "prod" ]; then
-			# TODO(cameissner): build out updated pool resources in prod so we don't have to pivot like this
-			VNET_RG_NAME="nodesig-${ENVIRONMENT}-${PACKER_BUILD_LOCATION}-agent-pool"
-		else
-			VNET_RG_NAME="nodesig-${ENVIRONMENT}-${PACKER_BUILD_LOCATION}-packer-vnet-rg"
-		fi
-	fi
-	if [ "$MODE" = "windowsVhdMode" ]; then
-	    # shellcheck disable=SC3010
-		if [[ "${POOL_NAME}" == *nodesigprod* ]]; then
-			VNET_RG_NAME="nodesigprod-agent-pool"
-		else
-			VNET_RG_NAME="nodesigtest-agent-pool"
-		fi
-	fi
+  if [ "${ENVIRONMENT,,}" = "prod" ]; then
+    # TODO(cameissner): build out updated pool resources in prod so we don't have to pivot like this
+    VNET_RG_NAME="nodesig-${ENVIRONMENT}-${PACKER_BUILD_LOCATION}-agent-pool"
+  else
+    VNET_RG_NAME="nodesig-${ENVIRONMENT}-${PACKER_BUILD_LOCATION}-packer-vnet-rg"
+  fi
 fi
 
 if [ -z "${VNET_NAME}" ]; then
