@@ -304,7 +304,7 @@ if [ "$MODE" = "linuxVhdMode" ] || [ "$MODE" = "windowsVhdMode" ]; then
 		if [[ ${ARCHITECTURE,,} == "arm64" ]] || grep -q "cvm" <<< "$FEATURE_FLAGS" || [[ ${HYPERV_GENERATION} == "V1" ]]; then
 			TARGET_COMMAND_STRING=""
 			if [ "${ARCHITECTURE,,}" = "arm64" ]; then
-				TARGET_COMMAND_STRING+="--architecture Arm64"
+				TARGET_COMMAND_STRING+="--architecture Arm64 --features DiskControllerTypes=SCSI,NVMe"
 			elif grep -q "cvm" <<< "$FEATURE_FLAGS"; then
 				TARGET_COMMAND_STRING+="--os-state Specialized --features SecurityType=ConfidentialVM"
 			fi
