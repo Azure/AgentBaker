@@ -717,7 +717,11 @@ EOF
     if [[ $KUBELET_FLAGS == *"image-credential-provider-config"* && $KUBELET_FLAGS == *"image-credential-provider-bin-dir"* ]]; then
         echo "Configure credential provider for both image-credential-provider-config and image-credential-provider-bin-dir flags are specified in KUBELET_FLAGS"
         logs_to_events "AKS.CSE.ensureKubelet.configCredentialProvider" configCredentialProvider
-        logs_to_events "AKS.CSE.ensureKubelet.installCredentialProvider" installCredentialProvider
+        if [ "${SHOULD_ENFORCE_KUBE_PMC_INSTALL}" != "true" ] && ! semverCompare ${KUBERNETES_VERSION:-"0.0.0"} "1.34.0"; then
+            logs_to_events "AKS.CSE.ensureKubelet.installCredentialProvider" installCredentialProvider
+        else
+            logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromPMC" installCredentialProviderFromPMC
+        fi
     fi
 
     # start measure-tls-bootstrapping-latency.service without waiting for the main process to start, while ignoring any failures
