@@ -120,7 +120,7 @@ var AvailableUbuntu2404Distros = []Distro{
 	AKSUbuntuContainerd2404,
 	AKSUbuntuContainerd2404Gen2,
 	AKSUbuntuArm64Containerd2404Gen2,
-	AKSUbuntuGB200Arm64Containerd2404Gen2,
+	AKSUbuntuArm64GB200Containerd2404Gen2,
 	AKSUbuntuContainerd2404CVMGen2,
 	AKSUbuntuContainerd2404TLGen2,
 }
@@ -163,7 +163,7 @@ var AvailableContainerdDistros = []Distro{
 	AKSCBLMarinerV2KataGen2TL,
 	AKSUbuntuArm64Containerd2204Gen2,
 	AKSUbuntuArm64Containerd2404Gen2,
-	AKSUbuntuGB200Arm64Containerd2404Gen2,
+	AKSUbuntuArm64GB200Containerd2404Gen2,
 	AKSUbuntuContainerd2404CVMGen2,
 	AKSCBLMarinerV2Arm64Gen2,
 	AKSAzureLinuxV2Arm64Gen2,
@@ -203,7 +203,7 @@ var AvailableGen2Distros = []Distro{
 	AKSUbuntuEdgeZoneContainerd1804Gen2,
 	AKSUbuntuArm64Containerd2204Gen2,
 	AKSUbuntuArm64Containerd2404Gen2,
-	AKSUbuntuGB200Arm64Containerd2404Gen2,
+	AKSUbuntuArm64GB200Containerd2404Gen2,
 	AKSUbuntuContainerd2404CVMGen2,
 	AKSUbuntuContainerd2204Gen2,
 	AKSUbuntuContainerd2004CVMGen2,
@@ -587,10 +587,10 @@ var (
 		Version:       LinuxSIGImageVersion,
 	}
 
-	SIGUbuntuGB200Arm64Containerd2404Gen2ImageConfigTemplate = SigImageConfigTemplate{
+	SIGUbuntuArm64GB200Containerd2404Gen2ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
-		Definition:    "2404gb200arm64gen2containerd",
+		Definition:    "2404arm64gb200gen2containerd",
 		Version:       LinuxSIGImageVersion,
 	}
 
@@ -969,7 +969,7 @@ func getSigUbuntuImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]Si
 		AKSUbuntuContainerd2004CVMGen2:        SIGUbuntuContainerd2004CVMGen2ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuArm64Containerd2204Gen2:      SIGUbuntuArm64Containerd2204Gen2ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuArm64Containerd2404Gen2:      SIGUbuntuArm64Containerd2404Gen2ImageConfigTemplate.WithOptions(opts...),
-		AKSUbuntuGB200Arm64Containerd2404Gen2: SIGUbuntuGB200Arm64Containerd2404Gen2ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuArm64GB200Containerd2404Gen2: SIGUbuntuArm64GB200Containerd2404Gen2ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuContainerd2404CVMGen2:        SIGUbuntuContainerd2404CVMGen2ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuContainerd2204TLGen2:         SIGUbuntuContainerd2204TLGen2ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuMinimalContainerd2204:        SIGUbuntuMinimalContainerd2204ImageConfigTemplate.WithOptions(opts...),
