@@ -5,12 +5,13 @@ MARINER_OS_NAME="MARINER"
 MARINER_KATA_OS_NAME="MARINERKATA"
 AZURELINUX_OS_NAME="AZURELINUX"
 AZURELINUX_KATA_OS_NAME="AZURELINUXKATA"
-AZURELINUX_OSGUARD_OS_NAME="AZURELINUXOSGUARD"
+AZURELINUX_OSGUARD_OS_VARIANT="OSGUARD"
 
 # Real world examples from the command outputs
 # For Azure Linux V3: ID=azurelinux VERSION_ID="3.0"
 # For Azure Linux V2: ID=mariner VERSION_ID="2.0"
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID=(.*))$/, a) { print toupper(a[2]); exit }')
+OS_VARIANT=$(sort -r /etc/*-release | gawk 'match($0, /^(VARIANT_ID=(.*))$/, a) { print toupper(a[2]); exit }' | tr -d '"')
 IS_KATA="false"
 if grep -q "kata" <<< "$FEATURE_FLAGS"; then
   IS_KATA="true"
@@ -26,12 +27,6 @@ source /home/packer/provision_source_benchmarks.sh
 source /home/packer/provision_source_distro.sh
 source /home/packer/tool_installs.sh
 source /home/packer/tool_installs_distro.sh
-
-# No distinction in /etc/os-release currently for OS Guard, so condition it based on an env var
-if [ "$IS_OSGUARD" = "true" ]; then
-  echo "Setting OS to ${AZURELINUX_OSGUARD_OS_NAME} based on IS_OSGUARD env var"
-  OS=$AZURELINUX_OSGUARD_OS_NAME
-fi
 
 CPU_ARCH=$(getCPUArch)  #amd64 or arm64
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
@@ -132,7 +127,7 @@ fi
 
 # Since we do not build Ubuntu 16.04 images anymore, always override network config and disable NTP + Timesyncd and install Chrony
 # Mariner does this differently, so only do it for Ubuntu
-if ! isMarinerOrAzureLinux "$OS" && ! isAzureLinuxOSGuard "$OS"; then
+if ! isMarinerOrAzureLinux "$OS"; then
   overrideNetworkConfig || exit 1
   disableNtpAndTimesyncdInstallChrony || exit 1
 fi
@@ -218,7 +213,7 @@ EOF
 udevadm control --reload
 capture_benchmark "${SCRIPT_NAME}_set_udev_rules"
 
-if isMarinerOrAzureLinux "$OS"; then
+if isMarinerOrAzureLinux "$OS" && ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
     disableSystemdResolvedCache
     disableSystemdIptables || exit 1
     setMarinerNetworkdConfig
@@ -357,6 +352,8 @@ while IFS= read -r p; do
         evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
         if [ "${OS}" = "${UBUNTU_OS_NAME}" ]; then
           installContainerd "${downloadDir}" "${evaluatedURL}" "${version}"
+        elif isMarinerOrAzureLinux "$OS" && isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
+          echo "Skipping package install of containerd on Azure Linux OS Guard"
         elif isMarinerOrAzureLinux "$OS"; then
           installStandaloneContainerd "${version}"
         elif isFlatcar "$OS"; then
@@ -603,7 +600,7 @@ fi
 mkdir -p /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events
 
 # Disable cgroup-memory-telemetry on AzureLinux due to incompatibility with cgroup2fs driver and absence of required azure.slice directory
-if ! isMarinerOrAzureLinux "$OS" && ! isAzureLinuxOSGuard "$OS"; then
+if ! isMarinerOrAzureLinux "$OS"; then
   systemctlEnableAndStart cgroup-memory-telemetry.timer 30 || exit 1
   systemctl enable cgroup-memory-telemetry.service || exit 1
   systemctl restart cgroup-memory-telemetry.service
@@ -681,8 +678,8 @@ capture_benchmark "${SCRIPT_NAME}_finish_installing_bcc_tools"
 configureLsmWithBpf() {
   echo "Configuring LSM modules to include BPF..."
 
-  if isAzureLinuxOSGuard "$OS"; then
-    echo "Azure Linux OS Guard build, LSMs are preconfigured"
+  if isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
+    echo "Azure Linux OS Guard build, LSM selection baked into UKI"
     return 0
   fi
 

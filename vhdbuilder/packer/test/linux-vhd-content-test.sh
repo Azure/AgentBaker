@@ -58,7 +58,7 @@ if [ "$SKIP_GIT_CLONE" = "true" ]; then
   fi
   echo "Skipping git clone and pulling .tar.gz artifact for commit $GIT_COMMIT_HASH"
 
-  if ! curl -fL -o AgentBaker-${GIT_COMMIT_HASH}.tar.gz https://codeload.github.com/azure/agentbaker/tar.gz/${GIT_COMMIT_HASH}; then
+  if ! curl -fLsS -o AgentBaker-${GIT_COMMIT_HASH}.tar.gz https://codeload.github.com/azure/agentbaker/tar.gz/${GIT_COMMIT_HASH}; then
     err 'curl' "Failed to download https://codeload.github.com/azure/agentbaker/tar.gz/${GIT_COMMIT_HASH}"
     exit 1
   fi

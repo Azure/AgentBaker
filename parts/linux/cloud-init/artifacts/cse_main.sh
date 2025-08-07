@@ -21,9 +21,6 @@ done
 source "${CSE_HELPERS_FILEPATH}"
 source "${CSE_DISTRO_HELPERS_FILEPATH}"
 
-# Temporarily hardcode this setting to true since we dont get it from CSE
-AZURELINUX_OSGUARD_ENABLED=true
-
 # Setup logs for upload to host
 LOG_DIR=/var/log/azure/aks
 mkdir -p ${LOG_DIR}
@@ -133,7 +130,7 @@ function basePrep {
     fi
 
     # Container runtime already installed on Azure Linux OS Guard
-    if [ "${AZURELINUX_OSGUARD_ENABLED}" != "true" ]; then
+    if ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
         logs_to_events "AKS.CSE.installContainerRuntime" installContainerRuntime
     fi
     if [ "${NEEDS_CONTAINERD}" = "true" ] && [ "${TELEPORT_ENABLED}" = "true" ]; then
@@ -143,7 +140,7 @@ function basePrep {
     setupCNIDirs
 
     # Network plugin already installed on Azure Linux OS Guard
-    if [ "${AZURELINUX_OSGUARD_ENABLED}" != "true" ]; then
+    if ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
         logs_to_events "AKS.CSE.installNetworkPlugin" installNetworkPlugin
     fi
 
@@ -262,7 +259,7 @@ EOF
         logs_to_events "AKS.CSE.ensureNoDupOnPromiscuBridge" ensureNoDupOnPromiscuBridge
     fi
 
-    if [ "${AZURELINUX_OSGUARD_ENABLED}" != "true" ]; then
+    if ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
         if [ "$OS" = "$UBUNTU_OS_NAME" ] || isMarinerOrAzureLinux "$OS"; then
             logs_to_events "AKS.CSE.ubuntuSnapshotUpdate" ensureSnapshotUpdate
         fi
