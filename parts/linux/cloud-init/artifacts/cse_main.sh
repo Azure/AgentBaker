@@ -21,6 +21,9 @@ done
 source "${CSE_HELPERS_FILEPATH}"
 source "${CSE_DISTRO_HELPERS_FILEPATH}"
 
+# Temporarily hardcode this setting to true since we dont get it from CSE
+AZURELINUX_OSGUARD_ENABLED=true
+
 # Setup logs for upload to host
 LOG_DIR=/var/log/azure/aks
 mkdir -p ${LOG_DIR}
@@ -129,14 +132,20 @@ function basePrep {
         echo "Golden image; skipping dependencies installation"
     fi
 
-    logs_to_events "AKS.CSE.installContainerRuntime" installContainerRuntime
+    # Container runtime already installed on Azure Linux OS Guard
+    if [ "${AZURELINUX_OSGUARD_ENABLED}" != "true" ]; then
+        logs_to_events "AKS.CSE.installContainerRuntime" installContainerRuntime
+    fi
     if [ "${NEEDS_CONTAINERD}" = "true" ] && [ "${TELEPORT_ENABLED}" = "true" ]; then
         logs_to_events "AKS.CSE.installTeleportdPlugin" installTeleportdPlugin
     fi
 
     setupCNIDirs
 
-    logs_to_events "AKS.CSE.installNetworkPlugin" installNetworkPlugin
+    # Network plugin already installed on Azure Linux OS Guard
+    if [ "${AZURELINUX_OSGUARD_ENABLED}" != "true" ]; then
+        logs_to_events "AKS.CSE.installNetworkPlugin" installNetworkPlugin
+    fi
 
 
     logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy" installKubeletKubectlAndKubeProxy
@@ -253,8 +262,10 @@ EOF
         logs_to_events "AKS.CSE.ensureNoDupOnPromiscuBridge" ensureNoDupOnPromiscuBridge
     fi
 
-    if [ "$OS" = "$UBUNTU_OS_NAME" ] || isMarinerOrAzureLinux "$OS"; then
-        logs_to_events "AKS.CSE.ubuntuSnapshotUpdate" ensureSnapshotUpdate
+    if [ "${AZURELINUX_OSGUARD_ENABLED}" != "true" ]; then
+        if [ "$OS" = "$UBUNTU_OS_NAME" ] || isMarinerOrAzureLinux "$OS"; then
+            logs_to_events "AKS.CSE.ubuntuSnapshotUpdate" ensureSnapshotUpdate
+        fi
     fi
 
     if [ "$FULL_INSTALL_REQUIRED" = "true" ]; then

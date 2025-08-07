@@ -152,6 +152,7 @@ MARINER_KATA_OS_NAME="MARINERKATA"
 AZURELINUX_KATA_OS_NAME="AZURELINUXKATA"
 AZURELINUX_OS_NAME="AZURELINUX"
 FLATCAR_OS_NAME="FLATCAR"
+AZURELINUX_OSGUARD_OS_NAME="AZURELINUXOSGUARD"
 KUBECTL=/usr/local/bin/kubectl
 DOCKER=/usr/bin/docker
 # this will be empty during VHD build
@@ -617,6 +618,14 @@ should_skip_binary_cleanup() {
 isMarinerOrAzureLinux() {
     local os=$1
     if [ "$os" = "$MARINER_OS_NAME" ] || [ "$os" = "$MARINER_KATA_OS_NAME" ] || [ "$os" = "$AZURELINUX_OS_NAME" ] || [ "$os" = "$AZURELINUX_KATA_OS_NAME" ]; then
+        return 0
+    fi
+    return 1
+}
+
+isAzureLinuxOSGuard() {
+    local os=$1
+    if [ "$os" = "$AZURELINUX_OSGUARD_OS_NAME" ]; then
         return 0
     fi
     return 1

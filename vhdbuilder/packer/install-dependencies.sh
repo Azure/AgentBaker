@@ -1,10 +1,11 @@
 #!/bin/bash
-set -euo pipefail
+set -xeuo pipefail
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
 MARINER_KATA_OS_NAME="MARINERKATA"
 AZURELINUX_OS_NAME="AZURELINUX"
 AZURELINUX_KATA_OS_NAME="AZURELINUXKATA"
+AZURELINUX_OSGUARD_OS_NAME="AZURELINUXOSGUARD"
 
 # Real world examples from the command outputs
 # For Azure Linux V3: ID=azurelinux VERSION_ID="3.0"
@@ -25,6 +26,12 @@ source /home/packer/provision_source_benchmarks.sh
 source /home/packer/provision_source_distro.sh
 source /home/packer/tool_installs.sh
 source /home/packer/tool_installs_distro.sh
+
+# No distinction in /etc/os-release currently for OS Guard, so condition it based on an env var
+if [ "$IS_OSGUARD" = "true" ]; then
+  echo "Setting OS to ${AZURELINUX_OSGUARD_OS_NAME} based on IS_OSGUARD env var"
+  OS=$AZURELINUX_OSGUARD_OS_NAME
+fi
 
 CPU_ARCH=$(getCPUArch)  #amd64 or arm64
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
@@ -125,7 +132,7 @@ fi
 
 # Since we do not build Ubuntu 16.04 images anymore, always override network config and disable NTP + Timesyncd and install Chrony
 # Mariner does this differently, so only do it for Ubuntu
-if ! isMarinerOrAzureLinux "$OS"; then
+if ! isMarinerOrAzureLinux "$OS" && ! isAzureLinuxOSGuard "$OS"; then
   overrideNetworkConfig || exit 1
   disableNtpAndTimesyncdInstallChrony || exit 1
 fi
@@ -596,7 +603,7 @@ fi
 mkdir -p /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events
 
 # Disable cgroup-memory-telemetry on AzureLinux due to incompatibility with cgroup2fs driver and absence of required azure.slice directory
-if ! isMarinerOrAzureLinux "$OS"; then
+if ! isMarinerOrAzureLinux "$OS" && ! isAzureLinuxOSGuard "$OS"; then
   systemctlEnableAndStart cgroup-memory-telemetry.timer 30 || exit 1
   systemctl enable cgroup-memory-telemetry.service || exit 1
   systemctl restart cgroup-memory-telemetry.service
@@ -674,6 +681,11 @@ capture_benchmark "${SCRIPT_NAME}_finish_installing_bcc_tools"
 configureLsmWithBpf() {
   echo "Configuring LSM modules to include BPF..."
 
+  if isAzureLinuxOSGuard "$OS"; then
+    echo "Azure Linux OS Guard build, LSMs are preconfigured"
+    return 0
+  fi
+
   # Read current LSM modules
   if [ ! -f /sys/kernel/security/lsm ]; then
     echo "Warning: /sys/kernel/security/lsm not found, skipping LSM configuration"
@@ -733,7 +745,7 @@ configureLsmWithBpf
 capture_benchmark "${SCRIPT_NAME}_configure_lsm_with_bpf"
 
 # use the private_packages_url to download and cache packages
-if [ -n "${PRIVATE_PACKAGES_URL}" ]; then
+if [ -n "${PRIVATE_PACKAGES_URL:-}" ]; then
   IFS=',' read -ra PRIVATE_URLS <<< "${PRIVATE_PACKAGES_URL}"
 
   for private_url in "${PRIVATE_URLS[@]}"; do

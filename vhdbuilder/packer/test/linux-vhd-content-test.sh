@@ -43,6 +43,8 @@ if [ "$OS_SKU" = "Ubuntu" ]; then
   sudo DEBIAN_FRONTEND=noninteractive apt-get install -y git
 elif [ "$OS_SKU" = "Flatcar" ]; then
   : # Flatcar comes with git pre-installed
+elif [ "$OS_SKU" = "AzureLinuxOSGuard" ]; then
+  : # AzureLinuxOSGuard has git installed for now
 else
   sudo tdnf install -y git
 fi
@@ -487,7 +489,7 @@ testChrony() {
   #test chrony is running
   #if mariner/azurelinux check chronyd, else check chrony
   os_chrony="chrony"
-  if [ "$os_sku" = "CBLMariner" ] || [ "$os_sku" = "AzureLinux" ] || [ "$os_sku" = "Flatcar" ]; then
+  if [ "$os_sku" = "CBLMariner" ] || [ "$os_sku" = "AzureLinux" ] || [ "$os_sku" = "AzureLinuxOSGuard" ] || [ "$os_sku" = "Flatcar" ]; then
     os_chrony="chronyd"
   fi
   status=$(systemctl show -p SubState --value $os_chrony)
@@ -498,7 +500,7 @@ testChrony() {
   fi
 
   #test if chrony corrects time
-  if [ "$os_sku" = "CBLMariner" ] || [ "$os_sku" = "AzureLinux" ]; then
+  if [ "$os_sku" = "CBLMariner" ] || [ "$os_sku" = "AzureLinux" ] || [ "$os_sku" = "AzureLinuxOSGuard" ]; then
     echo $test "exiting without checking chrony time correction"
     echo $test "reenable after Mariner updates the chrony config in base image"
     echo "$test:Finish"
@@ -1236,7 +1238,12 @@ testContainerImagePrefetchScript() {
 
 testBccTools () {
   local test="BCCInstallTest"
+  os_sku="${1}"
   echo "$test: checking if BCC tools were successfully installed"
+  if [ "$os_sku" = "AzureLinuxOSGuard" ]; then
+    echo "$test: Skipping check on AzureLinuxOSGuard as BCC tools are preinstalled and not in the VHD log"
+    return 0
+  fi
   for line in '  - bcc-tools' '  - libbcc-examples'; do
     if ! grep -F -x -e "$line" $VHD_LOGS_FILEPATH; then
       err "BCC tools were not successfully installed"
@@ -1525,7 +1532,7 @@ testFileOwnership() {
 # This will keep the VM alive after the tests are run and we can SSH/Bastion into the VM to run the test manually.
 # Therefore, for example, you can run "sudo bash /var/lib/waagent/run-command/download/0/script.sh" to run the tests manually.
 checkPerformanceData
-testBccTools
+testBccTools $OS_SKU
 testVHDBuildLogsExist
 testCriticalTools
 testPackagesInstalled $CONTAINER_RUNTIME
