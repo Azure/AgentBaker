@@ -89,7 +89,7 @@ const (
 	initAKSCustomCloudScript        = "linux/cloud-init/artifacts/init-aks-custom-cloud.sh"
 	initAKSCustomCloudMarinerScript = "linux/cloud-init/artifacts/init-aks-custom-cloud-mariner.sh"
 
-	// scripts for initializing specifically within AKS custom cloud environments other than stack cloud (e.g. Bleu)
+	// scripts for initializing specifically within AKS custom cloud environments other than stack cloud (e.g. Bleu).
 	initAKSCustomCloudOperationRequestsScript        = "linux/cloud-init/artifacts/init-aks-custom-cloud-operation-requests.sh"
 	initAKSCustomCloudOperationRequestsMarinerScript = "linux/cloud-init/artifacts/init-aks-custom-cloud-operation-requests-mariner.sh"
 
