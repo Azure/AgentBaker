@@ -59,11 +59,21 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 
 	cloudInitData := cloudInitFiles["cloudInitData"].(paramsMap) //nolint:errcheck // no error is actually here
 	if cs.IsAKSCustomCloud() {
-		// TODO(ace): do we care about both? 2nd one should be more general and catch custom VHD for mariner.
-		if config.AgentPoolProfile.Distro.IsAzureLinuxDistro() || isMariner(config.OSSKU) {
-			cloudInitData["initAKSCustomCloud"] = getBase64EncodedGzippedCustomScript(initAKSCustomCloudMarinerScript, config)
-		} else {
-			cloudInitData["initAKSCustomCloud"] = getBase64EncodedGzippedCustomScript(initAKSCustomCloudScript, config)
+		switch {
+		// AGC still uses the old initAKSCustomCloudScript logic to grab certificates from WireServer
+		// TODO: align initializtion script logic for all clouds (such as Bleu) when able
+		case datamodel.GetCloudTargetEnv(cs.Location) == datamodel.USSecCloud || datamodel.GetCloudTargetEnv(cs.Location) == datamodel.USNatCloud:
+			if config.AgentPoolProfile.Distro.IsAzureLinuxDistro() || isMariner(config.OSSKU) {
+				cloudInitData["initAKSCustomCloud"] = getBase64EncodedGzippedCustomScript(initAKSCustomCloudMarinerScript, config)
+			} else {
+				cloudInitData["initAKSCustomCloud"] = getBase64EncodedGzippedCustomScript(initAKSCustomCloudScript, config)
+			}
+		default: // covers all custom clouds other than USSecCloud and USNatCloud, such as Bleu
+			if config.AgentPoolProfile.Distro.IsAzureLinuxDistro() || isMariner(config.OSSKU) {
+				cloudInitData["initAKSCustomCloud"] = getBase64EncodedGzippedCustomScript(initAKSCustomCloudOperationRequestsMarinerScript, config)
+			} else {
+				cloudInitData["initAKSCustomCloud"] = getBase64EncodedGzippedCustomScript(initAKSCustomCloudOperationRequestsScript, config)
+			}
 		}
 	}
 
