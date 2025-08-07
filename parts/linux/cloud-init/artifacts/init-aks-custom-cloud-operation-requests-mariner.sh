@@ -14,7 +14,7 @@ make_request_with_retry() {
     
     local response
     while [ $attempt -le $max_retries ]; do
-        response=$(curl -f --no-progress-bar "$url")
+        response=$(curl -f --no-progress-meter "$url")
         local request_status=$?
 
         if echo "$response" | grep -q "RequestRateLimitExceeded"; then
