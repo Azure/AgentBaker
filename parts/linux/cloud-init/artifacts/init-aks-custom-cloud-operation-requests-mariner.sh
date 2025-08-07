@@ -12,8 +12,8 @@ make_request_with_retry() {
     local retry_delay=3
     local attempt=1
     
+    local response
     while [ $attempt -le $max_retries ]; do
-        local response
         response=$(curl -fs "$url")
         local request_status=$?
 
@@ -30,6 +30,7 @@ make_request_with_retry() {
         fi
     done
     
+    echo "exhausted all retries, last response: $response"
     return 1
 }
 
@@ -41,7 +42,6 @@ process_cert_operations() {
     echo "Retrieving certificate operations for type: $endpoint_type"
     operation_response=$(make_request_with_retry "${WIRESERVER_ENDPOINT}/machine?comp=acmspackage&type=$endpoint_type&ext=json")
     local request_status=$?
-    
     if [ -z "$operation_response" ] || [ $request_status -ne 0 ]; then
         echo "Warning: No response received or request failed for: ${WIRESERVER_ENDPOINT}/machine?comp=acmspackage&type=$endpoint_type&ext=json"
         return
@@ -72,7 +72,7 @@ process_cert_operations() {
         local request_status=$?
         if [ -z "$cert_content" ] || [ $request_status -ne 0 ]; then
             echo "Warning: No response received or request failed for: ${WIRESERVER_ENDPOINT}/machine?comp=acmspackage&type=$filename&ext=$extension"
-            return
+            continue
         fi
         
         if [ -n "$cert_content" ]; then
