@@ -67,3 +67,5 @@ fi
 
 # Update the system certificate store using Mariner/AzureLinux command
 /usr/bin/update-ca-trust
+
+#EOF
