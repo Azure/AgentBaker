@@ -76,6 +76,8 @@ cp /var/log/bcc_installation.log /_imageconfigs/out/bcc-tools-installation.log
 chmod 644 /_imageconfigs/out/bcc-tools-installation.log
 cp /opt/azure/containers/image-bom.json /_imageconfigs/out/image-bom.json
 chmod 644 /_imageconfigs/out/image-bom.json
+mv /opt/azure/vhd-build-performance-data.json /_imageconfigs/out/vhd-build-performance-data.json
+chmod 644 /_imageconfigs/out/vhd-build-performance-data.json
 
 # Clean up build time redirections
 rm /home/packer
