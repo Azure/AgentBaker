@@ -78,9 +78,6 @@ os:
   packages:
     install:
     - vim
-    - wget
-    - git # linux-vhd-content-test.sh
-    - chrony
 
   additionalFiles:
     # Build Scripts

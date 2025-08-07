@@ -16,6 +16,7 @@ OS_SKU="$4"
 GIT_BRANCH="$5"
 IMG_SKU="$6"
 FEATURE_FLAGS="$7"
+GIT_COMMIT_HASH="$8"
 
 # List of "ERROR/WARNING" message we want to ignore in the cloud-init.log
 # 1. "Command ['hostname', '-f']":
@@ -38,47 +39,67 @@ err() {
 # for the local branch has weird semantics, so we replace '/' with '-' for the local branch name.
 LOCAL_GIT_BRANCH=${GIT_BRANCH//\//-}
 
-# Git is not present in the base image, so we need to install it.
+SKIP_GIT_CLONE=false
+# Git is not present in the base image, so we need to install or bypass it.
 if [ "$OS_SKU" = "Ubuntu" ]; then
   sudo DEBIAN_FRONTEND=noninteractive apt-get install -y git
 elif [ "$OS_SKU" = "Flatcar" ]; then
   : # Flatcar comes with git pre-installed
 elif [ "$OS_SKU" = "AzureLinuxOSGuard" ]; then
-  : # AzureLinuxOSGuard has git installed for now
+  SKIP_GIT_CLONE=true
 else
   sudo tdnf install -y git
 fi
 
-echo "Cloning AgentBaker repo and checking out remote branch '${GIT_BRANCH}' into local branch '${LOCAL_GIT_BRANCH}'"
-COMMAND="git clone --quiet https://github.com/Azure/AgentBaker.git"
-if ! ${COMMAND}; then
-  err 'git-clone' "Failed to clone AgentBaker repo"
-  err 'git-clone' "Used command '${COMMAND}'"
-  exit 1
-fi
-if ! pushd ./AgentBaker; then
-  err 'git-clone' "Failed to pushd into AgentBaker repo -- this is weird given that clone succeeded"
-  err 'git-clone' "Current directory is '$(pwd)'"
-  err 'git-clone' "Contents of current directory: $(ls -al)"
-  exit 1
-fi
-COMMAND="git fetch --quiet origin ${GIT_BRANCH}:${LOCAL_GIT_BRANCH}"
-if ! ${COMMAND}; then
-  err 'git-clone' "Failed to fetch remote branch '${GIT_BRANCH}' into local branch '${LOCAL_GIT_BRANCH}'"
-  err 'git-clone' "Used command '${COMMAND}'"
-  exit 1
-fi
-COMMAND="git checkout --quiet ${LOCAL_GIT_BRANCH}"
-if ! ${COMMAND}; then
-  err 'git-clone' "Failed to checkout local branch '${LOCAL_GIT_BRANCH}'"
-  err 'git-clone' "Used command '${COMMAND}'"
-  exit 1
-fi
-if ! popd; then
-  err 'git-clone' "Failed to popd out of AgentBaker repo -- this seems impossible"
-  err 'git-clone' "Current directory is $(pwd)"
-  err 'git-clone' "pushd stack is $(dirs -p)"
-  exit 1
+if [ "$SKIP_GIT_CLONE" = "true" ]; then
+  if [ -z "$GIT_COMMIT_HASH" ]; then
+    echo "GIT_COMMIT_HASH is not defined, exiting."
+    exit 1
+  fi
+  echo "Skipping git clone and pulling .tar.gz artifact for commit $GIT_COMMIT_HASH"
+
+  if ! curl -fL -o AgentBaker-${GIT_COMMIT_HASH}.tar.gz https://codeload.github.com/azure/agentbaker/tar.gz/${GIT_COMMIT_HASH}; then
+    err 'curl' "Failed to download https://codeload.github.com/azure/agentbaker/tar.gz/${GIT_COMMIT_HASH}"
+    exit 1
+  fi
+  if ! tar -xf AgentBaker-${GIT_COMMIT_HASH}.tar.gz; then
+    err 'tar' "Failed to extract AgentBaker-${GIT_COMMIT_HASH}.tar.gz"
+    exit 1
+  fi
+  mv AgentBaker-${GIT_COMMIT_HASH} AgentBaker
+else
+  # Clone the AgentBaker repo and checkout the branch provided.
+  echo "Cloning AgentBaker repo and checking out remote branch '${GIT_BRANCH}' into local branch '${LOCAL_GIT_BRANCH}'"
+  COMMAND="git clone --quiet https://github.com/Azure/AgentBaker.git"
+  if ! ${COMMAND}; then
+    err 'git-clone' "Failed to clone AgentBaker repo"
+    err 'git-clone' "Used command '${COMMAND}'"
+    exit 1
+  fi
+  if ! pushd ./AgentBaker; then
+    err 'git-clone' "Failed to pushd into AgentBaker repo -- this is weird given that clone succeeded"
+    err 'git-clone' "Current directory is '$(pwd)'"
+    err 'git-clone' "Contents of current directory: $(ls -al)"
+    exit 1
+  fi
+  COMMAND="git fetch --quiet origin ${GIT_BRANCH}:${LOCAL_GIT_BRANCH}"
+  if ! ${COMMAND}; then
+    err 'git-clone' "Failed to fetch remote branch '${GIT_BRANCH}' into local branch '${LOCAL_GIT_BRANCH}'"
+    err 'git-clone' "Used command '${COMMAND}'"
+    exit 1
+  fi
+  COMMAND="git checkout --quiet ${LOCAL_GIT_BRANCH}"
+  if ! ${COMMAND}; then
+    err 'git-clone' "Failed to checkout local branch '${LOCAL_GIT_BRANCH}'"
+    err 'git-clone' "Used command '${COMMAND}'"
+    exit 1
+  fi
+  if ! popd; then
+    err 'git-clone' "Failed to popd out of AgentBaker repo -- this seems impossible"
+    err 'git-clone' "Current directory is $(pwd)"
+    err 'git-clone' "pushd stack is $(dirs -p)"
+    exit 1
+  fi
 fi
 
 source ./AgentBaker/parts/linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh 2>/dev/null
