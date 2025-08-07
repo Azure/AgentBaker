@@ -92,6 +92,13 @@ var (
 		Distro:  datamodel.AKSAzureLinuxV3Gen2,
 		Gallery: imageGalleryLinux,
 	}
+	VHDAzureLinux3OSGuard = &Image{
+		Name:    "AzureLinuxOSGuardOSGuardV3gen2fips",
+		OS:      OSAzureLinux,
+		Arch:    "amd64",
+		Distro:  datamodel.AKSAzureLinuxV3OSGuardGen2FIPSTL,
+		Gallery: imageGalleryLinux,
+	}
 	VHDCBLMarinerV2Gen2Arm64 = &Image{
 		Name:    "CBLMarinerV2gen2arm64",
 		OS:      OSMariner,
