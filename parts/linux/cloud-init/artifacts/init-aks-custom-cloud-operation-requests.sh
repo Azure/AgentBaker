@@ -8,21 +8,23 @@ WIRESERVER_ENDPOINT="http://168.63.129.16"
 # Function to make HTTP request with retry logic for rate limiting
 make_request_with_retry() {
     local url="$1"
-    local max_retries=5
+    local max_retries=10
     local retry_delay=3
     local attempt=1
     
     while [ $attempt -le $max_retries ]; do
         local response
-        response=$(curl -s "$url")
-        
-        # Check if response contains rate limiting error
+        response=$(curl -fs "$url")
+        local request_status=$?
+
         if echo "$response" | grep -q "RequestRateLimitExceeded"; then
             sleep $retry_delay
-            retry_delay=$((retry_delay * 2))  # Exponential backoff
+            retry_delay=$((retry_delay * 2))
+            attempt=$((attempt + 1))
+        elif [ $request_status -ne 0 ]; then
+            sleep $retry_delay
             attempt=$((attempt + 1))
         else
-            # Request succeeded or failed with different error
             echo "$response"
             return 0
         fi
@@ -41,7 +43,7 @@ process_cert_operations() {
     local request_status=$?
     
     if [ -z "$operation_response" ] || [ $request_status -ne 0 ]; then
-        echo "Warning: No response received or request failed for $endpoint_type"
+        echo "Warning: No response received or request failed for: ${WIRESERVER_ENDPOINT}/machine?comp=acmspackage&type=$endpoint_type&ext=json"
         return
     fi
     
@@ -69,7 +71,7 @@ process_cert_operations() {
         cert_content=$(make_request_with_retry "${WIRESERVER_ENDPOINT}/machine?comp=acmspackage&type=$filename&ext=$extension")
         local request_status=$?
         if [ -z "$cert_content" ] || [ $request_status -ne 0 ]; then
-            echo "Warning: No response received or request failed for $cert_filename"
+            echo "Warning: No response received or request failed for: ${WIRESERVER_ENDPOINT}/machine?comp=acmspackage&type=$filename&ext=$extension"
             return
         fi
         
@@ -90,12 +92,7 @@ process_cert_operations "operationrequestsroot"
 process_cert_operations "operationrequestsintermediate"
 
 # Copy all certificate files to the system certificate directory
-if [ -n "$(find /root/AzureCACertificates -name '*.crt' 2>/dev/null)" ]; then
-    cp /root/AzureCACertificates/*.crt /usr/local/share/ca-certificates/
-    echo "Copied certificate files to /usr/local/share/ca-certificates/"
-else
-    echo "Warning: No .crt files found to copy"
-fi
+cp /root/AzureCACertificates/*.crt /usr/local/share/ca-certificates/
 
 # Update the system certificate store
 /usr/sbin/update-ca-certificates
