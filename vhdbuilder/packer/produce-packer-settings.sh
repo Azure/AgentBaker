@@ -76,8 +76,8 @@ fi
 
 echo "POOL_NAME is set to $POOL_NAME"
 
-if [ -z "${SKU_NAME}" ]; then
-	echo "SKU_NAME must be set"
+if [ "$MODE" = "linuxVhdMode" ] && [ -z "${SKU_NAME}" ]; then
+	echo "SKU_NAME must be set for linux VHD builds"
 	exit 1
 fi
 
