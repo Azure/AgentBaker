@@ -17,9 +17,6 @@ variables:
     value:  $(AZURE_BUILD_RESOURCE_GROUP_NAME)
   - name: GALLERY_RESOURCE_GROUP
     value: $(AZURE_BUILD_RESOURCE_GROUP_NAME)
-  - name: GALLERY_SUBSCRIPTION_ID
-    value: $(AZURE_BUILD_SUBSCRIPTION_ID)
-
 
 trigger:
   branches:
