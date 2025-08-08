@@ -844,7 +844,7 @@ stages:
           - bash: |
               echo '##vso[task.setvariable variable=BUILDER]imagecustomizer'
               echo '##vso[task.setvariable variable=OS_SKU]AzureLinuxOSGuard'
-              echo '##vso[task.setvariable variable=OS_VERSION]V3'
+              echo '##vso[task.setvariable variable=OS_VERSION]OSGuardV3'
               echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER]mcr.microsoft.com/azurelinux/imagecustomizer'
               echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_VERSION]0.17.0'
               echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONFIG]azlosguard'

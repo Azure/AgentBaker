@@ -11,7 +11,7 @@ source /opt/azure/containers/provision_source.sh
 # Recreate variables from the pipeline build environment for install-dependencies.sh
 export IMG_SKU="azure-linux-osguard-3"
 export CONTAINER_RUNTIME="containerd"
-export SKU_NAME="V3gen2fips"
+export SKU_NAME="OSGuardV3gen2fipsTL"
 export FEATURE_FLAGS=""
 
 # Setup a symlink for lg-redirect-sysext
