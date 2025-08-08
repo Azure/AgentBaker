@@ -180,11 +180,9 @@ $global:TLSBootstrapToken = "{{GetTLSBootstrapTokenForKubeConfig}}"
 
 # Secure TLS Bootstrap settings
 $global:EnableSecureTLSBootstrapping = [System.Convert]::ToBoolean("{{EnableSecureTLSBootstrapping}}");
-$global:CustomSecureTLSBootstrapAADServerAppID = "{{GetCustomSecureTLSBootstrapAADServerAppID}}";
 $global:CustomSecureTLSBootstrapClientURL = "{{GetCustomSecureTLSBootstrapClientURL}}";
-
-# used by secure TLS bootstrapping to request AAD tokens - uniquely identifies AKS's Entra ID application.
-# more details: https://learn.microsoft.com/en-us/azure/aks/kubelogin-authentication#how-to-use-kubelogin-with-aks
+# uniquely identifies AKS's Entra ID application, see: https://learn.microsoft.com/en-us/azure/aks/kubelogin-authentication#how-to-use-kubelogin-with-aks
+# this is used by aks-secure-tls-bootstrap-client.exe when requesting AAD tokens
 $global:AKSAADServerAppID = "6dae42f8-4368-4678-94ff-3960e28e3630"
 
 # Disable OutBoundNAT in Azure CNI configuration
@@ -309,7 +307,12 @@ function BasePrep {
 
     Write-KubeClusterConfig -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp
 
-    Install-SecureTLSBootstrapClient -KubeDir $global:KubeDir -CustomSecureTLSBootstrapClientDownloadUrl $global:CustomSecureTLSBootstrapClientURL
+    # to ensure we don't introduce any incompatibility between base CSE + CSE package versions
+    if (Get-Command -Name Install-SecureTLSBootstrapClient -ErrorAction SilentlyContinue) {
+        Install-SecureTLSBootstrapClient -KubeDir $global:KubeDir -CustomSecureTLSBootstrapClientDownloadUrl $global:CustomSecureTLSBootstrapClientURL
+    } else {
+        Write-Log "Install-SecureTLSBootstrapClient is not a recognized function, will skip installation of the secure TLS bootstrap client"
+    }
 
     Install-CredentialProvider -KubeDir $global:KubeDir -CustomCloudContainerRegistryDNSSuffix {{if IsAKSCustomCloud}}"{{ AKSCustomCloudContainerRegistryDNSSuffix }}"{{else}}""{{end}}
 
@@ -372,10 +375,10 @@ function BasePrep {
             -MasterFQDNPrefix $MasterFQDNPrefix `
             -MasterIP $MasterIP `
             -TLSBootstrapToken $global:TLSBootstrapToken
-
-        # NOTE: we need kubeconfig to setup calico even if TLS bootstrapping is enabled
-        #       This kubeconfig will deleted after calico installation.
-        # TODO(hbc): once TLS bootstrap is fully enabled, remove this if block
+    }
+    if ($global:TLSBootstrapToken -or $global:EnableSecureTLSBootstrapping)
+        # NOTE: we need kubeconfig to setup calico even if vanilla/secure TLS bootstrapping is enabled
+        # This kubeconfig will deleted after calico installation.
         Write-Log "Write temporary kube config"
     } else {
         Write-Log "Write kube config"
@@ -479,12 +482,6 @@ function NodePrep {
         Write-Log "Removing temporary kube config"
         $kubeConfigFile = [io.path]::Combine($KubeDir, "config")
         Remove-Item $kubeConfigFile
-    }
-
-    if ($global:EnableSecureTLSBootstrapping) {
-        Write-Log "Secure TLS Bootstrapping is enabled, configuring and starting secure TLS bootstrap service"
-        # Depends on ca.crt and azure.json
-        ConfigureAndStart-SecureTLSBootstrapping -KubeDir $global:KubeDir -APIServerFQDN $MasterIP -CustomSecureTLSBootstrapAADResource $global:CustomSecureTLSBootstrapAADServerAppID
     }
 
     Start-InstallGPUDriver -EnableInstall $global:ConfigGPUDriverIfNeeded -GpuDriverURL $global:GpuDriverURL

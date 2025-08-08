@@ -126,7 +126,8 @@ function Write-KubeClusterConfig {
             NodeLabels = $global:KubeletNodeLabels;
             ConfigArgs = $global:KubeletConfigArgs
             SecureTLSBootstrapArgs = @{
-                Enabled = $global:EnableSecureTLSBootstrapping;
+                Enabled     = $global:EnableSecureTLSBootstrapping;
+                AADResource = $global:AKSAADServerAppID
             };
         };
         Kubeproxy    = @{

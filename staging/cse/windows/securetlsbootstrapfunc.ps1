@@ -1,9 +1,3 @@
-# Functions used for setting up and running the secure TLS bootstrapping protocol to
-# securely generate kubelet client certificates without the usage of bootstrap tokens
-
-$global:SecureTLSBootstrapServiceName = "secure-tls-bootstrap"
-$global:SecureTLSBootstrappingDeadline = "120s"
-
 function Install-SecureTLSBootstrapClient {
     Param(
         [Parameter(Mandatory=$true)][string]
@@ -68,65 +62,5 @@ function Install-SecureTLSBootstrapClient {
     }
     
     Remove-Item -Path $SecureTLSBootstrapClientDownloadDir -Force -Recurse
-    Write-Log "Successfully extracted secure TLS bootstrap client to: $secureTLSBootstrapClientDownloadPath"
-}
-
-function ConfigureAndStart-SecureTLSBootstrapping {
-    param(
-        [Parameter(Mandatory=$true)][string]
-        $KubeDir,
-        [Parameter(Mandatory=$true)][string]
-        $APIServerFQDN,
-        [Parameter(Mandatory=$true)][AllowEmptyString()][string]
-        $CustomSecureTLSBootstrapAADResource,
-        [Parameter(Mandatory=$false)][string]
-        $KubeconfigPath = [Io.path]::Combine("$KubeDir", "config"),
-        [Parameter(Mandatory=$false)][string]
-        $CredFilePath = [Io.path]::Combine("$KubeDir", "client.pem"),
-        [Parameter(Mandatory=$false)][string]
-        $AzureConfigPath = [io.path]::Combine($KubeDir, "azure.json"),
-        [Parameter(Mandatory=$false)][string]
-        $ClusterCAFilePath = [io.path]::Combine($KubeDir, "ca.crt"),
-        [Parameter(Mandatory=$false)][string]
-        $LogFilePath = [Io.path]::Combine("$KubeDir", "secure-tls-bootstrap.log")
-    )
-
-    $secureTLSBootstrapBinPath = [Io.path]::Combine("$KubeDir", "aks-secure-tls-bootstrap-client.exe")
-    $aadResource = $CustomSecureTLSBootstrapAADResource
-    if ([string]::IsNullOrEmpty($aadResource)) {
-        $aadResource = $global:AKSAADServerAppID
-    }
-
-    $args = @(
-        "--verbose",
-        "--ensure-authorized",
-        "--next-proto=aks-tls-bootstrap",
-        "--aad-resource=$aadResource",
-        "--cluster-ca-file=$ClusterCAFilePath",
-        "--kubeconfig=$KubeconfigPath",
-        "--cred-file=$CredFilePath",
-        "--log-file=$LogFilePath",
-        "--apiserver-fqdn=$APIServerFQDN",
-        "--cloud-provider-config=$AzureConfigPath",
-        "--deadline=$global:SecureTLSBootstrappingDeadline"
-    )
-
-    Write-Log "Registering and starting the $global:SecureTLSBootstrapServiceName service"
-
-    # Configure the service as a "one-shot", meaning the it will run until the client binary reaches a terminal state
-    & "$KubeDir\nssm.exe" install $global:SecureTLSBootstrapServiceName $secureTLSBootstrapBinPath | RemoveNulls
-    & "$KubeDir\nssm.exe" set $global:SecureTLSBootstrapServiceName AppExit Default Exit
-    & "$KubeDir\nssm.exe" set $global:SecureTLSBootstrapServiceName AppDirectory $KubeDir | RemoveNulls
-    & "$KubeDir\nssm.exe" set $global:SecureTLSBootstrapServiceName AppParameters ($args -join " ") | RemoveNulls
-    & "$KubeDir\nssm.exe" set $global:SecureTLSBootstrapServiceName DisplayName "$global:SecureTLSBootstrapServiceName" | RemoveNulls
-    & "$KubeDir\nssm.exe" set $global:SecureTLSBootstrapServiceName Description "$global:SecureTLSBootstrapServiceName" | RemoveNulls
-    & "$KubeDir\nssm.exe" set $global:SecureTLSBootstrapServiceName Start SERVICE_DEMAND_START | RemoveNulls
-    & "$KubeDir\nssm.exe" set $global:SecureTLSBootstrapServiceName ObjectName LocalSystem | RemoveNulls
-    & "$KubeDir\nssm.exe" set $global:SecureTLSBootstrapServiceName Type SERVICE_WIN32_OWN_PROCESS | RemoveNulls
-
-    # Start the service
-    Start-Service $global:SecureTLSBootstrapServiceName
-    if ($LASTEXITCODE -ne 0) {
-        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_START_SECURE_TLS_BOOTSTRAP_SERVICE -ErrorMessage "failed to start the $global:SecureTLSBootstrapServiceName service"
-    }
+    Write-Log "Successfully extracted secure TLS bootstrap client to: $global:KubeDir"
 }
