@@ -32,6 +32,7 @@ trap "umount /usr/local/bin" EXIT
 
 # Link /opt/azure/containers to /home/packer for postinstall
 ln -s /opt/azure/containers /home/packer
+trap "rm /home/packer" EXIT
 
 containerd &
 CONTAINERD_PID=$!
@@ -40,18 +41,6 @@ trap "kill $CONTAINERD_PID" EXIT
 /opt/azure/containers/install-dependencies.sh
 
 /opt/azure/containers/cis.sh
-
-# Disable waagent autoupdate
-echo AutoUpdate.Enabled=n >> /etc/waagent.conf
-
-# Disable default eth0 dhcp rule
-truncate -s 0 /etc/systemd/network/99-dhcp-en.network
-
-# Create empty dir for compatibility with dir or create containers trying to mount from host like managed prometheus
-mkdir -p /usr/local/share/ca-certificates/
-
-# Place ci-syslog.watcher.sh into the /usr/local/bin overlay
-mv /opt/scripts/ci-syslog-watcher.sh /opt/bin/ci-syslog-watcher.sh
 
 # List images for image-bom.json
 /home/packer/list-images.sh
@@ -79,5 +68,6 @@ chmod 644 /_imageconfigs/out/image-bom.json
 mv /opt/azure/vhd-build-performance-data.json /_imageconfigs/out/vhd-build-performance-data.json
 chmod 644 /_imageconfigs/out/vhd-build-performance-data.json
 
-# Clean up build time redirections
-rm /home/packer
+echo -e "=== OS Guard Info === Begin" >> ${VHD_LOGS_FILEPATH}
+sha256sum /boot/efi/EFI/Linux/* >> ${VHD_LOGS_FILEPATH}
+echo -e "=== OS Guard Info === End" >> ${VHD_LOGS_FILEPATH}

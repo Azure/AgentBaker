@@ -209,7 +209,7 @@ os:
       permissions: "600"
     # ci-syslog-watcher
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/ci-syslog-watcher.sh
-      destination: /opt/scripts/ci-syslog-watcher.sh
+      destination: /opt/bin/ci-syslog-watcher.sh
       permissions: "755"
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/ci-syslog-watcher.service
       destination: /etc/systemd/system/ci-syslog-watcher.service
@@ -287,26 +287,6 @@ os:
     # Disable Azure Linux iptables service so k8s has control
     - iptables
     - auditd
-
-  bootloader:
-    resetType: hard-reset
-
-  kernelCommandLine:
-    extraCommandLine:
-      - console=tty0
-      - console=tty1
-      - console=ttyS0
-      - rd.luks=0
-      - rd.hostonly=0
-      - ipe.enforce=0
-      - fips=1
-      - net.ifnames=1
-
-  uki:
-    kernels: auto
-
-  selinux:
-    mode: permissive
 
 previewFeatures:
   - uki
