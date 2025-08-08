@@ -4,6 +4,8 @@ set -e
 
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 
+echo "Starting build on $(date)" > ${VHD_LOGS_FILEPATH} 
+
 source /opt/azure/containers/provision_source.sh
 
 # Recreate variables from the pipeline build environment for install-dependencies.sh
@@ -50,6 +52,9 @@ rm /home/packer/cis.sh
 
 # Create release-notes.txt
 mkdir -p /_imageconfigs/out
+
+echo "kubelet/kubectl downloaded:" >> ${VHD_LOGS_FILEPATH}
+ls -ltr /usr/local/bin/* >> ${VHD_LOGS_FILEPATH}
 
 echo -e "=== Installed Packages Begin" >> ${VHD_LOGS_FILEPATH}
 echo -e "$(rpm -qa)" >> ${VHD_LOGS_FILEPATH}
