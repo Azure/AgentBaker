@@ -341,6 +341,12 @@
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/secrets-store/driver",
           "latestVersion": "v1.5.3"
         }
+      ],
+      "windowsVersions": [
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/secrets-store/driver",
+          "latestVersion": "v1.5.3"
+        }
       ]
     },
     {
