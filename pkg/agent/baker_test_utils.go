@@ -7,16 +7,18 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"github.com/Azure/agentbaker/pkg/agent/datamodel"
-	"github.com/barkimedes/go-deepcopy"
-	"github.com/vincent-petithory/dataurl"
 	"io"
 	"os"
 	"regexp"
 	"strings"
 
+	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	"github.com/barkimedes/go-deepcopy"
+	"github.com/vincent-petithory/dataurl"
+
 	ign3_4 "github.com/coreos/ignition/v2/config/v3_4/types"
-	. "github.com/onsi/gomega"
+
+	. "github.com/onsi/gomega" //nolint:staticcheck // dot import is acceptable for test assertions
 
 	"gopkg.in/yaml.v3"
 )
@@ -117,11 +119,14 @@ func writeInnerCustomData(outputname, customData string) error {
 	if err != nil {
 		return err
 	}
-	err = os.WriteFile(outputname, ignitionIndented, 0644)
+	err = os.WriteFile(outputname, ignitionIndented, 0600)
 	return err
 }
 
-func CustomDataCSECommandTestTemplate(folder, k8sVersion string, configUpdator func(*datamodel.NodeBootstrappingConfiguration),
+//nolint:funlen
+func CustomDataCSECommandTestTemplate(
+	folder, k8sVersion string,
+	configUpdator func(*datamodel.NodeBootstrappingConfiguration),
 	validator outputValidator) {
 	cs := &datamodel.ContainerService{
 		Location: "southcentralus",
@@ -318,7 +323,7 @@ func CustomDataCSECommandTestTemplate(folder, k8sVersion string, configUpdator f
 	cseCommand := nodeBootstrapping.CSE
 
 	if generateTestData() {
-		err = os.WriteFile(fmt.Sprintf("./testdata/%s/CSECommand", folder), []byte(cseCommand), 0644)
+		err = os.WriteFile(fmt.Sprintf("./testdata/%s/CSECommand", folder), []byte(cseCommand), 0600)
 		Expect(err).To(BeNil())
 	}
 	expectedCSECommand, err := os.ReadFile(fmt.Sprintf("./testdata/%s/CSECommand", folder))
@@ -386,7 +391,7 @@ func backfillCustomData(folder, customData string) {
 		e := os.MkdirAll(fmt.Sprintf("./testdata/%s", folder), 0755)
 		Expect(e).To(BeNil())
 	}
-	writeFileError := os.WriteFile(fmt.Sprintf("./testdata/%s/CustomData", folder), []byte(customData), 0644)
+	writeFileError := os.WriteFile(fmt.Sprintf("./testdata/%s/CustomData", folder), []byte(customData), 0600)
 	Expect(writeFileError).To(BeNil())
 	if strings.Contains(folder, "AKSWindows") {
 		return

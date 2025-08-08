@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"encoding/json"
+
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/go-autorest/autorest/to"
 	. "github.com/onsi/ginkgo"
