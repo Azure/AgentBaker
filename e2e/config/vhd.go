@@ -93,7 +93,7 @@ var (
 		Gallery: imageGalleryLinux,
 	}
 	VHDAzureLinux3OSGuard = &Image{
-		Name:    "azurelinuxosguard",
+		Name:    "AzureLinuxOSGuardOSGuardV3gen2fips",
 		OS:      OSAzureLinux,
 		Arch:    "amd64",
 		Distro:  datamodel.AKSAzureLinuxV3OSGuardGen2FIPSTL,
