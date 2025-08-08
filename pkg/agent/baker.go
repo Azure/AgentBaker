@@ -1525,7 +1525,7 @@ root = "{{GetDataDir}}"{{- end}}
     ConfigPath = "/opt/confidential-containers/share/defaults/kata-containers/configuration-clh-snp.toml"
 {{- end}}
 `
-	containerdV2ConfigTemplate ContainerdConfigTemplate = `version = 2
+	containerdV2ConfigTemplate ContainerdConfigTemplate = `version = 3
 oom_score = -999{{if HasDataDir }}
 root = "{{GetDataDir}}"{{- end}}
 [plugins."io.containerd.cri.v1.images"]
@@ -1621,7 +1621,7 @@ root = "{{GetDataDir}}"{{- end}}
     ConfigPath = "/opt/confidential-containers/share/defaults/kata-containers/configuration-clh-snp.toml"
 {{- end}}
 `
-	containerdV2NoGPUConfigTemplate ContainerdConfigTemplate = `version = 2
+	containerdV2NoGPUConfigTemplate ContainerdConfigTemplate = `version = 3
 oom_score = -999{{if HasDataDir }}
 root = "{{GetDataDir}}"{{- end}}
 
