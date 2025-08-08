@@ -1,79 +1,3 @@
-storage:
-  bootType: efi
-
-  disks:
-  - partitionTableType: gpt
-    partitions:
-    - id: esp
-      type: esp
-      label: esp
-      size: 512M
-
-    - id: trident
-      type: linux-generic
-      label: trident
-      size: 512M
-
-    - id: boot-a
-      type: linux-generic
-      label: boot-a
-      size: 100M
-
-    - id: usr-a
-      type: usr
-      size: 1G
-
-    - id: usr-hash-a
-      type: usr-verity
-      size: 128M
-
-    - id: root-a
-      type: root
-      label: root-a
-      size: 12G
-
-  verity:
-    - id: usrverity
-      name: usr
-      dataDeviceId: usr-a
-      hashDeviceId: usr-hash-a
-      dataDeviceMountIdType: uuid
-      hashDeviceMountIdType: uuid
-
-  filesystems:
-  - deviceId: esp
-    type: fat32
-    mountPoint:
-      idType: part-label
-      path: /boot/efi
-      options: umask=0077,noexec,nodev,nosuid
-
-  - deviceId: boot-a
-    type: ext4
-    mountPoint:
-      idType: uuid
-      path: /boot
-      options: noexec,nodev,nosuid
-
-  - deviceId: usrverity
-    type: ext4
-    mountPoint:
-      path: /usr
-      options: ro,nodev
-
-  - deviceId: root-a
-    type: ext4
-    mountPoint:
-      path: /
-      options: nodev,nosuid,x-initrd.mount,x-systemd.growfs
-      # Add noexec after https://dev.azure.com/mariner-org/ECF/_workitems/edit/12366
-
-  - deviceId: trident
-    type: ext4
-    mountPoint:
-      idType: part-label
-      path: /var/lib/trident
-
 os:
   additionalFiles:
     # Build Scripts
@@ -133,17 +57,6 @@ os:
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/azlosguard/extension-release.lg-redirect-sysext
       destination: /etc/extensions/lg-redirect-sysext/usr/lib/extension-release.d/extension-release.lg-redirect-sysext
       permissions: "644"
-    # ===== cached sysexts =====
-    # Add kubernetes sysexts for multiple versions
-    #- source: /mkosi.output/kubernetes_v1.30.11.raw
-    #  destination: /var/lib/kubernetes_v1.30.11.raw
-    #  permissions: "644"
-    #- source: /mkosi.output/kubernetes_v1.30.12.raw
-    #  destination: /var/lib/kubernetes_v1.30.12.raw
-    #  permissions: "644"
-    #- source: /mkosi.output/kubernetes_v1.31.8.raw
-    #  destination: /var/lib/kubernetes_v1.31.8.raw
-    #  permissions: "644"
     # ===== Inline AgentBaker filewrites =====
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/99-force-bridge-forward.conf
       destination: /etc/sysctl.d/99-force-bridge-forward.conf
@@ -395,13 +308,9 @@ os:
   selinux:
     mode: permissive
 
-  users:
-  - name: azuresu
-    secondaryGroups:
-    - sudo
-
 previewFeatures:
   - uki
+  - reinitialize-verity
 
 scripts:
   postCustomization:

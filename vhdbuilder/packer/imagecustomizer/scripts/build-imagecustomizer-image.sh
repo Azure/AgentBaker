@@ -27,7 +27,7 @@ fi
 IMAGE_PATH="${OUT_DIR}/$CONFIG/$CONFIG.vhd"
 
 BASE_IMAGE_ORAS=$BASE_IMG:$BASE_IMG_VERSION
-if [ ! -f "$BUILD_DIR/$CONFIG/osguard.vhdx" ]; then
+if [ ! -f "$BUILD_DIR/$CONFIG/image.vhdx" ]; then
     echo "Pulling base image $BASE_IMAGE_ORAS from registry..."
     docker run \
         --rm \
@@ -58,7 +58,7 @@ docker run \
         --log-level "debug" \
         --config-file /container/config/"$(basename "$CONFIG_FILE")" \
         --build-dir /container/build \
-        --image-file /container/build/$CONFIG/osguard.vhdx \
+        --image-file /container/build/$CONFIG/image.vhdx \
         --output-image-format vhd-fixed \
         --output-image-file /container/out/$CONFIG/"$(basename "$IMAGE_PATH")"
 
