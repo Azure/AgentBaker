@@ -584,14 +584,14 @@
   ],
   "customDatasources": {
     "deb2004": {
-      "defaultRegistryUrlTemplate": "https://packages.microsoft.com/ubuntu/20.04/prod/dists/testing/main/binary-amd64/Packages",
+      "defaultRegistryUrlTemplate": "https://packages.microsoft.com/ubuntu/20.04/prod/dists/focal/main/binary-amd64/Packages",
       "format": "plain",
       "transformTemplates": [
         "{\"releases\": $map(($index := releases#$i[version=\"Package: {{packageName}}\"].$i; $map($index, function($i) { $substringAfter(releases[$i + 1].version, \"Version: \") })), function($v) { {\"version\": $v} })[]}"
       ]
     },
     "deb2204": {
-      "defaultRegistryUrlTemplate": "https://packages.microsoft.com/ubuntu/22.04/prod/dists/testing/main/binary-amd64/Packages",
+      "defaultRegistryUrlTemplate": "https://packages.microsoft.com/ubuntu/22.04/prod/dists/jammy/main/binary-amd64/Packages",
       "format": "plain",
       "transformTemplates": [
         "{\"releases\": $map(($index := releases#$i[version=\"Package: {{packageName}}\"].$i; $map($index, function($i) { $substringAfter(releases[$i + 1].version, \"Version: \") })), function($v) { {\"version\": $v} })[]}"
