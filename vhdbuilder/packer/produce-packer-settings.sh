@@ -94,6 +94,12 @@ if grep -q "cvm" <<< "$FEATURE_FLAGS" && [ -n "${CVM_PACKER_BUILD_LOCATION}" ]; 
 	echo "CVM: PACKER_BUILD_LOCATION is set to ${PACKER_BUILD_LOCATION}"
 fi
 
+# GB200 specific build location handling (if needed in future)
+if grep -q "GB200" <<< "$FEATURE_FLAGS"; then
+	echo "GB200: Using standard ARM64 build location ${PACKER_BUILD_LOCATION}"
+	# Additional GB200-specific configuration can be added here
+fi
+
 # Currently only used for linux builds. This determines the environment in which the build is running (either prod or test).
 # Used to construct the name of the resource group in which the 1ES pool the build is running on lives in, which also happens.
 # to be the resource group in which the packer VNET lives in.
@@ -298,7 +304,7 @@ if [ "$MODE" = "linuxVhdMode" ] || [ "$MODE" = "windowsVhdMode" ]; then
 		if [[ ${ARCHITECTURE,,} == "arm64" ]] || grep -q "cvm" <<< "$FEATURE_FLAGS" || [[ ${HYPERV_GENERATION} == "V1" ]]; then
 			TARGET_COMMAND_STRING=""
 			if [ "${ARCHITECTURE,,}" = "arm64" ]; then
-				TARGET_COMMAND_STRING+="--architecture Arm64"
+				TARGET_COMMAND_STRING+="--architecture Arm64 --features DiskControllerTypes=SCSI,NVMe"
 			elif grep -q "cvm" <<< "$FEATURE_FLAGS"; then
 				TARGET_COMMAND_STRING+="--os-state Specialized --features SecurityType=ConfidentialVM"
 			fi
