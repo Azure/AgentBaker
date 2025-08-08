@@ -66,10 +66,8 @@ ERR_CRICTL_DOWNLOAD_TIMEOUT=117 # Timeout waiting for crictl downloads
 ERR_CRICTL_OPERATION_ERROR=118 # Error executing a crictl operation
 ERR_CTR_OPERATION_ERROR=119 # Error executing a ctr containerd cli operation
 ERR_INVALID_CLI_TOOL=120 # Invalid CLI tool specified, should be one of ctr, crictl, docker
-ERR_KUBELET_INSTALL_TIMEOUT=121 # Timeout waiting for kubelet install
-ERR_KUBECTL_INSTALL_TIMEOUT=122 # Timeout waiting for kubectl install
 
-# 123 is free for use
+# 121, 122, 123 are free for use
 
 # Error code 124 is returned when a `timeout` command times out, and --preserve-status is not specified: https://man7.org/linux/man-pages/man1/timeout.1.html
 ERR_VHD_BUILD_ERROR=125 # Reserved for VHD CI exit conditions
@@ -81,7 +79,6 @@ ERR_TELEPORTD_DOWNLOAD_ERR=150 # Error downloading teleportd binary
 ERR_TELEPORTD_INSTALL_ERR=151 # Error installing teleportd binary
 ERR_ARTIFACT_STREAMING_DOWNLOAD=152 # Error downloading mirror proxy and overlaybd components
 ERR_ARTIFACT_STREAMING_INSTALL=153 # Error installing mirror proxy and overlaybd components
-ERR_ARTIFACT_STREAMING_ACR_NODEMON_START_FAIL=154 # Error starting acr-nodemon service
 
 ERR_HTTP_PROXY_CA_CONVERT=160 # Error converting http proxy ca cert from pem to crt format
 ERR_UPDATE_CA_CERTS=161 # Error updating ca certs to include user-provided certificates
@@ -136,25 +133,41 @@ ERR_LOCALDNS_BINARY_ERR=219 # Localdns binary not found or not executable.
 ERR_SECURE_TLS_BOOTSTRAP_START_FAILURE=220 # Error starting the secure TLS bootstrap systemd service
 
 ERR_CLOUD_INIT_FAILED=223 # Error indicating that cloud-init returned exit code 1 in cse_cmd.sh
-ERR_NVIDIA_DRIVER_INSTALL=224 # Error determining if nvidia driver install should be skipped
 
 # For both Ubuntu and Mariner, /etc/*-release should exist.
 # For unit tests, the OS and OS_VERSION will be set in the unit test script.
 # So whether it's if or else actually doesn't matter to our unit test.
 if find /etc -type f,l -name "*-release" -print -quit 2>/dev/null | grep -q '.'; then
-    OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID=(.*))$/, a) { print toupper(a[2]); exit }')
+    OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
     OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
 else
 # This is only for unit test purpose. For example, a Mac OS dev box doesn't have /etc/*-release, then the unit test will continue.
     echo "/etc/*-release not found"
 fi
 
+getCPUArch() {
+    arch=$(uname -m)
+    # shellcheck disable=SC3010
+    if [[ ${arch,,} == "aarch64" || ${arch,,} == "arm64"  ]]; then
+        echo "arm64"
+    else
+        echo "amd64"
+    fi
+}
+
+isARM64() {
+    if [ "$(getCPUArch)" = "arm64" ]; then
+        echo 1
+    else
+        echo 0
+    fi
+}
+
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
 MARINER_KATA_OS_NAME="MARINERKATA"
 AZURELINUX_KATA_OS_NAME="AZURELINUXKATA"
 AZURELINUX_OS_NAME="AZURELINUX"
-FLATCAR_OS_NAME="FLATCAR"
 KUBECTL=/usr/local/bin/kubectl
 DOCKER=/usr/bin/docker
 # this will be empty during VHD build
@@ -166,7 +179,11 @@ export GPU_DEST=/usr/local/nvidia
 export NVIDIA_DRIVER_IMAGE_SHA="${GPU_IMAGE_SHA:=}"
 export NVIDIA_DRIVER_IMAGE_TAG="${GPU_DV}-${NVIDIA_DRIVER_IMAGE_SHA}"
 export NVIDIA_GPU_DRIVER_TYPE="${GPU_DRIVER_TYPE:=}"
-export NVIDIA_DRIVER_IMAGE="mcr.microsoft.com/aks/aks-gpu-${NVIDIA_GPU_DRIVER_TYPE}"
+export NVIDIA_GPU_DRIVER_ARCH_SUFFIX=
+if [ "$(isARM64)" -eq 1 ]; then
+    NVIDIA_GPU_DRIVER_ARCH_SUFFIX="-arm64"
+fi
+export NVIDIA_DRIVER_IMAGE="mcr.microsoft.com/aks/aks-gpu-${NVIDIA_GPU_DRIVER_TYPE}${NVIDIA_GPU_DRIVER_ARCH_SUFFIX}"
 export CTR_GPU_INSTALL_CMD="ctr -n k8s.io run --privileged --rm --net-host --with-ns pid:/proc/1/ns/pid --mount type=bind,src=/opt/gpu,dst=/mnt/gpu,options=rbind --mount type=bind,src=/opt/actions,dst=/mnt/actions,options=rbind"
 export DOCKER_GPU_INSTALL_CMD="docker run --privileged --net=host --pid=host -v /opt/gpu:/mnt/gpu -v /opt/actions:/mnt/actions --rm"
 APT_CACHE_DIR=/var/cache/apt/archives/
@@ -522,24 +539,6 @@ apt_get_download() {
   return $ret
 }
 
-getCPUArch() {
-    arch=$(uname -m)
-    # shellcheck disable=SC3010
-    if [[ ${arch,,} == "aarch64" || ${arch,,} == "arm64"  ]]; then
-        echo "arm64"
-    else
-        echo "amd64"
-    fi
-}
-
-isARM64() {
-    if [ "$(getCPUArch)" = "arm64" ]; then
-        echo 1
-    else
-        echo 0
-    fi
-}
-
 isRegistryUrl() {
     local binary_url=$1
     registry_regex='^.+\/.+\/.+:.+$'
@@ -617,17 +616,6 @@ should_skip_binary_cleanup() {
     echo "${should_skip,,}"
 }
 
-should_enforce_kube_pmc_install() {
-    set -x
-    body=$(curl -fsSL -H "Metadata: true" --noproxy "*" "http://169.254.169.254/metadata/instance?api-version=2021-02-01")
-    ret=$?
-    if [ "$ret" -ne 0 ]; then
-      return $ret
-    fi
-    should_enforce=$(echo "$body" | jq -r '.compute.tagsList[] | select(.name == "ShouldEnforceKubePMCInstall") | .value')
-    echo "${should_enforce,,}"
-}
-
 isMarinerOrAzureLinux() {
     local os=$1
     if [ "$os" = "$MARINER_OS_NAME" ] || [ "$os" = "$MARINER_KATA_OS_NAME" ] || [ "$os" = "$AZURELINUX_OS_NAME" ] || [ "$os" = "$AZURELINUX_KATA_OS_NAME" ]; then
@@ -647,14 +635,6 @@ isMariner() {
 isAzureLinux() {
     local os=$1
     if [ "$os" = "$AZURELINUX_OS_NAME" ] || [ "$os" = "$AZURELINUX_KATA_OS_NAME" ]; then
-        return 0
-    fi
-    return 1
-}
-
-isFlatcar() {
-    local os=$1
-    if [ "$os" = "$FLATCAR_OS_NAME" ]; then
         return 0
     fi
     return 1
