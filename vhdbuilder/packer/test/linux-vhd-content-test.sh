@@ -1262,7 +1262,7 @@ testBccTools () {
   os_sku="${1}"
   echo "$test: checking if BCC tools were successfully installed"
   if [ "$os_sku" = "AzureLinuxOSGuard" ]; then
-    echo "$test: Skipping check on AzureLinuxOSGuard as BCC tools are preinstalled and not in the VHD log"
+    echo "$test: Skipping check on AzureLinuxOSGuard - BCC tools are not installed"
     return 0
   fi
   for line in '  - bcc-tools' '  - libbcc-examples'; do

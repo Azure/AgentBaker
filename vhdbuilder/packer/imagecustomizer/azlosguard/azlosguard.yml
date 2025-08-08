@@ -57,13 +57,6 @@ os:
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/azlosguard/extension-release.lg-redirect-sysext
       destination: /etc/extensions/lg-redirect-sysext/usr/lib/extension-release.d/extension-release.lg-redirect-sysext
       permissions: "644"
-    # ===== Inline AgentBaker filewrites =====
-    - source: /AgentBaker/parts/linux/cloud-init/artifacts/99-force-bridge-forward.conf
-      destination: /etc/sysctl.d/99-force-bridge-forward.conf
-      permissions: "644"
-    - source: /AgentBaker/parts/linux/cloud-init/artifacts/999-sysctl-aks.conf
-      destination: /etc/sysctl.d/999-sysctl-aks.conf
-      permissions: "644"
     # ===== AgentBaker configs and scripts =====
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/cse_main.sh
       destination: /opt/azure/containers/provision.sh
