@@ -353,7 +353,8 @@ while IFS= read -r p; do
         if [ "${OS}" = "${UBUNTU_OS_NAME}" ]; then
           installContainerd "${downloadDir}" "${evaluatedURL}" "${version}"
         elif isMarinerOrAzureLinux "$OS" && isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
-          echo "Skipping package install of containerd on Azure Linux OS Guard"
+          echo "Skipping containerd install on Azure Linux OS Guard, package preinstalled on immutable /usr"
+          version=$(rpm -q containerd2)
         elif isMarinerOrAzureLinux "$OS"; then
           installStandaloneContainerd "${version}"
         elif isFlatcar "$OS"; then
@@ -365,7 +366,12 @@ while IFS= read -r p; do
     "oras")
       for version in ${PACKAGE_VERSIONS[@]}; do
         evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-        installOras "${downloadDir}" "${evaluatedURL}" "${version}"
+        if isMarinerOrAzureLinux "$OS" && isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
+          echo "Skipping Oras install on Azure Linux OS Guard, package preinstalled on immutable /usr"
+          version=$(oras version | head -n1 | awk '{print $2}')
+        else
+          installOras "${downloadDir}" "${evaluatedURL}" "${version}"
+        fi
         echo "  - oras version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;

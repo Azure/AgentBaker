@@ -75,10 +75,6 @@ storage:
       path: /var/lib/trident
 
 os:
-  packages:
-    install:
-    - vim
-
   additionalFiles:
     # Build Scripts
     - source: /AgentBaker/vhdbuilder/packer/install-dependencies.sh
