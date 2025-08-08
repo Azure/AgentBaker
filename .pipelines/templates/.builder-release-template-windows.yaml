@@ -79,7 +79,6 @@ steps:
       WINDOWS_SKU: ${{ parameters.windowsSku }}
       BRANCH: $(Build.SourceBranch)
       SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
-      AZURE_BUILD_RESOURCE_GROUP_NAME: $(AZURE_BUILD_RESOURCE_GROUP_NAME)
       AZURE_RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
       AZURE_LOCATION: $(AZURE_BUILD_LOCATION)
       AZURE_VM_SIZE: ${{ parameters.buildVmSize }}
@@ -189,7 +188,7 @@ steps:
     condition: and(eq('${{ parameters.dryrun }}', 'False'), eq(variables.SIG_FOR_PRODUCTION, 'True'), succeeded())
     env:
       LOCATION: $(AZURE_BUILD_LOCATION)
-      RESOURCE_GROUP_NAME: $(AZURE_BUILD_RESOURCE_GROUP_NAME)
+      RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
       OS_TYPE: "Windows"
       CLASSIC_BLOB: $(STORAGE_ACCT_BLOB_URL)
       SKIP_EXTENSION_CHECK: ${{ parameters.skipExtensionCheck }}
@@ -219,7 +218,6 @@ steps:
     displayName: Clean Up Packer Generated Resources
     condition: always()
     env:
-      AZURE_RESOURCE_GROUP_NAME: $(AZURE_BUILD_RESOURCE_GROUP_NAME)
       MODE: $(MODE)
       DRY_RUN: ${{ parameters.dryrun }}
       VNET_RESOURCE_GROUP_NAME: $(VNET_RESOURCE_GROUP_NAME)
