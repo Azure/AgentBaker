@@ -7,12 +7,9 @@
 #>
 
 param(
-    [string]
-    $windowsSKUParam,
-    [string]
-    $provisioningPhaseParam,
-    [string]
-    $customizedDiskSizeParam
+    [string]$windowsSKUParam,
+    [string]$provisioningPhaseParam,
+    [string]$customizedDiskSizeParam
 )
 
 if (![string]::IsNullOrEmpty($windowsSKUParam))

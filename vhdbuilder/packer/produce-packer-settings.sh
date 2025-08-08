@@ -84,7 +84,7 @@ fi
 # This variable is used within linux builds to inform which region that packer build itself will be running,
 # and subsequently the region in which the 1ES pool the build is running on is in.
 # Note that this variable is ONLY used for linux builds, windows builds simply use AZURE_LOCATION.
-if [ "$MODE" = "linuxVhdMode" ] && [ -z "${PACKER_BUILD_LOCATION}" ]; then
+if  [ -z "${PACKER_BUILD_LOCATION}" ]; then
 	echo "PACKER_BUILD_LOCATION is not set, cannot compute VNET_RG_NAME for packer templates"
 	exit 1
 fi
@@ -97,42 +97,27 @@ fi
 # Currently only used for linux builds. This determines the environment in which the build is running (either prod or test).
 # Used to construct the name of the resource group in which the 1ES pool the build is running on lives in, which also happens.
 # to be the resource group in which the packer VNET lives in.
-if [ "$MODE" = "linuxVhdMode" ] && [ -z "${ENVIRONMENT}" ]; then
+if [ -z "${ENVIRONMENT}" ]; then
 	echo "ENVIRONMENT is not set, cannot compute VNET_RG_NAME or VNET_NAME for packer templates"
 	exit 1
 fi
 
 if [ -z "${VNET_RG_NAME}" ]; then
-	if [ "$MODE" = "linuxVhdMode" ]; then
-		if [ "${ENVIRONMENT,,}" = "prod" ]; then
-			# TODO(cameissner): build out updated pool resources in prod so we don't have to pivot like this
-			VNET_RG_NAME="nodesig-${ENVIRONMENT}-${PACKER_BUILD_LOCATION}-agent-pool"
-		else
-			VNET_RG_NAME="nodesig-${ENVIRONMENT}-${PACKER_BUILD_LOCATION}-packer-vnet-rg"
-		fi
-	fi
-	if [ "$MODE" = "windowsVhdMode" ]; then
-	    # shellcheck disable=SC3010
-		if [[ "${POOL_NAME}" == *nodesigprod* ]]; then
-			VNET_RG_NAME="nodesigprod-agent-pool"
-		else
-			VNET_RG_NAME="nodesigtest-agent-pool"
-		fi
-	fi
+  if [ "${ENVIRONMENT,,}" = "prod" ]; then
+    # TODO(cameissner): build out updated pool resources in prod so we don't have to pivot like this
+    VNET_RG_NAME="nodesig-${ENVIRONMENT}-${PACKER_BUILD_LOCATION}-agent-pool"
+  else
+    VNET_RG_NAME="nodesig-${ENVIRONMENT}-${PACKER_BUILD_LOCATION}-packer-vnet-rg"
+  fi
 fi
 
 if [ -z "${VNET_NAME}" ]; then
-	if [ "$MODE" = "linuxVhdMode" ]; then
-		if [ "${ENVIRONMENT,,}" = "prod" ]; then
-			# TODO(cameissner): build out updated pool resources in prod so we don't have to pivot like this
-			VNET_NAME="nodesig-pool-vnet-${PACKER_BUILD_LOCATION}"
-		else
-			VNET_NAME="nodesig-packer-vnet-${PACKER_BUILD_LOCATION}"
-		fi
-	fi
-	if [ "$MODE" = "windowsVhdMode" ]; then
-		VNET_NAME="nodesig-pool-vnet"
-	fi
+  if [ "${ENVIRONMENT,,}" = "prod" ]; then
+    # TODO(cameissner): build out updated pool resources in prod so we don't have to pivot like this
+    VNET_NAME="nodesig-pool-vnet-${PACKER_BUILD_LOCATION}"
+  else
+    VNET_NAME="nodesig-packer-vnet-${PACKER_BUILD_LOCATION}"
+  fi
 fi
 
 if [ -z "${SUBNET_NAME}" ]; then
