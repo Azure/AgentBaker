@@ -1038,4 +1038,74 @@ enableLocalDNS() {
     echo "Enable localdns succeeded."
 }
 
+createIptablesBlockService() {
+    # Installs and configures the block-iptables helper as a systemd service.
+    # - Copies latest block-iptables tgz from VHD cache defined by components.json (downloadLocation: /opt/cni/downloads)
+    # - Extracts into /opt/block-iptables
+    # - Creates /etc/cni/conf.d/iptables-allowlist and populates based on BLOCK_IPTABLES env
+    # - Creates and starts systemd unit block-iptables.service
+
+    local DOWNLOAD_DIR="/opt/cni/downloads"
+    local INSTALL_DIR="/opt/block-iptables"
+    local ALLOWLIST_FILE="/etc/cni/net.d/iptables-allow-list"
+    local SERVICE_FILE="/etc/systemd/system/block-iptables.service"
+
+    mkdir -p "${INSTALL_DIR}"
+    mkdir -p "$(dirname "${ALLOWLIST_FILE}")"
+
+    # Find the most recent block-iptables archive from the cache
+    local ARCHIVE
+    ARCHIVE=$(ls -1t ${DOWNLOAD_DIR}/block-iptables-linux-*-v*.tgz 2>/dev/null | head -n1 || true)
+    if [ -z "${ARCHIVE}" ]; then
+        echo "block-iptables archive not found in ${DOWNLOAD_DIR}; skipping enableIptablesBlock"
+        return 0
+    fi
+
+    echo "Installing block-iptables from ${ARCHIVE}"
+    # Clean previous contents to avoid stale binaries/config
+    find "${INSTALL_DIR}" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
+
+    tar -xzf "${ARCHIVE}" -C "${INSTALL_DIR}"
+
+    # Normalize binary path to ${INSTALL_DIR}/block-iptables
+    local BIN_PATH
+    BIN_PATH=$(find "${INSTALL_DIR}" -type f -iname "block-iptables*" | head -n1 || true)
+    if [ -z "${BIN_PATH}" ]; then
+        echo "block-iptables binary not found after extracting ${ARCHIVE}"
+        return 0
+    fi
+    chmod +x "${BIN_PATH}"
+    if [ "${BIN_PATH}" != "${INSTALL_DIR}/block-iptables" ]; then
+        mv -f "${BIN_PATH}" "${INSTALL_DIR}/block-iptables"
+        BIN_PATH="${INSTALL_DIR}/block-iptables"
+    fi
+
+    # Prepare allowlist configuration
+    : > "${ALLOWLIST_FILE}"
+    if [ "${BLOCK_IPTABLES}" != "true" ]; then
+        echo "legacy-host-routing-mode" > "${ALLOWLIST_FILE}"
+    fi
+    chmod 0644 "${ALLOWLIST_FILE}"
+
+    # Create systemd service
+    tee "${SERVICE_FILE}" > /dev/null <<EOF
+[Unit]
+Description=AKS Block iptables entries service
+After=containerd.service kubelet.service
+Requires=containerd.service kubelet.service
+
+[Service]
+Type=simple
+ExecStart=${INSTALL_DIR}/block-iptables
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    systemctl daemon-reload
+    systemctlEnableAndStart block-iptables 30 || exit $ERR_SYSTEMCTL_START_FAIL
+}
+
 #EOF

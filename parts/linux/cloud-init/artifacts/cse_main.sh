@@ -455,6 +455,8 @@ EOF
         logs_to_events "AKS.CSE.ensureContainerd.ensureAcrNodeMon" ensureAcrNodeMon || exit $ERR_ARTIFACT_STREAMING_ACR_NODEMON_START_FAIL
     fi
 
+    logs_to_events "AKS.CSE.blockIptables" createIptablesBlockService || exit $ERR_BLOCK_IPTABLES_FAIL
+
     if $REBOOTREQUIRED; then
         echo 'reboot required, rebooting node in 1 minute'
         /bin/bash -c "shutdown -r 1 &"
