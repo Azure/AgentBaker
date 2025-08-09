@@ -376,7 +376,7 @@ function BasePrep {
             -MasterIP $MasterIP `
             -TLSBootstrapToken $global:TLSBootstrapToken
     }
-    if ($global:TLSBootstrapToken -or $global:EnableSecureTLSBootstrapping)
+    if ($global:TLSBootstrapToken -or $global:EnableSecureTLSBootstrapping) {
         # NOTE: we need kubeconfig to setup calico even if vanilla/secure TLS bootstrapping is enabled
         # This kubeconfig will deleted after calico installation.
         Write-Log "Write temporary kube config"
