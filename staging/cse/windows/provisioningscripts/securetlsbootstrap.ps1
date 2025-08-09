@@ -41,7 +41,7 @@ Write-Log "Starting secure TLS bootstrapping: invoking aks-secure-tls-bootstrap-
     --ensure-authorized `
     --next-proto=$global:NextProtoValue `
     --aad-resource=$AADResource `
-    --apiserver-fqdn=$MasterIP ` # MasterIP is either an FQDN or an IP address, depending on whether VNet integration is enabled
+    --apiserver-fqdn=$MasterIP `
     --cluster-ca-file=$ClusterCAFilePath `
     --cloud-provider-config=$AzureConfigPath `
     --cred-file=$CredFilePath `
