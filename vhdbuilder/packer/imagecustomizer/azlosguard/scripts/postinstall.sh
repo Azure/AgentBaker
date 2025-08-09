@@ -25,6 +25,15 @@ trap "umount /usr/local/bin" EXIT
 # Link /opt/azure/containers to /home/packer for postinstall
 ln -s /opt/azure/containers /home/packer
 
+### pre-install-dependencies ###
+echo -e "\nnews.none                          -/var/log/messages" >> /etc/rsyslog.d/60-CIS.conf
+# Create dir for update_certs.path
+mkdir /opt/certs
+chmod 1755 /opt/certs
+# Use AKS Log Collector instead of WALA log collections
+echo -e "\n# Disable WALA log collection because AKS Log Collector is installed.\nLogs.Collect=n" >> /etc/waagent.conf
+
+### install-dependencies ###
 # Start containerd to allow container precaching
 containerd &
 CONTAINERD_PID=$!

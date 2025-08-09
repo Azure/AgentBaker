@@ -284,6 +284,12 @@ os:
     - systemd-sysext
     - ipv6_nftables
     - aks-node-controller
+    - update_certs.path
+    - disk_queue
+    - ci-syslog-watcher.path
+    - ci-syslog-watcher.service
+    - aks-log-collector.timer
+    - sync-container-logs.service
     disable:
     # Disable Azure Linux iptables service so k8s has control
     - iptables
