@@ -1039,45 +1039,45 @@ enableLocalDNS() {
 }
 
 createIptablesBlockService() {
-    # Installs and configures the block-iptables helper as a systemd service.
-    # - Copies latest block-iptables tgz from VHD cache defined by components.json (downloadLocation: /opt/cni/downloads)
-    # - Extracts into /opt/block-iptables
+    # Installs and configures the azure-block-iptables helper as a systemd service.
+    # - Copies latest azure-block-iptables tgz from VHD cache defined by components.json (downloadLocation: /opt/cni/downloads)
+    # - Extracts into /opt/azure-block-iptables
     # - Creates /etc/cni/conf.d/iptables-allowlist and populates based on BLOCK_IPTABLES env
-    # - Creates and starts systemd unit block-iptables.service
+    # - Creates and starts systemd unit azure-block-iptables.service
 
     local DOWNLOAD_DIR="/opt/cni/downloads"
-    local INSTALL_DIR="/opt/block-iptables"
+    local INSTALL_DIR="/opt/azure-block-iptables"
     local ALLOWLIST_FILE="/etc/cni/net.d/iptables-allow-list"
-    local SERVICE_FILE="/etc/systemd/system/block-iptables.service"
+    local SERVICE_FILE="/etc/systemd/system/azure-block-iptables.service"
 
     mkdir -p "${INSTALL_DIR}"
     mkdir -p "$(dirname "${ALLOWLIST_FILE}")"
 
-    # Find the most recent block-iptables archive from the cache
+    # Find the most recent azure-block-iptables archive from the cache
     local ARCHIVE
-    ARCHIVE=$(ls -1t ${DOWNLOAD_DIR}/block-iptables-linux-*-v*.tgz 2>/dev/null | head -n1 || true)
+    ARCHIVE=$(ls -1t ${DOWNLOAD_DIR}/azure-block-iptables-linux-*-v*.tgz 2>/dev/null | head -n1 || true)
     if [ -z "${ARCHIVE}" ]; then
-        echo "block-iptables archive not found in ${DOWNLOAD_DIR}; skipping enableIptablesBlock"
+        echo "azure-block-iptables archive not found in ${DOWNLOAD_DIR}; skipping enableIptablesBlock"
         return 0
     fi
 
-    echo "Installing block-iptables from ${ARCHIVE}"
+    echo "Installing azure-block-iptables from ${ARCHIVE}"
     # Clean previous contents to avoid stale binaries/config
     find "${INSTALL_DIR}" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
 
     tar -xzf "${ARCHIVE}" -C "${INSTALL_DIR}"
 
-    # Normalize binary path to ${INSTALL_DIR}/block-iptables
+    # Normalize binary path to ${INSTALL_DIR}/azure-block-iptables
     local BIN_PATH
-    BIN_PATH=$(find "${INSTALL_DIR}" -type f -iname "block-iptables*" | head -n1 || true)
+    BIN_PATH=$(find "${INSTALL_DIR}" -type f -iname "azure-block-iptables*" | head -n1 || true)
     if [ -z "${BIN_PATH}" ]; then
-        echo "block-iptables binary not found after extracting ${ARCHIVE}"
+        echo "azure-block-iptables binary not found after extracting ${ARCHIVE}"
         return 0
     fi
     chmod +x "${BIN_PATH}"
-    if [ "${BIN_PATH}" != "${INSTALL_DIR}/block-iptables" ]; then
-        mv -f "${BIN_PATH}" "${INSTALL_DIR}/block-iptables"
-        BIN_PATH="${INSTALL_DIR}/block-iptables"
+    if [ "${BIN_PATH}" != "${INSTALL_DIR}/azure-block-iptables" ]; then
+        mv -f "${BIN_PATH}" "${INSTALL_DIR}/azure-block-iptables"
+        BIN_PATH="${INSTALL_DIR}/azure-block-iptables"
     fi
 
     # Prepare allowlist configuration
@@ -1096,7 +1096,7 @@ Requires=containerd.service kubelet.service
 
 [Service]
 Type=simple
-ExecStart=${INSTALL_DIR}/block-iptables
+ExecStart=${INSTALL_DIR}/azure-block-iptables
 Restart=on-failure
 RestartSec=5s
 
@@ -1105,7 +1105,7 @@ WantedBy=multi-user.target
 EOF
 
     systemctl daemon-reload
-    systemctlEnableAndStart block-iptables 30 || exit $ERR_SYSTEMCTL_START_FAIL
+    systemctlEnableAndStart azure-block-iptables 30 || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
 #EOF

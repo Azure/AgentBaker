@@ -1237,7 +1237,7 @@
       }
     },
     {
-      "name": "block-iptables",
+      "name": "azure-block-iptables",
       "downloadLocation": "/opt/cni/downloads",
       "downloadURIs": {
         "windows": {
@@ -1253,7 +1253,7 @@
                 "latestVersion": "0.0.1"
               }
             ],
-            "downloadURL": "https://packages.aks.azure.com/block-iptables/v${version}/binaries/block-iptables-linux-${CPU_ARCH}-v${version}.tgz"
+            "downloadURL": "https://packages.aks.azure.com/azure-block-iptables/v${version}/binaries/azure-block-iptables-linux-${CPU_ARCH}-v${version}.tgz"
           }
         }
       }
