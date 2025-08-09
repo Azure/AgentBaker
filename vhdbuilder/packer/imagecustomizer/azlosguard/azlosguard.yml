@@ -265,6 +265,16 @@ os:
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/containerd.service
       destination: /etc/systemd/system/containerd.service
       permissions: "600"
+    # localdns
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/localdns.service
+      destination: /etc/systemd/system/localdns.service
+      permissions: "600"
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/localdns.sh
+      destination: /opt/azure/containers/localdns.sh
+      permissions: "755"
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/localdns-delegate.conf
+      destination: /etc/systemd/system/localdns.service.d/delegate.conf
+      permissions: "644"
 
   services:
     enable:
