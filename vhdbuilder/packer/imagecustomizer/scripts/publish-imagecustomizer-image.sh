@@ -60,10 +60,19 @@ else
     STORAGE_ACCOUNT_NAME=${BLOB_STORAGE_NAME}
 fi
 
-sig_resource_id="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/galleries/${SIG_GALLERY_NAME}/images/${SIG_IMAGE_NAME}/versions/${CAPTURED_SIG_VERSION}"
+GALLERY_RESOURCE_ID=/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/galleries/${SIG_GALLERY_NAME}
+IMAGE_RESOURCE_ID="${GALLERY_RESOURCE_ID}/images/${SIG_IMAGE_NAME}/versions/${CAPTURED_SIG_VERSION}"
 
-echo "Creating SIG image version: $sig_resource_id"
-echo "Uploading to eastus and ${PACKER_BUILD_LOCATION}"
+# Determine target regions for image replication.
+# Images must replicate to SIG region, and testing expects PACKER_BUILD_LOCATION
+TARGET_REGIONS=${PACKER_BUILD_LOCATION}
+GALLERY_LOCATION=$(az sig show --ids ${GALLERY_RESOURCE_ID} --query location -o tsv)
+if [ "$GALLERY_LOCATION" != "$PACKER_BUILD_LOCATION" ]; then
+    TARGET_REGIONS="${TARGET_REGIONS} ${GALLERY_LOCATION}"
+fi
+
+echo "Creating SIG image version: $IMAGE_RESOURCE_ID"
+echo "Uploading to ${TARGET_REGIONS}"
 az sig image-version create \
     --resource-group ${RESOURCE_GROUP_NAME} \
     --gallery-name ${SIG_GALLERY_NAME} \
@@ -72,9 +81,8 @@ az sig image-version create \
     --os-vhd-storage-account /subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP_NAME}/providers/Microsoft.Storage/storageAccounts/${STORAGE_ACCOUNT_NAME} \
     --os-vhd-uri ${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd \
     --tags "buildDefinitionName=${BUILD_DEFINITION_NAME}" "buildNumber=${BUILD_NUMBER}" "buildId=${BUILD_ID}" "SkipLinuxAzSecPack=true" "os=Linux" "now=${CREATE_TIME}" "createdBy=aks-vhd-pipeline" "image_sku=${IMG_SKU}" "branch=${BRANCH}" \
-    --target-regions eastus westus westus2
-#    --target-regions eastus westus ${PACKER_BUILD_LOCATION}
+    --target-regions ${TARGET_REGIONS}
 capture_benchmark "${SCRIPT_NAME}_create_sig_image_version"
 
-# Set SIG ID in pipeline for use during testing 
-echo "##vso[task.setvariable variable=MANAGED_SIG_ID]$sig_resource_id"
+# Set SIG ID in pipeline for use during testing
+echo "##vso[task.setvariable variable=MANAGED_SIG_ID]$IMAGE_RESOURCE_ID"
