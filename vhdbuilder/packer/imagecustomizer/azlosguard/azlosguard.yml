@@ -1,7 +1,7 @@
 os:
   additionalFiles:
-    - source: /AgentBaker/parts/linux/cloud-init/artifacts/azlosguard/cloud.cfg
-      destination: /etc/cloud/cloud.cfg
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/azlosguard/10-users-ssh-enable.cfg
+      destination: /etc/cloud/cloud.cfg.d/10-users-ssh-enable.cfg
       permissions: 644
     # Build-time scripts and tools
     - source: /AgentBaker/vhdbuilder/packer/install-dependencies.sh

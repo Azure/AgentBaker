@@ -113,8 +113,8 @@ parameters:
     displayName: Build AzureLinuxV2 Gen2 Kata - Trusted Launch
     type: boolean
     default: false
-  - name: buildAzureLinuxOSGuard
-    displayName: Build AzureLinux OS Guard
+  - name: buildAzureLinuxOSGuardV3gen2fipsTL 
+    displayName: Build AzureLinuxOSGuardV3 Gen2 FIPS - Trusted Launch
     type: boolean
     default: true
   - name: build2004fipscontainerd
@@ -836,8 +836,8 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: azurelinuxv2-gen2-kata-trustedlaunch
-      - job: buildAzureLinuxOSGuard
-        condition: eq('${{ parameters.buildAzureLinuxOSGuard }}', true)
+      - job: buildAzureLinuxOSGuardV3gen2fipsTL
+        condition: eq('${{ parameters.buildAzureLinuxOSGuardV3gen2fipsTL }}', true)
         dependsOn: [ ]
         timeoutInMinutes: 180
         steps:

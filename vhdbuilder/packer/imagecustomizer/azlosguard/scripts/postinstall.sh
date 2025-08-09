@@ -24,7 +24,6 @@ trap "umount /usr/local/bin" EXIT
 
 # Link /opt/azure/containers to /home/packer for postinstall
 ln -s /opt/azure/containers /home/packer
-trap "rm /home/packer" EXIT
 
 # Start containerd to allow container precaching
 containerd &
@@ -49,6 +48,7 @@ rm /home/packer/tool_installs_distro.sh
 rm /home/packer/lister
 rm /home/packer/list-images.sh
 rm /home/packer/cis.sh
+rm /home/packer
 
 # Create release-notes.txt
 mkdir -p /_imageconfigs/out
