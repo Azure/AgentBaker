@@ -71,7 +71,7 @@ az sig image-version create \
     --gallery-image-version ${CAPTURED_SIG_VERSION} \
     --os-vhd-storage-account /subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP_NAME}/providers/Microsoft.Storage/storageAccounts/${STORAGE_ACCOUNT_NAME} \
     --os-vhd-uri ${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd \
-    --tags buildDefinitionName=${BUILD_DEFINITION_NAME} buildNumber=${BUILD_NUMBER} buildId=${BUILD_ID} SkipLinuxAzSecPack=true os=Linux now=${CREATE_TIME} createdBy=aks-vhd-pipeline image_sku=${IMG_SKU} branch=${BRANCH} \
+    --tags "buildDefinitionName=${BUILD_DEFINITION_NAME}" "buildNumber=${BUILD_NUMBER}" "buildId=${BUILD_ID}" "SkipLinuxAzSecPack=true" "os=Linux" "now=${CREATE_TIME}" "createdBy=aks-vhd-pipeline" "image_sku=${IMG_SKU}" "branch=${BRANCH}" \
     --target-regions eastus westus westus2
 #    --target-regions eastus westus ${PACKER_BUILD_LOCATION}
 capture_benchmark "${SCRIPT_NAME}_create_sig_image_version"
