@@ -23,6 +23,7 @@ func Test_AzureLinux3OSGuard(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinux3OSGuard,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.AgentPoolProfile.LocalDNSProfile = nil
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 			},
