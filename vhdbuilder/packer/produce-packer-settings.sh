@@ -137,24 +137,6 @@ if [ -z "$rg_id" ]; then
 	az group create --name $AZURE_RESOURCE_GROUP_NAME --location ${AZURE_LOCATION}
 fi
 
-if [ "$MODE" != "linuxVhdMode" ]; then
-	avail=$(az storage account check-name -n "${STORAGE_ACCOUNT_NAME}" -o json | jq -r .nameAvailable)
-	if $avail ; then
-		echo "creating new storage account ${STORAGE_ACCOUNT_NAME}"
-		az storage account create \
-			-n "$STORAGE_ACCOUNT_NAME" \
-			-g "$AZURE_RESOURCE_GROUP_NAME" \
-			--sku "Standard_RAGRS" \
-			--tags "now=${CREATE_TIME}" \
-			--allow-shared-key-access false \
-			--location ${AZURE_LOCATION}
-		echo "creating new container system"
-		az storage container create --name system --account-name=$STORAGE_ACCOUNT_NAME --auth-mode login
-	else
-		echo "storage account ${STORAGE_ACCOUNT_NAME} already exists."
-	fi
-fi
-
 echo "storage name: ${STORAGE_ACCOUNT_NAME}"
 
 # If SIG_GALLERY_NAME/SIG_IMAGE_NAME hasnt been provided in linuxVhdMode, use defaults
