@@ -497,6 +497,8 @@ EOF
                     # Currently kata packages must be updated as a unit (including the kernel which requires a reboot). This can
                     # only be done reliably via image updates as of now so never enable automatic updates.
                     echo 'EnableUnattendedUpgrade is not supported by kata images, will not be enabled'
+                elif isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
+                    echo 'EnableUnattendedUpgrade is not supported by Azure Linux OS Guard, will not be enabled'
                 else
                     # By default the dnf-automatic is service is notify only in Mariner.
                     # Enable the automatic install timer and the check-restart timer.
