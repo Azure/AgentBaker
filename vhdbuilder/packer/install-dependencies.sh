@@ -5,11 +5,13 @@ MARINER_OS_NAME="MARINER"
 MARINER_KATA_OS_NAME="MARINERKATA"
 AZURELINUX_OS_NAME="AZURELINUX"
 AZURELINUX_KATA_OS_NAME="AZURELINUXKATA"
+AZURELINUX_OSGUARD_OS_VARIANT="OSGUARD"
 
 # Real world examples from the command outputs
 # For Azure Linux V3: ID=azurelinux VERSION_ID="3.0"
 # For Azure Linux V2: ID=mariner VERSION_ID="2.0"
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID=(.*))$/, a) { print toupper(a[2]); exit }')
+OS_VARIANT=$(sort -r /etc/*-release | gawk 'match($0, /^(VARIANT_ID=(.*))$/, a) { print toupper(a[2]); exit }' | tr -d '"')
 IS_KATA="false"
 if grep -q "kata" <<< "$FEATURE_FLAGS"; then
   IS_KATA="true"
@@ -211,7 +213,7 @@ EOF
 udevadm control --reload
 capture_benchmark "${SCRIPT_NAME}_set_udev_rules"
 
-if isMarinerOrAzureLinux "$OS"; then
+if isMarinerOrAzureLinux "$OS" && ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
     disableSystemdResolvedCache
     disableSystemdIptables || exit 1
     setMarinerNetworkdConfig
@@ -350,6 +352,9 @@ while IFS= read -r p; do
         evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
         if [ "${OS}" = "${UBUNTU_OS_NAME}" ]; then
           installContainerd "${downloadDir}" "${evaluatedURL}" "${version}"
+        elif isMarinerOrAzureLinux "$OS" && isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
+          echo "Skipping containerd install on Azure Linux OS Guard, package preinstalled on immutable /usr"
+          version=$(rpm -q containerd2)
         elif isMarinerOrAzureLinux "$OS"; then
           installStandaloneContainerd "${version}"
         elif isFlatcar "$OS"; then
@@ -361,7 +366,12 @@ while IFS= read -r p; do
     "oras")
       for version in ${PACKAGE_VERSIONS[@]}; do
         evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-        installOras "${downloadDir}" "${evaluatedURL}" "${version}"
+        if isMarinerOrAzureLinux "$OS" && isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
+          echo "Skipping Oras install on Azure Linux OS Guard, package preinstalled on immutable /usr"
+          version=$(oras version | head -n1 | awk '{print $2}')
+        else
+          installOras "${downloadDir}" "${evaluatedURL}" "${version}"
+        fi
         echo "  - oras version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
@@ -706,7 +716,12 @@ configureLsmWithBpf() {
       echo "Warning: this is a Kata/CVM SKU - will not add BPF to LSM configuration"
       return 0
     fi
-    
+
+    if isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
+      echo "Warning: Azure Linux OS Guard built with signed UKI, not enabling BPF LSM"
+      return 0
+    fi
+
     local new_lsm="bpf,$current_lsm"
     echo "New LSM configuration: $new_lsm"
 
@@ -749,7 +764,7 @@ configureLsmWithBpf
 capture_benchmark "${SCRIPT_NAME}_configure_lsm_with_bpf"
 
 # use the private_packages_url to download and cache packages
-if [ -n "${PRIVATE_PACKAGES_URL}" ]; then
+if [ -n "${PRIVATE_PACKAGES_URL:-}" ]; then
   IFS=',' read -ra PRIVATE_URLS <<< "${PRIVATE_PACKAGES_URL}"
 
   for private_url in "${PRIVATE_URLS[@]}"; do

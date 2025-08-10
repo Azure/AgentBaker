@@ -127,7 +127,10 @@ EOF
 }
 
 configureHTTPProxyCA() {
-    if isMarinerOrAzureLinux "$OS"; then
+    if isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
+        cert_dest="/etc/pki/ca-trust/source/anchors"
+        update_cmd="update-ca-trust"
+    elif isMarinerOrAzureLinux "$OS"; then
         cert_dest="/usr/share/pki/ca-trust-source/anchors"
         update_cmd="update-ca-trust"
     else
@@ -864,12 +867,12 @@ configGPUDrivers() {
             fi
             docker rmi $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
         fi
-    elif isMarinerOrAzureLinux "$OS"; then
+    elif isMarinerOrAzureLinux "$OS" && ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
         downloadGPUDrivers
         installNvidiaContainerToolkit
         enableNvidiaPersistenceMode
     else 
-        echo "os $OS not supported at this time. skipping configGPUDrivers"
+        echo "os $OS $OS_VARIANT not supported at this time. skipping configGPUDrivers"
         exit 1
     fi
 

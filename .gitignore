@@ -13,6 +13,8 @@ bin/
 coverage.txt
 e2e/scenario-logs
 **/vhd-publishing-info.json
+out/
+build/
 
 test/junit/
 test/e2e/kubernetes/junit.xml
