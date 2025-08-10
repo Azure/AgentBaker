@@ -27,6 +27,23 @@ func Test_AzureLinux3OSGuard(t *testing.T) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				if vmss.Properties == nil {
+					vmss.Properties = &armcompute.VirtualMachineScaleSetProperties{}
+				}
+				if vmss.Properties.VirtualMachineProfile == nil {
+					vmss.Properties.VirtualMachineProfile = &armcompute.VirtualMachineScaleSetVMProfile{}
+				}
+				if vmss.Properties.VirtualMachineProfile.SecurityProfile == nil {
+					vmss.Properties.VirtualMachineProfile.SecurityProfile = &armcompute.SecurityProfile{}
+				}
+				vmss.Properties.VirtualMachineProfile.SecurityProfile.SecurityType = to.Ptr(armcompute.SecurityTypesTrustedLaunch)
+				if vmss.Properties.VirtualMachineProfile.SecurityProfile.UefiSettings == nil {
+					vmss.Properties.VirtualMachineProfile.SecurityProfile.UefiSettings = &armcompute.UefiSettings{}
+				}
+				vmss.Properties.VirtualMachineProfile.SecurityProfile.UefiSettings.SecureBootEnabled = to.Ptr(true)
+				vmss.Properties.VirtualMachineProfile.SecurityProfile.UefiSettings.VTpmEnabled = to.Ptr(true)
+			},
 		},
 	})
 }
