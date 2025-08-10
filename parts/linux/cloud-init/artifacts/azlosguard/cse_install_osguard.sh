@@ -1,0 +1,73 @@
+#!/bin/bash
+
+stub() {
+    echo "${FUNCNAME[1]} stub"
+}
+
+installKubeletKubectlPkgFromPMC() {
+    local desiredVersion="${1}"
+	installRPMPackageFromFile "kubelet" $desiredVersion || exit $ERR_KUBELET_INSTALL_TIMEOUT
+    installRPMPackageFromFile "kubectl" $desiredVersion || exit $ERR_KUBECTL_INSTALL_TIMEOUT
+}
+
+installRPMPackageFromFile() {
+    local packageName="${1}"
+    local desiredVersion="${2}"
+
+    echo "installing ${packageName} version ${desiredVersion} by manually unpacking the RPM"
+    if [[ "${packageName}" != "kubelet" && "${packageName}" != "kubectl" ]]; then
+        echo "Error: Unsupported package ${packageName}. Only kubelet and kubectl installs are allowed on OSGuard."
+        exit 1
+    fi
+    downloadDir="/opt/${packageName}/downloads"
+
+    rpmFile=$(find "${downloadDir}" -maxdepth 1 -name "${packageName}-${desiredVersion}*" -print -quit 2>/dev/null) || rpmFile=""
+    fullPackageVersion=$(tdnf list ${packageName} | grep ${desiredVersion} | awk '{print $2}')
+    if [ -z "${rpmFile}" ]; then
+        echo "kubectl package not found at ${pathToKubectlRPM}. Attempting to download it."
+        downloadPkgFromVersion "${packageName}" ${fullPackageVersion} "${downloadDir}" || exit $ERR_APT_INSTALL_TIMEOUT
+        rpmFile=$(find "${downloadDir}" -maxdepth 1 -name "${packageName}-${desiredVersion}*" -print -quit 2>/dev/null) || rpmFile=""
+    fi
+	  if [ -z "${rpmFile}" ]; then
+        echo "Failed to locate ${packageName} rpm"
+        exit $ERR_APT_INSTALL_TIMEOUT
+    fi
+
+    echo "Unpacking usr/bin/${packageName} from ${downloadDir}/${packageName}-${desiredVersion}*"
+    pushd ${downloadDir}
+    rpm2cpio "${rpmFile}" | cpio -idmv
+    mv "usr/bin/${packageName}" "/usr/local/bin/${packageName}"
+    popd
+	rm -rf ${downloadDir} &
+}
+
+downloadPkgFromVersion() {
+    packageName="${1:-}"
+    packageVersion="${2:-}"
+    downloadDir="${3:-"/opt/${packageName}/downloads"}"
+    mkdir -p ${downloadDir}
+    tdnf_download 30 1 600 ${downloadDir} ${packageName}=${packageVersion}  || exit $ERR_APT_INSTALL_TIMEOUT
+    echo "Succeeded to download ${packageName} version ${packageVersion}"
+}
+
+installDeps() {
+    stub
+}
+
+installCriCtlPackage() {
+    stub
+}
+
+installStandaloneContainerd() {
+    stub
+}
+
+ensureRunc() {
+    stub
+}
+
+cleanUpGPUDrivers() {
+    stub
+}
+
+#EOF

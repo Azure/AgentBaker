@@ -129,14 +129,20 @@ function basePrep {
         echo "Golden image; skipping dependencies installation"
     fi
 
-    logs_to_events "AKS.CSE.installContainerRuntime" installContainerRuntime
+    # Container runtime already installed on Azure Linux OS Guard
+    if ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
+        logs_to_events "AKS.CSE.installContainerRuntime" installContainerRuntime
+    fi
     if [ "${NEEDS_CONTAINERD}" = "true" ] && [ "${TELEPORT_ENABLED}" = "true" ]; then
         logs_to_events "AKS.CSE.installTeleportdPlugin" installTeleportdPlugin
     fi
 
     setupCNIDirs
 
-    logs_to_events "AKS.CSE.installNetworkPlugin" installNetworkPlugin
+    # Network plugin already installed on Azure Linux OS Guard
+    if ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
+        logs_to_events "AKS.CSE.installNetworkPlugin" installNetworkPlugin
+    fi
 
     export -f should_enforce_kube_pmc_install
     SHOULD_ENFORCE_KUBE_PMC_INSTALL=$(retrycmd_silent 10 1 10 bash -cx should_enforce_kube_pmc_install)
@@ -254,8 +260,10 @@ EOF
         logs_to_events "AKS.CSE.ensureNoDupOnPromiscuBridge" ensureNoDupOnPromiscuBridge
     fi
 
-    if [ "$OS" = "$UBUNTU_OS_NAME" ] || isMarinerOrAzureLinux "$OS"; then
-        logs_to_events "AKS.CSE.ubuntuSnapshotUpdate" ensureSnapshotUpdate
+    if ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
+        if [ "$OS" = "$UBUNTU_OS_NAME" ] || isMarinerOrAzureLinux "$OS"; then
+            logs_to_events "AKS.CSE.ubuntuSnapshotUpdate" ensureSnapshotUpdate
+        fi
     fi
 
     if [ "$FULL_INSTALL_REQUIRED" = "true" ]; then
