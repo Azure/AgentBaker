@@ -14,6 +14,10 @@ export CONTAINER_RUNTIME="containerd"
 export SKU_NAME="OSGuardV3gen2fipsTL"
 export FEATURE_FLAGS=""
 
+# Fixup repart config from base image
+sed -i 's/Type=usr/Type=linux-generic/' /etc/repart.d/12-usr-a.conf
+rm /etc/repart.d/15-boot-b.conf  /etc/repart.d/16-usr-b.conf  /etc/repart.d/17-usr-hash-b.conf || true
+
 # Setup a symlink for lg-redirect-sysext
 mkdir -p /etc/extensions/lg-redirect-sysext/usr/local/
 mkdir -p /opt/bin
