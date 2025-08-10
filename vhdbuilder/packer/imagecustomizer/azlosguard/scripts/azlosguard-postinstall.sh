@@ -38,6 +38,7 @@ echo -e "\n# Disable WALA log collection because AKS Log Collector is installed.
 containerd &
 CONTAINERD_PID=$!
 echo "Started containerd with PID $CONTAINERD_PID"
+# shellcheck disable=2064
 trap "kill $CONTAINERD_PID" EXIT
 
 # Precache packages and containers from components.json

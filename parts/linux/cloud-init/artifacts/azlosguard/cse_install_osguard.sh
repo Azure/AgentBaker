@@ -15,7 +15,7 @@ installRPMPackageFromFile() {
     local desiredVersion="${2}"
 
     echo "installing ${packageName} version ${desiredVersion} by manually unpacking the RPM"
-    if [[ "${packageName}" != "kubelet" && "${packageName}" != "kubectl" ]]; then
+    if [ "${packageName}" != "kubelet" ] && [ "${packageName}" != "kubectl" ]; then
         echo "Error: Unsupported package ${packageName}. Only kubelet and kubectl installs are allowed on OSGuard."
         exit 1
     fi
@@ -34,10 +34,10 @@ installRPMPackageFromFile() {
     fi
 
     echo "Unpacking usr/bin/${packageName} from ${downloadDir}/${packageName}-${desiredVersion}*"
-    pushd ${downloadDir}
+    pushd ${downloadDir} || exit 1
     rpm2cpio "${rpmFile}" | cpio -idmv
     mv "usr/bin/${packageName}" "/usr/local/bin/${packageName}"
-    popd
+    popd || exit 1
 	rm -rf ${downloadDir} &
 }
 

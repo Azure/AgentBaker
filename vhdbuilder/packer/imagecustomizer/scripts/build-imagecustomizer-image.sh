@@ -13,13 +13,13 @@ mkdir -p "$BUILD_DIR/$CONFIG"
 
 # Validate CONFIG and config file
 CONFIG_FILE="$AGENTBAKER_DIR/vhdbuilder/packer/imagecustomizer/$CONFIG/$CONFIG.yml"
-if [[ ! -f "$CONFIG_FILE" ]]; then
+if [ ! -f "$CONFIG_FILE" ]; then
     echo "Error: Config file '$CONFIG_FILE' not found" >&2
     echo "Expected path: vhdbuilder/packer/imagecustomizer/$CONFIG/$CONFIG.yml" >&2
     exit 1
 fi
 
-if [[ ! -r "$CONFIG_FILE" ]]; then
+if [ ! -r "$CONFIG_FILE" ]; then
     echo "Error: Config file '$CONFIG_FILE' is not readable" >&2
     exit 1
 fi
