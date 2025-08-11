@@ -156,6 +156,9 @@ Describe "Install-SecureTLSBootstrapClient" {
             # Verify successful extraction
             Assert-MockCalled -CommandName "Expand-Archive" -Exactly -Times 1
             Assert-MockCalled -CommandName "Test-Path" -ParameterFilter { $Path -like "*aks-secure-tls-bootstrap-client.exe" } -Exactly -Times 1
+            Assert-MockCalled -CommandName "Remove-Item" -ParameterFilter { 
+                $Path -eq [Io.path]::Combine($testKubeDir, "aks-secure-tls-bootstrap-client-downloads") -and $Force -eq $true -and $Recurse -eq $true
+            } -Exactly -Times 1
         }
     }
 }
