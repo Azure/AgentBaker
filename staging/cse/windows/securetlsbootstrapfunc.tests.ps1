@@ -91,75 +91,75 @@ Describe "Install-SecureTLSBootstrapClient" {
         }
     }
 
-    # Context "When using cached version" {
-    #     BeforeEach {
-    #         $testKubeDir = "C:\k"
-    #         $cacheDir = [Io.path]::Combine($global:CacheDir, "aks-secure-tls-bootstrap-client")
+    Context "When using cached version" {
+        BeforeEach {
+            $testKubeDir = "C:\k"
+            $cacheDir = [Io.path]::Combine($global:CacheDir, "aks-secure-tls-bootstrap-client")
 
-    #         Mock -CommandName "[IO.Directory]::GetFiles" -MockWith {
-    #             return @("$cacheDir\windows-amd64.zip")
-    #         } -ModuleName ""
-    #     }
+            Mock -CommandName "[IO.Directory]::GetFiles" -MockWith {
+                return @("$cacheDir\windows-amd64.zip")
+            } -ModuleName ""
+        }
 
-    #     It "Should handle missing cache directory gracefully" {
-    #         Mock Test-Path -ParameterFilter { $Path -eq $global:CacheDir } -MockWith { return $false }
+        It "Should handle missing cache directory gracefully" {
+            Mock Test-Path -ParameterFilter { $Path -eq $global:CacheDir } -MockWith { return $false }
 
-    #         { Install-SecureTLSBootstrapClient -KubeDir $testKubeDir } | Should -Not -Throw
+            { Install-SecureTLSBootstrapClient -KubeDir $testKubeDir } | Should -Not -Throw
 
-    #         Assert-MockCalled -CommandName "Set-ExitCode" -ParameterFilter { 
-    #             $ExitCode -eq $global:WINDOWS_CSE_ERROR_INSTALL_SECURE_TLS_BOOTSTRAP_CLIENT -and $ErrorMessage -eq "CacheDir is missing"
-    #         } -Exactly 1
-    #     }
+            Assert-MockCalled -CommandName "Set-ExitCode" -ParameterFilter { 
+                $ExitCode -eq $global:WINDOWS_CSE_ERROR_INSTALL_SECURE_TLS_BOOTSTRAP_CLIENT -and $ErrorMessage -eq "CacheDir is missing"
+            } -Exactly -Times 1
+        }
 
-    #     It "Should handle missing cached files gracefully" {
-    #         # Mock empty search results
-    #         Mock -CommandName "[IO.Directory]::GetFiles" -MockWith {
-    #             return @()
-    #         } -ModuleName ""
+        It "Should handle missing cached files gracefully" {
+            # Mock empty search results
+            Mock -CommandName "[IO.Directory]::GetFiles" -MockWith {
+                return @()
+            } -ModuleName ""
 
-    #         { Install-SecureTLSBootstrapClient -KubeDir $testKubeDir } | Should -Not -Throw
+            { Install-SecureTLSBootstrapClient -KubeDir $testKubeDir } | Should -Not -Throw
 
-    #         Assert-MockCalled -CommandName "Set-ExitCode" -ParameterFilter { 
-    #             $ExitCode -eq $global:WINDOWS_CSE_ERROR_INSTALL_SECURE_TLS_BOOTSTRAP_CLIENT -and $ErrorMessage -eq "Secure TLS bootstrap client is missing from cache"
-    #         } -Exactly 1
-    #     }
+            Assert-MockCalled -CommandName "Set-ExitCode" -ParameterFilter { 
+                $ExitCode -eq $global:WINDOWS_CSE_ERROR_INSTALL_SECURE_TLS_BOOTSTRAP_CLIENT -and $ErrorMessage -eq "Secure TLS bootstrap client is missing from cache"
+            } -Exactly -Times 1
+        }
 
-    #     It "Should verify binary exists after extraction" {
-    #         Mock Test-Path -ParameterFilter { $Path -like "*aks-secure-tls-bootstrap-client.exe" } -MockWith { return $false }
+        It "Should verify binary exists after extraction" {
+            Mock Test-Path -ParameterFilter { $Path -like "*aks-secure-tls-bootstrap-client.exe" } -MockWith { return $false }
 
-    #         { Install-SecureTLSBootstrapClient -KubeDir $testKubeDir } | Should -Not -Throw
+            { Install-SecureTLSBootstrapClient -KubeDir $testKubeDir } | Should -Not -Throw
 
-    #         # Verify cached file was copied
-    #         Assert-MockCalled Copy-Item -ParameterFilter { 
-    #             $Path -eq "$cacheDir\windows-amd64.zip" -and $Force -eq $true
-    #         } -Exactly 1
+            # Verify cached file was copied
+            Assert-MockCalled Copy-Item -ParameterFilter { 
+                $Path -eq "$cacheDir\windows-amd64.zip" -and $Force -eq $true
+            } -Exactly -Times 1
 
-    #         # Should not call download function
-    #         Assert-MockCalled -CommandName "DownloadFileOverHttp" -Exactly 0
+            # Should not call download function
+            Assert-MockCalled -CommandName "DownloadFileOverHttp" -Exactly -Times 0
 
-    #         # Verify error handling was called
-    #         Assert-MockCalled -CommandName "Set-ExitCode" -ParameterFilter { 
-    #             $ExitCode -eq $global:WINDOWS_CSE_ERROR_INSTALL_SECURE_TLS_BOOTSTRAP_CLIENT -and $ErrorMessage -eq "Secure TLS bootstrap client is missing from KubeDir after zip extraction"
-    #         } -Exactly 1
-    #     }
+            # Verify error handling was called
+            Assert-MockCalled -CommandName "Set-ExitCode" -ParameterFilter { 
+                $ExitCode -eq $global:WINDOWS_CSE_ERROR_INSTALL_SECURE_TLS_BOOTSTRAP_CLIENT -and $ErrorMessage -eq "Secure TLS bootstrap client is missing from KubeDir after zip extraction"
+            } -Exactly -Times 1
+        }
 
-    #     It "Should succeed when extraction and binary verification pass" {
-    #         { Install-SecureTLSBootstrapClient -KubeDir $testKubeDir } | Should -Not -Throw
+        It "Should succeed when extraction and binary verification pass" {
+            { Install-SecureTLSBootstrapClient -KubeDir $testKubeDir } | Should -Not -Throw
 
-    #         # Verify cached file was copied
-    #         Assert-MockCalled -CommandName "Copy-Item" -ParameterFilter { 
-    #             $Path -eq "$cacheDir\windows-amd64.zip" -and $Force -eq $true
-    #         } -Exactly 1
+            # Verify cached file was copied
+            Assert-MockCalled -CommandName "Copy-Item" -ParameterFilter { 
+                $Path -eq "$cacheDir\windows-amd64.zip" -and $Force -eq $true
+            } -Exactly -Times 1
 
-    #         # Should not call download function
-    #         Assert-MockCalled -CommandName "DownloadFileOverHttp" -Exactly 0
+            # Should not call download function
+            Assert-MockCalled -CommandName "DownloadFileOverHttp" -Exactly -Times 0
 
-    #         # Should not call Set-ExitCode for errors
-    #         Assert-MockCalled -CommandName "Set-ExitCode" -Exactly 0
+            # Should not call Set-ExitCode for errors
+            Assert-MockCalled -CommandName "Set-ExitCode" -Exactly -Times 0
 
-    #         # Verify successful extraction
-    #         Assert-MockCalled -CommandName "Expand-Archive" -Exactly 1
-    #         Assert-MockCalled -CommandName "Test-Path" -ParameterFilter { $Path -like "*aks-secure-tls-bootstrap-client.exe" } -Exactly 1
-    #     }
-    # }
+            # Verify successful extraction
+            Assert-MockCalled -CommandName "Expand-Archive" -Exactly -Times 1
+            Assert-MockCalled -CommandName "Test-Path" -ParameterFilter { $Path -like "*aks-secure-tls-bootstrap-client.exe" } -Exactly -Times 1
+        }
+    }
 }
