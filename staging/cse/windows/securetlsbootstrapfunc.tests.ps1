@@ -47,15 +47,7 @@ BeforeAll {
     Mock Expand-Archive -MockWith {
         param($path, $DestinationPath)
         Write-Host "MOCK: Expand-Archive - Source: $path, Dest: $DestinationPath"
-        $global:LASTEXITCODE = 0
     }
-
-    # Set up global variables that the function depends on
-    $global:CacheDir = "C:\akse-cache"
-    $global:EnableSecureTLSBootstrapping = $true
-    $global:WINDOWS_CSE_ERROR_DOWNLOAD_SECURE_TLS_BOOTSTRAP_CLIENT = 101
-    $global:WINDOWS_CSE_ERROR_INSTALL_SECURE_TLS_BOOTSTRAP_CLIENT = 102
-    $global:LASTEXITCODE = 0
 
     # Load the function under test
     . $PSScriptRoot\securetlsbootstrapfunc.ps1
@@ -66,14 +58,9 @@ Describe "Install-SecureTLSBootstrapClient" {
         # Reset global variables for each test
         $global:EnableSecureTLSBootstrapping = $true
         $global:CacheDir = "C:\akse-cache"
-        $global:LASTEXITCODE = 0
         
         # Reset all mocks to default behavior
         Mock Test-Path -MockWith { return $true }
-        Mock Expand-Archive -MockWith { 
-            $global:LASTEXITCODE = 0
-            Write-Host "MOCK: Expand-Archive successful"
-        }
     }
 
     Context "When secure TLS bootstrapping is disabled" {
@@ -100,17 +87,13 @@ Describe "Install-SecureTLSBootstrapClient" {
         }
     }
 
-    Context "When using custom download URL" {
+    Context "when using custom download URL" {
         BeforeAll {
             $testKubeDir = "C:\k"
-            $customUrl = "https://example.com/custom-client.zip"
+            $customUrl = "https://xxx.blob.core.windows.net/aks-secure-tls-bootstrap-client/custom.zip"
         }
 
-        It "Should clear cache and download from custom URL" {
-            Mock DownloadFileOverHttp -MockWith {
-                Write-Host "MOCK: Downloaded from custom URL"
-            }
-
+        It "Should successfully download and install a custom client version if a custom URL is specified" {
             { Install-SecureTLSBootstrapClient -KubeDir $testKubeDir -CustomSecureTLSBootstrapClientDownloadUrl $customUrl } | Should -Not -Throw
 
             # Verify cache was cleared
@@ -132,12 +115,6 @@ Describe "Install-SecureTLSBootstrapClient" {
             Assert-MockCalled Logs-To-Event -ParameterFilter { 
                 $TaskName -eq "AKS.WindowsCSE.DownloadSecureTLSBootstrapClient" -and $TaskMessage -like "*$customUrl*"
             } -Exactly 1
-        }
-
-        It "Should extract downloaded archive and cleanup download directory" {
-            Mock DownloadFileOverHttp -MockWith { Write-Host "MOCK: Downloaded successfully" }
-            
-            { Install-SecureTLSBootstrapClient -KubeDir $testKubeDir -CustomSecureTLSBootstrapClientDownloadUrl $customUrl } | Should -Not -Throw
 
             # Verify archive extraction
             Assert-MockCalled Expand-Archive -ParameterFilter { 
@@ -155,39 +132,6 @@ Describe "Install-SecureTLSBootstrapClient" {
         BeforeAll {
             $testKubeDir = "C:\k"
             $cacheDir = [Io.path]::Combine($global:CacheDir, "aks-secure-tls-bootstrap-client")
-        }
-
-        It "Should use cached version when available" {
-            # Mock [IO.Directory]::GetFiles to simulate finding cached file
-            Mock -CommandName "[IO.Directory]::GetFiles" -MockWith {
-                return @("$cacheDir\windows-amd64.zip")
-            } -ModuleName ""
-
-            # Override the static method call with a script block
-            $originalGetFiles = [IO.Directory]::GetFiles
-            [IO.Directory] | Add-Member -Force -MemberType ScriptMethod -Name GetFiles -Value {
-                param($path, $searchPattern, $searchOption)
-                if ($path -like "*aks-secure-tls-bootstrap-client*") {
-                    return @("$cacheDir\windows-amd64.zip")
-                }
-                return $originalGetFiles.Invoke($path, $searchPattern, $searchOption)
-            }
-
-            try {
-                { Install-SecureTLSBootstrapClient -KubeDir $testKubeDir } | Should -Not -Throw
-
-                # Verify cached file was copied
-                Assert-MockCalled Copy-Item -ParameterFilter { 
-                    $Path -eq "$cacheDir\windows-amd64.zip" -and $Force -eq $true
-                } -Exactly 1
-
-                # Should not call download function
-                Assert-MockCalled DownloadFileOverHttp -Exactly 0
-            }
-            finally {
-                # Restore original method
-                [IO.Directory] | Add-Member -Force -MemberType ScriptMethod -Name GetFiles -Value $originalGetFiles
-            }
         }
 
         It "Should handle missing cache directory gracefully" {
@@ -224,84 +168,88 @@ Describe "Install-SecureTLSBootstrapClient" {
                 [IO.Directory] | Add-Member -Force -MemberType ScriptMethod -Name GetFiles -Value $originalGetFiles
             }
         }
-    }
-
-    Context "When handling archive extraction" {
-        BeforeAll {
-            $testKubeDir = "C:\k"
-            $customUrl = "https://example.com/client.zip"
-        }
-
-        It "Should handle extraction failure gracefully" {
-            Mock DownloadFileOverHttp -MockWith { Write-Host "MOCK: Downloaded successfully" }
-            Mock Expand-Archive -MockWith { 
-                $global:LASTEXITCODE = 1  # Simulate extraction failure
-                Write-Host "MOCK: Expand-Archive failed"
-            }
-            Mock Set-ExitCode -MockWith { Write-Host "MOCK: Set-ExitCode called for extraction failure" }
-
-            { Install-SecureTLSBootstrapClient -KubeDir $testKubeDir -CustomSecureTLSBootstrapClientDownloadUrl $customUrl } | Should -Not -Throw
-
-            # Verify error handling was called
-            Assert-MockCalled Set-ExitCode -ParameterFilter { 
-                $ExitCode -eq $global:WINDOWS_CSE_ERROR_INSTALL_SECURE_TLS_BOOTSTRAP_CLIENT -and $ErrorMessage -eq "Failed to extract secure TLS bootstrap client archive"
-            } -Exactly 1
-        }
 
         It "Should verify binary exists after extraction" {
-            Mock DownloadFileOverHttp -MockWith { Write-Host "MOCK: Downloaded successfully" }
             Mock Test-Path -ParameterFilter { $Path -like "*aks-secure-tls-bootstrap-client.exe" } -MockWith { return $false }
             Mock Set-ExitCode -MockWith { Write-Host "MOCK: Set-ExitCode called for missing binary" }
 
-            { Install-SecureTLSBootstrapClient -KubeDir $testKubeDir -CustomSecureTLSBootstrapClientDownloadUrl $customUrl } | Should -Not -Throw
+            # Mock [IO.Directory]::GetFiles to simulate finding cached file
+            Mock -CommandName "[IO.Directory]::GetFiles" -MockWith {
+                return @("$cacheDir\windows-amd64.zip")
+            } -ModuleName ""
 
-            # Verify error handling was called
-            Assert-MockCalled Set-ExitCode -ParameterFilter { 
-                $ExitCode -eq $global:WINDOWS_CSE_ERROR_INSTALL_SECURE_TLS_BOOTSTRAP_CLIENT -and $ErrorMessage -eq "Secure TLS bootstrap client is missing from KubeDir after zip extraction"
-            } -Exactly 1
+            # Override the static method call with a script block
+            $originalGetFiles = [IO.Directory]::GetFiles
+            [IO.Directory] | Add-Member -Force -MemberType ScriptMethod -Name GetFiles -Value {
+                param($path, $searchPattern, $searchOption)
+                if ($path -like "*aks-secure-tls-bootstrap-client*") {
+                    return @("$cacheDir\windows-amd64.zip")
+                }
+                return $originalGetFiles.Invoke($path, $searchPattern, $searchOption)
+            }
+
+            try {
+                { Install-SecureTLSBootstrapClient -KubeDir $testKubeDir } | Should -Not -Throw
+
+                # Verify cached file was copied
+                Assert-MockCalled Copy-Item -ParameterFilter { 
+                    $Path -eq "$cacheDir\windows-amd64.zip" -and $Force -eq $true
+                } -Exactly 1
+
+                # Should not call download function
+                Assert-MockCalled DownloadFileOverHttp -Exactly 0
+
+                # Verify error handling was called
+                Assert-MockCalled Set-ExitCode -ParameterFilter { 
+                    $ExitCode -eq $global:WINDOWS_CSE_ERROR_INSTALL_SECURE_TLS_BOOTSTRAP_CLIENT -and $ErrorMessage -eq "Secure TLS bootstrap client is missing from KubeDir after zip extraction"
+                } -Exactly 1
+            }
+            finally {
+                # Restore original method
+                [IO.Directory] | Add-Member -Force -MemberType ScriptMethod -Name GetFiles -Value $originalGetFiles
+            }
         }
 
         It "Should succeed when extraction and binary verification pass" {
-            Mock DownloadFileOverHttp -MockWith { Write-Host "MOCK: Downloaded successfully" }
             Mock Test-Path -ParameterFilter { $Path -like "*aks-secure-tls-bootstrap-client.exe" } -MockWith { return $true }
 
-            { Install-SecureTLSBootstrapClient -KubeDir $testKubeDir -CustomSecureTLSBootstrapClientDownloadUrl $customUrl } | Should -Not -Throw
+            # Mock [IO.Directory]::GetFiles to simulate finding cached file
+            Mock -CommandName "[IO.Directory]::GetFiles" -MockWith {
+                return @("$cacheDir\windows-amd64.zip")
+            } -ModuleName ""
 
-            # Should not call Set-ExitCode for errors
-            Assert-MockCalled Set-ExitCode -Exactly 0
+            # Override the static method call with a script block
+            $originalGetFiles = [IO.Directory]::GetFiles
+            [IO.Directory] | Add-Member -Force -MemberType ScriptMethod -Name GetFiles -Value {
+                param($path, $searchPattern, $searchOption)
+                if ($path -like "*aks-secure-tls-bootstrap-client*") {
+                    return @("$cacheDir\windows-amd64.zip")
+                }
+                return $originalGetFiles.Invoke($path, $searchPattern, $searchOption)
+            }
 
-            # Verify successful extraction
-            Assert-MockCalled Expand-Archive -Exactly 1
-            Assert-MockCalled Test-Path -ParameterFilter { $Path -like "*aks-secure-tls-bootstrap-client.exe" } -Exactly 1
-        }
-    }
+            try {
+                { Install-SecureTLSBootstrapClient -KubeDir $testKubeDir } | Should -Not -Throw
 
-    Context "When using custom download directory parameter" {
-        BeforeAll {
-            $testKubeDir = "C:\k"
-            $customDownloadDir = "C:\custom-download"
-            $customUrl = "https://example.com/client.zip"
-        }
+                # Verify cached file was copied
+                Assert-MockCalled Copy-Item -ParameterFilter { 
+                    $Path -eq "$cacheDir\windows-amd64.zip" -and $Force -eq $true
+                } -Exactly 1
 
-        It "Should use custom download directory when specified" {
-            Mock DownloadFileOverHttp -MockWith { Write-Host "MOCK: Downloaded to custom directory" }
+                # Should not call download function
+                Assert-MockCalled DownloadFileOverHttp -Exactly 0
 
-            { Install-SecureTLSBootstrapClient -KubeDir $testKubeDir -CustomSecureTLSBootstrapClientDownloadUrl $customUrl -SecureTLSBootstrapClientDownloadDir $customDownloadDir } | Should -Not -Throw
+                # Should not call Set-ExitCode for errors
+                Assert-MockCalled Set-ExitCode -Exactly 0
 
-            # Verify custom download directory was created
-            Assert-MockCalled New-Item -ParameterFilter { 
-                $ItemType -eq "Directory" -and $Path -eq $customDownloadDir
-            } -Exactly 1
-
-            # Verify download used custom directory
-            Assert-MockCalled DownloadFileOverHttp -ParameterFilter { 
-                $DestinationPath -eq [Io.path]::Combine($customDownloadDir, "aks-secure-tls-bootstrap-client.zip")
-            } -Exactly 1
-
-            # Verify custom directory was cleaned up
-            Assert-MockCalled Remove-Item -ParameterFilter { 
-                $Path -eq $customDownloadDir -and $Recurse -eq $true
-            } -Exactly 1
+                # Verify successful extraction
+                Assert-MockCalled Expand-Archive -Exactly 1
+                Assert-MockCalled Test-Path -ParameterFilter { $Path -like "*aks-secure-tls-bootstrap-client.exe" } -Exactly 1
+            }
+            finally {
+                # Restore original method
+                [IO.Directory] | Add-Member -Force -MemberType ScriptMethod -Name GetFiles -Value $originalGetFiles
+            }
         }
     }
 }

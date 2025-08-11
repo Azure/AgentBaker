@@ -3,26 +3,25 @@ function Install-SecureTLSBootstrapClient {
         [Parameter(Mandatory=$true)][string]
         $KubeDir,
         [Parameter(Mandatory=$false)][string]
-        $CustomSecureTLSBootstrapClientDownloadUrl,
-        [Parameter(Mandatory=$false)][string]
-        $SecureTLSBootstrapClientDownloadDir = [Io.path]::Combine("$KubeDir", "aks-secure-tls-bootstrap-client-downloads")
+        $CustomSecureTLSBootstrapClientDownloadUrl
     )
 
-    $secureTLSBootstrapClientDownloadPath = [Io.path]::Combine("$SecureTLSBootstrapClientDownloadDir", "aks-secure-tls-bootstrap-client.zip")
+    $secureTLSBootstrapClientDownloadDir = [Io.path]::Combine("$KubeDir", "aks-secure-tls-bootstrap-client-downloads")
+    $secureTLSBootstrapClientDownloadPath = [Io.path]::Combine("$secureTLSBootstrapClientDownloadDir", "aks-secure-tls-bootstrap-client.zip")
     $secureTLSBootstrapClientCacheDir = [Io.path]::Combine("$global:CacheDir", "aks-secure-tls-bootstrap-client")
-    $secureTLSBootstrapBinPath = [Io.path]::Combine("$KubeDir", "aks-secure-tls-bootstrap-client.exe")
+    $secureTLSBootstrapClientBinPath = [Io.path]::Combine("$KubeDir", "aks-secure-tls-bootstrap-client.exe")
     
     # secure TLS bootstrapping is disabled, cleanup any client binary installations and return
     if (!$global:EnableSecureTLSBootstrapping) {
         Write-Log "Install-SecureTLSBootstrapClient: Secure TLS Bootstrapping is disabled, will remove secure TLS bootstrap client binary installation"
         # binary will be cleaned from aks-cache during nodePrep
-        Remove-Item -Path $secureTLSBootstrapBinPath -Force
-        Remove-Item -Path $SecureTLSBootstrapClientDownloadDir -Force -Recurse
+        Remove-Item -Path $secureTLSBootstrapClientBinPath -Force
+        Remove-Item -Path $secureTLSBootstrapClientDownloadDir -Force -Recurse
         return
     }
 
     # create the ephemeral download directory if needed
-    New-Item -ItemType Directory -Force -Path $SecureTLSBootstrapClientDownloadDir > $null
+    New-Item -ItemType Directory -Force -Path $secureTLSBootstrapClientDownloadDir > $null
 
     # we have a URL from which to download a custom version of the client binary, ignoring cached versions
     if (![string]::IsNullOrEmpty($CustomSecureTLSBootstrapClientDownloadUrl)) {
@@ -51,16 +50,13 @@ function Install-SecureTLSBootstrapClient {
         }
     }
 
-    Expand-Archive -path $secureTLSBootstrapClientDownloadPath -DestinationPath $global:KubeDir
-    if ($LASTEXITCODE -ne 0) {
-        Write-Log "Failed to extract secure TLS bootstrap client archive"
-        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_INSTALL_SECURE_TLS_BOOTSTRAP_CLIENT -ErrorMessage "Failed to extract secure TLS bootstrap client archive"
-    }
-    if (!(Test-Path -Path $secureTLSBootstrapBinPath)) {
-        Write-Log "Secure TLS bootstrap client is missing from KubeDir: $global:KubeDir after zip extraction"
+    Expand-Archive -path $secureTLSBootstrapClientDownloadPath -DestinationPath $KubeDir
+    
+    if (!(Test-Path -Path $secureTLSBootstrapClientBinPath)) {
+        Write-Log "Secure TLS bootstrap client is missing from KubeDir: $KubeDir after zip extraction"
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_INSTALL_SECURE_TLS_BOOTSTRAP_CLIENT -ErrorMessage "Secure TLS bootstrap client is missing from KubeDir after zip extraction"
     }
     
-    Remove-Item -Path $SecureTLSBootstrapClientDownloadDir -Force -Recurse
-    Write-Log "Successfully extracted secure TLS bootstrap client to: $global:KubeDir"
+    Remove-Item -Path $secureTLSBootstrapClientDownloadDir -Force -Recurse
+    Write-Log "Successfully extracted secure TLS bootstrap client to: $KubeDir"
 }
