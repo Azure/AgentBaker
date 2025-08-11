@@ -1,3 +1,16 @@
+# Thin wrapper around [IO.Directory]::GetFiles so we can mock it as needed within Pester tests
+function GetCachedSecureTLSBootstrapClientPath {
+    Param(
+        [Parameter(Mandatory=$true)][string]
+        $SecureTLSBootstrapClientCacheDir
+    )
+
+    $result = [IO.Directory]::GetFiles($secureTLSBootstrapClientCacheDir, "windows-amd64.zip", [IO.SearchOption]::AllDirectories)
+    return (, $result) # so that Powershell doesn't "unroll" the array returned from [IO.Directory]::GetFiles
+}
+
+# Installs the secure TLS bootstrap client from the VHD cache. If a custom URL is specified, then any cached
+# versions will be ignored and removed in favor of the custom version
 function Install-SecureTLSBootstrapClient {
     Param(
         [Parameter(Mandatory=$true)][string]
@@ -35,7 +48,7 @@ function Install-SecureTLSBootstrapClient {
     } else { # install the cached client binary by moving it from CacheDir to KubeDir
         $search = @()
         if ($global:CacheDir -and (Test-Path $global:CacheDir)) {
-            $search = [IO.Directory]::GetFiles($secureTLSBootstrapClientCacheDir, "windows-amd64.zip", [IO.SearchOption]::AllDirectories)
+            $search = GetCachedSecureTLSBootstrapClientPath -SecureTLSBootstrapClientCacheDir $secureTLSBootstrapClientCacheDir
         } else {
             Write-Log "CacheDir: $global:CacheDir does not exist, unable to install secure TLS bootstrap client"
             Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_INSTALL_SECURE_TLS_BOOTSTRAP_CLIENT -ErrorMessage "CacheDir is missing"

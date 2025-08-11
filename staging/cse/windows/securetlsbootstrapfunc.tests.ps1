@@ -96,9 +96,7 @@ Describe "Install-SecureTLSBootstrapClient" {
             $testKubeDir = "C:\k"
             $cacheDir = [Io.path]::Combine($global:CacheDir, "aks-secure-tls-bootstrap-client")
 
-            Mock -CommandName "[IO.Directory]::GetFiles" -MockWith {
-                return @("$cacheDir\windows-amd64.zip")
-            } -ModuleName ""
+            Mock -CommandName "GetCachedSecureTLSBootstrapClientPath" -MockWith { return @("$cacheDir\windows-amd64.zip") } 
         }
 
         It "Should handle missing cache directory gracefully" {
@@ -113,9 +111,7 @@ Describe "Install-SecureTLSBootstrapClient" {
 
         It "Should handle missing cached files gracefully" {
             # Mock empty search results
-            Mock -CommandName "[IO.Directory]::GetFiles" -MockWith {
-                return @()
-            } -ModuleName ""
+            Mock -CommandName "GetCachedSecureTLSBootstrapClientPath" -MockWith { return @() } 
 
             { Install-SecureTLSBootstrapClient -KubeDir $testKubeDir } | Should -Not -Throw
 
