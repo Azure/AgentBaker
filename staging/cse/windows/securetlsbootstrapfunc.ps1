@@ -5,7 +5,7 @@ function GetCachedSecureTLSBootstrapClientPath {
         $SecureTLSBootstrapClientCacheDir
     )
 
-    $result = [IO.Directory]::GetFiles($secureTLSBootstrapClientCacheDir, "windows-amd64.zip", [IO.SearchOption]::AllDirectories)
+    $result = [IO.Directory]::GetFiles($SecureTLSBootstrapClientCacheDir, "windows-amd64.zip", [IO.SearchOption]::AllDirectories)
     return (, $result) # so that Powershell doesn't "unroll" the array returned from [IO.Directory]::GetFiles
 }
 
