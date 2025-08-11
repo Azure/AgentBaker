@@ -50,8 +50,8 @@ function Install-SecureTLSBootstrapClient {
         }
     }
 
-    Expand-Archive -path $secureTLSBootstrapClientDownloadPath -DestinationPath $KubeDir
-    
+    Expand-Archive -Path $secureTLSBootstrapClientDownloadPath -DestinationPath $KubeDir
+
     if (!(Test-Path -Path $secureTLSBootstrapClientBinPath)) {
         Write-Log "Secure TLS bootstrap client is missing from KubeDir: $KubeDir after zip extraction"
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_INSTALL_SECURE_TLS_BOOTSTRAP_CLIENT -ErrorMessage "Secure TLS bootstrap client is missing from KubeDir after zip extraction"

@@ -55,41 +55,41 @@ Describe "Install-SecureTLSBootstrapClient" {
         }
     }
 
-    # Context "when using custom download URL" {
-    #     BeforeEach {
-    #         $testKubeDir = "C:\k"
-    #         $customUrl = "https://xxx.blob.core.windows.net/aks-secure-tls-bootstrap-client/custom.zip"
-    #     }
+    Context "when using custom download URL" {
+        BeforeEach {
+            $testKubeDir = "C:\k"
+            $customUrl = "https://xxx.blob.core.windows.net/aks-secure-tls-bootstrap-client/custom.zip"
+        }
 
-    #     It "Should successfully download and install a custom client version if a custom URL is specified" {
-    #         { Install-SecureTLSBootstrapClient -KubeDir $testKubeDir -CustomSecureTLSBootstrapClientDownloadUrl $customUrl } | Should -Not -Throw
+        It "Should successfully download and install a custom client version if a custom URL is specified" {
+            { Install-SecureTLSBootstrapClient -KubeDir $testKubeDir -CustomSecureTLSBootstrapClientDownloadUrl $customUrl } | Should -Not -Throw
 
-    #         # Verify cache was cleared
-    #         Assert-MockCalled Remove-Item -ParameterFilter { 
-    #             $Path -eq [Io.path]::Combine($global:CacheDir, "aks-secure-tls-bootstrap-client") -and $Recurse -eq $true 
-    #         } -Exactly 1
+            # Verify cache was cleared
+            Assert-MockCalled Remove-Item -ParameterFilter { 
+                $Path -eq [Io.path]::Combine($global:CacheDir, "aks-secure-tls-bootstrap-client") -and $Recurse -eq $true 
+            } -Exactly -Times 1
 
-    #         # Verify download directory was created
-    #         Assert-MockCalled New-Item -ParameterFilter { 
-    #             $ItemType -eq "Directory" -and $Path -eq [Io.path]::Combine($testKubeDir, "aks-secure-tls-bootstrap-client-downloads")
-    #         } -Exactly 1
+            # Verify download directory was created
+            Assert-MockCalled New-Item -ParameterFilter { 
+                $ItemType -eq "Directory" -and $Path -eq [Io.path]::Combine($testKubeDir, "aks-secure-tls-bootstrap-client-downloads")
+            } -Exactly -Times 1
 
-    #         # Verify custom download was called
-    #         Assert-MockCalled -CommandName "DownloadFileOverHttp" -ParameterFilter { 
-    #             $Url -eq $customUrl -and $DestinationPath -eq "C:\k\aks-secure-tls-bootstrap-client-downloads\aks-secure-tls-bootstrap-client.zip" -and $ExitCode -eq $global:WINDOWS_CSE_ERROR_DOWNLOAD_SECURE_TLS_BOOTSTRAP_CLIENT
-    #         } -Exactly 1
+            # Verify custom download was called
+            Assert-MockCalled -CommandName "DownloadFileOverHttp" -ParameterFilter { 
+                $Url -eq $customUrl -and $DestinationPath -eq "C:\k\aks-secure-tls-bootstrap-client-downloads\aks-secure-tls-bootstrap-client.zip" -and $ExitCode -eq $global:WINDOWS_CSE_ERROR_DOWNLOAD_SECURE_TLS_BOOTSTRAP_CLIENT
+            } -Exactly -Times 1
 
-    #         # Verify archive extraction
-    #         Assert-MockCalled -CommandName "Expand-Archive" -ParameterFilter { 
-    #             $DestinationPath -eq $testKubeDir
-    #         } -Exactly 1
+            # Verify archive extraction
+            Assert-MockCalled -CommandName "Expand-Archive" -ParameterFilter {
+                $Path -eq [Io.path]::Combine($testKubeDir, "aks-secure-tls-bootstrap-client-downloads") -and $DestinationPath -eq $testKubeDir
+            } -Exactly -Times 1
 
-    #         # Verify download directory cleanup
-    #         Assert-MockCalled -CommandName "Remove-Item" -ParameterFilter { 
-    #             $Path -eq [Io.path]::Combine($testKubeDir, "aks-secure-tls-bootstrap-client-downloads") -and $Recurse -eq $true
-    #         } -Exactly 1
-    #     }
-    # }
+            # Verify download directory cleanup
+            Assert-MockCalled -CommandName "Remove-Item" -ParameterFilter { 
+                $Path -eq [Io.path]::Combine($testKubeDir, "aks-secure-tls-bootstrap-client-downloads") -and $Recurse -eq $true
+            } -Exactly -Times 1
+        }
+    }
 
     # Context "When using cached version" {
     #     BeforeEach {
