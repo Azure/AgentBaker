@@ -81,7 +81,7 @@ Describe "Install-SecureTLSBootstrapClient" {
 
             # Verify archive extraction
             Assert-MockCalled -CommandName "Expand-Archive" -ParameterFilter {
-                $Path -eq [Io.path]::Combine($testKubeDir, "aks-secure-tls-bootstrap-client-downloads") -and $DestinationPath -eq $testKubeDir
+                $Path -eq [Io.path]::Combine($testKubeDir, "aks-secure-tls-bootstrap-client-downloads", "aks-secure-tls-bootstrap-client.zip") -and $DestinationPath -eq $testKubeDir
             } -Exactly -Times 1
 
             # Verify download directory cleanup
