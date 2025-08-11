@@ -57,7 +57,6 @@
             "communicator": "ssh",
             "ssh_username": "packer",
             "ssh_timeout": "30m",
-            "disable_password_authentication": true,
             "azure_tags": {
                 "os": "Windows",
                 "now": "{{user `create_time`}}",
