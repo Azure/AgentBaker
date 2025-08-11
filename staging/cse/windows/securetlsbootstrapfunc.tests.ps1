@@ -96,7 +96,7 @@ Describe "Install-SecureTLSBootstrapClient" {
             $testKubeDir = "C:\k"
             $cacheDir = [Io.path]::Combine($global:CacheDir, "aks-secure-tls-bootstrap-client")
 
-            Mock -CommandName "GetCachedSecureTLSBootstrapClientPath" -MockWith { return @("$cacheDir\windows-amd64.zip") } 
+            Mock -CommandName "GetCachedSecureTLSBootstrapClientPath" -MockWith { return (, @("$cacheDir\windows-amd64.zip")) } 
         }
 
         It "Should handle missing cache directory gracefully" {
@@ -127,7 +127,7 @@ Describe "Install-SecureTLSBootstrapClient" {
 
             # Verify cached file was copied
             Assert-MockCalled Copy-Item -ParameterFilter { 
-                $Path -eq "$cacheDir\windows-amd64.zip" -and $Force -eq $true
+               $Path -eq "$cacheDir\windows-amd64.zip" -and $Destination -eq [Io.path]::Combine($testKubeDir, "aks-secure-tls-bootstrap-client-downloads", "aks-secure-tls-bootstrap-client.zip") -and $Force -eq $true
             } -Exactly -Times 1
 
             # Should not call download function
@@ -144,7 +144,7 @@ Describe "Install-SecureTLSBootstrapClient" {
 
             # Verify cached file was copied
             Assert-MockCalled -CommandName "Copy-Item" -ParameterFilter { 
-                $Path -eq "$cacheDir\windows-amd64.zip" -and $Force -eq $true
+                $Path -eq "$cacheDir\windows-amd64.zip" -and $Destination -eq [Io.path]::Combine($testKubeDir, "aks-secure-tls-bootstrap-client-downloads", "aks-secure-tls-bootstrap-client.zip") -and $Force -eq $true
             } -Exactly -Times 1
 
             # Should not call download function
