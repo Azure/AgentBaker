@@ -454,6 +454,29 @@ func addVMExtensionToVMSS(properties *armcompute.VirtualMachineScaleSetPropertie
 	return properties
 }
 
+func addTrustedLaunchToVMSS(properties *armcompute.VirtualMachineScaleSetProperties) *armcompute.VirtualMachineScaleSetProperties {
+	if properties == nil {
+		properties = &armcompute.VirtualMachineScaleSetProperties{}
+	}
+
+	if properties.VirtualMachineProfile == nil {
+		properties.VirtualMachineProfile = &armcompute.VirtualMachineScaleSetVMProfile{}
+	}
+
+	if properties.VirtualMachineProfile.SecurityProfile == nil {
+		properties.VirtualMachineProfile.SecurityProfile = &armcompute.SecurityProfile{}
+	}
+
+	properties.VirtualMachineProfile.SecurityProfile.SecurityType = to.Ptr(armcompute.SecurityTypesTrustedLaunch)
+	if properties.VirtualMachineProfile.SecurityProfile.UefiSettings == nil {
+		properties.VirtualMachineProfile.SecurityProfile.UefiSettings = &armcompute.UefiSettings{}
+	}
+	properties.VirtualMachineProfile.SecurityProfile.UefiSettings.SecureBootEnabled = to.Ptr(true)
+	properties.VirtualMachineProfile.SecurityProfile.UefiSettings.VTpmEnabled = to.Ptr(true)
+
+	return properties
+}
+
 func createVMExtensionLinuxAKSNode(location *string) (*armcompute.VirtualMachineScaleSetExtension, error) {
 	// Default to "westus" if location is nil.
 	region := "westus"

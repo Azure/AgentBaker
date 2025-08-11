@@ -222,6 +222,13 @@ isFlatcar() {
         return 0
     fi
 }
+isAzureLinuxOSGuard() {
+    local os="$1"
+
+    if [ "$os" = "AzureLinuxOSGuard" ]; then
+        return 0
+    fi
+}
 requiresCISScan() {
     local os="$1"
     local version="$2"
@@ -233,6 +240,9 @@ requiresCISScan() {
         return 1
     fi
     if isFlatcar "$os"; then
+        return 1
+    fi
+    if isAzureLinuxOSGuard "$os"; then
         return 1
     fi
     return 0 # Requires scan
