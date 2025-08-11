@@ -11,6 +11,8 @@ function GetCachedSecureTLSBootstrapClientPath {
 
 # Installs the secure TLS bootstrap client from the VHD cache. If a custom URL is specified, then any cached
 # versions will be ignored and removed in favor of the custom version
+# NOTE: it's possible when calling this function from base CSE scripts that it won't exist. Be careful about
+# ensuring this function is available before blindly calling it.
 function Install-SecureTLSBootstrapClient {
     Param(
         [Parameter(Mandatory=$true)][string]
