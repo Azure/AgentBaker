@@ -20,10 +20,6 @@ Describe "Install-SecureTLSBootstrapClient" {
             )
             Write-Host "Set-ExitCode -ExitCode $ExitCode -ErrorMessage $ErrorMessage"
         } -Verifiable
-        Mock Write-Log {
-            Param($Message) 
-            Write-Host "$Message"
-        }
         Mock Test-Path -MockWith { return $true }
         Mock New-Item
         Mock Copy-Item
