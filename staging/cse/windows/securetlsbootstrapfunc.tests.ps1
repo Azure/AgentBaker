@@ -1,5 +1,5 @@
 BeforeAll {
-    . $PSScriptRoot\securetlsbootstrapfunc.ps1
+    . $PSScriptRoot\..\..\..\parts\windows\windowscsehelper.ps1
     . $PSCommandPath.Replace('.tests.ps1','.ps1')
 }
 
@@ -32,7 +32,7 @@ Describe "Install-SecureTLSBootstrapClient" {
     }
 
     Context "When secure TLS bootstrapping is disabled" {
-        BeforeAll {
+        BeforeEach {
             $testKubeDir = "C:\k"
             $global:EnableSecureTLSBootstrapping = $false
         }
@@ -43,19 +43,20 @@ Describe "Install-SecureTLSBootstrapClient" {
             # Verify cleanup operations were called
             Assert-MockCalled -CommandName "Remove-Item" -ParameterFilter { 
                 $Path -eq [Io.path]::Combine($testKubeDir, "aks-secure-tls-bootstrap-client.exe") 
-            } -Exactly 1
+            } -Exactly -Times 1
 
             Assert-MockCalled -CommandName "Remove-Item" -ParameterFilter { 
                 $Path -eq [Io.path]::Combine($testKubeDir, "aks-secure-tls-bootstrap-client-downloads") -and $Recurse -eq $true 
-            } -Exactly 1
+            } -Exactly -Times 1
 
             # Should not attempt any downloads or installations
-            Assert-MockCalled -CommandName "New-Item" -Exactly 0
+            Assert-MockCalled -CommandName 'DownloadFileOverHttp' -Exactly -Times 0
+            Assert-MockCalled -CommandName "New-Item" -Exactly -Times 0
         }
     }
 
     # Context "when using custom download URL" {
-    #     BeforeAll {
+    #     BeforeEach {
     #         $testKubeDir = "C:\k"
     #         $customUrl = "https://xxx.blob.core.windows.net/aks-secure-tls-bootstrap-client/custom.zip"
     #     }
@@ -91,7 +92,7 @@ Describe "Install-SecureTLSBootstrapClient" {
     # }
 
     # Context "When using cached version" {
-    #     BeforeAll {
+    #     BeforeEach {
     #         $testKubeDir = "C:\k"
     #         $cacheDir = [Io.path]::Combine($global:CacheDir, "aks-secure-tls-bootstrap-client")
 
