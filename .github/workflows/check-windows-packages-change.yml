@@ -9,14 +9,14 @@ jobs:
       pull-requests: write
     steps:
       - name: Check out repository code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: master
           path: master
           fetch-depth: 1
 
       - name: Check out repository code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           path: pr
           fetch-depth: 1
