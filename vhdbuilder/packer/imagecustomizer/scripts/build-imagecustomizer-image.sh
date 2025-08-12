@@ -1,6 +1,23 @@
 #!/bin/bash
 set -euo pipefail
 
+# Required env vars declared by the pipeline
+required_env_vars=(
+    "IMG_CUSTOMIZER_CONTAINER"
+    "IMG_CUSTOMIZER_VERSION"
+    "IMG_CUSTOMIZER_CONFIG"
+    "BASE_IMG"
+    "BASE_IMG_VERSION"
+)
+
+for v in "${required_env_vars[@]}"
+do
+    if [ -z "${!v}" ]; then
+        echo "$v was not set!"
+        exit 1
+    fi
+done
+
 # Find the absolute path of the directory containing this script
 SCRIPTS_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 CONFIG=$IMG_CUSTOMIZER_CONFIG
