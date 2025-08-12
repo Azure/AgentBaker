@@ -1781,6 +1781,7 @@ testdomain567.com:53 {
 oom_score = -999
 [plugins."io.containerd.grpc.v1.cri"]
   sandbox_image = ""
+  enable_cdi = true
   [plugins."io.containerd.grpc.v1.cri".containerd]
     snapshotter = "overlaybd"
     disable_snapshot_annotations = false
@@ -1882,6 +1883,18 @@ oom_score = -999
 			}
 			config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSUbuntuContainerd2204
 		}, nil),
+		Entry("AKSUbuntu2204 with containerd and CDI enabled", "AKSUbuntu2204+Containerd+CDI", "1.24.2", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+				ContainerRuntime: datamodel.Containerd,
+			}
+			config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSUbuntuContainerd2204
+			config.KubeletConfig = map[string]string{}
+		}, func(o *nodeBootstrappingOutput) {
+			Expect(o.vars["CONTAINERD_CONFIG_CONTENT"]).NotTo(BeEmpty())
+			containerdConfigFileContent, err := getBase64DecodedValue([]byte(o.vars["CONTAINERD_CONFIG_CONTENT"]))
+			Expect(err).To(BeNil())
+			Expect(containerdConfigFileContent).To(ContainSubstring("enable_cdi = true"))
+		}),
 		Entry("AKSUbuntu2204 containerd with multi-instance GPU", "AKSUbuntu2204+Containerd+MIG", "1.19.13",
 			func(config *datamodel.NodeBootstrappingConfiguration) {
 				config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
