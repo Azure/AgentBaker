@@ -223,6 +223,10 @@ os:
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/measure-tls-bootstrapping-latency.service
       destination: /etc/systemd/system/measure-tls-bootstrapping-latency.service
       permissions: 600
+    # secure-tls-bootstrap
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/secure-tls-bootstrap.service
+      destination: /etc/systemd/system/secure-tls-bootstrap.service
+      permissions: 600
     # aks log collector
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/aks-log-collector.sh
       destination: /opt/azure/containers/aks-log-collector.sh
@@ -305,3 +309,8 @@ previewFeatures:
 scripts:
   postCustomization:
     - path: scripts/azlosguard-postinstall.sh
+      environmentVariables:
+        IMG_SKU: "azure-linux-osguard-3"
+        CONTAINER_RUNTIME: "containerd"
+        SKU_NAME: "OSGuardV3gen2fipsTL"
+        FEATURE_FLAGS: ""
