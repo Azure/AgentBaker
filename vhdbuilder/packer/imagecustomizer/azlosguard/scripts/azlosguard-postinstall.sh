@@ -4,15 +4,27 @@ set -e
 
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 
-echo "Starting build on $(date)" > ${VHD_LOGS_FILEPATH} 
+required_env_vars=(
+    "IMG_SKU"
+    "CONTAINER_RUNTIME"
+    "SKU_NAME"
+)
+
+for v in "${required_env_vars[@]}"
+do
+    if [ -z "${!v}" ]; then
+        echo "$v was not set!"
+        exit 1
+    else
+        echo "$v is set to '${!v}'"
+    fi
+done
+
+FEATURE_FLAGS="${FEATURE_FLAGS:-}"
+
+echo "Starting build on $(date)" > ${VHD_LOGS_FILEPATH}
 
 source /opt/azure/containers/provision_source.sh
-
-# Recreate variables from the pipeline build environment for install-dependencies.sh
-export IMG_SKU="azure-linux-osguard-3"
-export CONTAINER_RUNTIME="containerd"
-export SKU_NAME="OSGuardV3gen2fipsTL"
-export FEATURE_FLAGS=""
 
 # Fixup repart config from base image
 sed -i 's/Type=usr/Type=linux-generic/' /etc/repart.d/12-usr-a.conf
