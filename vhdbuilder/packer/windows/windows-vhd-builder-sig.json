@@ -56,8 +56,7 @@
             "polling_duration_timeout": "1h",
             "communicator": "ssh",
             "ssh_username": "packer",
-            "ssh_timeout": "30m",
-            "disable_password_authentication": true,
+            "ssh_timeout": "20m",
             "azure_tags": {
                 "os": "Windows",
                 "now": "{{user `create_time`}}",
