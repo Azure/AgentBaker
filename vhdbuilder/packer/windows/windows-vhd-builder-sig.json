@@ -54,9 +54,11 @@
                 ]
             },
             "polling_duration_timeout": "1h",
-            "communicator": "ssh",
-            "ssh_username": "packer",
-            "ssh_timeout": "20m",
+            "communicator": "winrm",
+            "winrm_use_ssl": false,
+            "winrm_insecure": false,
+            "winrm_timeout": "10m",
+            "winrm_username": "packer",
             "azure_tags": {
                 "os": "Windows",
                 "now": "{{user `create_time`}}",
@@ -99,7 +101,7 @@
         },
         {
             "elevated_user": "packer",
-            "elevated_password": "{{.SSHPassword}}",
+            "elevated_password": "{{.WinRMPassword}}",
             "environment_vars": [
                 "ProvisioningPhase=1",
                 "WindowsSKU={{user `windows_sku`}}",
@@ -117,7 +119,7 @@
         },
         {
             "elevated_user": "packer",
-            "elevated_password": "{{.SSHPassword}}",
+            "elevated_password": "{{.WinRMPassword}}",
             "environment_vars": [
                 "ProvisioningPhase=2",
                 "WindowsSKU={{user `windows_sku`}}",
@@ -138,7 +140,7 @@
         },
         {
             "elevated_user": "packer",
-            "elevated_password": "{{.SSHPassword}}",
+            "elevated_password": "{{.WinRMPassword}}",
             "environment_vars": [
                 "ProvisioningPhase=3",
                 "WindowsSKU={{user `windows_sku`}}",
@@ -158,7 +160,7 @@
         },
         {
             "elevated_user": "packer",
-            "elevated_password": "{{.SSHPassword}}",
+            "elevated_password": "{{.WinRMPassword}}",
             "environment_vars": [
                 "WindowsSKU={{user `windows_sku`}}",
                 "BUILD_BRANCH={{user `build_branch`}}",
@@ -172,7 +174,7 @@
         },
         {
             "elevated_user": "packer",
-            "elevated_password": "{{.SSHPassword}}",
+            "elevated_password": "{{.WinRMPassword}}",
             "environment_vars": [
                 "WindowsSKU={{user `windows_sku`}}",
                 "BuildDate={{user `build_date`}}"
@@ -194,7 +196,7 @@
         },
         {
             "elevated_user": "packer",
-            "elevated_password": "{{.SSHPassword}}",
+            "elevated_password": "{{.WinRMPassword}}",
             "type": "powershell",
             "script": "vhdbuilder/packer/windows/sysprep.ps1"
         }
