@@ -25,6 +25,21 @@ dnf_makecache() {
     echo Executed dnf makecache -y $i times
 }
 
+tdnf_makecache() {
+    retries=10
+    tdnf_makecache_output=/tmp/tdnf-makecache.out
+    for i in $(seq 1 $retries); do
+        ! (tdnf makecache -y 2>&1 | tee $tdnf_makecache_output | grep -E "^([WE]:.*)|([eE]rr.*)$") && \
+        cat $tdnf_makecache_output && break || \
+        cat $tdnf_makecache_output
+        if [ $i -eq $retries ]; then
+            return 1
+        else sleep 5
+        fi
+    done
+    echo Executed tdnf makecache -y $i times
+}
+
 tdnf_install() {
     retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
     for i in $(seq 1 $retries); do
@@ -33,6 +48,7 @@ tdnf_install() {
             return 1
         else
             sleep $wait_sleep
+            tdnf_makecache
         fi
     done
     echo Executed tdnf install -y \"$@\" $i times;
@@ -47,6 +63,7 @@ tdnf_download() {
             return 1
         else
             sleep $wait_sleep
+            tdnf_makecache
         fi
     done
     echo Executed tdnf install -y \"$@\" $i times;
