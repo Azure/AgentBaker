@@ -597,7 +597,7 @@ if grep -q "GB200" <<< "$FEATURE_FLAGS"; then
     # Install DCGM exporter
     apt install -y datacenter-gpu-manager-exporter-4.1.3 datacenter-gpu-manager-core-4.3.1 datacenter-gpu-manager-proprietary-4-3.1
     systemctl enable nvidia-dcgm
-    systemctl enable
+    systemctl enable nvidia-dcgm-exporter
   fi
 fi
 
