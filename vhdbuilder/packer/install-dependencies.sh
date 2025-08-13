@@ -493,6 +493,18 @@ EOF
 
 fi
 
+if grep -q "GB200" <<< "$FEATURE_FLAGS"; then
+  # The gb200 feature flag should only be set for arm64 and Ubuntu 24.04, but validate
+  if [ ${UBUNTU_RELEASE} = "24.04" ] && [ ${CPU_ARCH} = "arm64" ]; then
+    # Install the NVIDIA driver
+    apt install -y nvidia-drivers_570.172
+    # Install DCGM exporter
+    apt install -y datacenter-gpu-manager-exporter-4.1.3 datacenter-gpu-manager-core-4.3.1 datacenter-gpu-manager-proprietary-4-3.1
+    systemctl enable nvidia-dcgm
+    systemctl enable 
+  fi
+fi
+
 if [ -d "/opt/gpu" ] && [ "$(ls -A /opt/gpu)" ]; then
   ls -ltr /opt/gpu/* >> ${VHD_LOGS_FILEPATH}
 fi

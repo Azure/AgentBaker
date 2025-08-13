@@ -402,6 +402,20 @@ copyPackerFiles() {
 
   cpAndMode $NOTICE_SRC $NOTICE_DEST 444
 
+  # GB200-specific configuration
+  if grep -q "GB200" <<< "$FEATURE_FLAGS"; then
+    # Only applicable to Ubuntu 24.04 and ARM64
+    if [ ${UBUNTU_RELEASE} = "24.04" ] && [ ${CPU_ARCH} = "arm64" ]; then
+      NVIDIA_LIST_SRC=/home/packer/nvidia-2404.list
+      NVIDIA_LIST_DEST=/etc/apt/sources.list.d/nvidia.list
+      cpAndMode $NVIDIA_LIST_SRC $NVIDIA_LIST_DEST 644
+
+      NVIDIA_ASC_SRC=/home/packer/nvidia.pub
+      NVIDIA_ASC_DEST=/etc/apt/keyrings/nvidia.pub
+      cpAndMode $NVIDIA_ASC_SRC $NVIDIA_ASC_DEST 644
+    fi
+  fi
+
   # Always copy the VHD cleanup script responsible for prepping the instance for first boot
   # to disk so we can run it again if needed in subsequent builds/releases (prefetch during SIG release)
   cpAndMode $VHD_CLEANUP_SCRIPT_SRC $VHD_CLEANUP_SCRIPT_DEST 644
