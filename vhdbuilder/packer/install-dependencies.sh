@@ -525,6 +525,8 @@ GPUContainerImages=$(jq  -c '.GPUContainerImages[]' $COMPONENTS_FILEPATH)
 NVIDIA_DRIVER_IMAGE=""
 NVIDIA_DRIVER_IMAGE_TAG=""
 
+# The condition that the architecture is not ARM64 will correctly prevent
+# this from being used on the GB200 platform
 if [ $OS = $UBUNTU_OS_NAME ] && [ "$(isARM64)" -ne 1 ]; then  # No ARM64 SKU with GPU now
   gpu_action="copy"
 
