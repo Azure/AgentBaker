@@ -1290,7 +1290,7 @@ stages:
               artifactName: flatcar-gen2-arm64
       - job: build2404arm64gb200gen2containerd
         condition: eq('${{ parameters.build2404arm64gb200gen2containerd }}', true)
-        dependsOn: []
+        dependsOn: [ ]
         timeoutInMinutes: 180
         steps:
           - bash: |
