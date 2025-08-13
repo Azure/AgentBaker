@@ -223,16 +223,38 @@ refclock PHC /dev/ptp_hyperv poll 3 dpoll -2 offset 0 stratum 3 delay 0.01
 # Add the closest twc host as determined by Azure Traffic Manager
 server time.windows.com iburst burst minpoll 4 maxpoll 8 prefer
 
+EOF
+
+    # Check if we're running on an old SKU
+    curl -s -H "Metadata:true" --noproxy "*" "http://169.254.169.254/metadata/instance?api-version=2021-02-01" | jq -e '.compute.vmSize | ascii_downcase | match("standard_[def].*_v[123]").string != ""'
+
+    if [ "$?" -eq "0" ]; then
+      echo "Detected old D/E/F SKU, setting NTP to preferred and excluding PHC." >&2
+      cat >>/etc/chrony.conf <<EOF
+# Add the closest twc host as determined by Azure Traffic Manager
+server time.windows.com iburst burst minpoll 4 maxpoll 8 prefer
+
 # Add the pool so we have more backups, albeit further away, but with a
 # maxdelay to stop too much latency from occurring
 pool pool.time.windows.com iburst burst minpoll 4 maxpoll 8 maxsources 3 maxdelay 100 prefer
 
 # Temporary fix as of 2025/05 - the Azure PHC clock can experience some
-# drift issues on older VM SKUs. While this is corrected on the backend, 
-# the NTP sources are set to "prefer", meaning that if NTP servers are 
+# drift issues on older VM SKUs. While this is corrected on the backend,
+# the NTP sources are set to "prefer", meaning that if NTP servers are
 # available the PHC will not be used. Because these are trusted Microsoft
 # time servers by default, stable time sync should be achieved.
 EOF
+    else
+      echo "Detected modern SKU, leaving PHC in the mix." >&2
+      cat >>/etc/chrony.conf <<EOF
+# Add the closest twc host as determined by Azure Traffic Manager
+server time.windows.com iburst burst minpoll 4 maxpoll 8
+
+# Add the pool so we have more backups, albeit further away, but with a
+# maxdelay to stop too much latency from occurring
+pool pool.time.windows.com iburst burst minpoll 4 maxpoll 8 maxsources 3 maxdelay 100
+EOF
+    fi
 
     systemctlEnableAndStart chrony 30 || exit $ERR_CHRONY_START_TIMEOUT
 }
