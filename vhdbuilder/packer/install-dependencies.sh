@@ -573,6 +573,13 @@ if grep -q "GB200" <<< "$FEATURE_FLAGS"; then
 
     systemctl restart openibd
     ofed_info -s
+
+    # Install the NVIDIA driver
+    apt install -y nvidia-drivers_570.172
+    # Install DCGM exporter
+    apt install -y datacenter-gpu-manager-exporter-4.1.3 datacenter-gpu-manager-core-4.3.1 datacenter-gpu-manager-proprietary-4-3.1
+    systemctl enable nvidia-dcgm
+    systemctl enable
   fi
 fi
 

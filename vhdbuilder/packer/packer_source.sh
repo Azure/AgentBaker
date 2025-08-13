@@ -413,6 +413,14 @@ copyPackerFiles() {
       MELLANOX_ASC_SRC=/home/packer/mellanox_mlnx_ofed.pub
       MELLANOX_ASC_DEST=/etc/apt/keyrings/mellanox_mlnx_ofed.pub
       cpAndMode $MELLANOX_ASC_SRC $MELLANOX_ASC_DEST 644
+
+      NVIDIA_LIST_SRC=/home/packer/nvidia-2404.list
+      NVIDIA_LIST_DEST=/etc/apt/sources.list.d/nvidia.list
+      cpAndMode $NVIDIA_LIST_SRC $NVIDIA_LIST_DEST 644
+
+      NVIDIA_ASC_SRC=/home/packer/nvidia.pub
+      NVIDIA_ASC_DEST=/etc/apt/keyrings/nvidia.pub
+      cpAndMode $NVIDIA_ASC_SRC $NVIDIA_ASC_DEST 644
     fi
   fi
 
