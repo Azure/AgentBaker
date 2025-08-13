@@ -108,9 +108,23 @@ if [ "$MODE" = "linuxVhdMode" ] && [ -z "${ENVIRONMENT}" ]; then
 	exit 1
 fi
 
+PROD_BUILD=false
+if [ "$MODE" = "linuxVhdMode" ] && [ "${ENVIRONMENT,,}" = "prod" ]; then
+  PROD_BUILD=true
+	exit 1
+fi
+
+# TODO(wrightt): use the ENVIRONMENT variable for Windows builds as well
+# shellcheck disable=SC3010
+if [ "$MODE" = "windowsVhdMode" ] && [[ "${POOL_NAME}" == *nodesigprod* ]]; then
+  PROD_BUILD=true
+	exit 1
+fi
+
+
 if [ -z "${VNET_RG_NAME}" ]; then
 	if [ "$MODE" = "linuxVhdMode" ]; then
-		if [ "${ENVIRONMENT,,}" = "prod" ]; then
+		if [ "${PROD_BUILD}" = "true" ]; then
 			# TODO(cameissner): build out updated pool resources in prod so we don't have to pivot like this
 			VNET_RG_NAME="nodesig-${ENVIRONMENT}-${PACKER_BUILD_LOCATION}-agent-pool"
 		else
@@ -118,18 +132,18 @@ if [ -z "${VNET_RG_NAME}" ]; then
 		fi
 	fi
 	if [ "$MODE" = "windowsVhdMode" ]; then
-	    # shellcheck disable=SC3010
-		if [[ "${POOL_NAME}" == *nodesigprod* ]]; then
+		if [ "${PROD_BUILD}" = "true" ]; then
+		  # TODO(wrightt): use the same RG for prod builds as per linux builds
 			VNET_RG_NAME="nodesigprod-agent-pool"
 		else
-			VNET_RG_NAME="nodesigtest-agent-pool"
+			VNET_RG_NAME="nodesig-${ENVIRONMENT}-${PACKER_BUILD_LOCATION}-packer-vnet-rg"
 		fi
 	fi
 fi
 
 if [ -z "${VNET_NAME}" ]; then
 	if [ "$MODE" = "linuxVhdMode" ]; then
-		if [ "${ENVIRONMENT,,}" = "prod" ]; then
+		if [ "${PROD_BUILD}" = "true" ]; then
 			# TODO(cameissner): build out updated pool resources in prod so we don't have to pivot like this
 			VNET_NAME="nodesig-pool-vnet-${PACKER_BUILD_LOCATION}"
 		else
@@ -137,7 +151,12 @@ if [ -z "${VNET_NAME}" ]; then
 		fi
 	fi
 	if [ "$MODE" = "windowsVhdMode" ]; then
-		VNET_NAME="nodesig-pool-vnet"
+		if [ "${PROD_BUILD}" = "true" ]; then
+		  # TODO(wrightt): use the same VNET for prod builds as per linux builds
+	    VNET_NAME="nodesig-pool-vnet"
+		else
+			VNET_NAME="nodesig-packer-vnet-${PACKER_BUILD_LOCATION}"
+    fi
 	fi
 fi
 
