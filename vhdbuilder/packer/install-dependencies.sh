@@ -526,6 +526,7 @@ NVIDIA_DRIVER_IMAGE=""
 NVIDIA_DRIVER_IMAGE_TAG=""
 NVIDIA_GRID_DRIVER_VERSION=""
 
+<<<<<<< HEAD
 # Extract GRID driver version for release notes (applicable to all Linux distributions)
 while IFS= read -r imageToBePulled; do
   downloadURL=$(echo "${imageToBePulled}" | jq -r '.downloadURL')
@@ -539,6 +540,10 @@ while IFS= read -r imageToBePulled; do
 done <<< "$GPUContainerImages"
 
 # For Ubuntu, pre-pull the CUDA driver image
+=======
+# The condition that the architecture is not ARM64 will correctly prevent
+# this from being used on the GB200 platform
+>>>>>>> 4cfae81d42 (Fix nvidia list file)
 if [ $OS = $UBUNTU_OS_NAME ] && [ "$(isARM64)" -ne 1 ]; then  # No ARM64 SKU with GPU now
   gpu_action="copy"
 
