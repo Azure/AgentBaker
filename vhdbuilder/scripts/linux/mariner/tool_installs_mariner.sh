@@ -197,9 +197,10 @@ refclock PHC /dev/ptp_hyperv poll 3 dpoll -2 offset 0 stratum 3 delay 0.01
 EOF
    
     # Check if we're running on an old SKU
-    curl -s -H "Metadata:true" --noproxy "*" "http://169.254.169.254/metadata/instance?api-version=2021-02-01" | jq -e '.compute.vmSize | ascii_downcase | match("standard_[def].*_v[123]").string != ""'
-    
-    if [ "$?" -eq "0" ]; then
+    IS_DRIFT_SKU="$(curl -s -H "Metadata:true" --noproxy "*" "http://169.254.169.254/metadata/instance?api-version=2021-02-01" \
+            | jq '(.compute.vmSize | ascii_downcase | match("standard_[def].*_v[123]").string // "") != ""')"
+
+    if [ "$IS_DRIFT_SKU" = "true" ]; then
       echo "Detected old D/E/F SKU, setting NTP to preferred and excluding PHC." >&2
       cat >>/etc/chrony.conf <<EOF
 # Add the closest twc host as determined by Azure Traffic Manager
