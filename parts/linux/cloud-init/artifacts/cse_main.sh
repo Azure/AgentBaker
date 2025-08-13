@@ -301,7 +301,8 @@ function nodePrep {
             eval $PROXY_VARS
         fi
         retrycmd_if_failure 60 1 5 $OUTBOUND_COMMAND >> /var/log/azure/cluster-provision-cse-output.log 2>&1 || exit $ERR_OUTBOUND_CONN_FAIL;
-    else
+    fi
+    if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
         # This file indicates the cluster doesn't have outbound connectivity and should be excluded in future external outbound checks
         touch /var/run/outbound-check-skipped
     fi
