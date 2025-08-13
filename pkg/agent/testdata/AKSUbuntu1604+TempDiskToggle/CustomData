@@ -109,7 +109,7 @@ write_files:
   encoding: gzip
   owner: root
   content: !!binary |
-    H4sIAAAAAAAC/5SRQY/TMBSE7/4VPnB1zYmbD+1SEGKlXW2KOJQKuc60ter6Re+9LO3+epSwbYQESFwzM9/Eb9ZfataNeQ9JnDvNVMP8c2MbpJ5hV/eNXRCpKMfO3pWMquaOapsH52PUw/KcRSX4XtgXSrH4ba4+HsXJiHBaxG2vCJd+Ib7GqhIq9Afx0VEtuWKmkfdQM98p+C+aWTfg55ywMatLh0AVciA1TzjFXMfk8pw1XCDGLM9IjUbW//w7+81Ya61zqDJ4Yq8H4vyC9qZUnNV1TEphgP1GuZlS6UXBLkW3ywXBQ5M/9ltwhUJ8Aqv4FGeJp85BT1R3eR/8c2Rf8nbMFKiftKmD0f6TPr5o1uF0ixTavyZGPu19fOkZw1X8n64yKzT1tYjtMEh491ZeP75ZPDysmtXT/PH7h/v5x8aY9acqGkvZjDujXVzCqS+aXS/g65Q/AwAA//+kvW2deQIAAA==
+    H4sIAAAAAAAC/5SRQW8TMRSE7/4VPnB1XImzD0kJCFGpVTeIQ4iQ450kVhy/1XtvS9Jfj3Zps0ICpF53Zr5Zv1l/rVk35gMkce40Uw3zL41tkHqGXd01dkGkohw7e1syqppbqm0enA9RD8tzFpXge2FfKMXit7n6eBQnI8JpEbd9Rbj0G/EtVpVQoT+Jj45qyRUzjbyHmvlOwf/QzLoBP+WEjVldOgSqkAOpecQp5joml+es4QIxZnlGajSyvvHv7HdjrbXOocrgib0eiPMz2qtScVbXMSmFAfYH5WpKpRcFuxTdLhcED03+2G/BFQrxCaziU5wlnjoHPVHd5X3wT5F9ydsxU6B+0qYORvtf+viiWYfTNVJo/5IY+bT38blnDFfxf7vKrNDU1yK2wyDh/c2NvHx9t7i/XzWrx/nDj49380+NMevPVTSWshmHRru4hFNfNLtewK9b/goAAP//xnfN73oCAAA=
 
 - path: /etc/systemd/system/mig-partition.service
   permissions: "0644"

@@ -15,7 +15,7 @@ ExecStart=/usr/local/bin/aks-secure-tls-bootstrap-client \
     --kubeconfig=/var/lib/kubelet/kubeconfig \
     --cred-file=/etc/kubernetes/certs/client.pem \
     --log-file=/var/log/azure/aks/secure-tls-bootstrap.log \
-    --deadline=60s \
+    --deadline=300s \
     $BOOTSTRAP_FLAGS
 
 [Install]
