@@ -202,9 +202,10 @@ server time.windows.com iburst burst minpoll 4 maxpoll 8 prefer
 pool pool.time.windows.com iburst burst minpoll 4 maxpoll 8 maxsources 3 maxdelay 100 prefer
 
 # Temporary fix as of 2025/05 - the Azure PHC clock can experience some
-# drift issues. While this is corrected on the backend, the NTP sources
-# are set to "prefer", meaning that if NTP servers are available the 
-# PHC will not be used.
+# drift issues on older VM SKUs. While this is corrected on the backend,
+# the NTP sources are set to "prefer", meaning that if NTP servers are
+# available the PHC will not be used. Because these are trusted Microsoft
+# time servers by default, stable time sync should be achieved.
 EOF
     
     # Before we return, make sure that chronyd is running
