@@ -34,6 +34,7 @@ package components
 #Images: [...#ContainerImage]
 #GPUImages: [...#GPUContainerImage]
 #Packages: [...#Package]
+#OCIArtifacts: [...#OCIArtifact]
 #VersionV2: {
 	k8sVersion?:             string
 	renovateTag?:            string
@@ -93,10 +94,18 @@ package components
 	downloadURIs:      #DownloadURIs
 }
 
+#OCIArtifact: {
+	name: string
+	registry: string
+	windowsDownloadLocation?: string
+	windowsVersions: [...#WindowsVersion]
+}
+
 #Components: {
 	ContainerImages: #Images
 	Packages:        #Packages
 	GPUContainerImages?: #GPUImages
+	OCIArtifacts?: #OCIArtifacts
 }
 
 #Components
