@@ -111,7 +111,120 @@ disableTimesyncd() {
     systemctl stop systemd-timesyncd || exit 1
     systemctl disable systemd-timesyncd || exit 1
     systemctl mask systemd-timesyncd || exit 1
-    
+
+    # Update chrony configuration
+    cat > /etc/chrony.conf <<EOF
+# Welcome to the chrony configuration file. See chrony.conf(5) for more
+# information about usable directives.
+
+# Load configuration file dropins
+confdir /etc/chrony.conf.d
+
+# Load NTP sources
+sourcedir /etc/chrony.sources.d
+
+# This directive specify the file into which chronyd will store the rate
+# information.
+driftfile /var/lib/chrony/drift
+
+# Dump characteristics on sources when shut down to speed sync on restart.
+dumpdir /var/lib/chrony
+
+# Stop bad estimates upsetting machine clock.
+maxupdateskew 100.0
+
+# Local clocks might not be very good.
+maxclockerror 10.0
+
+# Allow combining of sources with different latencies. This allows for a 
+# difference of 50x in the source latencies. Since the PTP Hyper-V clock always
+# reports a delay of 5ms, this will allow an NTP server with up to 250ms
+# latency to be combined in. The sources line that is configured by default in
+# AKS has maxdelay 100, so no servers should actually be above that.
+combinelimit 50
+
+# This directive enables kernel synchronisation (every 11 minutes) of the
+# real-time clock. Note that it can’t be used along with the 'rtcfile' directive.
+rtcsync
+
+# Step the system clock instead of slewing it if the adjustment is larger than
+# one second, with no limit to how many clock updates have occurred. This allows
+# for rapid clock fixing after a VM freeze event.
+makestep 1.0 -1
+
+# Get TAI-UTC offset and leap seconds from the system tz database.
+# This directive must be commented out when using time sources serving
+# leap-smeared time.
+leapsectz right/UTC
+
+# Allow hwtimestamp if the NIC supports it.
+hwtimestamp * minpoll -1 rxfilter all
+
+# Log files location.
+logdir /var/log/chrony
+
+# Uncomment the following line to turn logging on.
+#log tracking measurements statistics rtc
+
+# Don't output the log banner lines (headers)
+#logbanner 0
+
+# Azure hosts are synchronized to internal Microsoft time servers that
+# take their time from Microsoft-owned Stratum 1 devices.  The Hyper-V
+# drivers surface this time source as a PTP-based time source in the
+# guest. This configures chrony to use it.  This also causes chronyd
+# to require the /dev/ptp_hyperv device; chronyd will fail to start if
+# it is not present. If this line is removed (so chronyd no longer
+# uses the /dev/ptp_hyperv device), also remove (or comment out) the
+# /etc/systemd/system/chronyd.service.d/wait-for-ptp-hyperv.conf file.
+#
+# poll 3: get a measurement every 8s from the ptp clock
+# dpoll -1: poll the clock every 2^-1s (0.5s) for a measurement; all of
+#   the measurements between polls will be smoothed into a single 
+#   measurement
+# offset 0: don't add a fixed offset
+# stratum 3: Azure hosts sync via NTP to stratum 2 time servers that
+#   then sync from stratum 1 GPS devices, so this source is stratum 3.
+# delay 0.1: the Hyper-V ptp device doesn't communicate its root delay,
+#   which throws off the math in chrony. Average one-way delay is 0.4ms.
+#   The delay here is for the round trip, so it's doubled and rounded
+#   up to 1ms to make the math work well.
+refclock PHC /dev/ptp_hyperv poll 3 dpoll -2 offset 0 stratum 3 delay 0.01
+
+EOF
+   
+    # Check if we're running on an old SKU
+    IS_DRIFT_SKU="$(curl -s -H "Metadata:true" --noproxy "*" "http://169.254.169.254/metadata/instance?api-version=2021-02-01" \
+            | jq '(.compute.vmSize | ascii_downcase | match("standard_[def].*_v[123]").string // "") != ""')"
+
+    if [ "$IS_DRIFT_SKU" = "true" ]; then
+      echo "Detected old D/E/F SKU, setting NTP to preferred and excluding PHC." >&2
+      cat >>/etc/chrony.conf <<EOF
+# Add the closest twc host as determined by Azure Traffic Manager
+server time.windows.com iburst burst minpoll 4 maxpoll 8 prefer
+
+# Add the pool so we have more backups, albeit further away, but with a
+# maxdelay to stop too much latency from occurring
+pool pool.time.windows.com iburst burst minpoll 4 maxpoll 8 maxsources 3 maxdelay 100 prefer
+
+# Temporary fix as of 2025/05 - the Azure PHC clock can experience some
+# drift issues on older VM SKUs. While this is corrected on the backend,
+# the NTP sources are set to "prefer", meaning that if NTP servers are
+# available the PHC will not be used. Because these are trusted Microsoft
+# time servers by default, stable time sync should be achieved.
+EOF
+    else
+      echo "Detected modern SKU, leaving PHC in the mix." >&2
+      cat >>/etc/chrony.conf <<EOF
+# Add the closest twc host as determined by Azure Traffic Manager
+server time.windows.com iburst burst minpoll 4 maxpoll 8
+
+# Add the pool so we have more backups, albeit further away, but with a
+# maxdelay to stop too much latency from occurring
+pool pool.time.windows.com iburst burst minpoll 4 maxpoll 8 maxsources 3 maxdelay 100
+EOF
+    fi
+
     # Before we return, make sure that chronyd is running
     systemctlEnableAndStart chronyd 30 || exit $ERR_SYSTEMCTL_START_FAIL
 }
