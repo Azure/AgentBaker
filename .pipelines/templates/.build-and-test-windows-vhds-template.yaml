@@ -230,7 +230,7 @@ stages:
       csePackageDir: ${{ parameters.csePublishDir }}
       cseFileName: ${{ parameters.cseFileName }}
 
-  - stage: Delete Outdated Resources
+  - stage: delete_outdated_resources
     dependsOn: [ ]
     condition: always()
     jobs:
