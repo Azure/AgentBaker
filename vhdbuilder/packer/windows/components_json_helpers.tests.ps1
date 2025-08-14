@@ -1252,4 +1252,77 @@ Describe 'Tests of components-test.json ' {
 
         $containerDUrl | Should -Be "https://acs-mirror.azureedge.net/containerd/windows/v1.7.20-azure.1/binaries/containerd-v1.7.20-azure.1-windows-amd64.tar.gz"
     }
+
+    it 'can get the right OCI artifacts with latest and previous versions' {
+        $artifacts = GetOCIArtifactsFromComponentsJson $componentsJson
+
+        $artifacts["c:\akse-cache\oci-test\"] | Should -Contain "mcr.microsoft.com/aks/oci-test-registry:1.0.0"
+        $artifacts["c:\akse-cache\oci-test\"] | Should -Contain "mcr.microsoft.com/aks/oci-test-registry:0.9.0"
+    }
+
+    it 'can get OCI artifacts with CPU_ARCH variable replacement' {
+        $CPU_ARCH = "amd64"
+        $artifacts = GetOCIArtifactsFromComponentsJson $componentsJson
+
+        $artifacts["c:\akse-cache\oci-test-arch\"] | Should -Contain "mcr.microsoft.com/aks/oci-test-registry-arch-amd64:2.0.0"
+    }
+    
+    it 'can get OCI artifacts with CPU_ARCH and version variable replacement' {
+        $CPU_ARCH = "amd64"
+        $artifacts = GetOCIArtifactsFromComponentsJson $componentsJson
+
+        $artifacts["c:\akse-cache\oci-test-arch-and-version\"] | Should -Contain "mcr.microsoft.com/aks/oci-test-registry-arch-and-version:2.0.0-amd64"
+    }
+
+    it 'can get OCI artifacts with Windows 2019 SKU matching' {
+        $windowsSku = "2019-containerd"
+        $artifacts = GetOCIArtifactsFromComponentsJson $componentsJson
+
+        $artifacts["c:\akse-cache\oci-test-sku\"] | Should -Contain "mcr.microsoft.com/aks/oci-test-registry-sku:2019-version"
+        $artifacts["c:\akse-cache\oci-test-sku\"] | Should -Not -Contain "mcr.microsoft.com/aks/oci-test-registry-sku:2022-version"
+        $artifacts["c:\akse-cache\oci-test-sku\"] | Should -Not -Contain "mcr.microsoft.com/aks/oci-test-registry-sku:2025-version"
+    }
+
+    it 'can get OCI artifacts with Windows 2022 SKU matching' {
+        $windowsSku = "2022-containerd"
+        $artifacts = GetOCIArtifactsFromComponentsJson $componentsJson
+
+        $artifacts["c:\akse-cache\oci-test-sku\"] | Should -Not -Contain "mcr.microsoft.com/aks/oci-test-registry-sku:2019-version"
+        $artifacts["c:\akse-cache\oci-test-sku\"] | Should -Contain "mcr.microsoft.com/aks/oci-test-registry-sku:2022-version"
+        $artifacts["c:\akse-cache\oci-test-sku\"] | Should -Not -Contain "mcr.microsoft.com/aks/oci-test-registry-sku:2025-version"
+    }
+
+    it 'can get OCI artifacts with Windows 2025 SKU matching' {
+        $windowsSku = "2025"
+        $artifacts = GetOCIArtifactsFromComponentsJson $componentsJson
+
+        $artifacts["c:\akse-cache\oci-test-sku\"] | Should -Not -Contain "mcr.microsoft.com/aks/oci-test-registry-sku:2019-version"
+        $artifacts["c:\akse-cache\oci-test-sku\"] | Should -Not -Contain "mcr.microsoft.com/aks/oci-test-registry-sku:2022-version"
+        $artifacts["c:\akse-cache\oci-test-sku\"] | Should -Contain "mcr.microsoft.com/aks/oci-test-registry-sku:2025-version"
+    }
+
+    it 'skips OCI artifacts with missing windowsDownloadLocation' {
+        $artifacts = GetOCIArtifactsFromComponentsJson $componentsJson
+        
+        # No entry should exist for the artifact without a download location
+        $artifacts.Keys | ForEach-Object { $_ } | Should -Not -Contain "mcr.microsoft.com/aks/oci-test-registry-no-location:3.0.0"
+    }
+
+    it 'can get OCI artifacts from the default when there is no windows override set' {
+        # Modify a copy of the components.json to test default behavior
+        $componentsJsonCopy = $componentsJson | ConvertTo-Json -Depth 10 | ConvertFrom-Json
+        
+        # Find the oci-test-registry artifact and set windowsVersions to null to test default behavior
+        foreach ($artifact in $componentsJsonCopy.OCIArtifacts) {
+            if ($artifact.registry -like "*oci-test-registry*" -and $artifact.repository -like "*oci-test-registry*") {
+                $artifact.windowsVersions = $null
+                break
+            }
+        }
+        
+        $artifacts = GetOCIArtifactsFromComponentsJson $componentsJsonCopy
+        
+        # Should still get the artifact using the default version
+        $artifacts["c:\akse-cache\oci-test\"] | Should -Contain "mcr.microsoft.com/aks/oci-test-registry:1.0.0"
+    }
 }

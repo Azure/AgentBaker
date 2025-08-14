@@ -887,5 +887,68 @@
         }
       }
     }
+  ],
+  "OCIArtifacts": [
+    {
+      "registry": "mcr.microsoft.com/aks/oci-test-registry:*",
+      "windowsDownloadLocation": "c:\\akse-cache\\oci-test\\",
+      "windowsVersions": [
+        {
+          "renovateTag": "<DO_NOT_UPDATE>",
+          "latestVersion": "1.0.0",
+          "previousLatestVersion": "0.9.0"
+        }
+      ]
+    },
+    {
+      "registry": "mcr.microsoft.com/aks/oci-test-registry-arch-${CPU_ARCH}:*",
+      "windowsDownloadLocation": "c:\\akse-cache\\oci-test-arch\\",
+      "windowsVersions": [
+        {
+          "renovateTag": "<DO_NOT_UPDATE>",
+          "latestVersion": "2.0.0"
+        }
+      ]
+    },
+    {
+      "registry": "mcr.microsoft.com/aks/oci-test-registry-arch-and-version:${version}-${CPU_ARCH}",
+      "windowsDownloadLocation": "c:\\akse-cache\\oci-test-arch-and-version\\",
+      "windowsVersions": [
+        {
+          "renovateTag": "<DO_NOT_UPDATE>",
+          "latestVersion": "2.0.0"
+        }
+      ]
+    },
+    {
+      "registry": "mcr.microsoft.com/aks/oci-test-registry-sku:*",
+      "windowsDownloadLocation": "c:\\akse-cache\\oci-test-sku\\",
+      "windowsVersions": [
+        {
+          "renovateTag": "<DO_NOT_UPDATE>",
+          "latestVersion": "2019-version",
+          "windowsSkuMatch": "2019*"
+        },
+        {
+          "renovateTag": "<DO_NOT_UPDATE>",
+          "latestVersion": "2022-version",
+          "windowsSkuMatch": "2022*"
+        },
+        {
+          "renovateTag": "<DO_NOT_UPDATE>",
+          "latestVersion": "2025-version",
+          "windowsSkuMatch": "2025*"
+        }
+      ]
+    },
+    {
+      "registry": "mcr.microsoft.com/aks/oci-test-registry-no-location:*",
+      "windowsVersions": [
+        {
+          "renovateTag": "<DO_NOT_UPDATE>",
+          "latestVersion": "3.0.0"
+        }
+      ]
+    }
   ]
 }
