@@ -155,6 +155,36 @@ func Test_AzureLinuxV2_ARM64AirGap(t *testing.T) {
 	})
 }
 
+func Test_AzureLinuxV2_ARM64_ArtifactSourceCache(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using a AzureLinuxV2 (CgroupV2) VHD on ARM64 architecture can be properly bootstrapped",
+		Tags: Tags{
+			Airgap: false,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDAzureLinuxV2Gen2Arm64,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
+				nbc.IsARM64 = true
+
+				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
+					PrivateEgress: &datamodel.PrivateEgress{
+						Enabled:                 true,
+						ContainerRegistryServer: "mcr.microsoft.com",
+					},
+				}
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateDirectoryContent(ctx, s, "/run", []string{"outbound-check-skipped"})
+			},
+		},
+	})
+}
+
 func Test_AzureLinuxV2_AzureCNI(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "azurelinuxv2 scenario on a cluster configured with Azure CNI",

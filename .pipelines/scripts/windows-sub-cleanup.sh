@@ -1,10 +1,6 @@
 #!/bin/bash
 set -x
 
-if [ "${MODE}" != "windowsVhdMode" ]; then
-  exit 0
-fi
-
 if [ ${SUBSCRIPTION_ID} = ${PROD_SUBSCRIPTION_ID} ]; then
   echo "Shouldn't do backfill clean up in production subscription."
   exit 1
