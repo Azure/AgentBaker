@@ -176,7 +176,7 @@ installRPMPackageFromFile() {
         exit $ERR_APT_INSTALL_TIMEOUT
     fi
 
-    if ! tdnf_install 30 1 600 ${rpmFile}; then
+    if ! dnf_install 30 1 600 ${rpmFile}; then
         exit $ERR_APT_INSTALL_TIMEOUT
     fi
     mv "/usr/bin/${packageName}" "/usr/local/bin/${packageName}"
@@ -188,7 +188,7 @@ downloadPkgFromVersion() {
     packageVersion="${2:-}"
     downloadDir="${3:-"/opt/${packageName}/downloads"}"
     mkdir -p ${downloadDir}
-    tdnf_download 30 1 600 ${downloadDir} ${packageName}=${packageVersion}  || exit $ERR_APT_INSTALL_TIMEOUT
+    dnf_download 30 1 600 ${downloadDir} ${packageName}-${packageVersion}  || exit $ERR_APT_INSTALL_TIMEOUT
     echo "Succeeded to download ${packageName} version ${packageVersion}"
 }
 
