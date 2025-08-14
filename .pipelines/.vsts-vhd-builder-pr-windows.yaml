@@ -75,3 +75,30 @@ stages:
       build23H2gen2: True
       build2025: False
       build2025gen2: True
+  - stage: backfill_cleanup_outdated_resources
+    dependsOn: [ ]
+    condition: always()
+    jobs:
+      - job: build
+        timeoutInMinutes: 180
+        steps:
+          - bash: bash ./.pipelines/scripts/windows-sub-cleanup.sh
+            enabled: true
+            displayName: Old Windows VHD Cleanup
+            condition: eq(  ${{ parameters.enableBackfillCleanup }} , 'True')
+            env:
+              MODE: windowsVhdMode
+              DRY_RUN: ${{ parameters.dryrun }}
+              OS_TYPE: Windows
+
+          - bash: bash ./vhdbuilder/packer/cleanup.sh
+            enabled: true
+            displayName: Cleanup
+            condition: eq(  ${{ parameters.enableBackfillCleanup }} , 'True')
+            env:
+              MODE: windowsVhdMode
+              SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
+              DRY_RUN: ${{ parameters.dryrun }}
+              SIG_GALLERY_NAME: $(SIG_GALLERY_NAME)
+              OS_TYPE: Windows
+
