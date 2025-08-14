@@ -575,6 +575,17 @@
           "verification": {}
         },
         "mode": 484
+      },
+      {
+        "group": {},
+        "path": "/etc/tmpfiles.d/protocols.conf",
+        "user": {},
+        "contents": {
+          "compression": "",
+          "source": "data:,C%20%2Fetc%2Fprotocols%20-%20-%20-%20-%20%2Fusr%2Fshare%2Fbaselayout%2Fprotocols",
+          "verification": {}
+        },
+        "mode": 420
       }
     ]
   },
