@@ -17,6 +17,7 @@ required_env_vars=(
     "SUBSCRIPTION_ID"
     "CAPTURED_SIG_VERSION"
     "PACKER_BUILD_LOCATION"
+    "GENERATE_PUBLISHING_INFO"
 )
 
 for v in "${required_env_vars[@]}"
@@ -83,6 +84,13 @@ az sig image-version create \
     --tags "buildDefinitionName=${BUILD_DEFINITION_NAME}" "buildNumber=${BUILD_NUMBER}" "buildId=${BUILD_ID}" "SkipLinuxAzSecPack=true" "os=Linux" "now=${CREATE_TIME}" "createdBy=aks-vhd-pipeline" "image_sku=${IMG_SKU}" "branch=${BRANCH}" \
     --target-regions ${TARGET_REGIONS}
 capture_benchmark "${SCRIPT_NAME}_create_sig_image_version"
+
+if [ "${GENERATE_PUBLISHING_INFO,,}" != "true" ]; then
+    echo "Cleaning up ${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd from the storage account"
+    azcopy remove "${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd" --recursive=true
+else
+    echo "GENERATE_PUBLISHING_INFO is true, skipping cleanup of ${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd"
+fi
 
 # Set SIG ID in pipeline for use during testing
 echo "##vso[task.setvariable variable=MANAGED_SIG_ID]$IMAGE_RESOURCE_ID"
