@@ -55,8 +55,6 @@ variables:
     # if SIG_FOR_PRODUCTION is true, then the VHDs are deleted from the gallery before the e2e tests are run.
   - name: SIG_FOR_PRODUCTION
     value: False
-  - name: ENABLE_BACKFILL_CLEANUP
-    value: True
 
 stages:
   - template: ./templates/.build-and-test-windows-vhds-template.yaml
