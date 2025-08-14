@@ -595,7 +595,7 @@ if grep -q "GB200" <<< "$FEATURE_FLAGS"; then
     # Install the NVIDIA driver
     apt install -y nvidia-driver-575
     # Install DCGM exporter
-    apt install -y datacenter-gpu-manager-exporter datacenter-gpu-manager-core datacenter-gpu-manager-proprietary libcap2-bin
+    apt install -y datacenter-gpu-manager-exporter datacenter-gpu-manager-4-core datacenter-gpu-manager-4-proprietary libcap2-bin
     systemctl enable nvidia-dcgm
     systemctl enable nvidia-dcgm-exporter
   fi
