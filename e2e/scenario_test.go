@@ -16,6 +16,24 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func Test_AzureLinux3OSGuard(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using an Azure Linux V3 OS Guard VHD can be properly bootstrapped",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDAzureLinux3OSGuard,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.AgentPoolProfile.LocalDNSProfile = nil
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
+			},
+		},
+	})
+}
+
 func Test_Flatcar(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a Flatcar VHD can be properly bootstrapped",
