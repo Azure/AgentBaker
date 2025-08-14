@@ -78,10 +78,7 @@ steps:
     env:
       WINDOWS_SKU: ${{ parameters.windowsSku }}
       BRANCH: $(Build.SourceBranch)
-      POOL_NAME: $(AZURE_POOL_NAME)
       SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
-      AZURE_BUILD_SUBSCRIPTION_ID: $(AZURE_BUILD_SUBSCRIPTION_ID)
-      AZURE_BUILD_RESOURCE_GROUP_NAME: $(AZURE_BUILD_RESOURCE_GROUP_NAME)
       AZURE_RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
       AZURE_LOCATION: $(AZURE_BUILD_LOCATION)
       AZURE_VM_SIZE: ${{ parameters.buildVmSize }}
@@ -181,7 +178,6 @@ steps:
   - bash: |
       set -e
       # because SUBSCRIPTION_ID and LOCATION are defined as a pipeline variable, setting this in the "env" section below doesn't work.
-      export SUBSCRIPTION_ID=$(AZURE_BUILD_SUBSCRIPTION_ID)
       export LOCATION=$(AZURE_BUILD_LOCATION)
 
       export SIG_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "sig_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')"
@@ -191,9 +187,8 @@ steps:
     displayName: Convert Shared Image Gallery To VHD Blob In Classic Storage Account
     condition: and(eq('${{ parameters.dryrun }}', 'False'), eq(variables.SIG_FOR_PRODUCTION, 'True'), succeeded())
     env:
-      SUBSCRIPTION_ID: $(AZURE_BUILD_SUBSCRIPTION_ID)
       LOCATION: $(AZURE_BUILD_LOCATION)
-      RESOURCE_GROUP_NAME: $(AZURE_BUILD_RESOURCE_GROUP_NAME)
+      RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
       OS_TYPE: "Windows"
       CLASSIC_BLOB: $(STORAGE_ACCT_BLOB_URL)
       SKIP_EXTENSION_CHECK: ${{ parameters.skipExtensionCheck }}
@@ -213,9 +208,6 @@ steps:
   - bash: |
       set -e
 
-      # because SUBSCRIPTION_ID is defined as a pipeline variable, setting this in the "env" section below doesn't work.
-      export SUBSCRIPTION_ID=$(AZURE_BUILD_SUBSCRIPTION_ID)
-
       export PKR_RG_NAME="$(cat packer-output | grep -a "ResourceGroupName" | cut -d "'" -f 2 | head -1)"
       export SA_NAME="$(cat packer-output | grep -a "storage name:" | cut -d " " -f 3)"
       export IMPORTED_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "imported_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')"
@@ -226,8 +218,6 @@ steps:
     displayName: Clean Up Packer Generated Resources
     condition: always()
     env:
-      SUBSCRIPTION_ID: $(AZURE_BUILD_SUBSCRIPTION_ID)
-      AZURE_RESOURCE_GROUP_NAME: $(AZURE_BUILD_RESOURCE_GROUP_NAME)
       MODE: $(MODE)
       DRY_RUN: ${{ parameters.dryrun }}
       VNET_RESOURCE_GROUP_NAME: $(VNET_RESOURCE_GROUP_NAME)
@@ -244,9 +234,6 @@ steps:
   # Perform this step only if we want to publish the VHD: Gen 1 or Gen 2 and the built sig is for production.
   - bash: |
       set -e
-
-      # because SUBSCRIPTION_ID is defined as a pipeline variable, setting this in the "env" section below doesn't work.
-      export SUBSCRIPTION_ID=$(AZURE_BUILD_SUBSCRIPTION_ID)
 
       if [[ "${SIG_FOR_PRODUCTION}" == "True" ]]; then
         export captured_sig_version="$(cat vhdbuilder/packer/settings.json | grep "captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')"
