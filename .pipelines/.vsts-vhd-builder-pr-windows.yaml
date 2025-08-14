@@ -73,7 +73,7 @@ stages:
       build23H2gen2: True
       build2025: False
       build2025gen2: True
-  - stage: delete_old_windows_vvhds
+  - stage: delete_old_windows_vhds
     dependsOn: [ ]
     condition: always()
     jobs:
