@@ -255,7 +255,6 @@ stages:
               MODE: windowsVhdMode
               SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
               PROD_SUBSCRIPTION_ID: $(AZURE_PROD_SUBSCRIPTION_ID)
-              AZURE_RESOURCE_GROUP_NAME: $(AZURE_BUILD_RESOURCE_GROUP_NAME)
               DRY_RUN:  ${{ parameters.dryrun }}
               SIG_GALLERY_NAME: $(SIG_GALLERY_NAME)
               OS_TYPE: Windows

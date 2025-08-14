@@ -61,5 +61,5 @@ foreach ($WindowsSku in $BaseVersions)
     Write-Output "Creating file $fileName"
     Write-Output $WindowsSku > $fileName
 
-    echo $cachedThings | ConvertTo-Json | Write-Output >> $fileName
+    echo $cachedThings | Set-Content -Path $fileName
 }

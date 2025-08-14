@@ -1483,6 +1483,28 @@ testdomain567.com:53 {
 			}
 		}, nil),
 
+		Entry("Mariner v2 with custom cloud", "MarinerV2+CustomCloud+USSec", "1.23.8", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.OSSKU = "Mariner"
+			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+				ContainerRuntime: datamodel.Containerd,
+			}
+			config.ContainerService.Location = "ussecwest"
+			config.ContainerService.Properties.CustomCloudEnv = &datamodel.CustomCloudEnv{
+				Name: "akscustom",
+			}
+		}, nil),
+
+		Entry("Mariner v2 with custom cloud", "MarinerV2+CustomCloud+USNat", "1.23.8", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.OSSKU = "Mariner"
+			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+				ContainerRuntime: datamodel.Containerd,
+			}
+			config.ContainerService.Location = "usnatwest"
+			config.ContainerService.Properties.CustomCloudEnv = &datamodel.CustomCloudEnv{
+				Name: "akscustom",
+			}
+		}, nil),
+
 		Entry("AzureLinux v2 with kata", "AzureLinuxV2+Kata", "1.28.0", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.OSSKU = "AzureLinux"
 			config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSAzureLinuxV2Gen2Kata
@@ -1759,6 +1781,7 @@ testdomain567.com:53 {
 oom_score = -999
 [plugins."io.containerd.grpc.v1.cri"]
   sandbox_image = ""
+  enable_cdi = true
   [plugins."io.containerd.grpc.v1.cri".containerd]
     snapshotter = "overlaybd"
     disable_snapshot_annotations = false
@@ -1860,6 +1883,18 @@ oom_score = -999
 			}
 			config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSUbuntuContainerd2204
 		}, nil),
+		Entry("AKSUbuntu2204 with containerd and CDI enabled", "AKSUbuntu2204+Containerd+CDI", "1.24.2", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+				ContainerRuntime: datamodel.Containerd,
+			}
+			config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSUbuntuContainerd2204
+			config.KubeletConfig = map[string]string{}
+		}, func(o *nodeBootstrappingOutput) {
+			Expect(o.vars["CONTAINERD_CONFIG_CONTENT"]).NotTo(BeEmpty())
+			containerdConfigFileContent, err := getBase64DecodedValue([]byte(o.vars["CONTAINERD_CONFIG_CONTENT"]))
+			Expect(err).To(BeNil())
+			Expect(containerdConfigFileContent).To(ContainSubstring("enable_cdi = true"))
+		}),
 		Entry("AKSUbuntu2204 containerd with multi-instance GPU", "AKSUbuntu2204+Containerd+MIG", "1.19.13",
 			func(config *datamodel.NodeBootstrappingConfiguration) {
 				config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
@@ -2011,6 +2046,18 @@ oom_score = -999
 			config.ContainerService.Properties.CustomCloudEnv = &datamodel.CustomCloudEnv{
 				Name: "akscustom",
 			}
+		}, nil),
+		Entry("AKSUbuntu2204 custom cloud", "AKSUbuntu2204+CustomCloud+USSec", "1.24.2", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.ContainerService.Properties.CustomCloudEnv = &datamodel.CustomCloudEnv{
+				Name: "akscustom",
+			}
+			config.ContainerService.Location = "ussecwest"
+		}, nil),
+		Entry("AKSUbuntu2204 custom cloud", "AKSUbuntu2204+CustomCloud+USNat", "1.24.2", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.ContainerService.Properties.CustomCloudEnv = &datamodel.CustomCloudEnv{
+				Name: "akscustom",
+			}
+			config.ContainerService.Location = "usnatwest"
 		}, nil),
 		Entry("AKSUbuntu2204 OOT credentialprovider", "AKSUbuntu2204+ootcredentialprovider", "1.29.10", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.KubeletConfig["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"

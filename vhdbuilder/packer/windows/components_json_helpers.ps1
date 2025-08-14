@@ -310,5 +310,5 @@ function GetAllCachedThings {
         $items += $regKey.Path + "\" + $regKey.Name + "=" + $regKey.Value
     }
 
-    return ($items | Sort-Object)
+    return ($items | Sort-Object -Unique )
 }
