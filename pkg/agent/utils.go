@@ -314,6 +314,8 @@ func GetCloudTargetEnv(location string) string {
 		return "AzureGermanCloud"
 	case strings.HasPrefix(loc, "usgov") || strings.HasPrefix(loc, "usdod"):
 		return "AzureUSGovernmentCloud"
+	case strings.HasPrefix(loc, "bleu"):
+		return "AzureBleuCloud"
 	default:
 		return "AzurePublicCloud"
 	}
@@ -681,6 +683,12 @@ func addFeatureGateString(featureGates string, key string, value bool) string {
 		pairs = append(pairs, fmt.Sprintf("%s=%t", k, fgMap[k]))
 	}
 	return strings.Join(pairs, ",")
+}
+
+func removeNewlines(str string) string {
+	sanitizedStr := strings.ReplaceAll(str, "\n", "")
+	sanitizedStr = strings.ReplaceAll(sanitizedStr, "\r", "")
+	return sanitizedStr
 }
 
 type cloudInitWriteFile struct {

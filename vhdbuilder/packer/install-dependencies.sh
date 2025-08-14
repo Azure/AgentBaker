@@ -394,6 +394,22 @@ while IFS= read -r p; do
         echo "  - kubernetes-binaries version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
+    "kubelet")
+      for version in ${PACKAGE_VERSIONS[@]}; do
+        if [ "${OS}" = "${UBUNTU_OS_NAME}" ] || isMarinerOrAzureLinux "$OS"; then
+          downloadPkgFromVersion "kubelet" "${version}" "${downloadDir}"
+        fi
+        echo "  - kubelet version ${version}" >> ${VHD_LOGS_FILEPATH}
+      done
+      ;;
+    "kubectl")
+      for version in ${PACKAGE_VERSIONS[@]}; do
+        if [ "${OS}" = "${UBUNTU_OS_NAME}" ] || isMarinerOrAzureLinux "$OS"; then
+          downloadPkgFromVersion "kubectl" "${version}" "${downloadDir}"
+        fi
+        echo "  - kubectl version ${version}" >> ${VHD_LOGS_FILEPATH}
+      done
+      ;;
     *)
       echo "Package name: ${name} not supported for download. Please implement the download logic in the script."
       # We can add a common function to download a generic package here.
