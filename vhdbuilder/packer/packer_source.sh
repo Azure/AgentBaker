@@ -133,6 +133,16 @@ copyPackerFiles() {
   VHD_CLEANUP_SCRIPT_DEST=/opt/azure/containers/cleanup-vhd.sh
   CONTAINER_IMAGE_PREFETCH_SCRIPT_SRC=/home/packer/prefetch.sh
   CONTAINER_IMAGE_PREFETCH_SCRIPT_DEST=/opt/azure/containers/prefetch.sh
+  CHRONY_CONF_SRC_MARINER=/home/packer/chrony.conf.azurelinux
+  CHRONY_CONF_DST_MARINER=/etc/chrony.conf
+  CHRONY_CONF_SRC_UBUNTU=/home/packer/chrony.conf.ubuntu
+  CHRONY_CONF_DST_UBUNTU=/etc/chrony/chrony.conf
+  CHRONY_PHC_CONF_SRC=/home/packer/chrony-phc.conf
+  CHRONY_PHC_CONF_DST_MARINER=/etc/chrony.conf.d/chrony-phc.conf
+  CHRONY_PHC_CONF_DST_UBUNTU=/etc/chrony/conf.d/chrony-phc.conf
+  CHRONY_TWC_SOURCES_SRC=/home/packer/chrony-twc.sources
+  CHRONY_TWC_SOURCES_DST_MARINER=/etc/chrony.sources.d/chrony-twc.sources
+  CHRONY_TWC_SOURCES_DST_UBUNTU=/etc/chrony/sources.d/chrony-twc.sources
 
   CSE_REDACT_SRC=/home/packer/cse_redact_cloud_config.py
   CSE_REDACT_DEST=/opt/azure/containers/provision_redact_cloud_config.py
@@ -382,12 +392,20 @@ copyPackerFiles() {
     # Mariner/AzureLinux uses system-auth and system-password instead of common-auth and common-password.
     cpAndMode $PAM_D_SYSTEM_AUTH_SRC $PAM_D_SYSTEM_AUTH_DEST 644
     cpAndMode $PAM_D_SYSTEM_PASSWORD_SRC $PAM_D_SYSTEM_PASSWORD_DEST 644
+
+    cpAndMode $CHRONY_CONF_SRC_MARINER $CHRONY_CONF_DST_MARINER 644
+    cpAndMode $CHRONY_PHC_CONF_SRC $CHRONY_PHC_CONF_DST_MARINER 644
+    cpAndMode $CHRONY_TWC_SOURCES_SRC $CHRONY_TWC_SOURCES_DST_MARINER 644
   else
     cpAndMode $DOCKER_CLEAR_MOUNT_PROPAGATION_FLAGS_SRC $DOCKER_CLEAR_MOUNT_PROPAGATION_FLAGS_DEST 644
     cpAndMode $NVIDIA_MODPROBE_SERVICE_SRC $NVIDIA_MODPROBE_SERVICE_DEST 644
     cpAndMode $PAM_D_COMMON_AUTH_SRC $PAM_D_COMMON_AUTH_DEST 644
     cpAndMode $PAM_D_COMMON_PASSWORD_SRC $PAM_D_COMMON_PASSWORD_DEST 644
     cpAndMode $USU_SH_SRC $USU_SH_DEST 544
+
+    cpAndMode $CHRONY_CONF_SRC_UBUNTU $CHRONY_CONF_DST_UBUNTU 644
+    cpAndMode $CHRONY_PHC_CONF_SRC $CHRONY_PHC_CONF_DST_UBUNTU 644
+    cpAndMode $CHRONY_TWC_SOURCES_SRC $CHRONY_TWC_SOURCES_DST_UBUNTU 644
 
     if [ "$UBUNTU_RELEASE" = "24.04" ] && [ "$CPU_ARCH" = "arm64" ]; then
       GRUB_AZ_NV_SCRIPT_SRC=/home/packer/10_azure_nvidia

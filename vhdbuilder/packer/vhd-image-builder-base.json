@@ -620,6 +620,26 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/chrony.conf.azurelinux",
+      "destination": "/home/packer/chrony.conf.azurelinux"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/chrony.conf.ubuntu",
+      "destination": "/home/packer/chrony.conf.ubuntu"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/chrony-phc.conf",
+      "destination": "/home/packer/chrony-phc.conf"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/chrony-twc.sources",
+      "destination": "/home/packer/chrony-twc.sources"
+    },
+    {
+      "type": "file",
       "source": "vhdbuilder/notice.txt",
       "destination": "/home/packer/NOTICE.txt"
     },

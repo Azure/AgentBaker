@@ -456,6 +456,23 @@ EOF
         logs_to_events "AKS.CSE.ensureContainerd.ensureAcrNodeMon" ensureAcrNodeMon || exit $ERR_ARTIFACT_STREAMING_ACR_NODEMON_START_FAIL
     fi
 
+    # The chrony package uses a different configuration file structure on Ubuntu and Azure Linux
+    if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
+        CHRONY_TWC='/etc/chrony/sources.d/chrony-twc.conf'
+    elif isMarinerOrAzureLinux "$OS"; then
+        CHRONY_TWC='/etc/chrony.sources.d/chrony-twc.conf'
+    fi
+    
+    # Patch chrony configuration to prefer NTP servers if running on older SKUs
+    # This will detect D, E, or F series SKUs of generation 2 or 3.
+    IS_DRIFT_SKU="$(curl -s -H "Metadata:true" -m 5 --noproxy "*" "http://169.254.169.254/metadata/instance?api-version=2021-02-01" \
+            | jq '(.compute.vmSize | ascii_downcase | match("standard_[def].*_v[23]").string // "") != ""')"
+    if [ "$IS_DRIFT_SKU" = "true" ]; then
+        perl -p -i -e 's/^((pool|server) .*)$/$1 prefer/' $CHRONY_TWC
+        echo -e "\n# prefer has been added to the pool and server lines as this SKU was detected as"
+        echo -e "# a generation which has a less accurate hardware clock."
+    fi
+
     if $REBOOTREQUIRED; then
         echo 'reboot required, rebooting node in 1 minute'
         /bin/bash -c "shutdown -r 1 &"
