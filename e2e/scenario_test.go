@@ -716,6 +716,46 @@ func Test_Ubuntu2204Gen2_ContainerdAirgappedK8sNotCached(t *testing.T) {
 					config.PrivateACRName(config.Config.DefaultLocation),
 					nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion)
 			},
+		}})
+}
+
+func Test_Ubuntu2204Gen2_ContainerdAirgappedNonAnonymousK8sNotCached(t *testing.T) {
+	location := config.Config.DefaultLocation
+	ctx := newTestCtx(t)
+	identity, err := config.Azure.UserAssignedIdentities.Get(ctx, config.ResourceGroupName(location), config.VMIdentityName, nil)
+	require.NoError(t, err)
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using the Ubuntu 2204 VHD without k8s binary and is airgap can be properly bootstrapped",
+		Tags: Tags{
+			Airgap:          true,
+			NonAnonymousACR: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenetAirgapNonAnon,
+			VHD:     config.VHDUbuntu2204Gen2ContainerdAirgappedK8sNotCached,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.TenantID = *identity.Properties.TenantID
+				nbc.UserAssignedIdentityClientID = *identity.Properties.ClientID
+				nbc.OutboundType = datamodel.OutboundTypeBlock
+				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
+					PrivateEgress: &datamodel.PrivateEgress{
+						Enabled:                 true,
+						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io", config.PrivateACRNameNotAnon(location)),
+					},
+				}
+				nbc.AgentPoolProfile.LocalDNSProfile = nil
+				// intentionally using private acr url to get kube binaries
+				nbc.AgentPoolProfile.KubernetesConfig.CustomKubeBinaryURL = fmt.Sprintf(
+					"%s.azurecr.io/oss/binaries/kubernetes/kubernetes-node:v%s-linux-amd64",
+					config.PrivateACRNameNotAnon(location),
+					nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion)
+				nbc.K8sComponents.LinuxCredentialProviderURL = fmt.Sprintf(
+					"https://packages.aks.azure.com/cloud-provider-azure/v%s/binaries/azure-acr-credential-provider-linux-amd64-v%s.tar.gz",
+					nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion,
+					nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion)
+				nbc.KubeletConfig["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
+				nbc.KubeletConfig["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
+			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateDirectoryContent(ctx, s, "/run", []string{"outbound-check-skipped"})
 			},

@@ -108,6 +108,18 @@ function basePrep {
         logs_to_events "AKS.CSE.removeManDbAutoUpdateFlagFile" removeManDbAutoUpdateFlagFile
     fi
 
+    # oras login must be in front of configureKubeletAndKubectl and ensureKubelet
+    if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
+        # Compute registry domain name for ORAS login
+        registry_domain_name="${MCR_REPOSITORY_BASE:-mcr.microsoft.com}"
+        registry_domain_name="${registry_domain_name%/}"
+        if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
+            registry_domain_name="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER%%/*}"
+        fi
+        
+        logs_to_events "AKS.CSE.orasLogin.oras_login_with_kubelet_identity" oras_login_with_kubelet_identity "${registry_domain_name}" $USER_ASSIGNED_IDENTITY_ID $TENANT_ID || exit $?
+    fi
+
     logs_to_events "AKS.CSE.disableSystemdResolved" disableSystemdResolved
 
     logs_to_events "AKS.CSE.configureAdminUser" configureAdminUser
@@ -313,17 +325,6 @@ function nodePrep {
     if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
         # This file indicates the cluster doesn't have outbound connectivity and should be excluded in future external outbound checks
         touch /var/run/outbound-check-skipped
-    fi
-
-    if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
-        # Compute registry domain name for ORAS login
-        registry_domain_name="${MCR_REPOSITORY_BASE:-mcr.microsoft.com}"
-        registry_domain_name="${registry_domain_name%/}"
-        if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
-            registry_domain_name="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER%%/*}"
-        fi
-        
-        logs_to_events "AKS.CSE.orasLogin.oras_login_with_kubelet_identity" oras_login_with_kubelet_identity "${registry_domain_name}" $USER_ASSIGNED_IDENTITY_ID $TENANT_ID || exit $?
     fi
     
     # Determine if GPU driver installation should be skipped
