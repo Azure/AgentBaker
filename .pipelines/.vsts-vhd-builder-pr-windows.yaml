@@ -88,9 +88,9 @@ stages:
             condition: eq(  ${{ parameters.enableBackfillCleanup }} , 'True')
             env:
               MODE: windowsVhdMode
-              DRY_RUN: ${{ parameters.dryrun }}
+              PROD_SUBSCRIPTION_ID: $(AZURE_PROD_SUBSCRIPTION_ID)
+              DRY_RUN:  ${{ parameters.dryrun }}
               OS_TYPE: Windows
-
           - bash: bash ./vhdbuilder/packer/cleanup.sh
             enabled: true
             displayName: Cleanup
@@ -98,7 +98,7 @@ stages:
             env:
               MODE: windowsVhdMode
               SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
-              DRY_RUN: ${{ parameters.dryrun }}
+              PROD_SUBSCRIPTION_ID: $(AZURE_PROD_SUBSCRIPTION_ID)
+              DRY_RUN:  ${{ parameters.dryrun }}
               SIG_GALLERY_NAME: $(SIG_GALLERY_NAME)
               OS_TYPE: Windows
-
