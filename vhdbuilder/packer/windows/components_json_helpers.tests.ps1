@@ -98,6 +98,17 @@ Describe 'Tests of GetAllCachedThings ' {
     }
   }
 }
+],
+"OCIArtifacts": [
+{
+  "registry": "mcr.microsoft.com/repository/path:*",
+  "windowsDownloadLocation": "C:\\akse-cache\\",
+  "windowsVersions": [
+    {
+      "latestVersion": "1.2.3-prerelease.4"
+    }
+  ]
+}
 ]}'
         $componentsJson = echo $componentsJsonTestString | ConvertFrom-Json
     }
@@ -124,6 +135,14 @@ Describe 'Tests of GetAllCachedThings ' {
         $allpackages = GetAllCachedThings $componentsJson $windowsSettings
 
         $allpackages | Should -Contain "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State\EnableCompartmentNamespace=1"
+    }
+
+    it 'has an oci artifact in it' {
+        $windowsSku = "2019-containerd"
+
+        $allpackages = GetAllCachedThings $componentsJson $windowsSettings
+
+        $allpackages | Should -Contain "c:\akse-cache\: mcr.microsoft.com/repository/path:1.2.3-prerelease.4"
     }
 
     it 'is sorted' {
@@ -640,6 +659,166 @@ Describe 'Gets the Binaries' {
 
         $packages["location"] | Should -Contain "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.49.zip"
         $packages["location"] | Should -Not -Contain "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.48.zip"
+    }
+}
+
+Describe 'Gets the OCI Artifacts' {
+    BeforeEach {
+        $testString = '{
+  "OCIArtifacts": [
+    {
+      "registry": "mcr.microsoft.com/aks/oci-artifact:*",
+      "windowsDownloadLocation": "c:\\akse-cache\\",
+      "windowsVersions": [
+        {
+          "renovateTag": "<DO_NOT_UPDATE>",
+          "latestVersion": "1.0.0",
+          "previousLatestVersion": "0.9.0"
+        }
+      ]
+    }
+  ]}'
+        $componentsJson = echo $testString | ConvertFrom-Json
+    }
+
+    It 'given there are no OCI artifacts, it returns an empty hashtable' {
+        $componentsJson.OCIArtifacts = @()
+
+        $artifacts = GetOCIArtifactsFromComponentsJson $componentsJson
+
+        $artifacts | ConvertTo-Json -Compress | Should -Be "{}"
+    }
+
+    It 'given the windowsVersions block is missing, it returns an empty hashtable' {
+        $componentsJson.OCIArtifacts[0].windowsVersions = $null
+
+        $artifacts = GetOCIArtifactsFromComponentsJson $componentsJson
+
+        $artifacts | ConvertTo-Json -Compress | Should -Be "{}"
+    }
+
+    It 'skips an artifact if windowsDownloadLocation is not set' {
+        $componentsJson.OCIArtifacts[0].windowsDownloadLocation = $null
+
+        $artifacts = GetOCIArtifactsFromComponentsJson $componentsJson
+
+        $artifacts | ConvertTo-Json -Compress | Should -Be "{}"
+    }
+
+    It 'given there is a latest version and previousLatestVersion, it returns both versions' {
+        $artifacts = GetOCIArtifactsFromComponentsJson $componentsJson
+
+        $artifacts["c:\akse-cache\"] | Should -Contain "mcr.microsoft.com/aks/oci-artifact:1.0.0"
+        $artifacts["c:\akse-cache\"] | Should -Contain "mcr.microsoft.com/aks/oci-artifact:0.9.0"
+    }
+
+    It 'given there is only a latest version, it returns just that version' {
+        $componentsJson.OCIArtifacts[0].windowsVersions[0].previousLatestVersion = $null
+
+        $artifacts = GetOCIArtifactsFromComponentsJson $componentsJson
+
+        $artifacts["c:\akse-cache\"] | Should -Contain "mcr.microsoft.com/aks/oci-artifact:1.0.0"
+        $artifacts["c:\akse-cache\"] | Should -HaveCount 1
+    }
+
+    It 'given there are two artifacts in the same directory, it combines them' {
+        $testString = '{
+  "OCIArtifacts": [
+    {
+      "registry": "mcr.microsoft.com/aks/oci-artifact1:*",
+      "windowsDownloadLocation": "c:\\akse-cache\\",
+      "windowsVersions": [
+        {
+          "renovateTag": "<DO_NOT_UPDATE>",
+          "latestVersion": "1.0.0"
+        }
+      ]
+    },
+    {
+      "registry": "mcr.microsoft.com/aks/oci-artifact2:*",
+      "windowsDownloadLocation": "c:\\akse-cache\\",
+      "windowsVersions": [
+        {
+          "renovateTag": "<DO_NOT_UPDATE>",
+          "latestVersion": "2.0.0"
+        }
+      ]
+    }
+  ]}'
+        $componentsJson = echo $testString | ConvertFrom-Json
+
+        $artifacts = GetOCIArtifactsFromComponentsJson $componentsJson
+
+        $artifacts["c:\akse-cache\"] | Should -Contain "mcr.microsoft.com/aks/oci-artifact1:1.0.0"
+        $artifacts["c:\akse-cache\"] | Should -Contain "mcr.microsoft.com/aks/oci-artifact2:2.0.0"
+    }
+
+    It 'given there is a windowsSkuMatch that matches the current sku, it returns the version' {
+        $testString = '{
+  "OCIArtifacts": [
+    {
+      "registry": "mcr.microsoft.com/aks/oci-artifact:*",
+      "windowsDownloadLocation": "c:\\akse-cache\\",
+      "windowsVersions": [
+        {
+          "renovateTag": "<DO_NOT_UPDATE>",
+          "latestVersion": "1.0.0",
+          "windowsSkuMatch": "2022-containerd*"
+        }
+      ]
+    }
+  ]}'
+        $componentsJson = echo $testString | ConvertFrom-Json
+        $windowsSku = "2022-containerd-gen2"
+
+        $artifacts = GetOCIArtifactsFromComponentsJson $componentsJson
+
+        $artifacts["c:\akse-cache\"] | Should -Contain "mcr.microsoft.com/aks/oci-artifact:1.0.0"
+    }
+
+    It 'given there is a windowsSkuMatch that does not match the current sku, it does not return the version' {
+        $testString = '{
+  "OCIArtifacts": [
+    {
+      "registry": "mcr.microsoft.com/aks/oci-artifact:*",
+      "windowsDownloadLocation": "c:\\akse-cache\\",
+      "windowsVersions": [
+        {
+          "renovateTag": "<DO_NOT_UPDATE>",
+          "latestVersion": "1.0.0",
+          "windowsSkuMatch": "2022-containerd*"
+        }
+      ]
+    }
+  ]}'
+        $componentsJson = echo $testString | ConvertFrom-Json
+        $windowsSku = "2019-containerd"
+
+        $artifacts = GetOCIArtifactsFromComponentsJson $componentsJson
+
+        $artifacts | ConvertTo-Json -Compress | Should -Be "{}"
+    }
+
+    It 'replaces CPU_ARCH in the string' {
+        $testString = '{
+  "OCIArtifacts": [
+    {
+      "registry": "mcr.microsoft.com/aks/${CPU_ARCH}/oci-artifact:*",
+      "windowsDownloadLocation": "c:\\akse-cache\\",
+      "windowsVersions": [
+        {
+          "renovateTag": "<DO_NOT_UPDATE>",
+          "latestVersion": "1.0.0"
+        }
+      ]
+    }
+  ]}'
+        $componentsJson = echo $testString | ConvertFrom-Json
+        $CPU_ARCH = "amd64"
+
+        $artifacts = GetOCIArtifactsFromComponentsJson $componentsJson
+
+        $artifacts["c:\akse-cache\"] | Should -Contain "mcr.microsoft.com/aks/amd64/oci-artifact:1.0.0"
     }
 }
 
