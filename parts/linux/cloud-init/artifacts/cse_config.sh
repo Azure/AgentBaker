@@ -720,7 +720,8 @@ EOF
         if [ "${SHOULD_ENFORCE_KUBE_PMC_INSTALL}" != "true" ] && ! semverCompare ${KUBERNETES_VERSION:-"0.0.0"} "1.34.0"; then
             logs_to_events "AKS.CSE.ensureKubelet.installCredentialProvider" installCredentialProvider
         else
-            logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromPMC" installCredentialProviderFromPMC
+            # TODO: pass KUBERNETES_VERSION once remaining versions are published to PMC
+            logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromPMC" "" installCredentialProviderFromPMC
         fi
     fi
 

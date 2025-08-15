@@ -151,7 +151,24 @@ Describe 'cse_helpers.sh'
         End
     End
 
-        Describe 'addKubeletNodeLabel'
+    Describe 'getLatestVersionForK8sVersion'
+        It 'returns correct latestVersion for Ubuntu'
+            k8sVersion="1.32.3"
+            OS="UBUNTU"
+            UBUNTU_RELEASE="22.04"
+            When call getLatestVersionForK8sVersion "$k8sVersion" "fake-azure-acr-credential-provider"
+            The output should equal "1.32.3-ubuntu22.04u4"
+        End
+        It 'returns correct latestVersion for AzureLinux'
+            k8sVersion="1.32.3"
+            OS="AZURELINUX"
+            UBUNTU_RELEASE="3.0"
+            When call getLatestVersionForK8sVersion "$k8sVersion"
+            The output should equal '1.32.3-4.azl3'
+        End
+    End
+
+    Describe 'addKubeletNodeLabel'
         It 'should perform a no-op when the specified label already exists within the label string'
             KUBELET_NODE_LABELS="kubernetes.azure.com/nodepool-type=VirtualMachineScaleSets,kubernetes.azure.com/kubelet-serving-ca=cluster,kubernetes.azure.com/agentpool=wp0"
             When call addKubeletNodeLabel kubernetes.azure.com/kubelet-serving-ca=cluster

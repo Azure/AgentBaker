@@ -798,6 +798,47 @@ updatePackageDownloadURL() {
     return
 }
 
+# Function to get latestVersion for a given k8sVersion from components.json
+getLatestVersionForK8sVersion() {
+    local k8sVersion="$1"
+    local componentName="$2"
+    
+    COMPONENTS_FILEPATH="/opt/azure/components.json"
+    k8sMajorMinorVersion="$(echo "$k8sVersion" | cut -d- -f1 | cut -d. -f1,2)"
+
+    os=${UBUNTU_OS_NAME}
+    if [ -z "$UBUNTU_RELEASE" ]; then
+        os=${OS}
+        os_version="current"
+    else
+        os_version="${UBUNTU_RELEASE}"
+    fi
+    
+    package=$(jq ".Packages" "$COMPONENTS_FILEPATH" | jq ".[] | select(.name == \"${componentName}\")")
+    PACKAGE_VERSIONS=()
+    updatePackageVersions "${package}" "${os}" "${os_version}"
+
+    # shellcheck disable=SC3010
+    if [[ ${#PACKAGE_VERSIONS[@]} -eq 0 || ${PACKAGE_VERSIONS[0]} == "<SKIP>" ]]; then
+        echo "INFO: ${componentName} package versions array is either empty or the first element is <SKIP>. Skipping ${componentName} installation."
+        return 0
+    fi
+
+    # sort the array from highest to lowest version
+    IFS=$'\n' sortedPackageVersions=($(sort -rV <<<"${PACKAGE_VERSIONS[*]}"))
+    unset IFS
+
+    packageVersion=${sortedPackageVersions[0]}
+    for version in "${sortedPackageVersions[@]}"; do
+        echo "Version: $version"
+        majorMinorVersion="$(echo "$version" | cut -d- -f1 | cut -d. -f1,2)"
+        if [ $majorMinorVersion = $k8sMajorMinorVersion ]; then
+            packageVersion=$version
+            return 0
+        fi
+    done
+}
+
 # adds the specified LABEL_STRING (which should be in the form of 'label=value') to KUBELET_NODE_LABELS
 addKubeletNodeLabel() {
     local LABEL_STRING=$1
