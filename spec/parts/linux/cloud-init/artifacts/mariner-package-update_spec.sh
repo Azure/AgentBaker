@@ -19,6 +19,8 @@ Describe 'mariner-package-update.sh'
 
         BeforeEach 'setup'
 
+        AfterEach 'cleanup'
+
         Mock dnf
             echo "dnf mock called with args: $@"
         End
