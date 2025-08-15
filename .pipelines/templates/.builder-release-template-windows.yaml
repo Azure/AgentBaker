@@ -61,11 +61,6 @@ steps:
       overrideBranch: ${{ parameters.overrideBranch }}
       useOverrides: ${{ parameters.useOverrides }}
 
-  - bash: make -f packer.mk az-login
-    displayName: AZ Login
-    env:
-      MODE: "windowsVhdMode"
-      SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
   - task: DownloadPipelineArtifact@2
     displayName: Download CSE package
     inputs:
@@ -194,7 +189,6 @@ steps:
       SKIP_EXTENSION_CHECK: ${{ parameters.skipExtensionCheck }}
       SIG_GALLERY_NAME: $(SIG_GALLERY_NAME)
       SIG_IMAGE_VERSION: $(SIG_IMAGE_VERSION)
-      AZURE_MSI_RESOURCE_STRING: $(AZURE_MSI_RESOURCE_STRING)
 
   # SA_NAME:             Temporary storage account name
   # IMPORTED_IMAGE_NAME: Build output for windowsVhdMode is SIG. Packer does not support building a SIG from raw
