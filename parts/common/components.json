@@ -344,34 +344,12 @@
       ]
     },
     {
-      "downloadURL": "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:*",
-      "amd64OnlyVersions": [],
-      "multiArchVersionsV2": [
-        {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/azure/secrets-store/provider-azure",
-          "latestVersion": "v1.6.2"
-        }
-      ],
-      "windowsVersions": [
-        {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/azure/secrets-store/provider-azure",
-          "latestVersion": "v1.6.2"
-        }
-      ]
-    },
-    {
       "downloadURL": "mcr.microsoft.com/oss/v2/azure/secrets-store/provider-azure:*",
       "amd64OnlyVersions": [],
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/azure/secrets-store/provider-azure",
-          "latestVersion": "v1.7.0"
-        }
-      ],
-      "windowsVersions": [
-        {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/azure/secrets-store/provider-azure",
-          "latestVersion": "v1.7.0"
+          "latestVersion": "v1.7.1"
         }
       ]
     },
