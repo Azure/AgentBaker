@@ -91,6 +91,15 @@ installCriCtlPackage() {
     apt_get_install 20 30 120 ${packageName} || exit 1
 }
 
+installCredentialProviderFromPMC() {
+    k8sVersion="${1:-"1.32.3"}" # Default 1.32.3 since that is the only version currently published to PMC
+    packageVersion=$(getLatestVersionForK8sVersion "$k8sVersion" "azure-acr-credential-provider-pmc")
+    mkdir -p "${CREDENTIAL_PROVIDER_BIN_DIR}"
+    chown -R root:root "${CREDENTIAL_PROVIDER_BIN_DIR}"
+    installPkgWithAptGet "azure-acr-credential-provider" "${packageVersion}" || exit $ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT
+    mv "/usr/local/bin/azure-acr-credential-provider" "$CREDENTIAL_PROVIDER_BIN_DIR/acr-credential-provider"
+}
+
 installKubeletKubectlPkgFromPMC() {
     k8sVersion="${1}"
     installPkgWithAptGet "kubelet" "${k8sVersion}" || exit $ERR_KUBELET_INSTALL_TIMEOUT
