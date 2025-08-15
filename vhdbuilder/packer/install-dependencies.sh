@@ -5,11 +5,13 @@ MARINER_OS_NAME="MARINER"
 MARINER_KATA_OS_NAME="MARINERKATA"
 AZURELINUX_OS_NAME="AZURELINUX"
 AZURELINUX_KATA_OS_NAME="AZURELINUXKATA"
+AZURELINUX_OSGUARD_OS_VARIANT="OSGUARD"
 
 # Real world examples from the command outputs
 # For Azure Linux V3: ID=azurelinux VERSION_ID="3.0"
 # For Azure Linux V2: ID=mariner VERSION_ID="2.0"
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID=(.*))$/, a) { print toupper(a[2]); exit }')
+OS_VARIANT=$(sort -r /etc/*-release | gawk 'match($0, /^(VARIANT_ID=(.*))$/, a) { print toupper(a[2]); exit }' | tr -d '"')
 IS_KATA="false"
 if grep -q "kata" <<< "$FEATURE_FLAGS"; then
   IS_KATA="true"
@@ -30,6 +32,7 @@ CPU_ARCH=$(getCPUArch)  #amd64 or arm64
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 COMPONENTS_FILEPATH=/opt/azure/components.json
 PERFORMANCE_DATA_FILE=/opt/azure/vhd-build-performance-data.json
+GRID_COMPATIBILITY_DATA_FILE=/opt/azure/vhd-grid-compatibility-data.json
 resolve_packages_source_url
 
 echo ""
@@ -211,7 +214,7 @@ EOF
 udevadm control --reload
 capture_benchmark "${SCRIPT_NAME}_set_udev_rules"
 
-if isMarinerOrAzureLinux "$OS"; then
+if isMarinerOrAzureLinux "$OS" && ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
     disableSystemdResolvedCache
     disableSystemdIptables || exit 1
     setMarinerNetworkdConfig
@@ -350,6 +353,9 @@ while IFS= read -r p; do
         evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
         if [ "${OS}" = "${UBUNTU_OS_NAME}" ]; then
           installContainerd "${downloadDir}" "${evaluatedURL}" "${version}"
+        elif isMarinerOrAzureLinux "$OS" && isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
+          echo "Skipping containerd install on Azure Linux OS Guard, package preinstalled on immutable /usr"
+          version=$(rpm -q containerd2)
         elif isMarinerOrAzureLinux "$OS"; then
           installStandaloneContainerd "${version}"
         elif isFlatcar "$OS"; then
@@ -361,7 +367,12 @@ while IFS= read -r p; do
     "oras")
       for version in ${PACKAGE_VERSIONS[@]}; do
         evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-        installOras "${downloadDir}" "${evaluatedURL}" "${version}"
+        if isMarinerOrAzureLinux "$OS" && isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
+          echo "Skipping Oras install on Azure Linux OS Guard, package preinstalled on immutable /usr"
+          version=$(oras version | head -n1 | awk '{print $2}')
+        else
+          installOras "${downloadDir}" "${evaluatedURL}" "${version}"
+        fi
         echo "  - oras version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
@@ -714,7 +725,12 @@ configureLsmWithBpf() {
       echo "Warning: this is a Kata/CVM SKU - will not add BPF to LSM configuration"
       return 0
     fi
-    
+
+    if isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
+      echo "Warning: Azure Linux OS Guard built with signed UKI, not enabling BPF LSM"
+      return 0
+    fi
+
     local new_lsm="bpf,$current_lsm"
     echo "New LSM configuration: $new_lsm"
 
@@ -757,7 +773,7 @@ configureLsmWithBpf
 capture_benchmark "${SCRIPT_NAME}_configure_lsm_with_bpf"
 
 # use the private_packages_url to download and cache packages
-if [ -n "${PRIVATE_PACKAGES_URL}" ]; then
+if [ -n "${PRIVATE_PACKAGES_URL:-}" ]; then
   IFS=',' read -ra PRIVATE_URLS <<< "${PRIVATE_PACKAGES_URL}"
 
   for private_url in "${PRIVATE_URLS[@]}"; do
@@ -879,5 +895,37 @@ extractAndCacheCoreDnsBinary
 
 rm -f ./azcopy # cleanup immediately after usage will return in two downloads
 echo "install-dependencies step completed successfully"
+
+# Collect grid compatibility data (placeholder for now - will be extended later)
+collect_grid_compatibility_data() {
+  if [ -z "${GRID_COMPATIBILITY_DATA_FILE}" ] ; then
+    return
+  fi
+
+  # Create basic grid compatibility data structure
+  # This is scaffolding - the actual Kusto query and analysis will be added later
+  local compatibility_data=$(jq -n \
+    --arg os "${OS}" \
+    --arg os_version "${OS_VERSION}" \
+    --arg cpu_arch "${CPU_ARCH}" \
+    --arg timestamp "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
+    --arg feature_flags "${FEATURE_FLAGS:-}" \
+    '{
+      "grid_compatibility_check": {
+        "timestamp": $timestamp,
+        "os": $os,
+        "os_version": $os_version,
+        "cpu_architecture": $cpu_arch,
+        "feature_flags": $feature_flags,
+        "compatibility_status": "data_collected",
+        "kusto_query_placeholder": "SELECT * FROM GridCompatibility WHERE timestamp > ago(1d)"
+      }
+    }')
+
+  echo "${compatibility_data}" > "${GRID_COMPATIBILITY_DATA_FILE}"
+  chmod 755 "${GRID_COMPATIBILITY_DATA_FILE}"
+}
+
+collect_grid_compatibility_data
 capture_benchmark "${SCRIPT_NAME}_overall" true
 process_benchmarks

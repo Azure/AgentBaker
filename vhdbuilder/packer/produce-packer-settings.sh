@@ -173,6 +173,8 @@ if [ "${MODE}" = "linuxVhdMode" ]; then
 		elif [ "${IMG_OFFER,,}" = "azure-linux-3" ]; then
 			# for Azure Linux 3.0, only use AzureLinux prefix
 			SIG_IMAGE_NAME="AzureLinux${SIG_IMAGE_NAME}"
+		elif [ "${OS_SKU,,}" = "azurelinuxosguard" ]; then
+			SIG_IMAGE_NAME="AzureLinuxOSGuard${SIG_IMAGE_NAME}"
 		elif grep -q "cvm" <<< "$FEATURE_FLAGS"; then
 			SIG_IMAGE_NAME+="Specialized"
 		fi

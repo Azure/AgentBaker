@@ -92,6 +92,13 @@ var (
 		Distro:  datamodel.AKSAzureLinuxV3Gen2,
 		Gallery: imageGalleryLinux,
 	}
+	VHDAzureLinux3OSGuard = &Image{
+		Name:    "AzureLinuxOSGuardOSGuardV3gen2fipsTL",
+		OS:      OSAzureLinux,
+		Arch:    "amd64",
+		Distro:  datamodel.AKSAzureLinuxV3OSGuardGen2FIPSTL,
+		Gallery: imageGalleryLinux,
+	}
 	VHDCBLMarinerV2Gen2Arm64 = &Image{
 		Name:    "CBLMarinerV2gen2arm64",
 		OS:      OSMariner,
@@ -121,10 +128,10 @@ var (
 
 	// without kubelet, kubectl, credential-provider and wasm
 	VHDUbuntu2204Gen2ContainerdAirgappedK8sNotCached = &Image{
-		Name:    "2204Gen2",
+		Name:    "2204gen2containerd",
 		OS:      OSUbuntu,
 		Arch:    "amd64",
-		Version: "1.1725612526.29638",
+		Version: "1.1755204156.32758",
 		Distro:  datamodel.AKSUbuntuContainerd2204Gen2,
 		Gallery: imageGalleryLinux,
 	}
