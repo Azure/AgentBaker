@@ -68,6 +68,7 @@ $global:patchUrls = $patch_data | % { $_.url }
 $global:patchIDs = $patch_data | % { $_.id }
 
 $global:imagesToPull = GetComponentsFromComponentsJson $componentsJson
+$global:ociArtifactsToPull = GetOCIArtifactsFromComponentsJson $componentsJson
 $global:keysToSet = GetRegKeysToApply $windowsSettingsJson
 $global:map = GetPackagesFromComponentsJson $componentsJson
 $global:releaseNotesToSet = GetKeyMapForReleaseNotes $windowsSettingsJson
