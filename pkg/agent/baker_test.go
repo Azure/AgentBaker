@@ -2686,6 +2686,27 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 				config.KubeletConfig["--image-credential-provider-config"] = "c:\\var\\lib\\kubelet\\credential-provider-config.yaml"
 				config.KubeletConfig["--image-credential-provider-bin-dir"] = "c:\\var\\lib\\kubelet\\credential-provider"
 			}),
+		Entry("AKSWindows23H2Gen2 with NextGenNetworking", "AKSWindows23H2Gen2+NextGenNetworking", "1.29.0",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.AgentPoolProfile.AgentPoolWindowsProfile = &datamodel.AgentPoolWindowsProfile{
+					NextGenNetworkingEnabled: to.BoolPtr(true),
+					NextGenNetworkingConfig:  to.StringPtr("{}"),
+				}
+			}),
+		Entry("AKSWindows23H2Gen2 with NextGenNetworking enabled but no config", "AKSWindows23H2Gen2+NextGenNetworkingNoConfig", "1.29.0",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.AgentPoolProfile.AgentPoolWindowsProfile = &datamodel.AgentPoolWindowsProfile{
+					NextGenNetworkingEnabled: to.BoolPtr(true),
+					NextGenNetworkingConfig:  nil,
+				}
+			}),
+		Entry("AKSWindows23H2Gen2 with NextGenNetworking disabled", "AKSWindows23H2Gen2+NextGenNetworkingDisabled", "1.29.0",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.AgentPoolProfile.AgentPoolWindowsProfile = &datamodel.AgentPoolWindowsProfile{
+					NextGenNetworkingEnabled: to.BoolPtr(false),
+					NextGenNetworkingConfig:  to.StringPtr("{}"),
+				}
+			}),
 	)
 
 })
