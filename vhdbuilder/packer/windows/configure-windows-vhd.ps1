@@ -716,6 +716,37 @@ function Install-WindowsPatches
     }
 }
 
+function Install-WindowsCilium
+{
+    Write-Log "Installing Windows Cilium Networking (WCN) Platform"
+
+    $wcnDirectory = Join-Path -Path $global:cacheDir -ChildPath 'wcn'
+    $wcnInstallDirectory = Join-Path -Path $wcnDirectory -ChildPath 'install'
+    $wcnScriptsDirectory = Join-Path -Path $wcnInstallDirectory -ChildPath 'scripts'
+
+    # Select the highest versioned package available.
+    $wcnPackageNuget = (Get-ChildItem -Path $wcnDirectory -File -Filter '*.nupkg' | Sort-Object -Property Name -Descending) | Select-Object -First 1
+    if (!$wcnPackageNuget -or !(Test-Path -Path $wcnPackageNuget))
+    {
+        Write-Log "No Windows Cilium Networking package found in $wcnDirectory"
+        throw "No Windows Cilium Networking package found in $wcnDirectory"
+    }
+
+    # Extract NuGet package contents.
+    New-Item -ItemType Directory -Path $wcnInstallDirectory -Force
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    [System.IO.Compression.ZipFile]::ExtractToDirectory($wcnPackageNuget.FullName, $wcnInstallDirectory)
+
+    # Invoke install script.
+    $wcnInstallScript =  Join-Path -Path $wcnScriptsDirectory -ChildPath 'install.ps1' -Resolve
+    & $wcnInstallScript -DisableCiliumStack
+    if ($LASTEXITCODE -and $LASTEXITCODE -ne 0)
+    {
+        Write-Log "Windows Cilium Networking installation script exited with code $LASTEXITCODE"
+        throw "Windows Cilium Networking installation script failed with exit code $LASTEXITCODE"
+    }
+}
+
 function Set-WinRmServiceAutoStart
 {
     Write-Log "Setting WinRM service start to auto"
@@ -1006,6 +1037,7 @@ try
             Get-ToolsToVHD
             Get-PrivatePackagesToCacheOnVHD
             Log-ReofferUpdate
+            Install-WindowsCilium
         }
         "3" {
             Register-ExpandVolumeTask
