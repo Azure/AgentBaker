@@ -16,6 +16,7 @@ K8S_REGISTRY_REPO="oss/binaries/kubernetes"
 UBUNTU_RELEASE=$(lsb_release -r -s 2>/dev/null || echo "")
 # For Mariner 2.0, this returns "MARINER" and for AzureLinux 3.0, this returns "AZURELINUX"
 OS=$(if ls /etc/*-release 1> /dev/null 2>&1; then sort -r /etc/*-release | gawk 'match($0, /^(ID=(.*))$/, a) { print toupper(a[2]); exit }'; fi)
+OS_VARIANT=$(if ls /etc/*-release 1> /dev/null 2>&1; then sort -r /etc/*-release | gawk 'match($0, /^(VARIANT_ID=(.*))$/, a) { print toupper(a[2]); exit }' | tr -d '"'; fi)
 SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_DIR="/opt/aks-secure-tls-bootstrap-client/downloads"
 SECURE_TLS_BOOTSTRAP_CLIENT_BIN_DIR="/usr/local/bin"
 TELEPORTD_PLUGIN_DOWNLOAD_DIR="/opt/teleportd/downloads"

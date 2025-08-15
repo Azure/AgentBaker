@@ -173,6 +173,7 @@ const (
 	AKSCBLMarinerV2Gen2TL                 Distro = "aks-cblmariner-v2-gen2-tl"
 	AKSAzureLinuxV2Gen2TL                 Distro = "aks-azurelinux-v2-gen2-tl"
 	AKSAzureLinuxV3Gen2TL                 Distro = "aks-azurelinux-v3-gen2-tl"
+	AKSAzureLinuxV3OSGuardGen2FIPSTL      Distro = "aks-azurelinux-v3-osguard-gen2-fips-tl"
 	AKSCBLMarinerV2KataGen2TL             Distro = "aks-cblmariner-v2-kata-gen2-tl"
 	AKSUbuntuFipsContainerd1804           Distro = "aks-ubuntu-fips-containerd-18.04"
 	AKSUbuntuFipsContainerd1804Gen2       Distro = "aks-ubuntu-fips-containerd-18.04-gen2"
@@ -270,6 +271,7 @@ var AKSDistrosAvailableOnVHD = []Distro{
 	AKSCBLMarinerV2Gen2TL,
 	AKSAzureLinuxV2Gen2TL,
 	AKSAzureLinuxV3Gen2TL,
+	AKSAzureLinuxV3OSGuardGen2FIPSTL,
 	AKSCBLMarinerV2KataGen2TL,
 	AKSUbuntuFipsContainerd1804,
 	AKSUbuntuFipsContainerd1804Gen2,
@@ -353,6 +355,15 @@ func (d Distro) IsKataDistro() bool {
 
 func (d Distro) IsFlatcarDistro() bool {
 	for _, distro := range AvailableFlatcarDistros {
+		if d == distro {
+			return true
+		}
+	}
+	return false
+}
+
+func (d Distro) IsAzureLinuxOSGuardDistro() bool {
+	for _, distro := range AvailableAzureLinuxOSGuardDistros {
 		if d == distro {
 			return true
 		}
@@ -1223,6 +1234,10 @@ func (a *AgentPoolProfile) IsWindows() bool {
 
 func (a *AgentPoolProfile) IsFlatcar() bool {
 	return a.Distro.IsFlatcarDistro()
+}
+
+func (a *AgentPoolProfile) IsAzureLinuxOSGuard() bool {
+	return a.Distro.IsAzureLinuxOSGuardDistro()
 }
 
 // IsSkipCleanupNetwork returns true if AKS-RP sets the field NotRebootWindowsNode to true.
