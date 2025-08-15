@@ -120,6 +120,9 @@ test-scan-and-cleanup: az-login
 evaluate-build-performance: az-login
 	@./vhdbuilder/packer/buildperformance/evaluate-build-performance.sh
 
+evaluate-grid-compatibility: az-login
+	@./vhdbuilder/packer/gridcompatibility/evaluate-grid-compatibility.sh
+
 generate-prefetch-scripts:
 #ifeq (${MODE},linuxVhdMode)
 	@echo "${MODE}: Generating prefetch scripts"
