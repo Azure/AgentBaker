@@ -81,7 +81,7 @@ func Test_AzureLinuxV2_NetworkIsolated(t *testing.T) {
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
 						Enabled:                 true,
-						ContainerRegistryServer: config.PrivateACRCacheRepo(config.PrivateACRName(config.Config.DefaultLocation)),
+						ContainerRegistryServer: config.PrivateACRServer(config.PrivateACRName(config.Config.DefaultLocation)),
 					},
 				}
 			},
