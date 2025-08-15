@@ -20,6 +20,13 @@ storage:
       inline: |
         [Service]
         Environment=CONTAINERD_CONFIG=/etc/containerd/config.toml
+  # For compatibility with azure-npm and before https://github.com/flatcar/Flatcar/issues/1852 is resolved
+  # simply copy the protocols file from baselayout to /etc.
+  - path: /etc/tmpfiles.d/protocols.conf
+    mode: 0644
+    contents:
+      inline: |
+        C /etc/protocols 0644 root root /usr/share/baselayout/protocols
   links:
   - path: /etc/extensions/aks-sysext/usr/local/bin
     target: /opt/bin
