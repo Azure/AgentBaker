@@ -311,13 +311,13 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/cilium/cilium",
-          "latestVersion": "v1.14.19-250129",
-          "previousLatestVersion": "v1.14.18-250107"
+          "latestVersion": "v1.16.10-250610",
+          "previousLatestVersion": "v1.16.8-250514"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/cilium/cilium",
-          "latestVersion": "v1.16.6-250129",
-          "previousLatestVersion": "v1.16.5-250110"
+          "latestVersion": "v1.17.4-250610",
+          "previousLatestVersion": "v1.17.2-250410"
         }
       ],
       "windowsVersions": []
@@ -788,7 +788,7 @@
       "downloadURL": "mcr.microsoft.com/aks/aks-gpu-cuda:*",
       "gpuVersion": {
         "renovateTag": "registry=https://mcr.microsoft.com, name=aks/aks-gpu-cuda",
-          "latestVersion": "570.172.08-20250731000559"
+        "latestVersion": "570.172.08-20250731000559"
       }
     },
     {
@@ -1264,7 +1264,7 @@
         "marinerkata": {
           "current": {
             "versionsV2": [
-             {
+              {
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/cbl-mariner/2.0/prod/cloud-native/x86_64/repodata, name=kubernetes-cri-tools, os=mariner, release=2.0",
                 "latestVersion": "1.32.0-3.cm2"
               }
