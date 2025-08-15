@@ -21,7 +21,7 @@ type Tags struct {
 	ImageName              string
 	OS                     string
 	Arch                   string
-	Airgap                 bool
+	NetworkIsolated        bool
 	NonAnonymousACR        bool
 	GPU                    bool
 	WASM                   bool

@@ -56,7 +56,7 @@ func (c *Cluster) MaxPodsPerNode() (int, error) {
 	return 0, fmt.Errorf("cluster agentpool profiles were nil or empty: %+v", c.Model)
 }
 
-func prepareCluster(ctx context.Context, cluster *armcontainerservice.ManagedCluster, isAirgap, isNonAnonymousPull, installNvidiaDevicePlugin bool) (*Cluster, error) {
+func prepareCluster(ctx context.Context, cluster *armcontainerservice.ManagedCluster, isNetworkIsolated, isNonAnonymousPull, installNvidiaDevicePlugin bool) (*Cluster, error) {
 	ctx, cancel := context.WithTimeout(ctx, config.Config.TestTimeoutCluster)
 	defer cancel()
 	cluster.Name = to.Ptr(fmt.Sprintf("%s-%s", *cluster.Name, hash(cluster)))
@@ -84,7 +84,7 @@ func prepareCluster(ctx context.Context, cluster *armcontainerservice.ManagedClu
 	}
 
 	logf(ctx, "using private acr %q isAnonyomusPull %v", config.GetPrivateACRName(isNonAnonymousPull, *cluster.Location), isNonAnonymousPull)
-	if isAirgap {
+	if isNetworkIsolated {
 		// private acr must be created before we add the debug daemonsets
 		if err := createPrivateAzureContainerRegistry(ctx, cluster, resourceGroupName, isNonAnonymousPull); err != nil {
 			return nil, fmt.Errorf("failed to create private acr: %w", err)
@@ -94,8 +94,8 @@ func prepareCluster(ctx context.Context, cluster *armcontainerservice.ManagedClu
 			return nil, fmt.Errorf("create private acr pull secret: %w", err)
 		}
 
-		if err := addAirgapNetworkSettings(ctx, cluster, config.GetPrivateACRName(isNonAnonymousPull, *cluster.Location), *cluster.Location); err != nil {
-			return nil, fmt.Errorf("add airgap network settings: %w", err)
+		if err := addNetworkIsolatedNetworkSettings(ctx, cluster, config.GetPrivateACRName(isNonAnonymousPull, *cluster.Location), *cluster.Location); err != nil {
+			return nil, fmt.Errorf("add isolated network settings: %w", err)
 		}
 	}
 
@@ -109,7 +109,7 @@ func prepareCluster(ctx context.Context, cluster *armcontainerservice.ManagedClu
 		}
 	}
 
-	if err := kube.EnsureDebugDaemonsets(ctx, isAirgap, config.GetPrivateACRName(isNonAnonymousPull, *cluster.Location)); err != nil {
+	if err := kube.EnsureDebugDaemonsets(ctx, isNetworkIsolated, config.GetPrivateACRName(isNonAnonymousPull, *cluster.Location)); err != nil {
 		return nil, fmt.Errorf("ensure debug daemonsets for %q: %w", *cluster.Name, err)
 	}
 

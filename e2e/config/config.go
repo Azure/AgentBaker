@@ -13,9 +13,10 @@ import (
 )
 
 var (
-	Config         = mustLoadConfig()
-	Azure          = mustNewAzureClient()
-	VMIdentityName = "abe2e-vm-identity"
+	Config                     = mustLoadConfig()
+	Azure                      = mustNewAzureClient()
+	VMIdentityName             = "abe2e-vm-identity"
+	DefaultACRTargetRepository = "aks-managed-repository/*"
 
 	DefaultPollUntilDoneOptions = &runtime.PollUntilDoneOptions{
 		Frequency: time.Second,
@@ -34,9 +35,21 @@ func PrivateACRName(location string) string {
 	return "privateacre2e" + location // will not have anonymous pull enabled
 }
 
+func PrivateACRServer(acrName string) string {
+	repo := DefaultACRTargetRepository
+	acrHost := fmt.Sprintf("%s.azurecr.io", acrName)
+	// First try to trim "/*" or "/"
+	repo = strings.TrimSuffix(repo, "*")
+	repo = strings.TrimSuffix(repo, "/")
+	if repo != "" {
+		return fmt.Sprintf("%s/%s", acrHost, repo)
+	}
+	return acrHost
+}
+
 type Configuration struct {
-	AirgapNSGName                          string `env:"AIRGAP_NSG_NAME" envDefault:"abe2e-airgap-securityGroup"`
-	AzureContainerRegistrytargetRepository string `env:"ACR_TARGET_REPOSITORY" envDefault:"*"`
+	NetworkIsolatedNSGName                 string `env:"NETWORK_ISOLATED_NSG_NAME" envDefault:"abe2e-networkisolated-securityGroup"`
+	AzureContainerRegistrytargetRepository string `env:"ACR_TARGET_REPOSITORY"`
 	ACRSecretName                          string `env:"ACR_SECRET_NAME" envDefault:"acr-secret-code2"`
 	BlobContainer                          string `env:"BLOB_CONTAINER" envDefault:"abe2e"`
 	BlobStorageAccountPrefix               string `env:"BLOB_STORAGE_ACCOUNT_PREFIX" envDefault:"abe2e"`
@@ -122,6 +135,12 @@ func mustLoadConfig() *Configuration {
 	if err := env.Parse(cfg); err != nil {
 		panic(err)
 	}
+
+	// Set defaults for fields that can't use global variables in struct tags
+	if cfg.AzureContainerRegistrytargetRepository == "" {
+		cfg.AzureContainerRegistrytargetRepository = DefaultACRTargetRepository
+	}
+
 	return cfg
 }
 

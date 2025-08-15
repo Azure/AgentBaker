@@ -153,18 +153,18 @@ func clusterKubenet(ctx context.Context, location string) (*Cluster, error) {
 	return prepareCluster(ctx, getKubenetClusterModel("abe2e-kubenet-v2", location), false, false, true)
 }
 
-var ClusterKubenetAirgap = cachedFunc(clusterKubenetAirgap)
+var ClusterNetworkIsolated = cachedFunc(clusterNetworkIsolated)
 
-// clusterKubenetAirgap creates an airgapped kubenet cluster (no internet access)
-func clusterKubenetAirgap(ctx context.Context, location string) (*Cluster, error) {
-	return prepareCluster(ctx, getKubenetClusterModel("abe2e-kubenet-airgap", location), true, false, true)
+// clusterNetworkIsolated creates an network isolated cluster (no internet access)
+func clusterNetworkIsolated(ctx context.Context, location string) (*Cluster, error) {
+	return prepareCluster(ctx, getKubenetClusterModel("abe2e-networkisolated", location), true, false, true)
 }
 
-var ClusterKubenetAirgapNonAnon = cachedFunc(clusterKubenetAirgapNonAnon)
+var ClusterNetworkIsolatedNonAnon = cachedFunc(clusterNetworkIsolatedNonAnon)
 
-// clusterKubenetAirgapNonAnon creates an airgapped kubenet cluster with non-anonymous image pulls
-func clusterKubenetAirgapNonAnon(ctx context.Context, location string) (*Cluster, error) {
-	return prepareCluster(ctx, getKubenetClusterModel("abe2e-kubenet-nonanonpull-airgap", location), true, true, true)
+// clusterNetworkIsolatedNonAnon creates an network isolated cluster with non-anonymous image pulls
+func clusterNetworkIsolatedNonAnon(ctx context.Context, location string) (*Cluster, error) {
+	return prepareCluster(ctx, getKubenetClusterModel("abe2e-nonanonpull-networkisolated", location), true, true, true)
 }
 
 var ClusterAzureNetwork = cachedFunc(clusterAzureNetwork)

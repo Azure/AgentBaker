@@ -21,7 +21,7 @@ To write an E2E scenario,
 
 - choose a testing cluster. There are a few defined
   in [cluster.go](https://github.com/Azure/AgentBaker/blob/dev/e2e/cluster.go), e.g,
-    - ClusterKubenetAirgap
+    - ClusterNetworkIsolated
     - ClusterAzureNetwork
     - ClusterKubenet
 - use `NodeBootstrappingConfiugration` (`nbc`) to setup your scenario. it is used to invoke the primary

@@ -67,21 +67,21 @@ func Test_Flatcar_ARM64(t *testing.T) {
 	})
 }
 
-func Test_AzureLinuxV2_AirGap(t *testing.T) {
+func Test_AzureLinuxV2_NetworkIsolated(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a AzureLinuxV2 (CgroupV2) VHD can be properly bootstrapped",
 		Tags: Tags{
-			Airgap: true,
+			NetworkIsolated: true,
 		},
 		Config: Config{
-			Cluster: ClusterKubenetAirgap,
+			Cluster: ClusterNetworkIsolated,
 			VHD:     config.VHDAzureLinuxV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.OutboundType = datamodel.OutboundTypeBlock
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
 						Enabled:                 true,
-						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io", config.PrivateACRName(config.Config.DefaultLocation)),
+						ContainerRegistryServer: config.PrivateACRCacheRepo(config.PrivateACRName(config.Config.DefaultLocation)),
 					},
 				}
 			},
@@ -142,14 +142,14 @@ func Test_AzureLinuxV2_ARM64_Scriptless(t *testing.T) {
 	})
 }
 
-func Test_AzureLinuxV2_ARM64AirGap(t *testing.T) {
+func Test_AzureLinuxV2_ARM64NetworkIsolated(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a AzureLinuxV2 (CgroupV2) VHD on ARM64 architecture can be properly bootstrapped",
 		Tags: Tags{
-			Airgap: true,
+			NetworkIsolated: true,
 		},
 		Config: Config{
-			Cluster: ClusterKubenetAirgap,
+			Cluster: ClusterNetworkIsolated,
 			VHD:     config.VHDAzureLinuxV2Gen2Arm64,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
@@ -159,7 +159,7 @@ func Test_AzureLinuxV2_ARM64AirGap(t *testing.T) {
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
 						Enabled:                 true,
-						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io", config.PrivateACRName(config.Config.DefaultLocation)),
+						ContainerRegistryServer: config.PrivateACRServer(config.PrivateACRName(config.Config.DefaultLocation)),
 					},
 				}
 			},
@@ -177,7 +177,7 @@ func Test_AzureLinuxV2_ARM64_ArtifactSourceCache(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a AzureLinuxV2 (CgroupV2) VHD on ARM64 architecture can be properly bootstrapped",
 		Tags: Tags{
-			Airgap: false,
+			NetworkIsolated: false,
 		},
 		Config: Config{
 			Cluster: ClusterKubenet,
@@ -367,21 +367,21 @@ func Test_MarinerV2(t *testing.T) {
 	})
 }
 
-func Test_MarinerV2_AirGap(t *testing.T) {
+func Test_MarinerV2_NetworkIsolated(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a MarinerV2 VHD can be properly bootstrapped",
 		Tags: Tags{
-			Airgap: true,
+			NetworkIsolated: true,
 		},
 		Config: Config{
-			Cluster: ClusterKubenetAirgap,
+			Cluster: ClusterNetworkIsolated,
 			VHD:     config.VHDCBLMarinerV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.OutboundType = datamodel.OutboundTypeBlock
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
 						Enabled:                 true,
-						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io", config.PrivateACRName(config.Config.DefaultLocation)),
+						ContainerRegistryServer: config.PrivateACRServer(config.PrivateACRName(config.Config.DefaultLocation)),
 					},
 				}
 			},
@@ -409,14 +409,14 @@ func Test_MarinerV2_ARM64(t *testing.T) {
 	})
 }
 
-func Test_MarinerV2_ARM64AirGap(t *testing.T) {
+func Test_MarinerV2_ARM64NetworkIsolated(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a MarinerV2 VHD on ARM64 architecture can be properly bootstrapped",
 		Tags: Tags{
-			Airgap: true,
+			NetworkIsolated: true,
 		},
 		Config: Config{
-			Cluster: ClusterKubenetAirgap,
+			Cluster: ClusterNetworkIsolated,
 			VHD:     config.VHDCBLMarinerV2Gen2Arm64,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
@@ -426,7 +426,7 @@ func Test_MarinerV2_ARM64AirGap(t *testing.T) {
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
 						Enabled:                 true,
-						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io", config.PrivateACRName(config.Config.DefaultLocation)),
+						ContainerRegistryServer: config.PrivateACRServer(config.PrivateACRName(config.Config.DefaultLocation)),
 					},
 				}
 
@@ -630,21 +630,21 @@ func Test_Ubuntu2204(t *testing.T) {
 		}})
 }
 
-func Test_Ubuntu2204_AirGap(t *testing.T) {
+func Test_Ubuntu2204_NetworkIsolated(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "Tests that a node using the Ubuntu 2204 VHD and is airgap can be properly bootstrapped",
+		Description: "Tests that a node using the Ubuntu 2204 VHD and is network isolated can be properly bootstrapped",
 		Tags: Tags{
-			Airgap: true,
+			NetworkIsolated: true,
 		},
 		Config: Config{
-			Cluster: ClusterKubenetAirgap,
+			Cluster: ClusterNetworkIsolated,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.OutboundType = datamodel.OutboundTypeBlock
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
 						Enabled:                 true,
-						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io", config.PrivateACRName(config.Config.DefaultLocation)),
+						ContainerRegistryServer: config.PrivateACRServer(config.PrivateACRName(config.Config.DefaultLocation)),
 					},
 				}
 			},
@@ -655,9 +655,9 @@ func Test_Ubuntu2204_AirGap(t *testing.T) {
 	})
 }
 
-// TODO: refactor NonAnonymous tests to use the same cluster as Anonymous airgap
-// or deprecate anonymous ACR airgap tests once it is unsupported
-func Test_Ubuntu2204_AirGap_NonAnonymousACR(t *testing.T) {
+// TODO: refactor NonAnonymous tests to use the same cluster as Anonymous network isolated
+// or deprecate anonymous ACR network isolated tests once it is unsupported
+func Test_Ubuntu2204_NetworkIsolated_NonAnonymousACR(t *testing.T) {
 	location := config.Config.DefaultLocation
 
 	ctx := newTestCtx(t)
@@ -665,13 +665,13 @@ func Test_Ubuntu2204_AirGap_NonAnonymousACR(t *testing.T) {
 	require.NoError(t, err)
 
 	RunScenario(t, &Scenario{
-		Description: "Tests that a node using the Ubuntu 2204 VHD and is airgap can be properly bootstrapped",
+		Description: "Tests that a node using the Ubuntu 2204 VHD and is network isolated can be properly bootstrapped",
 		Tags: Tags{
-			Airgap:          true,
+			NetworkIsolated: true,
 			NonAnonymousACR: true,
 		},
 		Config: Config{
-			Cluster: ClusterKubenetAirgapNonAnon,
+			Cluster: ClusterNetworkIsolatedNonAnon,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.TenantID = *identity.Properties.TenantID
@@ -681,7 +681,7 @@ func Test_Ubuntu2204_AirGap_NonAnonymousACR(t *testing.T) {
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
 						Enabled:                 true,
-						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io", config.PrivateACRNameNotAnon(config.Config.DefaultLocation)),
+						ContainerRegistryServer: config.PrivateACRServer(config.PrivateACRNameNotAnon(config.Config.DefaultLocation)),
 					},
 				}
 			},
@@ -692,21 +692,21 @@ func Test_Ubuntu2204_AirGap_NonAnonymousACR(t *testing.T) {
 	})
 }
 
-func Test_Ubuntu2204Gen2_ContainerdAirgappedK8sNotCached(t *testing.T) {
+func Test_Ubuntu2204Gen2_ContainerdNetworkIsolatedK8sNotCached(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "Tests that a node using the Ubuntu 2204 VHD without k8s binary and is airgap can be properly bootstrapped",
+		Description: "Tests that a node using the Ubuntu 2204 VHD without k8s binary and is network isolated can be properly bootstrapped",
 		Tags: Tags{
-			Airgap: true,
+			NetworkIsolated: true,
 		},
 		Config: Config{
-			Cluster: ClusterKubenetAirgap,
-			VHD:     config.VHDUbuntu2204Gen2ContainerdAirgappedK8sNotCached,
+			Cluster: ClusterNetworkIsolated,
+			VHD:     config.VHDUbuntu2204Gen2ContainerdNetworkIsolatedK8sNotCached,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.OutboundType = datamodel.OutboundTypeBlock
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
 						Enabled:                 true,
-						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io", config.PrivateACRName(config.Config.DefaultLocation)),
+						ContainerRegistryServer: config.PrivateACRServer(config.PrivateACRName(config.Config.DefaultLocation)),
 					},
 				}
 				nbc.AgentPoolProfile.LocalDNSProfile = nil
@@ -719,20 +719,20 @@ func Test_Ubuntu2204Gen2_ContainerdAirgappedK8sNotCached(t *testing.T) {
 		}})
 }
 
-func Test_Ubuntu2204Gen2_ContainerdAirgappedNonAnonymousK8sNotCached(t *testing.T) {
+func Test_Ubuntu2204Gen2_ContainerdClusterNetworkIsolatedNonAnonymousK8sNotCached(t *testing.T) {
 	location := config.Config.DefaultLocation
 	ctx := newTestCtx(t)
 	identity, err := config.Azure.UserAssignedIdentities.Get(ctx, config.ResourceGroupName(location), config.VMIdentityName, nil)
 	require.NoError(t, err)
 	RunScenario(t, &Scenario{
-		Description: "Tests that a node using the Ubuntu 2204 VHD without k8s binary and is airgap can be properly bootstrapped",
+		Description: "Tests that a node using the Ubuntu 2204 VHD without k8s binary and is network isolated can be properly bootstrapped",
 		Tags: Tags{
-			Airgap:          true,
+			NetworkIsolated: true,
 			NonAnonymousACR: true,
 		},
 		Config: Config{
-			Cluster: ClusterKubenetAirgapNonAnon,
-			VHD:     config.VHDUbuntu2204Gen2ContainerdAirgappedK8sNotCached,
+			Cluster: ClusterNetworkIsolatedNonAnon,
+			VHD:     config.VHDUbuntu2204Gen2ContainerdNetworkIsolatedK8sNotCached,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.TenantID = *identity.Properties.TenantID
 				nbc.UserAssignedIdentityClientID = *identity.Properties.ClientID
@@ -740,7 +740,7 @@ func Test_Ubuntu2204Gen2_ContainerdAirgappedNonAnonymousK8sNotCached(t *testing.
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
 						Enabled:                 true,
-						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io", config.PrivateACRNameNotAnon(location)),
+						ContainerRegistryServer: config.PrivateACRServer(config.PrivateACRNameNotAnon(location)),
 					},
 				}
 				nbc.AgentPoolProfile.LocalDNSProfile = nil
@@ -1196,7 +1196,7 @@ func Test_Ubuntu2204_PrivateKubePkg(t *testing.T) {
 
 // These tests were created to verify that the apt-get call in downloadContainerdFromVersion is not executed.
 // The code path is not hit in either of these tests. In the future, testing with some kind of firewall to ensure no egress
-// calls are made would be beneficial for airgap testing.
+// calls are made would be beneficial for network isolation testing.
 
 // Combine old e2e tests for scenario Ubuntu2204_ContainerdURL and Ubuntu2204_IMDSRestrictionFilterTable
 func Test_Ubuntu2204_ContainerdURL_IMDSRestrictionFilterTable(t *testing.T) {
