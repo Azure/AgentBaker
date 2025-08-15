@@ -8,11 +8,11 @@ Param(
     [Parameter(Mandatory=$false)][string]
     $KubeconfigPath = [Io.path]::Combine("$KubeDir", "config"),
     [Parameter(Mandatory=$false)][string]
-    $CredFilePath = [Io.path]::Combine("$KubeDir", "pki", "client.pem"),
+    $CertDir = [Io.path]::Combine("$KubeDir", "pki"), # use kubelet's default pki directory
     [Parameter(Mandatory=$false)][string]
-    $AzureConfigPath = [io.path]::Combine($KubeDir, "azure.json"),
+    $AzureConfigPath = [Io.path]::Combine($KubeDir, "azure.json"),
     [Parameter(Mandatory=$false)][string]
-    $ClusterCAFilePath = [io.path]::Combine($KubeDir, "ca.crt"),
+    $ClusterCAFilePath = [Io.path]::Combine($KubeDir, "ca.crt"),
     [Parameter(Mandatory=$false)][string]
     $LogFilePath = [Io.path]::Combine("$KubeDir", "secure-tls-bootstrap.log"),
     [Parameter(Mandatory=$false)][string]
@@ -44,7 +44,7 @@ Write-Log "Starting secure TLS bootstrapping: invoking aks-secure-tls-bootstrap-
     --apiserver-fqdn=$MasterIP `
     --cluster-ca-file=$ClusterCAFilePath `
     --cloud-provider-config=$AzureConfigPath `
-    --cred-file=$CredFilePath `
+    --cert-dir=$CertDir `
     --kubeconfig=$KubeconfigPath `
     --log-file=$LogFilePath `
     --deadline=$Deadline
