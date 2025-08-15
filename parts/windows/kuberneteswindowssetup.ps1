@@ -178,6 +178,13 @@ $global:WindowsGmsaPackageUrl = "{{GetVariable "windowsGmsaPackageUrl" }}";
 # TLS Bootstrap Token
 $global:TLSBootstrapToken = "{{GetTLSBootstrapTokenForKubeConfig}}"
 
+# Secure TLS Bootstrap settings
+$global:EnableSecureTLSBootstrapping = [System.Convert]::ToBoolean("{{EnableSecureTLSBootstrapping}}");
+$global:CustomSecureTLSBootstrapClientURL = "{{GetCustomSecureTLSBootstrapClientURL}}";
+# uniquely identifies AKS's Entra ID application, see: https://learn.microsoft.com/en-us/azure/aks/kubelogin-authentication#how-to-use-kubelogin-with-aks
+# this is used by aks-secure-tls-bootstrap-client.exe when requesting AAD tokens
+$global:AKSAADServerAppID = "6dae42f8-4368-4678-94ff-3960e28e3630"
+
 # Disable OutBoundNAT in Azure CNI configuration
 $global:IsDisableWindowsOutboundNat = [System.Convert]::ToBoolean("{{GetVariable "isDisableWindowsOutboundNat" }}");
 
@@ -255,6 +262,7 @@ if (-not (Test-Path "C:\AzureData\windows\azurecnifunc.ps1")) {
 . c:\AzureData\windows\kubeletfunc.ps1
 . c:\AzureData\windows\kubernetesfunc.ps1
 . c:\AzureData\windows\nvidiagpudriverfunc.ps1
+. c:\AzureData\windows\securetlsbootstrapfunc.ps1
 
 
 # ====== BASE PREP: BASE IMAGE PREPARATION ======
@@ -298,6 +306,13 @@ function BasePrep {
     Configure-KubeletServingCertificateRotation
 
     Write-KubeClusterConfig -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp
+
+    # to ensure we don't introduce any incompatibility between base CSE + CSE package versions
+    if (Get-Command -Name Install-SecureTLSBootstrapClient -ErrorAction SilentlyContinue) {
+        Install-SecureTLSBootstrapClient -KubeDir $global:KubeDir -CustomSecureTLSBootstrapClientDownloadUrl $global:CustomSecureTLSBootstrapClientURL
+    } else {
+        Write-Log "Install-SecureTLSBootstrapClient is not a recognized function, will skip installation of the secure TLS bootstrap client"
+    }
 
     Install-CredentialProvider -KubeDir $global:KubeDir -CustomCloudContainerRegistryDNSSuffix {{if IsAKSCustomCloud}}"{{ AKSCustomCloudContainerRegistryDNSSuffix }}"{{else}}""{{end}}
 
@@ -360,10 +375,10 @@ function BasePrep {
             -MasterFQDNPrefix $MasterFQDNPrefix `
             -MasterIP $MasterIP `
             -TLSBootstrapToken $global:TLSBootstrapToken
-
-        # NOTE: we need kubeconfig to setup calico even if TLS bootstrapping is enabled
-        #       This kubeconfig will deleted after calico installation.
-        # TODO(hbc): once TLS bootstrap is fully enabled, remove this if block
+    }
+    if ($global:TLSBootstrapToken -or $global:EnableSecureTLSBootstrapping) {
+        # NOTE: we need kubeconfig to setup calico even if vanilla/secure TLS bootstrapping is enabled
+        # This kubeconfig will deleted after calico installation.
         Write-Log "Write temporary kube config"
     } else {
         Write-Log "Write kube config"
@@ -463,6 +478,11 @@ function NodePrep {
     if ($global:WindowsCalicoPackageURL) {
         Start-InstallCalico -RootDir "c:\" -KubeServiceCIDR $global:KubeServiceCIDR -KubeDnsServiceIp $KubeDnsServiceIp
     }
+    if ($global:TLSBootstrapToken -or $global:EnableSecureTLSBootstrapping) {
+        Write-Log "Removing temporary kube config"
+        $kubeConfigFile = [io.path]::Combine($KubeDir, "config")
+        Remove-Item $kubeConfigFile
+    }
 
     Start-InstallGPUDriver -EnableInstall $global:ConfigGPUDriverIfNeeded -GpuDriverURL $global:GpuDriverURL
 
@@ -470,12 +490,6 @@ function NodePrep {
     {
         Write-Log "Removing aks cache directory"
         Remove-Item $CacheDir -Recurse -Force
-    }
-
-    if ($global:TLSBootstrapToken) {
-        Write-Log "Removing temporary kube config"
-        $kubeConfigFile = [io.path]::Combine($KubeDir, "config")
-        Remove-Item $kubeConfigFile
     }
 
     Enable-GuestVMLogs -IntervalInMinutes $global:LogGeneratorIntervalInMinutes

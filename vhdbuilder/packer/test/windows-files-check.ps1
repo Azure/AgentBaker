@@ -141,6 +141,13 @@ function Test-ValidateSinglePackageSignature {
                 if ($NotSignedFileName -eq "win-bridge.exe") {
                     continue
                 }
+                # aks-secure-tls-bootstrap-client.exe should be signed once it has been onboarded to Dalec and published via Upstream,
+                # though for now we allow-list it as to not block secure TLS bootstrapping development
+                # NOTE: this is okay since the binary is cleaned up during node provisioning when secure TLS bootstrapping is disabled (which is currently the default in production)
+                # TODO(cameissner): remove this once the binary is properly signed
+                if ($NotSignedFileName -eq "aks-secure-tls-bootstrap-client.exe") {
+                    continue
+                }
                 if (($SkipMapForSignature.ContainsKey($fileName) -and ($SkipMapForSignature[$fileName].Length -ne 0) -and !$SkipMapForSignature[$fileName].Contains($NotSignedFileName)) -or !$SkipMapForSignature.ContainsKey($fileName)) {
                     if (!$NotSignedResult.ContainsKey($dir)) {
                         $NotSignedResult[$dir]=@{}
