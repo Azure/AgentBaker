@@ -1593,5 +1593,19 @@
         }
       }
     }
+  ],
+  "OCIArtifacts": [
+    {
+      "name": "wcn-l3-stack",
+      "registry": "mcr.microsoft.com/wcn/package:${version}-${CPU_ARCH}",
+      "windowsDownloadLocation": "c:\\akse-cache\\wcn\\",
+      "windowsVersions": [
+        {
+          "renovateTag": "<DO_NOT_UPDATE>",
+          "latestVersion": "0.2.0-prerelease.1",
+          "windowsSkuMatch": "23H2*"
+        }
+      ]
+    }
   ]
 }
