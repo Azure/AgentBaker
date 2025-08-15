@@ -1,3 +1,5 @@
+20250815T000000Z requires base image version 202409.04.0 or newer. Upgrade node images if using an older version.
+
 Release notes for security patch 20250815T000000Z timestamp
 Package difference between 20250729T000000Z and 20250815T000000Z
 Reboot required
