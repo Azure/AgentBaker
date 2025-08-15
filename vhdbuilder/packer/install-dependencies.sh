@@ -431,32 +431,46 @@ while IFS= read -r p; do
 done <<< "$packages"
 
 installAndConfigureArtifactStreaming() {
-  # arguments: package name, package extension
+  # arguments: package name, MCR image path, package extension
   PACKAGE_NAME=$1
-  PACKAGE_EXTENSION=$2
+  MCR_IMAGE_PATH=$2
+  PACKAGE_EXTENSION=$3
   MIRROR_PROXY_VERSION='0.2.12'
-  MIRROR_DOWNLOAD_PATH="./$1.$2"
-  MIRROR_PROXY_URL="https://acrstreamingpackage.blob.core.windows.net/bin/${MIRROR_PROXY_VERSION}/${PACKAGE_NAME}.${PACKAGE_EXTENSION}"
-  retrycmd_curl_file 10 5 60 $MIRROR_DOWNLOAD_PATH $MIRROR_PROXY_URL || exit ${ERR_ARTIFACT_STREAMING_DOWNLOAD}
-  if [ "$2" = "deb" ]; then
-    apt_get_install 30 1 600 $MIRROR_DOWNLOAD_PATH || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD
-  elif [ "$2" = "rpm" ]; then
-    dnf_install 30 1 600 $MIRROR_DOWNLOAD_PATH || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD
+  MIRROR_DOWNLOAD_PATH="./$1.$3"
+  
+  # Use oras to pull the image from MCR
+  echo "Pulling artifact streaming package from MCR: $MCR_IMAGE_PATH:$MIRROR_PROXY_VERSION"
+  oras pull $MCR_IMAGE_PATH:$MIRROR_PROXY_VERSION --output $MIRROR_DOWNLOAD_PATH || exit ${ERR_ARTIFACT_STREAMING_DOWNLOAD}
+  
+  # Install the package based on the extension
+  if [ "$3" = "deb" ]; then
+    apt_get_install 30 1 600 $MIRROR_DOWNLOAD_PATH || exit $ERR_ARTIFACT_STREAMING_INSTALL
+  elif [ "$3" = "rpm" ]; then
+    dnf_install 30 1 600 $MIRROR_DOWNLOAD_PATH || exit $ERR_ARTIFACT_STREAMING_INSTALL
   fi
   rm $MIRROR_DOWNLOAD_PATH
 }
 
 UBUNTU_MAJOR_VERSION=$(echo $UBUNTU_RELEASE | cut -d. -f1)
-# Artifact Streaming currently not supported for 24.04, the deb file isnt present in acs-mirror
-# TODO(amaheshwari/aganeshkumar): Remove the conditional when Artifact Streaming is enabled for 24.04
-if [ "$OS" = "$UBUNTU_OS_NAME" ] && [ "$(isARM64)" -ne 1 ] && [ "$UBUNTU_MAJOR_VERSION" -ge 20 ] && [ "${UBUNTU_RELEASE}" != "24.04" ]; then
-  installAndConfigureArtifactStreaming acr-mirror-${UBUNTU_RELEASE//.} deb
+# Install Artifact Streaming based on OS version
+if [ "$OS" = "$UBUNTU_OS_NAME" ] && [ "$(isARM64)" -ne 1 ]; then
+  if [ "${UBUNTU_RELEASE}" = "20.04" ]; then
+    installAndConfigureArtifactStreaming acr-mirror-ubuntu2004 "mcr.microsoft.com/acr-mirror/ubuntu2004-amd64" deb
+  elif [ "${UBUNTU_RELEASE}" = "22.04" ]; then
+    installAndConfigureArtifactStreaming acr-mirror-ubuntu2204 "mcr.microsoft.com/acr-mirror/ubuntu2204-amd64" deb
+  elif [ "${UBUNTU_RELEASE}" = "24.04" ]; then
+    echo "Artifact Streaming currently not available for Ubuntu 24.04, will be added when available"
+  fi
 fi
 
-# TODO(aadagarwal): Enable Artifact Streaming for AzureLinux 3.0
-if [ "$OS" = "$MARINER_OS_NAME" ]  && [ "$OS_VERSION" = "2.0" ] && [ "$(isARM64)"  -ne 1 ]; then
-  installAndConfigureArtifactStreaming acr-mirror-mariner rpm
-fi
+# Configure Artifact Streaming for Mariner/AzureLinux
+# TODO(aadagarwal): Enable Artifact Streaming for AzureLinux 3.0 when available
+if [ "$OS" = "$MARINER_OS_NAME" ] && [ "$OS_VERSION" = "2.0" ] && [ "$(isARM64)" -ne 1 ]; then
+  installAndConfigureArtifactStreaming acr-mirror-mariner "mcr.microsoft.com/acr-mirror/mariner-amd64" rpm
+ fi
+ 
+
+# TODO(aadagarwal): Enable Artifact Streaming for AzureLinux 3.0 when available
 
 # k8s will use images in the k8s.io namespaces - create it
 ctr namespace create k8s.io
