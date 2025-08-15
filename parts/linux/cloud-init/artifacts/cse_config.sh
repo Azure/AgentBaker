@@ -953,8 +953,8 @@ providers:
       - "*.azurecr.de"
       - "*.azurecr.us"
       - "*$AKS_CUSTOM_CLOUD_CONTAINER_REGISTRY_DNS_SUFFIX"
-    defaultCacheDuratiocredentialprovider.kubelet.k8s.io/v1n: "10m"
-    apiVersion: 
+    defaultCacheDuration: "10m"
+    apiVersion: credentialprovider.kubelet.k8s.io/v1
     args:
       - /etc/kubernetes/azure.json
 EOF

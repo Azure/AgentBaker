@@ -182,7 +182,7 @@ func getBaseClusterModel(clusterName, location string) *armcontainerservice.Mana
 	}
 }
 
-func addNetworkIsolationSettings(ctx context.Context, clusterModel *armcontainerservice.ManagedCluster, privateACRName, location string) error {
+func addNetworkIsolatedNetworkSettings(ctx context.Context, clusterModel *armcontainerservice.ManagedCluster, privateACRName, location string) error {
 	logf(ctx, "Adding network settings for network isolated cluster %s in rg %s", *clusterModel.Name, *clusterModel.Properties.NodeResourceGroup)
 
 	vnet, err := getClusterVNet(ctx, *clusterModel.Properties.NodeResourceGroup)
