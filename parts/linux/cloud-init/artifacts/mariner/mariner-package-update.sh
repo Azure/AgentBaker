@@ -3,10 +3,20 @@
 set -o nounset
 set -e
 
+# Global constants used in this file. 
+# -------------------------------------------------------------------------------------------------
+OS_RELEASE_FILE="/etc/os-release"
+
+KUBECTL="/usr/local/bin/kubectl --kubeconfig /var/lib/kubelet/kubeconfig"
+
+# Function definitions used in this file. 
+# functions defined until "${__SOURCED__:+return}" are sourced and tested in -
+# spec/parts/linux/cloud-init/artifacts/mariner-package-update_spec.sh.
+# -------------------------------------------------------------------------------------------------
 dnf_update() {
     retries=10
     dnf_update_output=/tmp/dnf-update.out
-    versionID=$(grep '^VERSION_ID=' /etc/os-release  | cut -d'=' -f2 | tr -d '"')
+    versionID=$(grep '^VERSION_ID=' ${OS_RELEASE_FILE} | cut -d'=' -f2 | tr -d '"')
     if [ "${versionID}" = "3.0" ]; then
         # Convert the golden timestamp (format: YYYYMMDDTHHMMSSZ) to a timestamp in seconds
         # e.g. 20250623T000000Z -> 2025-06-23 00:00:00 -> 1750636800
@@ -35,7 +45,8 @@ dnf_update() {
     echo Executed dnf update -y --refresh $i times
 }
 
-KUBECTL="/usr/local/bin/kubectl --kubeconfig /var/lib/kubelet/kubeconfig"
+${__SOURCED__:+return}
+# --------------------------------------- Main Execution starts here --------------------------------------------------
 
 # At startup, we need to wait for kubelet to finish TLS bootstrapping to create the kubeconfig file.
 n=0
