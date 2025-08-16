@@ -157,6 +157,59 @@ function Download-FileWithAzCopy
     popd
 }
 
+function Pull-OCIArtifact
+{
+    param (
+        $Name,
+        $Dest
+    )
+
+    if (!(Test-Path -Path "$global:aksTempDir\oras.exe"))
+    {
+        if (!(Test-Path -Path "$global:aksTempDir"))
+        {
+            Write-Log "Creating temp dir $global:aksTempDir for oras"
+            New-Item -ItemType Directory $global:aksTempDir -Force
+        }
+
+        $orasVersion = '1.2.3'
+        $orasZip = "oras_${orasVersion}_windows_amd64.zip"
+        $orasUrl = "https://github.com/oras-project/oras/releases/download/v${orasVersion}/${orasZip}"
+
+        Write-Log "Downloading oras v${orasVersion}"
+        Invoke-WebRequest -UseBasicParsing $orasUrl -OutFile "$global:aksTempDir\$orasZip"
+        Expand-Archive -Path "$global:aksTempDir\$orasZip" -DestinationPath "$global:aksTempDir" -Force
+    }
+
+    Push-Location $global:aksTempDir
+
+    try
+    {
+        Write-Log "Pulling OCI artifact $Name"
+
+        if (!(Test-Path -Path $Dest))
+        {
+            Write-Log "Creating destination directory $Dest"
+            New-Item -ItemType Directory -Path $Dest -Force | Out-Null
+        }
+
+        .\oras.exe pull $Name -o $Dest
+        $orasExitCode = $LASTEXITCODE
+        if ($orasExitCode)
+        {
+            Log-VHDFreeSize
+            .\oras.exe version
+            throw "Oras pull failed with exit code $orasExitCode"
+        }
+
+        Get-ChildItem "$Dest"
+    }
+    finally
+    {
+        Pop-Location
+    }
+}
+
 function Cleanup-TemporaryFiles
 {
     if (Test-Path -Path $global:aksTempDir)
@@ -375,9 +428,9 @@ function Get-ContainerImages
     Remove-Job -Name containerd
 }
 
-function Get-FilesToCacheOnVHD
+function Get-PackagesToCacheOnVHD
 {
-    Write-Log "Caching misc files on VHD"
+    Write-Log "Caching packages on VHD"
 
     foreach ($dir in $map.Keys)
     {
@@ -397,7 +450,36 @@ function Get-FilesToCacheOnVHD
     foreach ($dir in $map.Keys)
     {
         LogFilesInDirectory "$dir"
+    }   return $global:map.Keys
+}
+
+function Get-OCIArtifactsToCacheOnVHD
+{
+    Write-Log "Caching $($ociArtifactsToPull.Count) OCI artifacts on VHD"
+
+    foreach ($dir in $ociArtifactsToPull.Keys)
+    {
+        New-Item -ItemType Directory $dir -Force | Out-Null
+
+        foreach ($ociArtifactName in $global:ociArtifactsToPull[$dir])
+        {
+            Write-Log "Pulling OCI artifact $ociArtifactName to $dir"
+            Pull-OCIArtifact -Name $ociArtifactName -Dest $dir
+        }
     }
+
+
+    foreach ($dir in $ociArtifactsToPull.Keys)
+    {
+        LogFilesInDirectory "$dir"
+    }
+}
+
+function Get-FilesToCacheOnVHD
+{
+    Write-Log "Caching misc files on VHD"
+    Get-OCIArtifactsToCacheOnVHD
+    Get-PackagesToCacheOnVHD
 }
 
 function LogFilesInDirectory
