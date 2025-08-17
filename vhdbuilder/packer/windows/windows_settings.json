@@ -803,6 +803,14 @@
       "Type": "DWORD"
     },
     {
+      "Comment": "2025-8B",
+      "WindowsSkuMatch": "2022*",
+      "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
+      "Name": "222700687",
+      "Value": "1",
+      "Type": "DWORD"
+    },
+    {
       "Comment": "2025-7B",
       "WindowsSkuMatch": "23H2*",
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
