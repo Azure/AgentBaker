@@ -362,7 +362,7 @@ func daemonsetDebug(ctx context.Context, deploymentName, targetNodeLabel, privat
 	image := "mcr.microsoft.com/cbl-mariner/base/core:2.0"
 	secretName := ""
 	if isNetworkIsolated {
-		image = fmt.Sprintf("%s.azurecr.io/cbl-mariner/base/core:2.0", privateACRName)
+		image = fmt.Sprintf("%s.azurecr.io/aks-managed-repository/cbl-mariner/busybox:2.0", privateACRName)
 		secretName = config.Config.ACRSecretName
 	}
 	logf(ctx, "Creating daemonset %s with image %s", deploymentName, image)
@@ -469,7 +469,7 @@ func podHTTPServerLinux(s *Scenario) *corev1.Pod {
 	image := "mcr.microsoft.com/cbl-mariner/busybox:2.0"
 	secretName := ""
 	if s.Tags.NetworkIsolated {
-		image = fmt.Sprintf("%s.azurecr.io/cbl-mariner/busybox:2.0", config.GetPrivateACRName(s.Tags.NonAnonymousACR, s.Location))
+		image = fmt.Sprintf("%s.azurecr.io/aks-managed-repository/cbl-mariner/busybox:2.0", config.GetPrivateACRName(s.Tags.NonAnonymousACR, s.Location))
 		secretName = config.Config.ACRSecretName
 	}
 	return &corev1.Pod{

@@ -28,11 +28,11 @@ func ResourceGroupName(location string) string {
 }
 
 func PrivateACRNameNotAnon(location string) string {
-	return "privatee2enonanonpull" + location // will have anonymous pull disabled
+	return "abe2enonanonpull" + location // will have anonymous pull disabled
 }
 
 func PrivateACRName(location string) string {
-	return "privatee2e" + location // will have anonymous pull enabled
+	return "abe2e" + location // will have anonymous pull enabled
 }
 
 func PrivateACRServer(acrName string) string {
@@ -70,7 +70,7 @@ type Configuration struct {
 
 	IgnoreScenariosWithMissingVHD bool          `env:"IGNORE_SCENARIOS_WITH_MISSING_VHD"`
 	KeepVMSS                      bool          `env:"KEEP_VMSS"`
-	DefaultLocation               string        `env:"E2E_LOCATION" envDefault:"westus3"`
+	DefaultLocation               string        `env:"E2E_LOCATION" envDefault:"westus2"`
 	TestGalleryNamePrefix         string        `env:"TEST_GALLERY_NAME_PREFIX" envDefault:"abe2etest"`
 	TestGalleryImagePrefix        string        `env:"TEST_GALLERY_IMAGE_PREFIX" envDefault:"abe2etest"`
 	SIGVersionTagName             string        `env:"SIG_VERSION_TAG_NAME" envDefault:"branch"`
