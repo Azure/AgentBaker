@@ -56,14 +56,14 @@ parameters:
     displayName: Build 2025 Gen 2
     type: boolean
     default: True
-  - name: windowsContainerImageJsonUrl
-    displayName: Windows Container Image Json URL
-    type: string
-    default: https://wcctagentbakerstorage.blob.core.windows.net/simship/2025/07B/payload.json
   - name: useContainerUrlsFromJson
     displayName: Use Container Base URL from JSON
     type: boolean
     default: False
+  - name: windowsContainerImageJsonUrl
+    displayName: Windows Container Image Json URL
+    type: string
+    default: https://wcctagentbakerstorage.blob.core.windows.net/simship/2025/07B/payload.json
   - name: dryrun
     displayName: Dry run
     type: boolean
@@ -106,7 +106,7 @@ stages:
           - script: echo "Setting Windows Container Image JSON URL to ${{ parameters.windowsContainerImageJsonUrl }}"
             displayName: Set Windows Container Image JSON URL
           - powershell: |
-              Write-Host "##vso[task.setvariable variable=windowsContainerImageJsonUrl;isOutput=true]${{ parameters.windowsContainerImageJsonUrl }}"
+              Write-Host "##vso[task.setvariable variable=windowsContainerImageJsonUrl]${{ parameters.windowsContainerImageJsonUrl }}"
             displayName: Set pipeline variable windowsContainerImageJsonUrl
       - job: SetURLToEmpty
         condition: eq(variables['useContainerUrlsFromJson'], 'False')
