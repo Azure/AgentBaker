@@ -24,6 +24,7 @@ installDeps() {
     if [ "$OS_VERSION" = "3.0" ]; then
       echo "Installing azurelinux-repos-cloud-native"
       dnf_install 30 1 600 azurelinux-repos-cloud-native
+      dnf_install 30 1 600 azurelinux-repos-cloud-native-preview
     else
       echo "Installing mariner-repos-cloud-native"
       dnf_install 30 1 600 mariner-repos-cloud-native

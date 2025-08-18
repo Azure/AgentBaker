@@ -1306,8 +1306,7 @@
               {
                 "k8sVersion": "1.34",
                 "renovateTag": "name=kubelet, os=ubuntu, release=24.04",
-                "latestVersion": "1.34.0~beta.0-ubuntu24.04u1",
-                "previousLatestVersion": "1.34.0~alpha.1-ubuntu24.04u2"
+                "latestVersion": "1.34.0~beta.0-ubuntu24.04u1"
               }
             ]
           },
@@ -1328,8 +1327,7 @@
               {
                 "k8sVersion": "1.34",
                 "renovateTag": "name=kubelet, os=ubuntu, release=22.04",
-                "latestVersion": "1.34.0~beta.0-ubuntu22.04u1",
-                "previousLatestVersion": "1.34.0~alpha.1-ubuntu22.04u2"
+                "latestVersion": "1.34.0~beta.0-ubuntu22.04u1"
               }
             ]
           },
@@ -1350,8 +1348,7 @@
               {
                 "k8sVersion": "1.34",
                 "renovateTag": "name=kubelet, os=ubuntu, release=20.04",
-                "latestVersion": "1.34.0~beta.0-ubuntu20.04u1",
-                "previousLatestVersion": "1.34.0~alpha.1-ubuntu20.04u2"
+                "latestVersion": "1.34.0~beta.0-ubuntu20.04u1"
               }
             ]
           }
@@ -1361,15 +1358,20 @@
             "versionsV2": [
               {
                 "k8sVersion": "1.32",
-                "renovateTag": "name=kubectl, os=azurelinux, release=3.0",
+                "renovateTag": "name=kubelet, os=azurelinux, release=3.0",
                 "latestVersion": "1.32.7-1.azl3",
                 "previousLatestVersion": "1.32.6-1.azl3"
               },
               {
                 "k8sVersion": "1.33",
-                "renovateTag": "name=kubectl, os=azurelinux, release=3.0",
+                "renovateTag": "name=kubelet, os=azurelinux, release=3.0",
                 "latestVersion": "1.33.3-1.azl3",
                 "previousLatestVersion": "1.33.2-1.azl3"
+              },
+              {
+                "k8sVersion": "1.34",
+                "renovateTag": "name=kubelet, os=azurelinux, release=3.0",
+                "latestVersion": "1.34.0~beta.0-1.azl3"
               }
             ]
           }
@@ -1460,6 +1462,11 @@
                 "renovateTag": "name=kubectl, os=azurelinux, release=3.0",
                 "latestVersion": "1.33.3-1.azl3",
                 "previousLatestVersion": "1.33.2-1.azl3"
+              },
+              {
+                "k8sVersion": "1.34",
+                "renovateTag": "name=kubectl, os=azurelinux, release=3.0",
+                "latestVersion": "1.34.0~beta.0-2.azl3"
               }
             ]
           }
