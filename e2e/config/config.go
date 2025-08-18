@@ -28,11 +28,11 @@ func ResourceGroupName(location string) string {
 }
 
 func PrivateACRNameNotAnon(location string) string {
-	return "privatee2enonanonpull" + location // will have anonymous pull enabled
+	return "privatee2enonanonpull" + location // will have anonymous pull disabled
 }
 
 func PrivateACRName(location string) string {
-	return "privatee2e" + location // will not have anonymous pull enabled
+	return "privatee2e" + location // will have anonymous pull enabled
 }
 
 func PrivateACRServer(acrName string) string {
