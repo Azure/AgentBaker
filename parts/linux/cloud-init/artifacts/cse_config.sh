@@ -127,18 +127,24 @@ EOF
 }
 
 configureHTTPProxyCA() {
+    suffix="crt"
     if isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
         cert_dest="/etc/pki/ca-trust/source/anchors"
         update_cmd="update-ca-trust"
     elif isMarinerOrAzureLinux "$OS"; then
         cert_dest="/usr/share/pki/ca-trust-source/anchors"
         update_cmd="update-ca-trust"
+    elif isFlatcar "$OS"; then
+        cert_dest="/etc/ssl/certs"
+        update_cmd="update-ca-certificates"
+        # c_rehash inside update-ca-certificates only handles *.pem in /etc/ssl/certs
+        suffix="pem"
     else
         cert_dest="/usr/local/share/ca-certificates"
         update_cmd="update-ca-certificates"
     fi
     HTTP_PROXY_TRUSTED_CA=$(echo "${HTTP_PROXY_TRUSTED_CA}" | xargs)
-    echo "${HTTP_PROXY_TRUSTED_CA}" | base64 -d > "${cert_dest}/proxyCA.crt" || exit $ERR_UPDATE_CA_CERTS
+    echo "${HTTP_PROXY_TRUSTED_CA}" | base64 -d > "${cert_dest}/proxyCA.${suffix}" || exit $ERR_UPDATE_CA_CERTS
     $update_cmd || exit $ERR_UPDATE_CA_CERTS
 }
 
