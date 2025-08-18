@@ -33,7 +33,7 @@ smbios --type 4 --get-string 7 --set cpu_manufacturer
 
 if [ x\$cpu_manufacturer = xNVIDIA ]; then
 	set default="gnulinux-${NVIDIA}-advanced-${boot_device_id}"
-	set nvidia_args="iommu.passthrough=1 irqchip.gicv3_nolpi=y arm_smmu_v3.disable_msipolling=1"
+	set nvidia_args="iommu.passthrough=1 irqchip.gicv3_nolpi=y arm_smmu_v3.disable_msipolling=1 systemd.log_level=debug"
 else
 	set default="gnulinux-${OTHER}-advanced-${boot_device_id}"
 fi
