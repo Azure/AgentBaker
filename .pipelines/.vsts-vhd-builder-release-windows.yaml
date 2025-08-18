@@ -13,8 +13,6 @@ variables:
     # if SIG_FOR_PRODUCTION is true, then the VHDs are deleted from the gallery before the e2e tests are run.
   - name: SIG_FOR_PRODUCTION
     value: False
-  - name: SKIP_E2E_TESTS
-    value: False
 
 parameters:
   - name: build2019containerd
