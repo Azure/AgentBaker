@@ -131,10 +131,10 @@ var (
 
 	// without kubelet, kubectl, credential-provider and wasm
 	VHDUbuntu2204Gen2ContainerdAirgappedK8sNotCached = &Image{
-		Name:                "2204gen2containerd",
+		Name:                "2204Gen2",
 		OS:                  OSUbuntu,
 		Arch:                "amd64",
-		Version:             "1.1755204156.32758",
+		Version:             "1.1725612526.29638",
 		Distro:              datamodel.AKSUbuntuContainerd2204Gen2,
 		Gallery:             imageGalleryLinux,
 		UnsupportedLocalDns: true,
