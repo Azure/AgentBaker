@@ -424,54 +424,48 @@ if [ "$OS_TYPE" = "Windows" ]; then
 		
 		sudo chmod 600 "$artifact_path"
 		echo "Reading image URLs from $artifact_path"
-
-		W2019_BASE_IMAGE_URL="$(jq -r '.images[] | select(.name == "WINDOWS_2019_BASE_IMAGE_URL") | .value' "$artifact_path")"
-		W2019_CORE_IMAGE_URL="$(jq -r '.images[] | select(.name == "WINDOWS_2019_CORE_IMAGE_URL") | .value' "$artifact_path")"
-		W2019_NANO_IMAGE_URL="$(jq -r '.images[] | select(.name == "WINDOWS_2019_NANO_IMAGE_URL") | .value' "$artifact_path")"
-		W2022_BASE_IMAGE_URL="$(jq -r '.images[] | select(.name == "WINDOWS_2022_BASE_IMAGE_URL") | .value' "$artifact_path")"
-		W2022_CORE_IMAGE_URL="$(jq -r '.images[] | select(.name == "WINDOWS_2022_CORE_IMAGE_URL") | .value' "$artifact_path")"
-		W2022_NANO_IMAGE_URL="$(jq -r '.images[] | select(.name == "WINDOWS_2022_NANO_IMAGE_URL") | .value' "$artifact_path")"
-		W2022_GEN2_BASE_IMAGE_URL="$(jq -r '.images[] | select(.name == "WINDOWS_2022_GEN2_BASE_IMAGE_URL") | .value' "$artifact_path")"
-		W2025_BASE_IMAGE_URL="$(jq -r '.images[] | select(.name == "WINDOWS_2025_BASE_IMAGE_URL") | .value' "$artifact_path")"
-		W2025_CORE_IMAGE_URL="$(jq -r '.images[] | select(.name == "WINDOWS_2025_CORE_IMAGE_URL") | .value' "$artifact_path")"
-		W2025_NANO_IMAGE_URL="$(jq -r '.images[] | select(.name == "WINDOWS_2025_NANO_IMAGE_URL") | .value' "$artifact_path")"
-		W2025_GEN2_BASE_IMAGE_URL="$(jq -r '.images[] | select(.name == "WINDOWS_2025_GEN2_BASE_IMAGE_URL") | .value' "$artifact_path")"
-		W23H2_BASE_IMAGE_URL="$(jq -r '.images[] | select(.name == "WINDOWS_23H2_BASE_IMAGE_URL") | .value' "$artifact_path")"
-		W23H2_GEN2_BASE_IMAGE_URL="$(jq -r '.images[] | select(.name == "WINDOWS_23H2_GEN2_BASE_IMAGE_URL") | .value' "$artifact_path")"
-
-		# Based on the windows_sku, set the windows_nanoserver_image_url and windows_servercore_image_url
-		# For the 2025 base image, cache both 2022 and 2025 nanoserver and servercore images
-		if [ "${WINDOWS_SKU}" = "2019-containerd" ]; then
-			WINDOWS_BASE_IMAGE_URL="${W2019_BASE_IMAGE_URL}"
-			windows_nanoserver_image_url="${W2019_NANO_IMAGE_URL}"
-			windows_servercore_image_url="${W2019_CORE_IMAGE_URL}"
-		elif [ "${WINDOWS_SKU}" = "2022-containerd" ]; then
-			WINDOWS_BASE_IMAGE_URL="${W2022_BASE_IMAGE_URL}"
-			windows_nanoserver_image_url="${W2022_NANO_IMAGE_URL}"
-			windows_servercore_image_url="${W2022_CORE_IMAGE_URL}"
-		elif [ "${WINDOWS_SKU}" = "2022-containerd-gen2" ]; then
-			WINDOWS_BASE_IMAGE_URL="${W2022_GEN2_BASE_IMAGE_URL}"
-			windows_nanoserver_image_url="${W2022_NANO_IMAGE_URL}"
-			windows_servercore_image_url="${W2022_CORE_IMAGE_URL}"
-		elif [ "${WINDOWS_SKU}" = "2025" ]; then
-			WINDOWS_BASE_IMAGE_URL="${W2025_BASE_IMAGE_URL}"
-			windows_nanoserver_image_url="${W2025_NANO_IMAGE_URL},${W2022_NANO_IMAGE_URL}"
-			windows_servercore_image_url="${W2025_CORE_IMAGE_URL},${W2022_CORE_IMAGE_URL}"
-		elif [ "${WINDOWS_SKU}" = "2025-gen2" ]; then
-			WINDOWS_BASE_IMAGE_URL="${W2025_GEN2_BASE_IMAGE_URL}"
-			windows_nanoserver_image_url="${W2025_NANO_IMAGE_URL},${W2022_NANO_IMAGE_URL}"
-			windows_servercore_image_url="${W2025_CORE_IMAGE_URL},${W2022_CORE_IMAGE_URL}"
-		elif [ "${WINDOWS_SKU}" = "23H2" ]; then
-			WINDOWS_BASE_IMAGE_URL="${W23H2_BASE_IMAGE_URL}"
-			windows_nanoserver_image_url="${W2022_NANO_IMAGE_URL}"
-			windows_servercore_image_url="${W2022_CORE_IMAGE_URL}"
-		elif [ "${WINDOWS_SKU}" = "23H2-gen2" ]; then
-			WINDOWS_BASE_IMAGE_URL="${W23H2_GEN2_BASE_IMAGE_URL}"
-			windows_nanoserver_image_url="${W2022_NANO_IMAGE_URL}"
-			windows_servercore_image_url="${W2022_CORE_IMAGE_URL}"
-		else
-			echo "Unsupported WINDOWS_SKU: ${WINDOWS_SKU}"
-		fi	
+		
+		# Extract image URLs from the artifact JSON using a case statement for WINDOWS_SKU
+		case "${WINDOWS_SKU}" in
+			"2019-containerd")
+				WINDOWS_BASE_IMAGE_URL=$(jq -r '.images[] | select(.name == "WINDOWS_2019_BASE_IMAGE_URL") | .value' "$artifact_path")
+				windows_nanoserver_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2019_NANO_IMAGE_URL") | .value' "$artifact_path")
+				windows_servercore_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2019_CORE_IMAGE_URL") | .value' "$artifact_path")
+				;;
+			"2022-containerd")
+				WINDOWS_BASE_IMAGE_URL=$(jq -r '.images[] | select(.name == "WINDOWS_2022_BASE_IMAGE_URL") | .value' "$artifact_path")
+				windows_nanoserver_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2022_NANO_IMAGE_URL") | .value' "$artifact_path")
+				windows_servercore_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2022_CORE_IMAGE_URL") | .value' "$artifact_path")
+				;;
+			"2022-containerd-gen2")
+				WINDOWS_BASE_IMAGE_URL=$(jq -r '.images[] | select(.name == "WINDOWS_2022_GEN2_BASE_IMAGE_URL") | .value' "$artifact_path")
+				windows_nanoserver_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2022_NANO_IMAGE_URL") | .value' "$artifact_path")
+				windows_servercore_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2022_CORE_IMAGE_URL") | .value' "$artifact_path")
+				;;
+			"2025")
+				WINDOWS_BASE_IMAGE_URL=$(jq -r '.images[] | select(.name == "WINDOWS_2025_BASE_IMAGE_URL") | .value' "$artifact_path")
+				windows_nanoserver_image_url="$(jq -r '.images[] | select(.name == "WINDOWS_2025_NANO_IMAGE_URL") | .value' "$artifact_path"),$(jq -r '.images[] | select(.name == "WINDOWS_2022_NANO_IMAGE_URL") | .value' "$artifact_path")"
+				windows_servercore_image_url="$(jq -r '.images[] | select(.name == "WINDOWS_2025_CORE_IMAGE_URL") | .value' "$artifact_path"),$(jq -r '.images[] | select(.name == "WINDOWS_2022_CORE_IMAGE_URL") | .value' "$artifact_path")"
+				;;
+			"2025-gen2")
+				WINDOWS_BASE_IMAGE_URL=$(jq -r '.images[] | select(.name == "WINDOWS_2025_GEN2_BASE_IMAGE_URL") | .value' "$artifact_path")
+				windows_nanoserver_image_url="$(jq -r '.images[] | select(.name == "WINDOWS_2025_NANO_IMAGE_URL") | .value' "$artifact_path"),$(jq -r '.images[] | select(.name == "WINDOWS_2022_NANO_IMAGE_URL") | .value' "$artifact_path")"
+				windows_servercore_image_url="$(jq -r '.images[] | select(.name == "WINDOWS_2025_CORE_IMAGE_URL") | .value' "$artifact_path"),$(jq -r '.images[] | select(.name == "WINDOWS_2022_CORE_IMAGE_URL") | .value' "$artifact_path")"
+				;;
+			"23H2")
+				WINDOWS_BASE_IMAGE_URL=$(jq -r '.images[] | select(.name == "WINDOWS_23H2_BASE_IMAGE_URL") | .value' "$artifact_path")
+				windows_nanoserver_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2022_NANO_IMAGE_URL") | .value' "$artifact_path")
+				windows_servercore_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2022_CORE_IMAGE_URL") | .value' "$artifact_path")
+				;;
+			"23H2-gen2")
+				WINDOWS_BASE_IMAGE_URL=$(jq -r '.images[] | select(.name == "WINDOWS_23H2_GEN2_BASE_IMAGE_URL") | .value' "$artifact_path")
+				windows_nanoserver_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2022_NANO_IMAGE_URL") | .value' "$artifact_path")
+				windows_servercore_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2022_CORE_IMAGE_URL") | .value' "$artifact_path")
+				;;
+			*)
+				echo "Unsupported WINDOWS_SKU: ${WINDOWS_SKU}"
+				;;
+		esac
 	else
 		# If USE_CONTAINER_URLS_FROM_JSON is not true, fall back to default URLs
 		echo "Falling back to default Windows image URLs"
