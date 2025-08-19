@@ -106,6 +106,7 @@ installPkgWithAptGet() {
     # if no deb file with desired version found then try fetching from packages.microsoft repo
     debFile=$(find "${downloadDir}" -maxdepth 1 -name "${packagePrefix}" -print -quit 2>/dev/null) || debFile=""
     if [ -z "${debFile}" ]; then
+        # query all package versions and get the latest version for matching k8s version
         fullPackageVersion=$(apt list ${packageName} --all-versions | grep ${k8sVersion}- | awk '{print $2}' | sort -V | tail -n 1)
         echo "Did not find cached deb file, downloading ${packageName} version ${fullPackageVersion}"
         logs_to_events "AKS.CSE.install${packageName}PkgFromPMC.downloadPkgFromVersion" "downloadPkgFromVersion ${packageName} ${fullPackageVersion} ${downloadDir}"
@@ -115,7 +116,7 @@ installPkgWithAptGet() {
         echo "Failed to locate ${packageName} deb"
         exit $ERR_APT_INSTALL_TIMEOUT
     fi
-    
+
     logs_to_events "AKS.CSE.install${packageName}.installDebPackageFromFile" "installDebPackageFromFile ${debFile}" || exit $ERR_APT_INSTALL_TIMEOUT
 
     mv "/usr/bin/${packageName}" "/usr/local/bin/${packageName}"

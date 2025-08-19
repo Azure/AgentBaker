@@ -165,6 +165,7 @@ installRPMPackageFromFile() {
 
     rpmFile=$(find "${downloadDir}" -maxdepth 1 -name "${packagePrefix}" -print -quit 2>/dev/null) || rpmFile=""
     if [ -z "${rpmFile}" ]; then
+        # query all package versions and get the latest version for matching k8s version
         fullPackageVersion=$(tdnf list ${packageName} | grep ${desiredVersion}- | awk '{print $2}' | sort -V | tail -n 1)
         echo "Did not find cached rpm file, downloading ${packageName} version ${fullPackageVersion}"
         downloadPkgFromVersion "${packageName}" ${fullPackageVersion} "${downloadDir}" || exit $ERR_APT_INSTALL_TIMEOUT
@@ -179,7 +180,7 @@ installRPMPackageFromFile() {
         exit $ERR_APT_INSTALL_TIMEOUT
     fi
     mv "/usr/bin/${packageName}" "/usr/local/bin/${packageName}"
-	  rm -rf ${downloadDir} &
+	rm -rf ${downloadDir} &
 }
 
 downloadPkgFromVersion() {
