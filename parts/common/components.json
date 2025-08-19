@@ -60,14 +60,14 @@
           "windowsSkuMatch": "23H2*"
         },
         {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-npm",
-          "latestVersion": "v1.5.5",
-          "windowsSkuMatch": "2022-containerd*"
+          "renovateTag": "registry=https://mcr.microsoft.com, name=windows/nanoserver",
+          "latestVersion": "ltsc2022",
+          "windowsSkuMatch": "2025*"
         },
         {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-npm",
-          "latestVersion": "v1.5.5",
-          "windowsSkuMatch": "23H2*"
+          "renovateTag": "registry=https://mcr.microsoft.com, name=windows/nanoserver",
+          "latestVersion": "ltsc2025",
+          "windowsSkuMatch": "2025*"
         }
       ]
     },
