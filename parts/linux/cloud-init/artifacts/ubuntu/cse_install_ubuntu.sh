@@ -105,11 +105,11 @@ installPkgWithAptGet() {
     echo "installing ${packageName} version ${k8sVersion}"
 
     # if no deb file with desired version found then try fetching from packages.microsoft repo
-    debFile=$(find "${downloadDir}" -maxdepth 1 -name "${packageName}_${k8sVersion}*" -print -quit 2>/dev/null) || debFile=""
+    debFile=$(find "${downloadDir}" -maxdepth 1 -name "${packageName}_${k8sVersion}-*" -print -quit 2>/dev/null) || debFile=""
     if [ -z "${debFile}" ]; then
         echo "Did not find cached deb file, downloading ${packageName} version ${k8sVersion}"
         logs_to_events "AKS.CSE.install${packageName}PkgFromPMC.downloadPkgFromVersion" "downloadPkgFromVersion ${packageName} ${k8sVersion} ${downloadDir}"
-        debFile=$(find "${downloadDir}" -maxdepth 1 -name "${packageName}_${k8sVersion}*" -print -quit 2>/dev/null) || debFile=""
+        debFile=$(find "${downloadDir}" -maxdepth 1 -name "${packageName}_${k8sVersion}-*" -print -quit 2>/dev/null) || debFile=""
     fi
     if [ -z "${debFile}" ]; then
         echo "Failed to locate ${packageName} deb"
@@ -127,7 +127,7 @@ downloadPkgFromVersion() {
     downloadDir="${3:-"/opt/${packageName}/downloads"}"
     mkdir -p ${downloadDir}
     updateAptWithMicrosoftPkg
-    apt_get_download 20 30 ${packageName}=${packageVersion}* || exit $ERR_APT_INSTALL_TIMEOUT
+    apt_get_download 20 30 ${packageName}=${packageVersion}-* || exit $ERR_APT_INSTALL_TIMEOUT
     cp -al ${APT_CACHE_DIR}${packageName}_${packageVersion}* ${downloadDir}/ || exit $ERR_APT_INSTALL_TIMEOUT
     echo "Succeeded to download ${packageName} version ${packageVersion}"
 }

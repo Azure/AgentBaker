@@ -161,24 +161,25 @@ installRPMPackageFromFile() {
     local desiredVersion="${2}"
     echo "installing ${packageName} version ${desiredVersion}"
     downloadDir="/opt/${packageName}/downloads"
+    packagePrefix="${packageName}-${desiredVersion}-*"
 
-    rpmFile=$(find "${downloadDir}" -maxdepth 1 -name "${packageName}-${desiredVersion}*" -print -quit 2>/dev/null) || rpmFile=""
-    fullPackageVersion=$(tdnf list ${packageName} | grep ${desiredVersion} | awk '{print $2}')
+    rpmFile=$(find "${downloadDir}" -maxdepth 1 -name "${packagePrefix}" -print -quit 2>/dev/null) || rpmFile=""
+    fullPackageVersion=$(tdnf list ${packageName} | grep ${desiredVersion} | awk '{print $2}' | sort -V | tail -n 1)
     if [ -z "${rpmFile}" ]; then
-        echo "kubectl package not found at ${pathToKubectlRPM}. Attempting to download it."
+        echo "kubectl package not found at ${downloadDir}. Attempting to download it."
         downloadPkgFromVersion "${packageName}" ${fullPackageVersion} "${downloadDir}" || exit $ERR_APT_INSTALL_TIMEOUT
-        rpmFile=$(find "${downloadDir}" -maxdepth 1 -name "${packageName}-${desiredVersion}*" -print -quit 2>/dev/null) || rpmFile=""
+        rpmFile=$(find "${downloadDir}" -maxdepth 1 -name "${packagePrefix}" -print -quit 2>/dev/null) || rpmFile=""
     fi
 	  if [ -z "${rpmFile}" ]; then
         echo "Failed to locate ${packageName} rpm"
         exit $ERR_APT_INSTALL_TIMEOUT
     fi
 
-    if ! tdnf_install 30 1 600 ${downloadDir}/${packageName}-${desiredVersion}*; then
+    if ! tdnf_install 30 1 600 ${rpmFile}; then
         exit $ERR_APT_INSTALL_TIMEOUT
     fi
     mv "/usr/bin/${packageName}" "/usr/local/bin/${packageName}"
-	rm -rf ${downloadDir} &
+	  rm -rf ${downloadDir} &
 }
 
 downloadPkgFromVersion() {
