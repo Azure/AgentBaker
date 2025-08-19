@@ -164,9 +164,9 @@ installRPMPackageFromFile() {
     packagePrefix="${packageName}-${desiredVersion}-*"
 
     rpmFile=$(find "${downloadDir}" -maxdepth 1 -name "${packagePrefix}" -print -quit 2>/dev/null) || rpmFile=""
-    fullPackageVersion=$(tdnf list ${packageName} | grep ${desiredVersion} | awk '{print $2}' | sort -V | tail -n 1)
     if [ -z "${rpmFile}" ]; then
-        echo "kubectl package not found at ${downloadDir}. Attempting to download it."
+        fullPackageVersion=$(tdnf list ${packageName} | grep ${desiredVersion}- | awk '{print $2}' | sort -V | tail -n 1)
+        echo "Did not find cached rpm file, downloading ${packageName} version ${fullPackageVersion}"
         downloadPkgFromVersion "${packageName}" ${fullPackageVersion} "${downloadDir}" || exit $ERR_APT_INSTALL_TIMEOUT
         rpmFile=$(find "${downloadDir}" -maxdepth 1 -name "${packagePrefix}" -print -quit 2>/dev/null) || rpmFile=""
     fi
