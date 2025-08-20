@@ -472,7 +472,7 @@ GPUContainerImages=$(jq  -c '.GPUContainerImages[]' $COMPONENTS_FILEPATH)
 NVIDIA_DRIVER_IMAGE=""
 NVIDIA_DRIVER_IMAGE_TAG=""
 
-if [ $OS = $UBUNTU_OS_NAME ] && [ "$(isARM64)" -ne 1 ]; then  # No ARM64 SKU with GPU now
+if [ $OS = $UBUNTU_OS_NAME ]; then
   gpu_action="copy"
 
   while IFS= read -r imageToBePulled; do
