@@ -496,12 +496,20 @@ EOF
 fi
 
 if grep -q "GB200" <<< "$FEATURE_FLAGS"; then
-  # The gb200 feature flag should only be set for arm64 and Ubuntu 24.04, but validate
+  # The GB200 feature flag should only be set for arm64 and Ubuntu 24.04, but validate
   if [ ${UBUNTU_RELEASE} = "24.04" ] && [ ${CPU_ARCH} = "arm64" ]; then
-    # Install the NVIDIA driver
-    apt install -y nvidia-driver-575
-    # Install DCGM exporter
-    apt install -y datacenter-gpu-manager-exporter datacenter-gpu-manager-4-core datacenter-gpu-manager-4-proprietary libcap2-bin
+    # The open series driver is required for the GB200 platform. Dmesg output
+    # will appear directing the reader away from the proprietary driver. The GPUs
+    # are also not visible in nvidia-smi output with the proprietary drivers
+    apt install -y \
+      nvidia-driver-580-open \
+      cuda-12-toolkit \
+      nvidia-container-toolkit \
+      datacenter-gpu-manager-exporter \
+      datacenter-gpu-manager-4-core \
+      datacenter-gpu-manager-4-proprietary \
+      libcap2-bin
+
     systemctl enable nvidia-dcgm
     systemctl enable nvidia-dcgm-exporter
   fi
