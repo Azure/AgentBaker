@@ -588,7 +588,7 @@ if grep -q "GB200" <<< "$FEATURE_FLAGS"; then
     ofed_info -s
     apt install -y \
       nvidia-driver-580-open \
-      cuda-12-toolkit \
+      cuda-toolkit-12 \
       nvidia-container-toolkit \
       datacenter-gpu-manager-exporter \
       datacenter-gpu-manager-4-core \
