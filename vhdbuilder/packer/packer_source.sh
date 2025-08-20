@@ -421,6 +421,10 @@ copyPackerFiles() {
       NVIDIA_ASC_SRC=/home/packer/nvidia.pub
       NVIDIA_ASC_DEST=/etc/apt/keyrings/nvidia.pub
       cpAndMode $NVIDIA_ASC_SRC $NVIDIA_ASC_DEST 644
+
+      CONTAINERD_NVIDIA_TOML_SRC=/home/packer/containerd-nvidia.toml
+      CONTAINERD_NVIDIA_TOML_DEST=/etc/containerd/config.toml
+      cpAndMode $CONTAINERD_NVIDIA_TOML_SRC $CONTAINERD_NVIDIA_TOML_DEST 644
     fi
   fi
 
