@@ -591,11 +591,15 @@ if grep -q "GB200" <<< "$FEATURE_FLAGS"; then
 
     systemctl restart openibd
     ofed_info -s
+    apt install -y \
+      nvidia-driver-580-open \
+      cuda-12-toolkit \
+      nvidia-container-toolkit \
+      datacenter-gpu-manager-exporter \
+      datacenter-gpu-manager-4-core \
+      datacenter-gpu-manager-4-proprietary \
+      libcap2-bin
 
-    # Install the NVIDIA driver
-    apt install -y nvidia-driver-575
-    # Install DCGM exporter
-    apt install -y datacenter-gpu-manager-exporter datacenter-gpu-manager-4-core datacenter-gpu-manager-4-proprietary libcap2-bin
     systemctl enable nvidia-dcgm
     systemctl enable nvidia-dcgm-exporter
   fi
