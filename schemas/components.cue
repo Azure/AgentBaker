@@ -95,7 +95,7 @@ package components
 }
 
 #OCIArtifact: {
-	name: string
+	name?: string
 	registry: string
 	windowsDownloadLocation?: string
 	windowsVersions: [...#WindowsVersion]
