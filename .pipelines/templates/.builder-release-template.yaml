@@ -278,19 +278,16 @@ steps:
     condition: always()
     displayName: Check Build Performance
 
-  - bash: |
-      echo "Attempting to download grid compatibility program..."
-      if [ -z "${GRID_COMPATIBILITY_ARTIFACT_NAME:-}" ]; then
-        echo "GRID_COMPATIBILITY_ARTIFACT_NAME not set - skipping download"
-        echo "This is expected during initial scaffolding setup"
-        exit 0
-      fi
-      echo "Grid compatibility artifact name: ${GRID_COMPATIBILITY_ARTIFACT_NAME}"
-      echo "Grid compatibility binary download would happen here when artifact is available"
-      echo "##vso[task.logissue type=warning;]Grid compatibility artifact not yet available - scaffolding setup complete"
+  - task: DownloadPipelineArtifact@2
     displayName: Download Grid Compatibility Program
     condition: and(succeeded(), ne(variables.ENVIRONMENT, 'tme'))
-    continueOnError: true
+    inputs:
+      source: "specific"
+      downloadPath: "vhdbuilder/packer/gridcompatibility"
+      runVersion: "latest"
+      project: $(System.TeamProject)
+      pipeline: "OneBranch-NonOfficial-gridcompatibility-analyzer-binary"
+      artifactName: "drop_gridCompatibilityProgram"
 
   - bash: make -f packer.mk evaluate-grid-compatibility
     condition: always()
