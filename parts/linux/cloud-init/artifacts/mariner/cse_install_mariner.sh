@@ -24,6 +24,7 @@ installDeps() {
     if [ "$OS_VERSION" = "3.0" ]; then
       echo "Installing azurelinux-repos-cloud-native"
       dnf_install 30 1 600 azurelinux-repos-cloud-native
+      dnf_install 30 1 600 azurelinux-repos-cloud-native-preview
     else
       echo "Installing mariner-repos-cloud-native"
       dnf_install 30 1 600 mariner-repos-cloud-native
@@ -169,20 +170,22 @@ installRPMPackageFromFile() {
     local desiredVersion="${2}"
     echo "installing ${packageName} version ${desiredVersion}"
     downloadDir="/opt/${packageName}/downloads"
+    packagePrefix="${packageName}-${desiredVersion}-*"
 
-    rpmFile=$(find "${downloadDir}" -maxdepth 1 -name "${packageName}-${desiredVersion}*" -print -quit 2>/dev/null) || rpmFile=""
-    fullPackageVersion=$(tdnf list ${packageName} | grep ${desiredVersion} | awk '{print $2}')
+    rpmFile=$(find "${downloadDir}" -maxdepth 1 -name "${packagePrefix}" -print -quit 2>/dev/null) || rpmFile=""
     if [ -z "${rpmFile}" ]; then
-        echo "kubectl package not found at ${pathToKubectlRPM}. Attempting to download it."
+        # query all package versions and get the latest version for matching k8s version
+        fullPackageVersion=$(tdnf list ${packageName} | grep ${desiredVersion}- | awk '{print $2}' | sort -V | tail -n 1)
+        echo "Did not find cached rpm file, downloading ${packageName} version ${fullPackageVersion}"
         downloadPkgFromVersion "${packageName}" ${fullPackageVersion} "${downloadDir}" || exit $ERR_APT_INSTALL_TIMEOUT
-        rpmFile=$(find "${downloadDir}" -maxdepth 1 -name "${packageName}-${desiredVersion}*" -print -quit 2>/dev/null) || rpmFile=""
+        rpmFile=$(find "${downloadDir}" -maxdepth 1 -name "${packagePrefix}" -print -quit 2>/dev/null) || rpmFile=""
     fi
 	  if [ -z "${rpmFile}" ]; then
         echo "Failed to locate ${packageName} rpm"
         exit $ERR_APT_INSTALL_TIMEOUT
     fi
 
-    if ! tdnf_install 30 1 600 ${downloadDir}/${packageName}-${desiredVersion}*; then
+    if ! tdnf_install 30 1 600 ${rpmFile}; then
         exit $ERR_APT_INSTALL_TIMEOUT
     fi
     mv "/usr/bin/${packageName}" "/usr/local/bin/${packageName}"

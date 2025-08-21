@@ -9,13 +9,14 @@ Type=oneshot
 RemainAfterExit=yes
 
 ExecStart=/usr/local/bin/aks-secure-tls-bootstrap-client \
+    --verbose \
     --ensure-authorized \
     --next-proto=aks-tls-bootstrap \
-    --cluster-ca-file=/etc/kubernetes/certs/ca.crt \
     --kubeconfig=/var/lib/kubelet/kubeconfig \
-    --cred-file=/etc/kubernetes/certs/client.pem \
+    --cert-dir=/var/lib/kubelet/pki \
+    --cluster-ca-file=/etc/kubernetes/certs/ca.crt \
     --log-file=/var/log/azure/aks/secure-tls-bootstrap.log \
-    --deadline=60s \
+    --deadline=120s \
     $BOOTSTRAP_FLAGS
 
 [Install]

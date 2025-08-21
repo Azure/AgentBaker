@@ -85,7 +85,8 @@ $kLogFiles = @(
     "windowsnodereset.log",
     "credential-provider-config.yaml",
     "windows-exporter.err.log",
-    "windows-exporter.log"
+    "windows-exporter.log",
+    "secure-tls-bootstrap.log"
 )
 $kLogFiles | Foreach-Object {
     Create-SymbolLinkFile -SrcFile (Join-Path "C:\k\" $_) -DestFile (Join-Path $aksLogFolder $_)

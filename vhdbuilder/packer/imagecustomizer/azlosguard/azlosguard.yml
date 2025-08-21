@@ -6,6 +6,9 @@ os:
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/azlosguard/azurelinux-cloud-native.repo
       destination: /etc/yum.repos.d/azurelinux-cloud-native.repo
       permissions: 644
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/azlosguard/azurelinux-cloud-native-preview.repo
+      destination: /etc/yum.repos.d/azurelinux-cloud-native-preview.repo
+      permissions: 644
     # Build-time scripts and tools
     - source: /AgentBaker/vhdbuilder/packer/install-dependencies.sh
       destination: /opt/azure/containers/install-dependencies.sh

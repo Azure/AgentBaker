@@ -49,6 +49,10 @@ parameters:
   - name: windowsCoreImageUrl
     displayName: Windows core base container image URL Override
     type: string
+  - name: windowsContainerImageJsonUrl
+    displayName: Windows container image JSON URL Override
+    type: string
+    default: ""
   - name: overrideBranch
     type: string
     default: master
@@ -88,6 +92,7 @@ stages:
               windowsBaseImageUrl: ${{ parameters.windowsBaseImageUrl }}
               windowsNanoImageUrl: ${{ parameters.windowsNanoImageUrl }}
               windowsCoreImageUrl: ${{ parameters.windowsCoreImageUrl }}
+              windowsContainerImageJsonUrl: ${{ parameters.windowsContainerImageJsonUrl }}
               overrideBranch: ${{ parameters.overrideBranch }}
               useOverrides: ${{ parameters.useOverrides }}
               csePackageDir: ${{ parameters.csePackageDir }}
@@ -96,7 +101,7 @@ stages:
   - stage: e2e_${{ parameters.stageName }}
     displayName: E2E (${{ parameters.artifactName }})
     dependsOn: build_${{ parameters.stageName }}
-    condition: and(succeeded(), eq('${{ parameters.build }}', True))
+    condition: and(succeeded(), eq('${{ parameters.build }}', True), ne(variables.SKIP_E2E_TESTS, 'true'))
     variables:
       TAGS_TO_RUN: imageName=${{ parameters.imageName }}
     jobs:

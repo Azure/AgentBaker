@@ -391,6 +391,86 @@ if [ "$OS_TYPE" = "Windows" ]; then
 	# default: build VHD images from a marketplace base image
 	IMPORTED_IMAGE_NAME=$imported_windows_image_name
 	IMPORTED_IMAGE_URL="https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net/system/$IMPORTED_IMAGE_NAME.vhd"
+ 	export AZCOPY_AUTO_LOGIN_TYPE="MSI" # use Managed Identity for AzCopy authentication
+	export AZCOPY_MSI_RESOURCE_STRING="${AZURE_MSI_RESOURCE_STRING}"
+
+	echo "VALID IMAGE URL: ${WINDOWS_CONTAINERIMAGE_JSON_URL}"
+	if [ -n "${WINDOWS_CONTAINERIMAGE_JSON_URL}" ]; then
+		# Download the json artifact from the url
+		filename=$(basename "$WINDOWS_CONTAINERIMAGE_JSON_URL")
+		echo "Downloading $filename from wcct storage account using AzCopy with Managed Identity Auth"
+
+		# The JSON blob is formatted where each build image name is mapped to its corresponding image URL.
+		# For details on the expected format and how to manually retrieve the JSON blob,
+		# see: [WINDOWS-CONTAINERIMAGE-JSON.MD](vhdbuilder/packer/WINDOWS-CONTAINERIMAGE-JSON.MD)
+		if azcopy copy "${WINDOWS_CONTAINERIMAGE_JSON_URL}" "${BUILD_ARTIFACTSTAGINGDIRECTORY}/"; then
+			echo "Successfully downloaded the latest artifact: $filename"
+		else
+			echo "Failed to download the latest artifact"
+		fi
+
+		# Parse the json artifact to get the image urls
+		echo "Filename: $filename"
+		artifact_path="${BUILD_ARTIFACTSTAGINGDIRECTORY}/$filename"
+		
+		sudo chmod 600 "$artifact_path"
+		echo "Reading image URLs from $artifact_path"
+		
+		# Extract image URLs from the artifact JSON using a case statement for WINDOWS_SKU
+		case "${WINDOWS_SKU}" in
+			"2019-containerd")
+				WINDOWS_BASE_IMAGE_URL=$(jq -r '.images[] | select(.name == "WINDOWS_2019_BASE_IMAGE_URL") | .value' "$artifact_path")
+				windows_nanoserver_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2019_NANO_IMAGE_URL") | .value' "$artifact_path")
+				windows_servercore_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2019_CORE_IMAGE_URL") | .value' "$artifact_path")
+				;;
+			"2022-containerd")
+				WINDOWS_BASE_IMAGE_URL=$(jq -r '.images[] | select(.name == "WINDOWS_2022_BASE_IMAGE_URL") | .value' "$artifact_path")
+				windows_nanoserver_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2022_NANO_IMAGE_URL") | .value' "$artifact_path")
+				windows_servercore_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2022_CORE_IMAGE_URL") | .value' "$artifact_path")
+				;;
+			"2022-containerd-gen2")
+				WINDOWS_BASE_IMAGE_URL=$(jq -r '.images[] | select(.name == "WINDOWS_2022_GEN2_BASE_IMAGE_URL") | .value' "$artifact_path")
+				windows_nanoserver_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2022_NANO_IMAGE_URL") | .value' "$artifact_path")
+				windows_servercore_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2022_CORE_IMAGE_URL") | .value' "$artifact_path")
+				;;
+			"2025")
+				WINDOWS_BASE_IMAGE_URL=$(jq -r '.images[] | select(.name == "WINDOWS_2025_BASE_IMAGE_URL") | .value' "$artifact_path")
+				windows_nanoserver_image_url="$(jq -r '.images[] | select(.name == "WINDOWS_2025_NANO_IMAGE_URL") | .value' "$artifact_path"),$(jq -r '.images[] | select(.name == "WINDOWS_2022_NANO_IMAGE_URL") | .value' "$artifact_path")"
+				windows_servercore_image_url="$(jq -r '.images[] | select(.name == "WINDOWS_2025_CORE_IMAGE_URL") | .value' "$artifact_path"),$(jq -r '.images[] | select(.name == "WINDOWS_2022_CORE_IMAGE_URL") | .value' "$artifact_path")"
+				;;
+			"2025-gen2")
+				WINDOWS_BASE_IMAGE_URL=$(jq -r '.images[] | select(.name == "WINDOWS_2025_GEN2_BASE_IMAGE_URL") | .value' "$artifact_path")
+				windows_nanoserver_image_url="$(jq -r '.images[] | select(.name == "WINDOWS_2025_NANO_IMAGE_URL") | .value' "$artifact_path"),$(jq -r '.images[] | select(.name == "WINDOWS_2022_NANO_IMAGE_URL") | .value' "$artifact_path")"
+				windows_servercore_image_url="$(jq -r '.images[] | select(.name == "WINDOWS_2025_CORE_IMAGE_URL") | .value' "$artifact_path"),$(jq -r '.images[] | select(.name == "WINDOWS_2022_CORE_IMAGE_URL") | .value' "$artifact_path")"
+				;;
+			"23H2")
+				WINDOWS_BASE_IMAGE_URL=$(jq -r '.images[] | select(.name == "WINDOWS_23H2_BASE_IMAGE_URL") | .value' "$artifact_path")
+				windows_nanoserver_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2022_NANO_IMAGE_URL") | .value' "$artifact_path")
+				windows_servercore_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2022_CORE_IMAGE_URL") | .value' "$artifact_path")
+				;;
+			"23H2-gen2")
+				WINDOWS_BASE_IMAGE_URL=$(jq -r '.images[] | select(.name == "WINDOWS_23H2_GEN2_BASE_IMAGE_URL") | .value' "$artifact_path")
+				windows_nanoserver_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2022_NANO_IMAGE_URL") | .value' "$artifact_path")
+				windows_servercore_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2022_CORE_IMAGE_URL") | .value' "$artifact_path")
+				;;
+			*)
+				echo "Unsupported WINDOWS_SKU: ${WINDOWS_SKU}"
+				;;
+		esac
+	else
+		# If USE_CONTAINER_URLS_FROM_JSON is not true, fall back to default URLs
+		echo "Falling back to default Windows image URLs"
+	fi
+
+	# Check if base, nano, and servercore urls are set
+	if [ -z "${windows_nanoserver_image_url}" ] || [ -z "${windows_servercore_image_url}" ] || [ -z "${WINDOWS_BASE_IMAGE_URL}" ]; then
+		echo "Error: One of the Windows image URLs are not set."
+	else
+		# If all URLs are set, print them
+		echo "Using Windows base image URL: ${WINDOWS_BASE_IMAGE_URL}"
+		echo "Using Windows Nano Server image URL: ${windows_nanoserver_image_url}"
+		echo "Using Windows Server Core image URL: ${windows_servercore_image_url}"
+	fi
 
 	# build from a pre-supplied VHD blob a.k.a. external raw VHD
 	if [ -n "${WINDOWS_BASE_IMAGE_URL}" ]; then
@@ -399,8 +479,6 @@ if [ "$OS_TYPE" = "Windows" ]; then
 		WINDOWS_IMAGE_URL=${IMPORTED_IMAGE_URL}
 
 		echo "Copy Windows base image to ${WINDOWS_IMAGE_URL}"
-		export AZCOPY_AUTO_LOGIN_TYPE="MSI"
-		export AZCOPY_MSI_RESOURCE_STRING="${AZURE_MSI_RESOURCE_STRING}"
 		azcopy copy "${WINDOWS_BASE_IMAGE_URL}" "${WINDOWS_IMAGE_URL}"
 		# https://www.packer.io/plugins/builders/azure/arm#image_url
 		# WINDOWS_IMAGE_URL to a custom VHD to use for your base image. If this value is set, image_publisher, image_offer, image_sku, or image_version should not be set.
@@ -455,14 +533,14 @@ if [ "$OS_TYPE" = "Windows" ]; then
 		windows_sigmode_source_image_version="1.0.0"
 	fi
 
-	# Set nanoserver image url if the pipeline variable is set
-	if [ -n "${WINDOWS_NANO_IMAGE_URL}" ]; then
+	# Set nanoserver image url if the pipeline variable is set and the parameter is not already set
+	if [ -n "${WINDOWS_NANO_IMAGE_URL}" ] && [ -z "${windows_nanoserver_image_url}" ]; then
 		echo "WINDOWS_NANO_IMAGE_URL is set in pipeline variables"
-		windows_nanoserver_image_url="${WINDOWS_NANO_IMAGE_URL}"
+		windows_nanoserver_image_url="${WINDOWS_NANO_IMAGE_URL}"	
 	fi
 
-	# Set servercore image url if the pipeline variable is set
-	if [ -n "${WINDOWS_CORE_IMAGE_URL}" ]; then
+	# Set servercore image url if the pipeline variable is set and the parameter is not already set
+	if [ -n "${WINDOWS_CORE_IMAGE_URL}" ] && [ -z "${windows_servercore_image_url}" ]; then
 		echo "WINDOWS_CORE_IMAGE_URL is set in pipeline variables"
 		windows_servercore_image_url="${WINDOWS_CORE_IMAGE_URL}"
 	fi
