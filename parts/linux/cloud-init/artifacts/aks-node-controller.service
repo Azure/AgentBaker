@@ -1,5 +1,6 @@
 [Unit]
 Description=Parse contract and run csecmd
+ConditionPathExists=/opt/azure/containers/aks-node-controller-config.json
 After=cloud-init.target
 After=oem-cloudinit.service enable-oem-cloudinit.service
 Wants=cloud-init.target
