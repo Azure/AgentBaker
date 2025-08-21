@@ -279,6 +279,8 @@ const (
 	Componentkubelet   CustomConfigurationComponent = "kubelet"
 )
 
+const MAXIMUM_VALUE_LENGTH = 63
+
 func (d Distro) IsVHDDistro() bool {
 	for _, distro := range AKSDistrosAvailableOnVHD {
 		if d == distro {
@@ -1237,7 +1239,19 @@ func (a *AgentPoolProfile) GetKubernetesLabels() string {
 	}
 	sort.Strings(keys)
 	for _, key := range keys {
-		buf.WriteString(fmt.Sprintf(",%s=%s", key, a.CustomNodeLabels[key]))
+		value := a.CustomNodeLabels[key]
+		/*
+			The maximum length of a value is 63 characters. If Kubelet is started with a key
+			that has a value longer than 63 characters, it will crash on startup. Truncate
+			the front of the string since the end of the string is more likely to contain
+			relevant information like version numbers.
+		*/
+		if len(value) > MAXIMUM_VALUE_LENGTH {
+			truncatedValue := value[len(value)-MAXIMUM_VALUE_LENGTH:]
+			buf.WriteString(fmt.Sprintf(",%s=%s", key, truncatedValue))
+		} else {
+			buf.WriteString(fmt.Sprintf(",%s=%s", key, a.CustomNodeLabels[key]))
+		}
 	}
 	return buf.String()
 }
