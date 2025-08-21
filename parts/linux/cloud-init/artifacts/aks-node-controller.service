@@ -1,6 +1,7 @@
 [Unit]
 Description=Parse contract and run csecmd
 After=cloud-init.target
+After=oem-cloudinit.service enable-oem-cloudinit.service
 Wants=cloud-init.target
 
 [Service]
@@ -10,3 +11,4 @@ RemainAfterExit=No
 
 [Install]
 WantedBy=cloud-init.target
+WantedBy=oem-cloudinit.service
