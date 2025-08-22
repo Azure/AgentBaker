@@ -223,12 +223,6 @@ steps:
         cis-report.txt
       TargetFolder: '$(Build.ArtifactStagingDirectory)'
 
-  - task: PublishPipelineArtifact@0
-    displayName: Publish Release Notes
-    inputs:
-      artifactName: 'vhd-release-notes-${{ parameters.artifactName }}'
-      targetPath: 'release-notes.txt'
-
   - task: CopyFiles@2
     displayName: Copy Release Notes
     inputs:
