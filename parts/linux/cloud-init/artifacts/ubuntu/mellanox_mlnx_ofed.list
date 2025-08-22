@@ -4,4 +4,4 @@
 #
 
 # [mlnx_ofed_24.10-1.1.4.0_base]
-deb http://linux.mellanox.com/public/repo/mlnx_ofed/24.10-1.1.4.0/ubuntu24.04/arm64 ./
+deb [signed-by=/etc/apt/keyrings/mellanox_mlnx_ofed.pub] http://linux.mellanox.com/public/repo/mlnx_ofed/24.10-1.1.4.0/ubuntu24.04/arm64 ./
