@@ -230,20 +230,6 @@ steps:
       Contents: 'release-notes.txt'
       TargetFolder: '$(Build.ArtifactStagingDirectory)'
 
-  - task: PublishPipelineArtifact@0
-    displayName: Publish Container Image List
-    inputs:
-      artifactName: 'vhd-image-bom-${{ parameters.artifactName }}'
-      targetPath: 'image-bom.json'
-
-  - task: CopyFiles@2
-    condition: succeeded()
-    displayName: Copy Image Bom
-    inputs:
-      SourceFolder: '$(System.DefaultWorkingDirectory)'
-      Contents: 'image-bom.json'
-      TargetFolder: '$(Build.ArtifactStagingDirectory)'
-
   - bash: make -f packer.mk convert-sig-to-classic-storage-account-blob
     condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'))
     displayName: Convert Shared Image Gallery To VHD Blob In Classic Storage Account
