@@ -185,7 +185,7 @@ AKS_AAD_SERVER_APP_ID="6dae42f8-4368-4678-94ff-3960e28e3630"
 # Checks if the elapsed time since CSEStartTime exceeds 13 minutes.
 # That value is based on the global CSE timeout which is set to 15 minutes - majority of CSE executions succeed or fail very fast, meaning we can exit slightly before the global timeout without affecting the overall CSE execution.
 # Global cse timeout is set in cse_start.sh: `timeout -k5s 15m /bin/bash /opt/azure/containers/provision.sh`
-# Long running functions can use this helper to gracefully handle global CSE timeout, avoiding exiting with 124 error code without extra context. 
+# Long running functions can use this helper to gracefully handle global CSE timeout, avoiding exiting with 124 error code without extra context.
 check_cse_timeout() {
     shouldLog="${1:-true}"
     maxDurationSeconds=780 # 780 seconds = 13 minutes
@@ -224,11 +224,11 @@ _retrycmd_internal() {
         exitStatus=$?
 
         if [ "$exitStatus" -eq 0 ]; then
-            break 
+            break
         fi
 
         # Check if CSE timeout is approaching - exit early to avoid 124 exit code from the global timeout
-        if ! check_cse_timeout "$shouldLog"; then 
+        if ! check_cse_timeout "$shouldLog"; then
             echo "CSE timeout approaching, exiting early." >&2
             return 2
         fi
@@ -283,7 +283,7 @@ _retry_file_curl_internal() {
     # checksToRun are conditions that need to pass to stop the retry loop. If not passed, eval command will return 0, because checksToRun will be interpreted as an empty string.
     retries=$1; waitSleep=$2; timeout=$3; filePath=$4; url=$5; checksToRun=( "${@:6}" )
     echo "${retries} file curl retries"
-    for i in $(seq 1 $retries); do 
+    for i in $(seq 1 $retries); do
         # Use eval to execute the checksToRun string as a command
         ( eval "$checksToRun" ) && break || if [ "$i" -eq "$retries" ]; then
             return 1
@@ -456,7 +456,7 @@ systemctlEnableAndStart() {
     fi
 }
 
-systemctlEnableAndStartNoBlock() {    
+systemctlEnableAndStartNoBlock() {
     service=$1; timeout=$2; status_check_delay_seconds=${3:-"0"}
 
     systemctl_restart_no_block 100 5 $timeout $service
@@ -501,7 +501,7 @@ systemctlDisableAndStop() {
 semverCompare() {
     VERSION_A=$(echo $1 | cut -d "+" -f 1 | cut -d "~" -f 1)
     VERSION_B=$(echo $2 | cut -d "+" -f 1 | cut -d "~" -f 1)
-    
+
     [ "${VERSION_A}" = "${VERSION_B}" ] && return 0
     sorted=$(echo ${VERSION_A} ${VERSION_B} | tr ' ' '\n' | sort -V )
     highestVersion=$(IFS= echo "${sorted}" | cut -d$'\n' -f2)
@@ -509,7 +509,7 @@ semverCompare() {
     return 1
 }
 
-	
+
 
 apt_get_download() {
   retries=$1; wait_sleep=$2; shift && shift;
@@ -577,7 +577,7 @@ logs_to_events() {
         --arg EventTid    "0" \
         '{Timestamp: $Timestamp, OperationId: $OperationId, Version: $Version, TaskName: $TaskName, EventLevel: $EventLevel, Message: $Message, EventPid: $EventPid, EventTid: $EventTid}'
     )
-    
+
     mkdir -p ${EVENTS_LOGGING_DIR}
     echo ${json_string} > ${EVENTS_LOGGING_DIR}${eventsFileName}.json
 
@@ -781,7 +781,7 @@ updateMultiArchVersions() {
   # check if multiArchVersions not exists
   if [ "$(echo "${imageToBePulled}" | jq -r '.multiArchVersions | if . == null then "null" else empty end')" = "null" ]; then
     MULTI_ARCH_VERSIONS=()
-    return 
+    return
   fi
 
   local versions=($(echo "${imageToBePulled}" | jq -r ".multiArchVersions[]"))
@@ -816,6 +816,20 @@ addKubeletNodeLabel() {
     if grep -i "$LABEL_STRING" <<< "$KUBELET_NODE_LABELS" > /dev/null 2>&1; then
         echo "kubelet node label $LABEL_STRING is already present, nothing to add"
         return 0
+    fi
+
+    # Check if the label value exceeds 63 characters (Kubernetes label value limit)
+    # Extract the value part after the '=' sign
+    # Without this limit check, kubelet will crash vaguely when first joining a cluster
+    local label_key="${LABEL_STRING%%=*}"
+    local label_value="${LABEL_STRING#*=}"
+
+    if [ "${#label_value}" -gt 63 ]; then
+        echo "Warning: Label value for '${label_key}' exceeds 63 characters (${#label_value} chars). Truncating to last 63 characters."
+        # Take only the last 63 characters of the value
+        label_value="${label_value: -63}"
+        LABEL_STRING="${label_key}=${label_value}"
+        echo "Truncated label: ${LABEL_STRING}"
     fi
 
     echo "adding label $LABEL_STRING to kubelet node labels..."
@@ -1009,12 +1023,12 @@ oras_login_with_kubelet_identity() {
 configureSSHService() {
     local os_param="${1:-$OS}"
     local os_version_param="${2:-$OS_VERSION}"
-    
+
     # If not Ubuntu, no changes needed
     if [ "$os_param" != "$UBUNTU_OS_NAME" ]; then
         return 0
     fi
-    
+
     # Only for Ubuntu 22.10+ or newer socket activation is used, for earlier versions no changes needed
     if semverCompare "22.10" "$os_version_param" ; then
         return 0
@@ -1031,11 +1045,11 @@ configureSSHService() {
     if [ -f /etc/systemd/system/ssh.service.d/00-socket.conf ]; then
         rm /etc/systemd/system/ssh.service.d/00-socket.conf || echo "Warning: Could not remove 00-socket.conf"
     fi
-    
+
     if [ -f /etc/systemd/system/ssh.socket.d/addresses.conf ]; then
         rm /etc/systemd/system/ssh.socket.d/addresses.conf || echo "Warning: Could not remove addresses.conf"
     fi
-    
+
     # For all Ubuntu versions, just make sure ssh service is enabled and running
     if ! systemctl is-enabled --quiet ssh.service; then
         echo "Enabling SSH service..."
@@ -1046,7 +1060,7 @@ configureSSHService() {
         echo "Error: Failed to start SSH service after configuration changes"
         return $ERR_SYSTEMCTL_START_FAIL
     fi
-    
+
     echo "SSH service successfully reconfigured and started"
     return 0
 }

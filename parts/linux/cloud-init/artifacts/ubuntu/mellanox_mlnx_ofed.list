@@ -1,0 +1,7 @@
+#
+# Mellanox Technologies Ltd. public repository configuration file.
+# For more information, refer to http://linux.mellanox.com
+#
+
+# [mlnx_ofed_24.10-1.1.4.0_base]
+deb http://linux.mellanox.com/public/repo/mlnx_ofed/24.10-1.1.4.0/ubuntu24.04/arm64 ./
