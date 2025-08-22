@@ -141,7 +141,7 @@ parameters:
     displayName: Build 2404 ARM64 Gen2 containerd
     type: boolean
     default: true
-  - name: build2404arm64gb200
+  - name: build2404arm64gb200gen2containerd
     displayName: Build 2404 ARM64 GB200 Gen2 Containerd
     type: boolean
     default: true
@@ -1281,11 +1281,11 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: flatcar-gen2-arm64
-  - stage: build_vhd_2404_arm64_gb200
-    condition: eq('${{ parameters.build2404arm64gb200 }}', true)
+  - stage: build_vhd_2404_arm64_gb200_gen2_containerd
+    condition: eq('${{ parameters.build2404arm64gb200gen2containerd }}', true)
     dependsOn: []
     jobs:
-      - job: build2404arm64gb200
+      - job: build2404arm64gb200gen2containerd
         timeoutInMinutes: 180
         steps:
           - bash: |
@@ -1306,7 +1306,7 @@ stages:
             parameters:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
-              artifactName: 2404-arm64-gb200
+              artifactName: 2404-arm64-gb200-gen2-containerd
   - stage: e2e
     condition: and(succeeded(), ne(variables.SKIP_E2E_TESTS, 'true'))
     variables:

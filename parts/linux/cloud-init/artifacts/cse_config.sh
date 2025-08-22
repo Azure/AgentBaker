@@ -628,6 +628,46 @@ ensureKubelet() {
     KUBELET_DEFAULT_FILE=/etc/default/kubelet
     mkdir -p /etc/default
 
+    # Function to validate and truncate kubelet node label values to 63 characters
+    validateKubeletNodeLabels() {
+        local labels="$1"
+        local validated_labels=""
+        local delimiter=""
+
+        # Return empty if no labels provided
+        if [ -z "$labels" ]; then
+            echo ""
+            return 0
+        fi
+
+        # Split labels by comma and process each
+        IFS=',' read -ra LABEL_ARRAY <<< "$labels"
+        for label in "${LABEL_ARRAY[@]}"; do
+            # Split each label into key and value
+            if [[ "$label" == *"="* ]]; then
+                key="${label%%=*}"
+                value="${label#*=}"
+
+                # Check if value length exceeds 63 characters
+                if [ ${#value} -gt 63 ]; then
+                    echo "Warning: Label value for key '$key' exceeds 63 characters, truncating from ${#value} to 63 characters" >&2
+                    value="${value:0:63}"
+                fi
+
+                # Rebuild the label with potentially truncated value
+                validated_labels="${validated_labels}${delimiter}${key}=${value}"
+            else
+                # Handle labels without values (though this shouldn't happen in practice)
+                validated_labels="${validated_labels}${delimiter}${label}"
+            fi
+
+            # Set delimiter for subsequent labels
+            delimiter=","
+        done
+
+        echo "$validated_labels"
+    }
+
     # In k8s >= 1.29 kubelet no longer sets node internalIP when using external cloud provider
     # https://github.com/kubernetes/kubernetes/pull/121028
     # This regresses node startup performance in Azure CNI Overlay and Podsubnet clusters, which require the node to be
@@ -652,7 +692,9 @@ EOF
     echo "KUBELET_REGISTER_SCHEDULABLE=true" >> "${KUBELET_DEFAULT_FILE}"
     echo "NETWORK_POLICY=${NETWORK_POLICY}" >> "${KUBELET_DEFAULT_FILE}"
     echo "KUBELET_IMAGE=${KUBELET_IMAGE}" >> "${KUBELET_DEFAULT_FILE}"
-    echo "KUBELET_NODE_LABELS=${KUBELET_NODE_LABELS}" >> "${KUBELET_DEFAULT_FILE}"
+    # Validate and truncate label values to 63 characters before writing to kubelet config
+    VALIDATED_KUBELET_NODE_LABELS=$(validateKubeletNodeLabels "${KUBELET_NODE_LABELS}")
+    echo "KUBELET_NODE_LABELS=${VALIDATED_KUBELET_NODE_LABELS}" >> "${KUBELET_DEFAULT_FILE}"
     if [ -n "${AZURE_ENVIRONMENT_FILEPATH}" ]; then
         echo "AZURE_ENVIRONMENT_FILEPATH=${AZURE_ENVIRONMENT_FILEPATH}" >> "${KUBELET_DEFAULT_FILE}"
     fi
