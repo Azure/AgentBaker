@@ -7,76 +7,74 @@ endif
 GOHOSTARCH = $(shell go env GOHOSTARCH)
 
 build-packer: generate-prefetch-scripts build-aks-node-controller build-lister-binary
-	@echo "SKIPPING VHD BUILD FOR FASTER DEBUGGING"
 ifeq (${ARCHITECTURE},ARM64)
-	@echo "${MODE}: SKIPPED - Building with Hyper-v generation 2 ARM64 VM"
+	@echo "${MODE}: Building with Hyper-v generation 2 ARM64 VM"
 ifeq (${OS_SKU},Ubuntu)
-	@echo "SKIPPED - Using packer template file vhd-image-builder-arm64-gen2.json"
-	# @packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-arm64-gen2.json
+	@echo "Using packer template file vhd-image-builder-arm64-gen2.json"
+	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-arm64-gen2.json
 else ifeq (${OS_SKU},CBLMariner)
-	@echo "SKIPPED - Using packer template file vhd-image-builder-mariner-arm64.json"
-	# @packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner-arm64.json
+	@echo "Using packer template file vhd-image-builder-mariner-arm64.json"
+	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner-arm64.json
 else ifeq (${OS_SKU},AzureLinux)
-	@echo "SKIPPED - Using packer template file vhd-image-builder-mariner-arm64.json"
-	# @packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner-arm64.json
+	@echo "Using packer template file vhd-image-builder-mariner-arm64.json"
+	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner-arm64.json
 else ifeq (${OS_SKU},Flatcar)
-	@echo "SKIPPED - Using packer template file vhd-image-builder-flatcar-arm64.json"
-	# @packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-flatcar-arm64.json
+	@echo "Using packer template file vhd-image-builder-flatcar-arm64.json"
+	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-flatcar-arm64.json
 else
 	$(error OS_SKU was invalid ${OS_SKU})
 endif
 else ifeq (${ARCHITECTURE},X86_64)
 ifeq (${HYPERV_GENERATION},V2)
-	@echo "${MODE}: SKIPPED - Building with Hyper-v generation 2 x86_64 VM"
+	@echo "${MODE}: Building with Hyper-v generation 2 x86_64 VM"
 else ifeq (${HYPERV_GENERATION},V1)
-	@echo "${MODE}: SKIPPED - Building with Hyper-v generation 1 X86_64 VM"
+	@echo "${MODE}: Building with Hyper-v generation 1 X86_64 VM"
 else
 	$(error HYPERV_GENERATION was invalid ${HYPERV_GENERATION})
 endif
 ifeq (${OS_SKU},Ubuntu)
 ifeq ($(findstring cvm,$(FEATURE_FLAGS)),cvm)
-	@echo "SKIPPED - Using packer template file vhd-image-builder-cvm.json"
-	# @packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-cvm.json
+	@echo "Using packer template file vhd-image-builder-cvm.json"
+	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-cvm.json
 else
-	@echo "SKIPPED - Using packer template file vhd-image-builder-base.json"
-	# @packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-base.json
+	@echo "Using packer template file vhd-image-builder-base.json"
+	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-base.json
 endif
 else ifeq (${OS_SKU},CBLMariner)
-	@echo "SKIPPED - Using packer template file vhd-image-builder-mariner.json"
-	# @packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner.json
+	@echo "Using packer template file vhd-image-builder-mariner.json"
+	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner.json
 else ifeq (${OS_SKU},AzureLinux)
 ifeq ($(findstring cvm,$(FEATURE_FLAGS)),cvm)
-	@echo "SKIPPED - Using packer template file vhd-image-builder-mariner-cvm.json"
-	# @packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner-cvm.json
+	@echo "Using packer template file vhd-image-builder-mariner-cvm.json"
+	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner-cvm.json
 else
-	@echo "SKIPPED - Using packer template file vhd-image-builder-mariner.json"
-	# @packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner.json
+	@echo "Using packer template file vhd-image-builder-mariner.json"
+	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner.json
 endif
 else ifeq (${OS_SKU},Flatcar)
-	@echo "SKIPPED - Using packer template file vhd-image-builder-flatcar.json"
-	# @packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-flatcar.json
+	@echo "Using packer template file vhd-image-builder-flatcar.json"
+	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-flatcar.json
 else
 	$(error OS_SKU was invalid ${OS_SKU})
 endif
 endif
 
 build-packer-windows:
-	@echo "SKIPPING WINDOWS VHD BUILD FOR FASTER DEBUGGING"
 ifeq (${MODE},windowsVhdMode)
 ifeq (${SIG_FOR_PRODUCTION},True)
 ifeq (${HYPERV_GENERATION},V1)
-	@echo "${MODE}: SKIPPED - Building with Hyper-v generation 1 VM and save to Classic Storage Account"
+	@echo "${MODE}: Building with Hyper-v generation 1 VM and save to Classic Storage Account"
 else
-	@echo "${MODE}: SKIPPED - Building with Hyper-v generation 2 VM and save to Classic Storage Account"
+	@echo "${MODE}: Building with Hyper-v generation 2 VM and save to Classic Storage Account"
 endif
 else
 ifeq (${HYPERV_GENERATION},V1)
-	@echo "${MODE}: SKIPPED - Building with Hyper-v generation 1 VM and save to Shared Image Gallery"
+	@echo "${MODE}: Building with Hyper-v generation 1 VM and save to Shared Image Gallery"
 else
-	@echo "${MODE}: SKIPPED - Building with Hyper-v generation 2 VM and save to Shared Image Gallery"
+	@echo "${MODE}: Building with Hyper-v generation 2 VM and save to Shared Image Gallery"
 endif
 endif
-	# @packer build -timestamp-ui -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/windows/windows-vhd-builder-sig.json
+	@packer build -timestamp-ui -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/windows/windows-vhd-builder-sig.json
 endif
 
 build-imagecustomizer: generate-prefetch-scripts build-aks-node-controller build-lister-binary
@@ -108,12 +106,10 @@ run-imagecustomizer: az-login
 	@($(MAKE) -f packer.mk init-packer | tee packer-output) && ($(MAKE) -f packer.mk build-imagecustomizer | tee -a packer-output)
 
 generate-publishing-info: az-login
-	@echo "SKIPPING VHD PUBLISHING INFO GENERATION FOR FASTER DEBUGGING"
-	# @./vhdbuilder/packer/generate-vhd-publishing-info.sh
+	@./vhdbuilder/packer/generate-vhd-publishing-info.sh
 
 convert-sig-to-classic-storage-account-blob: az-login
-	@echo "SKIPPING SIG TO CLASSIC STORAGE CONVERSION FOR FASTER DEBUGGING"
-	# @./vhdbuilder/packer/convert-sig-to-classic-storage-account-blob.sh
+	@./vhdbuilder/packer/convert-sig-to-classic-storage-account-blob.sh
 
 scanning-vhd: az-login
 	@./vhdbuilder/packer/vhd-scanning.sh
