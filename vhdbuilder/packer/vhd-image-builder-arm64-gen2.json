@@ -635,6 +635,16 @@
       "source": "parts/linux/cloud-init/artifacts/51-azure-nvidia.cfg",
       "destination": "/home/packer/51-azure-nvidia.cfg"
     },
+        {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/ubuntu/mellanox_mlnx_ofed.list",
+      "destination": "/home/packer/mellanox_mlnx_ofed.list"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/ubuntu/mellanox_mlnx_ofed.pub",
+      "destination": "/home/packer/mellanox_mlnx_ofed.pub"
+    },
     {
       "type": "shell",
       "inline": [
