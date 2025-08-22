@@ -31,22 +31,6 @@ steps:
       downloadDirectory: vhdbuilder/
 
   - task: DownloadPipelineArtifact@2
-    displayName: Download Grid Compatibility Program
-    condition: and(succeeded(), ne(variables.ENVIRONMENT, 'tme'))
-    inputs:
-      source: "specific"
-      downloadPath: "vhdbuilder/packer/gridcompatibility"
-      runVersion: "latest"
-      project: $(System.TeamProject)
-      pipeline: 431951
-      artifactName: "drop_gridCompatibilityProgram"
-
-  - bash: make -f packer.mk evaluate-grid-compatibility
-    condition: always()
-    continueOnError: true
-    displayName: Check Grid Compatibility
-    
-  - task: DownloadPipelineArtifact@2
     condition: and(or(eq(variables.OS_SKU, 'CBLMariner'), eq(variables.OS_SKU, 'AzureLinux')), eq(variables.IMG_OFFER, 'cbl-mariner'))
     displayName: 'Download Kata CC UVM artifact'
     inputs:
@@ -286,6 +270,22 @@ steps:
   - bash: make -f packer.mk evaluate-build-performance
     condition: always()
     displayName: Check Build Performance
+
+  - task: DownloadPipelineArtifact@2
+    displayName: Download Grid Compatibility Program
+    condition: and(succeeded(), ne(variables.ENVIRONMENT, 'tme'))
+    inputs:
+      source: "specific"
+      downloadPath: "vhdbuilder/packer/gridcompatibility"
+      runVersion: "latest"
+      project: $(System.TeamProject)
+      pipeline: 431951
+      artifactName: "drop_gridCompatibilityProgram"
+
+  - bash: make -f packer.mk evaluate-grid-compatibility
+    condition: always()
+    continueOnError: true
+    displayName: Check Grid Compatibility
 
   - bash: make -f packer.mk generate-publishing-info
     displayName: Generate Publishing Info
