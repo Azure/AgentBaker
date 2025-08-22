@@ -48,6 +48,28 @@ func Test_Flatcar(t *testing.T) {
 	})
 }
 
+func Test_Flatcar_CustomCATrust(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using the Flatcar VHD can be properly bootstrapped and custom CA was correctly added",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDFlatcarGen2,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.CustomCATrustConfig = &datamodel.CustomCATrustConfig{
+					CustomCATrustCerts: []string{
+						encodedTestCert,
+					},
+				}
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateNonEmptyDirectory(ctx, s, "/opt/certs")
+				// openssl x509 -hash of input cert
+				ValidateFileExists(ctx, s, "/etc/ssl/certs/5c3b39ed.0")
+			},
+		},
+	})
+}
+
 func Test_Flatcar_ARM64(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a Flatcar VHD on ARM64 architecture can be properly bootstrapped",
