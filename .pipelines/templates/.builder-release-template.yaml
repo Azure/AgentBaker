@@ -190,13 +190,6 @@ steps:
       SKIP_SCANNING: $(SKIP_SCANNING)
       DRY_RUN: $(DRY_RUN)
 
-  - task: PublishPipelineArtifact@0
-    condition: always()
-    displayName: Publish BCC Tools Installation Log
-    inputs:
-      artifactName: 'bcc-tools-installation-log-$(ARTIFACT_ID)-${{ parameters.artifactName }}'
-      targetPath: 'bcc-tools-installation.log'
-
   - task: CopyFiles@2
     condition: always()
     displayName: Copy BCC Tools Installation Log
