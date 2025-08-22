@@ -951,20 +951,6 @@ addKubeletNodeLabel() {
         return 0
     fi
 
-    # Check if the label value exceeds 63 characters (Kubernetes label value limit)
-    # Extract the value part after the '=' sign
-    # Without this limit check, kubelet will crash vaguely when first joining a cluster
-    #local label_key="${LABEL_STRING%%=*}"
-    #local label_value="${LABEL_STRING#*=}"
-
-    #if [ "${#label_value}" -gt 63 ]; then
-    #    echo "Warning: Label value for '${label_key}' exceeds 63 characters (${#label_value} chars). Truncating to last 63 characters."
-    #    # Take only the last 63 characters of the value
-    #    label_value="${label_value: -63}"
-    #    LABEL_STRING="${label_key}=${label_value}"
-    #    echo "Truncated label: ${LABEL_STRING}"
-    #fi
-
     echo "adding label $LABEL_STRING to kubelet node labels..."
     if [ -n "$KUBELET_NODE_LABELS" ]; then
         KUBELET_NODE_LABELS="${KUBELET_NODE_LABELS},${LABEL_STRING}"

@@ -609,6 +609,43 @@ ensurePodInfraContainerImage() {
     rm -f ${POD_INFRA_CONTAINER_IMAGE_TAR}
 }
 
+validateKubeletNodeLabels() {
+    local labels="$1"
+    local validated_labels=""
+    local delimiter=""
+
+    # Return empty if no labels provided
+    if [ -z "$labels" ]; then
+        echo "No labels found in KUBELET_NODE_LABELS"
+        return 0
+    fi
+
+    # Split labels by comma and process each
+    IFS=',' read -ra LABEL_ARRAY <<< "$labels"
+    for label in "${LABEL_ARRAY[@]}"; do
+        # Split each label into key and value
+        if [[ "$label" == *"="* ]]; then
+            key="${label%%=*}"
+            value="${label#*=}"
+
+            # Check if key length exceeds 63 characters
+            if [ ${#key} -gt 63 ]; then
+                echo "Warning: Label key '$key' exceeds 63 characters, truncating to 63 characters" >&2
+                key="${key:0:63}"
+            fi
+
+            # Rebuild the label with potentially truncated key
+            validated_labels="${validated_labels}${delimiter}${key}=${value}"
+        fi
+
+        # Set delimiter for subsequent labels
+        delimiter=","
+    done
+
+    # Update the global variable with validated labels
+    KUBELET_NODE_LABELS="$validated_labels"
+}
+
 ensureKubelet() {
     KUBELET_DEFAULT_FILE=/etc/default/kubelet
     mkdir -p /etc/default
@@ -637,6 +674,7 @@ EOF
     echo "KUBELET_REGISTER_SCHEDULABLE=true" >> "${KUBELET_DEFAULT_FILE}"
     echo "NETWORK_POLICY=${NETWORK_POLICY}" >> "${KUBELET_DEFAULT_FILE}"
     echo "KUBELET_IMAGE=${KUBELET_IMAGE}" >> "${KUBELET_DEFAULT_FILE}"
+    validateKubeletNodeLabels "${KUBELET_NODE_LABELS}"
     echo "KUBELET_NODE_LABELS=${KUBELET_NODE_LABELS}" >> "${KUBELET_DEFAULT_FILE}"
     if [ -n "${AZURE_ENVIRONMENT_FILEPATH}" ]; then
         echo "AZURE_ENVIRONMENT_FILEPATH=${AZURE_ENVIRONMENT_FILEPATH}" >> "${KUBELET_DEFAULT_FILE}"
