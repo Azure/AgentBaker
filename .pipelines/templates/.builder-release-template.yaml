@@ -279,7 +279,7 @@ steps:
       downloadPath: "vhdbuilder/packer/gridcompatibility"
       runVersion: "latest"
       project: $(System.TeamProject)
-      pipeline: "OneBranch-NonOfficial-gridcompatibility-analyzer-binary"
+      pipeline: 431951
       artifactName: "drop_gridCompatibilityProgram"
 
   - bash: make -f packer.mk evaluate-grid-compatibility
