@@ -1306,7 +1306,7 @@
               {
                 "k8sVersion": "1.34",
                 "renovateTag": "name=kubelet, os=ubuntu, release=24.04",
-                "latestVersion": "1.34.0~rc.1-ubuntu24.04u1"
+                "latestVersion": "1.34.0~rc.2-ubuntu24.04u1"
               }
             ]
           },
@@ -1401,7 +1401,7 @@
               {
                 "k8sVersion": "1.34",
                 "renovateTag": "name=kubectl, os=ubuntu, release=24.04",
-                "latestVersion": "1.34.0~rc.1-ubuntu24.04u1"
+                "latestVersion": "1.34.0~rc.2-ubuntu24.04u1"
               }
             ]
           },
