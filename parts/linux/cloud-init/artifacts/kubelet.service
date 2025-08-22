@@ -21,7 +21,6 @@ ExecStartPre=-/sbin/ebtables -t nat --list
 ExecStartPre=-/sbin/iptables -t nat --numeric --list
 
 ExecStartPre=/bin/bash /opt/azure/containers/validate-kubelet-credentials.sh
-ExecStartPre=/bin/bash /opt/azure/containers/update-kubelet-node-labels.sh
 
 ExecStart=/usr/local/bin/kubelet \
         --enable-server \
