@@ -40,7 +40,7 @@
       "virtual_network_subnet_name": "{{user `subnet_name`}}",
       "ssh_read_write_timeout": "5m",
       "os_type": "Linux",
-      "os_disk_size_gb": 30,
+      "os_disk_size_gb": 60,
       "image_publisher": "{{user `img_publisher`}}",
       "image_offer": "{{user `img_offer`}}",
       "image_sku": "{{user `img_sku`}}",
@@ -634,6 +634,16 @@
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/51-azure-nvidia.cfg",
       "destination": "/home/packer/51-azure-nvidia.cfg"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/ubuntu/mellanox_mlnx_ofed.list",
+      "destination": "/home/packer/mellanox_mlnx_ofed.list"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/ubuntu/mellanox_mlnx_ofed.pub",
+      "destination": "/home/packer/mellanox_mlnx_ofed.pub"
     },
     {
       "type": "shell",
