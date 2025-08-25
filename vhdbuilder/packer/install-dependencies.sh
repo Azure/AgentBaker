@@ -460,7 +460,7 @@ fi
 
 # k8s will use images in the k8s.io namespaces - create it
 ctr namespace create k8s.io
-cliTool="ctr --platform linux/${CPU_ARCH}"
+cliTool="ctr"
 
 
 INSTALLED_RUNC_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
