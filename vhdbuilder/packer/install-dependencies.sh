@@ -33,6 +33,7 @@ VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 COMPONENTS_FILEPATH=/opt/azure/components.json
 PERFORMANCE_DATA_FILE=/opt/azure/vhd-build-performance-data.json
 GRID_COMPATIBILITY_DATA_FILE=/opt/azure/vhd-grid-compatibility-data.json
+
 resolve_packages_source_url
 
 echo ""
