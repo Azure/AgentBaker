@@ -519,6 +519,7 @@ if grep -q "GB200" <<< "$FEATURE_FLAGS"; then
       ibverbs-providers
 
     systemctl restart openibd
+    ofed_info -s
   fi
 fi
 
