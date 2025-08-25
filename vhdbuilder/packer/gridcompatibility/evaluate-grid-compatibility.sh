@@ -14,6 +14,21 @@ log_and_exit () {
 
 echo "starting HERE"
 
+echo "=== DEBUG INFO ==="
+echo "Current working directory: $(pwd)"
+echo "Environment variables:"
+echo "ENVIRONMENT: ${ENVIRONMENT}"
+echo "USER: ${USER}"
+echo "HOME: ${HOME}"
+echo "=== END DEBUG INFO ==="
+
+echo "Contents of current directory:"
+ls -la
+
+echo "Checking for vhdbuilder/packer structure:"
+ls -la vhdbuilder/ || echo "vhdbuilder directory not found"
+ls -la vhdbuilder/packer/ || echo "vhdbuilder/packer directory not found"
+
 # if [ ! -f "${GRID_COMPATIBILITY_DATA_FILE}" ]; then
 #   log_and_exit ${GRID_COMPATIBILITY_DATA_FILE} "not found"
 # fi
@@ -60,17 +75,40 @@ echo "starting HERE"
 
 echo -e "\nENVIRONMENT is: ${ENVIRONMENT}"
 if [ "${ENVIRONMENT,,}" != "tme" ]; then
+  echo "Checking if gridcompatibility directory exists..."
+  ls -la vhdbuilder/packer/gridcompatibility/ || echo "Directory not found"
+  
   # mv ${SIG_IMAGE_NAME}-grid-compatibility.json vhdbuilder/packer/gridcompatibility
   pushd vhdbuilder/packer/gridcompatibility || exit 0
+    echo "Current directory: $(pwd)"
+    echo "Contents of gridcompatibility directory:"
+    ls -la
+    
     echo -e "\nRunning grid compatibility evaluation program...\n"
-    chmod +x gridCompatibilityProgram
-    
-    # Set environment variables for the grid compatibility program
-    export KUSTO_PROD_ENDPOINT="https://sparkle.eastus.kusto.windows.net"
-    export KUSTO_PROD_DATABASE="defaultdb"
-    
-    ./gridCompatibilityProgram gpu-driver-production
-    rm gridCompatibilityProgram
+    if [ -f "gridCompatibilityProgram" ]; then
+      echo "gridCompatibilityProgram found, making executable..."
+      chmod +x gridCompatibilityProgram
+      ls -la gridCompatibilityProgram
+      
+      # Set environment variables for the grid compatibility program
+      export KUSTO_PROD_ENDPOINT="https://sparkle.eastus.kusto.windows.net"
+      export KUSTO_PROD_DATABASE="defaultdb"
+      
+      echo "Environment variables set:"
+      echo "KUSTO_PROD_ENDPOINT=${KUSTO_PROD_ENDPOINT}"
+      echo "KUSTO_PROD_DATABASE=${KUSTO_PROD_DATABASE}"
+      
+      echo "Executing: ./gridCompatibilityProgram gpu-driver-production"
+      ./gridCompatibilityProgram gpu-driver-production
+      PROGRAM_EXIT_CODE=$?
+      echo "gridCompatibilityProgram exit code: ${PROGRAM_EXIT_CODE}"
+      
+      rm gridCompatibilityProgram
+    else
+      echo "ERROR: gridCompatibilityProgram not found in $(pwd)"
+      echo "Available files:"
+      ls -la
+    fi
   popd || exit 0
 else
   echo -e "Skipping grid compatibility evaluation for tme environment"
