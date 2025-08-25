@@ -298,7 +298,7 @@ EOF
     return 0
 }
 
-# Cleanup function to remove localdns related configurations.
+# Remove iptables rules and revert DNS configuration.
 cleanup_localdns_configs() {
     # Disable error handling so that we don't get into a recursive loop.
     set +e
