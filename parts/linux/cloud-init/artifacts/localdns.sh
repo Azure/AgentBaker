@@ -63,7 +63,7 @@ START_LOCALDNS_TIMEOUT=10
 # Function definitions used in this file. 
 # functions defined until "${__SOURCED__:+return}" are sourced and tested in -
 # spec/parts/linux/cloud-init/artifacts/localdns_spec.sh.
-# -------------------------------------------------------------------------------------------------
+# --------------------------------------------------------------------------------------------------
 # Verify that the localdns corefile exists and is not empty.
 verify_localdns_corefile() {
     if [ -z "${LOCALDNS_CORE_FILE:-}" ]; then
