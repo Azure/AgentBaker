@@ -1834,7 +1834,7 @@ func Test_Ubuntu2404_GPU_H100(t *testing.T) {
 	vmSize := "Standard_ND96isr_H100_v5"
 	RunScenario(t, &Scenario{
 		Description: fmt.Sprintf("Tests that a GPU-enabled node with VM size %s using an Ubuntu 2404 VHD can be properly bootstrapped and NPD tests are valid", vmSize),
-		Location:    "southafricanorth",
+		Location:    "uaenorth",
 		Tags: Tags{
 			GPU: true,
 		},
