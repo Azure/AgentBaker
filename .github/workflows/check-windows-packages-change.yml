@@ -42,6 +42,7 @@ jobs:
           $diffFile = "../diff.md"
           git diff --quiet -- "${DIFF_DIR}"
           if ( $LASTEXITCODE -eq "0" ) {
+            # This line is commented out to reduce noise in the PRs
             # Write-Output "No changes to cached containers or packages on Windows VHDs" > $diffFile
           } else {
             Write-Output "Changes cached containers or packages on windows VHDs" > $diffFile
