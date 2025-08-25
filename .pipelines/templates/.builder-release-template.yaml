@@ -151,7 +151,6 @@ steps:
       echo "##vso[task.setvariable variable=MANAGED_SIG_ID]$(cat packer-output | grep "ManagedImageSharedImageGalleryId:" | cut -d " " -f 2)" && \
       echo "##vso[task.setvariable variable=SIG_GALLERY_NAME]$(cat vhdbuilder/packer/settings.json | grep "sig_gallery_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
       echo "##vso[task.setvariable variable=PERFORMANCE_DATA_FILE]vhd-build-performance-data.json" && \
-      echo "##vso[task.setvariable variable=GRID_COMPATIBILITY_DATA_FILE]vhd-grid-compatibility-data.json" && \
       echo "##vso[task.setvariable variable=PKR_RG_NAME]$(cat packer-output | grep "ResourceGroupName" | cut -d "'" -f 2 | head -1)" && \
       echo "##vso[task.setvariable variable=OS_NAME]Linux" && \
       echo "##vso[task.setvariable variable=OS_TYPE]Linux" && \
