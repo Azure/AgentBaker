@@ -61,15 +61,14 @@ if [ "${ENVIRONMENT,,}" != "tme" ]; then
   mv ${SIG_IMAGE_NAME}-grid-compatibility.json vhdbuilder/packer/gridcompatibility
   pushd vhdbuilder/packer/gridcompatibility || exit 0
     echo -e "\nRunning grid compatibility evaluation program...\n"
-    if [ -n "${GRID_COMPATIBILITY_BINARY:-}" ] && [ -f "${GRID_COMPATIBILITY_BINARY}" ]; then
-      chmod +x ${GRID_COMPATIBILITY_BINARY}
-      ./${GRID_COMPATIBILITY_BINARY}
-      rm ${GRID_COMPATIBILITY_BINARY}
-    else
-      echo "Grid compatibility binary not found or not specified: ${GRID_COMPATIBILITY_BINARY:-not_set}"
-      echo "##vso[task.logissue type=warning;]Grid compatibility binary not available. Skipping evaluation."
-      echo "This is expected during initial scaffolding setup."
-    fi
+    chmod +x gridCompatibilityProgram
+    
+    # Set environment variables for the grid compatibility program
+    export KUSTO_PROD_ENDPOINT="https://sparkle.eastus.kusto.windows.net"
+    export KUSTO_PROD_DATABASE="defaultdb"
+    
+    ./gridCompatibilityProgram gpu-driver-production
+    rm gridCompatibilityProgram
   popd || exit 0
 else
   echo -e "Skipping grid compatibility evaluation for tme environment"
