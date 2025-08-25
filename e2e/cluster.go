@@ -239,6 +239,7 @@ func getOrCreateCluster(ctx context.Context, cluster *armcontainerservice.Manage
 		// we need to delete the cluster and recreate the cluster in this case
 		derr := deleteCluster(ctx, &existingCluster.ManagedCluster)
 		if derr != nil {
+			warningf(ctx, "echo \"##vso[task.logissue type=warning;]Could not delete cluster without node resource group.\" %s: %s", *cluster.Name, derr)
 			return nil, fmt.Errorf("failed to delete cluster %s: %s", *cluster.Name, derr)
 		}
 		return createNewAKSClusterWithRetry(ctx, cluster)
