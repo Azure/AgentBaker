@@ -220,50 +220,56 @@ func hash(cluster *armcontainerservice.ManagedCluster) string {
 }
 
 func getOrCreateCluster(ctx context.Context, cluster *armcontainerservice.ManagedCluster) (*armcontainerservice.ManagedCluster, error) {
-	resourceGroupName := config.ResourceGroupName(*cluster.Location)
+	existingCluster, err := getExistingCluster(ctx, *cluster.Location, *cluster.Name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get existing cluster %q: %w, and wont retry", *cluster.Name, err)
+	}
 
-	existingCluster, err := config.Azure.AKS.Get(ctx, resourceGroupName, *cluster.Name, nil)
+	if existingCluster != nil {
+		// create new cluster;
+		return existingCluster, nil
+	}
+
+	return createNewAKSClusterWithRetry(ctx, cluster)
+}
+
+// isExistingCluster checks if an AKS cluster exists. return the cluster only if its provisioning state is Succeeded and can be used. non-nil error if not retriable
+func getExistingCluster(ctx context.Context, location, clusterName string) (*armcontainerservice.ManagedCluster, error) {
+	resourceGroupName := config.ResourceGroupName(location)
+	existingCluster, err := config.Azure.AKS.Get(ctx, resourceGroupName, clusterName, nil)
 	var azErr *azcore.ResponseError
 	if errors.As(err, &azErr) && azErr.StatusCode == 404 {
-		return createNewAKSClusterWithRetry(ctx, cluster)
+		return nil, nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to get cluster %q: %w", *cluster.Name, err)
-	}
-	logf(ctx, "cluster %s already exists in rg %s", *cluster.Name, resourceGroupName)
-
-	// ensure MC_rg as well
-	nodeRGExists, err := isExistingResourceGroup(ctx, *existingCluster.Properties.NodeResourceGroup)
-	if err != nil || !nodeRGExists {
-		logf(ctx, "cluster %s does not have a corresponding node resource group", *cluster.Name)
-		// we need to delete the cluster and recreate the cluster in this case
-		derr := deleteCluster(ctx, &existingCluster.ManagedCluster)
-		if derr != nil {
-			logf(ctx, "echo \"##vso[task.logissue type=warning;]Could not delete cluster without node resource group.\" %s: %s", *cluster.Name, derr)
-			return nil, fmt.Errorf("failed to delete cluster %s: %s", *cluster.Name, derr)
-		}
-		return createNewAKSClusterWithRetry(ctx, cluster)
+		return nil, fmt.Errorf("failed to get cluster %q: %w", clusterName, err)
 	}
 
 	switch *existingCluster.Properties.ProvisioningState {
 	case "Succeeded":
 		nodeRGExists, err := isExistingResourceGroup(ctx, *existingCluster.Properties.NodeResourceGroup)
 		if err != nil {
-			return nil, fmt.Errorf("checking node resource group existence of cluster %s: %w", *cluster.Name, err)
+			return nil, fmt.Errorf("checking node resource group existence of cluster %s: %w", clusterName, err)
 		}
+		// ensure MC_rg as well --> functioning
+		// during cluster provisioning, the node resource group may not exist yet and we can wait
 		if !nodeRGExists {
 			// we need to recreate in the case where the cluster is in the "Succeeded" provisioning state,
 			// though it's corresponding node resource group has been garbage collected
-			logf(ctx, "node resource group of cluster %s does not exist, will attempt to recreate", *cluster.Name)
-			return createNewAKSClusterWithRetry(ctx, cluster)
+			derr := deleteCluster(ctx, &existingCluster.ManagedCluster)
+			if derr != nil {
+				logf(ctx, "echo \"##vso[task.logissue type=warning;]Could not delete cluster without proper node resource group.\" %s: %s", clusterName, derr)
+				return nil, fmt.Errorf("failed to delete cluster %s: %s", clusterName, derr)
+			}
+			return nil, nil
 		}
 		return &existingCluster.ManagedCluster, nil
 	case "Creating", "Updating":
-		logf(ctx, "cluster %s is in %s state, waiting for it to be ready", *cluster.Name, *existingCluster.Properties.ProvisioningState)
-		return waitUntilClusterReady(ctx, *cluster.Name, *cluster.Location)
+		logf(ctx, "cluster %s is in %s state, waiting for it to be ready", clusterName, *existingCluster.Properties.ProvisioningState)
+		return waitUntilClusterReady(ctx, clusterName, location)
 	default:
-		// this operation will try to update the cluster if it's in a failed state
-		return createNewAKSClusterWithRetry(ctx, cluster)
+		// other provisioning state, such as Failed, is to be retried
+		return nil, nil
 	}
 }
 
