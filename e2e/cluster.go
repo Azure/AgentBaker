@@ -231,6 +231,19 @@ func getOrCreateCluster(ctx context.Context, cluster *armcontainerservice.Manage
 		return nil, fmt.Errorf("failed to get cluster %q: %w", *cluster.Name, err)
 	}
 	logf(ctx, "cluster %s already exists in rg %s", *cluster.Name, resourceGroupName)
+
+	// ensure MC_rg as well
+	nodeRGExists, err := isExistingResourceGroup(ctx, *existingCluster.Properties.NodeResourceGroup)
+	if err != nil || !nodeRGExists {
+		logf(ctx, "cluster %s does not have a corresponding node resource group", *cluster.Name)
+		// we need to delete the cluster and recreate the cluster in this case
+		derr := deleteCluster(ctx, &existingCluster.ManagedCluster)
+		if derr != nil {
+			return nil, fmt.Errorf("failed to delete cluster %s: %s", *cluster.Name, derr)
+		}
+		return createNewAKSClusterWithRetry(ctx, cluster)
+	}
+
 	switch *existingCluster.Properties.ProvisioningState {
 	case "Succeeded":
 		nodeRGExists, err := isExistingResourceGroup(ctx, *existingCluster.Properties.NodeResourceGroup)
