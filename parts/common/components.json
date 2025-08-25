@@ -161,9 +161,7 @@
           "latestVersion": "v1.4.59",
           "containerImagePrefetch": {
             "latestVersion": {
-              "binaries": [
-                "/dropgz"
-              ]
+              "binaries": ["/dropgz"]
             }
           }
         },
@@ -173,14 +171,10 @@
           "previousLatestVersion": "v1.5.42",
           "containerImagePrefetch": {
             "latestVersion": {
-              "binaries": [
-                "/dropgz"
-              ]
+              "binaries": ["/dropgz"]
             },
             "previousLatestVersion": {
-              "binaries": [
-                "/dropgz"
-              ]
+              "binaries": ["/dropgz"]
             }
           }
         },
@@ -190,14 +184,10 @@
           "previousLatestVersion": "v1.6.20",
           "containerImagePrefetch": {
             "latestVersion": {
-              "binaries": [
-                "/dropgz"
-              ]
+              "binaries": ["/dropgz"]
             },
             "previousLatestVersion": {
-              "binaries": [
-                "/dropgz"
-              ]
+              "binaries": ["/dropgz"]
             }
           }
         }
@@ -230,9 +220,7 @@
           "latestVersion": "v1.4.59",
           "containerImagePrefetch": {
             "latestVersion": {
-              "binaries": [
-                "/usr/local/bin/azure-cns"
-              ]
+              "binaries": ["/usr/local/bin/azure-cns"]
             }
           }
         },
@@ -242,14 +230,10 @@
           "previousLatestVersion": "v1.5.45",
           "containerImagePrefetch": {
             "latestVersion": {
-              "binaries": [
-                "/usr/local/bin/azure-cns"
-              ]
+              "binaries": ["/usr/local/bin/azure-cns"]
             },
             "previousLatestVersion": {
-              "binaries": [
-                "/usr/local/bin/azure-cns"
-              ]
+              "binaries": ["/usr/local/bin/azure-cns"]
             }
           }
         },
@@ -259,14 +243,10 @@
           "previousLatestVersion": "v1.6.30",
           "containerImagePrefetch": {
             "latestVersion": {
-              "binaries": [
-                "/usr/local/bin/azure-cns"
-              ]
+              "binaries": ["/usr/local/bin/azure-cns"]
             },
             "previousLatestVersion": {
-              "binaries": [
-                "/usr/local/bin/azure-cns"
-              ]
+              "binaries": ["/usr/local/bin/azure-cns"]
             }
           }
         }
@@ -281,9 +261,7 @@
           "latestVersion": "v0.0.7",
           "containerImagePrefetch": {
             "latestVersion": {
-              "binaries": [
-                "/dropgz"
-              ]
+              "binaries": ["/dropgz"]
             }
           }
         },
@@ -293,9 +271,7 @@
           "latestVersion": "v0.2.1",
           "containerImagePrefetch": {
             "latestVersion": {
-              "binaries": [
-                "/dropgz"
-              ]
+              "binaries": ["/dropgz"]
             }
           }
         }
@@ -774,7 +750,7 @@
       "downloadURL": "mcr.microsoft.com/aks/aks-gpu-cuda:*",
       "gpuVersion": {
         "renovateTag": "registry=https://mcr.microsoft.com, name=aks/aks-gpu-cuda",
-          "latestVersion": "570.172.08-20250731000559"
+        "latestVersion": "570.172.08-20250822192810"
       }
     },
     {
@@ -1262,7 +1238,7 @@
         "marinerkata": {
           "current": {
             "versionsV2": [
-             {
+              {
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/cbl-mariner/2.0/prod/cloud-native/x86_64/repodata, name=kubernetes-cri-tools, os=mariner, release=2.0",
                 "latestVersion": "1.32.0-3.cm2"
               }
@@ -1335,7 +1311,7 @@
               {
                 "k8sVersion": "1.34",
                 "renovateTag": "name=kubelet, os=ubuntu, release=22.04",
-                "latestVersion":"1.34.0~rc.1-ubuntu22.04u1"
+                "latestVersion": "1.34.0~rc.1-ubuntu22.04u1"
               }
             ]
           },
