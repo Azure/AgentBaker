@@ -151,7 +151,6 @@ steps:
       echo "##vso[task.setvariable variable=MANAGED_SIG_ID]$(cat packer-output | grep "ManagedImageSharedImageGalleryId:" | cut -d " " -f 2)" && \
       echo "##vso[task.setvariable variable=SIG_GALLERY_NAME]$(cat vhdbuilder/packer/settings.json | grep "sig_gallery_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
       echo "##vso[task.setvariable variable=PERFORMANCE_DATA_FILE]vhd-build-performance-data.json" && \
-      echo "##vso[task.setvariable variable=GRID_COMPATIBILITY_DATA_FILE]vhd-grid-compatibility-data.json" && \
       echo "##vso[task.setvariable variable=PKR_RG_NAME]$(cat packer-output | grep "ResourceGroupName" | cut -d "'" -f 2 | head -1)" && \
       echo "##vso[task.setvariable variable=OS_NAME]Linux" && \
       echo "##vso[task.setvariable variable=OS_TYPE]Linux" && \
@@ -190,13 +189,6 @@ steps:
       SKIP_SCANNING: $(SKIP_SCANNING)
       DRY_RUN: $(DRY_RUN)
 
-  - task: PublishPipelineArtifact@0
-    condition: always()
-    displayName: Publish BCC Tools Installation Log
-    inputs:
-      artifactName: 'bcc-tools-installation-log-$(ARTIFACT_ID)-${{ parameters.artifactName }}'
-      targetPath: 'bcc-tools-installation.log'
-
   - task: CopyFiles@2
     condition: always()
     displayName: Copy BCC Tools Installation Log
@@ -230,31 +222,11 @@ steps:
         cis-report.txt
       TargetFolder: '$(Build.ArtifactStagingDirectory)'
 
-  - task: PublishPipelineArtifact@0
-    displayName: Publish Release Notes
-    inputs:
-      artifactName: 'vhd-release-notes-${{ parameters.artifactName }}'
-      targetPath: 'release-notes.txt'
-
   - task: CopyFiles@2
     displayName: Copy Release Notes
     inputs:
       SourceFolder: '$(System.DefaultWorkingDirectory)'
       Contents: 'release-notes.txt'
-      TargetFolder: '$(Build.ArtifactStagingDirectory)'
-
-  - task: PublishPipelineArtifact@0
-    displayName: Publish Container Image List
-    inputs:
-      artifactName: 'vhd-image-bom-${{ parameters.artifactName }}'
-      targetPath: 'image-bom.json'
-
-  - task: CopyFiles@2
-    condition: succeeded()
-    displayName: Copy Image Bom
-    inputs:
-      SourceFolder: '$(System.DefaultWorkingDirectory)'
-      Contents: 'image-bom.json'
       TargetFolder: '$(Build.ArtifactStagingDirectory)'
 
   - bash: make -f packer.mk convert-sig-to-classic-storage-account-blob
@@ -278,19 +250,16 @@ steps:
     condition: always()
     displayName: Check Build Performance
 
-  - bash: |
-      echo "Attempting to download grid compatibility program..."
-      if [ -z "${GRID_COMPATIBILITY_ARTIFACT_NAME:-}" ]; then
-        echo "GRID_COMPATIBILITY_ARTIFACT_NAME not set - skipping download"
-        echo "This is expected during initial scaffolding setup"
-        exit 0
-      fi
-      echo "Grid compatibility artifact name: ${GRID_COMPATIBILITY_ARTIFACT_NAME}"
-      echo "Grid compatibility binary download would happen here when artifact is available"
-      echo "##vso[task.logissue type=warning;]Grid compatibility artifact not yet available - scaffolding setup complete"
+  - task: DownloadPipelineArtifact@2
     displayName: Download Grid Compatibility Program
     condition: and(succeeded(), ne(variables.ENVIRONMENT, 'tme'))
-    continueOnError: true
+    inputs:
+      source: "specific"
+      downloadPath: "vhdbuilder/packer/gridcompatibility"
+      runVersion: "latest"
+      project: $(System.TeamProject)
+      pipeline: 431951
+      artifactName: "drop_gridCompatibilityProgram"
 
   - bash: make -f packer.mk evaluate-grid-compatibility
     condition: always()

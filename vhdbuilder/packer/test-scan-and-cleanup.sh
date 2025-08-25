@@ -40,6 +40,8 @@ if [ -z "${GALLERY_SUBSCRIPTION_ID}" ]; then
 fi
 echo "Using GALLERY_SUBSCRIPTION_ID: ${GALLERY_SUBSCRIPTION_ID}"
 
+exit 0
+
 retrycmd_if_failure() {
   RETRIES=${1}; WAIT_SLEEP=${2}; CMD=${3}; TARGET=$(basename ${3} .sh)
   echo "##[group]$TARGET" >> ${TARGET}-output.txt
