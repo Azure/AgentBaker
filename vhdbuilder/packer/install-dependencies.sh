@@ -511,7 +511,6 @@ if grep -q "GB200" <<< "$FEATURE_FLAGS"; then
     # will appear directing the reader away from the proprietary driver. The GPUs
     # are also not visible in nvidia-smi output with the proprietary drivers
     apt install -y \
-      libc6-dev \
       mlnx-ofed-kernel-dkms \
       mlnx-ofed-kernel-utils \
       mlnx-ofed-basic \
