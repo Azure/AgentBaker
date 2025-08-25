@@ -24,16 +24,16 @@ var _ = Describe("GetMaintainedLinuxSIGImageConfigMap", func() {
 			AKSAzureLinuxV2:                       SIGAzureLinuxV2Gen1ImageConfigTemplate.WithOptions(),
 			AKSAzureLinuxV3:                       SIGAzureLinuxV3Gen1ImageConfigTemplate.WithOptions(),
 			AKSCBLMarinerV2Gen2:                   SIGCBLMarinerV2Gen2ImageConfigTemplate.WithOptions(),
+			AKSCBLMarinerV2Gen2Kata:               SIGCBLMarinerV2KataImageConfigTemplate.WithOptions(),
 			AKSAzureLinuxV2Gen2:                   SIGAzureLinuxV2Gen2ImageConfigTemplate.WithOptions(),
 			AKSAzureLinuxV3Gen2:                   SIGAzureLinuxV3Gen2ImageConfigTemplate.WithOptions(),
 			AKSCBLMarinerV2FIPS:                   SIGCBLMarinerV2Gen1FIPSImageConfigTemplate.WithOptions(),
 			AKSAzureLinuxV2FIPS:                   SIGAzureLinuxV2Gen1FIPSImageConfigTemplate.WithOptions(),
+			AKSAzureLinuxV2Gen2Kata:               SIGAzureLinuxV2KataImageConfigTemplate.WithOptions(),
 			AKSAzureLinuxV3FIPS:                   SIGAzureLinuxV3Gen1FIPSImageConfigTemplate.WithOptions(),
 			AKSCBLMarinerV2Gen2FIPS:               SIGCBLMarinerV2Gen2FIPSImageConfigTemplate.WithOptions(),
 			AKSAzureLinuxV2Gen2FIPS:               SIGAzureLinuxV2Gen2FIPSImageConfigTemplate.WithOptions(),
 			AKSAzureLinuxV3Gen2FIPS:               SIGAzureLinuxV3Gen2FIPSImageConfigTemplate.WithOptions(),
-			AKSCBLMarinerV2Gen2Kata:               SIGCBLMarinerV2KataImageConfigTemplate.WithOptions(),
-			AKSAzureLinuxV2Gen2Kata:               SIGAzureLinuxV2KataImageConfigTemplate.WithOptions(),
 			AKSAzureLinuxV3Gen2Kata:               SIGAzureLinuxV3KataImageConfigTemplate.WithOptions(),
 			AKSCBLMarinerV2Arm64Gen2:              SIGCBLMarinerV2Arm64ImageConfigTemplate.WithOptions(),
 			AKSAzureLinuxV2Arm64Gen2:              SIGAzureLinuxV2Arm64ImageConfigTemplate.WithOptions(),
@@ -338,7 +338,7 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(azurelinuxV2Gen2Kata.ResourceGroup).To(Equal("resourcegroup"))
 		Expect(azurelinuxV2Gen2Kata.Gallery).To(Equal("aksazurelinux"))
 		Expect(azurelinuxV2Gen2Kata.Definition).To(Equal("V2katagen2"))
-		Expect(azurelinuxV2Gen2Kata.Version).To(Equal(LinuxSIGImageVersion))
+		Expect(azurelinuxV2Gen2Kata.Version).To(Equal(FrozenAzureLinuxV2KataGen2SIGImageVersion))
 
 		azurelinuxV3Gen2Kata := sigConfig.SigAzureLinuxImageConfig[AKSAzureLinuxV3Gen2Kata]
 		Expect(azurelinuxV3Gen2Kata.ResourceGroup).To(Equal("resourcegroup"))

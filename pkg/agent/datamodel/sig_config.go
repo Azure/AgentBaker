@@ -439,6 +439,10 @@ const (
 	// DO NOT MODIFY: used for freezing MarinerV2KataGen2TL.
 	FrozenCBLMarinerV2KataGen2TLSIGImageVersion = "2022.12.15"
 
+	// DO NOT MODIFY: Used for freezing Kata VHD for kata-cc runtime, until the image is deprecated.
+	FrozenCBLMarinerV2KataGen2SIGImageVersion string = "202509.04.0"
+	FrozenAzureLinuxV2KataGen2SIGImageVersion string = "202509.04.0"
+
 	// We do not use AKS Windows image versions in AgentBaker. These fake values are only used for unit tests.
 	Windows2019SIGImageVersion string = "17763.2019.221114"
 	Windows2022SIGImageVersion string = "20348.2022.221114"
@@ -782,14 +786,14 @@ var (
 		ResourceGroup: AKSCBLMarinerResourceGroup,
 		Gallery:       AKSCBLMarinerGalleryName,
 		Definition:    "V2katagen2",
-		Version:       LinuxSIGImageVersion,
+		Version:       FrozenCBLMarinerV2KataGen2SIGImageVersion,
 	}
 
 	SIGAzureLinuxV2KataImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSAzureLinuxResourceGroup,
 		Gallery:       AKSAzureLinuxGalleryName,
 		Definition:    "V2katagen2",
-		Version:       LinuxSIGImageVersion,
+		Version:       FrozenAzureLinuxV2KataGen2SIGImageVersion,
 	}
 
 	SIGAzureLinuxV3KataImageConfigTemplate = SigImageConfigTemplate{
