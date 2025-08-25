@@ -307,10 +307,10 @@ EOF
 
 # Remove iptables rules and revert DNS configuration.
 cleanup_iptables_and_dns() {
-    # Remove any existing localdns iptables rules by searching for our comment
+    # Remove any existing localdns iptables rules by searching for our comment.
     echo "Cleaning up any existing localdns iptables rules..."
     
-    # Get list of existing localdns rules by searching for our comment
+    # Get list of existing localdns rules by searching for our comment.
     existing_rules=$(iptables -w -t raw -L --line-numbers -n | grep "localdns: skip conntrack" | awk '{print $1}' | sort -nr)
     
     if [ -n "$existing_rules" ]; then
