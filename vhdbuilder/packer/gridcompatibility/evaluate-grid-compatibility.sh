@@ -10,10 +10,10 @@ log_and_exit() {
   local FILE=${1}
   local ERR=${2}
   local SHOW_FILE=${3:-false}
-  echo "##vso[task.logissue type=warning;sourcepath=$(basename $0);]${FILE} ${ERR}. Skipping grid compatibility evaluation."
+  echo "##vso[task.logissue type=warning;sourcepath=$(basename "$0");]${FILE} ${ERR}. Skipping grid compatibility evaluation."
   echo "##vso[task.complete result=SucceededWithIssues;]"
   if [ "${SHOW_FILE}" = "true" ]; then
-    cat ${FILE}
+    cat "${FILE}"
   fi
   exit 0
 }
@@ -22,13 +22,15 @@ parse_versions_from_output() {
   local program_output="$1"
   
   # First try to find explicit version patterns (v16, v17, etc.)
-  local versions=$(echo "${program_output}" | grep -oE "v[0-9]+" | sed 's/v//g' | sort -u)
+  local versions
+  versions=$(echo "${program_output}" | grep -oE "v[0-9]+" | sed 's/v//g' | sort -u)
   
   # If no v-prefixed versions found, look for standalone numbers
   if [ -z "${versions}" ]; then
     versions=$(echo "${program_output}" | while IFS= read -r line; do
-      if [[ "$line" =~ ^[[:space:]]*([0-9]+)[[:space:]]*$ ]]; then
-        num="${BASH_REMATCH[1]}"
+      # Check if line contains only a number (with optional whitespace) using grep
+      if echo "$line" | grep -q '^[[:space:]]*[0-9]\+[[:space:]]*$'; then
+        num=$(echo "$line" | sed 's/^[[:space:]]*\([0-9]\+\)[[:space:]]*$/\1/')
         if [ "$num" -ge "$GRID_VERSION_MIN" ] && [ "$num" -le "$GRID_VERSION_MAX" ]; then
           echo "$num"
         fi
@@ -44,8 +46,8 @@ check_version_compatibility() {
   local compatibility_issues=false
   
   for version in ${versions}; do
-    # Validate that version is numeric
-    if ! [[ "$version" =~ ^[0-9]+$ ]]; then
+    # Validate that version is numeric using grep
+    if ! echo "$version" | grep -q '^[0-9]\+$'; then
       echo "WARNING: Skipping invalid version format: $version"
       continue
     fi
@@ -77,15 +79,16 @@ analyze_grid_compatibility() {
   echo ""
   echo "=== GRID VERSION COMPATIBILITY ANALYSIS ==="
   
-  local versions=$(parse_versions_from_output "${program_output}")
+  local versions
+  versions=$(parse_versions_from_output "${program_output}")
   
   # Check if we need to try fallback parsing and inform user
   if [ -z "${versions}" ]; then
     echo "No v-prefixed versions found, trying standalone numbers..."
     # Re-parse with standalone number logic
     versions=$(echo "${program_output}" | while IFS= read -r line; do
-      if [[ "$line" =~ ^[[:space:]]*([0-9]+)[[:space:]]*$ ]]; then
-        num="${BASH_REMATCH[1]}"
+      if echo "$line" | grep -q '^[[:space:]]*[0-9]\+[[:space:]]*$'; then
+        num=$(echo "$line" | sed 's/^[[:space:]]*\([0-9]\+\)[[:space:]]*$/\1/')
         if [ "$num" -ge "$GRID_VERSION_MIN" ] && [ "$num" -le "$GRID_VERSION_MAX" ]; then
           echo "$num"
         fi
@@ -99,7 +102,7 @@ analyze_grid_compatibility() {
     return
   fi
   
-  echo "Detected major versions: $(echo ${versions} | tr '\n' ' ')"
+  echo "Detected major versions: $(echo "${versions}" | tr '\n' ' ')"
   check_version_compatibility "${versions}"
   echo "=== END COMPATIBILITY ANALYSIS ==="
 }
@@ -121,7 +124,8 @@ run_grid_compatibility_program() {
   echo "Expected major version: ${EXPECTED_MAJOR_VERSION}"
   
   # Capture program output for version analysis
-  local program_output=$(./gridCompatibilityProgram gpu-driver-production 2>&1)
+  local program_output
+  program_output=$(./gridCompatibilityProgram gpu-driver-production 2>&1)
   local exit_code=$?
   
   # Display the program output
@@ -159,7 +163,7 @@ main() {
   popd || exit 0
   
   # Cleanup
-  rm -f vhdbuilder/packer/gridcompatibility/${SIG_IMAGE_NAME}-grid-compatibility.json
+  rm -f "vhdbuilder/packer/gridcompatibility/${SIG_IMAGE_NAME}-grid-compatibility.json"
   
   echo -e "\nGrid compatibility evaluation script completed."
 }
