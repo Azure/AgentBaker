@@ -741,6 +741,11 @@ configureLsmWithBpf() {
       fi
     elif isMarinerOrAzureLinux "$OS" && [ "$OS_VERSION" = "3.0" ]; then
       if [ -f /etc/default/grub ]; then
+        # Remove SELinux=0 for Azure Linux 3.0
+        if grep -q "selinux=0" /etc/default/grub; then
+          sed -i "s/selinux=0//g" /etc/default/grub
+        fi
+
         if grep -q "lsm=" /etc/default/grub; then
           sed -i "s/lsm=[^[:space:]]*/lsm=$new_lsm/g" /etc/default/grub
         else
