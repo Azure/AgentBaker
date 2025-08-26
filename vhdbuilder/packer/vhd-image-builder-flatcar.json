@@ -463,7 +463,7 @@
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/update_certs.service",
+      "source": "parts/linux/cloud-init/artifacts/flatcar/update_certs.service",
       "destination": "/home/packer/update_certs.service"
     },
     {
@@ -710,9 +710,16 @@
       "destination": "vhd-build-performance-data.json"
     },
     {
+      "type": "file",
+      "direction": "download",
+      "source": "/opt/azure/vhd-grid-compatibility-data.json",
+      "destination": "vhd-grid-compatibility-data.json"
+    },
+    {
       "type": "shell",
       "inline": [
-        "sudo rm /opt/azure/vhd-build-performance-data.json"
+        "sudo rm /opt/azure/vhd-build-performance-data.json",
+        "sudo rm /opt/azure/vhd-grid-compatibility-data.json"
       ]
     },
     {

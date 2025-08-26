@@ -151,6 +151,7 @@ steps:
       echo "##vso[task.setvariable variable=MANAGED_SIG_ID]$(cat packer-output | grep "ManagedImageSharedImageGalleryId:" | cut -d " " -f 2)" && \
       echo "##vso[task.setvariable variable=SIG_GALLERY_NAME]$(cat vhdbuilder/packer/settings.json | grep "sig_gallery_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
       echo "##vso[task.setvariable variable=PERFORMANCE_DATA_FILE]vhd-build-performance-data.json" && \
+      echo "##vso[task.setvariable variable=GRID_COMPATIBILITY_DATA_FILE]vhd-grid-compatibility-data.json" && \
       echo "##vso[task.setvariable variable=PKR_RG_NAME]$(cat packer-output | grep "ResourceGroupName" | cut -d "'" -f 2 | head -1)" && \
       echo "##vso[task.setvariable variable=OS_NAME]Linux" && \
       echo "##vso[task.setvariable variable=OS_TYPE]Linux" && \
@@ -198,6 +199,13 @@ steps:
       Contents: 'bcc-tools-installation.log'
       TargetFolder: '$(Build.ArtifactStagingDirectory)'
 
+  - task: PublishPipelineArtifact@0
+    condition: always()
+    displayName: Publish BCC Tools Installation Log
+    inputs:
+      artifactName: 'bcc-tools-installation-log-$(ARTIFACT_ID)-${{ parameters.artifactName }}'
+      targetPath: 'bcc-tools-installation.log'
+
   - task: CopyFiles@2
     displayName: Copy Trivy Report
     inputs:
@@ -227,6 +235,26 @@ steps:
     inputs:
       SourceFolder: '$(System.DefaultWorkingDirectory)'
       Contents: 'release-notes.txt'
+      TargetFolder: '$(Build.ArtifactStagingDirectory)'
+
+  - task: PublishPipelineArtifact@0
+    displayName: Publish Release Notes
+    inputs:
+      artifactName: 'vhd-release-notes-${{ parameters.artifactName }}'
+      targetPath: 'release-notes.txt'
+
+  - task: PublishPipelineArtifact@0
+    displayName: Publish Container Image List
+    inputs:
+      artifactName: 'vhd-image-bom-${{ parameters.artifactName }}'
+      targetPath: 'image-bom.json'
+
+  - task: CopyFiles@2
+    condition: succeeded()
+    displayName: Copy Image Bom
+    inputs:
+      SourceFolder: '$(System.DefaultWorkingDirectory)'
+      Contents: 'image-bom.json'
       TargetFolder: '$(Build.ArtifactStagingDirectory)'
 
   - bash: make -f packer.mk convert-sig-to-classic-storage-account-blob
