@@ -410,6 +410,11 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/profile-d-path.sh",
+      "destination": "/home/packer/profile-d-path.sh"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/disk_queue.service",
       "destination": "/home/packer/disk_queue.service"
     },

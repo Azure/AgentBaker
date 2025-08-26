@@ -7,7 +7,7 @@ CNI_BIN_DIR="/opt/cni/bin"
 #TODO pull this out of componetns.json too?
 CNI_DOWNLOADS_DIR="/opt/cni/downloads"
 CRICTL_DOWNLOAD_DIR="/opt/crictl/downloads"
-CRICTL_BIN_DIR="/usr/local/bin"
+CRICTL_BIN_DIR="/opt/bin"
 CONTAINERD_DOWNLOADS_DIR="/opt/containerd/downloads"
 RUNC_DOWNLOADS_DIR="/opt/runc/downloads"
 K8S_DOWNLOADS_DIR="/opt/kubernetes/downloads"
@@ -201,7 +201,7 @@ installCredentialProviderFromUrl() {
 # TODO (alburgess) have oras version managed by dependant or Renovate
 installOras() {
     ORAS_DOWNLOAD_DIR="/opt/oras/downloads"
-    ORAS_EXTRACTED_DIR=${1} # Use components.json var for /usr/local/bin for linux-vhd-content-test.sh binary file checks.
+    ORAS_EXTRACTED_DIR=${1} # Use components.json var for /opt/bin for linux-vhd-content-test.sh binary file checks.
     ORAS_DOWNLOAD_URL=${2}
     ORAS_VERSION=${3}
 

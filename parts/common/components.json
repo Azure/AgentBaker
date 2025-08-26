@@ -908,7 +908,7 @@
     },
     {
       "name": "oras",
-      "downloadLocation": "/usr/local/bin",
+      "downloadLocation": "/opt/bin",
       "downloadURIs": {
         "default": {
           "current": {
