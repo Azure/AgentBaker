@@ -289,8 +289,8 @@ testPackagesInstalled() {
         continue
       fi
 
-      # if the downloadLocation is /usr/local/bin verify that the package is installed
-      if [ "$downloadLocation" = "/usr/local/bin" ]; then
+      # if the downloadLocation is /opt/bin, verify the package is in the PATH
+      if [ "$downloadLocation" = /opt/bin ]; then
         if command -v "$name" >/dev/null 2>&1; then
           echo "$name is installed."
           continue
