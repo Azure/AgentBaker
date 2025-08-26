@@ -45,7 +45,12 @@ jobs:
             # This line is commented out to reduce noise in the PRs
             # Write-Output "No changes to cached containers or packages on Windows VHDs" > $diffFile
           } else {
-            Write-Output "Changes cached containers or packages on windows VHDs" > $diffFile
+            Write-Output "### Changes cached containers or packages on windows VHDs" > $diffFile
+            Write-Output "Please get a Windows SIG member to approve." > $diffFile
+            Write-Output "" > $diffFile
+            Write-Output "The following dif file shows any additions or deletions from what will be cached on windows VHDs organised by" > $diffFile
+            Write-Output "VHD type. Additions are new things, deletions are things no longer cached." > $diffFile
+            Write-Output "" > $diffFile
             Write-Output "" >> $diffFile
             Write-Output '```diff' >> $diffFile
             git diff --unified=0 -- "${DIFF_DIR}" >> $diffFile
