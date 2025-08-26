@@ -570,6 +570,25 @@ if [ $OS = $UBUNTU_OS_NAME ] && [ "$(isARM64)" -ne 1 ]; then  # No ARM64 SKU wit
 EOF
 fi
 
+if grep -q "GB200" <<< "$FEATURE_FLAGS"; then
+  # The GB200 feature flag should only be set for arm64 and Ubuntu 24.04, but validate
+  if [ ${UBUNTU_RELEASE} = "24.04" ] && [ ${CPU_ARCH} = "arm64" ]; then
+    # The open series driver is required for the GB200 platform. Dmesg output
+    # will appear directing the reader away from the proprietary driver. The GPUs
+    # are also not visible in nvidia-smi output with the proprietary drivers
+    apt install -y \
+      mlnx-ofed-kernel-dkms \
+      mlnx-ofed-kernel-utils \
+      mlnx-ofed-basic \
+      rdma-core \
+      ibverbs-utils \
+      ibverbs-providers
+
+    systemctl restart openibd
+    ofed_info -s
+  fi
+fi
+
 if [ -d "/opt/gpu" ] && [ "$(ls -A /opt/gpu)" ]; then
   ls -ltr /opt/gpu/* >> ${VHD_LOGS_FILEPATH}
 fi
