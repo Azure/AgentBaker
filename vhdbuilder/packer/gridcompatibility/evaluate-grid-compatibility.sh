@@ -17,17 +17,12 @@ echo "Starting grid compatibility evaluation..."
 
 echo "ENVIRONMENT: ${ENVIRONMENT}"
 if [ "${ENVIRONMENT,,}" != "tme" ]; then
-  echo "Checking if gridcompatibility directory exists..."
-  ls -la vhdbuilder/packer/gridcompatibility/ || echo "Directory not found"
-  
   pushd vhdbuilder/packer/gridcompatibility || {
     echo "ERROR: Cannot access gridcompatibility directory"
     exit 1
   }
-    echo "Current directory: $(pwd)"
-    echo "Contents: $(ls -1 | tr '\n' ' ')"
     
-    echo -e "\nRunning grid compatibility evaluation program...\n"
+    echo "Running grid compatibility evaluation program..."
     if [ -f "gridCompatibilityProgram" ]; then
       echo "Found gridCompatibilityProgram, making executable..."
       chmod +x gridCompatibilityProgram
@@ -122,8 +117,6 @@ if [ "${ENVIRONMENT,,}" != "tme" ]; then
       rm gridCompatibilityProgram
     else
       echo "ERROR: gridCompatibilityProgram not found in $(pwd)"
-      echo "Available files:"
-      ls -la
     fi
   popd || exit 0
 else
