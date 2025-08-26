@@ -238,63 +238,63 @@ func getExistingCluster(ctx context.Context, location, clusterName string) (*arm
 	resourceGroupName := config.ResourceGroupName(location)
 	existingCluster, err := config.Azure.AKS.Get(ctx, resourceGroupName, clusterName, nil)
 	var azErr *azcore.ResponseError
-	if errors.As(err, &azErr) && azErr.StatusCode == 404 {
-		return nil, nil
+	if errors.As(err, &azErr) {
+		if azErr.StatusCode == 404 {
+			return nil, nil
+		}
 	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to get cluster %q: %w", clusterName, err)
+		return nil, fmt.Errorf("failed to get cluster %s: %s", clusterName, err)
 	}
 
 	switch *existingCluster.Properties.ProvisioningState {
 	case "Succeeded":
 		nodeRGExists, err := isExistingResourceGroup(ctx, *existingCluster.Properties.NodeResourceGroup)
+
 		if err != nil {
-			return nil, fmt.Errorf("checking node resource group existence of cluster %s: %w", clusterName, err)
+			return nil, err
 		}
-		// ensure MC_rg as well --> functioning
-		// during cluster provisioning, the node resource group may not exist yet and we can wait
-		if !nodeRGExists {
-			// we need to recreate in the case where the cluster is in the "Succeeded" provisioning state,
-			// though it's corresponding node resource group has been garbage collected
-			derr := deleteCluster(ctx, &existingCluster.ManagedCluster)
-			if derr != nil {
-				logf(ctx, "echo \"##vso[task.logissue type=warning;]Could not delete cluster without proper node resource group.\" %s: %s", clusterName, derr)
-				return nil, fmt.Errorf("failed to delete cluster %s: %s", clusterName, derr)
-			}
-			return nil, nil
+		// ensure MC_rg as well --> functioning. during cluster provisioning, the node resource group may not exist yet and we can wait
+		if nodeRGExists {
+			return &existingCluster.ManagedCluster, nil
 		}
-		return &existingCluster.ManagedCluster, nil
-	case "Creating", "Updating":
-		logf(ctx, "cluster %s is in %s state, waiting for it to be ready", clusterName, *existingCluster.Properties.ProvisioningState)
-		return waitUntilClusterReady(ctx, clusterName, location)
-	default:
-		// other provisioning state, such as Failed, is to be retried
+		fallthrough
+	case "Failed":
+		logf(ctx, "echo \"##vso[task.logissue type=warning;]Unhealthy cluster.\" %s: try delete", clusterName)
+		derr := deleteCluster(ctx, clusterName, resourceGroupName)
+		if derr != nil {
+			return nil, derr
+		}
 		return nil, nil
+	default:
+		// other provisioning state,  deleting, , stopping,,cancaled,cancelling,"Creating", "Updating", "Scaling", "Migrating", "Upgrading", "Starting", "Restoring": .. plus many others.
+		logf(ctx, "echo \"##vso[task.logissue type=warning;] Unexpected cluster provisioning state.\" %s: %s", clusterName, *existingCluster.Properties.ProvisioningState)
+		return waitUntilClusterReady(ctx, clusterName, location)
 	}
 }
 
-func deleteCluster(ctx context.Context, cluster *armcontainerservice.ManagedCluster) error {
-	resourceGroupName := config.ResourceGroupName(*cluster.Location)
-	logf(ctx, "deleting cluster %s in rg %s", *cluster.Name, resourceGroupName)
-	_, err := config.Azure.AKS.Get(ctx, resourceGroupName, *cluster.Name, nil)
+func deleteCluster(ctx context.Context, clusterName, resourceGroupName string) error {
+	logf(ctx, "deleting cluster %s in rg %s", clusterName, resourceGroupName)
+	// beileih: why do we do this?
+	_, err := config.Azure.AKS.Get(ctx, resourceGroupName, clusterName, nil)
 	if err != nil {
 		var azErr *azcore.ResponseError
 		if errors.As(err, &azErr) && azErr.StatusCode == 404 {
-			logf(ctx, "cluster %s does not exist in rg %s", *cluster.Name, resourceGroupName)
+			logf(ctx, "cluster %s does not exist in rg %s", clusterName, resourceGroupName)
 			return nil
 		}
-		return fmt.Errorf("failed to get cluster %q: %w", *cluster.Name, err)
+		return fmt.Errorf("failed to retrieve cluster while trying to delete it %q: %w", clusterName, err)
 	}
 
-	pollerResp, err := config.Azure.AKS.BeginDelete(ctx, resourceGroupName, *cluster.Name, nil)
+	pollerResp, err := config.Azure.AKS.BeginDelete(ctx, resourceGroupName, clusterName, nil)
 	if err != nil {
-		return fmt.Errorf("failed to delete cluster %q: %w", *cluster.Name, err)
+		return fmt.Errorf("failed to delete cluster %q: %w", clusterName, err)
 	}
 	_, err = pollerResp.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
 	if err != nil {
 		return fmt.Errorf("failed to wait for cluster deletion %w", err)
 	}
-	logf(ctx, "deleted cluster %s in rg %s", *cluster.Name, resourceGroupName)
+	logf(ctx, "deleted cluster %s in rg %s", clusterName, resourceGroupName)
 	return nil
 }
 
