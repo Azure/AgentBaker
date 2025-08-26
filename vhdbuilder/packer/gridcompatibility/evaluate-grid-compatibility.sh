@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 log_and_exit () {
   local FILE=${1}
@@ -12,45 +13,28 @@ log_and_exit () {
   exit 0
 }
 
-echo "=== DEBUG INFO ==="
-echo "Current working directory: $(pwd)"
-echo "Environment variables:"
+echo "Starting grid compatibility evaluation..."
+
 echo "ENVIRONMENT: ${ENVIRONMENT}"
-echo "USER: ${USER}"
-echo "HOME: ${HOME}"
-echo "=== END DEBUG INFO ==="
-
-echo "Contents of current directory:"
-ls -la
-
-echo "Checking for vhdbuilder/packer structure:"
-ls -la vhdbuilder/ || echo "vhdbuilder directory not found"
-ls -la vhdbuilder/packer/ || echo "vhdbuilder/packer directory not found"
-
-echo -e "\nENVIRONMENT is: ${ENVIRONMENT}"
 if [ "${ENVIRONMENT,,}" != "tme" ]; then
   echo "Checking if gridcompatibility directory exists..."
   ls -la vhdbuilder/packer/gridcompatibility/ || echo "Directory not found"
   
-  # mv ${SIG_IMAGE_NAME}-grid-compatibility.json vhdbuilder/packer/gridcompatibility
-  pushd vhdbuilder/packer/gridcompatibility || exit 0
+  pushd vhdbuilder/packer/gridcompatibility || {
+    echo "ERROR: Cannot access gridcompatibility directory"
+    exit 1
+  }
     echo "Current directory: $(pwd)"
-    echo "Contents of gridcompatibility directory:"
-    ls -la
+    echo "Contents: $(ls -1 | tr '\n' ' ')"
     
     echo -e "\nRunning grid compatibility evaluation program...\n"
     if [ -f "gridCompatibilityProgram" ]; then
-      echo "gridCompatibilityProgram found, making executable..."
+      echo "Found gridCompatibilityProgram, making executable..."
       chmod +x gridCompatibilityProgram
-      ls -la gridCompatibilityProgram
       
       # Set environment variables for the grid compatibility program
       export KUSTO_PROD_ENDPOINT="https://sparkle.eastus.kusto.windows.net"
       export KUSTO_PROD_DATABASE="defaultdb"
-      
-      echo "Environment variables set:"
-      echo "KUSTO_PROD_ENDPOINT=${KUSTO_PROD_ENDPOINT}"
-      echo "KUSTO_PROD_DATABASE=${KUSTO_PROD_DATABASE}"
       
       echo "Executing: ./gridCompatibilityProgram gpu-driver-production"
       
@@ -77,10 +61,7 @@ if [ "${ENVIRONMENT,,}" != "tme" ]; then
         
         # If no v-prefixed versions found, look for standalone numbers in typical GRID version range
         if [ -z "${VERSIONS}" ]; then
-          echo "DEBUG: No v-prefixed versions found, trying to extract standalone version numbers..."
-          echo "DEBUG: Full program output:"
-          echo "${PROGRAM_OUTPUT}" | head -20
-          echo "DEBUG: Looking for version numbers in GRID range (10-30)..."
+          echo "No v-prefixed versions found, trying standalone numbers..."
           
           # Look for lines containing only numbers in the GRID version range (10-30)
           VERSIONS=$(echo "${PROGRAM_OUTPUT}" | while IFS= read -r line; do
@@ -98,8 +79,6 @@ if [ "${ENVIRONMENT,,}" != "tme" ]; then
         if [ -z "${VERSIONS}" ]; then
           echo "WARNING: No GRID driver versions found in program output"
           echo "##vso[task.logissue type=warning;]No GRID driver versions detected in output"
-          echo "DEBUG: Program output for analysis:"
-          echo "${PROGRAM_OUTPUT}"
         else
           echo "Detected major versions: $(echo ${VERSIONS} | tr '\n' ' ')"
           
