@@ -93,7 +93,8 @@ installCriCtlPackage() {
 
 installCredentialProviderFromPMC() {
     k8sVersion="${1:-"1.32.3"}" # Default 1.32.3 since that is the only version currently published to PMC
-    packageVersion=$(getLatestVersionForK8sVersion "$k8sVersion" "azure-acr-credential-provider-pmc")
+    packageVersion=$(echo $(getLatestVersionForK8sVersion "$k8sVersion" "azure-acr-credential-provider-pmc") | cut -d "-" -f 1 )
+    echo "installing azure-acr-credential-provider package version: $packageVersion"
     mkdir -p "${CREDENTIAL_PROVIDER_BIN_DIR}"
     chown -R root:root "${CREDENTIAL_PROVIDER_BIN_DIR}"
     installPkgWithAptGet "azure-acr-credential-provider" "${packageVersion}" || exit $ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT
@@ -108,15 +109,15 @@ installKubeletKubectlPkgFromPMC() {
 
 installPkgWithAptGet() {
     packageName="${1:-}"
-    k8sVersion="${2}"
+    packageVersion="${2}"
     downloadDir="/opt/${packageName}/downloads"
-    packagePrefix="${packageName}_${k8sVersion}-*"
+    packagePrefix="${packageName}_${packageVersion}-*"
 
     # if no deb file with desired version found then try fetching from packages.microsoft repo
     debFile=$(find "${downloadDir}" -maxdepth 1 -name "${packagePrefix}" -print -quit 2>/dev/null) || debFile=""
     if [ -z "${debFile}" ]; then
         # query all package versions and get the latest version for matching k8s version
-        fullPackageVersion=$(apt list ${packageName} --all-versions | grep ${k8sVersion}- | awk '{print $2}' | sort -V | tail -n 1)
+        fullPackageVersion=$(apt list ${packageName} --all-versions | grep ${packageVersion}- | awk '{print $2}' | sort -V | tail -n 1)
         echo "Did not find cached deb file, downloading ${packageName} version ${fullPackageVersion}"
         logs_to_events "AKS.CSE.install${packageName}PkgFromPMC.downloadPkgFromVersion" "downloadPkgFromVersion ${packageName} ${fullPackageVersion} ${downloadDir}"
         debFile=$(find "${downloadDir}" -maxdepth 1 -name "${packagePrefix}" -print -quit 2>/dev/null) || debFile=""

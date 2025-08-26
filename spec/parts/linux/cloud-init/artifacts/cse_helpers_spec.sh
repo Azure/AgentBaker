@@ -152,6 +152,8 @@ Describe 'cse_helpers.sh'
     End
 
     Describe 'getLatestVersionForK8sVersion'
+    COMPONENTS_FILEPATH="spec/parts/linux/cloud-init/artifacts/test_components.json"
+    
         It 'returns correct latestVersion for Ubuntu'
             k8sVersion="1.32.3"
             OS="UBUNTU"
