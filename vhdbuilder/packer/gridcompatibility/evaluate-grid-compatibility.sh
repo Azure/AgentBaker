@@ -99,9 +99,63 @@ if [ "${ENVIRONMENT,,}" != "tme" ]; then
       echo "KUSTO_PROD_DATABASE=${KUSTO_PROD_DATABASE}"
       
       echo "Executing: ./gridCompatibilityProgram gpu-driver-production"
-      ./gridCompatibilityProgram gpu-driver-production
+      
+      # Set expected major version
+      EXPECTED_MAJOR_VERSION=17
+      echo "Expected major version: ${EXPECTED_MAJOR_VERSION}"
+      
+      # Capture program output for version analysis
+      PROGRAM_OUTPUT=$(./gridCompatibilityProgram gpu-driver-production 2>&1)
       PROGRAM_EXIT_CODE=$?
+      
+      # Display the program output
+      echo "${PROGRAM_OUTPUT}"
       echo "gridCompatibilityProgram exit code: ${PROGRAM_EXIT_CODE}"
+      
+      # Analyze version compatibility if program succeeded
+      if [ ${PROGRAM_EXIT_CODE} -eq 0 ]; then
+        echo ""
+        echo "=== GRID VERSION COMPATIBILITY ANALYSIS ==="
+        
+        # Extract major version numbers from the output
+        VERSIONS=$(echo "${PROGRAM_OUTPUT}" | grep -o "v[0-9]\+\." | sed 's/v//g' | sed 's/\.//g' | sort -u)
+        
+        if [ -z "${VERSIONS}" ]; then
+          echo "WARNING: No GRID driver versions found in program output"
+          echo "##vso[task.logissue type=warning;]No GRID driver versions detected in output"
+        else
+          echo "Detected major versions: $(echo ${VERSIONS} | tr '\n' ' ')"
+          
+          COMPATIBILITY_ISSUES=false
+          
+          for VERSION in ${VERSIONS}; do
+            VERSION_DIFF=$((VERSION > EXPECTED_MAJOR_VERSION ? VERSION - EXPECTED_MAJOR_VERSION : EXPECTED_MAJOR_VERSION - VERSION))
+            
+            if [ ${VERSION_DIFF} -gt 1 ]; then
+              echo "❌ COMPATIBILITY ISSUE: Version v${VERSION} differs by ${VERSION_DIFF} from expected v${EXPECTED_MAJOR_VERSION}"
+              echo "##vso[task.logissue type=error;]GRID driver version v${VERSION} is incompatible (differs by ${VERSION_DIFF} from expected v${EXPECTED_MAJOR_VERSION})"
+              COMPATIBILITY_ISSUES=true
+            else
+              echo "✅ Version v${VERSION} is compatible (difference: ${VERSION_DIFF})"
+            fi
+          done
+          
+          if [ "${COMPATIBILITY_ISSUES}" = "true" ]; then
+            echo ""
+            echo "❌ GRID COMPATIBILITY CHECK FAILED: Incompatible driver versions detected"
+            echo "##vso[task.logissue type=error;]Grid compatibility check failed due to incompatible driver versions"
+            # Don't exit with error, just log the issue
+          else
+            echo ""
+            echo "✅ GRID COMPATIBILITY CHECK PASSED: All driver versions are compatible"
+            echo "##vso[task.logissue type=info;]Grid compatibility check passed - all versions within acceptable range"
+          fi
+        fi
+        
+        echo "=== END COMPATIBILITY ANALYSIS ==="
+      else
+        echo "Skipping version analysis due to program failure (exit code: ${PROGRAM_EXIT_CODE})"
+      fi
       
       rm gridCompatibilityProgram
     else
