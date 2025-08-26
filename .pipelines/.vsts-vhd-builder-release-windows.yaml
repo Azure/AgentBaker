@@ -13,6 +13,9 @@ variables:
     # if SIG_FOR_PRODUCTION is true, then the VHDs are deleted from the gallery before the e2e tests are run.
   - name: SIG_FOR_PRODUCTION
     value: False
+  - name: skipExtensionCheck
+    default: False
+
 
 parameters:
   - name: build2019containerd
@@ -59,10 +62,6 @@ parameters:
     displayName: VHD Debug
     type: boolean
     default: False
-  - name: skipExtensionCheck
-    displayName: Skip Extension Check
-    type: boolean
-    default: False
   - name: installOpenSshServer
     displayName: Install Open SSH Server
     type: boolean
@@ -79,6 +78,7 @@ parameters:
     displayName: Branch in aks-rp to use for overrides
     type: string
     default: master
+
 
 # Use variable group "ab-windows-ame-tenant" and link it to the pipeline "AKS Windows VHD Build"
 # Use variable group "ab-windows-ame-tenant" and link it to the pipeline "AKS Windows VHD Build - PR check-in gate"
@@ -115,7 +115,7 @@ stages:
       build23H2gen2: ${{ parameters.build23H2gen2 }}
       build2025:  ${{ parameters.build2025 }}
       build2025gen2:  ${{ parameters.build2025gen2 }}
-      skipExtensionCheck: ${{ parameters.skipExtensionCheck }}
+      skipExtensionCheck: ${{ variables.skipExtensionCheck }}
       installOpenSshServer: ${{ parameters.installOpenSshServer }}
       overrideBranch: ${{ parameters.overrideBranch }}
       useOverrides: ${{ parameters.useOverrides }}
