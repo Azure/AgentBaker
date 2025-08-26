@@ -48,8 +48,9 @@ jobs:
             Write-Output "### Changes cached containers or packages on windows VHDs" > $diffFile
             Write-Output "Please get a Windows SIG member to approve." >> $diffFile
             Write-Output "" > $diffFile
-            Write-Output "The following dif file shows any additions or deletions from what will be cached on windows VHDs organised by" >> $diffFile
-            Write-Output "VHD type. Additions are new things, deletions are things no longer cached." >> $diffFile
+            Write-Output "The following dif file shows any additions or deletions from what will be cached on windows VHDs organised by VHD type." >> $diffFile
+            Write-Output "* Additions are new things cached." >> $diffFile
+            Write-Output "* deletions are things no longer cached." >> $diffFile
             Write-Output "" >> $diffFile
             Write-Output "" >> $diffFile
             Write-Output '```diff' >> $diffFile
