@@ -131,7 +131,7 @@ if [ "${ENVIRONMENT,,}" != "tme" ]; then
           else
             echo ""
             echo "✅ GRID COMPATIBILITY CHECK PASSED: All driver versions are compatible"
-            echo "##vso[task.logissue type=info;]Grid compatibility check passed - all versions within acceptable range"
+            # No Azure DevOps logging for success case since 'info' type is not supported
           fi
         fi
         
