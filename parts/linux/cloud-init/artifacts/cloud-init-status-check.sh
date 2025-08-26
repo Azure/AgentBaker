@@ -31,6 +31,17 @@ handleCloudInitStatus() {
     local cloudInitLongStatus=$(cloud-init status --long --format json)
     echo -e "Cloud-init detailed status: \"${cloudInitLongStatus}\"" >> "${provisionOutput}"
     
+    # Truncate cloudInitLongStatus if needed to keep Message field under 3072 characters
+    local maxMessageLength=3072
+    local messageOverhead=130  # JSON structure + cloudInitMessage
+    local maxLongStatusLength=$((maxMessageLength - messageOverhead))
+    
+    if [ ${#cloudInitLongStatus} -gt $maxLongStatusLength ]; then
+        local truncationSuffix="...TRUNCATED"
+        local allowedLength=$((maxLongStatusLength - ${#truncationSuffix}))
+        cloudInitLongStatus="${cloudInitLongStatus:0:$allowedLength}${truncationSuffix}"
+    fi
+    
     # Combine the status message with detailed status for the event message
     jsonCloudInitMessage=$( jq -n \
         --arg cloudInitMessage "${cloudInitMessage}" \
