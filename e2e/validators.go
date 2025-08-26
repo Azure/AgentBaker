@@ -603,9 +603,80 @@ func ValidateNPDGPUCountAfterFailure(ctx context.Context, s *Scenario) {
 		"set -ex",
 		"cat /tmp/npd_test_disabled_pci_id | sudo tee /sys/bus/pci/drivers/nvidia/bind",
 		"rm -f /tmp/npd_test_disabled_pci_id", // Clean up the temporary file
+		"sudo systemctl start nvidia-persistenced.service || true",
 	}
 	// Put the VM back to the original state, re-enable the GPU.
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to re-enable GPU")
+}
+
+func ValidateNPDIBLinkFlappingCondition(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	// Wait for the NPD to report initial IB Link Flapping condition
+	var ibLinkFlappingCondition *corev1.NodeCondition
+	err := wait.PollUntilContextTimeout(ctx, 5*time.Second, 3*time.Minute, true, func(ctx context.Context) (bool, error) {
+		node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.KubeNodeName, metav1.GetOptions{})
+		if err != nil {
+			s.T.Logf("Failed to get node %q: %v", s.Runtime.KubeNodeName, err)
+			return false, nil // Continue polling on transient errors
+		}
+
+		// Check for IBLinkFlapping condition with correct reason
+		for i := range node.Status.Conditions {
+			if node.Status.Conditions[i].Type == "IBLinkFlapping" && node.Status.Conditions[i].Reason == "NoIBLinkFlapping" {
+				ibLinkFlappingCondition = &node.Status.Conditions[i]
+				return true, nil // Found the condition we are looking for
+			}
+		}
+
+		return false, nil // Continue polling until the condition is found or timeout occurs
+	})
+	require.NoError(s.T, err, "timed out waiting for IBLinkFlapping condition with reason NoIBLinkFlapping to appear on node %q", s.Runtime.KubeNodeName)
+
+	require.NotNil(s.T, ibLinkFlappingCondition, "expected to find IBLinkFlapping condition with NoIBLinkFlapping reason on node")
+	require.Equal(s.T, corev1.ConditionFalse, ibLinkFlappingCondition.Status, "expected IBLinkFlapping condition to be False")
+	require.Contains(s.T, ibLinkFlappingCondition.Message, "IB link is stable", "expected IBLinkFlapping message to indicate no flapping")
+}
+
+func ValidateNPDIBLinkFlappingAfterFailure(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	// Simulate IB link flapping
+	command := []string{
+		"set -ex",
+		"echo \"$(date '+%b %d %H:%M:%S') $(hostname) fake error 0: [12346.123456] ib0: lost carrier\" | sudo tee -a /var/log/syslog",
+		"sleep 60",
+		"echo \"$(date '+%b %d %H:%M:%S') $(hostname) fake error 1: [12346.123456] ib0: lost carrier\" | sudo tee -a /var/log/syslog",
+		"sleep 60",
+		"echo \"$(date '+%b %d %H:%M:%S') $(hostname) fake error 2: [12346.123456] ib0: lost carrier\" | sudo tee -a /var/log/syslog",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to simulate IB link flapping")
+
+	// Wait for NPD to detect the change
+	var ibLinkFlappingCondition *corev1.NodeCondition
+	err := wait.PollUntilContextTimeout(ctx, 2*time.Second, 3*time.Minute, true, func(ctx context.Context) (bool, error) {
+		node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.KubeNodeName, metav1.GetOptions{})
+		if err != nil {
+			s.T.Logf("Failed to get node %q: %v", s.Runtime.KubeNodeName, err)
+			return false, nil // Continue polling on transient errors
+		}
+
+		// Check for IBLinkFlapping condition with correct reason
+		for i := range node.Status.Conditions {
+			if node.Status.Conditions[i].Type == "IBLinkFlapping" && node.Status.Conditions[i].Reason == "IBLinkFlapping" {
+				ibLinkFlappingCondition = &node.Status.Conditions[i]
+				return true, nil // Found the condition we are looking for
+			}
+		}
+
+		return false, nil // Continue polling until the condition is found or timeout occurs
+	})
+	require.NoError(s.T, err, "timed out waiting for IBLinkFlapping condition with reason IBLinkFlapping to appear on node %q", s.Runtime.KubeNodeName)
+
+	require.NotNil(s.T, ibLinkFlappingCondition, "expected to find IBLinkFlapping condition with IBLinkFlapping reason on node")
+	require.Equal(s.T, corev1.ConditionTrue, ibLinkFlappingCondition.Status, "expected IBLinkFlapping condition to be True")
+
+	expectedMessage := "check_ib_link_flapping: IB link flapping detected, multiple IB link flapping events within 6 hours. FaultCode: NHC2005"
+	require.Contains(s.T, ibLinkFlappingCondition.Message, expectedMessage, "expected IBLinkFlapping message to indicate flapping")
 }
 
 func ValidateRunc12Properties(ctx context.Context, s *Scenario, versions []string) {
