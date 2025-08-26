@@ -26,7 +26,6 @@ parse_versions_from_output() {
   
   # If no v-prefixed versions found, look for standalone numbers
   if [ -z "${versions}" ]; then
-    echo "No v-prefixed versions found, trying standalone numbers..."
     versions=$(echo "${program_output}" | while IFS= read -r line; do
       if [[ "$line" =~ ^[[:space:]]*([0-9]+)[[:space:]]*$ ]]; then
         num="${BASH_REMATCH[1]}"
@@ -79,6 +78,20 @@ analyze_grid_compatibility() {
   echo "=== GRID VERSION COMPATIBILITY ANALYSIS ==="
   
   local versions=$(parse_versions_from_output "${program_output}")
+  
+  # Check if we need to try fallback parsing and inform user
+  if [ -z "${versions}" ]; then
+    echo "No v-prefixed versions found, trying standalone numbers..."
+    # Re-parse with standalone number logic
+    versions=$(echo "${program_output}" | while IFS= read -r line; do
+      if [[ "$line" =~ ^[[:space:]]*([0-9]+)[[:space:]]*$ ]]; then
+        num="${BASH_REMATCH[1]}"
+        if [ "$num" -ge "$GRID_VERSION_MIN" ] && [ "$num" -le "$GRID_VERSION_MAX" ]; then
+          echo "$num"
+        fi
+      fi
+    done | sort -u)
+  fi
   
   if [ -z "${versions}" ]; then
     echo "WARNING: No GRID driver versions found in program output"
