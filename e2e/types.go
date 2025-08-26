@@ -27,6 +27,7 @@ type Tags struct {
 	WASM                   bool
 	ServerTLSBootstrapping bool
 	KubeletCustomConfig    bool
+	Scriptless             bool
 }
 
 // MatchesFilters checks if the Tags struct matches all given filters.
@@ -111,6 +112,10 @@ type Scenario struct {
 	// Config contains the configuration of the scenario
 	Config
 
+	// Location is the Azure location where the scenario will run. This can be
+	// used to override the default location.
+	Location string
+
 	// Runtime contains the runtime state of the scenario. It's populated in the beginning of the test run
 	Runtime *ScenarioRuntime
 	T       *testing.T
@@ -125,15 +130,14 @@ type ScenarioRuntime struct {
 	SSHKeyPublic  []byte
 	SSHKeyPrivate []byte
 	VMPrivateIP   string
-	DebugHostPod  string
 }
 
 // Config represents the configuration of an AgentBaker E2E scenario.
 type Config struct {
 	// Cluster creates, updates or re-uses an AKS cluster for the scenario
-	Cluster func(ctx context.Context, t *testing.T) (*Cluster, error)
+	Cluster func(ctx context.Context, location string) (*Cluster, error)
 
-	// VHD is the function called by the e2e suite on the given scenario to get its VHD selection
+	// VHD is the node image used by the scenario.
 	VHD *config.Image
 
 	// BootstrapConfigMutator is a function which mutates the base NodeBootstrappingConfig according to the scenario's requirements
@@ -147,6 +151,10 @@ type Config struct {
 
 	// Validator is a function where the scenario can perform any extra validation checks
 	Validator func(ctx context.Context, s *Scenario)
+
+	// SkipDefaultValidation is a flag to indicate whether the common validation (like spawning a pod) should be skipped.
+	// It shouldn't be used for majority of scenarios, currently only used for preparing VHD in a two-stage scenario
+	SkipDefaultValidation bool
 }
 
 func (s *Scenario) PrepareAKSNodeConfig() {
@@ -156,7 +164,10 @@ func (s *Scenario) PrepareAKSNodeConfig() {
 // PrepareVMSSModel mutates the input VirtualMachineScaleSet based on the scenario's VMConfigMutator, if configured.
 // This method will also use the scenario's configured VHD selector to modify the input VMSS to reference the correct VHD resource.
 func (s *Scenario) PrepareVMSSModel(ctx context.Context, t *testing.T, vmss *armcompute.VirtualMachineScaleSet) {
-	resourceID, err := s.VHD.VHDResourceID(ctx, t)
+	resourceID, err := CachedPrepareVHD(ctx, GetVHDRequest{
+		Image:    *s.VHD,
+		Location: s.Location,
+	})
 	require.NoError(t, err)
 	require.NotEmpty(t, resourceID, "VHDSelector.ResourceID")
 	require.NotNil(t, vmss, "input VirtualMachineScaleSet")
@@ -190,4 +201,12 @@ func (s *Scenario) PrepareVMSSModel(ctx context.Context, t *testing.T, vmss *arm
 		}
 		vmss.Tags[buildIDTagKey] = &config.Config.BuildID
 	}
+}
+
+func (s *Scenario) IsWindows() bool {
+	return s.VHD.OS == config.OSWindows
+}
+
+func (s *Scenario) IsLinux() bool {
+	return !s.IsWindows()
 }

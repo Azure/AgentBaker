@@ -1,16 +1,9 @@
 package e2e
 
 import (
-	"archive/zip"
-	"context"
 	"encoding/base64"
 	"fmt"
-	"io"
-	"os"
-	"path/filepath"
-	"sync"
 	"testing"
-	"time"
 
 	"github.com/Azure/agentbaker/aks-node-controller/helpers"
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
@@ -23,11 +16,92 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// this is a base kubelet config for Scriptless e2e test
+var baseKubeletConfig = &aksnodeconfigv1.KubeletConfig{
+	EnableKubeletConfigFile: true,
+	KubeletFlags: map[string]string{
+		"--cloud-config":              "",
+		"--cloud-provider":            "external",
+		"--kubeconfig":                "/var/lib/kubelet/kubeconfig",
+		"--pod-infra-container-image": "mcr.microsoft.com/oss/kubernetes/pause:3.6",
+	},
+	KubeletNodeLabels: map[string]string{
+		"agentpool":                               "nodepool2",
+		"kubernetes.azure.com/agentpool":          "nodepool2",
+		"kubernetes.azure.com/cluster":            "test-cluster",
+		"kubernetes.azure.com/mode":               "system",
+		"kubernetes.azure.com/node-image-version": "AKSUbuntu-1804gen2containerd-2022.01.19",
+	},
+	KubeletConfigFileConfig: &aksnodeconfigv1.KubeletConfigFileConfig{
+		Kind:              "KubeletConfiguration",
+		ApiVersion:        "kubelet.config.k8s.io/v1beta1",
+		StaticPodPath:     "/etc/kubernetes/manifests",
+		Address:           "0.0.0.0",
+		TlsCertFile:       "/etc/kubernetes/certs/kubeletserver.crt",
+		TlsPrivateKeyFile: "/etc/kubernetes/certs/kubeletserver.key",
+		TlsCipherSuites: []string{
+			"TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
+			"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+			"TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305",
+			"TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
+			"TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305",
+			"TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384",
+			"TLS_RSA_WITH_AES_256_GCM_SHA384",
+			"TLS_RSA_WITH_AES_128_GCM_SHA256",
+		},
+		RotateCertificates: true,
+		ServerTlsBootstrap: false,
+		Authentication: &aksnodeconfigv1.KubeletAuthentication{
+			X509: &aksnodeconfigv1.KubeletX509Authentication{
+				ClientCaFile: "/etc/kubernetes/certs/ca.crt",
+			},
+			Webhook: &aksnodeconfigv1.KubeletWebhookAuthentication{
+				Enabled: true,
+			},
+		},
+		Authorization: &aksnodeconfigv1.KubeletAuthorization{
+			Mode: "Webhook",
+		},
+		EventRecordQps: to.Ptr(int32(0)),
+		ClusterDomain:  "cluster.local",
+		ClusterDns: []string{
+			"10.0.0.10",
+		},
+		StreamingConnectionIdleTimeout: "4h",
+		NodeStatusUpdateFrequency:      "10s",
+		ImageGcHighThresholdPercent:    to.Ptr(int32(85)),
+		ImageGcLowThresholdPercent:     to.Ptr(int32(80)),
+		CgroupsPerQos:                  to.Ptr(true),
+		MaxPods:                        to.Ptr(int32(110)),
+		PodPidsLimit:                   to.Ptr(int32(-1)),
+		ResolvConf:                     "/run/systemd/resolve/resolv.conf",
+		EvictionHard: map[string]string{
+			"memory.available":  "750Mi",
+			"nodefs.available":  "10%",
+			"nodefs.inodesFree": "5%",
+		},
+		ProtectKernelDefaults: true,
+		FeatureGates:          map[string]bool{},
+		FailSwapOn:            to.Ptr(false),
+		KubeReserved: map[string]string{
+			"cpu":    "100m",
+			"memory": "1638Mi",
+		},
+		EnforceNodeAllocatable: []string{
+			"pods",
+		},
+		AllowedUnsafeSysctls: []string{
+			"kernel.msg*",
+			"net.ipv4.route.min_pmtu",
+		},
+	},
+}
+
 func getBaseNBC(t *testing.T, cluster *Cluster, vhd *config.Image) *datamodel.NodeBootstrappingConfiguration {
 	var nbc *datamodel.NodeBootstrappingConfiguration
 
 	if vhd.Distro.IsWindowsDistro() {
-		nbc = baseTemplateWindows(t, config.Config.Location)
+		nbc = baseTemplateWindows(t, *cluster.Model.Location)
 
 		// these aren't needed since we use TLS bootstrapping instead, though windows bootstrapping expects non-empty values
 		nbc.ContainerService.Properties.CertificateProfile.ClientCertificate = "none"
@@ -38,7 +112,7 @@ func getBaseNBC(t *testing.T, cluster *Cluster, vhd *config.Image) *datamodel.No
 		nbc.ResourceGroupName = *cluster.Model.Properties.NodeResourceGroup
 		nbc.TenantID = *cluster.Model.Identity.TenantID
 	} else {
-		nbc = baseTemplateLinux(t, config.Config.Location, *cluster.Model.Properties.CurrentKubernetesVersion, vhd.Arch)
+		nbc = baseTemplateLinux(t, *cluster.Model.Location, *cluster.Model.Properties.CurrentKubernetesVersion, vhd.Arch)
 	}
 
 	nbc.ContainerService.Properties.CertificateProfile.CaCertificate = string(cluster.ClusterParams.CACert)
@@ -53,14 +127,13 @@ func getBaseNBC(t *testing.T, cluster *Cluster, vhd *config.Image) *datamodel.No
 // eventually we want to phase out usage of nbc
 func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnodeconfigv1.Configuration {
 	cs := nbc.ContainerService
-	agentPool := nbc.AgentPoolProfile
 	agent.ValidateAndSetLinuxNodeBootstrappingConfiguration(nbc)
 
 	config := &aksnodeconfigv1.Configuration{
-		Version:            "v0",
+		Version:            "v1",
 		DisableCustomData:  false,
 		LinuxAdminUsername: "azureuser",
-		VmSize:             "Standard_D2ds_v5",
+		VmSize:             config.Config.DefaultVMSKU,
 		ClusterConfig: &aksnodeconfigv1.ClusterConfig{
 			Location:      nbc.ContainerService.Location,
 			ResourceGroup: nbc.ResourceGroupName,
@@ -99,13 +172,6 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnod
 			ContainerdDownloadUrlBase: nbc.CloudSpecConfig.KubernetesSpecConfig.ContainerdDownloadURLBase,
 		},
 		OutboundCommand: helpers.GetDefaultOutboundCommand(),
-		KubeletConfig: &aksnodeconfigv1.KubeletConfig{
-			KubeletClientKey:         base64.StdEncoding.EncodeToString([]byte(cs.Properties.CertificateProfile.ClientPrivateKey)),
-			KubeletConfigFileContent: base64.StdEncoding.EncodeToString([]byte(agent.GetKubeletConfigFileContent(nbc.KubeletConfig, nbc.AgentPoolProfile.CustomKubeletConfig))),
-			EnableKubeletConfigFile:  false,
-			KubeletFlags:             helpers.GetKubeletConfigFlag(nbc.KubeletConfig, cs, agentPool, false),
-			KubeletNodeLabels:        helpers.GetKubeletNodeLabels(agentPool),
-		},
 		BootstrappingConfig: &aksnodeconfigv1.BootstrappingConfig{
 			TlsBootstrappingToken: nbc.KubeletClientTLSBootstrapToken,
 		},
@@ -119,6 +185,10 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnod
 			NoProxyEntries: *nbc.HTTPProxyConfig.NoProxy,
 		},
 		NeedsCgroupv2: to.Ptr(true),
+		// Before scriptless, absvc combined kubelet configs from multiple sources such as nbc.AgentPoolProfile.CustomKubeletConfig, nbc.KubeletConfig and more.
+		// Now in scriptless, we don't have absvc to process nbc and nbc is no longer a dependency.
+		// Therefore, we require client (e.g. AKS-RP) to provide the final kubelet config that is ready to be written to the final kubelet config file on a node.
+		KubeletConfig: baseKubeletConfig,
 	}
 	return config
 }
@@ -129,7 +199,6 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnod
 // which itself was extracted from baker_test.go logic, which was inherited from aks-engine.
 func baseTemplateLinux(t *testing.T, location string, k8sVersion string, arch string) *datamodel.NodeBootstrappingConfiguration {
 	config := &datamodel.NodeBootstrappingConfiguration{
-		Version: "v0",
 		ContainerService: &datamodel.ContainerService{
 			ID:       "",
 			Location: location,
@@ -160,7 +229,7 @@ func baseTemplateLinux(t *testing.T, location string, k8sVersion string, arch st
 						UserAssignedClientID:              "",
 						CustomHyperkubeImage:              "",
 						CustomKubeProxyImage:              fmt.Sprintf("mcr.microsoft.com/oss/kubernetes/kube-proxy:v%s", k8sVersion),
-						CustomKubeBinaryURL:               fmt.Sprintf("https://acs-mirror.azureedge.net/kubernetes/v%s/binaries/kubernetes-node-linux-%s.tar.gz", k8sVersion, arch),
+						CustomKubeBinaryURL:               fmt.Sprintf("https://packages.aks.azure.com/kubernetes/v%s/binaries/kubernetes-node-linux-%s.tar.gz", k8sVersion, arch),
 						MobyVersion:                       "",
 						ContainerdVersion:                 "",
 						WindowsNodeBinariesURL:            "",
@@ -192,7 +261,7 @@ func baseTemplateLinux(t *testing.T, location string, k8sVersion string, arch st
 						NodeStatusUpdateFrequency:         "",
 						LoadBalancerSku:                   "Standard",
 						ExcludeMasterFromStandardLB:       nil,
-						AzureCNIURLLinux:                  "https://acs-mirror.azureedge.net/azure-cni/v1.1.8/binaries/azure-vnet-cni-linux-amd64-v1.1.8.tgz",
+						AzureCNIURLLinux:                  "https://packages.aks.azure.com/azure-cni/v1.1.8/binaries/azure-vnet-cni-linux-amd64-v1.1.8.tgz",
 						AzureCNIURLARM64Linux:             "",
 						AzureCNIURLWindows:                "",
 						MaximumLoadBalancerRuleCount:      250,
@@ -282,6 +351,75 @@ func baseTemplateLinux(t *testing.T, location string, k8sVersion string, arch st
 						MessageOfTheDay:         "",
 						NotRebootWindowsNode:    nil,
 						AgentPoolWindowsProfile: nil,
+						LocalDNSProfile: &datamodel.LocalDNSProfile{
+							EnableLocalDNS:       true,
+							CPULimitInMilliCores: to.Ptr(int32(2008)),
+							MemoryLimitInMB:      to.Ptr(int32(128)),
+							VnetDNSOverrides: map[string]*datamodel.LocalDNSOverrides{
+								".": {
+									QueryLogging:                "Log",
+									Protocol:                    "PreferUDP",
+									ForwardDestination:          "VnetDNS",
+									ForwardPolicy:               "Sequential",
+									MaxConcurrent:               to.Ptr(int32(1000)),
+									CacheDurationInSeconds:      to.Ptr(int32(3600)),
+									ServeStaleDurationInSeconds: to.Ptr(int32(3600)),
+									ServeStale:                  "Verify",
+								},
+								"cluster.local": {
+									QueryLogging:                "Error",
+									Protocol:                    "ForceTCP",
+									ForwardDestination:          "ClusterCoreDNS",
+									ForwardPolicy:               "Sequential",
+									MaxConcurrent:               to.Ptr(int32(1000)),
+									CacheDurationInSeconds:      to.Ptr(int32(3600)),
+									ServeStaleDurationInSeconds: to.Ptr(int32(3600)),
+									ServeStale:                  "Disable",
+								},
+								"testdomain456.com": {
+									QueryLogging:                "Log",
+									Protocol:                    "PreferUDP",
+									ForwardDestination:          "ClusterCoreDNS",
+									ForwardPolicy:               "Sequential",
+									MaxConcurrent:               to.Ptr(int32(1000)),
+									CacheDurationInSeconds:      to.Ptr(int32(3600)),
+									ServeStaleDurationInSeconds: to.Ptr(int32(3600)),
+									ServeStale:                  "Verify",
+								},
+							},
+							KubeDNSOverrides: map[string]*datamodel.LocalDNSOverrides{
+								".": {
+									QueryLogging:                "Error",
+									Protocol:                    "PreferUDP",
+									ForwardDestination:          "ClusterCoreDNS",
+									ForwardPolicy:               "Sequential",
+									MaxConcurrent:               to.Ptr(int32(1000)),
+									CacheDurationInSeconds:      to.Ptr(int32(3600)),
+									ServeStaleDurationInSeconds: to.Ptr(int32(3600)),
+									ServeStale:                  "Verify",
+								},
+								"cluster.local": {
+									QueryLogging:                "Log",
+									Protocol:                    "ForceTCP",
+									ForwardDestination:          "ClusterCoreDNS",
+									ForwardPolicy:               "RoundRobin",
+									MaxConcurrent:               to.Ptr(int32(1000)),
+									CacheDurationInSeconds:      to.Ptr(int32(3600)),
+									ServeStaleDurationInSeconds: to.Ptr(int32(3600)),
+									ServeStale:                  "Disable",
+								},
+								"testdomain567.com": {
+									QueryLogging:                "Error",
+									Protocol:                    "PreferUDP",
+									ForwardDestination:          "VnetDNS",
+									ForwardPolicy:               "Random",
+									MaxConcurrent:               to.Ptr(int32(1000)),
+									CacheDurationInSeconds:      to.Ptr(int32(3600)),
+									ServeStaleDurationInSeconds: to.Ptr(int32(3600)),
+									ServeStale:                  "Immediate",
+								},
+							},
+						},
 					},
 				},
 				LinuxProfile: &datamodel.LinuxProfile{
@@ -320,19 +458,19 @@ func baseTemplateLinux(t *testing.T, location string, k8sVersion string, arch st
 				AzureCNIImageBase:                    "mcr.microsoft.com/containernetworking/",
 				CalicoImageBase:                      "calico/",
 				EtcdDownloadURLBase:                  "",
-				KubeBinariesSASURLBase:               "https://acs-mirror.azureedge.net/kubernetes/",
+				KubeBinariesSASURLBase:               "https://packages.aks.azure.com/kubernetes/",
 				WindowsTelemetryGUID:                 "fb801154-36b9-41bc-89c2-f4d4f05472b0",
-				CNIPluginsDownloadURL:                "https://acs-mirror.azureedge.net/cni/cni-plugins-amd64-v0.7.6.tgz",
-				VnetCNILinuxPluginsDownloadURL:       "https://acs-mirror.azureedge.net/azure-cni/v1.1.3/binaries/azure-vnet-cni-linux-amd64-v1.1.3.tgz",
-				VnetCNIWindowsPluginsDownloadURL:     "https://acs-mirror.azureedge.net/azure-cni/v1.1.3/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.1.3.zip",
+				CNIPluginsDownloadURL:                "https://packages.aks.azure.com/cni/cni-plugins-amd64-v0.7.6.tgz",
+				VnetCNILinuxPluginsDownloadURL:       "https://packages.aks.azure.com/azure-cni/v1.1.3/binaries/azure-vnet-cni-linux-amd64-v1.1.3.tgz",
+				VnetCNIWindowsPluginsDownloadURL:     "https://packages.aks.azure.com/azure-cni/v1.1.3/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.1.3.zip",
 				ContainerdDownloadURLBase:            "https://storage.googleapis.com/cri-containerd-release/",
-				CSIProxyDownloadURL:                  "https://acs-mirror.azureedge.net/csi-proxy/v0.1.0/binaries/csi-proxy.tar.gz",
-				WindowsProvisioningScriptsPackageURL: "https://acs-mirror.azureedge.net/aks-engine/windows/provisioning/signedscripts-v0.2.2.zip",
+				CSIProxyDownloadURL:                  "https://packages.aks.azure.com/csi-proxy/v0.1.0/binaries/csi-proxy.tar.gz",
+				WindowsProvisioningScriptsPackageURL: "https://packages.aks.azure.com/aks-engine/windows/provisioning/signedscripts-v0.2.2.zip",
 				WindowsPauseImageURL:                 "mcr.microsoft.com/oss/kubernetes/pause:1.4.0",
 				AlwaysPullWindowsPauseImage:          false,
-				CseScriptsPackageURL:                 "https://acs-mirror.azureedge.net/aks/windows/cse/csescripts-v0.0.1.zip",
-				CNIARM64PluginsDownloadURL:           "https://acs-mirror.azureedge.net/cni-plugins/v0.8.7/binaries/cni-plugins-linux-arm64-v0.8.7.tgz",
-				VnetCNIARM64LinuxPluginsDownloadURL:  "https://acs-mirror.azureedge.net/azure-cni/v1.4.13/binaries/azure-vnet-cni-linux-arm64-v1.4.14.tgz",
+				CseScriptsPackageURL:                 "https://packages.aks.azure.com/aks/windows/cse/",
+				CNIARM64PluginsDownloadURL:           "https://packages.aks.azure.com/cni-plugins/v0.8.7/binaries/cni-plugins-linux-arm64-v0.8.7.tgz",
+				VnetCNIARM64LinuxPluginsDownloadURL:  "https://packages.aks.azure.com/azure-cni/v1.4.13/binaries/azure-vnet-cni-linux-arm64-v1.4.14.tgz",
 			},
 			EndpointConfig: datamodel.AzureEndpointConfig{
 				ResourceManagerVMDNSSuffix: "cloudapp.azure.com",
@@ -347,7 +485,7 @@ func baseTemplateLinux(t *testing.T, location string, k8sVersion string, arch st
 		},
 		AgentPoolProfile: &datamodel.AgentPoolProfile{
 			Name:                "nodepool2",
-			VMSize:              "Standard_D2ds_v5",
+			VMSize:              config.Config.DefaultVMSKU,
 			KubeletDiskType:     "",
 			WorkloadRuntime:     "",
 			DNSPrefix:           "",
@@ -365,6 +503,75 @@ func baseTemplateLinux(t *testing.T, location string, k8sVersion string, arch st
 			PreprovisionExtension: nil,
 			KubernetesConfig: &datamodel.KubernetesConfig{
 				ContainerRuntime: "containerd",
+			},
+			LocalDNSProfile: &datamodel.LocalDNSProfile{
+				EnableLocalDNS:       true,
+				CPULimitInMilliCores: to.Ptr(int32(2008)),
+				MemoryLimitInMB:      to.Ptr(int32(128)),
+				VnetDNSOverrides: map[string]*datamodel.LocalDNSOverrides{
+					".": {
+						QueryLogging:                "Log",
+						Protocol:                    "PreferUDP",
+						ForwardDestination:          "VnetDNS",
+						ForwardPolicy:               "Sequential",
+						MaxConcurrent:               to.Ptr(int32(1000)),
+						CacheDurationInSeconds:      to.Ptr(int32(3600)),
+						ServeStaleDurationInSeconds: to.Ptr(int32(3600)),
+						ServeStale:                  "Verify",
+					},
+					"cluster.local": {
+						QueryLogging:                "Error",
+						Protocol:                    "ForceTCP",
+						ForwardDestination:          "ClusterCoreDNS",
+						ForwardPolicy:               "Sequential",
+						MaxConcurrent:               to.Ptr(int32(1000)),
+						CacheDurationInSeconds:      to.Ptr(int32(3600)),
+						ServeStaleDurationInSeconds: to.Ptr(int32(3600)),
+						ServeStale:                  "Disable",
+					},
+					"testdomain456.com": {
+						QueryLogging:                "Log",
+						Protocol:                    "PreferUDP",
+						ForwardDestination:          "ClusterCoreDNS",
+						ForwardPolicy:               "Sequential",
+						MaxConcurrent:               to.Ptr(int32(1000)),
+						CacheDurationInSeconds:      to.Ptr(int32(3600)),
+						ServeStaleDurationInSeconds: to.Ptr(int32(3600)),
+						ServeStale:                  "Verify",
+					},
+				},
+				KubeDNSOverrides: map[string]*datamodel.LocalDNSOverrides{
+					".": {
+						QueryLogging:                "Error",
+						Protocol:                    "PreferUDP",
+						ForwardDestination:          "ClusterCoreDNS",
+						ForwardPolicy:               "Sequential",
+						MaxConcurrent:               to.Ptr(int32(1000)),
+						CacheDurationInSeconds:      to.Ptr(int32(3600)),
+						ServeStaleDurationInSeconds: to.Ptr(int32(3600)),
+						ServeStale:                  "Verify",
+					},
+					"cluster.local": {
+						QueryLogging:                "Log",
+						Protocol:                    "ForceTCP",
+						ForwardDestination:          "ClusterCoreDNS",
+						ForwardPolicy:               "RoundRobin",
+						MaxConcurrent:               to.Ptr(int32(1000)),
+						CacheDurationInSeconds:      to.Ptr(int32(3600)),
+						ServeStaleDurationInSeconds: to.Ptr(int32(3600)),
+						ServeStale:                  "Disable",
+					},
+					"testdomain567.com": {
+						QueryLogging:                "Error",
+						Protocol:                    "PreferUDP",
+						ForwardDestination:          "VnetDNS",
+						ForwardPolicy:               "Random",
+						MaxConcurrent:               to.Ptr(int32(1000)),
+						CacheDurationInSeconds:      to.Ptr(int32(3600)),
+						ServeStaleDurationInSeconds: to.Ptr(int32(3600)),
+						ServeStale:                  "Immediate",
+					},
+				},
 			},
 		},
 		ConfigGPUDriverIfNeeded: true,
@@ -445,6 +652,10 @@ func baseTemplateLinux(t *testing.T, location string, k8sVersion string, arch st
 					GalleryName:   "AKSUbuntuEdgeZone",
 					ResourceGroup: "AKS-Ubuntu-EdgeZone",
 				},
+				"AKSFlatcar": {
+					GalleryName:   "aksflatcar",
+					ResourceGroup: "resourcegroup",
+				},
 			},
 		},
 		IsARM64:                   false,
@@ -460,8 +671,11 @@ func baseTemplateLinux(t *testing.T, location string, k8sVersion string, arch st
 
 // this been crafted with a lot of trial and pain, some values are not needed, but it takes a lot of time to figure out which ones.
 // and we hope to move on to a different config, so I don't want to invest any more time in this-
+// please keep the kubernetesVersion in sync with componets.json so that during e2e no extra binaries are required.
 func baseTemplateWindows(t *testing.T, location string) *datamodel.NodeBootstrappingConfiguration {
-	kubernetesVersion := "1.29.9"
+	kubernetesVersion := "1.30.12"
+	// kubernetesVersion := "1.31.9"
+	// kubernetesVersion := "v1.32.5"
 	config := &datamodel.NodeBootstrappingConfiguration{
 		TenantID:          "tenantID",
 		SubscriptionID:    config.Config.SubscriptionID,
@@ -476,7 +690,7 @@ func baseTemplateWindows(t *testing.T, location string) *datamodel.NodeBootstrap
 					OrchestratorType:    "Kubernetes",
 					OrchestratorVersion: kubernetesVersion,
 					KubernetesConfig: &datamodel.KubernetesConfig{
-						AzureCNIURLWindows:   "https://acs-mirror.azureedge.net/azure-cni/v1.4.35/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.4.35.zip",
+						AzureCNIURLWindows:   "https://packages.aks.azure.com/azure-cni/v1.6.21/binaries/azure-vnet-cni-windows-amd64-v1.6.21.zip",
 						ClusterSubnet:        "10.224.0.0/16",
 						DNSServiceIP:         "10.0.0.10",
 						LoadBalancerSku:      "Standard",
@@ -484,8 +698,8 @@ func baseTemplateWindows(t *testing.T, location string) *datamodel.NodeBootstrap
 						NetworkPluginMode:    "overlay",
 						ServiceCIDR:          "10.0.0.0/16",
 						UseInstanceMetadata:  to.Ptr(true),
-						UseManagedIdentity:   true,
-						WindowsContainerdURL: "https://acs-mirror.azureedge.net/containerd/windows/",
+						UseManagedIdentity:   false,
+						WindowsContainerdURL: "https://packages.aks.azure.com/containerd/windows/",
 					},
 				},
 				AgentPoolProfiles: []*datamodel.AgentPoolProfile{
@@ -516,10 +730,8 @@ func baseTemplateWindows(t *testing.T, location string) *datamodel.NodeBootstrap
 					EnableWinDSR: true,
 				},
 				WindowsProfile: &datamodel.WindowsProfile{
-					//CseScriptsPackageURL:           csePackageURL,
-					//GpuDriverURL:                   windowsGpuDriverURL,
 					AlwaysPullWindowsPauseImage:    to.Ptr(false),
-					CSIProxyURL:                    "https://acs-mirror.azureedge.net/csi-proxy/v0.2.2/binaries/csi-proxy-v0.2.2.tar.gz",
+					CSIProxyURL:                    "https://packages.aks.azure.com/csi-proxy/v1.1.2-hotfix.20230807/binaries/csi-proxy-v1.1.2-hotfix.20230807.tar.gz",
 					EnableAutomaticUpdates:         to.Ptr(false),
 					EnableCSIProxy:                 to.Ptr(true),
 					HnsRemediatorIntervalInMinutes: to.Ptr[uint32](1),
@@ -528,7 +740,7 @@ func baseTemplateWindows(t *testing.T, location string) *datamodel.NodeBootstrap
 					WindowsDockerVersion:           "",
 					WindowsImageSourceURL:          "",
 					WindowsOffer:                   "aks-windows",
-					WindowsPauseImageURL:           "mcr.microsoft.com/oss/kubernetes/pause:3.9",
+					WindowsPauseImageURL:           "mcr.microsoft.com/oss/kubernetes/pause:3.9-hotfix-20230808",
 					WindowsPublisher:               "microsoft-aks",
 					WindowsSku:                     "",
 				},
@@ -555,27 +767,28 @@ DXRqvV7TWO2hndliQq3BW385ZkiephlrmpUVM= r2k1@arturs-mbp.lan`,
 				DockerComposeDownloadURL: "https://github.com/docker/compose/releases/download",
 			},
 			KubernetesSpecConfig: datamodel.KubernetesSpecConfig{
-				ACIConnectorImageBase:                "microsoft/",
-				AlwaysPullWindowsPauseImage:          false,
-				AzureCNIImageBase:                    "mcr.microsoft.com/containernetworking/",
-				AzureTelemetryPID:                    "",
-				CNIARM64PluginsDownloadURL:           "https://acs-mirror.azureedge.net/cni-plugins/v0.8.7/binaries/cni-plugins-linux-arm64-v0.8.7.tgz",
-				CNIPluginsDownloadURL:                "https://acs-mirror.azureedge.net/cni/cni-plugins-amd64-v0.7.6.tgz",
-				CSIProxyDownloadURL:                  "https://acs-mirror.azureedge.net/csi-proxy/v0.1.0/binaries/csi-proxy.tar.gz",
-				CalicoImageBase:                      "calico/",
-				ContainerdDownloadURLBase:            "https://storage.googleapis.com/cri-containerd-release/",
-				CseScriptsPackageURL:                 "https://acs-mirror.azureedge.net/aks/windows/cse/csescripts-v0.0.1.zip",
-				EtcdDownloadURLBase:                  "",
-				KubeBinariesSASURLBase:               "https://acs-mirror.azureedge.net/kubernetes/",
-				KubernetesImageBase:                  "k8s.gcr.io/",
-				MCRKubernetesImageBase:               "mcr.microsoft.com/",
-				NVIDIAImageBase:                      "nvidia/",
-				TillerImageBase:                      "gcr.io/kubernetes-helm/",
-				VnetCNIARM64LinuxPluginsDownloadURL:  "https://acs-mirror.azureedge.net/azure-cni/v1.4.13/binaries/azure-vnet-cni-linux-arm64-v1.4.14.tgz",
-				VnetCNILinuxPluginsDownloadURL:       "https://acs-mirror.azureedge.net/azure-cni/v1.1.3/binaries/azure-vnet-cni-linux-amd64-v1.1.3.tgz",
-				VnetCNIWindowsPluginsDownloadURL:     "https://acs-mirror.azureedge.net/azure-cni/v1.1.3/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.1.3.zip",
-				WindowsPauseImageURL:                 "mcr.microsoft.com/oss/kubernetes/pause:1.4.0",
-				WindowsProvisioningScriptsPackageURL: "https://acs-mirror.azureedge.net/aks-engine/windows/provisioning/signedscripts-v0.2.2.zip",
+				ACIConnectorImageBase:       "microsoft/",
+				AlwaysPullWindowsPauseImage: false,
+				AzureCNIImageBase:           "mcr.microsoft.com/containernetworking/",
+				AzureTelemetryPID:           "",
+				// CNIARM64PluginsDownloadURL:  "https://packages.aks.azure.com/cni-plugins/v0.8.7/binaries/cni-plugins-linux-arm64-v0.8.7.tgz",
+				// CNIPluginsDownloadURL:       "https://packages.aks.azure.com/cni/cni-plugins-amd64-v0.7.6.tgz",
+				CSIProxyDownloadURL:       "https://packages.aks.azure.com/csi-proxy/v1.1.2-hotfix.20230807/binaries/csi-proxy-v1.1.2-hotfix.20230807.tar.gz",
+				CalicoImageBase:           "calico/",
+				ContainerdDownloadURLBase: "https://storage.googleapis.com/cri-containerd-release/",
+				// CseScriptsPackageURL is used to download the CSE scripts for Windows nodes, when use filename it is pinned to that version insteaf of current as defined in components.json
+				CseScriptsPackageURL:   "https://packages.aks.azure.com/aks/windows/cse/",
+				EtcdDownloadURLBase:    "",
+				KubeBinariesSASURLBase: "https://packages.aks.azure.com/kubernetes/",
+				KubernetesImageBase:    "k8s.gcr.io/",
+				MCRKubernetesImageBase: "mcr.microsoft.com/",
+				NVIDIAImageBase:        "nvidia/",
+				TillerImageBase:        "gcr.io/kubernetes-helm/",
+				// VnetCNIARM64LinuxPluginsDownloadURL:  "https://packages.aks.azure.com/azure-cni/v1.4.13/binaries/azure-vnet-cni-linux-arm64-v1.4.14.tgz",
+				// VnetCNILinuxPluginsDownloadURL:       "https://packages.aks.azure.com/azure-cni/v1.1.3/binaries/azure-vnet-cni-linux-amd64-v1.1.3.tgz",
+				VnetCNIWindowsPluginsDownloadURL:     "https://packages.aks.azure.com/azure-cni/v1.6.21/binaries/azure-vnet-cni-windows-amd64-v1.6.21.zip",
+				WindowsPauseImageURL:                 "mcr.microsoft.com/oss/kubernetes/pause:3.9-hotfix-20230808",
+				WindowsProvisioningScriptsPackageURL: "https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-v0.0.52.zip",
 				WindowsTelemetryGUID:                 "fb801154-36b9-41bc-89c2-f4d4f05472b0",
 			},
 			EndpointConfig: datamodel.AzureEndpointConfig{
@@ -584,7 +797,7 @@ DXRqvV7TWO2hndliQq3BW385ZkiephlrmpUVM= r2k1@arturs-mbp.lan`,
 			OSImageConfig: map[datamodel.Distro]datamodel.AzureOSImageConfig(nil),
 		},
 		K8sComponents: &datamodel.K8sComponents{
-			WindowsPackageURL: fmt.Sprintf("https://acs-mirror.azureedge.net/kubernetes/v%s/windowszip/v%s-1int.zip", kubernetesVersion, kubernetesVersion),
+			WindowsPackageURL: fmt.Sprintf("https://packages.aks.azure.com/kubernetes/v%s/windowszip/v%s-1int.zip", kubernetesVersion, kubernetesVersion),
 		},
 		AgentPoolProfile: &datamodel.AgentPoolProfile{
 			Name:                "winnp",
@@ -620,7 +833,7 @@ DXRqvV7TWO2hndliQq3BW385ZkiephlrmpUVM= r2k1@arturs-mbp.lan`,
 			"--kube-reserved":                   "cpu=100m,memory=3891Mi",
 			"--kubeconfig":                      "c:\\k\\config",
 			"--max-pods":                        "30",
-			"--pod-infra-container-image":       "mcr.microsoft.com/oss/kubernetes/pause:3.9",
+			"--pod-infra-container-image":       "mcr.microsoft.com/oss/kubernetes/pause:3.9-hotfix-20230808",
 			"--resolv-conf":                     "\"\"\"\"",
 			"--cluster-dns":                     "10.0.0.10",
 			"--cluster-domain":                  "cluster.local",
@@ -651,126 +864,16 @@ DXRqvV7TWO2hndliQq3BW385ZkiephlrmpUVM= r2k1@arturs-mbp.lan`,
 					GalleryName:   "AKSUbuntuEdgeZone",
 					ResourceGroup: "AKS-Ubuntu-EdgeZone",
 				},
+				"AKSFlatcar": {
+					GalleryName:   "aksflatcar",
+					ResourceGroup: "resourcegroup",
+				},
 			},
 		},
 	}
 	config, err := pruneKubeletConfig(kubernetesVersion, config)
 	require.NoError(t, err)
 	return config
-}
-
-var uploadWindowsCSEOnce sync.Once
-var windowsCSEURL string
-var windowsCSEErr error
-
-func windowsCSE(ctx context.Context, t *testing.T) string {
-	uploadWindowsCSEOnce.Do(func() {
-		windowsCSEURL, windowsCSEErr = uploadWindowsCSE(ctx, t)
-	})
-	require.NoError(t, windowsCSEErr)
-	return windowsCSEURL
-}
-
-func uploadWindowsCSE(ctx context.Context, t *testing.T) (string, error) {
-	blobName := time.Now().UTC().Format("2006-01-02-15-04-05") + "-windows-cse.zip"
-	zipFile, err := zipWindowsCSE()
-	if err != nil {
-		return "", err
-	}
-	url, err := config.Azure.UploadAndGetSignedLink(ctx, blobName, zipFile)
-	if err != nil {
-		return "", err
-	}
-	return url, nil
-}
-
-// zipWindowsCSE creates a zip archive of the sourceFolder in a temporary directory, excluding specified patterns.
-// It returns an open *os.File pointing to the created archive.
-func zipWindowsCSE() (*os.File, error) {
-	sourceFolder := "../staging/cse/windows"
-	excludePatterns := []string{
-		"*.tests.ps1",
-		"*azurecnifunc.tests.suites*",
-		"README",
-		"provisioningscripts/*.md",
-		"debug/update-scripts.ps1",
-	}
-
-	shouldExclude := func(path string) bool {
-		for _, pattern := range excludePatterns {
-			if matched, _ := filepath.Match(pattern, path); matched {
-				return true
-			}
-		}
-		return false
-	}
-
-	// Create a temporary file in the system's temporary directory
-	zipFile, err := os.CreateTemp("", "archive-*.zip")
-	if err != nil {
-		return nil, err
-	}
-
-	zipWriter := zip.NewWriter(zipFile)
-	defer func() {
-		zipWriter.Close() // Ensure resources are cleaned up if the function exits early
-		if err != nil {
-			zipFile.Close()
-			os.Remove(zipFile.Name()) // Clean up the file if there’s an error
-		}
-	}()
-
-	err = filepath.WalkDir(sourceFolder, func(path string, d os.DirEntry, err error) error {
-		if err != nil || shouldExclude(path) {
-			return err
-		}
-
-		relPath, _ := filepath.Rel(sourceFolder, path) // Relative path within zip
-		if d.IsDir() {
-			relPath += "/"
-		}
-
-		info, err := d.Info()
-		if err != nil {
-			return err
-		}
-
-		header, err := zip.FileInfoHeader(info)
-		if err != nil {
-			return err
-		}
-		header.Name = relPath
-		header.Method = zip.Deflate
-
-		writer, err := zipWriter.CreateHeader(header)
-		if err != nil || d.IsDir() {
-			return err
-		}
-
-		file, err := os.Open(path)
-		if err != nil {
-			return err
-		}
-		defer file.Close()
-
-		_, err = io.Copy(writer, file)
-		return err
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	// Close the zip writer before returning the file
-	zipWriter.Close()
-
-	// Seek to the start of the file so it can be read if needed
-	if _, err = zipFile.Seek(0, io.SeekStart); err != nil {
-		zipFile.Close()
-		return nil, err
-	}
-
-	return zipFile, nil
 }
 
 // k8s version > 1.30.0 contains deprecated kubelet flags

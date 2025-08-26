@@ -7,16 +7,16 @@ aptmarkWALinuxAgent() {
     echo $(date),$(hostname), startAptmarkWALinuxAgent "$1"
     wait_for_apt_locks
     retrycmd_if_failure 120 5 25 apt-mark $1 walinuxagent || \
-    if [[ "$1" == "hold" ]]; then
+    if [ "$1" = "hold" ]; then
         exit $ERR_HOLD_WALINUXAGENT
-    elif [[ "$1" == "unhold" ]]; then
+    elif [ "$1" = "unhold" ]; then
         exit $ERR_RELEASE_HOLD_WALINUXAGENT
     fi
     echo $(date),$(hostname), endAptmarkWALinuxAgent "$1"
 }
 
 wait_for_apt_locks() {
-    while fuser /var/lib/dpkg/lock /var/lib/apt/lists/lock /var/cache/apt/archives/lock >/dev/null 2>&1; do
+    while fuser /var/lib/dpkg/lock /var/lib/apt/lists/lock /var/cache/apt/archives/lock /var/lib/dpkg/lock-frontend >/dev/null 2>&1; do
         echo 'Waiting for release of apt locks'
         sleep 3
     done
@@ -97,7 +97,7 @@ installDebPackageFromFile() {
     DEB_FILE=$1
     wait_for_apt_locks
     retrycmd_if_failure 10 5 600 apt-get -y -f install ${DEB_FILE} --allow-downgrades
-    if [[ $? -ne 0 ]]; then
+    if [ "$?" -ne 0 ]; then
         return 1
     fi
 }

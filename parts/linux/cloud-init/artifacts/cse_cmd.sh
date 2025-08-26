@@ -1,9 +1,9 @@
 PROVISION_OUTPUT="/var/log/azure/cluster-provision-cse-output.log";
 echo $(date),$(hostname) > ${PROVISION_OUTPUT};
 {{if ShouldEnableCustomData}}
-cloud-init status --wait > /dev/null 2>&1;
-[ $? -ne 0 ] && echo 'cloud-init failed' >> ${PROVISION_OUTPUT} && exit 1;
-echo "cloud-init succeeded" >> ${PROVISION_OUTPUT};
+/bin/bash -c "source /opt/azure/containers/cloud-init-status-check.sh; handleCloudInitStatus \"${PROVISION_OUTPUT}\"; returnStatus=\$?; echo \"Cloud init status check exit code: \$returnStatus\" >> ${PROVISION_OUTPUT}; exit \$returnStatus" >> ${PROVISION_OUTPUT} 2>&1;
+cloudInitExitCode=$?;
+[ "$cloudInitExitCode" -ne 0 ] && echo "cloud-init failed with exit code ${cloudInitExitCode}" >> ${PROVISION_OUTPUT} && exit ${cloudInitExitCode};
 {{end}}
 {{if IsAKSCustomCloud}}
 REPO_DEPOT_ENDPOINT="{{AKSCustomCloudRepoDepotEndpoint}}"
@@ -82,7 +82,6 @@ CUSTOM_CA_TRUST_COUNT="{{len GetCustomCATrustConfigCerts}}"
 {{range $i, $cert := GetCustomCATrustConfigCerts}}
 CUSTOM_CA_CERT_{{$i}}="{{$cert}}"
 {{end}}
-IS_KRUSTLET="{{IsKrustlet}}"
 GPU_NEEDS_FABRIC_MANAGER="{{GPUNeedsFabricManager}}"
 NEEDS_DOCKER_LOGIN="{{and IsDockerContainerRuntime HasPrivateAzureRegistryServer}}"
 IPV6_DUAL_STACK_ENABLED="{{IsIPv6DualStackFeatureEnabled}}"
@@ -116,9 +115,9 @@ HTTP_PROXY_URLS="{{GetHTTPProxy}}"
 HTTPS_PROXY_URLS="{{GetHTTPSProxy}}"
 NO_PROXY_URLS="{{GetNoProxy}}"
 PROXY_VARS="{{GetProxyVariables}}"
-ENABLE_TLS_BOOTSTRAPPING="{{EnableTLSBootstrapping}}"
 ENABLE_SECURE_TLS_BOOTSTRAPPING="{{EnableSecureTLSBootstrapping}}"
 CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_SERVER_APP_ID="{{GetCustomSecureTLSBootstrapAADServerAppID}}"
+CUSTOM_SECURE_TLS_BOOTSTRAP_CLIENT_URL="{{GetCustomSecureTLSBootstrapClientURL}}"
 ENABLE_KUBELET_SERVING_CERTIFICATE_ROTATION="{{EnableKubeletServingCertificateRotation}}"
 DHCPV6_SERVICE_FILEPATH="{{GetDHCPv6ServiceCSEScriptFilepath}}"
 DHCPV6_CONFIG_FILEPATH="{{GetDHCPv6ConfigCSEScriptFilepath}}"
@@ -143,6 +142,7 @@ NEEDS_CGROUPV2="{{IsCgroupV2}}"
 TLS_BOOTSTRAP_TOKEN="{{GetTLSBootstrapTokenForKubeConfig}}"
 KUBELET_FLAGS="{{GetKubeletConfigKeyVals}}"
 NETWORK_POLICY="{{GetParameter "networkPolicy"}}"
+# shellcheck disable=SC1036
 {{- if not (IsKubernetesVersionGe "1.17.0")}}
 KUBELET_IMAGE="{{GetHyperkubeImageReference}}"
 {{end}}
@@ -161,6 +161,8 @@ ARTIFACT_STREAMING_ENABLED="{{IsArtifactStreamingEnabled}}"
 SYSCTL_CONTENT="{{GetSysctlContent}}"
 PRIVATE_EGRESS_PROXY_ADDRESS="{{GetPrivateEgressProxyAddress}}"
 BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="{{GetBootstrapProfileContainerRegistryServer}}"
+MCR_REPOSITORY_BASE="{{GetMCRRepositoryBase}}"
 ENABLE_IMDS_RESTRICTION="{{EnableIMDSRestriction}}"
 INSERT_IMDS_RESTRICTION_RULE_TO_MANGLE_TABLE="{{InsertIMDSRestrictionRuleToMangleTable}}"
+PRE_PROVISION_ONLY="{{GetPreProvisionOnly}}"
 /usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"

@@ -12,16 +12,17 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"regexp"
 	"strings"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/barkimedes/go-deepcopy"
+	ign3_4 "github.com/coreos/ignition/v2/config/v3_4/types"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
+	"github.com/vincent-petithory/dataurl"
 	"gopkg.in/yaml.v3"
 )
 
@@ -37,7 +38,21 @@ func generateTestData() bool {
 const cseRegexString = `([^=\s]+)=(\"[^\"]*\"|[^\s]*)`
 
 // test certificate.
-const encodedTestCert = "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUgvVENDQmVXZ0F3SUJBZ0lRYUJZRTMvTTA4WEhZQ25OVm1jRkJjakFOQmdrcWhraUc5dzBCQVFzRkFEQnkKTVFzd0NRWURWUVFHRXdKVlV6RU9NQXdHQTFVRUNBd0ZWR1Y0WVhNeEVEQU9CZ05WQkFjTUIwaHZkWE4wYjI0eApFVEFQQmdOVkJBb01DRk5UVENCRGIzSndNUzR3TEFZRFZRUUREQ1ZUVTB3dVkyOXRJRVZXSUZOVFRDQkpiblJsCmNtMWxaR2xoZEdVZ1EwRWdVbE5CSUZJek1CNFhEVEl3TURRd01UQXdOVGd6TTFvWERUSXhNRGN4TmpBd05UZ3oKTTFvd2diMHhDekFKQmdOVkJBWVRBbFZUTVE0d0RBWURWUVFJREFWVVpYaGhjekVRTUE0R0ExVUVCd3dIU0c5MQpjM1J2YmpFUk1BOEdBMVVFQ2d3SVUxTk1JRU52Y25BeEZqQVVCZ05WQkFVVERVNVdNakF3T0RFMk1UUXlORE14CkZEQVNCZ05WQkFNTUMzZDNkeTV6YzJ3dVkyOXRNUjB3R3dZRFZRUVBEQlJRY21sMllYUmxJRTl5WjJGdWFYcGgKZEdsdmJqRVhNQlVHQ3lzR0FRUUJnamM4QWdFQ0RBWk9aWFpoWkdFeEV6QVJCZ3NyQmdFRUFZSTNQQUlCQXhNQwpWVk13Z2dFaU1BMEdDU3FHU0liM0RRRUJBUVVBQTRJQkR3QXdnZ0VLQW9JQkFRREhoZVJrYmIxRkNjN3hSS3N0CndLMEpJR2FLWTh0N0piUzJiUTJiNllJSkRnbkh1SVlIcUJyQ1VWNzlvZWxpa2tva1JrRnZjdnBhS2luRkhEUUgKVXBXRUk2UlVFUlltU0NnM084V2k0MnVPY1YyQjVaYWJtWENrd2R4WTVFY2w1MUJiTThVbkdkb0FHYmRObWlSbQpTbVRqY3MrbGhNeGc0ZkZZNmxCcGlFVkZpR1VqR1JSKzYxUjY3THo2VTRLSmVMTmNDbTA3UXdGWUtCbXBpMDhnCmR5Z1N2UmRVdzU1Sm9wcmVkaitWR3RqVWtCNGhGVDRHUVgvZ2h0NjlSbHF6Lys4dTBkRVFraHVVdXVjcnFhbG0KU0d5NDNIUndCZkRLRndZZVdNN0NQTWQ1ZS9kTyt0MDh0OFBianpWVFR2NWhRRENzRVlJVjJUN0FGSTlTY054TQpraDcvQWdNQkFBR2pnZ05CTUlJRFBUQWZCZ05WSFNNRUdEQVdnQlMvd1ZxSC95ajZRVDM5dDAva0hhK2dZVmdwCnZUQi9CZ2dyQmdFRkJRY0JBUVJ6TUhFd1RRWUlLd1lCQlFVSE1BS0dRV2gwZEhBNkx5OTNkM2N1YzNOc0xtTnYKYlM5eVpYQnZjMmwwYjNKNUwxTlRUR052YlMxVGRXSkRRUzFGVmkxVFUwd3RVbE5CTFRRd09UWXRVak11WTNKMApNQ0FHQ0NzR0FRVUZCekFCaGhSb2RIUndPaTh2YjJOemNITXVjM05zTG1OdmJUQWZCZ05WSFJFRUdEQVdnZ3QzCmQzY3VjM05zTG1OdmJZSUhjM05zTG1OdmJUQmZCZ05WSFNBRVdEQldNQWNHQldlQkRBRUJNQTBHQ3lxRWFBR0cKOW5jQ0JRRUJNRHdHRENzR0FRUUJncWt3QVFNQkJEQXNNQ29HQ0NzR0FRVUZCd0lCRmg1b2RIUndjem92TDNkMwpkeTV6YzJ3dVkyOXRMM0psY0c5emFYUnZjbmt3SFFZRFZSMGxCQll3RkFZSUt3WUJCUVVIQXdJR0NDc0dBUVVGCkJ3TUJNRWdHQTFVZEh3UkJNRDh3UGFBN29EbUdOMmgwZEhBNkx5OWpjbXh6TG5OemJDNWpiMjB2VTFOTVkyOXQKTFZOMVlrTkJMVVZXTFZOVFRDMVNVMEV0TkRBNU5pMVNNeTVqY213d0hRWURWUjBPQkJZRUZBREFGVUlhenc1cgpaSUhhcG5SeElVbnB3K0dMTUE0R0ExVWREd0VCL3dRRUF3SUZvRENDQVgwR0Npc0dBUVFCMW5rQ0JBSUVnZ0Z0CkJJSUJhUUZuQUhjQTlseVVMOUYzTUNJVVZCZ0lNSlJXanVOTkV4a3p2OThNTHlBTHpFN3haT01BQUFGeE0waG8KYndBQUJBTUFTREJHQWlFQTZ4ZWxpTlI4R2svNjNwWWRuUy92T3gvQ2pwdEVNRXY4OVdXaDEvdXJXSUVDSVFEeQpCcmVIVTI1RHp3dWtRYVJRandXNjU1WkxrcUNueGJ4UVdSaU9lbWo5SkFCMUFKUWd2QjZPMVkxc2lITWZnb3NpCkxBM1IyazFlYkUrVVBXSGJUaTlZVGFMQ0FBQUJjVE5JYU53QUFBUURBRVl3UkFJZ0dSRTR3emFiTlJkRDhrcS8KdkZQM3RRZTJobTB4NW5YdWxvd2g0SWJ3M2xrQ0lGWWIvM2xTRHBsUzdBY1I0citYcFd0RUtTVEZXSm1OQ1JiYwpYSnVyMlJHQkFIVUE3c0NWN28xeVpBK1M0OE81RzhjU28ybHFDWHRMYWhvVU9PWkhzc3Z0eGZrQUFBRnhNMGhvCjh3QUFCQU1BUmpCRUFpQjZJdmJvV3NzM1I0SXRWd2plYmw3RDN5b0ZhWDBORGgyZFdoaGd3Q3hySHdJZ0NmcTcKb2NNQzV0KzFqaTVNNXhhTG1QQzRJK1dYM0kvQVJrV1N5aU83SVFjd0RRWUpLb1pJaHZjTkFRRUxCUUFEZ2dJQgpBQ2V1dXI0UW51anFtZ3VTckhVM21oZitjSm9kelRRTnFvNHRkZStQRDEvZUZkWUFFTHU4eEYrMEF0N3hKaVBZCmk1Ukt3aWx5UDU2diszaVkyVDlsdzdTOFRKMDQxVkxoYUlLcDE0TXpTVXpSeWVvT0FzSjdRQURNQ2xIS1VEbEgKVVUycE51bzg4WTZpZ292VDNic253Sk5pRVFOcXltU1NZaGt0dzB0YWR1b3FqcVhuMDZnc1Zpb1dUVkRYeXNkNQpxRXg0dDZzSWdJY01tMjZZSDF2SnBDUUVoS3BjMnkwN2dSa2tsQlpSdE1qVGh2NGNYeXlNWDd1VGNkVDdBSkJQCnVlaWZDb1YyNUp4WHVvOGQ1MTM5Z3dQMUJBZTdJQlZQeDJ1N0tOL1V5T1hkWm13TWYvVG1GR3dEZENmc3lIZi8KWnNCMndMSG96VFlvQVZtUTlGb1UxSkxnY1ZpdnFKK3ZObEJoSFhobHhNZE4wajgwUjlOejZFSWdsUWplSzNPOApJL2NGR20vQjgrNDJoT2xDSWQ5WmR0bmRKY1JKVmppMHdEMHF3ZXZDYWZBOWpKbEh2L2pzRStJOVV6NmNwQ3loCnN3K2xyRmR4VWdxVTU4YXhxZUs4OUZSK05vNHEwSUlPK0ppMXJKS3I5bmtTQjBCcVhvelZuRTFZQi9LTHZkSXMKdVlaSnVxYjJwS2t1K3p6VDZnVXdIVVRadkJpTk90WEw0Tnh3Yy9LVDdXek9TZDJ3UDEwUUk4REtnNHZmaU5EcwpIV21CMWM0S2ppNmdPZ0E1dVNVemFHbXEvdjRWbmNLNVVyK245TGJmbmZMYzI4SjVmdC9Hb3Rpbk15RGszaWFyCkYxMFlscWNPbWVYMXVGbUtiZGkvWG9yR2xrQ29NRjNURHg4cm1wOURCaUIvCi0tLS0tRU5EIENFUlRJRklDQVRFLS0tLS0=" //nolint:lll
+const encodedTestCert = "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUgvVENDQmVXZ0F3SUJBZ0lRYUJZRTMvTTA4WEhZQ25OVm1jRkJjakFOQmdrcWhraUc5dzBCQVFzRkFEQnkKTVFzd0NRWURWUVFHRXdKVlV6RU9NQXdHQTFVRUNBd0ZWR1Y0WVhNeEVEQU9CZ05WQkFjTUIwaHZkWE4wYjI0eApFVEFQQmdOVkJBb01DRk5UVENCRGIzSndNUzR3TEFZRFZRUUREQ1ZUVTB3dVkyOXRJRVZXSUZOVFRDQkpiblJsCmNtMWxaR2xoZEdVZ1EwRWdVbE5CSUZJek1CNFhEVEl3TURRd01UQXdOVGd6TTFvWERUSXhNRGN4TmpBd05UZ3oKTTFvd2diMHhDekFKQmdOVkJBWVRBbFZUTVE0d0RBWURWUVFJREFWVVpYaGhjekVRTUE0R0ExVUVCd3dIU0c5MQpjM1J2YmpFUk1BOEdBMVVFQ2d3SVUxTk1JRU52Y25BeEZqQVVCZ05WQkFVVERVNVdNakF3T0RFMk1UUXlORE14CkZEQVNCZ05WQkFNTUMzZDNkeTV6YzJ3dVkyOXRNUjB3R3dZRFZRUVBEQlJRY21sMllYUmxJRTl5WjJGdWFYcGgKZEdsdmJqRVhNQlVHQ3lzR0FRUUJnamM4QWdFQ0RBWk9aWFpoWkdFeEV6QVJCZ3NyQmdFRUFZSTNQQUlCQXhNQwpWVk13Z2dFaU1BMEdDU3FHU0liM0RRRUJBUVVBQTRJQkR3QXdnZ0VLQW9JQkFRREhoZVJrYmIxRkNjN3hSS3N0CndLMEpJR2FLWTh0N0piUzJiUTJiNllJSkRnbkh1SVlIcUJyQ1VWNzlvZWxpa2tva1JrRnZjdnBhS2luRkhEUUgKVXBXRUk2UlVFUlltU0NnM084V2k0MnVPY1YyQjVaYWJtWENrd2R4WTVFY2w1MUJiTThVbkdkb0FHYmRObWlSbQpTbVRqY3MrbGhNeGc0ZkZZNmxCcGlFVkZpR1VqR1JSKzYxUjY3THo2VTRLSmVMTmNDbTA3UXdGWUtCbXBpMDhnCmR5Z1N2UmRVdzU1Sm9wcmVkaitWR3RqVWtCNGhGVDRHUVgvZ2h0NjlSbHF6Lys4dTBkRVFraHVVdXVjcnFhbG0KU0d5NDNIUndCZkRLRndZZVdNN0NQTWQ1ZS9kTyt0MDh0OFBianpWVFR2NWhRRENzRVlJVjJUN0FGSTlTY054TQpraDcvQWdNQkFBR2pnZ05CTUlJRFBUQWZCZ05WSFNNRUdEQVdnQlMvd1ZxSC95ajZRVDM5dDAva0hhK2dZVmdwCnZUQi9CZ2dyQmdFRkJRY0JBUVJ6TUhFd1RRWUlLd1lCQlFVSE1BS0dRV2gwZEhBNkx5OTNkM2N1YzNOc0xtTnYKYlM5eVpYQnZjMmwwYjNKNUwxTlRUR052YlMxVGRXSkRRUzFGVmkxVFUwd3RVbE5CTFRRd09UWXRVak11WTNKMApNQ0FHQ0NzR0FRVUZCekFCaGhSb2RIUndPaTh2YjJOemNITXVjM05zTG1OdmJUQWZCZ05WSFJFRUdEQVdnZ3QzCmQzY3VjM05zTG1OdmJZSUhjM05zTG1OdmJUQmZCZ05WSFNBRVdEQldNQWNHQldlQkRBRUJNQTBHQ3lxRWFBR0cKOW5jQ0JRRUJNRHdHRENzR0FRUUJncWt3QVFNQkJEQXNNQ29HQ0NzR0FRVUZCd0lCRmg1b2RIUndjem92TDNkMwpkeTV6YzJ3dVkyOXRMM0psY0c5emFYUnZjbmt3SFFZRFZSMGxCQll3RkFZSUt3WUJCUVVIQXdJR0NDc0dBUVVGCkJ3TUJNRWdHQTFVZEh3UkJNRDh3UGFBN29EbUdOMmgwZEhBNkx5OWpjbXh6TG5OemJDNWpiMjB2VTFOTVkyOXQKTFZOMVlrTkJMVVZXTFZOVFRDMVNVMEV0TkRBNU5pMVNNeTVqY213d0hRWURWUjBPQkJZRUZBREFGVUlhenc1cgpaSUhhcG5SeElVbnB3K0dMTUE0R0ExVWREd0VCL3dRRUF3SUZvRENDQVgwR0Npc0dBUVFCMW5rQ0JBSUVnZ0Z0CkJJSUJhUUZuQUhjQTlseVVMOUYzTUNJVVZCZ0lNSlJXanVOTkV4a3p2OThNTHlBTHpFN3haT01BQUFGeE0waG8KYndBQUJBTUFTREJHQWlFQTZ4ZWxpTlI4R2svNjNwWWRuUy92T3gvQ2pwdEVNRXY4OVdXaDEvdXJXSUVDSVFEeQpCcmVIVTI1RHp3dWtRYVJRandXNjU1WkxrcUNueGJ4UVdSaU9lbWo5SkFCMUFKUWd2QjZPMVkxc2lITWZnb3NpCkxBM1IyazFlYkUrVVBXSGJUaTlZVGFMQ0FBQUJjVE5JYU53QUFBUURBRVl3UkFJZ0dSRTR3emFiTlJkRDhrcS8KdkZQM3RRZTJobTB4NW5YdWxvd2g0SWJ3M2xrQ0lGWWIvM2xTRHBsUzdBY1I0citYcFd0RUtTVEZXSm1OQ1JiYwpYSnVyMlJHQkFIVUE3c0NWN28xeVpBK1M0OE81RzhjU28ybHFDWHRMYWhvVU9PWkhzc3Z0eGZrQUFBRnhNMGhvCjh3QUFCQU1BUmpCRUFpQjZJdmJvV3NzM1I0SXRWd2plYmw3RDN5b0ZhWDBORGgyZFdoaGd3Q3hySHdJZ0NmcTcKb2NNQzV0KzFqaTVNNXhhTG1QQzRJK1dYM0kvQVJrV1N5aU83SVFjd0RRWUpLb1pJaHZjTkFRRUxCUUFEZ2dJQgpBQ2V1dXI0UW51anFtZ3VTckhVM21oZitjSm9kelRRTnFvNHRkZStQRDEvZUZkWUFFTHU4eEYrMEF0N3hKaVBZCmk1Ukt3aWx5UDU2diszaVkyVDlsdzdTOFRKMDQxVkxoYUlLcDE0TXpTVXpSeWVvT0FzSjdRQURNQ2xIS1VEbEgKVVUycE51bzg4WTZpZ292VDNic253Sk5pRVFOcXltU1NZaGt0dzB0YWR1b3FqcVhuMDZnc1Zpb1dUVkRYeXNkNQpxRXg0dDZzSWdJY01tMjZZSDF2SnBDUUVoS3BjMnkwN2dSa2tsQlpSdE1qVGh2NGNYeXlNWDd1VGNkVDdBSkJQCnVlaWZDb1YyNUp4WHVvOGQ1MTM5Z3dQMUJBZTdJQlZQeDJ1N0tOL1V5T1hkWm13TWYvVG1GR3dEZENmc3lIZi8KWnNCMndMSG96VFlvQVZtUTlGb1UxSkxnY1ZpdnFKK3ZObEJoSFhobHhNZE4wajgwUjlOejZFSWdsUWplSzNPOApJL2NGR20vQjgrNDJoT2xDSWQ5WmR0bmRKY1JKVmppMHdEMHF3ZXZDYWZBOWpKbEh2L2pzRStJOVV6NmNwQ3loCnN3K2xyRmR4VWdxVTU4YXhxZUs4OUZSK05vNHEwSUlPK0ppMXJKS3I5bmtTQjBCcVhvelZuRTFZQi9LTHZkSXMKdVlaSnVxYjJwS2t1K3p6VDZnVXdIVVRadkJpTk90WEw0Tnh3Yy9LVDdXek9TZDJ3UDEwUUk4REtnNHZmaU5EcwpIV21CMWM0S2ppNmdPZ0E1dVNVemFHbXEvdjRWbmNLNVVyK245TGJmbmZMYzI4SjVmdC9Hb3Rpbk15RGszaWFyCkYxMFlscWNPbWVYMXVGbUtiZGkvWG9yR2xrQ29NRjNURHg4cm1wOURCaUIvCi0tLS0tRU5EIENFUlRJRklDQVRFLS0tLS0="                     //nolint:lll
+const testCertWithNewline = "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUgvVENDQmVXZ0F3SUJBZ0l\r\nRYUJZRTMvTTA4WEhZQ25OVm1jRkJjakFOQmdrcWhraUc5dzBCQVFzRkFEQnkKTVFzd0NRWURW\r\nUVFHRXdKVlV6RU9NQXdHQTFVRUNBd0ZWR1Y0WVhNeEVEQU9CZ05WQkFjTUIwaHZkWE4wYjI0\r\neApFVEFQQmdOVkJBb01DRk5UVENCRGIzSndNUzR3TEFZRFZRU\r\nUREQ1ZUVTB3dVkyOXRJRVZXSUZOVFRDQkpiblJsCmNtMWxaR2xoZEdVZ1EwRWdVbE5CSUZJek1CNFhEVEl3TURRd01UQXdOVGd6TTFvWERUSXhNRGN4TmpBd05UZ3oKTTFvd2diMHhDekFKQmdOVkJBWVRBbFZUTVE0d0RBWURWUVFJREFWVVpYaGhjekVRTUE0R0ExVUVCd3dIU0c5MQpjM1J2YmpFUk1BOEdBMVVFQ2d3SVUxTk1JRU52Y25BeEZqQVVCZ05WQkFVVERVNVdNakF3T0RFMk1UUXlORE14CkZEQVNCZ05WQkFNTUMzZDNkeTV6YzJ3dVkyOXRNUjB3R3dZRFZRUVBEQlJRY21sMllYUmxJRTl5WjJGdWFYcGgKZEdsdmJqRVhNQlVHQ3lzR0FRUUJnamM4QWdFQ0RBWk9aWFpoWkdFeEV6QVJCZ3NyQmdFRUFZSTNQQUlCQXhNQwpWVk13Z2dFaU1BMEdDU3FHU0liM0RRRUJBUVVBQTRJQkR3QXdnZ0VLQW9JQkFRREhoZVJrYmIxRkNjN3hSS3N0CndLMEpJR2FLWTh0N0piUzJiUTJiNllJSkRnbkh1SVlIcUJyQ1VWNzlvZWxpa2tva1JrRnZjdnBhS2luRkhEUUgKVXBXRUk2UlVFUlltU0NnM084V2k0MnVPY1YyQjVaYWJtWENrd2R4WTVFY2w1MUJiTThVbkdkb0FHYmRObWlSbQpTbVRqY3MrbGhNeGc0ZkZZNmxCcGlFVkZpR1VqR1JSKzYxUjY3THo2VTRLSmVMTmNDbTA3UXdGWUtCbXBpMDhnCmR5Z1N2UmRVdzU1Sm9wcmVkaitWR3RqVWtCNGhGVDRHUVgvZ2h0NjlSbHF6Lys4dTBkRVFraHVVdXVjcnFhbG0KU0d5NDNIUndCZkRLRndZZVdNN0NQTWQ1ZS9kTyt0MDh0OFBianpWVFR2NWhRRENzRVlJVjJUN0FGSTlTY054TQpraDcvQWdNQkFBR2pnZ05CTUlJRFBUQWZCZ05WSFNNRUdEQVdnQlMvd1ZxSC95ajZRVDM5dDAva0hhK2dZVmdwCnZUQi9CZ2dyQmdFRkJRY0JBUVJ6TUhFd1RRWUlLd1lCQlFVSE1BS0dRV2gwZEhBNkx5OTNkM2N1YzNOc0xtTnYKYlM5eVpYQnZjMmwwYjNKNUwxTlRUR052YlMxVGRXSkRRUzFGVmkxVFUwd3RVbE5CTFRRd09UWXRVak11WTNKMApNQ0FHQ0NzR0FRVUZCekFCaGhSb2RIUndPaTh2YjJOemNITXVjM05zTG1OdmJUQWZCZ05WSFJFRUdEQVdnZ3QzCmQzY3VjM05zTG1OdmJZSUhjM05zTG1OdmJUQmZCZ05WSFNBRVdEQldNQWNHQldlQkRBRUJNQTBHQ3lxRWFBR0cKOW5jQ0JRRUJNRHdHRENzR0FRUUJncWt3QVFNQkJEQXNNQ29HQ0NzR0FRVUZCd0lCRmg1b2RIUndjem92TDNkMwpkeTV6YzJ3dVkyOXRMM0psY0c5emFYUnZjbmt3SFFZRFZSMGxCQll3RkFZSUt3WUJCUVVIQXdJR0NDc0dBUVVGCkJ3TUJNRWdHQTFVZEh3UkJNRDh3UGFBN29EbUdOMmgwZEhBNkx5OWpjbXh6TG5OemJDNWpiMjB2VTFOTVkyOXQKTFZOMVlrTkJMVVZXTFZOVFRDMVNVMEV0TkRBNU5pMVNNeTVqY213d0hRWURWUjBPQkJZRUZBREFGVUlhenc1cgpaSUhhcG5SeElVbnB3K0dMTUE0R0ExVWREd0VCL3dRRUF3SUZvRENDQVgwR0Npc0dBUVFCMW5rQ0JBSUVnZ0Z0CkJJSUJhUUZuQUhjQTlseVVMOUYzTUNJVVZCZ0lNSlJXanVOTkV4a3p2OThNTHlBTHpFN3haT01BQUFGeE0waG8KYndBQUJBTUFTREJHQWlFQTZ4ZWxpTlI4R2svNjNwWWRuUy92T3gvQ2pwdEVNRXY4OVdXaDEvdXJXSUVDSVFEeQpCcmVIVTI1RHp3dWtRYVJRandXNjU1WkxrcUNueGJ4UVdSaU9lbWo5SkFCMUFKUWd2QjZPMVkxc2lITWZnb3NpCkxBM1IyazFlYkUrVVBXSGJUaTlZVGFMQ0FBQUJjVE5JYU53QUFBUURBRVl3UkFJZ0dSRTR3emFiTlJkRDhrcS8KdkZQM3RRZTJobTB4NW5YdWxvd2g0SWJ3M2xrQ0lGWWIvM2xTRHBsUzdBY1I0citYcFd0RUtTVEZXSm1OQ1JiYwpYSnVyMlJHQkFIVUE3c0NWN28xeVpBK1M0OE81RzhjU28ybHFDWHRMYWhvVU9PWkhzc3Z0eGZrQUFBRnhNMGhvCjh3QUFCQU1BUmpCRUFpQjZJdmJvV3NzM1I0SXRWd2plYmw3RDN5b0ZhWDBORGgyZFdoaGd3Q3hySHdJZ0NmcTcKb2NNQzV0KzFqaTVNNXhhTG1QQzRJK1dYM0kvQVJrV1N5aU83SVFjd0RRWUpLb1pJaHZjTkFRRUxCUUFEZ2dJQgpBQ2V1dXI0UW51anFtZ3VTckhVM21oZitjSm9kelRRTnFvNHRkZStQRDEvZUZkWUFFTHU4eEYrMEF0N3hKaVBZCmk1Ukt3aWx5UDU2diszaVkyVDlsdzdTOFRKMDQxVkxoYUlLcDE0TXpTVXpSeWVvT0FzSjdRQURNQ2xIS1VEbEgKVVUycE51bzg4WTZpZ292VDNic253Sk5pRVFOcXltU1NZaGt0dzB0YWR1b3FqcVhuMDZnc1Zpb1dUVkRYeXNkNQpxRXg0dDZzSWdJY01tMjZZSDF2SnBDUUVoS3BjMnkwN2dSa2tsQlpSdE1qVGh2NGNYeXlNWDd1VGNkVDdBSkJQCnVlaWZDb1YyNUp4WHVvOGQ1MTM5Z3dQMUJBZTdJQlZQeDJ1N0tOL1V5T1hkWm13TWYvVG1GR3dEZENmc3lIZi8KWnNCMndMSG96VFlvQVZtUTlGb1UxSkxnY1ZpdnFKK3ZObEJoSFhobHhNZE4wajgwUjlOejZFSWdsUWplSzNPOApJL2NGR20vQjgrNDJoT2xDSWQ5WmR0bmRKY1JKVmppMHdEMHF3ZXZDYWZBOWpKbEh2L2pzRStJOVV6NmNwQ3loCnN3K2xyRmR4VWdxVTU4YXhxZUs4OUZSK05vNHEwSUlPK0ppMXJKS3I5bmtTQjBCcVhvelZuRTFZQi9LTHZkSXMKdVlaSnVxYjJwS2t1K3p6VDZnVXdIVVRadkJpTk90WEw0Tnh3Yy9LVDdXek9TZDJ3UDEwUUk4REtnNHZmaU5EcwpIV21CMWM0S2ppNmdPZ0E1dVNVemFHbXEvdjRWbmNLNVVyK245TGJmbmZMYzI4SjVmdC9Hb3Rpbk15RGszaWFyCkYxMFlscWNPbWVYMXVGbUtiZGkvWG9yR2xrQ29NRjNURHg4cm1wOURCaUIvCi0tLS0tRU5EIENFUlRJRklDQVRFLS0tLS0=" //nolint:lll
+
+const expectedlocalDNSCorefileWithoutOverrides = `
+# ***********************************************************************************
+# WARNING: Changes to this file will be overwritten and not persisted.
+# ***********************************************************************************
+# whoami (used for health check of DNS)
+health-check.localdns.local:53 {
+    bind 169.254.10.10 169.254.10.11
+    whoami
+}
+# VnetDNS overrides apply to DNS traffic from pods with dnsPolicy:default or kubelet (referred to as VnetDNS traffic).
+# KubeDNS overrides apply to DNS traffic from pods with dnsPolicy:ClusterFirst (referred to as KubeDNS traffic).
+`
 
 type nodeBootstrappingOutput struct {
 	customData string
@@ -189,7 +204,586 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				Expect(isMariner("Ubuntu")).To(BeFalse())
 			})
 		})
+
+		// ------------------------------- Start of tests related to Localdns ---------------------------------------
+		Describe(".ShouldEnableLocalDNS()", func() {
+			// Expect ShouldEnableLocalDNS func to return false if LocalDNSProfile is nil.
+			It("returns false when AgentPoolProfile is nil", func() {
+				config.AgentPoolProfile = nil
+				Expect(config.AgentPoolProfile.ShouldEnableLocalDNS()).To(BeFalse())
+			})
+			// Expect ShouldEnableLocalDNS func to return false if LocalDNSProfile is nil.
+			It("returns false when LocalDNSProfile is nil", func() {
+				config.AgentPoolProfile.LocalDNSProfile = nil
+				Expect(config.AgentPoolProfile.ShouldEnableLocalDNS()).To(BeFalse())
+			})
+			// Expect ShouldEnableLocalDNS func to return false if LocalDNSProfile is empty.
+			It("returns false when LocalDNSProfile is empty", func() {
+				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{}
+				Expect(config.AgentPoolProfile.ShouldEnableLocalDNS()).To(BeFalse())
+			})
+			// Expect ShouldEnableLocalDNS func to return false if EnableLocalDNS is false.
+			It("returns false when EnableLocalDNS is false", func() {
+				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
+					EnableLocalDNS: false,
+				}
+				Expect(config.AgentPoolProfile.ShouldEnableLocalDNS()).To(BeFalse())
+			})
+			// Expect ShouldEnableLocalDNS func to return true if EnableLocalDNS is true.
+			It("returns true when EnableLocalDNS is true", func() {
+				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
+					EnableLocalDNS: true,
+				}
+				Expect(config.AgentPoolProfile.ShouldEnableLocalDNS()).To(BeTrue())
+			})
+		})
+
+		Describe(".GetLocalDNSCPULimitInPercentage()", func() {
+			// Expect default CPUlimit to be returned.
+			It("returns default CPULimit - 200.0%", func() {
+				config.AgentPoolProfile.LocalDNSProfile = nil
+				Expect(config.AgentPoolProfile.GetLocalDNSCPULimitInPercentage()).To(ContainSubstring("200.0%"))
+			})
+			// Expect default CPUlimit to be returned if CPULimitInMilliCores is nil.
+			It("returns default CPULimit - 200.0% when CPULimitInMilliCores is nil", func() {
+				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
+					EnableLocalDNS:       true,
+					CPULimitInMilliCores: nil,
+				}
+				Expect(config.AgentPoolProfile.GetLocalDNSCPULimitInPercentage()).To(ContainSubstring("200.0%"))
+			})
+			// Expect input value to be returned even if EnableLocalDNS is false.
+			It("returns input value of CPULimit - 500.0% even when EnableLocalDNS is false", func() {
+				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
+					EnableLocalDNS:       false,
+					CPULimitInMilliCores: to.Int32Ptr(5000),
+				}
+				Expect(config.AgentPoolProfile.GetLocalDNSCPULimitInPercentage()).To(ContainSubstring("500.0%"))
+			})
+			// Expect input value to be returned if EnableLocalDNS is true.
+			It("returns input value of CPULimit - 489.7%", func() {
+				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
+					EnableLocalDNS:       true,
+					CPULimitInMilliCores: to.Int32Ptr(4897),
+				}
+				Expect(config.AgentPoolProfile.GetLocalDNSCPULimitInPercentage()).To(ContainSubstring("489.7%"))
+			})
+		})
+
+		Describe(".GetLocalDNSMemoryLimitInMB()", func() {
+			// Expect default memorylimit to be returned if LocalDNSProfile is nil.
+			It("returns default MemoryLimitInMB - 128M", func() {
+				config.AgentPoolProfile.LocalDNSProfile = nil
+				Expect(config.AgentPoolProfile.GetLocalDNSMemoryLimitInMB()).To(ContainSubstring("128M"))
+			})
+			// Expect default memorylimit to be returned if MemoryLimitInMB is nil.
+			It("returns default MemoryLimitInMB - 128M", func() {
+				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
+					EnableLocalDNS:  true,
+					MemoryLimitInMB: nil,
+				}
+				Expect(config.AgentPoolProfile.GetLocalDNSMemoryLimitInMB()).To(ContainSubstring("128M"))
+			})
+			// Expect input value of memorylimit to be returned if EnableLocalDNS is false.
+			It("returns input value of MemoryLimitInMB - 438M", func() {
+				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
+					EnableLocalDNS:  false,
+					MemoryLimitInMB: to.Int32Ptr(438),
+				}
+				Expect(config.AgentPoolProfile.GetLocalDNSMemoryLimitInMB()).To(ContainSubstring("438M"))
+			})
+			// Expect input value of memorylimit to be returned if EnableLocalDNS is true.
+			It("returns input value of MemoryLimitInMB - 1024M", func() {
+				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
+					EnableLocalDNS:  true,
+					MemoryLimitInMB: to.Int32Ptr(1024),
+				}
+				Expect(config.AgentPoolProfile.GetLocalDNSMemoryLimitInMB()).To(ContainSubstring("1024M"))
+			})
+		})
+
+		Describe(".GetGeneratedLocalDNSCoreFile()", func() {
+			// Expect an error if LocalDNSProfile is nil and GenerateLocalDNSCoreFile is invoked somehow.
+			It("returns an error when LocalDNSProfile is nil", func() {
+				config.AgentPoolProfile.LocalDNSProfile = nil
+				_, err := GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, localDNSCoreFileTemplateString)
+				Expect(err).ToNot(BeNil())
+				Expect(err.Error()).To(ContainSubstring("localdns profile is nil"))
+			})
+
+			// Expect an error from GenerateLocalDNSCoreFile if template is invalid.
+			It("returns an error when template parsing fails", func() {
+				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
+					EnableLocalDNS:       true,
+					CPULimitInMilliCores: to.Int32Ptr(2008),
+					MemoryLimitInMB:      to.Int32Ptr(128),
+					VnetDNSOverrides:     nil,
+					KubeDNSOverrides:     nil,
+				}
+				invalidTemplate := "{{.InvalidField}}"
+				_, err := GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, invalidTemplate)
+				Expect(err).ToNot(BeNil())
+				Expect(err.Error()).To(ContainSubstring("failed to execute localdns corefile template"))
+			})
+
+			// Expect an error from GenerateLocalDNSCoreFile if it is invoked when EnableLocalDNS is set to false.
+			It("returns an error when EnableLocalDNS is set to false", func() {
+				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
+					EnableLocalDNS:       false,
+					CPULimitInMilliCores: to.Int32Ptr(2008),
+					MemoryLimitInMB:      to.Int32Ptr(128),
+					VnetDNSOverrides:     nil,
+					KubeDNSOverrides:     nil,
+				}
+				_, err := GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, localDNSCoreFileTemplateString)
+				Expect(err).ToNot(BeNil())
+				Expect(err.Error()).To(ContainSubstring("EnableLocalDNS is set to false, corefile will not be generated"))
+			})
+
+			// Expect no error and a non-empty corefile when LocalDNSOverrides are nil.
+			It("handles nil LocalDNSOverrides", func() {
+				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
+					EnableLocalDNS:       true,
+					CPULimitInMilliCores: to.Int32Ptr(2008),
+					MemoryLimitInMB:      to.Int32Ptr(128),
+					VnetDNSOverrides:     nil,
+					KubeDNSOverrides:     nil,
+				}
+				localDNSCoreFileGzippedBase64Encoded, err := GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, localDNSCoreFileTemplateString)
+				Expect(err).To(BeNil())
+				Expect(localDNSCoreFileGzippedBase64Encoded).ToNot(BeEmpty())
+
+				// Decode the gzipped base64 encoded string.
+				localDNSCoreFileGzippedBase64Decoded, err := getBase64DecodedValue([]byte(localDNSCoreFileGzippedBase64Encoded))
+				Expect(err).To(BeNil())
+				Expect(localDNSCoreFileGzippedBase64Decoded).ToNot(BeEmpty())
+
+				// Decompress the gzipped data.
+				localDNSCorefile, err := getGzipDecodedValue([]byte(localDNSCoreFileGzippedBase64Decoded))
+				Expect(err).To(BeNil())
+				Expect(localDNSCorefile).ToNot(BeEmpty())
+				Expect(localDNSCorefile).To(ContainSubstring(expectedlocalDNSCorefileWithoutOverrides))
+			})
+
+			// Expect no error and a non-empty corefile when LocalDNSOverrides are empty.
+			It("handles empty LocalDNSOverrides", func() {
+				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
+					EnableLocalDNS:       true,
+					CPULimitInMilliCores: to.Int32Ptr(2008),
+					MemoryLimitInMB:      to.Int32Ptr(128),
+					VnetDNSOverrides:     map[string]*datamodel.LocalDNSOverrides{},
+					KubeDNSOverrides:     map[string]*datamodel.LocalDNSOverrides{},
+				}
+				localDNSCoreFileGzippedBase64Encoded, err := GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, localDNSCoreFileTemplateString)
+				Expect(err).To(BeNil())
+				Expect(localDNSCoreFileGzippedBase64Encoded).ToNot(BeEmpty())
+
+				// Decode the gzipped base64 encoded string.
+				localDNSCoreFileGzippedBase64Decoded, err := getBase64DecodedValue([]byte(localDNSCoreFileGzippedBase64Encoded))
+				Expect(err).To(BeNil())
+				Expect(localDNSCoreFileGzippedBase64Decoded).ToNot(BeEmpty())
+
+				// Decompress the gzipped data.
+				localDNSCorefile, err := getGzipDecodedValue([]byte(localDNSCoreFileGzippedBase64Decoded))
+				Expect(err).To(BeNil())
+				Expect(localDNSCorefile).ToNot(BeEmpty())
+				Expect(localDNSCorefile).To(ContainSubstring(expectedlocalDNSCorefileWithoutOverrides))
+			})
+
+			// Expect no error and a non-empty corefile when LocalDNSOverrides are empty.
+			It("handles empty KubeDNSOverrides and non-empty VnetDNSOverrides", func() {
+				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
+					EnableLocalDNS:       true,
+					CPULimitInMilliCores: to.Int32Ptr(2008),
+					MemoryLimitInMB:      to.Int32Ptr(128),
+					VnetDNSOverrides: map[string]*datamodel.LocalDNSOverrides{
+						".": {
+							QueryLogging:                "Log",
+							Protocol:                    "PreferUDP",
+							ForwardDestination:          "VnetDNS",
+							ForwardPolicy:               "Sequential",
+							MaxConcurrent:               to.Int32Ptr(1000),
+							CacheDurationInSeconds:      to.Int32Ptr(3600),
+							ServeStaleDurationInSeconds: to.Int32Ptr(3600),
+							ServeStale:                  "Immediate",
+						},
+						"cluster.local": {
+							QueryLogging:                "Error",
+							Protocol:                    "ForceTCP",
+							ForwardDestination:          "ClusterCoreDNS",
+							ForwardPolicy:               "Sequential",
+							MaxConcurrent:               to.Int32Ptr(1000),
+							CacheDurationInSeconds:      to.Int32Ptr(3600),
+							ServeStaleDurationInSeconds: to.Int32Ptr(3600),
+							ServeStale:                  "Disable",
+						},
+						"testdomain456.com": {
+							QueryLogging:                "Log",
+							Protocol:                    "PreferUDP",
+							ForwardDestination:          "ClusterCoreDNS",
+							ForwardPolicy:               "Sequential",
+							MaxConcurrent:               to.Int32Ptr(1000),
+							CacheDurationInSeconds:      to.Int32Ptr(3600),
+							ServeStaleDurationInSeconds: to.Int32Ptr(3600),
+							ServeStale:                  "Verify",
+						},
+					},
+					KubeDNSOverrides: map[string]*datamodel.LocalDNSOverrides{
+						".": {
+							QueryLogging:                "Error",
+							Protocol:                    "PreferUDP",
+							ForwardDestination:          "ClusterCoreDNS",
+							ForwardPolicy:               "Sequential",
+							MaxConcurrent:               to.Int32Ptr(2000),
+							CacheDurationInSeconds:      to.Int32Ptr(3600),
+							ServeStaleDurationInSeconds: to.Int32Ptr(72000),
+							ServeStale:                  "Verify",
+						},
+					},
+				}
+				localDNSCoreFileGzippedBase64Encoded, err := GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, localDNSCoreFileTemplateString)
+				Expect(err).To(BeNil())
+				Expect(localDNSCoreFileGzippedBase64Encoded).ToNot(BeEmpty())
+
+				// Decode the gzipped base64 encoded string.
+				localDNSCoreFileGzippedBase64Decoded, err := getBase64DecodedValue([]byte(localDNSCoreFileGzippedBase64Encoded))
+				Expect(err).To(BeNil())
+				Expect(localDNSCoreFileGzippedBase64Decoded).ToNot(BeEmpty())
+
+				// Decompress the gzipped data.
+				localDNSCorefile, err := getGzipDecodedValue([]byte(localDNSCoreFileGzippedBase64Decoded))
+				Expect(err).To(BeNil())
+				Expect(localDNSCorefile).ToNot(BeEmpty())
+
+				expectedlocalDNSCorefile := `
+# ***********************************************************************************
+# WARNING: Changes to this file will be overwritten and not persisted.
+# ***********************************************************************************
+# whoami (used for health check of DNS)
+health-check.localdns.local:53 {
+    bind 169.254.10.10 169.254.10.11
+    whoami
+}
+# VnetDNS overrides apply to DNS traffic from pods with dnsPolicy:default or kubelet (referred to as VnetDNS traffic).
+.:53 {
+    log
+    bind 169.254.10.10
+    forward . 168.63.129.16 {
+        policy sequential
+        max_concurrent 1000
+    }
+    ready 169.254.10.10:8181
+    cache 3600 {
+        success 9984
+        denial 9984
+        serve_stale 3600s immediate
+        servfail 0
+    }
+    loop
+    nsid localdns
+    prometheus :9253
+    template ANY ANY internal.cloudapp.net {
+        match "^(?:[^.]+\.){4,}internal\.cloudapp\.net\.$"
+        rcode NXDOMAIN
+        fallthrough
+    }
+    template ANY ANY reddog.microsoft.com {
+        rcode NXDOMAIN
+    }
+}
+cluster.local:53 {
+    errors
+    bind 169.254.10.10
+    forward . 10.0.0.10 {
+        force_tcp
+        policy sequential
+        max_concurrent 1000
+    }
+    ready 169.254.10.10:8181
+    cache 3600 {
+        success 9984
+        denial 9984
+        servfail 0
+    }
+    loop
+    nsid localdns
+    prometheus :9253
+}
+testdomain456.com:53 {
+    log
+    bind 169.254.10.10
+    forward . 10.0.0.10 {
+        policy sequential
+        max_concurrent 1000
+    }
+    ready 169.254.10.10:8181
+    cache 3600 {
+        success 9984
+        denial 9984
+        serve_stale 3600s verify
+        servfail 0
+    }
+    loop
+    nsid localdns
+    prometheus :9253
+}
+# KubeDNS overrides apply to DNS traffic from pods with dnsPolicy:ClusterFirst (referred to as KubeDNS traffic).
+.:53 {
+    errors
+    bind 169.254.10.11
+    forward . 10.0.0.10 {
+        policy sequential
+        max_concurrent 2000
+    }
+    ready 169.254.10.11:8181
+    cache 3600 {
+        success 9984
+        denial 9984
+        serve_stale 72000s verify
+        servfail 0
+    }
+    loop
+    nsid localdns-pod
+    prometheus :9253
+    template ANY ANY internal.cloudapp.net {
+        match "^(?:[^.]+\.){4,}internal\.cloudapp\.net\.$"
+        rcode NXDOMAIN
+        fallthrough
+    }
+    template ANY ANY reddog.microsoft.com {
+        rcode NXDOMAIN
+    }
+}
+`
+				Expect(localDNSCorefile).To(ContainSubstring(expectedlocalDNSCorefile))
+			})
+
+			// Expect no error and correct localdns corefile.
+			It("generates a valid localdnsCorefile", func() {
+				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
+					EnableLocalDNS:       true,
+					CPULimitInMilliCores: to.Int32Ptr(2008),
+					MemoryLimitInMB:      to.Int32Ptr(128),
+					VnetDNSOverrides: map[string]*datamodel.LocalDNSOverrides{
+						".": {
+							QueryLogging:                "Log",
+							Protocol:                    "PreferUDP",
+							ForwardDestination:          "VnetDNS",
+							ForwardPolicy:               "Sequential",
+							MaxConcurrent:               to.Int32Ptr(1000),
+							CacheDurationInSeconds:      to.Int32Ptr(3600),
+							ServeStaleDurationInSeconds: to.Int32Ptr(3600),
+							ServeStale:                  "Verify",
+						},
+						"cluster.local": {
+							QueryLogging:                "Error",
+							Protocol:                    "ForceTCP",
+							ForwardDestination:          "ClusterCoreDNS",
+							ForwardPolicy:               "Sequential",
+							MaxConcurrent:               to.Int32Ptr(1000),
+							CacheDurationInSeconds:      to.Int32Ptr(3600),
+							ServeStaleDurationInSeconds: to.Int32Ptr(3600),
+							ServeStale:                  "Disable",
+						},
+						"testdomain456.com": {
+							QueryLogging:                "Log",
+							Protocol:                    "PreferUDP",
+							ForwardDestination:          "ClusterCoreDNS",
+							ForwardPolicy:               "Sequential",
+							MaxConcurrent:               to.Int32Ptr(1000),
+							CacheDurationInSeconds:      to.Int32Ptr(3600),
+							ServeStaleDurationInSeconds: to.Int32Ptr(3600),
+							ServeStale:                  "Verify",
+						},
+					},
+					KubeDNSOverrides: map[string]*datamodel.LocalDNSOverrides{
+						".": {
+							QueryLogging:                "Error",
+							Protocol:                    "PreferUDP",
+							ForwardDestination:          "ClusterCoreDNS",
+							ForwardPolicy:               "Sequential",
+							MaxConcurrent:               to.Int32Ptr(1000),
+							CacheDurationInSeconds:      to.Int32Ptr(3600),
+							ServeStaleDurationInSeconds: to.Int32Ptr(3600),
+							ServeStale:                  "Verify",
+						},
+						"cluster.local": {
+							QueryLogging:                "Log",
+							Protocol:                    "ForceTCP",
+							ForwardDestination:          "ClusterCoreDNS",
+							ForwardPolicy:               "RoundRobin",
+							MaxConcurrent:               to.Int32Ptr(1000),
+							CacheDurationInSeconds:      to.Int32Ptr(3600),
+							ServeStaleDurationInSeconds: to.Int32Ptr(3600),
+							ServeStale:                  "Disable",
+						},
+						"testdomain567.com": {
+							QueryLogging:                "Error",
+							Protocol:                    "PreferUDP",
+							ForwardDestination:          "VnetDNS",
+							ForwardPolicy:               "Random",
+							MaxConcurrent:               to.Int32Ptr(1000),
+							CacheDurationInSeconds:      to.Int32Ptr(3600),
+							ServeStaleDurationInSeconds: to.Int32Ptr(3600),
+							ServeStale:                  "Immediate",
+						},
+					},
+				}
+				localDNSCoreFileGzippedBase64Encoded, err := GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, localDNSCoreFileTemplateString)
+				Expect(err).To(BeNil())
+				Expect(localDNSCoreFileGzippedBase64Encoded).ToNot(BeEmpty())
+
+				// Decode the gzipped base64 encoded string.
+				localDNSCoreFileGzippedBase64Decoded, err := getBase64DecodedValue([]byte(localDNSCoreFileGzippedBase64Encoded))
+				Expect(err).To(BeNil())
+				Expect(localDNSCoreFileGzippedBase64Decoded).ToNot(BeEmpty())
+
+				// Decompress the gzipped data.
+				localDNSCorefile, err := getGzipDecodedValue([]byte(localDNSCoreFileGzippedBase64Decoded))
+				Expect(err).To(BeNil())
+				Expect(localDNSCorefile).ToNot(BeEmpty())
+
+				expectedlocalDNSCorefile := `
+# ***********************************************************************************
+# WARNING: Changes to this file will be overwritten and not persisted.
+# ***********************************************************************************
+# whoami (used for health check of DNS)
+health-check.localdns.local:53 {
+    bind 169.254.10.10 169.254.10.11
+    whoami
+}
+# VnetDNS overrides apply to DNS traffic from pods with dnsPolicy:default or kubelet (referred to as VnetDNS traffic).
+.:53 {
+    log
+    bind 169.254.10.10
+    forward . 168.63.129.16 {
+        policy sequential
+        max_concurrent 1000
+    }
+    ready 169.254.10.10:8181
+    cache 3600 {
+        success 9984
+        denial 9984
+        serve_stale 3600s verify
+        servfail 0
+    }
+    loop
+    nsid localdns
+    prometheus :9253
+    template ANY ANY internal.cloudapp.net {
+        match "^(?:[^.]+\.){4,}internal\.cloudapp\.net\.$"
+        rcode NXDOMAIN
+        fallthrough
+    }
+    template ANY ANY reddog.microsoft.com {
+        rcode NXDOMAIN
+    }
+}
+cluster.local:53 {
+    errors
+    bind 169.254.10.10
+    forward . 10.0.0.10 {
+        force_tcp
+        policy sequential
+        max_concurrent 1000
+    }
+    ready 169.254.10.10:8181
+    cache 3600 {
+        success 9984
+        denial 9984
+        servfail 0
+    }
+    loop
+    nsid localdns
+    prometheus :9253
+}
+testdomain456.com:53 {
+    log
+    bind 169.254.10.10
+    forward . 10.0.0.10 {
+        policy sequential
+        max_concurrent 1000
+    }
+    ready 169.254.10.10:8181
+    cache 3600 {
+        success 9984
+        denial 9984
+        serve_stale 3600s verify
+        servfail 0
+    }
+    loop
+    nsid localdns
+    prometheus :9253
+}
+# KubeDNS overrides apply to DNS traffic from pods with dnsPolicy:ClusterFirst (referred to as KubeDNS traffic).
+.:53 {
+    errors
+    bind 169.254.10.11
+    forward . 10.0.0.10 {
+        policy sequential
+        max_concurrent 1000
+    }
+    ready 169.254.10.11:8181
+    cache 3600 {
+        success 9984
+        denial 9984
+        serve_stale 3600s verify
+        servfail 0
+    }
+    loop
+    nsid localdns-pod
+    prometheus :9253
+    template ANY ANY internal.cloudapp.net {
+        match "^(?:[^.]+\.){4,}internal\.cloudapp\.net\.$"
+        rcode NXDOMAIN
+        fallthrough
+    }
+    template ANY ANY reddog.microsoft.com {
+        rcode NXDOMAIN
+    }
+}
+cluster.local:53 {
+    log
+    bind 169.254.10.11
+    forward . 10.0.0.10 {
+        force_tcp
+        policy round_robin
+        max_concurrent 1000
+    }
+    ready 169.254.10.11:8181
+    cache 3600 {
+        success 9984
+        denial 9984
+        servfail 0
+    }
+    loop
+    nsid localdns-pod
+    prometheus :9253
+}
+testdomain567.com:53 {
+    errors
+    bind 169.254.10.11
+    forward . 168.63.129.16 {
+        policy random
+        max_concurrent 1000
+    }
+    ready 169.254.10.11:8181
+    cache 3600 {
+        success 9984
+        denial 9984
+        serve_stale 3600s immediate
+        servfail 0
+    }
+    loop
+    nsid localdns-pod
+    prometheus :9253
+}
+`
+				Expect(localDNSCorefile).To(ContainSubstring(expectedlocalDNSCorefile))
+			})
+		})
 	})
+	// ------------------------------- End of tests related to Localdns ---------------------------------------
 
 	DescribeTable("Generated customData and CSE", func(folder, k8sVersion string, configUpdator func(*datamodel.NodeBootstrappingConfiguration),
 		validator outputValidator) {
@@ -322,6 +916,10 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 						GalleryName:   "AKSUbuntuEdgeZone",
 						ResourceGroup: "AKS-Ubuntu-EdgeZone",
 					},
+					"AKSFlatcar": {
+						GalleryName:   "aksflatcar",
+						ResourceGroup: "resourcegroup",
+					},
 				},
 			},
 		}
@@ -350,7 +948,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		Expect(err).To(BeNil())
 
 		var customDataBytes []byte
-		if config.AgentPoolProfile.IsWindows() {
+		if config.AgentPoolProfile.IsWindows() || config.IsFlatcar() {
 			customDataBytes, err = base64.StdEncoding.DecodeString(nodeBootstrapping.CustomData)
 			Expect(err).To(BeNil())
 		} else {
@@ -411,15 +1009,11 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 	}, Entry("AKSUbuntu1604 with k8s version less than 1.18", "AKSUbuntu1604+K8S115", "1.15.7", func(config *datamodel.NodeBootstrappingConfiguration) {
 		config.KubeletConfig["--dynamic-config-dir"] = "/var/lib/kubelet/"
 	}, func(o *nodeBootstrappingOutput) {
-		etcDefaultKubelet := o.files["/etc/default/kubelet"].value
 
 		Expect(o.vars["KUBELET_FLAGS"]).NotTo(BeEmpty())
 		Expect(strings.Contains(o.vars["KUBELET_FLAGS"], "DynamicKubeletConfig")).To(BeTrue())
 		Expect(strings.Contains(o.vars["KUBELET_FLAGS"], "DynamicKubeletConfig")).To(BeTrue())
 		Expect(strings.Contains(o.vars["KUBELET_FLAGS"], "--dynamic-config-dir")).To(BeFalse())
-		Expect(etcDefaultKubelet).NotTo(BeEmpty())
-		Expect(strings.Contains(etcDefaultKubelet, "DynamicKubeletConfig")).To(BeTrue())
-		Expect(strings.Contains(etcDefaultKubelet, "--dynamic-config-dir")).To(BeFalse())
 		Expect(strings.Contains(o.cseCmd, "DynamicKubeletConfig")).To(BeTrue())
 
 		// sanity check that no other files/variables set the flag
@@ -787,71 +1381,6 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				config.KubeletConfig = map[string]string{}
 			}, nil),
 
-		Entry("AKSUbuntu1804 with kubelet client TLS bootstrapping enabled", "AKSUbuntu1804+KubeletClientTLSBootstrapping", "1.18.3",
-			func(config *datamodel.NodeBootstrappingConfiguration) {
-				config.KubeletClientTLSBootstrapToken = to.StringPtr("07401b.f395accd246ae52d")
-				config.ContainerService.Properties.CertificateProfile = &datamodel.CertificateProfile{
-					CaCertificate: "fooBarBaz",
-				}
-			}, func(o *nodeBootstrappingOutput) {
-				// Please see #2815 for more details
-				etcDefaultKubelet := o.files["/etc/default/kubelet"].value
-				etcDefaultKubeletService := o.files["/etc/systemd/system/kubelet.service"].value
-				kubeletSh := o.files["/opt/azure/containers/kubelet.sh"].value
-				bootstrapKubeconfig := o.files["/var/lib/kubelet/bootstrap-kubeconfig"].value
-				caCRT := o.files["/etc/kubernetes/certs/ca.crt"].value
-
-				Expect(etcDefaultKubelet).NotTo(BeEmpty())
-				Expect(bootstrapKubeconfig).NotTo(BeEmpty())
-				Expect(kubeletSh).NotTo(BeEmpty())
-				Expect(tlsBootstrapDropin).ToNot(BeEmpty())
-				Expect(etcDefaultKubeletService).NotTo(BeEmpty())
-				Expect(caCRT).NotTo(BeEmpty())
-
-				Expect(bootstrapKubeconfig).To(ContainSubstring("token"))
-				Expect(bootstrapKubeconfig).To(ContainSubstring("07401b.f395accd246ae52d"))
-				Expect(bootstrapKubeconfig).ToNot(ContainSubstring("command: /opt/azure/tlsbootstrap/tls-bootstrap-client"))
-			}),
-
-		Entry("AKSUbuntu2204 with secure TLS bootstrapping enabled", "AKSUbuntu2204+SecureTLSBoostrapping", "1.25.6",
-			func(config *datamodel.NodeBootstrappingConfiguration) {
-				config.EnableSecureTLSBootstrapping = true
-			}, func(o *nodeBootstrappingOutput) {
-				Expect(o.vars["ENABLE_SECURE_TLS_BOOTSTRAPPING"]).To(Equal("true"))
-				Expect(o.vars["CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_SERVER_APP_ID"]).To(BeEmpty())
-
-				bootstrapKubeconfig := o.files["/var/lib/kubelet/bootstrap-kubeconfig"].value
-				Expect(bootstrapKubeconfig).ToNot(BeEmpty())
-				Expect(bootstrapKubeconfig).To(ContainSubstring("apiVersion: client.authentication.k8s.io/v1"))
-				Expect(bootstrapKubeconfig).To(ContainSubstring("command: /opt/azure/tlsbootstrap/tls-bootstrap-client"))
-				Expect(bootstrapKubeconfig).To(ContainSubstring("- bootstrap"))
-				Expect(bootstrapKubeconfig).To(ContainSubstring("--next-proto=aks-tls-bootstrap"))
-				Expect(bootstrapKubeconfig).To(ContainSubstring("--aad-resource=6dae42f8-4368-4678-94ff-3960e28e3630"))
-				Expect(bootstrapKubeconfig).To(ContainSubstring("interactiveMode: Never"))
-				Expect(bootstrapKubeconfig).To(ContainSubstring("provideClusterInfo: true"))
-				Expect(bootstrapKubeconfig).ToNot(ContainSubstring("token:"))
-			}),
-
-		Entry("AKSUbuntu2204 with secure TLS bootstrapping enabled using custom AAD server application ID", "AKSUbuntu2204+SecureTLSBootstrapping+CustomAADResource", "1.25.6",
-			func(config *datamodel.NodeBootstrappingConfiguration) {
-				config.EnableSecureTLSBootstrapping = true
-				config.CustomSecureTLSBootstrapAADServerAppID = "appID"
-			}, func(o *nodeBootstrappingOutput) {
-				Expect(o.vars["ENABLE_SECURE_TLS_BOOTSTRAPPING"]).To(Equal("true"))
-				Expect(o.vars["CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_SERVER_APP_ID"]).To(Equal("appID"))
-
-				bootstrapKubeconfig := o.files["/var/lib/kubelet/bootstrap-kubeconfig"].value
-				Expect(bootstrapKubeconfig).ToNot(BeEmpty())
-				Expect(bootstrapKubeconfig).To(ContainSubstring("apiVersion: client.authentication.k8s.io/v1"))
-				Expect(bootstrapKubeconfig).To(ContainSubstring("command: /opt/azure/tlsbootstrap/tls-bootstrap-client"))
-				Expect(bootstrapKubeconfig).To(ContainSubstring("- bootstrap"))
-				Expect(bootstrapKubeconfig).To(ContainSubstring("--next-proto=aks-tls-bootstrap"))
-				Expect(bootstrapKubeconfig).To(ContainSubstring("--aad-resource=appID"))
-				Expect(bootstrapKubeconfig).To(ContainSubstring("interactiveMode: Never"))
-				Expect(bootstrapKubeconfig).To(ContainSubstring("provideClusterInfo: true"))
-				Expect(bootstrapKubeconfig).ToNot(ContainSubstring("token:"))
-			}),
-
 		Entry("AKSUbuntu2204 with kubelet serving certificate rotation implicitly disabled", "AKSUbuntu2204+ImplicitlyDisableKubeletServingCertificateRotation", "1.29.7",
 			func(config *datamodel.NodeBootstrappingConfiguration) {
 			}, func(o *nodeBootstrappingOutput) {
@@ -954,9 +1483,39 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			}
 		}, nil),
 
+		Entry("Mariner v2 with custom cloud", "MarinerV2+CustomCloud+USSec", "1.23.8", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.OSSKU = "Mariner"
+			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+				ContainerRuntime: datamodel.Containerd,
+			}
+			config.ContainerService.Location = "ussecwest"
+			config.ContainerService.Properties.CustomCloudEnv = &datamodel.CustomCloudEnv{
+				Name: "akscustom",
+			}
+		}, nil),
+
+		Entry("Mariner v2 with custom cloud", "MarinerV2+CustomCloud+USNat", "1.23.8", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.OSSKU = "Mariner"
+			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+				ContainerRuntime: datamodel.Containerd,
+			}
+			config.ContainerService.Location = "usnatwest"
+			config.ContainerService.Properties.CustomCloudEnv = &datamodel.CustomCloudEnv{
+				Name: "akscustom",
+			}
+		}, nil),
+
 		Entry("AzureLinux v2 with kata", "AzureLinuxV2+Kata", "1.28.0", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.OSSKU = "AzureLinux"
 			config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSAzureLinuxV2Gen2Kata
+			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+				ContainerRuntime: datamodel.Containerd,
+			}
+		}, nil),
+
+		Entry("AzureLinux v3 with kata", "AzureLinuxV3+Kata", "1.28.0", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.OSSKU = "AzureLinux"
+			config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSAzureLinuxV3Gen2Kata
 			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
 				ContainerRuntime: datamodel.Containerd,
 			}
@@ -1030,6 +1589,26 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				config.DisableUnattendedUpgrades = false
 			}, nil),
 
+		Entry("AzureLinux v3 with kata and DisableUnattendedUpgrades=true", "AzureLinuxV3+Kata+DisableUnattendedUpgrades=true", "1.28.0",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.OSSKU = "AzureLinux"
+				config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSAzureLinuxV3Gen2Kata
+				config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+					ContainerRuntime: datamodel.Containerd,
+				}
+				config.DisableUnattendedUpgrades = true
+			}, nil),
+
+		Entry("AzureLinux v3 with kata and DisableUnattendedUpgrades=false", "AzureLinuxV3+Kata+DisableUnattendedUpgrades=false", "1.28.0",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.OSSKU = "AzureLinux"
+				config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSAzureLinuxV3Gen2Kata
+				config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+					ContainerRuntime: datamodel.Containerd,
+				}
+				config.DisableUnattendedUpgrades = false
+			}, nil),
+
 		Entry("AKSUbuntu1804 with containerd and kubenet cni", "AKSUbuntu1804+Containerd+Kubenet+FIPSEnabled", "1.19.13",
 			func(config *datamodel.NodeBootstrappingConfiguration) {
 				config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
@@ -1065,6 +1644,34 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			},
 		),
 
+		Entry("AKSUbuntu1804 with http proxy config cert newlines", "AKSUbuntu1804+HTTPProxy", "1.18.14", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.HTTPProxyConfig = &datamodel.HTTPProxyConfig{
+				HTTPProxy:  to.StringPtr("http://myproxy.server.com:8080/"),
+				HTTPSProxy: to.StringPtr("https://myproxy.server.com:8080/"),
+				NoProxy: to.StringSlicePtr([]string{
+					"localhost",
+					"127.0.0.1",
+				}),
+				TrustedCA: to.StringPtr(testCertWithNewline),
+			}
+		},
+			func(o *nodeBootstrappingOutput) {
+				Expect(o).ShouldNot(BeNil())
+				Expect(o.files["/opt/azure/containers/provision.sh"]).ShouldNot(BeNil())
+				Expect(o.files["/opt/azure/containers/provision.sh"].encoding).To(Equal(cseVariableEncodingGzip))
+				cseMain := o.files["/opt/azure/containers/provision.sh"].value
+				httpProxyStr := "export http_proxy=\"http://myproxy.server.com:8080/\""
+				Expect(strings.Contains(cseMain, "eval $PROXY_VARS")).To(BeTrue())
+				Expect(strings.Contains(cseMain, "$OUTBOUND_COMMAND")).To(BeTrue())
+				Expect(o.vars["HTTP_PROXY_TRUSTED_CA"]).To(Equal(encodedTestCert))
+				err := verifyCertsEncoding(o.vars["HTTP_PROXY_TRUSTED_CA"])
+				Expect(err).ShouldNot(HaveOccurred())
+				// assert we eval exporting the proxy vars before checking outbound connectivity
+				Expect(strings.Index(cseMain, "eval $PROXY_VARS") < strings.Index(cseMain, "$OUTBOUND_COMMAND")).To(BeTrue())
+				Expect(strings.Contains(o.cseCmd, httpProxyStr)).To(BeTrue())
+			},
+		),
+
 		Entry("AKSUbuntu2204 with outbound type blocked", "AKSUbuntu2204+OutboundTypeBlocked", "1.25.6", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.OutboundType = datamodel.OutboundTypeBlock
 		}, func(o *nodeBootstrappingOutput) {
@@ -1092,13 +1699,16 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 
 		Entry("AKSUbuntu1804 with custom ca trust", "AKSUbuntu1804+CustomCATrust", "1.18.14", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.CustomCATrustConfig = &datamodel.CustomCATrustConfig{
-				CustomCATrustCerts: []string{encodedTestCert, encodedTestCert, encodedTestCert},
+				CustomCATrustCerts: []string{encodedTestCert, encodedTestCert, testCertWithNewline},
 			}
 		}, func(o *nodeBootstrappingOutput) {
 			Expect(o.vars["CUSTOM_CA_TRUST_COUNT"]).To(Equal("3"))
 			Expect(o.vars["SHOULD_CONFIGURE_CUSTOM_CA_TRUST"]).To(Equal("true"))
 			Expect(o.vars["CUSTOM_CA_CERT_0"]).To(Equal(encodedTestCert))
 			err := verifyCertsEncoding(o.vars["CUSTOM_CA_CERT_0"])
+			Expect(err).To(BeNil())
+			Expect(o.vars["CUSTOM_CA_CERT_2"]).To(Equal(encodedTestCert))
+			err = verifyCertsEncoding(o.vars["CUSTOM_CA_CERT_2"])
 			Expect(err).To(BeNil())
 		}),
 
@@ -1154,59 +1764,6 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				config.GPUInstanceProfile = "MIG7g"
 			}, nil),
 
-		Entry("AKSUbuntu1804 with krustlet", "AKSUbuntu1804+krustlet", "1.20.7", func(config *datamodel.NodeBootstrappingConfiguration) {
-			config.ContainerService.Properties.AgentPoolProfiles[0].WorkloadRuntime = datamodel.WasmWasi
-			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
-				ContainerRuntime: datamodel.Containerd,
-			}
-			config.ContainerService.Properties.CertificateProfile = &datamodel.CertificateProfile{
-				CaCertificate: "fooBarBaz",
-			}
-			config.KubeletClientTLSBootstrapToken = to.StringPtr("07401b.f395accd246ae52d")
-		},
-			func(o *nodeBootstrappingOutput) {
-
-				Expect(o.vars["CONTAINERD_CONFIG_CONTENT"]).NotTo(BeEmpty())
-				containerdConfigFileContent, err := getBase64DecodedValue([]byte(o.vars["CONTAINERD_CONFIG_CONTENT"]))
-				Expect(err).To(BeNil())
-				expectedShimConfig := `version = 2
-oom_score = -999
-[plugins."io.containerd.grpc.v1.cri"]
-  sandbox_image = ""
-  [plugins."io.containerd.grpc.v1.cri".containerd]
-    default_runtime_name = "runc"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
-      runtime_type = "io.containerd.runc.v2"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
-      BinaryName = "/usr/bin/runc"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted]
-      runtime_type = "io.containerd.runc.v2"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted.options]
-      BinaryName = "/usr/bin/runc"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin]
-      runtime_type = "io.containerd.spin.v2"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight]
-      runtime_type = "io.containerd.slight-v0-3-0.v1"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin-v0-3-0]
-      runtime_type = "io.containerd.spin-v0-3-0.v1"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight-v0-3-0]
-      runtime_type = "io.containerd.slight-v0-3-0.v1"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin-v0-5-1]
-      runtime_type = "io.containerd.spin-v0-5-1.v1"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight-v0-5-1]
-      runtime_type = "io.containerd.slight-v0-5-1.v1"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin-v0-8-0]
-      runtime_type = "io.containerd.spin-v0-8-0.v1"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight-v0-8-0]
-      runtime_type = "io.containerd.slight-v0-8-0.v1"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.wws-v0-8-0]
-      runtime_type = "io.containerd.wws-v0-8-0.v1"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin-v0-15-1]
-      runtime_type = "io.containerd.spin.v2"`
-
-				Expect(containerdConfigFileContent).To(ContainSubstring(expectedShimConfig))
-			},
-		),
 		Entry("AKSUbuntu2204 with artifact streaming", "AKSUbuntu1804+ArtifactStreaming", "1.25.7", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.EnableArtifactStreaming = true
 			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
@@ -1224,6 +1781,7 @@ oom_score = -999
 oom_score = -999
 [plugins."io.containerd.grpc.v1.cri"]
   sandbox_image = ""
+  enable_cdi = true
   [plugins."io.containerd.grpc.v1.cri".containerd]
     snapshotter = "overlaybd"
     disable_snapshot_annotations = false
@@ -1325,6 +1883,18 @@ oom_score = -999
 			}
 			config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSUbuntuContainerd2204
 		}, nil),
+		Entry("AKSUbuntu2204 with containerd and CDI enabled", "AKSUbuntu2204+Containerd+CDI", "1.24.2", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+				ContainerRuntime: datamodel.Containerd,
+			}
+			config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSUbuntuContainerd2204
+			config.KubeletConfig = map[string]string{}
+		}, func(o *nodeBootstrappingOutput) {
+			Expect(o.vars["CONTAINERD_CONFIG_CONTENT"]).NotTo(BeEmpty())
+			containerdConfigFileContent, err := getBase64DecodedValue([]byte(o.vars["CONTAINERD_CONFIG_CONTENT"]))
+			Expect(err).To(BeNil())
+			Expect(containerdConfigFileContent).To(ContainSubstring("enable_cdi = true"))
+		}),
 		Entry("AKSUbuntu2204 containerd with multi-instance GPU", "AKSUbuntu2204+Containerd+MIG", "1.19.13",
 			func(config *datamodel.NodeBootstrappingConfiguration) {
 				config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
@@ -1441,30 +2011,25 @@ oom_score = -999
 				Expect(exist).To(BeFalse())
 			},
 		),
-
-		Entry("CustomizedImageKata VHD with k8s 1.32+ should have proper containerd config", "CustomizedImageKata+1.32", ">=1.32.x",
+		Entry("CustomizedImageLinuxGuard VHD should not have provision_start.sh", "CustomizedImageLinuxGuard", "1.24.2",
 			func(c *datamodel.NodeBootstrappingConfiguration) {
 				c.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
 					ContainerRuntime: datamodel.Containerd,
 				}
-				c.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.CustomizedImageKata
-				c.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.32.0"
+				c.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.CustomizedImageLinuxGuard
 			}, func(o *nodeBootstrappingOutput) {
 				_, exist := o.files["/opt/azure/containers/provision_start.sh"]
 
 				Expect(exist).To(BeFalse())
-				containerdConfigFileContent, err := getBase64DecodedValue([]byte(o.vars["CONTAINERD_CONFIG_CONTENT"]))
-				Expect(err).To(BeNil())
-				expectedContainerdV2KataConfig := `
-    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata]
-`
-				deprecatedContainerdV1KataConfig := `
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]
-`
-				Expect(containerdConfigFileContent).To(ContainSubstring(expectedContainerdV2KataConfig))
-				Expect(containerdConfigFileContent).NotTo(ContainSubstring(deprecatedContainerdV1KataConfig))
 			},
 		),
+		Entry("Flatcar", "Flatcar", "1.31.0", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.OSSKU = datamodel.OSSKUFlatcar
+			config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSFlatcarGen2
+			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+				ContainerRuntime: datamodel.Containerd,
+			}
+		}, nil),
 		Entry("AKSUbuntu2204 DisableSSH with enabled ssh", "AKSUbuntu2204+SSHStatusOn", "1.24.2", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.SSHStatus = datamodel.SSHOn
 		}, nil),
@@ -1481,6 +2046,18 @@ oom_score = -999
 			config.ContainerService.Properties.CustomCloudEnv = &datamodel.CustomCloudEnv{
 				Name: "akscustom",
 			}
+		}, nil),
+		Entry("AKSUbuntu2204 custom cloud", "AKSUbuntu2204+CustomCloud+USSec", "1.24.2", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.ContainerService.Properties.CustomCloudEnv = &datamodel.CustomCloudEnv{
+				Name: "akscustom",
+			}
+			config.ContainerService.Location = "ussecwest"
+		}, nil),
+		Entry("AKSUbuntu2204 custom cloud", "AKSUbuntu2204+CustomCloud+USNat", "1.24.2", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.ContainerService.Properties.CustomCloudEnv = &datamodel.CustomCloudEnv{
+				Name: "akscustom",
+			}
+			config.ContainerService.Location = "usnatwest"
 		}, nil),
 		Entry("AKSUbuntu2204 OOT credentialprovider", "AKSUbuntu2204+ootcredentialprovider", "1.29.10", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.KubeletConfig["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
@@ -1709,12 +2286,11 @@ oom_score = -999
 				expectedRuncConfig := `
 [plugins."io.containerd.cri.v1.runtime".containerd]
   default_runtime_name = "runc"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes]
-    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc]
-      runtime_type = "io.containerd.runc.v2"
-      [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc.options]
-        BinaryName = "/usr/bin/runc"
-        SystemdCgroup = true
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc]
+    runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc.options]
+      BinaryName = "/usr/bin/runc"
+      SystemdCgroup = true
 `
 				deprecatedRuncConfig := `
 [plugins."io.containerd.grpc.v1.cri".containerd]
@@ -1926,6 +2502,10 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 						GalleryName:   "AKSUbuntuEdgeZone",
 						ResourceGroup: "AKS-Ubuntu-EdgeZone",
 					},
+					"AKSFlatcar": {
+						GalleryName:   "aksflatcar",
+						ResourceGroup: "resourcegroup",
+					},
 				},
 			},
 		}
@@ -2110,6 +2690,51 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 
 })
 
+func ignitionUnwrapEnvelope(ignitionFile []byte) []byte {
+	// Unwrap the Ignition envelope
+	var outer ign3_4.Config
+	err := json.Unmarshal(ignitionFile, &outer)
+	if err != nil {
+		panic(err)
+	}
+	innerencoded := outer.Ignition.Config.Replace
+	if innerencoded.Source == nil {
+		panic("ignition missing replacement config")
+	}
+	inner, err := ignitionDecodeFileContents(innerencoded)
+	if err != nil {
+		panic(err)
+	}
+	return inner
+}
+
+func ignitionDecodeFileContents(input ign3_4.Resource) ([]byte, error) {
+	// Decode data url format
+	decodeddata, err := dataurl.DecodeString(*input.Source)
+	if err != nil {
+		return nil, err
+	}
+	contents := decodeddata.Data
+	if input.Compression != nil && *input.Compression == "gzip" {
+		contents, err = getGzipDecodedValue(contents)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return contents, nil
+}
+
+func writeInnerCustomData(outputname, customData string) error {
+	ignitionInner := ignitionUnwrapEnvelope([]byte(customData))
+	ignitionJson := json.RawMessage(ignitionInner)
+	ignitionIndented, err := json.MarshalIndent(ignitionJson, "", "  ")
+	if err != nil {
+		return err
+	}
+	err = os.WriteFile(outputname, ignitionIndented, 0644)
+	return err
+}
+
 func backfillCustomData(folder, customData string) {
 	if _, err := os.Stat(fmt.Sprintf("./testdata/%s", folder)); os.IsNotExist(err) {
 		e := os.MkdirAll(fmt.Sprintf("./testdata/%s", folder), 0755)
@@ -2120,8 +2745,11 @@ func backfillCustomData(folder, customData string) {
 	if strings.Contains(folder, "AKSWindows") {
 		return
 	}
-	err := exec.Command("/bin/sh", "-c", fmt.Sprintf("./testdata/convert.sh testdata/%s", folder)).Run()
-	Expect(err).To(BeNil())
+	if strings.Contains(folder, "Flatcar") {
+		err := writeInnerCustomData(fmt.Sprintf("testdata/%s/CustomData.inner", folder), customData)
+		Expect(err).To(BeNil())
+		return
+	}
 }
 
 func getDecodedVarsFromCseCmd(data []byte) (map[string]string, error) {
@@ -2229,16 +2857,6 @@ func getDecodedFilesFromCustomdata(data []byte) (map[string]*decodedValue, error
 	}
 
 	return files, nil
-}
-
-type cloudInit struct {
-	WriteFiles []struct {
-		Path        string `yaml:"path"`
-		Permissions string `yaml:"permissions"`
-		Encoding    string `yaml:"encoding,omitempty"`
-		Owner       string `yaml:"owner"`
-		Content     string `yaml:"content"`
-	} `yaml:"write_files"`
 }
 
 var _ = Describe("Test normalizeResourceGroupNameForLabel", func() {

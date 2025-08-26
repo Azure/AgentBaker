@@ -1,6 +1,6 @@
 {
   "extends": [
-    "config:base"
+    "config:recommended"
   ],
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "enabledManagers": [
@@ -14,10 +14,11 @@
   "labels": [
     "renovate"
   ],
-  "rebaseWhen": "behind-base-branch",
+  "rebaseWhen": "automerging",
   "schedule": [
-    "after 10pm and before 5am every weekday",
-    "every weekend"
+    "after 10pm every weekday",
+    "every weekend",
+    "before 5am every weekday"
   ],
   "updateNotScheduled": false,
   "timezone": "America/Los_Angeles",
@@ -40,6 +41,7 @@
         "oss/kubernetes/apiserver-network-proxy/agent",
         "oss/kubernetes-csi/secrets-store/driver",
         "oss/azure/secrets-store/provider-azure",
+        "azuremonitor/containerinsights/ciprod",
         "azuremonitor/containerinsights/ciprod/prometheus-collector/images",
         "oss/kubernetes/azure-cloud-node-manager",
         "aks/ip-masq-agent-v2",
@@ -52,11 +54,9 @@
         "azure-policy/policy-kubernetes-addon-prod",
         "azure-policy/policy-kubernetes-webhook",
         "oss/kubernetes/kube-proxy",
-        "moby-runc",
-        "moby-containerd",
         "oss/binaries/kubernetes/kubernetes-node",
         "oss/binaries/kubernetes/azure-acr-credential-provider",
-        "oss/binaries/deislabs/containerd-wasm-shims"
+        "containernetworking/azure-npm"
       ],
       "matchUpdateTypes": [
         "minor"
@@ -75,36 +75,8 @@
     },
     {
       "matchDatasources": [
-        "custom.deb1804"
-      ],
-      "matchUpdateTypes": [
-        "patch"
-      ],
-      "automerge": false,
-      "enabled": true
-    },
-    {
-      "matchDatasources": [
-        "custom.deb2004"
-      ],
-      "matchUpdateTypes": [
-        "patch"
-      ],
-      "automerge": false,
-      "enabled": true
-    },
-    {
-      "matchDatasources": [
-        "custom.deb2204"
-      ],
-      "matchUpdateTypes": [
-        "patch"
-      ],
-      "automerge": false,
-      "enabled": true
-    },
-    {
-      "matchDatasources": [
+        "custom.deb2004",
+        "custom.deb2204",
         "custom.deb2404"
       ],
       "matchUpdateTypes": [
@@ -114,24 +86,32 @@
       "enabled": true
     },
     {
+      "matchDatasources": [
+        "rpm"
+      ],
+      "versioning": "regex:(?<major>\\d+)(\\.(?<minor>\\d+))?(\\.(?<patch>\\d+))?(-(?<prerelease>.*))?$",
+      "automerge": false,
+      "enabled": true
+    },
+    {
       "matchPackageNames": [
         "moby-runc",
-        "moby-containerd"
+        "moby-containerd",
+        "containerd2",
+        "aks/aks-node-ca-watcher"
       ],
       "matchUpdateTypes": [
         "patch"
       ],
       "automerge": true,
       "enabled": true,
-      "groupName": "runc-containerd",
+      "groupName": "runc-containerd-ca_watcher",
       "assignees": [
         "devinwong",
         "anujmaheshwari1",
         "cameronmeissner",
-        "AlisonB319",
         "lilypan26",
         "djsly",
-        "jason1028kr",
         "UtheMan",
         "zachary-bailey",
         "ganeshkumarashok"
@@ -140,10 +120,73 @@
         "devinwong",
         "anujmaheshwari1",
         "cameronmeissner",
-        "AlisonB319",
         "lilypan26",
         "djsly",
-        "jason1028kr",
+        "UtheMan",
+        "zachary-bailey",
+        "ganeshkumarashok"
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "moby-runc",
+        "moby-containerd",
+        "containerd2"
+      ],
+      "matchUpdateTypes": [
+        "minor"
+      ],
+      "automerge": false,
+      "enabled": true,
+      "groupName": "runc-containerd-minor",
+      "assignees": [
+        "devinwong",
+        "anujmaheshwari1",
+        "cameronmeissner",
+        "lilypan26",
+        "djsly",
+        "UtheMan",
+        "zachary-bailey",
+        "ganeshkumarashok"
+      ],
+      "reviewers": [
+        "devinwong",
+        "anujmaheshwari1",
+        "cameronmeissner",
+        "lilypan26",
+        "djsly",
+        "UtheMan",
+        "zachary-bailey",
+        "ganeshkumarashok"
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "kubelet",
+        "kubectl"
+      ],
+      "matchUpdateTypes": [
+        "patch"
+      ],
+      "automerge": false,
+      "enabled": true,
+      "groupName": "kubelet-kubectl",
+      "assignees": [
+        "devinwong",
+        "anujmaheshwari1",
+        "cameronmeissner",
+        "lilypan26",
+        "djsly",
+        "UtheMan",
+        "zachary-bailey",
+        "ganeshkumarashok"
+      ],
+      "reviewers": [
+        "devinwong",
+        "anujmaheshwari1",
+        "cameronmeissner",
+        "lilypan26",
+        "djsly",
         "UtheMan",
         "zachary-bailey",
         "ganeshkumarashok"
@@ -152,47 +195,114 @@
     {
       "matchPackageNames": [
         "azure-cni",
-        "azure-cns",
         "containernetworking/azure-cni",
-        "containernetworking/azure-cns",
+        "containernetworking/azure-ipam"
+      ],
+      "groupName": "azure-cni-cilium-ipam",
+      "reviewers": [
+        "team:acn-cni-reviewers"
+      ],
+      "assignees": [
+        "rbtr",
+        "behzad-mir",
+        "jpayne3506",
+        "QxBytes"
+      ]
+    },
+    {
+      "matchPackageNames": [
         "containernetworking/cilium/cilium"
       ],
-      "groupName": "azure-cni-cns-cilium",
+      "groupName": "azure-cni-cilium-ipam",
+      "versioning": "regex:^v(?<major>\\d+)(\\.(?<minor>\\d+))?(\\.(?<patch>\\d+))?(-(?<prerelease>.*))?$",
+      "ignoreUnstable": false,
+      "reviewers": [
+        "team:acn-cni-reviewers"
+      ],
       "assignees": [
         "rbtr",
         "behzad-mir",
-        "QxBytes",
-        "jpayne3506"
-      ],
-      "reviewers": [
-        "rbtr",
-        "behzad-mir",
-        "QxBytes",
-        "jpayne3506"
+        "jpayne3506",
+        "QxBytes"
       ]
     },
     {
       "matchPackageNames": [
-        "aks/aks-node-ca-watcher"
+        "azuremonitor/containerinsights/ciprod"
+      ],
+      "groupName": "ciprod",      
+      "ignoreUnstable": false,
+      "reviewers": [
+        "team:containerinsights"
       ],
       "assignees": [
-        "UtheMan"
-      ],
-      "reviewers": [
-        "UtheMan"
+        "ganga1980",
+        "suyadav1",
+        "wanlonghenry",
+        "zanejohnson-azure",
+        "joby-thomas"
       ]
     },
     {
       "matchPackageNames": [
+        "azure-cns",
+        "containernetworking/azure-cns"
+      ],
+      "groupName": "azure-cns",
+      "reviewers": [
+        "team:acn-cns-reviewers"
+      ],
+      "assignees": [
+        "rbtr",
+        "behzad-mir",
+        "jpayne3506",
+        "QxBytes"
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "containernetworking/azure-npm"
+      ],
+      "groupName": "azure-npm",
+      "assignees": [
+        "rayaisaiah",
+        "huntergregory"
+      ],
+      "reviewers": [
+        "rayaisaiah",
+        "huntergregory"
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "oss/kubernetes/autoscaler/addon-resizer",
+        "oss/kubernetes/autoscaler/cluster-proportional-autoscaler",
         "oss/kubernetes/coredns",
         "oss/v2/kubernetes/coredns"
       ],
-      "groupName": "coredns",
       "assignees": [
+        "nirnaymsft",
         "SriHarsha001"
       ],
       "reviewers": [
+        "nirnaymsft",
         "SriHarsha001"
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "oss/v2/open-policy-agent/gatekeeper",
+        "azure-policy/policy-kubernetes-addon-prod"
+      ],
+      "assignees": [
+        "kevinhwangkr-msft",
+        "anlandu",
+        "nreisch"
+      ],
+      "reviewers": [
+        "kevinhwangkr-msft",
+        "anlandu",
+        "nreisch"
       ]
     },
     {
@@ -201,22 +311,52 @@
       ],
       "groupName": "acr-credential-provider",
       "assignees": [
-        "mainred"
+        "mainred",
+        "MartinForReal",
+        "nilo19"
       ],
       "reviewers": [
-        "mainred"
+        "mainred",
+        "MartinForReal",
+        "nilo19"
       ]
     },
     {
       "matchPackageNames": [
-        "oss/kubernetes-csi/*"
+        "kubernetes-cri-tools"
+      ],
+      "groupName": "kubernetes-cri-tools",
+      "assignees": [
+        "devinwong",
+        "anujmaheshwari1",
+        "cameronmeissner",
+        "lilypan26",
+        "djsly",
+        "zachary-bailey",
+        "ganeshkumarashok"
+      ],
+      "reviewers": [
+        "devinwong",
+        "anujmaheshwari1",
+        "cameronmeissner",
+        "lilypan26",
+        "djsly",
+        "zachary-bailey",
+        "ganeshkumarashok"
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "oss/kubernetes-csi/**"
       ],
       "groupName": "csi",
       "assignees": [
-        "andyzhangx"
+        "andyzhangx",
+        "jiashun0011"
       ],
       "reviewers": [
-        "andyzhangx"
+        "andyzhangx",
+        "jiashun0011"
       ]
     },
     {
@@ -238,16 +378,39 @@
     },
     {
       "matchPackageNames": [
-        "containernetworking/azure-ipam"
+        "oss/kubernetes/azure-cloud-node-manager"
       ],
-      "groupName": "azure-ipam"
+      "groupName": "azure-cloud-node-manager",
+      "assignees": [
+        "mainred",
+        "MartinForReal",
+        "nilo19"
+      ],
+      "reviewers": [
+        "mainred",
+        "MartinForReal",
+        "nilo19"
+      ]
     },
     {
       "matchPackageNames": [
         "windows/nanoserver",
-        "windows/servercore",
-        "containernetworking/azure-npm",
-        "windows/servercore/iis"
+        "windows/servercore"
+      ],
+      "groupName": "windowsbase",
+      "assignees": [
+        "timmy-wright"
+      ],
+      "reviewers": [
+        "timmy-wright"
+      ],
+      "enabled": true,
+      "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<compatibility>\\d+)\\.(?<patch>\\d+)$"
+    },
+    {
+      "matchPackageNames": [
+        "windows/servercore/iis",
+        "oss/v2/kubernetes/windows-gmsa-webhook"
       ],
       "groupName": "windowsbase",
       "assignees": [
@@ -263,36 +426,61 @@
       ],
       "matchPackageNames": [
         "oss/binaries/kubernetes/kubernetes-node",
-        "oss/binaries/kubernetes/azure-acr-credential-provider",
-        "oss/binaries/deislabs/containerd-wasm-shims"
+        "oss/binaries/kubernetes/azure-acr-credential-provider"
       ],
       "extractVersion": "^(?P<version>.*?)-[^-]*-[^-]*$"
     },
     {
       "matchPackageNames": [
-        "moby-runc",
-        "moby-containerd"
+        "aks/aks-gpu-cuda"
       ],
-      "extractVersion": "^v?(?<version>.+)$"
-    },
-    {
-      "matchPackageNames": [
-        "aks/aks-gpu-cuda",
-        "aks/aks-gpu-grid"
-      ],
-      "groupName": "nvidia-gpu",
+      "groupName": "nvidia-gpu-cuda",
       "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<prerelease>\\d{14})$",
       "automerge": true,
       "enabled": true,
       "ignoreUnstable": false
+    },
+    {
+      "matchPackageNames": [
+        "aks/aks-gpu-grid"
+      ],
+      "groupName": "nvidia-gpu-grid",
+      "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<prerelease>\\d{14})$",
+      "automerge": false,
+      "enabled": true,
+      "ignoreUnstable": false
+    },
+    {
+      "matchPackageNames": [
+        "azuremonitor/containerinsights/ciprod/prometheus-collector/images"
+      ],
+      "matchDatasources": [
+        "docker"
+      ],
+      "versioning": "regex:^(\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)?-(\\w+)-(\\d+)-(\\d+)-(\\d+)-(\\w+-*)(?<compatibility>.*)$",
+      "groupName": "ama-metrics",
+      "automerge": false,
+      "enabled": true,
+      "assignees": [
+        "gracewehner",
+        "vishiy",
+        "rashmichandrashekar",
+        "bragi92"
+      ],
+      "reviewers": [
+        "gracewehner",
+        "vishiy",
+        "rashmichandrashekar",
+        "bragi92"
+      ]
     }
   ],
   "customManagers": [
     {
       "customType": "regex",
       "description": "auto update containerImages in components.json",
-      "fileMatch": [
-        "parts/linux/cloud-init/artifacts/components.json"
+      "managerFilePatterns": [
+        "/parts/common/components.json/"
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
@@ -304,8 +492,8 @@
     {
       "customType": "regex",
       "description": "auto update OCI artifacts in components.json",
-      "fileMatch": [
-        "parts/linux/cloud-init/artifacts/components.json"
+      "managerFilePatterns": [
+        "/parts/common/components.json/"
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
@@ -316,23 +504,9 @@
     },
     {
       "customType": "regex",
-      "description": "auto update packages for OS ubuntu 18.04 in components.json",
-      "fileMatch": [
-        "parts/linux/cloud-init/artifacts/components.json"
-      ],
-      "matchStringsStrategy": "any",
-      "matchStrings": [
-        "\"renovateTag\":\\s*\"name=(?<packageName>[^\"]+), os=ubuntu, release=18\\.04\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\"(?:[^}]*\"previousLatestVersion\":\\s*\"(?<depType>[^\"]+)\")?"
-      ],
-      "datasourceTemplate": "custom.deb1804",
-      "versioningTemplate": "deb",
-      "autoReplaceStringTemplate": "\"renovateTag\": \"name={{{packageName}}}, os=ubuntu, release=18.04\",\n                \"latestVersion\": \"{{{newValue}}}\"{{#if depType}},\n                \"previousLatestVersion\": \"{{{currentValue}}}\"{{/if}}"
-    },
-    {
-      "customType": "regex",
       "description": "auto update packages for OS ubuntu 20.04 in components.json",
-      "fileMatch": [
-        "parts/linux/cloud-init/artifacts/components.json"
+      "managerFilePatterns": [
+        "/parts/common/components.json/"
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
@@ -345,8 +519,8 @@
     {
       "customType": "regex",
       "description": "auto update packages for OS ubuntu 22.04 in components.json",
-      "fileMatch": [
-        "parts/linux/cloud-init/artifacts/components.json"
+      "managerFilePatterns": [
+        "/parts/common/components.json/"
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
@@ -359,8 +533,8 @@
     {
       "customType": "regex",
       "description": "auto update packages for OS ubuntu 24.04 in components.json",
-      "fileMatch": [
-        "parts/linux/cloud-init/artifacts/components.json"
+      "managerFilePatterns": [
+        "/parts/common/components.json/"
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
@@ -372,9 +546,35 @@
     },
     {
       "customType": "regex",
-      "description": "update version line in any cse_*.sh",
+      "description": "auto update packages for OS Mariner 2.0 in components.json",
       "fileMatch": [
-        "^.*cse_.*\\.sh"
+        "parts/common/components.json"
+      ],
+      "matchStringsStrategy": "any",
+      "matchStrings": [
+        "\"renovateTag\":\\s*\"RPM_registry=(?<registryUrl>[^,]+), name=(?<packageName>[^,]+), os=mariner, release=2\\.0\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\"(?:[^}]*\"previousLatestVersion\":\\s*\"(?<depType>[^\"]+)\")?"
+      ],
+      "datasourceTemplate": "rpm",
+      "autoReplaceStringTemplate": "\"renovateTag\": \"RPM_registry={{{registryUrl}}}, name={{{packageName}}}, os=mariner, release=2.0\",\n                \"latestVersion\": \"{{{newValue}}}\"{{#if depType}},\n                \"previousLatestVersion\": \"{{{currentValue}}}\"{{/if}}"
+    },
+    {
+      "customType": "regex",
+      "description": "auto update packages for OS AzureLinux 3.0 in components.json",
+      "fileMatch": [
+        "parts/common/components.json"
+      ],
+      "matchStringsStrategy": "any",
+      "matchStrings": [
+        "\"renovateTag\":\\s*\"RPM_registry=(?<registryUrl>[^,]+), name=(?<packageName>[^,]+), os=azurelinux, release=3\\.0\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\"(?:[^}]*\"previousLatestVersion\":\\s*\"(?<depType>[^\"]+)\")?"
+      ],
+      "datasourceTemplate": "rpm",
+      "autoReplaceStringTemplate": "\"renovateTag\": \"RPM_registry={{{registryUrl}}}, name={{{packageName}}}, os=azurelinux, release=3.0\",\n                \"latestVersion\": \"{{{newValue}}}\"{{#if depType}},\n                \"previousLatestVersion\": \"{{{currentValue}}}\"{{/if}}"
+    },
+    {
+      "customType": "regex",
+      "description": "update version line in any cse_*.sh",
+      "managerFilePatterns": [
+        "/^.*cse_.*\\.sh/"
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
@@ -383,32 +583,25 @@
     }
   ],
   "customDatasources": {
-    "deb1804": {
-      "defaultRegistryUrlTemplate": "https://packages.microsoft.com/ubuntu/18.04/prod/dists/testing/main/binary-amd64/Packages",
-      "format": "plain",
-      "transformTemplates": [
-        "{\"releases\": $map(($index := releases#$i[version=\"Package: {{packageName}}\"].$i; $map($index, function($i) { $replace(releases[$i + 1].version, /^Version:\\s*/, \"v\") })), function($v) { {\"version\": $v} })}"
-      ]
-    },
     "deb2004": {
-      "defaultRegistryUrlTemplate": "https://packages.microsoft.com/ubuntu/20.04/prod/dists/testing/main/binary-amd64/Packages",
+      "defaultRegistryUrlTemplate": "https://packages.microsoft.com/ubuntu/20.04/prod/dists/focal/main/binary-amd64/Packages",
       "format": "plain",
       "transformTemplates": [
-        "{\"releases\": $map(($index := releases#$i[version=\"Package: {{packageName}}\"].$i; $map($index, function($i) { $replace(releases[$i + 1].version, /^Version:\\s*/, \"v\") })), function($v) { {\"version\": $v} })}"
+        "{\"releases\": $map(($index := releases#$i[version=\"Package: {{packageName}}\"].$i; $map($index, function($i) { $substringAfter(releases[$i + 1].version, \"Version: \") })), function($v) { {\"version\": $v} })[]}"
       ]
     },
     "deb2204": {
-      "defaultRegistryUrlTemplate": "https://packages.microsoft.com/ubuntu/22.04/prod/dists/testing/main/binary-amd64/Packages",
+      "defaultRegistryUrlTemplate": "https://packages.microsoft.com/ubuntu/22.04/prod/dists/jammy/main/binary-amd64/Packages",
       "format": "plain",
       "transformTemplates": [
-        "{\"releases\": $map(($index := releases#$i[version=\"Package: {{packageName}}\"].$i; $map($index, function($i) { $replace(releases[$i + 1].version, /^Version:\\s*/, \"v\") })), function($v) { {\"version\": $v} })}"
+        "{\"releases\": $map(($index := releases#$i[version=\"Package: {{packageName}}\"].$i; $map($index, function($i) { $substringAfter(releases[$i + 1].version, \"Version: \") })), function($v) { {\"version\": $v} })[]}"
       ]
     },
     "deb2404": {
       "defaultRegistryUrlTemplate": "https://packages.microsoft.com/ubuntu/24.04/prod/dists/testing/main/binary-amd64/Packages",
       "format": "plain",
       "transformTemplates": [
-        "{\"releases\": $map(($index := releases#$i[version=\"Package: {{packageName}}\"].$i; $map($index, function($i) { $replace(releases[$i + 1].version, /^Version:\\s*/, \"v\") })), function($v) { {\"version\": $v} })}"
+        "{\"releases\": $map(($index := releases#$i[version=\"Package: {{packageName}}\"].$i; $map($index, function($i) { $substringAfter(releases[$i + 1].version, \"Version: \") })), function($v) { {\"version\": $v} })[]}"
       ]
     }
   }

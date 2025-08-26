@@ -65,11 +65,11 @@ ERR_SYSTEMD_DOCKER_STOP_FAIL=116 # Error stopping dockerd
 ERR_CRICTL_DOWNLOAD_TIMEOUT=117 # Timeout waiting for crictl downloads
 ERR_CRICTL_OPERATION_ERROR=118 # Error executing a crictl operation
 ERR_CTR_OPERATION_ERROR=119 # Error executing a ctr containerd cli operation
+ERR_INVALID_CLI_TOOL=120 # Invalid CLI tool specified, should be one of ctr, crictl, docker
+ERR_KUBELET_INSTALL_TIMEOUT=121 # Timeout waiting for kubelet install
+ERR_KUBECTL_INSTALL_TIMEOUT=122 # Timeout waiting for kubectl install
 
-# Azure Stack specific errors
-ERR_AZURE_STACK_GET_ARM_TOKEN=120 # Error generating a token to use with Azure Resource Manager
-ERR_AZURE_STACK_GET_NETWORK_CONFIGURATION=121 # Error fetching the network configuration for the node
-ERR_AZURE_STACK_GET_SUBNET_PREFIX=122 # Error fetching the subnet address prefix for a subnet ID
+# 123 is free for use
 
 # Error code 124 is returned when a `timeout` command times out, and --preserve-status is not specified: https://man7.org/linux/man-pages/man1/timeout.1.html
 ERR_VHD_BUILD_ERROR=125 # Reserved for VHD CI exit conditions
@@ -81,14 +81,14 @@ ERR_TELEPORTD_DOWNLOAD_ERR=150 # Error downloading teleportd binary
 ERR_TELEPORTD_INSTALL_ERR=151 # Error installing teleportd binary
 ERR_ARTIFACT_STREAMING_DOWNLOAD=152 # Error downloading mirror proxy and overlaybd components
 ERR_ARTIFACT_STREAMING_INSTALL=153 # Error installing mirror proxy and overlaybd components
+ERR_ARTIFACT_STREAMING_ACR_NODEMON_START_FAIL=154 # Error starting acr-nodemon service
 
 ERR_HTTP_PROXY_CA_CONVERT=160 # Error converting http proxy ca cert from pem to crt format
 ERR_UPDATE_CA_CERTS=161 # Error updating ca certs to include user-provided certificates
-ERR_DOWNLOAD_SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_TIMEOUT=169 # Timeout waiting for secure TLS bootrstrap kubelet exec plugin download
+ERR_SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_ERROR=169 # Error downloading the secure TLS bootstrap client binary
 
 ERR_DISBALE_IPTABLES=170 # Error disabling iptables service
 
-ERR_KRUSTLET_DOWNLOAD_TIMEOUT=171 # Timeout waiting for krustlet downloads
 ERR_DISABLE_SSH=172 # Error disabling ssh service
 ERR_PRIMARY_NIC_IP_NOT_FOUND=173 # Error fetching primary NIC IP address
 ERR_INSERT_IMDS_RESTRICTION_RULE_INTO_MANGLE_TABLE=174 # Error insert imds restriction rule into mangle table
@@ -113,9 +113,8 @@ ERR_CNI_VERSION_INVALID=206 # reference CNI (not azure cni) needs a valid versio
 # In AzureLinux 3.0, /etc/*-release are symlinks to /usr/lib/*-release, so the find command includes -type f,l.
 
 ERR_ORAS_PULL_K8S_FAIL=207 # Error pulling kube-node artifact via oras from registry
-ERR_ORAS_PULL_FAIL_RESERVE_1=208 # Error pulling artifact with oras from registry
-ERR_ORAS_PULL_CONTAINERD_WASM=209 # Error pulling containerd wasm artifact with oras from registry
-ERR_ORAS_PULL_FAIL_RESERVE_2=210 # Error pulling artifact with oras from registry with incorrect acr cache setting
+ERR_ORAS_PULL_CREDENTIAL_PROVIDER=208 # Error pulling credential provider artifact with oras from registry
+ERR_ORAS_IMDS_TIMEOUT=210 # Error timeout waiting for IMDS response
 ERR_ORAS_PULL_NETWORK_TIMEOUT=211 # Error pulling oras tokens for login
 ERR_ORAS_PULL_UNAUTHORIZED=212 # Error pulling artifact with oras from registry with authorization issue
 
@@ -127,12 +126,25 @@ ERR_CLEANUP_CONTAINER_IMAGES=214
 
 ERR_DNS_HEALTH_FAIL=215 # Error checking DNS health
 
+# ------------------------------ Used by localdns -----------------------------------
+ERR_LOCALDNS_FAIL=216 # Unable to start localdns systemd unit.
+ERR_LOCALDNS_COREFILE_NOTFOUND=217 # Localdns corefile not found.
+ERR_LOCALDNS_SLICEFILE_NOTFOUND=218 # Localdns slicefile not found.
+ERR_LOCALDNS_BINARY_ERR=219 # Localdns binary not found or not executable.
+# ----------------------------------------------------------------------------------
+
+ERR_SECURE_TLS_BOOTSTRAP_START_FAILURE=220 # Error starting the secure TLS bootstrap systemd service
+
+ERR_CLOUD_INIT_FAILED=223 # Error indicating that cloud-init returned exit code 1 in cse_cmd.sh
+ERR_NVIDIA_DRIVER_INSTALL=224 # Error determining if nvidia driver install should be skipped
+
 # For both Ubuntu and Mariner, /etc/*-release should exist.
 # For unit tests, the OS and OS_VERSION will be set in the unit test script.
 # So whether it's if or else actually doesn't matter to our unit test.
 if find /etc -type f,l -name "*-release" -print -quit 2>/dev/null | grep -q '.'; then
-    OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
+    OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID=(.*))$/, a) { print toupper(a[2]); exit }')
     OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
+    OS_VARIANT=$(sort -r /etc/*-release | gawk 'match($0, /^(VARIANT_ID=(.*))$/, a) { print toupper(a[2]); exit }' | tr -d '"')
 else
 # This is only for unit test purpose. For example, a Mac OS dev box doesn't have /etc/*-release, then the unit test will continue.
     echo "/etc/*-release not found"
@@ -141,7 +153,10 @@ fi
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
 MARINER_KATA_OS_NAME="MARINERKATA"
+AZURELINUX_KATA_OS_NAME="AZURELINUXKATA"
 AZURELINUX_OS_NAME="AZURELINUX"
+FLATCAR_OS_NAME="FLATCAR"
+AZURELINUX_OSGUARD_OS_VARIANT="OSGUARD"
 KUBECTL=/usr/local/bin/kubectl
 DOCKER=/usr/bin/docker
 # this will be empty during VHD build
@@ -150,7 +165,6 @@ DOCKER=/usr/bin/docker
 # prefer empty string to avoid potential "it works but did something weird" scenarios
 export GPU_DV="${GPU_DRIVER_VERSION:=}"
 export GPU_DEST=/usr/local/nvidia
-DOCKER_VERSION=1.13.1-1
 export NVIDIA_DRIVER_IMAGE_SHA="${GPU_IMAGE_SHA:=}"
 export NVIDIA_DRIVER_IMAGE_TAG="${GPU_DV}-${NVIDIA_DRIVER_IMAGE_SHA}"
 export NVIDIA_GPU_DRIVER_TYPE="${GPU_DRIVER_TYPE:=}"
@@ -162,32 +176,90 @@ PERMANENT_CACHE_DIR=/root/aptcache/
 EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/
 CURL_OUTPUT=/tmp/curl_verbose.out
 ORAS_OUTPUT=/tmp/oras_verbose.out
-ORAS_REGISTRY_CONFIG_FILE=/etc/oras/config.yaml # oras registry auth config file, not used, but have to define to avoid error "Error: failed to get user home directory: $HOME is not defined" 
+ORAS_REGISTRY_CONFIG_FILE=/etc/oras/config.yaml # oras registry auth config file, not used, but have to define to avoid error "Error: failed to get user home directory: $HOME is not defined"
 
-retrycmd_if_failure() {
-    retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
-    for i in $(seq 1 $retries); do
-        timeout $timeout "${@}" && break || \
-        if [ $i -eq $retries ]; then
-            echo Executed \"$@\" $i times;
-            return 1
-        else
-            sleep $wait_sleep
+# used by secure TLS bootstrapping to request AAD tokens - uniquely identifies AKS's Entra ID application.
+# more details: https://learn.microsoft.com/en-us/azure/aks/kubelogin-authentication#how-to-use-kubelogin-with-aks
+AKS_AAD_SERVER_APP_ID="6dae42f8-4368-4678-94ff-3960e28e3630"
+
+# Checks if the elapsed time since CSEStartTime exceeds 13 minutes.
+# That value is based on the global CSE timeout which is set to 15 minutes - majority of CSE executions succeed or fail very fast, meaning we can exit slightly before the global timeout without affecting the overall CSE execution.
+# Global cse timeout is set in cse_start.sh: `timeout -k5s 15m /bin/bash /opt/azure/containers/provision.sh`
+# Long running functions can use this helper to gracefully handle global CSE timeout, avoiding exiting with 124 error code without extra context. 
+check_cse_timeout() {
+    shouldLog="${1:-true}"
+    maxDurationSeconds=780 # 780 seconds = 13 minutes
+    if [ -z "${CSE_STARTTIME_SECONDS:-}" ]; then
+        if [ "$shouldLog" = "true" ]; then
+            echo "Warning: CSE_STARTTIME_SECONDS environment variable is not set."
         fi
-    done
-    echo Executed \"$@\" $i times;
+        # Return 0 to avoid in case CSE_STARTTIME_SECONDS is not set - for example during image build or if something went wrong in cse_start.sh
+        return 0
+    fi
+    # Calculate elapsed time based on seconds since epoch
+    elapsedSeconds=$(($(date +%s) - "$CSE_STARTTIME_SECONDS"))
+    if [ "$elapsedSeconds" -gt "$maxDurationSeconds" ]; then
+        if [ "$shouldLog" = "true" ]; then
+            echo "Error: CSE has been running for $elapsedSeconds seconds, exceeding the limit of $maxDurationSeconds seconds." >&2
+        fi
+        return 1
+    fi
+
+    return 0
 }
 
-retrycmd_if_failure_silent() {
-    retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
-    for i in $(seq 1 $retries); do
-        timeout $timeout "${@}" && break || \
-        if [ $i -eq $retries ]; then
-            return 1
-        else
-            sleep $wait_sleep
+# Internal helper function for retry logic
+# Not intended for direct use. Use retrycmd or retrycmd_silent based on your needs
+# returns 0 if successful, 1 if failed, 2 if CSE timeout is approaching and global timeout needs to be handled
+_retrycmd_internal() {
+    local retries=$1; shift
+    local waitSleep=$1; shift
+    local timeoutVal=$1; shift
+    local shouldLog=$1; shift
+    local cmdToRun=("$@")
+    local exitStatus=0
+
+    for i in $(seq 1 "$retries"); do
+        timeout "$timeoutVal" "${@}"
+        exitStatus=$?
+
+        if [ "$exitStatus" -eq 0 ]; then
+            break 
         fi
+
+        # Check if CSE timeout is approaching - exit early to avoid 124 exit code from the global timeout
+        if ! check_cse_timeout "$shouldLog"; then 
+            echo "CSE timeout approaching, exiting early." >&2
+            return 2
+        fi
+
+        if [ "$i" -eq "$retries" ]; then
+            if [ "$shouldLog" = "true" ]; then
+                echo "Executed \"${cmdToRun[*]}\" $i times; giving up (last exit status: "$exitStatus")." >&2
+            fi
+            return 1
+        fi
+
+        sleep "$waitSleep"
     done
+
+    if [ "$shouldLog" = "true" ] && [ "$exitStatus" -eq 0 ]; then
+        echo "Executed \"${cmdToRun[*]}\" $i times."
+    fi
+
+    return "$exitStatus"
+}
+
+# Retry a command with logging.
+# Usage: retrycmd_if_failure <retries> <wait_sleep> <timeout> <command...>
+retrycmd_if_failure() {
+    _retrycmd_internal "$1" "$2" "$3" "true" "${@:4}"
+}
+
+# Retry a command without logging information during retrying.
+# Usage: retrycmd_silent <retries> <wait_sleep> <timeout> <command...>
+retrycmd_silent() {
+    _retrycmd_internal "$1" "$2" "$3" "false" "${@:4}"
 }
 
 retrycmd_nslookup() {
@@ -197,7 +269,7 @@ retrycmd_nslookup() {
         nslookup -timeout=$timeout -retry=0 $record && break || \
         current_time=$(date +%s)
         # Check if the total_timeout has been reached
-        if [ $((current_time - start_time)) -ge $total_timeout ]; then
+        if [ "$((current_time - start_time))" -ge "$total_timeout" ]; then
             echo "Total timeout $total_timeout reached, nslookup -timeout=$timeout -retry=0 $record failed"
             return 1
         fi
@@ -206,69 +278,91 @@ retrycmd_nslookup() {
     current_time=$(date +%s)
     echo "Executed nslookup -timeout=$timeout -retry=0 $record for $((current_time - start_time)) seconds";
 }
-retrycmd_if_failure_no_stats() {
-    retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
-    for i in $(seq 1 $retries); do
-        timeout $timeout ${@} && break || \
-        if [ $i -eq $retries ]; then
+
+_retry_file_curl_internal() {
+    # checksToRun are conditions that need to pass to stop the retry loop. If not passed, eval command will return 0, because checksToRun will be interpreted as an empty string.
+    retries=$1; waitSleep=$2; timeout=$3; filePath=$4; url=$5; checksToRun=( "${@:6}" )
+    echo "${retries} file curl retries"
+    for i in $(seq 1 $retries); do 
+        # Use eval to execute the checksToRun string as a command
+        ( eval "$checksToRun" ) && break || if [ "$i" -eq "$retries" ]; then
             return 1
-        else
-            sleep $wait_sleep
         fi
-    done
-}
-retrycmd_get_tarball() {
-    tar_retries=$1; wait_sleep=$2; tarball=$3; url=$4
-    echo "${tar_retries} retries"
-    for i in $(seq 1 $tar_retries); do
-        tar -tzf $tarball && break || \
-        if [ $i -eq $tar_retries ]; then
-            return 1
+        # check if global cse timeout is approaching
+        if ! check_cse_timeout; then
+            echo "CSE timeout approaching, exiting early." >&2
+            return 2
         else
-            timeout 60 curl -fsSLv $url -o $tarball > $CURL_OUTPUT 2>&1
-            if [[ $? != 0 ]]; then
+            if [ "$i" -gt 1 ]; then
+                sleep $waitSleep
+            fi
+            timeout $timeout curl -fsSLv $url -o $filePath > $CURL_OUTPUT 2>&1
+            if [ "$?" -ne 0 ]; then
                 cat $CURL_OUTPUT
             fi
-            sleep $wait_sleep
         fi
     done
 }
+
+retrycmd_get_tarball() {
+    tar_retries=$1; wait_sleep=$2; tarball=$3; url=$4
+    check_tarball_valid="[ -f \"$tarball\" ] && tar -tzf \"$tarball\""
+    _retry_file_curl_internal "$tar_retries" "$wait_sleep" 60 "$tarball" "$url" "$check_tarball_valid"
+}
+
+retrycmd_curl_file() {
+    curl_retries=$1; wait_sleep=$2; timeout=$3; filepath=$4; url=$5
+    check_file_exists="[ -f \"$filepath\" ]"
+    _retry_file_curl_internal "$curl_retries" "$wait_sleep" "$timeout" "$filepath" "$url" "$check_file_exists"
+}
+
 retrycmd_get_tarball_from_registry_with_oras() {
     tar_retries=$1; wait_sleep=$2; tarball=$3; url=$4
     tar_folder=$(dirname "$tarball")
     echo "${tar_retries} retries"
     for i in $(seq 1 $tar_retries); do
-        tar -tzf $tarball && break || \
-        if [ $i -eq $tar_retries ]; then
+        [ -f "$tarball" ] && tar -tzf "$tarball" && break || \
+        if [ "$i" -eq "$tar_retries" ]; then
             return 1
         else
+            if [ "$i" -gt 1 ]; then
+                sleep $wait_sleep
+            fi
             timeout 60 oras pull $url -o $tar_folder --registry-config ${ORAS_REGISTRY_CONFIG_FILE} > $ORAS_OUTPUT 2>&1
-            if [[ $? != 0 ]]; then
+            if [ "$?" -ne 0 ]; then
                 cat $ORAS_OUTPUT
             fi
-            sleep $wait_sleep
         fi
     done
 }
+
 retrycmd_get_access_token_for_oras() {
     retries=$1; wait_sleep=$2; url=$3
     for i in $(seq 1 $retries); do
-        ACCESS_TOKEN_OUTPUT=$(timeout 60 curl -v -s -H "Metadata:true" --noproxy "*" "$url")
-        if [ -n "$ACCESS_TOKEN_OUTPUT" ]; then 
+        response=$(timeout 60 curl -v -s -H "Metadata:true" --noproxy "*" "$url" -w "\n%{http_code}")
+        ACCESS_TOKEN_OUTPUT=$(echo "$response" | sed '$d')
+        http_code=$(echo "$response" | tail -n1)
+        if [ -n "$ACCESS_TOKEN_OUTPUT" ] && [ "$http_code" -eq 200 ]; then
             echo "$ACCESS_TOKEN_OUTPUT"
             return 0
         fi
         sleep $wait_sleep
     done
-    return $ERR_ORAS_PULL_NETWORK_TIMEOUT
+    if [ -n "$http_code" ]; then
+        echo "failed to retrieve kubelet identity token from IMDS, http code: $http_code, msg: $ACCESS_TOKEN_OUTPUT"
+        return $ERR_ORAS_PULL_UNAUTHORIZED
+    fi
+    echo "timeout waiting for IMDS response to retrieve kubelet identity token"
+    return $ERR_ORAS_IMDS_TIMEOUT
 }
+
 retrycmd_get_refresh_token_for_oras() {
     retries=$1; wait_sleep=$2; acr_url=$3; tenant_id=$4; ACCESS_TOKEN=$5
     for i in $(seq 1 $retries); do
         REFRESH_TOKEN_OUTPUT=$(timeout 60 curl -v -s -X POST -H "Content-Type: application/x-www-form-urlencoded" \
             -d "grant_type=access_token&service=$acr_url&tenant=$tenant_id&access_token=$ACCESS_TOKEN" \
             https://$acr_url/oauth2/exchange)
-        if [ -n "$REFRESH_TOKEN_OUTPUT" ]; then 
+        if [ -n "$REFRESH_TOKEN_OUTPUT" ]; then
             echo "$REFRESH_TOKEN_OUTPUT"
             return 0
         fi
@@ -276,12 +370,13 @@ retrycmd_get_refresh_token_for_oras() {
     done
     return $ERR_ORAS_PULL_NETWORK_TIMEOUT
 }
+
 retrycmd_oras_login() {
     retries=$1; wait_sleep=$2; acr_url=$3; REFRESH_TOKEN=$4
     for i in $(seq 1 $retries); do
         ORAS_LOGIN_OUTPUT=$(oras login "$acr_url" --identity-token-stdin --registry-config "${ORAS_REGISTRY_CONFIG_FILE}" <<< "$REFRESH_TOKEN" 2>&1)
         exit_code=$?
-        if [[ $exit_code -eq 0 ]]; then
+        if [ "$exit_code" -eq 0 ]; then
             echo "$ORAS_LOGIN_OUTPUT"
             return 0
         fi
@@ -289,36 +384,16 @@ retrycmd_oras_login() {
     done
     return $exit_code
 }
-retrycmd_get_binary_from_registry_with_oras() {
-    binary_retries=$1; wait_sleep=$2; binary_path=$3; url=$4
-    binary_folder=$(dirname "$binary_path")
-    echo "${binary_retries} retries"
-    
-    for i in $(seq 1 $binary_retries); do
-        if [ -f "$binary_path" ]; then
-            break
-        else
-            if [ $i -eq $binary_retries ]; then
-                return 1
-            else
-                # TODO: support private acr via kubelet identity
-                timeout 60 oras pull $url -o $binary_folder --registry-config ${ORAS_REGISTRY_CONFIG_FILE} > $ORAS_OUTPUT 2>&1
-                if [[ $? != 0 ]]; then
-                    cat $ORAS_OUTPUT
-                fi
-                sleep $wait_sleep
-            fi
-        fi
-    done
-}
+
 retrycmd_can_oras_ls_acr() {
     retries=$1; wait_sleep=$2; url=$3
     for i in $(seq 1 $retries); do
         output=$(timeout 60 oras repo ls "$url" --registry-config "$ORAS_REGISTRY_CONFIG_FILE" 2>&1)
-        if [ $? -eq 0 ]; then
+        if [ "$?" -eq 0 ]; then
             echo "acr is reachable"
             return 0
         fi
+        # shellcheck disable=SC3010
         if [[ "$output" == *"unauthorized: authentication required"* ]]; then
             echo "ACR is not reachable: $output"
             return 1
@@ -327,101 +402,91 @@ retrycmd_can_oras_ls_acr() {
     echo "unexpected response from acr: $output"
     return $ERR_ORAS_PULL_NETWORK_TIMEOUT
 }
-retrycmd_curl_file() {
-    curl_retries=$1; wait_sleep=$2; timeout=$3; filepath=$4; url=$5
-    echo "${curl_retries} retries"
-    for i in $(seq 1 $curl_retries); do
-        [[ -f $filepath ]] && break
-        if [ $i -eq $curl_retries ]; then
-            return 1
-        else
-            timeout $timeout curl -fsSLv $url -o $filepath > $CURL_OUTPUT 2>&1
-            if [[ $? != 0 ]]; then
-                cat $CURL_OUTPUT
-            fi
-            sleep $wait_sleep
-        fi
-    done
-}
-wait_for_file() {
-    retries=$1; wait_sleep=$2; filepath=$3
-    paved=/opt/azure/cloud-init-files.paved
-    grep -Fq "${filepath}" $paved && return 0
+
+# base systemctl retry command, should not be called directly - use systemctl_restart, systemctl_stop, systemctl_disable
+_systemctl_retry_svc_operation() {
+    retries=$1; wait_sleep=$2; timeout=$3 operation=$4 svcname=$5 shouldLogRetryInfo=${6:-false}
     for i in $(seq 1 $retries); do
-        grep -Fq '#EOF' $filepath && break
+        timeout $timeout systemctl daemon-reload
+        timeout $timeout systemctl $operation $svcname && break || \
         if [ $i -eq $retries ]; then
             return 1
         else
+          if [ "$shouldLogRetryInfo" = "true" ]; then
+              systemctl status $svcname --no-pager -l
+              journalctl -u $svcname
+          fi
             sleep $wait_sleep
         fi
     done
-    sed -i "/#EOF/d" $filepath
-    echo $filepath >> $paved
 }
+
 systemctl_restart() {
-    retries=$1; wait_sleep=$2; timeout=$3 svcname=$4
-    for i in $(seq 1 $retries); do
-        timeout $timeout systemctl daemon-reload
-        timeout $timeout systemctl restart $svcname && break || \
-        if [ $i -eq $retries ]; then
-            return 1
-        else
-            systemctl status $svcname --no-pager -l
-            journalctl -u $svcname
-            sleep $wait_sleep
-        fi
-    done
+    _systemctl_retry_svc_operation "$1" "$2" "$3" "restart" "$4" true
 }
+
+systemctl_restart_no_block() {
+    _systemctl_retry_svc_operation "$1" "$2" "$3" "restart --no-block" "$4" true
+}
+
 systemctl_stop() {
-    retries=$1; wait_sleep=$2; timeout=$3 svcname=$4
-    for i in $(seq 1 $retries); do
-        timeout $timeout systemctl daemon-reload
-        timeout $timeout systemctl stop $svcname && break || \
-        if [ $i -eq $retries ]; then
-            return 1
-        else
-            sleep $wait_sleep
-        fi
-    done
+    _systemctl_retry_svc_operation "$1" "$2" "$3" "stop" "$4"
 }
+
 systemctl_disable() {
-    retries=$1; wait_sleep=$2; timeout=$3 svcname=$4
-    for i in $(seq 1 $retries); do
-        timeout $timeout systemctl daemon-reload
-        timeout $timeout systemctl disable $svcname && break || \
-        if [ $i -eq $retries ]; then
-            return 1
-        else
-            sleep $wait_sleep
-        fi
-    done
+    _systemctl_retry_svc_operation "$1" "$2" "$3" "disable" "$4"
 }
+
 sysctl_reload() {
-    retries=$1; wait_sleep=$2; timeout=$3
-    for i in $(seq 1 $retries); do
-        timeout $timeout sysctl --system && break || \
-        if [ $i -eq $retries ]; then
-            return 1
-        else
-            sleep $wait_sleep
-        fi
-    done
-}
-version_gte() {
-  test "$(printf '%s\n' "$@" | sort -rV | head -n 1)" == "$1"
+    retrycmd_silent $1 $2 $3 "false" sysctl --system
 }
 
 systemctlEnableAndStart() {
-    systemctl_restart 100 5 30 $1
+    service=$1; timeout=$2
+    systemctl_restart 100 5 $timeout $service
     RESTART_STATUS=$?
-    systemctl status $1 --no-pager -l > /var/log/azure/$1-status.log
+    systemctl status $service --no-pager -l > /var/log/azure/$service-status.log
     if [ $RESTART_STATUS -ne 0 ]; then
-        echo "$1 could not be started"
+        echo "$service could not be started"
         return 1
     fi
-    if ! retrycmd_if_failure 120 5 25 systemctl enable $1; then
-        echo "$1 could not be enabled by systemctl"
+    if ! retrycmd_if_failure 120 5 25 systemctl enable $service; then
+        echo "$service could not be enabled by systemctl"
         return 1
+    fi
+}
+
+systemctlEnableAndStartNoBlock() {    
+    service=$1; timeout=$2; status_check_delay_seconds=${3:-"0"}
+
+    systemctl_restart_no_block 100 5 $timeout $service
+    RESTART_STATUS=$?
+    if [ $RESTART_STATUS -ne 0 ]; then
+        echo "$service could not be enqueued for startup"
+        systemctl status $service --no-pager -l > /var/log/azure/$service-status.log || true
+        return 1
+    fi
+
+    if ! retrycmd_if_failure 120 5 25 systemctl enable $service; then
+        echo "$service could not be enabled by systemctl"
+        systemctl status $service --no-pager -l > /var/log/azure/$service-status.log || true
+        return 1
+    fi
+
+    # wait for the specified delay seconds before checking the service status to make sure
+    # it hasn't gone into a failed state
+    sleep $status_check_delay_seconds
+
+    if systemctl is-failed $service; then
+        echo "$service is in a failed state"
+        systemctl status $service --no-pager -l > /var/log/azure/$service-status.log || true
+        return 1
+    fi
+
+    # systemctl status only exits with code 0 iff the service is "active",
+    # thus we handle the "activating" case by checking for a non-zero exit code
+    if ! systemctl status $service --no-pager -l > /var/log/azure/$service-status.log; then
+        echo "$service is still activating, continuing anyway..."
     fi
 }
 
@@ -434,25 +499,18 @@ systemctlDisableAndStop() {
 
 # return true if a >= b
 semverCompare() {
-    VERSION_A=$(echo $1 | cut -d "+" -f 1)
-    VERSION_B=$(echo $2 | cut -d "+" -f 1)
-    [[ "${VERSION_A}" == "${VERSION_B}" ]] && return 0
+    VERSION_A=$(echo $1 | cut -d "+" -f 1 | cut -d "~" -f 1)
+    VERSION_B=$(echo $2 | cut -d "+" -f 1 | cut -d "~" -f 1)
+    
+    [ "${VERSION_A}" = "${VERSION_B}" ] && return 0
     sorted=$(echo ${VERSION_A} ${VERSION_B} | tr ' ' '\n' | sort -V )
     highestVersion=$(IFS= echo "${sorted}" | cut -d$'\n' -f2)
-    [[ "${VERSION_A}" == ${highestVersion} ]] && return 0
+    [ "${VERSION_A}" = ${highestVersion} ] && return 0
     return 1
 }
-downloadDebPkgToFile() {
-    PKG_NAME=$1
-    PKG_VERSION=$2
-    PKG_DIRECTORY=$3
-    mkdir -p $PKG_DIRECTORY
-    # shellcheck disable=SC2164
-    pushd ${PKG_DIRECTORY}
-    retrycmd_if_failure 10 5 600 apt-get download ${PKG_NAME}=${PKG_VERSION}*
-    # shellcheck disable=SC2164
-    popd
-}
+
+	
+
 apt_get_download() {
   retries=$1; wait_sleep=$2; shift && shift;
   local ret=0
@@ -466,16 +524,19 @@ apt_get_download() {
   popd || return 1
   return $ret
 }
+
 getCPUArch() {
     arch=$(uname -m)
+    # shellcheck disable=SC3010
     if [[ ${arch,,} == "aarch64" || ${arch,,} == "arm64"  ]]; then
         echo "arm64"
     else
         echo "amd64"
     fi
 }
+
 isARM64() {
-    if [[ $(getCPUArch) == "arm64" ]]; then
+    if [ "$(getCPUArch)" = "arm64" ]; then
         echo 1
     else
         echo 0
@@ -485,6 +546,7 @@ isARM64() {
 isRegistryUrl() {
     local binary_url=$1
     registry_regex='^.+\/.+\/.+:.+$'
+    # shellcheck disable=SC3010
     if [[ ${binary_url} =~ $registry_regex ]]; then # check if the binary_url is in the format of mcr.microsoft.com/componant/binary:1.0"
         return 0 # true
     fi
@@ -515,10 +577,12 @@ logs_to_events() {
         --arg EventTid    "0" \
         '{Timestamp: $Timestamp, OperationId: $OperationId, Version: $Version, TaskName: $TaskName, EventLevel: $EventLevel, Message: $Message, EventPid: $EventPid, EventTid: $EventTid}'
     )
+    
+    mkdir -p ${EVENTS_LOGGING_DIR}
     echo ${json_string} > ${EVENTS_LOGGING_DIR}${eventsFileName}.json
 
     # this allows an error from the command at ${@} to be returned and correct code assigned in cse_main
-    if [ "$ret" != "0" ]; then
+    if [ "$ret" -ne 0 ]; then
       return $ret
     fi
 }
@@ -527,7 +591,7 @@ should_skip_nvidia_drivers() {
     set -x
     body=$(curl -fsSL -H "Metadata: true" --noproxy "*" "http://169.254.169.254/metadata/instance?api-version=2021-02-01")
     ret=$?
-    if [ "$ret" != "0" ]; then
+    if [ "$ret" -ne 0 ]; then
       return $ret
     fi
     should_skip=$(echo "$body" | jq -e '.compute.tagsList | map(select(.name | test("SkipGpuDriverInstall"; "i")))[0].value // "false" | test("true"; "i")')
@@ -538,7 +602,7 @@ should_disable_kubelet_serving_certificate_rotation() {
     set -x
     body=$(curl -fsSL -H "Metadata: true" --noproxy "*" "http://169.254.169.254/metadata/instance?api-version=2021-02-01")
     ret=$?
-    if [ "$ret" != "0" ]; then
+    if [ "$ret" -ne 0 ]; then
       return $ret
     fi
     should_disable=$(echo "$body" | jq -r '.compute.tagsList[] | select(.name == "aks-disable-kubelet-serving-certificate-rotation") | .value')
@@ -549,16 +613,60 @@ should_skip_binary_cleanup() {
     set -x
     body=$(curl -fsSL -H "Metadata: true" --noproxy "*" "http://169.254.169.254/metadata/instance?api-version=2021-02-01")
     ret=$?
-    if [ "$ret" != "0" ]; then
+    if [ "$ret" -ne 0 ]; then
       return $ret
     fi
     should_skip=$(echo "$body" | jq -r '.compute.tagsList[] | select(.name == "SkipBinaryCleanup") | .value')
     echo "${should_skip,,}"
 }
 
+should_enforce_kube_pmc_install() {
+    set -x
+    body=$(curl -fsSL -H "Metadata: true" --noproxy "*" "http://169.254.169.254/metadata/instance?api-version=2021-02-01")
+    ret=$?
+    if [ "$ret" -ne 0 ]; then
+      return $ret
+    fi
+    should_enforce=$(echo "$body" | jq -r '.compute.tagsList[] | select(.name == "ShouldEnforceKubePMCInstall") | .value')
+    echo "${should_enforce,,}"
+}
+
 isMarinerOrAzureLinux() {
     local os=$1
-    if [[ $os == $MARINER_OS_NAME ]] || [[ $os == $MARINER_KATA_OS_NAME ]] || [[ $os == $AZURELINUX_OS_NAME ]]; then
+    if [ "$os" = "$MARINER_OS_NAME" ] || [ "$os" = "$MARINER_KATA_OS_NAME" ] || [ "$os" = "$AZURELINUX_OS_NAME" ] || [ "$os" = "$AZURELINUX_KATA_OS_NAME" ]; then
+        return 0
+    fi
+    return 1
+}
+
+isAzureLinuxOSGuard() {
+    local os=$1
+    local os_variant=$2
+    if [ "$os" = "$AZURELINUX_OS_NAME" ] && [ "$os_variant" = "$AZURELINUX_OSGUARD_OS_VARIANT" ]; then
+        return 0
+    fi
+    return 1
+}
+
+isMariner() {
+    local os=$1
+    if [ "$os" = "$MARINER_OS_NAME" ] || [ "$os" = "$MARINER_KATA_OS_NAME" ]; then
+        return 0
+    fi
+    return 1
+}
+
+isAzureLinux() {
+    local os=$1
+    if [ "$os" = "$AZURELINUX_OS_NAME" ] || [ "$os" = "$AZURELINUX_KATA_OS_NAME" ]; then
+        return 0
+    fi
+    return 1
+}
+
+isFlatcar() {
+    local os=$1
+    if [ "$os" = "$FLATCAR_OS_NAME" ]; then
         return 0
     fi
     return 1
@@ -566,7 +674,7 @@ isMarinerOrAzureLinux() {
 
 evalPackageDownloadURL() {
     local url=${1:-}
-    if [[ -n "$url" ]]; then
+    if [ -n "$url" ]; then
          eval "result=${url}"
          echo $result
          return
@@ -575,22 +683,20 @@ evalPackageDownloadURL() {
 }
 
 installJq() {
-  # jq is not available until downloaded in install-dependencies.sh with the installDeps function
-  # but it is needed earlier to call the capture_benchmarks function in pre-install-dependencies.sh
-  output=$(jq --version)
-  if [ -n "$output" ]; then
-    echo "$output"
-  else
-    if isMarinerOrAzureLinux "$OS"; then
-      sudo tdnf install -y jq && echo "jq was installed: $(jq --version)"
-    else
-      apt_get_install 5 1 60 jq && echo "jq was installed: $(jq --version)"
+    # jq is not available until downloaded in install-dependencies.sh with the installDeps function
+    # but it is needed earlier to call the capture_benchmarks function in pre-install-dependencies.sh
+    if command -v jq &> /dev/null; then
+        return 0
     fi
-  fi
+    if isMarinerOrAzureLinux "$OS"; then
+        sudo tdnf install -y jq && echo "jq was installed: $(jq --version)"
+    else
+        apt_get_install 5 1 60 jq && echo "jq was installed: $(jq --version)"
+    fi
 }
 
 # sets RELEASE to proper release metadata for the package based on the os and osVersion
-# e.g., For os UBUNTU 18.04, if there is a release "r1804" defined in components.json, then set RELEASE to "r1804".
+# e.g., For os UBUNTU 20.04, if there is a release "r2004" defined in components.json, then set RELEASE to "r2004".
 # Otherwise set RELEASE to "current"
 updateRelease() {
     local package="$1"
@@ -598,18 +704,18 @@ updateRelease() {
     local osVersion="$3"
     RELEASE="current"
     local osLowerCase=$(echo "${os}" | tr '[:upper:]' '[:lower:]')
-    #For UBUNTU, if $osVersion is 18.04 and "r1804" is also defined in components.json, then $release is set to "r1804"
-    #Similarly for 20.04 and 22.04. Otherwise $release is set to .current.
+    #For UBUNTU, if $osVersion is 20.04 and "r2004" is also defined in components.json, then $release is set to "r2004"
+    #Similarly for 22.04 and 24.04. Otherwise $release is set to .current.
     #For MARINER, the release is always set to "current" now.
     #For AZURELINUX, if $osVersion is 3.0 and "v3.0" is also defined in components.json, then $RELEASE is set to "v3.0"
     if isMarinerOrAzureLinux "${os}"; then
-        if [[ $(echo "${package}" | jq ".downloadURIs.${osLowerCase}.\"v${osVersion}\"") != "null" ]]; then
+        if [ "$(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}.\"v${osVersion}\"" 2>/dev/null)" != "null" ]; then
             RELEASE="\"v${osVersion}\""
         fi
         return 0
     fi
     local osVersionWithoutDot=$(echo "${osVersion}" | sed 's/\.//g')
-    if [[ $(echo "${package}" | jq ".downloadURIs.ubuntu.r${osVersionWithoutDot}") != "null" ]]; then
+    if [ "$(echo "${package}" | jq -r ".downloadURIs.ubuntu.r${osVersionWithoutDot}" 2>/dev/null)" != "null" ]; then
         RELEASE="\"r${osVersionWithoutDot}\""
     fi
 }
@@ -626,13 +732,13 @@ updatePackageVersions() {
 
     # if .downloadURIs.${osLowerCase} doesn't exist, it will get the versions from .downloadURIs.default.
     # Otherwise get the versions from .downloadURIs.${osLowerCase
-    if [[ $(echo "${package}" | jq ".downloadURIs.${osLowerCase}") == "null" ]]; then
+    if [ "$(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}" 2>/dev/null)" = "null" ]; then
         osLowerCase="default"
     fi
 
     # jq the versions from the package. If downloadURIs.$osLowerCase.$release.versionsV2 is not null, then get the versions from there.
     # Otherwise get the versions from .downloadURIs.$osLowerCase.$release.versions
-    if [[ $(echo "${package}" | jq ".downloadURIs.${osLowerCase}.${RELEASE}.versionsV2") != "null" ]]; then
+    if [ "$(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}.${RELEASE}.versionsV2")" != "null" ]; then
         local latestVersions=($(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}.${RELEASE}.versionsV2[] | select(.latestVersion != null) | .latestVersion"))
         local previousLatestVersions=($(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}.${RELEASE}.versionsV2[] | select(.previousLatestVersion != null) | .previousLatestVersion"))
         for version in "${latestVersions[@]}"; do
@@ -645,7 +751,7 @@ updatePackageVersions() {
     fi
 
     # Fallback to versions if versionsV2 is null
-    if [[ $(echo "${package}" | jq ".downloadURIs.${osLowerCase}.${RELEASE}.versions") == "null" ]]; then
+    if [ "$(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}.${RELEASE}.versions")" = "null" ]; then
         return 0
     fi
     local versions=($(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}.${RELEASE}.versions[]"))
@@ -660,7 +766,7 @@ updateMultiArchVersions() {
   local imageToBePulled="$1"
 
   #jq the MultiArchVersions from the containerImages. If ContainerImages[i].multiArchVersionsV2 is not null, return that, else return ContainerImages[i].multiArchVersions
-  if [[ $(echo "${imageToBePulled}" | jq .multiArchVersionsV2) != "null" ]]; then
+  if [ "$(echo "${imageToBePulled}" | jq -r '.multiArchVersionsV2 // [] | select(. != null and . != [])')" ]; then
     local latestVersions=($(echo "${imageToBePulled}" | jq -r ".multiArchVersionsV2[] | select(.latestVersion != null) | .latestVersion"))
     local previousLatestVersions=($(echo "${imageToBePulled}" | jq -r ".multiArchVersionsV2[] | select(.previousLatestVersion != null) | .previousLatestVersion"))
     for version in "${latestVersions[@]}"; do
@@ -670,6 +776,12 @@ updateMultiArchVersions() {
       MULTI_ARCH_VERSIONS+=("${version}")
     done
     return
+  fi
+
+  # check if multiArchVersions not exists
+  if [ "$(echo "${imageToBePulled}" | jq -r '.multiArchVersions | if . == null then "null" else empty end')" = "null" ]; then
+    MULTI_ARCH_VERSIONS=()
+    return 
   fi
 
   local versions=($(echo "${imageToBePulled}" | jq -r ".multiArchVersions[]"))
@@ -685,17 +797,17 @@ updatePackageDownloadURL() {
     RELEASE="current"
     updateRelease "${package}" "${os}" "${osVersion}"
     local osLowerCase=$(echo "${os}" | tr '[:upper:]' '[:lower:]')
-    
+
     #if .downloadURIs.${osLowerCase} exist, then get the downloadURL from there.
-    #otherwise get the downloadURL from .downloadURIs.default 
-    if [[ $(echo "${package}" | jq ".downloadURIs.${osLowerCase}") != "null" ]]; then
+    #otherwise get the downloadURL from .downloadURIs.default
+    if [ "$(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}")" != "null" ]; then
         downloadURL=$(echo "${package}" | jq ".downloadURIs.${osLowerCase}.${RELEASE}.downloadURL" -r)
         [ "${downloadURL}" = "null" ] && PACKAGE_DOWNLOAD_URL="" || PACKAGE_DOWNLOAD_URL="${downloadURL}"
         return
     fi
     downloadURL=$(echo "${package}" | jq ".downloadURIs.default.${RELEASE}.downloadURL" -r)
     [ "${downloadURL}" = "null" ] && PACKAGE_DOWNLOAD_URL="" || PACKAGE_DOWNLOAD_URL="${downloadURL}"
-    return    
+    return
 }
 
 # adds the specified LABEL_STRING (which should be in the form of 'label=value') to KUBELET_NODE_LABELS
@@ -727,6 +839,34 @@ removeKubeletNodeLabel() {
     fi
 }
 
+# generate kubenode binary registry url from acs-mirror url
+updateKubeBinaryRegistryURL() {
+    # if rp already passes registry url, then directly use the registry url that rp passes
+    # this path should have not catch for now, but keep it for future
+    if [ -n "${KUBE_BINARY_URL}" ] && isRegistryUrl "${KUBE_BINARY_URL}"; then
+        echo "KUBE_BINARY_URL is a registry url, will use it to pull the kube binary"
+        KUBE_BINARY_REGISTRY_URL="${KUBE_BINARY_URL}"
+    else
+        # however, the kubelet and kubectl binary version may different with kubernetes version due to hotfix or beta
+        # so that we still need to extract the binary version from kube_binary_url
+        url_regex='https://[^/]+/kubernetes/v[0-9]+\.[0-9]+\..+/binaries/.+'
+
+        if [ -n "${KUBE_BINARY_URL}" ]; then
+            binary_version="v${KUBERNETES_VERSION}" # by default use Kubernetes versions
+            # shellcheck disable=SC3010
+            if [[ ${KUBE_BINARY_URL} =~ $url_regex ]]; then
+                version_with_prefix="${KUBE_BINARY_URL#*kubernetes/}"
+                # Extract the version part
+                binary_version="${version_with_prefix%%/*}"
+                echo "Extracted version: $binary_version from KUBE_BINARY_URL: ${KUBE_BINARY_URL}"
+            else
+                echo "KUBE_BINARY_URL is formatted unexpectedly, will use the kubernetes version as binary version: $binary_version"
+            fi
+        fi
+        KUBE_BINARY_REGISTRY_URL="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}/${K8S_REGISTRY_REPO}/kubernetes-node:${binary_version}-linux-${CPU_ARCH}"
+    fi
+}
+
 # removes the specified FLAG_STRING (which should be in the form of 'key=value') from KUBELET_FLAGS
 removeKubeletFlag() {
     local FLAG_STRING=$1
@@ -747,18 +887,55 @@ verify_DNS_health(){
     fi
 
     dig_check_no_domain=$(dig +norec +short +tries=5 +timeout=5 .)
-    if [ $? -ne 0 ]; then
+    if [ "$?" -ne 0 ]; then
         echo "Failed to resolve root domain '.'"
         return $ERR_DNS_HEALTH_FAIL
     fi
 
     dig_check_domain=$(dig +tries=5 +timeout=5 +short $domain_name)
     ret_code=$?
-    if [ ret_code -ne 0 ] || [ -z "$dig_check_domain" ]; then
+    if [ "$ret_code" -ne 0 ] || [ -z "$dig_check_domain" ]; then
         echo "Failed to resolve domain $domain_name return code: $ret_code"
         return $ERR_DNS_HEALTH_FAIL
     fi
     echo "DNS health check passed"
+}
+
+resolve_packages_source_url() {
+    local retries=5
+    local wait_sleep=1
+
+    PACKAGE_DOWNLOAD_BASE_URL="packages.aks.azure.com"
+    for i in $(seq 1 $retries); do
+      # Confirm that we can establish connectivity to packages.aks.azure.com before node provisioning starts
+      response_code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 --noproxy "*" https://packages.aks.azure.com/acs-mirror/healthz)
+      if [ "${response_code}" -eq 200 ]; then
+        echo "Established connectivity to $PACKAGE_DOWNLOAD_BASE_URL."
+        break
+      else
+        if [ $i -eq $retries ]; then
+          # If we can not establish connectivity to packages.aks.azure.com, fallback to old CDN URL
+          PACKAGE_DOWNLOAD_BASE_URL="acs-mirror.azureedge.net"
+          echo "Setting PACKAGE_DOWNLOAD_BASE_URL to $PACKAGE_DOWNLOAD_BASE_URL. Please check to ensure cluster firewall has packages.aks.azure.com on its allowlist"
+          break
+        else
+          sleep $wait_sleep
+        fi
+      fi
+    done
+}
+
+update_base_url() {
+  initial_url=$1
+
+  # shellcheck disable=SC3010
+  if [ "$PACKAGE_DOWNLOAD_BASE_URL" = "packages.aks.azure.com" ] && [[ "$initial_url" == *"acs-mirror.azureedge.net"* ]]; then
+    initial_url="${initial_url//"acs-mirror.azureedge.net"/$PACKAGE_DOWNLOAD_BASE_URL}"
+  elif [ "$PACKAGE_DOWNLOAD_BASE_URL" = "acs-mirror.azureedge.net" ] && [[ "$initial_url" == *"packages.aks.azure.com"* ]]; then
+    initial_url="${initial_url//"packages.aks.azure.com"/$PACKAGE_DOWNLOAD_BASE_URL}"
+  fi
+
+  echo "$initial_url"
 }
 
 oras_login_with_kubelet_identity() {
@@ -768,55 +945,52 @@ oras_login_with_kubelet_identity() {
 
     if [ -z "$client_id" ] || [ -z "$tenant_id" ]; then
         echo "client_id or tenant_id are not set. Oras login is not possible, proceeding with anonymous pull"
-        return 
+        return
     fi
 
     retrycmd_can_oras_ls_acr 10 5 $acr_url
-    ret_code=$? 
-    if [[ $ret_code -eq 0 ]]; then
+    ret_code=$?
+    if [ "$ret_code" -eq 0 ]; then
         echo "anonymous pull is allowed for acr '$acr_url', proceeding with anonymous pull"
         return
-    elif [[ $ret_code -ne 1 ]]; then
+    elif [ "$ret_code" -ne 1 ]; then
         echo "failed with an error other than unauthorized, exiting.."
         return $ret_code
     fi
 
-    set +x 
+    set +x
     access_url="http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https://management.azure.com/&client_id=$client_id"
-    raw_access_token=$(retrycmd_get_access_token_for_oras 10 5 $access_url)
-    ret_code=$? 
-    if [ $ret_code -ne 0 ]; then
-        echo "failed to retrieve access token: $ret_code"
+    raw_access_token=$(retrycmd_get_access_token_for_oras 5 15 $access_url)
+    ret_code=$?
+    if [ "$ret_code" -ne 0 ]; then
+        echo $raw_access_token
         return $ret_code
     fi
-    if [[ "$raw_access_token" == *"error"* ]]; then
-        echo "failed to retrieve access token"
-        return $ERR_ORAS_PULL_UNAUTHORIZED
-    fi
     ACCESS_TOKEN=$(echo "$raw_access_token" | jq -r .access_token)
-    if [ -z "$ACCESS_TOKEN" ] || [ "$ACCESS_TOKEN" == "null" ]; then
+    if [ -z "$ACCESS_TOKEN" ] || [ "$ACCESS_TOKEN" = "null" ]; then
         echo "failed to parse access token"
         return $ERR_ORAS_PULL_UNAUTHORIZED
     fi
 
     raw_refresh_token=$(retrycmd_get_refresh_token_for_oras 10 5 $acr_url $tenant_id $ACCESS_TOKEN)
-    ret_code=$? 
-    if [ $ret_code -ne 0 ]; then
+    ret_code=$?
+    if [ "$ret_code" -ne 0 ]; then
         echo "failed to retrieve refresh token: $ret_code"
         return $ret_code
     fi
+    # shellcheck disable=SC3010
     if [[ "$raw_refresh_token" == *"error"* ]]; then
         echo "failed to retrieve refresh token"
         return $ERR_ORAS_PULL_UNAUTHORIZED
     fi
     REFRESH_TOKEN=$(echo "$raw_refresh_token" | jq -r .refresh_token)
-    if [ -z "$REFRESH_TOKEN" ] || [ "$REFRESH_TOKEN" == "null" ]; then
+    if [ -z "$REFRESH_TOKEN" ] || [ "$REFRESH_TOKEN" = "null" ]; then
         echo "failed to parse refresh token"
         return $ERR_ORAS_PULL_UNAUTHORIZED
     fi
 
     retrycmd_oras_login 3 5 $acr_url "$REFRESH_TOKEN"
-    if [ $? -ne 0 ]; then
+    if [ "$?" -ne 0 ]; then
         echo "failed to login to acr '$acr_url' with identity token"
         return $ERR_ORAS_PULL_UNAUTHORIZED
     fi
@@ -824,12 +998,75 @@ oras_login_with_kubelet_identity() {
     set -x
 
     retrycmd_can_oras_ls_acr 10 5 $acr_url$test_image
-    if [[ $? -ne 0 ]]; then
+    if [ "$?" -ne 0 ]; then
         echo "failed to login to acr '$acr_url', pull is still unauthorized"
         return $ERR_ORAS_PULL_UNAUTHORIZED
     fi
 
     echo "successfully logged in to acr '$acr_url' with identity token"
+}
+
+configureSSHService() {
+    local os_param="${1:-$OS}"
+    local os_version_param="${2:-$OS_VERSION}"
+    
+    # If not Ubuntu, no changes needed
+    if [ "$os_param" != "$UBUNTU_OS_NAME" ]; then
+        return 0
+    fi
+    
+    # Only for Ubuntu 22.10+ or newer socket activation is used, for earlier versions no changes needed
+    if semverCompare "22.10" "$os_version_param" ; then
+        return 0
+    fi
+
+    # For Ubuntu 22.10+ with socket-based SSH activation
+    # disable socket if is active
+    if systemctl is-active --quiet ssh.socket; then
+        # Socket is active, disable it and switch to service-based activation
+        systemctl disable --now ssh.socket || echo "Warning: Could not disable ssh.socket"
+    fi
+
+    # Remove the socket-based configuration files if present
+    if [ -f /etc/systemd/system/ssh.service.d/00-socket.conf ]; then
+        rm /etc/systemd/system/ssh.service.d/00-socket.conf || echo "Warning: Could not remove 00-socket.conf"
+    fi
+    
+    if [ -f /etc/systemd/system/ssh.socket.d/addresses.conf ]; then
+        rm /etc/systemd/system/ssh.socket.d/addresses.conf || echo "Warning: Could not remove addresses.conf"
+    fi
+    
+    # For all Ubuntu versions, just make sure ssh service is enabled and running
+    if ! systemctl is-enabled --quiet ssh.service; then
+        echo "Enabling SSH service..."
+        systemctlEnableAndStart ssh 30 || return $ERR_SYSTEMCTL_START_FAIL
+    fi
+    # Verify SSH service is now running
+    if ! systemctl is-active --quiet ssh; then
+        echo "Error: Failed to start SSH service after configuration changes"
+        return $ERR_SYSTEMCTL_START_FAIL
+    fi
+    
+    echo "SSH service successfully reconfigured and started"
+    return 0
+}
+
+# Helper to extract tarballs with --no-same-owner for portability and security
+# Usage: extract_tarball <tarball> <destination> [tar options]
+# Always uses --no-same-owner
+extract_tarball() {
+    local tarball="$1"
+    local dest="$2"
+    shift 2
+    # Use tar options if provided, otherwise default to -xzf
+    case "$tarball" in
+        *.tar.gz|*.tgz)
+            sudo tar -xvzf "$tarball" -C "$dest" --no-same-owner "$@"
+            ;;
+        *)
+            sudo tar -xvf "$tarball" -C "$dest" --no-same-owner "$@"
+            ;;
+    esac
 }
 
 #HELPERSEOF

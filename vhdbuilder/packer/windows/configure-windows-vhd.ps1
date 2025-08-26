@@ -7,23 +7,23 @@
 #>
 
 param(
-    [string]
-    $windowsSKUParam,
-    [string]
-    $provisioningPhaseParam,
-    [string]
-    $customizedDiskSizeParam
+    [string]$windowsSKUParam,
+    [string]$provisioningPhaseParam,
+    [string]$customizedDiskSizeParam
 )
+
 if (![string]::IsNullOrEmpty($windowsSKUParam))
 {
     Write-Log "Setting Windows SKU to $windowsSKUParam"
     $env:WindowsSKU = $windowsSKUParam
 }
+
 if (![string]::IsNullOrEmpty($provisioningPhaseParam))
 {
     Write-Log "Setting Provisioning Phase to $provisioningPhaseParam"
     $env:ProvisioningPhase = $provisioningPhaseParam
 }
+
 if (![string]::IsNullOrEmpty($customizedDiskSizeParam))
 {
     Write-Log "Setting Customized Disk Size to $customizedDiskSizeParam"
@@ -45,6 +45,27 @@ function Write-Log($Message)
 
 . c:/k/windows-vhd-configuration.ps1
 
+
+function Log-VHDFreeSize
+{
+    Write-Log "Get Disk info"
+    $disksInfo = Get-CimInstance -ClassName Win32_LogicalDisk
+    foreach ($disk in $disksInfo)
+    {
+        if ($disk.DeviceID -eq "C:")
+        {
+            if ($disk.FreeSpace -lt $global:lowestFreeSpace)
+            {
+                Write-Log "Disk C: Free space $( $disk.FreeSpace ) is less than $( $global:lowestFreeSpace )"
+            }
+            break
+        }
+
+        # the break above means we'll only print this where there is no error.
+        Write-Log "Disk $( $disk.DeviceID ) has free space $( $disk.FreeSpace )"
+    }
+}
+
 function Download-File
 {
     param (
@@ -54,16 +75,39 @@ function Download-File
         $retryDelay = 0,
         [Switch]$redactUrl = $false
     )
+    # replicate same check as in windowscsehelper.ps1, check if the file already exists before downloading
+    $cleanUrl = $URL.Split('?')[0]
+    $fileName = [IO.Path]::GetFileName($cleanUrl)
+
+    $search = @()
+    if ($global:cacheDir -and (Test-Path $global:cacheDir)) {
+        $search = [IO.Directory]::GetFiles($global:cacheDir, $fileName, [IO.SearchOption]::AllDirectories)
+    }
+
+    if ($search.Count -ne 0) {
+        Write-Log "Package exist $fileName in cache dir $global:CacheDir, skipping download"
+        Get-ChildItem "$Dest"
+        return
+    } 
+
+    Write-Log "Downloading $URL to $Dest"
     curl.exe -f --retry $retryCount --retry-delay $retryDelay -L $URL -o $Dest
-    if ($LASTEXITCODE)
+    $curlExitCode = $LASTEXITCODE
+    if ($curlExitCode)
     {
         $logURL = $URL
         if ($redactUrl)
         {
             $logURL = $logURL.Split("?")[0]
         }
-        throw "Curl exited with '$LASTEXITCODE' while attemping to download '$logURL'"
+        Log-VHDFreeSize
+        curl.exe --version
+        if ("$curlExitCode" -eq "23") {
+            throw "Curl exited with '$curlExitCode' while attempting to download '$logURL' to '$Dest'. This often means VHD out of space."
+        }
+        throw "Curl exited with '$curlExitCode' while attempting to download '$logURL' to '$Dest'"
     }
+    Get-ChildItem "$Dest"
 }
 
 function Download-FileWithAzCopy
@@ -105,10 +149,65 @@ function Download-FileWithAzCopy
     Write-Log "Copying $URL to $Dest"
     .\azcopy.exe copy "$URL" "$Dest"
 
+    dir "$Dest"
+
     Write-Log "--- START AzCopy Log"
     Get-Content "$env:AZCOPY_LOG_LOCATION\*.log" | Write-Log
     Write-Log "--- END AzCopy Log"
     popd
+}
+
+function Pull-OCIArtifact
+{
+    param (
+        $Name,
+        $Dest
+    )
+
+    if (!(Test-Path -Path "$global:aksTempDir\oras.exe"))
+    {
+        if (!(Test-Path -Path "$global:aksTempDir"))
+        {
+            Write-Log "Creating temp dir $global:aksTempDir for oras"
+            New-Item -ItemType Directory $global:aksTempDir -Force
+        }
+
+        $orasVersion = '1.2.3'
+        $orasZip = "oras_${orasVersion}_windows_amd64.zip"
+        $orasUrl = "https://github.com/oras-project/oras/releases/download/v${orasVersion}/${orasZip}"
+
+        Write-Log "Downloading oras v${orasVersion}"
+        Invoke-WebRequest -UseBasicParsing $orasUrl -OutFile "$global:aksTempDir\$orasZip"
+        Expand-Archive -Path "$global:aksTempDir\$orasZip" -DestinationPath "$global:aksTempDir" -Force
+    }
+
+    Push-Location $global:aksTempDir
+
+    try
+    {
+        Write-Log "Pulling OCI artifact $Name"
+
+        if (!(Test-Path -Path $Dest))
+        {
+            Write-Log "Creating destination directory $Dest"
+            New-Item -ItemType Directory -Path $Dest -Force | Out-Null
+        }
+
+        .\oras.exe pull $Name -o $Dest
+        $orasExitCode = $LASTEXITCODE
+        if ($orasExitCode)
+        {
+            Log-VHDFreeSize
+            .\oras.exe version
+            throw "Oras pull failed with exit code $orasExitCode"
+        }
+
+        Get-ChildItem "$Dest"
+    }
+    finally
+    {
+        Pop-Location
+    }
 }
 
 function Cleanup-TemporaryFiles
@@ -271,6 +370,10 @@ function Get-ContainerImages
         Write-Output "* $image"
     }
 
+    # ./.clusterfuzzliteThere is a regression in crictl.exe in kube-tools 1.33 for windows that it cannot find the default config file. Has been discussed with upstream and pending fix
+    $crictlPath = (Get-Command crictl.exe -ErrorAction SilentlyContinue).Path
+    $configPath = Join-Path (Split-Path -Parent $crictlPath) "crictl.yaml"
+    
     foreach ($image in $imagesToPull)
     {
         $imagePrefix = $image.Split(":")[0]
@@ -286,38 +389,48 @@ function Get-ContainerImages
             {
                 $url = $env:WindowsNanoServerImageURL
             }
-            $fileName = [IO.Path]::GetFileName($url.Split("?")[0])
-            $tmpDest = [IO.Path]::Combine([System.IO.Path]::GetTempPath(), $fileName)
-            Write-Log "Downloading image $image to $tmpDest"
-            Download-FileWithAzCopy -URL $url -Dest $tmpDest
 
-            Write-Log "Loading image $image from $tmpDest"
-            Retry-Command -ScriptBlock {
-                & ctr -n k8s.io images import $tmpDest
-            } -ErrorMessage "Failed to load image $image from $tmpDest"
+            # In 2025 case, we will need to cache container base images for both 2022 and 2025
+            # To support multiple versions of container base images, we expect the URL to be provided as a list of strings 
+            # seperated by commas or semicolons, while each string specify a version of the image.
+            # For example: mcr.microsoft.com/windows/servercore:ltsc2022, mcr.microsoft.com/windows/servercore:ltsc2025
+            $containerBaseImageurls = $url -split '\s*[;,]\s*'
 
-            Write-Log "Removing tmp tar file $tmpDest"
-            Remove-Item -Path $tmpDest
+            foreach ($url in $containerBaseImageurls)
+            {
+                $fileName = [IO.Path]::GetFileName($url.Split("?")[0])
+                $tmpDest = [IO.Path]::Combine([System.IO.Path]::GetTempPath(), $fileName)
+                Write-Log "Downloading image $image to $tmpDest"
+                Download-FileWithAzCopy -URL $url -Dest $tmpDest
+
+                Write-Log "Loading image $image from $tmpDest"
+                Retry-Command -ScriptBlock {
+                    & ctr -n k8s.io images import $tmpDest
+                } -ErrorMessage "Failed to load image $image from $tmpDest"
+
+                Write-Log "Removing tmp tar file $tmpDest"
+                Remove-Item -Path $tmpDest
+            }
         }
         else
         {
             Write-Log "Pulling image $image"
             Retry-Command -ScriptBlock {
-                & crictl.exe pull $image
+                & crictl.exe -c $configPath pull $image
             } -ErrorMessage "Failed to pull image $image"
         }
     }
 
     # before stopping containerd, let's echo the cached images and their sizes.
-    crictl images show
+    crictl -c $configPath images show
 
     Stop-Job  -Name containerd
     Remove-Job -Name containerd
 }
 
-function Get-FilesToCacheOnVHD
+function Get-PackagesToCacheOnVHD
 {
-    Write-Log "Caching misc files on VHD"
+    Write-Log "Caching packages on VHD"
 
     foreach ($dir in $map.Keys)
     {
@@ -332,6 +445,54 @@ function Get-FilesToCacheOnVHD
             Download-File -URL $URL -Dest $dest
         }
     }
+
+
+    foreach ($dir in $map.Keys)
+    {
+        LogFilesInDirectory "$dir"
+    }   return $global:map.Keys
+}
+
+function Get-OCIArtifactsToCacheOnVHD
+{
+    Write-Log "Caching $($ociArtifactsToPull.Count) OCI artifacts on VHD"
+
+    foreach ($dir in $ociArtifactsToPull.Keys)
+    {
+        New-Item -ItemType Directory $dir -Force | Out-Null
+
+        foreach ($ociArtifactName in $global:ociArtifactsToPull[$dir])
+        {
+            Write-Log "Pulling OCI artifact $ociArtifactName to $dir"
+            Pull-OCIArtifact -Name $ociArtifactName -Dest $dir
+        }
+    }
+
+
+    foreach ($dir in $ociArtifactsToPull.Keys)
+    {
+        LogFilesInDirectory "$dir"
+    }
+}
+
+function Get-FilesToCacheOnVHD
+{
+    Write-Log "Caching misc files on VHD"
+    Get-OCIArtifactsToCacheOnVHD
+    Get-PackagesToCacheOnVHD
+}
+
+function LogFilesInDirectory
+{
+    Param(
+        [string]
+        $Directory
+    )
+
+    Get-ChildItem -Path "$Directory" | ForEach-Object {
+        $sizeKB = [math]::Round($_.Length / 1KB, 2)
+        Write-Output "$( $_.Name ) - $sizeKB KB"
+    }
 }
 
 function Get-ToolsToVHD
@@ -345,6 +506,8 @@ function Get-ToolsToVHD
     Download-File -URL "https://download.sysinternals.com/files/DU.zip" -Dest "$global:aksToolsDir\DU.zip"
     Expand-Archive -Path "$global:aksToolsDir\DU.zip" -DestinationPath "$global:aksToolsDir\DU" -Force
     Remove-Item -Path "$global:aksToolsDir\DU.zip" -Force
+
+    LogFilesInDirectory "$global:aksToolsDir\DU"
 }
 
 function Register-ExpandVolumeTask
@@ -448,6 +611,9 @@ function Install-ContainerD
     else
     {
         tar -xzf $containerdTmpDest -C $installDir
+        if ($LASTEXITCODE -ne 0) {
+            throw "Failed to extract the '$containerdTmpDest' archive."
+        }
         mv -Force $installDir\bin\* $installDir
         Remove-Item -Path $installDir\bin -Force -Recurse
     }
@@ -471,13 +637,18 @@ function Install-ContainerD
 
 function Install-OpenSSH
 {
+    if ($env:INSTALL_OPEN_SSH_SERVER -eq 'False')
+    {
+        Write-Log "Not installing Windows OpenSSH Server as this is disabled in the pipeline"
+        return
+    }
+
     Write-Log "Installing OpenSSH Server"
 
     # Somehow openssh client got added to Windows 2019 base image.
     if ($env:WindowsSKU -Like '2019*')
     {
         Remove-WindowsCapability -Online -Name OpenSSH.Client~~~~0.0.1.0
-        Add-WindowsCapability -Online -Name OpenSSH.Client~~~~0.0.1.0
     }
 
     Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0
@@ -631,7 +802,7 @@ function Update-Registry
             if (![string]::IsNullOrEmpty($currentValue))
             {
                 Write-Log "The current value of $keyName is $currentValue"
-                $keyValue = ([int]$currentValue.$keyName -bor $hnsControlFlag)
+                $keyValue = ([int]$currentValue.$keyName -bor $keyValue)
             }
             Enable-WindowsFixInPath -Path $keyPath -Name $keyName -Value $keyValue -Type $keyType
         }
@@ -701,24 +872,6 @@ function Get-SystemDriveDiskInfo
         if ($disk.DeviceID -eq "C:")
         {
             Write-Log "Disk C: Free space: $( $disk.FreeSpace ), Total size: $( $disk.Size )"
-        }
-    }
-}
-
-function Validate-VHDFreeSize
-{
-    Clear-TempFolder
-    Write-Log "Get Disk info"
-    $disksInfo = Get-CimInstance -ClassName Win32_LogicalDisk
-    foreach ($disk in $disksInfo)
-    {
-        if ($disk.DeviceID -eq "C:")
-        {
-            if ($disk.FreeSpace -lt $global:lowestFreeSpace)
-            {
-                Write-Log "Disk C: Free space $( $disk.FreeSpace ) is less than $( $global:lowestFreeSpace )"
-            }
-            break
         }
     }
 }
@@ -798,9 +951,9 @@ function Log-ReofferUpdate
 
 function Test-AzureExtensions
 {
-    if ($env:SKIP_EXTENSION_CHECK -eq "true")
+    if ($env:SKIP_EXTENSION_CHECK -eq "True")
     {
-        Write-Log "Skipping extension check because SKIP_EXTENSION_CHECK is set to true"
+        Write-Log "Skipping extension check because SKIP_EXTENSION_CHECK is set to True"
         return
     }
 
@@ -858,7 +1011,8 @@ try
             Register-ExpandVolumeTask
             Cleanup-TemporaryFiles
             (New-Guid).Guid | Out-File -FilePath 'c:\vhd-id.txt'
-            Validate-VHDFreeSize
+            Clear-TempFolder
+            Log-VHDFreeSize
             Test-AzureExtensions
         }
         default {

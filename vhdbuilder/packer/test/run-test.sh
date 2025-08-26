@@ -1,5 +1,6 @@
 #!/bin/bash
 set -eux
+: "${CONTAINTER_BASE_URLS_EXISTING:=false}"
 
 source ./parts/linux/cloud-init/artifacts/cse_benchmark_functions.sh
 
@@ -21,7 +22,7 @@ set -x
 
 # For linux VHDs, override AZURE_LOCATION with PACKER_BUILD_LOCATION to make sure
 # we're in the correct region to access the image version from the staging gallery (PackerSigGalleryEastUS)
-if [ "${OS_TYPE,,}" == "linux" ]; then
+if [ "${OS_TYPE,,}" = "linux" ]; then
   if [ -z "$PACKER_BUILD_LOCATION" ]; then
     echo "PACKER_BUILD_LOCATION must be set for linux builds"
     exit 1
@@ -29,7 +30,7 @@ if [ "${OS_TYPE,,}" == "linux" ]; then
   AZURE_LOCATION=$PACKER_BUILD_LOCATION
 fi
 
-if [ "${OS_TYPE,,}" == "linux" ]; then
+if [ "${OS_TYPE,,}" = "linux" ]; then
   TEST_VM_RESOURCE_GROUP_NAME="$TEST_RESOURCE_PREFIX-$(date +%s)-$RANDOM"
 else
   if [ -z "$TEST_VM_RESOURCE_GROUP_NAME" ]; then
@@ -43,8 +44,8 @@ az group create --name "$TEST_VM_RESOURCE_GROUP_NAME" --location "${AZURE_LOCATI
 
 # defer function to cleanup resource group when VHD debug is not enabled
 function cleanup() {
-  if [ "$VHD_DEBUG" == "True" ]; then
-    echo "VHD debug mode is enabled, please manually delete test vm resource group $RESOURCE_GROUP_NAME after debugging"
+  if [ "$VHD_DEBUG" = "True" ]; then
+    echo "VHD debug mode is enabled, please manually delete test vm resource group $TEST_VM_RESOURCE_GROUP_NAME after debugging"
   else
     echo "Deleting resource group ${TEST_VM_RESOURCE_GROUP_NAME}"
     az group delete --name "$TEST_VM_RESOURCE_GROUP_NAME" --yes --no-wait
@@ -60,13 +61,13 @@ set -x
 # otherwise 'root' is used by default but not allowed by the Windows Image. See the error image below:
 # ERROR: This user name 'root' meets the general requirements, but is specifically disallowed for this image. Please try a different value.
 TARGET_COMMAND_STRING=""
-if [ "${ARCHITECTURE,,}" == "arm64" ]; then
-  TARGET_COMMAND_STRING+="--size Standard_D2pds_V5"
+if [ "${ARCHITECTURE,,}" = "arm64" ]; then
+  TARGET_COMMAND_STRING="--size Standard_D2pds_V5"
 else
   TARGET_COMMAND_STRING="--size Standard_D2ds_v5"
 fi
 
-if [ "${OS_TYPE}" == "Linux" ] && [ "${ENABLE_TRUSTED_LAUNCH}" == "True" ]; then
+if [ "${OS_TYPE}" = "Linux" ] && [ "${ENABLE_TRUSTED_LAUNCH}" = "True" ]; then
   if [ -n "$TARGET_COMMAND_STRING" ]; then
     # To take care of Mariner Kata TL images
     TARGET_COMMAND_STRING+=" "
@@ -74,12 +75,19 @@ if [ "${OS_TYPE}" == "Linux" ] && [ "${ENABLE_TRUSTED_LAUNCH}" == "True" ]; then
   TARGET_COMMAND_STRING+="--security-type TrustedLaunch --enable-secure-boot true --enable-vtpm true"
 fi
 
-if [ "${OS_TYPE}" == "Linux" ] && [[ "${IMG_SKU}" == "20_04-lts-cvm"  ||  "${IMG_SKU}" == "cvm" ]]; then
+if [ "${OS_TYPE}" = "Linux" ] && grep -q "cvm" <<< "$FEATURE_FLAGS"; then
     # We completely re-assign the TARGET_COMMAND_STRING string here to ensure that no artifacts from earlier conditionals are included
     TARGET_COMMAND_STRING="--size Standard_DC8ads_v5 --security-type ConfidentialVM --enable-secure-boot true --enable-vtpm true --os-disk-security-encryption-type VMGuestStateOnly --specialized true"
 fi
 
-if [ "${OS_TYPE,,}" == "linux" ]; then
+# GB200 specific test VM configuration (uses standard ARM64 VM for now)
+if [ "${OS_TYPE}" = "Linux" ] && grep -q "GB200" <<< "$FEATURE_FLAGS"; then
+    echo "GB200: Using ARM64 VM size for testing"
+    # GB200 will use standard ARM64 VM for testing until GB200 SKUs are available
+    # Additional GB200-specific test parameters can be added here
+fi
+
+if [ "${OS_TYPE,,}" = "linux" ]; then
   # in linux mode, explicitly create the NIC referencing the existing packer subnet to be attached to the testing VM so we avoid creating ephemeral vnets
   PACKER_SUBNET_ID="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${PACKER_VNET_RESOURCE_GROUP_NAME}/providers/Microsoft.Network/virtualNetworks/${PACKER_VNET_NAME}/subnets/packer"
   if [ -z "$(az network vnet subnet show --ids "$PACKER_SUBNET_ID" | jq -r '.id')" ]; then
@@ -101,6 +109,7 @@ if [ "${OS_TYPE,,}" == "linux" ]; then
       ${TARGET_COMMAND_STRING}
 else
   az vm create \
+      --debug \
       --resource-group "$TEST_VM_RESOURCE_GROUP_NAME" \
       --name "$VM_NAME" \
       --image "$MANAGED_SIG_ID" \
@@ -119,20 +128,21 @@ set -x
 FULL_PATH=$(realpath $0)
 CDIR=$(dirname "$FULL_PATH")
 
-if [ "$OS_TYPE" == "Linux" ]; then
+if [ "$OS_TYPE" = "Linux" ]; then
   if [ -z "${ENABLE_FIPS// }" ]; then
     ENABLE_FIPS="false"
   fi
 
   # If the pipeline that called this didn't set a branch, default to master.
   GIT_BRANCH="${GIT_BRANCH:-refs/heads/master}"
+  GIT_COMMIT_HASH="${GIT_COMMIT_HASH:-$(git rev-parse HEAD)}"
   SCRIPT_PATH="$CDIR/$LINUX_SCRIPT_PATH"
   for i in $(seq 1 3); do
     ret=$(az vm run-command invoke --command-id RunShellScript \
       --name "$VM_NAME" \
       --resource-group "$TEST_VM_RESOURCE_GROUP_NAME" \
       --scripts "@$SCRIPT_PATH" \
-      --parameters "${CONTAINER_RUNTIME}" "${OS_VERSION}" "${ENABLE_FIPS}" "${OS_SKU}" "${GIT_BRANCH}" "${IMG_SKU}") && break
+      --parameters "${CONTAINER_RUNTIME}" "${OS_VERSION}" "${ENABLE_FIPS}" "${OS_SKU}" "${GIT_BRANCH}" "${IMG_SKU}" "${FEATURE_FLAGS}" "${GIT_COMMIT_HASH}") && break
     echo "${i}: retrying az vm run-command"
   done
   # The error message for a Linux VM run-command is as follows:
@@ -163,7 +173,7 @@ else
     --resource-group "$TEST_VM_RESOURCE_GROUP_NAME" \
     --scripts "@$SCRIPT_PATH" \
     --output json \
-    --parameters "windowsSKU=${WINDOWS_SKU}" "skipValidateReofferUpdate=${SKIPVALIDATEREOFFERUPDATE}")
+    --parameters "windowsSKU=${WINDOWS_SKU}" "skipValidateReofferUpdate=${SKIPVALIDATEREOFFERUPDATE}" "validatecontainerBaseImageFromUrl=${CONTAINTER_BASE_URLS_EXISTING}")
   # An example of failed run-command output:
   # {
   #   "value": [

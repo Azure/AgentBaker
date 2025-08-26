@@ -109,10 +109,18 @@ copyPackerFiles() {
   BLOCK_WIRESERVER_DEST=/opt/azure/containers/kubelet.sh
   ENSURE_IMDS_RESTRICTION_SRC=/home/packer/ensure_imds_restriction.sh
   ENSURE_IMDS_RESTRICTION_DEST=/opt/azure/containers/ensure_imds_restriction.sh
+  MEASURE_TLS_BOOTSTRAPPING_LATENCY_SCRIPT_SRC=/home/packer/measure-tls-bootstrapping-latency.sh
+  MEASURE_TLS_BOOTSTRAPPING_LATENCY_SCRIPT_DEST=/opt/azure/containers/measure-tls-bootstrapping-latency.sh
+  MEASURE_TLS_BOOTSTRAPPING_LATENCY_SERVICE_SRC=/home/packer/measure-tls-bootstrapping-latency.service
+  MEASURE_TLS_BOOTSTRAPPING_LATENCY_SERVICE_DEST=/etc/systemd/system/measure-tls-bootstrapping-latency.service
+  VALIDATE_KUBELET_CREDENTIALS_SCRIPT_SRC=/home/packer/validate-kubelet-credentials.sh
+  VALIDATE_KUBELET_CREDENTIALS_SCRIPT_DEST=/opt/azure/containers/validate-kubelet-credentials.sh
   RECONCILE_PRIVATE_HOSTS_SRC=/home/packer/reconcile-private-hosts.sh
   RECONCILE_PRIVATE_HOSTS_DEST=/opt/azure/containers/reconcilePrivateHosts.sh
   KUBELET_SERVICE_SRC=/home/packer/kubelet.service
   KUBELET_SERVICE_DEST=/etc/systemd/system/kubelet.service
+  SECURE_TLS_BOOTSTRAP_SERVICE_SRC=/home/packer/secure-tls-bootstrap.service
+  SECURE_TLS_BOOTSTRAP_SERVICE_DEST=/etc/systemd/system/secure-tls-bootstrap.service
   USU_SH_SRC=/home/packer/ubuntu-snapshot-update.sh
   USU_SH_DEST=/opt/azure/containers/ubuntu-snapshot-update.sh
   MPU_SH_SRC=/home/packer/mariner-package-update.sh
@@ -144,8 +152,35 @@ copyPackerFiles() {
 
   if grep -q "kata" <<< "$FEATURE_FLAGS"; then
     # KataCC SPEC file assumes kata config points to the files exactly under this path
-    KATA_CONFIG_DIR=/var/cache/kata-containers/osbuilder-images/kernel-uvm/
+    # shellcheck disable=SC3010
+    if [ "${OS_VERSION}" = "2.0" ]; then
+      KATA_CONFIG_DIR=/var/cache/kata-containers/osbuilder-images/kernel-uvm
+    elif [ "${OS_VERSION}" = "3.0" ]; then
+      KATA_CONFIG_DIR=/usr/share/kata-containers
+    else
+      echo "Unexpected OS version '${OS_VERSION}' in kata feature flag code path"
+      exit 1
+    fi
     KATACC_CONFIG_DIR=/opt/confidential-containers/share/kata-containers
+
+    # shellcheck disable=SC3010
+    if [ "${OS_VERSION}" = "2.0" ]; then
+      KATA_INITRD_SRC=/home/packer/kata-containers-initrd-base.img
+      KATA_INITRD_DEST=$KATA_CONFIG_DIR/kata-containers-initrd.img
+      cpAndMode $KATA_INITRD_SRC $KATA_INITRD_DEST 0755
+
+      KATACC_IMAGE_SRC=/home/packer/kata-containers.img
+      KATACC_IMAGE_DEST=$KATACC_CONFIG_DIR/kata-containers.img
+      cpAndMode $KATACC_IMAGE_SRC $KATACC_IMAGE_DEST 0755
+    elif [ "${OS_VERSION}" = "3.0" ]; then
+      KATA_IMAGE_SRC=/home/packer/kata-containers.img
+      KATA_IMAGE_DEST=$KATA_CONFIG_DIR/kata-containers.img
+      cpAndMode $KATA_IMAGE_SRC $KATA_IMAGE_DEST 0755
+
+      KATACC_IMAGE_SRC=/home/packer/kata-containers-cc.img
+      KATACC_IMAGE_DEST=$KATACC_CONFIG_DIR/kata-containers.img
+      cpAndMode $KATACC_IMAGE_SRC $KATACC_IMAGE_DEST 0755
+    fi
 
     IGVM_DEBUG_BIN_SRC=/home/packer/kata-containers-igvm-debug.img
     IGVM_DEBUG_BIN_DEST=$KATACC_CONFIG_DIR/kata-containers-igvm-debug.img
@@ -154,14 +189,6 @@ copyPackerFiles() {
     IGVM_BIN_SRC=/home/packer/kata-containers-igvm.img
     IGVM_BIN_DEST=$KATACC_CONFIG_DIR/kata-containers-igvm.img
     cpAndMode $IGVM_BIN_SRC $IGVM_BIN_DEST 0755
-
-    KATA_INITRD_SRC=/home/packer/kata-containers-initrd-base.img
-    KATA_INITRD_DEST=$KATA_CONFIG_DIR/kata-containers-initrd.img
-    cpAndMode $KATA_INITRD_SRC $KATA_INITRD_DEST 0755
-
-    KATACC_IMAGE_SRC=/home/packer/kata-containers.img
-    KATACC_IMAGE_DEST=$KATACC_CONFIG_DIR/kata-containers.img
-    cpAndMode $KATACC_IMAGE_SRC $KATACC_IMAGE_DEST 0755
 
     REF_INFO_SRC=/home/packer/reference-info-base64
     REF_INFO_DEST=$KATACC_CONFIG_DIR/reference-info-base64
@@ -252,9 +279,14 @@ copyPackerFiles() {
   AKS_NODE_CONTROLLER_SERVICE_DEST=/etc/systemd/system/aks-node-controller.service
   cpAndMode $AKS_NODE_CONTROLLER_SERVICE_SRC $AKS_NODE_CONTROLLER_SERVICE_DEST 0644
 
+  CLOUD_INIT_STATUS_CHECK_SRC=/home/packer/cloud-init-status-check.sh
+  CLOUD_INIT_STATUS_CHECK_DEST=/opt/azure/containers/cloud-init-status-check.sh
+  cpAndMode $CLOUD_INIT_STATUS_CHECK_SRC $CLOUD_INIT_STATUS_CHECK_DEST 0744
+
   NOTICE_SRC=/home/packer/NOTICE.txt
   NOTICE_DEST=/NOTICE.txt
 
+  # shellcheck disable=SC3010
   if [[ ${UBUNTU_RELEASE} == "16.04" ]]; then
     SSHD_CONFIG_SRC=/home/packer/sshd_config_1604
   elif [[ ${UBUNTU_RELEASE} == "18.04" && ${ENABLE_FIPS,,} == "true" ]]; then
@@ -262,6 +294,20 @@ copyPackerFiles() {
   elif [[ ${UBUNTU_RELEASE} == "22.04" && ${ENABLE_FIPS,,} == "true" ]]; then
     SSHD_CONFIG_SRC=/home/packer/sshd_config_2204_fips
   fi
+
+# ------------------------- Files related to localdns -----------------------------------
+  LOCALDNS_SCRIPT_SRC=/home/packer/localdns.sh
+  LOCALDNS_SCRIPT_DEST=/opt/azure/containers/localdns/localdns.sh
+  cpAndMode $LOCALDNS_SCRIPT_SRC $LOCALDNS_SCRIPT_DEST 0755
+
+  LOCALDNS_SERVICE_SRC=/home/packer/localdns.service
+  LOCALDNS_SERVICE_DEST=/etc/systemd/system/localdns.service
+  cpAndMode $LOCALDNS_SERVICE_SRC $LOCALDNS_SERVICE_DEST 0644
+
+  LOCALDNS_SERVICE_DELEGATE_SRC=/home/packer/localdns-delegate.conf
+  LOCALDNS_SERVICE_DELEGATE_DEST=/etc/systemd/system/localdns.service.d/delegate.conf
+  cpAndMode $LOCALDNS_SERVICE_DELEGATE_SRC $LOCALDNS_SERVICE_DELEGATE_DEST 0644
+# ---------------------------------------------------------------------------------------
 
   # Install AKS log collector
   cpAndMode $AKS_LOG_COLLECTOR_SCRIPT_SRC $AKS_LOG_COLLECTOR_SCRIPT_DEST 755
@@ -283,13 +329,17 @@ copyPackerFiles() {
   cpAndMode $AKS_CHECK_NETWORK_SCRIPT_SRC $AKS_CHECK_NETWORK_SCRIPT_DEST 755
   cpAndMode $AKS_CHECK_NETWORK_SERVICE_SRC $AKS_CHECK_NETWORK_SERVICE_DEST 644
 
-  if [[ ${UBUNTU_RELEASE} == "22.04" ]]; then
+  if [ ${UBUNTU_RELEASE} = "22.04" ]; then
     PAM_D_COMMON_AUTH_SRC=/home/packer/pam-d-common-auth-2204
   fi
 
   cpAndMode $KUBELET_SERVICE_SRC $KUBELET_SERVICE_DEST 600
+  cpAndMode $SECURE_TLS_BOOTSTRAP_SERVICE_SRC $SECURE_TLS_BOOTSTRAP_SERVICE_DEST 600
   cpAndMode $BLOCK_WIRESERVER_SRC $BLOCK_WIRESERVER_DEST 755
   cpAndMode $ENSURE_IMDS_RESTRICTION_SRC $ENSURE_IMDS_RESTRICTION_DEST 755
+  cpAndMode $MEASURE_TLS_BOOTSTRAPPING_LATENCY_SCRIPT_SRC $MEASURE_TLS_BOOTSTRAPPING_LATENCY_SCRIPT_DEST 755
+  cpAndMode $MEASURE_TLS_BOOTSTRAPPING_LATENCY_SERVICE_SRC $MEASURE_TLS_BOOTSTRAPPING_LATENCY_SERVICE_DEST 644
+  cpAndMode $VALIDATE_KUBELET_CREDENTIALS_SCRIPT_SRC $VALIDATE_KUBELET_CREDENTIALS_SCRIPT_DEST 755
   cpAndMode $RECONCILE_PRIVATE_HOSTS_SRC $RECONCILE_PRIVATE_HOSTS_DEST 744
   cpAndMode $SYSCTL_CONFIG_SRC $SYSCTL_CONFIG_DEST 644
   cpAndMode $RSYSLOG_CONFIG_SRC $RSYSLOG_CONFIG_DEST 644
@@ -325,24 +375,28 @@ copyPackerFiles() {
   cpAndMode $SNAPSHOT_UPDATE_SERVICE_SRC $SNAPSHOT_UPDATE_SERVICE_DEST 644
   cpAndMode $SNAPSHOT_UPDATE_TIMER_SRC $SNAPSHOT_UPDATE_TIMER_DEST 644
 
-  if ! isMarinerOrAzureLinux "$OS"; then
-    cpAndMode $DOCKER_CLEAR_MOUNT_PROPAGATION_FLAGS_SRC $DOCKER_CLEAR_MOUNT_PROPAGATION_FLAGS_DEST 644
-    cpAndMode $NVIDIA_MODPROBE_SERVICE_SRC $NVIDIA_MODPROBE_SERVICE_DEST 644
-    cpAndMode $PAM_D_COMMON_AUTH_SRC $PAM_D_COMMON_AUTH_DEST 644
-    cpAndMode $PAM_D_COMMON_PASSWORD_SRC $PAM_D_COMMON_PASSWORD_DEST 644
-    cpAndMode $USU_SH_SRC $USU_SH_DEST 544
-  fi
   if isMarinerOrAzureLinux "$OS"; then
     cpAndMode $CONTAINERD_SERVICE_SRC $CONTAINERD_SERVICE_DEST 644
     cpAndMode $MPU_SH_SRC $MPU_SH_DEST 544
 
     # Mariner/AzureLinux uses system-auth and system-password instead of common-auth and common-password.
-    if isMarinerOrAzureLinux "$OS"; then
-      cpAndMode $PAM_D_SYSTEM_AUTH_SRC $PAM_D_SYSTEM_AUTH_DEST 644
-      cpAndMode $PAM_D_SYSTEM_PASSWORD_SRC $PAM_D_SYSTEM_PASSWORD_DEST 644
-    else
-      cpAndMode $PAM_D_COMMON_AUTH_SRC $PAM_D_COMMON_AUTH_DEST 644
-      cpAndMode $PAM_D_COMMON_PASSWORD_SRC $PAM_D_COMMON_PASSWORD_DEST 644
+    cpAndMode $PAM_D_SYSTEM_AUTH_SRC $PAM_D_SYSTEM_AUTH_DEST 644
+    cpAndMode $PAM_D_SYSTEM_PASSWORD_SRC $PAM_D_SYSTEM_PASSWORD_DEST 644
+  else
+    cpAndMode $DOCKER_CLEAR_MOUNT_PROPAGATION_FLAGS_SRC $DOCKER_CLEAR_MOUNT_PROPAGATION_FLAGS_DEST 644
+    cpAndMode $NVIDIA_MODPROBE_SERVICE_SRC $NVIDIA_MODPROBE_SERVICE_DEST 644
+    cpAndMode $PAM_D_COMMON_AUTH_SRC $PAM_D_COMMON_AUTH_DEST 644
+    cpAndMode $PAM_D_COMMON_PASSWORD_SRC $PAM_D_COMMON_PASSWORD_DEST 644
+    cpAndMode $USU_SH_SRC $USU_SH_DEST 544
+
+    if [ "$UBUNTU_RELEASE" = "24.04" ] && [ "$CPU_ARCH" = "arm64" ]; then
+      GRUB_AZ_NV_SCRIPT_SRC=/home/packer/10_azure_nvidia
+      GRUB_AZ_NV_SCRIPT_DEST=/etc/grub.d/10_azure_nvidia
+      cpAndMode $GRUB_AZ_NV_SCRIPT_SRC $GRUB_AZ_NV_SCRIPT_DEST 755
+
+      GRUB_AZ_NV_ENV_SRC=/home/packer/51-azure-nvidia.cfg
+      GRUB_AZ_NV_ENV_DEST=/etc/default/grub.d/51-azure-nvidia.cfg
+      cpAndMode $GRUB_AZ_NV_ENV_SRC $GRUB_AZ_NV_ENV_DEST 644
     fi
   fi
 

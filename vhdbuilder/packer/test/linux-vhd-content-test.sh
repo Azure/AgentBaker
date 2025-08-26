@@ -5,6 +5,8 @@ VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
 AZURELINUX_OS_NAME="AZURELINUX"
+MARINER_KATA_OS_NAME="MARINERKATA"
+AZURELINUX_KATA_OS_NAME="AZURELINUXKATA"
 
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
 CONTAINER_RUNTIME="$1"
@@ -13,6 +15,8 @@ ENABLE_FIPS="$3"
 OS_SKU="$4"
 GIT_BRANCH="$5"
 IMG_SKU="$6"
+FEATURE_FLAGS="$7"
+GIT_COMMIT_HASH="$8"
 
 # List of "ERROR/WARNING" message we want to ignore in the cloud-init.log
 # 1. "Command ['hostname', '-f']":
@@ -34,36 +38,68 @@ err() {
 # The remote branch will be something like 'refs/heads/branch/name' or 'refs/pull/number/head'. Using the same name
 # for the local branch has weird semantics, so we replace '/' with '-' for the local branch name.
 LOCAL_GIT_BRANCH=${GIT_BRANCH//\//-}
-echo "Cloning AgentBaker repo and checking out remote branch '${GIT_BRANCH}' into local branch '${LOCAL_GIT_BRANCH}'"
-COMMAND="git clone --quiet https://github.com/Azure/AgentBaker.git"
-if ! ${COMMAND}; then
-  err 'git-clone' "Failed to clone AgentBaker repo"
-  err 'git-clone' "Used command '${COMMAND}'"
-  exit 1
+
+SKIP_GIT_CLONE=false
+# Git is not present in the base image, so we need to install or bypass it.
+if [ "$OS_SKU" = "Ubuntu" ]; then
+  sudo DEBIAN_FRONTEND=noninteractive apt-get install -y git
+elif [ "$OS_SKU" = "Flatcar" ]; then
+  : # Flatcar comes with git pre-installed
+elif [ "$OS_SKU" = "AzureLinuxOSGuard" ]; then
+  SKIP_GIT_CLONE=true
+else
+  sudo tdnf install -y git
 fi
-if ! pushd ./AgentBaker; then
-  err 'git-clone' "Failed to pushd into AgentBaker repo -- this is weird given that clone succeeded"
-  err 'git-clone' "Current directory is '$(pwd)'"
-  err 'git-clone' "Contents of current directory: $(ls -al)"
-  exit 1
-fi
-COMMAND="git fetch --quiet origin ${GIT_BRANCH}:${LOCAL_GIT_BRANCH}"
-if ! ${COMMAND}; then
-  err 'git-clone' "Failed to fetch remote branch '${GIT_BRANCH}' into local branch '${LOCAL_GIT_BRANCH}'"
-  err 'git-clone' "Used command '${COMMAND}'"
-  exit 1
-fi
-COMMAND="git checkout --quiet ${LOCAL_GIT_BRANCH}"
-if ! ${COMMAND}; then
-  err 'git-clone' "Failed to checkout local branch '${LOCAL_GIT_BRANCH}'"
-  err 'git-clone' "Used command '${COMMAND}'"
-  exit 1
-fi
-if ! popd; then
-  err 'git-clone' "Failed to popd out of AgentBaker repo -- this seems impossible"
-  err 'git-clone' "Current directory is $(pwd)"
-  err 'git-clone' "pushd stack is $(dirs -p)"
-  exit 1
+
+if [ "$SKIP_GIT_CLONE" = "true" ]; then
+  if [ -z "$GIT_COMMIT_HASH" ]; then
+    echo "GIT_COMMIT_HASH is not defined, exiting."
+    exit 1
+  fi
+  echo "Skipping git clone and pulling .tar.gz artifact for commit $GIT_COMMIT_HASH"
+
+  if ! curl -fLsS -o AgentBaker-${GIT_COMMIT_HASH}.tar.gz https://codeload.github.com/azure/agentbaker/tar.gz/${GIT_COMMIT_HASH}; then
+    err 'curl' "Failed to download https://codeload.github.com/azure/agentbaker/tar.gz/${GIT_COMMIT_HASH}"
+    exit 1
+  fi
+  if ! tar -xf AgentBaker-${GIT_COMMIT_HASH}.tar.gz; then
+    err 'tar' "Failed to extract AgentBaker-${GIT_COMMIT_HASH}.tar.gz"
+    exit 1
+  fi
+  mv AgentBaker-${GIT_COMMIT_HASH} AgentBaker
+else
+  # Clone the AgentBaker repo and checkout the branch provided.
+  echo "Cloning AgentBaker repo and checking out remote branch '${GIT_BRANCH}' into local branch '${LOCAL_GIT_BRANCH}'"
+  COMMAND="git clone --quiet https://github.com/Azure/AgentBaker.git"
+  if ! ${COMMAND}; then
+    err 'git-clone' "Failed to clone AgentBaker repo"
+    err 'git-clone' "Used command '${COMMAND}'"
+    exit 1
+  fi
+  if ! pushd ./AgentBaker; then
+    err 'git-clone' "Failed to pushd into AgentBaker repo -- this is weird given that clone succeeded"
+    err 'git-clone' "Current directory is '$(pwd)'"
+    err 'git-clone' "Contents of current directory: $(ls -al)"
+    exit 1
+  fi
+  COMMAND="git fetch --quiet origin ${GIT_BRANCH}:${LOCAL_GIT_BRANCH}"
+  if ! ${COMMAND}; then
+    err 'git-clone' "Failed to fetch remote branch '${GIT_BRANCH}' into local branch '${LOCAL_GIT_BRANCH}'"
+    err 'git-clone' "Used command '${COMMAND}'"
+    exit 1
+  fi
+  COMMAND="git checkout --quiet ${LOCAL_GIT_BRANCH}"
+  if ! ${COMMAND}; then
+    err 'git-clone' "Failed to checkout local branch '${LOCAL_GIT_BRANCH}'"
+    err 'git-clone' "Used command '${COMMAND}'"
+    exit 1
+  fi
+  if ! popd; then
+    err 'git-clone' "Failed to popd out of AgentBaker repo -- this seems impossible"
+    err 'git-clone' "Current directory is $(pwd)"
+    err 'git-clone' "pushd stack is $(dirs -p)"
+    exit 1
+  fi
 fi
 
 source ./AgentBaker/parts/linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh 2>/dev/null
@@ -74,7 +110,7 @@ validateDownloadPackage() {
   local downloadedPackage=$2
   fileSizeInRepo=$(curl -sLI $downloadURL | grep -i Content-Length | tail -n1 | awk '{print $2}' | tr -d '\r')
   fileSizeDownloaded=$(wc -c $downloadedPackage | awk '{print $1}' | tr -d '\r')
-  if [[ "$fileSizeInRepo" != "$fileSizeDownloaded" ]]; then
+  if [ "$fileSizeInRepo" != "$fileSizeDownloaded" ]; then
     return 1
   fi
   return 0
@@ -92,7 +128,7 @@ validateOrasOCIArtifact() {
   fileSizeDownloaded=$(wc -c "$downloadedPackage" | awk '{print $1}' | tr -d '\r')
   
   # Compare the sizes
-  if [[ "$fileSizeInRegistry" != "$fileSizeDownloaded" ]]; then
+  if [ "$fileSizeInRegistry" != "$fileSizeDownloaded" ]; then
     echo "Error: File size mismatch. Expected $fileSizeInRegistry, but got $fileSizeDownloaded."
     return 1
   fi
@@ -114,7 +150,7 @@ testAcrCredentialProviderInstalled() {
     # then downloadLocation should be /opt/credentialprovider/downloads/azure-acr-credential-provider-linux-amd64-v1.30.0.tar.gz
     downloadLocation="/opt/credentialprovider/downloads/azure-acr-credential-provider-linux-${CPU_ARCH}-${version}.tar.gz"
     validateOrasOCIArtifact $currentDownloadURL $downloadLocation
-    if [[ $? -ne 0 ]]; then
+    if [ "$?" -ne 0 ]; then
       err $test "File size of ${downloadLocation} from ${currentDownloadURL} is invalid. Expected file size: ${fileSizeInRepo} - downloaded file size: ${fileSizeDownloaded}"
       continue
     fi
@@ -125,7 +161,7 @@ testAcrCredentialProviderInstalled() {
 testPackagesInstalled() {
   test="testPackagesInstalled"
   containerRuntime=$1
-  if [[ $(isARM64) == 1 ]]; then
+  if [ "$(isARM64)" -eq 1 ]; then
     return
   fi
   CPU_ARCH="amd64"
@@ -135,13 +171,21 @@ testPackagesInstalled() {
   while IFS= read -r p; do
     name=$(echo "${p}" | jq .name -r)
     downloadLocation=$(echo "${p}" | jq .downloadLocation -r)
-    if [[ "$downloadLocation" == "" ]]; then
+    if [ "$downloadLocation" = "" ]; then
       continue
     fi
-    if [[ "$OS_SKU" == "CBLMariner" || ("$OS_SKU" == "AzureLinux" && "$OS_VERSION" == "2.0") ]]; then
+    if [ "$OS_SKU" = "CBLMariner" ] || { [ "$OS_SKU" = "AzureLinux" ] && [ "$OS_VERSION" = "2.0" ]; }; then
       OS=$MARINER_OS_NAME
-    elif [[ "$OS_SKU" == "AzureLinux" && "$OS_VERSION" == "3.0" ]]; then
+      # If the feature flag kata is enabled, we set $MARINER_KATA_OS_NAME as the OS name and it will get the version from that OS from components.json
+      # We have similar logic in install-dependencies.sh
+      if (echo "$FEATURE_FLAGS" | grep -q "kata"); then
+        OS=${MARINER_KATA_OS_NAME}
+      fi
+    elif [ "$OS_SKU" = "AzureLinux" ] && [ "$OS_VERSION" = "3.0" ]; then
       OS=$AZURELINUX_OS_NAME
+      if (echo "$FEATURE_FLAGS" | grep -q "kata"); then
+        OS=${AZURELINUX_KATA_OS_NAME}
+      fi
     else
       OS=$UBUNTU_OS_NAME
     fi
@@ -149,22 +193,42 @@ testPackagesInstalled() {
     updatePackageVersions "${p}" "${OS}" "${OS_VERSION}"
     PACKAGE_DOWNLOAD_URL=""
     updatePackageDownloadURL "${p}" "${OS}" "${OS_VERSION}"
-    if [ "${name}" == "kubernetes-binaries" ]; then
+    if [ "${name}" = "kubernetes-binaries" ]; then
       # kubernetes-binaries, namely, kubelet and kubectl are installed in a different way so we test them separately
-      testKubeBinariesPresent "${PACKAGE_VERSIONS[@]}"
+      # Intentionally remove leading 'v' from each element in the array
+      testKubeBinariesPresent "${PACKAGE_VERSIONS[@]#v}"
       continue
     fi
-    if [ "${name}" == "azure-acr-credential-provider" ]; then
+    if [ "${name}" = "azure-acr-credential-provider" ]; then
       # azure-acr-credential-provider is installed in a different way so we test it separately
       testAcrCredentialProviderInstalled "$PACKAGE_DOWNLOAD_URL" "${PACKAGE_VERSIONS[@]}"
       continue
     fi
+    if [ "${name}" = "kubelet" ]; then
+      testPkgDownloaded "kubelet" "${PACKAGE_VERSIONS[@]}"
+      continue
+    fi
+      if [ "${name}" = "kubectl" ]; then
+      testPkgDownloaded "kubectl" "${PACKAGE_VERSIONS[@]}"
+      continue
+    fi
 
+    resolve_packages_source_url
     for version in "${PACKAGE_VERSIONS[@]}"; do
-      if [[ -z $PACKAGE_DOWNLOAD_URL ]]; then
-        echo "$test: skipping package ${name} verification as PACKAGE_DOWNLOAD_URL is empty"
-        # we can further think of adding a check to see if the package is installed through apt-get
+      if [ -z "$PACKAGE_DOWNLOAD_URL" ]; then
+        # if $PACKAGE_DOWNLOAD_URL is empty, which means downloadURL in the package in components.json is not defined, it's actually using package management tool to download and install that package.
+        # For example, in Ubuntu, we use apt-get to install packages.
+        # We can simply execute the command to verify the package version.
+        case "$name" in
+          "kubernetes-cri-tools")
+            testCriCtl "$version"
+            ;;
+          "containerd")
+            testContainerd "$version"
+            ;;
+        esac
         break
+        
       fi
       # A downloadURL from a package in components.json will look like this: 
       # "https://acs-mirror.azureedge.net/cni-plugins/v${version}/binaries/cni-plugins-linux-${CPU_ARCH}-v${version}.tgz"
@@ -179,6 +243,12 @@ testPackagesInstalled() {
       local extractedPackageDir
       extractedPackageDir="$downloadLocation/${fileNameWithoutExt}"
 
+      # Validate whether package proxy path exists in Azure China cloud.
+      # shellcheck disable=SC3010
+      if [[ $downloadURL == https://acs-mirror.azureedge.net/* ]]; then
+        testPackageInAzureChinaCloud "$downloadURL"
+      fi
+
       # if there is a directory with expected name, we assume it's been downloaded and extracted properly
       # no wc (wordcount) -c on a dir. This is for downloads we've un tar'd and deleted from the vhd
       if [ -d "$extractedPackageDir" ]; then
@@ -187,49 +257,26 @@ testPackagesInstalled() {
       fi
 
       # if the downloadLocation is /usr/local/bin verify that the package is installed
-      if [ "$downloadLocation" == "/usr/local/bin" ]; then
+      if [ "$downloadLocation" = "/usr/local/bin" ]; then
         if command -v "$name" >/dev/null 2>&1; then
           echo "$name is installed."
-          continue
-        elif [ "$name" == "containerd-wasm-shims" ]; then
-          testWasmRuntimesInstalled $downloadLocation $version
-          echo "$test $name binaries are in the expected location of $downloadLocation"
-          continue
-        elif [ "$name" == "spinkube" ]; then
-          testSpinKubeInstalled $downloadLocation $version
-          echo "$test $name binaries are in the expected location of $downloadLocation"
           continue
         else
           err $test "$name is not installed. Expected to be installed in $downloadLocation"
           continue
         fi
       fi
-      
+
       # if there isn't a directory, we check if the file exists and the size is correct
       # -L since some urls are redirects (i.e github)
       # shellcheck disable=SC2086
       validateDownloadPackage "$downloadURL" $downloadedPackage
-      if [[ $? -ne 0 ]]; then
+      if [ "$?" -ne 0 ]; then
         err $test "File size of ${downloadedPackage} from ${downloadURL} is invalid. Expected file size: ${fileSizeInRepo} - downloaded file size: ${fileSizeDownloaded}"
         continue
       fi
       echo $test "[INFO] File ${downloadedPackage} exists and has the correct size ${fileSizeDownloaded} bytes"
-      # Validate whether package exists in Azure China cloud
-      if [[ $downloadURL == https://acs-mirror.azureedge.net/* ]]; then
-        mcURL="${downloadURL/https:\/\/acs-mirror.azureedge.net/https:\/\/kubernetesartifacts.blob.core.chinacloudapi.cn}"
-        echo "Validating: $mcURL"
-        isExist=$(curl -sLI "$mcURL" | grep -i "404 The specified blob does not exist." | awk '{print $2}')
-        if [[ "$isExist" == "404" ]]; then
-          err "$mcURL is invalid"
-          continue
-        fi
 
-        fileSizeInMC=$(curl -sLI $mcURL | grep -i Content-Length | tail -n1 | awk '{print $2}' | tr -d '\r')
-        if [[ "$fileSizeInMC" != "$fileSizeDownloaded" ]]; then
-          err "$mcURL is valid but the file size is different. Expected file size: ${fileSizeDownloaded} - downloaded file size: ${fileSizeInMC}"
-          continue
-        fi
-      fi
     done
 
     echo "---"
@@ -237,14 +284,79 @@ testPackagesInstalled() {
   echo "$test:Finish"
 }
 
+# Azure China Cloud uses a different proxy but the same path, and we want to verify the package URL
+# if defined in control plane, is accessible and has the same file size as the one in the public cloud.
+testPackageInAzureChinaCloud() {
+  # In Azure China Cloud, the proxy server proxies download URL to the storage account URL according to the root path, for example, 
+  # location /kubernetes/ {
+  #  proxy_pass https://kubernetesartifacts.blob.core.chinacloudapi.cn/kubernetes/;
+  # }
+
+  local downloadURL=$1
+
+  proxyLocation=$(echo "$downloadURL" | awk -F'/' '{print $4}')
+
+  # root paths like cri-tools can be ignored since they are only cached in VHD and won't be referenced in control plane.
+  rootPathExceptions=("cri-tools")
+  for rootPathException in "${rootPathExceptions[@]}"; do
+    if [ "$rootPathException" = "$proxyLocation" ]; then
+      return
+    fi
+  done
+
+  supportedProxyLocations=(
+    "aks"
+    "kubernetes"
+    "cni-plugins"
+    "azure-cni"
+    "csi-proxy"
+    "aks-engine"
+    "containerd"
+    "calico-node"
+    "ccgakvplugin"
+    "cloud-provider-azure"
+    )
+
+  foundLocation=false
+  for supportedProxyLocation in "${supportedProxyLocations[@]}"; do
+    if [ "$supportedProxyLocation" = "$proxyLocation" ]; then
+      foundLocation=true
+      break
+    fi
+  done
+
+  if [ "$foundLocation" = "false" ]; then
+    err "Proxy location $proxyLocation is not defined in mooncake for $downloadURL, please use root path 'aks' , or contact 'andyzhangx' for help"
+    return
+  fi
+
+  mcURL="${downloadURL/https:\/\/packages.aks.azure.com/https:\/\/kubernetesartifacts.blob.core.chinacloudapi.cn}"
+  echo "Validating: $mcURL"
+  isExist=$(curl -sLI "$mcURL" | grep -i "404 The specified blob does not exist." | awk '{print $2}')
+  if [ "$isExist" = "404" ]; then
+    err "$mcURL is invalid"
+    return
+  fi
+
+  fileSizeInMC=$(curl -sLI $mcURL | grep -i Content-Length | tail -n1 | awk '{print $2}' | tr -d '\r')
+  fileSizeInRepo=$(curl -sLI $downloadURL | grep -i Content-Length | tail -n1 | awk '{print $2}' | tr -d '\r')
+
+
+  if [ "$fileSizeInMC" != "$fileSizeInRepo" ]; then
+    err "$mcURL is valid but the file size is different. Expected file size: ${fileSizeDownloaded} - file size in Mooncake: ${fileSizeInMC}"
+    return
+  fi
+
+}
+
 testImagesPulled() {
   test="testImagesPulled"
   local componentsJsonContent="$2"
   echo "$test:Start"
   containerRuntime=$1
-  if [ $containerRuntime == 'containerd' ]; then
+  if [ $containerRuntime = 'containerd' ]; then
     pulledImages=$(ctr -n k8s.io image ls)
-  elif [ $containerRuntime == 'docker' ]; then
+  elif [ $containerRuntime = 'docker' ]; then
     pulledImages=$(docker images --format "{{.Repository}}:{{.Tag}}")
   else
     err $test "unsupported container runtime $containerRuntime"
@@ -254,24 +366,44 @@ testImagesPulled() {
   imagesToBePulled=$(echo "${componentsJsonContent}" | jq .ContainerImages[] --monochrome-output --compact-output)
 
   while IFS= read -r imageToBePulled; do
+    echo "checking imageToBePulled: $imageToBePulled ..."
     downloadURL=$(echo "${imageToBePulled}" | jq .downloadURL -r)
-    amd64OnlyVersionsStr=$(echo "${imageToBePulled}" | jq .amd64OnlyVersions -r)
-    MULTI_ARCH_VERSIONS=()
+    if [ $(echo "${imageToBePulled}" | jq -r '.amd64OnlyVersions // empty') = "null" ]; then
+      amd64OnlyVersionsStr=""
+    else 
+      amd64OnlyVersionsStr=$(echo "${imageToBePulled}" | jq -r '.amd64OnlyVersions // empty')
+    fi
+    declare -a MULTI_ARCH_VERSIONS=()
     updateMultiArchVersions "${imageToBePulled}"
 
     amd64OnlyVersions=""
-    if [[ ${amd64OnlyVersionsStr} != null ]]; then
+    if [ -n "${amd64OnlyVersionsStr}" ] && [ "${amd64OnlyVersionsStr}" != "null" ]; then
       amd64OnlyVersions=$(echo "${amd64OnlyVersionsStr}" | jq -r ".[]")
     fi
 
-    if [[ $(isARM64) == 1 ]]; then
-      versions="${MULTI_ARCH_VERSIONS}"
+    if [ "$(isARM64)" -eq 1 ]; then
+      echo "ARM64 detected, using only multiArchVersions"
+      if [ ${#MULTI_ARCH_VERSIONS[@]} -eq 0 ]; then
+        echo "Warning: No multi-arch versions found for ARM64"
+        continue
+      else
+        echo "Found ${#MULTI_ARCH_VERSIONS[@]} multi-arch versions"
+        # Convert array to string with spaces between elements
+        versions="${MULTI_ARCH_VERSIONS[*]}"
+        echo "Using versions: $versions"
+      fi
     else
-      versions="${amd64OnlyVersions} ${MULTI_ARCH_VERSIONS}"
+      echo "AMD64 detected, using amd64OnlyVersions and multiArchVersions"
+      if [ "${#MULTI_ARCH_VERSIONS[@]}" -eq 0 ]; then
+        versions="${amd64OnlyVersions}"
+      else
+        versions="${amd64OnlyVersions} ${MULTI_ARCH_VERSIONS[*]}"
+      fi
     fi
     for version in ${versions}; do
       download_URL=$(string_replace $downloadURL $version)
 
+      # shellcheck disable=SC3010
       if [[ $pulledImages =~ $downloadURL ]]; then
         echo "Image ${download_URL} pulled"
       else
@@ -284,13 +416,54 @@ testImagesPulled() {
   echo "$test:Finish"
 }
 
+testImagesCompleted() {
+  test="testImagesCompleted"
+  echo "$test:Start"
+  containerRuntime=$1
+  if [ $containerRuntime = 'containerd' ]; then
+    incompleteImages=$(ctr -n k8s.io image check | grep "incomplete")
+  else
+    err $test "unsupported container runtime $containerRuntime"
+    return
+  fi
+
+  # Check if there are any incomplete images
+  if [ -n "$incompleteImages" ]; then
+    err $test "Incomplete images found: $incompleteImages"
+    return
+  fi
+
+  echo "$test:Finish"
+}
+
+testPodSandboxImagePinned() {
+  test="testPodSandboxImagePinned"
+  echo "$test:Start"
+  containerRuntime=$1
+  if [ $containerRuntime = 'containerd' ]; then
+    pinnedImages=$(ctr -n k8s.io image ls | grep pinned)
+  else
+    err $test "unsupported container runtime $containerRuntime"
+    return
+  fi
+
+  # Check if the pod sandbox image is pinned
+  if [ -z "$pinnedImages" ]; then
+    pauseImage=$(ctr -n k8s.io images ls | grep pause)
+    err $test "Pod sandbox image is not pinned to a specific version: $pauseImage"
+    return
+  fi
+
+  echo "$test:Finish"
+}
+
 # check all the mcr images retagged for mooncake
 testImagesRetagged() {
   containerRuntime=$1
-  if [ $containerRuntime == 'containerd' ]; then
+  if [ $containerRuntime = 'containerd' ]; then
     # shellcheck disable=SC2207
     pulledImages=($(ctr -n k8s.io image ls))
-  elif [ $containerRuntime == 'docker' ]; then
+  elif [ $containerRuntime = 'docker' ]; then
     # shellcheck disable=SC2207
     pulledImages=($(docker images --format "{{.Repository}}:{{.Tag}}"))
   else
@@ -300,14 +473,16 @@ testImagesRetagged() {
   mcrImagesNumber=0
   mooncakeMcrImagesNumber=0
   while IFS= read -r pulledImage; do
+    # shellcheck disable=SC3010
     if [[ $pulledImage == "mcr.microsoft.com"* ]]; then
       mcrImagesNumber=$((${mcrImagesNumber} + 1))
     fi
+    # shellcheck disable=SC3010
     if [[ $pulledImage == "mcr.azk8s.cn"* ]]; then
       mooncakeMcrImagesNumber=$((${mooncakeMcrImagesNumber} + 1))
     fi
   done <<<"$pulledImages"
-  if [[ "${mcrImagesNumber}" != "${mooncakeMcrImagesNumber}" ]]; then
+  if [ "${mcrImagesNumber}" != "${mooncakeMcrImagesNumber}" ]; then
     echo "the number of the mcr images & mooncake mcr images are not the same."
     echo "all the images are:"
     echo "${pulledImages[@]}"
@@ -319,7 +494,7 @@ testAuditDNotPresent() {
   test="testAuditDNotPresent"
   echo "$test:Start"
   status=$(systemctl show -p SubState --value auditd.service)
-  if [ $status == 'dead' ]; then
+  if [ "$status" = 'dead' ]; then
     echo "AuditD is not present, as expected"
   else
     err $test "AuditD is active with status ${status}"
@@ -335,7 +510,7 @@ testChrony() {
   # ---- Test Setup ----
   # Test ntp is not active
   status=$(systemctl show -p SubState --value ntp)
-  if [ $status == 'dead' ]; then
+  if [ "$status" = 'dead' ]; then
     echo $test "ntp is removed, as expected"
   else
     err $test "ntp is active with status ${status}"
@@ -343,18 +518,18 @@ testChrony() {
   #test chrony is running
   #if mariner/azurelinux check chronyd, else check chrony
   os_chrony="chrony"
-  if [[ "$os_sku" == "CBLMariner" || "$os_sku" == "AzureLinux" ]]; then
+  if [ "$os_sku" = "CBLMariner" ] || [ "$os_sku" = "AzureLinux" ] || [ "$os_sku" = "AzureLinuxOSGuard" ] || [ "$os_sku" = "Flatcar" ]; then
     os_chrony="chronyd"
   fi
   status=$(systemctl show -p SubState --value $os_chrony)
-  if [ $status == 'running' ]; then
+  if [ "$status" = 'running' ]; then
     echo $test "$os_chrony is running, as expected"
   else
     err $test "$os_chrony is not running with status ${status}"
   fi
 
   #test if chrony corrects time
-  if [[ "$os_sku" == "CBLMariner" || "$os_sku" == "AzureLinux" ]]; then
+  if [ "$os_sku" = "CBLMariner" ] || [ "$os_sku" = "AzureLinux" ] || [ "$os_sku" = "AzureLinuxOSGuard" ]; then
     echo $test "exiting without checking chrony time correction"
     echo $test "reenable after Mariner updates the chrony config in base image"
     echo "$test:Finish"
@@ -371,7 +546,7 @@ testChrony() {
     sleep 10
     echo "${i}: retrying: check if chrony modified the time"
   done
-  if (($i == 10)); then
+  if [ "$i" = 10 ]; then
     err $test "$os_chrony failed to readjust the system time"
   fi
   echo "$test:Finish"
@@ -383,11 +558,12 @@ testFips() {
   os_version=$1
   enable_fips=$2
 
+  # shellcheck disable=SC3010
   if [[ (${os_version} == "18.04" || ${os_version} == "20.04" || ${os_version} == "22.04" || ${os_version} == "V2") && ${enable_fips,,} == "true" ]]; then
     kernel=$(uname -r)
-    if [[ -f /proc/sys/crypto/fips_enabled ]]; then
+    if [ -f /proc/sys/crypto/fips_enabled ]; then
       fips_enabled=$(cat /proc/sys/crypto/fips_enabled)
-      if [[ "${fips_enabled}" == "1" ]]; then
+      if [ "${fips_enabled}" = "1" ]; then
         echo "FIPS is enabled."
       else
         err $test "content of /proc/sys/crypto/fips_enabled is not 1."
@@ -396,8 +572,8 @@ testFips() {
       err $test "FIPS is not enabled."
     fi
 
-    if [[ ${os_version} == "18.04" || ${os_version} == "20.04" ]]; then
-      if [[ -f /usr/src/linux-headers-${kernel}/Makefile ]]; then
+    if [ ${os_version} = "18.04" ] || [ ${os_version} = "20.04" ]; then
+      if [ -f /usr/src/linux-headers-${kernel}/Makefile ]; then
         echo "fips header files exist."
       else
         err $test "fips header files don't exist."
@@ -408,19 +584,91 @@ testFips() {
   echo "$test:Finish"
 }
 
+testLtsKernel() {
+  test="testLtsKernel"
+  echo "$test:Start"
+  os_version=$1
+  os_sku=$2
+  enable_fips=$3
+
+  # shellcheck disable=SC3010
+  if [[ "$os_sku" == "Ubuntu" && ${enable_fips,,} != "true" ]] && ! grep -q "cvm" <<< "$FEATURE_FLAGS" ; then
+    echo "OS is Ubuntu, FIPS is not enabled, and this is not a CVM; check LTS kernel version"
+    # Check the Ubuntu version and set the expected kernel version
+    if [ "$os_version" = "22.04" ]; then
+      expected_kernel="5.15"
+    elif [ "$os_version" = "24.04" ]; then
+      expected_kernel="6.8"
+    else
+      echo "LTS kernel not installed for: $os_version"
+    fi
+
+    kernel=$(uname -r)
+    echo "Current kernel version: $kernel"
+    # shellcheck disable=SC3010
+    if [[ "$kernel" == *"$expected_kernel"* ]]; then
+      echo "Kernel version is as expected ($expected_kernel)."
+    else
+      err $test "Kernel version is not as expected. Expected $expected_kernel, found $kernel."
+    fi
+  else
+    echo "OS is not Ubuntu OR OS is Ubuntu and FIPS is true, skip LTS kernel test"
+  fi
+
+}
+
+testLSMBPF() {
+  test="testLSMBPF"
+  echo "$test:Start"
+  os_sku=$1
+  os_version=$2
+
+  # Only test on Ubuntu 24.04 and Azure Linux 3.0 that LSM BPF is configured correctly
+  if { [ "$os_sku" != "Ubuntu" ] || [ "$os_version" != "24.04" ]; } && { [ "$os_sku" != "AzureLinux" ] || [ "$os_version" != "3.0" ]; }; then
+    echo "$test: will not test for BPF to be present within LSM modules for SKU: $os_sku, version: $os_version"
+    echo "$test:Finish"
+    return 0
+  fi
+
+  # Skip testing that LSM BPF is configured correctly on Kata and CVM SKUs for now
+  # TODO: fix LSM BPF module configuration Kata and CVM SKUs
+  if echo "$FEATURE_FLAGS" | grep -q "kata" || echo "$FEATURE_FLAGS" | grep -q "cvm"; then
+    echo "$test: will not test for BPF to be present within LSM modules for CVM or Kata SKUs"
+    echo "$test:Finish"
+    return 0
+  fi
+
+  if [ -f /sys/kernel/security/lsm ]; then
+    current_lsm=$(cat /sys/kernel/security/lsm)
+    echo "$test: Current LSM modules: $current_lsm"
+    
+    if echo "$current_lsm" | grep -q "bpf"; then
+      echo "$test: BPF is present in LSM modules"
+    else
+      err $test "BPF is not present in LSM modules: $current_lsm"
+    fi
+  else
+    err $test "/sys/kernel/security/lsm file does not exist"
+  fi
+
+  echo "$test:Finish"
+}
+
+
 testCloudInit() {
   test="testCloudInit"
   echo "$test:Start"
   os_sku=$1
 
-  # Limit this test only to Mariner or Azurelinux
-  if [[ "${os_sku}" == "CBLMariner" || "${os_sku}" == "AzureLinux" ]]; then
+  # Limit this test only to non-cvm Mariner or Azurelinux
+  if ! echo "$FEATURE_FLAGS" | grep -q "cvm" && { [ "$os_sku" = "CBLMariner" ] || [ "$os_sku" = "AzureLinux" ]; }; then
     echo "Checking if cloud-init.log exists..."
     FILE=/var/log/cloud-init.log
     if test -f "$FILE"; then
       echo "Cloud-init log exists. Checking its content..."
       grep 'WARNING\|ERROR' $FILE | while read -r msg; do
         for pattern in "${CLOUD_INIT_LOG_MSG_IGNORE_LIST[@]}"; do
+            # shellcheck disable=SC3010
             if [[ "$msg" == *"$pattern"* ]]; then
                 echo "Ignoring WARNING/ERROR message from ignore list; '${msg}'"
             else
@@ -478,13 +726,39 @@ testKubeBinariesPresent() {
     #Test whether the installed binary version is indeed correct
     chmod a+x $kubeletDownloadLocation $kubectlDownloadLocation
     kubectlLongVersion=$(${kubectlDownloadLocation} version 2>/dev/null)
+    # shellcheck disable=SC3010
     if [[ ! $kubectlLongVersion =~ $k8sVersion ]]; then
       err $test "The kubectl version is not correct: expected kubectl version $k8sVersion existing: $kubectlLongVersion"
     fi
     kubeletLongVersion=$(${kubeletDownloadLocation} --version 2>/dev/null)
+    # shellcheck disable=SC3010
     if [[ ! $kubeletLongVersion =~ $k8sVersion ]]; then
       err $test "The kubelet version is not correct: expected kubelet version $k8sVersion existing: $kubeletLongVersion"
     fi
+  done
+  echo "$test:Finish"
+}
+
+testPkgDownloaded() {
+  test="testPkgDownloaded"
+  echo "$test:Start"
+  local packageName=$1; shift
+  local packageVersions=("$@")
+  downloadLocation="/opt/${packageName}/downloads"
+  for packageVersion in "${packageVersions[@]}"; do
+    echo "checking package version: $packageVersion ..."
+    if [ $OS = $UBUNTU_OS_NAME ]; then
+      debFile=$(find "${downloadLocation}" -maxdepth 1 -name "${packageName}_${packageVersion}*" -print -quit 2>/dev/null) || debFile=""
+      if [ -z "${debFile}" ]; then
+        err $test "Package ${packageName}_${packageVersion} does not exist, content of downloads dir is $(ls -al ${downloadLocation})"
+      fi
+    elif [ $OS = $AZURELINUX_OS_NAME ] && [ $OS_VERSION = "3.0" ]; then
+      rpmFile=$(find "${downloadLocation}" -maxdepth 1 -name "${packageName}-${packageVersion}*" -print -quit 2>/dev/null) || rpmFile=""
+      if [ -z "${rpmFile}" ]; then
+        err $test "Package ${packageName}-${packageVersion} does not exist, content of downloads dir is $(ls -al ${downloadLocation})"
+      fi
+    fi
+
   done
   echo "$test:Finish"
 }
@@ -528,7 +802,7 @@ testCustomCAScriptExecutable() {
 
 testCustomCATimerNotStarted() {
   isUnitThere=$(systemctl list-units --type=timer | grep update_certs.timer)
-  if [[ -n "$isUnitThere" ]]; then
+  if [ -n "$isUnitThere" ]; then
     err $test "Custom CA timer was loaded, but shouldn't be"
   fi
 
@@ -537,7 +811,7 @@ testCustomCATimerNotStarted() {
 
 testCustomCATrustNodeCAWatcherRetagged() {
   isStaticTagImageThere=$(crictl images list | grep 'aks-node-ca-watcher' | grep 'static')
-  if [[ -z "$isStaticTagImageThere" ]]; then
+  if [ -z "$isStaticTagImageThere" ]; then
     err $test "Expected to find Node CA Watcher with static tag on the node"
   fi
 
@@ -603,7 +877,7 @@ testUserAdd() {
   echo "$test: Checking that INACTIVE is used by useradd"
   useradd -D | grep -E -v "^INACTIVE=30$" >/dev/null
   # shellcheck disable=SC2181
-  if [ $? -ne 0 ]; then
+  if [ "$?" -ne 0 ]; then
     err $test "useradd is not using INACTIVE=30 from $settings_file"
   fi
   echo "$test: useradd is using INACTIVE=30 from $settings_file"
@@ -635,7 +909,7 @@ testUmaskSettings() {
     echo "$test:Start"
 
     # If the settings file exists, it must just be a single line that sets umask properly.
-    if [[ -f "${settings_file}" ]]; then
+    if [ -f "${settings_file}" ]; then
         echo "${test}: Checking that the contents of ${settings_file} is exactly '${expected_settings_file_content}'"
 
         # Command substitution (like file_contents=$(cat "${settings_file}")) strips trailing newlines, so we use mapfile instead.
@@ -643,7 +917,7 @@ testUmaskSettings() {
         local file_contents_array=()
         mapfile <"${settings_file}" file_contents_array
         local file_contents="${file_contents_array[*]}"
-        if [[ "${file_contents}" != "${expected_settings_file_content}" ]]; then
+        if [ "${file_contents}" != "${expected_settings_file_content}" ]; then
             err $test "The content of the file '${settings_file}' is '${file_contents}', which does not exactly match '${expected_settings_file_content}'. "
         else
             echo "${test}: The content of the file '${settings_file}' exactly matches the expected contents '${expected_settings_file_content}'."
@@ -662,6 +936,7 @@ testCronPermissions() {
   echo "$test:Start"
 
   image_sku="${1}"
+  os_sku="${2}"
   declare -A required_paths=(
     ['/etc/cron.allow']=640
     ['/etc/cron.hourly']=600
@@ -679,7 +954,8 @@ testCronPermissions() {
     '/etc/cron.deny'
   )
 
-  if [[ "${image_sku}" != *"minimal"* ]]; then
+  # shellcheck disable=SC3010
+  if [[ "${image_sku}" != *"minimal"* ]] && [[ "${os_sku}" != "Flatcar" ]]; then
     echo "$test: Checking required paths"
     for path in "${!required_paths[@]}"; do
       checkPathPermissions $test $path ${required_paths[$path]} 1
@@ -740,9 +1016,9 @@ testNfsServerService() {
   local is_enabled=
   is_enabled=$(systemctl is-enabled $service_name 2>/dev/null)
   echo "$test: logging ${is_enabled} here"
-  if [[ "${is_enabled}" == "masked" ]]; then
+  if [ "${is_enabled}" = "masked" ]; then
     echo "$test: $service_name is correctly masked"
-  elif [[ "${is_enabled}" == "" || "${is_enabled}" == "not-found" ]]; then
+  elif [ "${is_enabled}" = "" ] || [ "${is_enabled}" = "not-found" ]; then
     echo "$test: $service_name is not installed, which is fine"
   else
     err $test "$service_name is not masked"
@@ -762,7 +1038,7 @@ testPamDSettings() {
 
   # We only want to run this test on Mariner/AzureLinux
   # So if it's anything else, report that we're skipping the test and bail.
-  if [[ "${os_sku}" != "CBLMariner" && "${os_sku}" != "AzureLinux" ]]; then
+  if [ "${os_sku}" != "CBLMariner" ] && [ "${os_sku}" != "AzureLinux" ]; then
     echo "$test: Skipping test on ${os_sku} ${os_version}"
   else
 
@@ -849,7 +1125,7 @@ testSettingFileFormat() {
 
   # If the file doesn't exist, everything is broken.
   echo "$test: Checking existence of $settings_file"
-  if [ ! -f $settings_file ]; then
+  if [ ! -f "$settings_file" ]; then
     err $test "File $settings_file not found"
     return 1
   fi
@@ -866,13 +1142,14 @@ testSettingFileFormat() {
   while read -r line; do
     line_num=$((line_num + 1))
     for regex in "$@"; do
+      # shellcheck disable=SC3010
       if [[ "$line" =~ $regex ]]; then
         valid=1
         break
       fi
     done
 
-    if [ $valid -eq 0 ]; then
+    if [ "$valid" -eq 0 ]; then
       any_invalid=1
       err $test "Invalid line $line_num in $settings_file: '$line'"
     fi
@@ -880,11 +1157,11 @@ testSettingFileFormat() {
     valid=0
   done <$settings_file
 
-  if [ $any_invalid -eq 0 ]; then
+  if [ "$any_invalid" -eq 0 ]; then
     echo "$test: $settings_file is valid"
   fi
 
-  return $any_invalid
+  return "$any_invalid"
 }
 
 # Tests an individual setting in a settings file, ensuring it's set with the correct value.
@@ -919,7 +1196,7 @@ testSetting() {
   fi
 
   # If the setting is present more than once, that's an error.
-  if [ $(echo "$value_lines" | wc -l) -gt 1 ]; then
+  if [ "$(echo "$value_lines" | wc -l)" -gt 1 ]; then
     err $test "Setting '$setting_name' found more than once in $settings_file. See below for lines."
     echo "$value_lines" >>/dev/stderr
     return 1
@@ -953,7 +1230,7 @@ testPam() {
 
   # We only want to run this test on Mariner/AzureLinux
   # So if it's anything else, report that we're skipping the test and bail.
-  if [[ "${os_sku}" != "CBLMariner" && "${os_sku}" != "AzureLinux" ]]; then
+  if [ "${os_sku}" != "CBLMariner" ] && [ "${os_sku}" != "AzureLinux" ]; then
     echo "$test: Skipping test on ${os_sku} ${os_version}"
   else
     # cd to the directory of the script
@@ -975,7 +1252,7 @@ testPam() {
     deactivate
     popd || (err ${test} "Failed to cd out of test dir"; return 1)
 
-    if [ $retval -ne 0 ]; then
+    if [ "$retval" -ne 0 ]; then
       err ${test} "$output"
       err ${test} "PAM configuration is not functional"
       retval=1
@@ -1003,7 +1280,7 @@ testContainerImagePrefetchScript() {
   chmod +x $container_image_prefetch_script_path
   errs=$(/bin/bash $container_image_prefetch_script_path 2>&1 >/dev/null)
   code=$?
-  if [ $code -ne 0 ]; then
+  if [ "$code" -ne 0 ]; then
     err "$test: container image prefetch script exited with code $code, stderr:\n$errs"
     return 1
   fi
@@ -1014,7 +1291,12 @@ testContainerImagePrefetchScript() {
 
 testBccTools () {
   local test="BCCInstallTest"
+  os_sku="${1}"
   echo "$test: checking if BCC tools were successfully installed"
+  if [ "$os_sku" = "AzureLinuxOSGuard" ]; then
+    echo "$test: Skipping check on AzureLinuxOSGuard - BCC tools are not installed"
+    return 0
+  fi
   for line in '  - bcc-tools' '  - libbcc-examples'; do
     if ! grep -F -x -e "$line" $VHD_LOGS_FILEPATH; then
       err "BCC tools were not successfully installed"
@@ -1049,7 +1331,7 @@ testAKSNodeControllerService() {
   echo "$test: Checking that $service_name is enabled"
   is_enabled=$(systemctl is-enabled $service_name 2>/dev/null)
   echo "$test: logging ${is_enabled} here"
-  if [[ "${is_enabled}" == "enabled" ]]; then
+  if [ "${is_enabled}" = "enabled" ]; then
     echo "$test: $service_name is correctly enabled"
   else
     err $test "$service_name is not enabled, instead in state $is_enabled"
@@ -1058,49 +1340,51 @@ testAKSNodeControllerService() {
   echo "$test:Finish"
 }
 
-testWasmRuntimesInstalled() {
-  local test="testWasmRuntimesInstalled"
-  local wasm_runtimes_path=${1}
-  local shim_version=${2}
-  shim_version="v${shim_version}"
-
-  echo "$test: checking existance of Spin Wasm Runtime in $wasm_runtimes_path"
-
-  local shims_to_download=("spin" "slight")
-  if [[ "${shim_version}" == "0.8.0" ]]; then
-    shims_to_download+=("wws")
+testCriCtl() {
+  expectedVersion="${1}"
+  local test="testCriCtl"
+  echo "$test: Start"
+  # the expectedVersion looks like this, "1.32.0-ubuntu18.04u3", need to extract the version number.
+  expectedVersion=$(echo $expectedVersion | cut -d'-' -f1)
+  # use command `crictl --version` to get the version
+  
+  local crictl_version=$(crictl --version)
+  # the output of crictl_version looks like this "crictl version 1.32.0", need to extract the version number.
+  crictl_version=$(echo $crictl_version | cut -d' ' -f3)
+  echo "$test: checking if crictl version is $expectedVersion"
+  if [ "$crictl_version" != "$expectedVersion" ]; then
+    err "$test: crictl version is not $expectedVersion, instead it is $crictl_version"
+    return 1
   fi
-
-  binary_version="$(echo "${shim_version}" | tr . -)"
-  for shim in "${shims_to_download[@]}"; do
-    binary_path_pattern="${wasm_runtimes_path}/containerd-shim-${shim}-${binary_version}-*"
-    if [ ! -f $binary_path_pattern ]; then
-      output=$(ls -la /usr/local/bin)
-      err "$test: Spin Wasm Runtime binary does not exist at $binary_path_pattern\n ls -la output:\n $output"
-      return 1
-    else
-      echo "$test: Spin Wasm Runtime binary exists at $binary_path_pattern"
-    fi
-  done
+  echo "$test: Test finished successfully."
+  return 0
 }
 
-testSpinKubeInstalled() {
-  local test="testSpinKubeInstalled"
-  local spinKube_runtimes_path=${1}
-  local shim_version=${2}
-  shim_version="v${shim_version}"
-  binary_version="$(echo "${shim_version}" | tr . -)"
-
-  # v0.15.1 does not have a version encoded in the binary name
-  binary_path_pattern="${spinKube_runtimes_path}/containerd-shim-spin-v2"
-  if [ ! -f $binary_path_pattern ]; then
-    output=$(ls -la /usr/local/bin)
-    err "$test: Spin Wasm Runtime binary does not exist at $binary_path_pattern\n ls -la output:\n $output"
-    return 1
-  else
-    echo "$test: Spin Wasm Runtime binary exists at $binary_path_pattern"
+testContainerd() {
+  expectedVersion="${1}"
+  local test="testContainerd"
+  echo "$test: Start"
+  # If the version defined in components.json is <SKIP>, that means it will use whatever version is installed on the system.
+  # Therefore, we will just skip the test.
+  if [ "$expectedVersion" = "<SKIP>" ]; then
+    echo "$test: Skipping test for containerd version, as expected version is <SKIP>"
+    return 0
   fi
-
+  # the expectedVersion looks like this, "1.6.24-0ubuntu1~18.04.1" or "2.0.0-6.azl3", we need to extract the major.minor.patch version only.
+  expectedVersion=$(echo $expectedVersion | cut -d'-' -f1)
+  # use command `containerd --version` to get the version
+  local containerd_version=$(containerd --version)
+  # the output of containerd_version looks like the followings. We need to extract the major.minor.patch version only.
+  # For containerd (v1): containerd github.com/containerd/containerd 1.6.26 
+  # For containerd (v2): containerd github.com/containerd/containerd/v2 2.0.0
+  containerd_version=$(echo $containerd_version | cut -d' ' -f3)
+  # The version could be in the format "1.6.24-11-ubuntu1~18.04.1" or "2.0.0-6.azl3" or just "2.0.0", we need to extract the major.minor.patch version only.
+  containerd_version=$(echo "$containerd_version" | grep -oE '^[0-9]+\.[0-9]+\.[0-9]+')
+  echo "$test: checking if containerd version is $expectedVersion"
+  if [ "$containerd_version" != "$expectedVersion" ]; then
+    err "$test: containerd version is not $expectedVersion, instead it is $containerd_version"
+    return 1
+  fi
   echo "$test: Test finished successfully."
   return 0
 }
@@ -1120,6 +1404,175 @@ checkPerformanceData() {
   return 0
 }
 
+#------------------------ Start of test code related to localdns ------------------------
+testCorednsBinaryExtractedAndCached() {
+  local test="testCorednsBinaryExtractedAndCached"
+  local os_version=$1
+  # Ubuntu 18.04 and 20.04 ship with GLIBC 2.27 and 2.31, respectively.
+  # coredns binary is built with GLIBC 2.32+, which is not compatible with 18.04 and 20.04 OS versions.
+  # Therefore, we skip the test for these OS versions here.
+  # Validation in AKS RP will be done to ensure localdns is not enabled for these OS versions.
+  if [ "${os_version}" = "18.04" ] || [ "${os_version}" = "20.04" ]; then
+    # For Ubuntu 18.04 and 20.04, the coredns binary is located in /opt/azure/containers/localdns/binary/coredns
+    echo "$test: Coredns is not supported on OS version: ${os_version}"
+    return 0
+  fi
+
+  local localdnsBinaryDir="/opt/azure/containers/localdns/binary"
+  local binaryPath="$localdnsBinaryDir/coredns"
+  local coredns_image_list=($(ctr -n k8s.io images list -q | grep coredns))
+
+  echo "$test: Checking for existence of coredns binary at ${binaryPath}"
+
+  if [ ! -f "${binaryPath}" ]; then
+    echo "$test: Coredns binary does not exist at ${binaryPath}"
+    return 1
+  fi
+
+  # shellcheck disable=SC3010
+  if [[ ${#coredns_image_list[@]} -eq 0 ]]; then
+    echo "$test: No coredns images found in the local container images"
+    return 1
+  fi
+
+  # Extract available coredns image tags (v1.12.0-1 format) and sort them in descending order.
+  local sorted_coredns_tags=($(for image in "${coredns_image_list[@]}"; do echo "${image##*:}"; done | sort -V -r))
+
+  # Determine latest version (eg. v1.12.0-1).
+  local latest_coredns_tag="${sorted_coredns_tags[0]}"
+  # Extract major.minor.patch (removes -revision. eg - v1.12.0).
+  local latest_vMajorMinorPatch="${latest_coredns_tag%-*}"
+
+  local previous_coredns_tag=""
+  # Iterate through the sorted list to find the next highest major-minor version.
+  for tag in "${sorted_coredns_tags[@]}"; do
+    # Extract major.minor.patch (eg - v1.12.0).
+    local vMajorMinorPatch="${tag%-*}"
+    if [ "${vMajorMinorPatch}" != "${latest_vMajorMinorPatch}" ]; then
+      previous_coredns_tag="$tag"
+      # Break the loop after the next highest major-minor version is found.
+      break
+    fi
+  done
+
+  if [ -z "${previous_coredns_tag}" ]; then
+    echo "$test: Warning: Previous version not found, using the latest version: ${latest_coredns_tag}"
+    previous_coredns_tag="$latest_coredns_tag"
+  fi
+
+  local expectedVersion="$previous_coredns_tag"
+  local expectedVersionWithoutV="${expectedVersion#v}"
+  echo "$test: Expected coredns version (n-1 latest): ${expectedVersionWithoutV}"
+
+  local builtInPlugins
+  builtInPlugins=$("$binaryPath" --plugins)
+  if [ "$?" -eq 0 ]; then
+    echo "$test: Succeeded to execute coredns --plugins command from $binaryPath"
+  else
+    echo "$test: Failed to execute coredns --plugins command from $binaryPath"
+    return 1
+  fi
+
+  # Get the actual version from the extracted CoreDNS binary
+  local actualVersion
+  actualVersion=$("$binaryPath" --version | awk -F'-' '{print $2}')
+
+  local actualVersionWithoutV="${actualVersion#v}"
+  if [ -z "${actualVersionWithoutV}" ]; then
+    echo "$test: Failed to retrieve coredns version from $binaryPath"
+    return 1
+  fi
+
+  echo "$test: Verify extracted coredns version: ${actualVersionWithoutV}"
+
+  if [ "${actualVersion%-*}" != "${expectedVersionWithoutV%-*}" ]; then
+    echo "$test: Extracted coredns version: ${actualVersion} does not match expected version: ${expectedVersionWithoutV}"
+    return 1
+  fi
+
+  echo "$test: Expected version: ${expectedVersionWithoutV} of coredns binary is extracted and cached at ${binaryPath}"
+  return 0
+}
+
+testPackageDownloadURLFallbackLogic() {
+  local test="testPackageDownloadURLFallbackLogic"
+
+  echo "$test: Start"
+
+  resolve_packages_source_url
+  if [ "$PACKAGE_DOWNLOAD_BASE_URL" != "packages.aks.azure.com" ]; then
+    echo "PACKAGE_DOWNLOAD_BASE_URL was not set to packages.aks.azure.com"
+    err "$test: failed to set PACKAGE_DOWNLOAD_BASE_URL to packages.aks.azure.com"
+  fi
+  
+  # Block the IP on local vm to simulate cluster firewall blocking packages.aks.azure.com and retry test to see output
+  echo "127.0.0.1     packages.aks.azure.com" | sudo tee /etc/hosts > /dev/null
+
+  resolve_packages_source_url
+    if [ "$PACKAGE_DOWNLOAD_BASE_URL" != "acs-mirror.azureedge.net" ]; then
+    echo "PACKAGE_DOWNLOAD_BASE_URL was not set to acs-mirror.azureedge.net after failure to connect to packages.aks.azure.com"
+    err "$test: failed to set PACKAGE_DOWNLOAD_BASE_URL to acs-mirror.azureedge.net"
+  fi
+
+  echo "$test: Finish"
+}
+
+checkLocaldnsScriptsAndConfigs() {
+  local test="checkLocaldnsScriptsAndConfigs"
+  
+  declare -A localdnsfiles=(
+    ["/opt/azure/containers/localdns/localdns.sh"]=755
+    ["/etc/systemd/system/localdns.service"]=644
+    ["/etc/systemd/system/localdns.service.d/delegate.conf"]=644
+  )
+  
+  for file in "${!localdnsfiles[@]}"; do
+    echo "$test: Checking existence of ${file}"
+    if [ ! -f "${file}" ]; then
+      echo "$test: Localdnsfile - ${file} not found"
+      return 1
+    fi
+    
+    echo "$test: Checking permissions of ${file}"
+    permissions=$(stat -c "%a" "$file")
+    if [ "$permissions" != "${localdnsfiles[$file]}" ]; then
+      echo "$test: Localdnsfile $file has incorrect permission. Expected ${localdnsfiles[$file]}, got $permissions"
+      return 1
+    fi
+  done
+  
+  echo "$test: All localdnsfiles exist with correct permissions"
+  return 0
+}
+
+# Check that no files have a numeric UID or GID, which would indicate a file ownership issue.
+testFileOwnership() {
+  local test="testFileOwnership"
+  echo "$test: Start"
+
+  os_sku="${1}"
+
+  # Find files with numeric UIDs or GIDs.
+  local files_with_numeric_ownership=$(find /usr -xdev \( -nouser -o -nogroup \) -exec stat --format '%u %g %n' {} \;)
+  # skip scanning /usr/libexec/dbus-daemon-launch-helper on Flatcar
+  # TODO: Group needs to be fixed in immutable part of the image
+  if [ "$os_sku" = "Flatcar" ]; then
+    files_with_numeric_ownership=$(echo "$files_with_numeric_ownership" | grep -v "/usr/libexec/dbus-daemon-launch-helper")
+  fi
+
+  if [ -n "$files_with_numeric_ownership" ]; then
+    err "$test: File ownership test failed. Files with numeric ownership found:"
+    err "$files_with_numeric_ownership"
+    return 1
+  fi
+
+  echo "$test: No files with numeric ownership found."
+  echo "$test: Finish"
+  return 0
+}
+
+#------------------------ End of test code related to localdns ------------------------
+
 # As we call these tests, we need to bear in mind how the test results are processed by the
 # the caller in run-tests.sh. That code uses az vm run-command invoke to run this script
 # on a VM. It then looks at stderr to see if any errors were reported. Notably it doesn't
@@ -1132,14 +1585,17 @@ checkPerformanceData() {
 # This will keep the VM alive after the tests are run and we can SSH/Bastion into the VM to run the test manually.
 # Therefore, for example, you can run "sudo bash /var/lib/waagent/run-command/download/0/script.sh" to run the tests manually.
 checkPerformanceData
-testBccTools
+testBccTools $OS_SKU
 testVHDBuildLogsExist
 testCriticalTools
 testPackagesInstalled $CONTAINER_RUNTIME
 testImagesPulled $CONTAINER_RUNTIME "$(cat $COMPONENTS_FILEPATH)"
+testImagesCompleted $CONTAINER_RUNTIME
+testPodSandboxImagePinned $CONTAINER_RUNTIME
 testChrony $OS_SKU
 testAuditDNotPresent
 testFips $OS_VERSION $ENABLE_FIPS
+testLSMBPF $OS_SKU $OS_VERSION
 testCloudInit $OS_SKU
 # Commenting out testImagesRetagged because at present it fails, but writes errors to stdout
 # which means the test failures haven't been caught. It also calles exit 1 on a failure,
@@ -1152,7 +1608,7 @@ testCustomCATrustNodeCAWatcherRetagged
 testLoginDefs
 testUserAdd
 testNetworkSettings
-testCronPermissions $IMG_SKU
+testCronPermissions $IMG_SKU $OS_SKU
 testCoreDumpSettings
 testNfsServerService
 testPamDSettings $OS_SKU $OS_VERSION
@@ -1161,3 +1617,8 @@ testUmaskSettings
 testContainerImagePrefetchScript
 testAKSNodeControllerBinary
 testAKSNodeControllerService
+testLtsKernel $OS_VERSION $OS_SKU $ENABLE_FIPS
+testCorednsBinaryExtractedAndCached $OS_VERSION
+checkLocaldnsScriptsAndConfigs
+testPackageDownloadURLFallbackLogic
+testFileOwnership $OS_SKU

@@ -24,6 +24,7 @@
   - [Details on supporting the MAR OCI artifacts.](#details-on-supporting-the-mar-oci-artifacts)
   - [How to enable auto-merge for a component's patch version update?](#how-to-enable-auto-merge-for-a-components-patch-version-update)
   - [Why are some components' `minor version update` disabled?](#why-are-some-components-minor-version-update-disabled)
+  - [Debugging in local environment](#debugging-in-local-environment)
 # TL;DR
 This readme is mainly describing how the renovate.json is constructed and the reasoning behind. If you are adding a new component to be cached in VHD, please refer to this [Readme-components](../parts/linux/cloud-init/artifacts/README-COMPONENTS.md) for tutorial. If you are onboarding a newly added component to Renovate automatic updates, you can jump to the [Hands-on guide and FAQ](#hands-on-guide-and-faq).
 
@@ -42,7 +43,7 @@ We defined some packageRule blocks in the renovate.json. Here are some examples.
 ### Disable `minor` update
 ```
     {
-      "matchDatasources": ["docker", "custom.deb1804", "custom.deb2004", "custom.deb2204", "custom.deb2404"],
+      "matchDatasources": ["docker", "custom.deb2004", "custom.deb2204", "custom.deb2404"],
       "matchUpdateTypes": [
         "minor"
       ],
@@ -50,7 +51,7 @@ We defined some packageRule blocks in the renovate.json. Here are some examples.
       "enabled": false
     },
 ```
-- `matchDatasources`: specifies which datasources the rule should apply to. In this example, we define if a datasource is either `docker`, custom defined `custom.deb1804`, `custom.deb2004`, `custom.deb2204` and `custom.deb2404`, the package rule will apply. You will find the custom defined ones in the next block.
+- `matchDatasources`: specifies which datasources the rule should apply to. In this example, we define if a datasource is either `docker`, custom defined `custom.deb2004`, `custom.deb2204` and `custom.deb2404`, the package rule will apply. You will find the custom defined ones in the next block.
 - `matchUpdateTypes`: allows you to apply specific rules to dependencies based on the type of update. In this example, if the update type is `minor`, this package rule will apply.
 - `automerge`:allows you to specify whether pull requests created by Renovate should be automatically merged. `false` here mean the PR needs to be approved before it can merge.
 - `enabled`: allows you to control whether a specific rule is active or not. `false` in this example means this package rule is inactive.
@@ -62,7 +63,7 @@ This package rule will make more sense if you continue looking at the next packa
 
 ```
     {
-      "matchDatasources": ["docker", "custom.deb1804", "custom.deb2004", "custom.deb2204", "custom.deb2404"],
+      "matchDatasources": ["docker", "custom.deb2004", "custom.deb2204", "custom.deb2404"],
       "matchUpdateTypes": [
         "patch",
         "pin",
@@ -139,7 +140,7 @@ There are some default managers in Renovate that one can use to monitor supporte
       "customType": "regex",
       "description": "auto update containerImages in components.json",
       "fileMatch": [
-        "parts/linux/cloud-init/artifacts/components.json"
+        "parts/common/components.json"
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
@@ -173,7 +174,7 @@ Similar to containerImages described above, we have other custom manager for pac
       "customType": "regex",
       "description": "auto update packages for OS ubuntu 22.04 in components.json",
       "fileMatch": [
-        "parts/linux/cloud-init/artifacts/components.json"
+        "parts/common/components.json"
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
@@ -197,15 +198,15 @@ Each custom manager will ensure it only finds one type of renovateTag.
 ## Custom data sources
 We have some custom data sources in the renovate.json now. Let's walk through an example to explain the details.
 ```
-    "deb1804": {
-      "defaultRegistryUrlTemplate": "https://packages.microsoft.com/ubuntu/18.04/prod/dists/testing/main/binary-amd64/Packages",
+    "deb2404": {
+      "defaultRegistryUrlTemplate": "https://packages.microsoft.com/ubuntu/24.04/prod/dists/noble/main/binary-amd64/Packages",
       "format": "plain",
       "transformTemplates": [
-        "{\"releases\": $map(($index := releases#$i[version=\"Package: {{packageName}}\"].$i; $map($index, function($i) { $replace(releases[$i + 1].version, /^Version:\\s*/, \"v\") })), function($v) { {\"version\": $v} })}"
+        "{\"releases\": $map(($index := releases#$i[version=\"Package: {{packageName}}\"].$i; $map($index, function($i) { $substringAfter(releases[$i + 1].version, \"Version: \") })), function($v) { {\"version\": $v} })[]}"
       ]
     }
 ```
-- The name is this custom data source is `deb1804`. We are referencing to it in the earlier section custom manager with `"datasourceTemplate": "custom.deb1804",`
+- The name is this custom data source is `deb2404`. We are referencing to it in the earlier section custom manager with `"datasourceTemplate": "custom.deb2404",`
 - `defaultRegistryUrlTemplate`: specifies the default URL template for accessing the registry of a custom datasource. In this example, it is the packages.microsoft.com/xxx URL.
 - `format`: specifies the format of the data returned by the registry. In this example, it's neither json, html nor yaml but a `Debian Control File`. So we have to use `plain` and then construct the data in `transformTemplates` by ourselves.
 - `transformTemplates`: allows you to define custom transformations for data fetched from a custom datasource. It uses `JSONata rules` to transform the API output in a certain format. This one is really challenging to me (Devin). Please read the official doc to try and error a correct JSONata query. At the end of the day, you will need to at least populate something like
@@ -288,7 +289,7 @@ If the raw content from your `transformTemplates` is not in plain text but other
 Now we figured out the inputs, we can start work on the JSONata query.
 
 JSONata Exerciser is a good playground for us to try and error the query. This is a good example which queries the package name from the inputs. You can start playing around with this. https://try.jsonata.org/Gjq6mkXmg. Attaching a screenshot for reference in case the link is no longer available in the future.
-![alt text](.\images\JSONata_exerciser_example.png)
+![alt text](./images/JSONata_exerciser_example.png)
 
 # Hands-on guide and FAQ
 > **Alert:** Before starting the hands-on guide, please take a moment to read [TL;DR](#tldr) section to ensure you are reading the correct doc.
@@ -314,22 +315,12 @@ Depending on what kind of component you are going to onboard.
   Fore more details, you can refer to Readme-components linked at the beginning of this document.
 
 - **Packages**: Now for datasource PMC (package.microsoft.com) we have 4 custom managers which will look up to the following 4 `defaultRegistryUrlTemplate`, based on different Ubuntu release, respectively.
-  - https://packages.microsoft.com/ubuntu/18.04/prod/dists/testing/main/binary-amd64/Packages
-  - https://packages.microsoft.com/ubuntu/20.04/prod/dists/testing/main/binary-amd64/Packages
-  - https://packages.microsoft.com/ubuntu/22.04/prod/dists/testing/main/binary-amd64/Packages
-  - https://packages.microsoft.com/ubuntu/24.04/prod/dists/testing/main/binary-amd64/Packages
+  - https://packages.microsoft.com/ubuntu/18.04/prod/dists/bionic/main/binary-amd64/Packages
+  - https://packages.microsoft.com/ubuntu/20.04/prod/dists/focal/main/binary-amd64/Packages
+  - https://packages.microsoft.com/ubuntu/22.04/prod/dists/jammy/main/binary-amd64/Packages
+  - https://packages.microsoft.com/ubuntu/24.04/prod/dists/noble/main/binary-amd64/Packages
 
-  If the package you are going to onboard is managed by PMC (e.g., using `apt-get` to install and using PMC as the package list), like _containerd_ and _runc_, you are likely able to reuse the existing custom managers and custom datasources. The only thing you will need to do is just adding your package name to the array of `matchPackageNames` in this configuration
-  ```
-    {
-      "matchPackageNames": ["moby-runc", "moby-containerd"],
-      "extractVersion": "^v?(?<version>.+)$"
-    }
-  ```
-  This is to tell Renovate to extract x.y.z from vx.y.z for further processing.
-For more details about `extractVersion`, please read an [earlier section](#additional-string-operation-to-specific-component).
-
-  We will add support to OCI MCR which uses oras to pull package/binary soon.
+  Note: We need to specify one and only one datasource URL for each custom manager and here we are using the `amd64` ones. It could also be `arm64`. And we are assuming if `amd64` package is updated, `arm64` package is also updated. We know the assumption is not always valid. But even only `amd64` is updated but not `arm64`, we will still be able to catch it in the VHD build tests so it should be fine.
   
   If your package is not managed by PMC, you may need to create your own custom manager and custom datasource. If this is the case, you will need to go through this doc to understand how.
 
@@ -363,8 +354,8 @@ In general, if a component has the `"renovateTag": "<DO_NOT_UPDATE>"`, it means 
 As of 01/23/2025,
 - All the container images are onboarded to Renovate for auto-update.
 - PMC hosted packages, namely `runc` and `containerd`, are configured as auto-merge patch version.
-- OCI artifacts hosted on MAR(aka MCR) such as `kubernetes-binaries`, `azure-acr-credential-provider` and `containerd-wasm-shims` are onboarded for auto-update.
-- Acs-mirror hosted packages/binaries, namely `cni-plugins`, `azure-cni`, `cri-tools`, etc., are NOT onboarded for auto-update yet. There are plans to move the acs-mirror hosted packages to MCR OCI which will be downloaded by Oras. We will wait for this transition to be completed to understand the details how to manage them.
+- OCI artifacts hosted on MAR(aka MCR) such as `kubernetes-binaries` and `azure-acr-credential-provider` are onboarded for auto-update.
+- For Linux, the cni-plugins, azure-cni, cri-tools binaries are hosted at packages.aks.azure.com and are not onboarded for auto-update yet. The team has been working on this. cri-tools package will soon be available, then cni-plugins and azure-cni.
 
 For the most up-to-date information, please refer to the actual configuration file `components.json`.
 
@@ -374,7 +365,7 @@ The `renovate.json` file is configured to support OCI artifact now. There is a p
 ```
     {
       "matchDatasources": ["docker"],
-      "matchPackageNames": ["oss/binaries/kubernetes/kubernetes-node", "oss/binaries/kubernetes/azure-acr-credential-provider", "oss/binaries/deislabs/containerd-wasm-shims"],
+      "matchPackageNames": ["oss/binaries/kubernetes/kubernetes-node", "oss/binaries/kubernetes/azure-acr-credential-provider"],
       "extractVersion": "^(?P<version>.*?)-[^-]*-[^-]*$"
     },
 ```
@@ -385,7 +376,7 @@ Explanations as below.
 
 Take `kubernetes-binaries` as an example. If you view all the tags from this list https://mcr.microsoft.com/v2/oss/binaries/kubernetes/kubernetes-node/tags/list?n=10000, you will notice that the format of the tags is quite varied, like, `v1.27.100-akslts-linux-amd64` , `v1.30.0-linux-amd64`, `v1.31.1-linux-arm64`. This regex is to capture only the values before the second-to-last dash (-). For example, if the tag is `v1.27.100-akslts-linux-amd64`, we capture `v1.27.100-akslts` as the version to be stored in `latestVersion` in `components.json`. If the tag is `v1.30.0-linux-amd64`, we capture `v1.30.0`. We do not capture the CPU architecture (amd64|arm64) to keep it generic, avoiding the need to define the same thing for both `amd64` and `arm64`. 
 
-3 packages in `components.json` are onboarded now: `oss/binaries/kubernetes/kubernetes-node`, `oss/binaries/kubernetes/azure-acr-credential-provider` and `oss/binaries/deislabs/containerd-wasm-shims`. You will see a new tag `OCI_registry` in `renovateTag`. 
+Packages in `components.json` are onboarded now: `oss/binaries/kubernetes/kubernetes-node`, `oss/binaries/kubernetes/azure-acr-credential-provider`, etc. You will see a new tag `OCI_registry` in `renovateTag`. 
 
 Continue using `kubernetes-binaries` as an example. Here is a block of version information defined as follows.
 ```
@@ -398,8 +389,8 @@ Continue using `kubernetes-binaries` as an example. Here is a block of version i
 ```
 where
 1. `k8sVersion` is optional and specifies that it is tied to Kubernetes  v1.31.
-1. `renovateTag` defines the OCI registry and artifact name that Renovate should look up from its datasource.
-1. `latestVersion` and `previousLatestVersion` define the versions to be cached as usual.
+2. `renovateTag` defines the OCI registry and artifact name that Renovate should look up from its datasource.
+3. `latestVersion` and `previousLatestVersion` define the versions to be cached as usual.
 
 And next you will see
 ```
@@ -425,7 +416,7 @@ This is a common scenarior where we want the PR to be merged automatically when 
     },
 ```
 The config includes:
-- `matchPackageNames`: The name of the component's renovateTag in `AgentBaker/parts/linux/cloud-init/artifacts/components.json`. For example `moby-containerd`, `oss/kubernetes/kube-proxy`, `oss/binaries/kubernetes/kubernetes-node`. Wildcard character (*) is supported too. For example, `"matchPackageNames": ["oss/kubernetes-csi/*"],`
+- `matchPackageNames`: The name of the component's renovateTag in `AgentBaker/parts/common/components.json`. For example `moby-containerd`, `oss/kubernetes/kube-proxy`, `oss/binaries/kubernetes/kubernetes-node`. Wildcard character (*) is supported too. For example, `"matchPackageNames": ["oss/kubernetes-csi/*"],`
 - `matchUpdateTypes`: The type of version updates (`patch`) to which this rule applies.
 - `automerge`: Set to `true` to automatically merge PRs created by this rule. Default is `false`.
 - `enabled`: Set to `true` to enable this rule.
@@ -433,3 +424,78 @@ The config includes:
 
 ## Why are some components' `minor version update` disabled?
 For many components which have defined multiple versions cached in the components.json, we have disabled the `minor version update`. The reason is that Renovate would create many unncessary PRs. For example if a component has cached `v0.1.1` and `v0.2.1`, and `minor version update` is enabled, when a new minor version `v0.3.1` is released, Renovate will create 2 PRs, namely `v0.1.1 update to v0.3.1` and `v0.2.1 update to v0.3.1`. Both PRs will try to update to the same version `v0.3.1`. This is usually not intended because the onwers would like to cache multiple versions. Therefore, by default, we have disabled `minor version update` for such components.
+
+## Debugging in local environment
+To debug with verbose traces, it's recommended to set up a local environment for testing.
+Below are the steps to achieve this, using Windows PowerShell as an example. Other options, such as using a docker image, are also available, but you will need to figure out how to use them.
+1. Open a PowerShell terminal and navigate to the root directory of your source code.
+2. Set the LOG_LEVEL environment variable to the desired level. For example:
+   - `$Env:LOG_LEVEL = "debug"` for debug logs.
+   - `$Env:LOG_LEVEL = "trace"` for the most verbose logs. Refer to the official documentation for other options.
+3. Assuming you have `npm` installed, run this command 
+   ```
+   npx renovate --platform=local --dry-run=true`
+   ```
+   - where `dry-run=true` means that it will perform the data source lookup but not really creating a branch and PR.
+   - Renovate will automatically locate the required Renovate config file, which is `.github/renovate.json` in this case.
+
+**Example 1: Get log level `info` from a local environment.**
+```
+PS C:\Users\devinwon\git\AgentBaker> npx renovate --platform=local --dry-run=true
+ WARN: cli config dryRun property has been changed to full
+ INFO: Repository started (repository=local)
+       "renovateVersion": "39.250.3"
+ INFO: Dependency extraction complete (repository=local)
+       "stats": {
+         "managers": {"regex": {"fileCount": 6, "depCount": 119}},
+         "total": {"fileCount": 6, "depCount": 119}
+       }
+ WARN: Package lookup failures (repository=local)
+       "warnings": [
+         "Failed to look up custom.deb2004 package kubernetes-cri-tools",
+         "Failed to look up custom.deb2404 package kubernetes-cri-tools"
+       ],
+       "files": ["parts/common/components.json"]
+ INFO: DRY-RUN: Would ensure Dependency Dashboard (repository=local)
+       "title": "Dependency Dashboard"
+ INFO: DRY-RUN: Would save repository cache. (repository=local)
+ INFO: Repository finished (repository=local)
+       "cloned": undefined,
+       "durationMs": 54184
+ INFO: Renovate was run at log level "info". Set LOG_LEVEL=debug in environment variables to see extended debug logs.
+```
+This example reproduces what was observed on the Mend.io Renovate App. Then I change the LOG_LEVEL to `trace` for more detailed logs.
+
+**Example 2: Get log level `trace` from a local environment.**
+
+If the outputs are very large, you can pipe them to a file for better readability:
+```
+PS C:\Users\devinwon\git\AgentBaker> npx renovate --platform=local --dry-run=true >> output.txt
+```
+You won't see any progress in the terminal because all the outputs are piped to the file. Just wait until the process completes.
+In the `output.txt` of my case, I found this,
+```
+       "after": {"releases": {"version": "1.32.0-ubuntu18.04u3"}}
+DEBUG: Response has failed validation (repository=local)
+       "err": {
+         "message": "Schema error",
+         "stack": "ZodError: Schema error\n    at Object.get error [as error] 
+...
+...
+TRACE: Dependency lookup success (repository=local)
+       "dep": {
+         "versioning": "deb",
+         "updates": [],
+         "warnings": [
+           {
+             "topic": "kubernetes-cri-tools",
+             "message": "Failed to look up custom.deb2004 package kubernetes-cri-tools"
+           }
+         ]
+       }
+```
+where `{"releases": {"version": "1.32.0-ubuntu18.04u3"}}` is not the format I want. The correct format should be 
+```
+{"releases": [{"version": "1.32.0-ubuntu18.04u3"}]}
+```
+This demonstrates how to identify and debug issues in Renovate configurations.

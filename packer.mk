@@ -4,19 +4,23 @@ GOARCH=amd64
 ifeq (${ARCHITECTURE},ARM64)
 	GOARCH=arm64
 endif
+GOHOSTARCH = $(shell go env GOHOSTARCH)
 
 build-packer: generate-prefetch-scripts build-aks-node-controller build-lister-binary
 ifeq (${ARCHITECTURE},ARM64)
 	@echo "${MODE}: Building with Hyper-v generation 2 ARM64 VM"
 ifeq (${OS_SKU},Ubuntu)
 	@echo "Using packer template file vhd-image-builder-arm64-gen2.json"
-	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-arm64-gen2.json
+	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-arm64-gen2.json
 else ifeq (${OS_SKU},CBLMariner)
 	@echo "Using packer template file vhd-image-builder-mariner-arm64.json"
-	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner-arm64.json
+	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner-arm64.json
 else ifeq (${OS_SKU},AzureLinux)
 	@echo "Using packer template file vhd-image-builder-mariner-arm64.json"
-	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner-arm64.json
+	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner-arm64.json
+else ifeq (${OS_SKU},Flatcar)
+	@echo "Using packer template file vhd-image-builder-flatcar-arm64.json"
+	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-flatcar-arm64.json
 else
 	$(error OS_SKU was invalid ${OS_SKU})
 endif
@@ -29,22 +33,27 @@ else
 	$(error HYPERV_GENERATION was invalid ${HYPERV_GENERATION})
 endif
 ifeq (${OS_SKU},Ubuntu)
-ifeq (${IMG_SKU},20_04-lts-cvm)
+ifeq ($(findstring cvm,$(FEATURE_FLAGS)),cvm)
 	@echo "Using packer template file vhd-image-builder-cvm.json"
-	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-cvm.json
-else ifeq (${IMG_SKU},cvm)
-	@echo "Using packer template file vhd-image-builder-cvm.json"
-	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-cvm.json
+	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-cvm.json
 else
 	@echo "Using packer template file vhd-image-builder-base.json"
-	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-base.json
+	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-base.json
 endif
 else ifeq (${OS_SKU},CBLMariner)
 	@echo "Using packer template file vhd-image-builder-mariner.json"
-	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner.json
+	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner.json
 else ifeq (${OS_SKU},AzureLinux)
+ifeq ($(findstring cvm,$(FEATURE_FLAGS)),cvm)
+	@echo "Using packer template file vhd-image-builder-mariner-cvm.json"
+	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner-cvm.json
+else
 	@echo "Using packer template file vhd-image-builder-mariner.json"
-	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner.json
+	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner.json
+endif
+else ifeq (${OS_SKU},Flatcar)
+	@echo "Using packer template file vhd-image-builder-flatcar.json"
+	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-flatcar.json
 else
 	$(error OS_SKU was invalid ${OS_SKU})
 endif
@@ -65,8 +74,11 @@ else
 	@echo "${MODE}: Building with Hyper-v generation 2 VM and save to Shared Image Gallery"
 endif
 endif
-	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/windows/windows-vhd-builder-sig.json
+	@packer build -timestamp-ui -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/windows/windows-vhd-builder-sig.json
 endif
+
+build-imagecustomizer: generate-prefetch-scripts build-aks-node-controller build-lister-binary
+	@./vhdbuilder/packer/imagecustomizer/scripts/build-imagecustomizer-image.sh
 
 az-login:
 ifeq (${MODE},windowsVhdMode)
@@ -75,39 +87,29 @@ ifeq ($(origin MANAGED_IDENTITY_ID), undefined)
 	@az login --identity
 else
 	@echo "Logging in with Hosted Pool's Managed Identity: ${MANAGED_IDENTITY_ID}"
-	@az login --identity --username ${MANAGED_IDENTITY_ID}
+	@az login --identity --client-id ${MANAGED_IDENTITY_ID}
 endif
 else
 	@echo "Logging into Azure with identity: ${AZURE_MSI_RESOURCE_STRING}..."
-	@az login --identity --username ${AZURE_MSI_RESOURCE_STRING}
+	@az login --identity --resource-id ${AZURE_MSI_RESOURCE_STRING}
 endif
 	@echo "Using the subscription ${SUBSCRIPTION_ID}"
 	@az account set -s ${SUBSCRIPTION_ID}
 
 init-packer:
-	@./vhdbuilder/packer/init-variables.sh
+	@./vhdbuilder/packer/produce-packer-settings.sh
 
 run-packer: az-login
-	@packer init ./vhdbuilder/packer/linux-packer-plugin.pkr.hcl && packer version && ($(MAKE) -f packer.mk init-packer | tee packer-output) && ($(MAKE) -f packer.mk build-packer | tee -a packer-output)
+	@packer init ./vhdbuilder/packer/packer-plugin.pkr.hcl && packer version && ($(MAKE) -f packer.mk init-packer | tee packer-output) && ($(MAKE) -f packer.mk build-packer | tee -a packer-output)
 
-run-packer-windows: az-login
-	@packer init ./vhdbuilder/packer/packer-plugin.pkr.hcl && packer version && ($(MAKE) -f packer.mk init-packer | tee packer-output) && ($(MAKE) -f packer.mk build-packer-windows | tee -a packer-output)
-
-cleanup: az-login
-	@./vhdbuilder/packer/cleanup.sh
-
-backfill-cleanup: az-login
-	@chmod +x ./vhdbuilder/packer/backfill-cleanup.sh
-	@./vhdbuilder/packer/backfill-cleanup.sh
+run-imagecustomizer: az-login
+	@($(MAKE) -f packer.mk init-packer | tee packer-output) && ($(MAKE) -f packer.mk build-imagecustomizer | tee -a packer-output)
 
 generate-publishing-info: az-login
 	@./vhdbuilder/packer/generate-vhd-publishing-info.sh
 
 convert-sig-to-classic-storage-account-blob: az-login
 	@./vhdbuilder/packer/convert-sig-to-classic-storage-account-blob.sh
-
-test-building-vhd: az-login
-	@./vhdbuilder/packer/test/run-test.sh
 
 scanning-vhd: az-login
 	@./vhdbuilder/packer/vhd-scanning.sh
@@ -116,12 +118,15 @@ test-scan-and-cleanup: az-login
 	@./vhdbuilder/packer/test-scan-and-cleanup.sh
 
 evaluate-build-performance: az-login
-	@./vhdbuilder/packer/build-performance/evaluate-build-performance.sh
+	@./vhdbuilder/packer/buildperformance/evaluate-build-performance.sh
+
+evaluate-grid-compatibility: az-login
+	@./vhdbuilder/packer/gridcompatibility/evaluate-grid-compatibility.sh
 
 generate-prefetch-scripts:
 #ifeq (${MODE},linuxVhdMode)
 	@echo "${MODE}: Generating prefetch scripts"
-	@bash -c "pushd vhdbuilder/prefetch; go run cmd/main.go --components-path=../../parts/linux/cloud-init/artifacts/components.json --output-path=../packer/prefetch.sh || exit 1; popd"
+	@bash -c "pushd vhdbuilder/prefetch; go run cmd/main.go --components-path=../../parts/common/components.json --output-path=../packer/prefetch.sh || exit 1; popd"
 #endif
 
 build-aks-node-controller:
@@ -135,3 +140,15 @@ build-aks-node-controller:
 build-lister-binary:
 	@echo "Building lister binary for $(GOARCH)"
 	@bash -c "pushd vhdbuilder/lister && CGO_ENABLED=0 GOOS=linux GOARCH=$(GOARCH) go build -o bin/lister main.go && popd"
+
+generate-flatcar-customdata: vhdbuilder/packer/flatcar-customdata.json
+vhdbuilder/packer/flatcar-customdata.json: vhdbuilder/packer/flatcar-customdata.yaml | hack/tools/bin/butane
+	@hack/tools/bin/butane --strict $< -o $@
+
+publish-imagecustomizer:
+	@echo "Publishing VHD generated by imagecustomizer"
+	@./vhdbuilder/packer/imagecustomizer/scripts/publish-imagecustomizer-image.sh
+
+hack/tools/bin/butane:
+	@echo "Building butane for $(GOHOSTARCH)"
+	@bash -c "pushd hack/tools && GOARCH=$(GOHOSTARCH) make $(shell pwd)/$@"

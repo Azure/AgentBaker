@@ -1,0 +1,40 @@
+#!/bin/sh
+
+set -e
+
+. /etc/grub.d/10_linux >/dev/null 2>&1
+
+NVIDIA=
+OTHER=
+
+for linux in ${reverse_sorted_list}; do
+	case $linux in
+		*-azure-nvidia) : "${NVIDIA:="${linux}"}" ;;
+		*)              : "${OTHER:="${linux}"}"  ;;
+	esac
+done
+
+if [ -z "${NVIDIA}" ] || [ -z "${OTHER}" ]; then
+	echo "Only one image type (NVIDIA or non-NVIDIA) found" >&2
+	exit 0
+fi
+
+echo "Default NVIDIA image: ${NVIDIA}" >&2
+NVIDIA=${NVIDIA##*/}
+NVIDIA=$(echo "${NVIDIA}" | sed -e "s,^[^0-9]*-,,g")
+
+echo "Default non-NVIDIA image: ${OTHER}" >&2
+OTHER=${OTHER##*/}
+OTHER=$(echo "${OTHER}" | sed -e "s,^[^0-9]*-,,g")
+
+cat << EOF
+insmod smbios
+smbios --type 4 --get-string 7 --set cpu_manufacturer
+
+if [ x\$cpu_manufacturer = xNVIDIA ]; then
+	set default="gnulinux-${NVIDIA}-advanced-${boot_device_id}"
+	set nvidia_args="iommu.passthrough=1 irqchip.gicv3_nolpi=y arm_smmu_v3.disable_msipolling=1"
+else
+	set default="gnulinux-${OTHER}-advanced-${boot_device_id}"
+fi
+EOF

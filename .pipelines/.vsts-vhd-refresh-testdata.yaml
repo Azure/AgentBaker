@@ -11,6 +11,7 @@ trigger:
     - .pipelines/.vsts-vhd-refresh-testdata.yaml
     - parts/linux/*
     - packer.mk
+    - parts/common/components.json
     exclude:
     - vhdbuilder/packer/*.ps1
     - vhdbuilder/packer/**/*.ps1

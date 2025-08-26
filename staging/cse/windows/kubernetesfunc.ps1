@@ -125,6 +125,10 @@ function Write-KubeClusterConfig {
         Kubelet      = @{
             NodeLabels = $global:KubeletNodeLabels;
             ConfigArgs = $global:KubeletConfigArgs
+            SecureTLSBootstrapArgs = @{
+                Enabled     = $global:EnableSecureTLSBootstrapping;
+                AADResource = $global:AKSAADServerAppID
+            };
         };
         Kubeproxy    = @{
             FeatureGates = $global:KubeproxyFeatureGates;
@@ -178,21 +182,30 @@ function Check-APIServerConnectivity {
     $retryCount=0
 
     do {
-        try {
-            $tcpClient=New-Object Net.Sockets.TcpClient
-            Write-Log "Retry $retryCount : Trying to connect to API server $MasterIP"
-            $tcpClient.ConnectAsync($MasterIP, 443).wait($ConnectTimeout*1000)
-            if ($tcpClient.Connected) {
+        $retryString="${retryCount}/${MaxRetryCount}"
+        try
+        {
+            $tcpClient = New-Object Net.Sockets.TcpClient
+            $tcpClient.SendTimeout = $ConnectTimeout*1000
+            $tcpClient.ReceiveTimeout  = $ConnectTimeout*1000
+
+            Write-Log "Retry ${retryString}: Trying to connect to API server $MasterIP"
+            $tcpClient.Connect($MasterIP, 443)
+            if ($tcpClient.Connected)
+            {
                 $tcpClient.Close()
-                Write-Log "Retry $retryCount : Connected to API server successfully"
+                Write-Log "Retry ${retryString}: Connected to API server successfully"
                 return
             }
             $tcpClient.Close()
+        } catch [System.AggregateException] {
+            Write-Log "Retry ${retryString}: Failed to connect to API server $MasterIP. AggregateException: " + $_.Exception.ToString()
         } catch {
-            Write-Log "Retry $retryCount : Failed to connect to API server $MasterIP. Error: $_"
+            Write-Log "Retry ${retryString}: Failed to connect to API server $MasterIP. Error: $_"
         }
+
         $retryCount++
-        Write-Log "Retry $retryCount : Sleep $RetryInterval and then retry to connect to API server"
+        Write-Log "Retry ${retryString}: Sleep $RetryInterval and then retry to connect to API server"
         Sleep $RetryInterval
     } while ($retryCount -lt $MaxRetryCount)
 

@@ -23,6 +23,7 @@ package components
 }
 
 #WindowsVersion: {
+	comment?:                string
 	k8sVersion?:             string
 	renovateTag?:            string
 	latestVersion:           string
@@ -33,6 +34,7 @@ package components
 #Images: [...#ContainerImage]
 #GPUImages: [...#GPUContainerImage]
 #Packages: [...#Package]
+#OCIArtifacts: [...#OCIArtifact]
 #VersionV2: {
 	k8sVersion?:             string
 	renovateTag?:            string
@@ -49,7 +51,6 @@ package components
 
 #UbuntuOSDistro: {
 	current?: #ReleaseDownloadURI
-	r1804?:   #ReleaseDownloadURI
 	r2004?:   #ReleaseDownloadURI
 	r2204?:   #ReleaseDownloadURI
 	r2404?:   #ReleaseDownloadURI
@@ -73,15 +74,17 @@ package components
 	ws2019?: #ReleaseDownloadURI
 	ws2022?: #ReleaseDownloadURI
 	ws23h2?: #ReleaseDownloadURI
+	ws2025?: #ReleaseDownloadURI
 }
 
 #DownloadURIs: {
-	default?:      #DefaultOSDistro
-	ubuntu?:       #UbuntuOSDistro
-	mariner?:      #MarinerOSDistro
-	marinerkata?:  #MarinerOSDistro
-	azurelinux?:   #AzureLinuxOSDistro
-	windows?:      #WindowsOsDistro
+	default?:          #DefaultOSDistro
+	ubuntu?:           #UbuntuOSDistro
+	mariner?:          #MarinerOSDistro
+	marinerkata?:      #MarinerOSDistro
+	azurelinux?:       #AzureLinuxOSDistro
+	azurelinuxkata?:   #AzureLinuxOSDistro
+	windows?:          #WindowsOsDistro
 }
 
 #Package: {
@@ -91,10 +94,18 @@ package components
 	downloadURIs:      #DownloadURIs
 }
 
+#OCIArtifact: {
+	name: string
+	registry: string
+	windowsDownloadLocation?: string
+	windowsVersions: [...#WindowsVersion]
+}
+
 #Components: {
 	ContainerImages: #Images
 	Packages:        #Packages
 	GPUContainerImages?: #GPUImages
+	OCIArtifacts?: #OCIArtifacts
 }
 
 #Components

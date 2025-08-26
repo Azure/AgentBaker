@@ -25,15 +25,21 @@ parameters:
     default: True
   - name: buildVmSize
     type: string
-    default: Standard_D4s_v3
     displayName: VM SKU to build the VHD with. Has a sensible default
   - name: hyperVGeneration
     type: string
     displayName: V1 or V2.
+  - name: architecture
+    type: string
+    displayName: CPU Architecture - X86_64 or ARM64
   - name: skipExtensionCheck
     displayName: Skip Extension Check
     type: boolean
     default: False
+  - name: installOpenSshServer
+    displayName: Install Open SSH Server
+    type: boolean
+    default: True
   - name: windowsBaseImageUrl
     displayName: Windows Base Image URL Override
     type: string
@@ -43,42 +49,64 @@ parameters:
   - name: windowsCoreImageUrl
     displayName: Windows core base container image URL Override
     type: string
+  - name: windowsContainerImageJsonUrl
+    displayName: Windows container image JSON URL Override
+    type: string
+    default: ""
+  - name: overrideBranch
+    type: string
+    default: master
+  - name: useOverrides
+    displayName: Use component overrides
+    type: boolean
+  - name: csePackageDir
+    type: string
+    displayName: Path to the CSE package to use for the build.
+  - name: cseFileName
+    type: string
+    displayName: CSE package filename.
 
 stages:
   - stage: build_${{ parameters.stageName }}
     # Put the artifact name first so it doesn't get truncated as much in ADO
     displayName: Build (${{ parameters.artifactName }})
     condition: and(succeeded(), eq('${{ parameters.build }}', True))
-    dependsOn: [ ]
+    dependsOn: Package
     jobs:
       - job: build_${{ parameters.stageName }}
-        dependsOn: []
+        dependsOn: [ ]
         timeoutInMinutes: 180
         steps:
-          - bash: |
-              echo '##vso[task.setvariable variable=VHD_DEBUG]${{ parameters.vhddebug }}'
-              echo '##vso[task.setvariable variable=DRY_RUN]${{ parameters.dryrun }}'
-              echo '##vso[task.setvariable variable=HYPERV_GENERATION]${{ parameters.hyperVGeneration }}'
-              echo '##vso[task.setvariable variable=AZURE_VM_SIZE]${{ parameters.buildVmSize }}'
-              echo '##vso[task.setvariable variable=WINDOWS_SKU]${{ parameters.windowsSku }}'
-              echo '##vso[task.setvariable variable=SKIP_EXTENSION_CHECK]${{ parameters.skipExtensionCheck }}'
-              echo '##vso[task.setvariable variable=WINDOWS_BASE_IMAGE_URL]${{ parameters.windowsBaseImageUrl }}'
-              echo '##vso[task.setvariable variable=WINDOWS_NANO_IMAGE_URL]${{ parameters.windowsNanoImageUrl }}'
-              echo '##vso[task.setvariable variable=WINDOWS_CORE_IMAGE_URL]${{ parameters.windowsCoreImageUrl }}'
-              echo '##vso[task.setvariable variable=WINDOWS_PRIVATE_PACKAGES_URL]$(PRIVATE_PACKAGES_URL)'
-            displayName: Setup Build Variables
           - template: ./.builder-release-template-windows.yaml
             parameters:
               artifactName: ${{ parameters.artifactName }}
+              windowsSku: ${{ parameters.windowsSku }}
+              hyperVGeneration: ${{ parameters.hyperVGeneration }}
+              architecture: ${{ parameters.architecture }}
+              buildVmSize: ${{ parameters.buildVmSize }}
+              build: ${{ parameters.build }}
+              vhddebug: ${{ parameters.vhddebug }}
+              dryrun: ${{ parameters.dryrun }}
+              installOpenSshServer: ${{ parameters.installOpenSshServer }}
+              skipExtensionCheck: ${{ parameters.skipExtensionCheck }}
+              windowsBaseImageUrl: ${{ parameters.windowsBaseImageUrl }}
+              windowsNanoImageUrl: ${{ parameters.windowsNanoImageUrl }}
+              windowsCoreImageUrl: ${{ parameters.windowsCoreImageUrl }}
+              windowsContainerImageJsonUrl: ${{ parameters.windowsContainerImageJsonUrl }}
+              overrideBranch: ${{ parameters.overrideBranch }}
+              useOverrides: ${{ parameters.useOverrides }}
+              csePackageDir: ${{ parameters.csePackageDir }}
+              csePackageFileName: ${{ parameters.cseFileName }}
 
   - stage: e2e_${{ parameters.stageName }}
     displayName: E2E (${{ parameters.artifactName }})
     dependsOn: build_${{ parameters.stageName }}
-    condition: and(succeeded(), eq('${{ parameters.build }}', True))
+    condition: and(succeeded(), eq('${{ parameters.build }}', True), ne(variables.SKIP_E2E_TESTS, 'true'))
     variables:
       TAGS_TO_RUN: imageName=${{ parameters.imageName }}
     jobs:
       - template: ./e2e-template.yaml
         parameters:
           name: For image ${{ parameters.imageName }}
+          IgnoreScenariosWithMissingVhd: false
 

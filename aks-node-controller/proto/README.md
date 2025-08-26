@@ -1,11 +1,11 @@
-This readme is to describe the new public data contract `AKSNodeConfig` between a bootstrap requester (client) and a Linux node to be bootstrapped and join an AKS cluster. The contract is defined in a set of proto files with [protobuf](https://protobuf.dev/). And we convert/compile all the proto files into specific programming languages. Currently we only convert to .go files for Go. We can convert to other languages if needed in the future. A simple way to compile the files to Go is to run this command at `AgentBaker` root directory.
+This readme is to describe the new public data contract `AKSNodeConfig` between a bootstrap requester (client) and a Linux node to be bootstrapped and join an AKS cluster. The contract is defined in a set of proto files with [protobuf](https://protobuf.dev/). And we convert/compile all the proto files into specific programming languages. Currently we only convert to .go files for Go. We can convert to other languages if needed in the future. A simple way to compile the files to Go is to run this command at `AgentBaker/aks-node-controller` directory.
 ```
-make compile-proto-files
+make proto-generate
 ``` 
-
+Note: This command uses Docker to compile the proto files so you need to have Docker running otherwise you will see corresponing error message.
 
 # Public data contract `AKSNodeConfig`
-This table is describing the all the AKSNodeConfig Fields converted to .go files. The naming convention is a bit different in the .proto files. For example, in _config.proto_ file, you will see `api_server_config`, but in _config.pb.go_, it's automatically renamed to `ApiServerConfig`. In the following table, we will use the names defined in the .go files.
+This table is describing the all the `AKSNodeConfig` Fields converted to .go files. The naming convention is a bit different in the .proto files. For example, in _config.proto_ file, you will see `api_server_config`, but in _config.pb.go_, it's automatically renamed to `ApiServerConfig`. In the following table, we will use the names defined in the .go files.
 
 | AKSNodeConfig Fields | Types | Descriptions                                                                                                                                                                                                                                                             | OLD CSE env variables mapping |
 |------------|------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------|
@@ -16,12 +16,12 @@ This table is describing the all the AKSNodeConfig Fields converted to .go files
 | `ClusterConfig` | `ClusterConfig` | Various Kubernetes cluster level configuration                                                                                                                                                                                                                           | `RESOURCE_GROUP`, `LOCATION`, `VM_TYPE`, `PRIMARY_AVAILABILITY_SET`, `PRIMARY_SCALE_SET`, `USE_INSTANCE_METADATA` |
 | -`ClusterNetworkConfig` | `ClusterNetworkConfig` | Cluster network config. We assumed network mode is always "transparent" now so it's removed from the contract.                                                                                                                                                           | `VIRTUAL_NETWORK`, `VIRTUAL_NETWORK_RESOURCE_GROUP`, `SUBNET`, `NETWORK_SECURITY_GROUP`, `ROUTE_TABLE` |
 | -`LoadBalancerConfig` | `LoadBalancerConfig` | Load balancer config                                                                                                                                                                                                                                                     | `LOAD_BALANCER_SKU`, `EXCLUDE_MASTER_FROM_STANDARD_LB`, `MAXIMUM_LOADBALANCER_RULE_COUNT`, `LOAD_BALANCER_DISABLE_OUTBOUND_SNAT` |
-| `BootstrappingConfig` | `BootstrappingConfig` | Bootstrap configuration                                                                                                                                                                                                                                                  | `ENABLE_TLS_BOOTSTRAPPING`, `ENABLE_SECURE_TLS_BOOTSTRAPPING`, `CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_SERVER_APP_ID` |
+| `BootstrappingConfig` | `BootstrappingConfig` | Bootstrap configuration                                                                                                                                                                                                                                                  | `ENABLE_SECURE_TLS_BOOTSTRAPPING`, `CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_SERVER_APP_ID` |
 | `AuthConfig` | `AuthConfig` | Authentication configuration                                                                                                                                                                                                                                             | `TENANT_ID`, `SUBSCRIPTION_ID`, `SERVICE_PRINCIPAL_CLIENT_ID`, `SERVICE_PRINCIPAL_FILE_CONTENT`, `USER_ASSIGNED_IDENTITY_ID`, `USE_MANAGED_IDENTITY_EXTENSION` |
 | `RuncConfig` | `RuncConfig` | The CLI tool runc configuration                                                                                                                                                                                                                                          | `RUNC_VERSION`, `RUNC_PACKAGE_URL` |
 | `ContainerdConfig` | `ContainerdConfig` | Containerd configuration                                                                                                                                                                                                                                                 | `CONTAINERD_DOWNLOAD_URL_BASE`, `CONTAINERD_VERSION`, `CONTAINERD_PACKAGE_URL`, `CONTAINERD_CONFIG_CONTENT`,  `CONTAINERD_CONFIG_NO_GPU_CONTENT` |
 | `TeleportConfig` | `TeleportConfig` | Teleport configuration                                                                                                                                                                                                                                                   | `TELEPORT_ENABLED`, `TELEPORTD_PLUGIN_DOWNLOAD_URL` |
-| `KubeletConfig` | `KubeletConfig` | Kubelet configuration                                                                                                                                                                                                                                                    | `KUBELET_FLAGS`, `KUBELET_NODE_LABELS`, `HAS_KUBELET_DISK_TYPE`, `KUBELET_CONFIG_FILE_ENABLED`, `KUBELET_CONFIG_FILE_CONTENT`, `KUBELET_CLIENT_CONTENT`, `KUBELET_CLIENT_CERT_CONTENT` |
+| `KubeletConfig` | `KubeletConfig` | Kubelet configuration. Note that `KubeletConfig.KubeletConfigFileConfig` contains the complete contents that should be stored in the Kubelet config file /etc/default/kubeletconfig.json. The flags in `KubeletConfig.KubeletFlags` should be the same as KubeletConfig.KubeletConfigFileConfig but with different format. For example, ```KubeletFlags: map[string]string{"--address": "0.0.0.0", "--pod-manifest-path": "/etc/kubernetes/manifests"}```                                                                                                                                                                                            | `KUBELET_FLAGS`, `KUBELET_NODE_LABELS`, `HAS_KUBELET_DISK_TYPE`, `KUBELET_CONFIG_FILE_ENABLED`, `KUBELET_CONFIG_FILE_CONTENT`, `KUBELET_CLIENT_CONTENT`, `KUBELET_CLIENT_CERT_CONTENT`, `ENABLE_KUBELET_SERVING_CERTIFICATE_ROTATION` |
 | `CustomSearchDomainConfig` | `CustomSearchDomainConfig` | Custom search domain configuration                                                                                                                                                                                                                                       | `CUSTOM_SEARCH_DOMAIN_NAME`, `CUSTOM_SEARCH_REALM_USER`, `CUSTOM_SEARCH_REALM_PASSWORD` |
 | `CustomLinuxOSConfig` | `CustomLinuxOSConfig` | Custom Linux OS configurations including SwapFile, SysCtl configs, etc.                                                                                                                                                                                                  | `SYSCTL_CONTENT`, `CONTAINERD_ULIMITS`, `SHOULD_CONFIG_SWAP_FILE`, `SWAP_FILE_SIZE_MB`, `THP_ENABLED`, `THP_DEFRAG`, `SHOULD_CONFIG_TRANSPARENT_HUGE_PAGE`, `SHOULD_CONFIG_CONTAINERD_ULIMITS` |
 | `HTTPProxyConfig` | `HTTPProxyConfig` | HTTP/HTTPS proxy configuration for the node                                                                                                                                                                                                                              | `SHOULD_CONFIGURE_HTTP_PROXY`, `SHOULD_CONFIGURE_HTTP_PROXY_CA`, `HTTP_PROXY_TRUSTED_CA`, `HTTP_PROXY_URLS`, `HTTPS_PROXY_URLS`, `NO_PROXY_URLS`, `PROXY_VARS` |
@@ -39,7 +39,7 @@ This table is describing the all the AKSNodeConfig Fields converted to .go files
 | `EnableHostsConfigAgent` | `bool` | Specifies whether the hosts config agent is enabled or disabled on the VM node                                                                                                                                                                                           | `ENABLE_HOSTS_CONFIG_AGENT` |
 | `CustomCaCerts` | `[]string` | Custom CA certificates to be added to the system trust store                                                                                                                                                                                                             | `SHOULD_CONFIGURE_CUSTOM_CA_TRUST`, `CUSTOM_CA_TRUST_COUNT`, `CUSTOM_CA_CERT_{{$i}}` |
 | `ProvisionOutput` | `string` | A local file path where cluster provision cse output should be stored                                                                                                                                                                                                    | `PROVISION_OUTPUT` |
-| `WorkloadRuntime` | `WorkloadRuntime` | Workload runtime, e.g., either "OCIContainer" or "WasmWasi", currently.                                                                                                                                                                                                  | `IS_KRUSTLET` |
+| `WorkloadRuntime` | `WorkloadRuntime` | Workload runtime, only "OCIContainer" currently.                                                                                                                                                                                                  | |
 | `Ipv6DualStackEnabled` | `bool` | Specifies whether IPv6 dual stack is enabled or disabled on the VM node                                                                                                                                                                                                  | `IPV6_DUAL_STACK_ENABLED` |
 | `OutboundCommand` | `bool` | Specifies whether IPv6 dual stack is enabled or disabled on the VM node                                                                                                                                                                                                  | `OUTBOUND_COMMAND` |
 | `AzurePrivateRegistryServer` | `string` | Azure private registry server URI                                                                                                                                                                                                                                        | `AZURE_PRIVATE_REGISTRY_SERVER` |
@@ -118,31 +118,43 @@ Nevertheless, it’s not a big harm to use `optional` even though it’s not nee
 ## Detailed steps with example
 Example: IMDSRestrictionConfig [Example PR](https://github.com/Azure/AgentBaker/pull/5154)
 1. Create a proto file with name `imdsrestrictionconfig.proto` with the following contents.
-```
-syntax = "proto3";
-package aksnodeconfig.v1;
+    ```
+      syntax = "proto3";
+      package aksnodeconfig.v1;
 
-message IMDSRestrictionConfig {
-  // Enable IMDS restriction for the node.
-  bool enable_imds_restriction = 1;
+      message IMDSRestrictionConfig {
+        // Enable IMDS restriction for the node.
+        bool enable_imds_restriction = 1;
 
-  // Insert IMDS restriction rule to mangle table.
-  bool insert_imds_restriction_rule_to_mangle_table = 2;
-}
-```
+        // Insert IMDS restriction rule to mangle table.
+        bool insert_imds_restriction_rule_to_mangle_table = 2;
+      }
+    ```
 2. In the root level .proto file `config.proto`, import the newly created file with `import "pkg/proto/aksnodeconfig/v1/imdsrestrictionconfig.proto";`. Add `IMDSRestrictionConfig` in the message body such as:
-```
-  // IMDS restriction configuration
-  IMDSRestrictionConfig imds_restriction_config = 39;
-```
+    ```
+      // IMDS restriction configuration
+      IMDSRestrictionConfig imds_restriction_config = 39;
+    ```
 
 3. Once you finished step 2, `proto3` actually created some getters that we can use. For example, in the `imdsrestrictionconfig.pb.go` that was automatically created, you can find `GetEnableImdsRestriction` and `GetInsertImdsRestrictionRuleToMangleTable`. Therefore, in `aks-node-controller/parser/parser.go`, which is a Go func that will be used to generate the bootstrap command, you can add the following lines: [parser.go](https://github.com/Azure/AgentBaker/blob/dev/aks-node-controller/parser/parser.go#L165-L166)
 
-```
-"ENABLE_IMDS_RESTRICTION":                        fmt.Sprintf("%v", config.GetImdsRestrictionConfig().GetEnableImdsRestriction()),
-		"INSERT_IMDS_RESTRICTION_RULE_TO_MANGLE_TABLE":   fmt.Sprintf("%v", config.GetImdsRestrictionConfig().GetInsertImdsRestrictionRuleToMangleTable()),
-```
+    ```
+    "ENABLE_IMDS_RESTRICTION":                        fmt.Sprintf("%v", config.GetImdsRestrictionConfig().GetEnableImdsRestriction()),
+        "INSERT_IMDS_RESTRICTION_RULE_TO_MANGLE_TABLE":   fmt.Sprintf("%v", config.GetImdsRestrictionConfig().GetInsertImdsRestrictionRuleToMangleTable()),
+    ```
 
-If the client (such as AKS-RP) which provides this AKSNodeConfig, doesn't specify a value to `EnableImdsRestriction`, it will be defaulted to `false`. You can also see this logic in the `GetEnableImdsRestriction` in `imdsrestrictionconfig.pb.go`. 
+    **Default value behavior:**
+If the client (such as AKS-RP) doesn't specify a value for `EnableImdsRestriction`, it will default to `false`. You can see this defaulting logic in the generated `GetEnableImdsRestriction` method in `imdsrestrictionconfig.pb.go`. 
 
-This should fit most of the use cases. However, for some reasons if you want to explicitly know if the client really sets `false` (because you can't tell this variable is really set to `false` or client doesn't set it and it was set by defaulting), then you will need to set it with a label `optional` explicity presence. Now you will need to read through an earlier section _When to use the label `optional` specifically in `proto3`?_
+    This should fit most use cases. However, if you need to explicitly distinguish between a client setting `false` versus not setting the value at all (which defaults to `false`), you'll need to use the `optional` label for explicit presence. In that case, refer to the earlier section _When to use the label `optional` specifically in `proto3`?_
+
+4. Add comprehensive tests to cover your changes.
+   
+   **Testing with AKSNodeConfig approach:**
+   - Add test cases using the `AKSNodeConfig` approach, such as `Test_AzureLinuxV2_ARM64_Scriptless` in `e2e/scenario_test.go`
+   - The key difference between the legacy and new approaches is the configuration interface:
+     - **Legacy approach:** Uses `datamodel.NodeBootstrappingConfiguration`
+     - **New approach:** Uses `AKSNodeConfig`
+   - In e2e tests (`scenario_test.go`), this means:
+     - **Legacy:** Use `BootstrapConfigMutator` to set configurations
+     - **New:** Use `AKSNodeConfigMutator` to set configurations

@@ -11,13 +11,18 @@ required_env_vars=(
   "SIG_GALLERY_NAME"
   "OS_VERSION"
   "SIG_IMAGE_NAME"
-  "UMSI_RESOURCE_ID"
-  "UMSI_PRINCIPAL_ID"
   "AZURE_MSI_RESOURCE_STRING"
-  "UMSI_CLIENT_ID"
   "BUILD_RUN_NUMBER"
   "VHD_ARTIFACT_NAME"
   "DRY_RUN"
+  "ACCOUNT_NAME"
+  "UMSI_RESOURCE_ID"
+  "UMSI_PRINCIPAL_ID"
+  "UMSI_CLIENT_ID"
+  "ACCOUNT_NAME_TME"
+  "UMSI_RESOURCE_ID_TME"
+  "UMSI_PRINCIPAL_ID_TME"
+  "UMSI_CLIENT_ID_TME"
 )
 
 for v in "${required_env_vars[@]}"; do
@@ -28,6 +33,12 @@ for v in "${required_env_vars[@]}"; do
 done
 
 echo "Present working directory: ${PWD}"
+
+# Set GALLERY_SUBSCRIPTION_ID to default to SUBSCRIPTION_ID if not set
+if [ -z "${GALLERY_SUBSCRIPTION_ID}" ]; then
+  GALLERY_SUBSCRIPTION_ID="${SUBSCRIPTION_ID}"
+fi
+echo "Using GALLERY_SUBSCRIPTION_ID: ${GALLERY_SUBSCRIPTION_ID}"
 
 retrycmd_if_failure() {
   RETRIES=${1}; WAIT_SLEEP=${2}; CMD=${3}; TARGET=$(basename ${3} .sh)
@@ -58,6 +69,7 @@ SIG_VERSION=$(az sig image-version show \
   -i ${SIG_IMAGE_NAME} \
   -r ${SIG_GALLERY_NAME} \
   -g ${AZURE_RESOURCE_GROUP_NAME} \
+  --subscription ${GALLERY_SUBSCRIPTION_ID} \
   --query id --output tsv)
 
 if [ -z "${SIG_VERSION}" ]; then
@@ -98,7 +110,7 @@ for SCRIPT in "${!SCRIPT_PIDS[@]}"; do
   echo -e "${SCRIPT} exited with code ${EXIT_CODE}"
 done
 
-if [[ "${STEP_FAILED}" == true ]]; then
+if [ "${STEP_FAILED}" = "true" ]; then
   echo -e "\nOne or more scripts failed. Exiting with exit code 1.\n"
   exit 1
 fi

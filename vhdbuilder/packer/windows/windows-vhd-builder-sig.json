@@ -4,6 +4,8 @@
         "build_commit": "{{env `GIT_VERSION`}}",
         "build_id": "{{env `BUILD_ID`}}",
         "build_number": "{{env `BUILD_NUMBER`}}",
+        "build_definition_name": "{{env `BUILD_DEFINITION_NAME`}}",
+        "img_sku": "{{env `WINDOWS_SKU`}}",
         "build_repo": "{{env `GIT_REPO`}}",
         "windows_sku": "{{env `WINDOWS_SKU`}}",
         "subscription_id": "{{env `AZURE_SUBSCRIPTION_ID`}}",
@@ -18,7 +20,9 @@
         "vnet_name": "{{env `VNET_NAME`}}",
         "subnet_name": "{{env `SUBNET_NAME`}}",
         "build_date": "{{env `BUILD_DATE`}}",
-        "vnet_resource_group_name": "{{env `VNET_RESOURCE_GROUP_NAME`}}"
+        "branch": "{{env `BRANCH`}}",
+        "vnet_resource_group_name": "{{env `VNET_RESOURCE_GROUP_NAME`}}", 
+        "windows_cse_package_uri": "{{env `WINDOWS_CSE_PACKAGE_URI`}}"
     },
     "builders": [
         {
@@ -37,7 +41,6 @@
               "subscription": "{{user `windows_sigmode_source_subscription_id`}}",
               "resource_group": "{{user `windows_sigmode_source_resource_group_name`}}",
               "gallery_name": "{{user `windows_sigmode_source_gallery_name`}}",
-
               "image_name": "{{user `windows_sigmode_source_image_name`}}",
               "image_version": "{{user `windows_sigmode_source_image_version`}}"
             },
@@ -63,7 +66,12 @@
                 "SkipASMAzSecPack": "True",
                 "SkipASMAV": "True",
                 "SkipCIExtensionAudit": "True",
-                "SkipCIEmergency": "True"
+                "SkipCIEmergency": "True",
+                "buildDefinitionName": "{{user `build_definition_name`}}",
+                "buildNumber": "{{user `build_number`}}",
+                "buildId": "{{user `build_id`}}",
+                "image_sku": "{{user `img_sku`}}",
+                "branch": "{{user `branch`}}"
             },
             "virtual_network_resource_group_name": "{{user `vnet_resource_group_name`}}",
             "virtual_network_name": "{{user `vnet_name`}}",
@@ -76,12 +84,20 @@
             "type": "file",
             "direction": "upload",
             "sources": [
-                "parts/linux/cloud-init/artifacts/components.json",
+                "parts/common/components.json",
                 "vhdbuilder/packer/windows/windows-vhd-configuration.ps1",
                 "vhdbuilder/packer/windows/windows_settings.json",
                 "vhdbuilder/packer/windows/components_json_helpers.ps1"
             ],
             "destination": "c:/k/"
+        },       
+        {
+        "type": "file",
+        "direction": "upload",
+        "sources": [
+            "{{user `windows_cse_package_uri`}}"
+        ],
+        "destination": "c:/akse-cache/"
         },
         {
             "elevated_user": "packer",
@@ -89,7 +105,8 @@
             "environment_vars": [
                 "ProvisioningPhase=1",
                 "WindowsSKU={{user `windows_sku`}}",
-                "CustomizedDiskSize={{user `os_disk_size_gb`}}"
+                "CustomizedDiskSize={{user `os_disk_size_gb`}}",
+                "INSTALL_OPEN_SSH_SERVER={{ user `INSTALL_OPEN_SSH_SERVER` }}"
             ],
             "type": "powershell",
             "scripts": [
@@ -109,7 +126,8 @@
                 "CustomizedDiskSize={{user `os_disk_size_gb`}}",
                 "WindowsNanoServerImageURL={{user `nano_image_url`}}",
                 "WindowsServerCoreImageURL={{user `core_image_url`}}",
-                "WindowsPrivatePackagesURL={{user `windows_private_packages_url`}}"
+                "WindowsPrivatePackagesURL={{user `windows_private_packages_url`}}",
+                "INSTALL_OPEN_SSH_SERVER={{ user `INSTALL_OPEN_SSH_SERVER` }}"
             ],
             "type": "powershell",
             "scripts": [
@@ -126,7 +144,8 @@
             "environment_vars": [
                 "ProvisioningPhase=3",
                 "WindowsSKU={{user `windows_sku`}}",
-                "SKIP_EXTENSION_CHECK={{ user `SKIP_EXTENSION_CHECK` }}"
+                "SKIP_EXTENSION_CHECK={{ user `SKIP_EXTENSION_CHECK` }}",
+                "INSTALL_OPEN_SSH_SERVER={{ user `INSTALL_OPEN_SSH_SERVER` }}"
             ],
             "type": "powershell",
             "scripts": [

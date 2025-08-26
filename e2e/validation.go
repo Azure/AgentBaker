@@ -4,33 +4,52 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"strings"
+	"testing"
+	"time"
 
-	"github.com/Azure/agentbaker/e2e/config"
+	"github.com/Azure/agentbaker/e2e/toolkit"
+	"github.com/Azure/agentbaker/pkg/agent"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func ValidatePodRunning(ctx context.Context, s *Scenario) {
-	testPod := func() *corev1.Pod {
-		if s.VHD.OS == config.OSWindows {
-			return podHTTPServerWindows(s)
+func ValidatePodRunning(ctx context.Context, s *Scenario, pod *corev1.Pod) {
+	kube := s.Runtime.Cluster.Kube
+	truncatePodName(s.T, pod)
+	start := time.Now()
+
+	s.T.Logf("creating pod %q", pod.Name)
+	_, err := kube.Typed.CoreV1().Pods(pod.Namespace).Create(ctx, pod, v1.CreateOptions{})
+	require.NoErrorf(s.T, err, "failed to create pod %q", pod.Name)
+	s.T.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+		defer cancel()
+		err := kube.Typed.CoreV1().Pods(pod.Namespace).Delete(ctx, pod.Name, v1.DeleteOptions{GracePeriodSeconds: to.Ptr(int64(0))})
+		if err != nil {
+			s.T.Logf("couldn't not delete pod %s: %v", pod.Name, err)
 		}
-		return podHTTPServerLinux(s)
-	}()
-	ensurePod(ctx, s, testPod)
-	s.T.Logf("node health validation: test pod %q is running on node %q", testPod.Name, s.Runtime.KubeNodeName)
+		s.T.Logf("deleted pod %q", pod.Name)
+	})
+
+	_, err = kube.WaitUntilPodRunning(ctx, pod.Namespace, "", "metadata.name="+pod.Name)
+	require.NoErrorf(s.T, err, "failed to wait for pod %q to be in running state", pod.Name)
+
+	timeForReady := time.Since(start)
+	toolkit.LogDuration(ctx, timeForReady, time.Minute, fmt.Sprintf("Time for pod %q to get ready was %s", pod.Name, timeForReady))
+	s.T.Logf("node health validation: test pod %q is running on node %q", pod.Name, s.Runtime.KubeNodeName)
 }
 
-func ValidateWASM(ctx context.Context, s *Scenario, nodeName string) {
-	s.T.Logf("wasm scenario: running wasm validation on %s...", nodeName)
-	spinClassName := fmt.Sprintf("wasmtime-%s", wasmHandlerSpin)
-	err := createRuntimeClass(ctx, s.Runtime.Cluster.Kube, spinClassName, wasmHandlerSpin)
-	require.NoError(s.T, err)
-	err = ensureWasmRuntimeClasses(ctx, s.Runtime.Cluster.Kube)
-	require.NoError(s.T, err)
-	spinPodManifest := podWASMSpin(s)
-	ensurePod(ctx, s, spinPodManifest)
-	require.NoError(s.T, err, "unable to ensure wasm pod on node %q", nodeName)
+func truncatePodName(t *testing.T, pod *corev1.Pod) {
+	name := pod.Name
+	if len(pod.Name) < 63 {
+		return
+	}
+	pod.Name = pod.Name[:63]
+	pod.Name = strings.TrimRight(pod.Name, "-")
+	t.Logf("truncated pod name %q to %q", name, pod.Name)
 }
 
 func ValidateCommonLinux(ctx context.Context, s *Scenario) {
@@ -38,10 +57,17 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 	stdout := execResult.stdout.String()
 	require.NotContains(s.T, stdout, "--dynamic-config-dir", "kubelet flag '--dynamic-config-dir' should not be present in /etc/default/kubelet\nContents:\n%s")
 
-	// the instructions belows expects the SSH key to be uploaded to the user pool VM.
-	// which happens as a side-effect of execCommandOnVMForScenario, it's ugly but works.
-	// maybe we should use a single ssh key per cluster, but need to be careful with parallel test runs.
-	logSSHInstructions(s)
+	kubeletLogs := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo journalctl -u kubelet", 0, "could not retrieve kubelet logs with journalctl").stdout.String()
+	require.True(
+		s.T,
+		!strings.Contains(kubeletLogs, "unable to validate bootstrap credentials") && strings.Contains(kubeletLogs, "kubelet bootstrap token credential is valid"),
+		"expected to have successfully validated bootstrap token credential before kubelet startup, but did not",
+	)
+
+	ValidateSystemdWatchdogForKubernetes132Plus(ctx, s)
+
+	// ensure aks-log-collector hasn't entered a failed state
+	ValidateSystemdUnitIsNotFailed(ctx, s, "aks-log-collector")
 
 	ValidateSysctlConfig(ctx, s, map[string]string{
 		"net.ipv4.tcp_retries2":             "8",
@@ -62,7 +88,7 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 		//"cloud-config.txt", // file with UserData
 	})
 
-	execResult = execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo curl http://168.63.129.16:32526/vmSettings", 0, "curl to wireserver failed")
+	_ = execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo curl http://168.63.129.16:32526/vmSettings", 0, "curl to wireserver failed")
 
 	execResult = execOnVMForScenarioOnUnprivilegedPod(ctx, s, "curl https://168.63.129.16/machine/?comp=goalstate -H 'x-ms-version: 2015-04-05' -s --connect-timeout 4")
 	require.Equal(s.T, "28", execResult.exitCode, "curl to wireserver should fail")
@@ -70,11 +96,46 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 	execResult = execOnVMForScenarioOnUnprivilegedPod(ctx, s, "curl http://168.63.129.16:32526/vmSettings --connect-timeout 4")
 	require.Equal(s.T, "28", execResult.exitCode, "curl to wireserver port 32526 shouldn't succeed")
 
+	// base NBC templates define a mock service principal profile that we can still use to test
+	// the correct bootstrapping logic: https://github.com/Azure/AgentBaker/blob/master/e2e/node_config.go#L438-L441
+	if hasServicePrincipalData(s) {
+		_ = execScriptOnVMForScenarioValidateExitCode(
+			ctx,
+			s,
+			`sudo test -n "$(sudo cat /etc/kubernetes/azure.json | jq -r '.aadClientId')" && sudo test -n "$(sudo cat /etc/kubernetes/azure.json | jq -r '.aadClientSecret')"`,
+			0,
+			"AAD client ID and secret should be present in /etc/kubernetes/azure.json")
+	}
+
 	ValidateLeakedSecrets(ctx, s)
 
 	// kubeletNodeIPValidator cannot be run on older VHDs with kubelet < 1.29
-	if s.VHD.Version != config.VHDUbuntu2204Gen2ContainerdPrivateKubePkg.Version {
+	if !s.VHD.UnsupportedKubeletNodeIP {
 		ValidateKubeletNodeIP(ctx, s)
+	}
+
+	// TODO: Add support for AKSNodeConfig
+	if s.Runtime.NBC != nil && s.Runtime.NBC.AgentPoolProfile.LocalDNSProfile != nil {
+		ValidateLocalDNSService(ctx, s)
+		ValidateLocalDNSResolution(ctx, s)
+	}
+}
+
+func ValidateSystemdWatchdogForKubernetes132Plus(ctx context.Context, s *Scenario) {
+	var k8sVersion string
+	if s.Runtime.NBC != nil && s.Runtime.NBC.ContainerService != nil &&
+		s.Runtime.NBC.ContainerService.Properties != nil &&
+		s.Runtime.NBC.ContainerService.Properties.OrchestratorProfile != nil {
+		k8sVersion = s.Runtime.NBC.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion
+	} else if s.Runtime.AKSNodeConfig != nil {
+		k8sVersion = s.Runtime.AKSNodeConfig.GetKubernetesVersion()
+	}
+
+	if k8sVersion != "" && agent.IsKubernetesVersionGe(k8sVersion, "1.32.0") {
+		// Validate systemd watchdog is enabled and configured for kubelet
+		ValidateSystemdUnitIsRunning(ctx, s, "kubelet.service")
+		ValidateFileHasContent(ctx, s, "/etc/systemd/system/kubelet.service.d/10-watchdog.conf", "WatchdogSec=60s")
+		ValidateJournalctlOutput(ctx, s, "kubelet.service", "Starting systemd watchdog with interval")
 	}
 }
 
@@ -109,4 +170,32 @@ func ValidateLeakedSecrets(ctx context.Context, s *Scenario) {
 			}
 		}
 	}
+}
+
+func ValidateSSHServiceEnabled(ctx context.Context, s *Scenario) {
+	// Verify SSH service is active and running
+	ValidateSystemdUnitIsRunning(ctx, s, "ssh")
+
+	// Verify socket-based activation is disabled
+	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, "systemctl is-active ssh.socket", 3, "could not check ssh.socket status")
+	stdout := execResult.stdout.String()
+	require.Contains(s.T, stdout, "inactive", "ssh.socket should be inactive")
+
+	// Check that systemd recognizes SSH service should be active at boot
+	execResult = execScriptOnVMForScenarioValidateExitCode(ctx, s, "systemctl is-enabled ssh.service", 0, "could not check ssh.service status")
+	stdout = execResult.stdout.String()
+	require.Contains(s.T, stdout, "enabled", "ssh.service should be enabled at boot")
+}
+
+func hasServicePrincipalData(s *Scenario) bool {
+	if s.Runtime == nil {
+		return false
+	}
+	if s.Runtime.AKSNodeConfig != nil && s.Runtime.AKSNodeConfig.AuthConfig != nil {
+		return s.Runtime.AKSNodeConfig.AuthConfig.ServicePrincipalId != "" && s.Runtime.AKSNodeConfig.AuthConfig.ServicePrincipalSecret != ""
+	}
+	if s.Runtime.NBC != nil && s.Runtime.NBC.ContainerService != nil && s.Runtime.NBC.ContainerService.Properties != nil && s.Runtime.NBC.ContainerService.Properties.ServicePrincipalProfile != nil {
+		return s.Runtime.NBC.ContainerService.Properties.ServicePrincipalProfile.ClientID != "" && s.Runtime.NBC.ContainerService.Properties.ServicePrincipalProfile.Secret != ""
+	}
+	return false
 }

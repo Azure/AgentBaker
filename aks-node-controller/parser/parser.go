@@ -98,10 +98,9 @@ func getCSEEnv(config *aksnodeconfigv1.Configuration) map[string]string {
 		"TELEPORT_ENABLED":                               fmt.Sprintf("%v", config.GetTeleportConfig().GetStatus()),
 		"SHOULD_CONFIGURE_HTTP_PROXY":                    fmt.Sprintf("%v", getShouldConfigureHTTPProxy(config.GetHttpProxyConfig())),
 		"SHOULD_CONFIGURE_HTTP_PROXY_CA":                 fmt.Sprintf("%v", getShouldConfigureHTTPProxyCA(config.GetHttpProxyConfig())),
-		"HTTP_PROXY_TRUSTED_CA":                          config.GetHttpProxyConfig().GetProxyTrustedCa(),
+		"HTTP_PROXY_TRUSTED_CA":                          removeNewlines(config.GetHttpProxyConfig().GetProxyTrustedCa()),
 		"SHOULD_CONFIGURE_CUSTOM_CA_TRUST":               fmt.Sprintf("%v", getCustomCACertsStatus(config.GetCustomCaCerts())),
 		"CUSTOM_CA_TRUST_COUNT":                          fmt.Sprintf("%v", len(config.GetCustomCaCerts())),
-		"IS_KRUSTLET":                                    fmt.Sprintf("%v", getIsKrustlet(config.GetWorkloadRuntime())),
 		"GPU_NEEDS_FABRIC_MANAGER":                       fmt.Sprintf("%v", getGPUNeedsFabricManager(config.GetVmSize())),
 		"IPV6_DUAL_STACK_ENABLED":                        fmt.Sprintf("%v", config.GetIpv6DualStackEnabled()),
 		"OUTBOUND_COMMAND":                               config.GetOutboundCommand(),
@@ -128,9 +127,9 @@ func getCSEEnv(config *aksnodeconfigv1.Configuration) map[string]string {
 		"HTTPS_PROXY_URLS":                               config.GetHttpProxyConfig().GetHttpsProxy(),
 		"NO_PROXY_URLS":                                  getStringifiedStringArray(config.GetHttpProxyConfig().GetNoProxyEntries(), ","),
 		"PROXY_VARS":                                     getProxyVariables(config.GetHttpProxyConfig()),
-		"ENABLE_TLS_BOOTSTRAPPING":                       fmt.Sprintf("%v", getEnableTLSBootstrap(config.GetBootstrappingConfig())),
 		"ENABLE_SECURE_TLS_BOOTSTRAPPING":                fmt.Sprintf("%v", getEnableSecureTLSBootstrap(config.GetBootstrappingConfig())),
 		"CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_SERVER_APP_ID":  getCustomSecureTLSBootstrapAADServerAppID(config.GetBootstrappingConfig()),
+		"ENABLE_KUBELET_SERVING_CERTIFICATE_ROTATION":    fmt.Sprintf("%v", config.GetKubeletConfig().GetKubeletConfigFileConfig().GetServerTlsBootstrap()),
 		"DHCPV6_SERVICE_FILEPATH":                        getDHCPV6ServiceFilepath(),
 		"DHCPV6_CONFIG_FILEPATH":                         getDHCPV6ConfigFilepath(),
 		"THP_ENABLED":                                    config.GetCustomLinuxOsConfig().GetTransparentHugepageSupport(),
@@ -139,7 +138,7 @@ func getCSEEnv(config *aksnodeconfigv1.Configuration) map[string]string {
 		"KUBELET_CLIENT_CONTENT":                         config.GetKubeletConfig().GetKubeletClientKey(),
 		"KUBELET_CLIENT_CERT_CONTENT":                    config.GetKubeletConfig().GetKubeletClientCertContent(),
 		"KUBELET_CONFIG_FILE_ENABLED":                    fmt.Sprintf("%v", config.GetKubeletConfig().GetEnableKubeletConfigFile()),
-		"KUBELET_CONFIG_FILE_CONTENT":                    config.GetKubeletConfig().GetKubeletConfigFileContent(),
+		"KUBELET_CONFIG_FILE_CONTENT":                    getKubeletConfigFileContentBase64(config.GetKubeletConfig()),
 		"SWAP_FILE_SIZE_MB":                              fmt.Sprintf("%v", config.GetCustomLinuxOsConfig().GetSwapFileSize()),
 		"GPU_DRIVER_VERSION":                             getGpuDriverVersion(config.GetVmSize()),
 		"GPU_IMAGE_SHA":                                  getGpuImageSha(config.GetVmSize()),
@@ -152,7 +151,7 @@ func getCSEEnv(config *aksnodeconfigv1.Configuration) map[string]string {
 		"HAS_KUBELET_DISK_TYPE":                          fmt.Sprintf("%v", getHasKubeletDiskType(config.GetKubeletConfig())),
 		"NEEDS_CGROUPV2":                                 fmt.Sprintf("%v", config.GetNeedsCgroupv2()),
 		"TLS_BOOTSTRAP_TOKEN":                            getTLSBootstrapToken(config.GetBootstrappingConfig()),
-		"KUBELET_FLAGS":                                  createSortedKeyValuePairs(config.GetKubeletConfig().GetKubeletFlags(), " "),
+		"KUBELET_FLAGS":                                  getKubeletFlags(config.GetKubeletConfig()),
 		"NETWORK_POLICY":                                 getStringFromNetworkPolicyType(config.GetNetworkConfig().GetNetworkPolicy()),
 		"KUBELET_NODE_LABELS":                            createSortedKeyValuePairs(config.GetKubeletConfig().GetKubeletNodeLabels(), ","),
 		"AZURE_ENVIRONMENT_FILEPATH":                     getAzureEnvironmentFilepath(config),
@@ -167,10 +166,11 @@ func getCSEEnv(config *aksnodeconfigv1.Configuration) map[string]string {
 		"BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER":    config.GetBootstrapProfileContainerRegistryServer(),
 		"ENABLE_IMDS_RESTRICTION":                        fmt.Sprintf("%v", config.GetImdsRestrictionConfig().GetEnableImdsRestriction()),
 		"INSERT_IMDS_RESTRICTION_RULE_TO_MANGLE_TABLE":   fmt.Sprintf("%v", config.GetImdsRestrictionConfig().GetInsertImdsRestrictionRuleToMangleTable()),
+		"PRE_PROVISION_ONLY":                             fmt.Sprintf("%v", config.GetPreProvisionOnly()),
 	}
 
 	for i, cert := range config.CustomCaCerts {
-		env[fmt.Sprintf("CUSTOM_CA_CERT_%d", i)] = cert
+		env[fmt.Sprintf("CUSTOM_CA_CERT_%d", i)] = removeNewlines(cert)
 	}
 	return env
 }

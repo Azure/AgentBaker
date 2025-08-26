@@ -10,7 +10,7 @@ declare -a benchmarks_order=()
 check_array_size() {
   declare -n array_name=$1
   local array_size=${#array_name[@]}
-  if [[ ${array_size} -gt 0 ]]; then
+  if [ "${array_size}" -gt 0 ]; then
     last_index=$(( ${#array_name[@]} - 1 ))
   else
     return 1
@@ -18,7 +18,6 @@ check_array_size() {
 }
 
 capture_benchmark() {
-  set +x
   local title="$1"
   title="${title//[[:space:]]/_}"
   title="${title//-/_}"
@@ -26,7 +25,7 @@ capture_benchmark() {
 
   local current_time
   current_time=$(date +%s)
-  if [[ "$is_final_section" == true ]]; then
+  if [ "$is_final_section" = "true" ]; then
     local start_time=$script_start_stopwatch
   else
     local start_time=$section_start_stopwatch
@@ -42,8 +41,6 @@ capture_benchmark() {
 }
 
 process_benchmarks() {
-  set +x
-
   if [ -z "${PERFORMANCE_DATA_FILE}" ] ; then
     return
   fi
@@ -53,17 +50,13 @@ process_benchmarks() {
   fi
 
   check_array_size benchmarks || { echo "Benchmarks array is empty"; return; }
-  # create script object, then append each section object to it in the for loop
-  script_object=$(jq -n --arg script_name "${SCRIPT_NAME}" '{($script_name): {}}')
 
   for ((i=0; i<${#benchmarks_order[@]}; i+=1)); do
     section_name=${benchmarks_order[i]}
     section_object=$(jq -n --arg section_name "${section_name}" --arg total_time_elapsed "${benchmarks[${section_name}]}" \
     '{($section_name): $total_time_elapsed'})
-    script_object=$(jq -n --argjson script_object "$script_object" --argjson section_object "$section_object" --arg script_name "${SCRIPT_NAME}" \
-    '$script_object | .[$script_name] += $section_object')
+    jq ". += $section_object" "${PERFORMANCE_DATA_FILE}" > temp-perf-file.json && mv temp-perf-file.json "${PERFORMANCE_DATA_FILE}"
   done
  
-  jq ". += $script_object" "${PERFORMANCE_DATA_FILE}" > temp-perf-file.json && mv temp-perf-file.json "${PERFORMANCE_DATA_FILE}"
   chmod 755 "${PERFORMANCE_DATA_FILE}"
 }

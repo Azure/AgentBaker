@@ -28,11 +28,6 @@ Describe 'cse_helpers.sh'
             When call updatePackageVersions "$package" "UBUNTU" "20.04"
             The variable PACKAGE_VERSIONS[@] should equal "dummyVersion2"
         End
-        It 'returns downloadURIs.ubuntu.r1804.versionsV2 of package pkgVersionsV2 for UBUNTU 18.04'
-            package=$(readPackage "pkgVersionsV2")
-            When call updatePackageVersions "$package" "UBUNTU" "18.04"
-            The variable PACKAGE_VERSIONS[@] should equal "dummyVersion3 dummyVersion4"
-        End
         It 'returns downloadURIs.mariner.current.versionsV2 of package pkgVersionsV2 for MARINER current'
             package=$(readPackage "pkgVersionsV2")
             When call updatePackageVersions "$package" "MARINER" "current"
@@ -91,6 +86,36 @@ Describe 'cse_helpers.sh'
         End
     End
 
+    Describe 'update_base_url'
+        It 'updates base url to packages.aks.azure.com when PACKAGE_DOWNLOAD_BASE_URL is packages.aks.azure.com and base url is acs-mirror.azureedge.net'
+            PACKAGE_DOWNLOAD_BASE_URL="packages.aks.azure.com"
+            When call update_base_url "https://acs-mirror.azureedge.net/azure-cni/v1.1.8/binaries/azure-vnet-cni-linux-amd64-v1.1.8.tgz"
+            The output should equal "https://packages.aks.azure.com/azure-cni/v1.1.8/binaries/azure-vnet-cni-linux-amd64-v1.1.8.tgz"
+        End
+        It 'updates base url to acs-mirror.azureedge.net when PACKAGE_DOWNLOAD_BASE_URL is acs-mirror.azureedge.net and base url is packages.aks.azure.com'
+            PACKAGE_DOWNLOAD_BASE_URL="acs-mirror.azureedge.net"
+            When call update_base_url "https://packages.aks.azure.com/azure-cni/v1.1.8/binaries/azure-vnet-cni-linux-amd64-v1.1.8.tgz"
+            The output should equal "https://acs-mirror.azureedge.net/azure-cni/v1.1.8/binaries/azure-vnet-cni-linux-amd64-v1.1.8.tgz"
+        End
+        It 'does not change URL when base is not acs-mirror.azureedge.net or packages.aks.azure.com'
+            PACKAGE_DOWNLOAD_BASE_URL="packages.aks.azure.com"
+            When call update_base_url "mcr.microsoft.com/oss/binaries/kubernetes/kubernetes-node:v1.27.102-akslts-linux-arm64"
+            The output should equal "mcr.microsoft.com/oss/binaries/kubernetes/kubernetes-node:v1.27.102-akslts-linux-arm64"
+        End
+    End
+
+    Describe 'resolve_packages_source_url'
+        It 'sets PACKAGE_DOWNLOAD_BASE_URL to packages.aks.azure.com when run locally'
+            # Mock the curl command to simulate a successful response instead of making an actual network call
+            curl() {
+                echo 200
+            }
+            When call resolve_packages_source_url
+            The output should equal "Established connectivity to packages.aks.azure.com."
+            The variable PACKAGE_DOWNLOAD_BASE_URL should equal "packages.aks.azure.com"
+        End
+    End       
+
     Describe 'pkgVersionsV2'
         It 'returns release version r2004 for package pkgVersionsV2 in UBUNTU 20.04'
             package=$(readPackage "pkgVersionsV2")
@@ -118,6 +143,11 @@ Describe 'cse_helpers.sh'
             containerImage=$(readContainerImage "mcr.microsoft.com/dummyImageWithOldMultiArchVersions")
             When call updateMultiArchVersions "$containerImage"
             The variable MULTI_ARCH_VERSIONS[@] should equal "dummyVersion3 dummyVersion4 dummyVersion5"
+        End
+        It 'returns multiArchVersions for containerImage mcr.microsoft.com/windows/nanoserver'
+            containerImage=$(readContainerImage "mcr.microsoft.com/windows/windowstestimage")
+            When call updateMultiArchVersions "$containerImage"
+            The variable MULTI_ARCH_VERSIONS[@] should be undefined
         End
     End
 
@@ -182,7 +212,8 @@ Describe 'cse_helpers.sh'
                 return 1
             }
             retrycmd_get_access_token_for_oras(){
-                echo "{\"error\":\"invalid_request\",\"error_description\":\"Identity not found\"}"
+                echo "failed to retrieve kubelet identity token from IMDS, http code: 400, msg: {\"error\":\"invalid_request\",\"error_description\":\"Identity not found\"}"
+                return $ERR_ORAS_PULL_UNAUTHORIZED
             }
 
             local acr_url="unneeded.azurecr.io"
@@ -190,7 +221,7 @@ Describe 'cse_helpers.sh'
             local tenant_id="mytenantID"
             When run oras_login_with_kubelet_identity $acr_url $client_id $tenant_id
             The status should be failure
-            The stdout should include "failed to retrieve access token"
+            The stdout should include "failed to retrieve kubelet identity token"
         End  
         It 'should fail if refresh token is an error'
             retrycmd_can_oras_ls_acr() {
@@ -258,6 +289,129 @@ Describe 'cse_helpers.sh'
             The status should be success
             The stdout should include "successfully logged in to acr '$acr_url' with identity token"
             The stderr should be present
-        End  
+        End
+    End
+
+    Describe 'updateKubeBinaryRegistryURL'
+        logs_to_events() {
+            echo "mock logs to events calling with $1"
+        }
+        K8S_REGISTRY_REPO="oss/binaries/kubernetes"
+        BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="mcr.microsoft.com"
+        CPU_ARCH="amd64"
+        It 'returns KUBE_BINARY_URL if it is already registry url'
+            KUBE_BINARY_URL="mcr.microsoft.com/oss/binaries/kubernetes/kubernetes-node:v1.30.0-linux-amd64"
+
+            When call updateKubeBinaryRegistryURL
+            The variable KUBE_BINARY_REGISTRY_URL should equal "$KUBE_BINARY_URL"
+            The output line 1 should equal "KUBE_BINARY_URL is a registry url, will use it to pull the kube binary"
+        End
+        It 'returns expected output from KUBE_BINARY_URL'
+            KUBE_BINARY_URL="https://packages.aks.azure.com/kubernetes/v1.30.0-hotfix20241209/binaries/kubernetes-nodes-linux-amd64.tar.gz"
+            KUBERNETES_VERSION="1.30.0"
+
+            When call updateKubeBinaryRegistryURL
+            The variable KUBE_BINARY_REGISTRY_URL should equal "$BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER/oss/binaries/kubernetes/kubernetes-node:v1.30.0-hotfix20241209-linux-amd64"
+            The output line 1 should equal "Extracted version: v1.30.0-hotfix20241209 from KUBE_BINARY_URL: $KUBE_BINARY_URL"
+        End
+        It 'returns expected output for moonckae acs-mirror'
+            KUBE_BINARY_URL="https://acs-mirror.azureedge.cn/kubernetes/v1.30.0-alpha/binaries/kubernetes-nodes-linux-amd64.tar.gz"
+            KUBERNETES_VERSION="1.30.0"
+
+            When call updateKubeBinaryRegistryURL
+            The variable KUBE_BINARY_REGISTRY_URL should equal "$BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER/oss/binaries/kubernetes/kubernetes-node:v1.30.0-alpha-linux-amd64"
+            The output line 1 should equal "Extracted version: v1.30.0-alpha from KUBE_BINARY_URL: $KUBE_BINARY_URL"
+        End
+        It 'uses KUBENETES_VERSION if KUBE_BINARY_URL is invalid'
+            KUBE_BINARY_URL="https://invalidpath/v1.30.0-lts100/binaries/kubernetes-nodes-linux-amd64.tar.gz"
+            KUBERNETES_VERSION="1.30.0"
+
+            When call updateKubeBinaryRegistryURL
+            The variable KUBE_BINARY_REGISTRY_URL should equal "$BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER/oss/binaries/kubernetes/kubernetes-node:v1.30.0-linux-amd64"
+            The output line 1 should equal "KUBE_BINARY_URL is formatted unexpectedly, will use the kubernetes version as binary version: v$KUBERNETES_VERSION"
+        End
+    End
+
+    Describe 'configureSSHService'
+        systemctl() {
+            case "$1" in
+                "is-active")
+                    if  [ "$3" = "ssh" ]; then
+                        [ "${MOCK_SSH_SERVICE_ACTIVE:-false}" = "true" ] && return 0 || return 1
+                    elif [ "$3" = "ssh.socket" ]; then
+                        [ "${MOCK_SSH_SOCKET_ACTIVE:-false}" = "true" ] && return 0 || return 1
+                    fi
+                    ;;
+                "is-enabled")
+                    if  [ "$3" = "ssh.service" ]; then
+                        [ "${MOCK_SSH_SERVICE_ENABLED:-false}" = "true" ] && return 0 || return 1
+                    elif [ "$3" = "ssh.socket" ]; then
+                        [ "${MOCK_SSH_SOCKET_ENABLED:-false}" = "true" ] && return 0 || return 1
+                    fi
+                    ;;
+                "disable")
+                    echo "systemctl disable called with: $*"
+                    return 0
+                    ;;
+                *) return 0 ;;
+            esac
+        }
+        
+        systemctlEnableAndStart() {
+            echo "systemctlEnableAndStart called with: $1"
+            return 0
+        }
+        
+        rm() {
+            echo "rm called with: $1"
+        }
+        
+        semverCompare() {
+            # return 1 if MOCK_VERSION_COMPARE is 1, else return 0
+            if [ "$MOCK_VERSION_COMPARE" = "1" ]; then
+                return 1
+            fi
+            return 0
+        }
+
+        It 'handles non-Ubuntu OS correctly'
+            When call configureSSHService "MARINER"
+            The status should be success
+        End
+        
+        It 'handles Ubuntu versions before 22.10 correctly'
+            MOCK_VERSION_COMPARE=0
+            When call configureSSHService "UBUNTU" "22.04"
+            The status should be success
+        End
+
+        It 'handles Ubuntu 24.04 when service is already enabled'
+            MOCK_VERSION_COMPARE=1
+            MOCK_SSH_SERVICE_ENABLED="true"
+            MOCK_SSH_SERVICE_ACTIVE="true"
+            When call configureSSHService "UBUNTU" "24.04"
+            The stdout should include "SSH service successfully reconfigured and started"
+            The status should be success
+        End
+        
+        It 'properly configures SSH for Ubuntu 24.04 with active socket'
+            MOCK_VERSION_COMPARE=1
+            MOCK_SSH_SOCKET_ACTIVE="true"
+            MOCK_SSH_SERVICE_ENABLED="false"
+            MOCK_SSH_SERVICE_ACTIVE="true"
+            When call configureSSHService "UBUNTU" "24.04"
+            The stdout should include "systemctlEnableAndStart called with: ssh"
+            The status should be success
+        End
+
+        It 'returns error when SSH service fails to start'
+            MOCK_VERSION_COMPARE=1
+            MOCK_SSH_SOCKET_ACTIVE="true"
+            MOCK_SSH_SERVICE_ENABLED="false"
+            MOCK_SSH_SERVICE_ACTIVE="false"
+            When call configureSSHService "UBUNTU" "24.04"
+            The stdout should include "systemctlEnableAndStart called with: ssh"
+            The status should equal $ERR_SYSTEMCTL_START_FAIL
+        End
     End
 End
