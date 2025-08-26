@@ -101,7 +101,7 @@ stages:
   - stage: CheckUseContainerUrlsFromJson
     jobs:
       - job: SetURLToDefault
-        condition: eq(variables['useContainerUrlsFromJson'], 'True')
+        condition: eq(variables['useContainerUrlsFromJson'], True)
         steps:
           - script: echo "Setting Windows Container Image JSON URL to ${{ parameters.windowsContainerImageJsonUrl }}"
             displayName: Set Windows Container Image JSON URL
@@ -109,12 +109,12 @@ stages:
               Write-Host "##vso[task.setvariable variable=windowsContainerImageJsonUrl]${{ parameters.windowsContainerImageJsonUrl }}"
             displayName: Set pipeline variable windowsContainerImageJsonUrl
       - job: SetURLToEmpty
-        condition: eq(variables['useContainerUrlsFromJson'], 'False')
+        condition: eq(variables['useContainerUrlsFromJson'], False)
         steps:
           - script: echo "Setting Windows Container Image JSON URL to an empty string"
             displayName: Set Windows Container Image JSON URL to empty
           - powershell: |
-              Write-Host "##vso[task.setvariable variable=windowsContainerImageJsonUrl;isOutput=true]''"
+              Write-Host "##vso[task.setvariable variable=windowsContainerImageJsonUrl]''"
             displayName: Set pipeline variable windowsContainerImageJsonUrl to empty
   - template: ./templates/.build-and-test-windows-vhds-template.yaml
     parameters:
