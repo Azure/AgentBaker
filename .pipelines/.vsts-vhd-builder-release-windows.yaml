@@ -14,8 +14,7 @@ variables:
   - name: SIG_FOR_PRODUCTION
     value: False
   - name: skipExtensionCheck
-    default: False
-
+    value: False
 
 parameters:
   - name: build2019containerd
