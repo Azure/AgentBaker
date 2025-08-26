@@ -101,7 +101,7 @@ stages:
   - stage: CheckUseContainerUrlsFromJson
     jobs:
       - job: SetURLToDefault
-        condition: eq(variables['useContainerUrlsFromJson'], True)
+        condition: eq(${{ parameters.useContainerUrlsFromJson }}, true)
         steps:
           - script: echo "Setting Windows Container Image JSON URL to ${{ parameters.windowsContainerImageJsonUrl }}"
             displayName: Set Windows Container Image JSON URL
@@ -109,7 +109,7 @@ stages:
               Write-Host "##vso[task.setvariable variable=windowsContainerImageJsonUrl]${{ parameters.windowsContainerImageJsonUrl }}"
             displayName: Set pipeline variable windowsContainerImageJsonUrl
       - job: SetURLToEmpty
-        condition: eq(variables['useContainerUrlsFromJson'], False)
+        condition: eq(${{ parameters.useContainerUrlsFromJson }}, false)
         steps:
           - script: echo "Setting Windows Container Image JSON URL to an empty string"
             displayName: Set Windows Container Image JSON URL to empty
@@ -128,6 +128,7 @@ stages:
       build23H2gen2: ${{ parameters.build23H2gen2 }}
       build2025:  ${{ parameters.build2025 }}
       build2025gen2:  ${{ parameters.build2025gen2 }}
+      windowsContainerImageJsonUrl: $(windowsContainerImageJsonUrl)
       skipExtensionCheck: ${{ parameters.skipExtensionCheck }}
       installOpenSshServer: ${{ parameters.installOpenSshServer }}
       overrideBranch: ${{ parameters.overrideBranch }}
