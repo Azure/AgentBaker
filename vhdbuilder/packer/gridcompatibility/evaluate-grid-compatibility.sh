@@ -12,8 +12,6 @@ log_and_exit () {
   exit 0
 }
 
-echo "starting HERE"
-
 echo "=== DEBUG INFO ==="
 echo "Current working directory: $(pwd)"
 echo "Environment variables:"
@@ -28,50 +26,6 @@ ls -la
 echo "Checking for vhdbuilder/packer structure:"
 ls -la vhdbuilder/ || echo "vhdbuilder directory not found"
 ls -la vhdbuilder/packer/ || echo "vhdbuilder/packer directory not found"
-
-# if [ ! -f "${GRID_COMPATIBILITY_DATA_FILE}" ]; then
-#   log_and_exit ${GRID_COMPATIBILITY_DATA_FILE} "not found"
-# fi
-
-# Check if the file is valid JSON
-# jq -e . ${GRID_COMPATIBILITY_DATA_FILE} >/dev/null 2>&1
-# if [ "$?" -ne 0 ]; then
-#   log_and_exit ${GRID_COMPATIBILITY_DATA_FILE} "contains invalid json" true
-# fi
-
-# Check if we have actual data
-# DATA_COUNT=$(jq -e 'keys | length' ${GRID_COMPATIBILITY_DATA_FILE} 2>/dev/null || echo "0")
-# if [ "${DATA_COUNT}" -eq 0 ]; then
-#   log_and_exit ${GRID_COMPATIBILITY_DATA_FILE} "contains no data"
-# fi
-
-# echo -e "\nGenerating grid compatibility data for ${SIG_IMAGE_NAME}...\n"
-
-# # Enrich the grid compatibility data with metadata similar to build performance
-# jq --arg sig_name "${SIG_IMAGE_NAME}" \
-#   --arg arch "${ARCHITECTURE}" \
-#   --arg captured_sig_version "${CAPTURED_SIG_VERSION}" \
-#   --arg build_id "${BUILD_ID}" \
-#   --arg date "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
-#   --arg status "${JOB_STATUS}" \
-#   --arg branch "${GIT_BRANCH}" \
-#   --arg commit "${GIT_VERSION}" \
-#   'to_entries | ([
-#   {key: "sig_image_name", value: $sig_name},
-#   {key: "architecture", value: $arch},
-#   {key: "captured_sig_version", value: $captured_sig_version},
-#   {key: "build_id", value: $build_id},
-#   {key: "build_datetime", value: $date},
-#   {key: "outcome", value: $status},
-#   {key: "branch", value: $branch},
-#   {key: "commit", value: $commit}
-# ] + .) | from_entries' ${GRID_COMPATIBILITY_DATA_FILE} > ${SIG_IMAGE_NAME}-grid-compatibility.json
-
-# rm ${GRID_COMPATIBILITY_DATA_FILE}
-
-# echo "##[group]Grid Compatibility"
-# jq . -C ${SIG_IMAGE_NAME}-grid-compatibility.json
-# echo "##[endgroup]"
 
 echo -e "\nENVIRONMENT is: ${ENVIRONMENT}"
 if [ "${ENVIRONMENT,,}" != "tme" ]; then
@@ -117,18 +71,47 @@ if [ "${ENVIRONMENT,,}" != "tme" ]; then
         echo ""
         echo "=== GRID VERSION COMPATIBILITY ANALYSIS ==="
         
-        # Extract major version numbers from the output
-        VERSIONS=$(echo "${PROGRAM_OUTPUT}" | grep -o "v[0-9]\+\." | sed 's/v//g' | sed 's/\.//g' | sort -u)
+        # Extract version numbers from the output using multiple patterns
+        # First try to find explicit version patterns (v16, v17, etc.)
+        VERSIONS=$(echo "${PROGRAM_OUTPUT}" | grep -oE "v[0-9]+" | sed 's/v//g' | sort -u)
+        
+        # If no v-prefixed versions found, look for standalone numbers in typical GRID version range
+        if [ -z "${VERSIONS}" ]; then
+          echo "DEBUG: No v-prefixed versions found, trying to extract standalone version numbers..."
+          echo "DEBUG: Full program output:"
+          echo "${PROGRAM_OUTPUT}" | head -20
+          echo "DEBUG: Looking for version numbers in GRID range (10-30)..."
+          
+          # Look for lines containing only numbers in the GRID version range (10-30)
+          VERSIONS=$(echo "${PROGRAM_OUTPUT}" | while IFS= read -r line; do
+            # Check if line contains only a number (with optional whitespace)
+            if [[ "$line" =~ ^[[:space:]]*([0-9]+)[[:space:]]*$ ]]; then
+              num="${BASH_REMATCH[1]}"
+              # Check if it's in GRID version range (10-30)
+              if [ "$num" -ge 10 ] && [ "$num" -le 30 ]; then
+                echo "$num"
+              fi
+            fi
+          done | sort -u)
+        fi
         
         if [ -z "${VERSIONS}" ]; then
           echo "WARNING: No GRID driver versions found in program output"
           echo "##vso[task.logissue type=warning;]No GRID driver versions detected in output"
+          echo "DEBUG: Program output for analysis:"
+          echo "${PROGRAM_OUTPUT}"
         else
           echo "Detected major versions: $(echo ${VERSIONS} | tr '\n' ' ')"
           
           COMPATIBILITY_ISSUES=false
           
           for VERSION in ${VERSIONS}; do
+            # Validate that VERSION is numeric
+            if ! [[ "$VERSION" =~ ^[0-9]+$ ]]; then
+              echo "WARNING: Skipping invalid version format: $VERSION"
+              continue
+            fi
+            
             VERSION_DIFF=$((VERSION > EXPECTED_MAJOR_VERSION ? VERSION - EXPECTED_MAJOR_VERSION : EXPECTED_MAJOR_VERSION - VERSION))
             
             if [ ${VERSION_DIFF} -gt 1 ]; then
