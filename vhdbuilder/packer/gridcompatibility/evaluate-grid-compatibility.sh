@@ -162,9 +162,6 @@ main() {
   
   popd || exit 0
   
-  # Cleanup
-  rm -f "vhdbuilder/packer/gridcompatibility/${SIG_IMAGE_NAME}-grid-compatibility.json"
-  
   echo -e "\nGrid compatibility evaluation script completed."
 }
 
