@@ -150,6 +150,65 @@ function GetPackagesFromComponentsJson
     return $output
 }
 
+function GetOCIArtifactsFromComponentsJson
+{
+
+    Param(
+        [Parameter(Mandatory = $true)][Object]
+        $componentsJsonContent
+    )
+    $output = @{ }
+
+    foreach ($ociArtifact in $componentsJsonContent.OCIArtifacts)
+    {
+        $registry = $ociArtifact.registry
+        $downloadLocation = $ociArtifact.windowsDownloadLocation
+        if ($downloadLocation -eq $null -or $downloadLocation -eq "")
+        {
+            continue
+        }
+
+        $thisList = $output[$downloadLocation]
+        if ($thisList -eq $null)
+        {
+            $thisList = New-Object System.Collections.ArrayList
+        }
+
+        $versions = $ociArtifact.windowsVersions
+        if ($versions -eq $null)
+        {
+            continue
+        }
+
+        foreach ($windowsVersion in $versions)
+        {
+            $skuMatch = $windowsVersion.windowsSkuMatch
+            if ([string]::IsNullOrEmpty($skuMatch) -or $windowsSku -Like $skuMatch)
+            {
+                $version = $windowsVersion.latestVersion
+                $artifactName = SafeReplaceString($registry)
+                $artifactName = $artifactName.replace("*", $version)
+                $thisList += $artifactName
+            }
+
+            if (-not [string]::IsNullOrEmpty($windowsVersion.previousLatestVersion))
+            {
+                $version = $windowsVersion.previousLatestVersion
+                $artifactName = SafeReplaceString($registry)
+                $artifactName = $artifactName.replace("*", $version)
+                $thisList += $artifactName
+            }
+        }
+
+        if ($thisList.Length -gt 0)
+        {
+            $output[$downloadLocation] = $thisList
+        }
+    }
+
+    return $output
+}
+
 function GetDefaultContainerDFromComponentsJson
 {
     Param(
@@ -260,6 +319,27 @@ function GetPatchInfo
     return $patchData
 }
 
+function GetWindowsBaseVersion
+{
+    Param(
+        [Parameter(Mandatory = $true)][String]
+        $windowsSku,
+
+        [Parameter(Mandatory = $true)][Object]
+        $windowsSettingsContent
+    )
+
+
+    $baseVersionBlock = $windowsSettingsContent.WindowsBaseVersions."$windowsSku";
+
+    if ($baseVersionBlock -eq $null) {
+        return ""
+    }
+
+    return $baseVersionBlock.base_image_version
+}
+
+
 function GetWindowsBaseVersions {
     Param(
         [Parameter(Mandatory = $true)][Object]
@@ -298,11 +378,21 @@ function GetAllCachedThings {
 
     $items = GetComponentsFromComponentsJson $componentsJsonContent
     $packages = GetPackagesFromComponentsJson $componentsJsonContent
+    $ociArtifacts = GetOCIArtifactsFromComponentsJson $componentsJsonContent
     $regKeys = GetRegKeysToApply $windowsSettingsContent
+    $baseVersion =  GetWindowsBaseVersion -windowsSku $windowsSku -windowsSettingsContent $windowsSettingsContent
+
+    $items += "Windows ${windowsSku} base version: ${baseVersion}"
 
     foreach ($packageName in $packages.keys) {
         foreach ($package in $packages[$packageName]) {
             $items += $packageName + ": " + $package
+        }
+    }
+
+    foreach ($ociArtifactName in $ociArtifacts.keys) {
+        foreach ($ociArtifact in $ociArtifacts[$ociArtifactName]) {
+            $items += $ociArtifactName + ": " + $ociArtifact
         }
     }
 

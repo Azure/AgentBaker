@@ -148,6 +148,10 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cni",
+          "latestVersion": "v1.6.32"
+        },
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cni",
           "latestVersion": "v1.6.21"
         }
       ],
@@ -210,6 +214,10 @@
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
           "latestVersion": "v1.5.48"
+        },
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
+          "latestVersion": "v1.6.32"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
@@ -521,13 +529,33 @@
       ]
     },
     {
-      "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:*",
+      "downloadURL": "mcr.microsoft.com/oss/v2/kubernetes-csi/azuredisk-csi:*",
       "amd64OnlyVersions": [],
       "multiArchVersionsV2": [
         {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/azurefile-csi",
-          "latestVersion": "v1.30.10"
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/azuredisk-csi",
+          "latestVersion": "v1.32.10-2"
         },
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/azuredisk-csi",
+          "latestVersion": "v1.33.4-2"
+        }
+      ],
+      "windowsVersions": [
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/azuredisk-csi",
+          "latestVersion": "v1.32.10-windows-hp"
+        },
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/azuredisk-csi",
+          "latestVersion": "v1.33.4-windows-hp"
+        }
+      ]
+    },
+    {
+      "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:*",
+      "amd64OnlyVersions": [],
+      "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/azurefile-csi",
           "latestVersion": "v1.31.7"
@@ -544,10 +572,6 @@
       "windowsVersions": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/azurefile-csi",
-          "latestVersion": "v1.30.10-windows-hp"
-        },
-        {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/azurefile-csi",
           "latestVersion": "v1.31.7-windows-hp"
         },
         {
@@ -561,13 +585,25 @@
       ]
     },
     {
-      "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/blob-csi:*",
+      "downloadURL": "mcr.microsoft.com/oss/v2/kubernetes-csi/azurefile-csi:*",
       "amd64OnlyVersions": [],
       "multiArchVersionsV2": [
         {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/blob-csi",
-          "latestVersion": "v1.24.11"
-        },
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/azurefile-csi",
+          "latestVersion": "v1.33.4-2"
+        }
+      ],
+      "windowsVersions": [
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/azurefile-csi",
+          "latestVersion": "v1.33.4-windows-hp"
+        }
+      ]
+    },
+    {
+      "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/blob-csi:*",
+      "amd64OnlyVersions": [],
+      "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/blob-csi",
           "latestVersion": "v1.25.9"
@@ -960,7 +996,7 @@
             "versionsV2": [
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "0.1.0-alpha.10"
+                "latestVersion": "0.1.0-alpha.11"
               }
             ],
             "downloadURL": "https://github.com/Azure/aks-secure-tls-bootstrap/releases/download/client/v${version}/linux-${CPU_ARCH}.tar.gz"
@@ -971,7 +1007,7 @@
             "versionsV2": [
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "0.1.0-alpha.10"
+                "latestVersion": "0.1.0-alpha.11"
               }
             ],
             "downloadURL": "https://github.com/Azure/aks-secure-tls-bootstrap/releases/download/client/v${version}/windows-amd64.zip"
@@ -1026,7 +1062,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-containerd, os=ubuntu, release=24.04",
-                "latestVersion": "2.0.4-ubuntu24.04u1"
+                "latestVersion": "2.1.4-ubuntu24.04u1"
               }
             ]
           },
@@ -1034,7 +1070,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-containerd, os=ubuntu, release=22.04",
-                "latestVersion": "1.7.27-ubuntu22.04u1"
+                "latestVersion": "1.7.28-ubuntu22.04u1"
               }
             ]
           },
@@ -1042,7 +1078,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-containerd, os=ubuntu, release=20.04",
-                "latestVersion": "1.7.27-ubuntu20.04u1"
+                "latestVersion": "1.7.28-ubuntu20.04u1"
               }
             ]
           }
@@ -1306,8 +1342,7 @@
               {
                 "k8sVersion": "1.34",
                 "renovateTag": "name=kubelet, os=ubuntu, release=24.04",
-                "latestVersion": "1.34.0~beta.0-ubuntu24.04u1",
-                "previousLatestVersion": "1.34.0~alpha.1-ubuntu24.04u2"
+                "latestVersion": "1.34.0~rc.1-ubuntu24.04u1"
               }
             ]
           },
@@ -1316,20 +1351,19 @@
               {
                 "k8sVersion": "1.32",
                 "renovateTag": "name=kubelet, os=ubuntu, release=22.04",
-                "latestVersion": "1.32.7-ubuntu22.04u1",
-                "previousLatestVersion": "1.32.6-ubuntu22.04u1"
+                "latestVersion": "1.32.8-ubuntu22.04u1",
+                "previousLatestVersion": "1.32.7-ubuntu22.04u1"
               },
               {
                 "k8sVersion": "1.33",
                 "renovateTag": "name=kubelet, os=ubuntu, release=22.04",
-                "latestVersion": "1.33.3-ubuntu22.04u1",
-                "previousLatestVersion": "1.33.2-ubuntu22.04u1"
+                "latestVersion": "1.33.4-ubuntu22.04u1",
+                "previousLatestVersion": "1.33.3-ubuntu22.04u1"
               },
               {
                 "k8sVersion": "1.34",
                 "renovateTag": "name=kubelet, os=ubuntu, release=22.04",
-                "latestVersion": "1.34.0~beta.0-ubuntu22.04u1",
-                "previousLatestVersion": "1.34.0~alpha.1-ubuntu22.04u2"
+                "latestVersion":"1.34.0~rc.1-ubuntu22.04u1"
               }
             ]
           },
@@ -1338,20 +1372,19 @@
               {
                 "k8sVersion": "1.32",
                 "renovateTag": "name=kubelet, os=ubuntu, release=20.04",
-                "latestVersion": "1.32.7-ubuntu20.04u1",
-                "previousLatestVersion": "1.32.6-ubuntu20.04u1"
+                "latestVersion": "1.32.8-ubuntu20.04u1",
+                "previousLatestVersion": "1.32.7-ubuntu20.04u1"
               },
               {
                 "k8sVersion": "1.33",
                 "renovateTag": "name=kubelet, os=ubuntu, release=20.04",
-                "latestVersion": "1.33.3-ubuntu20.04u1",
-                "previousLatestVersion": "1.33.2-ubuntu20.04u1"
+                "latestVersion": "1.33.4-ubuntu20.04u1",
+                "previousLatestVersion": "1.33.3-ubuntu20.04u1"
               },
               {
                 "k8sVersion": "1.34",
                 "renovateTag": "name=kubelet, os=ubuntu, release=20.04",
-                "latestVersion": "1.34.0~beta.0-ubuntu20.04u1",
-                "previousLatestVersion": "1.34.0~alpha.1-ubuntu20.04u2"
+                "latestVersion": "1.34.0~rc.1-ubuntu20.04u1"
               }
             ]
           }
@@ -1361,15 +1394,20 @@
             "versionsV2": [
               {
                 "k8sVersion": "1.32",
-                "renovateTag": "name=kubectl, os=azurelinux, release=3.0",
+                "renovateTag": "name=kubelet, os=azurelinux, release=3.0",
                 "latestVersion": "1.32.7-1.azl3",
                 "previousLatestVersion": "1.32.6-1.azl3"
               },
               {
                 "k8sVersion": "1.33",
-                "renovateTag": "name=kubectl, os=azurelinux, release=3.0",
+                "renovateTag": "name=kubelet, os=azurelinux, release=3.0",
                 "latestVersion": "1.33.3-1.azl3",
                 "previousLatestVersion": "1.33.2-1.azl3"
+              },
+              {
+                "k8sVersion": "1.34",
+                "renovateTag": "name=kubelet, os=azurelinux, release=3.0",
+                "latestVersion": "1.34.0~rc.1-1.azl3"
               }
             ]
           }
@@ -1399,7 +1437,7 @@
               {
                 "k8sVersion": "1.34",
                 "renovateTag": "name=kubectl, os=ubuntu, release=24.04",
-                "latestVersion": "1.34.0~beta.0-ubuntu24.04u2"
+                "latestVersion": "1.34.0~rc.1-ubuntu24.04u1"
               }
             ]
           },
@@ -1408,19 +1446,19 @@
               {
                 "k8sVersion": "1.32",
                 "renovateTag": "name=kubectl, os=ubuntu, release=22.04",
-                "latestVersion": "1.32.7-ubuntu22.04u2",
-                "previousLatestVersion": "1.32.6-ubuntu22.04u2"
+                "latestVersion": "1.32.8-ubuntu22.04u1",
+                "previousLatestVersion": "1.32.7-ubuntu22.04u2"
               },
               {
                 "k8sVersion": "1.33",
                 "renovateTag": "name=kubectl, os=ubuntu, release=22.04",
-                "latestVersion": "1.33.3-ubuntu22.04u2",
-                "previousLatestVersion": "1.33.2-ubuntu22.04u2"
+                "latestVersion": "1.33.4-ubuntu22.04u1",
+                "previousLatestVersion": "1.33.3-ubuntu22.04u2"
               },
               {
                 "k8sVersion": "1.34",
                 "renovateTag": "name=kubectl, os=ubuntu, release=22.04",
-                "latestVersion": "1.34.0~beta.0-ubuntu22.04u2"
+                "latestVersion": "1.34.0~rc.1-ubuntu22.04u1"
               }
             ]
           },
@@ -1429,19 +1467,19 @@
               {
                 "k8sVersion": "1.32",
                 "renovateTag": "name=kubectl, os=ubuntu, release=20.04",
-                "latestVersion": "1.32.7-ubuntu20.04u2",
-                "previousLatestVersion": "1.32.6-ubuntu20.04u2"
+                "latestVersion": "1.32.8-ubuntu20.04u1",
+                "previousLatestVersion": "1.32.7-ubuntu20.04u2"
               },
               {
                 "k8sVersion": "1.33",
                 "renovateTag": "name=kubectl, os=ubuntu, release=20.04",
-                "latestVersion": "1.33.3-ubuntu20.04u2",
-                "previousLatestVersion": "1.33.2-ubuntu20.04u2"
+                "latestVersion": "1.33.4-ubuntu20.04u1",
+                "previousLatestVersion": "1.33.3-ubuntu20.04u2"
               },
               {
                 "k8sVersion": "1.34",
                 "renovateTag": "name=kubectl, os=ubuntu, release=20.04",
-                "latestVersion": "1.34.0~beta.0-ubuntu20.04u2"
+                "latestVersion": "1.34.0~rc.1-ubuntu20.04u1"
               }
             ]
           }
@@ -1460,6 +1498,11 @@
                 "renovateTag": "name=kubectl, os=azurelinux, release=3.0",
                 "latestVersion": "1.33.3-1.azl3",
                 "previousLatestVersion": "1.33.2-1.azl3"
+              },
+              {
+                "k8sVersion": "1.34",
+                "renovateTag": "name=kubectl, os=azurelinux, release=3.0",
+                "latestVersion": "1.34.0~rc.1-1.azl3"
               }
             ]
           }
