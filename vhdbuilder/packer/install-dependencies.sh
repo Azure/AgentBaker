@@ -317,6 +317,12 @@ while IFS= read -r p; do
     continue
   fi
   downloadDir=$(echo "${p}" | jq .downloadLocation -r)
+
+  # If /usr/local/bin is read-only (i.e. immutable), then try /opt/bin instead.
+  if [[ ${downloadDir} == /usr/local/bin ]] && findmnt --options ro --target "${downloadDir}" &>/dev/null; then
+    downloadDir=/opt/bin
+  fi
+
   #download the package
   case $name in
     "kubernetes-cri-tools")
