@@ -44,6 +44,7 @@ func Test_Flatcar(t *testing.T) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateFileHasContent(ctx, s, "/etc/protocols", "protocols definition file")
+				ValidateFileIsRegularFile(ctx, s, "/etc/ssl/certs/ca-certificates.crt")
 			},
 		},
 	})
@@ -740,7 +741,8 @@ func Test_Ubuntu2204Gen2_ContainerdAirgappedK8sNotCached(t *testing.T) {
 					config.PrivateACRName(config.Config.DefaultLocation),
 					nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion)
 			},
-		}})
+		},
+	})
 }
 
 func Test_Ubuntu2204Gen2_ContainerdAirgappedNonAnonymousK8sNotCached(t *testing.T) {

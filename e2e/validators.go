@@ -126,6 +126,19 @@ func ValidateFileDoesNotExist(ctx context.Context, s *Scenario, fileName string)
 	}
 }
 
+func ValidateFileIsRegularFile(ctx context.Context, s *Scenario, fileName string) {
+	s.T.Helper()
+
+	steps := []string{
+		"set -ex",
+		fmt.Sprintf("stat --printf=%%F %s | grep 'regular file'", fileName),
+	}
+
+	if execScriptOnVMForScenario(ctx, s, strings.Join(steps, "\n")).exitCode != "0" {
+		s.T.Fatalf("expected %s to be a regular file, but it is not", fileName)
+	}
+}
+
 func fileExist(ctx context.Context, s *Scenario, fileName string) bool {
 	s.T.Helper()
 	if s.IsWindows() {
@@ -144,7 +157,6 @@ func fileExist(ctx context.Context, s *Scenario, fileName string) bool {
 		execResult := execScriptOnVMForScenario(ctx, s, strings.Join(steps, "\n"))
 		return execResult.exitCode == "0"
 	}
-
 }
 
 func fileHasContent(ctx context.Context, s *Scenario, fileName string, contents string) bool {
@@ -168,7 +180,6 @@ func fileHasContent(ctx context.Context, s *Scenario, fileName string, contents 
 		execResult := execScriptOnVMForScenario(ctx, s, strings.Join(steps, "\n"))
 		return execResult.exitCode == "0"
 	}
-
 }
 
 func ValidateFileHasContent(ctx context.Context, s *Scenario, fileName string, contents string) {
@@ -552,7 +563,6 @@ func ValidateNPDGPUCountCondition(ctx context.Context, s *Scenario) {
 		}
 
 		return false, nil // Continue polling until the condition is found or timeout occurs
-
 	})
 	require.NoError(s.T, err, "timed out waiting for NoGPUMissing condition to appear on node %q", s.Runtime.KubeNodeName)
 
