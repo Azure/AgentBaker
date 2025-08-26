@@ -33,6 +33,8 @@ copyPackerFiles() {
   PAM_D_SU_DEST=/etc/pam.d/su
   PROFILE_D_CIS_SH_SRC=/home/packer/profile-d-cis.sh
   PROFILE_D_CIS_SH_DEST=/etc/profile.d/CIS.sh
+  PROFILE_D_PATH_SH_SRC=/home/packer/profile-d-path.sh
+  PROFILE_D_PATH_SH_DEST=/etc/profile.d/path.sh
   CIS_SRC=/home/packer/cis.sh
   CIS_DEST=/opt/azure/containers/provision_cis.sh
   APT_PREFERENCES_SRC=/home/packer/apt-preferences
@@ -341,6 +343,7 @@ copyPackerFiles() {
   cpAndMode $MODPROBE_CIS_SRC $MODPROBE_CIS_DEST 644
   cpAndMode $PWQUALITY_CONF_SRC $PWQUALITY_CONF_DEST 600
   cpAndMode $PAM_D_SU_SRC $PAM_D_SU_DEST 644
+  cpAndMode $PROFILE_D_PATH_SH_SRC $PROFILE_D_PATH_SH_DEST 755
   cpAndMode $PROFILE_D_CIS_SH_SRC $PROFILE_D_CIS_SH_DEST 755
   cpAndMode $CIS_SRC $CIS_DEST 744
   cpAndMode $APT_PREFERENCES_SRC $APT_PREFERENCES_DEST 644
