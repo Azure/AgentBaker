@@ -15,7 +15,7 @@ VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 PERFORMANCE_DATA_FILE=/opt/azure/vhd-build-performance-data.json
 
 # Hardcode the desired size of the OS disk so we don't accidently rely on extra disk space
-MAX_BLOCK_COUNT=30298176 # 30 GB
+MAX_BLOCK_COUNT=60596352 # 60 GB
 capture_benchmark "${SCRIPT_NAME}_source_packer_files_and_declare_variables"
 
 if [ $OS = $UBUNTU_OS_NAME ]; then
@@ -66,8 +66,8 @@ os_device=$(readlink -f /dev/disk/azure/root)
 used_blocks=$(df -P / | sed 1d | awk '{print $3}')
 usage=$(awk -v used=${used_blocks} -v capacity=${MAX_BLOCK_COUNT} 'BEGIN{print (used/capacity) * 100}')
 usage=${usage%.*}
-[ ${usage} -ge 99 ] && echo "ERROR: root partition on OS device (${os_device}) already passed 99% of the 30GB cap!" && exit 1
-[ ${usage} -ge 75 ] && echo "WARNING: root partition on OS device (${os_device}) already passed 75% of the 30GB cap!"
+[ ${usage} -ge 99 ] && echo "ERROR: root partition on OS device (${os_device}) already passed 99% of the 60GB cap!" && exit 1
+[ ${usage} -ge 75 ] && echo "WARNING: root partition on OS device (${os_device}) already passed 75% of the 60GB cap!"
 
 echo -e "=== os-release Begin" >> ${VHD_LOGS_FILEPATH}
 cat /etc/os-release >> ${VHD_LOGS_FILEPATH}
