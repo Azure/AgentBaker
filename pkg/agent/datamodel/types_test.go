@@ -660,6 +660,79 @@ func TestGetSubnetName(t *testing.T) {
 	}
 }
 
+func TestIsNextGenNetworkingEnabled(t *testing.T) {
+	tests := []struct {
+		name     string
+		profile  *AgentPoolWindowsProfile
+		expected bool
+	}{
+		{
+			name: "NextGenNetworkingEnabled is true",
+			profile: &AgentPoolWindowsProfile{
+				NextGenNetworkingEnabled: to.BoolPtr(true),
+			},
+			expected: true,
+		},
+		{
+			name: "NextGenNetworkingEnabled is false",
+			profile: &AgentPoolWindowsProfile{
+				NextGenNetworkingEnabled: to.BoolPtr(false),
+			},
+			expected: false,
+		},
+		{
+			name:     "NextGenNetworkingEnabled is nil",
+			profile:  &AgentPoolWindowsProfile{},
+			expected: false,
+		},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			actual := test.profile.IsNextGenNetworkingEnabled()
+
+			if actual != test.expected {
+				t.Errorf("expected %t, but got %t", test.expected, actual)
+			}
+		})
+	}
+}
+
+func TestGetNextGenNetworkingConfig(t *testing.T) {
+	tests := []struct {
+		name     string
+		profile  *AgentPoolWindowsProfile
+		expected string
+	}{
+		{
+			name: "NextGenNetworkingConfig is set",
+			profile: &AgentPoolWindowsProfile{
+				NextGenNetworkingConfig: to.StringPtr("config"),
+			},
+			expected: "config",
+		},
+		{
+			name:     "NextGenNetworkingConfig is nil",
+			profile:  &AgentPoolWindowsProfile{},
+			expected: "",
+		},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			actual := test.profile.GetNextGenNetworkingConfig()
+
+			if actual != test.expected {
+				t.Errorf("expected %q, but got %q", test.expected, actual)
+			}
+		})
+	}
+}
+
 func TestGetRouteTableName(t *testing.T) {
 	p := &Properties{
 		OrchestratorProfile: &OrchestratorProfile{
