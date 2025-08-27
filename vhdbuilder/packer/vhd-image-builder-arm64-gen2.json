@@ -627,6 +627,11 @@
     },
     {
       "type": "file",
+      "source": "vhdbuilder/packer/grid-compatibility-data.json",
+      "destination": "/opt/azure/vhd-grid-compatibility-data.json"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/10_azure_nvidia",
       "destination": "/home/packer/10_azure_nvidia"
     },
