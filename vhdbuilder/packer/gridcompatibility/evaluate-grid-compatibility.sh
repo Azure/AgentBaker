@@ -12,63 +12,139 @@ log_and_exit () {
   exit 0
 }
 
-if [ ! -f "${GRID_COMPATIBILITY_DATA_FILE}" ]; then
-  log_and_exit ${GRID_COMPATIBILITY_DATA_FILE} "not found"
-fi
+echo "=== DEBUG INFO ==="
+echo "Current working directory: $(pwd)"
+echo "Environment variables:"
+echo "ENVIRONMENT: ${ENVIRONMENT}"
+echo "USER: ${USER}"
+echo "HOME: ${HOME}"
+echo "=== END DEBUG INFO ==="
 
-# Check if the file is valid JSON
-jq -e . ${GRID_COMPATIBILITY_DATA_FILE} >/dev/null 2>&1
-if [ "$?" -ne 0 ]; then
-  log_and_exit ${GRID_COMPATIBILITY_DATA_FILE} "contains invalid json" true
-fi
+echo "Contents of current directory:"
+ls -la
 
-# Check if we have actual data
-DATA_COUNT=$(jq -e 'keys | length' ${GRID_COMPATIBILITY_DATA_FILE} 2>/dev/null || echo "0")
-if [ "${DATA_COUNT}" -eq 0 ]; then
-  log_and_exit ${GRID_COMPATIBILITY_DATA_FILE} "contains no data"
-fi
-
-echo -e "\nGenerating grid compatibility data for ${SIG_IMAGE_NAME}...\n"
-
-# Enrich the grid compatibility data with metadata similar to build performance
-jq --arg sig_name "${SIG_IMAGE_NAME}" \
-  --arg arch "${ARCHITECTURE}" \
-  --arg captured_sig_version "${CAPTURED_SIG_VERSION}" \
-  --arg build_id "${BUILD_ID}" \
-  --arg date "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
-  --arg status "${JOB_STATUS}" \
-  --arg branch "${GIT_BRANCH}" \
-  --arg commit "${GIT_VERSION}" \
-  'to_entries | ([
-  {key: "sig_image_name", value: $sig_name},
-  {key: "architecture", value: $arch},
-  {key: "captured_sig_version", value: $captured_sig_version},
-  {key: "build_id", value: $build_id},
-  {key: "build_datetime", value: $date},
-  {key: "outcome", value: $status},
-  {key: "branch", value: $branch},
-  {key: "commit", value: $commit}
-] + .) | from_entries' ${GRID_COMPATIBILITY_DATA_FILE} > ${SIG_IMAGE_NAME}-grid-compatibility.json
-
-rm ${GRID_COMPATIBILITY_DATA_FILE}
-
-echo "##[group]Grid Compatibility"
-jq . -C ${SIG_IMAGE_NAME}-grid-compatibility.json
-echo "##[endgroup]"
+echo "Checking for vhdbuilder/packer structure:"
+ls -la vhdbuilder/ || echo "vhdbuilder directory not found"
+ls -la vhdbuilder/packer/ || echo "vhdbuilder/packer directory not found"
 
 echo -e "\nENVIRONMENT is: ${ENVIRONMENT}"
 if [ "${ENVIRONMENT,,}" != "tme" ]; then
-  mv ${SIG_IMAGE_NAME}-grid-compatibility.json vhdbuilder/packer/gridcompatibility
+  echo "Checking if gridcompatibility directory exists..."
+  ls -la vhdbuilder/packer/gridcompatibility/ || echo "Directory not found"
+  
+  # mv ${SIG_IMAGE_NAME}-grid-compatibility.json vhdbuilder/packer/gridcompatibility
   pushd vhdbuilder/packer/gridcompatibility || exit 0
+    echo "Current directory: $(pwd)"
+    echo "Contents of gridcompatibility directory:"
+    ls -la
+    
     echo -e "\nRunning grid compatibility evaluation program...\n"
-    if [ -n "${GRID_COMPATIBILITY_BINARY:-}" ] && [ -f "${GRID_COMPATIBILITY_BINARY}" ]; then
-      chmod +x ${GRID_COMPATIBILITY_BINARY}
-      ./${GRID_COMPATIBILITY_BINARY}
-      rm ${GRID_COMPATIBILITY_BINARY}
+    if [ -f "gridCompatibilityProgram" ]; then
+      echo "gridCompatibilityProgram found, making executable..."
+      chmod +x gridCompatibilityProgram
+      ls -la gridCompatibilityProgram
+      
+      # Set environment variables for the grid compatibility program
+      export KUSTO_PROD_ENDPOINT="https://sparkle.eastus.kusto.windows.net"
+      export KUSTO_PROD_DATABASE="defaultdb"
+      
+      echo "Environment variables set:"
+      echo "KUSTO_PROD_ENDPOINT=${KUSTO_PROD_ENDPOINT}"
+      echo "KUSTO_PROD_DATABASE=${KUSTO_PROD_DATABASE}"
+      
+      echo "Executing: ./gridCompatibilityProgram gpu-driver-production"
+      
+      # Set expected major version
+      EXPECTED_MAJOR_VERSION=17
+      echo "Expected major version: ${EXPECTED_MAJOR_VERSION}"
+      
+      # Capture program output for version analysis
+      PROGRAM_OUTPUT=$(./gridCompatibilityProgram gpu-driver-production 2>&1)
+      PROGRAM_EXIT_CODE=$?
+      
+      # Display the program output
+      echo "${PROGRAM_OUTPUT}"
+      echo "gridCompatibilityProgram exit code: ${PROGRAM_EXIT_CODE}"
+      
+      # Analyze version compatibility if program succeeded
+      if [ ${PROGRAM_EXIT_CODE} -eq 0 ]; then
+        echo ""
+        echo "=== GRID VERSION COMPATIBILITY ANALYSIS ==="
+        
+        # Extract version numbers from the output using multiple patterns
+        # First try to find explicit version patterns (v16, v17, etc.)
+        VERSIONS=$(echo "${PROGRAM_OUTPUT}" | grep -oE "v[0-9]+" | sed 's/v//g' | sort -u)
+        
+        # If no v-prefixed versions found, look for standalone numbers in typical GRID version range
+        if [ -z "${VERSIONS}" ]; then
+          echo "DEBUG: No v-prefixed versions found, trying to extract standalone version numbers..."
+          echo "DEBUG: Full program output:"
+          echo "${PROGRAM_OUTPUT}" | head -20
+          echo "DEBUG: Looking for version numbers in GRID range (10-30)..."
+          
+          # Look for lines containing only numbers in the GRID version range (10-30)
+          VERSIONS=$(echo "${PROGRAM_OUTPUT}" | while IFS= read -r line; do
+            # Check if line contains only a number (with optional whitespace)
+            if [[ "$line" =~ ^[[:space:]]*([0-9]+)[[:space:]]*$ ]]; then
+              num="${BASH_REMATCH[1]}"
+              # Check if it's in GRID version range (10-30)
+              if [ "$num" -ge 10 ] && [ "$num" -le 30 ]; then
+                echo "$num"
+              fi
+            fi
+          done | sort -u)
+        fi
+        
+        if [ -z "${VERSIONS}" ]; then
+          echo "WARNING: No GRID driver versions found in program output"
+          echo "##vso[task.logissue type=warning;]No GRID driver versions detected in output"
+          echo "DEBUG: Program output for analysis:"
+          echo "${PROGRAM_OUTPUT}"
+        else
+          echo "Detected major versions: $(echo ${VERSIONS} | tr '\n' ' ')"
+          
+          COMPATIBILITY_ISSUES=false
+          
+          for VERSION in ${VERSIONS}; do
+            # Validate that VERSION is numeric
+            if ! [[ "$VERSION" =~ ^[0-9]+$ ]]; then
+              echo "WARNING: Skipping invalid version format: $VERSION"
+              continue
+            fi
+            
+            VERSION_DIFF=$((VERSION > EXPECTED_MAJOR_VERSION ? VERSION - EXPECTED_MAJOR_VERSION : EXPECTED_MAJOR_VERSION - VERSION))
+            
+            if [ ${VERSION_DIFF} -gt 1 ]; then
+              echo "❌ COMPATIBILITY ISSUE: Version v${VERSION} differs by ${VERSION_DIFF} from expected v${EXPECTED_MAJOR_VERSION}"
+              echo "##vso[task.logissue type=error;]GRID driver version v${VERSION} is incompatible (differs by ${VERSION_DIFF} from expected v${EXPECTED_MAJOR_VERSION})"
+              COMPATIBILITY_ISSUES=true
+            else
+              echo "✅ Version v${VERSION} is compatible (difference: ${VERSION_DIFF})"
+            fi
+          done
+          
+          if [ "${COMPATIBILITY_ISSUES}" = "true" ]; then
+            echo ""
+            echo "❌ GRID COMPATIBILITY CHECK FAILED: Incompatible driver versions detected"
+            echo "##vso[task.logissue type=error;]Grid compatibility check failed due to incompatible driver versions"
+            # Don't exit with error, just log the issue
+          else
+            echo ""
+            echo "✅ GRID COMPATIBILITY CHECK PASSED: All driver versions are compatible"
+            # No Azure DevOps logging for success case since 'info' type is not supported
+          fi
+        fi
+        
+        echo "=== END COMPATIBILITY ANALYSIS ==="
+      else
+        echo "Skipping version analysis due to program failure (exit code: ${PROGRAM_EXIT_CODE})"
+      fi
+      
+      rm gridCompatibilityProgram
     else
-      echo "Grid compatibility binary not found or not specified: ${GRID_COMPATIBILITY_BINARY:-not_set}"
-      echo "##vso[task.logissue type=warning;]Grid compatibility binary not available. Skipping evaluation."
-      echo "This is expected during initial scaffolding setup."
+      echo "ERROR: gridCompatibilityProgram not found in $(pwd)"
+      echo "Available files:"
+      ls -la
     fi
   popd || exit 0
 else
