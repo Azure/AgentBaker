@@ -190,6 +190,13 @@ steps:
       SKIP_SCANNING: $(SKIP_SCANNING)
       DRY_RUN: $(DRY_RUN)
 
+  - task: PublishPipelineArtifact@0
+    condition: always()
+    displayName: Publish BCC Tools Installation Log
+    inputs:
+      artifactName: 'bcc-tools-installation-log-$(ARTIFACT_ID)-${{ parameters.artifactName }}'
+      targetPath: 'bcc-tools-installation.log'
+
   - task: CopyFiles@2
     condition: always()
     displayName: Copy BCC Tools Installation Log
@@ -198,13 +205,6 @@ steps:
       SourceFolder: '$(System.DefaultWorkingDirectory)'
       Contents: 'bcc-tools-installation.log'
       TargetFolder: '$(Build.ArtifactStagingDirectory)'
-
-  - task: PublishPipelineArtifact@0
-    condition: always()
-    displayName: Publish BCC Tools Installation Log
-    inputs:
-      artifactName: 'bcc-tools-installation-log-$(ARTIFACT_ID)-${{ parameters.artifactName }}'
-      targetPath: 'bcc-tools-installation.log'
 
   - task: CopyFiles@2
     displayName: Copy Trivy Report
@@ -230,6 +230,12 @@ steps:
         cis-report.txt
       TargetFolder: '$(Build.ArtifactStagingDirectory)'
 
+  - task: PublishPipelineArtifact@0
+    displayName: Publish Release Notes
+    inputs:
+      artifactName: 'vhd-release-notes-${{ parameters.artifactName }}'
+      targetPath: 'release-notes.txt'
+      
   - task: CopyFiles@2
     displayName: Copy Release Notes
     inputs:
