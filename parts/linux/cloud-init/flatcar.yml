@@ -9,3 +9,22 @@ storage:
     contents:
       inline: |
         C /etc/protocols - - - - /usr/share/baselayout/protocols
+systemd:
+  units:
+  - name: update-ca.service
+    enabled: true
+    contents: |
+      [Unit]
+      Description=Update CA certificates if missing or symlink
+      DefaultDependencies=no
+      After=local-fs.target
+      ExecCondition=/bin/sh -c '[ ! -e /etc/ssl/certs/ca-certificates.crt ] || [ -L /etc/ssl/certs/ca-certificates.crt ]'
+
+      [Service]
+      Type=oneshot
+      ExecStartPre=/usr/bin/rm -f /etc/ssl/certs/ca-certificates.crt
+      ExecStart=/usr/sbin/update-ca-certificates
+      RemainAfterExit=yes
+
+      [Install]
+      WantedBy=multi-user.target
