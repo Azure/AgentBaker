@@ -2316,7 +2316,9 @@ type AgentPoolWindowsProfile struct {
 	DisableOutboundNat *bool `json:"disableOutboundNat,omitempty"`
 
 	// Windows next-gen networking uses Windows eBPF for the networking dataplane.
-	NextGenNetworkingURL *string `json:"nextGenNetworkingURL,omitempty"`
+	NextGenNetworkingURL     *string `json:"nextGenNetworkingURL,omitempty"`
+	NextGenNetworkingEnabled *bool   `json:"nextGenNetworkingEnabled,omitempty"`
+	NextGenNetworkingConfig  *string `json:"nextGenNetworkingConfig,omitempty"`
 }
 
 // IsDisableWindowsOutboundNat returns true if the Windows agent pool disable OutboundNAT.
@@ -2327,7 +2329,15 @@ func (a *AgentPoolProfile) IsDisableWindowsOutboundNat() bool {
 }
 
 func (a *AgentPoolWindowsProfile) IsNextGenNetworkingEnabled() bool {
-	return a != nil && a.NextGenNetworkingURL != nil
+	return a != nil &&
+		a.NextGenNetworkingEnabled != nil && *a.NextGenNetworkingEnabled
+}
+
+func (a *AgentPoolWindowsProfile) GetNextGenNetworkingConfig() string {
+	if a == nil || a.NextGenNetworkingConfig == nil {
+		return ""
+	}
+	return *a.NextGenNetworkingConfig
 }
 
 func (a *AgentPoolWindowsProfile) GetNextGenNetworkingURL() string {
