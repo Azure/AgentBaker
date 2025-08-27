@@ -359,7 +359,7 @@ func createPrivateAzureContainerRegistry(ctx context.Context, cluster *armcontai
 		}
 		// if ACR gets recreated so should the cluster
 		logf(ctx, "Private ACR deleted, deleting cluster %s", *cluster.Name)
-		if err := deleteCluster(ctx, cluster); err != nil {
+		if err := deleteCluster(ctx, *cluster.Name, resourceGroup); err != nil {
 			return fmt.Errorf("failed to delete cluster: %w", err)
 		}
 	} else {
