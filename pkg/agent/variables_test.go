@@ -295,6 +295,55 @@ var _ = Describe("Windows custom data variables check", func() {
 		Expect(vars["isDisableWindowsOutboundNat"]).To(Equal("false"))
 	})
 
+	It("sets nextGenNetworkingEnabled to true", func() {
+		value := true
+		config.AgentPoolProfile.AgentPoolWindowsProfile = &datamodel.AgentPoolWindowsProfile{
+			NextGenNetworkingEnabled: &value,
+		}
+		vars := getWindowsCustomDataVariables(config)
+		Expect(vars["nextGenNetworkingEnabled"]).To(Equal("true"))
+	})
+
+	It("sets nextGenNetworkingEnabled to false", func() {
+		value := false
+		config.AgentPoolProfile.AgentPoolWindowsProfile = &datamodel.AgentPoolWindowsProfile{
+			NextGenNetworkingEnabled: &value,
+		}
+		vars := getWindowsCustomDataVariables(config)
+		Expect(vars["nextGenNetworkingEnabled"]).To(Equal("false"))
+	})
+
+	It("sets nextGenNetworkingEnabled to false when nil", func() {
+		config.AgentPoolProfile.AgentPoolWindowsProfile = &datamodel.AgentPoolWindowsProfile{
+			NextGenNetworkingEnabled: nil,
+		}
+		vars := getWindowsCustomDataVariables(config)
+		Expect(vars["nextGenNetworkingEnabled"]).To(Equal("false"))
+	})
+
+	It("sets nextGenNetworkingConfig", func() {
+		value := "next gen networking config"
+		config.AgentPoolProfile.AgentPoolWindowsProfile = &datamodel.AgentPoolWindowsProfile{
+			NextGenNetworkingConfig: &value,
+		}
+		vars := getWindowsCustomDataVariables(config)
+		Expect(vars["nextGenNetworkingConfig"]).To(Equal("next gen networking config"))
+	})
+
+	It("sets nextGenNetworkingConfig with empty config when nil", func() {
+		config.AgentPoolProfile.AgentPoolWindowsProfile = &datamodel.AgentPoolWindowsProfile{
+			NextGenNetworkingConfig: nil,
+		}
+		vars := getWindowsCustomDataVariables(config)
+		Expect(vars["nextGenNetworkingConfig"]).To(Equal(""))
+	})
+
+	It("sets nextGenNetworkingConfig with empty config when AgentPoolWindowsProfile is nil", func() {
+		config.AgentPoolProfile.AgentPoolWindowsProfile = nil
+		vars := getWindowsCustomDataVariables(config)
+		Expect(vars["nextGenNetworkingConfig"]).To(Equal(""))
+	})
+
 	It("sets isSkipCleanupNetwork to true", func() {
 		value := true
 		config.AgentPoolProfile.NotRebootWindowsNode = &value

@@ -319,6 +319,27 @@ function GetPatchInfo
     return $patchData
 }
 
+function GetWindowsBaseVersion
+{
+    Param(
+        [Parameter(Mandatory = $true)][String]
+        $windowsSku,
+
+        [Parameter(Mandatory = $true)][Object]
+        $windowsSettingsContent
+    )
+
+
+    $baseVersionBlock = $windowsSettingsContent.WindowsBaseVersions."$windowsSku";
+
+    if ($baseVersionBlock -eq $null) {
+        return ""
+    }
+
+    return $baseVersionBlock.base_image_version
+}
+
+
 function GetWindowsBaseVersions {
     Param(
         [Parameter(Mandatory = $true)][Object]
@@ -359,6 +380,9 @@ function GetAllCachedThings {
     $packages = GetPackagesFromComponentsJson $componentsJsonContent
     $ociArtifacts = GetOCIArtifactsFromComponentsJson $componentsJsonContent
     $regKeys = GetRegKeysToApply $windowsSettingsContent
+    $baseVersion =  GetWindowsBaseVersion -windowsSku $windowsSku -windowsSettingsContent $windowsSettingsContent
+
+    $items += "Windows ${windowsSku} base version: ${baseVersion}"
 
     foreach ($packageName in $packages.keys) {
         foreach ($package in $packages[$packageName]) {
