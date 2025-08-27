@@ -339,7 +339,8 @@ ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
 EOF
 
   mkdir -p /etc/containerd
-  if [ "${GPU_NODE}" = "true" ]; then
+  # RP doesn't currently recognize the GB200 as a GPU node. Check manually here.
+  if [ "${GPU_NODE}" = "true" ] || [ "${VM_SIZE}" = "Standard_ND128isr_NDR_GB200_v6" ]; then
     # Check VM tag directly to determine if GPU drivers should be skipped
     export -f should_skip_nvidia_drivers
     should_skip=$(retrycmd_silent 10 1 10 bash -cx should_skip_nvidia_drivers)
