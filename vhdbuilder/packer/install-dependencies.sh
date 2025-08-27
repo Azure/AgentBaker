@@ -598,10 +598,12 @@ if grep -q "GB200" <<< "$FEATURE_FLAGS"; then
       datacenter-gpu-manager-exporter \
       datacenter-gpu-manager-4-core \
       datacenter-gpu-manager-4-proprietary \
-      libcap2-bin
+      libcap2-bin \
+      k8s-device-plugin
 
     systemctl enable nvidia-dcgm
     systemctl enable nvidia-dcgm-exporter
+    systemctl enable nvidia-device-plugin
   fi
 fi
 
