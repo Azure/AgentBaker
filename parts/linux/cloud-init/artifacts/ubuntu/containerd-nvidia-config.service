@@ -1,6 +1,7 @@
 [Unit]
 Description=A oneshot service that overwrites the containerd configuration on GB200 SKUs
 After=cloud-final.service
+After=containerd.service
 DefaultDependencies=no
 
 [Service]
