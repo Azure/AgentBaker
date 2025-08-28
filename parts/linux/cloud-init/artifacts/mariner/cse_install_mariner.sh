@@ -169,7 +169,7 @@ installCredentialProviderFromPMC() {
     ln -snf /usr/bin/azure-acr-credential-provider "$CREDENTIAL_PROVIDER_BIN_DIR/acr-credential-provider"
 }
 
-installKubeletKubectlPkgFromPMC() {
+installKubeletKubectlFromPkg() {
     local desiredVersion="${1}"
 	  installRPMPackageFromFile "kubelet" $desiredVersion || exit $ERR_KUBELET_INSTALL_FAIL
     installRPMPackageFromFile "kubectl" $desiredVersion || exit $ERR_KUBECTL_INSTALL_FAIL

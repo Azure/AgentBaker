@@ -629,8 +629,8 @@ Describe 'cse_config.sh'
             echo "installKubeletKubectlFromURL"
         }
 
-        installKubeletKubectlPkgFromPMC() {
-            echo "installKubeletKubectlPkgFromPMC $1"
+        installKubeletKubectlFromPkg() {
+            echo "installKubeletKubectlFromPkg $1"
         }
 
         # Set default values for common variables
@@ -650,7 +650,7 @@ Describe 'cse_config.sh'
             KUBERNETES_VERSION="1.34.0"
             When call configureKubeletAndKubectl
             The output should include "installKubeletKubectlFromURL"
-            The output should not include "installKubeletKubectlPkgFromPMC"
+            The output should not include "installKubeletKubectlFromPkg"
         End
 
         It 'should install from URL if PRIVATE_KUBE_BINARY_DOWNLOAD_URL is set'
@@ -658,7 +658,7 @@ Describe 'cse_config.sh'
             KUBERNETES_VERSION="1.34.0"
             When call configureKubeletAndKubectl
             The output should include "installKubeletKubectlFromURL"
-            The output should not include "installKubeletKubectlPkgFromPMC"
+            The output should not include "installKubeletKubectlFromPkg"
         End
 
         It 'should install from URL if BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER is set'
@@ -666,7 +666,7 @@ Describe 'cse_config.sh'
             KUBERNETES_VERSION="1.34.0"
             When call configureKubeletAndKubectl
             The output should include "installKubeletKubectlFromURL"
-            The output should not include "installKubeletKubectlPkgFromPMC"
+            The output should not include "installKubeletKubectlFromPkg"
         End
 
         # Test cases for version-based logic (second condition)
@@ -675,7 +675,7 @@ Describe 'cse_config.sh'
             KUBERNETES_VERSION="1.33.5"
             When call configureKubeletAndKubectl
             The output should include "installKubeletKubectlFromURL"
-            The output should not include "installKubeletKubectlPkgFromPMC"
+            The output should not include "installKubeletKubectlFromPkg"
         End
 
         It 'should install from URL if SHOULD_ENFORCE_KUBE_PMC_INSTALL is false and k8s version < 1.34'
@@ -683,7 +683,7 @@ Describe 'cse_config.sh'
             KUBERNETES_VERSION="1.33.5"
             When call configureKubeletAndKubectl
             The output should include "installKubeletKubectlFromURL"
-            The output should not include "installKubeletKubectlPkgFromPMC"
+            The output should not include "installKubeletKubectlFromPkg"
         End
 
         # Test cases for PMC installation with OS-specific logic
@@ -691,7 +691,7 @@ Describe 'cse_config.sh'
             OS="UBUNTU"
             KUBERNETES_VERSION="1.34.0"
             When call configureKubeletAndKubectl
-            The output should include "installKubeletKubectlPkgFromPMC"
+            The output should include "installKubeletKubectlFromPkg"
             The output should not include "installKubeletKubectlFromURL"
         End
 
@@ -700,7 +700,7 @@ Describe 'cse_config.sh'
             OS_VERSION="3.0"
             KUBERNETES_VERSION="1.34.0"
             When call configureKubeletAndKubectl
-            The output should include "installKubeletKubectlPkgFromPMC"
+            The output should include "installKubeletKubectlFromPkg"
             The output should not include "installKubeletKubectlFromURL"
         End
 
@@ -709,7 +709,7 @@ Describe 'cse_config.sh'
             OS_VERSION="3.0"
             KUBERNETES_VERSION="1.34.0"
             When call configureKubeletAndKubectl
-            The output should include "installKubeletKubectlPkgFromPMC"
+            The output should include "installKubeletKubectlFromPkg"
             The output should not include "installKubeletKubectlFromURL"
         End
 
@@ -719,7 +719,7 @@ Describe 'cse_config.sh'
             KUBERNETES_VERSION="1.34.0"
             When call configureKubeletAndKubectl
             The output should include "installKubeletKubectlFromURL"
-            The output should not include "installKubeletKubectlPkgFromPMC"
+            The output should not include "installKubeletKubectlFromPkg"
         End
 
         # Test cases for enforce PMC install flag
@@ -728,7 +728,7 @@ Describe 'cse_config.sh'
             OS="UBUNTU"
             KUBERNETES_VERSION="1.32.5"
             When call configureKubeletAndKubectl
-            The output should include "installKubeletKubectlPkgFromPMC"
+            The output should include "installKubeletKubectlFromPkg"
             The output should not include "installKubeletKubectlFromURL"
         End
 
@@ -738,7 +738,7 @@ Describe 'cse_config.sh'
             OS_VERSION="3.0"
             KUBERNETES_VERSION="1.32.5"
             When call configureKubeletAndKubectl
-            The output should include "installKubeletKubectlPkgFromPMC"
+            The output should include "installKubeletKubectlFromPkg"
             The output should not include "installKubeletKubectlFromURL"
         End
 
@@ -749,7 +749,7 @@ Describe 'cse_config.sh'
             KUBERNETES_VERSION="1.32.5"
             When call configureKubeletAndKubectl
             The output should include "installKubeletKubectlFromURL"
-            The output should not include "installKubeletKubectlPkgFromPMC"
+            The output should not include "installKubeletKubectlFromPkg"
         End
 
         # Test edge cases
@@ -760,7 +760,7 @@ Describe 'cse_config.sh'
             OS="UBUNTU"
             When call configureKubeletAndKubectl
             The output should include "installKubeletKubectlFromURL"
-            The output should not include "installKubeletKubectlPkgFromPMC"
+            The output should not include "installKubeletKubectlFromPkg"
         End
 
         It 'should handle version exactly at boundary (1.34.0)'
@@ -768,7 +768,7 @@ Describe 'cse_config.sh'
             KUBERNETES_VERSION="1.34.0"
             SHOULD_ENFORCE_KUBE_PMC_INSTALL=""
             When call configureKubeletAndKubectl
-            The output should include "installKubeletKubectlPkgFromPMC"
+            The output should include "installKubeletKubectlFromPkg"
             The output should not include "installKubeletKubectlFromURL"
         End
 
@@ -778,7 +778,7 @@ Describe 'cse_config.sh'
             KUBERNETES_VERSION="1.34.0"
             When call configureKubeletAndKubectl
             The output should not include "installKubeletKubectlFromURL"
-            The output should not include "installKubeletKubectlPkgFromPMC"
+            The output should not include "installKubeletKubectlFromPkg"
         End
     End
 End
