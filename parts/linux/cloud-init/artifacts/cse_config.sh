@@ -550,10 +550,10 @@ configureKubeletAndKubectl() {
         logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromURL" installKubeletKubectlFromURL
     elif [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
         logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromBootstrapProfileRegistry" "installKubeletKubectlFromBootstrapProfileRegistry ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ${KUBERNETES_VERSION}"
-    elif [ "$(type -t installKubeletKubectlPkgFromPMC)" = function ]; then
-        logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlPkgFromPMC" "installKubeletKubectlPkgFromPMC ${KUBERNETES_VERSION}"
+    elif [ "$(type -t installKubeletKubectlFromPkg)" = function ]; then
+        logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromPkg" "installKubeletKubectlFromPkg ${KUBERNETES_VERSION}"
     else
-        echo "installKubeletKubectlPkgFromPMC is not defined for this OS"
+        echo "installKubeletKubectlFromPkg is not defined for this OS"
         exit $ERR_K8S_INSTALL_ERR
     fi
 }
