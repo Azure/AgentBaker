@@ -1116,11 +1116,15 @@ providers:
 
         # Test unsupported OS scenarios (should fallback to no action)
         It 'should not call any install function for unsupported OS'
+            exit() {
+                echo "mock exit $1"
+            }
+
             OS="Windows"  # Unsupported OS
             KUBERNETES_VERSION="1.34.0"
             When call configureKubeletAndKubectl
             The output should not include "installKubeletKubectlFromURL"
-            The output should not include "installKubeletKubectlPkgFromPMC"
+            The output should include "installKubeletKubectlPkgFromPMC is not defined"
         End
 
         # Test BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER scenarios

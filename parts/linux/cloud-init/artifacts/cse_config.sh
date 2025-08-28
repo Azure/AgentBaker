@@ -539,27 +539,22 @@ EOF
 }
 
 configureKubeletAndKubectl() {
-    # Install kubelet and kubectl binaries from URL for Custom Kube binary and Private Kube binary
-    if [ -n "${CUSTOM_KUBE_BINARY_DOWNLOAD_URL}" ] || [ -n "${PRIVATE_KUBE_BINARY_DOWNLOAD_URL}" ]; then
+    # Install kubelet and kubectl binaries from URL:
+    # 1. For Custom Kube binary or Private Kube binary.
+    # 2. If k8s version < 1.34.0 and skip_bypass_k8s_version_check != true.
+    # 3. For Azure Linux v2 due to lack of PMC packages (if not network isolated).
+    if [ -n "${CUSTOM_KUBE_BINARY_DOWNLOAD_URL}" ] || [ -n "${PRIVATE_KUBE_BINARY_DOWNLOAD_URL}" ] ||
+       { [ "${SHOULD_ENFORCE_KUBE_PMC_INSTALL}" != true ] && ! semverCompare "${KUBERNETES_VERSION:-0.0.0}" 1.34.0; } ||
+       { isMarinerOrAzureLinux && [ "${OS_VERSION}" = 2.0 ] && [ -z "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; }
+    then
         logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromURL" installKubeletKubectlFromURL
-    # only install kube pkgs from pmc if k8s version >= 1.34.0 or skip_bypass_k8s_version_check is true
-    elif [ "${SHOULD_ENFORCE_KUBE_PMC_INSTALL}" != "true" ] && ! semverCompare ${KUBERNETES_VERSION:-"0.0.0"} "1.34.0"; then
-        logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromURL" installKubeletKubectlFromURL
+    elif [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
+        logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromBootstrapProfileRegistry" "installKubeletKubectlFromBootstrapProfileRegistry ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ${KUBERNETES_VERSION}"
+    elif [ "$(type -t installKubeletKubectlPkgFromPMC)" = function ]; then
+        logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlPkgFromPMC" "installKubeletKubectlPkgFromPMC ${KUBERNETES_VERSION}"
     else
-        if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ] ; then
-            logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromBootstrapProfileRegistry" "installKubeletKubectlFromBootstrapProfileRegistry ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ${KUBERNETES_VERSION}"
-        elif isMarinerOrAzureLinux "$OS"; then
-            if [ "$OS_VERSION" = "2.0" ]; then
-                # we do not publish packages to PMC for azurelinux V2
-                logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromURL" installKubeletKubectlFromURL
-            else
-                logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlPkgFromPMC" "installKubeletKubectlPkgFromPMC ${KUBERNETES_VERSION}"
-            fi
-        elif [ "${OS}" = "${UBUNTU_OS_NAME}" ]; then
-            logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlPkgFromPMC" "installKubeletKubectlPkgFromPMC ${KUBERNETES_VERSION}"
-        elif [ "${OS}" = "${FLATCAR_OS_NAME}" ]; then
-            logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromURL" installKubeletKubectlFromURL
-        fi
+        echo "installKubeletKubectlPkgFromPMC is not defined for this OS"
+        exit $ERR_K8S_INSTALL_ERR
     fi
 }
 
