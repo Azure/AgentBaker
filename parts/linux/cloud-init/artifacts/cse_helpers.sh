@@ -147,6 +147,8 @@ ERR_LOOKUP_ENABLE_MANAGED_GPU_EXPERIENCE_TAG=230 # Error checking nodepool tags 
 
 ERR_PULL_POD_INFRA_CONTAINER_IMAGE=225 # Error pulling pause image
 
+ERR_ORAS_PULL_SYSEXT_FAIL=225 # Error pulling systemd system extension artifact via oras from registry
+
 # This probably wasn't launched via a login shell, so ensure the PATH is correct.
 [ -f /etc/profile.d/path.sh ] && . /etc/profile.d/path.sh
 
@@ -577,6 +579,14 @@ getCPUArch() {
     else
         echo "amd64"
     fi
+}
+
+getSystemdArch() {
+    local sysextArch=$(getCPUArch)
+    case ${sysextArch} in
+        amd64) echo x86-64 ;;
+        *) echo "${sysextArch}" ;;
+    esac
 }
 
 isARM64() {
