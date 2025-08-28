@@ -68,7 +68,8 @@
     },
     {
       "matchPackageNames": [
-        "oss/v2/**"
+        "oss/v2/**",
+        "!oss/v2/kubernetes/*-sysext"
       ],
       "versioning": "regex:^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<prerelease>\\d+)$",
       "ignoreUnstable": false
@@ -469,6 +470,16 @@
         "oss/binaries/kubernetes/azure-acr-credential-provider"
       ],
       "extractVersion": "^(?P<version>.*?)-[^-]*-[^-]*$"
+    },
+    {
+      "matchDatasources": [
+        "docker"
+      ],
+      "matchPackageNames": [
+        "oss/v2/kubernetes/*-sysext"
+      ],
+      "matchCurrentVersion": "/-azlinux3$/",
+      "extractVersion": "^(?P<version>.+-azlinux3)-"
     },
     {
       "matchPackageNames": [
