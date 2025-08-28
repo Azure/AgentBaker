@@ -4,7 +4,7 @@ stub() {
     echo "${FUNCNAME[1]} stub"
 }
 
-installKubeletKubectlPkgFromPMC() {
+installKubeletKubectlFromPkg() {
     local desiredVersion="${1}"
 	installRPMPackageFromFile "kubelet" $desiredVersion || exit $ERR_KUBELET_INSTALL_FAIL
     installRPMPackageFromFile "kubectl" $desiredVersion || exit $ERR_KUBECTL_INSTALL_FAIL
