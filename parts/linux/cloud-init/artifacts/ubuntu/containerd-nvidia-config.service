@@ -1,7 +1,7 @@
 [Unit]
 Description=A oneshot service that overwrites the containerd configuration on GB200 SKUs
 After=cloud-final.service
-Before=containerd.service
+DefaultDependencies=no
 
 [Service]
 Type=oneshot
@@ -9,4 +9,4 @@ ExecStart=/opt/azure/gb200-containerd-config.sh
 RemainAfterExit=yes
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=default.target
