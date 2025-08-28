@@ -402,6 +402,8 @@ where
 - `${version}` will be resolved at runtime with the `latestVersion` and `previousLatestVersion` defined above.
 - `${CPU_ARCH}` will be resolved at runtime depending on the CPU architecture of the Node (VM) under provisioning.
 
+systemd system extensions (sysexts) are also hosted as MAR OCI artifacts, but they use a slightly different `extractVersion` rule and `downloadURL`. The distribution (e.g. `azlinux3`) is included in the version to allow different distributions within groups of artifacts. `${SYSTEMD_ARCH}` rather than `${CPU_ARCH}` is used in the URL, as systemd has different architecture names in some cases.
+
 ## `REVISION` in Dalec built container images
 Dalec-built container images use static tags in the form `vMAJOR.MINOR.PATCH-REVISION` (see the Dalec FAQ https://github.com/Azure/dalec-build-defs/blob/main/faq.md#how-do-floating-vs-static-tags-work for details). For clarity and deterministic caching we represent these container images in Agent Baker's `components.json` using the exact static tag `vMAJOR.MINOR.PATCH-REVISION`.
 
