@@ -953,6 +953,7 @@ func GetMaintainedLinuxSIGImageConfigMap() map[Distro]SigImageConfig {
 		getSigUbuntuImageConfigMapWithOpts(),
 		getSigCBLMarinerImageConfigMapWithOpts(),
 		getSigAzureLinuxImageConfigMapWithOpts(),
+		getSigFlatcarImageConfigMapWithOpts(),
 	}
 
 	maintained := map[Distro]SigImageConfig{}
