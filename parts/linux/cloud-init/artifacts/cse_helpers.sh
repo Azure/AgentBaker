@@ -635,7 +635,7 @@ should_enforce_kube_pmc_install() {
 }
 
 isMarinerOrAzureLinux() {
-    local os=$1
+    local os=${1-$OS}
     if [ "$os" = "$MARINER_OS_NAME" ] || [ "$os" = "$MARINER_KATA_OS_NAME" ] || [ "$os" = "$AZURELINUX_OS_NAME" ] || [ "$os" = "$AZURELINUX_KATA_OS_NAME" ]; then
         return 0
     fi
@@ -643,8 +643,8 @@ isMarinerOrAzureLinux() {
 }
 
 isAzureLinuxOSGuard() {
-    local os=$1
-    local os_variant=$2
+    local os=${1-$OS}
+    local os_variant=${2-$OS_VARIANT}
     if [ "$os" = "$AZURELINUX_OS_NAME" ] && [ "$os_variant" = "$AZURELINUX_OSGUARD_OS_VARIANT" ]; then
         return 0
     fi
@@ -652,7 +652,7 @@ isAzureLinuxOSGuard() {
 }
 
 isMariner() {
-    local os=$1
+    local os=${1-$OS}
     if [ "$os" = "$MARINER_OS_NAME" ] || [ "$os" = "$MARINER_KATA_OS_NAME" ]; then
         return 0
     fi
@@ -660,7 +660,7 @@ isMariner() {
 }
 
 isAzureLinux() {
-    local os=$1
+    local os=${1-$OS}
     if [ "$os" = "$AZURELINUX_OS_NAME" ] || [ "$os" = "$AZURELINUX_KATA_OS_NAME" ]; then
         return 0
     fi
@@ -668,8 +668,16 @@ isAzureLinux() {
 }
 
 isFlatcar() {
-    local os=$1
+    local os=${1-$OS}
     if [ "$os" = "$FLATCAR_OS_NAME" ]; then
+        return 0
+    fi
+    return 1
+}
+
+isUbuntu() {
+    local os=${1-$OS}
+    if [ "$os" = "$UBUNTU_OS_NAME" ]; then
         return 0
     fi
     return 1
