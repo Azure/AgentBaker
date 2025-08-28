@@ -7,7 +7,8 @@ set -e
 # -------------------------------------------------------------------------------------------------
 OS_RELEASE_FILE="/etc/os-release"
 
-KUBECTL="/usr/local/bin/kubectl --kubeconfig /var/lib/kubelet/kubeconfig"
+KUBECONFIG="/var/lib/kubelet/kubeconfig"
+KUBECTL="/usr/local/bin/kubectl --kubeconfig ${KUBECONFIG}"
 
 # Function definitions used in this file. 
 # functions defined until "${__SOURCED__:+return}" are sourced and tested in -
@@ -50,7 +51,7 @@ ${__SOURCED__:+return}
 
 # At startup, we need to wait for kubelet to finish TLS bootstrapping to create the kubeconfig file.
 n=0
-while [ ! -f /var/lib/kubelet/kubeconfig ]; do
+while [ ! -f ${KUBECONFIG} ]; do
     echo 'Waiting for TLS bootstrapping'
     if [ "$n" -lt 100 ]; then
         n=$((n+1))
@@ -114,15 +115,30 @@ for repo in mariner-official-base.repo \
             echo "live patching repo service is not set, use PMC repo"
             # upgrade from live patching repo service to PMC repo
             # e.g. replace http://10.224.0.5 with https://packages.microsoft.com
-            sed -i 's/http:\/\/[0-9]\+.[0-9]\+.[0-9]\+.[0-9]\+/https:\/\/packages.microsoft.com/g' ${repo_path}
+            original_endpoint=$(sed -nE 's|^# original_baseurl=(https?://.*packages\.microsoft\.com).*|\1|p' ${repo_path} | head -1)
+            # if original_endpoint is not set, use https://packages.microsoft.com as the default endpoint
+            if [ -z "${original_endpoint}" ]; then
+                original_endpoint="https://packages.microsoft.com"
+            fi
+            sed -i 's|http:\/\/[0-9]\+.[0-9]\+.[0-9]\+.[0-9]\+|'"${original_endpoint}"'|g' ${repo_path}
+            sed -i '/^# original_baseurl=/d' ${repo_path}
         else
             echo "live patching repo service is: ${live_patching_repo_service}, use it to replace PMC repo" 
+            original_endpoint=$(sed -nE 's|^baseurl=(https?://.*packages\.microsoft\.com).*|\1|p' ${repo_path} | head -1)
             # upgrade from PMC to live patching repo service
             # e.g. replace https://packages.microsoft.com with http://10.224.0.5
-            sed -i 's/https:\/\/packages.microsoft.com/http:\/\/'"${live_patching_repo_service}"'/g' ${repo_path}
+            sed -Ei 's/^baseurl=https?:\/\/.*packages.microsoft.com/baseurl=http:\/\/'"${live_patching_repo_service}"'/g' ${repo_path}
             # upgrade the old live patching repo service to the new one
             # e.g. replace http://10.224.0.5 with http://10.224.0.6
             sed -i 's/http:\/\/[0-9]\+.[0-9]\+.[0-9]\+.[0-9]\+/http:\/\/'"${live_patching_repo_service}"'/g' ${repo_path}
+            # save the original PMC endpoint in the repo file so that we can revert back to it if needed 
+            if [ -n "${original_endpoint}" ]; then
+                if grep -q 'original_baseurl=' ${repo_path}; then
+                    sed -i 's|^# original_baseurl=.*$|# original_baseurl='"${original_endpoint}"'|g' ${repo_path} 
+                else
+                    sed -i '1i# original_baseurl='"${original_endpoint}"'' ${repo_path}
+                fi
+            fi
         fi
         new_repo=$(cat ${repo_path})
         if [ "${old_repo}" != "${new_repo}" ]; then
