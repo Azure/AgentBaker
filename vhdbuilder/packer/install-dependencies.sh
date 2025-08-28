@@ -588,6 +588,7 @@ if grep -q "GB200" <<< "$FEATURE_FLAGS"; then
     systemctl enable nvidia-dcgm
     systemctl enable nvidia-dcgm-exporter
     systemctl enable nvidia-device-plugin
+    systemctl enable containerd-nvidia-config
   fi
 fi
 
