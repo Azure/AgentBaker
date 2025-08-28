@@ -703,11 +703,7 @@ func getEnableNvidia(config *aksnodeconfigv1.Configuration) bool {
 		return *config.GpuConfig.EnableNvidia
 	}
 	// Hack around GB200 not showing as GPU node.
-	size_lower := strings.ToLower(config.VmSize)
-	if size_lower == "standard_nd128isr_ndr_gb200_v6" {
-		return true
-	}
-	return false
+	return strings.ToLower(config.VmSize) == "standard_nd128isr_ndr_gb200_v6"
 }
 
 func removeNewlines(str string) string {
