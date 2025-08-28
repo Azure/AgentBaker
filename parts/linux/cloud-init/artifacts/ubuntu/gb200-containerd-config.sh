@@ -12,3 +12,8 @@ if [ $? -ne 0 ]; then
 else
     echo "Wrote /etc/containerd/config.toml"
 fi
+
+echo "Restarting containerd to apply new configuration"
+systemctl restart containerd
+systemctl is-active --quiet containerd
+echo "Restarted containerd"
