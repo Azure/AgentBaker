@@ -761,6 +761,8 @@ testPkgDownloaded() {
   echo "$test:Start"
   local packageName=$1; shift
   local packageVersions=("$@")
+  local sysextArch
+  sysextArch=$(getSystemdArch)
   downloadLocation="/opt/${packageName}/downloads"
   for packageVersion in "${packageVersions[@]}"; do
     echo "checking package version: $packageVersion ..."
@@ -773,6 +775,11 @@ testPkgDownloaded() {
       rpmFile=$(find "${downloadLocation}" -maxdepth 1 -name "${packageName}-${packageVersion}*" -print -quit 2>/dev/null) || rpmFile=""
       if [ -z "${rpmFile}" ]; then
         err $test "Package ${packageName}-${packageVersion} does not exist, content of downloads dir is $(ls -al ${downloadLocation})"
+      fi
+    elif isFlatcar; then
+      local sysextFile=$(find "${downloadLocation}" -maxdepth 1 -name "${packageName}-v${packageVersion}*-${sysextArch}.raw" -print -quit 2>/dev/null) || sysextFile=""
+      if [ -z "${sysextFile}" ]; then
+        err $test "System extension ${packageName}-v${packageVersion} for ${sysextArch} does not exist, content of downloads dir is $(ls -al ${downloadLocation})"
       fi
     fi
 

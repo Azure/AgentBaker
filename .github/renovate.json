@@ -481,6 +481,16 @@
       "extractVersion": "^(?P<version>.*?)-[^-]*-[^-]*$"
     },
     {
+      "matchDatasources": [
+        "docker"
+      ],
+      "matchPackageNames": [
+        "oss/v2/kubernetes/*-sysext"
+      ],
+      "matchCurrentVersion": "/-azlinux3$/",
+      "extractVersion": "^(?P<version>.+-azlinux3)-"
+    },
+    {
       "matchPackageNames": [
         "aks/aks-gpu-cuda"
       ],
