@@ -139,6 +139,8 @@ ERR_SECURE_TLS_BOOTSTRAP_START_FAILURE=220 # Error starting the secure TLS boots
 ERR_CLOUD_INIT_FAILED=223 # Error indicating that cloud-init returned exit code 1 in cse_cmd.sh
 ERR_NVIDIA_DRIVER_INSTALL=224 # Error determining if nvidia driver install should be skipped
 
+ERR_ORAS_PULL_SYSEXT_FAIL=225 # Error pulling systemd system extension artifact via oras from registry
+
 # This probably wasn't launched via a login shell, so ensure the PATH is correct.
 [[ -f /etc/profile.d/path.sh ]] && . /etc/profile.d/path.sh
 
@@ -537,6 +539,14 @@ getCPUArch() {
     else
         echo "amd64"
     fi
+}
+
+getSystemdArch() {
+    local sysextArch=$(getCPUArch)
+    case ${sysextArch} in
+        amd64) echo x86-64 ;;
+        *) echo "${sysextArch}" ;;
+    esac
 }
 
 isARM64() {
