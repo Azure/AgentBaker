@@ -422,9 +422,24 @@ copyPackerFiles() {
       NVIDIA_ASC_DEST=/etc/apt/keyrings/nvidia.pub
       cpAndMode $NVIDIA_ASC_SRC $NVIDIA_ASC_DEST 644
 
+      # The following three files are required because RP does not currently
+      # recognize the GB200 SKU as a GPU VM. The containerd configuration requires
+      # modification when running GPU workloads. Since RP doesn't recognize the GB200
+      # SKU correctly, and RP will overwrite /etc/containerd/config.toml, we need to
+      # create a oneshot systemd service that runs after cloud-init that will 
+      # put the proper configuration into place.
       CONTAINERD_NVIDIA_TOML_SRC=/home/packer/containerd-nvidia.toml
-      CONTAINERD_NVIDIA_TOML_DEST=/etc/containerd/config.toml
+      CONTAINERD_NVIDIA_TOML_DEST=/opt/azure/containerd-nvidia.toml
       cpAndMode $CONTAINERD_NVIDIA_TOML_SRC $CONTAINERD_NVIDIA_TOML_DEST 644
+
+      CONTAINERD_GB200_CONFIG_SCRIPT_SRC=/home/packer/gb200-containerd-config.sh
+      CONTAINERD_GB200_CONFIG_SCRIPT_DEST=/opt/azure/gb200-containerd-config.sh
+      cpAndMode $CONTAINERD_GB200_CONFIG_SCRIPT_SRC $CONTAINERD_GB200_CONFIG_SCRIPT_DEST 755
+
+      SYSTEMD_CONTAINERD_CONFIG_SERVICE=/home/packer/containerd-nvidia-config.service
+      SYSTEMD_CONTAINERD_CONFIG_DEST=/etc/systemd/system/containerd-nvidia-config.service
+      cpAndMode $SYSTEMD_CONTAINERD_CONFIG_SERVICE $SYSTEMD_CONTAINERD_CONFIG_DEST 644
+
     fi
   fi
 
