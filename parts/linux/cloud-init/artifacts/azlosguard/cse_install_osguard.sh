@@ -19,16 +19,24 @@ installRPMPackageFromFile() {
         echo "Error: Unsupported package ${packageName}. Only kubelet and kubectl installs are allowed on OSGuard."
         exit 1
     fi
+    echo "installing ${packageName} version ${desiredVersion}"
     downloadDir="/opt/${packageName}/downloads"
+    packagePrefix="${packageName}-${desiredVersion}-*"
 
-    rpmFile=$(find "${downloadDir}" -maxdepth 1 -name "${packageName}-${desiredVersion}*" -print -quit 2>/dev/null) || rpmFile=""
-    fullPackageVersion=$(tdnf list ${packageName} | grep ${desiredVersion} | awk '{print $2}')
+    rpmFile=$(find "${downloadDir}" -maxdepth 1 -name "${packagePrefix}" -print -quit 2>/dev/null) || rpmFile=""
     if [ -z "${rpmFile}" ]; then
-        echo "kubectl package not found at ${pathToKubectlRPM}. Attempting to download it."
+        tdnf_update || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
+        # query all package versions and get the latest version for matching k8s version
+        fullPackageVersion=$(tdnf list ${packageName} | grep ${desiredVersion}- | awk '{print $2}' | sort -V | tail -n 1)
+        if [ -z "${fullPackageVersion}" ]; then
+            echo "Failed to find valid ${packageName} version for ${desiredVersion}"
+            exit $ERR_APT_INSTALL_TIMEOUT
+        fi
+        echo "Did not find cached rpm file, downloading ${packageName} version ${fullPackageVersion}"
         downloadPkgFromVersion "${packageName}" ${fullPackageVersion} "${downloadDir}" || exit $ERR_APT_INSTALL_TIMEOUT
-        rpmFile=$(find "${downloadDir}" -maxdepth 1 -name "${packageName}-${desiredVersion}*" -print -quit 2>/dev/null) || rpmFile=""
+        rpmFile=$(find "${downloadDir}" -maxdepth 1 -name "${packagePrefix}" -print -quit 2>/dev/null) || rpmFile=""
     fi
-	  if [ -z "${rpmFile}" ]; then
+    if [ -z "${rpmFile}" ]; then
         echo "Failed to locate ${packageName} rpm"
         exit $ERR_APT_INSTALL_TIMEOUT
     fi
