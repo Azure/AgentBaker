@@ -1330,14 +1330,14 @@
               {
                 "k8sVersion": "1.32",
                 "renovateTag": "name=kubelet, os=ubuntu, release=24.04",
-                "latestVersion": "1.32.7-ubuntu24.04u1",
-                "previousLatestVersion": "1.32.6-ubuntu24.04u1"
+                "latestVersion": "1.34.0~rc.2-ubuntu24.04u1",
+                "previousLatestVersion": "1.32.7-ubuntu24.04u1"
               },
               {
                 "k8sVersion": "1.33",
                 "renovateTag": "name=kubelet, os=ubuntu, release=24.04",
-                "latestVersion": "1.33.3-ubuntu24.04u1",
-                "previousLatestVersion": "1.33.2-ubuntu24.04u1"
+                "latestVersion": "1.34.0~rc.2-ubuntu24.04u1",
+                "previousLatestVersion": "1.33.3-ubuntu24.04u1"
               },
               {
                 "k8sVersion": "1.34",
@@ -1351,14 +1351,14 @@
               {
                 "k8sVersion": "1.32",
                 "renovateTag": "name=kubelet, os=ubuntu, release=22.04",
-                "latestVersion": "1.32.8-ubuntu22.04u1",
-                "previousLatestVersion": "1.32.7-ubuntu22.04u1"
+                "latestVersion": "1.34.0-ubuntu22.04u1",
+                "previousLatestVersion": "1.32.8-ubuntu22.04u1"
               },
               {
                 "k8sVersion": "1.33",
                 "renovateTag": "name=kubelet, os=ubuntu, release=22.04",
-                "latestVersion": "1.33.4-ubuntu22.04u1",
-                "previousLatestVersion": "1.33.3-ubuntu22.04u1"
+                "latestVersion": "1.34.0-ubuntu22.04u1",
+                "previousLatestVersion": "1.33.4-ubuntu22.04u1"
               },
               {
                 "k8sVersion": "1.34",
@@ -1372,14 +1372,14 @@
               {
                 "k8sVersion": "1.32",
                 "renovateTag": "name=kubelet, os=ubuntu, release=20.04",
-                "latestVersion": "1.32.8-ubuntu20.04u1",
-                "previousLatestVersion": "1.32.7-ubuntu20.04u1"
+                "latestVersion": "1.34.0-ubuntu20.04u1",
+                "previousLatestVersion": "1.32.8-ubuntu20.04u1"
               },
               {
                 "k8sVersion": "1.33",
                 "renovateTag": "name=kubelet, os=ubuntu, release=20.04",
-                "latestVersion": "1.33.4-ubuntu20.04u1",
-                "previousLatestVersion": "1.33.3-ubuntu20.04u1"
+                "latestVersion": "1.34.0-ubuntu20.04u1",
+                "previousLatestVersion": "1.33.4-ubuntu20.04u1"
               },
               {
                 "k8sVersion": "1.34",
