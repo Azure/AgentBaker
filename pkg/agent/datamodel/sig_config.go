@@ -955,6 +955,9 @@ func GetMaintainedLinuxSIGImageConfigMap() map[Distro]SigImageConfig {
 	maintained := map[Distro]SigImageConfig{}
 	for _, m := range imageConfigMaps {
 		for distro, config := range m {
+			if config.Definition == SIGUbuntuArm64GB200Containerd2404Gen2ImageConfigTemplate.Definition {
+				continue // TODO: remove this exception when the image is ready to be published
+			}
 			if config.Version == LinuxSIGImageVersion {
 				maintained[distro] = config
 			}
