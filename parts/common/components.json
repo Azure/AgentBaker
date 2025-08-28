@@ -1411,6 +1411,48 @@
               }
             ]
           }
+        },
+        "flatcar": {
+          "current": {
+            "versionsV2": [
+              {
+                "k8sVersion": "1.28",
+                "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/kubelet-sysext",
+                "latestVersion": "v1.28.101-1-azlinux3"
+              },
+              {
+                "k8sVersion": "1.29",
+                "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/kubelet-sysext",
+                "latestVersion": "v1.29.100-1-azlinux3"
+              },
+              {
+                "k8sVersion": "1.30",
+                "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/kubelet-sysext",
+                "latestVersion": "v1.30.100-1-azlinux3"
+              },
+              {
+                "k8sVersion": "1.31",
+                "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/kubelet-sysext",
+                "latestVersion": "v1.31.12-1-azlinux3"
+              },
+              {
+                "k8sVersion": "1.32",
+                "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/kubelet-sysext",
+                "latestVersion": "v1.32.8-1-azlinux3"
+              },
+              {
+                "k8sVersion": "1.33",
+                "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/kubelet-sysext",
+                "latestVersion": "v1.33.4-1-azlinux3"
+              },
+              {
+                "k8sVersion": "1.34",
+                "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/kubelet-sysext",
+                "latestVersion": "v1.34.0-1-azlinux3"
+              }
+            ],
+            "downloadURL": "mcr.microsoft.com/oss/v2/kubernetes/kubelet-sysext:${version}-${SYSTEMD_ARCH}"
+          }
         }
       }
     },
@@ -1505,6 +1547,48 @@
                 "latestVersion": "1.34.0-1.azl3"
               }
             ]
+          }
+        },
+        "flatcar": {
+          "current": {
+            "versionsV2": [
+              {
+                "k8sVersion": "1.28",
+                "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/kubectl-sysext",
+                "latestVersion": "1.28.101-1-azlinux3"
+              },
+              {
+                "k8sVersion": "1.29",
+                "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/kubectl-sysext",
+                "latestVersion": "1.29.100-1-azlinux3"
+              },
+              {
+                "k8sVersion": "1.30",
+                "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/kubectl-sysext",
+                "latestVersion": "1.30.100-1-azlinux3"
+              },
+              {
+                "k8sVersion": "1.31",
+                "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/kubectl-sysext",
+                "latestVersion": "v1.31.12-1-azlinux3"
+              },
+              {
+                "k8sVersion": "1.32",
+                "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/kubectl-sysext",
+                "latestVersion": "v1.32.8-1-azlinux3"
+              },
+              {
+                "k8sVersion": "1.33",
+                "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/kubectl-sysext",
+                "latestVersion": "v1.33.4-1-azlinux3"
+              },
+              {
+                "k8sVersion": "1.34",
+                "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/kubectl-sysext",
+                "latestVersion": "v1.34.0-1-azlinux3"
+              }
+            ],
+            "downloadURL": "mcr.microsoft.com/oss/v2/kubernetes/kubectl-sysext:${version}-${SYSTEMD_ARCH}"
           }
         }
       }

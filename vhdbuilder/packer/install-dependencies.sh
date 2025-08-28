@@ -29,6 +29,7 @@ source /home/packer/tool_installs.sh
 source /home/packer/tool_installs_distro.sh
 
 CPU_ARCH=$(getCPUArch)  #amd64 or arm64
+SYSTEMD_ARCH=$(getSystemdArch)  # x86-64 or arm64
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 COMPONENTS_FILEPATH=/opt/azure/components.json
 PERFORMANCE_DATA_FILE=/opt/azure/vhd-build-performance-data.json
@@ -405,20 +406,15 @@ while IFS= read -r p; do
         echo "  - kubernetes-binaries version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
-    "kubelet")
+    kubelet|kubectl)
       for version in ${PACKAGE_VERSIONS[@]}; do
-        if [ "${OS}" = "${UBUNTU_OS_NAME}" ] || isMarinerOrAzureLinux "$OS"; then
-          downloadPkgFromVersion "kubelet" "${version}" "${downloadDir}"
+        if isMarinerOrAzureLinux || isUbuntu; then
+          downloadPkgFromVersion "${name}" "${version}" "${downloadDir}"
+        elif isFlatcar; then
+          evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+          downloadSysextFromVersion "${name}" "${evaluatedURL}" "${downloadDir}"
         fi
-        echo "  - kubelet version ${version}" >> ${VHD_LOGS_FILEPATH}
-      done
-      ;;
-    "kubectl")
-      for version in ${PACKAGE_VERSIONS[@]}; do
-        if [ "${OS}" = "${UBUNTU_OS_NAME}" ] || isMarinerOrAzureLinux "$OS"; then
-          downloadPkgFromVersion "kubectl" "${version}" "${downloadDir}"
-        fi
-        echo "  - kubectl version ${version}" >> ${VHD_LOGS_FILEPATH}
+        echo "  - ${name} version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
     *)

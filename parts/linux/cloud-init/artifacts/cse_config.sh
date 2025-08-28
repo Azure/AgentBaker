@@ -565,7 +565,7 @@ configureKubeletAndKubectl() {
         { [[ ${SHOULD_ENFORCE_KUBE_PMC_INSTALL} != true ]] && ! semverCompare "${KUBERNETES_VERSION:-0.0.0}" 1.34.0; } ||
         { isMarinerOrAzureLinux && [[ ${OS_VERSION} = 2.0 ]]; }; then
         logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromURL" installKubeletKubectlFromURL
-    elif isMarinerOrAzureLinux || isUbuntu; then
+    elif isMarinerOrAzureLinux || isFlatcar || isUbuntu; then
         logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromPkg" "installKubeletKubectlFromPkg ${KUBERNETES_VERSION}"
     fi
 }

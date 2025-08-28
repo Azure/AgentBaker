@@ -400,6 +400,8 @@ where
 - `${version}` will be resolved at runtime with the `latestVersion` and `previousLatestVersion` defined above.
 - `${CPU_ARCH}` will be resolved at runtime depending on the CPU architecture of the Node (VM) under provisioning.
 
+systemd system extensions (sysexts) are also hosted as MAR OCI artifacts, but they use a slightly different `extractVersion` rule and `downloadURL`. The distribution (e.g. `azlinux3`) is included in the version to allow different distributions within groups of artifacts. `${SYSTEMD_ARCH}` rather than `${CPU_ARCH}` is used in the URL, as systemd has different architecture names in some cases.
+
 ## How to enable auto-merge for a component's patch version update?
 This is a common scenarior where we want the PR to be merged automatically when a PR is created for a patch version update. You can refer to `moby-runc` and `moby-containerd` in `AgentBaker/.github/renovate.json` as an example. 
 
