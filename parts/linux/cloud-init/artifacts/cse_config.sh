@@ -566,7 +566,7 @@ configureKubeletAndKubectl() {
         { isMarinerOrAzureLinux && [[ ${OS_VERSION} = 2.0 ]]; }; then
         logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromURL" installKubeletKubectlFromURL
     elif isAzureLinux || isUbuntu; then
-        logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlPkgFromPMC" "installKubeletKubectlPkgFromPMC ${KUBERNETES_VERSION}"
+        logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromPkg" "installKubeletKubectlFromPkg ${KUBERNETES_VERSION}"
     fi
 }
 
