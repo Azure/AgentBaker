@@ -64,11 +64,11 @@ parameters:
   - name: buildMarinerV2gen2kata
     displayName: Build MarinerV2 Gen2 Kata
     type: boolean
-    default: true
+    default: false
   - name: buildAzureLinuxV2gen2kata
     displayName: Build AzureLinuxV2 Gen2 Kata
     type: boolean
-    default: true
+    default: false
   - name: buildAzureLinuxV3gen2kata
     displayName: Build AzureLinuxV3 Gen2 Kata
     type: boolean
