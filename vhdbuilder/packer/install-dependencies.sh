@@ -506,7 +506,7 @@ fi
 
 if grep -q "GB200" <<< "$FEATURE_FLAGS"; then
   # The GB200 feature flag should only be set for arm64 and Ubuntu 24.04, but validate
-  if [ ${UBUNTU_RELEASE} = "24.04" ] && [ ${CPU_ARCH} = "arm64" ]; then
+  if [ "${UBUNTU_RELEASE}" = "24.04" ] && [ "${CPU_ARCH}" = "arm64" ]; then
     # The open series driver is required for the GB200 platform. Dmesg output
     # will appear directing the reader away from the proprietary driver. The GPUs
     # are also not visible in nvidia-smi output with the proprietary drivers
@@ -518,8 +518,16 @@ if grep -q "GB200" <<< "$FEATURE_FLAGS"; then
       ibverbs-utils \
       ibverbs-providers
 
-    systemctl restart openibd
-    ofed_info -s
+    ofed_version_output=$(ofed_info -s 2>/dev/null || true)
+    if [[ "$ofed_version_output" =~ ^MLNX_OFED_LINUX-[0-9]+\.[0-9]+-[0-9]+\.[0-9]+\.[0-9]+: ]]; then
+      echo "OFED version detected: $ofed_version_output"
+    else
+      echo "Warning: Unexpected ofed_info -s output: $ofed_version_output"
+    fi
+
+    # Remove Mellanox OFED sources and pub files to avoid conflicts or unwanted updates
+    rm /etc/apt/sources.list.d/mellanox_mlnx_ofed.list
+    rm /etc/apt/sources.list.d/mellanox_mlnx_ofed.pub
   fi
 fi
 
