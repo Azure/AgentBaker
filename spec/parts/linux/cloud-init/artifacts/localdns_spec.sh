@@ -19,6 +19,7 @@ Describe 'localdns.sh'
             UPDATED_LOCALDNS_CORE_FILE="${LOCALDNS_SCRIPT_PATH}/updated.localdns.corefile"
             mkdir -p "$LOCALDNS_SCRIPT_PATH"
             echo "forward . 168.63.129.16" >> "$LOCALDNS_CORE_FILE"
+            echo "forward . 168.63.129.16" >> "$UPDATED_LOCALDNS_CORE_FILE"
 
             LOCALDNS_SLICE_PATH="${TEST_DIR}/etc/systemd/system"
             LOCALDNS_SLICE_FILE="${LOCALDNS_SLICE_PATH}/localdns.slice"
@@ -142,7 +143,7 @@ EOF
             The contents of file "${UPDATED_LOCALDNS_CORE_FILE}" should include "forward . 10.0.0.1 10.0.0.2"
             The stdout should include "Found upstream VNET DNS servers: 10.0.0.1 10.0.0.2"
             The stdout should include "Replacing Azure DNS IP 168.63.129.16 with upstream VNET DNS servers 10.0.0.1 10.0.0.2"
-            The stdout should include "Successfully replaced Azure DNS IP with upstream VNET DNS servers in corefile"
+            The stdout should include "Successfully generated ${UPDATED_LOCALDNS_CORE_FILE}"
         End
 
         It 'should fail if resolv.conf not found'
