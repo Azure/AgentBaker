@@ -398,6 +398,12 @@ write_files:
   content: !!binary |
     {{GetGeneratedLocalDNSCoreFile}}
 
+- path: /opt/azure/containers/localdns/localdns.corefile
+  permissions: "0644"
+  owner: root
+  content: |
+    # Corefile for localdns
+
 - path: /etc/systemd/system/localdns.slice
   permissions: "0644"
   owner: root

@@ -151,9 +151,10 @@ replace_upstreamdns_placeholder_in_corefiletemplate() {
     }
     echo "Successfully created corefile to be used by localdns."
 
+    cat "${LOCALDNS_CORE_FILE}"
     # Verify corefile.
-    if [ ! -s "${LOCALDNS_CORE_FILE}" ]; then
-        echo "ERROR: ${LOCALDNS_CORE_FILE} was not created or is empty"
+    if [ ! -f "${LOCALDNS_CORE_FILE}" ] || [ ! -s "${LOCALDNS_CORE_FILE}" ]; then
+        echo "Localdns corefile either does not exist or is empty at ${LOCALDNS_CORE_FILE}."
         return 1
     fi
 
