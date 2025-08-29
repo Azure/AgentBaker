@@ -138,19 +138,19 @@ replace_azurednsip_in_corefile() {
     echo "Found upstream VNET DNS servers: ${UPSTREAM_VNET_DNS_SERVERS}"
 
     # Based on customer input, corefile was generated in pkg/agent/baker.go.
-    # Replace 168.63.129.16 with VNET DNS ServerIPs only if VNET DNS ServerIPs is not equal to 168.63.129.16
-    # and also not equal to the localdns node listener IP to avoid creating a circular dependency.
-    # Corefile will have 168.63.129.16 when user input has VnetDNS value for forwarddestination.
+    # Replace ###UpstreamDNS### with VNET DNS ServerIPs only if VNET DNS ServerIPs is not equal 
+    # to the localdns node listener IP to avoid creating a circular dependency.
+    # Corefile will have ###UpstreamDNS### when user input has VnetDNS value for forwarddestination.
     # Note - For root domain under VnetDNSOverrides, all DNS traffic should be forwarded to VnetDNS.
-    if [ "${UPSTREAM_VNET_DNS_SERVERS}" != "${AZURE_DNS_IP}" ] && [ "${UPSTREAM_VNET_DNS_SERVERS}" != "${LOCALDNS_NODE_LISTENER_IP}" ]; then
-        echo "Replacing Azure DNS IP ${AZURE_DNS_IP} with upstream VNET DNS servers ${UPSTREAM_VNET_DNS_SERVERS} in corefile ${LOCALDNS_CORE_FILE}"
-        sed -i -e "s|${AZURE_DNS_IP}|${UPSTREAM_VNET_DNS_SERVERS}|g" "${LOCALDNS_CORE_FILE}" || {
-            echo "Replacing AzureDNSIP in corefile failed."
+    if [ "${UPSTREAM_VNET_DNS_SERVERS}" != "${LOCALDNS_NODE_LISTENER_IP}" ]; then
+        echo "Replacing ###UpstreamDNS### with upstream VNET DNS servers ${UPSTREAM_VNET_DNS_SERVERS} in corefile ${LOCALDNS_CORE_FILE}"
+        sed -i -e "s|###UpstreamDNS###|${UPSTREAM_VNET_DNS_SERVERS}|g" "${LOCALDNS_CORE_FILE}" || {
+            echo "Replacing ###UpstreamDNS### in corefile failed."
             return 1 
         }
-        echo "Successfully replaced Azure DNS IP with upstream VNET DNS servers in corefile"
+        echo "Successfully replaced ###UpstreamDNS### with upstream VNET DNS servers in corefile"
     else
-        echo "Skipping DNS IP replacement. Upstream VNET DNS servers (${UPSTREAM_VNET_DNS_SERVERS}) match either Azure DNS IP (${AZURE_DNS_IP}) or localdns node listener IP (${LOCALDNS_NODE_LISTENER_IP})"
+        echo "Skipping DNS IP replacement. Upstream VNET DNS servers (${UPSTREAM_VNET_DNS_SERVERS}) matches localdns node listener IP (${LOCALDNS_NODE_LISTENER_IP})"
     fi
     return 0
 }
