@@ -578,6 +578,22 @@ fi
 if grep -q "GB200" <<< "$FEATURE_FLAGS"; then
   # The GB200 feature flag should only be set for arm64 and Ubuntu 24.04, but validate
   if [ ${UBUNTU_RELEASE} = "24.04" ] && [ ${CPU_ARCH} = "arm64" ]; then
+    # Need to replicate all functionality from github.com/azure/aks-gpu/install.sh.
+    # aks-gpu is designed to run at node boot/join time, whereas the GB200 VHD is set up
+    # to have all drivers installed at VHD build time.
+    #
+    # TODO(abenn135): move all GPU installation logic back into the AgentBaker repo, and
+    # invoke it where we need it, either at VHD build time or at node boot time (for example
+    # if we do not know at VHD build time whether we will want GPU drivers installed or not).
+
+    # 1. Blacklist nouveau driver
+    cat << EOF >> /etc/modprobe.d/blacklist-nouveau.conf
+blacklist nouveau
+options nouveau modeset=0
+EOF
+    update-initramfs -u
+
+    # 2. install GPU drivers
     # The open series driver is required for the GB200 platform. Dmesg output
     # will appear directing the reader away from the proprietary driver. The GPUs
     # are also not visible in nvidia-smi output with the proprietary drivers
@@ -601,6 +617,13 @@ if grep -q "GB200" <<< "$FEATURE_FLAGS"; then
       libcap2-bin \
       k8s-device-plugin
 
+    # 3. Add char device symlinks for NVIDIA devices
+    mkdir -p "$(dirname /lib/udev/rules.d/71-nvidia-dev-char.rules)"
+    cat << EOF >> /lib/udev/rules.d/71-nvidia-dev-char.rules
+ACTION=="add", DEVPATH=="/bus/pci/drivers/nvidia", RUN+="/usr/bin/nvidia-ctk system create-dev-char-symlinks --create-all"
+EOF
+
+    # Now we are off-piste: enable DCGM, DCGM exporter, container device plugin, and the NVIDIA containerd config.
     systemctl enable nvidia-dcgm
     systemctl enable nvidia-dcgm-exporter
     systemctl enable nvidia-device-plugin
