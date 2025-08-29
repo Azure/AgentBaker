@@ -1872,6 +1872,10 @@ func Test_Ubuntu2404_GPU_H100(t *testing.T) {
 				// Validate the if IB NPD is reporting the flapping condition
 				ValidateNPDIBLinkFlappingCondition(ctx, s)
 				ValidateNPDIBLinkFlappingAfterFailure(ctx, s)
+
+				// Validate NVLink error detection
+				ValidateNPDNVLinkCondition(ctx, s)
+				ValidateNPDNVLinkAfterFailure(ctx, s)
 			},
 		},
 	})
