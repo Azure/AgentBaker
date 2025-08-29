@@ -141,7 +141,7 @@ EOF
             The contents of file "${LOCALDNS_CORE_FILE}" should include "forward . 10.0.0.1 10.0.0.2"
             The stdout should include "Found upstream VNET DNS servers: 10.0.0.1 10.0.0.2"
             The stdout should include "Replacing ###UpstreamDNS### with upstream VNET DNS servers 10.0.0.1 10.0.0.2"
-            The stdout should include "Successfully replaced Azure DNS IP with upstream VNET DNS servers in corefile"
+            The stdout should include "Successfully replaced ###UpstreamDNS### with upstream VNET DNS servers in corefile"
         End
 
         It 'should fail if resolv.conf not found'
