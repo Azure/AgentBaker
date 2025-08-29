@@ -111,7 +111,7 @@ installPkgWithAptGet() {
         fullPackageVersion=$(apt list ${packageName} --all-versions | grep ${k8sVersion}- | awk '{print $2}' | sort -V | tail -n 1)
         if [ -z "${fullPackageVersion}" ]; then
             echo "Failed to find valid ${packageName} version for ${k8sVersion}"
-            exit $ERR_APT_INSTALL_TIMEOUT
+            exit 1
         fi
         echo "Did not find cached deb file, downloading ${packageName} version ${fullPackageVersion}"
         logs_to_events "AKS.CSE.install${packageName}PkgFromPMC.downloadPkgFromVersion" "downloadPkgFromVersion ${packageName} ${fullPackageVersion} ${downloadDir}"
@@ -119,7 +119,7 @@ installPkgWithAptGet() {
     fi
     if [ -z "${debFile}" ]; then
         echo "Failed to locate ${packageName} deb"
-        exit $ERR_APT_INSTALL_TIMEOUT
+        exit 1
     fi
 
     logs_to_events "AKS.CSE.install${packageName}.installDebPackageFromFile" "installDebPackageFromFile ${debFile}" || exit $ERR_APT_INSTALL_TIMEOUT
