@@ -336,7 +336,7 @@ retrycmd_get_tarball_from_registry_with_oras() {
     done
 }
 
-retrycmd_get_access_token_for_oras() {
+retrycmd_get_aad_access_token() {
     retries=$1; wait_sleep=$2; url=$3
     for i in $(seq 1 $retries); do
         response=$(timeout 60 curl -v -s -H "Metadata:true" --noproxy "*" "$url" -w "\n%{http_code}")
@@ -545,7 +545,7 @@ isARM64() {
 
 isRegistryUrl() {
     local binary_url=$1
-    registry_regex='^.+\/.+\/.+:.+$'
+    registry_regex='^[a-z0-9]+((\.|_|__|-+)[a-z0-9]+)*(\/[a-z0-9]+((\.|_|__|-+)[a-z0-9]+)*)*:[a-zA-Z0-9_][a-zA-Z0-9._-]{0,127}$' # regex copied from https://github.com/opencontainers/distribution-spec/blob/main/spec.md#pull
     # shellcheck disable=SC3010
     if [[ ${binary_url} =~ $registry_regex ]]; then # check if the binary_url is in the format of mcr.microsoft.com/componant/binary:1.0"
         return 0 # true
@@ -960,7 +960,7 @@ oras_login_with_kubelet_identity() {
 
     set +x
     access_url="http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https://management.azure.com/&client_id=$client_id"
-    raw_access_token=$(retrycmd_get_access_token_for_oras 5 15 $access_url)
+    raw_access_token=$(retrycmd_get_aad_access_token 5 15 $access_url)
     ret_code=$?
     if [ "$ret_code" -ne 0 ]; then
         echo $raw_access_token

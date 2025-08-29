@@ -211,7 +211,7 @@ Describe 'cse_helpers.sh'
             retrycmd_can_oras_ls_acr() {
                 return 1
             }
-            retrycmd_get_access_token_for_oras(){
+            retrycmd_get_aad_access_token(){
                 echo "failed to retrieve kubelet identity token from IMDS, http code: 400, msg: {\"error\":\"invalid_request\",\"error_description\":\"Identity not found\"}"
                 return $ERR_ORAS_PULL_UNAUTHORIZED
             }
@@ -227,7 +227,7 @@ Describe 'cse_helpers.sh'
             retrycmd_can_oras_ls_acr() {
                 return 1
             }
-            retrycmd_get_access_token_for_oras(){
+            retrycmd_get_aad_access_token(){
                 echo "{\"access_token\":\"myAccessToken\"}"
             }
             retrycmd_get_refresh_token_for_oras(){
@@ -244,7 +244,7 @@ Describe 'cse_helpers.sh'
             retrycmd_can_oras_ls_acr() {
                 return 1
             }
-            retrycmd_get_access_token_for_oras(){
+            retrycmd_get_aad_access_token(){
                 echo "{\"access_token\":\"myAccessToken\"}"
             }
             retrycmd_get_refresh_token_for_oras(){
@@ -261,7 +261,7 @@ Describe 'cse_helpers.sh'
             The stdout should include "failed to login to acr '$acr_url' with identity token"
         End  
         It 'should succeed if oras can login'
-            retrycmd_get_access_token_for_oras(){
+            retrycmd_get_aad_access_token(){
                 echo "{\"access_token\":\"myAccessToken\"}"
             }
             retrycmd_get_refresh_token_for_oras(){
@@ -412,6 +412,43 @@ Describe 'cse_helpers.sh'
             When call configureSSHService "UBUNTU" "24.04"
             The stdout should include "systemctlEnableAndStart called with: ssh"
             The status should equal $ERR_SYSTEMCTL_START_FAIL
+        End
+    End
+
+    Describe 'isRegistryUrl'
+        It 'returns true for valid registry url with tag'
+            When call isRegistryUrl 'mcr.microsoft.com/component/binary:1.0'
+            The status should be success
+            The stdout should eq ''
+            The stderr should eq ''
+        End
+
+        It 'returns false for url without tag'
+            When call isRegistryUrl 'mcr.microsoft.com/component/binary'
+            The status should be failure
+            The stdout should eq ''
+            The stderr should eq ''
+        End
+
+        It 'returns false for http url'
+            When call isRegistryUrl 'https://example.com/file.tar.gz'
+            The status should be failure
+            The stdout should eq ''
+            The stderr should eq ''
+        End
+
+        It 'returns true for registry url with complex tag'
+            When call isRegistryUrl 'myrepo.azurecr.io/myimage:1.2.3-beta_4'
+            The status should be success
+            The stdout should eq ''
+            The stderr should eq ''
+        End
+
+        It 'returns false for empty string'
+            When call isRegistryUrl ''
+            The status should be failure
+            The stdout should eq ''
+            The stderr should eq ''
         End
     End
 End
