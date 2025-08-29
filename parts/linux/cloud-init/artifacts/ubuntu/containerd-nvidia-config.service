@@ -1,7 +1,9 @@
 [Unit]
 Description=A oneshot service that overwrites the containerd configuration on GB200 SKUs
-After=cloud-final.service
-After=containerd.service
+# The aks-log-collector service writes the containerd configuration before containerd starts
+# The /etc/containerd directory doesn't appear to exist before service runs
+After=aks-log-collector.service
+Requires=aks-log-collector.service
 DefaultDependencies=no
 
 [Service]
