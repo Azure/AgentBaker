@@ -17,7 +17,7 @@ Describe 'localdns.sh'
             LOCALDNS_SCRIPT_PATH="${TEST_DIR}/opt/azure/containers/localdns"
             LOCALDNS_CORE_FILE="${LOCALDNS_SCRIPT_PATH}/localdns.corefile"
             mkdir -p "$LOCALDNS_SCRIPT_PATH"
-            echo "forward . 168.63.129.16" >> "$LOCALDNS_CORE_FILE"
+            echo "forward . ###UpstreamDNS###" >> "$LOCALDNS_CORE_FILE"
 
             LOCALDNS_SLICE_PATH="${TEST_DIR}/etc/systemd/system"
             LOCALDNS_SLICE_FILE="${LOCALDNS_SLICE_PATH}/localdns.slice"
