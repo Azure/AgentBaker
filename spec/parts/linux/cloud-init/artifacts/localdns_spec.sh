@@ -41,6 +41,8 @@ EOF
 cat <<EOF > "$RESOLV_CONF"
 nameserver 10.0.0.1
 nameserver 10.0.0.2
+nameserver 10.0.0.3
+nameserver 10.0.0.4
 EOF
 
         }
@@ -140,9 +142,9 @@ EOF
             When run replace_azurednsip_in_corefile
             The status should be success
             The file "${UPDATED_LOCALDNS_CORE_FILE}" should be exist
-            The contents of file "${UPDATED_LOCALDNS_CORE_FILE}" should include "forward . 10.0.0.1 10.0.0.2"
-            The stdout should include "Found upstream VNET DNS servers: 10.0.0.1 10.0.0.2"
-            The stdout should include "Replacing Azure DNS IP 168.63.129.16 with upstream VNET DNS servers 10.0.0.1 10.0.0.2"
+            The contents of file "${UPDATED_LOCALDNS_CORE_FILE}" should include "forward . 10.0.0.1 10.0.0.2 10.0.0.3 10.0.0.4"
+            The stdout should include "Found upstream VNET DNS servers: 10.0.0.1 10.0.0.2 10.0.0.3 10.0.0.4"
+            The stdout should include "Replacing Azure DNS IP 168.63.129.16 with upstream VNET DNS servers 10.0.0.1 10.0.0.2 10.0.0.3 10.0.0.4"
             The stdout should include "Successfully updated ${UPDATED_LOCALDNS_CORE_FILE}"
         End
 

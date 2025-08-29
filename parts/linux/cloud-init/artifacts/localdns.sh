@@ -132,7 +132,7 @@ replace_azurednsip_in_corefile() {
     fi
 
     # Get the upstream VNET DNS servers from /run/systemd/resolve/resolv.conf.
-    UPSTREAM_VNET_DNS_SERVERS=$(awk '/nameserver/ {print $2}' "$RESOLV_CONF" | paste -sd' ')
+    UPSTREAM_VNET_DNS_SERVERS=$(awk '/^nameserver/ {print $2}' "$RESOLV_CONF" | paste -sd' ')
     if [ -z "${UPSTREAM_VNET_DNS_SERVERS}" ] || [ "$UPSTREAM_VNET_DNS_SERVERS" = '""' ]; then
         echo "No Upstream VNET DNS servers found in $RESOLV_CONF."
         return 1
