@@ -93,8 +93,8 @@ installCriCtlPackage() {
 
 installKubeletKubectlPkgFromPMC() {
     k8sVersion="${1}"
-    installPkgWithAptGet "kubelet" "${k8sVersion}" || exit $ERR_KUBELET_INSTALL_TIMEOUT
-    installPkgWithAptGet "kubectl" "${k8sVersion}" || exit $ERR_KUBECTL_INSTALL_TIMEOUT
+    installPkgWithAptGet "kubelet" "${k8sVersion}" || exit $ERR_KUBELET_INSTALL_FAIL
+    installPkgWithAptGet "kubectl" "${k8sVersion}" || exit $ERR_KUBECTL_INSTALL_FAIL
 }
 
 installPkgWithAptGet() {

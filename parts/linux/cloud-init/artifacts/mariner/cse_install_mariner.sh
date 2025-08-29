@@ -152,8 +152,8 @@ EOF
 
 installKubeletKubectlPkgFromPMC() {
     local desiredVersion="${1}"
-	  installRPMPackageFromFile "kubelet" $desiredVersion || exit $ERR_KUBELET_INSTALL_TIMEOUT
-    installRPMPackageFromFile "kubectl" $desiredVersion || exit $ERR_KUBECTL_INSTALL_TIMEOUT
+	  installRPMPackageFromFile "kubelet" $desiredVersion || exit $ERR_KUBELET_INSTALL_FAIL
+    installRPMPackageFromFile "kubectl" $desiredVersion || exit $ERR_KUBECTL_INSTALL_FAIL
 }
 
 installRPMPackageFromFile() {
