@@ -137,7 +137,7 @@ replace_upstreamdns_placeholder_in_corefiletemplate() {
         echo "No Upstream VNET DNS servers found in $RESOLV_CONF."
         return 1
     fi
-
+    
     echo "Found upstream VNET DNS servers: ${UPSTREAM_VNET_DNS_SERVERS}"
 
     # Based on customer input, corefile was generated in pkg/agent/baker.go.
@@ -150,6 +150,13 @@ replace_upstreamdns_placeholder_in_corefiletemplate() {
         return 1 
     }
     echo "Successfully created corefile to be used by localdns."
+
+    # Verify corefile.
+    if [ ! -s "${LOCALDNS_CORE_FILE}" ]; then
+        echo "ERROR: ${LOCALDNS_CORE_FILE} was not created or is empty"
+        return 1
+    fi
+
     return 0
 }
 
