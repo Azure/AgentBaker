@@ -1,9 +1,6 @@
 [Unit]
 Description=A oneshot service that overwrites the containerd configuration on GB200 SKUs
-# The aks-log-collector service writes the containerd configuration before containerd starts
-# The /etc/containerd directory doesn't appear to exist before service runs
-After=aks-log-collector.service
-Requires=aks-log-collector.service
+After=multi-user.target
 DefaultDependencies=no
 
 [Service]
@@ -12,4 +9,4 @@ ExecStart=/opt/azure/gb200-containerd-config.sh
 RemainAfterExit=yes
 
 [Install]
-WantedBy=default.target
+WantedBy=graphical.target
