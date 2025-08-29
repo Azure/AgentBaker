@@ -16,6 +16,7 @@ Describe 'localdns.sh'
             TEST_DIR="/tmp/localdnstest"
             LOCALDNS_SCRIPT_PATH="${TEST_DIR}/opt/azure/containers/localdns"
             LOCALDNS_CORE_FILE="${LOCALDNS_SCRIPT_PATH}/localdns.corefile"
+            UPDATED_LOCALDNS_CORE_FILE="${LOCALDNS_SCRIPT_PATH}/updated.localdns.corefile"
             mkdir -p "$LOCALDNS_SCRIPT_PATH"
             echo "forward . 168.63.129.16" >> "$LOCALDNS_CORE_FILE"
 
@@ -137,8 +138,8 @@ EOF
         It 'should replace 168.63.129.16 with UpstreamDNSIP if it is not same as AzureDNSIP'
             When run replace_azurednsip_in_corefile
             The status should be success
-            The file "${LOCALDNS_CORE_FILE}" should be exist
-            The contents of file "${LOCALDNS_CORE_FILE}" should include "forward . 10.0.0.1 10.0.0.2"
+            The file "${UPDATED_LOCALDNS_CORE_FILE}" should be exist
+            The contents of file "${UPDATED_LOCALDNS_CORE_FILE}" should include "forward . 10.0.0.1 10.0.0.2"
             The stdout should include "Found upstream VNET DNS servers: 10.0.0.1 10.0.0.2"
             The stdout should include "Replacing Azure DNS IP 168.63.129.16 with upstream VNET DNS servers 10.0.0.1 10.0.0.2"
             The stdout should include "Successfully replaced Azure DNS IP with upstream VNET DNS servers in corefile"
@@ -157,9 +158,9 @@ invalid
 EOF
             When run replace_azurednsip_in_corefile
             The status should be failure
-            The file "${LOCALDNS_CORE_FILE}" should be exist
+            The file "${UPDATED_LOCALDNS_CORE_FILE}" should be exist
             The stdout should include "No Upstream VNET DNS servers found in "$RESOLV_CONF"."
-            The contents of file "${LOCALDNS_CORE_FILE}" should include "forward . 168.63.129.16"
+            The contents of file "${UPDATED_LOCALDNS_CORE_FILE}" should include "forward . 168.63.129.16"
         End
 
         It 'should not replace 168.63.129.16 with UpstreamDNSIP if it is ""'
@@ -168,9 +169,9 @@ nameserver ""
 EOF
             When run replace_azurednsip_in_corefile
             The status should be failure
-            The file "${LOCALDNS_CORE_FILE}" should be exist
+            The file "${UPDATED_LOCALDNS_CORE_FILE}" should be exist
             The stdout should include "No Upstream VNET DNS servers found in "$RESOLV_CONF"."
-            The contents of file "${LOCALDNS_CORE_FILE}" should include "forward . 168.63.129.16"
+            The contents of file "${UPDATED_LOCALDNS_CORE_FILE}" should include "forward . 168.63.129.16"
         End
 
         It 'should not replace 168.63.129.16 with UpstreamDNSIP if it is blank'
@@ -179,9 +180,9 @@ nameserver
 EOF
             When run replace_azurednsip_in_corefile
             The status should be failure
-            The file "${LOCALDNS_CORE_FILE}" should be exist
+            The file "${UPDATED_LOCALDNS_CORE_FILE}" should be exist
             The stdout should include "No Upstream VNET DNS servers found in "$RESOLV_CONF"."
-            The contents of file "${LOCALDNS_CORE_FILE}" should include "forward . 168.63.129.16"
+            The contents of file "${UPDATED_LOCALDNS_CORE_FILE}" should include "forward . 168.63.129.16"
         End
 
         It 'should not replace 168.63.129.16 with UpstreamDNSIP if it is same as AzureDNSIP'
@@ -190,8 +191,8 @@ nameserver 168.63.129.16
 EOF
             When run replace_azurednsip_in_corefile
             The status should be success
-            The file "${LOCALDNS_CORE_FILE}" should be exist
-            The contents of file "${LOCALDNS_CORE_FILE}" should include "forward . 168.63.129.16"
+            The file "${UPDATED_LOCALDNS_CORE_FILE}" should be exist
+            The contents of file "${UPDATED_LOCALDNS_CORE_FILE}" should include "forward . 168.63.129.16"
             The stdout should include "Found upstream VNET DNS servers: 168.63.129.16"
             The stdout should include "Skipping DNS IP replacement. Upstream VNET DNS servers (168.63.129.16) match either Azure DNS IP (168.63.129.16) or localdns node listener IP (169.254.10.10)"
         End
@@ -202,8 +203,8 @@ nameserver 169.254.10.10
 EOF
             When run replace_azurednsip_in_corefile
             The status should be success
-            The file "${LOCALDNS_CORE_FILE}" should be exist
-            The contents of file "${LOCALDNS_CORE_FILE}" should include "forward . 168.63.129.16"
+            The file "${UPDATED_LOCALDNS_CORE_FILE}" should be exist
+            The contents of file "${UPDATED_LOCALDNS_CORE_FILE}" should include "forward . 168.63.129.16"
             The stdout should include "Skipping DNS IP replacement. Upstream VNET DNS servers (169.254.10.10) match either Azure DNS IP (168.63.129.16) or localdns node listener IP (169.254.10.10)"
         End
 
