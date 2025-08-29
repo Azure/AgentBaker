@@ -161,7 +161,7 @@ replace_azurednsip_in_corefile() {
             echo "Replacing AzureDNSIP in corefile failed."
             return 1 
         }
-        echo "Successfully generated ${UPDATED_LOCALDNS_CORE_FILE}"
+        echo "Successfully updated ${UPDATED_LOCALDNS_CORE_FILE}"
     else
         echo "Skipping DNS IP replacement. Upstream VNET DNS servers (${UPSTREAM_VNET_DNS_SERVERS}) match either Azure DNS IP (${AZURE_DNS_IP}) or localdns node listener IP (${LOCALDNS_NODE_LISTENER_IP})"
     fi
