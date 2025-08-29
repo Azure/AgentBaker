@@ -498,7 +498,13 @@ fi
 if grep -q "GB200" <<< "$FEATURE_FLAGS"; then
   # The GB200 feature flag should only be set for arm64 and Ubuntu 24.04, but validate
   if [ ${UBUNTU_RELEASE} = "24.04" ] && [ ${CPU_ARCH} = "arm64" ]; then
-    # Need to replicate all functionality from github.com/azure/aks-gpu/install.sh
+    # Need to replicate all functionality from github.com/azure/aks-gpu/install.sh.
+    # aks-gpu is designed to run at node boot/join time, whereas the GB200 VHD is set up
+    # to have all drivers installed at VHD build time.
+    #
+    # TODO(abenn135): move all GPU installation logic back into the AgentBaker repo, and
+    # invoke it where we need it, either at VHD build time or at node boot time (for example
+    # if we do not know at VHD build time whether we will want GPU drivers installed or not).
 
     # 1. Blacklist nouveau driver
     cat << EOF >> /etc/modprobe.d/blacklist-nouveau.conf
