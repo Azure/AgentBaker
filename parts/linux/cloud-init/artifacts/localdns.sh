@@ -114,7 +114,7 @@ verify_localdns_binary() {
     return 0
 }
 
-# Replace ###UpstreamDNS### in corefiletemplate with VNET DNSServerIPs and create the corefile used by localdns. 
+# Replace ###UpstreamDNS### in corefile.template with VNET DNSServerIPs and create the corefile used by localdns. 
 replace_upstreamdns_placeholder_in_corefiletemplate() {
     if [ -z "${RESOLV_CONF:-}" ]; then
         echo "RESOLV_CONF is not set or is empty."

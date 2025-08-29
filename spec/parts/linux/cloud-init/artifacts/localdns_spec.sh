@@ -15,9 +15,9 @@ Describe 'localdns.sh'
 
             TEST_DIR="/tmp/localdnstest"
             LOCALDNS_SCRIPT_PATH="${TEST_DIR}/opt/azure/containers/localdns"
-            LOCALDNS_CORE_FILE_TEMPLATE="${LOCALDNS_SCRIPT_PATH}/localdns.corefile.template"
+            LOCALDNS_CORE_FILE="${LOCALDNS_SCRIPT_PATH}/localdns.corefile"
             mkdir -p "$LOCALDNS_SCRIPT_PATH"
-            echo "forward . ###UpstreamDNS###" >> "$LOCALDNS_CORE_FILE_TEMPLATE"
+            echo "forward . ###UpstreamDNS###" >> "$LOCALDNS_CORE_FILE"
 
             LOCALDNS_SLICE_PATH="${TEST_DIR}/etc/systemd/system"
             LOCALDNS_SLICE_FILE="${LOCALDNS_SLICE_PATH}/localdns.slice"
@@ -57,24 +57,24 @@ EOF
         End
 
         It 'should return failure if localdns corefile does not exist'
-            rm -r "$LOCALDNS_CORE_FILE_TEMPLATE"
+            rm -r "$LOCALDNS_CORE_FILE"
             When run verify_localdns_corefile
             The status should be failure
-            The stdout should include "Localdns corefile either does not exist or is empty at $LOCALDNS_CORE_FILE_TEMPLATE."
+            The stdout should include "Localdns corefile either does not exist or is empty at $LOCALDNS_CORE_FILE."
         End
 
         It 'should return failure if localdns corefile is empty'
-            > "$LOCALDNS_CORE_FILE_TEMPLATE"
+            > "$LOCALDNS_CORE_FILE"
             When run verify_localdns_corefile
             The status should be failure
-            The stdout should include "Localdns corefile either does not exist or is empty at $LOCALDNS_CORE_FILE_TEMPLATE."
+            The stdout should include "Localdns corefile either does not exist or is empty at $LOCALDNS_CORE_FILE."
         End
 
-        It 'should return failure if LOCALDNS_CORE_FILE_TEMPLATE is unset'
-            unset LOCALDNS_CORE_FILE_TEMPLATE
+        It 'should return failure if LOCALDNS_CORE_FILE is unset'
+            unset LOCALDNS_CORE_FILE
             When run verify_localdns_corefile
             The status should be failure
-            The stdout should include "LOCALDNS_CORE_FILE_TEMPLATE is not set or is empty."
+            The stdout should include "LOCALDNS_CORE_FILE is not set or is empty."
         End
 
         #------------------------ verify_localdns_slicefile ------------------------------------------------
@@ -134,11 +134,11 @@ EOF
         End
 
         #------------------------- replace_upstreamdns_placeholder_in_corefiletemplate -----------------------------------------------
-        It 'should replace ###UpstreamDNS### with UpstreamDNSIP if it is not same as AzureDNSIP'
+        It 'should replace ###UpstreamDNS### with UpstreamDNSIP'
             When run replace_upstreamdns_placeholder_in_corefiletemplate
             The status should be success
-            The file "${LOCALDNS_CORE_FILE_TEMPLATE}" should be exist
-            The contents of file "${LOCALDNS_CORE_FILE_TEMPLATE}" should include "forward . 10.0.0.1 10.0.0.2"
+            The file "${LOCALDNS_CORE_FILE}" should be exist
+            The contents of file "${LOCALDNS_CORE_FILE}" should include "forward . 10.0.0.1 10.0.0.2"
             The stdout should include "Found upstream VNET DNS servers: 10.0.0.1 10.0.0.2"
             The stdout should include "Replacing ###UpstreamDNS### placeholder with upstream VNET DNS servers 10.0.0.1 10.0.0.2"
             The stdout should include "Successfully replaced ###UpstreamDNS### with upstream VNET DNS servers in corefile"
@@ -157,9 +157,9 @@ invalid
 EOF
             When run replace_upstreamdns_placeholder_in_corefiletemplate
             The status should be failure
-            The file "${LOCALDNS_CORE_FILE_TEMPLATE}" should be exist
+            The file "${LOCALDNS_CORE_FILE}" should be exist
             The stdout should include "No Upstream VNET DNS servers found in "$RESOLV_CONF"."
-            The contents of file "${LOCALDNS_CORE_FILE_TEMPLATE}" should include "forward . ###UpstreamDNS###"
+            The contents of file "${LOCALDNS_CORE_FILE}" should include "forward . ###UpstreamDNS###"
         End
 
         It 'should not replace ###UpstreamDNS### with UpstreamDNSIP if it is ""'
@@ -168,9 +168,9 @@ nameserver ""
 EOF
             When run replace_upstreamdns_placeholder_in_corefiletemplate
             The status should be failure
-            The file "${LOCALDNS_CORE_FILE_TEMPLATE}" should be exist
+            The file "${LOCALDNS_CORE_FILE}" should be exist
             The stdout should include "No Upstream VNET DNS servers found in "$RESOLV_CONF"."
-            The contents of file "${LOCALDNS_CORE_FILE_TEMPLATE}" should include "forward . ###UpstreamDNS###"
+            The contents of file "${LOCALDNS_CORE_FILE}" should include "forward . ###UpstreamDNS###"
         End
 
         It 'should not replace ###UpstreamDNS### with UpstreamDNSIP if it is blank'
@@ -179,9 +179,9 @@ nameserver
 EOF
             When run replace_upstreamdns_placeholder_in_corefiletemplate
             The status should be failure
-            The file "${LOCALDNS_CORE_FILE_TEMPLATE}" should be exist
+            The file "${LOCALDNS_CORE_FILE}" should be exist
             The stdout should include "No Upstream VNET DNS servers found in "$RESOLV_CONF"."
-            The contents of file "${LOCALDNS_CORE_FILE_TEMPLATE}" should include "forward . ###UpstreamDNS###"
+            The contents of file "${LOCALDNS_CORE_FILE}" should include "forward . ###UpstreamDNS###"
         End
 
         It 'should return failure if AZURE_DNS_IP is unset'
