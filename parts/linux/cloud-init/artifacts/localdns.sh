@@ -21,6 +21,9 @@ LOCALDNS_SCRIPT_PATH="/opt/azure/containers/localdns"
 # This should match with 'path' defined in parts/linux/cloud-init/nodecustomdata.yml.
 LOCALDNS_CORE_FILE="${LOCALDNS_SCRIPT_PATH}/localdns.corefile"
 
+# This is the localdns corefile that has updated UpstreamDNSServerIPs and will be used by the localdns systemd unit.
+UPDATED_LOCALDNS_CORE_FILE="${LOCALDNS_SCRIPT_PATH}/updated.localdns.corefile"
+
 # This is slice file used by localdns systemd unit.
 # This should match with 'path' defined in parts/linux/cloud-init/nodecustomdata.yml.
 LOCALDNS_SLICE_PATH="/etc/systemd/system"
@@ -134,7 +137,6 @@ replace_azurednsip_in_corefile() {
         echo "No Upstream VNET DNS servers found in $RESOLV_CONF."
         return 1
     fi
-
     echo "Found upstream VNET DNS servers: ${UPSTREAM_VNET_DNS_SERVERS}"
 
     # Based on customer input, corefile was generated in pkg/agent/baker.go.
@@ -142,16 +144,33 @@ replace_azurednsip_in_corefile() {
     # and also not equal to the localdns node listener IP to avoid creating a circular dependency.
     # Corefile will have 168.63.129.16 when user input has VnetDNS value for forwarddestination.
     # Note - For root domain under VnetDNSOverrides, all DNS traffic should be forwarded to VnetDNS.
+    cp "${LOCALDNS_CORE_FILE}" "${UPDATED_LOCALDNS_CORE_FILE}" || {
+        echo "Failed to copy ${LOCALDNS_CORE_FILE} to ${UPDATED_LOCALDNS_CORE_FILE}"
+        return 1
+    }
+
+    chmod 0644 "${UPDATED_LOCALDNS_CORE_FILE}" || {
+        echo "Failed to set permissions on ${UPDATED_LOCALDNS_CORE_FILE}"
+        return 1
+    }
+
     if [ "${UPSTREAM_VNET_DNS_SERVERS}" != "${AZURE_DNS_IP}" ] && [ "${UPSTREAM_VNET_DNS_SERVERS}" != "${LOCALDNS_NODE_LISTENER_IP}" ]; then
-        echo "Replacing Azure DNS IP ${AZURE_DNS_IP} with upstream VNET DNS servers ${UPSTREAM_VNET_DNS_SERVERS} in corefile ${LOCALDNS_CORE_FILE}"
-        sed -i -e "s|${AZURE_DNS_IP}|${UPSTREAM_VNET_DNS_SERVERS}|g" "${LOCALDNS_CORE_FILE}" || {
+        echo "Replacing Azure DNS IP ${AZURE_DNS_IP} with upstream VNET DNS servers ${UPSTREAM_VNET_DNS_SERVERS} in corefile ${UPDATED_LOCALDNS_CORE_FILE}"
+
+        sed -i -e "s|${AZURE_DNS_IP}|${UPSTREAM_VNET_DNS_SERVERS}|g" "${UPDATED_LOCALDNS_CORE_FILE}" || {
             echo "Replacing AzureDNSIP in corefile failed."
             return 1 
         }
-        echo "Successfully replaced Azure DNS IP with upstream VNET DNS servers in corefile"
+        echo "Successfully generated ${UPDATED_LOCALDNS_CORE_FILE}"
     else
         echo "Skipping DNS IP replacement. Upstream VNET DNS servers (${UPSTREAM_VNET_DNS_SERVERS}) match either Azure DNS IP (${AZURE_DNS_IP}) or localdns node listener IP (${LOCALDNS_NODE_LISTENER_IP})"
     fi
+
+    if [ ! -f "${UPDATED_LOCALDNS_CORE_FILE}" ] || [ ! -s "${UPDATED_LOCALDNS_CORE_FILE}" ]; then
+        echo "Updated Localdns corefile either does not exist or is empty at ${UPDATED_LOCALDNS_CORE_FILE}."
+        return 1
+    fi
+
     return 0
 }
 
@@ -494,7 +513,7 @@ add_iptable_rules_to_skip_conntrack_from_pods
 
 # Start localdns service.
 # --------------------------------------------------------------------------------------------------------------------
-COREDNS_COMMAND="${COREDNS_BINARY_PATH} -conf ${LOCALDNS_CORE_FILE} -pidfile ${LOCALDNS_PID_FILE}"
+COREDNS_COMMAND="${COREDNS_BINARY_PATH} -conf ${UPDATED_LOCALDNS_CORE_FILE} -pidfile ${LOCALDNS_PID_FILE}"
 if [ -n "${SYSTEMD_EXEC_PID:-}" ]; then
     # We're running in systemd, so pass the coredns output via systemd-cat.
     COREDNS_COMMAND="systemd-cat --identifier=localdns-coredns --stderr-priority=3 -- ${COREDNS_COMMAND}"
