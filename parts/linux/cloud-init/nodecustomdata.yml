@@ -391,7 +391,7 @@ write_files:
     {{GetVariableProperty "cloudInitData" "customSearchDomainsScript"}}
 
 {{if ShouldEnableLocalDNS}}
-- path: /opt/azure/containers/localdns/localdns.corefile
+- path: /opt/azure/containers/localdns/localdns.corefile.template
   permissions: "0644"
   encoding: gzip
   owner: root

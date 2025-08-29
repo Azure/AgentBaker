@@ -468,7 +468,7 @@ health-check.localdns.local:53 {
 .:53 {
     log
     bind 169.254.10.10
-    forward . 168.63.129.16 {
+    forward . ###UpstreamDNS### {
         policy sequential
         max_concurrent 1000
     }
@@ -656,7 +656,7 @@ health-check.localdns.local:53 {
 .:53 {
     log
     bind 169.254.10.10
-    forward . 168.63.129.16 {
+    forward . ###UpstreamDNS### {
         policy sequential
         max_concurrent 1000
     }
@@ -763,7 +763,7 @@ cluster.local:53 {
 testdomain567.com:53 {
     errors
     bind 169.254.10.11
-    forward . 168.63.129.16 {
+    forward . ###UpstreamDNS### {
         policy random
         max_concurrent 1000
     }

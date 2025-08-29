@@ -17,8 +17,11 @@ ERR_LOCALDNS_BINARY_ERR=219 # Localdns binary not found or not executable.
 # Localdns script path.
 LOCALDNS_SCRIPT_PATH="/opt/azure/containers/localdns"
 
-# Localdns corefile is created only when localdns profile has state enabled.
+# Localdns corefile.template is created only when localdns profile has state enabled.
 # This should match with 'path' defined in parts/linux/cloud-init/nodecustomdata.yml.
+LOCALDNS_CORE_FILE_TEMPLATE="${LOCALDNS_SCRIPT_PATH}/localdns.corefile.template"
+
+# This is the corefile used by localdns systemd unit.
 LOCALDNS_CORE_FILE="${LOCALDNS_SCRIPT_PATH}/localdns.corefile"
 
 # This is slice file used by localdns systemd unit.
@@ -66,13 +69,13 @@ START_LOCALDNS_TIMEOUT=10
 # -------------------------------------------------------------------------------------------------
 # Verify that the localdns corefile exists and is not empty.
 verify_localdns_corefile() {
-    if [ -z "${LOCALDNS_CORE_FILE:-}" ]; then
-        echo "LOCALDNS_CORE_FILE is not set or is empty."
+    if [ -z "${LOCALDNS_CORE_FILE_TEMPLATE:-}" ]; then
+        echo "LOCALDNS_CORE_FILE_TEMPLATE is not set or is empty."
         return 1
     fi
 
-    if [ ! -f "${LOCALDNS_CORE_FILE}" ] || [ ! -s "${LOCALDNS_CORE_FILE}" ]; then
-        echo "Localdns corefile either does not exist or is empty at ${LOCALDNS_CORE_FILE}."
+    if [ ! -f "${LOCALDNS_CORE_FILE_TEMPLATE}" ] || [ ! -s "${LOCALDNS_CORE_FILE_TEMPLATE}" ]; then
+        echo "Localdns corefile either does not exist or is empty at ${LOCALDNS_CORE_FILE_TEMPLATE}."
         return 1
     fi
     return 0
@@ -111,8 +114,8 @@ verify_localdns_binary() {
     return 0
 }
 
-# Replace AzureDNSIP in corefile with VNET DNS ServerIPs if necessary.
-replace_azurednsip_in_corefile() {
+# Replace ###UpstreamDNS### in corefiletemplate with VNET DNSServerIPs and create the corefile used by localdns. 
+replace_upstreamdns_placeholder_in_corefiletemplate() {
     if [ -z "${RESOLV_CONF:-}" ]; then
         echo "RESOLV_CONF is not set or is empty."
         return 1
@@ -138,20 +141,15 @@ replace_azurednsip_in_corefile() {
     echo "Found upstream VNET DNS servers: ${UPSTREAM_VNET_DNS_SERVERS}"
 
     # Based on customer input, corefile was generated in pkg/agent/baker.go.
-    # Replace 168.63.129.16 with VNET DNS ServerIPs only if VNET DNS ServerIPs is not equal to 168.63.129.16
-    # and also not equal to the localdns node listener IP to avoid creating a circular dependency.
-    # Corefile will have 168.63.129.16 when user input has VnetDNS value for forwarddestination.
+    # Replace ###UpstreamDNS### with VNET DNSServerIPs.
+    # Corefile will have ###UpstreamDNS### when user input has VnetDNS value for forwarddestination.
     # Note - For root domain under VnetDNSOverrides, all DNS traffic should be forwarded to VnetDNS.
-    if [ "${UPSTREAM_VNET_DNS_SERVERS}" != "${AZURE_DNS_IP}" ] && [ "${UPSTREAM_VNET_DNS_SERVERS}" != "${LOCALDNS_NODE_LISTENER_IP}" ]; then
-        echo "Replacing Azure DNS IP ${AZURE_DNS_IP} with upstream VNET DNS servers ${UPSTREAM_VNET_DNS_SERVERS} in corefile ${LOCALDNS_CORE_FILE}"
-        sed -i -e "s|${AZURE_DNS_IP}|${UPSTREAM_VNET_DNS_SERVERS}|g" "${LOCALDNS_CORE_FILE}" || {
-            echo "Replacing AzureDNSIP in corefile failed."
-            return 1 
-        }
-        echo "Successfully replaced Azure DNS IP with upstream VNET DNS servers in corefile"
-    else
-        echo "Skipping DNS IP replacement. Upstream VNET DNS servers (${UPSTREAM_VNET_DNS_SERVERS}) match either Azure DNS IP (${AZURE_DNS_IP}) or localdns node listener IP (${LOCALDNS_NODE_LISTENER_IP})"
-    fi
+    echo "Replacing ###UpstreamDNS### placeholder with upstream VNET DNS servers ${UPSTREAM_VNET_DNS_SERVERS} in corefile ${LOCALDNS_CORE_FILE_TEMPLATE}"
+    sed -e "s|###UpstreamDNS###|${UPSTREAM_VNET_DNS_SERVERS}|g" "${LOCALDNS_CORE_FILE_TEMPLATE}" > "${LOCALDNS_CORE_FILE}" || {
+        echo "Replacing ###UpstreamDNS### placeholder in corefile failed."
+        return 1 
+    }
+    echo "Successfully replaced ###UpstreamDNS### with upstream VNET DNS servers in corefile"
     return 0
 }
 
@@ -457,7 +455,7 @@ cleanup_iptables_and_dns || exit $ERR_LOCALDNS_FAIL
 
 # Replace AzureDNSIP in corefile with VNET DNS ServerIPs.
 # ---------------------------------------------------------------------------------------------------------------------
-replace_azurednsip_in_corefile || exit $ERR_LOCALDNS_FAIL
+replace_upstreamdns_placeholder_in_corefiletemplate || exit $ERR_LOCALDNS_FAIL
 
 # Build IPtable rules.
 # ---------------------------------------------------------------------------------------------------------------------

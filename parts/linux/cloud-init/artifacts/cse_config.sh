@@ -1019,23 +1019,23 @@ setKubeletNodeIPFlag() {
     fi
 }
 
-# localdns corefile is created only when localdns profile has state enabled.
+# localdns corefile.template is created only when localdns profile has state enabled.
 # This should match with 'path' defined in parts/linux/cloud-init/nodecustomdata.yml.
-LOCALDNS_CORE_FILE="/opt/azure/containers/localdns/localdns.corefile"
+LOCALDNS_CORE_FILE_TEMPLATE="/opt/azure/containers/localdns/localdns.corefile.template"
 # This function is called from cse_main.sh.
-# It first checks if localdns should be enabled by checking for existence of corefile.
+# It first checks if localdns should be enabled by checking for existence of corefile.template.
 # It returns 0 if localdns is enabled successfully or if it should not be enabled.
 # It returns a non-zero value if localdns should be enabled but there was a failure in enabling it.
 enableLocalDNS() {
-    # Check if the localdns corefile exists and is not empty.
-    # If the corefile exists and is not empty, localdns should be enabled.
-    # If the corefile does not exist or is empty, localdns should not be enabled.
-    if [ ! -f "${LOCALDNS_CORE_FILE}" ] || [ ! -s "${LOCALDNS_CORE_FILE}" ]; then
+    # Check if the localdns corefile.template exists and is not empty.
+    # If the corefile.template exists and is not empty, localdns should be enabled.
+    # If the corefile.template does not exist or is empty, localdns should not be enabled.
+    if [ ! -f "${LOCALDNS_CORE_FILE_TEMPLATE}" ] || [ ! -s "${LOCALDNS_CORE_FILE_TEMPLATE}" ]; then
         echo "localdns should not be enabled."
         return 0
     fi
 
-    # If the corefile exists and is not empty, attempt to enable localdns.
+    # If the corefile.template exists and is not empty, attempt to enable localdns.
     echo "localdns should be enabled."
 
     if ! systemctlEnableAndStart localdns 30; then
