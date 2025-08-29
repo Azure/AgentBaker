@@ -149,7 +149,7 @@ replace_upstreamdns_placeholder_in_corefiletemplate() {
         echo "Replacing ###UpstreamDNS### placeholder in corefile failed."
         return 1 
     }
-    echo "Successfully replaced ###UpstreamDNS### with upstream VNET DNS servers in corefile"
+    echo "Successfully created corefile to be used by localdns."
     return 0
 }
 
