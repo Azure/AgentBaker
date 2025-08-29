@@ -462,7 +462,7 @@ Describe 'cse_config.sh'
     Describe 'enableLocalDNS'
         setup() {
             TMP_DIR=$(mktemp -d)
-            LOCALDNS_CORE_FILE="$TMP_DIR/localdns.corefile"
+            LOCALDNS_CORE_FILE_TEMPLATE="$TMP_DIR/localdns.corefile.template"
 
             systemctlEnableAndStart() {
                 echo "systemctlEnableAndStart $@"
@@ -476,7 +476,7 @@ Describe 'cse_config.sh'
         AfterEach 'cleanup'
 
         It 'should enable localdns successfully'
-            echo 'localdns corefile' > "$LOCALDNS_CORE_FILE"
+            echo 'localdns corefile' > "$LOCALDNS_CORE_FILE_TEMPLATE"
             When call enableLocalDNS
             The status should be success
             The output should include "localdns should be enabled."
@@ -484,14 +484,14 @@ Describe 'cse_config.sh'
         End
 
         It 'should skip enabling localdns if corefile is not created'
-            rm -rf "$LOCALDNS_CORE_FILE"
+            rm -rf "$LOCALDNS_CORE_FILE_TEMPLATE"
             When call enableLocalDNS
             The status should be success
             The output should include "localdns should not be enabled."
         End
 
         It 'should return error when systemctl fails to start localdns'
-            echo 'localdns corefile' > "$LOCALDNS_CORE_FILE"
+            echo 'localdns corefile' > "$LOCALDNS_CORE_FILE_TEMPLATE"
             systemctlEnableAndStart() {
                 echo "systemctlEnableAndStart $@"
                 return 1

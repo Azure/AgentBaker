@@ -1862,12 +1862,12 @@ health-check.localdns.local:53 {
     {{- end }}
     bind {{$.NodeListenerIP}}
     {{- if $isRootDomain}}
-    forward . {{$.AzureDNSIP}} {
+    forward . ###UpstreamDNS### {
     {{- else}}
     {{- if $fwdToClusterCoreDNS}}
     forward . {{$.CoreDNSServiceIP}} {
     {{- else}}
-    forward . {{$.AzureDNSIP}} {
+    forward . ###UpstreamDNS### {
     {{- end}}
 	{{- end}}
         {{- if eq $override.Protocol "ForceTCP"}}
@@ -1925,7 +1925,7 @@ health-check.localdns.local:53 {
     {{- if $fwdToClusterCoreDNS}}
     forward . {{$.CoreDNSServiceIP}} {
     {{- else}}
-    forward . {{$.AzureDNSIP}} {
+    forward . ###UpstreamDNS### {
     {{- end}}
         {{- if eq $override.Protocol "ForceTCP"}}
         force_tcp
