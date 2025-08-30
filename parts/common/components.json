@@ -1635,7 +1635,7 @@
       "windowsVersions": [
         {
           "renovateTag": "<DO_NOT_UPDATE>",
-          "latestVersion": "0.2.0-prerelease.1",
+          "latestVersion": "1.0.0",
           "windowsSkuMatch": "23H2*"
         }
       ]
