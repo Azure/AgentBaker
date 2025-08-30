@@ -160,15 +160,15 @@ replace_azurednsip_in_corefile() {
         echo "Skipping DNS IP replacement. Upstream VNET DNS servers (${UPSTREAM_VNET_DNS_SERVERS}) match either Azure DNS IP (${AZURE_DNS_IP}) or localdns node listener IP (${LOCALDNS_NODE_LISTENER_IP})"
     fi
 
-    chmod 0644 "${UPDATED_LOCALDNS_CORE_FILE}" || {
-        echo "Failed to set permissions on ${UPDATED_LOCALDNS_CORE_FILE}"
-        return 1
-    }
-
     if [ ! -f "${UPDATED_LOCALDNS_CORE_FILE}" ] || [ ! -s "${UPDATED_LOCALDNS_CORE_FILE}" ]; then
         echo "Updated Localdns corefile either does not exist or is empty at ${UPDATED_LOCALDNS_CORE_FILE}."
         return 1
     fi
+
+    chmod 0644 "${UPDATED_LOCALDNS_CORE_FILE}" || {
+        echo "Failed to set permissions on ${UPDATED_LOCALDNS_CORE_FILE}"
+        return 1
+    }
 
     return 0
 }
