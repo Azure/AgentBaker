@@ -1036,8 +1036,8 @@ try
             Get-FilesToCacheOnVHD
             Get-ToolsToVHD
             Get-PrivatePackagesToCacheOnVHD
-            Log-ReofferUpdate
             Install-WindowsCilium
+            Log-ReofferUpdate
         }
         "3" {
             Register-ExpandVolumeTask
