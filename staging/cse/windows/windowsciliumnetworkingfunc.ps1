@@ -47,14 +47,13 @@ function Enable-WindowsCiliumNetworking
         if (!(Test-Json -Json $global:WindowsCiliumNetworkingConfiguration)) {
             Write-Log "Windows Cilium Networking configuration is not valid JSON. Proceeding with default configuration."
         } else {
-            $installArgs['ScenarioConfig'] = $windowsCiliumBaseConfigurationPath
+            $installArgs['ScenarioConfig'] = $global:WindowsCiliumNetworkingConfiguration
         }
     }
 
     # Invoke install script
     try {
-        $wcnInstallScript = Join-Path -Path $global:WindowsCiliumScriptsDirectory -ChildPath 'install.ps1'
-        & $wcnInstallScript @installArgs
+        Invoke-WindowsCiliumNetworkingInstallScript -Arguments $installArgs
 
         Write-Log "Windows Cilium Networking installation completed successfully$(if ($isRebootNeeded) { ' (restart required)' })."
         if ($isRebootNeeded) {
@@ -65,4 +64,36 @@ function Enable-WindowsCiliumNetworking
         Write-Log "Failed to install Windows Cilium Networking: $_"
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_WINDOWS_CILIUM_NETWORKING_INSTALL_FAILED -ErrorMessage "$_"
     }
+}
+
+<#
+.SYNOPSIS
+Invokes the Windows Cilium Networking installation script.
+
+.DESCRIPTION
+A wrapper function for invoking the Windows Cilium Networking installation script.
+This function provides a mockable interface for script execution, making unit testing easier.
+The script path is determined from the global WindowsCiliumScriptsDirectory variable.
+
+.PARAMETER Arguments
+A hashtable of arguments to pass to the installation script using PowerShell splatting.
+
+.OUTPUTS
+None. The function executes the Windows Cilium Networking installation script with the provided arguments.
+
+.EXAMPLE
+Invoke-WindowsCiliumNetworkingInstallScript -Arguments @{RebootNeededOut = [ref]$isRebootNeeded}
+
+.NOTES
+This function can be easily mocked in unit tests using frameworks like Pester.
+The installation script path is constructed from $global:WindowsCiliumScriptsDirectory.
+#>
+function Invoke-WindowsCiliumNetworkingInstallScript {
+    param(
+        [Parameter(Mandatory = $true)]
+        [hashtable]$Arguments
+    )
+    
+    $wcnInstallScript = Join-Path -Path $global:WindowsCiliumScriptsDirectory -ChildPath 'install.ps1'
+    & $wcnInstallScript @Arguments
 }
