@@ -49,6 +49,8 @@ if (![string]::IsNullOrEmpty($componentsJsonFileParam))
 
 . "$HelpersFile"
 
+$CPU_ARCH="cpu-arch"
+
 $componentsJson = Get-Content $ComponentsJsonFile | Out-String | ConvertFrom-Json
 $windowsSettingsJson = Get-Content $WindowsSettingsFile | Out-String | ConvertFrom-Json
 $BaseVersions = GetWindowsBaseVersions $windowsSettingsJson
