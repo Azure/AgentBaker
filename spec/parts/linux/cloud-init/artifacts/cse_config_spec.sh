@@ -686,7 +686,15 @@ Describe 'cse_config.sh'
             The output should not include "installKubeletKubectlFromPkg"
         End
 
-        # Test cases for PMC installation with OS-specific logic
+        # Test cases for MAR/PMC installation with OS-specific logic
+        It 'should install from MAR if k8s version >= 1.34 and OS is Flatcar'
+            OS="FLATCAR"
+            KUBERNETES_VERSION="1.34.0"
+            When call configureKubeletAndKubectl
+            The output should include "installKubeletKubectlFromPkg"
+            The output should not include "installKubeletKubectlFromURL"
+        End
+
         It 'should install from PMC if k8s version >= 1.34 and OS is Ubuntu'
             OS="UBUNTU"
             KUBERNETES_VERSION="1.34.0"
