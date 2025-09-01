@@ -718,11 +718,17 @@ function Install-WindowsPatches
 
 function Install-WindowsCilium
 {
-    Write-Log "Installing Windows Cilium Networking (WCN) Platform"
-
     $wcnDirectory = Join-Path -Path $global:cacheDir -ChildPath 'wcn'
     $wcnInstallDirectory = Join-Path -Path $wcnDirectory -ChildPath 'install'
     $wcnScriptsDirectory = Join-Path -Path $wcnInstallDirectory -ChildPath 'scripts'
+
+    if (!(Test-Path -PathType Container -Path $wcnDirectory))
+    {
+        Write-Log "Windows Cilium Networking (WCN) installation package not staged; skipping installation."
+        return
+    }
+
+    Write-Log "Installing Windows Cilium Networking (WCN) Platform"
 
     # Select the highest versioned package available.
     $wcnPackageNuget = (Get-ChildItem -Path $wcnDirectory -File -Filter '*.nupkg' | Sort-Object -Property Name -Descending) | Select-Object -First 1
