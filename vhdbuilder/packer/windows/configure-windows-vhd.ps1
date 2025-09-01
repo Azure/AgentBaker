@@ -716,7 +716,7 @@ function Install-WindowsPatches
     }
 }
 
-function Install-WindowsCilium
+function Install-WindowsCiliumNetworking
 {
     $wcnDirectory = Join-Path -Path $global:cacheDir -ChildPath 'wcn'
     $wcnInstallDirectory = Join-Path -Path $wcnDirectory -ChildPath 'install'
@@ -1053,7 +1053,7 @@ try
             Get-FilesToCacheOnVHD
             Get-ToolsToVHD
             Get-PrivatePackagesToCacheOnVHD
-            Install-WindowsCilium
+            Install-WindowsCiliumNetworking
             Log-ReofferUpdate
         }
         "3" {
