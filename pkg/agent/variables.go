@@ -63,15 +63,21 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 		// AGC still uses the old initAKSCustomCloudScript logic to grab certificates from WireServer
 		// TODO: align initializtion script logic for all clouds (such as Bleu) when able
 		case datamodel.GetCloudTargetEnv(cs.Location) == datamodel.USSecCloud || datamodel.GetCloudTargetEnv(cs.Location) == datamodel.USNatCloud:
-			if config.AgentPoolProfile.Distro.IsAzureLinuxDistro() || isMariner(config.OSSKU) {
+			switch {
+			case config.AgentPoolProfile.Distro.IsAzureLinuxDistro() || isMariner(config.OSSKU):
 				cloudInitData["initAKSCustomCloud"] = getBase64EncodedGzippedCustomScript(initAKSCustomCloudMarinerScript, config)
-			} else {
+			case config.IsFlatcar():
+				cloudInitData["initAKSCustomCloud"] = getBase64EncodedGzippedCustomScript(initAKSCustomCloudFlatcarScript, config)
+			default:
 				cloudInitData["initAKSCustomCloud"] = getBase64EncodedGzippedCustomScript(initAKSCustomCloudScript, config)
 			}
 		default: // covers all custom clouds other than USSecCloud and USNatCloud, such as Bleu
-			if config.AgentPoolProfile.Distro.IsAzureLinuxDistro() || isMariner(config.OSSKU) {
+			switch {
+			case config.AgentPoolProfile.Distro.IsAzureLinuxDistro() || isMariner(config.OSSKU):
 				cloudInitData["initAKSCustomCloud"] = getBase64EncodedGzippedCustomScript(initAKSCustomCloudOperationRequestsMarinerScript, config)
-			} else {
+			case config.IsFlatcar():
+				cloudInitData["initAKSCustomCloud"] = getBase64EncodedGzippedCustomScript(initAKSCustomCloudOperationRequestsFlatcarScript, config)
+			default:
 				cloudInitData["initAKSCustomCloud"] = getBase64EncodedGzippedCustomScript(initAKSCustomCloudOperationRequestsScript, config)
 			}
 		}

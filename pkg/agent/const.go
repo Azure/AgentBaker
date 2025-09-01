@@ -87,10 +87,12 @@ const (
 
 	// scripts for initializing specifically within AKS stack cloud environments (AGC).
 	initAKSCustomCloudScript        = "linux/cloud-init/artifacts/init-aks-custom-cloud.sh"
+	initAKSCustomCloudFlatcarScript = "linux/cloud-init/artifacts/init-aks-custom-cloud-flatcar.sh"
 	initAKSCustomCloudMarinerScript = "linux/cloud-init/artifacts/init-aks-custom-cloud-mariner.sh"
 
 	// scripts for initializing specifically within AKS custom cloud environments other than stack cloud (e.g. Bleu).
 	initAKSCustomCloudOperationRequestsScript        = "linux/cloud-init/artifacts/init-aks-custom-cloud-operation-requests.sh"
+	initAKSCustomCloudOperationRequestsFlatcarScript = "linux/cloud-init/artifacts/init-aks-custom-cloud-operation-requests-flatcar.sh"
 	initAKSCustomCloudOperationRequestsMarinerScript = "linux/cloud-init/artifacts/init-aks-custom-cloud-operation-requests-mariner.sh"
 
 	ensureNoDupEbtablesScript  = "linux/cloud-init/artifacts/ensure-no-dup.sh"
