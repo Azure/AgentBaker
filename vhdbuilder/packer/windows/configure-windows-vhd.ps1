@@ -726,7 +726,7 @@ function Install-WindowsCilium
 
     # Select the highest versioned package available.
     $wcnPackageNuget = (Get-ChildItem -Path $wcnDirectory -File -Filter '*.nupkg' | Sort-Object -Property Name -Descending) | Select-Object -First 1
-    if (!$wcnPackageNuget -or !(Test-Path -Path $wcnPackageNuget))
+    if (!$wcnPackageNuget -or !(Test-Path -Path $wcnPackageNuget.FullName))
     {
         Write-Log "No Windows Cilium Networking package found in $wcnDirectory"
         throw "No Windows Cilium Networking package found in $wcnDirectory"
