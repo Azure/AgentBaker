@@ -575,27 +575,8 @@
           "verification": {}
         },
         "mode": 484
-      },
-      {
-        "group": {},
-        "path": "/etc/tmpfiles.d/protocols.conf",
-        "user": {},
-        "contents": {
-          "compression": "",
-          "source": "data:,C%20%2Fetc%2Fprotocols%20-%20-%20-%20-%20%2Fusr%2Fshare%2Fbaselayout%2Fprotocols%0A",
-          "verification": {}
-        },
-        "mode": 420
       }
     ]
   },
-  "systemd": {
-    "units": [
-      {
-        "contents": "[Unit]\nDescription=Update CA certificates if missing or symlink\nDefaultDependencies=no\nAfter=local-fs.target\nExecCondition=/bin/sh -c '[ ! -e /etc/ssl/certs/ca-certificates.crt ] || [ -L /etc/ssl/certs/ca-certificates.crt ]'\n\n[Service]\nType=oneshot\nExecStartPre=/usr/bin/rm -f /etc/ssl/certs/ca-certificates.crt\nExecStart=/usr/sbin/update-ca-certificates\nRemainAfterExit=yes\n\n[Install]\nWantedBy=multi-user.target\n",
-        "enabled": true,
-        "name": "update-ca.service"
-      }
-    ]
-  }
+  "systemd": {}
 }
