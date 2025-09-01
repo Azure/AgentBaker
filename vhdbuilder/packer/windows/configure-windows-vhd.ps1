@@ -744,12 +744,13 @@ function Install-WindowsCilium
     [System.IO.Compression.ZipFile]::ExtractToDirectory($wcnPackageNuget.FullName, $wcnInstallDirectory)
 
     # Invoke install script.
-    $wcnInstallScript =  Join-Path -Path $wcnScriptsDirectory -ChildPath 'install.ps1' -Resolve
-    & $wcnInstallScript -DisableCiliumStack
-    if ($LASTEXITCODE -and $LASTEXITCODE -ne 0)
-    {
-        Write-Log "Windows Cilium Networking installation script exited with code $LASTEXITCODE"
-        throw "Windows Cilium Networking installation script failed with exit code $LASTEXITCODE"
+    try {
+        $wcnInstallScript = Join-Path -Path $wcnScriptsDirectory -ChildPath 'install' | Join-Path -ChildPath 'install.ps1' -Resolve
+        & $wcnInstallScript -DisableCiliumStack
+    }
+    catch {
+        Write-Log "Error occurred while installing Windows Cilium Networking: $_"
+        throw "Error occurred while installing Windows Cilium Networking: $_"
     }
 }
 
