@@ -519,7 +519,7 @@ if grep -q "GB200" <<< "$FEATURE_FLAGS"; then
       ibverbs-providers
 
     ofed_version_output=$(ofed_info -s 2>/dev/null || true)
-    if [[ "$ofed_version_output" =~ ^MLNX_OFED_LINUX-[0-9]+\.[0-9]+-[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+(:.*)?$ ]]; then
+    if echo "$ofed_version_output" | grep -Eq '^MLNX_OFED_LINUX-[0-9]+\.[0-9]+-[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+(:.*)?$'; then
       echo "OFED version installed: $ofed_version_output"
       echo "  - ofed_version=${ofed_version_output}" >> ${VHD_LOGS_FILEPATH}
     else
