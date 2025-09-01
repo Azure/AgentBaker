@@ -208,7 +208,6 @@ $global:EnableWindowsCiliumNetworking = [System.Convert]::ToBoolean("true");
 $global:WindowsCiliumNetworkingConfiguration = "{}";
 $global:WindowsCiliumNetworkingPath = Join-Path -Path $global:cacheDir -ChildPath 'wcn'
 $global:WindowsCiliumInstallPath = Join-Path -Path $global:WindowsCiliumNetworkingPath -ChildPath 'install'
-$global:WindowsCiliumScriptsDirectory = Join-Path -Path $global:WindowsCiliumInstallPath -ChildPath 'scripts'
 
 # Extract cse helper script from ZIP
 [io.file]::WriteAllBytes("scripts.zip", [System.Convert]::FromBase64String($zippedFiles))

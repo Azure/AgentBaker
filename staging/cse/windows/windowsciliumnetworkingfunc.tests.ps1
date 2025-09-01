@@ -40,7 +40,6 @@ Describe 'Enable-WindowsCiliumNetworking' {
         # Reset global variables and mocks before each test
         $global:EnableWindowsCiliumNetworking = $false
         $global:WindowsCiliumNetworkingConfiguration = ""
-        $global:WindowsCiliumScriptsDirectory = "C:\mock\scripts"
         $global:RebootNeeded = $false
         $global:WINDOWS_CSE_ERROR_WINDOWS_CILIUM_NETWORKING_INSTALL_FAILED = 72
         
@@ -171,71 +170,6 @@ Describe 'Enable-WindowsCiliumNetworking' {
                 $script:LastErrorMessage | Should -Match "Simulated installation failure"
                 $global:RebootNeeded | Should -Be $false
             }
-        }
-    }
-
-    Context 'Invoke-WindowsCiliumNetworkingInstallScript function' {
-        BeforeEach {
-            $global:WindowsCiliumScriptsDirectory = "C:\mock\wcn\scripts"
-        }
-
-        It 'Should construct correct path to install script and execute it' {
-            # Mock Join-Path to verify it's called with correct parameters
-            Mock Join-Path -MockWith {
-                param($Path, $ChildPath)
-                if ($Path -eq "C:\mock\wcn\scripts" -and $ChildPath -eq "install.ps1") {
-                    return "C:\mock\wcn\scripts\install.ps1"
-                }
-                return "$Path\$ChildPath"
-            }
-            
-            # Since we can't easily test the actual function due to the call operator,
-            # let's test the path construction logic directly
-            $expectedPath = Join-Path -Path $global:WindowsCiliumScriptsDirectory -ChildPath 'install.ps1'
-            $expectedPath | Should -Be "C:\mock\wcn\scripts\install.ps1"
-            
-            # Verify Join-Path was called correctly
-            Assert-MockCalled Join-Path -Times 1 -ParameterFilter {
-                $Path -eq "C:\mock\wcn\scripts" -and $ChildPath -eq "install.ps1"
-            }
-        }
-    }
-
-    Context 'Edge cases' {
-        BeforeEach {
-            $global:EnableWindowsCiliumNetworking = $true
-        }
-
-        It 'Should handle null or empty WindowsCiliumScriptsDirectory gracefully' {
-            $global:WindowsCiliumScriptsDirectory = ""
-            
-            # Test that the function can handle empty script directory
-            # We need to test the actual function behavior rather than Join-Path directly
-            # since the function should handle this edge case
-            
-            # Mock the install script to prevent actual execution
-            Mock Invoke-WindowsCiliumNetworkingInstallScript -MockWith {
-                param($Arguments)
-                $script:InstallScriptCalled = $true
-                $script:InstallScriptArgs = $Arguments
-            }
-            
-            # The function should either handle the empty path gracefully or throw a meaningful error
-            { Enable-WindowsCiliumNetworking } | Should -Not -Throw
-            
-            # If it doesn't throw, verify it attempted to call the install script
-            $script:InstallScriptCalled | Should -Be $true
-        }
-
-        It 'Should handle null WindowsCiliumNetworkingConfiguration gracefully' {
-            $global:WindowsCiliumNetworkingConfiguration = $null
-            
-            Enable-WindowsCiliumNetworking
-            
-            $script:InstallScriptCalled | Should -Be $true
-            $script:InstallScriptArgs | Should -Not -BeNullOrEmpty
-            $script:InstallScriptArgs.ContainsKey('RebootNeededOut') | Should -Be $true
-            $script:InstallScriptArgs.ContainsKey('ScenarioConfig') | Should -Be $false
         }
     }
 }

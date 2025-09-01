@@ -24,7 +24,7 @@ Installs Windows Cilium Networking using the global configuration settings.
 - Uses $global:WindowsCiliumNetworkingConfiguration for JSON configuration
 - May set $global:RebootNeeded to $true if a restart is required
 - Sets exit code $global:WINDOWS_CSE_ERROR_WINDOWS_CILIUM_NETWORKING_INSTALL_FAILED on failure
-- Depends on external install.ps1 script in $global:WindowsCiliumScriptsDirectory
+- Depends on external install.ps1 script in $global:WindowsCiliumInstallPath
 - Leaves feature installed but disabled to preserve eBPF for Windows Guest Proxy Agent (GPA)
 - Relies on node prep removing source NuGet package from aks-cache following installation
 
@@ -73,7 +73,7 @@ Invokes the Windows Cilium Networking installation script.
 .DESCRIPTION
 A wrapper function for invoking the Windows Cilium Networking installation script.
 This function provides a mockable interface for script execution, making unit testing easier.
-The script path is determined from the global WindowsCiliumScriptsDirectory variable.
+The script path is determined from the global WindowsCiliumInstallPath variable.
 
 .PARAMETER Arguments
 A hashtable of arguments to pass to the installation script using PowerShell splatting.
@@ -86,7 +86,7 @@ Invoke-WindowsCiliumNetworkingInstallScript -Arguments @{RebootNeededOut = [ref]
 
 .NOTES
 This function can be easily mocked in unit tests using frameworks like Pester.
-The installation script path is constructed from $global:WindowsCiliumScriptsDirectory.
+The installation script path is constructed from $global:WindowsCiliumInstallPath.
 #>
 function Invoke-WindowsCiliumNetworkingInstallScript {
     param(
@@ -94,6 +94,6 @@ function Invoke-WindowsCiliumNetworkingInstallScript {
         [hashtable]$Arguments
     )
     
-    $wcnInstallScript = Join-Path -Path $global:WindowsCiliumScriptsDirectory -ChildPath 'install.ps1'
+    $wcnInstallScript = Join-Path -Path $global:WindowsCiliumInstallPath -ChildPath 'install.ps1'
     & $wcnInstallScript @Arguments
 }
