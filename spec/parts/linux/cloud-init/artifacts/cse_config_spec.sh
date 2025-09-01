@@ -1106,6 +1106,23 @@ providers:
             End
         End
 
+        Describe 'on Flatcar'
+            OS="FLATCAR"
+            Include "./parts/linux/cloud-init/artifacts/flatcar/cse_helpers_flatcar.sh"
+            Include "./parts/linux/cloud-init/artifacts/flatcar/cse_install_flatcar.sh"
+
+            installKubeletKubectlFromPkg() {
+                echo "installKubeletKubectlFromPkg $@"
+            }
+
+            It 'should install from MAR if k8s version >= 1.34'
+                KUBERNETES_VERSION="1.34.0"
+                When call configureKubeletAndKubectl
+                The output should include "installKubeletKubectlFromPkg"
+                The output should not include "installKubeletKubectlFromURL"
+            End
+        End
+
         Describe 'on Mariner'
             OS="MARINER"
             Include "./parts/linux/cloud-init/artifacts/mariner/cse_helpers_mariner.sh"
