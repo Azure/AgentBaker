@@ -519,15 +519,16 @@ if grep -q "GB200" <<< "$FEATURE_FLAGS"; then
       ibverbs-providers
 
     ofed_version_output=$(ofed_info -s 2>/dev/null || true)
-    if [[ "$ofed_version_output" =~ ^MLNX_OFED_LINUX-[0-9]+\.[0-9]+-[0-9]+\.[0-9]+\.[0-9]+: ]]; then
-      echo "OFED version detected: $ofed_version_output"
+    if [[ "$ofed_version_output" =~ ^MLNX_OFED_LINUX-[0-9]+\.[0-9]+-[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+(:.*)?$ ]]; then
+      echo "OFED version installed: $ofed_version_output"
+      echo "  - ofed_version=${ofed_version_output}" >> ${VHD_LOGS_FILEPATH}
     else
       echo "Warning: Unexpected ofed_info -s output: $ofed_version_output"
     fi
 
     # Remove Mellanox OFED sources and pub files to avoid conflicts or unwanted updates
     rm /etc/apt/sources.list.d/mellanox_mlnx_ofed.list
-    rm /etc/apt/sources.list.d/mellanox_mlnx_ofed.pub
+    rm /etc/apt/keyrings/mellanox_mlnx_ofed.pub
   fi
 fi
 
