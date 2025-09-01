@@ -720,7 +720,7 @@ function Install-WindowsCilium
 {
     $wcnDirectory = Join-Path -Path $global:cacheDir -ChildPath 'wcn'
     $wcnInstallDirectory = Join-Path -Path $wcnDirectory -ChildPath 'install'
-    $wcnScriptsDirectory = Join-Path -Path $wcnInstallDirectory -ChildPath 'scripts'
+    $wcnInstallScript = Join-Path -Path $wcnInstallDirectory -ChildPath 'install.ps1'
 
     if (!(Test-Path -PathType Container -Path $wcnDirectory))
     {
@@ -743,9 +743,19 @@ function Install-WindowsCilium
     Add-Type -AssemblyName System.IO.Compression.FileSystem
     [System.IO.Compression.ZipFile]::ExtractToDirectory($wcnPackageNuget.FullName, $wcnInstallDirectory)
 
+    # Hack: Move installation scripts from old location if not present at the top-level. This is fixed in v1.1.0.
+    $wcnInstallScriptsDirectory = Join-Path -Path $wcnInstallDirectory -ChildPath 'scripts' | Join-Path -ChildPath 'install'
+    if (!(Test-Path -Path $wcnInstallScript)) {
+        if (Test-Path -Path (Join-Path -Path $wcnInstallScriptsDirectory -ChildPath 'install.ps1')) {
+            Get-ChildItem -Path $wcnInstallScriptsDirectory -File -Recurse | ForEach-Object {
+                $destinationPath = Join-Path -Path $wcnInstallDirectory -ChildPath $_.Name
+                Move-Item -Path $_.FullName -Destination $destinationPath -Force
+            }
+        }
+    }
+
     # Invoke install script.
     try {
-        $wcnInstallScript = Join-Path -Path $wcnScriptsDirectory -ChildPath 'install' | Join-Path -ChildPath 'install.ps1' -Resolve
         & $wcnInstallScript -DisableCiliumStack
     }
     catch {
