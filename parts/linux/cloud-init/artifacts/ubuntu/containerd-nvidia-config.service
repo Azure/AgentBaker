@@ -1,7 +1,6 @@
 [Unit]
 Description=A oneshot service that overwrites the containerd configuration on GB200 SKUs
-After=multi-user.target
-DefaultDependencies=no
+After=aks-log-collector.service
 
 [Service]
 Type=oneshot
@@ -9,4 +8,4 @@ ExecStart=/opt/azure/gb200-containerd-config.sh
 RemainAfterExit=yes
 
 [Install]
-WantedBy=graphical.target
+WantedBy=multi-user.target
