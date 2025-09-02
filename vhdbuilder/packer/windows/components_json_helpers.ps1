@@ -5,6 +5,8 @@ function SafeReplaceString {
         $stringToReplace
     )
 
+    # this is a security guard - ensure that only allow-listed variables can be replaced by removing all others.
+    # We run in a sub-shell so clearing all other variables doesn't impact the shell running this code.
     $stringToReplace = &{
         Clear-Variable -Name * -Exclude version,CPU_ARCH,stringToReplace -ErrorAction SilentlyContinue
         $executionContext.InvokeCommand.ExpandString($stringToReplace)

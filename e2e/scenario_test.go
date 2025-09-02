@@ -1877,7 +1877,7 @@ func Test_Ubuntu2404_GPU_H100(t *testing.T) {
 	})
 }
 
-func Test_AzureLinux3_Kube_Package_Install(t *testing.T) {
+func Test_AzureLinux3_PMC_Install(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that an AzureLinux node will install kube pkgs from PMC and can be properly bootstrapped",
 		Config: Config{
@@ -1896,7 +1896,7 @@ func Test_AzureLinux3_Kube_Package_Install(t *testing.T) {
 	})
 }
 
-func Test_Ubuntu2204_Kube_Package_Install(t *testing.T) {
+func Test_Ubuntu2204_PMC_Install(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2204 VHD and install kube pkgs from PMC can be properly bootstrapped",
 		Config: Config{
@@ -1918,6 +1918,28 @@ func Test_Ubuntu2204_Kube_Package_Install(t *testing.T) {
 				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", components.GetExpectedPackageVersions("containerd", "ubuntu", "r2204")[0])
 				ValidateInstalledPackageVersion(ctx, s, "moby-runc", components.GetExpectedPackageVersions("runc", "ubuntu", "r2204")[0])
 				ValidateSSHServiceEnabled(ctx, s)
+			},
+		},
+	})
+}
+
+func Test_AzureLinux3OSGuard_PMC_Install(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using an Azure Linux V3 OS Guard VHD and install kube pkgs from PMC can be properly bootstrapped",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDAzureLinux3OSGuard,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.AgentPoolProfile.LocalDNSProfile = nil
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
+				if vmss.Tags == nil {
+					vmss.Tags = map[string]*string{}
+				}
+				vmss.Tags["ShouldEnforceKubePMCInstall"] = to.Ptr("true")
 			},
 		},
 	})
