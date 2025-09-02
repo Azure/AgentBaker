@@ -62,6 +62,10 @@ function basePrep {
         sudo systemctl restart systemd-timesyncd
     fi
 
+    if [ -n "${PROXY_VARS}" ]; then
+        eval $PROXY_VARS
+    fi
+
     resolve_packages_source_url
     logs_to_events "AKS.CSE.setPackagesBaseURL" "echo $PACKAGE_DOWNLOAD_BASE_URL"
 
