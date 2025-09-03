@@ -607,11 +607,17 @@ EOF
 ACTION=="add", DEVPATH=="/bus/pci/drivers/nvidia", RUN+="/usr/bin/nvidia-ctk system create-dev-char-symlinks --create-all"
 EOF
 
+    # Create systemd drop-in to override nvidia-device-plugin dependencies
+    mkdir -p /etc/systemd/system/nvidia-device-plugin.service.d
+    cat << EOF > /etc/systemd/system/nvidia-device-plugin.service.d/override.conf
+[Unit]
+After=kubelet.service
+EOF
+
     # Now we are off-piste: enable DCGM, DCGM exporter, container device plugin, and the NVIDIA containerd config.
     systemctl enable nvidia-dcgm
     systemctl enable nvidia-dcgm-exporter
     systemctl enable nvidia-device-plugin
-    #systemctl enable containerd-nvidia-config
   fi
 fi
 
