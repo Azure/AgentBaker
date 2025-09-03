@@ -145,9 +145,9 @@ Describe 'cse_install.sh'
             fi
         }
 
-        # mock extractKubeBinariesToUsrLocalBin as we don't really want to extract the binaries
-        extractKubeBinariesToUsrLocalBin() {
-            echo "mock extractKubeBinariesToUsrLocalBin calling with $1 $2 $3 $4"
+        # mock extractKubeBinariesToOptBin as we don't really want to extract the binaries
+        extractKubeBinariesToOptBin() {
+            echo "mock extractKubeBinariesToOptBin calling with $1 $2 $3 $4"
         }
 
         # Mock retrycmd_get_tarball_from_registry_with_oras as we don't really want to download the tarball
@@ -169,7 +169,7 @@ Describe 'cse_install.sh'
         }
 
         export -f cleanup
-        export -f extractKubeBinariesToUsrLocalBin
+        export -f extractKubeBinariesToOptBin
         export -f retrycmd_get_tarball_from_registry_with_oras
         export -f retrycmd_get_tarball
         export -f logs_to_events
@@ -181,14 +181,14 @@ Describe 'cse_install.sh'
             The status should be success
             The output line 2 should include "detect kube_binary_url"
             The output line 3 should include "mock retrycmd_get_tarball_from_registry_with_oras calling"
-            The output line 4 should include "mock extractKubeBinariesToUsrLocalBin calling"
+            The output line 4 should include "mock extractKubeBinariesToOptBin calling"
         End
         It 'should use retrycmd_get_tarball to download kube binaries'
             kube_binary_url="https://acs-mirror.azureedge.net/kubernetes/v1.31.5/binaries/Fakefile"
             When call extractKubeBinaries $k8s_version $kube_binary_url $is_private_url $k8s_downloads_dir
             The status should be success
             The output line 2 should include "mock retrycmd_get_tarball calling"
-            The output line 3 should include "mock extractKubeBinariesToUsrLocalBin calling"
+            The output line 3 should include "mock extractKubeBinariesToOptBin calling"
         End
         It 'should use a pre-cached private kube binary if available (this is an unavailable case)'
             is_private_url="true"
