@@ -1,6 +1,6 @@
 [Unit]
 Description=Kubelet
-ConditionPathExists=/usr/local/bin/kubelet
+ConditionPathExists=/opt/bin/kubelet
 Wants=network-online.target containerd.service
 After=network-online.target containerd.service
 
@@ -22,7 +22,7 @@ ExecStartPre=-/sbin/iptables -t nat --numeric --list
 
 ExecStartPre=/bin/bash /opt/azure/containers/validate-kubelet-credentials.sh
 
-ExecStart=/usr/local/bin/kubelet \
+ExecStart=/opt/bin/kubelet \
         --enable-server \
         --node-labels="${KUBELET_NODE_LABELS}" \
         --v=2 \
