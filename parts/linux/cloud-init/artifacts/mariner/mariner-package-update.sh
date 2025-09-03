@@ -8,7 +8,7 @@ set -e
 OS_RELEASE_FILE="/etc/os-release"
 SECURITY_PATCH_REPO_DIR="/etc/yum.repos.d"
 KUBECONFIG="/var/lib/kubelet/kubeconfig"
-KUBECTL="/usr/local/bin/kubectl --kubeconfig ${KUBECONFIG}"
+KUBECTL="/opt/bin/kubectl --kubeconfig ${KUBECONFIG}"
 KUBELET_EXECUTABLE="/usr/local/bin/kubelet"
 SECURITY_PATCH_TMP_DIR="/tmp/security-patch"
 

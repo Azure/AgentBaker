@@ -13,7 +13,7 @@ installKubeletKubectlPkgFromPMC() {
 installRPMPackageFromFile() {
     local packageName="${1}"
     local desiredVersion="${2}"
-    local targetBinDir="${3:-"/usr/local/bin"}"
+    local targetBinDir="${3:-"/opt/bin"}"
 
     echo "installing ${packageName} version ${desiredVersion} by manually unpacking the RPM"
     if [ "${packageName}" != "kubelet" ] && [ "${packageName}" != "kubectl" ] && [ "${packageName}" != "azure-acr-credential-provider" ]; then
@@ -52,19 +52,8 @@ installRPMPackageFromFile() {
     fi
 
     echo "Unpacking usr/bin/${rpmBinaryName} from ${downloadDir}/${packageName}-${desiredVersion}*"
-    pushd ${downloadDir} || exit 1
-    rpm2cpio "${rpmFile}" | cpio -idmv
-    mkdir -p "${targetBinDir}"
-    if [ -f "usr/bin/${rpmBinaryName}" ]; then
-        mv "usr/bin/${rpmBinaryName}" "${targetBinDir}/${targetBinaryName}"
-    elif [ -f "usr/local/bin/${rpmBinaryName}" ]; then
-        mv "usr/local/bin/${rpmBinaryName}" "${targetBinDir}/${targetBinaryName}"
-    else
-        popd || exit 1
-        rm -rf ${downloadDir}
-        return 1
-    fi
-    popd || exit 1
+    # This assumes that the binary will either be in /usr/bin or /usr/local/bin, but not both.
+    rpm2cpio "${rpmFile}" | cpio -i --to-stdout "./usr/bin/${rpmBinaryName}" "./usr/local/bin/${rpmBinaryName}" | install -m0755 /dev/stdin "${targetBinDir}/${targetBinaryName}"
 	rm -rf ${downloadDir}
 }
 
