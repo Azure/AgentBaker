@@ -1628,7 +1628,6 @@
     },
     {
       "name": "acr-mirror",
-      "downloadLocation": "/tmp",
       "downloadURIs": {
         "ubuntu": {
           "default": {
