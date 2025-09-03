@@ -52,7 +52,7 @@ fi
 
 # shellcheck disable=SC2129
 echo "kubelet/kubectl downloaded:" >> ${VHD_LOGS_FILEPATH}
-ls -ltr /usr/local/bin/* >> ${VHD_LOGS_FILEPATH}
+ls -ltr /opt/bin/kube* >> ${VHD_LOGS_FILEPATH}
 
 # shellcheck disable=SC2010
 ls -ltr /dev/* | grep sgx >>  ${VHD_LOGS_FILEPATH}
