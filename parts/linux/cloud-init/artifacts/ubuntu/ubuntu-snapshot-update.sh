@@ -3,14 +3,14 @@
 set -o nounset
 set -e
 
-# Global constants used in this file. 
+# Global constants used in this file.
 # -------------------------------------------------------------------------------------------------
 SECURITY_PATCH_CONFIG_DIR=/var/lib/security-patch
 KUBECONFIG="/var/lib/kubelet/kubeconfig"
-KUBECTL="/usr/local/bin/kubectl --kubeconfig ${KUBECONFIG}"
+KUBECTL="/opt/bin/kubectl --kubeconfig ${KUBECONFIG}"
 DEFAULT_ENDPOINT="snapshot.ubuntu.com"
 
-# Function definitions used in this file. 
+# Function definitions used in this file.
 # functions defined until "${__SOURCED__:+return}" are sourced and tested in -
 # spec/parts/linux/cloud-init/artifacts/ubuntu-snapshot-update_spec.sh.
 # -------------------------------------------------------------------------------------------------

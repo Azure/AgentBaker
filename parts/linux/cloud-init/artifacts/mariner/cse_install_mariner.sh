@@ -183,7 +183,7 @@ installRPMPackageFromFile() {
     if ! dnf_install 30 1 600 ${rpmFile}; then
         exit $ERR_APT_INSTALL_TIMEOUT
     fi
-    mv "/usr/bin/${packageName}" "/usr/local/bin/${packageName}"
+    ln -snf "/usr/bin/${packageName}" "/opt/bin/${packageName}"
 	rm -rf ${downloadDir}
 }
 
