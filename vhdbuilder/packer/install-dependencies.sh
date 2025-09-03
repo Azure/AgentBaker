@@ -449,7 +449,7 @@ installAndConfigureArtifactStreaming() {
   # Error if version not found in components.json
   if [ -z "$MIRROR_PROXY_VERSION" ] || [ "$MIRROR_PROXY_VERSION" = "null" ]; then
     echo "Error: Could not find acr-mirror version in components.json for OS: $OS"
-    exit ${ERR_ARTIFACT_STREAMING_DOWNLOAD}
+    exit 1
   fi
   
   echo "Using acr-mirror version: $MIRROR_PROXY_VERSION"
