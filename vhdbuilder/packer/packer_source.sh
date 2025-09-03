@@ -80,7 +80,7 @@ copyPackerFiles() {
   CI_SYSLOG_WATCHER_SERVICE_SRC=/home/packer/ci-syslog-watcher.service
   CI_SYSLOG_WATCHER_SERVICE_DEST=/etc/systemd/system/ci-syslog-watcher.service
   CI_SYSLOG_WATCHER_SCRIPT_SRC=/home/packer/ci-syslog-watcher.sh
-  CI_SYSLOG_WATCHER_SCRIPT_DEST=/usr/local/bin/ci-syslog-watcher.sh
+  CI_SYSLOG_WATCHER_SCRIPT_DEST=/opt/bin/ci-syslog-watcher.sh
   AKS_LOG_COLLECTOR_SCRIPT_SRC=/home/packer/aks-log-collector.sh
   AKS_LOG_COLLECTOR_SCRIPT_DEST=/opt/azure/containers/aks-log-collector.sh
   AKS_LOG_COLLECTOR_SEND_SCRIPT_SRC=/home/packer/aks-log-collector-send.py
@@ -92,7 +92,7 @@ copyPackerFiles() {
   AKS_LOG_COLLECTOR_TIMER_SRC=/home/packer/aks-log-collector.timer
   AKS_LOG_COLLECTOR_TIMER_DEST=/etc/systemd/system/aks-log-collector.timer
   AKS_LOGROTATE_SCRIPT_SRC=/home/packer/logrotate.sh
-  AKS_LOGROTATE_SCRIPT_DEST=/usr/local/bin/logrotate.sh
+  AKS_LOGROTATE_SCRIPT_DEST=/opt/bin/logrotate.sh
   AKS_LOGROTATE_SERVICE_SRC=/home/packer/logrotate.service
   AKS_LOGROTATE_SERVICE_DEST=/etc/systemd/system/logrotate.service
   AKS_LOGROTATE_TIMER_SRC=/home/packer/logrotate.timer
