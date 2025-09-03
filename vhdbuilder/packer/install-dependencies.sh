@@ -446,10 +446,10 @@ installAndConfigureArtifactStreaming() {
     fi
   fi
   
-  # Fallback to hardcoded version if not found in components.json
+  # Error if version not found in components.json
   if [ -z "$MIRROR_PROXY_VERSION" ] || [ "$MIRROR_PROXY_VERSION" = "null" ]; then
-    echo "Warning: Could not find acr-mirror version in components.json, using fallback version"
-    MIRROR_PROXY_VERSION='0.2.13'
+    echo "Error: Could not find acr-mirror version in components.json for OS: $OS"
+    exit ${ERR_ARTIFACT_STREAMING_DOWNLOAD}
   fi
   
   echo "Using acr-mirror version: $MIRROR_PROXY_VERSION"
