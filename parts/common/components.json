@@ -1625,6 +1625,34 @@
           }
         }
       }
+    },
+    {
+      "name": "acr-mirror",
+      "downloadLocation": "/tmp",
+      "downloadURIs": {
+        "ubuntu": {
+          "default": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "0.2.13"
+              }
+            ],
+            "downloadURL": "https://acrstreamingpackage.blob.core.windows.net/bin/${version}/acr-mirror-${ubuntu_release}.deb"
+          }
+        },
+        "azurelinux": {
+          "current": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "0.2.13"
+              }
+            ],
+            "downloadURL": "https://acrstreamingpackage.blob.core.windows.net/bin/${version}/acr-mirror-mariner.rpm"
+          }
+        }
+      }
     }
   ]
 }
