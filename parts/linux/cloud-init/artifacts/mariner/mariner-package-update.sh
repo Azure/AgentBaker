@@ -7,7 +7,7 @@ set -e
 # -------------------------------------------------------------------------------------------------
 OS_RELEASE_FILE="/etc/os-release"
 
-KUBECTL="/usr/local/bin/kubectl --kubeconfig /var/lib/kubelet/kubeconfig"
+KUBECTL="/opt/bin/kubectl --kubeconfig /var/lib/kubelet/kubeconfig"
 
 # Function definitions used in this file. 
 # functions defined until "${__SOURCED__:+return}" are sourced and tested in -

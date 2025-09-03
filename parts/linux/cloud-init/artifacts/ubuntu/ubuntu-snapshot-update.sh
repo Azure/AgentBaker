@@ -39,7 +39,7 @@ cfg_set_option() {
     fi
 }
 
-KUBECTL="/usr/local/bin/kubectl --kubeconfig /var/lib/kubelet/kubeconfig"
+KUBECTL="/opt/bin/kubectl --kubeconfig /var/lib/kubelet/kubeconfig"
 
 source_list_path=/etc/apt/sources.list
 source_list_backup_path=/etc/apt/sources.list.backup

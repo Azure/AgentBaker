@@ -157,7 +157,7 @@ AZURELINUX_KATA_OS_NAME="AZURELINUXKATA"
 AZURELINUX_OS_NAME="AZURELINUX"
 FLATCAR_OS_NAME="FLATCAR"
 AZURELINUX_OSGUARD_OS_VARIANT="OSGUARD"
-KUBECTL=/usr/local/bin/kubectl
+KUBECTL=/opt/bin/kubectl
 DOCKER=/usr/bin/docker
 # this will be empty during VHD build
 # but vhd build runs with `set -o nounset`
