@@ -7,7 +7,7 @@ set -e
 # -------------------------------------------------------------------------------------------------
 SECURITY_PATCH_CONFIG_DIR=/var/lib/security-patch
 KUBECONFIG="/var/lib/kubelet/kubeconfig"
-KUBECTL="/usr/local/bin/kubectl --kubeconfig ${KUBECONFIG}"
+KUBECTL="/opt/bin/kubectl --kubeconfig ${KUBECONFIG}"
 DEFAULT_ENDPOINT="snapshot.ubuntu.com"
 
 # Function definitions used in this file. 

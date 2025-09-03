@@ -421,7 +421,7 @@ function nodePrep {
             tee "/etc/systemd/system/nvidia-device-plugin.service.d/10-binary-path.conf" > /dev/null <<'EOF'
 [Service]
 ExecStart=
-ExecStart=/usr/local/bin/nvidia-device-plugin
+ExecStart=/opt/bin/nvidia-device-plugin
 EOF
             # Reload systemd to pick up the base path override
             systemctl daemon-reload
@@ -431,7 +431,7 @@ EOF
 [Service]
 Environment="MIG_STRATEGY=--mig-strategy single"
 ExecStart=
-ExecStart=/usr/local/bin/nvidia-device-plugin $MIG_STRATEGY
+ExecStart=/opt/bin/nvidia-device-plugin $MIG_STRATEGY
 EOF
                 # Reload systemd to pick up drop-ins
                 systemctl daemon-reload
