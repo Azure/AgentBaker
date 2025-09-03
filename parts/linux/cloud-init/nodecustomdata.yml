@@ -295,7 +295,7 @@ write_files:
     Description=teleportd teleport runtime
     After=network.target
     [Service]
-    ExecStart=/usr/local/bin/teleportd --metrics --aksConfig /etc/kubernetes/azure.json
+    ExecStart=/opt/bin/teleportd --metrics --aksConfig /etc/kubernetes/azure.json
     Delegate=yes
     KillMode=process
     Restart=always
