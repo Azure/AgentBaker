@@ -611,7 +611,7 @@ EOF
     systemctl enable nvidia-dcgm
     systemctl enable nvidia-dcgm-exporter
     systemctl enable nvidia-device-plugin
-    systemctl enable containerd-nvidia-config
+    #systemctl enable containerd-nvidia-config
   fi
 fi
 
