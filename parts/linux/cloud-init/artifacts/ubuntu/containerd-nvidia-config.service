@@ -1,7 +1,6 @@
 [Unit]
 Description=A oneshot service that overwrites the containerd configuration on GB200 SKUs
 DefaultDependencies=no
-After=aks-log-collector.service
 Before=nvidia-device-plugin.service
 
 [Service]
