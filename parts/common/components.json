@@ -925,7 +925,7 @@
     },
     {
       "name": "aks-secure-tls-bootstrap-client",
-      "downloadLocation": "/usr/local/bin",
+      "downloadLocation": "/opt/bin",
       "windowsDownloadLocation": "c:\\akse-cache\\aks-secure-tls-bootstrap-client\\",
       "downloadURIs": {
         "default": {

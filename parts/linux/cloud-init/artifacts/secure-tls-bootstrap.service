@@ -1,6 +1,6 @@
 [Unit]
 Description=AKS Secure TLS Bootstrap Client
-ConditionPathExists=/usr/local/bin/aks-secure-tls-bootstrap-client
+ConditionPathExists=/opt/bin/aks-secure-tls-bootstrap-client
 Wants=network-online.target
 After=network-online.target
 
@@ -8,7 +8,7 @@ After=network-online.target
 Type=oneshot
 RemainAfterExit=yes
 
-ExecStart=/usr/local/bin/aks-secure-tls-bootstrap-client \
+ExecStart=/opt/bin/aks-secure-tls-bootstrap-client \
     --verbose \
     --ensure-authorized \
     --next-proto=aks-tls-bootstrap \
