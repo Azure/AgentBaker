@@ -66,14 +66,6 @@ if isFlatcar "$OS"; then
     # "copy-on-write"; this starts out as a symlink to a R/O location
     cp /etc/waagent.conf{,.new}
     mv /etc/waagent.conf{.new,}
-    # urllib3 is not installed on Flatcar and can't be installed systemd-wide
-    # due to immutability
-    python3 -m venv /opt/py3 || exit 1
-    /opt/py3/bin/pip install --upgrade urllib3 || exit 1
-    mkdir -p /etc/systemd/system/aks-log-collector.service.d || exit 1
-    pushd /etc/systemd/system/aks-log-collector.service.d || exit 1
-    echo -e "[Service]\nEnvironment=PATH=/opt/py3/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" > override.conf || exit 1
-    popd || exit 1
 fi
 # enable AKS log collector
 echo -e "\n# Disable WALA log collection because AKS Log Collector is installed.\nLogs.Collect=n" >> /etc/waagent.conf || exit 1
