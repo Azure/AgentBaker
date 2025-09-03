@@ -79,7 +79,7 @@ rm /home/packer
 mkdir -p /_imageconfigs/out
 
 echo "kubelet/kubectl downloaded:" >> ${VHD_LOGS_FILEPATH}
-ls -ltr /usr/local/bin/* >> ${VHD_LOGS_FILEPATH}
+ls -ltr /opt/bin/* >> ${VHD_LOGS_FILEPATH}
 
 echo -e "=== Installed Packages Begin" >> ${VHD_LOGS_FILEPATH}
 echo -e "$(rpm -qa)" >> ${VHD_LOGS_FILEPATH}

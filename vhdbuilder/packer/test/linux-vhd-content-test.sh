@@ -715,7 +715,7 @@ testKubeBinariesPresent() {
   local test="testKubeBinaries"
   echo "$test:Start"
   local kubeBinariesVersions=("$@")
-  binaryDir=/usr/local/bin
+  binaryDir=/opt/bin
   for patchedK8sVersion in "${kubeBinariesVersions[@]}"; do
     echo "checking kubeBinariesVersions: $patchedK8sVersion ..."
     # strip the last .1 as that is for base image patch for hyperkube
@@ -731,8 +731,6 @@ testKubeBinariesPresent() {
     fi
     kubeletDownloadLocation="$binaryDir/kubelet-$k8sVersion"
     kubectlDownloadLocation="$binaryDir/kubectl-$k8sVersion"
-    kubeletInstallLocation="/usr/local/bin/kubelet"
-    kubectlInstallLocation="/usr/local/bin/kubectl"
     #Test whether the binaries have been extracted
     if [ ! -s $kubeletDownloadLocation ]; then
       err $test "Binary ${kubeletDownloadLocation} does not exist"

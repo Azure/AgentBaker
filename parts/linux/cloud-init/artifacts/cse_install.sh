@@ -459,15 +459,15 @@ installAzureCNI() {
 }
 
 # extract the cached or downloaded kube package and remove
-extractKubeBinariesToUsrLocalBin() {
+extractKubeBinariesToOptBin() {
     local k8s_tgz_tmp=$1
     local k8s_version=$2
     local is_private_url=$3
 
-    extract_tarball "${k8s_tgz_tmp}" "/usr/local/bin" \
+    extract_tarball "${k8s_tgz_tmp}" "/opt/bin" \
         --transform="s|.*|&-${k8s_version}|" --show-transformed-names --strip-components=3 \
         kubernetes/node/bin/kubelet kubernetes/node/bin/kubectl || exit $ERR_K8S_INSTALL_ERR
-    if [ ! -f "/usr/local/bin/kubectl-${k8s_version}" ] || [ ! -f "/usr/local/bin/kubelet-${k8s_version}" ]; then
+    if [ ! -f "/opt/bin/kubectl-${k8s_version}" ] || [ ! -f "/opt/bin/kubelet-${k8s_version}" ]; then
         exit $ERR_K8S_INSTALL_ERR
     fi
     if [ "$is_private_url" = "false" ]; then
@@ -500,7 +500,7 @@ extractKubeBinaries() {
 
         echo "cached package ${k8s_tgz_tmp} found, will extract that"
         # remove the current kubelet and kubectl binaries before extracting new binaries from the cached package
-        rm -rf /usr/local/bin/kubelet-* /usr/local/bin/kubectl-*
+        rm -rf /opt/bin/kubelet-* /opt/bin/kubectl-*
     else
         k8s_tgz_tmp="${k8s_downloads_dir}/${k8s_tgz_tmp_filename}"
         mkdir -p ${k8s_downloads_dir}
@@ -523,7 +523,7 @@ extractKubeBinaries() {
         fi
     fi
 
-    extractKubeBinariesToUsrLocalBin "${k8s_tgz_tmp}" "${k8s_version}" "${is_private_url}"
+    extractKubeBinariesToOptBin "${k8s_tgz_tmp}" "${k8s_version}" "${is_private_url}"
 }
 
 installToolFromBootstrapProfileRegistry() {
@@ -574,7 +574,7 @@ installKubeletKubectlFromBootstrapProfileRegistry() {
     local registry_server=$1
     local kubernetes_version=$2
     for tool_name in $(get_kubernetes_tools); do
-        install_path="/usr/local/bin/${tool_name}"
+        install_path="/opt/bin/${tool_name}"
         if ! installToolFromBootstrapProfileRegistry "${tool_name}" "${registry_server}" "${kubernetes_version}" "${install_path}"; then
             # SHOULD_ENFORCE_KUBE_PMC_INSTALL will only be set for e2e tests, which should not fallback to reflect result of package installation behavior
             # TODO: remove SHOULD_ENFORCE_KUBE_PMC_INSTALL check when the test cluster supports > 1.34.0 case
@@ -599,7 +599,7 @@ installKubeletKubectlFromURL() {
 
     if [ ! -z "${CUSTOM_KUBE_BINARY_DOWNLOAD_URL}" ]; then
         # remove the kubelet and kubectl binaries to make sure the only binary left is from the CUSTOM_KUBE_BINARY_DOWNLOAD_URL
-        rm -rf /usr/local/bin/kubelet-* /usr/local/bin/kubectl-*
+        rm -rf /opt/bin/kubelet-* /opt/bin/kubectl-*
 
         # NOTE(mainred): we expect kubelet binary to be under `kubernetes/node/bin`. This suits the current setting of
         # kube binaries used by AKS and Kubernetes upstream.
@@ -612,7 +612,7 @@ installKubeletKubectlFromURL() {
     fi
 
     # if the custom url is not specified and the required kubectl/kubelet-version via private url is not installed, install using the default url/package
-    if [ ! -f "/usr/local/bin/kubectl-${KUBERNETES_VERSION}" ] || [ ! -f "/usr/local/bin/kubelet-${KUBERNETES_VERSION}" ]; then
+    if [ ! -f "/opt/bin/kubectl-${KUBERNETES_VERSION}" ] || [ ! -f "/opt/bin/kubelet-${KUBERNETES_VERSION}" ]; then
         if [ "$install_default_if_missing" = "true" ]; then
             if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
                 # network isolated cluster
@@ -630,11 +630,10 @@ installKubeletKubectlFromURL() {
             fi
         fi
     fi
-    mv "/usr/local/bin/kubelet-${KUBERNETES_VERSION}" "/usr/local/bin/kubelet"
-    mv "/usr/local/bin/kubectl-${KUBERNETES_VERSION}" "/usr/local/bin/kubectl"
+    install -m0755 "/opt/bin/kubelet-${KUBERNETES_VERSION}" /opt/bin/kubelet
+    install -m0755 "/opt/bin/kubectl-${KUBERNETES_VERSION}" /opt/bin/kubectl
 
-    chmod a+x /usr/local/bin/kubelet /usr/local/bin/kubectl
-    rm -rf /usr/local/bin/kubelet-* /usr/local/bin/kubectl-* /home/hyperkube-downloads &
+    rm -rf /opt/bin/kubelet-* /opt/bin/kubectl-* /home/hyperkube-downloads &
 }
 
 pullContainerImage() {
