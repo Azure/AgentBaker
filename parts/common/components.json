@@ -1544,7 +1544,6 @@
     },
     {
       "name": "nvidia-container-toolkit",
-      "downloadLocation": "/usr/local/bin",
       "downloadURIs": {
         "windows": {
           "default": {
