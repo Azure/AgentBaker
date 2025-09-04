@@ -529,12 +529,12 @@ EOF
     # will appear directing the reader away from the proprietary driver. The GPUs
     # are also not visible in nvidia-smi output with the proprietary drivers
     apt install -y \
-      mlnx-ofed-kernel-dkms \
-      mlnx-ofed-kernel-utils \
-      mlnx-ofed-basic \
-      rdma-core \
-      ibverbs-utils \
-      ibverbs-providers \
+      #mlnx-ofed-kernel-dkms \
+      #mlnx-ofed-kernel-utils \
+      #mlnx-ofed-basic \
+      #rdma-core \
+      #ibverbs-utils \
+      #ibverbs-providers \
       nvidia-driver-580-open \
       cuda-toolkit-12 \
       nvidia-container-toolkit \
@@ -564,8 +564,8 @@ EOF
     systemctl enable nvidia-dcgm
     systemctl enable nvidia-dcgm-exporter
     systemctl enable nvidia-device-plugin
-    systemctl enable openibd
-    ofed_info -s
+    #systemctl enable openibd
+    #ofed_info -s
   fi
 fi
 
