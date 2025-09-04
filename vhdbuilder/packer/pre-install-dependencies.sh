@@ -175,19 +175,19 @@ if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]] && ! gre
     echo "Before purging kernel, here is a list of kernels/headers installed:"; dpkg -l 'linux-*azure*'
 
     if apt-cache show "$LTS_KERNEL" &>/dev/null; then
-        echo "LTS kernel is available for ${UBUNTU_RELEASE}, proceeding with purging current kernel and installing LTS kernel..."
+      echo "LTS kernel is available for ${UBUNTU_RELEASE}, proceeding with purging current kernel and installing LTS kernel..."
 
-        # Purge all current kernels and dependencies
-        wait_for_apt_locks
-        DEBIAN_FRONTEND=noninteractive apt-get remove --purge -y $(dpkg-query -W 'linux-*azure*' | awk '$2 != "" { print $1 }' | paste -s)
-        echo "After purging kernel, dpkg list should be empty"; dpkg -l 'linux-*azure*'
+      # Purge all current kernels and dependencies
+      wait_for_apt_locks
+      DEBIAN_FRONTEND=noninteractive apt-get remove --purge -y $(dpkg-query -W 'linux-*azure*' | awk '$2 != "" { print $1 }' | paste -s)
+      echo "After purging kernel, dpkg list should be empty"; dpkg -l 'linux-*azure*'
 
-        # Install LTS kernel
-        wait_for_apt_locks
-        DEBIAN_FRONTEND=noninteractive apt-get install -y "$LTS_KERNEL" "$LTS_TOOLS" "$LTS_CLOUD_TOOLS" "$LTS_HEADERS" "$LTS_MODULES"
-        echo "After installing new kernel, here is a list of kernels/headers installed:"; dpkg -l 'linux-*azure*'
+      # Install LTS kernel
+      wait_for_apt_locks
+      DEBIAN_FRONTEND=noninteractive apt-get install -y "$LTS_KERNEL" "$LTS_TOOLS" "$LTS_CLOUD_TOOLS" "$LTS_HEADERS" "$LTS_MODULES"
+      echo "After installing new kernel, here is a list of kernels/headers installed:"; dpkg -l 'linux-*azure*'
     else
-        echo "LTS kernel for Ubuntu ${UBUNTU_RELEASE} is not available. Skipping purging and subsequent installation."
+      echo "LTS kernel for Ubuntu ${UBUNTU_RELEASE} is not available. Skipping purging and subsequent installation."
     fi
   }
   if [[ ${UBUNTU_RELEASE//./} -eq 2204 ]]; then
