@@ -21,6 +21,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/Azure/agentbaker/aks-node-controller/helpers"
@@ -1399,6 +1400,120 @@ func Test_getKubeletFlags(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := getKubeletFlags(tt.args.kubeletConfig); got != tt.want {
 				t.Errorf("getKubeletFlags() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_getLocalDNSCorefileBase64(t *testing.T) {
+	type args struct {
+		aksnodeconfig *aksnodeconfigv1.Configuration
+	}
+	tests := []struct {
+		name         string
+		args         args
+		wantContains string
+	}{
+		{
+			name: "Nil config returns empty string",
+			args: args{
+				aksnodeconfig: nil,
+			},
+			wantContains: "",
+		},
+		{
+			name: "LocalDNSProfile disabled returns error string (not base64)",
+			args: args{
+				aksnodeconfig: &aksnodeconfigv1.Configuration{
+					LocalDNSProfile: &aksnodeconfigv1.LocalDNSProfile{
+						EnableLocalDNS: false,
+					},
+				},
+			},
+			wantContains: "error getting localdns corfile",
+		},
+		{
+			name: "LocalDNSProfile enabled returns base64 string",
+			args: args{
+				aksnodeconfig: &aksnodeconfigv1.Configuration{
+					LocalDNSProfile: &aksnodeconfigv1.LocalDNSProfile{
+						EnableLocalDNS:       true,
+						CPULimitInMilliCores: to.Ptr(int32(2008)),
+						MemoryLimitInMB:      to.Ptr(int32(128)),
+						VnetDNSOverrides: map[string]*aksnodeconfigv1.LocalDNSOverrides{
+							".": {
+								QueryLogging:                "Log",
+								Protocol:                    "PreferUDP",
+								ForwardDestination:          "VnetDNS",
+								ForwardPolicy:               "Sequential",
+								MaxConcurrent:               to.Ptr(int32(1000)),
+								CacheDurationInSeconds:      to.Ptr(int32(3600)),
+								ServeStaleDurationInSeconds: to.Ptr(int32(3600)),
+								ServeStale:                  "Immediate",
+							},
+							"cluster.local": {
+								QueryLogging:                "Error",
+								Protocol:                    "ForceTCP",
+								ForwardDestination:          "ClusterCoreDNS",
+								ForwardPolicy:               "Sequential",
+								MaxConcurrent:               to.Ptr(int32(1000)),
+								CacheDurationInSeconds:      to.Ptr(int32(3600)),
+								ServeStaleDurationInSeconds: to.Ptr(int32(3600)),
+								ServeStale:                  "Disable",
+							},
+							"testdomain456.com": {
+								QueryLogging:                "Log",
+								Protocol:                    "PreferUDP",
+								ForwardDestination:          "ClusterCoreDNS",
+								ForwardPolicy:               "Sequential",
+								MaxConcurrent:               to.Ptr(int32(1000)),
+								CacheDurationInSeconds:      to.Ptr(int32(3600)),
+								ServeStaleDurationInSeconds: to.Ptr(int32(3600)),
+								ServeStale:                  "Verify",
+							},
+						},
+						KubeDNSOverrides: map[string]*aksnodeconfigv1.LocalDNSOverrides{
+							".": {
+								QueryLogging:                "Error",
+								Protocol:                    "PreferUDP",
+								ForwardDestination:          "ClusterCoreDNS",
+								ForwardPolicy:               "Sequential",
+								MaxConcurrent:               to.Ptr(int32(2000)),
+								CacheDurationInSeconds:      to.Ptr(int32(3600)),
+								ServeStaleDurationInSeconds: to.Ptr(int32(72000)),
+								ServeStale:                  "Verify",
+							},
+						},
+					},
+				},
+			},
+			wantContains: "health-check.localdns.local", // will appear after decoding
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := getLocalDNSCorefileBase64(tt.args.aksnodeconfig)
+
+			if tt.wantContains == "" && got != "" {
+				t.Errorf("expected empty string, got %q", got)
+				return
+			}
+
+			if strings.Contains(tt.wantContains, "error") {
+				if !strings.Contains(got, tt.wantContains) {
+					t.Errorf("expected error substring %q, got %q", tt.wantContains, got)
+				}
+				return
+			}
+
+			if tt.wantContains != "" {
+				decoded, err := base64.StdEncoding.DecodeString(got)
+				if err != nil {
+					t.Fatalf("failed to decode base64: %v", err)
+				}
+				if !strings.Contains(string(decoded), tt.wantContains) {
+					t.Errorf("expected decoded corefile to contain %q, got:\n%s", tt.wantContains, string(decoded))
+				}
 			}
 		})
 	}

@@ -15,6 +15,7 @@ import "aksnodeconfig/v1/http_proxy_config.proto";
 import "aksnodeconfig/v1/imds_restriction_config.proto";
 import "aksnodeconfig/v1/kube_binary_config.proto";
 import "aksnodeconfig/v1/kubelet_config.proto";
+import "aksnodeconfig/v1/localdns_config.proto";
 import "aksnodeconfig/v1/network_config.proto";
 import "aksnodeconfig/v1/runc_config.proto";
 import "aksnodeconfig/v1/teleport_config.proto";
@@ -153,4 +154,7 @@ message Configuration {
   // Creates a pre-provisioned image for later node spawning.
   // Skips kubelet and some component configuration for image capture scenarios.
   bool pre_provision_only = 40;
+
+  // Represents localdns configuration for agentpool nodes.
+  LocalDNSProfile local_d_n_s_profile = 41;
 }
