@@ -434,7 +434,26 @@ installAndConfigureArtifactStreaming() {
   # arguments: package name, package extension
   PACKAGE_NAME=$1
   PACKAGE_EXTENSION=$2
-  MIRROR_PROXY_VERSION='0.2.12'
+  
+  # Extract acr-mirror version from components.json
+  MIRROR_PROXY_VERSION=""
+  acr_mirror_package=$(jq '.Packages[] | select(.name == "acr-mirror")' $COMPONENTS_FILEPATH)
+  if [ -n "$acr_mirror_package" ]; then
+    if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
+      MIRROR_PROXY_VERSION=$(echo "$acr_mirror_package" | jq -r '.downloadURIs.ubuntu.default.versionsV2[0].latestVersion')
+    elif isMarinerOrAzureLinux "$OS"; then
+      MIRROR_PROXY_VERSION=$(echo "$acr_mirror_package" | jq -r '.downloadURIs.azurelinux.current.versionsV2[0].latestVersion')
+    fi
+  fi
+  
+  # Error if version not found in components.json
+  if [ -z "$MIRROR_PROXY_VERSION" ] || [ "$MIRROR_PROXY_VERSION" = "null" ]; then
+    echo "Error: Could not find acr-mirror version in components.json for OS: $OS"
+    exit 1
+  fi
+  
+  echo "Using acr-mirror version: $MIRROR_PROXY_VERSION"
+  
   MIRROR_DOWNLOAD_PATH="./$1.$2"
   MIRROR_PROXY_URL="https://acrstreamingpackage.blob.core.windows.net/bin/${MIRROR_PROXY_VERSION}/${PACKAGE_NAME}.${PACKAGE_EXTENSION}"
   retrycmd_curl_file 10 5 60 $MIRROR_DOWNLOAD_PATH $MIRROR_PROXY_URL || exit ${ERR_ARTIFACT_STREAMING_DOWNLOAD}
