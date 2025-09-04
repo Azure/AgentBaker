@@ -429,6 +429,14 @@ copyPackerFiles() {
       CONTAINERD_NVIDIA_TOML_SRC=/home/packer/containerd-nvidia.toml
       CONTAINERD_NVIDIA_TOML_DEST=/etc/containerd/config.toml
       cpAndMode $CONTAINERD_NVIDIA_TOML_SRC $CONTAINERD_NVIDIA_TOML_DEST 644
+
+      DOCA_LIST_SRC=/home/packer/doca.list
+      DOCA_LIST_DEST=/etc/apt/sources.list.d/doca.list
+      cpAndMode $DOCA_LIST_SRC $DOCA_LIST_DEST 644
+
+      DOCA_PUB_SRC=/home/packer/doca.pub
+      DOCA_PUB_DEST=/etc/apt/keyrings/doca.pub
+      cpAndMode $DOCA_PUB_SRC $DOCA_PUB_DEST 644
     fi
   fi
 
