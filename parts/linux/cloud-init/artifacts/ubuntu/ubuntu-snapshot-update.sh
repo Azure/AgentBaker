@@ -149,4 +149,4 @@ ${__SOURCED__:+return}
 # source apt_get_update
 source /opt/azure/containers/provision_source_distro.sh
 
-main
+main "$@"
