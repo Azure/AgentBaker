@@ -135,9 +135,9 @@ capture_benchmark "${SCRIPT_NAME}_enable_cgroupv2_for_azurelinux"
 # shellcheck disable=SC3010
 if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]] && ! grep -q "cvm" <<< "$FEATURE_FLAGS"; then
   
-  # Choose kernel packages based on Ubuntu version
-  if [[ ${UBUNTU_RELEASE//./} -eq 2204 ]]; then
-    # Pin to specific kernel version for Ubuntu 22.04 due to regression issues
+  # Choose kernel packages based on Ubuntu version and architecture
+  if [[ ${UBUNTU_RELEASE//./} -eq 2204 && "${CPU_ARCH}" != "arm64" ]]; then
+    # Pin to specific kernel version for Ubuntu 22.04 x86_64 due to regression issues
     # Canonical confirmed regression in latest kernel packages as of 09.04.2025
     KERNEL_IMAGE="linux-image-5.15.0-1092-azure"
     KERNEL_PACKAGES=(
@@ -148,7 +148,7 @@ if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]] && ! gre
       "linux-tools-5.15.0-1092-azure"
       "linux-cloud-tools-5.15.0-1092-azure"
     )
-    echo "Ubuntu 22.04 detected, installing pinned kernel version 5.15.0-1092"
+    echo "Ubuntu 22.04 x86_64 detected, installing pinned kernel version 5.15.0-1092"
   else
     # Use LTS kernel for other versions  
     KERNEL_IMAGE="linux-image-azure-lts-${UBUNTU_RELEASE}"
