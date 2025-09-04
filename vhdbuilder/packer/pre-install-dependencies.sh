@@ -136,7 +136,7 @@ capture_benchmark "${SCRIPT_NAME}_enable_cgroupv2_for_azurelinux"
 if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]] && ! grep -q "cvm" <<< "$FEATURE_FLAGS"; then
   
   # Choose kernel packages based on Ubuntu version and architecture
-  if [[ ${UBUNTU_RELEASE//./} -eq 2204 && "${CPU_ARCH}" != "arm64" ]]; then
+  if [[ ${UBUNTU_RELEASE//./} -eq 2204 && "${CPU_ARCH}" == "amd64" ]]; then
     # Pin to specific kernel version for Ubuntu 22.04 x86_64 due to regression issues
     # Canonical confirmed regression in latest kernel packages as of 09.04.2025
     KERNEL_IMAGE="linux-image-5.15.0-1092-azure"
