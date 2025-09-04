@@ -22,7 +22,6 @@ import (
 	"strings"
 
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
-	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/blang/semver"
 )
 
@@ -66,122 +65,11 @@ func GetDefaultOutboundCommand() string {
 	return "curl -v --insecure --proxy-insecure https://mcr.microsoft.com/v2/"
 }
 
-// GetOrderedKubeletConfigFlagString returns an ordered string of key/val pairs.
-// copied from AKS-Engine and filter out flags that already translated to config file.
-func GetKubeletConfigFlag(k map[string]string, cs *datamodel.ContainerService, profile *datamodel.AgentPoolProfile,
-	kubeletConfigFileToggleEnabled bool) map[string]string {
-	/* NOTE(mainred): kubeConfigFile now relies on CustomKubeletConfig, while custom configuration is not
-	compatible with CustomKubeletConfig. When custom configuration is set we want to override every
-	configuration with the customized one. */
-	kubeletCustomConfigurations := getKubeletCustomConfiguration(cs.Properties)
-	if kubeletCustomConfigurations != nil {
-		return getKubeletConfigFlagWithCustomConfiguration(kubeletCustomConfigurations, k)
-	}
-
-	if k == nil {
-		return nil
-	}
-	// Always force remove of dynamic-config-dir.
-	kubeletConfigFileEnabled := true
-	kubeletConfigFlags := map[string]string{}
-	ommitedKubletConfigFlags := datamodel.GetCommandLineOmittedKubeletConfigFlags()
-	for key := range k {
-		if !kubeletConfigFileEnabled {
-			if !ommitedKubletConfigFlags[key] {
-				kubeletConfigFlags[key] = k[key]
-			}
-		}
-	}
-	return kubeletConfigFlags
-}
-
-func getKubeletConfigFlagWithCustomConfiguration(customConfig, defaultConfig map[string]string) map[string]string {
-	config := customConfig
-
-	for k, v := range defaultConfig {
-		// add key-value only when the flag does not exist in custom config.
-		if _, ok := config[k]; !ok {
-			config[k] = v
-		}
-	}
-
-	ommitedKubletConfigFlags := datamodel.GetCommandLineOmittedKubeletConfigFlags()
-	for key := range config {
-		if ommitedKubletConfigFlags[key] {
-			delete(config, key)
-		}
-	}
-	return config
-}
-
-func getKubeletCustomConfiguration(properties *datamodel.Properties) map[string]string {
-	if properties.CustomConfiguration == nil || properties.CustomConfiguration.KubernetesConfigurations == nil {
-		return nil
-	}
-	kubeletConfigurations, ok := properties.CustomConfiguration.KubernetesConfigurations["kubelet"]
-	if !ok {
-		return nil
-	}
-	if kubeletConfigurations.Config == nil {
-		return nil
-	}
-	// empty config is treated as nil.
-	if len(kubeletConfigurations.Config) == 0 {
-		return nil
-	}
-	return kubeletConfigurations.Config
-}
-
 func isKubeletServingCertificateRotationEnabled(kubeletFlags map[string]string) bool {
 	if kubeletFlags == nil {
 		return false
 	}
 	return kubeletFlags["--rotate-server-certificates"] == "true"
-}
-
-func ValidateAndSetLinuxKubeletFlags(kubeletFlags map[string]string, cs *datamodel.ContainerService, profile *datamodel.AgentPoolProfile) {
-	// If using kubelet config file, disable DynamicKubeletConfig feature gate and remove dynamic-config-dir
-	// we should only allow users to configure from API (20201101 and later)
-	delete(kubeletFlags, "--dynamic-config-dir")
-	delete(kubeletFlags, "--non-masquerade-cidr")
-
-	if profile != nil && profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntime == "containerd" {
-		dockerShimFlags := []string{
-			"--cni-bin-dir",
-			"--cni-cache-dir",
-			"--cni-conf-dir",
-			"--docker-endpoint",
-			"--image-pull-progress-deadline",
-			"--network-plugin",
-			"--network-plugin-mtu",
-		}
-		for _, flag := range dockerShimFlags {
-			delete(kubeletFlags, flag)
-		}
-	}
-
-	if isKubeletServingCertificateRotationEnabled(kubeletFlags) {
-		// ensure the required feature gate is set
-		kubeletFlags["--feature-gates"] = addFeatureGateString(kubeletFlags["--feature-gates"], "RotateKubeletServerCertificate", true)
-	}
-
-	if IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, "1.24.0") {
-		kubeletFlags["--feature-gates"] = removeFeatureGateString(kubeletFlags["--feature-gates"], "DynamicKubeletConfig")
-	} else if IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, "1.11.0") {
-		kubeletFlags["--feature-gates"] = addFeatureGateString(kubeletFlags["--feature-gates"], "DynamicKubeletConfig", false)
-	}
-
-	/* ContainerInsights depends on GPU accelerator Usage metrics from Kubelet cAdvisor endpoint but
-	deprecation of this feature moved to beta which breaks the ContainerInsights customers with K8s
-		version 1.20 or higher */
-	/* Until Container Insights move to new API adding this feature gate to get the GPU metrics
-	continue to work */
-	/* Reference -
-	https://github.com/kubernetes/enhancements/tree/master/keps/sig-node/1867-disable-accelerator-usage-metrics */
-	if IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, "1.20.0") &&
-		!IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, "1.25.0") {
-		kubeletFlags["--feature-gates"] = addFeatureGateString(kubeletFlags["--feature-gates"], "DisableAcceleratorUsageMetrics", false)
-	}
 }
 
 // IsKubernetesVersionGe returns true if actualVersion is greater than or equal to version.
