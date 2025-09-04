@@ -22,7 +22,6 @@ import (
 	"strings"
 
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
-	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/blang/semver"
 )
@@ -78,39 +77,6 @@ func GetKubeletNodeLabels(agentPool *datamodel.AgentPoolProfile) map[string]stri
 	return kubeletLabels
 }
 
-// NOTE: The following functions are slightly modified versions of those that are already in agent/utils.go.
-// Other functions from agent/utils.go will also need to be added/merged here.
-
-// GetOutBoundCmd returns a proper outbound traffic command based on some cloud and Linux distro configs.
-func GetOutBoundCmd(nbc *datamodel.NodeBootstrappingConfiguration) string {
-	cs := nbc.ContainerService
-	if cs.Properties.FeatureFlags.IsFeatureEnabled("BlockOutboundInternet") {
-		return ""
-	}
-
-	if strings.EqualFold(nbc.OutboundType, datamodel.OutboundTypeBlock) || strings.EqualFold(nbc.OutboundType, datamodel.OutboundTypeNone) {
-		return ""
-	}
-
-	var registry string
-	switch {
-	case nbc.CloudSpecConfig.CloudName == datamodel.AzureChinaCloud:
-		registry = `gcr.azk8s.cn`
-	case cs.IsAKSCustomCloud():
-		registry = cs.Properties.CustomCloudEnv.McrURL
-	default:
-		registry = `mcr.microsoft.com`
-	}
-
-	if registry == "" {
-		return ""
-	}
-
-	connectivityCheckCommand := `curl -v --insecure --proxy-insecure https://` + registry + `/v2/`
-
-	return connectivityCheckCommand
-}
-
 // GetOrderedKubeletConfigFlagString returns an ordered string of key/val pairs.
 // copied from AKS-Engine and filter out flags that already translated to config file.
 func GetKubeletConfigFlag(k map[string]string, cs *datamodel.ContainerService, profile *datamodel.AgentPoolProfile,
@@ -127,11 +93,11 @@ func GetKubeletConfigFlag(k map[string]string, cs *datamodel.ContainerService, p
 		return nil
 	}
 	// Always force remove of dynamic-config-dir.
-	kubeletConfigFileEnabled := agent.IsKubeletConfigFileEnabled(cs, profile, kubeletConfigFileToggleEnabled)
+	kubeletConfigFileEnabled := true
 	kubeletConfigFlags := map[string]string{}
 	ommitedKubletConfigFlags := datamodel.GetCommandLineOmittedKubeletConfigFlags()
 	for key := range k {
-		if !kubeletConfigFileEnabled || !agent.TranslatedKubeletConfigFlags[key] {
+		if !kubeletConfigFileEnabled {
 			if !ommitedKubletConfigFlags[key] {
 				kubeletConfigFlags[key] = k[key]
 			}

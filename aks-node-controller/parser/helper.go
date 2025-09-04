@@ -31,7 +31,6 @@ import (
 
 	"github.com/Azure/agentbaker/aks-node-controller/helpers"
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
-	"github.com/Azure/agentbaker/pkg/agent"
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
@@ -506,15 +505,15 @@ func getMaxLBRuleCount(lb *aksnodeconfigv1.LoadBalancerConfig) int32 {
 }
 
 func getGpuImageSha(vmSize string) string {
-	return agent.GetAKSGPUImageSHA(vmSize)
+	return ""
 }
 
 func getGpuDriverType(vmSize string) string {
-	return agent.GetGPUDriverType(vmSize)
+	return ""
 }
 
 func getGpuDriverVersion(vmSize string) string {
-	return agent.GetGPUDriverVersion(vmSize)
+	return ""
 }
 
 // IsSgxEnabledSKU determines if an VM SKU has SGX driver support.
@@ -695,7 +694,7 @@ func getInitAKSCustomCloudFilepath() string {
 }
 
 func getGPUNeedsFabricManager(vmSize string) bool {
-	return agent.GPUNeedsFabricManager(vmSize)
+	return false
 }
 
 func getEnableNvidia(config *aksnodeconfigv1.Configuration) bool {
