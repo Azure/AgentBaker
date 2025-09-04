@@ -77,16 +77,8 @@
       "type": "shell",
       "inline": [
         "sudo mkdir -p /opt/azure/containers",
-        "sudo chown -R $USER /opt/azure/containers"
-      ]
-    },
-    {
-      "type": "shell",
-      "inline": [
         "sudo mkdir -p /opt/scripts",
-        "sudo chown -R $USER /opt/scripts",
-        "sudo mkdir -p /opt/certs",
-        "sudo chown -R $USER /opt/certs"
+        "sudo mkdir -p /opt/certs"
       ]
     },
     {
