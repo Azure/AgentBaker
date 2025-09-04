@@ -422,13 +422,13 @@ copyPackerFiles() {
       CONTAINERD_NVIDIA_TOML_DEST=/etc/containerd/config.toml
       cpAndMode $CONTAINERD_NVIDIA_TOML_SRC $CONTAINERD_NVIDIA_TOML_DEST 644
       
-      MELLANOX_LIST_SRC=/home/packer/mellanox_mlnx_ofed.list
-      MELLANOX_LIST_DEST=/etc/apt/sources.list.d/mellanox_mlnx_ofed.list
-      cpAndMode $MELLANOX_LIST_SRC $MELLANOX_LIST_DEST 644
+      DOCA_LIST_SRC=/home/packer/doca.list
+      DOCA_LIST_DEST=/etc/apt/sources.list.d/doca.list
+      cpAndMode $DOCA_LIST_SRC $DOCA_LIST_DEST 644
 
-      MELLANOX_ASC_SRC=/home/packer/mellanox_mlnx_ofed.pub
-      MELLANOX_ASC_DEST=/etc/apt/keyrings/mellanox_mlnx_ofed.pub
-      cpAndMode $MELLANOX_ASC_SRC $MELLANOX_ASC_DEST 644
+      DOCA_PUB_SRC=/home/packer/doca.pub
+      DOCA_PUB_DEST=/etc/apt/keyrings/doca.pub
+      cpAndMode $DOCA_PUB_SRC $DOCA_PUB_DEST 644
     fi
   fi
 
