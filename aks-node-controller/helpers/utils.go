@@ -66,17 +66,6 @@ func GetDefaultOutboundCommand() string {
 	return "curl -v --insecure --proxy-insecure https://mcr.microsoft.com/v2/"
 }
 
-func GetKubeletNodeLabels(agentPool *datamodel.AgentPoolProfile) map[string]string {
-	kubeletLabels := map[string]string{
-		"agentpool":                      agentPool.Name,
-		"kubernetes.azure.com/agentpool": agentPool.Name,
-	}
-	for key, val := range agentPool.CustomNodeLabels {
-		kubeletLabels[key] = val
-	}
-	return kubeletLabels
-}
-
 // GetOrderedKubeletConfigFlagString returns an ordered string of key/val pairs.
 // copied from AKS-Engine and filter out flags that already translated to config file.
 func GetKubeletConfigFlag(k map[string]string, cs *datamodel.ContainerService, profile *datamodel.AgentPoolProfile,

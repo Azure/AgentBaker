@@ -4,11 +4,9 @@
 package helpers
 
 import (
-	"reflect"
 	"testing"
 
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
-	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 )
 
 func Test_getLoadBalancerSKU(t *testing.T) {
@@ -126,53 +124,6 @@ func Test_getNetworkPolicyType(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := GetNetworkPolicyType(tt.args.np); got != tt.want {
 				t.Errorf("GetNetworkPolicyType() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func Test_getKubeletNodeLabels(t *testing.T) {
-	type args struct {
-		ap *datamodel.AgentPoolProfile
-	}
-	tests := []struct {
-		name string
-		args args
-		want map[string]string
-	}{
-		{
-			name: "KubeletNodeLabels default labels",
-			args: args{
-				ap: &datamodel.AgentPoolProfile{
-					Name: "agentPool0",
-				},
-			},
-			want: map[string]string{
-				"agentpool":                      "agentPool0",
-				"kubernetes.azure.com/agentpool": "agentPool0",
-			},
-		},
-		{
-			name: "KubeletNodeLabels with CustomNodeLabels",
-			args: args{
-				ap: &datamodel.AgentPoolProfile{
-					Name: "agentPool0",
-					CustomNodeLabels: map[string]string{
-						"a": "b",
-					},
-				},
-			},
-			want: map[string]string{
-				"agentpool":                      "agentPool0",
-				"kubernetes.azure.com/agentpool": "agentPool0",
-				"a":                              "b",
-			},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := GetKubeletNodeLabels(tt.args.ap); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("GetKubeletNodeLabels() = %v, want %v", got, tt.want)
 			}
 		})
 	}

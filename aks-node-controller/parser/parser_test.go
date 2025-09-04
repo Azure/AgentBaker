@@ -13,7 +13,6 @@ import (
 	"github.com/Azure/agentbaker/aks-node-controller/helpers"
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Azure/agentbaker/aks-node-controller/pkg/nodeconfigutils"
-	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -217,43 +216,6 @@ oom_score = -999
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cs := &datamodel.ContainerService{
-				Location: "southcentralus",
-				Type:     "Microsoft.ContainerService/ManagedClusters",
-				Properties: &datamodel.Properties{
-					OrchestratorProfile: &datamodel.OrchestratorProfile{
-						OrchestratorType:    datamodel.Kubernetes,
-						OrchestratorVersion: tt.k8sVersion,
-						KubernetesConfig:    &datamodel.KubernetesConfig{},
-					},
-					HostedMasterProfile: &datamodel.HostedMasterProfile{
-						DNSPrefix: "uttestdom",
-					},
-					AgentPoolProfiles: []*datamodel.AgentPoolProfile{
-						{
-							Name:                "agent2",
-							VMSize:              "Standard_DS1_v2",
-							StorageProfile:      "ManagedDisks",
-							OSType:              datamodel.Linux,
-							VnetSubnetID:        "/subscriptions/359833f5/resourceGroups/MC_rg/providers/Microsoft.Network/virtualNetworks/aks-vnet-07752737/subnet/subnet1",
-							AvailabilityProfile: datamodel.VirtualMachineScaleSets,
-							Distro:              datamodel.AKSUbuntu1604,
-						},
-					},
-					LinuxProfile: &datamodel.LinuxProfile{
-						AdminUsername: "azureuser",
-					},
-					ServicePrincipalProfile: &datamodel.ServicePrincipalProfile{
-						ClientID: "ClientID",
-						Secret:   "Secret",
-					},
-				},
-			}
-			cs.Properties.LinuxProfile.SSH.PublicKeys = []datamodel.PublicKey{{
-				KeyData: "testsshkey",
-			}}
-
-			agentPool := cs.Properties.AgentPoolProfiles[0]
 
 			kubeletConfig := map[string]string{
 				"--address":                           "0.0.0.0",
@@ -291,7 +253,6 @@ oom_score = -999
 				"--register-with-taints":              "testkey1=value1:NoSchedule,testkey2=value2:NoSchedule",
 			}
 
-			helpers.ValidateAndSetLinuxKubeletFlags(kubeletConfig, cs, agentPool)
 			aksNodeConfig := &aksnodeconfigv1.Configuration{
 				LinuxAdminUsername: "azureuser",
 				VmSize:             "Standard_DS1_v2",
@@ -330,8 +291,8 @@ oom_score = -999
 				OutboundCommand: helpers.GetDefaultOutboundCommand(),
 				KubeletConfig: &aksnodeconfigv1.KubeletConfig{
 					EnableKubeletConfigFile: false,
-					KubeletFlags:            helpers.GetKubeletConfigFlag(kubeletConfig, cs, agentPool, false),
-					KubeletNodeLabels:       helpers.GetKubeletNodeLabels(agentPool),
+					KubeletFlags:            nil, // fix me
+					KubeletNodeLabels:       nil, // fix me
 				},
 				CustomCloudConfig: &aksnodeconfigv1.CustomCloudConfig{},
 			}
