@@ -402,9 +402,26 @@ copyPackerFiles() {
 
   cpAndMode $NOTICE_SRC $NOTICE_DEST 444
 
+  # GB200-specific configuration
   if grep -q "GB200" <<< "$FEATURE_FLAGS"; then
     # Only applicable to Ubuntu 24.04 and ARM64
     if [ ${UBUNTU_RELEASE} = "24.04" ] && [ ${CPU_ARCH} = "arm64" ]; then
+      NVIDIA_LIST_SRC=/home/packer/nvidia-2404.list
+      NVIDIA_LIST_DEST=/etc/apt/sources.list.d/nvidia.list
+      cpAndMode $NVIDIA_LIST_SRC $NVIDIA_LIST_DEST 644
+
+      NVIDIA_ASC_SRC=/home/packer/nvidia.pub
+      NVIDIA_ASC_DEST=/etc/apt/keyrings/nvidia.pub
+      cpAndMode $NVIDIA_ASC_SRC $NVIDIA_ASC_DEST 644
+
+      # This will only currently work if changes are applied to the subscription
+      # the node runs in. Otherwise, until the GB200 is recognized as a GPU SKU,
+      # it'll be overwritten by a containerd configuration that doesn't support
+      # running GPU workloads.
+      CONTAINERD_NVIDIA_TOML_SRC=/home/packer/containerd-nvidia.toml
+      CONTAINERD_NVIDIA_TOML_DEST=/etc/containerd/config.toml
+      cpAndMode $CONTAINERD_NVIDIA_TOML_SRC $CONTAINERD_NVIDIA_TOML_DEST 644
+      
       MELLANOX_LIST_SRC=/home/packer/mellanox_mlnx_ofed.list
       MELLANOX_LIST_DEST=/etc/apt/sources.list.d/mellanox_mlnx_ofed.list
       cpAndMode $MELLANOX_LIST_SRC $MELLANOX_LIST_DEST 644
