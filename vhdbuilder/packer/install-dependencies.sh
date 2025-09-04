@@ -623,8 +623,8 @@ EOF
     systemctl enable nvidia-dcgm
     systemctl enable nvidia-dcgm-exporter
     systemctl enable nvidia-device-plugin
-    #systemctl enable openibd
-    #ofed_info -s
+    systemctl enable openibd
+    ofed_info -s
   fi
 fi
 
