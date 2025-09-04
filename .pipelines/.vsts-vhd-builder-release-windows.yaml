@@ -14,6 +14,8 @@ variables:
     value: $(AZURE_POOL_NAME)
   - name: SUBSCRIPTION_ID
     value: $(AZURE_BUILD_SUBSCRIPTION_ID)
+  - name: WINDOWS_CONTAINERIMAGE_JSON_URL
+    value: $(windowsContainerImageJsonUrl)
     # if SIG_FOR_PRODUCTION is true, then the VHDs are deleted from the gallery before the e2e tests are run.
   - name: SIG_FOR_PRODUCTION
     value: False
@@ -106,7 +108,7 @@ stages:
           - script: echo "Setting Windows Container Image JSON URL to ${{ parameters.windowsContainerImageJsonUrl }}"
             displayName: Set Windows Container Image JSON URL
           - powershell: |
-              Write-Host "##vso[task.setvariable variable=windowsContainerImageJsonUrl]${{ parameters.windowsContainerImageJsonUrl }}"
+              Write-Host "##vso[task.setvariable variable=WINDOWS_CONTAINERIMAGE_JSON_URL]${{ parameters.windowsContainerImageJsonUrl }}"
             displayName: Set pipeline variable windowsContainerImageJsonUrl
       - job: SetURLToEmpty
         condition: eq(${{ parameters.useContainerUrlsFromJson }}, false)
@@ -114,7 +116,7 @@ stages:
           - script: echo "Setting Windows Container Image JSON URL to an empty string"
             displayName: Set Windows Container Image JSON URL to empty
           - powershell: |
-              Write-Host "##vso[task.setvariable variable=windowsContainerImageJsonUrl]''"
+              Write-Host "##vso[task.setvariable variable=WINDOWS_CONTAINERIMAGE_JSON_URL]''"
             displayName: Set pipeline variable windowsContainerImageJsonUrl to empty
   - template: ./templates/.build-and-test-windows-vhds-template.yaml
     parameters:
@@ -128,7 +130,6 @@ stages:
       build23H2gen2: ${{ parameters.build23H2gen2 }}
       build2025:  ${{ parameters.build2025 }}
       build2025gen2:  ${{ parameters.build2025gen2 }}
-      windowsContainerImageJsonUrl: $(windowsContainerImageJsonUrl)
       skipExtensionCheck: ${{ parameters.skipExtensionCheck }}
       installOpenSshServer: ${{ parameters.installOpenSshServer }}
       overrideBranch: ${{ parameters.overrideBranch }}
