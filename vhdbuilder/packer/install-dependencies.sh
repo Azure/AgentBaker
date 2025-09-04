@@ -628,6 +628,9 @@ EOF
     cat << EOF > /etc/systemd/system/nvidia-device-plugin.service.d/override.conf
 [Unit]
 After=kubelet.service
+
+[Service]
+ExecStartPre=-/usr/bin/mkdir -p /var/lib/kubelet/device-plugins
 EOF
 
     # Now we are off-piste: enable DCGM, DCGM exporter, container device plugin, and the NVIDIA containerd config.
