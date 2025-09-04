@@ -638,13 +638,13 @@
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/ubuntu/mellanox_mlnx_ofed.list",
-      "destination": "/home/packer/mellanox_mlnx_ofed.list"
+      "source": "parts/linux/cloud-init/artifacts/ubuntu/doca.list",
+      "destination": "/home/packer/doca.list"
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/ubuntu/mellanox_mlnx_ofed.pub",
-      "destination": "/home/packer/mellanox_mlnx_ofed.pub"
+      "source": "parts/linux/cloud-init/artifacts/ubuntu/doca.pub",
+      "destination": "/home/packer/doca.pub"
     },
     {
       "type": "file",
