@@ -107,6 +107,7 @@ else
   fi
 
   if [ -n "${VHD_BUILD_TIMESTAMP}" ] && [ ${UBUNTU_RELEASE//./} -eq 2204 ]; then
+    echo "Using packages from desired snapshot..."
     if [ "${CPU_ARCH}" = "arm64" ]; then
       sed -i "s#http://ports.ubuntu.com/ubuntu-ports/#https://snapshot.ubuntu.com/ubuntu/${VHD_BUILD_TIMESTAMP}#g" /etc/apt/sources.list
     else
