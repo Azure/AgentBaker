@@ -106,8 +106,8 @@ else
     set -x
   fi
 
-  if [ -n "${VHD_BUILD_TIMESTAMP}" ] && [ ${UBUNTU_RELEASE//./} -le 2204 ]; then
-    if "${CPU_ARCH}" == "arm64"; then
+  if [ -n "${VHD_BUILD_TIMESTAMP}" ] && [ ${UBUNTU_RELEASE//./} -eq 2204 ]; then
+    if [ "${CPU_ARCH}" == "arm64" ]; then
       sed -i "s#http://ports.ubuntu.com/ubuntu-ports/#https://snapshot.ubuntu.com/ubuntu/${VHD_BUILD_TIMESTAMP}#g" /etc/apt/sources.list
     else
       sed -i "s#http://azure.archive.ubuntu.com/ubuntu/#https://snapshot.ubuntu.com/ubuntu/${VHD_BUILD_TIMESTAMP}#g" /etc/apt/sources.list
