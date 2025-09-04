@@ -1,9 +1,0 @@
-#
-# Mellanox Technologies Ltd. public repository configuration file.
-# For more information, refer to http://linux.mellanox.com
-#
-# For future reference:
-# https://network.nvidia.com/support/mlnx-ofed-public-repository/
-# https://www.mellanox.com/downloads/ofed/RPM-GPG-KEY-Mellanox
-# [mlnx_ofed_24.10-1.1.4.0_base]
-deb [signed-by=/etc/apt/keyrings/mellanox_mlnx_ofed.pub] http://linux.mellanox.com/public/repo/mlnx_ofed/24.10-1.1.4.0/ubuntu24.04/arm64 ./

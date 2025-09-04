@@ -610,14 +610,7 @@ EOF
       k8s-device-plugin
 
     apt install -y \
-      mlnx-ofed-kernel-dkms
-
-    apt install -y \
-      mlnx-ofed-kernel-utils \
-      mlnx-ofed-basic \
-      rdma-core \
-      ibverbs-utils \
-      ibverbs-providers
+      doca-ofed
 
     # 3. Add char device symlinks for NVIDIA devices
     mkdir -p "$(dirname /lib/udev/rules.d/71-nvidia-dev-char.rules)"
@@ -640,7 +633,6 @@ EOF
     systemctl enable nvidia-dcgm-exporter
     systemctl enable nvidia-device-plugin
     systemctl enable openibd
-    ofed_info -s
   fi
 fi
 
