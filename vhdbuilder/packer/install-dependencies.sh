@@ -574,8 +574,10 @@ while IFS= read -r imageToBePulled; do
     done
   done
 done <<< "$ContainerImages"
-echo "Waiting for container image pulls to finish. PID: ${image_pids[@]}"
-wait ${image_pids[@]}
+echo "Waiting for container image pulls to finish. PIDs: ${image_pids[@]}"
+for pid in "${image_pids[@]}"; do
+  wait "$pid" || exit $?
+done
 capture_benchmark "${SCRIPT_NAME}_caching_container_images"
 
 retagAKSNodeCAWatcher() {
