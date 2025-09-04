@@ -720,15 +720,14 @@ function Install-WindowsCiliumNetworking
 {
     $wcnDirectory = Join-Path -Path $global:cacheDir -ChildPath 'wcn'
     $wcnInstallDirectory = Join-Path -Path $wcnDirectory -ChildPath 'install'
-    $wcnInstallScript = Join-Path -Path $wcnInstallDirectory -ChildPath 'install.ps1'
+    $wcnScriptsDirectory = Join-Path -Path $wcnInstallDirectory -ChildPath 'scripts'
+    $wcnInstallScript = Join-Path -Path $wcnScriptsDirectory -ChildPath 'install' | Join-Path -ChildPath 'install.ps1'
 
     if (!(Test-Path -PathType Container -Path $wcnDirectory))
     {
         Write-Log "Windows Cilium Networking (WCN) installation package not staged; skipping installation."
         return
     }
-
-    Write-Log "Installing Windows Cilium Networking (WCN) Platform"
 
     # Select the highest versioned package available.
     $wcnPackageNuget = (Get-ChildItem -Path $wcnDirectory -File -Filter '*.nupkg' | Sort-Object -Property Name -Descending) | Select-Object -First 1
@@ -738,25 +737,16 @@ function Install-WindowsCiliumNetworking
         throw "No Windows Cilium Networking package found in $wcnDirectory"
     }
 
+    Write-Log "Installing Windows Cilium Networking (WCN) Platform with '$wcnPackageNuget'"
+
     # Extract NuGet package contents.
     New-Item -ItemType Directory -Path $wcnInstallDirectory -Force
     Add-Type -AssemblyName System.IO.Compression.FileSystem
     [System.IO.Compression.ZipFile]::ExtractToDirectory($wcnPackageNuget.FullName, $wcnInstallDirectory)
 
-    # Hack: Move installation scripts from old location if not present at the top-level. This is fixed in v1.1.0.
-    $wcnInstallScriptsDirectory = Join-Path -Path $wcnInstallDirectory -ChildPath 'scripts' | Join-Path -ChildPath 'install'
-    if (!(Test-Path -Path $wcnInstallScript)) {
-        if (Test-Path -Path (Join-Path -Path $wcnInstallScriptsDirectory -ChildPath 'install.ps1')) {
-            Get-ChildItem -Path $wcnInstallScriptsDirectory -File -Recurse | ForEach-Object {
-                $destinationPath = Join-Path -Path $wcnInstallDirectory -ChildPath $_.Name
-                Move-Item -Path $_.FullName -Destination $destinationPath -Force
-            }
-        }
-    }
-
     # Invoke install script.
     try {
-        & $wcnInstallScript -DisableCiliumStack
+        & $wcnInstallScript -DisableCiliumStack -SourceDirectory $wcnDirectory -SkipNugetUnpack
     }
     catch {
         Write-Log "Error occurred while installing Windows Cilium Networking: $_"
