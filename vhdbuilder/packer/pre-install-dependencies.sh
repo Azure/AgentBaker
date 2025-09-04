@@ -134,29 +134,51 @@ capture_benchmark "${SCRIPT_NAME}_enable_cgroupv2_for_azurelinux"
 
 # shellcheck disable=SC3010
 if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]] && ! grep -q "cvm" <<< "$FEATURE_FLAGS"; then
-  LTS_KERNEL="linux-image-azure-lts-${UBUNTU_RELEASE}"
-  LTS_TOOLS="linux-tools-azure-lts-${UBUNTU_RELEASE}"
-  LTS_CLOUD_TOOLS="linux-cloud-tools-azure-lts-${UBUNTU_RELEASE}"
-  LTS_HEADERS="linux-headers-azure-lts-${UBUNTU_RELEASE}"
-  LTS_MODULES="linux-modules-extra-azure-lts-${UBUNTU_RELEASE}"
+  
+  # Choose kernel packages based on Ubuntu version
+  if [[ ${UBUNTU_RELEASE//./} -eq 2204 ]]; then
+    # Pin to specific kernel version for Ubuntu 22.04 due to regression issues
+    # Canonical confirmed regression in latest kernel packages as of 09.04.2025
+    KERNEL_IMAGE="linux-image-5.15.0-1092-azure"
+    KERNEL_PACKAGES=(
+      "linux-image-5.15.0-1092-azure"
+      "linux-headers-5.15.0-1092-azure"
+      "linux-modules-5.15.0-1092-azure"
+      "linux-modules-extra-5.15.0-1092-azure"
+      "linux-tools-5.15.0-1092-azure"
+      "linux-cloud-tools-5.15.0-1092-azure"
+    )
+    echo "Ubuntu 22.04 detected, installing pinned kernel version 5.15.0-1092"
+  else
+    # Use LTS kernel for other versions  
+    KERNEL_IMAGE="linux-image-azure-lts-${UBUNTU_RELEASE}"
+    KERNEL_PACKAGES=(
+      "linux-image-azure-lts-${UBUNTU_RELEASE}"
+      "linux-tools-azure-lts-${UBUNTU_RELEASE}"
+      "linux-cloud-tools-azure-lts-${UBUNTU_RELEASE}"
+      "linux-headers-azure-lts-${UBUNTU_RELEASE}"
+      "linux-modules-extra-azure-lts-${UBUNTU_RELEASE}"
+    )
+    echo "Installing LTS kernel for Ubuntu ${UBUNTU_RELEASE}"
+  fi
 
   echo "Logging the currently running kernel: $(uname -r)"
   echo "Before purging kernel, here is a list of kernels/headers installed:"; dpkg -l 'linux-*azure*'
 
-  if apt-cache show "$LTS_KERNEL" &>/dev/null; then
-      echo "LTS kernel is available for ${UBUNTU_RELEASE}, proceeding with purging current kernel and installing LTS kernel..."
+  if apt-cache show "$KERNEL_IMAGE" &>/dev/null; then
+    echo "Kernel packages are available, proceeding with purging current kernel and installing new kernel..."
 
-      # Purge all current kernels and dependencies
-      wait_for_apt_locks
-      DEBIAN_FRONTEND=noninteractive apt-get remove --purge -y $(dpkg-query -W 'linux-*azure*' | awk '$2 != "" { print $1 }' | paste -s)
-      echo "After purging kernel, dpkg list should be empty"; dpkg -l 'linux-*azure*'
+    # Purge all current kernels and dependencies
+    wait_for_apt_locks
+    DEBIAN_FRONTEND=noninteractive apt-get remove --purge -y $(dpkg-query -W 'linux-*azure*' | awk '$2 != "" { print $1 }' | paste -s)
+    echo "After purging kernel, dpkg list should be empty"; dpkg -l 'linux-*azure*'
 
-      # Install LTS kernel
-      wait_for_apt_locks
-      DEBIAN_FRONTEND=noninteractive apt-get install -y "$LTS_KERNEL" "$LTS_TOOLS" "$LTS_CLOUD_TOOLS" "$LTS_HEADERS" "$LTS_MODULES"
-      echo "After installing new kernel, here is a list of kernels/headers installed:"; dpkg -l 'linux-*azure*'
+    # Install new kernel packages
+    wait_for_apt_locks
+    DEBIAN_FRONTEND=noninteractive apt-get install -y "${KERNEL_PACKAGES[@]}"
+    echo "After installing new kernel, here is a list of kernels/headers installed:"; dpkg -l 'linux-*azure*'
   else
-      echo "LTS kernel for Ubuntu ${UBUNTU_RELEASE} is not available. Skipping purging and subsequent installation."
+    echo "Kernel packages for Ubuntu ${UBUNTU_RELEASE} are not available. Skipping purging and subsequent installation."
   fi
   NVIDIA_KERNEL_PACKAGE="linux-azure-nvidia"
   if [[ "${CPU_ARCH}" == "arm64" && "${UBUNTU_RELEASE}" = "24.04" ]]; then
