@@ -140,10 +140,6 @@
       "windowsVersions": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cni",
-          "latestVersion": "v1.4.59"
-        },
-        {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cni",
           "latestVersion": "v1.5.44"
         },
         {
@@ -152,32 +148,15 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cni",
-          "latestVersion": "v1.6.21"
+          "latestVersion": "v1.7.0-0"
         }
       ],
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cni",
-          "latestVersion": "v1.4.59",
-          "containerImagePrefetch": {
-            "latestVersion": {
-              "binaries": [
-                "/dropgz"
-              ]
-            }
-          }
-        },
-        {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cni",
           "latestVersion": "v1.5.44",
-          "previousLatestVersion": "v1.5.42",
           "containerImagePrefetch": {
             "latestVersion": {
-              "binaries": [
-                "/dropgz"
-              ]
-            },
-            "previousLatestVersion": {
               "binaries": [
                 "/dropgz"
               ]
@@ -186,15 +165,20 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cni",
-          "latestVersion": "v1.6.21",
-          "previousLatestVersion": "v1.6.20",
+          "latestVersion": "v1.6.32",
           "containerImagePrefetch": {
             "latestVersion": {
               "binaries": [
                 "/dropgz"
               ]
-            },
-            "previousLatestVersion": {
+            }
+          }
+        },
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cni",
+          "latestVersion": "v1.7.0-0",
+          "containerImagePrefetch": {
+            "latestVersion": {
               "binaries": [
                 "/dropgz"
               ]
@@ -209,10 +193,6 @@
       "windowsVersions": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
-          "latestVersion": "v1.4.59"
-        },
-        {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
           "latestVersion": "v1.5.48"
         },
         {
@@ -221,32 +201,15 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
-          "latestVersion": "v1.6.31"
+          "latestVersion": "v1.7.0-0"
         }
       ],
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
-          "latestVersion": "v1.4.59",
-          "containerImagePrefetch": {
-            "latestVersion": {
-              "binaries": [
-                "/usr/local/bin/azure-cns"
-              ]
-            }
-          }
-        },
-        {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
           "latestVersion": "v1.5.48",
-          "previousLatestVersion": "v1.5.45",
           "containerImagePrefetch": {
             "latestVersion": {
-              "binaries": [
-                "/usr/local/bin/azure-cns"
-              ]
-            },
-            "previousLatestVersion": {
               "binaries": [
                 "/usr/local/bin/azure-cns"
               ]
@@ -255,15 +218,20 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
-          "latestVersion": "v1.6.31",
-          "previousLatestVersion": "v1.6.30",
+          "latestVersion": "v1.6.32",
           "containerImagePrefetch": {
             "latestVersion": {
               "binaries": [
                 "/usr/local/bin/azure-cns"
               ]
-            },
-            "previousLatestVersion": {
+            }
+          }
+        },
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
+          "latestVersion": "v1.7.0-0",
+          "containerImagePrefetch": {
+            "latestVersion": {
               "binaries": [
                 "/usr/local/bin/azure-cns"
               ]
@@ -276,17 +244,6 @@
       "downloadURL": "mcr.microsoft.com/containernetworking/azure-ipam:*",
       "amd64OnlyVersions": [],
       "multiArchVersionsV2": [
-        {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-ipam",
-          "latestVersion": "v0.0.7",
-          "containerImagePrefetch": {
-            "latestVersion": {
-              "binaries": [
-                "/dropgz"
-              ]
-            }
-          }
-        },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-ipam",
           "previousLatestVersion": "v0.2.0",
@@ -924,47 +881,10 @@
               },
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.6.21",
-                "previousLatestVersion": "1.6.18"
+                "latestVersion": "1.6.21"
               }
             ],
             "downloadURL": "https://packages.aks.azure.com/azure-cni/v${version}/binaries/azure-vnet-cni-windows-amd64-v${version}.zip"
-          }
-        }
-      }
-    },
-    {
-      "name": "azure-vnet-cni-swift-windows",
-      "windowsDownloadLocation": "c:\\akse-cache\\win-vnet-cni\\",
-      "downloadURIs": {
-        "windows": {
-          "default": {
-            "versionsV2": [
-              {
-                "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.4.59",
-                "previousLatestVersion": "1.4.58"
-              }
-            ],
-            "downloadURL": "https://packages.aks.azure.com/azure-cni/v${version}/binaries/azure-vnet-cni-swift-windows-amd64-v${version}.zip"
-          }
-        }
-      }
-    },
-    {
-      "name": "azure-vnet-cni-overlay-windows",
-      "windowsDownloadLocation": "c:\\akse-cache\\win-vnet-cni\\",
-      "downloadURIs": {
-        "windows": {
-          "default": {
-            "versionsV2": [
-              {
-                "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.4.59",
-                "previousLatestVersion": "1.4.58"
-              }
-            ],
-            "downloadURL": "https://packages.aks.azure.com/azure-cni/v${version}/binaries/azure-vnet-cni-overlay-windows-amd64-v${version}.zip"
           }
         }
       }
@@ -1224,17 +1144,11 @@
             "versionsV2": [
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.4.59"
+                "latestVersion": "1.5.38"
               },
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.5.38",
-                "previousLatestVersion": "1.5.35"
-              },
-              {
-                "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.6.21",
-                "previousLatestVersion": "1.6.18"
+                "latestVersion": "1.6.21"
               }
             ],
             "downloadURL": "https://packages.aks.azure.com/azure-cni/v${version}/binaries/azure-vnet-cni-linux-${CPU_ARCH}-v${version}.tgz"
