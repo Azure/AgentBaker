@@ -672,7 +672,7 @@ func Test_Ubuntu2204(t *testing.T) {
 
 func Test_Ubuntu2204_AirGap(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "Tests that a node using the Ubuntu 2204 VHD and is airgap can be properly bootstrapped",
+		Description: "Tests that a node using the Ubuntu 2204 VHD and is airgapped can be properly bootstrapped",
 		Tags: Tags{
 			Airgap: true,
 		},
@@ -705,7 +705,7 @@ func Test_Ubuntu2204_AirGap_NonAnonymousACR(t *testing.T) {
 	require.NoError(t, err)
 
 	RunScenario(t, &Scenario{
-		Description: "Tests that a node using the Ubuntu 2204 VHD and is airgap can be properly bootstrapped",
+		Description: "Tests that a node using the Ubuntu 2204 VHD and is airgapped can be properly bootstrapped",
 		Tags: Tags{
 			Airgap:          true,
 			NonAnonymousACR: true,
@@ -742,7 +742,7 @@ func Test_Ubuntu2204_AirGap_NonAnonymousACR(t *testing.T) {
 
 func Test_Ubuntu2204Gen2_ContainerdAirgappedK8sNotCached(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "Tests that a node using the Ubuntu 2204 VHD without k8s binary and is airgap can be properly bootstrapped",
+		Description: "Tests that a node using the Ubuntu 2204 VHD without k8s binary and is airgapped can be properly bootstrapped",
 		Tags: Tags{
 			Airgap: true,
 		},
@@ -774,7 +774,7 @@ func Test_Ubuntu2204Gen2_ContainerdAirgappedNonAnonymousK8sNotCached(t *testing.
 	identity, err := config.Azure.UserAssignedIdentities.Get(ctx, config.ResourceGroupName(location), config.VMIdentityName, nil)
 	require.NoError(t, err)
 	RunScenario(t, &Scenario{
-		Description: "Tests that a node using the Ubuntu 2204 VHD without k8s binary and is airgap can be properly bootstrapped",
+		Description: "Tests that a node using the Ubuntu 2204 VHD without k8s binary and is airgapped can be properly bootstrapped",
 		Tags: Tags{
 			Airgap:          true,
 			NonAnonymousACR: true,
