@@ -1462,6 +1462,12 @@
                 "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/binaries/kubernetes/kubernetes-node",
                 "latestVersion": "v1.33.4",
                 "previousLatestVersion": "v1.33.3"
+              },
+              {
+                "k8sVersion": "1.34",
+                "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/binaries/kubernetes/kubernetes-node",
+                "latestVersion": "v1.34.0",
+                "previousLatestVersion": "v1.34.0"
               }
             ],
             "downloadURL": "mcr.microsoft.com/oss/binaries/kubernetes/kubernetes-node:${version}-linux-${CPU_ARCH}",
