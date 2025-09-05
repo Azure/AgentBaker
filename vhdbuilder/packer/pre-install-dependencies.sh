@@ -106,8 +106,13 @@ else
     set -x
   fi
 
-  if [ -n "${VHD_BUILD_TIMESTAMP}" ] && [ "${OS_VERSION}" = "22.04" ]; then
-    sed -i "s#http://azure.archive.ubuntu.com/ubuntu/#https://snapshot.ubuntu.com/ubuntu/${VHD_BUILD_TIMESTAMP}#g" /etc/apt/sources.list
+  if [ -n "${VHD_BUILD_TIMESTAMP}" ] && [ ${UBUNTU_RELEASE//./} -eq 2204 ]; then
+    echo "Using packages from desired snapshot..."
+    if [ "${CPU_ARCH}" = "arm64" ]; then
+      sed -i -E "s|http://[^ ]+/ubuntu-ports/?|http://snapshot.ubuntu.com/ubuntu/${VHD_BUILD_TIMESTAMP} |" /etc/apt/sources.list
+    else
+      sed -i "s#http://azure.archive.ubuntu.com/ubuntu/#https://snapshot.ubuntu.com/ubuntu/${VHD_BUILD_TIMESTAMP}#g" /etc/apt/sources.list
+    fi
   fi
 
   # Run apt get update to refresh repo list
