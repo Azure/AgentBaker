@@ -88,7 +88,6 @@ stages:
               windowsBaseImageUrl: ${{ parameters.windowsBaseImageUrl }}
               windowsNanoImageUrl: ${{ parameters.windowsNanoImageUrl }}
               windowsCoreImageUrl: ${{ parameters.windowsCoreImageUrl }}
-              windowsContainerImageJsonUrl: $(windowsContainerImageJsonUrl)
               overrideBranch: ${{ parameters.overrideBranch }}
               useOverrides: ${{ parameters.useOverrides }}
               csePackageDir: ${{ parameters.csePackageDir }}
