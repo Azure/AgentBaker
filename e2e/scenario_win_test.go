@@ -400,7 +400,7 @@ func Test_Windows23H2Gen2_WindowsCiliumNetworking(t *testing.T) {
 					configuration.ContainerService.Properties.AgentPoolProfiles[0].AgentPoolWindowsProfile = &datamodel.AgentPoolWindowsProfile{}
 				}
 				configuration.ContainerService.Properties.AgentPoolProfiles[0].AgentPoolWindowsProfile.NextGenNetworkingEnabled = to.Ptr(true)
-				configuration.ContainerService.Properties.AgentPoolProfiles[0].AgentPoolWindowsProfile.NextGenNetworkingConfig = to.Ptr("{}")
+				configuration.ContainerService.Properties.AgentPoolProfiles[0].AgentPoolWindowsProfile.NextGenNetworkingConfig = to.Ptr("")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateWindowsCiliumIsRunning(ctx, s)
