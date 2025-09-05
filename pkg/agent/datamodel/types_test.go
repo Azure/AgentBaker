@@ -2184,6 +2184,18 @@ func TestGetKubeProxyFeatureGatesWindowsArguments(t *testing.T) {
 			},
 			expectedFeatureGates: "\"IPv6DualStack=true\", \"WinDSR=true\", \"WinOverlay=false\"",
 		},
+		{
+			name: "WinDSR enabled with Kubernetes 1.34+",
+			properties: &Properties{
+				FeatureFlags: &FeatureFlags{
+					EnableWinDSR: true,
+				},
+				OrchestratorProfile: &OrchestratorProfile{
+					OrchestratorVersion: "1.34.0",
+				},
+			},
+			expectedFeatureGates: "\"WinDSR=true\"",
+		},
 	}
 
 	for _, test := range tests {
