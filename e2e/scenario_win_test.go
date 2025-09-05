@@ -387,3 +387,24 @@ func Test_Windows23H2_Cilium2(t *testing.T) {
 		},
 	})
 }
+
+func Test_Windows23H2Gen2_WindowsCiliumNetworking(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Windows Server 23H2 Gen2 with Windows Cilium Networking (WCN) enabled",
+		Config: Config{
+			Cluster:         ClusterAzureNetwork,
+			VHD:             config.VHDWindows23H2Gen2,
+			VMConfigMutator: EmptyVMConfigMutator,
+			BootstrapConfigMutator: func(configuration *datamodel.NodeBootstrappingConfiguration) {
+				if configuration.ContainerService.Properties.AgentPoolProfiles[0].AgentPoolWindowsProfile == nil {
+					configuration.ContainerService.Properties.AgentPoolProfiles[0].AgentPoolWindowsProfile = &datamodel.AgentPoolWindowsProfile{}
+				}
+				configuration.ContainerService.Properties.AgentPoolProfiles[0].AgentPoolWindowsProfile.NextGenNetworkingEnabled = to.Ptr(true)
+				configuration.ContainerService.Properties.AgentPoolProfiles[0].AgentPoolWindowsProfile.NextGenNetworkingConfig = to.Ptr("{}")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateWindowsCiliumIsRunning(ctx, s)
+			},
+		},
+	})
+}
