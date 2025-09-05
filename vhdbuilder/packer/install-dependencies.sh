@@ -215,15 +215,8 @@ EOF
 cat > /etc/udev/rules.d/99-microsoft-mana-mtu.rules <<EOF
 # Udev rule to set MTU to 9000 for Microsoft MANA Ethernet controllers
 # This rule triggers when a network interface is added and checks for Microsoft Ethernet controller with MANA driver
-
-# Rule for network interfaces using Microsoft MANA driver
-SUBSYSTEM=="net", ACTION=="add", DRIVERS=="mana", ATTR{mtu}="9000"
-
-# Alternative rule that checks for Microsoft vendor ID and device ID 00ba specifically
-SUBSYSTEM=="net", ACTION=="add", ATTRS{vendor}=="0x1414", ATTRS{device}=="0x00ba", ATTR{mtu}="9000"
-
-# Comprehensive rule with inline detection logic: https://learn.microsoft.com/en-us/azure/virtual-network/accelerated-networking-mana-linux
-SUBSYSTEM=="net", ACTION=="add", PROGRAM="/bin/sh -c 'if lspci | grep -q \"Ethernet controller: Microsoft Corporation\" && (grep -q \"/mana.*\\.ko\" /lib/modules/$(uname -r)/modules.builtin 2>/dev/null || find /lib/modules/$(uname -r)/kernel -name \"mana*.ko*\" 2>/dev/null | grep -q mana); then echo 9000 > /sys/class/net/%k/mtu 2>/dev/null; fi'"
+# https://learn.microsoft.com/en-us/azure/virtual-network/accelerated-networking-mana-linux
+SUBSYSTEM=="net", ACTION=="add", PROGRAM="/bin/sh -c 'if [[ -n \`lspci -d 1414:00ba:0200\` ]]; then echo 9000 > /sys/class/net/%k/mtu 2>/dev/null; fi'"
 EOF
 
 udevadm control --reload
