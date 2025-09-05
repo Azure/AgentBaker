@@ -59,10 +59,6 @@ parameters:
     displayName: VHD Debug
     type: boolean
     default: False
-  - name: skipExtensionCheck
-    displayName: Skip Extension Check
-    type: boolean
-    default: False
   - name: installOpenSshServer
     displayName: Install Open SSH Server
     type: boolean
@@ -115,7 +111,7 @@ stages:
       build23H2gen2: ${{ parameters.build23H2gen2 }}
       build2025:  ${{ parameters.build2025 }}
       build2025gen2:  ${{ parameters.build2025gen2 }}
-      skipExtensionCheck: ${{ parameters.skipExtensionCheck }}
+      skipExtensionCheck: ${{ variables.skipExtensionCheck }}
       installOpenSshServer: ${{ parameters.installOpenSshServer }}
       overrideBranch: ${{ parameters.overrideBranch }}
       useOverrides: ${{ parameters.useOverrides }}
