@@ -10,11 +10,13 @@ trigger:
     include:
       - master
       - dev
+    
 pr:
   branches:
     include:
       - master
       - official/*
+      - windows/*
       - dev
   paths:
     include:
