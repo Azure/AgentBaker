@@ -1185,9 +1185,11 @@ func (p *Properties) GetKubeProxyFeatureGatesWindowsArguments() string {
 		featureGates["IPv6DualStack"] = true
 	}
 	if p.FeatureFlags.IsFeatureEnabled(EnableWinDSR) {
-		// WinOverlay must be set to false.
 		featureGates["WinDSR"] = true
-		featureGates["WinOverlay"] = false
+		// WinOverlay feature gate is GA and locked to true in Kubernetes 1.34.0 and later
+		if p.OrchestratorProfile == nil || !IsKubernetesVersionGe(p.OrchestratorProfile.OrchestratorVersion, "1.34.0") {
+			featureGates["WinOverlay"] = false
+		}
 	}
 
 	keys := []string{}
