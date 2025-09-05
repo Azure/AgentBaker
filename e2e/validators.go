@@ -773,6 +773,34 @@ func ValidateCiliumIsNotRunningWindows(ctx context.Context, s *Scenario) {
 	ValidateJsonFileDoesNotHaveField(ctx, s, "/k/azurecni/netconf/10-azure.conflist", "plugins.ipam.type", "azure-cns")
 }
 
+func ValidateDllLoadedWindows(ctx context.Context, s *Scenario, dllName string) {
+	s.T.Helper()
+	if !dllLoadedWindows(ctx, s, dllName) {
+		s.T.Fatalf("expected DLL %s to be loaded, but it is not", dllName)
+	}
+}
+
+func ValidateDllIsNotLoadedWindows(ctx context.Context, s *Scenario, dllName string) {
+	s.T.Helper()
+	if dllLoadedWindows(ctx, s, dllName) {
+		s.T.Fatalf("expected DLL %s to not be loaded, but it is", dllName)
+	}
+}
+
+func dllLoadedWindows(ctx context.Context, s *Scenario, dllName string) bool {
+	s.T.Helper()
+
+	steps := []string{
+		"$ErrorActionPreference = \"Continue\"",
+		fmt.Sprintf("tasklist /m %s", dllName),
+	}
+	execResult := execScriptOnVMForScenario(ctx, s, strings.Join(steps, "\n"))
+	dllLoaded := strings.Contains(execResult.stdout.String(), dllName)
+
+	s.T.Logf("stdout: %s\nstderr: %s", execResult.stdout.String(), execResult.stderr.String())
+	return dllLoaded
+}
+
 func ValidateJsonFileHasField(ctx context.Context, s *Scenario, fileName string, jsonPath string, expectedValue string) {
 	s.T.Helper()
 	require.Equal(s.T, GetFieldFromJsonObjectOnNode(ctx, s, fileName, jsonPath), expectedValue)
