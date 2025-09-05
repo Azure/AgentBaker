@@ -297,6 +297,18 @@ func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
 	// Invoke the RunCommand on the VMSS instance
 	s.T.Logf("uploading windows logs to blob storage at %s, may take a few minutes", blobUrl)
 
+	// Create a reusable URL for the Azure portal link to the storage account. Do this before the upload in case the upload times out.
+	azurePortalURL := fmt.Sprintf("https://portal.azure.com/?feature.customportal=false#@microsoft.onmicrosoft.com/resource/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Storage/storageAccounts/%s/overview",
+		config.Config.SubscriptionID,
+		config.ResourceGroupName(s.Location),
+		config.Config.BlobStorageAccount())
+
+	s.T.Logf("Storage account in Azure portal: %s", azurePortalURL)
+	s.T.Logf("##vso[task.logissue type=warning;]%s", azurePortalURL)
+
+	runCommandTimeout := int32((20 * time.Minute).Seconds())
+	s.T.Logf("run command timeout: %d", runCommandTimeout)
+
 	pollerResp, err := client.BeginCreateOrUpdate(
 		ctx,
 		*s.Runtime.Cluster.Model.Properties.NodeResourceGroup,
@@ -305,6 +317,7 @@ func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
 		"RunPowerShellScript",
 		armcompute.VirtualMachineRunCommand{
 			Properties: &armcompute.VirtualMachineRunCommandProperties{
+				TimeoutInSeconds: to.Ptr(runCommandTimeout), // 20 minutes should be enough
 				Source: &armcompute.VirtualMachineRunCommandScriptSource{
 					//CommandID: to.Ptr("RunPowerShellScript"),
 					Script: to.Ptr(uploadLogsPowershellScript),
@@ -337,15 +350,6 @@ func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
 	s.T.Logf("run command executed successfully:\n%s", respJSON)
 
 	s.T.Logf("uploaded logs to %s", blobUrl)
-
-	// Create a reusable URL for the Azure portal link to the storage account
-	azurePortalURL := fmt.Sprintf("https://portal.azure.com/?feature.customportal=false#@microsoft.onmicrosoft.com/resource/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Storage/storageAccounts/%s/overview",
-		config.Config.SubscriptionID,
-		config.ResourceGroupName(s.Location),
-		config.Config.BlobStorageAccount())
-
-	s.T.Logf("Storage account in Azure portal: %s", azurePortalURL)
-	s.T.Logf("##vso[task.logissue type=warning;]%s", azurePortalURL)
 
 	downloadBlob := func(blobSuffix string) {
 		fileName := filepath.Join(testDir(s.T), blobSuffix)

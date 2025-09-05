@@ -6,6 +6,9 @@ pr:
     include:
       - master
       - dev
+      - windows/*
+      - official/*
+
   paths:
     include:
       - .pipelines/.vsts-vhd-builder-release-windows.yaml
