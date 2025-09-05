@@ -1047,14 +1047,14 @@ enableLocalDNS() {
     echo "Enable localdns succeeded."
 }
 
+LOCALDNS_COREFILE="/opt/azure/containers/localdns/localdns.corefile"
+LOCALDNS_SLICEFILE="/etc/systemd/system/localdns.slice"
 shouldEnableLocalDNS() {
-    LOCALDNS_COREFILE="/opt/azure/containers/localdns/localdns.corefile"
     mkdir -p "$(dirname "${LOCALDNS_COREFILE}")"
     touch "${LOCALDNS_COREFILE}"
     chmod 0644 "${LOCALDNS_COREFILE}"
-    echo "${LOCALDNS_GENERATED_COREFILE}" | base64 -d > "${LOCALDNS_COREFILE}"
+    echo "${LOCALDNS_GENERATED_COREFILE}" | base64 -d > "${LOCALDNS_COREFILE}" || exit $ERR_LOCALDNS_FAIL
 	
-	LOCALDNS_SLICEFILE="/etc/systemd/system/localdns.slice"
 	mkdir -p "$(dirname "${LOCALDNS_SLICEFILE}")"
     touch "${LOCALDNS_SLICEFILE}"
     chmod 0644 "${LOCALDNS_SLICEFILE}"
@@ -1071,7 +1071,9 @@ MemoryMax=${LOCALDNS_MEMORY_LIMIT}
 CPUQuota=${LOCALDNS_CPU_LIMIT}
 EOF
 	
+    echo "localdns should be enabled."
     systemctlEnableAndStart localdns 30 || exit $ERR_LOCALDNS_FAIL
+    echo "Enable localdns succeeded."
 }
 
 #EOF

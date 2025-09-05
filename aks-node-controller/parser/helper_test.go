@@ -1405,6 +1405,105 @@ func Test_getKubeletFlags(t *testing.T) {
 	}
 }
 
+const expectedlocalDNSCorefile = `# ***********************************************************************************
+# WARNING: Changes to this file will be overwritten and not persisted.
+# ***********************************************************************************
+# whoami (used for health check of DNS)
+health-check.localdns.local:53 {
+    bind 169.254.10.10 169.254.10.11
+    whoami
+}
+# VnetDNS overrides apply to DNS traffic from pods with dnsPolicy:default or kubelet (referred to as VnetDNS traffic).
+.:53 {
+    log
+    bind 169.254.10.10
+    forward . 168.63.129.16 {
+        policy sequential
+        max_concurrent 1000
+    }
+    ready 169.254.10.10:8181
+    cache 3600 {
+        success 9984
+        denial 9984
+        serve_stale 3600s immediate
+        servfail 0
+    }
+    loop
+    nsid localdns
+    prometheus :9253
+    template ANY ANY internal.cloudapp.net {
+        match "^(?:[^.]+\.){4,}internal\.cloudapp\.net\.$"
+        rcode NXDOMAIN
+        fallthrough
+    }
+    template ANY ANY reddog.microsoft.com {
+        rcode NXDOMAIN
+    }
+}
+cluster.local:53 {
+    errors
+    bind 169.254.10.10
+    forward . 10.0.0.10 {
+        force_tcp
+        policy sequential
+        max_concurrent 1000
+    }
+    ready 169.254.10.10:8181
+    cache 3600 {
+        success 9984
+        denial 9984
+        servfail 0
+    }
+    loop
+    nsid localdns
+    prometheus :9253
+}
+testdomain456.com:53 {
+    log
+    bind 169.254.10.10
+    forward . 10.0.0.10 {
+        policy sequential
+        max_concurrent 1000
+    }
+    ready 169.254.10.10:8181
+    cache 3600 {
+        success 9984
+        denial 9984
+        serve_stale 3600s verify
+        servfail 0
+    }
+    loop
+    nsid localdns
+    prometheus :9253
+}
+# KubeDNS overrides apply to DNS traffic from pods with dnsPolicy:ClusterFirst (referred to as KubeDNS traffic).
+.:53 {
+    errors
+    bind 169.254.10.11
+    forward . 10.0.0.10 {
+        policy sequential
+        max_concurrent 2000
+    }
+    ready 169.254.10.11:8181
+    cache 3600 {
+        success 9984
+        denial 9984
+        serve_stale 72000s verify
+        servfail 0
+    }
+    loop
+    nsid localdns-pod
+    prometheus :9253
+    template ANY ANY internal.cloudapp.net {
+        match "^(?:[^.]+\.){4,}internal\.cloudapp\.net\.$"
+        rcode NXDOMAIN
+        fallthrough
+    }
+    template ANY ANY reddog.microsoft.com {
+        rcode NXDOMAIN
+    }
+}`
+
 func Test_getLocalDNSCorefileBase64(t *testing.T) {
 	type args struct {
 		aksnodeconfig *aksnodeconfigv1.Configuration
@@ -1415,14 +1514,21 @@ func Test_getLocalDNSCorefileBase64(t *testing.T) {
 		wantContains string
 	}{
 		{
-			name: "Nil config returns empty string",
+			name: "aksnodeconfig is nil, should return empty string",
 			args: args{
 				aksnodeconfig: nil,
 			},
 			wantContains: "",
 		},
 		{
-			name: "LocalDNSProfile disabled returns error string (not base64)",
+			name: "LocalDNSProfile is nil, should return empty string",
+			args: args{
+				aksnodeconfig: &aksnodeconfigv1.Configuration{},
+			},
+			wantContains: "",
+		},
+		{
+			name: "EnableLocalDNS state is false, should return empty string",
 			args: args{
 				aksnodeconfig: &aksnodeconfigv1.Configuration{
 					LocalDNSProfile: &aksnodeconfigv1.LocalDNSProfile{
@@ -1430,7 +1536,7 @@ func Test_getLocalDNSCorefileBase64(t *testing.T) {
 					},
 				},
 			},
-			wantContains: "error getting localdns corfile",
+			wantContains: "",
 		},
 		{
 			name: "LocalDNSProfile enabled returns base64 string",
@@ -1487,7 +1593,7 @@ func Test_getLocalDNSCorefileBase64(t *testing.T) {
 					},
 				},
 			},
-			wantContains: "health-check.localdns.local", // will appear after decoding
+			wantContains: expectedlocalDNSCorefile,
 		},
 	}
 	for _, tt := range tests {
@@ -1496,13 +1602,6 @@ func Test_getLocalDNSCorefileBase64(t *testing.T) {
 
 			if tt.wantContains == "" && got != "" {
 				t.Errorf("expected empty string, got %q", got)
-				return
-			}
-
-			if strings.Contains(tt.wantContains, "error") {
-				if !strings.Contains(got, tt.wantContains) {
-					t.Errorf("expected error substring %q, got %q", tt.wantContains, got)
-				}
 				return
 			}
 

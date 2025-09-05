@@ -720,6 +720,9 @@ func removeNewlines(str string) string {
 
 // ---------------------- Start of localdns related helper code ----------------------//
 
+// FuncMap used for generating localdns corefile.
+// NodeListenerIP, ClusterListenerIP, AzureDNSIP and CoreDNSServiceIP have their place holder in
+// localdns.toml.gtpl template and will be replaced by the values returned from these functions.
 func getFuncMapForLocalDNSCorefileTemplate() template.FuncMap {
 	return template.FuncMap{
 		"hasSuffix":         strings.HasSuffix,
@@ -731,8 +734,20 @@ func getFuncMapForLocalDNSCorefileTemplate() template.FuncMap {
 }
 
 // getLocalDNSCorefileBase64 returns the base64 encoded LocalDNS corefile.
+// base64 encoded corefile returned from this function will decoded and written
+// to /opt/azure/containers/localdns/localdns.corefile in cse_config.sh
+// and then used by localdns systemd unit to start localdns systemd unit.
 func getLocalDNSCorefileBase64(aksnodeconfig *aksnodeconfigv1.Configuration) string {
 	if aksnodeconfig == nil {
+		return ""
+	}
+	// If LocalDNSProfile is nil or EnableLocalDNS is false, return empty string.
+	// This means localdns is not enabled for the agent pool.
+	// In this case we don't need to generate localdns corefile.
+	if aksnodeconfig.GetLocalDNSProfile() == nil {
+		return ""
+	}
+	if !aksnodeconfig.GetLocalDNSProfile().GetEnableLocalDNS() {
 		return ""
 	}
 
@@ -743,19 +758,8 @@ func getLocalDNSCorefileBase64(aksnodeconfig *aksnodeconfigv1.Configuration) str
 	return base64.StdEncoding.EncodeToString([]byte(localDNSConfig))
 }
 
+// Corefile is created using localdns.toml.gtpl template and aksnodeconfig values.
 func generateLocalDNSCorefileFromAKSNodeConfig(aksnodeconfig *aksnodeconfigv1.Configuration) (string, error) {
-	if aksnodeconfig == nil {
-		return "", fmt.Errorf("AKSNodeConfig is nil")
-	}
-
-	if aksnodeconfig.GetLocalDNSProfile() == nil {
-		return "", fmt.Errorf("localdns profile is nil")
-	}
-
-	if !aksnodeconfig.GetLocalDNSProfile().GetEnableLocalDNS() {
-		return "", fmt.Errorf("EnableLocalDNS is set to false, corefile will not be generated")
-	}
-
 	var corefileBuffer bytes.Buffer
 	if err := localDNSCorefileTemplate.Execute(&corefileBuffer, aksnodeconfig); err != nil {
 		return "", fmt.Errorf("failed to execute localdns corefile template: %w", err)
