@@ -146,9 +146,10 @@ func ValidateLeakedSecrets(ctx context.Context, s *Scenario) {
 	}
 	if s.Runtime.NBC != nil {
 		secrets = map[string]string{
-			"client private key":       b64Encoded(s.Runtime.NBC.ContainerService.Properties.CertificateProfile.ClientPrivateKey),
-			"service principal secret": b64Encoded(s.Runtime.NBC.ContainerService.Properties.ServicePrincipalProfile.Secret),
-			"bootstrap token":          *s.Runtime.NBC.KubeletClientTLSBootstrapToken,
+			"client private key":             b64Encoded(s.Runtime.NBC.ContainerService.Properties.CertificateProfile.ClientPrivateKey),
+			"service principal secret":       b64Encoded(s.Runtime.NBC.ContainerService.Properties.ServicePrincipalProfile.Secret),
+			"bootstrap token":                *s.Runtime.NBC.KubeletClientTLSBootstrapToken,
+			"service principal secret (raw)": s.Runtime.AKSNodeConfig.AuthConfig.ServicePrincipalSecret,
 		}
 	} else {
 		token := s.Runtime.AKSNodeConfig.BootstrappingConfig.TlsBootstrappingToken
@@ -157,9 +158,10 @@ func ValidateLeakedSecrets(ctx context.Context, s *Scenario) {
 			strToken = *token
 		}
 		secrets = map[string]string{
-			"client private key":       b64Encoded(s.Runtime.AKSNodeConfig.KubeletConfig.KubeletClientKey),
-			"service principal secret": b64Encoded(s.Runtime.AKSNodeConfig.AuthConfig.ServicePrincipalSecret),
-			"bootstrap token":          strToken,
+			"client private key":             b64Encoded(s.Runtime.AKSNodeConfig.KubeletConfig.KubeletClientKey),
+			"service principal secret":       b64Encoded(s.Runtime.AKSNodeConfig.AuthConfig.ServicePrincipalSecret),
+			"bootstrap token":                strToken,
+			"service principal secret (raw)": s.Runtime.AKSNodeConfig.AuthConfig.ServicePrincipalSecret,
 		}
 	}
 
