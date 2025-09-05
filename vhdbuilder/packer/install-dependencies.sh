@@ -216,7 +216,7 @@ cat > /etc/udev/rules.d/99-microsoft-mana-mtu.rules <<EOF
 # Udev rule to set MTU to 9000 for Microsoft MANA Ethernet controllers
 # This rule triggers when a network interface is added and checks for Microsoft Ethernet controller with MANA driver
 # https://learn.microsoft.com/en-us/azure/virtual-network/setup-dpdk-mana
-# https://learn.microsoft.com/en-us/azure/virtual-network/accelerated-networking-mana-linux
+# https://learn.microsoft.com/en-us/azure/virtual-network/how-to-virtual-machine-mtu?tabs=linux
 SUBSYSTEM=="net", ACTION=="add", PROGRAM="/bin/sh -c 'if [[ -n \`lspci -d 1414:00ba:0200\` ]]; then echo 9000 > /sys/class/net/%k/mtu 2>/dev/null; fi'"
 EOF
 
