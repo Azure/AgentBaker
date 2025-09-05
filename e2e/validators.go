@@ -974,3 +974,11 @@ func ValidateEnableNvidiaResource(ctx context.Context, s *Scenario) {
 	s.T.Logf("waiting for Nvidia GPU resource to be available")
 	waitUntilResourceAvailable(ctx, s, "nvidia.com/gpu")
 }
+
+func ValidateCustomCommandOutput(ctx context.Context, s *Scenario, command string, expectedExitCode int, expectedOutput string, errorMessage string) {
+	s.T.Helper()
+	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, command, expectedExitCode, errorMessage)
+	if expectedOutput != "" {
+		require.Contains(s.T, execResult.stdout.String(), expectedOutput, "expected output %q not found in command output", expectedOutput)
+	}
+}
