@@ -974,3 +974,17 @@ func ValidateEnableNvidiaResource(ctx context.Context, s *Scenario) {
 	s.T.Logf("waiting for Nvidia GPU resource to be available")
 	waitUntilResourceAvailable(ctx, s, "nvidia.com/gpu")
 }
+
+// ValidateContainerdBinaryVersion checks if the containerd binary version matches the expected
+// version. This is useful on systems where containerd is not managed by a package manager.
+func ValidateContainerdBinaryVersion(ctx context.Context, s *Scenario, expectedVersion string) {
+	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, "containerd --version", 0, "could not get containerd version")
+	require.Contains(s.T, execResult.stdout.String(), expectedVersion, "expected containerd version %q not found in output", expectedVersion)
+}
+
+// ValidateRuncBinaryVersion checks if the runc binary version matches the expected version. This
+// is useful on systems where runc is not managed by a package manager.
+func ValidateRuncBinaryVersion(ctx context.Context, s *Scenario, expectedVersion string) {
+	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, "runc --version | head -1", 0, "could not get runc version")
+	require.Contains(s.T, execResult.stdout.String(), expectedVersion, "expected runc version %q not found in output", expectedVersion)
+}

@@ -650,7 +650,7 @@ func validateSSHConnectivity(ctx context.Context, s *Scenario) error {
 	return nil
 }
 
-func runScenarioGPUNPD(t *testing.T, vmSize, location, k8sSystemPoolSKU string) *Scenario {
+func runScenarioGPUNPD(t *testing.T, vhd *config.Image, vmSize, location, k8sSystemPoolSKU string) *Scenario {
 	t.Helper()
 	return &Scenario{
 		Description:      fmt.Sprintf("Tests that a GPU-enabled node with VM size %s using an Ubuntu 2404 VHD can be properly bootstrapped and NPD tests are valid", vmSize),
@@ -661,7 +661,7 @@ func runScenarioGPUNPD(t *testing.T, vmSize, location, k8sSystemPoolSKU string) 
 		},
 		Config: Config{
 			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2404Gen2Containerd,
+			VHD:     vhd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.VMSize = vmSize
 				nbc.ConfigGPUDriverIfNeeded = true
