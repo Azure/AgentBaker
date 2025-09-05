@@ -773,6 +773,32 @@ func ValidateCiliumIsNotRunningWindows(ctx context.Context, s *Scenario) {
 	ValidateJsonFileDoesNotHaveField(ctx, s, "/k/azurecni/netconf/10-azure.conflist", "plugins.ipam.type", "azure-cns")
 }
 
+func ValidateWindowsCiliumIsRunning(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	expectedServices := []string{"ebpfcore", "netebpfext", "neteventebpfext", "xdp", "wtc", "hns"}
+	for _, serviceName := range expectedServices {
+		ValidateWindowsServiceIsRunning(ctx, s, serviceName)
+	}
+
+	expectedDlls := []string{"cncapi.dll", "wcnagent.dll"}
+	for _, dllName := range expectedDlls {
+		ValidateDllLoadedWindows(ctx, s, dllName)
+	}
+}
+
+func ValidateWindowsCiliumIsNotRunning(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	// some of the services used by windows cilium are dependencies of other services, so they may be running even if cilium is not
+	// for example, ebpfcore is used by Guest Proxy Agent (GPA), so it may be running even if cilium is not
+	// so, we only check that cilium-specific dlls are not loaded, as that is a stronger indication that cilium is not running
+	unexpectedDlls := []string{"cncapi.dll", "wcnagent.dll"}
+	for _, dllName := range unexpectedDlls {
+		ValidateDllIsNotLoadedWindows(ctx, s, dllName)
+	}
+}
+
 func ValidateDllLoadedWindows(ctx context.Context, s *Scenario, dllName string) {
 	s.T.Helper()
 	if !dllLoadedWindows(ctx, s, dllName) {
@@ -925,4 +951,15 @@ func ValidateNPDFilesystemCorruption(ctx context.Context, s *Scenario) {
 func ValidateEnableNvidiaResource(ctx context.Context, s *Scenario) {
 	s.T.Logf("waiting for Nvidia GPU resource to be available")
 	waitUntilResourceAvailable(ctx, s, "nvidia.com/gpu")
+}
+
+// ValidateWindowsDirectoryExists validates that a directory exists on a Windows node
+func ValidateWindowsDirectoryExists(ctx context.Context, s *Scenario, path string) {
+	s.T.Helper()
+	steps := []string{
+		fmt.Sprintf("Test-Path -Path \"%s\" -PathType Container", path),
+	}
+	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, fmt.Sprintf("directory %s should exist but was not found", path))
+	stdout := strings.TrimSpace(execResult.stdout.String())
+	require.Equal(s.T, "True", stdout, "expected directory %s to exist", path)
 }
