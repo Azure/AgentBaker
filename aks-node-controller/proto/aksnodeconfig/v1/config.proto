@@ -155,6 +155,6 @@ message Configuration {
   // Skips kubelet and some component configuration for image capture scenarios.
   bool pre_provision_only = 40;
 
-  // Represents localdns configuration for agentpool nodes.
+  // Represents localdns profile for agentpool.
   LocalDNSProfile local_d_n_s_profile = 41;
 }

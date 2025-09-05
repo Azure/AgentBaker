@@ -158,7 +158,7 @@ type Configuration struct {
 	// Creates a pre-provisioned image for later node spawning.
 	// Skips kubelet and some component configuration for image capture scenarios.
 	PreProvisionOnly bool `protobuf:"varint,40,opt,name=pre_provision_only,json=preProvisionOnly,proto3" json:"pre_provision_only,omitempty"`
-	// Represents localdns configuration for agentpool nodes.
+	// Represents localdns profile for agentpool.
 	LocalDNSProfile *LocalDNSProfile `protobuf:"bytes,41,opt,name=local_d_n_s_profile,json=localDNSProfile,proto3" json:"local_d_n_s_profile,omitempty"`
 }
 

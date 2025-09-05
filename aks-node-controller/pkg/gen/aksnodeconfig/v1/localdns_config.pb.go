@@ -20,17 +20,22 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Represents localdns configuration for agentpool nodes.
+// Represents localdns profile for agentpool.
 type LocalDNSProfile struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	EnableLocalDNS       bool                          `protobuf:"varint,1,opt,name=enable_local_d_n_s,json=enableLocalDNS,proto3" json:"enable_local_d_n_s,omitempty"`
-	CPULimitInMilliCores *int32                        `protobuf:"varint,2,opt,name=c_p_u_limit_in_milli_cores,json=cPULimitInMilliCores,proto3,oneof" json:"c_p_u_limit_in_milli_cores,omitempty"`
-	MemoryLimitInMB      *int32                        `protobuf:"varint,3,opt,name=memory_limit_in_m_b,json=memoryLimitInMB,proto3,oneof" json:"memory_limit_in_m_b,omitempty"`
-	VnetDNSOverrides     map[string]*LocalDNSOverrides `protobuf:"bytes,4,rep,name=vnet_d_n_s_overrides,json=vnetDNSOverrides,proto3" json:"vnet_d_n_s_overrides,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
-	KubeDNSOverrides     map[string]*LocalDNSOverrides `protobuf:"bytes,5,rep,name=kube_d_n_s_overrides,json=kubeDNSOverrides,proto3" json:"kube_d_n_s_overrides,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	// Specifies if localdns should be enabled or not for the nodepool.
+	EnableLocalDNS bool `protobuf:"varint,1,opt,name=enable_local_d_n_s,json=enableLocalDNS,proto3" json:"enable_local_d_n_s,omitempty"`
+	// Specifies the CPU limit to be set for localdns systemd unit.
+	CPULimitInMilliCores *int32 `protobuf:"varint,2,opt,name=c_p_u_limit_in_milli_cores,json=cPULimitInMilliCores,proto3,oneof" json:"c_p_u_limit_in_milli_cores,omitempty"`
+	// Specifies the memory limit to be set for localdns systemd unit.
+	MemoryLimitInMB *int32 `protobuf:"varint,3,opt,name=memory_limit_in_m_b,json=memoryLimitInMB,proto3,oneof" json:"memory_limit_in_m_b,omitempty"`
+	// VnetDNS overrides apply to DNS traffic from pods with dnsPolicy:default or kubelet (referred to as VnetDNS traffic).
+	VnetDNSOverrides map[string]*LocalDNSOverrides `protobuf:"bytes,4,rep,name=vnet_d_n_s_overrides,json=vnetDNSOverrides,proto3" json:"vnet_d_n_s_overrides,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	// KubeDNS overrides apply to DNS traffic from pods with dnsPolicy:ClusterFirst (referred to as KubeDNS traffic).
+	KubeDNSOverrides map[string]*LocalDNSOverrides `protobuf:"bytes,5,rep,name=kube_d_n_s_overrides,json=kubeDNSOverrides,proto3" json:"kube_d_n_s_overrides,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 }
 
 func (x *LocalDNSProfile) Reset() {
@@ -106,14 +111,22 @@ type LocalDNSOverrides struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	QueryLogging                string `protobuf:"bytes,1,opt,name=query_logging,json=queryLogging,proto3" json:"query_logging,omitempty"`
-	Protocol                    string `protobuf:"bytes,2,opt,name=protocol,proto3" json:"protocol,omitempty"`
-	ForwardDestination          string `protobuf:"bytes,3,opt,name=forward_destination,json=forwardDestination,proto3" json:"forward_destination,omitempty"`
-	ForwardPolicy               string `protobuf:"bytes,4,opt,name=forward_policy,json=forwardPolicy,proto3" json:"forward_policy,omitempty"`
-	MaxConcurrent               *int32 `protobuf:"varint,5,opt,name=max_concurrent,json=maxConcurrent,proto3,oneof" json:"max_concurrent,omitempty"`
-	CacheDurationInSeconds      *int32 `protobuf:"varint,6,opt,name=cache_duration_in_seconds,json=cacheDurationInSeconds,proto3,oneof" json:"cache_duration_in_seconds,omitempty"`
+	// Log level for DNS queries in localDNS.
+	QueryLogging string `protobuf:"bytes,1,opt,name=query_logging,json=queryLogging,proto3" json:"query_logging,omitempty"`
+	// Enforce TCP or prefer UDP protocol for connections from localDNS to upstream DNS server
+	Protocol string `protobuf:"bytes,2,opt,name=protocol,proto3" json:"protocol,omitempty"`
+	// Destination server for DNS queries to be forwarded from localDNS.
+	ForwardDestination string `protobuf:"bytes,3,opt,name=forward_destination,json=forwardDestination,proto3" json:"forward_destination,omitempty"`
+	// Forward policy for selecting upstream DNS server.
+	ForwardPolicy string `protobuf:"bytes,4,opt,name=forward_policy,json=forwardPolicy,proto3" json:"forward_policy,omitempty"`
+	// Maximum number of concurrent queries.
+	MaxConcurrent *int32 `protobuf:"varint,5,opt,name=max_concurrent,json=maxConcurrent,proto3,oneof" json:"max_concurrent,omitempty"`
+	// Cache max TTL in seconds.
+	CacheDurationInSeconds *int32 `protobuf:"varint,6,opt,name=cache_duration_in_seconds,json=cacheDurationInSeconds,proto3,oneof" json:"cache_duration_in_seconds,omitempty"`
+	// Serve stale duration in seconds.
 	ServeStaleDurationInSeconds *int32 `protobuf:"varint,7,opt,name=serve_stale_duration_in_seconds,json=serveStaleDurationInSeconds,proto3,oneof" json:"serve_stale_duration_in_seconds,omitempty"`
-	ServeStale                  string `protobuf:"bytes,8,opt,name=serve_stale,json=serveStale,proto3" json:"serve_stale,omitempty"`
+	// Policy for serving stale data.
+	ServeStale string `protobuf:"bytes,8,opt,name=serve_stale,json=serveStale,proto3" json:"serve_stale,omitempty"`
 }
 
 func (x *LocalDNSOverrides) Reset() {
