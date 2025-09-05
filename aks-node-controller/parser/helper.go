@@ -794,7 +794,7 @@ func getCoreDNSServiceIP(aksnodeconfig *aksnodeconfigv1.Configuration) string {
 // shouldEnableLocalDNS returns true if aksnodeconfig, LocalDNSProfile is not nil and
 // EnableLocaDNS for the Agentpool is true. EnableLocaDNS boolean value is sent by AKS RP.
 // This will tell if localdns should be enabled for the agent pool or not.
-// If this function returns true only then we generate localdns systemd unit and corefile.
+// If this function returns true only then we generate localdns corefile.
 func shouldEnableLocalDNS(aksnodeconfig *aksnodeconfigv1.Configuration) string {
 	return fmt.Sprintf("%v", aksnodeconfig != nil &&
 		aksnodeconfig.LocalDNSProfile != nil &&

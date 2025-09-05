@@ -1047,8 +1047,13 @@ enableLocalDNS() {
     echo "Enable localdns succeeded."
 }
 
+# localdns corefile used by localdns systemd unit. 
 LOCALDNS_COREFILE="/opt/azure/containers/localdns/localdns.corefile"
+# localdns slice file used by localdns systemd unit.
 LOCALDNS_SLICEFILE="/etc/systemd/system/localdns.slice"
+# This function is called from cse_main.sh.
+# It creates the localdns corefile and slicefile, then enables and starts localdns.
+# In this function, generated base64 encoded localdns corefile is decoded and written to the corefile path. 
 shouldEnableLocalDNS() {
     mkdir -p "$(dirname "${LOCALDNS_COREFILE}")"
     touch "${LOCALDNS_COREFILE}"
