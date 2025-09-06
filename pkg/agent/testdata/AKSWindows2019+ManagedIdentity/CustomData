@@ -269,6 +269,9 @@ if (-not (Test-Path "C:\AzureData\windows\azurecnifunc.ps1")) {
 if (Test-Path -Path 'c:\AzureData\windows\windowsciliumnetworkingfunc.ps1') {
     . c:\AzureData\windows\windowsciliumnetworkingfunc.ps1
 }
+else {
+    Write-Log "Windows Cilium Networking function script not found, skipping dot-source"
+}
 
 # ====== BASE PREP: BASE IMAGE PREPARATION ======
 # All operations that prepare the base VHD image
@@ -435,6 +438,12 @@ function BasePrep {
         if ($global:EnableWindowsCilium) {
             Enable-WindowsCiliumNetworking
         }
+        else {
+            Write-Log "Windows Cilium Networking is not enabled, will skip Windows Cilium Networking installation"
+        }
+    }
+    else {
+        Write-Log "Enable-WindowsCiliumNetworking is not a recognized function, will skip Windows Cilium Networking installation"
     }
 
     Set-Explorer
