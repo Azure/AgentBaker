@@ -217,7 +217,7 @@ cat > /etc/udev/rules.d/99-microsoft-mana-mtu.rules <<EOF
 # This rule triggers when a network interface is added and checks for Microsoft Azure Network Adapter VF
 # https://learn.microsoft.com/en-us/azure/virtual-network/how-to-virtual-machine-mtu?tabs=linux
 
-SUBSYSTEM=="net", KERNEL=="eth0”, ENV{ID_NET_DRIVER}=="mana", RUN+="/usr/sbin/ip link set dev %k mtu 9000"
+SUBSYSTEM=="net", KERNEL=="en*", ENV{ID_NET_DRIVER}=="mana", RUN+="/usr/sbin/ip link set dev eth0 mtu 9000"
 EOF
 
 udevadm control --reload
