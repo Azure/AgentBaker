@@ -286,6 +286,25 @@ configureCNIIPTables() {
           sed -i 's#"mode":"bridge"#"mode":"transparent"#g' $CNI_CONFIG_DIR/10-azure.conflist
         fi
         /sbin/ebtables -t nat --list
+    elif [[ "${NETWORK_PLUGIN}" = "none" ]]; then
+        cat > $CNI_CONFIG_DIR/10-bridge.conflist <<EOF
+{
+  "cniVersion": "0.3.1",
+  "name": "mynet",
+  "type": "bridge",
+  "bridge": "cni0",
+  "isGateway": true,
+  "ipMasq": true,
+  "ipam": {
+    "type": "host-local",
+    "subnet": "10.22.0.0/16",
+    "routes": [
+      { "dst": "0.0.0.0/0" }
+    ]
+  }
+}
+EOF
+        chmod 600 $CNI_CONFIG_DIR/10-bridge.conflist
     fi
 }
 
