@@ -3,6 +3,7 @@ package e2e
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/Azure/agentbaker/e2e/components"
@@ -396,11 +397,11 @@ func Test_Windows23H2Gen2_WindowsCiliumNetworking(t *testing.T) {
 			VHD:             config.VHDWindows23H2Gen2,
 			VMConfigMutator: EmptyVMConfigMutator,
 			BootstrapConfigMutator: func(configuration *datamodel.NodeBootstrappingConfiguration) {
-				if configuration.ContainerService.Properties.AgentPoolProfiles[0].AgentPoolWindowsProfile == nil {
-					configuration.ContainerService.Properties.AgentPoolProfiles[0].AgentPoolWindowsProfile = &datamodel.AgentPoolWindowsProfile{}
+				if configuration.AgentPoolProfile.AgentPoolWindowsProfile == nil {
+					configuration.AgentPoolProfile.AgentPoolWindowsProfile = &datamodel.AgentPoolWindowsProfile{}
 				}
-				configuration.ContainerService.Properties.AgentPoolProfiles[0].AgentPoolWindowsProfile.NextGenNetworkingEnabled = to.Ptr(true)
-				configuration.ContainerService.Properties.AgentPoolProfiles[0].AgentPoolWindowsProfile.NextGenNetworkingConfig = to.Ptr("")
+				configuration.AgentPoolProfile.AgentPoolWindowsProfile.NextGenNetworkingEnabled = to.Ptr(true)
+				configuration.AgentPoolProfile.AgentPoolWindowsProfile.NextGenNetworkingConfig = to.Ptr("")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateWindowsCiliumIsRunning(ctx, s)
