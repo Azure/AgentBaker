@@ -215,12 +215,9 @@ EOF
 cat > /etc/udev/rules.d/99-microsoft-mana-mtu.rules <<EOF
 # Udev rule to set MTU to 9000 for Microsoft MANA Ethernet controllers
 # This rule triggers when a network interface is added and checks for Microsoft Azure Network Adapter VF
-# https://learn.microsoft.com/en-us/azure/virtual-network/setup-dpdk-mana
-# vendor: Microsoft Corporation (1414)
-# class:  Ethernet Controller (0200)
-# device: Microsoft Azure Network Adapter VF (00ba)
+# https://learn.microsoft.com/en-us/azure/virtual-network/how-to-virtual-machine-mtu?tabs=linux
 
-SUBSYSTEM=="net", ACTION=="add", ATTRS{device/vendor}=="0x1414", ATTRS{device/device}=="0x00ba", ATTR{mtu}="9000"
+SUBSYSTEM=="net", KERNEL=="eth0”, ENV{ID_NET_DRIVER}=="mana", RUN+="/usr/sbin/ip link set dev %k mtu 9000"
 EOF
 
 udevadm control --reload
