@@ -162,7 +162,8 @@ steps:
       echo "##vso[task.setvariable variable=BRANCH]$(Build.SourceBranch)" && \
       echo "##vso[task.setvariable variable=GIT_BRANCH]$(Build.SourceBranch)" && \
       echo "##vso[task.setvariable variable=JOB_STATUS]$(Agent.JobStatus)" && \
-      echo "##vso[task.setvariable variable=VHD_DEBUG]False"
+      echo "##vso[task.setvariable variable=VHD_DEBUG]False" && \
+      echo "##vso[task.setvariable variable=INSERT_KMOD_CERT]True"
     condition: always()
     displayName: Set Pipeline Variables
 
