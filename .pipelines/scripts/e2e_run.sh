@@ -71,11 +71,11 @@ fi
 # and see fancy test results.
 cd e2e
 mkdir -p bin
-GOBIN=`pwd`/bin/ go install github.com/jstemmer/go-junit-report/v2@latest
+GOBIN=`pwd`/bin/ go install gotest.tools/gotestsum@latest
 
 # Yes, we build first. That's because the exit code from "go test" below is eaten by the go-junit-report command. So if there are build problems
 # then the tests pass. Bah.
 go build -mod=readonly ./...
 
 # Run the tests! Yey!
-go test -v -parallel 100 -timeout 90m 2>&1 | ./bin/go-junit-report -iocopy -set-exit-code -out "${BUILD_SRC_DIR}/e2e/report.xml"
+./bin/gotestsum --format testdox --junitfile "${BUILD_SRC_DIR}/e2e/report.xml" -- -parallel 100 -timeout 90m
