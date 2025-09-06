@@ -625,6 +625,11 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/10-bridge.conf",
+      "destination": "/home/packer/10-bridge.conf"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/localdns.sh",
       "destination": "/home/packer/localdns.sh"
     },

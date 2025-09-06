@@ -295,6 +295,10 @@ copyPackerFiles() {
     SSHD_CONFIG_SRC=/home/packer/sshd_config_2204_fips
   fi
 
+  BRIDGE_CONF_SRC=/home/packer/10-bridge.conf
+  BRIDGE_CONF_DEST=/etc/cni/net.d/10-bridge.conf
+  cpAndMode $BRIDGE_CONF_SRC $BRIDGE_CONF_DEST 0644
+
 # ------------------------- Files related to localdns -----------------------------------
   LOCALDNS_SCRIPT_SRC=/home/packer/localdns.sh
   LOCALDNS_SCRIPT_DEST=/opt/azure/containers/localdns/localdns.sh
