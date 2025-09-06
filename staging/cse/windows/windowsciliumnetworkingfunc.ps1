@@ -36,6 +36,8 @@ function Enable-WindowsCiliumNetworking
         return
     }
 
+    Logs-To-Event -TaskName "AKS.WindowsCSE.EnableWindowsCiliumNetworking" -TaskMessage "Start to enable Windows Cilium Networking"
+
     # Compose install script arguments
     $isRebootNeeded = $false
     $installArgs = @{
