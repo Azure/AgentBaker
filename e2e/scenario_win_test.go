@@ -3,7 +3,6 @@ package e2e
 import (
 	"context"
 	"fmt"
-	"strings"
 	"testing"
 
 	"github.com/Azure/agentbaker/e2e/components"
