@@ -726,8 +726,8 @@ func ValidateWindowsVersionFromWindowsSettings(ctx context.Context, s *Scenario,
 	podExecResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "could not validate command has parameters - might mean file does not have params, might mean something went wrong")
 	podExecResultStdout := strings.TrimSpace(podExecResult.stdout.String())
 
-	s.T.Logf("Found windows version in windows_settings: %s: %s (%s)", windowsVersion, osMajorVersion, osVersion)
-	s.T.Logf("Windows version returned from VM  %s", podExecResultStdout)
+	s.T.Logf("Found windows version in windows_settings: \"%s\": \"%s\" (\"%s\")", windowsVersion, osMajorVersion, osVersion)
+	s.T.Logf("Windows version returned from VM \"%s\"", podExecResultStdout)
 
 	require.Contains(s.T, podExecResultStdout, osMajorVersion)
 }
@@ -753,7 +753,7 @@ func ValidateWindowsDisplayVersion(ctx context.Context, s *Scenario, displayVers
 	podExecResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "could not validate command has parameters - might mean file does not have params, might mean something went wrong")
 	podExecResultStdout := strings.TrimSpace(podExecResult.stdout.String())
 
-	s.T.Logf("Winddows display version returned from VM  %s. Expected display version %s", podExecResultStdout, displayVersion)
+	s.T.Logf("Windows display version returned from VM \"%s\". Expected display version \"%s\"", podExecResultStdout, displayVersion)
 
 	require.Contains(s.T, podExecResultStdout, displayVersion)
 }
