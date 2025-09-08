@@ -190,6 +190,13 @@ steps:
       SKIP_SCANNING: $(SKIP_SCANNING)
       DRY_RUN: $(DRY_RUN)
 
+  - bash: make -f packer.mk replicate-captured-sig-version
+    condition: ne(variables['REPLICATIONS'], '')
+    displayName: Replicate captured SIG image version
+    env:
+      SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
+      DRY_RUN: $(DRY_RUN)
+
   - task: PublishPipelineArtifact@0
     condition: always()
     displayName: Publish BCC Tools Installation Log

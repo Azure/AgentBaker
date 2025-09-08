@@ -117,6 +117,9 @@ scanning-vhd: az-login
 test-scan-and-cleanup: az-login
 	@./vhdbuilder/packer/test-scan-and-cleanup.sh
 
+replicate-captured-sig-version: az-login
+	@./vhdbuilder/packer/replicate-captured-sig-version.sh
+
 evaluate-build-performance: az-login
 	@./vhdbuilder/packer/buildperformance/evaluate-build-performance.sh
 
