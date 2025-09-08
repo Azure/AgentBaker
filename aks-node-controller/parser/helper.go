@@ -529,7 +529,7 @@ func getIsSgxEnabledSKU(vmSize string) bool {
 // IsAmdAmaEnabledSKU determines if an VM SKU has AMD AMA GPU HW support.
 func getIsAmdAmaEnabledSKU(vmSize string) bool {
 	switch vmSize {
-	case helpers.StandardNM16adsMA35D:
+	case helpers.VMSizeStandardNM16adsMA35D:
 		return true
 	}
 	return false
@@ -709,13 +709,6 @@ func getGPUNeedsFabricManager(vmSize string) bool {
 func getEnableNvidia(config *aksnodeconfigv1.Configuration) bool {
 	if config.GpuConfig != nil && config.GpuConfig.EnableNvidia != nil {
 		return *config.GpuConfig.EnableNvidia
-	}
-	return false
-}
-
-func getEnableAmdAma(config *aksnodeconfigv1.Configuration) bool {
-	if config.GpuConfig != nil && config.GpuConfig.EnableAmdAma != nil {
-		return *config.GpuConfig.EnableAmdAma
 	}
 	return false
 }
