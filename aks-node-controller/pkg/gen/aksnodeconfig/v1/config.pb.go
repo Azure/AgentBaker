@@ -159,7 +159,7 @@ type Configuration struct {
 	// Skips kubelet and some component configuration for image capture scenarios.
 	PreProvisionOnly bool `protobuf:"varint,40,opt,name=pre_provision_only,json=preProvisionOnly,proto3" json:"pre_provision_only,omitempty"`
 	// Represents localdns profile for agentpool.
-	LocalDnsProfile *LocalDNSProfile `protobuf:"bytes,41,opt,name=local_dns_profile,json=localDnsProfile,proto3" json:"local_dns_profile,omitempty"`
+	LocalDnsProfile *LocalDnsProfile `protobuf:"bytes,41,opt,name=local_dns_profile,json=localDnsProfile,proto3" json:"local_dns_profile,omitempty"`
 }
 
 func (x *Configuration) Reset() {
@@ -472,7 +472,7 @@ func (x *Configuration) GetPreProvisionOnly() bool {
 	return false
 }
 
-func (x *Configuration) GetLocalDnsProfile() *LocalDNSProfile {
+func (x *Configuration) GetLocalDnsProfile() *LocalDnsProfile {
 	if x != nil {
 		return x.LocalDnsProfile
 	}
@@ -686,7 +686,7 @@ var file_aksnodeconfig_v1_config_proto_rawDesc = []byte{
 	0x11, 0x6c, 0x6f, 0x63, 0x61, 0x6c, 0x5f, 0x64, 0x6e, 0x73, 0x5f, 0x70, 0x72, 0x6f, 0x66, 0x69,
 	0x6c, 0x65, 0x18, 0x29, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x21, 0x2e, 0x61, 0x6b, 0x73, 0x6e, 0x6f,
 	0x64, 0x65, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x2e, 0x76, 0x31, 0x2e, 0x4c, 0x6f, 0x63, 0x61,
-	0x6c, 0x44, 0x4e, 0x53, 0x50, 0x72, 0x6f, 0x66, 0x69, 0x6c, 0x65, 0x52, 0x0f, 0x6c, 0x6f, 0x63,
+	0x6c, 0x44, 0x6e, 0x73, 0x50, 0x72, 0x6f, 0x66, 0x69, 0x6c, 0x65, 0x52, 0x0f, 0x6c, 0x6f, 0x63,
 	0x61, 0x6c, 0x44, 0x6e, 0x73, 0x50, 0x72, 0x6f, 0x66, 0x69, 0x6c, 0x65, 0x42, 0x09, 0x0a, 0x07,
 	0x5f, 0x69, 0x73, 0x5f, 0x76, 0x68, 0x64, 0x42, 0x0d, 0x0a, 0x0b, 0x5f, 0x65, 0x6e, 0x61, 0x62,
 	0x6c, 0x65, 0x5f, 0x73, 0x73, 0x68, 0x42, 0x11, 0x0a, 0x0f, 0x5f, 0x6e, 0x65, 0x65, 0x64, 0x73,
@@ -738,7 +738,7 @@ var file_aksnodeconfig_v1_config_proto_goTypes = []any{
 	(*GpuConfig)(nil),                // 15: aksnodeconfig.v1.GpuConfig
 	(*NetworkConfig)(nil),            // 16: aksnodeconfig.v1.NetworkConfig
 	(*ImdsRestrictionConfig)(nil),    // 17: aksnodeconfig.v1.ImdsRestrictionConfig
-	(*LocalDNSProfile)(nil),          // 18: aksnodeconfig.v1.LocalDNSProfile
+	(*LocalDnsProfile)(nil),          // 18: aksnodeconfig.v1.LocalDnsProfile
 }
 var file_aksnodeconfig_v1_config_proto_depIdxs = []int32{
 	2,  // 0: aksnodeconfig.v1.Configuration.kube_binary_config:type_name -> aksnodeconfig.v1.KubeBinaryConfig
@@ -758,7 +758,7 @@ var file_aksnodeconfig_v1_config_proto_depIdxs = []int32{
 	16, // 14: aksnodeconfig.v1.Configuration.network_config:type_name -> aksnodeconfig.v1.NetworkConfig
 	0,  // 15: aksnodeconfig.v1.Configuration.workload_runtime:type_name -> aksnodeconfig.v1.WorkloadRuntime
 	17, // 16: aksnodeconfig.v1.Configuration.imds_restriction_config:type_name -> aksnodeconfig.v1.ImdsRestrictionConfig
-	18, // 17: aksnodeconfig.v1.Configuration.local_dns_profile:type_name -> aksnodeconfig.v1.LocalDNSProfile
+	18, // 17: aksnodeconfig.v1.Configuration.local_dns_profile:type_name -> aksnodeconfig.v1.LocalDnsProfile
 	18, // [18:18] is the sub-list for method output_type
 	18, // [18:18] is the sub-list for method input_type
 	18, // [18:18] is the sub-list for extension type_name

@@ -20,38 +20,38 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Represents localdns profile for agentpool.
-type LocalDNSProfile struct {
+// Represents LocalDns profile for agentpool.
+type LocalDnsProfile struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Specifies if localdns should be enabled or not for the nodepool.
+	// Specifies if LocalDns should be enabled or not for the nodepool.
 	EnableLocalDns bool `protobuf:"varint,1,opt,name=enable_local_dns,json=enableLocalDns,proto3" json:"enable_local_dns,omitempty"`
-	// Specifies the CPU limit to be set for localdns systemd unit.
+	// Specifies the Cpu limit to be set for localdns systemd unit.
 	CpuLimitInMilliCores *int32 `protobuf:"varint,2,opt,name=cpu_limit_in_milli_cores,json=cpuLimitInMilliCores,proto3,oneof" json:"cpu_limit_in_milli_cores,omitempty"`
 	// Specifies the memory limit to be set for localdns systemd unit.
 	MemoryLimitInMb *int32 `protobuf:"varint,3,opt,name=memory_limit_in_mb,json=memoryLimitInMb,proto3,oneof" json:"memory_limit_in_mb,omitempty"`
-	// VnetDNS overrides apply to DNS traffic from pods with dnsPolicy:default or kubelet (referred to as VnetDNS traffic).
-	VnetDnsOverrides map[string]*LocalDNSOverrides `protobuf:"bytes,4,rep,name=vnet_dns_overrides,json=vnetDnsOverrides,proto3" json:"vnet_dns_overrides,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
-	// KubeDNS overrides apply to DNS traffic from pods with dnsPolicy:ClusterFirst (referred to as KubeDNS traffic).
-	KubeDnsOverrides map[string]*LocalDNSOverrides `protobuf:"bytes,5,rep,name=kube_dns_overrides,json=kubeDnsOverrides,proto3" json:"kube_dns_overrides,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	// VnetDns overrides apply to DNS traffic from pods with dnsPolicy:default or kubelet (referred to as VnetDns traffic).
+	VnetDnsOverrides map[string]*LocalDnsOverrides `protobuf:"bytes,4,rep,name=vnet_dns_overrides,json=vnetDnsOverrides,proto3" json:"vnet_dns_overrides,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	// KubeDns overrides apply to DNS traffic from pods with dnsPolicy:ClusterFirst (referred to as KubeDns traffic).
+	KubeDnsOverrides map[string]*LocalDnsOverrides `protobuf:"bytes,5,rep,name=kube_dns_overrides,json=kubeDnsOverrides,proto3" json:"kube_dns_overrides,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 }
 
-func (x *LocalDNSProfile) Reset() {
-	*x = LocalDNSProfile{}
+func (x *LocalDnsProfile) Reset() {
+	*x = LocalDnsProfile{}
 	mi := &file_aksnodeconfig_v1_localdns_config_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *LocalDNSProfile) String() string {
+func (x *LocalDnsProfile) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*LocalDNSProfile) ProtoMessage() {}
+func (*LocalDnsProfile) ProtoMessage() {}
 
-func (x *LocalDNSProfile) ProtoReflect() protoreflect.Message {
+func (x *LocalDnsProfile) ProtoReflect() protoreflect.Message {
 	mi := &file_aksnodeconfig_v1_localdns_config_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -63,40 +63,40 @@ func (x *LocalDNSProfile) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use LocalDNSProfile.ProtoReflect.Descriptor instead.
-func (*LocalDNSProfile) Descriptor() ([]byte, []int) {
+// Deprecated: Use LocalDnsProfile.ProtoReflect.Descriptor instead.
+func (*LocalDnsProfile) Descriptor() ([]byte, []int) {
 	return file_aksnodeconfig_v1_localdns_config_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *LocalDNSProfile) GetEnableLocalDns() bool {
+func (x *LocalDnsProfile) GetEnableLocalDns() bool {
 	if x != nil {
 		return x.EnableLocalDns
 	}
 	return false
 }
 
-func (x *LocalDNSProfile) GetCpuLimitInMilliCores() int32 {
+func (x *LocalDnsProfile) GetCpuLimitInMilliCores() int32 {
 	if x != nil && x.CpuLimitInMilliCores != nil {
 		return *x.CpuLimitInMilliCores
 	}
 	return 0
 }
 
-func (x *LocalDNSProfile) GetMemoryLimitInMb() int32 {
+func (x *LocalDnsProfile) GetMemoryLimitInMb() int32 {
 	if x != nil && x.MemoryLimitInMb != nil {
 		return *x.MemoryLimitInMb
 	}
 	return 0
 }
 
-func (x *LocalDNSProfile) GetVnetDnsOverrides() map[string]*LocalDNSOverrides {
+func (x *LocalDnsProfile) GetVnetDnsOverrides() map[string]*LocalDnsOverrides {
 	if x != nil {
 		return x.VnetDnsOverrides
 	}
 	return nil
 }
 
-func (x *LocalDNSProfile) GetKubeDnsOverrides() map[string]*LocalDNSOverrides {
+func (x *LocalDnsProfile) GetKubeDnsOverrides() map[string]*LocalDnsOverrides {
 	if x != nil {
 		return x.KubeDnsOverrides
 	}
@@ -104,9 +104,9 @@ func (x *LocalDNSProfile) GetKubeDnsOverrides() map[string]*LocalDNSOverrides {
 }
 
 // Represents DNS override settings for both VnetDNS and KubeDNS traffic.
-// VnetDNS overrides apply to DNS traffic from pods with dnsPolicy:default or kubelet.
-// KubeDNS overrides apply to DNS traffic from pods with dnsPolicy:ClusterFirst.
-type LocalDNSOverrides struct {
+// VnetDns overrides apply to DNS traffic from pods with dnsPolicy:default or kubelet.
+// KubeDns overrides apply to DNS traffic from pods with dnsPolicy:ClusterFirst.
+type LocalDnsOverrides struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
@@ -129,20 +129,20 @@ type LocalDNSOverrides struct {
 	ServeStale string `protobuf:"bytes,8,opt,name=serve_stale,json=serveStale,proto3" json:"serve_stale,omitempty"`
 }
 
-func (x *LocalDNSOverrides) Reset() {
-	*x = LocalDNSOverrides{}
+func (x *LocalDnsOverrides) Reset() {
+	*x = LocalDnsOverrides{}
 	mi := &file_aksnodeconfig_v1_localdns_config_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *LocalDNSOverrides) String() string {
+func (x *LocalDnsOverrides) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*LocalDNSOverrides) ProtoMessage() {}
+func (*LocalDnsOverrides) ProtoMessage() {}
 
-func (x *LocalDNSOverrides) ProtoReflect() protoreflect.Message {
+func (x *LocalDnsOverrides) ProtoReflect() protoreflect.Message {
 	mi := &file_aksnodeconfig_v1_localdns_config_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -154,61 +154,61 @@ func (x *LocalDNSOverrides) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use LocalDNSOverrides.ProtoReflect.Descriptor instead.
-func (*LocalDNSOverrides) Descriptor() ([]byte, []int) {
+// Deprecated: Use LocalDnsOverrides.ProtoReflect.Descriptor instead.
+func (*LocalDnsOverrides) Descriptor() ([]byte, []int) {
 	return file_aksnodeconfig_v1_localdns_config_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *LocalDNSOverrides) GetQueryLogging() string {
+func (x *LocalDnsOverrides) GetQueryLogging() string {
 	if x != nil {
 		return x.QueryLogging
 	}
 	return ""
 }
 
-func (x *LocalDNSOverrides) GetProtocol() string {
+func (x *LocalDnsOverrides) GetProtocol() string {
 	if x != nil {
 		return x.Protocol
 	}
 	return ""
 }
 
-func (x *LocalDNSOverrides) GetForwardDestination() string {
+func (x *LocalDnsOverrides) GetForwardDestination() string {
 	if x != nil {
 		return x.ForwardDestination
 	}
 	return ""
 }
 
-func (x *LocalDNSOverrides) GetForwardPolicy() string {
+func (x *LocalDnsOverrides) GetForwardPolicy() string {
 	if x != nil {
 		return x.ForwardPolicy
 	}
 	return ""
 }
 
-func (x *LocalDNSOverrides) GetMaxConcurrent() int32 {
+func (x *LocalDnsOverrides) GetMaxConcurrent() int32 {
 	if x != nil && x.MaxConcurrent != nil {
 		return *x.MaxConcurrent
 	}
 	return 0
 }
 
-func (x *LocalDNSOverrides) GetCacheDurationInSeconds() int32 {
+func (x *LocalDnsOverrides) GetCacheDurationInSeconds() int32 {
 	if x != nil && x.CacheDurationInSeconds != nil {
 		return *x.CacheDurationInSeconds
 	}
 	return 0
 }
 
-func (x *LocalDNSOverrides) GetServeStaleDurationInSeconds() int32 {
+func (x *LocalDnsOverrides) GetServeStaleDurationInSeconds() int32 {
 	if x != nil && x.ServeStaleDurationInSeconds != nil {
 		return *x.ServeStaleDurationInSeconds
 	}
 	return 0
 }
 
-func (x *LocalDNSOverrides) GetServeStale() string {
+func (x *LocalDnsOverrides) GetServeStale() string {
 	if x != nil {
 		return x.ServeStale
 	}
@@ -222,7 +222,7 @@ var file_aksnodeconfig_v1_localdns_config_proto_rawDesc = []byte{
 	0x76, 0x31, 0x2f, 0x6c, 0x6f, 0x63, 0x61, 0x6c, 0x64, 0x6e, 0x73, 0x5f, 0x63, 0x6f, 0x6e, 0x66,
 	0x69, 0x67, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x12, 0x10, 0x61, 0x6b, 0x73, 0x6e, 0x6f, 0x64,
 	0x65, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x2e, 0x76, 0x31, 0x22, 0x80, 0x05, 0x0a, 0x0f, 0x4c,
-	0x6f, 0x63, 0x61, 0x6c, 0x44, 0x4e, 0x53, 0x50, 0x72, 0x6f, 0x66, 0x69, 0x6c, 0x65, 0x12, 0x28,
+	0x6f, 0x63, 0x61, 0x6c, 0x44, 0x6e, 0x73, 0x50, 0x72, 0x6f, 0x66, 0x69, 0x6c, 0x65, 0x12, 0x28,
 	0x0a, 0x10, 0x65, 0x6e, 0x61, 0x62, 0x6c, 0x65, 0x5f, 0x6c, 0x6f, 0x63, 0x61, 0x6c, 0x5f, 0x64,
 	0x6e, 0x73, 0x18, 0x01, 0x20, 0x01, 0x28, 0x08, 0x52, 0x0e, 0x65, 0x6e, 0x61, 0x62, 0x6c, 0x65,
 	0x4c, 0x6f, 0x63, 0x61, 0x6c, 0x44, 0x6e, 0x73, 0x12, 0x3b, 0x0a, 0x18, 0x63, 0x70, 0x75, 0x5f,
@@ -235,14 +235,14 @@ var file_aksnodeconfig_v1_localdns_config_proto_rawDesc = []byte{
 	0x49, 0x6e, 0x4d, 0x62, 0x88, 0x01, 0x01, 0x12, 0x65, 0x0a, 0x12, 0x76, 0x6e, 0x65, 0x74, 0x5f,
 	0x64, 0x6e, 0x73, 0x5f, 0x6f, 0x76, 0x65, 0x72, 0x72, 0x69, 0x64, 0x65, 0x73, 0x18, 0x04, 0x20,
 	0x03, 0x28, 0x0b, 0x32, 0x37, 0x2e, 0x61, 0x6b, 0x73, 0x6e, 0x6f, 0x64, 0x65, 0x63, 0x6f, 0x6e,
-	0x66, 0x69, 0x67, 0x2e, 0x76, 0x31, 0x2e, 0x4c, 0x6f, 0x63, 0x61, 0x6c, 0x44, 0x4e, 0x53, 0x50,
+	0x66, 0x69, 0x67, 0x2e, 0x76, 0x31, 0x2e, 0x4c, 0x6f, 0x63, 0x61, 0x6c, 0x44, 0x6e, 0x73, 0x50,
 	0x72, 0x6f, 0x66, 0x69, 0x6c, 0x65, 0x2e, 0x56, 0x6e, 0x65, 0x74, 0x44, 0x6e, 0x73, 0x4f, 0x76,
 	0x65, 0x72, 0x72, 0x69, 0x64, 0x65, 0x73, 0x45, 0x6e, 0x74, 0x72, 0x79, 0x52, 0x10, 0x76, 0x6e,
 	0x65, 0x74, 0x44, 0x6e, 0x73, 0x4f, 0x76, 0x65, 0x72, 0x72, 0x69, 0x64, 0x65, 0x73, 0x12, 0x65,
 	0x0a, 0x12, 0x6b, 0x75, 0x62, 0x65, 0x5f, 0x64, 0x6e, 0x73, 0x5f, 0x6f, 0x76, 0x65, 0x72, 0x72,
 	0x69, 0x64, 0x65, 0x73, 0x18, 0x05, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x37, 0x2e, 0x61, 0x6b, 0x73,
 	0x6e, 0x6f, 0x64, 0x65, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x2e, 0x76, 0x31, 0x2e, 0x4c, 0x6f,
-	0x63, 0x61, 0x6c, 0x44, 0x4e, 0x53, 0x50, 0x72, 0x6f, 0x66, 0x69, 0x6c, 0x65, 0x2e, 0x4b, 0x75,
+	0x63, 0x61, 0x6c, 0x44, 0x6e, 0x73, 0x50, 0x72, 0x6f, 0x66, 0x69, 0x6c, 0x65, 0x2e, 0x4b, 0x75,
 	0x62, 0x65, 0x44, 0x6e, 0x73, 0x4f, 0x76, 0x65, 0x72, 0x72, 0x69, 0x64, 0x65, 0x73, 0x45, 0x6e,
 	0x74, 0x72, 0x79, 0x52, 0x10, 0x6b, 0x75, 0x62, 0x65, 0x44, 0x6e, 0x73, 0x4f, 0x76, 0x65, 0x72,
 	0x72, 0x69, 0x64, 0x65, 0x73, 0x1a, 0x68, 0x0a, 0x15, 0x56, 0x6e, 0x65, 0x74, 0x44, 0x6e, 0x73,
@@ -250,19 +250,19 @@ var file_aksnodeconfig_v1_localdns_config_proto_rawDesc = []byte{
 	0x0a, 0x03, 0x6b, 0x65, 0x79, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x03, 0x6b, 0x65, 0x79,
 	0x12, 0x39, 0x0a, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32,
 	0x23, 0x2e, 0x61, 0x6b, 0x73, 0x6e, 0x6f, 0x64, 0x65, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x2e,
-	0x76, 0x31, 0x2e, 0x4c, 0x6f, 0x63, 0x61, 0x6c, 0x44, 0x4e, 0x53, 0x4f, 0x76, 0x65, 0x72, 0x72,
+	0x76, 0x31, 0x2e, 0x4c, 0x6f, 0x63, 0x61, 0x6c, 0x44, 0x6e, 0x73, 0x4f, 0x76, 0x65, 0x72, 0x72,
 	0x69, 0x64, 0x65, 0x73, 0x52, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x3a, 0x02, 0x38, 0x01, 0x1a,
 	0x68, 0x0a, 0x15, 0x4b, 0x75, 0x62, 0x65, 0x44, 0x6e, 0x73, 0x4f, 0x76, 0x65, 0x72, 0x72, 0x69,
 	0x64, 0x65, 0x73, 0x45, 0x6e, 0x74, 0x72, 0x79, 0x12, 0x10, 0x0a, 0x03, 0x6b, 0x65, 0x79, 0x18,
 	0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x03, 0x6b, 0x65, 0x79, 0x12, 0x39, 0x0a, 0x05, 0x76, 0x61,
 	0x6c, 0x75, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x23, 0x2e, 0x61, 0x6b, 0x73, 0x6e,
 	0x6f, 0x64, 0x65, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x2e, 0x76, 0x31, 0x2e, 0x4c, 0x6f, 0x63,
-	0x61, 0x6c, 0x44, 0x4e, 0x53, 0x4f, 0x76, 0x65, 0x72, 0x72, 0x69, 0x64, 0x65, 0x73, 0x52, 0x05,
+	0x61, 0x6c, 0x44, 0x6e, 0x73, 0x4f, 0x76, 0x65, 0x72, 0x72, 0x69, 0x64, 0x65, 0x73, 0x52, 0x05,
 	0x76, 0x61, 0x6c, 0x75, 0x65, 0x3a, 0x02, 0x38, 0x01, 0x42, 0x1b, 0x0a, 0x19, 0x5f, 0x63, 0x70,
 	0x75, 0x5f, 0x6c, 0x69, 0x6d, 0x69, 0x74, 0x5f, 0x69, 0x6e, 0x5f, 0x6d, 0x69, 0x6c, 0x6c, 0x69,
 	0x5f, 0x63, 0x6f, 0x72, 0x65, 0x73, 0x42, 0x15, 0x0a, 0x13, 0x5f, 0x6d, 0x65, 0x6d, 0x6f, 0x72,
 	0x79, 0x5f, 0x6c, 0x69, 0x6d, 0x69, 0x74, 0x5f, 0x69, 0x6e, 0x5f, 0x6d, 0x62, 0x22, 0xd9, 0x03,
-	0x0a, 0x11, 0x4c, 0x6f, 0x63, 0x61, 0x6c, 0x44, 0x4e, 0x53, 0x4f, 0x76, 0x65, 0x72, 0x72, 0x69,
+	0x0a, 0x11, 0x4c, 0x6f, 0x63, 0x61, 0x6c, 0x44, 0x6e, 0x73, 0x4f, 0x76, 0x65, 0x72, 0x72, 0x69,
 	0x64, 0x65, 0x73, 0x12, 0x23, 0x0a, 0x0d, 0x71, 0x75, 0x65, 0x72, 0x79, 0x5f, 0x6c, 0x6f, 0x67,
 	0x67, 0x69, 0x6e, 0x67, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0c, 0x71, 0x75, 0x65, 0x72,
 	0x79, 0x4c, 0x6f, 0x67, 0x67, 0x69, 0x6e, 0x67, 0x12, 0x1a, 0x0a, 0x08, 0x70, 0x72, 0x6f, 0x74,
@@ -314,16 +314,16 @@ func file_aksnodeconfig_v1_localdns_config_proto_rawDescGZIP() []byte {
 
 var file_aksnodeconfig_v1_localdns_config_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_aksnodeconfig_v1_localdns_config_proto_goTypes = []any{
-	(*LocalDNSProfile)(nil),   // 0: aksnodeconfig.v1.LocalDNSProfile
-	(*LocalDNSOverrides)(nil), // 1: aksnodeconfig.v1.LocalDNSOverrides
-	nil,                       // 2: aksnodeconfig.v1.LocalDNSProfile.VnetDnsOverridesEntry
-	nil,                       // 3: aksnodeconfig.v1.LocalDNSProfile.KubeDnsOverridesEntry
+	(*LocalDnsProfile)(nil),   // 0: aksnodeconfig.v1.LocalDnsProfile
+	(*LocalDnsOverrides)(nil), // 1: aksnodeconfig.v1.LocalDnsOverrides
+	nil,                       // 2: aksnodeconfig.v1.LocalDnsProfile.VnetDnsOverridesEntry
+	nil,                       // 3: aksnodeconfig.v1.LocalDnsProfile.KubeDnsOverridesEntry
 }
 var file_aksnodeconfig_v1_localdns_config_proto_depIdxs = []int32{
-	2, // 0: aksnodeconfig.v1.LocalDNSProfile.vnet_dns_overrides:type_name -> aksnodeconfig.v1.LocalDNSProfile.VnetDnsOverridesEntry
-	3, // 1: aksnodeconfig.v1.LocalDNSProfile.kube_dns_overrides:type_name -> aksnodeconfig.v1.LocalDNSProfile.KubeDnsOverridesEntry
-	1, // 2: aksnodeconfig.v1.LocalDNSProfile.VnetDnsOverridesEntry.value:type_name -> aksnodeconfig.v1.LocalDNSOverrides
-	1, // 3: aksnodeconfig.v1.LocalDNSProfile.KubeDnsOverridesEntry.value:type_name -> aksnodeconfig.v1.LocalDNSOverrides
+	2, // 0: aksnodeconfig.v1.LocalDnsProfile.vnet_dns_overrides:type_name -> aksnodeconfig.v1.LocalDnsProfile.VnetDnsOverridesEntry
+	3, // 1: aksnodeconfig.v1.LocalDnsProfile.kube_dns_overrides:type_name -> aksnodeconfig.v1.LocalDnsProfile.KubeDnsOverridesEntry
+	1, // 2: aksnodeconfig.v1.LocalDnsProfile.VnetDnsOverridesEntry.value:type_name -> aksnodeconfig.v1.LocalDnsOverrides
+	1, // 3: aksnodeconfig.v1.LocalDnsProfile.KubeDnsOverridesEntry.value:type_name -> aksnodeconfig.v1.LocalDnsOverrides
 	4, // [4:4] is the sub-list for method output_type
 	4, // [4:4] is the sub-list for method input_type
 	4, // [4:4] is the sub-list for extension type_name

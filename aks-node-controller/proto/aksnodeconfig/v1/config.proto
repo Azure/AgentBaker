@@ -156,5 +156,5 @@ message Configuration {
   bool pre_provision_only = 40;
 
   // Represents localdns profile for agentpool.
-  LocalDNSProfile local_dns_profile = 41;
+  LocalDnsProfile local_dns_profile = 41;
 }
