@@ -1637,3 +1637,149 @@ func Test_getLocalDNSCorefileBase64(t *testing.T) {
 		})
 	}
 }
+
+func Test_shouldEnableLocalDns(t *testing.T) {
+	type args struct {
+		aksnodeconfig *aksnodeconfigv1.Configuration
+	}
+	tests := []struct {
+		name string
+		args args
+		want string
+	}{
+		{
+			name: "nil config",
+			args: args{aksnodeconfig: nil},
+			want: "false",
+		},
+		{
+			name: "nil LocalDnsProfile",
+			args: args{aksnodeconfig: &aksnodeconfigv1.Configuration{}},
+			want: "false",
+		},
+		{
+			name: "LocalDns disabled",
+			args: args{aksnodeconfig: &aksnodeconfigv1.Configuration{
+				LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
+					EnableLocalDns: false},
+			}},
+			want: "false",
+		},
+		{
+			name: "LocalDns enabled",
+			args: args{aksnodeconfig: &aksnodeconfigv1.Configuration{
+				LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
+					EnableLocalDns: true},
+			}},
+			want: "true",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := shouldEnableLocalDns(tt.args.aksnodeconfig); got != tt.want {
+				t.Errorf("shouldEnableLocalDns() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_getLocalDnsCpuLimitInPercentage(t *testing.T) {
+	type args struct {
+		aksnodeconfig *aksnodeconfigv1.Configuration
+	}
+	tests := []struct {
+		name string
+		args args
+		want string
+	}{
+		{
+			name: "nil LocalDnsProfile",
+			args: args{aksnodeconfig: &aksnodeconfigv1.Configuration{}},
+			want: defaultLocalDnsCpuLimitInPercentage,
+		},
+		{
+			name: "zero CPU limit",
+			args: args{aksnodeconfig: &aksnodeconfigv1.Configuration{
+				LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
+					CpuLimitInMilliCores: to.Ptr(int32(0))},
+			}},
+			want: defaultLocalDnsCpuLimitInPercentage,
+		},
+		{
+			name: "1000m CPU (1 core -> 100%) with localdns enabled",
+			args: args{aksnodeconfig: &aksnodeconfigv1.Configuration{
+				LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
+					EnableLocalDns:       true,
+					CpuLimitInMilliCores: to.Ptr(int32(1000))},
+			}},
+			want: "100.0%",
+		},
+		{
+			name: "localdns not enabled",
+			args: args{aksnodeconfig: &aksnodeconfigv1.Configuration{
+				LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
+					EnableLocalDns:       false,
+					CpuLimitInMilliCores: to.Ptr(int32(250))},
+			}},
+			want: "200.0%",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := getLocalDnsCpuLimitInPercentage(tt.args.aksnodeconfig); got != tt.want {
+				t.Errorf("getLocalDnsCpuLimitInPercentage() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_getLocalDnsMemoryLimitInMb(t *testing.T) {
+	type args struct {
+		aksnodeconfig *aksnodeconfigv1.Configuration
+	}
+	tests := []struct {
+		name string
+		args args
+		want string
+	}{
+		{
+			name: "nil LocalDnsProfile",
+			args: args{aksnodeconfig: &aksnodeconfigv1.Configuration{}},
+			want: defaultLocalDnsMemoryLimitInMb,
+		},
+		{
+			name: "zero memory limit",
+			args: args{aksnodeconfig: &aksnodeconfigv1.Configuration{
+				LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
+					EnableLocalDns:  true,
+					MemoryLimitInMb: to.Ptr(int32(0))},
+			}},
+			want: defaultLocalDnsMemoryLimitInMb,
+		},
+		{
+			name: "512 MB memory with localdns enabled",
+			args: args{aksnodeconfig: &aksnodeconfigv1.Configuration{
+				LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
+					EnableLocalDns:  true,
+					MemoryLimitInMb: to.Ptr(int32(512))},
+			}},
+			want: "512M",
+		},
+		{
+			name: "localdns not enabled",
+			args: args{aksnodeconfig: &aksnodeconfigv1.Configuration{
+				LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
+					EnableLocalDns:  false,
+					MemoryLimitInMb: to.Ptr(int32(2048))},
+			}},
+			want: "128M",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := getLocalDnsMemoryLimitInMb(tt.args.aksnodeconfig); got != tt.want {
+				t.Errorf("getLocalDnsMemoryLimitInMb() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
