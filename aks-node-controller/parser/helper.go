@@ -66,7 +66,6 @@ func getFuncMapForContainerdConfigTemplate() template.FuncMap {
 		"isKubernetesVersionGe":            helpers.IsKubernetesVersionGe,
 		"getHasDataDir":                    getHasDataDir,
 		"getEnableNvidia":                  getEnableNvidia,
-		"getEnableAmdAma":                  getEnableAmdAma,
 	}
 }
 
@@ -527,6 +526,14 @@ func getIsSgxEnabledSKU(vmSize string) bool {
 	return false
 }
 
+// IsAmdAmaEnabledSKU determines if an VM SKU has AMD AMA GPU HW support.
+func getIsAmdAmaEnabledSKU(vmSize string) bool {
+	switch vmSize {
+	case helpers.StandardNM16adsMA35D:
+		return true
+	}
+	return false
+}
 func getShouldConfigureHTTPProxy(httpProxyConfig *aksnodeconfigv1.HttpProxyConfig) bool {
 	return httpProxyConfig.GetHttpProxy() != "" || httpProxyConfig.GetHttpsProxy() != ""
 }

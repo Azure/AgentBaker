@@ -44,6 +44,15 @@ func IsSgxEnabledSKU(vmSize string) bool {
 	return false
 }
 
+// IsAmdAmaEnabledSKU determines if an VM SKU has AMD AMA GPU HW support.
+func IsAmdAmaEnabledSKU(vmSize string) bool {
+	switch vmSize {
+	case "Standard_NM16ads_MA35D":
+		return true
+	}
+	return false
+}
+
 // GetStorageAccountType returns the support managed disk storage tier for a give VM size.
 func GetStorageAccountType(sizeName string) (string, error) {
 	spl := strings.Split(sizeName, "_")
