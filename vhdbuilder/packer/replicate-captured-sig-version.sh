@@ -9,25 +9,21 @@ PACKER_GALLERY_NAME="PackerSigGalleryEastUS"
 [ -z "${SIG_IMAGE_NAME:-}" ] && echo "SIG_IMAGE_NAME must be set when replicating packer SIG image version" && exit 1
 [ -z "${CAPTURED_SIG_VERSION:-}" ] && echo "CAPTURED_SIG_VERSION must be set when replicating packer SIG image version" && exit 1
 
-replicate_packer_image_version() {
+replicate_captured_sig_image_version() {
     if [ -z "${REPLICATIONS:-}" ]; then
         echo "no replications targets have been specified, exiting without replicating"
         exit 0
     fi
 
-    IFS=',' read -ra replication_goal <<< "${REPLICATIONS}"
-    replication_targets=()
-    
-    for replication_target in "${replication_goal[@]}"; do
+    IFS=',' read -ra replication_targets <<< "${REPLICATIONS}"
+    local replication_string
+
+    for replication_target in "${replication_targets[@]}"; do
         if [[ ! "${replication_target}" =~ ^[^=]+=[0-9]+$ ]]; then
             echo "warning: invalid replication target format: '${replication_target}', expected format: <region>=<replicas>"
             continue
         fi
-        replication_targets+=("${replication_target}")
-    done
 
-    local replication_string
-    for replication_target in "${replication_targets[@]}"; do
         IFS='=' read -r -a target <<< "${replication_target}"
         region=${target[0]}
         replicas=${target[1]}
@@ -40,7 +36,7 @@ replicate_packer_image_version() {
     command_string="az sig image-version update --subscription ${SUBSCRIPTION_ID} -g ${RESOURCE_GROUP_NAME} -r ${PACKER_GALLERY_NAME} -i ${SIG_IMAGE_NAME} -e ${CAPTURED_SIG_VERSION} $replication_string"
     echo "final replication command string: ${command_string}"
 
-    if [ "${DRY_RUN}" == "true" ]; then
+    if [ "${DRY_RUN}" = "true" ]; then
         echo "DRY_RUN: exiting without running replication command"
         return 0
     fi
@@ -51,4 +47,4 @@ replicate_packer_image_version() {
     fi
 }
 
-replicate_packer_image_version
+replicate_captured_sig_image_version

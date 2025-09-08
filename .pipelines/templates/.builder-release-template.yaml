@@ -195,6 +195,7 @@ steps:
     displayName: Replicate captured SIG image version
     env:
       SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
+      RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
       DRY_RUN: $(DRY_RUN)
 
   - task: PublishPipelineArtifact@0
