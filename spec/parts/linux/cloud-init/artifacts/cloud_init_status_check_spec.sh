@@ -14,7 +14,7 @@ Describe 'cloudInitStatusCheck'
     unsetEventsDir() {
         unset EVENTS_LOGGING_DIR
     }
-    testLongCloudInitStatus="status: test status extended_status: extended_test_status boot_status_code: test_boot_status_code detail: test_detail errors: [] recoverable_errors: {}"
+    testLongCloudInitStatus='{"status": "test status", "extended_status": "extended_test_status", "boot_status_code": "test_boot_status_code", "detail": "test_detail", "errors": [], "recoverable_errors": {}}'
     mkdir -p /tmp/var
     Describe 'cloud-init failure error handling'
 
@@ -45,7 +45,7 @@ Describe 'cloudInitStatusCheck'
             The contents of file /tmp/var/test-log.txt should include "WARNING: cloud-init finished with recoverable errors (exit code 2)"
             eventsFilePath=$(ls -t /tmp/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/*.json | head -n 1)
             The contents of file ${eventsFilePath} should include "WARNING: cloud-init finished with recoverable errors (exit code 2)"
-            The contents of file ${eventsFilePath} should include "recoverable_errors:"
+            The contents of file ${eventsFilePath} should include "recoverable_errors"
         End
         It "should correctly handle cloud-init returning code 0 and log success"
             cloud-init() {
@@ -72,7 +72,7 @@ Describe 'cloudInitStatusCheck'
             The contents of file /tmp/var/test-log.txt should include "WARNING: cloud-init exited with unexpected code: 123"
             eventsFilePath=$(ls -t /tmp/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/*.json | head -n 1)
             The contents of file ${eventsFilePath} should include "WARNING: cloud-init exited with unexpected code: 123"
-            The contents of file ${eventsFilePath} should include "recoverable_errors:"
-        End  
+            The contents of file ${eventsFilePath} should include "recoverable_errors"
+        End
     End
 End

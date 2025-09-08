@@ -51,6 +51,9 @@ message ClusterNetworkConfig {
 
   // Route table name
   string route_table = 5;
+
+  // CoreDNS serviceIP of the cluster
+  string core_dns_service_ip = 6;
 }
 
 message LoadBalancerConfig {

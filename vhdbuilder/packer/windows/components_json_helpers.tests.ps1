@@ -145,6 +145,15 @@ Describe 'Tests of GetAllCachedThings ' {
         $allpackages | Should -Contain "c:\akse-cache\: mcr.microsoft.com/repository/path:1.2.3-prerelease.4"
     }
 
+    it 'has the windows base version in it' {
+        $windowsSku = "2019"
+
+        $allpackages = GetAllCachedThings $componentsJson $windowsSettings
+
+        $allpackages | Should -Contain "Windows 2019 base version: 17763.6893.250210"
+
+    }
+
     it 'is sorted' {
         $windowsSku = "2019-containerd"
 

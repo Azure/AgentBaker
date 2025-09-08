@@ -12,6 +12,7 @@ pr:
     include:
       - master
       - official/*
+      - windows/*
       - dev
   paths:
     include:

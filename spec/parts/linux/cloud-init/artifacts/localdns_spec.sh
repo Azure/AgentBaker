@@ -16,8 +16,10 @@ Describe 'localdns.sh'
             TEST_DIR="/tmp/localdnstest"
             LOCALDNS_SCRIPT_PATH="${TEST_DIR}/opt/azure/containers/localdns"
             LOCALDNS_CORE_FILE="${LOCALDNS_SCRIPT_PATH}/localdns.corefile"
+            UPDATED_LOCALDNS_CORE_FILE="${LOCALDNS_SCRIPT_PATH}/updated.localdns.corefile"
             mkdir -p "$LOCALDNS_SCRIPT_PATH"
             echo "forward . 168.63.129.16" >> "$LOCALDNS_CORE_FILE"
+            echo "forward . 168.63.129.16" >> "$UPDATED_LOCALDNS_CORE_FILE"
 
             LOCALDNS_SLICE_PATH="${TEST_DIR}/etc/systemd/system"
             LOCALDNS_SLICE_FILE="${LOCALDNS_SLICE_PATH}/localdns.slice"
@@ -39,6 +41,8 @@ EOF
 cat <<EOF > "$RESOLV_CONF"
 nameserver 10.0.0.1
 nameserver 10.0.0.2
+nameserver 10.0.0.3
+nameserver 10.0.0.4
 EOF
 
         }
@@ -137,8 +141,11 @@ EOF
         It 'should replace 168.63.129.16 with UpstreamDNSIP if it is not same as AzureDNSIP'
             When run replace_azurednsip_in_corefile
             The status should be success
-            The file "${LOCALDNS_CORE_FILE}" should be exist
-            The contents of file "${LOCALDNS_CORE_FILE}" should include "forward . 10.0.0.1 10.0.0.2"
+            The file "${UPDATED_LOCALDNS_CORE_FILE}" should be exist
+            The contents of file "${UPDATED_LOCALDNS_CORE_FILE}" should include "forward . 10.0.0.1 10.0.0.2 10.0.0.3 10.0.0.4"
+            The stdout should include "Found upstream VNET DNS servers: 10.0.0.1 10.0.0.2 10.0.0.3 10.0.0.4"
+            The stdout should include "Replacing Azure DNS IP 168.63.129.16 with upstream VNET DNS servers 10.0.0.1 10.0.0.2 10.0.0.3 10.0.0.4"
+            The stdout should include "Successfully updated ${UPDATED_LOCALDNS_CORE_FILE}"
         End
 
         It 'should fail if resolv.conf not found'
@@ -154,9 +161,9 @@ invalid
 EOF
             When run replace_azurednsip_in_corefile
             The status should be failure
-            The file "${LOCALDNS_CORE_FILE}" should be exist
+            The file "${UPDATED_LOCALDNS_CORE_FILE}" should be exist
             The stdout should include "No Upstream VNET DNS servers found in "$RESOLV_CONF"."
-            The contents of file "${LOCALDNS_CORE_FILE}" should include "forward . 168.63.129.16"
+            The contents of file "${UPDATED_LOCALDNS_CORE_FILE}" should include "forward . 168.63.129.16"
         End
 
         It 'should not replace 168.63.129.16 with UpstreamDNSIP if it is ""'
@@ -165,9 +172,9 @@ nameserver ""
 EOF
             When run replace_azurednsip_in_corefile
             The status should be failure
-            The file "${LOCALDNS_CORE_FILE}" should be exist
+            The file "${UPDATED_LOCALDNS_CORE_FILE}" should be exist
             The stdout should include "No Upstream VNET DNS servers found in "$RESOLV_CONF"."
-            The contents of file "${LOCALDNS_CORE_FILE}" should include "forward . 168.63.129.16"
+            The contents of file "${UPDATED_LOCALDNS_CORE_FILE}" should include "forward . 168.63.129.16"
         End
 
         It 'should not replace 168.63.129.16 with UpstreamDNSIP if it is blank'
@@ -176,9 +183,9 @@ nameserver
 EOF
             When run replace_azurednsip_in_corefile
             The status should be failure
-            The file "${LOCALDNS_CORE_FILE}" should be exist
+            The file "${UPDATED_LOCALDNS_CORE_FILE}" should be exist
             The stdout should include "No Upstream VNET DNS servers found in "$RESOLV_CONF"."
-            The contents of file "${LOCALDNS_CORE_FILE}" should include "forward . 168.63.129.16"
+            The contents of file "${UPDATED_LOCALDNS_CORE_FILE}" should include "forward . 168.63.129.16"
         End
 
         It 'should not replace 168.63.129.16 with UpstreamDNSIP if it is same as AzureDNSIP'
@@ -187,8 +194,21 @@ nameserver 168.63.129.16
 EOF
             When run replace_azurednsip_in_corefile
             The status should be success
-            The file "${LOCALDNS_CORE_FILE}" should be exist
-            The contents of file "${LOCALDNS_CORE_FILE}" should include "forward . 168.63.129.16"
+            The file "${UPDATED_LOCALDNS_CORE_FILE}" should be exist
+            The contents of file "${UPDATED_LOCALDNS_CORE_FILE}" should include "forward . 168.63.129.16"
+            The stdout should include "Found upstream VNET DNS servers: 168.63.129.16"
+            The stdout should include "Skipping DNS IP replacement. Upstream VNET DNS servers (168.63.129.16) match either Azure DNS IP (168.63.129.16) or localdns node listener IP (169.254.10.10)"
+        End
+
+        It 'should not replace 168.63.129.16 with UpstreamDNSIP if it is same as localdns node listener IP'
+cat <<EOF > "$RESOLV_CONF"
+nameserver 169.254.10.10
+EOF
+            When run replace_azurednsip_in_corefile
+            The status should be success
+            The file "${UPDATED_LOCALDNS_CORE_FILE}" should be exist
+            The contents of file "${UPDATED_LOCALDNS_CORE_FILE}" should include "forward . 168.63.129.16"
+            The stdout should include "Skipping DNS IP replacement. Upstream VNET DNS servers (169.254.10.10) match either Azure DNS IP (168.63.129.16) or localdns node listener IP (169.254.10.10)"
         End
 
         It 'should return failure if AZURE_DNS_IP is unset'
@@ -510,6 +530,123 @@ EOF
     End
 
 
+# This section tests - cleanup_iptables_and_dns
+# This function is defined in parts/linux/cloud-init/artifacts/localdns.sh file.
+#------------------------------------------------------------------------------------------------------------------------------------
+    Describe 'cleanup_iptables_and_dns'
+        setup() {
+            NETWORK_DROPIN_FILE="/tmp/test-network-dropin.conf"
+            
+            # Mock iptables command to simulate finding existing localdns rules
+            mock_iptables() {
+                case "$1" in
+                    "-w")
+                        if [[ "$2" == "-t" && "$3" == "raw" && "$4" == "-L" ]]; then
+                            # Simulate iptables -L output with existing localdns rules
+                            echo "Chain OUTPUT (policy ACCEPT 0 packets, 0 bytes)"
+                            echo " 1     NOTRACK   tcp  --  *      *       0.0.0.0/0            169.254.10.10        tcp dpt:53 /* localdns: skip conntrack */"
+                            echo " 2     NOTRACK   udp  --  *      *       0.0.0.0/0            169.254.10.10        udp dpt:53 /* localdns: skip conntrack */"
+                            echo "Chain PREROUTING (policy ACCEPT 0 packets, 0 bytes)"
+                            echo " 1     NOTRACK   tcp  --  *      *       0.0.0.0/0            169.254.10.10        tcp dpt:53 /* localdns: skip conntrack */"
+                            echo " 2     NOTRACK   udp  --  *      *       0.0.0.0/0            169.254.10.10        udp dpt:53 /* localdns: skip conntrack */"
+                        elif [[ "$2" == "-t" && "$3" == "raw" && "$4" == "-L" && "$5" == "OUTPUT" ]]; then
+                            # Simulate iptables -L OUTPUT output
+                            echo " 1     NOTRACK   tcp  --  *      *       0.0.0.0/0            169.254.10.10        tcp dpt:53 /* localdns: skip conntrack */"
+                            echo " 2     NOTRACK   udp  --  *      *       0.0.0.0/0            169.254.10.10        udp dpt:53 /* localdns: skip conntrack */"
+                        elif [[ "$2" == "-t" && "$3" == "raw" && "$4" == "-L" && "$5" == "PREROUTING" ]]; then
+                            # Simulate iptables -L PREROUTING output
+                            echo " 1     NOTRACK   tcp  --  *      *       0.0.0.0/0            169.254.10.10        tcp dpt:53 /* localdns: skip conntrack */"
+                            echo " 2     NOTRACK   udp  --  *      *       0.0.0.0/0            169.254.10.10        udp dpt:53 /* localdns: skip conntrack */"
+                        elif [[ "$2" == "-t" && "$3" == "raw" && "$4" == "-D" ]]; then
+                            # Simulate successful rule deletion
+                            return 0
+                        fi
+                        ;;
+                esac
+                return 0
+            }
+            
+            Include "./parts/linux/cloud-init/artifacts/localdns.sh"
+        }
+        cleanup() {
+            rm -rf "/tmp/test-network-dropin.conf"
+        }
+        BeforeEach 'setup'
+        AfterEach 'cleanup'
+        #------------------------- cleanup_iptables_and_dns -------------------------------------------------------
+        It "should clean up existing localdns iptables rules and DNS configuration"
+            iptables() { mock_iptables "$@"; }
+            NETWORKCTL_RELOAD_CMD="true"
+            touch "$NETWORK_DROPIN_FILE"
+            When call cleanup_iptables_and_dns
+            The status should be success
+            The stdout should include "Cleaning up any existing localdns iptables rules..."
+            The stdout should include "Found existing localdns iptables rules, removing them..."
+            The stdout should include "Successfully removed existing localdns iptables rule from OUTPUT chain"
+            The stdout should include "Successfully removed existing localdns iptables rule from PREROUTING chain"
+            The stdout should include "Reverting DNS configuration by removing /tmp/test-network-dropin.conf."
+            The file "${NETWORK_DROPIN_FILE}" should not be exist
+        End
+
+        It "should handle case when no existing localdns iptables rules are found"
+            # Mock iptables to return no localdns rules
+            mock_iptables_no_rules() {
+                case "$1" in
+                    "-w")
+                        if [[ "$2" == "-t" && "$3" == "raw" && "$4" == "-L" ]]; then
+                            echo "Chain OUTPUT (policy ACCEPT 0 packets, 0 bytes)"
+                            echo "Chain PREROUTING (policy ACCEPT 0 packets, 0 bytes)"
+                        fi
+                        ;;
+                esac
+                return 0
+            }
+            iptables() { mock_iptables_no_rules "$@"; }
+            NETWORKCTL_RELOAD_CMD="true"
+            When call cleanup_iptables_and_dns
+            The status should be success
+            The stdout should include "Cleaning up any existing localdns iptables rules..."
+            The stdout should include "No existing localdns iptables rules found."
+        End
+
+        It 'should return failure if network reload fails'
+            iptables() { mock_iptables "$@"; }
+            NETWORK_DROPIN_FILE="/tmp/test-network-dropin.conf"
+            touch "$NETWORK_DROPIN_FILE"
+            NETWORKCTL_RELOAD_CMD="false"
+            When call cleanup_iptables_and_dns
+            The status should be failure
+            The output should include "Failed to reload network after removing the DNS configuration."
+        End
+
+        It 'should return success if no network file exists'
+            # Mock iptables to return no localdns rules (empty output except for chain headers)
+            mock_iptables_no_rules() {
+                case "$1" in
+                    "-w")
+                        if [[ "$2" == "-t" && "$3" == "raw" && "$4" == "-L" ]]; then
+                            echo "Chain OUTPUT (policy ACCEPT 0 packets, 0 bytes)"
+                            echo "Chain PREROUTING (policy ACCEPT 0 packets, 0 bytes)"
+                        elif [[ "$2" == "-t" && "$3" == "raw" && "$4" == "-L" && "$5" == "OUTPUT" ]]; then
+                            # Empty output for chain-specific listing
+                            return 0
+                        elif [[ "$2" == "-t" && "$3" == "raw" && "$4" == "-L" && "$5" == "PREROUTING" ]]; then
+                            # Empty output for chain-specific listing
+                            return 0
+                        fi
+                        ;;
+                esac
+                return 0
+            }
+            iptables() { mock_iptables_no_rules "$@"; }
+            NETWORK_DROPIN_FILE="/tmp/nonexistent-file.conf"
+            When call cleanup_iptables_and_dns
+            The status should be success
+            The stdout should include "No existing localdns iptables rules found."
+        End
+    End
+
+
 # This section tests - cleanup_localdns_configs
 # These functions is defined in parts/linux/cloud-init/artifacts/localdns.sh file.
 #------------------------------------------------------------------------------------------------------------------------------------
@@ -518,10 +655,6 @@ EOF
             IPTABLES_RULES=("INPUT -p udp --dport 53 -j ACCEPT" "OUTPUT -p udp --sport 53 -j ACCEPT")
             NETWORK_DROPIN_FILE="/tmp/test-network-dropin.conf"
             COREDNS_PID="12345"
-            mock_iptables() {
-                echo "iptables -C $1"
-                return 0
-            }
             Include "./parts/linux/cloud-init/artifacts/localdns.sh"
             LOCALDNS_SHUTDOWN_DELAY=1
         }
@@ -531,47 +664,80 @@ EOF
         BeforeEach 'setup'
         AfterEach 'cleanup'
         #------------------------- cleanup_localdns_configs ------------------------------------------------------------
-        It "should clean up iptables rules"
-            IPTABLES_RULES=(
-            "OUTPUT -p tcp -d 169.254.10.10 --dport 53 -j NOTRACK"
-            "OUTPUT -p udp -d 169.254.10.10 --dport 53 -j NOTRACK"
-            "OUTPUT -p tcp -d 169.254.10.11 --dport 53 -j NOTRACK"
-            "OUTPUT -p udp -d 169.254.10.11 --dport 53 -j NOTRACK"
-            "PREROUTING -p tcp -d 169.254.10.10 --dport 53 -j NOTRACK"
-            "PREROUTING -p udp -d 169.254.10.10 --dport 53 -j NOTRACK"
-            "PREROUTING -p tcp -d 169.254.10.11 --dport 53 -j NOTRACK"
-            "PREROUTING -p udp -d 169.254.10.11 --dport 53 -j NOTRACK"
-            )
-            IPTABLES="mock_iptables"
+        It "should clean up iptables rules via cleanup_iptables_and_dns"
+            # Mock iptables to simulate existing localdns rules
+            mock_iptables() {
+                case "$1" in
+                    "-w")
+                        if [[ "$2" == "-t" && "$3" == "raw" && "$4" == "-L" ]]; then
+                            # Simulate iptables -L output with existing localdns rules
+                            echo "Chain OUTPUT (policy ACCEPT 0 packets, 0 bytes)"
+                            echo " 1     NOTRACK   tcp  --  *      *       0.0.0.0/0            169.254.10.10        tcp dpt:53 /* localdns: skip conntrack */"
+                            echo " 2     NOTRACK   udp  --  *      *       0.0.0.0/0            169.254.10.10        udp dpt:53 /* localdns: skip conntrack */"
+                            echo "Chain PREROUTING (policy ACCEPT 0 packets, 0 bytes)"
+                            echo " 1     NOTRACK   tcp  --  *      *       0.0.0.0/0            169.254.10.10        tcp dpt:53 /* localdns: skip conntrack */"
+                            echo " 2     NOTRACK   udp  --  *      *       0.0.0.0/0            169.254.10.10        udp dpt:53 /* localdns: skip conntrack */"
+                        elif [[ "$2" == "-t" && "$3" == "raw" && "$4" == "-L" && "$5" == "OUTPUT" ]]; then
+                            echo " 1     NOTRACK   tcp  --  *      *       0.0.0.0/0            169.254.10.10        tcp dpt:53 /* localdns: skip conntrack */"
+                            echo " 2     NOTRACK   udp  --  *      *       0.0.0.0/0            169.254.10.10        udp dpt:53 /* localdns: skip conntrack */"
+                        elif [[ "$2" == "-t" && "$3" == "raw" && "$4" == "-L" && "$5" == "PREROUTING" ]]; then
+                            echo " 1     NOTRACK   tcp  --  *      *       0.0.0.0/0            169.254.10.10        tcp dpt:53 /* localdns: skip conntrack */"
+                            echo " 2     NOTRACK   udp  --  *      *       0.0.0.0/0            169.254.10.10        udp dpt:53 /* localdns: skip conntrack */"
+                        elif [[ "$2" == "-t" && "$3" == "raw" && "$4" == "-D" ]]; then
+                            return 0
+                        fi
+                        ;;
+                esac
+                return 0
+            }
+            iptables() { mock_iptables "$@"; }
             When call cleanup_localdns_configs
-            The stdout should include "Successfully removed iptables rule: OUTPUT -p tcp -d 169.254.10.10 --dport 53 -j NOTRACK."
-            The stdout should include "Successfully removed iptables rule: OUTPUT -p udp -d 169.254.10.10 --dport 53 -j NOTRACK."
-            The stdout should include "Successfully removed iptables rule: OUTPUT -p tcp -d 169.254.10.11 --dport 53 -j NOTRACK."
-            The stdout should include "Successfully removed iptables rule: OUTPUT -p udp -d 169.254.10.11 --dport 53 -j NOTRACK."
-            The stdout should include "Successfully removed iptables rule: PREROUTING -p tcp -d 169.254.10.10 --dport 53 -j NOTRACK."
-            The stdout should include "Successfully removed iptables rule: PREROUTING -p udp -d 169.254.10.10 --dport 53 -j NOTRACK."
-            The stdout should include "Successfully removed iptables rule: PREROUTING -p tcp -d 169.254.10.11 --dport 53 -j NOTRACK."
-            The stdout should include "Successfully removed iptables rule: PREROUTING -p udp -d 169.254.10.11 --dport 53 -j NOTRACK."
+            The stdout should include "Cleaning up any existing localdns iptables rules..."
+            The stdout should include "Found existing localdns iptables rules, removing them..."
+            The stdout should include "Successfully removed existing localdns iptables rule from OUTPUT chain"
+            The stdout should include "Successfully removed existing localdns iptables rule from PREROUTING chain"
             The stdout should include "Successfully cleanup localdns related configurations."
         End
 
-        It 'should return failure if iptables rule removal fails'
-            IPTABLES_RULES=("INPUT -p udp --dport 53 -j ACCEPT")
-            IPTABLES="mock_failing_delete_iptables"
-            mock_failing_delete_iptables() {
-                if [[ "$1" == "-C" ]]; then return 0; fi
-                if [[ "$1" == "-D" ]]; then return 1; fi
+        It 'should return failure if cleanup_iptables_and_dns fails'
+            # Mock iptables to simulate failure during rule deletion
+            mock_failing_iptables() {
+                case "$1" in
+                    "-w")
+                        if [[ "$2" == "-t" && "$3" == "raw" && "$4" == "-L" ]]; then
+                            echo "Chain OUTPUT (policy ACCEPT 0 packets, 0 bytes)"
+                            echo " 1     NOTRACK   tcp  --  *      *       0.0.0.0/0            169.254.10.10        tcp dpt:53 /* localdns: skip conntrack */"
+                        elif [[ "$2" == "-t" && "$3" == "raw" && "$4" == "-L" && "$5" == "OUTPUT" ]]; then
+                            echo " 1     NOTRACK   tcp  --  *      *       0.0.0.0/0            169.254.10.10        tcp dpt:53 /* localdns: skip conntrack */"
+                        elif [[ "$2" == "-t" && "$3" == "raw" && "$4" == "-D" ]]; then
+                            return 1  # Simulate failure
+                        fi
+                        ;;
+                esac
+                return 0
             }
+            iptables() { mock_failing_iptables "$@"; }
             When call cleanup_localdns_configs
             The status should be failure
-            The output should include "Failed to remove iptables rule"
+            The output should include "Failed to remove existing localdns iptables rule from OUTPUT chain"
         End
 
         It 'should return success if removing network drop-in file succeeds'
             NETWORKCTL_RELOAD_CMD="true"
             NETWORK_DROPIN_FILE="/tmp/test-network-dropin.conf"
             touch "$NETWORK_DROPIN_FILE"
-            IPTABLES=""
+            # Mock iptables to return no rules found
+            iptables() {
+                case "$1" in
+                    "-w")
+                        if [[ "$2" == "-t" && "$3" == "raw" && "$4" == "-L" ]]; then
+                            echo "Chain OUTPUT (policy ACCEPT 0 packets, 0 bytes)"
+                            echo "Chain PREROUTING (policy ACCEPT 0 packets, 0 bytes)"
+                        fi
+                        ;;
+                esac
+                return 0
+            }
             When call cleanup_localdns_configs
             The status should be success
             The output should include "Reverting DNS configuration by removing"
@@ -583,7 +749,18 @@ EOF
             NETWORK_DROPIN_FILE="/tmp/test-network-dropin.conf"
             touch "$NETWORK_DROPIN_FILE"
             NETWORKCTL_RELOAD_CMD="false"
-            IPTABLES=""
+            # Mock iptables to return no rules found
+            iptables() {
+                case "$1" in
+                    "-w")
+                        if [[ "$2" == "-t" && "$3" == "raw" && "$4" == "-L" ]]; then
+                            echo "Chain OUTPUT (policy ACCEPT 0 packets, 0 bytes)"
+                            echo "Chain PREROUTING (policy ACCEPT 0 packets, 0 bytes)"
+                        fi
+                        ;;
+                esac
+                return 0
+            }
             When call cleanup_localdns_configs
             The status should be failure
             The output should include "Reverting DNS configuration by removing"
@@ -594,7 +771,18 @@ EOF
             COREDNS_PID=$$
             kill() { return 1; }  # override kill
             ps() { return 0; }    # simulate process exists
-            IPTABLES=""
+            # Mock iptables to return no rules found
+            iptables() {
+                case "$1" in
+                    "-w")
+                        if [[ "$2" == "-t" && "$3" == "raw" && "$4" == "-L" ]]; then
+                            echo "Chain OUTPUT (policy ACCEPT 0 packets, 0 bytes)"
+                            echo "Chain PREROUTING (policy ACCEPT 0 packets, 0 bytes)"
+                        fi
+                        ;;
+                esac
+                return 0
+            }
             When call cleanup_localdns_configs
             The status should be failure
             The output should include "Sleeping ${LOCALDNS_SHUTDOWN_DELAY} seconds to allow connections to terminate."
@@ -606,7 +794,18 @@ EOF
             ps() { return 0; }
             kill() { return 0; }
             wait() { return 1; }
-            IPTABLES=""
+            # Mock iptables to return no rules found
+            iptables() {
+                case "$1" in
+                    "-w")
+                        if [[ "$2" == "-t" && "$3" == "raw" && "$4" == "-L" ]]; then
+                            echo "Chain OUTPUT (policy ACCEPT 0 packets, 0 bytes)"
+                            echo "Chain PREROUTING (policy ACCEPT 0 packets, 0 bytes)"
+                        fi
+                        ;;
+                esac
+                return 0
+            }
             When call cleanup_localdns_configs
             The status should be failure
             The output should include "Successfully sent SIGINT to localdns."
@@ -618,7 +817,18 @@ EOF
             ps() { return 0; }
             kill() { return 0; }
             wait() { return 0; }
-            IPTABLES=""
+            # Mock iptables to return no rules found
+            iptables() {
+                case "$1" in
+                    "-w")
+                        if [[ "$2" == "-t" && "$3" == "raw" && "$4" == "-L" ]]; then
+                            echo "Chain OUTPUT (policy ACCEPT 0 packets, 0 bytes)"
+                            echo "Chain PREROUTING (policy ACCEPT 0 packets, 0 bytes)"
+                        fi
+                        ;;
+                esac
+                return 0
+            }
             When call cleanup_localdns_configs
             The status should be success
             The output should include "Successfully sent SIGINT to localdns."
@@ -631,7 +841,18 @@ EOF
                 if [[ "$1" == "link" && "$2" == "show" ]]; then return 0; fi
                 if [[ "$1" == "link" && "$2" == "del" ]]; then return 1; fi
             }
-            IPTABLES=""
+            # Mock iptables to return no rules found
+            iptables() {
+                case "$1" in
+                    "-w")
+                        if [[ "$2" == "-t" && "$3" == "raw" && "$4" == "-L" ]]; then
+                            echo "Chain OUTPUT (policy ACCEPT 0 packets, 0 bytes)"
+                            echo "Chain PREROUTING (policy ACCEPT 0 packets, 0 bytes)"
+                        fi
+                        ;;
+                esac
+                return 0
+            }
             When call cleanup_localdns_configs
             The status should be failure
             The output should include "Failed to remove localdns dummy interface."
@@ -642,7 +863,18 @@ EOF
                 if [[ "$1" == "link" && "$2" == "show" ]]; then return 0; fi
                 if [[ "$1" == "link" && "$2" == "del" ]]; then return 0; fi
             }
-            IPTABLES=""
+            # Mock iptables to return no rules found
+            iptables() {
+                case "$1" in
+                    "-w")
+                        if [[ "$2" == "-t" && "$3" == "raw" && "$4" == "-L" ]]; then
+                            echo "Chain OUTPUT (policy ACCEPT 0 packets, 0 bytes)"
+                            echo "Chain PREROUTING (policy ACCEPT 0 packets, 0 bytes)"
+                        fi
+                        ;;
+                esac
+                return 0
+            }
             When call cleanup_localdns_configs
             The status should be success
             The output should include "Successfully removed localdns dummy interface."
@@ -650,7 +882,18 @@ EOF
         End
 
         It 'should return success if none of the objects are present'
-            IPTABLES=""
+            # Mock iptables to return no rules found
+            iptables() {
+                case "$1" in
+                    "-w")
+                        if [[ "$2" == "-t" && "$3" == "raw" && "$4" == "-L" ]]; then
+                            echo "Chain OUTPUT (policy ACCEPT 0 packets, 0 bytes)"
+                            echo "Chain PREROUTING (policy ACCEPT 0 packets, 0 bytes)"
+                        fi
+                        ;;
+                esac
+                return 0
+            }
             When call cleanup_localdns_configs
             The status should be success
             The output should include "Successfully cleanup localdns related configurations."

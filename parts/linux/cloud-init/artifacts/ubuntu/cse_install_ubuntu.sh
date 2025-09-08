@@ -103,8 +103,8 @@ installCredentialProviderFromPMC() {
 
 installKubeletKubectlPkgFromPMC() {
     k8sVersion="${1}"
-    installPkgWithAptGet "kubelet" "${k8sVersion}" || exit $ERR_KUBELET_INSTALL_TIMEOUT
-    installPkgWithAptGet "kubectl" "${k8sVersion}" || exit $ERR_KUBECTL_INSTALL_TIMEOUT
+    installPkgWithAptGet "kubelet" "${k8sVersion}" || exit $ERR_KUBELET_INSTALL_FAIL
+    installPkgWithAptGet "kubectl" "${k8sVersion}" || exit $ERR_KUBECTL_INSTALL_FAIL
 }
 
 installPkgWithAptGet() {
@@ -117,14 +117,19 @@ installPkgWithAptGet() {
     debFile=$(find "${downloadDir}" -maxdepth 1 -name "${packagePrefix}" -print -quit 2>/dev/null) || debFile=""
     if [ -z "${debFile}" ]; then
         # query all package versions and get the latest version for matching k8s version
-        fullPackageVersion=$(apt list ${packageName} --all-versions | grep ${packageVersion}- | awk '{print $2}' | sort -V | tail -n 1)
+        updateAptWithMicrosoftPkg
+        fullPackageVersion=$(apt list ${packageName} --all-versions | grep ${k8sVersion}- | awk '{print $2}' | sort -V | tail -n 1)
+        if [ -z "${fullPackageVersion}" ]; then
+            echo "Failed to find valid ${packageName} version for ${k8sVersion}"
+            exit 1
+        fi
         echo "Did not find cached deb file, downloading ${packageName} version ${fullPackageVersion}"
         logs_to_events "AKS.CSE.install${packageName}PkgFromPMC.downloadPkgFromVersion" "downloadPkgFromVersion ${packageName} ${fullPackageVersion} ${downloadDir}"
         debFile=$(find "${downloadDir}" -maxdepth 1 -name "${packagePrefix}" -print -quit 2>/dev/null) || debFile=""
     fi
     if [ -z "${debFile}" ]; then
         echo "Failed to locate ${packageName} deb"
-        exit $ERR_APT_INSTALL_TIMEOUT
+        exit 1
     fi
 
     logs_to_events "AKS.CSE.install${packageName}.installDebPackageFromFile" "installDebPackageFromFile ${debFile}" || exit $ERR_APT_INSTALL_TIMEOUT
@@ -139,7 +144,6 @@ downloadPkgFromVersion() {
     packageVersion="${2:-}"
     downloadDir="${3:-"/opt/${packageName}/downloads"}"
     mkdir -p ${downloadDir}
-    updateAptWithMicrosoftPkg
     apt_get_download 20 30 ${packageName}=${packageVersion} || exit $ERR_APT_INSTALL_TIMEOUT
     cp -al ${APT_CACHE_DIR}${packageName}_${packageVersion}* ${downloadDir}/ || exit $ERR_APT_INSTALL_TIMEOUT
     echo "Succeeded to download ${packageName} version ${packageVersion}"

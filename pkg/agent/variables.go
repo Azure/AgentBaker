@@ -102,6 +102,11 @@ func getCSECommandVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 		windowsProfile = &datamodel.WindowsProfile{}
 	}
 
+	agentPoolProfileWindows := profile.GetAgentPoolWindowsProfile()
+	if agentPoolProfileWindows == nil {
+		agentPoolProfileWindows = &datamodel.AgentPoolWindowsProfile{}
+	}
+
 	return map[string]interface{}{
 		"tenantID":                             config.TenantID,
 		"subscriptionId":                       config.SubscriptionID,
@@ -140,6 +145,8 @@ func getCSECommandVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 		"windowsCSEScriptsPackageURL":          windowsProfile.CseScriptsPackageURL,
 		"isDisableWindowsOutboundNat":          strconv.FormatBool(config.AgentPoolProfile.IsDisableWindowsOutboundNat()),
 		"isSkipCleanupNetwork":                 strconv.FormatBool(config.AgentPoolProfile.IsSkipCleanupNetwork()),
+		"nextGenNetworkingEnabled":             strconv.FormatBool(agentPoolProfileWindows.IsNextGenNetworkingEnabled()),
+		"nextGenNetworkingConfig":              agentPoolProfileWindows.GetNextGenNetworkingConfig(),
 	}
 }
 

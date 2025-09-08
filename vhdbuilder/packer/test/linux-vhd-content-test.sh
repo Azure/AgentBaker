@@ -117,20 +117,40 @@ validateDownloadPackage() {
 }
 
 validateOrasOCIArtifact() {
-  local downloadURL=$1
+  local referenceByTag=$1
   local downloadedPackage=$2
-  echo "Validating package $downloadURL from registry and downloaded package $downloadedPackage"
+  local testDescription=$3
+  echo "Validating package $referenceByTag from registry and downloaded package $downloadedPackage"
 
-  # Fetch the manifest and extract the size using jq
-  fileSizeInRegistry=$(oras manifest fetch --registry-config ${ORAS_REGISTRY_CONFIG_FILE} "$downloadURL" | jq '.layers[0].size')
-  
+  # Fetch the manifest and extract the size and digest using jq
+  manifest_json=$(oras manifest fetch --registry-config ${ORAS_REGISTRY_CONFIG_FILE} "$referenceByTag")
+  fileSizeInRegistry=$(echo "$manifest_json" | jq '.layers[0].size')
+  layerDigestInRegistry=$(echo "$manifest_json" | jq -r '.layers[0].digest')
+
   # Get the size of the downloaded package
   fileSizeDownloaded=$(wc -c "$downloadedPackage" | awk '{print $1}' | tr -d '\r')
-  
+
   # Compare the sizes
   if [ "$fileSizeInRegistry" != "$fileSizeDownloaded" ]; then
-    echo "Error: File size mismatch. Expected $fileSizeInRegistry, but got $fileSizeDownloaded."
+    err $testDescription "File size of ${downloadedPackage} from ${referenceByTag} is invalid. Expected file size: ${fileSizeInRegistry} - downloaded file size: ${fileSizeDownloaded}"
     return 1
+  fi
+  # Compare the digests
+  if [ "${layerDigestInRegistry#sha}" != "$layerDigestInRegistry" ]; then
+    # Only check digest if it starts with 'sha', blake3 not supported
+    algo_and_digest=${layerDigestInRegistry%%:*}
+    digest_value=${layerDigestInRegistry#*:}
+    algo=${algo_and_digest#sha}
+    digest_tool="sha${algo}sum"
+    if command -v "$digest_tool" >/dev/null 2>&1; then
+      computedDigest=$($digest_tool "$downloadedPackage" | awk '{print $1}')
+      if [ "$computedDigest" != "$digest_value" ]; then
+        err $testDescription "Digest of ${downloadedPackage} from ${referenceByTag} is invalid. Expected digest: ${digest_value} - computed digest: ${computedDigest}"
+        return 1
+      fi
+    else
+      echo "$digest_tool not available, skipping digest check."
+    fi
   fi
 
   echo "Package validated successfully."
@@ -149,9 +169,8 @@ testAcrCredentialProviderInstalled() {
     # if currentDownloadURL is mcr.microsoft.com/oss/binaries/kubernetes/azure-acr-credential-provider:v1.30.0-linux-amd64,
     # then downloadLocation should be /opt/credentialprovider/downloads/azure-acr-credential-provider-linux-amd64-v1.30.0.tar.gz
     downloadLocation="/opt/credentialprovider/downloads/azure-acr-credential-provider-linux-${CPU_ARCH}-${version}.tar.gz"
-    validateOrasOCIArtifact $currentDownloadURL $downloadLocation
+    validateOrasOCIArtifact $currentDownloadURL $downloadLocation $test
     if [ "$?" -ne 0 ]; then
-      err $test "File size of ${downloadLocation} from ${currentDownloadURL} is invalid. Expected file size: ${fileSizeInRepo} - downloaded file size: ${fileSizeDownloaded}"
       continue
     fi
   done
@@ -1550,15 +1569,8 @@ testFileOwnership() {
   local test="testFileOwnership"
   echo "$test: Start"
 
-  os_sku="${1}"
-
   # Find files with numeric UIDs or GIDs.
   local files_with_numeric_ownership=$(find /usr -xdev \( -nouser -o -nogroup \) -exec stat --format '%u %g %n' {} \;)
-  # skip scanning /usr/libexec/dbus-daemon-launch-helper on Flatcar
-  # TODO: Group needs to be fixed in immutable part of the image
-  if [ "$os_sku" = "Flatcar" ]; then
-    files_with_numeric_ownership=$(echo "$files_with_numeric_ownership" | grep -v "/usr/libexec/dbus-daemon-launch-helper")
-  fi
 
   if [ -n "$files_with_numeric_ownership" ]; then
     err "$test: File ownership test failed. Files with numeric ownership found:"

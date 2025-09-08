@@ -91,4 +91,19 @@ dnf_update() {
   done
   echo Executed dnf update -y --refresh $i times
 }
+
+tdnf_update() {
+  retries=10
+  tdnf_update_output=/tmp/tdnf-update.out
+  for i in $(seq 1 $retries); do
+    ! (tdnf update -y --refresh 2>&1 | tee $tdnf_update_output | grep -E "^([WE]:.*)|([eE]rr.*)$") && \
+    cat $tdnf_update_output && break || \
+    cat $tdnf_update_output
+    if [ $i -eq $retries ]; then
+      return 1
+    else sleep 5
+    fi
+  done
+  echo Executed tdnf update -y --refresh $i times
+}
 #EOF

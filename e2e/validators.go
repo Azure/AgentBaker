@@ -126,6 +126,19 @@ func ValidateFileDoesNotExist(ctx context.Context, s *Scenario, fileName string)
 	}
 }
 
+func ValidateFileIsRegularFile(ctx context.Context, s *Scenario, fileName string) {
+	s.T.Helper()
+
+	steps := []string{
+		"set -ex",
+		fmt.Sprintf("stat --printf=%%F %s | grep 'regular file'", fileName),
+	}
+
+	if execScriptOnVMForScenario(ctx, s, strings.Join(steps, "\n")).exitCode != "0" {
+		s.T.Fatalf("expected %s to be a regular file, but it is not", fileName)
+	}
+}
+
 func fileExist(ctx context.Context, s *Scenario, fileName string) bool {
 	s.T.Helper()
 	if s.IsWindows() {
@@ -144,7 +157,6 @@ func fileExist(ctx context.Context, s *Scenario, fileName string) bool {
 		execResult := execScriptOnVMForScenario(ctx, s, strings.Join(steps, "\n"))
 		return execResult.exitCode == "0"
 	}
-
 }
 
 func fileHasContent(ctx context.Context, s *Scenario, fileName string, contents string) bool {
@@ -168,7 +180,6 @@ func fileHasContent(ctx context.Context, s *Scenario, fileName string, contents 
 		execResult := execScriptOnVMForScenario(ctx, s, strings.Join(steps, "\n"))
 		return execResult.exitCode == "0"
 	}
-
 }
 
 func ValidateFileHasContent(ctx context.Context, s *Scenario, fileName string, contents string) {
@@ -552,7 +563,6 @@ func ValidateNPDGPUCountCondition(ctx context.Context, s *Scenario) {
 		}
 
 		return false, nil // Continue polling until the condition is found or timeout occurs
-
 	})
 	require.NoError(s.T, err, "timed out waiting for NoGPUMissing condition to appear on node %q", s.Runtime.KubeNodeName)
 
@@ -603,9 +613,80 @@ func ValidateNPDGPUCountAfterFailure(ctx context.Context, s *Scenario) {
 		"set -ex",
 		"cat /tmp/npd_test_disabled_pci_id | sudo tee /sys/bus/pci/drivers/nvidia/bind",
 		"rm -f /tmp/npd_test_disabled_pci_id", // Clean up the temporary file
+		"sudo systemctl start nvidia-persistenced.service || true",
 	}
 	// Put the VM back to the original state, re-enable the GPU.
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to re-enable GPU")
+}
+
+func ValidateNPDIBLinkFlappingCondition(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	// Wait for the NPD to report initial IB Link Flapping condition
+	var ibLinkFlappingCondition *corev1.NodeCondition
+	err := wait.PollUntilContextTimeout(ctx, 5*time.Second, 3*time.Minute, true, func(ctx context.Context) (bool, error) {
+		node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.KubeNodeName, metav1.GetOptions{})
+		if err != nil {
+			s.T.Logf("Failed to get node %q: %v", s.Runtime.KubeNodeName, err)
+			return false, nil // Continue polling on transient errors
+		}
+
+		// Check for IBLinkFlapping condition with correct reason
+		for i := range node.Status.Conditions {
+			if node.Status.Conditions[i].Type == "IBLinkFlapping" && node.Status.Conditions[i].Reason == "NoIBLinkFlapping" {
+				ibLinkFlappingCondition = &node.Status.Conditions[i]
+				return true, nil // Found the condition we are looking for
+			}
+		}
+
+		return false, nil // Continue polling until the condition is found or timeout occurs
+	})
+	require.NoError(s.T, err, "timed out waiting for IBLinkFlapping condition with reason NoIBLinkFlapping to appear on node %q", s.Runtime.KubeNodeName)
+
+	require.NotNil(s.T, ibLinkFlappingCondition, "expected to find IBLinkFlapping condition with NoIBLinkFlapping reason on node")
+	require.Equal(s.T, corev1.ConditionFalse, ibLinkFlappingCondition.Status, "expected IBLinkFlapping condition to be False")
+	require.Contains(s.T, ibLinkFlappingCondition.Message, "IB link is stable", "expected IBLinkFlapping message to indicate no flapping")
+}
+
+func ValidateNPDIBLinkFlappingAfterFailure(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	// Simulate IB link flapping
+	command := []string{
+		"set -ex",
+		"echo \"$(date '+%b %d %H:%M:%S') $(hostname) fake error 0: [12346.123456] ib0: lost carrier\" | sudo tee -a /var/log/syslog",
+		"sleep 60",
+		"echo \"$(date '+%b %d %H:%M:%S') $(hostname) fake error 1: [12346.123456] ib0: lost carrier\" | sudo tee -a /var/log/syslog",
+		"sleep 60",
+		"echo \"$(date '+%b %d %H:%M:%S') $(hostname) fake error 2: [12346.123456] ib0: lost carrier\" | sudo tee -a /var/log/syslog",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to simulate IB link flapping")
+
+	// Wait for NPD to detect the change
+	var ibLinkFlappingCondition *corev1.NodeCondition
+	err := wait.PollUntilContextTimeout(ctx, 2*time.Second, 3*time.Minute, true, func(ctx context.Context) (bool, error) {
+		node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.KubeNodeName, metav1.GetOptions{})
+		if err != nil {
+			s.T.Logf("Failed to get node %q: %v", s.Runtime.KubeNodeName, err)
+			return false, nil // Continue polling on transient errors
+		}
+
+		// Check for IBLinkFlapping condition with correct reason
+		for i := range node.Status.Conditions {
+			if node.Status.Conditions[i].Type == "IBLinkFlapping" && node.Status.Conditions[i].Reason == "IBLinkFlapping" {
+				ibLinkFlappingCondition = &node.Status.Conditions[i]
+				return true, nil // Found the condition we are looking for
+			}
+		}
+
+		return false, nil // Continue polling until the condition is found or timeout occurs
+	})
+	require.NoError(s.T, err, "timed out waiting for IBLinkFlapping condition with reason IBLinkFlapping to appear on node %q", s.Runtime.KubeNodeName)
+
+	require.NotNil(s.T, ibLinkFlappingCondition, "expected to find IBLinkFlapping condition with IBLinkFlapping reason on node")
+	require.Equal(s.T, corev1.ConditionTrue, ibLinkFlappingCondition.Status, "expected IBLinkFlapping condition to be True")
+
+	expectedMessage := "check_ib_link_flapping: IB link flapping detected, multiple IB link flapping events within 6 hours. FaultCode: NHC2005"
+	require.Contains(s.T, ibLinkFlappingCondition.Message, expectedMessage, "expected IBLinkFlapping message to indicate flapping")
 }
 
 func ValidateRunc12Properties(ctx context.Context, s *Scenario, versions []string) {
@@ -645,8 +726,8 @@ func ValidateWindowsVersionFromWindowsSettings(ctx context.Context, s *Scenario,
 	podExecResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "could not validate command has parameters - might mean file does not have params, might mean something went wrong")
 	podExecResultStdout := strings.TrimSpace(podExecResult.stdout.String())
 
-	s.T.Logf("Found windows version in windows_settings: %s: %s (%s)", windowsVersion, osMajorVersion, osVersion)
-	s.T.Logf("Windows version returned from VM  %s", podExecResultStdout)
+	s.T.Logf("Found windows version in windows_settings: \"%s\": \"%s\" (\"%s\")", windowsVersion, osMajorVersion, osVersion)
+	s.T.Logf("Windows version returned from VM \"%s\"", podExecResultStdout)
 
 	require.Contains(s.T, podExecResultStdout, osMajorVersion)
 }
@@ -672,7 +753,7 @@ func ValidateWindowsDisplayVersion(ctx context.Context, s *Scenario, displayVers
 	podExecResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "could not validate command has parameters - might mean file does not have params, might mean something went wrong")
 	podExecResultStdout := strings.TrimSpace(podExecResult.stdout.String())
 
-	s.T.Logf("Winddows display version returned from VM  %s. Expected display version %s", podExecResultStdout, displayVersion)
+	s.T.Logf("Windows display version returned from VM \"%s\". Expected display version \"%s\"", podExecResultStdout, displayVersion)
 
 	require.Contains(s.T, podExecResultStdout, displayVersion)
 }
@@ -690,6 +771,60 @@ func ValidateCiliumIsRunningWindows(ctx context.Context, s *Scenario) {
 func ValidateCiliumIsNotRunningWindows(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 	ValidateJsonFileDoesNotHaveField(ctx, s, "/k/azurecni/netconf/10-azure.conflist", "plugins.ipam.type", "azure-cns")
+}
+
+func ValidateWindowsCiliumIsRunning(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	expectedServices := []string{"ebpfcore", "netebpfext", "neteventebpfext", "xdp", "wtc", "hns"}
+	for _, serviceName := range expectedServices {
+		ValidateWindowsServiceIsRunning(ctx, s, serviceName)
+	}
+
+	expectedDlls := []string{"cncapi.dll", "wcnagent.dll"}
+	for _, dllName := range expectedDlls {
+		ValidateDllLoadedWindows(ctx, s, dllName)
+	}
+}
+
+func ValidateWindowsCiliumIsNotRunning(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	// some of the services used by windows cilium are dependencies of other services, so they may be running even if cilium is not
+	// for example, ebpfcore is used by Guest Proxy Agent (GPA), so it may be running even if cilium is not
+	// so, we only check that cilium-specific dlls are not loaded, as that is a stronger indication that cilium is not running
+	unexpectedDlls := []string{"cncapi.dll", "wcnagent.dll"}
+	for _, dllName := range unexpectedDlls {
+		ValidateDllIsNotLoadedWindows(ctx, s, dllName)
+	}
+}
+
+func ValidateDllLoadedWindows(ctx context.Context, s *Scenario, dllName string) {
+	s.T.Helper()
+	if !dllLoadedWindows(ctx, s, dllName) {
+		s.T.Fatalf("expected DLL %s to be loaded, but it is not", dllName)
+	}
+}
+
+func ValidateDllIsNotLoadedWindows(ctx context.Context, s *Scenario, dllName string) {
+	s.T.Helper()
+	if dllLoadedWindows(ctx, s, dllName) {
+		s.T.Fatalf("expected DLL %s to not be loaded, but it is", dllName)
+	}
+}
+
+func dllLoadedWindows(ctx context.Context, s *Scenario, dllName string) bool {
+	s.T.Helper()
+
+	steps := []string{
+		"$ErrorActionPreference = \"Continue\"",
+		fmt.Sprintf("tasklist /m %s", dllName),
+	}
+	execResult := execScriptOnVMForScenario(ctx, s, strings.Join(steps, "\n"))
+	dllLoaded := strings.Contains(execResult.stdout.String(), dllName)
+
+	s.T.Logf("stdout: %s\nstderr: %s", execResult.stdout.String(), execResult.stderr.String())
+	return dllLoaded
 }
 
 func ValidateJsonFileHasField(ctx context.Context, s *Scenario, fileName string, jsonPath string, expectedValue string) {

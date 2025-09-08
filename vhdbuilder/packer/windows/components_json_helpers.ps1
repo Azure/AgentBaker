@@ -5,6 +5,8 @@ function SafeReplaceString {
         $stringToReplace
     )
 
+    # this is a security guard - ensure that only allow-listed variables can be replaced by removing all others.
+    # We run in a sub-shell so clearing all other variables doesn't impact the shell running this code.
     $stringToReplace = &{
         Clear-Variable -Name * -Exclude version,CPU_ARCH,stringToReplace -ErrorAction SilentlyContinue
         $executionContext.InvokeCommand.ExpandString($stringToReplace)
@@ -319,6 +321,27 @@ function GetPatchInfo
     return $patchData
 }
 
+function GetWindowsBaseVersion
+{
+    Param(
+        [Parameter(Mandatory = $true)][String]
+        $windowsSku,
+
+        [Parameter(Mandatory = $true)][Object]
+        $windowsSettingsContent
+    )
+
+
+    $baseVersionBlock = $windowsSettingsContent.WindowsBaseVersions."$windowsSku";
+
+    if ($baseVersionBlock -eq $null) {
+        return ""
+    }
+
+    return $baseVersionBlock.base_image_version
+}
+
+
 function GetWindowsBaseVersions {
     Param(
         [Parameter(Mandatory = $true)][Object]
@@ -359,6 +382,9 @@ function GetAllCachedThings {
     $packages = GetPackagesFromComponentsJson $componentsJsonContent
     $ociArtifacts = GetOCIArtifactsFromComponentsJson $componentsJsonContent
     $regKeys = GetRegKeysToApply $windowsSettingsContent
+    $baseVersion =  GetWindowsBaseVersion -windowsSku $windowsSku -windowsSettingsContent $windowsSettingsContent
+
+    $items += "Windows ${windowsSku} base version: ${baseVersion}"
 
     foreach ($packageName in $packages.keys) {
         foreach ($package in $packages[$packageName]) {

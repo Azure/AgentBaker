@@ -42,9 +42,16 @@ jobs:
           $diffFile = "../diff.md"
           git diff --quiet -- "${DIFF_DIR}"
           if ( $LASTEXITCODE -eq "0" ) {
-            Write-Output "No changes to cached containers or packages on Windows VHDs" > $diffFile
+            # This line is commented out to reduce noise in the PRs
+            # Write-Output "No changes to cached containers or packages on Windows VHDs" > $diffFile
           } else {
-            Write-Output "Changes cached containers or packages on windows VHDs" > $diffFile
+            Write-Output "### Changes cached containers or packages on windows VHDs" > $diffFile
+            Write-Output "Please get a Windows SIG member to approve." >> $diffFile
+            Write-Output "" >> $diffFile
+            Write-Output "The following dif file shows any additions or deletions from what will be cached on windows VHDs organised by VHD type." >> $diffFile
+            Write-Output "* Additions are new things cached." >> $diffFile
+            Write-Output "* Deletions are things no longer cached." >> $diffFile
+            Write-Output "" >> $diffFile
             Write-Output "" >> $diffFile
             Write-Output '```diff' >> $diffFile
             git diff --unified=0 -- "${DIFF_DIR}" >> $diffFile
