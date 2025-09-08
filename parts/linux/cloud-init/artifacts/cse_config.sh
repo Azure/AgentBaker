@@ -938,6 +938,24 @@ ensureGPUDrivers() {
     fi
 }
 
+setupAmdAma() {
+    if [ "$(isARM64)" -eq 1 ]; then
+        return
+    fi
+
+    if [ "$OS" = "$AZURELINUX_OS_NAME" ]; then
+        sudo tdnf update -y
+        sudo wget https://packages.microsoft.com/azurelinux/3.0/prod/extended/x86_64/config.repo -O /etc/yum.repos.d/azurelinux-official-extended.repo
+        # Install driver
+        # Install core package
+        # Install device plugin
+        sudo tdnf install -y libzip
+        sudo sh -c "echo 'vm.nr_hugepages=4096' >> /etc/sysctl.conf"
+        sudo sh -c "echo 4096 >> /proc/sys/vm/nr_hugepages"
+        sudo systemctl restart kubelet.service
+    fi
+}
+
 disableSSH() {
     systemctlDisableAndStop ssh || exit $ERR_DISABLE_SSH
 }

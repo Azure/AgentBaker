@@ -66,6 +66,7 @@ func getFuncMapForContainerdConfigTemplate() template.FuncMap {
 		"isKubernetesVersionGe":            helpers.IsKubernetesVersionGe,
 		"getHasDataDir":                    getHasDataDir,
 		"getEnableNvidia":                  getEnableNvidia,
+		"getEnableAmdAma":                  getEnableAmdAma,
 	}
 }
 
@@ -701,6 +702,13 @@ func getGPUNeedsFabricManager(vmSize string) bool {
 func getEnableNvidia(config *aksnodeconfigv1.Configuration) bool {
 	if config.GpuConfig != nil && config.GpuConfig.EnableNvidia != nil {
 		return *config.GpuConfig.EnableNvidia
+	}
+	return false
+}
+
+func getEnableAmdAma(config *aksnodeconfigv1.Configuration) bool {
+	if config.GpuConfig != nil && config.GpuConfig.EnableAmdAma != nil {
+		return *config.GpuConfig.EnableAmdAma
 	}
 	return false
 }

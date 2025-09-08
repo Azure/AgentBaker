@@ -36,6 +36,8 @@ type GpuConfig struct {
 	GpuInstanceProfile string `protobuf:"bytes,4,opt,name=gpu_instance_profile,json=gpuInstanceProfile,proto3" json:"gpu_instance_profile,omitempty"`
 	// Same as enable_nvidia, but for AMD GPUs.
 	EnableAmdGpu *bool `protobuf:"varint,5,opt,name=enable_amd_gpu,json=enableAmdGpu,proto3,oneof" json:"enable_amd_gpu,omitempty"`
+	// Same as enable_nvidia, but for AMD AMA GPUs.
+	EnableAmdAma *bool `protobuf:"varint,6,opt,name=enable_amdama,json=enableAmdAma,proto3,oneof" json:"enable_amdama,omitempty"`
 }
 
 func (x *GpuConfig) Reset() {
@@ -71,6 +73,13 @@ func (*GpuConfig) Descriptor() ([]byte, []int) {
 func (x *GpuConfig) GetEnableNvidia() bool {
 	if x != nil && x.EnableNvidia != nil {
 		return *x.EnableNvidia
+	}
+	return false
+}
+
+func (x *GpuConfig) GetEnableAmdAma() bool {
+	if x != nil && x.EnableAmdAma != nil {
+		return *x.EnableAmdAma
 	}
 	return false
 }
