@@ -300,6 +300,10 @@ EOF
     # Call enableLocalDNS to enable localdns if localdns profile has EnableLocalDNS set to true.
     logs_to_events "AKS.CSE.enableLocalDNS" enableLocalDNS || exit $?
 
+    if [ "${SHOULD_ENABLE_LOCALDNS}" = "true" ]; then
+        logs_to_events "AKS.CSE.shouldEnableLocalDNS" shouldEnableLocalDNS || exit $ERR_LOCALDNS_FAIL
+    fi
+
     if [ "${ID}" != "mariner" ] && [ "${ID}" != "azurelinux" ]; then
         echo "Recreating man-db auto-update flag file and kicking off man-db update process at $(date)"
         createManDbAutoUpdateFlagFile

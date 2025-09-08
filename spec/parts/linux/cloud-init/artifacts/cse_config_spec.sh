@@ -503,6 +503,69 @@ Describe 'cse_config.sh'
         End
     End
 
+    Describe 'shouldEnableLocalDNS'
+        setup() {
+            TMP_DIR=$(mktemp -d)
+            LOCALDNS_COREFILE="$TMP_DIR/localdns.corefile"
+            LOCALDNS_SLICEFILE="$TMP_DIR/localdns.slice"
+            LOCALDNS_GENERATED_COREFILE=$(echo "bG9jYWxkbnMgY29yZWZpbGU=") # "localdns corefile" base64
+            LOCALDNS_MEMORY_LIMIT="512M"
+            LOCALDNS_CPU_LIMIT="250%"
+
+            systemctlEnableAndStart() {
+                echo "systemctlEnableAndStart $@"
+                return 0
+            }
+        }
+        cleanup() {
+            rm -rf "$TMP_DIR"
+        }
+        BeforeEach 'setup'
+        AfterEach 'cleanup'
+
+        # Success case. 
+        It 'should enable localdns successfully'
+            When call shouldEnableLocalDNS
+            The status should be success
+            The output should include "localdns should be enabled."
+            The output should include "Enable localdns succeeded."
+        End
+
+        # Corefile file creation.
+        It 'should create localdns.corefile with correct data'
+            When call shouldEnableLocalDNS
+            The status should be success
+            The output should include "localdns should be enabled."
+            The path "$LOCALDNS_COREFILE" should be file
+            The contents of file "$LOCALDNS_COREFILE" should include "localdns corefile"
+            The output should include "localdns should be enabled."
+            The output should include "Enable localdns succeeded."
+        End
+
+        # Corefile already exists (idempotency).
+        It 'should overwrite existing localdns.corefile'
+            echo "wrong data" > "$LOCALDNS_COREFILE"
+            When call shouldEnableLocalDNS
+            The status should be success
+            The path "$LOCALDNS_COREFILE" should be file
+            The contents of file "$LOCALDNS_COREFILE" should include "localdns corefile"
+            The output should include "localdns should be enabled."
+            The output should include "Enable localdns succeeded."
+        End
+
+        # Slice file creation.
+        It 'should create localdns.slice with correct CPU and Memory limits'
+            When call shouldEnableLocalDNS
+            The status should be success
+            The output should include "localdns should be enabled."
+            The path "$LOCALDNS_SLICEFILE" should be file
+            The contents of file "$LOCALDNS_SLICEFILE" should include "MemoryMax=${LOCALDNS_MEMORY_LIMIT}"
+            The contents of file "$LOCALDNS_SLICEFILE" should include "CPUQuota=${LOCALDNS_CPU_LIMIT}"
+            The output should include "localdns should be enabled."
+            The output should include "Enable localdns succeeded."
+        End
+    End
+
     Describe 'configureAndStartSecureTLSBootstrapping'
         SECURE_TLS_BOOTSTRAPPING_DROP_IN="secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf"
         API_SERVER_NAME="fqdn"

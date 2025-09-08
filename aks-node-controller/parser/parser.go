@@ -167,6 +167,10 @@ func getCSEEnv(config *aksnodeconfigv1.Configuration) map[string]string {
 		"ENABLE_IMDS_RESTRICTION":                        fmt.Sprintf("%v", config.GetImdsRestrictionConfig().GetEnableImdsRestriction()),
 		"INSERT_IMDS_RESTRICTION_RULE_TO_MANGLE_TABLE":   fmt.Sprintf("%v", config.GetImdsRestrictionConfig().GetInsertImdsRestrictionRuleToMangleTable()),
 		"PRE_PROVISION_ONLY":                             fmt.Sprintf("%v", config.GetPreProvisionOnly()),
+		"SHOULD_ENABLE_LOCALDNS":                         shouldEnableLocalDNS(config),
+		"LOCALDNS_CPU_LIMIT":                             getLocalDNSCPULimitInPercentage(config),
+		"LOCALDNS_MEMORY_LIMIT":                          getLocalDNSMemoryLimitInMB(config),
+		"LOCALDNS_GENERATED_COREFILE":                    getLocalDNSCorefileBase64(config),
 	}
 
 	for i, cert := range config.CustomCaCerts {

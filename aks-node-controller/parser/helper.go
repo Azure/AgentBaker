@@ -50,6 +50,13 @@ var (
 	containerdConfigNoGPUTemplate = template.Must(
 		template.New("nogpucontainerdconfig").Funcs(getFuncMapForContainerdConfigTemplate()).Parse(containerdConfigNoGPUTemplateText),
 	)
+
+	//go:embed templates/localdns.toml.gtpl
+	localDNSCorefileTemplateText string
+	//nolint:gochecknoglobals
+	localDNSCorefileTemplate = template.Must(
+		template.New("localdnscorefile").Funcs(getFuncMapForLocalDNSCorefileTemplate()).Parse(localDNSCorefileTemplateText),
+	)
 )
 
 func getFuncMap() template.FuncMap {
@@ -710,3 +717,106 @@ func removeNewlines(str string) string {
 	sanitizedStr = strings.ReplaceAll(sanitizedStr, "\r", "")
 	return sanitizedStr
 }
+
+// ---------------------- Start of localdns related helper code ----------------------//
+
+// FuncMap used for generating localdns corefile.
+// NodeListenerIP, ClusterListenerIP, AzureDNSIP and CoreDNSServiceIP have their place holder in
+// localdns.toml.gtpl template and will be replaced by the values returned from these functions.
+func getFuncMapForLocalDNSCorefileTemplate() template.FuncMap {
+	return template.FuncMap{
+		"hasSuffix":         strings.HasSuffix,
+		"NodeListenerIP":    getLocalDNSNodeListenerIP,
+		"ClusterListenerIP": getLocalDNSClusterListenerIP,
+		"AzureDNSIP":        getAzureDNSIP,
+		"CoreDNSServiceIP":  getCoreDNSServiceIP,
+	}
+}
+
+// getLocalDNSCorefileBase64 returns the base64 encoded LocalDNS corefile.
+// base64 encoded corefile returned from this function will decoded and written
+// to /opt/azure/containers/localdns/localdns.corefile in cse_config.sh
+// and then used by localdns systemd unit to start localdns systemd unit.
+func getLocalDNSCorefileBase64(aksnodeconfig *aksnodeconfigv1.Configuration) string {
+	if aksnodeconfig == nil {
+		return ""
+	}
+	// If LocalDNSProfile is nil or EnableLocalDNS is false, return empty string.
+	// This means localdns is not enabled for the agent pool.
+	// In this case we don't need to generate localdns corefile.
+	if aksnodeconfig.GetLocalDNSProfile() == nil {
+		return ""
+	}
+	if !aksnodeconfig.GetLocalDNSProfile().GetEnableLocalDNS() {
+		return ""
+	}
+
+	localDNSConfig, err := generateLocalDNSCorefileFromAKSNodeConfig(aksnodeconfig)
+	if err != nil {
+		return fmt.Sprintf("error getting localdns corfile from aks node config: %v", err)
+	}
+	return base64.StdEncoding.EncodeToString([]byte(localDNSConfig))
+}
+
+// Corefile is created using localdns.toml.gtpl template and aksnodeconfig values.
+func generateLocalDNSCorefileFromAKSNodeConfig(aksnodeconfig *aksnodeconfigv1.Configuration) (string, error) {
+	var corefileBuffer bytes.Buffer
+	if err := localDNSCorefileTemplate.Execute(&corefileBuffer, aksnodeconfig); err != nil {
+		return "", fmt.Errorf("failed to execute localdns corefile template: %w", err)
+	}
+	return corefileBuffer.String(), nil
+}
+
+// getLocalDNSClusterListenerIP returns APIPA-IP address that will be used in localdns systemd unit.
+func getLocalDNSClusterListenerIP() string {
+	return LocalDNSClusterListenerIP
+}
+
+// getLocalDNSNodeListenerIP returns APIPA-IP address that will be used in localdns systemd unit.
+func getLocalDNSNodeListenerIP() string {
+	return LocalDNSNodeListenerIP
+}
+
+// getAzureDNSIP returns 168.63.129.16 address.
+func getAzureDNSIP() string {
+	return AzureDNSIP
+}
+
+func getCoreDNSServiceIP(aksnodeconfig *aksnodeconfigv1.Configuration) string {
+	if aksnodeconfig != nil && aksnodeconfig.GetClusterConfig() != nil && aksnodeconfig.GetClusterConfig().GetClusterNetworkConfig() != nil {
+		if CoreDNSServiceIP := aksnodeconfig.GetClusterConfig().GetClusterNetworkConfig().GetCoreDnsServiceIP(); CoreDNSServiceIP != "" {
+			return CoreDNSServiceIP
+		}
+	}
+	return DefaultCoreDNSServiceIP
+}
+
+// shouldEnableLocalDNS returns true if aksnodeconfig, LocalDNSProfile is not nil and
+// EnableLocaDNS for the Agentpool is true. EnableLocaDNS boolean value is sent by AKS RP.
+// This will tell if localdns should be enabled for the agent pool or not.
+// If this function returns true only then we generate localdns corefile.
+func shouldEnableLocalDNS(aksnodeconfig *aksnodeconfigv1.Configuration) string {
+	return fmt.Sprintf("%v", aksnodeconfig != nil &&
+		aksnodeconfig.LocalDNSProfile != nil &&
+		aksnodeconfig.LocalDNSProfile.EnableLocalDNS)
+}
+
+// getLocalDNSCPULimitInPercentage returns CPU limit in percentage unit that will be used in localdns systemd unit.
+func getLocalDNSCPULimitInPercentage(aksnodeconfig *aksnodeconfigv1.Configuration) string {
+	if aksnodeconfig.LocalDNSProfile != nil && aksnodeconfig.LocalDNSProfile.CPULimitInMilliCores != nil {
+		// Convert milli-cores to percentage and return as formatted string.
+		return fmt.Sprintf("%.1f%%", float64(*aksnodeconfig.LocalDNSProfile.CPULimitInMilliCores)/10.0)
+	}
+	return DefaultLocalDNSCPULimitInPercentage
+}
+
+// getLocalDNSMemoryLimitInMB returns memory limit in MB that will be used in localdns systemd unit.
+func getLocalDNSMemoryLimitInMB(aksnodeconfig *aksnodeconfigv1.Configuration) string {
+	if aksnodeconfig.LocalDNSProfile != nil && aksnodeconfig.LocalDNSProfile.MemoryLimitInMB != nil {
+		// Return memory limit as a string with "M" suffix.
+		return fmt.Sprintf("%dM", *aksnodeconfig.LocalDNSProfile.MemoryLimitInMB)
+	}
+	return DefaultLocalDNSMemoryLimitInMB
+}
+
+// ---------------------- End of localdns related helper code ----------------------//
