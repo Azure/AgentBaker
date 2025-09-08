@@ -92,7 +92,7 @@ installCriCtlPackage() {
 }
 
 installCredentialProviderFromPMC() {
-    k8sVersion="${1:-"1.32.3"}" # Default 1.32.3 since that is the only version currently published to PMC
+    k8sVersion="${1:-}"
     packageVersion=$(echo $(getLatestVersionForK8sVersion "$k8sVersion" "azure-acr-credential-provider-pmc") | cut -d "-" -f 1 )
     echo "installing azure-acr-credential-provider package version: $packageVersion"
     mkdir -p "${CREDENTIAL_PROVIDER_BIN_DIR}"

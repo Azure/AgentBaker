@@ -816,59 +816,6 @@ getLatestVersionForK8sVersion() {
     local componentName="$2"
 
     COMPONENTS_FILEPATH="/opt/azure/components-test.json"
-
-    tee "${COMPONENTS_FILEPATH}" > /dev/null <<EOF
-{
-    "Packages": [
-        {
-            "name": "azure-acr-credential-provider-pmc",
-            "downloadLocation": "/opt/credentialprovider/downloads",
-            "downloadURIs": {
-                "ubuntu": {
-                    "r2404": {
-                        "versionsV2": [
-                            {
-                                "k8sVersion": "1.32",
-                                "renovateTag": "name=azure-acr-credential-provider, os=ubuntu, release=24.04",
-                                "latestVersion": "1.32.3-ubuntu24.04u4"
-                            }
-                        ]
-                    },
-                    "r2204": {
-                        "versionsV2": [
-                            {
-                                "k8sVersion": "1.32",
-                                "renovateTag": "name=azure-acr-credential-provider, os=ubuntu, release=22.04",
-                                "latestVersion": "1.32.3-ubuntu22.04u4"
-                            }
-                        ]
-                    },
-                    "r2004": {
-                        "versionsV2": [
-                            {
-                                "k8sVersion": "1.32",
-                                "renovateTag": "name=azure-acr-credential-provider, os=ubuntu, release=20.04",
-                                "latestVersion": "1.32.3-ubuntu20.04u4"
-                            }
-                        ]
-                    }
-                },
-                "azurelinux": {
-                    "v3.0": {
-                        "versionsV2": [
-                            {
-                                "k8sVersion": "1.32",
-                                "renovateTag": "name=azure-acr-credential-provider, os=azurelinux, release=3.0",
-                                "latestVersion": "1.32.3-4.azl3"
-                            }
-                        ]
-                    }
-                }
-            }
-        }
-    ]
-}
-EOF
     
     k8sMajorMinorVersion="$(echo "$k8sVersion" | cut -d- -f1 | cut -d. -f1,2)"
 
