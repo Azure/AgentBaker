@@ -36,6 +36,7 @@ replicate_packer_image_version() {
         replication_string+=" --add publishingProfile.targetRegions name=${region} regionalReplicaCount=${replicas} storageAccountType=${STORAGE_ACCOUNT_TYPE}"
     done
 
+    # once we migrate to HCL2 packer templates, this extra step will no longer be needed: https://developer.hashicorp.com/nomad/docs/reference/hcl2/functions/string/split
     command_string="az sig image-version update --subscription ${SUBSCRIPTION_ID} -g ${RESOURCE_GROUP_NAME} -r ${PACKER_GALLERY_NAME} -i ${SIG_IMAGE_NAME} -e ${CAPTURED_SIG_VERSION} $replication_string"
     echo "final replication command string: ${command_string}"
 
