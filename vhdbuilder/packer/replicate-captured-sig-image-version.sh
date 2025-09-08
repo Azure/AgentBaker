@@ -4,10 +4,10 @@ set -euo pipefail
 STORAGE_ACCOUNT_TYPE="Premium_LRS"
 PACKER_GALLERY_NAME="PackerSigGalleryEastUS"
 
-[ -z "${SUBSCRIPTION_ID:-}" ] && echo "SUBSCRIPTION_ID must be set when replicating packer SIG image version" && exit 1
-[ -z "${RESOURCE_GROUP_NAME:-}" ] && echo "RESOURCE_GROUP_NAME must be set when replicating packer SIG image version" && exit 1
-[ -z "${SIG_IMAGE_NAME:-}" ] && echo "SIG_IMAGE_NAME must be set when replicating packer SIG image version" && exit 1
-[ -z "${CAPTURED_SIG_VERSION:-}" ] && echo "CAPTURED_SIG_VERSION must be set when replicating packer SIG image version" && exit 1
+[ -z "${SUBSCRIPTION_ID:-}" ] && echo "SUBSCRIPTION_ID must be set when replicating captured SIG image version" && exit 1
+[ -z "${RESOURCE_GROUP_NAME:-}" ] && echo "RESOURCE_GROUP_NAME must be set when replicating captured SIG image version" && exit 1
+[ -z "${SIG_IMAGE_NAME:-}" ] && echo "SIG_IMAGE_NAME must be set when replicating captured SIG image version" && exit 1
+[ -z "${CAPTURED_SIG_VERSION:-}" ] && echo "CAPTURED_SIG_VERSION must be set when replicating captured SIG image version" && exit 1
 
 replicate_captured_sig_image_version() {
     if [ -z "${REPLICATIONS:-}" ]; then

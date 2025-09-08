@@ -190,7 +190,7 @@ steps:
       SKIP_SCANNING: $(SKIP_SCANNING)
       DRY_RUN: $(DRY_RUN)
 
-  - bash: make -f packer.mk replicate-captured-sig-version
+  - bash: make -f packer.mk replicate-captured-sig-image-version
     condition: ne(variables['REPLICATIONS'], '')
     displayName: Replicate captured SIG image version
     env:
