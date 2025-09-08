@@ -42,3 +42,18 @@ const (
 	defaultNetIpv4NeighDefaultGcThresh2 = 8192
 	defaultNetIpv4NeighDefaultGcThresh3 = 16384
 )
+
+const (
+	// localDnsNodeListenerIp sepcifies nodelistener APIPA-IP used in localdns.
+	localDnsNodeListenerIp string = "169.254.10.10"
+	// localDnsClusterListenerIp sepcifies clusterlistener APIPA-IP used in localdns.
+	localDnsClusterListenerIp string = "169.254.10.11"
+	// defaultCoreDnsServiceIp sepcifies the default coredns service IP.
+	defaultCoreDnsServiceIp string = "10.0.0.10"
+	// azureDnsIp is the default Azure DNS IP used in localdns.
+	azureDnsIp string = "168.63.129.16"
+	// defaultLocalDnsCpuLimitInPercentage sepcifies the default CPU limit used in akslocaldns.
+	defaultLocalDnsCpuLimitInPercentage string = "200.0%"
+	// defaultLocalDnsMemoryLimitInMb sepcifies the default Memory limit used in akslocaldns.
+	defaultLocalDnsMemoryLimitInMb string = "128M"
+)
