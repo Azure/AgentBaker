@@ -25,6 +25,7 @@ SUBSCRIPTION_ID="${SUBSCRIPTION_ID:-$(az account show -o json --query="id" | tr 
 GALLERY_SUBSCRIPTION_ID="${GALLERY_SUBSCRIPTION_ID:-${SUBSCRIPTION_ID}}"
 CREATE_TIME="$(date +%s)"
 STORAGE_ACCOUNT_NAME="aksimages${CREATE_TIME}$RANDOM"
+export E2E_LOCATION="${E2E_LOCATION:-westus3}"
 
 # This variable will only be set if a VHD build is triggered from an official branch
 VHD_BUILD_TIMESTAMP=""
@@ -586,6 +587,7 @@ fi
 # windows_image_version refers to the version from azure gallery
 cat <<EOF > vhdbuilder/packer/settings.json
 {
+  "additional_replication_regions": ${E2E_LOCATION},
   "subscription_id": "${SUBSCRIPTION_ID}",
   "gallery_subscription_id": "${GALLERY_SUBSCRIPTION_ID}",
   "resource_group_name": "${AZURE_RESOURCE_GROUP_NAME}",

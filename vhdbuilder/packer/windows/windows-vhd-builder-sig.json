@@ -50,7 +50,8 @@
                 "image_name": "{{user `sig_image_name`}}",
                 "image_version": "{{user `sig_image_version`}}",
                 "replication_regions": [
-                    "{{user `location`}}"
+                    "{{user `location`}}",
+                    "{{user `additional_replication_regions`}}"
                 ]
             },
             "polling_duration_timeout": "1h",
