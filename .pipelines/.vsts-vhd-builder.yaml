@@ -5,6 +5,8 @@ pr:
     include:
     - master
     - dev
+    - windows/*
+    - official/*
   paths:
     include:
     - schemas
