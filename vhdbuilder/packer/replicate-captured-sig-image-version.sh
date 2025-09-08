@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-STORAGE_ACCOUNT_TYPE="Premium_LRS"
+STORAGE_ACCOUNT_TYPE="Standard_LRS"
 PACKER_GALLERY_NAME="PackerSigGalleryEastUS"
 
 [ -z "${SUBSCRIPTION_ID:-}" ] && echo "SUBSCRIPTION_ID must be set when replicating captured SIG image version" && exit 1
