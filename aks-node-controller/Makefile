@@ -13,4 +13,4 @@ proto-generate:
 .PHONY: proto-lint
 proto-lint:
 	@($(BUF) lint)
-	@($(BUF) breaking --against '../.git#branch=master,subdir=aks-node-controller')
+	@($(BUF) breaking --against "https://github.com/Azure/AgentBaker.git#branch=master,subdir=aks-node-controller")
