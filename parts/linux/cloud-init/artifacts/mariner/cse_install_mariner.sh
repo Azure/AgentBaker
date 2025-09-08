@@ -41,13 +41,25 @@ installDeps() {
     done
 
     # install 2.0 specific packages
-    # apparmor related packages and the blobfuse package are not available in AzureLinux 3.0
+    # the blobfuse package is not available in AzureLinux 3.0
     if [ "$OS_VERSION" = "2.0" ]; then
       for dnf_package in apparmor-parser libapparmor blobfuse; do
         if ! dnf_install 30 1 600 $dnf_package; then
           exit $ERR_APT_INSTALL_TIMEOUT
         fi
       done
+    fi
+
+    # install apparmor related packages in AzureLinux 3.0
+    # apparmor-utils is not installed in VHD as it brings auditd dependency
+    # Only core AppArmor functionality (apparmor-parser, libapparmor) is included
+    if [ "$OS_VERSION" = "3.0" ]; then
+      for dnf_package in apparmor-parser libapparmor; do
+        if ! dnf_install 30 1 600 $dnf_package; then
+          exit $ERR_APT_INSTALL_TIMEOUT
+        fi
+      done
+      systemctl enable apparmor.service
     fi
 }
 

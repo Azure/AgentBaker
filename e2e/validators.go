@@ -999,7 +999,6 @@ func ValidateNodeAdvertisesGPUResources(ctx context.Context, s *Scenario) {
 	s.T.Logf("node %s advertises %d nvidia.com/gpu resources", nodeName, gpuCount)
 }
 
-
 func ValidateGPUWorkloadSchedulable(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 	s.T.Logf("validating that GPU workloads can be scheduled")
@@ -1085,4 +1084,168 @@ fi`)},
 	}
 
 	s.T.Logf("PubkeyAuthentication is properly disabled as expected")
+}
+
+// ValidateSSHServiceDisabled validates that the SSH daemon service is disabled and stopped on the node
+func ValidateSSHServiceDisabled(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	// Use VMSS RunCommand to check SSH service status directly on the node
+	// Ubuntu uses 'ssh' as service name, while AzureLinux and Mariner use 'sshd'
+	runPoller, err := config.Azure.VMSSVM.BeginRunCommand(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, *s.Runtime.VM.VM.InstanceID, armcompute.RunCommandInput{
+		CommandID: to.Ptr("RunShellScript"),
+		Script: []*string{to.Ptr(`#!/bin/bash
+# Determine the correct SSH service name based on the distro
+# Ubuntu uses 'ssh', AzureLinux and Mariner use 'sshd'
+if [ -f /etc/os-release ]; then
+    . /etc/os-release
+    if [[ "$ID" == "ubuntu" ]]; then
+        SSH_SERVICE="ssh"
+    else
+        SSH_SERVICE="sshd"
+    fi
+else
+    # Default to sshd if we can't determine the OS
+    SSH_SERVICE="sshd"
+fi
+
+echo "Detected SSH service name: $SSH_SERVICE"
+
+# Check SSH service status
+status_output=$(systemctl status "$SSH_SERVICE" 2>&1)
+echo "SSH service status output:"
+echo "$status_output"
+
+# Check if the service is inactive (dead) and disabled
+if echo "$status_output" | grep -q "Active: inactive (dead)"; then
+    if echo "$status_output" | grep -q "Loaded:.*disabled"; then
+        echo "SUCCESS: SSH service is disabled and stopped"
+        exit 0
+    else
+        echo "FAILED: SSH service is inactive but not disabled"
+        exit 1
+    fi
+else
+    echo "FAILED: SSH service is not inactive"
+    exit 1
+fi`)},
+	}, nil)
+	require.NoError(s.T, err, "Failed to run command to check SSH service status")
+
+	runResp, err := runPoller.PollUntilDone(ctx, nil)
+	require.NoError(s.T, err, "Failed to complete command to check SSH service status")
+
+	// Parse the response to check the result
+	respJson, err := runResp.MarshalJSON()
+	require.NoError(s.T, err, "Failed to marshal run command response")
+	s.T.Logf("Run command output: %s", string(respJson))
+
+	// Parse the JSON response to extract the output
+	respString := string(respJson)
+
+	// Check if the command execution was successful by looking for our success message in the output
+	if !strings.Contains(respString, "SUCCESS: SSH service is disabled and stopped") {
+		s.T.Fatalf("SSH service is not properly disabled and stopped. Full response: %s", respString)
+	}
+
+	s.T.Logf("SSH service is properly disabled and stopped as expected")
+}
+
+func ValidateNvidiaDCGMExporterSystemDServiceRunning(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	command := []string{
+		"set -ex",
+		// Verify nvidia-dcgm service is running
+		"systemctl is-active nvidia-dcgm",
+		// Verify nvidia-dcgm-exporter service is running
+		"systemctl is-active nvidia-dcgm-exporter",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "Nvidia DCGM Exporter service validation failed")
+}
+
+func ValidateNvidiaDCGMExporterIsScrapable(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	command := []string{
+		"set -ex",
+		// Check if nvidia-dcgm-exporter is scrapable on port 19400
+		"curl -f http://localhost:19400/metrics",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "Nvidia DCGM Exporter is not scrapable on port 19400")
+}
+
+func ValidateNvidiaDCGMExporterScrapeCommonMetric(ctx context.Context, s *Scenario, metric string) {
+	s.T.Helper()
+	command := []string{
+		"set -ex",
+		// Verify the most universal GPU metric is present
+		"curl -s http://localhost:19400/metrics | grep -q '" + metric + "'",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "Nvidia DCGM Exporter is not returning "+metric)
+}
+
+func ValidateMIGModeEnabled(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	s.T.Logf("validating that MIG mode is enabled")
+
+	command := []string{
+		"set -ex",
+		// Grep to verify it contains 'Enabled' - this will fail if MIG is disabled
+		"sudo nvidia-smi --query-gpu=mig.mode.current --format=csv,noheader | grep -i 'Enabled'",
+	}
+	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "MIG mode is not enabled")
+
+	stdout := strings.TrimSpace(execResult.stdout.String())
+	s.T.Logf("MIG mode status: %s", stdout)
+	require.Contains(s.T, stdout, "Enabled", "expected MIG mode to be enabled, but got: %s", stdout)
+	s.T.Logf("MIG mode is enabled")
+}
+
+func ValidateMIGInstancesCreated(ctx context.Context, s *Scenario, migProfile string) {
+	s.T.Helper()
+	s.T.Logf("validating that MIG instances are created with profile %s", migProfile)
+
+	command := []string{
+		"set -ex",
+		// List MIG devices using nvidia-smi
+		"sudo nvidia-smi mig -lgi",
+		// Ensure the output contains the expected MIG profile (will fail if "No MIG-enabled devices found")
+		"sudo nvidia-smi mig -lgi | grep -v 'No MIG-enabled devices found' | grep -q '" + migProfile + "'",
+	}
+	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "MIG instances with profile "+migProfile+" were not found")
+
+	stdout := execResult.stdout.String()
+	require.Contains(s.T, stdout, migProfile, "expected to find MIG profile %s in output, but did not.\nOutput:\n%s", migProfile, stdout)
+	require.NotContains(s.T, stdout, "No MIG-enabled devices found", "no MIG devices were created.\nOutput:\n%s", stdout)
+	s.T.Logf("MIG instances with profile %s are created", migProfile)
+}
+
+// ValidateAppArmorBasic validates that AppArmor is running without requiring aa-status
+func ValidateAppArmorBasic(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	// Check if AppArmor module is enabled in the kernel
+	command := []string{
+		"set -ex",
+		"cat /sys/module/apparmor/parameters/enabled",
+	}
+	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to check AppArmor kernel parameter")
+	stdout := strings.TrimSpace(execResult.stdout.String())
+	require.Equal(s.T, "Y", stdout, "expected AppArmor to be enabled in kernel")
+
+	// Check if apparmor.service is active
+	command = []string{
+		"set -ex",
+		"systemctl is-active apparmor.service",
+	}
+	execResult = execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "apparmor.service is not active")
+	stdout = strings.TrimSpace(execResult.stdout.String())
+	require.Equal(s.T, "active", stdout, "expected apparmor.service to be active")
+
+	// Check if AppArmor is enforcing by checking current process profile
+	command = []string{
+		"set -ex",
+		"cat /proc/self/attr/apparmor/current",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to check AppArmor current profile")
+	// Any output indicates AppArmor is active (profile will be shown)
 }
