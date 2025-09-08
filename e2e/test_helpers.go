@@ -248,7 +248,7 @@ func prepareAKSNode(ctx context.Context, s *Scenario) {
 	require.NoError(s.T, err)
 
 	start := time.Now() // Record the start time
-	createVMSS(ctx, s)
+	vmss := createVMSS(ctx, s)
 
 	err = getCustomScriptExtensionStatus(ctx, s)
 	require.NoError(s.T, err)
@@ -268,8 +268,11 @@ func prepareAKSNode(ctx context.Context, s *Scenario) {
 	if s.Config.PostProvisioningReboot != nil && *s.Config.PostProvisioningReboot {
 		vmssAboutToRebootTime := time.Now() // Record the start time
 		s.T.Log("Rebooting the VMSS VM to complete post-provisioning...")
-		restart, err := config.Azure.VMSS.BeginRestart(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, nil)
+
+		restart, err := config.Azure.VMSSVM.BeginRestart(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, "0", nil)
+		// restart, err := config.Azure.VMSS.BeginRestart(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, nil)
 		require.NoError(s.T, err, "failed to start reboot vmss operation")
+		time.Sleep(60 * time.Second)
 
 		_, err = restart.PollUntilDone(ctx, nil)
 		require.NoError(s.T, err, "failed to reboot VMSSM")
