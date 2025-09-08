@@ -304,8 +304,8 @@ func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
 		config.Config.BlobStorageAccount(),
 	)
 
-	s.T.Logf("Storage account in Azure portal: %s", azurePortalURL)
-	s.T.Logf("##vso[task.logissue type=warning;]%s", azurePortalURL)
+	s.T.Logf("Storage account %s in Azure portal: %s", blobPrefix, azurePortalURL)
+	s.T.Logf("##vso[task.logissue type=warning;]Storage account %s in Azure portal: %s", blobPrefix, azurePortalURL)
 
 	runCommandTimeout := int32((20 * time.Minute).Seconds())
 	s.T.Logf("run command timeout: %d", runCommandTimeout)
