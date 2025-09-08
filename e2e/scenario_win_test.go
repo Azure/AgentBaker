@@ -29,6 +29,13 @@ func Windows2019BootstrapConfigMutator(t *testing.T, configuration *datamodel.No
 	configuration.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = components.RemoveLeadingV(version)
 }
 
+func Windows2025BootstrapConfigMutator(t *testing.T, configuration *datamodel.NodeBootstrappingConfiguration) {
+	// 2025 supported in 1.32+ - a kubelet bug impacts networking in most of 1.32 and 1.33.0, .1
+	version := components.GetKubeletVersionByMinorVersion("v1.33")
+	require.NotEmpty(t, version)
+	configuration.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = components.RemoveLeadingV(version)
+}
+
 func DualStackVMConfigMutator(set *armcompute.VirtualMachineScaleSet) {
 	ip4Config := set.Properties.VirtualMachineProfile.NetworkProfile.NetworkInterfaceConfigurations[0].Properties.IPConfigurations[0]
 
@@ -299,8 +306,8 @@ func Test_Windows2025(t *testing.T) {
 			VHD:             config.VHDWindows2025,
 			VMConfigMutator: EmptyVMConfigMutator,
 			BootstrapConfigMutator: func(configuration *datamodel.NodeBootstrappingConfiguration) {
+				Windows2025BootstrapConfigMutator(t, configuration)
 			},
-
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateWindowsVersionFromWindowsSettings(ctx, s, "2025")
 				ValidateWindowsProductName(ctx, s, "Windows Server 2025 Datacenter")
@@ -320,8 +327,8 @@ func Test_Windows2025Gen2(t *testing.T) {
 			Cluster:         ClusterAzureNetwork,
 			VHD:             config.VHDWindows2025Gen2,
 			VMConfigMutator: EmptyVMConfigMutator,
-			// BootstrapConfigMutator: EmptyBootstrapConfigMutator,
 			BootstrapConfigMutator: func(configuration *datamodel.NodeBootstrappingConfiguration) {
+				Windows2025BootstrapConfigMutator(t, configuration)
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateWindowsVersionFromWindowsSettings(ctx, s, "2025-gen2")
