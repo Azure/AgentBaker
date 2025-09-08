@@ -6,19 +6,19 @@ option go_package = "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aks
 // Represents localdns profile for agentpool.
 message LocalDNSProfile {
   // Specifies if localdns should be enabled or not for the nodepool.
-  bool enable_local_d_n_s = 1;
+  bool enable_local_dns = 1;
 
   // Specifies the CPU limit to be set for localdns systemd unit.
-  optional int32 c_p_u_limit_in_milli_cores = 2;
+  optional int32 cpu_limit_in_milli_cores = 2;
 
   // Specifies the memory limit to be set for localdns systemd unit.
-  optional int32 memory_limit_in_m_b = 3;
+  optional int32 memory_limit_in_mb = 3;
 
   // VnetDNS overrides apply to DNS traffic from pods with dnsPolicy:default or kubelet (referred to as VnetDNS traffic).
-  map<string, LocalDNSOverrides> vnet_d_n_s_overrides = 4;
+  map<string, LocalDNSOverrides> vnet_dns_overrides = 4;
 
   // KubeDNS overrides apply to DNS traffic from pods with dnsPolicy:ClusterFirst (referred to as KubeDNS traffic).
-  map<string, LocalDNSOverrides> kube_d_n_s_overrides = 5;
+  map<string, LocalDNSOverrides> kube_dns_overrides = 5;
 }
 
 // Represents DNS override settings for both VnetDNS and KubeDNS traffic.
