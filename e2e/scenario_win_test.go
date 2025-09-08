@@ -343,7 +343,6 @@ func Test_Windows2025Gen2(t *testing.T) {
 }
 
 func Test_Windows2022Gen2_k8s_133(t *testing.T) {
-	t.Skip("skipping test for Windows 2022 Gen2 with k8s 1.33, as we are verifying a regression fix for 1.31+")
 	RunScenario(t, &Scenario{
 		Description: "Windows Server 2022 with Containerd 2- hyperv gen 2",
 		Config: Config{
@@ -388,13 +387,13 @@ func Test_Windows23H2_Cilium2(t *testing.T) {
 }
 
 func Test_Windows23H2Gen2_WindowsCiliumNetworking(t *testing.T) {
-	t.Skip("skipping test for Windows Cilium Networking, as it requires post-provisioning reboot validation which is not supported yet")
 	RunScenario(t, &Scenario{
 		Description: "Windows Server 23H2 Gen2 with Windows Cilium Networking (WCN) enabled",
 		Config: Config{
-			Cluster:         ClusterAzureNetwork,
-			VHD:             config.VHDWindows23H2Gen2,
-			VMConfigMutator: EmptyVMConfigMutator,
+			PostProvisioningReboot: to.Ptr(true),
+			Cluster:                ClusterAzureNetwork,
+			VHD:                    config.VHDWindows23H2Gen2,
+			VMConfigMutator:        EmptyVMConfigMutator,
 			BootstrapConfigMutator: func(configuration *datamodel.NodeBootstrappingConfiguration) {
 				if configuration.AgentPoolProfile.AgentPoolWindowsProfile == nil {
 					configuration.AgentPoolProfile.AgentPoolWindowsProfile = &datamodel.AgentPoolWindowsProfile{}
