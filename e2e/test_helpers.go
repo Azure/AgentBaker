@@ -267,7 +267,7 @@ func prepareAKSNode(ctx context.Context, s *Scenario) {
 
 	if s.Config.PostProvisioningReboot != nil && *s.Config.PostProvisioningReboot {
 		s.T.Log("Rebooting the VMSS VM to complete post-provisioning...")
-		restart, err := config.Azure.VMSS.BeginRestart(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, options)
+		restart, err := config.Azure.VMSS.BeginRestart(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, nil)
 		require.NoError(s.T, err, "failed to start reboot vmss operation")
 
 		_, err = restart.PollUntilDone(ctx, nil)
