@@ -1,5 +1,5 @@
 #!/bin/bash
-set -euxo pipefail
+set -euo pipefail
 
 STORAGE_ACCOUNT_TYPE="Premium_LRS"
 PACKER_GALLERY_NAME="PackerSigGalleryEastUS"
@@ -19,6 +19,7 @@ replicate_captured_sig_image_version() {
     local replication_string
 
     for replication_target in "${replication_targets[@]}"; do
+        # shellcheck disable=SC3010
         if [[ ! "${replication_target}" =~ ^[^=]+=[0-9]+$ ]]; then
             echo "warning: invalid replication target format: '${replication_target}', expected format: <region>=<replicas>"
             continue
@@ -34,9 +35,9 @@ replicate_captured_sig_image_version() {
 
     # once we migrate to HCL2 packer templates, this extra step will no longer be needed: https://developer.hashicorp.com/nomad/docs/reference/hcl2/functions/string/split
     command_string="az sig image-version update --subscription ${SUBSCRIPTION_ID} -g ${RESOURCE_GROUP_NAME} -r ${PACKER_GALLERY_NAME} -i ${SIG_IMAGE_NAME} -e ${CAPTURED_SIG_VERSION} $replication_string"
-    echo "final replication command string: ${command_string}"
+    echo "will replicate with command: ${command_string}"
 
-    if [ "${DRY_RUN}" = "true" ]; then
+    if [ "${DRY_RUN,,}" = "true" ]; then
         echo "DRY_RUN: exiting without running replication command"
         return 0
     fi
