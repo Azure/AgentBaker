@@ -751,11 +751,11 @@ func getLocalDnsCorefileBase64(aksnodeconfig *aksnodeconfigv1.Configuration) str
 		return ""
 	}
 
-	localDNSConfig, err := generateLocalDnsCorefileFromAKSNodeConfig(aksnodeconfig)
+	localDnsConfig, err := generateLocalDnsCorefileFromAKSNodeConfig(aksnodeconfig)
 	if err != nil {
 		return fmt.Sprintf("error getting localdns corfile from aks node config: %v", err)
 	}
-	return base64.StdEncoding.EncodeToString([]byte(localDNSConfig))
+	return base64.StdEncoding.EncodeToString([]byte(localDnsConfig))
 }
 
 // Corefile is created using localdns.toml.gtpl template and aksnodeconfig values.
