@@ -297,11 +297,12 @@ func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
 	// Invoke the RunCommand on the VMSS instance
 	s.T.Logf("uploading windows logs to blob storage at %s, may take a few minutes", blobUrl)
 
-	// Create a reusable URL for the Azure portal link to the storage account. Do this before the upload in case the upload times out.
-	azurePortalURL := fmt.Sprintf("https://portal.azure.com/?feature.customportal=false#@microsoft.onmicrosoft.com/resource/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Storage/storageAccounts/%s/overview",
+	azurePortalURL := fmt.Sprintf(
+		"https://portal.azure.com/?feature.customportal=false#@microsoft.onmicrosoft.com/resource/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Storage/storageAccounts/%s/containersList",
 		config.Config.SubscriptionID,
 		config.ResourceGroupName(s.Location),
-		config.Config.BlobStorageAccount())
+		config.Config.BlobStorageAccount(),
+	)
 
 	s.T.Logf("Storage account in Azure portal: %s", azurePortalURL)
 	s.T.Logf("##vso[task.logissue type=warning;]%s", azurePortalURL)
