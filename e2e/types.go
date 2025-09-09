@@ -205,7 +205,7 @@ func updateTags(vmss *armcompute.VirtualMachineScaleSet) {
 		vmss.Tags[buildIDTagKey] = &config.Config.BuildID
 	}
 
-	if config.Config.BuildID == "local" {
+	if config.Config.IsLocalBuild() {
 		currentUser, err := user.Current()
 		if err == nil {
 			vmss.Tags["owner"] = to.Ptr(currentUser.Username)

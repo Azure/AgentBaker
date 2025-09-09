@@ -51,12 +51,21 @@ func createVMSS(ctx context.Context, s *Scenario) *armcompute.VirtualMachineScal
 		customData = nodeBootstrapping.CustomData
 	}
 
-	s.T.Logf(
-		"VMSS portal link: https://ms.portal.azure.com/#@microsoft.onmicrosoft.com/resource/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/virtualMachineScaleSets/%s/overview",
-		config.Config.SubscriptionID,
-		*cluster.Model.Properties.NodeResourceGroup,
-		s.Runtime.VMSSName,
-	)
+	// These two links are really for local development
+	if config.Config.IsLocalBuild() {
+		s.T.Logf(
+			"VMSS portal link: https://ms.portal.azure.com/#@microsoft.onmicrosoft.com/resource/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/virtualMachineScaleSets/%s/overview",
+			config.Config.SubscriptionID,
+			*cluster.Model.Properties.NodeResourceGroup,
+			s.Runtime.VMSSName,
+		)
+		s.T.Logf(
+			"Managed cluster portal link: https://ms.portal.azure.com/#@microsoft.onmicrosoft.com/resource/subscriptions/%s/resourceGroups/%s/providers/Microsoft.ContainerService/managedClusters/%s/overview",
+			config.Config.SubscriptionID,
+			*cluster.Model.Properties.NodeResourceGroup,
+			*cluster.Model.Name,
+		)
+	}
 
 	model := getBaseVMSSModel(s, customData, cse, s.Location)
 	if s.Tags.NonAnonymousACR {
