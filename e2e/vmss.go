@@ -51,6 +51,13 @@ func createVMSS(ctx context.Context, s *Scenario) *armcompute.VirtualMachineScal
 		customData = nodeBootstrapping.CustomData
 	}
 
+	s.T.Logf(
+		"VMSS portal link: https://ms.portal.azure.com/#@microsoft.onmicrosoft.com/resource/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/virtualMachineScaleSets/%s/overview",
+		config.Config.SubscriptionID,
+		*cluster.Model.Properties.NodeResourceGroup,
+		s.Runtime.VMSSName,
+	)
+
 	model := getBaseVMSSModel(s, customData, cse, s.Location)
 	if s.Tags.NonAnonymousACR {
 		// add acr pull identity
@@ -85,12 +92,6 @@ func createVMSS(ctx context.Context, s *Scenario) *armcompute.VirtualMachineScal
 	skipTestIfSKUNotAvailableErr(s.T, err)
 	// fail test, but continue to extract debug information
 	require.NoError(s.T, err, "create vmss %q, check %s for vm logs", s.Runtime.VMSSName, testDir(s.T))
-	s.T.Logf(
-		"VMSS portal link: https://ms.portal.azure.com/#@microsoft.onmicrosoft.com/resource/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/virtualMachineScaleSets/%s/overview",
-		config.Config.SubscriptionID,
-		*cluster.Model.Properties.NodeResourceGroup,
-		s.Runtime.VMSSName,
-	)
 
 	return vmss
 }
