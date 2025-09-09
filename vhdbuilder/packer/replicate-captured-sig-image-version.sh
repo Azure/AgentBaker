@@ -1,7 +1,6 @@
 #!/bin/bash
 set -euo pipefail
 
-STORAGE_ACCOUNT_TYPE="Standard_LRS"
 PACKER_GALLERY_NAME="PackerSigGalleryEastUS"
 
 [ -z "${SUBSCRIPTION_ID:-}" ] && echo "SUBSCRIPTION_ID must be set when replicating captured SIG image version" && exit 1
@@ -36,7 +35,7 @@ replicate_captured_sig_image_version() {
         target_regions+=" $replication_target"
     done
 
-    if [ "${updated_packer_build_location_replicas}" != "true" ]; then
+    if [ "${updated_packer_build_location_replicas:-}" != "true" ]; then
         # this is needed since SIG API requires specifying a complete set of replication targets
         # packer, by default, will only create a single replica when publishing the freshly-built image version
         target_regions+=" ${PACKER_BUILD_LOCATION}"
