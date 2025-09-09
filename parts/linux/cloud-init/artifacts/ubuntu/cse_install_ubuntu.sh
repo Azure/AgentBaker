@@ -93,7 +93,14 @@ installCriCtlPackage() {
 
 installCredentialProviderFromPMC() {
     k8sVersion="${1:-}"
-    packageVersion=$(echo $(getLatestVersionForK8sVersion "$k8sVersion" "azure-acr-credential-provider-pmc") | cut -d "-" -f 1 )
+    os=${UBUNTU_OS_NAME}
+    if [ -z "$UBUNTU_RELEASE" ]; then
+        os=${OS}
+        os_version="current"
+    else
+        os_version="${UBUNTU_RELEASE}"
+    fi
+    packageVersion=$(echo $(getLatestVersionForK8sVersion "$k8sVersion" "azure-acr-credential-provider-pmc" "$os_version") | cut -d "-" -f 1 )
     echo "installing azure-acr-credential-provider package version: $packageVersion"
     mkdir -p "${CREDENTIAL_PROVIDER_BIN_DIR}"
     chown -R root:root "${CREDENTIAL_PROVIDER_BIN_DIR}"

@@ -157,15 +157,13 @@ Describe 'cse_helpers.sh'
         It 'returns correct latestVersion for Ubuntu'
             k8sVersion="1.32.3"
             OS="UBUNTU"
-            UBUNTU_RELEASE="22.04"
-            When call getLatestVersionForK8sVersion "$k8sVersion" "fake-azure-acr-credential-provider"
+            When call getLatestVersionForK8sVersion "$k8sVersion" "fake-azure-acr-credential-provider" "22.04"
             The output should equal "1.32.3-ubuntu22.04u4"
         End
         It 'returns correct latestVersion for AzureLinux'
             k8sVersion="1.32.3"
             OS="AZURELINUX"
-            UBUNTU_RELEASE="3.0"
-            When call getLatestVersionForK8sVersion "$k8sVersion"
+            When call getLatestVersionForK8sVersion "$k8sVersion" "fake-azure-acr-credential-provider" "3.0"
             The output should equal '1.32.3-4.azl3'
         End
     End

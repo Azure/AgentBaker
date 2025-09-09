@@ -151,8 +151,15 @@ EOF
 }
 
 installCredentialProviderFromPMC() {
-    k8sVersion="${1:-"1.32.3"}" # Default 1.32.3 since that is the only version currently published to PMC
-    packageVersion="$(getLatestVersionForK8sVersion "$k8sVersion" "azure-acr-credential-provider-pmc")"
+    k8sVersion="${1:-}"
+    os=${AZURELINUX_OS_NAME}
+    if [ -z "$OS_VERSION" ]; then
+        os=${OS}
+        os_version="current"
+    else
+        os_version="${OS_VERSION}"
+    fi
+    packageVersion="$(getLatestVersionForK8sVersion "$k8sVersion" "azure-acr-credential-provider-pmc" "$os_version")"
     mkdir -p "${CREDENTIAL_PROVIDER_BIN_DIR}"
     chown -R root:root "${CREDENTIAL_PROVIDER_BIN_DIR}"
     installRPMPackageFromFile "azure-acr-credential-provider" "${packageVersion}" || exit $ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT

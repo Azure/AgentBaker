@@ -814,16 +814,9 @@ updatePackageDownloadURL() {
 getLatestVersionForK8sVersion() {
     local k8sVersion="$1"
     local componentName="$2"
+    local os_version="$3"
     
     k8sMajorMinorVersion="$(echo "$k8sVersion" | cut -d- -f1 | cut -d. -f1,2)"
-
-    os=${UBUNTU_OS_NAME}
-    if [ -z "$UBUNTU_RELEASE" ]; then
-        os=${OS}
-        os_version="current"
-    else
-        os_version="${UBUNTU_RELEASE}"
-    fi
     
     package=$(jq ".Packages" "$COMPONENTS_FILEPATH" | jq ".[] | select(.name == \"${componentName}\")")
     PACKAGE_VERSIONS=()
