@@ -100,7 +100,7 @@ installCredentialProviderFromPMC() {
     else
         os_version="${UBUNTU_RELEASE}"
     fi
-    packageVersion=$($(getLatestVersionForK8sVersion "$k8sVersion" "azure-acr-credential-provider-pmc" "$os" "$os_version") | cut -d "-" -f 1 )
+    packageVersion=$(getLatestVersionForK8sVersion "$k8sVersion" "azure-acr-credential-provider-pmc" "$os" "$os_version") | cut -d "-" -f 1
     echo "installing azure-acr-credential-provider package version: $packageVersion"
     mkdir -p "${CREDENTIAL_PROVIDER_BIN_DIR}"
     chown -R root:root "${CREDENTIAL_PROVIDER_BIN_DIR}"
