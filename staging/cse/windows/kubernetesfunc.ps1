@@ -30,7 +30,7 @@ function Initialize-DataDirectories {
     # On Windows, Go translates to c:\tmp. If that path doesn't exist, then some node tests fail
 
     Logs-To-Event -TaskName "AKS.WindowsCSE.InitializeDataDirectories" -TaskMessage "Start to create required data directories as needed"
-   
+
     $requiredPaths = 'c:\tmp'
 
     $requiredPaths | ForEach-Object {
@@ -235,11 +235,14 @@ function Get-CACertificates {
         }
 
         $certificates = $caCerts.Certificates
+        Write-Log "#certificates to copy and import: $certificates.Length"
         for ($index = 0; $index -lt $certificates.Length ; $index++) {
             $name=$certificates[$index].Name
             $certFilePath = Join-Path $caFolder $name
             Write-Log "Write certificate $name to $certFilePath"
             $certificates[$index].CertBody > $certFilePath
+            Write-Log "Import certificate $certFilePath to Cert:\LocalMachine\Root"
+            Import-Certificate -FilePath $certFilePath -CertStoreLocation 'Cert:\LocalMachine\Root' -Verbose
         }
     }
     catch {
