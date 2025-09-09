@@ -766,7 +766,7 @@
       "downloadURL": "mcr.microsoft.com/aks/aks-gpu-grid:*",
       "gpuVersion": {
         "renovateTag": "registry=https://mcr.microsoft.com, name=aks/aks-gpu-grid",
-        "latestVersion": "550.144.06-20250609191703"
+          "latestVersion": "550.144.06-20250822192755"
       }
     }
   ],
