@@ -13,7 +13,7 @@ PACKER_GALLERY_NAME="PackerSigGalleryEastUS"
 replicate_captured_sig_image_version() {
     if [ -z "${REPLICATIONS:-}" ]; then
         echo "no replications targets have been specified, exiting without replicating"
-        exit 0
+        return 0
     fi
 
     IFS=',' read -ra replication_targets <<< "${REPLICATIONS}"
@@ -52,8 +52,8 @@ replicate_captured_sig_image_version() {
 
     if ! eval "$command_string"; then
         echo "failed to update SIG image version ${SUBSCRIPTION_ID}/${RESOURCE_GROUP_NAME}/${PACKER_GALLERY_NAME}/${SIG_IMAGE_NAME}/${CAPTURED_SIG_VERSION} with specified replication targets"
-        exit 1
+        return 1
     fi
 }
 
-replicate_captured_sig_image_version
+replicate_captured_sig_image_version || exit $?
