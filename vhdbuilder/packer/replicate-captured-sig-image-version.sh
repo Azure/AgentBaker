@@ -36,7 +36,6 @@ replicate_captured_sig_image_version() {
     done
 
     if [ "${updated_packer_build_location_replicas}" != "true" ]; then
-        echo "adding replication target for packer build location: ${PACKER_BUILD_LOCATION}=1"
         # this is needed since SIG API requires specifying a complete set of replication targets
         # packer, by default, will only create a single replica when publishing the freshly-built image version
         target_regions+=" ${PACKER_BUILD_LOCATION}"
