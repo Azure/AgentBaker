@@ -838,7 +838,7 @@ getLatestVersionForK8sVersion() {
         majorMinorVersion="$(echo "$version" | cut -d- -f1 | cut -d. -f1,2)"
         if [ $majorMinorVersion = $k8sMajorMinorVersion ]; then
             packageVersion=$version
-            return 0
+            break
         fi
     done
     echo $packageVersion
