@@ -534,6 +534,7 @@ func getIsAmdAmaEnabledSKU(vmSize string) bool {
 	}
 	return false
 }
+
 func getShouldConfigureHTTPProxy(httpProxyConfig *aksnodeconfigv1.HttpProxyConfig) bool {
 	return httpProxyConfig.GetHttpProxy() != "" || httpProxyConfig.GetHttpsProxy() != ""
 }
