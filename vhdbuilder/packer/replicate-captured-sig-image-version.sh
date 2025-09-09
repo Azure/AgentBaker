@@ -17,7 +17,7 @@ replicate_captured_sig_image_version() {
     fi
 
     IFS=',' read -ra replication_targets <<< "${REPLICATIONS}"
-    local replication_string
+    local target_regions, updated_packer_build_location_replicas
 
     for replication_target in "${replication_targets[@]}"; do
         # shellcheck disable=SC3010
@@ -25,22 +25,25 @@ replicate_captured_sig_image_version() {
             echo "warning: invalid replication target format: '${replication_target}', expected format: <region>=<replicas>"
             continue
         fi
-
+        
         IFS='=' read -r -a target <<< "${replication_target}"
         region=${target[0]}
-        replicas=${target[1]}
-
         if [ "${region,,}" = "${PACKER_BUILD_LOCATION,,}" ]; then
-            echo "will set existing replication target for ${region} to ${replicas}"
-            replication_string+=" --set publishingProfile.targetRegions[${region}].regionalReplicaCount=${replicas}"
-        else
-            echo "will add replication target: ${region}=${replicas}"
-            replication_string+=" --add publishingProfile.targetRegions name=${region} regionalReplicaCount=${replicas} storageAccountType=${STORAGE_ACCOUNT_TYPE}"
+            updated_packer_build_location_replicas="true"
         fi
+
+        target_regions+=" $replication_target"
     done
 
+    if [ "${updated_packer_build_location_replicas}" != "true" ]; then
+        echo "adding replication target for packer build location: ${PACKER_BUILD_LOCATION}=1"
+        # this is needed since SIG API requires specifying a complete set of replication targets
+        # packer, by default, will only create a single replica when publishing the freshly-built image version
+        target_regions+=" ${PACKER_BUILD_LOCATION}"
+    fi
+
     # once we migrate to HCL2 packer templates, this extra step will no longer be needed: https://developer.hashicorp.com/nomad/docs/reference/hcl2/functions/string/split
-    command_string="az sig image-version update --subscription ${SUBSCRIPTION_ID} -g ${RESOURCE_GROUP_NAME} -r ${PACKER_GALLERY_NAME} -i ${SIG_IMAGE_NAME} -e ${CAPTURED_SIG_VERSION} $replication_string"
+    command_string="az sig image-version update --subscription ${SUBSCRIPTION_ID} -g ${RESOURCE_GROUP_NAME} -r ${PACKER_GALLERY_NAME} -i ${SIG_IMAGE_NAME} -e ${CAPTURED_SIG_VERSION} --target-regions${target_regions}"
     echo "will replicate with command: ${command_string}"
 
     if [ "${DRY_RUN,,}" = "true" ]; then
@@ -49,7 +52,7 @@ replicate_captured_sig_image_version() {
     fi
 
     if ! eval "$command_string"; then
-        echo "failed to update SIG image version ${PACKER_GALLERY_NAME}/${SIG_IMAGE_NAME}/${CAPTURED_SIG_VERSION} with specified replication targets"
+        echo "failed to update SIG image version ${SUBSCRIPTION_ID}/${RESOURCE_GROUP_NAME}/${PACKER_GALLERY_NAME}/${SIG_IMAGE_NAME}/${CAPTURED_SIG_VERSION} with specified replication targets"
         exit 1
     fi
 }
