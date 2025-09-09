@@ -833,15 +833,15 @@ getLatestVersionForK8sVersion() {
     IFS=$'\n' sortedPackageVersions=($(sort -rV <<<"${PACKAGE_VERSIONS[*]}"))
     unset IFS
 
-    packageVersion=${sortedPackageVersions[0]}
+    PACKAGE_VERSION=${sortedPackageVersions[0]}
     for version in "${sortedPackageVersions[@]}"; do
         majorMinorVersion="$(echo "$version" | cut -d- -f1 | cut -d. -f1,2)"
         if [ $majorMinorVersion = $k8sMajorMinorVersion ]; then
-            packageVersion=$version
+            PACKAGE_VERSION=$version
             break
         fi
     done
-    echo $packageVersion
+    echo $PACKAGE_VERSION
 }
 
 # adds the specified LABEL_STRING (which should be in the form of 'label=value') to KUBELET_NODE_LABELS
