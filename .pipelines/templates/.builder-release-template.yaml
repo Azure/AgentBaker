@@ -62,7 +62,7 @@ steps:
       specificBuildWithTriggering: true
       allowPartiallySucceededBuilds: false
       buildVersionToDownload: 'latestFromBranch'
-      branchName: 'refs/heads/master'
+      branchName: 'refs/heads/mheberling/kataBuildRemoveDocker'
       downloadType: 'single'
       artifactName: 'drop_container_job_sign_uvm_azl3'
       itemPattern: |
