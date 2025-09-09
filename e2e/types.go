@@ -3,6 +3,7 @@ package e2e
 import (
 	"context"
 	"fmt"
+	"os/user"
 	"reflect"
 	"strconv"
 	"strings"
@@ -187,19 +188,28 @@ func (s *Scenario) PrepareVMSSModel(ctx context.Context, t *testing.T, vmss *arm
 		ID: to.Ptr(string(resourceID)),
 	}
 
+	updateTags(vmss)
+}
+
+func updateTags(vmss *armcompute.VirtualMachineScaleSet) {
+	if vmss.Tags == nil {
+		vmss.Tags = map[string]*string{}
+	}
+
 	// don't clean up VMSS in other tests
 	if config.Config.KeepVMSS {
-		if vmss.Tags == nil {
-			vmss.Tags = map[string]*string{}
-		}
 		vmss.Tags["KEEP_VMSS"] = to.Ptr("true")
 	}
 
 	if config.Config.BuildID != "" {
-		if vmss.Tags == nil {
-			vmss.Tags = map[string]*string{}
-		}
 		vmss.Tags[buildIDTagKey] = &config.Config.BuildID
+	}
+
+	if config.Config.BuildID == "local" {
+		currentUser, err := user.Current()
+		if err == nil {
+			vmss.Tags["owner"] = to.Ptr(currentUser.Username)
+		}
 	}
 }
 
