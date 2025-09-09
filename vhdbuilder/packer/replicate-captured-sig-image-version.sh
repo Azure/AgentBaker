@@ -8,6 +8,7 @@ PACKER_GALLERY_NAME="PackerSigGalleryEastUS"
 [ -z "${RESOURCE_GROUP_NAME:-}" ] && echo "RESOURCE_GROUP_NAME must be set when replicating captured SIG image version" && exit 1
 [ -z "${SIG_IMAGE_NAME:-}" ] && echo "SIG_IMAGE_NAME must be set when replicating captured SIG image version" && exit 1
 [ -z "${CAPTURED_SIG_VERSION:-}" ] && echo "CAPTURED_SIG_VERSION must be set when replicating captured SIG image version" && exit 1
+[ -z "${PACKER_BUILD_LOCATION:-}" ] && echo "PACKER_BUILD_LOCATION must be set when replicating captured SIG image version" && exit 1
 
 replicate_captured_sig_image_version() {
     if [ -z "${REPLICATIONS:-}" ]; then
@@ -29,8 +30,13 @@ replicate_captured_sig_image_version() {
         region=${target[0]}
         replicas=${target[1]}
 
-        echo "will add replication target: ${region}=${replicas}"
-        replication_string+=" --add publishingProfile.targetRegions name=${region} regionalReplicaCount=${replicas} storageAccountType=${STORAGE_ACCOUNT_TYPE}"
+        if [ "${region,,}" = "${PACKER_BUILD_LOCATION,,}" ]; then
+            echo "will set existing replication target for ${region} to ${replicas}"
+            replication_string+=" --set publishingProfile.targetRegions[${region}].regionalReplicaCount=${replicas}"
+        else
+            echo "will add replication target: ${region}=${replicas}"
+            replication_string+=" --add publishingProfile.targetRegions name=${region} regionalReplicaCount=${replicas} storageAccountType=${STORAGE_ACCOUNT_TYPE}"
+        fi
     done
 
     # once we migrate to HCL2 packer templates, this extra step will no longer be needed: https://developer.hashicorp.com/nomad/docs/reference/hcl2/functions/string/split
