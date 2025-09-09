@@ -127,9 +127,9 @@ installPkgWithAptGet() {
     if [ -z "${debFile}" ]; then
         # query all package versions and get the latest version for matching k8s version
         updateAptWithMicrosoftPkg
-        fullPackageVersion=$(apt list ${packageName} --all-versions | grep ${k8sVersion}- | awk '{print $2}' | sort -V | tail -n 1)
+        fullPackageVersion=$(apt list ${packageName} --all-versions | grep ${packageVersion}- | awk '{print $2}' | sort -V | tail -n 1)
         if [ -z "${fullPackageVersion}" ]; then
-            echo "Failed to find valid ${packageName} version for ${k8sVersion}"
+            echo "Failed to find valid ${packageName} version for ${packageVersion}"
             exit 1
         fi
         echo "Did not find cached deb file, downloading ${packageName} version ${fullPackageVersion}"
