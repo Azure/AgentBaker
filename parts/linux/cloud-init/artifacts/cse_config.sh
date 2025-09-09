@@ -943,7 +943,7 @@ setupAmdAma() {
         return
     fi
 
-    if [ "$OS" = "$AZURELINUX_OS_NAME" ]; then
+    if isMarinerOrAzureLinux "$OS"; then
         sudo tdnf update -y
         sudo wget https://packages.microsoft.com/azurelinux/3.0/prod/extended/x86_64/config.repo -O /etc/yum.repos.d/azurelinux-official-extended.repo
         # Install driver
