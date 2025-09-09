@@ -413,10 +413,13 @@ EOF
 
 
     # Install and configure AMD AMA (Supernova) drivers if this is an AMA node
+    echo $(date),$(hostname), "Checking for AMD AMA HW support"
     if [ "${AMDAMA_NODE}" = "true" ]; then
         echo $(date),$(hostname), "Start configuring AMD AMA drivers"
 
         # Install GPU drivers
+        logs_to_events "AKS.CSE.setupAmdAma" setupAmdAma
+    else
         logs_to_events "AKS.CSE.setupAmdAma" setupAmdAma
     fi
 
