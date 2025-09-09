@@ -17,7 +17,8 @@ replicate_captured_sig_image_version() {
     fi
 
     IFS=',' read -ra replication_targets <<< "${REPLICATIONS}"
-    local target_regions, updated_packer_build_location_replicas
+    local target_regions
+    local updated_packer_build_location_replicas
 
     for replication_target in "${replication_targets[@]}"; do
         # shellcheck disable=SC3010
