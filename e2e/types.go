@@ -155,8 +155,6 @@ type Config struct {
 	// SkipDefaultValidation is a flag to indicate whether the common validation (like spawning a pod) should be skipped.
 	// It shouldn't be used for majority of scenarios, currently only used for preparing VHD in a two-stage scenario
 	SkipDefaultValidation bool
-
-	PostProvisioningReboot *bool
 }
 
 func (s *Scenario) PrepareAKSNodeConfig() {

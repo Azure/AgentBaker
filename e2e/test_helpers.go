@@ -265,29 +265,6 @@ func prepareAKSNode(ctx context.Context, s *Scenario) {
 		toolkit.LogDuration(ctx, totalElapse, 3*time.Minute, fmt.Sprintf("Node %s took %s to be created and %s to be ready", s.Runtime.VMSSName, toolkit.FormatDuration(creationElapse), toolkit.FormatDuration(readyElapse)))
 	}
 
-	if s.Config.PostProvisioningReboot != nil && *s.Config.PostProvisioningReboot {
-		vmssAboutToRebootTime := time.Now() // Record the start time
-		s.T.Log("Rebooting the VMSS VM to complete post-provisioning...")
-
-		restart, err := config.Azure.VMSSVM.BeginRestart(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, "", nil)
-		require.NoError(s.T, err, "failed to start reboot vmss operation")
-		time.Sleep(60 * time.Second)
-
-		_, err = restart.PollUntilDone(ctx, nil)
-		require.NoError(s.T, err, "failed to reboot VMSSM")
-
-		s.T.Logf("vmss %s reboot succeeded", s.Runtime.VMSSName)
-		rebootDoneElapse := time.Now()                    // Calculate the elapsed time
-		rebootElapse := time.Since(vmssAboutToRebootTime) // Calculate the elapsed time
-
-		s.Runtime.KubeNodeName = s.Runtime.Cluster.Kube.WaitUntilNodeReady(ctx, s.T, s.Runtime.VMSSName)
-		s.T.Logf("vmss %s ready after reboot", s.Runtime.VMSSName)
-		readyAfterRebootElapse := time.Since(rebootDoneElapse)
-		totalElapse := time.Since(vmssAboutToRebootTime)
-
-		toolkit.LogDuration(ctx, totalElapse, 3*time.Minute, fmt.Sprintf("Node %s took %s to be rebooted and %s to become ready after that", s.Runtime.VMSSName, toolkit.FormatDuration(rebootElapse), toolkit.FormatDuration(readyAfterRebootElapse)))
-	}
-
 	s.Runtime.VMPrivateIP, err = getVMPrivateIPAddress(ctx, s)
 	require.NoError(s.T, err, "failed to get VM private IP address")
 }
