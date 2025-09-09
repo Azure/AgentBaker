@@ -72,6 +72,7 @@ steps:
       artifactName: windows-cse-package
       itemPattern: '${{ parameters.csePackageFileName }}'
       targetPath: ${{ parameters.csePackageDir }}
+      
   - bash: bash ./.pipelines/scripts/windows_build_vhd.sh
     displayName: Build and save VHD
     env:
@@ -106,6 +107,7 @@ steps:
       BUILD_DATE: $(BUILD_DATE)
       WINDOWS_CSE_PACKAGE_URI: ${{ parameters.csePackageDir }}/${{ parameters.csePackageFileName }}
       DRY_RUN: ${{ parameters.dryrun }}
+
   # Note: use -a to grep MANAGED_SIG_ID (packer-output should be read as a binary file in Linux)
   - script: |
       export TEST_VM_RESOURCE_GROUP_NAME="vhd-test-$(date +%s)-$RANDOM"
