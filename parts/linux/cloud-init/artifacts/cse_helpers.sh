@@ -814,8 +814,6 @@ updatePackageDownloadURL() {
 getLatestVersionForK8sVersion() {
     local k8sVersion="$1"
     local componentName="$2"
-
-    COMPONENTS_FILEPATH="/opt/azure/components-test.json"
     
     k8sMajorMinorVersion="$(echo "$k8sVersion" | cut -d- -f1 | cut -d. -f1,2)"
 
