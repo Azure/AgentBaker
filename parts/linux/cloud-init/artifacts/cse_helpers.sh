@@ -814,8 +814,9 @@ updatePackageDownloadURL() {
 getLatestVersionForK8sVersion() {
     local k8sVersion="$1"
     local componentName="$2"
-    local os_version="$3"
-    
+    local os="$3"
+    local os_version="$4"
+
     k8sMajorMinorVersion="$(echo "$k8sVersion" | cut -d- -f1 | cut -d. -f1,2)"
     
     package=$(jq ".Packages" "$COMPONENTS_FILEPATH" | jq ".[] | select(.name == \"${componentName}\")")
