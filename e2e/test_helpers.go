@@ -183,6 +183,11 @@ func runScenario(t *testing.T, s *Scenario) {
 	}
 
 	s.Location = strings.ToLower(s.Location)
+
+	if s.K8sSystemPoolSKU == "" {
+		s.K8sSystemPoolSKU = config.Config.DefaultVMSKU
+	}
+
 	ctx := newTestCtx(t)
 	_, err := CachedEnsureResourceGroup(ctx, s.Location)
 	require.NoError(t, err)
@@ -193,7 +198,11 @@ func runScenario(t *testing.T, s *Scenario) {
 
 	maybeSkipScenario(ctx, t, s)
 
-	cluster, err := s.Config.Cluster(ctx, s.Location)
+	cluster, err := s.Config.Cluster(ctx, ClusterRequest{
+		Location:         s.Location,
+		K8sSystemPoolSKU: s.K8sSystemPoolSKU,
+	})
+
 	require.NoError(s.T, err, "failed to get cluster")
 	// in some edge cases cluster cache is broken and nil cluster is returned
 	// need to find the root cause and fix it, this should help to catch such cases
@@ -637,11 +646,12 @@ func validateSSHConnectivity(ctx context.Context, s *Scenario) error {
 	return nil
 }
 
-func runScenarioGPUNPD(t *testing.T, vmSize, location string) *Scenario {
+func runScenarioGPUNPD(t *testing.T, vmSize, location, k8sSystemPoolSKU string) *Scenario {
 	t.Helper()
 	return &Scenario{
-		Description: fmt.Sprintf("Tests that a GPU-enabled node with VM size %s using an Ubuntu 2404 VHD can be properly bootstrapped and NPD tests are valid", vmSize),
-		Location:    location,
+		Description:      fmt.Sprintf("Tests that a GPU-enabled node with VM size %s using an Ubuntu 2404 VHD can be properly bootstrapped and NPD tests are valid", vmSize),
+		Location:         location,
+		K8sSystemPoolSKU: k8sSystemPoolSKU,
 		Tags: Tags{
 			GPU: true,
 		},
@@ -657,9 +667,8 @@ func runScenarioGPUNPD(t *testing.T, vmSize, location string) *Scenario {
 				vmss.SKU.Name = to.Ptr(vmSize)
 
 				extension, err := createVMExtensionLinuxAKSNode(vmss.Location)
-				if err != nil {
-					t.Fatalf("creating AKS VM extension: %v", err)
-				}
+				require.NoError(t, err, "creating AKS VM extension")
+
 				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
