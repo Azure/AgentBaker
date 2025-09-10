@@ -20,7 +20,7 @@ require (
 	github.com/caarlos0/env/v11 v11.3.1
 	github.com/joho/godotenv v1.5.1
 	github.com/sanity-io/litter v1.5.5
-	github.com/stretchr/testify v1.10.0
+	github.com/stretchr/testify v1.11.1
 	github.com/tidwall/gjson v1.18.0
 	golang.org/x/crypto v0.40.0
 	k8s.io/api v0.32.3
