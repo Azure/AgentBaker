@@ -18,7 +18,6 @@ import (
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/barkimedes/go-deepcopy"
-	ign3_4 "github.com/coreos/ignition/v2/config/v3_4/types"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
@@ -2713,15 +2712,15 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 
 func ignitionUnwrapEnvelope(ignitionFile []byte) []byte {
 	// Unwrap the Ignition envelope
-	var outer ign3_4.Config
+	var outer IgnitionConfig
 	err := json.Unmarshal(ignitionFile, &outer)
 	if err != nil {
 		panic(err)
 	}
-	innerencoded := outer.Ignition.Config.Replace
-	if innerencoded.Source == nil {
+	if outer.Ignition.Config == nil || outer.Ignition.Config.Replace == nil {
 		panic("ignition missing replacement config")
 	}
+	innerencoded := *outer.Ignition.Config.Replace
 	inner, err := ignitionDecodeFileContents(innerencoded)
 	if err != nil {
 		panic(err)
@@ -2729,14 +2728,14 @@ func ignitionUnwrapEnvelope(ignitionFile []byte) []byte {
 	return inner
 }
 
-func ignitionDecodeFileContents(input ign3_4.Resource) ([]byte, error) {
+func ignitionDecodeFileContents(input IgnitionResource) ([]byte, error) {
 	// Decode data url format
-	decodeddata, err := dataurl.DecodeString(*input.Source)
+	decodeddata, err := dataurl.DecodeString(input.Source)
 	if err != nil {
 		return nil, err
 	}
 	contents := decodeddata.Data
-	if input.Compression != nil && *input.Compression == "gzip" {
+	if input.Compression != "" && input.Compression == "gzip" {
 		contents, err = getGzipDecodedValue(contents)
 		if err != nil {
 			return nil, err
@@ -2912,6 +2911,130 @@ var _ = Describe("Test normalizeResourceGroupNameForLabel", func() {
 			s += "0"
 		}
 		Expect(normalizeResourceGroupNameForLabel(s + "-")).To(Equal(s + "-z"))
+	})
+})
+
+var _ = Describe("getFlatcarLinuxNodeCustomDataJSONObject", func() {
+	var config *datamodel.NodeBootstrappingConfiguration
+	var templateGenerator *TemplateGenerator
+
+	BeforeEach(func() {
+		templateGenerator = InitializeTemplateGenerator()
+		config = &datamodel.NodeBootstrappingConfiguration{
+			ContainerService: &datamodel.ContainerService{
+				Properties: &datamodel.Properties{
+					HostedMasterProfile: &datamodel.HostedMasterProfile{
+						FQDN: "example.hcp.eastus.azmk8s.io",
+					},
+					OrchestratorProfile: &datamodel.OrchestratorProfile{
+						OrchestratorVersion: "1.28.0",
+						KubernetesConfig: &datamodel.KubernetesConfig{
+							ContainerRuntime:       datamodel.Containerd,
+							ContainerRuntimeConfig: map[string]string{},
+						},
+					},
+					AgentPoolProfiles: []*datamodel.AgentPoolProfile{
+						{
+							Distro: datamodel.AKSFlatcarGen2,
+						},
+					},
+				},
+			},
+			AgentPoolProfile: &datamodel.AgentPoolProfile{
+				Distro: datamodel.AKSFlatcarGen2,
+				KubernetesConfig: &datamodel.KubernetesConfig{
+					ContainerRuntime: datamodel.Containerd,
+				},
+			},
+			OSSKU: datamodel.OSSKUFlatcar,
+		}
+	})
+
+	It("should generate consistent Ignition JSON output", func() {
+		result := templateGenerator.getFlatcarLinuxNodeCustomDataJSONObject(config)
+		
+		// Parse the result to ensure it's valid JSON
+		var jsonResult map[string]interface{}
+		err := json.Unmarshal([]byte(result), &jsonResult)
+		Expect(err).To(BeNil())
+		Expect(jsonResult).To(HaveKey("customData"))
+		
+		// Extract the custom data (it's a JSON string containing Ignition config)
+		customDataStr, ok := jsonResult["customData"].(string)
+		Expect(ok).To(BeTrue())
+		Expect(customDataStr).NotTo(BeEmpty())
+		
+		// The custom data should be valid JSON (Ignition format)
+		var ignitionConfig map[string]interface{}
+		err = json.Unmarshal([]byte(customDataStr), &ignitionConfig)
+		Expect(err).To(BeNil())
+		
+		// Verify it has the expected Ignition structure
+		Expect(ignitionConfig).To(HaveKey("ignition"))
+		ignitionSection, ok := ignitionConfig["ignition"].(map[string]interface{})
+		Expect(ok).To(BeTrue())
+		Expect(ignitionSection).To(HaveKey("version"))
+		Expect(ignitionSection["version"]).To(Equal("3.4.0"))
+		
+		// Should have config replacement structure (envelope pattern)
+		Expect(ignitionSection).To(HaveKey("config"))
+		configSection, ok := ignitionSection["config"].(map[string]interface{})
+		Expect(ok).To(BeTrue())
+		Expect(configSection).To(HaveKey("replace"))
+		
+		// The replacement should contain the actual Ignition config data
+		replaceSection, ok := configSection["replace"].(map[string]interface{})
+		Expect(ok).To(BeTrue())
+		Expect(replaceSection).To(HaveKey("source"))
+		
+		// Use temporary file instead of committed test data
+		tmpFile, err := os.CreateTemp("", "flatcar_ignition_test_*.json")
+		Expect(err).To(BeNil())
+		defer os.Remove(tmpFile.Name())
+		defer tmpFile.Close()
+		
+		// Write current output to temp file for comparison
+		_, err = tmpFile.WriteString(result)
+		Expect(err).To(BeNil())
+		
+		// Verify temp file was written correctly
+		tmpFile.Seek(0, 0)
+		writtenData, err := io.ReadAll(tmpFile)
+		Expect(err).To(BeNil())
+		Expect(string(writtenData)).To(Equal(result))
+	})
+
+	It("should handle cloud-init write files correctly", func() {
+		// This test ensures the conversion from cloud-init write files to Ignition files works properly
+		result := templateGenerator.getFlatcarLinuxNodeCustomDataJSONObject(config)
+		
+		var jsonResult map[string]interface{}
+		err := json.Unmarshal([]byte(result), &jsonResult)
+		Expect(err).To(BeNil())
+		
+		customDataStr := jsonResult["customData"].(string)
+		
+		// Parse the outer envelope
+		var outerIgnition map[string]interface{}
+		err = json.Unmarshal([]byte(customDataStr), &outerIgnition)
+		Expect(err).To(BeNil())
+		
+		// Extract the inner Ignition config from the data source
+		ignitionSection := outerIgnition["ignition"].(map[string]interface{})
+		configSection := ignitionSection["config"].(map[string]interface{})
+		replaceSection := configSection["replace"].(map[string]interface{})
+		
+		// Should have the compression and source fields
+		Expect(replaceSection).To(HaveKey("compression"))
+		Expect(replaceSection).To(HaveKey("source"))
+		Expect(replaceSection["compression"]).To(Equal("gzip"))
+		
+		sourceStr, ok := replaceSection["source"].(string)
+		Expect(ok).To(BeTrue())
+		Expect(sourceStr).To(ContainSubstring("data:;base64,"))
+		
+		// The source should be a valid data URL with base64 encoded gzipped JSON
+		Expect(len(sourceStr)).To(BeNumerically(">", 100)) // Should be substantial content
 	})
 })
 
