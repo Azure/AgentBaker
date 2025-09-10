@@ -458,6 +458,19 @@ if [ "$OS" = "$MARINER_OS_NAME" ]  && [ "$OS_VERSION" = "2.0" ] && [ "$(isARM64)
   installAndConfigureArtifactStreaming acr-mirror-mariner rpm
 fi
 
+# Install GPU device plugin for Ubuntu 24.04 only and disable the systemd unit
+if [ "$OS" = "$UBUNTU_OS_NAME" ] && [ "${UBUNTU_RELEASE}" = "24.04" ]; then
+  echo "Installing k8s-device-plugin for Ubuntu 24.04..."
+  apt_get_install 30 1 600 k8s-device-plugin || exit $ERR_APT
+  
+  # Disable the nvidia-device-plugin systemd unit to prevent auto-start
+  echo "Disabling nvidia-device-plugin systemd unit..."
+  systemctl disable nvidia-device-plugin.service || echo "Warning: Failed to disable nvidia-device-plugin.service"
+  systemctl mask nvidia-device-plugin.service || echo "Warning: Failed to mask nvidia-device-plugin.service"
+  
+  echo "  - k8s-device-plugin installed and systemd unit disabled" >> ${VHD_LOGS_FILEPATH}
+fi
+
 # k8s will use images in the k8s.io namespaces - create it
 ctr namespace create k8s.io
 cliTool="ctr"
