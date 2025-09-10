@@ -82,7 +82,8 @@ function DownloadFileWithRetry {
         $retryDelay = 0,
         [Switch]$redactUrl = $false
     )
-    curl.exe -f --retry $retryCount --retry-delay $retryDelay -L $URL -o $Dest
+    Write-Output "Downloading $URL"
+    curl.exe --silent -f --retry $retryCount --retry-delay $retryDelay -L $URL -o $Dest
     if ($LASTEXITCODE) {
         $logURL = $URL
         if ($redactUrl) {
@@ -98,12 +99,12 @@ function Test-ValidateAllSignature {
     }
 
     if ($AllNotSignedFiles.Count -ne 0) {
-        $AllNotSignedFiles = (echo $AllNotSignedFiles | ConvertTo-Json -Compress)
+        $AllNotSignedFiles = (echo $AllNotSignedFiles | ConvertTo-Json -Depth 9)
         Write-Output "All not signed file in cached packages are: $AllNotSignedFiles"
     }
 
     if ($NotSignedResult.Count -ne 0) {
-        $NotSignedResult = (echo $NotSignedResult | ConvertTo-Json -Compress)
+        $NotSignedResult = (echo $NotSignedResult | ConvertTo-Json -Depth 9)
         Write-Error "All not signed binaries are: $NotSignedResult"
         exit 1
     }
@@ -139,6 +140,7 @@ function Test-ValidateSinglePackageSignature {
                 $NotSignedFileName = [IO.Path]::GetFileName($NotSignedFile.Path)
                 # win-bridge.exe is not signed in these k8s packages, and it will be removed from k8s package in the future
                 if ($NotSignedFileName -eq "win-bridge.exe") {
+                    Write-Output "Skipping win-bridge.exe since it will be removed in the future"
                     continue
                 }
                 # aks-secure-tls-bootstrap-client.exe should be signed once it has been onboarded to Dalec and published via Upstream,
@@ -146,8 +148,12 @@ function Test-ValidateSinglePackageSignature {
                 # NOTE: this is okay since the binary is cleaned up during node provisioning when secure TLS bootstrapping is disabled (which is currently the default in production)
                 # TODO(cameissner): remove this once the binary is properly signed
                 if ($NotSignedFileName -eq "aks-secure-tls-bootstrap-client.exe") {
+                    Write-Output "Skipping aks-secure-tls-bootstrap-client.exe since it is not signed yet"
                     continue
                 }
+
+                Get-AuthenticodeSignature $NotSignedFile.Path | Out-String | Write-Output
+
                 if (($SkipMapForSignature.ContainsKey($fileName) -and ($SkipMapForSignature[$fileName].Length -ne 0) -and !$SkipMapForSignature[$fileName].Contains($NotSignedFileName)) -or !$SkipMapForSignature.ContainsKey($fileName)) {
                     if (!$NotSignedResult.ContainsKey($dir)) {
                         $NotSignedResult[$dir]=@{}
@@ -235,7 +241,11 @@ function Test-CompareSingleDir {
         if ($URL.StartsWith("https://acs-mirror.azureedge.net/")) {
             $mcURL = $URL.replace("https://acs-mirror.azureedge.net/", "https://kubernetesartifacts.blob.core.chinacloudapi.cn/")
 
+            Write-Output "Downloading mooncake file: $mcURL"
+
+            $ProgressPreference = 'SilentlyContinue' 
             $mooncakeFileSize = (Invoke-WebRequest $mcURL -UseBasicParsing -Method Head).Headers.'Content-Length'
+            $ProgressPreference = 'Continue' 
 
             if ($globalFileSize -ne $mooncakeFileSize) {
                 $MisMatchFiles[$URL]=$mcURL
