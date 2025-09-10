@@ -413,7 +413,6 @@ EOF
 
     # Install and configure AMD AMA (Supernova) drivers if this is an AMA node
     if [ "${AMDAMA_NODE}" = "true" ]; then
-        # Install GPU drivers
         logs_to_events "AKS.CSE.setupAmdAma" setupAmdAma
     fi
 
