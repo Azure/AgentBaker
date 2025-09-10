@@ -205,24 +205,14 @@
       "enabled": true,
       "groupName": "credential-provider-pmc",
       "assignees": [
-        "devinwong",
-        "anujmaheshwari1",
-        "cameronmeissner",
-        "lilypan26",
-        "djsly",
-        "UtheMan",
-        "zachary-bailey",
-        "ganeshkumarashok"
+        "mainred",
+        "MartinForReal",
+        "nilo19"
       ],
       "reviewers": [
-        "devinwong",
-        "anujmaheshwari1",
-        "cameronmeissner",
-        "lilypan26",
-        "djsly",
-        "UtheMan",
-        "zachary-bailey",
-        "ganeshkumarashok"
+        "mainred",
+        "MartinForReal",
+        "nilo19"
       ]
     },
     {
