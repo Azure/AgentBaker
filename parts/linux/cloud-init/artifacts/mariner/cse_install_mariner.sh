@@ -165,9 +165,8 @@ installRPMPackageFromFile() {
 
     rpmFile=$(find "${downloadDir}" -maxdepth 1 -name "${packagePrefix}" -print -quit 2>/dev/null) || rpmFile=""
     if [ -z "${rpmFile}" ]; then
-        tdnf_update || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
         # query all package versions and get the latest version for matching k8s version
-        fullPackageVersion=$(tdnf list ${packageName} | grep ${desiredVersion}- | awk '{print $2}' | sort -V | tail -n 1)
+        fullPackageVersion=$(dnf list ${packageName} --showduplicates | grep ${desiredVersion}- | awk '{print $2}' | sort -V | tail -n 1)
         if [ -z "${fullPackageVersion}" ]; then
             echo "Failed to find valid ${packageName} version for ${desiredVersion}"
             exit 1
@@ -181,7 +180,7 @@ installRPMPackageFromFile() {
         exit 1
     fi
 
-    if ! tdnf_install 30 1 600 ${rpmFile}; then
+    if ! dnf_install 30 1 600 ${rpmFile}; then
         exit $ERR_APT_INSTALL_TIMEOUT
     fi
     mv "/usr/bin/${packageName}" "/usr/local/bin/${packageName}"
@@ -193,7 +192,7 @@ downloadPkgFromVersion() {
     packageVersion="${2:-}"
     downloadDir="${3:-"/opt/${packageName}/downloads"}"
     mkdir -p ${downloadDir}
-    tdnf_download 30 1 600 ${downloadDir} ${packageName}=${packageVersion} || exit $ERR_APT_INSTALL_TIMEOUT
+    dnf_download 30 1 600 ${downloadDir} ${packageName}-${packageVersion} || exit $ERR_APT_INSTALL_TIMEOUT
     echo "Succeeded to download ${packageName} version ${packageVersion}"
 }
 
