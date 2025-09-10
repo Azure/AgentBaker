@@ -125,7 +125,7 @@ fi
 capture_benchmark "${SCRIPT_NAME}_enable_cgroupv2_for_azurelinux"
 
 # shellcheck disable=SC3010
-if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]] && ! grep -q "cvm" <<< "$FEATURE_FLAGS"; then
+if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]]; then
   
   # Choose kernel packages based on Ubuntu version and architecture
   if [[ ${UBUNTU_RELEASE//./} -eq 2204 ]]; then
@@ -160,10 +160,18 @@ if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]] && ! gre
   if apt-cache show "$KERNEL_IMAGE" &>/dev/null; then
     echo "Kernel packages are available, proceeding with purging current kernel and installing new kernel..."
 
+    # Purge nullboot package
+    wait_for_apt_locks
+    DEBIAN_FRONTEND=noninteractive apt-get remove --purge -y nullboot
+
     # Purge all current kernels and dependencies
     wait_for_apt_locks
     DEBIAN_FRONTEND=noninteractive apt-get remove --purge -y $(dpkg-query -W 'linux-*azure*' | awk '$2 != "" { print $1 }' | paste -s)
     echo "After purging kernel, dpkg list should be empty"; dpkg -l 'linux-*azure*'
+
+    # Reinstall nullboot package
+    wait_for_apt_locks
+    DEBIAN_FRONTEND=noninteractive apt-get install -y nullboot
 
     # Install new kernel packages
     wait_for_apt_locks
