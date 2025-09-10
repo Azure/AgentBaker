@@ -82,7 +82,8 @@ function DownloadFileWithRetry {
         $retryDelay = 0,
         [Switch]$redactUrl = $false
     )
-    curl.exe -f --retry $retryCount --retry-delay $retryDelay -L $URL -o $Dest
+    Write-Output "Downloading $URL"
+    curl.exe --silent -f --retry $retryCount --retry-delay $retryDelay -L $URL -o $Dest
     if ($LASTEXITCODE) {
         $logURL = $URL
         if ($redactUrl) {
@@ -240,7 +241,11 @@ function Test-CompareSingleDir {
         if ($URL.StartsWith("https://acs-mirror.azureedge.net/")) {
             $mcURL = $URL.replace("https://acs-mirror.azureedge.net/", "https://kubernetesartifacts.blob.core.chinacloudapi.cn/")
 
+            Write-Output "Downloading mooncake file: $mcURL"
+
+            $ProgressPreference = 'SilentlyContinue' 
             $mooncakeFileSize = (Invoke-WebRequest $mcURL -UseBasicParsing -Method Head).Headers.'Content-Length'
+            $ProgressPreference = 'Continue' 
 
             if ($globalFileSize -ne $mooncakeFileSize) {
                 $MisMatchFiles[$URL]=$mcURL
