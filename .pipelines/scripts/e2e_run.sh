@@ -42,6 +42,7 @@ TAGS_TO_SKIP="${TAGS_TO_SKIP:-}"
 TAGS_TO_RUN="${TAGS_TO_RUN:-}"
 GALLERY_NAME="${GALLERY_NAME:-}"
 SIG_GALLERY_NAME="${SIG_GALLERY_NAME:-}"
+export E2E_LOCATION="${E2E_LOCATION:-westus3}"
 
 # echo some variables so that we have a chance of debugging if things fail due to a pipeline issue
 echo "VHD_BUILD_ID: ${VHD_BUILD_ID}"
