@@ -125,7 +125,7 @@ fi
 capture_benchmark "${SCRIPT_NAME}_enable_cgroupv2_for_azurelinux"
 
 # shellcheck disable=SC3010
-if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]] && ! grep -q "cvm" <<< "$FEATURE_FLAGS"; then
+if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]]; then
   
   # Choose kernel packages based on Ubuntu version and architecture
   if [[ ${UBUNTU_RELEASE//./} -eq 2204 ]]; then
@@ -141,6 +141,16 @@ if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]] && ! gre
       "linux-cloud-tools-5.15.0-1092-azure"
     )
     echo "Ubuntu 22.04 x86_64 detected, installing pinned kernel version 5.15.0-1092"
+  elif grep -q "cvm" <<< "$FEATURE_FLAGS"; then
+    KERNEL_IMAGE="linux-image-azure-fde-lts-${UBUNTU_RELEASE}"
+    KERNEL_PACKAGES=(
+      "linux-image-azure-fde-lts-${UBUNTU_RELEASE}"
+      "linux-tools-azure-lts-${UBUNTU_RELEASE}"
+      "linux-cloud-tools-azure-lts-${UBUNTU_RELEASE}"
+      "linux-headers-azure-lts-${UBUNTU_RELEASE}"
+      "linux-modules-extra-azure-lts-${UBUNTU_RELEASE}"
+    )
+    echo "Installing fde LTS kernel for CVM Ubuntu ${UBUNTU_RELEASE}"
   else
     # Use LTS kernel for other versions  
     KERNEL_IMAGE="linux-image-azure-lts-${UBUNTU_RELEASE}"
@@ -160,6 +170,12 @@ if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]] && ! gre
   if apt-cache show "$KERNEL_IMAGE" &>/dev/null; then
     echo "Kernel packages are available, proceeding with purging current kernel and installing new kernel..."
 
+    # Purge nullboot package only for cvm
+    if grep -q "cvm" <<< "$FEATURE_FLAGS"; then
+      wait_for_apt_locks
+      DEBIAN_FRONTEND=noninteractive apt-get remove --purge -y --allow-remove-essential nullboot
+    fi
+
     # Purge all current kernels and dependencies
     wait_for_apt_locks
     DEBIAN_FRONTEND=noninteractive apt-get remove --purge -y $(dpkg-query -W 'linux-*azure*' | awk '$2 != "" { print $1 }' | paste -s)
@@ -169,6 +185,12 @@ if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]] && ! gre
     wait_for_apt_locks
     DEBIAN_FRONTEND=noninteractive apt-get install -y "${KERNEL_PACKAGES[@]}"
     echo "After installing new kernel, here is a list of kernels/headers installed:"; dpkg -l 'linux-*azure*'
+
+    # Reinstall nullboot package only for cvm
+    if grep -q "cvm" <<< "$FEATURE_FLAGS"; then
+      wait_for_apt_locks
+      DEBIAN_FRONTEND=noninteractive apt-get install -y nullboot
+    fi
   else
     echo "Kernel packages for Ubuntu ${UBUNTU_RELEASE} are not available. Skipping purging and subsequent installation."
   fi
