@@ -864,28 +864,53 @@ func ValidateTaints(ctx context.Context, s *Scenario, expectedTaints string) {
 	require.Equal(s.T, expectedTaints, actualTaints, "expected node %q to have taint %q, but got %q", s.Runtime.KubeNodeName, expectedTaints, actualTaints)
 }
 
-// ValidateLocalDNSService checks if the localdns service is running and active.
-func ValidateLocalDNSService(ctx context.Context, s *Scenario) {
+// ValidateLocalDNSService checks if the localdns service is in the expected state (enabled or disabled).
+func ValidateLocalDNSService(ctx context.Context, s *Scenario, state string) {
 	s.T.Helper()
 	serviceName := "localdns"
-	steps := []string{
-		"set -ex",
-		// Verify the localdns service is running and active.
-		fmt.Sprintf("(systemctl -n 5 status %s || true)", serviceName),
-		fmt.Sprintf("systemctl is-active %s", serviceName),
+
+	var script string
+	switch state {
+	case "enabled":
+		script = fmt.Sprintf(`set -euo pipefail
+svc=%q
+systemctl status -n 5 "$svc" || true
+active=$(systemctl is-active "$svc" 2>/dev/null || true)
+enabled=$(systemctl is-enabled "$svc" 2>/dev/null || true)
+echo "localdns: active=$active enabled=$enabled"
+test "$active" = "active"   || { echo "expected active, got $active"; exit 1; }
+test "$enabled" = "enabled" || { echo "expected enabled, got $enabled"; exit 1; }
+`, serviceName)
+
+		execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0, "localdns should be running and enabled")
+
+	case "disabled":
+		script = fmt.Sprintf(`set -euo pipefail
+svc=%q
+systemctl status -n 5 "$svc" || true
+active=$(systemctl is-active "$svc" 2>/dev/null || true)
+enabled=$(systemctl is-enabled "$svc" 2>/dev/null || true)
+echo "localdns: active=$active enabled=$enabled"
+test "$active" = "inactive" || { echo "expected inactive, got $active"; exit 1; }
+test "$enabled" = "disabled" || { echo "expected disabled, got $enabled"; exit 1; }
+`, serviceName)
+
+		execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0, "localdns should be stopped and disabled")
+
+	default:
+		s.T.Fatalf("unknown state %q; expected 'enable' or 'disable'", state)
 	}
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "localdns service is not up and running")
 }
 
 // ValidateLocalDNSResolution checks if the DNS resolution for an external domain is successful from localdns clusterlistenerIP.
 // It uses the 'dig' command to check the DNS resolution and expects a successful response.
-func ValidateLocalDNSResolution(ctx context.Context, s *Scenario) {
+func ValidateLocalDNSResolution(ctx context.Context, s *Scenario, server string) {
 	s.T.Helper()
 	testdomain := "bing.com"
 	command := fmt.Sprintf("dig %s +timeout=1 +tries=1", testdomain)
 	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0, "dns resolution failed")
 	assert.Contains(s.T, execResult.stdout.String(), "status: NOERROR")
-	assert.Contains(s.T, execResult.stdout.String(), "SERVER: 169.254.10.10")
+	assert.Contains(s.T, execResult.stdout.String(), fmt.Sprintf("SERVER: %s", server))
 }
 
 // ValidateJournalctlOutput checks if specific content exists in the systemd service logs

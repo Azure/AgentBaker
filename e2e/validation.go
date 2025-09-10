@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/e2e/toolkit"
 	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
@@ -115,10 +114,11 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 		ValidateKubeletNodeIP(ctx, s)
 	}
 
-	// localdns is not supported on 1804, VHDAzureLinux3OSGuard, privatekube and VHDUbuntu2204Gen2ContainerdAirgappedK8sNotCached.
-	if s.VHD != config.VHDUbuntu1804Gen2Containerd && s.VHD != config.VHDUbuntu2204Gen2ContainerdPrivateKubePkg && s.VHD != config.VHDUbuntu2204Gen2ContainerdAirgappedK8sNotCached && s.VHD != config.VHDAzureLinux3OSGuard {
-		ValidateLocalDNSService(ctx, s)
-		ValidateLocalDNSResolution(ctx, s)
+	// localdns is not supported on 1804, privatekube and
+	// VHDUbuntu2204Gen2ContainerdAirgappedK8sNotCached.
+	if !s.VHD.UnsupportedLocalDNS {
+		ValidateLocalDNSService(ctx, s, "enabled")
+		ValidateLocalDNSResolution(ctx, s, "169.254.10.10")
 	}
 }
 
