@@ -453,7 +453,7 @@ if [ "$OS" = "$UBUNTU_OS_NAME" ] && [ "$(isARM64)" -ne 1 ] && [ "$UBUNTU_MAJOR_V
 fi
 
 # Artifact Streaming enabled for Azure Linux 2.0 and 3.0
-if [ "$OS" = "$MARINER_OS_NAME" ] && ([ "$OS_VERSION" = "2.0" ] || [ "$OS_VERSION" = "3.0" ]) && [ "$(isARM64)" -ne 1 ]; then
+if [ "$OS" = "$MARINER_OS_NAME" ] && { [ "$OS_VERSION" = "2.0" ] || [ "$OS_VERSION" = "3.0" ]; } && [ "$(isARM64)" -ne 1 ]; then
   installAndConfigureArtifactStreaming acr-mirror-mariner rpm
 fi
 
