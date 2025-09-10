@@ -31,3 +31,25 @@ jobs:
         shell: powershell
         run: |
           ./vhdbuilder/packer/test/windows-files-check.ps1 2022-containerd
+
+  check-files-for-ws2025:
+    name: Check for Windows 2025
+    runs-on: windows-latest
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v5
+      - name: Run check script for 2025-containerd
+        shell: powershell
+        run: |
+          ./vhdbuilder/packer/test/windows-files-check.ps1 2025-containerd
+
+  check-files-for-ws23H2:
+    name: Check for Windows 23H2
+    runs-on: windows-latest
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v5
+      - name: Run check script for 23H2-containerd
+        shell: powershell
+        run: |
+          ./vhdbuilder/packer/test/windows-files-check.ps1 23H2-containerd
