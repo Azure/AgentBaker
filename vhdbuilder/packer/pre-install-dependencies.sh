@@ -162,21 +162,21 @@ if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]]; then
 
     # Purge nullboot package
     wait_for_apt_locks
-    DEBIAN_FRONTEND=noninteractive apt-get remove --purge -y nullboot
+    DEBIAN_FRONTEND=noninteractive apt-get remove --purge -y --allow-remove-essential nullboot
 
     # Purge all current kernels and dependencies
     wait_for_apt_locks
     DEBIAN_FRONTEND=noninteractive apt-get remove --purge -y $(dpkg-query -W 'linux-*azure*' | awk '$2 != "" { print $1 }' | paste -s)
     echo "After purging kernel, dpkg list should be empty"; dpkg -l 'linux-*azure*'
 
-    # Reinstall nullboot package
-    wait_for_apt_locks
-    DEBIAN_FRONTEND=noninteractive apt-get install -y nullboot
-
     # Install new kernel packages
     wait_for_apt_locks
     DEBIAN_FRONTEND=noninteractive apt-get install -y "${KERNEL_PACKAGES[@]}"
     echo "After installing new kernel, here is a list of kernels/headers installed:"; dpkg -l 'linux-*azure*'
+
+    # Reinstall nullboot package
+    wait_for_apt_locks
+    DEBIAN_FRONTEND=noninteractive apt-get install -y nullboot
   else
     echo "Kernel packages for Ubuntu ${UBUNTU_RELEASE} are not available. Skipping purging and subsequent installation."
   fi
