@@ -116,7 +116,7 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 
 	// localdns is not supported on 1804, privatekube and
 	// VHDUbuntu2204Gen2ContainerdAirgappedK8sNotCached.
-	if !s.VHD.UnsupportedLocalDNS {
+	if !s.VHD.UnsupportedLocalDns {
 		ValidateLocalDNSService(ctx, s, "enabled")
 		ValidateLocalDNSResolution(ctx, s, "169.254.10.10")
 	}

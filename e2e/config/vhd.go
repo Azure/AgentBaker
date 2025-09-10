@@ -56,7 +56,7 @@ var (
 		Arch:                "amd64",
 		Distro:              datamodel.AKSUbuntuContainerd1804Gen2,
 		Gallery:             imageGalleryLinux,
-		UnsupportedLocalDNS: true,
+		UnsupportedLocalDns: true,
 	}
 	VHDUbuntu2204Gen2Arm64Containerd = &Image{
 		Name:    "2204gen2arm64containerd",
@@ -125,7 +125,7 @@ var (
 		Distro:                   datamodel.AKSUbuntuContainerd2204Gen2,
 		Gallery:                  imageGalleryLinux,
 		UnsupportedKubeletNodeIP: true,
-		UnsupportedLocalDNS:      true,
+		UnsupportedLocalDns:      true,
 	}
 
 	// without kubelet, kubectl, credential-provider and wasm
@@ -136,7 +136,7 @@ var (
 		Version:             "1.1755204156.32758",
 		Distro:              datamodel.AKSUbuntuContainerd2204Gen2,
 		Gallery:             imageGalleryLinux,
-		UnsupportedLocalDNS: true,
+		UnsupportedLocalDns: true,
 	}
 
 	VHDUbuntu2404Gen1Containerd = &Image{
@@ -252,7 +252,7 @@ type Image struct {
 	Version                  string
 	Gallery                  *Gallery
 	UnsupportedKubeletNodeIP bool
-	UnsupportedLocalDNS      bool
+	UnsupportedLocalDns      bool
 }
 
 func (i *Image) String() string {
