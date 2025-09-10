@@ -86,7 +86,6 @@ func RunScenario(t *testing.T, s *Scenario) {
 		t.Run("FirstStage", func(t *testing.T) {
 			t.Parallel()
 			runScenarioWithPreProvision(t, s)
-
 		})
 	} else {
 		runScenario(t, s)
