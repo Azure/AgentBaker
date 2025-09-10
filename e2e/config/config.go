@@ -82,6 +82,10 @@ func (c *Configuration) BlobStorageAccount() string {
 	return c.BlobStorageAccountPrefix + c.DefaultLocation
 }
 
+func (c *Configuration) IsLocalBuild() bool {
+	return c.BuildID == "local"
+}
+
 func (c *Configuration) BlobStorageAccountURL() string {
 	return "https://" + c.BlobStorageAccount() + ".blob.core.windows.net"
 }
