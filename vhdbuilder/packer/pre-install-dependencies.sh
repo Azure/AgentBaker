@@ -145,7 +145,7 @@ if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]]; then
     # Use LTS kernel for other versions  
     KERNEL_IMAGE="linux-image-azure-lts-${UBUNTU_RELEASE}"
     KERNEL_PACKAGES=(
-      "linux-image-azure-lts-${UBUNTU_RELEASE}"
+      "linux-image-azure-fde-lts-${UBUNTU_RELEASE}"
       "linux-tools-azure-lts-${UBUNTU_RELEASE}"
       "linux-cloud-tools-azure-lts-${UBUNTU_RELEASE}"
       "linux-headers-azure-lts-${UBUNTU_RELEASE}"
