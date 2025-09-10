@@ -1405,17 +1405,17 @@
               {
                 "k8sVersion": "1.30",
                 "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/binaries/kubernetes/azure-acr-credential-provider",
-                "latestVersion": "v1.30.13"
+                "latestVersion": "v1.30.14"
               },
               {
                 "k8sVersion": "1.31",
                 "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/binaries/kubernetes/azure-acr-credential-provider",
-                "latestVersion": "v1.31.7"
+                "latestVersion": "v1.31.8"
               },
               {
                 "k8sVersion": "1.32",
                 "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/binaries/kubernetes/azure-acr-credential-provider",
-                "latestVersion": "v1.32.6"
+                "latestVersion": "v1.32.7"
               },
               {
                 "k8sVersion": "1.33",
