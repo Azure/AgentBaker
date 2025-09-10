@@ -8,8 +8,6 @@ import (
 	"fmt"
 	"net/url"
 	"strconv"
-
-	"github.com/Azure/go-autorest/autorest/to"
 )
 
 // createBaseFlatcarIgnitionConfig creates the base Flatcar configuration using Go structs
@@ -40,7 +38,7 @@ WantedBy=multi-user.target
 				{
 					Path: "/etc/tmpfiles.d/protocols.conf",
 					Contents: &FileContents{
-						Source: "data:," + url.QueryEscape(protocolsContent),
+						Source: fmt.Sprintf("data:,%s", url.QueryEscape(protocolsContent)),
 					},
 					Mode: toPointer(420),
 				},
@@ -132,52 +130,36 @@ type Unit struct {
 func toIgnitionFile(file cloudInitWriteFile) (File, error) {
 	ignFile := File{
 		Path:      file.Path,
-		Overwrite: to.BoolPtr(true),
+		Overwrite: toPointer(true),
 	}
 
-	// Set file owner
 	if file.Owner != "" {
 		ignFile.User = &FileUser{
-			Name: &file.Owner,
+			Name: toPointer(file.Owner),
 		}
 	}
 
-	// Set file mode
 	if file.Permissions != "" {
 		mode, err := strconv.ParseInt(file.Permissions, 8, 32)
 		if err != nil {
 			return ignFile, fmt.Errorf("failed to parse file mode: %w", err)
 		}
-		ignFile.Mode = to.IntPtr(int(mode))
+		ignFile.Mode = toPointer(int(mode))
 	}
 
-	// Set file contents
 	if file.Content != "" {
 		contents := FileContents{}
-
 		switch file.Encoding {
-		case "gzip":
+		case "gzip", "base64":
 			contents.Inline = &file.Content
 			contents.Compression = file.Encoding
-		case "base64":
-			contents.Inline = &file.Content
 		default:
-			// For plain text, we need to create a data URL
-			dataURL := createDataURL(file.Content)
-			contents.Source = dataURL
+			contents.Source = fmt.Sprintf("data:,%s", url.QueryEscape(file.Content))
 		}
-
 		ignFile.Contents = &contents
 	}
 
 	return ignFile, nil
-}
-
-// createDataURL creates a data URL for the given content
-func createDataURL(content string) string {
-	// URL encode the content
-	encoded := url.QueryEscape(content)
-	return "data:," + encoded
 }
 
 // createGzippedDataURL creates a gzipped, base64-encoded data URL for the given content
@@ -188,19 +170,20 @@ func createGzippedDataURL(content string) (string, error) {
 	if _, err := gzWriter.Write([]byte(content)); err != nil {
 		return "", fmt.Errorf("failed to gzip content: %w", err)
 	}
-
 	if err := gzWriter.Close(); err != nil {
 		return "", fmt.Errorf("failed to close gzip writer: %w", err)
 	}
 
 	encoded := base64.StdEncoding.EncodeToString(buf.Bytes())
-	return "data:;base64," + encoded, nil
+	return fmt.Sprintf("data:;base64,%s", encoded), nil
 }
 
-// buildFlatcarIgnitionConfig builds a complete Ignition configuration for Flatcar
+// buildFlatcarIgnitionConfig builds a complete Ignition configuration for Flatcar.
+// It takes custom data files, converts them to Ignition format, and merges them
+// with a base Flatcar configuration. The final result is a gzipped, base64-encoded
+// Ignition config wrapped in an "envelope" config.
 func buildFlatcarIgnitionConfig(customDataFiles []cloudInitWriteFile) (*IgnitionConfig, error) {
-	// Convert cloud-init files to Ignition files
-	var ignitionFiles []File
+	ignitionFiles := make([]File, 0, len(customDataFiles))
 	for _, file := range customDataFiles {
 		ignFile, err := toIgnitionFile(file)
 		if err != nil {
@@ -209,31 +192,23 @@ func buildFlatcarIgnitionConfig(customDataFiles []cloudInitWriteFile) (*Ignition
 		ignitionFiles = append(ignitionFiles, ignFile)
 	}
 
-	// Create the base Ignition config using structs
 	baseConfig := createBaseFlatcarIgnitionConfig()
-
-	// Merge files: custom files first, then base files
 	if baseConfig.Storage == nil {
 		baseConfig.Storage = &StorageSection{}
 	}
-
-	// Prepend custom files to the base files
 	baseConfig.Storage.Files = append(ignitionFiles, baseConfig.Storage.Files...)
 
-	// Create the inner Ignition config JSON
 	innerConfigJSON, err := json.Marshal(baseConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal inner Ignition config: %w", err)
 	}
 
-	// Create a gzipped data URL for the inner config
 	gzippedDataURL, err := createGzippedDataURL(string(innerConfigJSON))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create gzipped data URL: %w", err)
 	}
 
-	// Create the envelope Ignition config
-	envelopeConfig := &IgnitionConfig{
+	return &IgnitionConfig{
 		Ignition: IgnitionSection{
 			Version: "3.4.0",
 			Config: &IgnitionConfigSection{
@@ -243,7 +218,5 @@ func buildFlatcarIgnitionConfig(customDataFiles []cloudInitWriteFile) (*Ignition
 				},
 			},
 		},
-	}
-
-	return envelopeConfig, nil
+	}, nil
 }
