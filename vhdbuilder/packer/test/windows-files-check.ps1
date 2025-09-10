@@ -152,7 +152,7 @@ function Test-ValidateSinglePackageSignature {
                     continue
                 }
 
-                Get-AuthenticodeSignature $NotSignedFile.FullName | Out-String | Write-Output
+                Get-AuthenticodeSignature $NotSignedFile.Path | Out-String | Write-Output
 
                 if (($SkipMapForSignature.ContainsKey($fileName) -and ($SkipMapForSignature[$fileName].Length -ne 0) -and !$SkipMapForSignature[$fileName].Contains($NotSignedFileName)) -or !$SkipMapForSignature.ContainsKey($fileName)) {
                     if (!$NotSignedResult.ContainsKey($dir)) {
