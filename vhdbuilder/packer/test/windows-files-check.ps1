@@ -98,12 +98,12 @@ function Test-ValidateAllSignature {
     }
 
     if ($AllNotSignedFiles.Count -ne 0) {
-        $AllNotSignedFilesString = (echo $AllNotSignedFiles | ConvertTo-Json )
+        $AllNotSignedFilesString = (echo $AllNotSignedFiles | ConvertTo-Json -Depth 9)
         Write-Output "All not signed file in cached packages are: $AllNotSignedFilesString"
     }
 
     if ($NotSignedResult.Count -ne 0) {
-        $NotSignedResultString = (echo $NotSignedResult | ConvertTo-Json )
+        $NotSignedResultString = (echo $NotSignedResult | ConvertTo-Json -Depth 9)
         Write-Error "All not signed binaries are: $NotSignedResultString"
         exit 1
     }
