@@ -51,10 +51,31 @@ func createVMSS(ctx context.Context, s *Scenario) *armcompute.VirtualMachineScal
 		customData = nodeBootstrapping.CustomData
 	}
 
+	// These two links are really for local development
+	if config.Config.IsLocalBuild() {
+		s.T.Logf(
+			"VMSS portal link: https://ms.portal.azure.com/#@microsoft.onmicrosoft.com/resource/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/virtualMachineScaleSets/%s/overview",
+			config.Config.SubscriptionID,
+			*cluster.Model.Properties.NodeResourceGroup,
+			s.Runtime.VMSSName,
+		)
+		s.T.Logf(
+			"Managed cluster portal link: https://ms.portal.azure.com/#@microsoft.onmicrosoft.com/resource/subscriptions/%s/resourceGroups/%s/providers/Microsoft.ContainerService/managedClusters/%s/overview",
+			config.Config.SubscriptionID,
+			*cluster.Model.Properties.NodeResourceGroup,
+			*cluster.Model.Name,
+		)
+	}
+
 	model := getBaseVMSSModel(s, customData, cse, s.Location)
 	if s.Tags.NonAnonymousACR {
 		// add acr pull identity
-		userAssignedIdentity := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.ManagedIdentity/userAssignedIdentities/%s", config.Config.SubscriptionID, config.ResourceGroupName(s.Location), config.VMIdentityName)
+		userAssignedIdentity := fmt.Sprintf(
+			"/subscriptions/%s/resourceGroups/%s/providers/Microsoft.ManagedIdentity/userAssignedIdentities/%s",
+			config.Config.SubscriptionID,
+			config.ResourceGroupName(s.Location),
+			config.VMIdentityName,
+		)
 		model.Identity = &armcompute.VirtualMachineScaleSetIdentity{
 			Type: to.Ptr(armcompute.ResourceIdentityTypeSystemAssignedUserAssigned),
 			UserAssignedIdentities: map[string]*armcompute.UserAssignedIdentitiesValue{
@@ -80,6 +101,7 @@ func createVMSS(ctx context.Context, s *Scenario) *armcompute.VirtualMachineScal
 	skipTestIfSKUNotAvailableErr(s.T, err)
 	// fail test, but continue to extract debug information
 	require.NoError(s.T, err, "create vmss %q, check %s for vm logs", s.Runtime.VMSSName, testDir(s.T))
+
 	return vmss
 }
 
@@ -297,14 +319,15 @@ func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
 	// Invoke the RunCommand on the VMSS instance
 	s.T.Logf("uploading windows logs to blob storage at %s, may take a few minutes", blobUrl)
 
-	// Create a reusable URL for the Azure portal link to the storage account. Do this before the upload in case the upload times out.
-	azurePortalURL := fmt.Sprintf("https://portal.azure.com/?feature.customportal=false#@microsoft.onmicrosoft.com/resource/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Storage/storageAccounts/%s/overview",
+	azurePortalURL := fmt.Sprintf(
+		"https://portal.azure.com/?feature.customportal=false#@microsoft.onmicrosoft.com/resource/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Storage/storageAccounts/%s/containersList",
 		config.Config.SubscriptionID,
 		config.ResourceGroupName(s.Location),
-		config.Config.BlobStorageAccount())
+		config.Config.BlobStorageAccount(),
+	)
 
-	s.T.Logf("Storage account in Azure portal: %s", azurePortalURL)
-	s.T.Logf("##vso[task.logissue type=warning;]%s", azurePortalURL)
+	s.T.Logf("Storage account %s in Azure portal: %s", blobPrefix, azurePortalURL)
+	s.T.Logf("##vso[task.logissue type=warning;]Storage account %s in Azure portal: %s", blobPrefix, azurePortalURL)
 
 	runCommandTimeout := int32((20 * time.Minute).Seconds())
 	s.T.Logf("run command timeout: %d", runCommandTimeout)

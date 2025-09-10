@@ -1,8 +1,11 @@
 package e2e
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"os/exec"
+	"os/user"
 	"reflect"
 	"strconv"
 	"strings"
@@ -187,20 +190,58 @@ func (s *Scenario) PrepareVMSSModel(ctx context.Context, t *testing.T, vmss *arm
 		ID: to.Ptr(string(resourceID)),
 	}
 
+	s.updateTags(ctx, vmss)
+}
+
+func (s *Scenario) updateTags(ctx context.Context, vmss *armcompute.VirtualMachineScaleSet) {
+	if vmss.Tags == nil {
+		vmss.Tags = map[string]*string{}
+	}
+
 	// don't clean up VMSS in other tests
 	if config.Config.KeepVMSS {
-		if vmss.Tags == nil {
-			vmss.Tags = map[string]*string{}
-		}
 		vmss.Tags["KEEP_VMSS"] = to.Ptr("true")
 	}
 
 	if config.Config.BuildID != "" {
-		if vmss.Tags == nil {
-			vmss.Tags = map[string]*string{}
-		}
 		vmss.Tags[buildIDTagKey] = &config.Config.BuildID
 	}
+
+	owner, err := getLoggedInAzUser()
+	if err != nil {
+		owner, err = getLocalUsername()
+		if err != nil {
+			owner = "unknown"
+		}
+	}
+	vmss.Tags["owner"] = to.Ptr(owner)
+
+}
+
+func getLoggedInAzUser() (string, error) {
+	// Define the command and arguments
+	cmd := exec.Command("az", "account", "show", "--query", "user.name", "-o", "tsv")
+
+	// Create a buffer to capture stdout
+	var out bytes.Buffer
+	cmd.Stdout = &out
+
+	// Run the command
+	err := cmd.Run()
+	if err != nil {
+		return "", err
+	}
+
+	return out.String(), nil
+}
+
+func getLocalUsername() (string, error) {
+	currentUser, err := user.Current()
+	if err == nil {
+		return currentUser.Username, nil
+	}
+
+	return "", err
 }
 
 func (s *Scenario) IsWindows() bool {

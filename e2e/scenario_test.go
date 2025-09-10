@@ -1546,6 +1546,29 @@ func Test_AzureLinuxV2_MessageOfTheDay_Scriptless(t *testing.T) {
 	})
 }
 
+func Test_AzureLinuxV2_LocalDns_Disabled_Scriptless(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using a AzureLinuxV2 can be bootstrapped with localdns disabled",
+		Tags: Tags{
+			Scriptless: true,
+		},
+		Config: Config{
+			Cluster: ClusterAzureNetwork,
+			VHD:     config.VHDAzureLinuxV2Gen2,
+			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+				config.LocalDnsProfile = &aksnodeconfigv1.LocalDnsProfile{
+					EnableLocalDns: false,
+				}
+			},
+			SkipDefaultValidation: true,
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateLocalDNSService(ctx, s, "disabled")
+				ValidateLocalDNSResolution(ctx, s, "168.63.129.16")
+			},
+		},
+	})
+}
+
 func Test_Ubuntu2204_KubeletCustomConfig(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Tags: Tags{

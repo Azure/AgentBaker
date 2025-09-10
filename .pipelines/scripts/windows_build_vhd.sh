@@ -39,7 +39,7 @@ if [ -z "${IS_RELEASE_PIPELINE:-}" ]; then
     export IS_RELEASE_PIPELINE="True"
     echo "##vso[task.setvariable variable=IS_RELEASE_PIPELINE]True"
   else
-    echo "The branch ${BRANCH} is not a release branch. Setting IS_RELEASE_PIPELINE to True."
+    echo "The branch ${BRANCH} is not a release branch. Setting IS_RELEASE_PIPELINE to False."
     export IS_RELEASE_PIPELINE="False"
     echo "##vso[task.setvariable variable=IS_RELEASE_PIPELINE]False"
   fi
