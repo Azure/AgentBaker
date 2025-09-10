@@ -43,6 +43,8 @@ var _ = Describe("GetMaintainedLinuxSIGImageConfigMap", func() {
 			AKSAzureLinuxV3OSGuardGen2FIPSTL:      SIGAzureLinuxV3OSGuardGen2FIPSTLImageConfigTemplate.WithOptions(),
 			AKSUbuntuContainerd2404CVMGen2:        SIGUbuntuContainerd2404CVMGen2ImageConfigTemplate.WithOptions(),
 			AKSUbuntuContainerd2404TLGen2:         SIGUbuntuContainerd2404TLGen2ImageConfigTemplate.WithOptions(),
+			AKSFlatcarGen2:                        SIGFlatcarGen2ImageConfigTemplate.WithOptions(),
+			AKSFlatcarArm64Gen2:                   SIGFlatcarArm64Gen2ImageConfigTemplate.WithOptions(),
 		}
 		actual := GetMaintainedLinuxSIGImageConfigMap()
 		for distro, config := range expected {

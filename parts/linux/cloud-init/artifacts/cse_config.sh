@@ -1051,4 +1051,38 @@ enableLocalDNS() {
     echo "Enable localdns succeeded."
 }
 
+# localdns corefile used by localdns systemd unit. 
+LOCALDNS_COREFILE="/opt/azure/containers/localdns/localdns.corefile"
+# localdns slice file used by localdns systemd unit.
+LOCALDNS_SLICEFILE="/etc/systemd/system/localdns.slice"
+# This function is called from cse_main.sh.
+# It creates the localdns corefile and slicefile, then enables and starts localdns.
+# In this function, generated base64 encoded localdns corefile is decoded and written to the corefile path.
+# This function also creates the localdns slice file with memory and cpu limits, that will be used by localdns systemd unit.
+shouldEnableLocalDns() {
+    mkdir -p "$(dirname "${LOCALDNS_COREFILE}")"
+    touch "${LOCALDNS_COREFILE}"
+    chmod 0644 "${LOCALDNS_COREFILE}"
+    echo "${LOCALDNS_GENERATED_COREFILE}" | base64 -d > "${LOCALDNS_COREFILE}" || exit $ERR_LOCALDNS_FAIL
+
+	mkdir -p "$(dirname "${LOCALDNS_SLICEFILE}")"
+    touch "${LOCALDNS_SLICEFILE}"
+    chmod 0644 "${LOCALDNS_SLICEFILE}"
+    cat > "${LOCALDNS_SLICEFILE}" <<EOF
+[Unit]
+Description=localdns Slice
+DefaultDependencies=no
+Before=slices.target
+Requires=system.slice
+After=system.slice
+[Slice]
+MemoryMax=${LOCALDNS_MEMORY_LIMIT}
+CPUQuota=${LOCALDNS_CPU_LIMIT}
+EOF
+
+    echo "localdns should be enabled."
+    systemctlEnableAndStart localdns 30 || exit $ERR_LOCALDNS_FAIL
+    echo "Enable localdns succeeded."
+}
+
 #EOF
