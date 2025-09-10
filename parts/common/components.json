@@ -949,7 +949,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-runc, os=ubuntu, release=20.04",
-                "latestVersion": "1.2.6-ubuntu20.04u1"
+                "latestVersion": "1.2.7-ubuntu20.04u1"
               }
             ]
           },
@@ -957,7 +957,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-runc, os=ubuntu, release=22.04",
-                "latestVersion": "1.2.6-ubuntu22.04u1"
+                "latestVersion": "1.2.7-ubuntu22.04u1"
               }
             ]
           },
@@ -965,7 +965,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-runc, os=ubuntu, release=24.04",
-                "latestVersion": "1.2.6-ubuntu24.04u1"
+                "latestVersion": "1.2.7-ubuntu24.04u1"
               }
             ]
           }
@@ -1028,7 +1028,7 @@
             "versionsV2": [
               {
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/base/x86_64/repodata, name=containerd2, os=azurelinux, release=3.0",
-                "latestVersion": "2.0.0-12.azl3"
+                "latestVersion": "2.0.0-14.azl3"
               }
             ]
           }
