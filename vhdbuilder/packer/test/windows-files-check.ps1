@@ -150,8 +150,8 @@ function Test-ValidateSinglePackageSignature {
                     Write-Output "Skipping aks-secure-tls-bootstrap-client.exe since it is not signed yet"
                     continue
                 }
-                
-                Get-AuthenticodeSignature $_.NotSignedFile.Path | Out-String | Write-Output
+
+                Get-AuthenticodeSignature $NotSignedFile.FullName | Out-String | Write-Output
 
                 if (($SkipMapForSignature.ContainsKey($fileName) -and ($SkipMapForSignature[$fileName].Length -ne 0) -and !$SkipMapForSignature[$fileName].Contains($NotSignedFileName)) -or !$SkipMapForSignature.ContainsKey($fileName)) {
                     if (!$NotSignedResult.ContainsKey($dir)) {
