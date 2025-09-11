@@ -436,7 +436,7 @@ installAndConfigureArtifactStreaming() {
   PACKAGE_EXTENSION=$2
   MIRROR_PROXY_VERSION='0.2.13'
   MIRROR_DOWNLOAD_PATH="./$1.$2"
-  MIRROR_PROXY_URL="https://acrstreamingpackage.blob.core.windows.net/bin/${MIRROR_PROXY_VERSION}/${PACKAGE_NAME}.${PACKAGE_EXTENSION}"
+  MIRROR_PROXY_URL="https://acrstreamingpackage.z5.web.core.windows.net/${MIRROR_PROXY_VERSION}/${PACKAGE_NAME}.${PACKAGE_EXTENSION}"
   retrycmd_curl_file 10 5 60 $MIRROR_DOWNLOAD_PATH $MIRROR_PROXY_URL || exit ${ERR_ARTIFACT_STREAMING_DOWNLOAD}
   if [ "$2" = "deb" ]; then
     apt_get_install 30 1 600 $MIRROR_DOWNLOAD_PATH || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD
@@ -447,15 +447,16 @@ installAndConfigureArtifactStreaming() {
 }
 
 UBUNTU_MAJOR_VERSION=$(echo $UBUNTU_RELEASE | cut -d. -f1)
-# Artifact Streaming currently not supported for 24.04, the deb file isnt present in acs-mirror
-# TODO(amaheshwari/aganeshkumar): Remove the conditional when Artifact Streaming is enabled for 24.04
-if [ "$OS" = "$UBUNTU_OS_NAME" ] && [ "$(isARM64)" -ne 1 ] && [ "$UBUNTU_MAJOR_VERSION" -ge 20 ] && [ "${UBUNTU_RELEASE}" != "24.04" ]; then
+# Artifact Streaming enabled for all supported Ubuntu versions including 24.04
+if [ "$OS" = "$UBUNTU_OS_NAME" ] && [ "$(isARM64)" -ne 1 ] && [ "$UBUNTU_MAJOR_VERSION" -ge 20 ]; then
   installAndConfigureArtifactStreaming acr-mirror-${UBUNTU_RELEASE//.} deb
 fi
 
-# TODO(aadagarwal): Enable Artifact Streaming for AzureLinux 3.0
-if [ "$OS" = "$MARINER_OS_NAME" ]  && [ "$OS_VERSION" = "2.0" ] && [ "$(isARM64)"  -ne 1 ]; then
+# Artifact Streaming enabled for Azure Linux 2.0 and 3.0
+if [ "$OS" = "$MARINER_OS_NAME" ] && [ "$OS_VERSION" = "2.0" ] && [ "$(isARM64)" -ne 1 ]; then
   installAndConfigureArtifactStreaming acr-mirror-mariner rpm
+elif [ "$OS" = "$MARINER_OS_NAME" ] && [ "$OS_VERSION" = "3.0" ] && [ "$(isARM64)" -ne 1 ]; then
+  installAndConfigureArtifactStreaming acr-mirror-azurelinux3 rpm
 fi
 
 # k8s will use images in the k8s.io namespaces - create it
