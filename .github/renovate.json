@@ -212,7 +212,9 @@
         "djsly",
         "UtheMan",
         "zachary-bailey",
-        "ganeshkumarashok"
+        "ganeshkumarashok",
+        "mainred",
+        "nilo19"
       ],
       "reviewers": [
         "devinwong",
@@ -222,7 +224,9 @@
         "djsly",
         "UtheMan",
         "zachary-bailey",
-        "ganeshkumarashok"
+        "ganeshkumarashok",
+        "mainred",
+        "nilo19"
       ]
     },
     {
@@ -345,12 +349,10 @@
       "groupName": "acr-credential-provider",
       "assignees": [
         "mainred",
-        "MartinForReal",
         "nilo19"
       ],
       "reviewers": [
         "mainred",
-        "MartinForReal",
         "nilo19"
       ]
     },
@@ -416,12 +418,10 @@
       "groupName": "azure-cloud-node-manager",
       "assignees": [
         "mainred",
-        "MartinForReal",
         "nilo19"
       ],
       "reviewers": [
         "mainred",
-        "MartinForReal",
         "nilo19"
       ]
     },

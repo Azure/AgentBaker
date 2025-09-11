@@ -1437,27 +1437,27 @@
           "r2404": {
             "versionsV2": [
               {
-                "k8sVersion": "1.32",
+                "k8sVersion": "1.34",
                 "renovateTag": "name=azure-acr-credential-provider, os=ubuntu, release=24.04",
-                "latestVersion": "1.32.3-ubuntu24.04u4"
+                "latestVersion": "1.34.0-ubuntu24.04u1"
               }
             ]
           },
           "r2204": {
             "versionsV2": [
               {
-                "k8sVersion": "1.32",
+                "k8sVersion": "1.34",
                 "renovateTag": "name=azure-acr-credential-provider, os=ubuntu, release=22.04",
-                "latestVersion": "1.32.3-ubuntu22.04u4"
+                "latestVersion": "1.34.0-ubuntu22.04u1"
               }
             ]
           },
           "r2004": {
             "versionsV2": [
               {
-                "k8sVersion": "1.32",
+                "k8sVersion": "1.34",
                 "renovateTag": "name=azure-acr-credential-provider, os=ubuntu, release=20.04",
-                "latestVersion": "1.32.3-ubuntu20.04u4"
+                "latestVersion": "1.34.0-ubuntu22.04u1"
               }
             ]
           }
@@ -1466,9 +1466,9 @@
           "v3.0": {
             "versionsV2": [
               {
-                "k8sVersion": "1.32",
+                "k8sVersion": "1.34",
                 "renovateTag": "name=azure-acr-credential-provider, os=azurelinux, release=3.0",
-                "latestVersion": "1.32.3-4.azl3"
+                "latestVersion": "1.34.0-1.azl3"
               }
             ]
           }
