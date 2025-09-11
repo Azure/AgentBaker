@@ -135,11 +135,17 @@ func createGalleryImage(ctx context.Context, request CreateGalleryImageRequest) 
 	return resp.GalleryImage, nil
 }
 
+// ClusterRequest represents the parameters needed to create a cluster
+type ClusterRequest struct {
+	Location         string
+	K8sSystemPoolSKU string
+}
+
 var ClusterLatestKubernetesVersion = cachedFunc(clusterLatestKubernetesVersion)
 
 // clusterLatestKubernetesVersion creates a cluster with the latest available Kubernetes version
-func clusterLatestKubernetesVersion(ctx context.Context, location string) (*Cluster, error) {
-	model, err := getLatestKubernetesVersionClusterModel(ctx, "abe2e-latest-kubernetes-version", location)
+func clusterLatestKubernetesVersion(ctx context.Context, request ClusterRequest) (*Cluster, error) {
+	model, err := getLatestKubernetesVersionClusterModel(ctx, "abe2e-latest-kubernetes-version", request.Location, request.K8sSystemPoolSKU)
 	if err != nil {
 		return nil, fmt.Errorf("getting latest kubernetes version cluster model: %w", err)
 	}
@@ -149,50 +155,50 @@ func clusterLatestKubernetesVersion(ctx context.Context, location string) (*Clus
 var ClusterKubenet = cachedFunc(clusterKubenet)
 
 // clusterKubenet creates a basic cluster using kubenet networking
-func clusterKubenet(ctx context.Context, location string) (*Cluster, error) {
-	return prepareCluster(ctx, getKubenetClusterModel("abe2e-kubenet-v2", location), false, false, true)
+func clusterKubenet(ctx context.Context, request ClusterRequest) (*Cluster, error) {
+	return prepareCluster(ctx, getKubenetClusterModel("abe2e-kubenet-v2", request.Location, request.K8sSystemPoolSKU), false, false, true)
 }
 
 var ClusterKubenetAirgap = cachedFunc(clusterKubenetAirgap)
 
 // clusterKubenetAirgap creates an airgapped kubenet cluster (no internet access)
-func clusterKubenetAirgap(ctx context.Context, location string) (*Cluster, error) {
-	return prepareCluster(ctx, getKubenetClusterModel("abe2e-kubenet-airgap", location), true, false, true)
+func clusterKubenetAirgap(ctx context.Context, request ClusterRequest) (*Cluster, error) {
+	return prepareCluster(ctx, getKubenetClusterModel("abe2e-kubenet-airgap", request.Location, request.K8sSystemPoolSKU), true, false, true)
 }
 
 var ClusterKubenetAirgapNonAnon = cachedFunc(clusterKubenetAirgapNonAnon)
 
 // clusterKubenetAirgapNonAnon creates an airgapped kubenet cluster with non-anonymous image pulls
-func clusterKubenetAirgapNonAnon(ctx context.Context, location string) (*Cluster, error) {
-	return prepareCluster(ctx, getKubenetClusterModel("abe2e-kubenet-nonanonpull-airgap", location), true, true, true)
+func clusterKubenetAirgapNonAnon(ctx context.Context, request ClusterRequest) (*Cluster, error) {
+	return prepareCluster(ctx, getKubenetClusterModel("abe2e-kubenet-nonanonpull-airgap", request.Location, request.K8sSystemPoolSKU), true, true, true)
 }
 
 var ClusterAzureNetwork = cachedFunc(clusterAzureNetwork)
 
 // clusterAzureNetwork creates a cluster with Azure CNI networking
-func clusterAzureNetwork(ctx context.Context, location string) (*Cluster, error) {
-	return prepareCluster(ctx, getAzureNetworkClusterModel("abe2e-azure-network", location), false, false, true)
+func clusterAzureNetwork(ctx context.Context, request ClusterRequest) (*Cluster, error) {
+	return prepareCluster(ctx, getAzureNetworkClusterModel("abe2e-azure-network", request.Location, request.K8sSystemPoolSKU), false, false, true)
 }
 
 var ClusterAzureOverlayNetwork = cachedFunc(clusterAzureOverlayNetwork)
 
 // clusterAzureOverlayNetwork creates a cluster with Azure CNI Overlay networking
-func clusterAzureOverlayNetwork(ctx context.Context, location string) (*Cluster, error) {
-	return prepareCluster(ctx, getAzureOverlayNetworkClusterModel("abe2e-azure-overlay-network", location), false, false, true)
+func clusterAzureOverlayNetwork(ctx context.Context, request ClusterRequest) (*Cluster, error) {
+	return prepareCluster(ctx, getAzureOverlayNetworkClusterModel("abe2e-azure-overlay-network", request.Location, request.K8sSystemPoolSKU), false, false, true)
 }
 
 var ClusterAzureOverlayNetworkDualStack = cachedFunc(clusterAzureOverlayNetworkDualStack)
 
 // clusterAzureOverlayNetworkDualStack creates a dual-stack (IPv4+IPv6) Azure CNI Overlay cluster
-func clusterAzureOverlayNetworkDualStack(ctx context.Context, location string) (*Cluster, error) {
-	return prepareCluster(ctx, getAzureOverlayNetworkDualStackClusterModel("abe2e-azure-overlay-dualstack", location), false, false, true)
+func clusterAzureOverlayNetworkDualStack(ctx context.Context, request ClusterRequest) (*Cluster, error) {
+	return prepareCluster(ctx, getAzureOverlayNetworkDualStackClusterModel("abe2e-azure-overlay-dualstack", request.Location, request.K8sSystemPoolSKU), false, false, true)
 }
 
 var ClusterCiliumNetwork = cachedFunc(clusterCiliumNetwork)
 
 // clusterCiliumNetwork creates a cluster with Cilium CNI networking
-func clusterCiliumNetwork(ctx context.Context, location string) (*Cluster, error) {
-	return prepareCluster(ctx, getCiliumNetworkClusterModel("abe2e-cilium-network", location), false, false, true)
+func clusterCiliumNetwork(ctx context.Context, request ClusterRequest) (*Cluster, error) {
+	return prepareCluster(ctx, getCiliumNetworkClusterModel("abe2e-cilium-network", request.Location, request.K8sSystemPoolSKU), false, false, true)
 }
 
 // isNotFoundErr checks if an error represents a "not found" response from Azure API
