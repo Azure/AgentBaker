@@ -78,6 +78,13 @@ updateAptWithMicrosoftPkg() {
 
 cleanUpGPUDrivers() {
     rm -Rf $GPU_DEST /opt/gpu
+    
+    # Remove k8s-device-plugin package on non-GPU nodes
+    if dpkg -l | grep -q "k8s-device-plugin"; then
+        echo "Removing k8s-device-plugin package from non-GPU node..."
+        apt_get_purge 10 5 120 k8s-device-plugin || echo "Warning: Failed to remove k8s-device-plugin"
+        echo "k8s-device-plugin package removed from non-GPU node"
+    fi
 }
 
 installCriCtlPackage() {
