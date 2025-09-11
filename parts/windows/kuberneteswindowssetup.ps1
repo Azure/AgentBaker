@@ -412,6 +412,9 @@ function BasePrep {
     Get-HnsPsm1 -HNSModule $global:HNSModule
     Import-Module $global:HNSModule
 
+    # Apply Defender exclusions before installing Azure CNI to avoid file locks
+    Update-DefenderPreferences
+
     Install-VnetPlugins -AzureCNIConfDir $global:AzureCNIConfDir `
         -AzureCNIBinDir $global:AzureCNIBinDir `
         -VNetCNIPluginsURL $global:VNetCNIPluginsURL
@@ -461,8 +464,7 @@ function BasePrep {
     Adjust-DynamicPortRange
     Register-LogsCleanupScriptTask
     Register-NodeResetScriptTask
-    
-    Update-DefenderPreferences
+
 
     $windowsVersion = Get-WindowsVersion
     if ($windowsVersion -ne "1809") {

@@ -150,6 +150,7 @@ function Update-DefenderPreferences {
     Add-MpPreference -ExclusionProcess "c:\k\kube-proxy.exe"
 
     # Azure CNI
+    Add-MpPreference -ExclusionPath    "C:\k\azurecni\bin\azure-vnet-ipam.exe"
     Add-MpPreference -ExclusionProcess "C:\k\azurecni\bin\azure-cns.exe"
     Add-MpPreference -ExclusionProcess "C:\k\azurecni\bin\azure-vnet-ipam.exe"
     Add-MpPreference -ExclusionProcess "C:\k\azurecni\bin\azure-vnet-ipamv6.exe"
