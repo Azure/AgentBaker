@@ -394,6 +394,7 @@ ensureTeleportd() {
 
 ensureArtifactStreaming() {
   systemctlEnableAndStart acr-mirror 30
+  wait_for_apt_locks #remove once overlaybd/install.sh properly handles this checks.
   sudo /opt/acr/tools/overlaybd/install.sh
   sudo /opt/acr/tools/overlaybd/config-user-agent.sh azure
   sudo /opt/acr/tools/overlaybd/enable-http-auth.sh

@@ -78,4 +78,10 @@ dnf_download() {
     done
     echo Executed dnf download --downloaddir="\"${downloadDir}\"" "$@" $i times;
 }
+
+wait_for_apt_locks() {
+    # No-op for Mariner/Azure Linux - DNF handles concurrent access differently than APT
+    # This function exists for compatibility with Ubuntu-specific code
+    return 0
+}
 #EOF
