@@ -355,7 +355,6 @@ func execScriptOnVMForScenarioValidateExitCode(ctx context.Context, s *Scenario,
 
 func ValidateInstalledPackageVersion(ctx context.Context, s *Scenario, component, version string) {
 	s.T.Helper()
-	s.T.Logf("assert %s %s is installed on the VM", component, version)
 	installedCommand := func() string {
 		switch s.VHD.OS {
 		case config.OSUbuntu:
@@ -368,18 +367,13 @@ func ValidateInstalledPackageVersion(ctx context.Context, s *Scenario, component
 		}
 	}()
 	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, installedCommand, 0, "could not get package list")
-	containsComponent := func() bool {
-		for _, line := range strings.Split(execResult.stdout.String(), "\n") {
-			if strings.Contains(line, component) && strings.Contains(line, version) {
-				return true
-			}
+	for _, line := range strings.Split(execResult.stdout.String(), "\n") {
+		if strings.Contains(line, component) && strings.Contains(line, version) {
+			s.T.Logf("found %s %s in the installed packages", component, version)
+			return
 		}
-		return false
-	}()
-	if !containsComponent {
-		s.T.Logf("expected to find %s %s in the installed packages, but did not", component, version)
-		s.T.Fail()
 	}
+	s.T.Errorf("expected to find %s %s in the installed packages, but did not", component, version)
 }
 
 func ValidateKubeletNodeIP(ctx context.Context, s *Scenario) {

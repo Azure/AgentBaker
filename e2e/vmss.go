@@ -132,7 +132,7 @@ func extractLogsFromVM(ctx context.Context, s *Scenario) {
 		if err != nil {
 			s.T.Logf("failed to extract logs from VM: %s", err)
 		} else {
-			s.T.Logf("logs extracted successfully from VM %q", s.Runtime.VMSSName)
+			s.T.Logf("extracted VM logs to %s", testDir(s.T))
 		}
 		err = extractBootDiagnostics(ctx, s)
 		if err != nil {

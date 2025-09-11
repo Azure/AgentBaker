@@ -342,7 +342,11 @@ func validateVM(ctx context.Context, s *Scenario) {
 	if s.Config.Validator != nil {
 		s.Config.Validator(ctx, s)
 	}
-	s.T.Log("validation succeeded")
+	if s.T.Failed() {
+		s.T.Log("VM validation failed")
+	} else {
+		s.T.Log("VM validation succeeded")
+	}
 }
 
 func getCustomScriptExtensionStatus(ctx context.Context, s *Scenario) error {
