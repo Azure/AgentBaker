@@ -45,6 +45,7 @@
         "azuremonitor/containerinsights/ciprod/prometheus-collector/images",
         "oss/kubernetes/azure-cloud-node-manager",
         "aks/ip-masq-agent-v2",
+        "oss/v2/azure/ip-masq-agent-v2",
         "oss/kubernetes-csi/azuredisk-csi",
         "oss/v2/kubernetes-csi/azuredisk-csi",
         "oss/kubernetes-csi/azurefile-csi",
@@ -241,6 +242,21 @@
         "behzad-mir",
         "jpayne3506",
         "QxBytes"
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "oss/v2/azure/ip-masq-agent-v2"
+      ],
+      "versioning": "regex:^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<prerelease>\\d+)$",
+      "ignoreUnstable": false,
+      "reviewers": [
+        "robogatikov",
+        "paulgmiller"
+      ],
+      "assignees": [
+        "robogatikov",
+        "paulgmiller"
       ]
     },
     {
