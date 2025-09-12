@@ -22,6 +22,7 @@
   - [What is the responsibility of a PR assignee?](#what-is-the-responsibility-of-a-pr-assignee)
   - [What components are onboarded to Renovate for auto-update and what are not yet?](#what-components-are-onboarded-to-renovate-for-auto-update-and-what-are-not-yet)
   - [Details on supporting the MAR OCI artifacts.](#details-on-supporting-the-mar-oci-artifacts)
+  - [`REVISION` in Dalec built container images](#revision-in-dalec-built-container-images)
   - [How to enable auto-merge for a component's patch version update?](#how-to-enable-auto-merge-for-a-components-patch-version-update)
   - [Why are some components' `minor version update` disabled?](#why-are-some-components-minor-version-update-disabled)
   - [Debugging in local environment](#debugging-in-local-environment)
@@ -401,8 +402,21 @@ where
 - `${version}` will be resolved at runtime with the `latestVersion` and `previousLatestVersion` defined above.
 - `${CPU_ARCH}` will be resolved at runtime depending on the CPU architecture of the Node (VM) under provisioning.
 
+## `REVISION` in Dalec built container images
+Dalec-built container images use static tags in the form `vMAJOR.MINOR.PATCH-REVISION` (see the Dalec FAQ https://github.com/Azure/dalec-build-defs/blob/main/faq.md#how-do-floating-vs-static-tags-work for details). For clarity and deterministic caching we represent these container images in Agent Baker's `components.json` using the exact static tag `vMAJOR.MINOR.PATCH-REVISION`.
+
+The upstream Azure Cloud Native team has confirmed these container images will be published under names that start with `oss/v2`. To ensure Renovate parses and compares these tags correctly, we have a dedicated package-rule in renovate.json for `oss/v2` container images that uses this versioning regex:
+
+`"versioning": "regex:^v(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)-(?<prerelease>\d+)$"`
+
+Notes:
+
+- This regex expects an optional leading v, three numeric version components, and a numeric revision (the prerelease) separated by a final hyphen. 
+  Example valid tags: `v0.1.15-4`, `v1.2.3-12345678`.
+- When you add a new Dalec-built container image, you don't need to add its package name to `oss/v2/**` package rule because the `oss/v2/**` wildcard already covers all Dalec images.
+
 ## How to enable auto-merge for a component's patch version update?
-This is a common scenarior where we want the PR to be merged automatically when a PR is created for a patch version update. You can refer to `moby-runc` and `moby-containerd` in `AgentBaker/.github/renovate.json` as an example. 
+This is a common scenario where we want the PR to be merged automatically when a PR is created for a patch version update. You can refer to `moby-runc` and `moby-containerd` in `AgentBaker/.github/renovate.json` as an example. 
 
 ```
    {
