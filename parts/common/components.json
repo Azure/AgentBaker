@@ -193,11 +193,11 @@
       "windowsVersions": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
-          "latestVersion": "v1.5.48"
+          "latestVersion": "v1.5.49"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
-          "latestVersion": "v1.6.32"
+          "latestVersion": "v1.6.33"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
@@ -207,7 +207,7 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
-          "latestVersion": "v1.5.48",
+          "latestVersion": "v1.5.49",
           "containerImagePrefetch": {
             "latestVersion": {
               "binaries": [
@@ -218,7 +218,7 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
-          "latestVersion": "v1.6.32",
+          "latestVersion": "v1.6.33",
           "containerImagePrefetch": {
             "latestVersion": {
               "binaries": [
@@ -519,10 +519,6 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/azurefile-csi",
-          "latestVersion": "v1.32.5"
-        },
-        {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/azurefile-csi",
           "latestVersion": "v1.33.3"
         }
       ],
@@ -547,10 +543,18 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/azurefile-csi",
+          "latestVersion": "v1.32.6-3"
+        },
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/azurefile-csi",
           "latestVersion": "v1.33.4-2"
         }
       ],
       "windowsVersions": [
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/azurefile-csi",
+          "latestVersion": "v1.32.6-windows-hp"
+        },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/azurefile-csi",
           "latestVersion": "v1.33.4-windows-hp"
@@ -564,10 +568,21 @@
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/blob-csi",
           "latestVersion": "v1.25.9"
+        }
+      ],
+      "windowsVersions": []
+    },
+    {
+      "downloadURL": "mcr.microsoft.com/oss/v2/kubernetes-csi/blob-csi:*",
+      "amd64OnlyVersions": [],
+      "multiArchVersionsV2": [
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/blob-csi",
+          "latestVersion": "v1.26.7"
         },
         {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/blob-csi",
-          "latestVersion": "v1.26.6"
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/blob-csi",
+          "latestVersion": "v1.27.0"
         }
       ],
       "windowsVersions": []
@@ -642,8 +657,8 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/open-policy-agent/gatekeeper",
-          "latestVersion": "v3.19.3-1",
-          "previousLatestVersion": "v3.19.1-1"
+          "latestVersion": "v3.20.0-1",
+          "previousLatestVersion": "v3.19.3-1"
         }
       ],
       "windowsVersions": []
@@ -666,8 +681,8 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=azure-policy/policy-kubernetes-addon-prod",
-          "latestVersion": "1.12.4",
-          "previousLatestVersion": "1.12.3"
+          "latestVersion": "1.13.1",
+          "previousLatestVersion": "1.13.0"
         }
       ],
       "windowsVersions": []
@@ -678,8 +693,8 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=azure-policy/policy-kubernetes-webhook",
-          "latestVersion": "1.12.4",
-          "previousLatestVersion": "1.12.3"
+          "latestVersion": "1.13.1",
+          "previousLatestVersion": "1.13.0"
         }
       ],
       "windowsVersions": []
@@ -1405,17 +1420,17 @@
               {
                 "k8sVersion": "1.30",
                 "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/binaries/kubernetes/azure-acr-credential-provider",
-                "latestVersion": "v1.30.13"
+                "latestVersion": "v1.30.14"
               },
               {
                 "k8sVersion": "1.31",
                 "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/binaries/kubernetes/azure-acr-credential-provider",
-                "latestVersion": "v1.31.7"
+                "latestVersion": "v1.31.8"
               },
               {
                 "k8sVersion": "1.32",
                 "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/binaries/kubernetes/azure-acr-credential-provider",
-                "latestVersion": "v1.32.6"
+                "latestVersion": "v1.32.7"
               },
               {
                 "k8sVersion": "1.33",

@@ -264,7 +264,7 @@
       "matchPackageNames": [
         "azuremonitor/containerinsights/ciprod"
       ],
-      "groupName": "ciprod",      
+      "groupName": "ciprod",
       "ignoreUnstable": false,
       "reviewers": [
         "team:containerinsights"
@@ -595,8 +595,8 @@
     {
       "customType": "regex",
       "description": "auto update packages for OS Mariner 2.0 in components.json",
-      "fileMatch": [
-        "parts/common/components.json"
+      "managerFilePatterns": [
+        "/parts/common/components.json/"
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
@@ -608,8 +608,8 @@
     {
       "customType": "regex",
       "description": "auto update packages for OS AzureLinux 3.0 in components.json",
-      "fileMatch": [
-        "parts/common/components.json"
+      "managerFilePatterns": [
+        "/parts/common/components.json/"
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [

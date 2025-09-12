@@ -71,31 +71,31 @@ func getLatestGAKubernetesVersion(ctx context.Context, location string) (string,
 }
 
 // getLatestKubernetesVersionClusterModel returns a cluster model with the latest GA Kubernetes version.
-func getLatestKubernetesVersionClusterModel(ctx context.Context, name, location string) (*armcontainerservice.ManagedCluster, error) {
+func getLatestKubernetesVersionClusterModel(ctx context.Context, name, location, k8sSystemPoolSKU string) (*armcontainerservice.ManagedCluster, error) {
 	version, err := getLatestGAKubernetesVersion(ctx, location)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get latest GA Kubernetes version: %w", err)
 	}
-	model := getBaseClusterModel(name, location)
+	model := getBaseClusterModel(name, location, k8sSystemPoolSKU)
 	model.Properties.KubernetesVersion = to.Ptr(version)
 	return model, nil
 }
 
-func getKubenetClusterModel(name, location string) *armcontainerservice.ManagedCluster {
-	model := getBaseClusterModel(name, location)
+func getKubenetClusterModel(name, location, k8sSystemPoolSKU string) *armcontainerservice.ManagedCluster {
+	model := getBaseClusterModel(name, location, k8sSystemPoolSKU)
 	model.Properties.NetworkProfile.NetworkPlugin = to.Ptr(armcontainerservice.NetworkPluginKubenet)
 	return model
 }
 
-func getAzureOverlayNetworkClusterModel(name, location string) *armcontainerservice.ManagedCluster {
-	model := getBaseClusterModel(name, location)
+func getAzureOverlayNetworkClusterModel(name, location, k8sSystemPoolSKU string) *armcontainerservice.ManagedCluster {
+	model := getBaseClusterModel(name, location, k8sSystemPoolSKU)
 	model.Properties.NetworkProfile.NetworkPlugin = to.Ptr(armcontainerservice.NetworkPluginAzure)
 	model.Properties.NetworkProfile.NetworkPluginMode = to.Ptr(armcontainerservice.NetworkPluginModeOverlay)
 	return model
 }
 
-func getAzureOverlayNetworkDualStackClusterModel(name, location string) *armcontainerservice.ManagedCluster {
-	model := getAzureOverlayNetworkClusterModel(name, location)
+func getAzureOverlayNetworkDualStackClusterModel(name, location, k8sSystemPoolSKU string) *armcontainerservice.ManagedCluster {
+	model := getAzureOverlayNetworkClusterModel(name, location, k8sSystemPoolSKU)
 
 	model.Properties.NetworkProfile.IPFamilies = []*armcontainerservice.IPFamily{
 		to.Ptr(armcontainerservice.IPFamilyIPv4),
@@ -122,8 +122,8 @@ func getAzureOverlayNetworkDualStackClusterModel(name, location string) *armcont
 	return model
 }
 
-func getAzureNetworkClusterModel(name, location string) *armcontainerservice.ManagedCluster {
-	cluster := getBaseClusterModel(name, location)
+func getAzureNetworkClusterModel(name, location, k8sSystemPoolSKU string) *armcontainerservice.ManagedCluster {
+	cluster := getBaseClusterModel(name, location, k8sSystemPoolSKU)
 	cluster.Properties.NetworkProfile.NetworkPlugin = to.Ptr(armcontainerservice.NetworkPluginAzure)
 	if cluster.Properties.AgentPoolProfiles != nil {
 		for _, app := range cluster.Properties.AgentPoolProfiles {
@@ -132,8 +132,8 @@ func getAzureNetworkClusterModel(name, location string) *armcontainerservice.Man
 	}
 	return cluster
 }
-func getCiliumNetworkClusterModel(name, location string) *armcontainerservice.ManagedCluster {
-	cluster := getBaseClusterModel(name, location)
+func getCiliumNetworkClusterModel(name, location, k8sSystemPoolSKU string) *armcontainerservice.ManagedCluster {
+	cluster := getBaseClusterModel(name, location, k8sSystemPoolSKU)
 	cluster.Properties.NetworkProfile.NetworkPlugin = to.Ptr(armcontainerservice.NetworkPluginAzure)
 	cluster.Properties.NetworkProfile.NetworkDataplane = to.Ptr(armcontainerservice.NetworkDataplaneCilium)
 	cluster.Properties.NetworkProfile.NetworkPolicy = to.Ptr(armcontainerservice.NetworkPolicyCilium)
@@ -145,7 +145,7 @@ func getCiliumNetworkClusterModel(name, location string) *armcontainerservice.Ma
 	return cluster
 }
 
-func getBaseClusterModel(clusterName, location string) *armcontainerservice.ManagedCluster {
+func getBaseClusterModel(clusterName, location, k8sSystemPoolSKU string) *armcontainerservice.ManagedCluster {
 	return &armcontainerservice.ManagedCluster{
 		Name:     to.Ptr(clusterName),
 		Location: to.Ptr(location),
@@ -155,7 +155,7 @@ func getBaseClusterModel(clusterName, location string) *armcontainerservice.Mana
 				{
 					Name:         to.Ptr("nodepool1"),
 					Count:        to.Ptr[int32](1),
-					VMSize:       to.Ptr(config.Config.DefaultVMSKU),
+					VMSize:       to.Ptr(k8sSystemPoolSKU),
 					MaxPods:      to.Ptr[int32](110),
 					OSType:       to.Ptr(armcontainerservice.OSTypeLinux),
 					Type:         to.Ptr(armcontainerservice.AgentPoolTypeVirtualMachineScaleSets),
