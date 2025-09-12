@@ -78,8 +78,8 @@ installCriCtlPackage() {
 }
 
 installKubeletKubectlFromPkg() {
-    if mergeSysexts kubelet mcr.microsoft.com/oss/v2/kubernetes/kubelet-sysext "$1" \
-                    kubectl mcr.microsoft.com/oss/v2/kubernetes/kubectl-sysext "$1"; then
+    if mergeSysexts kubelet upstream.azurecr.io/oss/v2/kubernetes/kubelet-sysext "$1" \
+                    kubectl upstream.azurecr.io/oss/v2/kubernetes/kubectl-sysext "$1"; then
         ln -snf /usr/bin/{kubelet,kubectl} /opt/bin/
     else
         installKubeletKubectlFromURL

@@ -1322,7 +1322,7 @@
                 "latestVersion": "v1.34.0-2-azlinux3"
               }
             ],
-            "downloadURL": "mcr.microsoft.com/oss/v2/kubernetes/kubelet-sysext:${version}-${SYSTEMD_ARCH}"
+            "downloadURL": "upstream.azurecr.io/oss/v2/kubernetes/kubelet-sysext:${version}-${SYSTEMD_ARCH}"
           }
         }
       }
@@ -1411,7 +1411,7 @@
                 "latestVersion": "v1.34.0-2-azlinux3"
               }
             ],
-            "downloadURL": "mcr.microsoft.com/oss/v2/kubernetes/kubectl-sysext:${version}-${SYSTEMD_ARCH}"
+            "downloadURL": "upstream.azurecr.io/oss/v2/kubernetes/kubectl-sysext:${version}-${SYSTEMD_ARCH}"
           }
         }
       }

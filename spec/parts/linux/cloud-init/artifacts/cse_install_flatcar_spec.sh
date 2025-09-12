@@ -36,7 +36,7 @@ Describe 'cse_install_flatcar.sh'
             oras() {
                 case "$1" in
                     "pull")
-                        [ "$2" = "--output" ] && [ "$3" = "/opt/kubelet/downloads" ] && [ "$4" = "mcr.microsoft.com/oss/v2/kubernetes/kubelet-sysext:v1.28.101-1-azlinux3-x86-64" ]
+                        [ "$2" = "--output" ] && [ "$3" = "/opt/kubelet/downloads" ] && [ "$4" = "upstream.azurecr.io/oss/v2/kubernetes/kubelet-sysext:v1.28.101-1-azlinux3-x86-64" ]
                         return 0
                         ;;
                     *)
@@ -44,8 +44,8 @@ Describe 'cse_install_flatcar.sh'
                         ;;
                 esac
             }
-            When call downloadSysextFromVersion "kubelet" "mcr.microsoft.com/oss/v2/kubernetes/kubelet-sysext:v1.28.101-1-azlinux3-x86-64"
-            The output should include "Succeeded to download kubelet system extension from mcr.microsoft.com/oss/v2/kubernetes/kubelet-sysext:v1.28.101-1-azlinux3-x86-64"
+            When call downloadSysextFromVersion "kubelet" "upstream.azurecr.io/oss/v2/kubernetes/kubelet-sysext:v1.28.101-1-azlinux3-x86-64"
+            The output should include "Succeeded to download kubelet system extension from upstream.azurecr.io/oss/v2/kubernetes/kubelet-sysext:v1.28.101-1-azlinux3-x86-64"
             The status should be success
         End
 
@@ -54,7 +54,7 @@ Describe 'cse_install_flatcar.sh'
             oras() {
                 case "$1" in
                     "pull")
-                        [ "$2" = "--output" ] && [ "$3" = "/custom/path" ] && [ "$4" = "mcr.microsoft.com/oss/v2/kubernetes/kubectl-sysext:v1.28.101-1-azlinux3-x86-64" ]
+                        [ "$2" = "--output" ] && [ "$3" = "/custom/path" ] && [ "$4" = "upstream.azurecr.io/oss/v2/kubernetes/kubectl-sysext:v1.28.101-1-azlinux3-x86-64" ]
                         return 0
                         ;;
                     *)
@@ -62,8 +62,8 @@ Describe 'cse_install_flatcar.sh'
                         ;;
                 esac
             }
-            When call downloadSysextFromVersion "kubectl" "mcr.microsoft.com/oss/v2/kubernetes/kubectl-sysext:v1.28.101-1-azlinux3-x86-64" "/custom/path"
-            The output should include "Succeeded to download kubectl system extension from mcr.microsoft.com/oss/v2/kubernetes/kubectl-sysext:v1.28.101-1-azlinux3-x86-64"
+            When call downloadSysextFromVersion "kubectl" "upstream.azurecr.io/oss/v2/kubernetes/kubectl-sysext:v1.28.101-1-azlinux3-x86-64" "/custom/path"
+            The output should include "Succeeded to download kubectl system extension from upstream.azurecr.io/oss/v2/kubernetes/kubectl-sysext:v1.28.101-1-azlinux3-x86-64"
             The status should be success
         End
 
@@ -88,7 +88,7 @@ Describe 'cse_install_flatcar.sh'
             sleep() {
                 echo "sleeping $1 seconds"
             }
-            When call downloadSysextFromVersion "kubelet" "mcr.microsoft.com/oss/v2/kubernetes/kubelet-sysext:v1.28.101-1-azlinux3-x86-64"
+            When call downloadSysextFromVersion "kubelet" "upstream.azurecr.io/oss/v2/kubernetes/kubelet-sysext:v1.28.101-1-azlinux3-x86-64"
             The output should include "sleeping 5 seconds"
             The output should include "Succeeded to download kubelet system extension"
             The status should be success
@@ -102,9 +102,9 @@ Describe 'cse_install_flatcar.sh'
             sleep() {
                 echo "sleeping $1 seconds"
             }
-            When call downloadSysextFromVersion "kubelet" "mcr.microsoft.com/oss/v2/kubernetes/kubelet-sysext:v1.28.101-1-azlinux3-x86-64"
+            When call downloadSysextFromVersion "kubelet" "upstream.azurecr.io/oss/v2/kubernetes/kubelet-sysext:v1.28.101-1-azlinux3-x86-64"
             The output should include "sleeping 5 seconds"
-            The output should include "Failed to download kubelet system extension from mcr.microsoft.com/oss/v2/kubernetes/kubelet-sysext:v1.28.101-1-azlinux3-x86-64"
+            The output should include "Failed to download kubelet system extension from upstream.azurecr.io/oss/v2/kubernetes/kubelet-sysext:v1.28.101-1-azlinux3-x86-64"
             The status should be failure
         End
     End
@@ -159,7 +159,7 @@ EOF
                     *) ( unset grep; grep "${@}" ) ;;
                 esac
             }
-            When call matchRemoteSysext "mcr.microsoft.com/oss/v2/kubernetes/kubelet-sysext" "1.33" "x86-64"
+            When call matchRemoteSysext "upstream.azurecr.io/oss/v2/kubernetes/kubelet-sysext" "1.33" "x86-64"
             The output should equal "v1.33.4-1-azlinux3-x86-64"
             The status should be success
         End
@@ -191,7 +191,7 @@ EOF
                     *) ( unset grep; grep "${@}" ) ;;
                 esac
             }
-            When call matchRemoteSysext "mcr.microsoft.com/oss/v2/kubernetes/kubelet-sysext" "1.33" "x86-64"
+            When call matchRemoteSysext "upstream.azurecr.io/oss/v2/kubernetes/kubelet-sysext" "1.33" "x86-64"
             The output should equal "v1.33.10-1-azlinux3-x86-64"
             The status should be success
         End
@@ -221,7 +221,7 @@ EOF
             sleep() {
                 echo "sleeping $1 seconds"
             }
-            When call matchRemoteSysext "mcr.microsoft.com/oss/v2/kubernetes/kubelet-sysext" "1.33" "x86-64"
+            When call matchRemoteSysext "upstream.azurecr.io/oss/v2/kubernetes/kubelet-sysext" "1.33" "x86-64"
             The output should include "sleeping 5 seconds"
             The output should include "v1.33.4-1-azlinux3-x86-64"
             The status should be success
@@ -235,7 +235,7 @@ EOF
             sleep() {
                 echo "sleeping $1 seconds"
             }
-            When call matchRemoteSysext "mcr.microsoft.com/oss/v2/kubernetes/kubelet-sysext" "1.33" "x86-64"
+            When call matchRemoteSysext "upstream.azurecr.io/oss/v2/kubernetes/kubelet-sysext" "1.33" "x86-64"
             The output should include "sleeping 5 seconds"
             The status should be failure
         End
@@ -259,7 +259,7 @@ EOF
                 fi
                 return 1
             }
-            When call mergeSysexts "kubelet" "mcr.microsoft.com/oss/v2/kubernetes/kubelet-sysext" "1.33"
+            When call mergeSysexts "kubelet" "upstream.azurecr.io/oss/v2/kubernetes/kubelet-sysext" "1.33"
             The output should include "ln -snf /opt/kubelet/downloads/kubelet-v1.33.4-1-azlinux3-x86-64.raw /etc/extensions/kubelet.raw"
             The output should include "systemd-sysext --no-reload refresh"
             The status should be success
@@ -295,9 +295,9 @@ EOF
                 fi
                 return 1
             }
-            When call mergeSysexts "kubelet" "mcr.microsoft.com/oss/v2/kubernetes/kubelet-sysext" "1.33"
+            When call mergeSysexts "kubelet" "upstream.azurecr.io/oss/v2/kubernetes/kubelet-sysext" "1.33"
             The output should include "Failed to find valid kubelet system extension for 1.33 locally"
-            The output should include "downloadSysextFromVersion kubelet mcr.microsoft.com/oss/v2/kubernetes/kubelet-sysext:v1.33.4-1-azlinux3-x86-64"
+            The output should include "downloadSysextFromVersion kubelet upstream.azurecr.io/oss/v2/kubernetes/kubelet-sysext:v1.33.4-1-azlinux3-x86-64"
             The output should include "ln -snf /opt/kubelet/downloads/kubelet-v1.33.4-1-azlinux3-x86-64.raw /etc/extensions/kubelet.raw"
             The output should include "systemd-sysext --no-reload refresh"
             The status should be success
@@ -322,7 +322,7 @@ EOF
                 fi
                 return 1
             }
-            When call mergeSysexts "kubelet" "mcr.microsoft.com/oss/v2/kubernetes/kubelet-sysext" "1.33" "kubectl" "mcr.microsoft.com/oss/v2/kubernetes/kubectl-sysext" "1.33"
+            When call mergeSysexts "kubelet" "upstream.azurecr.io/oss/v2/kubernetes/kubelet-sysext" "1.33" "kubectl" "upstream.azurecr.io/oss/v2/kubernetes/kubectl-sysext" "1.33"
             The output should include "ln -snf /opt/kubelet/downloads/kubelet-v1.33.4-1-azlinux3-x86-64.raw /etc/extensions/kubelet.raw"
             The output should include "ln -snf /opt/kubectl/downloads/kubectl-v1.33.4-1-azlinux3-x86-64.raw /etc/extensions/kubectl.raw"
             The output should include "systemd-sysext --no-reload refresh"
@@ -343,7 +343,7 @@ EOF
                 fi
                 return 1
             }
-            When call mergeSysexts "kubelet" "mcr.microsoft.com/oss/v2/kubernetes/kubelet-sysext" "1.33"
+            When call mergeSysexts "kubelet" "upstream.azurecr.io/oss/v2/kubernetes/kubelet-sysext" "1.33"
             The output should include "Failed to find valid kubelet system extension for 1.33 locally"
             The output should include "Failed to find valid kubelet system extension for 1.33 remotely"
             The status should be failure
@@ -364,9 +364,9 @@ EOF
             test() {
                 return 1
             }
-            When call mergeSysexts "kubelet" "mcr.microsoft.com/oss/v2/kubernetes/kubelet-sysext" "1.33"
+            When call mergeSysexts "kubelet" "upstream.azurecr.io/oss/v2/kubernetes/kubelet-sysext" "1.33"
             The output should include "Failed to find valid kubelet system extension for 1.33 locally"
-            The output should include "downloadSysextFromVersion kubelet mcr.microsoft.com/oss/v2/kubernetes/kubelet-sysext:v1.33.4-1-azlinux3-x86-64"
+            The output should include "downloadSysextFromVersion kubelet upstream.azurecr.io/oss/v2/kubernetes/kubelet-sysext:v1.33.4-1-azlinux3-x86-64"
             The status should be failure
         End
 
@@ -390,7 +390,7 @@ EOF
                 echo "ln $*"
             }
             When call installKubeletKubectlFromPkg "1.33"
-            The output should include "mergeSysexts called with: kubelet mcr.microsoft.com/oss/v2/kubernetes/kubelet-sysext 1.33 kubectl mcr.microsoft.com/oss/v2/kubernetes/kubectl-sysext 1.33"
+            The output should include "mergeSysexts called with: kubelet upstream.azurecr.io/oss/v2/kubernetes/kubelet-sysext 1.33 kubectl upstream.azurecr.io/oss/v2/kubernetes/kubectl-sysext 1.33"
             The output should include "ln -snf /usr/bin/kubelet /usr/bin/kubectl /opt/bin/"
             The status should be success
         End
@@ -404,7 +404,7 @@ EOF
                 echo "installKubeletKubectlFromURL called"
             }
             When call installKubeletKubectlFromPkg "1.33"
-            The output should include "mergeSysexts called with: kubelet mcr.microsoft.com/oss/v2/kubernetes/kubelet-sysext 1.33 kubectl mcr.microsoft.com/oss/v2/kubernetes/kubectl-sysext 1.33"
+            The output should include "mergeSysexts called with: kubelet upstream.azurecr.io/oss/v2/kubernetes/kubelet-sysext 1.33 kubectl upstream.azurecr.io/oss/v2/kubernetes/kubectl-sysext 1.33"
             The output should include "installKubeletKubectlFromURL called"
             The status should be success
         End
