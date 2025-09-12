@@ -416,7 +416,7 @@ Notes:
 - When you add a new Dalec-built container image, you don't need to add its package name to `oss/v2/**` package rule because the `oss/v2/**` wildcard already covers all Dalec images.
 
 ## How to enable auto-merge for a component's patch version update?
-This is a common scenarior where we want the PR to be merged automatically when a PR is created for a patch version update. You can refer to `moby-runc` and `moby-containerd` in `AgentBaker/.github/renovate.json` as an example. 
+This is a common scenario where we want the PR to be merged automatically when a PR is created for a patch version update. You can refer to `moby-runc` and `moby-containerd` in `AgentBaker/.github/renovate.json` as an example. 
 
 ```
    {
