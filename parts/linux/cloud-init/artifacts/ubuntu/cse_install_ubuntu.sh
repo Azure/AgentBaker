@@ -144,8 +144,7 @@ installPkgWithAptGet() {
     logs_to_events "AKS.CSE.install${packageName}.installDebPackageFromFile" "installDebPackageFromFile ${debFile}" || exit $ERR_APT_INSTALL_TIMEOUT
 
     mv "/usr/bin/${packageName}" "/usr/local/bin/${packageName}"
-    rm -rf ${downloadDir} &
-    return 0
+    rm -rf ${downloadDir}
 }
 
 downloadPkgFromVersion() {

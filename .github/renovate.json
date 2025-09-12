@@ -45,6 +45,7 @@
         "azuremonitor/containerinsights/ciprod/prometheus-collector/images",
         "oss/kubernetes/azure-cloud-node-manager",
         "aks/ip-masq-agent-v2",
+        "oss/v2/azure/ip-masq-agent-v2",
         "oss/kubernetes-csi/azuredisk-csi",
         "oss/v2/kubernetes-csi/azuredisk-csi",
         "oss/kubernetes-csi/azurefile-csi",
@@ -233,6 +234,21 @@
     },
     {
       "matchPackageNames": [
+        "oss/v2/azure/ip-masq-agent-v2"
+      ],
+      "versioning": "regex:^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<prerelease>\\d+)$",
+      "ignoreUnstable": false,
+      "reviewers": [
+        "robogatikov",
+        "paulgmiller"
+      ],
+      "assignees": [
+        "robogatikov",
+        "paulgmiller"
+      ]
+    },
+    {
+      "matchPackageNames": [
         "containernetworking/cilium/cilium"
       ],
       "groupName": "azure-cni-cilium-ipam",
@@ -252,7 +268,7 @@
       "matchPackageNames": [
         "azuremonitor/containerinsights/ciprod"
       ],
-      "groupName": "ciprod",      
+      "groupName": "ciprod",
       "ignoreUnstable": false,
       "reviewers": [
         "team:containerinsights"
@@ -579,8 +595,8 @@
     {
       "customType": "regex",
       "description": "auto update packages for OS Mariner 2.0 in components.json",
-      "fileMatch": [
-        "parts/common/components.json"
+      "managerFilePatterns": [
+        "/parts/common/components.json/"
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
@@ -592,8 +608,8 @@
     {
       "customType": "regex",
       "description": "auto update packages for OS AzureLinux 3.0 in components.json",
-      "fileMatch": [
-        "parts/common/components.json"
+      "managerFilePatterns": [
+        "/parts/common/components.json/"
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [

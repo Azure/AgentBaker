@@ -203,7 +203,7 @@ installRPMPackageFromFile() {
         exit $ERR_APT_INSTALL_TIMEOUT
     fi
     mv "/usr/bin/${packageName}" "/usr/local/bin/${packageName}"
-	rm -rf ${downloadDir} &
+	rm -rf ${downloadDir}
 }
 
 downloadPkgFromVersion() {
