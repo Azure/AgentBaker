@@ -151,7 +151,40 @@ Describe 'cse_helpers.sh'
         End
     End
 
-        Describe 'addKubeletNodeLabel'
+    Describe 'getLatestPkgVersionFromK8sVersion'
+    COMPONENTS_FILEPATH="spec/parts/linux/cloud-init/artifacts/test_components.json"
+    
+        It 'returns correct latestVersion for Ubuntu'
+            k8sVersion="1.32.3"
+            OS="UBUNTU"
+            OS_VERSION="22.04"
+            When call getLatestPkgVersionFromK8sVersion "$k8sVersion" "fake-azure-acr-credential-provider" "$OS" "$OS_VERSION"
+            The output should equal "1.32.3-ubuntu22.04u4"
+        End
+        It 'returns correct latestVersion for AzureLinux'
+            k8sVersion="1.32.3"
+            OS="AZURELINUX"
+            OS_VERSION="3.0"
+            When call getLatestPkgVersionFromK8sVersion "$k8sVersion" "fake-azure-acr-credential-provider" "$OS" "$OS_VERSION"
+            The output should equal '1.32.3-4.azl3'
+        End
+        It 'returns highest latestVersion for Ubuntu if no matching k8s version'
+            k8sVersion="1.34.0"
+            OS="UBUNTU"
+            OS_VERSION="22.04"
+            When call getLatestPkgVersionFromK8sVersion "$k8sVersion" "fake-azure-acr-credential-provider" "$OS" "$OS_VERSION"
+            The output should equal "1.32.3-ubuntu22.04u4"
+        End
+        It 'returns highest latestVersion for AzureLinux if no matching k8s version'
+            k8sVersion="1.34.0"
+            OS="AZURELINUX"
+            OS_VERSION="3.0"
+            When call getLatestPkgVersionFromK8sVersion "$k8sVersion" "fake-azure-acr-credential-provider" "$OS" "$OS_VERSION"
+            The output should equal '1.32.3-4.azl3'
+        End
+    End
+
+    Describe 'addKubeletNodeLabel'
         It 'should perform a no-op when the specified label already exists within the label string'
             KUBELET_NODE_LABELS="kubernetes.azure.com/nodepool-type=VirtualMachineScaleSets,kubernetes.azure.com/kubelet-serving-ca=cluster,kubernetes.azure.com/agentpool=wp0"
             When call addKubeletNodeLabel kubernetes.azure.com/kubelet-serving-ca=cluster

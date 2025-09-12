@@ -163,6 +163,9 @@ function basePrep {
         logs_to_events "AKS.CSE.installNetworkPlugin" installNetworkPlugin
     fi
 
+    # ShouldEnforceKubePMCInstall is a nodepool tag we curl from IMDS.
+    # Added as a temporary workaround to test installing packages from PMC prior to 1.34.0 GA.
+    # TODO: Remove tag and usages once 1.34.0 is GA.
     export -f should_enforce_kube_pmc_install
     SHOULD_ENFORCE_KUBE_PMC_INSTALL=$(retrycmd_silent 10 1 10 bash -cx should_enforce_kube_pmc_install)
     logs_to_events "AKS.CSE.configureKubeletAndKubectl" configureKubeletAndKubectl
