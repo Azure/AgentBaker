@@ -45,9 +45,3 @@ e2e/scenario-logs/
 
 # vhdbuilder generated prefetch scripts
 vhdbuilder/packer/prefetch.sh
-
-# Local development files
-CLAUDE.md
-aztest.md
-example_h100_test.go
-pytorch-pod.yaml
