@@ -567,6 +567,7 @@ EOF
     systemctl enable nvidia-dcgm-exporter
     systemctl enable nvidia-device-plugin
     systemctl enable openibd
+    systemctl enable nvidia-imex
   fi
 fi
 
