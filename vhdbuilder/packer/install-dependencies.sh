@@ -1,5 +1,7 @@
 #!/bin/bash
 set -euo pipefail
+
+readonly K8S_DEVICE_PLUGIN_PKG="k8s-device-plugin"
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
 MARINER_KATA_OS_NAME="MARINERKATA"
@@ -459,17 +461,50 @@ elif [ "$OS" = "$MARINER_OS_NAME" ] && [ "$OS_VERSION" = "3.0" ] && [ "$(isARM64
   installAndConfigureArtifactStreaming acr-mirror-azurelinux3 rpm
 fi
 
-# Install GPU device plugin for Ubuntu 24.04 only and disable the systemd unit
-if [ "$OS" = "$UBUNTU_OS_NAME" ] && [ "${UBUNTU_RELEASE}" = "24.04" ]; then
-  echo "Installing k8s-device-plugin for Ubuntu 24.04..."
-  apt_get_install 30 1 600 k8s-device-plugin || exit $ERR_APT
-  
-  # Disable the nvidia-device-plugin systemd unit to prevent auto-start
+should_install_device_plugin() {
+  # Require x86_64 (skip arm64)
+  if [ "$(isARM64)" -eq 1 ]; then return 1; fi
+
+  # Ubuntu 24.04 only
+  if [ "$OS" = "$UBUNTU_OS_NAME" ] && [ "${UBUNTU_RELEASE:-}" = "24.04" ]; then return 0; fi
+
+  # Azure Linux 3.0 only
+  if [ "$OS" = "$AZURELINUX_OS_NAME" ] && [ "${OS_VERSION}" = "3.0" ]; then return 0; fi
+
+  return 1
+}
+
+install_device_plugin() {
+  local pkg="${K8S_DEVICE_PLUGIN_PKG}"
+  echo "Installing ${pkg} on ${OS} (Ubuntu ${UBUNTU_RELEASE:-n/a} / Version ${OS_VERSION:-n/a})..."
+  if [ "${OS}" = "${UBUNTU_OS_NAME}" ]; then
+    apt_get_install 30 1 600 "${pkg}" || exit $ERR_APT
+  elif [ "${OS}" = "${AZURELINUX_OS_NAME}" ]; then
+    if ! dnf_install 30 1 600 "${pkg}"; then
+      echo "Failed to install ${pkg} on Azure Linux ${OS_VERSION}" >&2
+      exit 1
+    fi
+  else
+    echo "install_device_plugin called for unsupported OS ${OS}" >&2
+    return 1
+  fi
+
   echo "Disabling nvidia-device-plugin systemd unit..."
   systemctl disable nvidia-device-plugin.service || exit 1
   systemctl mask nvidia-device-plugin.service || exit 1
   
-  echo "  - k8s-device-plugin installed and systemd unit disabled" >> ${VHD_LOGS_FILEPATH}
+  # Capture installed package version for logging
+  local pkg_version="unknown"
+  if [ "${OS}" = "${UBUNTU_OS_NAME}" ]; then
+    pkg_version=$(dpkg-query -W -f='${Version}' "${pkg}" 2>/dev/null || echo "unknown")
+  elif [ "${OS}" = "${AZURELINUX_OS_NAME}" ]; then
+    pkg_version=$(rpm -q --qf '%{VERSION}-%{RELEASE}' "${pkg}" 2>/dev/null || echo "unknown")
+  fi
+  echo "  - ${pkg} version ${pkg_version}" >> ${VHD_LOGS_FILEPATH}
+}
+
+if should_install_device_plugin; then
+  install_device_plugin
 fi
 
 # k8s will use images in the k8s.io namespaces - create it

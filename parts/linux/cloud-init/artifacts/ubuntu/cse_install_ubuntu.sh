@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# Constant for GPU device plugin package name. Change here if the package name ever
+# needs to be updated across build + provisioning scripts.
+readonly K8S_DEVICE_PLUGIN_PKG="k8s-device-plugin"
+
 removeMoby() {
     apt_get_purge 10 5 300 moby-engine moby-cli
 }
@@ -79,11 +83,11 @@ updateAptWithMicrosoftPkg() {
 cleanUpGPUDrivers() {
     rm -Rf $GPU_DEST /opt/gpu
     
-    # Remove k8s-device-plugin package on non-GPU nodes
-    if dpkg -l | grep -q "k8s-device-plugin"; then
-        echo "Removing k8s-device-plugin package from non-GPU node..."
-        apt_get_purge 10 5 120 k8s-device-plugin || echo "Warning: Failed to remove k8s-device-plugin"
-        echo "k8s-device-plugin package removed from non-GPU node"
+    # Remove GPU device plugin package on non-GPU nodes
+    if dpkg -l | grep -q "${K8S_DEVICE_PLUGIN_PKG}"; then
+        echo "Removing ${K8S_DEVICE_PLUGIN_PKG} package from non-GPU node..."
+        apt_get_purge 10 5 120 "${K8S_DEVICE_PLUGIN_PKG}" || echo "Warning: Failed to remove ${K8S_DEVICE_PLUGIN_PKG}"
+        echo "${K8S_DEVICE_PLUGIN_PKG} package removed from non-GPU node"
     fi
 }
 
