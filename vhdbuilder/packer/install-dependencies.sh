@@ -465,8 +465,8 @@ if [ "$OS" = "$UBUNTU_OS_NAME" ] && [ "${UBUNTU_RELEASE}" = "24.04" ]; then
   
   # Disable the nvidia-device-plugin systemd unit to prevent auto-start
   echo "Disabling nvidia-device-plugin systemd unit..."
-  systemctl disable nvidia-device-plugin.service || echo "Warning: Failed to disable nvidia-device-plugin.service"
-  systemctl mask nvidia-device-plugin.service || echo "Warning: Failed to mask nvidia-device-plugin.service"
+  systemctl disable nvidia-device-plugin.service || exit 1
+  systemctl mask nvidia-device-plugin.service || exit 1
   
   echo "  - k8s-device-plugin installed and systemd unit disabled" >> ${VHD_LOGS_FILEPATH}
 fi
