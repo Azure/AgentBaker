@@ -811,7 +811,7 @@ updatePackageDownloadURL() {
 }
 
 # Function to get latestVersion for a given k8sVersion from components.json
-getLatestVersionForK8sVersion() {
+getLatestPkgVersionFromK8sVersion() {
     local k8sVersion="$1"
     local componentName="$2"
     local os="$3"
