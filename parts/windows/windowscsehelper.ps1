@@ -316,7 +316,8 @@ function New-TemporaryDirectory {
 function AKS-Expand-Archive {
     Param(
         [Parameter(Mandatory = $true)][ValidateNotNullOrEmpty()][string]$Path,
-        [Parameter(Mandatory = $true)][ValidateNotNullOrEmpty()][string]$DestinationPath
+        [Parameter(Mandatory = $true)][ValidateNotNullOrEmpty()][string]$DestinationPath,
+        [Parameter(Mandatory = $false)][ValidateNotNullOrEmpty()][boolean]$Force
     )
 
    try {

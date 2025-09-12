@@ -254,7 +254,7 @@ if (-not (Test-Path "C:\AzureData\windows\azurecnifunc.ps1")) {
     Logs-To-Event -TaskName "AKS.WindowsCSE.DownloadAndExpandCSEScriptPackageUrl" -TaskMessage "Start to get CSE scripts. CSEScriptsPackageUrl: $global:CSEScriptsPackageUrl"
     $tempfile = 'c:\csescripts.zip'
     DownloadFileOverHttp -Url $global:CSEScriptsPackageUrl -DestinationPath $tempfile -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CSE_PACKAGE
-    AKS-Expand-Archive -Path $tempfile -DestinationPath "C:\\AzureData\\windows" -Force
+    AKS-Expand-Archive -Path $tempfile -DestinationPath "C:\\AzureData\\windows"
     Remove-Item -Path $tempfile -Force
 } else {
     Write-Log "CSE scripts already exist, skipping download"
