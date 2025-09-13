@@ -1,5 +1,7 @@
 #!/bin/bash
 
+K8S_DEVICE_PLUGIN_PKG="k8s-device-plugin"
+
 removeContainerd() {
     containerdPackageName="containerd"
     if [ "$OS_VERSION" = "2.0" ]; then
@@ -238,6 +240,13 @@ ensureRunc() {
 
 cleanUpGPUDrivers() {
     rm -Rf $GPU_DEST /opt/gpu
+    
+    # Remove GPU device plugin package on non-GPU nodes
+    if rpm -q "${K8S_DEVICE_PLUGIN_PKG}" &>/dev/null; then
+        echo "Removing ${K8S_DEVICE_PLUGIN_PKG} package from non-GPU node..."
+        retrycmd_if_failure 10 5 60 dnf remove -y "${K8S_DEVICE_PLUGIN_PKG}" || echo "Warning: Failed to remove ${K8S_DEVICE_PLUGIN_PKG}"
+        echo "${K8S_DEVICE_PLUGIN_PKG} package removed from non-GPU node"
+    fi
 }
 
 downloadContainerdFromVersion() {
