@@ -2,7 +2,7 @@
 
 # Constant for GPU device plugin package name. Change here if the package name ever
 # needs to be updated across build + provisioning scripts.
-readonly K8S_DEVICE_PLUGIN_PKG="k8s-device-plugin"
+K8S_DEVICE_PLUGIN_PKG="${K8S_DEVICE_PLUGIN_PKG:-k8s-device-plugin}"
 
 removeMoby() {
     apt_get_purge 10 5 300 moby-engine moby-cli

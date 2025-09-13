@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-readonly K8S_DEVICE_PLUGIN_PKG="k8s-device-plugin"
+K8S_DEVICE_PLUGIN_PKG="k8s-device-plugin"
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
 MARINER_KATA_OS_NAME="MARINERKATA"
