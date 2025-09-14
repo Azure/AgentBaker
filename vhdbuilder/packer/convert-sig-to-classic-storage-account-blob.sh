@@ -141,6 +141,7 @@ mkdir -p "${AZCOPY_LOG_LOCATION}"
 if ! azcopy copy "${sas}" "${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd" --recursive=true ; then
   azExitCode=$?
   # loop through azcopy log files
+  shopt -s nullglob
   for f in "${AZCOPY_LOG_LOCATION}"/*.log; do
     echo "Azcopy log file: $f"
     # upload the log file as an attachment to vso
@@ -152,6 +153,7 @@ if ! azcopy copy "${sas}" "${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd" --recurs
       cat "$f"
     fi
   done
+  shopt -u nullglob
   exit $azExitCode
 fi
 

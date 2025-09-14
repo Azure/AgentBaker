@@ -499,17 +499,19 @@ if [ "$OS_TYPE" = "Windows" ]; then
 		if ! azcopy copy "${WINDOWS_BASE_IMAGE_URL}" "${WINDOWS_IMAGE_URL}" ; then
 			azExitCode=$?
 			# loop through azcopy log files
+			shopt -s nullglob
 			for f in "${AZCOPY_LOG_LOCATION}"/*.log; do
-			echo "Azcopy log file: $f"
-			# upload the log file as an attachment to vso
-			echo "##vso[task.uploadfile]$f"
-			# check if the log file contains any errors
-			if grep -q '"level":"Error"' "$f"; then
-				echo "##vso[task.logissue type=error]Azcopy log file $f contains errors"
-				# print the log file
-				cat "$f"
-			fi
+				echo "Azcopy log file: $f"
+				# upload the log file as an attachment to vso
+				echo "##vso[task.uploadfile]$f"
+				# check if the log file contains any errors
+				if grep -q '"level":"Error"' "$f"; then
+					echo "##vso[task.logissue type=error]Azcopy log file $f contains errors"
+					# print the log file
+					cat "$f"
+				fi
 			done
+			shopt -u nullglob
 			exit $azExitCode
 		fi
 

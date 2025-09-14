@@ -674,6 +674,7 @@ cacheKubePackageFromPrivateUrl() {
   if ! ./azcopy login --login-type=MSI ; then
     azExitCode=$?
     # loop through azcopy log files
+    shopt -s nullglob
     for f in "${AZCOPY_LOG_LOCATION}"/*.log; do
       echo "Azcopy log file: $f"
       # upload the log file as an attachment to vso
@@ -685,6 +686,7 @@ cacheKubePackageFromPrivateUrl() {
         cat "$f"
       fi
     done
+    shopt -u nullglob
     exit $azExitCode
   fi
 
