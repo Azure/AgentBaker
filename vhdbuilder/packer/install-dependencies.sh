@@ -668,7 +668,27 @@ cacheKubePackageFromPrivateUrl() {
   # use azcopy with MSI instead of curl to download packages
   getAzCopyCurrentPath
 
-  ./azcopy login --login-type=MSI
+  export AZCOPY_LOG_LOCATION="./azcopy-log-files/"
+  mkdir -p "${AZCOPY_LOG_LOCATION}"
+
+  if ! ./azcopy login --login-type=MSI ; then
+    azExitCode=$?
+    # loop through azcopy log files
+    shopt -s nullglob
+    for f in "${AZCOPY_LOG_LOCATION}"/*.log; do
+      echo "Azcopy log file: $f"
+      # upload the log file as an attachment to vso
+      echo "##vso[task.uploadfile]$f"
+      # check if the log file contains any errors
+      if grep -q '"level":"Error"' "$f"; then
+        echo "##vso[task.logissue type=error]Azcopy log file $f contains errors"
+        # print the log file
+        cat "$f"
+      fi
+    done
+    shopt -u nullglob
+    exit $azExitCode
+  fi
 
   cached_pkg="${K8S_PRIVATE_PACKAGES_CACHE_DIR}/${k8s_tgz_name}"
   echo "download private package ${kube_private_binary_url} and store as ${cached_pkg}"
