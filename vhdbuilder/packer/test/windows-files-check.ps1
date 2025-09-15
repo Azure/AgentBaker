@@ -154,7 +154,8 @@ function Test-ValidateSinglePackageSignature {
                 $NotSignedFileName = [IO.Path]::GetFileName($NotSignedFile.Path)
 
                 if ($SkipSignatureCheckForBinaries.ContainsKey($NotSignedFileName)) {
-                    Write-Output "Skipping $NotSignedFileName since it is in the skip list"
+                    Get-AuthenticodeSignature $NotSignedFile.Path
+                    Write-Output "$NotSignedFileName is in the ignore list. Ignoring signature validation failure"
                     continue
                 } 
                 
@@ -167,7 +168,8 @@ function Test-ValidateSinglePackageSignature {
                         $SkipMapForSignature[$fileName].Contains($NotSignedFileName)
                     )
                 ) {
-                    Write-Output "Skipping $NotSignedFileName since it's container $fileName is in the skip list"
+                    Get-AuthenticodeSignature $NotSignedFile.Path
+                    Write-Output "$filename is in the skiplist. Ignoring signature validation failure on $NotSignedFileName"
                     continue
                 } 
 
@@ -179,7 +181,9 @@ function Test-ValidateSinglePackageSignature {
                 }
                 $NotSignedResult[$dir][$fileName] += @($NotSignedFileName)
 
-                Get-AuthenticodeSignature $NotSignedFile.Path
+                Get-AuthenticodeSignature $NotSignedFile.Path | ConvertTo-Json -Depth 1 | Write-Output
+
+                Write-Output "$filename in $dir from URL $URL has unsigned file $NotSignedFileName"
             }
         }
 
