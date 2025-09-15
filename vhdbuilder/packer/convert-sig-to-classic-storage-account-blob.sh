@@ -148,7 +148,8 @@ if ! azcopy copy "${sas}" "${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd" --recurs
     echo "##vso[build.uploadlog]$f"
     # check if the log file contains any errors
     if grep -q '"level":"Error"' "$f"; then
-      echo "##vso[task.logissue type=error]Azcopy log file $f contains errors"
+ 	 echo "log file $f contains errors"
+     echo "##vso[task.logissue type=error]Azcopy log file $f contains errors"
       # print the log file
       cat "$f"
     fi
