@@ -30,7 +30,7 @@ $SkipSignatureCheckForBinaries = @{
     # though for now we allow-list it as to not block secure TLS bootstrapping development
     # NOTE: this is okay since the binary is cleaned up during node provisioning when secure TLS bootstrapping is disabled (which is currently the default in production)
     # TODO(cameissner): remove this once the binary is properly signed
-    "aks-secure-tls-bootstrap-client.exe" = $True;
+    #"aks-secure-tls-bootstrap-client.exe" = $True;
 }
 
 # MisMatchFiles is used to record files whose file sizes are different on Global and MoonCake
