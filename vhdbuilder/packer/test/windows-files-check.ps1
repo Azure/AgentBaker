@@ -160,11 +160,10 @@ function Test-ValidateSinglePackageSignature {
                 
                 if (
                     (
-                        $SkipMapForSignature.ContainsKey($fileName) -and 
-                        $SkipMapForSignature[$fileName].Length -eq 0
-                    ) -or (
-                        $SkipMapForSignature.ContainsKey($fileName) -and 
-                        $SkipMapForSignature[$fileName].Contains($NotSignedFileName)
+                        $SkipMapForSignature.ContainsKey($fileName)
+                    ) -and (
+                        ( $SkipMapForSignature[$fileName].Length -eq 0 ) -or 
+                        ( $SkipMapForSignature[$fileName].Contains($NotSignedFileName) )
                     )
                 ) {
                     Write-Output "$filename is in the ignore list. Ignoring signature validation failure on $NotSignedFileName"
