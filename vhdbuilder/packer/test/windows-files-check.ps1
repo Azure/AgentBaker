@@ -151,7 +151,7 @@ function Test-ValidateSinglePackageSignature {
             foreach ($NotSignedFile in $NotSignedList) {
                 $NotSignedFileName = [IO.Path]::GetFileName($NotSignedFile.Path)
 
-                if ($SkipSignatureCheckForBinaries.ContainsKey($fileName)) {
+                if ($SkipSignatureCheckForBinaries.ContainsKey($NotSignedFileName)) {
                     Write-Output "Skipping $NotSignedFileName since it is in the skip list"
                     continue
                 }
