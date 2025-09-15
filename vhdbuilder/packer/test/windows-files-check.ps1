@@ -18,7 +18,19 @@ $env:WindowsSKU=$windowsSKU
 # Some scripts in aks-windows-cse-scripts-v0.0.31.zip and aks-windows-cse-scripts-v0.0.32.zip are not signed, and this issue is fixed in aks-windows-cse-scripts-v0.0.33.zip
 $SkipMapForSignature=@{
     "aks-windows-cse-scripts-v0.0.31.zip"=@();
-    "aks-windows-cse-scripts-v0.0.32.zip"=@()
+    "aks-windows-cse-scripts-v0.0.32.zip"=@();
+    "azure-vnet-cni-windows-amd64-v1.6.21.zip"=@();
+    "azure-vnet-cni-windows-amd64-v1.5.38.zip"=@();
+}
+
+$SkipSignatureCheckForBinaries=@{
+    # win-bridge.exe is not signed in these k8s packages, and it will be removed from k8s package in the future
+    "win-bridge.exe"=$True;
+    # aks-secure-tls-bootstrap-client.exe should be signed once it has been onboarded to Dalec and published via Upstream,
+    # though for now we allow-list it as to not block secure TLS bootstrapping development
+    # NOTE: this is okay since the binary is cleaned up during node provisioning when secure TLS bootstrapping is disabled (which is currently the default in production)
+    # TODO(cameissner): remove this once the binary is properly signed
+    "aks-secure-tls-bootstrap-client.exe"=$True;
 }
 
 # MisMatchFiles is used to record files whose file sizes are different on Global and MoonCake
@@ -138,17 +150,9 @@ function Test-ValidateSinglePackageSignature {
         if ($NotSignedList.Count -ne 0) {
             foreach ($NotSignedFile in $NotSignedList) {
                 $NotSignedFileName = [IO.Path]::GetFileName($NotSignedFile.Path)
-                # win-bridge.exe is not signed in these k8s packages, and it will be removed from k8s package in the future
-                if ($NotSignedFileName -eq "win-bridge.exe") {
-                    Write-Output "Skipping win-bridge.exe since it will be removed in the future"
-                    continue
-                }
-                # aks-secure-tls-bootstrap-client.exe should be signed once it has been onboarded to Dalec and published via Upstream,
-                # though for now we allow-list it as to not block secure TLS bootstrapping development
-                # NOTE: this is okay since the binary is cleaned up during node provisioning when secure TLS bootstrapping is disabled (which is currently the default in production)
-                # TODO(cameissner): remove this once the binary is properly signed
-                if ($NotSignedFileName -eq "aks-secure-tls-bootstrap-client.exe") {
-                    Write-Output "Skipping aks-secure-tls-bootstrap-client.exe since it is not signed yet"
+
+                if ($SkipSignatureCheckForBinaries.ContainsKey($fileName)) {
+                    Write-Output "Skipping $NotSignedFileName since it is in the skip list"
                     continue
                 }
 
