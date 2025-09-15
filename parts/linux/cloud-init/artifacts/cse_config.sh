@@ -356,7 +356,7 @@ ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
 EOF
 
   mkdir -p /etc/containerd
-  # if containerd config.toml exisits on the node, skip writing it again
+  # if containerd config.toml exists on the node, skip overwriting it
   if [ ! -f /etc/containerd/config.toml ]; then
     populateContainerdConfig
   fi
