@@ -211,6 +211,15 @@ ENV{DEVTYPE}=="partition", ENV{AZURE_DISK_TYPE}=="?*", ENV{AZURE_DISK_NAME}=="?*
 ENV{DEVTYPE}=="partition", ENV{AZURE_DISK_TYPE}=="?*", ENV{AZURE_DISK_SERIAL}=="?*", SYMLINK+="disk/azure/\$env{AZURE_DISK_TYPE}/by-serial/\$env{AZURE_DISK_SERIAL}-part%n"
 LABEL="azure_disk_end"
 EOF
+
+cat > /etc/udev/rules.d/99-microsoft-mana-mtu.rules <<EOF
+# Udev rule to set MTU to 9000 for Microsoft MANA Ethernet controllers
+# This rule triggers when a network interface is added and checks for Microsoft Azure Network Adapter VF
+# https://learn.microsoft.com/en-us/azure/virtual-network/how-to-virtual-machine-mtu?tabs=linux
+
+SUBSYSTEM=="net", KERNEL=="en*", ENV{ID_NET_DRIVER}=="mana", RUN+="/usr/sbin/ip link set dev eth0 mtu 9000"
+EOF
+
 udevadm control --reload
 capture_benchmark "${SCRIPT_NAME}_set_udev_rules"
 
@@ -658,12 +667,30 @@ cacheKubePackageFromPrivateUrl() {
 
   # use azcopy with MSI instead of curl to download packages
   getAzCopyCurrentPath
+  export AZCOPY_LOG_LOCATION="./azcopy-log-files/"
+  mkdir -p "${AZCOPY_LOG_LOCATION}"
 
   ./azcopy login --login-type=MSI
 
   cached_pkg="${K8S_PRIVATE_PACKAGES_CACHE_DIR}/${k8s_tgz_name}"
   echo "download private package ${kube_private_binary_url} and store as ${cached_pkg}"
+  
   if ! ./azcopy copy "${kube_private_binary_url}" "${cached_pkg}"; then
+    azExitCode=$?
+    # loop through azcopy log files
+    shopt -s nullglob
+    for f in "${AZCOPY_LOG_LOCATION}"/*.log; do
+      echo "Azcopy log file: $f"
+      # upload the log file as an attachment to vso
+      echo "##vso[task.uploadfile]$f"
+      # check if the log file contains any errors
+      if grep -q '"level":"Error"' "$f"; then
+        echo "##vso[task.logissue type=error]Azcopy log file $f contains errors"
+        # print the log file
+        cat "$f"
+      fi
+    done
+    shopt -u nullglob
     exit $ERR_PRIVATE_K8S_PKG_ERR
   fi
 }

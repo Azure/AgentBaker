@@ -183,6 +183,11 @@ func runScenario(t *testing.T, s *Scenario) {
 	}
 
 	s.Location = strings.ToLower(s.Location)
+
+	if s.K8sSystemPoolSKU == "" {
+		s.K8sSystemPoolSKU = config.Config.DefaultVMSKU
+	}
+
 	ctx := newTestCtx(t)
 	_, err := CachedEnsureResourceGroup(ctx, s.Location)
 	require.NoError(t, err)
@@ -193,7 +198,11 @@ func runScenario(t *testing.T, s *Scenario) {
 
 	maybeSkipScenario(ctx, t, s)
 
-	cluster, err := s.Config.Cluster(ctx, s.Location)
+	cluster, err := s.Config.Cluster(ctx, ClusterRequest{
+		Location:         s.Location,
+		K8sSystemPoolSKU: s.K8sSystemPoolSKU,
+	})
+
 	require.NoError(s.T, err, "failed to get cluster")
 	// in some edge cases cluster cache is broken and nil cluster is returned
 	// need to find the root cause and fix it, this should help to catch such cases
@@ -342,7 +351,11 @@ func validateVM(ctx context.Context, s *Scenario) {
 	if s.Config.Validator != nil {
 		s.Config.Validator(ctx, s)
 	}
-	s.T.Log("validation succeeded")
+	if s.T.Failed() {
+		s.T.Log("VM validation failed")
+	} else {
+		s.T.Log("VM validation succeeded")
+	}
 }
 
 func getCustomScriptExtensionStatus(ctx context.Context, s *Scenario) error {
@@ -635,4 +648,48 @@ func validateSSHConnectivity(ctx context.Context, s *Scenario) error {
 
 	s.T.Logf("SSH connectivity to %s verified successfully", s.Runtime.VMPrivateIP)
 	return nil
+}
+
+func runScenarioGPUNPD(t *testing.T, vmSize, location, k8sSystemPoolSKU string) *Scenario {
+	t.Helper()
+	return &Scenario{
+		Description:      fmt.Sprintf("Tests that a GPU-enabled node with VM size %s using an Ubuntu 2404 VHD can be properly bootstrapped and NPD tests are valid", vmSize),
+		Location:         location,
+		K8sSystemPoolSKU: k8sSystemPoolSKU,
+		Tags: Tags{
+			GPU: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2404Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.AgentPoolProfile.VMSize = vmSize
+				nbc.ConfigGPUDriverIfNeeded = true
+				nbc.EnableNvidia = true
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr(vmSize)
+
+				extension, err := createVMExtensionLinuxAKSNode(vmss.Location)
+				require.NoError(t, err, "creating AKS VM extension")
+
+				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				EnableGPUNPDToggle(ctx, s)
+				// First, ensure nvidia-modprobe install does not restart kubelet and temporarily cause node to be unschedulable
+				ValidateNvidiaModProbeInstalled(ctx, s)
+				ValidateKubeletHasNotStopped(ctx, s)
+				ValidateServicesDoNotRestartKubelet(ctx, s)
+
+				// Then validate NPD configuration and GPU monitoring
+				ValidateNPDGPUCountPlugin(ctx, s)
+				ValidateNPDGPUCountCondition(ctx, s)
+				ValidateNPDGPUCountAfterFailure(ctx, s)
+
+				// Validate the if IB NPD is reporting the flapping condition
+				ValidateNPDIBLinkFlappingCondition(ctx, s)
+				ValidateNPDIBLinkFlappingAfterFailure(ctx, s)
+			},
+		}}
 }
