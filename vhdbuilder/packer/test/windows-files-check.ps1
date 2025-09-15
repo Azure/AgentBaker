@@ -30,7 +30,7 @@ $SkipSignatureCheckForBinaries = @{
     # though for now we allow-list it as to not block secure TLS bootstrapping development
     # NOTE: this is okay since the binary is cleaned up during node provisioning when secure TLS bootstrapping is disabled (which is currently the default in production)
     # TODO(cameissner): remove this once the binary is properly signed
-    #"aks-secure-tls-bootstrap-client.exe" = $True;
+    "aks-secure-tls-bootstrap-client.exe" = $True;
 }
 
 # MisMatchFiles is used to record files whose file sizes are different on Global and MoonCake
@@ -111,12 +111,12 @@ function Test-ValidateAllSignature {
     }
 
     if ($AllNotSignedFiles.Count -ne 0) {
-        $AllNotSignedFiles = (echo $AllNotSignedFiles | ConvertTo-Json -Depth 9)
+        $AllNotSignedFiles = (Write-Output $AllNotSignedFiles | ConvertTo-Json -Depth 9)
         Write-Output "All not signed file in cached packages are: $AllNotSignedFiles"
     }
 
     if ($NotSignedResult.Count -ne 0) {
-        $NotSignedResult = (echo $NotSignedResult | ConvertTo-Json -Depth 9)
+        $NotSignedResult = (Write-Output $NotSignedResult | ConvertTo-Json -Depth 9)
         Write-Error "All not signed binaries are: $NotSignedResult"
         exit 1
     }
@@ -154,7 +154,6 @@ function Test-ValidateSinglePackageSignature {
                 $NotSignedFileName = [IO.Path]::GetFileName($NotSignedFile.Path)
 
                 if ($SkipSignatureCheckForBinaries.ContainsKey($NotSignedFileName)) {
-                    Get-AuthenticodeSignature $NotSignedFile.Path  | Format-Table -RepeatHeader -Property SignerCertificate,Status,StatusMessage
                     Write-Output "$NotSignedFileName is in the ignore list. Ignoring signature validation failure"
                     continue
                 } 
@@ -168,7 +167,6 @@ function Test-ValidateSinglePackageSignature {
                         $SkipMapForSignature[$fileName].Contains($NotSignedFileName)
                     )
                 ) {
-                    Get-AuthenticodeSignature $NotSignedFile.Path | Format-Table -RepeatHeader -Property SignerCertificate,Status,StatusMessage
                     Write-Output "$filename is in the ignore list. Ignoring signature validation failure on $NotSignedFileName"
                     continue
                 } 
