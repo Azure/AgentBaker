@@ -154,7 +154,7 @@ function Test-ValidateSinglePackageSignature {
                 $NotSignedFileName = [IO.Path]::GetFileName($NotSignedFile.Path)
 
                 if ($SkipSignatureCheckForBinaries.ContainsKey($NotSignedFileName)) {
-                    Get-AuthenticodeSignature $NotSignedFile.Path
+                    Get-AuthenticodeSignature $NotSignedFile.Path  | Format-Table -RepeatHeader -Property SignerCertificate,Status,StatusMessage
                     Write-Output "$NotSignedFileName is in the ignore list. Ignoring signature validation failure"
                     continue
                 } 
@@ -168,8 +168,8 @@ function Test-ValidateSinglePackageSignature {
                         $SkipMapForSignature[$fileName].Contains($NotSignedFileName)
                     )
                 ) {
-                    Get-AuthenticodeSignature $NotSignedFile.Path
-                    Write-Output "$filename is in the skiplist. Ignoring signature validation failure on $NotSignedFileName"
+                    Get-AuthenticodeSignature $NotSignedFile.Path | Format-Table -RepeatHeader -Property SignerCertificate,Status,StatusMessage
+                    Write-Output "$filename is in the ignore list. Ignoring signature validation failure on $NotSignedFileName"
                     continue
                 } 
 
