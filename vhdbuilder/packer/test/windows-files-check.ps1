@@ -154,36 +154,32 @@ function Test-ValidateSinglePackageSignature {
                 $NotSignedFileName = [IO.Path]::GetFileName($NotSignedFile.Path)
 
                 if ($SkipSignatureCheckForBinaries.ContainsKey($NotSignedFileName)) {
-
                     Write-Output "Skipping $NotSignedFileName since it is in the skip list"
-                    if (!$NotSignedResult.ContainsKey($dir)) {
-                        $NotSignedResult[$dir] = @{}
-                    }
-                    if (!$NotSignedResult[$dir].ContainsKey($fileName)) {
-                        $NotSignedResult[$dir][$fileName] = @()
-                    }
-                    $NotSignedResult[$dir][$fileName] += @($NotSignedFileName)
-                } elseif (
+                    continue
+                } 
+                
+                if (
                     (
                         $SkipMapForSignature.ContainsKey($fileName) -and 
-                        ($SkipMapForSignature[$fileName].Length -ne 0) -and 
-                        !$SkipMapForSignature[$fileName].Contains($NotSignedFileName)
-                    ) -or (
-                        !$SkipMapForSignature.ContainsKey($fileName)
+                        $SkipMapForSignature[$fileName].Length -eq 0) -or 
+                    (
+                        $SkipMapForSignature.ContainsKey($fileName) -and 
+                        $SkipMapForSignature[$fileName].Contains($NotSignedFileName)
                     )
                 ) {
-
                     Write-Output "Skipping $NotSignedFileName since it's container $fileName is in the skip list"
-                    if (!$NotSignedResult.ContainsKey($dir)) {
-                        $NotSignedResult[$dir] = @{}
-                    }
-                    if (!$NotSignedResult[$dir].ContainsKey($fileName)) {
-                        $NotSignedResult[$dir][$fileName] = @()
-                    }
-                    $NotSignedResult[$dir][$fileName] += @($NotSignedFileName)
-                } else {
-                    Get-AuthenticodeSignature $NotSignedFile.Path
+                    continue
+                } 
+
+                if (!$NotSignedResult.ContainsKey($dir)) {
+                    $NotSignedResult[$dir] = @{}
                 }
+                if (!$NotSignedResult[$dir].ContainsKey($fileName)) {
+                    $NotSignedResult[$dir][$fileName] = @()
+                }
+                $NotSignedResult[$dir][$fileName] += @($NotSignedFileName)
+
+                Get-AuthenticodeSignature $NotSignedFile.Path
             }
         }
 
