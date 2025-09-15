@@ -1,45 +1,36 @@
-Starting build on  Wed Aug 20 02:36:17 UTC 2025
+Starting build on  Thu Sep 11 03:41:12 UTC 2025
 Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):
   - oras version 1.2.2
-  - aks-secure-tls-bootstrap-client version 0.1.0-alpha.10
-  - runc version 1.2.6-ubuntu24.04u1
+  - aks-secure-tls-bootstrap-client version 0.1.0-alpha.11
+  - runc version 1.2.7-ubuntu24.04u1
   - containerd version 2.1.4-ubuntu24.04u1
   - CNI plugin version 1.6.2
-  - Azure CNI version 1.4.59
   - Azure CNI version 1.5.38
   - Azure CNI version 1.6.21
-  - Azure CNI version 1.5.35
-  - Azure CNI version 1.6.18
-  - kubelet version 1.32.7-ubuntu24.04u1
-  - kubelet version 1.33.3-ubuntu24.04u1
-  - kubelet version 1.34.0~rc.1-ubuntu24.04u1
-  - kubelet version 1.32.6-ubuntu24.04u1
-  - kubelet version 1.33.2-ubuntu24.04u1
-  - kubectl version 1.32.7-ubuntu24.04u2
-  - kubectl version 1.33.3-ubuntu24.04u2
-  - kubectl version 1.34.0~rc.1-ubuntu24.04u1
-  - kubectl version 1.32.6-ubuntu24.04u2
-  - kubectl version 1.33.2-ubuntu24.04u2
+  - kubelet version 1.34.0-ubuntu24.04u1
+  - kubectl version 1.34.0-ubuntu24.04u1
   - kubernetes-binaries version v1.27.103-akslts
   - kubernetes-binaries version v1.28.101-akslts
   - kubernetes-binaries version v1.29.15
   - kubernetes-binaries version v1.30.14
   - kubernetes-binaries version v1.31.11
   - kubernetes-binaries version v1.32.7
-  - kubernetes-binaries version v1.33.3
+  - kubernetes-binaries version v1.33.4
+  - kubernetes-binaries version v1.34.0
   - kubernetes-binaries version v1.27.102-akslts
   - kubernetes-binaries version v1.28.100-akslts
   - kubernetes-binaries version v1.29.14
   - kubernetes-binaries version v1.30.13
   - kubernetes-binaries version v1.31.10
   - kubernetes-binaries version v1.32.6
-  - kubernetes-binaries version v1.33.2
-  - azure-acr-credential-provider version v1.30.13
-  - azure-acr-credential-provider version v1.31.7
-  - azure-acr-credential-provider version v1.32.6
+  - kubernetes-binaries version v1.33.3
+  - kubernetes-binaries version v1.34.0
+  - azure-acr-credential-provider version v1.30.14
+  - azure-acr-credential-provider version v1.31.8
+  - azure-acr-credential-provider version v1.32.7
   - azure-acr-credential-provider version v1.33.2
-  - runc version 1.2.6-1
-  - nvidia-driver=570.172.08-20250731000559
+  - runc version 1.2.7-1
+  - nvidia-driver=570.172.08-20250822192810
   - bpftrace v0.9.4
 containerd images pre-pulled:
   - mcr.microsoft.com/oss/v2/kubernetes/autoscaler/addon-resizer:v1.8.23-2
@@ -47,17 +38,12 @@ containerd images pre-pulled:
   - mcr.microsoft.com/oss/v2/kubernetes/coredns:v1.11.3-8
   - mcr.microsoft.com/oss/v2/kubernetes/coredns:v1.12.1-2
   - mcr.microsoft.com/oss/v2/kubernetes/coredns:v1.9.4-6
-  - mcr.microsoft.com/containernetworking/azure-cni:v1.4.59
   - mcr.microsoft.com/containernetworking/azure-cni:v1.5.44
-  - mcr.microsoft.com/containernetworking/azure-cni:v1.6.21
-  - mcr.microsoft.com/containernetworking/azure-cni:v1.5.42
-  - mcr.microsoft.com/containernetworking/azure-cni:v1.6.20
-  - mcr.microsoft.com/containernetworking/azure-cns:v1.4.59
-  - mcr.microsoft.com/containernetworking/azure-cns:v1.5.48
-  - mcr.microsoft.com/containernetworking/azure-cns:v1.6.31
-  - mcr.microsoft.com/containernetworking/azure-cns:v1.5.45
-  - mcr.microsoft.com/containernetworking/azure-cns:v1.6.30
-  - mcr.microsoft.com/containernetworking/azure-ipam:v0.0.7
+  - mcr.microsoft.com/containernetworking/azure-cni:v1.6.32
+  - mcr.microsoft.com/containernetworking/azure-cni:v1.7.3-0
+  - mcr.microsoft.com/containernetworking/azure-cns:v1.5.49
+  - mcr.microsoft.com/containernetworking/azure-cns:v1.6.33
+  - mcr.microsoft.com/containernetworking/azure-cns:v1.7.3-0
   - mcr.microsoft.com/containernetworking/azure-ipam:v0.2.1
   - mcr.microsoft.com/containernetworking/azure-ipam:v0.2.0
   - mcr.microsoft.com/containernetworking/azure-npm:v1.6.29
@@ -68,10 +54,10 @@ containerd images pre-pulled:
   - mcr.microsoft.com/oss/v2/kubernetes/apiserver-network-proxy/agent:v0.30.3-5
   - mcr.microsoft.com/oss/v2/kubernetes-csi/secrets-store/driver:v1.5.3
   - mcr.microsoft.com/oss/v2/azure/secrets-store/provider-azure:v1.7.1
-  - mcr.microsoft.com/azuremonitor/containerinsights/ciprod:3.1.28
-  - mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.20.0-main-07-24-2025-756981f2
-  - mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.20.0-main-07-24-2025-756981f2-targetallocator
-  - mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.20.0-main-07-24-2025-756981f2-cfg
+  - mcr.microsoft.com/azuremonitor/containerinsights/ciprod:3.1.29
+  - mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.22.0-main-09-05-2025-e40947f3
+  - mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.22.0-main-09-05-2025-e40947f3-targetallocator
+  - mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.22.0-main-09-05-2025-e40947f3-cfg
   - mcr.microsoft.com/oss/v2/kubernetes/kube-state-metrics:v2.15.0-4
   - mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.29.15
   - mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.30.13
@@ -92,21 +78,22 @@ containerd images pre-pulled:
   - mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.33.3
   - mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.30.10
   - mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.31.7
-  - mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.32.5
   - mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.33.3
-  - mcr.microsoft.com/oss/kubernetes-csi/blob-csi:v1.24.11
+  - mcr.microsoft.com/oss/v2/kubernetes-csi/azurefile-csi:v1.32.6-3
+  - mcr.microsoft.com/oss/v2/kubernetes-csi/azurefile-csi:v1.33.4-2
   - mcr.microsoft.com/oss/kubernetes-csi/blob-csi:v1.25.9
-  - mcr.microsoft.com/oss/kubernetes-csi/blob-csi:v1.26.6
+  - mcr.microsoft.com/oss/v2/kubernetes-csi/blob-csi:v1.26.7
+  - mcr.microsoft.com/oss/v2/kubernetes-csi/blob-csi:v1.27.0
   - mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.15.0
   - mcr.microsoft.com/oss/v2/kubernetes-csi/livenessprobe:v2.16.0
   - mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.13.0
   - mcr.microsoft.com/oss/v2/kubernetes-csi/csi-node-driver-registrar:v2.14.0
+  - mcr.microsoft.com/oss/v2/open-policy-agent/gatekeeper:v3.20.0-1
   - mcr.microsoft.com/oss/v2/open-policy-agent/gatekeeper:v3.19.3-1
-  - mcr.microsoft.com/oss/v2/open-policy-agent/gatekeeper:v3.19.1-1
-  - mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:1.12.4
-  - mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:1.12.3
-  - mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:1.12.4
-  - mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:1.12.3
+  - mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:1.13.1
+  - mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:1.13.0
+  - mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:1.13.1
+  - mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:1.13.0
   - mcr.microsoft.com/aks/aks-node-ca-watcher:master.241021.1
   - mcr.microsoft.com/oss/v2/kubernetes/windows-gmsa-webhook:v0.12.1-2
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.27.103-akslts
@@ -157,11 +144,18 @@ kubelet/kubectl downloaded:
 -rwxr-xr-x 1 root root  56930456 Jul 22 16:43 /usr/local/bin/kubectl-1.31.11
 -rwxr-xr-x 1 root root  77435140 Jul 22 16:46 /usr/local/bin/kubelet-1.32.7
 -rwxr-xr-x 1 root root  57352344 Jul 22 16:46 /usr/local/bin/kubectl-1.32.7
--rwxr-xr-x 1 root root  56296634 Aug 15 17:43 /usr/local/bin/aks-secure-tls-bootstrap-client
--rwxr-xr-x 1 root root       699 Aug 20 02:36 /usr/local/bin/ci-syslog-watcher.sh
--rwxr-xr-x 1 root root  35384960 Aug 20 02:43 /usr/local/bin/bpftrace
+-rwxr-xr-x 1 root root  81703204 Aug 13 22:12 /usr/local/bin/kubelet-1.33.4
+-rwxr-xr-x 1 root root  60129464 Aug 13 22:12 /usr/local/bin/kubectl-1.33.4
+-rwxr-xr-x 1 root root  56294938 Aug 20 20:53 /usr/local/bin/aks-secure-tls-bootstrap-client
+-rwxr-xr-x 1 root root 110649604 Aug 25 22:07 /usr/local/bin/kubelet-1.28.102-akslts
+-rwxr-xr-x 1 root root  49623192 Aug 25 22:07 /usr/local/bin/kubectl-1.28.102-akslts
+-rwxr-xr-x 1 root root  59195684 Aug 27 19:33 /usr/local/bin/kubelet-1.34.0
+-rwxr-xr-x 1 root root  60559544 Aug 27 19:33 /usr/local/bin/kubectl-1.34.0
+-rwxr-xr-x 1 root root       699 Sep 11 03:41 /usr/local/bin/ci-syslog-watcher.sh
+-rwxr-xr-x 1 root root  35384960 Sep 11 03:48 /usr/local/bin/bpftrace
 === Installed Packages Begin
 Listing...
+acr-mirror/now 0.2.13-1 amd64 [installed,local]
 adduser/noble,now 3.137ubuntu1 all [installed,automatic]
 apparmor/noble-updates,now 4.0.1really4.0.1-0ubuntu0.24.04.4 amd64 [installed,automatic]
 appstream/noble,now 1.0.2-1build6 amd64 [installed,automatic]
@@ -175,9 +169,9 @@ bash-completion/noble,now 1:2.11-8 all [installed,automatic]
 bash/noble,now 5.2.21-2ubuntu4 amd64 [installed]
 bc/noble,now 1.07.1-3ubuntu4 amd64 [installed,automatic]
 bcache-tools/noble,now 1.0.8-5build1 amd64 [installed]
-bind9-dnsutils/noble-updates,noble-security,now 1:9.18.30-0ubuntu0.24.04.2 amd64 [installed]
-bind9-host/noble-updates,noble-security,now 1:9.18.30-0ubuntu0.24.04.2 amd64 [installed,automatic]
-bind9-libs/noble-updates,noble-security,now 1:9.18.30-0ubuntu0.24.04.2 amd64 [installed,automatic]
+bind9-dnsutils/noble-updates,now 1:9.18.39-0ubuntu0.24.04.1 amd64 [installed]
+bind9-host/noble-updates,now 1:9.18.39-0ubuntu0.24.04.1 amd64 [installed,automatic]
+bind9-libs/noble-updates,now 1:9.18.39-0ubuntu0.24.04.1 amd64 [installed,automatic]
 binutils-common/noble-updates,noble-security,now 2.42-4ubuntu2.5 amd64 [installed,automatic]
 binutils-x86-64-linux-gnu/noble-updates,noble-security,now 2.42-4ubuntu2.5 amd64 [installed,automatic]
 binutils/noble-updates,noble-security,now 2.42-4ubuntu2.5 amd64 [installed,automatic]
@@ -204,7 +198,7 @@ command-not-found/noble,now 23.04.0 all [installed,automatic]
 conntrack/noble,now 1:1.4.8-1ubuntu1 amd64 [installed]
 console-setup-linux/noble,now 1.226ubuntu1 all [installed,automatic]
 console-setup/noble,now 1.226ubuntu1 all [installed,automatic]
-coreutils/noble,now 9.4-3ubuntu6 amd64 [installed,automatic]
+coreutils/noble,now 9.4-3ubuntu6 amd64 [installed,upgradable to: 9.4-3ubuntu6.1]
 cpio/noble,now 2.15+dfsg-1ubuntu2 amd64 [installed,automatic]
 cpp-13-x86-64-linux-gnu/noble-updates,noble-security,now 13.3.0-6ubuntu2~24.04 amd64 [installed,automatic]
 cpp-13/noble-updates,noble-security,now 13.3.0-6ubuntu2~24.04 amd64 [installed,automatic]
@@ -645,7 +639,7 @@ libxcb1/noble,now 1.15-1ubuntu2 amd64 [installed,automatic]
 libxdmcp6/noble,now 1:1.1.3-0ubuntu6 amd64 [installed,automatic]
 libxext6/noble,now 2:1.3.4-1build2 amd64 [installed,automatic]
 libxkbcommon0/noble,now 1.6.0-1build1 amd64 [installed,automatic]
-libxml2/noble-updates,noble-security,now 2.9.14+dfsg-1.3ubuntu3.3 amd64 [installed,automatic]
+libxml2/noble-updates,noble-security,now 2.9.14+dfsg-1.3ubuntu3.5 amd64 [installed,automatic]
 libxmlb2/noble,now 0.3.18-1 amd64 [installed,automatic]
 libxmuu1/noble,now 2:1.1.3-3build2 amd64 [installed,automatic]
 libxtables12/noble,now 1.8.10-3ubuntu2 amd64 [installed,automatic]
@@ -689,7 +683,7 @@ mawk/noble,now 1.3.4.20240123-1build1 amd64 [installed,automatic]
 mdadm/noble-updates,now 4.3-1ubuntu2.1 amd64 [installed]
 media-types/noble,now 10.1.0 all [installed,automatic]
 moby-containerd/testing,now 2.1.4-ubuntu24.04u1 amd64 [installed]
-moby-runc/testing,now 1.2.6-ubuntu24.04u1 amd64 [installed]
+moby-runc/testing,noble,now 1.2.7-ubuntu24.04u1 amd64 [installed,upgradable to: 1.3.0-ubuntu24.04u1]
 modemmanager/noble,now 1.23.4-0ubuntu2 amd64 [installed,automatic]
 mokutil/noble,now 0.6.0-2build3 amd64 [installed,automatic]
 motd-news-config/noble-updates,now 13ubuntu10.3 all [installed]
@@ -713,9 +707,9 @@ ntfs-3g/noble,now 1:2022.10.3-1.2ubuntu3 amd64 [installed,automatic]
 numactl/noble,now 2.0.18-1build1 amd64 [installed,automatic]
 nvme-cli/noble-updates,now 2.8-1ubuntu0.1 amd64 [installed]
 open-iscsi/noble-updates,now 2.1.9-3ubuntu5.4 amd64 [installed]
-openssh-client/noble-updates,now 1:9.6p1-3ubuntu13.13 amd64 [installed,automatic]
-openssh-server/noble-updates,now 1:9.6p1-3ubuntu13.13 amd64 [installed]
-openssh-sftp-server/noble-updates,now 1:9.6p1-3ubuntu13.13 amd64 [installed]
+openssh-client/now 1:9.6p1-3ubuntu13.13 amd64 [installed,upgradable to: 1:9.6p1-3ubuntu13.14]
+openssh-server/now 1:9.6p1-3ubuntu13.13 amd64 [installed,upgradable to: 1:9.6p1-3ubuntu13.14]
+openssh-sftp-server/now 1:9.6p1-3ubuntu13.13 amd64 [installed,upgradable to: 1:9.6p1-3ubuntu13.14]
 openssl/noble-updates,noble-security,now 3.0.13-0ubuntu3.5 amd64 [installed,automatic]
 os-prober/noble,now 1.81ubuntu4 amd64 [installed,automatic]
 overlayroot/noble-updates,now 0.49~24.04.1 all [installed]
@@ -914,11 +908,11 @@ zstd/noble-updates,now 1.5.5+dfsg2-2build1.1 amd64 [installed,automatic]
 === Installed Packages End
 Disk usage:
 Filesystem      Size  Used Avail Use% Mounted on
-/dev/root        29G   26G  2.5G  92% /
+/dev/root        29G   26G  2.9G  90% /
 tmpfs            32G     0   32G   0% /dev/shm
 tmpfs            13G  1.1M   13G   1% /run
 tmpfs           5.0M     0  5.0M   0% /run/lock
-efivarfs        128M   26K  128M   1% /sys/firmware/efi/efivars
+efivarfs        128M   30K  128M   1% /sys/firmware/efi/efivars
 /dev/sda16      881M   68M  751M   9% /boot
 /dev/sda15      105M  6.2M   99M   6% /boot/efi
 /dev/sdb1       590G   32K  560G   1% /mnt
@@ -939,11 +933,11 @@ UBUNTU_CODENAME=noble
 LOGO=ubuntu-logo
 === os-release End
 Using kernel:
-Linux version 6.8.0-1031-azure (buildd@lcy02-amd64-006) (x86_64-linux-gnu-gcc-13 (Ubuntu 13.3.0-6ubuntu2~24.04) 13.3.0, GNU ld (GNU Binutils for Ubuntu) 2.42) #36-Ubuntu SMP Fri Jun 27 21:50:24 UTC 2025
-Install completed successfully on  Wed Aug 20 02:50:09 UTC 2025
-VSTS Build NUMBER: 20250820.1_master_134416515
-VSTS Build ID: 134416515
-Commit: f684777ff7728c8a00507afbf9ef03005a56c3a5
+Linux version 6.8.0-1034-azure (buildd@lcy02-amd64-033) (x86_64-linux-gnu-gcc-13 (Ubuntu 13.3.0-6ubuntu2~24.04) 13.3.0, GNU ld (GNU Binutils for Ubuntu) 2.42) #39-Ubuntu SMP Wed Aug 13 16:51:10 UTC 2025
+Install completed successfully on  Thu Sep 11 03:54:55 UTC 2025
+VSTS Build NUMBER: 20250911.1_master_136728918
+VSTS Build ID: 136728918
+Commit: 5ec404784f2fd637184f6d1c1b25cb06157ebf63
 Ubuntu version: 24.04
 Hyperv generation: V2
 Feature flags: None
