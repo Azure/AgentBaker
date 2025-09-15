@@ -161,8 +161,8 @@ function Test-ValidateSinglePackageSignature {
                 if (
                     (
                         $SkipMapForSignature.ContainsKey($fileName) -and 
-                        $SkipMapForSignature[$fileName].Length -eq 0) -or 
-                    (
+                        $SkipMapForSignature[$fileName].Length -eq 0
+                    ) -or (
                         $SkipMapForSignature.ContainsKey($fileName) -and 
                         $SkipMapForSignature[$fileName].Contains($NotSignedFileName)
                     )
