@@ -154,6 +154,7 @@ function Test-ValidateSinglePackageSignature {
                 $NotSignedFileName = [IO.Path]::GetFileName($NotSignedFile.Path)
 
                 if ($SkipSignatureCheckForBinaries.ContainsKey($NotSignedFileName)) {
+
                     Write-Output "Skipping $NotSignedFileName since it is in the skip list"
                     if (!$NotSignedResult.ContainsKey($dir)) {
                         $NotSignedResult[$dir] = @{}
@@ -162,7 +163,7 @@ function Test-ValidateSinglePackageSignature {
                         $NotSignedResult[$dir][$fileName] = @()
                     }
                     $NotSignedResult[$dir][$fileName] += @($NotSignedFileName)
-                } elseifif (
+                } elseif (
                     (
                         $SkipMapForSignature.ContainsKey($fileName) -and 
                         ($SkipMapForSignature[$fileName].Length -ne 0) -and 
@@ -171,6 +172,7 @@ function Test-ValidateSinglePackageSignature {
                         !$SkipMapForSignature.ContainsKey($fileName)
                     )
                 ) {
+
                     Write-Output "Skipping $NotSignedFileName since it's container $fileName is in the skip list"
                     if (!$NotSignedResult.ContainsKey($dir)) {
                         $NotSignedResult[$dir] = @{}
@@ -180,7 +182,7 @@ function Test-ValidateSinglePackageSignature {
                     }
                     $NotSignedResult[$dir][$fileName] += @($NotSignedFileName)
                 } else {
-                    Get-AuthenticodeSignature $NotSignedFile.Path |  ConvertTo-Json -Depth 1 | Write-Output
+                    Get-AuthenticodeSignature $NotSignedFile.Path
                 }
             }
         }
