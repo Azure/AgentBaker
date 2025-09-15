@@ -156,8 +156,6 @@ function Test-ValidateSinglePackageSignature {
                     continue
                 }
 
-                Get-AuthenticodeSignature $NotSignedFile.Path |  ConvertTo-Json -Depth 1 | Write-Output
-
                 if (($SkipMapForSignature.ContainsKey($fileName) -and ($SkipMapForSignature[$fileName].Length -ne 0) -and !$SkipMapForSignature[$fileName].Contains($NotSignedFileName)) -or !$SkipMapForSignature.ContainsKey($fileName)) {
                     if (!$NotSignedResult.ContainsKey($dir)) {
                         $NotSignedResult[$dir]=@{}
@@ -166,7 +164,10 @@ function Test-ValidateSinglePackageSignature {
                         $NotSignedResult[$dir][$fileName]=@()
                     }
                     $NotSignedResult[$dir][$fileName]+=@($NotSignedFileName)
+                    continue
                 }
+
+                Get-AuthenticodeSignature $NotSignedFile.Path |  ConvertTo-Json -Depth 1 | Write-Output
             }
         }
 
