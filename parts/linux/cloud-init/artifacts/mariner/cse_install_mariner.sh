@@ -1,6 +1,8 @@
 #!/bin/bash
 
-K8S_DEVICE_PLUGIN_PKG="k8s-device-plugin"
+# Constant for GPU device plugin package name. Change here if the package name ever
+# needs to be updated across build + provisioning scripts.
+K8S_DEVICE_PLUGIN_PKG="${K8S_DEVICE_PLUGIN_PKG:-nvidia-device-plugin}"
 
 removeContainerd() {
     containerdPackageName="containerd"
@@ -244,8 +246,11 @@ cleanUpGPUDrivers() {
     # Remove GPU device plugin package on non-GPU nodes
     if rpm -q "${K8S_DEVICE_PLUGIN_PKG}" &>/dev/null; then
         echo "Removing ${K8S_DEVICE_PLUGIN_PKG} package from non-GPU node..."
-        retrycmd_if_failure 10 5 60 dnf remove -y "${K8S_DEVICE_PLUGIN_PKG}" || echo "Warning: Failed to remove ${K8S_DEVICE_PLUGIN_PKG}"
-        echo "${K8S_DEVICE_PLUGIN_PKG} package removed from non-GPU node"
+        if retrycmd_if_failure 10 5 60 dnf remove -y "${K8S_DEVICE_PLUGIN_PKG}"; then
+            echo "${K8S_DEVICE_PLUGIN_PKG} package removed from non-GPU node"
+        else
+            echo "WARNING: Failed to remove ${K8S_DEVICE_PLUGIN_PKG}. Package may still be present." >&2
+        fi
     fi
 }
 

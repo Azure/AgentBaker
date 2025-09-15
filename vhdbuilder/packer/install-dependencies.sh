@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-K8S_DEVICE_PLUGIN_PKG="k8s-device-plugin"
+K8S_DEVICE_PLUGIN_PKG="nvidia-device-plugin"
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
 MARINER_KATA_OS_NAME="MARINERKATA"
@@ -492,7 +492,7 @@ install_device_plugin() {
   echo "Disabling nvidia-device-plugin systemd unit..."
   systemctl disable nvidia-device-plugin.service || exit 1
   systemctl mask nvidia-device-plugin.service || exit 1
-  
+
   # Capture installed package version for logging
   local pkg_version="unknown"
   if [ "${OS}" = "${UBUNTU_OS_NAME}" ]; then
