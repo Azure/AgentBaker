@@ -18,7 +18,7 @@ function Install-VnetPlugins
     # Mirror from https://github.com/Azure/azure-container-networking/releases
     $zipfile = [Io.path]::Combine("$AzureCNIDir", "azure-vnet.zip")
     DownloadFileOverHttp -Url $VNetCNIPluginsURL -DestinationPath $zipfile -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CNI_PACKAGE
-    Expand-Archive -path $zipfile -DestinationPath $AzureCNIBinDir
+    AKS-Expand-Archive -path $zipfile -DestinationPath $AzureCNIBinDir
     del $zipfile
 
     # Windows does not need a separate CNI loopback plugin because the Windows

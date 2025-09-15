@@ -45,7 +45,7 @@ installRPMPackageFromFile() {
     rpm2cpio "${rpmFile}" | cpio -idmv
     mv "usr/bin/${packageName}" "/usr/local/bin/${packageName}"
     popd || exit 1
-	rm -rf ${downloadDir} &
+	rm -rf ${downloadDir}
 }
 
 downloadPkgFromVersion() {

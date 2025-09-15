@@ -65,7 +65,7 @@ function Install-SecureTLSBootstrapClient {
         }
     }
 
-    Expand-Archive -Path $secureTLSBootstrapClientDownloadPath -DestinationPath $KubeDir
+    AKS-Expand-Archive -Path $secureTLSBootstrapClientDownloadPath -DestinationPath $KubeDir
 
     if (!(Test-Path -Path $secureTLSBootstrapClientBinPath)) {
         Write-Log "Secure TLS bootstrap client is missing from KubeDir: $KubeDir after zip extraction"
