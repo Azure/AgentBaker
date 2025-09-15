@@ -1,13 +1,13 @@
 Starting build on  Thu Sep 11 03:36:31 UTC 2025
 Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):
   - oras version 1.2.2
-  - aks-secure-tls-bootstrap-client version 0.1.0-alpha.11
+  - aks-secure-tls-bootstrap-client version 0.1.0-alpha.10
   - containerd version 1.6.26-11.cm2
   - CNI plugin version 1.6.2
   - Azure CNI version 1.5.38
   - Azure CNI version 1.6.21
   - kubernetes-binaries version v1.27.103-akslts
-  - kubernetes-binaries version v1.28.102-akslts
+  - kubernetes-binaries version v1.28.101-akslts
   - kubernetes-binaries version v1.29.15
   - kubernetes-binaries version v1.30.14
   - kubernetes-binaries version v1.31.11
@@ -15,7 +15,7 @@ Components downloaded in this VHD build (some of the below components might get 
   - kubernetes-binaries version v1.33.4
   - kubernetes-binaries version v1.34.0
   - kubernetes-binaries version v1.27.102-akslts
-  - kubernetes-binaries version v1.28.101-akslts
+  - kubernetes-binaries version v1.28.100-akslts
   - kubernetes-binaries version v1.29.14
   - kubernetes-binaries version v1.30.13
   - kubernetes-binaries version v1.31.10
@@ -43,10 +43,10 @@ containerd images pre-pulled:
   - mcr.microsoft.com/containernetworking/azure-ipam:v0.2.1
   - mcr.microsoft.com/containernetworking/azure-ipam:v0.2.0
   - mcr.microsoft.com/containernetworking/azure-npm:v1.6.29
-  - mcr.microsoft.com/containernetworking/cilium/cilium:v1.16.10-250610
-  - mcr.microsoft.com/containernetworking/cilium/cilium:v1.17.4-250610
-  - mcr.microsoft.com/containernetworking/cilium/cilium:v1.16.8-250514
-  - mcr.microsoft.com/containernetworking/cilium/cilium:v1.17.2-250410
+  - mcr.microsoft.com/containernetworking/cilium/cilium:v1.14.19-250129
+  - mcr.microsoft.com/containernetworking/cilium/cilium:v1.16.6-250129
+  - mcr.microsoft.com/containernetworking/cilium/cilium:v1.14.18-250107
+  - mcr.microsoft.com/containernetworking/cilium/cilium:v1.16.5-250110
   - mcr.microsoft.com/oss/v2/kubernetes/apiserver-network-proxy/agent:v0.30.3-5
   - mcr.microsoft.com/oss/v2/kubernetes-csi/secrets-store/driver:v1.5.3
   - mcr.microsoft.com/oss/v2/azure/secrets-store/provider-azure:v1.7.1
@@ -72,8 +72,7 @@ containerd images pre-pulled:
   - mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.31.11
   - mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.32.9
   - mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.33.3
-  - mcr.microsoft.com/oss/v2/kubernetes-csi/azuredisk-csi:v1.32.10-2
-  - mcr.microsoft.com/oss/v2/kubernetes-csi/azuredisk-csi:v1.33.4-2
+  - mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.30.10
   - mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.31.7
   - mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.33.3
   - mcr.microsoft.com/oss/v2/kubernetes-csi/azurefile-csi:v1.32.6-3
@@ -94,19 +93,19 @@ containerd images pre-pulled:
   - mcr.microsoft.com/aks/aks-node-ca-watcher:master.241021.1
   - mcr.microsoft.com/oss/v2/kubernetes/windows-gmsa-webhook:v0.12.1-2
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.27.103-akslts
-  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.28.102-akslts
+  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.28.101-akslts
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.29.15
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.30.14
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.31.11
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.32.7
-  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.33.4
+  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.33.3
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.27.102-akslts
-  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.28.101-akslts
+  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.28.100-akslts
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.29.14
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.30.13
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.31.10
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.32.6
-  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.33.3
+  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.33.2
   - bcc-tools
   - libbcc-examples
 Successfully copied coredns binary of v1.11.3-8
@@ -115,8 +114,10 @@ kubelet/kubectl downloaded:
 -rw-r--r-- 1 root root     11343 Dec 19  2024 /usr/local/bin/LICENSE
 -rwxr-xr-x 1 root root 108712196 Jan 28  2025 /usr/local/bin/kubelet-1.27.102-akslts
 -rwxr-xr-x 1 root root  49066136 Jan 28  2025 /usr/local/bin/kubectl-1.27.102-akslts
--rwxr-xr-x 1 root root 112615684 Feb 25  2025 /usr/local/bin/kubelet-1.29.14
--rwxr-xr-x 1 root root  50229400 Feb 25  2025 /usr/local/bin/kubectl-1.29.14
+-rwxr-xr-x 1 root root 110649604 Jan 29  2025 /usr/local/bin/kubelet-1.28.100-akslts
+-rwxr-xr-x 1 root root  49623192 Jan 29  2025 /usr/local/bin/kubectl-1.28.100-akslts
+-rwxr-xr-x 1 root root 112615684 Feb 25 00:12 /usr/local/bin/kubelet-1.29.14
+-rwxr-xr-x 1 root root  50229400 Feb 25 00:12 /usr/local/bin/kubectl-1.29.14
 -rwxr-xr-x 1 root root 113107204 Mar 12 15:08 /usr/local/bin/kubelet-1.29.15
 -rwxr-xr-x 1 root root  50765976 Mar 12 15:08 /usr/local/bin/kubectl-1.29.15
 -rwxr-xr-x 1 root root 108712196 Apr 11 02:46 /usr/local/bin/kubelet-1.27.103-akslts
@@ -125,6 +126,8 @@ kubelet/kubectl downloaded:
 -rwxr-xr-x 1 root root  49623192 Apr 11 03:58 /usr/local/bin/kubectl-1.28.101-akslts
 -rwxr-xr-x 1 root root 100530648 Jun 30 16:33 /usr/local/bin/kubelet-1.30.14
 -rwxr-xr-x 1 root root  51994776 Jun 30 16:33 /usr/local/bin/kubectl-1.30.14
+-rwxr-xr-x 1 root root  81703204 Jun 30 16:36 /usr/local/bin/kubelet-1.33.2
+-rwxr-xr-x 1 root root  60129464 Jun 30 16:36 /usr/local/bin/kubectl-1.33.2
 -rwxr-xr-x 1 root root  77435140 Jun 30 17:06 /usr/local/bin/kubelet-1.32.6
 -rwxr-xr-x 1 root root  57352344 Jun 30 17:06 /usr/local/bin/kubectl-1.32.6
 -rwxr-xr-x 1 root root  77312440 Jun 30 17:07 /usr/local/bin/kubelet-1.31.10
@@ -378,6 +381,7 @@ gc-8.0.0-4.cm2.x86_64
 libmpc-1.2.1-1.cm2.x86_64
 libstdc++-devel-11.2.0-8.cm2.x86_64
 liblognorm-2.0.6-2.cm2.x86_64
+postgresql-libs-14.18-1.cm2.x86_64
 autogen-libopts-5.18.16-8.cm2.x86_64
 cyrus-sasl-2.1.28-4.cm2.x86_64
 librdkafka1-1.8.2-2.cm2.x86_64
@@ -594,7 +598,6 @@ oniguruma-6.9.7.1-2.cm2.x86_64
 jq-1.6-4.cm2.x86_64
 inotify-tools-3.22.1.0-1.cm2.x86_64
 sqlite-libs-3.39.2-4.cm2.x86_64
-postgresql-libs-14.19-1.cm2.x86_64
 mariner-repos-cloud-native-2.0-9.cm2.noarch
 python3-dbus-1.2.16-3.cm2.x86_64
 python3-dateutil-2.7.3-5.cm2.noarch

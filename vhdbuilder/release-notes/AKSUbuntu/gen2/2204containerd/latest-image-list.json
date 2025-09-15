@@ -586,25 +586,25 @@
       ]
     },
     {
-      "id": "sha256:84d8a1c401e1d4016c6c10e75581a700d5c2477d7b822cd3377b18c44d21adea",
-      "bytes": 21528233,
-      "size": "20.5 MiB",
+      "id": "sha256:99caee4bf067b5fc5d7c1abc50c2d93d7f3b7dcc36c145d64e998003edab0b2e",
+      "bytes": 195911020,
+      "size": "186.8 MiB",
       "repoTags": [
-        "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.29.13"
+        "mcr.microsoft.com/containernetworking/cilium/cilium:v1.14.19-250129"
       ],
       "repoDigests": [
-        "sha256:fd8aa37ecaf8e8075555be84a98aff28527ffddbcd084f4e3b3cd31c80748253"
+        "sha256:c20c7e430bd21ad1233061d49510b2c5ca5aee1da0d042b6ba3027dc1e24cabd"
       ]
     },
     {
-      "id": "sha256:3e8dc0330528538cfde33e567968c4863ed3a8ec8bef86391eec263732516792",
-      "bytes": 21539650,
-      "size": "20.5 MiB",
+      "id": "sha256:e35ee4eaabe42f0624f322dbf977305cf9748d9050ca73394d1ca5c0fe9c7b7d",
+      "bytes": 112099523,
+      "size": "106.9 MiB",
       "repoTags": [
-        "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.29.15"
+        "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.33.3"
       ],
       "repoDigests": [
-        "sha256:049bf87e7df4653c191b31228b3868627ce2268328158ef39270ca25f3e55b39"
+        "sha256:ea31a0826fffd0284159e49d0281c7403541a7ef581d2e077df200bc95a1bca4"
       ]
     },
     {
@@ -718,14 +718,91 @@
       ]
     },
     {
-      "id": "sha256:a811f11a728f78e28d8e278823bab8936ad92110e9b1641b0be0941bcb236f5d",
-      "bytes": 21768115,
-      "size": "20.8 MiB",
+      "id": "sha256:12f495085ca86ca20c70b48d1058c243f9b3fda1f14b6d4667ba09c006d1fab5",
+      "bytes": 22494044,
+      "size": "21.5 MiB",
       "repoTags": [
-        "mcr.microsoft.com/aks/ip-masq-agent-v2:v0.1.15"
+        "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.31.7"
       ],
       "repoDigests": [
-        "sha256:9e77250ea09fbbb4d463757ec28a2a70bf30baf612ed4d4c225ee06d55744ff0"
+        "sha256:3a7ce77b58bfed3c3ff6197c84fbb52630b600c600367a324df821b4ddb983f3"
+      ]
+    },
+    {
+      "id": "sha256:d6601a5bce2fe880e2315f3a5c86998afb85dccc165ae170727a07d64dfb2ae5",
+      "bytes": 31370792,
+      "size": "29.9 MiB",
+      "repoTags": [
+        "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.33.0"
+      ],
+      "repoDigests": [
+        "sha256:798ad1d72fb8a35e5860b8d05fafca7768f6b181b49127a879bd69c5f66db860"
+      ]
+    },
+    {
+      "id": "sha256:f35f94c1e40b3765b7e1011841b95cde5885804d4c6005760c720e787d950ce2",
+      "bytes": 93299037,
+      "size": "89.0 MiB",
+      "repoTags": [
+        "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.31.10"
+      ],
+      "repoDigests": [
+        "sha256:6706e10c77fadb1227f30fc894768521ed6c2b8ef6cd3a1d04d11cf2b337a10f"
+      ]
+    },
+    {
+      "id": "sha256:3c3452d4140550452fc3d477f91be73d05027186ea91950c1b7b8754303d453b",
+      "bytes": 131284084,
+      "size": "125.2 MiB",
+      "repoTags": [
+        "mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.20.0-main-07-24-2025-756981f2-cfg"
+      ],
+      "repoDigests": [
+        "sha256:e5c70bb600955d42c5ad2c18718efd967715c138a99d964ebeac812e0072cecd"
+      ]
+    },
+    {
+      "id": "sha256:354d6cd96d8b6888f5c72767c24d176bb0ed6ff9a6cd8d277c0e73969bdb2056",
+      "bytes": 173210422,
+      "size": "165.2 MiB",
+      "repoTags": [
+        "mcr.microsoft.com/oss/kubernetes-csi/blob-csi:v1.25.9"
+      ],
+      "repoDigests": [
+        "sha256:1bc6369bc88bc4614ee76dff35d2e35f7160494eddc5caa210b5508da04d47ad"
+      ]
+    },
+    {
+      "id": "sha256:2c712698044e6826c54e619e1a6c7eb435f849fe982b6570fab09d347cafaca4",
+      "bytes": 83041629,
+      "size": "79.2 MiB",
+      "repoTags": [
+        "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.28.100-akslts"
+      ],
+      "repoDigests": [
+        "sha256:97c8a5f87535498371c0fbab2944125d3cfa099421958d834c82fc3216434eb6"
+      ]
+    },
+    {
+      "id": "sha256:4ac042945d270b38260cd5215a71f60fd8a6a31b2c2af0e06fec5093ed40ba46",
+      "bytes": 84243293,
+      "size": "80.3 MiB",
+      "repoTags": [
+        "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.29.14"
+      ],
+      "repoDigests": [
+        "sha256:8a27e99a5db60be03ea986776da1311d2fccb07c364e6f324f155d992becdf5f"
+      ]
+    },
+    {
+      "id": "sha256:512a01dffb8dbe4b7a46ee89d130b3183ffbb4ceceb67ccdd49f69830d7460b8",
+      "bytes": 29452567,
+      "size": "28.1 MiB",
+      "repoTags": [
+        "mcr.microsoft.com/oss/v2/kubernetes/coredns:v1.11.3-8"
+      ],
+      "repoDigests": [
+        "sha256:8c08f25bcc86575ef22e1c8caf4f92ea22b55eb26c27600e29e2fe2f8dfdf824"
       ]
     },
     {

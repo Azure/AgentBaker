@@ -5,7 +5,7 @@ function Get-CalicoPackage {
 
     Write-Log "Getting Calico package"
     DownloadFileOverHttp -Url $global:WindowsCalicoPackageURL -DestinationPath 'c:\calicowindows.zip' -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CALICO_PACKAGE
-    Expand-Archive -Path 'c:\calicowindows.zip' -DestinationPath $RootDir -Force
+    AKS-Expand-Archive -Path 'c:\calicowindows.zip' -DestinationPath $RootDir
     Remove-Item -Path 'c:\calicowindows.zip' -Force
 }
 

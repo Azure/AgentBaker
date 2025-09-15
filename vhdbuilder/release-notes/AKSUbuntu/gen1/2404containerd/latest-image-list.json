@@ -7,10 +7,10 @@
       "bytes": 26830903,
       "size": "25.6 MiB",
       "repoTags": [
-        "mcr.microsoft.com/containernetworking/azure-ipam:v0.2.1"
+        "mcr.microsoft.com/containernetworking/azure-cns:v1.4.59"
       ],
       "repoDigests": [
-        "sha256:d7426123f00d93a0d09edea68498730fc289087bcb1c2cfbea3d1b081b44c6a5"
+        "sha256:cd23e64701c6a6e7f0fcee939f282e085a60bba40dd35508ecfd26d4e2eb65e8"
       ]
     },
     {
@@ -311,11 +311,11 @@
       ]
     },
     {
-      "id": "sha256:f35f94c1e40b3765b7e1011841b95cde5885804d4c6005760c720e787d950ce2",
-      "bytes": 93299037,
-      "size": "89.0 MiB",
+      "id": "sha256:1b26431092bb247181cf7f84c724e9ced87635e905fd97379a76e5adfd34d5a2",
+      "bytes": 26248010,
+      "size": "25.0 MiB",
       "repoTags": [
-        "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.31.10"
+        "mcr.microsoft.com/oss/v2/kubernetes/kube-state-metrics:v2.15.0-4"
       ],
       "repoDigests": [
         "sha256:6706e10c77fadb1227f30fc894768521ed6c2b8ef6cd3a1d04d11cf2b337a10f"

@@ -135,11 +135,11 @@
       ]
     },
     {
-      "id": "sha256:115ecee820a8204bc9bd3161ed4ce431a980c611d2718a18237097735f80e5bb",
-      "bytes": 99155290,
-      "size": "94.6 MiB",
+      "id": "sha256:c9b34e1bd7ae78fe4fb60c1584b1f95e7649e4ccc11fb0b3b32b55d56a3c9986",
+      "bytes": 19729981,
+      "size": "18.8 MiB",
       "repoTags": [
-        "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.33.4"
+        "mcr.microsoft.com/oss/v2/kubernetes/autoscaler/cluster-proportional-autoscaler:v1.8.11-5"
       ],
       "repoDigests": [
         "sha256:8644d99b525f5da839e63ef9b83b5aa9c6f550a7b475cc81938da5832af86e96"

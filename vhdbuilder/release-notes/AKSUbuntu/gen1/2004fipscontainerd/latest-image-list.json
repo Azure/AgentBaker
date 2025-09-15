@@ -690,21 +690,21 @@
       "bytes": 93299549,
       "size": "89.0 MiB",
       "repoTags": [
-        "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.31.11"
+        "mcr.microsoft.com/oss/v2/kubernetes/coredns:v1.11.3-8"
       ],
       "repoDigests": [
-        "sha256:1be29cd912a046c60f3cd2317913a4d09433c99af3f488cb0f2997cfc8a85f42"
+        "sha256:8c08f25bcc86575ef22e1c8caf4f92ea22b55eb26c27600e29e2fe2f8dfdf824"
       ]
     },
     {
-      "id": "sha256:a0150ea130887d35180aed68f9667f1def9a566fad0dcdd4cdfa0979e4d8749c",
-      "bytes": 44050665,
-      "size": "42.0 MiB",
+      "id": "sha256:e71d8ee589c2de1eecd56dea758ced272e30c8772b1a9244e61264e4867d0410",
+      "bytes": 20968953,
+      "size": "20.0 MiB",
       "repoTags": [
-        "mcr.microsoft.com/oss/v2/kubernetes-csi/secrets-store/driver:v1.5.3"
+        "mcr.microsoft.com/oss/v2/kubernetes/windows-gmsa-webhook:v0.12.1-2"
       ],
       "repoDigests": [
-        "sha256:68e420da41954be7c0cde35655474b0592f1f7894119f1b802e4b65800ab0378"
+        "sha256:9d19f343a97643c68d9e8b0a0db1eb2347855b2e800d7d702f5bf090eb52811e"
       ]
     },
     {

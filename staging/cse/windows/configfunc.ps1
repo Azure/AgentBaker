@@ -207,10 +207,7 @@ function Install-GmsaPlugin {
 
     Write-Log "Getting the GMSA plugin package"
     DownloadFileOverHttp -Url $GmsaPackageUrl -DestinationPath $tempPluginZipFile -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_GMSA_PACKAGE
-    Expand-Archive -Path $tempPluginZipFile -DestinationPath $tempInstallPackageFoler -Force
-    if ($LASTEXITCODE) {
-        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GMSA_EXPAND_ARCHIVE -ErrorMessage "Failed to extract the '$tempPluginZipFile' archive."
-    }
+    AKS-Expand-Archive -Path $tempPluginZipFile -DestinationPath $tempInstallPackageFoler
     Remove-Item -Path $tempPluginZipFile -Force
 
     # Copy the plugin DLL file.

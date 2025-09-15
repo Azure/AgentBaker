@@ -31,7 +31,6 @@ func ValidatePodRunning(ctx context.Context, s *Scenario, pod *corev1.Pod) {
 		if err != nil {
 			s.T.Logf("couldn't not delete pod %s: %v", pod.Name, err)
 		}
-		s.T.Logf("deleted pod %q", pod.Name)
 	})
 
 	_, err = kube.WaitUntilPodRunning(ctx, pod.Namespace, "", "metadata.name="+pod.Name)

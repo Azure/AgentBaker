@@ -157,6 +157,17 @@
       ]
     },
     {
+      "id": "sha256:6e508b6ae99b343be09436a50ef5a47de612a9d61efa04a3b5585fa5f253c4ef",
+      "bytes": 13911492,
+      "size": "13.3 MiB",
+      "repoTags": [
+        "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.13.0"
+      ],
+      "repoDigests": [
+        "sha256:b0a002edfcabc6ebd2745359f7b77fe269e6a24c5be31816ddae9208c5d94b69"
+      ]
+    },
+    {
       "id": "sha256:6e1a8b4806d84412f5e805afebe286618526b3db9cb5ea987ee4f541cda89dde",
       "bytes": 14148445,
       "size": "13.5 MiB",

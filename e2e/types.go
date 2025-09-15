@@ -119,6 +119,10 @@ type Scenario struct {
 	// used to override the default location.
 	Location string
 
+	// K8sSystemPoolSKU is the VM size to use for the system nodepool. If empty,
+	// a default size will be used.
+	K8sSystemPoolSKU string
+
 	// Runtime contains the runtime state of the scenario. It's populated in the beginning of the test run
 	Runtime *ScenarioRuntime
 	T       *testing.T
@@ -138,7 +142,7 @@ type ScenarioRuntime struct {
 // Config represents the configuration of an AgentBaker E2E scenario.
 type Config struct {
 	// Cluster creates, updates or re-uses an AKS cluster for the scenario
-	Cluster func(ctx context.Context, location string) (*Cluster, error)
+	Cluster func(ctx context.Context, request ClusterRequest) (*Cluster, error)
 
 	// VHD is the node image used by the scenario.
 	VHD *config.Image

@@ -47,11 +47,11 @@
       ]
     },
     {
-      "id": "sha256:4c6cd5ed2a771e651af70c2277e718a6b7769090943cb16e7f787cc111597d78",
-      "bytes": 21100101,
-      "size": "20.1 MiB",
+      "id": "sha256:1f8d52e2ce54ce8fff93dabef45c76181546e9368349e874a232e31fde4e70a0",
+      "bytes": 19326143,
+      "size": "18.4 MiB",
       "repoTags": [
-        "mcr.microsoft.com/oss/v2/kubernetes/autoscaler/cluster-proportional-autoscaler:v1.9.0-1"
+        "mcr.microsoft.com/oss/v2/kubernetes-csi/csi-node-driver-registrar:v2.14.0"
       ],
       "repoDigests": [
         "sha256:e66858fc65b664e1eca992d7ded45784d08f47c29e872b128be1b5a97ec1db9e"

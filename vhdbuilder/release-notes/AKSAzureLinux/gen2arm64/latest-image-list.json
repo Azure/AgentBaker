@@ -14,14 +14,14 @@
       ]
     },
     {
-      "id": "sha256:e88757acd4e7da1fb6c7b83b58df17d085e9993e76b2fe79981cb9daa0cb8d3d",
-      "bytes": 104529780,
-      "size": "99.7 MiB",
+      "id": "sha256:2f478e28f8958ee8fdf076ab512c8c9aac37b0c00075acb4b83a037b92f0e977",
+      "bytes": 184547116,
+      "size": "176.0 MiB",
       "repoTags": [
-        "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.31.11"
+        "mcr.microsoft.com/containernetworking/cilium/cilium:v1.14.18-250107"
       ],
       "repoDigests": [
-        "sha256:c80f815b9a1393aeb4cbd6edb93a8e6a6b283e635a50eeec3b51f2291ce67c98"
+        "sha256:382cf52fa559d60f540aabd21f1281b98619dd6f04df2c6325f35fa46dc89726"
       ]
     },
     {
@@ -125,14 +125,14 @@
       ]
     },
     {
-      "id": "sha256:2127b0cbca2c5dd89c192256111bab2355adae3139306c85fc668de3f1021572",
-      "bytes": 222225645,
-      "size": "211.9 MiB",
+      "id": "sha256:e872c998055d2ee44d7eaaca4db607a6fdbf82f1681955a381fd10f190039e2b",
+      "bytes": 118383135,
+      "size": "112.9 MiB",
       "repoTags": [
-        "mcr.microsoft.com/containernetworking/cilium/cilium:v1.16.10-250610"
+        "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.30.10"
       ],
       "repoDigests": [
-        "sha256:0643f5e4480444985b5e4cc62f6bd5c2505088714d72740ef68e3ade2e320bd8"
+        "sha256:e678cd7b0e362a551ad7eda9621d56e15800ce03e7472c97701ae6a705fcace0"
       ]
     },
     {
@@ -246,14 +246,14 @@
       ]
     },
     {
-      "id": "sha256:57ac64d4d7b85d272d30801548574d6264c12a981524a24fc14771fa17254ec1",
-      "bytes": 86316893,
-      "size": "82.3 MiB",
+      "id": "sha256:a5ece69a1c70c0566f7cbacb3e33650942fd3cbe2b5886206bee7e5ae0420c08",
+      "bytes": 19728910,
+      "size": "18.8 MiB",
       "repoTags": [
-        "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.28.101-akslts"
+        "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.29.15"
       ],
       "repoDigests": [
-        "sha256:f03cbb5f0eaf90e0211204e913b0386cb34769809f45b8c1f58a2a753ed365ac"
+        "sha256:049bf87e7df4653c191b31228b3868627ce2268328158ef39270ca25f3e55b39"
       ]
     },
     {

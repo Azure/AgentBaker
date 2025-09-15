@@ -40,10 +40,10 @@
       "bytes": 28441945,
       "size": "27.1 MiB",
       "repoTags": [
-        "mcr.microsoft.com/oss/v2/azure/ip-masq-agent-v2:v0.1.15-2"
+        "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.27.103-akslts"
       ],
       "repoDigests": [
-        "sha256:80911ffa1b37d58c556431b759ebcb75ab1856e97b55157bb09a737f4940c9ae"
+        "sha256:5e7b2610debc9c31ea59596dcb07dc8395b0745ee306d8cb465fbb904877a0c6"
       ]
     },
     {

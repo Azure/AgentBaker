@@ -168,11 +168,11 @@
       ]
     },
     {
-      "id": "sha256:d33de7bae5a189571b47d2c0e122129e330124aa3ffb4d8c238d05a277e4831f",
-      "bytes": 86316893,
-      "size": "82.3 MiB",
+      "id": "sha256:87253bbe33a4fec9862437b3f66cc4bdff28fbc31e5c38db5128688e28e1db8d",
+      "bytes": 101010269,
+      "size": "96.3 MiB",
       "repoTags": [
-        "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.28.102-akslts"
+        "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.33.3"
       ],
       "repoDigests": [
         "sha256:0b6c2718a77d9449c57b1bfb44e79c6f9e0156235d342cdffb11c82a63e99560"
@@ -257,14 +257,14 @@
       ]
     },
     {
-      "id": "sha256:0b0a2e893eb9a7eb8f52682d2a23af39a2b0d15aedb1fab2765ff2ee48d96d2e",
-      "bytes": 23628646,
-      "size": "22.5 MiB",
+      "id": "sha256:ee89cf3c54b3739da26f948b064568154e3200bab717f3f146d597d65d52322c",
+      "bytes": 123387545,
+      "size": "117.7 MiB",
       "repoTags": [
-        "mcr.microsoft.com/oss/v2/kubernetes/kube-state-metrics:v2.15.0-4"
+        "mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.20.0-main-07-24-2025-756981f2-cfg"
       ],
       "repoDigests": [
-        "sha256:0738ce4c55e88e7abb873a32170bf580f75eddb7156eb00fb5c2d04510f93c64"
+        "sha256:e5c70bb600955d42c5ad2c18718efd967715c138a99d964ebeac812e0072cecd"
       ]
     },
     {
@@ -345,14 +345,14 @@
       ]
     },
     {
-      "id": "sha256:02253a915e30d5fde2950991d6730c580108d785cd405cbbfe30352edd714f9b",
-      "bytes": 87498077,
-      "size": "83.4 MiB",
+      "id": "sha256:6e508b6ae99b343be09436a50ef5a47de612a9d61efa04a3b5585fa5f253c4ef",
+      "bytes": 13911492,
+      "size": "13.3 MiB",
       "repoTags": [
-        "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.29.14"
+        "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.13.0"
       ],
       "repoDigests": [
-        "sha256:8a27e99a5db60be03ea986776da1311d2fccb07c364e6f324f155d992becdf5f"
+        "sha256:b0a002edfcabc6ebd2745359f7b77fe269e6a24c5be31816ddae9208c5d94b69"
       ]
     },
     {

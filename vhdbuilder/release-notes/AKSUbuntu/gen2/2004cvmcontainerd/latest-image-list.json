@@ -730,11 +730,11 @@
       ]
     },
     {
-      "id": "sha256:4ac042945d270b38260cd5215a71f60fd8a6a31b2c2af0e06fec5093ed40ba46",
-      "bytes": 84243293,
-      "size": "80.3 MiB",
+      "id": "sha256:36d7b51905972e9344587e53702442dc092bbc43daf6d6e7967bf8f35f49896f",
+      "bytes": 15000110,
+      "size": "14.3 MiB",
       "repoTags": [
-        "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.29.14"
+        "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.15.0"
       ],
       "repoDigests": [
         "sha256:8a27e99a5db60be03ea986776da1311d2fccb07c364e6f324f155d992becdf5f"
