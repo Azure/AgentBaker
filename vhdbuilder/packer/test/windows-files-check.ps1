@@ -10,58 +10,58 @@ param (
 )
 
 # We use parameters for test script so we set environment variables before importing c:\k\windows-vhd-configuration.ps1 to reuse it
-$env:WindowsSKU=$windowsSKU
+$env:WindowsSKU = $windowsSKU
 
 . vhdbuilder/packer/windows/windows-vhd-configuration.ps1
 
 # We skip the signature validation of following scripts for known issues
 # Some scripts in aks-windows-cse-scripts-v0.0.31.zip and aks-windows-cse-scripts-v0.0.32.zip are not signed, and this issue is fixed in aks-windows-cse-scripts-v0.0.33.zip
-$SkipMapForSignature=@{
-    "aks-windows-cse-scripts-v0.0.31.zip"=@();
-    "aks-windows-cse-scripts-v0.0.32.zip"=@();
-    "azure-vnet-cni-windows-amd64-v1.6.21.zip"=@();
-    "azure-vnet-cni-windows-amd64-v1.5.38.zip"=@();
+$SkipMapForSignature = @{
+    "aks-windows-cse-scripts-v0.0.31.zip"      = @();
+    "aks-windows-cse-scripts-v0.0.32.zip"      = @();
+    "azure-vnet-cni-windows-amd64-v1.6.21.zip" = @();
+    "azure-vnet-cni-windows-amd64-v1.5.38.zip" = @();
 }
 
-$SkipSignatureCheckForBinaries=@{
+$SkipSignatureCheckForBinaries = @{
     # win-bridge.exe is not signed in these k8s packages, and it will be removed from k8s package in the future
-    "win-bridge.exe"=$True;
+    "win-bridge.exe"                      = $True;
     # aks-secure-tls-bootstrap-client.exe should be signed once it has been onboarded to Dalec and published via Upstream,
     # though for now we allow-list it as to not block secure TLS bootstrapping development
     # NOTE: this is okay since the binary is cleaned up during node provisioning when secure TLS bootstrapping is disabled (which is currently the default in production)
     # TODO(cameissner): remove this once the binary is properly signed
-    "aks-secure-tls-bootstrap-client.exe"=$True;
+    "aks-secure-tls-bootstrap-client.exe" = $True;
 }
 
 # MisMatchFiles is used to record files whose file sizes are different on Global and MoonCake
-$MisMatchFiles=@{}
+$MisMatchFiles = @{}
 
 # ProxyLocationNotFoundInMooncakeFiles is used to record files who proxy location is not correctly defined MoonCake.
 # proxy location not found in Mooncake will lead to 404 error when downloading files from Mooncake.
-$ProxyLocationNotFoundInMooncakeFiles=@{}
+$ProxyLocationNotFoundInMooncakeFiles = @{}
 
 # NotSignedResult is used to record unsigned files that we think should be signed
-$NotSignedResult=@{}
+$NotSignedResult = @{}
 
 # AllNotSignedFiles is used to record all unsigned files in vhd cache and we exclude files in SkipMapForSignature
-$AllNotSignedFiles=@{}
+$AllNotSignedFiles = @{}
 
 function Start-Job-To-Expected-State {
     [CmdletBinding()]
     Param(
-        [Parameter(Position=0, Mandatory=$true)]
+        [Parameter(Position = 0, Mandatory = $true)]
         [string]$JobName,
 
-        [Parameter(Position=1, Mandatory=$true)]
+        [Parameter(Position = 1, Mandatory = $true)]
         [scriptblock]$ScriptBlock,
 
-        [Parameter(Position=2, Mandatory=$false)]
+        [Parameter(Position = 2, Mandatory = $false)]
         [string]$ExpectedState = 'Running',
 
-        [Parameter(Position=3, Mandatory=$false)]
+        [Parameter(Position = 3, Mandatory = $false)]
         [int]$MaxRetryCount = 10,
 
-        [Parameter(Position=4, Mandatory=$false)]
+        [Parameter(Position = 4, Mandatory = $false)]
         [int]$DelaySecond = 10
     )
 
@@ -131,59 +131,73 @@ function Test-ValidateSinglePackageSignature {
         $fileName = [IO.Path]::GetFileName($URL)
         $dest = [IO.Path]::Combine($dir, $fileName)
 
-        $installDir="c:\SignatureCheck"
+        $installDir = "c:\SignatureCheck"
         if (!(Test-Path $installDir)) {
             New-Item -ItemType Directory $installDir -Force | Out-Null
         }
         if ($fileName.endswith(".zip")) {
             Expand-Archive -path $dest -DestinationPath $installDir -Force
-        } elseif ($fileName.endswith(".tar.gz")) {
+        }
+        elseif ($fileName.endswith(".tar.gz")) {
             tar -xzf $dest -C $installDir
-        } else {
+        }
+        else {
             Write-Error "Unknown package suffix"
             exit 1
         }
 
         # Check signature for 4 types of files and record unsigned files
         $includeList = @("*.exe", "*.ps1", "*.psm1", "*.dll")
-        $NotSignedList = (Get-ChildItem -Path $installDir -Recurse -File -Include $includeList | ForEach-object {Get-AuthenticodeSignature $_.FullName} | Where-Object {$_.status -ne "Valid"})
+        $NotSignedList = (Get-ChildItem -Path $installDir -Recurse -File -Include $includeList | ForEach-object { Get-AuthenticodeSignature $_.FullName } | Where-Object { $_.status -ne "Valid" })
         if ($NotSignedList.Count -ne 0) {
             foreach ($NotSignedFile in $NotSignedList) {
                 $NotSignedFileName = [IO.Path]::GetFileName($NotSignedFile.Path)
 
                 if ($SkipSignatureCheckForBinaries.ContainsKey($NotSignedFileName)) {
                     Write-Output "Skipping $NotSignedFileName since it is in the skip list"
-                    continue
-                }
-
-                if (($SkipMapForSignature.ContainsKey($fileName) -and ($SkipMapForSignature[$fileName].Length -ne 0) -and !$SkipMapForSignature[$fileName].Contains($NotSignedFileName)) -or !$SkipMapForSignature.ContainsKey($fileName)) {
                     if (!$NotSignedResult.ContainsKey($dir)) {
-                        $NotSignedResult[$dir]=@{}
+                        $NotSignedResult[$dir] = @{}
                     }
                     if (!$NotSignedResult[$dir].ContainsKey($fileName)) {
-                        $NotSignedResult[$dir][$fileName]=@()
+                        $NotSignedResult[$dir][$fileName] = @()
                     }
-                    $NotSignedResult[$dir][$fileName]+=@($NotSignedFileName)
-                    continue
+                    $NotSignedResult[$dir][$fileName] += @($NotSignedFileName)
+                } elseifif (
+                    (
+                        $SkipMapForSignature.ContainsKey($fileName) -and 
+                        ($SkipMapForSignature[$fileName].Length -ne 0) -and 
+                        !$SkipMapForSignature[$fileName].Contains($NotSignedFileName)
+                    ) -or (
+                        !$SkipMapForSignature.ContainsKey($fileName)
+                    )
+                ) {
+                    Write-Output "Skipping $NotSignedFileName since it's container $fileName is in the skip list"
+                    if (!$NotSignedResult.ContainsKey($dir)) {
+                        $NotSignedResult[$dir] = @{}
+                    }
+                    if (!$NotSignedResult[$dir].ContainsKey($fileName)) {
+                        $NotSignedResult[$dir][$fileName] = @()
+                    }
+                    $NotSignedResult[$dir][$fileName] += @($NotSignedFileName)
+                } else {
+                    Get-AuthenticodeSignature $NotSignedFile.Path |  ConvertTo-Json -Depth 1 | Write-Output
                 }
-
-                Get-AuthenticodeSignature $NotSignedFile.Path |  ConvertTo-Json -Depth 1 | Write-Output
             }
         }
 
         # Check signature for all types of files except some known types and record unsigned files
         $excludeList = @("*.man", "*.reg", "*.md", "*.toml", "*.cmd", "*.template", "*.txt", "*.wprp", "*.yaml", "*.json", "NOTICE", "*.config", "*.conflist")
-        $AllNotSignedList = (Get-ChildItem -Path $installDir -Recurse -File -Exclude $excludeList | ForEach-object {Get-AuthenticodeSignature $_.FullName} | Where-Object {$_.status -ne "Valid"})
+        $AllNotSignedList = (Get-ChildItem -Path $installDir -Recurse -File -Exclude $excludeList | ForEach-object { Get-AuthenticodeSignature $_.FullName } | Where-Object { $_.status -ne "Valid" })
         foreach ($NotSignedFile in $AllNotSignedList) {
             $NotSignedFileName = [IO.Path]::GetFileName($NotSignedFile.Path)
             if (($SkipMapForSignature.ContainsKey($fileName) -and ($SkipMapForSignature[$fileName].Length -ne 0) -and !$SkipMapForSignature[$fileName].Contains($NotSignedFileName)) -or !$SkipMapForSignature.ContainsKey($fileName)) {
                 if (!$AllNotSignedFiles.ContainsKey($dir)) {
-                    $AllNotSignedFiles[$dir]=@{}
+                    $AllNotSignedFiles[$dir] = @{}
                 }
                 if (!$AllNotSignedFiles[$dir].ContainsKey($fileName)) {
-                    $AllNotSignedFiles[$dir][$fileName]=@()
+                    $AllNotSignedFiles[$dir][$fileName] = @()
                 }
-                $AllNotSignedFiles[$dir][$fileName]+=@($NotSignedFileName)
+                $AllNotSignedFiles[$dir][$fileName] += @($NotSignedFileName)
             }
         }
 
@@ -222,7 +236,7 @@ function Test-CompareSingleDir {
             $proxyLocation = $URL.Split('/')[3]
     
             if ($supportedProxyLocations -notcontains $proxyLocation) {
-                $ProxyLocationNotFoundInMooncakeFiles[$URL]=$URL
+                $ProxyLocationNotFoundInMooncakeFiles[$URL] = $URL
             }
         }
 
@@ -232,10 +246,10 @@ function Test-CompareSingleDir {
         DownloadFileWithRetry -URL $URL -Dest $dest -redactUrl
         $globalFileSize = (Get-Item $dest).length
         
-        $isIgnore=$False
-        foreach($excludePackage in $global:excludeHashComparisionListInAzureChinaCloud) {
+        $isIgnore = $False
+        foreach ($excludePackage in $global:excludeHashComparisionListInAzureChinaCloud) {
             if ($URL.Contains($excludePackage)) {
-                $isIgnore=$true
+                $isIgnore = $true
                 break
             }
         }
@@ -253,7 +267,7 @@ function Test-CompareSingleDir {
             $ProgressPreference = 'Continue' 
 
             if ($globalFileSize -ne $mooncakeFileSize) {
-                $MisMatchFiles[$URL]=$mcURL
+                $MisMatchFiles[$URL] = $mcURL
             }
         }
     }
@@ -281,16 +295,16 @@ function Test-CompareFiles {
 function Retry-Command {
     [CmdletBinding()]
     Param(
-        [Parameter(Position=0, Mandatory=$true)]
+        [Parameter(Position = 0, Mandatory = $true)]
         [scriptblock]$ScriptBlock,
 
-        [Parameter(Position=1, Mandatory=$true)]
+        [Parameter(Position = 1, Mandatory = $true)]
         [string]$ErrorMessage,
 
-        [Parameter(Position=2, Mandatory=$false)]
+        [Parameter(Position = 2, Mandatory = $false)]
         [int]$Maximum = 5,
 
-        [Parameter(Position=3, Mandatory=$false)]
+        [Parameter(Position = 3, Mandatory = $false)]
         [int]$Delay = 10
     )
 
@@ -307,7 +321,8 @@ function Retry-Command {
                     throw "Retry $cnt : $ErrorMessage"
                 }
                 return
-            } catch {
+            }
+            catch {
                 Write-Error $_.Exception.InnerException.Message -ErrorAction Continue
                 if ($_.Exception.InnerException.Message.Contains("There is not enough space on the disk. (0x70)")) {
                     throw "Exit retry since there is not enough space on the disk"
@@ -326,13 +341,14 @@ function Install-Containerd {
     $containerdFileName = [IO.Path]::GetFileName($global:defaultContainerdPackageUrl)
     $dest = [IO.Path]::Combine("c:\akse-cache\containerd\", $containerdFileName)
 
-    $installDir="c:\program files\containerd"
+    $installDir = "c:\program files\containerd"
     if (!(Test-Path $installDir)) {
         New-Item -ItemType Directory $installDir -Force | Out-Null
     }
     if ($containerdFilename.endswith(".zip")) {
         Expand-Archive -path $dest -DestinationPath $installDir -Force
-    } else {
+    }
+    else {
         tar -xzf $dest -C $installDir
         mv -Force $installDir\bin\* $installDir
         Remove-Item -Path $installDir\bin -Force -Recurse
@@ -345,7 +361,7 @@ function Install-Containerd {
     $containerdConfigPath = [Io.Path]::Combine($installDir, "config.toml")
     # enabling discard_unpacked_layers allows GC to remove layers from the content store after
     # successfully unpacking these layers to the snapshotter to reduce the disk space caching Windows containerd images
-    (containerd config default)  | %{$_ -replace "discard_unpacked_layers = false", "discard_unpacked_layers = true"}  | Out-File  -FilePath $containerdConfigPath -Encoding ascii
+    (containerd config default)  | % { $_ -replace "discard_unpacked_layers = false", "discard_unpacked_layers = true" }  | Out-File  -FilePath $containerdConfigPath -Encoding ascii
 
     Get-Content $containerdConfigPath
 
