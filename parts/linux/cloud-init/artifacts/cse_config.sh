@@ -327,17 +327,7 @@ disableSystemdResolved() {
     fi
 }
 
-ensureContainerd() {
-  if [ "${TELEPORT_ENABLED}" = "true" ]; then
-    ensureTeleportd
-  fi
-  mkdir -p "/etc/systemd/system/containerd.service.d" 
-  tee "/etc/systemd/system/containerd.service.d/exec_start.conf" > /dev/null <<EOF
-[Service]
-ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
-EOF
-
-  mkdir -p /etc/containerd
+populateContainerdConfig() {
   if [ "${GPU_NODE}" = "true" ]; then
     # Check VM tag directly to determine if GPU drivers should be skipped
     export -f should_skip_nvidia_drivers
@@ -352,6 +342,23 @@ EOF
   else
     echo "Generating containerd config..."
     echo "${CONTAINERD_CONFIG_CONTENT}" | base64 -d > /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
+  fi
+}
+
+ensureContainerd() {
+  if [ "${TELEPORT_ENABLED}" = "true" ]; then
+    ensureTeleportd
+  fi
+  mkdir -p "/etc/systemd/system/containerd.service.d" 
+  tee "/etc/systemd/system/containerd.service.d/exec_start.conf" > /dev/null <<EOF
+[Service]
+ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
+EOF
+
+  mkdir -p /etc/containerd
+  # if containerd config.toml exisits on the node, skip writing it again
+  if [ ! -f /etc/containerd/config.toml ]; then
+    populateContainerdConfig
   fi
 
   if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
