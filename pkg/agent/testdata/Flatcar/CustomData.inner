@@ -439,34 +439,6 @@
       {
         "group": {},
         "overwrite": true,
-        "path": "/etc/systemd/system/teleportd.service",
-        "user": {
-          "name": "root"
-        },
-        "contents": {
-          "compression": "gzip",
-          "source": "data:;base64,H4sIAAAAAAAC/1yPzWoCQRCE7/MUCzmvk0D+LnNIdAWJukETchAP41hKZ2dnpLs3unn6QIIIuRUfRRXf6j2Rrs0IEpgOSjk5RcQhs26Lcyq4S0otzNNOwS5Bj5mbgXreQ81qCf6igLWpTghL9azOdsI25uCj3VCyl8mybKFMQYqy9I0Mc9rRvrDQYJtuA05QiPXfHWPwKTmZESL2XuF6iHmhGGd5C3fgHCBiFpDfPx+PvhczpZZ0/rqoh47SjhJp/8eG9aL6h+b1eDKt3M317ePdw71589LIzJ8urdUkifoY1+bDJ8X2uXdtF5XKTsBn+auqHpufAAAA//+wiYztRQEAAA==",
-          "verification": {}
-        },
-        "mode": 420
-      },
-      {
-        "group": {},
-        "overwrite": true,
-        "path": "/etc/systemd/system/nvidia-modprobe.service",
-        "user": {
-          "name": "root"
-        },
-        "contents": {
-          "compression": "gzip",
-          "source": "data:;base64,H4sIAAAAAAAC/1yPvUoDQRRG+3mKy/aT+AJTGAxiI8EYLJYtZne+mMvOz3LnzpK8vWAE0e40B87pT5l1ME+ok/CiXLJ7yVV9jJV8DhSLD5VeVw7s6flwohmSESmV0CLMDucicHMbEaGbCll5gumPdxjM+22BKxn1UtS8IXnOj2eF7K+sTqXB7K+YjupFDwK3HTlv64XsRF2YUyXftPA9iKxdIWOp6H6lP0b+zrSphEXKCLKN7PTQmf5naTAfPivC7uZSi8q2VchGvXxC6f/DVwAAAP//s0QknRoBAAA=",
-          "verification": {}
-        },
-        "mode": 420
-      },
-      {
-        "group": {},
-        "overwrite": true,
         "path": "/opt/azure/containers/kubelet.sh",
         "user": {
           "name": "root"
