@@ -480,10 +480,11 @@ should_install_device_plugin() {
 
 install_device_plugin() {
   local pkg="${K8S_DEVICE_PLUGIN_PKG}"
-  echo "Installing ${pkg} on ${OS} (Ubuntu ${UBUNTU_RELEASE:-n/a} / Version ${OS_VERSION:-n/a})..."
   if [ "${OS}" = "${UBUNTU_OS_NAME}" ]; then
+    echo "Installing ${pkg} on Ubuntu ${UBUNTU_RELEASE:-unknown}..."
     apt_get_install 30 1 600 "${pkg}" || exit $ERR_APT
   elif [ "${OS}" = "${AZURELINUX_OS_NAME}" ]; then
+    echo "Installing ${pkg} on Azure Linux ${OS_VERSION:-unknown}..."
     if ! dnf_install 30 1 600 "${pkg}"; then
       echo "Failed to install ${pkg} on Azure Linux ${OS_VERSION}" >&2
       exit 1
