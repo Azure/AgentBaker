@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-K8S_DEVICE_PLUGIN_PKG="nvidia-device-plugin"
+K8S_DEVICE_PLUGIN_PKG="${K8S_DEVICE_PLUGIN_PKG:-nvidia-device-plugin}"
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
 MARINER_KATA_OS_NAME="MARINERKATA"
@@ -423,6 +423,14 @@ while IFS= read -r p; do
         echo "  - kubectl version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
+    "nvidia-device-plugin")
+      for version in ${PACKAGE_VERSIONS[@]}; do
+        if [ "${OS}" = "${UBUNTU_OS_NAME}" ] || isMarinerOrAzureLinux "$OS"; then
+          downloadPkgFromVersion "nvidia-device-plugin" "${version}" "${downloadDir}"
+        fi
+        echo "  - nvidia-device-plugin version ${version}" >> ${VHD_LOGS_FILEPATH}
+      done
+      ;;
     *)
       echo "Package name: ${name} not supported for download. Please implement the download logic in the script."
       # We can add a common function to download a generic package here.
@@ -461,58 +469,7 @@ elif [ "$OS" = "$MARINER_OS_NAME" ] && [ "$OS_VERSION" = "3.0" ] && [ "$(isARM64
   installAndConfigureArtifactStreaming acr-mirror-azurelinux3 rpm
 fi
 
-should_install_device_plugin() {
-  # Require x86_64 (skip arm64)
-  if [ "$(isARM64)" -eq 1 ]; then 
-    echo "Skipping ${K8S_DEVICE_PLUGIN_PKG} installation: ARM64 architecture not supported"
-    return 1
-  fi
-
-  # Ubuntu 24.04 only
-  if [ "$OS" = "$UBUNTU_OS_NAME" ] && [ "${UBUNTU_RELEASE:-}" = "24.04" ]; then return 0; fi
-
-  # Azure Linux 3.0 only
-  if [ "$OS" = "$AZURELINUX_OS_NAME" ] && [ "${OS_VERSION}" = "3.0" ]; then return 0; fi
-
-  echo "Skipping ${K8S_DEVICE_PLUGIN_PKG} installation: Not supported on ${OS} ${UBUNTU_RELEASE:-}${OS_VERSION:-}"
-  return 1
-}
-
-install_device_plugin() {
-  local pkg="${K8S_DEVICE_PLUGIN_PKG}"
-  echo "Installing ${pkg}..."
-  
-  # Install and get version based on OS
-  case "${OS}" in
-    "${UBUNTU_OS_NAME}")
-      apt_get_install 30 1 600 "${pkg}" || exit $ERR_APT
-      local pkg_version=$(dpkg-query -W -f='${Version}' "${pkg}" 2>/dev/null || echo "unknown")
-      ;;
-    "${AZURELINUX_OS_NAME}")
-      if ! dnf_install 30 1 600 "${pkg}"; then
-        echo "Failed to install ${pkg}" >&2
-        exit 1
-      fi
-      local pkg_version=$(rpm -q --qf '%{VERSION}-%{RELEASE}' "${pkg}" 2>/dev/null || echo "unknown")
-      ;;
-    *)
-      echo "install_device_plugin called for unsupported OS ${OS}" >&2
-      return 1
-      ;;
-  esac
-
-  echo "Disabling nvidia-device-plugin systemd unit..."
-  systemctl disable nvidia-device-plugin.service || exit 1
-  systemctl mask nvidia-device-plugin.service || exit 1
-
-  echo "  - ${pkg} version ${pkg_version}" >> ${VHD_LOGS_FILEPATH}
-}
-
-if should_install_device_plugin; then
-  install_device_plugin
-else
-  echo "${K8S_DEVICE_PLUGIN_PKG} installation not required for this configuration"
-fi
+# nvidia-device-plugin is now cached during VHD build and installed during CSE when GPU nodes are provisioned
 
 # k8s will use images in the k8s.io namespaces - create it
 ctr namespace create k8s.io

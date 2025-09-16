@@ -254,6 +254,23 @@ cleanUpGPUDrivers() {
     fi
 }
 
+installNvidiaDevicePluginPkgFromCache() {
+    local desiredVersion="${1:-}"
+    if [ -z "${desiredVersion}" ]; then
+        echo "ERROR: No version specified for nvidia-device-plugin installation" >&2
+        return 1
+    fi
+    
+    echo "Installing nvidia-device-plugin version ${desiredVersion}..."
+    installRPMPackageFromFile "nvidia-device-plugin" "${desiredVersion}" || exit $ERR_APT_INSTALL_TIMEOUT
+    
+    echo "Disabling nvidia-device-plugin systemd unit..."
+    systemctl disable nvidia-device-plugin.service || exit 1
+    systemctl mask nvidia-device-plugin.service || exit 1
+    
+    echo "nvidia-device-plugin installation completed"
+}
+
 downloadContainerdFromVersion() {
     echo "downloadContainerdFromVersion not implemented for mariner"
 }
