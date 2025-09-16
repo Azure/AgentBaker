@@ -16,6 +16,7 @@ BeforeAll {
     param($Path, $Value)
     Write-Host "SET-CONTENT: Path: $Path, Content: $Value"
   }
+
   function Get-WindowsPauseVersion {
     return "ltsc2022"
   }
@@ -25,12 +26,12 @@ BeforeAll {
   }
 
   . $PSScriptRoot\containerdfunc.ps1
-  . $PSCommandPath.Replace('.tests.ps1','.ps1')
+  . $PSCommandPath.Replace('.tests.ps1', '.ps1')
   # . $PSScriptRoot\..\..\parts\windows\windowscsehelper.ps1
 }
 
 Describe "ProcessAndWriteContainerdConfig" {
-  BeforeAll{
+  BeforeAll {
     Mock Get-Content -ParameterFilter { $Path -like "*kubeclusterconfig.json" } -MockWith { 
       return "{`"Cri`":{`"Images`":{`"Pause`":`"$pauseImage`"}}}"
     }
@@ -45,7 +46,7 @@ Describe "ProcessAndWriteContainerdConfig" {
 
       $global:KubeClusterConfigPath = [Io.path]::Combine("", "kubeclusterconfig.json")
       $global:ContainerdInstallLocation = $containerdDir
-      $global:WindowsDataDir=$PSScriptRoot
+      $global:WindowsDataDir = $PSScriptRoot
       $configPath = Join-Path $global:ContainerdInstallLocation "config.toml"
     }
 
@@ -106,7 +107,7 @@ Describe "ProcessAndWriteContainerdConfig" {
 
       $global:KubeClusterConfigPath = [Io.path]::Combine("", "kubeclusterconfig.json")
       $global:ContainerdInstallLocation = $containerdDir
-      $global:WindowsDataDir=$PSScriptRoot
+      $global:WindowsDataDir = $PSScriptRoot
       $configPath = Join-Path $global:ContainerdInstallLocation "config.toml"
     }
 

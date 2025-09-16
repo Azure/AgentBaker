@@ -225,41 +225,6 @@ write_files:
   content: !!binary |
     H4sIAAAAAAAC/7yVT2/aTBDG7/4UTzZIL7zV2qTNpa1ohQiVopaA8ueU5LB4B7yR2XV216Q08N0rY6eFxmlJpeYG9vj5zTwzmtnfi8ZKR2PhkiAIaOzFOCUH7jFRqScL/gXdz2f8qH90MeKj0+Hg+KyH1x8iSfNI52kaqAkuwRofGTjdoo3r9/AJ6QAAKE4M2OPvbZ4SRGpJyAUceVZGf1Ue7WCiSs098Aki8nEUaxVp8qGMDto8NtoLpclKXjyLjZ6kyvkabqwVitdqCm088gwL8mEYFhylpyBh08UG+qBAB2Or5JROxIw6jWYs/DNSwBI3t+AWLMzSfKq0u7zGEo5Sin0z9IuM0OngipWMK9bCEmH5h7WCzJqZcvHAyJdCbxBZ66GT9xtPVwx7HTBvc2I1DpdiaNz/NG219lppVCq5yR1mRtJvjF/3fKPpLHILF8WpcK6oPNrSj4SUlpx7Vj479r5q/vGo02iqDAUJLjF3vyguMbWUgfcNmNLk0bxs87fX/1+Frfs3q/I324qqC6gM598Kzx/Aq53LkobcurZEzAlCQ2XzQ1Tm/LHSzMizfKzJd6W0LzRtKhOz0K2p28VvJVPrQGzyVK6rleTJzpQm+EQVBkj6zyEzEoU8SnlYoaeEiTUzPF3Gjqtg0O09GLTDWLaCoExZSFkoP15+1ZJFnAilWe3OPan5rDawWxPIMxyP5ofg7sfEDLq9FbjBnHzyCpyrjDsbY2PswG/Q7fX6o/N/wtnucAE7Oh2OnkANL85HF+frjB67ULlrcp/lft07TXfpohh8kqg/Ne4de+K0VajNe/Y3N7DaYvv94afvAQAA//+9V1nOUQcAAA==
 
-- path: /etc/systemd/system/teleportd.service
-  permissions: "0644"
-  owner: root
-  content: |
-    [Unit]
-    Description=teleportd teleport runtime
-    After=network.target
-    [Service]
-    ExecStart=/usr/local/bin/teleportd --metrics --aksConfig /etc/kubernetes/azure.json
-    Delegate=yes
-    KillMode=process
-    Restart=always
-    LimitNPROC=infinity
-    LimitCORE=infinity
-    LimitNOFILE=1048576
-    TasksMax=infinity
-    [Install]
-    WantedBy=multi-user.target
-    #EOF
-
-- path: /etc/systemd/system/nvidia-modprobe.service
-  permissions: "0644"
-  owner: root
-  content: |
-    [Unit]
-    Description=Installs and loads Nvidia GPU kernel module
-    Before=kubelet.service
-    [Service]
-    Type=oneshot
-    RemainAfterExit=true
-    ExecStartPre=/bin/sh -c "dkms autoinstall --verbose"
-    ExecStart=/bin/sh -c "nvidia-modprobe -u -c0"
-    [Install]
-    WantedBy=multi-user.target kubelet.service
-
 - path: /opt/azure/containers/kubelet.sh
   permissions: "0755"
   owner: root

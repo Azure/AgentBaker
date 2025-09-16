@@ -393,6 +393,8 @@ if [ "$OS_TYPE" = "Windows" ]; then
 	IMPORTED_IMAGE_URL="https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net/system/$IMPORTED_IMAGE_NAME.vhd"
  	export AZCOPY_AUTO_LOGIN_TYPE="MSI" # use Managed Identity for AzCopy authentication
 	export AZCOPY_MSI_RESOURCE_STRING="${AZURE_MSI_RESOURCE_STRING}"
+	export AZCOPY_LOG_LOCATION="./azcopy-log-files/"
+	mkdir -p "${AZCOPY_LOG_LOCATION}"
 
 	echo "VALID IMAGE URL: ${WINDOWS_CONTAINERIMAGE_JSON_URL}"
 	if [ -n "${WINDOWS_CONTAINERIMAGE_JSON_URL}" ]; then
@@ -406,7 +408,23 @@ if [ "$OS_TYPE" = "Windows" ]; then
 		if azcopy copy "${WINDOWS_CONTAINERIMAGE_JSON_URL}" "${BUILD_ARTIFACTSTAGINGDIRECTORY}/"; then
 			echo "Successfully downloaded the latest artifact: $filename"
 		else
-			echo "Failed to download the latest artifact"
+			# loop through azcopy log files
+			for f in "${AZCOPY_LOG_LOCATION}"/*.log; do
+			echo "Azcopy log file: $f"
+			# upload the log file as an attachment to vso
+			set +x
+			echo "##vso[build.uploadlog]$f"
+			set -x
+			# check if the log file contains any errors
+			if grep -q '"level":"Error"' "$f"; then
+				echo "log file $f contains errors"
+				set +x
+				echo "##vso[task.logissue type=error]Azcopy log file $f contains errors"
+				set -x
+				# print the log file
+				cat "$f"
+			fi
+			done
 		fi
 
 		# Parse the json artifact to get the image urls
@@ -479,7 +497,34 @@ if [ "$OS_TYPE" = "Windows" ]; then
 		WINDOWS_IMAGE_URL=${IMPORTED_IMAGE_URL}
 
 		echo "Copy Windows base image to ${WINDOWS_IMAGE_URL}"
-		azcopy copy "${WINDOWS_BASE_IMAGE_URL}" "${WINDOWS_IMAGE_URL}"
+		
+		export AZCOPY_LOG_LOCATION="./azcopy-log-files/"
+		mkdir -p "${AZCOPY_LOG_LOCATION}"
+
+		if ! azcopy copy "${WINDOWS_BASE_IMAGE_URL}" "${WINDOWS_IMAGE_URL}" ; then
+			azExitCode=$?
+			# loop through azcopy log files
+			shopt -s nullglob
+			for f in "${AZCOPY_LOG_LOCATION}"/*.log; do
+				echo "Azcopy log file: $f"
+				# upload the log file as an attachment to vso
+				set +x
+				echo "##vso[build.uploadlog]$f"
+				set -x
+				# check if the log file contains any errors
+				if grep -q '"level":"Error"' "$f"; then
+					echo "log file $f contains errors"
+					set +x
+					echo "##vso[task.logissue type=error]Azcopy log file $f contains errors"
+					set -x
+					# print the log file
+					cat "$f"
+				fi
+			done
+			shopt -u nullglob
+			exit $azExitCode
+		fi
+
 		# https://www.packer.io/plugins/builders/azure/arm#image_url
 		# WINDOWS_IMAGE_URL to a custom VHD to use for your base image. If this value is set, image_publisher, image_offer, image_sku, or image_version should not be set.
 		WINDOWS_IMAGE_PUBLISHER=""

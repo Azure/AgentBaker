@@ -67,6 +67,14 @@
       "enabled": false
     },
     {
+      "matchPackageNames": [
+        "oss/v2/**"
+      ],
+      "versioning": "regex:^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<prerelease>\\d+)$",
+      "ignoreUnstable": false
+    },
+    
+    {
       "matchDatasources": [
         "docker"
       ],
@@ -236,8 +244,6 @@
       "matchPackageNames": [
         "oss/v2/azure/ip-masq-agent-v2"
       ],
-      "versioning": "regex:^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<prerelease>\\d+)$",
-      "ignoreUnstable": false,
       "reviewers": [
         "robogatikov",
         "paulgmiller"
