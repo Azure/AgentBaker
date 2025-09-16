@@ -481,29 +481,30 @@ should_install_device_plugin() {
 install_device_plugin() {
   local pkg="${K8S_DEVICE_PLUGIN_PKG}"
   echo "Installing ${pkg}..."
-  if [ "${OS}" = "${UBUNTU_OS_NAME}" ]; then
-    apt_get_install 30 1 600 "${pkg}" || exit $ERR_APT
-  elif [ "${OS}" = "${AZURELINUX_OS_NAME}" ]; then
-    if ! dnf_install 30 1 600 "${pkg}"; then
-      echo "Failed to install ${pkg}" >&2
-      exit 1
-    fi
-  else
-    echo "install_device_plugin called for unsupported OS ${OS}" >&2
-    return 1
-  fi
+  
+  # Install and get version based on OS
+  case "${OS}" in
+    "${UBUNTU_OS_NAME}")
+      apt_get_install 30 1 600 "${pkg}" || exit $ERR_APT
+      local pkg_version=$(dpkg-query -W -f='${Version}' "${pkg}" 2>/dev/null || echo "unknown")
+      ;;
+    "${AZURELINUX_OS_NAME}")
+      if ! dnf_install 30 1 600 "${pkg}"; then
+        echo "Failed to install ${pkg}" >&2
+        exit 1
+      fi
+      local pkg_version=$(rpm -q --qf '%{VERSION}-%{RELEASE}' "${pkg}" 2>/dev/null || echo "unknown")
+      ;;
+    *)
+      echo "install_device_plugin called for unsupported OS ${OS}" >&2
+      return 1
+      ;;
+  esac
 
   echo "Disabling nvidia-device-plugin systemd unit..."
   systemctl disable nvidia-device-plugin.service || exit 1
   systemctl mask nvidia-device-plugin.service || exit 1
 
-  # Capture installed package version for logging
-  local pkg_version="unknown"
-  if [ "${OS}" = "${UBUNTU_OS_NAME}" ]; then
-    pkg_version=$(dpkg-query -W -f='${Version}' "${pkg}" 2>/dev/null || echo "unknown")
-  elif [ "${OS}" = "${AZURELINUX_OS_NAME}" ]; then
-    pkg_version=$(rpm -q --qf '%{VERSION}-%{RELEASE}' "${pkg}" 2>/dev/null || echo "unknown")
-  fi
   echo "  - ${pkg} version ${pkg_version}" >> ${VHD_LOGS_FILEPATH}
 }
 
