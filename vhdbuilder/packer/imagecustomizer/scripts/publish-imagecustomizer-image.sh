@@ -53,12 +53,13 @@ if ! azcopy copy "${OUT_DIR}/${CONFIG}.vhd" "${CLASSIC_BLOB}/${CAPTURED_SIG_VERS
     for f in "${AZCOPY_LOG_LOCATION}"/*.log; do
         echo "Azcopy log file: $f"
         # upload the log file as an attachment to vso
-        echo "##vso[task.uploadfile]$f"
+        echo "##vso[build.uploadlog]$f"
         # check if the log file contains any errors
         if grep -q '"level":"Error"' "$f"; then
-        echo "##vso[task.logissue type=error]Azcopy log file $f contains errors"
-        # print the log file
-        cat "$f"
+		 	echo "log file $f contains errors"
+			echo "##vso[task.logissue type=error]Azcopy log file $f contains errors"
+			# print the log file
+			cat "$f"
         fi
     done
     shopt -u nullglob
