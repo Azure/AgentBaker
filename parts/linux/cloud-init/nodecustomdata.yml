@@ -287,41 +287,6 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "ensureNoDupEbtablesScript"}}
 
-- path: /etc/systemd/system/teleportd.service
-  permissions: "0644"
-  owner: root
-  content: |
-    [Unit]
-    Description=teleportd teleport runtime
-    After=network.target
-    [Service]
-    ExecStart=/usr/local/bin/teleportd --metrics --aksConfig /etc/kubernetes/azure.json
-    Delegate=yes
-    KillMode=process
-    Restart=always
-    LimitNPROC=infinity
-    LimitCORE=infinity
-    LimitNOFILE=1048576
-    TasksMax=infinity
-    [Install]
-    WantedBy=multi-user.target
-    #EOF
-
-- path: /etc/systemd/system/nvidia-modprobe.service
-  permissions: "0644"
-  owner: root
-  content: |
-    [Unit]
-    Description=Installs and loads Nvidia GPU kernel module
-    Before=kubelet.service
-    [Service]
-    Type=oneshot
-    RemainAfterExit=true
-    ExecStartPre=/bin/sh -c "dkms autoinstall --verbose"
-    ExecStart=/bin/sh -c "nvidia-modprobe -u -c0"
-    [Install]
-    WantedBy=multi-user.target kubelet.service
-
 - path: /opt/azure/containers/kubelet.sh
   permissions: "0755"
   owner: root
