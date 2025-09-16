@@ -463,7 +463,10 @@ fi
 
 should_install_device_plugin() {
   # Require x86_64 (skip arm64)
-  if [ "$(isARM64)" -eq 1 ]; then return 1; fi
+  if [ "$(isARM64)" -eq 1 ]; then 
+    echo "Skipping ${K8S_DEVICE_PLUGIN_PKG} installation: ARM64 architecture not supported"
+    return 1
+  fi
 
   # Ubuntu 24.04 only
   if [ "$OS" = "$UBUNTU_OS_NAME" ] && [ "${UBUNTU_RELEASE:-}" = "24.04" ]; then return 0; fi
@@ -471,6 +474,7 @@ should_install_device_plugin() {
   # Azure Linux 3.0 only
   if [ "$OS" = "$AZURELINUX_OS_NAME" ] && [ "${OS_VERSION}" = "3.0" ]; then return 0; fi
 
+  echo "Skipping ${K8S_DEVICE_PLUGIN_PKG} installation: Not supported on ${OS} ${UBUNTU_RELEASE:-}${OS_VERSION:-}"
   return 1
 }
 
@@ -505,6 +509,8 @@ install_device_plugin() {
 
 if should_install_device_plugin; then
   install_device_plugin
+else
+  echo "${K8S_DEVICE_PLUGIN_PKG} installation not required for this configuration"
 fi
 
 # k8s will use images in the k8s.io namespaces - create it
