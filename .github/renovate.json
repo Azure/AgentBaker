@@ -215,24 +215,12 @@
       "enabled": true,
       "groupName": "credential-provider-pmc",
       "assignees": [
-        "devinwong",
-        "anujmaheshwari1",
-        "cameronmeissner",
-        "lilypan26",
-        "djsly",
-        "UtheMan",
-        "zachary-bailey",
-        "ganeshkumarashok"
+        "mainred",
+        "nilo19"
       ],
       "reviewers": [
-        "devinwong",
-        "anujmaheshwari1",
-        "cameronmeissner",
-        "lilypan26",
-        "djsly",
-        "UtheMan",
-        "zachary-bailey",
-        "ganeshkumarashok"
+        "mainred",
+        "nilo19"
       ]
     },
     {
@@ -368,12 +356,10 @@
       "groupName": "acr-credential-provider",
       "assignees": [
         "mainred",
-        "MartinForReal",
         "nilo19"
       ],
       "reviewers": [
         "mainred",
-        "MartinForReal",
         "nilo19"
       ]
     },
@@ -439,12 +425,10 @@
       "groupName": "azure-cloud-node-manager",
       "assignees": [
         "mainred",
-        "MartinForReal",
         "nilo19"
       ],
       "reviewers": [
         "mainred",
-        "MartinForReal",
         "nilo19"
       ]
     },
