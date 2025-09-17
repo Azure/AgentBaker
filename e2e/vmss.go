@@ -33,7 +33,22 @@ const (
 	loadBalancerBackendAddressPoolIDTemplate = "/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/loadBalancers/kubernetes/backendAddressPools/aksOutboundBackendPool"
 )
 
-// compileAKSNodeController compiles the aks-node-controller binary for the given architecture.
+func compileAndUploadAKSNodeController(ctx context.Context, arch string) (string, error) {
+	binary, err := compileAKSNodeController(ctx, arch)
+	if err != nil {
+		return "", err
+	}
+	uniqueSuffix := randomLowercaseString(6)
+	blobPath := fmt.Sprintf("%s/aks-node-controller-%s", time.Now().UTC().Format("2006-01-02-15-04-05"), uniqueSuffix)
+	logf(ctx, "uploading aks-node-controller binary to blob path %s", blobPath)
+	url, err := config.Azure.UploadAndGetLink(ctx, blobPath, binary)
+	if err != nil {
+		return "", fmt.Errorf("failed to upload aks-node-controller binary: %w", err)
+	}
+	return url, nil
+}
+
+// compileAndUploadAKSNodeController compiles the aks-node-controller binary for the given architecture.
 func compileAKSNodeController(ctx context.Context, arch string) (*os.File, error) {
 	goBin, err := exec.LookPath("go")
 	if err != nil {
@@ -47,7 +62,7 @@ func compileAKSNodeController(ctx context.Context, arch string) (*os.File, error
 		"GOOS=linux",
 		"GOARCH="+arch,
 	)
-	logf(ctx, cmd.String())
+	logf(ctx, "compiling aks-node-controller: %q", cmd.String())
 	log, err := cmd.CombinedOutput()
 	if err != nil {
 		return nil, fmt.Errorf("failed to compile aks-node-controller: %s", string(log))
@@ -66,9 +81,7 @@ func createVMSS(ctx context.Context, s *Scenario) *armcompute.VirtualMachineScal
 	require.NoError(s.T, err)
 	var cse, customData string
 	if s.Runtime.AKSNodeConfig != nil {
-		binary, err := CachedCompileAKSNodeController(ctx, s.VHD.Arch)
-		require.NoError(s.T, err)
-		s.Runtime.AKSNodeConfig.AksNodeControllerUrl, err = config.Azure.UploadAndGetLink(ctx, time.Now().UTC().Format("2006-01-02-15-04-05")+"/aks-node-controller", binary)
+		s.Runtime.AKSNodeConfig.AksNodeControllerUrl, err = CachedCompileAndUploadAKSNodeController(ctx, s.VHD.Arch)
 		require.NoError(s.T, err)
 
 		s.T.Logf("creating VMSS %q with AKSNodeConfigMutator in resource group %s", s.Runtime.VMSSName, *cluster.Model.Properties.NodeResourceGroup)

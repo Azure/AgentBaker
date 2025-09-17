@@ -225,4 +225,4 @@ func prepareVHD(ctx context.Context, request GetVHDRequest) (config.VHDResourceI
 
 var CachedEnsureResourceGroup = cachedFunc(ensureResourceGroup)
 var CachedCreateVMManagedIdentity = cachedFunc(config.Azure.CreateVMManagedIdentity)
-var CachedCompileAKSNodeController = cachedFunc(compileAKSNodeController)
+var CachedCompileAndUploadAKSNodeController = cachedFunc(compileAndUploadAKSNodeController)
