@@ -41,7 +41,7 @@ func compileAndUploadAKSNodeController(ctx context.Context, arch string) (string
 	uniqueSuffix := randomLowercaseString(6)
 	blobPath := fmt.Sprintf("%s/aks-node-controller-%s", time.Now().UTC().Format("2006-01-02-15-04-05"), uniqueSuffix)
 	logf(ctx, "uploading aks-node-controller binary to blob path %s", blobPath)
-	url, err := config.Azure.UploadAndGetLink(ctx, blobPath, binary)
+	url, err := config.Azure.UploadAndGetSignedLink(ctx, blobPath, binary)
 	if err != nil {
 		return "", fmt.Errorf("failed to upload aks-node-controller binary: %w", err)
 	}
@@ -139,7 +139,7 @@ func createVMSS(ctx context.Context, s *Scenario) *armcompute.VirtualMachineScal
 
 	s.PrepareVMSSModel(ctx, s.T, &model)
 
-	vmss, err := config.Azure.CreateVMSSWithRetry(ctx, *cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, model)
+	vmss, err := CreateVMSSWithRetry(ctx, s, model)
 	s.T.Cleanup(func() {
 		cleanupVMSS(ctx, s)
 	})
@@ -148,6 +148,72 @@ func createVMSS(ctx context.Context, s *Scenario) *armcompute.VirtualMachineScal
 	require.NoError(s.T, err, "create vmss %q, check %s for vm logs", s.Runtime.VMSSName, testDir(s.T))
 
 	return vmss
+}
+
+func CreateVMSSWithRetry(ctx context.Context, s *Scenario, parameters armcompute.VirtualMachineScaleSet) (*armcompute.VirtualMachineScaleSet, error) {
+	delay := 5 * time.Second
+	retryOn := func(err error) bool {
+		var respErr *azcore.ResponseError
+		// AllocationFailed sometimes happens for exotic SKUs (new GPUs) with limited availability, sometimes retrying helps
+		// It's not a quota issue
+		return errors.As(err, &respErr) && respErr.StatusCode == 200 && respErr.ErrorCode == "AllocationFailed"
+	}
+
+	maxAttempts := 10
+	attempt := 0
+
+	for {
+		attempt++
+		vmss, err := createVMSS2(ctx, s, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, parameters)
+		if err == nil {
+			logf(ctx, "created VMSS %s in resource group %s", s.Runtime.VMSSName, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup)
+			return vmss, nil
+		}
+
+		// not a retryable error
+		if !retryOn(err) {
+			return nil, err
+		}
+
+		if attempt >= maxAttempts {
+			return nil, fmt.Errorf("failed to create VMSS after %d retries: %w", maxAttempts, err)
+		}
+
+		logf(ctx, "failed to create VMSS: %v, attempt: %v, retrying in %v", err, attempt, delay)
+		select {
+		case <-ctx.Done():
+			return nil, err
+		case <-time.After(delay):
+		}
+	}
+
+}
+
+func createVMSS2(ctx context.Context, s *Scenario, resourceGroupName string, vmssName string, parameters armcompute.VirtualMachineScaleSet) (*armcompute.VirtualMachineScaleSet, error) {
+	operation, err := config.Azure.VMSS.BeginCreateOrUpdate(
+		ctx,
+		resourceGroupName,
+		vmssName,
+		parameters,
+		nil,
+	)
+	if err != nil {
+		return nil, err
+	}
+	s.Runtime.VMPrivateIP, err = getVMPrivateIPAddress(ctx, s)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get VM private IP address: %w", err)
+	}
+	err = uploadSSHKey(ctx, s)
+	if err != nil {
+		return nil, fmt.Errorf("failed to upload ssh key: %w", err)
+	}
+
+	vmssResp, err := operation.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
+	if err != nil {
+		return nil, err
+	}
+	return &vmssResp.VirtualMachineScaleSet, nil
 }
 
 func skipTestIfSKUNotAvailableErr(t *testing.T, err error) {
@@ -675,6 +741,7 @@ func getBaseVMSSModel(s *Scenario, customData, cseCmd, location string) armcompu
 			},
 		},
 	}
+
 	if cseCmd != "" {
 		model.Properties.VirtualMachineProfile.ExtensionProfile = &armcompute.VirtualMachineScaleSetExtensionProfile{
 			Extensions: []*armcompute.VirtualMachineScaleSetExtension{

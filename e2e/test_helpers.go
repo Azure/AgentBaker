@@ -210,6 +210,7 @@ func runScenario(t *testing.T, s *Scenario) {
 	s.Runtime = &ScenarioRuntime{
 		Cluster: cluster,
 	}
+
 	// use shorter timeout for faster feedback on test failures
 	ctx, cancel := context.WithTimeout(ctx, config.Config.TestTimeoutVMSS)
 	defer cancel()
@@ -274,7 +275,6 @@ func prepareAKSNode(ctx context.Context, s *Scenario) {
 		toolkit.LogDuration(ctx, totalElapse, 3*time.Minute, fmt.Sprintf("Node %s took %s to be created and %s to be ready", s.Runtime.VMSSName, toolkit.FormatDuration(creationElapse), toolkit.FormatDuration(readyElapse)))
 	}
 
-	s.Runtime.VMPrivateIP, err = getVMPrivateIPAddress(ctx, s)
 	require.NoError(s.T, err, "failed to get VM private IP address")
 }
 
@@ -338,7 +338,7 @@ func ValidateNodeCanRunAPod(ctx context.Context, s *Scenario) {
 }
 
 func validateVM(ctx context.Context, s *Scenario) {
-	err := uploadSSHKey(ctx, s)
+	err := validateSSHConnectivity(ctx, s)
 	require.NoError(s.T, err)
 
 	if !s.Config.SkipDefaultValidation {
