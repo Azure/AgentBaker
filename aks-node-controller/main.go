@@ -47,8 +47,8 @@ func configureLogging() func() {
 
 func setupLogPath() string {
 	// Try to create production directory first
-	if err := os.MkdirAll(filepath.Dir(logPath), 0755); err == nil {
-		return logPath
+	if err := os.MkdirAll(filepath.Dir(defaultLogPath), 0755); err == nil {
+		return defaultLogPath
 	}
 	// If directory creation fails, fallback to current directory
 	return "aks-node-controller.log"

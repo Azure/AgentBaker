@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -96,14 +97,16 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) error {
 	if err != nil {
 		return fmt.Errorf("unmarshal provision config: %w", err)
 	}
-	// TODO: "v0" were a mistake. We are not going to have different logic maintaining both v0 and v1
-	// Disallow "v0" after some time (allow some time to update consumers)
-	if config.Version != "v0" && config.Version != "v1" {
-		return fmt.Errorf("unsupported version: %s", config.Version)
-	}
 
-	if config.Version == "v0" {
+	switch config.Version {
+	case "v0":
 		slog.Error("v0 version is deprecated, please use v1 instead")
+		fallthrough
+	case "v1":
+		// valid version
+		break
+	default:
+		return fmt.Errorf("unknown version: %s", config.Version)
 	}
 
 	// Check if AksNodeControllerUrl is specified
@@ -119,6 +122,10 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) error {
 func (a *App) runExternalNodeController(ctx context.Context, config *aksnodeconfigv1.Configuration, configPath string) error {
 	slog.Info("Using external node controller", "url", config.AksNodeControllerUrl)
 
+	if err := a.prepareConfigForExternalController(config.AksNodeControllerUrl, configPath); err != nil {
+		return fmt.Errorf("failed to prepare config for external controller: %w", err)
+	}
+
 	// Define the download path
 	binaryPath := "/tmp/aks-node-controller-external"
 
@@ -126,13 +133,13 @@ func (a *App) runExternalNodeController(ctx context.Context, config *aksnodeconf
 	if err := helpers.DownloadBinary(ctx, config.AksNodeControllerUrl, binaryPath); err != nil {
 		return fmt.Errorf("failed to download external node controller: %w", err)
 	}
+	slog.Info("Downloaded external node controller", "path", binaryPath)
 
 	// Execute the external binary with the same arguments
 	cmd := exec.CommandContext(ctx, binaryPath, "provision", "--provision-config", configPath)
 
-	var stdoutBuf, stderrBuf bytes.Buffer
-	cmd.Stdout = io.MultiWriter(os.Stdout, &stdoutBuf)
-	cmd.Stderr = io.MultiWriter(os.Stderr, &stderrBuf)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
 
 	err := a.cmdRunner(cmd)
 	exitCode := -1
@@ -140,8 +147,38 @@ func (a *App) runExternalNodeController(ctx context.Context, config *aksnodeconf
 		exitCode = cmd.ProcessState.ExitCode()
 	}
 
-	slog.Info("External node controller finished", "exitCode", exitCode, "stdout", stdoutBuf.String(), "stderr", stderrBuf.String(), "error", err)
+	slog.Info("External node controller finished", "exitCode", exitCode, "stdout", "error", err)
 	return err
+}
+
+// prepareConfigForExternalController modifies the configuration file on disk to remove the AksNodeControllerUrl.
+// This prevents the external controller from also trying to download and run an external controller, which would cause an infinite loop.
+// It operates on a raw map[string]interface{} to avoid data loss that can occur when unmarshalling and marshalling a struct.
+func (a *App) prepareConfigForExternalController(url, configPath string) error {
+	inputJSON, err := os.ReadFile(configPath)
+	if err != nil {
+		return fmt.Errorf("failed to read config file %s: %w", configPath, err)
+	}
+
+	var rawConfig map[string]interface{}
+	if err := json.Unmarshal(inputJSON, &rawConfig); err != nil {
+		return fmt.Errorf("failed to unmarshal config into a map: %w", err)
+	}
+
+	// The external controller should not try to download another controller.
+	// We remove the URL from the config to prevent an infinite loop.
+	delete(rawConfig, "aksNodeControllerUrl")
+
+	modifiedJSON, err := json.Marshal(rawConfig)
+	if err != nil {
+		return fmt.Errorf("failed to marshal modified config: %w", err)
+	}
+
+	if err := os.WriteFile(configPath, modifiedJSON, 0644); err != nil {
+		return fmt.Errorf("failed to write modified config: %w", err)
+	}
+
+	return nil
 }
 
 // runBuiltinCSE runs the built-in CSE logic.
