@@ -33,26 +33,30 @@ const (
 	loadBalancerBackendAddressPoolIDTemplate = "/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/loadBalancers/kubernetes/backendAddressPools/aksOutboundBackendPool"
 )
 
-func compileAKSNodeController(t *testing.T) *os.File {
-	t.Logf("Compiling aks-node-controller...")
+// compileAKSNodeController compiles the aks-node-controller binary for the given architecture.
+func compileAKSNodeController(ctx context.Context, arch string) (*os.File, error) {
 	goBin, err := exec.LookPath("go")
-	require.NoError(t, err, "failed to find go binary in PATH")
-	goVersionCmd := exec.Command(goBin, "version")
-	goVersionOut, err := goVersionCmd.CombinedOutput()
-	require.NoError(t, err, "failed to get go version")
-	t.Logf("Using go binary: %s, version: %s", goBin, strings.TrimSpace(string(goVersionOut)))
-	cmd := exec.Command(goBin, "build", "-o", "aks-node-controller", "-v")
+	if err != nil {
+		return nil, fmt.Errorf("failed to find go binary in PATH: %w", err)
+	}
+	binName := "aks-node-controller-" + arch
+	cmd := exec.CommandContext(ctx, goBin, "build", "-o", binName, "-v")
 	cmd.Dir = filepath.Join("..", "aks-node-controller")
 	cmd.Env = append(os.Environ(),
 		"CGO_ENABLED=0",
 		"GOOS=linux",
-		"GOARCH=amd64",
+		"GOARCH="+arch,
 	)
+	logf(ctx, cmd.String())
 	log, err := cmd.CombinedOutput()
-	require.NoError(t, err, string(log))
-	f, err := os.Open(filepath.Join("..", "aks-node-controller", "aks-node-controller"))
-	require.NoError(t, err)
-	return f
+	if err != nil {
+		return nil, fmt.Errorf("failed to compile aks-node-controller: %s", string(log))
+	}
+	f, err := os.Open(filepath.Join("..", "aks-node-controller", binName))
+	if err != nil {
+		return nil, fmt.Errorf("failed to open compiled aks-node-controller binary: %w", err)
+	}
+	return f, nil
 }
 
 func createVMSS(ctx context.Context, s *Scenario) *armcompute.VirtualMachineScaleSet {
@@ -62,7 +66,8 @@ func createVMSS(ctx context.Context, s *Scenario) *armcompute.VirtualMachineScal
 	require.NoError(s.T, err)
 	var cse, customData string
 	if s.Runtime.AKSNodeConfig != nil {
-		binary := compileAKSNodeController(s.T)
+		binary, err := CachedCompileAKSNodeController(ctx, s.VHD.Arch)
+		require.NoError(s.T, err)
 		s.Runtime.AKSNodeConfig.AksNodeControllerUrl, err = config.Azure.UploadAndGetLink(ctx, time.Now().UTC().Format("2006-01-02-15-04-05")+"/aks-node-controller", binary)
 		require.NoError(s.T, err)
 
