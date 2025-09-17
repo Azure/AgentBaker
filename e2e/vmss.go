@@ -139,6 +139,8 @@ func extractLogsFromVM(ctx context.Context, s *Scenario) {
 			s.T.Logf("failed to extract boot diagnostics from VM: %s", err)
 		}
 	}
+	// Upload all collected logs as Azure DevOps artifacts
+	uploadAllLogsAsArtifacts(s.T)
 }
 
 func extractBootDiagnostics(ctx context.Context, s *Scenario) error {
@@ -709,4 +711,30 @@ func getVMSSNICConfig(vmss *armcompute.VirtualMachineScaleSet) (*armcompute.Virt
 		}
 	}
 	return nil, fmt.Errorf("unable to extract vmss nic info, vmss model or vmss model properties were nil/empty:\n%+v", vmss)
+}
+
+// uploadAllLogsAsArtifacts uploads all log files in the test directory as Azure DevOps artifacts
+func uploadAllLogsAsArtifacts(t *testing.T) {
+	logDir := testDir(t)
+
+	// Check if directory exists
+	if _, err := os.Stat(logDir); os.IsNotExist(err) {
+		return
+	}
+
+	// Read directory contents
+	entries, err := os.ReadDir(logDir)
+	if err != nil {
+		return
+	}
+
+	// Upload all log files as artifacts
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+
+		filePath := filepath.Join(logDir, entry.Name())
+		t.Logf("##vso[artifact.upload containerfolder=test-logs;artifactname=%s]%s", t.Name(), filePath)
+	}
 }
