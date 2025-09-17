@@ -50,7 +50,6 @@ var TranslatedKubeletConfigFlags = map[string]bool{
 	"--event-qps":                         true,
 	"--pod-max-pids":                      true,
 	"--enforce-node-allocatable":          true,
-	"--streaming-connection-idle-timeout": true,
 	"--rotate-certificates":               true,
 	"--rotate-server-certificates":        true,
 	"--read-only-port":                    true,
