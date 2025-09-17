@@ -948,7 +948,7 @@ testdomain567.com:53 {
 		Expect(err).To(BeNil())
 
 		var customDataBytes []byte
-		if config.AgentPoolProfile.IsWindows() || config.IsFlatcar() {
+		if config.AgentPoolProfile.IsWindows() || (config.IsFlatcar() && false) {
 			customDataBytes, err = base64.StdEncoding.DecodeString(nodeBootstrapping.CustomData)
 			Expect(err).To(BeNil())
 		} else {
@@ -2766,7 +2766,7 @@ func backfillCustomData(folder, customData string) {
 	if strings.Contains(folder, "AKSWindows") {
 		return
 	}
-	if strings.Contains(folder, "Flatcar") {
+	if strings.Contains(folder, "Flatcar") && false {
 		err := writeInnerCustomData(fmt.Sprintf("testdata/%s/CustomData.inner", folder), customData)
 		Expect(err).To(BeNil())
 		return
