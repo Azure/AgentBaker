@@ -147,7 +147,7 @@ func (a *App) runExternalNodeController(ctx context.Context, config *aksnodeconf
 		exitCode = cmd.ProcessState.ExitCode()
 	}
 
-	slog.Info("External node controller finished", "exitCode", exitCode, "stdout", "error", err)
+	slog.Info("External node controller finished", "exitCode", exitCode, "stdout", "error", err.Error())
 	return err
 }
 
