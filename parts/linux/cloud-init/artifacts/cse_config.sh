@@ -737,7 +737,12 @@ EOF
                     logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromPMC" "installCredentialProviderFromPMC ${KUBERNETES_VERSION}"
                 fi
             else
-                logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromPMC" "installCredentialProviderFromPMC ${KUBERNETES_VERSION}"
+                if [ "${UBUNTU_RELEASE}" = "20.04" ]; then
+                    # PMC package installation not *currently* supported for Ubuntu 20.04
+                    logs_to_events "AKS.CSE.ensureKubelet.installCredentialProvider" installCredentialProvider
+                else
+                    logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromPMC" "installCredentialProviderFromPMC ${KUBERNETES_VERSION}"
+                fi
             fi   
         fi
     fi
