@@ -393,8 +393,10 @@ if [ "$OS_TYPE" = "Windows" ]; then
 	IMPORTED_IMAGE_URL="https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net/system/$IMPORTED_IMAGE_NAME.vhd"
  	export AZCOPY_AUTO_LOGIN_TYPE="MSI" # use Managed Identity for AzCopy authentication
 	export AZCOPY_MSI_RESOURCE_STRING="${AZURE_MSI_RESOURCE_STRING}"
-	export AZCOPY_LOG_LOCATION="./azcopy-log-files/"
+	export AZCOPY_LOG_LOCATION="$(pwd)/azcopy-log-files/"
+	export AZCOPY_JOB_PLAN_LOCATION="$(pwd)/azcopy-job-plan-files/"
 	mkdir -p "${AZCOPY_LOG_LOCATION}"
+	mkdir -p "${AZCOPY_JOB_PLAN_LOCATION}"
 
 	echo "VALID IMAGE URL: ${WINDOWS_CONTAINERIMAGE_JSON_URL}"
 	if [ -n "${WINDOWS_CONTAINERIMAGE_JSON_URL}" ]; then
@@ -498,8 +500,10 @@ if [ "$OS_TYPE" = "Windows" ]; then
 
 		echo "Copy Windows base image to ${WINDOWS_IMAGE_URL}"
 		
-		export AZCOPY_LOG_LOCATION="./azcopy-log-files/"
+		export AZCOPY_LOG_LOCATION="$(pwd)/azcopy-log-files/"
+		export AZCOPY_JOB_PLAN_LOCATION="$(pwd)/azcopy-job-plan-files/"
 		mkdir -p "${AZCOPY_LOG_LOCATION}"
+		mkdir -p "${AZCOPY_JOB_PLAN_LOCATION}"
 
 		if ! azcopy copy "${WINDOWS_BASE_IMAGE_URL}" "${WINDOWS_IMAGE_URL}" ; then
 			azExitCode=$?

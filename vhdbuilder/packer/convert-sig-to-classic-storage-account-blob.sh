@@ -135,8 +135,10 @@ echo "Setting azcopy environment variables with pool identity: $AZURE_MSI_RESOUR
 export AZCOPY_AUTO_LOGIN_TYPE="MSI"
 export AZCOPY_MSI_RESOURCE_STRING="$AZURE_MSI_RESOURCE_STRING"
 export AZCOPY_CONCURRENCY_VALUE="AUTO"
-export AZCOPY_LOG_LOCATION="./azcopy-log-files/"
+export AZCOPY_LOG_LOCATION="$(pwd)/azcopy-log-files/"
+export AZCOPY_JOB_PLAN_LOCATION="$(pwd)/azcopy-job-plan-files/"
 mkdir -p "${AZCOPY_LOG_LOCATION}"
+mkdir -p "${AZCOPY_JOB_PLAN_LOCATION}"
 
 if ! azcopy copy "${sas}" "${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd" --recursive=true ; then
   azExitCode=$?

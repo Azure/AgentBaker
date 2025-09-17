@@ -675,8 +675,10 @@ cacheKubePackageFromPrivateUrl() {
 
   # use azcopy with MSI instead of curl to download packages
   getAzCopyCurrentPath
-  export AZCOPY_LOG_LOCATION="./azcopy-log-files/"
-  mkdir -p "${AZCOPY_LOG_LOCATION}"
+	export AZCOPY_LOG_LOCATION="$(pwd)/azcopy-log-files/"
+	export AZCOPY_JOB_PLAN_LOCATION="$(pwd)/azcopy-job-plan-files/"
+	mkdir -p "${AZCOPY_LOG_LOCATION}"
+	mkdir -p "${AZCOPY_JOB_PLAN_LOCATION}"
 
   ./azcopy login --login-type=MSI
 
