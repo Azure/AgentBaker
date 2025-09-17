@@ -147,7 +147,7 @@ func (a *App) runExternalNodeController(ctx context.Context, config *aksnodeconf
 		exitCode = cmd.ProcessState.ExitCode()
 	}
 
-	slog.Info("External node controller finished", "exitCode", exitCode, "stdout", "error", err.Error())
+	slog.Info("External node controller finished", "exitCode", exitCode, "error", err.Error())
 	return err
 }
 
@@ -155,13 +155,15 @@ func (a *App) runExternalNodeController(ctx context.Context, config *aksnodeconf
 // This prevents the external controller from also trying to download and run an external controller, which would cause an infinite loop.
 // It operates on a raw map[string]interface{} to avoid data loss that can occur when unmarshalling and marshalling a struct.
 func (a *App) deleteAksNodeControllerUrlFromConfig(configPath string) error {
+	var err error
 	inputJSON, err := os.ReadFile(configPath)
 	if err != nil {
 		return fmt.Errorf("failed to read config file %s: %w", configPath, err)
 	}
 
 	var rawConfig map[string]interface{}
-	if err := json.Unmarshal(inputJSON, &rawConfig); err != nil {
+	err = json.Unmarshal(inputJSON, &rawConfig)
+	if err != nil {
 		return fmt.Errorf("failed to unmarshal config into a map: %w", err)
 	}
 
@@ -174,7 +176,9 @@ func (a *App) deleteAksNodeControllerUrlFromConfig(configPath string) error {
 		return fmt.Errorf("failed to marshal modified config: %w", err)
 	}
 
-	if err := os.WriteFile(configPath, modifiedJSON, 0644); err != nil {
+	// nolint:gosec // we want the file to be readable by other processes
+	err = os.WriteFile(configPath, modifiedJSON, 0644)
+	if err != nil {
 		return fmt.Errorf("failed to write modified config: %w", err)
 	}
 
