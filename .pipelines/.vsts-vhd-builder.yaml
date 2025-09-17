@@ -49,6 +49,27 @@ variables:
 stages:
   - stage: build
     jobs:
+    - job: build2004fipsgen2containerd
+      timeoutInMinutes: 180
+      steps:
+        - bash: |
+            echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
+            echo '##vso[task.setvariable variable=OS_VERSION]20.04'
+            echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
+            echo '##vso[task.setvariable variable=IMG_OFFER]0001-com-ubuntu-server-focal'
+            echo '##vso[task.setvariable variable=IMG_SKU]20_04-lts-gen2'
+            echo '##vso[task.setvariable variable=IMG_VERSION]latest'
+            echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
+            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
+            echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
+            echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
+            echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
+            echo '##vso[task.setvariable variable=ENABLE_FIPS]True'
+            echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
+          displayName: Setup Build Variables
+        - template: ./templates/.builder-release-template.yaml
+          parameters:
+            artifactName: 2004-fips-gen2-containerd
     - job: build2404gen2containerd
       timeoutInMinutes: 180
       steps:
