@@ -75,6 +75,10 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 				cloudInitData["initAKSCustomCloud"] = getBase64EncodedGzippedCustomScript(initAKSCustomCloudOperationRequestsScript, config)
 			}
 		}
+	} else {
+		if config.AgentPoolProfile.IsFlatcar() {
+			cloudInitData["initAKSCustomCloud"] = getBase64EncodedGzippedCustomScriptFromStr("")
+		}
 	}
 
 	if !cs.Properties.IsVHDDistroForAllNodes() {
