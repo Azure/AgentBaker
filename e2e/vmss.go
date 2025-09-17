@@ -12,6 +12,7 @@ import (
 	"io"
 	"math/big"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -32,13 +33,39 @@ const (
 	loadBalancerBackendAddressPoolIDTemplate = "/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/loadBalancers/kubernetes/backendAddressPools/aksOutboundBackendPool"
 )
 
+func compileAKSNodeController(t *testing.T) *os.File {
+	t.Logf("Compiling aks-node-controller...")
+	goBin, err := exec.LookPath("go")
+	require.NoError(t, err, "failed to find go binary in PATH")
+	goVersionCmd := exec.Command(goBin, "version")
+	goVersionOut, err := goVersionCmd.CombinedOutput()
+	require.NoError(t, err, "failed to get go version")
+	t.Logf("Using go binary: %s, version: %s", goBin, strings.TrimSpace(string(goVersionOut)))
+	cmd := exec.Command(goBin, "build", "-o", "aks-node-controller", "-v")
+	cmd.Dir = filepath.Join("..", "aks-node-controller")
+	cmd.Env = append(os.Environ(),
+		"CGO_ENABLED=0",
+		"GOOS=linux",
+		"GOARCH=amd64",
+	)
+	log, err := cmd.CombinedOutput()
+	require.NoError(t, err, string(log))
+	f, err := os.Open(filepath.Join("..", "aks-node-controller", "aks-node-controller"))
+	require.NoError(t, err)
+	return f
+}
+
 func createVMSS(ctx context.Context, s *Scenario) *armcompute.VirtualMachineScaleSet {
 	cluster := s.Runtime.Cluster
 	var nodeBootstrapping *datamodel.NodeBootstrapping
 	ab, err := agent.NewAgentBaker()
 	require.NoError(s.T, err)
 	var cse, customData string
-	if s.AKSNodeConfigMutator != nil {
+	if s.Runtime.AKSNodeConfig != nil {
+		binary := compileAKSNodeController(s.T)
+		s.Runtime.AKSNodeConfig.AksNodeControllerUrl, err = config.Azure.UploadAndGetLink(ctx, time.Now().UTC().Format("2006-01-02-15-04-05")+"/aks-node-controller", binary)
+		require.NoError(s.T, err)
+
 		s.T.Logf("creating VMSS %q with AKSNodeConfigMutator in resource group %s", s.Runtime.VMSSName, *cluster.Model.Properties.NodeResourceGroup)
 		cse = nodeconfigutils.CSE
 		customData, err = nodeconfigutils.CustomData(s.Runtime.AKSNodeConfig)

@@ -12,7 +12,9 @@ import (
 	"os/exec"
 	"path/filepath"
 
+	"github.com/Azure/agentbaker/aks-node-controller/helpers"
 	"github.com/Azure/agentbaker/aks-node-controller/parser"
+	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Azure/agentbaker/aks-node-controller/pkg/nodeconfigutils"
 	"github.com/fsnotify/fsnotify"
 )
@@ -104,19 +106,61 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) error {
 		slog.Error("v0 version is deprecated, please use v1 instead")
 	}
 
+	// Check if AksNodeControllerUrl is specified
+	if config.AksNodeControllerUrl != "" {
+		return a.runExternalNodeController(ctx, config, flags.ProvisionConfig)
+	}
+
+	// Use built-in CSE logic
+	return a.runBuiltinCSE(ctx, config)
+}
+
+// runExternalNodeController downloads and executes the external node controller binary.
+func (a *App) runExternalNodeController(ctx context.Context, config *aksnodeconfigv1.Configuration, configPath string) error {
+	slog.Info("Using external node controller", "url", config.AksNodeControllerUrl)
+
+	// Define the download path
+	binaryPath := "/tmp/aks-node-controller-external"
+
+	// Download the binary
+	if err := helpers.DownloadBinary(config.AksNodeControllerUrl, binaryPath); err != nil {
+		return fmt.Errorf("failed to download external node controller: %w", err)
+	}
+
+	// Execute the external binary with the same arguments
+	cmd := exec.CommandContext(ctx, binaryPath, "provision", "--provision-config", configPath)
+
+	var stdoutBuf, stderrBuf bytes.Buffer
+	cmd.Stdout = io.MultiWriter(os.Stdout, &stdoutBuf)
+	cmd.Stderr = io.MultiWriter(os.Stderr, &stderrBuf)
+
+	err := a.cmdRunner(cmd)
+	exitCode := -1
+	if cmd.ProcessState != nil {
+		exitCode = cmd.ProcessState.ExitCode()
+	}
+
+	slog.Info("External node controller finished", "exitCode", exitCode, "stdout", stdoutBuf.String(), "stderr", stderrBuf.String(), "error", err)
+	return err
+}
+
+// runBuiltinCSE runs the built-in CSE logic.
+func (a *App) runBuiltinCSE(ctx context.Context, config *aksnodeconfigv1.Configuration) error {
 	cmd, err := parser.BuildCSECmd(ctx, config)
 	if err != nil {
 		return fmt.Errorf("build CSE command: %w", err)
 	}
+
 	var stdoutBuf, stderrBuf bytes.Buffer
 	cmd.Stdout = io.MultiWriter(os.Stdout, &stdoutBuf)
 	cmd.Stderr = io.MultiWriter(os.Stderr, &stderrBuf)
+
 	err = a.cmdRunner(cmd)
 	exitCode := -1
 	if cmd.ProcessState != nil {
 		exitCode = cmd.ProcessState.ExitCode()
 	}
-	// Is it ok to log a single line? Is it too much?
+
 	slog.Info("CSE finished", "exitCode", exitCode, "stdout", stdoutBuf.String(), "stderr", stderrBuf.String(), "error", err)
 	return err
 }

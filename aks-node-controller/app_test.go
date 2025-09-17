@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -227,4 +229,47 @@ func TestApp_ProvisionWait(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestApp_ProvisionWithExternalController(t *testing.T) {
+	// Create a mock HTTP server to serve the binary
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/octet-stream")
+		// Return a shell script that creates a marker file when executed
+		script := `#!/bin/bash
+echo "External controller executed with args: $@" > /tmp/external-controller-test-marker
+exit 0`
+		_, _ = w.Write([]byte(script))
+	}))
+	defer server.Close()
+
+	// Create a test config file with AksNodeControllerUrl set
+	tempDir, err := os.MkdirTemp("", "external-controller-test")
+	assert.NoError(t, err)
+	defer os.RemoveAll(tempDir)
+
+	configFile := filepath.Join(tempDir, "config.json")
+	configContent := `{
+		"version": "v1",
+		"aks_node_controller_url": "` + server.URL + `"
+	}`
+
+	err = os.WriteFile(configFile, []byte(configContent), 0644)
+	assert.NoError(t, err)
+
+	app := &App{cmdRunner: cmdRunner} // Use real command runner
+
+	// Execute provision
+	err = app.Provision(context.Background(), ProvisionFlags{ProvisionConfig: configFile})
+	assert.NoError(t, err)
+
+	// Verify the external script was actually executed by checking the marker file
+	markerFile := "/tmp/external-controller-test-marker"
+	defer os.Remove(markerFile) // Clean up
+
+	content, err := os.ReadFile(markerFile)
+	assert.NoError(t, err)
+	assert.Contains(t, string(content), "External controller executed with args:")
+	assert.Contains(t, string(content), "provision")
+	assert.Contains(t, string(content), "--provision-config")
 }
