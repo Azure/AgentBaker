@@ -122,7 +122,7 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) error {
 func (a *App) runExternalNodeController(ctx context.Context, config *aksnodeconfigv1.Configuration, configPath string) error {
 	slog.Info("Using external node controller", "url", config.AksNodeControllerUrl)
 
-	if err := a.prepareConfigForExternalController(config.AksNodeControllerUrl, configPath); err != nil {
+	if err := a.deleteAksNodeControllerUrlFromConfig(configPath); err != nil {
 		return fmt.Errorf("failed to prepare config for external controller: %w", err)
 	}
 
@@ -151,10 +151,10 @@ func (a *App) runExternalNodeController(ctx context.Context, config *aksnodeconf
 	return err
 }
 
-// prepareConfigForExternalController modifies the configuration file on disk to remove the AksNodeControllerUrl.
+// deleteAksNodeControllerUrlFromConfig modifies the configuration file on disk to remove the AksNodeControllerUrl.
 // This prevents the external controller from also trying to download and run an external controller, which would cause an infinite loop.
 // It operates on a raw map[string]interface{} to avoid data loss that can occur when unmarshalling and marshalling a struct.
-func (a *App) prepareConfigForExternalController(url, configPath string) error {
+func (a *App) deleteAksNodeControllerUrlFromConfig(configPath string) error {
 	inputJSON, err := os.ReadFile(configPath)
 	if err != nil {
 		return fmt.Errorf("failed to read config file %s: %w", configPath, err)
@@ -167,7 +167,7 @@ func (a *App) prepareConfigForExternalController(url, configPath string) error {
 
 	// The external controller should not try to download another controller.
 	// We remove the URL from the config to prevent an infinite loop.
-	delete(rawConfig, "aksNodeControllerUrl")
+	delete(rawConfig, "aks_node_controller_url")
 
 	modifiedJSON, err := json.Marshal(rawConfig)
 	if err != nil {
