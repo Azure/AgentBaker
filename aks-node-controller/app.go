@@ -23,6 +23,7 @@ import (
 type App struct {
 	// cmdRunner is a function that runs the given command.
 	// the goal of this field is to make it easier to test the app by mocking the command runner.
+	// under normal operation, it just calls cmd.Run()
 	cmdRunner func(cmd *exec.Cmd) error
 }
 
@@ -147,7 +148,7 @@ func (a *App) runExternalNodeController(ctx context.Context, config *aksnodeconf
 		exitCode = cmd.ProcessState.ExitCode()
 	}
 
-	slog.Info("External node controller finished", "exitCode", exitCode, "error", err.Error())
+	slog.Info("External node controller finished", "exitCode", exitCode, "error", fmt.Sprintf("%v", err))
 	return err
 }
 
