@@ -67,7 +67,6 @@ var baseKubeletConfig = &aksnodeconfigv1.KubeletConfig{
 		ClusterDns: []string{
 			"10.0.0.10",
 		},
-		StreamingConnectionIdleTimeout: "4h",
 		NodeStatusUpdateFrequency:      "10s",
 		ImageGcHighThresholdPercent:    to.Ptr(int32(85)),
 		ImageGcLowThresholdPercent:     to.Ptr(int32(80)),
@@ -688,7 +687,6 @@ func baseTemplateLinux(t *testing.T, location string, k8sVersion string, arch st
 			"--read-only-port":                    "0",
 			"--resolv-conf":                       "/run/systemd/resolve/resolv.conf",
 			"--rotate-certificates":               "false",
-			"--streaming-connection-idle-timeout": "4h",
 			"--tls-cert-file":                     "/etc/kubernetes/certs/kubeletserver.crt",
 			"--tls-cipher-suites":                 "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256",
 			"--tls-private-key-file":              "/etc/kubernetes/certs/kubeletserver.key",

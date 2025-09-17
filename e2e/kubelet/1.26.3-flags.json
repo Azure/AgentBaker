@@ -136,7 +136,6 @@
   "--storage-driver-secure": "false",
   "--storage-driver-table": "stats",
   "--storage-driver-user": "root",
-  "--streaming-connection-idle-timeout": "4h0m0s",
   "--sync-frequency": "1m0s",
   "--system-cgroups": "",
   "--system-reserved": "",

@@ -1268,7 +1268,6 @@ testdomain567.com:53 {
 					"--event-qps":                         "0",
 					"--pod-max-pids":                      "-1",
 					"--enforce-node-allocatable":          "pods",
-					"--streaming-connection-idle-timeout": "4h0m0s",
 					"--rotate-certificates":               "true",
 					"--read-only-port":                    "10255",
 					"--protect-kernel-defaults":           "true",
@@ -1315,7 +1314,6 @@ testdomain567.com:53 {
 					"--event-qps":                         "0",
 					"--pod-max-pids":                      "-1",
 					"--enforce-node-allocatable":          "pods",
-					"--streaming-connection-idle-timeout": "4h0m0s",
 					"--rotate-certificates":               "true",
 					"--read-only-port":                    "10255",
 					"--protect-kernel-defaults":           "true",
@@ -2478,7 +2476,6 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 			"--read-only-port":                    "0",
 			"--resolv-conf":                       `""`,
 			"--rotate-certificates":               "false",
-			"--streaming-connection-idle-timeout": "4h",
 			"--system-reserved":                   "memory=2Gi",
 			"--tls-cipher-suites":                 "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256", //nolint:lll
 		}
