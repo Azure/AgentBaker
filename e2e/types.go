@@ -134,8 +134,6 @@ type ScenarioRuntime struct {
 	Cluster       *Cluster
 	VMSSName      string
 	KubeNodeName  string
-	SSHKeyPublic  []byte
-	SSHKeyPrivate []byte
 	VMPrivateIP   string
 }
 

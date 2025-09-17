@@ -551,7 +551,7 @@ func deleteVMSS(ctx context.Context, s *Scenario) {
 	defer cancel()
 	if config.Config.KeepVMSS {
 		s.T.Logf("vmss %q will be retained for debugging purposes, please make sure to manually delete it later", s.Runtime.VMSSName)
-		if err := writeToFile(s.T, "sshkey", string(s.Runtime.SSHKeyPrivate)); err != nil {
+		if err := writeToFile(s.T, "sshkey", string(SSHKeyPrivate)); err != nil {
 			s.T.Logf("failed to write retained vmss %s private ssh key to disk: %s", s.Runtime.VMSSName, err)
 		}
 		return
@@ -628,6 +628,14 @@ func getVMPrivateIPAddress(ctx context.Context, s *Scenario) (string, error) {
 	}
 
 	return *ipConfig.Properties.PrivateIPAddress, nil
+}
+
+func mustGetNewRSAKeyPair() ([]byte, []byte) {
+	private, public, err := getNewRSAKeyPair()
+	if err != nil {
+		panic(fmt.Sprintf("failed to generate RSA key pair: %v", err))
+	}
+	return private, public
 }
 
 // Returns a newly generated RSA public/private key pair with the private key in PEM format.
@@ -716,7 +724,7 @@ func getBaseVMSSModel(s *Scenario, customData, cseCmd, location string) armcompu
 						SSH: &armcompute.SSHConfiguration{
 							PublicKeys: []*armcompute.SSHPublicKey{
 								{
-									KeyData: to.Ptr(string(s.Runtime.SSHKeyPublic)),
+									KeyData: to.Ptr(string(SSHKeyPublic)),
 									Path:    to.Ptr("/home/azureuser/.ssh/authorized_keys"),
 								},
 							},

@@ -27,8 +27,9 @@ import (
 )
 
 var (
-	logf = toolkit.Logf
-	log  = toolkit.Log
+	logf                        = toolkit.Logf
+	log                         = toolkit.Log
+	SSHKeyPrivate, SSHKeyPublic = mustGetNewRSAKeyPair()
 )
 
 // it's important to share context between tests to allow graceful shutdown
@@ -242,8 +243,7 @@ func prepareAKSNode(ctx context.Context, s *Scenario) {
 		s.Runtime.AKSNodeConfig = nodeconfig
 	}
 	var err error
-	s.Runtime.SSHKeyPrivate, s.Runtime.SSHKeyPublic, err = getNewRSAKeyPair()
-	publicKeyData := datamodel.PublicKey{KeyData: string(s.Runtime.SSHKeyPublic)}
+	publicKeyData := datamodel.PublicKey{KeyData: string(SSHKeyPublic)}
 
 	// check it all.
 	if s.Runtime.NBC != nil && s.Runtime.NBC.ContainerService != nil && s.Runtime.NBC.ContainerService.Properties != nil && s.Runtime.NBC.ContainerService.Properties.LinuxProfile != nil {
