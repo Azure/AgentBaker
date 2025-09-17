@@ -55,7 +55,6 @@ var expectedKubeletConfigFlags = "--address=0.0.0.0" +
 	" --resolv-conf=/etc/resolv.conf" +
 	" --rotate-certificates=true" +
 	" --rotate-server-certificates=true" +
-	" --streaming-connection-idle-timeout=4h0m0s" +
 	" --system-reserved=cpu=2,memory=1Gi" +
 	" --tls-cert-file=/etc/kubernetes/certs/kubeletserver.crt" +
 	" --tls-cipher-suites=TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256," +
@@ -99,7 +98,6 @@ var expectedKubeletJSON = `{
     "clusterDNS": [
         "10.0.0.10"
     ],
-    "streamingConnectionIdleTimeout": "4h0m0s",
     "nodeStatusUpdateFrequency": "10s",
     "imageGCHighThresholdPercent": 90,
     "imageGCLowThresholdPercent": 70,
@@ -1307,7 +1305,6 @@ func Test_getKubeletConfigFileContent(t *testing.T) {
 						ClusterDns: []string{
 							"10.0.0.10",
 						},
-						StreamingConnectionIdleTimeout: "4h0m0s",
 						NodeStatusUpdateFrequency:      "10s",
 						ImageGcHighThresholdPercent:    to.Ptr(int32(90)),
 						ImageGcLowThresholdPercent:     to.Ptr(int32(70)),
@@ -1405,7 +1402,6 @@ func Test_getKubeletFlags(t *testing.T) {
 						"--event-qps":                         "0",
 						"--pod-max-pids":                      "-1",
 						"--enforce-node-allocatable":          "pods",
-						"--streaming-connection-idle-timeout": "4h0m0s",
 						"--rotate-certificates":               "true",
 						"--rotate-server-certificates":        "true",
 						"--read-only-port":                    "10255",
