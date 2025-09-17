@@ -258,7 +258,7 @@ func prepareAKSNode(ctx context.Context, s *Scenario) {
 	require.NoError(s.T, err)
 
 	start := time.Now() // Record the start time
-	createVMSS(ctx, s)
+	ConfigureAndCreateVMSS(ctx, s)
 
 	err = getCustomScriptExtensionStatus(ctx, s)
 	require.NoError(s.T, err)

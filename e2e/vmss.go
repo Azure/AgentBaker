@@ -74,16 +74,31 @@ func compileAKSNodeController(ctx context.Context, arch string) (*os.File, error
 	return f, nil
 }
 
-func createVMSS(ctx context.Context, s *Scenario) *armcompute.VirtualMachineScaleSet {
+func ConfigureAndCreateVMSS(ctx context.Context, s *Scenario) *armcompute.VirtualMachineScaleSet {
+	model := createVMMSModel(ctx, s)
+
+	vmss, err := CreateVMSSWithRetry(ctx, s, model)
+	s.T.Cleanup(func() {
+		cleanupVMSS(ctx, s)
+	})
+	skipTestIfSKUNotAvailableErr(s.T, err)
+	// fail test, but continue to extract debug information
+	require.NoError(s.T, err, "create vmss %q, check %s for vm logs", s.Runtime.VMSSName, testDir(s.T))
+
+	return vmss
+}
+
+func createVMMSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachineScaleSet {
 	cluster := s.Runtime.Cluster
 	var nodeBootstrapping *datamodel.NodeBootstrapping
 	ab, err := agent.NewAgentBaker()
 	require.NoError(s.T, err)
 	var cse, customData string
 	if s.Runtime.AKSNodeConfig != nil {
-		s.Runtime.AKSNodeConfig.AksNodeControllerUrl, err = CachedCompileAndUploadAKSNodeController(ctx, s.VHD.Arch)
-		require.NoError(s.T, err)
-
+		if !config.Config.DisableScriptLessCompilation {
+			s.Runtime.AKSNodeConfig.AksNodeControllerUrl, err = CachedCompileAndUploadAKSNodeController(ctx, s.VHD.Arch)
+			require.NoError(s.T, err)
+		}
 		s.T.Logf("creating VMSS %q with AKSNodeConfigMutator in resource group %s", s.Runtime.VMSSName, *cluster.Model.Properties.NodeResourceGroup)
 		cse = nodeconfigutils.CSE
 		customData, err = nodeconfigutils.CustomData(s.Runtime.AKSNodeConfig)
@@ -138,16 +153,7 @@ func createVMSS(ctx context.Context, s *Scenario) *armcompute.VirtualMachineScal
 	}
 
 	s.PrepareVMSSModel(ctx, s.T, &model)
-
-	vmss, err := CreateVMSSWithRetry(ctx, s, model)
-	s.T.Cleanup(func() {
-		cleanupVMSS(ctx, s)
-	})
-	skipTestIfSKUNotAvailableErr(s.T, err)
-	// fail test, but continue to extract debug information
-	require.NoError(s.T, err, "create vmss %q, check %s for vm logs", s.Runtime.VMSSName, testDir(s.T))
-
-	return vmss
+	return model
 }
 
 func CreateVMSSWithRetry(ctx context.Context, s *Scenario, parameters armcompute.VirtualMachineScaleSet) (*armcompute.VirtualMachineScaleSet, error) {
@@ -164,7 +170,7 @@ func CreateVMSSWithRetry(ctx context.Context, s *Scenario, parameters armcompute
 
 	for {
 		attempt++
-		vmss, err := createVMSS2(ctx, s, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, parameters)
+		vmss, err := CreateVMSS(ctx, s, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, parameters)
 		if err == nil {
 			logf(ctx, "created VMSS %s in resource group %s", s.Runtime.VMSSName, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup)
 			return vmss, nil
@@ -189,7 +195,7 @@ func CreateVMSSWithRetry(ctx context.Context, s *Scenario, parameters armcompute
 
 }
 
-func createVMSS2(ctx context.Context, s *Scenario, resourceGroupName string, vmssName string, parameters armcompute.VirtualMachineScaleSet) (*armcompute.VirtualMachineScaleSet, error) {
+func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string, vmssName string, parameters armcompute.VirtualMachineScaleSet) (*armcompute.VirtualMachineScaleSet, error) {
 	operation, err := config.Azure.VMSS.BeginCreateOrUpdate(
 		ctx,
 		resourceGroupName,
@@ -200,7 +206,8 @@ func createVMSS2(ctx context.Context, s *Scenario, resourceGroupName string, vms
 	if err != nil {
 		return nil, err
 	}
-	s.Runtime.VMPrivateIP, err = getVMPrivateIPAddress(ctx, s)
+	// We want to generate SSH instructions as soon as possible, so we can debug CSE issues
+	s.Runtime.VMPrivateIP, err = waitForVMPrivateIP(ctx, s)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get VM private IP address: %w", err)
 	}
@@ -214,6 +221,29 @@ func createVMSS2(ctx context.Context, s *Scenario, resourceGroupName string, vms
 		return nil, err
 	}
 	return &vmssResp.VirtualMachineScaleSet, nil
+}
+
+// waitForVMPrivateIP polls until a private IP is available or the timeout elapses.
+func waitForVMPrivateIP(ctx context.Context, s *Scenario) (string, error) {
+	ctxTimeout, cancel := context.WithTimeout(ctx, time.Minute)
+	defer cancel()
+
+	ticker := time.NewTicker(config.Config.DefaultPollInterval)
+	defer ticker.Stop()
+
+	var lastErr error
+	for {
+		ip, err := getVMPrivateIPAddress(ctxTimeout, s)
+		if err == nil && ip != "" {
+			return ip, nil
+		}
+		lastErr = err
+		select {
+		case <-ctxTimeout.Done():
+			return "", fmt.Errorf("timeout waiting for private IP: %w", lastErr)
+		case <-ticker.C:
+		}
+	}
 }
 
 func skipTestIfSKUNotAvailableErr(t *testing.T, err error) {

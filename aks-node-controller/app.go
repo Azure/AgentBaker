@@ -177,7 +177,7 @@ func (a *App) deleteAksNodeControllerUrlFromConfig(configPath string) error {
 		return fmt.Errorf("failed to marshal modified config: %w", err)
 	}
 
-	// nolint:gosec // we want the file to be readable by other processes
+	//nolint:gosec // we want the file to be readable by other processes
 	err = os.WriteFile(configPath, modifiedJSON, 0644)
 	if err != nil {
 		return fmt.Errorf("failed to write modified config: %w", err)
