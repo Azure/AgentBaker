@@ -123,7 +123,7 @@ func (a *App) runExternalNodeController(ctx context.Context, config *aksnodeconf
 	binaryPath := "/tmp/aks-node-controller-external"
 
 	// Download the binary
-	if err := helpers.DownloadBinary(config.AksNodeControllerUrl, binaryPath); err != nil {
+	if err := helpers.DownloadBinary(ctx, config.AksNodeControllerUrl, binaryPath); err != nil {
 		return fmt.Errorf("failed to download external node controller: %w", err)
 	}
 
