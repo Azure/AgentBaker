@@ -209,6 +209,34 @@ function addFailLockDir() {
     fi
 }
 
+configureGrub() {
+    if ! grep -q apparmor /etc/default/grub.d/99-aks-cis.cfg; then
+        # shellcheck disable=SC2016
+        echo 'GRUB_CMDLINE_LINUX="$GRUB_CMDLINE_LINUX apparmor=1 security=apparmor"' >>/etc/default/grub.d/99-aks-cis.cfg
+    fi
+    cat <<"EOF" >/etc/grub.d/09_unrestricted
+#!/bin/sh
+exec tail -n +3 $0
+# This file provides an easy way to add custom menu entries.  Simply type the
+# menu entries you want to add after this comment.  Be careful not to change
+# the 'exec tail' line above.
+
+menuentry_id_option="--unrestricted $menuentry_id_option"
+EOF
+    chmod +x /etc/grub.d/09_unrestricted
+    if ! grep -q superusers /etc/grub.d/40_custom; then
+        set +x
+        password=$(openssl rand -hex 64)
+        hash=$(echo -e "${password}\n${password}" | grub-mkpasswd-pbkdf2 | tail -n1 | sed -e 's/.*grub.pbkdf2/grub.pbkdf2/')
+        set -x
+        cat <<EOF >>/etc/grub.d/40_custom
+set superusers="root"
+password_pbkdf2 root ${hash}
+EOF
+    fi
+    update-grub2 || exit 1
+}
+
 applyCIS() {
     setPWExpiration
     assignRootPW
@@ -221,6 +249,7 @@ applyCIS() {
         echo "Further functions only work for Ubuntu"
         return
     fi
+    configureGrub
 }
 
 applyCIS
