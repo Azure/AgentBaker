@@ -256,6 +256,18 @@ prepareTmp() {
     fi
 }
 
+configureSsh() {
+    mkdir -p /etc/ssh/sshd_config.d
+    cat <<EOF >/etc/ssh/sshd_config.d/99-aks-cis.conf
+ClientAliveInterval 120
+ClientAliveCountMax 3
+EOF
+    chmod 0600 -R /etc/ssh/sshd_config.d/
+    chmod 0755    /etc/ssh/sshd_config.d
+    chmod 0600    /etc/ssh/sshd_config
+    systemctl restart ssh
+}
+
 applyCIS() {
     setPWExpiration
     assignRootPW
@@ -270,6 +282,7 @@ applyCIS() {
     fi
     configureGrub
     prepareTmp
+    configureSsh
 }
 
 applyCIS
