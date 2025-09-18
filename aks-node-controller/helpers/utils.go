@@ -16,16 +16,10 @@ limitations under the License.
 package helpers
 
 import (
-	"context"
 	"fmt"
-	"io"
-	"net/http"
-	"os"
-	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
-	"time"
 
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Azure/agentbaker/pkg/agent"
@@ -289,49 +283,4 @@ func addFeatureGateString(featureGates string, key string, value bool) string {
 func strToBool(str string) bool {
 	b, _ := strconv.ParseBool(str)
 	return b
-}
-
-// DownloadBinary downloads a binary from the specified URL to a local file path.
-func DownloadBinary(ctx context.Context, url, targetPath string) error {
-	// Create the directory if it doesn't exist
-	dir := filepath.Dir(targetPath)
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return fmt.Errorf("failed to create directory %s: %w", dir, err)
-	}
-
-	// Create HTTP client with timeout
-	client := &http.Client{
-		Timeout: 30 * time.Second,
-	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	if err != nil {
-		return fmt.Errorf("failed to create request for %s: %w", url, err)
-	}
-	// Download the binary
-	resp, err := client.Do(req)
-	if err != nil {
-		return fmt.Errorf("failed to download from %s: %w", url, err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("failed to download binary: HTTP %d", resp.StatusCode)
-	}
-
-	// Create the target file
-	file, err := os.Create(targetPath)
-	if err != nil {
-		return fmt.Errorf("failed to create file %s: %w", targetPath, err)
-	}
-	defer file.Close()
-
-	// Copy the content and make executable
-	_, err = io.Copy(file, resp.Body)
-	if err != nil {
-		return fmt.Errorf("failed to write binary to %s: %w", targetPath, err)
-	}
-
-	// Make the binary executable
-	return os.Chmod(targetPath, 0755)
 }

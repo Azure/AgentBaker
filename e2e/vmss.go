@@ -5,6 +5,7 @@ import (
 	crand "crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
 	"errors"
@@ -18,6 +19,7 @@ import (
 	"testing"
 	"time"
 
+	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Azure/agentbaker/aks-node-controller/pkg/nodeconfigutils"
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/pkg/agent"
@@ -88,6 +90,33 @@ func ConfigureAndCreateVMSS(ctx context.Context, s *Scenario) *armcompute.Virtua
 	return vmss
 }
 
+// CustomDataWithHack is similar to nodeconfigutils.CustomData, but it uses a hack to run new aks-node-controller binary
+// Original aks-node-controller isn't run because it fails systemd check validating aks-node-controller-config.json exists
+// check aks-node-controller.service for details
+// a new binary is downloaded from the given URL and run with provision command
+func CustomDataWithHack(cfg *aksnodeconfigv1.Configuration, binaryURL string) (string, error) {
+	cloudConfigTemplate := `#cloud-config
+write_files:
+- path: /opt/azure/containers/aks-node-controller-config-hack.json
+  permissions: "0755"
+  owner: root
+  content: !!binary |
+   %s
+runcmd:
+ - mkdir -p /opt/azure/bin
+ - curl -fSL "%s" -o /opt/azure/bin/aks-node-controller-hack
+ - chmod +x /opt/azure/bin/aks-node-controller-hack
+ - /opt/azure/bin/aks-node-controller-hack provision --provision-config=/opt/azure/containers/aks-node-controller-config-hack.json &
+`
+	aksNodeConfigJSON, err := nodeconfigutils.MarshalConfigurationV1(cfg)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal nbc, error: %w", err)
+	}
+	encodedAksNodeConfigJSON := base64.StdEncoding.EncodeToString(aksNodeConfigJSON)
+	customDataYAML := fmt.Sprintf(cloudConfigTemplate, encodedAksNodeConfigJSON, binaryURL)
+	return base64.StdEncoding.EncodeToString([]byte(customDataYAML)), nil
+}
+
 func createVMMSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachineScaleSet {
 	cluster := s.Runtime.Cluster
 	var nodeBootstrapping *datamodel.NodeBootstrapping
@@ -95,14 +124,21 @@ func createVMMSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachine
 	require.NoError(s.T, err)
 	var cse, customData string
 	if s.Runtime.AKSNodeConfig != nil {
-		if !config.Config.DisableScriptLessCompilation {
-			s.Runtime.AKSNodeConfig.AksNodeControllerUrl, err = CachedCompileAndUploadAKSNodeController(ctx, s.VHD.Arch)
-			require.NoError(s.T, err)
-		}
-		s.T.Logf("creating VMSS %q with AKSNodeConfigMutator in resource group %s", s.Runtime.VMSSName, *cluster.Model.Properties.NodeResourceGroup)
 		cse = nodeconfigutils.CSE
-		customData, err = nodeconfigutils.CustomData(s.Runtime.AKSNodeConfig)
-		require.NoError(s.T, err)
+		customData = func() string {
+			if config.Config.DisableScriptLessCompilation {
+				data, err := nodeconfigutils.CustomData(s.Runtime.AKSNodeConfig)
+				require.NoError(s.T, err, "failed to generate custom data from AKSNodeConfig")
+				return data
+			}
+			binaryURL, err := CachedCompileAndUploadAKSNodeController(ctx, s.VHD.Arch)
+			require.NoError(s.T, err, "failed to compile and upload aks-node-controller binary")
+			data, err := CustomDataWithHack(s.Runtime.AKSNodeConfig, binaryURL)
+			require.NoError(s.T, err, "failed to generate custom data from AKSNodeConfig with hack")
+			return data
+		}()
+		s.T.Logf("creating VMSS %q with AKSNodeConfigMutator in resource group %s", s.Runtime.VMSSName, *cluster.Model.Properties.NodeResourceGroup)
+
 	} else {
 		s.T.Logf("creating VMSS %q with BootstrapConfigMutator/NBC in resource group %s", s.Runtime.VMSSName, *cluster.Model.Properties.NodeResourceGroup)
 		nodeBootstrapping, err = ab.GetNodeBootstrapping(ctx, s.Runtime.NBC)

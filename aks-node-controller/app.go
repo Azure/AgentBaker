@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -13,9 +12,7 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	"github.com/Azure/agentbaker/aks-node-controller/helpers"
 	"github.com/Azure/agentbaker/aks-node-controller/parser"
-	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Azure/agentbaker/aks-node-controller/pkg/nodeconfigutils"
 	"github.com/fsnotify/fsnotify"
 )
@@ -23,7 +20,6 @@ import (
 type App struct {
 	// cmdRunner is a function that runs the given command.
 	// the goal of this field is to make it easier to test the app by mocking the command runner.
-	// under normal operation, it just calls cmd.Run()
 	cmdRunner func(cmd *exec.Cmd) error
 }
 
@@ -98,111 +94,29 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) error {
 	if err != nil {
 		return fmt.Errorf("unmarshal provision config: %w", err)
 	}
+	// TODO: "v0" were a mistake. We are not going to have different logic maintaining both v0 and v1
+	// Disallow "v0" after some time (allow some time to update consumers)
+	if config.Version != "v0" && config.Version != "v1" {
+		return fmt.Errorf("unsupported version: %s", config.Version)
+	}
 
-	switch config.Version {
-	case "v0":
+	if config.Version == "v0" {
 		slog.Error("v0 version is deprecated, please use v1 instead")
-		fallthrough
-	case "v1":
-		// valid version
-		break
-	default:
-		return fmt.Errorf("unknown version: %s", config.Version)
 	}
 
-	// Check if AksNodeControllerUrl is specified
-	if config.AksNodeControllerUrl != "" {
-		return a.runExternalNodeController(ctx, config, flags.ProvisionConfig)
-	}
-
-	// Use built-in CSE logic
-	return a.runBuiltinCSE(ctx, config)
-}
-
-// runExternalNodeController downloads and executes the external node controller binary.
-func (a *App) runExternalNodeController(ctx context.Context, config *aksnodeconfigv1.Configuration, configPath string) error {
-	slog.Info("Using external node controller", "url", config.AksNodeControllerUrl)
-
-	if err := a.deleteAksNodeControllerUrlFromConfig(configPath); err != nil {
-		return fmt.Errorf("failed to prepare config for external controller: %w", err)
-	}
-
-	// Define the download path
-	binaryPath := "/tmp/aks-node-controller-external"
-
-	// Download the binary
-	if err := helpers.DownloadBinary(ctx, config.AksNodeControllerUrl, binaryPath); err != nil {
-		return fmt.Errorf("failed to download external node controller: %w", err)
-	}
-	slog.Info("Downloaded external node controller", "path", binaryPath)
-
-	// Execute the external binary with the same arguments
-	cmd := exec.CommandContext(ctx, binaryPath, "provision", "--provision-config", configPath)
-
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	err := a.cmdRunner(cmd)
-	exitCode := -1
-	if cmd.ProcessState != nil {
-		exitCode = cmd.ProcessState.ExitCode()
-	}
-
-	slog.Info("External node controller finished", "exitCode", exitCode, "error", fmt.Sprintf("%v", err))
-	return err
-}
-
-// deleteAksNodeControllerUrlFromConfig modifies the configuration file on disk to remove the AksNodeControllerUrl.
-// This prevents the external controller from also trying to download and run an external controller, which would cause an infinite loop.
-// It operates on a raw map[string]interface{} to avoid data loss that can occur when unmarshalling and marshalling a struct.
-func (a *App) deleteAksNodeControllerUrlFromConfig(configPath string) error {
-	var err error
-	inputJSON, err := os.ReadFile(configPath)
-	if err != nil {
-		return fmt.Errorf("failed to read config file %s: %w", configPath, err)
-	}
-
-	var rawConfig map[string]interface{}
-	err = json.Unmarshal(inputJSON, &rawConfig)
-	if err != nil {
-		return fmt.Errorf("failed to unmarshal config into a map: %w", err)
-	}
-
-	// The external controller should not try to download another controller.
-	// We remove the URL from the config to prevent an infinite loop.
-	delete(rawConfig, "aks_node_controller_url")
-
-	modifiedJSON, err := json.Marshal(rawConfig)
-	if err != nil {
-		return fmt.Errorf("failed to marshal modified config: %w", err)
-	}
-
-	//nolint:gosec // we want the file to be readable by other processes
-	err = os.WriteFile(configPath, modifiedJSON, 0644)
-	if err != nil {
-		return fmt.Errorf("failed to write modified config: %w", err)
-	}
-
-	return nil
-}
-
-// runBuiltinCSE runs the built-in CSE logic.
-func (a *App) runBuiltinCSE(ctx context.Context, config *aksnodeconfigv1.Configuration) error {
 	cmd, err := parser.BuildCSECmd(ctx, config)
 	if err != nil {
 		return fmt.Errorf("build CSE command: %w", err)
 	}
-
 	var stdoutBuf, stderrBuf bytes.Buffer
 	cmd.Stdout = io.MultiWriter(os.Stdout, &stdoutBuf)
 	cmd.Stderr = io.MultiWriter(os.Stderr, &stderrBuf)
-
 	err = a.cmdRunner(cmd)
 	exitCode := -1
 	if cmd.ProcessState != nil {
 		exitCode = cmd.ProcessState.ExitCode()
 	}
-
+	// Is it ok to log a single line? Is it too much?
 	slog.Info("CSE finished", "exitCode", exitCode, "stdout", stdoutBuf.String(), "stderr", stderrBuf.String(), "error", err)
 	return err
 }

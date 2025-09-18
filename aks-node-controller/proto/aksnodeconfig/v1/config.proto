@@ -157,8 +157,4 @@ message Configuration {
 
   // Represents localdns profile for agentpool.
   LocalDnsProfile local_dns_profile = 41;
-
-  // If set, downloads and runs the specified binary to manage node lifecycle instead of the built-in logic.
-  // Useful for testing and development. Not intended for production use.
-  string aks_node_controller_url = 42;
 }
