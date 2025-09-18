@@ -1,5 +1,4 @@
 #!/bin/bash
-set -x
 set -e
 
 echo "Installing previous version of azcli in order to mitigate az compute bug" # TODO: (zachary-bailey) remove this code once new image picks up bug fix in azcli
@@ -12,7 +11,7 @@ sudo apt-get install azure-cli=${AZ_VER_REQUIRED}-1~${AZ_DIST} -y --allow-downgr
 AZ_VER_ACTUAL=$(az --version | head -n 1 | awk '{print $2}')
 if [ "$AZ_VER_ACTUAL" != "$AZ_VER_REQUIRED" ]; then
 	echo -e "Required Azure CLI Version: $AZ_VER_REQUIRED\nActual Azure CLI Version: $AZ_VER_ACTUAL"
-  echo "Exiting due to incorrect Azure CLI version..."
+  	echo "Exiting due to incorrect Azure CLI version..."
 	exit 1
 fi
 echo "Azure CLI version: $AZ_VER_ACTUAL"
@@ -506,7 +505,6 @@ if [ "$OS_TYPE" = "Windows" ]; then
 		mkdir -p "${AZCOPY_JOB_PLAN_LOCATION}"
 
 		if ! azcopy copy "${WINDOWS_BASE_IMAGE_URL}" "${WINDOWS_IMAGE_URL}" ; then
-			azExitCode=$?
 			# loop through azcopy log files
 			shopt -s nullglob
 			for f in "${AZCOPY_LOG_LOCATION}"/*.log; do
@@ -515,18 +513,22 @@ if [ "$OS_TYPE" = "Windows" ]; then
 				set +x
 				echo "##vso[build.uploadlog]$f"
 				set -x
+
+				# print the log file
+				echo "----- START LOG $f -----"
+				cat "$f"
+				echo "----- END LOG $f -----"
+
 				# check if the log file contains any errors
 				if grep -q '"level":"Error"' "$f"; then
 					echo "log file $f contains errors"
 					set +x
 					echo "##vso[task.logissue type=error]Azcopy log file $f contains errors"
 					set -x
-					# print the log file
-					cat "$f"
 				fi
 			done
 			shopt -u nullglob
-			exit $azExitCode
+			exit 1
 		fi
 
 		# https://www.packer.io/plugins/builders/azure/arm#image_url
