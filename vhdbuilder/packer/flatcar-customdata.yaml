@@ -33,12 +33,6 @@ storage:
     hard: false
 systemd:
   units:
-  - name: oem-cloudinit.service
-    dropins:
-    - name: 10-before-waagent.conf
-      contents: |
-        [Unit]
-        Before=waagent.service
   - name: update-ca-certificates.service
     enabled: true
     dropins:
