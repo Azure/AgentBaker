@@ -506,13 +506,13 @@ if [ "$OS_TYPE" = "Windows" ]; then
 
 		if ! azcopy copy "${WINDOWS_BASE_IMAGE_URL}" "${WINDOWS_IMAGE_URL}" ; then
 			# loop through azcopy log files
+			set +x
 			shopt -s nullglob
 			for f in "${AZCOPY_LOG_LOCATION}"/*.log; do
 				echo "Azcopy log file: $f"
 				# upload the log file as an attachment to vso
 				set +x
 				echo "##vso[build.uploadlog]$f"
-				set -x
 
 				# print the log file
 				echo "----- START LOG $f -----"
@@ -522,12 +522,11 @@ if [ "$OS_TYPE" = "Windows" ]; then
 				# check if the log file contains any errors
 				if grep -q '"level":"Error"' "$f"; then
 					echo "log file $f contains errors"
-					set +x
 					echo "##vso[task.logissue type=error]Azcopy log file $f contains errors"
-					set -x
 				fi
 			done
 			shopt -u nullglob
+			set -x
 			exit 1
 		fi
 
