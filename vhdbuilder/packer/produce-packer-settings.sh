@@ -1,5 +1,4 @@
 #!/bin/bash
-set -x
 set -e
 
 echo "Installing previous version of azcli in order to mitigate az compute bug" # TODO: (zachary-bailey) remove this code once new image picks up bug fix in azcli
@@ -12,7 +11,7 @@ sudo apt-get install azure-cli=${AZ_VER_REQUIRED}-1~${AZ_DIST} -y --allow-downgr
 AZ_VER_ACTUAL=$(az --version | head -n 1 | awk '{print $2}')
 if [ "$AZ_VER_ACTUAL" != "$AZ_VER_REQUIRED" ]; then
 	echo -e "Required Azure CLI Version: $AZ_VER_REQUIRED\nActual Azure CLI Version: $AZ_VER_ACTUAL"
-  echo "Exiting due to incorrect Azure CLI version..."
+  	echo "Exiting due to incorrect Azure CLI version..."
 	exit 1
 fi
 echo "Azure CLI version: $AZ_VER_ACTUAL"
@@ -393,8 +392,10 @@ if [ "$OS_TYPE" = "Windows" ]; then
 	IMPORTED_IMAGE_URL="https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net/system/$IMPORTED_IMAGE_NAME.vhd"
  	export AZCOPY_AUTO_LOGIN_TYPE="MSI" # use Managed Identity for AzCopy authentication
 	export AZCOPY_MSI_RESOURCE_STRING="${AZURE_MSI_RESOURCE_STRING}"
-	export AZCOPY_LOG_LOCATION="./azcopy-log-files/"
+	export AZCOPY_LOG_LOCATION="$(pwd)/azcopy-log-files/"
+	export AZCOPY_JOB_PLAN_LOCATION="$(pwd)/azcopy-job-plan-files/"
 	mkdir -p "${AZCOPY_LOG_LOCATION}"
+	mkdir -p "${AZCOPY_JOB_PLAN_LOCATION}"
 
 	echo "VALID IMAGE URL: ${WINDOWS_CONTAINERIMAGE_JSON_URL}"
 	if [ -n "${WINDOWS_CONTAINERIMAGE_JSON_URL}" ]; then
@@ -498,31 +499,35 @@ if [ "$OS_TYPE" = "Windows" ]; then
 
 		echo "Copy Windows base image to ${WINDOWS_IMAGE_URL}"
 		
-		export AZCOPY_LOG_LOCATION="./azcopy-log-files/"
+		export AZCOPY_LOG_LOCATION="$(pwd)/azcopy-log-files/"
+		export AZCOPY_JOB_PLAN_LOCATION="$(pwd)/azcopy-job-plan-files/"
 		mkdir -p "${AZCOPY_LOG_LOCATION}"
+		mkdir -p "${AZCOPY_JOB_PLAN_LOCATION}"
 
 		if ! azcopy copy "${WINDOWS_BASE_IMAGE_URL}" "${WINDOWS_IMAGE_URL}" ; then
-			azExitCode=$?
 			# loop through azcopy log files
+			set +x
 			shopt -s nullglob
 			for f in "${AZCOPY_LOG_LOCATION}"/*.log; do
 				echo "Azcopy log file: $f"
 				# upload the log file as an attachment to vso
 				set +x
 				echo "##vso[build.uploadlog]$f"
-				set -x
+
+				# print the log file
+				echo "----- START LOG $f -----"
+				cat "$f"
+				echo "----- END LOG $f -----"
+
 				# check if the log file contains any errors
 				if grep -q '"level":"Error"' "$f"; then
 					echo "log file $f contains errors"
-					set +x
 					echo "##vso[task.logissue type=error]Azcopy log file $f contains errors"
-					set -x
-					# print the log file
-					cat "$f"
 				fi
 			done
 			shopt -u nullglob
-			exit $azExitCode
+			set -x
+			exit 1
 		fi
 
 		# https://www.packer.io/plugins/builders/azure/arm#image_url
