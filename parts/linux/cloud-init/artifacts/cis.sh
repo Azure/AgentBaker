@@ -268,6 +268,25 @@ EOF
     systemctl restart ssh
 }
 
+configureSudo() {
+    cat <<EOF >/etc/sudoers.d/99-cis
+Defaults logfile="/var/log/sudo.log"
+EOF
+    chmod 0440 /etc/sudoers.d/99-cis
+    cat <<EOF >/etc/logrotate.d/sudo
+/var/log/sudo.log {
+  rotate 5
+  daily
+  maxsize 50M
+  missingok
+  notifempty
+  compress
+  delaycompress
+  sharedscripts
+}
+EOF
+}
+
 applyCIS() {
     setPWExpiration
     assignRootPW
@@ -283,6 +302,7 @@ applyCIS() {
     configureGrub
     prepareTmp
     configureSsh
+    configureSudo
 }
 
 applyCIS
