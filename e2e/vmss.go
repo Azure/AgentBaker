@@ -735,6 +735,13 @@ func uploadAllLogsAsArtifacts(t *testing.T) {
 		}
 
 		filePath := filepath.Join(logDir, entry.Name())
-		t.Logf("##vso[artifact.upload containerfolder=test-logs;artifactname=%s]%s", t.Name(), filePath)
+		absPath, err := filepath.Abs(filePath)
+		if err != nil {
+			absPath = filePath // fallback to relative path if absolute path fails
+		}
+		
+		// Use both test name and file name in artifact name
+		artifactName := fmt.Sprintf("%s-%s", t.Name(), entry.Name())
+		t.Logf("##vso[artifact.upload containerfolder=test-logs;artifactname=%s]%s", artifactName, absPath)
 	}
 }
