@@ -743,6 +743,6 @@ func uploadAllLogsAsArtifacts(t *testing.T) {
 		// Use both test name and file name in artifact name
 		//artifactName := fmt.Sprintf("%s-%s", t.Name(), entry.Name())
 		//t.Logf("##vso[artifact.upload containerfolder=test-logs;artifactname=%s]%s", artifactName, absPath)
-		t.Logf("##vso[build.uploadlog]%s", absPath)
+		t.Logf("##vso[build.uploadfile]%s", absPath)
 	}
 }
