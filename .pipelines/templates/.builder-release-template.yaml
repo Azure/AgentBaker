@@ -62,7 +62,7 @@ steps:
       specificBuildWithTriggering: true
       allowPartiallySucceededBuilds: false
       buildVersionToDownload: 'latestFromBranch'
-      branchName: 'refs/heads/master'
+      branchName: 'refs/heads/mheberling/kataAzl3removekatacc'
       downloadType: 'single'
       artifactName: 'mariner-kata-3-0-uvm'
       itemPattern: |
