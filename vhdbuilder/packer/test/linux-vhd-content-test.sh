@@ -250,8 +250,8 @@ testPackagesInstalled() {
         
       fi
       # A downloadURL from a package in components.json will look like this: 
-      # "https://acs-mirror.azureedge.net/cni-plugins/v${version}/binaries/cni-plugins-linux-${CPU_ARCH}-v${version}.tgz"
-      # After eval(resolved), downloadURL will look like "https://acs-mirror.azureedge.net/cni-plugins/v0.8.7/binaries/cni-plugins-linux-arm64-v0.8.7.tgz"
+      # "https://packages.aks.azure.com/cni-plugins/v${version}/binaries/cni-plugins-linux-${CPU_ARCH}-v${version}.tgz"
+      # After eval(resolved), downloadURL will look like "https://packages.aks.azure.com/cni-plugins/v0.8.7/binaries/cni-plugins-linux-arm64-v0.8.7.tgz"
       eval "downloadURL=${PACKAGE_DOWNLOAD_URL}"
       local fileNameWithExt
       fileNameWithExt=$(basename $downloadURL)

@@ -256,8 +256,9 @@ function Test-CompareSingleDir {
             continue
         }
 
-        if ($URL.StartsWith("https://acs-mirror.azureedge.net/")) {
+        if ($URL.StartsWith("https://acs-mirror.azureedge.net/") || $URL.StartsWith("https://packages.aks.azure.com/")) {
             $mcURL = $URL.replace("https://acs-mirror.azureedge.net/", "https://kubernetesartifacts.blob.core.chinacloudapi.cn/")
+            $mcURL = $mcURL.replace("https://packages.aks.azure.com/", "https://kubernetesartifacts.blob.core.chinacloudapi.cn/")
 
             Write-Output "Downloading mooncake file: $mcURL"
 

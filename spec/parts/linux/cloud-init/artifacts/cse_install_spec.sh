@@ -185,7 +185,7 @@ Describe 'cse_install.sh'
             The output line 4 should include "mock extractKubeBinariesToUsrLocalBin calling"
         End
         It 'should use retrycmd_get_tarball to download kube binaries'
-            kube_binary_url="https://acs-mirror.azureedge.net/kubernetes/v1.31.5/binaries/Fakefile"
+            kube_binary_url="https://packages.aks.azure.com/kubernetes/v1.31.5/binaries/Fakefile"
             When call extractKubeBinaries $k8s_version $kube_binary_url $is_private_url $k8s_downloads_dir
             The status should be success
             The output line 2 should include "mock retrycmd_get_tarball calling"
@@ -194,7 +194,7 @@ Describe 'cse_install.sh'
         It 'should use a pre-cached private kube binary if available (this is an unavailable case)'
             is_private_url="true"
             K8S_PRIVATE_PACKAGES_CACHE_DIR="/opt/kubernetes/downloads/private-packages"
-            kube_binary_url="https://acs-mirror.azureedge.net/kubernetes/fake/binaries/kubernetes-node-linux-amd64.tar.gz"
+            kube_binary_url="https://packages.aks.azure.com/kubernetes/fake/binaries/kubernetes-node-linux-amd64.tar.gz"
             When call extractKubeBinaries $k8s_version $kube_binary_url $is_private_url $k8s_downloads_dir
             The status should be failure
             The output line 2 should include "cached package /opt/kubernetes/downloads/private-packages/kubernetes-node-linux-amd64.tar.gz not found"

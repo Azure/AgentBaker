@@ -93,7 +93,7 @@ Describe 'Tests of GetAllCachedThings ' {
             "previousLatestVersion": "0.0.51"
           }
         ],
-        "downloadURL": "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v${version}.zip"
+        "downloadURL": "https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-v${version}.zip"
       }
     }
   }
@@ -126,7 +126,7 @@ Describe 'Tests of GetAllCachedThings ' {
 
         $allpackages = GetAllCachedThings $componentsJson $windowsSettings
 
-        $allpackages | Should -Contain "c:\akse-cache\: https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.50.zip"
+        $allpackages | Should -Contain "c:\akse-cache\: https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-v0.0.50.zip"
     }
 
     it 'has a reg key in it' {
@@ -505,7 +505,7 @@ Describe 'Gets the Binaries' {
                 "previousLatestVersion": "0.0.51"
               }
             ],
-            "downloadURL": "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v${version}.zip"
+            "downloadURL": "https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-v${version}.zip"
           }
         }
       }
@@ -546,12 +546,12 @@ Describe 'Gets the Binaries' {
             }
         )
         $componentsJson.Packages[0].windowsDownloadLocation = "location"
-        $componentsJson.Packages[0].downloadUris.windows.default.downloadURL = "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v`${version}.zip"
+        $componentsJson.Packages[0].downloadUris.windows.default.downloadURL = "https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-v`${version}.zip"
 
         $packages = GetPackagesFromComponentsJson $componentsJson
 
-        $packages["location"] | Should -Contain "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v1.8.22.zip"
-        $packages["location"] | Should -Contain "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v1.8.21.zip"
+        $packages["location"] | Should -Contain "https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-v1.8.22.zip"
+        $packages["location"] | Should -Contain "https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-v1.8.21.zip"
     }
 
     It 'skips a package if windowsDownloadLocation is not set' {
@@ -564,12 +564,12 @@ Describe 'Gets the Binaries' {
             }
         )
         $componentsJson.Packages[0].windowsDownloadLocation = "location"
-        $componentsJson.Packages[0].downloadUris.windows.default.downloadURL = "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v`${version}.zip"
+        $componentsJson.Packages[0].downloadUris.windows.default.downloadURL = "https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-v`${version}.zip"
 
         $packages = GetPackagesFromComponentsJson $componentsJson
 
-        $packages["other_location"] | Should -Not -Contain "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v1.8.22.zip"
-        $packages["other_location"] | Should -Not -Contain "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v1.8.21.zip"
+        $packages["other_location"] | Should -Not -Contain "https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-v1.8.22.zip"
+        $packages["other_location"] | Should -Not -Contain "https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-v1.8.21.zip"
     }
 
     It 'given there is a latest version, it returns that version' {
@@ -579,11 +579,11 @@ Describe 'Gets the Binaries' {
             }
         )
         $componentsJson.Packages[0].windowsDownloadLocation = "location"
-        $componentsJson.Packages[0].downloadUris.windows.default.downloadURL = "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v`${version}.zip"
+        $componentsJson.Packages[0].downloadUris.windows.default.downloadURL = "https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-v`${version}.zip"
 
         $packages = GetPackagesFromComponentsJson $componentsJson
 
-        $packages["location"] | Should -Contain "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v1.8.22.zip"
+        $packages["location"] | Should -Contain "https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-v1.8.22.zip"
     }
 
     It 'given there are two packages in the same directory, it combines them' {
@@ -600,7 +600,7 @@ Describe 'Gets the Binaries' {
                 "latestVersion": "0.0.48"
               }
             ],
-            "downloadURL": "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v${version}.zip"
+            "downloadURL": "https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-v${version}.zip"
           }
         }
       }
@@ -616,7 +616,7 @@ Describe 'Gets the Binaries' {
                 "latestVersion": "0.0.49"
               }
             ],
-            "downloadURL": "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v${version}.zip"
+            "downloadURL": "https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-v${version}.zip"
           }
         }
       }
@@ -627,8 +627,8 @@ Describe 'Gets the Binaries' {
 
         $packages = GetPackagesFromComponentsJson $componentsJson
 
-        $packages["location"] | Should -Contain "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.48.zip"
-        $packages["location"] | Should -Contain "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.49.zip"
+        $packages["location"] | Should -Contain "https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-v0.0.48.zip"
+        $packages["location"] | Should -Contain "https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-v0.0.49.zip"
     }
 
     It 'given there is an override for ws2022 and ws2022 sku is being built, it uses the override' {
@@ -645,7 +645,7 @@ Describe 'Gets the Binaries' {
                 "latestVersion": "0.0.49"
               }
             ],
-            "downloadURL": "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v${version}.zip"
+            "downloadURL": "https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-v${version}.zip"
           },
           "default": {
             "versionsV2": [
@@ -654,7 +654,7 @@ Describe 'Gets the Binaries' {
                 "latestVersion": "0.0.48"
               }
             ],
-            "downloadURL": "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v${version}.zip"
+            "downloadURL": "https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-v${version}.zip"
           }
         }
       }
@@ -666,8 +666,8 @@ Describe 'Gets the Binaries' {
 
         $packages = GetPackagesFromComponentsJson $componentsJson
 
-        $packages["location"] | Should -Contain "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.49.zip"
-        $packages["location"] | Should -Not -Contain "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.48.zip"
+        $packages["location"] | Should -Contain "https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-v0.0.49.zip"
+        $packages["location"] | Should -Not -Contain "https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-v0.0.48.zip"
     }
 }
 
@@ -1066,15 +1066,15 @@ Describe 'Tests of components-test.json ' {
     It 'has the latest 2 versions of a package' {
         $packages = GetPackagesFromComponentsJson $componentsJson
 
-        $packages["c:\akse-cache\"] | Should -Contain "https://acs-mirror.azureedge.net/win-cse-scripts-vLatest.zip"
-        $packages["c:\akse-cache\"] | Should -Contain "https://acs-mirror.azureedge.net/win-cse-scripts-vPrev.zip"
+        $packages["c:\akse-cache\"] | Should -Contain "https://packages.aks.azure.com/win-cse-scripts-vLatest.zip"
+        $packages["c:\akse-cache\"] | Should -Contain "https://packages.aks.azure.com/win-cse-scripts-vPrev.zip"
     }
 
     it 'can get packages from the default when there is no windows override set' {
         $packages = GetPackagesFromComponentsJson $componentsJson
 
-        $packages["c:\akse-cache\win-k8s\"] | Should -Contain "https://acs-mirror.azureedge.net/kubernetes/v1.27.102-akslts/windowszip/v1.27.102-akslts-1int.zip"
-        $packages["c:\akse-cache\win-k8s\"] | Should -Contain "https://acs-mirror.azureedge.net/kubernetes/v1.27.101-akslts/windowszip/v1.27.101-akslts-1int.zip"
+        $packages["c:\akse-cache\win-k8s\"] | Should -Contain "https://packages.aks.azure.com/kubernetes/v1.27.102-akslts/windowszip/v1.27.102-akslts-1int.zip"
+        $packages["c:\akse-cache\win-k8s\"] | Should -Contain "https://packages.aks.azure.com/kubernetes/v1.27.101-akslts/windowszip/v1.27.101-akslts-1int.zip"
     }
 
     It 'has specific WS2019 containers' {
@@ -1165,9 +1165,9 @@ Describe 'Tests of components-test.json ' {
         $windowsSku = "2019-containerd"
         $packages = GetPackagesFromComponentsJson $componentsJson
 
-        $packages["c:\akse-cache\containerd\"] | Should -Contain "https://acs-mirror.azureedge.net/containerd/windows/v1.7.17-azure.1/binaries/containerd-v1.7.17-azure.1-windows-amd64.tar.gz"
-        $packages["c:\akse-cache\containerd\"] | Should -Contain "https://acs-mirror.azureedge.net/containerd/windows/v1.7.20-azure.1/binaries/containerd-v1.7.20-azure.1-windows-amd64.tar.gz"
-        $packages["c:\akse-cache\containerd\"] | Should -Contain "https://acs-mirror.azureedge.net/containerd/windows/v1.6.35-azure.1/binaries/containerd-v1.6.35-azure.1-windows-amd64.tar.gz"
+        $packages["c:\akse-cache\containerd\"] | Should -Contain "https://packages.aks.azure.com/containerd/windows/v1.7.17-azure.1/binaries/containerd-v1.7.17-azure.1-windows-amd64.tar.gz"
+        $packages["c:\akse-cache\containerd\"] | Should -Contain "https://packages.aks.azure.com/containerd/windows/v1.7.20-azure.1/binaries/containerd-v1.7.20-azure.1-windows-amd64.tar.gz"
+        $packages["c:\akse-cache\containerd\"] | Should -Contain "https://packages.aks.azure.com/containerd/windows/v1.6.35-azure.1/binaries/containerd-v1.6.35-azure.1-windows-amd64.tar.gz"
     }
 
     It 'has containerd versions for 2022' {
@@ -1175,9 +1175,9 @@ Describe 'Tests of components-test.json ' {
 
         $packages = GetPackagesFromComponentsJson $componentsJson
 
-        $packages["c:\akse-cache\containerd\"] | Should -Contain "https://acs-mirror.azureedge.net/containerd/windows/v1.7.17-azure.1/binaries/containerd-v1.7.17-azure.1-windows-amd64.tar.gz"
-        $packages["c:\akse-cache\containerd\"] | Should -Contain "https://acs-mirror.azureedge.net/containerd/windows/v1.7.20-azure.1/binaries/containerd-v1.7.20-azure.1-windows-amd64.tar.gz"
-        $packages["c:\akse-cache\containerd\"] | Should -Contain "https://acs-mirror.azureedge.net/containerd/windows/v1.6.35-azure.1/binaries/containerd-v1.6.35-azure.1-windows-amd64.tar.gz"
+        $packages["c:\akse-cache\containerd\"] | Should -Contain "https://packages.aks.azure.com/containerd/windows/v1.7.17-azure.1/binaries/containerd-v1.7.17-azure.1-windows-amd64.tar.gz"
+        $packages["c:\akse-cache\containerd\"] | Should -Contain "https://packages.aks.azure.com/containerd/windows/v1.7.20-azure.1/binaries/containerd-v1.7.20-azure.1-windows-amd64.tar.gz"
+        $packages["c:\akse-cache\containerd\"] | Should -Contain "https://packages.aks.azure.com/containerd/windows/v1.6.35-azure.1/binaries/containerd-v1.6.35-azure.1-windows-amd64.tar.gz"
     }
 
     It 'has containerd versions for 2022-gen2' {
@@ -1185,9 +1185,9 @@ Describe 'Tests of components-test.json ' {
 
         $packages = GetPackagesFromComponentsJson $componentsJson
 
-        $packages["c:\akse-cache\containerd\"] | Should -Contain "https://acs-mirror.azureedge.net/containerd/windows/v1.7.17-azure.1/binaries/containerd-v1.7.17-azure.1-windows-amd64.tar.gz"
-        $packages["c:\akse-cache\containerd\"] | Should -Contain "https://acs-mirror.azureedge.net/containerd/windows/v1.7.20-azure.1/binaries/containerd-v1.7.20-azure.1-windows-amd64.tar.gz"
-        $packages["c:\akse-cache\containerd\"] | Should -Contain "https://acs-mirror.azureedge.net/containerd/windows/v1.6.35-azure.1/binaries/containerd-v1.6.35-azure.1-windows-amd64.tar.gz"
+        $packages["c:\akse-cache\containerd\"] | Should -Contain "https://packages.aks.azure.com/containerd/windows/v1.7.17-azure.1/binaries/containerd-v1.7.17-azure.1-windows-amd64.tar.gz"
+        $packages["c:\akse-cache\containerd\"] | Should -Contain "https://packages.aks.azure.com/containerd/windows/v1.7.20-azure.1/binaries/containerd-v1.7.20-azure.1-windows-amd64.tar.gz"
+        $packages["c:\akse-cache\containerd\"] | Should -Contain "https://packages.aks.azure.com/containerd/windows/v1.6.35-azure.1/binaries/containerd-v1.6.35-azure.1-windows-amd64.tar.gz"
     }
 
     It 'has containerd versions for 23H2' {
@@ -1195,9 +1195,9 @@ Describe 'Tests of components-test.json ' {
 
         $packages = GetPackagesFromComponentsJson $componentsJson
 
-        $packages["c:\akse-cache\containerd\"] | Should -Contain "https://acs-mirror.azureedge.net/containerd/windows/v1.7.17-azure.1/binaries/containerd-v1.7.17-azure.1-windows-amd64.tar.gz"
-        $packages["c:\akse-cache\containerd\"] | Should -Contain "https://acs-mirror.azureedge.net/containerd/windows/v1.7.20-azure.1/binaries/containerd-v1.7.20-azure.1-windows-amd64.tar.gz"
-        $packages["c:\akse-cache\containerd\"] | Should -Not -Contain "https://acs-mirror.azureedge.net/containerd/windows/v1.6.35-azure.1/binaries/containerd-v1.6.35-azure.1-windows-amd64.tar.gz"
+        $packages["c:\akse-cache\containerd\"] | Should -Contain "https://packages.aks.azure.com/containerd/windows/v1.7.17-azure.1/binaries/containerd-v1.7.17-azure.1-windows-amd64.tar.gz"
+        $packages["c:\akse-cache\containerd\"] | Should -Contain "https://packages.aks.azure.com/containerd/windows/v1.7.20-azure.1/binaries/containerd-v1.7.20-azure.1-windows-amd64.tar.gz"
+        $packages["c:\akse-cache\containerd\"] | Should -Not -Contain "https://packages.aks.azure.com/containerd/windows/v1.6.35-azure.1/binaries/containerd-v1.6.35-azure.1-windows-amd64.tar.gz"
     }
 
     It 'has containerd versions for 23H2-gen2' {
@@ -1205,9 +1205,9 @@ Describe 'Tests of components-test.json ' {
 
         $packages = GetPackagesFromComponentsJson $componentsJson
 
-        $packages["c:\akse-cache\containerd\"] | Should -Contain "https://acs-mirror.azureedge.net/containerd/windows/v1.7.17-azure.1/binaries/containerd-v1.7.17-azure.1-windows-amd64.tar.gz"
-        $packages["c:\akse-cache\containerd\"] | Should -Contain "https://acs-mirror.azureedge.net/containerd/windows/v1.7.20-azure.1/binaries/containerd-v1.7.20-azure.1-windows-amd64.tar.gz"
-        $packages["c:\akse-cache\containerd\"] | Should -Not -Contain "https://acs-mirror.azureedge.net/containerd/windows/v1.6.35-azure.1/binaries/containerd-v1.6.35-azure.1-windows-amd64.tar.gz"
+        $packages["c:\akse-cache\containerd\"] | Should -Contain "https://packages.aks.azure.com/containerd/windows/v1.7.17-azure.1/binaries/containerd-v1.7.17-azure.1-windows-amd64.tar.gz"
+        $packages["c:\akse-cache\containerd\"] | Should -Contain "https://packages.aks.azure.com/containerd/windows/v1.7.20-azure.1/binaries/containerd-v1.7.20-azure.1-windows-amd64.tar.gz"
+        $packages["c:\akse-cache\containerd\"] | Should -Not -Contain "https://packages.aks.azure.com/containerd/windows/v1.6.35-azure.1/binaries/containerd-v1.6.35-azure.1-windows-amd64.tar.gz"
     }
 
     It 'has containerd versions for 2025' {
@@ -1215,9 +1215,9 @@ Describe 'Tests of components-test.json ' {
 
         $packages = GetPackagesFromComponentsJson $componentsJson
 
-        $packages["c:\akse-cache\containerd\"] | Should -Contain "https://acs-mirror.azureedge.net/containerd/windows/v1.7.17-azure.1/binaries/containerd-v1.7.17-azure.1-windows-amd64.tar.gz"
-        $packages["c:\akse-cache\containerd\"] | Should -Contain "https://acs-mirror.azureedge.net/containerd/windows/v1.7.20-azure.1/binaries/containerd-v1.7.20-azure.1-windows-amd64.tar.gz"
-        $packages["c:\akse-cache\containerd\"] | Should -Not -Contain "https://acs-mirror.azureedge.net/containerd/windows/v1.6.35-azure.1/binaries/containerd-v1.6.35-azure.1-windows-amd64.tar.gz"
+        $packages["c:\akse-cache\containerd\"] | Should -Contain "https://packages.aks.azure.com/containerd/windows/v1.7.17-azure.1/binaries/containerd-v1.7.17-azure.1-windows-amd64.tar.gz"
+        $packages["c:\akse-cache\containerd\"] | Should -Contain "https://packages.aks.azure.com/containerd/windows/v1.7.20-azure.1/binaries/containerd-v1.7.20-azure.1-windows-amd64.tar.gz"
+        $packages["c:\akse-cache\containerd\"] | Should -Not -Contain "https://packages.aks.azure.com/containerd/windows/v1.6.35-azure.1/binaries/containerd-v1.6.35-azure.1-windows-amd64.tar.gz"
     }
 
     It 'has containerd versions for 2025-gen2' {
@@ -1225,9 +1225,9 @@ Describe 'Tests of components-test.json ' {
 
         $packages = GetPackagesFromComponentsJson $componentsJson
 
-        $packages["c:\akse-cache\containerd\"] | Should -Contain "https://acs-mirror.azureedge.net/containerd/windows/v1.7.17-azure.1/binaries/containerd-v1.7.17-azure.1-windows-amd64.tar.gz"
-        $packages["c:\akse-cache\containerd\"] | Should -Contain "https://acs-mirror.azureedge.net/containerd/windows/v1.7.20-azure.1/binaries/containerd-v1.7.20-azure.1-windows-amd64.tar.gz"
-        $packages["c:\akse-cache\containerd\"] | Should -Not -Contain "https://acs-mirror.azureedge.net/containerd/windows/v1.6.35-azure.1/binaries/containerd-v1.6.35-azure.1-windows-amd64.tar.gz"
+        $packages["c:\akse-cache\containerd\"] | Should -Contain "https://packages.aks.azure.com/containerd/windows/v1.7.17-azure.1/binaries/containerd-v1.7.17-azure.1-windows-amd64.tar.gz"
+        $packages["c:\akse-cache\containerd\"] | Should -Contain "https://packages.aks.azure.com/containerd/windows/v1.7.20-azure.1/binaries/containerd-v1.7.20-azure.1-windows-amd64.tar.gz"
+        $packages["c:\akse-cache\containerd\"] | Should -Not -Contain "https://packages.aks.azure.com/containerd/windows/v1.6.35-azure.1/binaries/containerd-v1.6.35-azure.1-windows-amd64.tar.gz"
     }
 
     it 'has the right default containerd for ws2019' {
@@ -1235,7 +1235,7 @@ Describe 'Tests of components-test.json ' {
 
         $containerDUrl = GetDefaultContainerDFromComponentsJson $componentsJson
 
-        $containerDUrl | Should -Be "https://acs-mirror.azureedge.net/containerd/windows/v1.6.35-azure.1/binaries/containerd-v1.6.35-azure.1-windows-amd64.tar.gz"
+        $containerDUrl | Should -Be "https://packages.aks.azure.com/containerd/windows/v1.6.35-azure.1/binaries/containerd-v1.6.35-azure.1-windows-amd64.tar.gz"
     }
 
     it 'has the right default containerd for ws2022' {
@@ -1243,7 +1243,7 @@ Describe 'Tests of components-test.json ' {
 
         $containerDUrl = GetDefaultContainerDFromComponentsJson $componentsJson
 
-        $containerDUrl | Should -Be "https://acs-mirror.azureedge.net/containerd/windows/v1.6.35-azure.1/binaries/containerd-v1.6.35-azure.1-windows-amd64.tar.gz"
+        $containerDUrl | Should -Be "https://packages.aks.azure.com/containerd/windows/v1.6.35-azure.1/binaries/containerd-v1.6.35-azure.1-windows-amd64.tar.gz"
     }
 
     it 'has the right default containerd for ws23H2' {
@@ -1251,7 +1251,7 @@ Describe 'Tests of components-test.json ' {
 
         $containerDUrl = GetDefaultContainerDFromComponentsJson $componentsJson
 
-        $containerDUrl | Should -Be "https://acs-mirror.azureedge.net/containerd/windows/v1.7.20-azure.1/binaries/containerd-v1.7.20-azure.1-windows-amd64.tar.gz"
+        $containerDUrl | Should -Be "https://packages.aks.azure.com/containerd/windows/v1.7.20-azure.1/binaries/containerd-v1.7.20-azure.1-windows-amd64.tar.gz"
     }
 
     it 'has the right default containerd for ws2025' {
@@ -1259,7 +1259,7 @@ Describe 'Tests of components-test.json ' {
 
         $containerDUrl = GetDefaultContainerDFromComponentsJson $componentsJson
 
-        $containerDUrl | Should -Be "https://acs-mirror.azureedge.net/containerd/windows/v1.7.20-azure.1/binaries/containerd-v1.7.20-azure.1-windows-amd64.tar.gz"
+        $containerDUrl | Should -Be "https://packages.aks.azure.com/containerd/windows/v1.7.20-azure.1/binaries/containerd-v1.7.20-azure.1-windows-amd64.tar.gz"
     }
 
     it 'can get the right OCI artifacts with latest and previous versions' {

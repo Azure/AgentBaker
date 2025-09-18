@@ -873,7 +873,7 @@ removeKubeletNodeLabel() {
     fi
 }
 
-# generate kubenode binary registry url from acs-mirror url
+# generate kubenode binary registry url from packages.aks.azure.com url
 updateKubeBinaryRegistryURL() {
     # if rp already passes registry url, then directly use the registry url that rp passes
     # this path should have not catch for now, but keep it for future

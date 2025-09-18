@@ -401,7 +401,7 @@ func TestGetComponentNameFromURL(t *testing.T) {
 		},
 		{
 			name:        "valid URL",
-			downloadURL: "https://acs-mirror.azureedge.net/cni-plugins/v*/binaries",
+			downloadURL: "https://packages.aks.azure.com/cni-plugins/v*/binaries",
 			expected:    "cni-plugins",
 			expectedErr: "",
 		},
