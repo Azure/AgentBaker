@@ -432,21 +432,18 @@ while IFS= read -r p; do
         echo "  - kubectl version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
-<<<<<<< HEAD
     "nvidia-device-plugin")
       for version in ${PACKAGE_VERSIONS[@]}; do
         if [ "${OS}" = "${UBUNTU_OS_NAME}" ] || isMarinerOrAzureLinux "$OS"; then
           downloadPkgFromVersion "nvidia-device-plugin" "${version}" "${downloadDir}"
         fi
         echo "  - nvidia-device-plugin version ${version}" >> ${VHD_LOGS_FILEPATH}
-=======
     "azure-acr-credential-provider-pmc")
       for version in ${PACKAGE_VERSIONS[@]}; do
         if [ "${OS}" = "${UBUNTU_OS_NAME}" ] || isMarinerOrAzureLinux "$OS"; then
           downloadPkgFromVersion "azure-acr-credential-provider" "${version}" "${downloadDir}"
         fi
         echo "  - azure-acr-credential-provider version ${version}" >> ${VHD_LOGS_FILEPATH}
->>>>>>> 548566cb83e441bde4530cf946202db29a20ad1e
       done
       ;;
     *)
