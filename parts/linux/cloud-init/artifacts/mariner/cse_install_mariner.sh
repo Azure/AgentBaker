@@ -29,7 +29,7 @@ installDeps() {
       echo "Installing mariner-repos-cloud-native"
       dnf_install 30 1 600 mariner-repos-cloud-native
     fi
-    
+
     dnf_makecache || exit $ERR_APT_UPDATE_TIMEOUT
     dnf_update || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
     for dnf_package in ca-certificates check-restart cifs-utils cloud-init-azure-kvp conntrack-tools cracklib dnf-automatic ebtables ethtool fuse inotify-tools iotop iproute ipset iptables jq logrotate lsof nmap-ncat nfs-utils pam pigz psmisc rsyslog socat sysstat traceroute util-linux xz zip blobfuse2 nftables iscsi-initiator-utils device-mapper-multipath; do
@@ -118,7 +118,7 @@ installNvidiaContainerToolkit() {
 
     # The following packages need to be installed in this sequence because:
     # - libnvidia-container packages are required by nvidia-container-toolkit
-    # - nvidia-container-toolkit-base provides nvidia-ctk that is used to generate the nvidia container runtime config 
+    # - nvidia-container-toolkit-base provides nvidia-ctk that is used to generate the nvidia container runtime config
     #   during the posttrans phase of nvidia-container-toolkit package installation
     for nvidia_package in libnvidia-container1-${MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION} libnvidia-container-tools-${MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION} nvidia-container-toolkit-base-${MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION} nvidia-container-toolkit-${MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION}; do
       if ! dnf_install 30 1 600 $nvidia_package; then
@@ -131,7 +131,7 @@ installNvidiaContainerToolkit() {
 enableNvidiaPersistenceMode() {
     PERSISTENCED_SERVICE_FILE_PATH="/etc/systemd/system/nvidia-persistenced.service"
     touch ${PERSISTENCED_SERVICE_FILE_PATH}
-    cat << EOF > ${PERSISTENCED_SERVICE_FILE_PATH} 
+    cat << EOF > ${PERSISTENCED_SERVICE_FILE_PATH}
 [Unit]
 Description=NVIDIA Persistence Daemon
 Wants=syslog.target
@@ -167,6 +167,30 @@ installCredentialProviderFromPMC() {
     chown -R root:root "${CREDENTIAL_PROVIDER_BIN_DIR}"
     installRPMPackageFromFile "azure-acr-credential-provider" "${packageVersion}" || exit $ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT
     mv "/usr/local/bin/azure-acr-credential-provider" "$CREDENTIAL_PROVIDER_BIN_DIR/acr-credential-provider"
+}
+
+updateDnfWithNvidiaPkg() {
+  local readonly nvidia_repo_path="/etc/yum.repos.d/nvidia-built-azurelinux.repo"
+
+  if [ "$OS_VERSION" != "3.0" ]; then
+    # TODO
+    # Error out?
+  fi
+
+  local cpu_arch=$(getCPUArch) # Returns amd64 or arm64
+  local repo_arch=""
+
+  if [ "$cpu_arch" = "amd64" ]; then
+    repo_arch="x86_64"
+  elif [ "$cpu_arch" = "arm64" ]; then
+    repo_arch="sbsa"
+  else
+    # TODO
+    # Error out?
+  fi
+
+  locatl nvidia_repo_url="https://developer.download.nvidia.com/compute/cuda/repos/azl3/${repo_arch}/cuda-azl3.repo"
+  retrycmd_curl_file 120 5 25 ${nvidia_repo_path} ${nvidia_repo_url} || exit $ERR_NVIDIA_AZURELINUX_REPO_FILE_DOWNLOAD_TIMEOUT
 }
 
 installKubeletKubectlPkgFromPMC() {
@@ -222,9 +246,9 @@ installStandaloneContainerd() {
     # azure-built runtimes have a "+azure" suffix in their version strings (i.e 1.4.1+azure). remove that here.
     # check if containerd command is available before running it
     if command -v containerd &> /dev/null; then
-        CURRENT_VERSION=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)    
+        CURRENT_VERSION=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)
     fi
-    # v1.4.1 is our lowest supported version of containerd    
+    # v1.4.1 is our lowest supported version of containerd
     if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${desiredVersion}; then
         echo "currently installed containerd version ${CURRENT_VERSION} is greater than (or equal to) target base version ${desiredVersion}. skipping installStandaloneContainerd."
     else
@@ -237,7 +261,7 @@ installStandaloneContainerd() {
         if [ "$OS_VERSION" = "3.0" ]; then
             containerdPackageName="containerd2-${desiredVersion}"
         fi
-        
+
         # TODO: tie runc to r92 once that's possible on Mariner's pkg repo and if we're still using v1.linux shim
         if ! dnf_install 30 1 600 $containerdPackageName; then
             exit $ERR_CONTAINERD_INSTALL_TIMEOUT
