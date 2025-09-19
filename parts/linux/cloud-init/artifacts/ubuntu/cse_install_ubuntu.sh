@@ -79,10 +79,10 @@ updateAptWithMicrosoftPkg() {
 }
 
 updateAptWithNvidiaPkg() {
-    local readonly nvidia_gpg_keyring_path="/etc/apt/keyrings/nvidia.pub"
+    readonly nvidia_gpg_keyring_path="/etc/apt/keyrings/nvidia.pub"
     mkdir -p "$(dirname "${nvidia_gpg_keyring_path}")"
 
-    local readonly nvidia_sources_list_path="/etc/apt/sources.list.d/nvidia.list"
+    readonly nvidia_sources_list_path="/etc/apt/sources.list.d/nvidia.list"
     local cpu_arch=$(getCPUArch)  # Returns amd64 or arm64
     local repo_arch=""
     local nvidia_ubuntu_release=""
@@ -92,8 +92,9 @@ updateAptWithNvidiaPkg() {
     elif [ "$cpu_arch" = "arm64" ]; then
         repo_arch="sbsa"
     else
-        # TODO
-        # Error out?
+        # TODO: Error out?
+        echo "Unknown CPU architecture: ${cpu_arch}"
+        return
     fi
 
     if [ "${UBUNTU_RELEASE}" = "22.04" ]; then
@@ -101,8 +102,9 @@ updateAptWithNvidiaPkg() {
     elif [ "${UBUNTU_RELEASE}" = "24.04" ]; then
         nvidia_ubuntu_release="ubuntu2404"
     else
-        # TODO
-        # Error out?
+        # TODO: Error out?
+        echo "Unsupported Ubuntu version for NVIDIA drivers: ${UBUNTU_RELEASE}"
+        return
     fi
 
     # Construct URLs based on detected architecture and Ubuntu version

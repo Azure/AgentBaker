@@ -172,11 +172,12 @@ installCredentialProviderFromPMC() {
 }
 
 updateDnfWithNvidiaPkg() {
-  local readonly nvidia_repo_path="/etc/yum.repos.d/nvidia-built-azurelinux.repo"
+  readonly nvidia_repo_path="/etc/yum.repos.d/nvidia-built-azurelinux.repo"
 
   if [ "$OS_VERSION" != "3.0" ]; then
-    # TODO
-    # Error out?
+    # TODO: Error out?
+    echo "NVIDIA repo setup is only supported on Azure Linux 3.0"
+    return
   fi
 
   local cpu_arch=$(getCPUArch) # Returns amd64 or arm64
@@ -187,8 +188,9 @@ updateDnfWithNvidiaPkg() {
   elif [ "$cpu_arch" = "arm64" ]; then
     repo_arch="sbsa"
   else
-    # TODO
-    # Error out?
+    # TODO: Error out?
+    echo "Unsupported CPU architecture: $cpu_arch"
+    return
   fi
 
   locatl nvidia_repo_url="https://developer.download.nvidia.com/compute/cuda/repos/azl3/${repo_arch}/cuda-azl3.repo"
