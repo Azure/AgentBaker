@@ -231,6 +231,7 @@ if isMarinerOrAzureLinux "$OS" && ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; the
     setMarinerNetworkdConfig
     fixCBLMarinerPermissions
     addMarinerNvidiaRepo
+    updateDnfWithNvidiaPkg
     overrideNetworkConfig || exit 1
     if grep -q "kata" <<< "$FEATURE_FLAGS"; then
       installKataDeps
@@ -245,7 +246,7 @@ if isMarinerOrAzureLinux "$OS" && ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; the
 fi
 capture_benchmark "${SCRIPT_NAME}_handle_azurelinux_configs"
 
-# doing this at vhd allows CSE to be faster with just mv 
+# doing this at vhd allows CSE to be faster with just mv
 unpackTgzToCNIDownloadsDIR() {
   local URL=$1
   CNI_TGZ_TMP=${URL##*/}
@@ -277,7 +278,7 @@ downloadAndInstallCriTools() {
     echo "  - crictl version ${version}" >> ${VHD_LOGS_FILEPATH}
     # other steps are dependent on CRICTL_VERSION and CRICTL_VERSIONS
     # since we only have 1 entry in CRICTL_VERSIONS, we simply set both to the same value
-    CRICTL_VERSION=${version} 
+    CRICTL_VERSION=${version}
     KUBERNETES_VERSION=$CRICTL_VERSION installCrictl || exit $ERR_CRICTL_DOWNLOAD_TIMEOUT
     return 0
   fi
@@ -290,6 +291,7 @@ echo "VHD will be built with containerd as the container runtime"
 if [ "${OS}" = "${UBUNTU_OS_NAME}" ]; then
   updateAptWithMicrosoftPkg
   capture_benchmark "${SCRIPT_NAME}_update_apt_with_msft_pkg"
+  updateAptWithNvidiaPkg
 fi
 
 # check if COMPONENTS_FILEPATH exists
@@ -308,12 +310,12 @@ while IFS= read -r p; do
   # TODO(mheberling): Remove this once kata uses standard containerd. This OS is referenced
   # in file `parts/common/component.json` with the same ${MARINER_KATA_OS_NAME}.
   if isMariner "${OS}" && [ "${IS_KATA}" = "true" ]; then
-    # This is temporary for kata-cc because it uses a modified version of containerd and 
+    # This is temporary for kata-cc because it uses a modified version of containerd and
     # name is referenced in parts/common.json marinerkata.
     os=${MARINER_KATA_OS_NAME}
   fi
   if isAzureLinux "${OS}" && [ "${IS_KATA}" = "true" ]; then
-    # This is temporary for kata-cc because it uses a modified version of containerd and 
+    # This is temporary for kata-cc because it uses a modified version of containerd and
     # name is referenced in parts/common.json azurelinuxkata.
     os=${AZURELINUX_KATA_OS_NAME}
   fi
@@ -446,6 +448,46 @@ while IFS= read -r p; do
           downloadPkgFromVersion "azure-acr-credential-provider" "${version}" "${downloadDir}"
         fi
         echo "  - azure-acr-credential-provider version ${version}" >> ${VHD_LOGS_FILEPATH}
+      done
+      ;;
+    "datacenter-gpu-manager-4-core")
+      for version in ${PACKAGE_VERSIONS[@]}; do
+        if [ "${OS}" = "${UBUNTU_OS_NAME}" ] || isMarinerOrAzureLinux "$OS"; then
+          downloadPkgFromVersion "datacenter-gpu-manager-4-core" "${version}" "${downloadDir}"
+        fi
+        echo "  - datacenter-gpu-manager-4-core version ${version}" >> ${VHD_LOGS_FILEPATH}
+      done
+      ;;
+    "datacenter-gpu-manager-4-cuda12")
+      for version in ${PACKAGE_VERSIONS[@]}; do
+        if [ "${OS}" = "${UBUNTU_OS_NAME}" ] || isMarinerOrAzureLinux "$OS"; then
+          downloadPkgFromVersion "datacenter-gpu-manager-4-cuda12" "${version}" "${downloadDir}"
+        fi
+        echo "  - datacenter-gpu-manager-4-cuda12 version ${version}" >> ${VHD_LOGS_FILEPATH}
+      done
+      ;;
+    "datacenter-gpu-manager-4-proprietary")
+      for version in ${PACKAGE_VERSIONS[@]}; do
+        if [ "${OS}" = "${UBUNTU_OS_NAME}" ] || isMarinerOrAzureLinux "$OS"; then
+          downloadPkgFromVersion "datacenter-gpu-manager-4-proprietary" "${version}" "${downloadDir}"
+        fi
+        echo "  - datacenter-gpu-manager-4-proprietary version ${version}" >> ${VHD_LOGS_FILEPATH}
+      done
+      ;;
+    "datacenter-gpu-manager-4-proprietary-cuda12")
+      for version in ${PACKAGE_VERSIONS[@]}; do
+        if [ "${OS}" = "${UBUNTU_OS_NAME}" ] || isMarinerOrAzureLinux "$OS"; then
+          downloadPkgFromVersion "datacenter-gpu-manager-4-proprietary-cuda12" "${version}" "${downloadDir}"
+        fi
+        echo "  - datacenter-gpu-manager-4-proprietary-cuda12 version ${version}" >> ${VHD_LOGS_FILEPATH}
+      done
+      ;;
+    "datacenter-gpu-manager-exporter")
+      for version in ${PACKAGE_VERSIONS[@]}; do
+        if [ "${OS}" = "${UBUNTU_OS_NAME}" ] || isMarinerOrAzureLinux "$OS"; then
+          downloadPkgFromVersion "datacenter-gpu-manager-exporter" "${version}" "${downloadDir}"
+        fi
+        echo "  - datacenter-gpu-manager-exporter version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
     *)
@@ -591,7 +633,7 @@ while IFS= read -r imageToBePulled; do
     image_pids+=($!)
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
     while [ "$(jobs -p | wc -l)" -ge "$parallel_container_image_pull_limit" ]; do
-      wait -n || { 
+      wait -n || {
         ret=$?
         echo "A background job pullContainerImage failed: ${ret}, ${CONTAINER_IMAGE}. Exiting..." >&2
         for pid in "${image_pids[@]}"; do
@@ -694,7 +736,7 @@ cacheKubePackageFromPrivateUrl() {
 
   cached_pkg="${K8S_PRIVATE_PACKAGES_CACHE_DIR}/${k8s_tgz_name}"
   echo "download private package ${kube_private_binary_url} and store as ${cached_pkg}"
-  
+
   if ! ./azcopy copy "${kube_private_binary_url}" "${cached_pkg}"; then
     azExitCode=$?
     # loop through azcopy log files

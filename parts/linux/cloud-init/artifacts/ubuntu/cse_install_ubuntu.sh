@@ -78,6 +78,44 @@ updateAptWithMicrosoftPkg() {
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
 }
 
+updateAptWithNvidiaPkg() {
+    local readonly nvidia_gpg_keyring_path="/etc/apt/keyrings/nvidia.pub"
+    mkdir -p "$(dirname "${nvidia_gpg_keyring_path}")"
+
+    local readonly nvidia_sources_list_path="/etc/apt/sources.list.d/nvidia.list"
+    local cpu_arch=$(getCPUArch)  # Returns amd64 or arm64
+    local repo_arch=""
+    local nvidia_ubuntu_release=""
+
+    if [ "$cpu_arch" = "amd64" ]; then
+        repo_arch="x86_64"
+    elif [ "$cpu_arch" = "arm64" ]; then
+        repo_arch="sbsa"
+    else
+        # TODO
+        # Error out?
+    fi
+
+    if [ "${UBUNTU_RELEASE}" = "22.04" ]; then
+        nvidia_ubuntu_release="ubuntu2204"
+    elif [ "${UBUNTU_RELEASE}" = "24.04" ]; then
+        nvidia_ubuntu_release="ubuntu2404"
+    else
+        # TODO
+        # Error out?
+    fi
+
+    # Construct URLs based on detected architecture and Ubuntu version
+    echo "deb [arch=${cpu_arch} signed-by=${nvidia_gpg_keyring_path}] https://developer.download.nvidia.com/compute/cuda/repos/${nvidia_ubuntu_release}/${repo_arch} /" > ${nvidia_sources_list_path}
+
+    # Add NVIDIA repository
+    local nvidia_gpg_key_url="https://developer.download.nvidia.com/compute/cuda/repos/${nvidia_ubuntu_release}/${repo_arch}/3bf863cc.pub"
+
+    # Download and add the GPG key for the NVIDIA repository
+    retrycmd_curl_file 120 5 25 ${nvidia_gpg_keyring_path} ${nvidia_gpg_key_url} || exit $ERR_NVIDIA_GPG_KEY_DOWNLOAD_TIMEOUT
+    apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
+}
+
 cleanUpGPUDrivers() {
     rm -Rf $GPU_DEST /opt/gpu
     rm -rf "/opt/${K8S_DEVICE_PLUGIN_PKG}/downloads"

@@ -171,6 +171,30 @@ installCredentialProviderFromPMC() {
     mv "/usr/local/bin/azure-acr-credential-provider" "$CREDENTIAL_PROVIDER_BIN_DIR/acr-credential-provider"
 }
 
+updateDnfWithNvidiaPkg() {
+  local readonly nvidia_repo_path="/etc/yum.repos.d/nvidia-built-azurelinux.repo"
+
+  if [ "$OS_VERSION" != "3.0" ]; then
+    # TODO
+    # Error out?
+  fi
+
+  local cpu_arch=$(getCPUArch) # Returns amd64 or arm64
+  local repo_arch=""
+
+  if [ "$cpu_arch" = "amd64" ]; then
+    repo_arch="x86_64"
+  elif [ "$cpu_arch" = "arm64" ]; then
+    repo_arch="sbsa"
+  else
+    # TODO
+    # Error out?
+  fi
+
+  locatl nvidia_repo_url="https://developer.download.nvidia.com/compute/cuda/repos/azl3/${repo_arch}/cuda-azl3.repo"
+  retrycmd_curl_file 120 5 25 ${nvidia_repo_path} ${nvidia_repo_url} || exit $ERR_NVIDIA_AZURELINUX_REPO_FILE_DOWNLOAD_TIMEOUT
+}
+
 installKubeletKubectlPkgFromPMC() {
     local desiredVersion="${1}"
 	  installRPMPackageFromFile "kubelet" $desiredVersion || exit $ERR_KUBELET_INSTALL_FAIL
