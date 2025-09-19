@@ -687,7 +687,7 @@ func Test_Ubuntu2204_EntraIDSSH(t *testing.T) {
 				// The full E2E of Entra ID SSH scenario will be included in AKS RP's E2E test.
 
 				// Validate Entra ID SSH configuration (tests that private key SSH fails)
-				ValidateEntraIDSSHConfigured(ctx, s)
+				ValidatePubkeySSHDisabled(ctx, s)
 			},
 		},
 	})

@@ -987,14 +987,14 @@ setPubkeyAuthSSH() {
   ' "$SSHD_CONFIG" > "$TMP"
 
   # Validate the candidate config
-  sudo sshd -t -f "$TMP" || { rm -f "$TMP"; return 1; }
+  sudo sshd -t -f "$TMP" || { rm -f "$TMP"; exit $ERR_CONFIG_PUBKEY_AUTH_SSH; }
 
   # Replace the original with the candidate (permissions 644, owned by root)
   sudo install -m 644 -o root -g root "$TMP" "$SSHD_CONFIG"
   rm -f "$TMP"
 
   # Reload sshd
-  sudo systemctl reload sshd || sudo systemctl restart sshd
+  sudo systemctl reload sshd || sudo systemctl restart sshd || exit $ERR_CONFIG_PUBKEY_AUTH_SSH
 }
 
 configCredentialProvider() {
