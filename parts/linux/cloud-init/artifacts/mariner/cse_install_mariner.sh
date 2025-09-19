@@ -154,6 +154,25 @@ EOF
     systemctl restart nvidia-persistenced.service || exit 1
 }
 
+installCredentialProviderFromPMC() {
+    k8sVersion="${1:-}"
+    os=${AZURELINUX_OS_NAME}
+    if [ -z "$OS_VERSION" ]; then
+        os=${OS}
+        os_version="current"
+    else
+        os_version="${OS_VERSION}"
+    fi
+   	PACKAGE_VERSION=""
+    getLatestPkgVersionFromK8sVersion "$k8sVersion" "azure-acr-credential-provider-pmc" "$os" "$os_version"
+    packageVersion=$(echo $PACKAGE_VERSION | cut -d "-" -f 1)
+	echo "installing azure-acr-credential-provider package version: $packageVersion"
+    mkdir -p "${CREDENTIAL_PROVIDER_BIN_DIR}"
+    chown -R root:root "${CREDENTIAL_PROVIDER_BIN_DIR}"
+    installRPMPackageFromFile "azure-acr-credential-provider" "${packageVersion}" || exit $ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT
+    mv "/usr/local/bin/azure-acr-credential-provider" "$CREDENTIAL_PROVIDER_BIN_DIR/acr-credential-provider"
+}
+
 installKubeletKubectlPkgFromPMC() {
     local desiredVersion="${1}"
 	  installRPMPackageFromFile "kubelet" $desiredVersion || exit $ERR_KUBELET_INSTALL_FAIL

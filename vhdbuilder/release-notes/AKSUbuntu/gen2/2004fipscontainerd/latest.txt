@@ -1,37 +1,36 @@
-Starting build on  Fri Sep 5 06:48:06 UTC 2025
+Starting build on  Thu Sep 11 03:36:52 UTC 2025
 Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):
   - oras version 1.2.2
   - aks-secure-tls-bootstrap-client version 0.1.0-alpha.11
-  - runc version 1.2.6-ubuntu20.04u1
+  - runc version 1.2.7-ubuntu20.04u1
   - containerd version 1.7.28-ubuntu20.04u1
   - CNI plugin version 1.6.2
-  - Azure CNI version 1.4.59
   - Azure CNI version 1.5.38
   - Azure CNI version 1.6.21
-  - Azure CNI version 1.5.35
-  - Azure CNI version 1.6.18
   - kubelet version 1.34.0-ubuntu20.04u1
   - kubectl version 1.34.0-ubuntu20.04u1
   - kubernetes-binaries version v1.27.103-akslts
-  - kubernetes-binaries version v1.28.102-akslts
+  - kubernetes-binaries version v1.28.101-akslts
   - kubernetes-binaries version v1.29.15
   - kubernetes-binaries version v1.30.14
   - kubernetes-binaries version v1.31.11
   - kubernetes-binaries version v1.32.7
   - kubernetes-binaries version v1.33.4
+  - kubernetes-binaries version v1.34.0
   - kubernetes-binaries version v1.27.102-akslts
-  - kubernetes-binaries version v1.28.101-akslts
+  - kubernetes-binaries version v1.28.100-akslts
   - kubernetes-binaries version v1.29.14
   - kubernetes-binaries version v1.30.13
   - kubernetes-binaries version v1.31.10
   - kubernetes-binaries version v1.32.6
   - kubernetes-binaries version v1.33.3
-  - azure-acr-credential-provider version v1.30.13
-  - azure-acr-credential-provider version v1.31.7
-  - azure-acr-credential-provider version v1.32.6
+  - kubernetes-binaries version v1.34.0
+  - azure-acr-credential-provider version v1.30.14
+  - azure-acr-credential-provider version v1.31.8
+  - azure-acr-credential-provider version v1.32.7
   - azure-acr-credential-provider version v1.33.2
-  - runc version 1.2.6-1
-  - nvidia-driver=570.172.08-20250731000559
+  - runc version 1.2.7-1
+  - nvidia-driver=570.172.08-20250822192810
   - bpftrace v0.9.4
 containerd images pre-pulled:
   - mcr.microsoft.com/oss/v2/kubernetes/autoscaler/addon-resizer:v1.8.23-2
@@ -39,31 +38,26 @@ containerd images pre-pulled:
   - mcr.microsoft.com/oss/v2/kubernetes/coredns:v1.11.3-8
   - mcr.microsoft.com/oss/v2/kubernetes/coredns:v1.12.1-2
   - mcr.microsoft.com/oss/v2/kubernetes/coredns:v1.9.4-6
-  - mcr.microsoft.com/containernetworking/azure-cni:v1.4.59
   - mcr.microsoft.com/containernetworking/azure-cni:v1.5.44
-  - mcr.microsoft.com/containernetworking/azure-cni:v1.6.21
-  - mcr.microsoft.com/containernetworking/azure-cni:v1.5.42
-  - mcr.microsoft.com/containernetworking/azure-cni:v1.6.20
-  - mcr.microsoft.com/containernetworking/azure-cns:v1.4.59
-  - mcr.microsoft.com/containernetworking/azure-cns:v1.5.48
-  - mcr.microsoft.com/containernetworking/azure-cns:v1.6.31
-  - mcr.microsoft.com/containernetworking/azure-cns:v1.5.45
-  - mcr.microsoft.com/containernetworking/azure-cns:v1.6.30
-  - mcr.microsoft.com/containernetworking/azure-ipam:v0.0.7
+  - mcr.microsoft.com/containernetworking/azure-cni:v1.6.32
+  - mcr.microsoft.com/containernetworking/azure-cni:v1.7.3-0
+  - mcr.microsoft.com/containernetworking/azure-cns:v1.5.49
+  - mcr.microsoft.com/containernetworking/azure-cns:v1.6.33
+  - mcr.microsoft.com/containernetworking/azure-cns:v1.7.3-0
   - mcr.microsoft.com/containernetworking/azure-ipam:v0.2.1
   - mcr.microsoft.com/containernetworking/azure-ipam:v0.2.0
   - mcr.microsoft.com/containernetworking/azure-npm:v1.6.29
-  - mcr.microsoft.com/containernetworking/cilium/cilium:v1.16.10-250610
-  - mcr.microsoft.com/containernetworking/cilium/cilium:v1.17.4-250610
-  - mcr.microsoft.com/containernetworking/cilium/cilium:v1.16.8-250514
-  - mcr.microsoft.com/containernetworking/cilium/cilium:v1.17.2-250410
+  - mcr.microsoft.com/containernetworking/cilium/cilium:v1.14.19-250129
+  - mcr.microsoft.com/containernetworking/cilium/cilium:v1.16.6-250129
+  - mcr.microsoft.com/containernetworking/cilium/cilium:v1.14.18-250107
+  - mcr.microsoft.com/containernetworking/cilium/cilium:v1.16.5-250110
   - mcr.microsoft.com/oss/v2/kubernetes/apiserver-network-proxy/agent:v0.30.3-5
   - mcr.microsoft.com/oss/v2/kubernetes-csi/secrets-store/driver:v1.5.3
   - mcr.microsoft.com/oss/v2/azure/secrets-store/provider-azure:v1.7.1
-  - mcr.microsoft.com/azuremonitor/containerinsights/ciprod:3.1.28
-  - mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.21.1-main-08-15-2025-f5f679d6
-  - mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.21.1-main-08-15-2025-f5f679d6-targetallocator
-  - mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.21.1-main-08-15-2025-f5f679d6-cfg
+  - mcr.microsoft.com/azuremonitor/containerinsights/ciprod:3.1.29
+  - mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.22.0-main-09-05-2025-e40947f3
+  - mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.22.0-main-09-05-2025-e40947f3-targetallocator
+  - mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.22.0-main-09-05-2025-e40947f3-cfg
   - mcr.microsoft.com/oss/v2/kubernetes/kube-state-metrics:v2.15.0-4
   - mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.29.15
   - mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.30.13
@@ -82,40 +76,40 @@ containerd images pre-pulled:
   - mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.31.11
   - mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.32.9
   - mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.33.3
-  - mcr.microsoft.com/oss/v2/kubernetes-csi/azuredisk-csi:v1.32.10-2
-  - mcr.microsoft.com/oss/v2/kubernetes-csi/azuredisk-csi:v1.33.4-2
+  - mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.30.10
   - mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.31.7
-  - mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.32.5
   - mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.33.3
+  - mcr.microsoft.com/oss/v2/kubernetes-csi/azurefile-csi:v1.32.6-3
   - mcr.microsoft.com/oss/v2/kubernetes-csi/azurefile-csi:v1.33.4-2
   - mcr.microsoft.com/oss/kubernetes-csi/blob-csi:v1.25.9
-  - mcr.microsoft.com/oss/kubernetes-csi/blob-csi:v1.26.6
+  - mcr.microsoft.com/oss/v2/kubernetes-csi/blob-csi:v1.26.7
+  - mcr.microsoft.com/oss/v2/kubernetes-csi/blob-csi:v1.27.0
   - mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.15.0
   - mcr.microsoft.com/oss/v2/kubernetes-csi/livenessprobe:v2.16.0
   - mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.13.0
   - mcr.microsoft.com/oss/v2/kubernetes-csi/csi-node-driver-registrar:v2.14.0
+  - mcr.microsoft.com/oss/v2/open-policy-agent/gatekeeper:v3.20.0-1
   - mcr.microsoft.com/oss/v2/open-policy-agent/gatekeeper:v3.19.3-1
-  - mcr.microsoft.com/oss/v2/open-policy-agent/gatekeeper:v3.19.1-1
-  - mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:1.12.4
-  - mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:1.12.3
-  - mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:1.12.4
-  - mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:1.12.3
+  - mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:1.13.1
+  - mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:1.13.0
+  - mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:1.13.1
+  - mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:1.13.0
   - mcr.microsoft.com/aks/aks-node-ca-watcher:master.241021.1
   - mcr.microsoft.com/oss/v2/kubernetes/windows-gmsa-webhook:v0.12.1-2
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.27.103-akslts
-  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.28.102-akslts
+  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.28.101-akslts
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.29.15
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.30.14
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.31.11
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.32.7
-  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.33.4
+  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.33.3
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.27.102-akslts
-  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.28.101-akslts
+  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.28.100-akslts
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.29.14
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.30.13
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.31.10
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.32.6
-  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.33.3
+  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.33.2
   - bcc-tools
   - libbcc-examples
 Successfully copied coredns binary of v1.11.3-8
@@ -124,8 +118,10 @@ kubelet/kubectl downloaded:
 -rw-r--r-- 1 root root     11343 Dec 19  2024 /usr/local/bin/LICENSE
 -rwxr-xr-x 1 root root 108712196 Jan 28  2025 /usr/local/bin/kubelet-1.27.102-akslts
 -rwxr-xr-x 1 root root  49066136 Jan 28  2025 /usr/local/bin/kubectl-1.27.102-akslts
--rwxr-xr-x 1 root root 112615684 Feb 25  2025 /usr/local/bin/kubelet-1.29.14
--rwxr-xr-x 1 root root  50229400 Feb 25  2025 /usr/local/bin/kubectl-1.29.14
+-rwxr-xr-x 1 root root 110649604 Jan 29  2025 /usr/local/bin/kubelet-1.28.100-akslts
+-rwxr-xr-x 1 root root  49623192 Jan 29  2025 /usr/local/bin/kubectl-1.28.100-akslts
+-rwxr-xr-x 1 root root 112615684 Feb 25 00:12 /usr/local/bin/kubelet-1.29.14
+-rwxr-xr-x 1 root root  50229400 Feb 25 00:12 /usr/local/bin/kubectl-1.29.14
 -rwxr-xr-x 1 root root 113107204 Mar 12 15:08 /usr/local/bin/kubelet-1.29.15
 -rwxr-xr-x 1 root root  50765976 Mar 12 15:08 /usr/local/bin/kubectl-1.29.15
 -rwxr-xr-x 1 root root 108712196 Apr 11 02:46 /usr/local/bin/kubelet-1.27.103-akslts
@@ -134,6 +130,8 @@ kubelet/kubectl downloaded:
 -rwxr-xr-x 1 root root  49623192 Apr 11 03:58 /usr/local/bin/kubectl-1.28.101-akslts
 -rwxr-xr-x 1 root root 100530648 Jun 30 16:33 /usr/local/bin/kubelet-1.30.14
 -rwxr-xr-x 1 root root  51994776 Jun 30 16:33 /usr/local/bin/kubectl-1.30.14
+-rwxr-xr-x 1 root root  81703204 Jun 30 16:36 /usr/local/bin/kubelet-1.33.2
+-rwxr-xr-x 1 root root  60129464 Jun 30 16:36 /usr/local/bin/kubectl-1.33.2
 -rwxr-xr-x 1 root root  77435140 Jun 30 17:06 /usr/local/bin/kubelet-1.32.6
 -rwxr-xr-x 1 root root  57352344 Jun 30 17:06 /usr/local/bin/kubectl-1.32.6
 -rwxr-xr-x 1 root root  77312440 Jun 30 17:07 /usr/local/bin/kubelet-1.31.10
@@ -151,12 +149,14 @@ kubelet/kubectl downloaded:
 -rwxr-xr-x 1 root root  56294938 Aug 20 20:53 /usr/local/bin/aks-secure-tls-bootstrap-client
 -rwxr-xr-x 1 root root 110649604 Aug 25 22:07 /usr/local/bin/kubelet-1.28.102-akslts
 -rwxr-xr-x 1 root root  49623192 Aug 25 22:07 /usr/local/bin/kubectl-1.28.102-akslts
--rwxr-xr-x 1 root root       699 Sep  5 06:48 /usr/local/bin/ci-syslog-watcher.sh
--rwxr-xr-x 1 root root  35384960 Sep  5 07:00 /usr/local/bin/bpftrace
+-rwxr-xr-x 1 root root  59195684 Aug 27 19:33 /usr/local/bin/kubelet-1.34.0
+-rwxr-xr-x 1 root root  60559544 Aug 27 19:33 /usr/local/bin/kubectl-1.34.0
+-rwxr-xr-x 1 root root       699 Sep 11 03:37 /usr/local/bin/ci-syslog-watcher.sh
+-rwxr-xr-x 1 root root  35384960 Sep 11 03:51 /usr/local/bin/bpftrace
 === Installed Packages Begin
 Listing...
 accountsservice/focal-updates,focal-security,now 0.6.55-0ubuntu12~20.04.7 amd64 [installed,automatic]
-acr-mirror/now 0.2.12-1 amd64 [installed,local]
+acr-mirror/now 0.2.13-1 amd64 [installed,local]
 adduser/focal,now 3.118ubuntu2 all [installed,automatic]
 alsa-topology-conf/focal,now 1.2.2-1 all [installed,automatic]
 alsa-ucm-conf/focal-updates,now 1.2.2-1ubuntu0.13 all [installed,automatic]
@@ -254,7 +254,7 @@ fwupd/focal-updates,now 1.7.9-1~20.04.3 amd64 [installed]
 g++-9/focal-updates,focal-security,now 9.4.0-1ubuntu1~20.04.2 amd64 [installed,automatic]
 g++/focal,now 4:9.3.0-1ubuntu2 amd64 [installed,automatic]
 gawk/focal-updates,focal-security,now 1:5.0.1+dfsg-1ubuntu0.1 amd64 [installed,automatic]
-gcc-10-base/now 10.5.0-1ubuntu1~20.04.1+esm1 amd64 [installed,local]
+gcc-10-base/focal-updates,focal-security,now 10.5.0-1ubuntu1~20.04 amd64 [installed,automatic]
 gcc-9-base/focal-updates,focal-security,now 9.4.0-1ubuntu1~20.04.2 amd64 [installed,automatic]
 gcc-9/focal-updates,focal-security,now 9.4.0-1ubuntu1~20.04.2 amd64 [installed,automatic]
 gcc/focal,now 4:9.3.0-1ubuntu2 amd64 [installed]
@@ -338,7 +338,7 @@ libasound2/focal-updates,now 1.2.2-2.1ubuntu2.5 amd64 [installed,automatic]
 libassuan0/focal,now 2.5.3-7ubuntu2 amd64 [installed,automatic]
 libatasmart4/focal,now 0.19-5 amd64 [installed,automatic]
 libatm1/focal,now 1:2.5.1-4 amd64 [installed,automatic]
-libatomic1/now 10.5.0-1ubuntu1~20.04.1+esm1 amd64 [installed,local]
+libatomic1/focal-updates,focal-security,now 10.5.0-1ubuntu1~20.04 amd64 [installed,automatic]
 libattr1/focal,now 1:2.4.48-5 amd64 [installed,automatic]
 libaudit-common/focal,now 1:2.8.5-2ubuntu6 all [installed,automatic]
 libaudit1/focal,now 1:2.8.5-2ubuntu6 amd64 [installed,automatic]
@@ -369,7 +369,7 @@ libcap-ng0/focal,now 0.7.9-2.1build1 amd64 [installed,automatic]
 libcap2-bin/focal-updates,focal-security,now 1:2.32-1ubuntu0.2 amd64 [installed,automatic]
 libcap2/focal-updates,focal-security,now 1:2.32-1ubuntu0.2 amd64 [installed,automatic]
 libcbor0.6/focal,now 0.6.0-0ubuntu1 amd64 [installed,automatic]
-libcc1-0/now 10.5.0-1ubuntu1~20.04.1+esm1 amd64 [installed,local]
+libcc1-0/focal-updates,focal-security,now 10.5.0-1ubuntu1~20.04 amd64 [installed,automatic]
 libcephfs2/focal-updates,focal-security,now 15.2.17-0ubuntu0.20.04.6 amd64 [installed,automatic]
 libcom-err2/focal-updates,now 1.45.5-2ubuntu1.2 amd64 [installed,automatic]
 libcrack2/focal,now 2.9.6-3.2 amd64 [installed,automatic]
@@ -413,7 +413,7 @@ libfwupdplugin1/focal-updates,now 1.5.11-0ubuntu1~20.04.2 amd64 [installed]
 libfwupdplugin5/focal-updates,now 1.7.9-1~20.04.3 amd64 [installed,automatic]
 libgcab-1.0-0/focal,now 1.4-1 amd64 [installed,automatic]
 libgcc-9-dev/focal-updates,focal-security,now 9.4.0-1ubuntu1~20.04.2 amd64 [installed,automatic]
-libgcc-s1/now 10.5.0-1ubuntu1~20.04.1+esm1 amd64 [installed,local]
+libgcc-s1/focal-updates,focal-security,now 10.5.0-1ubuntu1~20.04 amd64 [installed,automatic]
 libgcrypt20-hmac/now 1.8.5-5ubuntu1.fips.1.7 amd64 [installed,local]
 libgcrypt20/now 1.8.5-5ubuntu1.fips.1.7 amd64 [installed,local]
 libgdbm-compat4/focal,now 1.18.1-5 amd64 [installed,automatic]
@@ -428,7 +428,7 @@ libglib2.0-bin/focal-updates,focal-security,now 2.64.6-1~ubuntu20.04.9 amd64 [in
 libglib2.0-data/focal-updates,focal-security,now 2.64.6-1~ubuntu20.04.9 all [installed,automatic]
 libglusterfs0/focal,now 7.2-2build1 amd64 [installed,automatic]
 libgmp10/focal-updates,focal-security,now 2:6.2.0+dfsg-4ubuntu0.1 amd64 [installed,automatic]
-libgnutls30/focal-updates,focal-security,now 3.6.13-2ubuntu1.12 amd64 [installed,automatic]
+libgnutls30/now 3.6.13-2ubuntu1.12+esm1 amd64 [installed,local]
 libgomp1/now 10.5.0-1ubuntu1~20.04.1+esm1 amd64 [installed,local]
 libgoogle-perftools4/focal,now 2.7-1ubuntu2 amd64 [installed,automatic]
 libgpg-error0/focal,now 1.37-1 amd64 [installed,automatic]
@@ -454,7 +454,7 @@ libipset13/focal-updates,now 7.5-1ubuntu0.20.04.1 amd64 [installed,automatic]
 libisc-export1105/focal-updates,now 1:9.11.16+dfsg-3~ubuntu1 amd64 [installed,automatic]
 libisl22/focal,now 0.22.1-1 amd64 [installed,automatic]
 libisns0/focal,now 0.97-3 amd64 [installed,automatic]
-libitm1/now 10.5.0-1ubuntu1~20.04.1+esm1 amd64 [installed,local]
+libitm1/focal-updates,focal-security,now 10.5.0-1ubuntu1~20.04 amd64 [installed,automatic]
 libjansson4/focal,now 2.12-1build1 amd64 [installed,automatic]
 libjcat1/focal-updates,now 0.1.4-0ubuntu0.20.04.1 amd64 [installed,automatic]
 libjq1/now 1.6-1ubuntu0.20.04.1+esm1 amd64 [installed,local]
@@ -475,7 +475,7 @@ libldap-common/focal-updates,focal-security,now 2.4.49+dfsg-2ubuntu1.10 all [ins
 libleveldb1d/focal,now 1.22-3ubuntu2 amd64 [installed,automatic]
 liblmdb0/focal,now 0.9.24-1 amd64 [installed,automatic]
 liblocale-gettext-perl/focal,now 1.07-4 amd64 [installed,automatic]
-liblsan0/now 10.5.0-1ubuntu1~20.04.1+esm1 amd64 [installed,local]
+liblsan0/focal-updates,focal-security,now 10.5.0-1ubuntu1~20.04 amd64 [installed,automatic]
 libltdl7/focal,now 2.4.6-14 amd64 [installed,automatic]
 liblvm2cmd2.03/focal,now 2.03.07-1ubuntu1 amd64 [installed,automatic]
 liblz4-1/focal-updates,focal-security,now 1.9.2-2ubuntu0.20.04.1 amd64 [installed,automatic]
@@ -544,15 +544,15 @@ libpwquality-common/focal,now 1.4.2-1build1 all [installed,automatic]
 libpwquality-tools/focal,now 1.4.2-1build1 amd64 [installed]
 libpwquality1/focal,now 1.4.2-1build1 amd64 [installed,automatic]
 libpython2-stdlib/focal,now 2.7.17-2ubuntu4 amd64 [installed,automatic]
-libpython2.7-minimal/now 2.7.18-1~20.04.7+esm8 amd64 [installed,local]
-libpython2.7-stdlib/now 2.7.18-1~20.04.7+esm8 amd64 [installed,local]
+libpython2.7-minimal/now 2.7.18-1~20.04.7+esm7 amd64 [installed,local]
+libpython2.7-stdlib/now 2.7.18-1~20.04.7+esm7 amd64 [installed,local]
 libpython3-stdlib/focal,now 3.8.2-0ubuntu2 amd64 [installed,automatic]
-libpython3.8-minimal/now 3.8.10-0ubuntu1~20.04.18+esm2 amd64 [installed,local]
-libpython3.8-stdlib/now 3.8.10-0ubuntu1~20.04.18+esm2 amd64 [installed,local]
-libpython3.8/now 3.8.10-0ubuntu1~20.04.18+esm2 amd64 [installed,local]
+libpython3.8-minimal/now 3.8.10-0ubuntu1~20.04.18+esm1 amd64 [installed,local]
+libpython3.8-stdlib/now 3.8.10-0ubuntu1~20.04.18+esm1 amd64 [installed,local]
+libpython3.8/now 3.8.10-0ubuntu1~20.04.18+esm1 amd64 [installed,local]
 libqmi-glib5/focal-updates,now 1.30.4-1~ubuntu20.04.1 amd64 [installed,automatic]
 libqmi-proxy/focal-updates,now 1.30.4-1~ubuntu20.04.1 amd64 [installed,automatic]
-libquadmath0/now 10.5.0-1ubuntu1~20.04.1+esm1 amd64 [installed,local]
+libquadmath0/focal-updates,focal-security,now 10.5.0-1ubuntu1~20.04 amd64 [installed,automatic]
 librabbitmq4/focal,now 0.10.0-1 amd64 [installed,automatic]
 librados2/focal-updates,focal-security,now 15.2.17-0ubuntu0.20.04.6 amd64 [installed,automatic]
 libradosstriper1/focal-updates,focal-security,now 15.2.17-0ubuntu0.20.04.6 amd64 [installed,automatic]
@@ -586,7 +586,7 @@ libssh-4/now 0.9.3-2ubuntu2.5+esm1 amd64 [installed,local]
 libssl1.1-hmac/now 1.1.1f-1ubuntu2.fips.24 amd64 [installed,local]
 libssl1.1/now 1.1.1f-1ubuntu2.fips.24 amd64 [installed,local]
 libstdc++-9-dev/focal-updates,focal-security,now 9.4.0-1ubuntu1~20.04.2 amd64 [installed,automatic]
-libstdc++6/now 10.5.0-1ubuntu1~20.04.1+esm1 amd64 [installed,local]
+libstdc++6/focal-updates,focal-security,now 10.5.0-1ubuntu1~20.04 amd64 [installed,automatic]
 libstemmer0d/focal,now 0+svn585-2 amd64 [installed,automatic]
 libsysfs2/focal,now 2.1.0+repack-6 amd64 [installed,automatic]
 libsystemd0/now 245.4-4ubuntu3.24+esm1 amd64 [installed,local]
@@ -601,12 +601,12 @@ libtext-wrapi18n-perl/focal,now 0.06-9 all [installed,automatic]
 libtinfo6/focal-updates,focal-security,now 6.2-0ubuntu2.1 amd64 [installed,automatic]
 libtirpc-common/focal-updates,focal-security,now 1.2.5-1ubuntu0.1 all [installed,automatic]
 libtirpc3/focal-updates,focal-security,now 1.2.5-1ubuntu0.1 amd64 [installed,automatic]
-libtsan0/now 10.5.0-1ubuntu1~20.04.1+esm1 amd64 [installed,local]
+libtsan0/focal-updates,focal-security,now 10.5.0-1ubuntu1~20.04 amd64 [installed,automatic]
 libtss2-esys0/focal-updates,focal-security,now 2.3.2-1ubuntu0.20.04.2 amd64 [installed,automatic]
-libubsan1/now 10.5.0-1ubuntu1~20.04.1+esm1 amd64 [installed,local]
+libubsan1/focal-updates,focal-security,now 10.5.0-1ubuntu1~20.04 amd64 [installed,automatic]
 libuchardet0/focal,now 0.0.6-3build1 amd64 [installed,automatic]
 libudev1/now 245.4-4ubuntu3.24+esm1 amd64 [installed,local]
-libudisks2-0/now 2.8.4-1ubuntu2+esm2 amd64 [installed,local]
+libudisks2-0/now 2.8.4-1ubuntu2+esm1 amd64 [installed,local]
 libunistring2/focal,now 0.9.10-2 amd64 [installed,automatic]
 libunwind8/focal-updates,now 1.2.1-9ubuntu0.1 amd64 [installed,automatic]
 liburcu6/focal,now 0.11.1-2 amd64 [installed,automatic]
@@ -626,25 +626,25 @@ libxau6/focal,now 1:1.0.9-0ubuntu1 amd64 [installed,automatic]
 libxcb1/focal,now 1.14-2 amd64 [installed,automatic]
 libxdmcp6/focal,now 1:1.1.3-0ubuntu1 amd64 [installed,automatic]
 libxext6/focal,now 2:1.3.4-0ubuntu1 amd64 [installed,automatic]
-libxml2/now 2.9.10+dfsg-5ubuntu0.20.04.10+esm1 amd64 [installed,local]
+libxml2/now 2.9.10+dfsg-5ubuntu0.20.04.10+esm2 amd64 [installed,local]
 libxmlb1/focal-updates,now 0.1.15-2ubuntu1~20.04.1 amd64 [installed]
 libxmlb2/focal-updates,now 0.3.6-2build1~20.04.1 amd64 [installed,automatic]
 libxmuu1/focal,now 2:1.1.3-0ubuntu1 amd64 [installed,automatic]
 libxtables12/focal-updates,now 1.8.4-3ubuntu2.1 amd64 [installed,automatic]
 libyaml-0-2/focal,now 0.2.2-1 amd64 [installed,automatic]
 libzstd1/focal-updates,focal-security,now 1.4.4+dfsg-3ubuntu0.1 amd64 [installed,automatic]
-linux-azure-5.15-cloud-tools-5.15.0-1094/now 5.15.0-1094.103~20.04.1 amd64 [installed,local]
-linux-azure-5.15-tools-5.15.0-1094/now 5.15.0-1094.103~20.04.1 amd64 [installed,local]
+linux-azure-5.15-cloud-tools-5.15.0-1091/now 5.15.0-1091.100~20.04.1 amd64 [installed,local]
+linux-azure-5.15-tools-5.15.0-1091/now 5.15.0-1091.100~20.04.1 amd64 [installed,local]
 linux-azure-fips-cloud-tools-5.4.0-1154/now 5.4.0-1154.161+fips1 amd64 [installed,local]
 linux-azure-fips-headers-5.4.0-1154/now 5.4.0-1154.161+fips1 all [installed,local]
 linux-azure-fips-tools-5.4.0-1154/now 5.4.0-1154.161+fips1 amd64 [installed,local]
 linux-azure-fips/now 5.4.0.1154.91 amd64 [installed,local]
 linux-base-sgx/focal-updates,now 4.5ubuntu3.7 all [installed,automatic]
 linux-base/focal-updates,now 4.5ubuntu3.7 all [installed]
-linux-cloud-tools-5.15.0-1094-azure/now 5.15.0-1094.103~20.04.1 amd64 [installed,local]
+linux-cloud-tools-5.15.0-1091-azure/now 5.15.0-1091.100~20.04.1 amd64 [installed,local]
 linux-cloud-tools-5.4.0-1154-azure-fips/now 5.4.0-1154.161+fips1 amd64 [installed,local]
 linux-cloud-tools-azure-fips/now 5.4.0.1154.91 amd64 [installed,local]
-linux-cloud-tools-azure/now 5.15.0.1094.103~20.04.1 amd64 [installed,local]
+linux-cloud-tools-azure/now 5.15.0.1091.100~20.04.1 amd64 [installed,local]
 linux-cloud-tools-common/now 5.4.0-220.240 all [installed,local]
 linux-headers-5.4.0-1154-azure-fips/now 5.4.0-1154.161+fips1 amd64 [installed,local]
 linux-headers-azure-fips/now 5.4.0.1154.91 amd64 [installed,local]
@@ -654,10 +654,10 @@ linux-image-hmac-5.4.0-1154-azure-fips/now 5.4.0-1154.161+fips1 amd64 [installed
 linux-libc-dev/now 5.4.0-220.240 amd64 [installed,local]
 linux-modules-5.4.0-1154-azure-fips/now 5.4.0-1154.161+fips1 amd64 [installed,local]
 linux-modules-extra-5.4.0-1154-azure-fips/now 5.4.0-1154.161+fips1 amd64 [installed,local]
-linux-tools-5.15.0-1094-azure/now 5.15.0-1094.103~20.04.1 amd64 [installed,local]
+linux-tools-5.15.0-1091-azure/now 5.15.0-1091.100~20.04.1 amd64 [installed,local]
 linux-tools-5.4.0-1154-azure-fips/now 5.4.0-1154.161+fips1 amd64 [installed,local]
 linux-tools-azure-fips/now 5.4.0.1154.91 amd64 [installed,local]
-linux-tools-azure/now 5.15.0.1094.103~20.04.1 amd64 [installed,local]
+linux-tools-azure/now 5.15.0.1091.100~20.04.1 amd64 [installed,local]
 linux-tools-common/now 5.4.0-220.240 all [installed,local]
 locales/focal-updates,focal-security,now 2.31-0ubuntu9.18 all [installed,automatic]
 login/focal-updates,focal-security,now 1:4.8.1-1ubuntu5.20.04.5 amd64 [installed,automatic]
@@ -679,7 +679,7 @@ mawk/focal,now 1.3.4.20200120-2 amd64 [installed,automatic]
 mdadm/focal-updates,now 4.1-5ubuntu1.2 amd64 [installed]
 mime-support/focal,now 3.64ubuntu1 all [installed,automatic]
 moby-containerd/testing,focal,now 1.7.28-ubuntu20.04u1 amd64 [installed,upgradable to: 2.1.4-ubuntu20.04u1]
-moby-runc/testing,now 1.2.6-ubuntu20.04u1 amd64 [installed,upgradable to: 1.2.7-ubuntu20.04u1]
+moby-runc/testing,focal,now 1.2.7-ubuntu20.04u1 amd64 [installed,upgradable to: 1.3.0-ubuntu20.04u1]
 modemmanager/focal-updates,now 1.18.6-1~ubuntu20.04.1 amd64 [installed,automatic]
 mokutil/focal-updates,focal-security,now 0.6.0-2~20.04.2 amd64 [installed,automatic]
 motd-news-config/focal-updates,now 11ubuntu5.8 all [installed]
@@ -731,8 +731,8 @@ publicsuffix/focal,now 20200303.0012-1 all [installed,automatic]
 python-apt-common/focal-updates,now 2.0.1ubuntu0.20.04.1 all [installed,automatic]
 python-is-python2/focal,now 2.7.17-4 all [installed]
 python2-minimal/focal,now 2.7.17-2ubuntu4 amd64 [installed,automatic]
-python2.7-minimal/now 2.7.18-1~20.04.7+esm8 amd64 [installed,local]
-python2.7/now 2.7.18-1~20.04.7+esm8 amd64 [installed,local]
+python2.7-minimal/now 2.7.18-1~20.04.7+esm7 amd64 [installed,local]
+python2.7/now 2.7.18-1~20.04.7+esm7 amd64 [installed,local]
 python2/focal,now 2.7.17-2ubuntu4 amd64 [installed,automatic]
 python3-apt/focal-updates,now 2.0.1ubuntu0.20.04.1 amd64 [installed,automatic]
 python3-attr/focal,now 19.3.0-2 all [installed,automatic]
@@ -814,8 +814,8 @@ python3-wadllib/focal,now 1.3.3-3build1 all [installed,automatic]
 python3-yaml/focal-updates,focal-security,now 5.3.1-1ubuntu0.1 amd64 [installed,automatic]
 python3-zipp/focal-updates,focal-security,now 1.0.0-1ubuntu0.1 all [installed]
 python3-zope.interface/focal,now 4.7.1-1 amd64 [installed,automatic]
-python3.8-minimal/now 3.8.10-0ubuntu1~20.04.18+esm2 amd64 [installed,local]
-python3.8/now 3.8.10-0ubuntu1~20.04.18+esm2 amd64 [installed,local]
+python3.8-minimal/now 3.8.10-0ubuntu1~20.04.18+esm1 amd64 [installed,local]
+python3.8/now 3.8.10-0ubuntu1~20.04.18+esm1 amd64 [installed,local]
 python3/focal,now 3.8.2-0ubuntu2 amd64 [installed,automatic]
 readline-common/focal,now 8.0-4 all [installed,automatic]
 rng-tools/focal,now 5-1ubuntu2 amd64 [installed]
@@ -862,7 +862,7 @@ ubuntu-release-upgrader-core/focal-updates,now 1:20.04.41 all [installed,automat
 ubuntu-standard/focal-updates,now 1.450.2 amd64 [installed]
 ucf/focal,now 3.0038+nmu1 all [installed,automatic]
 udev/now 245.4-4ubuntu3.24+esm1 amd64 [installed,local]
-udisks2/now 2.8.4-1ubuntu2+esm2 amd64 [installed,local]
+udisks2/now 2.8.4-1ubuntu2+esm1 amd64 [installed,local]
 ufw/focal-updates,now 0.36-6ubuntu1.1 all [installed,automatic]
 unattended-upgrades/focal-updates,now 2.3ubuntu0.3 all [installed,automatic]
 update-manager-core/focal-updates,now 1:20.04.10.23 all [installed,automatic]
@@ -892,7 +892,7 @@ zlib1g/focal-updates,focal-security,now 1:1.2.11.dfsg-2ubuntu1.5 amd64 [installe
 === Installed Packages End
 Disk usage:
 Filesystem      Size  Used Avail Use% Mounted on
-/dev/root        29G   27G  2.8G  91% /
+/dev/root        29G   25G  4.0G  87% /
 devtmpfs         32G     0   32G   0% /dev
 tmpfs            32G     0   32G   0% /dev/shm
 tmpfs           6.3G  1.1M  6.3G   1% /run
@@ -917,10 +917,10 @@ UBUNTU_CODENAME=focal
 === os-release End
 Using kernel:
 Linux version 5.4.0-1154-azure-fips (buildd@lcy02-amd64-117) (gcc version 9.4.0 (Ubuntu 9.4.0-1ubuntu1~20.04.2)) #161+fips1-Ubuntu SMP Fri Jun 27 04:05:20 UTC 2025
-Install completed successfully on  Fri Sep 5 07:09:06 UTC 2025
-VSTS Build NUMBER: 20250905.2_master_136113191
-VSTS Build ID: 136113191
-Commit: e2b93bbab223366a14cb9afd043724fe7d1267e7
+Install completed successfully on  Thu Sep 11 04:01:06 UTC 2025
+VSTS Build NUMBER: 20250911.1_master_136728918
+VSTS Build ID: 136728918
+Commit: 5ec404784f2fd637184f6d1c1b25cb06157ebf63
 Ubuntu version: 20.04
 Hyperv generation: V2
 Feature flags: None

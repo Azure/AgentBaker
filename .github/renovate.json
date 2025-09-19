@@ -45,6 +45,7 @@
         "azuremonitor/containerinsights/ciprod/prometheus-collector/images",
         "oss/kubernetes/azure-cloud-node-manager",
         "aks/ip-masq-agent-v2",
+        "oss/v2/azure/ip-masq-agent-v2",
         "oss/kubernetes-csi/azuredisk-csi",
         "oss/v2/kubernetes-csi/azuredisk-csi",
         "oss/kubernetes-csi/azurefile-csi",
@@ -65,6 +66,14 @@
       ],
       "enabled": false
     },
+    {
+      "matchPackageNames": [
+        "oss/v2/**"
+      ],
+      "versioning": "regex:^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<prerelease>\\d+)$",
+      "ignoreUnstable": false
+    },
+    
     {
       "matchDatasources": [
         "docker"
@@ -206,24 +215,12 @@
       "enabled": true,
       "groupName": "credential-provider-pmc",
       "assignees": [
-        "devinwong",
-        "anujmaheshwari1",
-        "cameronmeissner",
-        "lilypan26",
-        "djsly",
-        "UtheMan",
-        "zachary-bailey",
-        "ganeshkumarashok"
+        "mainred",
+        "nilo19"
       ],
       "reviewers": [
-        "devinwong",
-        "anujmaheshwari1",
-        "cameronmeissner",
-        "lilypan26",
-        "djsly",
-        "UtheMan",
-        "zachary-bailey",
-        "ganeshkumarashok"
+        "mainred",
+        "nilo19"
       ]
     },
     {
@@ -241,6 +238,19 @@
         "behzad-mir",
         "jpayne3506",
         "QxBytes"
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "oss/v2/azure/ip-masq-agent-v2"
+      ],
+      "reviewers": [
+        "robogatikov",
+        "paulgmiller"
+      ],
+      "assignees": [
+        "robogatikov",
+        "paulgmiller"
       ]
     },
     {
@@ -346,12 +356,10 @@
       "groupName": "acr-credential-provider",
       "assignees": [
         "mainred",
-        "MartinForReal",
         "nilo19"
       ],
       "reviewers": [
         "mainred",
-        "MartinForReal",
         "nilo19"
       ]
     },
@@ -417,12 +425,10 @@
       "groupName": "azure-cloud-node-manager",
       "assignees": [
         "mainred",
-        "MartinForReal",
         "nilo19"
       ],
       "reviewers": [
         "mainred",
-        "MartinForReal",
         "nilo19"
       ]
     },

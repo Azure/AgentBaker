@@ -254,7 +254,7 @@ if (-not (Test-Path "C:\AzureData\windows\azurecnifunc.ps1")) {
     Logs-To-Event -TaskName "AKS.WindowsCSE.DownloadAndExpandCSEScriptPackageUrl" -TaskMessage "Start to get CSE scripts. CSEScriptsPackageUrl: $global:CSEScriptsPackageUrl"
     $tempfile = 'c:\csescripts.zip'
     DownloadFileOverHttp -Url $global:CSEScriptsPackageUrl -DestinationPath $tempfile -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CSE_PACKAGE
-    Expand-Archive $tempfile -DestinationPath "C:\\AzureData\\windows" -Force
+    AKS-Expand-Archive -Path $tempfile -DestinationPath "C:\\AzureData\\windows"
     Remove-Item -Path $tempfile -Force
 } else {
     Write-Log "CSE scripts already exist, skipping download"
@@ -584,6 +584,7 @@ try
 }
 catch
 {
+    Resolve-Error
     # Set-ExitCode will exit with the specified ExitCode immediately and not be caught by this catch block
     # Ideally all exceptions will be handled and no exception will be thrown.
     Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_UNKNOWN -ErrorMessage $_

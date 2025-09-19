@@ -611,8 +611,8 @@ testLtsKernel() {
   enable_fips=$3
 
   # shellcheck disable=SC3010
-  if [[ "$os_sku" == "Ubuntu" && ${enable_fips,,} != "true" ]] && ! grep -q "cvm" <<< "$FEATURE_FLAGS" ; then
-    echo "OS is Ubuntu, FIPS is not enabled, and this is not a CVM; check LTS kernel version"
+  if [[ "$os_sku" == "Ubuntu" && ${enable_fips,,} != "true" ]] ; then
+    echo "OS is Ubuntu, FIPS is not enabled, check LTS kernel version"
     # Check the Ubuntu version and set the expected kernel version
     if [ "$os_version" = "22.04" ]; then
       expected_kernel="5.15"
