@@ -438,6 +438,8 @@ while IFS= read -r p; do
           downloadPkgFromVersion "nvidia-device-plugin" "${version}" "${downloadDir}"
         fi
         echo "  - nvidia-device-plugin version ${version}" >> ${VHD_LOGS_FILEPATH}
+      done
+      ;;
     "azure-acr-credential-provider-pmc")
       for version in ${PACKAGE_VERSIONS[@]}; do
         if [ "${OS}" = "${UBUNTU_OS_NAME}" ] || isMarinerOrAzureLinux "$OS"; then
