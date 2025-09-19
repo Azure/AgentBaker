@@ -138,6 +138,8 @@ ERR_SECURE_TLS_BOOTSTRAP_START_FAILURE=220 # Error starting the secure TLS boots
 
 ERR_CLOUD_INIT_FAILED=223 # Error indicating that cloud-init returned exit code 1 in cse_cmd.sh
 ERR_NVIDIA_DRIVER_INSTALL=224 # Error determining if nvidia driver install should be skipped
+ERR_NVIDIA_GPG_KEY_DOWNLOAD_TIMEOUT=225 # Timeout waiting for NVIDIA GPG key download
+ERR_NVIDIA_AZURELINUX_REPO_FILE_DOWNLOAD_TIMEOUT=226 # Timeout waiting for NVIDIA AzureLinux repo file download
 
 ERR_PULL_POD_INFRA_CONTAINER_IMAGE=225 # Error pulling pause image
 

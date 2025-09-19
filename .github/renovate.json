@@ -67,7 +67,6 @@
       "versioning": "regex:^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<prerelease>\\d+)$",
       "ignoreUnstable": false
     },
-
     {
       "matchDatasources": [
         "docker"
@@ -579,6 +578,20 @@
     },
     {
       "customType": "regex",
+      "description": "auto update Nvidia packages for OS ubuntu 22.04 in components.json",
+      "managerFilePatterns": [
+        "/parts/common/components.json/"
+      ],
+      "matchStringsStrategy": "any",
+      "matchStrings": [
+        "\"renovateTag\":\\s*\"name=(?<packageName>[^\"]+), repository=production, os=ubuntu, release=22\\.04\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\"(?:[^}]*\"previousLatestVersion\":\\s*\"(?<depType>[^\"]+)\")?"
+      ],
+      "datasourceTemplate": "custom.nvidia-deb2204",
+      "versioningTemplate": "deb",
+      "autoReplaceStringTemplate": "\"renovateTag\": \"name={{{packageName}}}, repository=production, os=ubuntu, release=22.04\",\n                \"latestVersion\": \"{{{newValue}}}\"{{#if depType}},\n                \"previousLatestVersion\": \"{{{currentValue}}}\"{{/if}}"
+    },
+    {
+      "customType": "regex",
       "description": "auto update packages for OS ubuntu 24.04 in components.json",
       "managerFilePatterns": [
         "/parts/common/components.json/"
@@ -588,6 +601,20 @@
         "\"renovateTag\":\\s*\"name=(?<packageName>[^\"]+), repository=production, os=ubuntu, release=24\\.04\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\"(?:[^}]*\"previousLatestVersion\":\\s*\"(?<depType>[^\"]+)\")?"
       ],
       "datasourceTemplate": "custom.deb2404",
+      "versioningTemplate": "deb",
+      "autoReplaceStringTemplate": "\"renovateTag\": \"name={{{packageName}}}, repository=production, os=ubuntu, release=24.04\",\n                \"latestVersion\": \"{{{newValue}}}\"{{#if depType}},\n                \"previousLatestVersion\": \"{{{currentValue}}}\"{{/if}}"
+    },
+    {
+      "customType": "regex",
+      "description": "auto update Nvidia packages for OS ubuntu 24.04 in components.json",
+      "managerFilePatterns": [
+        "/parts/common/components.json/"
+      ],
+      "matchStringsStrategy": "any",
+      "matchStrings": [
+        "\"renovateTag\":\\s*\"name=(?<packageName>[^\"]+), repository=production, os=ubuntu, release=24\\.04\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\"(?:[^}]*\"previousLatestVersion\":\\s*\"(?<depType>[^\"]+)\")?"
+      ],
+      "datasourceTemplate": "custom.nvidia-deb2404",
       "versioningTemplate": "deb",
       "autoReplaceStringTemplate": "\"renovateTag\": \"name={{{packageName}}}, repository=production, os=ubuntu, release=24.04\",\n                \"latestVersion\": \"{{{newValue}}}\"{{#if depType}},\n                \"previousLatestVersion\": \"{{{currentValue}}}\"{{/if}}"
     },
@@ -658,8 +685,22 @@
         "{\"releases\": $map(($index := releases#$i[version=\"Package: {{packageName}}\"].$i; $map($index, function($i) { $substringAfter(releases[$i + 1].version, \"Version: \") })), function($v) { {\"version\": $v} })[]}"
       ]
     },
+    "nvidia-deb2204": {
+      "defaultRegistryUrlTemplate": "https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/Packages",
+      "format": "plain",
+      "transformTemplates": [
+        "{\"releases\": $map(($index := releases#$i[version=\"Package: {{packageName}}\"].$i; $map($index, function($i) { $substringAfter(releases[$i + 1].version, \"Version: \") })), function($v) { {\"version\": $v} })[]}"
+      ]
+    },
     "deb2404": {
       "defaultRegistryUrlTemplate": "https://packages.microsoft.com/ubuntu/24.04/prod/dists/noble/main/binary-amd64/Packages",
+      "format": "plain",
+      "transformTemplates": [
+        "{\"releases\": $map(($index := releases#$i[version=\"Package: {{packageName}}\"].$i; $map($index, function($i) { $substringAfter(releases[$i + 1].version, \"Version: \") })), function($v) { {\"version\": $v} })[]}"
+      ]
+    },
+    "nvidia-deb2404": {
+      "defaultRegistryUrlTemplate": "https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/Packages",
       "format": "plain",
       "transformTemplates": [
         "{\"releases\": $map(($index := releases#$i[version=\"Package: {{packageName}}\"].$i; $map($index, function($i) { $substringAfter(releases[$i + 1].version, \"Version: \") })), function($v) { {\"version\": $v} })[]}"
