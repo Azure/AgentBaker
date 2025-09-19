@@ -670,6 +670,31 @@ func Test_Ubuntu2204(t *testing.T) {
 	})
 }
 
+func Test_Ubuntu2204_EntraIDSSH(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using Ubuntu 2204 VHD with Entra ID SSH can be properly bootstrapped",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				// Enable Entra ID SSH authentication
+				nbc.SSHStatus = datamodel.EntraIDSSH
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				// Validate basic containerd and runc package versions
+				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", components.GetExpectedPackageVersions("containerd", "ubuntu", "r2204")[0])
+				ValidateInstalledPackageVersion(ctx, s, "moby-runc", components.GetExpectedPackageVersions("runc", "ubuntu", "r2204")[0])
+
+				// Validate Entra ID SSH configuration
+				ValidateEntraIDSSHConfigured(ctx, s)
+			},
+		},
+	})
+}
+
+// TODO: Add Test_Ubuntu2204_EntraIDSSH_Scriptless when AKS node controller
+// supports Entra ID SSH configuration through proto definition
+
 func Test_Ubuntu2204_AirGap(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2204 VHD and is airgap can be properly bootstrapped",

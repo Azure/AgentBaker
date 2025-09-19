@@ -974,3 +974,21 @@ func ValidateEnableNvidiaResource(ctx context.Context, s *Scenario) {
 	s.T.Logf("waiting for Nvidia GPU resource to be available")
 	waitUntilResourceAvailable(ctx, s, "nvidia.com/gpu")
 }
+
+// ValidateEntraIDSSHConfigured validates that Entra ID SSH is properly configured
+// This includes checking that PubkeyAuthentication is disabled in sshd_config
+// and that the SSH service is still running and properly configured
+func ValidateEntraIDSSHConfigured(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	// Verify SSH service is still active and running
+	ValidateSystemdUnitIsRunning(ctx, s, "ssh")
+
+	// Verify that PubkeyAuthentication is set to no in sshd_config
+	ValidateFileHasContent(ctx, s, "/etc/ssh/sshd_config", "PubkeyAuthentication no")
+
+	// Verify sshd configuration syntax is valid
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, "sshd -t", 0, "sshd configuration syntax validation failed")
+
+	s.T.Logf("Entra ID SSH configuration validated successfully")
+}
