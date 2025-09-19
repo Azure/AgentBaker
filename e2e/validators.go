@@ -976,19 +976,20 @@ func ValidateEnableNvidiaResource(ctx context.Context, s *Scenario) {
 }
 
 // ValidateEntraIDSSHConfigured validates that Entra ID SSH is properly configured
-// This includes checking that PubkeyAuthentication is disabled in sshd_config
-// and that the SSH service is still running and properly configured
+// by verifying that SSH with private key authentication fails as expected
 func ValidateEntraIDSSHConfigured(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 
-	// Verify SSH service is still active and running
-	ValidateSystemdUnitIsRunning(ctx, s, "ssh")
+	// Test that SSH connection with private key fails (this is the expected behavior)
+	// Since Entra ID SSH disables pubkey authentication, normal SSH should fail
+	connectionTest := fmt.Sprintf("%s echo 'THIS_SHOULD_FAIL'", sshString(s.Runtime.VMPrivateIP))
+	connectionResult, err := execOnPrivilegedPod(ctx, s.Runtime.Cluster.Kube, defaultNamespace, s.Runtime.Cluster.DebugPod.Name, connectionTest)
 
-	// Verify that PubkeyAuthentication is set to no in sshd_config
-	ValidateFileHasContent(ctx, s, "/etc/ssh/sshd_config", "PubkeyAuthentication no")
+	// We expect this to fail - if it succeeds, then Entra ID SSH is not working correctly
+	if err == nil && strings.Contains(connectionResult.stdout.String(), "THIS_SHOULD_FAIL") {
+		s.T.Fatalf("SSH with private key should have failed but succeeded - Entra ID SSH configuration is not working correctly")
+	}
 
-	// Verify sshd configuration syntax is valid
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, "sshd -t", 0, "sshd configuration syntax validation failed")
-
-	s.T.Logf("Entra ID SSH configuration validated successfully")
+	// Log the expected failure
+	s.T.Logf("SSH with private key authentication failed as expected - Entra ID SSH is properly configured")
 }
