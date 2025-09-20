@@ -236,9 +236,11 @@ function Get-CACertificates {
 
         $certificates = $caCerts.Certificates
         Write-Log "#certificates to copy and import: $certificates.Length"
+        Logs-To-Event -TaskName "AKS.WindowsCSE.GetCACertificates" -TaskMessage "Start processing $($certificates.Length) CA certificates for import."
         for ($index = 0; $index -lt $certificates.Length ; $index++) {
             $name=$certificates[$index].Name
             $certFilePath = Join-Path $caFolder $name
+            Logs-To-Event -TaskName "AKS.WindowsCSE.GetCACertificates" -TaskMessage "Processing CA certificate: $name"
             Write-Log "Write certificate $name to $certFilePath"
             $certificates[$index].CertBody > $certFilePath
             Write-Log "Import certificate $certFilePath to Cert:\LocalMachine\Root"
