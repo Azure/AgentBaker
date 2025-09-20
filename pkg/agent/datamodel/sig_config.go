@@ -440,8 +440,8 @@ const (
 	FrozenCBLMarinerV2KataGen2TLSIGImageVersion = "2022.12.15"
 
 	// DO NOT MODIFY: Used for freezing Kata VHD for kata-cc runtime, until the image is deprecated.
-	FrozenCBLMarinerV2KataGen2SIGImageVersion string = "202509.05.0"
-	FrozenAzureLinuxV2KataGen2SIGImageVersion string = "202509.05.0"
+	FrozenCBLMarinerV2KataGen2SIGImageVersion string = "202508.20.1"
+	FrozenAzureLinuxV2KataGen2SIGImageVersion string = "202508.20.1"
 
 	// We do not use AKS Windows image versions in AgentBaker. These fake values are only used for unit tests.
 	Windows2019SIGImageVersion string = "17763.2019.221114"
