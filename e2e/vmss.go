@@ -98,15 +98,40 @@ func CustomDataWithHack(cfg *aksnodeconfigv1.Configuration, binaryURL string) (s
 	cloudConfigTemplate := `#cloud-config
 write_files:
 - path: /opt/azure/containers/aks-node-controller-config-hack.json
-  permissions: "0755"
+  permissions: "0644"
   owner: root
   content: !!binary |
    %s
+- path: /opt/azure/bin/run-aks-node-controller-hack.sh
+  permissions: "0755"
+  owner: root
+  content: |
+    #!/bin/bash
+    set -euo pipefail
+    mkdir -p /opt/azure/bin
+    curl -fSL "%s" -o /opt/azure/bin/aks-node-controller-hack
+    chmod +x /opt/azure/bin/aks-node-controller-hack
+    /opt/azure/bin/aks-node-controller-hack provision --provision-config=/opt/azure/containers/aks-node-controller-config-hack.json
+# runcmd statement is not supported on Flatcar, so we use systemd unit instead
 runcmd:
- - mkdir -p /opt/azure/bin
- - curl -fSL "%s" -o /opt/azure/bin/aks-node-controller-hack
- - chmod +x /opt/azure/bin/aks-node-controller-hack
- - /opt/azure/bin/aks-node-controller-hack provision --provision-config=/opt/azure/containers/aks-node-controller-config-hack.json &
+ - [ bash, /opt/azure/bin/run-aks-node-controller-hack.sh ]
+# Flatcar specific configuration. It supports only a subset of cloud-init features https://github.com/flatcar/coreos-cloudinit/blob/main/Documentation/cloud-config.md#coreos-parameters
+coreos:
+  units:
+    - name: aks-node-controller-hack.service
+      command: start
+      content: |
+        [Unit]
+        Description=Downloads and runs the AKS node controller hack
+        After=network-online.target
+        Wants=network-online.target
+
+        [Service]
+        Type=oneshot
+        ExecStart=/opt/azure/bin/run-aks-node-controller-hack.sh
+
+        [Install]
+        WantedBy=multi-user.target
 `
 	aksNodeConfigJSON, err := nodeconfigutils.MarshalConfigurationV1(cfg)
 	if err != nil {

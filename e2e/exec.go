@@ -222,7 +222,7 @@ func uploadSSHKey(ctx context.Context, s *Scenario) error {
 		return fmt.Errorf("error executing command on pod: %w", err)
 	}
 
-	result := "SSH Instructions:"
+	result := "SSH Instructions: (may take a few minutes for the VM to be ready for SSH)"
 	if !config.Config.KeepVMSS {
 		result += " (VM will be automatically deleted after the test finishes, set KEEP_VMSS=true to preserve it or pause the test with a breakpoint before the test finishes)"
 	}
