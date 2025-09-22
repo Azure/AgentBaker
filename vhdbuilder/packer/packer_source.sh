@@ -437,6 +437,11 @@ copyPackerFiles() {
       DOCA_PUB_SRC=/home/packer/doca.pub
       DOCA_PUB_DEST=/etc/apt/keyrings/doca.pub
       cpAndMode $DOCA_PUB_SRC $DOCA_PUB_DEST 644
+
+      NVIDIA_MODPROBE_PARAMETERS_SRC=/home/packer/modprobe-nvidia-parameters.conf
+      NVIDIA_MODPROBE_PARAMETERS_DEST=/etc/modprobe.d/nvidia.conf
+      cpAndMode $NVIDIA_MODPROBE_PARAMETERS_SRC $NVIDIA_MODPROBE_PARAMETERS_DEST 644
+
     fi
   fi
 
