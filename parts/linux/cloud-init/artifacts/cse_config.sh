@@ -573,6 +573,8 @@ configureKubeletAndKubectl() {
             fi
         elif [ "${OS}" = "${UBUNTU_OS_NAME}" ]; then
             logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlPkgFromPMC" "installKubeletKubectlPkgFromPMC ${KUBERNETES_VERSION}"
+        elif [ "${OS}" = "${FLATCAR_OS_NAME}" ]; then
+            logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromURL" installKubeletKubectlFromURL
         fi
     fi
 }
