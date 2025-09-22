@@ -1781,6 +1781,21 @@ func Test_AzureLinux3_Kube_Package_Install(t *testing.T) {
 		}})
 }
 
+func Test_AzureLinuxV3_AppArmor(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that AppArmor is properly enabled and configured on Azure Linux V3 nodes",
+		Config: Config{
+			Cluster:                ClusterKubenet,
+			VHD:                    config.VHDAzureLinuxV3Gen2,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {},
+			Validator: func(ctx context.Context, s *Scenario) {
+				// Start simple: just validate that aa-status works and shows AppArmor is loaded
+				ValidateAppArmorBasic(ctx, s)
+			},
+		},
+	})
+}
+
 func Test_Ubuntu2204_Kube_Package_Install(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2204 VHD and install kube pkgs from PMC can be properly bootstrapped",

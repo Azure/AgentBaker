@@ -817,3 +817,19 @@ func ValidateEnableNvidiaResource(ctx context.Context, s *Scenario) {
 	s.T.Logf("waiting for Nvidia GPU resource to be available")
 	waitUntilResourceAvailable(ctx, s, "nvidia.com/gpu")
 }
+
+// ValidateAppArmorBasic validates that AppArmor is running using aa-status
+func ValidateAppArmorBasic(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	// Check if aa-status command works and shows AppArmor is loaded
+	command := []string{
+		"set -ex",
+		"sudo aa-status",
+	}
+	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "aa-status command failed")
+	stdout := execResult.stdout.String()
+
+	// Verify AppArmor module is loaded
+	require.Contains(s.T, stdout, "apparmor module is loaded", "expected AppArmor module to be loaded")
+}
