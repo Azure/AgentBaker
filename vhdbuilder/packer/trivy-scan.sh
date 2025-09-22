@@ -147,7 +147,7 @@ fi
 mkdir -p "$(dirname "${TRIVY_REPORT_DIRNAME}")"
 
 curl -fL -o "trivy_${TRIVY_VERSION}_${TRIVY_ARCH}.tar.gz" "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_${TRIVY_ARCH}.tar.gz"
-tar -xvzf "trivy_${TRIVY_VERSION}_${TRIVY_ARCH}.tar.gz"
+tar -xvzf "trivy_${TRIVY_VERSION}_${TRIVY_ARCH}.tar.gz" --no-same-owner
 rm "trivy_${TRIVY_VERSION}_${TRIVY_ARCH}.tar.gz"
 chmod a+x trivy 
 
