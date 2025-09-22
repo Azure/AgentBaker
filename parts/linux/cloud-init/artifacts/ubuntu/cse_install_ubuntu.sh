@@ -225,7 +225,9 @@ downloadPkgFromVersion() {
     downloadDir="${3:-"/opt/${packageName}/downloads"}"
     mkdir -p ${downloadDir}
     apt_get_download 20 30 ${packageName}=${packageVersion} || exit $ERR_APT_INSTALL_TIMEOUT
-    cp -al ${APT_CACHE_DIR}${packageName}_${packageVersion}* ${downloadDir}/ || exit $ERR_APT_INSTALL_TIMEOUT
+    # Strip epoch (e.g., 1:4.4.1-1 -> 4.4.1-1)
+    version_no_epoch="${packageVersion#*:}"
+    cp -al "${APT_CACHE_DIR}/${packageName}_${version_no_epoch}"* "${downloadDir}/" || exit $ERR_APT_INSTALL_TIMEOUT
     echo "Succeeded to download ${packageName} version ${packageVersion}"
 }
 
