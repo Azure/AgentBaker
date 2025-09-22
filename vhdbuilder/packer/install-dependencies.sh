@@ -598,7 +598,7 @@ EOF
     # will appear directing the reader away from the proprietary driver. The GPUs
     # are also not visible in nvidia-smi output with the proprietary drivers
     apt install -y \
-      nvidia-driver-580-open
+      nvidia-driver-580-open=580.82.07-0ubuntu1
 
     apt install -y \
       cuda-toolkit-12 \
@@ -608,6 +608,9 @@ EOF
       datacenter-gpu-manager-4-proprietary \
       libcap2-bin \
       k8s-device-plugin
+
+    apt install -y \
+      nvidia-imex=580.82.07-1
 
     apt install -y \
       doca-ofed
