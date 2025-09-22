@@ -1475,7 +1475,7 @@
     },
     {
       "name": "datacenter-gpu-manager-4-core",
-      "downloadLocation": "/opt/dcgm/downloads",
+      "downloadLocation": "/opt/datacenter-gpu-manager-4-core/downloads",
       "downloadURIs": {
         "ubuntu": {
           "r2404": {
@@ -1509,7 +1509,7 @@
     },
     {
       "name": "datacenter-gpu-manager-4-cuda12",
-      "downloadLocation": "/opt/dcgm/downloads",
+      "downloadLocation": "/opt/datacenter-gpu-manager-4-cuda12/downloads",
       "downloadURIs": {
         "ubuntu": {
           "r2404": {
@@ -1543,7 +1543,7 @@
     },
     {
       "name": "datacenter-gpu-manager-4-proprietary",
-      "downloadLocation": "/opt/dcgm/downloads",
+      "downloadLocation": "/opt/datacenter-gpu-manager-4-proprietary/downloads",
       "downloadURIs": {
         "ubuntu": {
           "r2404": {
@@ -1577,7 +1577,7 @@
     },
     {
       "name": "datacenter-gpu-manager-4-proprietary-cuda12",
-      "downloadLocation": "/opt/dcgm/downloads",
+      "downloadLocation": "/opt/datacenter-gpu-manager-4-proprietary-cuda12/downloads",
       "downloadURIs": {
         "ubuntu": {
           "r2404": {
@@ -1611,7 +1611,7 @@
     },
     {
       "name": "datacenter-gpu-manager-exporter",
-      "downloadLocation": "/opt/dcgm/downloads",
+      "downloadLocation": "/opt/datacenter-gpu-manager-exporter/downloads",
       "downloadURIs": {
         "ubuntu": {
           "r2404": {
