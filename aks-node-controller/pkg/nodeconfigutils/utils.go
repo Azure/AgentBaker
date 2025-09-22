@@ -2,7 +2,6 @@ package nodeconfigutils
 
 import (
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
@@ -21,8 +20,7 @@ write_files:
 )
 
 func CustomData(cfg *aksnodeconfigv1.Configuration) (string, error) {
-	aksNodeConfigJSON, err := json.Marshal(cfg)
-
+	aksNodeConfigJSON, err := MarshalConfigurationV1(cfg)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal nbc, error: %w", err)
 	}

@@ -170,6 +170,7 @@ var (
 		Arch:    "amd64",
 		Distro:  datamodel.AKSFlatcarGen2,
 		Gallery: imageGalleryLinux,
+		Flatcar: true,
 	}
 
 	VHDFlatcarGen2Arm64 = &Image{
@@ -178,6 +179,7 @@ var (
 		Arch:    "arm64",
 		Distro:  datamodel.AKSFlatcarArm64Gen2,
 		Gallery: imageGalleryLinux,
+		Flatcar: true,
 	}
 
 	VHDWindows2019Containerd = &Image{
@@ -254,6 +256,7 @@ type Image struct {
 	Gallery                  *Gallery
 	UnsupportedKubeletNodeIP bool
 	UnsupportedLocalDns      bool
+	Flatcar                  bool
 }
 
 func (i *Image) String() string {

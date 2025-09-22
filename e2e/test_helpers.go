@@ -27,8 +27,9 @@ import (
 )
 
 var (
-	logf = toolkit.Logf
-	log  = toolkit.Log
+	logf                        = toolkit.Logf
+	log                         = toolkit.Log
+	SSHKeyPrivate, SSHKeyPublic = mustGetNewRSAKeyPair()
 )
 
 // it's important to share context between tests to allow graceful shutdown
@@ -210,6 +211,7 @@ func runScenario(t *testing.T, s *Scenario) {
 	s.Runtime = &ScenarioRuntime{
 		Cluster: cluster,
 	}
+
 	// use shorter timeout for faster feedback on test failures
 	ctx, cancel := context.WithTimeout(ctx, config.Config.TestTimeoutVMSS)
 	defer cancel()
@@ -241,8 +243,7 @@ func prepareAKSNode(ctx context.Context, s *Scenario) {
 		s.Runtime.AKSNodeConfig = nodeconfig
 	}
 	var err error
-	s.Runtime.SSHKeyPrivate, s.Runtime.SSHKeyPublic, err = getNewRSAKeyPair()
-	publicKeyData := datamodel.PublicKey{KeyData: string(s.Runtime.SSHKeyPublic)}
+	publicKeyData := datamodel.PublicKey{KeyData: string(SSHKeyPublic)}
 
 	// check it all.
 	if s.Runtime.NBC != nil && s.Runtime.NBC.ContainerService != nil && s.Runtime.NBC.ContainerService.Properties != nil && s.Runtime.NBC.ContainerService.Properties.LinuxProfile != nil {
@@ -257,7 +258,7 @@ func prepareAKSNode(ctx context.Context, s *Scenario) {
 	require.NoError(s.T, err)
 
 	start := time.Now() // Record the start time
-	createVMSS(ctx, s)
+	ConfigureAndCreateVMSS(ctx, s)
 
 	err = getCustomScriptExtensionStatus(ctx, s)
 	require.NoError(s.T, err)
@@ -274,7 +275,6 @@ func prepareAKSNode(ctx context.Context, s *Scenario) {
 		toolkit.LogDuration(ctx, totalElapse, 3*time.Minute, fmt.Sprintf("Node %s took %s to be created and %s to be ready", s.Runtime.VMSSName, toolkit.FormatDuration(creationElapse), toolkit.FormatDuration(readyElapse)))
 	}
 
-	s.Runtime.VMPrivateIP, err = getVMPrivateIPAddress(ctx, s)
 	require.NoError(s.T, err, "failed to get VM private IP address")
 }
 
@@ -283,6 +283,10 @@ func maybeSkipScenario(ctx context.Context, t *testing.T, s *Scenario) {
 	s.Tags.OS = string(s.VHD.OS)
 	s.Tags.Arch = s.VHD.Arch
 	s.Tags.ImageName = s.VHD.Name
+	if s.AKSNodeConfigMutator != nil {
+		s.Tags.Scriptless = true
+	}
+
 	if config.Config.TagsToRun != "" {
 		matches, err := s.Tags.MatchesFilters(config.Config.TagsToRun)
 		if err != nil {
@@ -334,7 +338,7 @@ func ValidateNodeCanRunAPod(ctx context.Context, s *Scenario) {
 }
 
 func validateVM(ctx context.Context, s *Scenario) {
-	err := uploadSSHKey(ctx, s)
+	err := validateSSHConnectivity(ctx, s)
 	require.NoError(s.T, err)
 
 	if !s.Config.SkipDefaultValidation {
