@@ -77,6 +77,10 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 		}
 	}
 
+	if config.IsFlatcar() {
+		cloudInitData["provisionRedactCloudConfig"] = "" // Flatcar does not have cloud-init
+	}
+
 	if !cs.Properties.IsVHDDistroForAllNodes() {
 		cloudInitData["kmsSystemdService"] = getBase64EncodedGzippedCustomScript(kmsSystemdService, config)
 		cloudInitData["aptPreferences"] = getBase64EncodedGzippedCustomScript(aptPreferences, config)
