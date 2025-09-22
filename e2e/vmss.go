@@ -125,11 +125,9 @@ coreos:
         Description=Downloads and runs the AKS node controller hack
         After=network-online.target
         Wants=network-online.target
-
         [Service]
         Type=oneshot
         ExecStart=/opt/azure/bin/run-aks-node-controller-hack.sh
-
         [Install]
         WantedBy=multi-user.target
 `
@@ -423,9 +421,7 @@ func extractLogsFromVMLinux(ctx context.Context, s *Scenario) error {
 		"sysctl-out.log":                   "sudo sysctl -a",
 		"aks-node-controller.log":          "sudo cat /var/log/azure/aks-node-controller.log",
 		"syslog":                           "sudo cat /var/log/" + syslogHandle,
-	}
-	if s.VHD.OS == config.OSFlatcar {
-		commandList["journald"] = "sudo journalctl --boot=0 --no-pager"
+		"journalctl":                       "sudo journalctl --boot=0 --no-pager",
 	}
 
 	pod, err := s.Runtime.Cluster.Kube.GetHostNetworkDebugPod(ctx)
