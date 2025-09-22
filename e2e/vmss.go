@@ -19,7 +19,6 @@ import (
 	"testing"
 	"time"
 
-	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Azure/agentbaker/aks-node-controller/pkg/nodeconfigutils"
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/pkg/agent"
@@ -94,11 +93,25 @@ func ConfigureAndCreateVMSS(ctx context.Context, s *Scenario) *armcompute.Virtua
 // Original aks-node-controller isn't run because it fails systemd check validating aks-node-controller-config.json exists
 // check aks-node-controller.service for details
 // a new binary is downloaded from the given URL and run with provision command
-func CustomDataWithHack(cfg *aksnodeconfigv1.Configuration, binaryURL string) (string, error) {
+func CustomDataWithHack(s *Scenario, binaryURL string) (string, error) {
 	cloudConfigTemplate := `#cloud-config
 write_files:
 - path: /opt/azure/containers/aks-node-controller-config-hack.json
-  permissions: "0644"
+  permissions: "0755"
+  owner: root
+  content: !!binary |
+   %s
+runcmd:
+ - mkdir -p /opt/azure/bin
+ - curl -fSL "%s" -o /opt/azure/bin/aks-node-controller-hack
+ - chmod +x /opt/azure/bin/aks-node-controller-hack
+ - /opt/azure/bin/aks-node-controller-hack provision --provision-config=/opt/azure/containers/aks-node-controller-config-hack.json &
+`
+	if s.VHD.Flatcar {
+		cloudConfigTemplate = `#cloud-config
+write_files:
+- path: /opt/azure/containers/aks-node-controller-config-hack.json
+  permissions: "0755"
   owner: root
   content: !!binary |
    %s
@@ -112,9 +125,6 @@ write_files:
     curl -fSL "%s" -o /opt/azure/bin/aks-node-controller-hack
     chmod +x /opt/azure/bin/aks-node-controller-hack
     /opt/azure/bin/aks-node-controller-hack provision --provision-config=/opt/azure/containers/aks-node-controller-config-hack.json
-# runcmd statement is not supported on Flatcar, so we use systemd unit instead
-runcmd:
- - [ bash, /opt/azure/bin/run-aks-node-controller-hack.sh ]
 # Flatcar specific configuration. It supports only a subset of cloud-init features https://github.com/flatcar/coreos-cloudinit/blob/main/Documentation/cloud-config.md#coreos-parameters
 coreos:
   units:
@@ -131,7 +141,9 @@ coreos:
         [Install]
         WantedBy=multi-user.target
 `
-	aksNodeConfigJSON, err := nodeconfigutils.MarshalConfigurationV1(cfg)
+	}
+
+	aksNodeConfigJSON, err := nodeconfigutils.MarshalConfigurationV1(s.Runtime.AKSNodeConfig)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal nbc, error: %w", err)
 	}
@@ -156,7 +168,7 @@ func createVMMSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachine
 			}
 			binaryURL, err := CachedCompileAndUploadAKSNodeController(ctx, s.VHD.Arch)
 			require.NoError(s.T, err, "failed to compile and upload aks-node-controller binary")
-			data, err := CustomDataWithHack(s.Runtime.AKSNodeConfig, binaryURL)
+			data, err := CustomDataWithHack(s, binaryURL)
 			require.NoError(s.T, err, "failed to generate custom data from AKSNodeConfig with hack")
 			return data
 		}()
