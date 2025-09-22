@@ -94,8 +94,8 @@
           "name": "root"
         },
         "contents": {
-          "compression": "gzip",
-          "source": "data:;base64,H4sIAAAAAAAC/6xUQW/rNgy++1cQvchGE+edC/hQtG/YaSseslNmCIpNO1ptyZPodsGw/z5IVmylcbEelktkivz48SNF2Q/aEJxF3yXhLEw7CGMxSX58f3582n9/hgLY5cySpMYGDNaiIn7UmiwZMfDX8YiVVo1sOXWWk35Fla5evxtJyBvZYfaQAABUWhEq4o4EFJ5LbkWDvNOi/i+MAwvhrMxu0A5stGgsKw/fyunMygPz3FgJBVyK8oFfT3QhWY/9kMb5suRKHYvmTVbIByNVJQfRcYuVQUrtEE63YqxdXaeeSSfJy+P+Z77/lU8m/tNvvzxBAX97ILZ7E2bXyePOldMh7eYCt0uB7OFrrdwETKTK4xmFhHZnh5z+ogXks4qTf66VqTo91nxKksYffBB02oAeaRjJfwRdSJgWJ4uFAixSulJ9/opnm2ZZ4mPeJZ1AD6jWUjDDMhAWmgnfj07sVQsSUECTGxR1GmYrcrid1JvwQKPRBpZmglRXOAe23FlWLmxkA/EIONasdNGxFIv7B5GgWIn+zNnmBnv9hmlkC+QvP9dRStkP3z+pWpgaa6Exuo9SPQCDe7jCiWFWenaInMs0ehBJLEWHKmZnMygK+HZd/tGgeE2msMD3eewHx3aaO6wn6behhaQnuvG4fZic6GoD7P1+Gppg9QXPFCJj7stIoy0RddyNZyIb4FyJHjl3lTDOeyEV52zC8xvYQDFv4/zRtGOPil78TTpnrdFWRg4ktSrYk+57oWropEIYSXaSzjBarIF00OCzxkGNjVTS4Vg/sgzur9S1ZNLD3Qbu8j+0VGuvLyszuAfm1ZMKBNgBK9nID7K7lZHD71fg+xNanKn1oyU44tK1Izba4A0KVEI5v0p3HXpHR7zTbStVm7MskjIXdc1F0HBR7267jUG3rs93m/na4J+jNFgXezPiYqbzgIUls1hO2A0Fe3EPj/Qtz1n9L3KaRul/YkMnBIXv3RlaVGgErfRjmvhZ79AIFt6gMK1buoG1/3O8bViLa0vdXecra9fb4/f2bwAAAP//9yAqV4IIAAA=",
+          "compression": "",
+          "source": "data:,",
           "verification": {}
         },
         "mode": 484
@@ -253,48 +253,6 @@
           "verification": {}
         },
         "mode": 356
-      },
-      {
-        "group": {},
-        "overwrite": true,
-        "path": "/opt/azure/containers/ubuntu-snapshot-update.sh",
-        "user": {
-          "name": "root"
-        },
-        "contents": {
-          "compression": "gzip",
-          "source": "data:;base64,H4sIAAAAAAAC/8RYf2/bNhD9X5/iygmNg1VWnGDd6lTDusTZghVN0ToYBscTaOlsc5FJlaTctI732QdSsvxLdpzM2P6yZB3f3b07Hp/0zTM/U9LvMe4jH0OPqqHjKNTgCeAi4wp1fouO87F1dv3hsv1H+P5N++zX8Ozq3cXlL+H55YfAH1PpJ6znK4wyyfQXL6U6Gjq/Xf/cys0CUtrcZj1MUNvfSPA+G5DcsP02IDaaREQ0sTFZG52A582twZ3McafEOW9dvLl+2w5b787fX12+awdEcZqqodD1rJdxndUjMSKOk3GqNfIY4zBLB5LGWDuEiQMgUUuGKmgcOQB9IYEB4+DWFH6CBrjF48NTiIUDADAH8gog8Mbw/Dn0JNJba8L60AGXgYefSgDonoIeIrcG1msmOTTsLSYKQSWIKXxn/+gzByAWHB0AjIYCWncYZRrjBe8w8+4y0GyEypk6zgA5SqoxVCKTEaowYUoXiQJYZgF5nArGdUDcBln4fyCSGHlosTQdpQFxjxefRyLGkNMRBsQ9IY59MrqNmQQvBeJONjbIlMxZIe5k5n9KIDD3qxWckhWuACKq4fVraF1dwI/bXflF4nWTOHFi7MFQ61Q1fX/Bs5+3hu9OVpOegjspE53CiDIOEpWWLNIY/1s8L0tjqlHtGxcyzsYoFe4twH0BwihL9J5j2yNkj0a3qZB6rSIlAfv0NpuPe2+rEnhvfTAPdZ5+6+qiHFf725qVAe62Cx9e+uCG28H7GqePcPuEtVUN95hEn7T6aftgB+AHW/4xGE+pxLZG7rP8FHtED9NU140QIc45k81mS0fNZt7XpqsfswFO1xBSagpAyKkNMN9q5vAnCRsjWE3F+AByHZRJqpngMDvxY1BZFKFS/SxJvhAjBgzl5dn/ecgShA48A6+/rKHMaVtom9Llwe+UaePMCKL224/QE0IrLWmaMj44KI1z0XJi761esVe8VApubSiUNpeHcw3gfTU8lUYV532edkQ5FxoGqC0iGGMyt7ljutBPszou+s0h3PIvAvegJRx0mlmaomx2D8x1Ij7b68McYE0CuTW3EKfzMBZDN0L5LyV4SvUwIJP6CDWNqaZ1G7qtkOocGPUqOWpUN3X6NZN4Y0Spb8rqzcrq5b690vdBd0rWSFub2pu4yw2hNASmwJCpUL8AdctSWGqqFVqP5ip0C2ATqgIqtlQmJXL9/1BZON/MJTdcroW4uRFzy7XkKxCcculM7laULNjV/Rr9lMdQFY1ZBoqO8IWpsh0TWuTVJcto8/IulHi2gQyN4YzGUGIqQoVyzCL8L8tn/HqF33nlUsnG5s2GpaHEAd4F5M9arXF0U+8cea+6k8aLk+mm68P7WuP745t6rdF56b3q3h/bR/cnnaNG93DbolfHN/XGyx82mhy6ZLWrNlNo6mveEztmCD9kGfwN7mrG0K1uz8sBFxKB8TFNWLy8scHgQoFrenab1xJ3Sx8QstQx9tnCG2XF29zqDNvOUGWGm1NammuZQig0wOwjgDUm67J1B9yd2Vrj4MFVpfBYOLAS1QslJkgVghepvOkr3+cNiUs+p2TDoCGLUqiYTXhnhB68ed8OZx9ndlQ8s0I+A5rqcIA6zEVnZcmWTaBPWYLxptO7BF7/SlMJvm72gAP7Ww6wYiQheJ4Yo/wsmcaKiTYfVvms2uWkCSrqsCDlyrYsaInEKE1wVb0Z8eZOwvDj1fWHs9Z5GDa/zb8XTR0nbwTwRap9G5UfCa4p4yiVn0oxZooJXvRLGDOlpairYa4Ggbg/kX8CAAD//0FI+WP1EwAA",
-          "verification": {}
-        },
-        "mode": 356
-      },
-      {
-        "group": {},
-        "overwrite": true,
-        "path": "/etc/systemd/system/snapshot-update.service",
-        "user": {
-          "name": "root"
-        },
-        "contents": {
-          "compression": "gzip",
-          "source": "data:;base64,H4sIAAAAAAAC/yzMvQ3CQAxA4f6myALhJrgOJjhSRSnMYSlubMs/CJgeEaV7xdO3LkyxlSv6MNIg4dYZ1HeJadEnBE4d7UUDS1nP2sr9o9iE8b+V2xtHD7BoVTQqfNOwDuEAYjSv+UiOnP1k5zzYi++/AAAA//9JR72LfAAAAA==",
-          "verification": {}
-        },
-        "mode": 420
-      },
-      {
-        "group": {},
-        "overwrite": true,
-        "path": "/etc/systemd/system/snapshot-update.timer",
-        "user": {
-          "name": "root"
-        },
-        "contents": {
-          "compression": "gzip",
-          "source": "data:;base64,H4sIAAAAAAAC/0TMPapCMRBA4X5WkQ28hy4ghRcbqwv+YBFSDMmgA8kkZCbC3b2Ihe058IWbsEU4kqbB3biJP09Rp4Jdn83c7BmN3He7ToNb5oSlbADhypVGhFWW1uxCye93lQVW+aiHZPyiX4VwEjUsJcIdxSgvm6+zGP9NpfFvOB5k7wAAAP//XnoOYJAAAAA=",
-          "verification": {}
-        },
-        "mode": 420
       },
       {
         "group": {},
@@ -463,20 +421,6 @@
           "verification": {}
         },
         "mode": 493
-      },
-      {
-        "group": {},
-        "overwrite": true,
-        "path": "/opt/azure/containers/cloud-init-status-check.sh",
-        "user": {
-          "name": "root"
-        },
-        "contents": {
-          "compression": "gzip",
-          "source": "data:;base64,H4sIAAAAAAAC/6xWXXPiNhR996+4VU0DU2wH8kYGOhniZDzNmh2g24emwyj2BbQxEivJbKaU/96RjY0Bs01n++KRdD90zr1Hln78wXth3HuhamlZ/ng8Gz6NfrufBWEwnT3cBU/+fb/bvbH8T344ncyeRo+PQfg4uw/GfW9DpZeIhUf/SiV6H1gkhRJz7d6Zueu/aeSKCa7cYaq0WE0iydbaww1yrTzLWlIeJzhMRBoHnOmJpjpVzRZsLQCAREQ0gbUUG2aSjFK9TnWf2B1SMUdF8AdUii6wT3Jr9smMDuNMg8pyg+N8pUzDALwYNx5PkwS6g586t3UZ/TemhyLGvv3LrZU5sDn8AcQ+8yDg4Be4hj9vQS+RZ77l/kfggvBh1DvClUYRYowxKaMwWgog9vY0ekdgMDCGk5LsyG0ZK1GnksN1toDJtwF33gHYH49H4yPEc8aZWmIMX5lewpxqmgBKKSQ08Y1piESM0Gl9P59/g999B/zf78ZhED5+g4DESGxQ0pcEcxqqyqP7v/BQ+B8hGgAFwJTj2xojMzeQelBTj+/GOGdW5QjM0yQ5OZV9u1l3mhLBF+A4cyFXVMNnJXjLKnE4CGR4CIpRU5ZgvI/uwTOxtzVb7Z7JRbSHs316WLPW9e1mUYG6xAT+hs9fwIngapv3ugduPmhXhTArjeeLu6vWAYQhPDztqN3MNuHwXLbFcahcnPX+QqMuhuUcj6LypaOgq7OcVcnsl9qnWY9ktSeapWxVhaE0lXrKVoZkTDXCz6TxAI2p27gJSaviiDx+j5um6rVP7n6duMOJ7560a7jE6LX6r8/vjQeWYEgruRuqcRO2yn5MtGR8cbkLBpfSdLUGMKUsKdVUfrRGSTUTPIiN655UjeMnlEal2QrpuN2bc5cpVa8GNuTbGuY1iXxD8Qk3mACQgOfniglOk3PfQkX7jHVavLTDRxZnUdcX7NM6+9W2LF0P7HLcrpapB3Zl1i4K0wN7P2qXhTA59sN2hXcP7MOkDQcJl8otGBSeH1ncLmEXi1MWlwI239VrzCQ4a7C35w+Z3eGfldcx19AOBvXu9vZYijvXBL3njVBeuXB6Zdu1L6/i53x0t+/+CQAA//+9YowAsgkAAA==",
-          "verification": {}
-        },
-        "mode": 484
       },
       {
         "group": {},
