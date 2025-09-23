@@ -221,23 +221,15 @@ testPackagesInstalled() {
       testKubeBinariesPresent "${PACKAGE_VERSIONS[@]#v}"
       continue
     fi
-    if [ "${name}" = "azure-acr-credential-provider" ]; then
-      # azure-acr-credential-provider is installed in a different way so we test it separately
-      testAcrCredentialProviderInstalled "$PACKAGE_DOWNLOAD_URL" "${PACKAGE_VERSIONS[@]}"
-      continue
-    fi
-    if [ "${name}" = "kubelet" ]; then
-      testPkgDownloaded "kubelet" "${PACKAGE_VERSIONS[@]}"
-      continue
-    fi
-      if [ "${name}" = "kubectl" ]; then
-      testPkgDownloaded "kubectl" "${PACKAGE_VERSIONS[@]}"
-      continue
-    fi
-    if [ "${name}" = "nvidia-device-plugin" ]; then
-      testPkgDownloaded "nvidia-device-plugin" "${PACKAGE_VERSIONS[@]}"
-      continue
-    fi
+    case ${name} in
+      azure-acr-credential-provider)
+        # azure-acr-credential-provider is installed in a different way so we test it separately
+        testAcrCredentialProviderInstalled "$PACKAGE_DOWNLOAD_URL" "${PACKAGE_VERSIONS[@]}"
+        continue ;;
+      azure-acr-credential-provider-pmc|kubelet|kubectl|nvidia-device-plugin)
+        testPkgDownloaded "${name%-pmc}" "${downloadLocation}" "${PACKAGE_VERSIONS[@]}"
+        continue ;;
+    esac
 
     resolve_packages_source_url
     for version in "${PACKAGE_VERSIONS[@]}"; do
@@ -766,11 +758,10 @@ testKubeBinariesPresent() {
 testPkgDownloaded() {
   local test="testPkgDownloaded"
   echo "$test:Start"
-  local packageName=$1; shift
+  local packageName=$1 downloadLocation=$2; shift 2
   local packageVersions=("$@")
   local sysextArch sysextFile
   sysextArch=$(getSystemdArch)
-  downloadLocation="/opt/${packageName}/downloads"
   for packageVersion in "${packageVersions[@]}"; do
     echo "checking package version: $packageVersion ..."
     if [ $OS = $UBUNTU_OS_NAME ]; then
