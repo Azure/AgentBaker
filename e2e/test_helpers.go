@@ -338,7 +338,7 @@ func ValidateNodeCanRunAPod(ctx context.Context, s *Scenario) {
 }
 
 func validateVM(ctx context.Context, s *Scenario) {
-	if !s.Config.SkipDefaultValidation {
+	if !s.Config.SkipSSHConnectivityValidation {
 		err := validateSSHConnectivity(ctx, s)
 		require.NoError(s.T, err)
 	}

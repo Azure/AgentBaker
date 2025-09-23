@@ -657,6 +657,31 @@ func Test_Ubuntu2204(t *testing.T) {
 	})
 }
 
+func Test_Ubuntu2204_EntraIDSSH(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using Ubuntu 2204 VHD with Entra ID SSH can be properly bootstrapped and SSH private key authentication is disabled",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				// Enable Entra ID SSH authentication
+				nbc.SSHStatus = datamodel.EntraIDSSH
+			},
+			SkipSSHConnectivityValidation: true, // Skip SSH connectivity validation since Entra ID SSH disables private key authentication
+			Validator: func(ctx context.Context, s *Scenario) {
+				// NOTE: Since Entra ID SSH disables pubkey authentication, we cannot use
+				// the normal SSH-based validation functions that rely on private key authentication.
+				// We can only validate that SSH private key authentication fails as expected.
+				// The full E2E of Entra ID SSH scenario will be included in AKS RP's E2E test.
+
+				// Validate Entra ID SSH configuration (tests that private key SSH fails)
+				ValidatePubkeySSHDisabled(ctx, s)
+			},
+		},
+	})
+} // TODO: Add Test_Ubuntu2204_EntraIDSSH_Scriptless when AKS node controller
+// supports Entra ID SSH configuration through proto definition
+
 func Test_Ubuntu2204_AirGap(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2204 VHD and is airgap can be properly bootstrapped",
