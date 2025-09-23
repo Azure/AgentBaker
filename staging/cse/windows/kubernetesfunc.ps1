@@ -241,10 +241,43 @@ function Get-CACertificates {
             $name=$certificates[$index].Name
             $certFilePath = Join-Path $caFolder $name
             Logs-To-Event -TaskName "AKS.WindowsCSE.GetCACertificates" -TaskMessage "Processing CA certificate: $name"
-            Write-Log "Write certificate $name to $certFilePath"
-            $certificates[$index].CertBody > $certFilePath
-            Write-Log "Import certificate $certFilePath to Cert:\LocalMachine\Root"
-            Import-Certificate -FilePath $certFilePath -CertStoreLocation 'Cert:\LocalMachine\Root' -Verbose
+            
+            try {
+                Write-Log "Write certificate $name to $certFilePath"
+                Logs-To-Event -TaskName "AKS.WindowsCSE.GetCACertificates" -TaskMessage "Write certificate $name to $certFilePath"
+                # Use Set-Content to ensure proper encoding and formatting
+                $certificates[$index].CertBody | Set-Content -Path $certFilePath -Encoding UTF8
+                
+                Write-Log "Import certificate $certFilePath to Cert:\LocalMachine\Root"
+                Logs-To-Event -TaskName "AKS.WindowsCSE.GetCACertificates" -TaskMessage "Import certificate $certFilePath to Cert:\LocalMachine\Root"
+                $importResult = Import-Certificate -FilePath $certFilePath -CertStoreLocation 'Cert:\LocalMachine\Root' -Verbose
+                
+                if ($importResult) {
+                    Write-Log "Successfully imported certificate: $name (Thumbprint: $($importResult.Thumbprint))"
+                    Logs-To-Event -TaskName "AKS.WindowsCSE.GetCACertificates" -TaskMessage "Successfully imported certificate: $name (Thumbprint: $($importResult.Thumbprint))"
+                } else {
+                    Write-Log "Warning: Import-Certificate returned null for certificate: $name"
+                    Logs-To-Event -TaskName "AKS.WindowsCSE.GetCACertificates" -TaskMessage "Warning: Import-Certificate returned null for certificate: $name"
+                }
+            }
+            catch {
+                Write-Log "Error importing certificate $name : $_"
+                Logs-To-Event -TaskName "AKS.WindowsCSE.GetCACertificates" -TaskMessage "Error importing certificate $name : $_"
+                # Continue with other certificates even if one fails
+            }
+        }
+        
+        # Verify certificates were imported successfully
+        Write-Log "Verifying imported CA certificates in LocalMachine\Root store"
+        Logs-To-Event -TaskName "AKS.WindowsCSE.GetCACertificates" -TaskMessage "Verifying imported CA certificates in LocalMachine\Root store"
+        try {
+            $rootCerts = Get-ChildItem -Path 'Cert:\LocalMachine\Root' | Where-Object { $_.Subject -like "*" }
+            Write-Log "Total certificates in LocalMachine\Root store: $($rootCerts.Count)"
+            Logs-To-Event -TaskName "AKS.WindowsCSE.GetCACertificates" -TaskMessage "Total certificates in LocalMachine\Root store: $($rootCerts.Count)"
+        }
+        catch {
+            Write-Log "Error verifying certificates: $_"
+            Logs-To-Event -TaskName "AKS.WindowsCSE.GetCACertificates" -TaskMessage "Error verifying certificates: $_"
         }
     }
     catch {
