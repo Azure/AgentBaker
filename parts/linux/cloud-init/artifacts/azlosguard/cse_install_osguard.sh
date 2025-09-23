@@ -67,7 +67,7 @@ downloadPkgFromVersion() {
     echo "Succeeded to download ${packageName} version ${packageVersion}"
 }
 
-installCredentialProviderFromPMC() {
+installCredentialProviderFromPkg() {
     k8sVersion="${1:-}"
     os=${AZURELINUX_OS_NAME}
     if [ -z "$OS_VERSION" ]; then

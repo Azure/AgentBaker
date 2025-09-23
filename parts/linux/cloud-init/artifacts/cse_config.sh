@@ -759,10 +759,10 @@ EOF
         elif [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
             # For network isolated clusters, try distro packages first and fallback to binary installation
             logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromBootstrapProfileRegistry" installCredentialProviderPackageFromBootstrapProfileRegistry ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ${KUBERNETES_VERSION}
-        elif [ "$(type -t installCredentialProviderFromPMC)" = function ]; then
-            logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromPMC" "installCredentialProviderFromPMC ${KUBERNETES_VERSION}"
+        elif [ "$(type -t installCredentialProviderFromPkg)" = function ]; then
+            logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromPkg" "installCredentialProviderFromPkg ${KUBERNETES_VERSION}"
         else
-            echo "installCredentialProviderFromPMC is not defined for this OS"
+            echo "installCredentialProviderFromPkg is not defined for this OS"
             exit $ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT
         fi
     fi

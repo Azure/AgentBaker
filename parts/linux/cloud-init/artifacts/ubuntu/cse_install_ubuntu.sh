@@ -186,7 +186,7 @@ installCriCtlPackage() {
     apt_get_install 20 30 120 ${packageName} || exit 1
 }
 
-installCredentialProviderFromPMC() {
+installCredentialProviderFromPkg() {
     k8sVersion="${1:-}"
     os=${UBUNTU_OS_NAME}
     if [ -z "$UBUNTU_RELEASE" ]; then

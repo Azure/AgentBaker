@@ -229,7 +229,7 @@ EOF
     systemctl restart nvidia-persistenced.service || exit 1
 }
 
-installCredentialProviderFromPMC() {
+installCredentialProviderFromPkg() {
     k8sVersion="${1:-}"
     os=${AZURELINUX_OS_NAME}
     if [ -z "$OS_VERSION" ]; then
