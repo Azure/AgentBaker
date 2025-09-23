@@ -86,6 +86,14 @@ installKubeletKubectlFromPkg() {
     fi
 }
 
+installCredentialProviderFromPkg() {
+    if mergeSysexts azure-acr-credential-provider mcr.microsoft.com/oss/v2/kubernetes/azure-acr-credential-provider-sysext "$1"; then
+        ln -snf /usr/bin/azure-acr-credential-provider "$CREDENTIAL_PROVIDER_BIN_DIR/acr-credential-provider"
+    else
+        installCredentialProvider
+    fi
+}
+
 # CSE+VHD can dictate the containerd version, users don't care as long as it works
 installStandaloneContainerd() {
     local desiredVersion="${1:-}"
