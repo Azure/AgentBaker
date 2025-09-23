@@ -720,24 +720,18 @@ EOF
     if [[ $KUBELET_FLAGS == *"image-credential-provider-config"* && $KUBELET_FLAGS == *"image-credential-provider-bin-dir"* ]]; then
         echo "Configure credential provider for both image-credential-provider-config and image-credential-provider-bin-dir flags are specified in KUBELET_FLAGS"
         logs_to_events "AKS.CSE.ensureKubelet.configCredentialProvider" configCredentialProvider
-        if { [ "${SHOULD_ENFORCE_KUBE_PMC_INSTALL}" != "true" ] && ! semverCompare ${KUBERNETES_VERSION:-"0.0.0"} "1.34.0"; } || \
-            [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
+        # Install credential provider from URL:
+        # 1. If k8s version < 1.34.0 and skip_bypass_k8s_version_check != true.
+        # 2. For Azure Linux v2 due to lack of PMC packages.
+        # 3. For Ubuntu 20.04 as PMC packages *currently* unsupported.
+        if [[ -n ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ]] ||
+           { [[ ${SHOULD_ENFORCE_KUBE_PMC_INSTALL} != true ]] && ! semverCompare "${KUBERNETES_VERSION:-0.0.0}" 1.34.0; } ||
+           { isMarinerOrAzureLinux && [[ ${OS_VERSION} = 2.0 ]]; } ||
+           { isUbuntu && [[ ${UBUNTU_RELEASE} = 20.04 ]]; }
+        then
             logs_to_events "AKS.CSE.ensureKubelet.installCredentialProvider" installCredentialProvider
         else
-            if isMarinerOrAzureLinux "$OS"; then
-                if [ "$OS_VERSION" = "2.0" ]; then # PMC package installation not supported for AzureLinux V2, only V3
-                    logs_to_events "AKS.CSE.ensureKubelet.installCredentialProvider" installCredentialProvider
-                else
-                    logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromPMC" "installCredentialProviderFromPMC ${KUBERNETES_VERSION}"
-                fi
-            else
-                if [ "${UBUNTU_RELEASE}" = "20.04" ]; then
-                    # PMC package installation not *currently* supported for Ubuntu 20.04
-                    logs_to_events "AKS.CSE.ensureKubelet.installCredentialProvider" installCredentialProvider
-                else
-                    logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromPMC" "installCredentialProviderFromPMC ${KUBERNETES_VERSION}"
-                fi
-            fi   
+            logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromPMC" "installCredentialProviderFromPMC ${KUBERNETES_VERSION}"
         fi
     fi
 
