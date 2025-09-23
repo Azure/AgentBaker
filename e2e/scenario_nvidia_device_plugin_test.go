@@ -29,8 +29,8 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning(t *testing.T) {
 				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				// Validate that the NVIDIA device plugin daemonset is running
-				ValidateNvidiaDevicePluginDaemonSetRunning(ctx, s)
+				// Validate that the NVIDIA device plugin systemd service is running
+				ValidateNvidiaDevicePluginServiceRunning(ctx, s)
 				
 				// Validate that GPU resources are advertised by the device plugin
 				ValidateNodeAdvertisesGPUResources(ctx, s)
@@ -64,8 +64,8 @@ func Test_Ubuntu2204_NvidiaDevicePluginRunning(t *testing.T) {
 				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				// Validate that the NVIDIA device plugin daemonset is running
-				ValidateNvidiaDevicePluginDaemonSetRunning(ctx, s)
+				// Validate that the NVIDIA device plugin systemd service is running
+				ValidateNvidiaDevicePluginServiceRunning(ctx, s)
 				
 				// Validate that GPU resources are advertised by the device plugin
 				ValidateNodeAdvertisesGPUResources(ctx, s)
@@ -99,8 +99,8 @@ func Test_AzureLinux3_NvidiaDevicePluginRunning(t *testing.T) {
 				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				// Validate that the NVIDIA device plugin daemonset is running
-				ValidateNvidiaDevicePluginDaemonSetRunning(ctx, s)
+				// Validate that the NVIDIA device plugin systemd service is running
+				ValidateNvidiaDevicePluginServiceRunning(ctx, s)
 				
 				// Validate that GPU resources are advertised by the device plugin
 				ValidateNodeAdvertisesGPUResources(ctx, s)

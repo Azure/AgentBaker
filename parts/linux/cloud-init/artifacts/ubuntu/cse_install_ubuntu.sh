@@ -83,14 +83,11 @@ updateAptWithMicrosoftPkg() {
 cleanUpGPUDrivers() {
     rm -Rf $GPU_DEST /opt/gpu
     
-    # Remove GPU device plugin package on non-GPU nodes
-    if dpkg -l | grep -q "${K8S_DEVICE_PLUGIN_PKG}"; then
-        echo "Removing ${K8S_DEVICE_PLUGIN_PKG} package from non-GPU node..."
-        if apt_get_purge 10 5 120 "${K8S_DEVICE_PLUGIN_PKG}"; then
-            echo "${K8S_DEVICE_PLUGIN_PKG} package removed from non-GPU node"
-        else
-            echo "WARNING: Failed to remove ${K8S_DEVICE_PLUGIN_PKG}. Package may still be present." >&2
-        fi
+    # Remove cached GPU device plugin downloads on non-GPU nodes
+    if [ -d "/opt/nvidia-device-plugin/downloads" ]; then
+        echo "Removing cached ${K8S_DEVICE_PLUGIN_PKG} downloads from non-GPU node..."
+        rm -rf /opt/nvidia-device-plugin/downloads
+        echo "Cached ${K8S_DEVICE_PLUGIN_PKG} downloads removed from non-GPU node"
     fi
 }
 
@@ -106,10 +103,6 @@ installNvidiaDevicePluginPkgFromCache() {
     
     echo "Installing ${debFile}..."
     dpkg -i "${debFile}" || exit $ERR_APT_INSTALL_TIMEOUT
-    
-    echo "Disabling nvidia-device-plugin systemd unit..."
-    systemctl disable nvidia-device-plugin.service || exit 1
-    systemctl mask nvidia-device-plugin.service || exit 1
     
     echo "nvidia-device-plugin installation completed"
 }

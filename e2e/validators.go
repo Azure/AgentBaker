@@ -975,18 +975,16 @@ func ValidateEnableNvidiaResource(ctx context.Context, s *Scenario) {
 	waitUntilResourceAvailable(ctx, s, "nvidia.com/gpu")
 }
 
-func ValidateNvidiaDevicePluginDaemonSetRunning(ctx context.Context, s *Scenario) {
+func ValidateNvidiaDevicePluginServiceRunning(ctx context.Context, s *Scenario) {
 	s.T.Helper()
-	s.T.Logf("validating that NVIDIA device plugin daemonset is running")
+	s.T.Logf("validating that NVIDIA device plugin systemd service is running")
 	
 	command := []string{
 		"set -ex",
-		"kubectl get daemonset nvidia-device-plugin-daemonset -n kube-system -o jsonpath='{.status.numberReady}'",
+		"systemctl is-active nvidia-device-plugin.service",
+		"systemctl is-enabled nvidia-device-plugin.service",
 	}
-	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "could not get nvidia device plugin daemonset status")
-	
-	output := strings.TrimSpace(execResult.stdout.String())
-	require.NotEqual(s.T, "0", output, "NVIDIA device plugin daemonset should have at least one ready replica")
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "NVIDIA device plugin systemd service should be active and enabled")
 }
 
 func ValidateNodeAdvertisesGPUResources(ctx context.Context, s *Scenario) {

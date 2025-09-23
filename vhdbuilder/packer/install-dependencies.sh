@@ -432,12 +432,12 @@ while IFS= read -r p; do
         echo "  - kubectl version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
-    "nvidia-device-plugin")
+    "${K8S_DEVICE_PLUGIN_PKG}")
       for version in ${PACKAGE_VERSIONS[@]}; do
         if [ "${OS}" = "${UBUNTU_OS_NAME}" ] || isMarinerOrAzureLinux "$OS"; then
-          downloadPkgFromVersion "nvidia-device-plugin" "${version}" "${downloadDir}"
+          downloadPkgFromVersion "${K8S_DEVICE_PLUGIN_PKG}" "${version}" "${downloadDir}"
         fi
-        echo "  - nvidia-device-plugin version ${version}" >> ${VHD_LOGS_FILEPATH}
+        echo "  - ${K8S_DEVICE_PLUGIN_PKG} version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
     "azure-acr-credential-provider-pmc")
@@ -485,8 +485,6 @@ if [ "$OS" = "$MARINER_OS_NAME" ] && [ "$OS_VERSION" = "2.0" ] && [ "$(isARM64)"
 elif [ "$OS" = "$MARINER_OS_NAME" ] && [ "$OS_VERSION" = "3.0" ] && [ "$(isARM64)" -ne 1 ]; then
   installAndConfigureArtifactStreaming acr-mirror-azurelinux3 rpm
 fi
-
-# nvidia-device-plugin is now cached during VHD build and installed during CSE when GPU nodes are provisioned
 
 # k8s will use images in the k8s.io namespaces - create it
 ctr namespace create k8s.io

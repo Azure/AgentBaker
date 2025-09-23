@@ -1490,14 +1490,6 @@
                 "latestVersion": "0.17.4-1.azl3"
               }
             ]
-          },
-          "v2.0": {
-            "versionsV2": [
-              {
-                "renovateTag": "name=nvidia-device-plugin, os=azurelinux, release=2.0",
-                "latestVersion": "0.17.4-1.azl2"
-              }
-            ]
           }
         }
       }
