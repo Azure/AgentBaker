@@ -5,6 +5,7 @@ import (
 	crand "crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
 	"errors"
@@ -12,6 +13,7 @@ import (
 	"io"
 	"math/big"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -32,17 +34,146 @@ const (
 	loadBalancerBackendAddressPoolIDTemplate = "/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/loadBalancers/kubernetes/backendAddressPools/aksOutboundBackendPool"
 )
 
-func createVMSS(ctx context.Context, s *Scenario) *armcompute.VirtualMachineScaleSet {
+func compileAndUploadAKSNodeController(ctx context.Context, arch string) (string, error) {
+	binary, err := compileAKSNodeController(ctx, arch)
+	if err != nil {
+		return "", err
+	}
+	uniqueSuffix := randomLowercaseString(6)
+	blobPath := fmt.Sprintf("%s/aks-node-controller-%s", time.Now().UTC().Format("2006-01-02-15-04-05"), uniqueSuffix)
+	logf(ctx, "uploading aks-node-controller binary to blob path %s", blobPath)
+	url, err := config.Azure.UploadAndGetSignedLink(ctx, blobPath, binary)
+	if err != nil {
+		return "", fmt.Errorf("failed to upload aks-node-controller binary: %w", err)
+	}
+	return url, nil
+}
+
+// compileAndUploadAKSNodeController compiles the aks-node-controller binary for the given architecture.
+func compileAKSNodeController(ctx context.Context, arch string) (*os.File, error) {
+	goBin, err := exec.LookPath("go")
+	if err != nil {
+		return nil, fmt.Errorf("failed to find go binary in PATH: %w", err)
+	}
+	binName := "aks-node-controller-" + arch
+	cmd := exec.CommandContext(ctx, goBin, "build", "-o", binName, "-v")
+	cmd.Dir = filepath.Join("..", "aks-node-controller")
+	cmd.Env = append(os.Environ(),
+		"CGO_ENABLED=0",
+		"GOOS=linux",
+		"GOARCH="+arch,
+	)
+	logf(ctx, "compiling aks-node-controller: %q", cmd.String())
+	log, err := cmd.CombinedOutput()
+	if err != nil {
+		return nil, fmt.Errorf("failed to compile aks-node-controller: %s", string(log))
+	}
+	f, err := os.Open(filepath.Join("..", "aks-node-controller", binName))
+	if err != nil {
+		return nil, fmt.Errorf("failed to open compiled aks-node-controller binary: %w", err)
+	}
+	return f, nil
+}
+
+func ConfigureAndCreateVMSS(ctx context.Context, s *Scenario) *armcompute.VirtualMachineScaleSet {
+	model := createVMMSModel(ctx, s)
+
+	vmss, err := CreateVMSSWithRetry(ctx, s, model)
+	s.T.Cleanup(func() {
+		cleanupVMSS(ctx, s)
+	})
+	skipTestIfSKUNotAvailableErr(s.T, err)
+	// fail test, but continue to extract debug information
+	require.NoError(s.T, err, "create vmss %q, check %s for vm logs", s.Runtime.VMSSName, testDir(s.T))
+
+	return vmss
+}
+
+// CustomDataWithHack is similar to nodeconfigutils.CustomData, but it uses a hack to run new aks-node-controller binary
+// Original aks-node-controller isn't run because it fails systemd check validating aks-node-controller-config.json exists
+// check aks-node-controller.service for details
+// a new binary is downloaded from the given URL and run with provision command
+func CustomDataWithHack(s *Scenario, binaryURL string) (string, error) {
+	cloudConfigTemplate := `#cloud-config
+write_files:
+- path: /opt/azure/containers/aks-node-controller-config-hack.json
+  permissions: "0755"
+  owner: root
+  content: !!binary |
+   %s
+runcmd:
+ - mkdir -p /opt/azure/bin
+ - curl -fSL "%s" -o /opt/azure/bin/aks-node-controller-hack
+ - chmod +x /opt/azure/bin/aks-node-controller-hack
+ - /opt/azure/bin/aks-node-controller-hack provision --provision-config=/opt/azure/containers/aks-node-controller-config-hack.json &
+`
+	if s.VHD.Flatcar {
+		cloudConfigTemplate = `#cloud-config
+write_files:
+- path: /opt/azure/containers/aks-node-controller-config-hack.json
+  permissions: "0755"
+  owner: root
+  content: !!binary |
+   %s
+- path: /opt/azure/bin/run-aks-node-controller-hack.sh
+  permissions: "0755"
+  owner: root
+  content: |
+    #!/bin/bash
+    set -euo pipefail
+    mkdir -p /opt/azure/bin
+    curl -fSL "%s" -o /opt/azure/bin/aks-node-controller-hack
+    chmod +x /opt/azure/bin/aks-node-controller-hack
+    /opt/azure/bin/aks-node-controller-hack provision --provision-config=/opt/azure/containers/aks-node-controller-config-hack.json
+# Flatcar specific configuration. It supports only a subset of cloud-init features https://github.com/flatcar/coreos-cloudinit/blob/main/Documentation/cloud-config.md#coreos-parameters
+coreos:
+  units:
+    - name: aks-node-controller-hack.service
+      command: start
+      content: |
+        [Unit]
+        Description=Downloads and runs the AKS node controller hack
+        After=network-online.target
+        Wants=network-online.target
+        [Service]
+        Type=oneshot
+        ExecStart=/opt/azure/bin/run-aks-node-controller-hack.sh
+        [Install]
+        WantedBy=multi-user.target
+`
+	}
+
+	aksNodeConfigJSON, err := nodeconfigutils.MarshalConfigurationV1(s.Runtime.AKSNodeConfig)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal nbc, error: %w", err)
+	}
+	encodedAksNodeConfigJSON := base64.StdEncoding.EncodeToString(aksNodeConfigJSON)
+	customDataYAML := fmt.Sprintf(cloudConfigTemplate, encodedAksNodeConfigJSON, binaryURL)
+	return base64.StdEncoding.EncodeToString([]byte(customDataYAML)), nil
+}
+
+func createVMMSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachineScaleSet {
 	cluster := s.Runtime.Cluster
 	var nodeBootstrapping *datamodel.NodeBootstrapping
 	ab, err := agent.NewAgentBaker()
 	require.NoError(s.T, err)
 	var cse, customData string
-	if s.AKSNodeConfigMutator != nil {
-		s.T.Logf("creating VMSS %q with AKSNodeConfigMutator in resource group %s", s.Runtime.VMSSName, *cluster.Model.Properties.NodeResourceGroup)
+	if s.Runtime.AKSNodeConfig != nil {
 		cse = nodeconfigutils.CSE
-		customData, err = nodeconfigutils.CustomData(s.Runtime.AKSNodeConfig)
-		require.NoError(s.T, err)
+		customData = func() string {
+			if config.Config.DisableScriptLessCompilation {
+				data, err := nodeconfigutils.CustomData(s.Runtime.AKSNodeConfig)
+				require.NoError(s.T, err, "failed to generate custom data from AKSNodeConfig")
+				return data
+			}
+			binaryURL, err := CachedCompileAndUploadAKSNodeController(ctx, s.VHD.Arch)
+			require.NoError(s.T, err, "failed to compile and upload aks-node-controller binary")
+			data, err := CustomDataWithHack(s, binaryURL)
+			require.NoError(s.T, err, "failed to generate custom data from AKSNodeConfig with hack")
+			return data
+		}()
+		s.T.Logf("creating VMSS %q with AKSNodeConfigMutator in resource group %s", s.Runtime.VMSSName, *cluster.Model.Properties.NodeResourceGroup)
+
 	} else {
 		s.T.Logf("creating VMSS %q with BootstrapConfigMutator/NBC in resource group %s", s.Runtime.VMSSName, *cluster.Model.Properties.NodeResourceGroup)
 		nodeBootstrapping, err = ab.GetNodeBootstrapping(ctx, s.Runtime.NBC)
@@ -93,16 +224,97 @@ func createVMSS(ctx context.Context, s *Scenario) *armcompute.VirtualMachineScal
 	}
 
 	s.PrepareVMSSModel(ctx, s.T, &model)
+	return model
+}
 
-	vmss, err := config.Azure.CreateVMSSWithRetry(ctx, *cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, model)
-	s.T.Cleanup(func() {
-		cleanupVMSS(ctx, s)
-	})
-	skipTestIfSKUNotAvailableErr(s.T, err)
-	// fail test, but continue to extract debug information
-	require.NoError(s.T, err, "create vmss %q, check %s for vm logs", s.Runtime.VMSSName, testDir(s.T))
+func CreateVMSSWithRetry(ctx context.Context, s *Scenario, parameters armcompute.VirtualMachineScaleSet) (*armcompute.VirtualMachineScaleSet, error) {
+	delay := 5 * time.Second
+	retryOn := func(err error) bool {
+		var respErr *azcore.ResponseError
+		// AllocationFailed sometimes happens for exotic SKUs (new GPUs) with limited availability, sometimes retrying helps
+		// It's not a quota issue
+		return errors.As(err, &respErr) && respErr.StatusCode == 200 && respErr.ErrorCode == "AllocationFailed"
+	}
 
-	return vmss
+	maxAttempts := 10
+	attempt := 0
+
+	for {
+		attempt++
+		vmss, err := CreateVMSS(ctx, s, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, parameters)
+		if err == nil {
+			logf(ctx, "created VMSS %s in resource group %s", s.Runtime.VMSSName, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup)
+			return vmss, nil
+		}
+
+		// not a retryable error
+		if !retryOn(err) {
+			return nil, err
+		}
+
+		if attempt >= maxAttempts {
+			return nil, fmt.Errorf("failed to create VMSS after %d retries: %w", maxAttempts, err)
+		}
+
+		logf(ctx, "failed to create VMSS: %v, attempt: %v, retrying in %v", err, attempt, delay)
+		select {
+		case <-ctx.Done():
+			return nil, err
+		case <-time.After(delay):
+		}
+	}
+
+}
+
+func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string, vmssName string, parameters armcompute.VirtualMachineScaleSet) (*armcompute.VirtualMachineScaleSet, error) {
+	operation, err := config.Azure.VMSS.BeginCreateOrUpdate(
+		ctx,
+		resourceGroupName,
+		vmssName,
+		parameters,
+		nil,
+	)
+	if err != nil {
+		return nil, err
+	}
+	// We want to generate SSH instructions as soon as possible, so we can debug CSE issues
+	s.Runtime.VMPrivateIP, err = waitForVMPrivateIP(ctx, s)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get VM private IP address: %w", err)
+	}
+	err = uploadSSHKey(ctx, s)
+	if err != nil {
+		return nil, fmt.Errorf("failed to upload ssh key: %w", err)
+	}
+
+	vmssResp, err := operation.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
+	if err != nil {
+		return nil, err
+	}
+	return &vmssResp.VirtualMachineScaleSet, nil
+}
+
+// waitForVMPrivateIP polls until a private IP is available or the timeout elapses.
+func waitForVMPrivateIP(ctx context.Context, s *Scenario) (string, error) {
+	ctxTimeout, cancel := context.WithTimeout(ctx, time.Minute)
+	defer cancel()
+
+	ticker := time.NewTicker(config.Config.DefaultPollInterval)
+	defer ticker.Stop()
+
+	var lastErr error
+	for {
+		ip, err := getVMPrivateIPAddress(ctxTimeout, s)
+		if err == nil && ip != "" {
+			return ip, nil
+		}
+		lastErr = err
+		select {
+		case <-ctxTimeout.Done():
+			return "", fmt.Errorf("timeout waiting for private IP: %w", lastErr)
+		case <-ticker.C:
+		}
+	}
 }
 
 func skipTestIfSKUNotAvailableErr(t *testing.T, err error) {
@@ -221,9 +433,7 @@ func extractLogsFromVMLinux(ctx context.Context, s *Scenario) error {
 		"sysctl-out.log":                   "sudo sysctl -a",
 		"aks-node-controller.log":          "sudo cat /var/log/azure/aks-node-controller.log",
 		"syslog":                           "sudo cat /var/log/" + syslogHandle,
-	}
-	if s.VHD.OS == config.OSFlatcar {
-		commandList["journald"] = "sudo journalctl --boot=0 --no-pager"
+		"journalctl":                       "sudo journalctl --boot=0 --no-pager",
 	}
 
 	pod, err := s.Runtime.Cluster.Kube.GetHostNetworkDebugPod(ctx)
@@ -410,7 +620,7 @@ func deleteVMSS(ctx context.Context, s *Scenario) {
 	defer cancel()
 	if config.Config.KeepVMSS {
 		s.T.Logf("vmss %q will be retained for debugging purposes, please make sure to manually delete it later", s.Runtime.VMSSName)
-		if err := writeToFile(s.T, "sshkey", string(s.Runtime.SSHKeyPrivate)); err != nil {
+		if err := writeToFile(s.T, "sshkey", string(SSHKeyPrivate)); err != nil {
 			s.T.Logf("failed to write retained vmss %s private ssh key to disk: %s", s.Runtime.VMSSName, err)
 		}
 		return
@@ -487,6 +697,14 @@ func getVMPrivateIPAddress(ctx context.Context, s *Scenario) (string, error) {
 	}
 
 	return *ipConfig.Properties.PrivateIPAddress, nil
+}
+
+func mustGetNewRSAKeyPair() ([]byte, []byte) {
+	private, public, err := getNewRSAKeyPair()
+	if err != nil {
+		panic(fmt.Sprintf("failed to generate RSA key pair: %v", err))
+	}
+	return private, public
 }
 
 // Returns a newly generated RSA public/private key pair with the private key in PEM format.
@@ -575,7 +793,7 @@ func getBaseVMSSModel(s *Scenario, customData, cseCmd, location string) armcompu
 						SSH: &armcompute.SSHConfiguration{
 							PublicKeys: []*armcompute.SSHPublicKey{
 								{
-									KeyData: to.Ptr(string(s.Runtime.SSHKeyPublic)),
+									KeyData: to.Ptr(string(SSHKeyPublic)),
 									Path:    to.Ptr("/home/azureuser/.ssh/authorized_keys"),
 								},
 							},
@@ -630,6 +848,7 @@ func getBaseVMSSModel(s *Scenario, customData, cseCmd, location string) armcompu
 			},
 		},
 	}
+
 	if cseCmd != "" {
 		model.Properties.VirtualMachineProfile.ExtensionProfile = &armcompute.VirtualMachineScaleSetExtensionProfile{
 			Extensions: []*armcompute.VirtualMachineScaleSetExtension{

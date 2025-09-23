@@ -165,9 +165,6 @@ func Test_AzureLinuxV2_ARM64(t *testing.T) {
 func Test_AzureLinuxV2_ARM64_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a AzureLinuxV2 (CgroupV2) VHD on ARM64 architecture can be properly bootstrapped",
-		Tags: Tags{
-			Scriptless: true,
-		},
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV2Gen2Arm64,
@@ -368,8 +365,7 @@ func Test_AzureLinuxV2_GPUAzureCNI_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "AzureLinux V2 (CgroupV2) gpu scenario on cluster configured with Azure CNI",
 		Tags: Tags{
-			Scriptless: true,
-			GPU:        true,
+			GPU: true,
 		},
 		Config: Config{
 			Cluster: ClusterAzureNetwork,
@@ -502,9 +498,6 @@ func Test_MarinerV2_AzureCNI_ChronyRestarts(t *testing.T) {
 func Test_MarinerV2_AzureCNI_ChronyRestarts_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Test marinerv2 scenario on a cluster configured with Azure CNI and the chrony service restarts if it is killed",
-		Tags: Tags{
-			Scriptless: true,
-		},
 		Config: Config{
 			Cluster: ClusterAzureNetwork,
 			VHD:     config.VHDCBLMarinerV2Gen2,
@@ -615,9 +608,6 @@ func Test_MarinerV2_GPUAzureCNI(t *testing.T) {
 func Test_Ubuntu2204_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that a new ubuntu 2204 node using self contained installer can be properly bootstrapped",
-		Tags: Tags{
-			Scriptless: true,
-		},
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
@@ -633,9 +623,6 @@ func Test_Ubuntu2204_Scriptless(t *testing.T) {
 func Test_Ubuntu2404_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "testing that a new ubuntu 2404 node using self contained installer can be properly bootstrapped",
-		Tags: Tags{
-			Scriptless: true,
-		},
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2404Gen2Containerd,
@@ -855,9 +842,6 @@ func Test_Ubuntu2204_ArtifactStreaming(t *testing.T) {
 func Test_Ubuntu2204_ArtifactStreaming_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that a new ubuntu 2204 node using artifact streaming can be properly bootstrapepd",
-		Tags: Tags{
-			Scriptless: true,
-		},
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
@@ -898,9 +882,6 @@ func Test_Ubuntu2204_ChronyRestarts_Taints_And_Tolerations(t *testing.T) {
 func Test_Ubuntu2204_ChronyRestarts_Taints_And_Tolerations_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that the chrony service restarts if it is killed. Also tests taints and tolerations",
-		Tags: Tags{
-			Scriptless: true,
-		},
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
@@ -960,9 +941,6 @@ func Test_Ubuntu2204_CustomCATrust(t *testing.T) {
 func Test_Ubuntu2204_CustomCATrust_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2204 VHD can be properly bootstrapped and custom CA was correctly added",
-		Tags: Tags{
-			Scriptless: true,
-		},
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
@@ -1030,9 +1008,6 @@ func Test_Ubuntu2204_CustomSysctls_Scriptless(t *testing.T) {
 	}
 	RunScenario(t, &Scenario{
 		Description: "tests that an ubuntu 2204 VHD can be properly bootstrapped when supplied custom node config that contains custom sysctl settings",
-		Tags: Tags{
-			Scriptless: true,
-		},
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
@@ -1134,8 +1109,7 @@ func Test_Ubuntu2204_GPUA10_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests scriptless installer that a GPU-enabled node using the Ubuntu 2204 VHD with grid driver can be properly bootstrapped",
 		Tags: Tags{
-			Scriptless: true,
-			GPU:        true,
+			GPU: true,
 		},
 		Config: Config{
 			Cluster: ClusterKubenet,
@@ -1219,8 +1193,7 @@ func Test_Ubuntu2204_GPUNoDriver_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a GPU-enabled node using the Ubuntu 2204 VHD opting for skipping gpu driver installation can be properly bootstrapped",
 		Tags: Tags{
-			Scriptless: true,
-			GPU:        true,
+			GPU: true,
 		},
 		Config: Config{
 			Cluster: ClusterKubenet,
@@ -1290,9 +1263,6 @@ func Test_Ubuntu2204_ContainerdURL_IMDSRestrictionFilterTable_Scriptless(t *test
 	RunScenario(t, &Scenario{
 		Description: `tests that a node using the Ubuntu 2204 VHD with the ContainerdPackageURL override the provided URL and not the components.json containerd version,
 		              tests that the imds restriction filter table is properly set`,
-		Tags: Tags{
-			Scriptless: true,
-		},
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
@@ -1422,7 +1392,6 @@ func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_CustomKube
 	RunScenario(t, &Scenario{
 		Tags: Tags{
 			ServerTLSBootstrapping: true,
-			Scriptless:             true,
 		},
 		Description: "tests that a node on ubuntu 2204 bootstrapped with custom kubelet config and kubelet serving certificate rotation enabled will disable certificate rotation due to nodepool tags",
 		Config: Config{
@@ -1554,9 +1523,6 @@ func Test_AzureLinuxV2_MessageOfTheDay(t *testing.T) {
 func Test_AzureLinuxV2_MessageOfTheDay_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a AzureLinuxV2 can be bootstrapped and message of the day is added to the node",
-		Tags: Tags{
-			Scriptless: true,
-		},
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV2Gen2,
@@ -1574,9 +1540,6 @@ func Test_AzureLinuxV2_MessageOfTheDay_Scriptless(t *testing.T) {
 func Test_AzureLinuxV2_LocalDns_Disabled_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a AzureLinuxV2 can be bootstrapped with localdns disabled",
-		Tags: Tags{
-			Scriptless: true,
-		},
 		Config: Config{
 			Cluster: ClusterAzureNetwork,
 			VHD:     config.VHDAzureLinuxV2Gen2,
@@ -1653,7 +1616,6 @@ func Test_AzureLinuxV2_KubeletCustomConfig_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Tags: Tags{
 			KubeletCustomConfig: true,
-			Scriptless:          true,
 		},
 		Description: "tests that a node on azure linux v2 bootstrapped with kubelet custom config for seccomp set to non default values",
 		Config: Config{
