@@ -974,19 +974,3 @@ func ValidateEnableNvidiaResource(ctx context.Context, s *Scenario) {
 	s.T.Logf("waiting for Nvidia GPU resource to be available")
 	waitUntilResourceAvailable(ctx, s, "nvidia.com/gpu")
 }
-
-// ValidatePubkeySSHDisabled validates that SSH with private key authentication fails as expected
-func ValidatePubkeySSHDisabled(ctx context.Context, s *Scenario) {
-	s.T.Helper()
-
-	connectionTest := fmt.Sprintf("%s echo 'THIS_SHOULD_FAIL'", sshString(s.Runtime.VMPrivateIP))
-	connectionResult, err := execOnPrivilegedPod(ctx, s.Runtime.Cluster.Kube, defaultNamespace, s.Runtime.Cluster.DebugPod.Name, connectionTest)
-
-	// We expect this to fail - if it succeeds, then pubkey SSH is not disabled
-	if err == nil && strings.Contains(connectionResult.stdout.String(), "THIS_SHOULD_FAIL") {
-		s.T.Fatalf("SSH with private key should have failed but succeeded - pubkey SSH is not disabled")
-	}
-
-	// Log the expected failure
-	s.T.Logf("SSH with private key authentication failed as expected - pubkey SSH is properly configured")
-}
