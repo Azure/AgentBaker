@@ -231,6 +231,10 @@ testPackagesInstalled() {
       testPkgDownloaded "kubectl" "${PACKAGE_VERSIONS[@]}"
       continue
     fi
+    if [ "${name}" = "nvidia-device-plugin" ]; then
+      testPkgDownloaded "nvidia-device-plugin" "${PACKAGE_VERSIONS[@]}"
+      continue
+    fi
 
     resolve_packages_source_url
     for version in "${PACKAGE_VERSIONS[@]}"; do
@@ -772,6 +776,11 @@ testPkgDownloaded() {
         err $test "Package ${packageName}_${packageVersion} does not exist, content of downloads dir is $(ls -al ${downloadLocation})"
       fi
     elif [ $OS = $AZURELINUX_OS_NAME ] && [ $OS_VERSION = "3.0" ]; then
+      rpmFile=$(find "${downloadLocation}" -maxdepth 1 -name "${packageName}-${packageVersion}*" -print -quit 2>/dev/null) || rpmFile=""
+      if [ -z "${rpmFile}" ]; then
+        err $test "Package ${packageName}-${packageVersion} does not exist, content of downloads dir is $(ls -al ${downloadLocation})"
+      fi
+    elif [ $OS = $MARINER_OS_NAME ] || { [ $OS = $AZURELINUX_OS_NAME ] && [ $OS_VERSION = "2.0" ]; }; then
       rpmFile=$(find "${downloadLocation}" -maxdepth 1 -name "${packageName}-${packageVersion}*" -print -quit 2>/dev/null) || rpmFile=""
       if [ -z "${rpmFile}" ]; then
         err $test "Package ${packageName}-${packageVersion} does not exist, content of downloads dir is $(ls -al ${downloadLocation})"
