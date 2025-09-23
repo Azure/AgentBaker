@@ -495,8 +495,6 @@ func (a *AzureClient) LatestSIGImageVersionByTag(ctx context.Context, image *Ima
 		return "", fmt.Errorf("failed ensuring image replication: %w", err)
 	}
 
-	logf(ctx, "Using version %s", *latestVersion.ID)
-
 	return VHDResourceID(*latestVersion.ID), nil
 }
 
@@ -651,102 +649,6 @@ func replicatedToCurrentRegion(version *armcompute.GalleryImageVersion, location
 		}
 	}
 	return false
-}
-
-func ensureProvisioningState(version *armcompute.GalleryImageVersion) error {
-	if *version.Properties.ProvisioningState != armcompute.GalleryProvisioningStateSucceeded {
-		return fmt.Errorf("unexpected provisioning state: %q", *version.Properties.ProvisioningState)
-	}
-	return nil
-}
-
-func (a *AzureClient) CreateVMSSWithRetry(ctx context.Context, resourceGroupName string, vmssName string, parameters armcompute.VirtualMachineScaleSet) (*armcompute.VirtualMachineScaleSet, error) {
-	delay := 5 * time.Second
-	retryOn := func(err error) bool {
-		var respErr *azcore.ResponseError
-		// AllocationFailed sometimes happens for exotic SKUs (new GPUs) with limited availability, sometimes retrying helps
-		// It's not a quota issue
-		return errors.As(err, &respErr) && respErr.StatusCode == 200 && respErr.ErrorCode == "AllocationFailed"
-	}
-
-	maxAttempts := 10
-	attempt := 0
-
-	for {
-		attempt++
-		vmss, err := a.createVMSS(ctx, resourceGroupName, vmssName, parameters)
-		if err == nil {
-			logf(ctx, "created VMSS %s in resource group %s", vmssName, resourceGroupName)
-			return vmss, nil
-		}
-
-		// not a retryable error
-		if !retryOn(err) {
-			return nil, err
-		}
-
-		if attempt >= maxAttempts {
-			return nil, fmt.Errorf("failed to create VMSS after %d retries: %w", maxAttempts, err)
-		}
-
-		logf(ctx, "failed to create VMSS: %v, attempt: %v, retrying in %v", err, attempt, delay)
-		select {
-		case <-ctx.Done():
-			return nil, err
-		case <-time.After(delay):
-		}
-	}
-
-}
-
-func (a *AzureClient) createVMSS(ctx context.Context, resourceGroupName string, vmssName string, parameters armcompute.VirtualMachineScaleSet) (*armcompute.VirtualMachineScaleSet, error) {
-	operation, err := a.VMSS.BeginCreateOrUpdate(
-		ctx,
-		resourceGroupName,
-		vmssName,
-		parameters,
-		nil,
-	)
-	if err != nil {
-		return nil, err
-	}
-	vmssResp, err := operation.PollUntilDone(ctx, DefaultPollUntilDoneOptions)
-	if err != nil {
-		return nil, err
-	}
-	return &vmssResp.VirtualMachineScaleSet, nil
-}
-
-// DeleteImage deletes a managed image
-func (a *AzureClient) DeleteImage(ctx context.Context, resourceGroupName, imageName string) error {
-	deleteOp, err := a.Images.BeginDelete(ctx, resourceGroupName, imageName, nil)
-	if err != nil {
-		return fmt.Errorf("failed to delete image: %w", err)
-	}
-
-	_, err = deleteOp.PollUntilDone(ctx, DefaultPollUntilDoneOptions)
-	if err != nil {
-		return fmt.Errorf("failed to complete image deletion: %w", err)
-	}
-
-	return nil
-}
-
-// CreateVMSSFromImage creates a VMSS from a managed image
-func (a *AzureClient) CreateVMSSFromImage(ctx context.Context, resourceGroupName, vmssName string, vmssTemplate armcompute.VirtualMachineScaleSet, imageResourceID string) (*armcompute.VirtualMachineScaleSet, error) {
-	// Modify the VMSS template to use the custom image
-	if vmssTemplate.Properties.VirtualMachineProfile.StorageProfile.ImageReference == nil {
-		vmssTemplate.Properties.VirtualMachineProfile.StorageProfile.ImageReference = &armcompute.ImageReference{}
-	}
-
-	vmssTemplate.Properties.VirtualMachineProfile.StorageProfile.ImageReference.ID = to.Ptr(imageResourceID)
-	// Clear marketplace image reference properties when using custom image
-	vmssTemplate.Properties.VirtualMachineProfile.StorageProfile.ImageReference.Publisher = nil
-	vmssTemplate.Properties.VirtualMachineProfile.StorageProfile.ImageReference.Offer = nil
-	vmssTemplate.Properties.VirtualMachineProfile.StorageProfile.ImageReference.SKU = nil
-	vmssTemplate.Properties.VirtualMachineProfile.StorageProfile.ImageReference.Version = nil
-
-	return a.createVMSS(ctx, resourceGroupName, vmssName, vmssTemplate)
 }
 
 // DeleteSIGImageVersion deletes a SIG image version
