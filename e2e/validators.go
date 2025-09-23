@@ -974,3 +974,81 @@ func ValidateEnableNvidiaResource(ctx context.Context, s *Scenario) {
 	s.T.Logf("waiting for Nvidia GPU resource to be available")
 	waitUntilResourceAvailable(ctx, s, "nvidia.com/gpu")
 }
+
+func ValidateNvidiaDevicePluginDaemonSetRunning(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	s.T.Logf("validating that NVIDIA device plugin daemonset is running")
+	
+	command := []string{
+		"set -ex",
+		"kubectl get daemonset nvidia-device-plugin-daemonset -n kube-system -o jsonpath='{.status.numberReady}'",
+	}
+	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "could not get nvidia device plugin daemonset status")
+	
+	output := strings.TrimSpace(execResult.stdout.String())
+	require.NotEqual(s.T, "0", output, "NVIDIA device plugin daemonset should have at least one ready replica")
+}
+
+func ValidateNodeAdvertisesGPUResources(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	s.T.Logf("validating that node advertises GPU resources")
+	
+	// First, wait for the nvidia.com/gpu resource to be available
+	waitUntilResourceAvailable(ctx, s, "nvidia.com/gpu")
+	
+	command := []string{
+		"set -ex",
+		"kubectl get node $(hostname) -o jsonpath='{.status.capacity.nvidia\\.com/gpu}'",
+	}
+	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "could not get node GPU capacity")
+	
+	output := strings.TrimSpace(execResult.stdout.String())
+	require.NotEmpty(s.T, output, "node should advertise nvidia.com/gpu capacity")
+	require.NotEqual(s.T, "0", output, "node should advertise at least 1 GPU")
+}
+
+func ValidateNvidiaDevicePluginBinaryInstalled(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	s.T.Logf("validating that NVIDIA device plugin binary is installed")
+	
+	command := []string{
+		"set -ex",
+		"dpkg -l | grep nvidia-device-plugin || rpm -qa | grep nvidia-device-plugin",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "NVIDIA device plugin package should be installed")
+}
+
+func ValidateGPUWorkloadSchedulable(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	s.T.Logf("validating that GPU workloads can be scheduled")
+	
+	// Create a simple GPU test pod
+	testPodManifest := `
+apiVersion: v1
+kind: Pod
+metadata:
+  name: gpu-test-pod
+  namespace: default
+spec:
+  containers:
+  - name: gpu-test
+    image: nvidia/cuda:11.0-base
+    command: ["nvidia-smi"]
+    resources:
+      requests:
+        nvidia.com/gpu: 1
+      limits:
+        nvidia.com/gpu: 1
+  restartPolicy: Never
+`
+	
+	command := []string{
+		"set -ex",
+		"cat << 'EOF' | kubectl apply -f -",
+		testPodManifest,
+		"EOF",
+		"kubectl wait --for=condition=ready pod/gpu-test-pod --timeout=300s",
+		"kubectl delete pod gpu-test-pod",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "GPU workload should be schedulable and run successfully")
+}
