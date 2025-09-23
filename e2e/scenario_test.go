@@ -667,6 +667,7 @@ func Test_Ubuntu2204_EntraIDSSH(t *testing.T) {
 				// Enable Entra ID SSH authentication
 				nbc.SSHStatus = datamodel.EntraIDSSH
 			},
+			SkipSSHConnectivityValidation: true, // Skip SSH connectivity validation since Entra ID SSH disables private key authentication
 			Validator: func(ctx context.Context, s *Scenario) {
 				// NOTE: Since Entra ID SSH disables pubkey authentication, we cannot use
 				// the normal SSH-based validation functions that rely on private key authentication.
