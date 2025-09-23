@@ -758,7 +758,7 @@ EOF
         then
             logs_to_events "AKS.CSE.ensureKubelet.installCredentialProvider" installCredentialProvider
         else
-            logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromPMC" "installCredentialProviderFromPMC ${KUBERNETES_VERSION}"
+            logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromPkg" "installCredentialProviderFromPkg ${KUBERNETES_VERSION}"
         fi
     fi
 
