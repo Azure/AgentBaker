@@ -84,6 +84,18 @@ installKubeletKubectlFromBootstrapProfileRegistry() {
     installKubeletKubectlFromPkg "$2" "$1"
 }
 
+installCredentialProviderFromPkg() {
+    if mergeSysexts azure-acr-credential-provider "${2:-mcr.microsoft.com}"/oss/v2/kubernetes/azure-acr-credential-provider-sysext "$1"; then
+        ln -snf /usr/bin/azure-acr-credential-provider "$CREDENTIAL_PROVIDER_BIN_DIR/acr-credential-provider"
+    else
+        installCredentialProviderFromUrl
+    fi
+}
+
+installCredentialProviderPackageFromBootstrapProfileRegistry() {
+    installCredentialProviderFromPkg "$2" "$1"
+}
+
 ensureRunc() {
     stub
 }

@@ -418,7 +418,8 @@ while IFS= read -r p; do
         echo "  - kubernetes-binaries version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
-    kubelet|kubectl)
+    azure-acr-credential-provider-pmc|kubelet|kubectl)
+      name=${name%-pmc}
       for version in ${PACKAGE_VERSIONS[@]}; do
         if isMarinerOrAzureLinux || isUbuntu; then
           downloadPkgFromVersion "${name}" "${version}" "${downloadDir}"
@@ -435,12 +436,6 @@ while IFS= read -r p; do
           downloadPkgFromVersion "${K8S_DEVICE_PLUGIN_PKG}" "${version}" "${downloadDir}"
         fi
         echo "  - ${K8S_DEVICE_PLUGIN_PKG} version ${version}" >> ${VHD_LOGS_FILEPATH}
-      done
-      ;;
-    "azure-acr-credential-provider-pmc")
-      for version in ${PACKAGE_VERSIONS[@]}; do
-        downloadPkgFromVersion "azure-acr-credential-provider" "${version}" "${downloadDir}"
-        echo "  - azure-acr-credential-provider version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
     "datacenter-gpu-manager-4-core")

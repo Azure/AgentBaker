@@ -225,13 +225,14 @@ testPackagesInstalled() {
         testAcrCredentialProviderInstalled "$PACKAGE_DOWNLOAD_URL" "${PACKAGE_VERSIONS[@]}"
         continue
         ;;
+      "azure-acr-credential-provider-pmc"|\
       "kubelet"|\
       "kubectl"|\
       "nvidia-device-plugin"|\
       "datacenter-gpu-manager-4-core"|\
       "datacenter-gpu-manager-4-proprietary"|\
       "dcgm-exporter")
-        testPkgDownloaded "${name}" "${PACKAGE_VERSIONS[@]}"
+        testPkgDownloaded "${name%-pmc}" "${downloadLocation}" "${PACKAGE_VERSIONS[@]}"
         continue
         ;;
       "cni-plugins")
@@ -921,11 +922,10 @@ testKubeBinariesPresent() {
 testPkgDownloaded() {
   local test="testPkgDownloaded"
   echo "$test:Start"
-  local packageName=$1; shift
+  local packageName=$1 downloadLocation=$2; shift 2
   local packageVersions=("$@")
   local seArch seFile
   seArch=$(getSystemdArch)
-  downloadLocation="/opt/${packageName}/downloads"
   for packageVersion in "${packageVersions[@]}"; do
     echo "checking package version: $packageVersion ..."
     # Strip epoch (e.g., 1:4.4.1-1 -> 4.4.1-1)
