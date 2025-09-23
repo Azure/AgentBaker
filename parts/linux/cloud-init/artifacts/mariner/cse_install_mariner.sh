@@ -274,14 +274,17 @@ cleanUpGPUDrivers() {
 }
 
 installNvidiaDevicePluginPkgFromCache() {
-    local desiredVersion="${1:-}"
-    if [ -z "${desiredVersion}" ]; then
-        echo "ERROR: No version specified for nvidia-device-plugin installation" >&2
-        return 1
+    echo "Installing cached nvidia-device-plugin package..."
+    
+    # Find the cached .rpm file
+    rpmFile=$(find /opt/nvidia-device-plugin/downloads -name "nvidia-device-plugin*.rpm" -type f | head -1)
+    if [ -z "${rpmFile}" ]; then
+        echo "ERROR: No cached nvidia-device-plugin package found" >&2
+        exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
     fi
     
-    echo "Installing nvidia-device-plugin version ${desiredVersion}..."
-    installRPMPackageFromFile "nvidia-device-plugin" "${desiredVersion}" || exit $ERR_APT_INSTALL_TIMEOUT
+    echo "Installing ${rpmFile}..."
+    rpm -i "${rpmFile}" || exit $ERR_APT_INSTALL_TIMEOUT
     
     echo "Disabling nvidia-device-plugin systemd unit..."
     systemctl disable nvidia-device-plugin.service || exit 1

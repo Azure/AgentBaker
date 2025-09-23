@@ -95,14 +95,17 @@ cleanUpGPUDrivers() {
 }
 
 installNvidiaDevicePluginPkgFromCache() {
-    local desiredVersion="${1:-}"
-    if [ -z "${desiredVersion}" ]; then
-        echo "ERROR: No version specified for nvidia-device-plugin installation" >&2
-        return 1
+    echo "Installing cached nvidia-device-plugin package..."
+    
+    # Find the cached .deb file
+    debFile=$(find /opt/nvidia-device-plugin/downloads -name "nvidia-device-plugin*.deb" -type f | head -1)
+    if [ -z "${debFile}" ]; then
+        echo "ERROR: No cached nvidia-device-plugin package found" >&2
+        exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
     fi
     
-    echo "Installing nvidia-device-plugin version ${desiredVersion}..."
-    installPkgWithAptGet "nvidia-device-plugin" "${desiredVersion}" || exit $ERR_APT_INSTALL_TIMEOUT
+    echo "Installing ${debFile}..."
+    dpkg -i "${debFile}" || exit $ERR_APT_INSTALL_TIMEOUT
     
     echo "Disabling nvidia-device-plugin systemd unit..."
     systemctl disable nvidia-device-plugin.service || exit 1

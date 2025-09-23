@@ -404,14 +404,7 @@ function nodePrep {
         if [ "${ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED}" = "true" ]; then
             if ! systemctl list-unit-files | grep -q "nvidia-device-plugin.service"; then
                 echo "Installing nvidia-device-plugin package..."
-                # Determine version from components.json through available cached packages
-                DEVICE_PLUGIN_VERSION=$(find /opt/nvidia-device-plugin/downloads -name "nvidia-device-plugin-*" -type f | head -1 | grep -o '[0-9]\+\.[0-9]\+\.[0-9]\+[^/]*' | head -1)
-                if [ -n "${DEVICE_PLUGIN_VERSION}" ]; then
-                    logs_to_events "AKS.CSE.installNvidiaDevicePlugin" "installNvidiaDevicePluginPkgFromCache ${DEVICE_PLUGIN_VERSION}"
-                else
-                    echo "ERROR: No cached nvidia-device-plugin package found" >&2
-                    exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
-                fi
+                logs_to_events "AKS.CSE.installNvidiaDevicePlugin" "installNvidiaDevicePluginPkgFromCache"
             else
                 echo "nvidia-device-plugin package already installed"
             fi
