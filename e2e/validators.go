@@ -981,7 +981,7 @@ func ValidateEnableNvidiaResource(ctx context.Context, s *Scenario) {
 func ValidatePubkeySSHDisabled(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 
-	// Use VMSS RunCommand to check sshd_config directly on the node
+	// Part 1. Use VMSS RunCommand to check sshd_config directly on the node
 	runPoller, err := config.Azure.VMSSVM.BeginRunCommand(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, "0", armcompute.RunCommandInput{
 		CommandID: to.Ptr("RunShellScript"),
 		Script: []*string{to.Ptr(`#!/bin/bash
@@ -1012,6 +1012,13 @@ fi`)},
 	// Check if the command execution was successful by looking for our success message in the output
 	if !strings.Contains(respString, "SUCCESS: PubkeyAuthentication is disabled") {
 		s.T.Fatalf("PubkeyAuthentication is not properly disabled. Full response: %s", respString)
+	}
+
+	// Part 2. Check cannot SSH with private key (expect failure)
+	err = validateSSHConnectivity(ctx, s)
+	require.Error(s.T, err, "Expected SSH connection with private key to fail, but it succeeded")
+	if !strings.Contains(err.Error(), "Permission denied") {
+		s.T.Fatalf("Expected permission denied error, but got: %v", err)
 	}
 
 	s.T.Logf("PubkeyAuthentication is properly disabled as expected")
