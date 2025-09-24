@@ -1122,3 +1122,108 @@ func ValidateNvidiaDCGMExporterScrapeCommonMetric(ctx context.Context, s *Scenar
 	}
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "Nvidia DCGM Exporter is not returning DCGM_FI_DEV_GPU_UTIL")
 }
+
+// ValidateAppArmorBasic validates that AppArmor is running using aa-status
+func ValidateAppArmorBasic(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	// Check if aa-status command works and shows AppArmor is loaded
+	command := []string{
+		"set -ex",
+		"sudo aa-status",
+	}
+	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "aa-status command failed")
+	stdout := execResult.stdout.String()
+
+	// Verify AppArmor module is loaded
+	require.Contains(s.T, stdout, "apparmor module is loaded", "expected AppArmor module to be loaded")
+}
+
+// ValidateAppArmorKubernetesExample validates AppArmor functionality using the Kubernetes tutorial example
+// https://kubernetes.io/docs/tutorials/security/apparmor/#example
+func ValidateAppArmorKubernetesExample(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	// Step 1: Create and load an AppArmor profile that denies file writes on the VM
+	profileContent := `#include <tunables/global>
+
+profile k8s-apparmor-example-deny-write flags=(attach_disconnected) {
+  #include <abstractions/base>
+
+  file,
+
+  # Deny all file writes.
+  deny /** w,
+}`
+
+	// Load the AppArmor profile on the VM
+	command := []string{
+		"set -ex",
+		fmt.Sprintf("echo '%s' | sudo apparmor_parser -q", profileContent),
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to load AppArmor profile")
+
+	// Step 2: Verify the profile is loaded on the VM
+	command = []string{
+		"set -ex",
+		"sudo aa-status | grep k8s-apparmor-example-deny-write",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "AppArmor profile not found in loaded profiles")
+
+	// Step 3: Create a pod with AppArmor profile using Kubernetes client
+	podName := "hello-apparmor-test"
+	localhostProfile := "k8s-apparmor-example-deny-write"
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      podName,
+			Namespace: "default",
+		},
+		Spec: corev1.PodSpec{
+			SecurityContext: &corev1.PodSecurityContext{
+				AppArmorProfile: &corev1.AppArmorProfile{
+					Type:             corev1.AppArmorProfileTypeLocalhost,
+					LocalhostProfile: &localhostProfile,
+				},
+			},
+			Containers: []corev1.Container{
+				{
+					Name:    "hello",
+					Image:   "busybox:1.28",
+					Command: []string{"sh", "-c", "echo 'Hello AppArmor!' && sleep 30"},
+				},
+			},
+			NodeSelector: map[string]string{
+				"kubernetes.io/hostname": s.Runtime.KubeNodeName,
+			},
+		},
+	}
+
+	// Step 4: Apply the pod and wait for it to be running
+	kube := s.Runtime.Cluster.Kube
+	_, err := kube.Typed.CoreV1().Pods("default").Create(ctx, pod, metav1.CreateOptions{})
+	require.NoError(s.T, err, "failed to create AppArmor test pod")
+
+	defer func() {
+		// Step 7: Cleanup - remove the test pod
+		deletePolicy := metav1.DeletePropagationForeground
+		kube.Typed.CoreV1().Pods("default").Delete(ctx, podName, metav1.DeleteOptions{
+			PropagationPolicy: &deletePolicy,
+		})
+	}()
+
+	// Wait for pod to be running
+	_, err = kube.WaitUntilPodRunning(ctx, "default", "", "metadata.name="+podName)
+	require.NoError(s.T, err, "failed to wait for AppArmor test pod to be running")
+
+	// Step 5: Verify the AppArmor profile is applied to the container
+	execResult, err := execOnPod(ctx, kube, "default", podName, []string{"cat", "/proc/1/attr/apparmor/current"})
+	require.NoError(s.T, err, "failed to check AppArmor profile on container")
+	require.Contains(s.T, execResult.stdout.String(), "k8s-apparmor-example-deny-write (enforce)", "expected AppArmor profile to be applied to container")
+
+	// Step 6: Test that file writes are denied (this should fail)
+	execResult, err = execOnPod(ctx, kube, "default", podName, []string{"touch", "/tmp/test"})
+	require.Error(s.T, err, "expected file write to be denied by AppArmor, but it succeeded")
+	require.Contains(s.T, execResult.stderr.String(), "Permission denied", "expected 'Permission denied' error when AppArmor blocks file write")
+
+	s.T.Log("AppArmor Kubernetes example test completed successfully")
+}
