@@ -116,8 +116,26 @@ updateAptWithNvidiaPkg() {
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
 }
 
+installNvidiaDCGMPkgFromCache() {
+    for packageName in $(dcgm_package_list); do
+        downloadDir="/opt/${packageName}/downloads"
+        debFile=$(find "${downloadDir}" -maxdepth 1 -name "${packageName}*" -print -quit 2>/dev/null) || debFile=""
+        if [ -z "${debFile}" ]; then
+            echo "Failed to locate ${packageName} deb"
+            exit $ERR_NVIDIA_DCGM_INSTALL_FAIL
+        fi
+        logs_to_events "AKS.CSE.install${packageName}.installDebPackageFromFile" "installDebPackageFromFile ${debFile}" || exit $ERR_APT_INSTALL_TIMEOUT
+        rm -rf $(dirname ${downloadDir})
+    done
+}
+
 cleanUpGPUDrivers() {
     rm -Rf $GPU_DEST /opt/gpu
+
+    for packageName in $(dcgm_package_list); do
+        pkgDir="/opt/${packageName}"
+        rm -rf ${pkgDir}
+    done
 }
 
 installCriCtlPackage() {

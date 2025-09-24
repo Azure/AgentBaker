@@ -195,6 +195,20 @@ updateDnfWithNvidiaPkg() {
   retrycmd_curl_file 120 5 25 ${nvidia_repo_path} ${nvidia_repo_url} || exit $ERR_NVIDIA_AZURELINUX_REPO_FILE_DOWNLOAD_TIMEOUT
 }
 
+installNvidiaDCGMPkgFromCache() {
+  for packageName in $(dcgm_package_list); do
+    downloadDir="/opt/${packageName}/downloads"
+    rpmFile=$(find "${downloadDir}" -maxdepth 1 -name "${packageName}*" -print -quit 2>/dev/null) || rpmFile=""
+    if [ -z "${rpmFile}" ]; then
+      echo "Failed to locate ${packageName} rpm"
+      exit $ERR_NVIDIA_DCGM_INSTALL_FAIL
+    fi
+
+    logs_to_events "AKS.CSE.install${packageName}.dnf_install" "dnf_install 30 1 600 ${rpmFile}" || exit $ERR_APT_INSTALL_TIMEOUT
+    rm -rf $(dirname ${downloadDir})
+  done
+}
+
 installKubeletKubectlPkgFromPMC() {
     local desiredVersion="${1}"
 	  installRPMPackageFromFile "kubelet" $desiredVersion || exit $ERR_KUBELET_INSTALL_FAIL
@@ -282,7 +296,12 @@ ensureRunc() {
 }
 
 cleanUpGPUDrivers() {
-    rm -Rf $GPU_DEST /opt/gpu
+  rm -Rf $GPU_DEST /opt/gpu
+
+  for packageName in $(dcgm_package_list); do
+    pkgDir="/opt/${packageName}"
+    rm -rf ${pkgDir}
+  done
 }
 
 downloadContainerdFromVersion() {
