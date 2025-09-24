@@ -103,7 +103,9 @@ stages:
     dependsOn: build_${{ parameters.stageName }}
     condition: and(succeeded(), eq('${{ parameters.build }}', True), ne(variables.SKIP_E2E_TESTS, 'true'))
     variables:
+      VHD_BUILD_ID: $(Build.BuildId)
       TAGS_TO_RUN: imageName=${{ parameters.imageName }}
+      DISABLE_SCRIPTLESS_COMPILATION: true
     jobs:
       - template: ./e2e-template.yaml
         parameters:
