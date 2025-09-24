@@ -230,6 +230,10 @@ os:
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/secure-tls-bootstrap.service
       destination: /etc/systemd/system/secure-tls-bootstrap.service
       permissions: 600
+    # aks-diagnostic
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/aks-diagnostic.py
+      destination: /opt/azure/containers/aks-diagnostic.py
+      permissions: 755
     # aks log collector
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/aks-log-collector.sh
       destination: /opt/azure/containers/aks-log-collector.sh
