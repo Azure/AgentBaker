@@ -212,25 +212,29 @@ testPackagesInstalled() {
     updatePackageVersions "${p}" "${OS}" "${OS_VERSION}"
     PACKAGE_DOWNLOAD_URL=""
     updatePackageDownloadURL "${p}" "${OS}" "${OS_VERSION}"
-    if [ "${name}" = "kubernetes-binaries" ]; then
-      # kubernetes-binaries, namely, kubelet and kubectl are installed in a different way so we test them separately
-      # Intentionally remove leading 'v' from each element in the array
-      testKubeBinariesPresent "${PACKAGE_VERSIONS[@]#v}"
-      continue
-    fi
-    if [ "${name}" = "azure-acr-credential-provider" ]; then
-      # azure-acr-credential-provider is installed in a different way so we test it separately
-      testAcrCredentialProviderInstalled "$PACKAGE_DOWNLOAD_URL" "${PACKAGE_VERSIONS[@]}"
-      continue
-    fi
-    if [ "${name}" = "kubelet" ]; then
-      testPkgDownloaded "kubelet" "${PACKAGE_VERSIONS[@]}"
-      continue
-    fi
-      if [ "${name}" = "kubectl" ]; then
-      testPkgDownloaded "kubectl" "${PACKAGE_VERSIONS[@]}"
-      continue
-    fi
+    case "${name}" in
+      "kubernetes-binaries")
+        # kubernetes-binaries, namely, kubelet and kubectl are installed in a different way so we test them separately
+        # Intentionally remove leading 'v' from each element in the array
+        testKubeBinariesPresent "${PACKAGE_VERSIONS[@]#v}"
+        continue
+        ;;
+      "azure-acr-credential-provider")
+        # azure-acr-credential-provider is installed in a different way so we test it separately
+        testAcrCredentialProviderInstalled "$PACKAGE_DOWNLOAD_URL" "${PACKAGE_VERSIONS[@]}"
+        continue
+        ;;
+      "kubelet"|\
+      "kubectl"|\
+      "datacenter-gpu-manager-4-core"|\
+      "datacenter-gpu-manager-4-cuda12"|\
+      "datacenter-gpu-manager-4-proprietary"|\
+      "datacenter-gpu-manager-4-proprietary-cuda12"|\
+      "datacenter-gpu-manager-exporter")
+        testPkgDownloaded "${name}" "${PACKAGE_VERSIONS[@]}"
+        continue
+        ;;
+    esac
 
     resolve_packages_source_url
     for version in "${PACKAGE_VERSIONS[@]}"; do
@@ -247,9 +251,9 @@ testPackagesInstalled() {
             ;;
         esac
         break
-        
+
       fi
-      # A downloadURL from a package in components.json will look like this: 
+      # A downloadURL from a package in components.json will look like this:
       # "https://acs-mirror.azureedge.net/cni-plugins/v${version}/binaries/cni-plugins-linux-${CPU_ARCH}-v${version}.tgz"
       # After eval(resolved), downloadURL will look like "https://acs-mirror.azureedge.net/cni-plugins/v0.8.7/binaries/cni-plugins-linux-arm64-v0.8.7.tgz"
       eval "downloadURL=${PACKAGE_DOWNLOAD_URL}"
@@ -306,7 +310,7 @@ testPackagesInstalled() {
 # Azure China Cloud uses a different proxy but the same path, and we want to verify the package URL
 # if defined in control plane, is accessible and has the same file size as the one in the public cloud.
 testPackageInAzureChinaCloud() {
-  # In Azure China Cloud, the proxy server proxies download URL to the storage account URL according to the root path, for example, 
+  # In Azure China Cloud, the proxy server proxies download URL to the storage account URL according to the root path, for example,
   # location /kubernetes/ {
   #  proxy_pass https://kubernetesartifacts.blob.core.chinacloudapi.cn/kubernetes/;
   # }
@@ -389,7 +393,7 @@ testImagesPulled() {
     downloadURL=$(echo "${imageToBePulled}" | jq .downloadURL -r)
     if [ $(echo "${imageToBePulled}" | jq -r '.amd64OnlyVersions // empty') = "null" ]; then
       amd64OnlyVersionsStr=""
-    else 
+    else
       amd64OnlyVersionsStr=$(echo "${imageToBePulled}" | jq -r '.amd64OnlyVersions // empty')
     fi
     declare -a MULTI_ARCH_VERSIONS=()
@@ -660,7 +664,7 @@ testLSMBPF() {
   if [ -f /sys/kernel/security/lsm ]; then
     current_lsm=$(cat /sys/kernel/security/lsm)
     echo "$test: Current LSM modules: $current_lsm"
-    
+
     if echo "$current_lsm" | grep -q "bpf"; then
       echo "$test: BPF is present in LSM modules"
     else
@@ -767,6 +771,8 @@ testPkgDownloaded() {
   for packageVersion in "${packageVersions[@]}"; do
     echo "checking package version: $packageVersion ..."
     if [ $OS = $UBUNTU_OS_NAME ]; then
+      # Strip epoch (e.g., 1:4.4.1-1 -> 4.4.1-1)
+      packageVersion="${packageVersion#*:}"
       debFile=$(find "${downloadLocation}" -maxdepth 1 -name "${packageName}_${packageVersion}*" -print -quit 2>/dev/null) || debFile=""
       if [ -z "${debFile}" ]; then
         err $test "Package ${packageName}_${packageVersion} does not exist, content of downloads dir is $(ls -al ${downloadLocation})"
@@ -1366,7 +1372,7 @@ testCriCtl() {
   # the expectedVersion looks like this, "1.32.0-ubuntu18.04u3", need to extract the version number.
   expectedVersion=$(echo $expectedVersion | cut -d'-' -f1)
   # use command `crictl --version` to get the version
-  
+
   local crictl_version=$(crictl --version)
   # the output of crictl_version looks like this "crictl version 1.32.0", need to extract the version number.
   crictl_version=$(echo $crictl_version | cut -d' ' -f3)
@@ -1394,7 +1400,7 @@ testContainerd() {
   # use command `containerd --version` to get the version
   local containerd_version=$(containerd --version)
   # the output of containerd_version looks like the followings. We need to extract the major.minor.patch version only.
-  # For containerd (v1): containerd github.com/containerd/containerd 1.6.26 
+  # For containerd (v1): containerd github.com/containerd/containerd 1.6.26
   # For containerd (v2): containerd github.com/containerd/containerd/v2 2.0.0
   containerd_version=$(echo $containerd_version | cut -d' ' -f3)
   # The version could be in the format "1.6.24-11-ubuntu1~18.04.1" or "2.0.0-6.azl3" or just "2.0.0", we need to extract the major.minor.patch version only.
@@ -1523,7 +1529,7 @@ testPackageDownloadURLFallbackLogic() {
     echo "PACKAGE_DOWNLOAD_BASE_URL was not set to packages.aks.azure.com"
     err "$test: failed to set PACKAGE_DOWNLOAD_BASE_URL to packages.aks.azure.com"
   fi
-  
+
   # Block the IP on local vm to simulate cluster firewall blocking packages.aks.azure.com and retry test to see output
   echo "127.0.0.1     packages.aks.azure.com" | sudo tee /etc/hosts > /dev/null
 
@@ -1538,20 +1544,20 @@ testPackageDownloadURLFallbackLogic() {
 
 checkLocaldnsScriptsAndConfigs() {
   local test="checkLocaldnsScriptsAndConfigs"
-  
+
   declare -A localdnsfiles=(
     ["/opt/azure/containers/localdns/localdns.sh"]=755
     ["/etc/systemd/system/localdns.service"]=644
     ["/etc/systemd/system/localdns.service.d/delegate.conf"]=644
   )
-  
+
   for file in "${!localdnsfiles[@]}"; do
     echo "$test: Checking existence of ${file}"
     if [ ! -f "${file}" ]; then
       echo "$test: Localdnsfile - ${file} not found"
       return 1
     fi
-    
+
     echo "$test: Checking permissions of ${file}"
     permissions=$(stat -c "%a" "$file")
     if [ "$permissions" != "${localdnsfiles[$file]}" ]; then
@@ -1559,7 +1565,7 @@ checkLocaldnsScriptsAndConfigs() {
       return 1
     fi
   done
-  
+
   echo "$test: All localdnsfiles exist with correct permissions"
   return 0
 }
