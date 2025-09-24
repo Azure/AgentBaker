@@ -5,6 +5,10 @@ stub() {
 }
 
 downloadSysextFromVersion() {
+    # Nobble this until sysexts are published on MAR. The older binary artifacts
+    # will be used as fallbacks.
+    return 0
+
     local sysextName=$1
     local sysextURL=$2
     local downloadDir=${3:-"/opt/${sysextName}/downloads"}

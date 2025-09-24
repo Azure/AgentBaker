@@ -31,6 +31,8 @@ Describe 'cse_install_flatcar.sh'
     Include "./parts/linux/cloud-init/artifacts/cse_helpers.sh"
 
     Describe 'downloadSysextFromVersion'
+        Pending 'sysexts published on MAR'
+
         It 'downloads sysext with default download directory'
             # Mock successful oras pull
             oras() {
