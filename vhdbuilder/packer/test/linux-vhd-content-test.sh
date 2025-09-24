@@ -212,29 +212,28 @@ testPackagesInstalled() {
     updatePackageVersions "${p}" "${OS}" "${OS_VERSION}"
     PACKAGE_DOWNLOAD_URL=""
     updatePackageDownloadURL "${p}" "${OS}" "${OS_VERSION}"
-    if [ "${name}" = "kubernetes-binaries" ]; then
-      # kubernetes-binaries, namely, kubelet and kubectl are installed in a different way so we test them separately
-      # Intentionally remove leading 'v' from each element in the array
-      testKubeBinariesPresent "${PACKAGE_VERSIONS[@]#v}"
-      continue
-    fi
-    if [ "${name}" = "azure-acr-credential-provider" ]; then
-      # azure-acr-credential-provider is installed in a different way so we test it separately
-      testAcrCredentialProviderInstalled "$PACKAGE_DOWNLOAD_URL" "${PACKAGE_VERSIONS[@]}"
-      continue
-    fi
-    if [ "${name}" = "kubelet" ]; then
-      testPkgDownloaded "kubelet" "${PACKAGE_VERSIONS[@]}"
-      continue
-    fi
-      if [ "${name}" = "kubectl" ]; then
-      testPkgDownloaded "kubectl" "${PACKAGE_VERSIONS[@]}"
-      continue
-    fi
-    if [ "${name}" = "nvidia-device-plugin" ]; then
-      testPkgDownloaded "nvidia-device-plugin" "${PACKAGE_VERSIONS[@]}"
-      continue
-    fi
+    case "${name}" in
+      "kubernetes-binaries")
+        # kubernetes-binaries, namely, kubelet and kubectl are installed in a different way so we test them separately
+        # Intentionally remove leading 'v' from each element in the array
+        testKubeBinariesPresent "${PACKAGE_VERSIONS[@]#v}"
+        continue
+        ;;
+      "azure-acr-credential-provider")
+        # azure-acr-credential-provider is installed in a different way so we test it separately
+        testAcrCredentialProviderInstalled "$PACKAGE_DOWNLOAD_URL" "${PACKAGE_VERSIONS[@]}"
+        continue
+        ;;
+      "kubelet"|\
+      "kubectl"|\
+      "nvidia-device-plugin"|\
+      "datacenter-gpu-manager-4-core"|\
+      "datacenter-gpu-manager-4-proprietary"|\
+      "datacenter-gpu-manager-exporter")
+        testPkgDownloaded "${name}" "${PACKAGE_VERSIONS[@]}"
+        continue
+        ;;
+    esac
 
     resolve_packages_source_url
     for version in "${PACKAGE_VERSIONS[@]}"; do
@@ -771,6 +770,8 @@ testPkgDownloaded() {
   for packageVersion in "${packageVersions[@]}"; do
     echo "checking package version: $packageVersion ..."
     if [ $OS = $UBUNTU_OS_NAME ]; then
+      # Strip epoch (e.g., 1:4.4.1-1 -> 4.4.1-1)
+      packageVersion="${packageVersion#*:}"
       debFile=$(find "${downloadLocation}" -maxdepth 1 -name "${packageName}_${packageVersion}*" -print -quit 2>/dev/null) || debFile=""
       if [ -z "${debFile}" ]; then
         err $test "Package ${packageName}_${packageVersion} does not exist, content of downloads dir is $(ls -al ${downloadLocation})"
