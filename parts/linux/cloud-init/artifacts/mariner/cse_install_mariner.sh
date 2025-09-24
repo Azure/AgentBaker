@@ -171,11 +171,14 @@ installCredentialProviderFromPMC() {
     mv "/usr/local/bin/azure-acr-credential-provider" "$CREDENTIAL_PROVIDER_BIN_DIR/acr-credential-provider"
 }
 
-updateDnfWithNvidiaPkg() {
-  readonly nvidia_repo_path="/etc/yum.repos.d/nvidia-built-azurelinux.repo"
+installKubeletKubectlPkgFromPMC() {
+    local desiredVersion="${1}"
+	  installRPMPackageFromFile "kubelet" $desiredVersion || exit $ERR_KUBELET_INSTALL_FAIL
+    installRPMPackageFromFile "kubectl" $desiredVersion || exit $ERR_KUBECTL_INSTALL_FAIL
+}
 
+updateDnfWithNvidiaPkg() {
   if [ "$OS_VERSION" != "3.0" ]; then
-    # TODO: Error out?
     echo "NVIDIA repo setup is only supported on Azure Linux 3.0"
     return
   fi
@@ -188,19 +191,28 @@ updateDnfWithNvidiaPkg() {
   elif [ "$cpu_arch" = "arm64" ]; then
     repo_arch="sbsa"
   else
-    # TODO: Error out?
     echo "Unsupported CPU architecture: $cpu_arch"
     return
   fi
 
-  locatl nvidia_repo_url="https://developer.download.nvidia.com/compute/cuda/repos/azl3/${repo_arch}/cuda-azl3.repo"
+  readonly nvidia_repo_path="/etc/yum.repos.d/nvidia-built-azurelinux.repo"
+  local nvidia_repo_url="https://developer.download.nvidia.com/compute/cuda/repos/azl3/${repo_arch}/cuda-azl3.repo"
   retrycmd_curl_file 120 5 25 ${nvidia_repo_path} ${nvidia_repo_url} || exit $ERR_NVIDIA_AZURELINUX_REPO_FILE_DOWNLOAD_TIMEOUT
+  dnf_makecache || exit $ERR_APT_UPDATE_TIMEOUT
 }
 
-installKubeletKubectlPkgFromPMC() {
-    local desiredVersion="${1}"
-	  installRPMPackageFromFile "kubelet" $desiredVersion || exit $ERR_KUBELET_INSTALL_FAIL
-    installRPMPackageFromFile "kubectl" $desiredVersion || exit $ERR_KUBECTL_INSTALL_FAIL
+installNvidiaDCGMPkgFromCache() {
+  for packageName in $(dcgm_package_list); do
+    downloadDir="/opt/${packageName}/downloads"
+    rpmFile=$(find "${downloadDir}" -maxdepth 1 -name "${packageName}*" -print -quit 2>/dev/null) || rpmFile=""
+    if [ -z "${rpmFile}" ]; then
+      echo "Failed to locate ${packageName} rpm"
+      exit $ERR_NVIDIA_DCGM_INSTALL_FAIL
+    fi
+
+    logs_to_events "AKS.CSE.install${packageName}.dnf_install" "dnf_install 30 1 600 ${rpmFile}" || exit $ERR_APT_INSTALL_TIMEOUT
+    rm -rf $(dirname ${downloadDir})
+  done
 }
 
 installRPMPackageFromFile() {
