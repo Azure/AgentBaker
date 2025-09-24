@@ -833,3 +833,85 @@ func ValidateAppArmorBasic(ctx context.Context, s *Scenario) {
 	// Verify AppArmor module is loaded
 	require.Contains(s.T, stdout, "apparmor module is loaded", "expected AppArmor module to be loaded")
 }
+
+// ValidateAppArmorKubernetesExample validates AppArmor functionality using the Kubernetes tutorial example
+func ValidateAppArmorKubernetesExample(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	// Step 1: Create and load an AppArmor profile that denies file writes
+	profileContent := `#include <tunables/global>
+
+profile k8s-apparmor-example-deny-write flags=(attach_disconnected) {
+  #include <abstractions/base>
+
+  file,
+
+  # Deny all file writes.
+  deny /** w,
+}`
+
+	// Load the AppArmor profile
+	command := []string{
+		"set -ex",
+		fmt.Sprintf("echo '%s' | sudo apparmor_parser -q", profileContent),
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to load AppArmor profile")
+
+	// Step 2: Verify the profile is loaded
+	command = []string{
+		"set -ex",
+		"sudo aa-status | grep k8s-apparmor-example-deny-write",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "AppArmor profile not found in loaded profiles")
+
+	// Step 3: Create a pod manifest with AppArmor profile
+	podManifest := `apiVersion: v1
+kind: Pod
+metadata:
+  name: hello-apparmor-test
+spec:
+  securityContext:
+    appArmorProfile:
+      type: Localhost
+      localhostProfile: k8s-apparmor-example-deny-write
+  containers:
+  - name: hello
+    image: busybox:1.28
+    command: [ "sh", "-c", "echo 'Hello AppArmor!' && sleep 30" ]`
+
+	// Step 4: Apply the pod and wait for it to be running
+	command = []string{
+		"set -ex",
+		fmt.Sprintf("echo '%s' | kubectl apply -f -", podManifest),
+		"kubectl wait --for=condition=Ready pod/hello-apparmor-test --timeout=60s",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to create or start AppArmor test pod")
+
+	// Step 5: Verify the AppArmor profile is applied to the container
+	command = []string{
+		"set -ex",
+		"kubectl exec hello-apparmor-test -- cat /proc/1/attr/current",
+	}
+	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to check AppArmor profile on container")
+	stdout := execResult.stdout.String()
+	require.Contains(s.T, stdout, "k8s-apparmor-example-deny-write", "expected AppArmor profile to be applied to container")
+
+	// Step 6: Test that file writes are denied (this should fail)
+	command = []string{
+		"set -ex",
+		"kubectl exec hello-apparmor-test -- touch /tmp/test",
+	}
+	// This command should fail with non-zero exit code due to AppArmor denying the write
+	result := execScriptOnVMForScenario(ctx, s, strings.Join(command, "\n"))
+	require.NotEqual(s.T, 0, result.exitCode, "expected file write to be denied by AppArmor, but it succeeded")
+	require.Contains(s.T, result.stderr.String(), "Permission denied", "expected 'Permission denied' error when AppArmor blocks file write")
+
+	// Step 7: Cleanup - remove the test pod
+	command = []string{
+		"set -ex",
+		"kubectl delete pod hello-apparmor-test --ignore-not-found=true",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to cleanup AppArmor test pod")
+
+	s.T.Log("AppArmor Kubernetes example test completed successfully")
+}
