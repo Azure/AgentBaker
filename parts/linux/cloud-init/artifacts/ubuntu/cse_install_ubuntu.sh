@@ -94,8 +94,8 @@ cleanUpGPUDrivers() {
 installNvidiaDevicePluginPkgFromCache() {
     echo "Installing cached nvidia-device-plugin package..."
     
-    # Find the cached .deb file
-    debFile=$(find /opt/nvidia-device-plugin/downloads -name "nvidia-device-plugin*.deb" -type f | head -1)
+    # Find the cached .deb file with highest version
+    debFile=$(find /opt/nvidia-device-plugin/downloads -name "nvidia-device-plugin*.deb" -type f | sort -V | tail -1)
     if [ -z "${debFile}" ]; then
         echo "ERROR: No cached nvidia-device-plugin package found" >&2
         exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL

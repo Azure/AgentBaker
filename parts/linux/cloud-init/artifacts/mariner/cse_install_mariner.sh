@@ -273,8 +273,8 @@ cleanUpGPUDrivers() {
 installNvidiaDevicePluginPkgFromCache() {
     echo "Installing cached nvidia-device-plugin package..."
     
-    # Find the cached .rpm file
-    rpmFile=$(find /opt/nvidia-device-plugin/downloads -name "nvidia-device-plugin*.rpm" -type f | head -1)
+    # Find the cached .rpm file with highest version
+    rpmFile=$(find /opt/nvidia-device-plugin/downloads -name "nvidia-device-plugin*.rpm" -type f | sort -V | tail -1)
     if [ -z "${rpmFile}" ]; then
         echo "ERROR: No cached nvidia-device-plugin package found" >&2
         exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
