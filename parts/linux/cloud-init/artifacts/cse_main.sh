@@ -446,6 +446,12 @@ EOF
         echo $(date),$(hostname), "End configuring GPU drivers"
     fi
 
+
+    MANAGED_GPU_EXTENSIONS_TODO_NAME_THIS_APPROPRIATELY=false
+    if [ "${GPU_NODE}" = "true" ] && [ "${skip_nvidia_driver_install}" != "true" ] && [ "${MANAGED_GPU_EXTENSIONS_TODO_NAME_THIS_APPROPRIATELY}" = "true" ]; then
+        installNvidiaDCGMPkgFromCache
+    fi
+
     VALIDATION_ERR=0
 
     # TODO(djsly): Look at leveraging the `aks-check-network.sh` script for this validation instead of duplicating the logic here

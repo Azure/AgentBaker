@@ -140,6 +140,7 @@ ERR_CLOUD_INIT_FAILED=223 # Error indicating that cloud-init returned exit code 
 ERR_NVIDIA_DRIVER_INSTALL=224 # Error determining if nvidia driver install should be skipped
 ERR_NVIDIA_GPG_KEY_DOWNLOAD_TIMEOUT=225 # Timeout waiting for NVIDIA GPG key download
 ERR_NVIDIA_AZURELINUX_REPO_FILE_DOWNLOAD_TIMEOUT=226 # Timeout waiting for NVIDIA AzureLinux repo file download
+ERR_NVIDIA_DCGM_INSTALL_FAIL=227 # Error installing NVIDIA DCGM Exporter and its dependent packages
 
 ERR_PULL_POD_INFRA_CONTAINER_IMAGE=225 # Error pulling pause image
 
@@ -1182,4 +1183,16 @@ function get_sandbox_image_from_containerd_config() {
 
     echo "$sandbox_image"
 }
+
+dcgm_package_list() {
+    packages=(
+        datacenter-gpu-manager-4-core
+        datacenter-gpu-manager-4-cuda12
+        datacenter-gpu-manager-4-proprietary
+        datacenter-gpu-manager-4-proprietary-cuda12
+        datacenter-gpu-manager-exporter
+    )
+    echo "${packages[@]}"
+}
+
 #HELPERSEOF
