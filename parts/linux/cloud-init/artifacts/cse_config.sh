@@ -949,6 +949,25 @@ ensureGPUDrivers() {
     fi
 }
 
+setupAmdAma() {
+    if [ "$(isARM64)" -eq 1 ]; then
+        return
+    fi
+
+    if isMarinerOrAzureLinux "$OS"; then
+        sudo wget https://packages.microsoft.com/azurelinux/3.0/prod/extended/x86_64/config.repo -O /etc/yum.repos.d/azurelinux-official-extended.repo
+        # Install driver
+        # Install core package
+        # Install device plugin
+        sudo tdnf install -y libzip
+        sudo sh -c "echo 'vm.nr_hugepages=4096' >> /etc/sysctl.conf"
+        sudo sh -c "echo 4096 >> /proc/sys/vm/nr_hugepages"
+        if [ $(systemctl is-active kubelet) = "active" ]; then
+            sudo systemctl restart kubelet
+        fi
+    fi
+}
+
 disableSSH() {
     systemctlDisableAndStop ssh || exit $ERR_DISABLE_SSH
 }
