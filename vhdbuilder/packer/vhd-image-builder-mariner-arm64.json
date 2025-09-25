@@ -1,6 +1,7 @@
 {
   "variables": {
     "subscription_id": "{{env `AZURE_SUBSCRIPTION_ID`}}",
+    "client_id": "{{env `CLIENT_ID`}}",
     "gallery_subscription_id": "{{user `gallery_subscription_id`}}",
     "location": "{{env `PACKER_BUILD_LOCATION`}}",
     "vm_size": "{{env `AZURE_VM_SIZE`}}",
@@ -34,6 +35,7 @@
     {
       "type": "azure-arm",
       "subscription_id": "{{user `subscription_id`}}",
+      "client_id": "{{user `client_id`}}",
       "virtual_network_resource_group_name": "{{user `vnet_resource_group_name`}}",
       "virtual_network_name": "{{user `vnet_name`}}",
       "virtual_network_subnet_name": "{{user `subnet_name`}}",
@@ -79,6 +81,11 @@
         "sudo mkdir -p /opt/scripts",
         "sudo mkdir -p /opt/certs"
       ]
+    },
+    {
+      "type": "file",
+      "source": "vhdbuilder/packer/preview.repo",
+      "destination": "/home/packer/preview.repo"
     },
     {
       "type": "file",
