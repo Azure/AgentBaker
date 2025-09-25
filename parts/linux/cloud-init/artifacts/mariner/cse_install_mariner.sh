@@ -81,6 +81,21 @@ downloadGPUDrivers() {
     KERNEL_VERSION=$(uname -r | sed 's/-/./g')
     CUDA_PACKAGE=$(dnf repoquery --available "cuda*" | grep -E "cuda-[0-9]+.*_$KERNEL_VERSION" | sort -V | tail -n 1)
 
+    if [ -z "$CUDA_PACKAGE" ]; then
+      echo "Could not find cuda in dnf repos for $KERNEL_VERSION"
+
+      AVAIL_CUDA_PACKAGES=$(dnf repoquery --available "cuda*")
+      echo "Packages: $AVAIL_CUDA_PACKAGES"
+
+      dnf makecache --refresh -y 2>&1 | tee /tmp/dnf-makecache.out
+      cat /tmp/dnf-makecache.out
+
+      AVAIL_CUDA_PACKAGES=$(dnf repoquery --available "cuda*")
+      echo "Packages: $AVAIL_CUDA_PACKAGES"
+
+      exit $ERR_CUDA_MISSING
+    fi
+    
     if ! dnf_install 30 1 600 ${CUDA_PACKAGE}; then
       exit $ERR_APT_INSTALL_TIMEOUT
     fi

@@ -70,6 +70,7 @@ ERR_KUBELET_INSTALL_TIMEOUT=121 # Timeout waiting for kubelet install
 ERR_KUBECTL_INSTALL_TIMEOUT=122 # Timeout waiting for kubectl install
 
 # 123 is free for use
+ERR_CUDA_MISSING=123
 
 # Error code 124 is returned when a `timeout` command times out, and --preserve-status is not specified: https://man7.org/linux/man-pages/man1/timeout.1.html
 ERR_VHD_BUILD_ERROR=125 # Reserved for VHD CI exit conditions
