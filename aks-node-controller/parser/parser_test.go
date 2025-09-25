@@ -86,6 +86,42 @@ oom_score = -999
 			},
 		},
 		{
+			name:       "AKSUbuntu2204 TURN_OFF_PUBKEY_AUTH_SSH with disabled pubkey auth",
+			folder:     "AKSUbuntu2204+DisablePubkeyAuth",
+			k8sVersion: "1.24.2",
+			aksNodeConfigUpdator: func(aksNodeConfig *aksnodeconfigv1.Configuration) {
+				aksNodeConfig.DisablePubkeyAuth = to.Ptr(true)
+			},
+			validator: func(cmd *exec.Cmd) {
+				vars := environToMap(cmd.Env)
+				assert.Equal(t, "true", vars["TURN_OFF_PUBKEY_AUTH_SSH"])
+			},
+		},
+		{
+			name:       "AKSUbuntu2204 TURN_OFF_PUBKEY_AUTH_SSH with enabled pubkey auth",
+			folder:     "AKSUbuntu2204+EnablePubkeyAuth",
+			k8sVersion: "1.24.2",
+			aksNodeConfigUpdator: func(aksNodeConfig *aksnodeconfigv1.Configuration) {
+				aksNodeConfig.DisablePubkeyAuth = to.Ptr(false)
+			},
+			validator: func(cmd *exec.Cmd) {
+				vars := environToMap(cmd.Env)
+				assert.Equal(t, "false", vars["TURN_OFF_PUBKEY_AUTH_SSH"])
+			},
+		},
+		{
+			name:       "AKSUbuntu2204 TURN_OFF_PUBKEY_AUTH_SSH with default (nil) pubkey auth",
+			folder:     "AKSUbuntu2204+DefaultPubkeyAuth",
+			k8sVersion: "1.24.2",
+			aksNodeConfigUpdator: func(aksNodeConfig *aksnodeconfigv1.Configuration) {
+				// DisablePubkeyAuth is nil by default, which should result in "false"
+			},
+			validator: func(cmd *exec.Cmd) {
+				vars := environToMap(cmd.Env)
+				assert.Equal(t, "false", vars["TURN_OFF_PUBKEY_AUTH_SSH"])
+			},
+		},
+		{
 			name:       "AKSUbuntu2204 in China",
 			folder:     "AKSUbuntu2204+China",
 			k8sVersion: "1.24.2",

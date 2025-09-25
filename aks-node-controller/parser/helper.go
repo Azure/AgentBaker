@@ -818,8 +818,3 @@ func getLocalDnsMemoryLimitInMb(aksnodeconfig *aksnodeconfigv1.Configuration) st
 }
 
 // ---------------------- End of localdns related helper code ----------------------//
-
-func getDisablePubkeyAuth(aksnodeconfig *aksnodeconfigv1.Configuration) bool {
-	// The protobuf generated code already has nil check and default value handling.
-	return aksnodeconfig.GetDisablePubkeyAuth()
-}
