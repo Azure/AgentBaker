@@ -296,8 +296,13 @@ ensureRunc() {
 }
 
 cleanUpGPUDrivers() {
-    rm -Rf $GPU_DEST /opt/gpu
-    rm -rf "/opt/${K8S_DEVICE_PLUGIN_PKG}/downloads"
+  rm -Rf $GPU_DEST /opt/gpu
+  rm -rf "/opt/${K8S_DEVICE_PLUGIN_PKG}/downloads"
+
+  for packageName in $(dcgm_package_list); do
+    pkgDir="/opt/${packageName}"
+    rm -rf ${pkgDir}
+  done
 }
 
 installNvidiaDevicePluginPkgFromCache() {
