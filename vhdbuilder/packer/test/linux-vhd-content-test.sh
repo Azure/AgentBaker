@@ -227,9 +227,7 @@ testPackagesInstalled() {
       "kubelet"|\
       "kubectl"|\
       "datacenter-gpu-manager-4-core"|\
-      "datacenter-gpu-manager-4-cuda12"|\
       "datacenter-gpu-manager-4-proprietary"|\
-      "datacenter-gpu-manager-4-proprietary-cuda12"|\
       "datacenter-gpu-manager-exporter")
         testPkgDownloaded "${name}" "${PACKAGE_VERSIONS[@]}"
         continue

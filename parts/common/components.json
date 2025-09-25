@@ -1508,40 +1508,6 @@
       }
     },
     {
-      "name": "datacenter-gpu-manager-4-cuda12",
-      "downloadLocation": "/opt/datacenter-gpu-manager-4-cuda12/downloads",
-      "downloadURIs": {
-        "ubuntu": {
-          "r2404": {
-            "versionsV2": [
-              {
-                "renovateTag": "name=datacenter-gpu-manager-4-cuda12, repository=nvidia, os=ubuntu, release=24.04",
-                "latestVersion": "1:4.4.1-1"
-              }
-            ]
-          },
-          "r2204": {
-            "versionsV2": [
-              {
-                "renovateTag": "name=datacenter-gpu-manager-4-cuda12, repository=nvidia, os=ubuntu, release=22.04",
-                "latestVersion": "1:4.4.1-1"
-              }
-            ]
-          }
-        },
-        "azurelinux": {
-          "v3.0": {
-            "versionsV2": [
-              {
-                "renovateTag": "RPM_registry=https://developer.download.nvidia.com/compute/cuda/repos/azl3/x86_64/repodata, name=datacenter-gpu-manager-4-cuda12, repository=nvidia, os=azurelinux, release=3.0",
-                "latestVersion": "1:4.4.1-1"
-              }
-            ]
-          }
-        }
-      }
-    },
-    {
       "name": "datacenter-gpu-manager-4-proprietary",
       "downloadLocation": "/opt/datacenter-gpu-manager-4-proprietary/downloads",
       "downloadURIs": {
@@ -1568,40 +1534,6 @@
             "versionsV2": [
               {
                 "renovateTag": "RPM_registry=https://developer.download.nvidia.com/compute/cuda/repos/azl3/x86_64/repodata, name=datacenter-gpu-manager-4-proprietary, repository=nvidia, os=azurelinux, release=3.0",
-                "latestVersion": "1:4.4.1-1"
-              }
-            ]
-          }
-        }
-      }
-    },
-    {
-      "name": "datacenter-gpu-manager-4-proprietary-cuda12",
-      "downloadLocation": "/opt/datacenter-gpu-manager-4-proprietary-cuda12/downloads",
-      "downloadURIs": {
-        "ubuntu": {
-          "r2404": {
-            "versionsV2": [
-              {
-                "renovateTag": "name=datacenter-gpu-manager-4-proprietary-cuda12, repository=nvidia, os=ubuntu, release=24.04",
-                "latestVersion": "1:4.4.1-1"
-              }
-            ]
-          },
-          "r2204": {
-            "versionsV2": [
-              {
-                "renovateTag": "name=datacenter-gpu-manager-4-proprietary-cuda12, repository=nvidia, os=ubuntu, release=22.04",
-                "latestVersion": "1:4.4.1-1"
-              }
-            ]
-          }
-        },
-        "azurelinux": {
-          "v3.0": {
-            "versionsV2": [
-              {
-                "renovateTag": "RPM_registry=https://developer.download.nvidia.com/compute/cuda/repos/azl3/x86_64/repodata, name=datacenter-gpu-manager-4-proprietary-cuda12, repository=nvidia, os=azurelinux, release=3.0",
                 "latestVersion": "1:4.4.1-1"
               }
             ]
