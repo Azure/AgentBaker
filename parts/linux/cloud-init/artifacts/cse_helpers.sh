@@ -69,6 +69,7 @@ ERR_INVALID_CLI_TOOL=120 # Invalid CLI tool specified, should be one of ctr, cri
 ERR_KUBELET_INSTALL_FAIL=121 # Error installing kubelet
 ERR_KUBECTL_INSTALL_FAIL=122 # Error installing kubectl
 
+ERR_CUDA_MISSING=123
 # 123 is free for use
 
 # Error code 124 is returned when a `timeout` command times out, and --preserve-status is not specified: https://man7.org/linux/man-pages/man1/timeout.1.html
