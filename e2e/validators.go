@@ -994,15 +994,19 @@ func ValidateNodeAdvertisesGPUResources(ctx context.Context, s *Scenario) {
 	// First, wait for the nvidia.com/gpu resource to be available
 	waitUntilResourceAvailable(ctx, s, "nvidia.com/gpu")
 	
-	command := []string{
-		"set -ex",
-		"kubectl get node $(hostname) -o jsonpath='{.status.capacity.nvidia\\.com/gpu}'",
-	}
-	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "could not get node GPU capacity")
+	// Get the node using the Kubernetes client from the test framework
+	nodeName := s.Runtime.KubeNodeName
+	node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
+	require.NoError(s.T, err, "failed to get node %q", nodeName)
 	
-	output := strings.TrimSpace(execResult.stdout.String())
-	require.NotEmpty(s.T, output, "node should advertise nvidia.com/gpu capacity")
-	require.NotEqual(s.T, "0", output, "node should advertise at least 1 GPU")
+	// Check if the node advertises GPU capacity
+	gpuCapacity, exists := node.Status.Capacity["nvidia.com/gpu"]
+	require.True(s.T, exists, "node should advertise nvidia.com/gpu capacity")
+	
+	gpuCount := gpuCapacity.Value()
+	require.Greater(s.T, gpuCount, int64(0), "node should advertise at least 1 GPU, but got %d", gpuCount)
+	
+	s.T.Logf("node %s advertises %d nvidia.com/gpu resources", nodeName, gpuCount)
 }
 
 func ValidateNvidiaDevicePluginBinaryInstalled(ctx context.Context, s *Scenario) {
@@ -1020,33 +1024,37 @@ func ValidateGPUWorkloadSchedulable(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 	s.T.Logf("validating that GPU workloads can be scheduled")
 	
-	// Create a simple GPU test pod
-	testPodManifest := `
-apiVersion: v1
-kind: Pod
-metadata:
-  name: gpu-test-pod
-  namespace: default
-spec:
-  containers:
-  - name: gpu-test
-    image: nvidia/cuda:11.0-base
-    command: ["nvidia-smi"]
-    resources:
-      requests:
-        nvidia.com/gpu: 1
-      limits:
-        nvidia.com/gpu: 1
-  restartPolicy: Never
-`
+	// Follow the exact same pattern as ValidatePodUsingNVidiaGPU
+	// Wait for resources to be available and add delay for device health
+	waitUntilResourceAvailable(ctx, s, "nvidia.com/gpu")
+	time.Sleep(20 * time.Second) // Same delay as existing GPU tests
 	
-	command := []string{
-		"set -ex",
-		"cat << 'EOF' | kubectl apply -f -",
-		testPodManifest,
-		"EOF",
-		"kubectl wait --for=condition=ready pod/gpu-test-pod --timeout=300s",
-		"kubectl delete pod gpu-test-pod",
+	// Create a GPU test pod using the same pattern as podRunNvidiaWorkload
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-gpu-test", s.Runtime.KubeNodeName),
+			Namespace: "default",
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{
+					Name:  "gpu-test-container",
+					Image: "mcr.microsoft.com/azuredocs/samples-tf-mnist-demo:gpu",
+					Args: []string{
+						"--max-steps", "1",
+					},
+					Resources: corev1.ResourceRequirements{
+						Limits: corev1.ResourceList{
+							"nvidia.com/gpu": resource.MustParse("1"),
+						},
+					},
+				},
+			},
+		},
 	}
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "GPU workload should be schedulable and run successfully")
+	
+	// Use the existing ValidatePodRunning function
+	ValidatePodRunning(ctx, s, pod)
+	
+	s.T.Logf("GPU workload is schedulable and runs successfully")
 }
