@@ -412,15 +412,29 @@ function nodePrep {
 
         # Configure GPU device plugin
         if [ "${ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED}" = "true" ]; then
-            if [ "${MIG_NODE}" = "true" ] && [ -f "/etc/systemd/system/nvidia-device-plugin.service" ]; then
-                mkdir -p "/etc/systemd/system/nvidia-device-plugin.service.d"
-                tee "/etc/systemd/system/nvidia-device-plugin.service.d/10-mig_strategy.conf" > /dev/null <<'EOF'
+            # Ensure kubelet device-plugins directory exists
+            mkdir -p /var/lib/kubelet/device-plugins
+            
+            # Create systemd drop-in to ensure directory exists before starting
+            mkdir -p "/etc/systemd/system/nvidia-device-plugin.service.d"
+            tee "/etc/systemd/system/nvidia-device-plugin.service.d/10-directory-wait.conf" > /dev/null <<'EOF'
+[Service]
+# Ensure the device-plugins directory exists before starting the service
+ExecStartPre=/bin/bash -c 'mkdir -p /var/lib/kubelet/device-plugins'
+EOF
+            
+            if [ "${MIG_NODE}" = "true" ]; then
+                tee "/etc/systemd/system/nvidia-device-plugin.service.d/20-mig_strategy.conf" > /dev/null <<'EOF'
 [Service]
 Environment="MIG_STRATEGY=--mig-strategy single"
 ExecStart=
-ExecStart=/usr/local/nvidia/bin/nvidia-device-plugin $MIG_STRATEGY
+ExecStart=/usr/bin/nvidia-device-plugin $MIG_STRATEGY
 EOF
             fi
+            
+            # Reload systemd to pick up drop-ins
+            systemctl daemon-reload
+            
             logs_to_events "AKS.CSE.start.nvidia-device-plugin" "systemctlEnableAndStart nvidia-device-plugin 30" || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
         else
             logs_to_events "AKS.CSE.stop.nvidia-device-plugin" "systemctlDisableAndStop nvidia-device-plugin"
