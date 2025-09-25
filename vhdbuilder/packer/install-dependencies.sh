@@ -292,6 +292,7 @@ if [ "${OS}" = "${UBUNTU_OS_NAME}" ]; then
   updateAptWithMicrosoftPkg
   capture_benchmark "${SCRIPT_NAME}_update_apt_with_msft_pkg"
   updateAptWithNvidiaPkg
+  capture_benchmark "${SCRIPT_NAME}_update_apt_with_nvidia_pkg"
 fi
 
 # check if COMPONENTS_FILEPATH exists
