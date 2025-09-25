@@ -100,17 +100,17 @@
       ]
     },
     {
-      "downloadURL": "mcr.microsoft.com/oss/kubernetes/v2/pause:*",
+      "downloadURL": "mcr.microsoft.com/oss/v2/kubernetes/pause:*",
       "amd64OnlyVersions": [],
       "multiArchVersionsV2": [
         {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/v2/pause",
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/pause",
           "latestVersion": "3.6"
         }
       ],
       "windowsVersions": [
         {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/v2/pause",
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/pause",
           "latestVersion": "3.10.1"
         }
       ]
