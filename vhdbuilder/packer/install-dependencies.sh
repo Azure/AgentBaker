@@ -245,7 +245,7 @@ if isMarinerOrAzureLinux "$OS" && ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; the
 fi
 capture_benchmark "${SCRIPT_NAME}_handle_azurelinux_configs"
 
-# doing this at vhd allows CSE to be faster with just mv 
+# doing this at vhd allows CSE to be faster with just mv
 unpackTgzToCNIDownloadsDIR() {
   local URL=$1
   CNI_TGZ_TMP=${URL##*/}
@@ -277,7 +277,7 @@ downloadAndInstallCriTools() {
     echo "  - crictl version ${version}" >> ${VHD_LOGS_FILEPATH}
     # other steps are dependent on CRICTL_VERSION and CRICTL_VERSIONS
     # since we only have 1 entry in CRICTL_VERSIONS, we simply set both to the same value
-    CRICTL_VERSION=${version} 
+    CRICTL_VERSION=${version}
     KUBERNETES_VERSION=$CRICTL_VERSION installCrictl || exit $ERR_CRICTL_DOWNLOAD_TIMEOUT
     return 0
   fi
@@ -308,12 +308,12 @@ while IFS= read -r p; do
   # TODO(mheberling): Remove this once kata uses standard containerd. This OS is referenced
   # in file `parts/common/component.json` with the same ${MARINER_KATA_OS_NAME}.
   if isMariner "${OS}" && [ "${IS_KATA}" = "true" ]; then
-    # This is temporary for kata-cc because it uses a modified version of containerd and 
+    # This is temporary for kata-cc because it uses a modified version of containerd and
     # name is referenced in parts/common.json marinerkata.
     os=${MARINER_KATA_OS_NAME}
   fi
   if isAzureLinux "${OS}" && [ "${IS_KATA}" = "true" ]; then
-    # This is temporary for kata-cc because it uses a modified version of containerd and 
+    # This is temporary for kata-cc because it uses a modified version of containerd and
     # name is referenced in parts/common.json azurelinuxkata.
     os=${AZURELINUX_KATA_OS_NAME}
   fi
@@ -591,7 +591,7 @@ while IFS= read -r imageToBePulled; do
     image_pids+=($!)
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
     while [ "$(jobs -p | wc -l)" -ge "$parallel_container_image_pull_limit" ]; do
-      wait -n || { 
+      wait -n || {
         ret=$?
         echo "A background job pullContainerImage failed: ${ret}, ${CONTAINER_IMAGE}. Exiting..." >&2
         for pid in "${image_pids[@]}"; do
@@ -628,19 +628,47 @@ retagAKSNodeCAWatcher() {
 retagAKSNodeCAWatcher
 capture_benchmark "${SCRIPT_NAME}_retag_aks_node_ca_watcher"
 
-pinPodSandboxImage() {
-  # This function pins the pod sandbox image to avoid Kubelet's Garbage Collector (GC) from removing it.
+pinPodSandboxImages() {
+  # This function pins the pod sandbox image(s) to avoid Kubelet's Garbage Collector (GC) from removing them.
   # This is achieved by setting the "io.cri-containerd.pinned" label on the image with a value of "pinned".
-  # This image is critical for pod startup and it isn't supported with private ACR since containerd won't be using azure-acr-credential to fetch it.
+  # These images are critical for pod startup and aren't supported with private ACR since containerd won't be using azure-acr-credential to fetch them.
 
-  podSandbox=$(jq '.ContainerImages[] | select(.downloadURL | contains("pause"))' $COMPONENTS_FILEPATH)
-  podSandboxBaseImg=$(echo $podSandbox | jq -r .downloadURL)
-  podSandboxVersion=$(echo $podSandbox | jq -r .multiArchVersionsV2[0].latestVersion)
-  podSandboxFullImg=${podSandboxBaseImg//\*/$podSandboxVersion}
+  # Get all pause images as individual JSON objects
+  local pause_images
+  pause_images=$(jq -c '.ContainerImages[] | select(.downloadURL | contains("pause"))' $COMPONENTS_FILEPATH)
 
-  labelContainerImage ${podSandboxFullImg} "io.cri-containerd.pinned" "pinned"
+  if [ -z "$pause_images" ]; then
+    echo "Warning: No pause images found in components.json"
+    return 0
+  fi
+
+  # Process each pause image separately
+  while IFS= read -r podSandbox; do
+    if [ -z "$podSandbox" ]; then
+      continue
+    fi
+
+    local podSandboxBaseImg
+    local podSandboxVersion
+    local podSandboxFullImg
+
+    podSandboxBaseImg=$(echo "$podSandbox" | jq -r '.downloadURL')
+    podSandboxVersion=$(echo "$podSandbox" | jq -r '.multiArchVersionsV2[0].latestVersion')
+
+    # Skip if we couldn't extract the required information
+    if [ "$podSandboxBaseImg" = "null" ] || [ "$podSandboxVersion" = "null" ]; then
+      echo "Warning: Could not extract downloadURL or latestVersion from pause image: $podSandbox"
+      continue
+    fi
+
+    podSandboxFullImg=${podSandboxBaseImg//\*/$podSandboxVersion}
+
+    echo "Pinning pause image: $podSandboxFullImg"
+    labelContainerImage "${podSandboxFullImg}" "io.cri-containerd.pinned" "pinned"
+
+  done <<< "$pause_images"
 }
-pinPodSandboxImage
+pinPodSandboxImages
 capture_benchmark "${SCRIPT_NAME}_pin_pod_sandbox_image"
 
 # IPv6 nftables rules are only available on Ubuntu or Mariner/AzureLinux
@@ -694,7 +722,7 @@ cacheKubePackageFromPrivateUrl() {
 
   cached_pkg="${K8S_PRIVATE_PACKAGES_CACHE_DIR}/${k8s_tgz_name}"
   echo "download private package ${kube_private_binary_url} and store as ${cached_pkg}"
-  
+
   if ! ./azcopy copy "${kube_private_binary_url}" "${cached_pkg}"; then
     azExitCode=$?
     # loop through azcopy log files
