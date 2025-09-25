@@ -68,8 +68,7 @@
         "replication_regions": [
           "{{user `location`}}"
         ]
-      },
-      "user_assigned_managed_identities": "{{user `msi_resource_strings`}}"
+      }
     }
   ],
   "provisioners": [
