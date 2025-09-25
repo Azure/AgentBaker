@@ -459,28 +459,12 @@ while IFS= read -r p; do
         echo "  - datacenter-gpu-manager-4-core version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
-    "datacenter-gpu-manager-4-cuda12")
-      for version in ${PACKAGE_VERSIONS[@]}; do
-        if [ "${OS}" = "${UBUNTU_OS_NAME}" ] || isMarinerOrAzureLinux "$OS"; then
-          downloadPkgFromVersion "datacenter-gpu-manager-4-cuda12" "${version}" "${downloadDir}"
-        fi
-        echo "  - datacenter-gpu-manager-4-cuda12 version ${version}" >> ${VHD_LOGS_FILEPATH}
-      done
-      ;;
     "datacenter-gpu-manager-4-proprietary")
       for version in ${PACKAGE_VERSIONS[@]}; do
         if [ "${OS}" = "${UBUNTU_OS_NAME}" ] || isMarinerOrAzureLinux "$OS"; then
           downloadPkgFromVersion "datacenter-gpu-manager-4-proprietary" "${version}" "${downloadDir}"
         fi
         echo "  - datacenter-gpu-manager-4-proprietary version ${version}" >> ${VHD_LOGS_FILEPATH}
-      done
-      ;;
-    "datacenter-gpu-manager-4-proprietary-cuda12")
-      for version in ${PACKAGE_VERSIONS[@]}; do
-        if [ "${OS}" = "${UBUNTU_OS_NAME}" ] || isMarinerOrAzureLinux "$OS"; then
-          downloadPkgFromVersion "datacenter-gpu-manager-4-proprietary-cuda12" "${version}" "${downloadDir}"
-        fi
-        echo "  - datacenter-gpu-manager-4-proprietary-cuda12 version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
     "datacenter-gpu-manager-exporter")

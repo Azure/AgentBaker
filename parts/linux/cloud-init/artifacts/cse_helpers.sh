@@ -1187,9 +1187,7 @@ function get_sandbox_image_from_containerd_config() {
 dcgm_package_list() {
     packages=(
         datacenter-gpu-manager-4-core
-        datacenter-gpu-manager-4-cuda12
         datacenter-gpu-manager-4-proprietary
-        datacenter-gpu-manager-4-proprietary-cuda12
         datacenter-gpu-manager-exporter
     )
     echo "${packages[@]}"
