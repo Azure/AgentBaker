@@ -89,7 +89,6 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 			"--event-qps":                         "0",
 			"--pod-max-pids":                      "-1",
 			"--enforce-node-allocatable":          "pods",
-			"--streaming-connection-idle-timeout": "4h0m0s",
 			"--rotate-certificates":               "true",
 			"--read-only-port":                    "10255",
 			"--protect-kernel-defaults":           "true",

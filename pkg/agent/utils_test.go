@@ -33,7 +33,6 @@ func TestGetKubeletConfigFileFromFlags(t *testing.T) {
 		"--event-qps":                         "0",
 		"--pod-max-pids":                      "-1",
 		"--enforce-node-allocatable":          "pods",
-		"--streaming-connection-idle-timeout": "4h0m0s",
 		"--rotate-certificates":               "true",
 		"--rotate-server-certificates":        "true",
 		"--read-only-port":                    "10255",
@@ -87,7 +86,6 @@ func getExampleKcWithNodeStatusReportFrequency() map[string]string {
 		"--event-qps":                         "0",
 		"--pod-max-pids":                      "-1",
 		"--enforce-node-allocatable":          "pods",
-		"--streaming-connection-idle-timeout": "4h0m0s",
 		"--rotate-certificates":               "true",
 		"--read-only-port":                    "10255",
 		"--protect-kernel-defaults":           "true",
@@ -121,7 +119,6 @@ func getExampleKcWithContainerLogMaxSize() map[string]string {
 		"--event-qps":                         "0",
 		"--pod-max-pids":                      "-1",
 		"--enforce-node-allocatable":          "pods",
-		"--streaming-connection-idle-timeout": "4h0m0s",
 		"--rotate-certificates":               "true",
 		"--rotate-server-certificates":        "true",
 		"--read-only-port":                    "10255",
@@ -178,7 +175,6 @@ var expectedKubeletJSON = `{
     "clusterDNS": [
         "10.0.0.10"
     ],
-    "streamingConnectionIdleTimeout": "4h0m0s",
     "nodeStatusUpdateFrequency": "10s",
     "imageGCHighThresholdPercent": 90,
     "imageGCLowThresholdPercent": 70,
@@ -259,7 +255,6 @@ var expectedKubeletJSONWithNodeStatusReportFrequency = `{
     "clusterDNS": [
         "10.0.0.10"
     ],
-    "streamingConnectionIdleTimeout": "4h0m0s",
     "nodeStatusUpdateFrequency": "10s",
     "nodeStatusReportFrequency": "5m0s",
     "imageGCHighThresholdPercent": 90,
@@ -339,7 +334,6 @@ var expectedKubeletJSONWithContainerMaxLogSizeDefaultFromFlags = `{
     "clusterDNS": [
         "10.0.0.10"
     ],
-    "streamingConnectionIdleTimeout": "4h0m0s",
     "nodeStatusUpdateFrequency": "10s",
     "imageGCHighThresholdPercent": 90,
     "imageGCLowThresholdPercent": 70,
@@ -594,7 +588,6 @@ var _ = Describe("Test GetOrderedKubeletConfigFlagString", func() {
 							"kubelet": {
 								Config: map[string]string{
 									"--node-status-update-frequency":      "20s",
-									"--streaming-connection-idle-timeout": "4h0m0s",
 									"--seccomp-default":                   "true",
 								},
 							},
@@ -606,7 +599,7 @@ var _ = Describe("Test GetOrderedKubeletConfigFlagString", func() {
 			AgentPoolProfile:        &datamodel.AgentPoolProfile{},
 		}
 
-		expectStr := "--event-qps=0 --image-gc-high-threshold=85 --node-status-update-frequency=20s --seccomp-default=true --streaming-connection-idle-timeout=4h0m0s "
+		expectStr := "--event-qps=0 --image-gc-high-threshold=85 --node-status-update-frequency=20s --seccomp-default=true "
 		actucalStr := GetOrderedKubeletConfigFlagString(config)
 		Expect(expectStr).To(Equal(actucalStr))
 	})
