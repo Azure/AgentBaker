@@ -1,7 +1,5 @@
 #!/bin/bash
 
-# Constant for GPU device plugin package name. Change here if the package name ever
-# needs to be updated across build + provisioning scripts.
 K8S_DEVICE_PLUGIN_PKG="${K8S_DEVICE_PLUGIN_PKG:-nvidia-device-plugin}"
 
 removeContainerd() {
@@ -33,7 +31,7 @@ installDeps() {
       echo "Installing mariner-repos-cloud-native"
       dnf_install 30 1 600 mariner-repos-cloud-native
     fi
-    
+
     dnf_makecache || exit $ERR_APT_UPDATE_TIMEOUT
     dnf_update || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
     for dnf_package in ca-certificates check-restart cifs-utils cloud-init-azure-kvp conntrack-tools cracklib dnf-automatic ebtables ethtool fuse inotify-tools iotop iproute ipset iptables jq logrotate lsof nmap-ncat nfs-utils pam pigz psmisc rsyslog socat sysstat traceroute util-linux xz zip blobfuse2 nftables iscsi-initiator-utils device-mapper-multipath; do
@@ -122,7 +120,7 @@ installNvidiaContainerToolkit() {
 
     # The following packages need to be installed in this sequence because:
     # - libnvidia-container packages are required by nvidia-container-toolkit
-    # - nvidia-container-toolkit-base provides nvidia-ctk that is used to generate the nvidia container runtime config 
+    # - nvidia-container-toolkit-base provides nvidia-ctk that is used to generate the nvidia container runtime config
     #   during the posttrans phase of nvidia-container-toolkit package installation
     for nvidia_package in libnvidia-container1-${MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION} libnvidia-container-tools-${MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION} nvidia-container-toolkit-base-${MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION} nvidia-container-toolkit-${MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION}; do
       if ! dnf_install 30 1 600 $nvidia_package; then
@@ -135,7 +133,7 @@ installNvidiaContainerToolkit() {
 enableNvidiaPersistenceMode() {
     PERSISTENCED_SERVICE_FILE_PATH="/etc/systemd/system/nvidia-persistenced.service"
     touch ${PERSISTENCED_SERVICE_FILE_PATH}
-    cat << EOF > ${PERSISTENCED_SERVICE_FILE_PATH} 
+    cat << EOF > ${PERSISTENCED_SERVICE_FILE_PATH}
 [Unit]
 Description=NVIDIA Persistence Daemon
 Wants=syslog.target
@@ -226,9 +224,9 @@ installStandaloneContainerd() {
     # azure-built runtimes have a "+azure" suffix in their version strings (i.e 1.4.1+azure). remove that here.
     # check if containerd command is available before running it
     if command -v containerd &> /dev/null; then
-        CURRENT_VERSION=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)    
+        CURRENT_VERSION=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)
     fi
-    # v1.4.1 is our lowest supported version of containerd    
+    # v1.4.1 is our lowest supported version of containerd
     if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${desiredVersion}; then
         echo "currently installed containerd version ${CURRENT_VERSION} is greater than (or equal to) target base version ${desiredVersion}. skipping installStandaloneContainerd."
     else
@@ -241,7 +239,7 @@ installStandaloneContainerd() {
         if [ "$OS_VERSION" = "3.0" ]; then
             containerdPackageName="containerd2-${desiredVersion}"
         fi
-        
+
         # TODO: tie runc to r92 once that's possible on Mariner's pkg repo and if we're still using v1.linux shim
         if ! dnf_install 30 1 600 $containerdPackageName; then
             exit $ERR_CONTAINERD_INSTALL_TIMEOUT
@@ -261,46 +259,31 @@ ensureRunc() {
 
 cleanUpGPUDrivers() {
     rm -Rf $GPU_DEST /opt/gpu
-    
-    # Remove cached GPU device plugin downloads as they're no longer needed
-    echo "Removing cached ${K8S_DEVICE_PLUGIN_PKG} downloads..."
     rm -rf /opt/nvidia-device-plugin/downloads
-    echo "Cached ${K8S_DEVICE_PLUGIN_PKG} downloads removed"
 }
 
 installNvidiaDevicePluginPkgFromCache() {
     local os=${AZURELINUX_OS_NAME}
-    local os_version=""
     if [ -z "$OS_VERSION" ]; then
-        os=${OS}
-        # For nvidia-device-plugin, default to specific versions since "current" doesn't exist
-        if isAzureLinux "${os}"; then
-            os_version="3.0"
-        else
-            os_version="current"
-        fi
-    else
-        os_version="${OS_VERSION}"
-    fi
-    
-    # Get nvidia-device-plugin package info from components.json
-    local package=$(jq -r '.DownloadFiles[] | select(.name == "nvidia-device-plugin")' "${COMPONENTS_FILEPATH}")
-    if [ -z "${package}" ] || [ "${package}" = "null" ]; then
-        echo "ERROR: nvidia-device-plugin package not found in components.json" >&2
+        echo "ERROR: OS_VERSION is not set, cannot determine nvidia-device-plugin version" >&2
         exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
     fi
-    
+    local os_version="${OS_VERSION}"
+
+    # Get nvidia-device-plugin package info from components.json
+    local package=$(jq -r ".DownloadFiles[] | select(.name == \"${K8S_DEVICE_PLUGIN_PKG}\")" "${COMPONENTS_FILEPATH}")
+
     # Get the latest package version
     updatePackageVersions "${package}" "${os}" "${os_version}"
     if [ ${#PACKAGE_VERSIONS[@]} -eq 0 ]; then
         echo "ERROR: No nvidia-device-plugin versions found" >&2
         exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
     fi
-    
+
     # Use the first (latest) version
     local packageVersion="${PACKAGE_VERSIONS[0]}"
     echo "installing nvidia-device-plugin package version: $packageVersion"
-    
+
     installRPMPackageFromFile "nvidia-device-plugin" "${packageVersion}" || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
 }
 
