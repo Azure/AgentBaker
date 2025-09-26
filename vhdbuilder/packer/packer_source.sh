@@ -79,6 +79,8 @@ copyPackerFiles() {
   CI_SYSLOG_WATCHER_SERVICE_DEST=/etc/systemd/system/ci-syslog-watcher.service
   CI_SYSLOG_WATCHER_SCRIPT_SRC=/home/packer/ci-syslog-watcher.sh
   CI_SYSLOG_WATCHER_SCRIPT_DEST=/usr/local/bin/ci-syslog-watcher.sh
+  AKS_DIAGNOSTIC_SCRIPT_SRC=/home/packer/aks-diagnostic.py
+  AKS_DIAGNOSTIC_SCRIPT_DEST=/opt/azure/containers/aks-diagnostic.py
   AKS_LOG_COLLECTOR_SCRIPT_SRC=/home/packer/aks-log-collector.sh
   AKS_LOG_COLLECTOR_SCRIPT_DEST=/opt/azure/containers/aks-log-collector.sh
   AKS_LOG_COLLECTOR_SEND_SCRIPT_SRC=/home/packer/aks-log-collector-send.py
@@ -290,6 +292,9 @@ copyPackerFiles() {
   LOCALDNS_SERVICE_DELEGATE_DEST=/etc/systemd/system/localdns.service.d/delegate.conf
   cpAndMode $LOCALDNS_SERVICE_DELEGATE_SRC $LOCALDNS_SERVICE_DELEGATE_DEST 0644
 # ---------------------------------------------------------------------------------------
+
+  # Install AKS diagnostic
+  cpAndMode $AKS_DIAGNOSTIC_SCRIPT_SRC $AKS_DIAGNOSTIC_SCRIPT_DEST 755
 
   # Install AKS log collector
   cpAndMode $AKS_LOG_COLLECTOR_SCRIPT_SRC $AKS_LOG_COLLECTOR_SCRIPT_DEST 755

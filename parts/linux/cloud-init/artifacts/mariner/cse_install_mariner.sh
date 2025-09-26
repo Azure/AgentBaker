@@ -271,19 +271,39 @@ cleanUpGPUDrivers() {
 }
 
 installNvidiaDevicePluginPkgFromCache() {
-    echo "Installing cached nvidia-device-plugin package..."
+    local os=${AZURELINUX_OS_NAME}
+    local os_version=""
+    if [ -z "$OS_VERSION" ]; then
+        os=${OS}
+        # For nvidia-device-plugin, default to specific versions since "current" doesn't exist
+        if isAzureLinux "${os}"; then
+            os_version="3.0"
+        else
+            os_version="current"
+        fi
+    else
+        os_version="${OS_VERSION}"
+    fi
     
-    # Find the cached .rpm file with highest version
-    rpmFile=$(find /opt/nvidia-device-plugin/downloads -name "nvidia-device-plugin*.rpm" -type f | sort -V | tail -1)
-    if [ -z "${rpmFile}" ]; then
-        echo "ERROR: No cached nvidia-device-plugin package found" >&2
+    # Get nvidia-device-plugin package info from components.json
+    local package=$(jq -r '.DownloadFiles[] | select(.name == "nvidia-device-plugin")' "${COMPONENTS_FILEPATH}")
+    if [ -z "${package}" ] || [ "${package}" = "null" ]; then
+        echo "ERROR: nvidia-device-plugin package not found in components.json" >&2
         exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
     fi
     
-    echo "Installing ${rpmFile}..."
-    rpm -i "${rpmFile}" || exit $ERR_APT_INSTALL_TIMEOUT
+    # Get the latest package version
+    updatePackageVersions "${package}" "${os}" "${os_version}"
+    if [ ${#PACKAGE_VERSIONS[@]} -eq 0 ]; then
+        echo "ERROR: No nvidia-device-plugin versions found" >&2
+        exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
+    fi
     
-    echo "nvidia-device-plugin installation completed"
+    # Use the first (latest) version
+    local packageVersion="${PACKAGE_VERSIONS[0]}"
+    echo "installing nvidia-device-plugin package version: $packageVersion"
+    
+    installRPMPackageFromFile "nvidia-device-plugin" "${packageVersion}" || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
 }
 
 downloadContainerdFromVersion() {
