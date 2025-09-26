@@ -53,8 +53,6 @@ copyPackerFiles() {
   NVIDIA_MODPROBE_SERVICE_DEST=/etc/systemd/system/nvidia-modprobe.service
   NVIDIA_DOCKER_DAEMON_SRC=/home/packer/nvidia-docker-daemon.json
   NVIDIA_DOCKER_DAEMON_DEST=/etc/systemd/system/nvidia-docker-daemon.json
-  NVIDIA_DEVICE_PLUGIN_SERVICE_SRC=/home/packer/nvidia-device-plugin.service
-  NVIDIA_DEVICE_PLUGIN_SERVICE_DEST=/etc/systemd/system/nvidia-device-plugin.service
   DISK_QUEUE_SERVICE_SRC=/home/packer/disk_queue.service
   DISK_QUEUE_SERVICE_DEST=/etc/systemd/system/disk_queue.service
   CGROUP_MEMORY_TELEMETRY_SERVICE_SRC=/home/packer/cgroup-memory-telemetry.service

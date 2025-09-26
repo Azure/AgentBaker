@@ -974,3 +974,93 @@ func ValidateEnableNvidiaResource(ctx context.Context, s *Scenario) {
 	s.T.Logf("waiting for Nvidia GPU resource to be available")
 	waitUntilResourceAvailable(ctx, s, "nvidia.com/gpu")
 }
+
+func ValidateNvidiaDevicePluginServiceRunning(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	s.T.Logf("validating that NVIDIA device plugin systemd service is running")
+
+	command := []string{
+		"set -ex",
+		"systemctl is-active nvidia-device-plugin.service",
+		"systemctl is-enabled nvidia-device-plugin.service",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "NVIDIA device plugin systemd service should be active and enabled")
+}
+
+func ValidateNodeAdvertisesGPUResources(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	s.T.Logf("validating that node advertises GPU resources")
+
+	// First, wait for the nvidia.com/gpu resource to be available
+	waitUntilResourceAvailable(ctx, s, "nvidia.com/gpu")
+
+	// Get the node using the Kubernetes client from the test framework
+	nodeName := s.Runtime.KubeNodeName
+	node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
+	require.NoError(s.T, err, "failed to get node %q", nodeName)
+
+	// Check if the node advertises GPU capacity
+	gpuCapacity, exists := node.Status.Capacity["nvidia.com/gpu"]
+	require.True(s.T, exists, "node should advertise nvidia.com/gpu capacity")
+
+	gpuCount := gpuCapacity.Value()
+	require.Greater(s.T, gpuCount, int64(0), "node should advertise at least 1 GPU, but got %d", gpuCount)
+
+	s.T.Logf("node %s advertises %d nvidia.com/gpu resources", nodeName, gpuCount)
+}
+
+func ValidateNvidiaDevicePluginBinaryInstalled(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	s.T.Logf("validating that NVIDIA device plugin binary is installed")
+
+	command := []string{"set -ex"}
+	switch s.Config.VHD.OS {
+	case config.OSAzureLinux:
+		command = append(command, "rpm -qa | grep nvidia-device-plugin")
+	case config.OSUbuntu:
+		command = append(command, "dpkg -l | grep nvidia-device-plugin")
+	default:
+		s.T.Fatalf("unsupported OS for NVIDIA device plugin validation: %s", s.Config.VHD.OS)
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "NVIDIA device plugin package should be installed")
+}
+
+func ValidateGPUWorkloadSchedulable(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	s.T.Logf("validating that GPU workloads can be scheduled")
+
+	// Wait for resources to be available and add delay for device health
+	waitUntilResourceAvailable(ctx, s, "nvidia.com/gpu")
+	time.Sleep(20 * time.Second) // Same delay as existing GPU tests
+
+	// Create a GPU test pod using the same pattern as podRunNvidiaWorkload
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-gpu-test", s.Runtime.KubeNodeName),
+			Namespace: "default",
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{
+					Name:  "gpu-test-container",
+					Image: "mcr.microsoft.com/azuredocs/samples-tf-mnist-demo:gpu",
+					Args: []string{
+						"--max-steps", "1",
+					},
+					Resources: corev1.ResourceRequirements{
+						Limits: corev1.ResourceList{
+							"nvidia.com/gpu": resource.MustParse("1"),
+						},
+					},
+				},
+			},
+			NodeSelector: map[string]string{
+				"kubernetes.io/hostname": s.Runtime.KubeNodeName,
+			},
+		},
+	}
+
+	ValidatePodRunning(ctx, s, pod)
+
+	s.T.Logf("GPU workload is schedulable and runs successfully")
+}
