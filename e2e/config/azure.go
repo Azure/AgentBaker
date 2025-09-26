@@ -463,7 +463,16 @@ func (a *AzureClient) LatestSIGImageVersionByTag(ctx context.Context, image *Ima
 			}
 
 			if tagName != "" {
-				tag, ok := version.Tags[tagName]
+				var tag *string
+				var ok bool
+				// Case-insensitive tag lookup
+				for k, v := range version.Tags {
+					if strings.EqualFold(k, tagName) {
+						tag = v
+						ok = true
+						break
+					}
+				}
 				if !ok || tag == nil || *tag != tagValue {
 					continue
 				}
