@@ -400,18 +400,16 @@ function nodePrep {
             logs_to_events "AKS.CSE.ensureMigPartition" ensureMigPartition
         fi
 
-        # Install GPU device plugin if needed and not already installed
+        # Configure GPU device plugin
         if [ "${ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED}" = "true" ]; then
+            # Install nvidia-device-plugin if needed and not already installed
             if ! systemctl list-unit-files | grep -q "nvidia-device-plugin.service"; then
                 echo "Installing nvidia-device-plugin package..."
                 logs_to_events "AKS.CSE.installNvidiaDevicePlugin" "installNvidiaDevicePluginPkgFromCache"
             else
                 echo "nvidia-device-plugin package already installed"
             fi
-        fi
-
-        # Configure GPU device plugin
-        if [ "${ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED}" = "true" ]; then
+            
             # Ensure kubelet device-plugins directory exists
             mkdir -p /var/lib/kubelet/device-plugins
             

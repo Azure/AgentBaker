@@ -262,12 +262,10 @@ ensureRunc() {
 cleanUpGPUDrivers() {
     rm -Rf $GPU_DEST /opt/gpu
     
-    # Remove cached GPU device plugin downloads on non-GPU nodes
-    if [ -d "/opt/nvidia-device-plugin/downloads" ]; then
-        echo "Removing cached ${K8S_DEVICE_PLUGIN_PKG} downloads from non-GPU node..."
-        rm -rf /opt/nvidia-device-plugin/downloads
-        echo "Cached ${K8S_DEVICE_PLUGIN_PKG} downloads removed from non-GPU node"
-    fi
+    # Remove cached GPU device plugin downloads as they're no longer needed
+    echo "Removing cached ${K8S_DEVICE_PLUGIN_PKG} downloads..."
+    rm -rf /opt/nvidia-device-plugin/downloads
+    echo "Cached ${K8S_DEVICE_PLUGIN_PKG} downloads removed"
 }
 
 installNvidiaDevicePluginPkgFromCache() {

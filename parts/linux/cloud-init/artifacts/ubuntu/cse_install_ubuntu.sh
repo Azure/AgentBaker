@@ -83,28 +83,42 @@ updateAptWithMicrosoftPkg() {
 cleanUpGPUDrivers() {
     rm -Rf $GPU_DEST /opt/gpu
     
-    # Remove cached GPU device plugin downloads on non-GPU nodes
-    if [ -d "/opt/nvidia-device-plugin/downloads" ]; then
-        echo "Removing cached ${K8S_DEVICE_PLUGIN_PKG} downloads from non-GPU node..."
-        rm -rf /opt/nvidia-device-plugin/downloads
-        echo "Cached ${K8S_DEVICE_PLUGIN_PKG} downloads removed from non-GPU node"
-    fi
+    # Remove cached GPU device plugin downloads as they're no longer needed
+    echo "Removing cached ${K8S_DEVICE_PLUGIN_PKG} downloads..."
+    rm -rf /opt/nvidia-device-plugin/downloads
+    echo "Cached ${K8S_DEVICE_PLUGIN_PKG} downloads removed"
 }
 
 installNvidiaDevicePluginPkgFromCache() {
-    echo "Installing cached nvidia-device-plugin package..."
+    local os=${UBUNTU_OS_NAME}
+    local os_version=""
+    if [ -z "$UBUNTU_RELEASE" ]; then
+        os=${OS}
+        # For nvidia-device-plugin, default to 22.04 since "current" doesn't exist for Ubuntu
+        os_version="22.04"
+    else
+        os_version="${UBUNTU_RELEASE}"
+    fi
     
-    # Find the cached .deb file with highest version
-    debFile=$(find /opt/nvidia-device-plugin/downloads -name "nvidia-device-plugin*.deb" -type f | sort -V | tail -1)
-    if [ -z "${debFile}" ]; then
-        echo "ERROR: No cached nvidia-device-plugin package found" >&2
+    # Get nvidia-device-plugin package info from components.json
+    local package=$(jq -r '.Packages[] | select(.name == "nvidia-device-plugin")' "${COMPONENTS_FILEPATH}")
+    if [ -z "${package}" ] || [ "${package}" = "null" ]; then
+        echo "ERROR: nvidia-device-plugin package not found in components.json" >&2
         exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
     fi
     
-    echo "Installing ${debFile}..."
-    dpkg -i "${debFile}" || exit $ERR_APT_INSTALL_TIMEOUT
+    # Get the latest package version
+    updatePackageVersions "${package}" "${os}" "${os_version}"
+    if [ ${#PACKAGE_VERSIONS[@]} -eq 0 ]; then
+        echo "ERROR: No nvidia-device-plugin versions found" >&2
+        exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
+    fi
     
-    echo "nvidia-device-plugin installation completed"
+    # Use the first (latest) version
+    local packageVersion="${PACKAGE_VERSIONS[0]}"
+    echo "installing nvidia-device-plugin package version: $packageVersion"
+    
+    installPkgWithAptGet "nvidia-device-plugin" "${packageVersion}" || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
 }
 
 installCriCtlPackage() {
