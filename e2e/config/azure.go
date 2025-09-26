@@ -335,7 +335,7 @@ func (a *AzureClient) UploadAndGetSignedLink(ctx context.Context, blobName strin
 
 	sig, err := sas.BlobSignatureValues{
 		Protocol:      sas.ProtocolHTTPS,
-		ExpiryTime:    time.Now().Add(time.Hour),
+		ExpiryTime:    time.Now().Add(time.Hour).UTC(),
 		Permissions:   to.Ptr(sas.BlobPermissions{Read: true}).String(),
 		ContainerName: Config.BlobContainer,
 		BlobName:      blobName,
