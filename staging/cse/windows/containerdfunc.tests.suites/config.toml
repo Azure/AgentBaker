@@ -26,7 +26,7 @@ state = "C:\\ProgramData\\containerd\\state"
     stream_server_address = "127.0.0.1"
     stream_server_port = "0"
     enable_selinux = false
-    sandbox_image = "mcr.microsoft.com/oss/kubernetes/pause:3.6-windows-ltsc2022-amd64"
+    sandbox_image = "mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.1-windows-ltsc2022-amd64"
     stats_collect_period = 10
     systemd_cgroup = false
     enable_tls_streaming = false
@@ -41,7 +41,7 @@ state = "C:\\ProgramData\\containerd\\state"
         [plugins.cri.containerd.default_runtime.options]
           Debug = false
           DebugType = 0
-          SandboxImage = "mcr.microsoft.com/oss/kubernetes/pause:3.6-windows-ltsc2022-amd64"
+          SandboxImage = "mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.1-windows-ltsc2022-amd64"
           SandboxPlatform = "windows/amd64"
           SandboxIsolation = 1
       [plugins.cri.containerd.runtimes]
@@ -50,14 +50,14 @@ state = "C:\\ProgramData\\containerd\\state"
           [plugins.cri.containerd.runtimes.runhcs-wcow-process.options]
             Debug = true
             DebugType = 2
-            SandboxImage = "mcr.microsoft.com/oss/kubernetes/pause:3.6-windows-ltsc2022-amd64"
+            SandboxImage = "mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.1-windows-ltsc2022-amd64"
             SandboxPlatform = "windows/amd64"
         [plugins.cri.containerd.runtimes.runhcs-wcow-hypervisor-1234]
           runtime_type = "io.containerd.runhcs.v1"
           [plugins.cri.containerd.runtimes.runhcs-wcow-hypervisor-1234.options]
             Debug = true
             DebugType = 2
-            SandboxImage = "mcr.microsoft.com/oss/kubernetes/pause:3.6-windows-ltsc2022-amd64"
+            SandboxImage = "mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.1-windows-ltsc2022-amd64"
             SandboxPlatform = "windows/amd64"
             SandboxIsolation = 1
             ScaleCPULimitsToSandbox = true
@@ -66,7 +66,7 @@ state = "C:\\ProgramData\\containerd\\state"
           [plugins.cri.containerd.runtimes.runhcs-wcow-hypervisor-5678.options]
             Debug = true
             DebugType = 2
-            SandboxImage = "mcr.microsoft.com/oss/kubernetes/pause:3.6-windows-ltsc2022-amd64"
+            SandboxImage = "mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.1-windows-ltsc2022-amd64"
             SandboxPlatform = "windows/amd64"
             SandboxIsolation = 1
             ScaleCPULimitsToSandbox = true
