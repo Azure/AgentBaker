@@ -475,6 +475,11 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/aks-diagnostic.py",
+      "destination": "/home/packer/aks-diagnostic.py"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/aks-log-collector.sh",
       "destination": "/home/packer/aks-log-collector.sh"
     },
