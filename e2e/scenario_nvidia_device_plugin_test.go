@@ -14,7 +14,7 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that NVIDIA device plugin is running properly after CSE execution on Ubuntu 24.04 GPU nodes",
 		Tags: Tags{
-			GPU: true, // This test requires actual GPU hardware
+			GPU: true,
 		},
 		Config: Config{
 			Cluster: ClusterKubenet,
@@ -49,7 +49,7 @@ func Test_Ubuntu2204_NvidiaDevicePluginRunning(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that NVIDIA device plugin is running properly after CSE execution on Ubuntu 22.04 GPU nodes",
 		Tags: Tags{
-			GPU: true, // This test requires actual GPU hardware
+			GPU: true,
 		},
 		Config: Config{
 			Cluster: ClusterKubenet,
@@ -84,7 +84,7 @@ func Test_AzureLinux3_NvidiaDevicePluginRunning(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that NVIDIA device plugin is running properly after CSE execution on Azure Linux V3 GPU nodes",
 		Tags: Tags{
-			GPU: true, // This test requires actual GPU hardware
+			GPU: true,
 		},
 		Config: Config{
 			Cluster: ClusterKubenet,
