@@ -1049,6 +1049,9 @@ func ValidateGPUWorkloadSchedulable(ctx context.Context, s *Scenario) {
 					},
 				},
 			},
+			NodeSelector: map[string]string{
+				"kubernetes.io/hostname": s.Runtime.KubeNodeName,
+			},
 		},
 	}
 
