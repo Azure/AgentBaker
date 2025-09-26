@@ -416,16 +416,15 @@ function nodePrep {
             mkdir -p /var/lib/kubelet/device-plugins
             
             if [ "${MIG_NODE}" = "true" ]; then
-                tee "/etc/systemd/system/nvidia-device-plugin.service.d/20-mig_strategy.conf" > /dev/null <<'EOF'
+                tee "/etc/systemd/system/nvidia-device-plugin.service.d/10-mig_strategy.conf" > /dev/null <<'EOF'
 [Service]
 Environment="MIG_STRATEGY=--mig-strategy single"
 ExecStart=
 ExecStart=/usr/bin/nvidia-device-plugin $MIG_STRATEGY
 EOF
+                # Reload systemd to pick up drop-ins
+                systemctl daemon-reload
             fi
-            
-            # Reload systemd to pick up drop-ins
-            systemctl daemon-reload
             
             logs_to_events "AKS.CSE.start.nvidia-device-plugin" "systemctlEnableAndStart nvidia-device-plugin 30" || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
         else
