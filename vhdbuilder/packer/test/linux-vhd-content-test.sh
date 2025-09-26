@@ -617,7 +617,7 @@ testLtsKernel() {
     if [ "$os_version" = "22.04" ]; then
       expected_kernel="5.15"
     elif [ "$os_version" = "24.04" ]; then
-      expected_kernel="6.8"
+      expected_kernel="6.11"
     else
       echo "LTS kernel not installed for: $os_version"
     fi
