@@ -90,7 +90,6 @@ updateAptWithNvidiaPkg() {
     elif [ "$cpu_arch" = "arm64" ]; then
         repo_arch="sbsa"
     else
-        # TODO: Error out?
         echo "Unknown CPU architecture: ${cpu_arch}"
         return
     fi
@@ -100,8 +99,7 @@ updateAptWithNvidiaPkg() {
     elif [ "${UBUNTU_RELEASE}" = "24.04" ]; then
         nvidia_ubuntu_release="ubuntu2404"
     else
-        # TODO: Error out?
-        echo "Unsupported Ubuntu version for NVIDIA drivers: ${UBUNTU_RELEASE}"
+        echo "NVIDIA repo setup is not supported on Ubuntu ${UBUNTU_RELEASE}"
         return
     fi
 
