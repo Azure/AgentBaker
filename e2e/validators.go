@@ -1060,7 +1060,6 @@ func ValidateGPUWorkloadSchedulable(ctx context.Context, s *Scenario) {
 		},
 	}
 
-	// Use the existing ValidatePodRunning function
 	ValidatePodRunning(ctx, s, pod)
 
 	s.T.Logf("GPU workload is schedulable and runs successfully")
