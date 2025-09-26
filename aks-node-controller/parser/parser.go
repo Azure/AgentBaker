@@ -171,7 +171,7 @@ func getCSEEnv(config *aksnodeconfigv1.Configuration) map[string]string {
 		"LOCALDNS_CPU_LIMIT":                             getLocalDnsCpuLimitInPercentage(config),
 		"LOCALDNS_MEMORY_LIMIT":                          getLocalDnsMemoryLimitInMb(config),
 		"LOCALDNS_GENERATED_COREFILE":                    getLocalDnsCorefileBase64(config),
-		"TURN_OFF_PUBKEY_AUTH_SSH":                       fmt.Sprintf("%v", config.GetDisablePubkeyAuth()),
+		"DISABLE_PUBKEY_AUTH":                            fmt.Sprintf("%v", config.GetDisablePubkeyAuth()),
 	}
 
 	for i, cert := range config.CustomCaCerts {

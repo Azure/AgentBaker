@@ -86,7 +86,7 @@ oom_score = -999
 			},
 		},
 		{
-			name:       "AKSUbuntu2204 TURN_OFF_PUBKEY_AUTH_SSH with disabled pubkey auth",
+			name:       "AKSUbuntu2204 DISABLE_PUBKEY_AUTH with disabled pubkey auth",
 			folder:     "AKSUbuntu2204+DisablePubkeyAuth",
 			k8sVersion: "1.24.2",
 			aksNodeConfigUpdator: func(aksNodeConfig *aksnodeconfigv1.Configuration) {
@@ -94,11 +94,11 @@ oom_score = -999
 			},
 			validator: func(cmd *exec.Cmd) {
 				vars := environToMap(cmd.Env)
-				assert.Equal(t, "true", vars["TURN_OFF_PUBKEY_AUTH_SSH"])
+				assert.Equal(t, "true", vars["DISABLE_PUBKEY_AUTH"])
 			},
 		},
 		{
-			name:       "AKSUbuntu2204 TURN_OFF_PUBKEY_AUTH_SSH with enabled pubkey auth",
+			name:       "AKSUbuntu2204 DISABLE_PUBKEY_AUTH with enabled pubkey auth",
 			folder:     "AKSUbuntu2204+EnablePubkeyAuth",
 			k8sVersion: "1.24.2",
 			aksNodeConfigUpdator: func(aksNodeConfig *aksnodeconfigv1.Configuration) {
@@ -106,11 +106,11 @@ oom_score = -999
 			},
 			validator: func(cmd *exec.Cmd) {
 				vars := environToMap(cmd.Env)
-				assert.Equal(t, "false", vars["TURN_OFF_PUBKEY_AUTH_SSH"])
+				assert.Equal(t, "false", vars["DISABLE_PUBKEY_AUTH"])
 			},
 		},
 		{
-			name:       "AKSUbuntu2204 TURN_OFF_PUBKEY_AUTH_SSH with default (nil) pubkey auth",
+			name:       "AKSUbuntu2204 DISABLE_PUBKEY_AUTH with default (nil) pubkey auth",
 			folder:     "AKSUbuntu2204+DefaultPubkeyAuth",
 			k8sVersion: "1.24.2",
 			aksNodeConfigUpdator: func(aksNodeConfig *aksnodeconfigv1.Configuration) {
@@ -118,7 +118,7 @@ oom_score = -999
 			},
 			validator: func(cmd *exec.Cmd) {
 				vars := environToMap(cmd.Env)
-				assert.Equal(t, "false", vars["TURN_OFF_PUBKEY_AUTH_SSH"])
+				assert.Equal(t, "false", vars["DISABLE_PUBKEY_AUTH"])
 			},
 		},
 		{
