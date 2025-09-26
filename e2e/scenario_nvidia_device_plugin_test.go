@@ -31,13 +31,13 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning(t *testing.T) {
 			Validator: func(ctx context.Context, s *Scenario) {
 				// Validate that the NVIDIA device plugin systemd service is running
 				ValidateNvidiaDevicePluginServiceRunning(ctx, s)
-				
+
 				// Validate that GPU resources are advertised by the device plugin
 				ValidateNodeAdvertisesGPUResources(ctx, s)
-				
+
 				// Validate that the NVIDIA device plugin binary was installed correctly
 				ValidateNvidiaDevicePluginBinaryInstalled(ctx, s)
-				
+
 				// Validate that GPU workloads can be scheduled
 				ValidateGPUWorkloadSchedulable(ctx, s)
 			},
@@ -66,13 +66,13 @@ func Test_Ubuntu2204_NvidiaDevicePluginRunning(t *testing.T) {
 			Validator: func(ctx context.Context, s *Scenario) {
 				// Validate that the NVIDIA device plugin systemd service is running
 				ValidateNvidiaDevicePluginServiceRunning(ctx, s)
-				
+
 				// Validate that GPU resources are advertised by the device plugin
 				ValidateNodeAdvertisesGPUResources(ctx, s)
-				
+
 				// Validate that the NVIDIA device plugin binary was installed correctly
 				ValidateNvidiaDevicePluginBinaryInstalled(ctx, s)
-				
+
 				// Validate that GPU workloads can be scheduled
 				ValidateGPUWorkloadSchedulable(ctx, s)
 			},
@@ -101,13 +101,13 @@ func Test_AzureLinux3_NvidiaDevicePluginRunning(t *testing.T) {
 			Validator: func(ctx context.Context, s *Scenario) {
 				// Validate that the NVIDIA device plugin systemd service is running
 				ValidateNvidiaDevicePluginServiceRunning(ctx, s)
-				
+
 				// Validate that GPU resources are advertised by the device plugin
 				ValidateNodeAdvertisesGPUResources(ctx, s)
-				
+
 				// Validate that the NVIDIA device plugin binary was installed correctly
 				ValidateNvidiaDevicePluginBinaryInstalled(ctx, s)
-				
+
 				// Validate that GPU workloads can be scheduled
 				ValidateGPUWorkloadSchedulable(ctx, s)
 			},
