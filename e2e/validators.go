@@ -1024,7 +1024,6 @@ func ValidateGPUWorkloadSchedulable(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 	s.T.Logf("validating that GPU workloads can be scheduled")
 	
-	// Follow the exact same pattern as ValidatePodUsingNVidiaGPU
 	// Wait for resources to be available and add delay for device health
 	waitUntilResourceAvailable(ctx, s, "nvidia.com/gpu")
 	time.Sleep(20 * time.Second) // Same delay as existing GPU tests
