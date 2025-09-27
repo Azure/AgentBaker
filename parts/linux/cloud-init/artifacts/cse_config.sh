@@ -52,7 +52,7 @@ configureSwapFile() {
     # https://learn.microsoft.com/en-us/troubleshoot/azure/virtual-machines/troubleshoot-device-names-problems#identify-disk-luns
     swap_size_kb=$(expr ${SWAP_FILE_SIZE_MB} \* 1000)
     swap_location=""
-    
+
     # Attempt to use the resource disk
     if [ -L /dev/disk/azure/resource-part1 ]; then
         resource_disk_path=$(findmnt -nr -o target -S $(readlink -f /dev/disk/azure/resource-part1))
@@ -154,7 +154,7 @@ configureCustomCaCertificate() {
     chmod 755 /opt/certs
     for i in $(seq 0 $((${CUSTOM_CA_TRUST_COUNT} - 1))); do
         # declare dynamically and use "!" to avoid bad substition errors
-        declare varname=CUSTOM_CA_CERT_${i} 
+        declare varname=CUSTOM_CA_CERT_${i}
         echo "${!varname}" | base64 -d > /opt/certs/00000000000000cert${i}.crt
     done
     # blocks until svc is considered active, which will happen when ExecStart command terminates with code 0
@@ -190,7 +190,7 @@ configureAzureJson() {
     fi
     SERVICE_PRINCIPAL_CLIENT_SECRET=${SERVICE_PRINCIPAL_CLIENT_SECRET//\\/\\\\}
     SERVICE_PRINCIPAL_CLIENT_SECRET=${SERVICE_PRINCIPAL_CLIENT_SECRET//\"/\\\"}
-    
+
     cat << EOF > "${AZURE_JSON_PATH}"
 {
     "cloud": "${TARGET_CLOUD}",
@@ -331,7 +331,7 @@ ensureContainerd() {
   if [ "${TELEPORT_ENABLED}" = "true" ]; then
     ensureTeleportd
   fi
-  mkdir -p "/etc/systemd/system/containerd.service.d" 
+  mkdir -p "/etc/systemd/system/containerd.service.d"
   tee "/etc/systemd/system/containerd.service.d/exec_start.conf" > /dev/null <<EOF
 [Service]
 ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
@@ -358,7 +358,7 @@ EOF
     logs_to_events "AKS.CSE.ensureContainerd.configureContainerdRegistryHost" configureContainerdRegistryHost
   fi
 
-  tee "/etc/sysctl.d/99-force-bridge-forward.conf" > /dev/null <<EOF 
+  tee "/etc/sysctl.d/99-force-bridge-forward.conf" > /dev/null <<EOF
 net.ipv4.ip_forward = 1
 net.ipv4.conf.all.forwarding = 1
 net.ipv6.conf.all.forwarding = 1
@@ -407,7 +407,7 @@ ensureArtifactStreaming() {
   systemctl link /opt/overlaybd/snapshotter/overlaybd-snapshotter.service
   systemctlEnableAndStart overlaybd-tcmu.service 30
   systemctlEnableAndStart overlaybd-snapshotter.service 30
-  
+
 }
 
 ensureAcrNodeMon() {
@@ -461,7 +461,7 @@ getPrimaryNicIP() {
 
 generateSelfSignedKubeletServingCertificate() {
     mkdir -p "/etc/kubernetes/certs"
-    
+
     KUBELET_SERVER_PRIVATE_KEY_PATH="/etc/kubernetes/certs/kubeletserver.key"
     KUBELET_SERVER_CERT_PATH="/etc/kubernetes/certs/kubeletserver.crt"
 
@@ -663,7 +663,7 @@ current-context: bootstrap-context
 EOF
     else
         echo "generating kubeconfig referencing the provided kubelet client certificate"
-        
+
         KUBECONFIG_FILE=/var/lib/kubelet/kubeconfig
         mkdir -p "$(dirname "${KUBECONFIG_FILE}")"
         touch "${KUBECONFIG_FILE}"
@@ -691,7 +691,7 @@ EOF
     fi
 
     set -x
-    
+
     KUBELET_RUNTIME_CONFIG_SCRIPT_FILE=/opt/azure/containers/kubelet.sh
     tee "${KUBELET_RUNTIME_CONFIG_SCRIPT_FILE}" > /dev/null <<EOF
 #!/bin/bash
@@ -740,7 +740,7 @@ EOF
                 fi
             else
                 logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromPMC" "installCredentialProviderFromPMC ${KUBERNETES_VERSION}"
-            fi   
+            fi
         fi
     fi
 
@@ -871,7 +871,7 @@ configGPUDrivers() {
             fi
             ctr -n k8s.io images rm --sync $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
         else
-            bash -c "$DOCKER_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG install" 
+            bash -c "$DOCKER_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG install"
             ret=$?
             if [ "$ret" -ne 0 ]; then
                 echo "Failed to install GPU driver, exiting..."
@@ -883,7 +883,7 @@ configGPUDrivers() {
         downloadGPUDrivers
         installNvidiaContainerToolkit
         enableNvidiaPersistenceMode
-    else 
+    else
         echo "os $OS $OS_VARIANT not supported at this time. skipping configGPUDrivers"
         exit 1
     fi
@@ -896,7 +896,7 @@ configGPUDrivers() {
     if isMarinerOrAzureLinux "$OS"; then
         createNvidiaSymlinkToAllDeviceNodes
     fi
-    
+
     if [ "${CONTAINER_RUNTIME}" = "containerd" ]; then
         retrycmd_if_failure 120 5 25 pkill -SIGHUP containerd || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
     else
@@ -910,7 +910,7 @@ validateGPUDrivers() {
     fi
 
     retrycmd_if_failure 24 5 25 nvidia-modprobe -u -c0 && echo "gpu driver loaded" || configGPUDrivers || exit $ERR_GPU_DRIVERS_START_FAIL
-    
+
     if which nvidia-smi; then
         SMI_RESULT=$(retrycmd_if_failure 24 5 300 nvidia-smi)
     else
@@ -1053,7 +1053,7 @@ enableLocalDNS() {
     echo "Enable localdns succeeded."
 }
 
-# localdns corefile used by localdns systemd unit. 
+# localdns corefile used by localdns systemd unit.
 LOCALDNS_COREFILE="/opt/azure/containers/localdns/localdns.corefile"
 # localdns slice file used by localdns systemd unit.
 LOCALDNS_SLICEFILE="/etc/systemd/system/localdns.slice"
@@ -1085,6 +1085,34 @@ EOF
     echo "localdns should be enabled."
     systemctlEnableAndStart localdns 30 || exit $ERR_LOCALDNS_FAIL
     echo "Enable localdns succeeded."
+}
+
+startNvidiaDCGMExporterService() {
+    # Start the nvidia-dcgm service.
+    systemctlEnableAndStart nvidia-dcgm 30 || exit $ERR_NVIDIA_DCGM_FAIL
+
+    # Create systemd drop-in directory for nvidia-dcgm-exporter service
+    DCGM_EXPORTER_OVERRIDE_DIR="/etc/systemd/system/nvidia-dcgm-exporter.service.d"
+    mkdir -p "${DCGM_EXPORTER_OVERRIDE_DIR}"
+
+    # Create drop-in file to override service configuration
+    DCGM_EXPORTER_OVERRIDE_FILE="${DCGM_EXPORTER_OVERRIDE_DIR}/10-aks-override.conf"
+
+    tee "${DCGM_EXPORTER_OVERRIDE_FILE}" > /dev/null <<EOF
+[Service]
+# Remove file-based logging - let systemd handle logs
+StandardOutput=journal
+StandardError=journal
+# Change default port from 9400 to 19400 so that it does not conflict with user installed dcgm-exporter
+ExecStart=
+ExecStart=/usr/bin/dcgm-exporter -f /etc/dcgm-exporter/default-counters.csv --address ":19400"
+EOF
+
+    # Reload systemd to apply the override configuration
+    systemctl daemon-reload
+
+    # Start the nvidia-dcgm-exporter service.
+    systemctlEnableAndStart nvidia-dcgm-exporter 30 || exit $ERR_NVIDIA_DCGM_EXPORTER_FAIL
 }
 
 #EOF
