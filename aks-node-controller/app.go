@@ -103,9 +103,11 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) error {
 		// Log the error and continue processing.
 		// Note: This may result in loss of data if the unknown fields are critical.
 		if strings.Contains(err.Error(), "unknown field") {
-			fmt.Printf("Warning: unable to unmarshal provision config completely: %v.\n"+
-				"This may be due to an older version of aks-node-controller.\n"+
-				"This is not fatal but note that the unrecognized fields and corresponding features will be ignored.", err)
+			slog.Warn("Unable to unmarshal provision config completely due to unknown fields. "+
+				"This may be due to version mismatch. "+
+				"Usually it is newer aks-node-config being parsed by older aks-node-controller. "+
+				"Continuing with partial configuration, but unrecognized fields will be ignored.",
+				"error", err)
 		} else {
 			return fmt.Errorf("unmarshal provision config: %w", err)
 		}
