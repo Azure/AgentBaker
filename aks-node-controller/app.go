@@ -106,8 +106,9 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) error {
 			fmt.Printf("Warning: unable to unmarshal provision config completely: %v.\n"+
 				"This may be due to an older version of aks-node-controller.\n"+
 				"This is not fatal but note that the unrecognized fields and corresponding features will be ignored.", err)
+		} else {
+			return fmt.Errorf("unmarshal provision config: %w", err)
 		}
-		return fmt.Errorf("unmarshal provision config: %w", err)
 	}
 	// TODO: "v0" were a mistake. We are not going to have different logic maintaining both v0 and v1
 	// Disallow "v0" after some time (allow some time to update consumers)
