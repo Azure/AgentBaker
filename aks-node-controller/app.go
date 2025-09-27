@@ -106,7 +106,6 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) error {
 			fmt.Printf("Warning: unable to unmarshal provision config completely: %v.\n"+
 				"This may be due to an older version of aks-node-controller.\n"+
 				"This is not fatal but note that the unrecognized fields and corresponding features will be ignored.", err)
-			return nil
 		}
 		return fmt.Errorf("unmarshal provision config: %w", err)
 	}
