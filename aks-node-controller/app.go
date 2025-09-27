@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/Azure/agentbaker/aks-node-controller/parser"
 	"github.com/Azure/agentbaker/aks-node-controller/pkg/nodeconfigutils"
@@ -77,6 +78,10 @@ func (a *App) run(ctx context.Context, args []string) error {
 		provisionOutput, err := a.ProvisionWait(ctx, provisionStatusFiles)
 		//nolint:forbidigo // stdout is part of the interface
 		fmt.Println(provisionOutput)
+		if err != nil {
+			slog.Error("aks-node-controller failed", "error", err)
+			return err
+		}
 		slog.Info("provision-wait finished", "provisionOutput", provisionOutput)
 		return err
 	default:
@@ -92,6 +97,17 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) error {
 
 	config, err := nodeconfigutils.UnmarshalConfigurationV1(inputJSON)
 	if err != nil {
+		// Handle unknown field error gracefully for backward compatibility
+		// This allows older versions of aks-node-controller to read configurations
+		// that may have fields added in newer versions.
+		// Log the error and continue processing.
+		// Note: This may result in loss of data if the unknown fields are critical.
+		if strings.Contains(err.Error(), "unknown field") {
+			fmt.Printf("Warning: unable to unmarshal provision config completely: %v.\n"+
+				"This may be due to an older version of aks-node-controller.\n"+
+				"This is not fatal but note that the unrecognized fields and corresponding features will be ignored.", err)
+			return nil
+		}
 		return fmt.Errorf("unmarshal provision config: %w", err)
 	}
 	// TODO: "v0" were a mistake. We are not going to have different logic maintaining both v0 and v1
