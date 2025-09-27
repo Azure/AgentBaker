@@ -1105,6 +1105,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"ShouldDisableSSH": func() bool {
 			return config.SSHStatus == datamodel.SSHOff
 		},
+		"ShouldTurnOffPubkeyAuthSSH": func() bool {
+			return config.SSHStatus == datamodel.EntraIDSSH
+		},
 		"GetSysctlContent": func() (string, error) {
 			templateFuncMap := make(template.FuncMap)
 			templateFuncMap["getPortRangeEndValue"] = getPortRangeEndValue
