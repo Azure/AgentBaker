@@ -88,12 +88,7 @@ function basePrep {
 
     logs_to_events "AKS.CSE.installSecureTLSBootstrapClient" installSecureTLSBootstrapClient
 
-    if [ "${DISABLE_PUBKEY_AUTH}" = "true" ]; then
-        ssh_use_pubkey_auth="no"
-    else
-        ssh_use_pubkey_auth="yes"
-    fi
-    logs_to_events "AKS.CSE.setPubkeyAuthSSH" setPubkeyAuthSSH "${ssh_use_pubkey_auth}"
+    logs_to_events "AKS.CSE.configureSSHPubkeyAuth" configureSSHPubkeyAuth "${DISABLE_PUBKEY_AUTH}"
 
 
     if [ "${DISABLE_SSH}" = "true" ]; then

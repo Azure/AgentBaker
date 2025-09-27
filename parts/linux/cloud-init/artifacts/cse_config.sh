@@ -953,8 +953,16 @@ disableSSH() {
     systemctlDisableAndStop ssh || exit $ERR_DISABLE_SSH
 }
 
-setPubkeyAuthSSH() {
-  local want="$1"
+configureSSHPubkeyAuth() {
+  local disable_pubkey_auth="$1"
+  local ssh_use_pubkey_auth
+  
+  # Determine the desired pubkey auth setting
+  if [ "${disable_pubkey_auth}" = "true" ]; then
+    ssh_use_pubkey_auth="no"
+  else
+    ssh_use_pubkey_auth="yes"
+  fi
   local SSHD_CONFIG="/etc/ssh/sshd_config"
   local TMP
   TMP="$(mktemp)"
@@ -966,7 +974,7 @@ setPubkeyAuthSSH() {
   # PubkeyAuthentication yes
   # AuthorizedKeysCommand /usr/sbin/aad_certhandler %u %k
   # AuthorizedKeysCommandUser root
-  awk -v desired="$want" '
+  awk -v desired="$ssh_use_pubkey_auth" '
     BEGIN { in_match=0; replaced=0; inserted=0 }
     /^Match([[:space:]]|$)/ {
       if (!replaced && !inserted) { print "PubkeyAuthentication " desired; inserted=1 }
