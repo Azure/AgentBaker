@@ -1172,4 +1172,32 @@ EOF
     echo "Enable localdns succeeded."
 }
 
+startNvidiaDCGMExporterService() {
+    # Start the nvidia-dcgm service.
+    systemctlEnableAndStart nvidia-dcgm 30 || exit $ERR_NVIDIA_DCGM_FAIL
+
+    # Create systemd drop-in directory for nvidia-dcgm-exporter service
+    DCGM_EXPORTER_OVERRIDE_DIR="/etc/systemd/system/nvidia-dcgm-exporter.service.d"
+    mkdir -p "${DCGM_EXPORTER_OVERRIDE_DIR}"
+
+    # Create drop-in file to override service configuration
+    DCGM_EXPORTER_OVERRIDE_FILE="${DCGM_EXPORTER_OVERRIDE_DIR}/10-aks-override.conf"
+
+    tee "${DCGM_EXPORTER_OVERRIDE_FILE}" > /dev/null <<EOF
+[Service]
+# Remove file-based logging - let systemd handle logs
+StandardOutput=journal
+StandardError=journal
+# Change default port from 9400 to 19400 so that it does not conflict with user installed dcgm-exporter
+ExecStart=
+ExecStart=/usr/bin/dcgm-exporter -f /etc/dcgm-exporter/default-counters.csv --address ":19400"
+EOF
+
+    # Reload systemd to apply the override configuration
+    systemctl daemon-reload
+
+    # Start the nvidia-dcgm-exporter service.
+    systemctlEnableAndStart nvidia-dcgm-exporter 30 || exit $ERR_NVIDIA_DCGM_EXPORTER_FAIL
+}
+
 #EOF
