@@ -81,6 +81,8 @@ copyPackerFiles() {
   CI_SYSLOG_WATCHER_SERVICE_DEST=/etc/systemd/system/ci-syslog-watcher.service
   CI_SYSLOG_WATCHER_SCRIPT_SRC=/home/packer/ci-syslog-watcher.sh
   CI_SYSLOG_WATCHER_SCRIPT_DEST=/usr/local/bin/ci-syslog-watcher.sh
+  AKS_DIAGNOSTIC_SCRIPT_SRC=/home/packer/aks-diagnostic.py
+  AKS_DIAGNOSTIC_SCRIPT_DEST=/opt/azure/containers/aks-diagnostic.py
   AKS_LOG_COLLECTOR_SCRIPT_SRC=/home/packer/aks-log-collector.sh
   AKS_LOG_COLLECTOR_SCRIPT_DEST=/opt/azure/containers/aks-log-collector.sh
   AKS_LOG_COLLECTOR_SEND_SCRIPT_SRC=/home/packer/aks-log-collector-send.py
@@ -176,23 +178,7 @@ copyPackerFiles() {
       KATA_IMAGE_SRC=/home/packer/kata-containers.img
       KATA_IMAGE_DEST=$KATA_CONFIG_DIR/kata-containers.img
       cpAndMode $KATA_IMAGE_SRC $KATA_IMAGE_DEST 0755
-
-      KATACC_IMAGE_SRC=/home/packer/kata-containers-cc.img
-      KATACC_IMAGE_DEST=$KATACC_CONFIG_DIR/kata-containers.img
-      cpAndMode $KATACC_IMAGE_SRC $KATACC_IMAGE_DEST 0755
     fi
-
-    IGVM_DEBUG_BIN_SRC=/home/packer/kata-containers-igvm-debug.img
-    IGVM_DEBUG_BIN_DEST=$KATACC_CONFIG_DIR/kata-containers-igvm-debug.img
-    cpAndMode $IGVM_DEBUG_BIN_SRC $IGVM_DEBUG_BIN_DEST 0755
-
-    IGVM_BIN_SRC=/home/packer/kata-containers-igvm.img
-    IGVM_BIN_DEST=$KATACC_CONFIG_DIR/kata-containers-igvm.img
-    cpAndMode $IGVM_BIN_SRC $IGVM_BIN_DEST 0755
-
-    REF_INFO_SRC=/home/packer/reference-info-base64
-    REF_INFO_DEST=$KATACC_CONFIG_DIR/reference-info-base64
-    cpAndMode $REF_INFO_SRC $REF_INFO_DEST 0755
   fi
 
   MIG_PART_SRC=/home/packer/mig-partition.service
@@ -308,6 +294,9 @@ copyPackerFiles() {
   LOCALDNS_SERVICE_DELEGATE_DEST=/etc/systemd/system/localdns.service.d/delegate.conf
   cpAndMode $LOCALDNS_SERVICE_DELEGATE_SRC $LOCALDNS_SERVICE_DELEGATE_DEST 0644
 # ---------------------------------------------------------------------------------------
+
+  # Install AKS diagnostic
+  cpAndMode $AKS_DIAGNOSTIC_SCRIPT_SRC $AKS_DIAGNOSTIC_SCRIPT_DEST 755
 
   # Install AKS log collector
   cpAndMode $AKS_LOG_COLLECTOR_SCRIPT_SRC $AKS_LOG_COLLECTOR_SCRIPT_DEST 755

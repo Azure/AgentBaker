@@ -475,6 +475,11 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/aks-diagnostic.py",
+      "destination": "/home/packer/aks-diagnostic.py"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/aks-log-collector.sh",
       "destination": "/home/packer/aks-log-collector.sh"
     },
@@ -570,33 +575,8 @@
     },
     {
       "type": "file",
-      "source": "kata-containers-igvm-debug.img",
-      "destination": "/home/packer/kata-containers-igvm-debug.img"
-    },
-    {
-      "type": "file",
-      "source": "kata-containers-igvm.img",
-      "destination": "/home/packer/kata-containers-igvm.img"
-    },
-    {
-      "type": "file",
-      "source": "kata-containers-initrd-base.img",
-      "destination": "/home/packer/kata-containers-initrd-base.img"
-    },
-    {
-      "type": "file",
       "source": "kata-containers.img",
       "destination": "/home/packer/kata-containers.img"
-    },
-    {
-      "type": "file",
-      "source": "kata-containers-cc.img",
-      "destination": "/home/packer/kata-containers-cc.img"
-    },
-    {
-      "type": "file",
-      "source": "reference-info-base64",
-      "destination": "/home/packer/reference-info-base64"
     },
     {
       "type": "file",
