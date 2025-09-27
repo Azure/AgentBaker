@@ -11,7 +11,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 
 	"github.com/Azure/agentbaker/aks-node-controller/parser"
 	"github.com/Azure/agentbaker/aks-node-controller/pkg/nodeconfigutils"
@@ -83,7 +82,7 @@ func (a *App) run(ctx context.Context, args []string) error {
 			return err
 		}
 		slog.Info("provision-wait finished", "provisionOutput", provisionOutput)
-		return err
+		return nil
 	default:
 		return fmt.Errorf("unknown command: %s", args[1])
 	}
@@ -97,20 +96,18 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) error {
 
 	config, err := nodeconfigutils.UnmarshalConfigurationV1(inputJSON)
 	if err != nil {
-		// Handle unknown field error gracefully for backward compatibility
+		// We try our best to continue unmarshal even if there are unexpected situations such as unknown fields.
+		// It usually happens when a newer version of aksNodeConfig is being parsed by an older version of aks-node-controller.
 		// This allows older versions of aks-node-controller to read configurations
 		// that may have fields added in newer versions.
 		// Log the error and continue processing.
 		// Note: This may result in loss of data if the unknown fields are critical.
-		if strings.Contains(err.Error(), "unknown field") {
-			slog.Warn("Unable to unmarshal provision config completely due to unknown fields. "+
-				"This may be due to version mismatch. "+
-				"Usually it is newer aks-node-config being parsed by older aks-node-controller. "+
-				"Continuing with partial configuration, but unrecognized fields will be ignored.",
-				"error", err)
-		} else {
-			return fmt.Errorf("unmarshal provision config: %w", err)
-		}
+
+		slog.Warn("Unmarshalling aksNodeConfigv1 encounters error but the process will continue."+
+			"This may be due to version mismatch. "+
+			"Usually it is newer aksNodeConfig being parsed by older aks-node-controller. "+
+			"Continuing with partial configuration, but unrecognized fields will be ignored.",
+			"error", err)
 	}
 	// TODO: "v0" were a mistake. We are not going to have different logic maintaining both v0 and v1
 	// Disallow "v0" after some time (allow some time to update consumers)
