@@ -141,6 +141,9 @@ ERR_NVIDIA_DRIVER_INSTALL=224 # Error determining if nvidia driver install shoul
 ERR_NVIDIA_GPG_KEY_DOWNLOAD_TIMEOUT=225 # Timeout waiting for NVIDIA GPG key download
 ERR_NVIDIA_AZURELINUX_REPO_FILE_DOWNLOAD_TIMEOUT=226 # Timeout waiting for NVIDIA AzureLinux repo file download
 ERR_NVIDIA_DCGM_INSTALL_FAIL=227 # Error installing NVIDIA DCGM Exporter and its dependent packages
+ERR_NVIDIA_DCGM_FAIL=228 # Error starting or enabling NVIDIA DCGM service
+ERR_NVIDIA_DCGM_EXPORTER_FAIL=229 # Error starting or enabling NVIDIA DCGM Exporter service
+ERR_LOOKUP_ENABLE_MANAGED_GPU_EXPERIENCE_TAG=230 # Error checking nodepool tags for whether we need to enable managed GPU experience
 
 # For both Ubuntu and Mariner, /etc/*-release should exist.
 # For unit tests, the OS and OS_VERSION will be set in the unit test script.
@@ -642,6 +645,17 @@ should_enforce_kube_pmc_install() {
       return $ret
     fi
     should_enforce=$(echo "$body" | jq -r '.compute.tagsList[] | select(.name == "ShouldEnforceKubePMCInstall") | .value')
+    echo "${should_enforce,,}"
+}
+
+enable_managed_gpu_experience() {
+    set -x
+    body=$(curl -fsSL -H "Metadata: true" --noproxy "*" "http://169.254.169.254/metadata/instance?api-version=2021-02-01")
+    ret=$?
+    if [ "$ret" -ne 0 ]; then
+      return $ret
+    fi
+    should_enforce=$(echo "$body" | jq -r '.compute.tagsList[] | select(.name == "EnableManagedGPUExperience") | .value')
     echo "${should_enforce,,}"
 }
 

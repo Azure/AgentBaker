@@ -445,10 +445,14 @@ EOF
         echo $(date),$(hostname), "End configuring GPU drivers"
     fi
 
-
-    MANAGED_GPU_EXTENSIONS_TODO_NAME_THIS_APPROPRIATELY=false
-    if [ "${GPU_NODE}" = "true" ] && [ "${skip_nvidia_driver_install}" != "true" ] && [ "${MANAGED_GPU_EXTENSIONS_TODO_NAME_THIS_APPROPRIATELY}" = "true" ]; then
-        installNvidiaDCGMPkgFromCache
+    export -f enable_managed_gpu_experience
+    ENABLE_MANAGED_GPU_EXPERIENCE=$(retrycmd_silent 10 1 10 bash -cx enable_managed_gpu_experience)
+    if [ "$?" -ne 0 ] && [ "${GPU_NODE}" = "true" ] && [ "${skip_nvidia_driver_install}" != "true" ]; then
+        echo "failed to determine if managed GPU experience should be enabled by nodepool tags"
+        exit $ERR_LOOKUP_ENABLE_MANAGED_GPU_EXPERIENCE_TAG
+    elif [ "${GPU_NODE}" = "true" ] && [ "${skip_nvidia_driver_install}" != "true" ] && [ "${ENABLE_MANAGED_GPU_EXPERIENCE}" = "true" ]; then
+        logs_to_events "AKS.CSE.installNvidiaDCGMPkgFromCache" "installNvidiaDCGMPkgFromCache" || exit $ERR_NVIDIA_DCGM_INSTALL
+        logs_to_events "AKS.CSE.startNvidiaDCGMExporterService" "startNvidiaDCGMExporterService" || exit $ERR_NVIDIA_DCGM_EXPORTER_FAIL
     fi
 
     VALIDATION_ERR=0
