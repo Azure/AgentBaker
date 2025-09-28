@@ -198,9 +198,10 @@ function Test-FilesToCacheOnVHD
                 }
             }
 
-            if ( $URL.StartsWith("https://acs-mirror.azureedge.net/"))
+            if ( $URL.StartsWith("https://acs-mirror.azureedge.net/") || $URL.StartsWith("https://packages.aks.azure.com/") )
             {
                 $mcURL = $URL.replace("https://acs-mirror.azureedge.net/", "https://kubernetesartifacts.blob.core.chinacloudapi.cn/")
+                $mcURL = $mcURL.replace("https://packages.aks.azure.com/", "https://kubernetesartifacts.blob.core.chinacloudapi.cn/")
                 try
                 {
                     # It's too slow to download the file from the China Cloud. So we only compare the file size.

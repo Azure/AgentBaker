@@ -153,7 +153,7 @@ downloadCredentialProvider() {
     CREDENTIAL_PROVIDER_DOWNLOAD_URL="${CREDENTIAL_PROVIDER_DOWNLOAD_URL:=}"
     if [ -n "${CREDENTIAL_PROVIDER_DOWNLOAD_URL}" ]; then
         # CREDENTIAL_PROVIDER_DOWNLOAD_URL is set by linuxCredentialProviderURL
-        # The version in the URL is unknown. An acs-mirror or registry URL could be passed meaning the version must be extracted from the URL. 
+        # The version in the URL is unknown. An packages.aks or registry URL could be passed meaning the version must be extracted from the URL. 
         cred_version_for_oras=$(echo "$CREDENTIAL_PROVIDER_DOWNLOAD_URL" | grep -oP 'v\d+(\.\d+)*' | sed 's/^v//' | head -n 1)
     fi
 
