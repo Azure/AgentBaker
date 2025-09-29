@@ -1009,21 +1009,6 @@ func ValidateNodeAdvertisesGPUResources(ctx context.Context, s *Scenario) {
 	s.T.Logf("node %s advertises %d nvidia.com/gpu resources", nodeName, gpuCount)
 }
 
-func ValidateNvidiaDevicePluginBinaryInstalled(ctx context.Context, s *Scenario) {
-	s.T.Helper()
-	s.T.Logf("validating that NVIDIA device plugin binary is installed")
-
-	command := []string{"set -ex"}
-	switch s.Config.VHD.OS {
-	case config.OSAzureLinux:
-		command = append(command, "rpm -qa | grep nvidia-device-plugin")
-	case config.OSUbuntu:
-		command = append(command, "dpkg -l | grep nvidia-device-plugin")
-	default:
-		s.T.Fatalf("unsupported OS for NVIDIA device plugin validation: %s", s.Config.VHD.OS)
-	}
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "NVIDIA device plugin package should be installed")
-}
 
 func ValidateGPUWorkloadSchedulable(ctx context.Context, s *Scenario) {
 	s.T.Helper()

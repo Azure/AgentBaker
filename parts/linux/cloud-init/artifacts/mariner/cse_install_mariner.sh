@@ -271,7 +271,7 @@ installNvidiaDevicePluginPkgFromCache() {
     local os_version="${OS_VERSION}"
 
     # Get nvidia-device-plugin package info from components.json
-    local package=$(jq -r ".DownloadFiles[] | select(.name == \"${K8S_DEVICE_PLUGIN_PKG}\")" "${COMPONENTS_FILEPATH}")
+    local package=$(jq -r ".Packages[] | select(.name == \"${K8S_DEVICE_PLUGIN_PKG}\")" "${COMPONENTS_FILEPATH}")
 
     # Get the latest package version
     updatePackageVersions "${package}" "${os}" "${os_version}"
@@ -282,9 +282,17 @@ installNvidiaDevicePluginPkgFromCache() {
 
     # Use the first (latest) version
     local packageVersion="${PACKAGE_VERSIONS[0]}"
-    echo "installing nvidia-device-plugin package version: $packageVersion"
+    echo "installing ${K8S_DEVICE_PLUGIN_PKG} package version: $packageVersion"
 
-    installRPMPackageFromFile "nvidia-device-plugin" "${packageVersion}" || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
+    # For nvidia-device-plugin, strip the OS-specific suffix from version
+    # e.g., "0.17.4-1.azl3" -> "0.17.4"
+    if [ "${K8S_DEVICE_PLUGIN_PKG}" = "nvidia-device-plugin" ]; then
+        local baseVersion=$(echo "${packageVersion}" | sed 's/-[0-9]*\.azl[0-9]*//')
+        echo "using base version ${baseVersion} for ${K8S_DEVICE_PLUGIN_PKG} package filename"
+        installRPMPackageFromFile "${K8S_DEVICE_PLUGIN_PKG}" "${baseVersion}" || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
+    else
+        installRPMPackageFromFile "${K8S_DEVICE_PLUGIN_PKG}" "${packageVersion}" || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
+    fi
 }
 
 downloadContainerdFromVersion() {

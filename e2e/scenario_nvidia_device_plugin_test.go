@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/Azure/agentbaker/e2e/components"
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
@@ -31,7 +32,10 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning(t *testing.T) {
 			Validator: func(ctx context.Context, s *Scenario) {
 
 				// Validate that the NVIDIA device plugin binary was installed correctly
-				ValidateNvidiaDevicePluginBinaryInstalled(ctx, s)
+				versions := components.GetExpectedPackageVersions("nvidia-device-plugin", "ubuntu", "r2404")
+
+				ValidateInstalledPackageVersion(ctx, s, "nvidia-device-plugin", versions[0]) // We expect only 1 version
+
 
 				// Validate that the NVIDIA device plugin systemd service is running
 				ValidateNvidiaDevicePluginServiceRunning(ctx, s)
@@ -67,7 +71,8 @@ func Test_Ubuntu2204_NvidiaDevicePluginRunning(t *testing.T) {
 			Validator: func(ctx context.Context, s *Scenario) {
 
 				// Validate that the NVIDIA device plugin binary was installed correctly
-				ValidateNvidiaDevicePluginBinaryInstalled(ctx, s)
+				versions := components.GetExpectedPackageVersions("nvidia-device-plugin", "ubuntu", "r2204")
+				ValidateInstalledPackageVersion(ctx, s, "nvidia-device-plugin", versions[0]) // We expect only 1 version
 
 				// Validate that the NVIDIA device plugin systemd service is running
 				ValidateNvidiaDevicePluginServiceRunning(ctx, s)
@@ -103,7 +108,9 @@ func Test_AzureLinux3_NvidiaDevicePluginRunning(t *testing.T) {
 			Validator: func(ctx context.Context, s *Scenario) {
 
 				// Validate that the NVIDIA device plugin binary was installed correctly
-				ValidateNvidiaDevicePluginBinaryInstalled(ctx, s)
+				versions := components.GetExpectedPackageVersions("nvidia-device-plugin", "azurelinux", "v3.0")
+				ValidateInstalledPackageVersion(ctx, s, "nvidia-device-plugin", versions[0]) // We expect only 1 version
+
 
 				// Validate that the NVIDIA device plugin systemd service is running
 				ValidateNvidiaDevicePluginServiceRunning(ctx, s)
