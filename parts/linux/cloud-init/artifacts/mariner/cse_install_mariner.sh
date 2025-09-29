@@ -286,13 +286,9 @@ installNvidiaDevicePluginPkgFromCache() {
 
     # For nvidia-device-plugin, strip the OS-specific suffix from version
     # e.g., "0.17.4-1.azl3" -> "0.17.4"
-    if [ "${K8S_DEVICE_PLUGIN_PKG}" = "nvidia-device-plugin" ]; then
-        local baseVersion=$(echo "${packageVersion}" | sed 's/-[0-9]*\.azl[0-9]*//')
-        echo "using base version ${baseVersion} for ${K8S_DEVICE_PLUGIN_PKG} package filename"
-        installRPMPackageFromFile "${K8S_DEVICE_PLUGIN_PKG}" "${baseVersion}" || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
-    else
-        installRPMPackageFromFile "${K8S_DEVICE_PLUGIN_PKG}" "${packageVersion}" || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
-    fi
+    local baseVersion=$(echo "${packageVersion}" | sed 's/-[0-9]*\.azl[0-9]*//')
+    echo "using base version ${baseVersion} for ${K8S_DEVICE_PLUGIN_PKG} package filename"
+    installRPMPackageFromFile "${K8S_DEVICE_PLUGIN_PKG}" "${baseVersion}" || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
 }
 
 downloadContainerdFromVersion() {

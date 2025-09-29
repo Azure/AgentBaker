@@ -977,7 +977,6 @@ func ValidateEnableNvidiaResource(ctx context.Context, s *Scenario) {
 	waitUntilResourceAvailable(ctx, s, "nvidia.com/gpu")
 }
 
-<<<<<<< HEAD
 func ValidateNvidiaDevicePluginServiceRunning(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 	s.T.Logf("validating that NVIDIA device plugin systemd service is running")
@@ -1051,7 +1050,6 @@ func ValidateGPUWorkloadSchedulable(ctx context.Context, s *Scenario) {
 	ValidatePodRunning(ctx, s, pod)
 
 	s.T.Logf("GPU workload is schedulable and runs successfully")
-=======
 // ValidatePubkeySSHDisabled validates that SSH with private key authentication is disabled by checking sshd_config
 func ValidatePubkeySSHDisabled(ctx context.Context, s *Scenario) {
 	s.T.Helper()
@@ -1097,5 +1095,4 @@ fi`)},
 	}
 
 	s.T.Logf("PubkeyAuthentication is properly disabled as expected")
->>>>>>> 31db156bac5f60ead417b8c990f4b6bccb6c0e2c
 }

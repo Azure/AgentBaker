@@ -107,13 +107,9 @@ installNvidiaDevicePluginPkgFromCache() {
 
     # For nvidia-device-plugin, strip the Ubuntu-specific suffix from version
     # e.g., "0.17.4-ubuntu24.04u1" -> "0.17.4"
-    if [ "${K8S_DEVICE_PLUGIN_PKG}" = "nvidia-device-plugin" ]; then
-        local baseVersion=$(echo "${packageVersion}" | sed 's/-ubuntu[0-9.]*u[0-9]*//')
-        echo "using base version ${baseVersion} for ${K8S_DEVICE_PLUGIN_PKG} package filename"
-        installPkgWithAptGet "${K8S_DEVICE_PLUGIN_PKG}" "${baseVersion}" || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
-    else
-        installPkgWithAptGet "${K8S_DEVICE_PLUGIN_PKG}" "${packageVersion}" || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
-    fi
+    local baseVersion=$(echo "${packageVersion}" | sed 's/-ubuntu[0-9.]*u[0-9]*//')
+    echo "using base version ${baseVersion} for ${K8S_DEVICE_PLUGIN_PKG} package filename"
+    installPkgWithAptGet "${K8S_DEVICE_PLUGIN_PKG}" "${baseVersion}" || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
 }
 
 installCriCtlPackage() {
