@@ -98,10 +98,9 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) error {
 	if err != nil {
 		// We try our best to continue unmarshal even if there are unexpected situations such as unknown fields.
 		// It usually happens when a newer version of aksNodeConfig is being parsed by an older version of aks-node-controller.
-		// This allows older versions of aks-node-controller to read configurations
-		// that may have fields added in newer versions.
+		// This allows older versions of aks-node-controller to read configurations that may have fields added in newer versions.
 		// Log the error and continue processing.
-		// Note: This may result in loss of data if the unknown fields are critical.
+		// Note: This may result in loss of data if the unknown fields are critical but that's the best we can do for backward compatibility so far.
 
 		slog.Warn("Unmarshalling aksNodeConfigv1 encounters error but the process will continue."+
 			"This may be due to version mismatch. "+
