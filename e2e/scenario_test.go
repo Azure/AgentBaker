@@ -1972,3 +1972,113 @@ func Test_AzureLinux3OSGuard_PMC_Install(t *testing.T) {
 		},
 	})
 }
+
+func getDCGMPackageNames() []string {
+	return []string{
+		"datacenter-gpu-manager-4-core",
+		"datacenter-gpu-manager-4-proprietary",
+		"datacenter-gpu-manager-exporter",
+	}
+}
+
+func Test_Ubuntu2404NvidiaDCGMExporterRunning(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Test that a Ubuntu 24.04 node has NVIDIA DCGM Exporter installed, running and scrapable",
+		Tags: Tags{
+			GPU: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2404Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.AgentPoolProfile.VMSize = "Standard_NC6s_v3"
+				nbc.ConfigGPUDriverIfNeeded = true
+				nbc.EnableGPUDevicePluginIfNeeded = false
+				nbc.EnableNvidia = true
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
+				if vmss.Tags == nil {
+					vmss.Tags = map[string]*string{}
+				}
+				vmss.Tags["EnableManagedGPUExperience"] = to.Ptr("true")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				for _, packageName := range getDCGMPackageNames() {
+					ValidateInstalledPackageVersion(ctx, s, packageName, components.GetExpectedPackageVersions(packageName, "ubuntu", "r2404")[0])
+				}
+
+				ValidateNvidiaDCGMExporterSystemDServiceRunning(ctx, s)
+				ValidateNvidiaDCGMExporterIsScrapable(ctx, s)
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2204NvidiaDCGMExporterRunning(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Test that a Ubuntu 22.04 node has NVIDIA DCGM Exporter installed, running and scrapable",
+		Tags: Tags{
+			GPU: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.AgentPoolProfile.VMSize = "Standard_NC6s_v3"
+				nbc.ConfigGPUDriverIfNeeded = true
+				nbc.EnableGPUDevicePluginIfNeeded = false
+				nbc.EnableNvidia = true
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
+				if vmss.Tags == nil {
+					vmss.Tags = map[string]*string{}
+				}
+				vmss.Tags["EnableManagedGPUExperience"] = to.Ptr("true")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				for _, packageName := range getDCGMPackageNames() {
+					ValidateInstalledPackageVersion(ctx, s, packageName, components.GetExpectedPackageVersions(packageName, "ubuntu", "r2204")[0])
+				}
+
+				ValidateNvidiaDCGMExporterSystemDServiceRunning(ctx, s)
+				ValidateNvidiaDCGMExporterIsScrapable(ctx, s)
+			},
+		},
+	})
+}
+
+func Test_AzureLinux3NvidiaDCGMExporterRunning(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Test that an Azure Linux 3 node has NVIDIA DCGM Exporter installed, running and scrapable",
+		Tags: Tags{
+			GPU: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDAzureLinuxV3Gen2,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.AgentPoolProfile.VMSize = "Standard_NC6s_v3"
+				nbc.ConfigGPUDriverIfNeeded = true
+				nbc.EnableGPUDevicePluginIfNeeded = false
+				nbc.EnableNvidia = true
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
+				if vmss.Tags == nil {
+					vmss.Tags = map[string]*string{}
+				}
+				vmss.Tags["EnableManagedGPUExperience"] = to.Ptr("true")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				for _, packageName := range getDCGMPackageNames() {
+					ValidateInstalledPackageVersion(ctx, s, packageName, components.GetExpectedPackageVersions(packageName, "azurelinux", "current")[0])
+				}
+
+				ValidateNvidiaDCGMExporterSystemDServiceRunning(ctx, s)
+				ValidateNvidiaDCGMExporterIsScrapable(ctx, s)
+			},
+		},
+	})
+}
