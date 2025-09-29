@@ -948,6 +948,51 @@ disableSSH() {
     systemctlDisableAndStop ssh || exit $ERR_DISABLE_SSH
 }
 
+configureSSHPubkeyAuth() {
+  local disable_pubkey_auth="$1"
+  local ssh_use_pubkey_auth
+  
+  # Determine the desired pubkey auth setting
+  if [ "${disable_pubkey_auth}" = "true" ]; then
+    ssh_use_pubkey_auth="no"
+  else
+    ssh_use_pubkey_auth="yes"
+  fi
+  local SSHD_CONFIG="/etc/ssh/sshd_config"
+  local TMP
+  TMP="$(mktemp)"
+
+  # AAD SSH extension will append following section to the end of sshd_config,
+  # so we need to check the "Match" section, and only update "PubkeyAuthentication" outside of it.
+  # Match User *@*,????????-????-????-????-????????????    # Added by aadsshlogin installer
+  # AuthenticationMethods publickey
+  # PubkeyAuthentication yes
+  # AuthorizedKeysCommand /usr/sbin/aad_certhandler %u %k
+  # AuthorizedKeysCommandUser root
+  awk -v desired="$ssh_use_pubkey_auth" '
+    BEGIN { in_match=0; replaced=0; inserted=0 }
+    /^Match([[:space:]]|$)/ {
+      if (!replaced && !inserted) { print "PubkeyAuthentication " desired; inserted=1 }
+      in_match=1; print; next
+    }
+    (!in_match) && /^[[:space:]]*PubkeyAuthentication[[:space:]]+/ {
+      print "PubkeyAuthentication " desired; replaced=1; next
+    }
+    { print }
+    END { if (!replaced && !inserted) print "PubkeyAuthentication " desired }
+  ' "$SSHD_CONFIG" > "$TMP"
+
+  # Validate the candidate config
+  sudo sshd -t -f "$TMP" || { rm -f "$TMP"; exit $ERR_CONFIG_PUBKEY_AUTH_SSH; }
+
+  # Replace the original with the candidate (permissions 644, owned by root)
+  sudo install -m 644 -o root -g root "$TMP" "$SSHD_CONFIG"
+  rm -f "$TMP"
+
+  # Reload sshd
+  sudo systemctl reload sshd || sudo systemctl restart sshd || exit $ERR_CONFIG_PUBKEY_AUTH_SSH
+}
+
 configCredentialProvider() {
     CREDENTIAL_PROVIDER_CONFIG_FILE=/var/lib/kubelet/credential-provider-config.yaml
     mkdir -p "$(dirname "${CREDENTIAL_PROVIDER_CONFIG_FILE}")"

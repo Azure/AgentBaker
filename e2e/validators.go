@@ -13,6 +13,8 @@ import (
 	"github.com/tidwall/gjson"
 
 	"github.com/Azure/agentbaker/e2e/config"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
@@ -975,6 +977,7 @@ func ValidateEnableNvidiaResource(ctx context.Context, s *Scenario) {
 	waitUntilResourceAvailable(ctx, s, "nvidia.com/gpu")
 }
 
+<<<<<<< HEAD
 func ValidateNvidiaDevicePluginServiceRunning(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 	s.T.Logf("validating that NVIDIA device plugin systemd service is running")
@@ -1048,4 +1051,51 @@ func ValidateGPUWorkloadSchedulable(ctx context.Context, s *Scenario) {
 	ValidatePodRunning(ctx, s, pod)
 
 	s.T.Logf("GPU workload is schedulable and runs successfully")
+=======
+// ValidatePubkeySSHDisabled validates that SSH with private key authentication is disabled by checking sshd_config
+func ValidatePubkeySSHDisabled(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	// Part 1. Use VMSS RunCommand to check sshd_config directly on the node
+	runPoller, err := config.Azure.VMSSVM.BeginRunCommand(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, "0", armcompute.RunCommandInput{
+		CommandID: to.Ptr("RunShellScript"),
+		Script: []*string{to.Ptr(`#!/bin/bash
+# Check if PubkeyAuthentication is disabled in sshd_config
+if grep -q "^PubkeyAuthentication no" /etc/ssh/sshd_config; then
+    echo "SUCCESS: PubkeyAuthentication is disabled"
+    exit 0
+else
+    echo "FAILED: PubkeyAuthentication is not properly disabled"
+    echo "Current sshd_config content related to PubkeyAuthentication:"
+    grep -i "PubkeyAuthentication" /etc/ssh/sshd_config || echo "No PubkeyAuthentication setting found"
+    exit 1
+fi`)},
+	}, nil)
+	require.NoError(s.T, err, "Failed to run command to check sshd_config")
+
+	runResp, err := runPoller.PollUntilDone(ctx, nil)
+	require.NoError(s.T, err, "Failed to complete command to check sshd_config")
+
+	// Parse the response to check the result
+	respJson, err := runResp.MarshalJSON()
+	require.NoError(s.T, err, "Failed to marshal run command response")
+	s.T.Logf("Run command output: %s", string(respJson))
+
+	// Parse the JSON response to extract the output and exit code
+	respString := string(respJson)
+
+	// Check if the command execution was successful by looking for our success message in the output
+	if !strings.Contains(respString, "SUCCESS: PubkeyAuthentication is disabled") {
+		s.T.Fatalf("PubkeyAuthentication is not properly disabled. Full response: %s", respString)
+	}
+
+	// Part 2. Check cannot SSH with private key (expect failure)
+	err = validateSSHConnectivity(ctx, s)
+	require.Error(s.T, err, "Expected SSH connection with private key to fail, but it succeeded")
+	if !strings.Contains(err.Error(), "Permission denied") {
+		s.T.Fatalf("Expected permission denied error, but got: %v", err)
+	}
+
+	s.T.Logf("PubkeyAuthentication is properly disabled as expected")
+>>>>>>> 31db156bac5f60ead417b8c990f4b6bccb6c0e2c
 }
