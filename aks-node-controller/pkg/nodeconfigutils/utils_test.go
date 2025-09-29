@@ -7,14 +7,14 @@ import (
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 )
 
-// validateTestFileResult handles validation for test file cases
+// validateTestFileResult handles validation for test file cases.
 func validateTestFileResult(t *testing.T, got *aksnodeconfigv1.Configuration) {
 	if got == nil {
 		t.Errorf("UnmarshalConfigurationV1() returned nil for valid test file")
 	}
 }
 
-// validateTestResult handles validation for normal test cases
+// validateTestResult handles validation for normal test cases.
 func validateTestResult(t *testing.T, got, want *aksnodeconfigv1.Configuration) {
 	if want == nil || got == nil {
 		return
@@ -29,7 +29,7 @@ func validateTestResult(t *testing.T, got, want *aksnodeconfigv1.Configuration) 
 	validateApiServerConfig(t, got.ApiServerConfig, want.ApiServerConfig)
 }
 
-// validateAuthConfig validates auth configuration fields
+// validateAuthConfig validates auth configuration fields.
 func validateAuthConfig(t *testing.T, got, want *aksnodeconfigv1.AuthConfig) {
 	if want == nil || got == nil {
 		return
@@ -41,7 +41,7 @@ func validateAuthConfig(t *testing.T, got, want *aksnodeconfigv1.AuthConfig) {
 	}
 }
 
-// validateClusterConfig validates cluster configuration fields
+// validateClusterConfig validates cluster configuration fields.
 func validateClusterConfig(t *testing.T, got, want *aksnodeconfigv1.ClusterConfig) {
 	if want == nil || got == nil {
 		return
@@ -58,7 +58,7 @@ func validateClusterConfig(t *testing.T, got, want *aksnodeconfigv1.ClusterConfi
 	}
 }
 
-// validateApiServerConfig validates API server configuration fields
+// validateApiServerConfig validates API server configuration fields.
 func validateApiServerConfig(t *testing.T, got, want *aksnodeconfigv1.ApiServerConfig) {
 	if want == nil || got == nil {
 		return
