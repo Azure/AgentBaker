@@ -53,6 +53,11 @@ if [ ! -f "$CISASSESSOR_TARBALL_PATH" ]; then
 fi
 pushd "$(dirname "$CISASSESSOR_TARBALL_PATH")" || exit 1
 
+# Disable GuestConfig agent to avoid interference with CIS checks
+systemctl disable --now gcd.service || true
+# Fix permissions of log files
+find /var/log -type f -exec chmod 640 {} \;
+
 tar xzf "$CISASSESSOR_TARBALL_PATH"
 cisassessor/launch-cis.sh
 TXT_REPORT=$(find cisassessor/lib/app/reports -name "*.txt" | head -n1)
