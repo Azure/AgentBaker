@@ -117,8 +117,8 @@ For example,
 ```
     {
       "matchPackageNames": ["moby-runc", "moby-containerd"],
-      "assignees": ["devinwong", "anujmaheshwari1", "cameronmeissner", "AlisonB319", "lilypan26", "djsly", "jason1028kr", "UtheMan", "zachary-bailey", "ganeshkumarashok"]
-      "reviewers": ["devinwong", "anujmaheshwari1", "cameronmeissner", "AlisonB319", "lilypan26", "djsly", "jason1028kr", "UtheMan", "zachary-bailey", "ganeshkumarashok"]
+      "assignees": ["devinwong", "anujmaheshwari1", "cameronmeissner", "lilypan26", "djsly", "zachary-bailey", "ganeshkumarashok"]
+      "reviewers": ["devinwong", "anujmaheshwari1", "cameronmeissner", "lilypan26", "djsly", "zachary-bailey", "ganeshkumarashok"]
     },
 ```
 In this block, it is saying that if the package name, that a PR is updating, is one of the defined values, then assign this PR to these Github IDs. The values in `reviewers` are the same group of people to allow them to self-approve the PR. Unfortunately JSON doesn't support variable in value so we have to provide the value strings twice for both `assignees` and `reviewers`
@@ -426,8 +426,8 @@ This is a common scenario where we want the PR to be merged automatically when a
       ],
       "automerge": true,
       "enabled": true,
-      "assignees": ["devinwong", "anujmaheshwari1", "cameronmeissner", "AlisonB319", "lilypan26", "djsly", "jason1028kr", "UtheMan", "zachary-bailey", "ganeshkumarashok"],
-      "reviewers": ["devinwong", "anujmaheshwari1", "cameronmeissner", "AlisonB319", "lilypan26", "djsly", "jason1028kr", "UtheMan", "zachary-bailey", "ganeshkumarashok"]
+      "assignees": ["devinwong", "anujmaheshwari1", "cameronmeissner", "lilypan26", "djsly", "zachary-bailey", "ganeshkumarashok"],
+      "reviewers": ["devinwong", "anujmaheshwari1", "cameronmeissner", "lilypan26", "djsly", "zachary-bailey", "ganeshkumarashok"]
     },
 ```
 The config includes:
