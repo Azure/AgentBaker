@@ -230,7 +230,6 @@ installOras() {
 # if secure TLS bootstrapping is disabled, this will simply remove the client binary from disk.
 # otherwise, if a custom URL is provided, it will use the custom URL to overwrite the existing installation
 installSecureTLSBootstrapClient() {
-    # TODO(cameissner): can probably remove this once we get to preview
     if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" != "true" ]; then
         echo "secure TLS bootstrapping is disabled, will remove secure TLS bootstrap client binary installation"
         rm -f "${SECURE_TLS_BOOTSTRAP_CLIENT_BIN_DIR}/aks-secure-tls-bootstrap-client" &
@@ -242,15 +241,17 @@ installSecureTLSBootstrapClient() {
     # without having to tag new versions of AgentBaker, in the end we probably won't honor custom URLs specified
     # by the bootstrapper for this particular binary. In the end, if we do decide to support this, we will need
     # to make sure to use oras to download the client binary and ensure the binary itself is hosted within MCR.
-    if [ -z "${CUSTOM_SECURE_TLS_BOOTSTRAP_CLIENT_URL}" ]; then
-        echo "secure TLS bootstrapping is enabled but no custom client URL was provided, nothing to download"
+    if [ -n "${CUSTOM_SECURE_TLS_BOOTSTRAP_CLIENT_URL}" ]; then
+        echo "secure TLS bootstrapping is enabled and custom client URL was provided, will download and install from: ${CUSTOM_SECURE_TLS_BOOTSTRAP_CLIENT_URL}"
+        logs_to_events "AKS.CSE.installSecureTLSBootstrapClientFromURL" installSecureTLSBootstrapClientFromURL "${SECURE_TLS_BOOTSTRAP_CLIENT_BIN_DIR}" "${CUSTOM_SECURE_TLS_BOOTSTRAP_CLIENT_URL}" || exit $ERR_SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_ERROR
         return 0
     fi
 
-    downloadSecureTLSBootstrapClient "${SECURE_TLS_BOOTSTRAP_CLIENT_BIN_DIR}" "${CUSTOM_SECURE_TLS_BOOTSTRAP_CLIENT_URL}" || exit $ERR_SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_ERROR
+    echo "secure TLS bootstrapping is enabled but no custom client URL was specified, will install from PMC"
+    logs_to_events "AKS.CSE.installSecureTLSBootstrapClientFromPMC" installSecureTLSBoostrapClientFromPMC
 }
 
-downloadSecureTLSBootstrapClient() {
+installSecureTLSBootstrapClientFromURL() {
     # TODO(cameissner): have this managed by renovate, migrate from github to MCR/packages.microsoft.com
 
     local CLIENT_EXTRACTED_DIR=${1-$:SECURE_TLS_BOOTSTRAP_CLIENT_BIN_DIR}

@@ -150,6 +150,20 @@ EOF
     systemctl restart nvidia-persistenced.service || exit 1
 }
 
+installSecureTLSBoostrapClientFromPMC() {
+    os=${AZURELINUX_OS_NAME}
+    os_version="${OS_VERSION}"
+    if [ -z "$OS_VERSION" ]; then
+        os=${OS}
+        os_version="current"
+    fi
+    PACKAGE_VERSION=""
+    getLatestPkgVersion "aks-secure-tls-bootstrap-client" "$os" "$os_version"
+    packageVersion=$(echo $PACKAGE_VERSION | cut -d "-" -f 1)
+    echo "installing aks-secure-tls-bootstrap-client version ${packageVersion}"
+    installRPMPackageFromFile "aks-secure-tls-bootstrap-client" "${packageVersion}" || exit $ERR_SECURE_TLS_BOOTSTRAP_CLIENT_INSTALL_ERROR
+}
+
 installCredentialProviderFromPMC() {
     k8sVersion="${1:-}"
     os=${AZURELINUX_OS_NAME}
@@ -171,7 +185,7 @@ installCredentialProviderFromPMC() {
 
 installKubeletKubectlPkgFromPMC() {
     local desiredVersion="${1}"
-	  installRPMPackageFromFile "kubelet" $desiredVersion || exit $ERR_KUBELET_INSTALL_FAIL
+    installRPMPackageFromFile "kubelet" $desiredVersion || exit $ERR_KUBELET_INSTALL_FAIL
     installRPMPackageFromFile "kubectl" $desiredVersion || exit $ERR_KUBECTL_INSTALL_FAIL
 }
 
@@ -194,7 +208,7 @@ installRPMPackageFromFile() {
         downloadPkgFromVersion "${packageName}" ${fullPackageVersion} "${downloadDir}"
         rpmFile=$(find "${downloadDir}" -maxdepth 1 -name "${packagePrefix}" -print -quit 2>/dev/null) || rpmFile=""
     fi
-	  if [ -z "${rpmFile}" ]; then
+    if [ -z "${rpmFile}" ]; then
         echo "Failed to locate ${packageName} rpm"
         exit 1
     fi
@@ -203,7 +217,7 @@ installRPMPackageFromFile() {
         exit $ERR_APT_INSTALL_TIMEOUT
     fi
     mv "/usr/bin/${packageName}" "/usr/local/bin/${packageName}"
-	rm -rf ${downloadDir}
+    rm -rf ${downloadDir}
 }
 
 downloadPkgFromVersion() {
@@ -248,7 +262,6 @@ installStandaloneContainerd() {
     if [ -f /etc/containerd/config.toml.rpmsave ]; then
         mv /etc/containerd/config.toml.rpmsave /etc/containerd/config.toml
     fi
-
 }
 
 ensureRunc() {

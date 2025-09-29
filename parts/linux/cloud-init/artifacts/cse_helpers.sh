@@ -85,6 +85,7 @@ ERR_ARTIFACT_STREAMING_ACR_NODEMON_START_FAIL=154 # Error starting acr-nodemon s
 
 ERR_HTTP_PROXY_CA_CONVERT=160 # Error converting http proxy ca cert from pem to crt format
 ERR_UPDATE_CA_CERTS=161 # Error updating ca certs to include user-provided certificates
+ERR_SECURE_TLS_BOOTSTRAP_CLIENT_INSTALL_ERROR=168 # Error installing the secure TLS bootstrap client binary
 ERR_SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_ERROR=169 # Error downloading the secure TLS bootstrap client binary
 
 ERR_DISBALE_IPTABLES=170 # Error disabling iptables service
@@ -809,6 +810,30 @@ updatePackageDownloadURL() {
     downloadURL=$(echo "${package}" | jq ".downloadURIs.default.${RELEASE}.downloadURL" -r)
     [ "${downloadURL}" = "null" ] && PACKAGE_DOWNLOAD_URL="" || PACKAGE_DOWNLOAD_URL="${downloadURL}"
     return
+}
+
+getLatestPkgVersion() {
+    local componentName="$1"
+    local os="$2"
+    local os_version="$3"
+
+    package=$(jq ".Packages" "$COMPONENTS_FILEPATH" | jq ".[] | select(.name == \"${componentName}\")")
+    PACKAGE_VERSIONS=()
+    updatePackageVersions "${package}" "${os}" "${os_version}"
+
+    # shellcheck disable=SC3010
+    if [[ ${#PACKAGE_VERSIONS[@]} -eq 0 || ${PACKAGE_VERSIONS[0]} == "<SKIP>" ]]; then
+        echo "INFO: ${componentName} package versions array is either empty or the first element is <SKIP>. Skipping ${componentName} installation."
+        return 0
+    fi
+
+    # sort the array from highest to lowest version
+    IFS=$'\n' sortedPackageVersions=($(sort -rV <<<"${PACKAGE_VERSIONS[*]}"))
+    unset IFS
+
+    # get the latest version at index 0
+    PACKAGE_VERSION=${sortedPackageVersions[0]}
+    echo $PACKAGE_VERSION
 }
 
 # Function to get latestVersion for a given k8sVersion from components.json

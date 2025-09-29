@@ -866,18 +866,53 @@
     },
     {
       "name": "aks-secure-tls-bootstrap-client",
-      "downloadLocation": "/usr/local/bin",
+      "downloadLocation": "/opt/aks-secure-tls-bootstrap-client/downloads",
       "windowsDownloadLocation": "c:\\akse-cache\\aks-secure-tls-bootstrap-client\\",
       "downloadURIs": {
-        "default": {
+        "ubuntu": {
+          "r2404": {
+            "versionsV2": [
+              {
+                "renovateTag": "name=aks-secure-tls-bootstrap-client, repository=production, os=ubuntu, release=24.04",
+                "latestVersion": "0.0.1-ubuntu24.04u1"
+              }
+            ]
+          },
+          "r2204": {
+            "versionsV2": [
+              {
+                "renovateTag": "name=aks-secure-tls-bootstrap-client, repository=production, os=ubuntu, release=22.04",
+                "latestVersion": "0.0.1-ubuntu22.04u1"
+              }
+            ]
+          },
+          "r2004": {
+            "versionsV2": [
+              {
+                "renovateTag": "name=aks-secure-tls-bootstrap-client, repository=production, os=ubuntu, release=20.04",
+                "latestVersion": "0.0.1-ubuntu20.04u1"
+              }
+            ]
+          }
+        },
+        "azurelinux": {
+          "v3.0": {
+            "versionsV2": [
+              {
+                "renovateTag": "name=aks-secure-tls-bootstrap-client, repository=production, os=azurelinux, release=3.0",
+                "latestVersion": "0.0.1-1.azl3"
+              }
+            ]
+          }
+        },
+        "mariner": {
           "current": {
             "versionsV2": [
               {
-                "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "0.1.0-alpha.11"
+                "renovateTag": "RPM_registry=https://packages.microsoft.com/cbl-mariner/2.0/prod/base/x86_64/repodata, name=aks-secure-tls-bootstrap-client, os=mariner, release=2.0",
+                "latestVersion": "0.0.1-1.cm2"
               }
-            ],
-            "downloadURL": "https://github.com/Azure/aks-secure-tls-bootstrap/releases/download/client/v${version}/linux-${CPU_ARCH}.tar.gz"
+            ]
           }
         },
         "windows": {
@@ -885,10 +920,10 @@
             "versionsV2": [
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "0.1.0-alpha.11"
+                "latestVersion": "aks-secure-tls-bootstrap-client_0.0.1-1_amd64.zip"
               }
             ],
-            "downloadURL": "https://github.com/Azure/aks-secure-tls-bootstrap/releases/download/client/v${version}/windows-amd64.zip"
+            "downloadURL": "https://packages.aks.azure.com/dalec-packages/aks-secure-tls-bootstrap-client/0.0.1/windows/amd64/${version}.zip"
           }
         }
       }

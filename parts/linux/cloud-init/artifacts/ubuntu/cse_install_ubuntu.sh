@@ -91,6 +91,20 @@ installCriCtlPackage() {
     apt_get_install 20 30 120 ${packageName} || exit 1
 }
 
+installSecureTLSBoostrapClientFromPMC() {
+    os=${UBUNTU_OS_NAME}
+    os_version="${UBUNTU_RELEASE}"
+    if [ -z "$UBUNTU_RELEASE" ]; then
+        os=${OS}
+        os_version="current"
+    fi
+    PACKAGE_VERSION=""
+    getLatestPkgVersion "aks-secure-tls-bootstrap-client" "$os" "$os_version"
+    packageVersion=$(echo $PACKAGE_VERSION | cut -d "-" -f 1)
+    echo "installing aks-secure-tls-bootstrap-client version ${packageVersion}"
+    installPkgWithAptGet "aks-secure-tls-bootstrap-client" "${packageVersion}" || exit $ERR_SECURE_TLS_BOOTSTRAP_CLIENT_INSTALL_ERROR
+}
+
 installCredentialProviderFromPMC() {
     k8sVersion="${1:-}"
     os=${UBUNTU_OS_NAME}

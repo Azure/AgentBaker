@@ -225,6 +225,29 @@
     },
     {
       "matchPackageNames": [
+        "aks-secure-tls-bootstrap-client"
+      ],
+      "matchUpdateTypes": [
+        "patch"
+      ],
+      "automerge": false,
+      "enabled": true,
+      "groupName": "aks-secure-tls-bootstrap-client",
+      "assignees": [
+        "cameronmeissner",
+        "djsly",
+        "zachary-bailey",
+        "KananMehta"
+      ],
+      "reviewers": [
+        "cameronmeissner",
+        "djsly",
+        "zachary-bailey",
+        "KananMehta"
+      ]
+    },
+    {
+      "matchPackageNames": [
         "azure-cni",
         "containernetworking/azure-cni",
         "containernetworking/azure-ipam"
