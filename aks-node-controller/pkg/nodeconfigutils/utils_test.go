@@ -6,6 +6,7 @@ import (
 
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -81,20 +82,14 @@ func TestUnmarshalConfigurationV1(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := UnmarshalConfigurationV1(tt.data)
 
-			// Check error expectation
-			if (err != nil) != tt.wantErr {
-				t.Errorf("UnmarshalConfigurationV1() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-
-			// Early return for error cases
 			if tt.wantErr {
-				return
-			}
-
-			// here we just proto.Equal for deep equality check
-			if !proto.Equal(tt.want, got) {
-				assert.Fail(t, "UnmarshalConfigurationV1() result mismatch", "want: %+v\n got: %+v", tt.want, got)
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				// here we use proto.Equal for deep equality check
+				if !proto.Equal(tt.want, got) {
+					assert.Fail(t, "UnmarshalConfigurationV1() result mismatch", "want: %+v\n got: %+v", tt.want, got)
+				}
 			}
 		})
 	}
@@ -126,20 +121,14 @@ func TestUnmarshalConfigurationV1FromAJsonFile(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := UnmarshalConfigurationV1(tt.data)
 
-			// Check error expectation
-			if (err != nil) != tt.wantErr {
-				t.Errorf("UnmarshalConfigurationV1() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-
-			// Early return for error cases
 			if tt.wantErr {
-				return
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				// The input is from a JSON file so we don't have an exact expected struct to compare against.
+				// Instead, we just check that we got a non-nil result.
+				assert.NotNil(t, got, "UnmarshalConfigurationV1() returned nil for valid test file")
 			}
-
-			// The input is from a JSON file so we don't have an exact expected struct to compare against.
-			// Instead, we just check that we got a non-nil result.
-			assert.NotNil(t, got, "UnmarshalConfigurationV1() returned nil for valid test file")
 		})
 	}
 }
