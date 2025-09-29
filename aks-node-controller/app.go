@@ -77,12 +77,8 @@ func (a *App) run(ctx context.Context, args []string) error {
 		provisionOutput, err := a.ProvisionWait(ctx, provisionStatusFiles)
 		//nolint:forbidigo // stdout is part of the interface
 		fmt.Println(provisionOutput)
-		if err != nil {
-			slog.Error("aks-node-controller failed", "error", err)
-			return err
-		}
 		slog.Info("provision-wait finished", "provisionOutput", provisionOutput)
-		return nil
+		return err
 	default:
 		return fmt.Errorf("unknown command: %s", args[1])
 	}
@@ -102,7 +98,7 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) error {
 		// Log the error and continue processing.
 		// Feature owner should be aware that any unrecognized fields will be ignored in older versions of VHD image.
 
-		slog.Warn("Unmarshalling aksNodeConfigv1 encounters error but the process will continue."+
+		slog.Info("Unmarshalling aksNodeConfigv1 encounters error but the process will continue."+
 			"This may be due to version mismatch. "+
 			"Usually it is newer aksNodeConfig being parsed by older aks-node-controller. "+
 			"Continuing with partial configuration, but unrecognized fields will be ignored.",
