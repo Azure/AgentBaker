@@ -108,11 +108,10 @@ installSecureTLSBoostrapClientFromPMC() {
 installCredentialProviderFromPMC() {
     k8sVersion="${1:-}"
     os=${UBUNTU_OS_NAME}
+    os_version="${UBUNTU_RELEASE}"
     if [ -z "$UBUNTU_RELEASE" ]; then
         os=${OS}
         os_version="current"
-    else
-        os_version="${UBUNTU_RELEASE}"
     fi
     PACKAGE_VERSION=""
     getLatestPkgVersionFromK8sVersion "$k8sVersion" "azure-acr-credential-provider-pmc" "$os" "$os_version"

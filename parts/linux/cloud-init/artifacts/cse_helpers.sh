@@ -821,8 +821,7 @@ getLatestPkgVersion() {
     PACKAGE_VERSIONS=()
     updatePackageVersions "${package}" "${os}" "${os_version}"
 
-    # shellcheck disable=SC3010
-    if [[ ${#PACKAGE_VERSIONS[@]} -eq 0 || ${PACKAGE_VERSIONS[0]} == "<SKIP>" ]]; then
+    if [ ${#PACKAGE_VERSIONS[@]} -eq 0 ] || [ "${PACKAGE_VERSIONS[0]}" = "<SKIP>" ]; then
         echo "INFO: ${componentName} package versions array is either empty or the first element is <SKIP>. Skipping ${componentName} installation."
         return 0
     fi
@@ -849,8 +848,7 @@ getLatestPkgVersionFromK8sVersion() {
     PACKAGE_VERSIONS=()
     updatePackageVersions "${package}" "${os}" "${os_version}"
 
-    # shellcheck disable=SC3010
-    if [[ ${#PACKAGE_VERSIONS[@]} -eq 0 || ${PACKAGE_VERSIONS[0]} == "<SKIP>" ]]; then
+    if [ ${#PACKAGE_VERSIONS[@]} -eq 0 ] || [ "${PACKAGE_VERSIONS[0]}" = "<SKIP>" ]; then
         echo "INFO: ${componentName} package versions array is either empty or the first element is <SKIP>. Skipping ${componentName} installation."
         return 0
     fi
