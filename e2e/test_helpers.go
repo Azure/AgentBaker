@@ -325,12 +325,12 @@ func ValidateNodeCanRunAPod(ctx context.Context, s *Scenario) {
 	if s.IsWindows() {
 		serverCorePods := components.GetServercoreImagesForVHD(s.VHD)
 		for i, pod := range serverCorePods {
-			ValidatePodRunning(ctx, s, podWindows(s, fmt.Sprintf("servercore%d", i), pod, true))
+			ValidatePodRunning(ctx, s, podWindows(s, fmt.Sprintf("servercore%d", i), pod))
 		}
 
 		nanoServerPods := components.GetNanoserverImagesForVhd(s.VHD)
 		for i, pod := range nanoServerPods {
-			ValidatePodRunning(ctx, s, podWindows(s, fmt.Sprintf("nanoserver%d", i), pod, true))
+			ValidatePodRunning(ctx, s, podWindows(s, fmt.Sprintf("nanoserver%d", i), pod))
 		}
 	} else {
 		ValidatePodRunning(ctx, s, podHTTPServerLinux(s))
