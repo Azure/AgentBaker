@@ -73,7 +73,7 @@
       "versioning": "regex:^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<prerelease>\\d+)$",
       "ignoreUnstable": false
     },
-    
+
     {
       "matchDatasources": [
         "docker"
@@ -385,6 +385,22 @@
         "djsly",
         "zachary-bailey",
         "ganeshkumarashok"
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "nvidia-device-plugin"
+      ],
+      "groupName": "nvidia-device-plugin",
+      "assignees": [
+        "djsly",
+        "ganeshkumarashok",
+        "surajssd"
+      ],
+      "reviewers": [
+        "djsly",
+        "ganeshkumarashok",
+        "surajssd"
       ]
     },
     {
