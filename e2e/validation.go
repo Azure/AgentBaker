@@ -36,9 +36,9 @@ func ValidatePodRunning(ctx context.Context, s *Scenario, pod *corev1.Pod) {
 
 	_, err = kube.WaitUntilPodRunning(ctx, pod.Namespace, "", "metadata.name="+pod.Name)
 	if err != nil {
-		jsonString, err := json.Marshal(pod)
-		if err != nil {
-			jsonString = []byte(err.Error())
+		jsonString, jsonError := json.Marshal(pod)
+		if jsonError != nil {
+			jsonString = []byte(jsonError.Error())
 		}
 		require.NoErrorf(s.T, err, "failed to wait for pod %q to be in running state. Pod data: %s", pod.Name, jsonString)
 	}
