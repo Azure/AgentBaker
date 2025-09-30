@@ -493,7 +493,7 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/azurefile-csi",
-          "latestVersion": "v1.34.0-2"
+          "latestVersion": "v1.34.1"
         }
       ],
       "windowsVersions": [
@@ -511,25 +511,18 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/azurefile-csi",
-          "latestVersion": "v1.34.0-windows-hp"
+          "latestVersion": "v1.34.1-windows-hp"
         }
       ]
-    },
-    {
-      "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/blob-csi:*",
-      "amd64OnlyVersions": [],
-      "multiArchVersionsV2": [
-        {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/blob-csi",
-          "latestVersion": "v1.25.9"
-        }
-      ],
-      "windowsVersions": []
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/v2/kubernetes-csi/blob-csi:*",
       "amd64OnlyVersions": [],
       "multiArchVersionsV2": [
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/blob-csi",
+          "latestVersion": "v1.25.10"
+        },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/blob-csi",
           "latestVersion": "v1.26.7"
