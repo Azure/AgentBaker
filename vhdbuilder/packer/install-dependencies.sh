@@ -1,5 +1,7 @@
 #!/bin/bash
 set -euo pipefail
+
+K8S_DEVICE_PLUGIN_PKG="${K8S_DEVICE_PLUGIN_PKG:-nvidia-device-plugin}"
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
 MARINER_KATA_OS_NAME="MARINERKATA"
@@ -428,6 +430,14 @@ while IFS= read -r p; do
           downloadPkgFromVersion "kubectl" "${version}" "${downloadDir}"
         fi
         echo "  - kubectl version ${version}" >> ${VHD_LOGS_FILEPATH}
+      done
+      ;;
+    "${K8S_DEVICE_PLUGIN_PKG}")
+      for version in ${PACKAGE_VERSIONS[@]}; do
+        if [ "${OS}" = "${UBUNTU_OS_NAME}" ] || isMarinerOrAzureLinux "$OS"; then
+          downloadPkgFromVersion "${K8S_DEVICE_PLUGIN_PKG}" "${version}" "${downloadDir}"
+        fi
+        echo "  - ${K8S_DEVICE_PLUGIN_PKG} version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
     "azure-acr-credential-provider-pmc")
