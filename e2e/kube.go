@@ -521,9 +521,8 @@ func podWindows(s *Scenario, podName string, imageName string) *corev1.Pod {
 		Spec: corev1.PodSpec{
 			Containers: []corev1.Container{
 				{
-					Name:  podName,
-					Image: imageName,
-					// container should be cached on the node, so we use Never to avoid pulling it again
+					Name:            podName,
+					Image:           imageName,
 					ImagePullPolicy: "IfNotPresent",
 					// this should exist on both servercore and nanoserve
 					Command: []string{"cmd", "/c", "ping", "-t", "localhost"},
