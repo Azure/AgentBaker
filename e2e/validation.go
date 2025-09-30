@@ -39,7 +39,7 @@ func ValidatePodRunning(ctx context.Context, s *Scenario, pod *corev1.Pod) {
 		jsonString, err := json.Marshal(pod)
 		if err != nil {
 			fmt.Println(err)
-			return
+			jsonString = []byte("")
 		}
 		require.NoErrorf(s.T, err, "failed to wait for pod %q to be in running state. Pod data: %s", pod.Name, jsonString)
 	}
