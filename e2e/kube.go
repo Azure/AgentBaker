@@ -512,7 +512,11 @@ func podHTTPServerLinux(s *Scenario) *corev1.Pod {
 	}
 }
 
-func podWindows(s *Scenario, podName string, imageName string) *corev1.Pod {
+func podWindows(s *Scenario, podName string, imageName string, shouldBeCached bool) *corev1.Pod {
+	var imagePullPolicy corev1.PullPolicy = "IfNotPresent"
+	if shouldBeCached {
+		imagePullPolicy = "Never"
+	}
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-test-%s-pod", s.Runtime.KubeNodeName, podName),
@@ -523,6 +527,10 @@ func podWindows(s *Scenario, podName string, imageName string) *corev1.Pod {
 				{
 					Name:  podName,
 					Image: imageName,
+					// container should be cached on the node, so we use Never to avoid pulling it again
+					ImagePullPolicy: imagePullPolicy,
+					// this should exist on both servercore and nanoserve
+					Command: []string{"cmd", "/c", "ping", "-t", "localhost"},
 				},
 			},
 			NodeSelector: map[string]string{

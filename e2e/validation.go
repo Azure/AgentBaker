@@ -3,6 +3,7 @@ package e2e
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"testing"
@@ -34,7 +35,14 @@ func ValidatePodRunning(ctx context.Context, s *Scenario, pod *corev1.Pod) {
 	})
 
 	_, err = kube.WaitUntilPodRunning(ctx, pod.Namespace, "", "metadata.name="+pod.Name)
-	require.NoErrorf(s.T, err, "failed to wait for pod %q to be in running state", pod.Name)
+	if err != nil {
+		jsonString, err := json.Marshal(pod)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		require.NoErrorf(s.T, err, "failed to wait for pod %q to be in running state. Pod data: %s", pod.Name, jsonString)
+	}
 
 	timeForReady := time.Since(start)
 	toolkit.LogDuration(ctx, timeForReady, time.Minute, fmt.Sprintf("Time for pod %q to get ready was %s", pod.Name, timeForReady))
