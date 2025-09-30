@@ -80,7 +80,7 @@ updateAptWithMicrosoftPkg() {
 
 cleanUpGPUDrivers() {
     rm -Rf $GPU_DEST /opt/gpu
-    rm -rf /opt/nvidia-device-plugin/downloads
+    rm -rf "/opt/${K8S_DEVICE_PLUGIN_PKG}/downloads"
 }
 
 installNvidiaDevicePluginPkgFromCache() {
@@ -93,7 +93,7 @@ installNvidiaDevicePluginPkgFromCache() {
 
     # Get nvidia-device-plugin package info from components.json
     local package=$(jq -r ".Packages[] | select(.name == \"${K8S_DEVICE_PLUGIN_PKG}\")" "${COMPONENTS_FILEPATH}")
-    
+
     # Get the latest package version
     updatePackageVersions "${package}" "${os}" "${os_version}"
     if [ ${#PACKAGE_VERSIONS[@]} -eq 0 ]; then

@@ -9,6 +9,7 @@ import (
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
+	"github.com/stretchr/testify/require"
 )
 
 func Test_Ubuntu2404_NvidiaDevicePluginRunning(t *testing.T) {
@@ -33,9 +34,8 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning(t *testing.T) {
 
 				// Validate that the NVIDIA device plugin binary was installed correctly
 				versions := components.GetExpectedPackageVersions("nvidia-device-plugin", "ubuntu", "r2404")
-				if len(versions) > 0 {
-					ValidateInstalledPackageVersion(ctx, s, "nvidia-device-plugin", versions[0])
-				}
+				require.Lenf(s.T, versions, 1, "Expected exactly one nvidia-device-plugin version for ubuntu r2404 but got %d", len(versions))
+				ValidateInstalledPackageVersion(ctx, s, "nvidia-device-plugin", versions[0])
 
 
 				// Validate that the NVIDIA device plugin systemd service is running
@@ -73,9 +73,8 @@ func Test_Ubuntu2204_NvidiaDevicePluginRunning(t *testing.T) {
 
 				// Validate that the NVIDIA device plugin binary was installed correctly
 				versions := components.GetExpectedPackageVersions("nvidia-device-plugin", "ubuntu", "r2204")
-				if len(versions) > 0 {
-					ValidateInstalledPackageVersion(ctx, s, "nvidia-device-plugin", versions[0])
-				}
+				require.Lenf(s.T, versions, 1, "Expected exactly one nvidia-device-plugin version for ubuntu r2204 but got %d", len(versions))
+				ValidateInstalledPackageVersion(ctx, s, "nvidia-device-plugin", versions[0])
 
 				// Validate that the NVIDIA device plugin systemd service is running
 				ValidateNvidiaDevicePluginServiceRunning(ctx, s)
@@ -112,9 +111,8 @@ func Test_AzureLinux3_NvidiaDevicePluginRunning(t *testing.T) {
 
 				// Validate that the NVIDIA device plugin binary was installed correctly
 				versions := components.GetExpectedPackageVersions("nvidia-device-plugin", "azurelinux", "3.0")
-				if len(versions) > 0 {
-					ValidateInstalledPackageVersion(ctx, s, "nvidia-device-plugin", versions[0])
-				}
+				require.Lenf(s.T, versions, 1, "Expected exactly one nvidia-device-plugin version for azurelinux 3.0 but got %d", len(versions))
+				ValidateInstalledPackageVersion(ctx, s, "nvidia-device-plugin", versions[0])
 
 
 				// Validate that the NVIDIA device plugin systemd service is running
