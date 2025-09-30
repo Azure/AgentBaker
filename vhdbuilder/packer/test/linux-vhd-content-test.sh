@@ -184,6 +184,24 @@ testPackagesInstalled() {
   fi
   CPU_ARCH="amd64"
   echo "$test:Start"
+
+  # shellcheck disable=SC3010
+  if [[ $OS_SKU = CBLMariner || ( $OS_SKU = AzureLinux && $OS_VERSION = 2.0 ) ]]; then
+    OS=${MARINER_OS_NAME}
+    # If the feature flag kata is enabled, we set $MARINER_KATA_OS_NAME as the OS name and it will get the version from that OS from components.json
+    # We have similar logic in install-dependencies.sh
+    if grep -q "kata" <<< "$FEATURE_FLAGS"; then
+      OS=${MARINER_KATA_OS_NAME}
+    fi
+  elif [[ $OS_SKU = AzureLinux* ]]; then
+    OS=${AZURELINUX_OS_NAME}
+    if grep -q "kata" <<< "$FEATURE_FLAGS"; then
+      OS=${AZURELINUX_KATA_OS_NAME}
+    fi
+  else
+    OS=${OS_SKU^^}
+  fi
+
   packages=$(jq ".Packages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
 
   while IFS= read -r p; do
@@ -191,21 +209,6 @@ testPackagesInstalled() {
     downloadLocation=$(echo "${p}" | jq .downloadLocation -r)
     if [ "$downloadLocation" = "" ]; then
       continue
-    fi
-    if [ "$OS_SKU" = "CBLMariner" ] || { [ "$OS_SKU" = "AzureLinux" ] && [ "$OS_VERSION" = "2.0" ]; }; then
-      OS=$MARINER_OS_NAME
-      # If the feature flag kata is enabled, we set $MARINER_KATA_OS_NAME as the OS name and it will get the version from that OS from components.json
-      # We have similar logic in install-dependencies.sh
-      if (echo "$FEATURE_FLAGS" | grep -q "kata"); then
-        OS=${MARINER_KATA_OS_NAME}
-      fi
-    elif [ "$OS_SKU" = "AzureLinux" ] && [ "$OS_VERSION" = "3.0" ]; then
-      OS=$AZURELINUX_OS_NAME
-      if (echo "$FEATURE_FLAGS" | grep -q "kata"); then
-        OS=${AZURELINUX_KATA_OS_NAME}
-      fi
-    else
-      OS=$UBUNTU_OS_NAME
     fi
     PACKAGE_VERSIONS=()
     updatePackageVersions "${p}" "${OS}" "${OS_VERSION}"
