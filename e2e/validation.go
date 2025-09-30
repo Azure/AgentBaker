@@ -38,8 +38,7 @@ func ValidatePodRunning(ctx context.Context, s *Scenario, pod *corev1.Pod) {
 	if err != nil {
 		jsonString, err := json.Marshal(pod)
 		if err != nil {
-			fmt.Println(err)
-			jsonString = []byte("")
+			jsonString = []byte(err.Error())
 		}
 		require.NoErrorf(s.T, err, "failed to wait for pod %q to be in running state. Pod data: %s", pod.Name, jsonString)
 	}
