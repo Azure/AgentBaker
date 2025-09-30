@@ -454,18 +454,6 @@ func ValidateKubeletHasFlags(ctx context.Context, s *Scenario, filePath string) 
 	require.Containsf(s.T, execResult.stdout.String(), configFileFlags, "expected to find flag %s, but not found", "config")
 }
 
-func ValidatePodUsingNVidiaGPU(ctx context.Context, s *Scenario) {
-	s.T.Helper()
-	s.T.Logf("validating pod using nvidia GPU")
-	// NVidia pod can be ready, but resources may not be available yet
-	// a hacky way to ensure the next pod is schedulable
-	waitUntilResourceAvailable(ctx, s, "nvidia.com/gpu")
-	// device can be allocatable, but not healthy
-	// ugly hack, but I don't see a better solution
-	time.Sleep(20 * time.Second)
-	ValidatePodRunning(ctx, s, podRunNvidiaWorkload(s))
-}
-
 // Waits until the specified resource is available on the given node.
 // Returns an error if the resource is not available within the specified timeout period.
 func waitUntilResourceAvailable(ctx context.Context, s *Scenario, resourceName string) {
