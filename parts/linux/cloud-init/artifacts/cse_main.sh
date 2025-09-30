@@ -126,7 +126,7 @@ function basePrep {
         if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
             registry_domain_name="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER%%/*}"
         fi
-        
+
         logs_to_events "AKS.CSE.orasLogin.oras_login_with_kubelet_identity" oras_login_with_kubelet_identity "${registry_domain_name}" $USER_ASSIGNED_IDENTITY_ID $TENANT_ID || exit $?
     fi
 
@@ -344,11 +344,11 @@ function nodePrep {
         # This file indicates the cluster doesn't have outbound connectivity and should be excluded in future external outbound checks
         touch /var/run/outbound-check-skipped
     fi
-    
+
     # Determine if GPU driver installation should be skipped
     export -f should_skip_nvidia_drivers
     skip_nvidia_driver_install=$(retrycmd_silent 10 1 10 bash -cx should_skip_nvidia_drivers)
-    
+
     if [ "$?" -ne 0 ]; then
         echo "Failed to determine if nvidia driver install should be skipped"
         exit $ERR_NVIDIA_DRIVER_INSTALL
@@ -365,10 +365,10 @@ function nodePrep {
     # Install and configure GPU drivers if this is a GPU node
     if [ "${GPU_NODE}" = "true" ] && [ "${skip_nvidia_driver_install}" != "true" ]; then
         echo $(date),$(hostname), "Start configuring GPU drivers"
-        
+
         # Install GPU drivers
         logs_to_events "AKS.CSE.ensureGPUDrivers" ensureGPUDrivers
-        
+
         # Install fabric manager if needed
         if [ "${GPU_NEEDS_FABRIC_MANAGER}" = "true" ]; then
             # fabric manager trains nvlink connections between multi instance gpus.
@@ -418,7 +418,7 @@ EOF
         else
             logs_to_events "AKS.CSE.stop.nvidia-device-plugin" "systemctlDisableAndStop nvidia-device-plugin"
         fi
-        
+
         echo $(date),$(hostname), "End configuring GPU drivers"
     fi
 
@@ -478,10 +478,6 @@ EOF
     fi
 
     logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
-
-    if [ "${ARTIFACT_STREAMING_ENABLED}" = "true" ]; then
-        logs_to_events "AKS.CSE.ensureContainerd.ensureAcrNodeMon" ensureAcrNodeMon || exit $ERR_ARTIFACT_STREAMING_ACR_NODEMON_START_FAIL
-    fi
 
     if $REBOOTREQUIRED; then
         echo 'reboot required, rebooting node in 1 minute'
