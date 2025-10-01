@@ -84,11 +84,6 @@ if [ "${OS_TYPE}" = "Linux" ] && [ "${ENABLE_TRUSTED_LAUNCH}" = "True" ]; then
     VM_OPTIONS+=" --security-type TrustedLaunch --enable-secure-boot true --enable-vtpm true"
 fi
 
-if [ "${OS_TYPE}" = "Linux" ] && grep -q "cvm" <<< "$FEATURE_FLAGS"; then
-    # We completely re-assign the VM_OPTIONS string here to ensure that no artifacts from earlier conditionals are included
-    VM_OPTIONS="--size Standard_DC8ads_v5 --security-type ConfidentialVM --enable-secure-boot true --enable-vtpm true --os-disk-security-encryption-type VMGuestStateOnly --specialized true"
-fi
-
 # GB200 specific VM options for scanning (uses standard ARM64 VM for now)
 if [ "${OS_TYPE}" = "Linux" ] && grep -q "GB200" <<< "$FEATURE_FLAGS"; then
     echo "GB200: Using standard ARM64 VM options for scanning"
@@ -101,16 +96,104 @@ if [ -z "$SCANNING_NIC_ID" ]; then
     exit 1
 fi
 
-az vm create --resource-group $RESOURCE_GROUP_NAME \
-    --name $SCAN_VM_NAME \
-    --image $VHD_IMAGE \
-    --nics $SCANNING_NIC_ID \
-    --admin-username $SCAN_VM_ADMIN_USERNAME \
-    --admin-password $SCAN_VM_ADMIN_PASSWORD \
-    --os-disk-size-gb 50 \
-    ${VM_OPTIONS} \
-    --assign-identity "${UMSI_RESOURCE_ID}"
+# Enable FIPS 140-3 compliance feature if not already enabled
+echo "Checking FIPS 140-3 compliance feature registration..."
+FIPS_FEATURE_STATE=$(az feature show --namespace Microsoft.Compute --name OptInToFips1403Compliance --query 'properties.state' -o tsv 2>/dev/null || echo "NotRegistered")
+if [ "$FIPS_FEATURE_STATE" != "Registered" ]; then
+    echo "Registering FIPS 140-3 compliance feature..."
+    az feature register --namespace Microsoft.Compute --name OptInToFips1403Compliance
     
+    # Poll until registered (timeout after 5 minutes)
+    TIMEOUT=300
+    ELAPSED=0
+    while [ "$FIPS_FEATURE_STATE" != "Registered" ] && [ $ELAPSED -lt $TIMEOUT ]; do
+        sleep 10
+        ELAPSED=$((ELAPSED + 10))
+        FIPS_FEATURE_STATE=$(az feature show --namespace Microsoft.Compute --name OptInToFips1403Compliance --query 'properties.state' -o tsv)
+        echo "Feature state: $FIPS_FEATURE_STATE (waited ${ELAPSED}s)"
+    done
+    
+    if [ "$FIPS_FEATURE_STATE" != "Registered" ]; then
+        echo "Warning: FIPS 140-3 feature registration timed out. Continuing anyway..."
+    else
+        echo "FIPS 140-3 feature registered successfully. Refreshing provider..."
+        az provider register -n Microsoft.Compute
+    fi
+else
+    echo "FIPS 140-3 compliance feature already registered"
+fi
+
+# Prepare VM creation parameters
+VM_SIZE="Standard_D8ds_v5"
+
+# shellcheck disable=SC3010
+if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then
+    VM_SIZE="Standard_D8pds_v5"
+fi
+
+# GB200 specific VM options for scanning (uses standard ARM64 VM for now)
+if [ "${OS_TYPE}" = "Linux" ] && grep -q "GB200" <<< "$FEATURE_FLAGS"; then
+    echo "GB200: Using standard ARM64 VM options for scanning"
+    # Additional GB200-specific VM options can be added here when GB200 SKUs are available
+fi
+
+# Build the VM request body (simplified for FIPS testing)
+VM_BODY=$(cat <<EOF
+{
+  "location": "$PACKER_BUILD_LOCATION",
+  "identity": {
+    "type": "UserAssigned",
+    "userAssignedIdentities": {
+      "$UMSI_RESOURCE_ID": {}
+    }
+  },
+  "properties": {
+    "additionalCapabilities": {
+      "enableFips1403Encryption": true
+    },
+    "hardwareProfile": {
+      "vmSize": "$VM_SIZE"
+    },
+    "osProfile": {
+      "computerName": "$SCAN_VM_NAME",
+      "adminUsername": "$SCAN_VM_ADMIN_USERNAME",
+      "adminPassword": "$SCAN_VM_ADMIN_PASSWORD"
+    },
+    "storageProfile": {
+      "imageReference": {
+        "id": "$VHD_IMAGE"
+      },
+      "osDisk": {
+        "createOption": "FromImage",
+        "diskSizeGB": 50,
+        "managedDisk": {
+          "storageAccountType": "Premium_LRS"
+        }
+      }
+    },
+    "networkProfile": {
+      "networkInterfaces": [
+        {
+          "id": "$SCANNING_NIC_ID"
+        }
+      ]
+    }
+  }
+}
+EOF
+)
+
+# Create the VM using REST API
+echo "Creating VM using REST API..."
+az rest \
+    --method put \
+    --url "https://management.azure.com/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/virtualMachines/${SCAN_VM_NAME}?api-version=2024-11-01" \
+    --body "$VM_BODY"
+
+# Wait for VM to be ready
+echo "Waiting for VM to be ready..."
+az vm wait --created --name $SCAN_VM_NAME --resource-group $RESOURCE_GROUP_NAME
+
 capture_benchmark "${SCRIPT_NAME}_create_scan_vm"
 set +x
 
