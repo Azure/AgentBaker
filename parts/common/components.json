@@ -493,7 +493,7 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/azurefile-csi",
-          "latestVersion": "v1.34.0-2"
+          "latestVersion": "v1.34.1"
         }
       ],
       "windowsVersions": [
@@ -511,25 +511,18 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/azurefile-csi",
-          "latestVersion": "v1.34.0-windows-hp"
+          "latestVersion": "v1.34.1-windows-hp"
         }
       ]
-    },
-    {
-      "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/blob-csi:*",
-      "amd64OnlyVersions": [],
-      "multiArchVersionsV2": [
-        {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/blob-csi",
-          "latestVersion": "v1.25.9"
-        }
-      ],
-      "windowsVersions": []
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/v2/kubernetes-csi/blob-csi:*",
       "amd64OnlyVersions": [],
       "multiArchVersionsV2": [
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/blob-csi",
+          "latestVersion": "v1.25.10"
+        },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/blob-csi",
           "latestVersion": "v1.26.7"
@@ -1469,6 +1462,40 @@
               }
             ],
             "downloadURL": ""
+          }
+        }
+      }
+    },
+    {
+      "name": "nvidia-device-plugin",
+      "downloadLocation": "/opt/nvidia-device-plugin/downloads",
+      "downloadURIs": {
+        "ubuntu": {
+          "r2404": {
+            "versionsV2": [
+              {
+                "renovateTag": "name=nvidia-device-plugin, repository=production, os=ubuntu, release=24.04",
+                "latestVersion": "0.17.4-ubuntu24.04u1"
+              }
+            ]
+          },
+          "r2204": {
+            "versionsV2": [
+              {
+                "renovateTag": "name=nvidia-device-plugin, repository=production, os=ubuntu, release=22.04",
+                "latestVersion": "0.17.4-ubuntu22.04u1"
+              }
+            ]
+          }
+        },
+        "azurelinux": {
+          "v3.0": {
+            "versionsV2": [
+              {
+                "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=nvidia-device-plugin, os=azurelinux, release=3.0",
+                "latestVersion": "0.17.4-1.azl3"
+              }
+            ]
           }
         }
       }
