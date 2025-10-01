@@ -241,7 +241,7 @@ Describe 'cse_helpers.sh'
             The stdout should include "client_id or tenant_id are not set. Oras login is not possible, proceeding with anonymous pull"
         End
         It 'should fail if access token is an error'
-            retrycmd_can_oras_ls_acr() {
+            retrycmd_can_oras_fetch_image() {
                 return 1
             }
             retrycmd_get_aad_access_token(){
@@ -257,7 +257,7 @@ Describe 'cse_helpers.sh'
             The stdout should include "failed to retrieve kubelet identity token"
         End
         It 'should fail if refresh token is an error'
-            retrycmd_can_oras_ls_acr() {
+            retrycmd_can_oras_fetch_image() {
                 return 1
             }
             retrycmd_get_aad_access_token(){
@@ -274,7 +274,7 @@ Describe 'cse_helpers.sh'
             The stdout should include "failed to retrieve refresh token"
         End
         It 'should fail if oras cannot login'
-            retrycmd_can_oras_ls_acr() {
+            retrycmd_can_oras_fetch_image() {
                 return 1
             }
             retrycmd_get_aad_access_token(){
@@ -303,11 +303,11 @@ Describe 'cse_helpers.sh'
             retrycmd_oras_login(){
                 return 0
             }
-            mock_retrycmd_can_oras_ls_acr_counter=0
-            retrycmd_can_oras_ls_acr() {
+            mock_retrycmd_can_oras_fetch_image_counter=0
+            retrycmd_can_oras_fetch_image() {
                 response_var=-1
-                ((mock_retrycmd_can_oras_ls_acr_counter++))
-                if [[ $mock_retrycmd_can_oras_ls_acr_counter -eq 1 ]]; then
+                ((mock_retrycmd_can_oras_fetch_image_counter++))
+                if [[ $mock_retrycmd_can_oras_fetch_image_counter -eq 1 ]]; then
                     response_var=1
                 else
                     response_var=0

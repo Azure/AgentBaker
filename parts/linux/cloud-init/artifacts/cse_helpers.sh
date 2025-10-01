@@ -410,20 +410,31 @@ retrycmd_oras_login() {
     return $exit_code
 }
 
-retrycmd_can_oras_ls_acr() {
-    retries=$1; wait_sleep=$2; url=$3
+
+retrycmd_can_oras_fetch_image() {
+    retries=$1; wait_sleep=$2; registry_host=$3
+    
+    # List of image references to try fetching
+    local image_refs=(
+        "oss/binaries/kubernetes/kubernetes-node:v1.34.0-rc.1-linux-amd64"
+        "aks/packages/kubernetes/kubectl:v1.34.0"
+    )
+    
     for i in $(seq 1 $retries); do
-        output=$(timeout 60 oras repo ls "$url" --registry-config "$ORAS_REGISTRY_CONFIG_FILE" 2>&1)
-        if [ "$?" -eq 0 ]; then
-            echo "acr is reachable"
-            return 0
-        fi
-        # shellcheck disable=SC3010
-        if [[ "$output" == *"unauthorized: authentication required"* ]]; then
-            echo "ACR is not reachable: $output"
-            return 1
+        for image_ref in "${image_refs[@]}"; do
+            local full_image="${registry_host}/${image_ref}"
+            output=$(timeout 60 oras manifest fetch "$full_image" --registry-config "$ORAS_REGISTRY_CONFIG_FILE" --descriptor 2>&1)
+            if [ "$?" -eq 0 ]; then
+                echo "$registry_host is reachable"
+                return 0
+            fi
+        done
+        
+        if [ $i -lt $retries ]; then
+            sleep $wait_sleep
         fi
     done
+    
     echo "unexpected response from acr: $output"
     return $ERR_ORAS_PULL_NETWORK_TIMEOUT
 }
@@ -1007,7 +1018,7 @@ oras_login_with_kubelet_identity() {
         return
     fi
 
-    retrycmd_can_oras_ls_acr 10 5 $acr_url
+    retrycmd_can_oras_fetch_image 10 5 $acr_url
     ret_code=$?
     if [ "$ret_code" -eq 0 ]; then
         echo "anonymous pull is allowed for acr '$acr_url', proceeding with anonymous pull"
@@ -1056,7 +1067,7 @@ oras_login_with_kubelet_identity() {
     unset ACCESS_TOKEN REFRESH_TOKEN  # Clears sensitive data from memory
     set -x
 
-    retrycmd_can_oras_ls_acr 10 5 $acr_url
+    retrycmd_can_oras_fetch_image 10 5 $acr_url
     if [ "$?" -ne 0 ]; then
         echo "failed to login to acr '$acr_url', pull is still unauthorized"
         return $ERR_ORAS_PULL_UNAUTHORIZED
