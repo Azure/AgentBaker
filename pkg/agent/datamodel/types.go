@@ -1860,7 +1860,7 @@ type SecureTLSBootstrappingConfig struct {
 	Enabled bool `json:"enabled"`
 	// CustomClientDownloadURL is an optional download URL used to overwrite the
 	// secure TLS bootstrap client installation at node provisioning time.
-	CustomClientDownloadURL string `json:"clientDownloadURL"`
+	CustomClientDownloadURL string `json:"customClientDownloadURL"`
 }
 
 func (c *SecureTLSBootstrappingConfig) GetEnabled() bool {
