@@ -521,8 +521,11 @@ func podWindows(s *Scenario, podName string, imageName string) *corev1.Pod {
 		Spec: corev1.PodSpec{
 			Containers: []corev1.Container{
 				{
-					Name:  podName,
-					Image: imageName,
+					Name:            podName,
+					Image:           imageName,
+					ImagePullPolicy: "IfNotPresent",
+					// this should exist on both servercore and nanoserve
+					Command: []string{"cmd", "/c", "ping", "-t", "localhost"},
 				},
 			},
 			NodeSelector: map[string]string{
