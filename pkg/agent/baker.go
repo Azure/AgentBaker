@@ -527,14 +527,10 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return IsKubeletConfigFileEnabled(cs, profile, config.EnableKubeletConfigFile)
 		},
 		"EnableSecureTLSBootstrapping": func() bool {
-			// this will be true when we can perform TLS bootstrapping without the use of a hard-coded bootstrap token.
-			return config.EnableSecureTLSBootstrapping
-		},
-		"GetCustomSecureTLSBootstrapAADServerAppID": func() string {
-			return config.CustomSecureTLSBootstrapAADServerAppID
+			return config.SecureTLSBootstrappingConfig.GetEnabled()
 		},
 		"GetCustomSecureTLSBootstrapClientURL": func() string {
-			return config.CustomSecureTLSBootstrapClientURL
+			return config.SecureTLSBootstrappingConfig.GetCustomClientDownloadURL()
 		},
 		"GetTLSBootstrapTokenForKubeConfig": func() string {
 			return GetTLSBootstrapTokenForKubeConfig(config.KubeletClientTLSBootstrapToken)

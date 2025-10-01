@@ -1789,30 +1789,22 @@ type NodeBootstrappingConfiguration struct {
 	kubeconfig. */
 	// ref: https://kubernetes.io/docs/reference/command-line-tools-reference/kubelet-tls-bootstrapping.
 	KubeletClientTLSBootstrapToken *string
-	// EnableSecureTLSBootstraping - when this feature is enabled we don't hard-code TLS bootstrap tokens at all,
-	// instead we create a modified bootstrap kubeconfig which points towards the STLS bootstrap client-go
-	// credential plugin installed on the VHD, which will be responsible for generating TLS bootstrap tokens on the fly
-	EnableSecureTLSBootstrapping bool
-	// CustomSecureTLSBootstrapAADServerAppID serves as an optional override of the AAD server application ID
-	// used by the secure TLS bootstrap client-go credential plugin when requesting JWTs from AAD
-	CustomSecureTLSBootstrapAADServerAppID string
-	// Optional client download URL used to overwrite the secure TLS bootstrap client installation at node provisioning time.
-	CustomSecureTLSBootstrapClientURL string
-	FIPSEnabled                       bool
-	HTTPProxyConfig                   *HTTPProxyConfig
-	KubeletConfig                     map[string]string
-	KubeproxyConfig                   map[string]string
-	EnableRuncShimV2                  bool
-	GPUInstanceProfile                string
-	PrimaryScaleSetName               string
-	SIGConfig                         SIGConfig
-	IsARM64                           bool
-	CustomCATrustConfig               *CustomCATrustConfig
-	DisableUnattendedUpgrades         bool
-	SSHStatus                         SSHStatus
-	DisableCustomData                 bool
-	OutboundType                      string
-	EnableIMDSRestriction             bool
+	SecureTLSBootstrappingConfig   *SecureTLSBootstrappingConfig
+	FIPSEnabled                    bool
+	HTTPProxyConfig                *HTTPProxyConfig
+	KubeletConfig                  map[string]string
+	KubeproxyConfig                map[string]string
+	EnableRuncShimV2               bool
+	GPUInstanceProfile             string
+	PrimaryScaleSetName            string
+	SIGConfig                      SIGConfig
+	IsARM64                        bool
+	CustomCATrustConfig            *CustomCATrustConfig
+	DisableUnattendedUpgrades      bool
+	SSHStatus                      SSHStatus
+	DisableCustomData              bool
+	OutboundType                   string
+	EnableIMDSRestriction          bool
 	// InsertIMDSRestrictionRuleToMangleTable is only checked when EnableIMDSRestriction is true.
 	// When this is true, iptables rule will be inserted to `mangle` table. This is for Linux Cilium
 	// CNI, which will overwrite the `filter` table so that we can only insert to `mangle` table to avoid
@@ -1860,6 +1852,29 @@ type HTTPProxyConfig struct {
 
 type CustomCATrustConfig struct {
 	CustomCATrustCerts []string `json:"customCATrustCerts,omitempty"`
+}
+
+// SecureTLSBootstrappingConfig represents configuration specific to secure TLS bootstrapping.
+type SecureTLSBootstrappingConfig struct {
+	// Enabled indicates whether secure TLS bootstrapping is enabled.
+	Enabled bool `json:"enabled"`
+	// CustomClientDownloadURL is an optional download URL used to overwrite the
+	// secure TLS bootstrap client installation at node provisioning time.
+	CustomClientDownloadURL string `json:"clientDownloadURL"`
+}
+
+func (c *SecureTLSBootstrappingConfig) GetEnabled() bool {
+	if c == nil {
+		return false
+	}
+	return c.Enabled
+}
+
+func (c *SecureTLSBootstrappingConfig) GetCustomClientDownloadURL() string {
+	if c == nil {
+		return ""
+	}
+	return c.CustomClientDownloadURL
 }
 
 // AKSKubeletConfiguration contains the configuration for the Kubelet that AKS set.
