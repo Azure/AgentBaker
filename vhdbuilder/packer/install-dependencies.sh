@@ -342,7 +342,8 @@ while IFS= read -r p; do
         elif isMarinerOrAzureLinux "$OS"; then
           installStandaloneContainerd "${version}"
         elif isFlatcar "$OS"; then
-          installStandaloneContainerd "${version}"
+          echo "Skipping containerd install on Flatcar, package preinstalled on immutable /usr"
+          version=$(containerd --version | grep -Po "(?<=\s)v[\d.]+")
         fi
         echo "  - containerd version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
