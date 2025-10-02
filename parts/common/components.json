@@ -77,7 +77,7 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/autoscaler/addon-resizer",
-          "latestVersion": "v1.8.23-4"
+          "latestVersion": "v1.8.23-5"
         }
       ],
       "windowsVersions": []
@@ -148,7 +148,7 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cni",
-          "latestVersion": "v1.7.3-0"
+          "latestVersion": "v1.7.4-0"
         }
       ],
       "multiArchVersionsV2": [
@@ -176,7 +176,7 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cni",
-          "latestVersion": "v1.7.3-0",
+          "latestVersion": "v1.7.4-0",
           "containerImagePrefetch": {
             "latestVersion": {
               "binaries": [
@@ -201,7 +201,7 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
-          "latestVersion": "v1.7.3-0"
+          "latestVersion": "v1.7.4-0"
         }
       ],
       "multiArchVersionsV2": [
@@ -229,7 +229,7 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
-          "latestVersion": "v1.7.3-0",
+          "latestVersion": "v1.7.4-0",
           "containerImagePrefetch": {
             "latestVersion": {
               "binaries": [
@@ -437,8 +437,8 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/azure/ip-masq-agent-v2",
-          "latestVersion": "v0.1.15-4",
-          "previousLatestVersion": "v0.1.15-2"
+          "latestVersion": "v0.1.15-5",
+          "previousLatestVersion": "v0.1.15-4"
         }
       ],
       "windowsVersions": []
@@ -698,8 +698,8 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/kube-proxy",
-          "latestVersion": "v1.33.4",
-          "previousLatestVersion": "v1.33.3"
+          "latestVersion": "v1.33.5",
+          "previousLatestVersion": "v1.33.4"
         }
       ],
       "windowsVersions": []
@@ -717,7 +717,7 @@
       "downloadURL": "mcr.microsoft.com/aks/aks-gpu-grid:*",
       "gpuVersion": {
         "renovateTag": "registry=https://mcr.microsoft.com, name=aks/aks-gpu-grid",
-        "latestVersion": "550.144.06-20250609191703"
+          "latestVersion": "550.144.06-20250822192755"
       }
     }
   ],
@@ -1339,8 +1339,8 @@
               {
                 "k8sVersion": "1.33",
                 "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/binaries/kubernetes/kubernetes-node",
-                "latestVersion": "v1.33.4",
-                "previousLatestVersion": "v1.33.3"
+                "latestVersion": "v1.33.5",
+                "previousLatestVersion": "v1.33.4"
               },
               {
                 "k8sVersion": "1.34",
