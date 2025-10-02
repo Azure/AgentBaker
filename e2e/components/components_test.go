@@ -153,3 +153,40 @@ func TestRemoveLeadingV(t *testing.T) {
 		})
 	}
 }
+
+func TestGetExpectedPackageVersions_DotInRelease(t *testing.T) {
+	// Test that GetExpectedPackageVersions correctly handles release versions with dots
+	versions := GetExpectedPackageVersions("nvidia-device-plugin", "azurelinux", "v3.0")
+
+	if len(versions) == 0 {
+		t.Error("Expected at least one version for nvidia-device-plugin azurelinux v3.0, got 0")
+	}
+
+	// Should contain the expected version from components.json
+	found := false
+	expectedVersion := "0.17.4-1.azl3"
+	for _, version := range versions {
+		if version == expectedVersion {
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		t.Errorf("Expected to find version %s in versions %v", expectedVersion, versions)
+	}
+}
+
+func TestGetExpectedPackageVersions_UbuntuComparison(t *testing.T) {
+	// Test that Ubuntu versions still work (they don't have dots in release)
+	versionsUbuntu2204 := GetExpectedPackageVersions("nvidia-device-plugin", "ubuntu", "r2204")
+	versionsUbuntu2404 := GetExpectedPackageVersions("nvidia-device-plugin", "ubuntu", "r2404")
+
+	if len(versionsUbuntu2204) == 0 {
+		t.Error("Expected at least one version for nvidia-device-plugin ubuntu r2204, got 0")
+	}
+
+	if len(versionsUbuntu2404) == 0 {
+		t.Error("Expected at least one version for nvidia-device-plugin ubuntu r2404, got 0")
+	}
+}
