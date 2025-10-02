@@ -1019,7 +1019,7 @@ assert_refresh_token() {
     if [ -n "$decoded_token" ]; then
         # Check if permissions field exists (RBAC token vs ABAC token)
         local has_permissions=$(echo "$decoded_token" | jq -r 'has("permissions")' 2>/dev/null)
-        if [ "$has_permissions" == "true" ]; then
+        if [ "$has_permissions" = "true" ]; then
             echo "RBAC token detected, validating permissions"
             
             for action in "${required_actions[@]}"; do
