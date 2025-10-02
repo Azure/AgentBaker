@@ -138,11 +138,11 @@ func (a *App) writeCompleteFileOnError(err error) {
 	if _, statErr := os.Stat(provisionCompleteFilePath); statErr == nil {
 		return // already exists
 	} else if !errors.Is(statErr, os.ErrNotExist) { // unexpected error
-		slog.Error("failed to stat provision.complete file", "error", statErr)
+		slog.Error("failed to stat provision.complete file", "path", provisionCompleteFilePath, "error", statErr)
 		return
 	}
 	if writeErr := os.WriteFile(provisionCompleteFilePath, []byte{}, 0600); writeErr != nil {
-		slog.Error("failed to write provision.complete file", "error", writeErr)
+		slog.Error("failed to write provision.complete file", "path", provisionCompleteFilePath, "error", writeErr)
 	}
 }
 
