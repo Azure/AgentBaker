@@ -231,6 +231,46 @@ Describe 'cse_helpers.sh'
             The variable KUBELET_NODE_LABELS should equal ''
         End
     End
+
+    Describe 'assert_refresh_token'
+        # Helper function to create a mock JWT token
+        # Usage: create_mock_jwt_token '{"permissions":{"Actions":["read","pull"]}}'
+        create_mock_jwt_token() {
+            local payload="$1"
+            # JWT format: header.payload.signature
+            # We only care about the payload for this test
+            local header='{"alg":"none","typ":"JWT"}'
+            local encoded_header=$(printf '%s' "$header" | base64 -w0 | tr '+/' '-_' | tr -d '=')
+            local encoded_payload=$(printf '%s' "$payload" | base64 -w0 | tr '+/' '-_' | tr -d '=')
+            local signature="mock_signature"
+            printf '%s.%s.%s' "$encoded_header" "$encoded_payload" "$signature"
+        }
+
+        It 'should fail for no read RBAC token'
+            # Create a token with permissions but without "read"
+            local token=$(create_mock_jwt_token '{"permissions":{"Actions":["delete"]}}')
+            When run assert_refresh_token "$token" "read"
+            The status should equal 212  # ERR_ORAS_PULL_UNAUTHORIZED
+            The stdout should include "Required action 'read' not found in token permissions"
+        End
+
+        It 'should pass read RBAC token'
+            # Create a token with permissions including "read"
+            local token=$(create_mock_jwt_token '{"permissions":{"Actions":["read", "delete"]}}')
+            When run assert_refresh_token "$token" "read"
+            The status should be success
+            The stdout should include "Token validation passed"
+        End
+
+        It 'should pass ABAC token'
+            # Create a token without permissions field (ABAC token)
+            local token=$(create_mock_jwt_token '{"sub":"test@example.com","exp":1234567890}')
+            When run assert_refresh_token "$token" "read"
+            The status should be success
+            The stdout should include "No permissions.Actions found in token. Assuming ABAC token"
+        End
+    End
+
     Describe 'oras_login_with_kubelet_identity'
         It 'should return if client_id or tenant_id is empty'
             local acr_url="unneeded.azurecr.io"
