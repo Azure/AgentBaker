@@ -469,10 +469,18 @@ while IFS= read -r p; do
       ;;
     "datacenter-gpu-manager-exporter")
       for version in ${PACKAGE_VERSIONS[@]}; do
-        if [ "${OS}" = "${UBUNTU_OS_NAME}" ] || isMarinerOrAzureLinux "$OS"; then
+        if [ "${OS}" = "${UBUNTU_OS_NAME}" ]; then
           downloadPkgFromVersion "datacenter-gpu-manager-exporter" "${version}" "${downloadDir}"
         fi
         echo "  - datacenter-gpu-manager-exporter version ${version}" >> ${VHD_LOGS_FILEPATH}
+      done
+      ;;
+    "dcgm-exporter")
+      for version in ${PACKAGE_VERSIONS[@]}; do
+        if isMarinerOrAzureLinux "$OS"; then
+          downloadPkgFromVersion "dcgm-exporter" "${version}" "${downloadDir}"
+        fi
+        echo "  - dcgm-exporter version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
     *)

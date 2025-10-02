@@ -1605,8 +1605,8 @@
           "v3.0": {
             "versionsV2": [
               {
-                "renovateTag": "RPM_registry=https://developer.download.nvidia.com/compute/cuda/repos/azl3/x86_64/repodata, name=datacenter-gpu-manager-exporter, repository=nvidia, os=azurelinux, release=3.0",
-                "latestVersion": "4.5.2-1"
+                "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=dcgm-exporter, os=azurelinux, release=3.0",
+                "latestVersion": "4.5.2-1.azl3"
               }
             ]
           }

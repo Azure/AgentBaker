@@ -116,6 +116,15 @@ updateAptWithNvidiaPkg() {
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
 }
 
+dcgm_package_list() {
+    packages=(
+        datacenter-gpu-manager-4-core
+        datacenter-gpu-manager-4-proprietary
+        datacenter-gpu-manager-exporter
+    )
+    echo "${packages[@]}"
+}
+
 installNvidiaDCGMPkgFromCache() {
     for packageName in $(dcgm_package_list); do
         downloadDir="/opt/${packageName}/downloads"
