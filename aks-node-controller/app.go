@@ -52,15 +52,15 @@ func (a *App) Run(ctx context.Context, args []string) int {
 	return exitCode
 }
 
-func (a *App) run(ctx context.Context, args []string) (err error) {
+func (a *App) run(ctx context.Context, args []string) error {
 	if len(args) < 2 {
 		return errors.New("missing command argument")
 	}
 	switch args[1] {
 	case "provision":
+		var err error
 		// Ensure provision-wait is unblocked if we error before provisioning scripts create provision.complete
 		defer a.notifyProvisionFailure(&err)
-
 		fs := flag.NewFlagSet("provision", flag.ContinueOnError)
 		provisionConfig := fs.String("provision-config", "", "path to the provision config file")
 		dryRun := fs.Bool("dry-run", false, "print the command that would be run without executing it")
@@ -138,7 +138,7 @@ func (a *App) notifyProvisionFailure(runErr *error) {
 		slog.Error("failed to stat provision.complete file", "error", statErr)
 		return
 	}
-	if writeErr := os.WriteFile(provisionCompleteFilePath, []byte{}, 0644); writeErr != nil {
+	if writeErr := os.WriteFile(provisionCompleteFilePath, []byte{}, 0600); writeErr != nil {
 		slog.Error("failed to write provision.complete file", "error", writeErr)
 	}
 }
@@ -147,7 +147,7 @@ func (a *App) ProvisionWait(ctx context.Context, filepaths ProvisionStatusFiles)
 	if _, err := os.Stat(filepaths.ProvisionCompleteFile); err == nil {
 		data, err := os.ReadFile(filepaths.ProvisionJSONFile)
 		if err != nil {
-			return "", fmt.Errorf("failed to read provision.json: %w. One reason could be that AKSNodeConfig is not properly set.", err)
+			return "", fmt.Errorf("failed to read provision.json: %w. One reason could be that AKSNodeConfig is not properly set", err)
 		}
 		return string(data), nil
 	}
@@ -171,7 +171,7 @@ func (a *App) ProvisionWait(ctx context.Context, filepaths ProvisionStatusFiles)
 			if event.Op&fsnotify.Create == fsnotify.Create && event.Name == filepaths.ProvisionCompleteFile {
 				data, err := os.ReadFile(filepaths.ProvisionJSONFile)
 				if err != nil {
-					return "", fmt.Errorf("failed to read provision.json: %w. One reason could be that AKSNodeConfig is not properly set.", err)
+					return "", fmt.Errorf("failed to read provision.json: %w. One reason could be that AKSNodeConfig is not properly set", err)
 				}
 				return string(data), nil
 			}
