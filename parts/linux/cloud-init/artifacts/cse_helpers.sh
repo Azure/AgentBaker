@@ -1015,19 +1015,24 @@ assert_refresh_token() {
     esac
     decoded_token=$(echo "$token_payload" | base64 -d 2>/dev/null)
     
-    # Check if permissions.Actions exists and contains all required actions
+    # Check if permissions.actions exists and contains all required actions
     if [ -n "$decoded_token" ]; then
-        permissions_actions=$(echo "$decoded_token" | jq -r '.permissions.actions // empty' 2>/dev/null)
-        if [ -n "$permissions_actions" ]; then
-            echo "refresh token permissions: $permissions_actions"
+        # Check if permissions field exists (RBAC token vs ABAC token)
+        local has_permissions=$(echo "$decoded_token" | jq -r 'has("permissions")' 2>/dev/null)
+        if [ "$has_permissions" == "true" ]; then
+            echo "RBAC token detected, validating permissions"
             
-            # Check if all required actions are present
             for action in "${required_actions[@]}"; do
-                if [[ ! "$permissions_actions" =~ "$action" ]]; then
-                    echo "refresh token does not have $action permission"
+                local action_exists=$(echo "$decoded_token" | jq -r --arg action "$action" \
+                    '(.permissions.actions // []) | contains([$action])' 2>/dev/null)
+                if [ "$action_exists" != "true" ]; then
+                    echo "Required action '$action' not found in token permissions"
                     return $ERR_ORAS_PULL_UNAUTHORIZED
                 fi
             done
+            echo "Token validation passed: all required actions present"
+        else
+            echo "No permissions field found in token. Assuming ABAC token, skipping permission validation"
         fi
     fi
     return 0

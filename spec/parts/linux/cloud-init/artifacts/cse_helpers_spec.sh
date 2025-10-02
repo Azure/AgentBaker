@@ -234,7 +234,7 @@ Describe 'cse_helpers.sh'
 
     Describe 'assert_refresh_token'
         # Helper function to create a mock JWT token
-        # Usage: create_mock_jwt_token '{"permissions":{"Actions":["read","pull"]}}'
+        # Usage: create_mock_jwt_token '{"permissions":{"actions":["read","pull"]}}'
         create_mock_jwt_token() {
             local payload="$1"
             # JWT format: header.payload.signature
@@ -248,7 +248,7 @@ Describe 'cse_helpers.sh'
 
         It 'should fail for no read RBAC token'
             # Create a token with permissions but without "read"
-            local token=$(create_mock_jwt_token '{"permissions":{"Actions":["delete"]}}')
+            local token=$(create_mock_jwt_token '{"permissions":{"actions":["delete"]}}')
             When run assert_refresh_token "$token" "read"
             The status should equal 212  # ERR_ORAS_PULL_UNAUTHORIZED
             The stdout should include "Required action 'read' not found in token permissions"
@@ -256,7 +256,7 @@ Describe 'cse_helpers.sh'
 
         It 'should pass read RBAC token'
             # Create a token with permissions including "read"
-            local token=$(create_mock_jwt_token '{"permissions":{"Actions":["read", "delete"]}}')
+            local token=$(create_mock_jwt_token '{"permissions":{"actions":["read", "delete"]}}')
             When run assert_refresh_token "$token" "read"
             The status should be success
             The stdout should include "Token validation passed"
@@ -267,7 +267,7 @@ Describe 'cse_helpers.sh'
             local token=$(create_mock_jwt_token '{"sub":"test@example.com","exp":1234567890}')
             When run assert_refresh_token "$token" "read"
             The status should be success
-            The stdout should include "No permissions.Actions found in token. Assuming ABAC token"
+            The stdout should include "No permissions.actions found in token. Assuming ABAC token"
         End
     End
 
