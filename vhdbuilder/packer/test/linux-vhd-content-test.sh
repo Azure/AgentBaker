@@ -782,9 +782,9 @@ testPkgDownloaded() {
   downloadLocation="/opt/${packageName}/downloads"
   for packageVersion in "${packageVersions[@]}"; do
     echo "checking package version: $packageVersion ..."
+    # Strip epoch (e.g., 1:4.4.1-1 -> 4.4.1-1)
+    packageVersion="${packageVersion#*:}"
     if [ $OS = $UBUNTU_OS_NAME ]; then
-      # Strip epoch (e.g., 1:4.4.1-1 -> 4.4.1-1)
-      packageVersion="${packageVersion#*:}"
       debFile=$(find "${downloadLocation}" -maxdepth 1 -name "${packageName}_${packageVersion}*" -print -quit 2>/dev/null) || debFile=""
       if [ -z "${debFile}" ]; then
         err $test "Package ${packageName}_${packageVersion} does not exist, content of downloads dir is $(ls -al ${downloadLocation})"
