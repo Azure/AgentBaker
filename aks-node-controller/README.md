@@ -88,20 +88,20 @@ Clients need to provide CSE and Custom Data. [nodeconfigutils](pkg/nodeconfiguti
 
 1. Custom Data: Contains base64 encoded bootstrap configuration of type [aksnodeconfigv1.Configuration](pkg/gen/aksnodeconfig/v1) in json format which is placed on the node through cloud-init write directive.
 
-Format:
-```yaml
-#cloud-config
-write_files:
-- path: /opt/azure/containers/aks-node-controller-config.json
-  permissions: "0755"
-  owner: root
-  content: !!binary |
-   {{ encodedAKSNodeConfig }}`
-```
+    Format:
+    ```yaml
+    #cloud-config
+    write_files:
+    - path: /opt/azure/containers/aks-node-controller-config.json
+    permissions: "0755"
+    owner: root
+    content: !!binary |
+    {{ encodedAKSNodeConfig }}`
+    ```
 
 2. CSE: Script used to poll bootstrap status and return exit status once complete.
 
-CSE script: `/opt/azure/containers/aks-node-controller provision-wait`
+   CSE script: `/opt/azure/containers/aks-node-controller provision-wait`
 
 
 #### Provisioning flow diagram:
@@ -134,5 +134,7 @@ Key components:
 1. `aks-node-controller.service`: systemd unit that is triggered once cloud-init is complete (guaranteeing that config is present on disk) and then kickstarts bootstrapping.
 2. `aks-node-controller` go binary with two modes:
 
-- **provision**: parses the node config and triggers bootstrap process
-- **provision-wait**: waits for `provision.complete` to be present and reads `provision.json` which contains the provision output of type `CSEStatus` and is returned by CSE through capturing stdout
+- **provision**: parses the node config and triggers bootstrap process.
+  - `aks-node-controller` will try its best to parse `aksnodeconfigv1`, even with some unexpected situations, e.g., unknown fields in the config, unknown enum values, etc. This is to support backward compatibility where `aksnodeconfigv1` is newer than the one used in `aks-node-controller` in an older VHD node image.
+  - If `aks-node-controller` can't handle the `aksnodeconfigv1` properly, e.g., the config version is different from the expected version, it will return early by creating the `provision.complete` to notify the `provision-wait` to stop waiting and get the provision error. 
+- **provision-wait**: waits for `provision.complete` to be present and reads `provision.json` which contains the provision output of type `CSEStatus` and is returned by CSE through capturing stdout.
