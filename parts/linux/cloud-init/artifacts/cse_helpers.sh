@@ -410,31 +410,23 @@ retrycmd_oras_login() {
     return $exit_code
 }
 
+retrycmd_can_oras_ls_acr_anonymously() {
+    retries=$1; wait_sleep=$2; acr_url=$3
 
-retrycmd_can_oras_fetch_image() {
-    retries=$1; wait_sleep=$2; registry_host=$3
-    
-    # List of image references to try fetching
-    local image_refs=(
-        "oss/binaries/kubernetes/kubernetes-node:v1.34.0-rc.1-linux-amd64"
-        "aks/packages/kubernetes/kubectl:v1.34.0"
-    )
-    
     for i in $(seq 1 $retries); do
-        for image_ref in "${image_refs[@]}"; do
-            local full_image="${registry_host}/${image_ref}"
-            output=$(timeout 60 oras manifest fetch "$full_image" --registry-config "$ORAS_REGISTRY_CONFIG_FILE" --descriptor 2>&1)
-            if [ "$?" -eq 0 ]; then
-                echo "$registry_host is reachable"
-                return 0
-            fi
-        done
-        
-        if [ $i -lt $retries ]; then
-            sleep $wait_sleep
+        # Logout first to ensure insufficient ABAC token won't affect anonymous judging
+        oras logout "$acr_url" --registry-config "${ORAS_REGISTRY_CONFIG_FILE}" 2>/dev/null || true
+        output=$(timeout 60 oras repo ls "$url" --registry-config "$ORAS_REGISTRY_CONFIG_FILE" 2>&1)
+        if [ "$?" -eq 0 ]; then
+            echo "acr is anonymously reachable"
+            return 0
+        fi
+        # shellcheck disable=SC3010
+        if [[ "$output" == *"unauthorized: authentication required"* ]]; then
+            echo "ACR is not anonymously reachable: $output"
+            return 1
         fi
     done
-    
     echo "unexpected response from acr: $output"
     return $ERR_ORAS_PULL_NETWORK_TIMEOUT
 }
@@ -1008,6 +1000,41 @@ update_base_url() {
   echo "$initial_url"
 }
 
+assert_refresh_token() {
+    local refresh_token=$1
+    shift
+    local required_actions=("$@")
+
+    # Decode the refresh token (JWT format: header.payload.signature)
+    # Extract the payload (second part) and decode from base64
+    token_payload=$(echo "$refresh_token" | cut -d'.' -f2)
+    # Add padding if needed for base64 decoding
+    case $((${#token_payload} % 4)) in
+        2) token_payload="${token_payload}==" ;;
+        3) token_payload="${token_payload}=" ;;
+    esac
+    decoded_token=$(echo "$token_payload" | base64 -d 2>/dev/null)
+    
+    # Check if permissions.Actions exists and contains all required actions
+    if [ -n "$decoded_token" ]; then
+        permissions_actions=$(echo "$decoded_token" | jq -r '.permissions.Actions // empty' 2>/dev/null)
+        if [ -n "$permissions_actions" ]; then
+            # Join permissions array with commas and echo
+            joined_permissions=$(echo "$decoded_token" | jq -r '.permissions.Actions | join(",")' 2>/dev/null)
+            echo "refresh token permissions: $joined_permissions"
+            
+            # Check if all required actions are present
+            for action in "${required_actions[@]}"; do
+                if [[ ! "$permissions_actions" =~ "$action" ]]; then
+                    echo "refresh token does not have $action permission"
+                    return $ERR_ORAS_PULL_UNAUTHORIZED
+                fi
+            done
+        fi
+    fi
+    return 0
+}
+
 oras_login_with_kubelet_identity() {
     local acr_url=$1
     local client_id=$2
@@ -1018,7 +1045,7 @@ oras_login_with_kubelet_identity() {
         return
     fi
 
-    retrycmd_can_oras_fetch_image 10 5 $acr_url
+    retrycmd_can_oras_ls_acr_anonymously 10 5 $acr_url
     ret_code=$?
     if [ "$ret_code" -eq 0 ]; then
         echo "anonymous pull is allowed for acr '$acr_url', proceeding with anonymous pull"
@@ -1056,6 +1083,13 @@ oras_login_with_kubelet_identity() {
     REFRESH_TOKEN=$(echo "$raw_refresh_token" | jq -r .refresh_token)
     if [ -z "$REFRESH_TOKEN" ] || [ "$REFRESH_TOKEN" = "null" ]; then
         echo "failed to parse refresh token"
+        return $ERR_ORAS_PULL_UNAUTHORIZED
+    fi
+
+    # Pre-validate refresh token has required RBAC access to pull.
+    # If ABAC token issued, no way to pre-validate access
+    assert_refresh_token "$REFRESH_TOKEN" "read"
+    if [ "$?" -ne 0 ]; then
         return $ERR_ORAS_PULL_UNAUTHORIZED
     fi
 

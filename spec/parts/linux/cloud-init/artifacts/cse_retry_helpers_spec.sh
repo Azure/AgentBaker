@@ -32,7 +32,7 @@ Describe 'long running cse helper functions'
             "retrycmd_get_aad_access_token" $ERR_ORAS_IMDS_TIMEOUT 1 1 "http://nonexistent.local/token"
             "retrycmd_get_refresh_token_for_oras" $ERR_ORAS_PULL_NETWORK_TIMEOUT 1 1 "dummy.registry" "tenant-id" "fake-token"
             "retrycmd_curl_file"    1 1 1 1 "/tmp/nonexistent" "https://dummy.url/file"
-            "retrycmd_can_oras_fetch_image"  $ERR_ORAS_PULL_NETWORK_TIMEOUT 1 1 "dummy.registry"
+            "retrycmd_can_oras_ls_acr_anonymously"  $ERR_ORAS_PULL_NETWORK_TIMEOUT 1 1 "dummy.registry"
             "retrycmd_cp_oci_layout_with_oras"  $ERR_PULL_POD_INFRA_CONTAINER_IMAGE 1 1 "/tmp/nonexistent" "tag" "dummy.registry/binary:v1"
         End
 
