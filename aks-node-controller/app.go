@@ -52,18 +52,26 @@ func (a *App) Run(ctx context.Context, args []string) int {
 	return exitCode
 }
 
-func (a *App) run(ctx context.Context, args []string) error {
+func (a *App) run(ctx context.Context, args []string) (err error) {
 	if len(args) < 2 {
 		return errors.New("missing command argument")
 	}
 	switch args[1] {
 	case "provision":
+		// Notify provision-wait mode if error occurs before running CSE
+		defer func() {
+			if err != nil {
+				//best-effort to notify provision-wait mode so that it doesn't wait until timeout
+				if writeErr := os.WriteFile(provisionCompleteFilePath, []byte{}, 0644); writeErr != nil {
+					slog.Error("failed to write provision complete file", "error", writeErr)
+				}
+			}
+		}()
 		fs := flag.NewFlagSet("provision", flag.ContinueOnError)
 		provisionConfig := fs.String("provision-config", "", "path to the provision config file")
 		dryRun := fs.Bool("dry-run", false, "print the command that would be run without executing it")
-		err := fs.Parse(args[2:])
-		if err != nil {
-			return fmt.Errorf("parse args: %w", err)
+		if parseErr := fs.Parse(args[2:]); parseErr != nil {
+			return fmt.Errorf("parse args: %w", parseErr)
 		}
 		if provisionConfig == nil || *provisionConfig == "" {
 			return errors.New("--provision-config is required")
@@ -71,14 +79,15 @@ func (a *App) run(ctx context.Context, args []string) error {
 		if dryRun != nil && *dryRun {
 			a.cmdRunner = cmdRunnerDryRun
 		}
-		return a.Provision(ctx, ProvisionFlags{ProvisionConfig: *provisionConfig})
+		err = a.Provision(ctx, ProvisionFlags{ProvisionConfig: *provisionConfig})
+		return err
 	case "provision-wait":
 		provisionStatusFiles := ProvisionStatusFiles{ProvisionJSONFile: provisionJSONFilePath, ProvisionCompleteFile: provisionCompleteFilePath}
-		provisionOutput, err := a.ProvisionWait(ctx, provisionStatusFiles)
+		provisionOutput, waitErr := a.ProvisionWait(ctx, provisionStatusFiles)
 		//nolint:forbidigo // stdout is part of the interface
 		fmt.Println(provisionOutput)
 		slog.Info("provision-wait finished", "provisionOutput", provisionOutput)
-		return err
+		return waitErr
 	default:
 		return fmt.Errorf("unknown command: %s", args[1])
 	}
@@ -116,7 +125,6 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) error {
 	if cmd.ProcessState != nil {
 		exitCode = cmd.ProcessState.ExitCode()
 	}
-	// Is it ok to log a single line? Is it too much?
 	slog.Info("CSE finished", "exitCode", exitCode, "stdout", stdoutBuf.String(), "stderr", stderrBuf.String(), "error", err)
 	return err
 }
@@ -125,7 +133,7 @@ func (a *App) ProvisionWait(ctx context.Context, filepaths ProvisionStatusFiles)
 	if _, err := os.Stat(filepaths.ProvisionCompleteFile); err == nil {
 		data, err := os.ReadFile(filepaths.ProvisionJSONFile)
 		if err != nil {
-			return "", fmt.Errorf("failed to read provision.json: %w", err)
+			return "", fmt.Errorf("failed to read provision.json: %w. One reason could be that AKSNodeConfig is not properly set.", err)
 		}
 		return string(data), nil
 	}
@@ -134,12 +142,9 @@ func (a *App) ProvisionWait(ctx context.Context, filepaths ProvisionStatusFiles)
 	if err != nil {
 		return "", fmt.Errorf("failed to create watcher: %w", err)
 	}
-	defer watcher.Close()
-
 	// Watch the directory containing the provision complete file
 	dir := filepath.Dir(filepaths.ProvisionCompleteFile)
-	err = os.MkdirAll(dir, 0755) // create the directory if it doesn't exist
-	if err != nil {
+	if err = os.MkdirAll(dir, 0755); err != nil { // create the directory if it doesn't exist
 		return "", fmt.Errorf("failed to create directory %s: %w", dir, err)
 	}
 	if err = watcher.Add(dir); err != nil {
@@ -152,7 +157,7 @@ func (a *App) ProvisionWait(ctx context.Context, filepaths ProvisionStatusFiles)
 			if event.Op&fsnotify.Create == fsnotify.Create && event.Name == filepaths.ProvisionCompleteFile {
 				data, err := os.ReadFile(filepaths.ProvisionJSONFile)
 				if err != nil {
-					return "", fmt.Errorf("failed to read provision.json: %w", err)
+					return "", fmt.Errorf("failed to read provision.json: %w. One reason could be that AKSNodeConfig is not properly set.", err)
 				}
 				return string(data), nil
 			}
