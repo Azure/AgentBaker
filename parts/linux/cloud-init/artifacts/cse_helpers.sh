@@ -1104,12 +1104,6 @@ oras_login_with_kubelet_identity() {
     unset ACCESS_TOKEN REFRESH_TOKEN  # Clears sensitive data from memory
     set -x
 
-    retrycmd_can_oras_fetch_image 10 5 $acr_url
-    if [ "$?" -ne 0 ]; then
-        echo "failed to login to acr '$acr_url', pull is still unauthorized"
-        return $ERR_ORAS_PULL_UNAUTHORIZED
-    fi
-
     echo "successfully logged in to acr '$acr_url' with identity token"
 }
 

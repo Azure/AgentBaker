@@ -267,7 +267,7 @@ Describe 'cse_helpers.sh'
             local token=$(create_mock_jwt_token '{"sub":"test@example.com","exp":1234567890}')
             When run assert_refresh_token "$token" "read"
             The status should be success
-            The stdout should include "No permissions.actions found in token. Assuming ABAC token"
+            The stdout should include "No permissions field found in token. Assuming ABAC token, skipping permission validation"
         End
     End
 
