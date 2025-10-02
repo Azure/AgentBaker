@@ -416,7 +416,7 @@ retrycmd_can_oras_ls_acr_anonymously() {
     for i in $(seq 1 $retries); do
         # Logout first to ensure insufficient ABAC token won't affect anonymous judging
         oras logout "$acr_url" --registry-config "${ORAS_REGISTRY_CONFIG_FILE}" 2>/dev/null || true
-        output=$(timeout 60 oras repo ls "$url" --registry-config "$ORAS_REGISTRY_CONFIG_FILE" 2>&1)
+        output=$(timeout 60 oras repo ls "$acr_url" --registry-config "$ORAS_REGISTRY_CONFIG_FILE" 2>&1)
         if [ "$?" -eq 0 ]; then
             echo "acr is anonymously reachable"
             return 0
