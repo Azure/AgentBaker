@@ -1970,12 +1970,20 @@ func Test_AzureLinux3OSGuard_PMC_Install(t *testing.T) {
 	})
 }
 
-func getDCGMPackageNames() []string {
-	return []string{
+func getDCGMPackageNames(os string) []string {
+	packages := []string{
 		"datacenter-gpu-manager-4-core",
 		"datacenter-gpu-manager-4-proprietary",
-		"datacenter-gpu-manager-exporter",
 	}
+
+	switch os {
+	case "ubuntu":
+		packages = append(packages, "datacenter-gpu-manager-exporter")
+	case "azurelinux":
+		packages = append(packages, "dcgm-exporter")
+	}
+
+	return packages
 }
 
 func Test_Ubuntu2404NvidiaDCGMExporterRunning(t *testing.T) {
@@ -2001,8 +2009,9 @@ func Test_Ubuntu2404NvidiaDCGMExporterRunning(t *testing.T) {
 				vmss.Tags["EnableManagedGPUExperience"] = to.Ptr("true")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				for _, packageName := range getDCGMPackageNames() {
-					ValidateInstalledPackageVersion(ctx, s, packageName, components.GetExpectedPackageVersions(packageName, "ubuntu", "r2404")[0])
+				os := "ubuntu"
+				for _, packageName := range getDCGMPackageNames(os) {
+					ValidateInstalledPackageVersion(ctx, s, packageName, components.GetExpectedPackageVersions(packageName, os, "r2404")[0])
 				}
 
 				ValidateNvidiaDCGMExporterSystemDServiceRunning(ctx, s)
@@ -2035,8 +2044,9 @@ func Test_Ubuntu2204NvidiaDCGMExporterRunning(t *testing.T) {
 				vmss.Tags["EnableManagedGPUExperience"] = to.Ptr("true")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				for _, packageName := range getDCGMPackageNames() {
-					ValidateInstalledPackageVersion(ctx, s, packageName, components.GetExpectedPackageVersions(packageName, "ubuntu", "r2204")[0])
+				os := "ubuntu"
+				for _, packageName := range getDCGMPackageNames(os) {
+					ValidateInstalledPackageVersion(ctx, s, packageName, components.GetExpectedPackageVersions(packageName, os, "r2204")[0])
 				}
 
 				ValidateNvidiaDCGMExporterSystemDServiceRunning(ctx, s)
@@ -2069,8 +2079,9 @@ func Test_AzureLinux3NvidiaDCGMExporterRunning(t *testing.T) {
 				vmss.Tags["EnableManagedGPUExperience"] = to.Ptr("true")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				for _, packageName := range getDCGMPackageNames() {
-					ValidateInstalledPackageVersion(ctx, s, packageName, components.GetExpectedPackageVersions(packageName, "azurelinux", "current")[0])
+				os := "azurelinux"
+				for _, packageName := range getDCGMPackageNames(os) {
+					ValidateInstalledPackageVersion(ctx, s, packageName, components.GetExpectedPackageVersions(packageName, os, "current")[0])
 				}
 
 				ValidateNvidiaDCGMExporterSystemDServiceRunning(ctx, s)

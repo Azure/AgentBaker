@@ -201,6 +201,15 @@ updateDnfWithNvidiaPkg() {
   dnf_makecache || exit $ERR_APT_UPDATE_TIMEOUT
 }
 
+dcgm_package_list() {
+    packages=(
+        datacenter-gpu-manager-4-core
+        datacenter-gpu-manager-4-proprietary
+        dcgm-exporter
+    )
+    echo "${packages[@]}"
+}
+
 installNvidiaDCGMPkgFromCache() {
   for packageName in $(dcgm_package_list); do
     downloadDir="/opt/${packageName}/downloads"

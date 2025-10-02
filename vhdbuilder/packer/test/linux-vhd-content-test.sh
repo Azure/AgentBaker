@@ -229,7 +229,8 @@ testPackagesInstalled() {
       "nvidia-device-plugin"|\
       "datacenter-gpu-manager-4-core"|\
       "datacenter-gpu-manager-4-proprietary"|\
-      "datacenter-gpu-manager-exporter")
+      "datacenter-gpu-manager-exporter"|\
+      "dcgm-exporter")
         testPkgDownloaded "${name}" "${PACKAGE_VERSIONS[@]}"
         continue
         ;;
