@@ -4,7 +4,6 @@
       "text": "Follow the commit message conventions of the project, fetch from https://www.conventionalcommits.org/",
     }
   ],
-
   "github.copilot.chat.codeGeneration.instructions": [
     {
       "text": "Generate code that is efficient and follows best practices.",
@@ -73,5 +72,8 @@
     {
       "text": "4. Commit with message 'test: update testdata'",
     }
-  ]
+  ],
+  "files.trimTrailingWhitespace": true,
+  "files.trimTrailingWhitespaceInRegexAndStrings": true,
+  "files.insertFinalNewline": true
 }
