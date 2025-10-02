@@ -58,22 +58,9 @@ func (a *App) run(ctx context.Context, args []string) error {
 	}
 	switch args[1] {
 	case "provision":
-		var err error
-		// Ensure provision-wait is unblocked if we error before provisioning scripts create provision.complete
-		defer a.notifyProvisionFailure(&err)
-		fs := flag.NewFlagSet("provision", flag.ContinueOnError)
-		provisionConfig := fs.String("provision-config", "", "path to the provision config file")
-		dryRun := fs.Bool("dry-run", false, "print the command that would be run without executing it")
-		if parseErr := fs.Parse(args[2:]); parseErr != nil {
-			return fmt.Errorf("parse args: %w", parseErr)
-		}
-		if provisionConfig == nil || *provisionConfig == "" {
-			return errors.New("--provision-config is required")
-		}
-		if dryRun != nil && *dryRun {
-			a.cmdRunner = cmdRunnerDryRun
-		}
-		err = a.Provision(ctx, ProvisionFlags{ProvisionConfig: *provisionConfig})
+		err := a.runProvision(ctx, args[2:])
+		// Always notify after provisioning attempt (success is a no-op inside notifier)
+		a.writeCompleteFileOnError(err)
 		return err
 	case "provision-wait":
 		provisionStatusFiles := ProvisionStatusFiles{ProvisionJSONFile: provisionJSONFilePath, ProvisionCompleteFile: provisionCompleteFilePath}
@@ -123,18 +110,34 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) error {
 	return err
 }
 
-// notifyProvisionFailure creates the provision.complete sentinel file if a provisioning
-// error occurred before the normal provisioning scripts had a chance to write it.
-// This prevents the provision-wait mode from blocking until timeout when we fail fast
-// (e.g. due to invalid or unsupported configuration).
-func (a *App) notifyProvisionFailure(runErr *error) {
-	if runErr == nil || *runErr == nil { // success path or nil pointer
+// runProvision encapsulates argument parsing and execution for the "provision" subcommand.
+// It returns an error describing any failure; callers should pass that error to
+// writeCompleteFileOnError so the sentinel file can be written on fail-fast paths.
+func (a *App) runProvision(ctx context.Context, args []string) error {
+	fs := flag.NewFlagSet("provision", flag.ContinueOnError)
+	provisionConfig := fs.String("provision-config", "", "path to the provision config file")
+	dryRun := fs.Bool("dry-run", false, "print the command that would be run without executing it")
+	if err := fs.Parse(args); err != nil {
+		return fmt.Errorf("parse args: %w", err)
+	}
+	if *provisionConfig == "" {
+		return errors.New("--provision-config is required")
+	}
+	if *dryRun {
+		a.cmdRunner = cmdRunnerDryRun
+	}
+	return a.Provision(ctx, ProvisionFlags{ProvisionConfig: *provisionConfig})
+}
+
+// writeCompleteFileOnError writes the provision.complete sentinel if err is non-nil,
+// allowing provision-wait mode to unblock early on fail-fast validation errors.
+func (a *App) writeCompleteFileOnError(err error) {
+	if err == nil {
 		return
 	}
-	// Avoid clobbering an existing file if provisioning scripts actually created it before the error surfaced.
 	if _, statErr := os.Stat(provisionCompleteFilePath); statErr == nil {
-		return // file already exists
-	} else if !errors.Is(statErr, os.ErrNotExist) { // unexpected stat error
+		return // already exists
+	} else if !errors.Is(statErr, os.ErrNotExist) { // unexpected error
 		slog.Error("failed to stat provision.complete file", "error", statErr)
 		return
 	}
@@ -156,6 +159,7 @@ func (a *App) ProvisionWait(ctx context.Context, filepaths ProvisionStatusFiles)
 	if err != nil {
 		return "", fmt.Errorf("failed to create watcher: %w", err)
 	}
+	defer watcher.Close()
 	// Watch the directory containing the provision complete file
 	dir := filepath.Dir(filepaths.ProvisionCompleteFile)
 	if err = os.MkdirAll(dir, 0755); err != nil { // create the directory if it doesn't exist
