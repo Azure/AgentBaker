@@ -134,7 +134,12 @@ Key components:
 1. `aks-node-controller.service`: systemd unit that is triggered once cloud-init is complete (guaranteeing that config is present on disk) and then kickstarts bootstrapping.
 2. `aks-node-controller` go binary with two modes:
 
-- **provision**: parses the node config and triggers bootstrap process.
-  - `aks-node-controller` will try its best to parse `aksnodeconfigv1`, even with some unexpected situations, e.g., unknown fields in the config, unknown enum values, etc. This is to support backward compatibility where `aksnodeconfigv1` is newer than the one used in `aks-node-controller` in an older VHD node image.
-  - If `aks-node-controller` can't handle the `aksnodeconfigv1` properly, e.g., the config version is different from the expected version, it will return early by creating the `provision.complete` to notify the `provision-wait` to stop waiting and get the provision error. 
+- **provision**: Parses the node configuration and starts the bootstrap sequence.
+    - The controller performs a tolerant (forward‑compatible) parse of `aksnodeconfigv1.Configuration`: unknown fields, additional enum values, or future‑version knobs are ignored (and may be logged) so that a newer control‑plane can talk to an older VHD image.
+    - If the config cannot be safely interpreted (e.g. unsupported `Version`, malformed required field, or incompatible schema change), the controller fails fast. It writes the sentinel file `provision.complete` early so the `provision-wait` process stops polling and can surface an error instead of hanging indefinitely.
+    - In a fail‑fast path the normal bootstrap scripts never run, therefore `provision.json` (which would contain the serialized `CSEStatus`) is never created. A typical error looks like:
+        ```
+        failed to read provision.json: open /var/log/azure/aks/provision.json: no such file or directory. One reason could be that AKSNodeConfig is not properly set.
+        ```
+        This indicates the controller exited before emitting `provision.json`. Most commonly the rendered AKSNodeConfig was missing, had the wrong `Version` (expected `v1`), or was written to the wrong path (`/opt/azure/containers/aks-node-controller-config.json`). Fix the config generation, redeploy, and the bootstrap scripts will then populate `provision.json`.
 - **provision-wait**: waits for `provision.complete` to be present and reads `provision.json` which contains the provision output of type `CSEStatus` and is returned by CSE through capturing stdout.

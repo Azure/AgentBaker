@@ -58,15 +58,9 @@ func (a *App) run(ctx context.Context, args []string) (err error) {
 	}
 	switch args[1] {
 	case "provision":
-		// Notify provision-wait mode if error occurs before running CSE
-		defer func() {
-			if err != nil {
-				//best-effort to notify provision-wait mode so that it doesn't wait until timeout
-				if writeErr := os.WriteFile(provisionCompleteFilePath, []byte{}, 0644); writeErr != nil {
-					slog.Error("failed to write provision complete file", "error", writeErr)
-				}
-			}
-		}()
+		// Ensure provision-wait is unblocked if we error before provisioning scripts create provision.complete
+		defer a.notifyProvisionFailure(&err)
+
 		fs := flag.NewFlagSet("provision", flag.ContinueOnError)
 		provisionConfig := fs.String("provision-config", "", "path to the provision config file")
 		dryRun := fs.Bool("dry-run", false, "print the command that would be run without executing it")
@@ -127,6 +121,26 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) error {
 	}
 	slog.Info("CSE finished", "exitCode", exitCode, "stdout", stdoutBuf.String(), "stderr", stderrBuf.String(), "error", err)
 	return err
+}
+
+// notifyProvisionFailure creates the provision.complete sentinel file if a provisioning
+// error occurred before the normal provisioning scripts had a chance to write it.
+// This prevents the provision-wait mode from blocking until timeout when we fail fast
+// (e.g. due to invalid or unsupported configuration).
+func (a *App) notifyProvisionFailure(runErr *error) {
+	if runErr == nil || *runErr == nil { // success path or nil pointer
+		return
+	}
+	// Avoid clobbering an existing file if provisioning scripts actually created it before the error surfaced.
+	if _, statErr := os.Stat(provisionCompleteFilePath); statErr == nil {
+		return // file already exists
+	} else if !errors.Is(statErr, os.ErrNotExist) { // unexpected stat error
+		slog.Error("failed to stat provision.complete file", "error", statErr)
+		return
+	}
+	if writeErr := os.WriteFile(provisionCompleteFilePath, []byte{}, 0644); writeErr != nil {
+		slog.Error("failed to write provision.complete file", "error", writeErr)
+	}
 }
 
 func (a *App) ProvisionWait(ctx context.Context, filepaths ProvisionStatusFiles) (string, error) {
