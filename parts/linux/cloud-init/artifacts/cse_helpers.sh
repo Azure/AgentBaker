@@ -1017,11 +1017,9 @@ assert_refresh_token() {
     
     # Check if permissions.Actions exists and contains all required actions
     if [ -n "$decoded_token" ]; then
-        permissions_actions=$(echo "$decoded_token" | jq -r '.permissions.Actions // empty' 2>/dev/null)
+        permissions_actions=$(echo "$decoded_token" | jq -r '.permissions.actions // empty' 2>/dev/null)
         if [ -n "$permissions_actions" ]; then
-            # Join permissions array with commas and echo
-            joined_permissions=$(echo "$decoded_token" | jq -r '.permissions.Actions | join(",")' 2>/dev/null)
-            echo "refresh token permissions: $joined_permissions"
+            echo "refresh token permissions: $permissions_actions"
             
             # Check if all required actions are present
             for action in "${required_actions[@]}"; do
