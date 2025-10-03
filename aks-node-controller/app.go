@@ -64,11 +64,11 @@ func (a *App) run(ctx context.Context, args []string) error {
 		return err
 	case "provision-wait":
 		provisionStatusFiles := ProvisionStatusFiles{ProvisionJSONFile: provisionJSONFilePath, ProvisionCompleteFile: provisionCompleteFilePath}
-		provisionOutput, waitErr := a.ProvisionWait(ctx, provisionStatusFiles)
+		provisionOutput, err := a.ProvisionWait(ctx, provisionStatusFiles)
 		//nolint:forbidigo // stdout is part of the interface
 		fmt.Println(provisionOutput)
 		slog.Info("provision-wait finished", "provisionOutput", provisionOutput)
-		return waitErr
+		return err
 	default:
 		return fmt.Errorf("unknown command: %s", args[1])
 	}
