@@ -15,13 +15,6 @@
     "renovate"
   ],
   "rebaseWhen": "automerging",
-  "schedule": [
-    "after 10pm every weekday",
-    "every weekend",
-    "before 5am every weekday"
-  ],
-  "updateNotScheduled": false,
-  "timezone": "America/Los_Angeles",
   "logLevelRemap": [
     {
       "matchMessage": "/^Custom manager fetcher/",
