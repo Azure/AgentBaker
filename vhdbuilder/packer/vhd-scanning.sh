@@ -96,49 +96,73 @@ if [ -z "$SCANNING_NIC_ID" ]; then
     exit 1
 fi
 
-# Enable FIPS 140-3 compliance feature if not already enabled
-echo "Checking FIPS 140-3 compliance feature registration..."
-FIPS_FEATURE_STATE=$(az feature show --namespace Microsoft.Compute --name OptInToFips1403Compliance --query 'properties.state' -o tsv 2>/dev/null || echo "NotRegistered")
-if [ "$FIPS_FEATURE_STATE" != "Registered" ]; then
-    echo "Registering FIPS 140-3 compliance feature..."
-    az feature register --namespace Microsoft.Compute --name OptInToFips1403Compliance
-    
-    # Poll until registered (timeout after 5 minutes)
-    TIMEOUT=300
-    ELAPSED=0
-    while [ "$FIPS_FEATURE_STATE" != "Registered" ] && [ $ELAPSED -lt $TIMEOUT ]; do
-        sleep 10
-        ELAPSED=$((ELAPSED + 10))
-        FIPS_FEATURE_STATE=$(az feature show --namespace Microsoft.Compute --name OptInToFips1403Compliance --query 'properties.state' -o tsv)
-        echo "Feature state: $FIPS_FEATURE_STATE (waited ${ELAPSED}s)"
-    done
-    
-    if [ "$FIPS_FEATURE_STATE" != "Registered" ]; then
-        echo "Warning: FIPS 140-3 feature registration timed out. Continuing anyway..."
-    else
-        echo "FIPS 140-3 feature registered successfully. Refreshing provider..."
-        az provider register -n Microsoft.Compute
+# Function to check if this is Ubuntu 22.04 + FIPS scenario
+is_ubuntu_2204_fips() {
+    # Check if this is Ubuntu with FIPS enabled
+    if [[ "${OS_SKU}" == "Ubuntu" ]] || [[ "${OS_SKU}" == "Ubuntu2204" ]]; then
+        # Check various FIPS indicators
+        if [[ "${OS_SKU}" == "Ubuntu2204" ]] ||
+           [[ "${SKU_NAME:-}" == *"Fips"* ]] ||
+           [[ "${SKU_NAME:-}" == *"fips"* ]] ||
+           ([[ "${FEATURE_FLAGS,,}" == *"fips"* ]] && [[ "${OS_VERSION}" == "22.04" ]]); then
+            return 0
+        fi
     fi
-else
-    echo "FIPS 140-3 compliance feature already registered"
+    return 1
+}
+
+# Only register FIPS feature for Ubuntu 22.04 + FIPS scenarios
+if is_ubuntu_2204_fips; then
+    echo "Detected Ubuntu 22.04 + FIPS scenario, enabling FIPS 140-3 compliance..."
+
+    # Enable FIPS 140-3 compliance feature if not already enabled
+    echo "Checking FIPS 140-3 compliance feature registration..."
+    FIPS_FEATURE_STATE=$(az feature show --namespace Microsoft.Compute --name OptInToFips1403Compliance --query 'properties.state' -o tsv 2>/dev/null || echo "NotRegistered")
+    if [ "$FIPS_FEATURE_STATE" != "Registered" ]; then
+        echo "Registering FIPS 140-3 compliance feature..."
+        az feature register --namespace Microsoft.Compute --name OptInToFips1403Compliance
+        
+        # Poll until registered (timeout after 5 minutes)
+        TIMEOUT=300
+        ELAPSED=0
+        while [ "$FIPS_FEATURE_STATE" != "Registered" ] && [ $ELAPSED -lt $TIMEOUT ]; do
+            sleep 10
+            ELAPSED=$((ELAPSED + 10))
+            FIPS_FEATURE_STATE=$(az feature show --namespace Microsoft.Compute --name OptInToFips1403Compliance --query 'properties.state' -o tsv)
+            echo "Feature state: $FIPS_FEATURE_STATE (waited ${ELAPSED}s)"
+        done
+        
+        if [ "$FIPS_FEATURE_STATE" != "Registered" ]; then
+            echo "Warning: FIPS 140-3 feature registration timed out. Continuing anyway..."
+        else
+            echo "FIPS 140-3 feature registered successfully. Refreshing provider..."
+            az provider register -n Microsoft.Compute
+        fi
+    else
+        echo "FIPS 140-3 compliance feature already registered"
+    fi
 fi
 
-# Prepare VM creation parameters
-VM_SIZE="Standard_D8ds_v5"
+# Create VM using appropriate method based on scenario
+if is_ubuntu_2204_fips; then
+    echo "Creating VM with FIPS 140-3 encryption using REST API..."
 
-# shellcheck disable=SC3010
-if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then
-    VM_SIZE="Standard_D8pds_v5"
-fi
+    # Prepare VM creation parameters
+    VM_SIZE="Standard_D8ds_v5"
 
-# GB200 specific VM options for scanning (uses standard ARM64 VM for now)
-if [ "${OS_TYPE}" = "Linux" ] && grep -q "GB200" <<< "$FEATURE_FLAGS"; then
-    echo "GB200: Using standard ARM64 VM options for scanning"
-    # Additional GB200-specific VM options can be added here when GB200 SKUs are available
-fi
+    # shellcheck disable=SC3010
+    if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then
+        VM_SIZE="Standard_D8pds_v5"
+    fi
 
-# Build the VM request body (simplified for FIPS testing)
-VM_BODY=$(cat <<EOF
+    # GB200 specific VM options for scanning (uses standard ARM64 VM for now)
+    if [ "${OS_TYPE}" = "Linux" ] && grep -q "GB200" <<< "$FEATURE_FLAGS"; then
+        echo "GB200: Using standard ARM64 VM options for scanning"
+        # Additional GB200-specific VM options can be added here when GB200 SKUs are available
+    fi
+
+    # Build the VM request body for FIPS scenario
+    VM_BODY=$(cat <<EOF
 {
   "location": "$PACKER_BUILD_LOCATION",
   "identity": {
@@ -183,16 +207,30 @@ VM_BODY=$(cat <<EOF
 EOF
 )
 
-# Create the VM using REST API
-echo "Creating VM using REST API..."
-az rest \
-    --method put \
-    --url "https://management.azure.com/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/virtualMachines/${SCAN_VM_NAME}?api-version=2024-11-01" \
-    --body "$VM_BODY"
+    # Create the VM using REST API
+    az rest \
+        --method put \
+        --url "https://management.azure.com/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/virtualMachines/${SCAN_VM_NAME}?api-version=2024-11-01" \
+        --body "$VM_BODY"
 
-# Wait for VM to be ready
-echo "Waiting for VM to be ready..."
-az vm wait --created --name $SCAN_VM_NAME --resource-group $RESOURCE_GROUP_NAME
+    # Wait for VM to be ready
+    echo "Waiting for VM to be ready..."
+    az vm wait --created --name $SCAN_VM_NAME --resource-group $RESOURCE_GROUP_NAME
+
+else
+    echo "Creating VM using standard az vm create command..."
+
+    # Use the standard VM creation approach for all other scenarios
+    az vm create --resource-group $RESOURCE_GROUP_NAME \
+        --name $SCAN_VM_NAME \
+        --image $VHD_IMAGE \
+        --nics $SCANNING_NIC_ID \
+        --admin-username $SCAN_VM_ADMIN_USERNAME \
+        --admin-password $SCAN_VM_ADMIN_PASSWORD \
+        --os-disk-size-gb 50 \
+        ${VM_OPTIONS} \
+        --assign-identity "${UMSI_RESOURCE_ID}"
+fi
 
 capture_benchmark "${SCRIPT_NAME}_create_scan_vm"
 set +x
