@@ -13,6 +13,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/Masterminds/semver/v3"
@@ -1858,6 +1859,8 @@ type CustomCATrustConfig struct {
 type SecureTLSBootstrappingConfig struct {
 	// Enabled indicates whether secure TLS bootstrapping is enabled.
 	Enabled bool `json:"enabled"`
+	// The deadline passed to the secure TLS bootstrap client during provisioning.
+	Deadline *time.Duration `json:"deadline,omitempty"`
 	// CustomClientDownloadURL is an optional download URL used to overwrite the
 	// secure TLS bootstrap client installation at node provisioning time.
 	CustomClientDownloadURL string `json:"customClientDownloadURL"`
