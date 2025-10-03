@@ -107,7 +107,7 @@ if is_ubuntu_2204_fips; then
     FULL_PATH=$(realpath $0)
     CDIR=$(dirname $FULL_PATH)
     source "$CDIR/fips-helper.sh"
-    
+
     # Register FIPS feature and create VM using REST API
     ensure_fips_feature_registered
     create_fips_vm
