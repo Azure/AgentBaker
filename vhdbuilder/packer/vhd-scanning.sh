@@ -108,45 +108,9 @@ if is_ubuntu_2204_fips; then
     CDIR=$(dirname $FULL_PATH)
     source "$CDIR/fips-helper.sh"
     
-    # register FIPS feature
+    # Register FIPS feature and create VM using REST API
     ensure_fips_feature_registered
-    echo "Creating VM with FIPS 140-3 encryption using REST API..."
-
-    # Prepare VM creation parameters
-    VM_SIZE="Standard_D8ds_v5"
-
-    # shellcheck disable=SC3010
-    if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then
-        VM_SIZE="Standard_D8pds_v5"
-    fi
-
-    # GB200 specific VM options for scanning (uses standard ARM64 VM for now)
-    if [ "${OS_TYPE}" = "Linux" ] && grep -q "GB200" <<< "$FEATURE_FLAGS"; then
-        echo "GB200: Using standard ARM64 VM options for scanning"
-        # Additional GB200-specific VM options can be added here when GB200 SKUs are available
-    fi
-
-    # Build the VM request body for FIPS scenario using helper function
-    VM_BODY=$(build_fips_vm_body \
-        "$PACKER_BUILD_LOCATION" \
-        "$SCAN_VM_NAME" \
-        "$SCAN_VM_ADMIN_USERNAME" \
-        "$SCAN_VM_ADMIN_PASSWORD" \
-        "$VHD_IMAGE" \
-        "$SCANNING_NIC_ID" \
-        "$UMSI_RESOURCE_ID" \
-        "$VM_SIZE")
-
-    # Create the VM using REST API
-    az rest \
-        --method put \
-        --url "https://management.azure.com/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/virtualMachines/${SCAN_VM_NAME}?api-version=2024-11-01" \
-        --body "$VM_BODY"
-
-    # Wait for VM to be ready
-    echo "Waiting for VM to be ready..."
-    az vm wait --created --name $SCAN_VM_NAME --resource-group $RESOURCE_GROUP_NAME
-
+    create_fips_vm
 else
     echo "Creating VM using standard az vm create command..."
 
