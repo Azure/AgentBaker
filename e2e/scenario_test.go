@@ -2013,12 +2013,16 @@ func Test_Ubuntu2404NvidiaDCGMExporterRunning(t *testing.T) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				os := "ubuntu"
+				osVersion := "r2404"
 				for _, packageName := range getDCGMPackageNames(os) {
-					ValidateInstalledPackageVersion(ctx, s, packageName, components.GetExpectedPackageVersions(packageName, os, "r2404")[0])
+					versions := components.GetExpectedPackageVersions(packageName, os, osVersion)
+					require.Lenf(s.T, versions, 1, "Expected exactly one %s version for %s %s but got %d", packageName, os, osVersion, len(versions))
+					ValidateInstalledPackageVersion(ctx, s, packageName, versions[0])
 				}
 
 				ValidateNvidiaDCGMExporterSystemDServiceRunning(ctx, s)
 				ValidateNvidiaDCGMExporterIsScrapable(ctx, s)
+				ValidateNvidiaDCGMExporterScrapeCommonMetric(ctx, s)
 			},
 		},
 	})
@@ -2048,12 +2052,16 @@ func Test_Ubuntu2204NvidiaDCGMExporterRunning(t *testing.T) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				os := "ubuntu"
+				osVersion := "r2204"
 				for _, packageName := range getDCGMPackageNames(os) {
-					ValidateInstalledPackageVersion(ctx, s, packageName, components.GetExpectedPackageVersions(packageName, os, "r2204")[0])
+					versions := components.GetExpectedPackageVersions(packageName, os, osVersion)
+					require.Lenf(s.T, versions, 1, "Expected exactly one %s version for %s %s but got %d", packageName, os, osVersion, len(versions))
+					ValidateInstalledPackageVersion(ctx, s, packageName, versions[0])
 				}
 
 				ValidateNvidiaDCGMExporterSystemDServiceRunning(ctx, s)
 				ValidateNvidiaDCGMExporterIsScrapable(ctx, s)
+				ValidateNvidiaDCGMExporterScrapeCommonMetric(ctx, s)
 			},
 		},
 	})
@@ -2084,11 +2092,14 @@ func Test_AzureLinux3NvidiaDCGMExporterRunning(t *testing.T) {
 			Validator: func(ctx context.Context, s *Scenario) {
 				os := "azurelinux"
 				for _, packageName := range getDCGMPackageNames(os) {
-					ValidateInstalledPackageVersion(ctx, s, packageName, components.GetExpectedPackageVersions(packageName, os, "current")[0])
+					versions := components.GetExpectedPackageVersions(packageName, os, "current")
+					require.Lenf(s.T, versions, 1, "Expected exactly one %s version for %s but got %d", packageName, os, len(versions))
+					ValidateInstalledPackageVersion(ctx, s, packageName, versions[0])
 				}
 
 				ValidateNvidiaDCGMExporterSystemDServiceRunning(ctx, s)
 				ValidateNvidiaDCGMExporterIsScrapable(ctx, s)
+				ValidateNvidiaDCGMExporterScrapeCommonMetric(ctx, s)
 			},
 		},
 	})
