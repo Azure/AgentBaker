@@ -84,6 +84,11 @@ if [ "${OS_TYPE}" = "Linux" ] && [ "${ENABLE_TRUSTED_LAUNCH}" = "True" ]; then
     VM_OPTIONS+=" --security-type TrustedLaunch --enable-secure-boot true --enable-vtpm true"
 fi
 
+if [ "${OS_TYPE}" = "Linux" ] && grep -q "cvm" <<< "$FEATURE_FLAGS"; then
+    # We completely re-assign the VM_OPTIONS string here to ensure that no artifacts from earlier conditionals are included
+    VM_OPTIONS="--size Standard_DC8ads_v5 --security-type ConfidentialVM --enable-secure-boot true --enable-vtpm true --os-disk-security-encryption-type VMGuestStateOnly --specialized true"
+fi
+
 # GB200 specific VM options for scanning (uses standard ARM64 VM for now)
 if [ "${OS_TYPE}" = "Linux" ] && grep -q "GB200" <<< "$FEATURE_FLAGS"; then
     echo "GB200: Using standard ARM64 VM options for scanning"
@@ -96,55 +101,15 @@ if [ -z "$SCANNING_NIC_ID" ]; then
     exit 1
 fi
 
-# Function to check if this is Ubuntu 22.04 + FIPS scenario
-is_ubuntu_2204_fips() {
-    # Check if this is Ubuntu with FIPS enabled
-    if [[ "${OS_SKU}" == "Ubuntu" ]] || [[ "${OS_SKU}" == "Ubuntu2204" ]]; then
-        # Check various FIPS indicators
-        if [[ "${OS_SKU}" == "Ubuntu2204" ]] ||
-           [[ "${SKU_NAME:-}" == *"Fips"* ]] ||
-           [[ "${SKU_NAME:-}" == *"fips"* ]] ||
-           ([[ "${FEATURE_FLAGS,,}" == *"fips"* ]] && [[ "${OS_VERSION}" == "22.04" ]]); then
-            return 0
-        fi
-    fi
-    return 1
-}
-
-# Only register FIPS feature for Ubuntu 22.04 + FIPS scenarios
-if is_ubuntu_2204_fips; then
-    echo "Detected Ubuntu 22.04 + FIPS scenario, enabling FIPS 140-3 compliance..."
-
-    # Enable FIPS 140-3 compliance feature if not already enabled
-    echo "Checking FIPS 140-3 compliance feature registration..."
-    FIPS_FEATURE_STATE=$(az feature show --namespace Microsoft.Compute --name OptInToFips1403Compliance --query 'properties.state' -o tsv 2>/dev/null || echo "NotRegistered")
-    if [ "$FIPS_FEATURE_STATE" != "Registered" ]; then
-        echo "Registering FIPS 140-3 compliance feature..."
-        az feature register --namespace Microsoft.Compute --name OptInToFips1403Compliance
-        
-        # Poll until registered (timeout after 5 minutes)
-        TIMEOUT=300
-        ELAPSED=0
-        while [ "$FIPS_FEATURE_STATE" != "Registered" ] && [ $ELAPSED -lt $TIMEOUT ]; do
-            sleep 10
-            ELAPSED=$((ELAPSED + 10))
-            FIPS_FEATURE_STATE=$(az feature show --namespace Microsoft.Compute --name OptInToFips1403Compliance --query 'properties.state' -o tsv)
-            echo "Feature state: $FIPS_FEATURE_STATE (waited ${ELAPSED}s)"
-        done
-        
-        if [ "$FIPS_FEATURE_STATE" != "Registered" ]; then
-            echo "Warning: FIPS 140-3 feature registration timed out. Continuing anyway..."
-        else
-            echo "FIPS 140-3 feature registered successfully. Refreshing provider..."
-            az provider register -n Microsoft.Compute
-        fi
-    else
-        echo "FIPS 140-3 compliance feature already registered"
-    fi
-fi
-
 # Create VM using appropriate method based on scenario
 if is_ubuntu_2204_fips; then
+    # Source the FIPS helper functions
+    FULL_PATH=$(realpath $0)
+    CDIR=$(dirname $FULL_PATH)
+    source "$CDIR/fips-helper.sh"
+    
+    # register FIPS feature
+    ensure_fips_feature_registered
     echo "Creating VM with FIPS 140-3 encryption using REST API..."
 
     # Prepare VM creation parameters
@@ -161,51 +126,16 @@ if is_ubuntu_2204_fips; then
         # Additional GB200-specific VM options can be added here when GB200 SKUs are available
     fi
 
-    # Build the VM request body for FIPS scenario
-    VM_BODY=$(cat <<EOF
-{
-  "location": "$PACKER_BUILD_LOCATION",
-  "identity": {
-    "type": "UserAssigned",
-    "userAssignedIdentities": {
-      "$UMSI_RESOURCE_ID": {}
-    }
-  },
-  "properties": {
-    "additionalCapabilities": {
-      "enableFips1403Encryption": true
-    },
-    "hardwareProfile": {
-      "vmSize": "$VM_SIZE"
-    },
-    "osProfile": {
-      "computerName": "$SCAN_VM_NAME",
-      "adminUsername": "$SCAN_VM_ADMIN_USERNAME",
-      "adminPassword": "$SCAN_VM_ADMIN_PASSWORD"
-    },
-    "storageProfile": {
-      "imageReference": {
-        "id": "$VHD_IMAGE"
-      },
-      "osDisk": {
-        "createOption": "FromImage",
-        "diskSizeGB": 50,
-        "managedDisk": {
-          "storageAccountType": "Premium_LRS"
-        }
-      }
-    },
-    "networkProfile": {
-      "networkInterfaces": [
-        {
-          "id": "$SCANNING_NIC_ID"
-        }
-      ]
-    }
-  }
-}
-EOF
-)
+    # Build the VM request body for FIPS scenario using helper function
+    VM_BODY=$(build_fips_vm_body \
+        "$PACKER_BUILD_LOCATION" \
+        "$SCAN_VM_NAME" \
+        "$SCAN_VM_ADMIN_USERNAME" \
+        "$SCAN_VM_ADMIN_PASSWORD" \
+        "$VHD_IMAGE" \
+        "$SCANNING_NIC_ID" \
+        "$UMSI_RESOURCE_ID" \
+        "$VM_SIZE")
 
     # Create the VM using REST API
     az rest \
@@ -376,61 +306,3 @@ requiresCISScan() {
     fi
     return 0 # Requires scan
 }
-
-# First check if this OS requires CIS scanning
-if ! requiresCISScan "${OS_SKU}" "${OS_VERSION}"; then
-    echo "CIS scan not required for ${OS_SKU} ${OS_VERSION}"
-    capture_benchmark "${SCRIPT_NAME}_cis_report_skipped"
-    capture_benchmark "${SCRIPT_NAME}_overall" true
-    process_benchmarks
-    exit 0
-fi
-
-CIS_SCRIPT_PATH="$CDIR/cis-report.sh"
-CIS_REPORT_TXT_NAME="cis-report-${BUILD_ID}-${TIMESTAMP}.txt"
-CIS_REPORT_HTML_NAME="cis-report-${BUILD_ID}-${TIMESTAMP}.html"
-
-# Upload cisassessor tarball to storage account
-if [ "${ARCHITECTURE,,}" = "arm64" ]; then
-    CISASSESSOR_LOCAL_PATH="$CDIR/../cisassessor-arm64.tar.gz"
-else
-    CISASSESSOR_LOCAL_PATH="$CDIR/../cisassessor-amd64.tar.gz"
-fi
-CISASSESSOR_BLOB_NAME="cisassessor-${BUILD_ID}-${TIMESTAMP}.tar.gz"
-az storage blob upload --container-name "${SIG_CONTAINER_NAME}" --file "${CISASSESSOR_LOCAL_PATH}" --name "${CISASSESSOR_BLOB_NAME}" --account-name "${STORAGE_ACCOUNT_NAME}" --auth-mode login
-
-# Run CIS report script on VM (pass storage info)
-ret=$(az vm run-command invoke \
-    --command-id RunShellScript \
-    --name $SCAN_VM_NAME \
-    --resource-group $RESOURCE_GROUP_NAME \
-    --scripts @$CIS_SCRIPT_PATH \
-    --parameters "CISASSESSOR_BLOB_NAME=${CISASSESSOR_BLOB_NAME}" \
-        "STORAGE_ACCOUNT_NAME=${STORAGE_ACCOUNT_NAME}" \
-        "SIG_CONTAINER_NAME=${SIG_CONTAINER_NAME}" \
-        "AZURE_MSI_RESOURCE_STRING=${AZURE_MSI_RESOURCE_STRING}" \
-        "ENABLE_TRUSTED_LAUNCH=${ENABLE_TRUSTED_LAUNCH}" \
-        "CIS_REPORT_TXT_NAME=${CIS_REPORT_TXT_NAME}" \
-        "CIS_REPORT_HTML_NAME=${CIS_REPORT_HTML_NAME}" \
-        "TEST_VM_ADMIN_USERNAME=${SCAN_VM_ADMIN_USERNAME}" \
-        "OS_SKU=${OS_SKU}"
-)
-echo "$ret"
-msg=$(echo -E "$ret" | jq -r '.value[].message')
-echo "$msg"
-
-# Download CIS report files to working directory
-az storage blob download --container-name "${SIG_CONTAINER_NAME}" --name "${CIS_REPORT_TXT_NAME}" --file cis-report.txt --account-name "${STORAGE_ACCOUNT_NAME}" --auth-mode login
-az storage blob download --container-name "${SIG_CONTAINER_NAME}" --name "${CIS_REPORT_HTML_NAME}" --file cis-report.html --account-name "${STORAGE_ACCOUNT_NAME}" --auth-mode login
-
-# Remove CIS report blobs from storage
-az storage blob delete --account-name "${STORAGE_ACCOUNT_NAME}" --container-name "${SIG_CONTAINER_NAME}" --name "${CIS_REPORT_TXT_NAME}" --auth-mode login
-az storage blob delete --account-name "${STORAGE_ACCOUNT_NAME}" --container-name "${SIG_CONTAINER_NAME}" --name "${CIS_REPORT_HTML_NAME}" --auth-mode login
-# Remove CIS assessor tarball blob from storage
-az storage blob delete --account-name "${STORAGE_ACCOUNT_NAME}" --container-name "${SIG_CONTAINER_NAME}" --name "${CISASSESSOR_BLOB_NAME}" --auth-mode login
-
-echo -e "CIS Report Script Completed\n\n\n"
-capture_benchmark "${SCRIPT_NAME}_cis_report_upload_and_download"
-
-capture_benchmark "${SCRIPT_NAME}_overall" true
-process_benchmarks

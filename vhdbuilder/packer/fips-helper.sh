@@ -1,0 +1,107 @@
+#!/bin/bash
+# FIPS Helper Functions for VHD Scanning
+# This script contains functions related to FIPS 140-3 compliance for Ubuntu 22.04
+
+# Function to check if this is Ubuntu 22.04 + FIPS scenario
+is_ubuntu_2204_fips() {
+    # Check if this is Ubuntu with FIPS enabled
+    if [[ "${OS_SKU}" == "Ubuntu" ]] || [[ "${OS_SKU}" == "Ubuntu2204" ]]; then
+        # Check various FIPS indicators
+        if [[ "${OS_SKU}" == "Ubuntu2204" ]] ||
+           [[ "${SKU_NAME:-}" == *"Fips"* ]] ||
+           [[ "${SKU_NAME:-}" == *"fips"* ]] ||
+           ([[ "${FEATURE_FLAGS,,}" == *"fips"* ]] && [[ "${OS_VERSION}" == "22.04" ]]); then
+            return 0
+        fi
+    fi
+    return 1
+}
+
+# Function to ensure FIPS 140-3 compliance feature is registered
+ensure_fips_feature_registered() {
+    echo "Detected Ubuntu 22.04 + FIPS scenario, enabling FIPS 140-3 compliance..."
+
+    # Enable FIPS 140-3 compliance feature if not already enabled
+    echo "Checking FIPS 140-3 compliance feature registration..."
+    FIPS_FEATURE_STATE=$(az feature show --namespace Microsoft.Compute --name OptInToFips1403Compliance --query 'properties.state' -o tsv 2>/dev/null || echo "NotRegistered")
+    
+    if [ "$FIPS_FEATURE_STATE" != "Registered" ]; then
+        echo "Registering FIPS 140-3 compliance feature..."
+        az feature register --namespace Microsoft.Compute --name OptInToFips1403Compliance
+        
+        # Poll until registered (timeout after 5 minutes)
+        local TIMEOUT=300
+        local ELAPSED=0
+        while [ "$FIPS_FEATURE_STATE" != "Registered" ] && [ $ELAPSED -lt $TIMEOUT ]; do
+            sleep 10
+            ELAPSED=$((ELAPSED + 10))
+            FIPS_FEATURE_STATE=$(az feature show --namespace Microsoft.Compute --name OptInToFips1403Compliance --query 'properties.state' -o tsv)
+            echo "Feature state: $FIPS_FEATURE_STATE (waited ${ELAPSED}s)"
+        done
+        
+        if [ "$FIPS_FEATURE_STATE" != "Registered" ]; then
+            echo "Warning: FIPS 140-3 feature registration timed out. Continuing anyway..."
+        else
+            echo "FIPS 140-3 feature registered successfully. Refreshing provider..."
+            az provider register -n Microsoft.Compute
+        fi
+    else
+        echo "FIPS 140-3 compliance feature already registered"
+    fi
+}
+
+# Function to build FIPS-enabled VM request body
+build_fips_vm_body() {
+    local location="$1"
+    local vm_name="$2"
+    local admin_username="$3"
+    local admin_password="$4"
+    local image_id="$5"
+    local nic_id="$6"
+    local umsi_resource_id="$7"
+    local vm_size="$8"
+    
+    cat <<EOF
+{
+  "location": "$location",
+  "identity": {
+    "type": "UserAssigned",
+    "userAssignedIdentities": {
+      "$umsi_resource_id": {}
+    }
+  },
+  "properties": {
+    "additionalCapabilities": {
+      "enableFips1403Encryption": true
+    },
+    "hardwareProfile": {
+      "vmSize": "$vm_size"
+    },
+    "osProfile": {
+      "computerName": "$vm_name",
+      "adminUsername": "$admin_username",
+      "adminPassword": "$admin_password"
+    },
+    "storageProfile": {
+      "imageReference": {
+        "id": "$image_id"
+      },
+      "osDisk": {
+        "createOption": "FromImage",
+        "diskSizeGB": 50,
+        "managedDisk": {
+          "storageAccountType": "Premium_LRS"
+        }
+      }
+    },
+    "networkProfile": {
+      "networkInterfaces": [
+        {
+          "id": "$nic_id"
+        }
+      ]
+    }
+  }
+}
+EOF
+}
