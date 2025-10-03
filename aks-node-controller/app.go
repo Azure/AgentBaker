@@ -58,20 +58,10 @@ func (a *App) run(ctx context.Context, args []string) error {
 	}
 	switch args[1] {
 	case "provision":
-		fs := flag.NewFlagSet("provision", flag.ContinueOnError)
-		provisionConfig := fs.String("provision-config", "", "path to the provision config file")
-		dryRun := fs.Bool("dry-run", false, "print the command that would be run without executing it")
-		err := fs.Parse(args[2:])
-		if err != nil {
-			return fmt.Errorf("parse args: %w", err)
-		}
-		if provisionConfig == nil || *provisionConfig == "" {
-			return errors.New("--provision-config is required")
-		}
-		if dryRun != nil && *dryRun {
-			a.cmdRunner = cmdRunnerDryRun
-		}
-		return a.Provision(ctx, ProvisionFlags{ProvisionConfig: *provisionConfig})
+		err := a.runProvision(ctx, args[2:])
+		// Always notify after provisioning attempt (success is a no-op inside notifier)
+		a.writeCompleteFileOnError(err)
+		return err
 	case "provision-wait":
 		provisionStatusFiles := ProvisionStatusFiles{ProvisionJSONFile: provisionJSONFilePath, ProvisionCompleteFile: provisionCompleteFilePath}
 		provisionOutput, err := a.ProvisionWait(ctx, provisionStatusFiles)
@@ -126,16 +116,51 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) error {
 	if cmd.ProcessState != nil {
 		exitCode = cmd.ProcessState.ExitCode()
 	}
-	// Is it ok to log a single line? Is it too much?
 	slog.Info("CSE finished", "exitCode", exitCode, "stdout", stdoutBuf.String(), "stderr", stderrBuf.String(), "error", err)
 	return err
+}
+
+// runProvision encapsulates argument parsing and execution for the "provision" subcommand.
+// It returns an error describing any failure; callers should pass that error to
+// writeCompleteFileOnError so the sentinel file can be written on fail-fast paths.
+func (a *App) runProvision(ctx context.Context, args []string) error {
+	fs := flag.NewFlagSet("provision", flag.ContinueOnError)
+	provisionConfig := fs.String("provision-config", "", "path to the provision config file")
+	dryRun := fs.Bool("dry-run", false, "print the command that would be run without executing it")
+	if err := fs.Parse(args); err != nil {
+		return fmt.Errorf("parse args: %w", err)
+	}
+	if *provisionConfig == "" {
+		return errors.New("--provision-config is required")
+	}
+	if *dryRun {
+		a.cmdRunner = cmdRunnerDryRun
+	}
+	return a.Provision(ctx, ProvisionFlags{ProvisionConfig: *provisionConfig})
+}
+
+// writeCompleteFileOnError writes the provision.complete sentinel if err is non-nil,
+// allowing provision-wait mode to unblock early on fail-fast validation errors.
+func (a *App) writeCompleteFileOnError(err error) {
+	if err == nil {
+		return
+	}
+	if _, statErr := os.Stat(provisionCompleteFilePath); statErr == nil {
+		return // already exists
+	} else if !errors.Is(statErr, os.ErrNotExist) { // unexpected error
+		slog.Error("failed to stat provision.complete file", "path", provisionCompleteFilePath, "error", statErr)
+		return
+	}
+	if writeErr := os.WriteFile(provisionCompleteFilePath, []byte{}, 0600); writeErr != nil {
+		slog.Error("failed to write provision.complete file", "path", provisionCompleteFilePath, "error", writeErr)
+	}
 }
 
 func (a *App) ProvisionWait(ctx context.Context, filepaths ProvisionStatusFiles) (string, error) {
 	if _, err := os.Stat(filepaths.ProvisionCompleteFile); err == nil {
 		data, err := os.ReadFile(filepaths.ProvisionJSONFile)
 		if err != nil {
-			return "", fmt.Errorf("failed to read provision.json: %w", err)
+			return "", fmt.Errorf("failed to read provision.json: %w. One reason could be that AKSNodeConfig is not properly set", err)
 		}
 		return string(data), nil
 	}
@@ -145,11 +170,9 @@ func (a *App) ProvisionWait(ctx context.Context, filepaths ProvisionStatusFiles)
 		return "", fmt.Errorf("failed to create watcher: %w", err)
 	}
 	defer watcher.Close()
-
 	// Watch the directory containing the provision complete file
 	dir := filepath.Dir(filepaths.ProvisionCompleteFile)
-	err = os.MkdirAll(dir, 0755) // create the directory if it doesn't exist
-	if err != nil {
+	if err = os.MkdirAll(dir, 0755); err != nil { // create the directory if it doesn't exist
 		return "", fmt.Errorf("failed to create directory %s: %w", dir, err)
 	}
 	if err = watcher.Add(dir); err != nil {
@@ -162,7 +185,7 @@ func (a *App) ProvisionWait(ctx context.Context, filepaths ProvisionStatusFiles)
 			if event.Op&fsnotify.Create == fsnotify.Create && event.Name == filepaths.ProvisionCompleteFile {
 				data, err := os.ReadFile(filepaths.ProvisionJSONFile)
 				if err != nil {
-					return "", fmt.Errorf("failed to read provision.json: %w", err)
+					return "", fmt.Errorf("failed to read provision.json: %w. One reason could be that AKSNodeConfig is not properly set", err)
 				}
 				return string(data), nil
 			}
