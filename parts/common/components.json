@@ -959,7 +959,7 @@
             "versionsV2": [
               {
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/cbl-mariner/2.0/prod/base/x86_64/repodata, name=moby-containerd, os=mariner, release=2.0",
-                "latestVersion": "1.6.26-11.cm2"
+                "latestVersion": "1.6.26-12.cm2"
               }
             ]
           }
