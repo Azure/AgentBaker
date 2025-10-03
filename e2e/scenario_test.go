@@ -2091,9 +2091,10 @@ func Test_AzureLinux3NvidiaDCGMExporterRunning(t *testing.T) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				os := "azurelinux"
+				osVersion := "v3.0"
 				for _, packageName := range getDCGMPackageNames(os) {
-					versions := components.GetExpectedPackageVersions(packageName, os, "current")
-					require.Lenf(s.T, versions, 1, "Expected exactly one %s version for %s but got %d", packageName, os, len(versions))
+					versions := components.GetExpectedPackageVersions(packageName, os, osVersion)
+					require.Lenf(s.T, versions, 1, "Expected exactly one %s version for %s %s but got %d", packageName, os, osVersion, len(versions))
 					ValidateInstalledPackageVersion(ctx, s, packageName, versions[0])
 				}
 
