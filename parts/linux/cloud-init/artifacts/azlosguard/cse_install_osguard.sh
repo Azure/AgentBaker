@@ -41,10 +41,7 @@ installRPMPackageFromFile() {
     fi
 
     echo "Unpacking usr/bin/${packageName} from ${downloadDir}/${packageName}-${desiredVersion}*"
-    pushd ${downloadDir} || exit 1
-    rpm2cpio "${rpmFile}" | cpio -idmv
-    mv "usr/bin/${packageName}" "/usr/local/bin/${packageName}"
-    popd || exit 1
+    rpm2cpio "${rpmFile}" | cpio -i --to-stdout "./usr/bin/${packageName}" | install -m0755 /dev/stdin "/opt/bin/${packageName}"
 	rm -rf ${downloadDir}
 }
 
