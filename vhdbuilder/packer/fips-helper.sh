@@ -4,15 +4,9 @@
 
 # Function to check if this is Ubuntu 22.04 + FIPS scenario
 is_ubuntu_2204_fips() {
-    # Check if this is Ubuntu with FIPS enabled
-    if [[ "${OS_SKU}" == "Ubuntu" ]] || [[ "${OS_SKU}" == "Ubuntu2204" ]]; then
-        # Check various FIPS indicators
-        if [[ "${OS_SKU}" == "Ubuntu2204" ]] ||
-           [[ "${SKU_NAME:-}" == *"Fips"* ]] ||
-           [[ "${SKU_NAME:-}" == *"fips"* ]] ||
-           ([[ "${FEATURE_FLAGS,,}" == *"fips"* ]] && [[ "${OS_VERSION}" == "22.04" ]]); then
-            return 0
-        fi
+    # Check if it's Ubuntu AND version is 22.04 AND FIPS is enabled
+    if [[ "${OS_SKU}" == "Ubuntu" ]] && [[ "${OS_VERSION}" == "22.04" ]] && [[ "${ENABLE_FIPS,,}" == "true" ]]; then
+        return 0
     fi
     return 1
 }
