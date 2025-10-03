@@ -306,3 +306,61 @@ requiresCISScan() {
     fi
     return 0 # Requires scan
 }
+
+# First check if this OS requires CIS scanning
+if ! requiresCISScan "${OS_SKU}" "${OS_VERSION}"; then
+    echo "CIS scan not required for ${OS_SKU} ${OS_VERSION}"
+    capture_benchmark "${SCRIPT_NAME}_cis_report_skipped"
+    capture_benchmark "${SCRIPT_NAME}_overall" true
+    process_benchmarks
+    exit 0
+fi
+
+CIS_SCRIPT_PATH="$CDIR/cis-report.sh"
+CIS_REPORT_TXT_NAME="cis-report-${BUILD_ID}-${TIMESTAMP}.txt"
+CIS_REPORT_HTML_NAME="cis-report-${BUILD_ID}-${TIMESTAMP}.html"
+
+# Upload cisassessor tarball to storage account
+if [ "${ARCHITECTURE,,}" = "arm64" ]; then
+    CISASSESSOR_LOCAL_PATH="$CDIR/../cisassessor-arm64.tar.gz"
+else
+    CISASSESSOR_LOCAL_PATH="$CDIR/../cisassessor-amd64.tar.gz"
+fi
+CISASSESSOR_BLOB_NAME="cisassessor-${BUILD_ID}-${TIMESTAMP}.tar.gz"
+az storage blob upload --container-name "${SIG_CONTAINER_NAME}" --file "${CISASSESSOR_LOCAL_PATH}" --name "${CISASSESSOR_BLOB_NAME}" --account-name "${STORAGE_ACCOUNT_NAME}" --auth-mode login
+
+# Run CIS report script on VM (pass storage info)
+ret=$(az vm run-command invoke \
+    --command-id RunShellScript \
+    --name $SCAN_VM_NAME \
+    --resource-group $RESOURCE_GROUP_NAME \
+    --scripts @$CIS_SCRIPT_PATH \
+    --parameters "CISASSESSOR_BLOB_NAME=${CISASSESSOR_BLOB_NAME}" \
+        "STORAGE_ACCOUNT_NAME=${STORAGE_ACCOUNT_NAME}" \
+        "SIG_CONTAINER_NAME=${SIG_CONTAINER_NAME}" \
+        "AZURE_MSI_RESOURCE_STRING=${AZURE_MSI_RESOURCE_STRING}" \
+        "ENABLE_TRUSTED_LAUNCH=${ENABLE_TRUSTED_LAUNCH}" \
+        "CIS_REPORT_TXT_NAME=${CIS_REPORT_TXT_NAME}" \
+        "CIS_REPORT_HTML_NAME=${CIS_REPORT_HTML_NAME}" \
+        "TEST_VM_ADMIN_USERNAME=${SCAN_VM_ADMIN_USERNAME}" \
+        "OS_SKU=${OS_SKU}"
+)
+echo "$ret"
+msg=$(echo -E "$ret" | jq -r '.value[].message')
+echo "$msg"
+
+# Download CIS report files to working directory
+az storage blob download --container-name "${SIG_CONTAINER_NAME}" --name "${CIS_REPORT_TXT_NAME}" --file cis-report.txt --account-name "${STORAGE_ACCOUNT_NAME}" --auth-mode login
+az storage blob download --container-name "${SIG_CONTAINER_NAME}" --name "${CIS_REPORT_HTML_NAME}" --file cis-report.html --account-name "${STORAGE_ACCOUNT_NAME}" --auth-mode login
+
+# Remove CIS report blobs from storage
+az storage blob delete --account-name "${STORAGE_ACCOUNT_NAME}" --container-name "${SIG_CONTAINER_NAME}" --name "${CIS_REPORT_TXT_NAME}" --auth-mode login
+az storage blob delete --account-name "${STORAGE_ACCOUNT_NAME}" --container-name "${SIG_CONTAINER_NAME}" --name "${CIS_REPORT_HTML_NAME}" --auth-mode login
+# Remove CIS assessor tarball blob from storage
+az storage blob delete --account-name "${STORAGE_ACCOUNT_NAME}" --container-name "${SIG_CONTAINER_NAME}" --name "${CISASSESSOR_BLOB_NAME}" --auth-mode login
+
+echo -e "CIS Report Script Completed\n\n\n"
+capture_benchmark "${SCRIPT_NAME}_cis_report_upload_and_download"
+
+capture_benchmark "${SCRIPT_NAME}_overall" true
+process_benchmarks
