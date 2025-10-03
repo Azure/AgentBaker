@@ -1589,7 +1589,13 @@
               }
             ]
           }
-        },
+        }
+      }
+    },
+    {
+      "name": "dcgm-exporter",
+      "downloadLocation": "/opt/dcgm-exporter/downloads",
+      "downloadURIs": {
         "azurelinux": {
           "v3.0": {
             "versionsV2": [
