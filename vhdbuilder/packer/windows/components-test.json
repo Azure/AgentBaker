@@ -5,13 +5,13 @@
       "amd64OnlyVersions": [],
       "multiArchVersionsV2": [
         {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/pause",
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/pause",
           "latestVersion": "lin-version"
         }
       ],
       "windowsVersions": [
         {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/pause",
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/pause",
           "latestVersion": "win-version"
         }
       ]

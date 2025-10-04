@@ -71,10 +71,10 @@ Describe 'Tests of GetAllCachedThings ' {
   "multiArchVersionsV2": [],
   "windowsVersions": [
     {
-      "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/pause",
+      "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/pause",
       "latestVersion": "win-version"
     },{
-      "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/pause",
+      "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/pause",
       "latestVersion": "other-version"
     }
   ]
