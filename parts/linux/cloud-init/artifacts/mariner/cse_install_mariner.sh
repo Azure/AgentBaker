@@ -177,6 +177,53 @@ installKubeletKubectlPkgFromPMC() {
     installRPMPackageFromFile "kubectl" $desiredVersion || exit $ERR_KUBECTL_INSTALL_FAIL
 }
 
+updateDnfWithNvidiaPkg() {
+  if [ "$OS_VERSION" != "3.0" ]; then
+    echo "NVIDIA repo setup is only supported on Azure Linux 3.0"
+    return
+  fi
+
+  local cpu_arch=$(getCPUArch) # Returns amd64 or arm64
+  local repo_arch=""
+
+  if [ "$cpu_arch" = "amd64" ]; then
+    repo_arch="x86_64"
+  elif [ "$cpu_arch" = "arm64" ]; then
+    repo_arch="sbsa"
+  else
+    echo "Unsupported CPU architecture: $cpu_arch"
+    return
+  fi
+
+  readonly nvidia_repo_path="/etc/yum.repos.d/nvidia-built-azurelinux.repo"
+  local nvidia_repo_url="https://developer.download.nvidia.com/compute/cuda/repos/azl3/${repo_arch}/cuda-azl3.repo"
+  retrycmd_curl_file 120 5 25 ${nvidia_repo_path} ${nvidia_repo_url} || exit $ERR_NVIDIA_AZURELINUX_REPO_FILE_DOWNLOAD_TIMEOUT
+  dnf_makecache || exit $ERR_APT_UPDATE_TIMEOUT
+}
+
+dcgm_package_list() {
+    packages=(
+        datacenter-gpu-manager-4-core
+        datacenter-gpu-manager-4-proprietary
+        dcgm-exporter
+    )
+    echo "${packages[@]}"
+}
+
+installNvidiaDCGMPkgFromCache() {
+  for packageName in $(dcgm_package_list); do
+    downloadDir="/opt/${packageName}/downloads"
+    rpmFile=$(find "${downloadDir}" -maxdepth 1 -name "${packageName}*" -print -quit 2>/dev/null) || rpmFile=""
+    if [ -z "${rpmFile}" ]; then
+      echo "Failed to locate ${packageName} rpm"
+      exit $ERR_NVIDIA_DCGM_INSTALL_FAIL
+    fi
+
+    logs_to_events "AKS.CSE.install${packageName}.dnf_install" "dnf_install 30 1 600 ${rpmFile}" || exit $ERR_APT_INSTALL_TIMEOUT
+    rm -rf $(dirname ${downloadDir})
+  done
+}
+
 installRPMPackageFromFile() {
     local packageName="${1}"
     local desiredVersion="${2}"
@@ -258,8 +305,13 @@ ensureRunc() {
 }
 
 cleanUpGPUDrivers() {
-    rm -Rf $GPU_DEST /opt/gpu
-    rm -rf "/opt/${K8S_DEVICE_PLUGIN_PKG}/downloads"
+  rm -Rf $GPU_DEST /opt/gpu
+  rm -rf "/opt/${K8S_DEVICE_PLUGIN_PKG}/downloads"
+
+  for packageName in $(dcgm_package_list); do
+    pkgDir="/opt/${packageName}"
+    rm -rf ${pkgDir}
+  done
 }
 
 installNvidiaDevicePluginPkgFromCache() {
