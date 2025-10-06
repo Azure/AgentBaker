@@ -1,7 +1,5 @@
 #!/bin/bash
 
-K8S_DEVICE_PLUGIN_PKG="${K8S_DEVICE_PLUGIN_PKG:-nvidia-device-plugin}"
-
 removeMoby() {
     apt_get_purge 10 5 300 moby-engine moby-cli
 }
@@ -116,8 +114,18 @@ updateAptWithNvidiaPkg() {
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
 }
 
-dcgm_package_list() {
+is_package_installed() {
+    local packageName="${1}"
+    if dpkg -l "${packageName}" 2>/dev/null | grep -q "^ii"; then
+        return 0  # Package is installed
+    else
+        return 1  # Package is not installed
+    fi
+}
+
+managed_gpu_package_list() {
     packages=(
+        nvidia-device-plugin
         datacenter-gpu-manager-4-core
         datacenter-gpu-manager-4-proprietary
         datacenter-gpu-manager-exporter
@@ -125,13 +133,21 @@ dcgm_package_list() {
     echo "${packages[@]}"
 }
 
-installNvidiaDCGMPkgFromCache() {
-    for packageName in $(dcgm_package_list); do
+installNvidiaManagedExpPkgFromCache() {
+    # Ensure kubelet device-plugins directory exists BEFORE package installation
+    mkdir -p /var/lib/kubelet/device-plugins
+
+    for packageName in $(managed_gpu_package_list); do
+        if is_package_installed "${packageName}"; then
+            echo "${packageName} is already installed, skipping."
+            continue
+        fi
+
         downloadDir="/opt/${packageName}/downloads"
         debFile=$(find "${downloadDir}" -maxdepth 1 -name "${packageName}*" -print -quit 2>/dev/null) || debFile=""
         if [ -z "${debFile}" ]; then
             echo "Failed to locate ${packageName} deb"
-            exit $ERR_NVIDIA_DCGM_INSTALL_FAIL
+            exit $ERR_MANAGED_NVIDIA_EXP_INSTALL_FAIL
         fi
         logs_to_events "AKS.CSE.install${packageName}.installDebPackageFromFile" "installDebPackageFromFile ${debFile}" || exit $ERR_APT_INSTALL_TIMEOUT
         rm -rf $(dirname ${downloadDir})
@@ -140,41 +156,10 @@ installNvidiaDCGMPkgFromCache() {
 
 cleanUpGPUDrivers() {
     rm -Rf $GPU_DEST /opt/gpu
-    rm -rf "/opt/${K8S_DEVICE_PLUGIN_PKG}/downloads"
 
-    for packageName in $(dcgm_package_list); do
-        pkgDir="/opt/${packageName}"
-        rm -rf ${pkgDir}
+    for packageName in $(managed_gpu_package_list); do
+        rm -rf "/opt/${packageName}"
     done
-}
-
-installNvidiaDevicePluginPkgFromCache() {
-    local os=${UBUNTU_OS_NAME}
-    if [ -z "$UBUNTU_RELEASE" ]; then
-        echo "ERROR: UBUNTU_RELEASE is not set, cannot determine nvidia-device-plugin version" >&2
-        exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
-    fi
-    local os_version="${UBUNTU_RELEASE}"
-
-    # Get nvidia-device-plugin package info from components.json
-    local package=$(jq -r ".Packages[] | select(.name == \"${K8S_DEVICE_PLUGIN_PKG}\")" "${COMPONENTS_FILEPATH}")
-
-    # Get the latest package version
-    updatePackageVersions "${package}" "${os}" "${os_version}"
-    if [ ${#PACKAGE_VERSIONS[@]} -eq 0 ]; then
-        echo "ERROR: No nvidia-device-plugin versions found" >&2
-        exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
-    fi
-
-    # Use the first (latest) version
-    local packageVersion="${PACKAGE_VERSIONS[0]}"
-    echo "installing ${K8S_DEVICE_PLUGIN_PKG} package version: $packageVersion"
-
-    # For nvidia-device-plugin, strip the Ubuntu-specific suffix from version
-    # e.g., "0.17.4-ubuntu24.04u1" -> "0.17.4"
-    local baseVersion=$(echo "${packageVersion}" | sed 's/-ubuntu[0-9.]*u[0-9]*//')
-    echo "using base version ${baseVersion} for ${K8S_DEVICE_PLUGIN_PKG} package filename"
-    installPkgWithAptGet "${K8S_DEVICE_PLUGIN_PKG}" "${baseVersion}" || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
 }
 
 installCriCtlPackage() {
