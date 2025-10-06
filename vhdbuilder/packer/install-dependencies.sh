@@ -245,7 +245,7 @@ if isMarinerOrAzureLinux "$OS" && ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; the
 fi
 capture_benchmark "${SCRIPT_NAME}_handle_azurelinux_configs"
 
-# doing this at vhd allows CSE to be faster with just mv 
+# doing this at vhd allows CSE to be faster with just mv
 unpackTgzToCNIDownloadsDIR() {
   local URL=$1
   CNI_TGZ_TMP=${URL##*/}
@@ -277,7 +277,7 @@ downloadAndInstallCriTools() {
     echo "  - crictl version ${version}" >> ${VHD_LOGS_FILEPATH}
     # other steps are dependent on CRICTL_VERSION and CRICTL_VERSIONS
     # since we only have 1 entry in CRICTL_VERSIONS, we simply set both to the same value
-    CRICTL_VERSION=${version} 
+    CRICTL_VERSION=${version}
     KUBERNETES_VERSION=$CRICTL_VERSION installCrictl || exit $ERR_CRICTL_DOWNLOAD_TIMEOUT
     return 0
   fi
@@ -308,12 +308,12 @@ while IFS= read -r p; do
   # TODO(mheberling): Remove this once kata uses standard containerd. This OS is referenced
   # in file `parts/common/component.json` with the same ${MARINER_KATA_OS_NAME}.
   if isMariner "${OS}" && [ "${IS_KATA}" = "true" ]; then
-    # This is temporary for kata-cc because it uses a modified version of containerd and 
+    # This is temporary for kata-cc because it uses a modified version of containerd and
     # name is referenced in parts/common.json marinerkata.
     os=${MARINER_KATA_OS_NAME}
   fi
   if isAzureLinux "${OS}" && [ "${IS_KATA}" = "true" ]; then
-    # This is temporary for kata-cc because it uses a modified version of containerd and 
+    # This is temporary for kata-cc because it uses a modified version of containerd and
     # name is referenced in parts/common.json azurelinuxkata.
     os=${AZURELINUX_KATA_OS_NAME}
   fi
@@ -532,6 +532,34 @@ EOF
 
 fi
 
+if grep -q "GB200" <<< "$FEATURE_FLAGS"; then
+  # The GB200 feature flag should only be set for arm64 and Ubuntu 24.04, but validate
+  if [ "${UBUNTU_RELEASE}" = "24.04" ] && [ "${CPU_ARCH}" = "arm64" ]; then
+    # The open series driver is required for the GB200 platform. Dmesg output
+    # will appear directing the reader away from the proprietary driver. The GPUs
+    # are also not visible in nvidia-smi output with the proprietary drivers
+    apt install -y \
+      mlnx-ofed-kernel-dkms \
+      mlnx-ofed-kernel-utils \
+      mlnx-ofed-basic \
+      rdma-core \
+      ibverbs-utils \
+      ibverbs-providers
+
+    ofed_version_output=$(ofed_info -s 2>/dev/null || true)
+    if echo "$ofed_version_output" | grep -Eq '^MLNX_OFED_LINUX-[0-9]+\.[0-9]+-[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+(:.*)?$'; then
+      echo "OFED version installed: $ofed_version_output"
+      echo "  - ofed_version=${ofed_version_output}" >> ${VHD_LOGS_FILEPATH}
+    else
+      echo "Warning: Unexpected ofed_info -s output: $ofed_version_output"
+    fi
+
+    # Remove Mellanox OFED sources and pub files to avoid conflicts or unwanted updates
+    rm /etc/apt/sources.list.d/mellanox_mlnx_ofed.list
+    rm /etc/apt/keyrings/mellanox_mlnx_ofed.pub
+  fi
+fi
+
 if [ -d "/opt/gpu" ] && [ "$(ls -A /opt/gpu)" ]; then
   ls -ltr /opt/gpu/* >> ${VHD_LOGS_FILEPATH}
 fi
@@ -591,7 +619,7 @@ while IFS= read -r imageToBePulled; do
     image_pids+=($!)
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
     while [ "$(jobs -p | wc -l)" -ge "$parallel_container_image_pull_limit" ]; do
-      wait -n || { 
+      wait -n || {
         ret=$?
         echo "A background job pullContainerImage failed: ${ret}, ${CONTAINER_IMAGE}. Exiting..." >&2
         for pid in "${image_pids[@]}"; do
