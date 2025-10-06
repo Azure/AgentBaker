@@ -145,9 +145,11 @@ func (k *Kubeclient) WaitUntilPodRunning(ctx context.Context, namespace string, 
 	return pod, err
 }
 
-func (k *Kubeclient) WaitUntilNodeReady(ctx context.Context, t *testing.T, vmssName string) string {
+func (k *Kubeclient) WaitUntilNodeReady(ctx context.Context, t testing.TB, vmssName string) string {
+	startTime := time.Now()
 	var node *corev1.Node = nil
 	t.Logf("waiting for node %s to be ready", vmssName)
+	defer t.Logf("waited for node %s to be ready for %s", vmssName, time.Since(startTime))
 
 	watcher, err := k.Typed.CoreV1().Nodes().Watch(ctx, metav1.ListOptions{})
 	require.NoError(t, err, "failed to start watching nodes")
@@ -179,7 +181,7 @@ func (k *Kubeclient) WaitUntilNodeReady(ctx context.Context, t *testing.T, vmssN
 	}
 
 	if node == nil {
-		t.Fatalf("failed to wait for %q to appear in the API server", vmssName)
+		t.Fatalf("ERROR: %q haven't appeared in k8s API server", vmssName)
 		return ""
 	}
 
