@@ -1986,7 +1986,7 @@ func getDCGMPackageNames(os string) []string {
 	return packages
 }
 
-func Test_Ubuntu2404NvidiaDCGMExporterRunning(t *testing.T) {
+func Test_Ubuntu2404_NvidiaDCGMExporterRunning(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Test that a Ubuntu 24.04 node has NVIDIA DCGM Exporter installed, running and scrapable",
 		Tags: Tags{
@@ -2025,7 +2025,7 @@ func Test_Ubuntu2404NvidiaDCGMExporterRunning(t *testing.T) {
 	})
 }
 
-func Test_Ubuntu2204NvidiaDCGMExporterRunning(t *testing.T) {
+func Test_Ubuntu2204_NvidiaDCGMExporterRunning(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Test that a Ubuntu 22.04 node has NVIDIA DCGM Exporter installed, running and scrapable",
 		Tags: Tags{
@@ -2064,7 +2064,7 @@ func Test_Ubuntu2204NvidiaDCGMExporterRunning(t *testing.T) {
 	})
 }
 
-func Test_AzureLinux3NvidiaDCGMExporterRunning(t *testing.T) {
+func Test_AzureLinux3_NvidiaDCGMExporterRunning(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Test that an Azure Linux 3 node has NVIDIA DCGM Exporter installed, running and scrapable",
 		Tags: Tags{
