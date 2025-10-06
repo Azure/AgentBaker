@@ -29,6 +29,10 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning(t *testing.T) {
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
+				if vmss.Tags == nil {
+					vmss.Tags = map[string]*string{}
+				}
+				vmss.Tags["EnableManagedGPUExperience"] = to.Ptr("true")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 
@@ -67,6 +71,10 @@ func Test_Ubuntu2204_NvidiaDevicePluginRunning(t *testing.T) {
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
+				if vmss.Tags == nil {
+					vmss.Tags = map[string]*string{}
+				}
+				vmss.Tags["EnableManagedGPUExperience"] = to.Ptr("true")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 
@@ -105,6 +113,10 @@ func Test_AzureLinux3_NvidiaDevicePluginRunning(t *testing.T) {
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
+				if vmss.Tags == nil {
+					vmss.Tags = map[string]*string{}
+				}
+				vmss.Tags["EnableManagedGPUExperience"] = to.Ptr("true")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 

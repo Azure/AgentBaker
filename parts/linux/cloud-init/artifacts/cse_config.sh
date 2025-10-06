@@ -1128,18 +1128,34 @@ EOF
     echo "Enable localdns succeeded."
 }
 
-startNvidiaDCGMExporterService() {
-    # Start the nvidia-dcgm service.
-    systemctlEnableAndStart nvidia-dcgm 30 || exit $ERR_NVIDIA_DCGM_FAIL
+startNvidiaManagedExpServices() {
+    # 1. Start the nvidia-device-plugin service.
+    if [ "${MIG_NODE}" = "true" ]; then
+    # Create systemd override directory and fix binary path
+    NVIDIA_DEVICE_PLUGIN_OVERRIDE_DIR="/etc/systemd/system/nvidia-device-plugin.service.d"
+    mkdir -p "${NVIDIA_DEVICE_PLUGIN_OVERRIDE_DIR}"
+        tee "${NVIDIA_DEVICE_PLUGIN_OVERRIDE_DIR}/10-mig_strategy.conf" > /dev/null <<'EOF'
+[Service]
+Environment="MIG_STRATEGY=--mig-strategy single"
+ExecStart=
+ExecStart=/usr/local/bin/nvidia-device-plugin $MIG_STRATEGY
+EOF
+        # Reload systemd to pick up the base path override
+        systemctl daemon-reload
+    fi
 
+    logs_to_events "AKS.CSE.start.nvidia-device-plugin" "systemctlEnableAndStart nvidia-device-plugin 30" || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
+
+    # 2. Start the nvidia-dcgm service.
+    logs_to_events "AKS.CSE.start.nvidia-dcgm" "systemctlEnableAndStart nvidia-dcgm 30" || exit $ERR_NVIDIA_DCGM_FAIL
+
+    # 3. Start the nvidia-dcgm-exporter service.
     # Create systemd drop-in directory for nvidia-dcgm-exporter service
     DCGM_EXPORTER_OVERRIDE_DIR="/etc/systemd/system/nvidia-dcgm-exporter.service.d"
     mkdir -p "${DCGM_EXPORTER_OVERRIDE_DIR}"
 
     # Create drop-in file to override service configuration
-    DCGM_EXPORTER_OVERRIDE_FILE="${DCGM_EXPORTER_OVERRIDE_DIR}/10-aks-override.conf"
-
-    tee "${DCGM_EXPORTER_OVERRIDE_FILE}" > /dev/null <<EOF
+    tee "${DCGM_EXPORTER_OVERRIDE_DIR}/10-aks-override.conf" > /dev/null <<EOF
 [Service]
 # Remove file-based logging - let systemd handle logs
 StandardOutput=journal
@@ -1153,7 +1169,7 @@ EOF
     systemctl daemon-reload
 
     # Start the nvidia-dcgm-exporter service.
-    systemctlEnableAndStart nvidia-dcgm-exporter 30 || exit $ERR_NVIDIA_DCGM_EXPORTER_FAIL
+    logs_to_events "AKS.CSE.start.nvidia-dcgm-exporter" "systemctlEnableAndStart nvidia-dcgm-exporter 30" || exit $ERR_NVIDIA_DCGM_EXPORTER_FAIL
 }
 
 #EOF
