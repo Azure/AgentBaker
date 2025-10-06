@@ -66,8 +66,8 @@ ERR_CRICTL_DOWNLOAD_TIMEOUT=117 # Timeout waiting for crictl downloads
 ERR_CRICTL_OPERATION_ERROR=118 # Error executing a crictl operation
 ERR_CTR_OPERATION_ERROR=119 # Error executing a ctr containerd cli operation
 ERR_INVALID_CLI_TOOL=120 # Invalid CLI tool specified, should be one of ctr, crictl, docker
-ERR_KUBELET_INSTALL_TIMEOUT=121 # Timeout waiting for kubelet install
-ERR_KUBECTL_INSTALL_TIMEOUT=122 # Timeout waiting for kubectl install
+ERR_KUBELET_INSTALL_FAIL=121 # Error installing kubelet
+ERR_KUBECTL_INSTALL_FAIL=122 # Error installing kubectl
 
 # 123 is free for use
 
@@ -81,7 +81,7 @@ ERR_TELEPORTD_DOWNLOAD_ERR=150 # Error downloading teleportd binary
 ERR_TELEPORTD_INSTALL_ERR=151 # Error installing teleportd binary
 ERR_ARTIFACT_STREAMING_DOWNLOAD=152 # Error downloading mirror proxy and overlaybd components
 ERR_ARTIFACT_STREAMING_INSTALL=153 # Error installing mirror proxy and overlaybd components
-ERR_ARTIFACT_STREAMING_ACR_NODEMON_START_FAIL=154 # Error starting acr-nodemon service
+ERR_ARTIFACT_STREAMING_ACR_NODEMON_START_FAIL=154 # Error starting acr-nodemon service -- this will not be used going forward. Keeping for older nodes.
 
 ERR_HTTP_PROXY_CA_CONVERT=160 # Error converting http proxy ca cert from pem to crt format
 ERR_UPDATE_CA_CERTS=161 # Error updating ca certs to include user-provided certificates
@@ -95,6 +95,7 @@ ERR_INSERT_IMDS_RESTRICTION_RULE_INTO_MANGLE_TABLE=174 # Error insert imds restr
 ERR_INSERT_IMDS_RESTRICTION_RULE_INTO_FILTER_TABLE=175 # Error insert imds restriction rule into filter table
 ERR_DELETE_IMDS_RESTRICTION_RULE_FROM_MANGLE_TABLE=176 # Error delete imds restriction rule from mangle table
 ERR_DELETE_IMDS_RESTRICTION_RULE_FROM_FILTER_TABLE=177 # Error delete imds restriction rule from filter table
+ERR_CONFIG_PUBKEY_AUTH_SSH=178 # Error configuring PubkeyAuthentication in sshd_config
 
 ERR_VHD_REBOOT_REQUIRED=200 # Reserved for VHD reboot required exit condition
 ERR_NO_PACKAGES_FOUND=201 # Reserved for no security packages found exit condition
@@ -185,7 +186,7 @@ AKS_AAD_SERVER_APP_ID="6dae42f8-4368-4678-94ff-3960e28e3630"
 # Checks if the elapsed time since CSEStartTime exceeds 13 minutes.
 # That value is based on the global CSE timeout which is set to 15 minutes - majority of CSE executions succeed or fail very fast, meaning we can exit slightly before the global timeout without affecting the overall CSE execution.
 # Global cse timeout is set in cse_start.sh: `timeout -k5s 15m /bin/bash /opt/azure/containers/provision.sh`
-# Long running functions can use this helper to gracefully handle global CSE timeout, avoiding exiting with 124 error code without extra context. 
+# Long running functions can use this helper to gracefully handle global CSE timeout, avoiding exiting with 124 error code without extra context.
 check_cse_timeout() {
     shouldLog="${1:-true}"
     maxDurationSeconds=780 # 780 seconds = 13 minutes
@@ -224,11 +225,11 @@ _retrycmd_internal() {
         exitStatus=$?
 
         if [ "$exitStatus" -eq 0 ]; then
-            break 
+            break
         fi
 
         # Check if CSE timeout is approaching - exit early to avoid 124 exit code from the global timeout
-        if ! check_cse_timeout "$shouldLog"; then 
+        if ! check_cse_timeout "$shouldLog"; then
             echo "CSE timeout approaching, exiting early." >&2
             return 2
         fi
@@ -283,7 +284,7 @@ _retry_file_curl_internal() {
     # checksToRun are conditions that need to pass to stop the retry loop. If not passed, eval command will return 0, because checksToRun will be interpreted as an empty string.
     retries=$1; waitSleep=$2; timeout=$3; filePath=$4; url=$5; checksToRun=( "${@:6}" )
     echo "${retries} file curl retries"
-    for i in $(seq 1 $retries); do 
+    for i in $(seq 1 $retries); do
         # Use eval to execute the checksToRun string as a command
         ( eval "$checksToRun" ) && break || if [ "$i" -eq "$retries" ]; then
             return 1
@@ -336,7 +337,7 @@ retrycmd_get_tarball_from_registry_with_oras() {
     done
 }
 
-retrycmd_get_access_token_for_oras() {
+retrycmd_get_aad_access_token() {
     retries=$1; wait_sleep=$2; url=$3
     for i in $(seq 1 $retries); do
         response=$(timeout 60 curl -v -s -H "Metadata:true" --noproxy "*" "$url" -w "\n%{http_code}")
@@ -456,7 +457,7 @@ systemctlEnableAndStart() {
     fi
 }
 
-systemctlEnableAndStartNoBlock() {    
+systemctlEnableAndStartNoBlock() {
     service=$1; timeout=$2; status_check_delay_seconds=${3:-"0"}
 
     systemctl_restart_no_block 100 5 $timeout $service
@@ -501,7 +502,7 @@ systemctlDisableAndStop() {
 semverCompare() {
     VERSION_A=$(echo $1 | cut -d "+" -f 1 | cut -d "~" -f 1)
     VERSION_B=$(echo $2 | cut -d "+" -f 1 | cut -d "~" -f 1)
-    
+
     [ "${VERSION_A}" = "${VERSION_B}" ] && return 0
     sorted=$(echo ${VERSION_A} ${VERSION_B} | tr ' ' '\n' | sort -V )
     highestVersion=$(IFS= echo "${sorted}" | cut -d$'\n' -f2)
@@ -509,7 +510,7 @@ semverCompare() {
     return 1
 }
 
-	
+
 
 apt_get_download() {
   retries=$1; wait_sleep=$2; shift && shift;
@@ -545,7 +546,7 @@ isARM64() {
 
 isRegistryUrl() {
     local binary_url=$1
-    registry_regex='^.+\/.+\/.+:.+$'
+    registry_regex='^[a-z0-9]+((\.|_|__|-+)[a-z0-9]+)*(\/[a-z0-9]+((\.|_|__|-+)[a-z0-9]+)*)*:[a-zA-Z0-9_][a-zA-Z0-9._-]{0,127}$' # regex copied from https://github.com/opencontainers/distribution-spec/blob/main/spec.md#pull
     # shellcheck disable=SC3010
     if [[ ${binary_url} =~ $registry_regex ]]; then # check if the binary_url is in the format of mcr.microsoft.com/componant/binary:1.0"
         return 0 # true
@@ -577,7 +578,7 @@ logs_to_events() {
         --arg EventTid    "0" \
         '{Timestamp: $Timestamp, OperationId: $OperationId, Version: $Version, TaskName: $TaskName, EventLevel: $EventLevel, Message: $Message, EventPid: $EventPid, EventTid: $EventTid}'
     )
-    
+
     mkdir -p ${EVENTS_LOGGING_DIR}
     echo ${json_string} > ${EVENTS_LOGGING_DIR}${eventsFileName}.json
 
@@ -781,7 +782,7 @@ updateMultiArchVersions() {
   # check if multiArchVersions not exists
   if [ "$(echo "${imageToBePulled}" | jq -r '.multiArchVersions | if . == null then "null" else empty end')" = "null" ]; then
     MULTI_ARCH_VERSIONS=()
-    return 
+    return
   fi
 
   local versions=($(echo "${imageToBePulled}" | jq -r ".multiArchVersions[]"))
@@ -808,6 +809,40 @@ updatePackageDownloadURL() {
     downloadURL=$(echo "${package}" | jq ".downloadURIs.default.${RELEASE}.downloadURL" -r)
     [ "${downloadURL}" = "null" ] && PACKAGE_DOWNLOAD_URL="" || PACKAGE_DOWNLOAD_URL="${downloadURL}"
     return
+}
+
+# Function to get latestVersion for a given k8sVersion from components.json
+getLatestPkgVersionFromK8sVersion() {
+    local k8sVersion="$1"
+    local componentName="$2"
+    local os="$3"
+    local os_version="$4"
+
+    k8sMajorMinorVersion="$(echo "$k8sVersion" | cut -d- -f1 | cut -d. -f1,2)"
+
+    package=$(jq ".Packages" "$COMPONENTS_FILEPATH" | jq ".[] | select(.name == \"${componentName}\")")
+    PACKAGE_VERSIONS=()
+    updatePackageVersions "${package}" "${os}" "${os_version}"
+
+    # shellcheck disable=SC3010
+    if [[ ${#PACKAGE_VERSIONS[@]} -eq 0 || ${PACKAGE_VERSIONS[0]} == "<SKIP>" ]]; then
+        echo "INFO: ${componentName} package versions array is either empty or the first element is <SKIP>. Skipping ${componentName} installation."
+        return 0
+    fi
+
+    # sort the array from highest to lowest version
+    IFS=$'\n' sortedPackageVersions=($(sort -rV <<<"${PACKAGE_VERSIONS[*]}"))
+    unset IFS
+
+    PACKAGE_VERSION=${sortedPackageVersions[0]}
+    for version in "${sortedPackageVersions[@]}"; do
+        majorMinorVersion="$(echo "$version" | cut -d- -f1 | cut -d. -f1,2)"
+        if [ $majorMinorVersion = $k8sMajorMinorVersion ]; then
+            PACKAGE_VERSION=$version
+            break
+        fi
+    done
+    echo $PACKAGE_VERSION
 }
 
 # adds the specified LABEL_STRING (which should be in the form of 'label=value') to KUBELET_NODE_LABELS
@@ -908,7 +943,7 @@ resolve_packages_source_url() {
     PACKAGE_DOWNLOAD_BASE_URL="packages.aks.azure.com"
     for i in $(seq 1 $retries); do
       # Confirm that we can establish connectivity to packages.aks.azure.com before node provisioning starts
-      response_code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 --noproxy "*" https://packages.aks.azure.com/acs-mirror/healthz)
+      response_code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 https://packages.aks.azure.com/acs-mirror/healthz)
       if [ "${response_code}" -eq 200 ]; then
         echo "Established connectivity to $PACKAGE_DOWNLOAD_BASE_URL."
         break
@@ -960,7 +995,7 @@ oras_login_with_kubelet_identity() {
 
     set +x
     access_url="http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https://management.azure.com/&client_id=$client_id"
-    raw_access_token=$(retrycmd_get_access_token_for_oras 5 15 $access_url)
+    raw_access_token=$(retrycmd_get_aad_access_token 5 15 $access_url)
     ret_code=$?
     if [ "$ret_code" -ne 0 ]; then
         echo $raw_access_token
@@ -997,7 +1032,7 @@ oras_login_with_kubelet_identity() {
     unset ACCESS_TOKEN REFRESH_TOKEN  # Clears sensitive data from memory
     set -x
 
-    retrycmd_can_oras_ls_acr 10 5 $acr_url$test_image
+    retrycmd_can_oras_ls_acr 10 5 $acr_url
     if [ "$?" -ne 0 ]; then
         echo "failed to login to acr '$acr_url', pull is still unauthorized"
         return $ERR_ORAS_PULL_UNAUTHORIZED
@@ -1009,12 +1044,12 @@ oras_login_with_kubelet_identity() {
 configureSSHService() {
     local os_param="${1:-$OS}"
     local os_version_param="${2:-$OS_VERSION}"
-    
+
     # If not Ubuntu, no changes needed
     if [ "$os_param" != "$UBUNTU_OS_NAME" ]; then
         return 0
     fi
-    
+
     # Only for Ubuntu 22.10+ or newer socket activation is used, for earlier versions no changes needed
     if semverCompare "22.10" "$os_version_param" ; then
         return 0
@@ -1031,11 +1066,11 @@ configureSSHService() {
     if [ -f /etc/systemd/system/ssh.service.d/00-socket.conf ]; then
         rm /etc/systemd/system/ssh.service.d/00-socket.conf || echo "Warning: Could not remove 00-socket.conf"
     fi
-    
+
     if [ -f /etc/systemd/system/ssh.socket.d/addresses.conf ]; then
         rm /etc/systemd/system/ssh.socket.d/addresses.conf || echo "Warning: Could not remove addresses.conf"
     fi
-    
+
     # For all Ubuntu versions, just make sure ssh service is enabled and running
     if ! systemctl is-enabled --quiet ssh.service; then
         echo "Enabling SSH service..."
@@ -1046,7 +1081,7 @@ configureSSHService() {
         echo "Error: Failed to start SSH service after configuration changes"
         return $ERR_SYSTEMCTL_START_FAIL
     fi
-    
+
     echo "SSH service successfully reconfigured and started"
     return 0
 }

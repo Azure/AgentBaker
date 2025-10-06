@@ -209,6 +209,12 @@ $PreProvisionOnly = [System.Convert]::ToBoolean("{{GetPreProvisionOnly}}");
 
 $global:EnableKubeletServingCertificateRotation = [System.Convert]::ToBoolean("{{EnableKubeletServingCertificateRotation}}")
 
+# Windows Cilium Networking (WCN) Platform configuration
+$global:EnableWindowsCiliumNetworking = [System.Convert]::ToBoolean("{{GetVariable "nextGenNetworkingEnabled" }}");
+$global:WindowsCiliumNetworkingConfiguration = "{{GetVariable "nextGenNetworkingConfig" }}";
+$global:WindowsCiliumNetworkingPath = Join-Path -Path $global:cacheDir -ChildPath 'wcn'
+$global:WindowsCiliumInstallPath = Join-Path -Path $global:WindowsCiliumNetworkingPath -ChildPath 'install'
+
 # Extract cse helper script from ZIP
 [io.file]::WriteAllBytes("scripts.zip", [System.Convert]::FromBase64String($zippedFiles))
 Expand-Archive scripts.zip -DestinationPath "C:\\AzureData\\" -Force
@@ -248,7 +254,7 @@ if (-not (Test-Path "C:\AzureData\windows\azurecnifunc.ps1")) {
     Logs-To-Event -TaskName "AKS.WindowsCSE.DownloadAndExpandCSEScriptPackageUrl" -TaskMessage "Start to get CSE scripts. CSEScriptsPackageUrl: $global:CSEScriptsPackageUrl"
     $tempfile = 'c:\csescripts.zip'
     DownloadFileOverHttp -Url $global:CSEScriptsPackageUrl -DestinationPath $tempfile -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CSE_PACKAGE
-    Expand-Archive $tempfile -DestinationPath "C:\\AzureData\\windows" -Force
+    AKS-Expand-Archive -Path $tempfile -DestinationPath "C:\\AzureData\\windows"
     Remove-Item -Path $tempfile -Force
 } else {
     Write-Log "CSE scripts already exist, skipping download"
@@ -264,6 +270,11 @@ if (-not (Test-Path "C:\AzureData\windows\azurecnifunc.ps1")) {
 . c:\AzureData\windows\nvidiagpudriverfunc.ps1
 . c:\AzureData\windows\securetlsbootstrapfunc.ps1
 
+if (Test-Path -Path 'c:\AzureData\windows\windowsciliumnetworkingfunc.ps1') {
+    . c:\AzureData\windows\windowsciliumnetworkingfunc.ps1
+} else {
+    Write-Log "Windows Cilium Networking function script not found, skipping dot-source"
+}
 
 # ====== BASE PREP: BASE IMAGE PREPARATION ======
 # All operations that prepare the base VHD image
@@ -431,6 +442,17 @@ function BasePrep {
     # Turn off Firewall to enable pods to talk to service endpoints. (Kubelet should eventually do this)
     netsh advfirewall set allprofiles state off
 
+    # To ensure we don't introduce any incompatibility between base CSE + CSE package versions
+    if (Get-Command -Name Enable-WindowsCiliumNetworking -ErrorAction SilentlyContinue) {
+        if ($global:EnableWindowsCiliumNetworking) {
+            Enable-WindowsCiliumNetworking
+        } else {
+            Write-Log "Windows Cilium Networking is not enabled, will skip Windows Cilium Networking installation"
+        }
+    } else {
+        Write-Log "Enable-WindowsCiliumNetworking is not a recognized function, will skip Windows Cilium Networking installation"
+    }
+
     Set-Explorer
     Adjust-PageFileSize
     Logs-To-Event -TaskName "AKS.WindowsCSE.PreprovisionExtension" -TaskMessage "Start preProvisioning script"
@@ -562,6 +584,7 @@ try
 }
 catch
 {
+    Resolve-Error
     # Set-ExitCode will exit with the specified ExitCode immediately and not be caught by this catch block
     # Ideally all exceptions will be handled and no exception will be thrown.
     Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_UNKNOWN -ErrorMessage $_

@@ -21,7 +21,7 @@ root = "{{.KubeletConfig.GetContainerDataDir}}"{{- end}}
       runtime_type = "io.containerd.runc.v2"
     [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
       BinaryName = "/usr/bin/runc"
-      {{- if .NeedsCgroupv2 }}
+      {{- if .GetNeedsCgroupv2 }}
       SystemdCgroup = true
       {{- end}}
     [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted]

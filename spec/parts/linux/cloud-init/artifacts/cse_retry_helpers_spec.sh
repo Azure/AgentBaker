@@ -29,7 +29,7 @@ Describe 'long running cse helper functions'
             "systemctl_disable" 1 1 1 1 "nonexistent.service"
             "_systemctl_retry_svc_operation" 1 1 1 1 "nonexistent.service" "restart" 
             "sysctl_reload" 1 1 1 1
-            "retrycmd_get_access_token_for_oras" $ERR_ORAS_IMDS_TIMEOUT 1 1 "http://nonexistent.local/token"
+            "retrycmd_get_aad_access_token" $ERR_ORAS_IMDS_TIMEOUT 1 1 "http://nonexistent.local/token"
             "retrycmd_get_refresh_token_for_oras" $ERR_ORAS_PULL_NETWORK_TIMEOUT 1 1 "dummy.registry" "tenant-id" "fake-token"
             "retrycmd_curl_file"    1 1 1 1 "/tmp/nonexistent" "https://dummy.url/file"
             "retrycmd_can_oras_ls_acr"  $ERR_ORAS_PULL_NETWORK_TIMEOUT 1 1 "dummy.registry"

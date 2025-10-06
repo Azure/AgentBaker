@@ -62,6 +62,13 @@ function basePrep {
         sudo systemctl restart systemd-timesyncd
     fi
 
+    # Eval proxy vars to ensure curl commands use proxy if configured.
+    # e.g. PROXY_VARS=`export HTTPS_PROXY="https://proxy.example.com:8080"; export http_proxy="http://proxy.example.com:8080"; export NO_PROXY="127.0.0.1,localhost";`
+    # Setting vars in etc environment (configureEtcEnvironment) won't take effect in current shell session.
+    if [ -n "${PROXY_VARS}" ]; then
+        eval $PROXY_VARS
+    fi
+
     resolve_packages_source_url
     logs_to_events "AKS.CSE.setPackagesBaseURL" "echo $PACKAGE_DOWNLOAD_BASE_URL"
 
@@ -80,6 +87,9 @@ function basePrep {
     logs_to_events "AKS.CSE.ensureKubeCACert" ensureKubeCACert
 
     logs_to_events "AKS.CSE.installSecureTLSBootstrapClient" installSecureTLSBootstrapClient
+
+    logs_to_events "AKS.CSE.configureSSHPubkeyAuth" configureSSHPubkeyAuth "${DISABLE_PUBKEY_AUTH}"
+
 
     if [ "${DISABLE_SSH}" = "true" ]; then
         disableSSH || exit $ERR_DISABLE_SSH
@@ -116,7 +126,7 @@ function basePrep {
         if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
             registry_domain_name="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER%%/*}"
         fi
-        
+
         logs_to_events "AKS.CSE.orasLogin.oras_login_with_kubelet_identity" oras_login_with_kubelet_identity "${registry_domain_name}" $USER_ASSIGNED_IDENTITY_ID $TENANT_ID || exit $?
     fi
 
@@ -156,6 +166,9 @@ function basePrep {
         logs_to_events "AKS.CSE.installNetworkPlugin" installNetworkPlugin
     fi
 
+    # ShouldEnforceKubePMCInstall is a nodepool tag we curl from IMDS.
+    # Added as a temporary workaround to test installing packages from PMC prior to 1.34.0 GA.
+    # TODO: Remove tag and usages once 1.34.0 is GA.
     export -f should_enforce_kube_pmc_install
     SHOULD_ENFORCE_KUBE_PMC_INSTALL=$(retrycmd_silent 10 1 10 bash -cx should_enforce_kube_pmc_install)
     logs_to_events "AKS.CSE.configureKubeletAndKubectl" configureKubeletAndKubectl
@@ -293,6 +306,11 @@ EOF
     # Call enableLocalDNS to enable localdns if localdns profile has EnableLocalDNS set to true.
     logs_to_events "AKS.CSE.enableLocalDNS" enableLocalDNS || exit $?
 
+    # This is to enable localdns using scriptless.
+    if [ "${SHOULD_ENABLE_LOCALDNS}" = "true" ]; then
+        logs_to_events "AKS.CSE.shouldEnableLocalDns" shouldEnableLocalDns || exit $ERR_LOCALDNS_FAIL
+    fi
+
     if [ "${ID}" != "mariner" ] && [ "${ID}" != "azurelinux" ]; then
         echo "Recreating man-db auto-update flag file and kicking off man-db update process at $(date)"
         createManDbAutoUpdateFlagFile
@@ -326,11 +344,11 @@ function nodePrep {
         # This file indicates the cluster doesn't have outbound connectivity and should be excluded in future external outbound checks
         touch /var/run/outbound-check-skipped
     fi
-    
+
     # Determine if GPU driver installation should be skipped
     export -f should_skip_nvidia_drivers
     skip_nvidia_driver_install=$(retrycmd_silent 10 1 10 bash -cx should_skip_nvidia_drivers)
-    
+
     if [ "$?" -ne 0 ]; then
         echo "Failed to determine if nvidia driver install should be skipped"
         exit $ERR_NVIDIA_DRIVER_INSTALL
@@ -347,10 +365,10 @@ function nodePrep {
     # Install and configure GPU drivers if this is a GPU node
     if [ "${GPU_NODE}" = "true" ] && [ "${skip_nvidia_driver_install}" != "true" ]; then
         echo $(date),$(hostname), "Start configuring GPU drivers"
-        
+
         # Install GPU drivers
         logs_to_events "AKS.CSE.ensureGPUDrivers" ensureGPUDrivers
-        
+
         # Install fabric manager if needed
         if [ "${GPU_NEEDS_FABRIC_MANAGER}" = "true" ]; then
             # fabric manager trains nvlink connections between multi instance gpus.
@@ -387,20 +405,43 @@ function nodePrep {
 
         # Configure GPU device plugin
         if [ "${ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED}" = "true" ]; then
-            if [ "${MIG_NODE}" = "true" ] && [ -f "/etc/systemd/system/nvidia-device-plugin.service" ]; then
-                mkdir -p "/etc/systemd/system/nvidia-device-plugin.service.d"
+            # Ensure kubelet device-plugins directory exists BEFORE package installation
+            mkdir -p /var/lib/kubelet/device-plugins
+            
+            # Install nvidia-device-plugin if needed and not already installed
+            if ! systemctl list-unit-files | grep -q "nvidia-device-plugin.service"; then
+                echo "Installing nvidia-device-plugin package..."
+                logs_to_events "AKS.CSE.installNvidiaDevicePlugin" "installNvidiaDevicePluginPkgFromCache"
+            else
+                echo "nvidia-device-plugin package already installed"
+            fi
+            
+            # Create systemd override directory and fix binary path
+            mkdir -p /etc/systemd/system/nvidia-device-plugin.service.d/
+            tee "/etc/systemd/system/nvidia-device-plugin.service.d/10-binary-path.conf" > /dev/null <<'EOF'
+[Service]
+ExecStart=
+ExecStart=/usr/local/bin/nvidia-device-plugin
+EOF
+            # Reload systemd to pick up the base path override
+            systemctl daemon-reload
+            
+            if [ "${MIG_NODE}" = "true" ]; then
                 tee "/etc/systemd/system/nvidia-device-plugin.service.d/10-mig_strategy.conf" > /dev/null <<'EOF'
 [Service]
 Environment="MIG_STRATEGY=--mig-strategy single"
 ExecStart=
-ExecStart=/usr/local/nvidia/bin/nvidia-device-plugin $MIG_STRATEGY
+ExecStart=/usr/local/bin/nvidia-device-plugin $MIG_STRATEGY
 EOF
+                # Reload systemd to pick up drop-ins
+                systemctl daemon-reload
             fi
+            
             logs_to_events "AKS.CSE.start.nvidia-device-plugin" "systemctlEnableAndStart nvidia-device-plugin 30" || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
         else
             logs_to_events "AKS.CSE.stop.nvidia-device-plugin" "systemctlDisableAndStop nvidia-device-plugin"
         fi
-        
+
         echo $(date),$(hostname), "End configuring GPU drivers"
     fi
 
@@ -460,10 +501,6 @@ EOF
     fi
 
     logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
-
-    if [ "${ARTIFACT_STREAMING_ENABLED}" = "true" ]; then
-        logs_to_events "AKS.CSE.ensureContainerd.ensureAcrNodeMon" ensureAcrNodeMon || exit $ERR_ARTIFACT_STREAMING_ACR_NODEMON_START_FAIL
-    fi
 
     if $REBOOTREQUIRED; then
         echo 'reboot required, rebooting node in 1 minute'

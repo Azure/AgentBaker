@@ -28,14 +28,18 @@ handleCloudInitStatus() {
         echo "${cloudInitMessage}" >> "${provisionOutput}";
     fi
 
-    local cloudInitLongStatus=$(cloud-init status --long --format json)
-    echo -e "Cloud-init detailed status: \"${cloudInitLongStatus}\"" >> "${provisionOutput}"
+    local fullCloudInitStatus=$(cloud-init status --long --format json)
+    echo -e "Cloud-init detailed status: \"${fullCloudInitStatus}\"" >> "${provisionOutput}"
+    
+    # Extract only errors and recoverable_errors fields from cloud-init status in the event message, full status is still logged in the provision output
+    # the top level errors and recoverable_errors fields contain errors aggregated from all cloud-init modules
+    local cloudInitErrors=$(echo "${fullCloudInitStatus}" | jq -c '{errors: .errors, recoverable_errors: .recoverable_errors}')
     
     # Combine the status message with detailed status for the event message
     jsonCloudInitMessage=$( jq -n \
         --arg cloudInitMessage "${cloudInitMessage}" \
-        --arg cloudInitLongStatus "${cloudInitLongStatus}" \
-        '{cloudInitMessage: $cloudInitMessage, cloudInitLongStatus: $cloudInitLongStatus}'
+        --arg cloudInitErrors "${cloudInitErrors}" \
+        '{cloudInitMessage: $cloudInitMessage, cloudInitErrors: $cloudInitErrors}'
     )
 
     # arg names are defined by GA and all these are required to be correctly read by GA

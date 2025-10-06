@@ -27,8 +27,9 @@ import (
 )
 
 var (
-	logf = toolkit.Logf
-	log  = toolkit.Log
+	logf                        = toolkit.Logf
+	log                         = toolkit.Log
+	SSHKeyPrivate, SSHKeyPublic = mustGetNewRSAKeyPair()
 )
 
 // it's important to share context between tests to allow graceful shutdown
@@ -86,7 +87,6 @@ func RunScenario(t *testing.T, s *Scenario) {
 		t.Run("FirstStage", func(t *testing.T) {
 			t.Parallel()
 			runScenarioWithPreProvision(t, s)
-
 		})
 	} else {
 		runScenario(t, s)
@@ -184,6 +184,11 @@ func runScenario(t *testing.T, s *Scenario) {
 	}
 
 	s.Location = strings.ToLower(s.Location)
+
+	if s.K8sSystemPoolSKU == "" {
+		s.K8sSystemPoolSKU = config.Config.DefaultVMSKU
+	}
+
 	ctx := newTestCtx(t)
 	_, err := CachedEnsureResourceGroup(ctx, s.Location)
 	require.NoError(t, err)
@@ -194,7 +199,11 @@ func runScenario(t *testing.T, s *Scenario) {
 
 	maybeSkipScenario(ctx, t, s)
 
-	cluster, err := s.Config.Cluster(ctx, s.Location)
+	cluster, err := s.Config.Cluster(ctx, ClusterRequest{
+		Location:         s.Location,
+		K8sSystemPoolSKU: s.K8sSystemPoolSKU,
+	})
+
 	require.NoError(s.T, err, "failed to get cluster")
 	// in some edge cases cluster cache is broken and nil cluster is returned
 	// need to find the root cause and fix it, this should help to catch such cases
@@ -202,6 +211,7 @@ func runScenario(t *testing.T, s *Scenario) {
 	s.Runtime = &ScenarioRuntime{
 		Cluster: cluster,
 	}
+
 	// use shorter timeout for faster feedback on test failures
 	ctx, cancel := context.WithTimeout(ctx, config.Config.TestTimeoutVMSS)
 	defer cancel()
@@ -233,8 +243,7 @@ func prepareAKSNode(ctx context.Context, s *Scenario) {
 		s.Runtime.AKSNodeConfig = nodeconfig
 	}
 	var err error
-	s.Runtime.SSHKeyPrivate, s.Runtime.SSHKeyPublic, err = getNewRSAKeyPair()
-	publicKeyData := datamodel.PublicKey{KeyData: string(s.Runtime.SSHKeyPublic)}
+	publicKeyData := datamodel.PublicKey{KeyData: string(SSHKeyPublic)}
 
 	// check it all.
 	if s.Runtime.NBC != nil && s.Runtime.NBC.ContainerService != nil && s.Runtime.NBC.ContainerService.Properties != nil && s.Runtime.NBC.ContainerService.Properties.LinuxProfile != nil {
@@ -249,7 +258,7 @@ func prepareAKSNode(ctx context.Context, s *Scenario) {
 	require.NoError(s.T, err)
 
 	start := time.Now() // Record the start time
-	createVMSS(ctx, s)
+	ConfigureAndCreateVMSS(ctx, s)
 
 	err = getCustomScriptExtensionStatus(ctx, s)
 	require.NoError(s.T, err)
@@ -266,7 +275,6 @@ func prepareAKSNode(ctx context.Context, s *Scenario) {
 		toolkit.LogDuration(ctx, totalElapse, 3*time.Minute, fmt.Sprintf("Node %s took %s to be created and %s to be ready", s.Runtime.VMSSName, toolkit.FormatDuration(creationElapse), toolkit.FormatDuration(readyElapse)))
 	}
 
-	s.Runtime.VMPrivateIP, err = getVMPrivateIPAddress(ctx, s)
 	require.NoError(s.T, err, "failed to get VM private IP address")
 }
 
@@ -275,6 +283,10 @@ func maybeSkipScenario(ctx context.Context, t *testing.T, s *Scenario) {
 	s.Tags.OS = string(s.VHD.OS)
 	s.Tags.Arch = s.VHD.Arch
 	s.Tags.ImageName = s.VHD.Name
+	if s.AKSNodeConfigMutator != nil {
+		s.Tags.Scriptless = true
+	}
+
 	if config.Config.TagsToRun != "" {
 		matches, err := s.Tags.MatchesFilters(config.Config.TagsToRun)
 		if err != nil {
@@ -326,8 +338,10 @@ func ValidateNodeCanRunAPod(ctx context.Context, s *Scenario) {
 }
 
 func validateVM(ctx context.Context, s *Scenario) {
-	err := uploadSSHKey(ctx, s)
-	require.NoError(s.T, err)
+	if !s.Config.SkipSSHConnectivityValidation {
+		err := validateSSHConnectivity(ctx, s)
+		require.NoError(s.T, err)
+	}
 
 	if !s.Config.SkipDefaultValidation {
 		ValidateNodeCanRunAPod(ctx, s)
@@ -343,7 +357,11 @@ func validateVM(ctx context.Context, s *Scenario) {
 	if s.Config.Validator != nil {
 		s.Config.Validator(ctx, s)
 	}
-	s.T.Log("validation succeeded")
+	if s.T.Failed() {
+		s.T.Log("VM validation failed")
+	} else {
+		s.T.Log("VM validation succeeded")
+	}
 }
 
 func getCustomScriptExtensionStatus(ctx context.Context, s *Scenario) error {
@@ -636,4 +654,48 @@ func validateSSHConnectivity(ctx context.Context, s *Scenario) error {
 
 	s.T.Logf("SSH connectivity to %s verified successfully", s.Runtime.VMPrivateIP)
 	return nil
+}
+
+func runScenarioGPUNPD(t *testing.T, vmSize, location, k8sSystemPoolSKU string) *Scenario {
+	t.Helper()
+	return &Scenario{
+		Description:      fmt.Sprintf("Tests that a GPU-enabled node with VM size %s using an Ubuntu 2404 VHD can be properly bootstrapped and NPD tests are valid", vmSize),
+		Location:         location,
+		K8sSystemPoolSKU: k8sSystemPoolSKU,
+		Tags: Tags{
+			GPU: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2404Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.AgentPoolProfile.VMSize = vmSize
+				nbc.ConfigGPUDriverIfNeeded = true
+				nbc.EnableNvidia = true
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr(vmSize)
+
+				extension, err := createVMExtensionLinuxAKSNode(vmss.Location)
+				require.NoError(t, err, "creating AKS VM extension")
+
+				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				EnableGPUNPDToggle(ctx, s)
+				// First, ensure nvidia-modprobe install does not restart kubelet and temporarily cause node to be unschedulable
+				ValidateNvidiaModProbeInstalled(ctx, s)
+				ValidateKubeletHasNotStopped(ctx, s)
+				ValidateServicesDoNotRestartKubelet(ctx, s)
+
+				// Then validate NPD configuration and GPU monitoring
+				ValidateNPDGPUCountPlugin(ctx, s)
+				ValidateNPDGPUCountCondition(ctx, s)
+				ValidateNPDGPUCountAfterFailure(ctx, s)
+
+				// Validate the if IB NPD is reporting the flapping condition
+				ValidateNPDIBLinkFlappingCondition(ctx, s)
+				ValidateNPDIBLinkFlappingAfterFailure(ctx, s)
+			},
+		}}
 }

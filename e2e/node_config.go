@@ -131,7 +131,7 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnod
 
 	config := &aksnodeconfigv1.Configuration{
 		Version:            "v1",
-		DisableCustomData:  false,
+		DisableCustomData:  nbc.AgentPoolProfile.IsFlatcar(),
 		LinuxAdminUsername: "azureuser",
 		VmSize:             config.Config.DefaultVMSKU,
 		ClusterConfig: &aksnodeconfigv1.ClusterConfig{
@@ -183,6 +183,75 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnod
 		KubeProxyUrl: cs.Properties.OrchestratorProfile.KubernetesConfig.CustomKubeProxyImage,
 		HttpProxyConfig: &aksnodeconfigv1.HttpProxyConfig{
 			NoProxyEntries: *nbc.HTTPProxyConfig.NoProxy,
+		},
+		LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
+			EnableLocalDns:       true,
+			CpuLimitInMilliCores: to.Ptr(int32(2008)),
+			MemoryLimitInMb:      to.Ptr(int32(256)),
+			VnetDnsOverrides: map[string]*aksnodeconfigv1.LocalDnsOverrides{
+				".": {
+					QueryLogging:                "Log",
+					Protocol:                    "PreferUDP",
+					ForwardDestination:          "VnetDNS",
+					ForwardPolicy:               "Sequential",
+					MaxConcurrent:               to.Ptr(int32(1000)),
+					CacheDurationInSeconds:      to.Ptr(int32(3600)),
+					ServeStaleDurationInSeconds: to.Ptr(int32(3600)),
+					ServeStale:                  "Immediate",
+				},
+				"cluster.local": {
+					QueryLogging:                "Error",
+					Protocol:                    "ForceTCP",
+					ForwardDestination:          "ClusterCoreDNS",
+					ForwardPolicy:               "RoundRobin",
+					MaxConcurrent:               to.Ptr(int32(3000)),
+					CacheDurationInSeconds:      to.Ptr(int32(7200)),
+					ServeStaleDurationInSeconds: to.Ptr(int32(4500)),
+					ServeStale:                  "Disable",
+				},
+				"testdomain456.com": {
+					QueryLogging:                "Log",
+					Protocol:                    "PreferUDP",
+					ForwardDestination:          "ClusterCoreDNS",
+					ForwardPolicy:               "Random",
+					MaxConcurrent:               to.Ptr(int32(1000)),
+					CacheDurationInSeconds:      to.Ptr(int32(3600)),
+					ServeStaleDurationInSeconds: to.Ptr(int32(3600)),
+					ServeStale:                  "Verify",
+				},
+			},
+			KubeDnsOverrides: map[string]*aksnodeconfigv1.LocalDnsOverrides{
+				".": {
+					QueryLogging:                "Error",
+					Protocol:                    "PreferUDP",
+					ForwardDestination:          "ClusterCoreDNS",
+					ForwardPolicy:               "Sequential",
+					MaxConcurrent:               to.Ptr(int32(1000)),
+					CacheDurationInSeconds:      to.Ptr(int32(3600)),
+					ServeStaleDurationInSeconds: to.Ptr(int32(3600)),
+					ServeStale:                  "Verify",
+				},
+				"cluster.local": {
+					QueryLogging:                "Log",
+					Protocol:                    "ForceTCP",
+					ForwardDestination:          "ClusterCoreDNS",
+					ForwardPolicy:               "RoundRobin",
+					MaxConcurrent:               to.Ptr(int32(1000)),
+					CacheDurationInSeconds:      to.Ptr(int32(3600)),
+					ServeStaleDurationInSeconds: to.Ptr(int32(3600)),
+					ServeStale:                  "Disable",
+				},
+				"testdomain567.com": {
+					QueryLogging:                "Error",
+					Protocol:                    "PreferUDP",
+					ForwardDestination:          "VnetDNS",
+					ForwardPolicy:               "Random",
+					MaxConcurrent:               to.Ptr(int32(1000)),
+					CacheDurationInSeconds:      to.Ptr(int32(3600)),
+					ServeStaleDurationInSeconds: to.Ptr(int32(3600)),
+					ServeStale:                  "Immediate",
+				},
+			},
 		},
 		NeedsCgroupv2: to.Ptr(true),
 		// Before scriptless, absvc combined kubelet configs from multiple sources such as nbc.AgentPoolProfile.CustomKubeletConfig, nbc.KubeletConfig and more.
@@ -436,7 +505,7 @@ func baseTemplateLinux(t *testing.T, location string, k8sVersion string, arch st
 				},
 				ServicePrincipalProfile: &datamodel.ServicePrincipalProfile{
 					ClientID: "msi",
-					Secret:   "msi",
+					Secret:   "**msi**",
 				},
 				CertificateProfile:  &datamodel.CertificateProfile{},
 				HostedMasterProfile: &datamodel.HostedMasterProfile{},
@@ -724,7 +793,7 @@ func baseTemplateWindows(t *testing.T, location string) *datamodel.NodeBootstrap
 				},
 				ServicePrincipalProfile: &datamodel.ServicePrincipalProfile{
 					ClientID: "msi",
-					Secret:   "msi",
+					Secret:   "**msi**",
 				},
 				FeatureFlags: &datamodel.FeatureFlags{
 					EnableWinDSR: true,

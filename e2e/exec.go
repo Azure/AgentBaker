@@ -212,7 +212,7 @@ func unprivilegedCommandArray() []string {
 func uploadSSHKey(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
 	steps := []string{
-		fmt.Sprintf("echo '%[1]s' > %[2]s", string(s.Runtime.SSHKeyPrivate), sshKeyName(s.Runtime.VMPrivateIP)),
+		fmt.Sprintf("echo '%[1]s' > %[2]s", string(SSHKeyPrivate), sshKeyName(s.Runtime.VMPrivateIP)),
 		fmt.Sprintf("chmod 0600 %s", sshKeyName(s.Runtime.VMPrivateIP)),
 	}
 	joinedSteps := strings.Join(steps, " && ")
@@ -222,7 +222,7 @@ func uploadSSHKey(ctx context.Context, s *Scenario) error {
 		return fmt.Errorf("error executing command on pod: %w", err)
 	}
 
-	result := "SSH Instructions:"
+	result := "SSH Instructions: (may take a few minutes for the VM to be ready for SSH)"
 	if !config.Config.KeepVMSS {
 		result += " (VM will be automatically deleted after the test finishes, set KEEP_VMSS=true to preserve it or pause the test with a breakpoint before the test finishes)"
 	}
@@ -230,12 +230,6 @@ func uploadSSHKey(ctx context.Context, s *Scenario) error {
 	// We combine the az aks get credentials in the same line so we don't overwrite the user's kubeconfig.
 	result += fmt.Sprintf(`kubectl --kubeconfig <(az aks get-credentials --subscription "%s" --resource-group "%s"  --name "%s" -f -) exec -it %s -- bash -c "chroot /proc/1/root /bin/bash -c '%s'"`, config.Config.SubscriptionID, config.ResourceGroupName(s.Location), *s.Runtime.Cluster.Model.Name, s.Runtime.Cluster.DebugPod.Name, sshString(s.Runtime.VMPrivateIP))
 	s.T.Log(result)
-
-	// Test SSH connectivity once per test to distinguish SSH issues from script failures
-	err = validateSSHConnectivity(ctx, s)
-	if err != nil {
-		return err
-	}
 
 	return nil
 }

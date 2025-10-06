@@ -151,7 +151,40 @@ Describe 'cse_helpers.sh'
         End
     End
 
-        Describe 'addKubeletNodeLabel'
+    Describe 'getLatestPkgVersionFromK8sVersion'
+    COMPONENTS_FILEPATH="spec/parts/linux/cloud-init/artifacts/test_components.json"
+    
+        It 'returns correct latestVersion for Ubuntu'
+            k8sVersion="1.32.3"
+            OS="UBUNTU"
+            OS_VERSION="22.04"
+            When call getLatestPkgVersionFromK8sVersion "$k8sVersion" "fake-azure-acr-credential-provider" "$OS" "$OS_VERSION"
+            The output should equal "1.32.3-ubuntu22.04u4"
+        End
+        It 'returns correct latestVersion for AzureLinux'
+            k8sVersion="1.32.3"
+            OS="AZURELINUX"
+            OS_VERSION="3.0"
+            When call getLatestPkgVersionFromK8sVersion "$k8sVersion" "fake-azure-acr-credential-provider" "$OS" "$OS_VERSION"
+            The output should equal '1.32.3-4.azl3'
+        End
+        It 'returns highest latestVersion for Ubuntu if no matching k8s version'
+            k8sVersion="1.34.0"
+            OS="UBUNTU"
+            OS_VERSION="22.04"
+            When call getLatestPkgVersionFromK8sVersion "$k8sVersion" "fake-azure-acr-credential-provider" "$OS" "$OS_VERSION"
+            The output should equal "1.32.3-ubuntu22.04u4"
+        End
+        It 'returns highest latestVersion for AzureLinux if no matching k8s version'
+            k8sVersion="1.34.0"
+            OS="AZURELINUX"
+            OS_VERSION="3.0"
+            When call getLatestPkgVersionFromK8sVersion "$k8sVersion" "fake-azure-acr-credential-provider" "$OS" "$OS_VERSION"
+            The output should equal '1.32.3-4.azl3'
+        End
+    End
+
+    Describe 'addKubeletNodeLabel'
         It 'should perform a no-op when the specified label already exists within the label string'
             KUBELET_NODE_LABELS="kubernetes.azure.com/nodepool-type=VirtualMachineScaleSets,kubernetes.azure.com/kubelet-serving-ca=cluster,kubernetes.azure.com/agentpool=wp0"
             When call addKubeletNodeLabel kubernetes.azure.com/kubelet-serving-ca=cluster
@@ -211,7 +244,7 @@ Describe 'cse_helpers.sh'
             retrycmd_can_oras_ls_acr() {
                 return 1
             }
-            retrycmd_get_access_token_for_oras(){
+            retrycmd_get_aad_access_token(){
                 echo "failed to retrieve kubelet identity token from IMDS, http code: 400, msg: {\"error\":\"invalid_request\",\"error_description\":\"Identity not found\"}"
                 return $ERR_ORAS_PULL_UNAUTHORIZED
             }
@@ -227,7 +260,7 @@ Describe 'cse_helpers.sh'
             retrycmd_can_oras_ls_acr() {
                 return 1
             }
-            retrycmd_get_access_token_for_oras(){
+            retrycmd_get_aad_access_token(){
                 echo "{\"access_token\":\"myAccessToken\"}"
             }
             retrycmd_get_refresh_token_for_oras(){
@@ -244,7 +277,7 @@ Describe 'cse_helpers.sh'
             retrycmd_can_oras_ls_acr() {
                 return 1
             }
-            retrycmd_get_access_token_for_oras(){
+            retrycmd_get_aad_access_token(){
                 echo "{\"access_token\":\"myAccessToken\"}"
             }
             retrycmd_get_refresh_token_for_oras(){
@@ -261,7 +294,7 @@ Describe 'cse_helpers.sh'
             The stdout should include "failed to login to acr '$acr_url' with identity token"
         End  
         It 'should succeed if oras can login'
-            retrycmd_get_access_token_for_oras(){
+            retrycmd_get_aad_access_token(){
                 echo "{\"access_token\":\"myAccessToken\"}"
             }
             retrycmd_get_refresh_token_for_oras(){
@@ -412,6 +445,43 @@ Describe 'cse_helpers.sh'
             When call configureSSHService "UBUNTU" "24.04"
             The stdout should include "systemctlEnableAndStart called with: ssh"
             The status should equal $ERR_SYSTEMCTL_START_FAIL
+        End
+    End
+
+    Describe 'isRegistryUrl'
+        It 'returns true for valid registry url with tag'
+            When call isRegistryUrl 'mcr.microsoft.com/component/binary:1.0'
+            The status should be success
+            The stdout should eq ''
+            The stderr should eq ''
+        End
+
+        It 'returns false for url without tag'
+            When call isRegistryUrl 'mcr.microsoft.com/component/binary'
+            The status should be failure
+            The stdout should eq ''
+            The stderr should eq ''
+        End
+
+        It 'returns false for http url'
+            When call isRegistryUrl 'https://example.com/file.tar.gz'
+            The status should be failure
+            The stdout should eq ''
+            The stderr should eq ''
+        End
+
+        It 'returns true for registry url with complex tag'
+            When call isRegistryUrl 'myrepo.azurecr.io/myimage:1.2.3-beta_4'
+            The status should be success
+            The stdout should eq ''
+            The stderr should eq ''
+        End
+
+        It 'returns false for empty string'
+            When call isRegistryUrl ''
+            The status should be failure
+            The stdout should eq ''
+            The stderr should eq ''
         End
     End
 End

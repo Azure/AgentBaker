@@ -15,13 +15,6 @@
     "renovate"
   ],
   "rebaseWhen": "automerging",
-  "schedule": [
-    "after 10pm every weekday",
-    "every weekend",
-    "before 5am every weekday"
-  ],
-  "updateNotScheduled": false,
-  "timezone": "America/Los_Angeles",
   "logLevelRemap": [
     {
       "matchMessage": "/^Custom manager fetcher/",
@@ -45,8 +38,11 @@
         "azuremonitor/containerinsights/ciprod/prometheus-collector/images",
         "oss/kubernetes/azure-cloud-node-manager",
         "aks/ip-masq-agent-v2",
+        "oss/v2/azure/ip-masq-agent-v2",
         "oss/kubernetes-csi/azuredisk-csi",
+        "oss/v2/kubernetes-csi/azuredisk-csi",
         "oss/kubernetes-csi/azurefile-csi",
+        "oss/v2/kubernetes-csi/azurefile-csi",
         "oss/kubernetes-csi/blob-csi",
         "oss/kubernetes-csi/livenessprobe",
         "oss/kubernetes-csi/csi-node-driver-registrar",
@@ -64,6 +60,14 @@
       "enabled": false
     },
     {
+      "matchPackageNames": [
+        "oss/v2/**"
+      ],
+      "versioning": "regex:^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<prerelease>\\d+)$",
+      "ignoreUnstable": false
+    },
+
+    {
       "matchDatasources": [
         "docker"
       ],
@@ -77,7 +81,8 @@
       "matchDatasources": [
         "custom.deb2004",
         "custom.deb2204",
-        "custom.deb2404"
+        "custom.deb2404",
+        "custom.deb2404-test"
       ],
       "matchUpdateTypes": [
         "patch"
@@ -112,7 +117,6 @@
         "cameronmeissner",
         "lilypan26",
         "djsly",
-        "UtheMan",
         "zachary-bailey",
         "ganeshkumarashok"
       ],
@@ -122,7 +126,6 @@
         "cameronmeissner",
         "lilypan26",
         "djsly",
-        "UtheMan",
         "zachary-bailey",
         "ganeshkumarashok"
       ]
@@ -145,7 +148,6 @@
         "cameronmeissner",
         "lilypan26",
         "djsly",
-        "UtheMan",
         "zachary-bailey",
         "ganeshkumarashok"
       ],
@@ -155,7 +157,6 @@
         "cameronmeissner",
         "lilypan26",
         "djsly",
-        "UtheMan",
         "zachary-bailey",
         "ganeshkumarashok"
       ]
@@ -177,7 +178,6 @@
         "cameronmeissner",
         "lilypan26",
         "djsly",
-        "UtheMan",
         "zachary-bailey",
         "ganeshkumarashok"
       ],
@@ -187,9 +187,27 @@
         "cameronmeissner",
         "lilypan26",
         "djsly",
-        "UtheMan",
         "zachary-bailey",
         "ganeshkumarashok"
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "azure-acr-credential-provider-pmc"
+      ],
+      "matchUpdateTypes": [
+        "patch"
+      ],
+      "automerge": false,
+      "enabled": true,
+      "groupName": "credential-provider-pmc",
+      "assignees": [
+        "mainred",
+        "nilo19"
+      ],
+      "reviewers": [
+        "mainred",
+        "nilo19"
       ]
     },
     {
@@ -207,6 +225,19 @@
         "behzad-mir",
         "jpayne3506",
         "QxBytes"
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "oss/v2/azure/ip-masq-agent-v2"
+      ],
+      "reviewers": [
+        "robogatikov",
+        "paulgmiller"
+      ],
+      "assignees": [
+        "robogatikov",
+        "paulgmiller"
       ]
     },
     {
@@ -230,7 +261,7 @@
       "matchPackageNames": [
         "azuremonitor/containerinsights/ciprod"
       ],
-      "groupName": "ciprod",      
+      "groupName": "ciprod",
       "ignoreUnstable": false,
       "reviewers": [
         "team:containerinsights"
@@ -312,12 +343,10 @@
       "groupName": "acr-credential-provider",
       "assignees": [
         "mainred",
-        "MartinForReal",
         "nilo19"
       ],
       "reviewers": [
         "mainred",
-        "MartinForReal",
         "nilo19"
       ]
     },
@@ -343,6 +372,22 @@
         "djsly",
         "zachary-bailey",
         "ganeshkumarashok"
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "nvidia-device-plugin"
+      ],
+      "groupName": "nvidia-device-plugin",
+      "assignees": [
+        "djsly",
+        "ganeshkumarashok",
+        "surajssd"
+      ],
+      "reviewers": [
+        "djsly",
+        "ganeshkumarashok",
+        "surajssd"
       ]
     },
     {
@@ -383,12 +428,10 @@
       "groupName": "azure-cloud-node-manager",
       "assignees": [
         "mainred",
-        "MartinForReal",
         "nilo19"
       ],
       "reviewers": [
         "mainred",
-        "MartinForReal",
         "nilo19"
       ]
     },
@@ -510,11 +553,11 @@
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
-        "\"renovateTag\":\\s*\"name=(?<packageName>[^\"]+), os=ubuntu, release=20\\.04\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\"(?:[^}]*\"previousLatestVersion\":\\s*\"(?<depType>[^\"]+)\")?"
+        "\"renovateTag\":\\s*\"name=(?<packageName>[^\"]+), repository=production, os=ubuntu, release=20\\.04\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\"(?:[^}]*\"previousLatestVersion\":\\s*\"(?<depType>[^\"]+)\")?"
       ],
       "datasourceTemplate": "custom.deb2004",
       "versioningTemplate": "deb",
-      "autoReplaceStringTemplate": "\"renovateTag\": \"name={{{packageName}}}, os=ubuntu, release=20.04\",\n                \"latestVersion\": \"{{{newValue}}}\"{{#if depType}},\n                \"previousLatestVersion\": \"{{{currentValue}}}\"{{/if}}"
+      "autoReplaceStringTemplate": "\"renovateTag\": \"name={{{packageName}}}, repository=production, os=ubuntu, release=20.04\",\n                \"latestVersion\": \"{{{newValue}}}\"{{#if depType}},\n                \"previousLatestVersion\": \"{{{currentValue}}}\"{{/if}}"
     },
     {
       "customType": "regex",
@@ -524,11 +567,11 @@
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
-        "\"renovateTag\":\\s*\"name=(?<packageName>[^\"]+), os=ubuntu, release=22\\.04\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\"(?:[^}]*\"previousLatestVersion\":\\s*\"(?<depType>[^\"]+)\")?"
+        "\"renovateTag\":\\s*\"name=(?<packageName>[^\"]+), repository=production, os=ubuntu, release=22\\.04\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\"(?:[^}]*\"previousLatestVersion\":\\s*\"(?<depType>[^\"]+)\")?"
       ],
       "datasourceTemplate": "custom.deb2204",
       "versioningTemplate": "deb",
-      "autoReplaceStringTemplate": "\"renovateTag\": \"name={{{packageName}}}, os=ubuntu, release=22.04\",\n                \"latestVersion\": \"{{{newValue}}}\"{{#if depType}},\n                \"previousLatestVersion\": \"{{{currentValue}}}\"{{/if}}"
+      "autoReplaceStringTemplate": "\"renovateTag\": \"name={{{packageName}}}, repository=production, os=ubuntu, release=22.04\",\n                \"latestVersion\": \"{{{newValue}}}\"{{#if depType}},\n                \"previousLatestVersion\": \"{{{currentValue}}}\"{{/if}}"
     },
     {
       "customType": "regex",
@@ -538,17 +581,31 @@
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
-        "\"renovateTag\":\\s*\"name=(?<packageName>[^\"]+), os=ubuntu, release=24\\.04\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\"(?:[^}]*\"previousLatestVersion\":\\s*\"(?<depType>[^\"]+)\")?"
+        "\"renovateTag\":\\s*\"name=(?<packageName>[^\"]+), repository=production, os=ubuntu, release=24\\.04\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\"(?:[^}]*\"previousLatestVersion\":\\s*\"(?<depType>[^\"]+)\")?"
       ],
       "datasourceTemplate": "custom.deb2404",
       "versioningTemplate": "deb",
-      "autoReplaceStringTemplate": "\"renovateTag\": \"name={{{packageName}}}, os=ubuntu, release=24.04\",\n                \"latestVersion\": \"{{{newValue}}}\"{{#if depType}},\n                \"previousLatestVersion\": \"{{{currentValue}}}\"{{/if}}"
+      "autoReplaceStringTemplate": "\"renovateTag\": \"name={{{packageName}}}, repository=production, os=ubuntu, release=24.04\",\n                \"latestVersion\": \"{{{newValue}}}\"{{#if depType}},\n                \"previousLatestVersion\": \"{{{currentValue}}}\"{{/if}}"
+    },
+    {
+      "customType": "regex",
+      "description": "auto update packages for OS ubuntu 24.04 (test registry) in components.json",
+      "managerFilePatterns": [
+        "/parts/common/components.json/"
+      ],
+      "matchStringsStrategy": "any",
+      "matchStrings": [
+        "\"renovateTag\":\\s*\"name=(?<packageName>[^\"]+), repository=test, os=ubuntu, release=24\\.04\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\"(?:[^}]*\"previousLatestVersion\":\\s*\"(?<depType>[^\"]+)\")?"
+      ],
+      "datasourceTemplate": "custom.deb2404-test",
+      "versioningTemplate": "deb",
+      "autoReplaceStringTemplate": "\"renovateTag\": \"name={{{packageName}}}, repository=test, os=ubuntu, release=24.04\",\n                \"latestVersion\": \"{{{newValue}}}\"{{#if depType}},\n                \"previousLatestVersion\": \"{{{currentValue}}}\"{{/if}}"
     },
     {
       "customType": "regex",
       "description": "auto update packages for OS Mariner 2.0 in components.json",
-      "fileMatch": [
-        "parts/common/components.json"
+      "managerFilePatterns": [
+        "/parts/common/components.json/"
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
@@ -560,8 +617,8 @@
     {
       "customType": "regex",
       "description": "auto update packages for OS AzureLinux 3.0 in components.json",
-      "fileMatch": [
-        "parts/common/components.json"
+      "managerFilePatterns": [
+        "/parts/common/components.json/"
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
@@ -598,6 +655,13 @@
       ]
     },
     "deb2404": {
+      "defaultRegistryUrlTemplate": "https://packages.microsoft.com/ubuntu/24.04/prod/dists/noble/main/binary-amd64/Packages",
+      "format": "plain",
+      "transformTemplates": [
+        "{\"releases\": $map(($index := releases#$i[version=\"Package: {{packageName}}\"].$i; $map($index, function($i) { $substringAfter(releases[$i + 1].version, \"Version: \") })), function($v) { {\"version\": $v} })[]}"
+      ]
+    },
+    "deb2404-test": {
       "defaultRegistryUrlTemplate": "https://packages.microsoft.com/ubuntu/24.04/prod/dists/testing/main/binary-amd64/Packages",
       "format": "plain",
       "transformTemplates": [

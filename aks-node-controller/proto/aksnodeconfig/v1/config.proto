@@ -15,6 +15,7 @@ import "aksnodeconfig/v1/http_proxy_config.proto";
 import "aksnodeconfig/v1/imds_restriction_config.proto";
 import "aksnodeconfig/v1/kube_binary_config.proto";
 import "aksnodeconfig/v1/kubelet_config.proto";
+import "aksnodeconfig/v1/localdns_config.proto";
 import "aksnodeconfig/v1/network_config.proto";
 import "aksnodeconfig/v1/runc_config.proto";
 import "aksnodeconfig/v1/teleport_config.proto";
@@ -153,4 +154,13 @@ message Configuration {
   // Creates a pre-provisioned image for later node spawning.
   // Skips kubelet and some component configuration for image capture scenarios.
   bool pre_provision_only = 40;
+
+  // Represents localdns profile for agentpool.
+  LocalDnsProfile local_dns_profile = 41;
+
+  // Specifies whether to disable ssh public key authentication on the VM node
+  // This is labeled as optional (explicit presence) so that we know whether it's set or not.
+  // If it's not set, the default value will be nil, but will be set to false on the VHD.
+  // That is, the default behavior is to enable ssh public key authentication.
+  optional bool disable_pubkey_auth = 42;
 }

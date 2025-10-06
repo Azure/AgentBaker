@@ -1,8 +1,11 @@
 package e2e
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"os/exec"
+	"os/user"
 	"reflect"
 	"strconv"
 	"strings"
@@ -116,6 +119,10 @@ type Scenario struct {
 	// used to override the default location.
 	Location string
 
+	// K8sSystemPoolSKU is the VM size to use for the system nodepool. If empty,
+	// a default size will be used.
+	K8sSystemPoolSKU string
+
 	// Runtime contains the runtime state of the scenario. It's populated in the beginning of the test run
 	Runtime *ScenarioRuntime
 	T       *testing.T
@@ -127,15 +134,13 @@ type ScenarioRuntime struct {
 	Cluster       *Cluster
 	VMSSName      string
 	KubeNodeName  string
-	SSHKeyPublic  []byte
-	SSHKeyPrivate []byte
 	VMPrivateIP   string
 }
 
 // Config represents the configuration of an AgentBaker E2E scenario.
 type Config struct {
 	// Cluster creates, updates or re-uses an AKS cluster for the scenario
-	Cluster func(ctx context.Context, location string) (*Cluster, error)
+	Cluster func(ctx context.Context, request ClusterRequest) (*Cluster, error)
 
 	// VHD is the node image used by the scenario.
 	VHD *config.Image
@@ -155,6 +160,10 @@ type Config struct {
 	// SkipDefaultValidation is a flag to indicate whether the common validation (like spawning a pod) should be skipped.
 	// It shouldn't be used for majority of scenarios, currently only used for preparing VHD in a two-stage scenario
 	SkipDefaultValidation bool
+
+	// SkipSSHConnectivityValidation is a flag to indicate whether the ssh connectivity validation should be skipped.
+	// It shouldn't be used for majority of scenarios, currently only used for scenarios where the node is not expected to be reachable via ssh
+	SkipSSHConnectivityValidation bool
 }
 
 func (s *Scenario) PrepareAKSNodeConfig() {
@@ -187,20 +196,58 @@ func (s *Scenario) PrepareVMSSModel(ctx context.Context, t *testing.T, vmss *arm
 		ID: to.Ptr(string(resourceID)),
 	}
 
+	s.updateTags(ctx, vmss)
+}
+
+func (s *Scenario) updateTags(ctx context.Context, vmss *armcompute.VirtualMachineScaleSet) {
+	if vmss.Tags == nil {
+		vmss.Tags = map[string]*string{}
+	}
+
 	// don't clean up VMSS in other tests
 	if config.Config.KeepVMSS {
-		if vmss.Tags == nil {
-			vmss.Tags = map[string]*string{}
-		}
 		vmss.Tags["KEEP_VMSS"] = to.Ptr("true")
 	}
 
 	if config.Config.BuildID != "" {
-		if vmss.Tags == nil {
-			vmss.Tags = map[string]*string{}
-		}
 		vmss.Tags[buildIDTagKey] = &config.Config.BuildID
 	}
+
+	owner, err := getLoggedInAzUser()
+	if err != nil {
+		owner, err = getLocalUsername()
+		if err != nil {
+			owner = "unknown"
+		}
+	}
+	vmss.Tags["owner"] = to.Ptr(owner)
+
+}
+
+func getLoggedInAzUser() (string, error) {
+	// Define the command and arguments
+	cmd := exec.Command("az", "account", "show", "--query", "user.name", "-o", "tsv")
+
+	// Create a buffer to capture stdout
+	var out bytes.Buffer
+	cmd.Stdout = &out
+
+	// Run the command
+	err := cmd.Run()
+	if err != nil {
+		return "", err
+	}
+
+	return out.String(), nil
+}
+
+func getLocalUsername() (string, error) {
+	currentUser, err := user.Current()
+	if err == nil {
+		return currentUser.Username, nil
+	}
+
+	return "", err
 }
 
 func (s *Scenario) IsWindows() bool {

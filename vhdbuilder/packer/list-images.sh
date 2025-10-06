@@ -29,3 +29,4 @@ pushd /home/packer
 popd
 
 chmod a+r $IMAGE_BOM_PATH
+chmod a+rx /opt/azure/ /opt/azure/containers/

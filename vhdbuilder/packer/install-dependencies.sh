@@ -1,5 +1,7 @@
 #!/bin/bash
 set -euo pipefail
+
+K8S_DEVICE_PLUGIN_PKG="${K8S_DEVICE_PLUGIN_PKG:-nvidia-device-plugin}"
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
 MARINER_KATA_OS_NAME="MARINERKATA"
@@ -211,6 +213,15 @@ ENV{DEVTYPE}=="partition", ENV{AZURE_DISK_TYPE}=="?*", ENV{AZURE_DISK_NAME}=="?*
 ENV{DEVTYPE}=="partition", ENV{AZURE_DISK_TYPE}=="?*", ENV{AZURE_DISK_SERIAL}=="?*", SYMLINK+="disk/azure/\$env{AZURE_DISK_TYPE}/by-serial/\$env{AZURE_DISK_SERIAL}-part%n"
 LABEL="azure_disk_end"
 EOF
+
+cat > /etc/udev/rules.d/99-microsoft-mana-mtu.rules <<EOF
+# Udev rule to set MTU to 9000 for Microsoft MANA Ethernet controllers
+# This rule triggers when a network interface is added and checks for Microsoft Azure Network Adapter VF
+# https://learn.microsoft.com/en-us/azure/virtual-network/how-to-virtual-machine-mtu?tabs=linux
+
+SUBSYSTEM=="net", KERNEL=="en*", ENV{ID_NET_DRIVER}=="mana", RUN+="/usr/sbin/ip link set dev eth0 mtu 9000"
+EOF
+
 udevadm control --reload
 capture_benchmark "${SCRIPT_NAME}_set_udev_rules"
 
@@ -421,6 +432,22 @@ while IFS= read -r p; do
         echo "  - kubectl version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
+    "${K8S_DEVICE_PLUGIN_PKG}")
+      for version in ${PACKAGE_VERSIONS[@]}; do
+        if [ "${OS}" = "${UBUNTU_OS_NAME}" ] || isMarinerOrAzureLinux "$OS"; then
+          downloadPkgFromVersion "${K8S_DEVICE_PLUGIN_PKG}" "${version}" "${downloadDir}"
+        fi
+        echo "  - ${K8S_DEVICE_PLUGIN_PKG} version ${version}" >> ${VHD_LOGS_FILEPATH}
+      done
+      ;;
+    "azure-acr-credential-provider-pmc")
+      for version in ${PACKAGE_VERSIONS[@]}; do
+        if [ "${OS}" = "${UBUNTU_OS_NAME}" ] || isMarinerOrAzureLinux "$OS"; then
+          downloadPkgFromVersion "azure-acr-credential-provider" "${version}" "${downloadDir}"
+        fi
+        echo "  - azure-acr-credential-provider version ${version}" >> ${VHD_LOGS_FILEPATH}
+      done
+      ;;
     *)
       echo "Package name: ${name} not supported for download. Please implement the download logic in the script."
       # We can add a common function to download a generic package here.
@@ -434,9 +461,9 @@ installAndConfigureArtifactStreaming() {
   # arguments: package name, package extension
   PACKAGE_NAME=$1
   PACKAGE_EXTENSION=$2
-  MIRROR_PROXY_VERSION='0.2.12'
+  MIRROR_PROXY_VERSION='0.2.13'
   MIRROR_DOWNLOAD_PATH="./$1.$2"
-  MIRROR_PROXY_URL="https://acrstreamingpackage.blob.core.windows.net/bin/${MIRROR_PROXY_VERSION}/${PACKAGE_NAME}.${PACKAGE_EXTENSION}"
+  MIRROR_PROXY_URL="https://acrstreamingpackage.z5.web.core.windows.net/${MIRROR_PROXY_VERSION}/${PACKAGE_NAME}.${PACKAGE_EXTENSION}"
   retrycmd_curl_file 10 5 60 $MIRROR_DOWNLOAD_PATH $MIRROR_PROXY_URL || exit ${ERR_ARTIFACT_STREAMING_DOWNLOAD}
   if [ "$2" = "deb" ]; then
     apt_get_install 30 1 600 $MIRROR_DOWNLOAD_PATH || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD
@@ -447,15 +474,16 @@ installAndConfigureArtifactStreaming() {
 }
 
 UBUNTU_MAJOR_VERSION=$(echo $UBUNTU_RELEASE | cut -d. -f1)
-# Artifact Streaming currently not supported for 24.04, the deb file isnt present in acs-mirror
-# TODO(amaheshwari/aganeshkumar): Remove the conditional when Artifact Streaming is enabled for 24.04
-if [ "$OS" = "$UBUNTU_OS_NAME" ] && [ "$(isARM64)" -ne 1 ] && [ "$UBUNTU_MAJOR_VERSION" -ge 20 ] && [ "${UBUNTU_RELEASE}" != "24.04" ]; then
+# Artifact Streaming enabled for all supported Ubuntu versions including 24.04
+if [ "$OS" = "$UBUNTU_OS_NAME" ] && [ "$(isARM64)" -ne 1 ] && [ "$UBUNTU_MAJOR_VERSION" -ge 20 ]; then
   installAndConfigureArtifactStreaming acr-mirror-${UBUNTU_RELEASE//.} deb
 fi
 
-# TODO(aadagarwal): Enable Artifact Streaming for AzureLinux 3.0
-if [ "$OS" = "$MARINER_OS_NAME" ]  && [ "$OS_VERSION" = "2.0" ] && [ "$(isARM64)"  -ne 1 ]; then
+# Artifact Streaming enabled for Azure Linux 2.0 and 3.0
+if [ "$OS" = "$MARINER_OS_NAME" ] && [ "$OS_VERSION" = "2.0" ] && [ "$(isARM64)" -ne 1 ]; then
   installAndConfigureArtifactStreaming acr-mirror-mariner rpm
+elif [ "$OS" = "$MARINER_OS_NAME" ] && [ "$OS_VERSION" = "3.0" ] && [ "$(isARM64)" -ne 1 ]; then
+  installAndConfigureArtifactStreaming acr-mirror-azurelinux3 rpm
 fi
 
 # k8s will use images in the k8s.io namespaces - create it
@@ -723,12 +751,33 @@ cacheKubePackageFromPrivateUrl() {
 
   # use azcopy with MSI instead of curl to download packages
   getAzCopyCurrentPath
+	export AZCOPY_LOG_LOCATION="$(pwd)/azcopy-log-files/"
+	export AZCOPY_JOB_PLAN_LOCATION="$(pwd)/azcopy-job-plan-files/"
+	mkdir -p "${AZCOPY_LOG_LOCATION}"
+	mkdir -p "${AZCOPY_JOB_PLAN_LOCATION}"
 
   ./azcopy login --login-type=MSI
 
   cached_pkg="${K8S_PRIVATE_PACKAGES_CACHE_DIR}/${k8s_tgz_name}"
   echo "download private package ${kube_private_binary_url} and store as ${cached_pkg}"
+  
   if ! ./azcopy copy "${kube_private_binary_url}" "${cached_pkg}"; then
+    azExitCode=$?
+    # loop through azcopy log files
+    shopt -s nullglob
+    for f in "${AZCOPY_LOG_LOCATION}"/*.log; do
+      echo "Azcopy log file: $f"
+      # upload the log file as an attachment to vso
+      echo "##vso[build.uploadlog]$f"
+      # check if the log file contains any errors
+      if grep -q '"level":"Error"' "$f"; then
+ 	 	echo "log file $f contains errors"
+        echo "##vso[task.logissue type=error]Azcopy log file $f contains errors"
+        # print the log file
+        cat "$f"
+      fi
+    done
+    shopt -u nullglob
     exit $ERR_PRIVATE_K8S_PKG_ERR
   fi
 }

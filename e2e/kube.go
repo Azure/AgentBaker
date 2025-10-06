@@ -467,11 +467,6 @@ func getClusterSubnetID(ctx context.Context, mcResourceGroupName string) (string
 
 func podHTTPServerLinux(s *Scenario) *corev1.Pod {
 	image := "mcr.microsoft.com/cbl-mariner/busybox:2.0"
-	secretName := ""
-	if s.Tags.Airgap {
-		image = fmt.Sprintf("%s.azurecr.io/cbl-mariner/busybox:2.0", config.GetPrivateACRName(s.Tags.NonAnonymousACR, s.Location))
-		secretName = config.Config.ACRSecretName
-	}
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-test-pod", s.Runtime.KubeNodeName),
@@ -513,16 +508,6 @@ func podHTTPServerLinux(s *Scenario) *corev1.Pod {
 			NodeSelector: map[string]string{
 				"kubernetes.io/hostname": s.Runtime.KubeNodeName,
 			},
-			ImagePullSecrets: func() []corev1.LocalObjectReference {
-				if secretName == "" {
-					return nil
-				}
-				return []corev1.LocalObjectReference{
-					{
-						Name: secretName,
-					},
-				}
-			}(),
 		},
 	}
 }
@@ -536,8 +521,11 @@ func podWindows(s *Scenario, podName string, imageName string) *corev1.Pod {
 		Spec: corev1.PodSpec{
 			Containers: []corev1.Container{
 				{
-					Name:  podName,
-					Image: imageName,
+					Name:            podName,
+					Image:           imageName,
+					ImagePullPolicy: "IfNotPresent",
+					// this should exist on both servercore and nanoserve
+					Command: []string{"cmd", "/c", "ping", "-t", "localhost"},
 				},
 			},
 			NodeSelector: map[string]string{

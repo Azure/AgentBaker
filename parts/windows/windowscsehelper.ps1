@@ -75,9 +75,11 @@ $global:WINDOWS_CSE_ERROR_ADJUST_PAGEFILE_SIZE=68
 $global:WINDOWS_CSE_ERROR_LOOKUP_INSTANCE_DATA_TAG=69 # exit code for looking up nodepool/VM tags via IMDS
 $global:WINDOWS_CSE_ERROR_DOWNLOAD_SECURE_TLS_BOOTSTRAP_CLIENT=70 # exit code for downloading secure TLS bootstrap client failure
 $global:WINDOWS_CSE_ERROR_INSTALL_SECURE_TLS_BOOTSTRAP_CLIENT=71 # exit code for installing secure TLS bootstrap client failure
+$global:WINDOWS_CSE_ERROR_WINDOWS_CILIUM_NETWORKING_INSTALL_FAILED=72
+$global:WINDOWS_CSE_ERROR_EXTRACT_ZIP=73
 # WINDOWS_CSE_ERROR_MAX_CODE is only used in unit tests to verify whether new error code name is added in $global:ErrorCodeNames
 # Please use the current value of WINDOWS_CSE_ERROR_MAX_CODE as the value of the new error code and increment it by 1
-$global:WINDOWS_CSE_ERROR_MAX_CODE=72
+$global:WINDOWS_CSE_ERROR_MAX_CODE=74
 
 # Please add new error code for downloading new packages in RP code too
 $global:ErrorCodeNames = @(
@@ -152,7 +154,9 @@ $global:ErrorCodeNames = @(
     "WINDOWS_CSE_ERROR_ADJUST_PAGEFILE_SIZE",
     "WINDOWS_CSE_ERROR_LOOKUP_INSTANCE_DATA_TAG",
     "WINDOWS_CSE_ERROR_DOWNLOAD_SECURE_TLS_BOOTSTRAP_CLIENT",
-    "WINDOWS_CSE_ERROR_INSTALL_SECURE_TLS_BOOTSTRAP_CLIENT"
+    "WINDOWS_CSE_ERROR_INSTALL_SECURE_TLS_BOOTSTRAP_CLIENT",
+    "WINDOWS_CSE_ERROR_WINDOWS_CILIUM_NETWORKING_INSTALL_FAILED",
+    "WINDOWS_CSE_ERROR_EXTRACT_ZIP"
 )
 
 # The package domain to be used
@@ -235,23 +239,26 @@ function DownloadFileOverHttp {
 
         $downloadTimer = [System.Diagnostics.Stopwatch]::StartNew()
         try {
-            $args = @{Uri=$MappedUrl; Method="Get"; OutFile=$DestinationPath}
-            Retry-Command -Command "Invoke-RestMethod" -Args $args -Retries 5 -RetryDelaySeconds 10
+            $args = @{Uri=$MappedUrl; Method="Get"; OutFile=$DestinationPath; ErrorAction="Stop"}
+            Retry-Command -Command "Invoke-RestMethod" -Args $args -Retries 5 -RetryDelaySeconds 10 
         } catch {
             Set-ExitCode -ExitCode $ExitCode -ErrorMessage "Failed in downloading $MappedUrl. Error: $_"
         }
         $downloadTimer.Stop()
+        $elapsedMs = $downloadTimer.ElapsedMilliseconds
 
         if ($global:AppInsightsClient -ne $null) {
             $event = New-Object "Microsoft.ApplicationInsights.DataContracts.EventTelemetry"
             $event.Name = "FileDownload"
             $event.Properties["FileName"] = $fileName
-            $event.Metrics["DurationMs"] = $downloadTimer.ElapsedMilliseconds
+            $event.Metrics["DurationMs"] = $elapsedMs
             $global:AppInsightsClient.TrackEvent($event)
         }
 
         $ProgressPreference = $oldProgressPreference
-        Write-Log "Downloaded file $MappedUrl to $DestinationPath"
+         
+        Write-Log "Downloaded file $MappedUrl to $DestinationPath in $elapsedMs ms"
+        Get-Item $DestinationPath -ErrorAction Continue | Format-List | Out-String | Write-Log
     }
 }
 
@@ -304,6 +311,23 @@ function New-TemporaryDirectory {
     $parent = [System.IO.Path]::GetTempPath()
     [string] $name = [System.Guid]::NewGuid()
     New-Item -ItemType Directory -Path (Join-Path $parent $name)
+}
+
+function AKS-Expand-Archive {
+    Param(
+        [Parameter(Mandatory = $true)][ValidateNotNullOrEmpty()][string]$Path,
+        [Parameter(Mandatory = $true)][ValidateNotNullOrEmpty()][string]$DestinationPath,
+        [Parameter(Mandatory = $false)][ValidateNotNullOrEmpty()][boolean]$Force
+    )
+
+   try {
+        Expand-Archive -Path $Path -DestinationPath ${DestinationPath} -ErrorAction Stop -Force
+        Write-Log "Successfully expanded file $Path to $DestinationPath"
+    } catch {
+        Write-Log "Failed to expand file $Path - Error: $_"
+        Get-Item -ErrorAction Continue $Path | Format-List | Out-String | Write-Log
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_EXTRACT_ZIP -ErrorMessage "Unable to extract zip file. Error: $_"
+    }
 }
 
 function Retry-Command {
@@ -595,4 +619,15 @@ function Update-BaseUrl {
     }
 
     return $updatedUrl
+}
+
+function Resolve-Error ($ErrorRecord=$Error[0])
+{
+   $ErrorRecord | Format-List * -Force
+   $ErrorRecord.InvocationInfo |Format-List *
+   $Exception = $ErrorRecord.Exception
+   for ($i = 0; $Exception; $i++, ($Exception = $Exception.InnerException))
+   {   "$i" * 80
+       $Exception |Format-List * -Force
+   }
 }

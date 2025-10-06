@@ -1987,6 +1987,24 @@ oom_score = -999
 
 				Expect(containerdConfigFileContent).To(Equal(expectedShimConfig))
 			}),
+		Entry("AKSUbuntu2204 with NVIDIA Device Plugin enabled", "AKSUbuntu2204+Containerd+DevicePlugin", "1.29.7",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+					ContainerRuntime: datamodel.Containerd,
+				}
+				config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSUbuntuContainerd2204
+				config.AgentPoolProfile.VMSize = "Standard_NC6s_v3"
+				config.EnableNvidia = true
+				config.ConfigGPUDriverIfNeeded = true
+				config.EnableGPUDevicePluginIfNeeded = true
+			}, func(o *nodeBootstrappingOutput) {
+				// Verify device plugin is enabled
+				Expect(o.vars["ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED"]).To(Equal("true"))
+				// Verify GPU node is set
+				Expect(o.vars["GPU_NODE"]).To(Equal("true"))
+				// Verify GPU driver configuration is enabled
+				Expect(o.vars["CONFIG_GPU_DRIVER_IF_NEEDED"]).To(Equal("true"))
+			}),
 		Entry("CustomizedImage VHD should not have provision_start.sh", "CustomizedImage", "1.24.2",
 			func(c *datamodel.NodeBootstrappingConfiguration) {
 				c.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
@@ -2035,6 +2053,9 @@ oom_score = -999
 		}, nil),
 		Entry("AKSUbuntu2204 DisableSSH with disabled ssh", "AKSUbuntu2204+SSHStatusOff", "1.24.2", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.SSHStatus = datamodel.SSHOff
+		}, nil),
+		Entry("AKSUbuntu2204 with Entra ID SSH", "AKSUbuntu2204+SSHStatusEntraID", "1.24.2", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.SSHStatus = datamodel.EntraIDSSH
 		}, nil),
 		Entry("AKSUbuntu2204 in China", "AKSUbuntu2204+China", "1.24.2", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.ContainerService.Properties.CustomCloudEnv = &datamodel.CustomCloudEnv{
@@ -2685,6 +2706,27 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 				}
 				config.KubeletConfig["--image-credential-provider-config"] = "c:\\var\\lib\\kubelet\\credential-provider-config.yaml"
 				config.KubeletConfig["--image-credential-provider-bin-dir"] = "c:\\var\\lib\\kubelet\\credential-provider"
+			}),
+		Entry("AKSWindows23H2Gen2 with NextGenNetworking", "AKSWindows23H2Gen2+NextGenNetworking", "1.29.0",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.AgentPoolProfile.AgentPoolWindowsProfile = &datamodel.AgentPoolWindowsProfile{
+					NextGenNetworkingEnabled: to.BoolPtr(true),
+					NextGenNetworkingConfig:  to.StringPtr("{}"),
+				}
+			}),
+		Entry("AKSWindows23H2Gen2 with NextGenNetworking enabled but no config", "AKSWindows23H2Gen2+NextGenNetworkingNoConfig", "1.29.0",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.AgentPoolProfile.AgentPoolWindowsProfile = &datamodel.AgentPoolWindowsProfile{
+					NextGenNetworkingEnabled: to.BoolPtr(true),
+					NextGenNetworkingConfig:  nil,
+				}
+			}),
+		Entry("AKSWindows23H2Gen2 with NextGenNetworking disabled", "AKSWindows23H2Gen2+NextGenNetworkingDisabled", "1.29.0",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.AgentPoolProfile.AgentPoolWindowsProfile = &datamodel.AgentPoolWindowsProfile{
+					NextGenNetworkingEnabled: to.BoolPtr(false),
+					NextGenNetworkingConfig:  to.StringPtr("{}"),
+				}
 			}),
 	)
 

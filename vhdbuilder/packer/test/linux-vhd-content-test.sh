@@ -117,20 +117,40 @@ validateDownloadPackage() {
 }
 
 validateOrasOCIArtifact() {
-  local downloadURL=$1
+  local referenceByTag=$1
   local downloadedPackage=$2
-  echo "Validating package $downloadURL from registry and downloaded package $downloadedPackage"
+  local testDescription=$3
+  echo "Validating package $referenceByTag from registry and downloaded package $downloadedPackage"
 
-  # Fetch the manifest and extract the size using jq
-  fileSizeInRegistry=$(oras manifest fetch --registry-config ${ORAS_REGISTRY_CONFIG_FILE} "$downloadURL" | jq '.layers[0].size')
-  
+  # Fetch the manifest and extract the size and digest using jq
+  manifest_json=$(oras manifest fetch --registry-config ${ORAS_REGISTRY_CONFIG_FILE} "$referenceByTag")
+  fileSizeInRegistry=$(echo "$manifest_json" | jq '.layers[0].size')
+  layerDigestInRegistry=$(echo "$manifest_json" | jq -r '.layers[0].digest')
+
   # Get the size of the downloaded package
   fileSizeDownloaded=$(wc -c "$downloadedPackage" | awk '{print $1}' | tr -d '\r')
-  
+
   # Compare the sizes
   if [ "$fileSizeInRegistry" != "$fileSizeDownloaded" ]; then
-    echo "Error: File size mismatch. Expected $fileSizeInRegistry, but got $fileSizeDownloaded."
+    err $testDescription "File size of ${downloadedPackage} from ${referenceByTag} is invalid. Expected file size: ${fileSizeInRegistry} - downloaded file size: ${fileSizeDownloaded}"
     return 1
+  fi
+  # Compare the digests
+  if [ "${layerDigestInRegistry#sha}" != "$layerDigestInRegistry" ]; then
+    # Only check digest if it starts with 'sha', blake3 not supported
+    algo_and_digest=${layerDigestInRegistry%%:*}
+    digest_value=${layerDigestInRegistry#*:}
+    algo=${algo_and_digest#sha}
+    digest_tool="sha${algo}sum"
+    if command -v "$digest_tool" >/dev/null 2>&1; then
+      computedDigest=$($digest_tool "$downloadedPackage" | awk '{print $1}')
+      if [ "$computedDigest" != "$digest_value" ]; then
+        err $testDescription "Digest of ${downloadedPackage} from ${referenceByTag} is invalid. Expected digest: ${digest_value} - computed digest: ${computedDigest}"
+        return 1
+      fi
+    else
+      echo "$digest_tool not available, skipping digest check."
+    fi
   fi
 
   echo "Package validated successfully."
@@ -149,9 +169,8 @@ testAcrCredentialProviderInstalled() {
     # if currentDownloadURL is mcr.microsoft.com/oss/binaries/kubernetes/azure-acr-credential-provider:v1.30.0-linux-amd64,
     # then downloadLocation should be /opt/credentialprovider/downloads/azure-acr-credential-provider-linux-amd64-v1.30.0.tar.gz
     downloadLocation="/opt/credentialprovider/downloads/azure-acr-credential-provider-linux-${CPU_ARCH}-${version}.tar.gz"
-    validateOrasOCIArtifact $currentDownloadURL $downloadLocation
+    validateOrasOCIArtifact $currentDownloadURL $downloadLocation $test
     if [ "$?" -ne 0 ]; then
-      err $test "File size of ${downloadLocation} from ${currentDownloadURL} is invalid. Expected file size: ${fileSizeInRepo} - downloaded file size: ${fileSizeDownloaded}"
       continue
     fi
   done
@@ -212,6 +231,10 @@ testPackagesInstalled() {
       testPkgDownloaded "kubectl" "${PACKAGE_VERSIONS[@]}"
       continue
     fi
+    if [ "${name}" = "nvidia-device-plugin" ]; then
+      testPkgDownloaded "nvidia-device-plugin" "${PACKAGE_VERSIONS[@]}"
+      continue
+    fi
 
     resolve_packages_source_url
     for version in "${PACKAGE_VERSIONS[@]}"; do
@@ -228,9 +251,9 @@ testPackagesInstalled() {
             ;;
         esac
         break
-        
+
       fi
-      # A downloadURL from a package in components.json will look like this: 
+      # A downloadURL from a package in components.json will look like this:
       # "https://acs-mirror.azureedge.net/cni-plugins/v${version}/binaries/cni-plugins-linux-${CPU_ARCH}-v${version}.tgz"
       # After eval(resolved), downloadURL will look like "https://acs-mirror.azureedge.net/cni-plugins/v0.8.7/binaries/cni-plugins-linux-arm64-v0.8.7.tgz"
       eval "downloadURL=${PACKAGE_DOWNLOAD_URL}"
@@ -287,7 +310,7 @@ testPackagesInstalled() {
 # Azure China Cloud uses a different proxy but the same path, and we want to verify the package URL
 # if defined in control plane, is accessible and has the same file size as the one in the public cloud.
 testPackageInAzureChinaCloud() {
-  # In Azure China Cloud, the proxy server proxies download URL to the storage account URL according to the root path, for example, 
+  # In Azure China Cloud, the proxy server proxies download URL to the storage account URL according to the root path, for example,
   # location /kubernetes/ {
   #  proxy_pass https://kubernetesartifacts.blob.core.chinacloudapi.cn/kubernetes/;
   # }
@@ -370,7 +393,7 @@ testImagesPulled() {
     downloadURL=$(echo "${imageToBePulled}" | jq .downloadURL -r)
     if [ $(echo "${imageToBePulled}" | jq -r '.amd64OnlyVersions // empty') = "null" ]; then
       amd64OnlyVersionsStr=""
-    else 
+    else
       amd64OnlyVersionsStr=$(echo "${imageToBePulled}" | jq -r '.amd64OnlyVersions // empty')
     fi
     declare -a MULTI_ARCH_VERSIONS=()
@@ -592,8 +615,8 @@ testLtsKernel() {
   enable_fips=$3
 
   # shellcheck disable=SC3010
-  if [[ "$os_sku" == "Ubuntu" && ${enable_fips,,} != "true" ]] && ! grep -q "cvm" <<< "$FEATURE_FLAGS" ; then
-    echo "OS is Ubuntu, FIPS is not enabled, and this is not a CVM; check LTS kernel version"
+  if [[ "$os_sku" == "Ubuntu" && ${enable_fips,,} != "true" ]] ; then
+    echo "OS is Ubuntu, FIPS is not enabled, check LTS kernel version"
     # Check the Ubuntu version and set the expected kernel version
     if [ "$os_version" = "22.04" ]; then
       expected_kernel="5.15"
@@ -641,7 +664,7 @@ testLSMBPF() {
   if [ -f /sys/kernel/security/lsm ]; then
     current_lsm=$(cat /sys/kernel/security/lsm)
     echo "$test: Current LSM modules: $current_lsm"
-    
+
     if echo "$current_lsm" | grep -q "bpf"; then
       echo "$test: BPF is present in LSM modules"
     else
@@ -1347,7 +1370,7 @@ testCriCtl() {
   # the expectedVersion looks like this, "1.32.0-ubuntu18.04u3", need to extract the version number.
   expectedVersion=$(echo $expectedVersion | cut -d'-' -f1)
   # use command `crictl --version` to get the version
-  
+
   local crictl_version=$(crictl --version)
   # the output of crictl_version looks like this "crictl version 1.32.0", need to extract the version number.
   crictl_version=$(echo $crictl_version | cut -d' ' -f3)
@@ -1375,7 +1398,7 @@ testContainerd() {
   # use command `containerd --version` to get the version
   local containerd_version=$(containerd --version)
   # the output of containerd_version looks like the followings. We need to extract the major.minor.patch version only.
-  # For containerd (v1): containerd github.com/containerd/containerd 1.6.26 
+  # For containerd (v1): containerd github.com/containerd/containerd 1.6.26
   # For containerd (v2): containerd github.com/containerd/containerd/v2 2.0.0
   containerd_version=$(echo $containerd_version | cut -d' ' -f3)
   # The version could be in the format "1.6.24-11-ubuntu1~18.04.1" or "2.0.0-6.azl3" or just "2.0.0", we need to extract the major.minor.patch version only.
@@ -1504,7 +1527,7 @@ testPackageDownloadURLFallbackLogic() {
     echo "PACKAGE_DOWNLOAD_BASE_URL was not set to packages.aks.azure.com"
     err "$test: failed to set PACKAGE_DOWNLOAD_BASE_URL to packages.aks.azure.com"
   fi
-  
+
   # Block the IP on local vm to simulate cluster firewall blocking packages.aks.azure.com and retry test to see output
   echo "127.0.0.1     packages.aks.azure.com" | sudo tee /etc/hosts > /dev/null
 
@@ -1519,20 +1542,20 @@ testPackageDownloadURLFallbackLogic() {
 
 checkLocaldnsScriptsAndConfigs() {
   local test="checkLocaldnsScriptsAndConfigs"
-  
+
   declare -A localdnsfiles=(
     ["/opt/azure/containers/localdns/localdns.sh"]=755
     ["/etc/systemd/system/localdns.service"]=644
     ["/etc/systemd/system/localdns.service.d/delegate.conf"]=644
   )
-  
+
   for file in "${!localdnsfiles[@]}"; do
     echo "$test: Checking existence of ${file}"
     if [ ! -f "${file}" ]; then
       echo "$test: Localdnsfile - ${file} not found"
       return 1
     fi
-    
+
     echo "$test: Checking permissions of ${file}"
     permissions=$(stat -c "%a" "$file")
     if [ "$permissions" != "${localdnsfiles[$file]}" ]; then
@@ -1540,7 +1563,7 @@ checkLocaldnsScriptsAndConfigs() {
       return 1
     fi
   done
-  
+
   echo "$test: All localdnsfiles exist with correct permissions"
   return 0
 }
@@ -1550,15 +1573,8 @@ testFileOwnership() {
   local test="testFileOwnership"
   echo "$test: Start"
 
-  os_sku="${1}"
-
   # Find files with numeric UIDs or GIDs.
   local files_with_numeric_ownership=$(find /usr -xdev \( -nouser -o -nogroup \) -exec stat --format '%u %g %n' {} \;)
-  # skip scanning /usr/libexec/dbus-daemon-launch-helper on Flatcar
-  # TODO: Group needs to be fixed in immutable part of the image
-  if [ "$os_sku" = "Flatcar" ]; then
-    files_with_numeric_ownership=$(echo "$files_with_numeric_ownership" | grep -v "/usr/libexec/dbus-daemon-launch-helper")
-  fi
 
   if [ -n "$files_with_numeric_ownership" ]; then
     err "$test: File ownership test failed. Files with numeric ownership found:"

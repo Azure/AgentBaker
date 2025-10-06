@@ -1185,9 +1185,11 @@ func (p *Properties) GetKubeProxyFeatureGatesWindowsArguments() string {
 		featureGates["IPv6DualStack"] = true
 	}
 	if p.FeatureFlags.IsFeatureEnabled(EnableWinDSR) {
-		// WinOverlay must be set to false.
 		featureGates["WinDSR"] = true
-		featureGates["WinOverlay"] = false
+		// WinOverlay feature gate is GA and locked to true in Kubernetes 1.34.0 and later
+		if p.OrchestratorProfile == nil || !IsKubernetesVersionGe(p.OrchestratorProfile.OrchestratorVersion, "1.34.0") {
+			featureGates["WinOverlay"] = false
+		}
 	}
 
 	keys := []string{}
@@ -1834,6 +1836,10 @@ const (
 	SSHUnspecified SSHStatus = iota
 	SSHOff
 	SSHOn
+	// EntraIDSSH means the cluster has enabled Entra ID SSH feature on the cluster,
+	// AADSSHLoginForLinux extension will be installed on the node. In this case,
+	// we should disable Pubkey authentication in sshd_config.
+	EntraIDSSH
 )
 
 // NodeBootstrapping represents the custom data, CSE, and OS image info needed for node bootstrapping.

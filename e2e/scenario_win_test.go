@@ -29,6 +29,13 @@ func Windows2019BootstrapConfigMutator(t *testing.T, configuration *datamodel.No
 	configuration.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = components.RemoveLeadingV(version)
 }
 
+func Windows2025BootstrapConfigMutator(t *testing.T, configuration *datamodel.NodeBootstrappingConfiguration) {
+	// 2025 supported in 1.32+ - a kubelet bug impacts networking in most of 1.32 and 1.33.0, .1
+	version := components.GetKubeletVersionByMinorVersion("v1.33")
+	require.NotEmpty(t, version)
+	configuration.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = components.RemoveLeadingV(version)
+}
+
 func DualStackVMConfigMutator(set *armcompute.VirtualMachineScaleSet) {
 	ip4Config := set.Properties.VirtualMachineProfile.NetworkProfile.NetworkInterfaceConfigurations[0].Properties.IPConfigurations[0]
 
@@ -292,7 +299,6 @@ func Test_Windows2019CachingRegression(t *testing.T) {
 }
 
 func Test_Windows2025(t *testing.T) {
-	t.Skip("skipping test for Windows 2025, as we are testing regression issues with k8s 1.31+")
 	RunScenario(t, &Scenario{
 		Description: "Windows Server 2025 with Containerd",
 		Config: Config{
@@ -300,11 +306,8 @@ func Test_Windows2025(t *testing.T) {
 			VHD:             config.VHDWindows2025,
 			VMConfigMutator: EmptyVMConfigMutator,
 			BootstrapConfigMutator: func(configuration *datamodel.NodeBootstrappingConfiguration) {
-				// 2025 supported in 1.32+ .
-				configuration.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.32.5"
-				configuration.K8sComponents.WindowsPackageURL = fmt.Sprintf("https://packages.aks.azure.com/kubernetes/v%s/windowszip/v%s-1int.zip", "1.32.5", "1.32.5")
+				Windows2025BootstrapConfigMutator(t, configuration)
 			},
-
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateWindowsVersionFromWindowsSettings(ctx, s, "2025")
 				ValidateWindowsProductName(ctx, s, "Windows Server 2025 Datacenter")
@@ -318,18 +321,14 @@ func Test_Windows2025(t *testing.T) {
 }
 
 func Test_Windows2025Gen2(t *testing.T) {
-	t.Skip("skipping test for Windows 2025, as we are testing regression issues with k8s 1.31+")
 	RunScenario(t, &Scenario{
 		Description: "Windows Server 2025 with Containerd - hyperv gen 2",
 		Config: Config{
 			Cluster:         ClusterAzureNetwork,
 			VHD:             config.VHDWindows2025Gen2,
 			VMConfigMutator: EmptyVMConfigMutator,
-			// BootstrapConfigMutator: EmptyBootstrapConfigMutator,
 			BootstrapConfigMutator: func(configuration *datamodel.NodeBootstrappingConfiguration) {
-				// 2025 supported in 1.32+ .
-				configuration.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.32.5"
-				configuration.K8sComponents.WindowsPackageURL = fmt.Sprintf("https://packages.aks.azure.com/kubernetes/v%s/windowszip/v%s-1int.zip", "1.32.5", "1.32.5")
+				Windows2025BootstrapConfigMutator(t, configuration)
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateWindowsVersionFromWindowsSettings(ctx, s, "2025-gen2")
@@ -344,7 +343,6 @@ func Test_Windows2025Gen2(t *testing.T) {
 }
 
 func Test_Windows2022Gen2_k8s_133(t *testing.T) {
-	t.Skip("skipping test for Windows 2022 Gen2 with k8s 1.33, as we are verifying a regression fix for 1.31+")
 	RunScenario(t, &Scenario{
 		Description: "Windows Server 2022 with Containerd 2- hyperv gen 2",
 		Config: Config{
@@ -383,6 +381,28 @@ func Test_Windows23H2_Cilium2(t *testing.T) {
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
 				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
 				ValidateCiliumIsRunningWindows(ctx, s)
+			},
+		},
+	})
+}
+
+func Test_Windows23H2Gen2_WindowsCiliumNetworking(t *testing.T) {
+	t.Skip("skipping test for Windows Cilium Networking (WCN) on Windows 23H2 Gen2, as it needs a reboot after provisioning - and that is not working yet")
+	RunScenario(t, &Scenario{
+		Description: "Windows Server 23H2 Gen2 with Windows Cilium Networking (WCN) enabled",
+		Config: Config{
+			Cluster:         ClusterAzureNetwork,
+			VHD:             config.VHDWindows23H2Gen2,
+			VMConfigMutator: EmptyVMConfigMutator,
+			BootstrapConfigMutator: func(configuration *datamodel.NodeBootstrappingConfiguration) {
+				if configuration.AgentPoolProfile.AgentPoolWindowsProfile == nil {
+					configuration.AgentPoolProfile.AgentPoolWindowsProfile = &datamodel.AgentPoolWindowsProfile{}
+				}
+				configuration.AgentPoolProfile.AgentPoolWindowsProfile.NextGenNetworkingEnabled = to.Ptr(true)
+				configuration.AgentPoolProfile.AgentPoolWindowsProfile.NextGenNetworkingConfig = to.Ptr("")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateWindowsCiliumIsRunning(ctx, s)
 			},
 		},
 	})

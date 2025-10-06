@@ -716,6 +716,44 @@ function Install-WindowsPatches
     }
 }
 
+function Install-WindowsCiliumNetworking
+{
+    $wcnDirectory = Join-Path -Path $global:cacheDir -ChildPath 'wcn'
+    $wcnInstallDirectory = Join-Path -Path $wcnDirectory -ChildPath 'install'
+    $wcnScriptsDirectory = Join-Path -Path $wcnInstallDirectory -ChildPath 'scripts'
+    $wcnInstallScript = Join-Path -Path $wcnScriptsDirectory -ChildPath 'install' | Join-Path -ChildPath 'install.ps1'
+
+    if (!(Test-Path -PathType Container -Path $wcnDirectory))
+    {
+        Write-Log "Windows Cilium Networking (WCN) installation package not staged; skipping installation."
+        return
+    }
+
+    # Select the highest versioned package available.
+    $wcnPackageNuget = (Get-ChildItem -Path $wcnDirectory -File -Filter '*.nupkg' | Sort-Object -Property Name -Descending) | Select-Object -First 1
+    if (!$wcnPackageNuget -or !(Test-Path -Path $wcnPackageNuget.FullName))
+    {
+        Write-Log "No Windows Cilium Networking package found in $wcnDirectory"
+        throw "No Windows Cilium Networking package found in $wcnDirectory"
+    }
+
+    Write-Log "Installing Windows Cilium Networking (WCN) Platform with '$wcnPackageNuget'"
+
+    # Extract NuGet package contents.
+    New-Item -ItemType Directory -Path $wcnInstallDirectory -Force
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    [System.IO.Compression.ZipFile]::ExtractToDirectory($wcnPackageNuget.FullName, $wcnInstallDirectory)
+
+    # Invoke install script.
+    try {
+        & $wcnInstallScript -DisableCiliumStack -SourceDirectory $wcnDirectory -SkipNugetUnpack
+    }
+    catch {
+        Write-Log "Error occurred while installing Windows Cilium Networking: $_"
+        throw "Error occurred while installing Windows Cilium Networking: $_"
+    }
+}
+
 function Set-WinRmServiceAutoStart
 {
     Write-Log "Setting WinRM service start to auto"
@@ -1005,6 +1043,7 @@ try
             Get-FilesToCacheOnVHD
             Get-ToolsToVHD
             Get-PrivatePackagesToCacheOnVHD
+            Install-WindowsCiliumNetworking
             Log-ReofferUpdate
         }
         "3" {

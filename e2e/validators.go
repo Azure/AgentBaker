@@ -13,6 +13,8 @@ import (
 	"github.com/tidwall/gjson"
 
 	"github.com/Azure/agentbaker/e2e/config"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
@@ -355,7 +357,6 @@ func execScriptOnVMForScenarioValidateExitCode(ctx context.Context, s *Scenario,
 
 func ValidateInstalledPackageVersion(ctx context.Context, s *Scenario, component, version string) {
 	s.T.Helper()
-	s.T.Logf("assert %s %s is installed on the VM", component, version)
 	installedCommand := func() string {
 		switch s.VHD.OS {
 		case config.OSUbuntu:
@@ -368,18 +369,13 @@ func ValidateInstalledPackageVersion(ctx context.Context, s *Scenario, component
 		}
 	}()
 	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, installedCommand, 0, "could not get package list")
-	containsComponent := func() bool {
-		for _, line := range strings.Split(execResult.stdout.String(), "\n") {
-			if strings.Contains(line, component) && strings.Contains(line, version) {
-				return true
-			}
+	for _, line := range strings.Split(execResult.stdout.String(), "\n") {
+		if strings.Contains(line, component) && strings.Contains(line, version) {
+			s.T.Logf("found %s %s in the installed packages", component, version)
+			return
 		}
-		return false
-	}()
-	if !containsComponent {
-		s.T.Logf("expected to find %s %s in the installed packages, but did not", component, version)
-		s.T.Fail()
 	}
+	s.T.Errorf("expected to find %s %s in the installed packages, but did not", component, version)
 }
 
 func ValidateKubeletNodeIP(ctx context.Context, s *Scenario) {
@@ -456,18 +452,6 @@ func ValidateKubeletHasFlags(ctx context.Context, s *Scenario, filePath string) 
 	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo journalctl -u kubelet", 0, "could not retrieve kubelet logs with journalctl")
 	configFileFlags := fmt.Sprintf("FLAG: --config=\"%s\"", filePath)
 	require.Containsf(s.T, execResult.stdout.String(), configFileFlags, "expected to find flag %s, but not found", "config")
-}
-
-func ValidatePodUsingNVidiaGPU(ctx context.Context, s *Scenario) {
-	s.T.Helper()
-	s.T.Logf("validating pod using nvidia GPU")
-	// NVidia pod can be ready, but resources may not be available yet
-	// a hacky way to ensure the next pod is schedulable
-	waitUntilResourceAvailable(ctx, s, "nvidia.com/gpu")
-	// device can be allocatable, but not healthy
-	// ugly hack, but I don't see a better solution
-	time.Sleep(20 * time.Second)
-	ValidatePodRunning(ctx, s, podRunNvidiaWorkload(s))
 }
 
 // Waits until the specified resource is available on the given node.
@@ -575,11 +559,14 @@ func ValidateNPDGPUCountAfterFailure(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 	command := []string{
 		"set -ex",
-		// Disable and reset the first GPU
+		// Stop all services that are holding on to the GPUs
 		"sudo systemctl stop nvidia-persistenced.service || true",
+		"sudo systemctl stop nvidia-fabricmanager || true",
+		// Disable and reset the first GPU
 		"sudo nvidia-smi -i 0 -pm 0", // Disable persistence mode
 		"sudo nvidia-smi -i 0 -c 0",  // Set compute mode to default
-		"PCI_ID=$(sudo nvidia-smi -i 0 --query-gpu=pci.bus_id --format=csv,noheader | sed 's/^0000//')", // sed converts the output into the format needed for NVreg_ExcludeDevices
+		// sed converts the output into the format needed for NVreg_ExcludeDevices
+		"PCI_ID=$(sudo nvidia-smi -i 0 --query-gpu=pci.bus_id --format=csv,noheader | sed 's/^0000//')",
 		"echo ${PCI_ID} | tee /tmp/npd_test_disabled_pci_id",
 		"echo ${PCI_ID} | sudo tee /sys/bus/pci/drivers/nvidia/unbind", // Reset the GPU
 	}
@@ -726,8 +713,8 @@ func ValidateWindowsVersionFromWindowsSettings(ctx context.Context, s *Scenario,
 	podExecResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "could not validate command has parameters - might mean file does not have params, might mean something went wrong")
 	podExecResultStdout := strings.TrimSpace(podExecResult.stdout.String())
 
-	s.T.Logf("Found windows version in windows_settings: %s: %s (%s)", windowsVersion, osMajorVersion, osVersion)
-	s.T.Logf("Windows version returned from VM  %s", podExecResultStdout)
+	s.T.Logf("Found windows version in windows_settings: \"%s\": \"%s\" (\"%s\")", windowsVersion, osMajorVersion, osVersion)
+	s.T.Logf("Windows version returned from VM \"%s\"", podExecResultStdout)
 
 	require.Contains(s.T, podExecResultStdout, osMajorVersion)
 }
@@ -753,7 +740,7 @@ func ValidateWindowsDisplayVersion(ctx context.Context, s *Scenario, displayVers
 	podExecResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "could not validate command has parameters - might mean file does not have params, might mean something went wrong")
 	podExecResultStdout := strings.TrimSpace(podExecResult.stdout.String())
 
-	s.T.Logf("Winddows display version returned from VM  %s. Expected display version %s", podExecResultStdout, displayVersion)
+	s.T.Logf("Windows display version returned from VM \"%s\". Expected display version \"%s\"", podExecResultStdout, displayVersion)
 
 	require.Contains(s.T, podExecResultStdout, displayVersion)
 }
@@ -771,6 +758,60 @@ func ValidateCiliumIsRunningWindows(ctx context.Context, s *Scenario) {
 func ValidateCiliumIsNotRunningWindows(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 	ValidateJsonFileDoesNotHaveField(ctx, s, "/k/azurecni/netconf/10-azure.conflist", "plugins.ipam.type", "azure-cns")
+}
+
+func ValidateWindowsCiliumIsRunning(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	expectedServices := []string{"ebpfcore", "netebpfext", "neteventebpfext", "xdp", "wtc", "hns"}
+	for _, serviceName := range expectedServices {
+		ValidateWindowsServiceIsRunning(ctx, s, serviceName)
+	}
+
+	expectedDlls := []string{"cncapi.dll", "wcnagent.dll"}
+	for _, dllName := range expectedDlls {
+		ValidateDllLoadedWindows(ctx, s, dllName)
+	}
+}
+
+func ValidateWindowsCiliumIsNotRunning(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	// some of the services used by windows cilium are dependencies of other services, so they may be running even if cilium is not
+	// for example, ebpfcore is used by Guest Proxy Agent (GPA), so it may be running even if cilium is not
+	// so, we only check that cilium-specific dlls are not loaded, as that is a stronger indication that cilium is not running
+	unexpectedDlls := []string{"cncapi.dll", "wcnagent.dll"}
+	for _, dllName := range unexpectedDlls {
+		ValidateDllIsNotLoadedWindows(ctx, s, dllName)
+	}
+}
+
+func ValidateDllLoadedWindows(ctx context.Context, s *Scenario, dllName string) {
+	s.T.Helper()
+	if !dllLoadedWindows(ctx, s, dllName) {
+		s.T.Fatalf("expected DLL %s to be loaded, but it is not", dllName)
+	}
+}
+
+func ValidateDllIsNotLoadedWindows(ctx context.Context, s *Scenario, dllName string) {
+	s.T.Helper()
+	if dllLoadedWindows(ctx, s, dllName) {
+		s.T.Fatalf("expected DLL %s to not be loaded, but it is", dllName)
+	}
+}
+
+func dllLoadedWindows(ctx context.Context, s *Scenario, dllName string) bool {
+	s.T.Helper()
+
+	steps := []string{
+		"$ErrorActionPreference = \"Continue\"",
+		fmt.Sprintf("tasklist /m %s", dllName),
+	}
+	execResult := execScriptOnVMForScenario(ctx, s, strings.Join(steps, "\n"))
+	dllLoaded := strings.Contains(execResult.stdout.String(), dllName)
+
+	s.T.Logf("stdout: %s\nstderr: %s", execResult.stdout.String(), execResult.stderr.String())
+	return dllLoaded
 }
 
 func ValidateJsonFileHasField(ctx context.Context, s *Scenario, fileName string, jsonPath string, expectedValue string) {
@@ -810,28 +851,53 @@ func ValidateTaints(ctx context.Context, s *Scenario, expectedTaints string) {
 	require.Equal(s.T, expectedTaints, actualTaints, "expected node %q to have taint %q, but got %q", s.Runtime.KubeNodeName, expectedTaints, actualTaints)
 }
 
-// ValidateLocalDNSService checks if the localdns service is running and active.
-func ValidateLocalDNSService(ctx context.Context, s *Scenario) {
+// ValidateLocalDNSService checks if the localdns service is in the expected state (enabled or disabled).
+func ValidateLocalDNSService(ctx context.Context, s *Scenario, state string) {
 	s.T.Helper()
 	serviceName := "localdns"
-	steps := []string{
-		"set -ex",
-		// Verify the localdns service is running and active.
-		fmt.Sprintf("(systemctl -n 5 status %s || true)", serviceName),
-		fmt.Sprintf("systemctl is-active %s", serviceName),
+
+	var script string
+	switch state {
+	case "enabled":
+		script = fmt.Sprintf(`set -euo pipefail
+svc=%q
+systemctl status -n 5 "$svc" || true
+active=$(systemctl is-active "$svc" 2>/dev/null || true)
+enabled=$(systemctl is-enabled "$svc" 2>/dev/null || true)
+echo "localdns: active=$active enabled=$enabled"
+test "$active" = "active"   || { echo "expected active, got $active"; exit 1; }
+test "$enabled" = "enabled" || { echo "expected enabled, got $enabled"; exit 1; }
+`, serviceName)
+
+		execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0, "localdns should be running and enabled")
+
+	case "disabled":
+		script = fmt.Sprintf(`set -euo pipefail
+svc=%q
+systemctl status -n 5 "$svc" || true
+active=$(systemctl is-active "$svc" 2>/dev/null || true)
+enabled=$(systemctl is-enabled "$svc" 2>/dev/null || true)
+echo "localdns: active=$active enabled=$enabled"
+test "$active" = "inactive" || { echo "expected inactive, got $active"; exit 1; }
+test "$enabled" = "disabled" || { echo "expected disabled, got $enabled"; exit 1; }
+`, serviceName)
+
+		execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0, "localdns should be stopped and disabled")
+
+	default:
+		s.T.Fatalf("unknown state %q; expected 'enable' or 'disable'", state)
 	}
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "localdns service is not up and running")
 }
 
 // ValidateLocalDNSResolution checks if the DNS resolution for an external domain is successful from localdns clusterlistenerIP.
 // It uses the 'dig' command to check the DNS resolution and expects a successful response.
-func ValidateLocalDNSResolution(ctx context.Context, s *Scenario) {
+func ValidateLocalDNSResolution(ctx context.Context, s *Scenario, server string) {
 	s.T.Helper()
 	testdomain := "bing.com"
 	command := fmt.Sprintf("dig %s +timeout=1 +tries=1", testdomain)
 	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0, "dns resolution failed")
 	assert.Contains(s.T, execResult.stdout.String(), "status: NOERROR")
-	assert.Contains(s.T, execResult.stdout.String(), "SERVER: 169.254.10.10")
+	assert.Contains(s.T, execResult.stdout.String(), fmt.Sprintf("SERVER: %s", server))
 }
 
 // ValidateJournalctlOutput checks if specific content exists in the systemd service logs
@@ -897,4 +963,126 @@ func ValidateNPDFilesystemCorruption(ctx context.Context, s *Scenario) {
 func ValidateEnableNvidiaResource(ctx context.Context, s *Scenario) {
 	s.T.Logf("waiting for Nvidia GPU resource to be available")
 	waitUntilResourceAvailable(ctx, s, "nvidia.com/gpu")
+}
+
+func ValidateNvidiaDevicePluginServiceRunning(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	s.T.Logf("validating that NVIDIA device plugin systemd service is running")
+
+	command := []string{
+		"set -ex",
+		"systemctl is-active nvidia-device-plugin.service",
+		"systemctl is-enabled nvidia-device-plugin.service",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "NVIDIA device plugin systemd service should be active and enabled")
+}
+
+func ValidateNodeAdvertisesGPUResources(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	s.T.Logf("validating that node advertises GPU resources")
+
+	// First, wait for the nvidia.com/gpu resource to be available
+	waitUntilResourceAvailable(ctx, s, "nvidia.com/gpu")
+
+	// Get the node using the Kubernetes client from the test framework
+	nodeName := s.Runtime.KubeNodeName
+	node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
+	require.NoError(s.T, err, "failed to get node %q", nodeName)
+
+	// Check if the node advertises GPU capacity
+	gpuCapacity, exists := node.Status.Capacity["nvidia.com/gpu"]
+	require.True(s.T, exists, "node should advertise nvidia.com/gpu capacity")
+
+	gpuCount := gpuCapacity.Value()
+	require.Greater(s.T, gpuCount, int64(0), "node should advertise at least 1 GPU, but got %d", gpuCount)
+
+	s.T.Logf("node %s advertises %d nvidia.com/gpu resources", nodeName, gpuCount)
+}
+
+
+func ValidateGPUWorkloadSchedulable(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	s.T.Logf("validating that GPU workloads can be scheduled")
+
+	// Wait for resources to be available and add delay for device health
+	waitUntilResourceAvailable(ctx, s, "nvidia.com/gpu")
+	time.Sleep(20 * time.Second) // Same delay as existing GPU tests
+
+	// Create a GPU test pod using the same pattern as podRunNvidiaWorkload
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-gpu-test", s.Runtime.KubeNodeName),
+			Namespace: "default",
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{
+					Name:  "gpu-test-container",
+					Image: "mcr.microsoft.com/azuredocs/samples-tf-mnist-demo:gpu",
+					Args: []string{
+						"--max-steps", "1",
+					},
+					Resources: corev1.ResourceRequirements{
+						Limits: corev1.ResourceList{
+							"nvidia.com/gpu": resource.MustParse("1"),
+						},
+					},
+				},
+			},
+			NodeSelector: map[string]string{
+				"kubernetes.io/hostname": s.Runtime.KubeNodeName,
+			},
+		},
+	}
+
+	ValidatePodRunning(ctx, s, pod)
+
+	s.T.Logf("GPU workload is schedulable and runs successfully")
+}
+
+// ValidatePubkeySSHDisabled validates that SSH with private key authentication is disabled by checking sshd_config
+func ValidatePubkeySSHDisabled(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	// Part 1. Use VMSS RunCommand to check sshd_config directly on the node
+	runPoller, err := config.Azure.VMSSVM.BeginRunCommand(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, "0", armcompute.RunCommandInput{
+		CommandID: to.Ptr("RunShellScript"),
+		Script: []*string{to.Ptr(`#!/bin/bash
+# Check if PubkeyAuthentication is disabled in sshd_config
+if grep -q "^PubkeyAuthentication no" /etc/ssh/sshd_config; then
+    echo "SUCCESS: PubkeyAuthentication is disabled"
+    exit 0
+else
+    echo "FAILED: PubkeyAuthentication is not properly disabled"
+    echo "Current sshd_config content related to PubkeyAuthentication:"
+    grep -i "PubkeyAuthentication" /etc/ssh/sshd_config || echo "No PubkeyAuthentication setting found"
+    exit 1
+fi`)},
+	}, nil)
+	require.NoError(s.T, err, "Failed to run command to check sshd_config")
+
+	runResp, err := runPoller.PollUntilDone(ctx, nil)
+	require.NoError(s.T, err, "Failed to complete command to check sshd_config")
+
+	// Parse the response to check the result
+	respJson, err := runResp.MarshalJSON()
+	require.NoError(s.T, err, "Failed to marshal run command response")
+	s.T.Logf("Run command output: %s", string(respJson))
+
+	// Parse the JSON response to extract the output and exit code
+	respString := string(respJson)
+
+	// Check if the command execution was successful by looking for our success message in the output
+	if !strings.Contains(respString, "SUCCESS: PubkeyAuthentication is disabled") {
+		s.T.Fatalf("PubkeyAuthentication is not properly disabled. Full response: %s", respString)
+	}
+
+	// Part 2. Check cannot SSH with private key (expect failure)
+	err = validateSSHConnectivity(ctx, s)
+	require.Error(s.T, err, "Expected SSH connection with private key to fail, but it succeeded")
+	if !strings.Contains(err.Error(), "Permission denied") {
+		s.T.Fatalf("Expected permission denied error, but got: %v", err)
+	}
+
+	s.T.Logf("PubkeyAuthentication is properly disabled as expected")
 }

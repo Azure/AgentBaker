@@ -380,6 +380,7 @@ Describe "DownloadFileOverHttp" {
     Mock Write-Log -MockWith {}
     Mock Resolve-PackagesDownloadFqdn -MockWith {} -Verifiable
     Mock Update-BaseUrl -MockWith { return $InitialUrl }
+    Mock Get-Item -MockWith { return New-Object -TypeName PSObject -Property @{ FullName = $DestinationPath } }
   }
 
   It "should use Update-BaseUrl after resolving the FQDN" {
