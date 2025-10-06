@@ -322,7 +322,12 @@ EOF
 # After this stage the node should be fully integrated into the cluster.
 # IMPORTANT: This stage should only run when actually joining a node to the cluster. This step should not be run when creating a VHD image
 function nodePrep {
+    # IMPORTANT NOTE: We do this here since this function can mutate kubelet flags and node labels,
+    # which is used by configureK8s and other functions. Thus, we need to make sure flag and label content is correct beforehand.
     logs_to_events "AKS.CSE.configureKubeletServing" configureKubeletServing
+
+    # This function first creates the systemd drop-in directory for kubelet.service.
+    # Pay attention to ordering relative to other functions that create kubelet drop-ins.
     logs_to_events "AKS.CSE.configureK8s" configureK8s
 
     if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" = "true" ]; then
