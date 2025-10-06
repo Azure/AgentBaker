@@ -211,6 +211,11 @@ dcgm_package_list() {
 }
 
 installNvidiaDCGMPkgFromCache() {
+  if [ "$OS_VERSION" != "3.0" ]; then
+    echo "NVIDIA DCGM package installation is only supported on Azure Linux 3.0"
+    return
+  fi
+
   for packageName in $(dcgm_package_list); do
     downloadDir="/opt/${packageName}/downloads"
     rpmFile=$(find "${downloadDir}" -maxdepth 1 -name "${packageName}*" -print -quit 2>/dev/null) || rpmFile=""
