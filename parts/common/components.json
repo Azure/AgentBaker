@@ -588,8 +588,8 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/open-policy-agent/gatekeeper",
-          "latestVersion": "v3.20.1-1",
-          "previousLatestVersion": "v3.20.0-1"
+          "latestVersion": "v3.20.1-2",
+          "previousLatestVersion": "v3.20.1-1"
         }
       ],
       "windowsVersions": []
@@ -612,8 +612,8 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=azure-policy/policy-kubernetes-addon-prod",
-          "latestVersion": "1.13.1",
-          "previousLatestVersion": "1.13.0"
+          "latestVersion": "1.14.2",
+          "previousLatestVersion": "1.13.1"
         }
       ],
       "windowsVersions": []
@@ -624,8 +624,8 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=azure-policy/policy-kubernetes-webhook",
-          "latestVersion": "1.13.1",
-          "previousLatestVersion": "1.13.0"
+          "latestVersion": "1.14.2",
+          "previousLatestVersion": "1.13.1"
         }
       ],
       "windowsVersions": []
