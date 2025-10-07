@@ -101,4 +101,53 @@ installDebPackageFromFile() {
         return 1
     fi
 }
+
+apt_get_install_from_local_repo() {
+    local local_repo_dir=$1
+    local package_name=$2
+
+    if [ ! -d "${local_repo_dir}" ]; then
+        echo "Local repo directory ${local_repo_dir} does not exist"
+        return 1
+    fi
+
+    # Check if Packages.gz exists in the repo
+    if [ ! -f "${local_repo_dir}/Packages.gz" ]; then
+        echo "Packages.gz not found in ${local_repo_dir}"
+        return 1
+    fi
+
+    wait_for_apt_locks
+
+    local tmp_list=$(mktemp)
+    local tmp_dir=$(mktemp -d)
+
+    # Create temporary sources.list pointing to local repo
+    printf 'deb [trusted=yes] file:%s ./\n' "${local_repo_dir}" > "${tmp_list}"
+
+    local opts="-o Dir::Etc::sourcelist=${tmp_list} -o Dir::Etc::sourceparts=${tmp_dir}"
+
+    # Update apt cache with local repo
+    if ! apt-get ${opts} update 2>&1; then
+        echo "Failed to update apt cache from local repo ${local_repo_dir}"
+        rm -f "${tmp_list}"
+        rmdir "${tmp_dir}"
+        return 1
+    fi
+
+    # Install package from local repo (no download needed)
+    export DEBIAN_FRONTEND=noninteractive
+    if ! apt-get ${opts} --no-download install -y "${package_name}"; then
+        echo "Failed to install ${package_name} from local repo"
+        rm -f "${tmp_list}"
+        rmdir "${tmp_dir}"
+        return 1
+    fi
+
+    # Cleanup
+    rm -f "${tmp_list}"
+    rmdir "${tmp_dir}"
+
+    return 0
+}
 #EOF

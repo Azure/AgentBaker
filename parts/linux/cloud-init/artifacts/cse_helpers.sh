@@ -317,24 +317,36 @@ retrycmd_curl_file() {
     _retry_file_curl_internal "$curl_retries" "$wait_sleep" "$timeout" "$filepath" "$url" "$check_file_exists"
 }
 
-retrycmd_get_tarball_from_registry_with_oras() {
-    tar_retries=$1; wait_sleep=$2; tarball=$3; url=$4
-    tar_folder=$(dirname "$tarball")
-    echo "${tar_retries} retries"
-    for i in $(seq 1 $tar_retries); do
-        [ -f "$tarball" ] && tar -tzf "$tarball" && break || \
-        if [ "$i" -eq "$tar_retries" ]; then
+retrycmd_pull_from_registry_with_oras() {
+    pull_retries=$1; wait_sleep=$2; target_folder=$3; url=$4
+    shift 4  # Remove first 4 parameters, remaining parameters are extra oras flags
+    extra_flags="$@"
+    echo "${pull_retries} retries"
+    for i in $(seq 1 $pull_retries); do
+        if [ "$i" -eq "$pull_retries" ]; then
             return 1
+        fi
+        if [ "$i" -gt 1 ]; then
+            sleep $wait_sleep
+        fi
+        timeout 60 oras pull $url -o $target_folder --registry-config ${ORAS_REGISTRY_CONFIG_FILE} $extra_flags > $ORAS_OUTPUT 2>&1
+        if [ "$?" -eq 0 ]; then
+            return 0
         else
-            if [ "$i" -gt 1 ]; then
-                sleep $wait_sleep
-            fi
-            timeout 60 oras pull $url -o $tar_folder --registry-config ${ORAS_REGISTRY_CONFIG_FILE} > $ORAS_OUTPUT 2>&1
-            if [ "$?" -ne 0 ]; then
-                cat $ORAS_OUTPUT
-            fi
+            cat $ORAS_OUTPUT
         fi
     done
+}
+
+retrycmd_get_tarball_from_registry_with_oras() {
+    tar_retries=$1; wait_sleep=$2; tarball=$3; url=$4
+    if [ -f "$tarball" ] && tar -tzf "$tarball" > /dev/null 2>&1; then
+        # tarball already exists and is valid
+        return 0
+    fi
+
+    tar_folder=$(dirname "$tarball")
+    retrycmd_pull_from_registry_with_oras "$tar_retries" "$wait_sleep" "$tar_folder" "$url" || return 0
 }
 
 retrycmd_get_aad_access_token() {

@@ -148,6 +148,33 @@ installKubeletKubectlPkgFromPMC() {
     installPkgWithAptGet "kubectl" "${k8sVersion}" || exit $ERR_KUBECTL_INSTALL_FAIL
 }
 
+installKubeletKubectlPkgFromLocalRepo() {
+    local tool_name=$1
+    local tool_download_dir=$2
+    local kubernetes_version=$3
+
+    # Verify the download directory exists and contains repository metadata
+    if [ ! -d "${tool_download_dir}" ]; then
+        echo "Download directory ${tool_download_dir} does not exist"
+        return 1
+    fi
+
+    # Check if this is a self-contained local repository (has Packages.gz)
+    if [ ! -f "${tool_download_dir}/Packages.gz" ]; then
+        echo "Packages.gz not found in ${tool_download_dir}, not a valid local repository"
+        return 1
+    fi
+
+    echo "Installing ${tool_name} from local repository at ${tool_download_dir}..."
+    if ! apt_get_install_from_local_repo "${tool_download_dir}" "${tool_name}"; then
+        echo "Failed to install ${tool_name} from local repository"
+        return 1
+    fi
+
+    echo "${tool_name} installed successfully from local repository"
+    return 0
+}
+
 installPkgWithAptGet() {
     packageName="${1:-}"
     packageVersion="${2}"
