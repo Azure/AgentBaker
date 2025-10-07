@@ -198,14 +198,6 @@ function Write-Log($message) {
     Write-Output $msg
 }
 
- $sw = [Diagnostics.Stopwatch]::StartNew()
-function PrintStopwatch($completedOperation) {
-    $sw.Stop()
-    Write-Output "$completedOperation took $($sw.Elapsed) seconds"
-    $sw.Reset()
-    $sw.Start()
-}
-
 function DownloadFileOverHttp {
     Param(
         [Parameter(Mandatory = $true)][string]

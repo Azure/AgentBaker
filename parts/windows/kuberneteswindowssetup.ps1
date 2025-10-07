@@ -223,8 +223,6 @@ Expand-Archive scripts.zip -DestinationPath "C:\\AzureData\\" -Force
 . c:\AzureData\windows\windowscsehelper.ps1
 # util functions only can be used after this line, for example, Write-Log
 
-PrintStopwatch("Extract windowscsehelper.ps1")
-
 $global:OperationId = New-Guid
 
 if (-not (Test-Path "C:\AzureData\windows\azurecnifunc.ps1")) {
@@ -262,8 +260,6 @@ if (-not (Test-Path "C:\AzureData\windows\azurecnifunc.ps1")) {
     Write-Log "CSE scripts already exist, skipping download"
 }
 
-PrintStopwatch("Download and extract windows zip")
-
 
 # Dot-source cse scripts with functions that are called in this script
 . c:\AzureData\windows\azurecnifunc.ps1
@@ -275,16 +271,11 @@ PrintStopwatch("Download and extract windows zip")
 . c:\AzureData\windows\nvidiagpudriverfunc.ps1
 . c:\AzureData\windows\securetlsbootstrapfunc.ps1
 
-PrintStopwatch("Source all CSE function scripts")
-
 if (Test-Path -Path 'c:\AzureData\windows\windowsciliumnetworkingfunc.ps1') {
     . c:\AzureData\windows\windowsciliumnetworkingfunc.ps1
 } else {
     Write-Log "Windows Cilium Networking function script not found, skipping dot-source"
 }
-
-PrintStopwatch("Process Windows Cillium Networking function script")
-
 
 # ====== BASE PREP: BASE IMAGE PREPARATION ======
 # All operations that prepare the base VHD image
@@ -583,13 +574,11 @@ try
     # when nodes are created from that VHD image.
     if (-not (Test-Path "C:\AzureData\base_prep.complete")) {
         BasePrep
-        PrintStopwatch("BasePrep")
     } else {
         Write-Log "Skipping basePrep - base_prep.complete file exists"
     }
     if (-not $PreProvisionOnly) {
         NodePrep
-        PrintStopwatch("NodePrep")
     } else {
         Write-Log "Skipping nodePrep - pre-provision only mode"
     }
