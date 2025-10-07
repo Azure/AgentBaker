@@ -79,8 +79,7 @@ $global:WINDOWS_CSE_ERROR_WINDOWS_CILIUM_NETWORKING_INSTALL_FAILED=72
 $global:WINDOWS_CSE_ERROR_EXTRACT_ZIP=73
 # WINDOWS_CSE_ERROR_MAX_CODE is only used in unit tests to verify whether new error code name is added in $global:ErrorCodeNames
 # Please use the current value of WINDOWS_CSE_ERROR_MAX_CODE as the value of the new error code and increment it by 1
-$global:WINDOWS_CSE_ERROR_IP_ADDRESS_NOT_FOUND=74
-$global:WINDOWS_CSE_ERROR_MAX_CODE=75
+$global:WINDOWS_CSE_ERROR_MAX_CODE=74
 
 # Please add new error code for downloading new packages in RP code too
 $global:ErrorCodeNames = @(
@@ -157,8 +156,7 @@ $global:ErrorCodeNames = @(
     "WINDOWS_CSE_ERROR_DOWNLOAD_SECURE_TLS_BOOTSTRAP_CLIENT",
     "WINDOWS_CSE_ERROR_INSTALL_SECURE_TLS_BOOTSTRAP_CLIENT",
     "WINDOWS_CSE_ERROR_WINDOWS_CILIUM_NETWORKING_INSTALL_FAILED",
-    "WINDOWS_CSE_ERROR_EXTRACT_ZIP",
-    "WINDOWS_CSE_ERROR_IP_ADDRESS_NOT_FOUND"
+    "WINDOWS_CSE_ERROR_EXTRACT_ZIP"
 )
 
 # The package domain to be used
