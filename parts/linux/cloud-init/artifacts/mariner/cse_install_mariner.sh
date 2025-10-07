@@ -199,7 +199,7 @@ updateDnfWithNvidiaPkg() {
   dnf_makecache || exit $ERR_APT_UPDATE_TIMEOUT
 }
 
-is_package_installed() {
+isPackageInstalled() {
     local packageName="${1}"
     if rpm -q "${packageName}" &>/dev/null; then
         return 0  # Package is installed
@@ -228,7 +228,7 @@ installNvidiaManagedExpPkgFromCache() {
   mkdir -p /var/lib/kubelet/device-plugins
 
   for packageName in $(managed_gpu_package_list); do
-    if is_package_installed "${packageName}"; then
+    if isPackageInstalled "${packageName}"; then
       echo "${packageName} is already installed, skipping."
       continue
     fi

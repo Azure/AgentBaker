@@ -114,7 +114,7 @@ updateAptWithNvidiaPkg() {
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
 }
 
-is_package_installed() {
+isPackageInstalled() {
     local packageName="${1}"
     if dpkg -l "${packageName}" 2>/dev/null | grep -q "^ii"; then
         return 0  # Package is installed
@@ -138,7 +138,7 @@ installNvidiaManagedExpPkgFromCache() {
     mkdir -p /var/lib/kubelet/device-plugins
 
     for packageName in $(managed_gpu_package_list); do
-        if is_package_installed "${packageName}"; then
+        if isPackageInstalled "${packageName}"; then
             echo "${packageName} is already installed, skipping."
             continue
         fi

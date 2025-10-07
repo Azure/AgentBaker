@@ -405,8 +405,8 @@ function nodePrep {
         echo $(date),$(hostname), "End configuring GPU drivers"
     fi
 
-    export -f enable_managed_gpu_experience
-    ENABLE_MANAGED_GPU_EXPERIENCE=$(retrycmd_silent 10 1 10 bash -cx enable_managed_gpu_experience)
+    export -f enableManagedGPUExperience
+    ENABLE_MANAGED_GPU_EXPERIENCE=$(retrycmd_silent 10 1 10 bash -cx enableManagedGPUExperience)
     if [ "$?" -ne 0 ] && [ "${GPU_NODE}" = "true" ] && [ "${skip_nvidia_driver_install}" != "true" ]; then
         echo "failed to determine if managed GPU experience should be enabled by nodepool tags"
         exit $ERR_LOOKUP_ENABLE_MANAGED_GPU_EXPERIENCE_TAG
