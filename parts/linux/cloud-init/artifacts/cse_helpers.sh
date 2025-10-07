@@ -672,7 +672,7 @@ should_enforce_kube_pmc_install() {
     echo "${should_enforce,,}"
 }
 
-enable_managed_gpu_experience() {
+enableManagedGPUExperience() {
     set -x
     body=$(curl -fsSL -H "Metadata: true" --noproxy "*" "http://169.254.169.254/metadata/instance?api-version=2021-02-01")
     ret=$?
