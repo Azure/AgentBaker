@@ -90,8 +90,8 @@ else
 	@az login --identity --client-id ${MANAGED_IDENTITY_ID}
 endif
 else
-	@echo "Logging into Azure with identity: ${AZURE_MSI_RESOURCE_STRING}..."
-	@az login --identity --resource-id ${AZURE_MSI_RESOURCE_STRING}
+	@echo "Executing from pipeline agent, expecting to already be logged in..."
+	@az account show > /dev/null 2>&1 || exit 1
 endif
 	@echo "Using the subscription ${SUBSCRIPTION_ID}"
 	@az account set -s ${SUBSCRIPTION_ID}

@@ -1,6 +1,8 @@
 {
   "variables": {
     "subscription_id": "{{env `AZURE_SUBSCRIPTION_ID`}}",
+    "client_id": "{{env `CLIENT_ID`}}",
+    "client_jwt": "{{env `CLIENT_JWT`}}",
     "gallery_subscription_id": "{{user `gallery_subscription_id`}}",
     "location": "{{env `PACKER_BUILD_LOCATION`}}",
     "vm_size": "{{env `AZURE_VM_SIZE`}}",
@@ -34,6 +36,8 @@
     {
       "type": "azure-arm",
       "subscription_id": "{{user `subscription_id`}}",
+      "client_id": "{{user `client_id`}}",
+      "client_jwt": "{{user `client_jwt`}}",
       "virtual_network_resource_group_name": "{{user `vnet_resource_group_name`}}",
       "virtual_network_name": "{{user `vnet_name`}}",
       "virtual_network_subnet_name": "{{user `subnet_name`}}",
@@ -68,8 +72,7 @@
         "replication_regions": [
           "{{user `location`}}"
         ]
-      },
-      "user_assigned_managed_identities": "{{user `msi_resource_strings`}}"
+      }
     }
   ],
   "provisioners": [
