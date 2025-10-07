@@ -17,6 +17,7 @@
     "sig_image_name": "{{env `SIG_IMAGE_NAME`}}",
     "sig_image_version": "{{env `SIG_IMAGE_VERSION`}}",
     "container_runtime": "{{env `CONTAINER_RUNTIME`}}",
+    "teleportd_plugin_download_url": "{{env `TELEPORTD_PLUGIN_DOWNLOAD_URL`}}",
     "captured_sig_version": "{{env `${CAPTURED_SIG_VERSION`}}",
     "enable_fips": "{{env `ENABLE_FIPS`}}",
     "img_publisher": "{{env `IMG_PUBLISHER`}}",
@@ -39,7 +40,7 @@
       "virtual_network_subnet_name": "{{user `subnet_name`}}",
       "ssh_read_write_timeout": "5m",
       "os_type": "Linux",
-      "os_disk_size_gb": 30,
+      "os_disk_size_gb": 60,
       "image_publisher": "{{user `img_publisher`}}",
       "image_offer": "{{user `img_offer`}}",
       "image_sku": "{{user `img_sku`}}",
@@ -57,7 +58,6 @@
       },
       "location": "{{user `location`}}",
       "vm_size": "{{user `vm_size`}}",
-      "use_azure_cli_auth": "true",
       "polling_duration_timeout": "1h",
       "managed_image_storage_account_type": "Premium_LRS",
       "shared_image_gallery_destination": {
@@ -89,11 +89,6 @@
     },
     {
       "type": "file",
-      "source": "image-fetcher/bin/image-fetcher-linux-arm64",
-      "destination": "/home/packer/image-fetcher"
-    },
-    {
-      "type": "file",
       "source": "aks-node-controller/bin/aks-node-controller-linux-arm64",
       "destination": "/home/packer/aks-node-controller"
     },
@@ -101,11 +96,6 @@
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/aks-node-controller.service",
       "destination": "/home/packer/aks-node-controller.service"
-    },
-    {
-      "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/aks-node-controller-wrapper.sh",
-      "destination": "/home/packer/aks-node-controller-wrapper.sh"
     },
     {
       "type": "file",
@@ -121,16 +111,6 @@
       "type": "file",
       "source": "vhdbuilder/packer/cleanup-vhd.sh",
       "destination": "/home/packer/cleanup-vhd.sh"
-    },
-    {
-      "type": "file",
-      "source": "vhdbuilder/packer/post-deprovision-walinuxagent.sh",
-      "destination": "/home/packer/post-deprovision-walinuxagent.sh"
-    },
-    {
-      "type": "file",
-      "source": "vhdbuilder/packer/install_walinuxagent.py",
-      "destination": "/home/packer/install_walinuxagent.py"
     },
     {
       "type": "file",
@@ -294,6 +274,11 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/teleportd.service",
+      "destination": "/home/packer/teleportd.service"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/setup-custom-search-domains.sh",
       "destination": "/home/packer/setup-custom-search-domains.sh"
     },
@@ -334,63 +319,8 @@
     },
     {
       "type": "file",
-      "source": "vhdbuilder/packer/install-ig.sh",
-      "destination": "/home/packer/install-ig.sh"
-    },
-    {
-      "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/inspektor-gadget/baseline/usr/share/inspektor-gadget/import_gadgets.sh",
-      "destination": "/home/packer/ig-import-gadgets.sh"
-    },
-    {
-      "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/inspektor-gadget/baseline/usr/share/inspektor-gadget/remove_gadgets.sh",
-      "destination": "/home/packer/ig-remove-gadgets.sh"
-    },
-    {
-      "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/inspektor-gadget/baseline/usr/lib/systemd/system/ig-import-gadgets.service",
-      "destination": "/home/packer/ig-import-gadgets.service"
-    },
-    {
-      "type": "file",
       "source": "vhdbuilder/packer/install-dependencies.sh",
       "destination": "/home/packer/install-dependencies.sh"
-    },
-    {
-      "type": "file",
-      "source": "vhdbuilder/packer/install-node-exporter.sh",
-      "destination": "/home/packer/install-node-exporter.sh"
-    },
-    {
-      "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/node-exporter/node-exporter-startup.sh",
-      "destination": "/home/packer/node-exporter-startup.sh"
-    },
-    {
-      "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/node-exporter/baseline/etc/systemd/system/node-exporter.service",
-      "destination": "/home/packer/node-exporter.service"
-    },
-    {
-      "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/node-exporter/baseline/etc/systemd/system/node-exporter-restart.service",
-      "destination": "/home/packer/node-exporter-restart.service"
-    },
-    {
-      "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/node-exporter/baseline/etc/systemd/system/node-exporter-restart.path",
-      "destination": "/home/packer/node-exporter-restart.path"
-    },
-    {
-      "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/node-exporter/baseline/etc/node-exporter.d/web-config.yml",
-      "destination": "/home/packer/node-exporter-web-config.yml"
-    },
-    {
-      "type": "file",
-      "source": "vhdbuilder/packer/generate-disk-usage.sh",
-      "destination": "/home/packer/generate-disk-usage.sh"
     },
     {
       "type": "file",
@@ -419,6 +349,11 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/sshd_config_1604",
+      "destination": "/home/packer/sshd_config_1604"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/rsyslog-d-60-CIS.conf",
       "destination": "/home/packer/rsyslog-d-60-CIS.conf"
     },
@@ -444,11 +379,6 @@
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/faillock-CIS.conf",
-      "destination": "/home/packer/faillock-CIS.conf"
-    },
-    {
-      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/pwquality-CIS.conf",
       "destination": "/home/packer/pwquality-CIS.conf"
     },
@@ -456,11 +386,6 @@
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/pam-d-su",
       "destination": "/home/packer/pam-d-su"
-    },
-    {
-      "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/pam-d-common-account",
-      "destination": "/home/packer/pam-d-common-account"
     },
     {
       "type": "file",
@@ -481,16 +406,6 @@
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/profile-d-cis.sh",
       "destination": "/home/packer/profile-d-cis.sh"
-    },
-    {
-      "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/profile-d-path.sh",
-      "destination": "/home/packer/profile-d-path.sh"
-    },
-    {
-      "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/disk_queue.sh",
-      "destination": "/home/packer/disk_queue.sh"
     },
     {
       "type": "file",
@@ -704,46 +619,6 @@
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/localdns_exporter.sh",
-      "destination": "/home/packer/localdns_exporter.sh"
-    },
-    {
-      "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/localdns-exporter.socket",
-      "destination": "/home/packer/localdns-exporter.socket"
-    },
-    {
-      "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/localdns-exporter@.service",
-      "destination": "/home/packer/localdns-exporter@.service"
-    },
-    {
-      "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/aks-localdns-hosts-setup.sh",
-      "destination": "/home/packer/aks-localdns-hosts-setup.sh"
-    },
-    {
-      "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/aks-localdns-hosts-setup.service",
-      "destination": "/home/packer/aks-localdns-hosts-setup.service"
-    },
-    {
-      "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/aks-localdns-hosts-setup.timer",
-      "destination": "/home/packer/aks-localdns-hosts-setup.timer"
-    },
-    {
-      "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/configure-azure-network.sh",
-      "destination": "/home/packer/configure-azure-network.sh"
-    },
-    {
-      "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/99-azure-network.rules",
-      "destination": "/home/packer/99-azure-network.rules"
-    },
-    {
-      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/10_azure_nvidia",
       "destination": "/home/packer/10_azure_nvidia"
     },
@@ -753,9 +628,39 @@
       "destination": "/home/packer/51-azure-nvidia.cfg"
     },
     {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/ubuntu/doca.list",
+      "destination": "/home/packer/doca.list"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/ubuntu/doca.pub",
+      "destination": "/home/packer/doca.pub"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/ubuntu/nvidia-2404.list",
+      "destination": "/home/packer/nvidia-2404.list"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/ubuntu/nvidia.pub",
+      "destination": "/home/packer/nvidia.pub"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/ubuntu/containerd-nvidia.toml",
+      "destination": "/home/packer/containerd-nvidia.toml"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/ubuntu/modprobe-nvidia-parameters.conf",
+      "destination": "/home/packer/modprobe-nvidia-parameters.conf"
+    },
+    {
       "type": "shell",
       "inline": [
-        "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} ENABLE_FIPS={{user `enable_fips`}} IMG_SKU={{user `img_sku`}} VHD_BUILD_TIMESTAMP={{user `vhd_build_timestamp`}} /bin/bash -eux /home/packer/pre-install-dependencies.sh"
+        "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} TELEPORTD_PLUGIN_DOWNLOAD_URL={{user `teleportd_plugin_download_url`}} ENABLE_FIPS={{user `enable_fips`}} IMG_SKU={{user `img_sku`}} VHD_BUILD_TIMESTAMP={{user `vhd_build_timestamp`}} /bin/bash -ux /home/packer/pre-install-dependencies.sh"
       ]
     },
     {
@@ -768,7 +673,7 @@
     {
       "type": "shell",
       "inline": [
-        "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} ENABLE_FIPS={{user `enable_fips`}} IMG_SKU={{user `img_sku`}} PRIVATE_PACKAGES_URL={{user `private_packages_url`}} VHD_BUILD_TIMESTAMP={{user `vhd_build_timestamp`}} /bin/bash -eux /home/packer/install-dependencies.sh"
+        "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} TELEPORTD_PLUGIN_DOWNLOAD_URL={{user `teleportd_plugin_download_url`}} ENABLE_FIPS={{user `enable_fips`}} IMG_SKU={{user `img_sku`}} PRIVATE_PACKAGES_URL={{user `private_packages_url`}} VHD_BUILD_TIMESTAMP={{user `vhd_build_timestamp`}} /bin/bash -ux /home/packer/install-dependencies.sh"
       ]
     },
     {
@@ -776,18 +681,6 @@
       "direction": "download",
       "source": "/var/log/bcc_installation.log",
       "destination": "bcc-tools-installation.log"
-    },
-    {
-      "type": "shell",
-      "inline": [
-        "sudo /bin/bash /home/packer/generate-disk-usage.sh"
-      ]
-    },
-    {
-      "type": "file",
-      "direction": "download",
-      "source": "/opt/azure/disk-usage.txt",
-      "destination": "disk-usage.txt"
     },
     {
       "type": "shell",
@@ -805,7 +698,7 @@
     {
       "type": "shell",
       "inline": [
-        "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} ENABLE_FIPS={{user `enable_fips`}} IMG_SKU={{user `img_sku`}} /bin/bash -eux /home/packer/post-install-dependencies.sh"
+        "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} TELEPORTD_PLUGIN_DOWNLOAD_URL={{user `teleportd_plugin_download_url`}} ENABLE_FIPS={{user `enable_fips`}} IMG_SKU={{user `img_sku`}} /bin/bash -ux /home/packer/post-install-dependencies.sh"
       ]
     },
     {
@@ -816,7 +709,7 @@
     {
       "type": "shell",
       "inline": [
-        "sudo SKU_NAME={{user `sku_name`}} IMAGE_VERSION={{user `image_version`}} CONTAINER_RUNTIME={{user `container_runtime`}} /bin/bash -eux /home/packer/list-images.sh"
+        "sudo SKU_NAME={{user `sku_name`}} IMAGE_VERSION={{user `image_version`}} CONTAINER_RUNTIME={{user `container_runtime`}} /bin/bash -ux /home/packer/list-images.sh"
       ]
     },
     {
@@ -855,14 +748,8 @@
       "inline": [
         "sudo /bin/bash -eux /home/packer/cis.sh",
         "sudo /bin/bash -eux /opt/azure/containers/cleanup-vhd.sh",
-        "sudo /bin/bash -c '/usr/sbin/waagent -force -deprovision+user && export HISTSIZE=0 && /opt/azure/containers/post-deprovision-walinuxagent.sh' || exit 125"
+        "sudo /usr/sbin/waagent -force -deprovision+user && export HISTSIZE=0 && sync || exit 125"
       ]
     }
-  ],
-  "error-cleanup-provisioner": {
-    "type": "shell",
-    "inline": [
-      "sudo /bin/bash /home/packer/generate-disk-usage.sh"
-    ]
-  }
+  ]
 }
