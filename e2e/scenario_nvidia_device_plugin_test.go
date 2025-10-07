@@ -37,7 +37,6 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning(t *testing.T) {
 				require.Lenf(s.T, versions, 1, "Expected exactly one nvidia-device-plugin version for ubuntu r2404 but got %d", len(versions))
 				ValidateInstalledPackageVersion(ctx, s, "nvidia-device-plugin", versions[0])
 
-
 				// Validate that the NVIDIA device plugin systemd service is running
 				ValidateNvidiaDevicePluginServiceRunning(ctx, s)
 
@@ -110,10 +109,9 @@ func Test_AzureLinux3_NvidiaDevicePluginRunning(t *testing.T) {
 			Validator: func(ctx context.Context, s *Scenario) {
 
 				// Validate that the NVIDIA device plugin binary was installed correctly
-				versions := components.GetExpectedPackageVersions("nvidia-device-plugin", "azurelinux", "3.0")
+				versions := components.GetExpectedPackageVersions("nvidia-device-plugin", "azurelinux", "v3.0")
 				require.Lenf(s.T, versions, 1, "Expected exactly one nvidia-device-plugin version for azurelinux 3.0 but got %d", len(versions))
 				ValidateInstalledPackageVersion(ctx, s, "nvidia-device-plugin", versions[0])
-
 
 				// Validate that the NVIDIA device plugin systemd service is running
 				ValidateNvidiaDevicePluginServiceRunning(ctx, s)
