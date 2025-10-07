@@ -131,9 +131,9 @@ main() {
   echo "Starting grid compatibility evaluation..."
   echo "ENVIRONMENT: ${ENVIRONMENT}"
   
-  # Early return for TME environment
-  if [ "${ENVIRONMENT,,}" = "tme" ]; then
-    echo "Skipping grid compatibility evaluation for tme environment"
+  # Early return for TME and PROD environments
+  if [ "${ENVIRONMENT,,}" = "tme" ] || [ "${ENVIRONMENT,,}" = "prod" ]; then
+    echo "Skipping grid compatibility evaluation for ${ENVIRONMENT,,} environment"
     return 0
   fi
   
