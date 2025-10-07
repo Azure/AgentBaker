@@ -516,45 +516,8 @@ function New-ExternalHnsNetwork {
     )
     Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Start to create new external hns network"
 
-    $ParsedContent = GetMetadataContent
-    if (-not $ParsedContent) {
-        Write-Log "Failed to retrieve metadata content."
-        exit 1
-    }
-
-    $ipv4Address = GetIpv4AddressFromParsedContent -ParsedContent $ParsedContent
-    if (-not $ipv4Address) {
-        Write-Log "Failed to retrieve IPv4 address from metadata."
-        throw "No IPv4 address found in metadata."
-    }
-
-    Write-Log "Got node IPv4 address: $( $ipv4Address )"
-    $nodeIPs = @($ipv4Address)
-
-    if ($IsDualStackEnabled) {
-        $ipv6Address = GetIpv6AddressFromParsedContent -ParsedContent $ParsedContent
-        if ($ipv6Address) {
-            Write-Log "Get node IPv6 address a: $( $ipv6Address )"
-            $nodeIPs += $ipv6Address
-        }
-        else {
-            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GET_NODE_IPV6_IP -ErrorMessage "Failed to get node IPv6 IP address"
-        }
-    }
-
-    # we need the default gateway interface to create the external network
-    $netIP = Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue -ErrorVariable netIPErr -IpAddress $ipv4Address
-    if (!$netIP) {
-        Write-Log "Failed to find IP address info for ip address $ipv4Address. Error: $netIPErr. Reverting to old way to configure network"
-        $na = Get-NetworkAdaptor-Fallback
-    }
-    else {
-        $na = get-netadapter -ifindex $netIP.ifIndex
-        if (!$na) {
-            Write-Log "Failed to find network adapter info for ip address index $($netIP.ifIndex) and ip address $ipv4Address. Reverting to old way to configure network"
-            $na = Get-NetworkAdaptor-Fallback -IsDualStackEnabled $IsDualStackEnabled
-        }
-    }
+    $nodeIps = Get-AKS-NodeIPs
+    $na = Get-AKS-NetworkAdaptor
 
     Write-Log "Configuring node ip for kubelet"
     # https://github.com/kubernetes/kubernetes/pull/121028
@@ -563,7 +526,7 @@ function New-ExternalHnsNetwork {
 
         try {
             $clusterConfiguration = ConvertFrom-Json ((Get-Content $global:KubeClusterConfigPath -ErrorAction Stop) | Out-String)
-            $clusterConfiguration.Kubernetes.Kubelet.ConfigArgs += "--node-ip=$( $nodeIPs -join ',' )"
+            $clusterConfiguration.Kubernetes.Kubelet.ConfigArgs += "--node-ip=$( $nodeIPs )"
             $clusterConfiguration | ConvertTo-Json -Depth 10 | Out-File -FilePath $global:KubeClusterConfigPath
         }
         catch {
@@ -614,6 +577,64 @@ function New-ExternalHnsNetwork {
     }
 }
 
+function Get-AKS-NodeIPs {
+    $ParsedContent = GetMetadataContent
+    if (-not $ParsedContent) {
+        Write-Log "Failed to retrieve metadata content."
+        throw "No metadata content found."
+    }
+
+    $ipv4Address = GetIpv4AddressFromParsedContent -ParsedContent $ParsedContent
+    if (-not $ipv4Address) {
+        Write-Log "Failed to retrieve IPv4 address from metadata."
+        throw "No IPv4 address found in metadata."
+    }
+
+    Write-Log "Got node IPv4 address: $( $ipv4Address )"
+    $nodeIPs = @($ipv4Address)
+
+    if ($IsDualStackEnabled) {
+        $ipv6Address = GetIpv6AddressFromParsedContent -ParsedContent $ParsedContent
+        if ($ipv6Address) {
+            Write-Log "Get node IPv6 address a: $( $ipv6Address )"
+            $nodeIPs += $ipv6Address
+        }
+        else {
+            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GET_NODE_IPV6_IP -ErrorMessage "Failed to get node IPv6 IP address"
+        }
+    }
+
+    return $nodeIPs -join ','
+}
+
+function Get-AKS-NetworkAdaptor {
+    $ParsedContent = GetMetadataContent
+    if (-not $ParsedContent) {
+        Write-Log "Failed to retrieve metadata content."
+        throw "No metadata content found."
+    }
+
+    $ipv4Address = GetIpv4AddressFromParsedContent -ParsedContent $ParsedContent
+    if (-not $ipv4Address) {
+        Write-Log "Failed to retrieve IPv4 address from metadata."
+        throw "No IPv4 address found in metadata."
+    }
+
+    # we need the default gateway interface to create the external network
+    $netIP = Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue -ErrorVariable netIPErr -IpAddress $ipv4Address
+    if (!$netIP) {
+        Write-Log "Failed to find IP address info for ip address $ipv4Address. Error: $netIPErr. Reverting to old way to configure network"
+        return Get-NetworkAdaptor-Fallback
+    }
+  
+    $na = get-netadapter -ifindex $netIP.ifIndex
+    if (!$na) {
+        Write-Log "Failed to find network adapter info for ip address index $($netIP.ifIndex) and ip address $ipv4Address. Reverting to old way to configure network"
+        return Get-NetworkAdaptor-Fallback
+    }
+    return $na
+    
+}
 
 function Get-NetworkAdaptor-Fallback {
     Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Start to create new external hns network"
