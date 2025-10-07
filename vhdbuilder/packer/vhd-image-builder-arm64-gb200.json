@@ -40,7 +40,7 @@
       "virtual_network_subnet_name": "{{user `subnet_name`}}",
       "ssh_read_write_timeout": "5m",
       "os_type": "Linux",
-      "os_disk_size_gb": 30,
+      "os_disk_size_gb": 60,
       "image_publisher": "{{user `img_publisher`}}",
       "image_offer": "{{user `img_offer`}}",
       "image_sku": "{{user `img_sku`}}",
@@ -626,6 +626,36 @@
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/51-azure-nvidia.cfg",
       "destination": "/home/packer/51-azure-nvidia.cfg"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/ubuntu/doca.list",
+      "destination": "/home/packer/doca.list"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/ubuntu/doca.pub",
+      "destination": "/home/packer/doca.pub"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/ubuntu/nvidia-2404.list",
+      "destination": "/home/packer/nvidia-2404.list"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/ubuntu/nvidia.pub",
+      "destination": "/home/packer/nvidia.pub"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/ubuntu/containerd-nvidia.toml",
+      "destination": "/home/packer/containerd-nvidia.toml"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/ubuntu/modprobe-nvidia-parameters.conf",
+      "destination": "/home/packer/modprobe-nvidia-parameters.conf"
     },
     {
       "type": "shell",
