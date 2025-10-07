@@ -391,8 +391,7 @@ copyPackerFiles() {
 
   # GB200-specific configuration
   if grep -q "GB200" <<< "$FEATURE_FLAGS"; then
-    # Only applicable to Ubuntu 24.04 and ARM64
-    if [ ${UBUNTU_RELEASE} = "24.04" ] && [ ${CPU_ARCH} = "arm64" ]; then
+    if [ ${UBUNTU_RELEASE} = "24.04" ]; then
       NVIDIA_LIST_SRC=/home/packer/nvidia-2404.list
       NVIDIA_LIST_DEST=/etc/apt/sources.list.d/nvidia.list
       cpAndMode $NVIDIA_LIST_SRC $NVIDIA_LIST_DEST 644

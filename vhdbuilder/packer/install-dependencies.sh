@@ -536,7 +536,7 @@ fi
 
 if grep -q "GB200" <<< "$FEATURE_FLAGS"; then
   # The GB200 feature flag should only be set for arm64 and Ubuntu 24.04, but validate
-  if [ ${UBUNTU_RELEASE} = "24.04" ] && [ ${CPU_ARCH} = "arm64" ]; then
+  if [ ${UBUNTU_RELEASE} = "24.04" ]; then
     # Need to replicate all functionality from github.com/azure/aks-gpu/install.sh.
     # aks-gpu is designed to run at node boot/join time, whereas the GB200 VHD is set up
     # to have all drivers installed at VHD build time.
@@ -760,7 +760,7 @@ cacheKubePackageFromPrivateUrl() {
 
   cached_pkg="${K8S_PRIVATE_PACKAGES_CACHE_DIR}/${k8s_tgz_name}"
   echo "download private package ${kube_private_binary_url} and store as ${cached_pkg}"
-  
+
   if ! ./azcopy copy "${kube_private_binary_url}" "${cached_pkg}"; then
     azExitCode=$?
     # loop through azcopy log files
