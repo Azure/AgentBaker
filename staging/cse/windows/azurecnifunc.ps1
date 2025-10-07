@@ -516,8 +516,20 @@ function New-ExternalHnsNetwork {
     )
     Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Start to create new external hns network"
 
-    $nodeIps = Get-AKS-NodeIPs
-    $na = Get-AKS-NetworkAdaptor
+    $EmptyArgs = @{}
+
+    try {
+        $nodeIps = Retry-Command -Command "Get-AKS-NodeIPs" -Retries 5 -RetryDelaySeconds 10 -Args $EmptyArgs
+    }
+    catch {
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_NETWORK_INTERFACES_NOT_EXIST -ErrorMessage "Failed to get node IP addresses"
+    }
+    try {
+        $na = Retry-Command -Command "Get-AKS-NetworkAdaptor" -Retries 5 -RetryDelaySeconds 10 -Args $args
+    }
+    catch {
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_NETWORK_ADAPTER_NOT_EXIST -ErrorMessage "Failed to get default network adaptor"
+    }
 
     Write-Log "Configuring node ip for kubelet"
     # https://github.com/kubernetes/kubernetes/pull/121028
@@ -600,7 +612,7 @@ function Get-AKS-NodeIPs {
             $nodeIPs += $ipv6Address
         }
         else {
-            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GET_NODE_IPV6_IP -ErrorMessage "Failed to get node IPv6 IP address"
+            Set-ExitCode "Failed to get node IPv6 IP address"
         }
     }
 
