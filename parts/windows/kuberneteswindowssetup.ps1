@@ -260,7 +260,6 @@ if (-not (Test-Path "C:\AzureData\windows\azurecnifunc.ps1")) {
     Write-Log "CSE scripts already exist, skipping download"
 }
 
-
 # Dot-source cse scripts with functions that are called in this script
 . c:\AzureData\windows\azurecnifunc.ps1
 . c:\AzureData\windows\calicofunc.ps1
