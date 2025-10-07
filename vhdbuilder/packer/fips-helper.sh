@@ -2,15 +2,6 @@
 # FIPS Helper Functions for VHD Scanning
 # This script contains functions related to FIPS 140-3 compliance for Ubuntu 22.04
 
-# Function to check if this is Ubuntu 22.04 + FIPS scenario
-is_ubuntu_2204_fips() {
-    # Check if it's Ubuntu AND version is 22.04 AND FIPS is enabled
-    if [[ "${OS_SKU}" == "Ubuntu" ]] && [[ "${OS_VERSION}" == "22.04" ]] && [[ "${ENABLE_FIPS,,}" == "true" ]]; then
-        return 0
-    fi
-    return 1
-}
-
 # Function to ensure FIPS 140-3 compliance feature is registered
 ensure_fips_feature_registered() {
     echo "Detected Ubuntu 22.04 + FIPS scenario, enabling FIPS 140-3 compliance..."

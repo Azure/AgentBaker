@@ -102,7 +102,7 @@ if [ -z "$SCANNING_NIC_ID" ]; then
 fi
 
 # Create VM using appropriate method based on scenario
-if is_ubuntu_2204_fips; then
+if [[ "${OS_SKU}" == "Ubuntu" ]] && [[ "${OS_VERSION}" == "22.04" ]] && [[ "${ENABLE_FIPS,,}" == "true" ]]; then
     # Source the FIPS helper functions
     FULL_PATH=$(realpath $0)
     CDIR=$(dirname $FULL_PATH)
