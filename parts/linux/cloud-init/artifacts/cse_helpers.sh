@@ -346,7 +346,7 @@ retrycmd_get_tarball_from_registry_with_oras() {
     fi
 
     tar_folder=$(dirname "$tarball")
-    retrycmd_pull_from_registry_with_oras "$tar_retries" "$wait_sleep" "$tar_folder" "$url" || return 0
+    retrycmd_pull_from_registry_with_oras "$tar_retries" "$wait_sleep" "$tar_folder" "$url"
 }
 
 retrycmd_get_aad_access_token() {
