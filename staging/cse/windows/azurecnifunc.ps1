@@ -611,13 +611,13 @@ function New-ExternalHnsNetwork
     $netIP = Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue -ErrorVariable netIPErr -IpAddress $ipv4Address
     if (!$netIP)
     {
-        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_NETWORK_ADAPTER_NOT_EXIST -ErrorMessage "Failed to find any network adaptor with default gateway"
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_NETWORK_ADAPTER_NOT_EXIST -ErrorMessage "Failed to find any ip address information for IP $ipv4Address. Error: $netIPErr"
     }
 
     $na = get-netadapter -ifindex $netIP.ifIndex
     if (!$na)
     {
-        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_NETWORK_ADAPTER_NOT_EXIST -ErrorMessage "Could not find default gateway interface. Please check the network configuration."
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_IP_ADDRESS_NOT_FOUND -ErrorMessage "Could not find default gateway interface for IP $ipv4Address. Please check the network configuration."
     }
 
     Write-Log "Configuring node ip for kubelet"
