@@ -7,9 +7,9 @@ Describe 'long running cse helper functions'
     cse_retry_helpers_precheck() {
         unset CSE_STARTTIME_FORMATTED
         unset CSE_STARTTIME_SECONDS
-    }   
+    }
     BeforeEach cse_retry_helpers_precheck
-    
+
     Include "./parts/linux/cloud-init/artifacts/cse_helpers.sh"
 
     Describe 'timeout behavior of helper functions'
@@ -21,13 +21,13 @@ Describe 'long running cse helper functions'
         Parameters
             "retrycmd_if_failure" 1 1 1 1 sleep 5
             "retrycmd_silent"   1 1 1 1 sleep 5
-            "_retrycmd_internal"    1 1 1 1 false sleep 
+            "_retrycmd_internal"    1 1 1 1 false sleep
             "retrycmd_get_tarball"  1 1 1 "/tmp/nonexistent.tar" "https://dummy.url/file.tar"
             "retrycmd_get_tarball_from_registry_with_oras"   1 3 1 "/tmp/nonexistent.tar" "dummy.registry/binary:v1"
             "systemctl_restart" 1 1 1 1 "nonexistent.service"
             "systemctl_stop"    1 1 1 1 "nonexistent.service"
             "systemctl_disable" 1 1 1 1 "nonexistent.service"
-            "_systemctl_retry_svc_operation" 1 1 1 1 "nonexistent.service" "restart" 
+            "_systemctl_retry_svc_operation" 1 1 1 1 "nonexistent.service" "restart"
             "sysctl_reload" 1 1 1 1
             "retrycmd_get_aad_access_token" $ERR_ORAS_IMDS_TIMEOUT 1 1 "http://nonexistent.local/token"
             "retrycmd_get_refresh_token_for_oras" $ERR_ORAS_PULL_NETWORK_TIMEOUT 1 1 "dummy.registry" "tenant-id" "fake-token"
@@ -49,7 +49,7 @@ Describe 'long running cse helper functions'
 
     Describe 'systemctl svc retry'
         Describe '_systemctl_retry_svc_operation logging'
-        
+
             timeout() {
                 return 124
             }
@@ -59,7 +59,7 @@ Describe 'long running cse helper functions'
             journalctl() {
                 echo "mock journalctl call"
             }
-            
+
             It "checks systemctl status and journalctl if operation failed and shouldLogRetryInfo is true"
                 When call _systemctl_retry_svc_operation 2 1 1 "nonexistent.service" "restart" "true"
                 The status should eq 1
@@ -98,7 +98,7 @@ Describe 'long running cse helper functions'
                 The status should eq 0
                 # we only expect the output from the test command
                 The stdout should eq "Success Command"
-                The stderr should eq "" 
+                The stderr should eq ""
             End
 
             It "does not log output when shouldLog is false and command fails"
@@ -116,7 +116,7 @@ Describe 'long running cse helper functions'
 
         Describe 'file curl'
             Describe 'retrycmd_get_tarball'
-                It "get_tarball returns 1 if tar curl fails and retries are exhausted"  
+                It "get_tarball returns 1 if tar curl fails and retries are exhausted"
                     timeout() {
                         echo "curl mock failure"
                         return 1
@@ -134,7 +134,7 @@ Describe 'long running cse helper functions'
                     rm -r /tmp/test_tarball
                     The status should eq 0
                     The stdout should include "1 file curl retries"
-                End                
+                End
                 It "get_tarball returns 2 if global cse timeout is reached"
                     CSE_STARTTIME_FORMATTED=$(date -d "-781 seconds" +"%F %T.%3N")
                     CSE_STARTTIME_SECONDS=$(date -d "$CSE_STARTTIME_FORMATTED" +%s)
@@ -178,7 +178,7 @@ Describe 'long running cse helper functions'
                     timeout() {
                         echo "curl mock timeout" >> $CURL_OUTPUT
                         return 124
-                    } 
+                    }
                     When call _retry_file_curl_internal 2 1 1 "/tmp/nonexistent" "https://dummy.url/file" "return 2"
                     The status should eq 1
                     The stdout should include "2 file curl retries"
@@ -189,8 +189,8 @@ Describe 'long running cse helper functions'
                     The stdout should eq "1 file curl retries"
                 End
                 It "returns 0 if checksToRun is unset"
-                    # checksToRun arg is unset 
-                    When call _retry_file_curl_internal 1 1 1 "/tmp/nonexistent" "https://dummy.url/file" 
+                    # checksToRun arg is unset
+                    When call _retry_file_curl_internal 1 1 1 "/tmp/nonexistent" "https://dummy.url/file"
                     The status should eq 0
                     The stdout should eq "1 file curl retries"
                 End
@@ -213,9 +213,70 @@ Describe 'long running cse helper functions'
                     When call _retry_file_curl_internal 2 1 1 "/tmp/nonexistent" "https://dummy.url/file" "return 2"
                     The status should eq 1
                     The stdout should include "curl mock timeout"
-                End 
+                End
             End
-        End 
+        End
+
+        Describe 'retrycmd_get_tarball_from_registry_with_oras'
+            It "calls retrycmd_pull_from_registry_with_oras when tarball exists but tar validation fails (returns 1)"
+                # Create a temporary directory and invalid tarball
+                mkdir -p /tmp/test_oras_tarball
+                echo "invalid tarball content" > /tmp/test_oras_tarball/test.tar
+
+                local called=false
+                # Mock retrycmd_pull_from_registry_with_oras to track if it's called
+                retrycmd_pull_from_registry_with_oras() {
+                    called=true
+                    return 1
+                }
+
+                # When tar -tzf returns 1 (failure/invalid tarball),
+                # retrycmd_pull_from_registry_with_oras should be called to re-download
+                When call retrycmd_get_tarball_from_registry_with_oras 2 1 "/tmp/test_oras_tarball/test.tar" "dummy.registry/binary:v1"
+
+                # Cleanup
+                rm -rf /tmp/test_oras_tarball
+
+                The status should eq 1
+                [ "$called" = true ]
+            End
+
+            It "calls retrycmd_pull_from_registry_with_oras when tarball does not exist"
+                local called=false
+                # Mock retrycmd_pull_from_registry_with_oras to track if it's called
+                retrycmd_pull_from_registry_with_oras() {
+                    called=true
+                    return 1
+                }
+
+                When call retrycmd_get_tarball_from_registry_with_oras 2 1 "/tmp/nonexistent_oras_tarball/test.tar" "dummy.registry/binary:v1"
+
+                The status should eq 1
+                [ "$called" = true ]
+            End
+
+            It "skips download when tarball exists and is valid"
+                # Create a valid tarball
+                mkdir -p /tmp/test_valid_oras_tarball
+                echo "test content" > /tmp/test_valid_oras_tarball/testfile
+                tar -czf /tmp/test_valid_oras_tarball/valid.tar.gz -C /tmp/test_valid_oras_tarball testfile
+
+                local called=false
+                # Mock retrycmd_pull_from_registry_with_oras - should NOT be called
+                retrycmd_pull_from_registry_with_oras() {
+                    called=true
+                    return 1
+                }
+
+                When call retrycmd_get_tarball_from_registry_with_oras 2 1 "/tmp/test_valid_oras_tarball/valid.tar.gz" "dummy.registry/binary:v1"
+
+                # Cleanup
+                rm -rf /tmp/test_valid_oras_tarball
+
+                The status should eq 0
+                [ "$called" = false ]
+            End
+        End
 
         Describe 'retrycmd_internal cse global timeout'
             It "returns 2 and times out when retrycmd_internal exceeds the CSE timeout"
@@ -239,7 +300,7 @@ Describe 'long running cse helper functions'
                 When call _retrycmd_internal 2 1 5 "true" echo "Failing Command"
                 The status should eq 1
                 The stdout should eq ""
-                The stderr should include "Executed \"echo Failing Command\" 2 times; giving up (last exit status: 124)." 
+                The stderr should include "Executed \"echo Failing Command\" 2 times; giving up (last exit status: 124)."
             End
         End
     End
