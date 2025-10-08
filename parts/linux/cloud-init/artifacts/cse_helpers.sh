@@ -1116,4 +1116,10 @@ extract_tarball() {
     esac
 }
 
+# Returns a list of Kubernetes tool names that need to be installed
+# Usage: for tool in $(get_kubernetes_tools); do ... done
+get_kubernetes_tools() {
+    echo "kubelet kubectl"
+}
+
 #HELPERSEOF

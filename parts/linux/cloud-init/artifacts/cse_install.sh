@@ -560,7 +560,7 @@ installKubeletKubectlFromURL() {
 
                 # Try to pull distro-specific packages (e.g., .deb for Ubuntu) from registry
                 install_success=false
-                for TOOL_NAME in kubelet kubectl; do
+                for TOOL_NAME in $(get_kubernetes_tools); do
                     tool_package_url="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}/aks/packages/kubernetes/${TOOL_NAME}:${KUBERNETES_VERSION}"
                     tool_download_dir="${K8S_DOWNLOADS_TEMP_DIR_FROM_REGISTRY}/${TOOL_NAME}"
                     mkdir -p "${tool_download_dir}"
