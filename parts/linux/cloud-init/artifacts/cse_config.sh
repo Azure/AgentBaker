@@ -180,6 +180,7 @@ EOF
 AZURE_JSON_PATH="/etc/kubernetes/azure.json"
 AKS_CUSTOM_CLOUD_JSON_PATH="/etc/kubernetes/${TARGET_ENVIRONMENT}.json"
 configureAzureJson() {
+    mkdir -p "$(dirname "${AZURE_JSON_PATH}")"
     touch "${AZURE_JSON_PATH}"
     chmod 0600 "${AZURE_JSON_PATH}"
     chown root:root "${AZURE_JSON_PATH}"
