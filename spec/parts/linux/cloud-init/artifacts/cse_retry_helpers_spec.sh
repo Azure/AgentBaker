@@ -223,36 +223,34 @@ Describe 'long running cse helper functions'
                 mkdir -p /tmp/test_oras_tarball
                 echo "invalid tarball content" > /tmp/test_oras_tarball/test.tar
 
-                local called=false
                 # Mock retrycmd_pull_from_registry_with_oras to track if it's called
                 retrycmd_pull_from_registry_with_oras() {
-                    called=true
-                    return 1
+                    echo "retrycmd_pull_from_registry_with_oras called with: $@"
+                    return 0
                 }
 
                 # When tar -tzf returns 1 (failure/invalid tarball),
                 # retrycmd_pull_from_registry_with_oras should be called to re-download
                 When call retrycmd_get_tarball_from_registry_with_oras 2 1 "/tmp/test_oras_tarball/test.tar" "dummy.registry/binary:v1"
 
-                The status should eq 1
-                [ "$called" = true ]
+                The status should eq 0
+                The stdout should include "retrycmd_pull_from_registry_with_oras called with: 2 1 /tmp/test_oras_tarball dummy.registry/binary:v1"
 
                 # Cleanup after assertions
                 rm -rf /tmp/test_oras_tarball
             End
 
             It "calls retrycmd_pull_from_registry_with_oras when tarball does not exist"
-                local called=false
                 # Mock retrycmd_pull_from_registry_with_oras to track if it's called
                 retrycmd_pull_from_registry_with_oras() {
-                    called=true
-                    return 1
+                    echo "retrycmd_pull_from_registry_with_oras called with: $@"
+                    return 0
                 }
 
                 When call retrycmd_get_tarball_from_registry_with_oras 2 1 "/tmp/nonexistent_oras_tarball/test.tar" "dummy.registry/binary:v1"
 
-                The status should eq 1
-                [ "$called" = true ]
+                The status should eq 0
+                The stdout should include "retrycmd_pull_from_registry_with_oras called with: 2 1 /tmp/nonexistent_oras_tarball dummy.registry/binary:v1"
             End
 
             It "skips download when tarball exists and is valid"
@@ -261,17 +259,16 @@ Describe 'long running cse helper functions'
                 echo "test content" > /tmp/test_valid_oras_tarball/testfile
                 tar -czf /tmp/test_valid_oras_tarball/valid.tar.gz -C /tmp/test_valid_oras_tarball testfile
 
-                local called=false
                 # Mock retrycmd_pull_from_registry_with_oras - should NOT be called
                 retrycmd_pull_from_registry_with_oras() {
-                    called=true
+                    echo "retrycmd_pull_from_registry_with_oras should not be called"
                     return 1
                 }
 
                 When call retrycmd_get_tarball_from_registry_with_oras 2 1 "/tmp/test_valid_oras_tarball/valid.tar.gz" "dummy.registry/binary:v1"
 
                 The status should eq 0
-                [ "$called" = false ]
+                The stdout should not include "retrycmd_pull_from_registry_with_oras"
 
                 # Cleanup after assertions
                 rm -rf /tmp/test_valid_oras_tarball
