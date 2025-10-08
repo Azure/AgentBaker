@@ -197,6 +197,7 @@ function Write-Log($message) {
     $msg = $message | Timestamp
     Write-Output $msg
 }
+
 function DownloadFileOverHttp {
     Param(
         [Parameter(Mandatory = $true)][string]
