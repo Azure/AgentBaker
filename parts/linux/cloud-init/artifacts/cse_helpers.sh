@@ -329,7 +329,7 @@ retrycmd_pull_from_registry_with_oras() {
         if [ "$i" -gt 1 ]; then
             sleep $wait_sleep
         fi
-        timeout 60 oras pull $url -o $target_folder --registry-config ${ORAS_REGISTRY_CONFIG_FILE} $extra_flags > $ORAS_OUTPUT 2>&1
+        timeout 60 oras pull $url -o $target_folder --registry-config ${ORAS_REGISTRY_CONFIG_FILE} "$extra_flags" > $ORAS_OUTPUT 2>&1
         if [ "$?" -eq 0 ]; then
             return 0
         else

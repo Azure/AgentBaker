@@ -106,6 +106,9 @@ apt_get_install_from_local_repo() {
     local local_repo_dir=$1
     local package_name=$2
 
+    # Convert to absolute path
+    local_repo_dir=$(realpath "${local_repo_dir}")
+
     if [ ! -d "${local_repo_dir}" ]; then
         echo "Local repo directory ${local_repo_dir} does not exist"
         return 1
@@ -137,7 +140,7 @@ apt_get_install_from_local_repo() {
 
     # Install package from local repo (no download needed)
     export DEBIAN_FRONTEND=noninteractive
-    if ! apt-get ${opts} --no-download install -y "${package_name}"; then
+    if ! apt-get ${opts} install -y "${package_name}"; then
         echo "Failed to install ${package_name} from local repo"
         rm -f "${tmp_list}"
         rmdir "${tmp_dir}"

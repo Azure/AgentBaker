@@ -567,7 +567,7 @@ installKubeletKubectlFromURL() {
 
                     # Construct platform string for ORAS pull
                     os_version=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=") # todo: OS_VARIANT not working for ubuntu
-                    platform_flag="--platform=linux/${CPU_ARCH}:${OS} ${os_version}"
+                    platform_flag="--platform=linux/${CPU_ARCH}:${OS,,} ${os_version}"
 
                     echo "Attempting to pull ${TOOL_NAME} package from ${tool_package_url} with platform ${platform_flag}"
                     # retrycmd_pull_from_registry_with_oras will pull all artifacts to the directory with platform selection
