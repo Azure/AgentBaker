@@ -126,8 +126,8 @@ isPackageInstalled() {
 managed_gpu_package_list() {
     packages=(
         nvidia-device-plugin
-        datacenter-gpu-manager-4-core
         datacenter-gpu-manager-4-proprietary
+        datacenter-gpu-manager-4-core
         datacenter-gpu-manager-exporter
     )
     echo "${packages[@]}"
