@@ -1727,7 +1727,7 @@ func Test_Ubuntu2404Gen2(t *testing.T) {
 				containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2404")
 				runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2404")
 				ValidateContainerd2Properties(ctx, s, containerdVersions)
-				ValidateRunc12Properties(ctx, s, runcVersions)
+				ValidateRuncVersion(ctx, s, runcVersions)
 				ValidateContainerRuntimePlugins(ctx, s)
 				ValidateSSHServiceEnabled(ctx, s)
 			},
@@ -1777,7 +1777,7 @@ func Test_Ubuntu2404Gen2_GPUNoDriver(t *testing.T) {
 
 				ValidateNvidiaSMINotInstalled(ctx, s)
 				ValidateContainerd2Properties(ctx, s, containerdVersions)
-				ValidateRunc12Properties(ctx, s, runcVersions)
+				ValidateRuncVersion(ctx, s, runcVersions)
 			},
 		},
 	})
@@ -1795,7 +1795,7 @@ func Test_Ubuntu2404Gen1(t *testing.T) {
 				containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2404")
 				runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2404")
 				ValidateContainerd2Properties(ctx, s, containerdVersions)
-				ValidateRunc12Properties(ctx, s, runcVersions)
+				ValidateRuncVersion(ctx, s, runcVersions)
 			},
 		},
 	})
@@ -1816,7 +1816,7 @@ func Test_Ubuntu2404ARM(t *testing.T) {
 				containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2404")
 				runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2404")
 				ValidateContainerd2Properties(ctx, s, containerdVersions)
-				ValidateRunc12Properties(ctx, s, runcVersions)
+				ValidateRuncVersion(ctx, s, runcVersions)
 			},
 		},
 	})

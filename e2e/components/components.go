@@ -39,6 +39,9 @@ func GetExpectedPackageVersions(packageName, distro, release string) []string {
 	jsonBytes, _ := os.ReadFile(componentsPath)
 	packages := gjson.GetBytes(jsonBytes, fmt.Sprintf("Packages.#(name=%s).downloadURIs", packageName))
 
+	// If there is a dot in the "release" then we need to escape it for the json path
+	release = strings.ReplaceAll(release, ".", "\\.")
+
 	for _, packageItem := range packages.Array() {
 		// check if versionsV2 exists
 		if packageItem.Get(fmt.Sprintf("%s.%s.versionsV2", distro, release)).Exists() {
