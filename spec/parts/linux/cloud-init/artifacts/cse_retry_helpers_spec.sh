@@ -226,14 +226,14 @@ Describe 'long running cse helper functions'
                 # Mock retrycmd_pull_from_registry_with_oras to track if it's called
                 retrycmd_pull_from_registry_with_oras() {
                     echo "retrycmd_pull_from_registry_with_oras called with: $@"
-                    return 0
+                    return 1
                 }
 
                 # When tar -tzf returns 1 (failure/invalid tarball),
                 # retrycmd_pull_from_registry_with_oras should be called to re-download
                 When call retrycmd_get_tarball_from_registry_with_oras 2 1 "/tmp/test_oras_tarball/test.tar" "dummy.registry/binary:v1"
 
-                The status should eq 0
+                The status should eq 1
                 The stdout should include "retrycmd_pull_from_registry_with_oras called with: 2 1 /tmp/test_oras_tarball dummy.registry/binary:v1"
 
                 # Cleanup after assertions
@@ -244,12 +244,12 @@ Describe 'long running cse helper functions'
                 # Mock retrycmd_pull_from_registry_with_oras to track if it's called
                 retrycmd_pull_from_registry_with_oras() {
                     echo "retrycmd_pull_from_registry_with_oras called with: $@"
-                    return 0
+                    return 1
                 }
 
                 When call retrycmd_get_tarball_from_registry_with_oras 2 1 "/tmp/nonexistent_oras_tarball/test.tar" "dummy.registry/binary:v1"
 
-                The status should eq 0
+                The status should eq 1
                 The stdout should include "retrycmd_pull_from_registry_with_oras called with: 2 1 /tmp/nonexistent_oras_tarball dummy.registry/binary:v1"
             End
 

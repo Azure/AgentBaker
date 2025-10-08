@@ -340,8 +340,10 @@ retrycmd_pull_from_registry_with_oras() {
 
 retrycmd_get_tarball_from_registry_with_oras() {
     tar_retries=$1; wait_sleep=$2; tarball=$3; url=$4
-    # skip if tarball exists and is valid
-    [ -f "$tarball" ] && ! tar -tzf "$tarball" > /dev/null 2>&1 && return 0
+    if [ -f "$tarball" ] && tar -tzf "$tarball" > /dev/null 2>&1; then
+        # skip if tarball exists and is valid
+        return 0
+    fi
 
     tar_folder=$(dirname "$tarball")
     retrycmd_pull_from_registry_with_oras "$tar_retries" "$wait_sleep" "$tar_folder" "$url"
