@@ -234,11 +234,11 @@ Describe 'long running cse helper functions'
                 # retrycmd_pull_from_registry_with_oras should be called to re-download
                 When call retrycmd_get_tarball_from_registry_with_oras 2 1 "/tmp/test_oras_tarball/test.tar" "dummy.registry/binary:v1"
 
-                # Cleanup
-                rm -rf /tmp/test_oras_tarball
-
                 The status should eq 1
                 [ "$called" = true ]
+
+                # Cleanup after assertions
+                rm -rf /tmp/test_oras_tarball
             End
 
             It "calls retrycmd_pull_from_registry_with_oras when tarball does not exist"
@@ -270,11 +270,11 @@ Describe 'long running cse helper functions'
 
                 When call retrycmd_get_tarball_from_registry_with_oras 2 1 "/tmp/test_valid_oras_tarball/valid.tar.gz" "dummy.registry/binary:v1"
 
-                # Cleanup
-                rm -rf /tmp/test_valid_oras_tarball
-
                 The status should eq 0
                 [ "$called" = false ]
+
+                # Cleanup after assertions
+                rm -rf /tmp/test_valid_oras_tarball
             End
         End
 
