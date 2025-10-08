@@ -575,7 +575,7 @@ installKubeletKubectlFromURL() {
                         echo "Successfully pulled ${TOOL_NAME} package"
 
                         # Try to install using distro-specific package installer from local repo
-                        if installKubeletKubectlPkgFromLocalRepo "${TOOL_NAME}" "${tool_download_dir}" "${KUBERNETES_VERSION}"; then
+                        if installKubeletKubectlPkgFromLocalRepo "${TOOL_NAME}" "${tool_download_dir}"; then
                             install_success=true
                         else
                             echo "Failed to install ${TOOL_NAME} from local repo ${tool_download_dir}"

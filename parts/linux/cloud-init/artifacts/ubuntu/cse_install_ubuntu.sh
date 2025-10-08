@@ -151,7 +151,6 @@ installKubeletKubectlPkgFromPMC() {
 installKubeletKubectlPkgFromLocalRepo() {
     local tool_name=$1
     local tool_download_dir=$2
-    local kubernetes_version=$3
 
     # Verify the download directory exists and contains repository metadata
     if [ ! -d "${tool_download_dir}" ]; then
