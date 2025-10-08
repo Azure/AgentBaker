@@ -30,8 +30,12 @@ function Install-SecureTLSBootstrapClient {
     if (!$global:EnableSecureTLSBootstrapping) {
         Write-Log "Install-SecureTLSBootstrapClient: Secure TLS Bootstrapping is disabled, will remove secure TLS bootstrap client binary installation"
         # binary will be cleaned from aks-cache during nodePrep
-        Remove-Item -Path $secureTLSBootstrapClientBinPath -Force
-        Remove-Item -Path $secureTLSBootstrapClientDownloadDir -Force -Recurse
+        if (Test-Path $secureTLSBootstrapClientBinPath) {
+            Remove-Item -Path $secureTLSBootstrapClientBinPath -Force
+        }
+        if (Test-Path $secureTLSBootstrapClientDownloadDir) {
+            Remove-Item -Path $secureTLSBootstrapClientDownloadDir -Force -Recurse
+        }
         return
     }
 
