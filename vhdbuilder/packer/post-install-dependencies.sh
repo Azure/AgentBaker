@@ -16,6 +16,10 @@ PERFORMANCE_DATA_FILE=/opt/azure/vhd-build-performance-data.json
 
 # Hardcode the desired size of the OS disk so we don't accidently rely on extra disk space
 MAX_BLOCK_COUNT=30298176 # 30 GB
+if grep -q "GB200" <<< "$FEATURE_FLAGS"; then
+  # Increase the MAX_BLOCK_COUNT to 60 GB for GB200 images
+  MAX_BLOCK_COUNT=60596352 # 60 GB
+fi
 capture_benchmark "${SCRIPT_NAME}_source_packer_files_and_declare_variables"
 
 if [ $OS = $UBUNTU_OS_NAME ]; then
@@ -55,7 +59,7 @@ echo "kubelet/kubectl downloaded:" >> ${VHD_LOGS_FILEPATH}
 ls -ltr /usr/local/bin/* >> ${VHD_LOGS_FILEPATH}
 
 # shellcheck disable=SC2010
-ls -ltr /dev/* | grep sgx >>  ${VHD_LOGS_FILEPATH} 
+ls -ltr /dev/* | grep sgx >>  ${VHD_LOGS_FILEPATH}
 
 echo -e "=== Installed Packages Begin\n$(listInstalledPackages)\n=== Installed Packages End" >> ${VHD_LOGS_FILEPATH}
 
@@ -67,8 +71,13 @@ os_device=$(readlink -f /dev/disk/azure/root)
 used_blocks=$(df -P / | sed 1d | awk '{print $3}')
 usage=$(awk -v used=${used_blocks} -v capacity=${MAX_BLOCK_COUNT} 'BEGIN{print (used/capacity) * 100}')
 usage=${usage%.*}
-[ ${usage} -ge 99 ] && echo "ERROR: root partition on OS device (${os_device}) already passed 99% of the 30GB cap!" && exit 1
-[ ${usage} -ge 75 ] && echo "WARNING: root partition on OS device (${os_device}) already passed 75% of the 30GB cap!"
+if grep -q "GB200" <<< "$FEATURE_FLAGS"; then
+  [ ${usage} -ge 99 ] && echo "ERROR: root partition on OS device (${os_device}) already passed 99% of the 60GB cap!" && exit 1
+  [ ${usage} -ge 75 ] && echo "WARNING: root partition on OS device (${os_device}) already passed 75% of the 60GB cap!"
+else
+  [ ${usage} -ge 99 ] && echo "ERROR: root partition on OS device (${os_device}) already passed 99% of the 30GB cap!" && exit 1
+  [ ${usage} -ge 75 ] && echo "WARNING: root partition on OS device (${os_device}) already passed 75% of the 30GB cap!"
+fi
 
 echo -e "=== os-release Begin" >> ${VHD_LOGS_FILEPATH}
 cat /etc/os-release >> ${VHD_LOGS_FILEPATH}

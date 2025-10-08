@@ -338,7 +338,11 @@ ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
 EOF
 
   mkdir -p /etc/containerd
-  if [ "${GPU_NODE}" = "true" ]; then
+
+  # Skip containerd config generation if config already exists
+  if [ -f "/etc/containerd/config.toml" ]; then
+    echo "containerd config already exists at /etc/containerd/config.toml, skipping generation"
+  elif [ "${GPU_NODE}" = "true"  ]; then
     # Check VM tag directly to determine if GPU drivers should be skipped
     export -f should_skip_nvidia_drivers
     should_skip=$(retrycmd_silent 10 1 10 bash -cx should_skip_nvidia_drivers)
