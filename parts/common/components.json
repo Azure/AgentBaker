@@ -708,23 +708,6 @@
         }
       ],
       "windowsVersions": []
-    },
-    {
-      "downloadURL": "mcr.microsoft.com/oss/v2/kubernetes/kube-proxy:*",
-      "amd64OnlyVersions": [],
-      "multiArchVersionsV2": [
-        {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/kube-proxy",
-          "latestVersion": "v1.34.0-2",
-          "previousLatestVersion": "v1.34.0"
-        },
-        {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/kube-proxy",
-          "latestVersion": "v1.34.1-2",
-          "previousLatestVersion": "v1.34.1"
-        }
-      ],
-      "windowsVersions": []
     }
   ],
   "GPUContainerImages": [
