@@ -12,9 +12,25 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func getDCGMPackageNames(os string) []string {
+	packages := []string{
+		"datacenter-gpu-manager-4-core",
+		"datacenter-gpu-manager-4-proprietary",
+	}
+
+	switch os {
+	case "ubuntu":
+		packages = append(packages, "datacenter-gpu-manager-exporter")
+	case "azurelinux":
+		packages = append(packages, "dcgm-exporter")
+	}
+
+	return packages
+}
+
 func Test_Ubuntu2404_NvidiaDevicePluginRunning(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "Tests that NVIDIA device plugin is running properly after CSE execution on Ubuntu 24.04 GPU nodes",
+		Description: "Tests that NVIDIA device plugin and DCGM Exporter are running & functional on Ubuntu 24.04 GPU nodes",
 		Tags: Tags{
 			GPU: true,
 		},
@@ -35,10 +51,12 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning(t *testing.T) {
 				vmss.Tags["EnableManagedGPUExperience"] = to.Ptr("true")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
+				os := "ubuntu"
+				osVersion := "r2404"
 
 				// Validate that the NVIDIA device plugin binary was installed correctly
-				versions := components.GetExpectedPackageVersions("nvidia-device-plugin", "ubuntu", "r2404")
-				require.Lenf(s.T, versions, 1, "Expected exactly one nvidia-device-plugin version for ubuntu r2404 but got %d", len(versions))
+				versions := components.GetExpectedPackageVersions("nvidia-device-plugin", os, osVersion)
+				require.Lenf(s.T, versions, 1, "Expected exactly one nvidia-device-plugin version for %s %s but got %d", os, osVersion, len(versions))
 				ValidateInstalledPackageVersion(ctx, s, "nvidia-device-plugin", versions[0])
 
 				// Validate that the NVIDIA device plugin systemd service is running
@@ -49,6 +67,17 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning(t *testing.T) {
 
 				// Validate that GPU workloads can be scheduled
 				ValidateGPUWorkloadSchedulable(ctx, s)
+
+				// Validate that the NVIDIA DCGM packages were installed correctly
+				for _, packageName := range getDCGMPackageNames(os) {
+					versions := components.GetExpectedPackageVersions(packageName, os, osVersion)
+					require.Lenf(s.T, versions, 1, "Expected exactly one %s version for %s %s but got %d", packageName, os, osVersion, len(versions))
+					ValidateInstalledPackageVersion(ctx, s, packageName, versions[0])
+				}
+
+				ValidateNvidiaDCGMExporterSystemDServiceRunning(ctx, s)
+				ValidateNvidiaDCGMExporterIsScrapable(ctx, s)
+				ValidateNvidiaDCGMExporterScrapeCommonMetric(ctx, s)
 			},
 		},
 	})
@@ -56,7 +85,7 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning(t *testing.T) {
 
 func Test_Ubuntu2204_NvidiaDevicePluginRunning(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "Tests that NVIDIA device plugin is running properly after CSE execution on Ubuntu 22.04 GPU nodes",
+		Description: "Tests that NVIDIA device plugin and DCGM Exporter are running & functional on Ubuntu 22.04 GPU nodes",
 		Tags: Tags{
 			GPU: true,
 		},
@@ -77,10 +106,12 @@ func Test_Ubuntu2204_NvidiaDevicePluginRunning(t *testing.T) {
 				vmss.Tags["EnableManagedGPUExperience"] = to.Ptr("true")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
+				os := "ubuntu"
+				osVersion := "r2204"
 
 				// Validate that the NVIDIA device plugin binary was installed correctly
-				versions := components.GetExpectedPackageVersions("nvidia-device-plugin", "ubuntu", "r2204")
-				require.Lenf(s.T, versions, 1, "Expected exactly one nvidia-device-plugin version for ubuntu r2204 but got %d", len(versions))
+				versions := components.GetExpectedPackageVersions("nvidia-device-plugin", os, osVersion)
+				require.Lenf(s.T, versions, 1, "Expected exactly one nvidia-device-plugin version for %s %s but got %d", os, osVersion, len(versions))
 				ValidateInstalledPackageVersion(ctx, s, "nvidia-device-plugin", versions[0])
 
 				// Validate that the NVIDIA device plugin systemd service is running
@@ -91,6 +122,16 @@ func Test_Ubuntu2204_NvidiaDevicePluginRunning(t *testing.T) {
 
 				// Validate that GPU workloads can be scheduled
 				ValidateGPUWorkloadSchedulable(ctx, s)
+
+				for _, packageName := range getDCGMPackageNames(os) {
+					versions := components.GetExpectedPackageVersions(packageName, os, osVersion)
+					require.Lenf(s.T, versions, 1, "Expected exactly one %s version for %s %s but got %d", packageName, os, osVersion, len(versions))
+					ValidateInstalledPackageVersion(ctx, s, packageName, versions[0])
+				}
+
+				ValidateNvidiaDCGMExporterSystemDServiceRunning(ctx, s)
+				ValidateNvidiaDCGMExporterIsScrapable(ctx, s)
+				ValidateNvidiaDCGMExporterScrapeCommonMetric(ctx, s)
 			},
 		},
 	})
@@ -98,7 +139,7 @@ func Test_Ubuntu2204_NvidiaDevicePluginRunning(t *testing.T) {
 
 func Test_AzureLinux3_NvidiaDevicePluginRunning(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "Tests that NVIDIA device plugin is running properly after CSE execution on Azure Linux V3 GPU nodes",
+		Description: "Tests that NVIDIA device plugin and DCGM Exporter are running & functional on Azure Linux v3 GPU nodes",
 		Tags: Tags{
 			GPU: true,
 		},
@@ -119,10 +160,12 @@ func Test_AzureLinux3_NvidiaDevicePluginRunning(t *testing.T) {
 				vmss.Tags["EnableManagedGPUExperience"] = to.Ptr("true")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
+				os := "azurelinux"
+				osVersion := "v3.0"
 
 				// Validate that the NVIDIA device plugin binary was installed correctly
-				versions := components.GetExpectedPackageVersions("nvidia-device-plugin", "azurelinux", "v3.0")
-				require.Lenf(s.T, versions, 1, "Expected exactly one nvidia-device-plugin version for azurelinux 3.0 but got %d", len(versions))
+				versions := components.GetExpectedPackageVersions("nvidia-device-plugin", os, osVersion)
+				require.Lenf(s.T, versions, 1, "Expected exactly one nvidia-device-plugin version for %s %s but got %d", os, osVersion, len(versions))
 				ValidateInstalledPackageVersion(ctx, s, "nvidia-device-plugin", versions[0])
 
 				// Validate that the NVIDIA device plugin systemd service is running
@@ -133,6 +176,16 @@ func Test_AzureLinux3_NvidiaDevicePluginRunning(t *testing.T) {
 
 				// Validate that GPU workloads can be scheduled
 				ValidateGPUWorkloadSchedulable(ctx, s)
+
+				for _, packageName := range getDCGMPackageNames(os) {
+					versions := components.GetExpectedPackageVersions(packageName, os, osVersion)
+					require.Lenf(s.T, versions, 1, "Expected exactly one %s version for %s %s but got %d", packageName, os, osVersion, len(versions))
+					ValidateInstalledPackageVersion(ctx, s, packageName, versions[0])
+				}
+
+				ValidateNvidiaDCGMExporterSystemDServiceRunning(ctx, s)
+				ValidateNvidiaDCGMExporterIsScrapable(ctx, s)
+				ValidateNvidiaDCGMExporterScrapeCommonMetric(ctx, s)
 			},
 		},
 	})
