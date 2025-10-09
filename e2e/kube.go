@@ -155,11 +155,22 @@ func (k *Kubeclient) WaitUntilNodeReady(ctx context.Context, t *testing.T, vmssN
 
 	for event := range watcher.ResultChan() {
 		if event.Type != watch.Added && event.Type != watch.Modified {
+			t.Logf("skipping event type %s", event.Type)
 			continue
 		}
 
-		castNode := event.Object.(*corev1.Node)
+		var castNode *corev1.Node
+		switch v := event.Object.(type) {
+		case *corev1.Node:
+			castNode = v
+
+		default:
+			t.Logf("skipping object type %T", event.Object)
+			continue
+		}
+
 		if !strings.HasPrefix(castNode.Name, vmssName) {
+			t.Logf("skipping node event type %s", castNode.Name)
 			continue
 		}
 
