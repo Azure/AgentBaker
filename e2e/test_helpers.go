@@ -277,6 +277,7 @@ func maybeSkipScenario(ctx context.Context, t *testing.T, s *Scenario) {
 	s.Tags.OS = string(s.VHD.OS)
 	s.Tags.Arch = s.VHD.Arch
 	s.Tags.ImageName = s.VHD.Name
+	s.Tags.VHDCaching = true
 	if s.AKSNodeConfigMutator != nil {
 		s.Tags.Scriptless = true
 	}

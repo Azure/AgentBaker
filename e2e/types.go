@@ -31,6 +31,7 @@ type Tags struct {
 	ServerTLSBootstrapping bool
 	KubeletCustomConfig    bool
 	Scriptless             bool
+	VHDCaching             bool
 }
 
 // MatchesFilters checks if the Tags struct matches all given filters.
