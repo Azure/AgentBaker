@@ -37,6 +37,9 @@ python3 /opt/azure/containers/provision_redact_cloud_config.py \
     --cloud-config-path /var/lib/cloud/instance/cloud-config.txt \
     --output-path ${LOG_DIR}/cloud-config.txt
 
+# TODO (djsly) is this still needed?
+UBUNTU_RELEASE=$(lsb_release -r -s 2>/dev/null || echo "")
+
 echo $(date),$(hostname), startcustomscript>>/opt/m
 
 source "${CSE_INSTALL_FILEPATH}"
@@ -408,7 +411,7 @@ function nodePrep {
         if [ "${ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED}" = "true" ]; then
             # Ensure kubelet device-plugins directory exists BEFORE package installation
             mkdir -p /var/lib/kubelet/device-plugins
-            
+
             # Install nvidia-device-plugin if needed and not already installed
             if ! systemctl list-unit-files | grep -q "nvidia-device-plugin.service"; then
                 echo "Installing nvidia-device-plugin package..."
@@ -416,7 +419,7 @@ function nodePrep {
             else
                 echo "nvidia-device-plugin package already installed"
             fi
-            
+
             # Create systemd override directory and fix binary path
             mkdir -p /etc/systemd/system/nvidia-device-plugin.service.d/
             tee "/etc/systemd/system/nvidia-device-plugin.service.d/10-binary-path.conf" > /dev/null <<'EOF'
@@ -426,7 +429,7 @@ ExecStart=/usr/local/bin/nvidia-device-plugin
 EOF
             # Reload systemd to pick up the base path override
             systemctl daemon-reload
-            
+
             if [ "${MIG_NODE}" = "true" ]; then
                 tee "/etc/systemd/system/nvidia-device-plugin.service.d/10-mig_strategy.conf" > /dev/null <<'EOF'
 [Service]
@@ -437,7 +440,7 @@ EOF
                 # Reload systemd to pick up drop-ins
                 systemctl daemon-reload
             fi
-            
+
             logs_to_events "AKS.CSE.start.nvidia-device-plugin" "systemctlEnableAndStart nvidia-device-plugin 30" || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
         else
             logs_to_events "AKS.CSE.stop.nvidia-device-plugin" "systemctlDisableAndStop nvidia-device-plugin"

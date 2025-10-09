@@ -50,14 +50,6 @@ var (
 )
 
 var (
-	VHDUbuntu1804Gen2Containerd = &Image{
-		Name:                "1804gen2containerd",
-		OS:                  OSUbuntu,
-		Arch:                "amd64",
-		Distro:              datamodel.AKSUbuntuContainerd1804Gen2,
-		Gallery:             imageGalleryLinux,
-		UnsupportedLocalDns: true,
-	}
 	VHDUbuntu2204Gen2Arm64Containerd = &Image{
 		Name:    "2204gen2arm64containerd",
 		OS:      OSUbuntu,
