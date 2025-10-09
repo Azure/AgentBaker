@@ -516,22 +516,11 @@ function New-ExternalHnsNetwork {
     )
     Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Start to create new external hns network"
 
-    $EmptyArgs = @{}
+    $nodeIps = Get-AKS-NodeIPs
 
-    try {
-        $nodeIps = Retry-Command -Command "Get-AKS-NodeIPs" -Retries 5 -RetryDelaySeconds 10 -Args $EmptyArgs
-    }
-    catch {
-        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_NETWORK_INTERFACES_NOT_EXIST -ErrorMessage "Failed to get node IP addresses"
-    }
-    try {
-        $na = Retry-Command -Command "Get-AKS-NetworkAdaptor" -Retries 5 -RetryDelaySeconds 10 -Args $args
-    }
-    catch {
-        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_NETWORK_ADAPTER_NOT_EXIST -ErrorMessage "Failed to get default network adaptor"
-    }
+    $na = Get-AKS-NetworkAdaptor
 
-    Write-Log "Configuring node ip for kubelet"
+    Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Configuring node ip for kubelet"
     # https://github.com/kubernetes/kubernetes/pull/121028
     if (([version]$global:KubeBinariesVersion).CompareTo([version]("1.29.0")) -ge 0) {
         Logs-To-Event -TaskName "AKS.WindowsCSE.UpdateKubeClusterConfig" -TaskMessage "Start to update KubeCluster Config. NodeIPs: $nodeIPs"
@@ -549,8 +538,8 @@ function New-ExternalHnsNetwork {
     $adapterName = $na.Name
     $externalNetwork = "ext"
 
-    Write-Log "Creating new HNS network `"${externalNetwork}`""
-    Write-Log "Using adapter $adapterName with IP address $ipv4Address"
+    Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage  "Creating new HNS network `"${externalNetwork}`""
+    Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage  "Using adapter $adapterName with IP address $ipv4Address"
 
     $stopWatch = New-Object System.Diagnostics.Stopwatch
     $stopWatch.Start()
@@ -578,41 +567,41 @@ function New-ExternalHnsNetwork {
 
     write-log $mgmtIPAfterNetworkCreate
 
-    Write-Log "It took $( $StopWatch.Elapsed.Seconds ) seconds to create the $externalNetwork network."
+    Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "It took $( $StopWatch.Elapsed.Seconds ) seconds to create the $externalNetwork network."
 
-    Write-Log "Log network adapter info after creating $externalNetwork network"
+    Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Log network adapter info after creating $externalNetwork network"
     Get-NetIPConfiguration -AllCompartments -ErrorAction Ignore
 
     $dnsServers = Get-DnsClientServerAddress -ErrorAction Ignore
     if ($dnsServers) {
-        Write-Log "DNS Servers are: $( $dnsServers.ServerAddresses )"
+        Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "DNS Servers are: $( $dnsServers.ServerAddresses )"
     }
 }
 
 function Get-AKS-NodeIPs {
     $ParsedContent = GetMetadataContent
     if (-not $ParsedContent) {
-        Write-Log "Failed to retrieve metadata content."
-        throw "No metadata content found."
+        Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Failed to retrieve metadata content."
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_LOAD_METADATA -ErrorMessage "Failed to load metadata content"
     }
 
     $ipv4Address = GetIpv4AddressFromParsedContent -ParsedContent $ParsedContent
     if (-not $ipv4Address) {
-        Write-Log "Failed to retrieve IPv4 address from metadata."
-        throw "No IPv4 address found in metadata."
+        Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Failed to retrieve IPv4 address from metadata."
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_PARSE_METADATA -ErrorMessage "No IPv4 address found in metadata"
     }
 
-    Write-Log "Got node IPv4 address: $( $ipv4Address )"
+    Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Got node IPv4 address: $( $ipv4Address )"
     $nodeIPs = @($ipv4Address)
 
     if ($IsDualStackEnabled) {
         $ipv6Address = GetIpv6AddressFromParsedContent -ParsedContent $ParsedContent
         if ($ipv6Address) {
-            Write-Log "Get node IPv6 address a: $( $ipv6Address )"
+            Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Get node IPv6 address a: $( $ipv6Address )"
             $nodeIPs += $ipv6Address
         }
         else {
-            Set-ExitCode "Failed to get node IPv6 IP address"
+            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_NETWORK_INTERFACES_NOT_EXIST -ErrorMessage "Failed to get node IPv6 IP address"
         }
     }
 
@@ -622,36 +611,35 @@ function Get-AKS-NodeIPs {
 function Get-AKS-NetworkAdaptor {
     $ParsedContent = GetMetadataContent
     if (-not $ParsedContent) {
-        Write-Log "Failed to retrieve metadata content."
-        throw "No metadata content found."
+        Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Failed to retrieve metadata content."
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_LOAD_METADATA -ErrorMessage "Failed to load metadata content"
     }
 
     $ipv4Address = GetIpv4AddressFromParsedContent -ParsedContent $ParsedContent
     if (-not $ipv4Address) {
-        Write-Log "Failed to retrieve IPv4 address from metadata."
-        throw "No IPv4 address found in metadata."
+        Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Failed to retrieve IPv4 address from metadata."
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_PARSE_METADATA -ErrorMessage "No IPv4 address found in metadata"
     }
+    Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Found IPv4 address from metadata: $ipv4Address"
 
     # we need the default gateway interface to create the external network
     $netIP = Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue -ErrorVariable netIPErr -IpAddress $ipv4Address
     if (!$netIP) {
-        Write-Log "Failed to find IP address info for ip address $ipv4Address. Error: $netIPErr. Reverting to old way to configure network"
+        Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Failed to find IP address info for ip address $ipv4Address. Error: $netIPErr. Reverting to old way to configure network"
         return Get-NetworkAdaptor-Fallback
     }
-  
+
     $na = get-netadapter -ifindex $netIP.ifIndex
     if (!$na) {
-        Write-Log "Failed to find network adapter info for ip address index $($netIP.ifIndex) and ip address $ipv4Address. Reverting to old way to configure network"
+        Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Failed to find network adapter info for ip address index $($netIP.ifIndex) and ip address $ipv4Address. Reverting to old way to configure network"
         return Get-NetworkAdaptor-Fallback
     }
     return $na
-    
 }
 
 function Get-NetworkAdaptor-Fallback {
     Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Start to create new external hns network"
 
-    Write-Log "Creating new HNS network `"ext`""
     $nas = @(Get-NetAdapter -Physical)
 
     if ($nas.Count -eq 0) {
@@ -660,14 +648,16 @@ function Get-NetworkAdaptor-Fallback {
 
     # If there is more than one adapter, use the first adapter that is assigned an ipaddress.
     foreach ($na in $nas) {
+        Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Checking network adapter $($na.Name) for an IPv4 address ..."
         $netIP = Get-NetIPAddress -ifIndex $na.ifIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue -ErrorVariable netIPErr
         if ($netIP) {
+            Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Found IPv4 address on the network adapter $($na.Name): $($netIP.IPAddress)"
             return $na
         }
         else {
-            Write-Log "No IPv4 found on the network adapter $($na.Name); trying the next adapter ..."
+            Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "No IPv4 found on the network adapter $($na.Name); trying the next adapter ..."
             if ($netIPErr) {
-                Write-Log "error when retrieving IPAddress: $netIPErr"
+                Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "error when retrieving IPAddress: $netIPErr"
                 $netIPErr.Clear()
             }
         }
