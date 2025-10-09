@@ -31,7 +31,7 @@ _apt_get_update() {
         wait_for_apt_locks
         export DEBIAN_FRONTEND=noninteractive
         dpkg --configure -a --force-confdef
-        apt-get -f -y install
+        apt-get ${apt_opts} -f -y install
         ! (apt-get ${apt_opts} update 2>&1 | tee $apt_update_output | grep -E "^([WE]:.*)|^([Ee][Rr][Rr][Oo][Rr].*)$") && \
         cat $apt_update_output && break || \
         cat $apt_update_output
@@ -74,7 +74,7 @@ _apt_get_install() {
 }
 apt_get_install() {
     retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
-    _apt_get_install $retries $wait_sleep "--no-install-recommends -o Dpkg::Options::=\"--force-confold\"" "$@"
+    _apt_get_install $retries $wait_sleep '--no-install-recommends -o Dpkg::Options::="--force-confold"' "$@"
 }
 apt_get_purge() {
     retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
@@ -160,7 +160,7 @@ apt_get_install_from_local_repo() {
     # Install package from local repo using core installation function
     local retries=10
     local wait_sleep=5
-    if ! _apt_get_install $retries $wait_sleep ${opts} "${package_name}"; then
+    if ! _apt_get_install $retries $wait_sleep "${opts}" "${package_name}"; then
         echo "Failed to install ${package_name} from local repo"
         rm -f "${tmp_list}"
         rmdir "${tmp_dir}"
