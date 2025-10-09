@@ -157,7 +157,6 @@ func (k *Kubeclient) WaitUntilNodeReady(ctx context.Context, t testing.TB, vmssN
 
 	for event := range watcher.ResultChan() {
 		if event.Type != watch.Added && event.Type != watch.Modified {
-			t.Logf("skipping event type %q", event.Type)
 			continue
 		}
 
@@ -172,7 +171,6 @@ func (k *Kubeclient) WaitUntilNodeReady(ctx context.Context, t testing.TB, vmssN
 		}
 
 		if !strings.HasPrefix(nodeFromEvent.Name, vmssName) {
-			t.Logf("skipping node event %q as node name %q is not prefix of vmss name %q", event.Type, nodeFromEvent.Name, vmssName)
 			continue
 		}
 
