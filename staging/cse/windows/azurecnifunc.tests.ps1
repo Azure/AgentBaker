@@ -906,7 +906,7 @@ Describe 'Get-Node-Ipv4-Address' {
                     "ipv4": {
                         "ipAddress": [
                             {
-                                "privateIpAddress": "",
+                                "privateIpAddress": ""
                             }
                         ]
                     }
@@ -932,7 +932,7 @@ Describe 'Get-Node-Ipv4-Address' {
                     "ipv4": {
                         "ipAddress": [
                             {
-                                "privateIpAddress": "   ",
+                                "privateIpAddress": "   "
                             }
                         ]
                     }
@@ -960,7 +960,7 @@ Describe 'Get-Node-Ipv4-Address' {
                     "ipv4": {
                         "ipAddress": [
                             {
-                                "privateIpAddress": "10.240.0.4",
+                                "privateIpAddress": "10.240.0.4"
                             }
                         ]
                     }
@@ -1023,7 +1023,7 @@ Describe 'Get-Node-Ipv4-Address' {
                     "ipv4": {
                         "ipAddress": [
                             {
-                                "privateIpAddress": "10.240.0.4",
+                                "privateIpAddress": "10.240.0.4"
                             }
                         ]
                     }
