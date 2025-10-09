@@ -592,7 +592,7 @@ ensurePodInfraContainerImage() {
 
     base_name="${pod_infra_container_image%:*}"
     tag="${pod_infra_container_image##*:}"
-    if [[ "$pod_infra_container_image" == *"@sha256:"* ]]; then
+    if echo "$pod_infra_container_image" | grep -q "@sha256:"; then
         base_name="${pod_infra_container_image%@sha256:*}"
         tag="local"
     fi
