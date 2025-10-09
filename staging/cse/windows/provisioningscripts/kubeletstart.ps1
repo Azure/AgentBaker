@@ -17,7 +17,8 @@ $global:IsSkipCleanupNetwork = [System.Convert]::ToBoolean($Global:ClusterConfig
 
 $global:EnableSecureTLSBootstrapping = [System.Convert]::ToBoolean($Global:ClusterConfiguration.Kubernetes.Kubelet.SecureTLSBootstrapArgs.Enabled)
 $global:SecureTLSBootstrappingDeadline = $Global:ClusterConfiguration.Kubernetes.Kubelet.SecureTLSBootstrapArgs.Deadline
-$global:SecureTLSBootstrapAADResource = $Global:ClusterConfiguration.Kubernetes.Kubelet.SecureTLSBootstrapArgs.AADResource
+$global:SecureTLSBootstrappingAADResource = $Global:ClusterConfiguration.Kubernetes.Kubelet.SecureTLSBootstrapArgs.AADResource
+$global:SecureTLSBootstrappingUserAssignedIdentityID = $Global:ClusterConfiguration.Kubernetes.Kubelet.SecureTLSBootstrapArgs.UserAssignedIdentityID
 
 $global:AzureCNIDir = [Io.path]::Combine("$global:KubeDir", "azurecni")
 $global:AzureCNIBinDir = [Io.path]::Combine("$global:AzureCNIDir", "bin")
@@ -110,6 +111,9 @@ if ($global:EnableSecureTLSBootstrapping) {
     }
     if (![string]::IsNullOrEmpty($global:SecureTLSBootstrappingDeadline)) {
         $SecureTLSBootstrappingArgs["Deadline"] = "$global:SecureTLSBootstrappingDeadline"
+    }
+    if (![string]::IsNullOrEmpty($global:SecureTLSBootstrappingUserAssignedIdentityID)) {
+        $SecureTLSBootstrappingArgs["UserAssignedIdentityID"] = "$global:SecureTLSBootstrappingUserAssignedIdentityID"
     }
     & "c:\k\securetlsbootstrap.ps1" @SecureTLSBootstrappingArgs
 }

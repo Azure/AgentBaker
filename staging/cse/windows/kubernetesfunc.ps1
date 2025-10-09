@@ -126,9 +126,10 @@ function Write-KubeClusterConfig {
             NodeLabels = $global:KubeletNodeLabels;
             ConfigArgs = $global:KubeletConfigArgs
             SecureTLSBootstrapArgs = @{
-                Enabled     = $global:EnableSecureTLSBootstrapping;
-                Deadline    = $global:SecureTLSBootstrappingDeadline;
-                AADResource = $global:AKSAADServerAppID
+                Enabled                = $global:EnableSecureTLSBootstrapping;
+                Deadline               = $global:SecureTLSBootstrappingDeadline;
+                AADResource            = $global:SecureTLSBootstrappingAADResource;
+                UserAssignedIdentityID = $global:SecureTLSBootstrappingUserAssignedIdentityID
             };
         };
         Kubeproxy    = @{

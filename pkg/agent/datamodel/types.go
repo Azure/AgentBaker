@@ -1858,11 +1858,23 @@ type CustomCATrustConfig struct {
 type SecureTLSBootstrappingConfig struct {
 	// Enabled indicates whether secure TLS bootstrapping is enabled.
 	Enabled bool `json:"secureTLSBootstrappingEnabled"`
-	// Deadline is passed to the secure TLS bootstrap client during provisioning.
-	// This will be removed once bootstrap tokens are no longer a viable fall-back.
+	// Deadline is an optional override passed to the secure TLS bootstrap client during provisioning.
+	// This is the amount of time we let secure TLS bootstrapping attempt to succeed before falling back
+	// to using the bootstrap token. This will be removed once bootstrap tokens are no longer a viable fall-back.
+	// A default value is specified directly within the bootstrapping scripts.
 	Deadline string `json:"secureTLSBootstrappingDeadline,omitempty"`
-	// CustomClientDownloadURL is an optional download URL used to overwrite the
-	// secure TLS bootstrap client installation at node provisioning time.
+	// AADResource is an optional override passed to the secure TLS bootstrap client during provisioning.
+	// This determines the resource used to request access tokens from Entra ID.
+	// Defaults to the AKS AAD server APP ID within bootstrapping scripts.
+	AADResource string `json:"secureTLSBootstrappingAADResource,omitempty"`
+	// UserAssignedIdentityID is an optional override passed to the secure TLS bootstrap client during provisioning.
+	// This determines the client ID of the user assigned identity attached to the node which will be
+	// used to fetch access tokens from Entra ID via IMDS if the node has one or more user-assigned managed identities.
+	// Defaults to the kubelet identity within bootstrapping scripts.
+	UserAssignedIdentityID string `json:"secureTLSBootstrappingUserAssignedIdentityID,omitempty"`
+	// CustomClientDownloadURL is an optional override which will have the bootstrap scripts
+	// overwrite the existing secure TLS bootstrap client installation on the node image using
+	// the version specified by the URL before bootstrapping.
 	CustomClientDownloadURL string `json:"secureTLSBootstrappingCustomClientDownloadURL"`
 }
 
@@ -1878,6 +1890,20 @@ func (c *SecureTLSBootstrappingConfig) GetDeadline() string {
 		return ""
 	}
 	return c.Deadline
+}
+
+func (c *SecureTLSBootstrappingConfig) GetAADResource() string {
+	if c == nil {
+		return ""
+	}
+	return c.AADResource
+}
+
+func (c *SecureTLSBootstrappingConfig) GetUserAssignedIdentityID() string {
+	if c == nil {
+		return ""
+	}
+	return c.UserAssignedIdentityID
 }
 
 func (c *SecureTLSBootstrappingConfig) GetCustomClientDownloadURL() string {

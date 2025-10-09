@@ -532,7 +532,13 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"GetSecureTLSBootstrappingDeadline": func() string {
 			return config.SecureTLSBootstrappingConfig.GetDeadline()
 		},
-		"GetCustomSecureTLSBootstrapClientURL": func() string {
+		"GetSecureTLSBootstrappingAADResource": func() string {
+			return config.SecureTLSBootstrappingConfig.GetAADResource()
+		},
+		"GetSecureTLSBootstrappingUserAssignedIdentityID": func() string {
+			return config.SecureTLSBootstrappingConfig.GetUserAssignedIdentityID()
+		},
+		"GetCustomSecureTLSBootstrappingClientDownloadURL": func() string {
 			return config.SecureTLSBootstrappingConfig.GetCustomClientDownloadURL()
 		},
 		"GetTLSBootstrapTokenForKubeConfig": func() string {
