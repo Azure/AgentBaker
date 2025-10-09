@@ -612,13 +612,11 @@ function Get-Node-Ipv6-Address {
 function Get-AKS-NodeIPs {
     $ipv4Address = Get-Node-Ipv4-Address
 
-    Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Got node IPv4 address: $( $ipv4Address )"
     $nodeIPs = @($ipv4Address)
 
     if ($IsDualStackEnabled) {
         $ipv6Address = Get-Node-Ipv6-Address
         if ($ipv6Address) {
-            Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Get node IPv6 address a: $( $ipv6Address )"
             $nodeIPs += $ipv6Address
         }
         else {

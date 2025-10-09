@@ -26,7 +26,7 @@ filter Timestamp { "$(Get-Date -Format o): $_" }
 
 function Write-Log($message) {
     $msg = $message | Timestamp
-    Write-Output $msg
+    Write-Host $msg
 }
 
 if (!(Test-Path $global:BootstrapClientPath)) {
