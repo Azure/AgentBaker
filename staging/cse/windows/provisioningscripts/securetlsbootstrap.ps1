@@ -57,7 +57,7 @@ if (![string]::IsNullOrEmpty($global:SecureTLSBootstrappingAADResource)) {
 
 Write-Log "Starting secure TLS bootstrapping: invoking aks-secure-tls-bootstrap-client.exe"
 
-& $global:BootstrapClientPath ($BootstrapClientArgList -join " ")
+& $global:BootstrapClientPath $BootstrapClientArgList
 
 if ($?) {
     Write-Log "Secure TLS bootstrapping succeeded"
