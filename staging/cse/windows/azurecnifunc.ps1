@@ -516,24 +516,9 @@ function New-ExternalHnsNetwork {
     )
     Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Start to create new external hns network"
 
+    $ipv4Address = Get-Node-Ipv4-Address
     $nodeIps = Get-AKS-NodeIPs
-
     $na = Get-AKS-NetworkAdaptor
-
-    Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Configuring node ip for kubelet"
-    # https://github.com/kubernetes/kubernetes/pull/121028
-    if (([version]$global:KubeBinariesVersion).CompareTo([version]("1.29.0")) -ge 0) {
-        Logs-To-Event -TaskName "AKS.WindowsCSE.UpdateKubeClusterConfig" -TaskMessage "Start to update KubeCluster Config. NodeIPs: $nodeIPs"
-
-        try {
-            $clusterConfiguration = ConvertFrom-Json ((Get-Content $global:KubeClusterConfigPath -ErrorAction Stop) | Out-String)
-            $clusterConfiguration.Kubernetes.Kubelet.ConfigArgs += "--node-ip=$( $nodeIPs )"
-            $clusterConfiguration | ConvertTo-Json -Depth 10 | Out-File -FilePath $global:KubeClusterConfigPath
-        }
-        catch {
-            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_UPDATING_KUBE_CLUSTER_CONFIG -ErrorMessage "Failed in updating kube cluster config. Error: $_"
-        }
-    }
 
     $adapterName = $na.Name
     $externalNetwork = "ext"
@@ -576,26 +561,62 @@ function New-ExternalHnsNetwork {
     if ($dnsServers) {
         Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "DNS Servers are: $( $dnsServers.ServerAddresses )"
     }
+
+    Logs-To-Event -TaskName "AKS.WindowsCSE.UpdateKubeClusterConfig" -TaskMessage "Configuring node ip for kubelet"
+    # https://github.com/kubernetes/kubernetes/pull/121028
+    if (([version]$global:KubeBinariesVersion).CompareTo([version]("1.29.0")) -ge 0) {
+        Logs-To-Event -TaskName "AKS.WindowsCSE.UpdateKubeClusterConfig" -TaskMessage "Start to update KubeCluster Config. NodeIPs: $nodeIPs"
+
+        try {
+            $clusterConfiguration = ConvertFrom-Json ((Get-Content $global:KubeClusterConfigPath -ErrorAction Stop) | Out-String)
+            $clusterConfiguration.Kubernetes.Kubelet.ConfigArgs += "--node-ip=$( $nodeIPs )"
+            $clusterConfiguration | ConvertTo-Json -Depth 10 | Out-File -FilePath $global:KubeClusterConfigPath
+        }
+        catch {
+            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_UPDATING_KUBE_CLUSTER_CONFIG -ErrorMessage "Failed in updating kube cluster config. Error: $_"
+        }
+    }
 }
 
-function Get-AKS-NodeIPs {
+function Get-Node-Ipv4-Address {
     $ParsedContent = GetMetadataContent
     if (-not $ParsedContent) {
         Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Failed to retrieve metadata content."
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_LOAD_METADATA -ErrorMessage "Failed to load metadata content"
     }
-
     $ipv4Address = GetIpv4AddressFromParsedContent -ParsedContent $ParsedContent
     if (-not $ipv4Address) {
         Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Failed to retrieve IPv4 address from metadata."
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_PARSE_METADATA -ErrorMessage "No IPv4 address found in metadata"
     }
 
+    return $ipv4Address
+}
+
+function Get-Node-Ipv6-Address {
+    $ParsedContent = GetMetadataContent
+    if (-not $ParsedContent) {
+        Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Failed to retrieve metadata content."
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_LOAD_METADATA -ErrorMessage "Failed to load metadata content"
+    }
+    $ipv6Address = GetIpv6AddressFromParsedContent -ParsedContent $ParsedContent
+    if (-not $ipv6Address) {
+        Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Failed to retrieve IPv6 address from metadata."
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_PARSE_METADATA -ErrorMessage "No IPv6 address found in metadata"
+    }
+
+    return $ipv6Address
+}
+
+
+function Get-AKS-NodeIPs {
+    $ipv4Address = Get-Node-Ipv4-Address
+
     Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Got node IPv4 address: $( $ipv4Address )"
     $nodeIPs = @($ipv4Address)
 
     if ($IsDualStackEnabled) {
-        $ipv6Address = GetIpv6AddressFromParsedContent -ParsedContent $ParsedContent
+        $ipv6Address = Get-Node-Ipv6-Address
         if ($ipv6Address) {
             Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Get node IPv6 address a: $( $ipv6Address )"
             $nodeIPs += $ipv6Address
@@ -609,17 +630,7 @@ function Get-AKS-NodeIPs {
 }
 
 function Get-AKS-NetworkAdaptor {
-    $ParsedContent = GetMetadataContent
-    if (-not $ParsedContent) {
-        Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Failed to retrieve metadata content."
-        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_LOAD_METADATA -ErrorMessage "Failed to load metadata content"
-    }
-
-    $ipv4Address = GetIpv4AddressFromParsedContent -ParsedContent $ParsedContent
-    if (-not $ipv4Address) {
-        Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Failed to retrieve IPv4 address from metadata."
-        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_PARSE_METADATA -ErrorMessage "No IPv4 address found in metadata"
-    }
+    $ipv4Address = Get-Node-Ipv4-Address
     Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Found IPv4 address from metadata: $ipv4Address"
 
     # we need the default gateway interface to create the external network
