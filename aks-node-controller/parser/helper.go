@@ -202,32 +202,9 @@ func getCustomCACertsStatus(customCACerts []string) bool {
 	return len(customCACerts) > 0
 }
 
-func getEnableSecureTLSBootstrap(bootstrapConfig *aksnodeconfigv1.BootstrappingConfig) bool {
+func getEnableSecureTLSBootstrapping(bootstrapConfig *aksnodeconfigv1.BootstrappingConfig) bool {
 	// TODO: Change logic to default to true once Secure TLS Bootstrapping is complete
 	return bootstrapConfig.GetBootstrappingAuthMethod() == aksnodeconfigv1.BootstrappingAuthMethod_BOOTSTRAPPING_AUTH_METHOD_SECURE_TLS_BOOTSTRAPPING
-}
-
-func getTLSBootstrapToken(bootstrapConfig *aksnodeconfigv1.BootstrappingConfig) string {
-	return bootstrapConfig.GetTlsBootstrappingToken()
-}
-
-func getSecureTLSBootstrappingAADResource(bootstrapConfig *aksnodeconfigv1.BootstrappingConfig) string {
-	// defaulted to AKS AAD server APP ID within bootstrapping scripts
-	return bootstrapConfig.GetSecureTlsBootstrappingAadResource()
-}
-
-func getSecureTLSBootstrappingUserAssignedIdentityID(bootstrapConfig *aksnodeconfigv1.BootstrappingConfig) string {
-	// defaulted to USER_ASSIGNED_IDENTITY_ID (kubelet identity) within bootstrapping scripts
-	return bootstrapConfig.GetSecureTlsBootstrappingUserAssignedIdentityId()
-}
-
-func getSecureTLSBootstrappingDeadline(bootstrapConfig *aksnodeconfigv1.BootstrappingConfig) string {
-	// defaulted within bootstrapping scripts
-	return bootstrapConfig.GetSecureTlsBootstrappingDeadline()
-}
-
-func getSecureTLSBootstrappingCustomClientDownloadURL(bootstrapConfig *aksnodeconfigv1.BootstrappingConfig) string {
-	return bootstrapConfig.GetSecureTlsBootstrappingCustomClientDownloadUrl()
 }
 
 func getEnsureNoDupePromiscuousBridge(nc *aksnodeconfigv1.NetworkConfig) bool {
