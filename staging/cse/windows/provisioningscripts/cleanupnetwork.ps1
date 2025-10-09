@@ -35,7 +35,7 @@ if ($hnsNetwork) {
     # October patch 10.0.17763.1554 introduced a breaking change
     # which requires the hns policy list to be removed before network if it gets into a bad state
     # See https://github.com/Azure/aks-engine/pull/3956#issuecomment-720797433 for more info
-    # Kubeproxy doesn't fail becuase errors are not handled:
+    # Kubeproxy doesn't fail because errors are not handled:
     # https://github.com/delulu/kubernetes/blob/524de768bb64b7adff76792ca3bf0f0ece1e849f/pkg/proxy/winkernel/proxier.go#L532
     Get-HnsPolicyList | Remove-HnsPolicyList
 
