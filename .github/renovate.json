@@ -50,6 +50,7 @@
         "azure-policy/policy-kubernetes-addon-prod",
         "azure-policy/policy-kubernetes-webhook",
         "oss/kubernetes/kube-proxy",
+        "oss/v2/kubernetes/kube-proxy",
         "oss/binaries/kubernetes/kubernetes-node",
         "oss/binaries/kubernetes/azure-acr-credential-provider",
         "containernetworking/azure-npm"
@@ -407,18 +408,21 @@
     {
       "matchPackageNames": [
         "oss/binaries/kubernetes/kubernetes-node",
-        "oss/kubernetes/kube-proxy"
+        "oss/kubernetes/kube-proxy",
+        "oss/v2/kubernetes/kube-proxy"
       ],
       "groupName": "kube-components",
       "assignees": [
         "haitch",
         "wenhug",
-        "gaopenghigh"
+        "gaopenghigh",
+        "jack4it"
       ],
       "reviewers": [
         "haitch",
         "wenhug",
-        "gaopenghigh"
+        "gaopenghigh",
+        "jack4it"
       ]
     },
     {

@@ -687,7 +687,7 @@ func baseTemplateLinux(t *testing.T, location string, k8sVersion string, arch st
 			"--protect-kernel-defaults":           "true",
 			"--read-only-port":                    "0",
 			"--resolv-conf":                       "/run/systemd/resolve/resolv.conf",
-			"--rotate-certificates":               "false",
+			"--rotate-certificates":               "true",
 			"--streaming-connection-idle-timeout": "4h",
 			"--tls-cert-file":                     "/etc/kubernetes/certs/kubeletserver.crt",
 			"--tls-cipher-suites":                 "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256",
