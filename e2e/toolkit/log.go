@@ -39,20 +39,11 @@ func Log(ctx context.Context, args ...any) {
 
 type testLogger struct {
 	testing.TB
-	noColor bool
 }
 
-const (
-	colorRed   = "\033[31m"
-	colorReset = "\033[0m"
-)
-
-// formatError formats the ERROR prefix with or without colors
+// formatError formats the ERROR prefix with emoji
 func (t *testLogger) formatError() string {
-	if !t.noColor {
-		return colorRed + "ERROR:" + colorReset
-	}
-	return "ERROR:"
+	return "🔴 FAIL:"
 }
 
 func (t *testLogger) Fatal(args ...any) {
@@ -97,9 +88,8 @@ func (t *testLogger) Fail() {
 	t.Helper()
 	t.Log(t.formatError())
 	t.TB.Fail()
-
 }
 
-func WithTestLogger(t testing.TB, noColor bool) testing.TB {
-	return &testLogger{TB: t, noColor: noColor}
+func WithTestLogger(t testing.TB) testing.TB {
+	return &testLogger{TB: t}
 }

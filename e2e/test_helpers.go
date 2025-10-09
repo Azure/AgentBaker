@@ -179,7 +179,7 @@ func copyScenario(s *Scenario) *Scenario {
 }
 
 func runScenario(t testing.TB, s *Scenario) {
-	t = toolkit.WithTestLogger(t, config.Config.NoColor)
+	t = toolkit.WithTestLogger(t)
 	if s.Location == "" {
 		s.Location = config.Config.DefaultLocation
 	}
