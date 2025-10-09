@@ -529,6 +529,42 @@ extractKubeBinaries() {
     extractKubeBinariesToUsrLocalBin "${k8s_tgz_tmp}" "${k8s_version}" "${is_private_url}"
 }
 
+installK8sToolsFromProfileRegistry() {
+    local registry_server=$1
+    local kubernetes_version=$2
+
+    # Try to pull distro-specific packages (e.g., .deb for Ubuntu) from registry
+    local download_root="/tmp/kubernetes/downloads" # /opt folder will return permission error
+
+    for tool_name in $(get_kubernetes_tools); do
+        tool_package_url="${registry_server}/aks/packages/kubernetes/${tool_name}:v${kubernetes_version}"
+        tool_download_dir="${download_root}/${tool_name}"
+        mkdir -p "${tool_download_dir}"
+
+        # Construct platform string for ORAS pull
+        os_version=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=") # todo: OS_VARIANT not working for ubuntu
+        platform_flag="--platform=linux/${CPU_ARCH}:${OS,,} ${os_version}"
+
+        echo "Attempting to pull ${tool_name} package from ${tool_package_url} with platform ${platform_flag}"
+        # retrycmd_pull_from_registry_with_oras will pull all artifacts to the directory with platform selection
+        if ! retrycmd_pull_from_registry_with_oras 10 5 "${tool_download_dir}" "${tool_package_url}" ${platform_flag}; then
+            echo "Failed to pull ${tool_name} package from registry"
+            return 1
+        fi
+
+        echo "Successfully pulled ${tool_name} package"
+
+        # Try to install using distro-specific package installer from local repo
+        if ! installKubeletKubectlPkgFromLocalRepo "${tool_name}" "${tool_download_dir}"; then
+            echo "Failed to install ${tool_name} from local repo ${tool_download_dir}"
+            return 1
+        fi
+    done
+
+    # All tools installed successfully
+    return 0
+}
+
 installKubeletKubectlFromURL() {
     # when both, custom and private urls for kubernetes packages are set, custom url will be used and private url will be ignored
     CUSTOM_KUBE_BINARY_DOWNLOAD_URL="${CUSTOM_KUBE_BINARY_URL:=}"
@@ -556,45 +592,9 @@ installKubeletKubectlFromURL() {
             if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
                 # network isolated cluster
                 echo "Detect Bootstrap profile artifact is Cache, will use oras to pull artifact binary"
-                K8S_DOWNLOADS_TEMP_DIR_FROM_REGISTRY="/tmp/kubernetes/downloads" # /opt folder will return permission error
-
-                # Try to pull distro-specific packages (e.g., .deb for Ubuntu) from registry
-                install_success=true
-                for TOOL_NAME in $(get_kubernetes_tools); do
-                    tool_package_url="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}/aks/packages/kubernetes/${TOOL_NAME}:v${KUBERNETES_VERSION}"
-                    tool_download_dir="${K8S_DOWNLOADS_TEMP_DIR_FROM_REGISTRY}/${TOOL_NAME}"
-                    mkdir -p "${tool_download_dir}"
-
-                    # Construct platform string for ORAS pull
-                    os_version=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=") # todo: OS_VARIANT not working for ubuntu
-                    platform_flag="--platform=linux/${CPU_ARCH}:${OS,,} ${os_version}"
-
-                    echo "Attempting to pull ${TOOL_NAME} package from ${tool_package_url} with platform ${platform_flag}"
-                    # retrycmd_pull_from_registry_with_oras will pull all artifacts to the directory with platform selection
-                    if retrycmd_pull_from_registry_with_oras 10 5 "${tool_download_dir}" "${tool_package_url}" ${platform_flag}; then
-                        echo "Successfully pulled ${TOOL_NAME} package"
-
-                        # Try to install using distro-specific package installer from local repo
-                        if ! installKubeletKubectlPkgFromLocalRepo "${TOOL_NAME}" "${tool_download_dir}"; then
-                            echo "Failed to install ${TOOL_NAME} from local repo ${tool_download_dir}"
-                            install_success=false
-                            break
-                        fi
-                    else
-                        echo "Failed to pull ${TOOL_NAME} package from registry"
-                        install_success=false
-                        break
-                    fi
-                done
-
-                # If distro-specific package installation succeeded, return early
-                if [ "${install_success}" = "true" ]; then
-                    return
-                fi
-
-                # If distro-specific package installation failed, fallback to tar.gz binary extraction
-                echo "Distro-specific package installation failed or not applicable, falling back to binary extraction"
                 updateKubeBinaryRegistryURL
+
+                K8S_DOWNLOADS_TEMP_DIR_FROM_REGISTRY="/tmp/kubernetes/downloads" # /opt folder will return permission error
                 logs_to_events "AKS.CSE.installKubeletKubectlFromURL.extractKubeBinaries" extractKubeBinaries ${KUBERNETES_VERSION} "${KUBE_BINARY_REGISTRY_URL:-}" false ${K8S_DOWNLOADS_TEMP_DIR_FROM_REGISTRY}
                 # no egress traffic, default install will fail
                 # will exit if the download fails
