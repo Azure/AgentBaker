@@ -107,10 +107,12 @@ if ($global:EnableSecureTLSBootstrapping) {
     $SecureTLSBootstrappingArgs= @{
         KubeDir = "$global:KubeDir"
         MasterIP = "$global:MasterIP"
-        AADResource = "$global:SecureTLSBootstrapAADResource"
     }
     if (![string]::IsNullOrEmpty($global:SecureTLSBootstrappingDeadline)) {
         $SecureTLSBootstrappingArgs["Deadline"] = "$global:SecureTLSBootstrappingDeadline"
+    }
+    if (![string]::IsNullOrEmpty($global:SecureTLSBootstrapAADResource)) {
+        $SecureTLSBootstrappingArgs["AADResource"] = "$global:SecureTLSBootstrapAADResource"
     }
     if (![string]::IsNullOrEmpty($global:SecureTLSBootstrappingUserAssignedIdentityID)) {
         $SecureTLSBootstrappingArgs["UserAssignedIdentityID"] = "$global:SecureTLSBootstrappingUserAssignedIdentityID"
