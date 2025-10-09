@@ -536,13 +536,14 @@ function New-ExternalHnsNetwork {
     else {
         New-HNSNetwork -Type $global:NetworkMode -AddressPrefix "192.168.255.0/30" -Gateway "192.168.255.1" -AdapterName $adapterName -Name $externalNetwork -Verbose
     }
-    # Wait for the switch to be created and the ip address to be assigned.
-    for ($i = 0; $i -lt 60; $i++) {
+    # Wait 2 minutes for the switch to be created and the ip address to be assigned.
+    $RecheckTimeoutMilliseconds=500
+    for ($i = 0; $i -lt 120; $i++) {
         $mgmtIPAfterNetworkCreate = Get-NetIPAddress $ipv4Address -ErrorAction SilentlyContinue
         if ($mgmtIPAfterNetworkCreate) {
             break
         }
-        Start-Sleep -Milliseconds 500
+        Start-Sleep -Milliseconds $RecheckTimeoutMilliseconds
     }
 
     $stopWatch.Stop()
