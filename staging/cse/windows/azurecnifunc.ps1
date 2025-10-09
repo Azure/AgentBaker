@@ -590,6 +590,7 @@ function Get-Node-Ipv4-Address {
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_PARSE_METADATA -ErrorMessage "No IPv4 address found in metadata"
     }
 
+    Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Found IPv4 address from metadata: $ipv4Address"
     return $ipv4Address
 }
 
@@ -605,6 +606,7 @@ function Get-Node-Ipv6-Address {
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_PARSE_METADATA -ErrorMessage "No IPv6 address found in metadata"
     }
 
+    Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Found IPv6 address from metadata: $ipv4Address"
     return $ipv6Address
 }
 
