@@ -582,8 +582,9 @@ ensurePodInfraContainerImage() {
 
     pod_infra_container_image=$(extract_value_from_kubelet_flags "${KUBELET_FLAGS}" "--pod-infra-container-image")
 
+
     echo "Checking if $pod_infra_container_image already exists locally..."
-    if ctr -n k8s.io images check "$pod_infra_container_image" 2>/dev/null || ctr -n k8s.io images list | grep -q "^${image}[[:space:]]"; then
+    if ctr -n k8s.io images list -q | grep -q "^${pod_infra_container_image}$"; then
         echo "Image $pod_infra_container_image already exists locally, skipping pull"
         echo "Cached image details:"
         return 0
@@ -591,6 +592,10 @@ ensurePodInfraContainerImage() {
 
     base_name="${pod_infra_container_image%:*}"
     tag="${pod_infra_container_image##*:}"
+    if [[ "$pod_infra_container_image" == *"@sha256:"* ]]; then
+        base_name="${pod_infra_container_image%@sha256:*}"
+        tag="local"
+    fi
 
     image="${pod_infra_container_image//mcr.microsoft.com/${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}}"
     acr_url=$(echo "$image" | cut -d/ -f1)
