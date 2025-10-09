@@ -50,7 +50,7 @@ $BootstrapClientArgList = @(
     "--deadline=$Deadline"
 )
 
-if (![string]::IsNullOrEmpty($global:SecureTLSBootstrappingAADResource)) {
+if (![string]::IsNullOrEmpty($UserAssignedIdentityID)) {
     Write-Log "secure TLS bootstrapping user-assigned identity ID is specified: $UserAssignedIdentityID"
     $BootstrapClientArgList += "--user-assigned-identity-id=$UserAssignedIdentityID"
 }
