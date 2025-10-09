@@ -260,7 +260,7 @@ func getExistingCluster(ctx context.Context, location, clusterName string) (*arm
 		}
 		fallthrough
 	case "Failed":
-		logf(ctx, "echo \"##vso[task.logissue type=warning;]Unhealthy cluster.\" %s: try delete", clusterName)
+		logf(ctx, "echo \"##vso[task.logissue type=warning;]Cluster %s in Failed state\"", clusterName)
 		derr := deleteCluster(ctx, clusterName, resourceGroupName)
 		if derr != nil {
 			return nil, derr

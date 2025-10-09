@@ -817,6 +817,30 @@
       "Name": "502146190",
       "Value": "1",
       "Type": "DWORD"
+    },
+    {
+      "Comment": "2025-10B",
+      "WindowsSkuMatch": "2022*",
+      "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
+      "Name": "140377743",
+      "Value": "1",
+      "Type": "DWORD"
+    },
+    {
+      "Comment": "2025-10B",
+      "WindowsSkuMatch": "23H2*",
+      "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
+      "Name": "66715279",
+      "Value": "1",
+      "Type": "DWORD"
+    },
+    {
+      "Comment": "2025-10B",
+      "WindowsSkuMatch": "23H2*",
+      "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
+      "Name": "403177103",
+      "Value": "1",
+      "Type": "DWORD"
     }
   ]
 }

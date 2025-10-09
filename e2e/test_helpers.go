@@ -84,7 +84,7 @@ func RunScenario(t *testing.T, s *Scenario) {
 			t.Parallel()
 			runScenario(t, s)
 		})
-		t.Run("FirstStage", func(t *testing.T) {
+		t.Run("VHDCreation", func(t *testing.T) {
 			t.Parallel()
 			runScenarioWithPreProvision(t, s)
 		})
@@ -148,7 +148,7 @@ func runScenarioWithPreProvision(t *testing.T, original *Scenario) {
 		return
 	}
 
-	t.Run("SecondStage", func(t *testing.T) {
+	t.Run("VMProvision", func(t *testing.T) {
 		t.Parallel()
 		secondStageScenario := copyScenario(original)
 		secondStageScenario.Description = "Stage 2: Create VMSS from captured VHD via SIG"
@@ -263,8 +263,6 @@ func prepareAKSNode(ctx context.Context, s *Scenario) {
 	err = getCustomScriptExtensionStatus(ctx, s)
 	require.NoError(s.T, err)
 
-	s.T.Logf("vmss %s creation succeeded", s.Runtime.VMSSName)
-
 	if !s.Config.SkipDefaultValidation {
 		vmssCreatedAt := time.Now()         // Record the start time
 		creationElapse := time.Since(start) // Calculate the elapsed time
@@ -307,7 +305,7 @@ func maybeSkipScenario(ctx context.Context, t *testing.T, s *Scenario) {
 		}
 	}
 
-	vhd, err := CachedPrepareVHD(ctx, GetVHDRequest{
+	_, err := CachedPrepareVHD(ctx, GetVHDRequest{
 		Image:    *s.VHD,
 		Location: s.Location,
 	})
@@ -318,7 +316,7 @@ func maybeSkipScenario(ctx context.Context, t *testing.T, s *Scenario) {
 			t.Fatalf("failing scenario %q: could not find image for VHD %s due to %s", t.Name(), s.VHD.Distro, err)
 		}
 	}
-	t.Logf("VHD: %q, TAGS %+v", vhd, s.Tags)
+	t.Logf("TAGS %+v", s.Tags)
 }
 
 func ValidateNodeCanRunAPod(ctx context.Context, s *Scenario) {
@@ -522,25 +520,6 @@ func createVMExtensionLinuxAKSNode(location *string) (*armcompute.VirtualMachine
 }
 
 func CreateImage(ctx context.Context, s *Scenario) *config.Image {
-	s.T.Log("Generalizing VM")
-	if s.IsLinux() {
-		execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo waagent -deprovision", 0, "Failed to deprovision the VM for image creation")
-	} else {
-		runPoller, err := config.Azure.VMSSVM.BeginRunCommand(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, "0", armcompute.RunCommandInput{
-			CommandID: to.Ptr("RunPowerShellScript"),
-			Script: []*string{to.Ptr(`if(Test-Path C:\system32\Sysprep\unattend.xml) {
-Remove-Item C:\system32\Sysprep\unattend.xml -Force
-};
-C:\Windows\System32\Sysprep\Sysprep.exe /oobe /generalize /mode:vm /quiet /quit;`)},
-		}, nil)
-		require.NoError(s.T, err, "Failed to run command on Windows VM for image creation")
-
-		runResp, err := runPoller.PollUntilDone(ctx, nil)
-		require.NoError(s.T, err, "Failed to run command on Windows VM for image creation")
-		respJson, _ := runResp.MarshalJSON()
-		s.T.Logf("Run command output: %s", string(respJson))
-	}
-
 	vm, err := config.Azure.VMSSVM.Get(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, "0", &armcompute.VirtualMachineScaleSetVMsClientGetOptions{})
 	require.NoError(s.T, err, "Failed to get VMSS VM for image creation")
 
