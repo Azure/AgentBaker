@@ -559,9 +559,9 @@ installKubeletKubectlFromURL() {
                 K8S_DOWNLOADS_TEMP_DIR_FROM_REGISTRY="/tmp/kubernetes/downloads" # /opt folder will return permission error
 
                 # Try to pull distro-specific packages (e.g., .deb for Ubuntu) from registry
-                install_success=false
+                install_success=true
                 for TOOL_NAME in $(get_kubernetes_tools); do
-                    tool_package_url="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}/aks/packages/kubernetes/${TOOL_NAME}:${KUBERNETES_VERSION}"
+                    tool_package_url="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}/aks/packages/kubernetes/${TOOL_NAME}:v${KUBERNETES_VERSION}"
                     tool_download_dir="${K8S_DOWNLOADS_TEMP_DIR_FROM_REGISTRY}/${TOOL_NAME}"
                     mkdir -p "${tool_download_dir}"
 
@@ -575,25 +575,29 @@ installKubeletKubectlFromURL() {
                         echo "Successfully pulled ${TOOL_NAME} package"
 
                         # Try to install using distro-specific package installer from local repo
-                        if installKubeletKubectlPkgFromLocalRepo "${TOOL_NAME}" "${tool_download_dir}"; then
-                            install_success=true
-                        else
+                        if ! installKubeletKubectlPkgFromLocalRepo "${TOOL_NAME}" "${tool_download_dir}"; then
                             echo "Failed to install ${TOOL_NAME} from local repo ${tool_download_dir}"
+                            install_success=false
+                            break
                         fi
                     else
                         echo "Failed to pull ${TOOL_NAME} package from registry"
+                        install_success=false
                         break
                     fi
                 done
 
-                # If distro-specific package installation failed, fallback to tar.gz binary extraction
-                if [ "${install_success}" = "false" ]; then
-                    echo "Distro-specific package installation failed or not applicable, falling back to binary extraction"
-                    updateKubeBinaryRegistryURL
-                    logs_to_events "AKS.CSE.installKubeletKubectlFromURL.extractKubeBinaries" extractKubeBinaries ${KUBERNETES_VERSION} "${KUBE_BINARY_REGISTRY_URL:-}" false ${K8S_DOWNLOADS_TEMP_DIR_FROM_REGISTRY}
-                    # no egress traffic, default install will fail
-                    # will exit if the download fails
+                # If distro-specific package installation succeeded, return early
+                if [ "${install_success}" = "true" ]; then
+                    return
                 fi
+
+                # If distro-specific package installation failed, fallback to tar.gz binary extraction
+                echo "Distro-specific package installation failed or not applicable, falling back to binary extraction"
+                updateKubeBinaryRegistryURL
+                logs_to_events "AKS.CSE.installKubeletKubectlFromURL.extractKubeBinaries" extractKubeBinaries ${KUBERNETES_VERSION} "${KUBE_BINARY_REGISTRY_URL:-}" false ${K8S_DOWNLOADS_TEMP_DIR_FROM_REGISTRY}
+                # no egress traffic, default install will fail
+                # will exit if the download fails
 
             #TODO: remove the condition check on KUBE_BINARY_URL once RP change is released
             elif (($(echo ${KUBERNETES_VERSION} | cut -d"." -f2) >= 17)) && [ -n "${KUBE_BINARY_URL}" ]; then
