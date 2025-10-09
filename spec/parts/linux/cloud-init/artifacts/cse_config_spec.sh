@@ -761,5 +761,42 @@ Describe 'cse_config.sh'
             The output should not include "installKubeletKubectlFromURL"
             The output should not include "installKubeletKubectlPkgFromPMC"
         End
+
+        # Test BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER scenarios
+        It 'should call installK8sToolsFromProfileRegistry when BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER is set and k8s >= 1.34.0 and succeeds'
+            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myregistry.azurecr.io"
+            KUBERNETES_VERSION="1.34.0"
+            installK8sToolsFromProfileRegistry() {
+                echo "installK8sToolsFromProfileRegistry $1 $2"
+                return 0
+            }
+            When call configureKubeletAndKubectl
+            The output should include "installK8sToolsFromProfileRegistry myregistry.azurecr.io 1.34.0"
+            The output should not include "installKubeletKubectlFromURL"
+        End
+
+        It 'should fallback to installKubeletKubectlFromURL when BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER is set and k8s >= 1.34.0 but installK8sToolsFromProfileRegistry fails'
+            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myregistry.azurecr.io"
+            KUBERNETES_VERSION="1.34.0"
+            installK8sToolsFromProfileRegistry() {
+                echo "installK8sToolsFromProfileRegistry $1 $2"
+                return 1
+            }
+            When call configureKubeletAndKubectl
+            The output should include "installK8sToolsFromProfileRegistry myregistry.azurecr.io 1.34.0"
+            The output should include "installKubeletKubectlFromURL"
+        End
+
+        It 'should call installKubeletKubectlFromURL when BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER is set and k8s < 1.34.0'
+            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myregistry.azurecr.io"
+            KUBERNETES_VERSION="1.33.5"
+            installK8sToolsFromProfileRegistry() {
+                echo "installK8sToolsFromProfileRegistry $1 $2"
+                return 0
+            }
+            When call configureKubeletAndKubectl
+            The output should not include "installK8sToolsFromProfileRegistry"
+            The output should include "installKubeletKubectlFromURL"
+        End
     End
 End
