@@ -48,7 +48,7 @@ func ValidatePodRunning(ctx context.Context, s *Scenario, pod *corev1.Pod) {
 	s.T.Logf("node health validation: test pod %q is running on node %q", pod.Name, s.Runtime.KubeNodeName)
 }
 
-func truncatePodName(t *testing.T, pod *corev1.Pod) {
+func truncatePodName(t testing.TB, pod *corev1.Pod) {
 	name := pod.Name
 	if len(pod.Name) < 63 {
 		return

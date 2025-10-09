@@ -31,6 +31,7 @@ type Tags struct {
 	ServerTLSBootstrapping bool
 	KubeletCustomConfig    bool
 	Scriptless             bool
+	VHDCaching             bool
 }
 
 // MatchesFilters checks if the Tags struct matches all given filters.
@@ -125,7 +126,7 @@ type Scenario struct {
 
 	// Runtime contains the runtime state of the scenario. It's populated in the beginning of the test run
 	Runtime *ScenarioRuntime
-	T       *testing.T
+	T       testing.TB
 }
 
 type ScenarioRuntime struct {
@@ -172,7 +173,7 @@ func (s *Scenario) PrepareAKSNodeConfig() {
 
 // PrepareVMSSModel mutates the input VirtualMachineScaleSet based on the scenario's VMConfigMutator, if configured.
 // This method will also use the scenario's configured VHD selector to modify the input VMSS to reference the correct VHD resource.
-func (s *Scenario) PrepareVMSSModel(ctx context.Context, t *testing.T, vmss *armcompute.VirtualMachineScaleSet) {
+func (s *Scenario) PrepareVMSSModel(ctx context.Context, t testing.TB, vmss *armcompute.VirtualMachineScaleSet) {
 	resourceID, err := CachedPrepareVHD(ctx, GetVHDRequest{
 		Image:    *s.VHD,
 		Location: s.Location,

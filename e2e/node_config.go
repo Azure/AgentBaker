@@ -97,7 +97,7 @@ var baseKubeletConfig = &aksnodeconfigv1.KubeletConfig{
 	},
 }
 
-func getBaseNBC(t *testing.T, cluster *Cluster, vhd *config.Image) *datamodel.NodeBootstrappingConfiguration {
+func getBaseNBC(t testing.TB, cluster *Cluster, vhd *config.Image) *datamodel.NodeBootstrappingConfiguration {
 	var nbc *datamodel.NodeBootstrappingConfiguration
 
 	if vhd.Distro.IsWindowsDistro() {
@@ -266,7 +266,7 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnod
 // TODO(ace): minimize the actual required defaults.
 // this is what we previously used for bash e2e from e2e/nodebootstrapping_template.json.
 // which itself was extracted from baker_test.go logic, which was inherited from aks-engine.
-func baseTemplateLinux(t *testing.T, location string, k8sVersion string, arch string) *datamodel.NodeBootstrappingConfiguration {
+func baseTemplateLinux(t testing.TB, location string, k8sVersion string, arch string) *datamodel.NodeBootstrappingConfiguration {
 	config := &datamodel.NodeBootstrappingConfiguration{
 		ContainerService: &datamodel.ContainerService{
 			ID:       "",
@@ -741,7 +741,7 @@ func baseTemplateLinux(t *testing.T, location string, k8sVersion string, arch st
 // this been crafted with a lot of trial and pain, some values are not needed, but it takes a lot of time to figure out which ones.
 // and we hope to move on to a different config, so I don't want to invest any more time in this-
 // please keep the kubernetesVersion in sync with componets.json so that during e2e no extra binaries are required.
-func baseTemplateWindows(t *testing.T, location string) *datamodel.NodeBootstrappingConfiguration {
+func baseTemplateWindows(t testing.TB, location string) *datamodel.NodeBootstrappingConfiguration {
 	kubernetesVersion := "1.30.12"
 	// kubernetesVersion := "1.31.9"
 	// kubernetesVersion := "v1.32.5"

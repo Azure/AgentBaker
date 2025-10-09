@@ -17,6 +17,7 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources v1.2.0
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage v1.8.1
 	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v1.6.2
+	github.com/blang/semver v3.5.1+incompatible
 	github.com/caarlos0/env/v11 v11.3.1
 	github.com/joho/godotenv v1.5.1
 	github.com/sanity-io/litter v1.5.5
@@ -34,7 +35,6 @@ require (
 	github.com/Azure/go-autorest/autorest/to v0.4.1 // indirect
 	github.com/Masterminds/semver/v3 v3.4.0 // indirect
 	github.com/aws/aws-sdk-go-v2 v1.38.2 // indirect
-	github.com/blang/semver v3.5.1+incompatible // indirect
 	github.com/clarketm/json v1.17.1 // indirect
 	github.com/coreos/butane v0.25.1 // indirect
 	github.com/coreos/go-json v0.0.0-20230131223807-18775e0fb4fb // indirect
