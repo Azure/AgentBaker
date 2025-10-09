@@ -180,6 +180,7 @@ $global:TLSBootstrapToken = "{{GetTLSBootstrapTokenForKubeConfig}}"
 
 # Secure TLS Bootstrap settings
 $global:EnableSecureTLSBootstrapping = [System.Convert]::ToBoolean("{{EnableSecureTLSBootstrapping}}");
+$global:SecureTLSBootstrappingDeadline = "{{GetSecureTLSBootstrappingDeadline}}"
 $global:CustomSecureTLSBootstrapClientURL = "{{GetCustomSecureTLSBootstrapClientURL}}";
 # uniquely identifies AKS's Entra ID application, see: https://learn.microsoft.com/en-us/azure/aks/kubelogin-authentication#how-to-use-kubelogin-with-aks
 # this is used by aks-secure-tls-bootstrap-client.exe when requesting AAD tokens
@@ -461,7 +462,7 @@ function BasePrep {
     Adjust-DynamicPortRange
     Register-LogsCleanupScriptTask
     Register-NodeResetScriptTask
-    
+
     Update-DefenderPreferences
 
     $windowsVersion = Get-WindowsVersion
@@ -494,7 +495,7 @@ function NodePrep {
 
     Write-Log "Starting NodePrep - Cluster integration"
     Logs-To-Event -TaskName "AKS.WindowsCSE.NodePrep" -TaskMessage "Starting NodePrep - Cluster integration"
-    
+
     Check-APIServerConnectivity -MasterIP $MasterIP
 
     if ($global:WindowsCalicoPackageURL) {
@@ -599,7 +600,7 @@ finally
 
     # Create appropriate completion file based on mode
     $completionFilePath = if ($PreProvisionOnly) { "C:\AzureData\base_prep.complete" } else { $CSEResultFilePath }
-    
+
     if ($global:ExitCode -eq 0) {
         Set-Content -Path $completionFilePath -Value $global:ExitCode -Force
     } else {

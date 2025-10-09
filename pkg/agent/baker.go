@@ -529,6 +529,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"EnableSecureTLSBootstrapping": func() bool {
 			return config.SecureTLSBootstrappingConfig.GetEnabled()
 		},
+		"GetSecureTLSBootstrappingDeadline": func() string {
+			return config.SecureTLSBootstrappingConfig.GetDeadline()
+		},
 		"GetCustomSecureTLSBootstrapClientURL": func() string {
 			return config.SecureTLSBootstrappingConfig.GetCustomClientDownloadURL()
 		},
@@ -1614,7 +1617,7 @@ root = "{{GetDataDir}}"{{- end}}
   snapshotter = "overlaybd"
   disable_snapshot_annotations = false
 {{- end}}
-    
+
 [plugins."io.containerd.cri.v1.images".pinned_images]
   sandbox = "{{GetPodInfraContainerSpec}}"
 {{- if IsKubernetesVersionGe "1.22.0"}}

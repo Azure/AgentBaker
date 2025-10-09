@@ -540,7 +540,7 @@ configureAndStartSecureTLSBootstrapping() {
 [Unit]
 Before=kubelet.service
 [Service]
-Environment="BOOTSTRAP_FLAGS=--aad-resource=${CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_SERVER_APP_ID:-$AKS_AAD_SERVER_APP_ID} --apiserver-fqdn=${API_SERVER_NAME} --cloud-provider-config=${AZURE_JSON_PATH}"
+Environment="BOOTSTRAP_FLAGS=--deadline=${SECURE_TLS_BOOTSTRAPPING_DEADLINE:-$DEFAULT_SECURE_TLS_BOOTSTRAPPING_DEADLINE} --aad-resource=${AKS_AAD_SERVER_APP_ID} --apiserver-fqdn=${API_SERVER_NAME} --cloud-provider-config=${AZURE_JSON_PATH}"
 [Install]
 # once bootstrap tokens are no longer a fallback, kubelet.service needs to be a RequiredBy=
 WantedBy=kubelet.service
