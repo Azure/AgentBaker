@@ -550,7 +550,7 @@ function New-ExternalHnsNetwork {
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_MANAGEMENT_IP_NOT_EXIST -ErrorMessage "Failed to find $ipv4Address after creating $externalNetwork network"
     }
 
-    write-log $mgmtIPAfterNetworkCreate
+    Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Found management IP mgmtIPAfterNetworkCreate: $mgmtIPAfterNetworkCreate"
 
     Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "It took $( $StopWatch.Elapsed.Seconds ) seconds to create the $externalNetwork network."
 
@@ -682,14 +682,14 @@ function Get-HnsPsm1 {
         [Parameter(Mandatory = $true)][string]
         $HNSModule
     )
-    Logs-To-Event "ASK.WindowsCSE.GetAndImportHNSModule" -TaskMessage "Start to get and import hns module. NetworkPlugin: $global:NetworkPlugin"
+    Logs-To-Event "AKS.WindowsCSE.GetAndImportHNSModule" -TaskMessage "Start to get and import hns module. NetworkPlugin: $global:NetworkPlugin"
 
     # HNSModule is C:\k\hns.v2.psm1 when container runtime is Containerd
     $fileName = [IO.Path]::GetFileName($HNSModule)
     # Get-LogCollectionScripts will copy hns module file to C:\k\debug
     $sourceFile = [IO.Path]::Combine('C:\k\debug\', $fileName)
     try {
-        Write-Log "Copying $sourceFile to $HNSModule."
+       Logs-To-Event "AKS.WindowsCSE.GetAndImportHNSModule" -TaskMessage  "Copying $sourceFile to $HNSModule."
         Copy-Item -Path $sourceFile -Destination "$HNSModule"
     }
     catch {
