@@ -973,24 +973,18 @@ update_base_url() {
   echo "$initial_url"
 }
 
-oras_login_with_kubelet_identity() {
+get_refresh_token_for_acr() {
     local acr_url=$1
     local client_id=$2
     local tenant_id=$3
 
+    if [ -z "$acr_url" ]; then
+        echo "ACR URL is not set. Oras login is not possible, proceeding with anonymous pull"
+        return
+    fi
     if [ -z "$client_id" ] || [ -z "$tenant_id" ]; then
         echo "client_id or tenant_id are not set. Oras login is not possible, proceeding with anonymous pull"
         return
-    fi
-
-    retrycmd_can_oras_ls_acr 10 5 $acr_url
-    ret_code=$?
-    if [ "$ret_code" -eq 0 ]; then
-        echo "anonymous pull is allowed for acr '$acr_url', proceeding with anonymous pull"
-        return
-    elif [ "$ret_code" -ne 1 ]; then
-        echo "failed with an error other than unauthorized, exiting.."
-        return $ret_code
     fi
 
     set +x
@@ -1024,12 +1018,44 @@ oras_login_with_kubelet_identity() {
         return $ERR_ORAS_PULL_UNAUTHORIZED
     fi
 
+    unset ACCESS_TOKEN raw_refresh_token   # Clears sensitive data from memory
+    echo "$REFRESH_TOKEN"
+}
+
+oras_login_with_kubelet_identity() {
+    local acr_url=$1
+    local client_id=$2
+    local tenant_id=$3
+
+    if [ -z "$client_id" ] || [ -z "$tenant_id" ]; then
+        echo "client_id or tenant_id are not set. Oras login is not possible, proceeding with anonymous pull"
+        return
+    fi
+
+    retrycmd_can_oras_ls_acr 10 5 $acr_url
+    ret_code=$?
+    if [ "$ret_code" -eq 0 ]; then
+        echo "anonymous pull is allowed for acr '$acr_url', proceeding with anonymous pull"
+        return
+    elif [ "$ret_code" -ne 1 ]; then
+        echo "failed with an error other than unauthorized, exiting.."
+        return $ret_code
+    fi
+
+    set +x
+    REFRESH_TOKEN=$(get_refresh_token_for_acr $acr_url $client_id $tenant_id)
+    ret_code=$?
+    if [ "$ret_code" -ne 0 ]; then
+        echo $REFRESH_TOKEN
+        return $ret_code
+    fi
+
     retrycmd_oras_login 3 5 $acr_url "$REFRESH_TOKEN"
     if [ "$?" -ne 0 ]; then
         echo "failed to login to acr '$acr_url' with identity token"
         return $ERR_ORAS_PULL_UNAUTHORIZED
     fi
-    unset ACCESS_TOKEN REFRESH_TOKEN  # Clears sensitive data from memory
+    unset REFRESH_TOKEN  # Clears sensitive data from memory
     set -x
 
     retrycmd_can_oras_ls_acr 10 5 $acr_url
@@ -1102,6 +1128,15 @@ extract_tarball() {
             sudo tar -xvf "$tarball" -C "$dest" --no-same-owner "$@"
             ;;
     esac
+}
+
+function extract_value_from_kubelet_flags(){
+    local kubelet_flags=$1
+    local key=$2
+
+    key="${key#--}"
+    value=$(echo "$kubelet_flags" | sed -n "s/.*--${key}=\([^ ]*\).*/\1/p")
+    echo "$value"
 }
 
 #HELPERSEOF

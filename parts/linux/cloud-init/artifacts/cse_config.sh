@@ -741,6 +741,11 @@ EOF
         fi
     fi
 
+    # kubelet cannot pull pause image from anonymous disabled registry during runtime
+    if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
+        logs_to_events "AKS.CSE.ensureKubelet.ensurePodInfraContainerImage" ensurePodInfraContainerImage
+    fi
+
     # start measure-tls-bootstrapping-latency.service without waiting for the main process to start, while ignoring any failures
     if ! systemctlEnableAndStartNoBlock measure-tls-bootstrapping-latency 30; then
         echo "failed to start measure-tls-bootstrapping-latency.service"

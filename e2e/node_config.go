@@ -23,7 +23,7 @@ var baseKubeletConfig = &aksnodeconfigv1.KubeletConfig{
 		"--cloud-config":              "",
 		"--cloud-provider":            "external",
 		"--kubeconfig":                "/var/lib/kubelet/kubeconfig",
-		"--pod-infra-container-image": "mcr.microsoft.com/oss/kubernetes/pause:3.6",
+		"--pod-infra-container-image": "mcr.microsoft.com/oss/v2/kubernetes/pause:3.6",
 	},
 	KubeletNodeLabels: map[string]string{
 		"agentpool":                               "nodepool2",
