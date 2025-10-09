@@ -114,7 +114,7 @@ Describe 'cse_helpers.sh'
             The output should equal "Established connectivity to packages.aks.azure.com."
             The variable PACKAGE_DOWNLOAD_BASE_URL should equal "packages.aks.azure.com"
         End
-    End       
+    End
 
     Describe 'pkgVersionsV2'
         It 'returns release version r2004 for package pkgVersionsV2 in UBUNTU 20.04'
@@ -153,7 +153,7 @@ Describe 'cse_helpers.sh'
 
     Describe 'getLatestPkgVersionFromK8sVersion'
     COMPONENTS_FILEPATH="spec/parts/linux/cloud-init/artifacts/test_components.json"
-    
+
         It 'returns correct latestVersion for Ubuntu'
             k8sVersion="1.32.3"
             OS="UBUNTU"
@@ -255,7 +255,7 @@ Describe 'cse_helpers.sh'
             When run oras_login_with_kubelet_identity $acr_url $client_id $tenant_id
             The status should be failure
             The stdout should include "failed to retrieve kubelet identity token"
-        End  
+        End
         It 'should fail if refresh token is an error'
             retrycmd_can_oras_ls_acr() {
                 return 1
@@ -272,7 +272,7 @@ Describe 'cse_helpers.sh'
             When run oras_login_with_kubelet_identity $acr_url $client_id $tenant_id
             The status should be failure
             The stdout should include "failed to retrieve refresh token"
-        End  
+        End
         It 'should fail if oras cannot login'
             retrycmd_can_oras_ls_acr() {
                 return 1
@@ -292,7 +292,7 @@ Describe 'cse_helpers.sh'
             When run oras_login_with_kubelet_identity $acr_url $client_id $tenant_id
             The status should be failure
             The stdout should include "failed to login to acr '$acr_url' with identity token"
-        End  
+        End
         It 'should succeed if oras can login'
             retrycmd_get_aad_access_token(){
                 echo "{\"access_token\":\"myAccessToken\"}"
@@ -389,16 +389,16 @@ Describe 'cse_helpers.sh'
                 *) return 0 ;;
             esac
         }
-        
+
         systemctlEnableAndStart() {
             echo "systemctlEnableAndStart called with: $1"
             return 0
         }
-        
+
         rm() {
             echo "rm called with: $1"
         }
-        
+
         semverCompare() {
             # return 1 if MOCK_VERSION_COMPARE is 1, else return 0
             if [ "$MOCK_VERSION_COMPARE" = "1" ]; then
@@ -411,7 +411,7 @@ Describe 'cse_helpers.sh'
             When call configureSSHService "MARINER"
             The status should be success
         End
-        
+
         It 'handles Ubuntu versions before 22.10 correctly'
             MOCK_VERSION_COMPARE=0
             When call configureSSHService "UBUNTU" "22.04"
@@ -426,7 +426,7 @@ Describe 'cse_helpers.sh'
             The stdout should include "SSH service successfully reconfigured and started"
             The status should be success
         End
-        
+
         It 'properly configures SSH for Ubuntu 24.04 with active socket'
             MOCK_VERSION_COMPARE=1
             MOCK_SSH_SOCKET_ACTIVE="true"
@@ -482,6 +482,50 @@ Describe 'cse_helpers.sh'
             The status should be failure
             The stdout should eq ''
             The stderr should eq ''
+        End
+    End
+
+    Describe 'extract_value_from_kubelet_flags'
+        It 'extracts value for existing flag'
+            KUBELET_FLAGS="--flag1=value1 --flag2=value2 --flag3=value3"
+            When call extract_value_from_kubelet_flags "$KUBELET_FLAGS" "flag2"
+            The output should eq "value2"
+            The status should be success
+        End
+
+        It 'extracts value for existing flag with dash'
+            KUBELET_FLAGS="--flag1=value1 --flag2=value2 --flag3=value3"
+            When call extract_value_from_kubelet_flags "$KUBELET_FLAGS" "--flag1"
+            The output should eq "value1"
+            The status should be success
+        End
+
+        It 'returns empty string for non-existing flag'
+            KUBELET_FLAGS="--flag1=value1 --flag2=value2 --flag3=value3"
+            When call extract_value_from_kubelet_flags "$KUBELET_FLAGS" "flag4"
+            The output should eq ""
+            The status should be success
+        End
+
+        It 'handles flags without values'
+            KUBELET_FLAGS="--flag1 --flag2=value2 --flag3"
+            When call extract_value_from_kubelet_flags "$KUBELET_FLAGS" "flag1"
+            The output should eq ""
+            The status should be success
+        End
+
+        It 'handles empty KUBELET_FLAGS'
+            KUBELET_FLAGS=""
+            When call extract_value_from_kubelet_flags "$KUBELET_FLAGS" "flag1"
+            The output should eq ""
+            The status should be success
+        End
+
+        It 'handles flags with special characters in values'
+            KUBELET_FLAGS="--flag1=value-with-dash --flag2=value_with_underscore --flag3=value.with.dot"
+            When call extract_value_from_kubelet_flags "$KUBELET_FLAGS" "flag1"
+            The output should eq "value-with-dash"
+            The status should be success
         End
     End
 End

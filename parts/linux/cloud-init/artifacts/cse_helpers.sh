@@ -139,6 +139,8 @@ ERR_SECURE_TLS_BOOTSTRAP_START_FAILURE=220 # Error starting the secure TLS boots
 ERR_CLOUD_INIT_FAILED=223 # Error indicating that cloud-init returned exit code 1 in cse_cmd.sh
 ERR_NVIDIA_DRIVER_INSTALL=224 # Error determining if nvidia driver install should be skipped
 
+ERR_PULL_POD_INFRA_CONTAINER_IMAGE=225 # Error pulling pause image
+
 # For both Ubuntu and Mariner, /etc/*-release should exist.
 # For unit tests, the OS and OS_VERSION will be set in the unit test script.
 # So whether it's if or else actually doesn't matter to our unit test.
@@ -332,6 +334,28 @@ retrycmd_get_tarball_from_registry_with_oras() {
             timeout 60 oras pull $url -o $tar_folder --registry-config ${ORAS_REGISTRY_CONFIG_FILE} > $ORAS_OUTPUT 2>&1
             if [ "$?" -ne 0 ]; then
                 cat $ORAS_OUTPUT
+            fi
+        fi
+    done
+}
+
+retrycmd_cp_oci_layout_with_oras() {
+    retries=$1; wait_sleep=$2; path=$3; tag=$4; url=$5
+    mkdir -p "$path"
+    echo "${retries} retries"
+    for i in $(seq 1 $retries); do
+        if [ "$i" -eq "$retries" ]; then
+            echo "Failed to oras cp $url to $path:$tag after $retries attempts"
+            return $ERR_PULL_POD_INFRA_CONTAINER_IMAGE
+        else
+            if [ "$i" -gt 1 ]; then
+                sleep $wait_sleep
+            fi
+            timeout 120 oras cp "$url" "$path:$tag" --to-oci-layout --from-registry-config ${ORAS_REGISTRY_CONFIG_FILE} > $ORAS_OUTPUT 2>&1
+            if [ "$?" -ne 0 ]; then
+                cat $ORAS_OUTPUT
+            else
+                return 0
             fi
         fi
     done
@@ -1104,4 +1128,12 @@ extract_tarball() {
     esac
 }
 
+function extract_value_from_kubelet_flags(){
+    local kubelet_flags=$1
+    local key=$2
+
+    key="${key#--}"
+    value=$(echo "$kubelet_flags" | sed -n "s/.*--${key}=\([^ ]*\).*/\1/p")
+    echo "$value"
+}
 #HELPERSEOF
