@@ -230,7 +230,7 @@ Describe 'cse_install.sh'
             ENABLE_SECURE_TLS_BOOTSTRAPPING="true"
             CUSTOM_SECURE_TLS_BOOTSTRAPPING_CLIENT_DOWNLOAD_URL=""
             When call installSecureTLSBootstrapClient
-            The output line 1 should equal "secure TLS bootstrapping is enabled but no custom client URL was provided, nothing to download"
+            The output line 1 should equal "secure TLS bootstrapping is enabled but no custom client download URL was provided, nothing to download"
             The status should be success
         End
 
