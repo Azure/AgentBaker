@@ -534,7 +534,7 @@ ensureKubeCACert() {
 # drop-in path defined outside so configureAndStartSecureTLSBootstrapping can be unit tested
 SECURE_TLS_BOOTSTRAPPING_DROP_IN="/etc/systemd/system/secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf"
 configureAndStartSecureTLSBootstrapping() {
-    BOOTSTRAP_CLIENT_FLAGS="--deadline=${SECURE_TLS_BOOTSTRAPPING_DEADLINE:-$DEFAULT_SECURE_TLS_BOOTSTRAPPING_DEADLINE} --aad-resource=${SECURE_TLS_BOOTSTRAPPING_AAD_RESOURCE:-$AKS_AAD_SERVER_APP_ID} --apiserver-fqdn=${API_SERVER_NAME} --cloud-provider-config=${AZURE_JSON_PATH}"
+    BOOTSTRAP_CLIENT_FLAGS="--deadline=${SECURE_TLS_BOOTSTRAPPING_DEADLINE:-"2m0s"} --aad-resource=${SECURE_TLS_BOOTSTRAPPING_AAD_RESOURCE:-$AKS_AAD_SERVER_APP_ID} --apiserver-fqdn=${API_SERVER_NAME} --cloud-provider-config=${AZURE_JSON_PATH}"
     if [ -n "${SECURE_TLS_BOOTSTRAPPING_USER_ASSIGNED_IDENTITY_ID}" ]; then
         BOOTSTRAP_CLIENT_FLAGS="${BOOTSTRAP_CLIENT_FLAGS} --user-assigned-identity-id=$SECURE_TLS_BOOTSTRAPPING_USER_ASSIGNED_IDENTITY_ID"
     fi
