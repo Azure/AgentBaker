@@ -586,9 +586,14 @@ function Get-Node-Ipv4-Address {
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_LOAD_METADATA -ErrorMessage "Failed to load metadata content"
     }
     $ipv4Address = GetIpv4AddressFromParsedContent -ParsedContent $ParsedContent
-    if (-not $ipv4Address) {
-        Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Failed to retrieve IPv4 address from metadata."
+    if (!$ipv4Address) {
+        Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "No IPv4 address found in metadata."
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_PARSE_METADATA -ErrorMessage "No IPv4 address found in metadata"
+    }
+    $ipv4Address=$ipv4Address.Trim()
+    if ([string]::IsNullOrEmpty($ipv4Address)) {
+        Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "empty IPv4 address found in metadata."
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_PARSE_METADATA -ErrorMessage "empty IPv4 address found in metadata"
     }
 
     Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Found IPv4 address from metadata: $ipv4Address"
@@ -602,12 +607,17 @@ function Get-Node-Ipv6-Address {
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_LOAD_METADATA -ErrorMessage "Failed to load metadata content"
     }
     $ipv6Address = GetIpv6AddressFromParsedContent -ParsedContent $ParsedContent
-    if (-not $ipv6Address) {
-        Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Failed to retrieve IPv6 address from metadata."
+    if (!$ipv6Address) {
+        Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "No IPv6 address found in metadata."
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_PARSE_METADATA -ErrorMessage "No IPv6 address found in metadata"
     }
+    $ipv6Address=$ipv6Address.Trim()
+    if ([string]::IsNullOrEmpty($ipv6Address)) {
+        Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "empty IPv6 address found in metadata."
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_PARSE_METADATA -ErrorMessage "empty IPv6 address found in metadata"
+    }
 
-    Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Found IPv6 address from metadata: $ipv4Address"
+    Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Found IPv6 address from metadata: $ipv6Address"
     return $ipv6Address
 }
 

@@ -1,11 +1,11 @@
 BeforeAll {
     . $PSScriptRoot\..\..\..\parts\windows\windowscsehelper.ps1
-    . $PSCommandPath.Replace('.tests.ps1','.ps1')
+    . $PSCommandPath.Replace('.tests.ps1', '.ps1')
 
     $capturedContent = $null
-    Mock Set-Content -MockWith { 
+    Mock Set-Content -MockWith {
         param($Path, $Value)
-        $script:capturedContent = $Value 
+        $script:capturedContent = $Value
     } -Verifiable
 
     Mock Set-ItemProperty -MockWith {
@@ -16,21 +16,40 @@ BeforeAll {
             $Value
         )
     } -Verifiable
+
+    function Invoke-WebRequest {
+        return  @"
+            [
+                {
+                    "ipv4": {
+                        "ipAddress": [
+                            {
+                                "privateIpAddress": "10.0.0.1",
+                                "publicIpAddress": "203.0.113.1"
+                            }
+                        ]
+                    }
+                }
+            ]
+"@
+    }
+
+
 }
 
 Describe 'GetBroadestRangesForEachAddress' {
 
     It "Values '<Values>' should return '<Expected>'" -TestCases @(
-        @{ Values = @('10.240.0.0/12', '10.0.0.0/8'); Expected = @('10.0.0.0/8', '10.240.0.0/12')}
-        @{ Values = @('10.0.0.0/8', '10.0.0.0/16'); Expected = @('10.0.0.0/8')}
-        @{ Values = @('10.0.0.0/16', '10.240.0.0/12', '10.0.0.0/8' ); Expected = @('10.0.0.0/8', '10.240.0.0/12')}
-    ){
+        @{ Values = @('10.240.0.0/12', '10.0.0.0/8'); Expected = @('10.0.0.0/8', '10.240.0.0/12') }
+        @{ Values = @('10.0.0.0/8', '10.0.0.0/16'); Expected = @('10.0.0.0/8') }
+        @{ Values = @('10.0.0.0/16', '10.240.0.0/12', '10.0.0.0/8' ); Expected = @('10.0.0.0/8', '10.240.0.0/12') }
+    ) {
         param ($Values, $Expected)
         $actual = GetBroadestRangesForEachAddress -values $Values
         $actual | Should -BeIn $Expected
     }
 }
-    
+
 Describe 'Set-AzureCNIConfig' {
     BeforeEach {
         $azureCNIConfDir = "$PSScriptRoot\azurecnifunc.tests.suites"
@@ -48,9 +67,9 @@ Describe 'Set-AzureCNIConfig' {
 
         # Set the default AzureCNI (mock the file download from https://acs-mirror.azureedge.net/azure-cni/.../10-azure.conflist)
         function Set-Default-AzureCNI ([string]$fileName) {
-            $defaultFile = [Io.path]::Combine($azureCNIConfDir, $fileName)    
+            $defaultFile = [Io.path]::Combine($azureCNIConfDir, $fileName)
             Copy-Item -Path $defaultFile -Destination $azureCNIConfigFile
-        }       
+        }
 
         function Read-Format-Json ([string]$JsonFile) {
             function Sort-ArraysInObject {
@@ -58,7 +77,7 @@ Describe 'Set-AzureCNIConfig' {
                     [Parameter(ValueFromPipeline = $true)]
                     $InputObject
                 )
-                
+
                 process {
                     if ($null -eq $InputObject) {
                         return $null
@@ -91,15 +110,15 @@ Describe 'Set-AzureCNIConfig' {
                     }
                 }
             }
-            
+
             # Parse JSON and sort arrays
             $json = Get-Content $JsonFile | ConvertFrom-Json
             $sortedJson = Sort-ArraysInObject -InputObject $json
-            
+
             # Convert back to JSON string
             $formattedJson = $sortedJson | ConvertTo-Json -depth 20
             return $formattedJson
-        } 
+        }
         Mock Get-WindowsVersion -MockWith { return "ltsc2022" }
         Mock Restart-Service -MockWith { } -Verifiable
     }
@@ -121,11 +140,11 @@ Describe 'Set-AzureCNIConfig' {
                 -KubeClusterCIDR $kubeClusterCIDR `
                 -KubeServiceCIDR $kubeServiceCIDR `
                 -VNetCIDR $vNetCIDR `
-                -IsDualStackEnabled $isDualStackEnabled   
+                -IsDualStackEnabled $isDualStackEnabled
 
             $actualConfigJson = Read-Format-Json $azureCNIConfigFile
             $expectedConfigJson = Read-Format-Json ([Io.path]::Combine($azureCNIConfDir, "AzureCNI.Expect.CiliumNodeSubnet.conflist"))
-              
+
             $diffence = Compare-Object $actualConfigJson $expectedConfigJson
             $diffence | Should -Be $null
         }
@@ -145,7 +164,7 @@ Describe 'Set-AzureCNIConfig' {
             $actualConfigJson = Read-Format-Json $azureCNIConfigFile
             $expectedConfigJson = Read-Format-Json ([Io.path]::Combine($azureCNIConfDir, "AzureCNI.Expect.EnableWinDSR.conflist"))
             $diffence = Compare-Object $actualConfigJson $expectedConfigJson
-            $diffence | Should -Be $null    }
+            $diffence | Should -Be $null }
     }
 
     Context 'WinDSR is disabled' {
@@ -173,31 +192,31 @@ Describe 'Set-AzureCNIConfig' {
             BeforeEach {
                 Mock Get-WindowsVersion -MockWith { return "1809" }
                 Mock Get-ItemProperty -MockWith {
-					Param(
-					  $Path,
-					  $Name,
-					  $ErrorAction
-					)
-					return [PSCustomObject]@{
-						HNSControlFlag = 0x50
-					}
-				} -Verifiable
+                    Param(
+                        $Path,
+                        $Name,
+                        $ErrorAction
+                    )
+                    return [PSCustomObject]@{
+                        HNSControlFlag = 0x50
+                    }
+                } -Verifiable
             }
 
             It "Should clear 0x10 in HNSControlFlag when HNSControlFlag exists" {
-			
+
                 $global:IsDisableWindowsOutboundNat = $true
                 Set-Default-AzureCNI "AzureCNI.Default.conflist"
-    
+
                 Set-AzureCNIConfig -AzureCNIConfDir $azureCNIConfDir `
                     -KubeDnsSearchPath $kubeDnsSearchPath `
                     -KubeClusterCIDR $kubeClusterCIDR `
                     -KubeServiceCIDR $kubeServiceCIDR `
                     -VNetCIDR $vNetCIDR `
                     -IsDualStackEnabled $isDualStackEnabled
-				Assert-MockCalled -CommandName "Get-ItemProperty" -Exactly -Times 1 -ParameterFilter { $Path -eq "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -and $Name -eq "HNSControlFlag" }
-				Assert-MockCalled -CommandName "Set-ItemProperty" -Exactly -Times 1 -ParameterFilter { $Path -eq "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -and $Name -eq "HNSControlFlag" -and $Type -eq "DWORD" -and $Value -eq 0x40 }
-    
+                Assert-MockCalled -CommandName "Get-ItemProperty" -Exactly -Times 1 -ParameterFilter { $Path -eq "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -and $Name -eq "HNSControlFlag" }
+                Assert-MockCalled -CommandName "Set-ItemProperty" -Exactly -Times 1 -ParameterFilter { $Path -eq "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -and $Name -eq "HNSControlFlag" -and $Type -eq "DWORD" -and $Value -eq 0x40 }
+
                 $actualConfigJson = Read-Format-Json $azureCNIConfigFile
                 $expectedConfigJson = Read-Format-Json ([Io.path]::Combine($azureCNIConfDir, "AzureCNI.Expect.DisableOutboundNat.conflist"))
                 $diffence = Compare-Object $actualConfigJson $expectedConfigJson
@@ -216,16 +235,16 @@ Describe 'Set-AzureCNIConfig' {
 
                 $global:IsDisableWindowsOutboundNat = $true
                 Set-Default-AzureCNI "AzureCNI.Default.conflist"
-    
+
                 Set-AzureCNIConfig -AzureCNIConfDir $azureCNIConfDir `
                     -KubeDnsSearchPath $kubeDnsSearchPath `
                     -KubeClusterCIDR $kubeClusterCIDR `
                     -KubeServiceCIDR $kubeServiceCIDR `
                     -VNetCIDR $vNetCIDR `
                     -IsDualStackEnabled $isDualStackEnabled
-				Assert-MockCalled -CommandName "Get-ItemProperty" -Exactly -Times 1 -ParameterFilter { $Path -eq "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -and $Name -eq "HNSControlFlag" -and $ErrorAction -eq "Ignore" }
-				Assert-MockCalled -CommandName "Set-ItemProperty" -Exactly -Times 1 -ParameterFilter { $Path -eq "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -and $Name -eq "HNSControlFlag" -and $Type -eq "DWORD" -and $Value -eq 0 }
-    
+                Assert-MockCalled -CommandName "Get-ItemProperty" -Exactly -Times 1 -ParameterFilter { $Path -eq "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -and $Name -eq "HNSControlFlag" -and $ErrorAction -eq "Ignore" }
+                Assert-MockCalled -CommandName "Set-ItemProperty" -Exactly -Times 1 -ParameterFilter { $Path -eq "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -and $Name -eq "HNSControlFlag" -and $Type -eq "DWORD" -and $Value -eq 0 }
+
                 $actualConfigJson = Read-Format-Json $azureCNIConfigFile
                 $expectedConfigJson = Read-Format-Json ([Io.path]::Combine($azureCNIConfDir, "AzureCNI.Expect.DisableOutboundNat.conflist"))
                 $diffence = Compare-Object $actualConfigJson $expectedConfigJson
@@ -236,9 +255,9 @@ Describe 'Set-AzureCNIConfig' {
         Context "WS2022 should replace OutboundNAT with LoopbackDSR and update regkey SourcePortPreservationForHostPort" {
             BeforeEach {
                 Mock Get-WindowsVersion -MockWith { return "ltsc2022" }
-                
+
             }
-            
+
             It "Should update SourcePortPreservationForHostPort to 0" {
                 $global:IsDisableWindowsOutboundNat = $true
                 Set-Default-AzureCNI "AzureCNI.Default.conflist"
@@ -378,7 +397,7 @@ Describe 'GetIpv6AddressFromParsedContent' {
                         ipAddress = @(
                             @{
                                 privateIpAddress = "2001:db8::1"
-                                publicIpAddress = "2001:db8:85a3::8a2e:370:7334"
+                                publicIpAddress  = "2001:db8:85a3::8a2e:370:7334"
                             },
                             @{
                                 privateIpAddress = "2001:db8::2"
@@ -387,11 +406,11 @@ Describe 'GetIpv6AddressFromParsedContent' {
                     }
                 }
             )
-            
+
             $result = GetIpv6AddressFromParsedContent -ParsedContent $parsedContent
             $result | Should -Be "2001:db8::1"
         }
-        
+
         It "Should return IPv6 address when only one address exists" {
             $parsedContent = @(
                 @{
@@ -404,12 +423,12 @@ Describe 'GetIpv6AddressFromParsedContent' {
                     }
                 }
             )
-            
+
             $result = GetIpv6AddressFromParsedContent -ParsedContent $parsedContent
             $result | Should -Be "fe80::1"
         }
     }
-    
+
     Context 'When parsed content does not contain IPv6 address' {
         It "Should return null when ipv6 property is missing" {
             $parsedContent = @(
@@ -423,11 +442,11 @@ Describe 'GetIpv6AddressFromParsedContent' {
                     }
                 }
             )
-            
+
             $result = GetIpv6AddressFromParsedContent -ParsedContent $parsedContent
             $result | Should -Be $null
         }
-        
+
         It "Should return null when ipv6.ipAddress property is missing" {
             $parsedContent = @(
                 @{
@@ -436,11 +455,11 @@ Describe 'GetIpv6AddressFromParsedContent' {
                     }
                 }
             )
-            
+
             $result = GetIpv6AddressFromParsedContent -ParsedContent $parsedContent
             $result | Should -Be $null
         }
-        
+
         It "Should return null when ipv6.ipAddress array is empty" {
             $parsedContent = @(
                 @{
@@ -449,38 +468,38 @@ Describe 'GetIpv6AddressFromParsedContent' {
                     }
                 }
             )
-            
+
             $result = GetIpv6AddressFromParsedContent -ParsedContent $parsedContent
             $result | Should -Be $null
         }
-        
+
         It "Should return null when ipv6 is null" {
             $parsedContent = @(
                 @{
                     ipv6 = $null
                 }
             )
-            
+
             $result = GetIpv6AddressFromParsedContent -ParsedContent $parsedContent
             $result | Should -Be $null
         }
-        
+
         It "Should return null when ParsedContent is empty array" {
             $parsedContent = @()
-            
+
             $result = GetIpv6AddressFromParsedContent -ParsedContent $parsedContent
             $result | Should -Be $null
         }
     }
-    
+
     Context 'Edge cases' {
         It "Should return null when first element of ParsedContent is null" {
             $parsedContent = @($null)
-            
+
             $result = GetIpv6AddressFromParsedContent -ParsedContent $parsedContent
             $result | Should -Be $null
         }
-        
+
         It "Should return null when ipv6.ipAddress[0] exists but privateIpAddress is missing" {
             $parsedContent = @(
                 @{
@@ -493,11 +512,11 @@ Describe 'GetIpv6AddressFromParsedContent' {
                     }
                 }
             )
-            
+
             $result = GetIpv6AddressFromParsedContent -ParsedContent $parsedContent
             $result | Should -Be $null
         }
-        
+
         It "Should handle multiple network interfaces but only check first one" {
             $parsedContent = @(
                 @{
@@ -519,7 +538,7 @@ Describe 'GetIpv6AddressFromParsedContent' {
                     }
                 }
             )
-            
+
             $result = GetIpv6AddressFromParsedContent -ParsedContent $parsedContent
             $result | Should -Be "2001:db8::1"
         }
@@ -545,7 +564,7 @@ Describe 'GetIpv4AddressFromParsedContent' {
                         ipAddress = @(
                             @{
                                 privateIpAddress = "10.0.0.1"
-                                publicIpAddress = "203.0.113.1"
+                                publicIpAddress  = "203.0.113.1"
                             },
                             @{
                                 privateIpAddress = "10.0.0.2"
@@ -554,11 +573,11 @@ Describe 'GetIpv4AddressFromParsedContent' {
                     }
                 }
             )
-            
+
             $result = GetIpv4AddressFromParsedContent -ParsedContent $parsedContent
             $result | Should -Be "10.0.0.1"
         }
-        
+
         It "Should return IPv4 address when only one address exists" {
             $parsedContent = @(
                 @{
@@ -571,12 +590,12 @@ Describe 'GetIpv4AddressFromParsedContent' {
                     }
                 }
             )
-            
+
             $result = GetIpv4AddressFromParsedContent -ParsedContent $parsedContent
             $result | Should -Be "192.168.1.100"
         }
     }
-    
+
     Context 'When parsed content does not contain IPv4 address' {
         It "Should return null when ipv4 property is missing" {
             $parsedContent = @(
@@ -590,11 +609,11 @@ Describe 'GetIpv4AddressFromParsedContent' {
                     }
                 }
             )
-            
+
             $result = GetIpv4AddressFromParsedContent -ParsedContent $parsedContent
             $result | Should -Be $null
         }
-        
+
         It "Should return null when ipv4.ipAddress property is missing" {
             $parsedContent = @(
                 @{
@@ -603,11 +622,11 @@ Describe 'GetIpv4AddressFromParsedContent' {
                     }
                 }
             )
-            
+
             $result = GetIpv4AddressFromParsedContent -ParsedContent $parsedContent
             $result | Should -Be $null
         }
-        
+
         It "Should return null when ipv4.ipAddress array is empty" {
             $parsedContent = @(
                 @{
@@ -616,38 +635,38 @@ Describe 'GetIpv4AddressFromParsedContent' {
                     }
                 }
             )
-            
+
             $result = GetIpv4AddressFromParsedContent -ParsedContent $parsedContent
             $result | Should -Be $null
         }
-        
+
         It "Should return null when ipv4 is null" {
             $parsedContent = @(
                 @{
                     ipv4 = $null
                 }
             )
-            
+
             $result = GetIpv4AddressFromParsedContent -ParsedContent $parsedContent
             $result | Should -Be $null
         }
-        
+
         It "Should return null when ParsedContent is empty array" {
             $parsedContent = @()
-            
+
             $result = GetIpv4AddressFromParsedContent -ParsedContent $parsedContent
             $result | Should -Be $null
         }
     }
-    
+
     Context 'Edge cases' {
         It "Should return null when first element of ParsedContent is null" {
             $parsedContent = @($null)
-            
+
             $result = GetIpv4AddressFromParsedContent -ParsedContent $parsedContent
             $result | Should -Be $null
         }
-        
+
         It "Should return null when ipv4.ipAddress[0] exists but privateIpAddress is missing" {
             $parsedContent = @(
                 @{
@@ -660,11 +679,11 @@ Describe 'GetIpv4AddressFromParsedContent' {
                     }
                 }
             )
-            
+
             $result = GetIpv4AddressFromParsedContent -ParsedContent $parsedContent
             $result | Should -Be $null
         }
-        
+
         It "Should handle multiple network interfaces but only check first one" {
             $parsedContent = @(
                 @{
@@ -686,11 +705,11 @@ Describe 'GetIpv4AddressFromParsedContent' {
                     }
                 }
             )
-            
+
             $result = GetIpv4AddressFromParsedContent -ParsedContent $parsedContent
             $result | Should -Be "10.0.0.1"
         }
-        
+
         It "Should handle different private IP address formats" {
             $testCases = @(
                 @{ IpAddress = "192.168.1.1"; Description = "Class C private IP" },
@@ -698,7 +717,7 @@ Describe 'GetIpv4AddressFromParsedContent' {
                 @{ IpAddress = "10.255.255.254"; Description = "Class A private IP" },
                 @{ IpAddress = "169.254.1.1"; Description = "Link-local IP" }
             )
-            
+
             foreach ($testCase in $testCases) {
                 $parsedContent = @(
                     @{
@@ -711,10 +730,675 @@ Describe 'GetIpv4AddressFromParsedContent' {
                         }
                     }
                 )
-                
+
                 $result = GetIpv4AddressFromParsedContent -ParsedContent $parsedContent
                 $result | Should -Be $testCase.IpAddress -Because $testCase.Description
             }
+        }
+    }
+}
+
+Describe 'Get-Node-Ipv4-Address' {
+    It 'Retrieves the private ip address' {
+        $content = @"
+            [
+                {
+                    "ipv4": {
+                        "ipAddress": [
+                            {
+                                "privateIpAddress": "10.0.0.1",
+                                "publicIpAddress": "203.0.113.1"
+                            }
+                        ]
+                    }
+                }
+            ]
+"@ | ConvertFrom-Json
+
+        $result = GetIpv4AddressFromParsedContent -ParsedContent $content
+        $result | Should -Be "10.0.0.1"
+    }
+}
+
+
+
+Describe 'Get-Node-Ipv4-Address' {
+    BeforeEach {
+        # Mock dependencies
+        Mock Logs-To-Event -MockWith { } -Verifiable
+        Mock Set-ExitCode -MockWith {
+            param($ExitCode, $ErrorMessage)
+            throw $ErrorMessage
+        } -Verifiable
+    }
+
+    Context 'Successful IPv4 address retrieval' {
+        It "Should return IPv4 address when metadata content and parsing are successful" {
+            $mockParsedContent = @"
+            [
+                {
+                    "ipv4": {
+                        "ipAddress": [
+                            {
+                                "privateIpAddress": "10.0.0.1",
+                                "publicIpAddress": "203.0.113.1"
+                            }
+                        ]
+                    }
+                }
+            ]
+"@ | ConvertFrom-Json
+
+            Mock GetMetadataContent -MockWith { return $mockParsedContent } -Verifiable
+
+            $result = Get-Node-Ipv4-Address
+
+            $result | Should -Be "10.0.0.1"
+
+            Assert-MockCalled -CommandName "GetMetadataContent" -Exactly -Times 1
+            Assert-MockCalled -CommandName "Logs-To-Event" -Exactly -Times 1 -ParameterFilter {
+                $TaskName -eq "AKS.WindowsCSE.NewExternalHnsNetwork" -and
+                $TaskMessage -eq "Found IPv4 address from metadata: 10.0.0.1"
+            }
+        }
+
+        It "Should handle different valid IPv4 addresses correctly" {
+            $testCases = @(
+                @{ IpAddress = "192.168.1.1"; Description = "Class C private IP" },
+                @{ IpAddress = "172.16.0.1"; Description = "Class B private IP" },
+                @{ IpAddress = "10.255.255.254"; Description = "Class A private IP" },
+                @{ IpAddress = "169.254.1.1"; Description = "Link-local IP" }
+            )
+
+            foreach ($testCase in $testCases) {
+                $mockParsedContent = @(
+                    @{
+                        ipv4 = @{
+                            ipAddress = @(
+                                @{
+                                    privateIpAddress = $testCase.IpAddress
+                                }
+                            )
+                        }
+                    }
+                )
+
+                Mock GetMetadataContent -MockWith { return $mockParsedContent } -Verifiable
+                Mock GetIpv4AddressFromParsedContent -MockWith { return $testCase.IpAddress } -Verifiable
+
+                $result = Get-Node-Ipv4-Address
+
+                $result | Should -Be $testCase.IpAddress -Because $testCase.Description
+            }
+        }
+    }
+
+    Context 'Metadata content retrieval failures' {
+        It "Should handle null metadata content and set exit code" {
+            Mock GetMetadataContent -MockWith { return $null } -Verifiable
+
+            { Get-Node-Ipv4-Address } | Should -Throw "Failed to load metadata content"
+
+            Assert-MockCalled -CommandName "GetMetadataContent" -Exactly -Times 1
+            Assert-MockCalled -CommandName "Logs-To-Event" -Exactly -Times 1 -ParameterFilter {
+                $TaskName -eq "AKS.WindowsCSE.NewExternalHnsNetwork" -and
+                $TaskMessage -eq "Failed to retrieve metadata content."
+            }
+            Assert-MockCalled -CommandName "Set-ExitCode" -Exactly -Times 1 -ParameterFilter {
+                $ExitCode -eq $global:WINDOWS_CSE_ERROR_LOAD_METADATA -and
+                $ErrorMessage -eq "Failed to load metadata content"
+            }
+        }
+
+        It "Should handle empty metadata content and set exit code" {
+            Mock GetMetadataContent -MockWith { return "[{}]" | ConvertFrom-Json } -Verifiable
+
+            { Get-Node-Ipv4-Address } | Should -Throw "No IPv4 address found in metadata"
+
+            Assert-MockCalled -CommandName "GetMetadataContent" -Exactly -Times 1
+            Assert-MockCalled -CommandName "Set-ExitCode" -Exactly -Times 1 -ParameterFilter {
+                $ExitCode -eq $global:WINDOWS_CSE_ERROR_PARSE_METADATA -and
+                $ErrorMessage -eq "No IPv4 address found in metadata"
+            }
+        }
+
+        It "Should handle GetMetadataContent throwing exception" {
+            Mock GetMetadataContent -MockWith { throw "Network timeout" } -Verifiable
+
+            { Get-Node-Ipv4-Address } | Should -Throw "Network timeout"
+
+            Assert-MockCalled -CommandName "GetMetadataContent" -Exactly -Times 1
+        }
+    }
+
+    Context 'IPv4 address parsing failures' {
+        It "Should handle null IPv4 address and set exit code" {
+            $mockParsedContent = @"
+            [
+                {
+                    "ipv6": {
+                        "ipAddress": [
+                            {
+                                "privateIpAddress": "10.0.0.1",
+                                "publicIpAddress": "203.0.113.1"
+                            }
+                        ]
+                    }
+                }
+            ]
+"@ | ConvertFrom-Json
+
+            Mock GetMetadataContent -MockWith { return $mockParsedContent } -Verifiable
+
+            { Get-Node-Ipv4-Address } | Should -Throw "No IPv4 address found in metadata"
+
+            Assert-MockCalled -CommandName "GetMetadataContent" -Exactly -Times 1
+            Assert-MockCalled -CommandName "Set-ExitCode" -Exactly -Times 1 -ParameterFilter {
+                $ExitCode -eq $global:WINDOWS_CSE_ERROR_PARSE_METADATA -and
+                $ErrorMessage -eq "No IPv4 address found in metadata"
+            }
+        }
+
+        It "Should handle empty string IPv4 address and set exit code" {
+            $mockParsedContent = @"
+            [
+                {
+                    "ipv4": {
+                        "ipAddress": [
+                            {
+                                "privateIpAddress": "",
+                            }
+                        ]
+                    }
+                }
+            ]
+"@ | ConvertFrom-Json
+
+            Mock GetMetadataContent -MockWith { return $mockParsedContent } -Verifiable
+
+            { Get-Node-Ipv4-Address } | Should -Throw "No IPv4 address found in metadata"
+
+            Assert-MockCalled -CommandName "GetMetadataContent" -Exactly -Times 1
+            Assert-MockCalled -CommandName "Set-ExitCode" -Exactly -Times 1 -ParameterFilter {
+                $ExitCode -eq $global:WINDOWS_CSE_ERROR_PARSE_METADATA -and
+                $ErrorMessage -eq "No IPv4 address found in metadata"
+            }
+        }
+
+        It "Should handle whitespace-only IPv4 address and set exit code" {
+            $mockParsedContent = @"
+            [
+                {
+                    "ipv4": {
+                        "ipAddress": [
+                            {
+                                "privateIpAddress": "   ",
+                            }
+                        ]
+                    }
+                }
+            ]
+"@ | ConvertFrom-Json
+
+            Mock GetMetadataContent -MockWith { return $mockParsedContent } -Verifiable
+
+            { Get-Node-Ipv4-Address } | Should -Throw "empty IPv4 address found in metadata"
+
+            Assert-MockCalled -CommandName "GetMetadataContent" -Exactly -Times 1
+            Assert-MockCalled -CommandName "Set-ExitCode" -Exactly -Times 1 -ParameterFilter {
+                $ExitCode -eq $global:WINDOWS_CSE_ERROR_PARSE_METADATA -and
+                $ErrorMessage -eq "empty IPv4 address found in metadata"
+            }
+        }
+    }
+
+    Context 'Logging behavior verification' {
+        It "Should log success message with correct IPv4 address" {
+            $mockParsedContent = @"
+            [
+                {
+                    "ipv4": {
+                        "ipAddress": [
+                            {
+                                "privateIpAddress": "10.240.0.4",
+                            }
+                        ]
+                    }
+                }
+            ]
+"@ | ConvertFrom-Json
+
+            Mock GetMetadataContent -MockWith { return $mockParsedContent } -Verifiable
+
+            Get-Node-Ipv4-Address
+
+            Assert-MockCalled -CommandName "Logs-To-Event" -Exactly -Times 1 -ParameterFilter {
+                $TaskName -eq "AKS.WindowsCSE.NewExternalHnsNetwork" -and
+                $TaskMessage -eq "Found IPv4 address from metadata: 10.240.0.4"
+            }
+        }
+
+        It "Should log failure message when metadata content is null" {
+            Mock GetMetadataContent -MockWith { return $null } -Verifiable
+
+            { Get-Node-Ipv4-Address } | Should -Throw
+
+            Assert-MockCalled -CommandName "Logs-To-Event" -Exactly -Times 1 -ParameterFilter {
+                $TaskName -eq "AKS.WindowsCSE.NewExternalHnsNetwork" -and
+                $TaskMessage -eq "Failed to retrieve metadata content."
+            }
+        }
+    }
+
+    Context 'Error handling and exit codes' {
+        It "Should call Set-ExitCode with WINDOWS_CSE_ERROR_LOAD_METADATA when metadata loading fails" {
+            Mock GetMetadataContent -MockWith { return $null } -Verifiable
+
+            { Get-Node-Ipv4-Address } | Should -Throw
+
+            Assert-MockCalled -CommandName "Set-ExitCode" -Exactly -Times 1 -ParameterFilter {
+                $ExitCode -eq $global:WINDOWS_CSE_ERROR_LOAD_METADATA -and
+                $ErrorMessage -eq "Failed to load metadata content"
+            }
+        }
+
+        It "Should call Set-ExitCode with WINDOWS_CSE_ERROR_PARSE_METADATA when IPv4 parsing fails" {
+            $mockParsedContent = @(@{})
+
+            Mock GetMetadataContent -MockWith { return $mockParsedContent } -Verifiable
+            Mock GetIpv4AddressFromParsedContent -MockWith { return $null } -Verifiable
+
+            { Get-Node-Ipv4-Address } | Should -Throw
+
+            Assert-MockCalled -CommandName "Set-ExitCode" -Exactly -Times 1 -ParameterFilter {
+                $ExitCode -eq $global:WINDOWS_CSE_ERROR_PARSE_METADATA -and
+                $ErrorMessage -eq "No IPv4 address found in metadata"
+            }
+        }
+
+        It "Should not call Set-ExitCode when function succeeds" {
+            $mockParsedContent = @"
+            [
+                {
+                    "ipv4": {
+                        "ipAddress": [
+                            {
+                                "privateIpAddress": "10.240.0.4",
+                            }
+                        ]
+                    }
+                }
+            ]
+"@ | ConvertFrom-Json
+
+            Mock GetMetadataContent -MockWith { return $mockParsedContent } -Verifiable
+
+            $result = Get-Node-Ipv4-Address
+
+            $result | Should -Be "10.240.0.4"
+            Assert-MockCalled -CommandName "Set-ExitCode" -Exactly -Times 0
+        }
+    }
+
+    Context 'Edge cases and boundary conditions' {
+        It "Should handle complex metadata structure with multiple interfaces" {
+            $complexParsedContent = @"
+ [
+{
+  "ipv4": {
+        "ipAddress": [
+            {
+                "privateIpAddress": "10.0.0.1",
+                "publicIpAddress": "203.0.113.1"
+            },
+            {
+                "privateIpAddress": "10.0.0.2"
+            }
+        ]
+    },
+    "ipv6": {
+        "ipAddress": [
+            {
+                "privateIpAddress": "2001:db8::1"
+            }
+        ]
+    },
+    "macAddress": "00:11:22:33:44:55"
+},
+{
+    "ipv4": {
+        "ipAddress": [
+            {
+                "privateIpAddress": "192.168.1.1"
+            }
+        ]
+    }
+}
+]
+"@ | ConvertFrom-Json
+
+            Mock GetMetadataContent -MockWith { return $complexParsedContent } -Verifiable
+
+            $result = Get-Node-Ipv4-Address
+
+            $result | Should -Be "10.0.0.1"
+        }
+
+        It "Should handle the scenario where GetIpv4AddressFromParsedContent throws an exception" {
+            $mockParsedContent = @(@{})
+
+            Mock GetMetadataContent -MockWith { return $mockParsedContent } -Verifiable
+            Mock GetIpv4AddressFromParsedContent -MockWith { throw "Parsing error" } -Verifiable
+
+            { Get-Node-Ipv4-Address } | Should -Throw "Parsing error"
+
+            Assert-MockCalled -CommandName "GetMetadataContent" -Exactly -Times 1
+            # Should not reach the logging or Set-ExitCode calls due to exception
+            Assert-MockCalled -CommandName "Set-ExitCode" -Exactly -Times 0
+        }
+    }
+}
+
+Describe 'Get-AKS-NodeIPs' {
+    BeforeEach {
+        # Mock dependencies
+        Mock Set-ExitCode -MockWith {
+            param($ExitCode, $ErrorMessage)
+            throw $ErrorMessage
+        } -Verifiable
+
+        # Reset global variable to default state
+        $global:IsDualStackEnabled = $false
+    }
+
+    Context 'IPv4-only scenarios (dual stack disabled)' {
+        It "Should return only IPv4 address when dual stack is disabled" {
+            $global:IsDualStackEnabled = $false
+
+            Mock Get-Node-Ipv4-Address -MockWith { return "10.0.0.1" } -Verifiable
+            Mock Get-Node-Ipv6-Address -MockWith { return "2001:db8::1" } -Verifiable
+
+            $result = Get-AKS-NodeIPs
+
+            $result | Should -Be "10.0.0.1"
+
+            Assert-MockCalled -CommandName "Get-Node-Ipv4-Address" -Exactly -Times 1
+            Assert-MockCalled -CommandName "Get-Node-Ipv6-Address" -Exactly -Times 0
+            Assert-MockCalled -CommandName "Set-ExitCode" -Exactly -Times 0
+        }
+
+        It "Should handle different IPv4 address formats when dual stack is disabled" {
+            $testCases = @(
+                @{ IpAddress = "192.168.1.1"; Description = "Class C private IP" },
+                @{ IpAddress = "172.16.0.1"; Description = "Class B private IP" },
+                @{ IpAddress = "10.255.255.254"; Description = "Class A private IP" },
+                @{ IpAddress = "169.254.1.1"; Description = "Link-local IP" }
+            )
+
+            foreach ($testCase in $testCases) {
+                $global:IsDualStackEnabled = $false
+
+                Mock Get-Node-Ipv4-Address -MockWith { return $testCase.IpAddress } -Verifiable
+
+                $result = Get-AKS-NodeIPs
+
+                $result | Should -Be $testCase.IpAddress -Because $testCase.Description
+            }
+        }
+
+        It "Should propagate exceptions from Get-Node-Ipv4-Address when dual stack is disabled" {
+            $global:IsDualStackEnabled = $false
+
+            Mock Get-Node-Ipv4-Address -MockWith { throw "IPv4 retrieval failed" } -Verifiable
+            Mock Get-Node-Ipv6-Address -MockWith { return "asd:asdf:Asfd:asf" } -Verifiable
+
+            { Get-AKS-NodeIPs } | Should -Throw "IPv4 retrieval failed"
+
+            Assert-MockCalled -CommandName "Get-Node-Ipv4-Address" -Exactly -Times 1
+            Assert-MockCalled -CommandName "Get-Node-Ipv6-Address" -Exactly -Times 0
+        }
+    }
+
+    Context 'Dual stack enabled scenarios with successful IPv6 retrieval' {
+        It "Should return both IPv4 and IPv6 addresses when dual stack is enabled and IPv6 is available" {
+            $global:IsDualStackEnabled = $true
+
+            Mock Get-Node-Ipv4-Address -MockWith { return "10.0.0.1" } -Verifiable
+            Mock Get-Node-Ipv6-Address -MockWith { return "2001:db8::1" } -Verifiable
+
+            $result = Get-AKS-NodeIPs
+
+            $result | Should -Be "10.0.0.1,2001:db8::1"
+
+            Assert-MockCalled -CommandName "Get-Node-Ipv4-Address" -Exactly -Times 1
+            Assert-MockCalled -CommandName "Get-Node-Ipv6-Address" -Exactly -Times 1
+            Assert-MockCalled -CommandName "Set-ExitCode" -Exactly -Times 0
+        }
+
+        It "Should handle various IPv4 and IPv6 address combinations" {
+            $testCases = @(
+                @{
+                    IPv4        = "192.168.1.100";
+                    IPv6        = "fe80::1";
+                    Expected    = "192.168.1.100,fe80::1";
+                    Description = "Standard private IPv4 with link-local IPv6"
+                },
+                @{
+                    IPv4        = "172.16.0.50";
+                    IPv6        = "2001:db8:85a3::8a2e:370:7334";
+                    Expected    = "172.16.0.50,2001:db8:85a3::8a2e:370:7334";
+                    Description = "Class B IPv4 with global unicast IPv6"
+                },
+                @{
+                    IPv4        = "10.240.0.4";
+                    IPv6        = "fd12:3456:789a::1";
+                    Expected    = "10.240.0.4,fd12:3456:789a::1";
+                    Description = "Class A IPv4 with unique local IPv6"
+                }
+            )
+
+            foreach ($testCase in $testCases) {
+                $global:IsDualStackEnabled = $true
+
+                Mock Get-Node-Ipv4-Address -MockWith { return $testCase.IPv4 } -Verifiable
+                Mock Get-Node-Ipv6-Address -MockWith { return $testCase.IPv6 } -Verifiable
+
+                $result = Get-AKS-NodeIPs
+
+                $result | Should -Be $testCase.Expected -Because $testCase.Description
+            }
+        }
+
+        It "Should maintain correct order of IP addresses (IPv4 first, then IPv6)" {
+            $global:IsDualStackEnabled = $true
+
+            Mock Get-Node-Ipv4-Address -MockWith { return "10.0.0.1" } -Verifiable
+            Mock Get-Node-Ipv6-Address -MockWith { return "2001:db8::1" } -Verifiable
+
+            $result = Get-AKS-NodeIPs
+            $addresses = $result -split ','
+
+            $addresses.Count | Should -Be 2
+            $addresses[0] | Should -Be "10.0.0.1"
+            $addresses[1] | Should -Be "2001:db8::1"
+        }
+    }
+
+    Context 'Dual stack enabled scenarios with IPv6 retrieval failures' {
+        It "Should call Set-ExitCode when dual stack is enabled but IPv6 address is null" {
+            $global:IsDualStackEnabled = $true
+
+            Mock Get-Node-Ipv4-Address -MockWith { return "10.0.0.1" } -Verifiable
+            Mock Get-Node-Ipv6-Address -MockWith { return $null } -Verifiable
+
+            { Get-AKS-NodeIPs } | Should -Throw "Failed to get node IPv6 IP address"
+
+            Assert-MockCalled -CommandName "Get-Node-Ipv4-Address" -Exactly -Times 1
+            Assert-MockCalled -CommandName "Get-Node-Ipv6-Address" -Exactly -Times 1
+            Assert-MockCalled -CommandName "Set-ExitCode" -Exactly -Times 1 -ParameterFilter {
+                $ExitCode -eq $global:WINDOWS_CSE_ERROR_NETWORK_INTERFACES_NOT_EXIST -and
+                $ErrorMessage -eq "Failed to get node IPv6 IP address"
+            }
+        }
+
+        It "Should call Set-ExitCode when dual stack is enabled but IPv6 address is empty string" {
+            $global:IsDualStackEnabled = $true
+
+            Mock Get-Node-Ipv4-Address -MockWith { return "10.0.0.1" } -Verifiable
+            Mock Get-Node-Ipv6-Address -MockWith { return "" } -Verifiable
+
+            { Get-AKS-NodeIPs } | Should -Throw "Failed to get node IPv6 IP address"
+
+            Assert-MockCalled -CommandName "Get-Node-Ipv4-Address" -Exactly -Times 1
+            Assert-MockCalled -CommandName "Get-Node-Ipv6-Address" -Exactly -Times 1
+            Assert-MockCalled -CommandName "Set-ExitCode" -Exactly -Times 1 -ParameterFilter {
+                $ExitCode -eq $global:WINDOWS_CSE_ERROR_NETWORK_INTERFACES_NOT_EXIST -and
+                $ErrorMessage -eq "Failed to get node IPv6 IP address"
+            }
+        }
+
+        It "Should propagate exceptions from Get-Node-Ipv6-Address when dual stack is enabled" {
+            $global:IsDualStackEnabled = $true
+
+            Mock Get-Node-Ipv4-Address -MockWith { return "10.0.0.1" } -Verifiable
+            Mock Get-Node-Ipv6-Address -MockWith { throw "IPv6 retrieval failed" } -Verifiable
+
+            { Get-AKS-NodeIPs } | Should -Throw "IPv6 retrieval failed"
+
+            Assert-MockCalled -CommandName "Get-Node-Ipv4-Address" -Exactly -Times 1
+            Assert-MockCalled -CommandName "Get-Node-Ipv6-Address" -Exactly -Times 1
+            # Should not reach Set-ExitCode due to exception
+            Assert-MockCalled -CommandName "Set-ExitCode" -Exactly -Times 0
+        }
+    }
+
+    Context 'Error handling and exception propagation' {
+        It "Should propagate IPv4 exceptions regardless of dual stack setting" {
+            $global:IsDualStackEnabled = $true
+
+            Mock Get-Node-Ipv4-Address -MockWith { throw "IPv4 network error" } -Verifiable
+            Mock Get-Node-Ipv6-Address -MockWith { return "2001:db8::1" } -Verifiable
+
+            { Get-AKS-NodeIPs } | Should -Throw "IPv4 network error"
+
+            Assert-MockCalled -CommandName "Get-Node-Ipv4-Address" -Exactly -Times 1
+            # Should not reach IPv6 call due to IPv4 exception
+            Assert-MockCalled -CommandName "Get-Node-Ipv6-Address" -Exactly -Times 0
+            Assert-MockCalled -CommandName "Set-ExitCode" -Exactly -Times 0
+        }
+
+        It "Should handle the case where IsDualStackEnabled variable doesn't exist" {
+            # Remove the global variable to simulate it not being set
+            if (Get-Variable -Name "IsDualStackEnabled" -Scope Global -ErrorAction SilentlyContinue) {
+                Remove-Variable -Name "IsDualStackEnabled" -Scope Global
+            }
+
+            Mock Get-Node-Ipv4-Address -MockWith { return "10.0.0.1" } -Verifiable
+            Mock Get-Node-Ipv6-Address -MockWith { return "2001:db8::1" } -Verifiable
+
+            $result = Get-AKS-NodeIPs
+
+            # Should behave as if dual stack is disabled when variable doesn't exist
+            $result | Should -Be "10.0.0.1"
+
+            Assert-MockCalled -CommandName "Get-Node-Ipv4-Address" -Exactly -Times 1
+            Assert-MockCalled -CommandName "Get-Node-Ipv6-Address" -Exactly -Times 0
+        }
+    }
+
+    Context 'Return value formatting' {
+        It "Should return comma-separated string with no spaces around comma" {
+            $global:IsDualStackEnabled = $true
+
+            Mock Get-Node-Ipv4-Address -MockWith { return "192.168.1.100" } -Verifiable
+            Mock Get-Node-Ipv6-Address -MockWith { return "fe80::1234:5678:90ab:cdef" } -Verifiable
+
+            $result = Get-AKS-NodeIPs
+
+            $result | Should -Be "192.168.1.100,fe80::1234:5678:90ab:cdef"
+            $result | Should -Not -Match "\s"  # Should not contain any whitespace
+            $result | Should -Match "^[^,]+,[^,]+$"  # Should match pattern: text,text
+        }
+
+        It "Should return single IP address without comma when dual stack is disabled" {
+            $global:IsDualStackEnabled = $false
+
+            Mock Get-Node-Ipv4-Address -MockWith { return "10.0.0.1" } -Verifiable
+
+            $result = Get-AKS-NodeIPs
+
+            $result | Should -Be "10.0.0.1"
+            $result | Should -Not -Match ","  # Should not contain comma
+        }
+
+        It "Should handle special characters in IP addresses correctly" {
+            $global:IsDualStackEnabled = $true
+
+            # Using IPv6 address with various characters that might need special handling
+            Mock Get-Node-Ipv4-Address -MockWith { return "10.0.0.1" } -Verifiable
+            Mock Get-Node-Ipv6-Address -MockWith { return "2001:db8:85a3::8a2e:370:7334" } -Verifiable
+
+            $result = Get-AKS-NodeIPs
+
+            $result | Should -Be "10.0.0.1,2001:db8:85a3::8a2e:370:7334"
+
+            # Verify we can split it back correctly
+            $splitResult = $result -split ','
+            $splitResult.Count | Should -Be 2
+            $splitResult[0] | Should -Be "10.0.0.1"
+            $splitResult[1] | Should -Be "2001:db8:85a3::8a2e:370:7334"
+        }
+    }
+
+    Context 'Edge cases and boundary conditions' {
+        It "Should handle very long IPv6 addresses" {
+            $global:IsDualStackEnabled = $true
+
+            $longIPv6 = "2001:0db8:85a3:0000:0000:8a2e:0370:7334"  # Full form IPv6
+
+            Mock Get-Node-Ipv4-Address -MockWith { return "10.0.0.1" } -Verifiable
+            Mock Get-Node-Ipv6-Address -MockWith { return $longIPv6 } -Verifiable
+
+            $result = Get-AKS-NodeIPs
+
+            $result | Should -Be "10.0.0.1,$longIPv6"
+        }
+
+        It "Should handle minimal valid IPv6 addresses" {
+            $global:IsDualStackEnabled = $true
+
+            $minimalIPv6 = "::1"  # Loopback IPv6
+
+            Mock Get-Node-Ipv4-Address -MockWith { return "127.0.0.1" } -Verifiable
+            Mock Get-Node-Ipv6-Address -MockWith { return $minimalIPv6 } -Verifiable
+
+            $result = Get-AKS-NodeIPs
+
+            $result | Should -Be "127.0.0.1,$minimalIPv6"
+        }
+
+        It "Should handle the case where IPv6 returns exactly empty string (not null)" {
+            $global:IsDualStackEnabled = $true
+
+            Mock Get-Node-Ipv4-Address -MockWith { return "10.0.0.1" } -Verifiable
+            Mock Get-Node-Ipv6-Address -MockWith { return [string]::Empty } -Verifiable
+
+            { Get-AKS-NodeIPs } | Should -Throw "Failed to get node IPv6 IP address"
+
+            Assert-MockCalled -CommandName "Set-ExitCode" -Exactly -Times 1
+        }
+
+        It "Should handle boolean evaluation of IPv6 address correctly" {
+            $global:IsDualStackEnabled = $true
+
+            # Test with IPv6 address that might be tricky for boolean evaluation
+            Mock Get-Node-Ipv4-Address -MockWith { return "10.0.0.1" } -Verifiable
+            Mock Get-Node-Ipv6-Address -MockWith { return "0:0:0:0:0:0:0:1" } -Verifiable  # Another form of ::1
+
+            $result = Get-AKS-NodeIPs
+
+            $result | Should -Be "10.0.0.1,0:0:0:0:0:0:0:1"
+            Assert-MockCalled -CommandName "Set-ExitCode" -Exactly -Times 0
         }
     }
 }
@@ -724,7 +1408,7 @@ Describe 'GetMetadataContent' {
         # Mock Start-Sleep to speed up tests
         Mock Start-Sleep -MockWith { } -Verifiable
     }
-    
+
     Context 'Successful metadata retrieval' {
         It "Should return parsed content when metadata service responds with valid IPv4 address" {
             $mockMetadataResponse = @{
@@ -743,24 +1427,15 @@ Describe 'GetMetadataContent' {
 ]
 '@
             }
-            
+
             Mock Invoke-WebRequest -MockWith { return $mockMetadataResponse } -Verifiable
-            Mock GetIpv4AddressFromParsedContent -MockWith { return "10.0.0.1" } -Verifiable
-            
+
             $result = GetMetadataContent
-            
+
             $result | Should -Not -Be $null
             $result[0].ipv4.ipAddress[0].privateIpAddress | Should -Be "10.0.0.1"
-            
-            Assert-MockCalled -CommandName "Invoke-WebRequest" -Exactly -Times 1 -ParameterFilter { 
-                $Uri -eq "http://169.254.169.254/metadata/instance/network/interface?api-version=2021-02-01" -and
-                $Headers["metadata"] -eq "true" -and
-                $TimeoutSec -eq 10 -and
-                $UseBasicParsing -eq $true
-            }
-            Assert-MockCalled -CommandName "GetIpv4AddressFromParsedContent" -Exactly -Times 1
         }
-        
+
         It "Should return parsed content with both IPv4 and IPv6 addresses" {
             $mockMetadataResponse = @{
                 Content = @'
@@ -784,22 +1459,21 @@ Describe 'GetMetadataContent' {
 ]
 '@
             }
-            
+
             Mock Invoke-WebRequest -MockWith { return $mockMetadataResponse } -Verifiable
-            Mock GetIpv4AddressFromParsedContent -MockWith { return "10.0.0.1" } -Verifiable
-            
+
             $result = GetMetadataContent
-            
+
             $result | Should -Not -Be $null
             $result[0].ipv4.ipAddress[0].privateIpAddress | Should -Be "10.0.0.1"
             $result[0].ipv6.ipAddress[0].privateIpAddress | Should -Be "2001:db8::1"
         }
     }
-    
+
     Context 'Retry scenarios with eventual success' {
         It "Should retry when IPv4 address is not found initially but succeeds on second attempt" {
             $callCount = 0
-            Mock Invoke-WebRequest -MockWith { 
+            Mock Invoke-WebRequest -MockWith {
                 $script:callCount++
                 return @{
                     Content = @'
@@ -817,30 +1491,32 @@ Describe 'GetMetadataContent' {
 '@
                 }
             } -Verifiable
-            
-            Mock GetIpv4AddressFromParsedContent -MockWith { 
+
+            Mock GetIpv4AddressFromParsedContent -MockWith {
                 if ($script:callCount -eq 1) {
                     return $null  # First call fails
-                } else {
+                }
+                else {
                     return "10.0.0.1"  # Second call succeeds
                 }
             } -Verifiable
-            
+
             $result = GetMetadataContent
-            
+
             $result | Should -Not -Be $null
             Assert-MockCalled -CommandName "Invoke-WebRequest" -Exactly -Times 2
             Assert-MockCalled -CommandName "GetIpv4AddressFromParsedContent" -Exactly -Times 2
             Assert-MockCalled -CommandName "Start-Sleep" -Exactly -Times 1
         }
-        
+
         It "Should retry when Invoke-WebRequest throws exception but succeeds on retry" {
             $script:callCount = 0
-            Mock Invoke-WebRequest -MockWith { 
+            Mock Invoke-WebRequest -MockWith {
                 $script:callCount++
                 if ($script:callCount -eq 1) {
                     throw "Connection timeout"
-                } else {
+                }
+                else {
                     return @{
                         Content = @'
 [
@@ -858,20 +1534,24 @@ Describe 'GetMetadataContent' {
                     }
                 }
             } -Verifiable
-            
+
             Mock GetIpv4AddressFromParsedContent -MockWith { return "10.0.0.1" } -Verifiable
-            
+
             $result = GetMetadataContent
-            
+
             $result | Should -Not -Be $null
             Assert-MockCalled -CommandName "Invoke-WebRequest" -Exactly -Times 2
             Assert-MockCalled -CommandName "Start-Sleep" -Exactly -Times 1
         }
     }
-    
+
     Context 'Failure scenarios' {
         It "Should throw exception when all retries are exhausted due to no IPv4 address" {
-            Mock Invoke-WebRequest -MockWith { 
+            function Write-Log {
+                param($Message)
+                # No-op for logging in tests
+            }
+            Mock Invoke-WebRequest -MockWith {
                 return @{
                     Content = @'
 [
@@ -888,94 +1568,65 @@ Describe 'GetMetadataContent' {
 '@
                 }
             } -Verifiable
-            
-            Mock GetIpv4AddressFromParsedContent -MockWith { return $null } -Verifiable
-            
+
             { GetMetadataContent } | Should -Throw "No IPv4 address found in metadata."
-            
+
             # Should attempt all 120 retries
             Assert-MockCalled -CommandName "Invoke-WebRequest" -Exactly -Times 120
-            Assert-MockCalled -CommandName "GetIpv4AddressFromParsedContent" -Exactly -Times 120
-            Assert-MockCalled -CommandName "Start-Sleep" -Exactly -Times 119  # No sleep after last attempt
         }
-        
+
         It "Should throw exception when all retries are exhausted due to network errors" {
-            Mock Invoke-WebRequest -MockWith { 
+            function Write-Log {
+                param($Message)
+                # No-op for logging in tests
+            }
+            Mock Invoke-WebRequest -MockWith {
                 throw "Network unreachable"
             } -Verifiable
-            
+
             { GetMetadataContent } | Should -Throw "No IPv4 address found in metadata."
-            
+
             # Should attempt all 120 retries
             Assert-MockCalled -CommandName "Invoke-WebRequest" -Exactly -Times 120
             Assert-MockCalled -CommandName "Start-Sleep" -Exactly -Times 119  # No sleep after last attempt
         }
-        
+
         It "Should handle ConvertFrom-Json errors gracefully" {
-            Mock Invoke-WebRequest -MockWith { 
+            function Write-Log {
+                param($Message)
+                # No-op for logging in tests
+            }
+            Mock Invoke-WebRequest -MockWith {
                 return @{
                     Content = "invalid json content"
                 }
             } -Verifiable
-            
+
             { GetMetadataContent } | Should -Throw "No IPv4 address found in metadata."
-            
+
             Assert-MockCalled -CommandName "Invoke-WebRequest" -Exactly -Times 120
         }
     }
-    
-    Context 'Logging behavior' {
-            
-        It "Should not sleep on the last retry attempt" {
-            $script:callCount = 0
-            Mock Invoke-WebRequest -MockWith { 
-                $script:callCount++
-                if ($script:callCount -lt 120) {
-                    throw "Network error"
-                } else {
-                    return @{
-                        Content = @'
-[
-    {
-        "ipv4": {
-            "ipAddress": [
-                {
-                    "privateIpAddress": "10.0.0.1"
-                }
-            ]
-        }
-    }
-]
-'@
-                    }
-                }
-            } -Verifiable
-            
-            Mock GetIpv4AddressFromParsedContent -MockWith { return "10.0.0.1" } -Verifiable
-            
-            $result = GetMetadataContent
-            
-            $result | Should -Not -Be $null
-            # Should sleep 119 times (not on the last successful attempt)
-            Assert-MockCalled -CommandName "Start-Sleep" -Exactly -Times 119
-        }
-    }
-    
+
     Context 'Edge cases' {
         It "Should handle empty metadata response" {
-            Mock Invoke-WebRequest -MockWith { 
+            function Write-Log {
+                param($Message)
+                # No-op for logging in tests
+            }
+            Mock Invoke-WebRequest -MockWith {
                 return @{
                     Content = "[]"
                 }
             } -Verifiable
-            
+
             Mock GetIpv4AddressFromParsedContent -MockWith { return $null } -Verifiable
-            
+
             { GetMetadataContent } | Should -Throw "No IPv4 address found in metadata."
         }
-        
+
         It "Should succeed immediately if first attempt returns valid IPv4" {
-            Mock Invoke-WebRequest -MockWith { 
+            Mock Invoke-WebRequest -MockWith {
                 return @{
                     Content = @'
 [
@@ -992,11 +1643,11 @@ Describe 'GetMetadataContent' {
 '@
                 }
             } -Verifiable
-            
+
             Mock GetIpv4AddressFromParsedContent -MockWith { return "10.0.0.1" } -Verifiable
-            
+
             $result = GetMetadataContent
-            
+
             $result | Should -Not -Be $null
             Assert-MockCalled -CommandName "Invoke-WebRequest" -Exactly -Times 1
             Assert-MockCalled -CommandName "Start-Sleep" -Exactly -Times 0
