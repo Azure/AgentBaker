@@ -21,15 +21,18 @@ wait_for_apt_locks() {
         sleep 3
     done
 }
-apt_get_update() {
-    retries=10
-    apt_update_output=/tmp/apt-get-update.out
+# Core update function used by apt_get_update and apt_get_install_from_local_repo
+_apt_get_update() {
+    local retries=$1
+    local apt_opts=$2
+    local apt_update_output=/tmp/apt-get-update.out
+
     for i in $(seq 1 $retries); do
         wait_for_apt_locks
         export DEBIAN_FRONTEND=noninteractive
         dpkg --configure -a --force-confdef
         apt-get -f -y install
-        ! (apt-get update 2>&1 | tee $apt_update_output | grep -E "^([WE]:.*)|^([Ee][Rr][Rr][Oo][Rr].*)$") && \
+        ! (apt-get ${apt_opts} update 2>&1 | tee $apt_update_output | grep -E "^([WE]:.*)|^([Ee][Rr][Rr][Oo][Rr].*)$") && \
         cat $apt_update_output && break || \
         cat $apt_update_output
         if [ $i -eq $retries ]; then
@@ -40,13 +43,27 @@ apt_get_update() {
     echo Executed apt-get update $i times
     wait_for_apt_locks
 }
-apt_get_install() {
-    retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
+apt_get_update() {
+    _apt_get_update 10 ""
+}
+_apt_get_install() {
+    local retries=$1
+    local wait_sleep=$2
+    local apt_opts=$3
+    shift && shift && shift
+    local packages=("$@")
+
     for i in $(seq 1 $retries); do
         wait_for_apt_locks
         export DEBIAN_FRONTEND=noninteractive
         dpkg --configure -a --force-confdef
-        apt-get install -o Dpkg::Options::="--force-confold" --no-install-recommends -y ${@} && break || \
+
+        if apt-get install ${apt_opts} -y "${packages[@]}"; then
+            echo "Executed apt-get install \"${packages[@]}\" $i times"
+            wait_for_apt_locks
+            return 0
+        fi
+
         if [ $i -eq $retries ]; then
             return 1
         else
@@ -54,8 +71,10 @@ apt_get_install() {
             apt_get_update
         fi
     done
-    echo Executed apt-get install --no-install-recommends -y \"$@\" $i times;
-    wait_for_apt_locks
+}
+apt_get_install() {
+    retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
+    _apt_get_install $retries $wait_sleep "--no-install-recommends -o Dpkg::Options::=\"--force-confold\"" "$@"
 }
 apt_get_purge() {
     retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
@@ -130,17 +149,18 @@ apt_get_install_from_local_repo() {
 
     local opts="-o Dir::Etc::sourcelist=${tmp_list} -o Dir::Etc::sourceparts=${tmp_dir}"
 
-    # Update apt cache with local repo
-    if ! apt-get ${opts} update 2>&1; then
+    # Update apt cache with local repo using core update function
+    if ! _apt_get_update 10 "${opts}"; then
         echo "Failed to update apt cache from local repo ${local_repo_dir}"
         rm -f "${tmp_list}"
         rmdir "${tmp_dir}"
         return 1
     fi
 
-    # Install package from local repo (no download needed)
-    export DEBIAN_FRONTEND=noninteractive
-    if ! apt-get ${opts} install -y "${package_name}"; then
+    # Install package from local repo using core installation function
+    local retries=10
+    local wait_sleep=5
+    if ! _apt_get_install $retries $wait_sleep ${opts} "${package_name}"; then
         echo "Failed to install ${package_name} from local repo"
         rm -f "${tmp_list}"
         rmdir "${tmp_dir}"
