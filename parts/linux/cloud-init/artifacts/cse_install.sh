@@ -529,7 +529,7 @@ extractKubeBinaries() {
     extractKubeBinariesToUsrLocalBin "${k8s_tgz_tmp}" "${k8s_version}" "${is_private_url}"
 }
 
-installK8sToolsFromProfileRegistry() {
+installK8sToolsFromBootstrapProfileRegistry() {
     local registry_server=$1
     local kubernetes_version=$2
 
