@@ -549,6 +549,7 @@ installK8sToolsFromBootstrapProfileRegistry() {
         # retrycmd_pull_from_registry_with_oras will pull all artifacts to the directory with platform selection
         if ! retrycmd_pull_from_registry_with_oras 10 5 "${tool_download_dir}" "${tool_package_url}" ${platform_flag}; then
             echo "Failed to pull ${tool_name} package from registry"
+            rm -rf "${tool_download_dir}"
             return 1
         fi
 
@@ -557,11 +558,13 @@ installK8sToolsFromBootstrapProfileRegistry() {
         # Try to install using distro-specific package installer from local repo
         if ! installKubeletKubectlPkgFromLocalRepo "${tool_name}" "${tool_download_dir}"; then
             echo "Failed to install ${tool_name} from local repo ${tool_download_dir}"
+            rm -rf "${tool_download_dir}"
             return 1
         fi
     done
 
     # All tools installed successfully
+    rm -rf "${download_root}"
     return 0
 }
 
