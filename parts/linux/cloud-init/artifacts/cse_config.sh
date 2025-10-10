@@ -580,8 +580,7 @@ ensurePodInfraContainerImage() {
     POD_INFRA_CONTAINER_IMAGE_DOWNLOAD_DIR="/opt/pod-infra-container-image/downloads"
     POD_INFRA_CONTAINER_IMAGE_TAR="/opt/pod-infra-container-image/pod-infra-container-image.tar"
 
-    pod_infra_container_image=$(extract_value_from_kubelet_flags "${KUBELET_FLAGS}" "--pod-infra-container-image")
-
+    pod_infra_container_image=$(get_sandbox_image)
 
     echo "Checking if $pod_infra_container_image already exists locally..."
     if ctr -n k8s.io images list -q | grep -q "^${pod_infra_container_image}$"; then

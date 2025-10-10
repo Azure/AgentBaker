@@ -23,7 +23,7 @@ var baseKubeletConfig = &aksnodeconfigv1.KubeletConfig{
 		"--cloud-config":              "",
 		"--cloud-provider":            "external",
 		"--kubeconfig":                "/var/lib/kubelet/kubeconfig",
-		"--pod-infra-container-image": "mcr.microsoft.com/oss/kubernetes/pause:3.6",
+		"--pod-infra-container-image": "mcr.microsoft.com/oss/v2/kubernetes/pause:3.6",
 	},
 	KubeletNodeLabels: map[string]string{
 		"agentpool":                               "nodepool2",
@@ -547,7 +547,7 @@ func baseTemplateLinux(t *testing.T, location string, k8sVersion string, arch st
 			OSImageConfig: map[datamodel.Distro]datamodel.AzureOSImageConfig(nil),
 		},
 		K8sComponents: &datamodel.K8sComponents{
-			PodInfraContainerImageURL:  "mcr.microsoft.com/oss/kubernetes/pause:3.6",
+			PodInfraContainerImageURL:  "mcr.microsoft.com/oss/v2/kubernetes/pause:3.6",
 			HyperkubeImageURL:          "mcr.microsoft.com/oss/kubernetes/",
 			WindowsPackageURL:          "windowspackage",
 			LinuxCredentialProviderURL: "",
@@ -681,7 +681,7 @@ func baseTemplateLinux(t *testing.T, location string, k8sVersion string, arch st
 			"--max-pods":                          "110",
 			"--network-plugin":                    "kubenet",
 			"--node-status-update-frequency":      "10s",
-			"--pod-infra-container-image":         "mcr.microsoft.com/oss/kubernetes/pause:3.6",
+			"--pod-infra-container-image":         "mcr.microsoft.com/oss/v2/kubernetes/pause:3.6",
 			"--pod-manifest-path":                 "/etc/kubernetes/manifests",
 			"--pod-max-pids":                      "-1",
 			"--protect-kernel-defaults":           "true",

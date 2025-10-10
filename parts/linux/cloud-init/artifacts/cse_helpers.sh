@@ -1128,6 +1128,16 @@ extract_tarball() {
     esac
 }
 
+function get_sandbox_image(){
+    sandbox_image=$(get_sandbox_image_from_containerd_config)
+    if [ -z "$sandbox_image" ]; then
+        echo "Failed to get sandbox_image from containerd config, using default"
+        sandbox_image=$(extract_value_from_kubelet_flags "$KUBELET_FLAGS" "pod-infra-container-image")
+    fi
+
+    echo $sandbox_image
+}
+
 function extract_value_from_kubelet_flags(){
     local kubelet_flags=$1
     local key=$2
@@ -1135,5 +1145,30 @@ function extract_value_from_kubelet_flags(){
     key="${key#--}"
     value=$(echo "$kubelet_flags" | sed -n "s/.*--${key}=\([^ ]*\).*/\1/p")
     echo "$value"
+}
+
+function get_sandbox_image_from_containerd_config() {
+    local config_file="${1:-/etc/containerd/config.toml}"
+    local sandbox_image=""
+
+    if [ ! -f "$config_file" ]; then
+        echo "Containerd config file not found: $config_file" >&2
+        return 1
+    fi
+
+    # Extract sandbox_image value from the CRI plugin section
+    # The sandbox_image is typically under [plugins."io.containerd.grpc.v1.cri"]
+    sandbox_image=$(awk '/sandbox_image/ && /=/ {
+        # Remove quotes and spaces
+        gsub(/[" ]/, "", $3)
+        print $3
+    }' FS='=' "$config_file")
+
+    # Alternative method if the above doesn't work
+    if [ -z "$sandbox_image" ]; then
+        sandbox_image=$(grep -E '^\s*sandbox_image\s*=' "$config_file" | sed 's/.*sandbox_image\s*=\s*"\([^"]*\)".*/\1/')
+    fi
+
+    echo "$sandbox_image"
 }
 #HELPERSEOF
