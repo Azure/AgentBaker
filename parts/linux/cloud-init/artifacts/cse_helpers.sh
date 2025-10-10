@@ -1131,7 +1131,6 @@ extract_tarball() {
 function get_sandbox_image(){
     sandbox_image=$(get_sandbox_image_from_containerd_config "/etc/containerd/config.toml")
     if [ -z "$sandbox_image" ]; then
-        echo "Failed to get sandbox_image from containerd config, using default"
         sandbox_image=$(extract_value_from_kubelet_flags "$KUBELET_FLAGS" "pod-infra-container-image")
     fi
 
@@ -1152,8 +1151,8 @@ function get_sandbox_image_from_containerd_config() {
     local sandbox_image=""
 
     if [ ! -f "$config_file" ]; then
-        echo "Containerd config file not found: $config_file" >&2
-        return 1
+        echo ""
+        return
     fi
 
     # Extract sandbox_image value from the CRI plugin section
