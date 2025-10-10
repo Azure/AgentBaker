@@ -1197,14 +1197,4 @@ function get_sandbox_image_from_containerd_config() {
 
     echo "$sandbox_image"
 }
-
-dcgm_package_list() {
-    packages=(
-        datacenter-gpu-manager-4-core
-        datacenter-gpu-manager-4-proprietary
-        datacenter-gpu-manager-exporter
-    )
-    echo "${packages[@]}"
-}
-
 #HELPERSEOF

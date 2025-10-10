@@ -123,7 +123,7 @@ isPackageInstalled() {
     fi
 }
 
-managed_gpu_package_list() {
+managedGPUPackageList() {
     packages=(
         nvidia-device-plugin
         datacenter-gpu-manager-4-core
@@ -137,13 +137,14 @@ installNvidiaManagedExpPkgFromCache() {
     # Ensure kubelet device-plugins directory exists BEFORE package installation
     mkdir -p /var/lib/kubelet/device-plugins
 
-    for packageName in $(managed_gpu_package_list); do
+    for packageName in $(managedGPUPackageList); do
+        downloadDir="/opt/${packageName}/downloads"
         if isPackageInstalled "${packageName}"; then
             echo "${packageName} is already installed, skipping."
+            rm -rf $(dirname ${downloadDir})
             continue
         fi
 
-        downloadDir="/opt/${packageName}/downloads"
         debFile=$(find "${downloadDir}" -maxdepth 1 -name "${packageName}*" -print -quit 2>/dev/null) || debFile=""
         if [ -z "${debFile}" ]; then
             echo "Failed to locate ${packageName} deb"
@@ -157,7 +158,7 @@ installNvidiaManagedExpPkgFromCache() {
 cleanUpGPUDrivers() {
     rm -Rf $GPU_DEST /opt/gpu
 
-    for packageName in $(managed_gpu_package_list); do
+    for packageName in $(managedGPUPackageList); do
         rm -rf "/opt/${packageName}"
     done
 }
