@@ -608,6 +608,7 @@ ensurePodInfraContainerImage() {
     tar -cvf ${POD_INFRA_CONTAINER_IMAGE_TAR} -C ${POD_INFRA_CONTAINER_IMAGE_DOWNLOAD_DIR} .
     if ctr -n k8s.io image import --base-name $base_name ${POD_INFRA_CONTAINER_IMAGE_TAR}; then
         echo "Successfully imported $pod_infra_container_image"
+        labelContainerImage "${base_name}:${tag}" "io.cri-containerd.pinned" "pinned"
     else
         echo "Failed to import $pod_infra_container_image"
         exit $ERR_PULL_POD_INFRA_CONTAINER_IMAGE
