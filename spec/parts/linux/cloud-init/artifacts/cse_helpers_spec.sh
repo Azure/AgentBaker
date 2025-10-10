@@ -528,4 +528,61 @@ Describe 'cse_helpers.sh'
             The status should be success
         End
     End
+
+    Describe 'get_sandbox_image'
+        It 'get result from containerd config'
+            get_sandbox_image_from_containerd_config(){
+                echo "sandbox_image_from_containerd_config"
+            }
+            When call get_sandbox_image
+            The output should eq "sandbox_image_from_containerd_config"
+            The status should be success
+        End
+
+        It 'get result from kubelet flags if failed to get from containerd config'
+            get_sandbox_image_from_containerd_config(){
+                echo ""
+            }
+            extract_value_from_kubelet_flags(){
+                echo "sandbox_image_from_kubelet_flags"
+            }
+            When call get_sandbox_image
+            The output should eq "sandbox_image_from_kubelet_flags"
+            The status should be success
+        End
+
+        It 'returns empty string if both failed'
+            get_sandbox_image_from_containerd_config(){
+                echo ""
+            }
+            extract_value_from_kubelet_flags(){
+                echo "sandbox_image_from_kubelet_flags"
+            }
+            When call get_sandbox_image
+            The output should eq ""
+            The status should be success
+        End
+    End
+
+    Describe 'get_sandbox_image_from_containerd_config'
+        It 'returns empty string if config file does not exist'
+            When call get_sandbox_image_from_containerd_config "non_existing_file"
+            The output should eq ""
+            The status should be success
+        End
+
+        It 'get result from containerd config'
+            cat > existing_file << EOF
+version = 2
+oom_score = -999
+[plugins."io.containerd.grpc.v1.cri"]
+  sandbox_image = "sandbox_image_from_containerd_config"
+[metrics]
+  address = "0.0.0.0:10257"
+EOF
+            When call get_sandbox_image_from_containerd_config "existing_file"
+            The output should eq "sandbox_image_from_containerd_config"
+            The status should be success
+        End
+    End
 End
