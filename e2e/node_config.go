@@ -513,10 +513,6 @@ func baseTemplateLinux(t testing.TB, location string, k8sVersion string, arch st
 		},
 		CloudSpecConfig: &datamodel.AzureEnvironmentSpecConfig{
 			CloudName: "AzurePublicCloud",
-			DockerSpecConfig: datamodel.DockerSpecConfig{
-				DockerEngineRepo:         "https://aptdocker.azureedge.net/repo",
-				DockerComposeDownloadURL: "https://github.com/docker/compose/releases/download",
-			},
 			KubernetesSpecConfig: datamodel.KubernetesSpecConfig{
 				AzureTelemetryPID:                    "",
 				KubernetesImageBase:                  "k8s.gcr.io/",
@@ -831,10 +827,6 @@ DXRqvV7TWO2hndliQq3BW385ZkiephlrmpUVM= r2k1@arturs-mbp.lan`,
 		},
 		CloudSpecConfig: &datamodel.AzureEnvironmentSpecConfig{
 			CloudName: "AzurePublicCloud",
-			DockerSpecConfig: datamodel.DockerSpecConfig{
-				DockerEngineRepo:         "https://aptdocker.azureedge.net/repo",
-				DockerComposeDownloadURL: "https://github.com/docker/compose/releases/download",
-			},
 			KubernetesSpecConfig: datamodel.KubernetesSpecConfig{
 				ACIConnectorImageBase:       "microsoft/",
 				AlwaysPullWindowsPauseImage: false,

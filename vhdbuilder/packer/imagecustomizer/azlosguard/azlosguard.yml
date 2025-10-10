@@ -318,6 +318,5 @@ scripts:
     - path: scripts/azlosguard-postinstall.sh
       environmentVariables:
         IMG_SKU: "azure-linux-osguard-3"
-        CONTAINER_RUNTIME: "containerd"
         SKU_NAME: "OSGuardV3gen2fipsTL"
         FEATURE_FLAGS: ""

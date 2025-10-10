@@ -17,12 +17,11 @@ Describe 'cse_install.sh'
         logs_to_events() {
             echo "mock logs to events calling with $1"
         }
-        NEEDS_CONTAINERD="true"
         COMPONENTS_FILEPATH="spec/parts/linux/cloud-init/artifacts/test_components.json"
         It 'returns expected output for successful installation of fake containerd in UBUNTU 20.04'
             UBUNTU_RELEASE="20.04"
             containerdPackage=$(readPackage "containerd")
-            When call installContainerRuntime 
+            When call installContainerRuntime
             The variable containerdMajorMinorPatchVersion should equal "1.2.3"
             The variable containerdHotFixVersion should equal ""
             The output line 3 should equal "mock logs to events calling with AKS.CSE.installContainerRuntime.installStandaloneContainerd"
@@ -32,7 +31,7 @@ Describe 'cse_install.sh'
             UBUNTU_RELEASE="" # mocking Mariner doesn't have command `lsb_release -cs`
             OS="MARINER"
             containerdPackage=$(readPackage "containerd")
-            When call installContainerRuntime 
+            When call installContainerRuntime
             The variable containerdMajorMinorPatchVersion should equal "1.2.3"
             The variable containerdHotFixVersion should equal "5.fake"
             The output line 3 should equal "mock logs to events calling with AKS.CSE.installContainerRuntime.installStandaloneContainerd"
@@ -45,8 +44,8 @@ Describe 'cse_install.sh'
             containerdPackage=$(readPackage "containerd")
             IS_KATA="true"
             When call installContainerRuntime
-            The output line 3 should equal "INFO: containerd package versions array is either empty or the first element is <SKIP>. Skipping containerd installation."   
-        End         
+            The output line 3 should equal "INFO: containerd package versions array is either empty or the first element is <SKIP>. Skipping containerd installation."
+        End
         # TODO(mheberling): In a ~month this will probably be removed when we use the standard containerd.
         It 'skips the containerd installation for AzureLinux with Kata'
             UBUNTU_RELEASE="" # mocking Mariner doesn't have command `lsb_release -cs`
@@ -54,8 +53,8 @@ Describe 'cse_install.sh'
             containerdPackage=$(readPackage "containerd")
             IS_KATA="true"
             When call installContainerRuntime
-            The output line 3 should equal "INFO: containerd package versions array is either empty or the first element is <SKIP>. Skipping containerd installation."   
-        End         
+            The output line 3 should equal "INFO: containerd package versions array is either empty or the first element is <SKIP>. Skipping containerd installation."
+        End
         It 'returns expected output for successful installation of containerd in AzureLinux'
             UBUNTU_RELEASE="" # mocking AzureLinux doesn't have command `lsb_release -cs`
             OS="AZURELINUX"
@@ -71,7 +70,7 @@ Describe 'cse_install.sh'
             installContainerdWithManifestJson() {
                 echo "mock installContainerdWithManifestJson calling"
             }
-            When call installContainerRuntime 
+            When call installContainerRuntime
             The output line 2 should equal "Package \"containerd\" does not exist in $COMPONENTS_FILEPATH."
             The output line 3 should equal "mock installContainerdWithManifestJson calling"
         End
@@ -132,7 +131,7 @@ Describe 'cse_install.sh'
     End
 
     Describe 'extractKubeBinaries'
-        k8s_version="1.31.5"        
+        k8s_version="1.31.5"
         is_private_url="false"
         k8s_downloads_dir="/opt/kubernetes/downloads"
         ORAS_REGISTRY_CONFIG_FILE=/etc/oras/config.yaml
@@ -176,7 +175,7 @@ Describe 'cse_install.sh'
         export -f logs_to_events
 
         AfterEach 'cleanup'
-        It 'should use retrycmd_get_tarball_from_registry_with_oras to download kube binaries' 
+        It 'should use retrycmd_get_tarball_from_registry_with_oras to download kube binaries'
             kube_binary_url="mcr.microsoft.com/oss/binaries/kubernetes/kubernetes-node:FakeTag"
             When call extractKubeBinaries $k8s_version $kube_binary_url $is_private_url $k8s_downloads_dir
             The status should be success
