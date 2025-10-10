@@ -160,13 +160,22 @@ func (k *Kubeclient) WaitUntilNodeReady(ctx context.Context, t testing.TB, vmssN
 			continue
 		}
 
-		castNode := event.Object.(*corev1.Node)
-		if !strings.HasPrefix(castNode.Name, vmssName) {
+		var nodeFromEvent *corev1.Node
+		switch v := event.Object.(type) {
+		case *corev1.Node:
+			nodeFromEvent = v
+
+		default:
+			t.Logf("skipping object type %T", event.Object)
+			continue
+		}
+
+		if !strings.HasPrefix(nodeFromEvent.Name, vmssName) {
 			continue
 		}
 
 		// found the right node. Use it!
-		node = castNode
+		node = nodeFromEvent
 		nodeTaints, _ := json.Marshal(node.Spec.Taints)
 		nodeConditions, _ := json.Marshal(node.Status.Conditions)
 
