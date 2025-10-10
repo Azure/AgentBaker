@@ -190,7 +190,7 @@ func (k *Kubeclient) WaitUntilNodeReady(ctx context.Context, t testing.TB, vmssN
 	}
 
 	if node == nil {
-		t.Fatalf("ERROR: %q haven't appeared in k8s API server", vmssName)
+		t.Fatalf("%q haven't appeared in k8s API server", vmssName)
 		return ""
 	}
 

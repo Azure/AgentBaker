@@ -44,8 +44,8 @@ type Configuration struct {
 	BlobStorageAccountPrefix               string        `env:"BLOB_STORAGE_ACCOUNT_PREFIX" envDefault:"abe2e"`
 	BuildID                                string        `env:"BUILD_ID" envDefault:"local"`
 	DefaultLocation                        string        `env:"E2E_LOCATION" envDefault:"westus3"`
-	DefaultSubnetName                      string        `env:"DEFAULT_SUBNET_NAME" envDefault:"aks-subnet"`
 	DefaultPollInterval                    time.Duration `env:"DEFAULT_POLL_INTERVAL" envDefault:"1s"`
+	DefaultSubnetName                      string        `env:"DEFAULT_SUBNET_NAME" envDefault:"aks-subnet"`
 	DefaultVMSKU                           string        `env:"DEFAULT_VM_SKU" envDefault:"Standard_D2ds_v5"`
 	DisableScriptLessCompilation           bool          `env:"DISABLE_SCRIPTLESS_COMPILATION"`
 	E2ELoggingDir                          string        `env:"LOGGING_DIR" envDefault:"scenario-logs"`

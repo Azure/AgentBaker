@@ -317,7 +317,7 @@ func waitForVMPrivateIP(ctx context.Context, s *Scenario) (string, error) {
 	}
 }
 
-func skipTestIfSKUNotAvailableErr(t *testing.T, err error) {
+func skipTestIfSKUNotAvailableErr(t testing.TB, err error) {
 	// sometimes the SKU is not available and we can't do anything. Skip the test in this case.
 	var respErr *azcore.ResponseError
 	if config.Config.SkipTestsWithSKUCapacityIssue &&
@@ -741,7 +741,7 @@ func getNewRSAKeyPair() (privatePEMBytes []byte, publicKeyBytes []byte, e error)
 	return
 }
 
-func generateVMSSNameLinux(t *testing.T) string {
+func generateVMSSNameLinux(t testing.TB) string {
 	name := fmt.Sprintf("%s-%s-%s", randomLowercaseString(4), time.Now().Format(time.DateOnly), t.Name())
 	name = strings.ReplaceAll(name, "_", "")
 	name = strings.ReplaceAll(name, "/", "")

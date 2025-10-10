@@ -66,7 +66,7 @@ func constructErrorMessage(subscriptionID, location string) string {
 	return fmt.Sprintf("Received second cancellation signal, forcing exit.\nPlease check https://ms.portal.azure.com/#@microsoft.onmicrosoft.com/resource/subscriptions/%s/resourceGroups/%s/overview and delete any resources created by the test suite", subscriptionID, config.ResourceGroupName(location))
 }
 
-func newTestCtx(t *testing.T) context.Context {
+func newTestCtx(t testing.TB) context.Context {
 	if testCtx.Err() != nil {
 		t.Skip("test suite is shutting down")
 	}
@@ -178,7 +178,8 @@ func copyScenario(s *Scenario) *Scenario {
 	return &copied
 }
 
-func runScenario(t *testing.T, s *Scenario) {
+func runScenario(t testing.TB, s *Scenario) {
+	t = toolkit.WithTestLogger(t)
 	if s.Location == "" {
 		s.Location = config.Config.DefaultLocation
 	}
@@ -276,7 +277,7 @@ func prepareAKSNode(ctx context.Context, s *Scenario) {
 	require.NoError(s.T, err, "failed to get VM private IP address")
 }
 
-func maybeSkipScenario(ctx context.Context, t *testing.T, s *Scenario) {
+func maybeSkipScenario(ctx context.Context, t testing.TB, s *Scenario) {
 	s.Tags.Name = t.Name()
 	s.Tags.OS = string(s.VHD.OS)
 	s.Tags.Arch = s.VHD.Arch
