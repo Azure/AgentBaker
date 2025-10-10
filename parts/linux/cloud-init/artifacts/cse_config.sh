@@ -589,13 +589,9 @@ ensurePodInfraContainerImage() {
         echo "Cached image details:"
         return 0
     fi
-
+    base_name="${pod_infra_container_image%@:*}"
     base_name="${pod_infra_container_image%:*}"
-    tag="${pod_infra_container_image##*:}"
-    if echo "$pod_infra_container_image" | grep -q "@sha256:"; then
-        base_name="${pod_infra_container_image%@sha256:*}"
-        tag="local"
-    fi
+    tag="local"
 
     image="${pod_infra_container_image//mcr.microsoft.com/${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}}"
     acr_url=$(echo "$image" | cut -d/ -f1)
@@ -607,8 +603,9 @@ ensurePodInfraContainerImage() {
 
     tar -cvf ${POD_INFRA_CONTAINER_IMAGE_TAR} -C ${POD_INFRA_CONTAINER_IMAGE_DOWNLOAD_DIR} .
     if ctr -n k8s.io image import --base-name $base_name ${POD_INFRA_CONTAINER_IMAGE_TAR}; then
+        ctr -n k8s.io image tag "${base_name}:${tag}" "${pod_infra_container_image}"
         echo "Successfully imported $pod_infra_container_image"
-        labelContainerImage "${base_name}:${tag}" "io.cri-containerd.pinned" "pinned"
+        labelContainerImage "${pod_infra_container_image}" "io.cri-containerd.pinned" "pinned"
     else
         echo "Failed to import $pod_infra_container_image"
         exit $ERR_PULL_POD_INFRA_CONTAINER_IMAGE
