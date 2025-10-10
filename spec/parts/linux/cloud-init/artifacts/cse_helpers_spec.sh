@@ -556,7 +556,7 @@ Describe 'cse_helpers.sh'
                 echo ""
             }
             extract_value_from_kubelet_flags(){
-                echo "sandbox_image_from_kubelet_flags"
+                echo ""
             }
             When call get_sandbox_image
             The output should eq ""
