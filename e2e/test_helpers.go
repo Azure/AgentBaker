@@ -520,7 +520,7 @@ func createVMExtensionLinuxAKSNode(location *string) (*armcompute.VirtualMachine
 // RunCommand executes a command on the VMSS VM with instance ID "0" and returns the raw JSON response from Azure
 // Unlike default approach, it doesn't use SSH and uses Azure tooling
 // This approach is generally slower, but it works even if SSH is not available
-func RunCommand(ctx context.Context, s *Scenario, command string) (string, error) {
+func RunCommand(ctx context.Context, s *Scenario, command string) (armcompute.RunCommandResult, error) {
 	start := time.Now()
 	defer func() {
 		elapsed := time.Since(start)
@@ -537,15 +537,14 @@ func RunCommand(ctx context.Context, s *Scenario, command string) (string, error
 		Script: []*string{to.Ptr(command)},
 	}, nil)
 	if err != nil {
-		return "", fmt.Errorf("failed to run command on Windows VM for image creation: %w", err)
+		return armcompute.RunCommandResult{}, fmt.Errorf("failed to run command on Windows VM for image creation: %w", err)
 	}
 
 	runResp, err := runPoller.PollUntilDone(ctx, nil)
 	if err != nil {
-		return "", fmt.Errorf("failed to run command on Windows VM for image creation: %w", err)
+		return runResp.RunCommandResult, fmt.Errorf("failed to run command on Windows VM for image creation: %w", err)
 	}
-	respJson, err := runResp.MarshalJSON()
-	return string(respJson), err
+	return runResp.RunCommandResult, err
 }
 
 func CreateImage(ctx context.Context, s *Scenario) *config.Image {
@@ -554,7 +553,7 @@ func CreateImage(ctx context.Context, s *Scenario) *config.Image {
 Remove-Item C:\system32\Sysprep\unattend.xml -Force
 };
 C:\Windows\System32\Sysprep\Sysprep.exe /oobe /generalize /mode:vm /quiet /quit;`)
-		require.NoErrorf(s.T, err, "Failed to run sysprep on VMSS VM: %s", result)
+		require.NoErrorf(s.T, err, "Failed to run sysprep on VMSS VM: %v", result)
 	}
 
 	vm, err := config.Azure.VMSSVM.Get(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, "0", &armcompute.VirtualMachineScaleSetVMsClientGetOptions{})

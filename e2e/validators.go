@@ -13,8 +13,6 @@ import (
 	"github.com/tidwall/gjson"
 
 	"github.com/Azure/agentbaker/e2e/config"
-	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
@@ -1045,9 +1043,7 @@ func ValidatePubkeySSHDisabled(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 
 	// Part 1. Use VMSS RunCommand to check sshd_config directly on the node
-	runPoller, err := config.Azure.VMSSVM.BeginRunCommand(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, "0", armcompute.RunCommandInput{
-		CommandID: to.Ptr("RunShellScript"),
-		Script: []*string{to.Ptr(`#!/bin/bash
+	resp, err := RunCommand(ctx, s, `#!/bin/bash
 # Check if PubkeyAuthentication is disabled in sshd_config
 if grep -q "^PubkeyAuthentication no" /etc/ssh/sshd_config; then
     echo "SUCCESS: PubkeyAuthentication is disabled"
@@ -1057,16 +1053,10 @@ else
     echo "Current sshd_config content related to PubkeyAuthentication:"
     grep -i "PubkeyAuthentication" /etc/ssh/sshd_config || echo "No PubkeyAuthentication setting found"
     exit 1
-fi`)},
-	}, nil)
+fi`)
 	require.NoError(s.T, err, "Failed to run command to check sshd_config")
-
-	runResp, err := runPoller.PollUntilDone(ctx, nil)
-	require.NoError(s.T, err, "Failed to complete command to check sshd_config")
-
-	// Parse the response to check the result
-	respJson, err := runResp.MarshalJSON()
-	require.NoError(s.T, err, "Failed to marshal run command response")
+	respJson, err := resp.MarshalJSON()
+	require.NoError(s.T, err, "Failed to marshal response")
 	s.T.Logf("Run command output: %s", string(respJson))
 
 	// Parse the JSON response to extract the output and exit code
