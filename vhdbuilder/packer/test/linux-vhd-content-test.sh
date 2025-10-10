@@ -9,14 +9,13 @@ MARINER_KATA_OS_NAME="MARINERKATA"
 AZURELINUX_KATA_OS_NAME="AZURELINUXKATA"
 
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
-CONTAINER_RUNTIME="$1"
-OS_VERSION="$2"
-ENABLE_FIPS="$3"
-OS_SKU="$4"
-GIT_BRANCH="$5"
-IMG_SKU="$6"
-FEATURE_FLAGS="$7"
-GIT_COMMIT_HASH="$8"
+OS_VERSION="$1"
+ENABLE_FIPS="$2"
+OS_SKU="$3"
+GIT_BRANCH="$4"
+IMG_SKU="$5"
+FEATURE_FLAGS="$6"
+GIT_COMMIT_HASH="$7"
 
 # List of "ERROR/WARNING" message we want to ignore in the cloud-init.log
 # 1. "Command ['hostname', '-f']":
@@ -179,7 +178,6 @@ testAcrCredentialProviderInstalled() {
 
 testPackagesInstalled() {
   test="testPackagesInstalled"
-  containerRuntime=$1
   if [ "$(isARM64)" -eq 1 ]; then
     return
   fi
@@ -386,17 +384,9 @@ testPackageInAzureChinaCloud() {
 
 testImagesPulled() {
   test="testImagesPulled"
-  local componentsJsonContent="$2"
+  local componentsJsonContent="$1"
   echo "$test:Start"
-  containerRuntime=$1
-  if [ $containerRuntime = 'containerd' ]; then
-    pulledImages=$(ctr -n k8s.io image ls)
-  elif [ $containerRuntime = 'docker' ]; then
-    pulledImages=$(docker images --format "{{.Repository}}:{{.Tag}}")
-  else
-    err $test "unsupported container runtime $containerRuntime"
-    return
-  fi
+  pulledImages=$(ctr -n k8s.io image ls)
 
   imagesToBePulled=$(echo "${componentsJsonContent}" | jq .ContainerImages[] --monochrome-output --compact-output)
 
@@ -454,13 +444,7 @@ testImagesPulled() {
 testImagesCompleted() {
   test="testImagesCompleted"
   echo "$test:Start"
-  containerRuntime=$1
-  if [ $containerRuntime = 'containerd' ]; then
-    incompleteImages=$(ctr -n k8s.io image check | grep "incomplete")
-  else
-    err $test "unsupported container runtime $containerRuntime"
-    return
-  fi
+  incompleteImages=$(ctr -n k8s.io image check | grep "incomplete")
 
   # Check if there are any incomplete images
   if [ -n "$incompleteImages" ]; then
@@ -474,13 +458,7 @@ testImagesCompleted() {
 testPodSandboxImagePinned() {
   test="testPodSandboxImagePinned"
   echo "$test:Start"
-  containerRuntime=$1
-  if [ $containerRuntime = 'containerd' ]; then
-    pinnedImages=$(ctr -n k8s.io image ls | grep pinned)
-  else
-    err $test "unsupported container runtime $containerRuntime"
-    return
-  fi
+  pinnedImages=$(ctr -n k8s.io image ls | grep pinned)
 
   # Check if the pod sandbox image is pinned
   if [ -z "$pinnedImages" ]; then
@@ -494,17 +472,8 @@ testPodSandboxImagePinned() {
 
 # check all the mcr images retagged for mooncake
 testImagesRetagged() {
-  containerRuntime=$1
-  if [ $containerRuntime = 'containerd' ]; then
-    # shellcheck disable=SC2207
-    pulledImages=($(ctr -n k8s.io image ls))
-  elif [ $containerRuntime = 'docker' ]; then
-    # shellcheck disable=SC2207
-    pulledImages=($(docker images --format "{{.Repository}}:{{.Tag}}"))
-  else
-    err $test "unsupported container runtime $containerRuntime"
-    return
-  fi
+  # shellcheck disable=SC2207
+  pulledImages=($(ctr -n k8s.io image ls))
   mcrImagesNumber=0
   mooncakeMcrImagesNumber=0
   while IFS= read -r pulledImage; do
@@ -1618,10 +1587,10 @@ checkPerformanceData
 testBccTools $OS_SKU
 testVHDBuildLogsExist
 testCriticalTools
-testPackagesInstalled $CONTAINER_RUNTIME
-testImagesPulled $CONTAINER_RUNTIME "$(cat $COMPONENTS_FILEPATH)"
-testImagesCompleted $CONTAINER_RUNTIME
-testPodSandboxImagePinned $CONTAINER_RUNTIME
+testPackagesInstalled
+testImagesPulled "$(cat $COMPONENTS_FILEPATH)"
+testImagesCompleted
+testPodSandboxImagePinned
 testChrony $OS_SKU
 testAuditDNotPresent
 testFips $OS_VERSION $ENABLE_FIPS

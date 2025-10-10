@@ -94,6 +94,5 @@ cp "$AGENTBAKER_DIR/vhdbuilder/packer/imagecustomizer/$CONFIG/out/vhd-build-perf
   echo "Commit: ${COMMIT:-}"
   echo "Hyperv generation: ${HYPERV_GENERATION:-}"
   echo "Feature flags: ${FEATURE_FLAGS:-}"
-  echo "Container runtime: ${CONTAINER_RUNTIME:-}"
   echo "FIPS enabled: ${ENABLE_FIPS:-}"
 } >> $AGENTBAKER_DIR/release-notes.txt

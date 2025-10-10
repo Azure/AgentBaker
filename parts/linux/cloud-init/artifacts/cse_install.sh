@@ -124,9 +124,6 @@ installContainerdWithManifestJson() {
 
 installContainerRuntime() {
     echo "in installContainerRuntime - KUBERNETES_VERSION = ${KUBERNETES_VERSION}"
-    if [ "${NEEDS_CONTAINERD}" != "true" ]; then
-        installMoby # used in docker clusters. Not supported but still exist in production
-    fi
     if [ -f "$COMPONENTS_FILEPATH" ] && jq '.Packages[] | select(.name == "containerd")' < $COMPONENTS_FILEPATH > /dev/null; then
         echo "Package \"containerd\" exists in $COMPONENTS_FILEPATH."
         # if the containerd package is available in the components.json, use the components.json to install containerd
@@ -638,13 +635,8 @@ labelContainerImage() {
 }
 
 retagMCRImagesForChina() {
-    if [ "${CONTAINER_RUNTIME}" = "containerd" ]; then
-        # shellcheck disable=SC2016
+    # shellcheck disable=SC2016
         allMCRImages=($(ctr --namespace k8s.io images list | grep '^mcr.microsoft.com/' | awk '{print $1}'))
-    else
-        # shellcheck disable=SC2016
-        allMCRImages=($(docker images | grep '^mcr.microsoft.com/' | awk '{str = sprintf("%s:%s", $1, $2)} {print str}'))
-    fi
     if [ -z "${allMCRImages}" ]; then
         echo "failed to find mcr images for retag"
         return
@@ -654,48 +646,33 @@ retagMCRImagesForChina() {
         # shellcheck disable=SC2001
         retagMCRImage=$(echo ${mcrImage} | sed -e 's/^mcr.microsoft.com/mcr.azk8s.cn/g')
         # can't use CLI_TOOL because crictl doesn't support retagging.
-        if [ "${CONTAINER_RUNTIME}" = "containerd" ]; then
-            retagContainerImage "ctr" ${mcrImage} ${retagMCRImage}
-        else
-            retagContainerImage "docker" ${mcrImage} ${retagMCRImage}
-        fi
+        retagContainerImage "ctr" ${mcrImage} ${retagMCRImage}
     done
 }
 
 removeContainerImage() {
     CLI_TOOL=$1
     CONTAINER_IMAGE_URL=$2
-    if [ "${CLI_TOOL}" = "docker" ]; then
-        docker image rm $CONTAINER_IMAGE_URL
-    else
-        # crictl should always be present
-        crictl rmi $CONTAINER_IMAGE_URL
-    fi
+    # crictl should always be present
+    crictl rmi $CONTAINER_IMAGE_URL
 }
 
 cleanUpImages() {
     local targetImage=$1
     export targetImage
+    # shellcheck disable=SC2329 # Function is invoked indirectly via bash -c
     function cleanupImagesRun() {
-        if [ "${NEEDS_CONTAINERD}" = "true" ]; then
-            if [ "${CLI_TOOL}" = "crictl" ]; then
-                images_to_delete=$(crictl images | awk '{print $1":"$2}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | tr ' ' '\n')
-            else
-                images_to_delete=$(ctr --namespace k8s.io images list | awk '{print $1}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | tr ' ' '\n')
-            fi
+        if [ "${CLI_TOOL}" = "crictl" ]; then
+            images_to_delete=$(crictl images | awk '{print $1":"$2}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | tr ' ' '\n')
         else
-            images_to_delete=$(docker images --format '{{OpenBraces}}.Repository{{CloseBraces}}:{{OpenBraces}}.Tag{{CloseBraces}}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | tr ' ' '\n')
+            images_to_delete=$(ctr --namespace k8s.io images list | awk '{print $1}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | tr ' ' '\n')
         fi
         local exit_code=$?
         if [ "$exit_code" -ne 0 ]; then
             exit $exit_code
         elif [ -n "${images_to_delete}" ]; then
             echo "${images_to_delete}" | while read -r image; do
-                if [ "${NEEDS_CONTAINERD}" = "true" ]; then
-                    removeContainerImage ${CLI_TOOL} ${image}
-                else
-                    removeContainerImage "docker" ${image}
-                fi
+                removeContainerImage ${CLI_TOOL} ${image}
             done
         fi
     }
@@ -711,23 +688,14 @@ cleanUpKubeProxyImages() {
 
 cleanupRetaggedImages() {
     if [ "${TARGET_CLOUD}" != "AzureChinaCloud" ]; then
-        if [ "${NEEDS_CONTAINERD}" = "true" ]; then
-            if [ "${CLI_TOOL}" = "crictl" ]; then
-                images_to_delete=$(crictl images | awk '{print $1":"$2}' | grep '^mcr.azk8s.cn/' | tr ' ' '\n')
-            else
-                images_to_delete=$(ctr --namespace k8s.io images list | awk '{print $1}' | grep '^mcr.azk8s.cn/' | tr ' ' '\n')
-            fi
+        if [ "${CLI_TOOL}" = "crictl" ]; then
+            images_to_delete=$(crictl images | awk '{print $1":"$2}' | grep '^mcr.azk8s.cn/' | tr ' ' '\n')
         else
-            images_to_delete=$(docker images --format '{{OpenBraces}}.Repository{{CloseBraces}}:{{OpenBraces}}.Tag{{CloseBraces}}' | grep '^mcr.azk8s.cn/' | tr ' ' '\n')
+            images_to_delete=$(ctr --namespace k8s.io images list | awk '{print $1}' | grep '^mcr.azk8s.cn/' | tr ' ' '\n')
         fi
         if [ -n "${images_to_delete}" ]; then
             echo "${images_to_delete}" | while read -r image; do
-                if [ "${NEEDS_CONTAINERD}" = "true" ]; then
-                    # crictl will remove *ALL* references to a given imageID (SHA), which removes too much, so always use ctr
-                    removeContainerImage "ctr" ${image}
-                else
-                    removeContainerImage "docker" ${image}
-                fi
+                removeContainerImage ${CLI_TOOL} ${image}
             done
         fi
     else

@@ -53,7 +53,7 @@ This table is describing the all the `AKSNodeConfig` Fields converted to .go fil
 
 
 Removed old environment variables from cse_cmd.sh:
-`CSE_HELPERS_FILEPATH`, `CSE_DISTRO_HELPERS_FILEPATH`, `CSE_INSTALL_FILEPATH`, `CSE_DISTRO_INSTALL_FILEPATH`, `CSE_CONFIG_FILEPATH`, `DHCPV6_SERVICE_FILEPATH`, `DHCPV6_CONFIG_FILEPATH`, `NEEDS_DOCKER_LOGIN`, `NEEDS_CONTAINERD`, `CLI_TOOL`, `CONTAINER_RUNTIME`, `MOBY_VERSION`, `HYPERKUBE_URL`, `SGX_NODE`, `GPU_DRIVER_TYPE` and more.
+`CSE_HELPERS_FILEPATH`, `CSE_DISTRO_HELPERS_FILEPATH`, `CSE_INSTALL_FILEPATH`, `CSE_DISTRO_INSTALL_FILEPATH`, `CSE_CONFIG_FILEPATH`, `DHCPV6_SERVICE_FILEPATH`, `DHCPV6_CONFIG_FILEPATH`, `CLI_TOOL`, `MOBY_VERSION`, `HYPERKUBE_URL`, `SGX_NODE`, `GPU_DRIVER_TYPE` and more.
 
 Many variables are changed to optional and we have a builder function as a helper to provide default values. For example, the builder function defaults `LinuxAdminUsername` to value `azureuser`, `OutboundCommand` to a default outbound command `curl -v --insecure --proxy-insecure https://mcr.microsoft.com/v2/`.
 
