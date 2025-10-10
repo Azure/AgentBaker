@@ -1129,7 +1129,7 @@ extract_tarball() {
 }
 
 function get_sandbox_image(){
-    sandbox_image=$(get_sandbox_image_from_containerd_config)
+    sandbox_image=$(get_sandbox_image_from_containerd_config "/etc/containerd/config.toml")
     if [ -z "$sandbox_image" ]; then
         echo "Failed to get sandbox_image from containerd config, using default"
         sandbox_image=$(extract_value_from_kubelet_flags "$KUBELET_FLAGS" "pod-infra-container-image")
@@ -1148,7 +1148,7 @@ function extract_value_from_kubelet_flags(){
 }
 
 function get_sandbox_image_from_containerd_config() {
-    local config_file="${1:-/etc/containerd/config.toml}"
+    local config_file=$1
     local sandbox_image=""
 
     if [ ! -f "$config_file" ]; then
