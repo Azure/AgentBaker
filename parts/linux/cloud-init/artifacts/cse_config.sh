@@ -1172,4 +1172,48 @@ EOF
     echo "Enable localdns succeeded."
 }
 
+startNvidiaManagedExpServices() {
+    # 1. Start the nvidia-device-plugin service.
+    if [ "${MIG_NODE}" = "true" ]; then
+    # Create systemd override directory and fix binary path
+    NVIDIA_DEVICE_PLUGIN_OVERRIDE_DIR="/etc/systemd/system/nvidia-device-plugin.service.d"
+    mkdir -p "${NVIDIA_DEVICE_PLUGIN_OVERRIDE_DIR}"
+        tee "${NVIDIA_DEVICE_PLUGIN_OVERRIDE_DIR}/10-mig_strategy.conf" > /dev/null <<'EOF'
+[Service]
+Environment="MIG_STRATEGY=--mig-strategy single"
+ExecStart=
+ExecStart=/usr/local/bin/nvidia-device-plugin $MIG_STRATEGY
+EOF
+        # Reload systemd to pick up the base path override
+        systemctl daemon-reload
+    fi
+
+    logs_to_events "AKS.CSE.start.nvidia-device-plugin" "systemctlEnableAndStart nvidia-device-plugin 30" || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
+
+    # 2. Start the nvidia-dcgm service.
+    logs_to_events "AKS.CSE.start.nvidia-dcgm" "systemctlEnableAndStart nvidia-dcgm 30" || exit $ERR_NVIDIA_DCGM_FAIL
+
+    # 3. Start the nvidia-dcgm-exporter service.
+    # Create systemd drop-in directory for nvidia-dcgm-exporter service
+    DCGM_EXPORTER_OVERRIDE_DIR="/etc/systemd/system/nvidia-dcgm-exporter.service.d"
+    mkdir -p "${DCGM_EXPORTER_OVERRIDE_DIR}"
+
+    # Create drop-in file to override service configuration
+    tee "${DCGM_EXPORTER_OVERRIDE_DIR}/10-aks-override.conf" > /dev/null <<EOF
+[Service]
+# Remove file-based logging - let systemd handle logs
+StandardOutput=journal
+StandardError=journal
+# Change default port from 9400 to 19400 so that it does not conflict with user installed dcgm-exporter
+ExecStart=
+ExecStart=/usr/bin/dcgm-exporter -f /etc/dcgm-exporter/default-counters.csv --address ":19400"
+EOF
+
+    # Reload systemd to apply the override configuration
+    systemctl daemon-reload
+
+    # Start the nvidia-dcgm-exporter service.
+    logs_to_events "AKS.CSE.start.nvidia-dcgm-exporter" "systemctlEnableAndStart nvidia-dcgm-exporter 30" || exit $ERR_NVIDIA_DCGM_EXPORTER_FAIL
+}
+
 #EOF

@@ -1090,3 +1090,35 @@ fi`)},
 
 	s.T.Logf("PubkeyAuthentication is properly disabled as expected")
 }
+
+func ValidateNvidiaDCGMExporterSystemDServiceRunning(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	command := []string{
+		"set -ex",
+		// Verify nvidia-dcgm service is running
+		"systemctl is-active nvidia-dcgm",
+		// Verify nvidia-dcgm-exporter service is running
+		"systemctl is-active nvidia-dcgm-exporter",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "Nvidia DCGM Exporter service validation failed")
+}
+
+func ValidateNvidiaDCGMExporterIsScrapable(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	command := []string{
+		"set -ex",
+		// Check if nvidia-dcgm-exporter is scrapable on port 19400
+		"curl -f http://localhost:19400/metrics",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "Nvidia DCGM Exporter is not scrapable on port 19400")
+}
+
+func ValidateNvidiaDCGMExporterScrapeCommonMetric(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	command := []string{
+		"set -ex",
+		// Verify the most universal GPU metric is present
+		"curl -s http://localhost:19400/metrics | grep -q 'DCGM_FI_DEV_GPU_UTIL'",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "Nvidia DCGM Exporter is not returning DCGM_FI_DEV_GPU_UTIL")
+}

@@ -138,6 +138,12 @@ ERR_SECURE_TLS_BOOTSTRAP_START_FAILURE=220 # Error starting the secure TLS boots
 
 ERR_CLOUD_INIT_FAILED=223 # Error indicating that cloud-init returned exit code 1 in cse_cmd.sh
 ERR_NVIDIA_DRIVER_INSTALL=224 # Error determining if nvidia driver install should be skipped
+ERR_NVIDIA_GPG_KEY_DOWNLOAD_TIMEOUT=225 # Timeout waiting for NVIDIA GPG key download
+ERR_NVIDIA_AZURELINUX_REPO_FILE_DOWNLOAD_TIMEOUT=226 # Timeout waiting for NVIDIA AzureLinux repo file download
+ERR_MANAGED_NVIDIA_EXP_INSTALL_FAIL=227 # Error installing Managed NVIDIA GPU experience packages
+ERR_NVIDIA_DCGM_FAIL=228 # Error starting or enabling NVIDIA DCGM service
+ERR_NVIDIA_DCGM_EXPORTER_FAIL=229 # Error starting or enabling NVIDIA DCGM Exporter service
+ERR_LOOKUP_ENABLE_MANAGED_GPU_EXPERIENCE_TAG=230 # Error checking nodepool tags for whether we need to enable managed GPU experience
 
 ERR_PULL_POD_INFRA_CONTAINER_IMAGE=225 # Error pulling pause image
 
@@ -540,14 +546,24 @@ apt_get_download() {
   retries=$1; wait_sleep=$2; shift && shift;
   local ret=0
   pushd $APT_CACHE_DIR || return 1
-  for i in $(seq 1 $retries); do
+  for i in $(seq 1 "$retries"); do
     dpkg --configure -a --force-confdef
     wait_for_apt_locks
-    apt-get -o Dpkg::Options::=--force-confold download -y "${@}" && break
-    if [ $i -eq $retries ]; then ret=1; else sleep $wait_sleep; fi
+
+    # Pull the first quoted URL from --print-uris
+    url="$(apt-get --print-uris -o Dpkg::Options::=--force-confold download -y -- "$@" \
+           | awk -F"'" 'NR==1 && $2 {print $2}')"
+    if [ -n "$url" ]; then
+      # This avoids issues with the naming in the package. `apt-get download`
+      # encodes the package names with special characters and does not decode
+      # them when saving to disk, but `curl -J` handles the names correctly.
+      if curl -fLJO -- "$url"; then ret=0; break; fi
+    fi
+
+    if [ "$i" -eq "$retries" ]; then ret=1; else sleep "$wait_sleep"; fi
   done
   popd || return 1
-  return $ret
+  return "$ret"
 }
 
 getCPUArch() {
@@ -653,6 +669,17 @@ should_enforce_kube_pmc_install() {
       return $ret
     fi
     should_enforce=$(echo "$body" | jq -r '.compute.tagsList[] | select(.name == "ShouldEnforceKubePMCInstall") | .value')
+    echo "${should_enforce,,}"
+}
+
+enableManagedGPUExperience() {
+    set -x
+    body=$(curl -fsSL -H "Metadata: true" --noproxy "*" "http://169.254.169.254/metadata/instance?api-version=2021-02-01")
+    ret=$?
+    if [ "$ret" -ne 0 ]; then
+      return $ret
+    fi
+    should_enforce=$(echo "$body" | jq -r '.compute.tagsList[] | select(.name == "EnableManagedGPUExperience") | .value')
     echo "${should_enforce,,}"
 }
 
