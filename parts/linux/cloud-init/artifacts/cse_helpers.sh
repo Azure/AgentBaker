@@ -644,6 +644,17 @@ should_enforce_kube_pmc_install() {
     echo "${should_enforce,,}"
 }
 
+should_enforce_bootstrap_registry_install() {
+    set -x
+    body=$(curl -fsSL -H "Metadata: true" --noproxy "*" "http://169.254.169.254/metadata/instance?api-version=2021-02-01")
+    ret=$?
+    if [ "$ret" -ne 0 ]; then
+      return $ret
+    fi
+    should_enforce=$(echo "$body" | jq -r '.compute.tagsList[] | select(.name == "ShouldEnforceBootstrapRegistryInstall") | .value')
+    echo "${should_enforce,,}"
+}
+
 isMarinerOrAzureLinux() {
     local os=$1
     if [ "$os" = "$MARINER_OS_NAME" ] || [ "$os" = "$MARINER_KATA_OS_NAME" ] || [ "$os" = "$AZURELINUX_OS_NAME" ] || [ "$os" = "$AZURELINUX_KATA_OS_NAME" ]; then

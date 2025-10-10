@@ -561,10 +561,13 @@ configureKubeletAndKubectl() {
     elif [ "${SHOULD_ENFORCE_KUBE_PMC_INSTALL}" != "true" ] && ! semverCompare ${KUBERNETES_VERSION:-"0.0.0"} "1.34.0"; then
         logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromURL" installKubeletKubectlFromURL
     elif [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
-        # For network isolated clusters, try distro packages for k8s >= 1.34.0, otherwise use binary installation
-        if ! semverCompare ${KUBERNETES_VERSION} "1.34.0" || \
-           ! logs_to_events "AKS.CSE.configureKubeletAndKubectl.installK8sToolsFromBootstrapProfileRegistry" "installK8sToolsFromBootstrapProfileRegistry ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ${KUBERNETES_VERSION}"; then
-            logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromURL-Fallback" installKubeletKubectlFromURL
+        # For network isolated clusters, try distro packages if SHOULD_ENFORCE_BOOTSTRAP_REGISTRY_INSTALL is true or k8s >= 1.34.0, otherwise use binary installation
+        if [ "${SHOULD_ENFORCE_BOOTSTRAP_REGISTRY_INSTALL}" = "true" ] || semverCompare ${KUBERNETES_VERSION} "1.34.0"; then
+            if ! logs_to_events "AKS.CSE.configureKubeletAndKubectl.installK8sToolsFromBootstrapProfileRegistry" "installK8sToolsFromBootstrapProfileRegistry ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ${KUBERNETES_VERSION}"; then
+                logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromURL-Fallback" installKubeletKubectlFromURL
+            fi
+        else
+            logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromURL" installKubeletKubectlFromURL
         fi
     else
         if isMarinerOrAzureLinux "$OS"; then

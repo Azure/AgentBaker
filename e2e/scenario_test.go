@@ -1938,6 +1938,7 @@ func Test_Ubuntu2204_PMC_Install(t *testing.T) {
 					vmss.Tags = map[string]*string{}
 				}
 				vmss.Tags["ShouldEnforceKubePMCInstall"] = to.Ptr("true")
+				vmss.Tags["ShouldEnforceBootstrapRegistryInstall"] = to.Ptr("true")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", components.GetExpectedPackageVersions("containerd", "ubuntu", "r2204")[0])
