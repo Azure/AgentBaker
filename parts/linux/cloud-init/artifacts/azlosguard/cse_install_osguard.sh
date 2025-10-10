@@ -77,4 +77,9 @@ cleanUpGPUDrivers() {
     stub
 }
 
+installKubeletKubectlPkgFromLocalRepo() {
+    stub
+    return 1
+}
+
 #EOF

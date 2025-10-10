@@ -177,6 +177,11 @@ installKubeletKubectlPkgFromPMC() {
     installRPMPackageFromFile "kubectl" $desiredVersion || exit $ERR_KUBECTL_INSTALL_FAIL
 }
 
+installKubeletKubectlPkgFromLocalRepo() {
+    echo "installKubeletKubectlPkgFromLocalRepo is not yet implemented for Mariner/AzureLinux"
+    return 1
+}
+
 installRPMPackageFromFile() {
     local packageName="${1}"
     local desiredVersion="${2}"

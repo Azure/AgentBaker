@@ -142,7 +142,7 @@ Describe 'cse_config.sh'
     End
 
     Describe 'configureKubeletServing'
-        preserve_vars() { 
+        preserve_vars() {
             %preserve KUBELET_FLAGS
             %preserve KUBELET_NODE_LABELS
             %preserve KUBELET_CONFIG_FILE_CONTENT
@@ -311,7 +311,7 @@ Describe 'cse_config.sh'
                 echo "false"
             }
             KUBELET_FLAGS="--rotate-certificates=true,--rotate-server-certificates=true,--node-ip=10.0.0.1,anonymous-auth=false"
-            KUBELET_NODE_LABELS="kubernetes.azure.com/agentpool=wp0,kubernetes.azure.com/kubelet-serving-ca=cluster" 
+            KUBELET_NODE_LABELS="kubernetes.azure.com/agentpool=wp0,kubernetes.azure.com/kubelet-serving-ca=cluster"
             ENABLE_KUBELET_SERVING_CERTIFICATE_ROTATION="true"
             When run configureKubeletServing
             The stdout should include 'kubelet serving certificate rotation is enabled'
@@ -523,7 +523,7 @@ Describe 'cse_config.sh'
         BeforeEach 'setup'
         AfterEach 'cleanup'
 
-        # Success case. 
+        # Success case.
         It 'should enable localdns successfully'
             When call shouldEnableLocalDns
             The status should be success
@@ -614,6 +614,10 @@ Describe 'cse_config.sh'
             echo "installKubeletKubectlPkgFromPMC $1"
         }
 
+        installK8sToolsFromBootstrapProfileRegistry() {
+            echo "installK8sToolsFromBootstrapProfileRegistry $1 $2"
+        }
+
         # Set default values for common variables
         BeforeEach() {
             OS="UBUNTU"
@@ -621,6 +625,7 @@ Describe 'cse_config.sh'
             CUSTOM_KUBE_BINARY_DOWNLOAD_URL=""
             PRIVATE_KUBE_BINARY_DOWNLOAD_URL=""
             BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER=""
+            SHOULD_ENFORCE_BOOTSTRAP_REGISTRY_INSTALL=""
             OS_VERSION=""
             KUBERNETES_VERSION=""
         }
@@ -642,11 +647,10 @@ Describe 'cse_config.sh'
             The output should not include "installKubeletKubectlPkgFromPMC"
         End
 
-        It 'should install from URL if BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER is set'
+        It 'should not install from PMC if BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER is set'
             BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myregistry.azurecr.io"
             KUBERNETES_VERSION="1.34.0"
             When call configureKubeletAndKubectl
-            The output should include "installKubeletKubectlFromURL"
             The output should not include "installKubeletKubectlPkgFromPMC"
         End
 
@@ -760,6 +764,66 @@ Describe 'cse_config.sh'
             When call configureKubeletAndKubectl
             The output should not include "installKubeletKubectlFromURL"
             The output should not include "installKubeletKubectlPkgFromPMC"
+        End
+
+        # Test BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER scenarios
+        It 'should call installK8sToolsFromBootstrapProfileRegistry when BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER is set and k8s >= 1.34.0 and succeeds'
+            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myregistry.azurecr.io"
+            KUBERNETES_VERSION="1.34.0"
+            When call configureKubeletAndKubectl
+            The output should include "installK8sToolsFromBootstrapProfileRegistry myregistry.azurecr.io 1.34.0"
+            The output should not include "installKubeletKubectlFromURL"
+        End
+
+        It 'should fallback to installKubeletKubectlFromURL when BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER is set and k8s >= 1.34.0 but installK8sToolsFromBootstrapProfileRegistry fails'
+            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myregistry.azurecr.io"
+            KUBERNETES_VERSION="1.34.0"
+            installK8sToolsFromBootstrapProfileRegistry() {
+                echo "installK8sToolsFromBootstrapProfileRegistry $1 $2"
+                return 1
+            }
+            When call configureKubeletAndKubectl
+            The output should include "installK8sToolsFromBootstrapProfileRegistry myregistry.azurecr.io 1.34.0"
+            The output should include "installKubeletKubectlFromURL"
+        End
+
+        It 'should call installKubeletKubectlFromURL when BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER is set and k8s < 1.34.0'
+            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myregistry.azurecr.io"
+            KUBERNETES_VERSION="1.33.5"
+            When call configureKubeletAndKubectl
+            The output should not include "installK8sToolsFromBootstrapProfileRegistry"
+            The output should include "installKubeletKubectlFromURL"
+        End
+
+        It 'should call installK8sToolsFromBootstrapProfileRegistry when SHOULD_ENFORCE_BOOTSTRAP_REGISTRY_INSTALL is true and k8s < 1.34.0'
+            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myregistry.azurecr.io"
+            KUBERNETES_VERSION="1.33.5"
+            SHOULD_ENFORCE_BOOTSTRAP_REGISTRY_INSTALL="true"
+            When call configureKubeletAndKubectl
+            The output should include "installK8sToolsFromBootstrapProfileRegistry myregistry.azurecr.io 1.33.5"
+            The output should not include "installKubeletKubectlFromURL"
+        End
+
+        It 'should fallback to installKubeletKubectlFromURL when SHOULD_ENFORCE_BOOTSTRAP_REGISTRY_INSTALL is true but installK8sToolsFromBootstrapProfileRegistry fails'
+            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myregistry.azurecr.io"
+            KUBERNETES_VERSION="1.33.5"
+            SHOULD_ENFORCE_BOOTSTRAP_REGISTRY_INSTALL="true"
+            installK8sToolsFromBootstrapProfileRegistry() {
+                echo "installK8sToolsFromBootstrapProfileRegistry $1 $2"
+                return 1
+            }
+            When call configureKubeletAndKubectl
+            The output should include "installK8sToolsFromBootstrapProfileRegistry myregistry.azurecr.io 1.33.5"
+            The output should include "installKubeletKubectlFromURL"
+        End
+
+        It 'should not call installK8sToolsFromBootstrapProfileRegistry when SHOULD_ENFORCE_BOOTSTRAP_REGISTRY_INSTALL is false and k8s < 1.34.0'
+            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myregistry.azurecr.io"
+            KUBERNETES_VERSION="1.33.5"
+            SHOULD_ENFORCE_BOOTSTRAP_REGISTRY_INSTALL="false"
+            When call configureKubeletAndKubectl
+            The output should not include "installK8sToolsFromBootstrapProfileRegistry"
+            The output should include "installKubeletKubectlFromURL"
         End
     End
 End
