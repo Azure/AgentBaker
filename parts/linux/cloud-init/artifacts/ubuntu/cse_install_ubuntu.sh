@@ -1,7 +1,5 @@
 #!/bin/bash
 
-K8S_DEVICE_PLUGIN_PKG="${K8S_DEVICE_PLUGIN_PKG:-nvidia-device-plugin}"
-
 removeMoby() {
     apt_get_purge 10 5 300 moby-engine moby-cli
 }
@@ -78,38 +76,91 @@ updateAptWithMicrosoftPkg() {
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
 }
 
-cleanUpGPUDrivers() {
-    rm -Rf $GPU_DEST /opt/gpu
-    rm -rf "/opt/${K8S_DEVICE_PLUGIN_PKG}/downloads"
+updateAptWithNvidiaPkg() {
+    readonly nvidia_gpg_keyring_path="/etc/apt/keyrings/nvidia.pub"
+    mkdir -p "$(dirname "${nvidia_gpg_keyring_path}")"
+
+    readonly nvidia_sources_list_path="/etc/apt/sources.list.d/nvidia.list"
+    local cpu_arch=$(getCPUArch)  # Returns amd64 or arm64
+    local repo_arch=""
+    local nvidia_ubuntu_release=""
+
+    if [ "$cpu_arch" = "amd64" ]; then
+        repo_arch="x86_64"
+    elif [ "$cpu_arch" = "arm64" ]; then
+        repo_arch="sbsa"
+    else
+        echo "Unknown CPU architecture: ${cpu_arch}"
+        return
+    fi
+
+    if [ "${UBUNTU_RELEASE}" = "22.04" ]; then
+        nvidia_ubuntu_release="ubuntu2204"
+    elif [ "${UBUNTU_RELEASE}" = "24.04" ]; then
+        nvidia_ubuntu_release="ubuntu2404"
+    else
+        echo "NVIDIA repo setup is not supported on Ubuntu ${UBUNTU_RELEASE}"
+        return
+    fi
+
+    # Construct URLs based on detected architecture and Ubuntu version
+    echo "deb [arch=${cpu_arch} signed-by=${nvidia_gpg_keyring_path}] https://developer.download.nvidia.com/compute/cuda/repos/${nvidia_ubuntu_release}/${repo_arch} /" > ${nvidia_sources_list_path}
+
+    # Add NVIDIA repository
+    local nvidia_gpg_key_url="https://developer.download.nvidia.com/compute/cuda/repos/${nvidia_ubuntu_release}/${repo_arch}/3bf863cc.pub"
+
+    # Download and add the GPG key for the NVIDIA repository
+    retrycmd_curl_file 120 5 25 ${nvidia_gpg_keyring_path} ${nvidia_gpg_key_url} || exit $ERR_NVIDIA_GPG_KEY_DOWNLOAD_TIMEOUT
+    apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
 }
 
-installNvidiaDevicePluginPkgFromCache() {
-    local os=${UBUNTU_OS_NAME}
-    if [ -z "$UBUNTU_RELEASE" ]; then
-        echo "ERROR: UBUNTU_RELEASE is not set, cannot determine nvidia-device-plugin version" >&2
-        exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
+isPackageInstalled() {
+    local packageName="${1}"
+    if dpkg -l "${packageName}" 2>/dev/null | grep -q "^ii"; then
+        return 0  # Package is installed
+    else
+        return 1  # Package is not installed
     fi
-    local os_version="${UBUNTU_RELEASE}"
+}
 
-    # Get nvidia-device-plugin package info from components.json
-    local package=$(jq -r ".Packages[] | select(.name == \"${K8S_DEVICE_PLUGIN_PKG}\")" "${COMPONENTS_FILEPATH}")
+managedGPUPackageList() {
+    packages=(
+        nvidia-device-plugin
+        datacenter-gpu-manager-4-core
+        datacenter-gpu-manager-4-proprietary
+        datacenter-gpu-manager-exporter
+    )
+    echo "${packages[@]}"
+}
 
-    # Get the latest package version
-    updatePackageVersions "${package}" "${os}" "${os_version}"
-    if [ ${#PACKAGE_VERSIONS[@]} -eq 0 ]; then
-        echo "ERROR: No nvidia-device-plugin versions found" >&2
-        exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
-    fi
+installNvidiaManagedExpPkgFromCache() {
+    # Ensure kubelet device-plugins directory exists BEFORE package installation
+    mkdir -p /var/lib/kubelet/device-plugins
 
-    # Use the first (latest) version
-    local packageVersion="${PACKAGE_VERSIONS[0]}"
-    echo "installing ${K8S_DEVICE_PLUGIN_PKG} package version: $packageVersion"
+    for packageName in $(managedGPUPackageList); do
+        downloadDir="/opt/${packageName}/downloads"
+        if isPackageInstalled "${packageName}"; then
+            echo "${packageName} is already installed, skipping."
+            rm -rf $(dirname ${downloadDir})
+            continue
+        fi
 
-    # For nvidia-device-plugin, strip the Ubuntu-specific suffix from version
-    # e.g., "0.17.4-ubuntu24.04u1" -> "0.17.4"
-    local baseVersion=$(echo "${packageVersion}" | sed 's/-ubuntu[0-9.]*u[0-9]*//')
-    echo "using base version ${baseVersion} for ${K8S_DEVICE_PLUGIN_PKG} package filename"
-    installPkgWithAptGet "${K8S_DEVICE_PLUGIN_PKG}" "${baseVersion}" || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
+        debFile=$(find "${downloadDir}" -maxdepth 1 -name "${packageName}*" -print -quit 2>/dev/null) || debFile=""
+        if [ -z "${debFile}" ]; then
+            echo "Failed to locate ${packageName} deb"
+            exit $ERR_MANAGED_NVIDIA_EXP_INSTALL_FAIL
+        fi
+        logs_to_events "AKS.CSE.install${packageName}.installDebPackageFromFile" "installDebPackageFromFile ${debFile}" || exit $ERR_APT_INSTALL_TIMEOUT
+        rm -rf $(dirname ${downloadDir})
+    done
+}
+
+cleanUpGPUDrivers() {
+    rm -Rf $GPU_DEST /opt/gpu
+
+    for packageName in $(managedGPUPackageList); do
+        rm -rf "/opt/${packageName}"
+    done
 }
 
 installCriCtlPackage() {
@@ -185,7 +236,9 @@ downloadPkgFromVersion() {
     downloadDir="${3:-"/opt/${packageName}/downloads"}"
     mkdir -p ${downloadDir}
     apt_get_download 20 30 ${packageName}=${packageVersion} || exit $ERR_APT_INSTALL_TIMEOUT
-    cp -al ${APT_CACHE_DIR}${packageName}_${packageVersion}* ${downloadDir}/ || exit $ERR_APT_INSTALL_TIMEOUT
+    # Strip epoch (e.g., 1:4.4.1-1 -> 4.4.1-1)
+    version_no_epoch="${packageVersion#*:}"
+    cp -al "${APT_CACHE_DIR}/${packageName}_${version_no_epoch}"* "${downloadDir}/" || exit $ERR_APT_INSTALL_TIMEOUT
     echo "Succeeded to download ${packageName} version ${packageVersion}"
 }
 
