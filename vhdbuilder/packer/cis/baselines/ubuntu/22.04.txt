@@ -1,7 +1,7 @@
 CIS Ubuntu Linux 22.04 LTS Benchmark
-Evaluation of: vhd-scanning-vm-1758213495-20241
-Ended: 2025-09-18T16:51:25.124Z
-Assessment Duration: 3 minutes, 44 seconds
+Evaluation of: vhd-scanning-vm-1758731078-25581
+Ended: 2025-09-24T16:37:35.484Z
+Assessment Duration: 3 minutes, 58 seconds
 
 pass: 1.1.1.1 Ensure cramfs kernel module is not available
 pass: 1.1.1.2 Ensure freevxfs kernel module is not available

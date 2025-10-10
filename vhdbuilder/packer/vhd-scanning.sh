@@ -268,7 +268,7 @@ fi
 # Compare current cis-report.txt against stored baseline for Ubuntu 22.04 / 24.04.
 # A regression is when a rule that previously "pass" now has any other result.
 compare_cis_with_baseline() {
-    local baseline_file="vhdbuilder/packer/cis-${OS_SKU}-${OS_VERSION}-baseline.txt"
+    local baseline_file="vhdbuilder/packer/cis/baselines/${OS_SKU}/${OS_VERSION}.txt"
     local current_file="cis-report.txt"
     local regressions_file="cis-regressions.txt"
 
