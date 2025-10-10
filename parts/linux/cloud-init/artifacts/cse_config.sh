@@ -576,6 +576,44 @@ configureKubeletAndKubectl() {
     fi
 }
 
+ensurePodInfraContainerImage() {
+    POD_INFRA_CONTAINER_IMAGE_DOWNLOAD_DIR="/opt/pod-infra-container-image/downloads"
+    POD_INFRA_CONTAINER_IMAGE_TAR="/opt/pod-infra-container-image/pod-infra-container-image.tar"
+
+    pod_infra_container_image=$(get_sandbox_image)
+
+    echo "Checking if $pod_infra_container_image already exists locally..."
+    if ctr -n k8s.io images list -q | grep -q "^${pod_infra_container_image}$"; then
+        echo "Image $pod_infra_container_image already exists locally, skipping pull"
+        echo "Cached image details:"
+        return 0
+    fi
+    base_name="${pod_infra_container_image%@:*}"
+    base_name="${pod_infra_container_image%:*}"
+    tag="local"
+
+    image="${pod_infra_container_image//mcr.microsoft.com/${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}}"
+    acr_url=$(echo "$image" | cut -d/ -f1)
+
+    mkdir -p ${POD_INFRA_CONTAINER_IMAGE_DOWNLOAD_DIR}
+
+    echo "Pulling with authentication for $image"
+    retrycmd_cp_oci_layout_with_oras 10 5 "${POD_INFRA_CONTAINER_IMAGE_DOWNLOAD_DIR}" "$tag" "$image" || exit $ERR_PULL_POD_INFRA_CONTAINER_IMAGE
+
+    tar -cvf ${POD_INFRA_CONTAINER_IMAGE_TAR} -C ${POD_INFRA_CONTAINER_IMAGE_DOWNLOAD_DIR} .
+    if ctr -n k8s.io image import --base-name $base_name ${POD_INFRA_CONTAINER_IMAGE_TAR}; then
+        ctr -n k8s.io image tag "${base_name}:${tag}" "${pod_infra_container_image}"
+        echo "Successfully imported $pod_infra_container_image"
+        labelContainerImage "${pod_infra_container_image}" "io.cri-containerd.pinned" "pinned"
+    else
+        echo "Failed to import $pod_infra_container_image"
+        exit $ERR_PULL_POD_INFRA_CONTAINER_IMAGE
+    fi
+
+    rm -rf ${POD_INFRA_CONTAINER_IMAGE_DOWNLOAD_DIR}
+    rm -f ${POD_INFRA_CONTAINER_IMAGE_TAR}
+}
+
 ensureKubelet() {
     KUBELET_DEFAULT_FILE=/etc/default/kubelet
     mkdir -p /etc/default
@@ -739,6 +777,11 @@ EOF
                 logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromPMC" "installCredentialProviderFromPMC ${KUBERNETES_VERSION}"
             fi
         fi
+    fi
+
+    # kubelet cannot pull pause image from anonymous disabled registry during runtime
+    if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
+        logs_to_events "AKS.CSE.ensureKubelet.ensurePodInfraContainerImage" ensurePodInfraContainerImage
     fi
 
     # start measure-tls-bootstrapping-latency.service without waiting for the main process to start, while ignoring any failures
