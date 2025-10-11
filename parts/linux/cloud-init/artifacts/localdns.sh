@@ -354,18 +354,23 @@ cleanup_iptables_and_dns() {
     fi
 
     # Revert DNS configuration and network reload.
-    echo "Reverting DNS configuration by removing ${NETWORK_DROPIN_FILE}."
+    echo "Reverting DNS configuration."
+
+    echo "Removing network drop-in file ${NETWORK_DROPIN_FILE}."
     rm -f "$NETWORK_DROPIN_FILE"
     if [ "$?" -ne 0 ]; then
         echo "Failed to remove network drop-in file ${NETWORK_DROPIN_FILE}."
         return 1
     fi
+    echo "Successfully removed network drop-in file."
 
+    echo "Attempt to reload network configuration."
     eval "$NETWORKCTL_RELOAD_CMD"
     if [ "$?" -ne 0 ]; then
         echo "Failed to reload network after removing the DNS configuration."
         return 1
     fi
+    echo "Reloading network configuration succeeded."
 
     return 0
 }
