@@ -221,6 +221,45 @@ verify_network_dropin_dir() {
     return 0
 }
 
+# Initialize network variables that may not be set during restarts or cleanup traps.
+# This function can be called both during startup and in cleanup functions to ensure variables are available.
+initialize_network_variables() {
+    # Determine the default route interface if not already set.
+    # This will typically be eth0.
+    if [ -z "${DEFAULT_ROUTE_INTERFACE:-}" ]; then
+        DEFAULT_ROUTE_INTERFACE="$(ip -j route get "${AZURE_DNS_IP}" 2>/dev/null | jq -r 'if type == "array" and length > 0 then .[0].dev else empty end')"
+        if ! verify_default_route_interface; then
+            echo "Failed to determine default route interface during variable initialization."
+            return 1
+        fi
+    fi
+
+    # Get the network file associated with the default route interface if not already set.
+    # This will typically be /run/systemd/network/10-netplan-eth0.network.
+    if [ -z "${NETWORK_FILE:-}" ]; then
+        NETWORK_FILE="$(networkctl --json=short status "${DEFAULT_ROUTE_INTERFACE}" 2>/dev/null | jq -r '.NetworkFile')"
+        if ! verify_network_file; then
+            echo "Failed to determine network file during variable initialization."
+            return 1
+        fi
+    fi
+
+    # Get the network drop-in directory.
+    # This will typically be /run/systemd/network/10-netplan-eth0.network.d
+    if [ -z "${NETWORK_DROPIN_DIR:-}" ]; then
+        NETWORK_DROPIN_DIR="/run/systemd/network/${NETWORK_FILE##*/}.d"
+    fi
+
+    # Set the network drop-in file path if not already set.
+    # 70-localdns.conf file is written later in disable_dhcp_use_clusterlistener function.
+    # disable_dhcp_use_clusterlistener function is called after the cleanup function.
+    if [ -z "${NETWORK_DROPIN_FILE:-}" ]; then
+        NETWORK_DROPIN_FILE="${NETWORK_DROPIN_DIR}/70-localdns.conf"
+    fi
+
+    return 0
+}
+
 # Start localdns service.
 start_localdns() {
     echo "Starting localdns: ${COREDNS_COMMAND}."
@@ -325,6 +364,16 @@ EOF
 
 # Remove iptables rules and revert DNS configuration.
 cleanup_iptables_and_dns() {
+    # Ensure network variables are initialized if not already set.
+    # This is needed here because this function can be called from cleanup traps or systemd restarts initiated by watchdog.
+    if [ -z "${NETWORK_DROPIN_FILE:-}" ] || [ -z "${NETWORK_DROPIN_DIR:-}" ]; then
+        echo "Network variables not initialized, attempting to determine them..."
+        if ! initialize_network_variables; then
+            echo "Failed to initialize network variables during cleanup."
+            return 1
+        fi
+    fi
+
     # Remove any existing localdns iptables rules by searching for our comment.
     echo "Cleaning up any existing localdns iptables rules..."
 
@@ -472,6 +521,10 @@ verify_localdns_slicefile || exit $ERR_LOCALDNS_SLICEFILE_NOTFOUND
 # /opt/azure/containers/localdns/binary/coredns.
 verify_localdns_binary || exit $ERR_LOCALDNS_BINARY_ERR
 
+# Set required network environment variables.
+# ---------------------------------------------------------------------------------------------------------------------
+initialize_network_variables || exit $ERR_LOCALDNS_FAIL
+
 # Clean up any existing iptables rules and DNS configuration before starting.
 # ---------------------------------------------------------------------------------------------------------------------
 cleanup_iptables_and_dns || exit $ERR_LOCALDNS_FAIL
@@ -485,18 +538,6 @@ replace_azurednsip_in_corefile || exit $ERR_LOCALDNS_FAIL
 IPTABLES='iptables -w -t raw -m comment --comment "localdns: skip conntrack"'
 IPTABLES_RULES=()
 build_localdns_iptable_rules
-
-# Get required network environment variables.
-# ---------------------------------------------------------------------------------------------------------------------
-DEFAULT_ROUTE_INTERFACE="$(ip -j route get "${AZURE_DNS_IP}" 2>/dev/null | jq -r 'if type == "array" and length > 0 then .[0].dev else empty end')"
-verify_default_route_interface || exit $ERR_LOCALDNS_FAIL
-
-# Get the network file associated with the default route interface.
-NETWORK_FILE="$(networkctl --json=short status "${DEFAULT_ROUTE_INTERFACE}" 2>/dev/null | jq -r '.NetworkFile')"
-verify_network_file || exit $ERR_LOCALDNS_FAIL
-
-NETWORK_DROPIN_DIR="/run/systemd/network/${NETWORK_FILE##*/}.d"
-NETWORK_DROPIN_FILE="${NETWORK_DROPIN_DIR}/70-localdns.conf"
 
 # Setup traps to trigger cleanup_localdns_configs if anything goes wrong.
 # ---------------------------------------------------------------------------------------------------------------------

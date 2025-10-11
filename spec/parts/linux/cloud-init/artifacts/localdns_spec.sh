@@ -536,6 +536,29 @@ EOF
     Describe 'cleanup_iptables_and_dns'
         setup() {
             NETWORK_DROPIN_FILE="/tmp/test-network-dropin.conf"
+            DEFAULT_ROUTE_INTERFACE="eth0"
+            NETWORK_FILE="/etc/systemd/network/eth0.network"
+            NETWORK_DROPIN_DIR="/run/systemd/network/eth0.network.d"
+
+            # Mock ip command for route lookup
+            ip() {
+                if [[ "$1" == "-j" && "$2" == "route" && "$3" == "get" ]]; then
+                    echo '[{"dev":"eth0"}]'
+                else
+                    command ip "$@"
+                fi
+            }
+
+            # Mock networkctl command
+            networkctl() {
+                if [[ "$1" == "--json=short" && "$2" == "status" && "$3" == "eth0" ]]; then
+                    echo '{"NetworkFile":"/etc/systemd/network/eth0.network"}'
+                elif [[ "$1" == "reload" ]]; then
+                    return 0
+                else
+                    command networkctl "$@"
+                fi
+            }
 
             # Mock iptables command to simulate finding existing localdns rules
             mock_iptables() {
@@ -655,9 +678,37 @@ EOF
         setup() {
             IPTABLES_RULES=("INPUT -p udp --dport 53 -j ACCEPT" "OUTPUT -p udp --sport 53 -j ACCEPT")
             NETWORK_DROPIN_FILE="/tmp/test-network-dropin.conf"
+            DEFAULT_ROUTE_INTERFACE="eth0"
+            NETWORK_FILE="/etc/systemd/network/eth0.network"
+            NETWORK_DROPIN_DIR="/run/systemd/network/eth0.network.d"
             COREDNS_PID="12345"
-            Include "./parts/linux/cloud-init/artifacts/localdns.sh"
             LOCALDNS_SHUTDOWN_DELAY=1
+
+            # Mock ip command for route lookup
+            ip() {
+                if [[ "$1" == "-j" && "$2" == "route" && "$3" == "get" ]]; then
+                    echo '[{"dev":"eth0"}]'
+                elif [[ "$1" == "link" && "$2" == "show" && "$3" == "dev" && "$4" == "localdns" ]]; then
+                    return 0  # Interface exists
+                elif [[ "$1" == "link" && "$2" == "del" && "$3" == "name" && "$4" == "localdns" ]]; then
+                    return 0  # Successfully delete interface
+                else
+                    command ip "$@"
+                fi
+            }
+
+            # Mock networkctl command
+            networkctl() {
+                if [[ "$1" == "--json=short" && "$2" == "status" && "$3" == "eth0" ]]; then
+                    echo '{"NetworkFile":"/etc/systemd/network/eth0.network"}'
+                elif [[ "$1" == "reload" ]]; then
+                    return 0
+                else
+                    command networkctl "$@"
+                fi
+            }
+
+            Include "./parts/linux/cloud-init/artifacts/localdns.sh"
         }
         cleanup() {
             rm -rf "/tmp/test-network-dropin.conf"
