@@ -12,7 +12,7 @@ ERR_LOCALDNS_COREFILE_NOTFOUND=217 # Localdns corefile not found.
 ERR_LOCALDNS_SLICEFILE_NOTFOUND=218 # Localdns slicefile not found.
 ERR_LOCALDNS_BINARY_ERR=219 # Localdns binary not found or not executable.
 
-# Global constants used in this file. 
+# Global constants used in this file.
 # -------------------------------------------------------------------------------------------------
 # Localdns script path.
 LOCALDNS_SCRIPT_PATH="/opt/azure/containers/localdns"
@@ -63,7 +63,7 @@ HEALTH_CHECK_DNS_REQUEST=$'health-check.localdns.local @'"${LOCALDNS_NODE_LISTEN
 
 START_LOCALDNS_TIMEOUT=10
 
-# Function definitions used in this file. 
+# Function definitions used in this file.
 # functions defined until "${__SOURCED__:+return}" are sourced and tested in -
 # spec/parts/linux/cloud-init/artifacts/localdns_spec.sh.
 # -------------------------------------------------------------------------------------------------
@@ -153,7 +153,7 @@ replace_azurednsip_in_corefile() {
         echo "Replacing Azure DNS IP ${AZURE_DNS_IP} with upstream VNET DNS servers ${UPSTREAM_VNET_DNS_SERVERS} in corefile ${UPDATED_LOCALDNS_CORE_FILE}"
         sed -i -e "s|${AZURE_DNS_IP}|${UPSTREAM_VNET_DNS_SERVERS}|g" "${UPDATED_LOCALDNS_CORE_FILE}" || {
             echo "Replacing AzureDNSIP in corefile failed."
-            return 1 
+            return 1
         }
         echo "Successfully updated ${UPDATED_LOCALDNS_CORE_FILE}"
     else
@@ -327,10 +327,10 @@ EOF
 cleanup_iptables_and_dns() {
     # Remove any existing localdns iptables rules by searching for our comment.
     echo "Cleaning up any existing localdns iptables rules..."
-    
+
     # Get list of existing localdns rules by searching for our comment.
     existing_rules=$(iptables -w -t raw -L --line-numbers -n | grep "localdns: skip conntrack" | awk '{print $1}' | sort -nr)
-    
+
     if [ -n "$existing_rules" ]; then
         echo "Found existing localdns iptables rules, removing them..."
         failure_occurred=false
@@ -353,20 +353,20 @@ cleanup_iptables_and_dns() {
         echo "No existing localdns iptables rules found."
     fi
 
-    # Revert the changes made to the DNS configuration if present.
-    if [ -n "${NETWORK_DROPIN_FILE:-}" ] && [ -f "${NETWORK_DROPIN_FILE}" ]; then
-        echo "Reverting DNS configuration by removing ${NETWORK_DROPIN_FILE}."
-        rm -f "$NETWORK_DROPIN_FILE"
-        if [ "$?" -ne 0 ]; then
-            echo "Failed to remove network drop-in file ${NETWORK_DROPIN_FILE}."
-            return 1
-        fi        
-        eval "$NETWORKCTL_RELOAD_CMD"
-        if [ "$?" -ne 0 ]; then
-            echo "Failed to reload network after removing the DNS configuration."
-            return 1
-        fi
+    # Revert DNS configuration.
+    echo "Reverting DNS configuration by removing ${NETWORK_DROPIN_FILE}."
+    rm -f "$NETWORK_DROPIN_FILE"
+    if [ "$?" -ne 0 ]; then
+        echo "Failed to remove network drop-in file ${NETWORK_DROPIN_FILE}."
+        return 1
     fi
+
+    eval "$NETWORKCTL_RELOAD_CMD"
+    if [ "$?" -ne 0 ]; then
+        echo "Failed to reload network after removing the DNS configuration."
+        return 1
+    fi
+
     return 0
 }
 
@@ -374,7 +374,7 @@ cleanup_iptables_and_dns() {
 cleanup_localdns_configs() {
     # Disable error handling so that we don't get into a recursive loop.
     set +e
-    
+
     # Remove iptables rules and revert DNS configuration
     cleanup_iptables_and_dns || return 1
 
@@ -531,8 +531,8 @@ echo "Startup complete - serving node and pod DNS traffic."
 
 # Systemd notify: send ready if service is Type=notify.
 # --------------------------------------------------------------------------------------------------------------------
-if [ -n "${NOTIFY_SOCKET:-}" ]; then 
-   systemd-notify --ready 
+if [ -n "${NOTIFY_SOCKET:-}" ]; then
+   systemd-notify --ready
 fi
 
 # Systemd watchdog: send pings so we get restarted if we go unhealthy.

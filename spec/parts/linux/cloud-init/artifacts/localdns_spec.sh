@@ -11,7 +11,7 @@ Describe 'localdns.sh'
 #------------------------------------------------------------------------------------------------------------------------------------
     Describe 'verify_localdns_files'
         setup() {
-            Include "./parts/linux/cloud-init/artifacts/localdns.sh" 
+            Include "./parts/linux/cloud-init/artifacts/localdns.sh"
 
             TEST_DIR="/tmp/localdnstest"
             LOCALDNS_SCRIPT_PATH="${TEST_DIR}/opt/azure/containers/localdns"
@@ -179,7 +179,7 @@ EOF
 
         It 'should not replace 168.63.129.16 with UpstreamDNSIP if it is blank'
 cat <<EOF > "$RESOLV_CONF"
-nameserver  
+nameserver
 EOF
             When run replace_azurednsip_in_corefile
             The status should be failure
@@ -536,7 +536,7 @@ EOF
     Describe 'cleanup_iptables_and_dns'
         setup() {
             NETWORK_DROPIN_FILE="/tmp/test-network-dropin.conf"
-            
+
             # Mock iptables command to simulate finding existing localdns rules
             mock_iptables() {
                 case "$1" in
@@ -565,7 +565,7 @@ EOF
                 esac
                 return 0
             }
-            
+
             Include "./parts/linux/cloud-init/artifacts/localdns.sh"
         }
         cleanup() {
@@ -640,6 +640,7 @@ EOF
             }
             iptables() { mock_iptables_no_rules "$@"; }
             NETWORK_DROPIN_FILE="/tmp/nonexistent-file.conf"
+            NETWORKCTL_RELOAD_CMD="true"
             When call cleanup_iptables_and_dns
             The status should be success
             The stdout should include "No existing localdns iptables rules found."
@@ -691,6 +692,7 @@ EOF
                 return 0
             }
             iptables() { mock_iptables "$@"; }
+            NETWORKCTL_RELOAD_CMD="true"
             When call cleanup_localdns_configs
             The stdout should include "Cleaning up any existing localdns iptables rules..."
             The stdout should include "Found existing localdns iptables rules, removing them..."
@@ -783,6 +785,7 @@ EOF
                 esac
                 return 0
             }
+            NETWORKCTL_RELOAD_CMD="true"
             When call cleanup_localdns_configs
             The status should be failure
             The output should include "Sleeping ${LOCALDNS_SHUTDOWN_DELAY} seconds to allow connections to terminate."
@@ -806,6 +809,7 @@ EOF
                 esac
                 return 0
             }
+            NETWORKCTL_RELOAD_CMD="true"
             When call cleanup_localdns_configs
             The status should be failure
             The output should include "Successfully sent SIGINT to localdns."
@@ -829,6 +833,7 @@ EOF
                 esac
                 return 0
             }
+            NETWORKCTL_RELOAD_CMD="true"
             When call cleanup_localdns_configs
             The status should be success
             The output should include "Successfully sent SIGINT to localdns."
@@ -853,6 +858,7 @@ EOF
                 esac
                 return 0
             }
+            NETWORKCTL_RELOAD_CMD="true"
             When call cleanup_localdns_configs
             The status should be failure
             The output should include "Failed to remove localdns dummy interface."
@@ -875,6 +881,7 @@ EOF
                 esac
                 return 0
             }
+            NETWORKCTL_RELOAD_CMD="true"
             When call cleanup_localdns_configs
             The status should be success
             The output should include "Successfully removed localdns dummy interface."
@@ -894,6 +901,7 @@ EOF
                 esac
                 return 0
             }
+            NETWORKCTL_RELOAD_CMD="true"
             When call cleanup_localdns_configs
             The status should be success
             The output should include "Successfully cleanup localdns related configurations."
