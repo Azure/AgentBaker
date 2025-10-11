@@ -584,7 +584,7 @@ EOF
             The stdout should include "Found existing localdns iptables rules, removing them..."
             The stdout should include "Successfully removed existing localdns iptables rule from OUTPUT chain"
             The stdout should include "Successfully removed existing localdns iptables rule from PREROUTING chain"
-            The stdout should include "Reverting DNS configuration by removing /tmp/test-network-dropin.conf."
+            The stdout should include "Removing network drop-in file /tmp/test-network-dropin.conf."
             The file "${NETWORK_DROPIN_FILE}" should not be exist
         End
 
@@ -742,7 +742,7 @@ EOF
             }
             When call cleanup_localdns_configs
             The status should be success
-            The output should include "Reverting DNS configuration by removing"
+            The output should include "Removing network drop-in file"
             The output should include "Successfully cleanup localdns related configurations."
             The file "${NETWORK_DROPIN_FILE}" should not be exist
         End
@@ -765,7 +765,7 @@ EOF
             }
             When call cleanup_localdns_configs
             The status should be failure
-            The output should include "Reverting DNS configuration by removing"
+            The output should include "Removing network drop-in file"
             The output should include "Failed to reload network after removing the DNS configuration."
         End
 
