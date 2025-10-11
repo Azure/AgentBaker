@@ -353,7 +353,7 @@ cleanup_iptables_and_dns() {
         echo "No existing localdns iptables rules found."
     fi
 
-    # Revert DNS configuration.
+    # Revert DNS configuration and network reload.
     echo "Reverting DNS configuration by removing ${NETWORK_DROPIN_FILE}."
     rm -f "$NETWORK_DROPIN_FILE"
     if [ "$?" -ne 0 ]; then
