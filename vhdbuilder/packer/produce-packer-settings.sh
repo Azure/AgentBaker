@@ -23,7 +23,6 @@ VHD_BUILD_TIMESTAMP_JSON="${VHD_BUILD_TIMESTAMP_JSON:-./vhdbuilder/vhd_build_tim
 SUBSCRIPTION_ID="${SUBSCRIPTION_ID:-$(az account show -o json --query="id" | tr -d '"')}"
 GALLERY_SUBSCRIPTION_ID="${GALLERY_SUBSCRIPTION_ID:-${SUBSCRIPTION_ID}}"
 CREATE_TIME="$(date +%s)"
-STORAGE_ACCOUNT_NAME="aksimages${CREATE_TIME}$RANDOM"
 
 # This variable will only be set if a VHD build is triggered from an official branch
 VHD_BUILD_TIMESTAMP=""
@@ -141,8 +140,6 @@ if [ -z "$rg_id" ]; then
 	echo "Creating resource group $AZURE_RESOURCE_GROUP_NAME, location ${AZURE_LOCATION}"
 	az group create --name $AZURE_RESOURCE_GROUP_NAME --location ${AZURE_LOCATION}
 fi
-
-echo "storage name: ${STORAGE_ACCOUNT_NAME}"
 
 # If SIG_GALLERY_NAME/SIG_IMAGE_NAME hasnt been provided in linuxVhdMode, use defaults
 # NOTE: SIG_IMAGE_NAME is the name of the image definition that Packer will use when delivering the
@@ -388,8 +385,6 @@ if [ "$OS_TYPE" = "Windows" ]; then
 	windows_sigmode_source_image_version=""
 
 	# default: build VHD images from a marketplace base image
-	IMPORTED_IMAGE_NAME=$imported_windows_image_name
-	IMPORTED_IMAGE_URL="https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net/system/$IMPORTED_IMAGE_NAME.vhd"
  	export AZCOPY_AUTO_LOGIN_TYPE="MSI" # use Managed Identity for AzCopy authentication
 	export AZCOPY_MSI_RESOURCE_STRING="${AZURE_MSI_RESOURCE_STRING}"
 	export AZCOPY_LOG_LOCATION="$(pwd)/azcopy-log-files/"
@@ -431,10 +426,10 @@ if [ "$OS_TYPE" = "Windows" ]; then
 		# Parse the json artifact to get the image urls
 		echo "Filename: $filename"
 		artifact_path="${BUILD_ARTIFACTSTAGINGDIRECTORY}/$filename"
-		
+
 		sudo chmod 600 "$artifact_path"
 		echo "Reading image URLs from $artifact_path"
-		
+
 		# Extract image URLs from the artifact JSON using a case statement for WINDOWS_SKU
 		case "${WINDOWS_SKU}" in
 			"2019-containerd")
@@ -493,12 +488,34 @@ if [ "$OS_TYPE" = "Windows" ]; then
 
 	# build from a pre-supplied VHD blob a.k.a. external raw VHD
 	if [ -n "${WINDOWS_BASE_IMAGE_URL}" ]; then
-		echo "WINDOWS_BASE_IMAGE_URL is set in pipeline variables"
+		echo "WINDOWS_BASE_IMAGE_URL is set in pipeline variable to ${WINDOWS_BASE_IMAGE_URL}"
+
+    STORAGE_ACCOUNT_NAME="aksimages${CREATE_TIME}$RANDOM"
+    echo "storage name: ${STORAGE_ACCOUNT_NAME}"
+
+    IMPORTED_IMAGE_NAME=$imported_windows_image_name
+    IMPORTED_IMAGE_URL="https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net/system/${IMPORTED_IMAGE_NAME}.vhd"
+
+    avail=$(az storage account check-name -n "${STORAGE_ACCOUNT_NAME}" -o json | jq -r .nameAvailable)
+    if $avail ; then
+      echo "creating new storage account ${STORAGE_ACCOUNT_NAME}"
+      az storage account create \
+        -n "$STORAGE_ACCOUNT_NAME" \
+        -g "$AZURE_RESOURCE_GROUP_NAME" \
+        --sku "Standard_RAGRS" \
+        --tags "now=${CREATE_TIME}" \
+        --allow-shared-key-access false \
+        --location ""${AZURE_LOCATION}""
+      echo "creating new container system"
+      az storage container create --name system "--account-name=${STORAGE_ACCOUNT_NAME}" --auth-mode login
+    else
+      echo "storage account ${STORAGE_ACCOUNT_NAME} already exists."
+    fi
 
 		WINDOWS_IMAGE_URL=${IMPORTED_IMAGE_URL}
 
 		echo "Copy Windows base image to ${WINDOWS_IMAGE_URL}"
-		
+
 		export AZCOPY_LOG_LOCATION="$(pwd)/azcopy-log-files/"
 		export AZCOPY_JOB_PLAN_LOCATION="$(pwd)/azcopy-job-plan-files/"
 		mkdir -p "${AZCOPY_LOG_LOCATION}"
@@ -586,7 +603,7 @@ if [ "$OS_TYPE" = "Windows" ]; then
 	# Set nanoserver image url if the pipeline variable is set and the parameter is not already set
 	if [ -n "${WINDOWS_NANO_IMAGE_URL}" ] && [ -z "${windows_nanoserver_image_url}" ]; then
 		echo "WINDOWS_NANO_IMAGE_URL is set in pipeline variables"
-		windows_nanoserver_image_url="${WINDOWS_NANO_IMAGE_URL}"	
+		windows_nanoserver_image_url="${WINDOWS_NANO_IMAGE_URL}"
 	fi
 
 	# Set servercore image url if the pipeline variable is set and the parameter is not already set
