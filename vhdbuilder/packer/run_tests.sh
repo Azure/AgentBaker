@@ -5,6 +5,7 @@
 
 set -euo pipefail
 
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -23,11 +24,12 @@ if ! command -v shellspec &>/dev/null; then
 fi
 
 # Change to the directory containing the tests
-cd "$(dirname "$0")"
+SCRIPT_DIR=$(dirname "$0")
+cd $SCRIPT_DIR/../..
 
 # Run the tests
 echo "Running produce_ua_token function tests..."
-if shellspec --shell bash --no-warning-as-failure spec/produce_ua_token_spec.sh; then
+if shellspec --shell bash --no-warning-as-failure vhdbuilder/packer/spec/produce_ua_token_spec.sh; then
 	echo -e "${GREEN}✓ produce_ua_token tests passed!${NC}"
 	echo ""
 	echo "Running ensure_sig_image_name_linux function tests..."
@@ -38,7 +40,7 @@ else
 fi
 
 
-if shellspec --shell bash --no-warning-as-failure spec/ensure_sig_image_name_linux_spec.sh; then
+if shellspec --shell bash --no-warning-as-failure vhdbuilder/packer/spec/ensure_sig_image_name_linux_spec.sh; then
 	echo ""
 	echo "Running prepare_windows_vhd function tests..."
 else
@@ -48,12 +50,12 @@ else
 fi
 
 
-# if shellspec --shell bash --no-warning-as-failure spec/prepare_windows_vhd_spec.sh; then
-# 	echo ""
-# 	echo -e "${GREEN}✓ All tests passed!${NC}"
-# 	exit 0
-# else
-# 	echo ""
-# 	echo -e "${RED}✗ prepare_windows_vhd tests failed!${NC}"
-# 	exit 1
-# fi
+if shellspec --shell bash --no-warning-as-failure vhdbuilder/packer/spec/prepare_windows_vhd_spec.sh; then
+	echo ""
+	echo -e "${GREEN}✓ All tests passed!${NC}"
+	exit 0
+else
+	echo ""
+	echo -e "${RED}✗ prepare_windows_vhd tests failed!${NC}"
+	exit 1
+fi
