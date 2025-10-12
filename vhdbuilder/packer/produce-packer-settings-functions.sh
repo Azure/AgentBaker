@@ -56,6 +56,196 @@ function ensure_sig_image_name_linux() {
 	fi
 }
 
+function download_windows_json_artfact() {
+	filename=$(basename "$WINDOWS_CONTAINERIMAGE_JSON_URL")
+	echo "Downloading $filename from wcct storage account using AzCopy with Managed Identity Auth"
+
+	# The JSON blob is formatted where each build image name is mapped to its corresponding image URL.
+	# For details on the expected format and how to manually retrieve the JSON blob,
+	# see: [WINDOWS-CONTAINERIMAGE-JSON.MD](vhdbuilder/packer/WINDOWS-CONTAINERIMAGE-JSON.MD)
+	if azcopy copy "${WINDOWS_CONTAINERIMAGE_JSON_URL}" "${BUILD_ARTIFACTSTAGINGDIRECTORY}/"; then
+		echo "Successfully downloaded the latest artifact: $filename"
+	else
+		# loop through azcopy log files
+		for f in "${AZCOPY_LOG_LOCATION}"/*.log; do
+			echo "Azcopy log file: $f"
+			# upload the log file as an attachment to vso
+			set +x
+			echo "##vso[build.uploadlog]$f"
+			set -x
+			# check if the log file contains any errors
+			if grep -q '"level":"Error"' "$f"; then
+				echo "log file $f contains errors"
+				set +x
+				echo "##vso[task.logissue type=error]Azcopy log file $f contains errors"
+				set -x
+				# print the log file
+				cat "$f"
+			fi
+		done
+	fi
+
+	# Parse the json artifact to get the image urls
+	echo "Filename: $filename"
+	artifact_path="${BUILD_ARTIFACTSTAGINGDIRECTORY}/$filename"
+	sudo chmod 600 "$artifact_path"
+}
+
+function extract_windows_image_urls() {
+	echo "Reading image URLs from $artifact_path"
+
+	# Extract image URLs from the artifact JSON using a case statement for WINDOWS_SKU
+	case "${WINDOWS_SKU}" in
+	"2019-containerd")
+		WINDOWS_BASE_IMAGE_URL=$(jq -r '.images[] | select(.name == "WINDOWS_2019_BASE_IMAGE_URL") | .value' "$artifact_path")
+		windows_nanoserver_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2019_NANO_IMAGE_URL") | .value' "$artifact_path")
+		windows_servercore_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2019_CORE_IMAGE_URL") | .value' "$artifact_path")
+		;;
+	"2022-containerd")
+		WINDOWS_BASE_IMAGE_URL=$(jq -r '.images[] | select(.name == "WINDOWS_2022_BASE_IMAGE_URL") | .value' "$artifact_path")
+		windows_nanoserver_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2022_NANO_IMAGE_URL") | .value' "$artifact_path")
+		windows_servercore_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2022_CORE_IMAGE_URL") | .value' "$artifact_path")
+		;;
+	"2022-containerd-gen2")
+		WINDOWS_BASE_IMAGE_URL=$(jq -r '.images[] | select(.name == "WINDOWS_2022_GEN2_BASE_IMAGE_URL") | .value' "$artifact_path")
+		windows_nanoserver_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2022_NANO_IMAGE_URL") | .value' "$artifact_path")
+		windows_servercore_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2022_CORE_IMAGE_URL") | .value' "$artifact_path")
+		;;
+	"2025")
+		WINDOWS_BASE_IMAGE_URL=$(jq -r '.images[] | select(.name == "WINDOWS_2025_BASE_IMAGE_URL") | .value' "$artifact_path")
+		windows_nanoserver_image_url="$(jq -r '.images[] | select(.name == "WINDOWS_2025_NANO_IMAGE_URL") | .value' "$artifact_path"),$(jq -r '.images[] | select(.name == "WINDOWS_2022_NANO_IMAGE_URL") | .value' "$artifact_path")"
+		windows_servercore_image_url="$(jq -r '.images[] | select(.name == "WINDOWS_2025_CORE_IMAGE_URL") | .value' "$artifact_path"),$(jq -r '.images[] | select(.name == "WINDOWS_2022_CORE_IMAGE_URL") | .value' "$artifact_path")"
+		;;
+	"2025-gen2")
+		WINDOWS_BASE_IMAGE_URL=$(jq -r '.images[] | select(.name == "WINDOWS_2025_GEN2_BASE_IMAGE_URL") | .value' "$artifact_path")
+		windows_nanoserver_image_url="$(jq -r '.images[] | select(.name == "WINDOWS_2025_NANO_IMAGE_URL") | .value' "$artifact_path"),$(jq -r '.images[] | select(.name == "WINDOWS_2022_NANO_IMAGE_URL") | .value' "$artifact_path")"
+		windows_servercore_image_url="$(jq -r '.images[] | select(.name == "WINDOWS_2025_CORE_IMAGE_URL") | .value' "$artifact_path"),$(jq -r '.images[] | select(.name == "WINDOWS_2022_CORE_IMAGE_URL") | .value' "$artifact_path")"
+		;;
+	"23H2")
+		WINDOWS_BASE_IMAGE_URL=$(jq -r '.images[] | select(.name == "WINDOWS_23H2_BASE_IMAGE_URL") | .value' "$artifact_path")
+		windows_nanoserver_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2022_NANO_IMAGE_URL") | .value' "$artifact_path")
+		windows_servercore_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2022_CORE_IMAGE_URL") | .value' "$artifact_path")
+		;;
+	"23H2-gen2")
+		WINDOWS_BASE_IMAGE_URL=$(jq -r '.images[] | select(.name == "WINDOWS_23H2_GEN2_BASE_IMAGE_URL") | .value' "$artifact_path")
+		windows_nanoserver_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2022_NANO_IMAGE_URL") | .value' "$artifact_path")
+		windows_servercore_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2022_CORE_IMAGE_URL") | .value' "$artifact_path")
+		;;
+	*)
+		echo "Unsupported WINDOWS_SKU: ${WINDOWS_SKU}"
+		;;
+	esac
+}
+
+function create_windows_storage_account() {
+
+	avail=$(az storage account check-name -n "${STORAGE_ACCOUNT_NAME}" -o json | jq -r .nameAvailable)
+	if $avail; then
+		echo "creating new storage account ${STORAGE_ACCOUNT_NAME}"
+		az storage account create \
+			-n "$STORAGE_ACCOUNT_NAME" \
+			-g "$AZURE_RESOURCE_GROUP_NAME" \
+			--sku "Standard_RAGRS" \
+			--tags "now=${CREATE_TIME}" \
+			--allow-shared-key-access false \
+			--location ""${AZURE_LOCATION}""
+		echo "creating new container system"
+		az storage container create --name system "--account-name=${STORAGE_ACCOUNT_NAME}" --auth-mode login
+	else
+		echo "storage account ${STORAGE_ACCOUNT_NAME} already exists."
+	fi
+
+}
+
+function copy_windows_base_image_to_storage_account() {
+	echo "Copy Windows base image to ${WINDOWS_IMAGE_URL}"
+
+	export AZCOPY_LOG_LOCATION="$(pwd)/azcopy-log-files/"
+	export AZCOPY_JOB_PLAN_LOCATION="$(pwd)/azcopy-job-plan-files/"
+	mkdir -p "${AZCOPY_LOG_LOCATION}"
+	mkdir -p "${AZCOPY_JOB_PLAN_LOCATION}"
+
+	if ! azcopy copy "${WINDOWS_BASE_IMAGE_URL}" "${WINDOWS_IMAGE_URL}"; then
+		# loop through azcopy log files
+		set +x
+		shopt -s nullglob
+		for f in "${AZCOPY_LOG_LOCATION}"/*.log; do
+			echo "Azcopy log file: $f"
+			# upload the log file as an attachment to vso
+			set +x
+			echo "##vso[build.uploadlog]$f"
+
+			# print the log file
+			echo "----- START LOG $f -----"
+			cat "$f"
+			echo "----- END LOG $f -----"
+
+			# check if the log file contains any errors
+			if grep -q '"level":"Error"' "$f"; then
+				echo "log file $f contains errors"
+				echo "##vso[task.logissue type=error]Azcopy log file $f contains errors"
+			fi
+		done
+		shopt -u nullglob
+		set -x
+		exit 1
+	fi
+}
+
+function create_new_base_image() {
+	# https://www.packer.io/plugins/builders/azure/arm#image_url
+	# WINDOWS_IMAGE_URL to a custom VHD to use for your base image. If this value is set, image_publisher, image_offer, image_sku, or image_version should not be set.
+	WINDOWS_IMAGE_PUBLISHER=""
+	WINDOWS_IMAGE_OFFER=""
+	WINDOWS_IMAGE_SKU=""
+	WINDOWS_IMAGE_VERSION=""
+
+	# Need to use a sig image to create the build VM
+	# create a new managed image $IMPORTED_IMAGE_NAME from os disk source $IMPORTED_IMAGE_URL
+	echo "Creating new image for imported vhd ${IMPORTED_IMAGE_URL}"
+	az image create \
+		--resource-group $AZURE_RESOURCE_GROUP_NAME \
+		--name $IMPORTED_IMAGE_NAME \
+		--source ${IMPORTED_IMAGE_URL} \
+		--location $AZURE_LOCATION \
+		--hyper-v-generation $HYPERV_GENERATION \
+		--os-type ${OS_TYPE}
+
+	# create a gallery image definition $IMPORTED_IMAGE_NAME
+	echo "Creating new image-definition for imported image ${IMPORTED_IMAGE_NAME}"
+	# Need to specifiy hyper-v-generation to support Gen 2
+	az sig image-definition create \
+		--resource-group $AZURE_RESOURCE_GROUP_NAME \
+		--gallery-name $SIG_GALLERY_NAME \
+		--gallery-image-definition $IMPORTED_IMAGE_NAME \
+		--location $AZURE_LOCATION \
+		--hyper-v-generation $HYPERV_GENERATION \
+		--os-type ${OS_TYPE} \
+		--publisher microsoft-aks \
+		--sku ${WINDOWS_SKU} \
+		--offer $IMPORTED_IMAGE_NAME \
+		--os-state generalized \
+		--description "Imported image for AKS Packer build"
+
+	# create a image version defaulting to 1.0.0 for $IMPORTED_IMAGE_NAME
+	echo "Creating new image-version for imported image ${IMPORTED_IMAGE_NAME}"
+	az sig image-version create \
+		--location $AZURE_LOCATION \
+		--resource-group $AZURE_RESOURCE_GROUP_NAME \
+		--gallery-name $SIG_GALLERY_NAME \
+		--gallery-image-definition $IMPORTED_IMAGE_NAME \
+		--gallery-image-version 1.0.0 \
+		--managed-image $IMPORTED_IMAGE_NAME
+
+	# Use imported sig image to create the build VM
+	WINDOWS_IMAGE_URL=""
+	windows_sigmode_source_subscription_id=$SUBSCRIPTION_ID
+	windows_sigmode_source_resource_group_name=$AZURE_RESOURCE_GROUP_NAME
+	windows_sigmode_source_gallery_name=$SIG_GALLERY_NAME
+	windows_sigmode_source_image_name=$IMPORTED_IMAGE_NAME
+	windows_sigmode_source_image_version="1.0.0"
+}
+
 function prepare_windows_vhd() {
 	echo "Set the base image sku and version from windows_settings.json"
 
@@ -101,83 +291,8 @@ function prepare_windows_vhd() {
 
 	echo "VALID IMAGE URL: ${WINDOWS_CONTAINERIMAGE_JSON_URL}"
 	if [ -n "${WINDOWS_CONTAINERIMAGE_JSON_URL}" ]; then
-		# Download the json artifact from the url
-		filename=$(basename "$WINDOWS_CONTAINERIMAGE_JSON_URL")
-		echo "Downloading $filename from wcct storage account using AzCopy with Managed Identity Auth"
-
-		# The JSON blob is formatted where each build image name is mapped to its corresponding image URL.
-		# For details on the expected format and how to manually retrieve the JSON blob,
-		# see: [WINDOWS-CONTAINERIMAGE-JSON.MD](vhdbuilder/packer/WINDOWS-CONTAINERIMAGE-JSON.MD)
-		if azcopy copy "${WINDOWS_CONTAINERIMAGE_JSON_URL}" "${BUILD_ARTIFACTSTAGINGDIRECTORY}/"; then
-			echo "Successfully downloaded the latest artifact: $filename"
-		else
-			# loop through azcopy log files
-			for f in "${AZCOPY_LOG_LOCATION}"/*.log; do
-				echo "Azcopy log file: $f"
-				# upload the log file as an attachment to vso
-				set +x
-				echo "##vso[build.uploadlog]$f"
-				set -x
-				# check if the log file contains any errors
-				if grep -q '"level":"Error"' "$f"; then
-					echo "log file $f contains errors"
-					set +x
-					echo "##vso[task.logissue type=error]Azcopy log file $f contains errors"
-					set -x
-					# print the log file
-					cat "$f"
-				fi
-			done
-		fi
-
-		# Parse the json artifact to get the image urls
-		echo "Filename: $filename"
-		artifact_path="${BUILD_ARTIFACTSTAGINGDIRECTORY}/$filename"
-
-		sudo chmod 600 "$artifact_path"
-		echo "Reading image URLs from $artifact_path"
-
-		# Extract image URLs from the artifact JSON using a case statement for WINDOWS_SKU
-		case "${WINDOWS_SKU}" in
-		"2019-containerd")
-			WINDOWS_BASE_IMAGE_URL=$(jq -r '.images[] | select(.name == "WINDOWS_2019_BASE_IMAGE_URL") | .value' "$artifact_path")
-			windows_nanoserver_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2019_NANO_IMAGE_URL") | .value' "$artifact_path")
-			windows_servercore_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2019_CORE_IMAGE_URL") | .value' "$artifact_path")
-			;;
-		"2022-containerd")
-			WINDOWS_BASE_IMAGE_URL=$(jq -r '.images[] | select(.name == "WINDOWS_2022_BASE_IMAGE_URL") | .value' "$artifact_path")
-			windows_nanoserver_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2022_NANO_IMAGE_URL") | .value' "$artifact_path")
-			windows_servercore_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2022_CORE_IMAGE_URL") | .value' "$artifact_path")
-			;;
-		"2022-containerd-gen2")
-			WINDOWS_BASE_IMAGE_URL=$(jq -r '.images[] | select(.name == "WINDOWS_2022_GEN2_BASE_IMAGE_URL") | .value' "$artifact_path")
-			windows_nanoserver_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2022_NANO_IMAGE_URL") | .value' "$artifact_path")
-			windows_servercore_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2022_CORE_IMAGE_URL") | .value' "$artifact_path")
-			;;
-		"2025")
-			WINDOWS_BASE_IMAGE_URL=$(jq -r '.images[] | select(.name == "WINDOWS_2025_BASE_IMAGE_URL") | .value' "$artifact_path")
-			windows_nanoserver_image_url="$(jq -r '.images[] | select(.name == "WINDOWS_2025_NANO_IMAGE_URL") | .value' "$artifact_path"),$(jq -r '.images[] | select(.name == "WINDOWS_2022_NANO_IMAGE_URL") | .value' "$artifact_path")"
-			windows_servercore_image_url="$(jq -r '.images[] | select(.name == "WINDOWS_2025_CORE_IMAGE_URL") | .value' "$artifact_path"),$(jq -r '.images[] | select(.name == "WINDOWS_2022_CORE_IMAGE_URL") | .value' "$artifact_path")"
-			;;
-		"2025-gen2")
-			WINDOWS_BASE_IMAGE_URL=$(jq -r '.images[] | select(.name == "WINDOWS_2025_GEN2_BASE_IMAGE_URL") | .value' "$artifact_path")
-			windows_nanoserver_image_url="$(jq -r '.images[] | select(.name == "WINDOWS_2025_NANO_IMAGE_URL") | .value' "$artifact_path"),$(jq -r '.images[] | select(.name == "WINDOWS_2022_NANO_IMAGE_URL") | .value' "$artifact_path")"
-			windows_servercore_image_url="$(jq -r '.images[] | select(.name == "WINDOWS_2025_CORE_IMAGE_URL") | .value' "$artifact_path"),$(jq -r '.images[] | select(.name == "WINDOWS_2022_CORE_IMAGE_URL") | .value' "$artifact_path")"
-			;;
-		"23H2")
-			WINDOWS_BASE_IMAGE_URL=$(jq -r '.images[] | select(.name == "WINDOWS_23H2_BASE_IMAGE_URL") | .value' "$artifact_path")
-			windows_nanoserver_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2022_NANO_IMAGE_URL") | .value' "$artifact_path")
-			windows_servercore_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2022_CORE_IMAGE_URL") | .value' "$artifact_path")
-			;;
-		"23H2-gen2")
-			WINDOWS_BASE_IMAGE_URL=$(jq -r '.images[] | select(.name == "WINDOWS_23H2_GEN2_BASE_IMAGE_URL") | .value' "$artifact_path")
-			windows_nanoserver_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2022_NANO_IMAGE_URL") | .value' "$artifact_path")
-			windows_servercore_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2022_CORE_IMAGE_URL") | .value' "$artifact_path")
-			;;
-		*)
-			echo "Unsupported WINDOWS_SKU: ${WINDOWS_SKU}"
-			;;
-		esac
+		download_windows_json_artfact
+		extract_windows_image_urls
 	else
 		# If USE_CONTAINER_URLS_FROM_JSON is not true, fall back to default URLs
 		echo "Falling back to default Windows image URLs"
@@ -203,108 +318,13 @@ function prepare_windows_vhd() {
 		IMPORTED_IMAGE_NAME=$imported_windows_image_name
 		IMPORTED_IMAGE_URL="https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net/system/${IMPORTED_IMAGE_NAME}.vhd"
 
-		avail=$(az storage account check-name -n "${STORAGE_ACCOUNT_NAME}" -o json | jq -r .nameAvailable)
-		if $avail; then
-			echo "creating new storage account ${STORAGE_ACCOUNT_NAME}"
-			az storage account create \
-				-n "$STORAGE_ACCOUNT_NAME" \
-				-g "$AZURE_RESOURCE_GROUP_NAME" \
-				--sku "Standard_RAGRS" \
-				--tags "now=${CREATE_TIME}" \
-				--allow-shared-key-access false \
-				--location ""${AZURE_LOCATION}""
-			echo "creating new container system"
-			az storage container create --name system "--account-name=${STORAGE_ACCOUNT_NAME}" --auth-mode login
-		else
-			echo "storage account ${STORAGE_ACCOUNT_NAME} already exists."
-		fi
+		create_windows_storage_account
 
 		WINDOWS_IMAGE_URL=${IMPORTED_IMAGE_URL}
 
-		echo "Copy Windows base image to ${WINDOWS_IMAGE_URL}"
+		copy_windows_base_image_to_storage_account
 
-		export AZCOPY_LOG_LOCATION="$(pwd)/azcopy-log-files/"
-		export AZCOPY_JOB_PLAN_LOCATION="$(pwd)/azcopy-job-plan-files/"
-		mkdir -p "${AZCOPY_LOG_LOCATION}"
-		mkdir -p "${AZCOPY_JOB_PLAN_LOCATION}"
-
-		if ! azcopy copy "${WINDOWS_BASE_IMAGE_URL}" "${WINDOWS_IMAGE_URL}"; then
-			# loop through azcopy log files
-			set +x
-			shopt -s nullglob
-			for f in "${AZCOPY_LOG_LOCATION}"/*.log; do
-				echo "Azcopy log file: $f"
-				# upload the log file as an attachment to vso
-				set +x
-				echo "##vso[build.uploadlog]$f"
-
-				# print the log file
-				echo "----- START LOG $f -----"
-				cat "$f"
-				echo "----- END LOG $f -----"
-
-				# check if the log file contains any errors
-				if grep -q '"level":"Error"' "$f"; then
-					echo "log file $f contains errors"
-					echo "##vso[task.logissue type=error]Azcopy log file $f contains errors"
-				fi
-			done
-			shopt -u nullglob
-			set -x
-			exit 1
-		fi
-
-		# https://www.packer.io/plugins/builders/azure/arm#image_url
-		# WINDOWS_IMAGE_URL to a custom VHD to use for your base image. If this value is set, image_publisher, image_offer, image_sku, or image_version should not be set.
-		WINDOWS_IMAGE_PUBLISHER=""
-		WINDOWS_IMAGE_OFFER=""
-		WINDOWS_IMAGE_SKU=""
-		WINDOWS_IMAGE_VERSION=""
-
-		# Need to use a sig image to create the build VM
-		# create a new managed image $IMPORTED_IMAGE_NAME from os disk source $IMPORTED_IMAGE_URL
-		echo "Creating new image for imported vhd ${IMPORTED_IMAGE_URL}"
-		az image create \
-			--resource-group $AZURE_RESOURCE_GROUP_NAME \
-			--name $IMPORTED_IMAGE_NAME \
-			--source ${IMPORTED_IMAGE_URL} \
-			--location $AZURE_LOCATION \
-			--hyper-v-generation $HYPERV_GENERATION \
-			--os-type ${OS_TYPE}
-
-		# create a gallery image definition $IMPORTED_IMAGE_NAME
-		echo "Creating new image-definition for imported image ${IMPORTED_IMAGE_NAME}"
-		# Need to specifiy hyper-v-generation to support Gen 2
-		az sig image-definition create \
-			--resource-group $AZURE_RESOURCE_GROUP_NAME \
-			--gallery-name $SIG_GALLERY_NAME \
-			--gallery-image-definition $IMPORTED_IMAGE_NAME \
-			--location $AZURE_LOCATION \
-			--hyper-v-generation $HYPERV_GENERATION \
-			--os-type ${OS_TYPE} \
-			--publisher microsoft-aks \
-			--sku ${WINDOWS_SKU} \
-			--offer $IMPORTED_IMAGE_NAME \
-			--os-state generalized \
-			--description "Imported image for AKS Packer build"
-
-		# create a image version defaulting to 1.0.0 for $IMPORTED_IMAGE_NAME
-		echo "Creating new image-version for imported image ${IMPORTED_IMAGE_NAME}"
-		az sig image-version create \
-			--location $AZURE_LOCATION \
-			--resource-group $AZURE_RESOURCE_GROUP_NAME \
-			--gallery-name $SIG_GALLERY_NAME \
-			--gallery-image-definition $IMPORTED_IMAGE_NAME \
-			--gallery-image-version 1.0.0 \
-			--managed-image $IMPORTED_IMAGE_NAME
-
-		# Use imported sig image to create the build VM
-		WINDOWS_IMAGE_URL=""
-		windows_sigmode_source_subscription_id=$SUBSCRIPTION_ID
-		windows_sigmode_source_resource_group_name=$AZURE_RESOURCE_GROUP_NAME
-		windows_sigmode_source_gallery_name=$SIG_GALLERY_NAME
-		windows_sigmode_source_image_name=$IMPORTED_IMAGE_NAME
-		windows_sigmode_source_image_version="1.0.0"
+		create_new_base_image
 	fi
 
 	# Set nanoserver image url if the pipeline variable is set and the parameter is not already set
@@ -419,7 +439,7 @@ function ensure_sig_vhd_exists() {
 				${TARGET_COMMAND_STRING}
 		else
 			# TL can only be enabled on Gen2 VMs, therefore if TL enabled = true, mark features for both TL and NVMe
-			if [ ${ENABLE_TRUSTED_LAUNCH} = "True" ]; then
+			if [ "${ENABLE_TRUSTED_LAUNCH}" == "True" ]; then
 				az sig image-definition create \
 					--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
 					--gallery-name ${SIG_GALLERY_NAME} \
