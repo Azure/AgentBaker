@@ -1,21 +1,21 @@
 #!/bin/bash
 
 function produce_ua_token() {
-  set +x
-  UA_TOKEN="${UA_TOKEN:-}" # used to attach UA when building ESM-enabled Ubuntu SKUs
-  if [ "$MODE" = "linuxVhdMode" ] && [ "${OS_SKU,,}" = "ubuntu" ]; then
-    if [ "${OS_VERSION}" = "18.04" ] || [ "${OS_VERSION}" = "20.04" ] || [ "${ENABLE_FIPS,,}" = "true" ]; then
-      echo "OS_VERSION: ${OS_VERSION}, ENABLE_FIPS: ${ENABLE_FIPS,,}, will use token for UA attachment"
-      if [ -z "${UA_TOKEN}" ]; then
-        echo "UA_TOKEN must be provided when building SKUs which require ESM"
-        exit 1
-      fi
-    else
-      UA_TOKEN="notused"
-    fi
-  else
-    UA_TOKEN="notused"
-  fi
+	set +x
+	UA_TOKEN="${UA_TOKEN:-}" # used to attach UA when building ESM-enabled Ubuntu SKUs
+	if [ "$MODE" = "linuxVhdMode" ] && [ "${OS_SKU,,}" = "ubuntu" ]; then
+		if [ "${OS_VERSION}" = "18.04" ] || [ "${OS_VERSION}" = "20.04" ] || [ "${ENABLE_FIPS,,}" = "true" ]; then
+			echo "OS_VERSION: ${OS_VERSION}, ENABLE_FIPS: ${ENABLE_FIPS,,}, will use token for UA attachment"
+			if [ -z "${UA_TOKEN}" ]; then
+				echo "UA_TOKEN must be provided when building SKUs which require ESM"
+				exit 1
+			fi
+		else
+			UA_TOKEN="notused"
+		fi
+	else
+		UA_TOKEN="notused"
+	fi
 }
 
 function ensure_sig_image_name_linux() {
@@ -45,7 +45,7 @@ function ensure_sig_image_name_linux() {
 			SIG_IMAGE_NAME="AzureLinux${SIG_IMAGE_NAME}"
 		elif [ "${OS_SKU,,}" = "azurelinuxosguard" ]; then
 			SIG_IMAGE_NAME="AzureLinuxOSGuard${SIG_IMAGE_NAME}"
-		elif grep -q "cvm" <<< "$FEATURE_FLAGS"; then
+		elif grep -q "cvm" <<<"$FEATURE_FLAGS"; then
 			SIG_IMAGE_NAME+="Specialized"
 		fi
 		echo "No input for SIG_IMAGE_NAME was provided, defaulting to: ${SIG_IMAGE_NAME}"
@@ -54,34 +54,33 @@ function ensure_sig_image_name_linux() {
 	fi
 }
 
-
 function prepare_windows_vhd() {
 	echo "Set the base image sku and version from windows_settings.json"
 
-	WINDOWS_IMAGE_SKU=`jq -r ".WindowsBaseVersions.\"${WINDOWS_SKU}\".base_image_sku" < $CDIR/windows/windows_settings.json`
-	WINDOWS_IMAGE_VERSION=`jq -r ".WindowsBaseVersions.\"${WINDOWS_SKU}\".base_image_version" < $CDIR/windows/windows_settings.json`
-	WINDOWS_IMAGE_NAME=`jq -r ".WindowsBaseVersions.\"${WINDOWS_SKU}\".windows_image_name" < $CDIR/windows/windows_settings.json`
-	OS_DISK_SIZE=`jq -r ".WindowsBaseVersions.\"${WINDOWS_SKU}\".os_disk_size" < $CDIR/windows/windows_settings.json`
-  if [ "null" != "${OS_DISK_SIZE}" ]; then
-    echo "Setting os_disk_size_gb to the value in windows-settings.json for ${WINDOWS_SKU}: ${OS_DISK_SIZE}"
-    os_disk_size_gb=${OS_DISK_SIZE}
-  else
-    os_disk_size_gb="30"
-  fi
+	WINDOWS_IMAGE_SKU=$(jq -r ".WindowsBaseVersions.\"${WINDOWS_SKU}\".base_image_sku" <$CDIR/windows/windows_settings.json)
+	WINDOWS_IMAGE_VERSION=$(jq -r ".WindowsBaseVersions.\"${WINDOWS_SKU}\".base_image_version" <$CDIR/windows/windows_settings.json)
+	WINDOWS_IMAGE_NAME=$(jq -r ".WindowsBaseVersions.\"${WINDOWS_SKU}\".windows_image_name" <$CDIR/windows/windows_settings.json)
+	OS_DISK_SIZE=$(jq -r ".WindowsBaseVersions.\"${WINDOWS_SKU}\".os_disk_size" <$CDIR/windows/windows_settings.json)
+	if [ "null" != "${OS_DISK_SIZE}" ]; then
+		echo "Setting os_disk_size_gb to the value in windows-settings.json for ${WINDOWS_SKU}: ${OS_DISK_SIZE}"
+		os_disk_size_gb=${OS_DISK_SIZE}
+	else
+		os_disk_size_gb="30"
+	fi
 
-  imported_windows_image_name="${WINDOWS_IMAGE_NAME}-imported-${CREATE_TIME}-${RANDOM}"
+	imported_windows_image_name="${WINDOWS_IMAGE_NAME}-imported-${CREATE_TIME}-${RANDOM}"
 
-  echo "Got base image data: "
-  echo "  WINDOWS_IMAGE_SKU: ${WINDOWS_IMAGE_SKU}"
-  echo "  WINDOWS_IMAGE_VERSION: ${WINDOWS_IMAGE_VERSION}"
-  echo "  WINDOWS_IMAGE_NAME: ${WINDOWS_IMAGE_NAME}"
-  echo "  OS_DISK_SIZE: ${OS_DISK_SIZE}"
-  echo "  imported_windows_image_name: ${imported_windows_image_name}"
+	echo "Got base image data: "
+	echo "  WINDOWS_IMAGE_SKU: ${WINDOWS_IMAGE_SKU}"
+	echo "  WINDOWS_IMAGE_VERSION: ${WINDOWS_IMAGE_VERSION}"
+	echo "  WINDOWS_IMAGE_NAME: ${WINDOWS_IMAGE_NAME}"
+	echo "  OS_DISK_SIZE: ${OS_DISK_SIZE}"
+	echo "  imported_windows_image_name: ${imported_windows_image_name}"
 
 	if [ "${WINDOWS_IMAGE_SKU}" = "null" ]; then
-    echo "unsupported windows sku: ${WINDOWS_SKU}"
-    exit 1
-  fi
+		echo "unsupported windows sku: ${WINDOWS_SKU}"
+		exit 1
+	fi
 
 	# Create the sig image from the official images defined in windows-settings.json by default
 	windows_sigmode_source_subscription_id=""
@@ -91,7 +90,7 @@ function prepare_windows_vhd() {
 	windows_sigmode_source_image_version=""
 
 	# default: build VHD images from a marketplace base image
- 	export AZCOPY_AUTO_LOGIN_TYPE="MSI" # use Managed Identity for AzCopy authentication
+	export AZCOPY_AUTO_LOGIN_TYPE="MSI" # use Managed Identity for AzCopy authentication
 	export AZCOPY_MSI_RESOURCE_STRING="${AZURE_MSI_RESOURCE_STRING}"
 	export AZCOPY_LOG_LOCATION="$(pwd)/azcopy-log-files/"
 	export AZCOPY_JOB_PLAN_LOCATION="$(pwd)/azcopy-job-plan-files/"
@@ -112,20 +111,20 @@ function prepare_windows_vhd() {
 		else
 			# loop through azcopy log files
 			for f in "${AZCOPY_LOG_LOCATION}"/*.log; do
-			echo "Azcopy log file: $f"
-			# upload the log file as an attachment to vso
-			set +x
-			echo "##vso[build.uploadlog]$f"
-			set -x
-			# check if the log file contains any errors
-			if grep -q '"level":"Error"' "$f"; then
-				echo "log file $f contains errors"
+				echo "Azcopy log file: $f"
+				# upload the log file as an attachment to vso
 				set +x
-				echo "##vso[task.logissue type=error]Azcopy log file $f contains errors"
+				echo "##vso[build.uploadlog]$f"
 				set -x
-				# print the log file
-				cat "$f"
-			fi
+				# check if the log file contains any errors
+				if grep -q '"level":"Error"' "$f"; then
+					echo "log file $f contains errors"
+					set +x
+					echo "##vso[task.logissue type=error]Azcopy log file $f contains errors"
+					set -x
+					# print the log file
+					cat "$f"
+				fi
 			done
 		fi
 
@@ -138,44 +137,44 @@ function prepare_windows_vhd() {
 
 		# Extract image URLs from the artifact JSON using a case statement for WINDOWS_SKU
 		case "${WINDOWS_SKU}" in
-			"2019-containerd")
-				WINDOWS_BASE_IMAGE_URL=$(jq -r '.images[] | select(.name == "WINDOWS_2019_BASE_IMAGE_URL") | .value' "$artifact_path")
-				windows_nanoserver_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2019_NANO_IMAGE_URL") | .value' "$artifact_path")
-				windows_servercore_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2019_CORE_IMAGE_URL") | .value' "$artifact_path")
-				;;
-			"2022-containerd")
-				WINDOWS_BASE_IMAGE_URL=$(jq -r '.images[] | select(.name == "WINDOWS_2022_BASE_IMAGE_URL") | .value' "$artifact_path")
-				windows_nanoserver_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2022_NANO_IMAGE_URL") | .value' "$artifact_path")
-				windows_servercore_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2022_CORE_IMAGE_URL") | .value' "$artifact_path")
-				;;
-			"2022-containerd-gen2")
-				WINDOWS_BASE_IMAGE_URL=$(jq -r '.images[] | select(.name == "WINDOWS_2022_GEN2_BASE_IMAGE_URL") | .value' "$artifact_path")
-				windows_nanoserver_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2022_NANO_IMAGE_URL") | .value' "$artifact_path")
-				windows_servercore_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2022_CORE_IMAGE_URL") | .value' "$artifact_path")
-				;;
-			"2025")
-				WINDOWS_BASE_IMAGE_URL=$(jq -r '.images[] | select(.name == "WINDOWS_2025_BASE_IMAGE_URL") | .value' "$artifact_path")
-				windows_nanoserver_image_url="$(jq -r '.images[] | select(.name == "WINDOWS_2025_NANO_IMAGE_URL") | .value' "$artifact_path"),$(jq -r '.images[] | select(.name == "WINDOWS_2022_NANO_IMAGE_URL") | .value' "$artifact_path")"
-				windows_servercore_image_url="$(jq -r '.images[] | select(.name == "WINDOWS_2025_CORE_IMAGE_URL") | .value' "$artifact_path"),$(jq -r '.images[] | select(.name == "WINDOWS_2022_CORE_IMAGE_URL") | .value' "$artifact_path")"
-				;;
-			"2025-gen2")
-				WINDOWS_BASE_IMAGE_URL=$(jq -r '.images[] | select(.name == "WINDOWS_2025_GEN2_BASE_IMAGE_URL") | .value' "$artifact_path")
-				windows_nanoserver_image_url="$(jq -r '.images[] | select(.name == "WINDOWS_2025_NANO_IMAGE_URL") | .value' "$artifact_path"),$(jq -r '.images[] | select(.name == "WINDOWS_2022_NANO_IMAGE_URL") | .value' "$artifact_path")"
-				windows_servercore_image_url="$(jq -r '.images[] | select(.name == "WINDOWS_2025_CORE_IMAGE_URL") | .value' "$artifact_path"),$(jq -r '.images[] | select(.name == "WINDOWS_2022_CORE_IMAGE_URL") | .value' "$artifact_path")"
-				;;
-			"23H2")
-				WINDOWS_BASE_IMAGE_URL=$(jq -r '.images[] | select(.name == "WINDOWS_23H2_BASE_IMAGE_URL") | .value' "$artifact_path")
-				windows_nanoserver_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2022_NANO_IMAGE_URL") | .value' "$artifact_path")
-				windows_servercore_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2022_CORE_IMAGE_URL") | .value' "$artifact_path")
-				;;
-			"23H2-gen2")
-				WINDOWS_BASE_IMAGE_URL=$(jq -r '.images[] | select(.name == "WINDOWS_23H2_GEN2_BASE_IMAGE_URL") | .value' "$artifact_path")
-				windows_nanoserver_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2022_NANO_IMAGE_URL") | .value' "$artifact_path")
-				windows_servercore_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2022_CORE_IMAGE_URL") | .value' "$artifact_path")
-				;;
-			*)
-				echo "Unsupported WINDOWS_SKU: ${WINDOWS_SKU}"
-				;;
+		"2019-containerd")
+			WINDOWS_BASE_IMAGE_URL=$(jq -r '.images[] | select(.name == "WINDOWS_2019_BASE_IMAGE_URL") | .value' "$artifact_path")
+			windows_nanoserver_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2019_NANO_IMAGE_URL") | .value' "$artifact_path")
+			windows_servercore_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2019_CORE_IMAGE_URL") | .value' "$artifact_path")
+			;;
+		"2022-containerd")
+			WINDOWS_BASE_IMAGE_URL=$(jq -r '.images[] | select(.name == "WINDOWS_2022_BASE_IMAGE_URL") | .value' "$artifact_path")
+			windows_nanoserver_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2022_NANO_IMAGE_URL") | .value' "$artifact_path")
+			windows_servercore_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2022_CORE_IMAGE_URL") | .value' "$artifact_path")
+			;;
+		"2022-containerd-gen2")
+			WINDOWS_BASE_IMAGE_URL=$(jq -r '.images[] | select(.name == "WINDOWS_2022_GEN2_BASE_IMAGE_URL") | .value' "$artifact_path")
+			windows_nanoserver_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2022_NANO_IMAGE_URL") | .value' "$artifact_path")
+			windows_servercore_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2022_CORE_IMAGE_URL") | .value' "$artifact_path")
+			;;
+		"2025")
+			WINDOWS_BASE_IMAGE_URL=$(jq -r '.images[] | select(.name == "WINDOWS_2025_BASE_IMAGE_URL") | .value' "$artifact_path")
+			windows_nanoserver_image_url="$(jq -r '.images[] | select(.name == "WINDOWS_2025_NANO_IMAGE_URL") | .value' "$artifact_path"),$(jq -r '.images[] | select(.name == "WINDOWS_2022_NANO_IMAGE_URL") | .value' "$artifact_path")"
+			windows_servercore_image_url="$(jq -r '.images[] | select(.name == "WINDOWS_2025_CORE_IMAGE_URL") | .value' "$artifact_path"),$(jq -r '.images[] | select(.name == "WINDOWS_2022_CORE_IMAGE_URL") | .value' "$artifact_path")"
+			;;
+		"2025-gen2")
+			WINDOWS_BASE_IMAGE_URL=$(jq -r '.images[] | select(.name == "WINDOWS_2025_GEN2_BASE_IMAGE_URL") | .value' "$artifact_path")
+			windows_nanoserver_image_url="$(jq -r '.images[] | select(.name == "WINDOWS_2025_NANO_IMAGE_URL") | .value' "$artifact_path"),$(jq -r '.images[] | select(.name == "WINDOWS_2022_NANO_IMAGE_URL") | .value' "$artifact_path")"
+			windows_servercore_image_url="$(jq -r '.images[] | select(.name == "WINDOWS_2025_CORE_IMAGE_URL") | .value' "$artifact_path"),$(jq -r '.images[] | select(.name == "WINDOWS_2022_CORE_IMAGE_URL") | .value' "$artifact_path")"
+			;;
+		"23H2")
+			WINDOWS_BASE_IMAGE_URL=$(jq -r '.images[] | select(.name == "WINDOWS_23H2_BASE_IMAGE_URL") | .value' "$artifact_path")
+			windows_nanoserver_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2022_NANO_IMAGE_URL") | .value' "$artifact_path")
+			windows_servercore_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2022_CORE_IMAGE_URL") | .value' "$artifact_path")
+			;;
+		"23H2-gen2")
+			WINDOWS_BASE_IMAGE_URL=$(jq -r '.images[] | select(.name == "WINDOWS_23H2_GEN2_BASE_IMAGE_URL") | .value' "$artifact_path")
+			windows_nanoserver_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2022_NANO_IMAGE_URL") | .value' "$artifact_path")
+			windows_servercore_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2022_CORE_IMAGE_URL") | .value' "$artifact_path")
+			;;
+		*)
+			echo "Unsupported WINDOWS_SKU: ${WINDOWS_SKU}"
+			;;
 		esac
 	else
 		# If USE_CONTAINER_URLS_FROM_JSON is not true, fall back to default URLs
@@ -196,27 +195,27 @@ function prepare_windows_vhd() {
 	if [ -n "${WINDOWS_BASE_IMAGE_URL}" ]; then
 		echo "WINDOWS_BASE_IMAGE_URL is set in pipeline variable to ${WINDOWS_BASE_IMAGE_URL}"
 
-    STORAGE_ACCOUNT_NAME="aksimages${CREATE_TIME}$RANDOM"
-    echo "storage name: ${STORAGE_ACCOUNT_NAME}"
+		STORAGE_ACCOUNT_NAME="aksimages${CREATE_TIME}$RANDOM"
+		echo "storage name: ${STORAGE_ACCOUNT_NAME}"
 
-    IMPORTED_IMAGE_NAME=$imported_windows_image_name
-    IMPORTED_IMAGE_URL="https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net/system/${IMPORTED_IMAGE_NAME}.vhd"
+		IMPORTED_IMAGE_NAME=$imported_windows_image_name
+		IMPORTED_IMAGE_URL="https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net/system/${IMPORTED_IMAGE_NAME}.vhd"
 
-    avail=$(az storage account check-name -n "${STORAGE_ACCOUNT_NAME}" -o json | jq -r .nameAvailable)
-    if $avail ; then
-      echo "creating new storage account ${STORAGE_ACCOUNT_NAME}"
-      az storage account create \
-        -n "$STORAGE_ACCOUNT_NAME" \
-        -g "$AZURE_RESOURCE_GROUP_NAME" \
-        --sku "Standard_RAGRS" \
-        --tags "now=${CREATE_TIME}" \
-        --allow-shared-key-access false \
-        --location ""${AZURE_LOCATION}""
-      echo "creating new container system"
-      az storage container create --name system "--account-name=${STORAGE_ACCOUNT_NAME}" --auth-mode login
-    else
-      echo "storage account ${STORAGE_ACCOUNT_NAME} already exists."
-    fi
+		avail=$(az storage account check-name -n "${STORAGE_ACCOUNT_NAME}" -o json | jq -r .nameAvailable)
+		if $avail; then
+			echo "creating new storage account ${STORAGE_ACCOUNT_NAME}"
+			az storage account create \
+				-n "$STORAGE_ACCOUNT_NAME" \
+				-g "$AZURE_RESOURCE_GROUP_NAME" \
+				--sku "Standard_RAGRS" \
+				--tags "now=${CREATE_TIME}" \
+				--allow-shared-key-access false \
+				--location ""${AZURE_LOCATION}""
+			echo "creating new container system"
+			az storage container create --name system "--account-name=${STORAGE_ACCOUNT_NAME}" --auth-mode login
+		else
+			echo "storage account ${STORAGE_ACCOUNT_NAME} already exists."
+		fi
 
 		WINDOWS_IMAGE_URL=${IMPORTED_IMAGE_URL}
 
@@ -227,7 +226,7 @@ function prepare_windows_vhd() {
 		mkdir -p "${AZCOPY_LOG_LOCATION}"
 		mkdir -p "${AZCOPY_JOB_PLAN_LOCATION}"
 
-		if ! azcopy copy "${WINDOWS_BASE_IMAGE_URL}" "${WINDOWS_IMAGE_URL}" ; then
+		if ! azcopy copy "${WINDOWS_BASE_IMAGE_URL}" "${WINDOWS_IMAGE_URL}"; then
 			# loop through azcopy log files
 			set +x
 			shopt -s nullglob
@@ -384,7 +383,7 @@ function ensure_sig_vhd_exists() {
 		fi
 	fi
 
-	if $is_need_create ; then
+	if $is_need_create; then
 		echo "Creating gallery ${SIG_GALLERY_NAME} in the resource group ${AZURE_RESOURCE_GROUP_NAME} location ${AZURE_LOCATION}"
 		az sig create --resource-group ${AZURE_RESOURCE_GROUP_NAME} --gallery-name ${SIG_GALLERY_NAME} --location ${AZURE_LOCATION}
 	fi
@@ -397,53 +396,53 @@ function ensure_sig_vhd_exists() {
 		echo "Creating image definition ${SIG_IMAGE_NAME} in gallery ${SIG_GALLERY_NAME} resource group ${AZURE_RESOURCE_GROUP_NAME}"
 		# The following conditionals do not require NVMe tagging on disk controller type
 		# shellcheck disable=SC3010
-		if [[ ${ARCHITECTURE,,} == "arm64" ]] || grep -q "cvm" <<< "$FEATURE_FLAGS" || [[ ${HYPERV_GENERATION} == "V1" ]]; then
+		if [[ ${ARCHITECTURE,,} == "arm64" ]] || grep -q "cvm" <<<"$FEATURE_FLAGS" || [[ ${HYPERV_GENERATION} == "V1" ]]; then
 			TARGET_COMMAND_STRING=""
 			if [ "${ARCHITECTURE,,}" = "arm64" ]; then
 				TARGET_COMMAND_STRING+="--architecture Arm64 --features DiskControllerTypes=SCSI,NVMe"
-			elif grep -q "cvm" <<< "$FEATURE_FLAGS"; then
+			elif grep -q "cvm" <<<"$FEATURE_FLAGS"; then
 				TARGET_COMMAND_STRING+="--os-state Specialized --features SecurityType=ConfidentialVM"
 			fi
 
-      az sig image-definition create \
-        --resource-group ${AZURE_RESOURCE_GROUP_NAME} \
-        --gallery-name ${SIG_GALLERY_NAME} \
-        --gallery-image-definition ${SIG_IMAGE_NAME} \
-        --publisher microsoft-aks \
-        --offer ${SIG_GALLERY_NAME} \
-        --sku ${SIG_IMAGE_NAME} \
-        --os-type ${OS_TYPE} \
-        --hyper-v-generation ${HYPERV_GENERATION} \
-        --location ${AZURE_LOCATION} \
-        ${TARGET_COMMAND_STRING}
+			az sig image-definition create \
+				--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
+				--gallery-name ${SIG_GALLERY_NAME} \
+				--gallery-image-definition ${SIG_IMAGE_NAME} \
+				--publisher microsoft-aks \
+				--offer ${SIG_GALLERY_NAME} \
+				--sku ${SIG_IMAGE_NAME} \
+				--os-type ${OS_TYPE} \
+				--hyper-v-generation ${HYPERV_GENERATION} \
+				--location ${AZURE_LOCATION} \
+				${TARGET_COMMAND_STRING}
 		else
-		  # TL can only be enabled on Gen2 VMs, therefore if TL enabled = true, mark features for both TL and NVMe
-		  if [ ${ENABLE_TRUSTED_LAUNCH} = "True" ]; then
-		    az sig image-definition create \
-          --resource-group ${AZURE_RESOURCE_GROUP_NAME} \
-          --gallery-name ${SIG_GALLERY_NAME} \
-          --gallery-image-definition ${SIG_IMAGE_NAME} \
-          --publisher microsoft-aks \
-          --offer ${SIG_GALLERY_NAME} \
-          --sku ${SIG_IMAGE_NAME} \
-          --os-type ${OS_TYPE} \
-          --hyper-v-generation ${HYPERV_GENERATION} \
-          --location ${AZURE_LOCATION} \
-          --features "DiskControllerTypes=SCSI,NVMe SecurityType=TrustedLaunch"
-      else
-        # For vanilla Gen2, mark only NVMe
-        az sig image-definition create \
-          --resource-group ${AZURE_RESOURCE_GROUP_NAME} \
-          --gallery-name ${SIG_GALLERY_NAME} \
-          --gallery-image-definition ${SIG_IMAGE_NAME} \
-          --publisher microsoft-aks \
-          --offer ${SIG_GALLERY_NAME} \
-          --sku ${SIG_IMAGE_NAME} \
-          --os-type ${OS_TYPE} \
-          --hyper-v-generation ${HYPERV_GENERATION} \
-          --location ${AZURE_LOCATION} \
-          --features DiskControllerTypes=SCSI,NVMe
-      fi
+			# TL can only be enabled on Gen2 VMs, therefore if TL enabled = true, mark features for both TL and NVMe
+			if [ ${ENABLE_TRUSTED_LAUNCH} = "True" ]; then
+				az sig image-definition create \
+					--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
+					--gallery-name ${SIG_GALLERY_NAME} \
+					--gallery-image-definition ${SIG_IMAGE_NAME} \
+					--publisher microsoft-aks \
+					--offer ${SIG_GALLERY_NAME} \
+					--sku ${SIG_IMAGE_NAME} \
+					--os-type ${OS_TYPE} \
+					--hyper-v-generation ${HYPERV_GENERATION} \
+					--location ${AZURE_LOCATION} \
+					--features "DiskControllerTypes=SCSI,NVMe SecurityType=TrustedLaunch"
+			else
+				# For vanilla Gen2, mark only NVMe
+				az sig image-definition create \
+					--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
+					--gallery-name ${SIG_GALLERY_NAME} \
+					--gallery-image-definition ${SIG_IMAGE_NAME} \
+					--publisher microsoft-aks \
+					--offer ${SIG_GALLERY_NAME} \
+					--sku ${SIG_IMAGE_NAME} \
+					--os-type ${OS_TYPE} \
+					--hyper-v-generation ${HYPERV_GENERATION} \
+					--location ${AZURE_LOCATION} \
+					--features DiskControllerTypes=SCSI,NVMe
+			fi
 		fi
 	else
 		echo "Image definition ${SIG_IMAGE_NAME} existing in gallery ${SIG_GALLERY_NAME} resource group ${AZURE_RESOURCE_GROUP_NAME}"
