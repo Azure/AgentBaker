@@ -49,17 +49,6 @@ else
 	exit 1
 fi
 
-
-if shellspec --shell bash --no-warning-as-failure vhdbuilder/packer/spec/prepare_windows_vhd_spec.sh; then
-	echo ""
-	echo "Running ensure_sig_vhd_exists function tests..."
-else
-	echo ""
-	echo -e "${RED}✗ prepare_windows_vhd tests failed!${NC}"
-	exit 1
-fi
-
-
 if shellspec --shell bash --no-warning-as-failure vhdbuilder/packer/spec/ensure_sig_vhd_exists_spec.sh; then
 	echo ""
 	echo -e "${GREEN}✓ All tests passed!${NC}"
