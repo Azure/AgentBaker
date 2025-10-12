@@ -138,6 +138,14 @@ ERR_SECURE_TLS_BOOTSTRAP_START_FAILURE=220 # Error starting the secure TLS boots
 
 ERR_CLOUD_INIT_FAILED=223 # Error indicating that cloud-init returned exit code 1 in cse_cmd.sh
 ERR_NVIDIA_DRIVER_INSTALL=224 # Error determining if nvidia driver install should be skipped
+ERR_NVIDIA_GPG_KEY_DOWNLOAD_TIMEOUT=225 # Timeout waiting for NVIDIA GPG key download
+ERR_NVIDIA_AZURELINUX_REPO_FILE_DOWNLOAD_TIMEOUT=226 # Timeout waiting for NVIDIA AzureLinux repo file download
+ERR_MANAGED_NVIDIA_EXP_INSTALL_FAIL=227 # Error installing Managed NVIDIA GPU experience packages
+ERR_NVIDIA_DCGM_FAIL=228 # Error starting or enabling NVIDIA DCGM service
+ERR_NVIDIA_DCGM_EXPORTER_FAIL=229 # Error starting or enabling NVIDIA DCGM Exporter service
+ERR_LOOKUP_ENABLE_MANAGED_GPU_EXPERIENCE_TAG=230 # Error checking nodepool tags for whether we need to enable managed GPU experience
+
+ERR_PULL_POD_INFRA_CONTAINER_IMAGE=225 # Error pulling pause image
 
 # For both Ubuntu and Mariner, /etc/*-release should exist.
 # For unit tests, the OS and OS_VERSION will be set in the unit test script.
@@ -337,6 +345,28 @@ retrycmd_get_tarball_from_registry_with_oras() {
     done
 }
 
+retrycmd_cp_oci_layout_with_oras() {
+    retries=$1; wait_sleep=$2; path=$3; tag=$4; url=$5
+    mkdir -p "$path"
+    echo "${retries} retries"
+    for i in $(seq 1 $retries); do
+        if [ "$i" -eq "$retries" ]; then
+            echo "Failed to oras cp $url to $path:$tag after $retries attempts"
+            return $ERR_PULL_POD_INFRA_CONTAINER_IMAGE
+        else
+            if [ "$i" -gt 1 ]; then
+                sleep $wait_sleep
+            fi
+            timeout 120 oras cp "$url" "$path:$tag" --to-oci-layout --from-registry-config ${ORAS_REGISTRY_CONFIG_FILE} > $ORAS_OUTPUT 2>&1
+            if [ "$?" -ne 0 ]; then
+                cat $ORAS_OUTPUT
+            else
+                return 0
+            fi
+        fi
+    done
+}
+
 retrycmd_get_aad_access_token() {
     retries=$1; wait_sleep=$2; url=$3
     for i in $(seq 1 $retries); do
@@ -516,14 +546,24 @@ apt_get_download() {
   retries=$1; wait_sleep=$2; shift && shift;
   local ret=0
   pushd $APT_CACHE_DIR || return 1
-  for i in $(seq 1 $retries); do
+  for i in $(seq 1 "$retries"); do
     dpkg --configure -a --force-confdef
     wait_for_apt_locks
-    apt-get -o Dpkg::Options::=--force-confold download -y "${@}" && break
-    if [ $i -eq $retries ]; then ret=1; else sleep $wait_sleep; fi
+
+    # Pull the first quoted URL from --print-uris
+    url="$(apt-get --print-uris -o Dpkg::Options::=--force-confold download -y -- "$@" \
+           | awk -F"'" 'NR==1 && $2 {print $2}')"
+    if [ -n "$url" ]; then
+      # This avoids issues with the naming in the package. `apt-get download`
+      # encodes the package names with special characters and does not decode
+      # them when saving to disk, but `curl -J` handles the names correctly.
+      if curl -fLJO -- "$url"; then ret=0; break; fi
+    fi
+
+    if [ "$i" -eq "$retries" ]; then ret=1; else sleep "$wait_sleep"; fi
   done
   popd || return 1
-  return $ret
+  return "$ret"
 }
 
 getCPUArch() {
@@ -629,6 +669,17 @@ should_enforce_kube_pmc_install() {
       return $ret
     fi
     should_enforce=$(echo "$body" | jq -r '.compute.tagsList[] | select(.name == "ShouldEnforceKubePMCInstall") | .value')
+    echo "${should_enforce,,}"
+}
+
+enableManagedGPUExperience() {
+    set -x
+    body=$(curl -fsSL -H "Metadata: true" --noproxy "*" "http://169.254.169.254/metadata/instance?api-version=2021-02-01")
+    ret=$?
+    if [ "$ret" -ne 0 ]; then
+      return $ret
+    fi
+    should_enforce=$(echo "$body" | jq -r '.compute.tagsList[] | select(.name == "EnableManagedGPUExperience") | .value')
     echo "${should_enforce,,}"
 }
 
@@ -1104,4 +1155,46 @@ extract_tarball() {
     esac
 }
 
+function get_sandbox_image(){
+    sandbox_image=$(get_sandbox_image_from_containerd_config "/etc/containerd/config.toml")
+    if [ -z "$sandbox_image" ]; then
+        sandbox_image=$(extract_value_from_kubelet_flags "$KUBELET_FLAGS" "pod-infra-container-image")
+    fi
+
+    echo $sandbox_image
+}
+
+function extract_value_from_kubelet_flags(){
+    local kubelet_flags=$1
+    local key=$2
+
+    key="${key#--}"
+    value=$(echo "$kubelet_flags" | sed -n "s/.*--${key}=\([^ ]*\).*/\1/p")
+    echo "$value"
+}
+
+function get_sandbox_image_from_containerd_config() {
+    local config_file=$1
+    local sandbox_image=""
+
+    if [ ! -f "$config_file" ]; then
+        echo ""
+        return
+    fi
+
+    # Extract sandbox_image value from the CRI plugin section
+    # The sandbox_image is typically under [plugins."io.containerd.grpc.v1.cri"]
+    sandbox_image=$(awk '/sandbox_image/ && /=/ {
+        # Remove quotes and spaces
+        gsub(/[" ]/, "", $3)
+        print $3
+    }' FS='=' "$config_file")
+
+    # Alternative method if the above doesn't work
+    if [ -z "$sandbox_image" ]; then
+        sandbox_image=$(grep -E '^\s*sandbox_image\s*=' "$config_file" | sed 's/.*sandbox_image\s*=\s*"\([^"]*\)".*/\1/')
+    fi
+
+    echo "$sandbox_image"
+}
 #HELPERSEOF

@@ -40,7 +40,7 @@ filter Timestamp
 function Write-Log($Message)
 {
     $msg = $message | Timestamp
-    Write-Output $msg
+    Write-Host $msg
 }
 
 . c:/k/windows-vhd-configuration.ps1
@@ -88,7 +88,7 @@ function Download-File
         Write-Log "Package exist $fileName in cache dir $global:CacheDir, skipping download"
         Get-ChildItem "$Dest"
         return
-    } 
+    }
 
     Write-Log "Downloading $URL to $Dest"
     curl.exe -f --retry $retryCount --retry-delay $retryDelay -L $URL -o $Dest
@@ -373,7 +373,7 @@ function Get-ContainerImages
     # ./.clusterfuzzliteThere is a regression in crictl.exe in kube-tools 1.33 for windows that it cannot find the default config file. Has been discussed with upstream and pending fix
     $crictlPath = (Get-Command crictl.exe -ErrorAction SilentlyContinue).Path
     $configPath = Join-Path (Split-Path -Parent $crictlPath) "crictl.yaml"
-    
+
     foreach ($image in $imagesToPull)
     {
         $imagePrefix = $image.Split(":")[0]
@@ -391,7 +391,7 @@ function Get-ContainerImages
             }
 
             # In 2025 case, we will need to cache container base images for both 2022 and 2025
-            # To support multiple versions of container base images, we expect the URL to be provided as a list of strings 
+            # To support multiple versions of container base images, we expect the URL to be provided as a list of strings
             # seperated by commas or semicolons, while each string specify a version of the image.
             # For example: mcr.microsoft.com/windows/servercore:ltsc2022, mcr.microsoft.com/windows/servercore:ltsc2025
             $containerBaseImageurls = $url -split '\s*[;,]\s*'
@@ -653,7 +653,7 @@ function Install-OpenSSH
 
     Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0
 
-    # It’s by design that files within the C:\Windows\System32\ folder are not modifiable. 
+    # It’s by design that files within the C:\Windows\System32\ folder are not modifiable.
     # When the OpenSSH Server starts, it copies C:\windows\system32\openssh\sshd_config_default to C:\programdata\ssh\sshd_config, if the file does not already exist.
     $OriginalConfigPath = "C:\windows\system32\OpenSSH\sshd_config_default"
     $ConfigDirectory = "C:\programdata\ssh"
