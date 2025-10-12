@@ -56,7 +56,7 @@ function ensure_sig_image_name_linux() {
 	fi
 }
 
-function download_windows_json_artfact() {
+function download_windows_json_artifact() {
 	filename=$(basename "$WINDOWS_CONTAINERIMAGE_JSON_URL")
 	echo "Downloading $filename from wcct storage account using AzCopy with Managed Identity Auth"
 
@@ -291,7 +291,7 @@ function prepare_windows_vhd() {
 
 	echo "VALID IMAGE URL: ${WINDOWS_CONTAINERIMAGE_JSON_URL}"
 	if [ -n "${WINDOWS_CONTAINERIMAGE_JSON_URL}" ]; then
-		download_windows_json_artfact
+		download_windows_json_artifact
 		extract_windows_image_urls
 	else
 		# If USE_CONTAINER_URLS_FROM_JSON is not true, fall back to default URLs
