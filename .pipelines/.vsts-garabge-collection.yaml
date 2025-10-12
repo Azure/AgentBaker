@@ -7,9 +7,10 @@ parameters:
 schedules:
 - cron: '0 */4 * * *'
   displayName: Scheduled Garbage Collection
+  always: true
   branches:
     include:
-    - master
+      - master
 
 pool:
   name: $(POOL_NAME)
