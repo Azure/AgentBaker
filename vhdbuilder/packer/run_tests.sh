@@ -15,11 +15,11 @@ echo -e "${YELLOW}Running ShellSpec tests for vhdbuilder/packer...${NC}"
 echo ""
 
 # Check if shellspec is available
-if ! command -v shellspec &> /dev/null; then
-    echo -e "${RED}Error: shellspec command not found${NC}"
-    echo "Please install ShellSpec: https://github.com/shellspec/shellspec"
-    echo "Or install via: curl -fsSL https://git.io/shellspec | sh"
-    exit 1
+if ! command -v shellspec &>/dev/null; then
+	echo -e "${RED}Error: shellspec command not found${NC}"
+	echo "Please install ShellSpec: https://github.com/shellspec/shellspec"
+	echo "Or install via: curl -fsSL https://git.io/shellspec | sh"
+	exit 1
 fi
 
 # Change to the directory containing the tests
@@ -28,20 +28,32 @@ cd "$(dirname "$0")"
 # Run the tests
 echo "Running produce_ua_token function tests..."
 if shellspec --shell bash --no-warning-as-failure spec/produce_ua_token_spec.sh; then
-    echo -e "${GREEN}✓ produce_ua_token tests passed!${NC}"
-    echo ""
-    echo "Running ensure_sig_image_name_linux function tests..."
-    if shellspec --shell bash --no-warning-as-failure spec/ensure_sig_image_name_linux_spec.sh; then
-        echo ""
-        echo -e "${GREEN}✓ All tests passed!${NC}"
-        exit 0
-    else
-        echo ""
-        echo -e "${RED}✗ ensure_sig_image_name_linux tests failed!${NC}"
-        exit 1
-    fi
+	echo -e "${GREEN}✓ produce_ua_token tests passed!${NC}"
+	echo ""
+	echo "Running ensure_sig_image_name_linux function tests..."
 else
-    echo ""
-    echo -e "${RED}✗ produce_ua_token tests failed!${NC}"
-    exit 1
+	echo ""
+	echo -e "${RED}✗ produce_ua_token tests failed!${NC}"
+	exit 1
 fi
+
+
+if shellspec --shell bash --no-warning-as-failure spec/ensure_sig_image_name_linux_spec.sh; then
+	echo ""
+	echo "Running prepare_windows_vhd function tests..."
+else
+	echo ""
+	echo -e "${RED}✗ ensure_sig_image_name_linux tests failed!${NC}"
+	exit 1
+fi
+
+
+# if shellspec --shell bash --no-warning-as-failure spec/prepare_windows_vhd_spec.sh; then
+# 	echo ""
+# 	echo -e "${GREEN}✓ All tests passed!${NC}"
+# 	exit 0
+# else
+# 	echo ""
+# 	echo -e "${RED}✗ prepare_windows_vhd tests failed!${NC}"
+# 	exit 1
+# fi

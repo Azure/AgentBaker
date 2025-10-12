@@ -25,6 +25,7 @@ Describe 'produce_ua_token function'
       When call produce_ua_token
       The status should be success
       The variable UA_TOKEN should eq "test-token-123"
+	  The output should be present
     End
 
     It 'should succeed with mixed case Ubuntu for 18.04 in linuxVhdMode'
@@ -35,7 +36,9 @@ Describe 'produce_ua_token function'
       When call produce_ua_token
       The status should be success
       The variable UA_TOKEN should eq "mixed-case-token"
+ 	  The output should be present
     End
+
 
     It 'should succeed with uppercase UBUNTU for 18.04 in linuxVhdMode'
       MODE="linuxVhdMode"
@@ -45,6 +48,7 @@ Describe 'produce_ua_token function'
       When call produce_ua_token
       The status should be success
       The variable UA_TOKEN should eq "uppercase-token"
+ 	  The output should be present
     End
 
     It 'should fail without UA_TOKEN for Ubuntu 18.04 in linuxVhdMode'
@@ -54,7 +58,9 @@ Describe 'produce_ua_token function'
       UA_TOKEN=""
       When run produce_ua_token
       The status should equal 1
+ 	  The output should be present
     End
+
 
     It 'should preserve existing environment UA_TOKEN for Ubuntu 18.04'
       MODE="linuxVhdMode"
@@ -64,7 +70,9 @@ Describe 'produce_ua_token function'
       When call produce_ua_token
       The status should be success
       The variable UA_TOKEN should eq "env-token-123"
+ 	  The output should be present
     End
+
   End
 
   Describe 'Ubuntu 20.04 scenarios'
@@ -76,7 +84,9 @@ Describe 'produce_ua_token function'
       When call produce_ua_token
       The status should be success
       The variable UA_TOKEN should eq "test-token-456"
+ 	  The output should be present
     End
+
 
     It 'should fail without UA_TOKEN for Ubuntu 20.04 in linuxVhdMode'
       MODE="linuxVhdMode"
@@ -85,7 +95,9 @@ Describe 'produce_ua_token function'
       UA_TOKEN=""
       When run produce_ua_token
       The status should equal 1
+ 	  The output should be present
     End
+
   End
 
   Describe 'Ubuntu versions that do not require UA_TOKEN'
@@ -98,7 +110,9 @@ Describe 'produce_ua_token function'
       When call produce_ua_token
       The status should be success
       The variable UA_TOKEN should eq "notused"
+ 	  The output should be present
     End
+
 
     It 'should set UA_TOKEN to "notused" for Ubuntu 24.04'
       MODE="linuxVhdMode"
@@ -109,7 +123,9 @@ Describe 'produce_ua_token function'
       When call produce_ua_token
       The status should be success
       The variable UA_TOKEN should eq "notused"
+ 	  The output should be present
     End
+
 
     It 'should set UA_TOKEN to "notused" for empty OS_VERSION'
       MODE="linuxVhdMode"
@@ -120,7 +136,9 @@ Describe 'produce_ua_token function'
       When call produce_ua_token
       The status should be success
       The variable UA_TOKEN should eq "notused"
+ 	  The output should be present
     End
+
   End
 
   Describe 'ENABLE_FIPS=true scenarios'
@@ -133,7 +151,9 @@ Describe 'produce_ua_token function'
       When call produce_ua_token
       The status should be success
       The variable UA_TOKEN should eq "fips-token-789"
+ 	  The output should be present
     End
+
 
     It 'should succeed with valid UA_TOKEN when FIPS is enabled (uppercase TRUE)'
       MODE="linuxVhdMode"
@@ -144,7 +164,9 @@ Describe 'produce_ua_token function'
       When call produce_ua_token
       The status should be success
       The variable UA_TOKEN should eq "fips-token-uppercase"
+ 	  The output should be present
     End
+
 
     It 'should succeed with valid UA_TOKEN when FIPS is enabled (mixed case True)'
       MODE="linuxVhdMode"
@@ -155,7 +177,9 @@ Describe 'produce_ua_token function'
       When call produce_ua_token
       The status should be success
       The variable UA_TOKEN should eq "fips-token-mixed"
+ 	  The output should be present
     End
+
 
     It 'should fail without UA_TOKEN when FIPS is enabled'
       MODE="linuxVhdMode"
@@ -165,7 +189,9 @@ Describe 'produce_ua_token function'
       UA_TOKEN=""
       When run produce_ua_token
       The status should equal 1
+ 	  The output should be present
     End
+
 
     It 'should set UA_TOKEN to "notused" when FIPS is disabled'
       MODE="linuxVhdMode"
@@ -176,7 +202,9 @@ Describe 'produce_ua_token function'
       When call produce_ua_token
       The status should be success
       The variable UA_TOKEN should eq "notused"
+ 	  The output should be present
     End
+
 
     It 'should set UA_TOKEN to "notused" when FIPS is empty'
       MODE="linuxVhdMode"
@@ -187,7 +215,9 @@ Describe 'produce_ua_token function'
       When call produce_ua_token
       The status should be success
       The variable UA_TOKEN should eq "notused"
+ 	  The output should be present
     End
+
   End
 
   Describe 'Non-Ubuntu OS scenarios'
@@ -199,7 +229,9 @@ Describe 'produce_ua_token function'
       When call produce_ua_token
       The status should be success
       The variable UA_TOKEN should eq "notused"
+ 	  The output should be present
     End
+
 
     It 'should set UA_TOKEN to "notused" for RHEL with linuxVhdMode'
       MODE="linuxVhdMode"
@@ -209,7 +241,9 @@ Describe 'produce_ua_token function'
       When call produce_ua_token
       The status should be success
       The variable UA_TOKEN should eq "notused"
+ 	  The output should be present
     End
+
 
     It 'should set UA_TOKEN to "notused" for empty OS_SKU'
       MODE="linuxVhdMode"
@@ -219,7 +253,9 @@ Describe 'produce_ua_token function'
       When call produce_ua_token
       The status should be success
       The variable UA_TOKEN should eq "notused"
+ 	  The output should be present
     End
+
   End
 
   Describe 'Non-linuxVhdMode scenarios'
@@ -231,7 +267,9 @@ Describe 'produce_ua_token function'
       When call produce_ua_token
       The status should be success
       The variable UA_TOKEN should eq "notused"
+	  The output should be present
     End
+
 
     It 'should set UA_TOKEN to "notused" for unknown mode with Ubuntu 18.04'
       MODE="unknownMode"
@@ -241,6 +279,7 @@ Describe 'produce_ua_token function'
       When call produce_ua_token
       The status should be success
       The variable UA_TOKEN should eq "notused"
+	  The output should be present
     End
 
     It 'should set UA_TOKEN to "notused" for empty MODE with Ubuntu 18.04'
@@ -251,6 +290,7 @@ Describe 'produce_ua_token function'
       When call produce_ua_token
       The status should be success
       The variable UA_TOKEN should eq "notused"
+	  The output should be present
     End
   End
 
@@ -264,6 +304,7 @@ Describe 'produce_ua_token function'
       When call produce_ua_token
       The status should be success
       The variable UA_TOKEN should eq "notused"
+	  The output should be present
     End
 
     It 'should handle complex version strings'
@@ -274,6 +315,7 @@ Describe 'produce_ua_token function'
       When call produce_ua_token
       The status should be success
       The variable UA_TOKEN should eq "notused"
+	  The output should be present
     End
 
     It 'should be case-insensitive for both OS_SKU and ENABLE_FIPS'
@@ -285,6 +327,7 @@ Describe 'produce_ua_token function'
       When call produce_ua_token
       The status should be success
       The variable UA_TOKEN should eq "case-insensitive-token"
+	  The output should be present
     End
   End
 End

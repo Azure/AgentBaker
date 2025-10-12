@@ -24,6 +24,7 @@ Describe 'ensure_sig_image_name_linux function'
       When call ensure_sig_image_name_linux
       The status should be success
       The variable SIG_GALLERY_NAME should eq "PackerSigGalleryEastUS"
+	  The output should be present
     End
 
     It 'should use default gallery name when SIG_GALLERY_NAME is unset'
@@ -31,6 +32,7 @@ Describe 'ensure_sig_image_name_linux function'
       When call ensure_sig_image_name_linux
       The status should be success
       The variable SIG_GALLERY_NAME should eq "PackerSigGalleryEastUS"
+	  The output should be present
     End
 
     It 'should use provided SIG_GALLERY_NAME when set'
@@ -38,6 +40,7 @@ Describe 'ensure_sig_image_name_linux function'
       When call ensure_sig_image_name_linux
       The status should be success
       The variable SIG_GALLERY_NAME should eq "MyCustomGallery"
+	  The output should be present
     End
 
     It 'should preserve spaces in provided SIG_GALLERY_NAME'
@@ -45,6 +48,7 @@ Describe 'ensure_sig_image_name_linux function'
       When call ensure_sig_image_name_linux
       The status should be success
       The variable SIG_GALLERY_NAME should eq "Gallery With Spaces"
+	  The output should be present
     End
   End
 
@@ -55,6 +59,7 @@ Describe 'ensure_sig_image_name_linux function'
       When call ensure_sig_image_name_linux
       The status should be success
       The variable SIG_IMAGE_NAME should eq "ubuntu-2004"
+	  The output should be present
     End
 
     It 'should use SKU_NAME as base when SIG_IMAGE_NAME is unset'
@@ -63,6 +68,7 @@ Describe 'ensure_sig_image_name_linux function'
       When call ensure_sig_image_name_linux
       The status should be success
       The variable SIG_IMAGE_NAME should eq "test-sku"
+	  The output should be present
     End
 
     It 'should use provided SIG_IMAGE_NAME when set'
@@ -71,6 +77,7 @@ Describe 'ensure_sig_image_name_linux function'
       When call ensure_sig_image_name_linux
       The status should be success
       The variable SIG_IMAGE_NAME should eq "CustomImageName"
+	  The output should be present
     End
 
     It 'should handle empty SKU_NAME gracefully'
@@ -79,6 +86,7 @@ Describe 'ensure_sig_image_name_linux function'
       When call ensure_sig_image_name_linux
       The status should be success
       The variable SIG_IMAGE_NAME should eq ""
+	  The output should be present
     End
   End
 
@@ -91,6 +99,7 @@ Describe 'ensure_sig_image_name_linux function'
       When call ensure_sig_image_name_linux
       The status should be success
       The variable SIG_IMAGE_NAME should eq "CBLMarinertest-sku"
+	  The output should be present
     End
 
     It 'should add CBLMariner prefix when IMG_OFFER is cbl-mariner and ENABLE_CGROUPV2 is empty'
@@ -101,6 +110,7 @@ Describe 'ensure_sig_image_name_linux function'
       When call ensure_sig_image_name_linux
       The status should be success
       The variable SIG_IMAGE_NAME should eq "CBLMarinertest-sku"
+	  The output should be present
     End
 
     It 'should add AzureLinux prefix when IMG_OFFER is cbl-mariner and ENABLE_CGROUPV2 is true (lowercase)'
@@ -111,6 +121,7 @@ Describe 'ensure_sig_image_name_linux function'
       When call ensure_sig_image_name_linux
       The status should be success
       The variable SIG_IMAGE_NAME should eq "AzureLinuxtest-sku"
+	  The output should be present
     End
 
     It 'should add AzureLinux prefix when IMG_OFFER is cbl-mariner and ENABLE_CGROUPV2 is TRUE (uppercase)'
@@ -121,6 +132,7 @@ Describe 'ensure_sig_image_name_linux function'
       When call ensure_sig_image_name_linux
       The status should be success
       The variable SIG_IMAGE_NAME should eq "AzureLinuxtest-sku"
+	  The output should be present
     End
 
     It 'should add AzureLinux prefix when IMG_OFFER is cbl-mariner and ENABLE_CGROUPV2 is True (mixed case)'
@@ -131,6 +143,7 @@ Describe 'ensure_sig_image_name_linux function'
       When call ensure_sig_image_name_linux
       The status should be success
       The variable SIG_IMAGE_NAME should eq "AzureLinuxtest-sku"
+	  The output should be present
     End
 
     It 'should handle case-insensitive IMG_OFFER cbl-mariner (uppercase)'
@@ -141,6 +154,7 @@ Describe 'ensure_sig_image_name_linux function'
       When call ensure_sig_image_name_linux
       The status should be success
       The variable SIG_IMAGE_NAME should eq "CBLMarinertest-sku"
+	  The output should be present
     End
 
     It 'should handle case-insensitive IMG_OFFER cbl-mariner (mixed case)'
@@ -151,6 +165,7 @@ Describe 'ensure_sig_image_name_linux function'
       When call ensure_sig_image_name_linux
       The status should be success
       The variable SIG_IMAGE_NAME should eq "CBLMarinertest-sku"
+	  The output should be present
     End
   End
 
@@ -162,6 +177,7 @@ Describe 'ensure_sig_image_name_linux function'
       When call ensure_sig_image_name_linux
       The status should be success
       The variable SIG_IMAGE_NAME should eq "AzureLinuxtest-sku"
+	  The output should be present
     End
 
     It 'should handle case-insensitive IMG_OFFER azure-linux-3 (uppercase)'
@@ -171,6 +187,7 @@ Describe 'ensure_sig_image_name_linux function'
       When call ensure_sig_image_name_linux
       The status should be success
       The variable SIG_IMAGE_NAME should eq "AzureLinuxtest-sku"
+	  The output should be present
     End
 
     It 'should handle case-insensitive IMG_OFFER azure-linux-3 (mixed case)'
@@ -180,6 +197,7 @@ Describe 'ensure_sig_image_name_linux function'
       When call ensure_sig_image_name_linux
       The status should be success
       The variable SIG_IMAGE_NAME should eq "AzureLinuxtest-sku"
+	  The output should be present
     End
 
     It 'should prioritize azure-linux-3 over cbl-mariner when both conditions match'
@@ -190,6 +208,7 @@ Describe 'ensure_sig_image_name_linux function'
       When call ensure_sig_image_name_linux
       The status should be success
       The variable SIG_IMAGE_NAME should eq "AzureLinuxtest-sku"
+	  The output should be present
     End
   End
 
@@ -201,6 +220,7 @@ Describe 'ensure_sig_image_name_linux function'
       When call ensure_sig_image_name_linux
       The status should be success
       The variable SIG_IMAGE_NAME should eq "AzureLinuxOSGuardtest-sku"
+	  The output should be present
     End
 
     It 'should handle case-insensitive OS_SKU azurelinuxosguard (uppercase)'
@@ -210,6 +230,7 @@ Describe 'ensure_sig_image_name_linux function'
       When call ensure_sig_image_name_linux
       The status should be success
       The variable SIG_IMAGE_NAME should eq "AzureLinuxOSGuardtest-sku"
+	  The output should be present
     End
 
     It 'should handle case-insensitive OS_SKU azurelinuxosguard (mixed case)'
@@ -219,6 +240,7 @@ Describe 'ensure_sig_image_name_linux function'
       When call ensure_sig_image_name_linux
       The status should be success
       The variable SIG_IMAGE_NAME should eq "AzureLinuxOSGuardtest-sku"
+	  The output should be present
     End
 
     It 'should apply cbl-mariner condition first when both azurelinuxosguard and cbl-mariner match'
@@ -231,6 +253,7 @@ Describe 'ensure_sig_image_name_linux function'
       The status should be success
       # cbl-mariner is checked first in the if-elif chain, so it wins
       The variable SIG_IMAGE_NAME should eq "AzureLinuxtest-sku"
+	  The output should be present
     End
   End
 
@@ -242,6 +265,7 @@ Describe 'ensure_sig_image_name_linux function'
       When call ensure_sig_image_name_linux
       The status should be success
       The variable SIG_IMAGE_NAME should eq "test-skuSpecialized"
+	  The output should be present
     End
 
     It 'should add Specialized suffix when FEATURE_FLAGS is only cvm'
@@ -251,6 +275,7 @@ Describe 'ensure_sig_image_name_linux function'
       When call ensure_sig_image_name_linux
       The status should be success
       The variable SIG_IMAGE_NAME should eq "test-skuSpecialized"
+	  The output should be present
     End
 
     It 'should add Specialized suffix when FEATURE_FLAGS contains cvm at the beginning'
@@ -260,6 +285,7 @@ Describe 'ensure_sig_image_name_linux function'
       When call ensure_sig_image_name_linux
       The status should be success
       The variable SIG_IMAGE_NAME should eq "test-skuSpecialized"
+	  The output should be present
     End
 
     It 'should add Specialized suffix when FEATURE_FLAGS contains cvm at the end'
@@ -269,6 +295,7 @@ Describe 'ensure_sig_image_name_linux function'
       When call ensure_sig_image_name_linux
       The status should be success
       The variable SIG_IMAGE_NAME should eq "test-skuSpecialized"
+	  The output should be present
     End
 
     It 'should not add Specialized suffix when FEATURE_FLAGS does not contain cvm'
@@ -278,6 +305,7 @@ Describe 'ensure_sig_image_name_linux function'
       When call ensure_sig_image_name_linux
       The status should be success
       The variable SIG_IMAGE_NAME should eq "test-sku"
+	  The output should be present
     End
 
     It 'should add Specialized suffix when FEATURE_FLAGS contains cvmlike (grep finds cvm substring)'
@@ -288,6 +316,7 @@ Describe 'ensure_sig_image_name_linux function'
       The status should be success
       # grep -q "cvm" will match "cvmlike" because it contains "cvm" as a substring
       The variable SIG_IMAGE_NAME should eq "test-skuSpecialized"
+	  The output should be present
     End
 
     It 'should not add Specialized suffix when FEATURE_FLAGS is empty'
@@ -297,6 +326,7 @@ Describe 'ensure_sig_image_name_linux function'
       When call ensure_sig_image_name_linux
       The status should be success
       The variable SIG_IMAGE_NAME should eq "test-sku"
+	  The output should be present
     End
 
     It 'should not add Specialized suffix when FEATURE_FLAGS does not contain cvm substring'
@@ -306,6 +336,7 @@ Describe 'ensure_sig_image_name_linux function'
       When call ensure_sig_image_name_linux
       The status should be success
       The variable SIG_IMAGE_NAME should eq "test-sku"
+	  The output should be present
     End
 
     It 'should handle FEATURE_FLAGS with spaces correctly'
@@ -315,6 +346,7 @@ Describe 'ensure_sig_image_name_linux function'
       When call ensure_sig_image_name_linux
       The status should be success
       The variable SIG_IMAGE_NAME should eq "test-skuSpecialized"
+	  The output should be present
     End
   End
 
@@ -328,6 +360,7 @@ Describe 'ensure_sig_image_name_linux function'
       When call ensure_sig_image_name_linux
       The status should be success
       The variable SIG_IMAGE_NAME should eq "CBLMarinertest-sku"
+	  The output should be present
     End
 
     It 'should prioritize IMG_OFFER azure-linux-3 over FEATURE_FLAGS cvm'
@@ -338,6 +371,7 @@ Describe 'ensure_sig_image_name_linux function'
       When call ensure_sig_image_name_linux
       The status should be success
       The variable SIG_IMAGE_NAME should eq "AzureLinuxtest-sku"
+	  The output should be present
     End
 
     It 'should prioritize OS_SKU azurelinuxosguard over FEATURE_FLAGS cvm'
@@ -348,6 +382,7 @@ Describe 'ensure_sig_image_name_linux function'
       When call ensure_sig_image_name_linux
       The status should be success
       The variable SIG_IMAGE_NAME should eq "AzureLinuxOSGuardtest-sku"
+	  The output should be present
     End
 
     It 'should handle complex combination of all conditions correctly (cbl-mariner wins)'
@@ -361,6 +396,7 @@ Describe 'ensure_sig_image_name_linux function'
       The status should be success
       # cbl-mariner should be processed first, so we get AzureLinux prefix due to ENABLE_CGROUPV2=true
       The variable SIG_IMAGE_NAME should eq "AzureLinuxtest-sku"
+	  The output should be present
     End
   End
 
@@ -371,6 +407,7 @@ Describe 'ensure_sig_image_name_linux function'
       When call ensure_sig_image_name_linux
       The status should be success
       The variable SIG_IMAGE_NAME should eq ""
+	  The output should be present
     End
 
     It 'should handle unset IMG_OFFER variable'
@@ -380,6 +417,7 @@ Describe 'ensure_sig_image_name_linux function'
       When call ensure_sig_image_name_linux
       The status should be success
       The variable SIG_IMAGE_NAME should eq "test-sku"
+	  The output should be present
     End
 
     It 'should handle unset ENABLE_CGROUPV2 variable with cbl-mariner'
@@ -390,6 +428,7 @@ Describe 'ensure_sig_image_name_linux function'
       When call ensure_sig_image_name_linux
       The status should be success
       The variable SIG_IMAGE_NAME should eq "CBLMarinertest-sku"
+	  The output should be present
     End
 
     It 'should handle unset OS_SKU variable'
@@ -399,6 +438,7 @@ Describe 'ensure_sig_image_name_linux function'
       When call ensure_sig_image_name_linux
       The status should be success
       The variable SIG_IMAGE_NAME should eq "test-sku"
+	  The output should be present
     End
 
     It 'should handle unset FEATURE_FLAGS variable'
@@ -408,6 +448,7 @@ Describe 'ensure_sig_image_name_linux function'
       When call ensure_sig_image_name_linux
       The status should be success
       The variable SIG_IMAGE_NAME should eq "test-sku"
+	  The output should be present
     End
 
     It 'should handle SKU_NAME with special characters'
@@ -416,6 +457,7 @@ Describe 'ensure_sig_image_name_linux function'
       When call ensure_sig_image_name_linux
       The status should be success
       The variable SIG_IMAGE_NAME should eq "test-sku_with-special.chars"
+	  The output should be present
     End
 
     It 'should handle complex prefixes with special characters in SKU_NAME'
@@ -426,6 +468,7 @@ Describe 'ensure_sig_image_name_linux function'
       When call ensure_sig_image_name_linux
       The status should be success
       The variable SIG_IMAGE_NAME should eq "CBLMarinersku_with-special.chars"
+	  The output should be present
     End
   End
 
@@ -438,6 +481,7 @@ Describe 'ensure_sig_image_name_linux function'
       The status should be success
       The variable SIG_GALLERY_NAME should eq "PackerSigGalleryEastUS"
       The variable SIG_IMAGE_NAME should eq "test-sku"
+	  The output should be present
     End
 
     It 'should not modify variables when both are provided'
@@ -450,6 +494,7 @@ Describe 'ensure_sig_image_name_linux function'
       The status should be success
       The variable SIG_GALLERY_NAME should eq "ProvidedGallery"
       The variable SIG_IMAGE_NAME should eq "ProvidedImage"
+	  The output should be present
     End
   End
 End

@@ -11,9 +11,11 @@ function produce_ua_token() {
 				exit 1
 			fi
 		else
+			echo "UA_TOKEN not used for ubuntu 18.04, 20.04, and FIPS"
 			UA_TOKEN="notused"
 		fi
 	else
+		echo "UA_TOKEN only used for Ubuntu"
 		UA_TOKEN="notused"
 	fi
 }
