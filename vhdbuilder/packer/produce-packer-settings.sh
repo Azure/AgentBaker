@@ -3,7 +3,9 @@ set -e
 
 echo "Installing previous version of azcli in order to mitigate az compute bug" # TODO: (zachary-bailey) remove this code once new image picks up bug fix in azcli
 source parts/linux/cloud-init/artifacts/ubuntu/cse_helpers_ubuntu.sh
-source ./produce-packer-settings-functions.sh
+
+SCRIPT_DIR=$(dirname "$0")
+source "$SCRIPT_DIR/produce-packer-settings-functions.sh"
 
 wait_for_apt_locks
 AZ_VER_REQUIRED=2.70.0
