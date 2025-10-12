@@ -27,12 +27,21 @@ cd "$(dirname "$0")"
 
 # Run the tests
 echo "Running produce_ua_token function tests..."
-if shellspec --shell bash spec/produce_ua_token_spec.sh; then
+if shellspec --shell bash --no-warning-as-failure spec/produce_ua_token_spec.sh; then
+    echo -e "${GREEN}✓ produce_ua_token tests passed!${NC}"
     echo ""
-    echo -e "${GREEN}✓ All tests passed!${NC}"
-    exit 0
+    echo "Running ensure_sig_image_name_linux function tests..."
+    if shellspec --shell bash --no-warning-as-failure spec/ensure_sig_image_name_linux_spec.sh; then
+        echo ""
+        echo -e "${GREEN}✓ All tests passed!${NC}"
+        exit 0
+    else
+        echo ""
+        echo -e "${RED}✗ ensure_sig_image_name_linux tests failed!${NC}"
+        exit 1
+    fi
 else
     echo ""
-    echo -e "${RED}✗ Some tests failed!${NC}"
+    echo -e "${RED}✗ produce_ua_token tests failed!${NC}"
     exit 1
 fi

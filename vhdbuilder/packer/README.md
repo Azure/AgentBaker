@@ -19,13 +19,17 @@ Goal1: remove mariner workflow so things will be simplified.
 
 ---
 
-# Tests for produce_ua_token Function
+# Tests for produce_ua_token and ensure_sig_image_name_linux Functions
 
-This directory contains ShellSpec tests for the `produce_ua_token` function in `produce-packer-settings-functions.sh`.
+This directory contains ShellSpec tests for the `produce_ua_token` and `ensure_sig_image_name_linux` functions in `produce-packer-settings-functions.sh`.
 
 ## Overview
 
+### produce_ua_token Function
 The `produce_ua_token` function is responsible for determining whether Ubuntu Advantage (UA) tokens are required for building specific Ubuntu SKUs that need Extended Security Maintenance (ESM).
+
+### ensure_sig_image_name_linux Function
+The `ensure_sig_image_name_linux` function manages the generation of Shared Image Gallery (SIG) names and image names based on various conditions including OS offers, SKUs, and feature flags.
 
 ## Test Structure
 
@@ -33,7 +37,8 @@ The `produce_ua_token` function is responsible for determining whether Ubuntu Ad
 vhdbuilder/packer/
 ├── spec/
 │   ├── spec_helper.sh                 # Test configuration and setup
-│   └── produce_ua_token_spec.sh       # Main test file
+│   ├── produce_ua_token_spec.sh       # Tests for produce_ua_token function (28 tests)
+│   └── ensure_sig_image_name_linux_spec.sh  # Tests for ensure_sig_image_name_linux function (46 tests)
 ├── run_tests.sh                       # Test runner script
 └── README.md                          # This documentation
 ```
@@ -68,7 +73,57 @@ shellspec --shell bash --format tap spec/produce_ua_token_spec.sh
 
 # Run with coverage (if kcov is installed)
 shellspec --shell bash --kcov spec/produce_ua_token_spec.sh
+
+# Run specific function tests
+shellspec --shell bash spec/ensure_sig_image_name_linux_spec.sh
 ```
+
+## Test Coverage
+
+### produce_ua_token Function (28 tests)
+- **Ubuntu 18.04/20.04 scenarios**: Valid tokens, missing tokens, case handling
+- **FIPS scenarios**: Case-insensitive FIPS detection, token requirements
+- **Non-Ubuntu/Non-linux scenarios**: Other OS distributions and modes
+- **Edge cases**: Environment variables, logging, complex version strings
+
+### ensure_sig_image_name_linux Function (46 tests)
+- **SIG_GALLERY_NAME scenarios**: Default generation, provided values
+- **IMG_OFFER conditions**: cbl-mariner, azure-linux-3 with case handling
+- **OS_SKU conditions**: azurelinuxosguard with case handling
+- **FEATURE_FLAGS**: cvm detection, substring matching, priority handling
+- **Priority testing**: Condition precedence (cbl-mariner → azure-linux-3 → azurelinuxosguard → cvm)
+- **Edge cases**: Unset variables, special characters, complex combinations
+
+## Function Logic
+
+### produce_ua_token Function
+
+```
+if MODE == "linuxVhdMode" AND OS_SKU == "ubuntu" (case-insensitive):
+    if OS_VERSION in ["18.04", "20.04"] OR ENABLE_FIPS == "true" (case-insensitive):
+        if UA_TOKEN is empty:
+            output error message to stdout and exit 1
+        else:
+            keep existing UA_TOKEN and log to stdout
+    else:
+        UA_TOKEN = "notused"
+else:
+    UA_TOKEN = "notused"
+```
+
+### ensure_sig_image_name_linux Function
+
+**SIG_GALLERY_NAME Logic:**
+- If empty/unset: "PackerSigGalleryEastUS"
+- If provided: Use provided value
+
+**SIG_IMAGE_NAME Logic:**
+- If provided: Use provided value
+- If empty/unset: Start with SKU_NAME, then apply first matching condition:
+  1. **cbl-mariner**: Add "CBLMariner" or "AzureLinux" prefix based on ENABLE_CGROUPV2
+  2. **azure-linux-3**: Add "AzureLinux" prefix
+  3. **azurelinuxosguard**: Add "AzureLinuxOSGuard" prefix
+  4. **cvm in FEATURE_FLAGS**: Add "Specialized" suffix
 
 ## Extending Tests
 

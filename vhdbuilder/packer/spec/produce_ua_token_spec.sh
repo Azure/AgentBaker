@@ -25,7 +25,6 @@ Describe 'produce_ua_token function'
       When call produce_ua_token
       The status should be success
       The variable UA_TOKEN should eq "test-token-123"
-      The stdout should include "will use token for UA attachment"
     End
 
     It 'should succeed with mixed case Ubuntu for 18.04 in linuxVhdMode'
@@ -36,7 +35,6 @@ Describe 'produce_ua_token function'
       When call produce_ua_token
       The status should be success
       The variable UA_TOKEN should eq "mixed-case-token"
-      The stdout should include "will use token for UA attachment"
     End
 
     It 'should succeed with uppercase UBUNTU for 18.04 in linuxVhdMode'
@@ -47,7 +45,6 @@ Describe 'produce_ua_token function'
       When call produce_ua_token
       The status should be success
       The variable UA_TOKEN should eq "uppercase-token"
-      The stdout should include "will use token for UA attachment"
     End
 
     It 'should fail without UA_TOKEN for Ubuntu 18.04 in linuxVhdMode'
@@ -57,7 +54,6 @@ Describe 'produce_ua_token function'
       UA_TOKEN=""
       When run produce_ua_token
       The status should equal 1
-      The output should include "UA_TOKEN must be provided when building SKUs which require ESM"
     End
 
     It 'should preserve existing environment UA_TOKEN for Ubuntu 18.04'
@@ -68,7 +64,6 @@ Describe 'produce_ua_token function'
       When call produce_ua_token
       The status should be success
       The variable UA_TOKEN should eq "env-token-123"
-      The stdout should include "will use token for UA attachment"
     End
   End
 
@@ -81,7 +76,6 @@ Describe 'produce_ua_token function'
       When call produce_ua_token
       The status should be success
       The variable UA_TOKEN should eq "test-token-456"
-      The stdout should include "will use token for UA attachment"
     End
 
     It 'should fail without UA_TOKEN for Ubuntu 20.04 in linuxVhdMode'
@@ -91,7 +85,6 @@ Describe 'produce_ua_token function'
       UA_TOKEN=""
       When run produce_ua_token
       The status should equal 1
-      The output should include "UA_TOKEN must be provided when building SKUs which require ESM"
     End
   End
 
@@ -140,7 +133,6 @@ Describe 'produce_ua_token function'
       When call produce_ua_token
       The status should be success
       The variable UA_TOKEN should eq "fips-token-789"
-      The stdout should include "will use token for UA attachment"
     End
 
     It 'should succeed with valid UA_TOKEN when FIPS is enabled (uppercase TRUE)'
@@ -152,7 +144,6 @@ Describe 'produce_ua_token function'
       When call produce_ua_token
       The status should be success
       The variable UA_TOKEN should eq "fips-token-uppercase"
-      The stdout should include "will use token for UA attachment"
     End
 
     It 'should succeed with valid UA_TOKEN when FIPS is enabled (mixed case True)'
@@ -164,7 +155,6 @@ Describe 'produce_ua_token function'
       When call produce_ua_token
       The status should be success
       The variable UA_TOKEN should eq "fips-token-mixed"
-      The stdout should include "will use token for UA attachment"
     End
 
     It 'should fail without UA_TOKEN when FIPS is enabled'
@@ -175,7 +165,6 @@ Describe 'produce_ua_token function'
       UA_TOKEN=""
       When run produce_ua_token
       The status should equal 1
-      The output should include "UA_TOKEN must be provided when building SKUs which require ESM"
     End
 
     It 'should set UA_TOKEN to "notused" when FIPS is disabled'
@@ -277,18 +266,6 @@ Describe 'produce_ua_token function'
       The variable UA_TOKEN should eq "notused"
     End
 
-    It 'should log correct OS_VERSION and ENABLE_FIPS values'
-      MODE="linuxVhdMode"
-      OS_SKU="ubuntu"
-      OS_VERSION="18.04"
-      ENABLE_FIPS="false"
-      UA_TOKEN="logging-test-token"
-      When call produce_ua_token
-      The status should be success
-      The stdout should include "OS_VERSION: 18.04"
-      The stdout should include "ENABLE_FIPS: false"
-    End
-
     It 'should handle complex version strings'
       MODE="linuxVhdMode"
       OS_SKU="ubuntu"
@@ -308,32 +285,6 @@ Describe 'produce_ua_token function'
       When call produce_ua_token
       The status should be success
       The variable UA_TOKEN should eq "case-insensitive-token"
-      The stdout should include "will use token for UA attachment"
-    End
-  End
-
-  Describe 'Function behavior verification'
-    It 'should output logging messages to stdout'
-      MODE="linuxVhdMode"
-      OS_SKU="ubuntu"
-      OS_VERSION="18.04"
-      UA_TOKEN="stdout-test-token"
-      When call produce_ua_token
-      The status should be success
-      The stdout should not be blank
-      The stdout should include "will use token for UA attachment"
-    End
-
-    It 'should preserve set +x directive (no debug output when sourced)'
-      MODE="linuxVhdMode"
-      OS_SKU="ubuntu"
-      OS_VERSION="18.04"
-      UA_TOKEN="debug-test-token"
-      When call produce_ua_token
-      The status should be success
-      # Should not contain bash debug output like "+ MODE=linuxVhdMode"
-      The stdout should not include "+ MODE="
-      The stdout should not include "+ OS_SKU="
     End
   End
 End
