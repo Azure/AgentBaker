@@ -574,16 +574,16 @@ EOF
     # Install a local repository if a LOCAL_REPO_URL is provided, otherwise fall back to the doca-ofed
     # package available from the upstream NVIDIA repository. Don't block the build on
     # download failure.
-    if [ -n ${LOCAL_REPO_URL} ]; then
+    if [ -n "${LOCAL_REPO_URL}" ]; then
       # Extract filename from URL path, removing query parameters
       LOCAL_REPO_FILENAME=$(basename "${LOCAL_REPO_URL%%\?*}")
 
       # Store files downloaded before curl command
       BEFORE_FILES=$(ls /tmp/*.deb 2>/dev/null || echo "")
 
-      curl --output-dir /tmp -O ${LOCAL_REPO_URL}
+      curl --output-dir /tmp -O "${LOCAL_REPO_URL}"
       if [ $? -ne 0 ]; then
-        if [ $CONTINUE_ON_LOCAL_REPO_DOWNLOAD_ERROR = "True" ]; then
+        if [ "${CONTINUE_ON_LOCAL_REPO_DOWNLOAD_ERROR}" = "True" ]; then
           echo "WARNING: Continuing despite error downloading package from ${LOCAL_REPO_URL}."
         else
           echo "ERROR: Failed to download package from ${LOCAL_REPO_URL}."
@@ -595,10 +595,10 @@ EOF
         DOWNLOADED_FILE=$(comm -13 <(echo "$BEFORE_FILES" | sort) <(echo "$AFTER_FILES" | sort) | head -1)
 
         # Use the detected file or fall back to the extracted filename
-        if [ -n "$DOWNLOADED_FILE" ]; then
-          dpkg -i "$DOWNLOADED_FILE"
+        if [ -n "${DOWNLOADED_FILE}" ]; then
+          dpkg -i "${DOWNLOADED_FILE}"
         else
-          dpkg -i /tmp/${LOCAL_REPO_FILENAME}
+          dpkg -i "/tmp/${LOCAL_REPO_FILENAME}"
         fi
       fi
     fi
