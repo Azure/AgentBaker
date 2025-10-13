@@ -556,24 +556,8 @@ EOF
     # The open series driver is required for the GB200 platform. Dmesg output
     # will appear directing the reader away from the proprietary driver. The GPUs
     # are also not visible in nvidia-smi output with the proprietary drivers
-    apt install -y \
-      nvidia-driver-580-open
 
-    apt install -y \
-      cuda-toolkit-13 \
-      nvidia-container-toolkit \
-      datacenter-gpu-manager-exporter \
-      datacenter-gpu-manager-4-core \
-      datacenter-gpu-manager-4-proprietary \
-      libcap2-bin \
-      k8s-device-plugin
-
-    apt install -y \
-      nvidia-imex
-
-    # Install a local repository if a LOCAL_REPO_URL is provided, otherwise fall back to the doca-ofed
-    # package available from the upstream NVIDIA repository. Don't block the build on
-    # download failure.
+    # Install a local repository if a LOCAL_REPO_URL is provided
     if [ -n "${LOCAL_REPO_URL}" ]; then
       # Extract filename from URL path, removing query parameters
       LOCAL_REPO_FILENAME=$(basename "${LOCAL_REPO_URL%%\?*}")
@@ -602,6 +586,21 @@ EOF
         fi
       fi
     fi
+
+    apt install -y \
+      nvidia-driver-580-open
+
+    apt install -y \
+      cuda-toolkit-13 \
+      nvidia-container-toolkit \
+      datacenter-gpu-manager-exporter \
+      datacenter-gpu-manager-4-core \
+      datacenter-gpu-manager-4-proprietary \
+      libcap2-bin \
+      k8s-device-plugin
+
+    apt install -y \
+      nvidia-imex
 
     apt install -y \
       doca-ofed
