@@ -77,31 +77,33 @@ validate-go:
 validate-shell:
 	@./.pipelines/scripts/verify_shell.sh
 
+.PHONY: shellspec-base-local
+shellspec-base-local:
+	# don't have access to aksdataplanedev.azurecr.io locally, so strip it
+	sed 's|aksdataplanedev.azurecr.io/||g' < ./spec/shellspec.Dockerfile | docker build -t shellspec-docker -
 
-.PHONY: shellspec-run
-shellspec-run:
+.PHONY: shellspec-base-ci
+shellspec-base-ci:
+	# don't have access to aksdataplanedev.azurecr.io in CI, so strip it
+	sed 's|aksdataplanedev.azurecr.io/||g' < ./spec/shellspec.Dockerfile | docker build -t shellspec-docker -
+	# docker build -t shellspec-docker - < ./spec/shellspec.Dockerfile
+
+.PHONY: shellspec
+shellspec: shellspec-base-local
 	docker run --rm \
 		-v $(CURDIR):/workspace \
 		-w /workspace \
 		shellspec-docker --shell bash --format d
 
-
-.PHONY: shellspec
-shellspec:
-	# don't have access to aksdataplanedev.azurecr.io locally, so strip it
-	sed 's|aksdataplanedev.azurecr.io/||g' < ./spec/shellspec.Dockerfile | docker build -t shellspec-docker -
-	make shellspec-run
-
 .PHONY: shellspec-ci
-shellspec-ci:
-	# currently agentbaker pipeline doesn't have the right permissions to use the right docker base image
-	sed 's|aksdataplanedev.azurecr.io/||g' < ./spec/shellspec.Dockerfile | docker build -t shellspec-docker -
-	make shellspec
+shellspec-ci: shellspec-base-ci
+	docker run --rm \
+		-v $(CURDIR):/workspace \
+		-w /workspace \
+		shellspec-docker --shell bash --format d
 
 .PHONY: shellspec-focus
-shellspec-focus:
-	# don't have access to aksdataplanedev.azurecr.io locally, so strip it
-	sed 's|aksdataplanedev.azurecr.io/||g' < ./spec/shellspec.Dockerfile | docker build -t shellspec-docker -
+shellspec-focus: shellspec-base-local
 	docker run --rm \
 		-v $(CURDIR):/workspace \
 		-w /workspace \
