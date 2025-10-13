@@ -453,7 +453,9 @@ while IFS= read -r p; do
       ;;
     "datacenter-gpu-manager-4-core")
       for version in ${PACKAGE_VERSIONS[@]}; do
-        if [ "${OS}" = "${UBUNTU_OS_NAME}" ] || isMarinerOrAzureLinux "$OS"; then
+        if isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
+          echo "Skipping $name install on OS Guard"
+        elif [ "${OS}" = "${UBUNTU_OS_NAME}" ] || isMarinerOrAzureLinux "$OS"; then
           downloadPkgFromVersion "datacenter-gpu-manager-4-core" "${version}" "${downloadDir}"
         fi
         echo "  - datacenter-gpu-manager-4-core version ${version}" >> ${VHD_LOGS_FILEPATH}
@@ -461,7 +463,9 @@ while IFS= read -r p; do
       ;;
     "datacenter-gpu-manager-4-proprietary")
       for version in ${PACKAGE_VERSIONS[@]}; do
-        if [ "${OS}" = "${UBUNTU_OS_NAME}" ] || isMarinerOrAzureLinux "$OS"; then
+        if isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
+          echo "Skipping $name install on OS Guard"
+        elif [ "${OS}" = "${UBUNTU_OS_NAME}" ] || isMarinerOrAzureLinux "$OS"; then
           downloadPkgFromVersion "datacenter-gpu-manager-4-proprietary" "${version}" "${downloadDir}"
         fi
         echo "  - datacenter-gpu-manager-4-proprietary version ${version}" >> ${VHD_LOGS_FILEPATH}
@@ -477,7 +481,9 @@ while IFS= read -r p; do
       ;;
     "dcgm-exporter")
       for version in ${PACKAGE_VERSIONS[@]}; do
-        if isMarinerOrAzureLinux "$OS"; then
+        if isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
+          echo "Skipping $name install on OS Guard"
+        elif isMarinerOrAzureLinux "$OS"; then
           downloadPkgFromVersion "dcgm-exporter" "${version}" "${downloadDir}"
         fi
         echo "  - dcgm-exporter version ${version}" >> ${VHD_LOGS_FILEPATH}
