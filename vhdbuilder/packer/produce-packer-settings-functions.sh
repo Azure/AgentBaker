@@ -439,7 +439,7 @@ function ensure_sig_vhd_exists() {
 				${TARGET_COMMAND_STRING}
 		else
 			# TL can only be enabled on Gen2 VMs, therefore if TL enabled = true, mark features for both TL and NVMe
-			if [ "${ENABLE_TRUSTED_LAUNCH}" == "True" ]; then
+			if [ "${ENABLE_TRUSTED_LAUNCH}" = "True" ]; then
 				az sig image-definition create \
 					--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
 					--gallery-name ${SIG_GALLERY_NAME} \
