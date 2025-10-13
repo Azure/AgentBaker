@@ -274,6 +274,31 @@ Describe 'long running cse helper functions'
                 # Cleanup after assertions
                 rm -rf /tmp/test_valid_oras_tarball
             End
+
+            It "does not pass extra empty string arguments when called without extra flags"
+                # Mock retrycmd_pull_from_registry_with_oras to capture all arguments
+                retrycmd_pull_from_registry_with_oras() {
+                    # Count the number of arguments passed
+                    local arg_count=$#
+                    echo "retrycmd_pull_from_registry_with_oras called with $arg_count arguments: $@"
+
+                    # Verify that we receive exactly 4 arguments (no extra empty strings)
+                    if [ "$arg_count" -eq 4 ]; then
+                        echo "PASS: Correct number of arguments (4)"
+                        return 0
+                    else
+                        echo "FAIL: Expected 4 arguments, got $arg_count"
+                        return 1
+                    fi
+                }
+
+                When call retrycmd_get_tarball_from_registry_with_oras 2 1 "/tmp/nonexistent_test.tar" "dummy.registry/binary:v1"
+
+                The status should eq 0
+                The stdout should include "retrycmd_pull_from_registry_with_oras called with 4 arguments: 2 1 /tmp dummy.registry/binary:v1"
+                The stdout should include "PASS: Correct number of arguments (4)"
+                The stdout should not include "FAIL"
+            End
         End
 
         Describe 'retrycmd_internal cse global timeout'
