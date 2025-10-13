@@ -106,7 +106,8 @@ Describe 'ensure_sig_vhd_exists function'
       # Mock grep for cvm feature flag checking
       case "$*" in
         *cvm*)
-          if [[ "$FEATURE_FLAGS" = *"cvm"* ]]; then
+			# shellcheck disable=SC3010
+          if [[ "$FEATURE_FLAGS" == *"cvm"* ]]; then
             return 0
           else
             return 1
