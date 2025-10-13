@@ -164,12 +164,6 @@ function basePrep {
     # TODO: Remove tag and usages once 1.34.0 is GA.
     export -f should_enforce_kube_pmc_install
     SHOULD_ENFORCE_KUBE_PMC_INSTALL=$(retrycmd_silent 10 1 10 bash -cx should_enforce_kube_pmc_install)
-    
-    # ShouldEnforceBootstrapRegistryInstall is a nodepool tag we curl from IMDS.
-    # Added to allow forcing installation of k8s tools from bootstrap registry for versions < 1.34.0.
-    export -f should_enforce_bootstrap_registry_install
-    SHOULD_ENFORCE_BOOTSTRAP_REGISTRY_INSTALL=$(retrycmd_silent 10 1 10 bash -cx should_enforce_bootstrap_registry_install)
-    
     logs_to_events "AKS.CSE.configureKubeletAndKubectl" configureKubeletAndKubectl
 
     createKubeManifestDir

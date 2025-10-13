@@ -1951,30 +1951,54 @@ func Test_Ubuntu2204_PMC_Install(t *testing.T) {
 	})
 }
 
-func Test_Ubuntu2204_NI_Package_Install(t *testing.T) {
+func Test_Ubuntu2204Gen2_ContainerdAirgappedNonAnonymousK8sNotCached_InstallPackage(t *testing.T) {
+	location := config.Config.DefaultLocation
+	ctx := newTestCtx(t)
+	identity, err := config.Azure.UserAssignedIdentities.Get(ctx, config.ResourceGroupName(location), config.VMIdentityName, nil)
+	require.NoError(t, err)
 	RunScenario(t, &Scenario{
-		Description: "Tests that a node using the Ubuntu 2204 VHD and install kube pkgs from PMC can be properly bootstrapped",
+		Description: "Tests that a node using the Ubuntu 2204 VHD without k8s binary and is airgap can be properly bootstrapped",
+		Tags: Tags{
+			Airgap:          true,
+			NonAnonymousACR: true,
+		},
 		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			Cluster: ClusterKubenetAirgapNonAnon,
+			VHD:     config.VHDUbuntu2204Gen2ContainerdAirgappedK8sNotCached,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				// Check that we don't leak these secrets if they're
-				// set (which they mostly aren't in these scenarios).
-				nbc.ContainerService.Properties.CertificateProfile.ClientPrivateKey = "client cert private key"
-				nbc.ContainerService.Properties.ServicePrincipalProfile.Secret = "SP secret"
+				nbc.TenantID = *identity.Properties.TenantID
+				nbc.UserAssignedIdentityClientID = *identity.Properties.ClientID
+				nbc.OutboundType = datamodel.OutboundTypeBlock
+				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
+					PrivateEgress: &datamodel.PrivateEgress{
+						Enabled:                 true,
+						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io", config.PrivateACRNameNotAnon(location)),
+					},
+				}
+				nbc.AgentPoolProfile.LocalDNSProfile = nil
+				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.UseManagedIdentity = true
+				nbc.AgentPoolProfile.KubernetesConfig.UseManagedIdentity = true
+				// intentionally using private acr url to get kube binaries
+				nbc.AgentPoolProfile.KubernetesConfig.CustomKubeBinaryURL = fmt.Sprintf(
+					"%s.azurecr.io/oss/binaries/kubernetes/kubernetes-node:v%s-linux-amd64",
+					config.PrivateACRNameNotAnon(location),
+					nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion)
+				nbc.K8sComponents.LinuxCredentialProviderURL = fmt.Sprintf(
+					"https://packages.aks.azure.com/cloud-provider-azure/v%s/binaries/azure-acr-credential-provider-linux-amd64-v%s.tar.gz",
+					nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion,
+					nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion)
 				nbc.KubeletConfig["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
 				nbc.KubeletConfig["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
+				nbc.KubeletConfig["--pod-infra-container-image"] = "mcr.microsoft.com/oss/v2/kubernetes/pause:3.6"
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				if vmss.Tags == nil {
 					vmss.Tags = map[string]*string{}
 				}
-				vmss.Tags["ShouldEnforceBootstrapRegistryInstall"] = to.Ptr("true")
+				vmss.Tags["ShouldEnforceKubePMCInstall"] = to.Ptr("true")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", components.GetExpectedPackageVersions("containerd", "ubuntu", "r2204")[0])
-				ValidateInstalledPackageVersion(ctx, s, "moby-runc", components.GetExpectedPackageVersions("runc", "ubuntu", "r2204")[0])
-				ValidateSSHServiceEnabled(ctx, s)
+				ValidateDirectoryContent(ctx, s, "/run", []string{"outbound-check-skipped"})
 			},
 		},
 	})
