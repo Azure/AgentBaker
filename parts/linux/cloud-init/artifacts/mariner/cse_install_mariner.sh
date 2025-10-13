@@ -41,7 +41,7 @@ installDeps() {
     # install 2.0 specific packages
     # the blobfuse package is not available in AzureLinux 3.0
     if [ "$OS_VERSION" = "2.0" ]; then
-      for dnf_package in apparmor-parser libapparmor blobfuse; do
+      for dnf_package in apparmor-parser libapparmor apparmor-utils blobfuse; do
         if ! dnf_install 30 1 600 $dnf_package; then
           exit $ERR_APT_INSTALL_TIMEOUT
         fi
@@ -50,14 +50,14 @@ installDeps() {
 
     # install apparmor related packages in AzureLinux 3.0
     # enable apparmor service
-    if [ "$OS_VERSION" = "3.0" ]; then
-      for dnf_package in apparmor-parser libapparmor apparmor-utils; do
-        if ! dnf_install 30 1 600 $dnf_package; then
-          exit $ERR_APT_INSTALL_TIMEOUT
-        fi
-      done
-      systemctl enable apparmor.service
-    fi
+    # if [ "$OS_VERSION" = "3.0" ]; then
+    #   for dnf_package in apparmor-parser libapparmor apparmor-utils; do
+    #     if ! dnf_install 30 1 600 $dnf_package; then
+    #       exit $ERR_APT_INSTALL_TIMEOUT
+    #     fi
+    #   done
+    #   systemctl enable apparmor.service
+    # fi
 }
 
 installKataDeps() {

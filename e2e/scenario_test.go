@@ -1978,12 +1978,12 @@ func Test_AzureLinux3OSGuard_PMC_Install(t *testing.T) {
 	})
 }
 
-func Test_AzureLinuxV3_AppArmor(t *testing.T) {
+func Test_AzureLinuxV2_AppArmor(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "Tests that AppArmor is properly enabled and configured on Azure Linux V3 nodes",
+		Description: "Tests that AppArmor is properly enabled and configured on Azure Linux V2 nodes",
 		Config: Config{
 			Cluster:                ClusterKubenet,
-			VHD:                    config.VHDAzureLinuxV3Gen2,
+			VHD:                    config.VHDAzureLinuxV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {},
 			Validator: func(ctx context.Context, s *Scenario) {
 				// Validate that aa-status works and shows AppArmor is loaded
