@@ -103,6 +103,7 @@ RestartSec=5
 EOF
 
 tee -a /etc/systemd/journald.conf > /dev/null <<'EOF'
+Compress=yes
 Storage=persistent
 SystemMaxUse=1G
 RuntimeMaxUse=1G
@@ -252,7 +253,7 @@ unpackTgzToCNIDownloadsDIR() {
   CNI_TGZ_TMP=${URL##*/}
   CNI_DIR_TMP=${CNI_TGZ_TMP%.tgz}
   mkdir "$CNI_DOWNLOADS_DIR/${CNI_DIR_TMP}"
-  tar -xzf "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" -C $CNI_DOWNLOADS_DIR/$CNI_DIR_TMP
+  extract_tarball "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" "$CNI_DOWNLOADS_DIR/${CNI_DIR_TMP}"
   rm -rf ${CNI_DOWNLOADS_DIR:?}/${CNI_TGZ_TMP}
   echo "  - Ran tar -xzf on the CNI downloaded then rm -rf to clean up"
 }
@@ -755,6 +756,9 @@ if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
   # remove snapd, which is not used by container stack
   apt_get_purge 20 30 120 snapd || exit 1
   apt_get_purge 20 30 120 apache2-utils || exit 1
+  # CIS: Ensure telnet (/ftp) client is not installed
+  # CIS: Ufw is not used but interferes with log_martians rule
+  apt_get_purge 20 30 120 telnet ftp ufw tnftp inetutils-telnet || exit 1
 
   apt-get -y autoclean || exit 1
   apt-get -y autoremove --purge || exit 1
