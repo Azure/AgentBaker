@@ -49,3 +49,5 @@ vhdbuilder/packer/prefetch.sh
 # ignore mise configs (https://mise.jdx.dev/)
 .mise
 
+# Ignore AI related configs
+.claude

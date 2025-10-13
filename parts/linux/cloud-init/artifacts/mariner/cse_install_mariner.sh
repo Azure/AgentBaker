@@ -1,7 +1,5 @@
 #!/bin/bash
 
-K8S_DEVICE_PLUGIN_PKG="${K8S_DEVICE_PLUGIN_PKG:-nvidia-device-plugin}"
-
 removeContainerd() {
     containerdPackageName="containerd"
     if [ "$OS_VERSION" = "2.0" ]; then
@@ -182,6 +180,77 @@ installKubeletKubectlPkgFromLocalRepo() {
     return 1
 }
 
+updateDnfWithNvidiaPkg() {
+  if [ "$OS_VERSION" != "3.0" ]; then
+    echo "NVIDIA repo setup is only supported on Azure Linux 3.0"
+    return
+  fi
+
+  local cpu_arch=$(getCPUArch) # Returns amd64 or arm64
+  local repo_arch=""
+
+  if [ "$cpu_arch" = "amd64" ]; then
+    repo_arch="x86_64"
+  elif [ "$cpu_arch" = "arm64" ]; then
+    repo_arch="sbsa"
+  else
+    echo "Unsupported CPU architecture: $cpu_arch"
+    return
+  fi
+
+  readonly nvidia_repo_path="/etc/yum.repos.d/nvidia-built-azurelinux.repo"
+  local nvidia_repo_url="https://developer.download.nvidia.com/compute/cuda/repos/azl3/${repo_arch}/cuda-azl3.repo"
+  retrycmd_curl_file 120 5 25 ${nvidia_repo_path} ${nvidia_repo_url} || exit $ERR_NVIDIA_AZURELINUX_REPO_FILE_DOWNLOAD_TIMEOUT
+  dnf_makecache || exit $ERR_APT_UPDATE_TIMEOUT
+}
+
+isPackageInstalled() {
+    local packageName="${1}"
+    if rpm -q "${packageName}" &>/dev/null; then
+        return 0  # Package is installed
+    else
+        return 1  # Package is not installed
+    fi
+}
+
+managedGPUPackageList() {
+    packages=(
+        nvidia-device-plugin
+        datacenter-gpu-manager-4-core
+        datacenter-gpu-manager-4-proprietary
+        dcgm-exporter
+    )
+    echo "${packages[@]}"
+}
+
+installNvidiaManagedExpPkgFromCache() {
+  if [ "$OS_VERSION" != "3.0" ]; then
+    echo "Managed NVIDIA GPU experience is only supported on Azure Linux 3.0"
+    return
+  fi
+
+  # Ensure kubelet device-plugins directory exists BEFORE package installation
+  mkdir -p /var/lib/kubelet/device-plugins
+
+  for packageName in $(managedGPUPackageList); do
+    downloadDir="/opt/${packageName}/downloads"
+    if isPackageInstalled "${packageName}"; then
+      echo "${packageName} is already installed, skipping."
+      rm -rf $(dirname ${downloadDir})
+      continue
+    fi
+
+    rpmFile=$(find "${downloadDir}" -maxdepth 1 -name "${packageName}*" -print -quit 2>/dev/null) || rpmFile=""
+    if [ -z "${rpmFile}" ]; then
+      echo "Failed to locate ${packageName} rpm"
+      exit $ERR_MANAGED_NVIDIA_EXP_INSTALL_FAIL
+    fi
+
+    logs_to_events "AKS.CSE.install${packageName}.dnf_install" "dnf_install 30 1 600 ${rpmFile}" || exit $ERR_APT_INSTALL_TIMEOUT
+    rm -rf $(dirname ${downloadDir})
+  done
+}
+
 installRPMPackageFromFile() {
     local packageName="${1}"
     local desiredVersion="${2}"
@@ -263,37 +332,11 @@ ensureRunc() {
 }
 
 cleanUpGPUDrivers() {
-    rm -Rf $GPU_DEST /opt/gpu
-    rm -rf "/opt/${K8S_DEVICE_PLUGIN_PKG}/downloads"
-}
+  rm -Rf $GPU_DEST /opt/gpu
 
-installNvidiaDevicePluginPkgFromCache() {
-    local os=${AZURELINUX_OS_NAME}
-    if [ -z "$OS_VERSION" ]; then
-        echo "ERROR: OS_VERSION is not set, cannot determine nvidia-device-plugin version" >&2
-        exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
-    fi
-    local os_version="${OS_VERSION}"
-
-    # Get nvidia-device-plugin package info from components.json
-    local package=$(jq -r ".Packages[] | select(.name == \"${K8S_DEVICE_PLUGIN_PKG}\")" "${COMPONENTS_FILEPATH}")
-
-    # Get the latest package version
-    updatePackageVersions "${package}" "${os}" "${os_version}"
-    if [ ${#PACKAGE_VERSIONS[@]} -eq 0 ]; then
-        echo "ERROR: No nvidia-device-plugin versions found" >&2
-        exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
-    fi
-
-    # Use the first (latest) version
-    local packageVersion="${PACKAGE_VERSIONS[0]}"
-    echo "installing ${K8S_DEVICE_PLUGIN_PKG} package version: $packageVersion"
-
-    # For nvidia-device-plugin, strip the OS-specific suffix from version
-    # e.g., "0.17.4-1.azl3" -> "0.17.4"
-    local baseVersion=$(echo "${packageVersion}" | sed 's/-[0-9]*\.azl[0-9]*//')
-    echo "using base version ${baseVersion} for ${K8S_DEVICE_PLUGIN_PKG} package filename"
-    installRPMPackageFromFile "${K8S_DEVICE_PLUGIN_PKG}" "${baseVersion}" || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
+  for packageName in $(managedGPUPackageList); do
+    rm -rf "/opt/${packageName}"
+  done
 }
 
 downloadContainerdFromVersion() {

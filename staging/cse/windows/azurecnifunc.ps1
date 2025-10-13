@@ -1,5 +1,4 @@
-function Install-VnetPlugins
-{
+function Install-VnetPlugins {
     Param(
         [Parameter(Mandatory = $true)][string]
         $AzureCNIConfDir,
@@ -27,8 +26,7 @@ function Install-VnetPlugins
     move $AzureCNIBinDir/*.conflist $AzureCNIConfDir
 }
 
-function Set-AzureCNIConfig
-{
+function Set-AzureCNIConfig {
     Param(
         [Parameter(Mandatory = $true)][string]
         $AzureCNIConfDir,
@@ -52,26 +50,23 @@ function Set-AzureCNIConfig
     $configJson.plugins.dns.Nameservers[0] = $KubeDnsServiceIp
     $configJson.plugins.dns.Search[0] = $KubeDnsSearchPath
 
-    if (Test-Path variable:global:CiliumDataplaneEnabled)
-    {
-        if ($global:CiliumDataplaneEnabled)
-        {
+    if (Test-Path variable:global:CiliumDataplaneEnabled) {
+        if ($global:CiliumDataplaneEnabled) {
             $configJson.plugins.ipam.type = "azure-cns"
         }
     }
 
-    if ($global:IsDisableWindowsOutboundNat)
-    {
+    if ($global:IsDisableWindowsOutboundNat) {
         # Replace OutBoundNAT with LoopbackDSR for IMDS acess if AKS cluster disabled Windows OutBoundNAT.
         # The Azure Instance Metadata Service (IMDS) provides information about currently running virtual machine instances.
         # IMDS is a REST API that's available at a well-known, non-routable IP address (169.254.169.254)
         # Details: https://docs.microsoft.com/en-us/azure/virtual-machines/windows/instance-metadata-service?tabs=windows#known-issues-and-faq
         $valueObj = [PSCustomObject]@{
-            Type = 'LoopbackDSR'
+            Type      = 'LoopbackDSR'
             IPAddress = '169.254.169.254'
         }
         $jsonContent = [PSCustomObject]@{
-            Name = 'EndpointPolicy'
+            Name  = 'EndpointPolicy'
             Value = $valueObj
         }
 
@@ -81,64 +76,52 @@ function Set-AzureCNIConfig
 
         # Update the corresponding system regkey for DisableWindowsOutboundNat feature.
         $osVersion = Get-WindowsVersion
-        if ($osVersion -eq "1809")
-        {
+        if ($osVersion -eq "1809") {
             Write-Log "Update RegKey to disable the incompatible HNSControlFlag (0x10) for feature DisableWindowsOutboundNat"
             $hnsControlFlag = 0x10
             $currentValue = (Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSControlFlag -ErrorAction Ignore)
-            if (![string]::IsNullOrEmpty($currentValue))
-            {
+            if (![string]::IsNullOrEmpty($currentValue)) {
                 Write-Log "The current value of HNSControlFlag is $currentValue"
                 # Set the bit to 0 if the bit is 1
-                if ([int]$currentValue.HNSControlFlag -band $hnsControlFlag)
-                {
+                if ([int]$currentValue.HNSControlFlag -band $hnsControlFlag) {
                     $hnsControlFlag = ([int]$currentValue.HNSControlFlag -bxor $hnsControlFlag)
                     Write-Log "HNSControlFlag is updated to $hnsControlFlag to clear the bit 0x10"
                     Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSControlFlag -Type DWORD -Value $hnsControlFlag
                 }
             }
-            else
-            {
+            else {
                 # Set 0 to disable all features under HNSControlFlag (0x10 defaults enable)
                 Write-Log "HNSControlFlag is set to 0 to clear the bit 0x10"
                 Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSControlFlag -Type DWORD -Value 0
             }
         }
-        elseif ($osVersion -eq "ltsc2022")
-        {
+        elseif ($osVersion -eq "ltsc2022") {
             Write-Log "SourcePortPreservationForHostPort is set to 0"
             Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name SourcePortPreservationForHostPort -Type DWORD -Value 0
         }
     }
-    else
-    {
+    else {
         # Fill in DNS information for kubernetes.
         $exceptionAddresses = @()
-        if ($IsDualStackEnabled)
-        {
+        if ($IsDualStackEnabled) {
             $subnetsToPass = $KubeClusterCIDR -split ","
-            foreach ($subnet in $subnetsToPass)
-            {
+            foreach ($subnet in $subnetsToPass) {
                 $exceptionAddresses += $subnet
             }
         }
-        else
-        {
+        else {
             $exceptionAddresses += $KubeClusterCIDR
         }
 
-        if (!$IsAzureCNIOverlayEnabled)
-        {
+        if (!$IsAzureCNIOverlayEnabled) {
             $vnetCIDRs = $VNetCIDR -split ","
-            foreach ($cidr in $vnetCIDRs)
-            {
+            foreach ($cidr in $vnetCIDRs) {
                 $exceptionAddresses += $cidr
             }
         }
 
         $osVersion = Get-WindowsVersion
-        if ($osVersion -eq "1809")
-        {
+        if ($osVersion -eq "1809") {
             # In WS2019 and below rules in the exception list are generated by dropping the prefix lenght and removing duplicate rules.
             # If multiple execptions are specified with different ranges we should only include the broadest range for each address.
             # This issue has been addressed in 19h1+ builds
@@ -147,21 +130,16 @@ function Set-AzureCNIConfig
             Write-Log "Filtering CNI config exception list values to work around WS2019 issue processing rules. Original exception list: $exceptionAddresses, processed exception list: $processedExceptions"
             $configJson.plugins.AdditionalArgs[0].Value.ExceptionList = $processedExceptions
         }
-        else
-        {
-            if ($IsDualStackEnabled)
-            {
+        else {
+            if ($IsDualStackEnabled) {
                 $ipv4Cidrs = @()
                 $ipv6Cidrs = @()
-                foreach ($cidr in $exceptionAddresses)
-                {
+                foreach ($cidr in $exceptionAddresses) {
                     # this is the pwsh way of strings.Count(s, ":") >= 2
-                    if (($cidr -split ":").Count -ge 3)
-                    {
+                    if (($cidr -split ":").Count -ge 3) {
                         $ipv6Cidrs += $cidr
                     }
-                    else
-                    {
+                    else {
                         $ipv4Cidrs += $cidr
                     }
                 }
@@ -173,16 +151,15 @@ function Set-AzureCNIConfig
                 $configJson.plugins.AdditionalArgs[0].Value.ExceptionList = $ipv4Cidrs
 
                 $outboundException = [PSCustomObject]@{
-                    Name = 'EndpointPolicy'
+                    Name  = 'EndpointPolicy'
                     Value = [PSCustomObject]@{
-                        Type = 'OutBoundNAT'
+                        Type          = 'OutBoundNAT'
                         ExceptionList = $ipv6Cidrs
                     }
                 }
                 $configJson.plugins[0].AdditionalArgs += $outboundException
             }
-            else
-            {
+            else {
                 $configJson.plugins.AdditionalArgs[0].Value.ExceptionList = $exceptionAddresses
             }
         }
@@ -194,23 +171,19 @@ function Set-AzureCNIConfig
     # Restart hns service if it is exsting and running, to make the system regkey changes effective.
     $hnsServiceName = 'hns'
     $hnsService = Get-Service -Name $hnsServiceName -ErrorAction SilentlyContinue
-    if ($hnsService -and $hnsService.Status -eq 'Running')
-    {
+    if ($hnsService -and $hnsService.Status -eq 'Running') {
         Write-Log "HNS service is already running. Restart HNS."
         Restart-Service -Name $hnsServiceName
     }
     Write-Log "Done configuring HNS"
 
-    if ( $global:KubeproxyFeatureGates.Contains("WinDSR=true"))
-    {
+    if ( $global:KubeproxyFeatureGates.Contains("WinDSR=true")) {
         Write-Log "Setting enableLoopbackDSR in Azure CNI conflist for WinDSR"
         # Add {enableLoopbackDSR:true} if windowsSettings exists, otherwise, add {windowsSettings:{enableLoopbackDSR:true}}
-        if (Get-Member -InputObject $configJson.plugins[0] -name "windowsSettings" -Membertype Properties)
-        {
+        if (Get-Member -InputObject $configJson.plugins[0] -name "windowsSettings" -Membertype Properties) {
             $configJson.plugins[0].windowsSettings | Add-Member -Name "enableLoopbackDSR" -Value $True -MemberType NoteProperty
         }
-        else
-        {
+        else {
             $jsonContent = [PSCustomObject]@{
                 'enableLoopbackDSR' = $True
             }
@@ -220,98 +193,94 @@ function Set-AzureCNIConfig
         # $configJson.plugins[0].AdditionalArgs[1] is ROUTE. Remove ROUTE if WinDSR is enabled.
         $configJson.plugins[0].AdditionalArgs = @($configJson.plugins[0].AdditionalArgs | Where-Object { $_ -ne $configJson.plugins[0].AdditionalArgs[1] })
     }
-    else
-    {
-        if ($IsDualStackEnabled)
-        {
-            $configJson.plugins[0]|Add-Member -Name "ipv6Mode" -Value "ipv6nat" -MemberType NoteProperty
+    else {
+        if ($IsDualStackEnabled) {
+            $configJson.plugins[0] | Add-Member -Name "ipv6Mode" -Value "ipv6nat" -MemberType NoteProperty
             $serviceCidr = $KubeServiceCIDR -split ","
             $configJson.plugins[0].AdditionalArgs[1].Value.DestinationPrefix = $serviceCidr[0]
             $valueObj = [PSCustomObject]@{
-                Type = 'ROUTE'
+                Type              = 'ROUTE'
                 DestinationPrefix = $serviceCidr[1]
-                NeedEncap = $True
+                NeedEncap         = $True
             }
 
             $jsonContent = [PSCustomObject]@{
-                Name = 'EndpointPolicy'
+                Name  = 'EndpointPolicy'
                 Value = $valueObj
             }
             $configJson.plugins[0].AdditionalArgs += $jsonContent
         }
-        else
-        {
+        else {
             $configJson.plugins[0].AdditionalArgs[1].Value.DestinationPrefix = $KubeServiceCIDR
         }
     }
 
-    if ($global:IsIMDSRestrictionEnabled)
-    {
+    if ($global:IsIMDSRestrictionEnabled) {
         $aclRuleBlockIMDS = [PSCustomObject]@{
-            Type = 'ACL'
-            Protocols = '6'
-            Action = 'Block'
-            Direction = 'Out'
+            Type            = 'ACL'
+            Protocols       = '6'
+            Action          = 'Block'
+            Direction       = 'Out'
             RemoteAddresses = '169.254.169.254/32'
-            RemotePorts = '80'
-            Priority = 200
-            RuleType = 'Switch'
+            RemotePorts     = '80'
+            Priority        = 200
+            RuleType        = 'Switch'
         }
         $jsonContent = [PSCustomObject]@{
-            Name = 'EndpointPolicy'
+            Name  = 'EndpointPolicy'
             Value = $aclRuleBlockIMDS
         }
         $configJson.plugins[0].AdditionalArgs += $jsonContent
     }
     $aclRule1 = [PSCustomObject]@{
-        Type = 'ACL'
-        Protocols = '6'
-        Action = 'Block'
-        Direction = 'Out'
+        Type            = 'ACL'
+        Protocols       = '6'
+        Action          = 'Block'
+        Direction       = 'Out'
         RemoteAddresses = '168.63.129.16/32'
-        RemotePorts = '80'
-        Priority = 200
-        RuleType = 'Switch'
+        RemotePorts     = '80'
+        Priority        = 200
+        RuleType        = 'Switch'
     }
     $aclRule2 = [PSCustomObject]@{
-        Type = 'ACL'
-        Protocols = '6'
-        Action = 'Block'
-        Direction = 'Out'
+        Type            = 'ACL'
+        Protocols       = '6'
+        Action          = 'Block'
+        Direction       = 'Out'
         RemoteAddresses = '168.63.129.16/32'
-        RemotePorts = '32526'
-        Priority = 200
-        RuleType = 'Switch'
+        RemotePorts     = '32526'
+        Priority        = 200
+        RuleType        = 'Switch'
     }
     $aclRule3 = [PSCustomObject]@{
-        Type = 'ACL'
-        Action = 'Allow'
+        Type      = 'ACL'
+        Action    = 'Allow'
         Direction = 'In'
-        Priority = 65500
+        Priority  = 65500
     }
     $aclRule4 = [PSCustomObject]@{
-        Type = 'ACL'
-        Action = 'Allow'
+        Type      = 'ACL'
+        Action    = 'Allow'
         Direction = 'Out'
-        Priority = 65500
+        Priority  = 65500
     }
     $jsonContent = [PSCustomObject]@{
-        Name = 'EndpointPolicy'
+        Name  = 'EndpointPolicy'
         Value = $aclRule1
     }
     $configJson.plugins[0].AdditionalArgs += $jsonContent
     $jsonContent = [PSCustomObject]@{
-        Name = 'EndpointPolicy'
+        Name  = 'EndpointPolicy'
         Value = $aclRule2
     }
     $configJson.plugins[0].AdditionalArgs += $jsonContent
     $jsonContent = [PSCustomObject]@{
-        Name = 'EndpointPolicy'
+        Name  = 'EndpointPolicy'
         Value = $aclRule3
     }
     $configJson.plugins[0].AdditionalArgs += $jsonContent
     $jsonContent = [PSCustomObject]@{
-        Name = 'EndpointPolicy'
+        Name  = 'EndpointPolicy'
         Value = $aclRule4
     }
     $configJson.plugins[0].AdditionalArgs += $jsonContent
@@ -319,19 +288,15 @@ function Set-AzureCNIConfig
     $configJson | ConvertTo-Json -depth 20 | Out-File -encoding ASCII -filepath $fileName
 }
 
-function GetBroadestRangesForEachAddress
-{
+function GetBroadestRangesForEachAddress {
     param([string[]] $values)
 
     # Create a map of range values to IP addresses
     $map = @{ }
 
-    foreach ($value in $Values)
-    {
-        if ($value -match '([0-9\.]+)\/([0-9]+)')
-        {
-            if (!$map.contains($matches[1]))
-            {
+    foreach ($value in $Values) {
+        if ($value -match '([0-9\.]+)\/([0-9]+)') {
+            if (!$map.contains($matches[1])) {
                 $map.Add($matches[1], @())
             }
 
@@ -341,19 +306,17 @@ function GetBroadestRangesForEachAddress
 
     # For each IP address select the range with the lagest scope (smallest value)
     $returnValues = @()
-    foreach ($ip in $map.Keys)
-    {
+    foreach ($ip in $map.Keys) {
         $range = $map[$ip] | Sort-Object | Select-Object -First 1
 
         $returnValues += $ip + "/" + $range
     }
 
     # prefix $returnValues with common to ensure single values get returned as an array otherwise invalid json may be generated
-    return ,$returnValues
+    return , $returnValues
 }
 
-function GetSubnetPrefix
-{
+function GetSubnetPrefix {
     Param(
         [Parameter(Mandatory = $true)][ValidateNotNullOrEmpty()][string] $Token,
         [Parameter(Mandatory = $true)][ValidateNotNullOrEmpty()][string] $SubnetId,
@@ -364,20 +327,17 @@ function GetSubnetPrefix
     $uri = "$( $ResourceManagerEndpoint )$( $SubnetId )?api-version=$NetworkAPIVersion"
     $headers = @{ Authorization = "Bearer $Token" }
 
-    try
-    {
+    try {
         $response = Retry-Command -Command "Invoke-RestMethod" -Args @{ Uri = $uri; Method = "Get"; ContentType = "application/json"; Headers = $headers } -Retries 5 -RetryDelaySeconds 10
     }
-    catch
-    {
+    catch {
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GET_SUBNET_PREFIX -ErrorMessage "Error getting subnet prefix. Error: $_"
     }
 
     $response.properties.addressPrefix
 }
 
-function GenerateAzureStackCNIConfig
-{
+function GenerateAzureStackCNIConfig {
     Param(
         [Parameter(Mandatory = $true)][ValidateNotNullOrEmpty()][string] $TenantId,
         [Parameter(Mandatory = $true)][ValidateNotNullOrEmpty()][string] $SubscriptionId,
@@ -418,12 +378,10 @@ function GenerateAzureStackCNIConfig
     Write-Log "Generating token for Azure Resource Manager"
 
     $tokenURL = ""
-    if ($IdentitySystem -ieq "adfs")
-    {
+    if ($IdentitySystem -ieq "adfs") {
         $tokenURL = "$( $azureEnvironment.activeDirectoryEndpoint )adfs/oauth2/token"
     }
-    else
-    {
+    else {
         $tokenURL = "$( $azureEnvironment.activeDirectoryEndpoint )$TenantId/oauth2/token"
     }
 
@@ -432,12 +390,10 @@ function GenerateAzureStackCNIConfig
 
     $body = "grant_type=client_credentials&client_id=$AADClientId&client_secret=$encodedSecret&resource=$( $azureEnvironment.serviceManagementEndpoint )"
     $args = @{ Uri = $tokenURL; Method = "Post"; Body = $body; ContentType = 'application/x-www-form-urlencoded' }
-    try
-    {
+    try {
         $tokenResponse = Retry-Command -Command "Invoke-RestMethod" -Args $args -Retries 5 -RetryDelaySeconds 10
     }
-    catch
-    {
+    catch {
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GENERATE_TOKEN_FOR_ARM -ErrorMessage "Error generating token for Azure Resource Manager. Error: $_"
     }
 
@@ -448,12 +404,10 @@ function GenerateAzureStackCNIConfig
     $interfacesUri = "$( $azureEnvironment.resourceManagerEndpoint )subscriptions/$SubscriptionId/resourceGroups/$ResourceGroup/providers/Microsoft.Network/networkInterfaces?api-version=$NetworkAPIVersion"
     $headers = @{ Authorization = "Bearer $token" }
     $args = @{ Uri = $interfacesUri; Method = "Get"; ContentType = "application/json"; Headers = $headers; OutFile = $networkInterfacesFile }
-    try
-    {
+    try {
         Retry-Command -Command "Invoke-RestMethod" -Args $args -Retries 5 -RetryDelaySeconds 10
     }
-    catch
-    {
+    catch {
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_NETWORK_INTERFACES_NOT_EXIST -ErrorMessage "Error fetching network interface configuration for node. Error: $_"
     }
 
@@ -462,31 +416,31 @@ function GenerateAzureStackCNIConfig
     $localNics = Get-NetAdapter | Select-Object -ExpandProperty MacAddress | ForEach-Object { $_ -replace "-", "" }
 
     $sdnNics = Get-Content $networkInterfacesFile `
-        | ConvertFrom-Json `
-        | Select-Object -ExpandProperty value `
-        | Where-Object { $localNics.Contains($_.properties.macAddress) } `
-        | Where-Object { $_.properties.ipConfigurations.Count -gt 0 }
+    | ConvertFrom-Json `
+    | Select-Object -ExpandProperty value `
+    | Where-Object { $localNics.Contains($_.properties.macAddress) } `
+    | Where-Object { $_.properties.ipConfigurations.Count -gt 0 }
 
     $interfaces = @{
         Interfaces = @( $sdnNics | ForEach-Object {
-            @{
-                MacAddress = $_.properties.macAddress
-                IsPrimary = $_.properties.primary
-                IPSubnets = @(@{
-                    Prefix = GetSubnetPrefix `
-                            -Token $token `
-                            -SubnetId $_.properties.ipConfigurations[0].properties.subnet.id `
-                            -NetworkAPIVersion $NetworkAPIVersion `
-                            -ResourceManagerEndpoint $( $azureEnvironment.resourceManagerEndpoint )
-                    IPAddresses = $_.properties.ipConfigurations | ForEach-Object {
-                        @{
-                            Address = $_.properties.privateIPAddress
-                            IsPrimary = $_.properties.primary
-                        }
-                    }
-                })
-            }
-        })
+                @{
+                    MacAddress = $_.properties.macAddress
+                    IsPrimary  = $_.properties.primary
+                    IPSubnets  = @(@{
+                            Prefix      = GetSubnetPrefix `
+                                -Token $token `
+                                -SubnetId $_.properties.ipConfigurations[0].properties.subnet.id `
+                                -NetworkAPIVersion $NetworkAPIVersion `
+                                -ResourceManagerEndpoint $( $azureEnvironment.resourceManagerEndpoint )
+                            IPAddresses = $_.properties.ipConfigurations | ForEach-Object {
+                                @{
+                                    Address   = $_.properties.privateIPAddress
+                                    IsPrimary = $_.properties.primary
+                                }
+                            }
+                        })
+                }
+            })
     }
 
     ConvertTo-Json $interfaces -Depth 6 | Out-File -FilePath $azureCNIConfigFile -Encoding ascii
@@ -495,70 +449,57 @@ function GenerateAzureStackCNIConfig
 }
 
 
-function GetIpv4AddressFromParsedContent
-{
+function GetIpv4AddressFromParsedContent {
     param (
         [Parameter(Mandatory = $true)]
         $ParsedContent
     )
 
-    if ($ParsedContent[0].ipv4 -and $ParsedContent[0].ipv4.ipAddress -and $ParsedContent[0].ipv4.ipAddress.Count -gt 0)
-    {
+    if ($ParsedContent[0].ipv4 -and $ParsedContent[0].ipv4.ipAddress -and $ParsedContent[0].ipv4.ipAddress.Count -gt 0) {
         return $ParsedContent[0].ipv4.ipAddress[0].privateIpAddress
     }
-    else
-    {
+    else {
         return $null
     }
 }
 
-function GetIpv6AddressFromParsedContent
-{
+function GetIpv6AddressFromParsedContent {
     param (
         [Parameter(Mandatory = $true)]
         $ParsedContent
     )
 
-    if ($ParsedContent[0].ipv6 -and $ParsedContent[0].ipv6.ipAddress -and $ParsedContent[0].ipv6.ipAddress.Count -gt 0)
-    {
+    if ($ParsedContent[0].ipv6 -and $ParsedContent[0].ipv6.ipAddress -and $ParsedContent[0].ipv6.ipAddress.Count -gt 0) {
         return $ParsedContent[0].ipv6.ipAddress[0].privateIpAddress
     }
-    else
-    {
+    else {
         return $null
     }
 }
 
-function GetMetadataContent
-{
+function GetMetadataContent {
     # try every second for 2 minutes to get the metadata content
     $Retries = 120
     $RetryDelaySeconds = 1
 
     for ($i = 0; $i -lt $Retries; $i++) {
-        try
-        {
+        try {
             $MetadataContent = Invoke-WebRequest -UseBasicParsing -Uri "http://169.254.169.254/metadata/instance/network/interface?api-version=2021-02-01" -Headers @{ "metadata" = "true" } -TimeoutSec 10 -ErrorAction Stop
             $ParsedContent = $MetadataContent.Content | ConvertFrom-Json
             $ipv4Address = GetIpv4AddressFromParsedContent -ParsedContent $ParsedContent
-            if (-not $ipv4Address)
-            {
+            if (-not $ipv4Address) {
                 Write-Log "Failed to retrieve IPv4 address from metadata. Will retry in $RetryDelaySeconds seconds. Attempt $( $i + 1 ) of $Retries."
-                if ($i -lt ($Retries - 1))
-                {
+                if ($i -lt ($Retries - 1)) {
                     Start-Sleep -Seconds $RetryDelaySeconds
                 }
             }
-            else
-            {
+            else {
                 return $ParsedContent
             }
         }
-        catch
-        {
+        catch {
             Write-Log "Failed to connect to metadata service: $( $_.Exception.Message ). Will retry in $RetryDelaySeconds seconds. Attempt $( $i + 1 ) of $Retries."
-            if ($i -lt ($Retries - 1))
-            {
+            if ($i -lt ($Retries - 1)) {
                 Start-Sleep -Seconds $RetryDelaySeconds
             }
         }
@@ -568,143 +509,201 @@ function GetMetadataContent
     throw "No IPv4 address found in metadata."
 }
 
-function New-ExternalHnsNetwork
-{
+function New-ExternalHnsNetwork {
     param (
         [Parameter(Mandatory = $true)][bool]
         $IsDualStackEnabled
     )
     Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Start to create new external hns network"
 
-    $ParsedContent = GetMetadataContent
-    if (-not $ParsedContent)
-    {
-        Write-Log "Failed to retrieve metadata content."
-        exit 1
-    }
-
-    $ipv4Address = GetIpv4AddressFromParsedContent -ParsedContent $ParsedContent
-    if (-not $ipv4Address)
-    {
-        Write-Log "Failed to retrieve IPv4 address from metadata."
-        throw "No IPv4 address found in metadata."
-    }
-
-    Write-Log "Got node IPv4 address: $( $ipv4Address )"
-    $nodeIPs = @($ipv4Address)
-
-    if ($IsDualStackEnabled)
-    {
-        $ipv6Address = GetIpv6AddressFromParsedContent -ParsedContent $ParsedContent
-        if ($ipv6Address)
-        {
-            Write-Log "Get node IPv6 address a: $( $ipv6Address )"
-            $nodeIPs += $ipv6Address
-        }
-        else
-        {
-            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GET_NODE_IPV6_IP -ErrorMessage "Failed to get node IPv6 IP address"
-        }
-    }
-
-    # we need the default gateway interface to create the external network
-    $netIP = Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue -ErrorVariable netIPErr -IpAddress $ipv4Address
-    if (!$netIP)
-    {
-        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_NETWORK_ADAPTER_NOT_EXIST -ErrorMessage "Failed to find any network adaptor with default gateway"
-    }
-
-    $na = get-netadapter -ifindex $netIP.ifIndex
-    if (!$na)
-    {
-        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_NETWORK_ADAPTER_NOT_EXIST -ErrorMessage "Could not find default gateway interface. Please check the network configuration."
-    }
-
-    Write-Log "Configuring node ip for kubelet"
-    # https://github.com/kubernetes/kubernetes/pull/121028
-    if (([version]$global:KubeBinariesVersion).CompareTo([version]("1.29.0")) -ge 0)
-    {
-        Logs-To-Event -TaskName "AKS.WindowsCSE.UpdateKubeClusterConfig" -TaskMessage "Start to update KubeCluster Config. NodeIPs: $nodeIPs"
-
-        try
-        {
-            $clusterConfiguration = ConvertFrom-Json ((Get-Content $global:KubeClusterConfigPath -ErrorAction Stop) | Out-String)
-            $clusterConfiguration.Kubernetes.Kubelet.ConfigArgs += "--node-ip=$( $nodeIPs -join ',' )"
-            $clusterConfiguration | ConvertTo-Json -Depth 10 | Out-File -FilePath $global:KubeClusterConfigPath
-        }
-        catch
-        {
-            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_UPDATING_KUBE_CLUSTER_CONFIG -ErrorMessage "Failed in updating kube cluster config. Error: $_"
-        }
-    }
+    $ipv4Address = Get-Node-Ipv4-Address
+    $nodeIps = Get-AKS-NodeIPs
+    $na = Get-AKS-NetworkAdaptor
 
     $adapterName = $na.Name
     $externalNetwork = "ext"
 
-    Write-Log "Creating new HNS network `"${externalNetwork}`""
-    Write-Log "Using adapter $adapterName with IP address $ipv4Address"
+    Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage  "Creating new HNS network `"${externalNetwork}`""
+    Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage  "Using adapter $adapterName with IP address $ipv4Address"
 
     $stopWatch = New-Object System.Diagnostics.Stopwatch
     $stopWatch.Start()
 
     # Fixme : use a smallest range possible, that will not collide with any pod space
-    if ($IsDualStackEnabled)
-    {
+    if ($IsDualStackEnabled) {
         New-HNSNetwork -Type $global:NetworkMode -AddressPrefix @("192.168.255.0/30", "192:168:255::0/127") -Gateway @("192.168.255.1", "192:168:255::1") -AdapterName $adapterName -Name $externalNetwork -Verbose
     }
-    else
-    {
+    else {
         New-HNSNetwork -Type $global:NetworkMode -AddressPrefix "192.168.255.0/30" -Gateway "192.168.255.1" -AdapterName $adapterName -Name $externalNetwork -Verbose
     }
-    # Wait for the switch to be created and the ip address to be assigned.
-    for ($i = 0; $i -lt 60; $i++) {
+    # Wait 2 minutes for the switch to be created and the ip address to be assigned.
+    $RecheckTimeoutMilliseconds=500
+    for ($i = 0; $i -lt 120; $i++) {
         $mgmtIPAfterNetworkCreate = Get-NetIPAddress $ipv4Address -ErrorAction SilentlyContinue
-        if ($mgmtIPAfterNetworkCreate)
-        {
+        if ($mgmtIPAfterNetworkCreate) {
             break
         }
-        Start-Sleep -Milliseconds 500
+        Start-Sleep -Milliseconds $RecheckTimeoutMilliseconds
     }
 
     $stopWatch.Stop()
-    if (-not $mgmtIPAfterNetworkCreate)
-    {
+    if (-not $mgmtIPAfterNetworkCreate) {
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_MANAGEMENT_IP_NOT_EXIST -ErrorMessage "Failed to find $ipv4Address after creating $externalNetwork network"
     }
 
-    write-log $mgmtIPAfterNetworkCreate
+    Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Found management IP mgmtIPAfterNetworkCreate: $mgmtIPAfterNetworkCreate"
 
-    Write-Log "It took $( $StopWatch.Elapsed.Seconds ) seconds to create the $externalNetwork network."
+    Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "It took $( $StopWatch.Elapsed.Seconds ) seconds to create the $externalNetwork network."
 
-    Write-Log "Log network adapter info after creating $externalNetwork network"
+    Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Log network adapter info after creating $externalNetwork network"
     Get-NetIPConfiguration -AllCompartments -ErrorAction Ignore
 
     $dnsServers = Get-DnsClientServerAddress -ErrorAction Ignore
-    if ($dnsServers)
-    {
-        Write-Log "DNS Servers are: $( $dnsServers.ServerAddresses )"
+    if ($dnsServers) {
+        Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "DNS Servers are: $( $dnsServers.ServerAddresses )"
+    }
+
+    Logs-To-Event -TaskName "AKS.WindowsCSE.UpdateKubeClusterConfig" -TaskMessage "Configuring node ip for kubelet"
+    # https://github.com/kubernetes/kubernetes/pull/121028
+    if (([version]$global:KubeBinariesVersion).CompareTo([version]("1.29.0")) -ge 0) {
+        Logs-To-Event -TaskName "AKS.WindowsCSE.UpdateKubeClusterConfig" -TaskMessage "Start to update KubeCluster Config. NodeIPs: $nodeIPs"
+
+        try {
+            $clusterConfiguration = ConvertFrom-Json ((Get-Content $global:KubeClusterConfigPath -ErrorAction Stop) | Out-String)
+            $clusterConfiguration.Kubernetes.Kubelet.ConfigArgs += "--node-ip=$( $nodeIPs )"
+            $clusterConfiguration | ConvertTo-Json -Depth 10 | Out-File -FilePath $global:KubeClusterConfigPath
+        }
+        catch {
+            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_UPDATING_KUBE_CLUSTER_CONFIG -ErrorMessage "Failed in updating kube cluster config. Error: $_"
+        }
     }
 }
 
-function Get-HnsPsm1
-{
+function Get-Node-Ipv4-Address {
+    $ParsedContent = GetMetadataContent
+    if (-not $ParsedContent) {
+        Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Failed to retrieve metadata content."
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_LOAD_METADATA -ErrorMessage "Failed to load metadata content"
+    }
+    $ipv4Address = GetIpv4AddressFromParsedContent -ParsedContent $ParsedContent
+    if (!$ipv4Address) {
+        Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "No IPv4 address found in metadata."
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_PARSE_METADATA -ErrorMessage "No IPv4 address found in metadata"
+    }
+    $ipv4Address=$ipv4Address.Trim()
+    if ([string]::IsNullOrEmpty($ipv4Address)) {
+        Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "empty IPv4 address found in metadata."
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_PARSE_METADATA -ErrorMessage "empty IPv4 address found in metadata"
+    }
+
+    Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Found IPv4 address from metadata: $ipv4Address"
+    return $ipv4Address
+}
+
+function Get-Node-Ipv6-Address {
+    $ParsedContent = GetMetadataContent
+    if (-not $ParsedContent) {
+        Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Failed to retrieve metadata content."
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_LOAD_METADATA -ErrorMessage "Failed to load metadata content"
+    }
+    $ipv6Address = GetIpv6AddressFromParsedContent -ParsedContent $ParsedContent
+    if (!$ipv6Address) {
+        Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "No IPv6 address found in metadata."
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_PARSE_METADATA -ErrorMessage "No IPv6 address found in metadata"
+    }
+    $ipv6Address=$ipv6Address.Trim()
+    if ([string]::IsNullOrEmpty($ipv6Address)) {
+        Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "empty IPv6 address found in metadata."
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_PARSE_METADATA -ErrorMessage "empty IPv6 address found in metadata"
+    }
+
+    Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Found IPv6 address from metadata: $ipv6Address"
+    return $ipv6Address
+}
+
+
+function Get-AKS-NodeIPs {
+    $ipv4Address = Get-Node-Ipv4-Address
+
+    $nodeIPs = @($ipv4Address)
+
+    if ($IsDualStackEnabled) {
+        $ipv6Address = Get-Node-Ipv6-Address
+        if ($ipv6Address) {
+            $nodeIPs += $ipv6Address
+        }
+        else {
+            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_NETWORK_INTERFACES_NOT_EXIST -ErrorMessage "Failed to get node IPv6 IP address"
+        }
+    }
+
+    return $nodeIPs -join ','
+}
+
+function Get-AKS-NetworkAdaptor {
+    $ipv4Address = Get-Node-Ipv4-Address
+    Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Found IPv4 address from metadata: $ipv4Address"
+
+    # we need the default gateway interface to create the external network
+    $netIP = Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue -ErrorVariable netIPErr -IpAddress $ipv4Address
+    if (!$netIP) {
+        Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Failed to find IP address info for ip address $ipv4Address. Error: $netIPErr. Reverting to old way to configure network"
+        return Get-NetworkAdaptor-Fallback
+    }
+
+    $na = get-netadapter -ifindex $netIP.ifIndex
+    if (!$na) {
+        Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Failed to find network adapter info for ip address index $($netIP.ifIndex) and ip address $ipv4Address. Reverting to old way to configure network"
+        return Get-NetworkAdaptor-Fallback
+    }
+    return $na
+}
+
+function Get-NetworkAdaptor-Fallback {
+    Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Start to create new external hns network"
+
+    $nas = @(Get-NetAdapter -Physical)
+
+    if ($nas.Count -eq 0) {
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_NETWORK_ADAPTER_NOT_EXIST -ErrorMessage "Failed to find any physical network adapters"
+    }
+
+    # If there is more than one adapter, use the first adapter that is assigned an ipaddress.
+    foreach ($na in $nas) {
+        Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Checking network adapter $($na.Name) for an IPv4 address ..."
+        $netIP = Get-NetIPAddress -ifIndex $na.ifIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue -ErrorVariable netIPErr
+        if ($netIP) {
+            Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Found IPv4 address on the network adapter $($na.Name): $($netIP.IPAddress)"
+            return $na
+        }
+        else {
+            Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "No IPv4 found on the network adapter $($na.Name); trying the next adapter ..."
+            if ($netIPErr) {
+                Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "error when retrieving IPAddress: $netIPErr"
+                $netIPErr.Clear()
+            }
+        }
+    }
+
+    Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_NOT_FOUND_MANAGEMENT_IP -ErrorMessage "None of the physical network adapters has an IP address"
+}
+
+function Get-HnsPsm1 {
     Param(
         [Parameter(Mandatory = $true)][string]
         $HNSModule
     )
-    Logs-To-Event "ASK.WindowsCSE.GetAndImportHNSModule" -TaskMessage "Start to get and import hns module. NetworkPlugin: $global:NetworkPlugin"
+    Logs-To-Event "AKS.WindowsCSE.GetAndImportHNSModule" -TaskMessage "Start to get and import hns module. NetworkPlugin: $global:NetworkPlugin"
 
     # HNSModule is C:\k\hns.v2.psm1 when container runtime is Containerd
     $fileName = [IO.Path]::GetFileName($HNSModule)
     # Get-LogCollectionScripts will copy hns module file to C:\k\debug
     $sourceFile = [IO.Path]::Combine('C:\k\debug\', $fileName)
-    try
-    {
-        Write-Log "Copying $sourceFile to $HNSModule."
+    try {
+       Logs-To-Event "AKS.WindowsCSE.GetAndImportHNSModule" -TaskMessage  "Copying $sourceFile to $HNSModule."
         Copy-Item -Path $sourceFile -Destination "$HNSModule"
     }
-    catch
-    {
+    catch {
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_HNS_MODULE -ErrorMessage "Failed to copy $sourceFile to $HNSModule. Error: $_"
     }
 }

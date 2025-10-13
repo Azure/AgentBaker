@@ -77,9 +77,11 @@ $global:WINDOWS_CSE_ERROR_DOWNLOAD_SECURE_TLS_BOOTSTRAP_CLIENT=70 # exit code fo
 $global:WINDOWS_CSE_ERROR_INSTALL_SECURE_TLS_BOOTSTRAP_CLIENT=71 # exit code for installing secure TLS bootstrap client failure
 $global:WINDOWS_CSE_ERROR_WINDOWS_CILIUM_NETWORKING_INSTALL_FAILED=72
 $global:WINDOWS_CSE_ERROR_EXTRACT_ZIP=73
+$global:WINDOWS_CSE_ERROR_LOAD_METADATA=74
+$global:WINDOWS_CSE_ERROR_PARSE_METADATA=75
 # WINDOWS_CSE_ERROR_MAX_CODE is only used in unit tests to verify whether new error code name is added in $global:ErrorCodeNames
 # Please use the current value of WINDOWS_CSE_ERROR_MAX_CODE as the value of the new error code and increment it by 1
-$global:WINDOWS_CSE_ERROR_MAX_CODE=74
+$global:WINDOWS_CSE_ERROR_MAX_CODE=76
 
 # Please add new error code for downloading new packages in RP code too
 $global:ErrorCodeNames = @(
@@ -156,7 +158,9 @@ $global:ErrorCodeNames = @(
     "WINDOWS_CSE_ERROR_DOWNLOAD_SECURE_TLS_BOOTSTRAP_CLIENT",
     "WINDOWS_CSE_ERROR_INSTALL_SECURE_TLS_BOOTSTRAP_CLIENT",
     "WINDOWS_CSE_ERROR_WINDOWS_CILIUM_NETWORKING_INSTALL_FAILED",
-    "WINDOWS_CSE_ERROR_EXTRACT_ZIP"
+    "WINDOWS_CSE_ERROR_EXTRACT_ZIP",
+    "WINDOWS_CSE_ERROR_LOAD_METADATA",
+    "WINDOWS_CSE_ERROR_PARSE_METADATA"
 )
 
 # The package domain to be used
@@ -195,7 +199,7 @@ filter Timestamp { "$(Get-Date -Format o): $_" }
 
 function Write-Log($message) {
     $msg = $message | Timestamp
-    Write-Output $msg
+    Write-Host $msg
 }
 
 function DownloadFileOverHttp {
@@ -241,7 +245,7 @@ function DownloadFileOverHttp {
         $downloadTimer = [System.Diagnostics.Stopwatch]::StartNew()
         try {
             $args = @{Uri=$MappedUrl; Method="Get"; OutFile=$DestinationPath; ErrorAction="Stop"}
-            Retry-Command -Command "Invoke-RestMethod" -Args $args -Retries 5 -RetryDelaySeconds 10 
+            Retry-Command -Command "Invoke-RestMethod" -Args $args -Retries 5 -RetryDelaySeconds 10
         } catch {
             Set-ExitCode -ExitCode $ExitCode -ErrorMessage "Failed in downloading $MappedUrl. Error: $_"
         }
@@ -257,7 +261,7 @@ function DownloadFileOverHttp {
         }
 
         $ProgressPreference = $oldProgressPreference
-         
+
         Write-Log "Downloaded file $MappedUrl to $DestinationPath in $elapsedMs ms"
         Get-Item $DestinationPath -ErrorAction Continue | Format-List | Out-String | Write-Log
     }
@@ -451,10 +455,10 @@ function Install-Containerd-Based-On-Kubernetes-Version {
 
   # Get the current Windows version, this is interim since we are progressively supporting containerd 2.0 for all Windows version. for now only test2025
   $windowsVersion = Get-WindowsVersion
-  Write-Log "Install Containerd with ContainerdURL: $ContainerdUrl, KubernetesVersion: $KubernetesVersion, WindowsVersion: $windowsVersion" 
+  Write-Log "Install Containerd with ContainerdURL: $ContainerdUrl, KubernetesVersion: $KubernetesVersion, WindowsVersion: $windowsVersion"
   Logs-To-Event -TaskName "AKS.WindowsCSE.InstallContainerdBasedOnKubernetesVersion" -TaskMessage "Start to install ContainerD based on kubernetes version. ContainerdUrl: $global:ContainerdUrl, KubernetesVersion: $global:KubeBinariesVersion, Windows Version: $windowsVersion"
 
-  #  $global:ContainerdUrl is set from RP ContainerService.properties.orchestratorProfile.KubernetesConfig.WindowsContainerdURL 
+  #  $global:ContainerdUrl is set from RP ContainerService.properties.orchestratorProfile.KubernetesConfig.WindowsContainerdURL
   # it can be
   # - a full URL. e.g.,  "https://packages.aks.azure.com/containerd/windows/v0.0.46/binaries/containerd-v0.0.46-windows-amd64.tar.gz"
   # - an endpoint: e.g., "https://packages.aks.azure.com/containerd/windows/"
@@ -465,14 +469,14 @@ function Install-Containerd-Based-On-Kubernetes-Version {
 
   $containerdVersion=$global:StableContainerdVersion
   Write-Log "Install Containerd with request URL : $ContainerdUrl, Kubernetes version: $KubernetesVersion, Windows version: $windowsVersion."
-  
+
   if ($ContainerdUrl.EndsWith("/")) {
     # for now we only preview containerd 2.0 for Windows 2025
     if ($windowsVersion -eq $global:WindowsVersion2025) {
         $containerdVersion=$global:LatestContainerd2Version
     } elseif (([version]$KubernetesVersion).CompareTo([version]$global:MinimalKubernetesVersionWithLatestContainerd) -ge 0) {
         $containerdVersion=$global:LatestContainerdVersion
-    } 
+    }
     $containerdPackage = [string]::Format($global:ContainerdPackageTemplate, $containerdVersion)
     $ContainerdUrl = $ContainerdUrl + $containerdPackage
   } elseif ( $windowsVersion -eq $global:WindowsVersion2025) {
@@ -482,9 +486,9 @@ function Install-Containerd-Based-On-Kubernetes-Version {
         $matchedPath = $matches[0]
         $containerd2Package = [string]::Format($global:ContainerdPackageTemplate, $global:LatestContainerd2Version)
         $ContainerdUrl = $ContainerdUrl.Replace($matchedPath, $containerd2Package)
-    } 
+    }
   }
-  
+
   Write-Log "Install Containerd with resolved containerd pacakge url: $ContainerdUrl, Kubernetes version: $KubernetesVersion, Windows version: $windowsVersion."
   Logs-To-Event -TaskName "AKS.WindowsCSE.InstallContainerd" -TaskMessage "Start to install ContainerD. ContainerdUrl: $ContainerdUrl"
   Install-Containerd -ContainerdUrl $ContainerdUrl -CNIBinDir $CNIBinDir -CNIConfDir $CNIConfDir -KubeDir $KubeDir
