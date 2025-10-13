@@ -1,9 +1,9 @@
-#shellcheck shell=bash
+#!/bin/bash
 
 # Tests for produce_ua_token function from produce-packer-settings-functions.sh
 
 Describe 'produce_ua_token function'
-  Include 'vhdbuilder/packer/produce-packer-settings-functions.sh'
+  Include './vhdbuilder/packer/produce-packer-settings-functions.sh'
 
   # Helper function to reset environment variables
   setup_environment() {

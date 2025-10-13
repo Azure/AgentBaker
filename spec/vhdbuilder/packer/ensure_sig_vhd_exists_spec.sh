@@ -1,9 +1,9 @@
-#shellcheck shell=bash
+#!/bin/bash
 
 # Tests for ensure_sig_vhd_exists function from produce-packer-settings-functions.sh
 
 Describe 'ensure_sig_vhd_exists function'
-  Include 'vhdbuilder/packer/produce-packer-settings-functions.sh'
+  Include './vhdbuilder/packer/produce-packer-settings-functions.sh'
 
   # Helper function to reset environment variables and create mocks
   setup_environment() {

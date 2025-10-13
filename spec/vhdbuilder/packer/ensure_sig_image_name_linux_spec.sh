@@ -1,9 +1,9 @@
-#shellcheck shell=bash
+#!/bin/bash
 
 # Tests for ensure_sig_image_name_linux function from produce-packer-settings-functions.sh
 
 Describe 'ensure_sig_image_name_linux function'
-  Include 'vhdbuilder/packer/produce-packer-settings-functions.sh'
+  Include './vhdbuilder/packer/produce-packer-settings-functions.sh'
 
   # Helper function to reset environment variables
   setup_environment() {
