@@ -77,17 +77,30 @@ validate-go:
 validate-shell:
 	@./.pipelines/scripts/verify_shell.sh
 
-.PHONY: shellspec
-shellspec:
-	docker build -t shellspec-docker - < ./spec/shellspec.Dockerfile
+
+.PHONY: shellspec-run
+shellspec-run:
 	docker run --rm \
 		-v $(CURDIR):/workspace \
 		-w /workspace \
 		shellspec-docker --shell bash --format d
 
+
+.PHONY: shellspec
+shellspec:
+	# don't have access to aksdataplanedev.azurecr.io locally, so strip it
+	sed 's|aksdataplanedev.azurecr.io/||g' < ./spec/shellspec.Dockerfile | docker build -t shellspec-docker -
+	make shellspec-run
+
+.PHONY: shellspec-ci
+shellspec-ci:
+	docker build -t shellspec-docker - < ./spec/shellspec.Dockerfile
+	make shellspec
+
 .PHONY: shellspec-focus
 shellspec-focus:
-	docker build -t shellspec-docker - < ./spec/shellspec.Dockerfile
+	# don't have access to aksdataplanedev.azurecr.io locally, so strip it
+	sed 's|aksdataplanedev.azurecr.io/||g' < ./spec/shellspec.Dockerfile | docker build -t shellspec-docker -
 	docker run --rm \
 		-v $(CURDIR):/workspace \
 		-w /workspace \
