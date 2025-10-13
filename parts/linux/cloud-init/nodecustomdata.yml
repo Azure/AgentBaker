@@ -176,7 +176,7 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "packageUpdateTimerMariner"}}
-{{- else}}
+{{- else if not IsFlatcar }}
 - path: /opt/azure/containers/ubuntu-snapshot-update.sh
   permissions: "0544"
   encoding: gzip
@@ -313,12 +313,14 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "ensureIMDSRestrictionScript"}}
 
+{{- if ShouldEnableCustomData }}
 - path: /opt/azure/containers/cloud-init-status-check.sh
   permissions: "0744"
   encoding: gzip
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "cloudInitStatusCheckScript"}}
+{{- end }}
 
 - path: /opt/azure/containers/measure-tls-bootstrapping-latency.sh
   permissions: "0755"
