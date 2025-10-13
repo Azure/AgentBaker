@@ -94,7 +94,8 @@ shellspec:
 
 .PHONY: shellspec-ci
 shellspec-ci:
-	docker build -t shellspec-docker - < ./spec/shellspec.Dockerfile
+	# currently agentbaker pipeline doesn't have the right permissions to use the right docker base image
+	sed 's|aksdataplanedev.azurecr.io/||g' < ./spec/shellspec.Dockerfile | docker build -t shellspec-docker -
 	make shellspec
 
 .PHONY: shellspec-focus
