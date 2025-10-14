@@ -1,0 +1,35 @@
+{
+    "plugin": "custom",
+    "pluginConfig": {
+      "invoke_interval": "30s",
+      "timeout": "3m",
+      "max_output_length": 80,
+      "concurrency": 1,
+      "enable_message_change_based_condition_update": false
+    },
+    "source": "kubelet-custom-plugin-monitor",
+    "metricsReporting": true,
+    "conditions": [
+      {
+        "type": "KubeletProblem",
+        "reason": "KubeletIsUp",
+        "message": "kubelet service is up"
+      }
+    ],
+    "rules": [
+      {
+        "type": "temporary",
+        "reason": "KubeletIsDown",
+        "path": "/etc/node-problem-detector.d/plugin/check_kubelet.sh",
+        "timeout": "3m"
+      },
+      {
+        "type": "permanent",
+        "condition": "KubeletProblem",
+        "reason": "KubeletIsDown",
+        "path": "/etc/node-problem-detector.d/plugin/check_kubelet.sh",
+        "timeout": "3m"
+      }
+    ]
+  }
+
