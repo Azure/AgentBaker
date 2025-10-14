@@ -1,0 +1,28 @@
+{
+  "plugin": "custom",
+  "pluginConfig": {
+    "invoke_interval": "60s",
+    "timeout": "20s",
+    "max_output_length": 80,
+    "concurrency": 3,
+    "enable_message_change_based_condition_update": true
+  },
+  "source": "custom-plugin-xid-error",
+  "metricsReporting": false,
+  "conditions": [
+    {
+      "type": "XIDError",
+      "reason": "XIDErrorIsNotPresent",
+      "message": "XID error status is good"
+    }
+  ],
+  "rules": [
+    {
+      "type": "permanent",
+      "condition": "XIDError",
+      "reason": "XIDErrorIsPresent",
+      "path": "/etc/node-problem-detector.d/plugin/check_xid_error.sh",
+      "timeout": "20s"
+    }
+  ]
+}

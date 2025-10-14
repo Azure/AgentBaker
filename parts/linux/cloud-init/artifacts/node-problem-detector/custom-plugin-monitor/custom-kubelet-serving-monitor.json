@@ -1,0 +1,21 @@
+{
+  "plugin": "custom",
+  "pluginConfig": {
+    "invoke_interval": "30m",
+    "timeout": "3m",
+    "max_output_length": 80,
+    "concurrency": 1,
+    "enable_message_change_based_condition_update": false
+  },
+  "source": "kubelet-serving-custom-plugin-monitor",
+  "metricsReporting": true,
+  "conditions": [],
+  "rules": [
+    {
+      "type": "temporary",
+      "reason": "KubeletServingCertificateInvalid",
+      "path": "/etc/node-problem-detector.d/plugin/check_kubelet_serving.sh",
+      "timeout": "3m"
+    }
+  ]
+}

@@ -69,8 +69,7 @@ ERR_CTR_OPERATION_ERROR=119 # Error executing a ctr containerd cli operation
 ERR_INVALID_CLI_TOOL=120 # Invalid CLI tool specified, should be one of ctr, crictl, docker
 ERR_KUBELET_INSTALL_FAIL=121 # Error installing kubelet
 ERR_KUBECTL_INSTALL_FAIL=122 # Error installing kubectl
-
-# 123 is free for use
+ERR_NPD_INSTALL_TIMEOUT=123 # Timeout waiting for node-problem-detector install
 
 # Error code 124 is returned when a `timeout` command times out, and --preserve-status is not specified: https://man7.org/linux/man-pages/man1/timeout.1.html
 ERR_VHD_BUILD_ERROR=125 # Reserved for VHD CI exit conditions
