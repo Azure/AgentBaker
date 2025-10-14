@@ -473,6 +473,8 @@ function nodePrep {
 
     logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
 
+    logs_to_events "AKS.CSE.configureNodeProblemDetector" configureNodeProblemDetector
+
     if $REBOOTREQUIRED; then
         echo 'reboot required, rebooting node in 1 minute'
         /bin/bash -c "shutdown -r 1 &"

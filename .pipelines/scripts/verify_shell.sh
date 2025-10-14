@@ -30,6 +30,7 @@ filesToCheck=$(find . -type f -name "*.sh" -not -path './pkg/agent/testdata/*' -
 # Known bash-only scripts that intentionally use bash specific syntax.
 BASH_ONLY_LIST=$(cat <<'EOF'
 ./vhdbuilder/packer/install-ig.sh
+./vhdbuilder/packer/install-npd.sh
 EOF
 )
 
@@ -100,6 +101,7 @@ shellcheck $(printf -- "-e %s " $IGNORED) $(printf '%s\n' $filesToCheck)
 # Checking SC3010 using [ ] instead of [[ ]] for POSIX compliance.
 # Checking SC3014 that == in place of = is undefined in POSIX.
 # We can add more checks if needed.
+# Note: Exclude node-problem-detector scripts as they are bash scripts with bash-specific syntax
 POSIX_CHECKS="
 SC3010
 SC3014

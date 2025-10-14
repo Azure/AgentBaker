@@ -33,6 +33,17 @@ source /home/packer/install-ig.sh
 
 CPU_ARCH=$(getCPUArch)  #amd64 or arm64
 SYSTEMD_ARCH=$(getSystemdArch)  # x86-64 or arm64
+
+# packages.microsoft.com for npd uses x86_64 instead of amd64 in some cases.
+# I don't make the rules on their silly naming inconsistencies.
+# components.json accounts for when to CPU_ARCH and when to CPU_ARCH_NPD
+CPU_ARCH_NPD=$(
+  if [ "$CPU_ARCH" = "amd64" ]; then
+    echo "x86_64"
+  else
+    echo "$CPU_ARCH"
+  fi
+)
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 COMPONENTS_FILEPATH=/opt/azure/components.json
 PERFORMANCE_DATA_FILE=/opt/azure/vhd-build-performance-data.json
@@ -244,6 +255,133 @@ downloadCNIPlugins() {
     local cni_plugins_url=${2}
     local cni_tgz_tmp=${cni_plugins_url##*/}
     retrycmd_get_tarball 120 5 "${download_dir}/${cni_tgz_tmp}" "${cni_plugins_url}" || exit $ERR_CNI_DOWNLOAD_TIMEOUT
+}
+
+# Install Node Problem Detector during VHD build
+# This function is only used during VHD build, not during node provisioning/CSE
+installNodeProblemDetector() {
+    local downloadDir=$1
+    local evaluatedURL=$2
+    local npdName=$3
+
+    echo "Installing Node Problem Detector."
+
+    ## Install based on OS type
+    #if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
+    #    apt_get_install 30 1 600 "${packagePath}" || exit $ERR_NPD_INSTALL_TIMEOUT
+    #elif [ "$OS" = "MARINER" ] || [ "$OS" = "AZURELINUX" ]; then
+    #    dnf_install 30 1 600 "${packagePath}" || exit $ERR_NPD_INSTALL_TIMEOUT
+    #fi
+
+    mkdir -p $downloadDir
+
+    ## Download and install NPD package based on OS type
+    if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
+      retrycmd_curl_file 10 5 60 "${downloadDir}/${npdName}" "${evaluatedURL}" || exit $ERR_NPD_INSTALL_TIMEOUT
+      echo "Installing NPD .deb package: ${downloadDir}/${npdName}"
+      apt_get_install 30 1 600 "${downloadDir}/${npdName}" || exit $ERR_NPD_INSTALL_TIMEOUT
+    elif [ "$OS" = "MARINER" ] || [ "$OS" = "AZURELINUX" ]; then
+      retrycmd_curl_file 10 5 60 "${downloadDir}/${npdName}" "${evaluatedURL}" || exit $ERR_NPD_INSTALL_TIMEOUT
+      echo "Installing NPD .rpm package: ${downloadDir}/${npdName}"
+      if ! dnf_install 30 1 600 "${downloadDir}/${npdName}"; then
+        echo "ERROR: dnf_install failed for ${npdName} with exit code $?"
+        exit $ERR_NPD_INSTALL_TIMEOUT
+      else
+        echo "Successfully installed NPD package: ${npdName}"
+      fi
+    fi
+
+    # Copy AKS-specific NPD configs and plugins to system location
+    local NPD_CONFIG_DIR="/etc/node-problem-detector.d"
+    local NPD_ARTIFACTS_DIR="/opt/azure/containers/node-problem-detector"
+    local NPD_BUILD_SOURCE="/home/packer/node-problem-detector"
+
+    echo "Installing NPD configs and plugins"
+    mkdir -p "${NPD_CONFIG_DIR}"
+    mkdir -p "${NPD_ARTIFACTS_DIR}"
+
+    # First, copy NPD files from build context to containers directory for CSE use
+    if [ -d "${NPD_BUILD_SOURCE}" ]; then
+        echo "Copying NPD files from build source to containers directory"
+        cp -r "${NPD_BUILD_SOURCE}"/* "${NPD_ARTIFACTS_DIR}/"
+    fi
+
+    # Copy all configuration directories to system location
+    local config_dirs="custom-plugin-monitor plugin system-log-monitor system-stats-monitor"
+    for dir in ${config_dirs}; do
+        if [ -d "${NPD_ARTIFACTS_DIR}/${dir}" ]; then
+            echo "Copying NPD config directory: ${dir}"
+            cp -r "${NPD_ARTIFACTS_DIR}/${dir}" "${NPD_CONFIG_DIR}/"
+        elif [ -d "${NPD_BUILD_SOURCE}/${dir}" ]; then
+            echo "Copying NPD config directory from build source: ${dir}"
+            cp -r "${NPD_BUILD_SOURCE}/${dir}" "${NPD_CONFIG_DIR}/"
+        fi
+    done
+
+    # Copy root-level files (like skip_vhd_npd) to system location
+    # skip_vhd_npd is used to keep the aks-operator node extension from clobbering vhd npd
+    for source_dir in "${NPD_ARTIFACTS_DIR}" "${NPD_BUILD_SOURCE}"; do
+        if [ -f "${source_dir}/skip_vhd_npd" ]; then
+            echo "Copying skip_vhd_npd sentinel file from ${source_dir}"
+            cp "${source_dir}/skip_vhd_npd" "${NPD_CONFIG_DIR}/"
+            break
+        fi
+    done
+
+    # Install AKS-specific startup script and systemd service
+    echo "Installing NPD startup script and systemd service"
+
+    local NPD_STARTUP_SCRIPT_SRC="/home/packer/node-problem-detector-startup.sh"
+    local NPD_STARTUP_SCRIPT_DEST="/usr/local/bin/node-problem-detector-startup.sh"
+    local NPD_SERVICE_SRC="/home/packer/node-problem-detector.service"
+    local NPD_SERVICE_DEST="/etc/systemd/system/node-problem-detector.service"
+
+    # Install startup script
+    cp "${NPD_STARTUP_SCRIPT_SRC}" "${NPD_STARTUP_SCRIPT_DEST}"
+    chmod 755 "${NPD_STARTUP_SCRIPT_DEST}"
+
+    # Install systemd service (overrides package's service)
+    cp "${NPD_SERVICE_SRC}" "${NPD_SERVICE_DEST}"
+    systemctl daemon-reload
+
+    # Also copy both to artifacts directory for CSE use
+    cp "${NPD_STARTUP_SCRIPT_SRC}" "${NPD_ARTIFACTS_DIR}/"
+    cp "${NPD_SERVICE_SRC}" "${NPD_ARTIFACTS_DIR}/"
+
+    # TODO: Go plugin compilation (check_kubelet.go) - saved for future work
+    # Compile Go plugin (currently only check_kubelet.go)
+    # if compgen -G "${NPD_CONFIG_DIR}/plugin/*.go" > /dev/null; then
+    #     echo "Compiling NPD Go plugins"
+    #     for gofile in "${NPD_CONFIG_DIR}"/plugin/*.go; do
+    #         base=$(basename "${gofile%.go}")
+    #         echo "  Compiling ${base} for ${CPU_ARCH}"
+    #         ( cd "${NPD_CONFIG_DIR}/plugin" && \
+    #           GOOS=linux GOARCH=${CPU_ARCH} CGO_ENABLED=0 go build -o "${base}" "./${base}.go" ) || \
+    #         echo "WARNING: Failed to compile ${base}, skipping"
+    #     done
+    # fi
+
+    # Set proper permissions on all config directories
+    [ -d "${NPD_CONFIG_DIR}/plugin" ] && {
+        chmod 755 "${NPD_CONFIG_DIR}/plugin"/*.sh 2>/dev/null || true
+        # Note: Skipping Go binary permissions since compilation is commented out for now
+        # find "${NPD_CONFIG_DIR}/plugin" -type f ! -name "*.sh" ! -name "*.go" -exec chmod 755 {} \; 2>/dev/null || true
+    }
+
+    # Set permissions on JSON config files
+    for dir in custom-plugin-monitor system-log-monitor system-stats-monitor; do
+        [ -d "${NPD_CONFIG_DIR}/${dir}" ] && chmod 644 "${NPD_CONFIG_DIR}/${dir}"/*.json 2>/dev/null || true
+    done
+
+    # Keep NPD service disabled during VHD build - CSE will enable it at runtime
+    # NPD requires runtime configuration for:
+    # - GPU detection and GPU-specific monitors
+    # - Public settings toggles (/etc/node-problem-detector.d/public-settings.json)
+    # - Kubernetes API server address and node name
+    # - Custom plugin enablement based on VM SKU and cluster configuration
+    # systemctl disable node-problem-detector || true
+
+    echo "Node Problem Detector installed"
 }
 
 # Reference CNI plugins is used by kubenet and the loopback plugin used by containerd 1.0 (dependency gone in 2.0)
@@ -473,6 +611,20 @@ while IFS= read -r p; do
       for version in ${PACKAGE_VERSIONS[@]}; do
         downloadPkgFromVersion "dcgm-exporter" "${version}" "${downloadDir}"
         echo "  - dcgm-exporter version ${version}" >> ${VHD_LOGS_FILEPATH}
+      done
+      ;;
+    "node-problem-detector")
+      for version in ${PACKAGE_VERSIONS[@]}; do
+        evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+        # Extract the package filename from the URL
+        npdName=$(basename "${evaluatedURL}")
+        #packagePath="${downloadDir}/${packageFile}"
+
+        if [ "${OS}" = "${UBUNTU_OS_NAME}" ] || isMarinerOrAzureLinux "$OS"; then
+          #installNodeProblemDetector "${downloadDir}" "${packagePath}" "${version}"
+          installNodeProblemDetector "${downloadDir}" "${evaluatedURL}" "${npdName}"
+        fi
+        echo "  - node-problem-detector version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
     *)

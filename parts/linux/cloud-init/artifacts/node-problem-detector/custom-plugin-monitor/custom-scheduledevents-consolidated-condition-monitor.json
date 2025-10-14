@@ -1,0 +1,28 @@
+{
+  "plugin": "custom",
+  "pluginConfig": {
+    "invoke_interval": "2s",
+    "timeout": "25s",
+    "max_output_length": 512,
+    "concurrency": 1,
+    "enable_message_change_based_condition_update": true
+  },
+  "source": "custom-scheduledevents-consolidated-condition-plugin-monitor",
+  "metricsReporting": true,
+  "conditions": [
+    {
+      "type": "VMEventScheduled",
+      "reason": "NoVMEventScheduled",
+      "message": "VM has no scheduled event"
+    }
+  ],
+  "rules": [
+    {
+      "type": "permanent",
+      "condition": "VMEventScheduled",
+      "reason": "VMEventScheduled",
+      "path": "/etc/node-problem-detector.d/plugin/check_scheduledevent_consolidated.sh",
+      "timeout": "25s"
+    }
+  ]
+}

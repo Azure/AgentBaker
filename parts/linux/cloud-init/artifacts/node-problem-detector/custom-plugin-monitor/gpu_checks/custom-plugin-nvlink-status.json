@@ -1,0 +1,28 @@
+{
+  "plugin": "custom",
+  "pluginConfig": {
+    "invoke_interval": "60s",
+    "timeout": "20s",
+    "max_output_length": 80,
+    "concurrency": 3,
+    "enable_message_change_based_condition_update": false
+  },
+  "source": "custom-plugin-nvlink-status",
+  "metricsReporting": false,
+  "conditions": [
+    {
+      "type": "NVLinkDown",
+      "reason": "NVLinkStatusGood",
+      "message": "NVLink status is good"
+    }
+  ],
+  "rules": [
+    {
+      "type": "permanent",
+      "condition": "NVLinkDown",
+      "reason": "NVLinkStatusBad",
+      "path": "/etc/node-problem-detector.d/plugin/check_nvlink_status.sh",
+      "timeout": "20s"
+    }
+  ]
+}

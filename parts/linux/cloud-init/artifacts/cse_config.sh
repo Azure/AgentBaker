@@ -785,6 +785,15 @@ EOF
     fi
 }
 
+configureNodeProblemDetector() {
+    echo "Configuring Node Problem Detector"
+    if ! systemctlEnableAndStart node-problem-detector 30; then
+        echo "Failed to start node-problem-detector service"
+        return $ERR_NPD_INSTALL_TIMEOUT
+    fi
+    echo "Node Problem Detector started successfully"
+}
+
 ensureSnapshotUpdate() {
     systemctlEnableAndStart snapshot-update.timer 30 || exit $ERR_SNAPSHOT_UPDATE_START_FAIL
 }
