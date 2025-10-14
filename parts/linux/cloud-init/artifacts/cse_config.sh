@@ -977,7 +977,10 @@ ensureGPUDrivers() {
 }
 
 disableSSH() {
+    # On ubuntu, the ssh service is named "ssh.service"
     systemctlDisableAndStop ssh || exit $ERR_DISABLE_SSH
+    # On AzureLinux, the ssh service is named "sshd.service"
+    systemctlDisableAndStop sshd || exit $ERR_DISABLE_SSH
 }
 
 configureSSHPubkeyAuth() {

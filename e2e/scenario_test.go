@@ -710,6 +710,63 @@ func Test_Ubuntu2204_EntraIDSSH_Scriptless(t *testing.T) {
 	})
 }
 
+func Test_Ubuntu2204_DisableSSH(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using Ubuntu 2204 VHD with SSH disabled can be properly bootstrapped and SSH daemon is disabled",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.SSHStatus = datamodel.SSHOff
+			},
+			SkipSSHConnectivityValidation: true, // Skip SSH connectivity validation since SSH is down
+			SkipDefaultValidation:         true, // Skip default validation since it requires SSH connectivity
+			Validator: func(ctx context.Context, s *Scenario) {
+				// Validate SSH daemon is disabled via RunCommand
+				ValidateSSHServiceDisabled(ctx, s)
+			},
+		},
+	})
+}
+
+func Test_AzureLinuxV2_DisableSSH(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using AzureLinuxV2 VHD with SSH disabled can be properly bootstrapped and SSH daemon is disabled",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDAzureLinuxV2Gen2,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.SSHStatus = datamodel.SSHOff
+			},
+			SkipSSHConnectivityValidation: true, // Skip SSH connectivity validation since SSH is down
+			SkipDefaultValidation:         true, // Skip default validation since it requires SSH connectivity
+			Validator: func(ctx context.Context, s *Scenario) {
+				// Validate SSH daemon is disabled via RunCommand
+				ValidateSSHServiceDisabled(ctx, s)
+			},
+		},
+	})
+}
+
+func Test_MarinerV2_DisableSSH(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using MarinerV2 VHD with SSH disabled can be properly bootstrapped and SSH daemon is disabled",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDCBLMarinerV2Gen2,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.SSHStatus = datamodel.SSHOff
+			},
+			SkipSSHConnectivityValidation: true, // Skip SSH connectivity validation since SSH is down
+			SkipDefaultValidation:         true, // Skip default validation since it requires SSH connectivity
+			Validator: func(ctx context.Context, s *Scenario) {
+				// Validate SSH daemon is disabled via RunCommand
+				ValidateSSHServiceDisabled(ctx, s)
+			},
+		},
+	})
+}
+
 func Test_Ubuntu2204_AirGap(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2204 VHD and is airgap can be properly bootstrapped",
