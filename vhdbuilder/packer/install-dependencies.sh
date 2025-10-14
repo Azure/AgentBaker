@@ -103,6 +103,7 @@ RestartSec=5
 EOF
 
 tee -a /etc/systemd/journald.conf > /dev/null <<'EOF'
+Compress=yes
 Storage=persistent
 SystemMaxUse=1G
 RuntimeMaxUse=1G
@@ -252,7 +253,7 @@ unpackTgzToCNIDownloadsDIR() {
   CNI_TGZ_TMP=${URL##*/}
   CNI_DIR_TMP=${CNI_TGZ_TMP%.tgz}
   mkdir "$CNI_DOWNLOADS_DIR/${CNI_DIR_TMP}"
-  tar -xzf "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" -C $CNI_DOWNLOADS_DIR/$CNI_DIR_TMP
+  extract_tarball "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" "$CNI_DOWNLOADS_DIR/${CNI_DIR_TMP}"
   rm -rf ${CNI_DOWNLOADS_DIR:?}/${CNI_TGZ_TMP}
   echo "  - Ran tar -xzf on the CNI downloaded then rm -rf to clean up"
 }
@@ -453,7 +454,9 @@ while IFS= read -r p; do
       ;;
     "datacenter-gpu-manager-4-core")
       for version in ${PACKAGE_VERSIONS[@]}; do
-        if [ "${OS}" = "${UBUNTU_OS_NAME}" ] || isMarinerOrAzureLinux "$OS"; then
+        if isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
+          echo "Skipping $name install on OS Guard"
+        elif [ "${OS}" = "${UBUNTU_OS_NAME}" ] || isMarinerOrAzureLinux "$OS"; then
           downloadPkgFromVersion "datacenter-gpu-manager-4-core" "${version}" "${downloadDir}"
         fi
         echo "  - datacenter-gpu-manager-4-core version ${version}" >> ${VHD_LOGS_FILEPATH}
@@ -461,7 +464,9 @@ while IFS= read -r p; do
       ;;
     "datacenter-gpu-manager-4-proprietary")
       for version in ${PACKAGE_VERSIONS[@]}; do
-        if [ "${OS}" = "${UBUNTU_OS_NAME}" ] || isMarinerOrAzureLinux "$OS"; then
+        if isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
+          echo "Skipping $name install on OS Guard"
+        elif [ "${OS}" = "${UBUNTU_OS_NAME}" ] || isMarinerOrAzureLinux "$OS"; then
           downloadPkgFromVersion "datacenter-gpu-manager-4-proprietary" "${version}" "${downloadDir}"
         fi
         echo "  - datacenter-gpu-manager-4-proprietary version ${version}" >> ${VHD_LOGS_FILEPATH}
@@ -477,7 +482,9 @@ while IFS= read -r p; do
       ;;
     "dcgm-exporter")
       for version in ${PACKAGE_VERSIONS[@]}; do
-        if isMarinerOrAzureLinux "$OS"; then
+        if isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
+          echo "Skipping $name install on OS Guard"
+        elif isMarinerOrAzureLinux "$OS"; then
           downloadPkgFromVersion "dcgm-exporter" "${version}" "${downloadDir}"
         fi
         echo "  - dcgm-exporter version ${version}" >> ${VHD_LOGS_FILEPATH}
@@ -496,7 +503,7 @@ installAndConfigureArtifactStreaming() {
   # arguments: package name, package extension
   PACKAGE_NAME=$1
   PACKAGE_EXTENSION=$2
-  MIRROR_PROXY_VERSION='0.2.13'
+  MIRROR_PROXY_VERSION='0.2.14'
   MIRROR_DOWNLOAD_PATH="./$1.$2"
   MIRROR_PROXY_URL="https://acrstreamingpackage.z5.web.core.windows.net/${MIRROR_PROXY_VERSION}/${PACKAGE_NAME}.${PACKAGE_EXTENSION}"
   retrycmd_curl_file 10 5 60 $MIRROR_DOWNLOAD_PATH $MIRROR_PROXY_URL || exit ${ERR_ARTIFACT_STREAMING_DOWNLOAD}
@@ -506,6 +513,15 @@ installAndConfigureArtifactStreaming() {
     dnf_install 30 1 600 $MIRROR_DOWNLOAD_PATH || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD
   fi
   rm $MIRROR_DOWNLOAD_PATH
+
+  /opt/acr/tools/overlaybd/install.sh
+  /opt/acr/tools/overlaybd/config-user-agent.sh azure
+  /opt/acr/tools/overlaybd/enable-http-auth.sh
+  /opt/acr/tools/overlaybd/config.sh download.enable false
+  /opt/acr/tools/overlaybd/config.sh cacheConfig.cacheSizeGB 32
+  /opt/acr/tools/overlaybd/config.sh exporterConfig.enable true
+  /opt/acr/tools/overlaybd/config.sh exporterConfig.port 9863
+  systemctl link /opt/overlaybd/overlaybd-tcmu.service /opt/overlaybd/snapshotter/overlaybd-snapshotter.service
 }
 
 UBUNTU_MAJOR_VERSION=$(echo $UBUNTU_RELEASE | cut -d. -f1)
@@ -521,6 +537,8 @@ elif [ "$OS" = "$MARINER_OS_NAME" ] && [ "$OS_VERSION" = "3.0" ] && [ "$(isARM64
   installAndConfigureArtifactStreaming acr-mirror-azurelinux3 rpm
 fi
 
+capture_benchmark "${SCRIPT_NAME}_install_artifact_streaming"
+
 # k8s will use images in the k8s.io namespaces - create it
 ctr namespace create k8s.io
 cliTool="ctr"
@@ -528,7 +546,7 @@ cliTool="ctr"
 
 INSTALLED_RUNC_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
 echo "  - runc version ${INSTALLED_RUNC_VERSION}" >> ${VHD_LOGS_FILEPATH}
-capture_benchmark "${SCRIPT_NAME}_configure_artifact_streaming_and_install_crictl"
+capture_benchmark "${SCRIPT_NAME}_install_crictl"
 
 GPUContainerImages=$(jq  -c '.GPUContainerImages[]' $COMPONENTS_FILEPATH)
 
@@ -755,6 +773,9 @@ if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
   # remove snapd, which is not used by container stack
   apt_get_purge 20 30 120 snapd || exit 1
   apt_get_purge 20 30 120 apache2-utils || exit 1
+  # CIS: Ensure telnet (/ftp) client is not installed
+  # CIS: Ufw is not used but interferes with log_martians rule
+  apt_get_purge 20 30 120 telnet ftp ufw tnftp inetutils-telnet || exit 1
 
   apt-get -y autoclean || exit 1
   apt-get -y autoremove --purge || exit 1

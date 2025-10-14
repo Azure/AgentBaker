@@ -615,6 +615,7 @@ EOF
             When call get_sandbox_image_from_containerd_config "existing_file"
             The output should eq "sandbox_image_from_containerd_config"
             The status should be success
+			rm -f existing_file
         End
     End
 End
