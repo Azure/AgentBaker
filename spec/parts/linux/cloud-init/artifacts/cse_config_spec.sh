@@ -433,6 +433,68 @@ Describe 'cse_config.sh'
             The output should include "chmod 0644 /etc/containerd/certs.d/mcr.microsoft.com/hosts.toml"
             The output should not include "tee"
         End
+
+        It 'should configure registry host correctly if BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER is abc.azurecr.io/def and k8s version >= 1.34'
+            mkdir() {
+                echo "mkdir $@"
+            }
+            touch() {
+                echo "touch $@"
+            }
+            chmod() {
+                echo "chmod $@"
+            }
+            tee() {
+                echo "tee $@"
+            }
+            installCredentialProviderPackageFromBootstrapProfileRegistry() {
+                echo "installCredentialProviderPackageFromBootstrapProfileRegistry"
+            }
+            KUBERNETES_VERSION="1.34.5"
+            SHOULD_ENFORCE_KUBE_PMC_INSTALL="false"
+            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="abc.azurecr.io/def"
+            When call configureContainerdRegistryHost
+            The variable CONTAINERD_CONFIG_REGISTRY_HOST_MCR should equal '/etc/containerd/certs.d/mcr.microsoft.com/hosts.toml'
+            The variable CONTAINER_REGISTRY_URL should equal 'abc.azurecr.io/v2/def/'
+            The output should include "mkdir -p /etc/containerd/certs.d/mcr.microsoft.com"
+            The output should include "touch /etc/containerd/certs.d/mcr.microsoft.com/hosts.toml"
+            The output should include "chmod 0644 /etc/containerd/certs.d/mcr.microsoft.com/hosts.toml"
+            The output should include "installCredentialProviderPackageFromBootstrapProfileRegistry"
+            The output should not include "tee"
+        End
+    End
+
+    It 'should configure registry host correctly if BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER is abc.azurecr.io/def and PMC fails'
+            mkdir() {
+                echo "mkdir $@"
+            }
+            touch() {
+                echo "touch $@"
+            }
+            chmod() {
+                echo "chmod $@"
+            }
+            tee() {
+                echo "tee $@"
+            }
+            installCredentialProviderPackageFromBootstrapProfileRegistry() {
+                return 1
+            }
+            installCredentialProvider() {
+                echo "installCredentialProviderFromURL"
+            }
+            KUBERNETES_VERSION="1.34.5"
+            SHOULD_ENFORCE_KUBE_PMC_INSTALL="true"
+            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="abc.azurecr.io/def"
+            When call configureContainerdRegistryHost
+            The variable CONTAINERD_CONFIG_REGISTRY_HOST_MCR should equal '/etc/containerd/certs.d/mcr.microsoft.com/hosts.toml'
+            The variable CONTAINER_REGISTRY_URL should equal 'abc.azurecr.io/v2/def/'
+            The output should include "mkdir -p /etc/containerd/certs.d/mcr.microsoft.com"
+            The output should include "touch /etc/containerd/certs.d/mcr.microsoft.com/hosts.toml"
+            The output should include "chmod 0644 /etc/containerd/certs.d/mcr.microsoft.com/hosts.toml"
+            The output should include "installCredentialProviderFromURL"
+            The output should not include "tee"
+        End
     End
 
     Describe 'configCredentialProvider'
@@ -633,8 +695,8 @@ Describe 'cse_config.sh'
             echo "installKubeletKubectlPkgFromPMC $1"
         }
 
-        installK8sToolsFromBootstrapProfileRegistry() {
-            echo "installK8sToolsFromBootstrapProfileRegistry $1 $2"
+        installKubeletKubectlFromBootstrapProfileRegistry() {
+            echo "installKubeletKubectlFromBootstrapProfileRegistry $1 $2"
         }
 
         # Set default values for common variables
@@ -785,23 +847,23 @@ Describe 'cse_config.sh'
         End
 
         # Test BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER scenarios
-        It 'should call installK8sToolsFromBootstrapProfileRegistry when BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER is set and k8s >= 1.34.0 and succeeds'
+        It 'should call installKubeletKubectlFromBootstrapProfileRegistry when BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER is set and k8s >= 1.34.0 and succeeds'
             BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myregistry.azurecr.io"
             KUBERNETES_VERSION="1.34.0"
             When call configureKubeletAndKubectl
-            The output should include "installK8sToolsFromBootstrapProfileRegistry myregistry.azurecr.io 1.34.0"
+            The output should include "installKubeletKubectlFromBootstrapProfileRegistry myregistry.azurecr.io 1.34.0"
             The output should not include "installKubeletKubectlFromURL"
         End
 
-        It 'should fallback to installKubeletKubectlFromURL when BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER is set and k8s >= 1.34.0 but installK8sToolsFromBootstrapProfileRegistry fails'
+        It 'should fallback to installKubeletKubectlFromURL when BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER is set and k8s >= 1.34.0 but installKubeletKubectlFromBootstrapProfileRegistry fails'
             BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myregistry.azurecr.io"
             KUBERNETES_VERSION="1.34.0"
-            installK8sToolsFromBootstrapProfileRegistry() {
-                echo "installK8sToolsFromBootstrapProfileRegistry $1 $2"
+            installKubeletKubectlFromBootstrapProfileRegistry() {
+                echo "installKubeletKubectlFromBootstrapProfileRegistry $1 $2"
                 return 1
             }
             When call configureKubeletAndKubectl
-            The output should include "installK8sToolsFromBootstrapProfileRegistry myregistry.azurecr.io 1.34.0"
+            The output should include "installKubeletKubectlFromBootstrapProfileRegistry myregistry.azurecr.io 1.34.0"
             The output should include "installKubeletKubectlFromURL"
         End
 

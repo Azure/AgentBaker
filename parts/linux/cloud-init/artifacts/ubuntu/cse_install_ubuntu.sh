@@ -198,7 +198,6 @@ installKubeletKubectlPkgFromPMC() {
 installToolFromLocalRepo() {
     local tool_name=$1
     local tool_download_dir=$2
-    local installation_root=$3
 
     # Verify the download directory exists and contains repository metadata
     if [ ! -d "${tool_download_dir}" ]; then
@@ -213,13 +212,40 @@ installToolFromLocalRepo() {
     fi
 
     echo "Installing ${tool_name} from local repository at ${tool_download_dir}..."
-    if ! apt_get_install_from_local_repo "${tool_download_dir}" "${tool_name}" "${installation_root}"; then
+    if ! apt_get_install_from_local_repo "${tool_download_dir}" "${tool_name}"; then
         echo "Failed to install ${tool_name} from local repository"
         return 1
     fi
 
     echo "${tool_name} installed successfully from local repository"
     return 0
+}
+
+installCredentialProviderPackageFromBootstrapProfileRegistry() {
+    bootstrapProfileRegistry="$1"
+    k8sVersion="${2:-}"
+
+    os=${UBUNTU_OS_NAME}
+    if [ -z "$UBUNTU_RELEASE" ]; then
+        os=${OS}
+        os_version="current"
+    else
+        os_version="${UBUNTU_RELEASE}"
+    fi
+    PACKAGE_VERSION=""
+    getLatestPkgVersionFromK8sVersion "$k8sVersion" "azure-acr-credential-provider-pmc" "$os" "$os_version"
+    packageVersion=$(echo $PACKAGE_VERSION | cut -d "-" -f 1)
+    if [ -z "$packageVersion" ]; then
+        packageVersion=$(echo "$CREDENTIAL_PROVIDER_DOWNLOAD_URL" | grep -oP 'v\d+(\.\d+)*' | sed 's/^v//' | head -n 1)
+        if [ -z "$packageVersion" ]; then
+            echo "Failed to determine package version for azure-acr-credential-provider"
+            return $ERR_ORAS_PULL_CREDENTIAL_PROVIDER
+        fi
+    fi
+    echo "installing azure-acr-credential-provider package version: $packageVersion"
+    mkdir -p "${CREDENTIAL_PROVIDER_BIN_DIR}"
+    chown -R root:root "${CREDENTIAL_PROVIDER_BIN_DIR}"
+    installToolFromBootstrapProfileRegistry "azure-acr-credential-provider" $bootstrapProfileRegistry "${packageVersion}" "${CREDENTIAL_PROVIDER_BIN_DIR}/acr-credential-provider" || return $ERR_ORAS_PULL_CREDENTIAL_PROVIDER
 }
 
 installPkgWithAptGet() {

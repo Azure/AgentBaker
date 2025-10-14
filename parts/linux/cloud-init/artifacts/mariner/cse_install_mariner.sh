@@ -175,14 +175,100 @@ installKubeletKubectlPkgFromPMC() {
     installRPMPackageFromFile "kubectl" $desiredVersion || exit $ERR_KUBECTL_INSTALL_FAIL
 }
 
-installToolFromLocalRepo() {
-    echo "installToolFromLocalRepo is not yet implemented for Mariner"
-    return 1
-}
-
 getOsVersion() {
     echo "getOsVersion is not yet implemented for Mariner"
     return 1
+}
+
+installToolFromLocalRepo() {
+    local tool_name=$1
+    local tool_download_dir=$2
+
+    # Verify the download directory exists and contains repository metadata
+    if [ ! -d "${tool_download_dir}" ]; then
+        echo "Download directory ${tool_download_dir} does not exist"
+        return 1
+    fi
+
+    # Check if this is a self-contained local repository (has Packages.gz or repodata)
+    if [ ! -d "${tool_download_dir}/repodata" ]; then
+        echo "No valid repository metadata found in ${tool_download_dir}"
+        return 1
+    fi
+
+    # Create a temporary repo configuration for the local directory
+    local repo_name="local-${tool_name}-repo"
+    local repo_file="/etc/yum.repos.d/${repo_name}.repo"
+
+    echo "Setting up local repository from ${tool_download_dir}"
+
+    # Create the repo file
+    cat > "${repo_file}" <<EOF
+[${repo_name}]
+name=Local ${tool_name} Repository
+baseurl=file://${tool_download_dir}
+enabled=1
+gpgcheck=0
+skip_if_unavailable=1
+EOF
+
+    # Update DNF cache for the new repository
+    echo "Updating DNF cache for local repository"
+    dnf makecache --disablerepo='*' --enablerepo="${repo_name}" || {
+        echo "Failed to update DNF cache for local repository"
+        rm -f "${repo_file}"
+        return 1
+    }
+
+    # Install the package from the local repository
+    echo "Installing ${tool_name} from local repository"
+    if ! dnf_install 30 1 600 ${tool_name} --disablerepo='*' --enablerepo="${repo_name}"; then
+        echo "Failed to install ${tool_name} from local repository"
+        rm -f "${repo_file}"
+        return 1
+    fi
+
+    # Move the binary to /usr/local/bin if it was installed to /usr/bin
+    if [ -f "/usr/bin/${tool_name}" ]; then
+        echo "Moving ${tool_name} to /usr/local/bin"
+        mv "/usr/bin/${tool_name}" "/usr/local/bin/${tool_name}"
+    fi
+
+    # Clean up the temporary repo file
+    rm -f "${repo_file}"
+
+    # Clean up the download directory
+    rm -rf "${tool_download_dir}"
+
+    echo "Successfully installed ${tool_name} from local repository"
+    return 0
+}
+
+installCredentialProviderPackageFromBootstrapProfileRegistry() {
+    bootstrapProfileRegistry="$1"
+    k8sVersion="${2:-}"
+
+    os=${AZURELINUX_OS_NAME}
+    if [ -z "$OS_VERSION" ]; then
+        os=${OS}
+        os_version="current"
+    else
+        os_version="${OS_VERSION}"
+    fi
+    PACKAGE_VERSION=""
+    getLatestPkgVersionFromK8sVersion "$k8sVersion" "azure-acr-credential-provider-pmc" "$os" "$os_version"
+    packageVersion=$(echo $PACKAGE_VERSION | cut -d "-" -f 1)
+    if [ -z "$packageVersion" ]; then
+        packageVersion=$(echo "$CREDENTIAL_PROVIDER_DOWNLOAD_URL" | grep -oP 'v\d+(\.\d+)*' | sed 's/^v//' | head -n 1)
+        if [ -z "$packageVersion" ]; then
+            echo "Failed to determine package version for azure-acr-credential-provider"
+            return $ERR_ORAS_PULL_CREDENTIAL_PROVIDER
+        fi
+    fi
+    echo "installing azure-acr-credential-provider package version: $packageVersion"
+    mkdir -p "${CREDENTIAL_PROVIDER_BIN_DIR}"
+    chown -R root:root "${CREDENTIAL_PROVIDER_BIN_DIR}"
+    installToolFromBootstrapProfileRegistry "azure-acr-credential-provider" $bootstrapProfileRegistry "${packageVersion}" "${CREDENTIAL_PROVIDER_BIN_DIR}/acr-credential-provider" || return $ERR_ORAS_PULL_CREDENTIAL_PROVIDER
 }
 
 updateDnfWithNvidiaPkg() {
