@@ -1,0 +1,39 @@
+{
+  "plugin": "custom",
+  "pluginConfig": {
+    "invoke_interval": "60s",
+    "timeout": "55s",
+    "max_output_length": 512,
+    "concurrency": 4,
+    "enable_message_change_based_condition_update": true
+  },
+  "source": "custom-scheduledevents-consolidated-plugin-monitor",
+  "metricsReporting": true,
+  "conditions": [],
+  "rules": [
+    {
+      "type": "temporary",
+      "reason": "FreezeScheduled",
+      "path": "/etc/node-problem-detector.d/plugin/check_freeze.sh",
+      "timeout": "55s"
+    },
+    {
+      "type": "temporary",
+      "reason": "RebootScheduled",
+      "path": "/etc/node-problem-detector.d/plugin/check_reboot.sh",
+      "timeout": "55s"
+    },
+    {
+      "type": "temporary",
+      "reason": "RedeployScheduled",
+      "path": "/etc/node-problem-detector.d/plugin/check_redeploy.sh",
+      "timeout": "55s"
+    },
+    {
+      "type": "temporary",
+      "reason": "TerminateScheduled",
+      "path": "/etc/node-problem-detector.d/plugin/check_terminate.sh",
+      "timeout": "55s"
+    }
+  ]
+}

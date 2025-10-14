@@ -1,0 +1,12 @@
+{
+  "Standard_ND96isr_H100_v5": {
+    "GPUs": "8",
+    "RdmaEnabled": "True",
+    "NVLinkEnabled": "True"
+  },
+  "Standard_ND96asr_v4": {
+    "GPUs": "8",
+    "RdmaEnabled": "True",
+    "NVLinkEnabled": "True"
+  }
+}

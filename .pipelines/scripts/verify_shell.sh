@@ -93,8 +93,10 @@ shellcheck $(printf -- "-e %s " $IGNORED) $filesToCheck
 # Checking SC3010 using [ ] instead of [[ ]] for POSIX compliance.
 # Checking SC3014 that == in place of = is undefined in POSIX.
 # We can add more checks if needed.
+# Note: Exclude node-problem-detector scripts as they are bash scripts with bash-specific syntax
 POSIX_CHECKS="
 SC3010
 SC3014
 "
-shellcheck "--shell=sh" $(printf -- "-i %s " $POSIX_CHECKS) $filesToCheck
+filesToCheckPosix=$(echo "$filesToCheck" | grep -v "node-problem-detector")
+shellcheck "--shell=sh" $(printf -- "-i %s " $POSIX_CHECKS) $filesToCheckPosix

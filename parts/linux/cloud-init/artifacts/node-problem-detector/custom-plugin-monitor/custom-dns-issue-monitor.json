@@ -1,0 +1,21 @@
+{
+  "plugin": "custom",
+  "pluginConfig": {
+    "invoke_interval": "15m",
+    "timeout": "60s",
+    "max_output_length": 1000,
+    "concurrency": 1,
+    "enable_message_change_based_condition_update": false
+  },
+  "source": "dns-issue-monitor",
+  "metricsReporting": false,
+  "conditions": [],
+  "rules": [
+    {
+      "type": "temporary",
+      "reason": "DNSDiagnostics",
+      "path": "/etc/node-problem-detector.d/plugin/check_dns_issues_wrapper.sh",
+      "timeout": "60s"
+    }
+  ]
+} 
