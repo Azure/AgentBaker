@@ -77,7 +77,7 @@ cleanUpGPUDrivers() {
     stub
 }
 
-installKubeletKubectlPkgFromLocalRepo() {
+installToolFromLocalRepo() {
     stub
     return 1
 }

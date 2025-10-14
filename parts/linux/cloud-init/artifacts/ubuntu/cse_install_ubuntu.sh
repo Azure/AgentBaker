@@ -199,7 +199,7 @@ installKubeletKubectlPkgFromPMC() {
     installPkgWithAptGet "kubectl" "${k8sVersion}" || exit $ERR_KUBECTL_INSTALL_FAIL
 }
 
-installKubeletKubectlPkgFromLocalRepo() {
+installToolFromLocalRepo() {
     local tool_name=$1
     local tool_download_dir=$2
 

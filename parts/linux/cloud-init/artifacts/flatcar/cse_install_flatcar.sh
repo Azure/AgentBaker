@@ -32,7 +32,7 @@ cleanUpGPUDrivers() {
     rm -Rf $GPU_DEST /opt/gpu
 }
 
-installKubeletKubectlPkgFromLocalRepo() {
+installToolFromLocalRepo() {
     stub
     return 1
 }

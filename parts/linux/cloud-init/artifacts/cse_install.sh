@@ -556,7 +556,7 @@ installK8sToolsFromBootstrapProfileRegistry() {
         echo "Successfully pulled ${tool_name} package"
 
         # Try to install using distro-specific package installer from local repo
-        if ! installKubeletKubectlPkgFromLocalRepo "${tool_name}" "${tool_download_dir}"; then
+        if ! installToolFromLocalRepo "${tool_name}" "${tool_download_dir}"; then
             echo "Failed to install ${tool_name} from local repo ${tool_download_dir}"
             rm -rf "${tool_download_dir}"
             return 1
