@@ -11,7 +11,7 @@ Describe 'localdns.sh'
 #------------------------------------------------------------------------------------------------------------------------------------
     Describe 'verify_localdns_files'
         setup() {
-            Include "./parts/linux/cloud-init/artifacts/localdns.sh" 
+            Include "./parts/linux/cloud-init/artifacts/localdns.sh"
 
             TEST_DIR="/tmp/localdnstest"
             LOCALDNS_SCRIPT_PATH="${TEST_DIR}/opt/azure/containers/localdns"
@@ -179,7 +179,7 @@ EOF
 
         It 'should not replace 168.63.129.16 with UpstreamDNSIP if it is blank'
 cat <<EOF > "$RESOLV_CONF"
-nameserver  
+nameserver
 EOF
             When run replace_azurednsip_in_corefile
             The status should be failure
@@ -536,7 +536,30 @@ EOF
     Describe 'cleanup_iptables_and_dns'
         setup() {
             NETWORK_DROPIN_FILE="/tmp/test-network-dropin.conf"
-            
+            DEFAULT_ROUTE_INTERFACE="eth0"
+            NETWORK_FILE="/etc/systemd/network/eth0.network"
+            NETWORK_DROPIN_DIR="/run/systemd/network/eth0.network.d"
+
+            # Mock ip command for route lookup
+            ip() {
+                if [[ "$1" == "-j" && "$2" == "route" && "$3" == "get" ]]; then
+                    echo '[{"dev":"eth0"}]'
+                else
+                    command ip "$@"
+                fi
+            }
+
+            # Mock networkctl command
+            networkctl() {
+                if [[ "$1" == "--json=short" && "$2" == "status" && "$3" == "eth0" ]]; then
+                    echo '{"NetworkFile":"/etc/systemd/network/eth0.network"}'
+                elif [[ "$1" == "reload" ]]; then
+                    return 0
+                else
+                    command networkctl "$@"
+                fi
+            }
+
             # Mock iptables command to simulate finding existing localdns rules
             mock_iptables() {
                 case "$1" in
@@ -565,7 +588,7 @@ EOF
                 esac
                 return 0
             }
-            
+
             Include "./parts/linux/cloud-init/artifacts/localdns.sh"
         }
         cleanup() {
@@ -584,7 +607,7 @@ EOF
             The stdout should include "Found existing localdns iptables rules, removing them..."
             The stdout should include "Successfully removed existing localdns iptables rule from OUTPUT chain"
             The stdout should include "Successfully removed existing localdns iptables rule from PREROUTING chain"
-            The stdout should include "Reverting DNS configuration by removing /tmp/test-network-dropin.conf."
+            The stdout should include "Removing network drop-in file /tmp/test-network-dropin.conf."
             The file "${NETWORK_DROPIN_FILE}" should not be exist
         End
 
@@ -640,6 +663,7 @@ EOF
             }
             iptables() { mock_iptables_no_rules "$@"; }
             NETWORK_DROPIN_FILE="/tmp/nonexistent-file.conf"
+            NETWORKCTL_RELOAD_CMD="true"
             When call cleanup_iptables_and_dns
             The status should be success
             The stdout should include "No existing localdns iptables rules found."
@@ -654,9 +678,37 @@ EOF
         setup() {
             IPTABLES_RULES=("INPUT -p udp --dport 53 -j ACCEPT" "OUTPUT -p udp --sport 53 -j ACCEPT")
             NETWORK_DROPIN_FILE="/tmp/test-network-dropin.conf"
+            DEFAULT_ROUTE_INTERFACE="eth0"
+            NETWORK_FILE="/etc/systemd/network/eth0.network"
+            NETWORK_DROPIN_DIR="/run/systemd/network/eth0.network.d"
             COREDNS_PID="12345"
-            Include "./parts/linux/cloud-init/artifacts/localdns.sh"
             LOCALDNS_SHUTDOWN_DELAY=1
+
+            # Mock ip command for route lookup
+            ip() {
+                if [[ "$1" == "-j" && "$2" == "route" && "$3" == "get" ]]; then
+                    echo '[{"dev":"eth0"}]'
+                elif [[ "$1" == "link" && "$2" == "show" && "$3" == "dev" && "$4" == "localdns" ]]; then
+                    return 0  # Interface exists
+                elif [[ "$1" == "link" && "$2" == "del" && "$3" == "name" && "$4" == "localdns" ]]; then
+                    return 0  # Successfully delete interface
+                else
+                    command ip "$@"
+                fi
+            }
+
+            # Mock networkctl command
+            networkctl() {
+                if [[ "$1" == "--json=short" && "$2" == "status" && "$3" == "eth0" ]]; then
+                    echo '{"NetworkFile":"/etc/systemd/network/eth0.network"}'
+                elif [[ "$1" == "reload" ]]; then
+                    return 0
+                else
+                    command networkctl "$@"
+                fi
+            }
+
+            Include "./parts/linux/cloud-init/artifacts/localdns.sh"
         }
         cleanup() {
             rm -rf "/tmp/test-network-dropin.conf"
@@ -691,6 +743,7 @@ EOF
                 return 0
             }
             iptables() { mock_iptables "$@"; }
+            NETWORKCTL_RELOAD_CMD="true"
             When call cleanup_localdns_configs
             The stdout should include "Cleaning up any existing localdns iptables rules..."
             The stdout should include "Found existing localdns iptables rules, removing them..."
@@ -740,7 +793,7 @@ EOF
             }
             When call cleanup_localdns_configs
             The status should be success
-            The output should include "Reverting DNS configuration by removing"
+            The output should include "Removing network drop-in file"
             The output should include "Successfully cleanup localdns related configurations."
             The file "${NETWORK_DROPIN_FILE}" should not be exist
         End
@@ -763,7 +816,7 @@ EOF
             }
             When call cleanup_localdns_configs
             The status should be failure
-            The output should include "Reverting DNS configuration by removing"
+            The output should include "Removing network drop-in file"
             The output should include "Failed to reload network after removing the DNS configuration."
         End
 
@@ -783,6 +836,7 @@ EOF
                 esac
                 return 0
             }
+            NETWORKCTL_RELOAD_CMD="true"
             When call cleanup_localdns_configs
             The status should be failure
             The output should include "Sleeping ${LOCALDNS_SHUTDOWN_DELAY} seconds to allow connections to terminate."
@@ -806,6 +860,7 @@ EOF
                 esac
                 return 0
             }
+            NETWORKCTL_RELOAD_CMD="true"
             When call cleanup_localdns_configs
             The status should be failure
             The output should include "Successfully sent SIGINT to localdns."
@@ -829,6 +884,7 @@ EOF
                 esac
                 return 0
             }
+            NETWORKCTL_RELOAD_CMD="true"
             When call cleanup_localdns_configs
             The status should be success
             The output should include "Successfully sent SIGINT to localdns."
@@ -853,6 +909,7 @@ EOF
                 esac
                 return 0
             }
+            NETWORKCTL_RELOAD_CMD="true"
             When call cleanup_localdns_configs
             The status should be failure
             The output should include "Failed to remove localdns dummy interface."
@@ -875,6 +932,7 @@ EOF
                 esac
                 return 0
             }
+            NETWORKCTL_RELOAD_CMD="true"
             When call cleanup_localdns_configs
             The status should be success
             The output should include "Successfully removed localdns dummy interface."
@@ -894,6 +952,7 @@ EOF
                 esac
                 return 0
             }
+            NETWORKCTL_RELOAD_CMD="true"
             When call cleanup_localdns_configs
             The status should be success
             The output should include "Successfully cleanup localdns related configurations."
