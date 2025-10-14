@@ -604,8 +604,13 @@ EOF
     apt install -y \
       nvidia-imex
 
-    apt install -y \
-      doca-ofed
+    if [ -n "${LOCAL_REPO_URL}" ]; then
+      apt install -y -t doca \
+        doca-ofed
+    else
+      apt install -y \
+        doca-ofed
+    fi
 
     # 3. Add char device symlinks for NVIDIA devices
     mkdir -p "$(dirname /lib/udev/rules.d/71-nvidia-dev-char.rules)"
