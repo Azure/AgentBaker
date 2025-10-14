@@ -21,6 +21,11 @@ required_env_vars=(
     "GENERATE_PUBLISHING_INFO"
 )
 
+# Optional env vars for UEFI secure boot
+optional_env_vars=(
+    "UEFI_SECURE_BOOT_CERT"
+)
+
 for v in "${required_env_vars[@]}"
 do
     if [ -z "${!v}" ]; then
@@ -111,14 +116,42 @@ az image create \
 
 echo "Creating SIG image version $SIG_IMAGE_RESOURCE_ID from managed image $MANAGED_IMAGE_RESOURCE_ID"
 echo "Uploading to ${TARGET_REGIONS}"
-az sig image-version create \
+
+# Build the az sig image-version create command
+SIG_CREATE_CMD="az sig image-version create \
     --resource-group ${RESOURCE_GROUP_NAME} \
     --gallery-name ${SIG_GALLERY_NAME} \
     --gallery-image-definition ${SIG_IMAGE_NAME} \
     --gallery-image-version ${CAPTURED_SIG_VERSION} \
     --managed-image ${MANAGED_IMAGE_RESOURCE_ID} \
-    --tags "buildDefinitionName=${BUILD_DEFINITION_NAME}" "buildNumber=${BUILD_NUMBER}" "buildId=${BUILD_ID}" "SkipLinuxAzSecPack=true" "os=Linux" "now=${CREATE_TIME}" "createdBy=aks-vhd-pipeline" "image_sku=${IMG_SKU}" "branch=${BRANCH}" \
-    --target-regions ${TARGET_REGIONS}
+    --tags \"buildDefinitionName=${BUILD_DEFINITION_NAME}\" \"buildNumber=${BUILD_NUMBER}\" \"buildId=${BUILD_ID}\" \"SkipLinuxAzSecPack=true\" \"os=Linux\" \"now=${CREATE_TIME}\" \"createdBy=aks-vhd-pipeline\" \"image_sku=${IMG_SKU}\" \"branch=${BRANCH}\" \
+    --target-regions ${TARGET_REGIONS}"
+
+# Convert PEM certificate to base64 DER format if ca_cert.pem exists
+CERT_FILE="${OUT_DIR}/ca_cert.pem"
+if [ -f "$CERT_FILE" ]; then
+    echo "Found certificate file at $CERT_FILE, converting PEM to base64 DER format"
+    
+    # Convert PEM to DER, then to base64
+    UEFI_SECURE_BOOT_CERT=$(openssl x509 -in "$CERT_FILE" -outform DER | base64 -w 0)
+    
+    if [ $? -eq 0 ] && [ -n "$UEFI_SECURE_BOOT_CERT" ]; then
+        echo "Successfully converted certificate to base64 DER format"
+        export UEFI_SECURE_BOOT_CERT
+    else
+        echo "Error: Failed to convert certificate from $CERT_FILE"
+        exit 1
+    fi
+fi
+
+# Add UEFI security profile if certificate is provided
+if [ -n "${UEFI_SECURE_BOOT_CERT:-}" ]; then
+    echo "Adding UEFI secure boot certificate to SIG image version"
+    SIG_CREATE_CMD="${SIG_CREATE_CMD} --security-type TrustedLaunch --uefi-settings '{\"signatureTemplateNames\":[\"NoSignatureTemplate\"],\"additionalSignatures\":{\"pk\":{\"type\":\"x509\",\"value\":[\"${UEFI_SECURE_BOOT_CERT}\"]}}}'"
+fi
+
+# Execute the command
+eval $SIG_CREATE_CMD
 capture_benchmark "${SCRIPT_NAME}_create_sig_image_version"
 
 if [ "${GENERATE_PUBLISHING_INFO,,}" != "true" ]; then
