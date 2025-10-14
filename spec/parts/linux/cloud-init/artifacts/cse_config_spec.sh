@@ -801,6 +801,7 @@ Describe 'cse_config.sh'
             When call configureKubeletAndKubectl
             The output should include "installK8sToolsFromBootstrapProfileRegistry myregistry.azurecr.io 1.33.5"
             The output should not include "installKubeletKubectlFromURL"
+            The output should not include "installKubeletKubectlPkgFromPMC"
         End
 
         It 'should not call installK8sToolsFromBootstrapProfileRegistry when SHOULD_ENFORCE_KUBE_PMC_INSTALL is false and k8s < 1.34.0' and BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER is set

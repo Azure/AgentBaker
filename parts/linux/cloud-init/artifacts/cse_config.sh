@@ -569,8 +569,7 @@ configureKubeletAndKubectl() {
                 # if install from bootstrap profile registry fails, fallback to install from URL
                 logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromURL-Fallback" installKubeletKubectlFromURL
             fi
-        fi
-        if isMarinerOrAzureLinux "$OS"; then
+        elif isMarinerOrAzureLinux "$OS"; then
             if [ "$OS_VERSION" = "2.0" ]; then
                 # we do not publish packages to PMC for azurelinux V2
                 logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromURL" installKubeletKubectlFromURL
