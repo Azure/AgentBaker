@@ -1096,13 +1096,28 @@ func ValidateSSHServiceDisabled(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 
 	// Use VMSS RunCommand to check SSH service status directly on the node
-	// Check the status of sshd service (works for all distros including Ubuntu, AzureLinux, and Mariner)
+	// Ubuntu uses 'ssh' as service name, while AzureLinux and Mariner use 'sshd'
 	runPoller, err := config.Azure.VMSSVM.BeginRunCommand(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, "0", armcompute.RunCommandInput{
 		CommandID: to.Ptr("RunShellScript"),
 		Script: []*string{to.Ptr(`#!/bin/bash
-# Check SSH service status using systemctl status sshd
-# This command works for all distros (Ubuntu uses 'ssh' as service name but 'sshd' also works)
-status_output=$(systemctl status sshd 2>&1)
+# Determine the correct SSH service name based on the distro
+# Ubuntu uses 'ssh', AzureLinux and Mariner use 'sshd'
+if [ -f /etc/os-release ]; then
+    . /etc/os-release
+    if [[ "$ID" == "ubuntu" ]]; then
+        SSH_SERVICE="ssh"
+    else
+        SSH_SERVICE="sshd"
+    fi
+else
+    # Default to sshd if we can't determine the OS
+    SSH_SERVICE="sshd"
+fi
+
+echo "Detected SSH service name: $SSH_SERVICE"
+
+# Check SSH service status
+status_output=$(systemctl status "$SSH_SERVICE" 2>&1)
 echo "SSH service status output:"
 echo "$status_output"
 
