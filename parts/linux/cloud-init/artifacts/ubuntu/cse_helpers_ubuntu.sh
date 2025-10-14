@@ -123,7 +123,6 @@ installDebPackageFromFile() {
 apt_get_install_from_local_repo() {
     local local_repo_dir=$1
     local package_name=$2
-    local installation_root=$3
 
     # Convert to absolute path
     local_repo_dir=$(realpath "${local_repo_dir}")
@@ -170,13 +169,6 @@ apt_get_install_from_local_repo() {
     # Cleanup
     rm -f "${tmp_list}"
     rmdir "${tmp_dir}"
-
-    # If installation_root is specified, copy binaries to that location
-    if [ -n "${installation_root}" ]; then
-        echo "Copying binaries ${package_name} to ${installation_root}"
-        mkdir -p "${installation_root}"
-        mv "/usr/bin/${package_name}" "/usr/local/bin/${package_name}"
-    fi
 
     return 0
 }

@@ -37,9 +37,4 @@ installToolFromLocalRepo() {
     return 1
 }
 
-getOsVersion() {
-    stub
-    return 1
-}
-
 #EOF

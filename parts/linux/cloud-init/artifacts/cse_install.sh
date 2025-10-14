@@ -188,8 +188,8 @@ downloadCredentialProvider() {
     echo "Credential Provider downloaded successfully"
 }
 
-installCredentialProvider() {
-    logs_to_events "AKS.CSE.installCredentialProvider.downloadCredentialProvider" downloadCredentialProvider
+installCredentialProviderFromUrl() {
+    logs_to_events "AKS.CSE.installCredentialProviderFromUrl.downloadCredentialProvider" downloadCredentialProvider
     extract_tarball "$CREDENTIAL_PROVIDER_DOWNLOAD_DIR/${CREDENTIAL_PROVIDER_TGZ_TMP}" "$CREDENTIAL_PROVIDER_DOWNLOAD_DIR"
     mkdir -p "${CREDENTIAL_PROVIDER_BIN_DIR}"
     chown -R root:root "${CREDENTIAL_PROVIDER_BIN_DIR}"
@@ -526,44 +526,57 @@ extractKubeBinaries() {
     extractKubeBinariesToUsrLocalBin "${k8s_tgz_tmp}" "${k8s_version}" "${is_private_url}"
 }
 
-installK8sToolsFromBootstrapProfileRegistry() {
-    local registry_server=$1
-    local kubernetes_version=$2
+installToolFromBootstrapProfileRegistry() {
+    local tool_name=$1
+    local registry_server=$2
+    local version=$3
+    local install_path=$4
 
     # Try to pull distro-specific packages (e.g., .deb for Ubuntu) from registry
     local download_root="/tmp/kubernetes/downloads" # /opt folder will return permission error
 
-    for tool_name in $(get_kubernetes_tools); do
-        tool_package_url="${registry_server}/aks/packages/kubernetes/${tool_name}:v${kubernetes_version}"
-        tool_download_dir="${download_root}/${tool_name}"
-        mkdir -p "${tool_download_dir}"
+    tool_package_url="${registry_server}/aks/packages/kubernetes/${tool_name}:v${version}"
+    tool_download_dir="${download_root}/${tool_name}"
+    mkdir -p "${tool_download_dir}"
 
-        # Construct platform string for ORAS pull
-        os_version=$(getOsVersion) || return 1 # Platform-specific OS version detection
-        platform_flag="--platform=linux/${CPU_ARCH}:${OS,,} ${os_version}"
+    # Construct platform string for ORAS pull
+    if [ -z "${OS_VERSION}" ]; then
+        echo "OS_VERSION is not set"
+        return 1
+    fi
+    platform_flag="--platform=linux/${CPU_ARCH}:${OS,,} ${OS_VERSION}"
 
-        echo "Attempting to pull ${tool_name} package from ${tool_package_url} with platform ${platform_flag}"
-        # retrycmd_pull_from_registry_with_oras will pull all artifacts to the directory with platform selection
-        if ! retrycmd_pull_from_registry_with_oras 10 5 "${tool_download_dir}" "${tool_package_url}" "${platform_flag}"; then
-            echo "Failed to pull ${tool_name} package from registry"
-            rm -rf "${tool_download_dir}"
-            return 1
-        fi
+    echo "Attempting to pull ${tool_name} package from ${tool_package_url} with platform ${platform_flag}"
+    # retrycmd_pull_from_registry_with_oras will pull all artifacts to the directory with platform selection
+    if ! retrycmd_pull_from_registry_with_oras 10 5 "${tool_download_dir}" "${tool_package_url}" "${platform_flag}"; then
+        echo "Failed to pull ${tool_name} package from registry"
+        rm -rf "${tool_download_dir}"
+        return 1
+    fi
 
-        echo "Successfully pulled ${tool_name} package"
+    echo "Successfully pulled ${tool_name} package"
 
-        # Try to install using distro-specific package installer from local repo
-        installation_root="/usr/local/bin"
-        if ! installToolFromLocalRepo "${tool_name}" "${tool_download_dir}" "${installation_root}"; then
-            echo "Failed to install ${tool_name} from local repo ${tool_download_dir}"
-            rm -rf "${tool_download_dir}"
-            return 1
-        fi
-    done
+    if ! installToolFromLocalRepo "${tool_name}" "${tool_download_dir}"; then
+        echo "Failed to install ${tool_name} from local repo ${tool_download_dir}"
+        rm -rf "${tool_download_dir}"
+        return 1
+    fi
+    if [ -n "$install_path" ]; then
+        mv $(which ${tool_name}) $install_path
+    fi
 
     # All tools installed successfully
     rm -rf "${download_root}"
     return 0
+}
+
+installKubeletKubectlFromBootstrapProfileRegistry() {
+    local registry_server=$1
+    local kubernetes_version=$2
+    for tool_name in $(get_kubernetes_tools); do
+        install_path="/usr/local/bin/${tool_name}"
+        installToolFromBootstrapProfileRegistry "${tool_name}" "${registry_server}" "${kubernetes_version}" "${install_path}" || return $ERR_ORAS_PULL_K8S_FAIL
+    done
 }
 
 installKubeletKubectlFromURL() {
