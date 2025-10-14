@@ -193,7 +193,25 @@ build_localdns_iptable_rules() {
 verify_default_route_interface() {
     if [ -z "${DEFAULT_ROUTE_INTERFACE:-}" ]; then
         echo "Unable to determine the default route interface for ${AZURE_DNS_IP}."
-        return 1
+
+        # Extracting default route interface using AzureDNSIP should work in most of the cases.
+        # But if user or some process blackholes the route to AzureDNSIP, then -
+        # Attempt to determine the default route interface using the upstream VNET DNS servers.
+        # This will typically be eth0.
+        VNET_DNS_SERVERS=$(awk '/^nameserver/ {print $2}' "$RESOLV_CONF" | paste -sd' ')
+
+        # Extract first DNS server for route determination.
+        FIRST_DNS_SERVER=$(echo "${VNET_DNS_SERVERS}" | awk '{print $1}')
+
+        if [ -n "${FIRST_DNS_SERVER}" ] && [ "${FIRST_DNS_SERVER}" != "${LOCALDNS_NODE_LISTENER_IP}" ]; then
+            echo "Using upstream VNET DNS server: ${FIRST_DNS_SERVER} to determine default route interface."
+            DEFAULT_ROUTE_INTERFACE="$(ip -j route get "${FIRST_DNS_SERVER}" 2>/dev/null | jq -r 'if type == "array" and length > 0 then .[0].dev else empty end')"
+        fi
+
+        if [ -z "${DEFAULT_ROUTE_INTERFACE:-}" ]; then
+            echo "Unable to determine the default route interface using fallback method with ${FIRST_DNS_SERVER}."
+            return 1
+        fi
     fi
     return 0
 }
