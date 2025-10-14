@@ -1,0 +1,12 @@
+[Unit]
+Description=Node Problem Detector
+Documentation=https://github.com/kubernetes/node-problem-detector
+
+[Service]
+ExecStart=node-problem-detector-startup.sh
+
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

@@ -183,6 +183,16 @@ testPackagesInstalled() {
     return
   fi
   CPU_ARCH="amd64"
+  # packages.microsoft.com for npd uses x86_64 instead of amd64 in some cases.
+  # I don't make the rules on their silly naming inconsistencies.
+  # components.json accounts for when to CPU_ARCH and when to CPU_ARCH_NPD
+  CPU_ARCH_NPD=$(
+    if [ "$CPU_ARCH" = "amd64" ]; then
+      echo "x86_64"
+    else
+      echo "$CPU_ARCH"
+    fi
+  )
   echo "$test:Start"
   packages=$(jq ".Packages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
 
