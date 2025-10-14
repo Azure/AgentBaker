@@ -584,6 +584,8 @@ EOF
         else
           dpkg -i "/tmp/${LOCAL_REPO_FILENAME}"
         fi
+
+        apt update
       fi
     fi
 
