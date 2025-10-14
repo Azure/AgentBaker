@@ -394,21 +394,8 @@ ensureTeleportd() {
 }
 
 ensureArtifactStreaming() {
-  systemctlEnableAndStart acr-mirror 30
-  sudo /opt/acr/tools/overlaybd/install.sh
-  sudo /opt/acr/tools/overlaybd/config-user-agent.sh azure
-  sudo /opt/acr/tools/overlaybd/enable-http-auth.sh
-  sudo /opt/acr/tools/overlaybd/config.sh download.enable false
-  sudo /opt/acr/tools/overlaybd/config.sh cacheConfig.cacheSizeGB 32
-  sudo /opt/acr/tools/overlaybd/config.sh exporterConfig.enable true
-  sudo /opt/acr/tools/overlaybd/config.sh exporterConfig.port 9863
-  modprobe target_core_user
-  curl -X PUT 'localhost:8578/config?ns=_default&enable_suffix=azurecr.io&stream_format=overlaybd' -O
-  systemctl link /opt/overlaybd/overlaybd-tcmu.service
-  systemctl link /opt/overlaybd/snapshotter/overlaybd-snapshotter.service
-  systemctlEnableAndStart overlaybd-tcmu.service 30
-  systemctlEnableAndStart overlaybd-snapshotter.service 30
-
+  retrycmd_if_failure 120 5 25 time systemctl --quiet enable --now  acr-mirror overlaybd-tcmu overlaybd-snapshotter
+  time /opt/acr/bin/acr-config --enable-containerd 'azurecr.io'
 }
 
 ensureDocker() {

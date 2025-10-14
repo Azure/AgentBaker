@@ -503,7 +503,7 @@ installAndConfigureArtifactStreaming() {
   # arguments: package name, package extension
   PACKAGE_NAME=$1
   PACKAGE_EXTENSION=$2
-  MIRROR_PROXY_VERSION='0.2.13'
+  MIRROR_PROXY_VERSION='0.2.14'
   MIRROR_DOWNLOAD_PATH="./$1.$2"
   MIRROR_PROXY_URL="https://acrstreamingpackage.z5.web.core.windows.net/${MIRROR_PROXY_VERSION}/${PACKAGE_NAME}.${PACKAGE_EXTENSION}"
   retrycmd_curl_file 10 5 60 $MIRROR_DOWNLOAD_PATH $MIRROR_PROXY_URL || exit ${ERR_ARTIFACT_STREAMING_DOWNLOAD}
@@ -513,6 +513,15 @@ installAndConfigureArtifactStreaming() {
     dnf_install 30 1 600 $MIRROR_DOWNLOAD_PATH || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD
   fi
   rm $MIRROR_DOWNLOAD_PATH
+
+  /opt/acr/tools/overlaybd/install.sh
+  /opt/acr/tools/overlaybd/config-user-agent.sh azure
+  /opt/acr/tools/overlaybd/enable-http-auth.sh
+  /opt/acr/tools/overlaybd/config.sh download.enable false
+  /opt/acr/tools/overlaybd/config.sh cacheConfig.cacheSizeGB 32
+  /opt/acr/tools/overlaybd/config.sh exporterConfig.enable true
+  /opt/acr/tools/overlaybd/config.sh exporterConfig.port 9863
+  systemctl link /opt/overlaybd/overlaybd-tcmu.service /opt/overlaybd/snapshotter/overlaybd-snapshotter.service
 }
 
 UBUNTU_MAJOR_VERSION=$(echo $UBUNTU_RELEASE | cut -d. -f1)
@@ -528,6 +537,8 @@ elif [ "$OS" = "$MARINER_OS_NAME" ] && [ "$OS_VERSION" = "3.0" ] && [ "$(isARM64
   installAndConfigureArtifactStreaming acr-mirror-azurelinux3 rpm
 fi
 
+capture_benchmark "${SCRIPT_NAME}_install_artifact_streaming"
+
 # k8s will use images in the k8s.io namespaces - create it
 ctr namespace create k8s.io
 cliTool="ctr"
@@ -535,7 +546,7 @@ cliTool="ctr"
 
 INSTALLED_RUNC_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
 echo "  - runc version ${INSTALLED_RUNC_VERSION}" >> ${VHD_LOGS_FILEPATH}
-capture_benchmark "${SCRIPT_NAME}_configure_artifact_streaming_and_install_crictl"
+capture_benchmark "${SCRIPT_NAME}_install_crictl"
 
 GPUContainerImages=$(jq  -c '.GPUContainerImages[]' $COMPONENTS_FILEPATH)
 
