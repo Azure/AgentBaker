@@ -585,6 +585,9 @@ EOF
           dpkg -i "/tmp/${LOCAL_REPO_FILENAME}"
         fi
 
+        # Disable the online repository
+        mv /etc/apt/sources.list.d/doca-net.list /etc/apt/sources.list.d/doca-net.list.disabled
+
         apt update
       fi
     fi
