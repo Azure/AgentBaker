@@ -15,8 +15,12 @@ copyPackerFiles() {
   SSHD_CONFIG_DEST=/etc/ssh/sshd_config
   MODPROBE_CIS_SRC=/home/packer/modprobe-CIS.conf
   MODPROBE_CIS_DEST=/etc/modprobe.d/CIS.conf
+  FAILLOCK_CONF_SRC=/home/packer/faillock-CIS.conf
+  FAILLOCK_CONF_DEST=/etc/security/faillock.conf
   PWQUALITY_CONF_SRC=/home/packer/pwquality-CIS.conf
   PWQUALITY_CONF_DEST=/etc/security/pwquality.conf
+  PAM_D_COMMON_ACCOUNT_SRC=/home/packer/pam-d-common-account
+  PAM_D_COMMON_ACCOUNT_DEST=/etc/pam.d/common-account
   PAM_D_COMMON_AUTH_SRC=/home/packer/pam-d-common-auth
   PAM_D_COMMON_AUTH_DEST=/etc/pam.d/common-auth
   PAM_D_COMMON_PASSWORD_SRC=/home/packer/pam-d-common-password
@@ -316,7 +320,7 @@ copyPackerFiles() {
   cpAndMode $AKS_CHECK_NETWORK_SCRIPT_SRC $AKS_CHECK_NETWORK_SCRIPT_DEST 755
   cpAndMode $AKS_CHECK_NETWORK_SERVICE_SRC $AKS_CHECK_NETWORK_SERVICE_DEST 644
 
-  if [ ${UBUNTU_RELEASE} = "22.04" ]; then
+  if [ ${UBUNTU_RELEASE} = "22.04" ] || [ ${UBUNTU_RELEASE} = "24.04" ]; then
     PAM_D_COMMON_AUTH_SRC=/home/packer/pam-d-common-auth-2204
   fi
 
@@ -372,6 +376,8 @@ copyPackerFiles() {
   else
     cpAndMode $DOCKER_CLEAR_MOUNT_PROPAGATION_FLAGS_SRC $DOCKER_CLEAR_MOUNT_PROPAGATION_FLAGS_DEST 644
     cpAndMode $NVIDIA_MODPROBE_SERVICE_SRC $NVIDIA_MODPROBE_SERVICE_DEST 644
+    cpAndMode $FAILLOCK_CONF_SRC $FAILLOCK_CONF_DEST 600
+    cpAndMode $PAM_D_COMMON_ACCOUNT_SRC $PAM_D_COMMON_ACCOUNT_DEST 644
     cpAndMode $PAM_D_COMMON_AUTH_SRC $PAM_D_COMMON_AUTH_DEST 644
     cpAndMode $PAM_D_COMMON_PASSWORD_SRC $PAM_D_COMMON_PASSWORD_DEST 644
     cpAndMode $USU_SH_SRC $USU_SH_DEST 544

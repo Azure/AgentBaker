@@ -390,6 +390,11 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/faillock-CIS.conf",
+      "destination": "/home/packer/faillock-CIS.conf"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/pwquality-CIS.conf",
       "destination": "/home/packer/pwquality-CIS.conf"
     },
@@ -402,6 +407,11 @@
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/pam-d-common-auth",
       "destination": "/home/packer/pam-d-common-auth"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/pam-d-common-account",
+      "destination": "/home/packer/pam-d-common-account"
     },
     {
       "type": "file",
