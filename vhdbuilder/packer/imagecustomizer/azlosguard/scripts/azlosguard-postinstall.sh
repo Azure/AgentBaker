@@ -6,7 +6,6 @@ VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 
 required_env_vars=(
     "IMG_SKU"
-    "CONTAINER_RUNTIME"
     "SKU_NAME"
 )
 

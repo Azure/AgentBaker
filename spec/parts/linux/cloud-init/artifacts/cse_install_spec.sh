@@ -17,7 +17,6 @@ Describe 'cse_install.sh'
         logs_to_events() {
             echo "mock logs to events calling with $1"
         }
-        NEEDS_CONTAINERD="true"
         COMPONENTS_FILEPATH="spec/parts/linux/cloud-init/artifacts/test_components.json"
         It 'returns expected output for successful installation of fake containerd in UBUNTU 20.04'
             UBUNTU_RELEASE="20.04"

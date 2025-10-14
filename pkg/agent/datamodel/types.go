@@ -1532,21 +1532,6 @@ func (k *KubernetesConfig) IsAddonDisabled(addonName string) bool {
 	return kubeAddon.IsDisabled()
 }
 
-// NeedsContainerd returns whether or not we need the containerd runtime configuration.
-// E.g., kata configuration requires containerd config.
-func (k *KubernetesConfig) NeedsContainerd() bool {
-	return strings.EqualFold(k.ContainerRuntime, KataContainers) || strings.EqualFold(k.ContainerRuntime, Containerd)
-}
-
-// RequiresDocker returns if the kubernetes settings require docker binary to be installed.
-func (k *KubernetesConfig) RequiresDocker() bool {
-	if k == nil {
-		return false
-	}
-
-	return strings.EqualFold(k.ContainerRuntime, Docker) || k.ContainerRuntime == ""
-}
-
 // IsAADPodIdentityEnabled checks if the AAD pod identity addon is enabled.
 func (k *KubernetesConfig) IsAADPodIdentityEnabled() bool {
 	return k.IsAddonEnabled(AADPodIdentityAddonName)
