@@ -202,9 +202,17 @@ func getCustomCACertsStatus(customCACerts []string) bool {
 	return len(customCACerts) > 0
 }
 
-func getEnableSecureTLSBootstrapping(bootstrapConfig *aksnodeconfigv1.BootstrappingConfig) bool {
-	// TODO: Change logic to default to true once Secure TLS Bootstrapping is complete
+func getEnableSecureTLSBootstrap(bootstrapConfig *aksnodeconfigv1.BootstrappingConfig) bool {
+	// TODO: Change logic to default to false once Secure TLS Bootstrapping is complete
 	return bootstrapConfig.GetBootstrappingAuthMethod() == aksnodeconfigv1.BootstrappingAuthMethod_BOOTSTRAPPING_AUTH_METHOD_SECURE_TLS_BOOTSTRAPPING
+}
+
+func getTLSBootstrapToken(bootstrapConfig *aksnodeconfigv1.BootstrappingConfig) string {
+	return bootstrapConfig.GetTlsBootstrappingToken()
+}
+
+func getCustomSecureTLSBootstrapAADServerAppID(bootstrapConfig *aksnodeconfigv1.BootstrappingConfig) string {
+	return bootstrapConfig.GetCustomAadResource()
 }
 
 func getEnsureNoDupePromiscuousBridge(nc *aksnodeconfigv1.NetworkConfig) bool {
