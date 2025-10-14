@@ -547,7 +547,7 @@ installK8sToolsFromBootstrapProfileRegistry() {
 
         echo "Attempting to pull ${tool_name} package from ${tool_package_url} with platform ${platform_flag}"
         # retrycmd_pull_from_registry_with_oras will pull all artifacts to the directory with platform selection
-        if ! retrycmd_pull_from_registry_with_oras 10 5 "${tool_download_dir}" "${tool_package_url}" "\"${platform_flag}\""; then
+        if ! retrycmd_pull_from_registry_with_oras 10 5 "${tool_download_dir}" "${tool_package_url}" "${platform_flag}"; then
             echo "Failed to pull ${tool_name} package from registry"
             rm -rf "${tool_download_dir}"
             return 1

@@ -328,7 +328,6 @@ retrycmd_curl_file() {
 retrycmd_pull_from_registry_with_oras() {
     pull_retries=$1; wait_sleep=$2; target_folder=$3; url=$4
     shift 4  # Remove first 4 parameters, remaining parameters are extra oras flags
-    extra_flags="$*"
     echo "${pull_retries} retries"
     for i in $(seq 1 $pull_retries); do
         if [ "$i" -eq "$pull_retries" ]; then
@@ -337,7 +336,7 @@ retrycmd_pull_from_registry_with_oras() {
         if [ "$i" -gt 1 ]; then
             sleep $wait_sleep
         fi
-        timeout 60 oras pull $url -o $target_folder --registry-config ${ORAS_REGISTRY_CONFIG_FILE} $extra_flags > $ORAS_OUTPUT 2>&1
+        timeout 60 oras pull "$url" -o "$target_folder" --registry-config "${ORAS_REGISTRY_CONFIG_FILE}" "$@" > $ORAS_OUTPUT 2>&1
         if [ "$?" -eq 0 ]; then
             return 0
         else

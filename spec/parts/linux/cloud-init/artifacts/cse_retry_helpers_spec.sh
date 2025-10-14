@@ -301,6 +301,25 @@ Describe 'long running cse helper functions'
             End
         End
 
+
+        Describe 'retrycmd_pull_from_registry_with_oras'
+            It "passes extra flags correctly to oras command"
+                # Test that the function handles extra arguments and passes them to oras
+                # We can't easily mock oras in shellspec context, but we can verify the command construction
+                # by checking that the function attempts to call oras with the expected network error
+                # which indicates the arguments were passed through correctly
+
+                When call retrycmd_pull_from_registry_with_oras 2 1 "/tmp/test_dir" "dummy.registry/binary:v1" "--platform=test platform a b c d e"
+
+                # The function should fail due to network issues (expected behavior with dummy registry)
+                The status should eq 1
+                # Should show retry attempts
+                The stdout should include "2 retries"
+                # Should show network error indicating oras was called with arguments
+                The stdout should not include "requires exactly 1 argument but got"
+            End
+        End
+
         Describe 'retrycmd_internal cse global timeout'
             It "returns 2 and times out when retrycmd_internal exceeds the CSE timeout"
                 timeout() {
