@@ -51,14 +51,14 @@ _apt_get_install() {
     local wait_sleep=$2
     local apt_opts=$3
     shift && shift && shift
-    local packages=("$@")
+    local packages=$@
 
     for i in $(seq 1 $retries); do
         wait_for_apt_locks
         export DEBIAN_FRONTEND=noninteractive
         dpkg --configure -a --force-confdef
 
-        if apt-get install ${apt_opts} -y "${packages[@]}"; then
+        if apt-get install ${apt_opts} -o Dpkg::Options::="--force-confold" --no-install-recommends "${packages[@]}"; then
             echo "Executed apt-get install \"${packages[@]}\" $i times"
             wait_for_apt_locks
             return 0
@@ -74,7 +74,7 @@ _apt_get_install() {
 }
 apt_get_install() {
     retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
-    _apt_get_install $retries $wait_sleep '--no-install-recommends -o Dpkg::Options::="--force-confold"' "$@"
+    _apt_get_install $retries $wait_sleep "-y" "$@"
 }
 apt_get_purge() {
     retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
