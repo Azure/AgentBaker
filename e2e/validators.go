@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/blang/semver"
 	"github.com/tidwall/gjson"
 
 	"github.com/Azure/agentbaker/e2e/config"
@@ -677,15 +676,11 @@ func ValidateNPDIBLinkFlappingAfterFailure(ctx context.Context, s *Scenario) {
 	require.Contains(s.T, ibLinkFlappingCondition.Message, expectedMessage, "expected IBLinkFlapping message to indicate flapping")
 }
 
-func ValidateRuncVersion(ctx context.Context, s *Scenario, versions []string) {
+func ValidateRunc12Properties(ctx context.Context, s *Scenario, versions []string) {
 	s.T.Helper()
 	require.Lenf(s.T, versions, 1, "Expected exactly one version for moby-runc but got %d", len(versions))
-	// check if versions[0] is great than or equal to 1.2.0
-	// check semantic version
-	semver, err := semver.ParseTolerant(versions[0])
-	require.NoError(s.T, err, "failed to parse semver from moby-runc version")
-	require.GreaterOrEqual(s.T, int(semver.Major), 1, "expected moby-runc major version to be at least 1, got %d", semver.Major)
-	require.GreaterOrEqual(s.T, int(semver.Minor), 2, "expected moby-runc minor version to be at least 2, got %d", semver.Minor)
+	// assert versions[0] value starts with '1.2.'
+	require.Truef(s.T, strings.HasPrefix(versions[0], "1.2."), "expected moby-runc version to start with '1.2.', got %v", versions[0])
 	ValidateInstalledPackageVersion(ctx, s, "moby-runc", versions[0])
 }
 
@@ -1003,6 +998,7 @@ func ValidateNodeAdvertisesGPUResources(ctx context.Context, s *Scenario) {
 
 	s.T.Logf("node %s advertises %d nvidia.com/gpu resources", nodeName, gpuCount)
 }
+
 
 func ValidateGPUWorkloadSchedulable(ctx context.Context, s *Scenario) {
 	s.T.Helper()
