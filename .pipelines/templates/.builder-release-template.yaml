@@ -132,6 +132,7 @@ steps:
       BUILD_LOCATION="$(cat vhdbuilder/packer/settings.json | grep "location" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
       ARTIFACT_ID=$(date +%s) && \
       echo "##vso[task.setvariable variable=ARTIFACT_ID]${ARTIFACT_ID}" && \
+      echo "##vso[task.setvariable variable=IMAGE_VERSION]${IMAGE_VERSION}" && \
       echo "##vso[task.setvariable variable=PACKER_BUILD_LOCATION]${BUILD_LOCATION}" && \
       echo "##vso[task.setvariable variable=PACKER_VNET_RESOURCE_GROUP_NAME]${PACKER_VNET_RESOURCE_GROUP_NAME}" && \
       echo "##vso[task.setvariable variable=PACKER_VNET_NAME]${PACKER_VNET_NAME}" && \

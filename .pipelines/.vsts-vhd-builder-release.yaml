@@ -200,7 +200,19 @@ variables:
   - group: build_performance
   - group: aks-vuln-to-kusto-tme
 stages:
+  - stage: prep
+    displayName: Set Image Version
+    jobs:
+    - job: setImageVersion
+      steps:
+      - bash: |
+          imageVersion=$(date +%Y%m.%d.0)
+          echo "##vso[task.setvariable variable=IMAGE_VERSION;isOutput=true]$imageVersion"
+        name: setImageVersion
   - stage: build
+    dependsOn: prep
+    variables:
+      imageVersion: $[ stageDependencies.prep.setImageVersion.outputs['setImageVersion.IMAGE_VERSION'] ]
     jobs:
       - job: buildMarinerV2gen1
         condition: eq('${{ parameters.buildMarinerV2gen1 }}', true)
@@ -221,6 +233,7 @@ stages:
               echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
               echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]False'
+              echo '##vso[task.setvariable variable=IMAGE_VERSION]$(imageVersion)'
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
@@ -246,6 +259,7 @@ stages:
               echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
               echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
+              echo '##vso[task.setvariable variable=IMAGE_VERSION]$(imageVersion)'
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
@@ -272,6 +286,7 @@ stages:
               echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
               echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
+              echo '##vso[task.setvariable variable=IMAGE_VERSION]$(imageVersion)'
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
@@ -296,6 +311,7 @@ stages:
               echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
               echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]False'
+              echo '##vso[task.setvariable variable=IMAGE_VERSION]$(imageVersion)'
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
@@ -322,6 +338,7 @@ stages:
               echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
               echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
+              echo '##vso[task.setvariable variable=IMAGE_VERSION]$(imageVersion)'
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
@@ -1063,6 +1080,7 @@ stages:
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
               echo '##vso[task.setvariable variable=ENABLE_FIPS]False'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
+              echo '##vso[task.setvariable variable=IMAGE_VERSION]$(imageVersion)'
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
