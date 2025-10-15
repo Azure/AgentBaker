@@ -1150,7 +1150,7 @@ startNvidiaManagedExpServices() {
 [Service]
 Environment="MIG_STRATEGY=--mig-strategy single"
 ExecStart=
-ExecStart=/usr/local/bin/nvidia-device-plugin $MIG_STRATEGY
+ExecStart=/usr/bin/nvidia-device-plugin $MIG_STRATEGY
 EOF
         # Reload systemd to pick up the base path override
         systemctl daemon-reload
