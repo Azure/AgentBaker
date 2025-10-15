@@ -198,6 +198,7 @@ installKubeletKubectlPkgFromPMC() {
 installToolFromLocalRepo() {
     local tool_name=$1
     local tool_download_dir=$2
+    local installation_root=$3
 
     # Verify the download directory exists and contains repository metadata
     if [ ! -d "${tool_download_dir}" ]; then
@@ -212,7 +213,7 @@ installToolFromLocalRepo() {
     fi
 
     echo "Installing ${tool_name} from local repository at ${tool_download_dir}..."
-    if ! apt_get_install_from_local_repo "${tool_download_dir}" "${tool_name}"; then
+    if ! apt_get_install_from_local_repo "${tool_download_dir}" "${tool_name}" "${installation_root}"; then
         echo "Failed to install ${tool_name} from local repository"
         return 1
     fi
@@ -450,6 +451,31 @@ ensureRunc() {
     fi
     echo "No cached runc deb file is found. Using apt-get to install runc."
     apt_get_install 20 30 120 moby-runc=${TARGET_VERSION}* --allow-downgrades || exit $ERR_RUNC_INSTALL_TIMEOUT
+}
+
+getOsVersion() {
+    # Ubuntu-specific implementation using lsb_release or DISTRIB_RELEASE
+    if [ -n "$UBUNTU_RELEASE" ]; then
+        echo "$UBUNTU_RELEASE"
+        return
+    fi
+
+    # Try lsb_release first
+    local version=$(lsb_release -r -s 2>/dev/null || echo "")
+    if [ -n "$version" ]; then
+        echo "$version"
+        return
+    fi
+
+    # Fallback to DISTRIB_RELEASE
+    local distrib_release=$(grep DISTRIB_RELEASE /etc/*-release 2>/dev/null | cut -f 2 -d "=" | head -n1)
+    if [ -n "$distrib_release" ]; then
+        echo "$distrib_release"
+        return
+    fi
+
+    # Default fallback
+    echo "current"
 }
 
 #EOF

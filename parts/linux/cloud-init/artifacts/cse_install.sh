@@ -539,7 +539,7 @@ installK8sToolsFromBootstrapProfileRegistry() {
         mkdir -p "${tool_download_dir}"
 
         # Construct platform string for ORAS pull
-        os_version=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=") # todo: OS_VARIANT not working for ubuntu
+        os_version=$(getOsVersion) || return 1 # Platform-specific OS version detection
         platform_flag="--platform=linux/${CPU_ARCH}:${OS,,} ${os_version}"
 
         echo "Attempting to pull ${tool_name} package from ${tool_package_url} with platform ${platform_flag}"
@@ -553,7 +553,8 @@ installK8sToolsFromBootstrapProfileRegistry() {
         echo "Successfully pulled ${tool_name} package"
 
         # Try to install using distro-specific package installer from local repo
-        if ! installToolFromLocalRepo "${tool_name}" "${tool_download_dir}"; then
+        installation_root="/usr/local/bin"
+        if ! installToolFromLocalRepo "${tool_name}" "${tool_download_dir}" "${installation_root}"; then
             echo "Failed to install ${tool_name} from local repo ${tool_download_dir}"
             rm -rf "${tool_download_dir}"
             return 1
@@ -793,6 +794,33 @@ datasource:
     Azure:
         apply_network_config: false
 EOF
+}
+
+getOsVersion() {
+    # Default implementation for Ubuntu using DISTRIB_RELEASE
+    if [ -n "$UBUNTU_RELEASE" ]; then
+        echo "$UBUNTU_RELEASE"
+        return
+    fi
+
+    # Fallback to parsing VERSION_ID from os-release files for other distributions
+    if ls /etc/*-release 1> /dev/null 2>&1; then
+        local version_id=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print a[2]; exit }' | tr -d '"')
+        if [ -n "$version_id" ]; then
+            echo "$version_id"
+            return
+        fi
+    fi
+
+    # Final fallback to DISTRIB_RELEASE (Ubuntu-specific)
+    local distrib_release=$(grep DISTRIB_RELEASE /etc/*-release 2>/dev/null | cut -f 2 -d "=" | head -n1)
+    if [ -n "$distrib_release" ]; then
+        echo "$distrib_release"
+        return
+    fi
+
+    # Default to "current" if no version can be determined
+    echo "current"
 }
 
 #EOF

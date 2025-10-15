@@ -176,7 +176,12 @@ installKubeletKubectlPkgFromPMC() {
 }
 
 installToolFromLocalRepo() {
-    echo "installToolFromLocalRepo is not yet implemented for Mariner/AzureLinux"
+    echo "installToolFromLocalRepo is not yet implemented for Mariner"
+    return 1
+}
+
+getOsVersion() {
+    echo "getOsVersion is not yet implemented for Mariner"
     return 1
 }
 
