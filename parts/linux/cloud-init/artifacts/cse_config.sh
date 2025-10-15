@@ -366,7 +366,6 @@ net.ipv6.conf.all.forwarding = 1
 net.bridge.bridge-nf-call-iptables = 1
 EOF
   retrycmd_if_failure 120 5 25 sysctl --system || exit $ERR_SYSCTL_RELOAD
-  systemctl is-active --quiet docker && (systemctl_disable 20 30 120 docker || exit $ERR_SYSTEMD_DOCKER_STOP_FAIL)
   systemctlEnableAndStart containerd 30 || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
@@ -396,26 +395,6 @@ ensureTeleportd() {
 ensureArtifactStreaming() {
   retrycmd_if_failure 120 5 25 time systemctl --quiet enable --now  acr-mirror overlaybd-tcmu overlaybd-snapshotter
   time /opt/acr/bin/acr-config --enable-containerd 'azurecr.io'
-}
-
-ensureDocker() {
-    DOCKER_SERVICE_EXEC_START_FILE=/etc/systemd/system/docker.service.d/exec_start.conf
-    usermod -aG docker ${ADMINUSER}
-    DOCKER_MOUNT_FLAGS_SYSTEMD_FILE=/etc/systemd/system/docker.service.d/clear_mount_propagation_flags.conf
-    DOCKER_JSON_FILE=/etc/docker/daemon.json
-    for i in $(seq 1 1200); do
-        if [ -s $DOCKER_JSON_FILE ]; then
-            jq '.' < $DOCKER_JSON_FILE && break
-        fi
-        if [ $i -eq 1200 ]; then
-            exit $ERR_FILE_WATCH_TIMEOUT
-        else
-            sleep 1
-        fi
-    done
-    systemctl is-active --quiet containerd && (systemctl_disable 20 30 120 containerd || exit $ERR_SYSTEMD_CONTAINERD_STOP_FAIL)
-    systemctlEnableAndStart docker 30 || exit $ERR_DOCKER_START_FAIL
-
 }
 
 ensureDHCPv6() {
@@ -901,24 +880,14 @@ configAzurePolicyAddon() {
 configGPUDrivers() {
     if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
         mkdir -p /opt/{actions,gpu}
-        if [ "${CONTAINER_RUNTIME}" = "containerd" ]; then
-            ctr -n k8s.io image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
-            retrycmd_if_failure 5 10 600 bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install"
-            ret=$?
-            if [ "$ret" -ne 0 ]; then
-                echo "Failed to install GPU driver, exiting..."
-                exit $ERR_GPU_DRIVERS_START_FAIL
-            fi
-            ctr -n k8s.io images rm --sync $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
-        else
-            bash -c "$DOCKER_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG install"
-            ret=$?
-            if [ "$ret" -ne 0 ]; then
-                echo "Failed to install GPU driver, exiting..."
-                exit $ERR_GPU_DRIVERS_START_FAIL
-            fi
-            docker rmi $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
+        ctr -n k8s.io image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
+        retrycmd_if_failure 5 10 600 bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install"
+        ret=$?
+        if [ "$ret" -ne 0 ]; then
+            echo "Failed to install GPU driver, exiting..."
+            exit $ERR_GPU_DRIVERS_START_FAIL
         fi
+        ctr -n k8s.io images rm --sync $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
     elif isMarinerOrAzureLinux "$OS" && ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
         downloadGPUDrivers
         installNvidiaContainerToolkit
@@ -937,11 +906,7 @@ configGPUDrivers() {
         createNvidiaSymlinkToAllDeviceNodes
     fi
 
-    if [ "${CONTAINER_RUNTIME}" = "containerd" ]; then
-        retrycmd_if_failure 120 5 25 pkill -SIGHUP containerd || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    else
-        retrycmd_if_failure 120 5 25 pkill -SIGHUP dockerd || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    fi
+    retrycmd_if_failure 120 5 25 pkill -SIGHUP containerd || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
 }
 
 validateGPUDrivers() {
@@ -985,7 +950,10 @@ ensureGPUDrivers() {
 }
 
 disableSSH() {
+    # On ubuntu, the ssh service is named "ssh.service"
     systemctlDisableAndStop ssh || exit $ERR_DISABLE_SSH
+    # On AzureLinux, the ssh service is named "sshd.service"
+    systemctlDisableAndStop sshd || exit $ERR_DISABLE_SSH
 }
 
 configureSSHPubkeyAuth() {

@@ -1,9 +1,5 @@
 #!/bin/bash
 
-removeMoby() {
-    apt_get_purge 10 5 300 moby-engine moby-cli
-}
-
 removeContainerd() {
     apt_get_purge 10 5 300 moby-containerd
 }
@@ -288,7 +284,6 @@ installContainerdFromOverride() {
     echo "Installing containerd from user input: ${containerdOverrideDownloadURL}"
     # we'll use a user-defined containerd package to install containerd even though it's the same version as
     # the one already installed on the node considering the source is built by the user for hotfix or test
-    logs_to_events "AKS.CSE.installContainerRuntime.removeMoby" removeMoby
     logs_to_events "AKS.CSE.installContainerRuntime.removeContainerd" removeContainerd
     logs_to_events "AKS.CSE.installContainerRuntime.downloadContainerdFromURL" downloadContainerdFromURL "${containerdOverrideDownloadURL}"
     logs_to_events "AKS.CSE.installContainerRuntime.installDebPackageFromFile" "installDebPackageFromFile ${CONTAINERD_DEB_FILE}" || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
@@ -320,7 +315,6 @@ installContainerdWithAptGet() {
         echo "currently installed containerd version ${currentVersion} matches major.minor with higher patch ${containerdMajorMinorPatchVersion}. skipping installStandaloneContainerd."
     else
         echo "installing containerd version ${containerdMajorMinorPatchVersion}"
-        logs_to_events "AKS.CSE.installContainerRuntime.removeMoby" removeMoby
         logs_to_events "AKS.CSE.installContainerRuntime.removeContainerd" removeContainerd
 
         # if containerd version has been overriden then there should exist a local .deb file for it on aks VHDs (best-effort)
@@ -393,24 +387,6 @@ downloadContainerdFromURL() {
     CONTAINERD_DEB_TMP=${CONTAINERD_DOWNLOAD_URL##*/}
     retrycmd_curl_file 120 5 60 "$CONTAINERD_DOWNLOADS_DIR/${CONTAINERD_DEB_TMP}" ${CONTAINERD_DOWNLOAD_URL} || exit $ERR_CONTAINERD_DOWNLOAD_TIMEOUT
     CONTAINERD_DEB_FILE="$CONTAINERD_DOWNLOADS_DIR/${CONTAINERD_DEB_TMP}"
-}
-
-installMoby() {
-    ensureRunc ${RUNC_VERSION:-""} # RUNC_VERSION is an optional override supplied via NodeBootstrappingConfig api
-    CURRENT_VERSION=$(dockerd --version | grep "Docker version" | cut -d "," -f 1 | cut -d " " -f 3 | cut -d "+" -f 1)
-    local MOBY_VERSION="19.03.14"
-    local MOBY_CONTAINERD_VERSION="1.4.13"
-    if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${MOBY_VERSION}; then
-        echo "currently installed moby-docker version ${CURRENT_VERSION} is greater than (or equal to) target base version ${MOBY_VERSION}. skipping installMoby."
-    else
-        removeMoby
-        updateAptWithMicrosoftPkg
-        MOBY_CLI=${MOBY_VERSION}
-        if [ "${MOBY_CLI}" = "3.0.4" ]; then
-            MOBY_CLI="3.0.3"
-        fi
-        apt_get_install 20 30 120 moby-engine=${MOBY_VERSION}* moby-cli=${MOBY_CLI}* moby-containerd=${MOBY_CONTAINERD_VERSION}* --allow-downgrades || exit $ERR_MOBY_INSTALL_TIMEOUT
-    fi
 }
 
 ensureRunc() {

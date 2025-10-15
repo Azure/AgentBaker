@@ -409,7 +409,6 @@ func ValidateAndSetLinuxNodeBootstrappingConfiguration(config *datamodel.NodeBoo
 	if config.KubeletConfig == nil {
 		return
 	}
-	profile := config.AgentPoolProfile
 	kubeletFlags := config.KubeletConfig
 
 	// If using kubelet config file, disable DynamicKubeletConfig feature gate and remove dynamic-config-dir
@@ -417,19 +416,19 @@ func ValidateAndSetLinuxNodeBootstrappingConfiguration(config *datamodel.NodeBoo
 	delete(kubeletFlags, "--dynamic-config-dir")
 	delete(kubeletFlags, "--non-masquerade-cidr")
 
-	if profile != nil && profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntime == "containerd" {
-		dockerShimFlags := []string{
-			"--cni-bin-dir",
-			"--cni-cache-dir",
-			"--cni-conf-dir",
-			"--docker-endpoint",
-			"--image-pull-progress-deadline",
-			"--network-plugin",
-			"--network-plugin-mtu",
-		}
-		for _, flag := range dockerShimFlags {
-			delete(kubeletFlags, flag)
-		}
+	// Docker and dockershim were removed in Kubernetes 1.24
+	// These flags are no longer supported and should be removed for all configurations
+	dockerShimFlags := []string{
+		"--cni-bin-dir",
+		"--cni-cache-dir",
+		"--cni-conf-dir",
+		"--docker-endpoint",
+		"--image-pull-progress-deadline",
+		"--network-plugin",
+		"--network-plugin-mtu",
+	}
+	for _, flag := range dockerShimFlags {
+		delete(kubeletFlags, flag)
 	}
 
 	if IsKubeletServingCertificateRotationEnabled(config) {
@@ -783,26 +782,8 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"IsKubenet": func() bool {
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin == NetworkPluginKubenet
 		},
-		"NeedsContainerd": func() bool {
-			if profile != nil && profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntime != "" {
-				return profile.KubernetesConfig.NeedsContainerd()
-			}
-			return cs.Properties.OrchestratorProfile.KubernetesConfig.NeedsContainerd()
-		},
 		"UseRuncShimV2": func() bool {
 			return config.EnableRuncShimV2
-		},
-		"IsDockerContainerRuntime": func() bool {
-			if profile != nil && profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntime != "" {
-				return profile.KubernetesConfig.ContainerRuntime == datamodel.Docker
-			}
-			return cs.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntime == datamodel.Docker
-		},
-		"RequiresDocker": func() bool {
-			if profile != nil && profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntime != "" {
-				return profile.KubernetesConfig.RequiresDocker()
-			}
-			return cs.Properties.OrchestratorProfile.KubernetesConfig.RequiresDocker()
 		},
 		"HasDataDir": func() bool {
 			return HasDataDir(config)
