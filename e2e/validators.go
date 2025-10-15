@@ -968,12 +968,13 @@ func ValidateNvidiaDevicePluginServiceRunning(ctx context.Context, s *Scenario) 
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "NVIDIA device plugin systemd service should be active and enabled")
 }
 
-func ValidateNodeAdvertisesGPUResources(ctx context.Context, s *Scenario) {
+func ValidateNodeAdvertisesGPUResources(ctx context.Context, s *Scenario, gpuCountExpected int64) {
 	s.T.Helper()
 	s.T.Logf("validating that node advertises GPU resources")
+	resourceName := "nvidia.com/gpu"
 
 	// First, wait for the nvidia.com/gpu resource to be available
-	waitUntilResourceAvailable(ctx, s, "nvidia.com/gpu")
+	waitUntilResourceAvailable(ctx, s, resourceName)
 
 	// Get the node using the Kubernetes client from the test framework
 	nodeName := s.Runtime.KubeNodeName
@@ -981,16 +982,15 @@ func ValidateNodeAdvertisesGPUResources(ctx context.Context, s *Scenario) {
 	require.NoError(s.T, err, "failed to get node %q", nodeName)
 
 	// Check if the node advertises GPU capacity
-	gpuCapacity, exists := node.Status.Capacity["nvidia.com/gpu"]
-	require.True(s.T, exists, "node should advertise nvidia.com/gpu capacity")
+	gpuCapacity, exists := node.Status.Capacity[corev1.ResourceName(resourceName)]
+	require.True(s.T, exists, "node should advertise resource %s", resourceName)
 
 	gpuCount := gpuCapacity.Value()
-	require.Greater(s.T, gpuCount, int64(0), "node should advertise at least 1 GPU, but got %d", gpuCount)
-
-	s.T.Logf("node %s advertises %d nvidia.com/gpu resources", nodeName, gpuCount)
+	require.Equal(s.T, gpuCount, gpuCountExpected, "node should advertise %s=%d, but got %s=%d", resourceName, gpuCountExpected, resourceName, gpuCount)
+	s.T.Logf("node %s advertises %s=%d resources", nodeName, resourceName, gpuCount)
 }
 
-func ValidateGPUWorkloadSchedulable(ctx context.Context, s *Scenario) {
+func ValidateGPUWorkloadSchedulable(ctx context.Context, s *Scenario, gpuCount int) {
 	s.T.Helper()
 	s.T.Logf("validating that GPU workloads can be scheduled")
 
@@ -1014,7 +1014,7 @@ func ValidateGPUWorkloadSchedulable(ctx context.Context, s *Scenario) {
 					},
 					Resources: corev1.ResourceRequirements{
 						Limits: corev1.ResourceList{
-							"nvidia.com/gpu": resource.MustParse("1"),
+							"nvidia.com/gpu": resource.MustParse(fmt.Sprintf("%d", gpuCount)),
 						},
 					},
 				},
