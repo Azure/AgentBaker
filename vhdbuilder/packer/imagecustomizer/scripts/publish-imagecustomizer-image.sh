@@ -20,6 +20,8 @@ required_env_vars=(
     "PACKER_BUILD_LOCATION"
     "GENERATE_PUBLISHING_INFO"
 )
+echo "Contents of OUT_DIR (${OUT_DIR}):"
+ls -l "${OUT_DIR}"
 
 # Optional env vars for UEFI secure boot
 optional_env_vars=(
@@ -127,8 +129,8 @@ SIG_CREATE_CMD="az sig image-version create \
     --tags \"buildDefinitionName=${BUILD_DEFINITION_NAME}\" \"buildNumber=${BUILD_NUMBER}\" \"buildId=${BUILD_ID}\" \"SkipLinuxAzSecPack=true\" \"os=Linux\" \"now=${CREATE_TIME}\" \"createdBy=aks-vhd-pipeline\" \"image_sku=${IMG_SKU}\" \"branch=${BRANCH}\" \
     --target-regions ${TARGET_REGIONS}"
 
-# Convert PEM certificate to base64 DER format if ca_cert.pem exists
-CERT_FILE="${OUT_DIR}/ca_cert.pem"
+# Convert PEM certificate to base64 DER format if ca-cert.pem exists
+CERT_FILE="${OUT_DIR}/ca-cert.pem"
 if [ -f "$CERT_FILE" ]; then
     echo "Found certificate file at $CERT_FILE, converting PEM to base64 DER format"
     
