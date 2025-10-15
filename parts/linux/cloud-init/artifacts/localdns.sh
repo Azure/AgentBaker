@@ -12,7 +12,7 @@ ERR_LOCALDNS_COREFILE_NOTFOUND=217 # Localdns corefile not found.
 ERR_LOCALDNS_SLICEFILE_NOTFOUND=218 # Localdns slicefile not found.
 ERR_LOCALDNS_BINARY_ERR=219 # Localdns binary not found or not executable.
 
-# Global constants used in this file. 
+# Global constants used in this file.
 # -------------------------------------------------------------------------------------------------
 # Localdns script path.
 LOCALDNS_SCRIPT_PATH="/opt/azure/containers/localdns"
@@ -63,7 +63,7 @@ HEALTH_CHECK_DNS_REQUEST=$'health-check.localdns.local @'"${LOCALDNS_NODE_LISTEN
 
 START_LOCALDNS_TIMEOUT=10
 
-# Function definitions used in this file. 
+# Function definitions used in this file.
 # functions defined until "${__SOURCED__:+return}" are sourced and tested in -
 # spec/parts/linux/cloud-init/artifacts/localdns_spec.sh.
 # -------------------------------------------------------------------------------------------------
@@ -153,7 +153,7 @@ replace_azurednsip_in_corefile() {
         echo "Replacing Azure DNS IP ${AZURE_DNS_IP} with upstream VNET DNS servers ${UPSTREAM_VNET_DNS_SERVERS} in corefile ${UPDATED_LOCALDNS_CORE_FILE}"
         sed -i -e "s|${AZURE_DNS_IP}|${UPSTREAM_VNET_DNS_SERVERS}|g" "${UPDATED_LOCALDNS_CORE_FILE}" || {
             echo "Replacing AzureDNSIP in corefile failed."
-            return 1 
+            return 1
         }
         echo "Successfully updated ${UPDATED_LOCALDNS_CORE_FILE}"
     else
@@ -193,7 +193,25 @@ build_localdns_iptable_rules() {
 verify_default_route_interface() {
     if [ -z "${DEFAULT_ROUTE_INTERFACE:-}" ]; then
         echo "Unable to determine the default route interface for ${AZURE_DNS_IP}."
-        return 1
+
+        # Extracting default route interface using AzureDNSIP should work in most of the cases.
+        # But if user or some process blackholes the route to AzureDNSIP, then -
+        # Attempt to determine the default route interface using the upstream VNET DNS servers.
+        # This will typically be eth0.
+        VNET_DNS_SERVERS=$(awk '/^nameserver/ {print $2}' "$RESOLV_CONF" | paste -sd' ')
+
+        # Extract first DNS server for route determination.
+        FIRST_DNS_SERVER=$(echo "${VNET_DNS_SERVERS}" | awk '{print $1}')
+
+        if [ -n "${FIRST_DNS_SERVER}" ] && [ "${FIRST_DNS_SERVER}" != "${LOCALDNS_NODE_LISTENER_IP}" ]; then
+            echo "Using upstream VNET DNS server: ${FIRST_DNS_SERVER} to determine default route interface."
+            DEFAULT_ROUTE_INTERFACE="$(ip -j route get "${FIRST_DNS_SERVER}" 2>/dev/null | jq -r 'if type == "array" and length > 0 then .[0].dev else empty end')"
+        fi
+
+        if [ -z "${DEFAULT_ROUTE_INTERFACE:-}" ]; then
+            echo "Unable to determine the default route interface using fallback method with ${FIRST_DNS_SERVER}."
+            return 1
+        fi
     fi
     return 0
 }
@@ -218,6 +236,45 @@ verify_network_dropin_dir() {
         echo "Network drop-in directory does not exist."
         return 1
     fi
+    return 0
+}
+
+# Initialize network variables that may not be set during restarts or cleanup traps.
+# This function can be called both during startup and in cleanup functions to ensure variables are available.
+initialize_network_variables() {
+    # Determine the default route interface if not already set.
+    # This will typically be eth0.
+    if [ -z "${DEFAULT_ROUTE_INTERFACE:-}" ]; then
+        DEFAULT_ROUTE_INTERFACE="$(ip -j route get "${AZURE_DNS_IP}" 2>/dev/null | jq -r 'if type == "array" and length > 0 then .[0].dev else empty end')"
+        if ! verify_default_route_interface; then
+            echo "Failed to determine default route interface during variable initialization."
+            return 1
+        fi
+    fi
+
+    # Get the network file associated with the default route interface if not already set.
+    # This will typically be /run/systemd/network/10-netplan-eth0.network.
+    if [ -z "${NETWORK_FILE:-}" ]; then
+        NETWORK_FILE="$(networkctl --json=short status "${DEFAULT_ROUTE_INTERFACE}" 2>/dev/null | jq -r '.NetworkFile')"
+        if ! verify_network_file; then
+            echo "Failed to determine network file during variable initialization."
+            return 1
+        fi
+    fi
+
+    # Get the network drop-in directory.
+    # This will typically be /run/systemd/network/10-netplan-eth0.network.d
+    if [ -z "${NETWORK_DROPIN_DIR:-}" ]; then
+        NETWORK_DROPIN_DIR="/run/systemd/network/${NETWORK_FILE##*/}.d"
+    fi
+
+    # Set the network drop-in file path if not already set.
+    # 70-localdns.conf file is written later in disable_dhcp_use_clusterlistener function.
+    # disable_dhcp_use_clusterlistener function is called after the cleanup function.
+    if [ -z "${NETWORK_DROPIN_FILE:-}" ]; then
+        NETWORK_DROPIN_FILE="${NETWORK_DROPIN_DIR}/70-localdns.conf"
+    fi
+
     return 0
 }
 
@@ -325,12 +382,22 @@ EOF
 
 # Remove iptables rules and revert DNS configuration.
 cleanup_iptables_and_dns() {
+    # Ensure network variables are initialized if not already set.
+    # This is needed here because this function can be called from cleanup traps or systemd restarts initiated by watchdog.
+    if [ -z "${NETWORK_DROPIN_FILE:-}" ] || [ -z "${NETWORK_DROPIN_DIR:-}" ]; then
+        echo "Network variables not initialized, attempting to determine them..."
+        if ! initialize_network_variables; then
+            echo "Failed to initialize network variables during cleanup."
+            return 1
+        fi
+    fi
+
     # Remove any existing localdns iptables rules by searching for our comment.
     echo "Cleaning up any existing localdns iptables rules..."
-    
+
     # Get list of existing localdns rules by searching for our comment.
     existing_rules=$(iptables -w -t raw -L --line-numbers -n | grep "localdns: skip conntrack" | awk '{print $1}' | sort -nr)
-    
+
     if [ -n "$existing_rules" ]; then
         echo "Found existing localdns iptables rules, removing them..."
         failure_occurred=false
@@ -353,20 +420,23 @@ cleanup_iptables_and_dns() {
         echo "No existing localdns iptables rules found."
     fi
 
-    # Revert the changes made to the DNS configuration if present.
-    if [ -n "${NETWORK_DROPIN_FILE:-}" ] && [ -f "${NETWORK_DROPIN_FILE}" ]; then
-        echo "Reverting DNS configuration by removing ${NETWORK_DROPIN_FILE}."
-        rm -f "$NETWORK_DROPIN_FILE"
-        if [ "$?" -ne 0 ]; then
-            echo "Failed to remove network drop-in file ${NETWORK_DROPIN_FILE}."
-            return 1
-        fi        
-        eval "$NETWORKCTL_RELOAD_CMD"
-        if [ "$?" -ne 0 ]; then
-            echo "Failed to reload network after removing the DNS configuration."
-            return 1
-        fi
+    # Revert DNS configuration and network reload.
+    echo "Removing network drop-in file ${NETWORK_DROPIN_FILE}."
+    rm -f "$NETWORK_DROPIN_FILE"
+    if [ "$?" -ne 0 ]; then
+        echo "Failed to remove network drop-in file ${NETWORK_DROPIN_FILE}."
+        return 1
     fi
+    echo "Successfully removed network drop-in file."
+
+    echo "Attempt to reload network configuration."
+    eval "$NETWORKCTL_RELOAD_CMD"
+    if [ "$?" -ne 0 ]; then
+        echo "Failed to reload network after removing the DNS configuration."
+        return 1
+    fi
+    echo "Reloading network configuration succeeded."
+
     return 0
 }
 
@@ -374,7 +444,7 @@ cleanup_iptables_and_dns() {
 cleanup_localdns_configs() {
     # Disable error handling so that we don't get into a recursive loop.
     set +e
-    
+
     # Remove iptables rules and revert DNS configuration
     cleanup_iptables_and_dns || return 1
 
@@ -469,6 +539,10 @@ verify_localdns_slicefile || exit $ERR_LOCALDNS_SLICEFILE_NOTFOUND
 # /opt/azure/containers/localdns/binary/coredns.
 verify_localdns_binary || exit $ERR_LOCALDNS_BINARY_ERR
 
+# Set required network environment variables.
+# ---------------------------------------------------------------------------------------------------------------------
+initialize_network_variables || exit $ERR_LOCALDNS_FAIL
+
 # Clean up any existing iptables rules and DNS configuration before starting.
 # ---------------------------------------------------------------------------------------------------------------------
 cleanup_iptables_and_dns || exit $ERR_LOCALDNS_FAIL
@@ -482,18 +556,6 @@ replace_azurednsip_in_corefile || exit $ERR_LOCALDNS_FAIL
 IPTABLES='iptables -w -t raw -m comment --comment "localdns: skip conntrack"'
 IPTABLES_RULES=()
 build_localdns_iptable_rules
-
-# Get required network environment variables.
-# ---------------------------------------------------------------------------------------------------------------------
-DEFAULT_ROUTE_INTERFACE="$(ip -j route get "${AZURE_DNS_IP}" 2>/dev/null | jq -r 'if type == "array" and length > 0 then .[0].dev else empty end')"
-verify_default_route_interface || exit $ERR_LOCALDNS_FAIL
-
-# Get the network file associated with the default route interface.
-NETWORK_FILE="$(networkctl --json=short status "${DEFAULT_ROUTE_INTERFACE}" 2>/dev/null | jq -r '.NetworkFile')"
-verify_network_file || exit $ERR_LOCALDNS_FAIL
-
-NETWORK_DROPIN_DIR="/run/systemd/network/${NETWORK_FILE##*/}.d"
-NETWORK_DROPIN_FILE="${NETWORK_DROPIN_DIR}/70-localdns.conf"
 
 # Setup traps to trigger cleanup_localdns_configs if anything goes wrong.
 # ---------------------------------------------------------------------------------------------------------------------
@@ -531,8 +593,8 @@ echo "Startup complete - serving node and pod DNS traffic."
 
 # Systemd notify: send ready if service is Type=notify.
 # --------------------------------------------------------------------------------------------------------------------
-if [ -n "${NOTIFY_SOCKET:-}" ]; then 
-   systemd-notify --ready 
+if [ -n "${NOTIFY_SOCKET:-}" ]; then
+   systemd-notify --ready
 fi
 
 # Systemd watchdog: send pings so we get restarted if we go unhealthy.

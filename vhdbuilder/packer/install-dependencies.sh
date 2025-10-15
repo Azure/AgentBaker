@@ -111,20 +111,10 @@ ForwardToSyslog=yes
 EOF
 capture_benchmark "${SCRIPT_NAME}_install_deps_and_set_configs"
 
-if [ "${CONTAINER_RUNTIME:-}" != "containerd" ]; then
-  echo "Unsupported container runtime. Only containerd is supported for new VHD builds."
-  exit 1
-fi
-
 if [ "$(isARM64)" -eq 1 ]; then
   # shellcheck disable=SC3010
   if [[ ${HYPERV_GENERATION,,} == "v1" ]]; then
     echo "No arm64 support on V1 VM, exiting..."
-    exit 1
-  fi
-
-  if [ "${CONTAINER_RUNTIME,,}" = "docker" ]; then
-    echo "No dockerd is allowed on arm64 vhd, exiting..."
     exit 1
   fi
 fi
@@ -602,7 +592,7 @@ PRESENT_DIR=$(pwd)
 
 BCC_PID=$!
 
-echo "${CONTAINER_RUNTIME} images pre-pulled:" >> ${VHD_LOGS_FILEPATH}
+echo "images pre-pulled:" >> ${VHD_LOGS_FILEPATH}
 capture_benchmark "${SCRIPT_NAME}_pull_nvidia_driver_and_start_ebpf_downloads"
 
 string_replace() {

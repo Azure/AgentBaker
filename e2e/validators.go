@@ -1091,6 +1091,71 @@ fi`)},
 	s.T.Logf("PubkeyAuthentication is properly disabled as expected")
 }
 
+// ValidateSSHServiceDisabled validates that the SSH daemon service is disabled and stopped on the node
+func ValidateSSHServiceDisabled(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	// Use VMSS RunCommand to check SSH service status directly on the node
+	// Ubuntu uses 'ssh' as service name, while AzureLinux and Mariner use 'sshd'
+	runPoller, err := config.Azure.VMSSVM.BeginRunCommand(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, "0", armcompute.RunCommandInput{
+		CommandID: to.Ptr("RunShellScript"),
+		Script: []*string{to.Ptr(`#!/bin/bash
+# Determine the correct SSH service name based on the distro
+# Ubuntu uses 'ssh', AzureLinux and Mariner use 'sshd'
+if [ -f /etc/os-release ]; then
+    . /etc/os-release
+    if [[ "$ID" == "ubuntu" ]]; then
+        SSH_SERVICE="ssh"
+    else
+        SSH_SERVICE="sshd"
+    fi
+else
+    # Default to sshd if we can't determine the OS
+    SSH_SERVICE="sshd"
+fi
+
+echo "Detected SSH service name: $SSH_SERVICE"
+
+# Check SSH service status
+status_output=$(systemctl status "$SSH_SERVICE" 2>&1)
+echo "SSH service status output:"
+echo "$status_output"
+
+# Check if the service is inactive (dead) and disabled
+if echo "$status_output" | grep -q "Active: inactive (dead)"; then
+    if echo "$status_output" | grep -q "Loaded:.*disabled"; then
+        echo "SUCCESS: SSH service is disabled and stopped"
+        exit 0
+    else
+        echo "FAILED: SSH service is inactive but not disabled"
+        exit 1
+    fi
+else
+    echo "FAILED: SSH service is not inactive"
+    exit 1
+fi`)},
+	}, nil)
+	require.NoError(s.T, err, "Failed to run command to check SSH service status")
+
+	runResp, err := runPoller.PollUntilDone(ctx, nil)
+	require.NoError(s.T, err, "Failed to complete command to check SSH service status")
+
+	// Parse the response to check the result
+	respJson, err := runResp.MarshalJSON()
+	require.NoError(s.T, err, "Failed to marshal run command response")
+	s.T.Logf("Run command output: %s", string(respJson))
+
+	// Parse the JSON response to extract the output
+	respString := string(respJson)
+
+	// Check if the command execution was successful by looking for our success message in the output
+	if !strings.Contains(respString, "SUCCESS: SSH service is disabled and stopped") {
+		s.T.Fatalf("SSH service is not properly disabled and stopped. Full response: %s", respString)
+	}
+
+	s.T.Logf("SSH service is properly disabled and stopped as expected")
+}
+
 func ValidateNvidiaDCGMExporterSystemDServiceRunning(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 	command := []string{

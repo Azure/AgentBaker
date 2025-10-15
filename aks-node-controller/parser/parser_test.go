@@ -419,7 +419,6 @@ func TestAKSNodeConfigCompatibilityFromJsonToCSECommand(t *testing.T) {
 				assert.Equal(t, "", vars["THP_DEFRAG"])
 				assert.Equal(t, "false", vars["DISABLE_SSH"])
 				assert.Equal(t, "true", vars["IS_VHD"])
-				assert.Equal(t, "false", vars["NEEDS_DOCKER_LOGIN"])
 				assert.Equal(t, "", vars["MOBY_VERSION"])
 				assert.Equal(t, "", vars["LOAD_BALANCER_SKU"])
 				assert.Equal(t, "", vars["NETWORK_POLICY"])
