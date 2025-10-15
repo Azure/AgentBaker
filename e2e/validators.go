@@ -1165,3 +1165,39 @@ func ValidateNvidiaDCGMExporterScrapeCommonMetric(ctx context.Context, s *Scenar
 	}
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "Nvidia DCGM Exporter is not returning DCGM_FI_DEV_GPU_UTIL")
 }
+
+func ValidateMIGModeEnabled(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	s.T.Logf("validating that MIG mode is enabled")
+
+	command := []string{
+		"set -ex",
+		// Grep to verify it contains 'Enabled' - this will fail if MIG is disabled
+		"sudo nvidia-smi --query-gpu=mig.mode.current --format=csv,noheader | grep -i 'Enabled'",
+	}
+	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "MIG mode is not enabled")
+
+	stdout := strings.TrimSpace(execResult.stdout.String())
+	s.T.Logf("MIG mode status: %s", stdout)
+	require.Contains(s.T, stdout, "Enabled", "expected MIG mode to be enabled, but got: %s", stdout)
+	s.T.Logf("MIG mode is enabled")
+}
+
+func ValidateMIGInstancesCreated(ctx context.Context, s *Scenario, migProfile string) {
+	s.T.Helper()
+	s.T.Logf("validating that MIG instances are created with profile %s", migProfile)
+
+	command := []string{
+		"set -ex",
+		// List MIG devices using nvidia-smi
+		"sudo nvidia-smi mig -lgi",
+		// Ensure the output contains the expected MIG profile (will fail if "No MIG-enabled devices found")
+		"sudo nvidia-smi mig -lgi | grep -v 'No MIG-enabled devices found' | grep -q '" + migProfile + "'",
+	}
+	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "MIG instances with profile "+migProfile+" were not found")
+
+	stdout := execResult.stdout.String()
+	require.Contains(s.T, stdout, migProfile, "expected to find MIG profile %s in output, but did not.\nOutput:\n%s", migProfile, stdout)
+	require.NotContains(s.T, stdout, "No MIG-enabled devices found", "no MIG devices were created.\nOutput:\n%s", stdout)
+	s.T.Logf("MIG instances with profile %s are created", migProfile)
+}
