@@ -187,8 +187,7 @@ apt_get_install_from_local_repo() {
         # Filter for binaries in bin directories and copy them to installation_root
         local binary_found=false
         while IFS= read -r file; do
-            # Check if file is in a bin directory and is executable
-            if [[ "${file}" =~ /s?bin/[^/]+$ ]] && [ -f "${file}" ] && [ -x "${file}" ]; then
+            if [ -f "${file}" ] && [ -x "${file}" ]; then
                 local binary_name=$(basename "${file}")
                 echo "Copying ${file} to ${installation_root}/${binary_name}"
                 cp "${file}" "${installation_root}/${binary_name}"
