@@ -176,7 +176,7 @@ apt_get_install_from_local_repo() {
     if [ -n "${installation_root}" ]; then
         echo "Copying binaries ${package_name} to ${installation_root}"
         mkdir -p "${installation_root}"
-        cp "/usr/bin/${package_name}" "/usr/local/bin/${package_name}"
+        mv "/usr/bin/${package_name}" "/usr/local/bin/${package_name}"
     fi
 
     return 0
