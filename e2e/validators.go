@@ -965,6 +965,7 @@ func ValidateEnableNvidiaResource(ctx context.Context, s *Scenario) {
 	waitUntilResourceAvailable(ctx, s, "nvidia.com/gpu")
 }
 
+<<<<<<< Updated upstream
 func ValidateNvidiaDevicePluginServiceRunning(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 	s.T.Logf("validating that NVIDIA device plugin systemd service is running")
@@ -1183,3 +1184,66 @@ func ValidateNvidiaDCGMExporterScrapeCommonMetric(ctx context.Context, s *Scenar
 	}
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "Nvidia DCGM Exporter is not returning DCGM_FI_DEV_GPU_UTIL")
 }
+=======
+// ValidateIPTablesRules validates that all iptables rules in each table match the provided patterns
+func ValidateIPTablesRules(ctx context.Context, s *Scenario, tablePatterns map[string][]string, globalPatterns []string) {
+       s.T.Helper()
+
+       tables := []string{"filter", "mangle", "nat", "raw", "security"}
+
+       for _, table := range tables {
+               s.T.Logf("Validating iptables rules for table: %s", table)
+
+               // Get the rules for this table
+               command := fmt.Sprintf("sudo iptables -t %s -S", table)
+               execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0, fmt.Sprintf("failed to get iptables rules for table %s", table))
+
+               stdout := execResult.stdout.String()
+               rules := strings.Split(strings.TrimSpace(stdout), "\n")
+
+               // Get patterns for this table
+               patterns := tablePatterns[table]
+               if patterns == nil {
+                       patterns = []string{}
+               }
+
+               // Combine with global patterns
+               allPatterns := append([]string{}, globalPatterns...)
+               allPatterns = append(allPatterns, patterns...)
+
+               // Check each rule
+               for _, rule := range rules {
+                       rule = strings.TrimSpace(rule)
+                       if rule == "" {
+                               continue
+                       }
+
+                       matched := false
+                       for _, pattern := range allPatterns {
+                               pattern = strings.TrimSpace(pattern)
+                               if pattern == "" {
+                                       continue
+                               }
+
+                               // Try regex match
+                               matched, _ = regexp.MatchString(pattern, rule)
+                               if matched {
+                                       break
+                               }
+
+                               // Also try exact match for non-regex patterns
+                               if strings.Contains(rule, pattern) {
+                                       matched = true
+                                       break
+                               }
+                       }
+
+                       require.True(s.T, matched,
+                               "Rule in table %s does not match any expected pattern:\nRule: %s\nExpected patterns: %v",
+                               table, rule, allPatterns)
+               }
+
+               s.T.Logf("All rules in table %s matched expected patterns", table)
+       }
+}
+>>>>>>> Stashed changes
