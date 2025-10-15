@@ -796,31 +796,4 @@ datasource:
 EOF
 }
 
-getOsVersion() {
-    # Default implementation for Ubuntu using DISTRIB_RELEASE
-    if [ -n "$UBUNTU_RELEASE" ]; then
-        echo "$UBUNTU_RELEASE"
-        return
-    fi
-
-    # Fallback to parsing VERSION_ID from os-release files for other distributions
-    if ls /etc/*-release 1> /dev/null 2>&1; then
-        local version_id=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print a[2]; exit }' | tr -d '"')
-        if [ -n "$version_id" ]; then
-            echo "$version_id"
-            return
-        fi
-    fi
-
-    # Final fallback to DISTRIB_RELEASE (Ubuntu-specific)
-    local distrib_release=$(grep DISTRIB_RELEASE /etc/*-release 2>/dev/null | cut -f 2 -d "=" | head -n1)
-    if [ -n "$distrib_release" ]; then
-        echo "$distrib_release"
-        return
-    fi
-
-    # Default to "current" if no version can be determined
-    echo "current"
-}
-
 #EOF

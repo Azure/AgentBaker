@@ -457,25 +457,26 @@ getOsVersion() {
     # Ubuntu-specific implementation using lsb_release or DISTRIB_RELEASE
     if [ -n "$UBUNTU_RELEASE" ]; then
         echo "$UBUNTU_RELEASE"
-        return
+        return 0
     fi
 
     # Try lsb_release first
     local version=$(lsb_release -r -s 2>/dev/null || echo "")
     if [ -n "$version" ]; then
         echo "$version"
-        return
+        return 0
     fi
 
     # Fallback to DISTRIB_RELEASE
     local distrib_release=$(grep DISTRIB_RELEASE /etc/*-release 2>/dev/null | cut -f 2 -d "=" | head -n1)
     if [ -n "$distrib_release" ]; then
         echo "$distrib_release"
-        return
+        return 0
     fi
 
-    # Default fallback
-    echo "current"
+    # Error: OS version not found
+    echo "Error: Unable to determine OS version" >&2
+    return 1
 }
 
 #EOF

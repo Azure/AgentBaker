@@ -174,31 +174,9 @@ apt_get_install_from_local_repo() {
 
     # If installation_root is specified, copy binaries to that location
     if [ -n "${installation_root}" ]; then
-        echo "Copying binaries from ${package_name} to ${installation_root}"
+        echo "Copying binaries ${package_name} to ${installation_root}"
         mkdir -p "${installation_root}"
-
-        # Get list of files installed by the package
-        local installed_files=$(dpkg -L "${package_name}" 2>/dev/null)
-        if [ $? -ne 0 ]; then
-            echo "Warning: Could not query installed files for ${package_name}, skip copying to ${installation_root}"
-            return 0
-        fi
-
-        # Filter for binaries in bin directories and copy them to installation_root
-        local binary_found=false
-        while IFS= read -r file; do
-            if [ -f "${file}" ] && [ -x "${file}" ]; then
-                local binary_name=$(basename "${file}")
-                echo "Copying ${file} to ${installation_root}/${binary_name}"
-                cp "${file}" "${installation_root}/${binary_name}"
-                chmod +x "${installation_root}/${binary_name}"
-                binary_found=true
-            fi
-        done <<< "${installed_files}"
-
-        if [ "${binary_found}" = false ]; then
-            echo "Warning: No binaries found in ${package_name} to copy to ${installation_root}"
-        fi
+        cp "/usr/bin/${package_name}" "/usr/local/bin/${package_name}"
     fi
 
     return 0
