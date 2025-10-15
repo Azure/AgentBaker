@@ -1,0 +1,56 @@
+name: aks-node-uefi-secure-boot
+description: AKS Node VHD with UEFI Secure Boot Certificate
+
+# Base configuration similar to azlosguard.yml but with UEFI certificate support
+build:
+  baseImage:
+    source:
+      type: iso
+      # This will be dynamically set based on OS_SKU and other parameters
+
+customize:
+  # Install required packages for UEFI secure boot support
+  packages:
+    - mokutil          # Machine Owner Key utility for certificate management
+    - efibootmgr       # EFI boot manager
+    - shim-signed      # Signed UEFI shim bootloader
+    - grub-efi-amd64   # GRUB for UEFI systems
+    - ca-certificates  # System certificate store
+
+  # Copy certificate and installation script to the VHD
+  additionalFiles:
+    # Certificate file (will be injected from environment variable)
+    - source: /tmp/build-uefi-cert.der
+      destination: /tmp/uefi-secure-boot.der
+      permissions: 644
+    
+    # Certificate installation script
+    - source: /imageconfigs/scripts/install-uefi-certificate.sh
+      destination: /tmp/install-uefi-certificate.sh
+      permissions: 755
+    
+    # Enhanced post-installation script
+    - source: /imageconfigs/scripts/uefi-postinstall.sh
+      destination: /tmp/uefi-postinstall.sh
+      permissions: 755
+
+  # System configuration
+  systemConfig:
+    bootType: efi
+    
+  # Custom scripts to run during VHD build
+  scripts:
+    postCustomization:
+      - path: /tmp/install-uefi-certificate.sh
+        name: install-uefi-certificate
+      - path: /tmp/uefi-postinstall.sh  
+        name: uefi-postinstall
+
+# Output configuration
+os:
+  hostname: aks-node-uefi
+  
+# Enable logging for certificate installation
+logging:
+  logLevel: INFO
+  logToStdout: true
