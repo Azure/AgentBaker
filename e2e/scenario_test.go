@@ -1812,6 +1812,7 @@ func Test_Ubuntu2404Gen2(t *testing.T) {
 				ValidateRunc12Properties(ctx, s, runcVersions)
 				ValidateContainerRuntimePlugins(ctx, s)
 				ValidateSSHServiceEnabled(ctx, s)
+				ValidateExecCmdOnVM(ctx, s, "sh")
 			},
 		},
 	})
