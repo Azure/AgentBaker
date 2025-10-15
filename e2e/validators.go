@@ -965,7 +965,6 @@ func ValidateEnableNvidiaResource(ctx context.Context, s *Scenario) {
 	waitUntilResourceAvailable(ctx, s, "nvidia.com/gpu")
 }
 
-<<<<<<< Updated upstream
 func ValidateNvidiaDevicePluginServiceRunning(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 	s.T.Logf("validating that NVIDIA device plugin systemd service is running")
@@ -1184,7 +1183,6 @@ func ValidateNvidiaDCGMExporterScrapeCommonMetric(ctx context.Context, s *Scenar
 	}
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "Nvidia DCGM Exporter is not returning DCGM_FI_DEV_GPU_UTIL")
 }
-=======
 // ValidateIPTablesRules validates that all iptables rules in each table match the provided patterns
 func ValidateIPTablesRules(ctx context.Context, s *Scenario, tablePatterns map[string][]string, globalPatterns []string) {
        s.T.Helper()
@@ -1246,4 +1244,3 @@ func ValidateIPTablesRules(ctx context.Context, s *Scenario, tablePatterns map[s
                s.T.Logf("All rules in table %s matched expected patterns", table)
        }
 }
->>>>>>> Stashed changes
