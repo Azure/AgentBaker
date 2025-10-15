@@ -63,10 +63,10 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning(t *testing.T) {
 				ValidateNvidiaDevicePluginServiceRunning(ctx, s)
 
 				// Validate that GPU resources are advertised by the device plugin
-				ValidateNodeAdvertisesGPUResources(ctx, s)
+				ValidateNodeAdvertisesGPUResources(ctx, s, 1)
 
 				// Validate that GPU workloads can be scheduled
-				ValidateGPUWorkloadSchedulable(ctx, s)
+				ValidateGPUWorkloadSchedulable(ctx, s, 1)
 
 				// Validate that the NVIDIA DCGM packages were installed correctly
 				for _, packageName := range getDCGMPackageNames(os) {
@@ -118,10 +118,10 @@ func Test_Ubuntu2204_NvidiaDevicePluginRunning(t *testing.T) {
 				ValidateNvidiaDevicePluginServiceRunning(ctx, s)
 
 				// Validate that GPU resources are advertised by the device plugin
-				ValidateNodeAdvertisesGPUResources(ctx, s)
+				ValidateNodeAdvertisesGPUResources(ctx, s, 1)
 
 				// Validate that GPU workloads can be scheduled
-				ValidateGPUWorkloadSchedulable(ctx, s)
+				ValidateGPUWorkloadSchedulable(ctx, s, 1)
 
 				for _, packageName := range getDCGMPackageNames(os) {
 					versions := components.GetExpectedPackageVersions(packageName, os, osVersion)
@@ -172,10 +172,10 @@ func Test_AzureLinux3_NvidiaDevicePluginRunning(t *testing.T) {
 				ValidateNvidiaDevicePluginServiceRunning(ctx, s)
 
 				// Validate that GPU resources are advertised by the device plugin
-				ValidateNodeAdvertisesGPUResources(ctx, s)
+				ValidateNodeAdvertisesGPUResources(ctx, s, 1)
 
 				// Validate that GPU workloads can be scheduled
-				ValidateGPUWorkloadSchedulable(ctx, s)
+				ValidateGPUWorkloadSchedulable(ctx, s, 1)
 
 				for _, packageName := range getDCGMPackageNames(os) {
 					versions := components.GetExpectedPackageVersions(packageName, os, osVersion)
