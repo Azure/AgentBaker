@@ -557,20 +557,20 @@ EOF
     # will appear directing the reader away from the proprietary driver. The GPUs
     # are also not visible in nvidia-smi output with the proprietary drivers
 
-    # Install a local repository if a LOCAL_REPO_URL is provided
-    if [ -n "${LOCAL_REPO_URL}" ]; then
+    # Install a local repository if a LOCAL_DOCA_REPO_URL is provided
+    if [ -n "${LOCAL_DOCA_REPO_URL}" ]; then
       # Extract filename from URL path, removing query parameters
-      LOCAL_REPO_FILENAME=$(basename "${LOCAL_REPO_URL%%\?*}")
+      LOCAL_REPO_FILENAME=$(basename "${LOCAL_DOCA_REPO_URL%%\?*}")
 
       # Store files downloaded before curl command
       BEFORE_FILES=$(ls /tmp/*.deb 2>/dev/null || echo "")
 
-      curl --output-dir /tmp -O "${LOCAL_REPO_URL}"
+      curl --output-dir /tmp -O "${LOCAL_DOCA_REPO_URL}"
       if [ $? -ne 0 ]; then
         if [ "${CONTINUE_ON_LOCAL_REPO_DOWNLOAD_ERROR}" = "True" ]; then
-          echo "WARNING: Continuing despite error downloading package from ${LOCAL_REPO_URL}."
+          echo "WARNING: Continuing despite error downloading package from ${LOCAL_DOCA_REPO_URL}."
         else
-          echo "ERROR: Failed to download package from ${LOCAL_REPO_URL}."
+          echo "ERROR: Failed to download package from ${LOCAL_DOCA_REPO_URL}."
           exit 1
         fi
       else
