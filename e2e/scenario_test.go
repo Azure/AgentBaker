@@ -2142,11 +2142,11 @@ func getIPTablesRulesCompatibleWithEBPFHostRouting() (map[string][]string, []str
                },
        }
 
-       globalPatterns := []string{
-               `^-N .*`,
-               `^-P .*`,
-               `-A FORWARD ! -s 10.10.0.4/32 -d 169.254.169.254/32 -p tcp -m tcp --dport 80 -m comment --comment "AKS managed: added by AgentBaker ensureIMDSRestriction for IMDS restriction feature" -j DROP`,
-       }
+	globalPatterns := []string{
+		 `^-N .*`,
+		 `^-P .*`,
+		 `-A FORWARD ! -s /32 -d (?:\d{1,3}\.){3}\d{1,3}/32 -p tcp -m tcp --dport 80 -m comment --comment "AKS managed: added by AgentBaker ensureIMDSRestriction for IMDS restriction feature" -j DROP`,
+	}
 
        return tablePatterns, globalPatterns
 }
