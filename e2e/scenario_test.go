@@ -583,6 +583,25 @@ func Test_Flatcar_ContainerdHasCurrentVersion(t *testing.T) {
 	})
 }
 
+func Test_Flatcar_CustomCATrust_Scriptless(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using the Flatcar VHD can be properly bootstrapped and custom CA was correctly added",
+		Tags: Tags{
+			Scriptless: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDFlatcarGen2,
+			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+				config.CustomCaCerts = []string{encodedTestCert}
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateNonEmptyDirectory(ctx, s, "/usr/local/share/ca-certificates/certs")
+			},
+		},
+	})
+}
+
 func Test_Flatcar_CustomSysctls_Scriptless(t *testing.T) {
 	customSysctls := map[string]string{
 		"net.ipv4.ip_local_port_range":       "32768 65535",
@@ -984,12 +1003,78 @@ func Test_Flatcar_GPUNoDriver_Scriptless(t *testing.T) {
 	})
 }
 
+func Test_Flatcar_PMC_Install(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using the Flatcar VHD and install kube pkgs from PMC can be properly bootstrapped",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDFlatcarGen2,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				// Check that we don't leak these secrets if they're
+				// set (which they mostly aren't in these scenarios).
+				nbc.ContainerService.Properties.CertificateProfile.ClientPrivateKey = "client cert private key"
+				nbc.ContainerService.Properties.ServicePrincipalProfile.Secret = "SP secret"
+				nbc.KubeletConfig["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
+				nbc.KubeletConfig["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				if vmss.Tags == nil {
+					vmss.Tags = map[string]*string{}
+				}
+				vmss.Tags["ShouldEnforceKubePMCInstall"] = to.Ptr("true")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				// TODO: Remove hardcoded versions and read the expected version programmatically (where from?).
+				ValidateContainerdBinaryVersion(ctx, s, "v2.0.5")
+				ValidateRuncBinaryVersion(ctx, s, "1.2.6")
+				ValidateSSHServiceEnabled(ctx, s)
+			},
+		},
+	})
+}
+
+func Test_Flatcar_PrivateKubePkg(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using the Flatcar VHD that was built with private kube packages can be properly bootstrapped with the specified kube version",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDFlatcarGen2,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.25.6"
+				nbc.K8sComponents.LinuxPrivatePackageURL = "https://privatekube.blob.core.windows.net/kubernetes/v1.25.6-hotfix.20230612/binaries/v1.25.6-hotfix.20230612.tar.gz"
+				nbc.AgentPoolProfile.LocalDNSProfile = nil
+			},
+		},
+	})
+}
+
 func Test_Flatcar_GPU_H100(t *testing.T) {
 	RunScenario(t, runScenarioGPUNPD(t, config.VHDFlatcarGen2, "Standard_ND96isr_H100_v5", "uaenorth", ""))
 }
 
 func Test_Flatcar_GPU_A100(t *testing.T) {
 	RunScenario(t, runScenarioGPUNPD(t, config.VHDFlatcarGen2, "Standard_ND96asr_v4", "southcentralus", "Standard_D2s_v3"))
+}
+
+func Test_Flatcar_NPD_Basic(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Test that a Flatcar node with AKS VM Extension enabled can report simulated node problem detector events",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDFlatcarGen2,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				extension, err := createVMExtensionLinuxAKSNode(vmss.Location)
+				require.NoError(t, err, "creating AKS VM extension")
+				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateNodeProblemDetector(ctx, s)
+				ValidateNPDFilesystemCorruption(ctx, s)
+			},
+		},
+	})
 }
 
 func Test_FlatcarARM(t *testing.T) {
