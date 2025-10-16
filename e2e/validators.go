@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 	"github.com/tidwall/gjson"
 
 	"github.com/Azure/agentbaker/e2e/config"
@@ -327,16 +329,7 @@ func execOnVMForScenarioOnUnprivilegedPod(ctx context.Context, s *Scenario, cmd 
 
 func execScriptOnVMForScenario(ctx context.Context, s *Scenario, cmd string) *podExecResult {
 	s.T.Helper()
-	script := Script{
-		script: cmd,
-	}
-	if s.IsWindows() {
-		script.interpreter = Powershell
-	} else {
-		script.interpreter = Bash
-	}
-
-	result, err := execScriptOnVm(ctx, s, s.Runtime.VMPrivateIP, s.Runtime.Cluster.DebugPod.Name, script)
+	result, err := execScriptOnVm(ctx, s, s.Runtime.VMPrivateIP, s.Runtime.Cluster.DebugPod.Name, cmd)
 	require.NoError(s.T, err, "failed to execute command on VM")
 	return result
 }
@@ -996,7 +989,6 @@ func ValidateNodeAdvertisesGPUResources(ctx context.Context, s *Scenario) {
 
 	s.T.Logf("node %s advertises %d nvidia.com/gpu resources", nodeName, gpuCount)
 }
-
 
 func ValidateGPUWorkloadSchedulable(ctx context.Context, s *Scenario) {
 	s.T.Helper()

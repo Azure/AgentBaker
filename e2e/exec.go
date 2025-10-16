@@ -43,19 +43,7 @@ func quoteForBash(command string) string {
 	return fmt.Sprintf("'%s'", strings.ReplaceAll(command, "'", "'\"'\"'"))
 }
 
-type Interpreter string
-
-const (
-	Powershell Interpreter = "powershell"
-	Bash       Interpreter = "bash"
-)
-
-type Script struct {
-	script      string
-	interpreter Interpreter
-}
-
-func execScriptOnVm(ctx context.Context, s *Scenario, vmPrivateIP, jumpboxPodName string, script Script) (*podExecResult, error) {
+func execScriptOnVm(ctx context.Context, s *Scenario, vmPrivateIP, jumpboxPodName string, script string) (*podExecResult, error) {
 	// Assuming uploadSSHKey has been called before this function
 	s.T.Helper()
 	/*
@@ -68,12 +56,11 @@ func execScriptOnVm(ctx context.Context, s *Scenario, vmPrivateIP, jumpboxPodNam
 	identifier := uuid.New().String()
 	var scriptFileName, remoteScriptFileName, interpreter string
 
-	switch script.interpreter {
-	case Powershell:
+	if s.IsWindows() {
 		interpreter = "powershell"
 		scriptFileName = fmt.Sprintf("script_file_%s.ps1", identifier)
 		remoteScriptFileName = fmt.Sprintf("c:/%s", scriptFileName)
-	default:
+	} else {
 		interpreter = "bash"
 		scriptFileName = fmt.Sprintf("script_file_%s.sh", identifier)
 		remoteScriptFileName = scriptFileName
@@ -81,7 +68,7 @@ func execScriptOnVm(ctx context.Context, s *Scenario, vmPrivateIP, jumpboxPodNam
 
 	steps := []string{
 		"set -x",
-		fmt.Sprintf("echo %[1]s > %[2]s", quoteForBash(script.script), scriptFileName),
+		fmt.Sprintf("echo %[1]s > %[2]s", quoteForBash(script), scriptFileName),
 		fmt.Sprintf("chmod 0755 %s", scriptFileName),
 		fmt.Sprintf(`scp -i %[1]s -o PasswordAuthentication=no -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o ConnectTimeout=5 %[3]s azureuser@%[2]s:%[4]s`, sshKeyName(vmPrivateIP), vmPrivateIP, scriptFileName, remoteScriptFileName),
 		fmt.Sprintf("%s %s %s", sshString(vmPrivateIP), interpreter, remoteScriptFileName),
@@ -221,12 +208,12 @@ func uploadSSHKey(ctx context.Context, s *Scenario) error {
 	if err != nil {
 		return fmt.Errorf("error executing command on pod: %w", err)
 	}
-
-	result := "SSH Instructions: (may take a few minutes for the VM to be ready for SSH)"
-	if !config.Config.KeepVMSS {
-		result += " (VM will be automatically deleted after the test finishes, set KEEP_VMSS=true to preserve it or pause the test with a breakpoint before the test finishes)"
+	if config.Config.KeepVMSS {
+		s.T.Logf("VM will be preserved after the test finishes, PLEASE MANUALLY DELETE THE VMSS. Set KEEP_VMSS=false to delete it automatically after the test finishes")
+	} else {
+		s.T.Logf("VM will be automatically deleted after the test finishes, set KEEP_VMSS=true to preserve it or pause the test with a breakpoint before the test finishes")
 	}
-	result += "\n========================\n"
+	result := "SSH Instructions: (may take a few minutes for the VM to be ready for SSH)\n========================\n"
 	// We combine the az aks get credentials in the same line so we don't overwrite the user's kubeconfig.
 	result += fmt.Sprintf(`kubectl --kubeconfig <(az aks get-credentials --subscription "%s" --resource-group "%s"  --name "%s" -f -) exec -it %s -- bash -c "chroot /proc/1/root /bin/bash -c '%s'"`, config.Config.SubscriptionID, config.ResourceGroupName(s.Location), *s.Runtime.Cluster.Model.Name, s.Runtime.Cluster.DebugPod.Name, sshString(s.Runtime.VMPrivateIP))
 	s.T.Log(result)

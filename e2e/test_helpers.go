@@ -114,7 +114,7 @@ func runScenarioWithPreProvision(t *testing.T, original *Scenario) {
 			ValidateSystemdUnitIsRunning(ctx, stage1, "containerd")
 			ValidateSystemdUnitIsNotRunning(ctx, stage1, "kubelet")
 		}
-		t.Log("=== Stage 1 validation complete, proceeding to Stage 2 ===")
+		t.Log("=== Creating VHD Image ===")
 		customVHD = CreateImage(ctx, stage1)
 	}
 	firstStage.Config.VMConfigMutator = func(vmss *armcompute.VirtualMachineScaleSet) {
@@ -144,6 +144,7 @@ func runScenarioWithPreProvision(t *testing.T, original *Scenario) {
 		return
 	}
 
+	// Create a new subtest to avoid conflicts with previous steps (log output folder is based on the test name)
 	t.Run("VMProvision", func(t *testing.T) {
 		t.Parallel()
 		secondStageScenario := copyScenario(original)
@@ -521,6 +522,7 @@ func createVMExtensionLinuxAKSNode(location *string) (*armcompute.VirtualMachine
 // Unlike default approach, it doesn't use SSH and uses Azure tooling
 // This approach is generally slower, but it works even if SSH is not available
 func RunCommand(ctx context.Context, s *Scenario, command string) (armcompute.RunCommandResult, error) {
+	s.T.Helper()
 	start := time.Now()
 	defer func() {
 		elapsed := time.Since(start)
@@ -549,11 +551,11 @@ func RunCommand(ctx context.Context, s *Scenario, command string) (armcompute.Ru
 
 func CreateImage(ctx context.Context, s *Scenario) *config.Image {
 	if s.IsWindows() {
-		result, err := RunCommand(ctx, s, `if(Test-Path C:\system32\Sysprep\unattend.xml) {
-Remove-Item C:\system32\Sysprep\unattend.xml -Force
-};
-C:\Windows\System32\Sysprep\Sysprep.exe /oobe /generalize /mode:vm /quiet /quit;`)
-		require.NoErrorf(s.T, err, "Failed to run sysprep on VMSS VM: %v", result)
+		s.T.Log("Running sysprep on Windows VM...")
+		res, err := RunCommand(ctx, s, `C:\Windows\System32\Sysprep\Sysprep.exe /oobe /generalize /mode:vm /quiet /quit;`)
+		resJson, _ := json.MarshalIndent(res, "", "  ")
+		s.T.Logf("Sysprep result: %v", resJson)
+		require.NoErrorf(s.T, err, "failed to run sysprep on Windows VM for image creation")
 	}
 
 	vm, err := config.Azure.VMSSVM.Get(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, "0", &armcompute.VirtualMachineScaleSetVMsClientGetOptions{})
@@ -567,22 +569,16 @@ C:\Windows\System32\Sysprep\Sysprep.exe /oobe /generalize /mode:vm /quiet /quit;
 
 	// Create version using smaller integers that fit within Azure's limits
 	// Use Unix timestamp for guaranteed uniqueness in concurrent runs
-	now := time.Now()
-	nanos := now.UnixNano()
 	// Take last 9 digits to ensure it fits in 32-bit integer range
-	patchVersion := nanos % 1000000000
+	now := time.Now().UTC()
+	patchVersion := now.UnixNano() % 1000000000
 	version := fmt.Sprintf("1.%s.%d", now.Format("20060102"), patchVersion)
-
-	// Get the OS disk resource ID directly from the VM
-	diskName := *vm.Properties.StorageProfile.OSDisk.Name
-	diskResourceID := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/disks/%s",
-		config.Config.SubscriptionID, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, diskName)
 
 	return CreateSIGImageVersionFromDisk(
 		ctx,
 		s,
 		version,
-		diskResourceID,
+		*vm.Properties.StorageProfile.OSDisk.ManagedDisk.ID,
 	)
 }
 
