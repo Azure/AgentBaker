@@ -15,6 +15,12 @@
     "hyperv_generation": "{{env `HYPERV_GENERATION`}}",
     "sig_gallery_name": "{{env `SIG_GALLERY_NAME`}}",
     "sig_image_name": "{{env `SIG_IMAGE_NAME`}}",
+    "src_img_subscription_id": "{{env `SRC_IMG_SUBSCRIPTION_ID`}}",
+    "src_img_resource_group": "{{env `SRC_IMG_RESOURCE_GROUP`}}",
+    "src_img_gallery_name": "{{env `SRC_IMG_GALLERY_NAME`}}",
+    "src_img_definition_name": "{{env `SRC_IMG_DEFINITION_NAME`}}",
+    "src_img_image_version": "{{env `SRC_IMG_IMAGE_VERSION`}}",
+    "final_disk_size": "{{env `FINAL_DISK_SIZE`}}",
     "container_runtime": "{{env `CONTAINER_RUNTIME`}}",
     "teleportd_plugin_download_url": "{{env `TELEPORTD_PLUGIN_DOWNLOAD_URL`}}",
     "captured_sig_version": "{{env `${CAPTURED_SIG_VERSION`}}",
@@ -39,11 +45,10 @@
       "virtual_network_subnet_name": "{{user `subnet_name`}}",
       "ssh_read_write_timeout": "5m",
       "os_type": "Linux",
-      "os_disk_size_gb": 30,
-      "image_publisher": "{{user `img_publisher`}}",
-      "image_offer": "{{user `img_offer`}}",
-      "image_sku": "{{user `img_sku`}}",
-      "image_version": "{{user `img_version`}}",
+      "os_disk_size_gb": "{{user `final_disk_size`}}",
+      "shared_image_gallery": {
+        "community_gallery_image_id": "/CommunityGalleries/fedora-5e266ba4-2250-406d-adad-5d73860d958f/Images/Fedora-Cloud-42-x64/Versions/latest"
+      },
       "azure_tags": {
         "buildDefinitionName": "{{user `build_definition_name`}}",
         "buildNumber": "{{user `build_number`}}",
