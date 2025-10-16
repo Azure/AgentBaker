@@ -113,7 +113,7 @@ parameters:
     displayName: Build AzureLinuxV2 Gen2 Kata - Trusted Launch
     type: boolean
     default: false
-  - name: buildAzureLinuxOSGuardV3gen2fipsTL 
+  - name: buildAzureLinuxOSGuardV3gen2fipsTL
     displayName: Build AzureLinuxOSGuardV3 Gen2 FIPS - Trusted Launch
     type: boolean
     default: true
