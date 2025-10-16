@@ -1744,27 +1744,27 @@ type GetLatestSigImageConfigRequest struct {
 
 // NodeBootstrappingConfiguration represents configurations for node bootstrapping.
 type NodeBootstrappingConfiguration struct {
-	ContainerService              *ContainerService
-	CloudSpecConfig               *AzureEnvironmentSpecConfig
-	K8sComponents                 *K8sComponents
-	AgentPoolProfile              *AgentPoolProfile
-	TenantID                      string
-	SubscriptionID                string
-	ResourceGroupName             string
-	UserAssignedIdentityClientID  string
-	OSSKU                         string
-	ConfigGPUDriverIfNeeded       bool
-	Disable1804SystemdResolved    bool
-	EnableGPUDevicePluginIfNeeded bool
-	EnableKubeletConfigFile       bool
-	EnableNvidia                  bool
-	EnableAMDGPU                  bool
+	ContainerService                *ContainerService
+	CloudSpecConfig                 *AzureEnvironmentSpecConfig
+	K8sComponents                   *K8sComponents
+	AgentPoolProfile                *AgentPoolProfile
+	TenantID                        string
+	SubscriptionID                  string
+	ResourceGroupName               string
+	UserAssignedIdentityClientID    string
+	OSSKU                           string
+	ConfigGPUDriverIfNeeded         bool
+	Disable1804SystemdResolved      bool
+	EnableGPUDevicePluginIfNeeded   bool
+	EnableKubeletConfigFile         bool
+	EnableNvidia                    bool
+	EnableAMDGPU                    bool
 	ManagedGPUExperienceAFECEnabled bool
-	EnableACRTeleportPlugin       bool
-	TeleportdPluginURL            string
-	EnableArtifactStreaming       bool
-	ContainerdVersion             string
-	RuncVersion                   string
+	EnableACRTeleportPlugin         bool
+	TeleportdPluginURL              string
+	EnableArtifactStreaming         bool
+	ContainerdVersion               string
+	RuncVersion                     string
 	// ContainerdPackageURL and RuncPackageURL are beneficial for testing non-official.
 	// containerd and runc, like the pre-released ones.
 	// Currently both configurations are for test purpose, and only deb package is supported.
