@@ -29,7 +29,9 @@
     "subnet_name": "{{env `SUBNET_NAME`}}",
     "private_packages_url": "{{env `PRIVATE_PACKAGES_URL`}}",
     "branch": "{{env `BRANCH`}}",
-    "vhd_build_timestamp": "{{user `VHD_BUILD_TIMESTAMP`}}"
+    "vhd_build_timestamp": "{{user `VHD_BUILD_TIMESTAMP`}}",
+    "local_doca_repo_url": "{{env `LOCAL_DOCA_REPO_URL`}}",
+    "continue_on_local_repo_download_error": "{{env `CONTINUE_ON_LOCAL_REPO_DOWNLOAD_ERROR`}}"
   },
   "builders": [
     {
@@ -673,7 +675,7 @@
     {
       "type": "shell",
       "inline": [
-        "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} TELEPORTD_PLUGIN_DOWNLOAD_URL={{user `teleportd_plugin_download_url`}} ENABLE_FIPS={{user `enable_fips`}} IMG_SKU={{user `img_sku`}} PRIVATE_PACKAGES_URL={{user `private_packages_url`}} VHD_BUILD_TIMESTAMP={{user `vhd_build_timestamp`}} /bin/bash -ux /home/packer/install-dependencies.sh"
+        "sudo CONTINUE_ON_LOCAL_REPO_DOWNLOAD_ERROR={{user `continue_on_local_repo_download_error`}} LOCAL_DOCA_REPO_URL=\"{{user `local_doca_repo_url`}}\" FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} TELEPORTD_PLUGIN_DOWNLOAD_URL={{user `teleportd_plugin_download_url`}} ENABLE_FIPS={{user `enable_fips`}} IMG_SKU={{user `img_sku`}} PRIVATE_PACKAGES_URL={{user `private_packages_url`}} VHD_BUILD_TIMESTAMP={{user `vhd_build_timestamp`}} /bin/bash -ux /home/packer/install-dependencies.sh"
       ]
     },
     {
