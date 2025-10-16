@@ -100,6 +100,8 @@ steps:
       BUILD_ID: $(Build.BuildId)
       BUILD_DEFINITION_NAME: $(Build.DefinitionName)
       UA_TOKEN: $(ua-token)
+      LOCAL_DOCA_REPO_URL: $(LOCAL_DOCA_REPO_URL)
+      CONTINUE_ON_LOCAL_REPO_DOWNLOAD_ERROR: $(CONTINUE_ON_LOCAL_REPO_DOWNLOAD_ERROR)
 
   - bash: make -f packer.mk run-imagecustomizer
     condition: eq(variables['BUILDER'], 'imagecustomizer')
