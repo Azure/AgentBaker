@@ -116,6 +116,7 @@ func runScenarioWithPreProvision(t *testing.T, original *Scenario) {
 		}
 		t.Log("=== Creating VHD Image ===")
 		customVHD = CreateImage(ctx, stage1)
+		t.Logf("Created custom VHD image: %#v", customVHD)
 	}
 	firstStage.Config.VMConfigMutator = func(vmss *armcompute.VirtualMachineScaleSet) {
 		if original.VMConfigMutator != nil {
@@ -635,7 +636,6 @@ func CreateSIGImageVersionFromDisk(ctx context.Context, s *Scenario, version str
 		defer cancel()
 		config.Azure.DeleteSIGImageVersion(ctx, rg, *gallery.Name, *image.Name, version)
 	})
-	// Create a new VHD config for Stage2 (ignore lock copying warning for now)
 	customVHD := *s.Config.VHD
 	customVHD.Name = *image.Name // Use the architecture-specific image name
 	customVHD.Gallery = &config.Gallery{
