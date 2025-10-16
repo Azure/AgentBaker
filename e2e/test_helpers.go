@@ -79,11 +79,7 @@ func newTestCtx(t testing.TB) context.Context {
 
 func RunScenario(t *testing.T, s *Scenario) {
 	t.Parallel()
-	if config.Config.TestPreProvision {
-		t.Run("Original", func(t *testing.T) {
-			t.Parallel()
-			runScenario(t, s)
-		})
+	if config.Config.TestPreProvision || s.VHDCaching {
 		t.Run("VHDCreation", func(t *testing.T) {
 			t.Parallel()
 			runScenarioWithPreProvision(t, s)
@@ -118,8 +114,10 @@ func runScenarioWithPreProvision(t *testing.T, original *Scenario) {
 			ValidateSystemdUnitIsRunning(ctx, stage1, "containerd")
 			ValidateSystemdUnitIsNotRunning(ctx, stage1, "kubelet")
 		}
-		t.Log("=== Stage 1 validation complete, proceeding to Stage 2 ===")
+		t.Log("=== Creating VHD Image ===")
 		customVHD = CreateImage(ctx, stage1)
+		customVHDJSON, _ := json.MarshalIndent(customVHD, "", "  ")
+		t.Logf("Created custom VHD image: %s", string(customVHDJSON))
 	}
 	firstStage.Config.VMConfigMutator = func(vmss *armcompute.VirtualMachineScaleSet) {
 		if original.VMConfigMutator != nil {
@@ -148,6 +146,7 @@ func runScenarioWithPreProvision(t *testing.T, original *Scenario) {
 		return
 	}
 
+	// Create a new subtest to avoid conflicts with previous steps (log output folder is based on the test name)
 	t.Run("VMProvision", func(t *testing.T) {
 		t.Parallel()
 		secondStageScenario := copyScenario(original)
@@ -282,6 +281,7 @@ func maybeSkipScenario(ctx context.Context, t testing.TB, s *Scenario) {
 	s.Tags.OS = string(s.VHD.OS)
 	s.Tags.Arch = s.VHD.Arch
 	s.Tags.ImageName = s.VHD.Name
+	s.Tags.VHDCaching = s.VHDCaching
 	if s.AKSNodeConfigMutator != nil {
 		s.Tags.Scriptless = true
 	}
@@ -520,7 +520,46 @@ func createVMExtensionLinuxAKSNode(location *string) (*armcompute.VirtualMachine
 	}, nil
 }
 
+// RunCommand executes a command on the VMSS VM with instance ID "0" and returns the raw JSON response from Azure
+// Unlike default approach, it doesn't use SSH and uses Azure tooling
+// This approach is generally slower, but it works even if SSH is not available
+func RunCommand(ctx context.Context, s *Scenario, command string) (armcompute.RunCommandResult, error) {
+	s.T.Helper()
+	start := time.Now()
+	defer func() {
+		elapsed := time.Since(start)
+		logf(ctx, "Command %q took %s", command, toolkit.FormatDuration(elapsed))
+	}()
+
+	runPoller, err := config.Azure.VMSSVM.BeginRunCommand(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, "0", armcompute.RunCommandInput{
+		CommandID: func() *string {
+			if s.IsWindows() {
+				return to.Ptr("RunPowerShellScript")
+			}
+			return to.Ptr("RunShellScript")
+		}(),
+		Script: []*string{to.Ptr(command)},
+	}, nil)
+	if err != nil {
+		return armcompute.RunCommandResult{}, fmt.Errorf("failed to run command on Windows VM for image creation: %w", err)
+	}
+
+	runResp, err := runPoller.PollUntilDone(ctx, nil)
+	if err != nil {
+		return runResp.RunCommandResult, fmt.Errorf("failed to run command on Windows VM for image creation: %w", err)
+	}
+	return runResp.RunCommandResult, err
+}
+
 func CreateImage(ctx context.Context, s *Scenario) *config.Image {
+	if s.IsWindows() {
+		s.T.Log("Running sysprep on Windows VM...")
+		res, err := RunCommand(ctx, s, `C:\Windows\System32\Sysprep\Sysprep.exe /oobe /generalize /mode:vm /quiet /quit;`)
+		resJson, _ := json.MarshalIndent(res, "", "  ")
+		s.T.Logf("Sysprep result: %s", string(resJson))
+		require.NoErrorf(s.T, err, "failed to run sysprep on Windows VM for image creation")
+	}
+
 	vm, err := config.Azure.VMSSVM.Get(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, "0", &armcompute.VirtualMachineScaleSetVMsClientGetOptions{})
 	require.NoError(s.T, err, "Failed to get VMSS VM for image creation")
 
@@ -532,22 +571,16 @@ func CreateImage(ctx context.Context, s *Scenario) *config.Image {
 
 	// Create version using smaller integers that fit within Azure's limits
 	// Use Unix timestamp for guaranteed uniqueness in concurrent runs
-	now := time.Now()
-	nanos := now.UnixNano()
 	// Take last 9 digits to ensure it fits in 32-bit integer range
-	patchVersion := nanos % 1000000000
+	now := time.Now().UTC()
+	patchVersion := now.UnixNano() % 1000000000
 	version := fmt.Sprintf("1.%s.%d", now.Format("20060102"), patchVersion)
-
-	// Get the OS disk resource ID directly from the VM
-	diskName := *vm.Properties.StorageProfile.OSDisk.Name
-	diskResourceID := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/disks/%s",
-		config.Config.SubscriptionID, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, diskName)
 
 	return CreateSIGImageVersionFromDisk(
 		ctx,
 		s,
 		version,
-		diskResourceID,
+		*vm.Properties.StorageProfile.OSDisk.ManagedDisk.ID,
 	)
 }
 
@@ -604,7 +637,6 @@ func CreateSIGImageVersionFromDisk(ctx context.Context, s *Scenario, version str
 		defer cancel()
 		config.Azure.DeleteSIGImageVersion(ctx, rg, *gallery.Name, *image.Name, version)
 	})
-	// Create a new VHD config for Stage2 (ignore lock copying warning for now)
 	customVHD := *s.Config.VHD
 	customVHD.Name = *image.Name // Use the architecture-specific image name
 	customVHD.Gallery = &config.Gallery{
@@ -613,8 +645,6 @@ func CreateSIGImageVersionFromDisk(ctx context.Context, s *Scenario, version str
 		Name:              *gallery.Name,
 	}
 	customVHD.Version = version
-
-	s.T.Logf("Created SIG image version: %s", version)
 
 	return &customVHD
 }
