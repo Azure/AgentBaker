@@ -427,17 +427,20 @@ retrycmd_oras_login() {
     return $exit_code
 }
 
-retrycmd_can_oras_ls_acr() {
-    retries=$1; wait_sleep=$2; url=$3
+retrycmd_can_oras_ls_acr_anonymously() {
+    retries=$1; wait_sleep=$2; acr_url=$3
+
     for i in $(seq 1 $retries); do
-        output=$(timeout 60 oras repo ls "$url" --registry-config "$ORAS_REGISTRY_CONFIG_FILE" 2>&1)
+        # Logout first to ensure insufficient ABAC token won't affect anonymous judging
+        oras logout "$acr_url" --registry-config "${ORAS_REGISTRY_CONFIG_FILE}" 2>/dev/null || true
+        output=$(timeout 60 oras repo ls "$acr_url" --registry-config "$ORAS_REGISTRY_CONFIG_FILE" 2>&1)
         if [ "$?" -eq 0 ]; then
-            echo "acr is reachable"
+            echo "acr is anonymously reachable"
             return 0
         fi
         # shellcheck disable=SC3010
         if [[ "$output" == *"unauthorized: authentication required"* ]]; then
-            echo "ACR is not reachable: $output"
+            echo "ACR is not anonymously reachable: $output"
             return 1
         fi
     done
@@ -1035,6 +1038,44 @@ update_base_url() {
   echo "$initial_url"
 }
 
+assert_refresh_token() {
+    local refresh_token=$1
+    shift
+    local required_actions=("$@")
+
+    # Decode the refresh token (JWT format: header.payload.signature)
+    # Extract the payload (second part) and decode from base64
+    token_payload=$(echo "$refresh_token" | cut -d'.' -f2)
+    # Add padding if needed for base64 decoding
+    case $((${#token_payload} % 4)) in
+        2) token_payload="${token_payload}==" ;;
+        3) token_payload="${token_payload}=" ;;
+    esac
+    decoded_token=$(echo "$token_payload" | base64 -d 2>/dev/null)
+    
+    # Check if permissions.actions exists and contains all required actions
+    if [ -n "$decoded_token" ]; then
+        # Check if permissions field exists (RBAC token vs ABAC token)
+        local has_permissions=$(echo "$decoded_token" | jq -r 'has("permissions")' 2>/dev/null)
+        if [ "$has_permissions" = "true" ]; then
+            echo "RBAC token detected, validating permissions"
+            
+            for action in "${required_actions[@]}"; do
+                local action_exists=$(echo "$decoded_token" | jq -r --arg action "$action" \
+                    '(.permissions.actions // []) | contains([$action])' 2>/dev/null)
+                if [ "$action_exists" != "true" ]; then
+                    echo "Required action '$action' not found in token permissions"
+                    return $ERR_ORAS_PULL_UNAUTHORIZED
+                fi
+            done
+            echo "Token validation passed: all required actions present"
+        else
+            echo "No permissions field found in token. Assuming ABAC token, skipping permission validation"
+        fi
+    fi
+    return 0
+}
+
 oras_login_with_kubelet_identity() {
     local acr_url=$1
     local client_id=$2
@@ -1045,7 +1086,7 @@ oras_login_with_kubelet_identity() {
         return
     fi
 
-    retrycmd_can_oras_ls_acr 10 5 $acr_url
+    retrycmd_can_oras_ls_acr_anonymously 10 5 $acr_url
     ret_code=$?
     if [ "$ret_code" -eq 0 ]; then
         echo "anonymous pull is allowed for acr '$acr_url', proceeding with anonymous pull"
@@ -1086,6 +1127,13 @@ oras_login_with_kubelet_identity() {
         return $ERR_ORAS_PULL_UNAUTHORIZED
     fi
 
+    # Pre-validate refresh token has required RBAC access to pull.
+    # If ABAC token issued, no way to pre-validate access
+    assert_refresh_token "$REFRESH_TOKEN" "read"
+    if [ "$?" -ne 0 ]; then
+        return $ERR_ORAS_PULL_UNAUTHORIZED
+    fi
+
     retrycmd_oras_login 3 5 $acr_url "$REFRESH_TOKEN"
     if [ "$?" -ne 0 ]; then
         echo "failed to login to acr '$acr_url' with identity token"
@@ -1093,12 +1141,6 @@ oras_login_with_kubelet_identity() {
     fi
     unset ACCESS_TOKEN REFRESH_TOKEN  # Clears sensitive data from memory
     set -x
-
-    retrycmd_can_oras_ls_acr 10 5 $acr_url
-    if [ "$?" -ne 0 ]; then
-        echo "failed to login to acr '$acr_url', pull is still unauthorized"
-        return $ERR_ORAS_PULL_UNAUTHORIZED
-    fi
 
     echo "successfully logged in to acr '$acr_url' with identity token"
 }
