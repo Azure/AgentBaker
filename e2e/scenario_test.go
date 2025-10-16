@@ -274,6 +274,82 @@ func Test_Flatcar_CustomSysctls(t *testing.T) {
 	})
 }
 
+func Test_Flatcar_GPU(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a GPU-enabled node using a Flatcar VHD can be properly bootstrapped",
+		Tags: Tags{
+			GPU: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDFlatcarGen2,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.AgentPoolProfile.VMSize = "Standard_NC6s_v3"
+				nbc.ConfigGPUDriverIfNeeded = true
+				nbc.EnableGPUDevicePluginIfNeeded = false
+				nbc.EnableNvidia = true
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+			},
+		},
+	})
+}
+
+func Test_Flatcar_GPUAzureCNI(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Flatcar GPU scenario on cluster configured with Azure CNI",
+		Tags: Tags{
+			GPU: true,
+		},
+		Config: Config{
+			Cluster: ClusterAzureNetwork,
+			VHD:     config.VHDFlatcarGen2,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
+				nbc.AgentPoolProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
+				nbc.AgentPoolProfile.VMSize = "Standard_NC6s_v3"
+				nbc.ConfigGPUDriverIfNeeded = true
+				nbc.EnableGPUDevicePluginIfNeeded = false
+				nbc.EnableNvidia = true
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+			},
+		},
+	})
+}
+
+func Test_Flatcar_GPUAzureCNI_Scriptless(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Flatcar GPU scenario on cluster configured with Azure CNI",
+		Tags: Tags{
+			Scriptless: true,
+			GPU:        true,
+		},
+		Config: Config{
+			Cluster: ClusterAzureNetwork,
+			VHD:     config.VHDFlatcarGen2,
+			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+				config.NetworkConfig.NetworkPlugin = aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_AZURE
+				config.VmSize = "Standard_NC6s_v3"
+				config.GpuConfig.ConfigGpuDriver = true
+				config.GpuConfig.GpuDevicePlugin = false
+				config.GpuConfig.EnableNvidia = to.Ptr(true)
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+			},
+		},
+	})
+}
+
 func Test_Flatcar_KubeletCustomConfig(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Tags: Tags{
@@ -674,6 +750,201 @@ func Test_Flatcar_DisableKubeletServingCertificateRotationWithTags_CustomKubelet
 			},
 		},
 	})
+}
+
+func Test_Flatcar_GPUNC(t *testing.T) {
+	runScenarioFlatcarGPU(t, "Standard_NC6s_v3")
+}
+
+func Test_Flatcar_GPUA100(t *testing.T) {
+	runScenarioFlatcarGPU(t, "Standard_NC24ads_A100_v4")
+}
+
+func Test_Flatcar_GPUA10(t *testing.T) {
+	runScenarioFlatcarGRID(t, "Standard_NV6ads_A10_v5")
+}
+
+// Returns config for the 'gpu' E2E scenario
+func runScenarioFlatcarGPU(t *testing.T, vmSize string) {
+	RunScenario(t, &Scenario{
+		Description: fmt.Sprintf("Tests that a GPU-enabled node with VM size %s using a Flatcar VHD can be properly bootstrapped", vmSize),
+		Tags: Tags{
+			GPU: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDFlatcarGen2,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.AgentPoolProfile.VMSize = vmSize
+				nbc.ConfigGPUDriverIfNeeded = true
+				nbc.EnableGPUDevicePluginIfNeeded = false
+				nbc.EnableNvidia = true
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr(vmSize)
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				// Ensure nvidia-modprobe install does not restart kubelet and temporarily cause node to be unschedulable
+				ValidateNvidiaModProbeInstalled(ctx, s)
+				ValidateKubeletHasNotStopped(ctx, s)
+				ValidateServicesDoNotRestartKubelet(ctx, s)
+			},
+		},
+	})
+}
+
+func runScenarioFlatcarGRID(t *testing.T, vmSize string) {
+	RunScenario(t, &Scenario{
+		Description: fmt.Sprintf("Tests that a GPU-enabled node with VM size %s using a Flatcar VHD can be properly bootstrapped, and that the GRID license is valid", vmSize),
+		Tags: Tags{
+			GPU: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDFlatcarGen2,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.AgentPoolProfile.VMSize = vmSize
+				nbc.ConfigGPUDriverIfNeeded = true
+				nbc.EnableGPUDevicePluginIfNeeded = false
+				nbc.EnableNvidia = true
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr(vmSize)
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				// Ensure nvidia-modprobe install does not restart kubelet and temporarily cause node to be unschedulable
+				ValidateNvidiaModProbeInstalled(ctx, s)
+				ValidateNvidiaGRIDLicenseValid(ctx, s)
+				ValidateKubeletHasNotStopped(ctx, s)
+				ValidateServicesDoNotRestartKubelet(ctx, s)
+				ValidateNvidiaPersistencedRunning(ctx, s)
+			},
+		},
+	})
+}
+
+func Test_Flatcar_GPUA10_Scriptless(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests scriptless installer that a GPU-enabled node using the Flatcar VHD with grid driver can be properly bootstrapped",
+		Tags: Tags{
+			Scriptless: true,
+			GPU:        true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDFlatcarGen2,
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr("Standard_NV6ads_A10_v5")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				// Ensure nvidia-modprobe install does not restart kubelet and temporarily cause node to be unschedulable
+				ValidateNvidiaModProbeInstalled(ctx, s)
+				ValidateKubeletHasNotStopped(ctx, s)
+				ValidateServicesDoNotRestartKubelet(ctx, s)
+			},
+			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+				config.VmSize = "Standard_NV6ads_A10_v5"
+				config.GpuConfig.ConfigGpuDriver = true
+				config.GpuConfig.GpuDevicePlugin = false
+				config.GpuConfig.EnableNvidia = to.Ptr(true)
+			},
+		},
+	})
+}
+
+func Test_Flatcar_GPUGridDriver(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a GPU-enabled node using the Flatcar VHD with grid driver can be properly bootstrapped",
+		Tags: Tags{
+			GPU: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDFlatcarGen2,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.AgentPoolProfile.VMSize = "Standard_NV6ads_A10_v5"
+				nbc.ConfigGPUDriverIfNeeded = true
+				nbc.EnableGPUDevicePluginIfNeeded = false
+				nbc.EnableNvidia = true
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr("Standard_NV6ads_A10_v5")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateNvidiaModProbeInstalled(ctx, s)
+				ValidateKubeletHasNotStopped(ctx, s)
+				ValidateNvidiaSMIInstalled(ctx, s)
+			},
+		},
+	})
+}
+
+func Test_Flatcar_GPUNoDriver(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a GPU-enabled node using the Flatcar VHD opting for skipping gpu driver installation can be properly bootstrapped",
+		Tags: Tags{
+			GPU: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDFlatcarGen2,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.AgentPoolProfile.VMSize = "Standard_NC6s_v3"
+				nbc.ConfigGPUDriverIfNeeded = true
+				nbc.EnableGPUDevicePluginIfNeeded = false
+				nbc.EnableNvidia = true
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.Tags = map[string]*string{
+					// deliberately case mismatched to agentbaker logic to check case insensitivity
+					"SkipGPUDriverInstall": to.Ptr("true"),
+				}
+				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateNvidiaSMINotInstalled(ctx, s)
+			},
+		},
+	})
+}
+
+func Test_Flatcar_GPUNoDriver_Scriptless(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a GPU-enabled node using the Flatcar VHD opting for skipping gpu driver installation can be properly bootstrapped",
+		Tags: Tags{
+			Scriptless: true,
+			GPU:        true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDFlatcarGen2,
+			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+				config.VmSize = "Standard_NC6s_v3"
+				config.GpuConfig.ConfigGpuDriver = true
+				config.GpuConfig.GpuDevicePlugin = false
+				config.GpuConfig.EnableNvidia = to.Ptr(true)
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				// this vmss tag is needed since there is a logic in cse_main.sh otherwise the test will fail
+				vmss.Tags = map[string]*string{
+					// deliberately case mismatched to agentbaker logic to check case insensitivity
+					"SkipGPUDriverInstall": to.Ptr("true"),
+				}
+				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateNvidiaSMINotInstalled(ctx, s)
+			},
+		},
+	})
+}
+
+func Test_Flatcar_GPU_H100(t *testing.T) {
+	RunScenario(t, runScenarioGPUNPD(t, config.VHDFlatcarGen2, "Standard_ND96isr_H100_v5", "uaenorth", ""))
+}
+
+func Test_Flatcar_GPU_A100(t *testing.T) {
+	RunScenario(t, runScenarioGPUNPD(t, config.VHDFlatcarGen2, "Standard_ND96asr_v4", "southcentralus", "Standard_D2s_v3"))
 }
 
 func Test_FlatcarARM(t *testing.T) {
@@ -2583,11 +2854,11 @@ func Test_Ubuntu2404_NPD_Basic(t *testing.T) {
 }
 
 func Test_Ubuntu2404_GPU_H100(t *testing.T) {
-	RunScenario(t, runScenarioGPUNPD(t, "Standard_ND96isr_H100_v5", "uaenorth", ""))
+	RunScenario(t, runScenarioGPUNPD(t, config.VHDUbuntu2404Gen2Containerd, "Standard_ND96isr_H100_v5", "uaenorth", ""))
 }
 
 func Test_Ubuntu2404_GPU_A100(t *testing.T) {
-	RunScenario(t, runScenarioGPUNPD(t, "Standard_ND96asr_v4", "southcentralus", "Standard_D2s_v3"))
+	RunScenario(t, runScenarioGPUNPD(t, config.VHDUbuntu2404Gen2Containerd, "Standard_ND96asr_v4", "southcentralus", "Standard_D2s_v3"))
 }
 
 func Test_AzureLinux3_PMC_Install(t *testing.T) {
