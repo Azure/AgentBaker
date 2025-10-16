@@ -592,6 +592,42 @@ EOF
     # The open series driver is required for the GB200 platform. Dmesg output
     # will appear directing the reader away from the proprietary driver. The GPUs
     # are also not visible in nvidia-smi output with the proprietary drivers
+
+    # Install a local repository if a LOCAL_DOCA_REPO_URL is provided
+    if [ -n "${LOCAL_DOCA_REPO_URL}" ]; then
+      # Extract filename from URL path, removing query parameters
+      LOCAL_REPO_FILENAME=$(basename "${LOCAL_DOCA_REPO_URL%%\?*}")
+
+      # Store files downloaded before curl command
+      BEFORE_FILES=$(ls /tmp/*.deb 2>/dev/null || echo "")
+
+      curl --output-dir /tmp -O "${LOCAL_DOCA_REPO_URL}"
+      if [ $? -ne 0 ]; then
+        if [ "${CONTINUE_ON_LOCAL_REPO_DOWNLOAD_ERROR}" = "True" ]; then
+          echo "WARNING: Continuing despite error downloading package from ${LOCAL_DOCA_REPO_URL}."
+        else
+          echo "ERROR: Failed to download package from ${LOCAL_DOCA_REPO_URL}."
+          exit 1
+        fi
+      else
+        # Find the newly downloaded file
+        AFTER_FILES=$(ls /tmp/*.deb 2>/dev/null || echo "")
+        DOWNLOADED_FILE=$(comm -13 <(echo "$BEFORE_FILES" | sort) <(echo "$AFTER_FILES" | sort) | head -1)
+
+        # Use the detected file or fall back to the extracted filename
+        if [ -n "${DOWNLOADED_FILE}" ]; then
+          dpkg -i "${DOWNLOADED_FILE}"
+        else
+          dpkg -i "/tmp/${LOCAL_REPO_FILENAME}"
+        fi
+
+        # Disable the online repository
+        mv /etc/apt/sources.list.d/doca-net.list /etc/apt/sources.list.d/doca-net.list.disabled
+
+        apt update
+      fi
+    fi
+
     apt install -y \
       nvidia-driver-580-open
 
