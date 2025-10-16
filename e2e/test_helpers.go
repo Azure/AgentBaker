@@ -116,7 +116,8 @@ func runScenarioWithPreProvision(t *testing.T, original *Scenario) {
 		}
 		t.Log("=== Creating VHD Image ===")
 		customVHD = CreateImage(ctx, stage1)
-		t.Logf("Created custom VHD image: %#v", customVHD)
+		customVHDJSON, _ := json.MarshalIndent(customVHD, "", "  ")
+		t.Logf("Created custom VHD image: %s", string(customVHDJSON))
 	}
 	firstStage.Config.VMConfigMutator = func(vmss *armcompute.VirtualMachineScaleSet) {
 		if original.VMConfigMutator != nil {
@@ -555,7 +556,7 @@ func CreateImage(ctx context.Context, s *Scenario) *config.Image {
 		s.T.Log("Running sysprep on Windows VM...")
 		res, err := RunCommand(ctx, s, `C:\Windows\System32\Sysprep\Sysprep.exe /oobe /generalize /mode:vm /quiet /quit;`)
 		resJson, _ := json.MarshalIndent(res, "", "  ")
-		s.T.Logf("Sysprep result: %v", resJson)
+		s.T.Logf("Sysprep result: %s", string(resJson))
 		require.NoErrorf(s.T, err, "failed to run sysprep on Windows VM for image creation")
 	}
 
@@ -644,8 +645,6 @@ func CreateSIGImageVersionFromDisk(ctx context.Context, s *Scenario, version str
 		Name:              *gallery.Name,
 	}
 	customVHD.Version = version
-
-	s.T.Logf("Created SIG image version: %s", version)
 
 	return &customVHD
 }
