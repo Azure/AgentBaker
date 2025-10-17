@@ -178,6 +178,29 @@ installKubeletKubectlPkgFromPMC() {
     installRPMPackageFromFile "kubectl" $desiredVersion || exit $ERR_KUBECTL_INSTALL_FAIL
 }
 
+installAznfsPkgFromPMC() {
+  if [ "$OS_VERSION" != "3.0" ]; then
+    echo "aznfs package install is only supported on Azure Linux 3.0"
+    return
+  fi
+
+  readonly aznfs_rpm_file="/tmp/packages-microsoft-prod.rpm"
+  local aznfs_pkg_url="https://packages.microsoft.com/config/rhel/9/packages-microsoft-prod.rpm"
+  retrycmd_curl_file 120 5 25 ${aznfs_rpm_file} ${aznfs_pkg_url} || exit $ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT
+  if ! dnf_install 30 1 600 ${aznfs_rpm_file}; then
+    exit $ERR_APT_INSTALL_TIMEOUT
+  fi
+  dnf check-update --refresh -y
+  export AZNFS_NONINTERACTIVE_INSTALL=1
+  if ! dnf_install 30 1 600 aznfs; then
+    exit $ERR_APT_INSTALL_TIMEOUT
+  fi
+  rm -f ${aznfs_rpm_file}
+  # disable aznfswatchdog since aznfs install and enable aznfswatchdog and aznfswatchdogv4 services at the same time while we only need aznfswatchdogv4
+  systemctl disable aznfswatchdog
+  systemctl stop aznfswatchdog
+}
+
 installToolFromLocalRepo() {
     local tool_name=$1
     local tool_download_dir=$2
