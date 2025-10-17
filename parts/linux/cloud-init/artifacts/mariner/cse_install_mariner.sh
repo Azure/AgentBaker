@@ -175,11 +175,6 @@ installKubeletKubectlPkgFromPMC() {
     installRPMPackageFromFile "kubectl" $desiredVersion || exit $ERR_KUBECTL_INSTALL_FAIL
 }
 
-getOsVersion() {
-    echo "getOsVersion is not yet implemented for Mariner"
-    return 1
-}
-
 installToolFromLocalRepo() {
     local tool_name=$1
     local tool_download_dir=$2
@@ -226,12 +221,6 @@ EOF
         echo "Failed to install ${tool_name} from local repository"
         rm -f "${repo_file}"
         return 1
-    fi
-
-    # Move the binary to /usr/local/bin if it was installed to /usr/bin
-    if [ -f "/usr/bin/${tool_name}" ]; then
-        echo "Moving ${tool_name} to /usr/local/bin"
-        mv "/usr/bin/${tool_name}" "/usr/local/bin/${tool_name}"
     fi
 
     # Clean up the temporary repo file

@@ -540,8 +540,11 @@ installToolFromBootstrapProfileRegistry() {
     mkdir -p "${tool_download_dir}"
 
     # Construct platform string for ORAS pull
-    os_version=$(getOsVersion) || return 1 # Platform-specific OS version detection
-    platform_flag="--platform=linux/${CPU_ARCH}:${OS,,} ${os_version}"
+    if [ -z "${OS_VERSION}" ]; then
+        echo "OS_VERSION is not set"
+        return 1
+    fi
+    platform_flag="--platform=linux/${CPU_ARCH}:${OS,,} ${OS_VERSION}"
 
     echo "Attempting to pull ${tool_name} package from ${tool_package_url} with platform ${platform_flag}"
     # retrycmd_pull_from_registry_with_oras will pull all artifacts to the directory with platform selection
