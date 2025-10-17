@@ -1156,14 +1156,14 @@ func ValidateNvidiaDCGMExporterIsScrapable(ctx context.Context, s *Scenario) {
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "Nvidia DCGM Exporter is not scrapable on port 19400")
 }
 
-func ValidateNvidiaDCGMExporterScrapeCommonMetric(ctx context.Context, s *Scenario) {
+func ValidateNvidiaDCGMExporterScrapeCommonMetric(ctx context.Context, s *Scenario, metric string) {
 	s.T.Helper()
 	command := []string{
 		"set -ex",
 		// Verify the most universal GPU metric is present
-		"curl -s http://localhost:19400/metrics | grep -q 'DCGM_FI_DEV_GPU_UTIL'",
+		"curl -s http://localhost:19400/metrics | grep -q '" + metric + "'",
 	}
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "Nvidia DCGM Exporter is not returning DCGM_FI_DEV_GPU_UTIL")
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "Nvidia DCGM Exporter is not returning "+metric)
 }
 
 func ValidateMIGModeEnabled(ctx context.Context, s *Scenario) {

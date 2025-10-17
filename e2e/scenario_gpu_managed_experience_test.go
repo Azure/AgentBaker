@@ -77,7 +77,7 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning(t *testing.T) {
 
 				ValidateNvidiaDCGMExporterSystemDServiceRunning(ctx, s)
 				ValidateNvidiaDCGMExporterIsScrapable(ctx, s)
-				ValidateNvidiaDCGMExporterScrapeCommonMetric(ctx, s)
+				ValidateNvidiaDCGMExporterScrapeCommonMetric(ctx, s, "DCGM_FI_DEV_GPU_UTIL")
 			},
 		},
 	})
@@ -131,7 +131,7 @@ func Test_Ubuntu2204_NvidiaDevicePluginRunning(t *testing.T) {
 
 				ValidateNvidiaDCGMExporterSystemDServiceRunning(ctx, s)
 				ValidateNvidiaDCGMExporterIsScrapable(ctx, s)
-				ValidateNvidiaDCGMExporterScrapeCommonMetric(ctx, s)
+				ValidateNvidiaDCGMExporterScrapeCommonMetric(ctx, s, "DCGM_FI_DEV_GPU_UTIL")
 			},
 		},
 	})
@@ -185,7 +185,7 @@ func Test_AzureLinux3_NvidiaDevicePluginRunning(t *testing.T) {
 
 				ValidateNvidiaDCGMExporterSystemDServiceRunning(ctx, s)
 				ValidateNvidiaDCGMExporterIsScrapable(ctx, s)
-				ValidateNvidiaDCGMExporterScrapeCommonMetric(ctx, s)
+				ValidateNvidiaDCGMExporterScrapeCommonMetric(ctx, s, "DCGM_FI_DEV_GPU_UTIL")
 			},
 		},
 	})
@@ -247,7 +247,7 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG(t *testing.T) {
 
 				ValidateNvidiaDCGMExporterSystemDServiceRunning(ctx, s)
 				ValidateNvidiaDCGMExporterIsScrapable(ctx, s)
-				ValidateNvidiaDCGMExporterScrapeCommonMetric(ctx, s)
+				ValidateNvidiaDCGMExporterScrapeCommonMetric(ctx, s, "DCGM_FI_DEV_GPU_TEMP")
 			},
 		},
 	})
