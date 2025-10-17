@@ -1759,6 +1759,7 @@ type NodeBootstrappingConfiguration struct {
 	EnableKubeletConfigFile       bool
 	EnableNvidia                  bool
 	EnableAMDGPU                  bool
+	ManagedGPUExperienceAFECEnabled bool
 	EnableACRTeleportPlugin       bool
 	TeleportdPluginURL            string
 	EnableArtifactStreaming       bool
