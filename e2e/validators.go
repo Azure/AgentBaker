@@ -968,12 +968,13 @@ func ValidateNvidiaDevicePluginServiceRunning(ctx context.Context, s *Scenario) 
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "NVIDIA device plugin systemd service should be active and enabled")
 }
 
-func ValidateNodeAdvertisesGPUResources(ctx context.Context, s *Scenario) {
+func ValidateNodeAdvertisesGPUResources(ctx context.Context, s *Scenario, gpuCountExpected int64) {
 	s.T.Helper()
 	s.T.Logf("validating that node advertises GPU resources")
+	resourceName := "nvidia.com/gpu"
 
 	// First, wait for the nvidia.com/gpu resource to be available
-	waitUntilResourceAvailable(ctx, s, "nvidia.com/gpu")
+	waitUntilResourceAvailable(ctx, s, resourceName)
 
 	// Get the node using the Kubernetes client from the test framework
 	nodeName := s.Runtime.KubeNodeName
@@ -981,16 +982,15 @@ func ValidateNodeAdvertisesGPUResources(ctx context.Context, s *Scenario) {
 	require.NoError(s.T, err, "failed to get node %q", nodeName)
 
 	// Check if the node advertises GPU capacity
-	gpuCapacity, exists := node.Status.Capacity["nvidia.com/gpu"]
-	require.True(s.T, exists, "node should advertise nvidia.com/gpu capacity")
+	gpuCapacity, exists := node.Status.Capacity[corev1.ResourceName(resourceName)]
+	require.True(s.T, exists, "node should advertise resource %s", resourceName)
 
 	gpuCount := gpuCapacity.Value()
-	require.Greater(s.T, gpuCount, int64(0), "node should advertise at least 1 GPU, but got %d", gpuCount)
-
-	s.T.Logf("node %s advertises %d nvidia.com/gpu resources", nodeName, gpuCount)
+	require.Equal(s.T, gpuCount, gpuCountExpected, "node should advertise %s=%d, but got %s=%d", resourceName, gpuCountExpected, resourceName, gpuCount)
+	s.T.Logf("node %s advertises %s=%d resources", nodeName, resourceName, gpuCount)
 }
 
-func ValidateGPUWorkloadSchedulable(ctx context.Context, s *Scenario) {
+func ValidateGPUWorkloadSchedulable(ctx context.Context, s *Scenario, gpuCount int) {
 	s.T.Helper()
 	s.T.Logf("validating that GPU workloads can be scheduled")
 
@@ -1014,7 +1014,7 @@ func ValidateGPUWorkloadSchedulable(ctx context.Context, s *Scenario) {
 					},
 					Resources: corev1.ResourceRequirements{
 						Limits: corev1.ResourceList{
-							"nvidia.com/gpu": resource.MustParse("1"),
+							"nvidia.com/gpu": resource.MustParse(fmt.Sprintf("%d", gpuCount)),
 						},
 					},
 				},
@@ -1156,12 +1156,48 @@ func ValidateNvidiaDCGMExporterIsScrapable(ctx context.Context, s *Scenario) {
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "Nvidia DCGM Exporter is not scrapable on port 19400")
 }
 
-func ValidateNvidiaDCGMExporterScrapeCommonMetric(ctx context.Context, s *Scenario) {
+func ValidateNvidiaDCGMExporterScrapeCommonMetric(ctx context.Context, s *Scenario, metric string) {
 	s.T.Helper()
 	command := []string{
 		"set -ex",
 		// Verify the most universal GPU metric is present
-		"curl -s http://localhost:19400/metrics | grep -q 'DCGM_FI_DEV_GPU_UTIL'",
+		"curl -s http://localhost:19400/metrics | grep -q '" + metric + "'",
 	}
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "Nvidia DCGM Exporter is not returning DCGM_FI_DEV_GPU_UTIL")
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "Nvidia DCGM Exporter is not returning "+metric)
+}
+
+func ValidateMIGModeEnabled(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	s.T.Logf("validating that MIG mode is enabled")
+
+	command := []string{
+		"set -ex",
+		// Grep to verify it contains 'Enabled' - this will fail if MIG is disabled
+		"sudo nvidia-smi --query-gpu=mig.mode.current --format=csv,noheader | grep -i 'Enabled'",
+	}
+	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "MIG mode is not enabled")
+
+	stdout := strings.TrimSpace(execResult.stdout.String())
+	s.T.Logf("MIG mode status: %s", stdout)
+	require.Contains(s.T, stdout, "Enabled", "expected MIG mode to be enabled, but got: %s", stdout)
+	s.T.Logf("MIG mode is enabled")
+}
+
+func ValidateMIGInstancesCreated(ctx context.Context, s *Scenario, migProfile string) {
+	s.T.Helper()
+	s.T.Logf("validating that MIG instances are created with profile %s", migProfile)
+
+	command := []string{
+		"set -ex",
+		// List MIG devices using nvidia-smi
+		"sudo nvidia-smi mig -lgi",
+		// Ensure the output contains the expected MIG profile (will fail if "No MIG-enabled devices found")
+		"sudo nvidia-smi mig -lgi | grep -v 'No MIG-enabled devices found' | grep -q '" + migProfile + "'",
+	}
+	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "MIG instances with profile "+migProfile+" were not found")
+
+	stdout := execResult.stdout.String()
+	require.Contains(s.T, stdout, migProfile, "expected to find MIG profile %s in output, but did not.\nOutput:\n%s", migProfile, stdout)
+	require.NotContains(s.T, stdout, "No MIG-enabled devices found", "no MIG devices were created.\nOutput:\n%s", stdout)
+	s.T.Logf("MIG instances with profile %s are created", migProfile)
 }
