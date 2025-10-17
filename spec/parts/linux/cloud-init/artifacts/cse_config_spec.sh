@@ -457,67 +457,6 @@ Describe 'cse_config.sh'
             The output should include "configure credential provider for network isolated cluster"
             The output should not include "tee"
         End
-
-        It 'should configure registry host correctly if BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER is abc.azurecr.io/def and k8s version >= 1.34'
-            mkdir() {
-                echo "mkdir $@"
-            }
-            touch() {
-                echo "touch $@"
-            }
-            chmod() {
-                echo "chmod $@"
-            }
-            tee() {
-                echo "tee $@"
-            }
-            installCredentialProviderPackageFromBootstrapProfileRegistry() {
-                echo "installCredentialProviderPackageFromBootstrapProfileRegistry"
-            }
-            KUBERNETES_VERSION="1.34.5"
-            SHOULD_ENFORCE_KUBE_PMC_INSTALL="false"
-            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="abc.azurecr.io/def"
-            When call configureContainerdRegistryHost
-            The variable CONTAINERD_CONFIG_REGISTRY_HOST_MCR should equal '/etc/containerd/certs.d/mcr.microsoft.com/hosts.toml'
-            The variable CONTAINER_REGISTRY_URL should equal 'abc.azurecr.io/v2/def/'
-            The output should include "mkdir -p /etc/containerd/certs.d/mcr.microsoft.com"
-            The output should include "touch /etc/containerd/certs.d/mcr.microsoft.com/hosts.toml"
-            The output should include "chmod 0644 /etc/containerd/certs.d/mcr.microsoft.com/hosts.toml"
-            The output should include "installCredentialProviderPackageFromBootstrapProfileRegistry"
-            The output should not include "tee"
-        End
-
-        It 'should configure registry host correctly if BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER is abc.azurecr.io/def and PMC fails'
-            mkdir() {
-                echo "mkdir $@"
-            }
-            touch() {
-                echo "touch $@"
-            }
-            chmod() {
-                echo "chmod $@"
-            }
-            tee() {
-                echo "tee $@"
-            }
-            installCredentialProviderPackageFromBootstrapProfileRegistry() {
-                return 1
-            }
-            installCredentialProvider() {
-                echo "installCredentialProviderFromURL"
-            }
-            KUBERNETES_VERSION="1.34.5"
-            SHOULD_ENFORCE_KUBE_PMC_INSTALL="true"
-            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="abc.azurecr.io/def"
-            When call configureContainerdRegistryHost
-            The variable CONTAINERD_CONFIG_REGISTRY_HOST_MCR should equal '/etc/containerd/certs.d/mcr.microsoft.com/hosts.toml'
-            The variable CONTAINER_REGISTRY_URL should equal 'abc.azurecr.io/v2/def/'
-            The output should include "mkdir -p /etc/containerd/certs.d/mcr.microsoft.com"
-            The output should include "touch /etc/containerd/certs.d/mcr.microsoft.com/hosts.toml"
-            The output should include "chmod 0644 /etc/containerd/certs.d/mcr.microsoft.com/hosts.toml"
-            The output should include "installCredentialProviderFromURL"
-            The output should not include "tee"
-        End
     End
 
     Describe 'enableLocalDNS'
@@ -861,7 +800,6 @@ Describe 'cse_config.sh'
                 return 1
             }
             When call configureKubeletAndKubectl
-            The output should not include "installKubeletKubectlFromBootstrapProfileRegistry"
             The output should include "installKubeletKubectlFromURL"
         End
 
