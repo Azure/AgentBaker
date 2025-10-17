@@ -1165,3 +1165,15 @@ func ValidateNvidiaDCGMExporterScrapeCommonMetric(ctx context.Context, s *Scenar
 	}
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "Nvidia DCGM Exporter is not returning DCGM_FI_DEV_GPU_UTIL")
 }
+
+// ValidateContainerdBinaryExists ensures that the containerd binary exists and logs its version.
+func ValidateContainerdBinaryExists(ctx context.Context, s *Scenario) {
+	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, "containerd --version", 0, "could not get containerd version")
+	s.T.Logf("containerd version output: %s", execResult.stdout.String())
+}
+
+// ValidateRuncBinaryExists ensures that the runc binary exists and logs its version.
+func ValidateRuncBinaryExists(ctx context.Context, s *Scenario) {
+	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, "runc --version", 0, "could not get runc version")
+	s.T.Logf("runc version output: %s", execResult.stdout.String())
+}
