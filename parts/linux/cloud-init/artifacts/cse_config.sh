@@ -752,15 +752,7 @@ EOF
         else
             if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ] ; then
                 # For network isolated clusters, try distro packages first and fallback to binary installation
-                if ! logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromAcrPackage" installCredentialProviderPackageFromBootstrapProfileRegistry ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ${KUBERNETES_VERSION}; then
-                    if [ "${SHOULD_ENFORCE_KUBE_PMC_INSTALL}" != "true" ] ; then
-                        # SHOULD_ENFORCE_KUBE_PMC_INSTALL will only be set for e2e tests, which should not fallback to reflect result of package installation behavior
-                        logs_to_events "AKS.CSE.ensureKubelet.installCredentialProvider-Fallback" installCredentialProvider
-                    else
-                        echo "Failed to install credential provider from bootstrap profile registry, and not falling back to package installation"
-                        exit $ERR_ORAS_PULL_CREDENTIAL_PROVIDER
-                    fi
-                fi
+                logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromAcrPackage" installCredentialProviderPackageFromBootstrapProfileRegistry ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ${KUBERNETES_VERSION}
             elif isMarinerOrAzureLinux "$OS"; then
                 if [ "$OS_VERSION" = "2.0" ]; then # PMC package installation not supported for AzureLinux V2, only V3
                     logs_to_events "AKS.CSE.ensureKubelet.installCredentialProvider" installCredentialProvider
