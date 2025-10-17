@@ -759,16 +759,14 @@ EOF
                         exit $ERR_ORAS_PULL_CREDENTIAL_PROVIDER
                     fi
                 fi
-            else
-                if isMarinerOrAzureLinux "$OS"; then
-                    if [ "$OS_VERSION" = "2.0" ]; then # PMC package installation not supported for AzureLinux V2, only V3
-                        logs_to_events "AKS.CSE.ensureKubelet.installCredentialProvider" installCredentialProvider
-                    else
-                        logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromPMC" "installCredentialProviderFromPMC ${KUBERNETES_VERSION}"
-                    fi
+            elif isMarinerOrAzureLinux "$OS"; then
+                if [ "$OS_VERSION" = "2.0" ]; then # PMC package installation not supported for AzureLinux V2, only V3
+                    logs_to_events "AKS.CSE.ensureKubelet.installCredentialProvider" installCredentialProvider
                 else
                     logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromPMC" "installCredentialProviderFromPMC ${KUBERNETES_VERSION}"
                 fi
+            else
+                logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromPMC" "installCredentialProviderFromPMC ${KUBERNETES_VERSION}"
             fi
         fi
     fi
