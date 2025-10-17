@@ -234,6 +234,7 @@ if isMarinerOrAzureLinux "$OS" && ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; the
     disableDNFAutomatic
     enableCheckRestart
     activateNfConntrack
+    installAznfsPkgFromPMC
 fi
 capture_benchmark "${SCRIPT_NAME}_handle_azurelinux_configs"
 
