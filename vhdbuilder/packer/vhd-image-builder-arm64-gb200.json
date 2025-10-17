@@ -629,6 +629,11 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/10-bridge.conf",
+      "destination": "/home/packer/10-bridge.conf"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/ubuntu/doca.list",
       "destination": "/home/packer/doca.list"
     },

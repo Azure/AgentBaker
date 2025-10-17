@@ -384,6 +384,11 @@ copyPackerFiles() {
       GRUB_AZ_NV_ENV_SRC=/home/packer/51-azure-nvidia.cfg
       GRUB_AZ_NV_ENV_DEST=/etc/default/grub.d/51-azure-nvidia.cfg
       cpAndMode $GRUB_AZ_NV_ENV_SRC $GRUB_AZ_NV_ENV_DEST 644
+
+      BRIDGE_CONF_SRC=/home/packer/10-bridge.conf
+      BRIDGE_CONF_DEST=/etc/cni/net.d/10-bridge.conf
+      cpAndMode $BRIDGE_CONF_SRC $BRIDGE_CONF_DEST 0644
+
     fi
   fi
 
