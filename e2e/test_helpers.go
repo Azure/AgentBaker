@@ -22,6 +22,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 	"github.com/stretchr/testify/require"
+	"k8s.io/apimachinery/pkg/util/wait"
 	ctrruntimelog "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
@@ -649,7 +650,81 @@ func CreateSIGImageVersionFromDisk(ctx context.Context, s *Scenario, version str
 	return &customVHD
 }
 
+// isRebootRelatedSSHError checks if the error is related to a system reboot
+func isRebootRelatedSSHError(err error, stderr string) bool {
+	if err == nil {
+		return false
+	}
+
+	rebootIndicators := []string{
+		"System is going down",
+		"pam_nologin",
+		"Connection closed by",
+		"Connection refused",
+		"Connection timed out",
+	}
+
+	errMsg := err.Error()
+	for _, indicator := range rebootIndicators {
+		if strings.Contains(errMsg, indicator) || strings.Contains(stderr, indicator) {
+			return true
+		}
+	}
+	return false
+}
+
 func validateSSHConnectivity(ctx context.Context, s *Scenario) error {
+	// If WaitForSSHAfterReboot is not set, use the original single-attempt behavior
+	if s.Config.WaitForSSHAfterReboot == 0 {
+		return attemptSSHConnection(ctx, s)
+	}
+
+	// Retry logic with exponential backoff for scenarios that may reboot
+	s.T.Logf("SSH connectivity validation will retry for up to %s if reboot-related errors are encountered", s.Config.WaitForSSHAfterReboot)
+	startTime := time.Now()
+	var lastSSHError error
+
+	err := wait.PollUntilContextTimeout(ctx, 5*time.Second, s.Config.WaitForSSHAfterReboot, true, func(ctx context.Context) (bool, error) {
+		err := attemptSSHConnection(ctx, s)
+		if err == nil {
+			elapsed := time.Since(startTime)
+			s.T.Logf("SSH connectivity established after %s", toolkit.FormatDuration(elapsed))
+			return true, nil
+		}
+
+		// Save the last error for better error messages
+		lastSSHError = err
+
+		// Extract stderr from the error
+		stderr := ""
+		if strings.Contains(err.Error(), "Stderr:") {
+			parts := strings.Split(err.Error(), "Stderr:")
+			if len(parts) > 1 {
+				stderr = parts[1]
+			}
+		}
+
+		// Check if this is a reboot-related error
+		if isRebootRelatedSSHError(err, stderr) {
+			s.T.Logf("Detected reboot-related SSH error, will retry: %v", err)
+			return false, nil // Continue polling
+		}
+
+		// Not a reboot error, fail immediately
+		return false, err
+	})
+
+	// If we timed out while retrying reboot-related errors, provide a better error message
+	if err != nil && lastSSHError != nil {
+		elapsed := time.Since(startTime)
+		return fmt.Errorf("SSH connection failed after waiting %s for node to reboot and come back up. Last SSH error: %w", toolkit.FormatDuration(elapsed), lastSSHError)
+	}
+
+	return err
+}
+
+// attemptSSHConnection performs a single SSH connectivity check
+func attemptSSHConnection(ctx context.Context, s *Scenario) error {
 	connectionTest := fmt.Sprintf("%s echo 'SSH_CONNECTION_OK'", sshString(s.Runtime.VMPrivateIP))
 	connectionResult, err := execOnPrivilegedPod(ctx, s.Runtime.Cluster.Kube, defaultNamespace, s.Runtime.Cluster.DebugPod.Name, connectionTest)
 
