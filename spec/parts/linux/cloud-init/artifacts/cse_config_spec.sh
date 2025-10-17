@@ -859,11 +859,10 @@ Describe 'cse_config.sh'
             BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myregistry.azurecr.io"
             KUBERNETES_VERSION="1.34.0"
             installKubeletKubectlFromBootstrapProfileRegistry() {
-                echo "installKubeletKubectlFromBootstrapProfileRegistry $1 $2"
                 return 1
             }
             When call configureKubeletAndKubectl
-            The output should include "installKubeletKubectlFromBootstrapProfileRegistry myregistry.azurecr.io 1.34.0"
+            The output should not include "installKubeletKubectlFromBootstrapProfileRegistry"
             The output should include "installKubeletKubectlFromURL"
         End
 
@@ -871,26 +870,26 @@ Describe 'cse_config.sh'
             BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myregistry.azurecr.io"
             KUBERNETES_VERSION="1.33.5"
             When call configureKubeletAndKubectl
-            The output should not include "installK8sToolsFromBootstrapProfileRegistry"
+            The output should not include "installKubeletKubectlFromBootstrapProfileRegistry"
             The output should include "installKubeletKubectlFromURL"
         End
 
-        It 'should call installK8sToolsFromBootstrapProfileRegistry when SHOULD_ENFORCE_KUBE_PMC_INSTALL is true and k8s < 1.34.0' and BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER is set
+        It 'should call installKubeletKubectlFromBootstrapProfileRegistry when SHOULD_ENFORCE_KUBE_PMC_INSTALL is true and k8s < 1.34.0' and BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER is set
             BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myregistry.azurecr.io"
             KUBERNETES_VERSION="1.33.5"
             SHOULD_ENFORCE_KUBE_PMC_INSTALL="true"
             When call configureKubeletAndKubectl
-            The output should include "installK8sToolsFromBootstrapProfileRegistry myregistry.azurecr.io 1.33.5"
+            The output should include "installKubeletKubectlFromBootstrapProfileRegistry myregistry.azurecr.io 1.33.5"
             The output should not include "installKubeletKubectlFromURL"
             The output should not include "installKubeletKubectlPkgFromPMC"
         End
 
-        It 'should not call installK8sToolsFromBootstrapProfileRegistry when SHOULD_ENFORCE_KUBE_PMC_INSTALL is false and k8s < 1.34.0' and BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER is set
+        It 'should not call installKubeletKubectlFromBootstrapProfileRegistry when SHOULD_ENFORCE_KUBE_PMC_INSTALL is false and k8s < 1.34.0' and BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER is set
             BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myregistry.azurecr.io"
             KUBERNETES_VERSION="1.33.5"
             SHOULD_ENFORCE_KUBE_PMC_INSTALL="false"
             When call configureKubeletAndKubectl
-            The output should not include "installK8sToolsFromBootstrapProfileRegistry"
+            The output should not include "installKubeletKubectlFromBootstrapProfileRegistry"
             The output should include "installKubeletKubectlFromURL"
         End
     End
