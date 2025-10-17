@@ -2005,7 +2005,7 @@ oom_score = -999
 				// Verify GPU driver configuration is enabled
 				Expect(o.vars["CONFIG_GPU_DRIVER_IF_NEEDED"]).To(Equal("true"))
 			}),
-		Entry("AKSUbuntu2204 with NVIDIA Device Plugin enabled", "AKSUbuntu2204+Containerd+DevicePlugin", "1.29.7",
+		Entry("AKSUbuntu2204 with NVIDIA Device Plugin and managed GPU experience AFEC enabled", "AKSUbuntu2204+Containerd+DevicePlugin", "1.29.7",
 			func(config *datamodel.NodeBootstrappingConfiguration) {
 				config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
 					ContainerRuntime: datamodel.Containerd,
