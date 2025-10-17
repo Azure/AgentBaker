@@ -3,6 +3,7 @@ package e2e
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/Azure/agentbaker/e2e/components"
 	"github.com/Azure/agentbaker/e2e/config"
@@ -198,8 +199,9 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG(t *testing.T) {
 			GPU: true,
 		},
 		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2404Gen2Containerd,
+			Cluster:               ClusterKubenet,
+			VHD:                   config.VHDUbuntu2404Gen2Containerd,
+			WaitForSSHAfterReboot: 5 * time.Minute,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.VMSize = "Standard_NC24ads_A100_v4"
 				nbc.ConfigGPUDriverIfNeeded = true
