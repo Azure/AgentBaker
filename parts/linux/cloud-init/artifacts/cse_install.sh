@@ -526,6 +526,46 @@ extractKubeBinaries() {
     extractKubeBinariesToUsrLocalBin "${k8s_tgz_tmp}" "${k8s_version}" "${is_private_url}"
 }
 
+installK8sToolsFromBootstrapProfileRegistry() {
+    local registry_server=$1
+    local kubernetes_version=$2
+
+    # Try to pull distro-specific packages (e.g., .deb for Ubuntu) from registry
+    local download_root="/tmp/kubernetes/downloads" # /opt folder will return permission error
+
+    for tool_name in $(get_kubernetes_tools); do
+        tool_package_url="${registry_server}/aks/packages/kubernetes/${tool_name}:v${kubernetes_version}"
+        tool_download_dir="${download_root}/${tool_name}"
+        mkdir -p "${tool_download_dir}"
+
+        # Construct platform string for ORAS pull
+        os_version=$(getOsVersion) || return 1 # Platform-specific OS version detection
+        platform_flag="--platform=linux/${CPU_ARCH}:${OS,,} ${os_version}"
+
+        echo "Attempting to pull ${tool_name} package from ${tool_package_url} with platform ${platform_flag}"
+        # retrycmd_pull_from_registry_with_oras will pull all artifacts to the directory with platform selection
+        if ! retrycmd_pull_from_registry_with_oras 10 5 "${tool_download_dir}" "${tool_package_url}" "${platform_flag}"; then
+            echo "Failed to pull ${tool_name} package from registry"
+            rm -rf "${tool_download_dir}"
+            return 1
+        fi
+
+        echo "Successfully pulled ${tool_name} package"
+
+        # Try to install using distro-specific package installer from local repo
+        installation_root="/usr/local/bin"
+        if ! installToolFromLocalRepo "${tool_name}" "${tool_download_dir}" "${installation_root}"; then
+            echo "Failed to install ${tool_name} from local repo ${tool_download_dir}"
+            rm -rf "${tool_download_dir}"
+            return 1
+        fi
+    done
+
+    # All tools installed successfully
+    rm -rf "${download_root}"
+    return 0
+}
+
 installKubeletKubectlFromURL() {
     # when both, custom and private urls for kubernetes packages are set, custom url will be used and private url will be ignored
     CUSTOM_KUBE_BINARY_DOWNLOAD_URL="${CUSTOM_KUBE_BINARY_URL:=}"

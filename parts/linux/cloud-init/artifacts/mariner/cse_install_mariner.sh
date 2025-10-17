@@ -175,6 +175,16 @@ installKubeletKubectlPkgFromPMC() {
     installRPMPackageFromFile "kubectl" $desiredVersion || exit $ERR_KUBECTL_INSTALL_FAIL
 }
 
+installToolFromLocalRepo() {
+    echo "installToolFromLocalRepo is not yet implemented for Mariner"
+    return 1
+}
+
+getOsVersion() {
+    echo "getOsVersion is not yet implemented for Mariner"
+    return 1
+}
+
 updateDnfWithNvidiaPkg() {
   if [ "$OS_VERSION" != "3.0" ]; then
     echo "NVIDIA repo setup is only supported on Azure Linux 3.0"

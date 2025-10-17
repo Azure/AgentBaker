@@ -77,4 +77,9 @@ cleanUpGPUDrivers() {
     stub
 }
 
+installToolFromLocalRepo() {
+    stub
+    return 1
+}
+
 #EOF

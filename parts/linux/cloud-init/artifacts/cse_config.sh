@@ -525,14 +525,22 @@ EOF
 }
 
 configureKubeletAndKubectl() {
-    # Install kubelet and kubectl binaries from URL for Network Isolated, Custom Kube binary, and Private Kube binary
-    if [ -n "${CUSTOM_KUBE_BINARY_DOWNLOAD_URL}" ] || [ -n "${PRIVATE_KUBE_BINARY_DOWNLOAD_URL}" ] || [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
+    # Install kubelet and kubectl binaries from URL for Custom Kube binary and Private Kube binary
+    if [ -n "${CUSTOM_KUBE_BINARY_DOWNLOAD_URL}" ] || [ -n "${PRIVATE_KUBE_BINARY_DOWNLOAD_URL}" ]; then
         logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromURL" installKubeletKubectlFromURL
     # only install kube pkgs from pmc if k8s version >= 1.34.0 or skip_bypass_k8s_version_check is true
     elif [ "${SHOULD_ENFORCE_KUBE_PMC_INSTALL}" != "true" ] && ! semverCompare ${KUBERNETES_VERSION:-"0.0.0"} "1.34.0"; then
         logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromURL" installKubeletKubectlFromURL
     else
-        if isMarinerOrAzureLinux "$OS"; then
+        if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ] ; then
+            # For network isolated clusters, try distro packages first and fallback to binary installation
+            if ! logs_to_events "AKS.CSE.configureKubeletAndKubectl.installK8sToolsFromBootstrapProfileRegistry" "installK8sToolsFromBootstrapProfileRegistry ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ${KUBERNETES_VERSION}" && [ "${SHOULD_ENFORCE_KUBE_PMC_INSTALL}" != "true" ]; then
+                # SHOULD_ENFORCE_KUBE_PMC_INSTALL will only be set for e2e tests, which should not fallback to reflect result of package installation behavior
+                # TODO: remove SHOULD_ENFORCE_KUBE_PMC_INSTALL check when the test cluster supports > 1.34.0 case
+                # if install from bootstrap profile registry fails, fallback to install from URL
+                logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromURL-Fallback" installKubeletKubectlFromURL
+            fi
+        elif isMarinerOrAzureLinux "$OS"; then
             if [ "$OS_VERSION" = "2.0" ]; then
                 # we do not publish packages to PMC for azurelinux V2
                 logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromURL" installKubeletKubectlFromURL
