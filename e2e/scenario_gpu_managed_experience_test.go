@@ -42,6 +42,7 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning(t *testing.T) {
 				nbc.ConfigGPUDriverIfNeeded = true
 				nbc.EnableGPUDevicePluginIfNeeded = true
 				nbc.EnableNvidia = true
+				nbc.ManagedGPUExperienceAFECEnabled = true
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
@@ -97,6 +98,7 @@ func Test_Ubuntu2204_NvidiaDevicePluginRunning(t *testing.T) {
 				nbc.ConfigGPUDriverIfNeeded = true
 				nbc.EnableGPUDevicePluginIfNeeded = true
 				nbc.EnableNvidia = true
+				nbc.ManagedGPUExperienceAFECEnabled = true
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
@@ -151,6 +153,7 @@ func Test_AzureLinux3_NvidiaDevicePluginRunning(t *testing.T) {
 				nbc.ConfigGPUDriverIfNeeded = true
 				nbc.EnableGPUDevicePluginIfNeeded = true
 				nbc.EnableNvidia = true
+				nbc.ManagedGPUExperienceAFECEnabled = true
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
