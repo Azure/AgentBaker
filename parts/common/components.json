@@ -96,6 +96,11 @@
           "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore/iis",
           "latestVersion": "windowsservercore-ltsc2022",
           "windowsSkuMatch": "23H2*"
+        },
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore/iis",
+          "latestVersion": "windowsservercore-ltsc2025",
+          "windowsSkuMatch": "2025*"
         }
       ]
     },
