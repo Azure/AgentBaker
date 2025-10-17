@@ -533,7 +533,9 @@ configureKubeletAndKubectl() {
         logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromURL" installKubeletKubectlFromURL
     else
         if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ] ; then
-            # For network isolated clusters, try distro packages first and fallback to binary installation
+            # SHOULD_ENFORCE_KUBE_PMC_INSTALL will only be set for e2e tests, which should not fallback to reflect result of package installation behavior
+            # TODO: remove SHOULD_ENFORCE_KUBE_PMC_INSTALL check when the test cluster supports > 1.34.0 case
+            # if install from bootstrap profile registry fails, fallback to install from URL
             if ! logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromBootstrapProfileRegistry" "installKubeletKubectlFromBootstrapProfileRegistry ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ${KUBERNETES_VERSION}"; then
                 if [ "${SHOULD_ENFORCE_KUBE_PMC_INSTALL}" != "true" ];then
 
