@@ -96,6 +96,11 @@
           "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore/iis",
           "latestVersion": "windowsservercore-ltsc2022",
           "windowsSkuMatch": "23H2*"
+        },
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore/iis",
+          "latestVersion": "windowsservercore-ltsc2025",
+          "windowsSkuMatch": "2025*"
         }
       ]
     },
@@ -728,7 +733,7 @@
       "downloadURL": "mcr.microsoft.com/aks/aks-gpu-grid:*",
       "gpuVersion": {
         "renovateTag": "registry=https://mcr.microsoft.com, name=aks/aks-gpu-grid",
-          "latestVersion": "550.144.06-20250822192755"
+        "latestVersion": "550.144.06-20250822192755"
       }
     }
   ],
