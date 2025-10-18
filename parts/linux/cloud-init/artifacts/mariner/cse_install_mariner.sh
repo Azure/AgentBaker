@@ -187,8 +187,9 @@ installAznfsPkgFromPMC() {
   if ! dnf_install 30 1 600 ${aznfs_rpm_file}; then
     exit $ERR_APT_INSTALL_TIMEOUT
   fi
+  dnf check-update --refresh -y
   export AZNFS_NONINTERACTIVE_INSTALL=1
-  if ! dnf_install 30 1 600 aznfs-0.3.34; then
+  if ! dnf_install 30 1 600 aznfs; then
     exit $ERR_APT_INSTALL_TIMEOUT
   fi
   rm -f ${aznfs_rpm_file}
