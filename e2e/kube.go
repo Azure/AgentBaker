@@ -148,7 +148,10 @@ func (k *Kubeclient) WaitUntilPodRunning(ctx context.Context, namespace string, 
 func (k *Kubeclient) WaitUntilNodeReady(ctx context.Context, t testing.TB, vmssName string) string {
 	startTime := time.Now()
 	t.Logf("waiting for node %s to be ready in k8s API", vmssName)
-	defer t.Logf("waited for node %s to be ready in k8s API for %s", vmssName, time.Since(startTime))
+	defer func() {
+		t.Logf("waited for node %s to be ready in k8s API for %s", vmssName, time.Since(startTime))
+	}()
+
 	var node *corev1.Node = nil
 	watcher, err := k.Typed.CoreV1().Nodes().Watch(ctx, metav1.ListOptions{})
 	require.NoError(t, err, "failed to start watching nodes")
