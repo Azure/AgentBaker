@@ -366,9 +366,9 @@ func (a *AzureClient) CreateVMManagedIdentity(ctx context.Context, identityLocat
 		return "", err
 	}
 
-	if err := a.assignRolesToVMIdentity(ctx, identity.Properties.PrincipalID); err != nil {
-		return "", err
-	}
+	// if err := a.assignRolesToVMIdentity(ctx, identity.Properties.PrincipalID); err != nil {
+	// 	return "", err
+	// }
 	return *identity.Properties.ClientID, nil
 }
 

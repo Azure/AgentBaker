@@ -41,26 +41,26 @@ type Configuration struct {
 	AirgapNSGName                          string        `env:"AIRGAP_NSG_NAME" envDefault:"abe2e-airgap-securityGroup"`
 	AzureContainerRegistrytargetRepository string        `env:"ACR_TARGET_REPOSITORY" envDefault:"*"`
 	BlobContainer                          string        `env:"BLOB_CONTAINER" envDefault:"abe2e"`
-	BlobStorageAccountPrefix               string        `env:"BLOB_STORAGE_ACCOUNT_PREFIX" envDefault:"abe2e"`
+	BlobStorageAccountPrefix               string        `env:"BLOB_STORAGE_ACCOUNT_PREFIX" envDefault:"henrytest"`
 	BuildID                                string        `env:"BUILD_ID" envDefault:"local"`
-	DefaultLocation                        string        `env:"E2E_LOCATION" envDefault:"westus3"`
+	DefaultLocation                        string        `env:"E2E_LOCATION" envDefault:"eastus"`
 	DefaultSubnetName                      string        `env:"DEFAULT_SUBNET_NAME" envDefault:"aks-subnet"`
 	DefaultPollInterval                    time.Duration `env:"DEFAULT_POLL_INTERVAL" envDefault:"1s"`
 	DefaultVMSKU                           string        `env:"DEFAULT_VM_SKU" envDefault:"Standard_D2ds_v5"`
 	DisableScriptLessCompilation           bool          `env:"DISABLE_SCRIPTLESS_COMPILATION"`
 	E2ELoggingDir                          string        `env:"LOGGING_DIR" envDefault:"scenario-logs"`
-	GalleryNameLinux                       string        `env:"GALLERY_NAME" envDefault:"PackerSigGalleryEastUS"`
+	GalleryNameLinux                       string        `env:"GALLERY_NAME" envDefault:"MarinerAKSSig"`
 	GalleryNameWindows                     string        `env:"GALLERY_NAME" envDefault:"PackerSigGalleryEastUS"`
-	GalleryResourceGroupNameLinux          string        `env:"GALLERY_RESOURCE_GROUP" envDefault:"aksvhdtestbuildrg"`
+	GalleryResourceGroupNameLinux          string        `env:"GALLERY_RESOURCE_GROUP" envDefault:"MarinerAKSTest"`
 	GalleryResourceGroupNameWindows        string        `env:"GALLERY_RESOURCE_GROUP" envDefault:"aksvhdtestbuildrg"`
-	GallerySubscriptionIDLinux             string        `env:"GALLERY_SUBSCRIPTION_ID" envDefault:"c4c3550e-a965-4993-a50c-628fd38cd3e1"`
+	GallerySubscriptionIDLinux             string        `env:"GALLERY_SUBSCRIPTION_ID" envDefault:"035db282-f1c8-4ce7-b78f-2a7265d5398c"`
 	GallerySubscriptionIDWindows           string        `env:"GALLERY_SUBSCRIPTION_ID" envDefault:"c4c3550e-a965-4993-a50c-628fd38cd3e1"`
 	IgnoreScenariosWithMissingVHD          bool          `env:"IGNORE_SCENARIOS_WITH_MISSING_VHD"`
-	KeepVMSS                               bool          `env:"KEEP_VMSS"`
+	KeepVMSS                               bool          `env:"KEEP_VMSS" envDefault:"true"`
 	SIGVersionTagName                      string        `env:"SIG_VERSION_TAG_NAME" envDefault:"branch"`
 	SIGVersionTagValue                     string        `env:"SIG_VERSION_TAG_VALUE" envDefault:"refs/heads/master"`
 	SkipTestsWithSKUCapacityIssue          bool          `env:"SKIP_TESTS_WITH_SKU_CAPACITY_ISSUE"`
-	SubscriptionID                         string        `env:"SUBSCRIPTION_ID" envDefault:"8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8"`
+	SubscriptionID                         string        `env:"SUBSCRIPTION_ID" envDefault:"035db282-f1c8-4ce7-b78f-2a7265d5398c"`
 	TagsToRun                              string        `env:"TAGS_TO_RUN"`
 	TagsToSkip                             string        `env:"TAGS_TO_SKIP"`
 	TestGalleryImagePrefix                 string        `env:"TEST_GALLERY_IMAGE_PREFIX" envDefault:"abe2etest"`
@@ -113,7 +113,8 @@ func (c *Configuration) String() string {
 }
 
 func (c *Configuration) VMIdentityResourceID(location string) string {
-	return fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.ManagedIdentity/userAssignedIdentities/%s", c.SubscriptionID, ResourceGroupName(location), VMIdentityName)
+	// return fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.ManagedIdentity/userAssignedIdentities/%s", c.SubscriptionID, ResourceGroupName(location), VMIdentityName)
+	return fmt.Sprintf("/subscriptions/035db282-f1c8-4ce7-b78f-2a7265d5398c/resourceGroups/MarinerAKSTest/providers/Microsoft.ManagedIdentity/userAssignedIdentities/1es-mariner-aks-pipelines-managed-identity")
 }
 
 func mustLoadConfig() *Configuration {

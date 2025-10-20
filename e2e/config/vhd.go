@@ -129,6 +129,15 @@ var (
 		UnsupportedLocalDns:      true,
 	}
 
+	VHDAzureLinuxV3Gen2FIPS = &Image{
+		Name:    "AzureLinuxV3gen2fips",
+		OS:      OSAzureLinux,
+		Arch:    "amd64",
+		Version: "1.1759341330.9941",
+		Distro:  datamodel.AKSAzureLinuxV3Gen2FIPS,
+		Gallery: imageGalleryLinux,
+	}
+
 	// without kubelet, kubectl, credential-provider and wasm
 	VHDUbuntu2204Gen2ContainerdAirgappedK8sNotCached = &Image{
 		Name:                "2204Gen2",
