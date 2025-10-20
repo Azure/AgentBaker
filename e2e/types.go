@@ -165,6 +165,10 @@ type Config struct {
 	// SkipSSHConnectivityValidation is a flag to indicate whether the ssh connectivity validation should be skipped.
 	// It shouldn't be used for majority of scenarios, currently only used for scenarios where the node is not expected to be reachable via ssh
 	SkipSSHConnectivityValidation bool
+
+	// if VHDCaching is set then a VHD will be created first for the test scenario and then a VM will be created from that VHD.
+	// The main purpose is to validate VHD Caching logic and ensure a reboot step between basePrep and nodePrep doesn't break anything.
+	VHDCaching bool
 }
 
 func (s *Scenario) PrepareAKSNodeConfig() {

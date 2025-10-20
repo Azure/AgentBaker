@@ -246,10 +246,21 @@ DNS=${LOCALDNS_NODE_LISTENER_IP}
 [DHCP]
 UseDNS=false
 EOF
+
+            # Setup RESOLV_CONF for fallback tests
+            RESOLV_CONF="${TEST_DIR}/run/systemd/resolve/resolv.conf"
+            mkdir -p "$(dirname "$RESOLV_CONF")"
+            cat > "$RESOLV_CONF" <<EOF
+nameserver 10.0.0.1
+nameserver 10.0.0.2
+nameserver 10.0.0.3
+nameserver 10.0.0.4
+EOF
         }
         cleanup() {
             rm -rf "$NETWORK_FILE_DIR"
             rm -rf "$NETWORK_DROPIN_DIR"
+            rm -rf "$RESOLV_CONF"
         }
         BeforeEach 'setup'
         AfterEach 'cleanup'
@@ -295,6 +306,10 @@ EOF
 
         It 'should fail if no default route interface is found'
             DEFAULT_ROUTE_INTERFACE=""
+            # Mock awk to return empty DNS servers to trigger failure
+            awk() {
+                echo ""
+            }
             When call verify_default_route_interface
             The status should be failure
             The stdout should include "Unable to determine the default route interface"
@@ -302,9 +317,61 @@ EOF
 
         It 'should fail if default route interface variable is unset'
             unset DEFAULT_ROUTE_INTERFACE
+            # Mock awk to return empty DNS servers to trigger failure
+            awk() {
+                echo ""
+            }
             When call verify_default_route_interface
             The status should be failure
             The stdout should include "Unable to determine the default route interface"
+        End
+
+        It 'should use fallback method when DEFAULT_ROUTE_INTERFACE is empty and VNET DNS servers are available'
+            DEFAULT_ROUTE_INTERFACE=""
+            # Mock ip command to simulate successful fallback
+            ip() {
+                if [[ "$*" == *"route get 10.0.0.1"* ]]; then
+                    echo '[{"dst":"10.0.0.1","gateway":"10.0.0.1","dev":"eth0","src":"10.0.0.4","uid":0}]'
+                else
+                    command ip "$@"
+                fi
+            }
+            When call verify_default_route_interface
+            The status should be success
+            The stdout should include "Using upstream VNET DNS server: 10.0.0.1"
+            The variable DEFAULT_ROUTE_INTERFACE should equal "eth0"
+        End
+
+        It 'should fail when fallback method also fails'
+            DEFAULT_ROUTE_INTERFACE=""
+            # Mock ip command to simulate failure for both primary and fallback
+            ip() {
+                return 1
+            }
+            When call verify_default_route_interface
+            The status should be failure
+            The stdout should include "Unable to determine the default route interface using fallback method"
+        End
+
+        It 'should skip fallback when FIRST_DNS_SERVER equals LOCALDNS_NODE_LISTENER_IP'
+            DEFAULT_ROUTE_INTERFACE=""
+            # Setup resolv.conf with localdns IP to test circular dependency prevention
+            cat > "$RESOLV_CONF" <<EOF
+nameserver 169.254.10.10
+nameserver 10.0.0.2
+EOF
+            When call verify_default_route_interface
+            The status should be failure
+            The stdout should include "Unable to determine the default route interface using fallback method"
+        End
+
+        It 'should handle empty RESOLV_CONF gracefully'
+            DEFAULT_ROUTE_INTERFACE=""
+            # Empty resolv.conf
+            > "$RESOLV_CONF"
+            When call verify_default_route_interface
+            The status should be failure
+            The stdout should include "Unable to determine the default route interface using fallback method"
         End
 
         #------------------------- verify_network_file --------------------------------------------------------------

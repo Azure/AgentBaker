@@ -32,7 +32,7 @@ Describe 'long running cse helper functions'
             "retrycmd_get_aad_access_token" $ERR_ORAS_IMDS_TIMEOUT 1 1 "http://nonexistent.local/token"
             "retrycmd_get_refresh_token_for_oras" $ERR_ORAS_PULL_NETWORK_TIMEOUT 1 1 "dummy.registry" "tenant-id" "fake-token"
             "retrycmd_curl_file"    1 1 1 1 "/tmp/nonexistent" "https://dummy.url/file"
-            "retrycmd_can_oras_ls_acr"  $ERR_ORAS_PULL_NETWORK_TIMEOUT 1 1 "dummy.registry"
+            "retrycmd_can_oras_ls_acr_anonymously"  $ERR_ORAS_PULL_NETWORK_TIMEOUT 1 1 "dummy.registry"
             "retrycmd_cp_oci_layout_with_oras"  $ERR_PULL_POD_INFRA_CONTAINER_IMAGE 1 1 "/tmp/nonexistent" "tag" "dummy.registry/binary:v1"
         End
 
@@ -215,6 +215,97 @@ Describe 'long running cse helper functions'
                     The status should eq 1
                     The stdout should include "curl mock timeout"
                 End
+            End
+        End
+
+        Describe 'retrycmd_get_tarball_from_registry_with_oras'
+            It "calls retrycmd_pull_from_registry_with_oras when tarball exists but tar validation fails (returns 1)"
+                # Create a temporary directory and invalid tarball
+                mkdir -p /tmp/test_oras_tarball
+                echo "invalid tarball content" > /tmp/test_oras_tarball/test.tar
+
+                # Mock retrycmd_pull_from_registry_with_oras to track if it's called
+                retrycmd_pull_from_registry_with_oras() {
+                    echo "retrycmd_pull_from_registry_with_oras called with: $@"
+                    return 1
+                }
+
+                # When tar -tzf returns 1 (failure/invalid tarball),
+                # retrycmd_pull_from_registry_with_oras should be called to re-download
+                When call retrycmd_get_tarball_from_registry_with_oras 2 1 "/tmp/test_oras_tarball/test.tar" "dummy.registry/binary:v1"
+
+                The status should eq 1
+                The stdout should include "retrycmd_pull_from_registry_with_oras called with: 2 1 /tmp/test_oras_tarball dummy.registry/binary:v1"
+
+                # Cleanup after assertions
+                rm -rf /tmp/test_oras_tarball
+            End
+
+            It "calls retrycmd_pull_from_registry_with_oras when tarball does not exist"
+                # Mock retrycmd_pull_from_registry_with_oras to track if it's called
+                retrycmd_pull_from_registry_with_oras() {
+                    echo "retrycmd_pull_from_registry_with_oras called with: $@"
+                    return 1
+                }
+
+                When call retrycmd_get_tarball_from_registry_with_oras 2 1 "/tmp/nonexistent_oras_tarball/test.tar" "dummy.registry/binary:v1"
+
+                The status should eq 1
+                The stdout should include "retrycmd_pull_from_registry_with_oras called with: 2 1 /tmp/nonexistent_oras_tarball dummy.registry/binary:v1"
+            End
+
+            It "skips download when tarball exists and is valid"
+                # Create a valid tarball
+                mkdir -p /tmp/test_valid_oras_tarball
+                echo "test content" > /tmp/test_valid_oras_tarball/testfile
+                tar -czf /tmp/test_valid_oras_tarball/valid.tar.gz -C /tmp/test_valid_oras_tarball testfile
+
+                # Mock retrycmd_pull_from_registry_with_oras - should NOT be called
+                retrycmd_pull_from_registry_with_oras() {
+                    echo "retrycmd_pull_from_registry_with_oras should not be called"
+                    return 1
+                }
+
+                When call retrycmd_get_tarball_from_registry_with_oras 2 1 "/tmp/test_valid_oras_tarball/valid.tar.gz" "dummy.registry/binary:v1"
+
+                The status should eq 0
+                The stdout should not include "retrycmd_pull_from_registry_with_oras"
+
+                # Cleanup after assertions
+                rm -rf /tmp/test_valid_oras_tarball
+            End
+        End
+
+
+        Describe 'retrycmd_pull_from_registry_with_oras'
+            It "passes exact flags correctly to oras command"
+                # Test that the function handles extra arguments and passes them to oras
+                # We can't easily mock oras in shellspec context, but we can verify the command construction
+                # by checking that the function attempts to call oras with the expected argument check
+                When call retrycmd_pull_from_registry_with_oras 2 1 "/tmp/test_dir" "dummy.registry/binary:v1"
+
+                # The function should fail due to network issues (expected behavior with dummy registry)
+                The status should eq 1
+                # Should show retry attempts
+                The stdout should include "2 retries"
+                # Covers failure case that no extra args were not parsed to ''
+                The stdout should not include "requires exactly 1 argument but got"
+            End
+
+            It "passes extra flags correctly to oras command"
+                # Test that the function handles extra arguments and passes them to oras
+                # We can't easily mock oras in shellspec context, but we can verify the command construction
+                # by checking that the function attempts to call oras with the expected argument check
+                # which indicates the arguments were passed through correctly
+
+                When call retrycmd_pull_from_registry_with_oras 2 1 "/tmp/test_dir" "dummy.registry/binary:v1" "--platform=test platform a b c d e"
+
+                # The function should fail due to network issues (expected behavior with dummy registry)
+                The status should eq 1
+                # Should show retry attempts
+                The stdout should include "2 retries"
+                # Covers failure case that extra args were not wrongly split by spaces
+                The stdout should not include "requires exactly 1 argument but got"
             End
         End
 

@@ -18,7 +18,7 @@ installDeps() {
     OSVERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
     BLOBFUSE_VERSION="1.4.5"
     # Blobfuse2 has been upgraded in upstream, using this version for parity between 22.04 and 24.04
-    BLOBFUSE2_VERSION="2.5.0"
+    BLOBFUSE2_VERSION="2.5.1"
 
     # blobfuse2 is installed for all ubuntu versions, it is included in pkg_list
     # for 22.04, fuse3 is installed. for all others, fuse is installed
@@ -193,6 +193,33 @@ installKubeletKubectlPkgFromPMC() {
     k8sVersion="${1}"
     installPkgWithAptGet "kubelet" "${k8sVersion}" || exit $ERR_KUBELET_INSTALL_FAIL
     installPkgWithAptGet "kubectl" "${k8sVersion}" || exit $ERR_KUBECTL_INSTALL_FAIL
+}
+
+installToolFromLocalRepo() {
+    local tool_name=$1
+    local tool_download_dir=$2
+    local installation_root=$3
+
+    # Verify the download directory exists and contains repository metadata
+    if [ ! -d "${tool_download_dir}" ]; then
+        echo "Download directory ${tool_download_dir} does not exist"
+        return 1
+    fi
+
+    # Check if this is a self-contained local repository (has Packages.gz)
+    if [ ! -f "${tool_download_dir}/Packages.gz" ]; then
+        echo "Packages.gz not found in ${tool_download_dir}, not a valid local repository"
+        return 1
+    fi
+
+    echo "Installing ${tool_name} from local repository at ${tool_download_dir}..."
+    if ! apt_get_install_from_local_repo "${tool_download_dir}" "${tool_name}" "${installation_root}"; then
+        echo "Failed to install ${tool_name} from local repository"
+        return 1
+    fi
+
+    echo "${tool_name} installed successfully from local repository"
+    return 0
 }
 
 installPkgWithAptGet() {
@@ -424,6 +451,32 @@ ensureRunc() {
     fi
     echo "No cached runc deb file is found. Using apt-get to install runc."
     apt_get_install 20 30 120 moby-runc=${TARGET_VERSION}* --allow-downgrades || exit $ERR_RUNC_INSTALL_TIMEOUT
+}
+
+getOsVersion() {
+    # Ubuntu-specific implementation using lsb_release or DISTRIB_RELEASE
+    if [ -n "$UBUNTU_RELEASE" ]; then
+        echo "$UBUNTU_RELEASE"
+        return 0
+    fi
+
+    # Try lsb_release first
+    local version=$(lsb_release -r -s 2>/dev/null || echo "")
+    if [ -n "$version" ]; then
+        echo "$version"
+        return 0
+    fi
+
+    # Fallback to DISTRIB_RELEASE
+    local distrib_release=$(grep DISTRIB_RELEASE /etc/*-release 2>/dev/null | cut -f 2 -d "=" | head -n1)
+    if [ -n "$distrib_release" ]; then
+        echo "$distrib_release"
+        return 0
+    fi
+
+    # Error: OS version not found
+    echo "Error: Unable to determine OS version" >&2
+    return 1
 }
 
 #EOF
