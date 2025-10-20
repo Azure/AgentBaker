@@ -75,10 +75,8 @@ func compileAKSNodeController(ctx context.Context, arch string) (*os.File, error
 	return f, nil
 }
 
-func ConfigureAndCreateVMSS(ctx context.Context, s *Scenario) *armcompute.VirtualMachineScaleSet {
-	model := createVMMSModel(ctx, s)
-
-	vmss, err := CreateVMSSWithRetry(ctx, s, model)
+func ConfigureAndCreateVMSS(ctx context.Context, s *Scenario) (*armcompute.VirtualMachineScaleSet, string) {
+	vmss, vmPrivateIP, err := CreateVMSSWithRetry(ctx, s)
 	s.T.Cleanup(func() {
 		cleanupVMSS(ctx, s)
 	})
@@ -86,7 +84,7 @@ func ConfigureAndCreateVMSS(ctx context.Context, s *Scenario) *armcompute.Virtua
 	// fail test, but continue to extract debug information
 	require.NoError(s.T, err, "create vmss %q, check %s for vm logs", s.Runtime.VMSSName, testDir(s.T))
 
-	return vmss
+	return vmss, vmPrivateIP
 }
 
 // CustomDataWithHack is similar to nodeconfigutils.CustomData, but it uses a hack to run new aks-node-controller binary
@@ -152,7 +150,7 @@ coreos:
 	return base64.StdEncoding.EncodeToString([]byte(customDataYAML)), nil
 }
 
-func createVMMSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachineScaleSet {
+func createVMSSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachineScaleSet {
 	cluster := s.Runtime.Cluster
 	var nodeBootstrapping *datamodel.NodeBootstrapping
 	ab, err := agent.NewAgentBaker()
@@ -198,7 +196,7 @@ func createVMMSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachine
 		)
 	}
 
-	model := getBaseVMSSModel(s, customData, cse, s.Location)
+	model := getBaseVMSSModel(s, customData, cse)
 	if s.Tags.NonAnonymousACR {
 		// add acr pull identity
 		userAssignedIdentity := fmt.Sprintf(
@@ -227,7 +225,7 @@ func createVMMSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachine
 	return model
 }
 
-func CreateVMSSWithRetry(ctx context.Context, s *Scenario, parameters armcompute.VirtualMachineScaleSet) (*armcompute.VirtualMachineScaleSet, error) {
+func CreateVMSSWithRetry(ctx context.Context, s *Scenario) (*armcompute.VirtualMachineScaleSet, string, error) {
 	delay := 5 * time.Second
 	retryOn := func(err error) bool {
 		var respErr *azcore.ResponseError
@@ -241,57 +239,57 @@ func CreateVMSSWithRetry(ctx context.Context, s *Scenario, parameters armcompute
 
 	for {
 		attempt++
-		vmss, err := CreateVMSS(ctx, s, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, parameters)
+		vmss, vmPrivateIP, err := CreateVMSS(ctx, s, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup)
 		if err == nil {
 			logf(ctx, "created VMSS %s in resource group %s", s.Runtime.VMSSName, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup)
-			return vmss, nil
+			return vmss, vmPrivateIP, nil
 		}
 
 		// not a retryable error
 		if !retryOn(err) {
-			return nil, err
+			return nil, "", err
 		}
 
 		if attempt >= maxAttempts {
-			return nil, fmt.Errorf("failed to create VMSS after %d retries: %w", maxAttempts, err)
+			return nil, "", fmt.Errorf("failed to create VMSS after %d retries: %w", maxAttempts, err)
 		}
 
 		logf(ctx, "failed to create VMSS: %v, attempt: %v, retrying in %v", err, attempt, delay)
 		select {
 		case <-ctx.Done():
-			return nil, err
+			return nil, "", err
 		case <-time.After(delay):
 		}
 	}
 
 }
 
-func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string, vmssName string, parameters armcompute.VirtualMachineScaleSet) (*armcompute.VirtualMachineScaleSet, error) {
+func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*armcompute.VirtualMachineScaleSet, string, error) {
 	operation, err := config.Azure.VMSS.BeginCreateOrUpdate(
 		ctx,
 		resourceGroupName,
-		vmssName,
-		parameters,
+		s.Runtime.VMSSName,
+		createVMSSModel(ctx, s),
 		nil,
 	)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	// We want to generate SSH instructions as soon as possible, so we can debug CSE issues
-	s.Runtime.VMPrivateIP, err = waitForVMPrivateIP(ctx, s)
+	vmPrivateIP, err := waitForVMPrivateIP(ctx, s)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get VM private IP address: %w", err)
+		return nil, "", fmt.Errorf("failed to get VM private IP address: %w", err)
 	}
-	err = uploadSSHKey(ctx, s)
+	err = uploadSSHKey(ctx, s, vmPrivateIP)
 	if err != nil {
-		return nil, fmt.Errorf("failed to upload ssh key: %w", err)
+		return nil, "", fmt.Errorf("failed to upload ssh key: %w", err)
 	}
 
 	vmssResp, err := operation.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
-	return &vmssResp.VirtualMachineScaleSet, nil
+	return &vmssResp.VirtualMachineScaleSet, vmPrivateIP, nil
 }
 
 // waitForVMPrivateIP polls until a private IP is available or the timeout elapses.
@@ -758,9 +756,9 @@ func generateVMSSName(s *Scenario) string {
 	return generateVMSSNameLinux(s.T)
 }
 
-func getBaseVMSSModel(s *Scenario, customData, cseCmd, location string) armcompute.VirtualMachineScaleSet {
+func getBaseVMSSModel(s *Scenario, customData, cseCmd string) armcompute.VirtualMachineScaleSet {
 	model := armcompute.VirtualMachineScaleSet{
-		Location: to.Ptr(location),
+		Location: to.Ptr(s.Location),
 		SKU: &armcompute.SKU{
 			Name:     to.Ptr(config.Config.DefaultVMSKU),
 			Capacity: to.Ptr[int64](1),
