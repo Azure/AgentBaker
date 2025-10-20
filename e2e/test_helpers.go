@@ -266,8 +266,8 @@ func prepareAKSNode(ctx context.Context, s *Scenario) *ScenarioVM {
 
 	err = getCustomScriptExtensionStatus(s, vmssVm)
 	require.NoError(s.T, err)
-	var kubeName string
 
+	var kubeName string
 	if !s.Config.SkipDefaultValidation {
 		vmssCreatedAt := time.Now()         // Record the start time
 		creationElapse := time.Since(start) // Calculate the elapsed time
@@ -278,7 +278,6 @@ func prepareAKSNode(ctx context.Context, s *Scenario) *ScenarioVM {
 		toolkit.LogDuration(ctx, totalElapse, 3*time.Minute, fmt.Sprintf("Node %s took %s to be created and %s to be ready", s.Runtime.VMSSName, toolkit.FormatDuration(creationElapse), toolkit.FormatDuration(readyElapse)))
 	}
 
-	require.NoError(s.T, err, "failed to get VM private IP address")
 	return &ScenarioVM{
 		VMSS:        vmss,
 		VMSSVM:      vmssVm,
@@ -544,7 +543,7 @@ func RunCommand(ctx context.Context, s *Scenario, command string) (armcompute.Ru
 		logf(ctx, "Command %q took %s", command, toolkit.FormatDuration(elapsed))
 	}()
 
-	runPoller, err := config.Azure.VMSSVM.BeginRunCommand(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, "0", armcompute.RunCommandInput{
+	runPoller, err := config.Azure.VMSSVM.BeginRunCommand(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, *s.Runtime.VM.VMSSVM.ID, armcompute.RunCommandInput{
 		CommandID: func() *string {
 			if s.IsWindows() {
 				return to.Ptr("RunPowerShellScript")
@@ -753,7 +752,7 @@ func attemptSSHConnection(ctx context.Context, s *Scenario) error {
 			output = connectionResult.String()
 		}
 
-		return fmt.Errorf("SSH connection to %s failed: %w: %s", s.Runtime.VM.VMPrivateIP, err, output)
+		return fmt.Errorf("SSH connection to %s failed: %s: %s", s.Runtime.VM.VMPrivateIP, err, output)
 	}
 
 	s.T.Logf("SSH connectivity to %s verified successfully", s.Runtime.VM.VMPrivateIP)
