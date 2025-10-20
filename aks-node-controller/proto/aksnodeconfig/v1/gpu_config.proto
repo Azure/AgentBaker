@@ -19,4 +19,7 @@ message GpuConfig {
 
   // Same as enable_nvidia, but for AMD GPUs.
   optional bool enable_amd_gpu = 5;
+
+  // Specifies whether the managed GPU experience AFEC (Azure Feature Engineering Configuration) is enabled.
+  bool managed_gpu_experience_afec_enabled = 6;
 }
