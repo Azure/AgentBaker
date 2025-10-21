@@ -161,6 +161,7 @@ fi
 
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
+FEDORA_OS_NAME="FEDORA"
 MARINER_KATA_OS_NAME="MARINERKATA"
 AZURELINUX_KATA_OS_NAME="AZURELINUXKATA"
 AZURELINUX_OS_NAME="AZURELINUX"
@@ -688,7 +689,7 @@ enableManagedGPUExperience() {
 
 isMarinerOrAzureLinux() {
     local os=$1
-    if [ "$os" = "$MARINER_OS_NAME" ] || [ "$os" = "$MARINER_KATA_OS_NAME" ] || [ "$os" = "$AZURELINUX_OS_NAME" ] || [ "$os" = "$AZURELINUX_KATA_OS_NAME" ]; then
+    if [ "$os" = "$MARINER_OS_NAME" ] || [ "$os" = "$MARINER_KATA_OS_NAME" ] || [ "$os" = "$AZURELINUX_OS_NAME" ] || [ "$os" = "$AZURELINUX_KATA_OS_NAME" ] || [ "$os" = "$FEDORA_OS_NAME" ]; then
         return 0
     fi
     return 1
@@ -714,6 +715,14 @@ isMariner() {
 isAzureLinux() {
     local os=$1
     if [ "$os" = "$AZURELINUX_OS_NAME" ] || [ "$os" = "$AZURELINUX_KATA_OS_NAME" ]; then
+        return 0
+    fi
+    return 1
+}
+
+isFedora() {
+    local os=$1
+    if [ "$os" = "$FEDORA_OS_NAME" ]; then
         return 0
     fi
     return 1
@@ -1041,14 +1050,14 @@ assert_refresh_token() {
         3) token_payload="${token_payload}=" ;;
     esac
     decoded_token=$(echo "$token_payload" | base64 -d 2>/dev/null)
-    
+
     # Check if permissions.actions exists and contains all required actions
     if [ -n "$decoded_token" ]; then
         # Check if permissions field exists (RBAC token vs ABAC token)
         local has_permissions=$(echo "$decoded_token" | jq -r 'has("permissions")' 2>/dev/null)
         if [ "$has_permissions" = "true" ]; then
             echo "RBAC token detected, validating permissions"
-            
+
             for action in "${required_actions[@]}"; do
                 local action_exists=$(echo "$decoded_token" | jq -r --arg action "$action" \
                     '(.permissions.actions // []) | contains([$action])' 2>/dev/null)
