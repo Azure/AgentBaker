@@ -47,8 +47,6 @@ enabled=1
 skip_if_unavailable=True
 sslverify=1
 EOF
-
-        cat ${AZURELINUX_NVIDIA_REPO_FILEPATH}
     fi
 }
 
