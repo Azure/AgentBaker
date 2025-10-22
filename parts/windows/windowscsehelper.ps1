@@ -519,7 +519,7 @@ function Logs-To-Event {
     $global:TaskName = $TaskName
     $global:TaskTimeStamp = $currentTime
 
-    Write-Host "$global:TaskName - $TaskMessage"
+    Write-Log "$global:TaskName - $TaskMessage"
     $TaskMessage = (echo $TaskMessage | ConvertTo-Json)
     $messageJson = @"
     {
