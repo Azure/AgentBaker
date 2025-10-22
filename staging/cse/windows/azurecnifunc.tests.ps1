@@ -822,6 +822,35 @@ Describe 'Get-Node-Ipv4-Address' {
             Assert-MockCalled -CommandName "GetMetadataContent" -Exactly -Times 1
         }
 
+
+        It "Should return IPv4 address when write-log dumps garbage to stdout" {
+            function Write-Log {
+                Write-Output "GARBAGE OUTPUT"
+            }
+
+            $mockParsedContent = @"
+            [
+                {
+                    "ipv4": {
+                        "ipAddress": [
+                            {
+                                "privateIpAddress": "10.0.0.1",
+                                "publicIpAddress": "203.0.113.1"
+                            }
+                        ]
+                    }
+                }
+            ]
+"@ | ConvertFrom-Json
+
+            Mock GetMetadataContent -MockWith { return $mockParsedContent } -Verifiable
+
+            $result = Get-Node-Ipv4-Address
+
+            $result | Should -Be "10.0.0.1"
+        }
+
+
         It "Should handle different valid IPv4 addresses correctly" {
             $testCases = @(
                 @{ IpAddress = "192.168.1.1"; Description = "Class C private IP" },
@@ -1394,13 +1423,13 @@ Describe 'Get-AKS-NetworkAdaptor' {
         It "Should return network adapter when IP address and adapter are found successfully" {
             $mockIPv4Address = "10.0.0.1"
             $mockNetIP = [PSCustomObject]@{
-                ifIndex = 5
+                ifIndex   = 5
                 IPAddress = $mockIPv4Address
             }
             $mockNetAdapter = [PSCustomObject]@{
-                Name = "Ethernet"
+                Name    = "Ethernet"
                 ifIndex = 5
-                Status = "Up"
+                Status  = "Up"
             }
 
             Mock Get-Node-Ipv4-Address -MockWith { return $mockIPv4Address } -Verifiable
@@ -1429,20 +1458,20 @@ Describe 'Get-AKS-NetworkAdaptor' {
         It "Should handle different IPv4 addresses and interface indexes correctly" {
             $testCases = @(
                 @{
-                    IPv4 = "192.168.1.100";
-                    IfIndex = 3;
+                    IPv4        = "192.168.1.100";
+                    IfIndex     = 3;
                     AdapterName = "Wi-Fi";
                     Description = "Wi-Fi adapter with Class C IP"
                 },
                 @{
-                    IPv4 = "172.16.0.50";
-                    IfIndex = 12;
+                    IPv4        = "172.16.0.50";
+                    IfIndex     = 12;
                     AdapterName = "Ethernet 2";
                     Description = "Ethernet adapter with Class B IP"
                 },
                 @{
-                    IPv4 = "10.240.0.4";
-                    IfIndex = 7;
+                    IPv4        = "10.240.0.4";
+                    IfIndex     = 7;
                     AdapterName = "vEthernet";
                     Description = "Virtual Ethernet with Class A IP"
                 }
@@ -1450,13 +1479,13 @@ Describe 'Get-AKS-NetworkAdaptor' {
 
             foreach ($testCase in $testCases) {
                 $mockNetIP = [PSCustomObject]@{
-                    ifIndex = $testCase.IfIndex
+                    ifIndex   = $testCase.IfIndex
                     IPAddress = $testCase.IPv4
                 }
                 $mockNetAdapter = [PSCustomObject]@{
-                    Name = $testCase.AdapterName
+                    Name    = $testCase.AdapterName
                     ifIndex = $testCase.IfIndex
-                    Status = "Up"
+                    Status  = "Up"
                 }
 
                 Mock Get-Node-Ipv4-Address -MockWith { return $testCase.IPv4 } -Verifiable
@@ -1500,9 +1529,9 @@ Describe 'Get-AKS-NetworkAdaptor' {
         It "Should call fallback when Get-NetIPAddress returns null" {
             $mockIPv4Address = "10.0.0.1"
             $mockFallbackAdapter = [PSCustomObject]@{
-                Name = "FallbackAdapter"
+                Name    = "FallbackAdapter"
                 ifIndex = 10
-                Status = "Up"
+                Status  = "Up"
             }
 
             Mock Get-Node-Ipv4-Address -MockWith { return $mockIPv4Address } -Verifiable
@@ -1524,7 +1553,7 @@ Describe 'Get-AKS-NetworkAdaptor' {
         It "Should log error and call fallback when Get-NetIPAddress fails" {
             $mockIPv4Address = "192.168.1.50"
             $mockFallbackAdapter = [PSCustomObject]@{
-                Name = "FallbackEthernet"
+                Name    = "FallbackEthernet"
                 ifIndex = 15
             }
 
@@ -1550,15 +1579,15 @@ Describe 'Get-AKS-NetworkAdaptor' {
         It "Should handle different error conditions from Get-NetIPAddress" {
             $testErrorCases = @(
                 @{
-                    IPv4 = "10.0.0.50";
+                    IPv4     = "10.0.0.50";
                     ErrorVar = @("Interface disabled");
                 },
                 @{
-                    IPv4 = "172.16.1.100";
+                    IPv4     = "172.16.1.100";
                     ErrorVar = @("Access denied");
                 },
                 @{
-                    IPv4 = "192.168.10.20";
+                    IPv4     = "192.168.10.20";
                     ErrorVar = @("Network unreachable");
                 }
             )
@@ -1585,7 +1614,7 @@ Describe 'Get-AKS-NetworkAdaptor' {
             $mockIPv4Address = "10.0.0.1"
             $mockNetIP = [PSCustomObject]@{ ifIndex = 5; IPAddress = $mockIPv4Address }
             $mockFallbackAdapter = [PSCustomObject]@{
-                Name = "FallbackFromAdapter"
+                Name    = "FallbackFromAdapter"
                 ifIndex = 20
             }
 
@@ -1615,7 +1644,7 @@ Describe 'Get-AKS-NetworkAdaptor' {
 
             foreach ($testCase in $testCases) {
                 $mockNetIP = [PSCustomObject]@{
-                    ifIndex = $testCase.IfIndex;
+                    ifIndex   = $testCase.IfIndex;
                     IPAddress = $testCase.IPv4
                 }
                 $mockFallbackAdapter = [PSCustomObject]@{ Name = "TestFallback"; ifIndex = 99 }
@@ -1745,18 +1774,18 @@ Describe 'Get-AKS-NetworkAdaptor' {
         It "Should handle network adapter with complex properties" {
             $mockIPv4Address = "10.0.0.1"
             $mockNetIP = [PSCustomObject]@{
-                ifIndex = 12
-                IPAddress = $mockIPv4Address
-                PrefixLength = 24
+                ifIndex       = 12
+                IPAddress     = $mockIPv4Address
+                PrefixLength  = 24
                 AddressFamily = "IPv4"
             }
             $mockComplexAdapter = [PSCustomObject]@{
-                Name = "Complex Ethernet Adapter"
-                ifIndex = 12
-                Status = "Up"
-                LinkSpeed = "1000000000"
-                FullDuplex = $true
-                MacAddress = "00-11-22-33-44-55"
+                Name                 = "Complex Ethernet Adapter"
+                ifIndex              = 12
+                Status               = "Up"
+                LinkSpeed            = "1000000000"
+                FullDuplex           = $true
+                MacAddress           = "00-11-22-33-44-55"
                 InterfaceDescription = "Intel(R) 82574L Gigabit Network Connection"
             }
 
@@ -1783,11 +1812,11 @@ Describe 'Get-AKS-NetworkAdaptor' {
             foreach ($edgeCase in $edgeCases) {
                 $mockIPv4Address = "10.0.0.1"
                 $mockNetIP = [PSCustomObject]@{
-                    ifIndex = $edgeCase.IfIndex
+                    ifIndex   = $edgeCase.IfIndex
                     IPAddress = $mockIPv4Address
                 }
                 $mockNetAdapter = [PSCustomObject]@{
-                    Name = "EdgeTestAdapter"
+                    Name    = "EdgeTestAdapter"
                     ifIndex = $edgeCase.IfIndex
                 }
 
