@@ -21,22 +21,36 @@ installDeps() {
     # Install the package repo for the specific OS version.
     # AzureLinux 3.0 uses the azurelinux-repos-cloud-native repo
     # Other OS, e.g., Mariner 2.0 uses the mariner-repos-cloud-native repo
-    if [ "$OS_VERSION" = "3.0" ]; then
-      echo "Installing azurelinux-repos-cloud-native"
-      dnf_install 30 1 600 azurelinux-repos-cloud-native
-      dnf_install 30 1 600 azurelinux-repos-cloud-native-preview
+    if ! isFedora "$OS"; then
+      if [ "$OS_VERSION" = "3.0" ]; then
+        echo "Installing azurelinux-repos-cloud-native"
+        dnf_install 30 1 600 azurelinux-repos-cloud-native
+        dnf_install 30 1 600 azurelinux-repos-cloud-native-preview
+      else
+        echo "Installing mariner-repos-cloud-native"
+        dnf_install 30 1 600 mariner-repos-cloud-native
+      fi
     else
-      echo "Installing mariner-repos-cloud-native"
-      dnf_install 30 1 600 mariner-repos-cloud-native
+      sudo rpm -Uvh https://packages.microsoft.com/config/rhel/8/packages-microsoft-prod.rpm
+      dnf_update || exit $ERR_APT_UPDATE_TIMEOUT
     fi
 
     dnf_makecache || exit $ERR_APT_UPDATE_TIMEOUT
     dnf_update || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
-    for dnf_package in ca-certificates check-restart cifs-utils cloud-init-azure-kvp conntrack-tools cracklib dnf-automatic ebtables ethtool fuse inotify-tools iotop iproute ipset iptables jq logrotate lsof nmap-ncat nfs-utils pam pigz psmisc rsyslog socat sysstat traceroute util-linux xz zip blobfuse2 nftables iscsi-initiator-utils device-mapper-multipath; do
+    for dnf_package in ca-certificates check-restart cifs-utils conntrack-tools cracklib dnf-automatic ebtables ethtool fuse inotify-tools iotop iproute ipset iptables jq logrotate lsof nmap-ncat nfs-utils pam pigz psmisc rsyslog socat sysstat traceroute util-linux xz zip nftables iscsi-initiator-utils device-mapper-multipath; do
       if ! dnf_install 30 1 600 $dnf_package; then
         exit $ERR_APT_INSTALL_TIMEOUT
       fi
     done
+
+    if isFedora "$OS"; then
+      sudo yum install fuse3 fuse3-libs blobfuse2
+    fi
+
+    if ! isFedora "$OS"; then
+      dnf_install 30 1 600 cloud-init-azure-kvp blobfuse2
+    fi
+
 
     # install 2.0 specific packages
     # apparmor related packages and the blobfuse package are not available in AzureLinux 3.0
