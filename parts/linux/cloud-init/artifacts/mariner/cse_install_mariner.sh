@@ -322,6 +322,9 @@ installStandaloneContainerd() {
         if [ "$OS_VERSION" = "3.0" ]; then
             containerdPackageName="containerd2-${desiredVersion}"
         fi
+        if isFedora "$OS"; then
+          containerdPackageName="containerd"
+        fi
 
         # TODO: tie runc to r92 once that's possible on Mariner's pkg repo and if we're still using v1.linux shim
         if ! dnf_install 30 1 600 $containerdPackageName; then
