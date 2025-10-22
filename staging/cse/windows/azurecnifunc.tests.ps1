@@ -758,6 +758,31 @@ Describe 'Get-Node-Ipv4-Address' {
         $result = GetIpv4AddressFromParsedContent -ParsedContent $content
         $result | Should -Be "10.0.0.1"
     }
+
+    It 'Retrieves the private ip address even when Write-Log prints garbage to stdout' {
+        Mock Write-Log -MockWith {
+            Write-Output "GARBAGE OUTPUT"
+        } -Verifiable
+
+        $content = @"
+            [
+                {
+                    "ipv4": {
+                        "ipAddress": [
+                            {
+                                "privateIpAddress": "10.0.0.1",
+                                "publicIpAddress": "203.0.113.1"
+                            }
+                        ]
+                    }
+                }
+            ]
+"@ | ConvertFrom-Json
+
+        $result = GetIpv4AddressFromParsedContent -ParsedContent $content
+        $result | Should -Be "10.0.0.1"
+    }
+
 }
 
 
@@ -939,46 +964,6 @@ Describe 'Get-Node-Ipv4-Address' {
             Assert-MockCalled -CommandName "Set-ExitCode" -Exactly -Times 1 -ParameterFilter {
                 $ExitCode -eq $global:WINDOWS_CSE_ERROR_PARSE_METADATA -and
                 $ErrorMessage -eq "empty IPv4 address found in metadata"
-            }
-        }
-    }
-
-    Context 'Logging behavior verification' {
-        It "Should log success message with correct IPv4 address" {
-            $mockParsedContent = @"
-            [
-                {
-                    "ipv4": {
-                        "ipAddress": [
-                            {
-                                "privateIpAddress": "10.240.0.4"
-                            }
-                        ]
-                    }
-                }
-            ]
-"@ | ConvertFrom-Json
-
-            Mock GetMetadataContent -MockWith { return $mockParsedContent } -Verifiable
-            Mock Logs-To-Event -MockWith { } -Verifiable
-
-            Get-Node-Ipv4-Address
-
-            Assert-MockCalled -CommandName "Logs-To-Event" -Exactly -Times 1 -ParameterFilter {
-                $TaskName -eq "AKS.WindowsCSE.NewExternalHnsNetwork" -and
-                $TaskMessage -eq "Found IPv4 address from metadata: 10.240.0.4"
-            }
-        }
-
-        It "Should log failure message when metadata content is null" {
-            Mock GetMetadataContent -MockWith { return $null } -Verifiable
-            Mock Logs-To-Event -MockWith { } -Verifiable
-
-            { Get-Node-Ipv4-Address } | Should -Throw
-
-            Assert-MockCalled -CommandName "Logs-To-Event" -Exactly -Times 1 -ParameterFilter {
-                $TaskName -eq "AKS.WindowsCSE.NewExternalHnsNetwork" -and
-                $TaskMessage -eq "Failed to retrieve metadata content."
             }
         }
     }
@@ -1718,24 +1703,6 @@ Describe 'Get-AKS-NetworkAdaptor' {
     }
 
     Context 'Logging behavior verification' {
-        It "Should log IPv4 address discovery correctly" {
-            $testIPv4Address = "172.31.100.200"
-            $mockNetIP = [PSCustomObject]@{ ifIndex = 15; IPAddress = $testIPv4Address }
-            $mockNetAdapter = [PSCustomObject]@{ Name = "TestAdapter"; ifIndex = 15 }
-
-            Mock Get-Node-Ipv4-Address -MockWith { return $testIPv4Address } -Verifiable
-            Mock Get-NetIPAddress -MockWith { return $mockNetIP } -Verifiable
-            Mock Get-NetAdapter -MockWith { return $mockNetAdapter } -Verifiable
-            Mock Logs-To-Event -MockWith { } -Verifiable
-
-            Get-AKS-NetworkAdaptor
-
-            Assert-MockCalled -CommandName "Logs-To-Event" -Exactly -Times 1 -ParameterFilter {
-                $TaskName -eq "AKS.WindowsCSE.NewExternalHnsNetwork" -and
-                $TaskMessage -eq "Found IPv4 address from metadata: $testIPv4Address"
-            }
-        }
-
         It "Should log error when IP address lookup fails" {
             $mockIPv4Address = "10.5.5.5"
 

@@ -596,7 +596,6 @@ function Get-Node-Ipv4-Address {
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_PARSE_METADATA -ErrorMessage "empty IPv4 address found in metadata"
     }
 
-    Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Found IPv4 address from metadata: $ipv4Address"
     return $ipv4Address
 }
 
@@ -642,6 +641,7 @@ function Get-AKS-NodeIPs {
 
 function Get-AKS-NetworkAdaptor {
     $ipv4Address = Get-Node-Ipv4-Address
+    Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Found IPv4 address from metadata: $ipv4Address"
 
     # we need the default gateway interface to create the external network
     $netIP = Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue -ErrorVariable netIPErr -IpAddress $ipv4Address
