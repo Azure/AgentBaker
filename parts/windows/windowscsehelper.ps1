@@ -591,7 +591,6 @@ function Resolve-PackagesDownloadFqdn {
         }
     }
 
-    # Use Write-Host explicitly to ensure only this value is returned
     $global:PackageDownloadFqdn = $packageDownloadBaseUrl
 
     Logs-To-Event -TaskName "AKS.WindowsCSE.ResolvedPackageDomain" -TaskMessage "Package download FQDN: $global:PackageDownloadFqdn"
