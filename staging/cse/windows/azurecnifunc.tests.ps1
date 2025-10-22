@@ -762,7 +762,7 @@ Describe 'Get-Node-Ipv4-Address' {
     It 'Retrieves the private ip address even when Write-Log prints garbage to stdout' {
         function Write-Log {
             Write-Output "GARBAGE OUTPUT"
-        } -Verifiable
+        }
 
         $content = @"
             [
