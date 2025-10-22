@@ -579,6 +579,9 @@ function New-ExternalHnsNetwork {
     }
 }
 
+# Because this function returns a string, we don't do logging on succcess. While the logging functions use
+# write-host, older versions of agentbaker in production have logging functions that use write-output, and then our
+# return value includes log messages.
 function Get-Node-Ipv4-Address {
     $ParsedContent = GetMetadataContent
     if (-not $ParsedContent) {
