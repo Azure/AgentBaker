@@ -2000,10 +2000,6 @@ Describe 'GetMetadataContent' {
 
     Context 'Failure scenarios' {
         It "Should throw exception when all retries are exhausted due to no IPv4 address" {
-            function Write-Log {
-                param($Message)
-                # No-op for logging in tests
-            }
             Mock Invoke-WebRequest -MockWith {
                 return @{
                     Content = @'
@@ -2029,10 +2025,6 @@ Describe 'GetMetadataContent' {
         }
 
         It "Should throw exception when all retries are exhausted due to network errors" {
-            function Write-Log {
-                param($Message)
-                # No-op for logging in tests
-            }
             Mock Invoke-WebRequest -MockWith {
                 throw "Network unreachable"
             } -Verifiable
@@ -2045,10 +2037,6 @@ Describe 'GetMetadataContent' {
         }
 
         It "Should handle ConvertFrom-Json errors gracefully" {
-            function Write-Log {
-                param($Message)
-                # No-op for logging in tests
-            }
             Mock Invoke-WebRequest -MockWith {
                 return @{
                     Content = "invalid json content"
@@ -2063,10 +2051,6 @@ Describe 'GetMetadataContent' {
 
     Context 'Edge cases' {
         It "Should handle empty metadata response" {
-            function Write-Log {
-                param($Message)
-                # No-op for logging in tests
-            }
             Mock Invoke-WebRequest -MockWith {
                 return @{
                     Content = "[]"
