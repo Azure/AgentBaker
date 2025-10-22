@@ -44,7 +44,7 @@ installDeps() {
     done
 
     if isFedora "$OS"; then
-      sudo yum install fuse3 fuse3-libs blobfuse2
+      sudo yum install fuse3 fuse3-libs blobfuse2 -y
     fi
 
     if ! isFedora "$OS"; then
