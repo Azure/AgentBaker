@@ -785,6 +785,70 @@ Describe 'Get-Node-Ipv4-Address' {
 
 }
 
+Describe 'Get-Node-Ipv6-Address' {
+    BeforeEach {
+        # Mock dependencies
+        Mock Set-ExitCode -MockWith {
+            param($ExitCode, $ErrorMessage)
+            throw $ErrorMessage
+        } -Verifiable
+    }
+
+    Context 'Successful IPv6 address retrieval' {
+        It "Should return IPv6 address when metadata content and parsing are successful" {
+            $mockParsedContent = @"
+            [
+                {
+                    "ipv6": {
+                        "ipAddress": [
+                            {
+                                "privateIpAddress": "10.0.0.1",
+                                "publicIpAddress": "203.0.113.1"
+                            }
+                        ]
+                    }
+                }
+            ]
+"@ | ConvertFrom-Json
+
+            Mock GetMetadataContent -MockWith { return $mockParsedContent } -Verifiable
+
+            $result = Get-Node-Ipv6-Address
+
+            $result | Should -Be "10.0.0.1"
+
+            Assert-MockCalled -CommandName "GetMetadataContent" -Exactly -Times 1
+        }
+
+
+        It "Should return IPv6 address when write-log dumps garbage to stdout" {
+            function Write-Log {
+                Write-Output "GARBAGE OUTPUT"
+            }
+
+            $mockParsedContent = @"
+            [
+                {
+                    "ipv6": {
+                        "ipAddress": [
+                            {
+                                "privateIpAddress": "10.0.0.1",
+                                "publicIpAddress": "203.0.113.1"
+                            }
+                        ]
+                    }
+                }
+            ]
+"@ | ConvertFrom-Json
+
+            Mock GetMetadataContent -MockWith { return $mockParsedContent } -Verifiable
+
+            $result = Get-Node-Ipv6-Address
+
+            $result | Should -Be "10.0.0.1"
+        }
+    }
+}
 
 
 Describe 'Get-Node-Ipv4-Address' {

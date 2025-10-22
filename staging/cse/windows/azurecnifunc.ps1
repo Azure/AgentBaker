@@ -602,6 +602,9 @@ function Get-Node-Ipv4-Address {
     return $ipv4Address
 }
 
+# Because this function returns a string, we don't do logging on succcess. While the logging functions use
+# write-host, older versions of agentbaker in production have logging functions that use write-output, and then our
+# return value includes log messages.
 function Get-Node-Ipv6-Address {
     $ParsedContent = GetMetadataContent
     if (-not $ParsedContent) {
@@ -619,11 +622,13 @@ function Get-Node-Ipv6-Address {
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_PARSE_METADATA -ErrorMessage "empty IPv6 address found in metadata"
     }
 
-    Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Found IPv6 address from metadata: $ipv6Address"
     return $ipv6Address
 }
 
 
+# Because this function returns a string, we don't do logging on succcess. While the logging functions use
+# write-host, older versions of agentbaker in production have logging functions that use write-output, and then our
+# return value includes log messages.
 function Get-AKS-NodeIPs {
     $ipv4Address = Get-Node-Ipv4-Address
 
