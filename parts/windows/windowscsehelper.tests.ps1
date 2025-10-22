@@ -4,15 +4,15 @@ BeforeAll {
     param($Path, $Value)
     Write-Host "SET-CONTENT: Path: $Path, Content: $Value"
   }
-  
+
   . $PSScriptRoot\windowscsehelper.ps1
   . $PSScriptRoot\..\..\staging\cse\windows\containerdfunc.ps1
   . $PSCommandPath.Replace('.tests.ps1','.ps1')
 
   $capturedContent = $null
-  Mock Set-Content -MockWith { 
+  Mock Set-Content -MockWith {
       param($Path, $Value)
-      $script:capturedContent = $Value 
+      $script:capturedContent = $Value
   } -Verifiable
 }
 
@@ -46,7 +46,7 @@ Describe 'Install-Containerd-Based-On-Kubernetes-Version' {
     $LatestContainerdPackage = [string]::Format($global:ContainerdPackageTemplate, $global:LatestContainerdVersion)
     $LatestContainerd2Package = [string]::Format($global:ContainerdPackageTemplate, $global:LatestContainerd2Version)
   }
-  
+
   Context 'Windows Server 2022 (ltsc2022)' {
     # for windows versions other than test2025, containerd version is not changed and should not include containerd2
     BeforeAll {
@@ -87,8 +87,8 @@ Describe 'Install-Containerd-Based-On-Kubernetes-Version' {
   Context 'Windows Server 2025 (2025)' {
     # for windows versions other than test2025, containerd version is not changed and should not include containerd2
     BeforeAll {
-      Mock Get-WindowsVersion -MockWith { 
-        return $global:WindowsVersion2025 
+      Mock Get-WindowsVersion -MockWith {
+        return $global:WindowsVersion2025
       }
     }
 
@@ -109,7 +109,7 @@ Describe 'Install-Containerd-Based-On-Kubernetes-Version' {
       & Install-Containerd-Based-On-Kubernetes-Version -ContainerdUrl $ContainerdWindowsPackageDownloadURL -KubernetesVersion "1.33.0" -CNIBinDir "cniBinPath" -CNIConfDir "cniConfigPath" -KubeDir "kubeDir"
       Assert-MockCalled -CommandName "Install-Containerd" -Exactly -Times 1 -ParameterFilter { $ContainerdUrl -eq $expectedURL }
     }
-      
+
     It 'full URL is set' {
       $expectedURL = "https://privatecontainer.com/v2.0.4-azure.1/binaries/containerd-v2.0.4-azure.1-windows-amd64.tar.gz"
       & Install-Containerd-Based-On-Kubernetes-Version -ContainerdUrl "https://privatecontainer.com/v1.7.0-azure.1/binaries/containerd-v1.7.0-azure.1-windows-amd64.tar.gz" -KubernetesVersion "1.32.1" -CNIBinDir "cniBinPath" -CNIConfDir "cniConfigPath" -KubeDir "kubeDir"
@@ -228,7 +228,8 @@ Describe "Mock Write-Log" {
     foreach($scriptPath in $scriptPaths) {
       Write-Host "Validating $scriptPath"
       $scriptContent = Get-Content -Path $scriptPath
-      $scriptContent -join "`n" | Should -Not -Match "Mock Write-Log"
+      # Uncomment the -Because to find out which script. The version of Pester in the pipeline does not support -Because :cry:
+      $scriptContent -join "`n" | Should -Not -Match "Mock Write-Log" # -Because "$scriptPath should not mock Write-Log"
     }
   }
 }
