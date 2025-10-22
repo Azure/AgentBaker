@@ -93,17 +93,36 @@ listInstalledPackages() {
 
 # disable and mask all UU timers/services
 disableDNFAutomatic() {
-    # Make sure dnf-automatic is running with the notify timer rather than the auto install timer
-    systemctlEnableAndStart dnf-automatic-notifyonly.timer 30 || exit $ERR_SYSTEMCTL_START_FAIL
+    if ! isFedora "$OS"; then
+        # Make sure dnf-automatic is running with the notify timer rather than the auto install timer
+        systemctlEnableAndStart dnf-automatic-notifyonly.timer 30 || exit $ERR_SYSTEMCTL_START_FAIL
 
-    # Ensure the automatic install timer is disabled.
-    # systemctlDisableAndStop adds .service to the end which doesn't work on timers.
-    systemctl disable dnf-automatic-install.service || exit 1
-    systemctl mask dnf-automatic-install.service || exit 1
+        # Ensure the automatic install timer is disabled.
+        # systemctlDisableAndStop adds .service to the end which doesn't work on timers.
+        systemctl disable dnf-automatic-install.service || exit 1
+        systemctl mask dnf-automatic-install.service || exit 1
 
-    systemctl stop dnf-automatic-install.timer || exit 1
-    systemctl disable dnf-automatic-install.timer || exit 1
-    systemctl mask dnf-automatic-install.timer || exit 1
+        systemctl stop dnf-automatic-install.timer || exit 1
+        systemctl disable dnf-automatic-install.timer || exit 1
+        systemctl mask dnf-automatic-install.timer || exit 1
+    else
+        # No notify-only service/timer is available on Fedora.
+
+        # Disable dnf-automatic on Fedora.
+        systemctl disable dnf-automatic.service || exit 1
+        systemctl mask dnf-automatic.service || exit 1
+
+        systemctl disable dnf5-automatic.service || exit 1
+        systemctl mask dnf5-automatic.service || exit 1
+
+        systemctl stop dnf-automatic.timer || exit 1
+        systemctl disable dnf-automatic.timer || exit 1
+        systemctl mask dnf-automatic.timer || exit 1
+
+        systemctl stop dnf5-automatic.timer || exit 1
+        systemctl disable dnf5-automatic.timer || exit 1
+        systemctl mask dnf5-automatic.timer || exit 1
+    fi
 }
 
 disableTimesyncd() {
