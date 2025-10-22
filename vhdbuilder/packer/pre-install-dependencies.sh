@@ -47,6 +47,9 @@ fi
 systemctl daemon-reload
 systemctlEnableAndStart systemd-journald 30 || exit 1
 if ! isFlatcar "$OS" ; then
+    if isFedora "$OS" ; then
+      dnf_install  30 1 600 rsyslog
+    fi
     systemctlEnableAndStart rsyslog 30 || exit 1
 fi
 
