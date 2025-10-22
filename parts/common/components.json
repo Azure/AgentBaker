@@ -96,6 +96,11 @@
           "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore/iis",
           "latestVersion": "windowsservercore-ltsc2022",
           "windowsSkuMatch": "23H2*"
+        },
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore/iis",
+          "latestVersion": "windowsservercore-ltsc2025",
+          "windowsSkuMatch": "2025*"
         }
       ]
     },
@@ -121,15 +126,15 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/coredns",
-          "latestVersion": "v1.11.3-8"
+          "latestVersion": "v1.13.1-1"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/coredns",
-          "latestVersion": "v1.12.1-2"
+          "latestVersion": "v1.12.1-6"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/coredns",
-          "latestVersion": "v1.9.4-6"
+          "latestVersion": "v1.11.3-13"
         }
       ],
       "windowsVersions": []
@@ -728,7 +733,7 @@
       "downloadURL": "mcr.microsoft.com/aks/aks-gpu-grid:*",
       "gpuVersion": {
         "renovateTag": "registry=https://mcr.microsoft.com, name=aks/aks-gpu-grid",
-          "latestVersion": "550.144.06-20250822192755"
+        "latestVersion": "550.144.06-20250822192755"
       }
     }
   ],
