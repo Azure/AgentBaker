@@ -531,6 +531,8 @@ fi
 
 capture_benchmark "${SCRIPT_NAME}_install_artifact_streaming"
 
+systemctlEnableAndStart containerd 30 || exit $ERR_SYSTEMCTL_START_FAIL
+
 # k8s will use images in the k8s.io namespaces - create it
 ctr namespace create k8s.io
 cliTool="ctr"
@@ -690,7 +692,9 @@ capture_benchmark "${SCRIPT_NAME}_pin_pod_sandbox_image"
 
 # IPv6 nftables rules are only available on Ubuntu or Mariner/AzureLinux
 if [ $OS = $UBUNTU_OS_NAME ] || isMarinerOrAzureLinux "$OS"; then
-  systemctlEnableAndStart ipv6_nftables 30 || exit 1
+  if ! isFedora "$OS"; then
+    systemctlEnableAndStart ipv6_nftables 30 || exit 1
+  fi
 fi
 
 mkdir -p /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events
@@ -704,9 +708,11 @@ fi
 
 CGROUP_VERSION=$(stat -fc %T /sys/fs/cgroup)
 if [ "$CGROUP_VERSION" = "cgroup2fs" ]; then
-  systemctlEnableAndStart cgroup-pressure-telemetry.timer 30 || exit 1
-  systemctl enable cgroup-pressure-telemetry.service || exit 1
-  systemctl restart cgroup-pressure-telemetry.service
+  if ! isFedora "$OS"; then
+    systemctlEnableAndStart cgroup-pressure-telemetry.timer 30 || exit 1
+    systemctl enable cgroup-pressure-telemetry.service || exit 1
+    systemctl restart cgroup-pressure-telemetry.service
+  fi
 fi
 
 if [ -d "/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/" ] && [ "$(ls -A /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/)" ]; then
