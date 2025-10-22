@@ -753,7 +753,7 @@ installJq() {
         return 0
     fi
     if isMarinerOrAzureLinux "$OS"; then
-        sudo tdnf install -y jq && echo "jq was installed: $(jq --version)"
+        dnf_install 5 1 60 jq && echo "jq was installed: $(jq --version)"
     else
         apt_get_install 5 1 60 jq && echo "jq was installed: $(jq --version)"
     fi
