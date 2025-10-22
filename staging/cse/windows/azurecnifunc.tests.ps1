@@ -765,7 +765,6 @@ Describe 'Get-Node-Ipv4-Address' {
 Describe 'Get-Node-Ipv4-Address' {
     BeforeEach {
         # Mock dependencies
-        Mock Logs-To-Event -MockWith { } -Verifiable
         Mock Set-ExitCode -MockWith {
             param($ExitCode, $ErrorMessage)
             throw $ErrorMessage
@@ -796,10 +795,6 @@ Describe 'Get-Node-Ipv4-Address' {
             $result | Should -Be "10.0.0.1"
 
             Assert-MockCalled -CommandName "GetMetadataContent" -Exactly -Times 1
-            Assert-MockCalled -CommandName "Logs-To-Event" -Exactly -Times 1 -ParameterFilter {
-                $TaskName -eq "AKS.WindowsCSE.NewExternalHnsNetwork" -and
-                $TaskMessage -eq "Found IPv4 address from metadata: 10.0.0.1"
-            }
         }
 
         It "Should handle different valid IPv4 addresses correctly" {
@@ -840,10 +835,6 @@ Describe 'Get-Node-Ipv4-Address' {
             { Get-Node-Ipv4-Address } | Should -Throw "Failed to load metadata content"
 
             Assert-MockCalled -CommandName "GetMetadataContent" -Exactly -Times 1
-            Assert-MockCalled -CommandName "Logs-To-Event" -Exactly -Times 1 -ParameterFilter {
-                $TaskName -eq "AKS.WindowsCSE.NewExternalHnsNetwork" -and
-                $TaskMessage -eq "Failed to retrieve metadata content."
-            }
             Assert-MockCalled -CommandName "Set-ExitCode" -Exactly -Times 1 -ParameterFilter {
                 $ExitCode -eq $global:WINDOWS_CSE_ERROR_LOAD_METADATA -and
                 $ErrorMessage -eq "Failed to load metadata content"
@@ -969,6 +960,7 @@ Describe 'Get-Node-Ipv4-Address' {
 "@ | ConvertFrom-Json
 
             Mock GetMetadataContent -MockWith { return $mockParsedContent } -Verifiable
+            Mock Logs-To-Event -MockWith { } -Verifiable
 
             Get-Node-Ipv4-Address
 
@@ -980,6 +972,7 @@ Describe 'Get-Node-Ipv4-Address' {
 
         It "Should log failure message when metadata content is null" {
             Mock GetMetadataContent -MockWith { return $null } -Verifiable
+            Mock Logs-To-Event -MockWith { } -Verifiable
 
             { Get-Node-Ipv4-Address } | Should -Throw
 
@@ -1406,7 +1399,6 @@ Describe 'Get-AKS-NodeIPs' {
 Describe 'Get-AKS-NetworkAdaptor' {
     BeforeEach {
         # Mock dependencies
-        Mock Logs-To-Event -MockWith { } -Verifiable
         Mock Set-ExitCode -MockWith {
             param($ExitCode, $ErrorMessage)
             throw $ErrorMessage
@@ -1445,10 +1437,6 @@ Describe 'Get-AKS-NetworkAdaptor' {
             }
             Assert-MockCalled -CommandName "Get-NetAdapter" -Exactly -Times 1 -ParameterFilter {
                 $ifindex -eq 5
-            }
-            Assert-MockCalled -CommandName "Logs-To-Event" -Exactly -Times 1 -ParameterFilter {
-                $TaskName -eq "AKS.WindowsCSE.NewExternalHnsNetwork" -and
-                $TaskMessage -eq "Found IPv4 address from metadata: $mockIPv4Address"
             }
             Assert-MockCalled -CommandName "Get-NetworkAdaptor-Fallback" -Exactly -Times 0
         }
@@ -1512,6 +1500,7 @@ Describe 'Get-AKS-NetworkAdaptor' {
             Mock Get-Node-Ipv4-Address -MockWith { return $testIPv4Address } -Verifiable
             Mock Get-NetIPAddress -MockWith { return $mockNetIP } -Verifiable
             Mock Get-NetAdapter -MockWith { return $mockNetAdapter } -Verifiable
+            Mock Logs-To-Event -MockWith { } -Verifiable
 
             Get-AKS-NetworkAdaptor
 
@@ -1545,9 +1534,6 @@ Describe 'Get-AKS-NetworkAdaptor' {
             Assert-MockCalled -CommandName "Get-NetIPAddress" -Exactly -Times 1
             Assert-MockCalled -CommandName "Get-NetAdapter" -Exactly -Times 0
             Assert-MockCalled -CommandName "Get-NetworkAdaptor-Fallback" -Exactly -Times 1
-            Assert-MockCalled -CommandName "Logs-To-Event" -Exactly -Times 2 -ParameterFilter {
-                $TaskName -eq "AKS.WindowsCSE.NewExternalHnsNetwork"
-            }
         }
 
         It "Should log error and call fallback when Get-NetIPAddress fails" {
@@ -1563,6 +1549,7 @@ Describe 'Get-AKS-NetworkAdaptor' {
                 return $null
             } -Verifiable
             Mock Get-NetworkAdaptor-Fallback -MockWith { return $mockFallbackAdapter } -Verifiable
+            Mock Logs-To-Event -MockWith { } -Verifiable
 
             $result = Get-AKS-NetworkAdaptor
 
@@ -1632,9 +1619,6 @@ Describe 'Get-AKS-NetworkAdaptor' {
                 $ifindex -eq 5
             }
             Assert-MockCalled -CommandName "Get-NetworkAdaptor-Fallback" -Exactly -Times 1
-            Assert-MockCalled -CommandName "Logs-To-Event" -ParameterFilter {
-                $TaskMessage -like "*Failed to find network adapter info for ip address index 5 and ip address $mockIPv4Address*"
-            }
         }
 
         It "Should handle different interface indexes when Get-NetAdapter fails" {
@@ -1662,10 +1646,6 @@ Describe 'Get-AKS-NetworkAdaptor' {
 
                 Assert-MockCalled -CommandName "Get-NetAdapter" -ParameterFilter {
                     $ifindex -eq $testCase.IfIndex
-                }
-
-                Assert-MockCalled -CommandName "Logs-To-Event" -ParameterFilter {
-                    $TaskMessage -like "*Failed to find network adapter info for ip address index $($testCase.IfIndex) and ip address $($testCase.IPv4)*"
                 }
             }
         }
@@ -1746,6 +1726,7 @@ Describe 'Get-AKS-NetworkAdaptor' {
             Mock Get-Node-Ipv4-Address -MockWith { return $testIPv4Address } -Verifiable
             Mock Get-NetIPAddress -MockWith { return $mockNetIP } -Verifiable
             Mock Get-NetAdapter -MockWith { return $mockNetAdapter } -Verifiable
+            Mock Logs-To-Event -MockWith { } -Verifiable
 
             Get-AKS-NetworkAdaptor
 
@@ -1764,6 +1745,7 @@ Describe 'Get-AKS-NetworkAdaptor' {
                 return $null
             } -Verifiable
             Mock Get-NetworkAdaptor-Fallback -MockWith { return [PSCustomObject]@{ Name = "Fallback" } } -Verifiable
+            Mock Logs-To-Event -MockWith { } -Verifiable
 
             Get-AKS-NetworkAdaptor
 
@@ -1781,6 +1763,7 @@ Describe 'Get-AKS-NetworkAdaptor' {
             Mock Get-NetIPAddress -MockWith { return $mockNetIP } -Verifiable
             Mock Get-NetAdapter -MockWith { return $null } -Verifiable
             Mock Get-NetworkAdaptor-Fallback -MockWith { return [PSCustomObject]@{ Name = "Fallback" } } -Verifiable
+            Mock Logs-To-Event -MockWith { } -Verifiable
 
             Get-AKS-NetworkAdaptor
 
