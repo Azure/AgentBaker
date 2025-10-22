@@ -232,7 +232,9 @@ if isMarinerOrAzureLinux "$OS" && ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; the
     fi
     disableTimesyncd
     disableDNFAutomatic
-    enableCheckRestart
+    if ! isFedora "$OS"; then
+      enableCheckRestart
+    fi
     activateNfConntrack
 fi
 capture_benchmark "${SCRIPT_NAME}_handle_azurelinux_configs"
