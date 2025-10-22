@@ -519,7 +519,7 @@ function Logs-To-Event {
     $global:TaskName = $TaskName
     $global:TaskTimeStamp = $currentTime
 
-    Write-Log "$global:TaskName - $TaskMessage"
+    Write-Host "$global:TaskName - $TaskMessage"
     $TaskMessage = (echo $TaskMessage | ConvertTo-Json)
     $messageJson = @"
     {
@@ -541,7 +541,7 @@ function Logs-To-Event {
         "Message": $messageJson
     }
 "@
-    echo $jsonString | Set-Content ${global:EventsLoggingDir}${eventsFileName}.json
+    Write-Output $jsonString | Set-Content ${global:EventsLoggingDir}${eventsFileName}.json
 }
 
 # AKS will transition to use packages.aks.azure.com as the default package download acs-mirror.azureedge.net
@@ -591,7 +591,7 @@ function Resolve-PackagesDownloadFqdn {
         }
     }
 
-    # Use Write-Output explicitly to ensure only this value is returned
+    # Use Write-Host explicitly to ensure only this value is returned
     $global:PackageDownloadFqdn = $packageDownloadBaseUrl
 
     Logs-To-Event -TaskName "AKS.WindowsCSE.ResolvedPackageDomain" -TaskMessage "Package download FQDN: $global:PackageDownloadFqdn"
