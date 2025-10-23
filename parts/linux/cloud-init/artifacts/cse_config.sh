@@ -1142,19 +1142,29 @@ EOF
 
 startNvidiaManagedExpServices() {
     # 1. Start the nvidia-device-plugin service.
-    if [ "${MIG_NODE}" = "true" ]; then
-    # Create systemd override directory and fix binary path
+    # Create systemd override directory to configure device plugin
     NVIDIA_DEVICE_PLUGIN_OVERRIDE_DIR="/etc/systemd/system/nvidia-device-plugin.service.d"
     mkdir -p "${NVIDIA_DEVICE_PLUGIN_OVERRIDE_DIR}"
-        tee "${NVIDIA_DEVICE_PLUGIN_OVERRIDE_DIR}/10-mig_strategy.conf" > /dev/null <<'EOF'
+
+    if [ "${MIG_NODE}" = "true" ]; then
+        # Configure with MIG strategy for MIG nodes
+        tee "${NVIDIA_DEVICE_PLUGIN_OVERRIDE_DIR}/10-device-plugin-config.conf" > /dev/null <<'EOF'
 [Service]
 Environment="MIG_STRATEGY=--mig-strategy single"
 ExecStart=
-ExecStart=/usr/bin/nvidia-device-plugin $MIG_STRATEGY
+ExecStart=/usr/bin/nvidia-device-plugin $MIG_STRATEGY --pass-device-specs
 EOF
-        # Reload systemd to pick up the base path override
-        systemctl daemon-reload
+    else
+        # Configure with pass-device-specs for non-MIG nodes
+        tee "${NVIDIA_DEVICE_PLUGIN_OVERRIDE_DIR}/10-device-plugin-config.conf" > /dev/null <<'EOF'
+[Service]
+ExecStart=
+ExecStart=/usr/bin/nvidia-device-plugin --pass-device-specs
+EOF
     fi
+
+    # Reload systemd to pick up the override
+    systemctl daemon-reload
 
     logs_to_events "AKS.CSE.start.nvidia-device-plugin" "systemctlEnableAndStart nvidia-device-plugin 30" || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
 
