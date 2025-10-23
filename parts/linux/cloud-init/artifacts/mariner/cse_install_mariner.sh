@@ -261,7 +261,7 @@ installCredentialProviderPackageFromBootstrapProfileRegistry() {
         if [ "${SHOULD_ENFORCE_KUBE_PMC_INSTALL}" != "true" ] ; then
             # SHOULD_ENFORCE_KUBE_PMC_INSTALL will only be set for e2e tests, which should not fallback to reflect result of package installation behavior
             echo "Fall back to install credential provider from url installation"
-            installCredentialProvider
+            installCredentialProviderFromUrl
         else
             echo "Failed to install credential provider from bootstrap profile registry, and not falling back to package installation"
             exit $ERR_ORAS_PULL_CREDENTIAL_PROVIDER
