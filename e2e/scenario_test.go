@@ -72,6 +72,36 @@ func Test_Flatcar_CustomCATrust(t *testing.T) {
 	})
 }
 
+func Test_Flatcar_Blobfuse2(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using the Flatcar VHD has blobfuse2 binary executable at expected path",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDFlatcarGen2,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				execScriptOnVMForScenarioValidateExitCode(ctx, s, "/var/bin/blobfuse2 mount list", 0, "blobfuse2 binary not found or not executable")
+			},
+		},
+	})
+}
+
+func Test_Flatcar_No_Docker_images(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using the Flatcar VHD has no Docker images present",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDFlatcarGen2,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				execScriptOnVMForScenarioValidateExitCode(ctx, s, "docker image ls -q | grep .", 1, "Docker images found on Flatcar node")
+			},
+		},
+	})
+}
+
 func Test_Flatcar_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a Flatcar and the self-contained installer can be properly bootstrapped",
