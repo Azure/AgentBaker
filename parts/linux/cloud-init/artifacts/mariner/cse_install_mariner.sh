@@ -83,10 +83,8 @@ downloadGPUDrivers() {
 
     if [ -z "$CUDA_PACKAGE" ]; then
       echo "No cuda packages found"
-    else
-      if ! dnf_install 30 1 600 ${CUDA_PACKAGE}; then
-        exit $ERR_APT_INSTALL_TIMEOUT
-      fi
+    elif ! dnf_install 30 1 600 ${CUDA_PACKAGE}; then
+      exit $ERR_APT_INSTALL_TIMEOUT
     fi
 }
 
