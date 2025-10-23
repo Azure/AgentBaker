@@ -134,9 +134,15 @@ type ScenarioRuntime struct {
 	NBC           *datamodel.NodeBootstrappingConfiguration
 	AKSNodeConfig *aksnodeconfigv1.Configuration
 	Cluster       *Cluster
+	VM            *ScenarioVM
 	VMSSName      string
-	KubeNodeName  string
-	VMPrivateIP   string
+}
+
+type ScenarioVM struct {
+	KubeName    string
+	VMSS        *armcompute.VirtualMachineScaleSet
+	VMSSVM      *armcompute.VirtualMachineScaleSetVM
+	VMPrivateIP string
 }
 
 // Config represents the configuration of an AgentBaker E2E scenario.

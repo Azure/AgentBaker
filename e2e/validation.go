@@ -45,7 +45,7 @@ func ValidatePodRunning(ctx context.Context, s *Scenario, pod *corev1.Pod) {
 
 	timeForReady := time.Since(start)
 	toolkit.LogDuration(ctx, timeForReady, time.Minute, fmt.Sprintf("Time for pod %q to get ready was %s", pod.Name, timeForReady))
-	s.T.Logf("node health validation: test pod %q is running on node %q", pod.Name, s.Runtime.KubeNodeName)
+	s.T.Logf("node health validation: test pod %q is running on node %q", pod.Name, s.Runtime.VM.KubeName)
 }
 
 func truncatePodName(t testing.TB, pod *corev1.Pod) {

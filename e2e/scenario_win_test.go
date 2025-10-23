@@ -342,21 +342,19 @@ func Test_Windows2025Gen2(t *testing.T) {
 	})
 }
 
-func Test_Windows2025Gen2_VHDCaching(t *testing.T) {
+func Test_Windows2022_VHDCaching(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "Windows Server 2025 with Containerd - hyperv gen 2",
+		Description: "VHD Caching",
 		Config: Config{
-			Cluster:         ClusterAzureNetwork,
-			VHD:             config.VHDWindows2025Gen2,
-			VHDCaching:      true,
-			VMConfigMutator: EmptyVMConfigMutator,
-			BootstrapConfigMutator: func(configuration *datamodel.NodeBootstrappingConfiguration) {
-				Windows2025BootstrapConfigMutator(t, configuration)
-			},
+			Cluster:                ClusterAzureNetwork,
+			VHD:                    config.VHDWindows2022Containerd, // gen1 is default for windows 2022
+			VHDCaching:             true,
+			VMConfigMutator:        EmptyVMConfigMutator,
+			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
 			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateWindowsVersionFromWindowsSettings(ctx, s, "2025-gen2")
-				ValidateWindowsProductName(ctx, s, "Windows Server 2025 Datacenter")
-				ValidateWindowsDisplayVersion(ctx, s, "24H2")
+				ValidateWindowsVersionFromWindowsSettings(ctx, s, "2022-containerd")
+				ValidateWindowsProductName(ctx, s, "Windows Server 2022 Datacenter")
+				ValidateWindowsDisplayVersion(ctx, s, "21H2")
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
 				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
 				ValidateCiliumIsNotRunningWindows(ctx, s)
