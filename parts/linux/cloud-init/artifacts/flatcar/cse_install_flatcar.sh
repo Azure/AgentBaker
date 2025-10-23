@@ -5,7 +5,24 @@ stub() {
 }
 
 installDeps() {
-    stub
+    # We must configure containerd before running Docker commands.
+    installStandaloneContainerd
+
+    local ARCH; ARCH="$(uname -m)"
+    local DOCKER_VERSION; DOCKER_VERSION="$(docker version -f json)"
+    local IMAGE_ARCH; IMAGE_ARCH="$(echo "${DOCKER_VERSION}" | jq -r .Server.Arch)"
+    # TODO: Switch to official image before merging, like mcr.microsoft.com/oss/v2/kubernetes-csi/blob-csi:v1.27.0.
+    local BLOB_CSI_IMAGE="ghcr.io/flatcar-hub/blob-csi:v1.28.0-linux-${IMAGE_ARCH}"
+
+    docker run --rm \
+        -v /var/bin:/host/var/bin  \
+        --env DISTRIBUTION=flatcar \
+        --env ARCH="${ARCH}" \
+        --env INSTALL_BLOBFUSE2=true  \
+        --env INSTALL_BLOBFUSE_PROXY=false  \
+        --entrypoint /blobfuse-proxy/install-proxy-rhcos.sh \
+        "${BLOB_CSI_IMAGE}"
+    docker image rm "${BLOB_CSI_IMAGE}"
 }
 
 installCriCtlPackage() {
