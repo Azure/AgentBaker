@@ -537,7 +537,7 @@ function New-ExternalHnsNetwork {
         New-HNSNetwork -Type $global:NetworkMode -AddressPrefix "192.168.255.0/30" -Gateway "192.168.255.1" -AdapterName $adapterName -Name $externalNetwork -Verbose
     }
     # Wait 2 minutes for the switch to be created and the ip address to be assigned.
-    $RecheckTimeoutMilliseconds=500
+    $RecheckTimeoutMilliseconds = 500
     for ($i = 0; $i -lt 120; $i++) {
         $mgmtIPAfterNetworkCreate = Get-NetIPAddress $ipv4Address -ErrorAction SilentlyContinue
         if ($mgmtIPAfterNetworkCreate) {
@@ -593,7 +593,7 @@ function Get-Node-Ipv4-Address {
         Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "No IPv4 address found in metadata."
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_PARSE_METADATA -ErrorMessage "No IPv4 address found in metadata"
     }
-    $ipv4Address=$ipv4Address.Trim()
+    $ipv4Address = $ipv4Address.Trim()
     if ([string]::IsNullOrEmpty($ipv4Address)) {
         Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "empty IPv4 address found in metadata."
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_PARSE_METADATA -ErrorMessage "empty IPv4 address found in metadata"
@@ -616,7 +616,7 @@ function Get-Node-Ipv6-Address {
         Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "No IPv6 address found in metadata."
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_PARSE_METADATA -ErrorMessage "No IPv6 address found in metadata"
     }
-    $ipv6Address=$ipv6Address.Trim()
+    $ipv6Address = $ipv6Address.Trim()
     if ([string]::IsNullOrEmpty($ipv6Address)) {
         Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "empty IPv6 address found in metadata."
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_PARSE_METADATA -ErrorMessage "empty IPv6 address found in metadata"
@@ -649,10 +649,10 @@ function Get-AKS-NodeIPs {
 
 function Invoke-WithRetry {
     param (
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [ScriptBlock]$Command,
 
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [string]$TaskName,
 
         [int]$MaxRetries = 3,
@@ -672,7 +672,8 @@ function Invoke-WithRetry {
             if ($attempt -lt $MaxRetries) {
                 Logs-To-Event -TaskName $TaskName -TaskMessage "Retrying in $DelaySeconds seconds..."
                 Start-Sleep -Seconds $DelaySeconds
-            } else {
+            }
+            else {
                 Logs-To-Event -TaskName $TaskName -TaskMessage "All retries failed."
                 throw $_
             }
@@ -685,9 +686,11 @@ function Get-AKS-NetworkAdaptor {
     Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Found IPv4 address from metadata: $ipv4Address"
 
     # we need the default gateway interface to create the external network
-    $netIP = Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue -ErrorVariable netIPErr -IpAddress $ipv4Address
-    if (!$netIP) {
-        Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Failed to find IP address info for ip address $ipv4Address. Error: $netIPErr. Reverting to old way to configure network"
+    try {
+        $netIP = Invoke-WithRetry -Command { Get-NetIPAddress -AddressFamily IPv4 -ErrorAction Stop -ErrorVariable netIPErr -IpAddress $ipv4Address } -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -MaxRetries 5 -DelaySeconds 60
+    }
+    catch {
+        Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Failed to find IP address info for ip address ${ipv4Address}: $($_.Exception.Message). Reverting to old way to configure network"
         return Get-NetworkAdaptor-Fallback
     }
 
@@ -698,7 +701,8 @@ function Get-AKS-NetworkAdaptor {
             return Get-NetworkAdaptor-Fallback
         }
         return $na
-    } catch {
+    }
+    catch {
         Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Error thrown while getting network adapter info: $($_.Exception.Message)"
         return Get-NetworkAdaptor-Fallback
     }
@@ -745,7 +749,7 @@ function Get-HnsPsm1 {
     # Get-LogCollectionScripts will copy hns module file to C:\k\debug
     $sourceFile = [IO.Path]::Combine('C:\k\debug\', $fileName)
     try {
-       Logs-To-Event "AKS.WindowsCSE.GetAndImportHNSModule" -TaskMessage  "Copying $sourceFile to $HNSModule."
+        Logs-To-Event "AKS.WindowsCSE.GetAndImportHNSModule" -TaskMessage  "Copying $sourceFile to $HNSModule."
         Copy-Item -Path $sourceFile -Destination "$HNSModule"
     }
     catch {
