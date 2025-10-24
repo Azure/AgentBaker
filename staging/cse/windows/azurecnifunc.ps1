@@ -647,6 +647,38 @@ function Get-AKS-NodeIPs {
     return $nodeIPs -join ','
 }
 
+function Invoke-WithRetry {
+    param (
+        [Parameter(Mandatory=$true)]
+        [ScriptBlock]$Command,
+
+        [Parameter(Mandatory=$true)]
+        [string]$TaskName,
+
+        [int]$MaxRetries = 3,
+        [int]$DelaySeconds = 20
+    )
+
+    for ($attempt = 1; $attempt -le $MaxRetries; $attempt++) {
+        try {
+            Logs-To-Event -TaskName $TaskName -TaskMessage "Attempt $attempt of $MaxRetries..."
+            $result = & $Command
+            Logs-To-Event -TaskName $TaskName -TaskMessage  "Success!"
+            return $result
+        }
+        catch {
+            Logs-To-Event -TaskName $TaskName -TaskMessage  "Error: $($_.Exception.Message)"
+
+            if ($attempt -lt $MaxRetries) {
+                Logs-To-Event -TaskName $TaskName -TaskMessage "Retrying in $DelaySeconds seconds..."
+                Start-Sleep -Seconds $DelaySeconds
+            } else {
+                Logs-To-Event -TaskName $TaskName -TaskMessage "All retries failed."
+            }
+        }
+    }
+}
+
 function Get-AKS-NetworkAdaptor {
     $ipv4Address = Get-Node-Ipv4-Address
     Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Found IPv4 address from metadata: $ipv4Address"
@@ -658,7 +690,7 @@ function Get-AKS-NetworkAdaptor {
         return Get-NetworkAdaptor-Fallback
     }
 
-    $na = get-netadapter -ifindex $netIP.ifIndex
+    $na = Invoke-WithRetry -Command { get-netadapter -IncludeHidden -ifindex $netIP.ifIndex } -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -MaxRetries 5 -DelaySeconds 10
     if (!$na) {
         Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Failed to find network adapter info for ip address index $($netIP.ifIndex) and ip address $ipv4Address. Reverting to old way to configure network"
         return Get-NetworkAdaptor-Fallback
