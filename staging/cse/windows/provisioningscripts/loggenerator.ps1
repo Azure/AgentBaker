@@ -10,7 +10,7 @@ filter Timestamp { "$(Get-Date -Format o): $_" }
 
 function Write-Log ($message) {
     if ($isEnableLog) {
-        $message | Timestamp | Tee-Object -FilePath $LogPath -Append
+        $message | Timestamp | Tee-Object -FilePath $LogPath -Append | Write-Host
     }
 }
 

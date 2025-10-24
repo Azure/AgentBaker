@@ -12,7 +12,6 @@ $releaseNotesFilePath = "c:\release-notes.txt"
 
 function Log($Message)
 {
-    # Write-Output $Message
     $Message | Tee-Object -FilePath $releaseNotesFilePath -Append
 }
 
