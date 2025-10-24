@@ -575,7 +575,18 @@ installKubeletKubectlFromBootstrapProfileRegistry() {
     local kubernetes_version=$2
     for tool_name in $(get_kubernetes_tools); do
         install_path="/usr/local/bin/${tool_name}"
-        installToolFromBootstrapProfileRegistry "${tool_name}" "${registry_server}" "${kubernetes_version}" "${install_path}" || return $ERR_ORAS_PULL_K8S_FAIL
+        if ! installToolFromBootstrapProfileRegistry "${tool_name}" "${registry_server}" "${kubernetes_version}" "${install_path}"; then
+            # SHOULD_ENFORCE_KUBE_PMC_INSTALL will only be set for e2e tests, which should not fallback to reflect result of package installation behavior
+            # TODO: remove SHOULD_ENFORCE_KUBE_PMC_INSTALL check when the test cluster supports > 1.34.0 case
+            # if install from bootstrap profile registry fails, fallback to install from URL
+            if [ "${SHOULD_ENFORCE_KUBE_PMC_INSTALL}" != "true" ];then
+                logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromURL-Fallback" installKubeletKubectlFromURL
+                return
+            else
+                echo "Failed to install k8s tools from bootstrap profile registry, and not falling back to binary installation due to SHOULD_ENFORCE_KUBE_PMC_INSTALL=true"
+                exit $ERR_ORAS_PULL_K8S_FAIL
+            fi
+        fi
     done
 }
 
