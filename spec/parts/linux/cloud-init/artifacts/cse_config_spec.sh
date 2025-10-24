@@ -629,6 +629,10 @@ Describe 'cse_config.sh'
             echo "installKubeletKubectlPkgFromPMC $1"
         }
 
+        installKubeletKubectlFromURL() {
+            echo "installKubeletKubectlFromURL"
+        }
+
         installKubeletKubectlFromBootstrapProfileRegistry() {
             echo "installKubeletKubectlFromBootstrapProfileRegistry $1 $2"
         }
