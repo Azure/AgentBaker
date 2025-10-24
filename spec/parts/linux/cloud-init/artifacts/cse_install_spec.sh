@@ -250,4 +250,53 @@ Describe 'cse_install.sh'
             The status should be success
         End
     End
+
+    Describe 'installKubeletKubectlFromBootstrapProfileRegistry'
+        logs_to_events() {
+            echo "logs_to_events $1 $2"
+            # Execute the actual function that was passed
+            eval "$2"
+        }
+
+        installToolFromBootstrapProfileRegistry() {
+            echo "installToolFromBootstrapProfileRegistry"
+        }
+
+        installKubeletKubectlFromURL() {
+            echo "installKubeletKubectlFromURL"
+        }
+
+        BeforeEach() {
+            SHOULD_ENFORCE_KUBE_PMC_INSTALL="false"
+            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myregistry.azurecr.io"
+            KUBERNETES_VERSION="1.34.0"
+        }
+
+        It 'should call installToolFromBootstrapProfileRegistry'
+            When call installKubeletKubectlFromBootstrapProfileRegistry $BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER $KUBERNETES_VERSION
+            The output should include "installKubeletKubectlFromBootstrapProfileRegistry myregistry.azurecr.io 1.34.0"
+            The output should not include "installKubeletKubectlFromURL"
+        End
+
+        It 'should call installKubeletKubectlFromURL if installToolFromBootstrapProfileRegistry fails'
+            installToolFromBootstrapProfileRegistry() {
+                echo "installToolFromBootstrapProfileRegistry fails"
+                return 1
+            }
+            When call installToolFromBootstrapProfileRegistry $BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER $KUBERNETES_VERSION
+            The output should include "installToolFromBootstrapProfileRegistry fails"
+            The output should include "installKubeletKubectlFromURL"
+        End
+
+        It 'should not call installKubeletKubectlFromURL if installToolFromBootstrapProfileRegistry fails but SHOULD_ENFORCE_KUBE_PMC_INSTALL is true'
+            installToolFromBootstrapProfileRegistry() {
+                echo "installToolFromBootstrapProfileRegistry fails"
+                return 1
+            }
+            SHOULD_ENFORCE_KUBE_PMC_INSTALL="true"
+            When call installToolFromBootstrapProfileRegistry $BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER $KUBERNETES_VERSION
+            The output should include "installToolFromBootstrapProfileRegistry fails"
+            The output should not include "installKubeletKubectlFromURL"
+        End
+    End
 End

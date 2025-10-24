@@ -625,10 +625,6 @@ Describe 'cse_config.sh'
             eval "$2"
         }
 
-        installKubeletKubectlFromURL() {
-            echo "installKubeletKubectlFromURL"
-        }
-
         installKubeletKubectlPkgFromPMC() {
             echo "installKubeletKubectlPkgFromPMC $1"
         }
@@ -791,16 +787,6 @@ Describe 'cse_config.sh'
             When call configureKubeletAndKubectl
             The output should include "installKubeletKubectlFromBootstrapProfileRegistry myregistry.azurecr.io 1.34.0"
             The output should not include "installKubeletKubectlFromURL"
-        End
-
-        It 'should fallback to installKubeletKubectlFromURL when BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER is set and k8s >= 1.34.0 but installKubeletKubectlFromBootstrapProfileRegistry fails'
-            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myregistry.azurecr.io"
-            KUBERNETES_VERSION="1.34.0"
-            installKubeletKubectlFromBootstrapProfileRegistry() {
-                return 1
-            }
-            When call configureKubeletAndKubectl
-            The output should include "installKubeletKubectlFromURL"
         End
 
         It 'should call installKubeletKubectlFromURL when BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER is set and k8s < 1.34.0'
