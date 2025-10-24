@@ -539,6 +539,7 @@ cliTool="ctr"
 
 
 INSTALLED_RUNC_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
+echo "${PIPESTATUS[@]}"
 echo "  - runc version ${INSTALLED_RUNC_VERSION}" >> ${VHD_LOGS_FILEPATH}
 capture_benchmark "${SCRIPT_NAME}_install_crictl"
 
