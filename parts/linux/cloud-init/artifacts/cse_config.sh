@@ -630,6 +630,7 @@ validateKubeletNodeLabels() {
     IFS=',' read -ra LABEL_ARRAY <<< "$labels"
     for label in "${LABEL_ARRAY[@]}"; do
         # Split each label into key and value
+        # shellcheck disable=SC3010
         if [[ "$label" == *"="* ]]; then
             key="${label%%=*}"
             value="${label#*=}"
