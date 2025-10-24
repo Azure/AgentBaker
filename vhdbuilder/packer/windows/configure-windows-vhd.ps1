@@ -367,7 +367,7 @@ function Get-ContainerImages
     Write-Log "Pulling images for windows server $windowsSKU" # The variable $windowsSKU will be "2019-containerd", "2022-containerd", ...
     foreach ($image in $imagesToPull)
     {
-        Write-Output "* $image"
+        Write-Host "* $image"
     }
 
     # ./.clusterfuzzliteThere is a regression in crictl.exe in kube-tools 1.33 for windows that it cannot find the default config file. Has been discussed with upstream and pending fix
@@ -491,7 +491,7 @@ function LogFilesInDirectory
 
     Get-ChildItem -Path "$Directory" | ForEach-Object {
         $sizeKB = [math]::Round($_.Length / 1KB, 2)
-        Write-Output "$( $_.Name ) - $sizeKB KB"
+        Write-Host "$( $_.Name ) - $sizeKB KB"
     }
 }
 
