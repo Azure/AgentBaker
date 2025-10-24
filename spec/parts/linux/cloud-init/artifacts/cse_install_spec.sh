@@ -274,7 +274,7 @@ Describe 'cse_install.sh'
 
         It 'should call installToolFromBootstrapProfileRegistry'
             When call installKubeletKubectlFromBootstrapProfileRegistry $BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER $KUBERNETES_VERSION
-            The output should include "installKubeletKubectlFromBootstrapProfileRegistry"
+            The output should include "installToolFromBootstrapProfileRegistry"
             The output should not include "installKubeletKubectlFromURL"
         End
 
