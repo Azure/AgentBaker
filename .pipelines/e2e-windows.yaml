@@ -34,7 +34,10 @@ pr:
     exclude:
       - pkg/agent/datamodel/sig_config*.go # SIG config changes
       - pkg/agent/datamodel/*.json # SIG version changes
-      - pkg/agent/testdata/AKSWindows* # Windows test data
+      - pkg/agent/testdata/*Ubuntu* # Linux test data
+      - pkg/agent/testdata/*Flatcar* # Linux test data
+      - pkg/agent/testdata/*Mariner* # Linux test data
+      - pkg/agent/testdata/*AzureLinux* # Linux test data
       - parts/common/components.json # centralized components management file
       - staging/cse/windows/README
       - /**/*.md
