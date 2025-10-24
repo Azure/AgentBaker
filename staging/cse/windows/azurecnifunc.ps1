@@ -687,7 +687,7 @@ function Get-AKS-NetworkAdaptor {
 
     # we need the default gateway interface to create the external network
     try {
-        $netIP = Invoke-WithRetry -Command { Get-NetIPAddress -AddressFamily IPv4 -ErrorAction Stop -ErrorVariable netIPErr -IpAddress $ipv4Address } -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -MaxRetries 5 -DelaySeconds 60
+        $netIP = Invoke-WithRetry -Command { Get-NetIPAddress -AddressFamily IPv4 -ErrorAction Stop -IpAddress $ipv4Address } -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -MaxRetries 5 -DelaySeconds 60
     }
     catch {
         Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Failed to find IP address info for ip address ${ipv4Address}: $($_.Exception.Message). Reverting to old way to configure network"
