@@ -51,6 +51,10 @@ storage:
         bootparams:  files
         automount:   files
         aliases:     files
+  - path: /etc/flatcar/enabled-sysext.conf
+    contents:
+      inline: |
+        nvidia-drivers-570-open
   links:
   - path: /etc/extensions/aks-sysext/usr/local/bin
     target: /opt/bin
