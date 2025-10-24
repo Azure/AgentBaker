@@ -8,31 +8,31 @@
         {
           "comment": "should have latest version and natest version -1",
           "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore",
-          "latestVersion": "10.0.17763.7919",
+          "latestVersion": "10.0.17763.7922",
           "previousLatestVersion": "10.0.17763.7792",
           "windowsSkuMatch": "2019-containerd"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore",
-          "latestVersion": "10.0.20348.4294",
+          "latestVersion": "10.0.20348.4297",
           "previousLatestVersion": "10.0.20348.4171",
           "windowsSkuMatch": "2022-containerd*"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore",
-          "latestVersion": "10.0.20348.4294",
+          "latestVersion": "10.0.20348.4297",
           "previousLatestVersion": "10.0.20348.4171",
           "windowsSkuMatch": "23H2*"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore",
-          "latestVersion": "10.0.20348.4294",
+          "latestVersion": "10.0.20348.4297",
           "previousLatestVersion": "10.0.20348.4171",
           "windowsSkuMatch": "2025*"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore",
-          "latestVersion": "10.0.26100.6899",
+          "latestVersion": "10.0.26100.6905",
           "previousLatestVersion": "10.0.26100.6584",
           "windowsSkuMatch": "2025*"
         }
@@ -726,7 +726,7 @@
       "downloadURL": "mcr.microsoft.com/aks/aks-gpu-cuda:*",
       "gpuVersion": {
         "renovateTag": "registry=https://mcr.microsoft.com, name=aks/aks-gpu-cuda",
-          "latestVersion": "580.95.05-20251021155213"
+        "latestVersion": "580.95.05-20251021155213"
       }
     },
     {
