@@ -35,6 +35,7 @@ BeforeAll {
     }
 
     Mock Write-Host -MockWith { } -Verifiable
+    Mock Start-Sleep -MockWith { } -Verifiable
 }
 
 Describe 'GetBroadestRangesForEachAddress' {
@@ -1510,7 +1511,7 @@ Describe 'Get-AKS-NetworkAdaptor' {
             Assert-MockCalled -CommandName "Get-Node-Ipv4-Address" -Exactly -Times 1
             Assert-MockCalled -CommandName "Get-NetIPAddress" -Exactly -Times 1 -ParameterFilter {
                 $AddressFamily -eq "IPv4" -and
-                $ErrorAction -eq "SilentlyContinue" -and
+                $ErrorAction -eq "Stop" -and
                 $IpAddress -eq $mockIPv4Address
             }
             Assert-MockCalled -CommandName "Get-NetAdapter" -Exactly -Times 1 -ParameterFilter {
@@ -1623,8 +1624,7 @@ Describe 'Get-AKS-NetworkAdaptor' {
 
             Mock Get-Node-Ipv4-Address -MockWith { return $mockIPv4Address } -Verifiable
             Mock Get-NetIPAddress -MockWith {
-                $global:netIPErr = @("Network interface not found")
-                return $null
+                throw @("Network interface not found")
             } -Verifiable
             Mock Get-NetworkAdaptor-Fallback -MockWith { return $mockFallbackAdapter } -Verifiable
             Mock Logs-To-Event -MockWith { } -Verifiable
@@ -1746,22 +1746,24 @@ Describe 'Get-AKS-NetworkAdaptor' {
             Assert-MockCalled -CommandName "Get-NetworkAdaptor-Fallback" -Exactly -Times 0
         }
 
-        It "Should propagate exceptions from Get-NetIPAddress when they occur" {
+        It "Should call fallback when Get-NetIPAddress throws errors" {
             $mockIPv4Address = "10.0.0.1"
+            $mockFallbackAdapter = [PSCustomObject]@{ Name = "TestFallback"; ifIndex = 99 }
 
             Mock Get-Node-Ipv4-Address -MockWith { return $mockIPv4Address } -Verifiable
             Mock Get-NetIPAddress -MockWith { throw "Network interface query failed" } -Verifiable
             Mock Get-NetAdapter -MockWith { return $null } -Verifiable
-            Mock Get-NetworkAdaptor-Fallback -MockWith { return $null } -Verifiable
+
+            Mock Get-NetworkAdaptor-Fallback -MockWith { return $mockFallbackAdapter } -Verifiable
             Mock Start-Sleep -MockWith { } -Verifiable
 
-            { Get-AKS-NetworkAdaptor } | Should -Throw "Network interface query failed"
+            Get-AKS-NetworkAdaptor  | Should -Be $mockFallbackAdapter
 
             Assert-MockCalled -CommandName "Get-Node-Ipv4-Address" -Exactly -Times 1
-            Assert-MockCalled -CommandName "Get-NetIPAddress" -Exactly -Times 1
+            Assert-MockCalled -CommandName "Get-NetIPAddress" -Exactly -Times 5
             # Should not reach these calls due to exception
             Assert-MockCalled -CommandName "Get-NetAdapter" -Exactly -Times 0
-            Assert-MockCalled -CommandName "Get-NetworkAdaptor-Fallback" -Exactly -Times 0
+            Assert-MockCalled -CommandName "Get-NetworkAdaptor-Fallback" -Exactly -Times 1
         }
 
         It "Should retry when get-network-adapter fails and eventually call the fallback" {
@@ -1811,20 +1813,20 @@ Describe 'Get-AKS-NetworkAdaptor' {
     Context 'Logging behavior verification' {
         It "Should log error when IP address lookup fails" {
             $mockIPv4Address = "10.5.5.5"
+            $mockFallbackAdapter = [PSCustomObject]@{ Name = "FallbackAdapterForIPError" }
 
             Mock Get-Node-Ipv4-Address -MockWith { return $mockIPv4Address } -Verifiable
             Mock Get-NetIPAddress -MockWith {
-                $global:netIPErr = @("Interface not found")
-                return $null
+                throw @("Interface not found")
             } -Verifiable
-            Mock Get-NetworkAdaptor-Fallback -MockWith { return [PSCustomObject]@{ Name = "Fallback" } } -Verifiable
+            Mock Get-NetworkAdaptor-Fallback -MockWith { return $mockFallbackAdapter } -Verifiable
             Mock Logs-To-Event -MockWith { } -Verifiable
 
-            Get-AKS-NetworkAdaptor
+            Get-AKS-NetworkAdaptor | Should -Be $mockFallbackAdapter
 
             Assert-MockCalled -CommandName "Logs-To-Event" -ParameterFilter {
                 $TaskName -eq "AKS.WindowsCSE.NewExternalHnsNetwork" -and
-                $TaskMessage -like "*Failed to find IP address info for ip address $mockIPv4Address*Reverting to old way to configure network*"
+                $TaskMessage -like "*Failed to find IP address info for ip address ${mockIPv4Address}*"
             }
         }
 
