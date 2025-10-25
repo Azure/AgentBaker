@@ -331,7 +331,8 @@ function nodePrep {
     fi
     if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
         # This file indicates the cluster doesn't have outbound connectivity and should be excluded in future external outbound checks
-        touch /var/run/outbound-check-skipped
+        touch /var/run/outbound-check-skipped # TODO(fseldow): remove this file in future when egress extension checks /opt/azure/outbound-check-skipped
+        touch /opt/azure/outbound-check-skipped
     fi
 
     # Determine if GPU driver installation should be skipped
