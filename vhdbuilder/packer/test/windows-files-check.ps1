@@ -84,7 +84,7 @@ function Start-Job-To-Expected-State {
     }
 }
 
-function DownloadFileWithRetry {
+function DownloadFile {
     param (
         $URL,
         $Dest,
@@ -94,28 +94,18 @@ function DownloadFileWithRetry {
     )
 
     Write-Host "Downloading $URL"
-    for ($i = 0; $i -lt $retryCount; $i++) {
-        try {
-            Invoke-WebRequest -Uri $URL -OutFile $Dest -UseBasicParsing -ErrorAction Stop
-            return
-        }
-        catch {
-            $logURL = $URL
-            if ($redactUrl) {
-                $logURL = $logURL.Split("?")[0]
-            }
-            Write-Host "Curl exited with '$LASTEXITCODE' while attemping to download '$logURL' due to $($_.Exception.Message)"
-
-            # no point sleeping if it's the last attempt
-            if ($i -lt ($retryCount - 1)) {
-                Start-Sleep -Seconds $retryDelay
-            }
-        }
+    try {
+        # We don't retry as that could hide flakey upstream servers that will cause issues in prod.
+        Invoke-WebRequest -Uri $URL -OutFile $Dest -UseBasicParsing -ErrorAction Stop
     }
-    throw "Failed to download $URL after $retryCount attempts"
-
+    catch {
+        $logURL = $URL
+        if ($redactUrl) {
+            $logURL = $logURL.Split("?")[0]
+        }
+        throw "Curl exited with '$LASTEXITCODE' while attemping to download '$logURL' due to $($_.Exception.Message)"
+    }
 }
-
 
 function Test-ValidateAllSignature {
     foreach ($dir in $map.Keys) {
@@ -263,7 +253,7 @@ function Test-CompareSingleDir {
         $fileName = [IO.Path]::GetFileName($URL)
         $dest = [IO.Path]::Combine($dir, $fileName)
 
-        DownloadFileWithRetry -URL $URL -Dest $dest -redactUrl
+        DownloadFile -URL $URL -Dest $dest -redactUrl
         $globalFileSize = (Get-Item $dest).length
 
         $isIgnore = $False
