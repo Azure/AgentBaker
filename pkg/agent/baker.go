@@ -642,6 +642,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"IsKata": func() bool {
 			return profile.Distro.IsKataDistro()
 		},
+		"IsOSGuard": func() bool {
+			return profile.Distro.IsAzureLinuxOSGuardDistro()
+		},
 		"IsCustomImage": func() bool {
 			return profile.Distro == datamodel.CustomizedImage ||
 				profile.Distro == datamodel.CustomizedImageKata ||
@@ -1425,6 +1428,10 @@ root = "{{GetDataDir}}"{{- end}}
   sandbox_image = "{{GetPodInfraContainerSpec}}"
   enable_cdi = true
   [plugins."io.containerd.grpc.v1.cri".containerd]
+    {{- if IsOSGuard }}
+	enable_selinux = true
+    snapshotter = "overlayfs"
+	{{- end}}
     {{- if TeleportEnabled }}
     snapshotter = "teleportd"
     disable_snapshot_annotations = false
@@ -1668,6 +1675,10 @@ root = "{{GetDataDir}}"{{- end}}
 [plugins."io.containerd.grpc.v1.cri"]
   sandbox_image = "{{GetPodInfraContainerSpec}}"
   [plugins."io.containerd.grpc.v1.cri".containerd]
+    {{- if IsOSGuard }}
+	enable_selinux = true
+    snapshotter = "overlayfs"
+	{{- end}}
     {{- if TeleportEnabled }}
     snapshotter = "teleportd"
     disable_snapshot_annotations = false

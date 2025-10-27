@@ -161,6 +161,7 @@ func getCSEEnv(config *aksnodeconfigv1.Configuration) map[string]string {
 		"CONTAINERD_CONFIG_CONTENT":                          getContainerdConfigBase64(config),
 		"CONTAINERD_CONFIG_NO_GPU_CONTENT":                   getNoGPUContainerdConfigBase64(config),
 		"IS_KATA":                                            fmt.Sprintf("%v", config.GetIsKata()),
+		"IS_OSGUARD":                                         fmt.Sprintf("%v", config.GetIsOsGuard()),
 		"ARTIFACT_STREAMING_ENABLED":                         fmt.Sprintf("%v", config.GetEnableArtifactStreaming()),
 		"SYSCTL_CONTENT":                                     getSysctlContent(config.GetCustomLinuxOsConfig().GetSysctlConfig()),
 		"PRIVATE_EGRESS_PROXY_ADDRESS":                       config.GetPrivateEgressProxyAddress(),

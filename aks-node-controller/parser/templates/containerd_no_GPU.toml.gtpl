@@ -4,6 +4,10 @@ root = "{{.KubeletConfig.GetContainerDataDir}}"{{- end}}
 [plugins."io.containerd.grpc.v1.cri"]
   sandbox_image = "{{ .KubeBinaryConfig.GetPodInfraContainerImageUrl }}"
   [plugins."io.containerd.grpc.v1.cri".containerd]
+    {{- if .GetIsOsGuard }}
+      enable_selinux = true
+      snapshotter = "overlayfs"
+    {{- end}}
     {{- if .TeleportConfig.GetStatus }}
     snapshotter = "teleportd"
     disable_snapshot_annotations = false
