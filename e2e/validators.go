@@ -1217,7 +1217,7 @@ func ValidateExecCmdOnVM(ctx context.Context, s *Scenario, command string) {
 			Containers: []corev1.Container{
 				{
 					Name:    "exec-cmd-test-container",
-					Image:   "mcr.microsoft.com/cbl-mariner/base/core:2.0",
+					Image:   "nginx",
 					Command: []string{"sleep", "300"},
 				},
 			},
