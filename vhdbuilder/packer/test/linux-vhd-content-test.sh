@@ -476,18 +476,31 @@ testImagesRetagged() {
   pulledImages=($(ctr -n k8s.io image ls))
   mcrImagesNumber=0
   mooncakeMcrImagesNumber=0
+  mooncakeLegacyMcrImagesNumber=0
   while IFS= read -r pulledImage; do
     # shellcheck disable=SC3010
     if [[ $pulledImage == "mcr.microsoft.com"* ]]; then
       mcrImagesNumber=$((${mcrImagesNumber} + 1))
     fi
     # shellcheck disable=SC3010
-    if [[ $pulledImage == "mcr.azk8s.cn"* ]]; then
+    if [[ $pulledImage == "mcr.azure.cn"* ]]; then
       mooncakeMcrImagesNumber=$((${mooncakeMcrImagesNumber} + 1))
+    fi
+    # TODO(fseldow): remove azk8s when mcr.azk8s.cn is fully deprecated
+    # shellcheck disable=SC3010
+    if [[ $pulledImage == "mcr.azk8s.cn"* ]]; then
+      mooncakeLegacyMcrImagesNumber=$((${mooncakeLegacyMcrImagesNumber} + 1))
     fi
   done <<<"$pulledImages"
   if [ "${mcrImagesNumber}" != "${mooncakeMcrImagesNumber}" ]; then
     echo "the number of the mcr images & mooncake mcr images are not the same."
+    echo "all the images are:"
+    echo "${pulledImages[@]}"
+    exit 1
+  fi
+
+  if [ "${mooncakeLegacyMcrImagesNumber}" != "${mooncakeMcrImagesNumber}" ]; then
+    echo "the number of the legacy mcr images(mcr.azk8s.cn) & mooncake mcr images(mcr.azure.cn) are not the same."
     echo "all the images are:"
     echo "${pulledImages[@]}"
     exit 1

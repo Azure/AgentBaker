@@ -242,7 +242,7 @@ function Install-GmsaPlugin {
         $acl = $key.GetAccessControl()
         $acl.SetOwner($owner)
         $key.SetAccessControl($acl)
-        
+
         $key = [Microsoft.Win32.Registry]::LocalMachine.OpenSubKey(
             $ccgKeyPath,
             [Microsoft.Win32.RegistryKeyPermissionCheck]::ReadWriteSubTree,
@@ -257,7 +257,7 @@ function Install-GmsaPlugin {
     } catch {
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GMSA_SET_REGISTRY_PERMISSION -ErrorMessage "Failed to set GMSA plugin registry permissions. $_"
     }
-  
+
     # Set the appropriate registry values.
     try {
         Write-Log "Setting the appropriate GMSA plugin registry values"
@@ -293,7 +293,7 @@ function Install-GmsaPlugin {
 
 function Install-OpenSSH {
     Param(
-        [Parameter(Mandatory = $true)][string[]] 
+        [Parameter(Mandatory = $true)][string[]]
         $SSHKeys
     )
     Logs-To-Event -TaskName "AKS.WindowsCSE.InstallOpenSSH" -TaskMessage "Start to install OpenSSH"
@@ -342,7 +342,7 @@ function Install-OpenSSH {
     # OPTIONAL but recommended:
     Set-Service -Name sshd -StartupType 'Automatic'
 
-    # Confirm the Firewall rule is configured. It should be created automatically by setup. 
+    # Confirm the Firewall rule is configured. It should be created automatically by setup.
     $firewall = Get-NetFirewallRule -Name *ssh*
 
     if (!$firewall) {
@@ -623,25 +623,26 @@ function Retag-ImagesForAzureChinaCloud {
     )
 
     Logs-To-Event -TaskName "AKS.WindowsCSE.RetagImagesForAzureChinaCloud" -TaskMessage "Start to retag images for Azure China Cloud"
-    
+
     $isExist=$false
     $imageList=$(ctr.exe -n k8s.io image ls | select -Skip 1)
     foreach ($imageInfo in $imageList) {
         $splitResult=($imageInfo -split '\s+')
         $image=$splitResult[0]
-        if ($image -like 'mcr.azk8s.cn*') {
+        # TODO(fseldow): remove azk8s when mcr.azk8s.cn is fully deprecated
+        if ($image -like 'mcr.azk8s.cn*' -or $image -like 'mcr.azure.cn*') {
             $isExist=$true
             break
         }
     }
-    
+
     if ($TargetEnvironment -ne "AzureChinaCloud") {
         if ($isExist) {
             Write-Log "Clear existing tags for AzureChinaCloud in $TargetEnvironment"
             foreach ($imageInfo in $imageList) {
                 $splitResult=($imageInfo -split '\s+')
                 $image=$splitResult[0]
-                if ($image -like 'mcr.azk8s.cn*' -and (-not $image.Contains("@sha256:"))) {
+                if (($image -like 'mcr.azk8s.cn*' -or $image -like 'mcr.azure.cn*') -and (-not $image.Contains("@sha256:"))) {
                     ctr.exe -n k8s.io image delete $image
                 }
             }
@@ -662,8 +663,12 @@ function Retag-ImagesForAzureChinaCloud {
         $image=$splitResult[0]
         if ($image -like 'mcr.microsoft.com*' -and (-not $image.Contains("@sha256:"))) {
             Write-Log "Retagging image $image for AzureChinaCloud"
-            $retagImageUrl=$image.replace('mcr.microsoft.com', 'mcr.azk8s.cn')
+            $retagImageUrl=$image.replace('mcr.microsoft.com', 'mcr.azure.cn')
             ctr.exe -n k8s.io image tag $image $retagImageUrl
+
+            # TODO(fseldow): remove azk8s when mcr.azk8s.cn is fully deprecated
+            $retagImageLegacyUrl=$image.replace('mcr.microsoft.com', 'mcr.azk8s.cn')
+            ctr.exe -n k8s.io image tag $image $retagImageLegacyUrl
         }
     }
 }
