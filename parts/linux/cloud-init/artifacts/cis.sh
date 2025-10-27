@@ -305,6 +305,10 @@ configureAzureAgent() {
     sed -i -e 's/\(Provisioning.DeleteRootPassword\).*/\1=n/' /etc/waagent.conf
 }
 
+configureAppArmor() {
+    aa-complain /etc/apparmor.d/* || exit $?
+}
+
 applyCIS() {
     setPWExpiration
     assignRootPW
@@ -324,6 +328,7 @@ applyCIS() {
     configureRootPath
     configureLimits
     configureAzureAgent
+    configureAppArmor
     # Apply system configuration to running system
     sysctl --write --system
 }
