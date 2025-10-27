@@ -69,6 +69,7 @@ type Configuration struct {
 	TestTimeout                            time.Duration `env:"TEST_TIMEOUT" envDefault:"35m"`
 	TestTimeoutCluster                     time.Duration `env:"TEST_TIMEOUT_CLUSTER" envDefault:"20m"`
 	TestTimeoutVMSS                        time.Duration `env:"TEST_TIMEOUT_VMSS" envDefault:"17m"`
+	VMSSTipSessionId                       string        `env:"VMSS_TIP_SESSION_ID"`
 	WindowsAdminPassword                   string        `env:"WINDOWS_ADMIN_PASSWORD"`
 }
 

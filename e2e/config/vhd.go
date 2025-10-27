@@ -164,6 +164,14 @@ var (
 		Gallery: imageGalleryLinux,
 	}
 
+	VHDUbuntu2404GB200 = &Image{
+		Name:    "2404gen2arm64gb200containerd",
+		OS:      OSUbuntu,
+		Arch:    "arm64",
+		Distro:  datamodel.AKSUbuntuArm64GB200Containerd2404Gen2,
+		Gallery: imageGalleryLinux,
+	}
+
 	VHDFlatcarGen2 = &Image{
 		Name:    "flatcargen2",
 		OS:      OSFlatcar,
