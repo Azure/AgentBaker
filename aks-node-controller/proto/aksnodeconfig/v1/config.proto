@@ -163,4 +163,7 @@ message Configuration {
   // If it's not set, the default value will be nil, but will be set to false on the VHD.
   // That is, the default behavior is to enable ssh public key authentication.
   optional bool disable_pubkey_auth = 42;
+
+  // Specifies if it is an Azure Linux OS Guard node
+  bool is_os_guard = 43;
 }
