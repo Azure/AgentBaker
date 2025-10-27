@@ -656,6 +656,7 @@ func Test_Ubuntu2204(t *testing.T) {
 				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", components.GetExpectedPackageVersions("containerd", "ubuntu", "r2204")[0])
 				ValidateInstalledPackageVersion(ctx, s, "moby-runc", components.GetExpectedPackageVersions("runc", "ubuntu", "r2204")[0])
 				ValidateSSHServiceEnabled(ctx, s)
+				ValidateExecCmdOnVM(ctx, s, "sh")
 			},
 		},
 	})
@@ -1806,13 +1807,12 @@ func Test_Ubuntu2404Gen2(t *testing.T) {
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				//containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2404")
-				//runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2404")
-				//ValidateContainerd2Properties(ctx, s, containerdVersions)
-				//ValidateRunc12Properties(ctx, s, runcVersions)
-				//ValidateContainerRuntimePlugins(ctx, s)
-				//ValidateSSHServiceEnabled(ctx, s)
-				ValidateExecCmdOnVM(ctx, s, "sh")
+				containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2404")
+				runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2404")
+				ValidateContainerd2Properties(ctx, s, containerdVersions)
+				ValidateRunc12Properties(ctx, s, runcVersions)
+				ValidateContainerRuntimePlugins(ctx, s)
+				ValidateSSHServiceEnabled(ctx, s)
 			},
 		},
 	})
