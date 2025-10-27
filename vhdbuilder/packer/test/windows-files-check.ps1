@@ -92,17 +92,30 @@ function DownloadFileWithRetry {
         $retryDelay = 0,
         [Switch]$redactUrl = $false
     )
-    Write-Output "Downloading $URL"
-    try {
-        Invoke-WebRequest -Uri $URL -OutFile $Dest -UseBasicParsing -MaximumRetryCount $retryCount -RetryIntervalSec $retryDelay -ErrorAction Stop
-    } catch {
-        $logURL = $URL
-        if ($redactUrl) {
-            $logURL = $logURL.Split("?")[0]
+
+    Write-Host "Downloading $URL"
+    for ($i = 0; $i -lt $retryCount; $i++) {
+        try {
+            Invoke-WebRequest -Uri $URL -OutFile $Dest -UseBasicParsing -ErrorAction Stop
+            return
         }
-        throw "Curl exited with '$LASTEXITCODE' while attemping to download '$logURL' due to $($_.Exception.Message)"
+        catch {
+            $logURL = $URL
+            if ($redactUrl) {
+                $logURL = $logURL.Split("?")[0]
+            }
+            Write-Host "Curl exited with '$LASTEXITCODE' while attemping to download '$logURL' due to $($_.Exception.Message)"
+
+            # no point sleeping if it's the last attempt
+            if ($i -lt ($retryCount - 1)) {
+                Start-Sleep -Seconds $retryDelay
+            }
+        }
     }
+    throw "Failed to download $URL after $retryCount attempts"
+
 }
+
 
 function Test-ValidateAllSignature {
     foreach ($dir in $map.Keys) {
@@ -137,7 +150,8 @@ function Test-ValidateSinglePackageSignature {
         if ($fileName.endswith(".zip")) {
             try {
                 Expand-Archive -path $dest -DestinationPath $installDir -Force -ErrorAction Stop
-            } catch {
+            }
+            catch {
                 Write-Error "Failed to expand archive ${dest} to ${installDir}: $($_.Exception.Message)"
                 throw "Expand-Archive failed for ${dest}: $($_.Exception.Message)"
             }
