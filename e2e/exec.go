@@ -220,3 +220,47 @@ func uploadSSHKey(ctx context.Context, s *Scenario, vmPrivateIP string) error {
 
 	return nil
 }
+
+func buildStepsToUploadSupportFiles(supportFiles map[string]string, vmPrivateIP string) []string {
+	steps := []string{}
+	for fileName, fileContent := range supportFiles {
+		steps = append(steps,
+			fmt.Sprintf("echo EOF >> %[1]s\n%[2]s\nEOF", fileName, fileContent),
+			fmt.Sprintf("chmod 0755 %s", fileName),
+			fmt.Sprintf(`scp -i %[1]s -o PasswordAuthentication=no -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o ConnectTimeout=5 %[3]s azureuser@%[2]s:%[4]s`, sshKeyName(vmPrivateIP), vmPrivateIP, fileName, fileName),
+		)
+	}
+	return steps
+}
+
+func execPythonScriptFileOnVmWithSupportFiles(ctx context.Context, s *Scenario, vmPrivateIP, jumpboxPodName, pyScript string, invocation string, supportFiles map[string]string) (*podExecResult, error) {
+	// A note: why in the world are we using Python? It turns out that Python build version strings can be complicated in exactly the same ways that dpkg versions seem to be. See https://packaging.python.org/en/latest/specifications/version-specifiers/ for the exact specification; it turns out the built-in version parsing libraries are even more permissive than this, which is helpful when examining version strings that may look like '28.3.3-ubuntu24.04u1' or '3.1.0-091513'.
+	// Go supports semvers, which must be strictly in the form X.Y.Z (with optional pre-release and build metadata).
+
+	// Assuming uploadSSHKey has been called before this function
+	s.T.Helper()
+
+	if s.IsWindows() {
+		return nil, fmt.Errorf("execPythonScriptFileOnVmWithSupportFiles is not supported on Windows VMs")
+	}
+	identifier := uuid.New().String()
+	pyScriptFileName := fmt.Sprintf("script_file_%s.py", identifier)
+
+	steps := []string{
+		"set -x",
+	}
+	steps = append(steps, buildStepsToUploadSupportFiles(map[string]string{pyScriptFileName: pyScript}, vmPrivateIP)...)
+	steps = append(steps, buildStepsToUploadSupportFiles(supportFiles, vmPrivateIP)...)
+	steps = append(steps,
+		fmt.Sprintf("python3 %s %s", pyScriptFileName, invocation),
+	)
+	joinedSteps := strings.Join(steps, " && ")
+
+	kube := s.Runtime.Cluster.Kube
+	execResult, err := execOnPrivilegedPod(ctx, kube, defaultNamespace, jumpboxPodName, joinedSteps)
+	if err != nil {
+		return nil, fmt.Errorf("error executing command on pod: %w", err)
+	}
+
+	return execResult, nil
+}

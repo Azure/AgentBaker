@@ -3,6 +3,7 @@ package e2e
 import (
 	"bytes"
 	"context"
+	"embed"
 	"fmt"
 	"net"
 	"os"
@@ -1414,4 +1415,57 @@ func ValidateAppArmorBasic(ctx context.Context, s *Scenario) {
 	}
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to check AppArmor current profile")
 	// Any output indicates AppArmor is active (profile will be shown)
+}
+
+func ValidateGB200CRDSatisfied(ctx context.Context, s *Scenario) {
+	var crdchecker_py_file embed.FS
+	crdchecker_py, err := crdchecker_py_file.ReadFile("tools/crdchecker/crdchecker.py")
+	if err != nil {
+		s.T.Fatalf("failed to read crdchecker.py file from embedded FS: %v", err)
+	}
+	var crd_file embed.FS
+	bom_json, err := crd_file.ReadFile("e2e/testdata/gb200-crd.json")
+	if err != nil {
+		s.T.Fatalf("failed to read gb200-crd.json file from embedded FS: %v", err)
+	}
+	var relnotes_file embed.FS
+	release_notes_txt, err := relnotes_file.ReadFile("vhdbuilder/release-notes/AKSUbuntu/gen2/2404arm64containerd/latest.txt")
+	if err != nil {
+		s.T.Fatalf("failed to read gb200-release-notes.txt file from embedded FS: %v", err)
+	}
+	supportFiles := map[string]string{
+		"bom.json":          string(bom_json),
+		"release-notes.txt": string(release_notes_txt),
+	}
+
+	execResult, err := execPythonScriptFileOnVmWithSupportFiles(
+		ctx,
+		s,
+		s.Runtime.VMPrivateIP,
+		s.Runtime.Cluster.DebugPod.Name,
+		string(crdchecker_py),
+		"--hpc-crd-file bom.json --vhd-relnotes-file release-notes.txt",
+		supportFiles)
+	passed := false
+	for _, line := range strings.Split(execResult.stdout.String(), "\n") {
+		if strings.Contains(line, "CRD check passed!") {
+			passed = true
+			break
+		}
+	}
+	require.NoErrorf(s.T, err, "failed to execute crdchecker.py script: %v\nStdout: %s\nStderr: %s", err, execResult.stdout.String(), execResult.stderr.String())
+	require.Truef(s.T, passed, "GB200 CRD check did not pass.\nStdout: %s\nStderr: %s", execResult.stdout.String(), execResult.stderr.String())
+}
+
+func getRunningKernel(ctx context.Context, s *Scenario) string {
+	s.T.Helper()
+	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, "uname -r\n", 0, "failed to get running kernel version")
+	return strings.TrimSpace(execResult.stdout.String())
+}
+
+func ValidateAzureNvidiaKernelRunning(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	runningKernel := getRunningKernel(ctx, s)
+	s.T.Logf("running kernel version: %s", runningKernel)
+	require.Contains(s.T, runningKernel, "azure-nvidia", "expected running kernel to contain 'azure-nvidia', but got: %s", runningKernel)
 }
