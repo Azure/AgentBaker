@@ -1,4 +1,5 @@
 
+
 func Test_Ubuntu2404_GB200(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that GB200 images boot on GB200, have all expected services and packages, and match the current checked-in CRD",
@@ -17,10 +18,6 @@ func Test_Ubuntu2404_GB200(t *testing.T) {
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_ND128isr_NDR_GB200_v6")
-				if vmss.Tags == nil {
-					vmss.Tags = map[string]*string{}
-				}
-				vmss.Tags["EnableManagedGPUExperience"] = to.Ptr("true")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				os := "ubuntu"
