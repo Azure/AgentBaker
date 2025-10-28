@@ -1,0 +1,22 @@
+#!/bin/bash
+# dig dispatcher for DNS vnetdns tests
+SCENARIO="${DIG_SCENARIO:-success}"
+
+# Handle special scenarios
+case "$SCENARIO" in
+    "timeout")
+        exec "/mock-commands/dns-vnetdns/dig-timeout" "$@"
+        ;;
+    "retry-success")
+        exec "/mock-commands/dns-vnetdns/dig-retry-success" "$@"
+        ;;
+    *)
+        # Look for scenario-specific mock
+        if [ -f "/mock-commands/dns-vnetdns/dig-$SCENARIO" ]; then
+            exec "/mock-commands/dns-vnetdns/dig-$SCENARIO" "$@"
+        fi
+        ;;
+esac
+
+# Default to success scenario
+exec "/mock-commands/dns-vnetdns/dig-success" "$@"

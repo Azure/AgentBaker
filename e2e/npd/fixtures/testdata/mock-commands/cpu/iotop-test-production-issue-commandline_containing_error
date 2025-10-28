@@ -1,0 +1,8 @@
+#!/bin/bash
+cat <<'IOTOP_OUTPUT'
+Total DISK READ:         0.00 B/s | Total DISK WRITE:       143.35 K/s
+Current DISK READ:       0.00 B/s | Current DISK WRITE:       0.00 B/s
+    TID  PRIO  USER     DISK READ  DISK WRITE  SWAPIN      IO    COMMAND
+    394 be/3 root        0.00 B/s   43.00 K/s  ?unavailable?  systemd-journald
+2373181 be/4 testuser    0.00 B/s   57.34 K/s  ?unavailable?  java -DLOG_LEVEL=DEBUG,ERROR,INFO -Ds3proxy.endpoint=http://0.0.0.0:8080 -Ds3proxy.secure-endpoint= -Ds3proxy.virtual-host= -Ds3proxy.keystore-path=***REDACTED*** -Ds3proxy.keystore-password=***REDACTED*** -Ds3proxy.authorization=***REDACTED***
+IOTOP_OUTPUT

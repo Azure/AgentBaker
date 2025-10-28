@@ -1,0 +1,10 @@
+# Malformed corefile with missing closing braces and syntax errors
+.:53 {
+    bind 169.254.10.10
+    forward . 168.63.129.16
+    # Missing closing brace
+
+cluster.local:53 
+    bind 169.254.10.11
+    forward . 10.0.0.10
+}

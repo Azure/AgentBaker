@@ -1,0 +1,31 @@
+# Large corefile with multiple VNet DNS sections and many rules
+example1.com:53 {
+    bind 169.254.10.11
+    forward . 8.8.8.8
+}
+
+.:53 {
+    bind 169.254.10.10
+    forward . 168.63.129.16 8.8.8.8 1.1.1.1 {
+        policy sequential
+    }
+    cache 30
+}
+
+example2.com:53 {
+    bind 169.254.10.11  
+    forward . 1.1.1.1
+}
+
+.:53 {
+    bind 169.254.10.11
+    forward . 10.0.0.10 {
+        policy random
+    }
+    cache 60
+}
+
+cluster.local:53 {
+    bind 169.254.10.10
+    forward . 10.0.0.10
+}

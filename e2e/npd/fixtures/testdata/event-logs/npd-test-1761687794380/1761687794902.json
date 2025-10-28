@@ -1,0 +1,10 @@
+{
+  "Version": "1.0",
+  "Timestamp": "2025-10-28T21:43:14Z",
+  "TaskName": "test:cgtop:memory",
+  "EventLevel": "Warning",
+  "Message": "{\n  \"cgroups\": [\n    {\n      \"cgroup\": \"Control\",\n      \"tasks\": \"Group\",\n      \"cpu_percent\": \"Tasks\",\n      \"memory\": \"%CPU\",\n      \"memory_percent\": \"-%\",\n      \"input_per_sec\": \"Memory\",\n      \"output_per_sec\": \"Input/s\"\n    },\n    {\n      \"cgroup\": \"/\",\n      \"tasks\": \"1234\",\n      \"cpu_percent\": \"8.7\",\n      \"memory\": \"4.8G\",\n      \"memory_percent\": \"30.9%\",\n      \"input_per_sec\": \"-\",\n      \"output_per_sec\": \"-\"\n    },\n    {\n      \"cgroup\": \"/system.slice\",\n      \"tasks\": \"456\",\n      \"cpu_percent\": \"4.2\",\n      \"memory\": \"1.4G\",\n      \"memory_percent\": \"9.0%\",\n      \"input_per_sec\": \"-\",\n      \"output_per_sec\": \"-\"\n    },\n    {\n      \"cgroup\": \"/system.slice/docker.service\",\n      \"tasks\": \"123\",\n      \"cpu_percent\": \"5.8\",\n      \"memory\": \"2.3G\",\n      \"memory_percent\": \"14.8%\",\n      \"input_per_sec\": \"-\",\n      \"output_per_sec\": \"-\"\n    },\n    {\n      \"cgroup\": \"/system.slice/kubelet.service\",\n      \"tasks\": \"89\",\n      \"cpu_percent\": \"4.1\",\n      \"memory\": \"1.9G\",\n      \"memory_percent\": \"12.2%\",\n      \"input_per_sec\": \"-\",\n      \"output_per_sec\": \"-\"\n    },\n    {\n      \"cgroup\": \"/system.slice/containerd.service\",\n      \"tasks\": \"67\",\n      \"cpu_percent\": \"2.9\",\n      \"memory\": \"1.3G\",\n      \"memory_percent\": \"8.4%\",\n      \"input_per_sec\": \"-\",\n      \"output_per_sec\": \"-\"\n    },\n    {\n      \"cgroup\": \"/user.slice\",\n      \"tasks\": \"234\",\n      \"cpu_percent\": \"3.2\",\n      \"memory\": \"945.7M\",\n      \"memory_percent\": \"5.9%\",\n      \"input_per_sec\": \"-\",\n      \"output_per_sec\": \"-\"\n    }\n  ]\n}",
+  "EventPid": "22",
+  "EventTid": "1",
+  "OperationId": "79179dcf-ef45-4b94--a8b--520a51d0477"
+}

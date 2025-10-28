@@ -1,0 +1,11 @@
+# LocalDNS corefile exists but service is down
+.:53 {
+    errors
+    bind 169.254.10.10
+    forward . 168.63.129.16
+}
+cluster.local:53 {
+    errors
+    bind 169.254.10.11
+    forward . 10.0.0.10
+}
