@@ -1201,3 +1201,60 @@ func ValidateMIGInstancesCreated(ctx context.Context, s *Scenario, migProfile st
 	require.NotContains(s.T, stdout, "No MIG-enabled devices found", "no MIG devices were created.\nOutput:\n%s", stdout)
 	s.T.Logf("MIG instances with profile %s are created", migProfile)
 }
+
+func execOnPodForScenario(ctx context.Context, s *Scenario, pod *corev1.Pod, cmd string) *podExecResult {
+	s.T.Helper()
+	execResult, err := execOnUnprivilegedPod(ctx, s.Runtime.Cluster.Kube, pod.Namespace, pod.Name, cmd)
+	require.NoErrorf(s.T, err, "failed to execute command on pod: %v", cmd)
+	return execResult
+}
+
+// ValidateExecCmdOnVM creates a pod on the target node and executes the given command on that pod.
+func ValidateExecCmdOnVM(ctx context.Context, s *Scenario, command string) {
+	s.T.Helper()
+
+	podName := fmt.Sprintf("%s-exec-cmd-test", s.Runtime.KubeNodeName)
+	namespace := "default"
+
+	// Delete any existing pod with the same name
+	kube := s.Runtime.Cluster.Kube
+	err := kube.Typed.CoreV1().Pods(namespace).Delete(ctx, podName, metav1.DeleteOptions{GracePeriodSeconds: to.Ptr(int64(0))})
+	if err != nil {
+		s.T.Logf("couldn't delete existing pod %s (might not exist): %v", podName, err)
+	} else {
+		s.T.Logf("deleted existing pod %s", podName)
+		// Wait a bit for the pod to be fully deleted
+		time.Sleep(2 * time.Second)
+	}
+
+	// create a new testpod
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      podName,
+			Namespace: namespace,
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{
+					Name: "exec-cmd-test-container",
+					// We are able to repro the exec command issue with nginx image.
+					Image:   "nginx",
+					Command: []string{"sleep", "300"},
+				},
+			},
+			NodeSelector: map[string]string{
+				"kubernetes.io/hostname": s.Runtime.KubeNodeName,
+			},
+			RestartPolicy: corev1.RestartPolicyNever,
+		},
+	}
+
+	ValidatePodRunning(ctx, s, pod)
+
+	// execute the command on the testpod
+	execResult := execOnPodForScenario(ctx, s, pod, command)
+
+	s.T.Logf("Executed command on pod %s: %s", podName, command)
+	s.T.Logf("stdout: %s\nstderr: %s", execResult.stdout.String(), execResult.stderr.String())
+	require.Equal(s.T, "0", execResult.exitCode, "command execution failed")
+}
