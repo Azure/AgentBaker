@@ -228,3 +228,48 @@ func TestApp_ProvisionWait(t *testing.T) {
 		})
 	}
 }
+func TestApp_Run_Integration(t *testing.T) {
+	t.Run("success case", func(t *testing.T) {
+		mc := &MockCmdRunner{}
+		app := &App{cmdRunner: mc.Run}
+		// Use a valid provision config file from testdata
+		exitCode := app.Run(context.Background(), []string{"aks-node-controller", "provision", "--provision-config=parser/testdata/test_aksnodeconfig.json"})
+		assert.Equal(t, 0, exitCode)
+	})
+
+	t.Run("failure case - unknown command", func(t *testing.T) {
+		mc := &MockCmdRunner{}
+		app := &App{cmdRunner: mc.Run}
+		exitCode := app.Run(context.Background(), []string{"aks-node-controller", "unknown"})
+		assert.Equal(t, 1, exitCode)
+	})
+
+	t.Run("failure case - missing command argument", func(t *testing.T) {
+		mc := &MockCmdRunner{}
+		app := &App{cmdRunner: mc.Run}
+		exitCode := app.Run(context.Background(), []string{"aks-node-controller"})
+		assert.Equal(t, 1, exitCode)
+	})
+
+	t.Run("failure case - command runner returns ExitError", func(t *testing.T) {
+		mc := &MockCmdRunner{
+			RunFunc: func(cmd *exec.Cmd) error {
+				return &ExitError{Code: 42}
+			},
+		}
+		app := &App{cmdRunner: mc.Run}
+		exitCode := app.Run(context.Background(), []string{"aks-node-controller", "provision", "--provision-config=parser/testdata/test_aksnodeconfig.json"})
+		assert.Equal(t, 42, exitCode)
+	})
+
+	t.Run("failure case - command runner returns generic error", func(t *testing.T) {
+		mc := &MockCmdRunner{
+			RunFunc: func(cmd *exec.Cmd) error {
+				return errors.New("generic error")
+			},
+		}
+		app := &App{cmdRunner: mc.Run}
+		exitCode := app.Run(context.Background(), []string{"aks-node-controller", "provision", "--provision-config=parser/testdata/test_aksnodeconfig.json"})
+		assert.Equal(t, 1, exitCode)
+	})
+}

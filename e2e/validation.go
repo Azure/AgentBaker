@@ -3,6 +3,7 @@ package e2e
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"testing"
@@ -13,7 +14,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func ValidatePodRunning(ctx context.Context, s *Scenario, pod *corev1.Pod) {
@@ -31,18 +32,23 @@ func ValidatePodRunning(ctx context.Context, s *Scenario, pod *corev1.Pod) {
 		if err != nil {
 			s.T.Logf("couldn't not delete pod %s: %v", pod.Name, err)
 		}
-		s.T.Logf("deleted pod %q", pod.Name)
 	})
 
 	_, err = kube.WaitUntilPodRunning(ctx, pod.Namespace, "", "metadata.name="+pod.Name)
-	require.NoErrorf(s.T, err, "failed to wait for pod %q to be in running state", pod.Name)
+	if err != nil {
+		jsonString, jsonError := json.Marshal(pod)
+		if jsonError != nil {
+			jsonString = []byte(jsonError.Error())
+		}
+		require.NoErrorf(s.T, err, "failed to wait for pod %q to be in running state. Pod data: %s", pod.Name, jsonString)
+	}
 
 	timeForReady := time.Since(start)
 	toolkit.LogDuration(ctx, timeForReady, time.Minute, fmt.Sprintf("Time for pod %q to get ready was %s", pod.Name, timeForReady))
 	s.T.Logf("node health validation: test pod %q is running on node %q", pod.Name, s.Runtime.KubeNodeName)
 }
 
-func truncatePodName(t *testing.T, pod *corev1.Pod) {
+func truncatePodName(t testing.TB, pod *corev1.Pod) {
 	name := pod.Name
 	if len(pod.Name) < 63 {
 		return
@@ -114,10 +120,11 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 		ValidateKubeletNodeIP(ctx, s)
 	}
 
-	// TODO: Add support for AKSNodeConfig
-	if s.Runtime.NBC != nil && s.Runtime.NBC.AgentPoolProfile.LocalDNSProfile != nil {
-		ValidateLocalDNSService(ctx, s)
-		ValidateLocalDNSResolution(ctx, s)
+	// localdns is not supported on 1804, privatekube, VHDUbuntu2204Gen2ContainerdAirgappedK8sNotCached
+	// and AzureLinuxV3OSGuard.
+	if !s.VHD.UnsupportedLocalDns {
+		ValidateLocalDNSService(ctx, s, "enabled")
+		ValidateLocalDNSResolution(ctx, s, "169.254.10.10")
 	}
 }
 

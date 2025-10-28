@@ -72,13 +72,6 @@ function basePrep {
     resolve_packages_source_url
     logs_to_events "AKS.CSE.setPackagesBaseURL" "echo $PACKAGE_DOWNLOAD_BASE_URL"
 
-    # IMPORTANT NOTE: We do this here since this function can mutate kubelet flags and node labels,
-    # which is used by configureK8s and other functions. Thus, we need to make sure flag and label content is correct beforehand.
-    logs_to_events "AKS.CSE.configureKubeletServing" configureKubeletServing
-
-    # This function first creates the systemd drop-in directory for kubelet.service.
-    # Pay attention to ordering relative to other functions that create kubelet drop-ins.
-    logs_to_events "AKS.CSE.configureK8s" configureK8s
 
     # This function creates the /etc/kubernetes/azure.json file. It also creates the custom
     # cloud configuration file if running in a custom cloud environment.
@@ -87,6 +80,9 @@ function basePrep {
     logs_to_events "AKS.CSE.ensureKubeCACert" ensureKubeCACert
 
     logs_to_events "AKS.CSE.installSecureTLSBootstrapClient" installSecureTLSBootstrapClient
+
+    logs_to_events "AKS.CSE.configureSSHPubkeyAuth" configureSSHPubkeyAuth "${DISABLE_PUBKEY_AUTH}"
+
 
     if [ "${DISABLE_SSH}" = "true" ]; then
         disableSSH || exit $ERR_DISABLE_SSH
@@ -123,7 +119,7 @@ function basePrep {
         if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
             registry_domain_name="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER%%/*}"
         fi
-        
+
         logs_to_events "AKS.CSE.orasLogin.oras_login_with_kubelet_identity" oras_login_with_kubelet_identity "${registry_domain_name}" $USER_ASSIGNED_IDENTITY_ID $TENANT_ID || exit $?
     fi
 
@@ -152,7 +148,7 @@ function basePrep {
     if ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
         logs_to_events "AKS.CSE.installContainerRuntime" installContainerRuntime
     fi
-    if [ "${NEEDS_CONTAINERD}" = "true" ] && [ "${TELEPORT_ENABLED}" = "true" ]; then
+    if [ "${TELEPORT_ENABLED}" = "true" ]; then
         logs_to_events "AKS.CSE.installTeleportdPlugin" installTeleportdPlugin
     fi
 
@@ -163,6 +159,9 @@ function basePrep {
         logs_to_events "AKS.CSE.installNetworkPlugin" installNetworkPlugin
     fi
 
+    # ShouldEnforceKubePMCInstall is a nodepool tag we curl from IMDS.
+    # Added as a temporary workaround to test installing packages from PMC prior to 1.34.0 GA.
+    # TODO: Remove tag and usages once 1.34.0 is GA.
     export -f should_enforce_kube_pmc_install
     SHOULD_ENFORCE_KUBE_PMC_INSTALL=$(retrycmd_silent 10 1 10 bash -cx should_enforce_kube_pmc_install)
     logs_to_events "AKS.CSE.configureKubeletAndKubectl" configureKubeletAndKubectl
@@ -191,12 +190,8 @@ function basePrep {
         logs_to_events "AKS.CSE.configureSystemdUseDomains" configureSystemdUseDomains
     fi
 
-    if [ "${NEEDS_CONTAINERD}" = "true" ]; then
-        # containerd should not be configured until cni has been configured first
-        logs_to_events "AKS.CSE.ensureContainerd" ensureContainerd
-    else
-        logs_to_events "AKS.CSE.ensureDocker" ensureDocker
-    fi
+    # containerd should not be configured until cni has been configured first
+    logs_to_events "AKS.CSE.ensureContainerd" ensureContainerd
 
     if [ -n "${MESSAGE_OF_THE_DAY}" ]; then
         if isMarinerOrAzureLinux "$OS" && [ -f /etc/dnf/automatic.conf ]; then
@@ -236,29 +231,27 @@ Environment="KUBELET_CGROUP_FLAGS=--cgroup-driver=systemd"
 EOF
     fi
 
-    if [ "${NEEDS_CONTAINERD}" = "true" ]; then
-        # gross, but the backticks make it very hard to do in Go
-        # TODO: move entirely into vhd.
-        # alternatively, can we verify this is safe with docker?
-        # or just do it even if not because docker is out of support?
-        mkdir -p /etc/containerd
-        echo "${KUBENET_TEMPLATE}" | base64 -d > /etc/containerd/kubenet_template.conf
+    # gross, but the backticks make it very hard to do in Go
+    # TODO: move entirely into vhd.
+    # alternatively, can we verify this is safe with docker?
+    # or just do it even if not because docker is out of support?
+    mkdir -p /etc/containerd
+    echo "${KUBENET_TEMPLATE}" | base64 -d > /etc/containerd/kubenet_template.conf
 
-        # In k8s 1.27, the flag --container-runtime was removed.
-        # We now have 2 drop-in's, one with the still valid flags that will be applied to all k8s versions,
-        # the flags are --runtime-request-timeout, --container-runtime-endpoint, --runtime-cgroups
-        # For k8s >= 1.27, the flag --container-runtime will not be passed.
-        tee "/etc/systemd/system/kubelet.service.d/10-containerd-base-flag.conf" > /dev/null <<'EOF'
+    # In k8s 1.27, the flag --container-runtime was removed.
+    # We now have 2 drop-in's, one with the still valid flags that will be applied to all k8s versions,
+    # the flags are --runtime-request-timeout, --container-runtime-endpoint, --runtime-cgroups
+    # For k8s >= 1.27, the flag --container-runtime will not be passed.
+    tee "/etc/systemd/system/kubelet.service.d/10-containerd-base-flag.conf" > /dev/null <<'EOF'
 [Service]
 Environment="KUBELET_CONTAINERD_FLAGS=--runtime-request-timeout=15m --container-runtime-endpoint=unix:///run/containerd/containerd.sock --runtime-cgroups=/system.slice/containerd.service"
 EOF
 
-        if ! semverCompare ${KUBERNETES_VERSION:-"0.0.0"} "1.27.0"; then
-            tee "/etc/systemd/system/kubelet.service.d/10-container-runtime-flag.conf" > /dev/null <<'EOF'
+    if ! semverCompare ${KUBERNETES_VERSION:-"0.0.0"} "1.27.0"; then
+        tee "/etc/systemd/system/kubelet.service.d/10-container-runtime-flag.conf" > /dev/null <<'EOF'
 [Service]
 Environment="KUBELET_CONTAINER_RUNTIME_FLAG=--container-runtime=remote"
 EOF
-        fi
     fi
 
     if [ "${HAS_KUBELET_DISK_TYPE}" = "true" ]; then
@@ -271,7 +264,7 @@ EOF
 
     logs_to_events "AKS.CSE.ensureSysctl" ensureSysctl || exit $ERR_SYSCTL_RELOAD
 
-    if [ "${NEEDS_CONTAINERD}" = "true" ] && [ "${SHOULD_CONFIG_CONTAINERD_ULIMITS}" = "true" ]; then
+    if [ "${SHOULD_CONFIG_CONTAINERD_ULIMITS}" = "true" ]; then
       logs_to_events "AKS.CSE.setContainerdUlimits" configureContainerdUlimits
     fi
 
@@ -300,16 +293,15 @@ EOF
     # Call enableLocalDNS to enable localdns if localdns profile has EnableLocalDNS set to true.
     logs_to_events "AKS.CSE.enableLocalDNS" enableLocalDNS || exit $?
 
+    # This is to enable localdns using scriptless.
+    if [ "${SHOULD_ENABLE_LOCALDNS}" = "true" ]; then
+        logs_to_events "AKS.CSE.shouldEnableLocalDns" shouldEnableLocalDns || exit $ERR_LOCALDNS_FAIL
+    fi
+
     if [ "${ID}" != "mariner" ] && [ "${ID}" != "azurelinux" ]; then
         echo "Recreating man-db auto-update flag file and kicking off man-db update process at $(date)"
         createManDbAutoUpdateFlagFile
         /usr/bin/mandb && echo "man-db finished updates at $(date)" &
-    fi
-
-    if [ "${NEEDS_DOCKER_LOGIN}" = "true" ]; then
-        set +x
-        docker login -u $SERVICE_PRINCIPAL_CLIENT_ID -p $SERVICE_PRINCIPAL_CLIENT_SECRET "${AZURE_PRIVATE_REGISTRY_SERVER}"
-        set -x
     fi
 }
 
@@ -318,6 +310,14 @@ EOF
 # After this stage the node should be fully integrated into the cluster.
 # IMPORTANT: This stage should only run when actually joining a node to the cluster. This step should not be run when creating a VHD image
 function nodePrep {
+    # IMPORTANT NOTE: We do this here since this function can mutate kubelet flags and node labels,
+    # which is used by configureK8s and other functions. Thus, we need to make sure flag and label content is correct beforehand.
+    logs_to_events "AKS.CSE.configureKubeletServing" configureKubeletServing
+
+    # This function first creates the systemd drop-in directory for kubelet.service.
+    # Pay attention to ordering relative to other functions that create kubelet drop-ins.
+    logs_to_events "AKS.CSE.configureK8s" configureK8s
+
     if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" = "true" ]; then
         # Depends on configureK8s, ensureKubeCACert, and installSecureTLSBootstrapClient
         logs_to_events "AKS.CSE.configureAndStartSecureTLSBootstrapping" configureAndStartSecureTLSBootstrapping
@@ -333,11 +333,11 @@ function nodePrep {
         # This file indicates the cluster doesn't have outbound connectivity and should be excluded in future external outbound checks
         touch /var/run/outbound-check-skipped
     fi
-    
+
     # Determine if GPU driver installation should be skipped
     export -f should_skip_nvidia_drivers
     skip_nvidia_driver_install=$(retrycmd_silent 10 1 10 bash -cx should_skip_nvidia_drivers)
-    
+
     if [ "$?" -ne 0 ]; then
         echo "Failed to determine if nvidia driver install should be skipped"
         exit $ERR_NVIDIA_DRIVER_INSTALL
@@ -354,10 +354,10 @@ function nodePrep {
     # Install and configure GPU drivers if this is a GPU node
     if [ "${GPU_NODE}" = "true" ] && [ "${skip_nvidia_driver_install}" != "true" ]; then
         echo $(date),$(hostname), "Start configuring GPU drivers"
-        
+
         # Install GPU drivers
         logs_to_events "AKS.CSE.ensureGPUDrivers" ensureGPUDrivers
-        
+
         # Install fabric manager if needed
         if [ "${GPU_NEEDS_FABRIC_MANAGER}" = "true" ]; then
             # fabric manager trains nvlink connections between multi instance gpus.
@@ -391,29 +391,26 @@ function nodePrep {
             # we couldn't because of old drivers but that has long been fixed.
             logs_to_events "AKS.CSE.ensureMigPartition" ensureMigPartition
         fi
-
-        # Configure GPU device plugin
-        if [ "${ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED}" = "true" ]; then
-            if [ "${MIG_NODE}" = "true" ] && [ -f "/etc/systemd/system/nvidia-device-plugin.service" ]; then
-                mkdir -p "/etc/systemd/system/nvidia-device-plugin.service.d"
-                tee "/etc/systemd/system/nvidia-device-plugin.service.d/10-mig_strategy.conf" > /dev/null <<'EOF'
-[Service]
-Environment="MIG_STRATEGY=--mig-strategy single"
-ExecStart=
-ExecStart=/usr/local/nvidia/bin/nvidia-device-plugin $MIG_STRATEGY
-EOF
-            fi
-            logs_to_events "AKS.CSE.start.nvidia-device-plugin" "systemctlEnableAndStart nvidia-device-plugin 30" || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
-        else
-            logs_to_events "AKS.CSE.stop.nvidia-device-plugin" "systemctlDisableAndStop nvidia-device-plugin"
-        fi
-        
         echo $(date),$(hostname), "End configuring GPU drivers"
     fi
 
     # Install and configure AMD AMA (Supernova) drivers if this is an AMA node
     if [ "${AMDAMA_NODE}" = "true" ]; then
         logs_to_events "AKS.CSE.setupAmdAma" setupAmdAma
+    fi
+
+    export -f enableManagedGPUExperience
+    ENABLE_MANAGED_GPU_EXPERIENCE=$(retrycmd_silent 10 1 10 bash -cx enableManagedGPUExperience)
+    if [ "$?" -ne 0 ] && [ "${GPU_NODE}" = "true" ] && [ "${skip_nvidia_driver_install}" != "true" ]; then
+        echo "failed to determine if managed GPU experience should be enabled by nodepool tags"
+        exit $ERR_LOOKUP_ENABLE_MANAGED_GPU_EXPERIENCE_TAG
+    elif [ "${GPU_NODE}" = "true" ] && [ "${skip_nvidia_driver_install}" != "true" ] && [ "${ENABLE_MANAGED_GPU_EXPERIENCE}" = "true" ]; then
+        logs_to_events "AKS.CSE.installNvidiaManagedExpPkgFromCache" "installNvidiaManagedExpPkgFromCache" || exit $ERR_NVIDIA_DCGM_INSTALL
+        logs_to_events "AKS.CSE.startNvidiaManagedExpServices" "startNvidiaManagedExpServices" || exit $ERR_NVIDIA_DCGM_EXPORTER_FAIL
+    elif [ "${GPU_NODE}" = "true" ] && [ "${skip_nvidia_driver_install}" != "true" ] && [ "${ENABLE_MANAGED_GPU_EXPERIENCE}" = "false" ]; then
+        logs_to_events "AKS.CSE.stop.nvidia-device-plugin" "systemctlDisableAndStop nvidia-device-plugin"
+        logs_to_events "AKS.CSE.stop.nvidia-dcgm" "systemctlDisableAndStop nvidia-dcgm"
+        logs_to_events "AKS.CSE.stop.nvidia-dcgm-exporter" "systemctlDisableAndStop nvidia-dcgm-exporter"
     fi
 
     VALIDATION_ERR=0
@@ -472,10 +469,6 @@ EOF
     fi
 
     logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
-
-    if [ "${ARTIFACT_STREAMING_ENABLED}" = "true" ]; then
-        logs_to_events "AKS.CSE.ensureContainerd.ensureAcrNodeMon" ensureAcrNodeMon || exit $ERR_ARTIFACT_STREAMING_ACR_NODEMON_START_FAIL
-    fi
 
     if $REBOOTREQUIRED; then
         echo 'reboot required, rebooting node in 1 minute'

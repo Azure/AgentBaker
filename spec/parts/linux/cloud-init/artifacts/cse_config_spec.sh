@@ -142,7 +142,7 @@ Describe 'cse_config.sh'
     End
 
     Describe 'configureKubeletServing'
-        preserve_vars() { 
+        preserve_vars() {
             %preserve KUBELET_FLAGS
             %preserve KUBELET_NODE_LABELS
             %preserve KUBELET_CONFIG_FILE_CONTENT
@@ -311,7 +311,7 @@ Describe 'cse_config.sh'
                 echo "false"
             }
             KUBELET_FLAGS="--rotate-certificates=true,--rotate-server-certificates=true,--node-ip=10.0.0.1,anonymous-auth=false"
-            KUBELET_NODE_LABELS="kubernetes.azure.com/agentpool=wp0,kubernetes.azure.com/kubelet-serving-ca=cluster" 
+            KUBELET_NODE_LABELS="kubernetes.azure.com/agentpool=wp0,kubernetes.azure.com/kubelet-serving-ca=cluster"
             ENABLE_KUBELET_SERVING_CERTIFICATE_ROTATION="true"
             When run configureKubeletServing
             The stdout should include 'kubelet serving certificate rotation is enabled'
@@ -503,6 +503,69 @@ Describe 'cse_config.sh'
         End
     End
 
+    Describe 'shouldEnableLocalDns'
+        setup() {
+            TMP_DIR=$(mktemp -d)
+            LOCALDNS_COREFILE="$TMP_DIR/localdns.corefile"
+            LOCALDNS_SLICEFILE="$TMP_DIR/localdns.slice"
+            LOCALDNS_GENERATED_COREFILE=$(echo "bG9jYWxkbnMgY29yZWZpbGU=") # "localdns corefile" base64
+            LOCALDNS_MEMORY_LIMIT="512M"
+            LOCALDNS_CPU_LIMIT="250%"
+
+            systemctlEnableAndStart() {
+                echo "systemctlEnableAndStart $@"
+                return 0
+            }
+        }
+        cleanup() {
+            rm -rf "$TMP_DIR"
+        }
+        BeforeEach 'setup'
+        AfterEach 'cleanup'
+
+        # Success case.
+        It 'should enable localdns successfully'
+            When call shouldEnableLocalDns
+            The status should be success
+            The output should include "localdns should be enabled."
+            The output should include "Enable localdns succeeded."
+        End
+
+        # Corefile file creation.
+        It 'should create localdns.corefile with correct data'
+            When call shouldEnableLocalDns
+            The status should be success
+            The output should include "localdns should be enabled."
+            The path "$LOCALDNS_COREFILE" should be file
+            The contents of file "$LOCALDNS_COREFILE" should include "localdns corefile"
+            The output should include "localdns should be enabled."
+            The output should include "Enable localdns succeeded."
+        End
+
+        # Corefile already exists (idempotency).
+        It 'should overwrite existing localdns.corefile'
+            echo "wrong data" > "$LOCALDNS_COREFILE"
+            When call shouldEnableLocalDns
+            The status should be success
+            The path "$LOCALDNS_COREFILE" should be file
+            The contents of file "$LOCALDNS_COREFILE" should include "localdns corefile"
+            The output should include "localdns should be enabled."
+            The output should include "Enable localdns succeeded."
+        End
+
+        # Slice file creation.
+        It 'should create localdns.slice with correct CPU and Memory limits'
+            When call shouldEnableLocalDns
+            The status should be success
+            The output should include "localdns should be enabled."
+            The path "$LOCALDNS_SLICEFILE" should be file
+            The contents of file "$LOCALDNS_SLICEFILE" should include "MemoryMax=${LOCALDNS_MEMORY_LIMIT}"
+            The contents of file "$LOCALDNS_SLICEFILE" should include "CPUQuota=${LOCALDNS_CPU_LIMIT}"
+            The output should include "localdns should be enabled."
+            The output should include "Enable localdns succeeded."
+        End
+    End
+
     Describe 'configureAndStartSecureTLSBootstrapping'
         SECURE_TLS_BOOTSTRAPPING_DROP_IN="secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf"
         API_SERVER_NAME="fqdn"
@@ -528,7 +591,26 @@ Describe 'cse_config.sh'
             The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "[Unit]"
             The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "Before=kubelet.service"
             The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "[Service]"
-            The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include 'Environment="BOOTSTRAP_FLAGS=--aad-resource=6dae42f8-4368-4678-94ff-3960e28e3630 --apiserver-fqdn=fqdn --cloud-provider-config=/etc/kubernetes/azure.json"'
+            The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include 'Environment="BOOTSTRAP_FLAGS=--deadline=2m0s --aad-resource=6dae42f8-4368-4678-94ff-3960e28e3630 --apiserver-fqdn=fqdn --cloud-provider-config=/etc/kubernetes/azure.json"'
+            The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "[Install]"
+            The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "WantedBy=kubelet.service"
+            The status should be success
+        End
+
+        It 'should configure and start secure TLS bootstrapping using provided overrides'
+            systemctlEnableAndStartNoBlock() {
+                echo "systemctlEnableAndStartNoBlock $@"
+            }
+            SECURE_TLS_BOOTSTRAPPING_DEADLINE="custom-deadline"
+            SECURE_TLS_BOOTSTRAPPING_AAD_RESOURCE="custom-resource"
+            SECURE_TLS_BOOTSTRAPPING_USER_ASSIGNED_IDENTITY_ID="custom-identity-id"
+            When call configureAndStartSecureTLSBootstrapping
+            The output should include "chmod 0600 secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf"
+            The output should include "systemctlEnableAndStartNoBlock secure-tls-bootstrap 30"
+            The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "[Unit]"
+            The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "Before=kubelet.service"
+            The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "[Service]"
+            The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include 'Environment="BOOTSTRAP_FLAGS=--deadline=custom-deadline --aad-resource=custom-resource --apiserver-fqdn=fqdn --cloud-provider-config=/etc/kubernetes/azure.json --user-assigned-identity-id=custom-identity-id"'
             The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "[Install]"
             The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "WantedBy=kubelet.service"
             The status should be success
@@ -543,12 +625,16 @@ Describe 'cse_config.sh'
             eval "$2"
         }
 
+        installKubeletKubectlPkgFromPMC() {
+            echo "installKubeletKubectlPkgFromPMC $1"
+        }
+
         installKubeletKubectlFromURL() {
             echo "installKubeletKubectlFromURL"
         }
 
-        installKubeletKubectlPkgFromPMC() {
-            echo "installKubeletKubectlPkgFromPMC $1"
+        installKubeletKubectlFromBootstrapProfileRegistry() {
+            echo "installKubeletKubectlFromBootstrapProfileRegistry $1 $2"
         }
 
         # Set default values for common variables
@@ -579,11 +665,10 @@ Describe 'cse_config.sh'
             The output should not include "installKubeletKubectlPkgFromPMC"
         End
 
-        It 'should install from URL if BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER is set'
+        It 'should not install from PMC if BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER is set'
             BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myregistry.azurecr.io"
             KUBERNETES_VERSION="1.34.0"
             When call configureKubeletAndKubectl
-            The output should include "installKubeletKubectlFromURL"
             The output should not include "installKubeletKubectlPkgFromPMC"
         End
 
@@ -697,6 +782,42 @@ Describe 'cse_config.sh'
             When call configureKubeletAndKubectl
             The output should not include "installKubeletKubectlFromURL"
             The output should not include "installKubeletKubectlPkgFromPMC"
+        End
+
+        # Test BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER scenarios
+        It 'should call installKubeletKubectlFromBootstrapProfileRegistry when BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER is set and k8s >= 1.34.0 and succeeds'
+            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myregistry.azurecr.io"
+            KUBERNETES_VERSION="1.34.0"
+            When call configureKubeletAndKubectl
+            The output should include "installKubeletKubectlFromBootstrapProfileRegistry myregistry.azurecr.io 1.34.0"
+            The output should not include "installKubeletKubectlFromURL"
+        End
+
+        It 'should call installKubeletKubectlFromURL when BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER is set and k8s < 1.34.0'
+            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myregistry.azurecr.io"
+            KUBERNETES_VERSION="1.33.5"
+            When call configureKubeletAndKubectl
+            The output should not include "installKubeletKubectlFromBootstrapProfileRegistry"
+            The output should include "installKubeletKubectlFromURL"
+        End
+
+        It 'should call installKubeletKubectlFromBootstrapProfileRegistry when SHOULD_ENFORCE_KUBE_PMC_INSTALL is true and k8s < 1.34.0' and BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER is set
+            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myregistry.azurecr.io"
+            KUBERNETES_VERSION="1.33.5"
+            SHOULD_ENFORCE_KUBE_PMC_INSTALL="true"
+            When call configureKubeletAndKubectl
+            The output should include "installKubeletKubectlFromBootstrapProfileRegistry myregistry.azurecr.io 1.33.5"
+            The output should not include "installKubeletKubectlFromURL"
+            The output should not include "installKubeletKubectlPkgFromPMC"
+        End
+
+        It 'should not call installKubeletKubectlFromBootstrapProfileRegistry when SHOULD_ENFORCE_KUBE_PMC_INSTALL is false and k8s < 1.34.0' and BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER is set
+            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myregistry.azurecr.io"
+            KUBERNETES_VERSION="1.33.5"
+            SHOULD_ENFORCE_KUBE_PMC_INSTALL="false"
+            When call configureKubeletAndKubectl
+            The output should not include "installKubeletKubectlFromBootstrapProfileRegistry"
+            The output should include "installKubeletKubectlFromURL"
         End
     End
 End

@@ -30,8 +30,12 @@ function Install-SecureTLSBootstrapClient {
     if (!$global:EnableSecureTLSBootstrapping) {
         Write-Log "Install-SecureTLSBootstrapClient: Secure TLS Bootstrapping is disabled, will remove secure TLS bootstrap client binary installation"
         # binary will be cleaned from aks-cache during nodePrep
-        Remove-Item -Path $secureTLSBootstrapClientBinPath -Force
-        Remove-Item -Path $secureTLSBootstrapClientDownloadDir -Force -Recurse
+        if (Test-Path $secureTLSBootstrapClientBinPath) {
+            Remove-Item -Path $secureTLSBootstrapClientBinPath -Force
+        }
+        if (Test-Path $secureTLSBootstrapClientDownloadDir) {
+            Remove-Item -Path $secureTLSBootstrapClientDownloadDir -Force -Recurse
+        }
         return
     }
 
@@ -65,7 +69,7 @@ function Install-SecureTLSBootstrapClient {
         }
     }
 
-    Expand-Archive -Path $secureTLSBootstrapClientDownloadPath -DestinationPath $KubeDir
+    AKS-Expand-Archive -Path $secureTLSBootstrapClientDownloadPath -DestinationPath $KubeDir
 
     if (!(Test-Path -Path $secureTLSBootstrapClientBinPath)) {
         Write-Log "Secure TLS bootstrap client is missing from KubeDir: $KubeDir after zip extraction"

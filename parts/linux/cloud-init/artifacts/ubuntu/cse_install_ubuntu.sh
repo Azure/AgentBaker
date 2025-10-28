@@ -1,9 +1,5 @@
 #!/bin/bash
 
-removeMoby() {
-    apt_get_purge 10 5 300 moby-engine moby-cli
-}
-
 removeContainerd() {
     apt_get_purge 10 5 300 moby-containerd
 }
@@ -16,13 +12,13 @@ installDeps() {
     aptmarkWALinuxAgent hold
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
 
-    pkg_list=(bind9-dnsutils ca-certificates ceph-common cgroup-lite cifs-utils conntrack cracklib-runtime ebtables ethtool glusterfs-client htop init-system-helpers inotify-tools iotop iproute2 ipset iptables nftables jq libpam-pwquality libpwquality-tools mount nfs-common pigz socat sysfsutils sysstat util-linux xz-utils netcat-openbsd zip rng-tools kmod gcc make dkms initramfs-tools linux-headers-$(uname -r) linux-modules-extra-$(uname -r))
+    pkg_list=(apparmor-utils bind9-dnsutils ca-certificates ceph-common cgroup-lite cifs-utils conntrack cracklib-runtime ebtables ethtool glusterfs-client htop init-system-helpers inotify-tools iotop iproute2 ipset iptables nftables jq libpam-pwquality libpwquality-tools mount nfs-common pigz socat sysfsutils sysstat util-linux xz-utils netcat-openbsd zip rng-tools kmod gcc make dkms initramfs-tools linux-headers-$(uname -r) linux-modules-extra-$(uname -r))
 
     local OSVERSION
     OSVERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
     BLOBFUSE_VERSION="1.4.5"
     # Blobfuse2 has been upgraded in upstream, using this version for parity between 22.04 and 24.04
-    BLOBFUSE2_VERSION="2.5.0"
+    BLOBFUSE2_VERSION="2.5.1"
 
     # blobfuse2 is installed for all ubuntu versions, it is included in pkg_list
     # for 22.04, fuse3 is installed. for all others, fuse is installed
@@ -70,14 +66,97 @@ updateAptWithMicrosoftPkg() {
         echo "deb [arch=amd64,arm64,armhf] https://packages.microsoft.com/ubuntu/${UBUNTU_RELEASE}/prod testing main" > /etc/apt/sources.list.d/microsoft-prod-testing.list
     }
     fi
-    
+
     retrycmd_silent 120 5 25 curl https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > /tmp/microsoft.gpg || exit $ERR_MS_GPG_KEY_DOWNLOAD_TIMEOUT
     retrycmd_if_failure 10 5 10 cp /tmp/microsoft.gpg /etc/apt/trusted.gpg.d/ || exit $ERR_MS_GPG_KEY_DOWNLOAD_TIMEOUT
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
 }
 
+updateAptWithNvidiaPkg() {
+    readonly nvidia_gpg_keyring_path="/etc/apt/keyrings/nvidia.pub"
+    mkdir -p "$(dirname "${nvidia_gpg_keyring_path}")"
+
+    readonly nvidia_sources_list_path="/etc/apt/sources.list.d/nvidia.list"
+    local cpu_arch=$(getCPUArch)  # Returns amd64 or arm64
+    local repo_arch=""
+    local nvidia_ubuntu_release=""
+
+    if [ "$cpu_arch" = "amd64" ]; then
+        repo_arch="x86_64"
+    elif [ "$cpu_arch" = "arm64" ]; then
+        repo_arch="sbsa"
+    else
+        echo "Unknown CPU architecture: ${cpu_arch}"
+        return
+    fi
+
+    if [ "${UBUNTU_RELEASE}" = "22.04" ]; then
+        nvidia_ubuntu_release="ubuntu2204"
+    elif [ "${UBUNTU_RELEASE}" = "24.04" ]; then
+        nvidia_ubuntu_release="ubuntu2404"
+    else
+        echo "NVIDIA repo setup is not supported on Ubuntu ${UBUNTU_RELEASE}"
+        return
+    fi
+
+    # Construct URLs based on detected architecture and Ubuntu version
+    echo "deb [arch=${cpu_arch} signed-by=${nvidia_gpg_keyring_path}] https://developer.download.nvidia.com/compute/cuda/repos/${nvidia_ubuntu_release}/${repo_arch} /" > ${nvidia_sources_list_path}
+
+    # Add NVIDIA repository
+    local nvidia_gpg_key_url="https://developer.download.nvidia.com/compute/cuda/repos/${nvidia_ubuntu_release}/${repo_arch}/3bf863cc.pub"
+
+    # Download and add the GPG key for the NVIDIA repository
+    retrycmd_curl_file 120 5 25 ${nvidia_gpg_keyring_path} ${nvidia_gpg_key_url} || exit $ERR_NVIDIA_GPG_KEY_DOWNLOAD_TIMEOUT
+    apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
+}
+
+isPackageInstalled() {
+    local packageName="${1}"
+    if dpkg -l "${packageName}" 2>/dev/null | grep -q "^ii"; then
+        return 0  # Package is installed
+    else
+        return 1  # Package is not installed
+    fi
+}
+
+managedGPUPackageList() {
+    packages=(
+        nvidia-device-plugin
+        datacenter-gpu-manager-4-core
+        datacenter-gpu-manager-4-proprietary
+        datacenter-gpu-manager-exporter
+    )
+    echo "${packages[@]}"
+}
+
+installNvidiaManagedExpPkgFromCache() {
+    # Ensure kubelet device-plugins directory exists BEFORE package installation
+    mkdir -p /var/lib/kubelet/device-plugins
+
+    for packageName in $(managedGPUPackageList); do
+        downloadDir="/opt/${packageName}/downloads"
+        if isPackageInstalled "${packageName}"; then
+            echo "${packageName} is already installed, skipping."
+            rm -rf $(dirname ${downloadDir})
+            continue
+        fi
+
+        debFile=$(find "${downloadDir}" -maxdepth 1 -name "${packageName}*" -print -quit 2>/dev/null) || debFile=""
+        if [ -z "${debFile}" ]; then
+            echo "Failed to locate ${packageName} deb"
+            exit $ERR_MANAGED_NVIDIA_EXP_INSTALL_FAIL
+        fi
+        logs_to_events "AKS.CSE.install${packageName}.installDebPackageFromFile" "installDebPackageFromFile ${debFile}" || exit $ERR_APT_INSTALL_TIMEOUT
+        rm -rf $(dirname ${downloadDir})
+    done
+}
+
 cleanUpGPUDrivers() {
     rm -Rf $GPU_DEST /opt/gpu
+
+    for packageName in $(managedGPUPackageList); do
+        rm -rf "/opt/${packageName}"
+    done
 }
 
 installCriCtlPackage() {
@@ -91,26 +170,107 @@ installCriCtlPackage() {
     apt_get_install 20 30 120 ${packageName} || exit 1
 }
 
+installCredentialProviderFromPMC() {
+    k8sVersion="${1:-}"
+    os=${UBUNTU_OS_NAME}
+    if [ -z "$UBUNTU_RELEASE" ]; then
+        os=${OS}
+        os_version="current"
+    else
+        os_version="${UBUNTU_RELEASE}"
+    fi
+    PACKAGE_VERSION=""
+    getLatestPkgVersionFromK8sVersion "$k8sVersion" "azure-acr-credential-provider-pmc" "$os" "$os_version"
+    packageVersion=$(echo $PACKAGE_VERSION | cut -d "-" -f 1)
+    echo "installing azure-acr-credential-provider package version: $packageVersion"
+    mkdir -p "${CREDENTIAL_PROVIDER_BIN_DIR}"
+    chown -R root:root "${CREDENTIAL_PROVIDER_BIN_DIR}"
+    installPkgWithAptGet "azure-acr-credential-provider" "${packageVersion}" || exit $ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT
+    mv "/usr/local/bin/azure-acr-credential-provider" "$CREDENTIAL_PROVIDER_BIN_DIR/acr-credential-provider"
+}
+
 installKubeletKubectlPkgFromPMC() {
     k8sVersion="${1}"
     installPkgWithAptGet "kubelet" "${k8sVersion}" || exit $ERR_KUBELET_INSTALL_FAIL
     installPkgWithAptGet "kubectl" "${k8sVersion}" || exit $ERR_KUBECTL_INSTALL_FAIL
 }
 
+installToolFromLocalRepo() {
+    local tool_name=$1
+    local tool_download_dir=$2
+
+    # Verify the download directory exists and contains repository metadata
+    if [ ! -d "${tool_download_dir}" ]; then
+        echo "Download directory ${tool_download_dir} does not exist"
+        return 1
+    fi
+
+    # Check if this is a self-contained local repository (has Packages.gz)
+    if [ ! -f "${tool_download_dir}/Packages.gz" ]; then
+        echo "Packages.gz not found in ${tool_download_dir}, not a valid local repository"
+        return 1
+    fi
+
+    echo "Installing ${tool_name} from local repository at ${tool_download_dir}..."
+    if ! apt_get_install_from_local_repo "${tool_download_dir}" "${tool_name}"; then
+        echo "Failed to install ${tool_name} from local repository"
+        return 1
+    fi
+
+    echo "${tool_name} installed successfully from local repository"
+    return 0
+}
+
+installCredentialProviderPackageFromBootstrapProfileRegistry() {
+    bootstrapProfileRegistry="$1"
+    k8sVersion="${2:-}"
+
+    os=${UBUNTU_OS_NAME}
+    if [ -z "$UBUNTU_RELEASE" ]; then
+        os=${OS}
+        os_version="current"
+    else
+        os_version="${UBUNTU_RELEASE}"
+    fi
+    PACKAGE_VERSION=""
+    getLatestPkgVersionFromK8sVersion "$k8sVersion" "azure-acr-credential-provider-pmc" "$os" "$os_version"
+    packageVersion=$(echo $PACKAGE_VERSION | cut -d "-" -f 1)
+    if [ -z "$packageVersion" ]; then
+        packageVersion=$(echo "$CREDENTIAL_PROVIDER_DOWNLOAD_URL" | grep -oP 'v\d+(\.\d+)*' | sed 's/^v//' | head -n 1)
+        if [ -z "$packageVersion" ]; then
+            echo "Failed to determine package version for azure-acr-credential-provider"
+            return $ERR_ORAS_PULL_CREDENTIAL_PROVIDER
+        fi
+    fi
+    echo "installing azure-acr-credential-provider package version: $packageVersion"
+    mkdir -p "${CREDENTIAL_PROVIDER_BIN_DIR}"
+    chown -R root:root "${CREDENTIAL_PROVIDER_BIN_DIR}"
+    if ! installToolFromBootstrapProfileRegistry "azure-acr-credential-provider" $bootstrapProfileRegistry "${packageVersion}" "${CREDENTIAL_PROVIDER_BIN_DIR}/acr-credential-provider"; then
+        if [ "${SHOULD_ENFORCE_KUBE_PMC_INSTALL}" != "true" ] ; then
+            # SHOULD_ENFORCE_KUBE_PMC_INSTALL will only be set for e2e tests, which should not fallback to reflect result of package installation behavior
+            echo "Fall back to install credential provider from url installation"
+            installCredentialProviderFromUrl
+        else
+            echo "Failed to install credential provider from bootstrap profile registry, and not falling back to package installation"
+            exit $ERR_ORAS_PULL_CREDENTIAL_PROVIDER
+        fi
+    fi
+}
+
 installPkgWithAptGet() {
     packageName="${1:-}"
-    k8sVersion="${2}"
+    packageVersion="${2}"
     downloadDir="/opt/${packageName}/downloads"
-    packagePrefix="${packageName}_${k8sVersion}-*"
+    packagePrefix="${packageName}_${packageVersion}-*"
 
     # if no deb file with desired version found then try fetching from packages.microsoft repo
     debFile=$(find "${downloadDir}" -maxdepth 1 -name "${packagePrefix}" -print -quit 2>/dev/null) || debFile=""
     if [ -z "${debFile}" ]; then
         # query all package versions and get the latest version for matching k8s version
         updateAptWithMicrosoftPkg
-        fullPackageVersion=$(apt list ${packageName} --all-versions | grep ${k8sVersion}- | awk '{print $2}' | sort -V | tail -n 1)
+        fullPackageVersion=$(apt list ${packageName} --all-versions | grep ${packageVersion}- | awk '{print $2}' | sort -V | tail -n 1)
         if [ -z "${fullPackageVersion}" ]; then
-            echo "Failed to find valid ${packageName} version for ${k8sVersion}"
+            echo "Failed to find valid ${packageName} version for ${packageVersion}"
             exit 1
         fi
         echo "Did not find cached deb file, downloading ${packageName} version ${fullPackageVersion}"
@@ -125,8 +285,7 @@ installPkgWithAptGet() {
     logs_to_events "AKS.CSE.install${packageName}.installDebPackageFromFile" "installDebPackageFromFile ${debFile}" || exit $ERR_APT_INSTALL_TIMEOUT
 
     mv "/usr/bin/${packageName}" "/usr/local/bin/${packageName}"
-    rm -rf ${downloadDir} &
-    return 0
+    rm -rf ${downloadDir}
 }
 
 downloadPkgFromVersion() {
@@ -135,7 +294,9 @@ downloadPkgFromVersion() {
     downloadDir="${3:-"/opt/${packageName}/downloads"}"
     mkdir -p ${downloadDir}
     apt_get_download 20 30 ${packageName}=${packageVersion} || exit $ERR_APT_INSTALL_TIMEOUT
-    cp -al ${APT_CACHE_DIR}${packageName}_${packageVersion}* ${downloadDir}/ || exit $ERR_APT_INSTALL_TIMEOUT
+    # Strip epoch (e.g., 1:4.4.1-1 -> 4.4.1-1)
+    version_no_epoch="${packageVersion#*:}"
+    cp -al "${APT_CACHE_DIR}/${packageName}_${version_no_epoch}"* "${downloadDir}/" || exit $ERR_APT_INSTALL_TIMEOUT
     echo "Succeeded to download ${packageName} version ${packageVersion}"
 }
 
@@ -159,7 +320,6 @@ installContainerdFromOverride() {
     echo "Installing containerd from user input: ${containerdOverrideDownloadURL}"
     # we'll use a user-defined containerd package to install containerd even though it's the same version as
     # the one already installed on the node considering the source is built by the user for hotfix or test
-    logs_to_events "AKS.CSE.installContainerRuntime.removeMoby" removeMoby
     logs_to_events "AKS.CSE.installContainerRuntime.removeContainerd" removeContainerd
     logs_to_events "AKS.CSE.installContainerRuntime.downloadContainerdFromURL" downloadContainerdFromURL "${containerdOverrideDownloadURL}"
     logs_to_events "AKS.CSE.installContainerRuntime.installDebPackageFromFile" "installDebPackageFromFile ${CONTAINERD_DEB_FILE}" || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
@@ -191,9 +351,8 @@ installContainerdWithAptGet() {
         echo "currently installed containerd version ${currentVersion} matches major.minor with higher patch ${containerdMajorMinorPatchVersion}. skipping installStandaloneContainerd."
     else
         echo "installing containerd version ${containerdMajorMinorPatchVersion}"
-        logs_to_events "AKS.CSE.installContainerRuntime.removeMoby" removeMoby
         logs_to_events "AKS.CSE.installContainerRuntime.removeContainerd" removeContainerd
-      
+
         # if containerd version has been overriden then there should exist a local .deb file for it on aks VHDs (best-effort)
         # if no files found then try fetching from packages.microsoft repo
         containerdDebFile=$(find "${CONTAINERD_DOWNLOADS_DIR}" -maxdepth 1 -name "moby-containerd_${containerdMajorMinorPatchVersion}*" -print -quit 2>/dev/null) || containerdDebFile=""
@@ -216,7 +375,7 @@ installContainerdWithAptGet() {
 installStandaloneContainerd() {
     UBUNTU_RELEASE=$(lsb_release -r -s)
     UBUNTU_CODENAME=$(lsb_release -c -s)
-    CONTAINERD_VERSION=$1    
+    CONTAINERD_VERSION=$1
     # we always default to the .1 patch versons
     CONTAINERD_PATCH_VERSION="${2:-1}"
 
@@ -250,7 +409,7 @@ downloadContainerdFromVersion() {
     # Adding updateAptWithMicrosoftPkg since AB e2e uses an older image version with uncached containerd 1.6 so it needs to download from testing repo.
     # And RP no image pull e2e has apt update restrictions that prevent calls to packages.microsoft.com in CSE
     # This won't be called for new VHDs as they have containerd 1.6 cached
-    updateAptWithMicrosoftPkg 
+    updateAptWithMicrosoftPkg
     apt_get_download 20 30 moby-containerd=${CONTAINERD_VERSION}* || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
     cp -al ${APT_CACHE_DIR}moby-containerd_${CONTAINERD_VERSION}* $CONTAINERD_DOWNLOADS_DIR/ || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
     echo "Succeeded to download containerd version ${CONTAINERD_VERSION}"
@@ -264,24 +423,6 @@ downloadContainerdFromURL() {
     CONTAINERD_DEB_TMP=${CONTAINERD_DOWNLOAD_URL##*/}
     retrycmd_curl_file 120 5 60 "$CONTAINERD_DOWNLOADS_DIR/${CONTAINERD_DEB_TMP}" ${CONTAINERD_DOWNLOAD_URL} || exit $ERR_CONTAINERD_DOWNLOAD_TIMEOUT
     CONTAINERD_DEB_FILE="$CONTAINERD_DOWNLOADS_DIR/${CONTAINERD_DEB_TMP}"
-}
-
-installMoby() {
-    ensureRunc ${RUNC_VERSION:-""} # RUNC_VERSION is an optional override supplied via NodeBootstrappingConfig api
-    CURRENT_VERSION=$(dockerd --version | grep "Docker version" | cut -d "," -f 1 | cut -d " " -f 3 | cut -d "+" -f 1)
-    local MOBY_VERSION="19.03.14"
-    local MOBY_CONTAINERD_VERSION="1.4.13"
-    if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${MOBY_VERSION}; then
-        echo "currently installed moby-docker version ${CURRENT_VERSION} is greater than (or equal to) target base version ${MOBY_VERSION}. skipping installMoby."
-    else
-        removeMoby
-        updateAptWithMicrosoftPkg
-        MOBY_CLI=${MOBY_VERSION}
-        if [ "${MOBY_CLI}" = "3.0.4" ]; then
-            MOBY_CLI="3.0.3"
-        fi
-        apt_get_install 20 30 120 moby-engine=${MOBY_VERSION}* moby-cli=${MOBY_CLI}* moby-containerd=${MOBY_CONTAINERD_VERSION}* --allow-downgrades || exit $ERR_MOBY_INSTALL_TIMEOUT
-    fi
 }
 
 ensureRunc() {
@@ -314,13 +455,13 @@ ensureRunc() {
     CURRENT_VERSION=""
     if command -v runc &> /dev/null; then
         CURRENT_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
-    fi    
+    fi
     CLEANED_TARGET_VERSION=${TARGET_VERSION}
 
     # after upgrading to 1.1.9, CURRENT_VERSION will also include the patch version (such as 1.1.9-1), so we trim it off
     # since we only care about the major and minor versions when determining if we need to install it
     CURRENT_VERSION=${CURRENT_VERSION%-*} # removes the -1 patch version (or similar)
-    CLEANED_TARGET_VERSION=${CLEANED_TARGET_VERSION%-*} # removes the -ubuntu22.04u1 (or similar) 
+    CLEANED_TARGET_VERSION=${CLEANED_TARGET_VERSION%-*} # removes the -ubuntu22.04u1 (or similar)
 
     if [ "${CURRENT_VERSION}" = "${CLEANED_TARGET_VERSION}" ]; then
         echo "target moby-runc version ${CLEANED_TARGET_VERSION} is already installed. skipping installRunc."

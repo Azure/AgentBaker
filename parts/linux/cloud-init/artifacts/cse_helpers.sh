@@ -81,7 +81,7 @@ ERR_TELEPORTD_DOWNLOAD_ERR=150 # Error downloading teleportd binary
 ERR_TELEPORTD_INSTALL_ERR=151 # Error installing teleportd binary
 ERR_ARTIFACT_STREAMING_DOWNLOAD=152 # Error downloading mirror proxy and overlaybd components
 ERR_ARTIFACT_STREAMING_INSTALL=153 # Error installing mirror proxy and overlaybd components
-ERR_ARTIFACT_STREAMING_ACR_NODEMON_START_FAIL=154 # Error starting acr-nodemon service
+ERR_ARTIFACT_STREAMING_ACR_NODEMON_START_FAIL=154 # Error starting acr-nodemon service -- this will not be used going forward. Keeping for older nodes.
 
 ERR_HTTP_PROXY_CA_CONVERT=160 # Error converting http proxy ca cert from pem to crt format
 ERR_UPDATE_CA_CERTS=161 # Error updating ca certs to include user-provided certificates
@@ -95,6 +95,7 @@ ERR_INSERT_IMDS_RESTRICTION_RULE_INTO_MANGLE_TABLE=174 # Error insert imds restr
 ERR_INSERT_IMDS_RESTRICTION_RULE_INTO_FILTER_TABLE=175 # Error insert imds restriction rule into filter table
 ERR_DELETE_IMDS_RESTRICTION_RULE_FROM_MANGLE_TABLE=176 # Error delete imds restriction rule from mangle table
 ERR_DELETE_IMDS_RESTRICTION_RULE_FROM_FILTER_TABLE=177 # Error delete imds restriction rule from filter table
+ERR_CONFIG_PUBKEY_AUTH_SSH=178 # Error configuring PubkeyAuthentication in sshd_config
 
 ERR_VHD_REBOOT_REQUIRED=200 # Reserved for VHD reboot required exit condition
 ERR_NO_PACKAGES_FOUND=201 # Reserved for no security packages found exit condition
@@ -137,6 +138,14 @@ ERR_SECURE_TLS_BOOTSTRAP_START_FAILURE=220 # Error starting the secure TLS boots
 
 ERR_CLOUD_INIT_FAILED=223 # Error indicating that cloud-init returned exit code 1 in cse_cmd.sh
 ERR_NVIDIA_DRIVER_INSTALL=224 # Error determining if nvidia driver install should be skipped
+ERR_NVIDIA_GPG_KEY_DOWNLOAD_TIMEOUT=225 # Timeout waiting for NVIDIA GPG key download
+ERR_NVIDIA_AZURELINUX_REPO_FILE_DOWNLOAD_TIMEOUT=226 # Timeout waiting for NVIDIA AzureLinux repo file download
+ERR_MANAGED_NVIDIA_EXP_INSTALL_FAIL=227 # Error installing Managed NVIDIA GPU experience packages
+ERR_NVIDIA_DCGM_FAIL=228 # Error starting or enabling NVIDIA DCGM service
+ERR_NVIDIA_DCGM_EXPORTER_FAIL=229 # Error starting or enabling NVIDIA DCGM Exporter service
+ERR_LOOKUP_ENABLE_MANAGED_GPU_EXPERIENCE_TAG=230 # Error checking nodepool tags for whether we need to enable managed GPU experience
+
+ERR_PULL_POD_INFRA_CONTAINER_IMAGE=225 # Error pulling pause image
 
 # For both Ubuntu and Mariner, /etc/*-release should exist.
 # For unit tests, the OS and OS_VERSION will be set in the unit test script.
@@ -185,7 +194,7 @@ AKS_AAD_SERVER_APP_ID="6dae42f8-4368-4678-94ff-3960e28e3630"
 # Checks if the elapsed time since CSEStartTime exceeds 13 minutes.
 # That value is based on the global CSE timeout which is set to 15 minutes - majority of CSE executions succeed or fail very fast, meaning we can exit slightly before the global timeout without affecting the overall CSE execution.
 # Global cse timeout is set in cse_start.sh: `timeout -k5s 15m /bin/bash /opt/azure/containers/provision.sh`
-# Long running functions can use this helper to gracefully handle global CSE timeout, avoiding exiting with 124 error code without extra context. 
+# Long running functions can use this helper to gracefully handle global CSE timeout, avoiding exiting with 124 error code without extra context.
 check_cse_timeout() {
     shouldLog="${1:-true}"
     maxDurationSeconds=780 # 780 seconds = 13 minutes
@@ -224,11 +233,11 @@ _retrycmd_internal() {
         exitStatus=$?
 
         if [ "$exitStatus" -eq 0 ]; then
-            break 
+            break
         fi
 
         # Check if CSE timeout is approaching - exit early to avoid 124 exit code from the global timeout
-        if ! check_cse_timeout "$shouldLog"; then 
+        if ! check_cse_timeout "$shouldLog"; then
             echo "CSE timeout approaching, exiting early." >&2
             return 2
         fi
@@ -283,7 +292,7 @@ _retry_file_curl_internal() {
     # checksToRun are conditions that need to pass to stop the retry loop. If not passed, eval command will return 0, because checksToRun will be interpreted as an empty string.
     retries=$1; waitSleep=$2; timeout=$3; filePath=$4; url=$5; checksToRun=( "${@:6}" )
     echo "${retries} file curl retries"
-    for i in $(seq 1 $retries); do 
+    for i in $(seq 1 $retries); do
         # Use eval to execute the checksToRun string as a command
         ( eval "$checksToRun" ) && break || if [ "$i" -eq "$retries" ]; then
             return 1
@@ -316,21 +325,54 @@ retrycmd_curl_file() {
     _retry_file_curl_internal "$curl_retries" "$wait_sleep" "$timeout" "$filepath" "$url" "$check_file_exists"
 }
 
+retrycmd_pull_from_registry_with_oras() {
+    pull_retries=$1; wait_sleep=$2; target_folder=$3; url=$4
+    shift 4  # Remove first 4 parameters, remaining parameters are extra oras flags
+    echo "${pull_retries} retries"
+    for i in $(seq 1 $pull_retries); do
+        if [ "$i" -eq "$pull_retries" ]; then
+            return 1
+        fi
+        if [ "$i" -gt 1 ]; then
+            sleep $wait_sleep
+        fi
+        timeout 60 oras pull "$url" -o "$target_folder" --registry-config "${ORAS_REGISTRY_CONFIG_FILE}" "$@" > $ORAS_OUTPUT 2>&1
+        if [ "$?" -eq 0 ]; then
+            return 0
+        else
+            cat $ORAS_OUTPUT
+        fi
+    done
+}
+
 retrycmd_get_tarball_from_registry_with_oras() {
     tar_retries=$1; wait_sleep=$2; tarball=$3; url=$4
+    if [ -f "$tarball" ] && tar -tzf "$tarball" > /dev/null 2>&1; then
+        # skip if tarball exists and is valid
+        return 0
+    fi
+
     tar_folder=$(dirname "$tarball")
-    echo "${tar_retries} retries"
-    for i in $(seq 1 $tar_retries); do
-        [ -f "$tarball" ] && tar -tzf "$tarball" && break || \
-        if [ "$i" -eq "$tar_retries" ]; then
-            return 1
+    retrycmd_pull_from_registry_with_oras "$tar_retries" "$wait_sleep" "$tar_folder" "$url"
+}
+
+retrycmd_cp_oci_layout_with_oras() {
+    retries=$1; wait_sleep=$2; path=$3; tag=$4; url=$5
+    mkdir -p "$path"
+    echo "${retries} retries"
+    for i in $(seq 1 $retries); do
+        if [ "$i" -eq "$retries" ]; then
+            echo "Failed to oras cp $url to $path:$tag after $retries attempts"
+            return $ERR_PULL_POD_INFRA_CONTAINER_IMAGE
         else
             if [ "$i" -gt 1 ]; then
                 sleep $wait_sleep
             fi
-            timeout 60 oras pull $url -o $tar_folder --registry-config ${ORAS_REGISTRY_CONFIG_FILE} > $ORAS_OUTPUT 2>&1
+            timeout 120 oras cp "$url" "$path:$tag" --to-oci-layout --from-registry-config ${ORAS_REGISTRY_CONFIG_FILE} > $ORAS_OUTPUT 2>&1
             if [ "$?" -ne 0 ]; then
                 cat $ORAS_OUTPUT
+            else
+                return 0
             fi
         fi
     done
@@ -385,17 +427,20 @@ retrycmd_oras_login() {
     return $exit_code
 }
 
-retrycmd_can_oras_ls_acr() {
-    retries=$1; wait_sleep=$2; url=$3
+retrycmd_can_oras_ls_acr_anonymously() {
+    retries=$1; wait_sleep=$2; acr_url=$3
+
     for i in $(seq 1 $retries); do
-        output=$(timeout 60 oras repo ls "$url" --registry-config "$ORAS_REGISTRY_CONFIG_FILE" 2>&1)
+        # Logout first to ensure insufficient ABAC token won't affect anonymous judging
+        oras logout "$acr_url" --registry-config "${ORAS_REGISTRY_CONFIG_FILE}" 2>/dev/null || true
+        output=$(timeout 60 oras repo ls "$acr_url" --registry-config "$ORAS_REGISTRY_CONFIG_FILE" 2>&1)
         if [ "$?" -eq 0 ]; then
-            echo "acr is reachable"
+            echo "acr is anonymously reachable"
             return 0
         fi
         # shellcheck disable=SC3010
         if [[ "$output" == *"unauthorized: authentication required"* ]]; then
-            echo "ACR is not reachable: $output"
+            echo "ACR is not anonymously reachable: $output"
             return 1
         fi
     done
@@ -456,7 +501,7 @@ systemctlEnableAndStart() {
     fi
 }
 
-systemctlEnableAndStartNoBlock() {    
+systemctlEnableAndStartNoBlock() {
     service=$1; timeout=$2; status_check_delay_seconds=${3:-"0"}
 
     systemctl_restart_no_block 100 5 $timeout $service
@@ -501,7 +546,7 @@ systemctlDisableAndStop() {
 semverCompare() {
     VERSION_A=$(echo $1 | cut -d "+" -f 1 | cut -d "~" -f 1)
     VERSION_B=$(echo $2 | cut -d "+" -f 1 | cut -d "~" -f 1)
-    
+
     [ "${VERSION_A}" = "${VERSION_B}" ] && return 0
     sorted=$(echo ${VERSION_A} ${VERSION_B} | tr ' ' '\n' | sort -V )
     highestVersion=$(IFS= echo "${sorted}" | cut -d$'\n' -f2)
@@ -509,20 +554,30 @@ semverCompare() {
     return 1
 }
 
-	
+
 
 apt_get_download() {
   retries=$1; wait_sleep=$2; shift && shift;
   local ret=0
   pushd $APT_CACHE_DIR || return 1
-  for i in $(seq 1 $retries); do
+  for i in $(seq 1 "$retries"); do
     dpkg --configure -a --force-confdef
     wait_for_apt_locks
-    apt-get -o Dpkg::Options::=--force-confold download -y "${@}" && break
-    if [ $i -eq $retries ]; then ret=1; else sleep $wait_sleep; fi
+
+    # Pull the first quoted URL from --print-uris
+    url="$(apt-get --print-uris -o Dpkg::Options::=--force-confold download -y -- "$@" \
+           | awk -F"'" 'NR==1 && $2 {print $2}')"
+    if [ -n "$url" ]; then
+      # This avoids issues with the naming in the package. `apt-get download`
+      # encodes the package names with special characters and does not decode
+      # them when saving to disk, but `curl -J` handles the names correctly.
+      if curl -fLJO -- "$url"; then ret=0; break; fi
+    fi
+
+    if [ "$i" -eq "$retries" ]; then ret=1; else sleep "$wait_sleep"; fi
   done
   popd || return 1
-  return $ret
+  return "$ret"
 }
 
 getCPUArch() {
@@ -577,7 +632,7 @@ logs_to_events() {
         --arg EventTid    "0" \
         '{Timestamp: $Timestamp, OperationId: $OperationId, Version: $Version, TaskName: $TaskName, EventLevel: $EventLevel, Message: $Message, EventPid: $EventPid, EventTid: $EventTid}'
     )
-    
+
     mkdir -p ${EVENTS_LOGGING_DIR}
     echo ${json_string} > ${EVENTS_LOGGING_DIR}${eventsFileName}.json
 
@@ -628,6 +683,17 @@ should_enforce_kube_pmc_install() {
       return $ret
     fi
     should_enforce=$(echo "$body" | jq -r '.compute.tagsList[] | select(.name == "ShouldEnforceKubePMCInstall") | .value')
+    echo "${should_enforce,,}"
+}
+
+enableManagedGPUExperience() {
+    set -x
+    body=$(curl -fsSL -H "Metadata: true" --noproxy "*" "http://169.254.169.254/metadata/instance?api-version=2021-02-01")
+    ret=$?
+    if [ "$ret" -ne 0 ]; then
+      return $ret
+    fi
+    should_enforce=$(echo "$body" | jq -r '.compute.tagsList[] | select(.name == "EnableManagedGPUExperience") | .value')
     echo "${should_enforce,,}"
 }
 
@@ -781,7 +847,7 @@ updateMultiArchVersions() {
   # check if multiArchVersions not exists
   if [ "$(echo "${imageToBePulled}" | jq -r '.multiArchVersions | if . == null then "null" else empty end')" = "null" ]; then
     MULTI_ARCH_VERSIONS=()
-    return 
+    return
   fi
 
   local versions=($(echo "${imageToBePulled}" | jq -r ".multiArchVersions[]"))
@@ -808,6 +874,40 @@ updatePackageDownloadURL() {
     downloadURL=$(echo "${package}" | jq ".downloadURIs.default.${RELEASE}.downloadURL" -r)
     [ "${downloadURL}" = "null" ] && PACKAGE_DOWNLOAD_URL="" || PACKAGE_DOWNLOAD_URL="${downloadURL}"
     return
+}
+
+# Function to get latestVersion for a given k8sVersion from components.json
+getLatestPkgVersionFromK8sVersion() {
+    local k8sVersion="$1"
+    local componentName="$2"
+    local os="$3"
+    local os_version="$4"
+
+    k8sMajorMinorVersion="$(echo "$k8sVersion" | cut -d- -f1 | cut -d. -f1,2)"
+
+    package=$(jq ".Packages" "$COMPONENTS_FILEPATH" | jq ".[] | select(.name == \"${componentName}\")")
+    PACKAGE_VERSIONS=()
+    updatePackageVersions "${package}" "${os}" "${os_version}"
+
+    # shellcheck disable=SC3010
+    if [[ ${#PACKAGE_VERSIONS[@]} -eq 0 || ${PACKAGE_VERSIONS[0]} == "<SKIP>" ]]; then
+        echo "INFO: ${componentName} package versions array is either empty or the first element is <SKIP>. Skipping ${componentName} installation."
+        return 0
+    fi
+
+    # sort the array from highest to lowest version
+    IFS=$'\n' sortedPackageVersions=($(sort -rV <<<"${PACKAGE_VERSIONS[*]}"))
+    unset IFS
+
+    PACKAGE_VERSION=${sortedPackageVersions[0]}
+    for version in "${sortedPackageVersions[@]}"; do
+        majorMinorVersion="$(echo "$version" | cut -d- -f1 | cut -d. -f1,2)"
+        if [ $majorMinorVersion = $k8sMajorMinorVersion ]; then
+            PACKAGE_VERSION=$version
+            break
+        fi
+    done
+    echo $PACKAGE_VERSION
 }
 
 # adds the specified LABEL_STRING (which should be in the form of 'label=value') to KUBELET_NODE_LABELS
@@ -938,6 +1038,44 @@ update_base_url() {
   echo "$initial_url"
 }
 
+assert_refresh_token() {
+    local refresh_token=$1
+    shift
+    local required_actions=("$@")
+
+    # Decode the refresh token (JWT format: header.payload.signature)
+    # Extract the payload (second part) and decode from base64
+    token_payload=$(echo "$refresh_token" | cut -d'.' -f2)
+    # Add padding if needed for base64 decoding
+    case $((${#token_payload} % 4)) in
+        2) token_payload="${token_payload}==" ;;
+        3) token_payload="${token_payload}=" ;;
+    esac
+    decoded_token=$(echo "$token_payload" | base64 -d 2>/dev/null)
+    
+    # Check if permissions.actions exists and contains all required actions
+    if [ -n "$decoded_token" ]; then
+        # Check if permissions field exists (RBAC token vs ABAC token)
+        local has_permissions=$(echo "$decoded_token" | jq -r 'has("permissions")' 2>/dev/null)
+        if [ "$has_permissions" = "true" ]; then
+            echo "RBAC token detected, validating permissions"
+            
+            for action in "${required_actions[@]}"; do
+                local action_exists=$(echo "$decoded_token" | jq -r --arg action "$action" \
+                    '(.permissions.actions // []) | contains([$action])' 2>/dev/null)
+                if [ "$action_exists" != "true" ]; then
+                    echo "Required action '$action' not found in token permissions"
+                    return $ERR_ORAS_PULL_UNAUTHORIZED
+                fi
+            done
+            echo "Token validation passed: all required actions present"
+        else
+            echo "No permissions field found in token. Assuming ABAC token, skipping permission validation"
+        fi
+    fi
+    return 0
+}
+
 oras_login_with_kubelet_identity() {
     local acr_url=$1
     local client_id=$2
@@ -948,7 +1086,7 @@ oras_login_with_kubelet_identity() {
         return
     fi
 
-    retrycmd_can_oras_ls_acr 10 5 $acr_url
+    retrycmd_can_oras_ls_acr_anonymously 10 5 $acr_url
     ret_code=$?
     if [ "$ret_code" -eq 0 ]; then
         echo "anonymous pull is allowed for acr '$acr_url', proceeding with anonymous pull"
@@ -989,6 +1127,13 @@ oras_login_with_kubelet_identity() {
         return $ERR_ORAS_PULL_UNAUTHORIZED
     fi
 
+    # Pre-validate refresh token has required RBAC access to pull.
+    # If ABAC token issued, no way to pre-validate access
+    assert_refresh_token "$REFRESH_TOKEN" "read"
+    if [ "$?" -ne 0 ]; then
+        return $ERR_ORAS_PULL_UNAUTHORIZED
+    fi
+
     retrycmd_oras_login 3 5 $acr_url "$REFRESH_TOKEN"
     if [ "$?" -ne 0 ]; then
         echo "failed to login to acr '$acr_url' with identity token"
@@ -997,24 +1142,18 @@ oras_login_with_kubelet_identity() {
     unset ACCESS_TOKEN REFRESH_TOKEN  # Clears sensitive data from memory
     set -x
 
-    retrycmd_can_oras_ls_acr 10 5 $acr_url
-    if [ "$?" -ne 0 ]; then
-        echo "failed to login to acr '$acr_url', pull is still unauthorized"
-        return $ERR_ORAS_PULL_UNAUTHORIZED
-    fi
-
     echo "successfully logged in to acr '$acr_url' with identity token"
 }
 
 configureSSHService() {
     local os_param="${1:-$OS}"
     local os_version_param="${2:-$OS_VERSION}"
-    
+
     # If not Ubuntu, no changes needed
     if [ "$os_param" != "$UBUNTU_OS_NAME" ]; then
         return 0
     fi
-    
+
     # Only for Ubuntu 22.10+ or newer socket activation is used, for earlier versions no changes needed
     if semverCompare "22.10" "$os_version_param" ; then
         return 0
@@ -1031,11 +1170,11 @@ configureSSHService() {
     if [ -f /etc/systemd/system/ssh.service.d/00-socket.conf ]; then
         rm /etc/systemd/system/ssh.service.d/00-socket.conf || echo "Warning: Could not remove 00-socket.conf"
     fi
-    
+
     if [ -f /etc/systemd/system/ssh.socket.d/addresses.conf ]; then
         rm /etc/systemd/system/ssh.socket.d/addresses.conf || echo "Warning: Could not remove addresses.conf"
     fi
-    
+
     # For all Ubuntu versions, just make sure ssh service is enabled and running
     if ! systemctl is-enabled --quiet ssh.service; then
         echo "Enabling SSH service..."
@@ -1046,7 +1185,7 @@ configureSSHService() {
         echo "Error: Failed to start SSH service after configuration changes"
         return $ERR_SYSTEMCTL_START_FAIL
     fi
-    
+
     echo "SSH service successfully reconfigured and started"
     return 0
 }
@@ -1069,4 +1208,52 @@ extract_tarball() {
     esac
 }
 
+# Returns a list of Kubernetes tool names that need to be installed
+# Usage: for tool in $(get_kubernetes_tools); do ... done
+get_kubernetes_tools() {
+    echo "kubelet kubectl"
+}
+
+function get_sandbox_image(){
+    sandbox_image=$(get_sandbox_image_from_containerd_config "/etc/containerd/config.toml")
+    if [ -z "$sandbox_image" ]; then
+        sandbox_image=$(extract_value_from_kubelet_flags "$KUBELET_FLAGS" "pod-infra-container-image")
+    fi
+
+    echo $sandbox_image
+}
+
+function extract_value_from_kubelet_flags(){
+    local kubelet_flags=$1
+    local key=$2
+
+    key="${key#--}"
+    value=$(echo "$kubelet_flags" | sed -n "s/.*--${key}=\([^ ]*\).*/\1/p")
+    echo "$value"
+}
+
+function get_sandbox_image_from_containerd_config() {
+    local config_file=$1
+    local sandbox_image=""
+
+    if [ ! -f "$config_file" ]; then
+        echo ""
+        return
+    fi
+
+    # Extract sandbox_image value from the CRI plugin section
+    # The sandbox_image is typically under [plugins."io.containerd.grpc.v1.cri"]
+    sandbox_image=$(awk '/sandbox_image/ && /=/ {
+        # Remove quotes and spaces
+        gsub(/[" ]/, "", $3)
+        print $3
+    }' FS='=' "$config_file")
+
+    # Alternative method if the above doesn't work
+    if [ -z "$sandbox_image" ]; then
+        sandbox_image=$(grep -E '^\s*sandbox_image\s*=' "$config_file" | sed 's/.*sandbox_image\s*=\s*"\([^"]*\)".*/\1/')
+    fi
+
+    echo "$sandbox_image"
+}
 #HELPERSEOF

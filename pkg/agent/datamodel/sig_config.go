@@ -440,8 +440,8 @@ const (
 	FrozenCBLMarinerV2KataGen2TLSIGImageVersion = "2022.12.15"
 
 	// DO NOT MODIFY: Used for freezing Kata VHD for kata-cc runtime, until the image is deprecated.
-	FrozenCBLMarinerV2KataGen2SIGImageVersion string = "202509.04.0"
-	FrozenAzureLinuxV2KataGen2SIGImageVersion string = "202509.04.0"
+	FrozenCBLMarinerV2KataGen2SIGImageVersion string = "202509.05.0"
+	FrozenAzureLinuxV2KataGen2SIGImageVersion string = "202509.05.0"
 
 	// We do not use AKS Windows image versions in AgentBaker. These fake values are only used for unit tests.
 	Windows2019SIGImageVersion string = "17763.2019.221114"
@@ -603,7 +603,7 @@ var (
 	SIGUbuntuArm64GB200Containerd2404Gen2ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
-		Definition:    "2404arm64gb200gen2containerd",
+		Definition:    "2404gen2arm64gb200containerd",
 		Version:       LinuxSIGImageVersion,
 	}
 
@@ -947,12 +947,14 @@ func (s SigImageConfig) GomegaString() string {
 // for ALL Linux distros that are currently built and maintained by AKS Node SIG (Version == LinuxSIGImageVersion).
 // Note that each distro's SigImageConfig SubscriptionID field will be empty.
 // This can be used downstream to make sure that all expected images have been properly replicated.
+// NOTE: corresponding unit tests need to be updated whenever any new distros are added or existing distros are frozen.
 func GetMaintainedLinuxSIGImageConfigMap() map[Distro]SigImageConfig {
 	// no opts means subscriptionID will be empty in the corresponding image configs
 	imageConfigMaps := []map[Distro]SigImageConfig{
 		getSigUbuntuImageConfigMapWithOpts(),
 		getSigCBLMarinerImageConfigMapWithOpts(),
 		getSigAzureLinuxImageConfigMapWithOpts(),
+		getSigFlatcarImageConfigMapWithOpts(),
 	}
 
 	maintained := map[Distro]SigImageConfig{}

@@ -9,14 +9,13 @@ MARINER_KATA_OS_NAME="MARINERKATA"
 AZURELINUX_KATA_OS_NAME="AZURELINUXKATA"
 
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
-CONTAINER_RUNTIME="$1"
-OS_VERSION="$2"
-ENABLE_FIPS="$3"
-OS_SKU="$4"
-GIT_BRANCH="$5"
-IMG_SKU="$6"
-FEATURE_FLAGS="$7"
-GIT_COMMIT_HASH="$8"
+OS_VERSION="$1"
+ENABLE_FIPS="$2"
+OS_SKU="$3"
+GIT_BRANCH="$4"
+IMG_SKU="$5"
+FEATURE_FLAGS="$6"
+GIT_COMMIT_HASH="$7"
 
 # List of "ERROR/WARNING" message we want to ignore in the cloud-init.log
 # 1. "Command ['hostname', '-f']":
@@ -179,7 +178,6 @@ testAcrCredentialProviderInstalled() {
 
 testPackagesInstalled() {
   test="testPackagesInstalled"
-  containerRuntime=$1
   if [ "$(isARM64)" -eq 1 ]; then
     return
   fi
@@ -212,25 +210,41 @@ testPackagesInstalled() {
     updatePackageVersions "${p}" "${OS}" "${OS_VERSION}"
     PACKAGE_DOWNLOAD_URL=""
     updatePackageDownloadURL "${p}" "${OS}" "${OS_VERSION}"
-    if [ "${name}" = "kubernetes-binaries" ]; then
-      # kubernetes-binaries, namely, kubelet and kubectl are installed in a different way so we test them separately
-      # Intentionally remove leading 'v' from each element in the array
-      testKubeBinariesPresent "${PACKAGE_VERSIONS[@]#v}"
-      continue
-    fi
-    if [ "${name}" = "azure-acr-credential-provider" ]; then
-      # azure-acr-credential-provider is installed in a different way so we test it separately
-      testAcrCredentialProviderInstalled "$PACKAGE_DOWNLOAD_URL" "${PACKAGE_VERSIONS[@]}"
-      continue
-    fi
-    if [ "${name}" = "kubelet" ]; then
-      testPkgDownloaded "kubelet" "${PACKAGE_VERSIONS[@]}"
-      continue
-    fi
-      if [ "${name}" = "kubectl" ]; then
-      testPkgDownloaded "kubectl" "${PACKAGE_VERSIONS[@]}"
-      continue
-    fi
+    case "${name}" in
+      "kubernetes-binaries")
+        # kubernetes-binaries, namely, kubelet and kubectl are installed in a different way so we test them separately
+        # Intentionally remove leading 'v' from each element in the array
+        testKubeBinariesPresent "${PACKAGE_VERSIONS[@]#v}"
+        continue
+        ;;
+      "azure-acr-credential-provider")
+        # azure-acr-credential-provider is installed in a different way so we test it separately
+        testAcrCredentialProviderInstalled "$PACKAGE_DOWNLOAD_URL" "${PACKAGE_VERSIONS[@]}"
+        continue
+        ;;
+      "kubelet"|\
+      "kubectl"|\
+      "nvidia-device-plugin"|\
+      "datacenter-gpu-manager-4-core"|\
+      "datacenter-gpu-manager-4-proprietary")
+        testPkgDownloaded "${name}" "${PACKAGE_VERSIONS[@]}"
+        continue
+        ;;
+      "datacenter-gpu-manager-exporter")
+        # On Ubuntu 22.04 and 24.04, the package is called datacenter-gpu-manager-exporter
+        [ "$OS_SKU" = "Ubuntu" ] && \
+          { [ "$OS_VERSION" = "22.04" ] || [ "$OS_VERSION" = "24.04" ]; } && \
+          testPkgDownloaded "${name}" "${PACKAGE_VERSIONS[@]}"
+        continue
+        ;;
+      "dcgm-exporter")
+        # The package is called dcgm-exporter in AzureLinux 3.0
+        [ "$OS_SKU" = "AzureLinux" ] && \
+          [ "$OS_VERSION" = "3.0" ] && \
+          testPkgDownloaded "${name}" "${PACKAGE_VERSIONS[@]}"
+        continue
+        ;;
+    esac
 
     resolve_packages_source_url
     for version in "${PACKAGE_VERSIONS[@]}"; do
@@ -247,9 +261,9 @@ testPackagesInstalled() {
             ;;
         esac
         break
-        
+
       fi
-      # A downloadURL from a package in components.json will look like this: 
+      # A downloadURL from a package in components.json will look like this:
       # "https://acs-mirror.azureedge.net/cni-plugins/v${version}/binaries/cni-plugins-linux-${CPU_ARCH}-v${version}.tgz"
       # After eval(resolved), downloadURL will look like "https://acs-mirror.azureedge.net/cni-plugins/v0.8.7/binaries/cni-plugins-linux-arm64-v0.8.7.tgz"
       eval "downloadURL=${PACKAGE_DOWNLOAD_URL}"
@@ -306,7 +320,7 @@ testPackagesInstalled() {
 # Azure China Cloud uses a different proxy but the same path, and we want to verify the package URL
 # if defined in control plane, is accessible and has the same file size as the one in the public cloud.
 testPackageInAzureChinaCloud() {
-  # In Azure China Cloud, the proxy server proxies download URL to the storage account URL according to the root path, for example, 
+  # In Azure China Cloud, the proxy server proxies download URL to the storage account URL according to the root path, for example,
   # location /kubernetes/ {
   #  proxy_pass https://kubernetesartifacts.blob.core.chinacloudapi.cn/kubernetes/;
   # }
@@ -370,17 +384,9 @@ testPackageInAzureChinaCloud() {
 
 testImagesPulled() {
   test="testImagesPulled"
-  local componentsJsonContent="$2"
+  local componentsJsonContent="$1"
   echo "$test:Start"
-  containerRuntime=$1
-  if [ $containerRuntime = 'containerd' ]; then
-    pulledImages=$(ctr -n k8s.io image ls)
-  elif [ $containerRuntime = 'docker' ]; then
-    pulledImages=$(docker images --format "{{.Repository}}:{{.Tag}}")
-  else
-    err $test "unsupported container runtime $containerRuntime"
-    return
-  fi
+  pulledImages=$(ctr -n k8s.io image ls)
 
   imagesToBePulled=$(echo "${componentsJsonContent}" | jq .ContainerImages[] --monochrome-output --compact-output)
 
@@ -389,7 +395,7 @@ testImagesPulled() {
     downloadURL=$(echo "${imageToBePulled}" | jq .downloadURL -r)
     if [ $(echo "${imageToBePulled}" | jq -r '.amd64OnlyVersions // empty') = "null" ]; then
       amd64OnlyVersionsStr=""
-    else 
+    else
       amd64OnlyVersionsStr=$(echo "${imageToBePulled}" | jq -r '.amd64OnlyVersions // empty')
     fi
     declare -a MULTI_ARCH_VERSIONS=()
@@ -438,13 +444,7 @@ testImagesPulled() {
 testImagesCompleted() {
   test="testImagesCompleted"
   echo "$test:Start"
-  containerRuntime=$1
-  if [ $containerRuntime = 'containerd' ]; then
-    incompleteImages=$(ctr -n k8s.io image check | grep "incomplete")
-  else
-    err $test "unsupported container runtime $containerRuntime"
-    return
-  fi
+  incompleteImages=$(ctr -n k8s.io image check | grep "incomplete")
 
   # Check if there are any incomplete images
   if [ -n "$incompleteImages" ]; then
@@ -458,13 +458,7 @@ testImagesCompleted() {
 testPodSandboxImagePinned() {
   test="testPodSandboxImagePinned"
   echo "$test:Start"
-  containerRuntime=$1
-  if [ $containerRuntime = 'containerd' ]; then
-    pinnedImages=$(ctr -n k8s.io image ls | grep pinned)
-  else
-    err $test "unsupported container runtime $containerRuntime"
-    return
-  fi
+  pinnedImages=$(ctr -n k8s.io image ls | grep pinned)
 
   # Check if the pod sandbox image is pinned
   if [ -z "$pinnedImages" ]; then
@@ -478,17 +472,8 @@ testPodSandboxImagePinned() {
 
 # check all the mcr images retagged for mooncake
 testImagesRetagged() {
-  containerRuntime=$1
-  if [ $containerRuntime = 'containerd' ]; then
-    # shellcheck disable=SC2207
-    pulledImages=($(ctr -n k8s.io image ls))
-  elif [ $containerRuntime = 'docker' ]; then
-    # shellcheck disable=SC2207
-    pulledImages=($(docker images --format "{{.Repository}}:{{.Tag}}"))
-  else
-    err $test "unsupported container runtime $containerRuntime"
-    return
-  fi
+  # shellcheck disable=SC2207
+  pulledImages=($(ctr -n k8s.io image ls))
   mcrImagesNumber=0
   mooncakeMcrImagesNumber=0
   while IFS= read -r pulledImage; do
@@ -611,8 +596,8 @@ testLtsKernel() {
   enable_fips=$3
 
   # shellcheck disable=SC3010
-  if [[ "$os_sku" == "Ubuntu" && ${enable_fips,,} != "true" ]] && ! grep -q "cvm" <<< "$FEATURE_FLAGS" ; then
-    echo "OS is Ubuntu, FIPS is not enabled, and this is not a CVM; check LTS kernel version"
+  if [[ "$os_sku" == "Ubuntu" && ${enable_fips,,} != "true" ]] ; then
+    echo "OS is Ubuntu, FIPS is not enabled, check LTS kernel version"
     # Check the Ubuntu version and set the expected kernel version
     if [ "$os_version" = "22.04" ]; then
       expected_kernel="5.15"
@@ -660,7 +645,7 @@ testLSMBPF() {
   if [ -f /sys/kernel/security/lsm ]; then
     current_lsm=$(cat /sys/kernel/security/lsm)
     echo "$test: Current LSM modules: $current_lsm"
-    
+
     if echo "$current_lsm" | grep -q "bpf"; then
       echo "$test: BPF is present in LSM modules"
     else
@@ -766,6 +751,8 @@ testPkgDownloaded() {
   downloadLocation="/opt/${packageName}/downloads"
   for packageVersion in "${packageVersions[@]}"; do
     echo "checking package version: $packageVersion ..."
+    # Strip epoch (e.g., 1:4.4.1-1 -> 4.4.1-1)
+    packageVersion="${packageVersion#*:}"
     if [ $OS = $UBUNTU_OS_NAME ]; then
       debFile=$(find "${downloadLocation}" -maxdepth 1 -name "${packageName}_${packageVersion}*" -print -quit 2>/dev/null) || debFile=""
       if [ -z "${debFile}" ]; then
@@ -1366,7 +1353,7 @@ testCriCtl() {
   # the expectedVersion looks like this, "1.32.0-ubuntu18.04u3", need to extract the version number.
   expectedVersion=$(echo $expectedVersion | cut -d'-' -f1)
   # use command `crictl --version` to get the version
-  
+
   local crictl_version=$(crictl --version)
   # the output of crictl_version looks like this "crictl version 1.32.0", need to extract the version number.
   crictl_version=$(echo $crictl_version | cut -d' ' -f3)
@@ -1394,7 +1381,7 @@ testContainerd() {
   # use command `containerd --version` to get the version
   local containerd_version=$(containerd --version)
   # the output of containerd_version looks like the followings. We need to extract the major.minor.patch version only.
-  # For containerd (v1): containerd github.com/containerd/containerd 1.6.26 
+  # For containerd (v1): containerd github.com/containerd/containerd 1.6.26
   # For containerd (v2): containerd github.com/containerd/containerd/v2 2.0.0
   containerd_version=$(echo $containerd_version | cut -d' ' -f3)
   # The version could be in the format "1.6.24-11-ubuntu1~18.04.1" or "2.0.0-6.azl3" or just "2.0.0", we need to extract the major.minor.patch version only.
@@ -1523,7 +1510,7 @@ testPackageDownloadURLFallbackLogic() {
     echo "PACKAGE_DOWNLOAD_BASE_URL was not set to packages.aks.azure.com"
     err "$test: failed to set PACKAGE_DOWNLOAD_BASE_URL to packages.aks.azure.com"
   fi
-  
+
   # Block the IP on local vm to simulate cluster firewall blocking packages.aks.azure.com and retry test to see output
   echo "127.0.0.1     packages.aks.azure.com" | sudo tee /etc/hosts > /dev/null
 
@@ -1538,20 +1525,20 @@ testPackageDownloadURLFallbackLogic() {
 
 checkLocaldnsScriptsAndConfigs() {
   local test="checkLocaldnsScriptsAndConfigs"
-  
+
   declare -A localdnsfiles=(
     ["/opt/azure/containers/localdns/localdns.sh"]=755
     ["/etc/systemd/system/localdns.service"]=644
     ["/etc/systemd/system/localdns.service.d/delegate.conf"]=644
   )
-  
+
   for file in "${!localdnsfiles[@]}"; do
     echo "$test: Checking existence of ${file}"
     if [ ! -f "${file}" ]; then
       echo "$test: Localdnsfile - ${file} not found"
       return 1
     fi
-    
+
     echo "$test: Checking permissions of ${file}"
     permissions=$(stat -c "%a" "$file")
     if [ "$permissions" != "${localdnsfiles[$file]}" ]; then
@@ -1559,7 +1546,7 @@ checkLocaldnsScriptsAndConfigs() {
       return 1
     fi
   done
-  
+
   echo "$test: All localdnsfiles exist with correct permissions"
   return 0
 }
@@ -1569,15 +1556,8 @@ testFileOwnership() {
   local test="testFileOwnership"
   echo "$test: Start"
 
-  os_sku="${1}"
-
   # Find files with numeric UIDs or GIDs.
   local files_with_numeric_ownership=$(find /usr -xdev \( -nouser -o -nogroup \) -exec stat --format '%u %g %n' {} \;)
-  # skip scanning /usr/libexec/dbus-daemon-launch-helper on Flatcar
-  # TODO: Group needs to be fixed in immutable part of the image
-  if [ "$os_sku" = "Flatcar" ]; then
-    files_with_numeric_ownership=$(echo "$files_with_numeric_ownership" | grep -v "/usr/libexec/dbus-daemon-launch-helper")
-  fi
 
   if [ -n "$files_with_numeric_ownership" ]; then
     err "$test: File ownership test failed. Files with numeric ownership found:"
@@ -1607,10 +1587,10 @@ checkPerformanceData
 testBccTools $OS_SKU
 testVHDBuildLogsExist
 testCriticalTools
-testPackagesInstalled $CONTAINER_RUNTIME
-testImagesPulled $CONTAINER_RUNTIME "$(cat $COMPONENTS_FILEPATH)"
-testImagesCompleted $CONTAINER_RUNTIME
-testPodSandboxImagePinned $CONTAINER_RUNTIME
+testPackagesInstalled
+testImagesPulled "$(cat $COMPONENTS_FILEPATH)"
+testImagesCompleted
+testPodSandboxImagePinned
 testChrony $OS_SKU
 testAuditDNotPresent
 testFips $OS_VERSION $ENABLE_FIPS

@@ -23,7 +23,7 @@ var baseKubeletConfig = &aksnodeconfigv1.KubeletConfig{
 		"--cloud-config":              "",
 		"--cloud-provider":            "external",
 		"--kubeconfig":                "/var/lib/kubelet/kubeconfig",
-		"--pod-infra-container-image": "mcr.microsoft.com/oss/kubernetes/pause:3.6",
+		"--pod-infra-container-image": "mcr.microsoft.com/oss/v2/kubernetes/pause:3.6",
 	},
 	KubeletNodeLabels: map[string]string{
 		"agentpool":                               "nodepool2",
@@ -97,7 +97,7 @@ var baseKubeletConfig = &aksnodeconfigv1.KubeletConfig{
 	},
 }
 
-func getBaseNBC(t *testing.T, cluster *Cluster, vhd *config.Image) *datamodel.NodeBootstrappingConfiguration {
+func getBaseNBC(t testing.TB, cluster *Cluster, vhd *config.Image) *datamodel.NodeBootstrappingConfiguration {
 	var nbc *datamodel.NodeBootstrappingConfiguration
 
 	if vhd.Distro.IsWindowsDistro() {
@@ -131,7 +131,7 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnod
 
 	config := &aksnodeconfigv1.Configuration{
 		Version:            "v1",
-		DisableCustomData:  false,
+		DisableCustomData:  nbc.AgentPoolProfile.IsFlatcar(),
 		LinuxAdminUsername: "azureuser",
 		VmSize:             config.Config.DefaultVMSKU,
 		ClusterConfig: &aksnodeconfigv1.ClusterConfig{
@@ -184,6 +184,75 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnod
 		HttpProxyConfig: &aksnodeconfigv1.HttpProxyConfig{
 			NoProxyEntries: *nbc.HTTPProxyConfig.NoProxy,
 		},
+		LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
+			EnableLocalDns:       true,
+			CpuLimitInMilliCores: to.Ptr(int32(2008)),
+			MemoryLimitInMb:      to.Ptr(int32(256)),
+			VnetDnsOverrides: map[string]*aksnodeconfigv1.LocalDnsOverrides{
+				".": {
+					QueryLogging:                "Log",
+					Protocol:                    "PreferUDP",
+					ForwardDestination:          "VnetDNS",
+					ForwardPolicy:               "Sequential",
+					MaxConcurrent:               to.Ptr(int32(1000)),
+					CacheDurationInSeconds:      to.Ptr(int32(3600)),
+					ServeStaleDurationInSeconds: to.Ptr(int32(3600)),
+					ServeStale:                  "Immediate",
+				},
+				"cluster.local": {
+					QueryLogging:                "Error",
+					Protocol:                    "ForceTCP",
+					ForwardDestination:          "ClusterCoreDNS",
+					ForwardPolicy:               "RoundRobin",
+					MaxConcurrent:               to.Ptr(int32(3000)),
+					CacheDurationInSeconds:      to.Ptr(int32(7200)),
+					ServeStaleDurationInSeconds: to.Ptr(int32(4500)),
+					ServeStale:                  "Disable",
+				},
+				"testdomain456.com": {
+					QueryLogging:                "Log",
+					Protocol:                    "PreferUDP",
+					ForwardDestination:          "ClusterCoreDNS",
+					ForwardPolicy:               "Random",
+					MaxConcurrent:               to.Ptr(int32(1000)),
+					CacheDurationInSeconds:      to.Ptr(int32(3600)),
+					ServeStaleDurationInSeconds: to.Ptr(int32(3600)),
+					ServeStale:                  "Verify",
+				},
+			},
+			KubeDnsOverrides: map[string]*aksnodeconfigv1.LocalDnsOverrides{
+				".": {
+					QueryLogging:                "Error",
+					Protocol:                    "PreferUDP",
+					ForwardDestination:          "ClusterCoreDNS",
+					ForwardPolicy:               "Sequential",
+					MaxConcurrent:               to.Ptr(int32(1000)),
+					CacheDurationInSeconds:      to.Ptr(int32(3600)),
+					ServeStaleDurationInSeconds: to.Ptr(int32(3600)),
+					ServeStale:                  "Verify",
+				},
+				"cluster.local": {
+					QueryLogging:                "Log",
+					Protocol:                    "ForceTCP",
+					ForwardDestination:          "ClusterCoreDNS",
+					ForwardPolicy:               "RoundRobin",
+					MaxConcurrent:               to.Ptr(int32(1000)),
+					CacheDurationInSeconds:      to.Ptr(int32(3600)),
+					ServeStaleDurationInSeconds: to.Ptr(int32(3600)),
+					ServeStale:                  "Disable",
+				},
+				"testdomain567.com": {
+					QueryLogging:                "Error",
+					Protocol:                    "PreferUDP",
+					ForwardDestination:          "VnetDNS",
+					ForwardPolicy:               "Random",
+					MaxConcurrent:               to.Ptr(int32(1000)),
+					CacheDurationInSeconds:      to.Ptr(int32(3600)),
+					ServeStaleDurationInSeconds: to.Ptr(int32(3600)),
+					ServeStale:                  "Immediate",
+				},
+			},
+		},
 		NeedsCgroupv2: to.Ptr(true),
 		// Before scriptless, absvc combined kubelet configs from multiple sources such as nbc.AgentPoolProfile.CustomKubeletConfig, nbc.KubeletConfig and more.
 		// Now in scriptless, we don't have absvc to process nbc and nbc is no longer a dependency.
@@ -197,7 +266,7 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnod
 // TODO(ace): minimize the actual required defaults.
 // this is what we previously used for bash e2e from e2e/nodebootstrapping_template.json.
 // which itself was extracted from baker_test.go logic, which was inherited from aks-engine.
-func baseTemplateLinux(t *testing.T, location string, k8sVersion string, arch string) *datamodel.NodeBootstrappingConfiguration {
+func baseTemplateLinux(t testing.TB, location string, k8sVersion string, arch string) *datamodel.NodeBootstrappingConfiguration {
 	config := &datamodel.NodeBootstrappingConfiguration{
 		ContainerService: &datamodel.ContainerService{
 			ID:       "",
@@ -444,10 +513,6 @@ func baseTemplateLinux(t *testing.T, location string, k8sVersion string, arch st
 		},
 		CloudSpecConfig: &datamodel.AzureEnvironmentSpecConfig{
 			CloudName: "AzurePublicCloud",
-			DockerSpecConfig: datamodel.DockerSpecConfig{
-				DockerEngineRepo:         "https://aptdocker.azureedge.net/repo",
-				DockerComposeDownloadURL: "https://github.com/docker/compose/releases/download",
-			},
 			KubernetesSpecConfig: datamodel.KubernetesSpecConfig{
 				AzureTelemetryPID:                    "",
 				KubernetesImageBase:                  "k8s.gcr.io/",
@@ -478,7 +543,7 @@ func baseTemplateLinux(t *testing.T, location string, k8sVersion string, arch st
 			OSImageConfig: map[datamodel.Distro]datamodel.AzureOSImageConfig(nil),
 		},
 		K8sComponents: &datamodel.K8sComponents{
-			PodInfraContainerImageURL:  "mcr.microsoft.com/oss/kubernetes/pause:3.6",
+			PodInfraContainerImageURL:  "mcr.microsoft.com/oss/v2/kubernetes/pause:3.6",
 			HyperkubeImageURL:          "mcr.microsoft.com/oss/kubernetes/",
 			WindowsPackageURL:          "windowspackage",
 			LinuxCredentialProviderURL: "",
@@ -612,13 +677,13 @@ func baseTemplateLinux(t *testing.T, location string, k8sVersion string, arch st
 			"--max-pods":                          "110",
 			"--network-plugin":                    "kubenet",
 			"--node-status-update-frequency":      "10s",
-			"--pod-infra-container-image":         "mcr.microsoft.com/oss/kubernetes/pause:3.6",
+			"--pod-infra-container-image":         "mcr.microsoft.com/oss/v2/kubernetes/pause:3.6",
 			"--pod-manifest-path":                 "/etc/kubernetes/manifests",
 			"--pod-max-pids":                      "-1",
 			"--protect-kernel-defaults":           "true",
 			"--read-only-port":                    "0",
 			"--resolv-conf":                       "/run/systemd/resolve/resolv.conf",
-			"--rotate-certificates":               "false",
+			"--rotate-certificates":               "true",
 			"--streaming-connection-idle-timeout": "4h",
 			"--tls-cert-file":                     "/etc/kubernetes/certs/kubeletserver.crt",
 			"--tls-cipher-suites":                 "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256",
@@ -672,7 +737,7 @@ func baseTemplateLinux(t *testing.T, location string, k8sVersion string, arch st
 // this been crafted with a lot of trial and pain, some values are not needed, but it takes a lot of time to figure out which ones.
 // and we hope to move on to a different config, so I don't want to invest any more time in this-
 // please keep the kubernetesVersion in sync with componets.json so that during e2e no extra binaries are required.
-func baseTemplateWindows(t *testing.T, location string) *datamodel.NodeBootstrappingConfiguration {
+func baseTemplateWindows(t testing.TB, location string) *datamodel.NodeBootstrappingConfiguration {
 	kubernetesVersion := "1.30.12"
 	// kubernetesVersion := "1.31.9"
 	// kubernetesVersion := "v1.32.5"
@@ -762,10 +827,6 @@ DXRqvV7TWO2hndliQq3BW385ZkiephlrmpUVM= r2k1@arturs-mbp.lan`,
 		},
 		CloudSpecConfig: &datamodel.AzureEnvironmentSpecConfig{
 			CloudName: "AzurePublicCloud",
-			DockerSpecConfig: datamodel.DockerSpecConfig{
-				DockerEngineRepo:         "https://aptdocker.azureedge.net/repo",
-				DockerComposeDownloadURL: "https://github.com/docker/compose/releases/download",
-			},
 			KubernetesSpecConfig: datamodel.KubernetesSpecConfig{
 				ACIConnectorImageBase:       "microsoft/",
 				AlwaysPullWindowsPauseImage: false,

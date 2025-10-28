@@ -1,11 +1,19 @@
-pool:
-  name: $(POOL_NAME)
-
 parameters:
 - name: DRY_RUN
   displayName: Dry Run
   type: boolean
   default: false
+
+schedules:
+- cron: '0 */4 * * *'
+  displayName: Scheduled Garbage Collection
+  always: true
+  branches:
+    include:
+      - master
+
+pool:
+  name: $(POOL_NAME)
 
 jobs:
 - job: gc
@@ -14,7 +22,7 @@ jobs:
     - checkout: self
       fetchTags: false
       fetchDepth: 1
-      
+
     - bash: |
         chmod +x ./vhdbuilder/scripts/gc.sh
         ./vhdbuilder/scripts/gc.sh

@@ -176,7 +176,7 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "packageUpdateTimerMariner"}}
-{{- else}}
+{{- else if not IsFlatcar }}
 - path: /opt/azure/containers/ubuntu-snapshot-update.sh
   permissions: "0544"
   encoding: gzip
@@ -227,37 +227,6 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "dhcpv6ConfigurationScript"}}
 
-- path: /etc/systemd/system/docker.service.d/exec_start.conf
-  permissions: "0644"
-  owner: root
-  content: |
-    [Service]
-    ExecStart=
-    ExecStart=/usr/bin/dockerd -H fd:// --storage-driver=overlay2 --bip={{GetParameter "dockerBridgeCidr"}}
-    ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
-    #EOF
-
-- path: /etc/docker/daemon.json
-  permissions: "0644"
-  owner: root
-  content: |
-    {
-      "live-restore": true,
-      "log-driver": "json-file",
-      "log-opts":  {
-         "max-size": "50m",
-         "max-file": "5"
-      }{{if IsNSeriesSKU}}
-      ,"default-runtime": "nvidia",
-      "runtimes": {
-         "nvidia": {
-             "path": "/usr/bin/nvidia-container-runtime",
-             "runtimeArgs": []
-        }
-      }{{end}}{{if HasDataDir}},
-      "data-root": "{{GetDataDir}}"{{- end}}
-    }
-
 - path: /etc/systemd/system/containerd.service.d/exec_start.conf
   permissions: "0644"
   owner: root
@@ -287,41 +256,6 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "ensureNoDupEbtablesScript"}}
 
-- path: /etc/systemd/system/teleportd.service
-  permissions: "0644"
-  owner: root
-  content: |
-    [Unit]
-    Description=teleportd teleport runtime
-    After=network.target
-    [Service]
-    ExecStart=/usr/local/bin/teleportd --metrics --aksConfig /etc/kubernetes/azure.json
-    Delegate=yes
-    KillMode=process
-    Restart=always
-    LimitNPROC=infinity
-    LimitCORE=infinity
-    LimitNOFILE=1048576
-    TasksMax=infinity
-    [Install]
-    WantedBy=multi-user.target
-    #EOF
-
-- path: /etc/systemd/system/nvidia-modprobe.service
-  permissions: "0644"
-  owner: root
-  content: |
-    [Unit]
-    Description=Installs and loads Nvidia GPU kernel module
-    Before=kubelet.service
-    [Service]
-    Type=oneshot
-    RemainAfterExit=true
-    ExecStartPre=/bin/sh -c "dkms autoinstall --verbose"
-    ExecStart=/bin/sh -c "nvidia-modprobe -u -c0"
-    [Install]
-    WantedBy=multi-user.target kubelet.service
-
 - path: /opt/azure/containers/kubelet.sh
   permissions: "0755"
   owner: root
@@ -331,7 +265,7 @@ write_files:
     # for TCP protocol (which http uses)
     #
     # 168.63.129.16 contains protected settings that have priviledged info.
-    # HostGAPlugin (Host-GuestAgent-Plugin) is a web server process that runs on the physical host that serves the operational and diagnostic needs of the in-VM Guest Agent.  
+    # HostGAPlugin (Host-GuestAgent-Plugin) is a web server process that runs on the physical host that serves the operational and diagnostic needs of the in-VM Guest Agent.
     # IT listens on both port 80 and 32526 hence access is only needed for agent but not the containers.
     #
     # The host can still reach 168.63.129.16 because it goes through the OUTPUT chain, not FORWARD.
@@ -348,12 +282,14 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "ensureIMDSRestrictionScript"}}
 
+{{- if ShouldEnableCustomData }}
 - path: /opt/azure/containers/cloud-init-status-check.sh
   permissions: "0744"
   encoding: gzip
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "cloudInitStatusCheckScript"}}
+{{- end }}
 
 - path: /opt/azure/containers/measure-tls-bootstrapping-latency.sh
   permissions: "0755"

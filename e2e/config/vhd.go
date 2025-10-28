@@ -51,11 +51,12 @@ var (
 
 var (
 	VHDUbuntu1804Gen2Containerd = &Image{
-		Name:    "1804gen2containerd",
-		OS:      OSUbuntu,
-		Arch:    "amd64",
-		Distro:  datamodel.AKSUbuntuContainerd1804Gen2,
-		Gallery: imageGalleryLinux,
+		Name:                "1804gen2containerd",
+		OS:                  OSUbuntu,
+		Arch:                "amd64",
+		Distro:              datamodel.AKSUbuntuContainerd1804Gen2,
+		Gallery:             imageGalleryLinux,
+		UnsupportedLocalDns: true,
 	}
 	VHDUbuntu2204Gen2Arm64Containerd = &Image{
 		Name:    "2204gen2arm64containerd",
@@ -93,11 +94,12 @@ var (
 		Gallery: imageGalleryLinux,
 	}
 	VHDAzureLinux3OSGuard = &Image{
-		Name:    "AzureLinuxOSGuardOSGuardV3gen2fipsTL",
-		OS:      OSAzureLinux,
-		Arch:    "amd64",
-		Distro:  datamodel.AKSAzureLinuxV3OSGuardGen2FIPSTL,
-		Gallery: imageGalleryLinux,
+		Name:                "AzureLinuxOSGuardOSGuardV3gen2fipsTL",
+		OS:                  OSAzureLinux,
+		Arch:                "amd64",
+		Distro:              datamodel.AKSAzureLinuxV3OSGuardGen2FIPSTL,
+		Gallery:             imageGalleryLinux,
+		UnsupportedLocalDns: true,
 	}
 	VHDCBLMarinerV2Gen2Arm64 = &Image{
 		Name:    "CBLMarinerV2gen2arm64",
@@ -124,16 +126,18 @@ var (
 		Distro:                   datamodel.AKSUbuntuContainerd2204Gen2,
 		Gallery:                  imageGalleryLinux,
 		UnsupportedKubeletNodeIP: true,
+		UnsupportedLocalDns:      true,
 	}
 
 	// without kubelet, kubectl, credential-provider and wasm
 	VHDUbuntu2204Gen2ContainerdAirgappedK8sNotCached = &Image{
-		Name:    "2204gen2containerd",
-		OS:      OSUbuntu,
-		Arch:    "amd64",
-		Version: "1.1755204156.32758",
-		Distro:  datamodel.AKSUbuntuContainerd2204Gen2,
-		Gallery: imageGalleryLinux,
+		Name:                "2204Gen2",
+		OS:                  OSUbuntu,
+		Arch:                "amd64",
+		Version:             "1.1725612526.29638",
+		Distro:              datamodel.AKSUbuntuContainerd2204Gen2,
+		Gallery:             imageGalleryLinux,
+		UnsupportedLocalDns: true,
 	}
 
 	VHDUbuntu2404Gen1Containerd = &Image{
@@ -166,6 +170,7 @@ var (
 		Arch:    "amd64",
 		Distro:  datamodel.AKSFlatcarGen2,
 		Gallery: imageGalleryLinux,
+		Flatcar: true,
 	}
 
 	VHDFlatcarGen2Arm64 = &Image{
@@ -174,6 +179,7 @@ var (
 		Arch:    "arm64",
 		Distro:  datamodel.AKSFlatcarArm64Gen2,
 		Gallery: imageGalleryLinux,
+		Flatcar: true,
 	}
 
 	VHDWindows2019Containerd = &Image{
@@ -249,6 +255,8 @@ type Image struct {
 	Version                  string
 	Gallery                  *Gallery
 	UnsupportedKubeletNodeIP bool
+	UnsupportedLocalDns      bool
+	Flatcar                  bool
 }
 
 func (i *Image) String() string {

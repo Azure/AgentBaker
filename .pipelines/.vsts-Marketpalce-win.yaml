@@ -8,22 +8,6 @@ variables:
   CONTAINER_IMAGE: 'mcr.microsoft.com/oss/azcu/go-dev:v1.34.7'
 
 stages:
-  - stage: create_sku_and_publish_2019_image
-    dependsOn: []
-    condition: eq(variables.FOR_2019, 'True')
-    jobs:
-    - job: build
-      timeoutInMinutes: 180
-      steps:
-        - bash: |
-            echo '##vso[task.setvariable variable=PUBLISHER]microsoft-aks'
-            echo '##vso[task.setvariable variable=OFFER]aks-windows'
-            echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]docker'
-            echo '##vso[task.setvariable variable=SKU_PREFIX]aks-2019-datacenter-core-smalldisk'
-          displayName: Setup Build Variables
-        - template: ./templates/.builder-Marketplace-win-template.yaml
-          parameters:
-            artifactName: 2019
   - stage: create_sku_and_publish_2019_containerd_image
     dependsOn: []
     condition: eq(variables.FOR_2019_CONTAINERD, 'True')
@@ -34,7 +18,6 @@ stages:
         - bash: |
             echo '##vso[task.setvariable variable=PUBLISHER]microsoft-aks'
             echo '##vso[task.setvariable variable=OFFER]aks-windows'
-            echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
             echo '##vso[task.setvariable variable=SKU_PREFIX]aks-2019-datacenter-core-ctrd'
           displayName: Setup Build Variables
         - template: ./templates/.builder-Marketplace-win-template.yaml

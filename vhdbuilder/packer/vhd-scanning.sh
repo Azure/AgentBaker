@@ -237,6 +237,15 @@ isAzureLinuxOSGuard() {
     fi
     return 1
 }
+isUbuntuCVM() {
+    local os="$1"
+    local feature_flags="$2"
+
+    if [ "$os" = "Ubuntu" ] && grep -q "cvm" <<< "$feature_flags"; then
+        return 0
+    fi
+    return 1
+}
 requiresCISScan() {
     local os="$1"
     local version="$2"
@@ -264,6 +273,92 @@ if ! requiresCISScan "${OS_SKU}" "${OS_VERSION}"; then
     process_benchmarks
     exit 0
 fi
+
+# Compare current cis-report.txt against stored baseline for Ubuntu 22.04 / 24.04.
+# A regression is when a rule that previously "pass" now has any other result.
+compare_cis_with_baseline() {
+    local baseline_file="vhdbuilder/packer/cis/baselines/${OS_SKU,,}/${OS_VERSION}.txt"
+    local current_file="cis-report.txt"
+    local regressions_file="cis-regressions.txt"
+
+    if [ ! -f "${baseline_file}" ]; then
+        printf '##vso[task.logissue type=error]Missing baseline file: %s\n' "$baseline_file"
+        echo "Baseline file ${baseline_file} not found; skipping comparison"
+        return 0
+    fi
+    if [ ! -f "${current_file}" ]; then
+        printf '##vso[task.logissue type=error]Missing cis-report file: %s\n' "$current_file"
+        return 0
+    fi
+
+    # Build associative arrays of baseline pass statuses and current statuses
+    # shellcheck disable=SC2034
+    declare -A baseline_pass
+    declare -A current_status
+
+    # Extract pass rule IDs from baseline (status line format: "pass: <RULE_ID> <Description>")
+    # Accept rule IDs composed of digits and dots.
+    while IFS= read -r line; do
+        # quick filter
+        case "$line" in
+            pass:*) ;;
+            *) continue ;;
+        esac
+        # shellcheck disable=SC2001
+        rule_id=$(echo "$line" | sed -E 's/^pass: ([0-9][0-9.]*).*$/\1/')
+        if [ -n "$rule_id" ]; then
+            # We can't modify bootloader configuration for CVM so need to skip this rule
+            if isUbuntuCVM "${OS_SKU}" "$FEATURE_FLAGS" && [ "$rule_id" = "1.3.1.2" ]; then
+                continue
+            fi
+            baseline_pass["$rule_id"]=1
+        fi
+    done < "${baseline_file}"
+
+    # Capture any status line in current report and map rule id -> status
+    while IFS= read -r line; do
+        # Expected prefixes: pass: fail: manual: (others ignored)
+        case "$line" in
+            pass:*|fail:*|manual:*|error:*|unknown:*) ;;
+            *) continue ;;
+        esac
+        # status is token before colon
+        status_token=${line%%:*}
+        # Extract rule id if present
+        # shellcheck disable=SC2001
+        rule_id=$(echo "$line" | sed -E 's/^[a-zA-Z]+: ([0-9][0-9.]*).*$/\1/')
+        if [ -n "$rule_id" ]; then
+            current_status["$rule_id"]=$status_token
+        fi
+    done < "${current_file}"
+
+    : > "${regressions_file}"
+    local regression_count=0
+    for rule_id in "${!baseline_pass[@]}"; do
+        baseline_status="pass"
+        current_rule_status=${current_status["$rule_id"]}
+        if [ -z "$current_rule_status" ]; then
+            # Missing rule considered regression
+            printf '%s|%s->MISSING\n' "$rule_id" "$baseline_status" >> "${regressions_file}"
+            regression_count=$((regression_count+1))
+        elif [ "$current_rule_status" != "pass" ]; then
+            printf '%s|%s->%s\n' "$rule_id" "$baseline_status" "$current_rule_status" >> "${regressions_file}"
+            regression_count=$((regression_count+1))
+        fi
+    done
+
+    if [ $regression_count -gt 0 ]; then
+        echo "CIS regressions detected: $regression_count"
+        echo "Regression details (rule_id|baseline->current):"
+        cat "${regressions_file}"
+        # Azure DevOps error log issue so it surfaces clearly
+        printf '##vso[task.logissue type=error]CIS regressions detected (%d). See cis-regressions.txt for details.\n' "$regression_count"
+        echo "##vso[task.complete result=SucceededWithIssues;]"
+    else
+        echo "No CIS regressions detected against baseline ${baseline_file}"
+        rm -f "${regressions_file}"
+    fi
+}
 
 CIS_SCRIPT_PATH="$CDIR/cis-report.sh"
 CIS_REPORT_TXT_NAME="cis-report-${BUILD_ID}-${TIMESTAMP}.txt"
@@ -310,6 +405,9 @@ az storage blob delete --account-name "${STORAGE_ACCOUNT_NAME}" --container-name
 
 echo -e "CIS Report Script Completed\n\n\n"
 capture_benchmark "${SCRIPT_NAME}_cis_report_upload_and_download"
+
+echo -e "Comparing CIS report against baseline"
+compare_cis_with_baseline
 
 capture_benchmark "${SCRIPT_NAME}_overall" true
 process_benchmarks

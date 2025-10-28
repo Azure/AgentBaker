@@ -22,6 +22,7 @@
   - [What is the responsibility of a PR assignee?](#what-is-the-responsibility-of-a-pr-assignee)
   - [What components are onboarded to Renovate for auto-update and what are not yet?](#what-components-are-onboarded-to-renovate-for-auto-update-and-what-are-not-yet)
   - [Details on supporting the MAR OCI artifacts.](#details-on-supporting-the-mar-oci-artifacts)
+  - [`REVISION` in Dalec built container images](#revision-in-dalec-built-container-images)
   - [How to enable auto-merge for a component's patch version update?](#how-to-enable-auto-merge-for-a-components-patch-version-update)
   - [Why are some components' `minor version update` disabled?](#why-are-some-components-minor-version-update-disabled)
   - [Debugging in local environment](#debugging-in-local-environment)
@@ -63,7 +64,7 @@ This package rule will make more sense if you continue looking at the next packa
 
 ```
     {
-      "matchDatasources": ["docker", "custom.deb2004", "custom.deb2204", "custom.deb2404"],
+      "matchDatasources": ["docker", "custom.deb2004", "custom.deb2204", "custom.deb2404", "custom.deb2404-test"],
       "matchUpdateTypes": [
         "patch",
         "pin",
@@ -116,8 +117,8 @@ For example,
 ```
     {
       "matchPackageNames": ["moby-runc", "moby-containerd"],
-      "assignees": ["devinwong", "anujmaheshwari1", "cameronmeissner", "AlisonB319", "lilypan26", "djsly", "jason1028kr", "UtheMan", "zachary-bailey", "ganeshkumarashok"]
-      "reviewers": ["devinwong", "anujmaheshwari1", "cameronmeissner", "AlisonB319", "lilypan26", "djsly", "jason1028kr", "UtheMan", "zachary-bailey", "ganeshkumarashok"]
+      "assignees": ["devinwong", "anujmaheshwari1", "cameronmeissner", "lilypan26", "djsly", "zachary-bailey", "ganeshkumarashok"]
+      "reviewers": ["devinwong", "anujmaheshwari1", "cameronmeissner", "lilypan26", "djsly", "zachary-bailey", "ganeshkumarashok"]
     },
 ```
 In this block, it is saying that if the package name, that a PR is updating, is one of the defined values, then assign this PR to these Github IDs. The values in `reviewers` are the same group of people to allow them to self-approve the PR. Unfortunately JSON doesn't support variable in value so we have to provide the value strings twice for both `assignees` and `reviewers`
@@ -207,6 +208,7 @@ We have some custom data sources in the renovate.json now. Let's walk through an
     }
 ```
 - The name is this custom data source is `deb2404`. We are referencing to it in the earlier section custom manager with `"datasourceTemplate": "custom.deb2404",`
+  - Alongside `custom.deb2404` we provide `custom.deb2404-test`; they are identical except that `custom.deb2404-test` points to the PMC testing endpoint (https://packages.microsoft.com/ubuntu/24.04/prod/dists/testing/main/binary-amd64/Packages). We use the testing URL because the Debian package metadata for the Ubuntu 24.04 `containerdv2` package is currently published only to the testing endpoint; all other packages continue to be fetched from the production (noble) endpoint.
 - `defaultRegistryUrlTemplate`: specifies the default URL template for accessing the registry of a custom datasource. In this example, it is the packages.microsoft.com/xxx URL.
 - `format`: specifies the format of the data returned by the registry. In this example, it's neither json, html nor yaml but a `Debian Control File`. So we have to use `plain` and then construct the data in `transformTemplates` by ourselves.
 - `transformTemplates`: allows you to define custom transformations for data fetched from a custom datasource. It uses `JSONata rules` to transform the API output in a certain format. This one is really challenging to me (Devin). Please read the official doc to try and error a correct JSONata query. At the end of the day, you will need to at least populate something like
@@ -400,8 +402,21 @@ where
 - `${version}` will be resolved at runtime with the `latestVersion` and `previousLatestVersion` defined above.
 - `${CPU_ARCH}` will be resolved at runtime depending on the CPU architecture of the Node (VM) under provisioning.
 
+## `REVISION` in Dalec built container images
+Dalec-built container images use static tags in the form `vMAJOR.MINOR.PATCH-REVISION` (see the Dalec FAQ https://github.com/Azure/dalec-build-defs/blob/main/faq.md#how-do-floating-vs-static-tags-work for details). For clarity and deterministic caching we represent these container images in Agent Baker's `components.json` using the exact static tag `vMAJOR.MINOR.PATCH-REVISION`.
+
+The upstream Azure Cloud Native team has confirmed these container images will be published under names that start with `oss/v2`. To ensure Renovate parses and compares these tags correctly, we have a dedicated package-rule in renovate.json for `oss/v2` container images that uses this versioning regex:
+
+`"versioning": "regex:^v(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)-(?<prerelease>\d+)$"`
+
+Notes:
+
+- This regex expects an optional leading v, three numeric version components, and a numeric revision (the prerelease) separated by a final hyphen. 
+  Example valid tags: `v0.1.15-4`, `v1.2.3-12345678`.
+- When you add a new Dalec-built container image, you don't need to add its package name to `oss/v2/**` package rule because the `oss/v2/**` wildcard already covers all Dalec images.
+
 ## How to enable auto-merge for a component's patch version update?
-This is a common scenarior where we want the PR to be merged automatically when a PR is created for a patch version update. You can refer to `moby-runc` and `moby-containerd` in `AgentBaker/.github/renovate.json` as an example. 
+This is a common scenario where we want the PR to be merged automatically when a PR is created for a patch version update. You can refer to `moby-runc` and `moby-containerd` in `AgentBaker/.github/renovate.json` as an example. 
 
 ```
    {
@@ -411,8 +426,8 @@ This is a common scenarior where we want the PR to be merged automatically when 
       ],
       "automerge": true,
       "enabled": true,
-      "assignees": ["devinwong", "anujmaheshwari1", "cameronmeissner", "AlisonB319", "lilypan26", "djsly", "jason1028kr", "UtheMan", "zachary-bailey", "ganeshkumarashok"],
-      "reviewers": ["devinwong", "anujmaheshwari1", "cameronmeissner", "AlisonB319", "lilypan26", "djsly", "jason1028kr", "UtheMan", "zachary-bailey", "ganeshkumarashok"]
+      "assignees": ["devinwong", "anujmaheshwari1", "cameronmeissner", "lilypan26", "djsly", "zachary-bailey", "ganeshkumarashok"],
+      "reviewers": ["devinwong", "anujmaheshwari1", "cameronmeissner", "lilypan26", "djsly", "zachary-bailey", "ganeshkumarashok"]
     },
 ```
 The config includes:

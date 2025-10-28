@@ -1532,21 +1532,6 @@ func (k *KubernetesConfig) IsAddonDisabled(addonName string) bool {
 	return kubeAddon.IsDisabled()
 }
 
-// NeedsContainerd returns whether or not we need the containerd runtime configuration.
-// E.g., kata configuration requires containerd config.
-func (k *KubernetesConfig) NeedsContainerd() bool {
-	return strings.EqualFold(k.ContainerRuntime, KataContainers) || strings.EqualFold(k.ContainerRuntime, Containerd)
-}
-
-// RequiresDocker returns if the kubernetes settings require docker binary to be installed.
-func (k *KubernetesConfig) RequiresDocker() bool {
-	if k == nil {
-		return false
-	}
-
-	return strings.EqualFold(k.ContainerRuntime, Docker) || k.ContainerRuntime == ""
-}
-
 // IsAADPodIdentityEnabled checks if the AAD pod identity addon is enabled.
 func (k *KubernetesConfig) IsAADPodIdentityEnabled() bool {
 	return k.IsAddonEnabled(AADPodIdentityAddonName)
@@ -1759,26 +1744,27 @@ type GetLatestSigImageConfigRequest struct {
 
 // NodeBootstrappingConfiguration represents configurations for node bootstrapping.
 type NodeBootstrappingConfiguration struct {
-	ContainerService              *ContainerService
-	CloudSpecConfig               *AzureEnvironmentSpecConfig
-	K8sComponents                 *K8sComponents
-	AgentPoolProfile              *AgentPoolProfile
-	TenantID                      string
-	SubscriptionID                string
-	ResourceGroupName             string
-	UserAssignedIdentityClientID  string
-	OSSKU                         string
-	ConfigGPUDriverIfNeeded       bool
-	Disable1804SystemdResolved    bool
-	EnableGPUDevicePluginIfNeeded bool
-	EnableKubeletConfigFile       bool
-	EnableNvidia                  bool
-	EnableAMDGPU                  bool
-	EnableACRTeleportPlugin       bool
-	TeleportdPluginURL            string
-	EnableArtifactStreaming       bool
-	ContainerdVersion             string
-	RuncVersion                   string
+	ContainerService                *ContainerService
+	CloudSpecConfig                 *AzureEnvironmentSpecConfig
+	K8sComponents                   *K8sComponents
+	AgentPoolProfile                *AgentPoolProfile
+	TenantID                        string
+	SubscriptionID                  string
+	ResourceGroupName               string
+	UserAssignedIdentityClientID    string
+	OSSKU                           string
+	ConfigGPUDriverIfNeeded         bool
+	Disable1804SystemdResolved      bool
+	EnableGPUDevicePluginIfNeeded   bool
+	EnableKubeletConfigFile         bool
+	EnableNvidia                    bool
+	EnableAMDGPU                    bool
+	ManagedGPUExperienceAFECEnabled bool
+	EnableACRTeleportPlugin         bool
+	TeleportdPluginURL              string
+	EnableArtifactStreaming         bool
+	ContainerdVersion               string
+	RuncVersion                     string
 	// ContainerdPackageURL and RuncPackageURL are beneficial for testing non-official.
 	// containerd and runc, like the pre-released ones.
 	// Currently both configurations are for test purpose, and only deb package is supported.
@@ -1789,30 +1775,22 @@ type NodeBootstrappingConfiguration struct {
 	kubeconfig. */
 	// ref: https://kubernetes.io/docs/reference/command-line-tools-reference/kubelet-tls-bootstrapping.
 	KubeletClientTLSBootstrapToken *string
-	// EnableSecureTLSBootstraping - when this feature is enabled we don't hard-code TLS bootstrap tokens at all,
-	// instead we create a modified bootstrap kubeconfig which points towards the STLS bootstrap client-go
-	// credential plugin installed on the VHD, which will be responsible for generating TLS bootstrap tokens on the fly
-	EnableSecureTLSBootstrapping bool
-	// CustomSecureTLSBootstrapAADServerAppID serves as an optional override of the AAD server application ID
-	// used by the secure TLS bootstrap client-go credential plugin when requesting JWTs from AAD
-	CustomSecureTLSBootstrapAADServerAppID string
-	// Optional client download URL used to overwrite the secure TLS bootstrap client installation at node provisioning time.
-	CustomSecureTLSBootstrapClientURL string
-	FIPSEnabled                       bool
-	HTTPProxyConfig                   *HTTPProxyConfig
-	KubeletConfig                     map[string]string
-	KubeproxyConfig                   map[string]string
-	EnableRuncShimV2                  bool
-	GPUInstanceProfile                string
-	PrimaryScaleSetName               string
-	SIGConfig                         SIGConfig
-	IsARM64                           bool
-	CustomCATrustConfig               *CustomCATrustConfig
-	DisableUnattendedUpgrades         bool
-	SSHStatus                         SSHStatus
-	DisableCustomData                 bool
-	OutboundType                      string
-	EnableIMDSRestriction             bool
+	SecureTLSBootstrappingConfig   *SecureTLSBootstrappingConfig
+	FIPSEnabled                    bool
+	HTTPProxyConfig                *HTTPProxyConfig
+	KubeletConfig                  map[string]string
+	KubeproxyConfig                map[string]string
+	EnableRuncShimV2               bool
+	GPUInstanceProfile             string
+	PrimaryScaleSetName            string
+	SIGConfig                      SIGConfig
+	IsARM64                        bool
+	CustomCATrustConfig            *CustomCATrustConfig
+	DisableUnattendedUpgrades      bool
+	SSHStatus                      SSHStatus
+	DisableCustomData              bool
+	OutboundType                   string
+	EnableIMDSRestriction          bool
 	// InsertIMDSRestrictionRuleToMangleTable is only checked when EnableIMDSRestriction is true.
 	// When this is true, iptables rule will be inserted to `mangle` table. This is for Linux Cilium
 	// CNI, which will overwrite the `filter` table so that we can only insert to `mangle` table to avoid
@@ -1836,6 +1814,10 @@ const (
 	SSHUnspecified SSHStatus = iota
 	SSHOff
 	SSHOn
+	// EntraIDSSH means the cluster has enabled Entra ID SSH feature on the cluster,
+	// AADSSHLoginForLinux extension will be installed on the node. In this case,
+	// we should disable Pubkey authentication in sshd_config.
+	EntraIDSSH
 )
 
 // NodeBootstrapping represents the custom data, CSE, and OS image info needed for node bootstrapping.
@@ -1856,6 +1838,65 @@ type HTTPProxyConfig struct {
 
 type CustomCATrustConfig struct {
 	CustomCATrustCerts []string `json:"customCATrustCerts,omitempty"`
+}
+
+// SecureTLSBootstrappingConfig represents configuration specific to secure TLS bootstrapping.
+type SecureTLSBootstrappingConfig struct {
+	// Enabled indicates whether secure TLS bootstrapping is enabled.
+	Enabled bool `json:"secureTLSBootstrappingEnabled"`
+	// Deadline is an optional override passed to the secure TLS bootstrap client during provisioning.
+	// This is the amount of time we let secure TLS bootstrapping attempt to succeed before falling back
+	// to using the bootstrap token. This will be removed once bootstrap tokens are no longer a viable fall-back.
+	// A default value is specified directly within the bootstrapping scripts.
+	Deadline string `json:"secureTLSBootstrappingDeadline,omitempty"`
+	// AADResource is an optional override passed to the secure TLS bootstrap client during provisioning.
+	// This determines the resource used to request access tokens from Entra ID.
+	// Defaults to the AKS AAD server APP ID within bootstrapping scripts.
+	AADResource string `json:"secureTLSBootstrappingAADResource,omitempty"`
+	// UserAssignedIdentityID is an optional override passed to the secure TLS bootstrap client during provisioning.
+	// This determines the client ID of the user assigned identity attached to the node which will be
+	// used to fetch access tokens from Entra ID via IMDS if the node has one or more user-assigned managed identities.
+	// Defaults to the kubelet identity within bootstrapping scripts.
+	UserAssignedIdentityID string `json:"secureTLSBootstrappingUserAssignedIdentityID,omitempty"`
+	// CustomClientDownloadURL is an optional override which will have the bootstrap scripts
+	// overwrite the existing secure TLS bootstrap client installation on the node image using
+	// the version specified by the URL before bootstrapping.
+	CustomClientDownloadURL string `json:"secureTLSBootstrappingCustomClientDownloadURL"`
+}
+
+func (c *SecureTLSBootstrappingConfig) GetEnabled() bool {
+	if c == nil {
+		return false
+	}
+	return c.Enabled
+}
+
+func (c *SecureTLSBootstrappingConfig) GetDeadline() string {
+	if c == nil {
+		return ""
+	}
+	return c.Deadline
+}
+
+func (c *SecureTLSBootstrappingConfig) GetAADResource() string {
+	if c == nil {
+		return ""
+	}
+	return c.AADResource
+}
+
+func (c *SecureTLSBootstrappingConfig) GetUserAssignedIdentityID() string {
+	if c == nil {
+		return ""
+	}
+	return c.UserAssignedIdentityID
+}
+
+func (c *SecureTLSBootstrappingConfig) GetCustomClientDownloadURL() string {
+	if c == nil {
+		return ""
+	}
+	return c.CustomClientDownloadURL
 }
 
 // AKSKubeletConfiguration contains the configuration for the Kubelet that AKS set.

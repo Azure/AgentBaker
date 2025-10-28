@@ -45,3 +45,9 @@ e2e/scenario-logs/
 
 # vhdbuilder generated prefetch scripts
 vhdbuilder/packer/prefetch.sh
+
+# ignore mise configs (https://mise.jdx.dev/)
+.mise
+
+# Ignore AI related configs
+.claude

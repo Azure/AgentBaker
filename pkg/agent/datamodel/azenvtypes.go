@@ -6,16 +6,9 @@ package datamodel
 // AzureEnvironmentSpecConfig is the overall configuration differences in different cloud environments.
 type AzureEnvironmentSpecConfig struct {
 	CloudName            string                        `json:"cloudName,omitempty"`
-	DockerSpecConfig     DockerSpecConfig              `json:"dockerSpecConfig,omitempty"`
 	KubernetesSpecConfig KubernetesSpecConfig          `json:"kubernetesSpecConfig,omitempty"`
 	EndpointConfig       AzureEndpointConfig           `json:"endpointConfig,omitempty"`
 	OSImageConfig        map[Distro]AzureOSImageConfig `json:"osImageConfig,omitempty"`
-}
-
-// DockerSpecConfig is the configurations of docker.
-type DockerSpecConfig struct {
-	DockerEngineRepo         string `json:"dockerEngineRepo,omitempty"`
-	DockerComposeDownloadURL string `json:"dockerComposeDownloadURL,omitempty"`
 }
 
 // KubernetesSpecConfig is the kubernetes container images used.

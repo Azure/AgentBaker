@@ -52,7 +52,7 @@ configureSwapFile() {
     # https://learn.microsoft.com/en-us/troubleshoot/azure/virtual-machines/troubleshoot-device-names-problems#identify-disk-luns
     swap_size_kb=$(expr ${SWAP_FILE_SIZE_MB} \* 1000)
     swap_location=""
-    
+
     # Attempt to use the resource disk
     if [ -L /dev/disk/azure/resource-part1 ]; then
         resource_disk_path=$(findmnt -nr -o target -S $(readlink -f /dev/disk/azure/resource-part1))
@@ -151,10 +151,10 @@ configureHTTPProxyCA() {
 configureCustomCaCertificate() {
     mkdir -p /opt/certs
     # This path is used by the Custom CA Trust feature only
-    chmod 1755 /opt/certs
+    chmod 755 /opt/certs
     for i in $(seq 0 $((${CUSTOM_CA_TRUST_COUNT} - 1))); do
         # declare dynamically and use "!" to avoid bad substition errors
-        declare varname=CUSTOM_CA_CERT_${i} 
+        declare varname=CUSTOM_CA_CERT_${i}
         echo "${!varname}" | base64 -d > /opt/certs/00000000000000cert${i}.crt
     done
     # blocks until svc is considered active, which will happen when ExecStart command terminates with code 0
@@ -180,6 +180,7 @@ EOF
 AZURE_JSON_PATH="/etc/kubernetes/azure.json"
 AKS_CUSTOM_CLOUD_JSON_PATH="/etc/kubernetes/${TARGET_ENVIRONMENT}.json"
 configureAzureJson() {
+    mkdir -p "$(dirname "${AZURE_JSON_PATH}")"
     touch "${AZURE_JSON_PATH}"
     chmod 0600 "${AZURE_JSON_PATH}"
     chown root:root "${AZURE_JSON_PATH}"
@@ -190,7 +191,7 @@ configureAzureJson() {
     fi
     SERVICE_PRINCIPAL_CLIENT_SECRET=${SERVICE_PRINCIPAL_CLIENT_SECRET//\\/\\\\}
     SERVICE_PRINCIPAL_CLIENT_SECRET=${SERVICE_PRINCIPAL_CLIENT_SECRET//\"/\\\"}
-    
+
     cat << EOF > "${AZURE_JSON_PATH}"
 {
     "cloud": "${TARGET_CLOUD}",
@@ -331,7 +332,7 @@ ensureContainerd() {
   if [ "${TELEPORT_ENABLED}" = "true" ]; then
     ensureTeleportd
   fi
-  mkdir -p "/etc/systemd/system/containerd.service.d" 
+  mkdir -p "/etc/systemd/system/containerd.service.d"
   tee "/etc/systemd/system/containerd.service.d/exec_start.conf" > /dev/null <<EOF
 [Service]
 ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
@@ -358,14 +359,13 @@ EOF
     logs_to_events "AKS.CSE.ensureContainerd.configureContainerdRegistryHost" configureContainerdRegistryHost
   fi
 
-  tee "/etc/sysctl.d/99-force-bridge-forward.conf" > /dev/null <<EOF 
+  tee "/etc/sysctl.d/99-force-bridge-forward.conf" > /dev/null <<EOF
 net.ipv4.ip_forward = 1
 net.ipv4.conf.all.forwarding = 1
 net.ipv6.conf.all.forwarding = 1
 net.bridge.bridge-nf-call-iptables = 1
 EOF
   retrycmd_if_failure 120 5 25 sysctl --system || exit $ERR_SYSCTL_RELOAD
-  systemctl is-active --quiet docker && (systemctl_disable 20 30 120 docker || exit $ERR_SYSTEMD_DOCKER_STOP_FAIL)
   systemctlEnableAndStart containerd 30 || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
@@ -393,45 +393,8 @@ ensureTeleportd() {
 }
 
 ensureArtifactStreaming() {
-  systemctlEnableAndStart acr-mirror 30
-  sudo /opt/acr/tools/overlaybd/install.sh
-  sudo /opt/acr/tools/overlaybd/config-user-agent.sh azure
-  sudo /opt/acr/tools/overlaybd/enable-http-auth.sh
-  sudo /opt/acr/tools/overlaybd/config.sh download.enable false
-  sudo /opt/acr/tools/overlaybd/config.sh cacheConfig.cacheSizeGB 32
-  sudo /opt/acr/tools/overlaybd/config.sh exporterConfig.enable true
-  sudo /opt/acr/tools/overlaybd/config.sh exporterConfig.port 9863
-  modprobe target_core_user
-  curl -X PUT 'localhost:8578/config?ns=_default&enable_suffix=azurecr.io&stream_format=overlaybd' -O
-  systemctl link /opt/overlaybd/overlaybd-tcmu.service
-  systemctl link /opt/overlaybd/snapshotter/overlaybd-snapshotter.service
-  systemctlEnableAndStart overlaybd-tcmu.service 30
-  systemctlEnableAndStart overlaybd-snapshotter.service 30
-  
-}
-
-ensureAcrNodeMon() {
-    systemctlEnableAndStart acr-nodemon 30
-}
-
-ensureDocker() {
-    DOCKER_SERVICE_EXEC_START_FILE=/etc/systemd/system/docker.service.d/exec_start.conf
-    usermod -aG docker ${ADMINUSER}
-    DOCKER_MOUNT_FLAGS_SYSTEMD_FILE=/etc/systemd/system/docker.service.d/clear_mount_propagation_flags.conf
-    DOCKER_JSON_FILE=/etc/docker/daemon.json
-    for i in $(seq 1 1200); do
-        if [ -s $DOCKER_JSON_FILE ]; then
-            jq '.' < $DOCKER_JSON_FILE && break
-        fi
-        if [ $i -eq 1200 ]; then
-            exit $ERR_FILE_WATCH_TIMEOUT
-        else
-            sleep 1
-        fi
-    done
-    systemctl is-active --quiet containerd && (systemctl_disable 20 30 120 containerd || exit $ERR_SYSTEMD_CONTAINERD_STOP_FAIL)
-    systemctlEnableAndStart docker 30 || exit $ERR_DOCKER_START_FAIL
-
+  retrycmd_if_failure 120 5 25 time systemctl --quiet enable --now  acr-mirror overlaybd-tcmu overlaybd-snapshotter
+  time /opt/acr/bin/acr-config --enable-containerd 'azurecr.io'
 }
 
 ensureDHCPv6() {
@@ -461,7 +424,7 @@ getPrimaryNicIP() {
 
 generateSelfSignedKubeletServingCertificate() {
     mkdir -p "/etc/kubernetes/certs"
-    
+
     KUBELET_SERVER_PRIVATE_KEY_PATH="/etc/kubernetes/certs/kubeletserver.key"
     KUBELET_SERVER_CERT_PATH="/etc/kubernetes/certs/kubeletserver.crt"
 
@@ -537,6 +500,11 @@ ensureKubeCACert() {
 # drop-in path defined outside so configureAndStartSecureTLSBootstrapping can be unit tested
 SECURE_TLS_BOOTSTRAPPING_DROP_IN="/etc/systemd/system/secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf"
 configureAndStartSecureTLSBootstrapping() {
+    BOOTSTRAP_CLIENT_FLAGS="--deadline=${SECURE_TLS_BOOTSTRAPPING_DEADLINE:-"2m0s"} --aad-resource=${SECURE_TLS_BOOTSTRAPPING_AAD_RESOURCE:-$AKS_AAD_SERVER_APP_ID} --apiserver-fqdn=${API_SERVER_NAME} --cloud-provider-config=${AZURE_JSON_PATH}"
+    if [ -n "${SECURE_TLS_BOOTSTRAPPING_USER_ASSIGNED_IDENTITY_ID}" ]; then
+        BOOTSTRAP_CLIENT_FLAGS="${BOOTSTRAP_CLIENT_FLAGS} --user-assigned-identity-id=$SECURE_TLS_BOOTSTRAPPING_USER_ASSIGNED_IDENTITY_ID"
+    fi
+
     mkdir -p "$(dirname "${SECURE_TLS_BOOTSTRAPPING_DROP_IN}")"
     touch "${SECURE_TLS_BOOTSTRAPPING_DROP_IN}"
     chmod 0600 "${SECURE_TLS_BOOTSTRAPPING_DROP_IN}"
@@ -544,7 +512,7 @@ configureAndStartSecureTLSBootstrapping() {
 [Unit]
 Before=kubelet.service
 [Service]
-Environment="BOOTSTRAP_FLAGS=--aad-resource=${CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_SERVER_APP_ID:-$AKS_AAD_SERVER_APP_ID} --apiserver-fqdn=${API_SERVER_NAME} --cloud-provider-config=${AZURE_JSON_PATH}"
+Environment="BOOTSTRAP_FLAGS=${BOOTSTRAP_CLIENT_FLAGS}"
 [Install]
 # once bootstrap tokens are no longer a fallback, kubelet.service needs to be a RequiredBy=
 WantedBy=kubelet.service
@@ -557,14 +525,16 @@ EOF
 }
 
 configureKubeletAndKubectl() {
-    # Install kubelet and kubectl binaries from URL for Network Isolated, Custom Kube binary, and Private Kube binary
-    if [ -n "${CUSTOM_KUBE_BINARY_DOWNLOAD_URL}" ] || [ -n "${PRIVATE_KUBE_BINARY_DOWNLOAD_URL}" ] || [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
+    # Install kubelet and kubectl binaries from URL for Custom Kube binary and Private Kube binary
+    if [ -n "${CUSTOM_KUBE_BINARY_DOWNLOAD_URL}" ] || [ -n "${PRIVATE_KUBE_BINARY_DOWNLOAD_URL}" ]; then
         logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromURL" installKubeletKubectlFromURL
     # only install kube pkgs from pmc if k8s version >= 1.34.0 or skip_bypass_k8s_version_check is true
     elif [ "${SHOULD_ENFORCE_KUBE_PMC_INSTALL}" != "true" ] && ! semverCompare ${KUBERNETES_VERSION:-"0.0.0"} "1.34.0"; then
         logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromURL" installKubeletKubectlFromURL
     else
-        if isMarinerOrAzureLinux "$OS"; then
+        if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ] ; then
+            logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromBootstrapProfileRegistry" "installKubeletKubectlFromBootstrapProfileRegistry ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ${KUBERNETES_VERSION}"
+        elif isMarinerOrAzureLinux "$OS"; then
             if [ "$OS_VERSION" = "2.0" ]; then
                 # we do not publish packages to PMC for azurelinux V2
                 logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromURL" installKubeletKubectlFromURL
@@ -573,8 +543,48 @@ configureKubeletAndKubectl() {
             fi
         elif [ "${OS}" = "${UBUNTU_OS_NAME}" ]; then
             logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlPkgFromPMC" "installKubeletKubectlPkgFromPMC ${KUBERNETES_VERSION}"
+        elif [ "${OS}" = "${FLATCAR_OS_NAME}" ]; then
+            logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromURL" installKubeletKubectlFromURL
         fi
     fi
+}
+
+ensurePodInfraContainerImage() {
+    POD_INFRA_CONTAINER_IMAGE_DOWNLOAD_DIR="/opt/pod-infra-container-image/downloads"
+    POD_INFRA_CONTAINER_IMAGE_TAR="/opt/pod-infra-container-image/pod-infra-container-image.tar"
+
+    pod_infra_container_image=$(get_sandbox_image)
+
+    echo "Checking if $pod_infra_container_image already exists locally..."
+    if ctr -n k8s.io images list -q | grep -q "^${pod_infra_container_image}$"; then
+        echo "Image $pod_infra_container_image already exists locally, skipping pull"
+        echo "Cached image details:"
+        return 0
+    fi
+    base_name="${pod_infra_container_image%@:*}"
+    base_name="${pod_infra_container_image%:*}"
+    tag="local"
+
+    image="${pod_infra_container_image//mcr.microsoft.com/${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}}"
+    acr_url=$(echo "$image" | cut -d/ -f1)
+
+    mkdir -p ${POD_INFRA_CONTAINER_IMAGE_DOWNLOAD_DIR}
+
+    echo "Pulling with authentication for $image"
+    retrycmd_cp_oci_layout_with_oras 10 5 "${POD_INFRA_CONTAINER_IMAGE_DOWNLOAD_DIR}" "$tag" "$image" || exit $ERR_PULL_POD_INFRA_CONTAINER_IMAGE
+
+    tar -cvf ${POD_INFRA_CONTAINER_IMAGE_TAR} -C ${POD_INFRA_CONTAINER_IMAGE_DOWNLOAD_DIR} .
+    if ctr -n k8s.io image import --base-name $base_name ${POD_INFRA_CONTAINER_IMAGE_TAR}; then
+        ctr -n k8s.io image tag "${base_name}:${tag}" "${pod_infra_container_image}"
+        echo "Successfully imported $pod_infra_container_image"
+        labelContainerImage "${pod_infra_container_image}" "io.cri-containerd.pinned" "pinned"
+    else
+        echo "Failed to import $pod_infra_container_image"
+        exit $ERR_PULL_POD_INFRA_CONTAINER_IMAGE
+    fi
+
+    rm -rf ${POD_INFRA_CONTAINER_IMAGE_DOWNLOAD_DIR}
+    rm -f ${POD_INFRA_CONTAINER_IMAGE_TAR}
 }
 
 ensureKubelet() {
@@ -661,7 +671,7 @@ current-context: bootstrap-context
 EOF
     else
         echo "generating kubeconfig referencing the provided kubelet client certificate"
-        
+
         KUBECONFIG_FILE=/var/lib/kubelet/kubeconfig
         mkdir -p "$(dirname "${KUBECONFIG_FILE}")"
         touch "${KUBECONFIG_FILE}"
@@ -689,7 +699,7 @@ EOF
     fi
 
     set -x
-    
+
     KUBELET_RUNTIME_CONFIG_SCRIPT_FILE=/opt/azure/containers/kubelet.sh
     tee "${KUBELET_RUNTIME_CONFIG_SCRIPT_FILE}" > /dev/null <<EOF
 #!/bin/bash
@@ -726,7 +736,27 @@ EOF
     if [[ $KUBELET_FLAGS == *"image-credential-provider-config"* && $KUBELET_FLAGS == *"image-credential-provider-bin-dir"* ]]; then
         echo "Configure credential provider for both image-credential-provider-config and image-credential-provider-bin-dir flags are specified in KUBELET_FLAGS"
         logs_to_events "AKS.CSE.ensureKubelet.configCredentialProvider" configCredentialProvider
-        logs_to_events "AKS.CSE.ensureKubelet.installCredentialProvider" installCredentialProvider
+        if { [ "${SHOULD_ENFORCE_KUBE_PMC_INSTALL}" != "true" ] && ! semverCompare ${KUBERNETES_VERSION:-"0.0.0"} "1.34.0"; }; then
+            logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromUrl" installCredentialProviderFromUrl
+        else
+            if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ] ; then
+                # For network isolated clusters, try distro packages first and fallback to binary installation
+                logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromBootstrapProfileRegistry" installCredentialProviderPackageFromBootstrapProfileRegistry ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ${KUBERNETES_VERSION}
+            elif isMarinerOrAzureLinux "$OS"; then
+                if [ "$OS_VERSION" = "2.0" ]; then # PMC package installation not supported for AzureLinux V2, only V3
+                    logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromUrl" installCredentialProviderFromUrl
+                else
+                    logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromPMC" "installCredentialProviderFromPMC ${KUBERNETES_VERSION}"
+                fi
+            else
+                logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromPMC" "installCredentialProviderFromPMC ${KUBERNETES_VERSION}"
+            fi
+        fi
+    fi
+
+    # kubelet cannot pull pause image from anonymous disabled registry during runtime
+    if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
+        logs_to_events "AKS.CSE.ensureKubelet.ensurePodInfraContainerImage" ensurePodInfraContainerImage
     fi
 
     # start measure-tls-bootstrapping-latency.service without waiting for the main process to start, while ignoring any failures
@@ -846,38 +876,19 @@ configAzurePolicyAddon() {
 configGPUDrivers() {
     if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
         mkdir -p /opt/{actions,gpu}
-        if [ "${CONTAINER_RUNTIME}" = "containerd" ]; then
-            # if target cloud is AzureUSGovernmentCloud or AzureChinaCloud, and NVIDIA_DRIVER_IMAGE contains GRID then use the specific 535 NVIDIA driver image
-            # this is being added because of the host driver in Fairfax is not compatible with the 550 guest drivers now
-            # It can be removed and synced with 550/other clouds, once it is moved to a compatible host driver (check with the HPC team)
-            # Convert to lowercase for case-insensitive comparison
-            NVIDIA_DRIVER_IMAGE_LOWER=$(echo "$NVIDIA_DRIVER_IMAGE" | tr '[:upper:]' '[:lower:]')
-            if { [ "${TARGET_CLOUD}" = "AzureUSGovernmentCloud" ] || [ "${TARGET_CLOUD}" = "AzureChinaCloud" ]; } && [ "${NVIDIA_DRIVER_IMAGE_LOWER#*grid}" != "$NVIDIA_DRIVER_IMAGE_LOWER" ]; then
-                NVIDIA_DRIVER_IMAGE_TAG="535.161.08-20250325114356"
-            fi
-
-            ctr -n k8s.io image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
-            retrycmd_if_failure 5 10 600 bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install"
-            ret=$?
-            if [ "$ret" -ne 0 ]; then
-                echo "Failed to install GPU driver, exiting..."
-                exit $ERR_GPU_DRIVERS_START_FAIL
-            fi
-            ctr -n k8s.io images rm --sync $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
-        else
-            bash -c "$DOCKER_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG install" 
-            ret=$?
-            if [ "$ret" -ne 0 ]; then
-                echo "Failed to install GPU driver, exiting..."
-                exit $ERR_GPU_DRIVERS_START_FAIL
-            fi
-            docker rmi $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
+        ctr -n k8s.io image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
+        retrycmd_if_failure 5 10 600 bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install"
+        ret=$?
+        if [ "$ret" -ne 0 ]; then
+            echo "Failed to install GPU driver, exiting..."
+            exit $ERR_GPU_DRIVERS_START_FAIL
         fi
+        ctr -n k8s.io images rm --sync $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
     elif isMarinerOrAzureLinux "$OS" && ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
         downloadGPUDrivers
         installNvidiaContainerToolkit
         enableNvidiaPersistenceMode
-    else 
+    else
         echo "os $OS $OS_VARIANT not supported at this time. skipping configGPUDrivers"
         exit 1
     fi
@@ -890,12 +901,8 @@ configGPUDrivers() {
     if isMarinerOrAzureLinux "$OS"; then
         createNvidiaSymlinkToAllDeviceNodes
     fi
-    
-    if [ "${CONTAINER_RUNTIME}" = "containerd" ]; then
-        retrycmd_if_failure 120 5 25 pkill -SIGHUP containerd || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    else
-        retrycmd_if_failure 120 5 25 pkill -SIGHUP dockerd || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    fi
+
+    retrycmd_if_failure 120 5 25 pkill -SIGHUP containerd || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
 }
 
 validateGPUDrivers() {
@@ -904,7 +911,7 @@ validateGPUDrivers() {
     fi
 
     retrycmd_if_failure 24 5 25 nvidia-modprobe -u -c0 && echo "gpu driver loaded" || configGPUDrivers || exit $ERR_GPU_DRIVERS_START_FAIL
-    
+
     if which nvidia-smi; then
         SMI_RESULT=$(retrycmd_if_failure 24 5 300 nvidia-smi)
     else
@@ -958,7 +965,55 @@ setupAmdAma() {
 }
 
 disableSSH() {
+    # On ubuntu, the ssh service is named "ssh.service"
     systemctlDisableAndStop ssh || exit $ERR_DISABLE_SSH
+    # On AzureLinux, the ssh service is named "sshd.service"
+    systemctlDisableAndStop sshd || exit $ERR_DISABLE_SSH
+}
+
+configureSSHPubkeyAuth() {
+  local disable_pubkey_auth="$1"
+  local ssh_use_pubkey_auth
+
+  # Determine the desired pubkey auth setting
+  if [ "${disable_pubkey_auth}" = "true" ]; then
+    ssh_use_pubkey_auth="no"
+  else
+    ssh_use_pubkey_auth="yes"
+  fi
+  local SSHD_CONFIG="/etc/ssh/sshd_config"
+  local TMP
+  TMP="$(mktemp)"
+
+  # AAD SSH extension will append following section to the end of sshd_config,
+  # so we need to check the "Match" section, and only update "PubkeyAuthentication" outside of it.
+  # Match User *@*,????????-????-????-????-????????????    # Added by aadsshlogin installer
+  # AuthenticationMethods publickey
+  # PubkeyAuthentication yes
+  # AuthorizedKeysCommand /usr/sbin/aad_certhandler %u %k
+  # AuthorizedKeysCommandUser root
+  awk -v desired="$ssh_use_pubkey_auth" '
+    BEGIN { in_match=0; replaced=0; inserted=0 }
+    /^Match([[:space:]]|$)/ {
+      if (!replaced && !inserted) { print "PubkeyAuthentication " desired; inserted=1 }
+      in_match=1; print; next
+    }
+    (!in_match) && /^[[:space:]]*PubkeyAuthentication[[:space:]]+/ {
+      print "PubkeyAuthentication " desired; replaced=1; next
+    }
+    { print }
+    END { if (!replaced && !inserted) print "PubkeyAuthentication " desired }
+  ' "$SSHD_CONFIG" > "$TMP"
+
+  # Validate the candidate config
+  sudo sshd -t -f "$TMP" || { rm -f "$TMP"; exit $ERR_CONFIG_PUBKEY_AUTH_SSH; }
+
+  # Replace the original with the candidate (permissions 644, owned by root)
+  sudo install -m 644 -o root -g root "$TMP" "$SSHD_CONFIG"
+  rm -f "$TMP"
+
+  # Reload sshd
+  sudo systemctl reload sshd || sudo systemctl restart sshd || exit $ERR_CONFIG_PUBKEY_AUTH_SSH
 }
 
 configCredentialProvider() {
@@ -1064,6 +1119,94 @@ enableLocalDNS() {
 
     # Enabling localdns succeeded.
     echo "Enable localdns succeeded."
+}
+
+# localdns corefile used by localdns systemd unit.
+LOCALDNS_COREFILE="/opt/azure/containers/localdns/localdns.corefile"
+# localdns slice file used by localdns systemd unit.
+LOCALDNS_SLICEFILE="/etc/systemd/system/localdns.slice"
+# This function is called from cse_main.sh.
+# It creates the localdns corefile and slicefile, then enables and starts localdns.
+# In this function, generated base64 encoded localdns corefile is decoded and written to the corefile path.
+# This function also creates the localdns slice file with memory and cpu limits, that will be used by localdns systemd unit.
+shouldEnableLocalDns() {
+    mkdir -p "$(dirname "${LOCALDNS_COREFILE}")"
+    touch "${LOCALDNS_COREFILE}"
+    chmod 0644 "${LOCALDNS_COREFILE}"
+    echo "${LOCALDNS_GENERATED_COREFILE}" | base64 -d > "${LOCALDNS_COREFILE}" || exit $ERR_LOCALDNS_FAIL
+
+	mkdir -p "$(dirname "${LOCALDNS_SLICEFILE}")"
+    touch "${LOCALDNS_SLICEFILE}"
+    chmod 0644 "${LOCALDNS_SLICEFILE}"
+    cat > "${LOCALDNS_SLICEFILE}" <<EOF
+[Unit]
+Description=localdns Slice
+DefaultDependencies=no
+Before=slices.target
+Requires=system.slice
+After=system.slice
+[Slice]
+MemoryMax=${LOCALDNS_MEMORY_LIMIT}
+CPUQuota=${LOCALDNS_CPU_LIMIT}
+EOF
+
+    echo "localdns should be enabled."
+    systemctlEnableAndStart localdns 30 || exit $ERR_LOCALDNS_FAIL
+    echo "Enable localdns succeeded."
+}
+
+startNvidiaManagedExpServices() {
+    # 1. Start the nvidia-device-plugin service.
+    # Create systemd override directory to configure device plugin
+    NVIDIA_DEVICE_PLUGIN_OVERRIDE_DIR="/etc/systemd/system/nvidia-device-plugin.service.d"
+    mkdir -p "${NVIDIA_DEVICE_PLUGIN_OVERRIDE_DIR}"
+
+    if [ "${MIG_NODE}" = "true" ]; then
+        # Configure with MIG strategy for MIG nodes
+        tee "${NVIDIA_DEVICE_PLUGIN_OVERRIDE_DIR}/10-device-plugin-config.conf" > /dev/null <<'EOF'
+[Service]
+Environment="MIG_STRATEGY=--mig-strategy single"
+ExecStart=
+ExecStart=/usr/bin/nvidia-device-plugin $MIG_STRATEGY --pass-device-specs
+EOF
+    else
+        # Configure with pass-device-specs for non-MIG nodes
+        tee "${NVIDIA_DEVICE_PLUGIN_OVERRIDE_DIR}/10-device-plugin-config.conf" > /dev/null <<'EOF'
+[Service]
+ExecStart=
+ExecStart=/usr/bin/nvidia-device-plugin --pass-device-specs
+EOF
+    fi
+
+    # Reload systemd to pick up the override
+    systemctl daemon-reload
+
+    logs_to_events "AKS.CSE.start.nvidia-device-plugin" "systemctlEnableAndStart nvidia-device-plugin 30" || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
+
+    # 2. Start the nvidia-dcgm service.
+    logs_to_events "AKS.CSE.start.nvidia-dcgm" "systemctlEnableAndStart nvidia-dcgm 30" || exit $ERR_NVIDIA_DCGM_FAIL
+
+    # 3. Start the nvidia-dcgm-exporter service.
+    # Create systemd drop-in directory for nvidia-dcgm-exporter service
+    DCGM_EXPORTER_OVERRIDE_DIR="/etc/systemd/system/nvidia-dcgm-exporter.service.d"
+    mkdir -p "${DCGM_EXPORTER_OVERRIDE_DIR}"
+
+    # Create drop-in file to override service configuration
+    tee "${DCGM_EXPORTER_OVERRIDE_DIR}/10-aks-override.conf" > /dev/null <<EOF
+[Service]
+# Remove file-based logging - let systemd handle logs
+StandardOutput=journal
+StandardError=journal
+# Change default port from 9400 to 19400 so that it does not conflict with user installed dcgm-exporter
+ExecStart=
+ExecStart=/usr/bin/dcgm-exporter -f /etc/dcgm-exporter/default-counters.csv --address ":19400"
+EOF
+
+    # Reload systemd to apply the override configuration
+    systemctl daemon-reload
+
+    # Start the nvidia-dcgm-exporter service.
+    logs_to_events "AKS.CSE.start.nvidia-dcgm-exporter" "systemctlEnableAndStart nvidia-dcgm-exporter 30" || exit $ERR_NVIDIA_DCGM_EXPORTER_FAIL
 }
 
 #EOF

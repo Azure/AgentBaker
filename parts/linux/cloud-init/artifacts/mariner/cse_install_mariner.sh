@@ -29,7 +29,7 @@ installDeps() {
       echo "Installing mariner-repos-cloud-native"
       dnf_install 30 1 600 mariner-repos-cloud-native
     fi
-    
+
     dnf_makecache || exit $ERR_APT_UPDATE_TIMEOUT
     dnf_update || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
     for dnf_package in ca-certificates check-restart cifs-utils cloud-init-azure-kvp conntrack-tools cracklib dnf-automatic ebtables ethtool fuse inotify-tools iotop iproute ipset iptables jq logrotate lsof nmap-ncat nfs-utils pam pigz psmisc rsyslog socat sysstat traceroute util-linux xz zip blobfuse2 nftables iscsi-initiator-utils device-mapper-multipath; do
@@ -118,7 +118,7 @@ installNvidiaContainerToolkit() {
 
     # The following packages need to be installed in this sequence because:
     # - libnvidia-container packages are required by nvidia-container-toolkit
-    # - nvidia-container-toolkit-base provides nvidia-ctk that is used to generate the nvidia container runtime config 
+    # - nvidia-container-toolkit-base provides nvidia-ctk that is used to generate the nvidia container runtime config
     #   during the posttrans phase of nvidia-container-toolkit package installation
     for nvidia_package in libnvidia-container1-${MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION} libnvidia-container-tools-${MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION} nvidia-container-toolkit-base-${MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION} nvidia-container-toolkit-${MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION}; do
       if ! dnf_install 30 1 600 $nvidia_package; then
@@ -131,7 +131,7 @@ installNvidiaContainerToolkit() {
 enableNvidiaPersistenceMode() {
     PERSISTENCED_SERVICE_FILE_PATH="/etc/systemd/system/nvidia-persistenced.service"
     touch ${PERSISTENCED_SERVICE_FILE_PATH}
-    cat << EOF > ${PERSISTENCED_SERVICE_FILE_PATH} 
+    cat << EOF > ${PERSISTENCED_SERVICE_FILE_PATH}
 [Unit]
 Description=NVIDIA Persistence Daemon
 Wants=syslog.target
@@ -150,10 +150,194 @@ EOF
     systemctl restart nvidia-persistenced.service || exit 1
 }
 
+installCredentialProviderFromPMC() {
+    k8sVersion="${1:-}"
+    os=${AZURELINUX_OS_NAME}
+    if [ -z "$OS_VERSION" ]; then
+        os=${OS}
+        os_version="current"
+    else
+        os_version="${OS_VERSION}"
+    fi
+   	PACKAGE_VERSION=""
+    getLatestPkgVersionFromK8sVersion "$k8sVersion" "azure-acr-credential-provider-pmc" "$os" "$os_version"
+    packageVersion=$(echo $PACKAGE_VERSION | cut -d "-" -f 1)
+	echo "installing azure-acr-credential-provider package version: $packageVersion"
+    mkdir -p "${CREDENTIAL_PROVIDER_BIN_DIR}"
+    chown -R root:root "${CREDENTIAL_PROVIDER_BIN_DIR}"
+    installRPMPackageFromFile "azure-acr-credential-provider" "${packageVersion}" || exit $ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT
+    mv "/usr/local/bin/azure-acr-credential-provider" "$CREDENTIAL_PROVIDER_BIN_DIR/acr-credential-provider"
+}
+
 installKubeletKubectlPkgFromPMC() {
     local desiredVersion="${1}"
 	  installRPMPackageFromFile "kubelet" $desiredVersion || exit $ERR_KUBELET_INSTALL_FAIL
     installRPMPackageFromFile "kubectl" $desiredVersion || exit $ERR_KUBECTL_INSTALL_FAIL
+}
+
+installToolFromLocalRepo() {
+    local tool_name=$1
+    local tool_download_dir=$2
+
+    # Verify the download directory exists and contains repository metadata
+    if [ ! -d "${tool_download_dir}" ]; then
+        echo "Download directory ${tool_download_dir} does not exist"
+        return 1
+    fi
+
+    # Check if this is a self-contained local repository (has Packages.gz or repodata)
+    if [ ! -d "${tool_download_dir}/repodata" ]; then
+        echo "No valid repository metadata found in ${tool_download_dir}"
+        return 1
+    fi
+
+    # Create a temporary repo configuration for the local directory
+    local repo_name="local-${tool_name}-repo"
+    local repo_file="/etc/yum.repos.d/${repo_name}.repo"
+
+    echo "Setting up local repository from ${tool_download_dir}"
+
+    # Create the repo file
+    cat > "${repo_file}" <<EOF
+[${repo_name}]
+name=Local ${tool_name} Repository
+baseurl=file://${tool_download_dir}
+enabled=1
+gpgcheck=0
+skip_if_unavailable=1
+EOF
+
+    # Update DNF cache for the new repository
+    echo "Updating DNF cache for local repository"
+    dnf makecache --disablerepo='*' --enablerepo="${repo_name}" || {
+        echo "Failed to update DNF cache for local repository"
+        rm -f "${repo_file}"
+        return 1
+    }
+
+    # Install the package from the local repository
+    echo "Installing ${tool_name} from local repository"
+    if ! dnf_install 30 1 600 ${tool_name} --disablerepo='*' --enablerepo="${repo_name}"; then
+        echo "Failed to install ${tool_name} from local repository"
+        rm -f "${repo_file}"
+        return 1
+    fi
+
+    # Clean up the temporary repo file
+    rm -f "${repo_file}"
+
+    # Clean up the download directory
+    rm -rf "${tool_download_dir}"
+
+    echo "Successfully installed ${tool_name} from local repository"
+    return 0
+}
+
+installCredentialProviderPackageFromBootstrapProfileRegistry() {
+    bootstrapProfileRegistry="$1"
+    k8sVersion="${2:-}"
+
+    os=${AZURELINUX_OS_NAME}
+    if [ -z "$OS_VERSION" ]; then
+        os=${OS}
+        os_version="current"
+    else
+        os_version="${OS_VERSION}"
+    fi
+    PACKAGE_VERSION=""
+    getLatestPkgVersionFromK8sVersion "$k8sVersion" "azure-acr-credential-provider-pmc" "$os" "$os_version"
+    packageVersion=$(echo $PACKAGE_VERSION | cut -d "-" -f 1)
+    if [ -z "$packageVersion" ]; then
+        packageVersion=$(echo "$CREDENTIAL_PROVIDER_DOWNLOAD_URL" | grep -oP 'v\d+(\.\d+)*' | sed 's/^v//' | head -n 1)
+        if [ -z "$packageVersion" ]; then
+            echo "Failed to determine package version for azure-acr-credential-provider"
+            return $ERR_ORAS_PULL_CREDENTIAL_PROVIDER
+        fi
+    fi
+    echo "installing azure-acr-credential-provider package version: $packageVersion"
+    mkdir -p "${CREDENTIAL_PROVIDER_BIN_DIR}"
+    chown -R root:root "${CREDENTIAL_PROVIDER_BIN_DIR}"
+    if ! installToolFromBootstrapProfileRegistry "azure-acr-credential-provider" $bootstrapProfileRegistry "${packageVersion}" "${CREDENTIAL_PROVIDER_BIN_DIR}/acr-credential-provider"; then
+        if [ "${SHOULD_ENFORCE_KUBE_PMC_INSTALL}" != "true" ] ; then
+            # SHOULD_ENFORCE_KUBE_PMC_INSTALL will only be set for e2e tests, which should not fallback to reflect result of package installation behavior
+            echo "Fall back to install credential provider from url installation"
+            installCredentialProviderFromUrl
+        else
+            echo "Failed to install credential provider from bootstrap profile registry, and not falling back to package installation"
+            exit $ERR_ORAS_PULL_CREDENTIAL_PROVIDER
+        fi
+    fi
+}
+
+updateDnfWithNvidiaPkg() {
+  if [ "$OS_VERSION" != "3.0" ]; then
+    echo "NVIDIA repo setup is only supported on Azure Linux 3.0"
+    return
+  fi
+
+  local cpu_arch=$(getCPUArch) # Returns amd64 or arm64
+  local repo_arch=""
+
+  if [ "$cpu_arch" = "amd64" ]; then
+    repo_arch="x86_64"
+  elif [ "$cpu_arch" = "arm64" ]; then
+    repo_arch="sbsa"
+  else
+    echo "Unsupported CPU architecture: $cpu_arch"
+    return
+  fi
+
+  readonly nvidia_repo_path="/etc/yum.repos.d/nvidia-built-azurelinux.repo"
+  local nvidia_repo_url="https://developer.download.nvidia.com/compute/cuda/repos/azl3/${repo_arch}/cuda-azl3.repo"
+  retrycmd_curl_file 120 5 25 ${nvidia_repo_path} ${nvidia_repo_url} || exit $ERR_NVIDIA_AZURELINUX_REPO_FILE_DOWNLOAD_TIMEOUT
+  dnf_makecache || exit $ERR_APT_UPDATE_TIMEOUT
+}
+
+isPackageInstalled() {
+    local packageName="${1}"
+    if rpm -q "${packageName}" &>/dev/null; then
+        return 0  # Package is installed
+    else
+        return 1  # Package is not installed
+    fi
+}
+
+managedGPUPackageList() {
+    packages=(
+        nvidia-device-plugin
+        datacenter-gpu-manager-4-core
+        datacenter-gpu-manager-4-proprietary
+        dcgm-exporter
+    )
+    echo "${packages[@]}"
+}
+
+installNvidiaManagedExpPkgFromCache() {
+  if [ "$OS_VERSION" != "3.0" ]; then
+    echo "Managed NVIDIA GPU experience is only supported on Azure Linux 3.0"
+    return
+  fi
+
+  # Ensure kubelet device-plugins directory exists BEFORE package installation
+  mkdir -p /var/lib/kubelet/device-plugins
+
+  for packageName in $(managedGPUPackageList); do
+    downloadDir="/opt/${packageName}/downloads"
+    if isPackageInstalled "${packageName}"; then
+      echo "${packageName} is already installed, skipping."
+      rm -rf $(dirname ${downloadDir})
+      continue
+    fi
+
+    rpmFile=$(find "${downloadDir}" -maxdepth 1 -name "${packageName}*" -print -quit 2>/dev/null) || rpmFile=""
+    if [ -z "${rpmFile}" ]; then
+      echo "Failed to locate ${packageName} rpm"
+      exit $ERR_MANAGED_NVIDIA_EXP_INSTALL_FAIL
+    fi
+
+    logs_to_events "AKS.CSE.install${packageName}.dnf_install" "dnf_install 30 1 600 ${rpmFile}" || exit $ERR_APT_INSTALL_TIMEOUT
+    rm -rf $(dirname ${downloadDir})
+  done
 }
 
 installRPMPackageFromFile() {
@@ -165,9 +349,8 @@ installRPMPackageFromFile() {
 
     rpmFile=$(find "${downloadDir}" -maxdepth 1 -name "${packagePrefix}" -print -quit 2>/dev/null) || rpmFile=""
     if [ -z "${rpmFile}" ]; then
-        tdnf_update || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
         # query all package versions and get the latest version for matching k8s version
-        fullPackageVersion=$(tdnf list ${packageName} | grep ${desiredVersion}- | awk '{print $2}' | sort -V | tail -n 1)
+        fullPackageVersion=$(dnf list ${packageName} --showduplicates | grep ${desiredVersion}- | awk '{print $2}' | sort -V | tail -n 1)
         if [ -z "${fullPackageVersion}" ]; then
             echo "Failed to find valid ${packageName} version for ${desiredVersion}"
             exit 1
@@ -181,11 +364,11 @@ installRPMPackageFromFile() {
         exit 1
     fi
 
-    if ! tdnf_install 30 1 600 ${rpmFile}; then
+    if ! dnf_install 30 1 600 ${rpmFile}; then
         exit $ERR_APT_INSTALL_TIMEOUT
     fi
     mv "/usr/bin/${packageName}" "/usr/local/bin/${packageName}"
-	rm -rf ${downloadDir} &
+	rm -rf ${downloadDir}
 }
 
 downloadPkgFromVersion() {
@@ -193,7 +376,7 @@ downloadPkgFromVersion() {
     packageVersion="${2:-}"
     downloadDir="${3:-"/opt/${packageName}/downloads"}"
     mkdir -p ${downloadDir}
-    tdnf_download 30 1 600 ${downloadDir} ${packageName}=${packageVersion} || exit $ERR_APT_INSTALL_TIMEOUT
+    dnf_download 30 1 600 ${downloadDir} ${packageName}-${packageVersion} || exit $ERR_APT_INSTALL_TIMEOUT
     echo "Succeeded to download ${packageName} version ${packageVersion}"
 }
 
@@ -204,9 +387,9 @@ installStandaloneContainerd() {
     # azure-built runtimes have a "+azure" suffix in their version strings (i.e 1.4.1+azure). remove that here.
     # check if containerd command is available before running it
     if command -v containerd &> /dev/null; then
-        CURRENT_VERSION=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)    
+        CURRENT_VERSION=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)
     fi
-    # v1.4.1 is our lowest supported version of containerd    
+    # v1.4.1 is our lowest supported version of containerd
     if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${desiredVersion}; then
         echo "currently installed containerd version ${CURRENT_VERSION} is greater than (or equal to) target base version ${desiredVersion}. skipping installStandaloneContainerd."
     else
@@ -219,7 +402,7 @@ installStandaloneContainerd() {
         if [ "$OS_VERSION" = "3.0" ]; then
             containerdPackageName="containerd2-${desiredVersion}"
         fi
-        
+
         # TODO: tie runc to r92 once that's possible on Mariner's pkg repo and if we're still using v1.linux shim
         if ! dnf_install 30 1 600 $containerdPackageName; then
             exit $ERR_CONTAINERD_INSTALL_TIMEOUT
@@ -238,7 +421,11 @@ ensureRunc() {
 }
 
 cleanUpGPUDrivers() {
-    rm -Rf $GPU_DEST /opt/gpu
+  rm -Rf $GPU_DEST /opt/gpu
+
+  for packageName in $(managedGPUPackageList); do
+    rm -rf "/opt/${packageName}"
+  done
 }
 
 downloadContainerdFromVersion() {

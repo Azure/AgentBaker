@@ -17,8 +17,8 @@ shopt -s nullglob nocaseglob extglob
 
 # Fetch configuration from IMDS - expected is a JSON object in the aks-log-collector tag
 # JSON body:
-# { 
-#   "disable": false, 
+# {
+#   "disable": false,
 #   "files": [ "/etc/skel/.bashrc", "/etc/skel/.bash_profile" ],
 #   "pod_log_namespaces": [ "default", "pahealy" ],
 #   "iptables": false,
@@ -209,6 +209,11 @@ collectToZip collect/lsvmbus.txt lsvmbus -vv
 collectToZip collect/sysctl.txt sysctl -a
 collectToZip collect/systemctl-status.txt systemctl status --all -fr
 
+# Collect logs of the Nvidia services if present
+collectToZip collect/journalctl_nvidia-dcgm.txt journalctl -u nvidia-dcgm --no-pager
+collectToZip collect/journalctl_nvidia-dcgm-exporter.txt journalctl -u nvidia-dcgm-exporter --no-pager
+collectToZip collect/journalctl_nvidia-device-plugin.txt journalctl -u nvidia-device-plugin --no-pager
+
 # Collect container runtime information
 collectToZip collect/crictl_version.txt crictl version
 collectToZip collect/crictl_info.json crictl info -o json
@@ -278,7 +283,7 @@ if [ "${COLLECT_NETNS}" = "true" ]; then
 fi
 
 # Add each file sequentially to the zip archive. This is slightly less efficient then adding them
-# all at once, but allows us to easily check when we've exceeded the maximum file size and stop 
+# all at once, but allows us to easily check when we've exceeded the maximum file size and stop
 # adding things to the archive.
 echo "Adding log files to zip archive..."
 for file in ${GLOBS[*]}; do

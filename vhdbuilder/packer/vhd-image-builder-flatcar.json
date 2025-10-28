@@ -79,16 +79,8 @@
       "type": "shell",
       "inline": [
         "sudo mkdir -p /opt/azure/containers",
-        "sudo chown -R $USER /opt/azure/containers"
-      ]
-    },
-    {
-      "type": "shell",
-      "inline": [
         "sudo mkdir -p /opt/scripts",
-        "sudo chown -R $USER /opt/scripts",
-        "sudo mkdir -p /opt/certs",
-        "sudo chown -R $USER /opt/certs"
+        "sudo mkdir -p /opt/certs"
       ]
     },
     {
@@ -398,6 +390,11 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/faillock-CIS.conf",
+      "destination": "/home/packer/faillock-CIS.conf"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/pwquality-CIS.conf",
       "destination": "/home/packer/pwquality-CIS.conf"
     },
@@ -410,6 +407,11 @@
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/pam-d-common-auth",
       "destination": "/home/packer/pam-d-common-auth"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/pam-d-common-account",
+      "destination": "/home/packer/pam-d-common-account"
     },
     {
       "type": "file",
@@ -490,6 +492,11 @@
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/ci-syslog-watcher.sh",
       "destination": "/home/packer/ci-syslog-watcher.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/aks-diagnostic.py",
+      "destination": "/home/packer/aks-diagnostic.py"
     },
     {
       "type": "file",
@@ -595,11 +602,6 @@
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/nvidia-docker-daemon.json",
       "destination": "/home/packer/nvidia-docker-daemon.json"
-    },
-    {
-      "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/nvidia-device-plugin.service",
-      "destination": "/home/packer/nvidia-device-plugin.service"
     },
     {
       "type": "file",

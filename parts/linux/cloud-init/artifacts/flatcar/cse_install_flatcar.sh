@@ -32,4 +32,9 @@ cleanUpGPUDrivers() {
     rm -Rf $GPU_DEST /opt/gpu
 }
 
+installToolFromLocalRepo() {
+    stub
+    return 1
+}
+
 #EOF

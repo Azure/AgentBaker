@@ -145,9 +145,11 @@ func (k *Kubeclient) WaitUntilPodRunning(ctx context.Context, namespace string, 
 	return pod, err
 }
 
-func (k *Kubeclient) WaitUntilNodeReady(ctx context.Context, t *testing.T, vmssName string) string {
+func (k *Kubeclient) WaitUntilNodeReady(ctx context.Context, t testing.TB, vmssName string) string {
+	startTime := time.Now()
 	var node *corev1.Node = nil
 	t.Logf("waiting for node %s to be ready", vmssName)
+	defer t.Logf("waited for node %s to be ready for %s", vmssName, time.Since(startTime))
 
 	watcher, err := k.Typed.CoreV1().Nodes().Watch(ctx, metav1.ListOptions{})
 	require.NoError(t, err, "failed to start watching nodes")
@@ -158,13 +160,22 @@ func (k *Kubeclient) WaitUntilNodeReady(ctx context.Context, t *testing.T, vmssN
 			continue
 		}
 
-		castNode := event.Object.(*corev1.Node)
-		if !strings.HasPrefix(castNode.Name, vmssName) {
+		var nodeFromEvent *corev1.Node
+		switch v := event.Object.(type) {
+		case *corev1.Node:
+			nodeFromEvent = v
+
+		default:
+			t.Logf("skipping object type %T", event.Object)
+			continue
+		}
+
+		if !strings.HasPrefix(nodeFromEvent.Name, vmssName) {
 			continue
 		}
 
 		// found the right node. Use it!
-		node = castNode
+		node = nodeFromEvent
 		nodeTaints, _ := json.Marshal(node.Spec.Taints)
 		nodeConditions, _ := json.Marshal(node.Status.Conditions)
 
@@ -179,7 +190,7 @@ func (k *Kubeclient) WaitUntilNodeReady(ctx context.Context, t *testing.T, vmssN
 	}
 
 	if node == nil {
-		t.Fatalf("failed to wait for %q to appear in the API server", vmssName)
+		t.Fatalf("%q haven't appeared in k8s API server", vmssName)
 		return ""
 	}
 
@@ -467,11 +478,6 @@ func getClusterSubnetID(ctx context.Context, mcResourceGroupName string) (string
 
 func podHTTPServerLinux(s *Scenario) *corev1.Pod {
 	image := "mcr.microsoft.com/cbl-mariner/busybox:2.0"
-	secretName := ""
-	if s.Tags.Airgap {
-		image = fmt.Sprintf("%s.azurecr.io/cbl-mariner/busybox:2.0", config.GetPrivateACRName(s.Tags.NonAnonymousACR, s.Location))
-		secretName = config.Config.ACRSecretName
-	}
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-test-pod", s.Runtime.KubeNodeName),
@@ -513,16 +519,6 @@ func podHTTPServerLinux(s *Scenario) *corev1.Pod {
 			NodeSelector: map[string]string{
 				"kubernetes.io/hostname": s.Runtime.KubeNodeName,
 			},
-			ImagePullSecrets: func() []corev1.LocalObjectReference {
-				if secretName == "" {
-					return nil
-				}
-				return []corev1.LocalObjectReference{
-					{
-						Name: secretName,
-					},
-				}
-			}(),
 		},
 	}
 }
@@ -536,8 +532,11 @@ func podWindows(s *Scenario, podName string, imageName string) *corev1.Pod {
 		Spec: corev1.PodSpec{
 			Containers: []corev1.Container{
 				{
-					Name:  podName,
-					Image: imageName,
+					Name:            podName,
+					Image:           imageName,
+					ImagePullPolicy: "IfNotPresent",
+					// this should exist on both servercore and nanoserve
+					Command: []string{"cmd", "/c", "ping", "-t", "localhost"},
 				},
 			},
 			NodeSelector: map[string]string{

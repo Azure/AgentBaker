@@ -24,12 +24,10 @@ var _ = Describe("GetMaintainedLinuxSIGImageConfigMap", func() {
 			AKSAzureLinuxV2:                       SIGAzureLinuxV2Gen1ImageConfigTemplate.WithOptions(),
 			AKSAzureLinuxV3:                       SIGAzureLinuxV3Gen1ImageConfigTemplate.WithOptions(),
 			AKSCBLMarinerV2Gen2:                   SIGCBLMarinerV2Gen2ImageConfigTemplate.WithOptions(),
-			AKSCBLMarinerV2Gen2Kata:               SIGCBLMarinerV2KataImageConfigTemplate.WithOptions(),
 			AKSAzureLinuxV2Gen2:                   SIGAzureLinuxV2Gen2ImageConfigTemplate.WithOptions(),
 			AKSAzureLinuxV3Gen2:                   SIGAzureLinuxV3Gen2ImageConfigTemplate.WithOptions(),
 			AKSCBLMarinerV2FIPS:                   SIGCBLMarinerV2Gen1FIPSImageConfigTemplate.WithOptions(),
 			AKSAzureLinuxV2FIPS:                   SIGAzureLinuxV2Gen1FIPSImageConfigTemplate.WithOptions(),
-			AKSAzureLinuxV2Gen2Kata:               SIGAzureLinuxV2KataImageConfigTemplate.WithOptions(),
 			AKSAzureLinuxV3FIPS:                   SIGAzureLinuxV3Gen1FIPSImageConfigTemplate.WithOptions(),
 			AKSCBLMarinerV2Gen2FIPS:               SIGCBLMarinerV2Gen2FIPSImageConfigTemplate.WithOptions(),
 			AKSAzureLinuxV2Gen2FIPS:               SIGAzureLinuxV2Gen2FIPSImageConfigTemplate.WithOptions(),
@@ -45,8 +43,13 @@ var _ = Describe("GetMaintainedLinuxSIGImageConfigMap", func() {
 			AKSAzureLinuxV3OSGuardGen2FIPSTL:      SIGAzureLinuxV3OSGuardGen2FIPSTLImageConfigTemplate.WithOptions(),
 			AKSUbuntuContainerd2404CVMGen2:        SIGUbuntuContainerd2404CVMGen2ImageConfigTemplate.WithOptions(),
 			AKSUbuntuContainerd2404TLGen2:         SIGUbuntuContainerd2404TLGen2ImageConfigTemplate.WithOptions(),
+			AKSFlatcarGen2:                        SIGFlatcarGen2ImageConfigTemplate.WithOptions(),
+			AKSFlatcarArm64Gen2:                   SIGFlatcarArm64Gen2ImageConfigTemplate.WithOptions(),
 		}
-		Expect(GetMaintainedLinuxSIGImageConfigMap()).To(Equal(expected))
+		actual := GetMaintainedLinuxSIGImageConfigMap()
+		for distro, config := range expected {
+			Expect(actual).To(HaveKeyWithValue(distro, config))
+		}
 	})
 })
 

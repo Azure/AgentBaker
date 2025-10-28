@@ -71,11 +71,15 @@ stages:
       useOverrides: False
       enableBackfillCleanup: True
       buildVmSize: Standard_D16ds_v5
+      # 2019 only supports gen1, so build that for PRs
       build2019containerd: True
-      build2022containerd: False
-      build2022containerdgen2: True
-      build23H2: False
-      build23H2gen2: True
+      # 2022 gen1 is the default, so build that for PRs
+      build2022containerd: True
+      build2022containerdgen2: False
+      # 23H2 gen1 is the default, so build that for PRs
+      build23H2: True
+      build23H2gen2: False
+      # 2025 gen2 is the default, so build that for PRs
       build2025: False
       build2025gen2: True
   - stage: delete_old_windows_vhds

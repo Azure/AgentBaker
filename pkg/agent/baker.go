@@ -409,7 +409,6 @@ func ValidateAndSetLinuxNodeBootstrappingConfiguration(config *datamodel.NodeBoo
 	if config.KubeletConfig == nil {
 		return
 	}
-	profile := config.AgentPoolProfile
 	kubeletFlags := config.KubeletConfig
 
 	// If using kubelet config file, disable DynamicKubeletConfig feature gate and remove dynamic-config-dir
@@ -417,19 +416,19 @@ func ValidateAndSetLinuxNodeBootstrappingConfiguration(config *datamodel.NodeBoo
 	delete(kubeletFlags, "--dynamic-config-dir")
 	delete(kubeletFlags, "--non-masquerade-cidr")
 
-	if profile != nil && profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntime == "containerd" {
-		dockerShimFlags := []string{
-			"--cni-bin-dir",
-			"--cni-cache-dir",
-			"--cni-conf-dir",
-			"--docker-endpoint",
-			"--image-pull-progress-deadline",
-			"--network-plugin",
-			"--network-plugin-mtu",
-		}
-		for _, flag := range dockerShimFlags {
-			delete(kubeletFlags, flag)
-		}
+	// Docker and dockershim were removed in Kubernetes 1.24
+	// These flags are no longer supported and should be removed for all configurations
+	dockerShimFlags := []string{
+		"--cni-bin-dir",
+		"--cni-cache-dir",
+		"--cni-conf-dir",
+		"--docker-endpoint",
+		"--image-pull-progress-deadline",
+		"--network-plugin",
+		"--network-plugin-mtu",
+	}
+	for _, flag := range dockerShimFlags {
+		delete(kubeletFlags, flag)
 	}
 
 	if IsKubeletServingCertificateRotationEnabled(config) {
@@ -527,14 +526,19 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return IsKubeletConfigFileEnabled(cs, profile, config.EnableKubeletConfigFile)
 		},
 		"EnableSecureTLSBootstrapping": func() bool {
-			// this will be true when we can perform TLS bootstrapping without the use of a hard-coded bootstrap token.
-			return config.EnableSecureTLSBootstrapping
+			return config.SecureTLSBootstrappingConfig.GetEnabled()
 		},
-		"GetCustomSecureTLSBootstrapAADServerAppID": func() string {
-			return config.CustomSecureTLSBootstrapAADServerAppID
+		"GetSecureTLSBootstrappingDeadline": func() string {
+			return config.SecureTLSBootstrappingConfig.GetDeadline()
 		},
-		"GetCustomSecureTLSBootstrapClientURL": func() string {
-			return config.CustomSecureTLSBootstrapClientURL
+		"GetSecureTLSBootstrappingAADResource": func() string {
+			return config.SecureTLSBootstrappingConfig.GetAADResource()
+		},
+		"GetSecureTLSBootstrappingUserAssignedIdentityID": func() string {
+			return config.SecureTLSBootstrappingConfig.GetUserAssignedIdentityID()
+		},
+		"GetCustomSecureTLSBootstrappingClientDownloadURL": func() string {
+			return config.SecureTLSBootstrappingConfig.GetCustomClientDownloadURL()
 		},
 		"GetTLSBootstrapTokenForKubeConfig": func() string {
 			return GetTLSBootstrapTokenForKubeConfig(config.KubeletClientTLSBootstrapToken)
@@ -778,26 +782,8 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"IsKubenet": func() bool {
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin == NetworkPluginKubenet
 		},
-		"NeedsContainerd": func() bool {
-			if profile != nil && profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntime != "" {
-				return profile.KubernetesConfig.NeedsContainerd()
-			}
-			return cs.Properties.OrchestratorProfile.KubernetesConfig.NeedsContainerd()
-		},
 		"UseRuncShimV2": func() bool {
 			return config.EnableRuncShimV2
-		},
-		"IsDockerContainerRuntime": func() bool {
-			if profile != nil && profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntime != "" {
-				return profile.KubernetesConfig.ContainerRuntime == datamodel.Docker
-			}
-			return cs.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntime == datamodel.Docker
-		},
-		"RequiresDocker": func() bool {
-			if profile != nil && profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntime != "" {
-				return profile.KubernetesConfig.RequiresDocker()
-			}
-			return cs.Properties.OrchestratorProfile.KubernetesConfig.RequiresDocker()
 		},
 		"HasDataDir": func() bool {
 			return HasDataDir(config)
@@ -1108,6 +1094,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"ShouldDisableSSH": func() bool {
 			return config.SSHStatus == datamodel.SSHOff
 		},
+		"ShouldTurnOffPubkeyAuthSSH": func() bool {
+			return config.SSHStatus == datamodel.EntraIDSSH
+		},
 		"GetSysctlContent": func() (string, error) {
 			templateFuncMap := make(template.FuncMap)
 			templateFuncMap["getPortRangeEndValue"] = getPortRangeEndValue
@@ -1139,6 +1128,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"IsArtifactStreamingEnabled": func() bool {
 			return config.EnableArtifactStreaming
+		},
+		"IsManagedGPUExperienceAFECEnabled": func() bool {
+			return config.ManagedGPUExperienceAFECEnabled
 		},
 		"EnableIMDSRestriction": func() bool {
 			return config.EnableIMDSRestriction
@@ -1513,18 +1505,9 @@ root = "{{GetDataDir}}"{{- end}}
 {{- if IsKata }}
 [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]
   runtime_type = "io.containerd.kata.v2"
-[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.katacli]
-  runtime_type = "io.containerd.runc.v1"
-[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.katacli.options]
-  NoPivotRoot = false
-  NoNewKeyring = false
-  ShimCgroup = ""
-  IoUid = 0
-  IoGid = 0
-  BinaryName = "/usr/bin/kata-runtime"
-  Root = ""
-  CriuPath = ""
-  SystemdCgroup = false
+  privileged_without_host_devices = true
+  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata.options]
+    ConfigPath = "/usr/share/defaults/kata-containers/configuration.toml"
 [proxy_plugins]
   [proxy_plugins.tardev]
     type = "snapshot"
@@ -1533,7 +1516,6 @@ root = "{{GetDataDir}}"{{- end}}
   snapshotter = "tardev"
   runtime_type = "io.containerd.kata-cc.v2"
   privileged_without_host_devices = true
-  pod_annotations = ["io.katacontainers.*"]
   [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-cc.options]
     ConfigPath = "/opt/confidential-containers/share/defaults/kata-containers/configuration-clh-snp.toml"
 {{- end}}
@@ -1607,30 +1589,20 @@ root = "{{GetDataDir}}"{{- end}}
     address = "/run/overlaybd-snapshotter/overlaybd.sock"
 {{- end}}
 {{- if IsKata }}
-[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata]
+[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]
   runtime_type = "io.containerd.kata.v2"
-  snapshotter = "tardev"
-  disable_snapshot_annotations = false
-[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.katacli]
-  runtime_type = "io.containerd.runc.v1"
-[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.katacli.options]
-  NoPivotRoot = false
-  NoNewKeyring = false
-  ShimCgroup = ""
-  IoUid = 0
-  IoGid = 0
-  BinaryName = "/usr/bin/kata-runtime"
-  Root = ""
-  SystemdCgroup = false
+  privileged_without_host_devices = true
+  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata.options]
+    ConfigPath = "/usr/share/defaults/kata-containers/configuration.toml"
 [proxy_plugins]
   [proxy_plugins.tardev]
     type = "snapshot"
     address = "/run/containerd/tardev-snapshotter.sock"
-[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-cc]
+[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-cc]
+  snapshotter = "tardev"
   runtime_type = "io.containerd.kata-cc.v2"
   privileged_without_host_devices = true
-  pod_annotations = ["io.katacontainers.*"]
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-cc.options]
+  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-cc.options]
     ConfigPath = "/opt/confidential-containers/share/defaults/kata-containers/configuration-clh-snp.toml"
 {{- end}}
 `
@@ -1647,7 +1619,7 @@ root = "{{GetDataDir}}"{{- end}}
   snapshotter = "overlaybd"
   disable_snapshot_annotations = false
 {{- end}}
-    
+
 [plugins."io.containerd.cri.v1.images".pinned_images]
   sandbox = "{{GetPodInfraContainerSpec}}"
 {{- if IsKubernetesVersionGe "1.22.0"}}
@@ -1691,19 +1663,11 @@ root = "{{GetDataDir}}"{{- end}}
     address = "/run/overlaybd-snapshotter/overlaybd.sock"
 {{- end}}
 {{- if IsKata }}
-[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata]
+[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]
   runtime_type = "io.containerd.kata.v2"
-[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.katacli]
-  runtime_type = "io.containerd.runc.v1"
-[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.katacli.options]
-  NoPivotRoot = false
-  NoNewKeyring = false
-  ShimCgroup = ""
-  IoUid = 0
-  IoGid = 0
-  BinaryName = "/usr/bin/kata-runtime"
-  Root = ""
-  SystemdCgroup = false
+  privileged_without_host_devices = true
+  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata.options]
+    ConfigPath = "/usr/share/defaults/kata-containers/configuration.toml"
 [proxy_plugins]
   [proxy_plugins.tardev]
     type = "snapshot"
@@ -1769,18 +1733,9 @@ root = "{{GetDataDir}}"{{- end}}
 {{- if IsKata }}
 [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]
   runtime_type = "io.containerd.kata.v2"
-[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.katacli]
-  runtime_type = "io.containerd.runc.v1"
-[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.katacli.options]
-  NoPivotRoot = false
-  NoNewKeyring = false
-  ShimCgroup = ""
-  IoUid = 0
-  IoGid = 0
-  BinaryName = "/usr/bin/kata-runtime"
-  Root = ""
-  CriuPath = ""
-  SystemdCgroup = false
+  privileged_without_host_devices = true
+  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata.options]
+    ConfigPath = "/usr/share/defaults/kata-containers/configuration.toml"
 [proxy_plugins]
   [proxy_plugins.tardev]
     type = "snapshot"
@@ -1789,7 +1744,6 @@ root = "{{GetDataDir}}"{{- end}}
   snapshotter = "tardev"
   runtime_type = "io.containerd.kata-cc.v2"
   privileged_without_host_devices = true
-  pod_annotations = ["io.katacontainers.*"]
   [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-cc.options]
     ConfigPath = "/opt/confidential-containers/share/defaults/kata-containers/configuration-clh-snp.toml"
 {{- end}}

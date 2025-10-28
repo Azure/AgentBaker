@@ -5,15 +5,9 @@ IMAGE_BOM_PATH=/opt/azure/containers/image-bom.json
 
 SKU_NAME="${SKU_NAME:=}"
 IMAGE_VERSION="${IMAGE_VERSION:-$(date +%Y%m.%d.0)}"
-CONTAINER_RUNTIME="${CONTAINER_RUNTIME:-containerd}"
 
 if [ -z "${SKU_NAME}" ]; then
     echo "SKU_NAME must be set when generating image list"
-    exit 1
-fi
-
-if [ "${CONTAINER_RUNTIME}" != "containerd" ]; then
-    echo "unknown container runtime: ${CONTAINER_RUNTIME}, expected containerd"
     exit 1
 fi
 
@@ -29,3 +23,4 @@ pushd /home/packer
 popd
 
 chmod a+r $IMAGE_BOM_PATH
+chmod a+rx /opt/azure/ /opt/azure/containers/

@@ -180,10 +180,10 @@ $global:TLSBootstrapToken = "{{GetTLSBootstrapTokenForKubeConfig}}"
 
 # Secure TLS Bootstrap settings
 $global:EnableSecureTLSBootstrapping = [System.Convert]::ToBoolean("{{EnableSecureTLSBootstrapping}}");
-$global:CustomSecureTLSBootstrapClientURL = "{{GetCustomSecureTLSBootstrapClientURL}}";
-# uniquely identifies AKS's Entra ID application, see: https://learn.microsoft.com/en-us/azure/aks/kubelogin-authentication#how-to-use-kubelogin-with-aks
-# this is used by aks-secure-tls-bootstrap-client.exe when requesting AAD tokens
-$global:AKSAADServerAppID = "6dae42f8-4368-4678-94ff-3960e28e3630"
+$global:SecureTLSBootstrappingDeadline = "{{GetSecureTLSBootstrappingDeadline}}";
+$global:SecureTLSBootstrappingAADResource = "{{GetSecureTLSBootstrappingAADResource}}";
+$global:SecureTLSBootstrappingUserAssignedIdentityID = "{{GetSecureTLSBootstrappingUserAssignedIdentityID}}";
+$global:CustomSecureTLSBootstrappingClientDownloadURL = "{{GetCustomSecureTLSBootstrappingClientDownloadURL}}";
 
 # Disable OutBoundNAT in Azure CNI configuration
 $global:IsDisableWindowsOutboundNat = [System.Convert]::ToBoolean("{{GetVariable "isDisableWindowsOutboundNat" }}");
@@ -254,7 +254,7 @@ if (-not (Test-Path "C:\AzureData\windows\azurecnifunc.ps1")) {
     Logs-To-Event -TaskName "AKS.WindowsCSE.DownloadAndExpandCSEScriptPackageUrl" -TaskMessage "Start to get CSE scripts. CSEScriptsPackageUrl: $global:CSEScriptsPackageUrl"
     $tempfile = 'c:\csescripts.zip'
     DownloadFileOverHttp -Url $global:CSEScriptsPackageUrl -DestinationPath $tempfile -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CSE_PACKAGE
-    Expand-Archive $tempfile -DestinationPath "C:\\AzureData\\windows" -Force
+    AKS-Expand-Archive -Path $tempfile -DestinationPath "C:\\AzureData\\windows"
     Remove-Item -Path $tempfile -Force
 } else {
     Write-Log "CSE scripts already exist, skipping download"
@@ -320,7 +320,7 @@ function BasePrep {
 
     # to ensure we don't introduce any incompatibility between base CSE + CSE package versions
     if (Get-Command -Name Install-SecureTLSBootstrapClient -ErrorAction SilentlyContinue) {
-        Install-SecureTLSBootstrapClient -KubeDir $global:KubeDir -CustomSecureTLSBootstrapClientDownloadUrl $global:CustomSecureTLSBootstrapClientURL
+        Install-SecureTLSBootstrapClient -KubeDir $global:KubeDir -CustomSecureTLSBootstrapClientDownloadUrl $global:CustomSecureTLSBootstrappingClientDownloadURL
     } else {
         Write-Log "Install-SecureTLSBootstrapClient is not a recognized function, will skip installation of the secure TLS bootstrap client"
     }
@@ -461,7 +461,7 @@ function BasePrep {
     Adjust-DynamicPortRange
     Register-LogsCleanupScriptTask
     Register-NodeResetScriptTask
-    
+
     Update-DefenderPreferences
 
     $windowsVersion = Get-WindowsVersion
@@ -494,7 +494,7 @@ function NodePrep {
 
     Write-Log "Starting NodePrep - Cluster integration"
     Logs-To-Event -TaskName "AKS.WindowsCSE.NodePrep" -TaskMessage "Starting NodePrep - Cluster integration"
-    
+
     Check-APIServerConnectivity -MasterIP $MasterIP
 
     if ($global:WindowsCalicoPackageURL) {
@@ -584,6 +584,7 @@ try
 }
 catch
 {
+    Resolve-Error
     # Set-ExitCode will exit with the specified ExitCode immediately and not be caught by this catch block
     # Ideally all exceptions will be handled and no exception will be thrown.
     Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_UNKNOWN -ErrorMessage $_
@@ -598,7 +599,7 @@ finally
 
     # Create appropriate completion file based on mode
     $completionFilePath = if ($PreProvisionOnly) { "C:\AzureData\base_prep.complete" } else { $CSEResultFilePath }
-    
+
     if ($global:ExitCode -eq 0) {
         Set-Content -Path $completionFilePath -Value $global:ExitCode -Force
     } else {

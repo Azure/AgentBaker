@@ -57,7 +57,7 @@ installContainerdWithComponentsJson() {
     else
         os_version="${UBUNTU_RELEASE}"
     fi
-    
+
     containerdPackage=$(jq ".Packages" "$COMPONENTS_FILEPATH" | jq ".[] | select(.name == \"containerd\")") || exit $ERR_CONTAINERD_VERSION_INVALID
     PACKAGE_VERSIONS=()
     if isMariner "${OS}" && [ "${IS_KATA}" = "true" ]; then
@@ -67,7 +67,7 @@ installContainerdWithComponentsJson() {
         os=${AZURELINUX_KATA_OS_NAME}
     fi
     updatePackageVersions "${containerdPackage}" "${os}" "${os_version}"
-    
+
     #Containerd's versions array is expected to have only one element.
     #If it has more than one element, we will install the last element in the array.
     # shellcheck disable=SC3010
@@ -103,7 +103,7 @@ installContainerdWithComponentsJson() {
 }
 
 # containerd versions definitions are only available in the manifest file before the centralized packages changes, before around early July 2024.
-# After the centralized packages changes, the containerd versions are only available in the components.json. 
+# After the centralized packages changes, the containerd versions are only available in the components.json.
 installContainerdWithManifestJson() {
     local containerd_version
     if [ -f "$MANIFEST_FILEPATH" ]; then
@@ -124,9 +124,6 @@ installContainerdWithManifestJson() {
 
 installContainerRuntime() {
     echo "in installContainerRuntime - KUBERNETES_VERSION = ${KUBERNETES_VERSION}"
-    if [ "${NEEDS_CONTAINERD}" != "true" ]; then
-        installMoby # used in docker clusters. Not supported but still exist in production
-    fi
     if [ -f "$COMPONENTS_FILEPATH" ] && jq '.Packages[] | select(.name == "containerd")' < $COMPONENTS_FILEPATH > /dev/null; then
         echo "Package \"containerd\" exists in $COMPONENTS_FILEPATH."
         # if the containerd package is available in the components.json, use the components.json to install containerd
@@ -144,16 +141,16 @@ installNetworkPlugin() {
         installAzureCNI
     fi
     installCNI #reference plugins. Mostly for kubenet but loopback plugin is used by containerd until containerd 2
-    rm -rf $CNI_DOWNLOADS_DIR & 
+    rm -rf $CNI_DOWNLOADS_DIR &
 }
 
-# downloadCredentialProvider is always called during build time by install-dependencies.sh. 
+# downloadCredentialProvider is always called during build time by install-dependencies.sh.
 # It can also be called during node provisioning by cse_config.sh, meaning CREDENTIAL_PROVIDER_DOWNLOAD_URL is set by a passed in linuxCredentialProviderURL.
 downloadCredentialProvider() {
     CREDENTIAL_PROVIDER_DOWNLOAD_URL="${CREDENTIAL_PROVIDER_DOWNLOAD_URL:=}"
     if [ -n "${CREDENTIAL_PROVIDER_DOWNLOAD_URL}" ]; then
         # CREDENTIAL_PROVIDER_DOWNLOAD_URL is set by linuxCredentialProviderURL
-        # The version in the URL is unknown. An acs-mirror or registry URL could be passed meaning the version must be extracted from the URL. 
+        # The version in the URL is unknown. An acs-mirror or registry URL could be passed meaning the version must be extracted from the URL.
         cred_version_for_oras=$(echo "$CREDENTIAL_PROVIDER_DOWNLOAD_URL" | grep -oP 'v\d+(\.\d+)*' | sed 's/^v//' | head -n 1)
     fi
 
@@ -175,7 +172,7 @@ downloadCredentialProvider() {
         local credential_provider_download_url_for_oras="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}/${K8S_REGISTRY_REPO}/azure-acr-credential-provider:v${cred_version_for_oras}-linux-${CPU_ARCH}"
         CREDENTIAL_PROVIDER_TGZ_TMP="${CREDENTIAL_PROVIDER_DOWNLOAD_URL##*/}" # Use bash builtin ## to remove all chars ("*") up to the final "/"
         retrycmd_get_tarball_from_registry_with_oras 120 5 "$CREDENTIAL_PROVIDER_DOWNLOAD_DIR/$CREDENTIAL_PROVIDER_TGZ_TMP" "${credential_provider_download_url_for_oras}" || exit $ERR_ORAS_PULL_CREDENTIAL_PROVIDER
-        return 
+        return
     elif isRegistryUrl "${CREDENTIAL_PROVIDER_DOWNLOAD_URL}"; then
         # if the URL is a registry URL, then download the credential provider using oras
         # extract version v1.30.0 from format like mcr.microsoft.com/oss/binaries/kubernetes/azure-acr-credential-provider:v1.30.0-linux-amd64
@@ -191,8 +188,8 @@ downloadCredentialProvider() {
     echo "Credential Provider downloaded successfully"
 }
 
-installCredentialProvider() {
-    logs_to_events "AKS.CSE.installCredentialProvider.downloadCredentialProvider" downloadCredentialProvider
+installCredentialProviderFromUrl() {
+    logs_to_events "AKS.CSE.installCredentialProviderFromUrl.downloadCredentialProvider" downloadCredentialProvider
     extract_tarball "$CREDENTIAL_PROVIDER_DOWNLOAD_DIR/${CREDENTIAL_PROVIDER_TGZ_TMP}" "$CREDENTIAL_PROVIDER_DOWNLOAD_DIR"
     mkdir -p "${CREDENTIAL_PROVIDER_BIN_DIR}"
     chown -R root:root "${CREDENTIAL_PROVIDER_BIN_DIR}"
@@ -242,12 +239,12 @@ installSecureTLSBootstrapClient() {
     # without having to tag new versions of AgentBaker, in the end we probably won't honor custom URLs specified
     # by the bootstrapper for this particular binary. In the end, if we do decide to support this, we will need
     # to make sure to use oras to download the client binary and ensure the binary itself is hosted within MCR.
-    if [ -z "${CUSTOM_SECURE_TLS_BOOTSTRAP_CLIENT_URL}" ]; then
-        echo "secure TLS bootstrapping is enabled but no custom client URL was provided, nothing to download"
+    if [ -z "${CUSTOM_SECURE_TLS_BOOTSTRAPPING_CLIENT_DOWNLOAD_URL}" ]; then
+        echo "secure TLS bootstrapping is enabled but no custom client download URL was provided, nothing to download"
         return 0
     fi
 
-    downloadSecureTLSBootstrapClient "${SECURE_TLS_BOOTSTRAP_CLIENT_BIN_DIR}" "${CUSTOM_SECURE_TLS_BOOTSTRAP_CLIENT_URL}" || exit $ERR_SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_ERROR
+    downloadSecureTLSBootstrapClient "${SECURE_TLS_BOOTSTRAP_CLIENT_BIN_DIR}" "${CUSTOM_SECURE_TLS_BOOTSTRAPPING_CLIENT_DOWNLOAD_URL}" || exit $ERR_SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_ERROR
 }
 
 downloadSecureTLSBootstrapClient() {
@@ -290,7 +287,7 @@ evalPackageDownloadURL() {
 
 downloadAzureCNI() {
     mkdir -p ${1-$:CNI_DOWNLOADS_DIR}
-    # At VHD build time, the VNET_CNI_PLUGINS_URL is usually not set. 
+    # At VHD build time, the VNET_CNI_PLUGINS_URL is usually not set.
     # So, we will get the URL passed from install-depenencies.sh which is actually from components.json
     # At node provisioning time, if AKS-RP sets the VNET_CNI_PLUGINS_URL, then we will use that.
     VNET_CNI_PLUGINS_URL=${2:-$VNET_CNI_PLUGINS_URL}
@@ -389,24 +386,24 @@ setupCNIDirs() {
 
 # Reference CNI plugins is used by kubenet and the loopback plugin used by containerd 1.0 (dependency gone in 2.0)
 # The version used to be deteremined by RP/toggle but are now just hadcoded in vhd as they rarely change and require a node image upgrade anyways
-# Latest VHD should have the untar, older should have the tgz. And who knows will have neither. 
+# Latest VHD should have the untar, older should have the tgz. And who knows will have neither.
 installCNI() {
     # Old versions of VHDs will not have components.json. If it does not exist, we will fall back to the hardcoded download for CNI.
     # Network Isolated Cluster / Bring Your Own ACR will not work with a vhd that requres a hardcoded CNI download.
     if [ ! -f "$COMPONENTS_FILEPATH" ] || ! jq '.Packages[] | select(.name == "cni-plugins")' < $COMPONENTS_FILEPATH > /dev/null; then
-        echo "WARNING: no cni-plugins components present falling back to hard coded download of 1.4.1. This should error eventually" 
+        echo "WARNING: no cni-plugins components present falling back to hard coded download of 1.4.1. This should error eventually"
         # could we fail if not Ubuntu2204Gen2ContainerdPrivateKubePkg vhd? Are there others?
         # definitely not handling arm here.
         retrycmd_get_tarball 120 5 "${CNI_DOWNLOADS_DIR}/refcni.tar.gz" "https://${PACKAGE_DOWNLOAD_BASE_URL}/cni-plugins/v1.4.1/binaries/cni-plugins-linux-amd64-v1.4.1.tgz" || exit $ERR_CNI_DOWNLOAD_TIMEOUT
         extract_tarball "${CNI_DOWNLOADS_DIR}/refcni.tar.gz" "$CNI_BIN_DIR"
-        return 
+        return
     fi
 
     #always just use what is listed in components.json so we don't have to sync.
     cniPackage=$(jq ".Packages" "$COMPONENTS_FILEPATH" | jq ".[] | select(.name == \"cni-plugins\")") || exit $ERR_CNI_VERSION_INVALID
-    
+
     #CNI doesn't really care about this but wanted to reuse updatePackageVersions which requires it.
-    os=${UBUNTU_OS_NAME} 
+    os=${UBUNTU_OS_NAME}
     if [ -z "$UBUNTU_RELEASE" ]; then
         os=${OS}
         os_version="current"
@@ -417,7 +414,7 @@ installCNI() {
     fi
     PACKAGE_VERSIONS=()
     updatePackageVersions "${cniPackage}" "${os}" "${os_version}"
-    
+
     #should change to ne
     # shellcheck disable=SC3010
     if [[ ${#PACKAGE_VERSIONS[@]} -gt 1 ]]; then
@@ -427,15 +424,15 @@ installCNI() {
     packageVersion=${PACKAGE_VERSIONS[0]}
 
     # Is there a ${arch} variable I can use instead of the iff
-    if [ "$(isARM64)" -eq 1 ]; then 
+    if [ "$(isARM64)" -eq 1 ]; then
         CNI_DIR_TMP="cni-plugins-linux-arm64-v${packageVersion}"
-    else 
+    else
         CNI_DIR_TMP="cni-plugins-linux-amd64-v${packageVersion}"
     fi
-    
+
     if [ -d "$CNI_DOWNLOADS_DIR/${CNI_DIR_TMP}" ]; then
-        #not clear to me when this would ever happen. assume its related to the line above Latest VHD should have the untar, older should have the tgz. 
-        mv ${CNI_DOWNLOADS_DIR}/${CNI_DIR_TMP}/* $CNI_BIN_DIR 
+        #not clear to me when this would ever happen. assume its related to the line above Latest VHD should have the untar, older should have the tgz.
+        mv ${CNI_DOWNLOADS_DIR}/${CNI_DIR_TMP}/* $CNI_BIN_DIR
     else
         echo "CNI tarball should already be unzipped by components.json"
         exit $ERR_CNI_VERSION_INVALID
@@ -507,7 +504,7 @@ extractKubeBinaries() {
     else
         k8s_tgz_tmp="${k8s_downloads_dir}/${k8s_tgz_tmp_filename}"
         mkdir -p ${k8s_downloads_dir}
-        
+
         # if the url is a registry url, use oras to pull the artifact instead of curl
         if isRegistryUrl "${kube_binary_url}"; then
             echo "detect kube_binary_url, ${kube_binary_url}, as registry url, will use oras to pull artifact binary"
@@ -527,6 +524,70 @@ extractKubeBinaries() {
     fi
 
     extractKubeBinariesToUsrLocalBin "${k8s_tgz_tmp}" "${k8s_version}" "${is_private_url}"
+}
+
+installToolFromBootstrapProfileRegistry() {
+    local tool_name=$1
+    local registry_server=$2
+    local version=$3
+    local install_path=$4
+
+    # Try to pull distro-specific packages (e.g., .deb for Ubuntu) from registry
+    local download_root="/tmp/kubernetes/downloads" # /opt folder will return permission error
+
+    tool_package_url="${registry_server}/aks/packages/kubernetes/${tool_name}:v${version}"
+    tool_download_dir="${download_root}/${tool_name}"
+    mkdir -p "${tool_download_dir}"
+
+    # Construct platform string for ORAS pull
+    if [ -z "${OS_VERSION}" ]; then
+        echo "OS_VERSION is not set"
+        return 1
+    fi
+    platform_flag="--platform=linux/${CPU_ARCH}:${OS,,} ${OS_VERSION}"
+
+    echo "Attempting to pull ${tool_name} package from ${tool_package_url} with platform ${platform_flag}"
+    # retrycmd_pull_from_registry_with_oras will pull all artifacts to the directory with platform selection
+    if ! retrycmd_pull_from_registry_with_oras 10 5 "${tool_download_dir}" "${tool_package_url}" "${platform_flag}"; then
+        echo "Failed to pull ${tool_name} package from registry"
+        rm -rf "${tool_download_dir}"
+        return 1
+    fi
+
+    echo "Successfully pulled ${tool_name} package"
+
+    if ! installToolFromLocalRepo "${tool_name}" "${tool_download_dir}"; then
+        echo "Failed to install ${tool_name} from local repo ${tool_download_dir}"
+        rm -rf "${tool_download_dir}"
+        return 1
+    fi
+    if [ -n "$install_path" ]; then
+        mv $(which ${tool_name}) $install_path
+    fi
+
+    # All tools installed successfully
+    rm -rf "${download_root}"
+    return 0
+}
+
+installKubeletKubectlFromBootstrapProfileRegistry() {
+    local registry_server=$1
+    local kubernetes_version=$2
+    for tool_name in $(get_kubernetes_tools); do
+        install_path="/usr/local/bin/${tool_name}"
+        if ! installToolFromBootstrapProfileRegistry "${tool_name}" "${registry_server}" "${kubernetes_version}" "${install_path}"; then
+            # SHOULD_ENFORCE_KUBE_PMC_INSTALL will only be set for e2e tests, which should not fallback to reflect result of package installation behavior
+            # TODO: remove SHOULD_ENFORCE_KUBE_PMC_INSTALL check when the test cluster supports > 1.34.0 case
+            # if install from bootstrap profile registry fails, fallback to install from URL
+            if [ "${SHOULD_ENFORCE_KUBE_PMC_INSTALL}" != "true" ];then
+                logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromURL-Fallback" installKubeletKubectlFromURL
+                return
+            else
+                echo "Failed to install k8s tools from bootstrap profile registry, and not falling back to binary installation due to SHOULD_ENFORCE_KUBE_PMC_INSTALL=true"
+                exit $ERR_ORAS_PULL_K8S_FAIL
+            fi
+        fi
+    done
 }
 
 installKubeletKubectlFromURL() {
@@ -553,11 +614,11 @@ installKubeletKubectlFromURL() {
     # if the custom url is not specified and the required kubectl/kubelet-version via private url is not installed, install using the default url/package
     if [ ! -f "/usr/local/bin/kubectl-${KUBERNETES_VERSION}" ] || [ ! -f "/usr/local/bin/kubelet-${KUBERNETES_VERSION}" ]; then
         if [ "$install_default_if_missing" = "true" ]; then
-            if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then 
+            if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
                 # network isolated cluster
                 echo "Detect Bootstrap profile artifact is Cache, will use oras to pull artifact binary"
                 updateKubeBinaryRegistryURL
-                
+
                 K8S_DOWNLOADS_TEMP_DIR_FROM_REGISTRY="/tmp/kubernetes/downloads" # /opt folder will return permission error
                 logs_to_events "AKS.CSE.installKubeletKubectlFromURL.extractKubeBinaries" extractKubeBinaries ${KUBERNETES_VERSION} "${KUBE_BINARY_REGISTRY_URL:-}" false ${K8S_DOWNLOADS_TEMP_DIR_FROM_REGISTRY}
                 # no egress traffic, default install will fail
@@ -610,7 +671,7 @@ pullContainerImage() {
             return $ERR_CONTAINERD_DOCKER_IMG_PULL_TIMEOUT
         fi
     fi
-    
+
     echo "successfully pulled image ${CONTAINER_IMAGE_URL} using ${CLI_TOOL}"
 }
 
@@ -638,13 +699,8 @@ labelContainerImage() {
 }
 
 retagMCRImagesForChina() {
-    if [ "${CONTAINER_RUNTIME}" = "containerd" ]; then
-        # shellcheck disable=SC2016
+    # shellcheck disable=SC2016
         allMCRImages=($(ctr --namespace k8s.io images list | grep '^mcr.microsoft.com/' | awk '{print $1}'))
-    else
-        # shellcheck disable=SC2016
-        allMCRImages=($(docker images | grep '^mcr.microsoft.com/' | awk '{str = sprintf("%s:%s", $1, $2)} {print str}'))
-    fi
     if [ -z "${allMCRImages}" ]; then
         echo "failed to find mcr images for retag"
         return
@@ -654,48 +710,33 @@ retagMCRImagesForChina() {
         # shellcheck disable=SC2001
         retagMCRImage=$(echo ${mcrImage} | sed -e 's/^mcr.microsoft.com/mcr.azk8s.cn/g')
         # can't use CLI_TOOL because crictl doesn't support retagging.
-        if [ "${CONTAINER_RUNTIME}" = "containerd" ]; then
-            retagContainerImage "ctr" ${mcrImage} ${retagMCRImage}
-        else
-            retagContainerImage "docker" ${mcrImage} ${retagMCRImage}
-        fi
+        retagContainerImage "ctr" ${mcrImage} ${retagMCRImage}
     done
 }
 
 removeContainerImage() {
     CLI_TOOL=$1
     CONTAINER_IMAGE_URL=$2
-    if [ "${CLI_TOOL}" = "docker" ]; then
-        docker image rm $CONTAINER_IMAGE_URL
-    else
-        # crictl should always be present
-        crictl rmi $CONTAINER_IMAGE_URL
-    fi
+    # crictl should always be present
+    crictl rmi $CONTAINER_IMAGE_URL
 }
 
 cleanUpImages() {
     local targetImage=$1
     export targetImage
+    # shellcheck disable=SC2329 # Function is invoked indirectly via bash -c
     function cleanupImagesRun() {
-        if [ "${NEEDS_CONTAINERD}" = "true" ]; then
-            if [ "${CLI_TOOL}" = "crictl" ]; then
-                images_to_delete=$(crictl images | awk '{print $1":"$2}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | tr ' ' '\n')
-            else
-                images_to_delete=$(ctr --namespace k8s.io images list | awk '{print $1}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | tr ' ' '\n')
-            fi
+        if [ "${CLI_TOOL}" = "crictl" ]; then
+            images_to_delete=$(crictl images | awk '{print $1":"$2}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | tr ' ' '\n')
         else
-            images_to_delete=$(docker images --format '{{OpenBraces}}.Repository{{CloseBraces}}:{{OpenBraces}}.Tag{{CloseBraces}}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | tr ' ' '\n')
+            images_to_delete=$(ctr --namespace k8s.io images list | awk '{print $1}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | tr ' ' '\n')
         fi
         local exit_code=$?
         if [ "$exit_code" -ne 0 ]; then
             exit $exit_code
         elif [ -n "${images_to_delete}" ]; then
             echo "${images_to_delete}" | while read -r image; do
-                if [ "${NEEDS_CONTAINERD}" = "true" ]; then
-                    removeContainerImage ${CLI_TOOL} ${image}
-                else
-                    removeContainerImage "docker" ${image}
-                fi
+                removeContainerImage ${CLI_TOOL} ${image}
             done
         fi
     }
@@ -711,23 +752,14 @@ cleanUpKubeProxyImages() {
 
 cleanupRetaggedImages() {
     if [ "${TARGET_CLOUD}" != "AzureChinaCloud" ]; then
-        if [ "${NEEDS_CONTAINERD}" = "true" ]; then
-            if [ "${CLI_TOOL}" = "crictl" ]; then
-                images_to_delete=$(crictl images | awk '{print $1":"$2}' | grep '^mcr.azk8s.cn/' | tr ' ' '\n')
-            else
-                images_to_delete=$(ctr --namespace k8s.io images list | awk '{print $1}' | grep '^mcr.azk8s.cn/' | tr ' ' '\n')
-            fi
+        if [ "${CLI_TOOL}" = "crictl" ]; then
+            images_to_delete=$(crictl images | awk '{print $1":"$2}' | grep '^mcr.azk8s.cn/' | tr ' ' '\n')
         else
-            images_to_delete=$(docker images --format '{{OpenBraces}}.Repository{{CloseBraces}}:{{OpenBraces}}.Tag{{CloseBraces}}' | grep '^mcr.azk8s.cn/' | tr ' ' '\n')
+            images_to_delete=$(ctr --namespace k8s.io images list | awk '{print $1}' | grep '^mcr.azk8s.cn/' | tr ' ' '\n')
         fi
         if [ -n "${images_to_delete}" ]; then
             echo "${images_to_delete}" | while read -r image; do
-                if [ "${NEEDS_CONTAINERD}" = "true" ]; then
-                    # crictl will remove *ALL* references to a given imageID (SHA), which removes too much, so always use ctr
-                    removeContainerImage "ctr" ${image}
-                else
-                    removeContainerImage "docker" ${image}
-                fi
+                removeContainerImage ${CLI_TOOL} ${image}
             done
         fi
     else
@@ -770,10 +802,10 @@ getInstallModeAndCleanupContainerImages() {
         echo "detected golden image pre-install"
         logs_to_events "AKS.CSE.cleanUpContainerImages" cleanUpContainerImages
         FULL_INSTALL_REQUIRED=false
-    else 
+    else
         echo "the file $VHD_LOGS_FILEPATH does not exist and IS_VHD is "${IS_VHD,,}", full install requred"
     fi
- 
+
     echo "${FULL_INSTALL_REQUIRED,,}"
 }
 
