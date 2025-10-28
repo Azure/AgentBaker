@@ -183,7 +183,7 @@
             "versionsV2": [
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "2.0.6-1.fake"
+                "latestVersion": "2.1.4-1.fake"
               }
             ]
           }

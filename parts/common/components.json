@@ -979,7 +979,7 @@
             "versionsV2": [
               {
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/base/x86_64/repodata, name=containerd2, os=azurelinux, release=3.0",
-                "latestVersion": "2.0.6-1.azl3"
+                "latestVersion": "2.1.4-1.azl3"
               }
             ]
           }
