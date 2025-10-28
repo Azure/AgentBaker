@@ -80,12 +80,14 @@ func newTestCtx(t testing.TB) context.Context {
 
 func RunScenario(t *testing.T, s *Scenario) {
 	t.Parallel()
+	// Special case for testing VHD caching. Not used by default.
 	if config.Config.TestPreProvision || s.VHDCaching {
 		t.Run("VHDCreation", func(t *testing.T) {
 			t.Parallel()
 			runScenarioWithPreProvision(t, s)
 		})
 	} else {
+		// Default path
 		runScenario(t, s)
 	}
 
@@ -154,12 +156,11 @@ func runScenarioWithPreProvision(t *testing.T, original *Scenario) {
 		secondStageScenario.Description = "Stage 2: Create VMSS from captured VHD via SIG"
 		secondStageScenario.Config.VHD = customVHD
 		secondStageScenario.Config.Validator = func(ctx context.Context, s *Scenario) {
+			// This validators are used when running all scenarios in "VHD Caching" mode, which is usually done manually
 			if s.IsWindows() {
 				ValidateFileExists(ctx, s, "C:\\AzureData\\provision.complete")
-				ValidateWindowsServiceIsRunning(ctx, s, "kubelet")
 			} else {
 				ValidateFileExists(ctx, s, "/opt/azure/containers/provision.complete")
-				ValidateSystemdUnitIsRunning(ctx, s, "kubelet")
 			}
 			if original.Config.Validator != nil {
 				original.Config.Validator(ctx, s)
@@ -259,31 +260,21 @@ func prepareAKSNode(ctx context.Context, s *Scenario) *ScenarioVM {
 	require.NoError(s.T, err)
 
 	start := time.Now() // Record the start time
-	vmss, privateIP := ConfigureAndCreateVMSS(ctx, s)
+	scenarioVM := ConfigureAndCreateVMSS(ctx, s)
 
-	vmssVm, err := getVMSSVM(ctx, s)
-	require.NoError(s.T, err, "failed to get VMSS VM instance")
-
-	err = getCustomScriptExtensionStatus(s, vmssVm)
+	err = getCustomScriptExtensionStatus(s, scenarioVM.VM)
 	require.NoError(s.T, err)
 
-	var kubeName string
 	if !s.Config.SkipDefaultValidation {
 		vmssCreatedAt := time.Now()         // Record the start time
 		creationElapse := time.Since(start) // Calculate the elapsed time
-		kubeName = s.Runtime.Cluster.Kube.WaitUntilNodeReady(ctx, s.T, s.Runtime.VMSSName)
+		scenarioVM.KubeName = s.Runtime.Cluster.Kube.WaitUntilNodeReady(ctx, s.T, s.Runtime.VMSSName)
 		readyElapse := time.Since(vmssCreatedAt) // Calculate the elapsed time
 		totalElapse := time.Since(start)
-		s.T.Logf("node %s is ready", s.Runtime.VMSSName)
 		toolkit.LogDuration(ctx, totalElapse, 3*time.Minute, fmt.Sprintf("Node %s took %s to be created and %s to be ready", s.Runtime.VMSSName, toolkit.FormatDuration(creationElapse), toolkit.FormatDuration(readyElapse)))
 	}
 
-	return &ScenarioVM{
-		VMSS:        vmss,
-		VMSSVM:      vmssVm,
-		KubeName:    kubeName,
-		VMPrivateIP: privateIP,
-	}
+	return scenarioVM
 }
 
 func maybeSkipScenario(ctx context.Context, t testing.TB, s *Scenario) {
@@ -373,22 +364,6 @@ func validateVM(ctx context.Context, s *Scenario) {
 	}
 }
 
-func getVMSSVM(ctx context.Context, s *Scenario) (*armcompute.VirtualMachineScaleSetVM, error) {
-	pager := config.Azure.VMSSVM.NewListPager(*s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, &armcompute.VirtualMachineScaleSetVMsClientListOptions{
-		Expand: to.Ptr("instanceView"),
-	})
-	for pager.More() {
-		page, err := pager.NextPage(ctx)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get VMSS instances: %v", err)
-		}
-		for _, vmInstance := range page.Value {
-			return vmInstance, nil
-		}
-	}
-	return nil, fmt.Errorf("no VMSS instances found")
-}
-
 func getCustomScriptExtensionStatus(s *Scenario, vmssVM *armcompute.VirtualMachineScaleSetVM) error {
 	for _, extension := range vmssVM.Properties.InstanceView.Extensions {
 		for _, status := range extension.Statuses {
@@ -415,7 +390,7 @@ func getCustomScriptExtensionStatus(s *Scenario, vmssVM *armcompute.VirtualMachi
 			} else {
 				resp, err := parseLinuxCSEMessage(*status)
 				if err != nil {
-					return fmt.Errorf("Parse CSE message with error, error %w", err)
+					return fmt.Errorf("parse CSE message with error, error %w", err)
 				}
 				if resp.ExitCode != "0" {
 					return fmt.Errorf("vmssCSE %s, output=%s, error=%s, cse output: %s", resp.ExitCode, resp.Output, resp.Error, *status.Message)
@@ -424,7 +399,8 @@ func getCustomScriptExtensionStatus(s *Scenario, vmssVM *armcompute.VirtualMachi
 			}
 		}
 	}
-	return fmt.Errorf("failed to get CSE output.")
+	extensionsJSON, _ := json.MarshalIndent(vmssVM.Properties.InstanceView.Extensions, "", "  ")
+	return fmt.Errorf("failed to get CSE output, VM extensions: %s", string(extensionsJSON))
 }
 
 func parseLinuxCSEMessage(status armcompute.InstanceViewStatus) (*datamodel.CSEStatus, error) {
@@ -543,7 +519,7 @@ func RunCommand(ctx context.Context, s *Scenario, command string) (armcompute.Ru
 		logf(ctx, "Command %q took %s", command, toolkit.FormatDuration(elapsed))
 	}()
 
-	runPoller, err := config.Azure.VMSSVM.BeginRunCommand(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, *s.Runtime.VM.VMSSVM.InstanceID, armcompute.RunCommandInput{
+	runPoller, err := config.Azure.VMSSVM.BeginRunCommand(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, *s.Runtime.VM.VM.InstanceID, armcompute.RunCommandInput{
 		CommandID: func() *string {
 			if s.IsWindows() {
 				return to.Ptr("RunPowerShellScript")
@@ -572,11 +548,11 @@ func CreateImage(ctx context.Context, s *Scenario) *config.Image {
 		require.NoErrorf(s.T, err, "failed to run sysprep on Windows VM for image creation")
 	}
 
-	vm, err := config.Azure.VMSSVM.Get(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, *s.Runtime.VM.VMSSVM.InstanceID, &armcompute.VirtualMachineScaleSetVMsClientGetOptions{})
+	vm, err := config.Azure.VMSSVM.Get(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, *s.Runtime.VM.VM.InstanceID, &armcompute.VirtualMachineScaleSetVMsClientGetOptions{})
 	require.NoError(s.T, err, "Failed to get VMSS VM for image creation")
 
 	s.T.Log("Deallocating VMSS VM...")
-	poll, err := config.Azure.VMSSVM.BeginDeallocate(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, *s.Runtime.VM.VMSSVM.InstanceID, nil)
+	poll, err := config.Azure.VMSSVM.BeginDeallocate(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, *s.Runtime.VM.VM.InstanceID, nil)
 	require.NoError(s.T, err, "Failed to begin deallocate")
 	_, err = poll.PollUntilDone(ctx, nil)
 	require.NoError(s.T, err, "Failed to deallocate")
@@ -615,7 +591,7 @@ func CreateSIGImageVersionFromDisk(ctx context.Context, s *Scenario, version str
 		Location:         s.Location,
 		Arch:             s.VHD.Arch,
 		Windows:          s.IsWindows(),
-		HyperVGeneration: s.Runtime.VM.VMSSVM.Properties.InstanceView.HyperVGeneration,
+		HyperVGeneration: s.Runtime.VM.VM.Properties.InstanceView.HyperVGeneration,
 	})
 	require.NoError(s.T, err, "failed to create or get gallery image")
 
@@ -743,7 +719,7 @@ func validateSSHConnectivity(ctx context.Context, s *Scenario) error {
 
 // attemptSSHConnection performs a single SSH connectivity check
 func attemptSSHConnection(ctx context.Context, s *Scenario) error {
-	connectionTest := fmt.Sprintf("%s echo 'SSH_CONNECTION_OK'", sshString(s.Runtime.VM.VMPrivateIP))
+	connectionTest := fmt.Sprintf("%s echo 'SSH_CONNECTION_OK'", sshString(s.Runtime.VM.PrivateIP))
 	connectionResult, err := execOnPrivilegedPod(ctx, s.Runtime.Cluster.Kube, defaultNamespace, s.Runtime.Cluster.DebugPod.Name, connectionTest)
 
 	if err != nil || !strings.Contains(connectionResult.stdout.String(), "SSH_CONNECTION_OK") {
@@ -752,10 +728,10 @@ func attemptSSHConnection(ctx context.Context, s *Scenario) error {
 			output = connectionResult.String()
 		}
 
-		return fmt.Errorf("SSH connection to %s failed: %s: %s", s.Runtime.VM.VMPrivateIP, err, output)
+		return fmt.Errorf("SSH connection to %s failed: %s: %s", s.Runtime.VM.PrivateIP, err, output)
 	}
 
-	s.T.Logf("SSH connectivity to %s verified successfully", s.Runtime.VM.VMPrivateIP)
+	s.T.Logf("SSH connectivity to %s verified successfully", s.Runtime.VM.PrivateIP)
 	return nil
 }
 

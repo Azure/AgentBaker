@@ -75,16 +75,13 @@ func compileAKSNodeController(ctx context.Context, arch string) (*os.File, error
 	return f, nil
 }
 
-func ConfigureAndCreateVMSS(ctx context.Context, s *Scenario) (*armcompute.VirtualMachineScaleSet, string) {
-	vmss, privateIP, err := CreateVMSSWithRetry(ctx, s)
-	s.T.Cleanup(func() {
-		cleanupVMSS(ctx, s, privateIP)
-	})
+func ConfigureAndCreateVMSS(ctx context.Context, s *Scenario) *ScenarioVM {
+	vm, err := CreateVMSSWithRetry(ctx, s)
 	skipTestIfSKUNotAvailableErr(s.T, err)
 	// fail test, but continue to extract debug information
 	require.NoError(s.T, err, "create vmss %q, check %s for vm logs", s.Runtime.VMSSName, testDir(s.T))
 
-	return vmss, privateIP
+	return vm
 }
 
 // CustomDataWithHack is similar to nodeconfigutils.CustomData, but it uses a hack to run new aks-node-controller binary
@@ -225,7 +222,7 @@ func createVMSSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachine
 	return model
 }
 
-func CreateVMSSWithRetry(ctx context.Context, s *Scenario) (*armcompute.VirtualMachineScaleSet, string, error) {
+func CreateVMSSWithRetry(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 	delay := 5 * time.Second
 	retryOn := func(err error) bool {
 		var respErr *azcore.ResponseError
@@ -239,32 +236,32 @@ func CreateVMSSWithRetry(ctx context.Context, s *Scenario) (*armcompute.VirtualM
 
 	for {
 		attempt++
-		vmss, privateIP, err := CreateVMSS(ctx, s, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup)
+		vm, err := CreateVMSS(ctx, s, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup)
 		if err == nil {
 			logf(ctx, "created VMSS %s in resource group %s", s.Runtime.VMSSName, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup)
-			return vmss, privateIP, nil
+			return vm, nil
 		}
 
 		// not a retryable error
 		if !retryOn(err) {
-			return nil, "", err
+			return vm, err
 		}
 
 		if attempt >= maxAttempts {
-			return nil, "", fmt.Errorf("failed to create VMSS after %d retries: %w", maxAttempts, err)
+			return vm, fmt.Errorf("failed to create VMSS after %d retries: %w", maxAttempts, err)
 		}
 
 		logf(ctx, "failed to create VMSS: %v, attempt: %v, retrying in %v", err, attempt, delay)
 		select {
 		case <-ctx.Done():
-			return nil, "", err
+			return vm, err
 		case <-time.After(delay):
 		}
 	}
-
 }
 
-func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*armcompute.VirtualMachineScaleSet, string, error) {
+func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*ScenarioVM, error) {
+	vm := &ScenarioVM{}
 	operation, err := config.Azure.VMSS.BeginCreateOrUpdate(
 		ctx,
 		resourceGroupName,
@@ -273,30 +270,92 @@ func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*ar
 		nil,
 	)
 	if err != nil {
-		return nil, "", err
+		return vm, err
 	}
 	// We want to generate SSH instructions as soon as possible, so we can debug CSE issues
 	// Wait for VMSS VM to appear before extracting the private IP
-	vmssVM, err := waitForVMSSVM(ctx, s)
+	vm.VM, err = waitForVMSSVM(ctx, s)
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to wait for VMSS VM: %w", err)
+		return vm, fmt.Errorf("failed to wait for VMSS VM: %w", err)
 	}
 
-	vmPrivateIP, err := getPrivateIPFromVMSSVM(ctx, resourceGroupName, s.Runtime.VMSSName, *vmssVM.InstanceID)
+	vm.PrivateIP, err = getPrivateIPFromVMSSVM(ctx, resourceGroupName, s.Runtime.VMSSName, *vm.VM.InstanceID)
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to get VM private IP address: %w", err)
+		return vm, fmt.Errorf("failed to get VM private IP address: %w", err)
 	}
 
-	err = uploadSSHKey(ctx, s, vmPrivateIP)
+	s.T.Cleanup(func() {
+		cleanupVMSS(ctx, s, vm.PrivateIP)
+	})
+
+	err = uploadSSHKey(ctx, s, vm.PrivateIP)
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to upload ssh key: %w", err)
+		return vm, fmt.Errorf("failed to upload ssh key: %w", err)
 	}
 
 	vmssResp, err := operation.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
 	if err != nil {
-		return nil, "", err
+		return vm, err
 	}
-	return &vmssResp.VirtualMachineScaleSet, vmPrivateIP, nil
+
+	// Wait for VM to be in "Running" power state before proceeding
+	err = waitForVMRunningState(ctx, s, vm.VM)
+	if err != nil {
+		return vm, fmt.Errorf("failed to wait for VM to reach running state: %w", err)
+	}
+
+	return &ScenarioVM{
+		VMSS:      &vmssResp.VirtualMachineScaleSet,
+		PrivateIP: vm.PrivateIP,
+		VM:        vm.VM,
+	}, nil
+}
+
+// waitForVMRunningState polls until the VM reaches "Running" power state or the timeout elapses.
+func waitForVMRunningState(ctx context.Context, s *Scenario, vmssVM *armcompute.VirtualMachineScaleSetVM) error {
+	ctxTimeout, cancel := context.WithTimeout(ctx, 3*time.Minute)
+	defer cancel()
+
+	ticker := time.NewTicker(config.Config.DefaultPollInterval)
+	defer ticker.Stop()
+
+	var lastErr error
+	for {
+		// Get the updated VM with instance view to check power state
+		vm, err := config.Azure.VMSSVM.Get(ctxTimeout, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, *vmssVM.InstanceID, &armcompute.VirtualMachineScaleSetVMsClientGetOptions{
+			Expand: to.Ptr(armcompute.InstanceViewTypesInstanceView),
+		})
+
+		if err == nil {
+			// Check if the VM has instance view and statuses
+			if vm.Properties != nil && vm.Properties.InstanceView != nil && vm.Properties.InstanceView.Statuses != nil {
+				for _, status := range vm.Properties.InstanceView.Statuses {
+					if status.Code != nil && strings.HasPrefix(*status.Code, "PowerState/") {
+						powerState := strings.TrimPrefix(*status.Code, "PowerState/")
+						if powerState == "running" {
+							logf(ctxTimeout, "VM reached running state")
+							*vmssVM = vm.VirtualMachineScaleSetVM
+							return nil
+						}
+						logf(ctxTimeout, "VM is in power state: %s, waiting for running state...", powerState)
+					}
+				}
+			}
+		}
+
+		if err != nil {
+			lastErr = err
+		}
+
+		select {
+		case <-ctxTimeout.Done():
+			if lastErr != nil {
+				return fmt.Errorf("timeout waiting for VM to reach running state: %w", lastErr)
+			}
+			return fmt.Errorf("timeout waiting for VM to reach running state")
+		case <-ticker.C:
+		}
+	}
 }
 
 // waitForVMSSVM polls until a VMSS VM instance appears with network profile or the timeout elapses.

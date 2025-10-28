@@ -329,7 +329,7 @@ func execOnVMForScenarioOnUnprivilegedPod(ctx context.Context, s *Scenario, cmd 
 
 func execScriptOnVMForScenario(ctx context.Context, s *Scenario, cmd string) *podExecResult {
 	s.T.Helper()
-	result, err := execScriptOnVm(ctx, s, s.Runtime.VM.VMPrivateIP, s.Runtime.Cluster.DebugPod.Name, cmd)
+	result, err := execScriptOnVm(ctx, s, s.Runtime.VM.PrivateIP, s.Runtime.Cluster.DebugPod.Name, cmd)
 	require.NoError(s.T, err, "failed to execute command on VM")
 	return result
 }
@@ -1075,7 +1075,7 @@ func ValidateSSHServiceDisabled(ctx context.Context, s *Scenario) {
 
 	// Use VMSS RunCommand to check SSH service status directly on the node
 	// Ubuntu uses 'ssh' as service name, while AzureLinux and Mariner use 'sshd'
-	runPoller, err := config.Azure.VMSSVM.BeginRunCommand(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, *s.Runtime.VM.VMSSVM.InstanceID, armcompute.RunCommandInput{
+	runPoller, err := config.Azure.VMSSVM.BeginRunCommand(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, *s.Runtime.VM.VM.InstanceID, armcompute.RunCommandInput{
 		CommandID: to.Ptr("RunShellScript"),
 		Script: []*string{to.Ptr(`#!/bin/bash
 # Determine the correct SSH service name based on the distro
