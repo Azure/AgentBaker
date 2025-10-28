@@ -13,22 +13,22 @@ version = 2
     default_runtime_name = "nvidia"
 
     [plugins."io.containerd.grpc.v1.cri".containerd.runtimes]
-    
+
         [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia]
             runtime_type = "io.containerd.runc.v2"
-    
+
         [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia.options]
             BinaryName = "/usr/bin/nvidia-container-runtime"
-    
+
         [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
             runtime_type = "io.containerd.runc.v2"
-    
+
         [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
             BinaryName = "/usr/bin/runc"
-    
+
         [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted]
             runtime_type = "io.containerd.runc.v2"
-    
+
         [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted.options]
             BinaryName = "/usr/bin/runc"
 
