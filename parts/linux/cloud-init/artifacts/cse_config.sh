@@ -955,7 +955,10 @@ setupAmdAma() {
         # Install driver
         # Install core package
         # Install device plugin
+        sudo tdnf install -y amdama-device-plugin.x86_64
+        # Install other required packages
         sudo tdnf install -y libzip
+        # Configure huge pages
         sudo sh -c "echo 'vm.nr_hugepages=4096' >> /etc/sysctl.conf"
         sudo sh -c "echo 4096 >> /proc/sys/vm/nr_hugepages"
         if [ $(systemctl is-active kubelet) = "active" ]; then
