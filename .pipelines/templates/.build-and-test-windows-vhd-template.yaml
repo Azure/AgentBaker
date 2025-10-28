@@ -49,19 +49,29 @@ parameters:
   - name: windowsCoreImageUrl
     displayName: Windows core base container image URL Override
     type: string
+  - name: windowsContainerImageJsonUrl
+    displayName: Windows container image JSON URL Override
+    type: string
+    default: ""
   - name: overrideBranch
     type: string
     default: master
   - name: useOverrides
     displayName: Use component overrides
     type: boolean
+  - name: csePackageDir
+    type: string
+    displayName: Path to the CSE package to use for the build.
+  - name: cseFileName
+    type: string
+    displayName: CSE package filename.
 
 stages:
   - stage: build_${{ parameters.stageName }}
     # Put the artifact name first so it doesn't get truncated as much in ADO
     displayName: Build (${{ parameters.artifactName }})
     condition: and(succeeded(), eq('${{ parameters.build }}', True))
-    dependsOn: [ ]
+    dependsOn: Package
     jobs:
       - job: build_${{ parameters.stageName }}
         dependsOn: [ ]
@@ -82,15 +92,20 @@ stages:
               windowsBaseImageUrl: ${{ parameters.windowsBaseImageUrl }}
               windowsNanoImageUrl: ${{ parameters.windowsNanoImageUrl }}
               windowsCoreImageUrl: ${{ parameters.windowsCoreImageUrl }}
+              windowsContainerImageJsonUrl: ${{ parameters.windowsContainerImageJsonUrl }}
               overrideBranch: ${{ parameters.overrideBranch }}
               useOverrides: ${{ parameters.useOverrides }}
+              csePackageDir: ${{ parameters.csePackageDir }}
+              csePackageFileName: ${{ parameters.cseFileName }}
 
   - stage: e2e_${{ parameters.stageName }}
     displayName: E2E (${{ parameters.artifactName }})
     dependsOn: build_${{ parameters.stageName }}
-    condition: and(succeeded(), eq('${{ parameters.build }}', True))
+    condition: and(succeeded(), eq('${{ parameters.build }}', True), ne(variables.SKIP_E2E_TESTS, 'true'))
     variables:
+      VHD_BUILD_ID: $(Build.BuildId)
       TAGS_TO_RUN: imageName=${{ parameters.imageName }}
+      DISABLE_SCRIPTLESS_COMPILATION: true
     jobs:
       - template: ./e2e-template.yaml
         parameters:
