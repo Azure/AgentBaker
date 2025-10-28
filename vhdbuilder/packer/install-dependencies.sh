@@ -259,6 +259,7 @@ downloadCNIPlugins() {
 
 # Install Node Problem Detector during VHD build
 # This function is only used during VHD build, not during node provisioning/CSE
+# During CSE we'll systemctl daemon-reload as there's some runtime configs (GPU)
 installNodeProblemDetector() {
     local downloadDir=$1
     local evaluatedURL=$2
@@ -266,23 +267,14 @@ installNodeProblemDetector() {
 
     echo "Installing Node Problem Detector."
 
-    ## Install based on OS type
-    #if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
-    #    apt_get_install 30 1 600 "${packagePath}" || exit $ERR_NPD_INSTALL_TIMEOUT
-    #elif [ "$OS" = "MARINER" ] || [ "$OS" = "AZURELINUX" ]; then
-    #    dnf_install 30 1 600 "${packagePath}" || exit $ERR_NPD_INSTALL_TIMEOUT
-    #fi
-
     mkdir -p $downloadDir
 
     ## Download and install NPD package based on OS type
     if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
       retrycmd_curl_file 10 5 60 "${downloadDir}/${npdName}" "${evaluatedURL}" || exit $ERR_NPD_INSTALL_TIMEOUT
-      echo "Installing NPD .deb package: ${downloadDir}/${npdName}"
       apt_get_install 30 1 600 "${downloadDir}/${npdName}" || exit $ERR_NPD_INSTALL_TIMEOUT
     elif [ "$OS" = "MARINER" ] || [ "$OS" = "AZURELINUX" ]; then
       retrycmd_curl_file 10 5 60 "${downloadDir}/${npdName}" "${evaluatedURL}" || exit $ERR_NPD_INSTALL_TIMEOUT
-      echo "Installing NPD .rpm package: ${downloadDir}/${npdName}"
       if ! dnf_install 30 1 600 "${downloadDir}/${npdName}"; then
         echo "ERROR: dnf_install failed for ${npdName} with exit code $?"
         exit $ERR_NPD_INSTALL_TIMEOUT
@@ -291,7 +283,7 @@ installNodeProblemDetector() {
       fi
     fi
 
-    # Copy AKS-specific NPD configs and plugins to system location
+    # Copy AKS NPD configs and plugins to system location
     local NPD_CONFIG_DIR="/etc/node-problem-detector.d"
     local NPD_ARTIFACTS_DIR="/opt/azure/containers/node-problem-detector"
     local NPD_BUILD_SOURCE="/home/packer/node-problem-detector"
@@ -318,7 +310,7 @@ installNodeProblemDetector() {
         fi
     done
 
-    # Copy root-level files (like skip_vhd_npd) to system location
+    # Copy root files (like skip_vhd_npd) to system location
     # skip_vhd_npd is used to keep the aks-operator node extension from clobbering vhd npd
     for source_dir in "${NPD_ARTIFACTS_DIR}" "${NPD_BUILD_SOURCE}"; do
         if [ -f "${source_dir}/skip_vhd_npd" ]; then
@@ -328,7 +320,7 @@ installNodeProblemDetector() {
         fi
     done
 
-    # Install AKS-specific startup script and systemd service
+    # Install AKS startup script and systemd service
     echo "Installing NPD startup script and systemd service"
 
     local NPD_STARTUP_SCRIPT_SRC="/home/packer/node-problem-detector-startup.sh"
@@ -340,46 +332,20 @@ installNodeProblemDetector() {
     cp "${NPD_STARTUP_SCRIPT_SRC}" "${NPD_STARTUP_SCRIPT_DEST}"
     chmod 755 "${NPD_STARTUP_SCRIPT_DEST}"
 
-    # Install systemd service (overrides package's service)
     cp "${NPD_SERVICE_SRC}" "${NPD_SERVICE_DEST}"
-    systemctl daemon-reload
-
-    # Also copy both to artifacts directory for CSE use
     cp "${NPD_STARTUP_SCRIPT_SRC}" "${NPD_ARTIFACTS_DIR}/"
     cp "${NPD_SERVICE_SRC}" "${NPD_ARTIFACTS_DIR}/"
 
-    # TODO: Go plugin compilation (check_kubelet.go) - saved for future work
-    # Compile Go plugin (currently only check_kubelet.go)
-    # if compgen -G "${NPD_CONFIG_DIR}/plugin/*.go" > /dev/null; then
-    #     echo "Compiling NPD Go plugins"
-    #     for gofile in "${NPD_CONFIG_DIR}"/plugin/*.go; do
-    #         base=$(basename "${gofile%.go}")
-    #         echo "  Compiling ${base} for ${CPU_ARCH}"
-    #         ( cd "${NPD_CONFIG_DIR}/plugin" && \
-    #           GOOS=linux GOARCH=${CPU_ARCH} CGO_ENABLED=0 go build -o "${base}" "./${base}.go" ) || \
-    #         echo "WARNING: Failed to compile ${base}, skipping"
-    #     done
-    # fi
-
-    # Set proper permissions on all config directories
     [ -d "${NPD_CONFIG_DIR}/plugin" ] && {
         chmod 755 "${NPD_CONFIG_DIR}/plugin"/*.sh 2>/dev/null || true
-        # Note: Skipping Go binary permissions since compilation is commented out for now
-        # find "${NPD_CONFIG_DIR}/plugin" -type f ! -name "*.sh" ! -name "*.go" -exec chmod 755 {} \; 2>/dev/null || true
     }
 
-    # Set permissions on JSON config files
     for dir in custom-plugin-monitor system-log-monitor system-stats-monitor; do
         [ -d "${NPD_CONFIG_DIR}/${dir}" ] && chmod 644 "${NPD_CONFIG_DIR}/${dir}"/*.json 2>/dev/null || true
     done
 
-    # Keep NPD service disabled during VHD build - CSE will enable it at runtime
-    # NPD requires runtime configuration for:
-    # - GPU detection and GPU-specific monitors
-    # - Public settings toggles (/etc/node-problem-detector.d/public-settings.json)
-    # - Kubernetes API server address and node name
-    # - Custom plugin enablement based on VM SKU and cluster configuration
-    # systemctl disable node-problem-detector || true
+    # CSE will reload npd. At start npd has a script that detects if we're gpu or not so restart on node is needed.
+    systemctl disable node-problem-detector
 
     echo "Node Problem Detector installed"
 }
@@ -621,7 +587,6 @@ while IFS= read -r p; do
         #packagePath="${downloadDir}/${packageFile}"
 
         if [ "${OS}" = "${UBUNTU_OS_NAME}" ] || isMarinerOrAzureLinux "$OS"; then
-          #installNodeProblemDetector "${downloadDir}" "${packagePath}" "${version}"
           installNodeProblemDetector "${downloadDir}" "${evaluatedURL}" "${npdName}"
         fi
         echo "  - node-problem-detector version ${version}" >> ${VHD_LOGS_FILEPATH}

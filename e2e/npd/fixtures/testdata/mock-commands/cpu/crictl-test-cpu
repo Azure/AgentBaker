@@ -1,0 +1,100 @@
+#!/bin/bash
+cat <<'CRICTL_EOF'
+{
+  "stats": [
+    {
+      "attributes": {
+        "id": "container1",
+        "metadata": {
+          "name": "nginx-container"
+        },
+        "labels": {
+          "io.kubernetes.pod.namespace": "default",
+          "io.kubernetes.pod.name": "nginx-pod-12345"
+        },
+        "annotations": {
+          "io.kubernetes.container.restartCount": "0"
+        }
+      },
+      "cpu": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "usageNanoCores": {
+          "value": "750000000"
+        },
+        "throttlingData": {
+          "periods": 1000,
+          "throttledPeriods": 50
+        }
+      },
+      "memory": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "workingSetBytes": {
+          "value": "134217728"
+        }
+      }
+    },
+    {
+      "attributes": {
+        "id": "container2",
+        "metadata": {
+          "name": "app-container"
+        },
+        "labels": {
+          "io.kubernetes.pod.namespace": "kube-system",
+          "io.kubernetes.pod.name": "app-pod-67890"
+        },
+        "annotations": {
+          "io.kubernetes.container.restartCount": "2"
+        }
+      },
+      "cpu": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "usageNanoCores": {
+          "value": "500000000"
+        },
+        "throttlingData": {
+          "periods": 800,
+          "throttledPeriods": 20
+        }
+      },
+      "memory": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "workingSetBytes": {
+          "value": "67108864"
+        }
+      }
+    },
+    {
+      "attributes": {
+        "id": "container3",
+        "metadata": {
+          "name": "db-container"
+        },
+        "labels": {
+          "io.kubernetes.pod.namespace": "database",
+          "io.kubernetes.pod.name": "mysql-pod-abcde"
+        },
+        "annotations": {
+          "io.kubernetes.container.restartCount": "1"
+        }
+      },
+      "cpu": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "usageNanoCores": {
+          "value": "250000000"
+        },
+        "throttlingData": {
+          "periods": 600,
+          "throttledPeriods": 10
+        }
+      },
+      "memory": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "workingSetBytes": {
+          "value": "268435456"
+        }
+      }
+    }
+  ]
+}
+CRICTL_EOF

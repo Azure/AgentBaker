@@ -1,0 +1,7 @@
+#!/bin/bash
+cat <<'IOTOP_OUTPUT'
+Total DISK READ: 1.23 K/s | Total DISK WRITE: 0.89 K/s
+Current DISK READ: 0.67 K/s | Current DISK WRITE: 0.45 K/s
+    TID  PRIO  USER     DISK READ  DISK WRITE  SWAPIN      IO    COMMAND
+ 3333    be/4 app       1.23 K/s    0.89 K/s  ?unavailable? /usr/bin/very-long-application-name-that-exceeds-normal-limits --with-many-arguments --config=/very/long/path/to/configuration/file.conf --data-dir=/another/very/long/path/that/should/be/truncated --log-level=debug --enable-feature-x --enable-feature-y
+IOTOP_OUTPUT

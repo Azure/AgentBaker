@@ -1,0 +1,38 @@
+#!/bin/bash
+cat <<'CRICTL_EOF'
+{
+  "stats": [
+    {
+      "attributes": {
+        "id": "throttled-container",
+        "metadata": {
+          "name": "cpu-limited-app"
+        },
+        "labels": {
+          "io.kubernetes.pod.namespace": "production",
+          "io.kubernetes.pod.name": "throttled-pod-xyz"
+        },
+        "annotations": {
+          "io.kubernetes.container.restartCount": "5"
+        }
+      },
+      "cpu": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "usageNanoCores": {
+          "value": "1000000000"
+        },
+        "throttlingData": {
+          "periods": 10000,
+          "throttledPeriods": 8500
+        }
+      },
+      "memory": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "workingSetBytes": {
+          "value": "536870912"
+        }
+      }
+    }
+  ]
+}
+CRICTL_EOF

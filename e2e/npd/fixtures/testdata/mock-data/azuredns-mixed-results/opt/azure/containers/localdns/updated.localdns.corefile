@@ -1,0 +1,24 @@
+# VnetDNS section with multiple forward IPs
+.:53 {
+    errors
+    bind 169.254.10.10
+    forward . 168.63.129.16 8.8.8.8 1.1.1.1 {
+        policy sequential
+        max_concurrent 1000
+    }
+    ready 169.254.10.10:8181
+    cache 3600
+    loop
+    nsid localdns
+}
+cluster.local:53 {
+    errors
+    bind 169.254.10.11
+    forward . 10.0.0.10 {
+        force_tcp
+        policy sequential
+    }
+    cache 3600
+    loop
+    nsid localdns-pod
+}

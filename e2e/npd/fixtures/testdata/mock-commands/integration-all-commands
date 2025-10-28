@@ -1,0 +1,54 @@
+#!/bin/bash
+# This script acts as top, systemd-cgtop, and crictl depending on its name
+COMMAND_NAME=$(basename "$0")
+
+case "$COMMAND_NAME" in
+    "top")
+        cat <<'TOP_EOF'
+top - 14:32:45 up 5 days,  3:21,  2 users,  load average: 2.15, 1.98, 1.75
+Tasks: 287 total,   3 running, 284 sleeping,   0 stopped,   0 zombie
+%Cpu(s): 25.3 us,  8.2 sy,  0.0 ni, 64.1 id,  2.1 wa,  0.0 hi,  0.3 si,  0.0 st
+MiB Mem :   7856.4 total,   1234.5 free,   4321.2 used,   2300.7 buff/cache
+
+    PID USER      PR  NI    VIRT    RES    SHR S  %CPU  %MEM     TIME+ COMMAND
+   1234 root     20   0  123456  45678  12345 R  45.2   0.6   1:23.45 integration-test-process
+TOP_EOF
+        ;;
+    "systemd-cgtop")
+        cat <<'CGTOP_EOF'
+Control Group                                            Tasks   %CPU   Memory  Input/s Output/s
+/                                                         1000   25.5     3.2G        -        -
+/system.slice                                              300   15.2     850M        -        -
+CGTOP_EOF
+        ;;
+    "crictl")
+        cat <<'CRICTL_EOF'
+{
+  "stats": [
+    {
+      "attributes": {
+        "id": "integration-container",
+        "metadata": {
+          "name": "integration-test"
+        },
+        "labels": {
+          "io.kubernetes.pod.namespace": "integration",
+          "io.kubernetes.pod.name": "integration-pod"
+        }
+      },
+      "cpu": {
+        "usageNanoCores": {
+          "value": "500000000"
+        }
+      },
+      "memory": {
+        "workingSetBytes": {
+          "value": "134217728"
+        }
+      }
+    }
+  ]
+}
+CRICTL_EOF
+        ;;
+esac

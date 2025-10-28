@@ -1,0 +1,10 @@
+#!/bin/bash
+if [[ "$*" == *"169.254.169.254"* && "$*" == *"instance/compute"* ]]; then
+    cat <<'IMDS_EOF'
+{
+  "vmSize": "Standard_ND96isr_H100_v5"
+}
+IMDS_EOF
+else
+    exec /usr/bin/curl "$@"
+fi

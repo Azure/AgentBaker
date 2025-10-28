@@ -1,0 +1,11 @@
+#!/bin/bash
+# dig dispatcher for DNS LocalDNS tests
+SCENARIO="${DIG_SCENARIO:-success}"
+
+# Look for scenario-specific mock
+if [ -f "/mock-commands/dns-localdns/dig-$SCENARIO" ]; then
+    exec "/mock-commands/dns-localdns/dig-$SCENARIO" "$@"
+fi
+
+# Default to success scenario
+exec "/mock-commands/dns-localdns/dig-success" "$@"

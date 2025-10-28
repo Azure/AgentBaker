@@ -1,0 +1,52 @@
+#!/bin/bash
+# Mock dig for successful DNS resolution
+case "$*" in
+    *kubernetes.default.svc.cluster.local*169.254.10.10*)
+        # Simulate successful LocalDNS node listener resolution
+        cat <<END
+; <<>> DiG 9.16.1 <<>> kubernetes.default.svc.cluster.local @169.254.10.10
+;; global options: +cmd
+;; Got answer:
+;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 12345
+;; flags: qr aa rd ra; QUERY: 1, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 1
+
+;; QUESTION SECTION:
+;kubernetes.default.svc.cluster.local. IN A
+
+;; ANSWER SECTION:
+kubernetes.default.svc.cluster.local. 30 IN A 10.0.0.1
+
+;; Query time: 3 msec
+;; SERVER: 169.254.10.10#53(169.254.10.10)
+;; WHEN: Mon Jul 15 10:00:00 UTC 2025
+;; MSG SIZE  rcvd: 82
+END
+        exit 0
+        ;;
+    *kubernetes.default.svc.cluster.local*169.254.10.11*)
+        # Simulate successful LocalDNS cluster listener resolution
+        cat <<END
+; <<>> DiG 9.16.1 <<>> kubernetes.default.svc.cluster.local @169.254.10.11
+;; global options: +cmd
+;; Got answer:
+;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 12346
+;; flags: qr aa rd ra; QUERY: 1, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 1
+
+;; QUESTION SECTION:
+;kubernetes.default.svc.cluster.local. IN A
+
+;; ANSWER SECTION:
+kubernetes.default.svc.cluster.local. 30 IN A 10.0.0.1
+
+;; Query time: 2 msec
+;; SERVER: 169.254.10.11#53(169.254.10.11)
+;; WHEN: Mon Jul 15 10:00:00 UTC 2025
+;; MSG SIZE  rcvd: 82
+END
+        exit 0
+        ;;
+    *)
+        echo "Mock dig: unknown query: $*" >&2
+        exit 1
+        ;;
+esac

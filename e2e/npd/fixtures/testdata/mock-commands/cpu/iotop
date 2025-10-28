@@ -1,0 +1,11 @@
+#!/bin/bash
+# iotop dispatcher for CPU tests
+SCENARIO="${IOTOP_SCENARIO:-test-standard}"
+
+# Look for scenario-specific mock in cpu directory
+if [ -f "/mock-commands/cpu/iotop-$SCENARIO" ]; then
+    exec "/mock-commands/cpu/iotop-$SCENARIO"
+fi
+
+# Default to standard scenario
+exec "/mock-commands/cpu/iotop-test-standard"

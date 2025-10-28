@@ -1,0 +1,547 @@
+#!/bin/bash
+cat <<'CRICTL_EOF'
+{
+  "stats": [
+    {
+      "attributes": {
+        "id": "container1",
+        "metadata": {
+          "name": "app-container-1"
+        },
+        "labels": {
+          "io.kubernetes.pod.namespace": "test",
+          "io.kubernetes.pod.name": "test-pod-1"
+        },
+        "annotations": {
+          "io.kubernetes.container.restartCount": "0"
+        }
+      },
+      "cpu": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "usageNanoCores": {
+          "value": "960000000"
+        }
+      },
+      "memory": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "workingSetBytes": {
+          "value": "144703488"
+        }
+      }
+    },
+    {
+      "attributes": {
+        "id": "container2",
+        "metadata": {
+          "name": "app-container-2"
+        },
+        "labels": {
+          "io.kubernetes.pod.namespace": "test",
+          "io.kubernetes.pod.name": "test-pod-2"
+        },
+        "annotations": {
+          "io.kubernetes.container.restartCount": "0"
+        }
+      },
+      "cpu": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "usageNanoCores": {
+          "value": "920000000"
+        }
+      },
+      "memory": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "workingSetBytes": {
+          "value": "155189248"
+        }
+      }
+    },
+    {
+      "attributes": {
+        "id": "container3",
+        "metadata": {
+          "name": "app-container-3"
+        },
+        "labels": {
+          "io.kubernetes.pod.namespace": "test",
+          "io.kubernetes.pod.name": "test-pod-3"
+        },
+        "annotations": {
+          "io.kubernetes.container.restartCount": "0"
+        }
+      },
+      "cpu": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "usageNanoCores": {
+          "value": "880000000"
+        }
+      },
+      "memory": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "workingSetBytes": {
+          "value": "165675008"
+        }
+      }
+    },
+    {
+      "attributes": {
+        "id": "container4",
+        "metadata": {
+          "name": "app-container-4"
+        },
+        "labels": {
+          "io.kubernetes.pod.namespace": "test",
+          "io.kubernetes.pod.name": "test-pod-4"
+        },
+        "annotations": {
+          "io.kubernetes.container.restartCount": "0"
+        }
+      },
+      "cpu": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "usageNanoCores": {
+          "value": "840000000"
+        }
+      },
+      "memory": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "workingSetBytes": {
+          "value": "176160768"
+        }
+      }
+    },
+    {
+      "attributes": {
+        "id": "container5",
+        "metadata": {
+          "name": "app-container-5"
+        },
+        "labels": {
+          "io.kubernetes.pod.namespace": "test",
+          "io.kubernetes.pod.name": "test-pod-5"
+        },
+        "annotations": {
+          "io.kubernetes.container.restartCount": "0"
+        }
+      },
+      "cpu": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "usageNanoCores": {
+          "value": "800000000"
+        }
+      },
+      "memory": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "workingSetBytes": {
+          "value": "186646528"
+        }
+      }
+    },
+    {
+      "attributes": {
+        "id": "container6",
+        "metadata": {
+          "name": "app-container-6"
+        },
+        "labels": {
+          "io.kubernetes.pod.namespace": "test",
+          "io.kubernetes.pod.name": "test-pod-6"
+        },
+        "annotations": {
+          "io.kubernetes.container.restartCount": "0"
+        }
+      },
+      "cpu": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "usageNanoCores": {
+          "value": "760000000"
+        }
+      },
+      "memory": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "workingSetBytes": {
+          "value": "197132288"
+        }
+      }
+    },
+    {
+      "attributes": {
+        "id": "container7",
+        "metadata": {
+          "name": "app-container-7"
+        },
+        "labels": {
+          "io.kubernetes.pod.namespace": "test",
+          "io.kubernetes.pod.name": "test-pod-7"
+        },
+        "annotations": {
+          "io.kubernetes.container.restartCount": "0"
+        }
+      },
+      "cpu": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "usageNanoCores": {
+          "value": "720000000"
+        }
+      },
+      "memory": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "workingSetBytes": {
+          "value": "207618048"
+        }
+      }
+    },
+    {
+      "attributes": {
+        "id": "container8",
+        "metadata": {
+          "name": "app-container-8"
+        },
+        "labels": {
+          "io.kubernetes.pod.namespace": "test",
+          "io.kubernetes.pod.name": "test-pod-8"
+        },
+        "annotations": {
+          "io.kubernetes.container.restartCount": "0"
+        }
+      },
+      "cpu": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "usageNanoCores": {
+          "value": "680000000"
+        }
+      },
+      "memory": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "workingSetBytes": {
+          "value": "218103808"
+        }
+      }
+    },
+    {
+      "attributes": {
+        "id": "container9",
+        "metadata": {
+          "name": "app-container-9"
+        },
+        "labels": {
+          "io.kubernetes.pod.namespace": "test",
+          "io.kubernetes.pod.name": "test-pod-9"
+        },
+        "annotations": {
+          "io.kubernetes.container.restartCount": "0"
+        }
+      },
+      "cpu": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "usageNanoCores": {
+          "value": "640000000"
+        }
+      },
+      "memory": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "workingSetBytes": {
+          "value": "228589568"
+        }
+      }
+    },
+    {
+      "attributes": {
+        "id": "container10",
+        "metadata": {
+          "name": "app-container-10"
+        },
+        "labels": {
+          "io.kubernetes.pod.namespace": "test",
+          "io.kubernetes.pod.name": "test-pod-10"
+        },
+        "annotations": {
+          "io.kubernetes.container.restartCount": "0"
+        }
+      },
+      "cpu": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "usageNanoCores": {
+          "value": "600000000"
+        }
+      },
+      "memory": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "workingSetBytes": {
+          "value": "239075328"
+        }
+      }
+    },
+    {
+      "attributes": {
+        "id": "container11",
+        "metadata": {
+          "name": "app-container-11"
+        },
+        "labels": {
+          "io.kubernetes.pod.namespace": "test",
+          "io.kubernetes.pod.name": "test-pod-11"
+        },
+        "annotations": {
+          "io.kubernetes.container.restartCount": "0"
+        }
+      },
+      "cpu": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "usageNanoCores": {
+          "value": "560000000"
+        }
+      },
+      "memory": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "workingSetBytes": {
+          "value": "249561088"
+        }
+      }
+    },
+    {
+      "attributes": {
+        "id": "container12",
+        "metadata": {
+          "name": "app-container-12"
+        },
+        "labels": {
+          "io.kubernetes.pod.namespace": "test",
+          "io.kubernetes.pod.name": "test-pod-12"
+        },
+        "annotations": {
+          "io.kubernetes.container.restartCount": "0"
+        }
+      },
+      "cpu": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "usageNanoCores": {
+          "value": "520000000"
+        }
+      },
+      "memory": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "workingSetBytes": {
+          "value": "260046848"
+        }
+      }
+    },
+    {
+      "attributes": {
+        "id": "container13",
+        "metadata": {
+          "name": "app-container-13"
+        },
+        "labels": {
+          "io.kubernetes.pod.namespace": "test",
+          "io.kubernetes.pod.name": "test-pod-13"
+        },
+        "annotations": {
+          "io.kubernetes.container.restartCount": "0"
+        }
+      },
+      "cpu": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "usageNanoCores": {
+          "value": "480000000"
+        }
+      },
+      "memory": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "workingSetBytes": {
+          "value": "270532608"
+        }
+      }
+    },
+    {
+      "attributes": {
+        "id": "container14",
+        "metadata": {
+          "name": "app-container-14"
+        },
+        "labels": {
+          "io.kubernetes.pod.namespace": "test",
+          "io.kubernetes.pod.name": "test-pod-14"
+        },
+        "annotations": {
+          "io.kubernetes.container.restartCount": "0"
+        }
+      },
+      "cpu": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "usageNanoCores": {
+          "value": "440000000"
+        }
+      },
+      "memory": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "workingSetBytes": {
+          "value": "281018368"
+        }
+      }
+    },
+    {
+      "attributes": {
+        "id": "container15",
+        "metadata": {
+          "name": "app-container-15"
+        },
+        "labels": {
+          "io.kubernetes.pod.namespace": "test",
+          "io.kubernetes.pod.name": "test-pod-15"
+        },
+        "annotations": {
+          "io.kubernetes.container.restartCount": "0"
+        }
+      },
+      "cpu": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "usageNanoCores": {
+          "value": "400000000"
+        }
+      },
+      "memory": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "workingSetBytes": {
+          "value": "291504128"
+        }
+      }
+    },
+    {
+      "attributes": {
+        "id": "container16",
+        "metadata": {
+          "name": "app-container-16"
+        },
+        "labels": {
+          "io.kubernetes.pod.namespace": "test",
+          "io.kubernetes.pod.name": "test-pod-16"
+        },
+        "annotations": {
+          "io.kubernetes.container.restartCount": "0"
+        }
+      },
+      "cpu": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "usageNanoCores": {
+          "value": "360000000"
+        }
+      },
+      "memory": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "workingSetBytes": {
+          "value": "301989888"
+        }
+      }
+    },
+    {
+      "attributes": {
+        "id": "container17",
+        "metadata": {
+          "name": "app-container-17"
+        },
+        "labels": {
+          "io.kubernetes.pod.namespace": "test",
+          "io.kubernetes.pod.name": "test-pod-17"
+        },
+        "annotations": {
+          "io.kubernetes.container.restartCount": "0"
+        }
+      },
+      "cpu": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "usageNanoCores": {
+          "value": "320000000"
+        }
+      },
+      "memory": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "workingSetBytes": {
+          "value": "312475648"
+        }
+      }
+    },
+    {
+      "attributes": {
+        "id": "container18",
+        "metadata": {
+          "name": "app-container-18"
+        },
+        "labels": {
+          "io.kubernetes.pod.namespace": "test",
+          "io.kubernetes.pod.name": "test-pod-18"
+        },
+        "annotations": {
+          "io.kubernetes.container.restartCount": "0"
+        }
+      },
+      "cpu": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "usageNanoCores": {
+          "value": "280000000"
+        }
+      },
+      "memory": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "workingSetBytes": {
+          "value": "322961408"
+        }
+      }
+    },
+    {
+      "attributes": {
+        "id": "container19",
+        "metadata": {
+          "name": "app-container-19"
+        },
+        "labels": {
+          "io.kubernetes.pod.namespace": "test",
+          "io.kubernetes.pod.name": "test-pod-19"
+        },
+        "annotations": {
+          "io.kubernetes.container.restartCount": "0"
+        }
+      },
+      "cpu": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "usageNanoCores": {
+          "value": "240000000"
+        }
+      },
+      "memory": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "workingSetBytes": {
+          "value": "333447168"
+        }
+      }
+    },
+    {
+      "attributes": {
+        "id": "container20",
+        "metadata": {
+          "name": "app-container-20"
+        },
+        "labels": {
+          "io.kubernetes.pod.namespace": "test",
+          "io.kubernetes.pod.name": "test-pod-20"
+        },
+        "annotations": {
+          "io.kubernetes.container.restartCount": "0"
+        }
+      },
+      "cpu": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "usageNanoCores": {
+          "value": "200000000"
+        }
+      },
+      "memory": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "workingSetBytes": {
+          "value": "343932928"
+        }
+      }
+    }
+  ]
+}
+CRICTL_EOF

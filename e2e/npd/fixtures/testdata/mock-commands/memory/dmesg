@@ -1,0 +1,11 @@
+#!/bin/bash
+# dmesg dispatcher for memory tests
+SCENARIO="${MEMORY_DMESG_SCENARIO:-no-oom}"
+
+# Look for scenario-specific mock in memory directory
+if [ -f "/mock-commands/memory/dmesg-$SCENARIO" ]; then
+    exec "/mock-commands/memory/dmesg-$SCENARIO"
+fi
+
+# Default to no-oom scenario
+exec "/mock-commands/memory/dmesg-no-oom"

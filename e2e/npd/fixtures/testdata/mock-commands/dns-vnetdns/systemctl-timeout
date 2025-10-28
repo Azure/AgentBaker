@@ -1,0 +1,3 @@
+#!/bin/bash
+# Mock systemctl that simulates timeout
+sleep 30  # This will be interrupted by timeout command

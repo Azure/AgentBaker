@@ -1,0 +1,10 @@
+{
+  "Version": "1.0",
+  "Timestamp": "2025-10-28T21:44:15Z",
+  "TaskName": "npd:check_memory_pressure:log",
+  "EventLevel": "Warning",
+  "Message": "Total memory: 4000 MB\nMemory available threshold: 10% (400 MB)\nPSI memory some avg60: 50.00\nPRESSURE: High memory pressure detected via cgroup PSI: 50.00% (threshold: 10%)\nMemory stats from /proc/meminfo:\n  Total: 4000 MB\n  Available: 250 MB\n  Used: 3750 MB (93%)\nPRESSURE: Low available memory: 250 MB (threshold: 400 MB)\nChecking for OOM events in the last 5 minutes...\nCurrent uptime: 3600 seconds, cutoff time: 3300 seconds\nPRESSURE: Recent OOM kills detected in kernel log (last 5 minutes):\nMemory pressure detected on node\nRunning top command for memory...\nUsing 36 lines for top output\nRunning systemd-cgtop command for -m...\nWARNING: Could not extract second iteration from systemd-cgtop output, using full output\nRunning crictl stats for memory...\nWARNING: Failed to collect or process container stats (error 5)\nLogging OOM events\nSystem boot time: Tue Oct 28 20:44:15 UTC 2025",
+  "EventPid": "20",
+  "EventTid": "1",
+  "OperationId": "562d0ae2-20d6-498f--853--07708f00005"
+}

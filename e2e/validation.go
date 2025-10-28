@@ -47,6 +47,23 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 	ValidateKernelLogs(ctx, s)
 	ValidateScriptlessCSECmd(ctx, s)
 
+	// validate node-problem-detector is running and properly configured
+	ValidateSystemdUnitIsRunning(ctx, s, "node-problem-detector.service")
+	ValidateSystemdUnitIsNotFailed(ctx, s, "node-problem-detector")
+	ValidateFileExists(ctx, s, "/etc/node-problem-detector.d/skip_vhd_npd")
+	ValidateFileExists(ctx, s, "/usr/local/bin/node-problem-detector-startup.sh")
+
+	// validate NPD config directories are installed
+	ValidateDirectoryContent(ctx, s, "/etc/node-problem-detector.d", []string{
+		"custom-plugin-monitor",
+		"plugin",
+		"system-log-monitor",
+		"system-stats-monitor",
+	})
+
+	// validate plugin directory is not empty (contains actual plugin scripts)
+	ValidateNonEmptyDirectory(ctx, s, "/etc/node-problem-detector.d/plugin")
+
 	ValidateSysctlConfig(ctx, s, map[string]string{
 		"net.ipv4.tcp_retries2":             "8",
 		"net.core.message_burst":            "80",

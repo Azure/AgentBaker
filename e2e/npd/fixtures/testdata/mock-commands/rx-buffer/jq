@@ -1,0 +1,28 @@
+#!/bin/bash
+# RX buffer specific jq mock
+# Extract interface names from JSON where parentbus == "pci"
+
+case "$*" in
+    *'select(.parentbus == "pci")'*)
+        # Filter PCI interfaces and extract ifname
+        python3 -c "
+import json, sys
+try:
+    data = json.load(sys.stdin)
+    pci_interfaces = [item['ifname'] for item in data if item.get('parentbus') == 'pci']
+    for iface in pci_interfaces:
+        print(iface)
+except:
+    pass
+"
+        ;;
+    *)
+        # For RX buffer tests, fall back to real jq if available
+        if command -v /usr/bin/jq > /dev/null 2>&1; then
+            exec /usr/bin/jq "$@"
+        else
+            echo "jq: command not found" >&2
+            exit 127
+        fi
+        ;;
+esac

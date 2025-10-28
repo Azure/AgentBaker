@@ -1,0 +1,4 @@
+#!/bin/bash
+# Mock for missing command scenario
+echo "command not found: $1" >&2
+exit 127

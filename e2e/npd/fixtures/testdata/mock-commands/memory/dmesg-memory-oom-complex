@@ -1,0 +1,14 @@
+#!/bin/bash
+cat <<'DMESG_EOF'
+[    0.000000] Linux version 5.4.0-1064-azure (buildd@lcy02-amd64-112) (gcc version 9.4.0 (Ubuntu 9.4.0-1ubuntu1~20.04.1) ) #69~20.04.1-Ubuntu SMP Wed Jan 12 22:28:45 UTC 2022
+[    1.234567] Memory: 4096000K/4194304K available
+[ 3510.567890] "app with spaces" invoked oom-killer: gfp_mask=0x6200ca(GFP_HIGHUSER_MOVABLE), order=0, oom_score_adj=0
+[ 3510.567891] Out of memory: Kill process 2222 ("app with spaces") score 600 or sacrifice child
+[ 3510.567892] Killed process 2222 ("app with spaces") total-vm:1111111kB, anon-rss:888888kB, file-rss:222222kB, shmem-rss:0kB
+[ 3515.789012] app\with\backslashes invoked oom-killer: gfp_mask=0x6200ca(GFP_HIGHUSER_MOVABLE), order=0, oom_score_adj=0
+[ 3515.789013] Out of memory: Kill process 3333 (app\with\backslashes) score 400 or sacrifice child
+[ 3515.789014] Killed process 3333 (app\with\backslashes) total-vm:999999kB, anon-rss:666666kB, file-rss:111111kB, shmem-rss:0kB
+[ 3525.234567] app	with	tabs invoked oom-killer: gfp_mask=0x6200ca(GFP_HIGHUSER_MOVABLE), order=0, oom_score_adj=0
+[ 3525.234568] Out of memory: Kill process 4444 (app	with	tabs) score 300 or sacrifice child
+[ 3590.123456] systemd[1]: Started some-service.service.
+DMESG_EOF

@@ -1,0 +1,15 @@
+#!/bin/bash
+cat <<'IG_EOF'
+[
+  {
+    "comm": "test-process-1",
+    "pid": 1
+  }
+]
+[
+  {
+    "comm": "test-process-2",
+    "pid": 2
+  }
+]
+IG_EOF

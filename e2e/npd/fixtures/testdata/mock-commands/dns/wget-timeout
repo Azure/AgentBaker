@@ -1,0 +1,4 @@
+#!/bin/bash
+# Mock wget that simulates timeout
+echo "wget: unable to resolve host address 'nonexistent.example.com'" >&2
+exit 4

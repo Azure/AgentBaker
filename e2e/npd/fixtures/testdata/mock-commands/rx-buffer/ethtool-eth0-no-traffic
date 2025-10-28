@@ -1,0 +1,15 @@
+#!/bin/bash
+cat <<'ETHTOOL_OUTPUT'
+NIC statistics:
+     rx_packets: 1000000
+     tx_packets: 800000
+     rx_bytes: 1500000000
+     tx_bytes: 1200000000
+     rx_out_of_buffer: 10
+     rx_errors: 5
+     tx_errors: 2
+     rx_dropped: 10
+     tx_dropped: 8
+     multicast: 50000
+     collisions: 0
+ETHTOOL_OUTPUT

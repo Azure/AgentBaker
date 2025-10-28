@@ -1,0 +1,14 @@
+#!/bin/bash
+# Mock systemctl that hangs (simulates timeout)
+case "$*" in
+    *"is-active localdns.service"*)
+        # Simulate hanging command
+        sleep 15
+        echo "active"
+        exit 0
+        ;;
+    *)
+        echo "Mock systemctl: unknown command: $*" >&2
+        exit 1
+        ;;
+esac

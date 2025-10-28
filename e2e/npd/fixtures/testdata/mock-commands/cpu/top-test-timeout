@@ -1,0 +1,4 @@
+#!/bin/bash
+# Simulate a command that takes too long
+sleep 15
+echo "This should not appear due to timeout"

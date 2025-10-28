@@ -1,0 +1,27 @@
+.:53 {
+    errors
+    bind 169.254.10.10
+    forward . 168.63.129.16 {
+        policy sequential
+    }
+    cache 3600
+    loop
+}
+.:53 {
+    errors
+    bind 169.254.10.11
+    forward . 10.0.0.10 {
+        policy sequential
+    }
+    cache 3600
+    loop
+}
+.:53 {
+    errors
+    bind 169.254.10.12
+    forward . 8.8.8.8 {
+        policy sequential
+    }
+    cache 3600
+    loop
+}
