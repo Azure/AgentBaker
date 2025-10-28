@@ -1,0 +1,11 @@
+# Variant corefile format with different spacing and structure
+cluster.local:53{
+    errors
+    bind 169.254.10.11
+    forward . 10.0.0.25{
+        force_tcp
+        policy sequential
+    }
+    cache 3600
+    loop
+}

@@ -1,0 +1,30 @@
+#!/bin/bash
+# Mock dig for successful DNS resolution
+case "$*" in
+    *mcr.microsoft.com*|*kubernetes.default.svc.cluster.local*|*example.microsoft.com*)
+        # Simulate successful DNS resolution
+        cat <<END
+; <<>> DiG 9.16.1 <<>> mcr.microsoft.com @168.63.129.16
+;; global options: +cmd
+;; Got answer:
+;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 12345
+;; flags: qr rd ra; QUERY: 1, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 1
+
+;; QUESTION SECTION:
+;mcr.microsoft.com.             IN      A
+
+;; ANSWER SECTION:
+mcr.microsoft.com.      300     IN      A       20.118.95.41
+
+;; Query time: 5 msec
+;; SERVER: 168.63.129.16#53(168.63.129.16)
+;; WHEN: Mon Jul 15 10:00:00 UTC 2025
+;; MSG SIZE  rcvd: 62
+END
+        exit 0
+        ;;
+    *)
+        echo "Mock dig: unknown query: $*" >&2
+        exit 1
+        ;;
+esac

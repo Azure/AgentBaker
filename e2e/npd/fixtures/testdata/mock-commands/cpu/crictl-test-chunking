@@ -1,0 +1,1607 @@
+#!/bin/bash
+cat <<'CRICTL_EOF'
+{
+  "stats": [
+    {
+      "attributes": {
+        "id": "chunking-container-1",
+        "metadata": {
+          "name": "very-long-container-name-for-chunking-test-container-number-1-with-extra-data"
+        },
+        "labels": {
+          "io.kubernetes.pod.namespace": "chunking-test-namespace-with-long-name",
+          "io.kubernetes.pod.name": "chunking-test-pod-with-very-long-name-1"
+        },
+        "annotations": {
+          "io.kubernetes.container.restartCount": "1",
+          "very.long.annotation.key.for.testing.purposes": "very-long-annotation-value-to-increase-json-size-1"
+        }
+      },
+      "cpu": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "usageNanoCores": {
+          "value": "985000000"
+        },
+        "throttlingData": {
+          "periods": 1100,
+          "throttledPeriods": 5
+        }
+      },
+      "memory": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "workingSetBytes": {
+          "value": "155189248"
+        }
+      }
+    },
+    {
+      "attributes": {
+        "id": "chunking-container-2",
+        "metadata": {
+          "name": "very-long-container-name-for-chunking-test-container-number-2-with-extra-data"
+        },
+        "labels": {
+          "io.kubernetes.pod.namespace": "chunking-test-namespace-with-long-name",
+          "io.kubernetes.pod.name": "chunking-test-pod-with-very-long-name-2"
+        },
+        "annotations": {
+          "io.kubernetes.container.restartCount": "2",
+          "very.long.annotation.key.for.testing.purposes": "very-long-annotation-value-to-increase-json-size-2"
+        }
+      },
+      "cpu": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "usageNanoCores": {
+          "value": "970000000"
+        },
+        "throttlingData": {
+          "periods": 1200,
+          "throttledPeriods": 10
+        }
+      },
+      "memory": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "workingSetBytes": {
+          "value": "176160768"
+        }
+      }
+    },
+    {
+      "attributes": {
+        "id": "chunking-container-3",
+        "metadata": {
+          "name": "very-long-container-name-for-chunking-test-container-number-3-with-extra-data"
+        },
+        "labels": {
+          "io.kubernetes.pod.namespace": "chunking-test-namespace-with-long-name",
+          "io.kubernetes.pod.name": "chunking-test-pod-with-very-long-name-3"
+        },
+        "annotations": {
+          "io.kubernetes.container.restartCount": "3",
+          "very.long.annotation.key.for.testing.purposes": "very-long-annotation-value-to-increase-json-size-3"
+        }
+      },
+      "cpu": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "usageNanoCores": {
+          "value": "955000000"
+        },
+        "throttlingData": {
+          "periods": 1300,
+          "throttledPeriods": 15
+        }
+      },
+      "memory": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "workingSetBytes": {
+          "value": "197132288"
+        }
+      }
+    },
+    {
+      "attributes": {
+        "id": "chunking-container-4",
+        "metadata": {
+          "name": "very-long-container-name-for-chunking-test-container-number-4-with-extra-data"
+        },
+        "labels": {
+          "io.kubernetes.pod.namespace": "chunking-test-namespace-with-long-name",
+          "io.kubernetes.pod.name": "chunking-test-pod-with-very-long-name-4"
+        },
+        "annotations": {
+          "io.kubernetes.container.restartCount": "4",
+          "very.long.annotation.key.for.testing.purposes": "very-long-annotation-value-to-increase-json-size-4"
+        }
+      },
+      "cpu": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "usageNanoCores": {
+          "value": "940000000"
+        },
+        "throttlingData": {
+          "periods": 1400,
+          "throttledPeriods": 20
+        }
+      },
+      "memory": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "workingSetBytes": {
+          "value": "218103808"
+        }
+      }
+    },
+    {
+      "attributes": {
+        "id": "chunking-container-5",
+        "metadata": {
+          "name": "very-long-container-name-for-chunking-test-container-number-5-with-extra-data"
+        },
+        "labels": {
+          "io.kubernetes.pod.namespace": "chunking-test-namespace-with-long-name",
+          "io.kubernetes.pod.name": "chunking-test-pod-with-very-long-name-5"
+        },
+        "annotations": {
+          "io.kubernetes.container.restartCount": "5",
+          "very.long.annotation.key.for.testing.purposes": "very-long-annotation-value-to-increase-json-size-5"
+        }
+      },
+      "cpu": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "usageNanoCores": {
+          "value": "925000000"
+        },
+        "throttlingData": {
+          "periods": 1500,
+          "throttledPeriods": 25
+        }
+      },
+      "memory": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "workingSetBytes": {
+          "value": "239075328"
+        }
+      }
+    },
+    {
+      "attributes": {
+        "id": "chunking-container-6",
+        "metadata": {
+          "name": "very-long-container-name-for-chunking-test-container-number-6-with-extra-data"
+        },
+        "labels": {
+          "io.kubernetes.pod.namespace": "chunking-test-namespace-with-long-name",
+          "io.kubernetes.pod.name": "chunking-test-pod-with-very-long-name-6"
+        },
+        "annotations": {
+          "io.kubernetes.container.restartCount": "6",
+          "very.long.annotation.key.for.testing.purposes": "very-long-annotation-value-to-increase-json-size-6"
+        }
+      },
+      "cpu": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "usageNanoCores": {
+          "value": "910000000"
+        },
+        "throttlingData": {
+          "periods": 1600,
+          "throttledPeriods": 30
+        }
+      },
+      "memory": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "workingSetBytes": {
+          "value": "260046848"
+        }
+      }
+    },
+    {
+      "attributes": {
+        "id": "chunking-container-7",
+        "metadata": {
+          "name": "very-long-container-name-for-chunking-test-container-number-7-with-extra-data"
+        },
+        "labels": {
+          "io.kubernetes.pod.namespace": "chunking-test-namespace-with-long-name",
+          "io.kubernetes.pod.name": "chunking-test-pod-with-very-long-name-7"
+        },
+        "annotations": {
+          "io.kubernetes.container.restartCount": "7",
+          "very.long.annotation.key.for.testing.purposes": "very-long-annotation-value-to-increase-json-size-7"
+        }
+      },
+      "cpu": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "usageNanoCores": {
+          "value": "895000000"
+        },
+        "throttlingData": {
+          "periods": 1700,
+          "throttledPeriods": 35
+        }
+      },
+      "memory": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "workingSetBytes": {
+          "value": "281018368"
+        }
+      }
+    },
+    {
+      "attributes": {
+        "id": "chunking-container-8",
+        "metadata": {
+          "name": "very-long-container-name-for-chunking-test-container-number-8-with-extra-data"
+        },
+        "labels": {
+          "io.kubernetes.pod.namespace": "chunking-test-namespace-with-long-name",
+          "io.kubernetes.pod.name": "chunking-test-pod-with-very-long-name-8"
+        },
+        "annotations": {
+          "io.kubernetes.container.restartCount": "8",
+          "very.long.annotation.key.for.testing.purposes": "very-long-annotation-value-to-increase-json-size-8"
+        }
+      },
+      "cpu": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "usageNanoCores": {
+          "value": "880000000"
+        },
+        "throttlingData": {
+          "periods": 1800,
+          "throttledPeriods": 40
+        }
+      },
+      "memory": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "workingSetBytes": {
+          "value": "301989888"
+        }
+      }
+    },
+    {
+      "attributes": {
+        "id": "chunking-container-9",
+        "metadata": {
+          "name": "very-long-container-name-for-chunking-test-container-number-9-with-extra-data"
+        },
+        "labels": {
+          "io.kubernetes.pod.namespace": "chunking-test-namespace-with-long-name",
+          "io.kubernetes.pod.name": "chunking-test-pod-with-very-long-name-9"
+        },
+        "annotations": {
+          "io.kubernetes.container.restartCount": "9",
+          "very.long.annotation.key.for.testing.purposes": "very-long-annotation-value-to-increase-json-size-9"
+        }
+      },
+      "cpu": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "usageNanoCores": {
+          "value": "865000000"
+        },
+        "throttlingData": {
+          "periods": 1900,
+          "throttledPeriods": 45
+        }
+      },
+      "memory": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "workingSetBytes": {
+          "value": "322961408"
+        }
+      }
+    },
+    {
+      "attributes": {
+        "id": "chunking-container-10",
+        "metadata": {
+          "name": "very-long-container-name-for-chunking-test-container-number-10-with-extra-data"
+        },
+        "labels": {
+          "io.kubernetes.pod.namespace": "chunking-test-namespace-with-long-name",
+          "io.kubernetes.pod.name": "chunking-test-pod-with-very-long-name-10"
+        },
+        "annotations": {
+          "io.kubernetes.container.restartCount": "0",
+          "very.long.annotation.key.for.testing.purposes": "very-long-annotation-value-to-increase-json-size-10"
+        }
+      },
+      "cpu": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "usageNanoCores": {
+          "value": "850000000"
+        },
+        "throttlingData": {
+          "periods": 2000,
+          "throttledPeriods": 50
+        }
+      },
+      "memory": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "workingSetBytes": {
+          "value": "343932928"
+        }
+      }
+    },
+    {
+      "attributes": {
+        "id": "chunking-container-11",
+        "metadata": {
+          "name": "very-long-container-name-for-chunking-test-container-number-11-with-extra-data"
+        },
+        "labels": {
+          "io.kubernetes.pod.namespace": "chunking-test-namespace-with-long-name",
+          "io.kubernetes.pod.name": "chunking-test-pod-with-very-long-name-11"
+        },
+        "annotations": {
+          "io.kubernetes.container.restartCount": "1",
+          "very.long.annotation.key.for.testing.purposes": "very-long-annotation-value-to-increase-json-size-11"
+        }
+      },
+      "cpu": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "usageNanoCores": {
+          "value": "835000000"
+        },
+        "throttlingData": {
+          "periods": 2100,
+          "throttledPeriods": 55
+        }
+      },
+      "memory": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "workingSetBytes": {
+          "value": "364904448"
+        }
+      }
+    },
+    {
+      "attributes": {
+        "id": "chunking-container-12",
+        "metadata": {
+          "name": "very-long-container-name-for-chunking-test-container-number-12-with-extra-data"
+        },
+        "labels": {
+          "io.kubernetes.pod.namespace": "chunking-test-namespace-with-long-name",
+          "io.kubernetes.pod.name": "chunking-test-pod-with-very-long-name-12"
+        },
+        "annotations": {
+          "io.kubernetes.container.restartCount": "2",
+          "very.long.annotation.key.for.testing.purposes": "very-long-annotation-value-to-increase-json-size-12"
+        }
+      },
+      "cpu": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "usageNanoCores": {
+          "value": "820000000"
+        },
+        "throttlingData": {
+          "periods": 2200,
+          "throttledPeriods": 60
+        }
+      },
+      "memory": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "workingSetBytes": {
+          "value": "385875968"
+        }
+      }
+    },
+    {
+      "attributes": {
+        "id": "chunking-container-13",
+        "metadata": {
+          "name": "very-long-container-name-for-chunking-test-container-number-13-with-extra-data"
+        },
+        "labels": {
+          "io.kubernetes.pod.namespace": "chunking-test-namespace-with-long-name",
+          "io.kubernetes.pod.name": "chunking-test-pod-with-very-long-name-13"
+        },
+        "annotations": {
+          "io.kubernetes.container.restartCount": "3",
+          "very.long.annotation.key.for.testing.purposes": "very-long-annotation-value-to-increase-json-size-13"
+        }
+      },
+      "cpu": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "usageNanoCores": {
+          "value": "805000000"
+        },
+        "throttlingData": {
+          "periods": 2300,
+          "throttledPeriods": 65
+        }
+      },
+      "memory": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "workingSetBytes": {
+          "value": "406847488"
+        }
+      }
+    },
+    {
+      "attributes": {
+        "id": "chunking-container-14",
+        "metadata": {
+          "name": "very-long-container-name-for-chunking-test-container-number-14-with-extra-data"
+        },
+        "labels": {
+          "io.kubernetes.pod.namespace": "chunking-test-namespace-with-long-name",
+          "io.kubernetes.pod.name": "chunking-test-pod-with-very-long-name-14"
+        },
+        "annotations": {
+          "io.kubernetes.container.restartCount": "4",
+          "very.long.annotation.key.for.testing.purposes": "very-long-annotation-value-to-increase-json-size-14"
+        }
+      },
+      "cpu": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "usageNanoCores": {
+          "value": "790000000"
+        },
+        "throttlingData": {
+          "periods": 2400,
+          "throttledPeriods": 70
+        }
+      },
+      "memory": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "workingSetBytes": {
+          "value": "427819008"
+        }
+      }
+    },
+    {
+      "attributes": {
+        "id": "chunking-container-15",
+        "metadata": {
+          "name": "very-long-container-name-for-chunking-test-container-number-15-with-extra-data"
+        },
+        "labels": {
+          "io.kubernetes.pod.namespace": "chunking-test-namespace-with-long-name",
+          "io.kubernetes.pod.name": "chunking-test-pod-with-very-long-name-15"
+        },
+        "annotations": {
+          "io.kubernetes.container.restartCount": "5",
+          "very.long.annotation.key.for.testing.purposes": "very-long-annotation-value-to-increase-json-size-15"
+        }
+      },
+      "cpu": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "usageNanoCores": {
+          "value": "775000000"
+        },
+        "throttlingData": {
+          "periods": 2500,
+          "throttledPeriods": 75
+        }
+      },
+      "memory": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "workingSetBytes": {
+          "value": "448790528"
+        }
+      }
+    },
+    {
+      "attributes": {
+        "id": "chunking-container-16",
+        "metadata": {
+          "name": "very-long-container-name-for-chunking-test-container-number-16-with-extra-data"
+        },
+        "labels": {
+          "io.kubernetes.pod.namespace": "chunking-test-namespace-with-long-name",
+          "io.kubernetes.pod.name": "chunking-test-pod-with-very-long-name-16"
+        },
+        "annotations": {
+          "io.kubernetes.container.restartCount": "6",
+          "very.long.annotation.key.for.testing.purposes": "very-long-annotation-value-to-increase-json-size-16"
+        }
+      },
+      "cpu": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "usageNanoCores": {
+          "value": "760000000"
+        },
+        "throttlingData": {
+          "periods": 2600,
+          "throttledPeriods": 80
+        }
+      },
+      "memory": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "workingSetBytes": {
+          "value": "469762048"
+        }
+      }
+    },
+    {
+      "attributes": {
+        "id": "chunking-container-17",
+        "metadata": {
+          "name": "very-long-container-name-for-chunking-test-container-number-17-with-extra-data"
+        },
+        "labels": {
+          "io.kubernetes.pod.namespace": "chunking-test-namespace-with-long-name",
+          "io.kubernetes.pod.name": "chunking-test-pod-with-very-long-name-17"
+        },
+        "annotations": {
+          "io.kubernetes.container.restartCount": "7",
+          "very.long.annotation.key.for.testing.purposes": "very-long-annotation-value-to-increase-json-size-17"
+        }
+      },
+      "cpu": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "usageNanoCores": {
+          "value": "745000000"
+        },
+        "throttlingData": {
+          "periods": 2700,
+          "throttledPeriods": 85
+        }
+      },
+      "memory": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "workingSetBytes": {
+          "value": "490733568"
+        }
+      }
+    },
+    {
+      "attributes": {
+        "id": "chunking-container-18",
+        "metadata": {
+          "name": "very-long-container-name-for-chunking-test-container-number-18-with-extra-data"
+        },
+        "labels": {
+          "io.kubernetes.pod.namespace": "chunking-test-namespace-with-long-name",
+          "io.kubernetes.pod.name": "chunking-test-pod-with-very-long-name-18"
+        },
+        "annotations": {
+          "io.kubernetes.container.restartCount": "8",
+          "very.long.annotation.key.for.testing.purposes": "very-long-annotation-value-to-increase-json-size-18"
+        }
+      },
+      "cpu": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "usageNanoCores": {
+          "value": "730000000"
+        },
+        "throttlingData": {
+          "periods": 2800,
+          "throttledPeriods": 90
+        }
+      },
+      "memory": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "workingSetBytes": {
+          "value": "511705088"
+        }
+      }
+    },
+    {
+      "attributes": {
+        "id": "chunking-container-19",
+        "metadata": {
+          "name": "very-long-container-name-for-chunking-test-container-number-19-with-extra-data"
+        },
+        "labels": {
+          "io.kubernetes.pod.namespace": "chunking-test-namespace-with-long-name",
+          "io.kubernetes.pod.name": "chunking-test-pod-with-very-long-name-19"
+        },
+        "annotations": {
+          "io.kubernetes.container.restartCount": "9",
+          "very.long.annotation.key.for.testing.purposes": "very-long-annotation-value-to-increase-json-size-19"
+        }
+      },
+      "cpu": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "usageNanoCores": {
+          "value": "715000000"
+        },
+        "throttlingData": {
+          "periods": 2900,
+          "throttledPeriods": 95
+        }
+      },
+      "memory": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "workingSetBytes": {
+          "value": "532676608"
+        }
+      }
+    },
+    {
+      "attributes": {
+        "id": "chunking-container-20",
+        "metadata": {
+          "name": "very-long-container-name-for-chunking-test-container-number-20-with-extra-data"
+        },
+        "labels": {
+          "io.kubernetes.pod.namespace": "chunking-test-namespace-with-long-name",
+          "io.kubernetes.pod.name": "chunking-test-pod-with-very-long-name-20"
+        },
+        "annotations": {
+          "io.kubernetes.container.restartCount": "0",
+          "very.long.annotation.key.for.testing.purposes": "very-long-annotation-value-to-increase-json-size-20"
+        }
+      },
+      "cpu": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "usageNanoCores": {
+          "value": "700000000"
+        },
+        "throttlingData": {
+          "periods": 3000,
+          "throttledPeriods": 100
+        }
+      },
+      "memory": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "workingSetBytes": {
+          "value": "553648128"
+        }
+      }
+    },
+    {
+      "attributes": {
+        "id": "chunking-container-21",
+        "metadata": {
+          "name": "very-long-container-name-for-chunking-test-container-number-21-with-extra-data"
+        },
+        "labels": {
+          "io.kubernetes.pod.namespace": "chunking-test-namespace-with-long-name",
+          "io.kubernetes.pod.name": "chunking-test-pod-with-very-long-name-21"
+        },
+        "annotations": {
+          "io.kubernetes.container.restartCount": "1",
+          "very.long.annotation.key.for.testing.purposes": "very-long-annotation-value-to-increase-json-size-21"
+        }
+      },
+      "cpu": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "usageNanoCores": {
+          "value": "685000000"
+        },
+        "throttlingData": {
+          "periods": 3100,
+          "throttledPeriods": 105
+        }
+      },
+      "memory": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "workingSetBytes": {
+          "value": "574619648"
+        }
+      }
+    },
+    {
+      "attributes": {
+        "id": "chunking-container-22",
+        "metadata": {
+          "name": "very-long-container-name-for-chunking-test-container-number-22-with-extra-data"
+        },
+        "labels": {
+          "io.kubernetes.pod.namespace": "chunking-test-namespace-with-long-name",
+          "io.kubernetes.pod.name": "chunking-test-pod-with-very-long-name-22"
+        },
+        "annotations": {
+          "io.kubernetes.container.restartCount": "2",
+          "very.long.annotation.key.for.testing.purposes": "very-long-annotation-value-to-increase-json-size-22"
+        }
+      },
+      "cpu": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "usageNanoCores": {
+          "value": "670000000"
+        },
+        "throttlingData": {
+          "periods": 3200,
+          "throttledPeriods": 110
+        }
+      },
+      "memory": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "workingSetBytes": {
+          "value": "595591168"
+        }
+      }
+    },
+    {
+      "attributes": {
+        "id": "chunking-container-23",
+        "metadata": {
+          "name": "very-long-container-name-for-chunking-test-container-number-23-with-extra-data"
+        },
+        "labels": {
+          "io.kubernetes.pod.namespace": "chunking-test-namespace-with-long-name",
+          "io.kubernetes.pod.name": "chunking-test-pod-with-very-long-name-23"
+        },
+        "annotations": {
+          "io.kubernetes.container.restartCount": "3",
+          "very.long.annotation.key.for.testing.purposes": "very-long-annotation-value-to-increase-json-size-23"
+        }
+      },
+      "cpu": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "usageNanoCores": {
+          "value": "655000000"
+        },
+        "throttlingData": {
+          "periods": 3300,
+          "throttledPeriods": 115
+        }
+      },
+      "memory": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "workingSetBytes": {
+          "value": "616562688"
+        }
+      }
+    },
+    {
+      "attributes": {
+        "id": "chunking-container-24",
+        "metadata": {
+          "name": "very-long-container-name-for-chunking-test-container-number-24-with-extra-data"
+        },
+        "labels": {
+          "io.kubernetes.pod.namespace": "chunking-test-namespace-with-long-name",
+          "io.kubernetes.pod.name": "chunking-test-pod-with-very-long-name-24"
+        },
+        "annotations": {
+          "io.kubernetes.container.restartCount": "4",
+          "very.long.annotation.key.for.testing.purposes": "very-long-annotation-value-to-increase-json-size-24"
+        }
+      },
+      "cpu": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "usageNanoCores": {
+          "value": "640000000"
+        },
+        "throttlingData": {
+          "periods": 3400,
+          "throttledPeriods": 120
+        }
+      },
+      "memory": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "workingSetBytes": {
+          "value": "637534208"
+        }
+      }
+    },
+    {
+      "attributes": {
+        "id": "chunking-container-25",
+        "metadata": {
+          "name": "very-long-container-name-for-chunking-test-container-number-25-with-extra-data"
+        },
+        "labels": {
+          "io.kubernetes.pod.namespace": "chunking-test-namespace-with-long-name",
+          "io.kubernetes.pod.name": "chunking-test-pod-with-very-long-name-25"
+        },
+        "annotations": {
+          "io.kubernetes.container.restartCount": "5",
+          "very.long.annotation.key.for.testing.purposes": "very-long-annotation-value-to-increase-json-size-25"
+        }
+      },
+      "cpu": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "usageNanoCores": {
+          "value": "625000000"
+        },
+        "throttlingData": {
+          "periods": 3500,
+          "throttledPeriods": 125
+        }
+      },
+      "memory": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "workingSetBytes": {
+          "value": "658505728"
+        }
+      }
+    },
+    {
+      "attributes": {
+        "id": "chunking-container-26",
+        "metadata": {
+          "name": "very-long-container-name-for-chunking-test-container-number-26-with-extra-data"
+        },
+        "labels": {
+          "io.kubernetes.pod.namespace": "chunking-test-namespace-with-long-name",
+          "io.kubernetes.pod.name": "chunking-test-pod-with-very-long-name-26"
+        },
+        "annotations": {
+          "io.kubernetes.container.restartCount": "6",
+          "very.long.annotation.key.for.testing.purposes": "very-long-annotation-value-to-increase-json-size-26"
+        }
+      },
+      "cpu": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "usageNanoCores": {
+          "value": "610000000"
+        },
+        "throttlingData": {
+          "periods": 3600,
+          "throttledPeriods": 130
+        }
+      },
+      "memory": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "workingSetBytes": {
+          "value": "679477248"
+        }
+      }
+    },
+    {
+      "attributes": {
+        "id": "chunking-container-27",
+        "metadata": {
+          "name": "very-long-container-name-for-chunking-test-container-number-27-with-extra-data"
+        },
+        "labels": {
+          "io.kubernetes.pod.namespace": "chunking-test-namespace-with-long-name",
+          "io.kubernetes.pod.name": "chunking-test-pod-with-very-long-name-27"
+        },
+        "annotations": {
+          "io.kubernetes.container.restartCount": "7",
+          "very.long.annotation.key.for.testing.purposes": "very-long-annotation-value-to-increase-json-size-27"
+        }
+      },
+      "cpu": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "usageNanoCores": {
+          "value": "595000000"
+        },
+        "throttlingData": {
+          "periods": 3700,
+          "throttledPeriods": 135
+        }
+      },
+      "memory": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "workingSetBytes": {
+          "value": "700448768"
+        }
+      }
+    },
+    {
+      "attributes": {
+        "id": "chunking-container-28",
+        "metadata": {
+          "name": "very-long-container-name-for-chunking-test-container-number-28-with-extra-data"
+        },
+        "labels": {
+          "io.kubernetes.pod.namespace": "chunking-test-namespace-with-long-name",
+          "io.kubernetes.pod.name": "chunking-test-pod-with-very-long-name-28"
+        },
+        "annotations": {
+          "io.kubernetes.container.restartCount": "8",
+          "very.long.annotation.key.for.testing.purposes": "very-long-annotation-value-to-increase-json-size-28"
+        }
+      },
+      "cpu": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "usageNanoCores": {
+          "value": "580000000"
+        },
+        "throttlingData": {
+          "periods": 3800,
+          "throttledPeriods": 140
+        }
+      },
+      "memory": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "workingSetBytes": {
+          "value": "721420288"
+        }
+      }
+    },
+    {
+      "attributes": {
+        "id": "chunking-container-29",
+        "metadata": {
+          "name": "very-long-container-name-for-chunking-test-container-number-29-with-extra-data"
+        },
+        "labels": {
+          "io.kubernetes.pod.namespace": "chunking-test-namespace-with-long-name",
+          "io.kubernetes.pod.name": "chunking-test-pod-with-very-long-name-29"
+        },
+        "annotations": {
+          "io.kubernetes.container.restartCount": "9",
+          "very.long.annotation.key.for.testing.purposes": "very-long-annotation-value-to-increase-json-size-29"
+        }
+      },
+      "cpu": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "usageNanoCores": {
+          "value": "565000000"
+        },
+        "throttlingData": {
+          "periods": 3900,
+          "throttledPeriods": 145
+        }
+      },
+      "memory": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "workingSetBytes": {
+          "value": "742391808"
+        }
+      }
+    },
+    {
+      "attributes": {
+        "id": "chunking-container-30",
+        "metadata": {
+          "name": "very-long-container-name-for-chunking-test-container-number-30-with-extra-data"
+        },
+        "labels": {
+          "io.kubernetes.pod.namespace": "chunking-test-namespace-with-long-name",
+          "io.kubernetes.pod.name": "chunking-test-pod-with-very-long-name-30"
+        },
+        "annotations": {
+          "io.kubernetes.container.restartCount": "0",
+          "very.long.annotation.key.for.testing.purposes": "very-long-annotation-value-to-increase-json-size-30"
+        }
+      },
+      "cpu": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "usageNanoCores": {
+          "value": "550000000"
+        },
+        "throttlingData": {
+          "periods": 4000,
+          "throttledPeriods": 150
+        }
+      },
+      "memory": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "workingSetBytes": {
+          "value": "763363328"
+        }
+      }
+    },
+    {
+      "attributes": {
+        "id": "chunking-container-31",
+        "metadata": {
+          "name": "very-long-container-name-for-chunking-test-container-number-31-with-extra-data"
+        },
+        "labels": {
+          "io.kubernetes.pod.namespace": "chunking-test-namespace-with-long-name",
+          "io.kubernetes.pod.name": "chunking-test-pod-with-very-long-name-31"
+        },
+        "annotations": {
+          "io.kubernetes.container.restartCount": "1",
+          "very.long.annotation.key.for.testing.purposes": "very-long-annotation-value-to-increase-json-size-31"
+        }
+      },
+      "cpu": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "usageNanoCores": {
+          "value": "535000000"
+        },
+        "throttlingData": {
+          "periods": 4100,
+          "throttledPeriods": 155
+        }
+      },
+      "memory": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "workingSetBytes": {
+          "value": "784334848"
+        }
+      }
+    },
+    {
+      "attributes": {
+        "id": "chunking-container-32",
+        "metadata": {
+          "name": "very-long-container-name-for-chunking-test-container-number-32-with-extra-data"
+        },
+        "labels": {
+          "io.kubernetes.pod.namespace": "chunking-test-namespace-with-long-name",
+          "io.kubernetes.pod.name": "chunking-test-pod-with-very-long-name-32"
+        },
+        "annotations": {
+          "io.kubernetes.container.restartCount": "2",
+          "very.long.annotation.key.for.testing.purposes": "very-long-annotation-value-to-increase-json-size-32"
+        }
+      },
+      "cpu": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "usageNanoCores": {
+          "value": "520000000"
+        },
+        "throttlingData": {
+          "periods": 4200,
+          "throttledPeriods": 160
+        }
+      },
+      "memory": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "workingSetBytes": {
+          "value": "805306368"
+        }
+      }
+    },
+    {
+      "attributes": {
+        "id": "chunking-container-33",
+        "metadata": {
+          "name": "very-long-container-name-for-chunking-test-container-number-33-with-extra-data"
+        },
+        "labels": {
+          "io.kubernetes.pod.namespace": "chunking-test-namespace-with-long-name",
+          "io.kubernetes.pod.name": "chunking-test-pod-with-very-long-name-33"
+        },
+        "annotations": {
+          "io.kubernetes.container.restartCount": "3",
+          "very.long.annotation.key.for.testing.purposes": "very-long-annotation-value-to-increase-json-size-33"
+        }
+      },
+      "cpu": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "usageNanoCores": {
+          "value": "505000000"
+        },
+        "throttlingData": {
+          "periods": 4300,
+          "throttledPeriods": 165
+        }
+      },
+      "memory": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "workingSetBytes": {
+          "value": "826277888"
+        }
+      }
+    },
+    {
+      "attributes": {
+        "id": "chunking-container-34",
+        "metadata": {
+          "name": "very-long-container-name-for-chunking-test-container-number-34-with-extra-data"
+        },
+        "labels": {
+          "io.kubernetes.pod.namespace": "chunking-test-namespace-with-long-name",
+          "io.kubernetes.pod.name": "chunking-test-pod-with-very-long-name-34"
+        },
+        "annotations": {
+          "io.kubernetes.container.restartCount": "4",
+          "very.long.annotation.key.for.testing.purposes": "very-long-annotation-value-to-increase-json-size-34"
+        }
+      },
+      "cpu": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "usageNanoCores": {
+          "value": "490000000"
+        },
+        "throttlingData": {
+          "periods": 4400,
+          "throttledPeriods": 170
+        }
+      },
+      "memory": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "workingSetBytes": {
+          "value": "847249408"
+        }
+      }
+    },
+    {
+      "attributes": {
+        "id": "chunking-container-35",
+        "metadata": {
+          "name": "very-long-container-name-for-chunking-test-container-number-35-with-extra-data"
+        },
+        "labels": {
+          "io.kubernetes.pod.namespace": "chunking-test-namespace-with-long-name",
+          "io.kubernetes.pod.name": "chunking-test-pod-with-very-long-name-35"
+        },
+        "annotations": {
+          "io.kubernetes.container.restartCount": "5",
+          "very.long.annotation.key.for.testing.purposes": "very-long-annotation-value-to-increase-json-size-35"
+        }
+      },
+      "cpu": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "usageNanoCores": {
+          "value": "475000000"
+        },
+        "throttlingData": {
+          "periods": 4500,
+          "throttledPeriods": 175
+        }
+      },
+      "memory": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "workingSetBytes": {
+          "value": "868220928"
+        }
+      }
+    },
+    {
+      "attributes": {
+        "id": "chunking-container-36",
+        "metadata": {
+          "name": "very-long-container-name-for-chunking-test-container-number-36-with-extra-data"
+        },
+        "labels": {
+          "io.kubernetes.pod.namespace": "chunking-test-namespace-with-long-name",
+          "io.kubernetes.pod.name": "chunking-test-pod-with-very-long-name-36"
+        },
+        "annotations": {
+          "io.kubernetes.container.restartCount": "6",
+          "very.long.annotation.key.for.testing.purposes": "very-long-annotation-value-to-increase-json-size-36"
+        }
+      },
+      "cpu": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "usageNanoCores": {
+          "value": "460000000"
+        },
+        "throttlingData": {
+          "periods": 4600,
+          "throttledPeriods": 180
+        }
+      },
+      "memory": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "workingSetBytes": {
+          "value": "889192448"
+        }
+      }
+    },
+    {
+      "attributes": {
+        "id": "chunking-container-37",
+        "metadata": {
+          "name": "very-long-container-name-for-chunking-test-container-number-37-with-extra-data"
+        },
+        "labels": {
+          "io.kubernetes.pod.namespace": "chunking-test-namespace-with-long-name",
+          "io.kubernetes.pod.name": "chunking-test-pod-with-very-long-name-37"
+        },
+        "annotations": {
+          "io.kubernetes.container.restartCount": "7",
+          "very.long.annotation.key.for.testing.purposes": "very-long-annotation-value-to-increase-json-size-37"
+        }
+      },
+      "cpu": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "usageNanoCores": {
+          "value": "445000000"
+        },
+        "throttlingData": {
+          "periods": 4700,
+          "throttledPeriods": 185
+        }
+      },
+      "memory": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "workingSetBytes": {
+          "value": "910163968"
+        }
+      }
+    },
+    {
+      "attributes": {
+        "id": "chunking-container-38",
+        "metadata": {
+          "name": "very-long-container-name-for-chunking-test-container-number-38-with-extra-data"
+        },
+        "labels": {
+          "io.kubernetes.pod.namespace": "chunking-test-namespace-with-long-name",
+          "io.kubernetes.pod.name": "chunking-test-pod-with-very-long-name-38"
+        },
+        "annotations": {
+          "io.kubernetes.container.restartCount": "8",
+          "very.long.annotation.key.for.testing.purposes": "very-long-annotation-value-to-increase-json-size-38"
+        }
+      },
+      "cpu": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "usageNanoCores": {
+          "value": "430000000"
+        },
+        "throttlingData": {
+          "periods": 4800,
+          "throttledPeriods": 190
+        }
+      },
+      "memory": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "workingSetBytes": {
+          "value": "931135488"
+        }
+      }
+    },
+    {
+      "attributes": {
+        "id": "chunking-container-39",
+        "metadata": {
+          "name": "very-long-container-name-for-chunking-test-container-number-39-with-extra-data"
+        },
+        "labels": {
+          "io.kubernetes.pod.namespace": "chunking-test-namespace-with-long-name",
+          "io.kubernetes.pod.name": "chunking-test-pod-with-very-long-name-39"
+        },
+        "annotations": {
+          "io.kubernetes.container.restartCount": "9",
+          "very.long.annotation.key.for.testing.purposes": "very-long-annotation-value-to-increase-json-size-39"
+        }
+      },
+      "cpu": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "usageNanoCores": {
+          "value": "415000000"
+        },
+        "throttlingData": {
+          "periods": 4900,
+          "throttledPeriods": 195
+        }
+      },
+      "memory": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "workingSetBytes": {
+          "value": "952107008"
+        }
+      }
+    },
+    {
+      "attributes": {
+        "id": "chunking-container-40",
+        "metadata": {
+          "name": "very-long-container-name-for-chunking-test-container-number-40-with-extra-data"
+        },
+        "labels": {
+          "io.kubernetes.pod.namespace": "chunking-test-namespace-with-long-name",
+          "io.kubernetes.pod.name": "chunking-test-pod-with-very-long-name-40"
+        },
+        "annotations": {
+          "io.kubernetes.container.restartCount": "0",
+          "very.long.annotation.key.for.testing.purposes": "very-long-annotation-value-to-increase-json-size-40"
+        }
+      },
+      "cpu": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "usageNanoCores": {
+          "value": "400000000"
+        },
+        "throttlingData": {
+          "periods": 5000,
+          "throttledPeriods": 200
+        }
+      },
+      "memory": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "workingSetBytes": {
+          "value": "973078528"
+        }
+      }
+    },
+    {
+      "attributes": {
+        "id": "chunking-container-41",
+        "metadata": {
+          "name": "very-long-container-name-for-chunking-test-container-number-41-with-extra-data"
+        },
+        "labels": {
+          "io.kubernetes.pod.namespace": "chunking-test-namespace-with-long-name",
+          "io.kubernetes.pod.name": "chunking-test-pod-with-very-long-name-41"
+        },
+        "annotations": {
+          "io.kubernetes.container.restartCount": "1",
+          "very.long.annotation.key.for.testing.purposes": "very-long-annotation-value-to-increase-json-size-41"
+        }
+      },
+      "cpu": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "usageNanoCores": {
+          "value": "385000000"
+        },
+        "throttlingData": {
+          "periods": 5100,
+          "throttledPeriods": 205
+        }
+      },
+      "memory": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "workingSetBytes": {
+          "value": "994050048"
+        }
+      }
+    },
+    {
+      "attributes": {
+        "id": "chunking-container-42",
+        "metadata": {
+          "name": "very-long-container-name-for-chunking-test-container-number-42-with-extra-data"
+        },
+        "labels": {
+          "io.kubernetes.pod.namespace": "chunking-test-namespace-with-long-name",
+          "io.kubernetes.pod.name": "chunking-test-pod-with-very-long-name-42"
+        },
+        "annotations": {
+          "io.kubernetes.container.restartCount": "2",
+          "very.long.annotation.key.for.testing.purposes": "very-long-annotation-value-to-increase-json-size-42"
+        }
+      },
+      "cpu": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "usageNanoCores": {
+          "value": "370000000"
+        },
+        "throttlingData": {
+          "periods": 5200,
+          "throttledPeriods": 210
+        }
+      },
+      "memory": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "workingSetBytes": {
+          "value": "1015021568"
+        }
+      }
+    },
+    {
+      "attributes": {
+        "id": "chunking-container-43",
+        "metadata": {
+          "name": "very-long-container-name-for-chunking-test-container-number-43-with-extra-data"
+        },
+        "labels": {
+          "io.kubernetes.pod.namespace": "chunking-test-namespace-with-long-name",
+          "io.kubernetes.pod.name": "chunking-test-pod-with-very-long-name-43"
+        },
+        "annotations": {
+          "io.kubernetes.container.restartCount": "3",
+          "very.long.annotation.key.for.testing.purposes": "very-long-annotation-value-to-increase-json-size-43"
+        }
+      },
+      "cpu": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "usageNanoCores": {
+          "value": "355000000"
+        },
+        "throttlingData": {
+          "periods": 5300,
+          "throttledPeriods": 215
+        }
+      },
+      "memory": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "workingSetBytes": {
+          "value": "1035993088"
+        }
+      }
+    },
+    {
+      "attributes": {
+        "id": "chunking-container-44",
+        "metadata": {
+          "name": "very-long-container-name-for-chunking-test-container-number-44-with-extra-data"
+        },
+        "labels": {
+          "io.kubernetes.pod.namespace": "chunking-test-namespace-with-long-name",
+          "io.kubernetes.pod.name": "chunking-test-pod-with-very-long-name-44"
+        },
+        "annotations": {
+          "io.kubernetes.container.restartCount": "4",
+          "very.long.annotation.key.for.testing.purposes": "very-long-annotation-value-to-increase-json-size-44"
+        }
+      },
+      "cpu": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "usageNanoCores": {
+          "value": "340000000"
+        },
+        "throttlingData": {
+          "periods": 5400,
+          "throttledPeriods": 220
+        }
+      },
+      "memory": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "workingSetBytes": {
+          "value": "1056964608"
+        }
+      }
+    },
+    {
+      "attributes": {
+        "id": "chunking-container-45",
+        "metadata": {
+          "name": "very-long-container-name-for-chunking-test-container-number-45-with-extra-data"
+        },
+        "labels": {
+          "io.kubernetes.pod.namespace": "chunking-test-namespace-with-long-name",
+          "io.kubernetes.pod.name": "chunking-test-pod-with-very-long-name-45"
+        },
+        "annotations": {
+          "io.kubernetes.container.restartCount": "5",
+          "very.long.annotation.key.for.testing.purposes": "very-long-annotation-value-to-increase-json-size-45"
+        }
+      },
+      "cpu": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "usageNanoCores": {
+          "value": "325000000"
+        },
+        "throttlingData": {
+          "periods": 5500,
+          "throttledPeriods": 225
+        }
+      },
+      "memory": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "workingSetBytes": {
+          "value": "1077936128"
+        }
+      }
+    },
+    {
+      "attributes": {
+        "id": "chunking-container-46",
+        "metadata": {
+          "name": "very-long-container-name-for-chunking-test-container-number-46-with-extra-data"
+        },
+        "labels": {
+          "io.kubernetes.pod.namespace": "chunking-test-namespace-with-long-name",
+          "io.kubernetes.pod.name": "chunking-test-pod-with-very-long-name-46"
+        },
+        "annotations": {
+          "io.kubernetes.container.restartCount": "6",
+          "very.long.annotation.key.for.testing.purposes": "very-long-annotation-value-to-increase-json-size-46"
+        }
+      },
+      "cpu": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "usageNanoCores": {
+          "value": "310000000"
+        },
+        "throttlingData": {
+          "periods": 5600,
+          "throttledPeriods": 230
+        }
+      },
+      "memory": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "workingSetBytes": {
+          "value": "1098907648"
+        }
+      }
+    },
+    {
+      "attributes": {
+        "id": "chunking-container-47",
+        "metadata": {
+          "name": "very-long-container-name-for-chunking-test-container-number-47-with-extra-data"
+        },
+        "labels": {
+          "io.kubernetes.pod.namespace": "chunking-test-namespace-with-long-name",
+          "io.kubernetes.pod.name": "chunking-test-pod-with-very-long-name-47"
+        },
+        "annotations": {
+          "io.kubernetes.container.restartCount": "7",
+          "very.long.annotation.key.for.testing.purposes": "very-long-annotation-value-to-increase-json-size-47"
+        }
+      },
+      "cpu": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "usageNanoCores": {
+          "value": "295000000"
+        },
+        "throttlingData": {
+          "periods": 5700,
+          "throttledPeriods": 235
+        }
+      },
+      "memory": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "workingSetBytes": {
+          "value": "1119879168"
+        }
+      }
+    },
+    {
+      "attributes": {
+        "id": "chunking-container-48",
+        "metadata": {
+          "name": "very-long-container-name-for-chunking-test-container-number-48-with-extra-data"
+        },
+        "labels": {
+          "io.kubernetes.pod.namespace": "chunking-test-namespace-with-long-name",
+          "io.kubernetes.pod.name": "chunking-test-pod-with-very-long-name-48"
+        },
+        "annotations": {
+          "io.kubernetes.container.restartCount": "8",
+          "very.long.annotation.key.for.testing.purposes": "very-long-annotation-value-to-increase-json-size-48"
+        }
+      },
+      "cpu": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "usageNanoCores": {
+          "value": "280000000"
+        },
+        "throttlingData": {
+          "periods": 5800,
+          "throttledPeriods": 240
+        }
+      },
+      "memory": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "workingSetBytes": {
+          "value": "1140850688"
+        }
+      }
+    },
+    {
+      "attributes": {
+        "id": "chunking-container-49",
+        "metadata": {
+          "name": "very-long-container-name-for-chunking-test-container-number-49-with-extra-data"
+        },
+        "labels": {
+          "io.kubernetes.pod.namespace": "chunking-test-namespace-with-long-name",
+          "io.kubernetes.pod.name": "chunking-test-pod-with-very-long-name-49"
+        },
+        "annotations": {
+          "io.kubernetes.container.restartCount": "9",
+          "very.long.annotation.key.for.testing.purposes": "very-long-annotation-value-to-increase-json-size-49"
+        }
+      },
+      "cpu": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "usageNanoCores": {
+          "value": "265000000"
+        },
+        "throttlingData": {
+          "periods": 5900,
+          "throttledPeriods": 245
+        }
+      },
+      "memory": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "workingSetBytes": {
+          "value": "1161822208"
+        }
+      }
+    },
+    {
+      "attributes": {
+        "id": "chunking-container-50",
+        "metadata": {
+          "name": "very-long-container-name-for-chunking-test-container-number-50-with-extra-data"
+        },
+        "labels": {
+          "io.kubernetes.pod.namespace": "chunking-test-namespace-with-long-name",
+          "io.kubernetes.pod.name": "chunking-test-pod-with-very-long-name-50"
+        },
+        "annotations": {
+          "io.kubernetes.container.restartCount": "0",
+          "very.long.annotation.key.for.testing.purposes": "very-long-annotation-value-to-increase-json-size-50"
+        }
+      },
+      "cpu": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "usageNanoCores": {
+          "value": "250000000"
+        },
+        "throttlingData": {
+          "periods": 6000,
+          "throttledPeriods": 250
+        }
+      },
+      "memory": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "workingSetBytes": {
+          "value": "1182793728"
+        }
+      }
+    }
+  ]
+}
+CRICTL_EOF
