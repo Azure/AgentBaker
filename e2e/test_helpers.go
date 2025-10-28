@@ -22,6 +22,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 	"github.com/stretchr/testify/require"
+	"k8s.io/apimachinery/pkg/util/wait"
 	ctrruntimelog "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
@@ -79,11 +80,7 @@ func newTestCtx(t testing.TB) context.Context {
 
 func RunScenario(t *testing.T, s *Scenario) {
 	t.Parallel()
-	if config.Config.TestPreProvision {
-		t.Run("Original", func(t *testing.T) {
-			t.Parallel()
-			runScenario(t, s)
-		})
+	if config.Config.TestPreProvision || s.VHDCaching {
 		t.Run("VHDCreation", func(t *testing.T) {
 			t.Parallel()
 			runScenarioWithPreProvision(t, s)
@@ -118,8 +115,10 @@ func runScenarioWithPreProvision(t *testing.T, original *Scenario) {
 			ValidateSystemdUnitIsRunning(ctx, stage1, "containerd")
 			ValidateSystemdUnitIsNotRunning(ctx, stage1, "kubelet")
 		}
-		t.Log("=== Stage 1 validation complete, proceeding to Stage 2 ===")
+		t.Log("=== Creating VHD Image ===")
 		customVHD = CreateImage(ctx, stage1)
+		customVHDJSON, _ := json.MarshalIndent(customVHD, "", "  ")
+		t.Logf("Created custom VHD image: %s", string(customVHDJSON))
 	}
 	firstStage.Config.VMConfigMutator = func(vmss *armcompute.VirtualMachineScaleSet) {
 		if original.VMConfigMutator != nil {
@@ -148,6 +147,7 @@ func runScenarioWithPreProvision(t *testing.T, original *Scenario) {
 		return
 	}
 
+	// Create a new subtest to avoid conflicts with previous steps (log output folder is based on the test name)
 	t.Run("VMProvision", func(t *testing.T) {
 		t.Parallel()
 		secondStageScenario := copyScenario(original)
@@ -282,6 +282,7 @@ func maybeSkipScenario(ctx context.Context, t testing.TB, s *Scenario) {
 	s.Tags.OS = string(s.VHD.OS)
 	s.Tags.Arch = s.VHD.Arch
 	s.Tags.ImageName = s.VHD.Name
+	s.Tags.VHDCaching = s.VHDCaching
 	if s.AKSNodeConfigMutator != nil {
 		s.Tags.Scriptless = true
 	}
@@ -520,7 +521,46 @@ func createVMExtensionLinuxAKSNode(location *string) (*armcompute.VirtualMachine
 	}, nil
 }
 
+// RunCommand executes a command on the VMSS VM with instance ID "0" and returns the raw JSON response from Azure
+// Unlike default approach, it doesn't use SSH and uses Azure tooling
+// This approach is generally slower, but it works even if SSH is not available
+func RunCommand(ctx context.Context, s *Scenario, command string) (armcompute.RunCommandResult, error) {
+	s.T.Helper()
+	start := time.Now()
+	defer func() {
+		elapsed := time.Since(start)
+		logf(ctx, "Command %q took %s", command, toolkit.FormatDuration(elapsed))
+	}()
+
+	runPoller, err := config.Azure.VMSSVM.BeginRunCommand(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, "0", armcompute.RunCommandInput{
+		CommandID: func() *string {
+			if s.IsWindows() {
+				return to.Ptr("RunPowerShellScript")
+			}
+			return to.Ptr("RunShellScript")
+		}(),
+		Script: []*string{to.Ptr(command)},
+	}, nil)
+	if err != nil {
+		return armcompute.RunCommandResult{}, fmt.Errorf("failed to run command on Windows VM for image creation: %w", err)
+	}
+
+	runResp, err := runPoller.PollUntilDone(ctx, nil)
+	if err != nil {
+		return runResp.RunCommandResult, fmt.Errorf("failed to run command on Windows VM for image creation: %w", err)
+	}
+	return runResp.RunCommandResult, err
+}
+
 func CreateImage(ctx context.Context, s *Scenario) *config.Image {
+	if s.IsWindows() {
+		s.T.Log("Running sysprep on Windows VM...")
+		res, err := RunCommand(ctx, s, `C:\Windows\System32\Sysprep\Sysprep.exe /oobe /generalize /mode:vm /quiet /quit;`)
+		resJson, _ := json.MarshalIndent(res, "", "  ")
+		s.T.Logf("Sysprep result: %s", string(resJson))
+		require.NoErrorf(s.T, err, "failed to run sysprep on Windows VM for image creation")
+	}
+
 	vm, err := config.Azure.VMSSVM.Get(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, "0", &armcompute.VirtualMachineScaleSetVMsClientGetOptions{})
 	require.NoError(s.T, err, "Failed to get VMSS VM for image creation")
 
@@ -532,22 +572,16 @@ func CreateImage(ctx context.Context, s *Scenario) *config.Image {
 
 	// Create version using smaller integers that fit within Azure's limits
 	// Use Unix timestamp for guaranteed uniqueness in concurrent runs
-	now := time.Now()
-	nanos := now.UnixNano()
 	// Take last 9 digits to ensure it fits in 32-bit integer range
-	patchVersion := nanos % 1000000000
+	now := time.Now().UTC()
+	patchVersion := now.UnixNano() % 1000000000
 	version := fmt.Sprintf("1.%s.%d", now.Format("20060102"), patchVersion)
-
-	// Get the OS disk resource ID directly from the VM
-	diskName := *vm.Properties.StorageProfile.OSDisk.Name
-	diskResourceID := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/disks/%s",
-		config.Config.SubscriptionID, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, diskName)
 
 	return CreateSIGImageVersionFromDisk(
 		ctx,
 		s,
 		version,
-		diskResourceID,
+		*vm.Properties.StorageProfile.OSDisk.ManagedDisk.ID,
 	)
 }
 
@@ -604,7 +638,6 @@ func CreateSIGImageVersionFromDisk(ctx context.Context, s *Scenario, version str
 		defer cancel()
 		config.Azure.DeleteSIGImageVersion(ctx, rg, *gallery.Name, *image.Name, version)
 	})
-	// Create a new VHD config for Stage2 (ignore lock copying warning for now)
 	customVHD := *s.Config.VHD
 	customVHD.Name = *image.Name // Use the architecture-specific image name
 	customVHD.Gallery = &config.Gallery{
@@ -614,12 +647,84 @@ func CreateSIGImageVersionFromDisk(ctx context.Context, s *Scenario, version str
 	}
 	customVHD.Version = version
 
-	s.T.Logf("Created SIG image version: %s", version)
-
 	return &customVHD
 }
 
+// isRebootRelatedSSHError checks if the error is related to a system reboot
+func isRebootRelatedSSHError(err error, stderr string) bool {
+	if err == nil {
+		return false
+	}
+
+	rebootIndicators := []string{
+		"System is going down",
+		"pam_nologin",
+		"Connection closed by",
+		"Connection refused",
+		"Connection timed out",
+	}
+
+	errMsg := err.Error()
+	for _, indicator := range rebootIndicators {
+		if strings.Contains(errMsg, indicator) || strings.Contains(stderr, indicator) {
+			return true
+		}
+	}
+	return false
+}
+
 func validateSSHConnectivity(ctx context.Context, s *Scenario) error {
+	// If WaitForSSHAfterReboot is not set, use the original single-attempt behavior
+	if s.Config.WaitForSSHAfterReboot == 0 {
+		return attemptSSHConnection(ctx, s)
+	}
+
+	// Retry logic with exponential backoff for scenarios that may reboot
+	s.T.Logf("SSH connectivity validation will retry for up to %s if reboot-related errors are encountered", s.Config.WaitForSSHAfterReboot)
+	startTime := time.Now()
+	var lastSSHError error
+
+	err := wait.PollUntilContextTimeout(ctx, 5*time.Second, s.Config.WaitForSSHAfterReboot, true, func(ctx context.Context) (bool, error) {
+		err := attemptSSHConnection(ctx, s)
+		if err == nil {
+			elapsed := time.Since(startTime)
+			s.T.Logf("SSH connectivity established after %s", toolkit.FormatDuration(elapsed))
+			return true, nil
+		}
+
+		// Save the last error for better error messages
+		lastSSHError = err
+
+		// Extract stderr from the error
+		stderr := ""
+		if strings.Contains(err.Error(), "Stderr:") {
+			parts := strings.Split(err.Error(), "Stderr:")
+			if len(parts) > 1 {
+				stderr = parts[1]
+			}
+		}
+
+		// Check if this is a reboot-related error
+		if isRebootRelatedSSHError(err, stderr) {
+			s.T.Logf("Detected reboot-related SSH error, will retry: %v", err)
+			return false, nil // Continue polling
+		}
+
+		// Not a reboot error, fail immediately
+		return false, err
+	})
+
+	// If we timed out while retrying reboot-related errors, provide a better error message
+	if err != nil && lastSSHError != nil {
+		elapsed := time.Since(startTime)
+		return fmt.Errorf("SSH connection failed after waiting %s for node to reboot and come back up. Last SSH error: %w", toolkit.FormatDuration(elapsed), lastSSHError)
+	}
+
+	return err
+}
+
+// attemptSSHConnection performs a single SSH connectivity check
+func attemptSSHConnection(ctx context.Context, s *Scenario) error {
 	connectionTest := fmt.Sprintf("%s echo 'SSH_CONNECTION_OK'", sshString(s.Runtime.VMPrivateIP))
 	connectionResult, err := execOnPrivilegedPod(ctx, s.Runtime.Cluster.Kube, defaultNamespace, s.Runtime.Cluster.DebugPod.Name, connectionTest)
 

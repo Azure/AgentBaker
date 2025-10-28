@@ -443,7 +443,7 @@ func extractLogsFromVMLinux(ctx context.Context, s *Scenario) error {
 
 	var logFiles = map[string]string{}
 	for file, sourceCmd := range commandList {
-		execResult, err := execBashCommandOnVM(ctx, s, privateIP, pod.Name, sourceCmd)
+		execResult, err := execScriptOnVm(ctx, s, privateIP, pod.Name, sourceCmd)
 		if err != nil {
 			s.T.Logf("error executing %s: %s", sourceCmd, err)
 			continue
@@ -455,14 +455,6 @@ func extractLogsFromVMLinux(ctx context.Context, s *Scenario) error {
 		return fmt.Errorf("failed to dump log files: %w", err)
 	}
 	return nil
-}
-
-func execBashCommandOnVM(ctx context.Context, s *Scenario, vmPrivateIP, jumpboxPodName, command string) (*podExecResult, error) {
-	script := Script{
-		interpreter: Bash,
-		script:      command,
-	}
-	return execScriptOnVm(ctx, s, vmPrivateIP, jumpboxPodName, script)
 }
 
 const uploadLogsPowershellScript = `

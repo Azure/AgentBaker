@@ -27,6 +27,30 @@ storage:
     contents:
       inline: |
         C /etc/protocols - - - - /usr/share/baselayout/protocols
+  - path: /etc/nsswitch.conf
+    mode: 0644
+    overwrite: true
+    contents:
+      inline: |
+        # /etc/nsswitch.conf:
+
+        passwd:      files usrfiles sss systemd
+        shadow:      files usrfiles sss
+        group:       files usrfiles sss systemd
+
+        hosts:       files usrfiles myhostname dns
+        networks:    files usrfiles dns
+
+        services:    files usrfiles
+        protocols:   files usrfiles
+        rpc:         files usrfiles
+
+        ethers:      files
+        netmasks:    files
+        netgroup:    files
+        bootparams:  files
+        automount:   files
+        aliases:     files
   links:
   - path: /etc/extensions/aks-sysext/usr/local/bin
     target: /opt/bin

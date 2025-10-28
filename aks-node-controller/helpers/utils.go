@@ -190,19 +190,19 @@ func ValidateAndSetLinuxKubeletFlags(kubeletFlags map[string]string, cs *datamod
 	delete(kubeletFlags, "--dynamic-config-dir")
 	delete(kubeletFlags, "--non-masquerade-cidr")
 
-	if profile != nil && profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntime == "containerd" {
-		dockerShimFlags := []string{
-			"--cni-bin-dir",
-			"--cni-cache-dir",
-			"--cni-conf-dir",
-			"--docker-endpoint",
-			"--image-pull-progress-deadline",
-			"--network-plugin",
-			"--network-plugin-mtu",
-		}
-		for _, flag := range dockerShimFlags {
-			delete(kubeletFlags, flag)
-		}
+	// Docker and dockershim were removed in Kubernetes 1.24
+	// These flags are no longer supported and should be removed for all configurations
+	dockerShimFlags := []string{
+		"--cni-bin-dir",
+		"--cni-cache-dir",
+		"--cni-conf-dir",
+		"--docker-endpoint",
+		"--image-pull-progress-deadline",
+		"--network-plugin",
+		"--network-plugin-mtu",
+	}
+	for _, flag := range dockerShimFlags {
+		delete(kubeletFlags, flag)
 	}
 
 	if isKubeletServingCertificateRotationEnabled(kubeletFlags) {

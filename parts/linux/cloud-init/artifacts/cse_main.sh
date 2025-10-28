@@ -148,7 +148,7 @@ function basePrep {
     if ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
         logs_to_events "AKS.CSE.installContainerRuntime" installContainerRuntime
     fi
-    if [ "${NEEDS_CONTAINERD}" = "true" ] && [ "${TELEPORT_ENABLED}" = "true" ]; then
+    if [ "${TELEPORT_ENABLED}" = "true" ]; then
         logs_to_events "AKS.CSE.installTeleportdPlugin" installTeleportdPlugin
     fi
 
@@ -190,12 +190,8 @@ function basePrep {
         logs_to_events "AKS.CSE.configureSystemdUseDomains" configureSystemdUseDomains
     fi
 
-    if [ "${NEEDS_CONTAINERD}" = "true" ]; then
-        # containerd should not be configured until cni has been configured first
-        logs_to_events "AKS.CSE.ensureContainerd" ensureContainerd
-    else
-        logs_to_events "AKS.CSE.ensureDocker" ensureDocker
-    fi
+    # containerd should not be configured until cni has been configured first
+    logs_to_events "AKS.CSE.ensureContainerd" ensureContainerd
 
     if [ -n "${MESSAGE_OF_THE_DAY}" ]; then
         if isMarinerOrAzureLinux "$OS" && [ -f /etc/dnf/automatic.conf ]; then
@@ -235,29 +231,27 @@ Environment="KUBELET_CGROUP_FLAGS=--cgroup-driver=systemd"
 EOF
     fi
 
-    if [ "${NEEDS_CONTAINERD}" = "true" ]; then
-        # gross, but the backticks make it very hard to do in Go
-        # TODO: move entirely into vhd.
-        # alternatively, can we verify this is safe with docker?
-        # or just do it even if not because docker is out of support?
-        mkdir -p /etc/containerd
-        echo "${KUBENET_TEMPLATE}" | base64 -d > /etc/containerd/kubenet_template.conf
+    # gross, but the backticks make it very hard to do in Go
+    # TODO: move entirely into vhd.
+    # alternatively, can we verify this is safe with docker?
+    # or just do it even if not because docker is out of support?
+    mkdir -p /etc/containerd
+    echo "${KUBENET_TEMPLATE}" | base64 -d > /etc/containerd/kubenet_template.conf
 
-        # In k8s 1.27, the flag --container-runtime was removed.
-        # We now have 2 drop-in's, one with the still valid flags that will be applied to all k8s versions,
-        # the flags are --runtime-request-timeout, --container-runtime-endpoint, --runtime-cgroups
-        # For k8s >= 1.27, the flag --container-runtime will not be passed.
-        tee "/etc/systemd/system/kubelet.service.d/10-containerd-base-flag.conf" > /dev/null <<'EOF'
+    # In k8s 1.27, the flag --container-runtime was removed.
+    # We now have 2 drop-in's, one with the still valid flags that will be applied to all k8s versions,
+    # the flags are --runtime-request-timeout, --container-runtime-endpoint, --runtime-cgroups
+    # For k8s >= 1.27, the flag --container-runtime will not be passed.
+    tee "/etc/systemd/system/kubelet.service.d/10-containerd-base-flag.conf" > /dev/null <<'EOF'
 [Service]
 Environment="KUBELET_CONTAINERD_FLAGS=--runtime-request-timeout=15m --container-runtime-endpoint=unix:///run/containerd/containerd.sock --runtime-cgroups=/system.slice/containerd.service"
 EOF
 
-        if ! semverCompare ${KUBERNETES_VERSION:-"0.0.0"} "1.27.0"; then
-            tee "/etc/systemd/system/kubelet.service.d/10-container-runtime-flag.conf" > /dev/null <<'EOF'
+    if ! semverCompare ${KUBERNETES_VERSION:-"0.0.0"} "1.27.0"; then
+        tee "/etc/systemd/system/kubelet.service.d/10-container-runtime-flag.conf" > /dev/null <<'EOF'
 [Service]
 Environment="KUBELET_CONTAINER_RUNTIME_FLAG=--container-runtime=remote"
 EOF
-        fi
     fi
 
     if [ "${HAS_KUBELET_DISK_TYPE}" = "true" ]; then
@@ -270,7 +264,7 @@ EOF
 
     logs_to_events "AKS.CSE.ensureSysctl" ensureSysctl || exit $ERR_SYSCTL_RELOAD
 
-    if [ "${NEEDS_CONTAINERD}" = "true" ] && [ "${SHOULD_CONFIG_CONTAINERD_ULIMITS}" = "true" ]; then
+    if [ "${SHOULD_CONFIG_CONTAINERD_ULIMITS}" = "true" ]; then
       logs_to_events "AKS.CSE.setContainerdUlimits" configureContainerdUlimits
     fi
 
@@ -309,12 +303,6 @@ EOF
         createManDbAutoUpdateFlagFile
         /usr/bin/mandb && echo "man-db finished updates at $(date)" &
     fi
-
-    if [ "${NEEDS_DOCKER_LOGIN}" = "true" ]; then
-        set +x
-        docker login -u $SERVICE_PRINCIPAL_CLIENT_ID -p $SERVICE_PRINCIPAL_CLIENT_SECRET "${AZURE_PRIVATE_REGISTRY_SERVER}"
-        set -x
-    fi
 }
 
 # ====== NODE PREP: CLUSTER INTEGRATION ======
@@ -343,7 +331,8 @@ function nodePrep {
     fi
     if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
         # This file indicates the cluster doesn't have outbound connectivity and should be excluded in future external outbound checks
-        touch /var/run/outbound-check-skipped
+        touch /var/run/outbound-check-skipped # TODO(fseldow): remove this file in future when egress extension checks /opt/azure/outbound-check-skipped
+        touch /opt/azure/outbound-check-skipped
     fi
 
     # Determine if GPU driver installation should be skipped

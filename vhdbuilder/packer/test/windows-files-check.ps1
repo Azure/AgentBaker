@@ -156,19 +156,19 @@ function Test-ValidateSinglePackageSignature {
                 if ($SkipSignatureCheckForBinaries.ContainsKey($NotSignedFileName)) {
                     Write-Output "$NotSignedFileName is in the ignore list. Ignoring signature validation failure"
                     continue
-                } 
-                
+                }
+
                 if (
                     (
                         $SkipMapForSignature.ContainsKey($fileName)
                     ) -and (
-                        ( $SkipMapForSignature[$fileName].Length -eq 0 ) -or 
+                        ( $SkipMapForSignature[$fileName].Length -eq 0 ) -or
                         ( $SkipMapForSignature[$fileName].Contains($NotSignedFileName) )
                     )
                 ) {
                     Write-Output "$filename is in the ignore list. Ignoring signature validation failure on $NotSignedFileName"
                     continue
-                } 
+                }
 
                 if (!$NotSignedResult.ContainsKey($dir)) {
                     $NotSignedResult[$dir] = @{}
@@ -178,9 +178,9 @@ function Test-ValidateSinglePackageSignature {
                 }
                 $NotSignedResult[$dir][$fileName] += @($NotSignedFileName)
 
-                Get-AuthenticodeSignature $NotSignedFile.Path | ConvertTo-Json -Depth 1 | Write-Output
+                Get-AuthenticodeSignature $NotSignedFile.Path | ConvertTo-Json -Depth 1 | Write-Host
 
-                Write-Output "$filename in $dir from URL $URL has unsigned file $NotSignedFileName"
+                Write-Host "$filename in $dir from URL $URL has unsigned file $NotSignedFileName"
             }
         }
 
@@ -233,7 +233,7 @@ function Test-CompareSingleDir {
                 "cloud-provider-azure"
             )
             $proxyLocation = $URL.Split('/')[3]
-    
+
             if ($supportedProxyLocations -notcontains $proxyLocation) {
                 $ProxyLocationNotFoundInMooncakeFiles[$URL] = $URL
             }
@@ -244,7 +244,7 @@ function Test-CompareSingleDir {
 
         DownloadFileWithRetry -URL $URL -Dest $dest -redactUrl
         $globalFileSize = (Get-Item $dest).length
-        
+
         $isIgnore = $False
         foreach ($excludePackage in $global:excludeHashComparisionListInAzureChinaCloud) {
             if ($URL.Contains($excludePackage)) {
@@ -261,9 +261,9 @@ function Test-CompareSingleDir {
 
             Write-Output "Downloading mooncake file: $mcURL"
 
-            $ProgressPreference = 'SilentlyContinue' 
+            $ProgressPreference = 'SilentlyContinue'
             $mooncakeFileSize = (Invoke-WebRequest $mcURL -UseBasicParsing -Method Head).Headers.'Content-Length'
-            $ProgressPreference = 'Continue' 
+            $ProgressPreference = 'Continue'
 
             if ($globalFileSize -ne $mooncakeFileSize) {
                 $MisMatchFiles[$URL] = $mcURL
@@ -282,7 +282,7 @@ function Test-CompareFiles {
         $ProxyLocationNotFoundInMooncakeFiles = (echo $ProxyLocationNotFoundInMooncakeFiles | ConvertTo-Json -Compress)
         Write-Error "The proxy location of the following files are not defined in mooncake, please use root path 'aks', or contact 'andyzhangx' for help: $ProxyLocationNotFoundInMooncakeFiles"
         exit 1
-    }   
+    }
 
     if ($MisMatchFiles.Count -ne 0) {
         $MisMatchFiles = (echo $MisMatchFiles | ConvertTo-Json -Compress)

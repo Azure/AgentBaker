@@ -40,7 +40,7 @@ EOF
 [azurelinux-official-nvidia]
 name=Azure Linux Official Nvidia 3.0 x86_64
 baseurl=https://packages.microsoft.com/azurelinux/3.0/prod/nvidia/x86_64/
-gpgkey=file:///etc/pki/rpm-gpg/MICROSOFT-RPM-GPG-KEY file:///etc/pki/rpm-gpg/MICROSOFT-METADATA-GPG-KEY
+gpgkey=file:///etc/pki/rpm-gpg/MICROSOFT-RPM-GPG-KEY
 gpgcheck=1
 repo_gpgcheck=1
 enabled=1

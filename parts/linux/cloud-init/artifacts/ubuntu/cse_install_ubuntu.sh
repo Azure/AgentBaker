@@ -1,9 +1,5 @@
 #!/bin/bash
 
-removeMoby() {
-    apt_get_purge 10 5 300 moby-engine moby-cli
-}
-
 removeContainerd() {
     apt_get_purge 10 5 300 moby-containerd
 }
@@ -22,7 +18,7 @@ installDeps() {
     OSVERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
     BLOBFUSE_VERSION="1.4.5"
     # Blobfuse2 has been upgraded in upstream, using this version for parity between 22.04 and 24.04
-    BLOBFUSE2_VERSION="2.5.0"
+    BLOBFUSE2_VERSION="2.5.1"
 
     # blobfuse2 is installed for all ubuntu versions, it is included in pkg_list
     # for 22.04, fuse3 is installed. for all others, fuse is installed
@@ -199,6 +195,68 @@ installKubeletKubectlPkgFromPMC() {
     installPkgWithAptGet "kubectl" "${k8sVersion}" || exit $ERR_KUBECTL_INSTALL_FAIL
 }
 
+installToolFromLocalRepo() {
+    local tool_name=$1
+    local tool_download_dir=$2
+
+    # Verify the download directory exists and contains repository metadata
+    if [ ! -d "${tool_download_dir}" ]; then
+        echo "Download directory ${tool_download_dir} does not exist"
+        return 1
+    fi
+
+    # Check if this is a self-contained local repository (has Packages.gz)
+    if [ ! -f "${tool_download_dir}/Packages.gz" ]; then
+        echo "Packages.gz not found in ${tool_download_dir}, not a valid local repository"
+        return 1
+    fi
+
+    echo "Installing ${tool_name} from local repository at ${tool_download_dir}..."
+    if ! apt_get_install_from_local_repo "${tool_download_dir}" "${tool_name}"; then
+        echo "Failed to install ${tool_name} from local repository"
+        return 1
+    fi
+
+    echo "${tool_name} installed successfully from local repository"
+    return 0
+}
+
+installCredentialProviderPackageFromBootstrapProfileRegistry() {
+    bootstrapProfileRegistry="$1"
+    k8sVersion="${2:-}"
+
+    os=${UBUNTU_OS_NAME}
+    if [ -z "$UBUNTU_RELEASE" ]; then
+        os=${OS}
+        os_version="current"
+    else
+        os_version="${UBUNTU_RELEASE}"
+    fi
+    PACKAGE_VERSION=""
+    getLatestPkgVersionFromK8sVersion "$k8sVersion" "azure-acr-credential-provider-pmc" "$os" "$os_version"
+    packageVersion=$(echo $PACKAGE_VERSION | cut -d "-" -f 1)
+    if [ -z "$packageVersion" ]; then
+        packageVersion=$(echo "$CREDENTIAL_PROVIDER_DOWNLOAD_URL" | grep -oP 'v\d+(\.\d+)*' | sed 's/^v//' | head -n 1)
+        if [ -z "$packageVersion" ]; then
+            echo "Failed to determine package version for azure-acr-credential-provider"
+            return $ERR_ORAS_PULL_CREDENTIAL_PROVIDER
+        fi
+    fi
+    echo "installing azure-acr-credential-provider package version: $packageVersion"
+    mkdir -p "${CREDENTIAL_PROVIDER_BIN_DIR}"
+    chown -R root:root "${CREDENTIAL_PROVIDER_BIN_DIR}"
+    if ! installToolFromBootstrapProfileRegistry "azure-acr-credential-provider" $bootstrapProfileRegistry "${packageVersion}" "${CREDENTIAL_PROVIDER_BIN_DIR}/acr-credential-provider"; then
+        if [ "${SHOULD_ENFORCE_KUBE_PMC_INSTALL}" != "true" ] ; then
+            # SHOULD_ENFORCE_KUBE_PMC_INSTALL will only be set for e2e tests, which should not fallback to reflect result of package installation behavior
+            echo "Fall back to install credential provider from url installation"
+            installCredentialProviderFromUrl
+        else
+            echo "Failed to install credential provider from bootstrap profile registry, and not falling back to package installation"
+            exit $ERR_ORAS_PULL_CREDENTIAL_PROVIDER
+        fi
+    fi
+}
+
 installPkgWithAptGet() {
     packageName="${1:-}"
     packageVersion="${2}"
@@ -262,7 +320,6 @@ installContainerdFromOverride() {
     echo "Installing containerd from user input: ${containerdOverrideDownloadURL}"
     # we'll use a user-defined containerd package to install containerd even though it's the same version as
     # the one already installed on the node considering the source is built by the user for hotfix or test
-    logs_to_events "AKS.CSE.installContainerRuntime.removeMoby" removeMoby
     logs_to_events "AKS.CSE.installContainerRuntime.removeContainerd" removeContainerd
     logs_to_events "AKS.CSE.installContainerRuntime.downloadContainerdFromURL" downloadContainerdFromURL "${containerdOverrideDownloadURL}"
     logs_to_events "AKS.CSE.installContainerRuntime.installDebPackageFromFile" "installDebPackageFromFile ${CONTAINERD_DEB_FILE}" || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
@@ -294,7 +351,6 @@ installContainerdWithAptGet() {
         echo "currently installed containerd version ${currentVersion} matches major.minor with higher patch ${containerdMajorMinorPatchVersion}. skipping installStandaloneContainerd."
     else
         echo "installing containerd version ${containerdMajorMinorPatchVersion}"
-        logs_to_events "AKS.CSE.installContainerRuntime.removeMoby" removeMoby
         logs_to_events "AKS.CSE.installContainerRuntime.removeContainerd" removeContainerd
 
         # if containerd version has been overriden then there should exist a local .deb file for it on aks VHDs (best-effort)
@@ -367,24 +423,6 @@ downloadContainerdFromURL() {
     CONTAINERD_DEB_TMP=${CONTAINERD_DOWNLOAD_URL##*/}
     retrycmd_curl_file 120 5 60 "$CONTAINERD_DOWNLOADS_DIR/${CONTAINERD_DEB_TMP}" ${CONTAINERD_DOWNLOAD_URL} || exit $ERR_CONTAINERD_DOWNLOAD_TIMEOUT
     CONTAINERD_DEB_FILE="$CONTAINERD_DOWNLOADS_DIR/${CONTAINERD_DEB_TMP}"
-}
-
-installMoby() {
-    ensureRunc ${RUNC_VERSION:-""} # RUNC_VERSION is an optional override supplied via NodeBootstrappingConfig api
-    CURRENT_VERSION=$(dockerd --version | grep "Docker version" | cut -d "," -f 1 | cut -d " " -f 3 | cut -d "+" -f 1)
-    local MOBY_VERSION="19.03.14"
-    local MOBY_CONTAINERD_VERSION="1.4.13"
-    if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${MOBY_VERSION}; then
-        echo "currently installed moby-docker version ${CURRENT_VERSION} is greater than (or equal to) target base version ${MOBY_VERSION}. skipping installMoby."
-    else
-        removeMoby
-        updateAptWithMicrosoftPkg
-        MOBY_CLI=${MOBY_VERSION}
-        if [ "${MOBY_CLI}" = "3.0.4" ]; then
-            MOBY_CLI="3.0.3"
-        fi
-        apt_get_install 20 30 120 moby-engine=${MOBY_VERSION}* moby-cli=${MOBY_CLI}* moby-containerd=${MOBY_CONTAINERD_VERSION}* --allow-downgrades || exit $ERR_MOBY_INSTALL_TIMEOUT
-    fi
 }
 
 ensureRunc() {

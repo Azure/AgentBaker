@@ -366,7 +366,6 @@ net.ipv6.conf.all.forwarding = 1
 net.bridge.bridge-nf-call-iptables = 1
 EOF
   retrycmd_if_failure 120 5 25 sysctl --system || exit $ERR_SYSCTL_RELOAD
-  systemctl is-active --quiet docker && (systemctl_disable 20 30 120 docker || exit $ERR_SYSTEMD_DOCKER_STOP_FAIL)
   systemctlEnableAndStart containerd 30 || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
@@ -394,41 +393,8 @@ ensureTeleportd() {
 }
 
 ensureArtifactStreaming() {
-  systemctlEnableAndStart acr-mirror 30
-  sudo /opt/acr/tools/overlaybd/install.sh
-  sudo /opt/acr/tools/overlaybd/config-user-agent.sh azure
-  sudo /opt/acr/tools/overlaybd/enable-http-auth.sh
-  sudo /opt/acr/tools/overlaybd/config.sh download.enable false
-  sudo /opt/acr/tools/overlaybd/config.sh cacheConfig.cacheSizeGB 32
-  sudo /opt/acr/tools/overlaybd/config.sh exporterConfig.enable true
-  sudo /opt/acr/tools/overlaybd/config.sh exporterConfig.port 9863
-  modprobe target_core_user
-  curl -X PUT 'localhost:8578/config?ns=_default&enable_suffix=azurecr.io&stream_format=overlaybd' -O
-  systemctl link /opt/overlaybd/overlaybd-tcmu.service
-  systemctl link /opt/overlaybd/snapshotter/overlaybd-snapshotter.service
-  systemctlEnableAndStart overlaybd-tcmu.service 30
-  systemctlEnableAndStart overlaybd-snapshotter.service 30
-
-}
-
-ensureDocker() {
-    DOCKER_SERVICE_EXEC_START_FILE=/etc/systemd/system/docker.service.d/exec_start.conf
-    usermod -aG docker ${ADMINUSER}
-    DOCKER_MOUNT_FLAGS_SYSTEMD_FILE=/etc/systemd/system/docker.service.d/clear_mount_propagation_flags.conf
-    DOCKER_JSON_FILE=/etc/docker/daemon.json
-    for i in $(seq 1 1200); do
-        if [ -s $DOCKER_JSON_FILE ]; then
-            jq '.' < $DOCKER_JSON_FILE && break
-        fi
-        if [ $i -eq 1200 ]; then
-            exit $ERR_FILE_WATCH_TIMEOUT
-        else
-            sleep 1
-        fi
-    done
-    systemctl is-active --quiet containerd && (systemctl_disable 20 30 120 containerd || exit $ERR_SYSTEMD_CONTAINERD_STOP_FAIL)
-    systemctlEnableAndStart docker 30 || exit $ERR_DOCKER_START_FAIL
-
+  retrycmd_if_failure 120 5 25 time systemctl --quiet enable --now  acr-mirror overlaybd-tcmu overlaybd-snapshotter
+  time /opt/acr/bin/acr-config --enable-containerd 'azurecr.io'
 }
 
 ensureDHCPv6() {
@@ -559,14 +525,16 @@ EOF
 }
 
 configureKubeletAndKubectl() {
-    # Install kubelet and kubectl binaries from URL for Network Isolated, Custom Kube binary, and Private Kube binary
-    if [ -n "${CUSTOM_KUBE_BINARY_DOWNLOAD_URL}" ] || [ -n "${PRIVATE_KUBE_BINARY_DOWNLOAD_URL}" ] || [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
+    # Install kubelet and kubectl binaries from URL for Custom Kube binary and Private Kube binary
+    if [ -n "${CUSTOM_KUBE_BINARY_DOWNLOAD_URL}" ] || [ -n "${PRIVATE_KUBE_BINARY_DOWNLOAD_URL}" ]; then
         logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromURL" installKubeletKubectlFromURL
     # only install kube pkgs from pmc if k8s version >= 1.34.0 or skip_bypass_k8s_version_check is true
     elif [ "${SHOULD_ENFORCE_KUBE_PMC_INSTALL}" != "true" ] && ! semverCompare ${KUBERNETES_VERSION:-"0.0.0"} "1.34.0"; then
         logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromURL" installKubeletKubectlFromURL
     else
-        if isMarinerOrAzureLinux "$OS"; then
+        if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ] ; then
+            logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromBootstrapProfileRegistry" "installKubeletKubectlFromBootstrapProfileRegistry ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ${KUBERNETES_VERSION}"
+        elif isMarinerOrAzureLinux "$OS"; then
             if [ "$OS_VERSION" = "2.0" ]; then
                 # we do not publish packages to PMC for azurelinux V2
                 logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromURL" installKubeletKubectlFromURL
@@ -768,13 +736,15 @@ EOF
     if [[ $KUBELET_FLAGS == *"image-credential-provider-config"* && $KUBELET_FLAGS == *"image-credential-provider-bin-dir"* ]]; then
         echo "Configure credential provider for both image-credential-provider-config and image-credential-provider-bin-dir flags are specified in KUBELET_FLAGS"
         logs_to_events "AKS.CSE.ensureKubelet.configCredentialProvider" configCredentialProvider
-        if { [ "${SHOULD_ENFORCE_KUBE_PMC_INSTALL}" != "true" ] && ! semverCompare ${KUBERNETES_VERSION:-"0.0.0"} "1.34.0"; } || \
-            [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
-            logs_to_events "AKS.CSE.ensureKubelet.installCredentialProvider" installCredentialProvider
+        if { [ "${SHOULD_ENFORCE_KUBE_PMC_INSTALL}" != "true" ] && ! semverCompare ${KUBERNETES_VERSION:-"0.0.0"} "1.34.0"; }; then
+            logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromUrl" installCredentialProviderFromUrl
         else
-            if isMarinerOrAzureLinux "$OS"; then
+            if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ] ; then
+                # For network isolated clusters, try distro packages first and fallback to binary installation
+                logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromBootstrapProfileRegistry" installCredentialProviderPackageFromBootstrapProfileRegistry ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ${KUBERNETES_VERSION}
+            elif isMarinerOrAzureLinux "$OS"; then
                 if [ "$OS_VERSION" = "2.0" ]; then # PMC package installation not supported for AzureLinux V2, only V3
-                    logs_to_events "AKS.CSE.ensureKubelet.installCredentialProvider" installCredentialProvider
+                    logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromUrl" installCredentialProviderFromUrl
                 else
                     logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromPMC" "installCredentialProviderFromPMC ${KUBERNETES_VERSION}"
                 fi
@@ -915,24 +885,14 @@ configAzurePolicyAddon() {
 configGPUDrivers() {
     if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
         mkdir -p /opt/{actions,gpu}
-        if [ "${CONTAINER_RUNTIME}" = "containerd" ]; then
-            ctr -n k8s.io image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
-            retrycmd_if_failure 5 10 600 bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install"
-            ret=$?
-            if [ "$ret" -ne 0 ]; then
-                echo "Failed to install GPU driver, exiting..."
-                exit $ERR_GPU_DRIVERS_START_FAIL
-            fi
-            ctr -n k8s.io images rm --sync $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
-        else
-            bash -c "$DOCKER_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG install"
-            ret=$?
-            if [ "$ret" -ne 0 ]; then
-                echo "Failed to install GPU driver, exiting..."
-                exit $ERR_GPU_DRIVERS_START_FAIL
-            fi
-            docker rmi $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
+        ctr -n k8s.io image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
+        retrycmd_if_failure 5 10 600 bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install"
+        ret=$?
+        if [ "$ret" -ne 0 ]; then
+            echo "Failed to install GPU driver, exiting..."
+            exit $ERR_GPU_DRIVERS_START_FAIL
         fi
+        ctr -n k8s.io images rm --sync $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
     elif isMarinerOrAzureLinux "$OS" && ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
         downloadGPUDrivers
         installNvidiaContainerToolkit
@@ -951,11 +911,7 @@ configGPUDrivers() {
         createNvidiaSymlinkToAllDeviceNodes
     fi
 
-    if [ "${CONTAINER_RUNTIME}" = "containerd" ]; then
-        retrycmd_if_failure 120 5 25 pkill -SIGHUP containerd || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    else
-        retrycmd_if_failure 120 5 25 pkill -SIGHUP dockerd || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    fi
+    retrycmd_if_failure 120 5 25 pkill -SIGHUP containerd || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
 }
 
 validateGPUDrivers() {
@@ -999,7 +955,10 @@ ensureGPUDrivers() {
 }
 
 disableSSH() {
+    # On ubuntu, the ssh service is named "ssh.service"
     systemctlDisableAndStop ssh || exit $ERR_DISABLE_SSH
+    # On AzureLinux, the ssh service is named "sshd.service"
+    systemctlDisableAndStop sshd || exit $ERR_DISABLE_SSH
 }
 
 configureSSHPubkeyAuth() {
@@ -1188,19 +1147,29 @@ EOF
 
 startNvidiaManagedExpServices() {
     # 1. Start the nvidia-device-plugin service.
-    if [ "${MIG_NODE}" = "true" ]; then
-    # Create systemd override directory and fix binary path
+    # Create systemd override directory to configure device plugin
     NVIDIA_DEVICE_PLUGIN_OVERRIDE_DIR="/etc/systemd/system/nvidia-device-plugin.service.d"
     mkdir -p "${NVIDIA_DEVICE_PLUGIN_OVERRIDE_DIR}"
-        tee "${NVIDIA_DEVICE_PLUGIN_OVERRIDE_DIR}/10-mig_strategy.conf" > /dev/null <<'EOF'
+
+    if [ "${MIG_NODE}" = "true" ]; then
+        # Configure with MIG strategy for MIG nodes
+        tee "${NVIDIA_DEVICE_PLUGIN_OVERRIDE_DIR}/10-device-plugin-config.conf" > /dev/null <<'EOF'
 [Service]
 Environment="MIG_STRATEGY=--mig-strategy single"
 ExecStart=
-ExecStart=/usr/local/bin/nvidia-device-plugin $MIG_STRATEGY
+ExecStart=/usr/bin/nvidia-device-plugin $MIG_STRATEGY --pass-device-specs
 EOF
-        # Reload systemd to pick up the base path override
-        systemctl daemon-reload
+    else
+        # Configure with pass-device-specs for non-MIG nodes
+        tee "${NVIDIA_DEVICE_PLUGIN_OVERRIDE_DIR}/10-device-plugin-config.conf" > /dev/null <<'EOF'
+[Service]
+ExecStart=
+ExecStart=/usr/bin/nvidia-device-plugin --pass-device-specs
+EOF
     fi
+
+    # Reload systemd to pick up the override
+    systemctl daemon-reload
 
     logs_to_events "AKS.CSE.start.nvidia-device-plugin" "systemctlEnableAndStart nvidia-device-plugin 30" || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
 

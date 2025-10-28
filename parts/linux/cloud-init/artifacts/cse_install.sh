@@ -124,9 +124,6 @@ installContainerdWithManifestJson() {
 
 installContainerRuntime() {
     echo "in installContainerRuntime - KUBERNETES_VERSION = ${KUBERNETES_VERSION}"
-    if [ "${NEEDS_CONTAINERD}" != "true" ]; then
-        installMoby # used in docker clusters. Not supported but still exist in production
-    fi
     if [ -f "$COMPONENTS_FILEPATH" ] && jq '.Packages[] | select(.name == "containerd")' < $COMPONENTS_FILEPATH > /dev/null; then
         echo "Package \"containerd\" exists in $COMPONENTS_FILEPATH."
         # if the containerd package is available in the components.json, use the components.json to install containerd
@@ -191,8 +188,8 @@ downloadCredentialProvider() {
     echo "Credential Provider downloaded successfully"
 }
 
-installCredentialProvider() {
-    logs_to_events "AKS.CSE.installCredentialProvider.downloadCredentialProvider" downloadCredentialProvider
+installCredentialProviderFromUrl() {
+    logs_to_events "AKS.CSE.installCredentialProviderFromUrl.downloadCredentialProvider" downloadCredentialProvider
     extract_tarball "$CREDENTIAL_PROVIDER_DOWNLOAD_DIR/${CREDENTIAL_PROVIDER_TGZ_TMP}" "$CREDENTIAL_PROVIDER_DOWNLOAD_DIR"
     mkdir -p "${CREDENTIAL_PROVIDER_BIN_DIR}"
     chown -R root:root "${CREDENTIAL_PROVIDER_BIN_DIR}"
@@ -529,6 +526,70 @@ extractKubeBinaries() {
     extractKubeBinariesToUsrLocalBin "${k8s_tgz_tmp}" "${k8s_version}" "${is_private_url}"
 }
 
+installToolFromBootstrapProfileRegistry() {
+    local tool_name=$1
+    local registry_server=$2
+    local version=$3
+    local install_path=$4
+
+    # Try to pull distro-specific packages (e.g., .deb for Ubuntu) from registry
+    local download_root="/tmp/kubernetes/downloads" # /opt folder will return permission error
+
+    tool_package_url="${registry_server}/aks/packages/kubernetes/${tool_name}:v${version}"
+    tool_download_dir="${download_root}/${tool_name}"
+    mkdir -p "${tool_download_dir}"
+
+    # Construct platform string for ORAS pull
+    if [ -z "${OS_VERSION}" ]; then
+        echo "OS_VERSION is not set"
+        return 1
+    fi
+    platform_flag="--platform=linux/${CPU_ARCH}:${OS,,} ${OS_VERSION}"
+
+    echo "Attempting to pull ${tool_name} package from ${tool_package_url} with platform ${platform_flag}"
+    # retrycmd_pull_from_registry_with_oras will pull all artifacts to the directory with platform selection
+    if ! retrycmd_pull_from_registry_with_oras 10 5 "${tool_download_dir}" "${tool_package_url}" "${platform_flag}"; then
+        echo "Failed to pull ${tool_name} package from registry"
+        rm -rf "${tool_download_dir}"
+        return 1
+    fi
+
+    echo "Successfully pulled ${tool_name} package"
+
+    if ! installToolFromLocalRepo "${tool_name}" "${tool_download_dir}"; then
+        echo "Failed to install ${tool_name} from local repo ${tool_download_dir}"
+        rm -rf "${tool_download_dir}"
+        return 1
+    fi
+    if [ -n "$install_path" ]; then
+        mv $(which ${tool_name}) $install_path
+    fi
+
+    # All tools installed successfully
+    rm -rf "${download_root}"
+    return 0
+}
+
+installKubeletKubectlFromBootstrapProfileRegistry() {
+    local registry_server=$1
+    local kubernetes_version=$2
+    for tool_name in $(get_kubernetes_tools); do
+        install_path="/usr/local/bin/${tool_name}"
+        if ! installToolFromBootstrapProfileRegistry "${tool_name}" "${registry_server}" "${kubernetes_version}" "${install_path}"; then
+            # SHOULD_ENFORCE_KUBE_PMC_INSTALL will only be set for e2e tests, which should not fallback to reflect result of package installation behavior
+            # TODO: remove SHOULD_ENFORCE_KUBE_PMC_INSTALL check when the test cluster supports > 1.34.0 case
+            # if install from bootstrap profile registry fails, fallback to install from URL
+            if [ "${SHOULD_ENFORCE_KUBE_PMC_INSTALL}" != "true" ];then
+                logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromURL-Fallback" installKubeletKubectlFromURL
+                return
+            else
+                echo "Failed to install k8s tools from bootstrap profile registry, and not falling back to binary installation due to SHOULD_ENFORCE_KUBE_PMC_INSTALL=true"
+                exit $ERR_ORAS_PULL_K8S_FAIL
+            fi
+        fi
+    done
+}
+
 installKubeletKubectlFromURL() {
     # when both, custom and private urls for kubernetes packages are set, custom url will be used and private url will be ignored
     CUSTOM_KUBE_BINARY_DOWNLOAD_URL="${CUSTOM_KUBE_BINARY_URL:=}"
@@ -638,13 +699,8 @@ labelContainerImage() {
 }
 
 retagMCRImagesForChina() {
-    if [ "${CONTAINER_RUNTIME}" = "containerd" ]; then
-        # shellcheck disable=SC2016
+    # shellcheck disable=SC2016
         allMCRImages=($(ctr --namespace k8s.io images list | grep '^mcr.microsoft.com/' | awk '{print $1}'))
-    else
-        # shellcheck disable=SC2016
-        allMCRImages=($(docker images | grep '^mcr.microsoft.com/' | awk '{str = sprintf("%s:%s", $1, $2)} {print str}'))
-    fi
     if [ -z "${allMCRImages}" ]; then
         echo "failed to find mcr images for retag"
         return
@@ -654,48 +710,33 @@ retagMCRImagesForChina() {
         # shellcheck disable=SC2001
         retagMCRImage=$(echo ${mcrImage} | sed -e 's/^mcr.microsoft.com/mcr.azk8s.cn/g')
         # can't use CLI_TOOL because crictl doesn't support retagging.
-        if [ "${CONTAINER_RUNTIME}" = "containerd" ]; then
-            retagContainerImage "ctr" ${mcrImage} ${retagMCRImage}
-        else
-            retagContainerImage "docker" ${mcrImage} ${retagMCRImage}
-        fi
+        retagContainerImage "ctr" ${mcrImage} ${retagMCRImage}
     done
 }
 
 removeContainerImage() {
     CLI_TOOL=$1
     CONTAINER_IMAGE_URL=$2
-    if [ "${CLI_TOOL}" = "docker" ]; then
-        docker image rm $CONTAINER_IMAGE_URL
-    else
-        # crictl should always be present
-        crictl rmi $CONTAINER_IMAGE_URL
-    fi
+    # crictl should always be present
+    crictl rmi $CONTAINER_IMAGE_URL
 }
 
 cleanUpImages() {
     local targetImage=$1
     export targetImage
+    # shellcheck disable=SC2329 # Function is invoked indirectly via bash -c
     function cleanupImagesRun() {
-        if [ "${NEEDS_CONTAINERD}" = "true" ]; then
-            if [ "${CLI_TOOL}" = "crictl" ]; then
-                images_to_delete=$(crictl images | awk '{print $1":"$2}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | tr ' ' '\n')
-            else
-                images_to_delete=$(ctr --namespace k8s.io images list | awk '{print $1}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | tr ' ' '\n')
-            fi
+        if [ "${CLI_TOOL}" = "crictl" ]; then
+            images_to_delete=$(crictl images | awk '{print $1":"$2}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | tr ' ' '\n')
         else
-            images_to_delete=$(docker images --format '{{OpenBraces}}.Repository{{CloseBraces}}:{{OpenBraces}}.Tag{{CloseBraces}}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | tr ' ' '\n')
+            images_to_delete=$(ctr --namespace k8s.io images list | awk '{print $1}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | tr ' ' '\n')
         fi
         local exit_code=$?
         if [ "$exit_code" -ne 0 ]; then
             exit $exit_code
         elif [ -n "${images_to_delete}" ]; then
             echo "${images_to_delete}" | while read -r image; do
-                if [ "${NEEDS_CONTAINERD}" = "true" ]; then
-                    removeContainerImage ${CLI_TOOL} ${image}
-                else
-                    removeContainerImage "docker" ${image}
-                fi
+                removeContainerImage ${CLI_TOOL} ${image}
             done
         fi
     }
@@ -711,23 +752,14 @@ cleanUpKubeProxyImages() {
 
 cleanupRetaggedImages() {
     if [ "${TARGET_CLOUD}" != "AzureChinaCloud" ]; then
-        if [ "${NEEDS_CONTAINERD}" = "true" ]; then
-            if [ "${CLI_TOOL}" = "crictl" ]; then
-                images_to_delete=$(crictl images | awk '{print $1":"$2}' | grep '^mcr.azk8s.cn/' | tr ' ' '\n')
-            else
-                images_to_delete=$(ctr --namespace k8s.io images list | awk '{print $1}' | grep '^mcr.azk8s.cn/' | tr ' ' '\n')
-            fi
+        if [ "${CLI_TOOL}" = "crictl" ]; then
+            images_to_delete=$(crictl images | awk '{print $1":"$2}' | grep '^mcr.azk8s.cn/' | tr ' ' '\n')
         else
-            images_to_delete=$(docker images --format '{{OpenBraces}}.Repository{{CloseBraces}}:{{OpenBraces}}.Tag{{CloseBraces}}' | grep '^mcr.azk8s.cn/' | tr ' ' '\n')
+            images_to_delete=$(ctr --namespace k8s.io images list | awk '{print $1}' | grep '^mcr.azk8s.cn/' | tr ' ' '\n')
         fi
         if [ -n "${images_to_delete}" ]; then
             echo "${images_to_delete}" | while read -r image; do
-                if [ "${NEEDS_CONTAINERD}" = "true" ]; then
-                    # crictl will remove *ALL* references to a given imageID (SHA), which removes too much, so always use ctr
-                    removeContainerImage "ctr" ${image}
-                else
-                    removeContainerImage "docker" ${image}
-                fi
+                removeContainerImage ${CLI_TOOL} ${image}
             done
         fi
     else

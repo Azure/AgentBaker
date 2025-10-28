@@ -111,11 +111,6 @@ func getMockAddon(name string) KubernetesAddon {
 var (
 	AzurePublicCloudSpecForTest = &AzureEnvironmentSpecConfig{
 		CloudName: "AzurePublicCloud",
-		// DockerSpecConfig specify the docker engine download repo
-		DockerSpecConfig: DockerSpecConfig{
-			DockerEngineRepo:         "https://aptdocker.azureedge.net/repo",
-			DockerComposeDownloadURL: "https://github.com/docker/compose/releases/download",
-		},
 		// KubernetesSpecConfig is the default kubernetes container image url.
 		KubernetesSpecConfig: KubernetesSpecConfig{
 			KubernetesImageBase:    "k8s.gcr.io/",

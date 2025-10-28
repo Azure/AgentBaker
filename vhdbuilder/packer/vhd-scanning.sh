@@ -237,6 +237,15 @@ isAzureLinuxOSGuard() {
     fi
     return 1
 }
+isUbuntuCVM() {
+    local os="$1"
+    local feature_flags="$2"
+
+    if [ "$os" = "Ubuntu" ] && grep -q "cvm" <<< "$feature_flags"; then
+        return 0
+    fi
+    return 1
+}
 requiresCISScan() {
     local os="$1"
     local version="$2"
@@ -298,6 +307,10 @@ compare_cis_with_baseline() {
         # shellcheck disable=SC2001
         rule_id=$(echo "$line" | sed -E 's/^pass: ([0-9][0-9.]*).*$/\1/')
         if [ -n "$rule_id" ]; then
+            # We can't modify bootloader configuration for CVM so need to skip this rule
+            if isUbuntuCVM "${OS_SKU}" "$FEATURE_FLAGS" && [ "$rule_id" = "1.3.1.2" ]; then
+                continue
+            fi
             baseline_pass["$rule_id"]=1
         fi
     done < "${baseline_file}"

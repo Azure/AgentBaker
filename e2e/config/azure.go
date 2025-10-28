@@ -608,7 +608,7 @@ func (a *AzureClient) EnsureSIGImageVersion(ctx context.Context, image *Image, l
 	if err != nil {
 		return "", fmt.Errorf("create a new images client: %v", err)
 	}
-	logf(ctx, "Looking up images for gallery subscription %s resource group %s gallery name %s image name %s ersion %s ",
+	logf(ctx, "Looking up images for gallery subscription %s resource group %s gallery name %s image name %s version %s ",
 		image.Gallery.SubscriptionID,
 		image.Gallery.ResourceGroupName,
 		image.Gallery.Name,

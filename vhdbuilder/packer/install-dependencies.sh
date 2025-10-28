@@ -87,7 +87,7 @@ else
   updateAptWithMicrosoftPkg
   # The following packages are required for an Ubuntu Minimal Image to build and successfully run CSE
   # blobfuse2 and fuse3 - ubuntu 22.04 supports blobfuse2 and is fuse3 compatible
-  BLOBFUSE2_VERSION="2.5.0"
+  BLOBFUSE2_VERSION="2.5.1"
   if [ "${OS_VERSION}" = "18.04" ]; then
     # keep legacy version on ubuntu 18.04
     BLOBFUSE2_VERSION="2.2.0"
@@ -124,20 +124,10 @@ ForwardToSyslog=yes
 EOF
 capture_benchmark "${SCRIPT_NAME}_install_deps_and_set_configs"
 
-if [ "${CONTAINER_RUNTIME:-}" != "containerd" ]; then
-  echo "Unsupported container runtime. Only containerd is supported for new VHD builds."
-  exit 1
-fi
-
 if [ "$(isARM64)" -eq 1 ]; then
   # shellcheck disable=SC3010
   if [[ ${HYPERV_GENERATION,,} == "v1" ]]; then
     echo "No arm64 support on V1 VM, exiting..."
-    exit 1
-  fi
-
-  if [ "${CONTAINER_RUNTIME,,}" = "docker" ]; then
-    echo "No dockerd is allowed on arm64 vhd, exiting..."
     exit 1
   fi
 fi
@@ -227,15 +217,6 @@ ENV{DEVTYPE}=="partition", ENV{AZURE_DISK_TYPE}=="?*", ENV{AZURE_DISK_NAME}=="?*
 ENV{DEVTYPE}=="partition", ENV{AZURE_DISK_TYPE}=="?*", ENV{AZURE_DISK_SERIAL}=="?*", SYMLINK+="disk/azure/\$env{AZURE_DISK_TYPE}/by-serial/\$env{AZURE_DISK_SERIAL}-part%n"
 LABEL="azure_disk_end"
 EOF
-
-cat > /etc/udev/rules.d/99-microsoft-mana-mtu.rules <<EOF
-# Udev rule to set MTU to 9000 for Microsoft MANA Ethernet controllers
-# This rule triggers when a network interface is added and checks for Microsoft Azure Network Adapter VF
-# https://learn.microsoft.com/en-us/azure/virtual-network/how-to-virtual-machine-mtu?tabs=linux
-
-SUBSYSTEM=="net", KERNEL=="en*", ENV{ID_NET_DRIVER}=="mana", RUN+="/usr/sbin/ip link set dev eth0 mtu 9000"
-EOF
-
 udevadm control --reload
 capture_benchmark "${SCRIPT_NAME}_set_udev_rules"
 
@@ -620,7 +601,7 @@ installAndConfigureArtifactStreaming() {
   # arguments: package name, package extension
   PACKAGE_NAME=$1
   PACKAGE_EXTENSION=$2
-  MIRROR_PROXY_VERSION='0.2.13'
+  MIRROR_PROXY_VERSION='0.2.14'
   MIRROR_DOWNLOAD_PATH="./$1.$2"
   MIRROR_PROXY_URL="https://acrstreamingpackage.z5.web.core.windows.net/${MIRROR_PROXY_VERSION}/${PACKAGE_NAME}.${PACKAGE_EXTENSION}"
   retrycmd_curl_file 10 5 60 $MIRROR_DOWNLOAD_PATH $MIRROR_PROXY_URL || exit ${ERR_ARTIFACT_STREAMING_DOWNLOAD}
@@ -630,6 +611,15 @@ installAndConfigureArtifactStreaming() {
     dnf_install 30 1 600 $MIRROR_DOWNLOAD_PATH || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD
   fi
   rm $MIRROR_DOWNLOAD_PATH
+
+  /opt/acr/tools/overlaybd/install.sh
+  /opt/acr/tools/overlaybd/config-user-agent.sh azure
+  /opt/acr/tools/overlaybd/enable-http-auth.sh
+  /opt/acr/tools/overlaybd/config.sh download.enable false
+  /opt/acr/tools/overlaybd/config.sh cacheConfig.cacheSizeGB 32
+  /opt/acr/tools/overlaybd/config.sh exporterConfig.enable true
+  /opt/acr/tools/overlaybd/config.sh exporterConfig.port 9863
+  systemctl link /opt/overlaybd/overlaybd-tcmu.service /opt/overlaybd/snapshotter/overlaybd-snapshotter.service
 }
 
 UBUNTU_MAJOR_VERSION=$(echo $UBUNTU_RELEASE | cut -d. -f1)
@@ -645,6 +635,8 @@ elif [ "$OS" = "$MARINER_OS_NAME" ] && [ "$OS_VERSION" = "3.0" ] && [ "$(isARM64
   installAndConfigureArtifactStreaming acr-mirror-azurelinux3 rpm
 fi
 
+capture_benchmark "${SCRIPT_NAME}_install_artifact_streaming"
+
 # k8s will use images in the k8s.io namespaces - create it
 ctr namespace create k8s.io
 cliTool="ctr"
@@ -652,7 +644,7 @@ cliTool="ctr"
 
 INSTALLED_RUNC_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
 echo "  - runc version ${INSTALLED_RUNC_VERSION}" >> ${VHD_LOGS_FILEPATH}
-capture_benchmark "${SCRIPT_NAME}_configure_artifact_streaming_and_install_crictl"
+capture_benchmark "${SCRIPT_NAME}_install_crictl"
 
 GPUContainerImages=$(jq  -c '.GPUContainerImages[]' $COMPONENTS_FILEPATH)
 
@@ -708,7 +700,7 @@ PRESENT_DIR=$(pwd)
 
 BCC_PID=$!
 
-echo "${CONTAINER_RUNTIME} images pre-pulled:" >> ${VHD_LOGS_FILEPATH}
+echo "images pre-pulled:" >> ${VHD_LOGS_FILEPATH}
 capture_benchmark "${SCRIPT_NAME}_pull_nvidia_driver_and_start_ebpf_downloads"
 
 string_replace() {

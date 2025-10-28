@@ -1532,21 +1532,6 @@ func (k *KubernetesConfig) IsAddonDisabled(addonName string) bool {
 	return kubeAddon.IsDisabled()
 }
 
-// NeedsContainerd returns whether or not we need the containerd runtime configuration.
-// E.g., kata configuration requires containerd config.
-func (k *KubernetesConfig) NeedsContainerd() bool {
-	return strings.EqualFold(k.ContainerRuntime, KataContainers) || strings.EqualFold(k.ContainerRuntime, Containerd)
-}
-
-// RequiresDocker returns if the kubernetes settings require docker binary to be installed.
-func (k *KubernetesConfig) RequiresDocker() bool {
-	if k == nil {
-		return false
-	}
-
-	return strings.EqualFold(k.ContainerRuntime, Docker) || k.ContainerRuntime == ""
-}
-
 // IsAADPodIdentityEnabled checks if the AAD pod identity addon is enabled.
 func (k *KubernetesConfig) IsAADPodIdentityEnabled() bool {
 	return k.IsAddonEnabled(AADPodIdentityAddonName)
@@ -1759,26 +1744,27 @@ type GetLatestSigImageConfigRequest struct {
 
 // NodeBootstrappingConfiguration represents configurations for node bootstrapping.
 type NodeBootstrappingConfiguration struct {
-	ContainerService              *ContainerService
-	CloudSpecConfig               *AzureEnvironmentSpecConfig
-	K8sComponents                 *K8sComponents
-	AgentPoolProfile              *AgentPoolProfile
-	TenantID                      string
-	SubscriptionID                string
-	ResourceGroupName             string
-	UserAssignedIdentityClientID  string
-	OSSKU                         string
-	ConfigGPUDriverIfNeeded       bool
-	Disable1804SystemdResolved    bool
-	EnableGPUDevicePluginIfNeeded bool
-	EnableKubeletConfigFile       bool
-	EnableNvidia                  bool
-	EnableAMDGPU                  bool
-	EnableACRTeleportPlugin       bool
-	TeleportdPluginURL            string
-	EnableArtifactStreaming       bool
-	ContainerdVersion             string
-	RuncVersion                   string
+	ContainerService                *ContainerService
+	CloudSpecConfig                 *AzureEnvironmentSpecConfig
+	K8sComponents                   *K8sComponents
+	AgentPoolProfile                *AgentPoolProfile
+	TenantID                        string
+	SubscriptionID                  string
+	ResourceGroupName               string
+	UserAssignedIdentityClientID    string
+	OSSKU                           string
+	ConfigGPUDriverIfNeeded         bool
+	Disable1804SystemdResolved      bool
+	EnableGPUDevicePluginIfNeeded   bool
+	EnableKubeletConfigFile         bool
+	EnableNvidia                    bool
+	EnableAMDGPU                    bool
+	ManagedGPUExperienceAFECEnabled bool
+	EnableACRTeleportPlugin         bool
+	TeleportdPluginURL              string
+	EnableArtifactStreaming         bool
+	ContainerdVersion               string
+	RuncVersion                     string
 	// ContainerdPackageURL and RuncPackageURL are beneficial for testing non-official.
 	// containerd and runc, like the pre-released ones.
 	// Currently both configurations are for test purpose, and only deb package is supported.

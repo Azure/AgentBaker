@@ -23,7 +23,7 @@ $isInitialized=$False
 filter Timestamp { "$(Get-Date -Format o): $_" }
 
 function Write-Log ($message) {
-    $message | Timestamp | Tee-Object -FilePath $LogPath -Append
+    $message | Timestamp | Tee-Object -FilePath $LogPath -Append | Write-Host
 }
 
 if (Test-Path -Path $hnsPIDFilePath) {

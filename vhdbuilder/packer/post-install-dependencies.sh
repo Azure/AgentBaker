@@ -55,7 +55,7 @@ echo "kubelet/kubectl downloaded:" >> ${VHD_LOGS_FILEPATH}
 ls -ltr /usr/local/bin/* >> ${VHD_LOGS_FILEPATH}
 
 # shellcheck disable=SC2010
-ls -ltr /dev/* | grep sgx >>  ${VHD_LOGS_FILEPATH} 
+ls -ltr /dev/* | grep sgx >>  ${VHD_LOGS_FILEPATH}
 
 echo -e "=== Installed Packages Begin\n$(listInstalledPackages)\n=== Installed Packages End" >> ${VHD_LOGS_FILEPATH}
 
@@ -84,7 +84,6 @@ tee -a ${VHD_LOGS_FILEPATH} < /proc/version
   echo "Ubuntu version: ${UBUNTU_RELEASE}"
   echo "Hyperv generation: ${HYPERV_GENERATION}"
   echo "Feature flags: ${FEATURE_FLAGS}"
-  echo "Container runtime: ${CONTAINER_RUNTIME}"
   echo "FIPS enabled: ${ENABLE_FIPS}"
 } >> ${VHD_LOGS_FILEPATH}
 capture_benchmark "${SCRIPT_NAME}_finish_vhd_build_logs"
