@@ -1,0 +1,142 @@
+#!/bin/bash
+# Test wrapper script for get_coredns_ip function with dynamic kubelet mock creation
+set -uo pipefail
+
+# Function to create default kubelet mock files
+create_default_kubelet_mock() {
+    local cluster_dns_ip="${1:-10.0.0.10}"
+    local temp_kubelet_file="/tmp/test_kubelet_$$.conf"
+    local kubelet_dir="/tmp/etc_default_$$"
+    
+    # Create temporary directory structure
+    mkdir -p "$kubelet_dir"
+    
+    # Create kubelet configuration with specified or default cluster DNS
+    cat > "$temp_kubelet_file" <<KUBELET_EOF
+KUBELET_FLAGS=--address=0.0.0.0 --cluster-dns=$cluster_dns_ip --cluster-domain=cluster.local --kubeconfig=/var/lib/kubelet/kubeconfig --pod-manifest-path=/etc/kubernetes/manifests
+KUBELET_REGISTER_SCHEDULABLE=true
+KUBELET_EOF
+    
+    # Copy to the temporary directory
+    cp "$temp_kubelet_file" "$kubelet_dir/kubelet"
+    
+    # Create a symbolic link to the expected location if possible
+    if [ -w "/etc" ] 2>/dev/null; then
+        mkdir -p "/etc/default" 2>/dev/null || true
+        ln -sf "$temp_kubelet_file" "/etc/default/kubelet" 2>/dev/null || cp "$temp_kubelet_file" "/etc/default/kubelet" 2>/dev/null || true
+    fi
+    
+    # Export for cleanup
+    export TEST_KUBELET_TEMP_FILE="$temp_kubelet_file"
+    export TEST_KUBELET_DIR="$kubelet_dir"
+}
+
+# Function to set up mock data based on COREFILE_ROOT
+setup_mock_data() {
+    local corefile_root="${COREFILE_ROOT:-}"
+    
+    if [ -n "$corefile_root" ] && [ -d "$corefile_root" ]; then
+        # Copy mock data to expected locations
+        if [ -f "$corefile_root/opt/azure/containers/localdns/updated.localdns.corefile" ]; then
+            mkdir -p "/opt/azure/containers/localdns"
+            cp "$corefile_root/opt/azure/containers/localdns/updated.localdns.corefile" "/opt/azure/containers/localdns/updated.localdns.corefile" 2>/dev/null || true
+        fi
+        
+        # Copy kubelet config if it exists in mock data
+        if [ -f "$corefile_root/etc/default/kubelet" ]; then
+            mkdir -p "/etc/default" 2>/dev/null || true
+            cp "$corefile_root/etc/default/kubelet" "/etc/default/kubelet" 2>/dev/null || true
+            export KUBELET_FROM_MOCK=true
+        fi
+    fi
+}
+
+# Function to determine cluster DNS IP from test scenario
+get_expected_cluster_dns() {
+    local scenario="${IPTABLES_SCENARIO:-success}"
+    
+    # Map scenarios to expected cluster DNS IPs for kubelet fallback
+    case "$scenario" in
+        "no-coredns")
+            echo "10.0.0.20"  # For kubelet flags fallback test
+            ;;
+        *)
+            echo "10.0.0.10"  # Default
+            ;;
+    esac
+}
+
+# Find the script directory and repository root
+find_script_paths() {
+    local script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    local repo_root=""
+    
+    # Try to find repository root by looking for the config directory
+    local current_dir="$script_dir"
+    while [ "$current_dir" != "/" ]; do
+        if [ -f "$current_dir/config/node-problem-detector/plugin/check_dns_common.sh" ]; then
+            repo_root="$current_dir"
+            break
+        fi
+        current_dir=$(dirname "$current_dir")
+    done
+    
+    echo "$script_dir|$repo_root"
+}
+
+# Main execution
+main() {
+    # Set up mock data first
+    setup_mock_data
+    
+    # Determine cluster DNS IP based on scenario
+    local cluster_dns_ip
+    cluster_dns_ip=$(get_expected_cluster_dns)
+    
+    # Create kubelet mock only if not already provided by mock data
+    if [ -z "${KUBELET_FROM_MOCK:-}" ]; then
+        create_default_kubelet_mock "$cluster_dns_ip"
+    fi
+    
+    # Find script paths
+    local paths
+    paths=$(find_script_paths)
+    local script_dir="${paths%|*}"
+    local repo_root="${paths#*|}"
+    
+    # Source the common DNS functions - try multiple locations
+    local dns_common_script=""
+    
+    # Try Docker container paths first
+    if [ -f "/etc/node-problem-detector.d/plugin/check_dns_common.sh" ]; then
+        dns_common_script="/etc/node-problem-detector.d/plugin/check_dns_common.sh"
+    elif [ -f "/config/node-problem-detector/plugin/check_dns_common.sh" ]; then
+        dns_common_script="/config/node-problem-detector/plugin/check_dns_common.sh"
+    # Try host paths relative to repository root
+    elif [ -n "$repo_root" ] && [ -f "$repo_root/config/node-problem-detector/plugin/check_dns_common.sh" ]; then
+        dns_common_script="$repo_root/config/node-problem-detector/plugin/check_dns_common.sh"
+    else
+        echo "Error: Could not find check_dns_common.sh" >&2
+        echo "Debug: script_dir=$script_dir, repo_root=$repo_root" >&2
+        exit 1
+    fi
+    
+    source "$dns_common_script"
+    
+    # Call the get_coredns_ip function and output results
+    get_coredns_ip
+    local exit_code=$?
+    
+    # Cleanup
+    rm -f "${TEST_KUBELET_TEMP_FILE:-}"
+    rm -rf "${TEST_KUBELET_DIR:-}"
+    rm -f "/etc/default/kubelet" 2>/dev/null || true
+    rm -f "/opt/azure/containers/localdns/updated.localdns.corefile" 2>/dev/null || true
+    rm -rf "/opt/azure/containers" 2>/dev/null || true
+    unset TEST_KUBELET_TEMP_FILE TEST_KUBELET_DIR KUBELET_FROM_MOCK
+    
+    exit $exit_code
+}
+
+# Execute main function
+main "$@"

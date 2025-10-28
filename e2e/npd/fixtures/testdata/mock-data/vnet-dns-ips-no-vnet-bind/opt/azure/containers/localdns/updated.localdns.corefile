@@ -1,0 +1,9 @@
+.:53 {
+    errors
+    bind 192.168.1.10
+    forward . 168.63.129.16 {
+        policy sequential
+    }
+    cache 3600
+    loop
+}

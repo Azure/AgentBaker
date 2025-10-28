@@ -1,0 +1,3 @@
+#!/bin/bash
+echo "bash: dmesg: command not found" >&2
+exit 127

@@ -1,0 +1,9 @@
+#!/bin/bash
+cat <<'IOTOP_OUTPUT'
+Total DISK READ: 2.34 K/s | Total DISK WRITE: 1.56 K/s
+Current DISK READ: 1.12 K/s | Current DISK WRITE: 0.78 K/s
+    TID  PRIO  USER     DISK READ  DISK WRITE  SWAPIN      IO    COMMAND
+ 1111    be/4 user      1.50 K/s    1.00 K/s  ?unavailable? node "app with spaces.js" --config="test.json"
+ 2222    be/4 root      0.84 K/s    0.56 K/s  ?unavailable? bash -c 'echo "test" | grep "pattern"'
+ 3333    be/4 app       0.34 K/s    0.22 K/s  ?unavailable? /usr/bin/app --data=/path/with\backslashes --quote="value"
+IOTOP_OUTPUT
