@@ -1,0 +1,11 @@
+#!/bin/bash
+# kubectl dispatcher for DNS vnetdns tests
+SCENARIO="${KUBECTL_SCENARIO:-localdns-enabled}"
+
+# Look for scenario-specific mock
+if [ -f "/mock-commands/dns-vnetdns/kubectl-$SCENARIO" ]; then
+    exec "/mock-commands/dns-vnetdns/kubectl-$SCENARIO" "$@"
+fi
+
+# Default to LocalDNS enabled scenario
+exec "/mock-commands/dns-vnetdns/kubectl-localdns-enabled" "$@"

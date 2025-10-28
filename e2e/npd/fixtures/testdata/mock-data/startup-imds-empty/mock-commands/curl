@@ -1,0 +1,7 @@
+#!/bin/bash
+if [[ "$*" == *"169.254.169.254"* && "$*" == *"instance/compute"* ]]; then
+    # Return empty response
+    exit 0
+else
+    exec /usr/bin/curl "$@"
+fi

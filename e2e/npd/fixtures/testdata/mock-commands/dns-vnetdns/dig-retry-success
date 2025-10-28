@@ -1,0 +1,42 @@
+#!/bin/bash
+# Mock dig that fails first few times then succeeds
+RETRY_FILE="/tmp/dig_retry_count_$$"
+if [ -f "$RETRY_FILE" ]; then
+    count=$(cat "$RETRY_FILE")
+else
+    count=0
+fi
+count=$((count + 1))
+echo "$count" > "$RETRY_FILE"
+
+if [ "$count" -lt 3 ]; then
+    # Fail first 2 attempts
+    echo "Temporary failure" >&2
+    exit 9
+else
+    # Succeed on 3rd attempt
+    rm -f "$RETRY_FILE"
+    case "$*" in
+        *mcr.microsoft.com*|*kubernetes.default.svc.cluster.local*|*example.microsoft.com*)
+            cat <<END
+; <<>> DiG 9.16.1 <<>> mcr.microsoft.com @168.63.129.16
+;; global options: +cmd
+;; Got answer:
+;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 12345
+;; flags: qr rd ra; QUERY: 1, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 1
+
+;; QUESTION SECTION:
+;mcr.microsoft.com.             IN      A
+
+;; ANSWER SECTION:
+mcr.microsoft.com.      300     IN      A       20.118.95.41
+
+;; Query time: 5 msec
+;; SERVER: 168.63.129.16#53(168.63.129.16)
+;; WHEN: Mon Jul 15 10:00:00 UTC 2025
+;; MSG SIZE  rcvd: 62
+END
+            exit 0
+            ;;
+    esac
+fi

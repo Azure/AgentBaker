@@ -1,0 +1,10 @@
+{
+  "Version": "1.0",
+  "Timestamp": "2025-10-28T21:43:31Z",
+  "TaskName": "test:integration:resources:cgtop",
+  "EventLevel": "Warning",
+  "Message": "{\n  \"cgroups\": [\n    {\n      \"cgroup\": \"mock\",\n      \"tasks\": \"systemd-cgtop\",\n      \"cpu_percent\": \"output\",\n      \"memory\": \"\",\n      \"memory_percent\": \"-%\",\n      \"input_per_sec\": \"\",\n      \"output_per_sec\": \"\"\n    }\n  ]\n}",
+  "EventPid": "22",
+  "EventTid": "1",
+  "OperationId": "6c5b16cb-c27f-4801--cef--2915f6f98f4"
+}

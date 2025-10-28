@@ -1,0 +1,10 @@
+#!/bin/bash
+cat <<'DMESG_EOF'
+[    0.000000] Linux version 5.4.0-1064-azure (buildd@lcy02-amd64-112) 
+[    1.234567] Memory: 4096000K/4194304K available (12288K kernel code, 2048K rwdata, 4096K rodata, 1536K init, 1024K bss, 98304K reserved, 0K cma-reserved)
+[   10.123456] systemd[1]: Started Kernel Logging Service.
+[ 3500.567890] Memory cgroup stats for /system.slice: cache:1024000KB rss:2048000KB rss_huge:0KB shmem:0KB mapped_file:512000KB dirty:64000KB writeback:0KB
+[ 3510.789012] Memory usage statistics: total_cache:2048000KB total_rss:4096000KB total_rss_huge:0KB total_shmem:128000KB total_mapped_file:1024000KB
+[ 3520.234567] Memory reclaim statistics: pages_scanned:123456 pages_reclaimed:12345 pages_evicted:2345
+[ 3590.123456] systemd[1]: Started some-service.service.
+DMESG_EOF

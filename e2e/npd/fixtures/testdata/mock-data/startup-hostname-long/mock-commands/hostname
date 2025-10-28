@@ -1,0 +1,2 @@
+#!/bin/bash
+echo "very-long-hostname-that-exceeds-normal-limits-and-could-cause-issues-with-kubernetes-node-naming-conventions-vmss000001"

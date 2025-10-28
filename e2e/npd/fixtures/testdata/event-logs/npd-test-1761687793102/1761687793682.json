@@ -1,0 +1,10 @@
+{
+  "Version": "1.0",
+  "Timestamp": "2025-10-28T21:43:13Z",
+  "TaskName": "test:cgtop:cpu",
+  "EventLevel": "Warning",
+  "Message": "{\n  \"cgroups\": [\n    {\n      \"cgroup\": \"Control\",\n      \"tasks\": \"Group\",\n      \"cpu_percent\": \"Tasks\",\n      \"memory\": \"%CPU\",\n      \"memory_percent\": \"-%\",\n      \"input_per_sec\": \"Memory\",\n      \"output_per_sec\": \"Input/s\"\n    },\n    {\n      \"cgroup\": \"/\",\n      \"tasks\": \"1234\",\n      \"cpu_percent\": \"25.7\",\n      \"memory\": \"4.6G\",\n      \"memory_percent\": \"29.6%\",\n      \"input_per_sec\": \"-\",\n      \"output_per_sec\": \"-\"\n    },\n    {\n      \"cgroup\": \"/system.slice\",\n      \"tasks\": \"456\",\n      \"cpu_percent\": \"12.4\",\n      \"memory\": \"1.3G\",\n      \"memory_percent\": \"8.4%\",\n      \"input_per_sec\": \"-\",\n      \"output_per_sec\": \"-\"\n    },\n    {\n      \"cgroup\": \"/system.slice/docker.service\",\n      \"tasks\": \"123\",\n      \"cpu_percent\": \"45.8\",\n      \"memory\": \"523.1M\",\n      \"memory_percent\": \"3.3%\",\n      \"input_per_sec\": \"-\",\n      \"output_per_sec\": \"-\"\n    },\n    {\n      \"cgroup\": \"/system.slice/kubelet.service\",\n      \"tasks\": \"89\",\n      \"cpu_percent\": \"38.2\",\n      \"memory\": \"267.4M\",\n      \"memory_percent\": \"1.7%\",\n      \"input_per_sec\": \"-\",\n      \"output_per_sec\": \"-\"\n    },\n    {\n      \"cgroup\": \"/system.slice/containerd.service\",\n      \"tasks\": \"67\",\n      \"cpu_percent\": \"28.9\",\n      \"memory\": \"134.7M\",\n      \"memory_percent\": \"0.8%\",\n      \"input_per_sec\": \"-\",\n      \"output_per_sec\": \"-\"\n    },\n    {\n      \"cgroup\": \"/user.slice\",\n      \"tasks\": \"234\",\n      \"cpu_percent\": \"8.3\",\n      \"memory\": \"901.5M\",\n      \"memory_percent\": \"5.7%\",\n      \"input_per_sec\": \"-\",\n      \"output_per_sec\": \"-\"\n    }\n  ]\n}",
+  "EventPid": "22",
+  "EventTid": "1",
+  "OperationId": "e71f7285-3838-4754--dfe--824c3fad169"
+}
