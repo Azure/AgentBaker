@@ -319,6 +319,14 @@ installNodeProblemDetector() {
         if [ -f "${source_dir}/skip_vhd_npd" ]; then
             echo "Copying skip_vhd_npd sentinel file from ${source_dir}"
             cp "${source_dir}/skip_vhd_npd" "${NPD_CONFIG_DIR}/"
+            # Set explicit permissions to ensure file persists
+            chmod 644 "${NPD_CONFIG_DIR}/skip_vhd_npd"
+            # Verify the file was copied successfully
+            if [ ! -f "${NPD_CONFIG_DIR}/skip_vhd_npd" ]; then
+                echo "ERROR: skip_vhd_npd file not found after copy"
+                exit 1
+            fi
+            echo "Successfully copied and verified skip_vhd_npd sentinel file"
             break
         fi
     done
@@ -1142,12 +1150,21 @@ collect_grid_compatibility_data() {
 }
 
 collect_grid_compatibility_data
-
 # nvidia repos are non msft public endpoints and should not be present on VHDs.
 # The installation logic during provisioning time will use the cached rpm/deb files
 # to install extra packages required for the managed gpu experience.
 removeNvidiaRepos
 capture_benchmark "${SCRIPT_NAME}_remove_nvidia_repos"
+
+# Final verification: Ensure skip_vhd_npd file exists before completing
+if [ -f "/etc/node-problem-detector.d/skip_vhd_npd" ]; then
+    echo "Verified: skip_vhd_npd sentinel file exists at /etc/node-problem-detector.d/skip_vhd_npd"
+    ls -la /etc/node-problem-detector.d/skip_vhd_npd
+else
+    echo "WARNING: skip_vhd_npd sentinel file NOT found at /etc/node-problem-detector.d/skip_vhd_npd"
+    echo "Contents of /etc/node-problem-detector.d/:"
+    ls -la /etc/node-problem-detector.d/ || echo "Directory does not exist"
+fi
 
 capture_benchmark "${SCRIPT_NAME}_overall" true
 process_benchmarks
