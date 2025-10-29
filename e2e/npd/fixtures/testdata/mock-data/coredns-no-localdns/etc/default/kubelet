@@ -1,0 +1,2 @@
+KUBELET_FLAGS=--address=0.0.0.0 --cluster-dns=10.0.0.10 --cluster-domain=cluster.local --kubeconfig=/var/lib/kubelet/kubeconfig --pod-manifest-path=/etc/kubernetes/manifests
+KUBELET_REGISTER_SCHEDULABLE=true

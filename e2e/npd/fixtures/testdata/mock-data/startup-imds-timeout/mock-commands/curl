@@ -1,0 +1,8 @@
+#!/bin/bash
+if [[ "$*" == *"169.254.169.254"* ]]; then
+    # Simulate timeout
+    sleep 1
+    exit 28  # curl timeout exit code
+else
+    exec /usr/bin/curl "$@"
+fi

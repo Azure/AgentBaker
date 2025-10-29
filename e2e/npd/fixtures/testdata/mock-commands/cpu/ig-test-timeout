@@ -1,0 +1,3 @@
+#!/bin/bash
+sleep 12
+echo "This should not be reached due to timeout"

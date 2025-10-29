@@ -1,0 +1,7 @@
+#!/bin/bash
+cat <<'MPSTAT_EOF'
+Linux 5.4.0-1043-azure (test-node)   01/01/70        _x86_64_        (4 CPU)
+
+Average:     CPU    %usr   %nice    %sys %iowait    %irq   %soft  %steal  %guest  %gnice   %idle
+Average:     all   30.00    0.00   15.00    5.00    0.00    2.00    3.00    0.00    0.00   45.00
+MPSTAT_EOF

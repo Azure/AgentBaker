@@ -31,6 +31,22 @@ source /home/packer/tool_installs.sh
 source /home/packer/tool_installs_distro.sh
 
 CPU_ARCH=$(getCPUArch)  #amd64 or arm64
+
+# packages.microsoft.com for NPD uses x86_64 instead of amd64 in some cases
+# as well as aarch64 instead of arm64.
+# I don't make the rules on their silly naming inconsistencies.
+# components.json handles when to use CPU_ARCH or CPU_ARCH_NPD.
+CPU_ARCH_NPD=$(
+  if [ "$CPU_ARCH" = "amd64" ]; then
+    echo "x86_64"
+  elif [ "$CPU_ARCH" = "arm64" ]; then
+    echo "aarch64"
+  else
+    echo "$CPU_ARCH"
+  fi
+)
+
+
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 COMPONENTS_FILEPATH=/opt/azure/components.json
 PERFORMANCE_DATA_FILE=/opt/azure/vhd-build-performance-data.json
@@ -239,6 +255,107 @@ unpackTgzToCNIDownloadsDIR() {
   echo "  - Ran tar -xzf on the CNI downloaded then rm -rf to clean up"
 }
 
+# Install Node Problem Detector during VHD build
+# This function is only used during VHD build, not during node provisioning/CSE
+# During CSE we'll systemctl daemon-reload as there's some runtime configs (GPU)
+installNodeProblemDetector() {
+    local downloadDir=$1
+    local evaluatedURL=$2
+    local npdName=$3
+
+    echo "Installing Node Problem Detector."
+
+    mkdir -p $downloadDir
+
+    ## Download and install NPD package based on OS type
+    if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
+      retrycmd_curl_file 10 5 60 "${downloadDir}/${npdName}" "${evaluatedURL}" || exit $ERR_NPD_INSTALL_TIMEOUT
+      apt_get_install 30 1 600 "${downloadDir}/${npdName}" || exit $ERR_NPD_INSTALL_TIMEOUT
+    elif [ "$OS" = "MARINER" ] || [ "$OS" = "AZURELINUX" ]; then
+      retrycmd_curl_file 10 5 60 "${downloadDir}/${npdName}" "${evaluatedURL}" || exit $ERR_NPD_INSTALL_TIMEOUT
+      if ! dnf_install 30 1 600 "${downloadDir}/${npdName}"; then
+        echo "ERROR: dnf_install failed for ${npdName} with exit code $?"
+        exit $ERR_NPD_INSTALL_TIMEOUT
+      else
+        echo "Successfully installed NPD package: ${npdName}"
+      fi
+    fi
+
+    # Copy AKS NPD configs and plugins to system location
+    local NPD_CONFIG_DIR="/etc/node-problem-detector.d"
+    local NPD_ARTIFACTS_DIR="/opt/azure/containers/node-problem-detector"
+    local NPD_BUILD_SOURCE="/home/packer/node-problem-detector"
+
+    echo "Installing NPD configs and plugins"
+    mkdir -p "${NPD_CONFIG_DIR}"
+    mkdir -p "${NPD_ARTIFACTS_DIR}"
+
+    # First, copy NPD files from build context to containers directory for CSE use
+    if [ -d "${NPD_BUILD_SOURCE}" ]; then
+        echo "Copying NPD files from build source to containers directory"
+        cp -r "${NPD_BUILD_SOURCE}"/* "${NPD_ARTIFACTS_DIR}/"
+    fi
+
+    # Copy all configuration directories to system location
+    local config_dirs="custom-plugin-monitor plugin system-log-monitor system-stats-monitor"
+    for dir in ${config_dirs}; do
+        if [ -d "${NPD_ARTIFACTS_DIR}/${dir}" ]; then
+            echo "Copying NPD config directory: ${dir}"
+            cp -r "${NPD_ARTIFACTS_DIR}/${dir}" "${NPD_CONFIG_DIR}/"
+        elif [ -d "${NPD_BUILD_SOURCE}/${dir}" ]; then
+            echo "Copying NPD config directory from build source: ${dir}"
+            cp -r "${NPD_BUILD_SOURCE}/${dir}" "${NPD_CONFIG_DIR}/"
+        fi
+    done
+
+    # Copy root files (like skip_vhd_npd) to system location
+    # skip_vhd_npd is used to keep the aks-operator node extension from clobbering vhd npd
+    for source_dir in "${NPD_ARTIFACTS_DIR}" "${NPD_BUILD_SOURCE}"; do
+        if [ -f "${source_dir}/skip_vhd_npd" ]; then
+            echo "Copying skip_vhd_npd sentinel file from ${source_dir}"
+            cp "${source_dir}/skip_vhd_npd" "${NPD_CONFIG_DIR}/"
+            # Set explicit permissions to ensure file persists
+            chmod 644 "${NPD_CONFIG_DIR}/skip_vhd_npd"
+            # Verify the file was copied successfully
+            if [ ! -f "${NPD_CONFIG_DIR}/skip_vhd_npd" ]; then
+                echo "ERROR: skip_vhd_npd file not found after copy"
+                exit 1
+            fi
+            echo "Successfully copied and verified skip_vhd_npd sentinel file"
+            break
+        fi
+    done
+
+    # Install AKS startup script and systemd service
+    echo "Installing NPD startup script and systemd service"
+
+    local NPD_STARTUP_SCRIPT_SRC="/home/packer/node-problem-detector-startup.sh"
+    local NPD_STARTUP_SCRIPT_DEST="/usr/local/bin/node-problem-detector-startup.sh"
+    local NPD_SERVICE_SRC="/home/packer/node-problem-detector.service"
+    local NPD_SERVICE_DEST="/etc/systemd/system/node-problem-detector.service"
+
+    # Install startup script
+    cp "${NPD_STARTUP_SCRIPT_SRC}" "${NPD_STARTUP_SCRIPT_DEST}"
+    chmod 755 "${NPD_STARTUP_SCRIPT_DEST}"
+
+    cp "${NPD_SERVICE_SRC}" "${NPD_SERVICE_DEST}"
+    cp "${NPD_STARTUP_SCRIPT_SRC}" "${NPD_ARTIFACTS_DIR}/"
+    cp "${NPD_SERVICE_SRC}" "${NPD_ARTIFACTS_DIR}/"
+
+    [ -d "${NPD_CONFIG_DIR}/plugin" ] && {
+        chmod 755 "${NPD_CONFIG_DIR}/plugin"/*.sh 2>/dev/null || true
+    }
+
+    for dir in custom-plugin-monitor system-log-monitor system-stats-monitor; do
+        [ -d "${NPD_CONFIG_DIR}/${dir}" ] && chmod 644 "${NPD_CONFIG_DIR}/${dir}"/*.json 2>/dev/null || true
+    done
+
+    # CSE will reload npd. At start npd has a script that detects if we're gpu or not so restart on node is needed.
+    systemctl disable node-problem-detector
+
+    echo "Node Problem Detector installed"
+}
+
 #this is the reference cni it is only ever downloaded in caching for build not at provisioning time
 #but conceptually it is very similiar to downloadAzureCNI in that it takes a url and puts in CNI_DOWNLOADS_DIR
 downloadCNI() {
@@ -354,8 +471,6 @@ while IFS= read -r p; do
           version=$(rpm -q containerd2)
         elif isMarinerOrAzureLinux "$OS"; then
           installStandaloneContainerd "${version}"
-        elif isFlatcar "$OS"; then
-          installStandaloneContainerd "${version}"
         fi
         echo "  - containerd version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
@@ -469,6 +584,19 @@ while IFS= read -r p; do
           downloadPkgFromVersion "dcgm-exporter" "${version}" "${downloadDir}"
         fi
         echo "  - dcgm-exporter version ${version}" >> ${VHD_LOGS_FILEPATH}
+      done
+      ;;
+    "node-problem-detector")
+      for version in ${PACKAGE_VERSIONS[@]}; do
+        evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+        # Extract the package filename from the URL
+        npdName=$(basename "${evaluatedURL}")
+        #packagePath="${downloadDir}/${packageFile}"
+
+        if [ "${OS}" = "${UBUNTU_OS_NAME}" ] || isMarinerOrAzureLinux "$OS"; then
+          installNodeProblemDetector "${downloadDir}" "${evaluatedURL}" "${npdName}"
+        fi
+        echo "  - node-problem-detector version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
     *)
@@ -860,9 +988,6 @@ if [ -n "${PRIVATE_PACKAGES_URL:-}" ]; then
   done
 fi
 
-
-
-
 LOCALDNS_BINARY_PATH="/opt/azure/containers/localdns/binary"
 # This function extracts CoreDNS binary from cached coredns images (n-1 image version and latest revision version)
 # and copies it to - /opt/azure/containers/localdns/binary/coredns.
@@ -1005,5 +1130,16 @@ collect_grid_compatibility_data() {
 }
 
 collect_grid_compatibility_data
+
+# Final verification: Ensure skip_vhd_npd file exists before completing
+if [ -f "/etc/node-problem-detector.d/skip_vhd_npd" ]; then
+    echo "Verified: skip_vhd_npd sentinel file exists at /etc/node-problem-detector.d/skip_vhd_npd"
+    ls -la /etc/node-problem-detector.d/skip_vhd_npd
+else
+    echo "WARNING: skip_vhd_npd sentinel file NOT found at /etc/node-problem-detector.d/skip_vhd_npd"
+    echo "Contents of /etc/node-problem-detector.d/:"
+    ls -la /etc/node-problem-detector.d/ || echo "Directory does not exist"
+fi
+
 capture_benchmark "${SCRIPT_NAME}_overall" true
 process_benchmarks

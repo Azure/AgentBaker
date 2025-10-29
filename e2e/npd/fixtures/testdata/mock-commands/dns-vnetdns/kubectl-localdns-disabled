@@ -1,0 +1,11 @@
+#!/bin/bash
+# Mock kubectl for LocalDNS disabled scenario
+case "$*" in
+    *"get node"*"jsonpath"*)
+        echo "disabled"
+        ;;
+    *)
+        echo "Mock kubectl: unknown command: $*" >&2
+        exit 1
+        ;;
+esac

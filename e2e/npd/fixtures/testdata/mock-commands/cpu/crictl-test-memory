@@ -1,0 +1,61 @@
+#!/bin/bash
+cat <<'CRICTL_EOF'
+{
+  "stats": [
+    {
+      "attributes": {
+        "id": "container1",
+        "metadata": {
+          "name": "memory-hog"
+        },
+        "labels": {
+          "io.kubernetes.pod.namespace": "default",
+          "io.kubernetes.pod.name": "memory-intensive-pod"
+        },
+        "annotations": {
+          "io.kubernetes.container.restartCount": "0"
+        }
+      },
+      "cpu": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "usageNanoCores": {
+          "value": "100000000"
+        }
+      },
+      "memory": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "workingSetBytes": {
+          "value": "1073741824"
+        }
+      }
+    },
+    {
+      "attributes": {
+        "id": "container2",
+        "metadata": {
+          "name": "normal-app"
+        },
+        "labels": {
+          "io.kubernetes.pod.namespace": "apps",
+          "io.kubernetes.pod.name": "normal-app-pod"
+        },
+        "annotations": {
+          "io.kubernetes.container.restartCount": "0"
+        }
+      },
+      "cpu": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "usageNanoCores": {
+          "value": "200000000"
+        }
+      },
+      "memory": {
+        "timestamp": "2024-01-01T10:00:00Z",
+        "workingSetBytes": {
+          "value": "134217728"
+        }
+      }
+    }
+  ]
+}
+CRICTL_EOF

@@ -1,0 +1,20 @@
+#!/bin/bash
+cat <<'IP_OUTPUT'
+[
+  {
+    "ifindex": 2,
+    "ifname": "eth0",
+    "flags": ["BROADCAST", "MULTICAST", "UP", "LOWER_UP"],
+    "mtu": 1500,
+    "qdisc": "mq",
+    "operstate": "UP",
+    "linkmode": "DEFAULT",
+    "group": "default",
+    "txqlen": 1000,
+    "link_type": "ether",
+    "address": "00:15:5d:01:02:03",
+    "broadcast": "ff:ff:ff:ff:ff:ff",
+    "parentbus": "pci"
+  }
+]
+IP_OUTPUT
