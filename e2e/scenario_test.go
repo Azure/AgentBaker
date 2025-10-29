@@ -2232,7 +2232,9 @@ func Test_Ubuntu2404_IMDS_Restriction_IPTables_Rules_Scriptless(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2404Gen2Containerd,
 			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
-				config.ImdsRestrictionConfig.EnableImdsRestriction = true
+				config.ImdsRestrictionConfig = &aksnodeconfigv1.ImdsRestrictionConfig{
+					EnableImdsRestriction: true,
+				}
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				tablePatterns, globalPatterns := getIPTablesRulesCompatibleWithEBPFHostRouting()
@@ -2249,7 +2251,9 @@ func Test_AzureLinuxV3_IMDS_Restriction_IPTables_Rules_Scriptless(t *testing.T) 
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV3Gen2,
 			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
-				config.ImdsRestrictionConfig.EnableImdsRestriction = true
+				config.ImdsRestrictionConfig = &aksnodeconfigv1.ImdsRestrictionConfig{
+					EnableImdsRestriction: true,
+				}
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				tablePatterns, globalPatterns := getIPTablesRulesCompatibleWithEBPFHostRouting()
