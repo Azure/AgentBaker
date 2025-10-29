@@ -79,8 +79,12 @@ if [ -z "${SIG_VERSION}" ]; then
 fi
 
 if [ "${LOCK_PACKER_IMAGE:-}" = "true" ]; then
-  echo -e "Creating CanNotDelete resource lock over packer image: $SIG_IMAGE"
-  az resource lock create -n "PackerDeleteLock" -t CanNotDelete --resource $SIG_IMAGE
+  echo -e "\nCreating CanNotDelete resource lock over packer image: $SIG_IMAGE"
+  if ! az resource lock create -n "PackerDeleteLock" -t CanNotDelete --resource $SIG_IMAGE; then
+    echo -e "\nUnable to lock packer image. Running cleanup and then exiting."
+    retrycmd_if_failure 2 3 "${SCRIPT_ARRAY[@]}"
+    exit $?
+  fi
 fi
 
 # Setup testing
