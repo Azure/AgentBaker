@@ -77,7 +77,7 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/autoscaler/addon-resizer",
-          "latestVersion": "v1.8.23-5"
+          "latestVersion": "v1.8.23-6"
         }
       ],
       "windowsVersions": []
@@ -319,7 +319,7 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/azure/secrets-store/provider-azure",
-          "latestVersion": "v1.7.1"
+          "latestVersion": "v1.7.2"
         }
       ]
     },
@@ -340,15 +340,15 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=azuremonitor/containerinsights/ciprod/prometheus-collector/images",
-          "latestVersion": "6.23.0-main-09-29-2025-f7d29698"
+          "latestVersion": "6.24.0-main-10-20-2025-fe8f6d51"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=azuremonitor/containerinsights/ciprod/prometheus-collector/images",
-          "latestVersion": "6.23.0-main-09-29-2025-f7d29698-targetallocator"
+          "latestVersion": "6.24.0-main-10-20-2025-fe8f6d51-targetallocator"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=azuremonitor/containerinsights/ciprod/prometheus-collector/images",
-          "latestVersion": "6.23.0-main-09-29-2025-f7d29698-cfg"
+          "latestVersion": "6.24.0-main-10-20-2025-fe8f6d51-cfg"
         }
       ],
       "windowsVersions": []
@@ -427,7 +427,7 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/autoscaler/cluster-proportional-autoscaler",
-          "latestVersion": "v1.9.0-4"
+          "latestVersion": "v1.8.11-10"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/autoscaler/cluster-proportional-autoscaler",
@@ -657,7 +657,7 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/windows-gmsa-webhook",
-          "latestVersion": "v0.12.1-5"
+          "latestVersion": "v0.12.1-6"
         }
       ],
       "windowsVersions": []
@@ -883,7 +883,7 @@
             "versionsV2": [
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.0.0"
+                "latestVersion": "1.0.1"
               }
             ],
             "downloadURL": "https://github.com/Azure/aks-secure-tls-bootstrap/releases/download/client/v${version}/linux-${CPU_ARCH}.tar.gz"
@@ -894,7 +894,7 @@
             "versionsV2": [
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.0.0"
+                "latestVersion": "1.0.1"
               }
             ],
             "downloadURL": "https://github.com/Azure/aks-secure-tls-bootstrap/releases/download/client/v${version}/windows-amd64.zip"
