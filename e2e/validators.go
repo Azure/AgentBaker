@@ -1213,7 +1213,11 @@ func execOnPodForScenario(ctx context.Context, s *Scenario, pod *corev1.Pod, cmd
 func ValidateExecCmdOnVM(ctx context.Context, s *Scenario, command string) {
 	s.T.Helper()
 
-	podName := fmt.Sprintf("%s-exec-cmd-test", s.Runtime.KubeNodeName)
+	podName := fmt.Sprintf("%s-exec-test", s.Runtime.KubeNodeName)
+	// truncate podName to less than 63 characters to comply with k8s naming rules
+	if len(podName) > 63 {
+		podName = podName[:63]
+	}
 	namespace := "default"
 
 	// Delete any existing pod with the same name
