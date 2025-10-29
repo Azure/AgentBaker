@@ -294,6 +294,10 @@ installNodeProblemDetector() {
     echo "Installing NPD configs and plugins"
     mkdir -p "${NPD_CONFIG_DIR}"
     mkdir -p "${NPD_ARTIFACTS_DIR}"
+  # Ensure the NPD config directory is traversable by non-root processes (e2e validation, extension logic)
+  # Previously the directory inherited restrictive (750) permissions causing ValidateFileExists to treat
+  # permission denied as file absence. Setting 755 here (build-time) keeps runtime logic clean.
+  chmod 755 "${NPD_CONFIG_DIR}" || echo "WARNING: failed to chmod 755 ${NPD_CONFIG_DIR}"
 
     # First, copy NPD files from build context to containers directory for CSE use
     if [ -d "${NPD_BUILD_SOURCE}" ]; then
