@@ -74,7 +74,7 @@ else
   updateAptWithMicrosoftPkg
   # The following packages are required for an Ubuntu Minimal Image to build and successfully run CSE
   # blobfuse2 and fuse3 - ubuntu 22.04 supports blobfuse2 and is fuse3 compatible
-  BLOBFUSE2_VERSION="2.5.0"
+  BLOBFUSE2_VERSION="2.5.1"
   if [ "${OS_VERSION}" = "18.04" ]; then
     # keep legacy version on ubuntu 18.04
     BLOBFUSE2_VERSION="2.2.0"
@@ -204,15 +204,6 @@ ENV{DEVTYPE}=="partition", ENV{AZURE_DISK_TYPE}=="?*", ENV{AZURE_DISK_NAME}=="?*
 ENV{DEVTYPE}=="partition", ENV{AZURE_DISK_TYPE}=="?*", ENV{AZURE_DISK_SERIAL}=="?*", SYMLINK+="disk/azure/\$env{AZURE_DISK_TYPE}/by-serial/\$env{AZURE_DISK_SERIAL}-part%n"
 LABEL="azure_disk_end"
 EOF
-
-cat > /etc/udev/rules.d/99-microsoft-mana-mtu.rules <<EOF
-# Udev rule to set MTU to 9000 for Microsoft MANA Ethernet controllers
-# This rule triggers when a network interface is added and checks for Microsoft Azure Network Adapter VF
-# https://learn.microsoft.com/en-us/azure/virtual-network/how-to-virtual-machine-mtu?tabs=linux
-
-SUBSYSTEM=="net", KERNEL=="en*", ENV{ID_NET_DRIVER}=="mana", RUN+="/usr/sbin/ip link set dev eth0 mtu 9000"
-EOF
-
 udevadm control --reload
 capture_benchmark "${SCRIPT_NAME}_set_udev_rules"
 

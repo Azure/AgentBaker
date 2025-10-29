@@ -8,7 +8,7 @@ $global:LogPath = "c:\k\windowslogscleanup.log"
 filter Timestamp { "$(Get-Date -Format o): $_" }
 
 function Write-Log ($message) {
-    $message | Timestamp | Tee-Object -FilePath $global:LogPath -Append
+    $message | Timestamp | Tee-Object -FilePath $global:LogPath -Append | Write-Host
 }
 
 Write-Log "Entering windowslogscleanup.ps1"

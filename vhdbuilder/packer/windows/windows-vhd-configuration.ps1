@@ -31,7 +31,7 @@ $CPU_ARCH = switch ($cpu.Architecture) {
 if ([string]::IsNullOrEmpty($CPU_ARCH)) {
     $cpuName = $cpu.Name
     $cpuArch = $cpu.Architecture
-    Write-Output "Unknown architecture for CPU $cpuName with arch $cpuArch"
+    Write-Host "Unknown architecture for CPU $cpuName with arch $cpuArch"
     throw "Unsupported architecture for SKU $windowsSKU for CPU $cpuName with arch $cpuArch"
 }
 
@@ -55,9 +55,9 @@ if (!(Test-Path $ComponentsJsonFile))
     $ComponentsJsonFile = "parts/common/components.json"
 }
 
-Write-Output "Components JSON: $ComponentsJsonFile"
-Write-Output "Helpers Ps1: $HelpersFile"
-Write-Output "WindowsSettingsFile: $WindowsSettingsFile"
+Write-Host "Components JSON: $ComponentsJsonFile"
+Write-Host "Helpers Ps1: $HelpersFile"
+Write-Host "WindowsSettingsFile: $WindowsSettingsFile"
 
 . "$HelpersFile"
 

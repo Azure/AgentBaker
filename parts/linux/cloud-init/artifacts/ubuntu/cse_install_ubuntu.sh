@@ -18,7 +18,7 @@ installDeps() {
     OSVERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
     BLOBFUSE_VERSION="1.4.5"
     # Blobfuse2 has been upgraded in upstream, using this version for parity between 22.04 and 24.04
-    BLOBFUSE2_VERSION="2.5.0"
+    BLOBFUSE2_VERSION="2.5.1"
 
     # blobfuse2 is installed for all ubuntu versions, it is included in pkg_list
     # for 22.04, fuse3 is installed. for all others, fuse is installed
@@ -193,6 +193,68 @@ installKubeletKubectlPkgFromPMC() {
     k8sVersion="${1}"
     installPkgWithAptGet "kubelet" "${k8sVersion}" || exit $ERR_KUBELET_INSTALL_FAIL
     installPkgWithAptGet "kubectl" "${k8sVersion}" || exit $ERR_KUBECTL_INSTALL_FAIL
+}
+
+installToolFromLocalRepo() {
+    local tool_name=$1
+    local tool_download_dir=$2
+
+    # Verify the download directory exists and contains repository metadata
+    if [ ! -d "${tool_download_dir}" ]; then
+        echo "Download directory ${tool_download_dir} does not exist"
+        return 1
+    fi
+
+    # Check if this is a self-contained local repository (has Packages.gz)
+    if [ ! -f "${tool_download_dir}/Packages.gz" ]; then
+        echo "Packages.gz not found in ${tool_download_dir}, not a valid local repository"
+        return 1
+    fi
+
+    echo "Installing ${tool_name} from local repository at ${tool_download_dir}..."
+    if ! apt_get_install_from_local_repo "${tool_download_dir}" "${tool_name}"; then
+        echo "Failed to install ${tool_name} from local repository"
+        return 1
+    fi
+
+    echo "${tool_name} installed successfully from local repository"
+    return 0
+}
+
+installCredentialProviderPackageFromBootstrapProfileRegistry() {
+    bootstrapProfileRegistry="$1"
+    k8sVersion="${2:-}"
+
+    os=${UBUNTU_OS_NAME}
+    if [ -z "$UBUNTU_RELEASE" ]; then
+        os=${OS}
+        os_version="current"
+    else
+        os_version="${UBUNTU_RELEASE}"
+    fi
+    PACKAGE_VERSION=""
+    getLatestPkgVersionFromK8sVersion "$k8sVersion" "azure-acr-credential-provider-pmc" "$os" "$os_version"
+    packageVersion=$(echo $PACKAGE_VERSION | cut -d "-" -f 1)
+    if [ -z "$packageVersion" ]; then
+        packageVersion=$(echo "$CREDENTIAL_PROVIDER_DOWNLOAD_URL" | grep -oP 'v\d+(\.\d+)*' | sed 's/^v//' | head -n 1)
+        if [ -z "$packageVersion" ]; then
+            echo "Failed to determine package version for azure-acr-credential-provider"
+            return $ERR_ORAS_PULL_CREDENTIAL_PROVIDER
+        fi
+    fi
+    echo "installing azure-acr-credential-provider package version: $packageVersion"
+    mkdir -p "${CREDENTIAL_PROVIDER_BIN_DIR}"
+    chown -R root:root "${CREDENTIAL_PROVIDER_BIN_DIR}"
+    if ! installToolFromBootstrapProfileRegistry "azure-acr-credential-provider" $bootstrapProfileRegistry "${packageVersion}" "${CREDENTIAL_PROVIDER_BIN_DIR}/acr-credential-provider"; then
+        if [ "${SHOULD_ENFORCE_KUBE_PMC_INSTALL}" != "true" ] ; then
+            # SHOULD_ENFORCE_KUBE_PMC_INSTALL will only be set for e2e tests, which should not fallback to reflect result of package installation behavior
+            echo "Fall back to install credential provider from url installation"
+            installCredentialProviderFromUrl
+        else
+            echo "Failed to install credential provider from bootstrap profile registry, and not falling back to package installation"
+            exit $ERR_ORAS_PULL_CREDENTIAL_PROVIDER
+        fi
+    fi
 }
 
 installPkgWithAptGet() {

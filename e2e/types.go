@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Azure/agentbaker/e2e/config"
@@ -133,9 +134,15 @@ type ScenarioRuntime struct {
 	NBC           *datamodel.NodeBootstrappingConfiguration
 	AKSNodeConfig *aksnodeconfigv1.Configuration
 	Cluster       *Cluster
+	VM            *ScenarioVM
 	VMSSName      string
-	KubeNodeName  string
-	VMPrivateIP   string
+}
+
+type ScenarioVM struct {
+	KubeName  string
+	VMSS      *armcompute.VirtualMachineScaleSet
+	VM        *armcompute.VirtualMachineScaleSetVM
+	PrivateIP string
 }
 
 // Config represents the configuration of an AgentBaker E2E scenario.
@@ -165,6 +172,15 @@ type Config struct {
 	// SkipSSHConnectivityValidation is a flag to indicate whether the ssh connectivity validation should be skipped.
 	// It shouldn't be used for majority of scenarios, currently only used for scenarios where the node is not expected to be reachable via ssh
 	SkipSSHConnectivityValidation bool
+
+	// WaitForSSHAfterReboot if set to non-zero duration, SSH connectivity validation will retry with exponential backoff
+	// for up to this duration when encountering reboot-related errors. This is useful for scenarios where the node
+	// reboots during provisioning (e.g., MIG-enabled GPU nodes). Default (zero value) means no retry.
+	WaitForSSHAfterReboot time.Duration
+
+	// if VHDCaching is set then a VHD will be created first for the test scenario and then a VM will be created from that VHD.
+	// The main purpose is to validate VHD Caching logic and ensure a reboot step between basePrep and nodePrep doesn't break anything.
+	VHDCaching bool
 }
 
 func (s *Scenario) PrepareAKSNodeConfig() {

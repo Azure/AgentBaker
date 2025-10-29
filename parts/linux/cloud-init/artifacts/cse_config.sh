@@ -525,14 +525,16 @@ EOF
 }
 
 configureKubeletAndKubectl() {
-    # Install kubelet and kubectl binaries from URL for Network Isolated, Custom Kube binary, and Private Kube binary
-    if [ -n "${CUSTOM_KUBE_BINARY_DOWNLOAD_URL}" ] || [ -n "${PRIVATE_KUBE_BINARY_DOWNLOAD_URL}" ] || [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
+    # Install kubelet and kubectl binaries from URL for Custom Kube binary and Private Kube binary
+    if [ -n "${CUSTOM_KUBE_BINARY_DOWNLOAD_URL}" ] || [ -n "${PRIVATE_KUBE_BINARY_DOWNLOAD_URL}" ]; then
         logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromURL" installKubeletKubectlFromURL
     # only install kube pkgs from pmc if k8s version >= 1.34.0 or skip_bypass_k8s_version_check is true
     elif [ "${SHOULD_ENFORCE_KUBE_PMC_INSTALL}" != "true" ] && ! semverCompare ${KUBERNETES_VERSION:-"0.0.0"} "1.34.0"; then
         logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromURL" installKubeletKubectlFromURL
     else
-        if isMarinerOrAzureLinux "$OS"; then
+        if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ] ; then
+            logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromBootstrapProfileRegistry" "installKubeletKubectlFromBootstrapProfileRegistry ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ${KUBERNETES_VERSION}"
+        elif isMarinerOrAzureLinux "$OS"; then
             if [ "$OS_VERSION" = "2.0" ]; then
                 # we do not publish packages to PMC for azurelinux V2
                 logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromURL" installKubeletKubectlFromURL
@@ -734,13 +736,15 @@ EOF
     if [[ $KUBELET_FLAGS == *"image-credential-provider-config"* && $KUBELET_FLAGS == *"image-credential-provider-bin-dir"* ]]; then
         echo "Configure credential provider for both image-credential-provider-config and image-credential-provider-bin-dir flags are specified in KUBELET_FLAGS"
         logs_to_events "AKS.CSE.ensureKubelet.configCredentialProvider" configCredentialProvider
-        if { [ "${SHOULD_ENFORCE_KUBE_PMC_INSTALL}" != "true" ] && ! semverCompare ${KUBERNETES_VERSION:-"0.0.0"} "1.34.0"; } || \
-            [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
-            logs_to_events "AKS.CSE.ensureKubelet.installCredentialProvider" installCredentialProvider
+        if { [ "${SHOULD_ENFORCE_KUBE_PMC_INSTALL}" != "true" ] && ! semverCompare ${KUBERNETES_VERSION:-"0.0.0"} "1.34.0"; }; then
+            logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromUrl" installCredentialProviderFromUrl
         else
-            if isMarinerOrAzureLinux "$OS"; then
+            if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ] ; then
+                # For network isolated clusters, try distro packages first and fallback to binary installation
+                logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromBootstrapProfileRegistry" installCredentialProviderPackageFromBootstrapProfileRegistry ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ${KUBERNETES_VERSION}
+            elif isMarinerOrAzureLinux "$OS"; then
                 if [ "$OS_VERSION" = "2.0" ]; then # PMC package installation not supported for AzureLinux V2, only V3
-                    logs_to_events "AKS.CSE.ensureKubelet.installCredentialProvider" installCredentialProvider
+                    logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromUrl" installCredentialProviderFromUrl
                 else
                     logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromPMC" "installCredentialProviderFromPMC ${KUBERNETES_VERSION}"
                 fi
@@ -1134,19 +1138,29 @@ EOF
 
 startNvidiaManagedExpServices() {
     # 1. Start the nvidia-device-plugin service.
-    if [ "${MIG_NODE}" = "true" ]; then
-    # Create systemd override directory and fix binary path
+    # Create systemd override directory to configure device plugin
     NVIDIA_DEVICE_PLUGIN_OVERRIDE_DIR="/etc/systemd/system/nvidia-device-plugin.service.d"
     mkdir -p "${NVIDIA_DEVICE_PLUGIN_OVERRIDE_DIR}"
-        tee "${NVIDIA_DEVICE_PLUGIN_OVERRIDE_DIR}/10-mig_strategy.conf" > /dev/null <<'EOF'
+
+    if [ "${MIG_NODE}" = "true" ]; then
+        # Configure with MIG strategy for MIG nodes
+        tee "${NVIDIA_DEVICE_PLUGIN_OVERRIDE_DIR}/10-device-plugin-config.conf" > /dev/null <<'EOF'
 [Service]
 Environment="MIG_STRATEGY=--mig-strategy single"
 ExecStart=
-ExecStart=/usr/local/bin/nvidia-device-plugin $MIG_STRATEGY
+ExecStart=/usr/bin/nvidia-device-plugin $MIG_STRATEGY --pass-device-specs
 EOF
-        # Reload systemd to pick up the base path override
-        systemctl daemon-reload
+    else
+        # Configure with pass-device-specs for non-MIG nodes
+        tee "${NVIDIA_DEVICE_PLUGIN_OVERRIDE_DIR}/10-device-plugin-config.conf" > /dev/null <<'EOF'
+[Service]
+ExecStart=
+ExecStart=/usr/bin/nvidia-device-plugin --pass-device-specs
+EOF
     fi
+
+    # Reload systemd to pick up the override
+    systemctl daemon-reload
 
     logs_to_events "AKS.CSE.start.nvidia-device-plugin" "systemctlEnableAndStart nvidia-device-plugin 30" || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
 

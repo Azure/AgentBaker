@@ -342,6 +342,27 @@ func Test_Windows2025Gen2(t *testing.T) {
 	})
 }
 
+func Test_Windows2022_VHDCaching(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "VHD Caching",
+		Config: Config{
+			Cluster:                ClusterAzureNetwork,
+			VHD:                    config.VHDWindows2022Containerd, // gen1 is default for windows 2022
+			VHDCaching:             true,
+			VMConfigMutator:        EmptyVMConfigMutator,
+			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateWindowsVersionFromWindowsSettings(ctx, s, "2022-containerd")
+				ValidateWindowsProductName(ctx, s, "Windows Server 2022 Datacenter")
+				ValidateWindowsDisplayVersion(ctx, s, "21H2")
+				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
+				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
+				ValidateCiliumIsNotRunningWindows(ctx, s)
+			},
+		},
+	})
+}
+
 func Test_Windows2022Gen2_k8s_133(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Windows Server 2022 with Containerd 2- hyperv gen 2",

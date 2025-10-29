@@ -1126,6 +1126,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"IsArtifactStreamingEnabled": func() bool {
 			return config.EnableArtifactStreaming
 		},
+		"IsManagedGPUExperienceAFECEnabled": func() bool {
+			return config.ManagedGPUExperienceAFECEnabled
+		},
 		"EnableIMDSRestriction": func() bool {
 			return config.EnableIMDSRestriction
 		},

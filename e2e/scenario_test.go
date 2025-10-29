@@ -107,6 +107,60 @@ func Test_Flatcar_ARM64(t *testing.T) {
 	})
 }
 
+func Test_Flatcar_AzureCNI(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Flatcar scenario on a cluster configured with Azure CNI",
+		Config: Config{
+			Cluster: ClusterAzureNetwork,
+			VHD:     config.VHDFlatcarGen2,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
+				nbc.AgentPoolProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
+			},
+		},
+	})
+}
+
+func Test_Flatcar_AzureCNI_ChronyRestarts(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Test Flatcar scenario on a cluster configured with Azure CNI and the chrony service restarts if it is killed",
+		Config: Config{
+			Cluster: ClusterAzureNetwork,
+			VHD:     config.VHDFlatcarGen2,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
+				nbc.AgentPoolProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ServiceCanRestartValidator(ctx, s, "chronyd", 10)
+				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "Restart=always")
+				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "RestartSec=5")
+			},
+		},
+	})
+}
+
+func Test_Flatcar_AzureCNI_ChronyRestarts_Scriptless(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Test Flatcar scenario on a cluster configured with Azure CNI and the chrony service restarts if it is killed",
+		Tags: Tags{
+			Scriptless: true,
+		},
+		Config: Config{
+			Cluster: ClusterAzureNetwork,
+			VHD:     config.VHDFlatcarGen2,
+			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+				config.NetworkConfig.NetworkPlugin = aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_AZURE
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ServiceCanRestartValidator(ctx, s, "chronyd", 10)
+				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "Restart=always")
+				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "RestartSec=5")
+			},
+		},
+	})
+}
+
 func Test_AzureLinuxV2_AirGap(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a AzureLinuxV2 (CgroupV2) VHD can be properly bootstrapped",
@@ -127,7 +181,7 @@ func Test_AzureLinuxV2_AirGap(t *testing.T) {
 				nbc.KubeletConfig["--pod-infra-container-image"] = "mcr.microsoft.com/oss/v2/kubernetes/pause:3.6"
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateDirectoryContent(ctx, s, "/run", []string{"outbound-check-skipped"})
+				ValidateDirectoryContent(ctx, s, "/opt/azure", []string{"outbound-check-skipped"})
 			},
 		},
 	})
@@ -207,6 +261,37 @@ func Test_AzureLinuxV2_ARM64AirGap(t *testing.T) {
 				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateDirectoryContent(ctx, s, "/opt/azure", []string{"outbound-check-skipped"})
+			},
+		},
+	})
+}
+
+func Test_AzureLinuxV3_AirGap_Package_Install(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using a AzureLinuxV3 VHD on ARM64 architecture can be properly bootstrapped",
+		Tags: Tags{
+			Airgap: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenetAirgap,
+			VHD:     config.VHDAzureLinuxV3Gen2,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.OutboundType = datamodel.OutboundTypeNone
+				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
+					PrivateEgress: &datamodel.PrivateEgress{
+						Enabled:                 true,
+						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io", config.PrivateACRName(config.Config.DefaultLocation)),
+					},
+				}
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				if vmss.Tags == nil {
+					vmss.Tags = map[string]*string{}
+				}
+				vmss.Tags["ShouldEnforceKubePMCInstall"] = to.Ptr("true")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateDirectoryContent(ctx, s, "/run", []string{"outbound-check-skipped"})
 			},
 		},
@@ -237,7 +322,7 @@ func Test_AzureLinuxV2_ARM64_ArtifactSourceCache(t *testing.T) {
 				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateDirectoryContent(ctx, s, "/run", []string{"outbound-check-skipped"})
+				ValidateDirectoryContent(ctx, s, "/opt/azure", []string{"outbound-check-skipped"})
 			},
 		},
 	})
@@ -424,7 +509,7 @@ func Test_MarinerV2_AirGap(t *testing.T) {
 				}
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateDirectoryContent(ctx, s, "/run", []string{"outbound-check-skipped"})
+				ValidateDirectoryContent(ctx, s, "/opt/azure", []string{"outbound-check-skipped"})
 			},
 		},
 	})
@@ -472,7 +557,7 @@ func Test_MarinerV2_ARM64AirGap(t *testing.T) {
 				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateDirectoryContent(ctx, s, "/run", []string{"outbound-check-skipped"})
+				ValidateDirectoryContent(ctx, s, "/opt/azure", []string{"outbound-check-skipped"})
 			},
 		},
 	})
@@ -805,7 +890,7 @@ func Test_Ubuntu2204_AirGap(t *testing.T) {
 				}
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateDirectoryContent(ctx, s, "/run", []string{"outbound-check-skipped"})
+				ValidateDirectoryContent(ctx, s, "/opt/azure", []string{"outbound-check-skipped"})
 			},
 		},
 	})
@@ -851,7 +936,7 @@ func Test_Ubuntu2204_AirGap_NonAnonymousACR(t *testing.T) {
 				nbc.KubeletConfig["--pod-infra-container-image"] = "mcr.microsoft.com/oss/v2/kubernetes/pause:3.6"
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateDirectoryContent(ctx, s, "/run", []string{"outbound-check-skipped"})
+				ValidateDirectoryContent(ctx, s, "/opt/azure", []string{"outbound-check-skipped"})
 			},
 		},
 	})
@@ -926,7 +1011,7 @@ func Test_Ubuntu2204Gen2_ContainerdAirgappedNonAnonymousK8sNotCached(t *testing.
 				nbc.KubeletConfig["--pod-infra-container-image"] = "mcr.microsoft.com/oss/v2/kubernetes/pause:3.6"
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateDirectoryContent(ctx, s, "/run", []string{"outbound-check-skipped"})
+				ValidateDirectoryContent(ctx, s, "/opt/azure", []string{"outbound-check-skipped"})
 			},
 		},
 	})
@@ -2032,6 +2117,58 @@ func Test_Ubuntu2204_PMC_Install(t *testing.T) {
 	})
 }
 
+func Test_Ubuntu2204Gen2_ContainerdAirgappedNonAnonymousK8sNotCached_InstallPackage(t *testing.T) {
+	location := config.Config.DefaultLocation
+	ctx := newTestCtx(t)
+	identity, err := config.Azure.UserAssignedIdentities.Get(ctx, config.ResourceGroupName(location), config.VMIdentityName, nil)
+	require.NoError(t, err)
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using the Ubuntu 2204 VHD without k8s binary and is airgap can be properly bootstrapped",
+		Tags: Tags{
+			Airgap:          true,
+			NonAnonymousACR: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenetAirgapNonAnon,
+			VHD:     config.VHDUbuntu2204Gen2ContainerdAirgappedK8sNotCached,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.TenantID = *identity.Properties.TenantID
+				nbc.UserAssignedIdentityClientID = *identity.Properties.ClientID
+				nbc.OutboundType = datamodel.OutboundTypeBlock
+				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
+					PrivateEgress: &datamodel.PrivateEgress{
+						Enabled:                 true,
+						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io", config.PrivateACRNameNotAnon(location)),
+					},
+				}
+				nbc.AgentPoolProfile.LocalDNSProfile = nil
+				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.UseManagedIdentity = true
+				nbc.AgentPoolProfile.KubernetesConfig.UseManagedIdentity = true
+				// intentionally using private acr url to get kube binaries
+				nbc.AgentPoolProfile.KubernetesConfig.CustomKubeBinaryURL = fmt.Sprintf(
+					"%s.azurecr.io/oss/binaries/kubernetes/kubernetes-node:v%s-linux-amd64",
+					config.PrivateACRNameNotAnon(location),
+					nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion)
+				nbc.K8sComponents.LinuxCredentialProviderURL = fmt.Sprintf(
+					"https://packages.aks.azure.com/cloud-provider-azure/v%s/binaries/azure-acr-credential-provider-linux-amd64-v%s.tar.gz",
+					"1.32.3",
+					"1.32.3") // has to use specific version because when k8s < 1.34, most credential provider versions are missing.
+				nbc.KubeletConfig["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
+				nbc.KubeletConfig["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				if vmss.Tags == nil {
+					vmss.Tags = map[string]*string{}
+				}
+				vmss.Tags["ShouldEnforceKubePMCInstall"] = to.Ptr("true")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateDirectoryContent(ctx, s, "/opt/azure", []string{"outbound-check-skipped"})
+			},
+		},
+	})
+}
+
 func Test_AzureLinux3OSGuard_PMC_Install(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using an Azure Linux V3 OS Guard VHD and install kube pkgs from PMC can be properly bootstrapped",
@@ -2117,6 +2254,23 @@ func Test_AzureLinuxV3_IMDS_Restriction_IPTables_Rules_Scriptless(t *testing.T) 
 			Validator: func(ctx context.Context, s *Scenario) {
 				tablePatterns, globalPatterns := getIPTablesRulesCompatibleWithEBPFHostRouting()
 				ValidateIPTablesRules(ctx, s, tablePatterns, globalPatterns)
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2404_VHDCaching(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "T",
+		Config: Config{
+			Cluster:    ClusterKubenet,
+			VHD:        config.VHDUbuntu2204Gen2Containerd,
+			VHDCaching: true,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 			},
 		},
 	})

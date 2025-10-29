@@ -10,11 +10,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 	"github.com/tidwall/gjson"
 
 	"github.com/Azure/agentbaker/e2e/config"
-	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
@@ -320,7 +320,7 @@ func ValidateUlimitSettings(ctx context.Context, s *Scenario, ulimits map[string
 
 func execOnVMForScenarioOnUnprivilegedPod(ctx context.Context, s *Scenario, cmd string) *podExecResult {
 	s.T.Helper()
-	nonHostPod, err := s.Runtime.Cluster.Kube.GetPodNetworkDebugPodForNode(ctx, s.Runtime.KubeNodeName)
+	nonHostPod, err := s.Runtime.Cluster.Kube.GetPodNetworkDebugPodForNode(ctx, s.Runtime.VM.KubeName)
 	require.NoError(s.T, err, "failed to get non host debug pod name")
 	execResult, err := execOnUnprivilegedPod(ctx, s.Runtime.Cluster.Kube, nonHostPod.Namespace, nonHostPod.Name, cmd)
 	require.NoErrorf(s.T, err, "failed to execute command on pod: %v", cmd)
@@ -329,16 +329,7 @@ func execOnVMForScenarioOnUnprivilegedPod(ctx context.Context, s *Scenario, cmd 
 
 func execScriptOnVMForScenario(ctx context.Context, s *Scenario, cmd string) *podExecResult {
 	s.T.Helper()
-	script := Script{
-		script: cmd,
-	}
-	if s.IsWindows() {
-		script.interpreter = Powershell
-	} else {
-		script.interpreter = Bash
-	}
-
-	result, err := execScriptOnVm(ctx, s, s.Runtime.VMPrivateIP, s.Runtime.Cluster.DebugPod.Name, script)
+	result, err := execScriptOnVm(ctx, s, s.Runtime.VM.PrivateIP, s.Runtime.Cluster.DebugPod.Name, cmd)
 	require.NoError(s.T, err, "failed to execute command on VM")
 	return result
 }
@@ -458,7 +449,7 @@ func ValidateKubeletHasFlags(ctx context.Context, s *Scenario, filePath string) 
 // Returns an error if the resource is not available within the specified timeout period.
 func waitUntilResourceAvailable(ctx context.Context, s *Scenario, resourceName string) {
 	s.T.Helper()
-	nodeName := s.Runtime.KubeNodeName
+	nodeName := s.Runtime.VM.KubeName
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 
@@ -532,9 +523,9 @@ func ValidateNPDGPUCountCondition(ctx context.Context, s *Scenario) {
 	// Wait for NPD to report initial GPU count
 	var gpuCountCondition *corev1.NodeCondition
 	err := wait.PollUntilContextTimeout(ctx, 2*time.Second, 3*time.Minute, true, func(ctx context.Context) (bool, error) {
-		node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.KubeNodeName, metav1.GetOptions{})
+		node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
 		if err != nil {
-			s.T.Logf("Failed to get node %q: %v", s.Runtime.KubeNodeName, err)
+			s.T.Logf("Failed to get node %q: %v", s.Runtime.VM.KubeName, err)
 			return false, nil // Continue polling on transient errors
 		}
 
@@ -548,7 +539,7 @@ func ValidateNPDGPUCountCondition(ctx context.Context, s *Scenario) {
 
 		return false, nil // Continue polling until the condition is found or timeout occurs
 	})
-	require.NoError(s.T, err, "timed out waiting for NoGPUMissing condition to appear on node %q", s.Runtime.KubeNodeName)
+	require.NoError(s.T, err, "timed out waiting for NoGPUMissing condition to appear on node %q", s.Runtime.VM.KubeName)
 
 	require.NotNil(s.T, gpuCountCondition, "expected to find GPUMissing condition with NoGPUMissing reason on node")
 	require.Equal(s.T, corev1.ConditionFalse, gpuCountCondition.Status, "expected GPUMissing condition to be False")
@@ -575,9 +566,9 @@ func ValidateNPDGPUCountAfterFailure(ctx context.Context, s *Scenario) {
 	// Wait for NPD to detect the change
 	var gpuCountCondition *corev1.NodeCondition
 	err := wait.PollUntilContextTimeout(ctx, 2*time.Second, 3*time.Minute, true, func(ctx context.Context) (bool, error) {
-		node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.KubeNodeName, metav1.GetOptions{})
+		node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
 		if err != nil {
-			s.T.Logf("Failed to get node %q: %v", s.Runtime.KubeNodeName, err)
+			s.T.Logf("Failed to get node %q: %v", s.Runtime.VM.KubeName, err)
 			return false, nil // Continue polling on transient errors
 		}
 
@@ -590,7 +581,7 @@ func ValidateNPDGPUCountAfterFailure(ctx context.Context, s *Scenario) {
 
 		return false, nil // Continue polling
 	})
-	require.NoError(s.T, err, "timed out waiting for GPUMissing condition to appear on node %q", s.Runtime.KubeNodeName)
+	require.NoError(s.T, err, "timed out waiting for GPUMissing condition to appear on node %q", s.Runtime.VM.KubeName)
 
 	require.NotNil(s.T, gpuCountCondition, "expected to find GPUMissing condition with GPUMissing reason on node")
 	require.Equal(s.T, corev1.ConditionTrue, gpuCountCondition.Status, "expected GPUMissing condition to be True")
@@ -611,9 +602,9 @@ func ValidateNPDIBLinkFlappingCondition(ctx context.Context, s *Scenario) {
 	// Wait for the NPD to report initial IB Link Flapping condition
 	var ibLinkFlappingCondition *corev1.NodeCondition
 	err := wait.PollUntilContextTimeout(ctx, 5*time.Second, 3*time.Minute, true, func(ctx context.Context) (bool, error) {
-		node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.KubeNodeName, metav1.GetOptions{})
+		node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
 		if err != nil {
-			s.T.Logf("Failed to get node %q: %v", s.Runtime.KubeNodeName, err)
+			s.T.Logf("Failed to get node %q: %v", s.Runtime.VM.KubeName, err)
 			return false, nil // Continue polling on transient errors
 		}
 
@@ -627,7 +618,7 @@ func ValidateNPDIBLinkFlappingCondition(ctx context.Context, s *Scenario) {
 
 		return false, nil // Continue polling until the condition is found or timeout occurs
 	})
-	require.NoError(s.T, err, "timed out waiting for IBLinkFlapping condition with reason NoIBLinkFlapping to appear on node %q", s.Runtime.KubeNodeName)
+	require.NoError(s.T, err, "timed out waiting for IBLinkFlapping condition with reason NoIBLinkFlapping to appear on node %q", s.Runtime.VM.KubeName)
 
 	require.NotNil(s.T, ibLinkFlappingCondition, "expected to find IBLinkFlapping condition with NoIBLinkFlapping reason on node")
 	require.Equal(s.T, corev1.ConditionFalse, ibLinkFlappingCondition.Status, "expected IBLinkFlapping condition to be False")
@@ -651,9 +642,9 @@ func ValidateNPDIBLinkFlappingAfterFailure(ctx context.Context, s *Scenario) {
 	// Wait for NPD to detect the change
 	var ibLinkFlappingCondition *corev1.NodeCondition
 	err := wait.PollUntilContextTimeout(ctx, 2*time.Second, 3*time.Minute, true, func(ctx context.Context) (bool, error) {
-		node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.KubeNodeName, metav1.GetOptions{})
+		node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
 		if err != nil {
-			s.T.Logf("Failed to get node %q: %v", s.Runtime.KubeNodeName, err)
+			s.T.Logf("Failed to get node %q: %v", s.Runtime.VM.KubeName, err)
 			return false, nil // Continue polling on transient errors
 		}
 
@@ -667,7 +658,7 @@ func ValidateNPDIBLinkFlappingAfterFailure(ctx context.Context, s *Scenario) {
 
 		return false, nil // Continue polling until the condition is found or timeout occurs
 	})
-	require.NoError(s.T, err, "timed out waiting for IBLinkFlapping condition with reason IBLinkFlapping to appear on node %q", s.Runtime.KubeNodeName)
+	require.NoError(s.T, err, "timed out waiting for IBLinkFlapping condition with reason IBLinkFlapping to appear on node %q", s.Runtime.VM.KubeName)
 
 	require.NotNil(s.T, ibLinkFlappingCondition, "expected to find IBLinkFlapping condition with IBLinkFlapping reason on node")
 	require.Equal(s.T, corev1.ConditionTrue, ibLinkFlappingCondition.Status, "expected IBLinkFlapping condition to be True")
@@ -838,8 +829,8 @@ func GetFieldFromJsonObjectOnNode(ctx context.Context, s *Scenario, fileName str
 // ValidateTaints checks if the node has the expected taints that are set in the kubelet config with --register-with-taints flag
 func ValidateTaints(ctx context.Context, s *Scenario, expectedTaints string) {
 	s.T.Helper()
-	node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.KubeNodeName, metav1.GetOptions{})
-	require.NoError(s.T, err, "failed to get node %q", s.Runtime.KubeNodeName)
+	node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
+	require.NoError(s.T, err, "failed to get node %q", s.Runtime.VM.KubeName)
 	actualTaints := ""
 	for i, taint := range node.Spec.Taints {
 		actualTaints += fmt.Sprintf("%s=%s:%s", taint.Key, taint.Value, taint.Effect)
@@ -848,7 +839,7 @@ func ValidateTaints(ctx context.Context, s *Scenario, expectedTaints string) {
 			actualTaints += ","
 		}
 	}
-	require.Equal(s.T, expectedTaints, actualTaints, "expected node %q to have taint %q, but got %q", s.Runtime.KubeNodeName, expectedTaints, actualTaints)
+	require.Equal(s.T, expectedTaints, actualTaints, "expected node %q to have taint %q, but got %q", s.Runtime.VM.KubeName, expectedTaints, actualTaints)
 }
 
 // ValidateLocalDNSService checks if the localdns service is in the expected state (enabled or disabled).
@@ -939,9 +930,9 @@ func ValidateNPDFilesystemCorruption(ctx context.Context, s *Scenario) {
 	// Wait for NPD to detect the problem using Kubernetes native waiting
 	var filesystemCorruptionProblem *corev1.NodeCondition
 	err := wait.PollUntilContextTimeout(ctx, 10*time.Second, 6*time.Minute, true, func(ctx context.Context) (bool, error) {
-		node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.KubeNodeName, metav1.GetOptions{})
+		node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
 		if err != nil {
-			s.T.Logf("Failed to get node %q: %v", s.Runtime.KubeNodeName, err)
+			s.T.Logf("Failed to get node %q: %v", s.Runtime.VM.KubeName, err)
 			return false, nil // Continue polling on transient errors
 		}
 
@@ -953,7 +944,7 @@ func ValidateNPDFilesystemCorruption(ctx context.Context, s *Scenario) {
 		}
 		return false, nil // Continue polling
 	})
-	require.NoError(s.T, err, "timed out waiting for FilesystemCorruptionProblem condition to appear on node %q", s.Runtime.KubeNodeName)
+	require.NoError(s.T, err, "timed out waiting for FilesystemCorruptionProblem condition to appear on node %q", s.Runtime.VM.KubeName)
 
 	require.NotNil(s.T, filesystemCorruptionProblem, "expected FilesystemCorruptionProblem condition to be present on node")
 	require.Equal(s.T, corev1.ConditionTrue, filesystemCorruptionProblem.Status, "expected FilesystemCorruptionProblem condition to be True on node")
@@ -977,30 +968,29 @@ func ValidateNvidiaDevicePluginServiceRunning(ctx context.Context, s *Scenario) 
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "NVIDIA device plugin systemd service should be active and enabled")
 }
 
-func ValidateNodeAdvertisesGPUResources(ctx context.Context, s *Scenario) {
+func ValidateNodeAdvertisesGPUResources(ctx context.Context, s *Scenario, gpuCountExpected int64) {
 	s.T.Helper()
 	s.T.Logf("validating that node advertises GPU resources")
+	resourceName := "nvidia.com/gpu"
 
 	// First, wait for the nvidia.com/gpu resource to be available
-	waitUntilResourceAvailable(ctx, s, "nvidia.com/gpu")
+	waitUntilResourceAvailable(ctx, s, resourceName)
 
 	// Get the node using the Kubernetes client from the test framework
-	nodeName := s.Runtime.KubeNodeName
+	nodeName := s.Runtime.VM.KubeName
 	node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
 	require.NoError(s.T, err, "failed to get node %q", nodeName)
 
 	// Check if the node advertises GPU capacity
-	gpuCapacity, exists := node.Status.Capacity["nvidia.com/gpu"]
-	require.True(s.T, exists, "node should advertise nvidia.com/gpu capacity")
+	gpuCapacity, exists := node.Status.Capacity[corev1.ResourceName(resourceName)]
+	require.True(s.T, exists, "node should advertise resource %s", resourceName)
 
 	gpuCount := gpuCapacity.Value()
-	require.Greater(s.T, gpuCount, int64(0), "node should advertise at least 1 GPU, but got %d", gpuCount)
-
-	s.T.Logf("node %s advertises %d nvidia.com/gpu resources", nodeName, gpuCount)
+	require.Equal(s.T, gpuCount, gpuCountExpected, "node should advertise %s=%d, but got %s=%d", resourceName, gpuCountExpected, resourceName, gpuCount)
+	s.T.Logf("node %s advertises %s=%d resources", nodeName, resourceName, gpuCount)
 }
 
-
-func ValidateGPUWorkloadSchedulable(ctx context.Context, s *Scenario) {
+func ValidateGPUWorkloadSchedulable(ctx context.Context, s *Scenario, gpuCount int) {
 	s.T.Helper()
 	s.T.Logf("validating that GPU workloads can be scheduled")
 
@@ -1011,7 +1001,7 @@ func ValidateGPUWorkloadSchedulable(ctx context.Context, s *Scenario) {
 	// Create a GPU test pod using the same pattern as podRunNvidiaWorkload
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-gpu-test", s.Runtime.KubeNodeName),
+			Name:      fmt.Sprintf("%s-gpu-test", s.Runtime.VM.KubeName),
 			Namespace: "default",
 		},
 		Spec: corev1.PodSpec{
@@ -1024,13 +1014,13 @@ func ValidateGPUWorkloadSchedulable(ctx context.Context, s *Scenario) {
 					},
 					Resources: corev1.ResourceRequirements{
 						Limits: corev1.ResourceList{
-							"nvidia.com/gpu": resource.MustParse("1"),
+							"nvidia.com/gpu": resource.MustParse(fmt.Sprintf("%d", gpuCount)),
 						},
 					},
 				},
 			},
 			NodeSelector: map[string]string{
-				"kubernetes.io/hostname": s.Runtime.KubeNodeName,
+				"kubernetes.io/hostname": s.Runtime.VM.KubeName,
 			},
 		},
 	}
@@ -1045,9 +1035,7 @@ func ValidatePubkeySSHDisabled(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 
 	// Part 1. Use VMSS RunCommand to check sshd_config directly on the node
-	runPoller, err := config.Azure.VMSSVM.BeginRunCommand(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, "0", armcompute.RunCommandInput{
-		CommandID: to.Ptr("RunShellScript"),
-		Script: []*string{to.Ptr(`#!/bin/bash
+	resp, err := RunCommand(ctx, s, `#!/bin/bash
 # Check if PubkeyAuthentication is disabled in sshd_config
 if grep -q "^PubkeyAuthentication no" /etc/ssh/sshd_config; then
     echo "SUCCESS: PubkeyAuthentication is disabled"
@@ -1057,16 +1045,10 @@ else
     echo "Current sshd_config content related to PubkeyAuthentication:"
     grep -i "PubkeyAuthentication" /etc/ssh/sshd_config || echo "No PubkeyAuthentication setting found"
     exit 1
-fi`)},
-	}, nil)
+fi`)
 	require.NoError(s.T, err, "Failed to run command to check sshd_config")
-
-	runResp, err := runPoller.PollUntilDone(ctx, nil)
-	require.NoError(s.T, err, "Failed to complete command to check sshd_config")
-
-	// Parse the response to check the result
-	respJson, err := runResp.MarshalJSON()
-	require.NoError(s.T, err, "Failed to marshal run command response")
+	respJson, err := resp.MarshalJSON()
+	require.NoError(s.T, err, "Failed to marshal response")
 	s.T.Logf("Run command output: %s", string(respJson))
 
 	// Parse the JSON response to extract the output and exit code
@@ -1093,7 +1075,7 @@ func ValidateSSHServiceDisabled(ctx context.Context, s *Scenario) {
 
 	// Use VMSS RunCommand to check SSH service status directly on the node
 	// Ubuntu uses 'ssh' as service name, while AzureLinux and Mariner use 'sshd'
-	runPoller, err := config.Azure.VMSSVM.BeginRunCommand(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, "0", armcompute.RunCommandInput{
+	runPoller, err := config.Azure.VMSSVM.BeginRunCommand(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, *s.Runtime.VM.VM.InstanceID, armcompute.RunCommandInput{
 		CommandID: to.Ptr("RunShellScript"),
 		Script: []*string{to.Ptr(`#!/bin/bash
 # Determine the correct SSH service name based on the distro
@@ -1174,14 +1156,50 @@ func ValidateNvidiaDCGMExporterIsScrapable(ctx context.Context, s *Scenario) {
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "Nvidia DCGM Exporter is not scrapable on port 19400")
 }
 
-func ValidateNvidiaDCGMExporterScrapeCommonMetric(ctx context.Context, s *Scenario) {
+func ValidateNvidiaDCGMExporterScrapeCommonMetric(ctx context.Context, s *Scenario, metric string) {
 	s.T.Helper()
 	command := []string{
 		"set -ex",
 		// Verify the most universal GPU metric is present
-		"curl -s http://localhost:19400/metrics | grep -q 'DCGM_FI_DEV_GPU_UTIL'",
+		"curl -s http://localhost:19400/metrics | grep -q '" + metric + "'",
 	}
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "Nvidia DCGM Exporter is not returning DCGM_FI_DEV_GPU_UTIL")
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "Nvidia DCGM Exporter is not returning "+metric)
+}
+
+func ValidateMIGModeEnabled(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	s.T.Logf("validating that MIG mode is enabled")
+
+	command := []string{
+		"set -ex",
+		// Grep to verify it contains 'Enabled' - this will fail if MIG is disabled
+		"sudo nvidia-smi --query-gpu=mig.mode.current --format=csv,noheader | grep -i 'Enabled'",
+	}
+	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "MIG mode is not enabled")
+
+	stdout := strings.TrimSpace(execResult.stdout.String())
+	s.T.Logf("MIG mode status: %s", stdout)
+	require.Contains(s.T, stdout, "Enabled", "expected MIG mode to be enabled, but got: %s", stdout)
+	s.T.Logf("MIG mode is enabled")
+}
+
+func ValidateMIGInstancesCreated(ctx context.Context, s *Scenario, migProfile string) {
+	s.T.Helper()
+	s.T.Logf("validating that MIG instances are created with profile %s", migProfile)
+
+	command := []string{
+		"set -ex",
+		// List MIG devices using nvidia-smi
+		"sudo nvidia-smi mig -lgi",
+		// Ensure the output contains the expected MIG profile (will fail if "No MIG-enabled devices found")
+		"sudo nvidia-smi mig -lgi | grep -v 'No MIG-enabled devices found' | grep -q '" + migProfile + "'",
+	}
+	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "MIG instances with profile "+migProfile+" were not found")
+
+	stdout := execResult.stdout.String()
+	require.Contains(s.T, stdout, migProfile, "expected to find MIG profile %s in output, but did not.\nOutput:\n%s", migProfile, stdout)
+	require.NotContains(s.T, stdout, "No MIG-enabled devices found", "no MIG devices were created.\nOutput:\n%s", stdout)
+	s.T.Logf("MIG instances with profile %s are created", migProfile)
 }
 // ValidateIPTablesRules validates that all iptables rules in each table match the provided patterns
 func ValidateIPTablesRules(ctx context.Context, s *Scenario, tablePatterns map[string][]string, globalPatterns []string) {
