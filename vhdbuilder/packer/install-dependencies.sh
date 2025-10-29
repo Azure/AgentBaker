@@ -507,6 +507,8 @@ while IFS= read -r p; do
           installContainerd "${downloadDir}" "${evaluatedURL}" "${version}"
         elif isMarinerOrAzureLinux "$OS"; then
           installStandaloneContainerd "${version}"
+        elif isFlatcar "$OS"; then
+          installStandaloneContainerd "${version}"
         fi
         echo "  - containerd version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
