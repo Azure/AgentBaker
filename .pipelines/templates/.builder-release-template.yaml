@@ -158,8 +158,8 @@ steps:
   - bash: |
       VHD_RELEASE_CANDIDATE="${SKU_NAME}_release_candidate.vhd"
       echo "Importing GPG Keys..."
-      gpg --import nodeSIGPrivKey.asc
-      gpg --import nodeSIGPubKey.asc
+      gpg --import $(privateVHDSigningKey.secureFilePath)
+      gpg --import $(publicVHDSigningKey.secureFilePath)
 
       echo "Parsing Private Key ID..."
       KEY_ID=$(gpg --list-secret-key --keyid-format LONG --with-colons 'aks-node' | grep '^sec' | cut -d: -f5)
