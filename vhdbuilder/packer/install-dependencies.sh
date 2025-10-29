@@ -633,8 +633,8 @@ EOF
       cuda-toolkit-13 \
       nvidia-container-toolkit \
       datacenter-gpu-manager-exporter \
-      datacenter-gpu-manager-4-core \
-      datacenter-gpu-manager-4-proprietary \
+      datacenter-gpu-manager-4-cuda13 \
+      datacenter-gpu-manager-4-proprietary-cuda13 \
       libcap2-bin \
       k8s-device-plugin
 
