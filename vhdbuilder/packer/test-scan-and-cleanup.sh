@@ -75,7 +75,8 @@ SIG_VERSION=$(az sig image-version show \
 if [ -z "${SIG_VERSION}" ]; then
   echo -e "\nBuild step did not produce an image version. Running cleanup and then exiting."
   retrycmd_if_failure 2 3 "${SCRIPT_ARRAY[@]}"
-  exit $?
+  # Always return error even if cleanup succeeded
+  exit $(($? > 0 ? $? : 1))
 fi
 
 # Setup testing
