@@ -339,7 +339,11 @@ ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
 EOF
 
   mkdir -p /etc/containerd
-  if [ "${GPU_NODE}" = "true" ]; then
+
+  # Skip containerd config generation if config already exists
+  if [ -f "/etc/containerd/config.toml" ]; then
+    echo "containerd config already exists at /etc/containerd/config.toml, skipping generation"
+  elif [ "${GPU_NODE}" = "true"  ]; then
     # Check VM tag directly to determine if GPU drivers should be skipped
     export -f should_skip_nvidia_drivers
     should_skip=$(retrycmd_silent 10 1 10 bash -cx should_skip_nvidia_drivers)
@@ -585,6 +589,44 @@ ensurePodInfraContainerImage() {
 
     rm -rf ${POD_INFRA_CONTAINER_IMAGE_DOWNLOAD_DIR}
     rm -f ${POD_INFRA_CONTAINER_IMAGE_TAR}
+}
+
+validateKubeletNodeLabels() {
+    local labels="$1"
+    local validated_labels=""
+    local delimiter=""
+
+    # Return empty if no labels provided
+    if [ -z "$labels" ]; then
+        echo "No labels found in KUBELET_NODE_LABELS"
+        return 0
+    fi
+
+    # Split labels by comma and process each
+    IFS=',' read -ra LABEL_ARRAY <<< "$labels"
+    for label in "${LABEL_ARRAY[@]}"; do
+        # Split each label into key and value
+        # shellcheck disable=SC3010
+        if [[ "$label" == *"="* ]]; then
+            key="${label%%=*}"
+            value="${label#*=}"
+
+            # Check if key length exceeds 63 characters
+            if [ ${#key} -gt 63 ]; then
+                echo "Warning: Label key '$key' exceeds 63 characters, truncating to 63 characters" >&2
+                key="${key:0:63}"
+            fi
+
+            # Rebuild the label with potentially truncated key
+            validated_labels="${validated_labels}${delimiter}${key}=${value}"
+        fi
+
+        # Set delimiter for subsequent labels
+        delimiter=","
+    done
+
+    # Update the global variable with validated labels
+    KUBELET_NODE_LABELS="$validated_labels"
 }
 
 ensureKubelet() {
