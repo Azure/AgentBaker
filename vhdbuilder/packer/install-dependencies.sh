@@ -34,12 +34,15 @@ source /home/packer/install-ig.sh
 CPU_ARCH=$(getCPUArch)  #amd64 or arm64
 SYSTEMD_ARCH=$(getSystemdArch)  # x86-64 or arm64
 
-# packages.microsoft.com for npd uses x86_64 instead of amd64 in some cases.
+# packages.microsoft.com for NPD uses x86_64 instead of amd64 in some cases
+# as well as aarch64 instead of arm64.
 # I don't make the rules on their silly naming inconsistencies.
-# components.json accounts for when to CPU_ARCH and when to CPU_ARCH_NPD
+# components.json handles when to use CPU_ARCH or CPU_ARCH_NPD.
 CPU_ARCH_NPD=$(
   if [ "$CPU_ARCH" = "amd64" ]; then
     echo "x86_64"
+  elif [ "$CPU_ARCH" = "arm64" ]; then
+    echo "aarch64"
   else
     echo "$CPU_ARCH"
   fi

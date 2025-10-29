@@ -2068,7 +2068,7 @@
                 "latestVersion": "0.8.21"
               }
             ],
-            "downloadURL": "https://packages.microsoft.com/ubuntu/18.04/prod/pool/main/n/node-problem-detector-kubernetes/node-problem-detector-kubernetes_${version}-ubuntu18.04u6$_${CPU_ARCH}.deb"
+            "downloadURL": "https://packages.microsoft.com/ubuntu/18.04/prod/pool/main/n/node-problem-detector-kubernetes/node-problem-detector-kubernetes_${version}-ubuntu18.04u6_${CPU_ARCH}.deb"
           },
           "r2204": {
             "versionsV2": [
@@ -2086,7 +2086,7 @@
                 "latestVersion": "0.8.21"
               }
             ],
-            "downloadURL": "https://packages.microsoft.com/ubuntu/18.04/prod/pool/main/n/node-problem-detector-kubernetes/node-problem-detector-kubernetes_${version}-ubuntu18.04u6$_${CPU_ARCH}.deb"
+            "downloadURL": "https://packages.microsoft.com/ubuntu/18.04/prod/pool/main/n/node-problem-detector-kubernetes/node-problem-detector-kubernetes_${version}-ubuntu18.04u6_${CPU_ARCH}.deb"
           }
         },
         "mariner": {
