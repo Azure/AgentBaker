@@ -2054,99 +2054,70 @@ func Test_AzureLinux3OSGuard_PMC_Install(t *testing.T) {
 	})
 }
 
-
 func Test_Ubuntu2404_IMDS_Restriction_IPTables_Rules(t *testing.T) {
-       RunScenario(t, &Scenario{
-               Description: "Tests that a node using the Ubuntu 2404 VHD with IMDS restriction enabled has only the expected iptables rules",
-               Config: Config{
-                       Cluster: ClusterKubenet,
-                       VHD:     config.VHDUbuntu2404Gen2Containerd,
-                       BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-                               nbc.EnableIMDSRestriction = true
-                       },
-                       Validator: func(ctx context.Context, s *Scenario) {
-                               tablePatterns, globalPatterns := getIPTablesRulesCompatibleWithEBPFHostRouting()
-                               ValidateIPTablesRules(ctx, s, tablePatterns, globalPatterns)
-                       },
-               },
-       })
- }
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using the Ubuntu 2404 VHD with IMDS restriction enabled has only the expected iptables rules",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2404Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.EnableIMDSRestriction = true
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				tablePatterns, globalPatterns := getIPTablesRulesCompatibleWithEBPFHostRouting()
+				ValidateIPTablesRules(ctx, s, tablePatterns, globalPatterns)
+			},
+		},
+	})
+}
 
 func Test_AzureLinuxV3_IMDS_Restriction_IPTables_Rules(t *testing.T) {
-       RunScenario(t, &Scenario{
-               Description: "Tests that a node using the AzureLinuxV3 VHD with IMDS restriction enabled has only the expected iptables rules",
-               Config: Config{
-                       Cluster: ClusterKubenet,
-                       VHD:     config.VHDAzureLinuxV3Gen2,
-                       BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-                               nbc.EnableIMDSRestriction = true
-                       },
-                       Validator: func(ctx context.Context, s *Scenario) {
-                               tablePatterns, globalPatterns := getIPTablesRulesCompatibleWithEBPFHostRouting()
-                               ValidateIPTablesRules(ctx, s, tablePatterns, globalPatterns)
-                       },
-               },
-       })
- }
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using the AzureLinuxV3 VHD with IMDS restriction enabled has only the expected iptables rules",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDAzureLinuxV3Gen2,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.EnableIMDSRestriction = true
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				tablePatterns, globalPatterns := getIPTablesRulesCompatibleWithEBPFHostRouting()
+				ValidateIPTablesRules(ctx, s, tablePatterns, globalPatterns)
+			},
+		},
+	})
+}
 
- // getIPTablesRulesCompatibleWithEBPFHostRouting returns the expected iptables patterns that are accounted for when EBPF host routing is enabled.
- // If tests are failing due to unexpected iptables rules, please check with the Azure container networking team before updating these patterns,
- // to ensure compatibility with EBPF host routing.
-func getIPTablesRulesCompatibleWithEBPFHostRouting() (map[string][]string, []string) {
-       tablePatterns := map[string][]string{
-               "filter": {
-                       `^.*--comment.*kubernetes load balancer firewall`,
-                       `^.*--comment.*kubernetes health check service ports`,
-                       `^.*--comment.*kubernetes externally visible service portals`,
-                       `^.*--comment.*kubernetes forwarding rules`,
-                       `^.*--comment.*kubernetes forwarding conntrack rule`,
-                       `^.*--comment.*kubernetes service portals`,
-                       `^.*--comment.*kubernetes externally-visible service portals`,
-                       `-A INPUT -j KUBE-FIREWALL`,
-                       `-A FORWARD -d 168\.63\.129\.16/32 -p tcp -m tcp --dport 32526 -j DROP`,
-                       `-A FORWARD -d 168\.63\.129\.16/32 -p tcp -m tcp --dport 80 -j DROP`,
-                       `-A OUTPUT -j KUBE-FIREWALL`,
-                       `-A KUBE-FIREWALL ! -s 127\.0\.0\.0/8 -d 127\.0\.0\.0/8 -m comment --comment "block incoming localnet connections" -m conntrack ! --ctstate RELATED,ESTABLISHED,DNAT -j DROP`,
-                       `-A KUBE-FORWARD -m conntrack --ctstate INVALID -j DROP`,
-                       `-A KUBE-POSTROUTING -m mark ! --mark 0x4000/0x4000 -j RETURN`,
-               },
-               "mangle": {
-                       `-A FORWARD -d 168\.63\.129\.16/32 -p tcp -m tcp --dport 80 -j DROP`,
-                       `-A FORWARD -d 168\.63\.129\.16/32 -p tcp -m tcp --dport 32526 -j DROP`,
-               },
-               "nat": {
-                       `^.*--comment.*metrics-server`,
-                       `^.*--comment.*kube-dns`,
-                       `^.*--comment.*gatekeeper-webhook-service`,
-                       `^.*--comment.*azure-policy-webhook-service`,
-                       `^.*--comment.*kubernetes:https cluster IP`,
-                       `^.*--comment.*kubernetes forwarding rules`,
-                       `^.*--comment.*kubernetes service traffic requiring SNAT`,
-                       `^.*--comment.*kubernetes postrouting rules`,
-                       `^.*--set-xmark 0x4000`,
-                       `^.*--comment.*kubernetes service portals`,
-                       `^.*--comment.*kubernetes service nodeports`,
-                       `^.*--comment.*kubernetes:https`,
-                       `^.*--comment.*ip-masq-agent`,
-                       `^.*0x4000/0x4000`,
-                       `-A POSTROUTING -j SWIFT`,
-                       `-A SWIFT -s`,
-                       `-A POSTROUTING -j SWIFT-POSTROUTING`,
-                       `-A SWIFT-POSTROUTING -s`,
-               },
-               "raw": {},
-               "security": {
-                       `-A OUTPUT -d 168\.63\.129\.16/32 -p tcp -m tcp --dport 53 -j ACCEPT`,
-                       `-A OUTPUT -d 168\.63\.129\.16/32 -p tcp -m owner --uid-owner 0 -j ACCEPT`,
-                       `-A OUTPUT -d 168\.63\.129\.16/32 -p tcp -m conntrack --ctstate INVALID,NEW -j DROP`,
-               },
-       }
+func Test_Ubuntu2404_IMDS_Restriction_IPTables_Rules_Scriptless(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using the Ubuntu 2404 VHD with IMDS restriction enabled has only the expected iptables rules",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2404Gen2Containerd,
+			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+				config.ImdsRestrictionConfig.EnableImdsRestriction = true
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				tablePatterns, globalPatterns := getIPTablesRulesCompatibleWithEBPFHostRouting()
+				ValidateIPTablesRules(ctx, s, tablePatterns, globalPatterns)
+			},
+		},
+	})
+}
 
-	globalPatterns := []string{
-		 `^-N .*`,
-		 `^-P .*`,
-		 `-A FORWARD ! -s /32 -d (?:\d{1,3}\.){3}\d{1,3}/32 -p tcp -m tcp --dport 80 -m comment --comment "AKS managed: added by AgentBaker ensureIMDSRestriction for IMDS restriction feature" -j DROP`,
-	}
-
-       return tablePatterns, globalPatterns
+func Test_AzureLinuxV3_IMDS_Restriction_IPTables_Rules_Scriptless(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using the AzureLinuxV3 VHD with IMDS restriction enabled has only the expected iptables rules",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDAzureLinuxV3Gen2,
+			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+				config.ImdsRestrictionConfig.EnableImdsRestriction = true
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				tablePatterns, globalPatterns := getIPTablesRulesCompatibleWithEBPFHostRouting()
+				ValidateIPTablesRules(ctx, s, tablePatterns, globalPatterns)
+			},
+		},
+	})
 }
