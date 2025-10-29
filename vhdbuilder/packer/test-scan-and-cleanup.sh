@@ -78,6 +78,11 @@ if [ -z "${SIG_VERSION}" ]; then
   exit $?
 fi
 
+if [ "${LOCK_PACKER_IMAGE:-}" = "true" ]; then
+  echo -e "Creating CanNotDelete resource lock over packer image: $SIG_IMAGE"
+  az resource lock create -n "PackerDeleteLock" -t CanNotDelete --resource $SIG_IMAGE
+fi
+
 # Setup testing
 SCRIPT_ARRAY+=("./vhdbuilder/packer/test/run-test.sh")
 

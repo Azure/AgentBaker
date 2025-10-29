@@ -181,6 +181,7 @@ steps:
       PACKER_VNET_RESOURCE_GROUP_NAME: $(PACKER_VNET_RESOURCE_GROUP_NAME)
       PACKER_VNET_NAME: $(PACKER_VNET_NAME)
       SKIP_SCANNING: $(SKIP_SCANNING)
+      LOCK_PACKER_IMAGE: $(LOCK_PACKER_IMAGE)
       DRY_RUN: $(DRY_RUN)
 
   - bash: make -f packer.mk replicate-captured-sig-image-version
