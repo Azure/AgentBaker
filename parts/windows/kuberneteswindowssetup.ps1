@@ -185,6 +185,11 @@ $global:SecureTLSBootstrappingAADResource = "{{GetSecureTLSBootstrappingAADResou
 $global:SecureTLSBootstrappingUserAssignedIdentityID = "{{GetSecureTLSBootstrappingUserAssignedIdentityID}}";
 $global:CustomSecureTLSBootstrappingClientDownloadURL = "{{GetCustomSecureTLSBootstrappingClientDownloadURL}}";
 
+# uniquely identifies AKS's Entra ID application, see: https://learn.microsoft.com/en-us/azure/aks/kubelogin-authentication#how-to-use-kubelogin-with-aks
+# this is used by aks-secure-tls-bootstrap-client.exe when requesting AAD tokens
+# TODO(cameissner): remove once 2025-10B image is released
+$global:AKSAADServerAppID = "6dae42f8-4368-4678-94ff-3960e28e3630"
+
 # Disable OutBoundNAT in Azure CNI configuration
 $global:IsDisableWindowsOutboundNat = [System.Convert]::ToBoolean("{{GetVariable "isDisableWindowsOutboundNat" }}");
 
