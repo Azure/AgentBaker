@@ -635,6 +635,7 @@ EOF
       datacenter-gpu-manager-exporter \
       datacenter-gpu-manager-4-cuda13 \
       datacenter-gpu-manager-4-proprietary-cuda13 \
+      datacenter-gpu-manager-4-multinode-cuda13 \
       libcap2-bin \
       k8s-device-plugin
 
