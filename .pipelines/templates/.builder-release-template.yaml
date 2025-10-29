@@ -101,26 +101,6 @@ steps:
 
   - bash: |
       set -euo
-
-      echo "logging in with agent identity"
-      az login --identity
-      az account set -s "$SUBSCRIPTION_ID"
-
-      expiry=$(date +"%Y-%m-%dT%H:%MZ" -d "+1 hour")
-
-      set +x
-      sas_token=$(az storage container generate-sas --account-name "$STORAGE_ACCOUNT_NAME" --name "$STORAGE_CONTAINER_NAME" --expiry "$expiry" --auth-mode login --permissions r --as-user | tr -d '"')
-
-      echo "##vso[task.setvariable variable=sas_token;isOutput=true;isSecret=true;]$sas_token"
-    env:
-      SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
-      STORAGE_ACCOUNT_NAME: $(STORAGE_ACCOUNT_NAME)
-      STORAGE_CONTAINER_NAME: $(STORAGE_CONTAINER_NAME)
-    displayName: Generate user-delegation SAS token
-    name: generate
-
-  - bash: |
-      set -euo
       VHD_RELEASE_CANDIDATE="${SKU_NAME}_release_candidate.vhd"
       echo "##vso[task.setvariable variable=VHD_RELEASE_CANDIDATE;isOutput=true]$VHD_RELEASE_CANDIDATE"
 
