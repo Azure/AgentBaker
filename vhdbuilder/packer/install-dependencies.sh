@@ -64,6 +64,9 @@ APT::Periodic::Download-Upgradeable-Packages "0";
 APT::Periodic::AutocleanInterval "0";
 APT::Periodic::Unattended-Upgrade "0";
 EOF
+  tee /etc/apt/apt.conf.d/99patience > /dev/null <<EOF || exit 1
+Acquire::http::Timeout "300";
+EOF
 fi
 
 # If the IMG_SKU does not contain "minimal", installDeps normally
