@@ -879,7 +879,20 @@ if [ -n "${PRIVATE_PACKAGES_URL:-}" ]; then
 fi
 
 
+# disable Write files module for fedora
+updateCloudCfg() {
+  if isFedora "$OS"; then
+    echo "Disabling Write files module in cloud-init for Fedora"
+    CLOUD_CFG_FILE="/etc/cloud/cloud.cfg"
+    if [ -f "$CLOUD_CFG_FILE" ]; then
+      sed -i 's/- write_files/# - write_files/g' "$CLOUD_CFG_FILE"
+    else
+      echo "Warning: $CLOUD_CFG_FILE not found, skipping Write files module disablement"
+    fi
+  fi
+}
 
+updateCloudCfg
 
 LOCALDNS_BINARY_PATH="/opt/azure/containers/localdns/binary"
 # This function extracts CoreDNS binary from cached coredns images (n-1 image version and latest revision version)
