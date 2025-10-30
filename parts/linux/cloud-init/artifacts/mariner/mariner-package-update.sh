@@ -3,14 +3,14 @@
 set -o nounset
 set -e
 
-# Global constants used in this file. 
+# Global constants used in this file.
 # -------------------------------------------------------------------------------------------------
 OS_RELEASE_FILE="/etc/os-release"
 SECURITY_PATCH_REPO_DIR="/etc/yum.repos.d"
 KUBECONFIG="/var/lib/kubelet/kubeconfig"
 KUBECTL="/usr/local/bin/kubectl --kubeconfig ${KUBECONFIG}"
 
-# Function definitions used in this file. 
+# Function definitions used in this file.
 # functions defined until "${__SOURCED__:+return}" are sourced and tested in -
 # spec/parts/linux/cloud-init/artifacts/mariner-package-update_spec.sh.
 # -------------------------------------------------------------------------------------------------
@@ -24,10 +24,10 @@ dnf_update() {
         snapshottime=$(date -d "$(echo ${golden_timestamp} | sed 's/\([0-9]\{4\}\)\([0-9]\{2\}\)\([0-9]\{2\}\)T\([0-9]\{2\}\)\([0-9]\{2\}\)\([0-9]\{2\}\)Z/\1-\2-\3 \4:\5:\6/')" +%s)
         echo "using snapshottime ${snapshottime} for azurelinux 3.0 snapshot-based update"
         update_cmd="tdnf --snapshottime ${snapshottime}"
-        repo_list=(--repo azurelinux-official-base --repo azurelinux-official-ms-non-oss --repo azurelinux-official-ms-oss --repo azurelinux-official-nvidia) 
+        repo_list=(--repo azurelinux-official-base --repo azurelinux-official-ms-non-oss --repo azurelinux-official-ms-oss --repo azurelinux-official-nvidia)
     else
         update_cmd="dnf"
-        repo_list=(--repo mariner-official-base --repo mariner-official-microsoft --repo mariner-official-extras --repo mariner-official-nvidia) 
+        repo_list=(--repo mariner-official-base --repo mariner-official-microsoft --repo mariner-official-extras --repo mariner-official-nvidia)
     fi
     for i in $(seq 1 $retries); do
         ! ($update_cmd update \
@@ -122,7 +122,7 @@ main() {
                 sed -i 's|http:\/\/[0-9]\+.[0-9]\+.[0-9]\+.[0-9]\+|'"${original_endpoint}"'|g' ${repo_path}
                 sed -i '/^# original_baseurl=/d' ${repo_path} # remove original_baseurl comment
             else
-                echo "live patching repo service is: ${live_patching_repo_service}, use it to replace PMC repo" 
+                echo "live patching repo service is: ${live_patching_repo_service}, use it to replace PMC repo"
                 original_endpoint=$(sed -nE 's|^baseurl=(https?://.*packages\.microsoft\.com).*|\1|p' ${repo_path} | head -1)
                 # upgrade from PMC to live patching repo service
                 # e.g. replace https://packages.microsoft.com with http://10.224.0.5
@@ -130,7 +130,7 @@ main() {
                 # upgrade the old live patching repo service to the new one
                 # e.g. replace http://10.224.0.5 with http://10.224.0.6
                 sed -i 's/http:\/\/[0-9]\+.[0-9]\+.[0-9]\+.[0-9]\+/http:\/\/'"${live_patching_repo_service}"'/g' ${repo_path}
-                # save the original PMC endpoint in the repo file so that we can revert back to it if needed 
+                # save the original PMC endpoint in the repo file so that we can revert back to it if needed
                 if [ -n "${original_endpoint}" ]; then
                     if grep -q 'original_baseurl=' ${repo_path}; then
                         sed -i 's|^# original_baseurl=.*$|# original_baseurl='"${original_endpoint}"'|g' ${repo_path} # update existing original_baseurl comment
@@ -141,7 +141,7 @@ main() {
             fi
             new_repo=$(cat ${repo_path})
             if [ "${old_repo}" != "${new_repo}" ]; then
-                # No diff command in mariner, so just log if the repo is changed 
+                # No diff command in mariner, so just log if the repo is changed
                 echo "${repo_path} is updated"
             fi
         fi
