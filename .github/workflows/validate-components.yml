@@ -1,7 +1,7 @@
 name: Validate Components
 on: pull_request
 
-jobs: 
+jobs:
   cue:
     runs-on: ubuntu-latest
     environment: test
@@ -39,4 +39,17 @@ jobs:
           GOPATH="$(go env | grep GOPATH | cut -d= -f2 | tr -d '"')"
           export PATH="$PATH:$GOPATH/bin"
           cue vet -c ./schemas/components.cue ./vhdbuilder/packer/windows/components-test.json
+
+  version-consistency:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v5
+    - uses: actions/setup-go@v6
+      with:
+        go-version: '1.24'
+    - name: Run GPU managed components version consistency test
+      working-directory: ./e2e
+      run: |
+        set -ex
+        go test -v -run ^Test_Version_Consistency_GPU_Managed_Components$ .
 
