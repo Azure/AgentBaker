@@ -894,6 +894,12 @@ updateCloudCfg() {
 
 updateCloudCfg
 
+# If Fedora, Disable swap to match kubelet expectations
+if isFedora "$OS"; then
+  echo "Disabling swap for Fedora"
+  swapoff -a
+fi
+
 LOCALDNS_BINARY_PATH="/opt/azure/containers/localdns/binary"
 # This function extracts CoreDNS binary from cached coredns images (n-1 image version and latest revision version)
 # and copies it to - /opt/azure/containers/localdns/binary/coredns.
