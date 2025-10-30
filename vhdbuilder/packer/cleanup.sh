@@ -181,7 +181,7 @@ if [[ "${MODE}" == "linuxVhdMode" && -n "${AZURE_RESOURCE_GROUP_NAME}" && "${DRY
 
       lock_name=$(az lock list --resource /subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/galleries/${SIG_GALLERY_NAME}/images/${image_definition}/versions/${image_version} --query "[0].name" --output tsv)
       if [ -z "${lock_name}" ]; then
-        old_sig_version_ids="${old_sig_version_ids} /subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/galleries/${SIG_GALLERY_NAME}/images/${image_definition}/versions/${image_version}"
+        old_sig_version_ids="${old_sig_version_ids} ${image_version_id}"
       fi
     done
   done
