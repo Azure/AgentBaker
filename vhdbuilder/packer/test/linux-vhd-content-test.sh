@@ -639,7 +639,7 @@ testAutologinDisabled() {
   os_sku=$1
   echo "$test:Start"
 
-  if [[ "${os_sku}" != "Flatcar" ]]; then
+  if [ "${os_sku}" = "Flatcar" ]; then
     echo "$test: Checking kernel command line for flatcar.autologin parameter"
 
     if grep -q "flatcar.autologin" /proc/cmdline; then
