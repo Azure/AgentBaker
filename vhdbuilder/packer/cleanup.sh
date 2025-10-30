@@ -175,7 +175,7 @@ if [[ "${MODE}" == "linuxVhdMode" && -n "${AZURE_RESOURCE_GROUP_NAME}" && "${DRY
       # TODO: remove 2404gen2arm64gb200containerd exemption once released to official production galleries
       # shellcheck disable=SC3010
       if [ "${image_definition,,}" = "2404gen2arm64gb200containerd" ] && [[ "$image_version" == "1.1."* ]]; then
-        echo "Building in prod, will not consider garbage collection of image: ${image_version_id}"
+        echo "Will not consider garbage collection of image: ${image_version_id}"
         continue
       fi
 
