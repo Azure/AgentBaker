@@ -634,6 +634,28 @@ testLtsKernel() {
 
 }
 
+testAutologinDisabled() {
+  local test="testAutologinDisabled"
+  os_sku=$1
+  echo "$test:Start"
+
+  if [ "${os_sku}" = "Flatcar" ]; then
+    echo "$test: Checking kernel command line for flatcar.autologin parameter"
+
+    if grep -q "flatcar.autologin" /proc/cmdline; then
+      err $test "flatcar.autologin kernel parameter found in /proc/cmdline but should be absent for AKS security compliance"
+      echo "$test: Full kernel command line:" >&2
+      cat /proc/cmdline >&2
+      return 1
+    fi
+
+    echo "$test: flatcar.autologin parameter correctly absent from kernel command line"
+
+  else
+    echo "$test: Skipping for non-Flatcar OS"
+  fi
+}
+
 testLSMBPF() {
   test="testLSMBPF"
   echo "$test:Start"
@@ -1686,6 +1708,7 @@ testContainerImagePrefetchScript
 testAKSNodeControllerBinary
 testAKSNodeControllerService
 testLtsKernel $OS_VERSION $OS_SKU $ENABLE_FIPS
+testAutologinDisabled $OS_SKU
 testCorednsBinaryExtractedAndCached $OS_VERSION
 checkLocaldnsScriptsAndConfigs
 testPackageDownloadURLFallbackLogic
