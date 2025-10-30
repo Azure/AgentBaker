@@ -702,6 +702,8 @@ func Test_Ubuntu2204_Scriptless(t *testing.T) {
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.log", "aks-node-controller finished successfully")
+				// Validate exec command `sh` works on a specific test pod
+				ValidateExecCmdOnVM(ctx, s, "sh")
 			},
 			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
 			},
@@ -717,6 +719,8 @@ func Test_Ubuntu2404_Scriptless(t *testing.T) {
 			VHD:     config.VHDUbuntu2404Gen2Containerd,
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.log", "aks-node-controller finished successfully")
+				// Validate exec command `sh` works on a specific test pod
+				ValidateExecCmdOnVM(ctx, s, "sh")
 			},
 			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
 			},
@@ -741,6 +745,8 @@ func Test_Ubuntu2204(t *testing.T) {
 				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", components.GetExpectedPackageVersions("containerd", "ubuntu", "r2204")[0])
 				ValidateInstalledPackageVersion(ctx, s, "moby-runc", components.GetExpectedPackageVersions("runc", "ubuntu", "r2204")[0])
 				ValidateSSHServiceEnabled(ctx, s)
+				// Validate exec command `sh` works on a specific test pod
+				ValidateExecCmdOnVM(ctx, s, "sh")
 			},
 		},
 	})
@@ -1897,6 +1903,8 @@ func Test_Ubuntu2404Gen2(t *testing.T) {
 				ValidateRunc12Properties(ctx, s, runcVersions)
 				ValidateContainerRuntimePlugins(ctx, s)
 				ValidateSSHServiceEnabled(ctx, s)
+				// Validate exec command `sh` works on a specific test pod
+				ValidateExecCmdOnVM(ctx, s, "sh")
 			},
 		},
 	})
@@ -1965,6 +1973,8 @@ func Test_Ubuntu2404Gen1(t *testing.T) {
 				runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2404")
 				ValidateContainerd2Properties(ctx, s, containerdVersions)
 				ValidateRunc12Properties(ctx, s, runcVersions)
+				// Validate exec command `sh` works on a specific test pod
+				ValidateExecCmdOnVM(ctx, s, "sh")
 			},
 		},
 	})

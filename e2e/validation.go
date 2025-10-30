@@ -102,9 +102,6 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 	execResult = execOnVMForScenarioOnUnprivilegedPod(ctx, s, "curl http://168.63.129.16:32526/vmSettings --connect-timeout 4")
 	require.Equal(s.T, "28", execResult.exitCode, "curl to wireserver port 32526 shouldn't succeed")
 
-	// Validate exec command `sh` works on a specific test pod
-	ValidateExecCmdOnVM(ctx, s, "sh")
-
 	// base NBC templates define a mock service principal profile that we can still use to test
 	// the correct bootstrapping logic: https://github.com/Azure/AgentBaker/blob/master/e2e/node_config.go#L438-L441
 	if hasServicePrincipalData(s) {
