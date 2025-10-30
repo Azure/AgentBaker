@@ -77,7 +77,7 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/autoscaler/addon-resizer",
-          "latestVersion": "v1.8.23-6"
+          "latestVersion": "v1.8.23-7"
         }
       ],
       "windowsVersions": []
@@ -142,15 +142,15 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/coredns",
-          "latestVersion": "v1.13.1-1"
+          "latestVersion": "v1.13.1-2"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/coredns",
-          "latestVersion": "v1.12.1-6"
+          "latestVersion": "v1.12.1-7"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/coredns",
-          "latestVersion": "v1.11.3-13"
+          "latestVersion": "v1.11.3-14"
         }
       ],
       "windowsVersions": []
@@ -447,7 +447,7 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/autoscaler/cluster-proportional-autoscaler",
-          "latestVersion": "v1.9.0-4"
+          "latestVersion": "v1.9.0-5"
         }
       ],
       "windowsVersions": []
