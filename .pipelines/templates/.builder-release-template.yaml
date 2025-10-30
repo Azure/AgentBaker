@@ -148,7 +148,7 @@ steps:
       gpg --yes --pinentry-mode loopback --local-user "$KEY_ID" --armor --detach-sign ${VHD_RELEASE_CANDIDATE}.sha256
 
       echo "Verifying checksum integrity..."
-      gpg --verify --yes ${VHD_RELEASE_CANDIDATE}.sha256 ${VHD_RELEASE_CANDIDATE}.sha256.asc
+      gpg --verify --yes ${VHD_RELEASE_CANDIDATE}.sha256.asc ${VHD_RELEASE_CANDIDATE}.sha256
 
       echo "Verifying that VHD has not been tampered with"
       current_hash=$(sha256sum "$VHD_RELEASE_CANDIDATE" | awk '{print $1}')
