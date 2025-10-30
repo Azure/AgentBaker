@@ -51,13 +51,20 @@ installDeps() {
     # install apparmor related packages in AzureLinux 3.0
     # apparmor-utils is not installed in VHD as it brings auditd dependency
     # Only core AppArmor functionality (apparmor-parser, libapparmor) is included
+    # Skip installation on CVM builds as they use different kernel configurations
     if [ "$OS_VERSION" = "3.0" ]; then
-      for dnf_package in apparmor-parser libapparmor; do
-        if ! dnf_install 30 1 600 $dnf_package; then
-          exit $ERR_APT_INSTALL_TIMEOUT
-        fi
-      done
-      systemctl enable apparmor.service
+      # Check if this is a CVM build by inspecting FEATURE_FLAGS
+      if echo "$FEATURE_FLAGS" | grep -q "cvm"; then
+        echo "Skipping AppArmor installation on CVM build (FEATURE_FLAGS: $FEATURE_FLAGS)"
+      else
+        echo "Installing AppArmor packages for Azure Linux 3.0"
+        for dnf_package in apparmor-parser libapparmor; do
+          if ! dnf_install 30 1 600 $dnf_package; then
+            exit $ERR_APT_INSTALL_TIMEOUT
+          fi
+        done
+        systemctl enable apparmor.service
+      fi
     fi
 }
 
