@@ -265,6 +265,12 @@ downloadAndInstallCriTools() {
   evaluatedURL=${2}
   version=${3}
 
+  if isFedora "$OS"; then
+    echo "Installing critools from package repos"
+    dnf_install 30 1 600 cri-tools || exit $ERR_CRICTL_DOWNLOAD_TIMEOUT
+    return 0
+  fi
+
   # if downloadDir and evaluatedURL are not empty, download and install crictl by this override, which is the old way to install
   if [ ! -z "${downloadDir}" ] && [ ! -z "${evaluatedURL}" ]; then
     downloadCrictl "${downloadDir}" "${evaluatedURL}"

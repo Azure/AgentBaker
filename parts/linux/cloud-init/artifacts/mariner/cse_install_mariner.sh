@@ -45,6 +45,7 @@ installDeps() {
 
     if isFedora "$OS"; then
       sudo yum install fuse3 fuse3-libs blobfuse2 nslookup -y
+      dnf_remove 30 1 600 zram-generator-defaults
     fi
 
     if ! isFedora "$OS"; then
