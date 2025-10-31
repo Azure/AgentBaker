@@ -69,6 +69,12 @@ steps:
       downloadPath: $(Build.SourcesDirectory)
 
   - bash: |
+      source /etc/os-release
+      curl -sSL -O https://packages.microsoft.com/config/${ID}/${VERSION_ID}/packages-microsoft-prod.deb
+      sudo dpkg -i packages-microsoft-prod.deb
+      rm packages-microsoft-prod.deb
+      sudo apt-get update
+      sudo apt-get install azcopy
       azcopy version
       pwd
       ls -R
