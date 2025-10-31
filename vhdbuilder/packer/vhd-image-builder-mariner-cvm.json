@@ -1,5 +1,6 @@
 {
   "variables": {
+    "storage_account": "{{env `STORAGE_ACCOUNT`}}",
     "subscription_id": "{{env `AZURE_SUBSCRIPTION_ID`}}",
     "gallery_subscription_id": "{{user `gallery_subscription_id`}}",
     "location": "{{env `PACKER_BUILD_LOCATION`}}",
@@ -63,18 +64,11 @@
       "vtpm_enabled": true,
       "security_type": "ConfidentialVM",
       "security_encryption_type": "VMGuestStateOnly",
-      "shared_image_gallery_destination": {
-        "specialized": true,
-        "confidential_vm_image_encryption_type": "EncryptedVMGuestStateOnlyWithPmk",
-        "subscription": "{{user `gallery_subscription_id`}}",
-        "resource_group": "{{user `resource_group_name`}}",
-        "gallery_name": "{{user `sig_gallery_name`}}",
-        "image_name": "{{user `sig_image_name`}}",
-        "image_version": "{{user `captured_sig_version`}}",
-        "replication_regions": [
-          "{{user `location`}}"
-        ]
-      },
+      "temp_os_disk_name": "{{user `captured_sig_version`}}",
+      "capture_container_name": "vhd",
+      "capture_name_prefix": "",
+      "resource_group_name": "{{user `resource_group_name`}}",
+      "storage_account": "{{user `storage_account`}}",
       "user_assigned_managed_identities": "{{user `msi_resource_strings`}}"
     }
   ],
