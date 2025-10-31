@@ -66,7 +66,7 @@ APT::Periodic::Unattended-Upgrade "0";
 EOF
   # Make apt more patient connecting to repositories: set a timeout of 5 min.
   tee /etc/apt/apt.conf.d/99patience > /dev/null <<EOF || exit 1
-Acquire::http::Timeout "300";
+Acquire::http::Timeout "90";
 EOF
 fi
 
