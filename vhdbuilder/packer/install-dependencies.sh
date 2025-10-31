@@ -64,6 +64,7 @@ APT::Periodic::Download-Upgradeable-Packages "0";
 APT::Periodic::AutocleanInterval "0";
 APT::Periodic::Unattended-Upgrade "0";
 EOF
+  # Make apt more patient connecting to repositories: set a timeout of 5 min.
   tee /etc/apt/apt.conf.d/99patience > /dev/null <<EOF || exit 1
 Acquire::http::Timeout "300";
 EOF
@@ -636,6 +637,8 @@ EOF
       cuda-toolkit-13 \
       nvidia-container-toolkit \
       datacenter-gpu-manager-exporter \
+      datacenter-gpu-manager-4-core \
+      datacenter-gpu-manager-4-proprietary \
       datacenter-gpu-manager-4-cuda13 \
       datacenter-gpu-manager-4-proprietary-cuda13 \
       datacenter-gpu-manager-4-multinode-cuda13 \
