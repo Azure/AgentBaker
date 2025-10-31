@@ -1,5 +1,8 @@
 variant: flatcar
 version: 1.1.0
+kernel_arguments:
+  should_not_exist:
+    - flatcar.autologin
 storage:
   files:
   - path: /etc/extensions/aks-sysext/usr/lib/extension-release.d/extension-release.aks-sysext
