@@ -1201,3 +1201,34 @@ func ValidateMIGInstancesCreated(ctx context.Context, s *Scenario, migProfile st
 	require.NotContains(s.T, stdout, "No MIG-enabled devices found", "no MIG devices were created.\nOutput:\n%s", stdout)
 	s.T.Logf("MIG instances with profile %s are created", migProfile)
 }
+
+// ValidateAppArmorBasic validates that AppArmor is running without requiring aa-status
+func ValidateAppArmorBasic(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	// Check if AppArmor module is enabled in the kernel
+	command := []string{
+		"set -ex",
+		"cat /sys/module/apparmor/parameters/enabled",
+	}
+	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to check AppArmor kernel parameter")
+	stdout := strings.TrimSpace(execResult.stdout.String())
+	require.Equal(s.T, "Y", stdout, "expected AppArmor to be enabled in kernel")
+
+	// Check if apparmor.service is active
+	command = []string{
+		"set -ex",
+		"systemctl is-active apparmor.service",
+	}
+	execResult = execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "apparmor.service is not active")
+	stdout = strings.TrimSpace(execResult.stdout.String())
+	require.Equal(s.T, "active", stdout, "expected apparmor.service to be active")
+
+	// Check if AppArmor is enforcing by checking current process profile
+	command = []string{
+		"set -ex",
+		"cat /proc/self/attr/apparmor/current",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to check AppArmor current profile")
+	// Any output indicates AppArmor is active (profile will be shown)
+}
