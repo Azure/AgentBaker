@@ -1304,13 +1304,16 @@ func getIPTablesRulesCompatibleWithEBPFHostRouting() (map[string][]string, []str
 			`^.*--comment.*kubernetes service nodeports`,
 			`^.*--comment.*kubernetes:https`,
 			`^.*--comment.*ip-masq-agent`,
+			`-A KUBE-MARK-DROP -j MARK --set-xmark 0x8000/0x8000`,
 			`^.*0x4000/0x4000`,
 			`-A POSTROUTING -j SWIFT`,
 			`-A SWIFT -s`,
 			`-A POSTROUTING -j SWIFT-POSTROUTING`,
 			`-A SWIFT-POSTROUTING -s`,
 		},
-		"raw": {},
+		"raw": {
+			`^-A (PREROUTING|OUTPUT) -d 169\.254\.10\.(10|11)\/32 -p (tcp|udp) -m comment --comment "localdns: skip conntrack" -m (tcp|udp) --dport 53 -j NOTRACK$`,
+		},
 		"security": {
 			`-A OUTPUT -d 168\.63\.129\.16/32 -p tcp -m tcp --dport 53 -j ACCEPT`,
 			`-A OUTPUT -d 168\.63\.129\.16/32 -p tcp -m owner --uid-owner 0 -j ACCEPT`,
@@ -1321,7 +1324,7 @@ func getIPTablesRulesCompatibleWithEBPFHostRouting() (map[string][]string, []str
 	globalPatterns := []string{
 		`^-N .*`,
 		`^-P .*`,
-		`-A FORWARD ! -s /32 -d (?:\d{1,3}\.){3}\d{1,3}/32 -p tcp -m tcp --dport 80 -m comment --comment "AKS managed: added by AgentBaker ensureIMDSRestriction for IMDS restriction feature" -j DROP`,
+		`-A FORWARD ! -s (?:\d{1,3}\.){3}\d{1,3}/32 -d 169.254.169.254/32 -p tcp -m tcp --dport 80 -m comment --comment "AKS managed: added by AgentBaker ensureIMDSRestriction for IMDS restriction feature" -j DROP`,
 	}
 
 	return tablePatterns, globalPatterns
