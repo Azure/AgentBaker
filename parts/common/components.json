@@ -150,7 +150,7 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/coredns",
-          "latestVersion": "v1.11.3-14"
+          "latestVersion": "v1.11.4-7"
         }
       ],
       "windowsVersions": []
