@@ -69,6 +69,7 @@ steps:
       downloadPath: $(Build.SourcesDirectory)
 
   - bash: |
+      azcopy version
       pwd
       ls -R
     displayName: Show Directory
