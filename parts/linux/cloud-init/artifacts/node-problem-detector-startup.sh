@@ -306,7 +306,7 @@ function start_npd() {
     #  pflag: help requested
     # In order to enable reporting to kubernetes, set KUBERNETES_SERVICE_HOST and KUBERNETES_SERVICE_PORT
     #   or use the --apiserver-override flag
-    exec node-problem-detector \
+    exec /usr/bin/node-problem-detector \
         --config.system-log-monitor="${SYSTEM_LOG_MONITOR_FILES}" \
         --config.custom-plugin-monitor="${CUSTOM_PLUGIN_MONITOR_FILES}" \
         --config.system-stats-monitor="${SYSTEM_STATS_MONITOR_FILES}" \
@@ -314,7 +314,6 @@ function start_npd() {
         --apiserver-override "${KUBE_APISERVER_ADDR}?inClusterConfig=false&auth=${KUBECONFIG_FILE}" \
         --hostname-override "${NODE_NAME}" \
         --logtostderr
-
 }
 
 check_custom_plugin_monitor_files

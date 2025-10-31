@@ -3,7 +3,7 @@ Description=Node Problem Detector
 Documentation=https://github.com/kubernetes/node-problem-detector
 
 [Service]
-ExecStart=node-problem-detector-startup.sh
+ExecStart=/usr/local/bin/node-problem-detector-startup.sh
 
 Restart=on-failure
 RestartSec=10
