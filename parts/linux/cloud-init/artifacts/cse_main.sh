@@ -395,6 +395,13 @@ function nodePrep {
         echo $(date),$(hostname), "End configuring GPU drivers"
     fi
 
+    # Install and configure AMD AMA (Supernova) drivers if this is an AMA node
+    if [ "${AMDAMA_NODE}" = "true" ]; then
+        logs_to_events "AKS.CSE.setupAmdAma" setupAmdAma
+    else
+        logs_to_events "AKS.CSE.setupAmdAma" "echo AMD AMA HW not found!"
+    fi
+
     export -f enableManagedGPUExperience
     ENABLE_MANAGED_GPU_EXPERIENCE=$(retrycmd_silent 10 1 10 bash -cx enableManagedGPUExperience)
     if [ "$?" -ne 0 ] && [ "${GPU_NODE}" = "true" ] && [ "${skip_nvidia_driver_install}" != "true" ]; then
