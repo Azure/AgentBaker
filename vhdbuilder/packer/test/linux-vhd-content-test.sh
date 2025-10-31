@@ -157,7 +157,7 @@ validateOrasOCIArtifact() {
 }
 
 testAcrCredentialProviderInstalled() {
-  test="testAcrCredentialProviderInstalled"
+  local test="testAcrCredentialProviderInstalled"
   echo "$test:Start"
   local downloadURL=$1
   local acrCredProviderVersions=("${@:2}")
@@ -177,7 +177,7 @@ testAcrCredentialProviderInstalled() {
 }
 
 testPackagesInstalled() {
-  test="testPackagesInstalled"
+  local test="testPackagesInstalled"
   if [ "$(isARM64)" -eq 1 ]; then
     return
   fi
@@ -289,8 +289,8 @@ testPackagesInstalled() {
         continue
       fi
 
-      # if the downloadLocation is /usr/local/bin verify that the package is installed
-      if [ "$downloadLocation" = "/usr/local/bin" ]; then
+      # if the downloadLocation is /opt/bin, verify the package is in the PATH
+      if [ "$downloadLocation" = /opt/bin ]; then
         if command -v "$name" >/dev/null 2>&1; then
           echo "$name is installed."
           continue
@@ -383,7 +383,7 @@ testPackageInAzureChinaCloud() {
 }
 
 testImagesPulled() {
-  test="testImagesPulled"
+  local test="testImagesPulled"
   local componentsJsonContent="$1"
   echo "$test:Start"
   pulledImages=$(ctr -n k8s.io image ls)
@@ -442,7 +442,7 @@ testImagesPulled() {
 }
 
 testImagesCompleted() {
-  test="testImagesCompleted"
+  local test="testImagesCompleted"
   echo "$test:Start"
   incompleteImages=$(ctr -n k8s.io image check | grep "incomplete")
 
@@ -456,7 +456,7 @@ testImagesCompleted() {
 }
 
 testPodSandboxImagePinned() {
-  test="testPodSandboxImagePinned"
+  local test="testPodSandboxImagePinned"
   echo "$test:Start"
   pinnedImages=$(ctr -n k8s.io image ls | grep pinned)
 
@@ -508,7 +508,7 @@ testImagesRetagged() {
 }
 
 testAuditDNotPresent() {
-  test="testAuditDNotPresent"
+  local test="testAuditDNotPresent"
   echo "$test:Start"
   status=$(systemctl show -p SubState --value auditd.service)
   if [ "$status" = 'dead' ]; then
@@ -521,7 +521,7 @@ testAuditDNotPresent() {
 
 testChrony() {
   os_sku=$1
-  test="testChrony"
+  local test="testChrony"
   echo "$test:Start"
 
   # ---- Test Setup ----
@@ -570,7 +570,7 @@ testChrony() {
 }
 
 testFips() {
-  test="testFips"
+  local test="testFips"
   echo "$test:Start"
   os_version=$1
   enable_fips=$2
@@ -602,7 +602,7 @@ testFips() {
 }
 
 testLtsKernel() {
-  test="testLtsKernel"
+  local test="testLtsKernel"
   echo "$test:Start"
   os_version=$1
   os_sku=$2
@@ -635,7 +635,7 @@ testLtsKernel() {
 }
 
 testLSMBPF() {
-  test="testLSMBPF"
+  local test="testLSMBPF"
   echo "$test:Start"
   os_sku=$1
   os_version=$2
@@ -673,7 +673,7 @@ testLSMBPF() {
 
 
 testCloudInit() {
-  test="testCloudInit"
+  local test="testCloudInit"
   echo "$test:Start"
   os_sku=$1
 
@@ -712,10 +712,10 @@ testCloudInit() {
 }
 
 testKubeBinariesPresent() {
-  test="testKubeBinaries"
+  local test="testKubeBinaries"
   echo "$test:Start"
   local kubeBinariesVersions=("$@")
-  binaryDir=/usr/local/bin
+  binaryDir=/opt/bin
   for patchedK8sVersion in "${kubeBinariesVersions[@]}"; do
     echo "checking kubeBinariesVersions: $patchedK8sVersion ..."
     # strip the last .1 as that is for base image patch for hyperkube
@@ -731,8 +731,6 @@ testKubeBinariesPresent() {
     fi
     kubeletDownloadLocation="$binaryDir/kubelet-$k8sVersion"
     kubectlDownloadLocation="$binaryDir/kubectl-$k8sVersion"
-    kubeletInstallLocation="/usr/local/bin/kubelet"
-    kubectlInstallLocation="/usr/local/bin/kubectl"
     #Test whether the binaries have been extracted
     if [ ! -s $kubeletDownloadLocation ]; then
       err $test "Binary ${kubeletDownloadLocation} does not exist"
@@ -757,7 +755,7 @@ testKubeBinariesPresent() {
 }
 
 testPkgDownloaded() {
-  test="testPkgDownloaded"
+  local test="testPkgDownloaded"
   echo "$test:Start"
   local packageName=$1; shift
   local packageVersions=("$@")
@@ -784,7 +782,7 @@ testPkgDownloaded() {
 
 # nc and nslookup is used in CSE to check connectivity
 testCriticalTools() {
-  test="testCriticalTools"
+  local test="testCriticalTools"
   echo "$test:Start"
 
   #TODO (djsly): netcat is only required with 18.04, remove this check when 18.04 is deprecated
@@ -810,7 +808,7 @@ testCriticalTools() {
 }
 
 testCustomCAScriptExecutable() {
-  test="testCustomCAScriptExecutable"
+  local test="testCustomCAScriptExecutable"
   permissions=$(stat -c "%a" /opt/scripts/update_certs.sh)
   if [ "$permissions" != "755" ]; then
     err $test "/opt/scripts/update_certs.sh has incorrect permissions"
@@ -838,7 +836,7 @@ testCustomCATrustNodeCAWatcherRetagged() {
 }
 
 testVHDBuildLogsExist() {
-  test="testVHDBuildLogsExist"
+  local test="testVHDBuildLogsExist"
   if [ -f $VHD_LOGS_FILEPATH ]; then
     echo "detected vhd logs file"
   else
@@ -851,7 +849,7 @@ testVHDBuildLogsExist() {
 # Ensures that /etc/login.defs is valid. This is a best-effort test, as we aren't going to
 # re-implement everything that uses this file.
 testLoginDefs() {
-  test="testLoginDefs"
+  local test="testLoginDefs"
   local settings_file=/etc/login.defs
   echo "$test:Start"
 
@@ -874,7 +872,7 @@ testLoginDefs() {
 # Ensures that /etc/default/useradd is valid. This is a best-effort test, as we aren't going to
 # re-implement everything that uses this file.
 testUserAdd() {
-  test="testUserAdd"
+  local test="testUserAdd"
   local settings_file=/etc/default/useradd
   echo "$test:Start"
 

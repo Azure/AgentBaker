@@ -874,7 +874,7 @@
     },
     {
       "name": "oras",
-      "downloadLocation": "/usr/local/bin",
+      "downloadLocation": "/opt/bin",
       "downloadURIs": {
         "default": {
           "current": {
@@ -891,7 +891,7 @@
     },
     {
       "name": "aks-secure-tls-bootstrap-client",
-      "downloadLocation": "/usr/local/bin",
+      "downloadLocation": "/opt/bin",
       "windowsDownloadLocation": "c:\\akse-cache\\aks-secure-tls-bootstrap-client\\",
       "downloadURIs": {
         "default": {
@@ -1478,7 +1478,6 @@
     },
     {
       "name": "nvidia-container-toolkit",
-      "downloadLocation": "/usr/local/bin",
       "downloadURIs": {
         "windows": {
           "default": {
