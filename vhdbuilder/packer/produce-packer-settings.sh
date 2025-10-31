@@ -223,6 +223,7 @@ produce_ua_token
 # windows_image_version refers to the version from azure gallery
 cat <<EOF > vhdbuilder/packer/settings.json
 {
+  "storage_account": ${STORAGE_ACCOUNT},
   "subscription_id": "${SUBSCRIPTION_ID}",
   "gallery_subscription_id": "${GALLERY_SUBSCRIPTION_ID}",
   "resource_group_name": "${AZURE_RESOURCE_GROUP_NAME}",
