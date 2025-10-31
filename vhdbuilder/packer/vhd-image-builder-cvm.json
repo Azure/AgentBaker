@@ -738,5 +738,28 @@
         "sudo /usr/sbin/waagent -force -deprovision+user && export HISTSIZE=0 && sync || exit 125"
       ]
     }
+  ],
+  "post-processors": [
+    {
+      "type": "shell-local",
+      "inline": [
+        "export RESOURCE_GROUP_NAME=\"${AZURE_RESOURCE_GROUP_NAME}\"",
+        "make -f packer.mk convert-sig-to-classic-storage-account-blob"
+      ]
+    },
+    {
+      "type": "shell-local",
+      "inline": [
+        "export RESOURCE_GROUP_NAME=\"${AZURE_RESOURCE_GROUP_NAME}\"",
+        "make -f packer.mk convert-sig-to-classic-storage-account-blob"
+      ]
+    },
+    {
+      "type": "shell-local",
+      "inline": [
+        "export RESOURCE_GROUP_NAME=\"${AZURE_RESOURCE_GROUP_NAME}\"",
+        "make -f packer.mk download-hash-and-sign"
+      ]
+    }
   ]
 }
