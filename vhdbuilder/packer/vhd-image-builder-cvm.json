@@ -82,27 +82,6 @@
   ],
   "provisioners": [
     {
-      "type": "shell-local",
-      "inline": [
-        "export RESOURCE_GROUP_NAME=\"${AZURE_RESOURCE_GROUP_NAME}\"",
-        "make -f transfer-vhd-blob.sh"
-      ]
-    },
-    {
-      "type": "shell-local",
-      "inline": [
-        "export RESOURCE_GROUP_NAME=\"${AZURE_RESOURCE_GROUP_NAME}\"",
-        "make -f packer.mk hash-and-sign-vhd.sh"
-      ]
-    },
-    {
-      "type": "shell-local",
-      "inline": [
-        "export RESOURCE_GROUP_NAME=\"${AZURE_RESOURCE_GROUP_NAME}\"",
-        "make -f transfer-vhd-blob.sh"
-      ]
-    },
-    {
       "type": "shell",
       "inline": [
         "sudo mkdir -p /opt/azure/containers",
