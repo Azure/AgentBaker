@@ -17,7 +17,8 @@ func Test_Ubuntu2404_GB200(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that GB200 images boot on GB200, have all expected services and packages, and match the current checked-in CRD",
 		Tags: Tags{
-			GPU: true,
+			GPU:   true,
+			GB200: true,
 		},
 		Config: Config{
 			Cluster:               ClusterKubenet,
@@ -72,6 +73,15 @@ func Test_Ubuntu2404_GB200(t *testing.T) {
 
 				// Validate that GPU resources are advertised by the device plugin
 				ValidateNodeAdvertisesGPUResources(ctx, s, 4)
+
+				// 5. Validate IB interface.
+				ValidateIBInterfacesUp(ctx, s)
+
+				// 6. Validate DOCA/OFED drivers are running.
+				ValidateDOCAOFEDDriversRunning(ctx, s)
+
+				// 7. Validate NVIDIA IMEX service is running.
+				ValidateNvidiaIMEXServiceRunning(ctx, s)
 
 				// TODO: IB interface, DOCA/OFED, IMEX.
 			},
