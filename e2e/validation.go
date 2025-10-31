@@ -127,8 +127,7 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 		ValidateLocalDNSResolution(ctx, s, "169.254.10.10")
 	}
 
-	tablePatterns, globalPatterns := getIPTablesRulesCompatibleWithEBPFHostRouting()
-	ValidateIPTablesRules(ctx, s, tablePatterns, globalPatterns)
+	ValidateIPTablesRules(ctx, s)
 }
 
 func ValidateSystemdWatchdogForKubernetes132Plus(ctx context.Context, s *Scenario) {

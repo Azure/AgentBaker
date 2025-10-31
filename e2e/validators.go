@@ -1203,10 +1203,11 @@ func ValidateMIGInstancesCreated(ctx context.Context, s *Scenario, migProfile st
 }
 
 // ValidateIPTablesRules validates that all iptables rules in each table match the provided patterns
-func ValidateIPTablesRules(ctx context.Context, s *Scenario, tablePatterns map[string][]string, globalPatterns []string) {
+func ValidateIPTablesRules(ctx context.Context, s *Scenario) {
 	s.T.Helper()
-
+	tablePatterns, globalPatterns := getIPTablesRulesCompatibleWithEBPFHostRouting()
 	tables := []string{"filter", "mangle", "nat", "raw", "security"}
+	success := true
 
 	for _, table := range tables {
 		s.T.Logf("Validating iptables rules for table: %s", table)
@@ -1255,13 +1256,16 @@ func ValidateIPTablesRules(ctx context.Context, s *Scenario, tablePatterns map[s
 				}
 			}
 
-			require.True(s.T, matched,
-				"Rule in table %s does not match any expected pattern:\nRule: %s\nExpected patterns: %v",
-				table, rule, allPatterns)
+			if !matched {
+				s.T.Logf("Rule in table %s did not match any pattern: %s", table, rule)
+				success = false
+			}
 		}
 
 		s.T.Logf("All rules in table %s matched expected patterns", table)
 	}
+
+	require.True(s.T, success, "Rules found that do not match any of the given patterns. See previous log lines for details.")
 }
 
 // getIPTablesRulesCompatibleWithEBPFHostRouting returns the expected iptables patterns that are accounted for when EBPF host routing is enabled.
@@ -1310,6 +1314,7 @@ func getIPTablesRulesCompatibleWithEBPFHostRouting() (map[string][]string, []str
 			`-A SWIFT -s`,
 			`-A POSTROUTING -j SWIFT-POSTROUTING`,
 			`-A SWIFT-POSTROUTING -s`,
+			`-A KUBE-POSTROUTING -j RETURN`,
 		},
 		"raw": {
 			`^-A (PREROUTING|OUTPUT) -d 169\.254\.10\.(10|11)\/32 -p (tcp|udp) -m comment --comment "localdns: skip conntrack" -m (tcp|udp) --dport 53 -j NOTRACK$`,
