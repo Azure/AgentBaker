@@ -72,12 +72,37 @@ function has_capability() {
 function get_kube_apiserver_addr() {
     # This script exists to be able to fetch the kube-apiserver address at runtime.
     # Note: kubeconfig can live in different places depending on whether the node is a master node or a worker node
+    KUBECONFIG_FILE=""
     if [ -f "/home/azureuser/.kube/config" ]; then
         KUBECONFIG_FILE="/home/azureuser/.kube/config"
     elif [ -f "/var/lib/kubelet/kubeconfig" ]; then
         KUBECONFIG_FILE="/var/lib/kubelet/kubeconfig"
+    else
+        # Kubeconfig doesn't exist yet - wait for it with a timeout
+        echo "Waiting for kubeconfig to be created..."
+        local timeout=300
+        local elapsed=0
+        while [ $elapsed -lt $timeout ]; do
+            if [ -f "/var/lib/kubelet/kubeconfig" ]; then
+                KUBECONFIG_FILE="/var/lib/kubelet/kubeconfig"
+                echo "Kubeconfig found at ${KUBECONFIG_FILE}"
+                break
+            fi
+            sleep 1
+            elapsed=$((elapsed + 1))
+        done
+
+        if [ -z "${KUBECONFIG_FILE}" ]; then
+            echo "Error: kubeconfig not found after ${timeout}s. Aborting node-problem-detector startup."
+            exit 1
+        fi
     fi
-    KUBE_APISERVER_ADDR=$(grep server "${KUBECONFIG_FILE}" | awk -F"server: " '{print $2}')
+
+    KUBE_APISERVER_ADDR=$(grep server "${KUBECONFIG_FILE}" | awk -F"server: " '{print $2}' || true)
+    if [ -z "${KUBE_APISERVER_ADDR}" ]; then
+        echo "Error: failed to read Kubernetes API server address from ${KUBECONFIG_FILE}."
+        exit 1
+    fi
 }
 
 function get_node_name() {
@@ -306,14 +331,27 @@ function start_npd() {
     #  pflag: help requested
     # In order to enable reporting to kubernetes, set KUBERNETES_SERVICE_HOST and KUBERNETES_SERVICE_PORT
     #   or use the --apiserver-override flag
-    exec /usr/bin/node-problem-detector \
-        --config.system-log-monitor="${SYSTEM_LOG_MONITOR_FILES}" \
-        --config.custom-plugin-monitor="${CUSTOM_PLUGIN_MONITOR_FILES}" \
-        --config.system-stats-monitor="${SYSTEM_STATS_MONITOR_FILES}" \
-        --prometheus-address 0.0.0.0 \
-        --apiserver-override "${KUBE_APISERVER_ADDR}?inClusterConfig=false&auth=${KUBECONFIG_FILE}" \
-        --hostname-override "${NODE_NAME}" \
+    
+    # Build the command arguments
+    local npd_args=(
+        --config.system-log-monitor="${SYSTEM_LOG_MONITOR_FILES}"
+        --config.custom-plugin-monitor="${CUSTOM_PLUGIN_MONITOR_FILES}"
+        --config.system-stats-monitor="${SYSTEM_STATS_MONITOR_FILES}"
+        --prometheus-address 0.0.0.0
+        --hostname-override "${NODE_NAME}"
         --logtostderr
+    )
+    
+    # Only add apiserver-override if we have both KUBE_APISERVER_ADDR and KUBECONFIG_FILE
+    if [ -n "${KUBE_APISERVER_ADDR}" ] && [ -n "${KUBECONFIG_FILE}" ]; then
+        npd_args+=(--apiserver-override "${KUBE_APISERVER_ADDR}?inClusterConfig=false&auth=${KUBECONFIG_FILE}")
+    else
+        echo "Error: apiserver connection details are missing; aborting node-problem-detector startup."
+        echo "Hint: ensure kubelet has generated /var/lib/kubelet/kubeconfig then restart the service with 'sudo systemctl restart node-problem-detector'."
+        exit 1
+    fi
+    
+    exec /usr/bin/node-problem-detector "${npd_args[@]}"
 }
 
 check_custom_plugin_monitor_files
