@@ -751,14 +751,21 @@
       "type": "shell-local",
       "inline": [
         "export RESOURCE_GROUP_NAME=\"${AZURE_RESOURCE_GROUP_NAME}\"",
-        "make -f packer.mk convert-sig-to-classic-storage-account-blob"
+        "make -f transfer-vhd-blob.sh"
       ]
     },
     {
       "type": "shell-local",
       "inline": [
         "export RESOURCE_GROUP_NAME=\"${AZURE_RESOURCE_GROUP_NAME}\"",
-        "make -f packer.mk download-hash-and-sign"
+        "make -f packer.mk hash-and-sign-vhd.sh"
+      ]
+    },
+    {
+      "type": "shell-local",
+      "inline": [
+        "export RESOURCE_GROUP_NAME=\"${AZURE_RESOURCE_GROUP_NAME}\"",
+        "make -f transfer-vhd-blob.sh"
       ]
     }
   ]
