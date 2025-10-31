@@ -28,6 +28,7 @@ type Tags struct {
 	Airgap                 bool
 	NonAnonymousACR        bool
 	GPU                    bool
+	GB200                  bool
 	WASM                   bool
 	ServerTLSBootstrapping bool
 	KubeletCustomConfig    bool

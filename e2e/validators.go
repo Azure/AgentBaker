@@ -1469,3 +1469,18 @@ func ValidateAzureNvidiaKernelRunning(ctx context.Context, s *Scenario) {
 	s.T.Logf("running kernel version: %s", runningKernel)
 	require.Contains(s.T, runningKernel, "azure-nvidia", "expected running kernel to contain 'azure-nvidia', but got: %s", runningKernel)
 }
+
+func ValidateIBInterfacesUp(ctx context.Context, s *Scenario) {
+	// Pass.
+	// TODO: Implement.
+}
+
+func ValidateDOCAOFEDDriversRunning(ctx context.Context, s *Scenario) {
+	// Pass.
+	// TODO: Implement.
+}
+
+func ValidateNvidiaIMEXServiceRunning(ctx context.Context, s *Scenario) {
+	// Pass.
+	// TODO: Implement.
+}
