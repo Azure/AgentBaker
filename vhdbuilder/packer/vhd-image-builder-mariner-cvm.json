@@ -386,6 +386,11 @@
     },
     {
       "type": "file",
+      "source": "vhdbuilder/packer/npd-install.sh",
+      "destination": "/home/packer/npd-install.sh"
+    },
+    {
+      "type": "file",
       "source": "vhdbuilder/packer/post-install-dependencies.sh",
       "destination": "/home/packer/post-install-dependencies.sh"
     },
