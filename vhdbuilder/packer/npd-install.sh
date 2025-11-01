@@ -145,23 +145,26 @@ ensure_npd_counter_entrypoints() {
     fi
 
     # Azure Linux packages expose /usr/bin/*counter instead of the legacy /usr/bin/npd-*-counter path referenced by shipped NPD configs.
-    # So we're creating a symlink as needed
-    local mappings=(
-        "${NPD_LOG_COUNTER_BINARY_PATH:-/usr/bin/log-counter}::${NPD_LOG_COUNTER_LINK_PATH:-/usr/bin/npd-log-counter}::npd-log-counter"
-        "${NPD_HEALTH_COUNTER_BINARY_PATH:-/usr/bin/health-counter}::${NPD_HEALTH_COUNTER_LINK_PATH:-/usr/bin/npd-health-counter}::npd-health-counter"
+    # So we're creating a symlink as needed.
+    # Note that the order of the references in these arrays needs to align if we add more later for some reason.
+    local targets=(
+        "${NPD_LOG_COUNTER_BINARY_PATH:-/usr/bin/log-counter}"
+        "${NPD_HEALTH_COUNTER_BINARY_PATH:-/usr/bin/health-counter}"
+    )
+    local links=(
+        "${NPD_LOG_COUNTER_LINK_PATH:-/usr/bin/npd-log-counter}"
+        "${NPD_HEALTH_COUNTER_LINK_PATH:-/usr/bin/npd-health-counter}"
+    )
+    local aliases=(
+        "npd-log-counter"
+        "npd-health-counter"
     )
 
-    local mapping
-    local target_path
-    local link_path
-    local alias_name
-    for mapping in "${mappings[@]}"; do
-        IFS="::" read -r target_path link_path alias_name <<<"${mapping}"
-
-        # Skip empty mappings (e.g. unset env vars)
-        if [ -z "${target_path}" ] || [ -z "${link_path}" ]; then
-            continue
-        fi
+    local i
+    for i in "${!targets[@]}"; do
+        local target_path="${targets[$i]}"
+        local link_path="${links[$i]}"
+        local alias_name="${aliases[$i]}"
 
         if [ ! -x "${target_path}" ]; then
             echo "${alias_name} binary not found at ${target_path}; skipping compatibility link"
