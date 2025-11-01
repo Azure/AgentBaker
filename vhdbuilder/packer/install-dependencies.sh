@@ -247,7 +247,6 @@ unpackTgzToCNIDownloadsDIR() {
   mkdir -p "${download_dir}/${cni_dir_tmp}"
   extract_tarball "${download_dir}/${cni_tgz_tmp}" "${download_dir}/${cni_dir_tmp}"
   rm -rf "${download_dir:?}/${cni_tgz_tmp}"
-  echo "  - Ran tar -xzf on the CNI downloaded then rm -rf to clean up"
 }
 
 # this is for the old package not coming from Dalec, currently fixed at 1.6.2.
@@ -604,6 +603,7 @@ while IFS= read -r p; do
         #packagePath="${downloadDir}/${packageFile}"
 
         if [ "${OS}" = "${UBUNTU_OS_NAME}" ] || isMarinerOrAzureLinux "$OS"; then
+          # installNodeProblemDetector over in npd-install.sh
           installNodeProblemDetector "${downloadDir}" "${evaluatedURL}" "${npdName}"
         fi
         echo "  - node-problem-detector version ${version}" >> ${VHD_LOGS_FILEPATH}
