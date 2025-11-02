@@ -118,6 +118,9 @@ install_npd_systemd_assets() {
     cp "${service_src}" "${service_dest}"
     cp "${startup_src}" "${artifacts_dir}/"
     cp "${service_src}" "${artifacts_dir}/"
+
+    # Reload systemd daemon to register the newly installed service unit
+    systemctl daemon-reload
 }
 
 # Normalize permissions on scripts and JSON configs to avoid execution failures.
@@ -186,6 +189,39 @@ ensure_npd_counter_entrypoints() {
     done
 }
 
+# Verify NPD installation completed successfully with all required artifacts.
+verify_npd_installation() {
+    local config_dir=$1
+    local sentinel_file="${config_dir}/skip_vhd_npd"
+
+    echo "Verifying NPD installation..."
+
+    # Verify skip_vhd_npd sentinel file exists
+    if [ -f "${sentinel_file}" ]; then
+        echo "Verified: skip_vhd_npd sentinel file exists at ${sentinel_file}"
+        ls -la "${sentinel_file}"
+    else
+        echo "ERROR: skip_vhd_npd sentinel file NOT found at ${sentinel_file}"
+        echo "Contents of ${config_dir}:"
+        ls -la "${config_dir}" || echo "Directory does not exist"
+        return 1
+    fi
+
+    # Verify node-problem-detector service is registered with systemd
+    if systemctl list-unit-files | grep -q "node-problem-detector.service"; then
+        echo "Verified: node-problem-detector.service is registered with systemd"
+        systemctl status node-problem-detector.service --no-pager || true
+    else
+        echo "ERROR: node-problem-detector.service not found in systemd unit files"
+        echo "This will cause node provisioning to fail. Check that systemctl daemon-reload was called."
+        systemctl list-unit-files | grep -i "node\|problem\|detector" || echo "No related services found"
+        return 1
+    fi
+
+    echo "NPD installation verification passed"
+    return 0
+}
+
 # Install Node Problem Detector during VHD build. This function is only used
 # during VHD generation (not at provisioning time). CSE will reload the service
 # later so runtime GPU hooks can reconfigure NPD as needed.
@@ -222,5 +258,8 @@ installNodeProblemDetector() {
 
     systemctl disable node-problem-detector
 
-    echo "Node Problem Detector installed"
+    # Verify installation succeeded before returning
+    verify_npd_installation "${NPD_CONFIG_DIR}" || exit $ERR_NPD_INSTALL_TIMEOUT
+
+    echo "Node Problem Detector installed and verified"
 }

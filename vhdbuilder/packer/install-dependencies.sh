@@ -1020,15 +1020,5 @@ collect_grid_compatibility_data() {
 
 collect_grid_compatibility_data
 
-# Final verification: Ensure skip_vhd_npd file exists before completing
-if [ -f "/etc/node-problem-detector.d/skip_vhd_npd" ]; then
-    echo "Verified: skip_vhd_npd sentinel file exists at /etc/node-problem-detector.d/skip_vhd_npd"
-    ls -la /etc/node-problem-detector.d/skip_vhd_npd
-else
-    echo "WARNING: skip_vhd_npd sentinel file NOT found at /etc/node-problem-detector.d/skip_vhd_npd"
-    echo "Contents of /etc/node-problem-detector.d/:"
-    ls -la /etc/node-problem-detector.d/ || echo "Directory does not exist"
-fi
-
 capture_benchmark "${SCRIPT_NAME}_overall" true
 process_benchmarks
