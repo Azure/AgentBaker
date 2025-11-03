@@ -208,12 +208,14 @@ verify_npd_installation() {
     fi
 
     # Verify node-problem-detector service is registered with systemd
-    if systemctl list-unit-files | grep -q "node-problem-detector.service"; then
+    if systemctl list-unit-files node-problem-detector.service 2>/dev/null | grep -q "node-problem-detector.service"; then
         echo "Verified: node-problem-detector.service is registered with systemd"
+        # debug helper
         systemctl status node-problem-detector.service --no-pager || true
     else
         echo "ERROR: node-problem-detector.service not found in systemd unit files"
         echo "This will cause node provisioning to fail. Check that systemctl daemon-reload was called."
+        echo "Debug: Full systemctl list-unit-files output for NPD-related services:"
         systemctl list-unit-files | grep -i "node\|problem\|detector" || echo "No related services found"
         return 1
     fi
