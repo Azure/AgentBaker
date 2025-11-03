@@ -1228,7 +1228,7 @@
                 "k8sVersion": "1.34",
                 "renovateTag": "name=kubelet, repository=production, os=ubuntu, release=24.04",
                 "latestVersion": "1.34.1-ubuntu24.04u4",
-                "previousLatestVersion": "1.34.1-ubuntu24.04u3"
+                "previousLatestVersion": "1.34.0-ubuntu24.04u5"
               }
             ]
           },
@@ -1238,7 +1238,7 @@
                 "k8sVersion": "1.34",
                 "renovateTag": "name=kubelet, repository=production, os=ubuntu, release=22.04",
                 "latestVersion": "1.34.1-ubuntu22.04u4",
-                "previousLatestVersion": "1.34.1-ubuntu22.04u3"
+                "previousLatestVersion": "1.34.0-ubuntu22.04u5"
               }
             ]
           },
@@ -1248,7 +1248,7 @@
                 "k8sVersion": "1.34",
                 "renovateTag": "name=kubelet, repository=production, os=ubuntu, release=20.04",
                 "latestVersion": "1.34.1-ubuntu20.04u4",
-                "previousLatestVersion": "1.34.1-ubuntu20.04u3"
+                "previousLatestVersion": "1.34.0-ubuntu20.04u5"
               }
             ]
           }
@@ -1259,8 +1259,8 @@
               {
                 "k8sVersion": "1.34",
                 "renovateTag": "name=kubelet, os=azurelinux, release=3.0",
-                "latestVersion": "1.34.0-1.azl3",
-                "previousLatestVersion": "1.34.0-2.azl3"
+                "latestVersion": "1.34.1-4.azl3",
+                "previousLatestVersion": "1.34.0-5.azl3"
               }
             ]
           }
@@ -1279,7 +1279,7 @@
                 "k8sVersion": "1.34",
                 "renovateTag": "name=kubectl, repository=production, os=ubuntu, release=24.04",
                 "latestVersion": "1.34.1-ubuntu24.04u4",
-                "previousLatestVersion": "1.34.1-ubuntu24.04u3"
+                "previousLatestVersion": "1.34.0-ubuntu24.04u5"
               }
             ]
           },
@@ -1289,7 +1289,7 @@
                 "k8sVersion": "1.34",
                 "renovateTag": "name=kubectl, repository=production, os=ubuntu, release=22.04",
                 "latestVersion": "1.34.1-ubuntu22.04u4",
-                "previousLatestVersion": "1.34.1-ubuntu22.04u3"
+                "previousLatestVersion": "1.34.0-ubuntu22.04u5"
               }
             ]
           },
@@ -1299,7 +1299,7 @@
                 "k8sVersion": "1.34",
                 "renovateTag": "name=kubectl, repository=production, os=ubuntu, release=20.04",
                 "latestVersion": "1.34.1-ubuntu20.04u4",
-                "previousLatestVersion": "1.34.1-ubuntu20.04u3"
+                "previousLatestVersion": "1.34.0-ubuntu20.04u5"
               }
             ]
           }
@@ -1310,8 +1310,8 @@
               {
                 "k8sVersion": "1.34",
                 "renovateTag": "name=kubectl, os=azurelinux, release=3.0",
-                "latestVersion": "1.34.0-1.azl3",
-                "previousLatestVersion": "1.34.0-2.azl3"
+                "latestVersion": "1.34.1-4.azl3",
+                "previousLatestVersion": "1.34.0-5.azl3"
               }
             ]
           }
@@ -1437,7 +1437,7 @@
                 "k8sVersion": "1.34",
                 "renovateTag": "name=azure-acr-credential-provider, repository=production, os=ubuntu, release=24.04",
                 "latestVersion": "1.34.1-ubuntu24.04u3",
-                "previousLatestVersion": "1.34.1-ubuntu24.04u2"
+                "previousLatestVersion": "1.34.0-ubuntu24.04u2"
               }
             ]
           },
@@ -1447,7 +1447,7 @@
                 "k8sVersion": "1.34",
                 "renovateTag": "name=azure-acr-credential-provider, repository=production, os=ubuntu, release=22.04",
                 "latestVersion": "1.34.1-ubuntu22.04u3",
-                "previousLatestVersion": "1.34.1-ubuntu22.04u2"
+                "previousLatestVersion": "1.34.0-ubuntu22.04u2"
               }
             ]
           },
@@ -1457,7 +1457,7 @@
                 "k8sVersion": "1.34",
                 "renovateTag": "name=azure-acr-credential-provider, repository=production, os=ubuntu, release=20.04",
                 "latestVersion": "1.34.1-ubuntu20.04u3",
-                "previousLatestVersion": "1.34.1-ubuntu20.04u2"
+                "previousLatestVersion": "1.34.0-ubuntu20.04u2"
               }
             ]
           }
