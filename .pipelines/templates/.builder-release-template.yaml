@@ -128,6 +128,7 @@ steps:
       UA_TOKEN: $(ua-token)
       PUBLIC_KEY_PATH: $(publicVHDSigningKey.secureFilePath)
       PRIVATE_KEY_PATH: $(privateVHDSigningKey.secureFilePath)
+      RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
 
   - bash: make -f packer.mk run-imagecustomizer
     condition: eq(variables['BUILDER'], 'imagecustomizer')
