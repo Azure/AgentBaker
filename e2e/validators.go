@@ -497,17 +497,6 @@ func ValidateContainerRuntimePlugins(ctx context.Context, s *Scenario) {
 	ValidateDirectoryContent(ctx, s, "/var/run/nri", []string{"nri.sock"})
 }
 
-func EnableGPUNPDToggle(ctx context.Context, s *Scenario) {
-	s.T.Helper()
-	command := []string{
-		"set -ex",
-		"echo '{\"enable-npd-gpu-checks\": \"true\"}' | sudo tee /etc/node-problem-detector.d/public-settings.json",
-		"sudo systemctl restart node-problem-detector",
-		"sudo systemctl is-active node-problem-detector",
-	}
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "could not enable GPU NPD toggle and restart the node-problem-detector service")
-}
-
 func ValidateNPDGPUCountPlugin(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 	command := []string{
