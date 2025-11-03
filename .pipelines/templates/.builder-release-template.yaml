@@ -104,14 +104,14 @@ steps:
     name: privateVHDSigningKey
     displayName: Download Private Key
     inputs:
-      secureFile: 'nodeSIGPrivKey.asc'
+      secureFile: 'aks_node_priv.asc'
       retryCount: 2
 
   - task: DownloadSecureFile@1
     name: publicVHDSigningKey
     displayName: Download Public Key
     inputs:
-      secureFile: 'nodeSIGPubKey.asc'
+      secureFile: 'aks_node_pub.asc'
       retryCount: 2
 
   - bash: make -f packer.mk run-packer
