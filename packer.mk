@@ -112,7 +112,7 @@ convert-sig-to-classic-storage-account-blob: az-login
 	@./vhdbuilder/packer/convert-sig-to-classic-storage-account-blob.sh
 
 transfer-vhd-blob: az-login
-	@./vhdbuilder/packer/transfer-vhd-blob.sh
+	@./vhdbuilder/packer/transfer-vhd-blob.sh $(SHOULD_UPLOAD)
 
 hash-and-sign-vhd: az-login
 	@./vhdbuilder/packer/hash-and-sign-vhd.sh
