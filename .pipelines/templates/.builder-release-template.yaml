@@ -100,6 +100,20 @@ steps:
       echo "Set SKU_NAME to $SKU_NAME"
     displayName: Set SKU Name
 
+  - task: DownloadSecureFile@1
+    name: privateVHDSigningKey
+    displayName: Download Private Key
+    inputs:
+      secureFile: 'nodeSIGPrivKey.asc'
+      retryCount: 2
+
+  - task: DownloadSecureFile@1
+    name: publicVHDSigningKey
+    displayName: Download Public Key
+    inputs:
+      secureFile: 'nodeSIGPubKey.asc'
+      retryCount: 2
+
   - bash: make -f packer.mk run-packer
     condition: ne(variables['BUILDER'], 'imagecustomizer')
     displayName: Build VHD
@@ -112,6 +126,8 @@ steps:
       BUILD_ID: $(Build.BuildId)
       BUILD_DEFINITION_NAME: $(Build.DefinitionName)
       UA_TOKEN: $(ua-token)
+      PUBLIC_KEY_PATH:
+      PRIVATE_KEY_PATH:
 
   - bash: make -f packer.mk run-imagecustomizer
     condition: eq(variables['BUILDER'], 'imagecustomizer')
