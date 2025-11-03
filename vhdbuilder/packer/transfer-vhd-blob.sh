@@ -1,5 +1,19 @@
 #!/bin/bash -e
 
+required_env_vars=(
+  "AZURE_MSI_RESOURCE_STRING"
+  "CAPTURED_SIG_VERSION"
+  "CLASSIC_BLOB"
+)
+
+for v in "${required_env_vars[@]}"
+do
+    if [ -z "${!v}" ]; then
+        echo "$v was not set!"
+        exit 1
+    fi
+done
+
 UPLOAD=${1:-false}
 
 export AZCOPY_AUTO_LOGIN_TYPE="MSI"
