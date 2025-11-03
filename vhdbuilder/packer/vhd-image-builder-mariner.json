@@ -705,21 +705,21 @@
       "type": "shell-local",
       "inline": [
         "export RESOURCE_GROUP_NAME=\"${AZURE_RESOURCE_GROUP_NAME}\"",
-        "make -f packer.mk transfer-vhd-blob.sh"
+        "make -f packer.mk transfer-vhd-blob"
       ]
     },
     {
       "type": "shell-local",
       "inline": [
         "export RESOURCE_GROUP_NAME=\"${AZURE_RESOURCE_GROUP_NAME}\"",
-        "make -f packer.mk hash-and-sign-vhd.sh"
+        "make -f packer.mk hash-and-sign-vhd"
       ]
     },
     {
       "type": "shell-local",
       "inline": [
         "export RESOURCE_GROUP_NAME=\"${AZURE_RESOURCE_GROUP_NAME}\"",
-        "make -f packer.mk transfer-vhd-blob.sh"
+        "make -f packer.mk transfer-vhd-blob"
       ]
     }
   ]
