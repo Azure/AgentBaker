@@ -152,7 +152,7 @@ steps:
       KEY_ID=$(gpg --list-secret-key --keyid-format LONG --with-colons 'aks-node' | grep '^sec' | cut -d: -f5)
 
       echo "Signing VHD checksum..."
-      gpg --batch --yes --pinentry-mode loopback --passphrase ${GPG_PASSPHRASE} --local-user "$KEY_ID" --armor --detach-sign ${VHD_RELEASE_CANDIDATE}.sha256
+      gpg --batch --yes --pinentry-mode loopback --passphrase $(GPG_PASSPHRASE) --local-user "$KEY_ID" --armor --detach-sign ${VHD_RELEASE_CANDIDATE}.sha256
 
       echo "Verifying checksum integrity..."
       gpg --verify --yes ${VHD_RELEASE_CANDIDATE}.sha256.asc ${VHD_RELEASE_CANDIDATE}.sha256
