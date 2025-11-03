@@ -18,6 +18,10 @@ if [ ! -f "${CAPTURED_SIG_VERSION}.vhd" ]; then
 fi
 
 echo "Calculating VHD file checksum..."
+if [ -f "${CAPTURED_SIG_VERSION}.sha256" ]; then
+  echo "Removing previous checksum file..."
+  rm "${CAPTURED_SIG_VERSION}.sha256"
+fi
 sha256sum "${CAPTURED_SIG_VERSION}.vhd" > "${CAPTURED_SIG_VERSION}.sha256"
 
 echo "Importing signing keys..."
@@ -28,10 +32,14 @@ echo "Parsing Private Key ID..."
 KEY_ID=$(gpg --list-secret-key --keyid-format LONG --with-colons 'aks-node' | grep '^sec' | cut -d: -f5)
 
 echo "Signing VHD checksum..."
-gpg --batch --yes --pinentry-mode loopback --local-user "$KEY_ID" --armor --detach-sign ${CAPTURED_SIG_VERSION}.sha256
+if [ -f "${CAPTURED_SIG_VERSION}.sha256.asc" ]; then
+  echo "Removing signature file for previous checksum..."
+  rm "${CAPTURED_SIG_VERSION}.sha256.asc"
+fi
+gpg --batch --yes --pinentry-mode loopback --local-user "$KEY_ID" --armor --detach-sign "${CAPTURED_SIG_VERSION}.sha256"
 
 echo "Verifying checksum integrity..."
-gpg --verify --yes ${CAPTURED_SIG_VERSION}.sha256.asc ${CAPTURED_SIG_VERSION}.sha256
+gpg --verify --yes "${CAPTURED_SIG_VERSION}.sha256.asc" "${CAPTURED_SIG_VERSION}.sha256"
 
 
 
