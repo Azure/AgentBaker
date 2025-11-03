@@ -1262,15 +1262,24 @@ func ValidateIPTablesRules(ctx context.Context, s *Scenario) {
 			}
 		}
 
-		s.T.Logf("All rules in table %s matched expected patterns", table)
+		s.T.Logf("Checked rules in table %s against expected patterns", table)
 	}
 
-	require.True(s.T, success, "Rules found that do not match any of the given patterns. See previous log lines for details.")
+	require.True(
+		s.T,
+		success,
+		"Rules found that do not match any of the given patterns. See previous log lines for details. "+
+			"This may indicate an unsupported iptables rule when eBPF host routing is enabled. "+
+			"Contact acndp@microsoft.com for details.",
+	)
 }
 
 // getIPTablesRulesCompatibleWithEBPFHostRouting returns the expected iptables patterns that are accounted for when EBPF host routing is enabled.
-// If tests are failing due to unexpected iptables rules, please check with the Azure container networking team before updating these patterns,
-// to ensure compatibility with EBPF host routing.
+// If tests are failing due to unexpected iptables rules, it is because an iptables rule has been found, that was not accounted for in the implementation
+// of the eBPF host routing feature in Cilium CNI. In eBPF host routing mode, iptables rules in the host network namespace are bypassed for pod
+// traffic. So, any functionality that is built using iptables needs an equivalent non-iptables implementation that works in Cilium's eBPF host routing
+// mode. For guidance on how this may be done, please contact acndp@microsoft.com (Azure Container Networking Dataplane team). Once the feature
+// is supported in eBPF host routing mode, or is blocked from being enabled alongside eBPF host routing mode, you can update this list.
 func getIPTablesRulesCompatibleWithEBPFHostRouting() (map[string][]string, []string) {
 	tablePatterns := map[string][]string{
 		"filter": {
