@@ -25,6 +25,7 @@
   - [`REVISION` in Dalec built container images](#revision-in-dalec-built-container-images)
   - [How to enable auto-merge for a component's patch version update?](#how-to-enable-auto-merge-for-a-components-patch-version-update)
   - [Why are some components' `minor version update` disabled?](#why-are-some-components-minor-version-update-disabled)
+  - [Why the `minor` version is not updated but the `patch` version can be updated?](#why-the-minor-version-is-not-updated-but-the-patch-version-can-be-updated)
   - [Debugging in local environment](#debugging-in-local-environment)
 # TL;DR
 This readme is mainly describing how the renovate.json is constructed and the reasoning behind. If you are adding a new component to be cached in VHD, please refer to this [Readme-components](../parts/linux/cloud-init/artifacts/README-COMPONENTS.md) for tutorial. If you are onboarding a newly added component to Renovate automatic updates, you can jump to the [Hands-on guide and FAQ](#hands-on-guide-and-faq).
@@ -155,14 +156,14 @@ There are some default managers in Renovate that one can use to monitor supporte
 - `description`: string description for human readability.
 - `fileMatch`: the path of the manifest file(s) it needs to parse.
 - `matchStringsStrategy`: controls behavior when multiple matchStrings values are provided. Three options are available: any (default), recursive, combination. `any` is used here which means each provided matchString will be matched individually to the content of the `packageFile`. Check [this link](https://docs.renovatebot.com/configuration-options/#matchstringsstrategy) to learn more about `matchStringsStrategy`.
-- `matchStrings`: each entry in this array is a regex that will parse the necessary information and assign the required values to some specific named capture group. In this example, we parse the `"renovateTag": "registry=[some registry URL], name=[full path of the container image]" ...`, from components.json. And we assign 
-  - the value of `registry` to a named capture group `registryUrl`, 
+- `matchStrings`: each entry in this array is a regex that will parse the necessary information and assign the required values to some specific named capture group. In this example, we parse the `"renovateTag": "registry=[some registry URL], name=[full path of the container image]" ...`, from components.json. And we assign
+  - the value of `registry` to a named capture group `registryUrl`,
   - the value of `name` to a named capture group `packageName`
   - the value of `latestVersion` to a named capture group `currentValue`
   - the value of `previousLatestVersion` to a named capture group `depType`. Here we are borrowing the reserved variable name `depType` to store our `previousLatestVersion`. We do this as a hacky way because Renovate doesn't have a custom variable name for us to store this custom value for next step use.
   - Note that all the named capture group variables (`registryUrl`, etc.) listed above are reserved by Renovate, which means Renovate expects the regex should provide correct values to those variables so that Renovate can do the auto-update work as expected. Depending on user's case, the values of the variables can be defined in this block as static values, or it could extract the values from components.json so that we can keep the custom manager rule more abstractive to suit more cases. The rules are quite complicated, you will need to read the official Renovate doc to ensure everything is correct.
 - `dataSourceTemplate`: allows you to define a custom template for constructing the datasource URL or other relevant information for fetching dependency updates. In this example, it's detecting ContainerImages and the `datasourceTemplate` type of it is `docker`. (I guess it's because docker is the earliest well-known implementation of container runtime)
-- `autoReplaceStringTemplate`: allows you to define a custom template for automatically replacing version strings or other relevant information in your dependency files. This string template uses `Handlebars`-like syntax. Please read the official doc for more details. In this example, we use `autoReplaceStringTemplate` to replace the current version to `previousLatestVersion` and then update the latest version, which is captured from the datasource `registryURL`, to `latestVersion`. We are using this as a hacky way to keep both the latest and previous latest versions. 
+- `autoReplaceStringTemplate`: allows you to define a custom template for automatically replacing version strings or other relevant information in your dependency files. This string template uses `Handlebars`-like syntax. Please read the official doc for more details. In this example, we use `autoReplaceStringTemplate` to replace the current version to `previousLatestVersion` and then update the latest version, which is captured from the datasource `registryURL`, to `latestVersion`. We are using this as a hacky way to keep both the latest and previous latest versions.
   - Additional information: we borrow the reserved variable `depType` to store the current version in the `matchStrings`. And we add a `if` condition to check if we should add a `previousLatestVersion` back to the string. In short, if there are both `latestVersion` and `previousLatestVersion` in the package config in components.json, it will update both values. If there is only `latestVersion`, it will only update that version.
 
 In 1 sentence to summarize, this custom manager monitors specific container images that match the matchStrings regex, extracts necessary metadata, directs Renovate to query a specific datasource "docker", and updates the components.json accordingly.
@@ -279,7 +280,7 @@ Renovate will actually convert this plain text file to a JSON file which looks l
       {
         "version": "Architecture: amd64"
       },
-      
+
       ]
 }
 ```
@@ -323,7 +324,7 @@ Depending on what kind of component you are going to onboard.
   - https://packages.microsoft.com/ubuntu/24.04/prod/dists/noble/main/binary-amd64/Packages
 
   Note: We need to specify one and only one datasource URL for each custom manager and here we are using the `amd64` ones. It could also be `arm64`. And we are assuming if `amd64` package is updated, `arm64` package is also updated. We know the assumption is not always valid. But even only `amd64` is updated but not `arm64`, we will still be able to catch it in the VHD build tests so it should be fine.
-  
+
   If your package is not managed by PMC, you may need to create your own custom manager and custom datasource. If this is the case, you will need to go through this doc to understand how.
 
 **Step 2**
@@ -376,9 +377,9 @@ Explanations as below.
 2. The `packageName` should be one of those in the list.
 3. In `extractVersion`, we use a regex to extract only part of the tag as the version to be stored in `latestVersion` in `components.json`.
 
-Take `kubernetes-binaries` as an example. If you view all the tags from this list https://mcr.microsoft.com/v2/oss/binaries/kubernetes/kubernetes-node/tags/list?n=10000, you will notice that the format of the tags is quite varied, like, `v1.27.100-akslts-linux-amd64` , `v1.30.0-linux-amd64`, `v1.31.1-linux-arm64`. This regex is to capture only the values before the second-to-last dash (-). For example, if the tag is `v1.27.100-akslts-linux-amd64`, we capture `v1.27.100-akslts` as the version to be stored in `latestVersion` in `components.json`. If the tag is `v1.30.0-linux-amd64`, we capture `v1.30.0`. We do not capture the CPU architecture (amd64|arm64) to keep it generic, avoiding the need to define the same thing for both `amd64` and `arm64`. 
+Take `kubernetes-binaries` as an example. If you view all the tags from this list https://mcr.microsoft.com/v2/oss/binaries/kubernetes/kubernetes-node/tags/list?n=10000, you will notice that the format of the tags is quite varied, like, `v1.27.100-akslts-linux-amd64` , `v1.30.0-linux-amd64`, `v1.31.1-linux-arm64`. This regex is to capture only the values before the second-to-last dash (-). For example, if the tag is `v1.27.100-akslts-linux-amd64`, we capture `v1.27.100-akslts` as the version to be stored in `latestVersion` in `components.json`. If the tag is `v1.30.0-linux-amd64`, we capture `v1.30.0`. We do not capture the CPU architecture (amd64|arm64) to keep it generic, avoiding the need to define the same thing for both `amd64` and `arm64`.
 
-Packages in `components.json` are onboarded now: `oss/binaries/kubernetes/kubernetes-node`, `oss/binaries/kubernetes/azure-acr-credential-provider`, etc. You will see a new tag `OCI_registry` in `renovateTag`. 
+Packages in `components.json` are onboarded now: `oss/binaries/kubernetes/kubernetes-node`, `oss/binaries/kubernetes/azure-acr-credential-provider`, etc. You will see a new tag `OCI_registry` in `renovateTag`.
 
 Continue using `kubernetes-binaries` as an example. Here is a block of version information defined as follows.
 ```
@@ -398,7 +399,7 @@ And next you will see
 ```
 "downloadURL": "mcr.microsoft.com/oss/binaries/kubernetes/kubernetes-node:${version}-linux-${CPU_ARCH}"
 ```
-where 
+where
 - `${version}` will be resolved at runtime with the `latestVersion` and `previousLatestVersion` defined above.
 - `${CPU_ARCH}` will be resolved at runtime depending on the CPU architecture of the Node (VM) under provisioning.
 
@@ -411,12 +412,12 @@ The upstream Azure Cloud Native team has confirmed these container images will b
 
 Notes:
 
-- This regex expects an optional leading v, three numeric version components, and a numeric revision (the prerelease) separated by a final hyphen. 
+- This regex expects an optional leading v, three numeric version components, and a numeric revision (the prerelease) separated by a final hyphen.
   Example valid tags: `v0.1.15-4`, `v1.2.3-12345678`.
 - When you add a new Dalec-built container image, you don't need to add its package name to `oss/v2/**` package rule because the `oss/v2/**` wildcard already covers all Dalec images.
 
 ## How to enable auto-merge for a component's patch version update?
-This is a common scenario where we want the PR to be merged automatically when a PR is created for a patch version update. You can refer to `moby-runc` and `moby-containerd` in `AgentBaker/.github/renovate.json` as an example. 
+This is a common scenario where we want the PR to be merged automatically when a PR is created for a patch version update. You can refer to `moby-runc` and `moby-containerd` in `AgentBaker/.github/renovate.json` as an example.
 
 ```
    {
@@ -438,16 +439,60 @@ The config includes:
 - `assignees` and `reviewers`: The same group of GitHub IDs who will be assigned to and can review and approve the automatically created PRs.
 
 ## Why are some components' `minor version update` disabled?
-For many components which have defined multiple versions cached in the components.json, we have disabled the `minor version update`. The reason is that Renovate would create many unncessary PRs. For example if a component has cached `v0.1.1` and `v0.2.1`, and `minor version update` is enabled, when a new minor version `v0.3.1` is released, Renovate will create 2 PRs, namely `v0.1.1 update to v0.3.1` and `v0.2.1 update to v0.3.1`. Both PRs will try to update to the same version `v0.3.1`. This is usually not intended because the onwers would like to cache multiple versions. Therefore, by default, we have disabled `minor version update` for such components.
+For many components which have defined multiple versions cached in the components.json, we have disabled the `minor version update`.
+The reason is that Renovate would create many unncessary PRs.
+For example if a component has cached `v0.1.1` and `v0.2.1`, and `minor version update` is enabled, when a new minor version `v0.3.1` is released, Renovate will create 2 PRs, namely `v0.1.1 update to v0.3.1` and `v0.2.1 update to v0.3.1`.
+Both PRs will try to update to the same version `v0.3.1`.
+This is usually not intended because the onwers would like to cache multiple versions.
+Therefore, by default, we have disabled `minor version update` for such components.
 
-## Debugging in local environment
+## Why the `minor` version is not updated but the `patch` version can be updated?
+By default, `ignoreUnstable` is set to `true`.
+This means Renovate will generally not update a stable version of a package to an unstable version.
+Unstable versions typically include pre-release identifiers like -alpha, -beta, -rc, or similar tags.
+Take datasource `rpm` as an example.
+The version format in the RPM repository `https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata` looks like `0.18.0-1.azl3` and Renovate sees it as unstable.
+That's why for such case we need to set `ignoreUnstable` to `false` so that Renovate can pick it up for `minor` update.
+```
+    {
+      "matchDatasources": [
+        "rpm"
+      ],
+      "versioning": "regex:(?<major>\\d+)(\\.(?<minor>\\d+))?(\\.(?<patch>\\d+))?(-(?<prerelease>.*))?$",
+      "automerge": false,
+      "enabled": true,
+      "ignoreUnstable": false
+    },
+```
+
+## Debugging in a local environment
+You can exercise Renovate in three progressively more powerful modes:
+
+1. Mend-hosted Renovate app (no source changes)
+  - Minimal setup: push `renovate.json` and `components.json`; the service runs automatically. Use a fork repository if you want to safely modify and test the configuration.
+  - Logs available up to `DEBUG`.
+  - No true dry-run: it will create/update branches and PRs.
+2. Local CLI run (consume Renovate)
+  - Requires Node.js and `npm` (or `pnpm`).
+  - Supports `--dry-run` and log levels up to `TRACE`.
+  - Treats your repo as input only; you can't modify Renovate source.
+3. (Advanced) Build & run Renovate from source
+  - Use the upstream repo and its VS Code dev container for a ready toolchain.
+  - Full ability to change code, add instrumentation, and set breakpoints.
+  - Ideal when you suspect a Renovate bug or need custom test cases.
+  - Pair with an LLM (e.g. GitHub Copilot) to generate focused tests quickly.
+
+### 1. Steps for 1) debug through mend.io hosted web app
+Please read this Q&A [Okay, I just have 5 minutes. Please just tell me how to onboard a new package/container now to Renovate.json for auto-update.](#okay-i-just-have-5-minutes-please-just-tell-me-how-to-onboard-a-new-packagecontainer-now-to-renovatejson-for-auto-update)
+
+### 2. Running Renovate in local environment
 To debug with verbose traces, it's recommended to set up a local environment for testing.
 Below are the steps to achieve this, using Windows PowerShell as an example. Other options, such as using a docker image, are also available, but you will need to figure out how to use them.
 1. Open a PowerShell terminal and navigate to the root directory of your source code.
 2. Set the LOG_LEVEL environment variable to the desired level. For example:
    - `$Env:LOG_LEVEL = "debug"` for debug logs.
    - `$Env:LOG_LEVEL = "trace"` for the most verbose logs. Refer to the official documentation for other options.
-3. Assuming you have `npm` installed, run this command 
+3. Assuming you have `npm` installed, run this command
    ```
    npx renovate --platform=local --dry-run=true`
    ```
@@ -455,6 +500,7 @@ Below are the steps to achieve this, using Windows PowerShell as an example. Oth
    - Renovate will automatically locate the required Renovate config file, which is `.github/renovate.json` in this case.
 
 **Example 1: Get log level `info` from a local environment.**
+
 ```
 PS C:\Users\devinwon\git\AgentBaker> npx renovate --platform=local --dry-run=true
  WARN: cli config dryRun property has been changed to full
@@ -494,7 +540,7 @@ In the `output.txt` of my case, I found this,
 DEBUG: Response has failed validation (repository=local)
        "err": {
          "message": "Schema error",
-         "stack": "ZodError: Schema error\n    at Object.get error [as error] 
+         "stack": "ZodError: Schema error\n    at Object.get error [as error]
 ...
 ...
 TRACE: Dependency lookup success (repository=local)
@@ -509,8 +555,109 @@ TRACE: Dependency lookup success (repository=local)
          ]
        }
 ```
-where `{"releases": {"version": "1.32.0-ubuntu18.04u3"}}` is not the format I want. The correct format should be 
+where `{"releases": {"version": "1.32.0-ubuntu18.04u3"}}` is not the format I want. The correct format should be
 ```
 {"releases": [{"version": "1.32.0-ubuntu18.04u3"}]}
 ```
 This demonstrates how to identify and debug issues in Renovate configurations.
+
+### 3. Build/Run Renovate codes in local environment
+This section covers two scenarios: (a) running Renovate against this repository, and (b) hacking on the Renovate source itself.
+
+References:
+- Source repo: https://github.com/renovatebot/renovate
+- Local development docs: https://github.com/renovatebot/renovate/blob/main/docs/development/local-development.md
+
+Prerequisites:
+- Node.js (prefer a current LTS, e.g. 20+)
+- pnpm installed (`npm i -g pnpm` if needed)
+- A repo containing `.github/renovate.json` and `components.json` (e.g. `Azure/AgentBaker`)
+- (Optional) Dev Container: opening the Renovate repo in VS Code with the included devcontainer auto-installs toolchain.
+
+Typical workflows:
+1. Install dependencies (only needed when modifying Renovate itself): `pnpm install`
+2. Build Renovate (only if you changed its source): `pnpm build`
+3. Run Renovate against a target repo in dry-run with debug logging:
+  - Linux/macOS: `LOG_LEVEL=debug pnpm start Azure/AgentBaker --dry-run`
+  - Windows PowerShell: `$Env:LOG_LEVEL='debug'; pnpm start Azure/AgentBaker --dry-run`
+4. Increase verbosity for deeper tracing: set `LOG_LEVEL=trace`.
+5. To attach a debugger, create `.vscode/launch.json` (or update settings) with a Node launch config targeting the `pnpm start` script, then set breakpoints in the Renovate source.
+
+Notes:
+- `--dry-run` performs datasource lookups and generates would-be changes without creating branches or PRs.
+- Use a fork (e.g. `YourGitHubID/AgentBaker`) if you want to test write operations safely.
+- If only consuming Renovate (not modifying its code) you can skip `pnpm build`.
+- You can ask GitHub Copilot to scaffold a debug launch config if desired.
+
+#### Using GitHub Copilot (or another AI assistant) to debug Renovate across repos
+
+Here’s a real example of using an AI assistant to track down a stubborn “why won’t this minor update PR appear?” problem.
+
+Context
+- Renovate source (where we run / instrument code): https://github.com/renovatebot/renovate
+- Target repo (actual config + manifest): https://github.com/devinwong/AgentBaker
+
+What looked odd
+- Patch updates for `nvidia-device-plugin` (e.g. `0.18.0-0.azl3` → `0.18.0-0.azl3`) showed up fine.
+- Minor jump `0.17.4-3.azl3` → `0.18.0-1.azl3` never produced a PR.
+- Dry‑runs + Mend.io runs gave no obvious clues.
+
+Prompt given to Copilot (Agent mode, Renovate repo open)
+```
+In the components.json, there are 2 nvidia-device-plugin, one is with version 0.17.4-3.azl3 and the other one is 0.18.0-0.azl3. For the 0.18.0-0.azl3 one, it can create patch update PR properly but the 0.17.4-3.azl3 one can't create a PR to update minor version. Something must be wrong in the lookupUpdates function. Could you help debug? The renovate.json that renovate requires is in a remote repository devinwong/AgentBaker
+```
+
+Why being specific helps
+- Avoids “spray and pray” logging everywhere.
+- Focuses investigation on `lookupUpdates` instead of generic code paths.
+- Forces the assistant to fetch the real remote `renovate.json` instead of inventing one.
+
+What the assistant did
+1. Pulled remote config + components data.
+2. Inserted trace points around update classification.
+3. Spun up targeted tests for the `rpm` datasource path.
+4. Compared candidate lists before/after stability filtering.
+
+Diagnosis (simplified)
+```
+RPM style versions with the distro suffix (e.g. 0.17.4-3.azl3) were treated as “unstable” because default ignoreUnstable=true logic over‑classified them, filtering out minor candidates.
+```
+
+I knew we're on the right track—the release appears in the `rpm` datasource lookup, so it's very likely that a configuration setting is missing.
+
+I then asked Copilot how to force these AzureLinux rpm versions to be considered stable. It suggested adding a scoped package rule:
+
+```
+Add a package rule that sets ignoreUnstable to false for nvidia-device-plugin. When ignoreUnstable is false, Renovate returns the greater-than candidates before the unstable filtering block, so 0.18.0-1.azl3 will survive and classify as a minor update from 0.17.4-3.azl3.
+```
+
+Example config block:
+
+```
+{
+  "packageRules": [
+    {
+      "matchDatasources": ["rpm"],
+      "matchDepNames": ["nvidia-device-plugin"],
+      "ignoreUnstable": false
+    }
+  ]
+}
+```
+
+After that, the expected minor PR appears. Patch behavior unchanged.
+
+Practical takeaways
+- Non‑semver or suffixed versions can be misclassified—always confirm stability logic.
+- `LOG_LEVEL=trace` is your friend for seeing pre‑filter vs post‑filter candidates.
+- Precise version tuples + suspected function name speed up AI assistance dramatically.
+- Most “mysterious” Renovate problems boil down to one small config toggle.
+
+Quick checklist for similar issues
+1. Reproduce with `--dry-run` + `LOG_LEVEL=trace`.
+2. Log raw candidate versions before filtering.
+3. Review package rules + datasource versioning strategy.
+4. Adjust `ignoreUnstable` / `versioning` or add a scoped rule.
+5. Re‑run and confirm the PR type appears.
+
+In short: give the AI tight context, let it instrument the right spot, apply a surgical config fix, move on.
