@@ -697,8 +697,8 @@
       "type": "shell-local",
       "inline": [
         "export RESOURCE_GROUP_NAME=\"${AZURE_RESOURCE_GROUP_NAME}\"",
-        "export CAPTURED_SIG_VERSION=\"$(cat vhdbuilder/packer/settings.json | grep \"captured_sig_version\" | awk -F':' '{print $2}' | awk -F'\"' '{print $2}')",
-        "export SIG_IMAGE_NAME=\"$(cat vhdbuilder/packer/settings.json | grep \"sig_image_name\" | awk -F':' '{print $2}' | awk -F'\"' '{print $2}')",
+        "export CAPTURED_SIG_VERSION=\"$(cat vhdbuilder/packer/settings.json | grep \"captured_sig_version\" | awk -F':' '{print $2}' | awk -F'\"' '{print $2}')\"",
+        "export SIG_IMAGE_NAME=\"$(cat vhdbuilder/packer/settings.json | grep \"sig_image_name\" | awk -F':' '{print $2}' | awk -F'\"' '{print $2}')\"",
         "make -f packer.mk convert-sig-to-classic-storage-account-blob"
       ]
     },
