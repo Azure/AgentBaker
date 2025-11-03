@@ -126,8 +126,8 @@ steps:
       BUILD_ID: $(Build.BuildId)
       BUILD_DEFINITION_NAME: $(Build.DefinitionName)
       UA_TOKEN: $(ua-token)
-      PUBLIC_KEY_PATH:
-      PRIVATE_KEY_PATH:
+      PUBLIC_KEY_PATH: $(publicVHDSigningKey.secureFilePath)
+      PRIVATE_KEY_PATH: $(privateVHDSigningKey.secureFilePath)
 
   - bash: make -f packer.mk run-imagecustomizer
     condition: eq(variables['BUILDER'], 'imagecustomizer')
