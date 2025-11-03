@@ -22,6 +22,7 @@ export AZCOPY_CONCURRENCY_VALUE="AUTO"
 
 if [ "${UPLOAD}" == "true"]; then
   azcopy copy "${CAPTURED_SIG_VERSION}.vhd" "${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd" --overwrite=true
+  rm "${CAPTURED_SIG_VERSION}.vhd"
 else
   azcopy copy "${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd" "${CAPTURED_SIG_VERSION}.vhd"
 fi

@@ -31,6 +31,7 @@ KEY_ID=$(gpg --list-secret-key --keyid-format LONG --with-colons 'aks-node' | gr
 echo "Signing VHD checksum..."
 gpg --batch --yes --pinentry-mode loopback --local-user "$KEY_ID" --armor --detach-sign ${CAPTURED_SIG_VERSION}.sha256
 
+echo "Verifying checksum integrity..."
 gpg --verify --yes ${CAPTURED_SIG_VERSION}.sha256.asc ${CAPTURED_SIG_VERSION}.sha256
 
 HASH_FILE=""
