@@ -1285,10 +1285,6 @@ func getIPTablesRulesCompatibleWithEBPFHostRouting() (map[string][]string, []str
 			`-A FORWARD -d 168\.63\.129\.16/32 -p tcp -m tcp --dport 32526 -j DROP`,
 			`-A FORWARD -d 168\.63\.129\.16/32 -p tcp -m tcp --dport 80 -j DROP`,
 			`-A OUTPUT -j KUBE-FIREWALL`,
-			`-A KUBE-FIREWALL ! -s 127\.0\.0\.0/8 -d 127\.0\.0\.0/8 -m comment --comment "block incoming localnet connections" -m conntrack ! --ctstate RELATED,ESTABLISHED,DNAT -j DROP`,
-			`-A KUBE-FORWARD -m conntrack --ctstate INVALID -j DROP`,
-			`-A KUBE-FORWARD -m conntrack --ctstate INVALID -m nfacct --nfacct-name  ct_state_invalid_dropped_pkts -j DROP`,
-			`-A KUBE-POSTROUTING -m mark ! --mark 0x4000/0x4000 -j RETURN`,
 		},
 		"mangle": {
 			`-A FORWARD -d 168\.63\.129\.16/32 -p tcp -m tcp --dport 80 -j DROP`,
@@ -1308,13 +1304,11 @@ func getIPTablesRulesCompatibleWithEBPFHostRouting() (map[string][]string, []str
 			`^.*--comment.*kubernetes service nodeports`,
 			`^.*--comment.*kubernetes:https`,
 			`^.*--comment.*ip-masq-agent`,
-			`-A KUBE-MARK-DROP -j MARK --set-xmark 0x8000/0x8000`,
 			`^.*0x4000/0x4000`,
 			`-A POSTROUTING -j SWIFT`,
 			`-A SWIFT -s`,
 			`-A POSTROUTING -j SWIFT-POSTROUTING`,
 			`-A SWIFT-POSTROUTING -s`,
-			`-A KUBE-POSTROUTING -j RETURN`,
 		},
 		"raw": {
 			`^-A (PREROUTING|OUTPUT) -d 169\.254\.10\.(10|11)\/32 -p (tcp|udp) -m comment --comment "localdns: skip conntrack" -m (tcp|udp) --dport 53 -j NOTRACK$`,
@@ -1329,6 +1323,7 @@ func getIPTablesRulesCompatibleWithEBPFHostRouting() (map[string][]string, []str
 	globalPatterns := []string{
 		`^-N .*`,
 		`^-P .*`,
+		`^-A (KUBE-SERVICES|KUBE-EXTERNAL-SERVICES|KUBE-NODEPORTS|KUBE-POSTROUTING|KUBE-MARK-MASQ|KUBE-FORWARD|KUBE-PROXY-FIREWALL|KUBE-PROXY-CANARY|KUBE-FIREWALL|KUBE-MARK-DROP) .*`,
 		`-A FORWARD ! -s (?:\d{1,3}\.){3}\d{1,3}/32 -d 169.254.169.254/32 -p tcp -m tcp --dport 80 -m comment --comment "AKS managed: added by AgentBaker ensureIMDSRestriction for IMDS restriction feature" -j DROP`,
 	}
 
