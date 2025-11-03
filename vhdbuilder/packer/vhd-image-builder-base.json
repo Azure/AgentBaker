@@ -748,7 +748,7 @@
       "type": "shell-local",
       "inline": [
         "export RESOURCE_GROUP_NAME=\"${AZURE_RESOURCE_GROUP_NAME}\"",
-        "make -f transfer-vhd-blob.sh"
+        "make -f packer.mk transfer-vhd-blob.sh"
       ]
     },
     {
@@ -762,7 +762,7 @@
       "type": "shell-local",
       "inline": [
         "export RESOURCE_GROUP_NAME=\"${AZURE_RESOURCE_GROUP_NAME}\"",
-        "make -f transfer-vhd-blob.sh"
+        "make -f packer.mk transfer-vhd-blob.sh"
       ]
     }
   ]
