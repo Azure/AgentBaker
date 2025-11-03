@@ -2,6 +2,9 @@
 
 required_env_vars=(
   "CAPTURED_SIG_VERSION"
+  "GPG_PASSPHRASE"
+  "PUBLIC_KEY_PATH"
+  "PRIVATE_KEY_PATH"
 )
 
 for v in "${required_env_vars[@]}"
@@ -36,7 +39,7 @@ if [ -f "${CAPTURED_SIG_VERSION}.sha256.asc" ]; then
   echo "Removing signature file for previous checksum..."
   rm "${CAPTURED_SIG_VERSION}.sha256.asc"
 fi
-gpg --batch --yes --pinentry-mode loopback --local-user "$KEY_ID" --armor --detach-sign "${CAPTURED_SIG_VERSION}.sha256"
+gpg --batch --yes --pinentry-mode loopback --passphrase "${GPG_PASSPHRASE}" --local-user "${KEY_ID}" --armor --detach-sign "${CAPTURED_SIG_VERSION}.sha256"
 
 echo "Verifying checksum integrity..."
 gpg --verify --yes "${CAPTURED_SIG_VERSION}.sha256.asc" "${CAPTURED_SIG_VERSION}.sha256"
