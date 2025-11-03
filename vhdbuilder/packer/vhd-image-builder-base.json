@@ -747,18 +747,21 @@
     {
       "type": "shell-local",
       "inline": [
+        "export CAPTURED_SIG_VERSION=\"$(cat vhdbuilder/packer/settings.json | grep \"captured_sig_version\" | awk -F':' '{print $2}' | awk -F'\"' '{print $2}')\"",
         "make -f packer.mk transfer-vhd-blob"
       ]
     },
     {
       "type": "shell-local",
       "inline": [
+        "export CAPTURED_SIG_VERSION=\"$(cat vhdbuilder/packer/settings.json | grep \"captured_sig_version\" | awk -F':' '{print $2}' | awk -F'\"' '{print $2}')\"",
         "make -f packer.mk hash-and-sign-vhd"
       ]
     },
     {
       "type": "shell-local",
       "inline": [
+        "export CAPTURED_SIG_VERSION=\"$(cat vhdbuilder/packer/settings.json | grep \"captured_sig_version\" | awk -F':' '{print $2}' | awk -F'\"' '{print $2}')\"",
         "make -f packer.mk transfer-vhd-blob"
       ]
     }
