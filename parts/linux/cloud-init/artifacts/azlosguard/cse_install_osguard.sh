@@ -25,6 +25,10 @@ installRPMPackageFromFile() {
 
     rpmFile=$(find "${downloadDir}" -maxdepth 1 -name "${packagePrefix}" -print -quit 2>/dev/null) || rpmFile=""
     if [ -z "${rpmFile}" ]; then
+        if ! fallbackToKubeBinaryInstall "${packageName}" "${desiredVersion}"; then
+            echo "Successfully installed ${packageName} version ${desiredVersion} from binary fallback"
+            exit 0
+        fi
         # query all package versions and get the latest version for matching k8s version
         fullPackageVersion=$(tdnf list ${packageName} | grep ${desiredVersion}- | awk '{print $2}' | sort -V | tail -n 1)
         if [ -z "${fullPackageVersion}" ]; then

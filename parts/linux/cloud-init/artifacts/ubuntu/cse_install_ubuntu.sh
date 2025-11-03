@@ -266,6 +266,11 @@ installPkgWithAptGet() {
     # if no deb file with desired version found then try fetching from packages.microsoft repo
     debFile=$(find "${downloadDir}" -maxdepth 1 -name "${packagePrefix}" -print -quit 2>/dev/null) || debFile=""
     if [ -z "${debFile}" ]; then
+        if ! fallbackToKubeBinaryInstall "${packageName}" "${packageVersion}"; then
+            echo "Successfully installed ${packageName} version ${packageVersion} from binary fallback"
+            exit 0
+        fi
+
         # query all package versions and get the latest version for matching k8s version
         updateAptWithMicrosoftPkg
         fullPackageVersion=$(apt list ${packageName} --all-versions | grep ${packageVersion}- | awk '{print $2}' | sort -V | tail -n 1)

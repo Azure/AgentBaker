@@ -911,6 +911,23 @@ getLatestPkgVersionFromK8sVersion() {
     echo $PACKAGE_VERSION
 }
 
+# installs kube binary if cached
+fallbackToKubeBinaryInstall() {
+    packageName="${1:-}"
+    packageVersion="${2:-}"
+    if [ "${packageName}" = "kubelet" ] || [ "${packageName}" = "kubectl" ]; then
+        if [ -f "/usr/local/bin/${packageName}-${packageVersion}" ]; then
+            mv "/usr/local/bin/${packageName}-${packageVersion}" "/usr/local/bin/${packageName}"
+            chmod a+x /usr/local/bin/${packageName}
+            rm -rf /usr/local/bin/${packageName}-* &
+            return 0
+        else
+            echo "No binary fallback found for ${packageName} version ${packageVersion}"
+            return 1
+        fi
+    fi
+}
+
 # adds the specified LABEL_STRING (which should be in the form of 'label=value') to KUBELET_NODE_LABELS
 addKubeletNodeLabel() {
     local LABEL_STRING=$1
