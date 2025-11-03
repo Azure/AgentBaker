@@ -739,6 +739,7 @@
     {
       "type": "shell-local",
       "inline": [
+        "echo \"present working directory is : $PWD\"",
         "export RESOURCE_GROUP_NAME=\"${AZURE_RESOURCE_GROUP_NAME}\"",
         "make -f packer.mk convert-sig-to-classic-storage-account-blob"
       ]
