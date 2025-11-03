@@ -6,20 +6,19 @@ required_env_vars=(
 
 for v in "${required_env_vars[@]}"
 do
-    if [ -z "${!v}" ]; then
-        echo "$v was not set!"
-        exit 1
-    fi
+  if [ -z "${!v}" ]; then
+      echo "$v was not set!"
+      exit 1
+  fi
 done
 
 if [ ! -f "${CAPTURED_SIG_VERSION}.vhd" ]; then
-  echo "Error: file ${VHD_FILE} not found"
+  echo "Error: VHD file not found"
   exit 1
 fi
 
-echo "Calculating checksum..."
+echo "Calculating VHD file checksum..."
 sha256sum "${CAPTURED_SIG_VERSION}.vhd" > "${CAPTURED_SIG_VERSION}.sha256"
-echo "VHD file checksum created"
 
 echo "Importing signing keys..."
 gpg --batch --yes --pinentry-mode loopback --import ${PUBLIC_KEY_PATH}
@@ -33,9 +32,6 @@ gpg --batch --yes --pinentry-mode loopback --local-user "$KEY_ID" --armor --deta
 
 echo "Verifying checksum integrity..."
 gpg --verify --yes ${CAPTURED_SIG_VERSION}.sha256.asc ${CAPTURED_SIG_VERSION}.sha256
-
-HASH_FILE=""
-SIG_FILE=""
 
 
 
