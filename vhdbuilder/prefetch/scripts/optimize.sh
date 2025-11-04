@@ -24,10 +24,7 @@ run_image_builder_template() {
         return 0
     fi
 
-    sed -e "s#<LOCATION>#${LOCATION}#g" \
-        -e "s#<IMAGE_BUILDER_IDENTITY_ID>#${IMAGE_BUILDER_IDENTITY_ID}#g" \
-        -e "s#<CAPTURED_SIG_VERSION>#${CAPTURED_SIG_VERSION}#g" \
-        ../templates/optimize.json > input.json
+    sed -e "s#<LOCATION>#${LOCATION}#g" -e "s#<IMAGE_BUILDER_IDENTITY_ID>#${IMAGE_BUILDER_IDENTITY_ID}#g" -e "s#<CAPTURED_SIG_VERSION>#${CAPTURED_SIG_VERSION}#g" ../templates/optimize.json > input.json
 
     echo "creating image builder template ${IMAGE_BUILDER_TEMPLATE_NAME}..."
     az resource create -n" ${IMAGE_BUILDER_TEMPLATE_NAME}" \
