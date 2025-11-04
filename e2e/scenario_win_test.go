@@ -350,9 +350,9 @@ func Test_Windows2022_VHDCaching(t *testing.T) {
 			VHD:        config.VHDWindows2022Containerd, // gen1 is default for windows 2022
 			VHDCaching: true,
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				// If the VHD is misconfigured (e.g. incorrect network settings), deploying multiple instances may cause conflicts.
-				// This validation can be unreliable and may not catch issues on every run, as the current framework creates only a single VM per test.
-				// False positives are more likely than false negatives in this scenario.
+				// If the VHD has incorrect settings (like network misconfiguration), deploying more than one VM may lead to conflicts.
+				// This check is not always reliable, since only one VM is created per test run in the current framework.
+				// Therefore, tests may incorrectly pass more often than they fail in these cases.
 				vmss.SKU.Capacity = to.Ptr[int64](2)
 			},
 			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
