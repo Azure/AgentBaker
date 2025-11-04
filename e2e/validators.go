@@ -606,6 +606,94 @@ func ValidateNPDIBLinkFlappingAfterFailure(ctx context.Context, s *Scenario) {
 		expectedMessage, "expected IBLinkFlapping message to indicate flapping")
 }
 
+func ValidateNPDUnhealthyNvidiaDevicePlugin(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	command := []string{
+		"set -ex",
+		// Check NPD unhealthy Nvidia device plugin config exists
+		"test -f /etc/node-problem-detector.d/custom-plugin-monitor/gpu_checks/custom-plugin-nvidia-device-plugin.json",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "NPD Nvidia device plugin configuration does not exist")
+}
+
+func ValidateNPDUnhealthyNvidiaDevicePluginCondition(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	// Validate that NPD is reporting healthy Nvidia device plugin
+	validateNPDCondition(ctx, s, "UnhealthyNvidiaDevicePlugin", "HealthyNvidiaDevicePlugin", corev1.ConditionFalse,
+		"NVIDIA device plugin is running properly", "expected UnhealthyNvidiaDevicePlugin message to indicate healthy status")
+}
+
+func ValidateNPDUnhealthyNvidiaDevicePluginAfterFailure(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	// Stop Nvidia device plugin systemd service to simulate failure
+	command := []string{
+		"set -ex",
+		"sudo systemctl stop nvidia-device-plugin.service",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to stop Nvidia device plugin service")
+
+	// Validate that NPD reports unhealthy Nvidia device plugin
+	validateNPDCondition(ctx, s, "UnhealthyNvidiaDevicePlugin", "UnhealthyNvidiaDevicePlugin", corev1.ConditionTrue,
+		"Systemd service nvidia-device-plugin is not active", "expected UnhealthyNvidiaDevicePlugin message to indicate unhealthy status")
+
+	// Restart Nvidia device plugin systemd service
+	command = []string{
+		"set -ex",
+		"sudo systemctl restart nvidia-device-plugin.service || true",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to restart Nvidia device plugin service")
+}
+
+func ValidateNPDUnhealthyNvidiaDCGMServices(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	command := []string{
+		"set -ex",
+		// Check NPD unhealthy Nvidia DCGM services config exists
+		"test -f /etc/node-problem-detector.d/custom-plugin-monitor/gpu_checks/custom-plugin-nvidia-dcgm-services.json",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "NPD Nvidia DCGM services configuration does not exist")
+}
+
+func ValidateNPDUnhealthyNvidiaDCGMServicesCondition(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	// Validate that NPD is reporting healthy Nvidia DCGM services
+	validateNPDCondition(ctx, s, "UnhealthyNvidiaDCGMServices", "HealthyNvidiaDCGMServices", corev1.ConditionFalse,
+		"NVIDIA DCGM services are running properly", "expected UnhealthyNvidiaDCGMServices message to indicate healthy status")
+}
+
+func ValidateNPDUnhealthyNvidiaDCGMServicesAfterFailure(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	// Stop nvidia-dcgm systemd service to simulate failure
+	command := []string{
+		"set -ex",
+		"sudo systemctl stop nvidia-dcgm.service",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to stop Nvidia DCGM service")
+
+	// Validate that NPD reports unhealthy Nvidia DCGM services
+	validateNPDCondition(ctx, s, "UnhealthyNvidiaDCGMServices", "UnhealthyNvidiaDCGMServices", corev1.ConditionTrue,
+		"Systemd service(s) nvidia-dcgm are not active", "expected UnhealthyNvidiaDCGMServices message to indicate unhealthy status")
+
+	// Stop the nvidia-dcgm-exporter system service to simulate failure
+	command = []string{
+		"set -ex",
+		"sudo systemctl stop nvidia-dcgm-exporter.service",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to stop Nvidia DCGM Exporter service")
+
+	// Validate that NPD still reports unhealthy Nvidia DCGM services
+	validateNPDCondition(ctx, s, "UnhealthyNvidiaDCGMServices", "UnhealthyNvidiaDCGMServices", corev1.ConditionTrue,
+		"Systemd service(s) nvidia-dcgm nvidia-dcgm-exporter are not active", "expected UnhealthyNvidiaDCGMServices message to indicate unhealthy status for both services")
+
+	// Restart Nvidia DCGM services
+	command = []string{
+		"set -ex",
+		"sudo systemctl restart nvidia-dcgm.service || true",
+		"sudo systemctl restart nvidia-dcgm-exporter.service || true",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to restart Nvidia DCGM services")
+}
+
 func ValidateRunc12Properties(ctx context.Context, s *Scenario, versions []string) {
 	s.T.Helper()
 	require.Lenf(s.T, versions, 1, "Expected exactly one version for moby-runc but got %d", len(versions))
