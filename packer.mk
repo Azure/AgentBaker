@@ -126,11 +126,12 @@ evaluate-build-performance: az-login
 evaluate-grid-compatibility: az-login
 	@./vhdbuilder/packer/gridcompatibility/evaluate-grid-compatibility.sh
 
+prefetch: az-login
+	@./vhdbuilder/prefetch/scripts/optimize.sh
+
 generate-prefetch-scripts:
-#ifeq (${MODE},linuxVhdMode)
 	@echo "${MODE}: Generating prefetch scripts"
 	@bash -c "pushd vhdbuilder/prefetch; go run cmd/main.go --components-path=../../parts/common/components.json --output-path=../packer/prefetch.sh || exit 1; popd"
-#endif
 
 build-aks-node-controller:
 	@echo "Building aks-node-controller binaries"

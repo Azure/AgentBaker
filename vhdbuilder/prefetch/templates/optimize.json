@@ -1,0 +1,39 @@
+{
+    "type": "Microsoft.VirtualMachineImages",
+    "apiVersion": "2022-07-01",
+    "location": "<LOCATION>",
+    "dependsOn": [],
+    "tags": {
+        "userIdentity": "enabled"
+    },
+    "identity": {
+        "type": "UserAssigned",
+        "userAssignedIdentities": {
+            "<IMAGE_BUILDER_IDENTITY_ID>": {}
+        }
+    },
+    "properties": {
+        "source": {
+            "type": "SharedImageVersion",
+            "imageVersionId": "<CAPTURED_SIG_VERSION>"
+        },
+        "customize": [
+            {
+                "type": "Shell",
+                "name": "RunVHDCleanup",
+                "inline": ["sudo /bin/bash -eux /opt/azure/containers/cleanup-vhd.sh && sudo rm -f /opt/azure/containers/cleanup-vhd.sh"]
+            }
+        ],
+        "optimize": {
+            "vmboot": {
+                "state": "Enabled"
+            }
+        },
+        "distribute": [
+            {
+                "type": "VHD",
+                "runOutputName": "AKSVHDPrefetchOptimization"
+            }
+        ]
+    }
+}
