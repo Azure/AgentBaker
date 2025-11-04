@@ -1,11 +1,7 @@
 {
     "type": "Microsoft.VirtualMachineImages",
-    "apiVersion": "2022-07-01",
+    "apiVersion": "2024-02-01",
     "location": "<LOCATION>",
-    "dependsOn": [],
-    "tags": {
-        "userIdentity": "enabled"
-    },
     "identity": {
         "type": "UserAssigned",
         "userAssignedIdentities": {
@@ -32,7 +28,8 @@
         "distribute": [
             {
                 "type": "VHD",
-                "runOutputName": "AKSVHDPrefetchOptimization"
+                "uri": "<OPTIMIZED_VHD_URI>",
+                "runOutputName": "VHD"
             }
         ]
     }
