@@ -2202,7 +2202,8 @@ func Test_Ubuntu2404_VHDCaching(t *testing.T) {
 			Validator: func(ctx context.Context, s *Scenario) {
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				// If the VHD has incorrect settings (like network misconfiguration), deploying more than one VM may lead to conflicts.
+				// If the VHD has incorrect settings (like network misconfiguration)
+				// deploying more than one VM may expose the issue.
 				// This check is not always reliable, since only one VM is created per test run in the current framework.
 				// Therefore, tests may incorrectly pass more often than they fail in these cases.
 				vmss.SKU.Capacity = to.Ptr[int64](2)
