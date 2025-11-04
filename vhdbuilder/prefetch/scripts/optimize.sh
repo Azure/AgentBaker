@@ -3,14 +3,14 @@ set -uxo pipefail
 
 # TODO(cameissner): migrate to vhdbuilder go binary once VHD build scripts are hosted internally
 
-[ -z "${SUBSCRIPTION_ID}" ] && echo "SUBSCRIPTION_ID is not set" && exit 1
-[ -z "${LOCATION}" ] && echo "LOCATION is not set" && exit 1
-[ -z "${STORAGE_ACCOUNT_BLOB_URL}" ] && echo "STORAGE_ACCOUNT_BLOB_URL is not set" && exit 1
-[ -z "${VHD_STORAGE_ACCOUNT_NAME}" ] && echo "VHD_STORAGE_ACCOUNT_NAME is not set" && exit 1
-[ -z "${VHD_STORAGE_CONTAINER_NAME}" ] && echo "VHD_STORAGE_CONTAINER_NAME is not set" && exit 1
-[ -z "${IMAGE_BUILDER_IDENTITY_ID}" ] && echo "IMAGE_BUILDER_IDENTITY_ID is not set" && exit 1
-[ -z "${BUILD_RUN_NUMBER}" ] && echo "BUILD_RUN_NUMBER is not set" && exit 1
-[ -z "${CAPTURED_SIG_VERSION}" ] && echo "CAPTURED_SIG_VERSION is not set" && exit 1
+[ -z "${SUBSCRIPTION_ID:-}" ] && echo "SUBSCRIPTION_ID is not set" && exit 1
+[ -z "${LOCATION:-}" ] && echo "LOCATION is not set" && exit 1
+[ -z "${STORAGE_ACCOUNT_BLOB_URL:-}" ] && echo "STORAGE_ACCOUNT_BLOB_URL is not set" && exit 1
+[ -z "${VHD_STORAGE_ACCOUNT_NAME:-}" ] && echo "VHD_STORAGE_ACCOUNT_NAME is not set" && exit 1
+[ -z "${VHD_STORAGE_CONTAINER_NAME:-}" ] && echo "VHD_STORAGE_CONTAINER_NAME is not set" && exit 1
+[ -z "${IMAGE_BUILDER_IDENTITY_ID:-}" ] && echo "IMAGE_BUILDER_IDENTITY_ID is not set" && exit 1
+[ -z "${BUILD_RUN_NUMBER:-}" ] && echo "BUILD_RUN_NUMBER is not set" && exit 1
+[ -z "${CAPTURED_SIG_VERSION:-}" ] && echo "CAPTURED_SIG_VERSION is not set" && exit 1
 
 API_VERSION="2024-02-01"
 IMAGE_BUILDER_RG_NAME="image-builder-${CAPTURED_SIG_VERSION}-${BUILD_RUN_NUMBER}"
@@ -149,6 +149,7 @@ set_storage_details_from_vhd_blob_url() {
     local blob_url=$1
 
     echo "attempting to extract storage account and container name from blob url: ${blob_url}"
+    # shellcheck disable=SC3010
     if [[ ! "${blob_url%%\?*}" =~ https:\/\/(.*)?.blob.core.windows.net(:443)?\/(.*)?\/(.*)? ]]; then
       echo "unable to extract unique vhd version from blob url: ${blob_url}"
       return 1
