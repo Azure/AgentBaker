@@ -889,8 +889,6 @@ if [ -n "${PRIVATE_PACKAGES_URL:-}" ]; then
 fi
 
 
-
-
 LOCALDNS_BINARY_PATH="/opt/azure/containers/localdns/binary"
 # This function extracts CoreDNS binaries from all cached coredns images
 # and copies them to organized directories:
@@ -904,8 +902,17 @@ extractAndCacheCoreDnsBinary() {
     exit 1
   fi
 
-  # Clean up existing localdns directories
-  rm -rf "/opt/azure/containers/localdns" || exit 1
+  # Clean up existing binary directories only (preserve other files like localdns.sh)
+  if [ -d "/opt/azure/containers/localdns/binary" ]; then
+    rm -rf "/opt/azure/containers/localdns/binary" || exit 1
+  fi
+
+  # Remove any existing n-X versioned directories
+  if [ -d "/opt/azure/containers/localdns" ]; then
+    find "/opt/azure/containers/localdns" -maxdepth 1 -type d -name "n-*" -exec rm -rf {} + 2>/dev/null || true
+  fi
+
+  # Ensure the main localdns directory and binary path exist
   mkdir -p "${LOCALDNS_BINARY_PATH}" || exit 1
 
   local ctr_temp=""
@@ -948,7 +955,9 @@ extractAndCacheCoreDnsBinary() {
       unique_versions[$vMajorMinorPatch]="$tag"
       version_order+=("$vMajorMinorPatch")
     fi
-  done  # Extract the CoreDNS binary for each unique version.
+  done
+
+  # Extract the CoreDNS binary for each unique version.
   local version_index=0
   for version in "${version_order[@]}"; do
     local tag="${unique_versions[$version]}"
@@ -1003,7 +1012,17 @@ extractAndCacheCoreDnsBinary() {
         echo "Error: Failed to copy coredns binary of ${tag}" >> "${VHD_LOGS_FILEPATH}"
         exit 1
       }
-      echo "Successfully copied coredns binary of ${tag} to ${target_dir}" >> "${VHD_LOGS_FILEPATH}"
+      # Set proper permissions on the binary
+      chmod +x "${target_dir}/coredns" || {
+        echo "Error: Failed to set executable permissions on coredns binary of ${tag}" >> "${VHD_LOGS_FILEPATH}"
+        exit 1
+      }
+      # Verify the binary is functional
+      if "${target_dir}/coredns" --version >/dev/null 2>&1; then
+        echo "Successfully copied and verified coredns binary of ${tag} to ${target_dir}" >> "${VHD_LOGS_FILEPATH}"
+      else
+        echo "Warning: coredns binary of ${tag} at ${target_dir} may not be functional" >> "${VHD_LOGS_FILEPATH}"
+      fi
     else
       echo "Coredns binary not found for ${coredns_image_url}" >> "${VHD_LOGS_FILEPATH}"
     fi
@@ -1013,7 +1032,9 @@ extractAndCacheCoreDnsBinary() {
     ctr_temp=""
 
     ((version_index++))
-  done  # Log summary of extracted binaries
+  done
+
+  # Log summary of extracted binaries
   echo "CoreDNS binary extraction completed. Total versions extracted: ${#version_order[@]}" >> "${VHD_LOGS_FILEPATH}"
   for i in "${!version_order[@]}"; do
     if [ $i -eq 0 ]; then
@@ -1022,6 +1043,19 @@ extractAndCacheCoreDnsBinary() {
       echo "  n-$i (${version_order[$i]}): /opt/azure/containers/localdns/n-$i/binary/coredns" >> "${VHD_LOGS_FILEPATH}"
     fi
   done
+
+  # Validate that the main binary was extracted successfully
+  if [ ! -f "${LOCALDNS_BINARY_PATH}/coredns" ]; then
+    echo "Error: Main CoreDNS binary not found at ${LOCALDNS_BINARY_PATH}/coredns after extraction" >> "${VHD_LOGS_FILEPATH}"
+    exit 1
+  fi
+
+  if [ ! -x "${LOCALDNS_BINARY_PATH}/coredns" ]; then
+    echo "Error: Main CoreDNS binary at ${LOCALDNS_BINARY_PATH}/coredns is not executable" >> "${VHD_LOGS_FILEPATH}"
+    exit 1
+  fi
+
+  echo "CoreDNS binary extraction and validation successful" >> "${VHD_LOGS_FILEPATH}"
 
   # Clear the trap.
   trap - EXIT ABRT ERR INT PIPE QUIT TERM
