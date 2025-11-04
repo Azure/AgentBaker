@@ -196,11 +196,11 @@ func unprivilegedCommandArray() []string {
 	}
 }
 
-func uploadSSHKey(ctx context.Context, s *Scenario) error {
+func uploadSSHKey(ctx context.Context, s *Scenario, vmPrivateIP string) error {
 	s.T.Helper()
 	steps := []string{
-		fmt.Sprintf("echo '%[1]s' > %[2]s", string(SSHKeyPrivate), sshKeyName(s.Runtime.VMPrivateIP)),
-		fmt.Sprintf("chmod 0600 %s", sshKeyName(s.Runtime.VMPrivateIP)),
+		fmt.Sprintf("echo '%[1]s' > %[2]s", string(SSHKeyPrivate), sshKeyName(vmPrivateIP)),
+		fmt.Sprintf("chmod 0600 %s", sshKeyName(vmPrivateIP)),
 	}
 	joinedSteps := strings.Join(steps, " && ")
 	kube := s.Runtime.Cluster.Kube
@@ -211,11 +211,11 @@ func uploadSSHKey(ctx context.Context, s *Scenario) error {
 	if config.Config.KeepVMSS {
 		s.T.Logf("VM will be preserved after the test finishes, PLEASE MANUALLY DELETE THE VMSS. Set KEEP_VMSS=false to delete it automatically after the test finishes")
 	} else {
-		s.T.Logf("VM will be automatically deleted after the test finishes, set KEEP_VMSS=true to preserve it or pause the test with a breakpoint before the test finishes")
+		s.T.Logf("VM will be automatically deleted after the test finishes, to preserve it for debugging purposes set KEEP_VMSS=true or pause the test with a breakpoint before the test finishes or failed")
 	}
 	result := "SSH Instructions: (may take a few minutes for the VM to be ready for SSH)\n========================\n"
 	// We combine the az aks get credentials in the same line so we don't overwrite the user's kubeconfig.
-	result += fmt.Sprintf(`kubectl --kubeconfig <(az aks get-credentials --subscription "%s" --resource-group "%s"  --name "%s" -f -) exec -it %s -- bash -c "chroot /proc/1/root /bin/bash -c '%s'"`, config.Config.SubscriptionID, config.ResourceGroupName(s.Location), *s.Runtime.Cluster.Model.Name, s.Runtime.Cluster.DebugPod.Name, sshString(s.Runtime.VMPrivateIP))
+	result += fmt.Sprintf(`kubectl --kubeconfig <(az aks get-credentials --subscription "%s" --resource-group "%s"  --name "%s" -f -) exec -it %s -- bash -c "chroot /proc/1/root /bin/bash -c '%s'"`, config.Config.SubscriptionID, config.ResourceGroupName(s.Location), *s.Runtime.Cluster.Model.Name, s.Runtime.Cluster.DebugPod.Name, sshString(vmPrivateIP))
 	s.T.Log(result)
 
 	return nil

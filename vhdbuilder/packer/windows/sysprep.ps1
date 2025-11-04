@@ -10,8 +10,8 @@ Stop-Service RdAgent
 & sc.exe delete WindowsAzureGuestAgent
 & sc.exe delete RdAgent
 
-# Remove the WindowsAzureGuestAgent registry key for sysprep 
-# This removes AzureGuestAgent from participating in sysprep 
+# Remove the WindowsAzureGuestAgent registry key for sysprep
+# This removes AzureGuestAgent from participating in sysprep
 # There was an update that is missing VMAgentDisabler.dll
 $path = "Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Setup\SysPrepExternal\Generalize"
 $generalizeKey = Get-Item -Path $path
@@ -34,6 +34,6 @@ if( Test-Path $Env:SystemRoot\\system32\\Sysprep\\unattend.xml ) {  Remove-Item 
 & $env:SystemRoot\\System32\\Sysprep\\Sysprep.exe /oobe /generalize /mode:vm /quiet /quit
 
 # when done clean up
-while($true) { $imageState = Get-ItemProperty HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Setup\\State | Select ImageState; if($imageState.ImageState -ne 'IMAGE_STATE_GENERALIZE_RESEAL_TO_OOBE') { Write-Output $imageState.ImageState; Start-Sleep -s 10  } else { break } }
+while($true) { $imageState = Get-ItemProperty HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Setup\\State | Select ImageState; if($imageState.ImageState -ne 'IMAGE_STATE_GENERALIZE_RESEAL_TO_OOBE') { Write-Host $imageState.ImageState; Start-Sleep -s 10  } else { break } }
 Get-ChildItem c:\\WindowsAzure -Force | Sort-Object -Property FullName -Descending | ForEach-Object { try { Remove-Item -Path $_.FullName -Force -Recurse -ErrorAction SilentlyContinue; } catch { } }
 Remove-Item -Path WSMan:\\Localhost\\listener\\listener* -Recurse

@@ -27,6 +27,7 @@ Describe 'ensure_sig_vhd_exists function'
     MOCK_AZ_IMAGE_VERSIONS=""
 
     # Create mocks for external commands
+    # shellcheck disable=SC2329
     az() {
       case "$1 $2" in
         "sig show")
@@ -85,6 +86,7 @@ Describe 'ensure_sig_vhd_exists function'
       return 0
     }
 
+    # shellcheck disable=SC2329
     jq() {
       case "$*" in
         *provisioningState*)
@@ -102,6 +104,7 @@ Describe 'ensure_sig_vhd_exists function'
       esac
     }
 
+    # shellcheck disable=SC2329
     grep() {
       # Mock grep for cvm feature flag checking
       case "$*" in

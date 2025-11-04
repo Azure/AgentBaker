@@ -250,4 +250,60 @@ Describe 'cse_install.sh'
             The status should be success
         End
     End
+
+    Describe 'installKubeletKubectlFromBootstrapProfileRegistry'
+        logs_to_events() {
+            echo "logs_to_events $1 $2"
+            # Execute the actual function that was passed
+            eval "$2"
+        }
+
+        exit() {
+            echo "mock exit calling with $1"
+        }
+
+        installToolFromBootstrapProfileRegistry() {
+            echo "installToolFromBootstrapProfileRegistry"
+        }
+
+        installKubeletKubectlFromURL() {
+            echo "installKubeletKubectlFromURL"
+        }
+
+        BeforeEach() {
+            SHOULD_ENFORCE_KUBE_PMC_INSTALL="false"
+            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myregistry.azurecr.io"
+            KUBERNETES_VERSION="1.34.0"
+        }
+
+        It 'should call installKubeletKubectlFromBootstrapProfileRegistry'
+            When call installKubeletKubectlFromBootstrapProfileRegistry $BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER $KUBERNETES_VERSION
+            The status should be success
+            The output should include "installToolFromBootstrapProfileRegistry"
+            The output should not include "installKubeletKubectlFromURL"
+        End
+
+        It 'should call installKubeletKubectlFromURL if installToolFromBootstrapProfileRegistry fails'
+            installToolFromBootstrapProfileRegistry() {
+                echo "installToolFromBootstrapProfileRegistry fails"
+                return 1
+            }
+            When call installKubeletKubectlFromBootstrapProfileRegistry $BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER $KUBERNETES_VERSION
+            The status should be success
+            The output line 1 should include "installToolFromBootstrapProfileRegistry fails"
+            The output line 2 should include "installKubeletKubectlFromURL"
+        End
+
+        It 'should not call installKubeletKubectlFromURL if installToolFromBootstrapProfileRegistry fails but SHOULD_ENFORCE_KUBE_PMC_INSTALL is true'
+            installToolFromBootstrapProfileRegistry() {
+                echo "installToolFromBootstrapProfileRegistry fails"
+                return 1
+            }
+            SHOULD_ENFORCE_KUBE_PMC_INSTALL="true"
+            When call installKubeletKubectlFromBootstrapProfileRegistry $BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER $KUBERNETES_VERSION
+            The output line 1 should include "installToolFromBootstrapProfileRegistry fails"
+            The output line 2 should include "Failed to install k8s tools from bootstrap profile registry, and not falling back to binary installation due to SHOULD_ENFORCE_KUBE_PMC_INSTALL=true"
+            The output line 3 should include "mock exit calling with 207"
+        End
+    End
 End

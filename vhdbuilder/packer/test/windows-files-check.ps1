@@ -70,8 +70,6 @@ function Start-Job-To-Expected-State {
     }
 
     Process {
-
-
         Start-Job -Name $JobName -ScriptBlock $ScriptBlock
 
         do {
@@ -86,7 +84,7 @@ function Start-Job-To-Expected-State {
     }
 }
 
-function DownloadFileWithRetry {
+function DownloadFile {
     param (
         $URL,
         $Dest,
@@ -94,14 +92,18 @@ function DownloadFileWithRetry {
         $retryDelay = 0,
         [Switch]$redactUrl = $false
     )
-    Write-Output "Downloading $URL"
-    curl.exe --silent -f --retry $retryCount --retry-delay $retryDelay -L $URL -o $Dest
-    if ($LASTEXITCODE) {
+
+    Write-Host "Downloading $URL"
+    try {
+        # We don't retry as that could hide flakey upstream servers that will cause issues in prod.
+        Invoke-WebRequest -Uri $URL -OutFile $Dest -UseBasicParsing -ErrorAction Stop
+    }
+    catch {
         $logURL = $URL
         if ($redactUrl) {
             $logURL = $logURL.Split("?")[0]
         }
-        throw "Curl exited with '$LASTEXITCODE' while attemping to download '$logURL'"
+        throw "Curl exited with '$LASTEXITCODE' while attemping to download '$logURL' due to $($_.Exception.Message)"
     }
 }
 
@@ -136,10 +138,19 @@ function Test-ValidateSinglePackageSignature {
             New-Item -ItemType Directory $installDir -Force | Out-Null
         }
         if ($fileName.endswith(".zip")) {
-            Expand-Archive -path $dest -DestinationPath $installDir -Force
+            try {
+                Expand-Archive -path $dest -DestinationPath $installDir -Force -ErrorAction Stop
+            }
+            catch {
+                Write-Error "Failed to expand archive ${dest} to ${installDir}: $($_.Exception.Message)"
+                throw "Expand-Archive failed for ${dest}: $($_.Exception.Message)"
+            }
         }
         elseif ($fileName.endswith(".tar.gz")) {
             tar -xzf $dest -C $installDir
+            if ($LASTEXITCODE -ne 0) {
+                throw "Failed to extract the '$dest' archive with tar. Exit code: $LASTEXITCODE"
+            }
         }
         else {
             Write-Error "Unknown package suffix"
@@ -156,19 +167,19 @@ function Test-ValidateSinglePackageSignature {
                 if ($SkipSignatureCheckForBinaries.ContainsKey($NotSignedFileName)) {
                     Write-Output "$NotSignedFileName is in the ignore list. Ignoring signature validation failure"
                     continue
-                } 
-                
+                }
+
                 if (
                     (
                         $SkipMapForSignature.ContainsKey($fileName)
                     ) -and (
-                        ( $SkipMapForSignature[$fileName].Length -eq 0 ) -or 
+                        ( $SkipMapForSignature[$fileName].Length -eq 0 ) -or
                         ( $SkipMapForSignature[$fileName].Contains($NotSignedFileName) )
                     )
                 ) {
                     Write-Output "$filename is in the ignore list. Ignoring signature validation failure on $NotSignedFileName"
                     continue
-                } 
+                }
 
                 if (!$NotSignedResult.ContainsKey($dir)) {
                     $NotSignedResult[$dir] = @{}
@@ -178,9 +189,9 @@ function Test-ValidateSinglePackageSignature {
                 }
                 $NotSignedResult[$dir][$fileName] += @($NotSignedFileName)
 
-                Get-AuthenticodeSignature $NotSignedFile.Path | ConvertTo-Json -Depth 1 | Write-Output
+                Get-AuthenticodeSignature $NotSignedFile.Path | ConvertTo-Json -Depth 1 | Write-Host
 
-                Write-Output "$filename in $dir from URL $URL has unsigned file $NotSignedFileName"
+                Write-Host "$filename in $dir from URL $URL has unsigned file $NotSignedFileName"
             }
         }
 
@@ -233,7 +244,7 @@ function Test-CompareSingleDir {
                 "cloud-provider-azure"
             )
             $proxyLocation = $URL.Split('/')[3]
-    
+
             if ($supportedProxyLocations -notcontains $proxyLocation) {
                 $ProxyLocationNotFoundInMooncakeFiles[$URL] = $URL
             }
@@ -242,9 +253,9 @@ function Test-CompareSingleDir {
         $fileName = [IO.Path]::GetFileName($URL)
         $dest = [IO.Path]::Combine($dir, $fileName)
 
-        DownloadFileWithRetry -URL $URL -Dest $dest -redactUrl
+        DownloadFile -URL $URL -Dest $dest -redactUrl
         $globalFileSize = (Get-Item $dest).length
-        
+
         $isIgnore = $False
         foreach ($excludePackage in $global:excludeHashComparisionListInAzureChinaCloud) {
             if ($URL.Contains($excludePackage)) {
@@ -261,9 +272,9 @@ function Test-CompareSingleDir {
 
             Write-Output "Downloading mooncake file: $mcURL"
 
-            $ProgressPreference = 'SilentlyContinue' 
-            $mooncakeFileSize = (Invoke-WebRequest $mcURL -UseBasicParsing -Method Head).Headers.'Content-Length'
-            $ProgressPreference = 'Continue' 
+            $ProgressPreference = 'SilentlyContinue'
+            $mooncakeFileSize = (Invoke-WebRequest $mcURL -UseBasicParsing -Method Head -ErrorAction Stop).Headers.'Content-Length'
+            $ProgressPreference = 'Continue'
 
             if ($globalFileSize -ne $mooncakeFileSize) {
                 $MisMatchFiles[$URL] = $mcURL
@@ -282,7 +293,7 @@ function Test-CompareFiles {
         $ProxyLocationNotFoundInMooncakeFiles = (echo $ProxyLocationNotFoundInMooncakeFiles | ConvertTo-Json -Compress)
         Write-Error "The proxy location of the following files are not defined in mooncake, please use root path 'aks', or contact 'andyzhangx' for help: $ProxyLocationNotFoundInMooncakeFiles"
         exit 1
-    }   
+    }
 
     if ($MisMatchFiles.Count -ne 0) {
         $MisMatchFiles = (echo $MisMatchFiles | ConvertTo-Json -Compress)

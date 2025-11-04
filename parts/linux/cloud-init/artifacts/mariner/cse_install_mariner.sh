@@ -79,9 +79,12 @@ downloadGPUDrivers() {
     # The proprietary driver will be used here in order to support older NVIDIA GPU SKUs like V100
     # Before installing cuda, check the active kernel version (uname -r) and use that to determine which cuda to install
     KERNEL_VERSION=$(uname -r | sed 's/-/./g')
-    CUDA_PACKAGE=$(dnf repoquery --available "cuda*" | grep -E "cuda-[0-9]+.*_$KERNEL_VERSION" | sort -V | tail -n 1)
+    CUDA_PACKAGE=$(dnf repoquery -y --available "cuda*" | grep -E "cuda-[0-9]+.*_$KERNEL_VERSION" | sort -V | tail -n 1)
 
-    if ! dnf_install 30 1 600 ${CUDA_PACKAGE}; then
+    if [ -z "$CUDA_PACKAGE" ]; then
+      echo "No cuda packages found"
+      exit $ERR_MISSING_CUDA_PACKAGE
+    elif ! dnf_install 30 1 600 ${CUDA_PACKAGE}; then
       exit $ERR_APT_INSTALL_TIMEOUT
     fi
 }
@@ -176,13 +179,97 @@ installKubeletKubectlPkgFromPMC() {
 }
 
 installToolFromLocalRepo() {
-    echo "installToolFromLocalRepo is not yet implemented for Mariner"
-    return 1
+    local tool_name=$1
+    local tool_download_dir=$2
+
+    # Verify the download directory exists and contains repository metadata
+    if [ ! -d "${tool_download_dir}" ]; then
+        echo "Download directory ${tool_download_dir} does not exist"
+        return 1
+    fi
+
+    # Check if this is a self-contained local repository (has Packages.gz or repodata)
+    if [ ! -d "${tool_download_dir}/repodata" ]; then
+        echo "No valid repository metadata found in ${tool_download_dir}"
+        return 1
+    fi
+
+    # Create a temporary repo configuration for the local directory
+    local repo_name="local-${tool_name}-repo"
+    local repo_file="/etc/yum.repos.d/${repo_name}.repo"
+
+    echo "Setting up local repository from ${tool_download_dir}"
+
+    # Create the repo file
+    cat > "${repo_file}" <<EOF
+[${repo_name}]
+name=Local ${tool_name} Repository
+baseurl=file://${tool_download_dir}
+enabled=1
+gpgcheck=0
+skip_if_unavailable=1
+EOF
+
+    # Update DNF cache for the new repository
+    echo "Updating DNF cache for local repository"
+    dnf makecache --disablerepo='*' --enablerepo="${repo_name}" || {
+        echo "Failed to update DNF cache for local repository"
+        rm -f "${repo_file}"
+        return 1
+    }
+
+    # Install the package from the local repository
+    echo "Installing ${tool_name} from local repository"
+    if ! dnf_install 30 1 600 ${tool_name} --disablerepo='*' --enablerepo="${repo_name}"; then
+        echo "Failed to install ${tool_name} from local repository"
+        rm -f "${repo_file}"
+        return 1
+    fi
+
+    # Clean up the temporary repo file
+    rm -f "${repo_file}"
+
+    # Clean up the download directory
+    rm -rf "${tool_download_dir}"
+
+    echo "Successfully installed ${tool_name} from local repository"
+    return 0
 }
 
-getOsVersion() {
-    echo "getOsVersion is not yet implemented for Mariner"
-    return 1
+installCredentialProviderPackageFromBootstrapProfileRegistry() {
+    bootstrapProfileRegistry="$1"
+    k8sVersion="${2:-}"
+
+    os=${AZURELINUX_OS_NAME}
+    if [ -z "$OS_VERSION" ]; then
+        os=${OS}
+        os_version="current"
+    else
+        os_version="${OS_VERSION}"
+    fi
+    PACKAGE_VERSION=""
+    getLatestPkgVersionFromK8sVersion "$k8sVersion" "azure-acr-credential-provider-pmc" "$os" "$os_version"
+    packageVersion=$(echo $PACKAGE_VERSION | cut -d "-" -f 1)
+    if [ -z "$packageVersion" ]; then
+        packageVersion=$(echo "$CREDENTIAL_PROVIDER_DOWNLOAD_URL" | grep -oP 'v\d+(\.\d+)*' | sed 's/^v//' | head -n 1)
+        if [ -z "$packageVersion" ]; then
+            echo "Failed to determine package version for azure-acr-credential-provider"
+            return $ERR_ORAS_PULL_CREDENTIAL_PROVIDER
+        fi
+    fi
+    echo "installing azure-acr-credential-provider package version: $packageVersion"
+    mkdir -p "${CREDENTIAL_PROVIDER_BIN_DIR}"
+    chown -R root:root "${CREDENTIAL_PROVIDER_BIN_DIR}"
+    if ! installToolFromBootstrapProfileRegistry "azure-acr-credential-provider" $bootstrapProfileRegistry "${packageVersion}" "${CREDENTIAL_PROVIDER_BIN_DIR}/acr-credential-provider"; then
+        if [ "${SHOULD_ENFORCE_KUBE_PMC_INSTALL}" != "true" ] ; then
+            # SHOULD_ENFORCE_KUBE_PMC_INSTALL will only be set for e2e tests, which should not fallback to reflect result of package installation behavior
+            echo "Fall back to install credential provider from url installation"
+            installCredentialProviderFromUrl
+        else
+            echo "Failed to install credential provider from bootstrap profile registry, and not falling back to package installation"
+            exit $ERR_ORAS_PULL_CREDENTIAL_PROVIDER
+        fi
+    fi
 }
 
 updateDnfWithNvidiaPkg() {

@@ -1,7 +1,7 @@
-Starting build on  Thu Oct 23 19:45:53 UTC 2025
+Starting build on  Wed Oct 29 02:18:43 UTC 2025
 Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):
   - oras version 1.2.2
-  - aks-secure-tls-bootstrap-client version 1.0.0
+  - aks-secure-tls-bootstrap-client version 1.0.1
   - containerd version 1.6.26-12.cm2
   - CNI plugin version 1.6.2
   - Azure CNI version 1.5.38
@@ -31,11 +31,11 @@ Components downloaded in this VHD build (some of the below components might get 
   - runc version 1.1.9
   - bpftrace v0.16.0
 images pre-pulled:
-  - mcr.microsoft.com/oss/v2/kubernetes/autoscaler/addon-resizer:v1.8.23-5
+  - mcr.microsoft.com/oss/v2/kubernetes/autoscaler/addon-resizer:v1.8.23-6
   - mcr.microsoft.com/oss/kubernetes/pause:3.6
-  - mcr.microsoft.com/oss/v2/kubernetes/coredns:v1.11.3-8
-  - mcr.microsoft.com/oss/v2/kubernetes/coredns:v1.12.1-2
-  - mcr.microsoft.com/oss/v2/kubernetes/coredns:v1.9.4-6
+  - mcr.microsoft.com/oss/v2/kubernetes/coredns:v1.13.1-1
+  - mcr.microsoft.com/oss/v2/kubernetes/coredns:v1.12.1-6
+  - mcr.microsoft.com/oss/v2/kubernetes/coredns:v1.11.3-13
   - mcr.microsoft.com/containernetworking/azure-cni:v1.5.44
   - mcr.microsoft.com/containernetworking/azure-cni:v1.6.32
   - mcr.microsoft.com/containernetworking/azure-cni:v1.7.4-0
@@ -49,13 +49,13 @@ images pre-pulled:
   - mcr.microsoft.com/containernetworking/cilium/cilium:v1.17.7-250927
   - mcr.microsoft.com/containernetworking/cilium/cilium:v1.16.10-250610
   - mcr.microsoft.com/containernetworking/cilium/cilium:v1.17.7-250821
-  - mcr.microsoft.com/oss/v2/kubernetes/apiserver-network-proxy/agent:v0.31.4-1
+  - mcr.microsoft.com/oss/v2/kubernetes/apiserver-network-proxy/agent:v0.31.4-3
   - mcr.microsoft.com/oss/v2/kubernetes-csi/secrets-store/driver:v1.5.4
-  - mcr.microsoft.com/oss/v2/azure/secrets-store/provider-azure:v1.7.1
-  - mcr.microsoft.com/azuremonitor/containerinsights/ciprod:3.1.29
-  - mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.23.0-main-09-29-2025-f7d29698
-  - mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.23.0-main-09-29-2025-f7d29698-targetallocator
-  - mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.23.0-main-09-29-2025-f7d29698-cfg
+  - mcr.microsoft.com/oss/v2/azure/secrets-store/provider-azure:v1.7.2
+  - mcr.microsoft.com/azuremonitor/containerinsights/ciprod:3.1.30
+  - mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.24.0-main-10-20-2025-fe8f6d51
+  - mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.24.0-main-10-20-2025-fe8f6d51-targetallocator
+  - mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.24.0-main-10-20-2025-fe8f6d51-cfg
   - mcr.microsoft.com/oss/v2/kubernetes/kube-state-metrics:v2.15.0-4
   - mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.29.15
   - mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.30.13
@@ -67,8 +67,8 @@ images pre-pulled:
   - mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.31.6
   - mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.32.5
   - mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.33.0
-  - mcr.microsoft.com/oss/v2/kubernetes/autoscaler/cluster-proportional-autoscaler:v1.9.0-3
-  - mcr.microsoft.com/oss/v2/kubernetes/autoscaler/cluster-proportional-autoscaler:v1.9.0-3
+  - mcr.microsoft.com/oss/v2/kubernetes/autoscaler/cluster-proportional-autoscaler:v1.8.11-10
+  - mcr.microsoft.com/oss/v2/kubernetes/autoscaler/cluster-proportional-autoscaler:v1.9.0-4
   - mcr.microsoft.com/oss/v2/azure/ip-masq-agent-v2:v0.1.15-5
   - mcr.microsoft.com/oss/v2/azure/ip-masq-agent-v2:v0.1.15-4
   - mcr.microsoft.com/oss/v2/kubernetes-csi/azuredisk-csi:v1.31.12
@@ -92,7 +92,7 @@ images pre-pulled:
   - mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:1.14.2
   - mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:1.13.1
   - mcr.microsoft.com/aks/aks-node-ca-watcher:master.241021.1
-  - mcr.microsoft.com/oss/v2/kubernetes/windows-gmsa-webhook:v0.12.1-5
+  - mcr.microsoft.com/oss/v2/kubernetes/windows-gmsa-webhook:v0.12.1-6
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.28.102-akslts
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.29.100-akslts
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.30.100-akslts
@@ -112,7 +112,7 @@ images pre-pulled:
   - mcr.microsoft.com/oss/v2/kubernetes/kube-proxy:v1.34.0-2
   - bcc-tools
   - libbcc-examples
-Successfully copied coredns binary of v1.11.3-8
+Successfully copied coredns binary of v1.12.1-6
 kubelet/kubectl downloaded:
 -rwxr-xr-x 1 root root  10334343 Dec 17  2024 /usr/local/bin/oras
 -rw-r--r-- 1 root root     11343 Dec 19  2024 /usr/local/bin/LICENSE
@@ -148,8 +148,8 @@ kubelet/kubectl downloaded:
 -rwxr-xr-x 1 root root  60133560 Sep 26 20:23 /usr/local/bin/kubectl-1.33.5
 -rwxr-xr-x 1 root root  77320472 Sep 26 20:54 /usr/local/bin/kubelet-1.31.13
 -rwxr-xr-x 1 root root  56934552 Sep 26 20:54 /usr/local/bin/kubectl-1.31.13
--rwxr-xr-x 1 root root  57174026 Oct  2 20:21 /usr/local/bin/aks-secure-tls-bootstrap-client
--rwxr-xr-x 1 root root       699 Oct 23 19:46 /usr/local/bin/ci-syslog-watcher.sh
+-rwxr-xr-x 1 root root  57152250 Oct 28 20:26 /usr/local/bin/aks-secure-tls-bootstrap-client
+-rwxr-xr-x 1 root root       699 Oct 29 02:19 /usr/local/bin/ci-syslog-watcher.sh
 === Installed Packages Begin
 filesystem-1.1-20.cm2.x86_64
 glibc-2.35-7.cm2.x86_64
@@ -677,7 +677,7 @@ devtmpfs        4.0M     0  4.0M   0% /dev
 tmpfs            32G     0   32G   0% /dev/shm
 tmpfs            13G  828K   13G   1% /run
 tmpfs           4.0M     0  4.0M   0% /sys/fs/cgroup
-/dev/sdb3        29G   23G  5.4G  81% /
+/dev/sda3        29G   23G  5.2G  82% /
 tmpfs            32G  4.0K   32G   1% /tmp
 /dev/sdb2       452M   36M  382M   9% /boot
 /dev/sda1       590G   32K  560G   1% /mnt
@@ -695,10 +695,10 @@ SUPPORT_URL="https://aka.ms/cbl-mariner"
 === os-release End
 Using kernel:
 Linux version 5.15.186.1-1.cm2 (root@CBL-Mariner) (gcc (GCC) 11.2.0, GNU ld (GNU Binutils) 2.37) #1 SMP Tue Jul 29 02:54:43 UTC 2025
-Install completed successfully on  Thu Oct 23 20:00:07 UTC 2025
-VSTS Build NUMBER: 20251023.1_v20251019_141376060
-VSTS Build ID: 141376060
-Commit: 0e51e48dc639aaefb28e134e29a2158c24dac584
+Install completed successfully on  Wed Oct 29 02:33:11 UTC 2025
+VSTS Build NUMBER: 20251029.1_master_141907851
+VSTS Build ID: 141907851
+Commit: d29b5d4eec733e23701c570c7d5a9bf038eb6f27
 Ubuntu version: 
 Hyperv generation: V1
 Feature flags: None
