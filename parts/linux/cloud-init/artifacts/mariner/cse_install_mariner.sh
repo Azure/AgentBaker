@@ -352,7 +352,7 @@ installRPMPackageFromFile() {
 
     rpmFile=$(find "${downloadDir}" -maxdepth 1 -name "${packagePrefix}" -print -quit 2>/dev/null) || rpmFile=""
     if [ -z "${rpmFile}" ]; then
-        if ! fallbackToKubeBinaryInstall "${packageName}" "${desiredVersion}"; then
+        if fallbackToKubeBinaryInstall "${packageName}" "${desiredVersion}"; then
             echo "Successfully installed ${packageName} version ${desiredVersion} from binary fallback"
             exit 0
         fi

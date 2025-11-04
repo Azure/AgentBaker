@@ -842,12 +842,15 @@ Describe 'cse_config.sh'
         End
 
         It 'should fallback to kube binary install when version uncached'
-            function find() {
+            find() {
                 return 1
             }
-            function fallbackToKubeBinaryInstall() {
+            fallbackToKubeBinaryInstall() {
                 echo "fallbackToKubeBinaryInstall"
-                return 0
+            }
+
+            updateAptWithMicrosoftPkg() {
+                echo "updateAptWithMicrosoftPkg"
             }
 
             OS="UBUNTU"
@@ -855,7 +858,7 @@ Describe 'cse_config.sh'
             SHOULD_ENFORCE_KUBE_PMC_INSTALL=""
             When call configureKubeletAndKubectl
             The output should include "fallbackToKubeBinaryInstall"
-            The output should not include "installKubeletKubectlPkgFromPMC"
+            The output should not include "updateAptWithMicrosoftPkg"
         End
     End
 End
