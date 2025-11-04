@@ -331,6 +331,22 @@ steps:
       Contents: 'vhd-publishing-info.json'
       TargetFolder: '$(Build.ArtifactStagingDirectory)'
 
+  - task: CopyFiles@2
+    condition: succeeded()
+    displayName: Copy VHD Checksum
+    inputs:
+      SourceFolder: '$(System.DefaultWorkingDirectory)'
+      Contents: '$(CAPTURED_SIG_VERSION).sha256'
+      TargetFolder: '$(Build.ArtifactStagingDirectory)'
+
+  - task: CopyFiles@2
+    condition: succeeded()
+    displayName: Copy VHD Checksum Signature
+    inputs:
+      SourceFolder: '$(System.DefaultWorkingDirectory)'
+      Contents: '$(CAPTURED_SIG_VERSION).sha256.asc'
+      TargetFolder: '$(Build.ArtifactStagingDirectory)'
+
   - task: PublishPipelineArtifact@0
     condition: succeeded()
     displayName: Publish Artifacts
