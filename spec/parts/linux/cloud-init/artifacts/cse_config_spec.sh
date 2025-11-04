@@ -625,10 +625,6 @@ Describe 'cse_config.sh'
             eval "$2"
         }
 
-        installKubeletKubectlPkgFromPMC() {
-            echo "installKubeletKubectlPkgFromPMC $1"
-        }
-
         installKubeletKubectlFromURL() {
             echo "installKubeletKubectlFromURL"
         }
@@ -691,6 +687,10 @@ Describe 'cse_config.sh'
 
         # Test cases for PMC installation with OS-specific logic
         It 'should install from PMC if k8s version >= 1.34 and OS is Ubuntu'
+            installKubeletKubectlPkgFromPMC() {
+                echo "installKubeletKubectlPkgFromPMC $1"
+            }
+
             OS="UBUNTU"
             KUBERNETES_VERSION="1.34.0"
             When call configureKubeletAndKubectl
@@ -699,6 +699,10 @@ Describe 'cse_config.sh'
         End
 
         It 'should install from PMC if k8s version >= 1.34 and OS is CBLMariner with OS_VERSION != 2.0'
+            installKubeletKubectlPkgFromPMC() {
+                echo "installKubeletKubectlPkgFromPMC $1"
+            }
+
             OS="MARINER"
             OS_VERSION="3.0"
             KUBERNETES_VERSION="1.34.0"
@@ -708,6 +712,10 @@ Describe 'cse_config.sh'
         End
 
         It 'should install from PMC if k8s version >= 1.34 and OS is AzureLinux with OS_VERSION != 2.0'
+            installKubeletKubectlPkgFromPMC() {
+                echo "installKubeletKubectlPkgFromPMC $1"
+            }
+
             OS="AZURELINUX"
             OS_VERSION="3.0"
             KUBERNETES_VERSION="1.34.0"
@@ -727,6 +735,10 @@ Describe 'cse_config.sh'
 
         # Test cases for enforce PMC install flag
         It 'should install from PMC if SHOULD_ENFORCE_KUBE_PMC_INSTALL is true and k8s version < 1.34'
+            installKubeletKubectlPkgFromPMC() {
+                echo "installKubeletKubectlPkgFromPMC $1"
+            }
+
             SHOULD_ENFORCE_KUBE_PMC_INSTALL="true"
             OS="UBUNTU"
             KUBERNETES_VERSION="1.32.5"
@@ -736,6 +748,10 @@ Describe 'cse_config.sh'
         End
 
         It 'should install from PMC if SHOULD_ENFORCE_KUBE_PMC_INSTALL is true and OS is CBLMariner with OS_VERSION != 2.0'
+            installKubeletKubectlPkgFromPMC() {
+                echo "installKubeletKubectlPkgFromPMC $1"
+            }
+
             SHOULD_ENFORCE_KUBE_PMC_INSTALL="true"
             OS="MARINER"
             OS_VERSION="3.0"
@@ -767,6 +783,10 @@ Describe 'cse_config.sh'
         End
 
         It 'should handle version exactly at boundary (1.34.0)'
+            installKubeletKubectlPkgFromPMC() {
+                echo "installKubeletKubectlPkgFromPMC $1"
+            }
+
             OS="UBUNTU"
             KUBERNETES_VERSION="1.34.0"
             SHOULD_ENFORCE_KUBE_PMC_INSTALL=""
@@ -818,6 +838,23 @@ Describe 'cse_config.sh'
             When call configureKubeletAndKubectl
             The output should not include "installKubeletKubectlFromBootstrapProfileRegistry"
             The output should include "installKubeletKubectlFromURL"
+        End
+
+        It 'should fallback to kube binary install when version uncached'
+            function find() {
+                return 1
+            }
+            function fallbackToKubeBinaryInstall() {
+                echo "fallbackToKubeBinaryInstall"
+                return 0
+            }
+
+            OS="UBUNTU"
+            KUBERNETES_VERSION="1.34.0"
+            SHOULD_ENFORCE_KUBE_PMC_INSTALL=""
+            When call configureKubeletAndKubectl
+            The output should include "fallbackToKubeBinaryInstall"
+            The output should not include "installKubeletKubectlPkgFromPMC"
         End
     End
 End
