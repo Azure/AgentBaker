@@ -685,8 +685,8 @@ tmpfs            13G  828K   13G   1% /run
 tmpfs           4.0M     0  4.0M   0% /sys/fs/cgroup
 /dev/sdb3        29G   23G  5.2G  82% /
 tmpfs            32G  4.0K   32G   1% /tmp
-/dev/sdb2       452M   37M  381M   9% /boot
-/dev/sda1       590G   32K  560G   1% /mnt
+/dev/sda2       452M   37M  381M   9% /boot
+/dev/sdb1       590G   32K  560G   1% /mnt
 tmpfs           6.3G     0  6.3G   0% /run/user/1000
 === os-release Begin
 NAME="Common Base Linux Mariner"

@@ -69,14 +69,14 @@
       ]
     },
     {
-      "id": "sha256:66e32ac57ec5067a077ec575b575c8ea82b27dba61d3ef103ab7f62268f6d4d5",
-      "bytes": 93299549,
-      "size": "89.0 MiB",
+      "id": "sha256:d6601a5bce2fe880e2315f3a5c86998afb85dccc165ae170727a07d64dfb2ae5",
+      "bytes": 31370792,
+      "size": "29.9 MiB",
       "repoTags": [
-        "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.31.11"
+        "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.33.0"
       ],
       "repoDigests": [
-        "sha256:1be29cd912a046c60f3cd2317913a4d09433c99af3f488cb0f2997cfc8a85f42"
+        "sha256:798ad1d72fb8a35e5860b8d05fafca7768f6b181b49127a879bd69c5f66db860"
       ]
     },
     {
@@ -190,14 +190,14 @@
       ]
     },
     {
-      "id": "sha256:e5e9ce105ccead12062ce2628d2f49de6d9e94a54b42f7b3749f4e4c3272469f",
-      "bytes": 84648797,
-      "size": "80.7 MiB",
+      "id": "sha256:5ae5612c172766cec9d7984e0c1f61d9a781f3f7fd1056cfd265c97ac3bd91a9",
+      "bytes": 78420622,
+      "size": "74.8 MiB",
       "repoTags": [
-        "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.29.100-akslts"
+        "mcr.microsoft.com/oss/v2/kubernetes-csi/azuredisk-csi:v1.33.5"
       ],
       "repoDigests": [
-        "sha256:d1efb0d1e0e1de2afe7d56fa506070266761fef3a3ae5ce29f40b85e31f61e2b"
+        "sha256:141d225f7e7cab2ce9615d0b00360c7e352fb5b2a060ecad1d315c08eac17d3d"
       ]
     },
     {
@@ -487,14 +487,14 @@
       ]
     },
     {
-      "id": "sha256:68a6f10bb24e8af61f59f7270958a3540de32b7669ee64c5ed3e97881a4d192f",
-      "bytes": 84648797,
-      "size": "80.7 MiB",
+      "id": "sha256:08cf07a9a59bcdc07485953730be6f54f334ce7e20f5504f0fa81d06f29c809f",
+      "bytes": 23549843,
+      "size": "22.5 MiB",
       "repoTags": [
-        "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.29.15"
+        "mcr.microsoft.com/oss/v2/kubernetes/windows-gmsa-webhook:v0.12.1-5"
       ],
       "repoDigests": [
-        "sha256:4b0ac56116edb354a4dcb5e12c76221d0a1cf2ffd4a1230f4433a25b0c5c994c"
+        "sha256:310feaf45b8d4d00fedd390a748c460622b580d92d48d9d45b15064b570bff12"
       ]
     },
     {
