@@ -354,6 +354,20 @@ EOF
     echo "${CONTAINERD_CONFIG_CONTENT}" | base64 -d > /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
   fi
 
+  # Configure erofs snapshotter
+  sed -i '/\[plugins."io.containerd.grpc.v1.cri".containerd\]/a\    snapshotter = "erofs"\n    disable_snapshot_annotations = false' /etc/containerd/config.toml
+  sed -i '/\[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc\]/a\      snapshotter = "erofs"' /etc/containerd/config.toml
+
+  cat >> /etc/containerd/config.toml <<'EROFS_CONFIG'
+
+[plugins."io.containerd.snapshotter.v1.erofs"]
+  ovl_mount_options = []
+  enable_dmverity = false
+
+[plugins."io.containerd.service.v1.diff-service"]
+  default = ["erofs"]
+EROFS_CONFIG
+
   if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
     logs_to_events "AKS.CSE.ensureContainerd.configureContainerdRegistryHost" configureContainerdRegistryHost
   fi
