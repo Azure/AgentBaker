@@ -3,6 +3,7 @@
 Describe 'cse_config.sh'
     Include "./parts/linux/cloud-init/artifacts/cse_config.sh"
     Include "./parts/linux/cloud-init/artifacts/cse_helpers.sh"
+    Include "./parts/linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh"
     Include "./parts/linux/cloud-init/artifacts/ubuntu/cse_helpers_ubuntu.sh"
     Include "./parts/linux/cloud-init/artifacts/mariner/cse_helpers_mariner.sh"
 
