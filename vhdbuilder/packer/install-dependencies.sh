@@ -893,7 +893,8 @@ LOCALDNS_BINARY_PATH="/opt/azure/containers/localdns/binary"
 # This function extracts CoreDNS binaries from all cached coredns images
 # and copies them to organized directories:
 # - Latest version: /opt/azure/containers/localdns/binary/coredns
-# - Previous versions: /opt/azure/containers/localdns/n-1/binary/coredns, /opt/azure/containers/localdns/n-2/binary/coredns, etc.
+# - Previous versions: /opt/azure/containers/localdns/n-1/binary/coredns,
+# /opt/azure/containers/localdns/n-2/binary/coredns, etc.
 # The function also handles the cleanup of temporary directories and unmounting of images.
 extractAndCacheCoreDnsBinary() {
   local coredns_image_list=($(ctr -n k8s.io images list -q | grep coredns))
@@ -903,8 +904,8 @@ extractAndCacheCoreDnsBinary() {
   fi
 
   # Clean up existing binary directories only (preserve other files like localdns.sh)
-  if [ -d "/opt/azure/containers/localdns/binary" ]; then
-    rm -rf "/opt/azure/containers/localdns/binary" || exit 1
+  if [ -d "${LOCALDNS_BINARY_PATH}" ]; then
+    rm -rf "${LOCALDNS_BINARY_PATH}" || exit 1
   fi
 
   # Remove any existing n-X versioned directories
@@ -966,12 +967,12 @@ extractAndCacheCoreDnsBinary() {
     if [ $version_index -eq 0 ]; then
       # Latest version goes to the main binary path
       target_dir="${LOCALDNS_BINARY_PATH}"
-      echo "Processing latest CoreDNS version: $version (tag: $tag)" >> "${VHD_LOGS_FILEPATH}"
+      echo "Extracting binary of latest CoreDNS version: $version (tag: $tag)" >> "${VHD_LOGS_FILEPATH}"
     else
       # Previous versions go to n-X directories
       target_dir="/opt/azure/containers/localdns/n-$version_index/binary"
       mkdir -p "$target_dir" || exit 1
-      echo "Processing CoreDNS version n-$version_index: $version (tag: $tag)" >> "${VHD_LOGS_FILEPATH}"
+      echo "Extracting binary of CoreDNS version n-$version_index: $version (tag: $tag)" >> "${VHD_LOGS_FILEPATH}"
     fi
 
     # Find the corresponding image URL for this tag
@@ -1038,9 +1039,9 @@ extractAndCacheCoreDnsBinary() {
   echo "CoreDNS binary extraction completed. Total versions extracted: ${#version_order[@]}" >> "${VHD_LOGS_FILEPATH}"
   for i in "${!version_order[@]}"; do
     if [ $i -eq 0 ]; then
-      echo "  Latest (${version_order[$i]}): ${LOCALDNS_BINARY_PATH}/coredns" >> "${VHD_LOGS_FILEPATH}"
+      echo "Latest (${version_order[$i]}): ${LOCALDNS_BINARY_PATH}/coredns" >> "${VHD_LOGS_FILEPATH}"
     else
-      echo "  n-$i (${version_order[$i]}): /opt/azure/containers/localdns/n-$i/binary/coredns" >> "${VHD_LOGS_FILEPATH}"
+      echo "n-$i (${version_order[$i]}): /opt/azure/containers/localdns/n-$i/binary/coredns" >> "${VHD_LOGS_FILEPATH}"
     fi
   done
 
