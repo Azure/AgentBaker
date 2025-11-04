@@ -112,10 +112,6 @@ has_template_succeeded() {
 }
 
 set_optimized_vhd_sas_url() {
-    if [ $# -ne 4 ]; then
-        echo "unexpected number of arugments to copy blob to set SAS URL suffix from storage account details"
-        return 1
-    fi
     local rg_name=$1
     local storage_account_name=$2
     local storage_container_name=$3
@@ -135,10 +131,6 @@ set_optimized_vhd_sas_url() {
 }
 
 set_storage_details_from_vhd_blob_url() {
-    if [ $# -ne 1 ]; then
-        echo "unexpected number of arguments to set storage account and container names from blob url"
-        return 1
-    fi
     local blob_url=$1
 
     echo "attempting to extract storage account and container name from blob url: ${blob_url}"
