@@ -417,6 +417,56 @@ function BasePrep {
         New-HostsConfigService
     }
 
+    # NOTE: Network configuration has been moved to NodePrep to prevent HNS network
+    # state from being baked into VHD images, which causes DHCP conflicts when
+    # multiple VMs are created from the same image.
+
+    Set-Explorer
+    Adjust-PageFileSize
+    Logs-To-Event -TaskName "AKS.WindowsCSE.PreprovisionExtension" -TaskMessage "Start preProvisioning script"
+    PREPROVISION_EXTENSION
+    Update-ServiceFailureActions
+    Adjust-DynamicPortRange
+    Register-LogsCleanupScriptTask
+    Register-NodeResetScriptTask
+
+    Update-DefenderPreferences
+
+    $windowsVersion = Get-WindowsVersion
+    if ($windowsVersion -ne "1809") {
+        Logs-To-Event -TaskName "AKS.WindowsCSE.EnableSecureTLS" -TaskMessage "Skip secure TLS protocols for Windows version: $windowsVersion"
+    } else {
+        Logs-To-Event -TaskName "AKS.WindowsCSE.EnableSecureTLS" -TaskMessage "Start to enable secure TLS protocols"
+        try {
+            . C:\k\windowssecuretls.ps1
+            Enable-SecureTls
+        }
+        catch {
+            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_ENABLE_SECURE_TLS -ErrorMessage $_
+        }
+    }
+
+    Enable-FIPSMode -FipsEnabled $fipsEnabled
+    if ($global:WindowsGmsaPackageUrl) {
+        Install-GmsaPlugin -GmsaPackageUrl $global:WindowsGmsaPackageUrl
+    }
+
+    Write-Log "BasePrep completed successfully"
+    Logs-To-Event -TaskName "AKS.WindowsCSE.BasePrep" -TaskMessage "BasePrep completed successfully"
+}
+
+# ====== NODE PREP: CLUSTER INTEGRATION ======
+# All operations that should only run when connecting to the actual cluster
+function NodePrep {
+    Install-KubernetesServices -KubeDir $global:KubeDir
+
+    Write-Log "Starting NodePrep - Cluster integration"
+    Logs-To-Event -TaskName "AKS.WindowsCSE.NodePrep" -TaskMessage "Starting NodePrep - Cluster integration"
+
+    Check-APIServerConnectivity -MasterIP $MasterIP
+
+    # Configure networking - this must run during node provisioning, not VHD creation
+    # to ensure each VM gets unique HNS network IDs and avoids DHCP conflicts
     Write-Log "Configuring networking with NetworkPlugin:$global:NetworkPlugin"
 
     # Configure network policy.
@@ -463,50 +513,6 @@ function BasePrep {
     } else {
         Write-Log "Enable-WindowsCiliumNetworking is not a recognized function, will skip Windows Cilium Networking installation"
     }
-
-    Set-Explorer
-    Adjust-PageFileSize
-    Logs-To-Event -TaskName "AKS.WindowsCSE.PreprovisionExtension" -TaskMessage "Start preProvisioning script"
-    PREPROVISION_EXTENSION
-    Update-ServiceFailureActions
-    Adjust-DynamicPortRange
-    Register-LogsCleanupScriptTask
-    Register-NodeResetScriptTask
-
-    Update-DefenderPreferences
-
-    $windowsVersion = Get-WindowsVersion
-    if ($windowsVersion -ne "1809") {
-        Logs-To-Event -TaskName "AKS.WindowsCSE.EnableSecureTLS" -TaskMessage "Skip secure TLS protocols for Windows version: $windowsVersion"
-    } else {
-        Logs-To-Event -TaskName "AKS.WindowsCSE.EnableSecureTLS" -TaskMessage "Start to enable secure TLS protocols"
-        try {
-            . C:\k\windowssecuretls.ps1
-            Enable-SecureTls
-        }
-        catch {
-            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_ENABLE_SECURE_TLS -ErrorMessage $_
-        }
-    }
-
-    Enable-FIPSMode -FipsEnabled $fipsEnabled
-    if ($global:WindowsGmsaPackageUrl) {
-        Install-GmsaPlugin -GmsaPackageUrl $global:WindowsGmsaPackageUrl
-    }
-
-    Write-Log "BasePrep completed successfully"
-    Logs-To-Event -TaskName "AKS.WindowsCSE.BasePrep" -TaskMessage "BasePrep completed successfully"
-}
-
-# ====== NODE PREP: CLUSTER INTEGRATION ======
-# All operations that should only run when connecting to the actual cluster
-function NodePrep {
-    Install-KubernetesServices -KubeDir $global:KubeDir
-
-    Write-Log "Starting NodePrep - Cluster integration"
-    Logs-To-Event -TaskName "AKS.WindowsCSE.NodePrep" -TaskMessage "Starting NodePrep - Cluster integration"
-
-    Check-APIServerConnectivity -MasterIP $MasterIP
 
     if ($global:WindowsCalicoPackageURL) {
         Start-InstallCalico -RootDir "c:\" -KubeServiceCIDR $global:KubeServiceCIDR -KubeDnsServiceIp $KubeDnsServiceIp

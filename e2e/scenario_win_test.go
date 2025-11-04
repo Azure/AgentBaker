@@ -346,10 +346,15 @@ func Test_Windows2022_VHDCaching(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "VHD Caching",
 		Config: Config{
-			Cluster:                ClusterAzureNetwork,
-			VHD:                    config.VHDWindows2022Containerd, // gen1 is default for windows 2022
-			VHDCaching:             true,
-			VMConfigMutator:        EmptyVMConfigMutator,
+			Cluster:    ClusterAzureNetwork,
+			VHD:        config.VHDWindows2022Containerd, // gen1 is default for windows 2022
+			VHDCaching: true,
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				// If the VHD is misconfigured (e.g. incorrect network settings), deploying multiple instances may cause conflicts.
+				// This validation can be unreliable and may not catch issues on every run, as the current framework creates only a single VM per test.
+				// False positives are more likely than false negatives in this scenario.
+				vmss.SKU.Capacity = to.Ptr[int64](2)
+			},
 			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateWindowsVersionFromWindowsSettings(ctx, s, "2022-containerd")
