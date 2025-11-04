@@ -787,6 +787,12 @@ EOF
 
 configureNodeProblemDetector() {
     echo "Configuring Node Problem Detector"
+    # Putting heavy trust in the vhd build validation to put this file in place. This acccounts for the old vhd but new cse scenario that no one wants to think about.
+    if [ ! -f /etc/node-problem-detector.d/skip_vhd_npd ]; then
+        echo "Node Problem Detector assets not found on this VHD (missing /etc/node-problem-detector.d/skip_vhd_npd); skipping configuration. Hopefully expected behavior."
+        return 0
+    fi
+
     if ! systemctlEnableAndStart node-problem-detector 30; then
         echo "Failed to start node-problem-detector service"
         return $ERR_NPD_INSTALL_TIMEOUT
