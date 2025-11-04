@@ -6,7 +6,7 @@ function enforce_azcli_version() {
 	echo "Enforcing az cli version to ${AZ_VER_REQUIRED} for ${AZ_DIST}"
 	sudo apt-get install azure-cli=${AZ_VER_REQUIRED}-1~${AZ_DIST} -y --allow-downgrades
 
-	AZ_VER_INSTALLED=$(az version --query "[].azure-cli" -o tsv)
+	AZ_VER_INSTALLED=$(az version --query "[\"azure-cli\"]" -o tsv)
 	if [ "${AZ_VER_INSTALLED}" != "${AZ_VER_REQUIRED}" ]; then
 		echo "Failed to install required az cli version ${AZ_VER_REQUIRED}, installed version is ${AZ_VER_INSTALLED}"
 		exit 1
