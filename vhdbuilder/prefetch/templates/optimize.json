@@ -11,7 +11,7 @@
     "properties": {
         "source": {
             "type": "SharedImageVersion",
-            "imageVersionId": "<CAPTURED_SIG_VERSION>"
+            "imageVersionId": "<CAPTURED_SIG_VERSION_ID>"
         },
         "customize": [
             {

@@ -5,6 +5,9 @@ set -uxo pipefail
 
 [ -z "${SUBSCRIPTION_ID:-}" ] && echo "SUBSCRIPTION_ID is not set" && exit 1
 [ -z "${LOCATION:-}" ] && echo "LOCATION is not set" && exit 1
+[ -z "${SIG_GALLERY_RESOURCE_GROUP_NAME:-}" ] && echo "SIG_GALLERY_RESOURCE_GROUP_NAME is not set" && exit 1
+[ -z "${SIG_GALLERY_NAME:-}" ] && echo "SIG_GALLERY_NAME is not set" && exit 1
+[ -z "${SKU_NAME:-}" ] && echo "SKU_NAME is not set" && exit 1
 [ -z "${STORAGE_ACCOUNT_BLOB_URL:-}" ] && echo "STORAGE_ACCOUNT_BLOB_URL is not set" && exit 1
 [ -z "${VHD_STORAGE_ACCOUNT_NAME:-}" ] && echo "VHD_STORAGE_ACCOUNT_NAME is not set" && exit 1
 [ -z "${VHD_STORAGE_CONTAINER_NAME:-}" ] && echo "VHD_STORAGE_CONTAINER_NAME is not set" && exit 1
@@ -13,6 +16,7 @@ set -uxo pipefail
 [ -z "${CAPTURED_SIG_VERSION:-}" ] && echo "CAPTURED_SIG_VERSION is not set" && exit 1
 
 API_VERSION="2024-02-01"
+CAPTURED_SIG_VERSION_ID="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${SIG_GALLERY_RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/galleries/${SIG_GALLERY_NAME}/images/${SKU_NAME}/versions/${CAPTURED_SIG_VERSION}"
 IMAGE_BUILDER_RG_NAME="image-builder-${CAPTURED_SIG_VERSION}-${BUILD_RUN_NUMBER}"
 IMAGE_BUILDER_TEMPLATE_NAME="template-${CAPTURED_SIG_VERSION}-${BUILD_RUN_NUMBER}"
 OPTIMIZED_VHD_BLOB_NAME="${CAPTURED_SIG_VERSION}.vhd"
@@ -28,7 +32,7 @@ run_image_builder_template() {
     if need_new_template; then
         sed -e "s#<LOCATION>#${LOCATION}#g" \
             -e "s#<IMAGE_BUILDER_IDENTITY_ID>#${IMAGE_BUILDER_IDENTITY_ID}#g" \
-            -e "s#<CAPTURED_SIG_VERSION>#${CAPTURED_SIG_VERSION}#g" \
+            -e "s#<CAPTURED_SIG_VERSION_ID>#${CAPTURED_SIG_VERSION_ID}#g" \
             -e "s#<OPTIMIZED_VHD_URI>#${OPTIMIZED_VHD_URI}#g" \
             ../templates/optimize.json > input.json
 
