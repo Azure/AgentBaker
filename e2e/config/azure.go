@@ -412,6 +412,7 @@ func (a *AzureClient) assignRolesToVMIdentity(ctx context.Context, principalID *
 			// built-in "Storage Blob Data Contributor" role
 			// https://learn.microsoft.com/en-us/azure/role-based-access-control/built-in-roles
 			RoleDefinitionID: to.Ptr("/providers/Microsoft.Authorization/roleDefinitions/ba92f5b4-2d11-453d-a403-e96b0029c9fe"),
+			PrincipalType:    to.Ptr(armauthorization.PrincipalTypeServicePrincipal),
 		},
 	}, nil)
 	var respError *azcore.ResponseError

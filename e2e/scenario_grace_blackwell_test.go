@@ -14,15 +14,20 @@ import (
 )
 
 func Test_Ubuntu2404_GB200(t *testing.T) {
+	vhd_img := *config.VHDUbuntu2404GB200 // Shallow copy
+	vhd_img.Version = "1.1.303"           // specific GB200 image version present in relevant regions
+
 	RunScenario(t, &Scenario{
 		Description: "Tests that GB200 images boot on GB200, have all expected services and packages, and match the current checked-in CRD",
 		Tags: Tags{
 			GPU:   true,
 			GB200: true,
 		},
+		Location:         "centraluseuap",
+		K8sSystemPoolSKU: "standard_d4s_v4",
 		Config: Config{
-			Cluster:               ClusterKubenet,
-			VHD:                   config.VHDUbuntu2404GB200,
+			Cluster:               ClusterCiliumNetwork,
+			VHD:                   &vhd_img,
 			WaitForSSHAfterReboot: 5 * time.Minute,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.VMSize = "Standard_ND128isr_NDR_GB200_v6"
