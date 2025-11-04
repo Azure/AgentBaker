@@ -31,7 +31,7 @@ run_image_builder_template() {
         --properties @input.json --is-full-object \
         --api-version 2022-07-01 \
         --resource-type Microsoft.VirtualMachineImages/imageTemplates \
-        --resource-group "${IMAGE_BUILDER_RG_NAME}" || exit $?
+        --resource-group "${IMAGE_BUILDER_RG_NAME}" || return $?
 
     echo "image builder template ${IMAGE_BUILDER_TEMPLATE_NAME} has been created, starting run..."
     az image builder run -n "${IMAGE_BUILDER_TEMPLATE_NAME}" -g "${IMAGE_BUILDER_RG_NAME}"
@@ -57,7 +57,7 @@ copy_optimized_vhd() {
     copy_source=$(echo "${copy_info}" | jq -r .source)
     if [ "${copy_source}" != "null" ]; then
         # this blob has previously been copied to from somewhere else
-        set_storage_details_from_vhd_blob_url "${copy_source}" || exit $?
+        set_storage_details_from_vhd_blob_url "${copy_source}" || return $?
         source_storage_account_name=${STORAGE_ACCOUNT_NAME}
         # attempt to show the storage account under the assumption it's within the template's staging resource group
         source_storage_account_info=$(az storage account show -g "${staging_rg_name}" -n "${source_storage_account_name}" --subscription "${SUBSCRIPTION_ID}")
@@ -75,7 +75,7 @@ copy_optimized_vhd() {
         fi
     fi
 
-    set_storage_details_from_vhd_blob_url "$(az image builder show-runs -n "${IMAGE_BUILDER_TEMPLATE_NAME}" -g "${IMAGE_BUILDER_RG_NAME}" | jq -r '.[-1].artifactUri')" || exit $?
+    set_storage_details_from_vhd_blob_url "$(az image builder show-runs -n "${IMAGE_BUILDER_TEMPLATE_NAME}" -g "${IMAGE_BUILDER_RG_NAME}" | jq -r '.[-1].artifactUri')" || return $?
     set_optimized_vhd_sas_url "${staging_rg_name}" "${STORAGE_ACCOUNT_NAME}" "${STORAGE_CONTAINER_NAME}" "${VHD_BLOB_NAME}"
 
     echo "beginning copy of ${CAPTURED_SIG_VERSION}.vhd to ${VHD_STORAGE_ACCOUNT_NAME}/${VHD_STORAGE_CONTAINER_NAME}/${CAPTURED_SIG_VERSION}.vhd"
@@ -84,7 +84,7 @@ copy_optimized_vhd() {
         --destination-container" ${VHD_STORAGE_CONTAINER_NAME}" \
         --account-name "${VHD_STORAGE_ACCOUNT_NAME}" \
         --subscription "${SUBSCRIPTION_ID}" \
-        --source-uri "${OPTIMIZED_VHD_SAS_URL}" || exit $?
+        --source-uri "${OPTIMIZED_VHD_SAS_URL}" || return $?
 
     while [ "$(az storage blob show \
       --name "${CAPTURED_SIG_VERSION}.vhd" \
@@ -149,7 +149,7 @@ ensure_image_builder_resource_group() {
 
   if [ -z "$(az group show --name "${IMAGE_BUILDER_RG_NAME}" | jq .id )" ]; then
     echo "creating resource group ${IMAGE_BUILDER_RG_NAME}"
-    az group create --name "${IMAGE_BUILDER_RG_NAME}" --location "${LOCATION}" || exit $?
+    az group create --name "${IMAGE_BUILDER_RG_NAME}" --location "${LOCATION}" || return $?
   fi
 }
 
