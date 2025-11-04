@@ -892,9 +892,10 @@ fi
 
 
 LOCALDNS_BINARY_PATH="/opt/azure/containers/localdns/binary"
-# This function extracts CoreDNS binary from cached coredns images (n-1 image version and latest revision version)
-# and copies it to - /opt/azure/containers/localdns/binary/coredns.
-# The binary is later used by localdns systemd unit.
+# This function extracts CoreDNS binaries from all cached coredns images
+# and copies them to organized directories:
+# - Latest version: /opt/azure/containers/localdns/binary/coredns
+# - Previous versions: /opt/azure/containers/localdns/n-1/binary/coredns, /opt/azure/containers/localdns/n-2/binary/coredns, etc.
 # The function also handles the cleanup of temporary directories and unmounting of images.
 extractAndCacheCoreDnsBinary() {
   local coredns_image_list=($(ctr -n k8s.io images list -q | grep coredns))
@@ -903,7 +904,8 @@ extractAndCacheCoreDnsBinary() {
     exit 1
   fi
 
-  rm -rf "${LOCALDNS_BINARY_PATH}" || exit 1
+  # Clean up existing localdns directories
+  rm -rf "/opt/azure/containers/localdns" || exit 1
   mkdir -p "${LOCALDNS_BINARY_PATH}" || exit 1
 
   cleanup_coredns_imports() {
@@ -929,35 +931,53 @@ extractAndCacheCoreDnsBinary() {
     return 0
   }
 
-  # Determine latest version (eg. v1.12.0-1).
-  local latest_coredns_tag="${sorted_coredns_tags[0]}"
-  # Extract major.minor.patch (removes -revision. eg - v1.12.0).
-  local latest_vMajorMinorPatch="${latest_coredns_tag%-*}"
+  # Group versions by major.minor.patch to get unique versions
+  declare -A unique_versions
+  local version_order=()
 
-  local previous_coredns_tag=""
-  # Iterate through the sorted list to find the next highest major-minor version.
   for tag in "${sorted_coredns_tags[@]}"; do
-    # Extract major.minor.patch (eg - v1.12.0).
+    # Extract major.minor.patch (removes -revision. eg - v1.12.0).
     local vMajorMinorPatch="${tag%-*}"
     if ! validate_version_format "$vMajorMinorPatch"; then
       exit 1
     fi
 
-    if [ "${vMajorMinorPatch}" != "${latest_vMajorMinorPatch}" ]; then
-      previous_coredns_tag="$tag"
-      # Break the loop after next highest major-minor version is found.
-      break
+    # Only add if we haven't seen this version before (keep the first occurrence, which is the latest revision)
+    if [ -z "${unique_versions[$vMajorMinorPatch]}" ]; then
+      unique_versions[$vMajorMinorPatch]="$tag"
+      version_order+=("$vMajorMinorPatch")
     fi
   done
 
-  if [ -z "${previous_coredns_tag}" ]; then
-    echo "Warning: Previous version not found, using the latest version: $latest_coredns_tag" >> "${VHD_LOGS_FILEPATH}"
-    previous_coredns_tag="$latest_coredns_tag"
-  fi
+  # Extract the CoreDNS binary for each unique version.
+  local version_index=0
+  for version in "${version_order[@]}"; do
+    local tag="${unique_versions[$version]}"
+    local target_dir=""
 
-  # Extract the CoreDNS binary for the selected version.
-  for coredns_image_url in "${coredns_image_list[@]}"; do
-    if [ "${coredns_image_url##*:}" != "${previous_coredns_tag}" ]; then
+    if [ $version_index -eq 0 ]; then
+      # Latest version goes to the main binary path
+      target_dir="${LOCALDNS_BINARY_PATH}"
+      echo "Processing latest CoreDNS version: $version (tag: $tag)" >> "${VHD_LOGS_FILEPATH}"
+    else
+      # Previous versions go to n-X directories
+      target_dir="/opt/azure/containers/localdns/n-$version_index/binary"
+      mkdir -p "$target_dir" || exit 1
+      echo "Processing CoreDNS version n-$version_index: $version (tag: $tag)" >> "${VHD_LOGS_FILEPATH}"
+    fi
+
+    # Find the corresponding image URL for this tag
+    local coredns_image_url=""
+    for image_url in "${coredns_image_list[@]}"; do
+      if [ "${image_url##*:}" = "$tag" ]; then
+        coredns_image_url="$image_url"
+        break
+      fi
+    done
+
+    if [ -z "$coredns_image_url" ]; then
+      echo "Warning: Could not find image URL for tag $tag" >> "${VHD_LOGS_FILEPATH}"
+      ((version_index++))
       continue
     fi
 
@@ -980,17 +1000,29 @@ extractAndCacheCoreDnsBinary() {
 
     local coredns_binary="${ctr_temp}/usr/bin/coredns"
     if [ -f "${coredns_binary}" ]; then
-      cp "${coredns_binary}" "${LOCALDNS_BINARY_PATH}/coredns" || {
-        echo "Error: Failed to copy coredns binary of ${previous_coredns_tag}" >> "${VHD_LOGS_FILEPATH}"
+      cp "${coredns_binary}" "${target_dir}/coredns" || {
+        echo "Error: Failed to copy coredns binary of ${tag}" >> "${VHD_LOGS_FILEPATH}"
         exit 1
       }
-      echo "Successfully copied coredns binary of ${previous_coredns_tag}" >> "${VHD_LOGS_FILEPATH}"
+      echo "Successfully copied coredns binary of ${tag} to ${target_dir}" >> "${VHD_LOGS_FILEPATH}"
     else
       echo "Coredns binary not found for ${coredns_image_url}" >> "${VHD_LOGS_FILEPATH}"
     fi
 
     ctr -n k8s.io images unmount "${ctr_temp}" >/dev/null
     rm -rf "${ctr_temp}"
+
+    ((version_index++))
+  done
+
+  # Log summary of extracted binaries
+  echo "CoreDNS binary extraction completed. Total versions extracted: ${#version_order[@]}" >> "${VHD_LOGS_FILEPATH}"
+  for i in "${!version_order[@]}"; do
+    if [ $i -eq 0 ]; then
+      echo "  Latest (${version_order[$i]}): ${LOCALDNS_BINARY_PATH}/coredns" >> "${VHD_LOGS_FILEPATH}"
+    else
+      echo "  n-$i (${version_order[$i]}): /opt/azure/containers/localdns/n-$i/binary/coredns" >> "${VHD_LOGS_FILEPATH}"
+    fi
   done
 
   # Clear the trap.
