@@ -417,10 +417,6 @@ function BasePrep {
         New-HostsConfigService
     }
 
-    # NOTE: Network configuration has been moved to NodePrep to prevent HNS network
-    # state from being baked into VHD images, which causes DHCP conflicts when
-    # multiple VMs are created from the same image.
-
     Set-Explorer
     Adjust-PageFileSize
     Logs-To-Event -TaskName "AKS.WindowsCSE.PreprovisionExtension" -TaskMessage "Start preProvisioning script"
@@ -465,8 +461,6 @@ function NodePrep {
 
     Check-APIServerConnectivity -MasterIP $MasterIP
 
-    # Configure networking - this must run during node provisioning, not VHD creation
-    # to ensure each VM gets unique HNS network IDs and avoids DHCP conflicts
     Write-Log "Configuring networking with NetworkPlugin:$global:NetworkPlugin"
 
     # Configure network policy.
