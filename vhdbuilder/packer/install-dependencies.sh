@@ -908,10 +908,11 @@ extractAndCacheCoreDnsBinary() {
   rm -rf "/opt/azure/containers/localdns" || exit 1
   mkdir -p "${LOCALDNS_BINARY_PATH}" || exit 1
 
+  local ctr_temp=""
   cleanup_coredns_imports() {
     set +e
     if [ -n "${ctr_temp}" ]; then
-      ctr -n k8s.io images unmount "${ctr_temp}" >/dev/null
+      ctr -n k8s.io images unmount "${ctr_temp}" >/dev/null 2>&1
       rm -rf "${ctr_temp}"
     fi
   }
@@ -943,13 +944,11 @@ extractAndCacheCoreDnsBinary() {
     fi
 
     # Only add if we haven't seen this version before (keep the first occurrence, which is the latest revision)
-    if [ -z "${unique_versions[$vMajorMinorPatch]}" ]; then
+    if [ -z "${unique_versions[$vMajorMinorPatch]:-}" ]; then
       unique_versions[$vMajorMinorPatch]="$tag"
       version_order+=("$vMajorMinorPatch")
     fi
-  done
-
-  # Extract the CoreDNS binary for each unique version.
+  done  # Extract the CoreDNS binary for each unique version.
   local version_index=0
   for version in "${version_order[@]}"; do
     local tag="${unique_versions[$version]}"
@@ -1009,13 +1008,12 @@ extractAndCacheCoreDnsBinary() {
       echo "Coredns binary not found for ${coredns_image_url}" >> "${VHD_LOGS_FILEPATH}"
     fi
 
-    ctr -n k8s.io images unmount "${ctr_temp}" >/dev/null
+    ctr -n k8s.io images unmount "${ctr_temp}" >/dev/null 2>&1
     rm -rf "${ctr_temp}"
+    ctr_temp=""
 
     ((version_index++))
-  done
-
-  # Log summary of extracted binaries
+  done  # Log summary of extracted binaries
   echo "CoreDNS binary extraction completed. Total versions extracted: ${#version_order[@]}" >> "${VHD_LOGS_FILEPATH}"
   for i in "${!version_order[@]}"; do
     if [ $i -eq 0 ]; then

@@ -1466,7 +1466,7 @@ testCorednsBinaryExtractedAndCached() {
     local vMajorMinorPatch="${tag%-*}"
 
     # Only add if we haven't seen this version before (keep the first occurrence, which is the latest revision)
-    if [ -z "${unique_versions[$vMajorMinorPatch]}" ]; then
+    if [ -z "${unique_versions[$vMajorMinorPatch]:-}" ]; then
       unique_versions[$vMajorMinorPatch]="$tag"
       version_order+=("$vMajorMinorPatch")
     fi
