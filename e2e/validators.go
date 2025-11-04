@@ -1202,8 +1202,9 @@ func ValidateMIGInstancesCreated(ctx context.Context, s *Scenario, migProfile st
 	s.T.Logf("MIG instances with profile %s are created", migProfile)
 }
 
-// ValidateIPTablesRules validates that all iptables rules in each table match the provided patterns
-func ValidateIPTablesRules(ctx context.Context, s *Scenario) {
+// ValidateIPTablesCompatibleWithCiliumEBPF validates that all iptables rules in each table match the provided patterns which are accounted for
+// when eBPF host routing is enabled.
+func ValidateIPTablesCompatibleWithCiliumEBPF(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 	tablePatterns, globalPatterns := getIPTablesRulesCompatibleWithEBPFHostRouting()
 	tables := []string{"filter", "mangle", "nat", "raw", "security"}

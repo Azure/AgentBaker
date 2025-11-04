@@ -127,7 +127,7 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 		ValidateLocalDNSResolution(ctx, s, "169.254.10.10")
 	}
 
-	ValidateIPTablesRules(ctx, s)
+	ValidateIPTablesCompatibleWithCiliumEBPF(ctx, s)
 }
 
 func ValidateSystemdWatchdogForKubernetes132Plus(ctx context.Context, s *Scenario) {
