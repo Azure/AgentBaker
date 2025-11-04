@@ -1,5 +1,7 @@
 SHELL=/bin/bash -o pipefail
 
+export AZCLI_VERSION_OVERRIDE ?= 2.77.0
+
 GOARCH=amd64
 ifeq (${ARCHITECTURE},ARM64)
 	GOARCH=arm64
