@@ -916,7 +916,10 @@ fallbackToKubeBinaryInstall() {
     packageName="${1:-}"
     packageVersion="${2:-}"
     if [ "${packageName}" = "kubelet" ] || [ "${packageName}" = "kubectl" ]; then
-        if [ -f "/usr/local/bin/${packageName}-${packageVersion}" ]; then
+        if [ "${SHOULD_ENFORCE_KUBE_PMC_INSTALL}" = "true" ]; then
+            echo "Kube PMC install is enforced, skipping fallback to kube binary install for ${packageName}"
+            return 1
+        elif [ -f "/usr/local/bin/${packageName}-${packageVersion}" ]; then
             mv "/usr/local/bin/${packageName}-${packageVersion}" "/usr/local/bin/${packageName}"
             chmod a+x /usr/local/bin/${packageName}
             rm -rf /usr/local/bin/${packageName}-* &
