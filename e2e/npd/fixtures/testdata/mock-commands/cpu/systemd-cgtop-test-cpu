@@ -1,0 +1,18 @@
+#!/bin/bash
+cat <<'CGTOP_EOF'
+Control Group                                            Tasks   %CPU   Memory  Input/s Output/s
+/                                                         1234    5.2     4.5G        -        -
+/system.slice                                              456    2.1     1.2G        -        -
+/system.slice/docker.service                               123   15.3   512.5M        -        -
+/system.slice/kubelet.service                               89   12.7   256.7M        -        -
+/system.slice/containerd.service                            67    8.4   128.3M        -        -
+/user.slice                                                234    1.8   890.2M        -        -
+
+Control Group                                            Tasks   %CPU   Memory  Input/s Output/s
+/                                                         1234   25.7     4.6G        -        -
+/system.slice                                              456   12.4     1.3G        -        -
+/system.slice/docker.service                               123   45.8   523.1M        -        -
+/system.slice/kubelet.service                               89   38.2   267.4M        -        -
+/system.slice/containerd.service                            67   28.9   134.7M        -        -
+/user.slice                                                234    8.3   901.5M        -        -
+CGTOP_EOF

@@ -1,0 +1,5 @@
+{
+  "enable-npd-gpu-checks": true,  // Invalid: should be string
+  "npd-validate-in-prod": "true",
+  "extra-comma": "value",
+}

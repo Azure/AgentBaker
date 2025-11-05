@@ -1,0 +1,8 @@
+#!/bin/bash
+cat <<'IOTOP_OUTPUT'
+Total DISK READ:         0.00 B/s | Total DISK WRITE:       143.35 K/s
+Current DISK READ:       0.00 B/s | Current DISK WRITE:       0.00 B/s
+    TID  PRIO  USER     DISK READ  DISK WRITE  SWAPIN      IO    COMMAND
+    394 be/3 root        0.00 B/s   43.00 K/s  ?unavailable?  systemd-journald
+2373181 be/4 testuser    0.00 B/s   57.34 K/s  ?unavailable?  java -Dapp.config.url=http://config.example.com -Dapp.database.host=db.example.com -Dapp.redis.host=redis.example.com:6379 -Dapp.logging.level=INFO -Dapp.feature.enabled=true -Dapp.timeout.ms=30000 -Dapp.pool.size=10 -Dapp.cache.ttl=3600 -Dapp.auth.enabled=false -Dapp.ssl.verify=false -Dapp.metrics.enabled=true -Dapp.batch.size=100 -
+IOTOP_OUTPUT

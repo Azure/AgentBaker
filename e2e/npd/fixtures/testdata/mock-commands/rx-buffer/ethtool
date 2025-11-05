@@ -1,0 +1,13 @@
+#!/bin/bash
+# Ethtool dispatcher for RX buffer tests
+INTERFACE="$2"  # $1 is -S, $2 is interface name
+SCENARIO="${RX_BUFFER_SCENARIO:-normal}"
+
+# Look for scenario-specific mock in rx-buffer directory
+if [ -f "/mock-commands/rx-buffer/ethtool-$INTERFACE-$SCENARIO" ]; then
+    exec "/mock-commands/rx-buffer/ethtool-$INTERFACE-$SCENARIO"
+fi
+
+# Default failure
+echo "Cannot get device statistics: No such device" >&2
+exit 1

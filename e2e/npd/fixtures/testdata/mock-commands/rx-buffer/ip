@@ -1,0 +1,35 @@
+#!/bin/bash
+# IP dispatcher for RX buffer tests
+SCENARIO="${RX_BUFFER_SCENARIO:-normal}"
+
+case "$*" in
+    "-j -d link show")
+        # Return appropriate interface list based on scenario
+        case "$SCENARIO" in
+            "high-errors")
+                exec "/mock-commands/rx-buffer/ip-high-errors"
+                ;;
+            "normal")
+                exec "/mock-commands/rx-buffer/ip-normal"
+                ;;
+            "no-pci")
+                exec "/mock-commands/rx-buffer/ip-no-pci"
+                ;;
+            "missing-metrics"|"invalid-data"|"failure"|"no-traffic")
+                exec "/mock-commands/rx-buffer/ip-missing-metrics"
+                ;;
+        esac
+        ;;
+    "-s -s link show dev"*)
+        # Mock detailed link stats for diagnostics
+        INTERFACE=$(echo "$*" | awk '{print $NF}')
+        cat <<LINK_STATS
+2: $INTERFACE: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP mode DEFAULT group default qlen 1000
+    link/ether 00:15:5d:01:02:03 brd ff:ff:ff:ff:ff:ff
+    RX: bytes  packets  errors  dropped overrun mcast   
+    1500000000 1000000  5       10      0       50000   
+    TX: bytes  packets  errors  dropped carrier collsns 
+    1200000000 800000   2       8       0       0       
+LINK_STATS
+        ;;
+esac

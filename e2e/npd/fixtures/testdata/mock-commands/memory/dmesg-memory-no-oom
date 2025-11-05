@@ -1,0 +1,9 @@
+#!/bin/bash
+cat <<'DMESG_EOF'
+[    0.000000] Linux version 5.4.0-1064-azure (buildd@lcy02-amd64-112) (gcc version 9.4.0 (Ubuntu 9.4.0-1ubuntu1~20.04.1) ) #69~20.04.1-Ubuntu SMP Wed Jan 12 22:28:45 UTC 2022
+[    1.234567] Memory: 4096000K/4194304K available (12288K kernel code, 2048K rwdata, 4096K rodata, 1536K init, 1024K bss, 98304K reserved, 0K cma-reserved)
+[   10.123456] systemd[1]: Started Kernel Logging Service.
+[ 3590.123456] systemd[1]: Started some-service.service.
+[ 3595.789012] systemd[1]: Reached target multi-user.target.
+[ 3600.345678] systemd[1]: Startup finished in 45.123s (kernel) + 12.456s (initrd) + 23.789s (userspace) = 81.368s.
+DMESG_EOF

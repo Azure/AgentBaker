@@ -1,0 +1,6 @@
+#!/bin/bash
+cat <<'CRICTL_EOF'
+{
+  "stats": []
+}
+CRICTL_EOF

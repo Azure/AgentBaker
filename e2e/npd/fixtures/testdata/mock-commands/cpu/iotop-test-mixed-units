@@ -1,0 +1,11 @@
+#!/bin/bash
+cat <<'IOTOP_OUTPUT'
+Total DISK READ: 1.25 G/s | Total DISK WRITE: 856.34 M/s
+Current DISK READ: 45.67 M/s | Current DISK WRITE: 23.45 M/s
+    TID  PRIO  USER     DISK READ  DISK WRITE  SWAPIN      IO    COMMAND
+ 1001    be/4 root      500.00 M/s  200.00 M/s  ?unavailable? dd if=/dev/zero of=/tmp/test
+ 1002    be/4 user      15.67 M/s   12.34 M/s  ?unavailable? rsync -av /source/ /dest/
+ 1003    be/4 postgres  8.90 M/s    6.78 M/s  ?unavailable? postgres: checkpointer process
+ 1004    be/4 mysql     2.34 K/s    1.56 K/s  ?unavailable? mysqld --innodb-buffer-pool-size=1G
+ 1005    be/4 app       567.89 B/s  234.56 B/s  ?unavailable? /usr/bin/app --low-io-mode
+IOTOP_OUTPUT

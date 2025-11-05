@@ -1,0 +1,2 @@
+#!/bin/bash
+echo "aks-nodepool1-12345678-vmss000001"

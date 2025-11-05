@@ -1,0 +1,28 @@
+{
+  "plugin": "custom",
+  "pluginConfig": {
+    "invoke_interval": "60s",
+    "timeout": "20s",
+    "max_output_length": 80,
+    "concurrency": 3,
+    "enable_message_change_based_condition_update": true
+  },
+  "source": "custom-plugin-gpu-count",
+  "metricsReporting": false,
+  "conditions": [
+    {
+      "type": "GPUMissing",
+      "reason": "NoGPUMissing",
+      "message": "All GPUs are present"
+    }
+  ],
+  "rules": [
+    {
+      "type": "permanent",
+      "condition": "GPUMissing",
+      "reason": "GPUMissing",
+      "path": "/etc/node-problem-detector.d/plugin/check_gpu_count.sh",
+      "timeout": "20s"
+    }
+  ]
+}
