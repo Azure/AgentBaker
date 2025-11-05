@@ -497,17 +497,6 @@ func ValidateContainerRuntimePlugins(ctx context.Context, s *Scenario) {
 	ValidateDirectoryContent(ctx, s, "/var/run/nri", []string{"nri.sock"})
 }
 
-func EnableGPUNPDToggle(ctx context.Context, s *Scenario) {
-	s.T.Helper()
-	command := []string{
-		"set -ex",
-		"echo '{\"enable-npd-gpu-checks\": \"true\"}' | sudo tee /etc/node-problem-detector.d/public-settings.json",
-		"sudo systemctl restart node-problem-detector",
-		"sudo systemctl is-active node-problem-detector",
-	}
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "could not enable GPU NPD toggle and restart the node-problem-detector service")
-}
-
 func ValidateNPDGPUCountPlugin(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 	command := []string{
@@ -518,10 +507,10 @@ func ValidateNPDGPUCountPlugin(ctx context.Context, s *Scenario) {
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "NPD GPU count plugin configuration does not exist")
 }
 
-func ValidateNPDGPUCountCondition(ctx context.Context, s *Scenario) {
+func validateNPDCondition(ctx context.Context, s *Scenario, conditionType, conditionReason string, conditionStatus corev1.ConditionStatus, conditionMessage, conditionMessageErr string) {
 	s.T.Helper()
-	// Wait for NPD to report initial GPU count
-	var gpuCountCondition *corev1.NodeCondition
+	// Wait for NPD to report initial condition
+	var condition *corev1.NodeCondition
 	err := wait.PollUntilContextTimeout(ctx, 2*time.Second, 3*time.Minute, true, func(ctx context.Context) (bool, error) {
 		node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
 		if err != nil {
@@ -529,21 +518,34 @@ func ValidateNPDGPUCountCondition(ctx context.Context, s *Scenario) {
 			return false, nil // Continue polling on transient errors
 		}
 
-		// Check for GpuCount condition with correct reason
+		// Check for condition with correct reason
 		for i := range node.Status.Conditions {
-			if node.Status.Conditions[i].Type == "GPUMissing" && node.Status.Conditions[i].Reason == "NoGPUMissing" {
-				gpuCountCondition = &node.Status.Conditions[i]
-				return true, nil // Found the condition we are looking for
+			if string(node.Status.Conditions[i].Type) == conditionType && string(node.Status.Conditions[i].Reason) == conditionReason {
+				condition = &node.Status.Conditions[i] // Found the partial condition we are looking for
+			}
+
+			if strings.Contains(node.Status.Conditions[i].Message, conditionMessage) {
+				condition = &node.Status.Conditions[i]
+				return true, nil // Found the exact condition we are looking for
 			}
 		}
 
 		return false, nil // Continue polling until the condition is found or timeout occurs
 	})
-	require.NoError(s.T, err, "timed out waiting for NoGPUMissing condition to appear on node %q", s.Runtime.VM.KubeName)
+	if err != nil && condition == nil {
+		require.NoError(s.T, err, "timed out waiting for %s condition with reason %s to appear on node %q", conditionType, conditionReason, s.Runtime.VM.KubeName)
+	}
 
-	require.NotNil(s.T, gpuCountCondition, "expected to find GPUMissing condition with NoGPUMissing reason on node")
-	require.Equal(s.T, corev1.ConditionFalse, gpuCountCondition.Status, "expected GPUMissing condition to be False")
-	require.Contains(s.T, gpuCountCondition.Message, "All GPUs are present", "expected GPUMissing message to indicate correct count")
+	require.NotNil(s.T, condition, "expected to find %s condition with %s reason on node", conditionType, conditionReason)
+	require.Equal(s.T, condition.Status, conditionStatus, "expected %s condition to be %s", conditionType, conditionStatus)
+	require.Contains(s.T, condition.Message, conditionMessage, conditionMessageErr)
+}
+
+func ValidateNPDGPUCountCondition(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	// Validate that NPD is reporting healthy GPU count
+	validateNPDCondition(ctx, s, "GPUMissing", "NoGPUMissing", corev1.ConditionFalse,
+		"All GPUs are present", "expected GPUMissing message to indicate correct count")
 }
 
 func ValidateNPDGPUCountAfterFailure(ctx context.Context, s *Scenario) {
@@ -563,29 +565,9 @@ func ValidateNPDGPUCountAfterFailure(ctx context.Context, s *Scenario) {
 	}
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to disable GPU")
 
-	// Wait for NPD to detect the change
-	var gpuCountCondition *corev1.NodeCondition
-	err := wait.PollUntilContextTimeout(ctx, 2*time.Second, 3*time.Minute, true, func(ctx context.Context) (bool, error) {
-		node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
-		if err != nil {
-			s.T.Logf("Failed to get node %q: %v", s.Runtime.VM.KubeName, err)
-			return false, nil // Continue polling on transient errors
-		}
-
-		for i := range node.Status.Conditions {
-			if node.Status.Conditions[i].Type == "GPUMissing" && node.Status.Conditions[i].Reason == "GPUMissing" {
-				gpuCountCondition = &node.Status.Conditions[i]
-				return true, nil // Found the condition we are looking for
-			}
-		}
-
-		return false, nil // Continue polling
-	})
-	require.NoError(s.T, err, "timed out waiting for GPUMissing condition to appear on node %q", s.Runtime.VM.KubeName)
-
-	require.NotNil(s.T, gpuCountCondition, "expected to find GPUMissing condition with GPUMissing reason on node")
-	require.Equal(s.T, corev1.ConditionTrue, gpuCountCondition.Status, "expected GPUMissing condition to be True")
-	require.Contains(s.T, gpuCountCondition.Message, "Expected to see 8 GPUs but found 7. FaultCode: NHC2009", "expected GPUMissing message to indicate GPU count mismatch")
+	// Validate that NPD reports the GPU count mismatch
+	validateNPDCondition(ctx, s, "GPUMissing", "GPUMissing", corev1.ConditionTrue,
+		"Expected to see 8 GPUs but found 7. FaultCode: NHC2009", "expected GPUMissing message to indicate GPU count mismatch")
 
 	command = []string{
 		"set -ex",
@@ -599,30 +581,9 @@ func ValidateNPDGPUCountAfterFailure(ctx context.Context, s *Scenario) {
 
 func ValidateNPDIBLinkFlappingCondition(ctx context.Context, s *Scenario) {
 	s.T.Helper()
-	// Wait for the NPD to report initial IB Link Flapping condition
-	var ibLinkFlappingCondition *corev1.NodeCondition
-	err := wait.PollUntilContextTimeout(ctx, 5*time.Second, 3*time.Minute, true, func(ctx context.Context) (bool, error) {
-		node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
-		if err != nil {
-			s.T.Logf("Failed to get node %q: %v", s.Runtime.VM.KubeName, err)
-			return false, nil // Continue polling on transient errors
-		}
-
-		// Check for IBLinkFlapping condition with correct reason
-		for i := range node.Status.Conditions {
-			if node.Status.Conditions[i].Type == "IBLinkFlapping" && node.Status.Conditions[i].Reason == "NoIBLinkFlapping" {
-				ibLinkFlappingCondition = &node.Status.Conditions[i]
-				return true, nil // Found the condition we are looking for
-			}
-		}
-
-		return false, nil // Continue polling until the condition is found or timeout occurs
-	})
-	require.NoError(s.T, err, "timed out waiting for IBLinkFlapping condition with reason NoIBLinkFlapping to appear on node %q", s.Runtime.VM.KubeName)
-
-	require.NotNil(s.T, ibLinkFlappingCondition, "expected to find IBLinkFlapping condition with NoIBLinkFlapping reason on node")
-	require.Equal(s.T, corev1.ConditionFalse, ibLinkFlappingCondition.Status, "expected IBLinkFlapping condition to be False")
-	require.Contains(s.T, ibLinkFlappingCondition.Message, "IB link is stable", "expected IBLinkFlapping message to indicate no flapping")
+	// Validate that NPD is reporting no IB link flapping
+	validateNPDCondition(ctx, s, "IBLinkFlapping", "NoIBLinkFlapping", corev1.ConditionFalse,
+		"IB link is stable", "expected IBLinkFlapping message to indicate no flapping")
 }
 
 func ValidateNPDIBLinkFlappingAfterFailure(ctx context.Context, s *Scenario) {
@@ -639,32 +600,98 @@ func ValidateNPDIBLinkFlappingAfterFailure(ctx context.Context, s *Scenario) {
 	}
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to simulate IB link flapping")
 
-	// Wait for NPD to detect the change
-	var ibLinkFlappingCondition *corev1.NodeCondition
-	err := wait.PollUntilContextTimeout(ctx, 2*time.Second, 3*time.Minute, true, func(ctx context.Context) (bool, error) {
-		node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
-		if err != nil {
-			s.T.Logf("Failed to get node %q: %v", s.Runtime.VM.KubeName, err)
-			return false, nil // Continue polling on transient errors
-		}
-
-		// Check for IBLinkFlapping condition with correct reason
-		for i := range node.Status.Conditions {
-			if node.Status.Conditions[i].Type == "IBLinkFlapping" && node.Status.Conditions[i].Reason == "IBLinkFlapping" {
-				ibLinkFlappingCondition = &node.Status.Conditions[i]
-				return true, nil // Found the condition we are looking for
-			}
-		}
-
-		return false, nil // Continue polling until the condition is found or timeout occurs
-	})
-	require.NoError(s.T, err, "timed out waiting for IBLinkFlapping condition with reason IBLinkFlapping to appear on node %q", s.Runtime.VM.KubeName)
-
-	require.NotNil(s.T, ibLinkFlappingCondition, "expected to find IBLinkFlapping condition with IBLinkFlapping reason on node")
-	require.Equal(s.T, corev1.ConditionTrue, ibLinkFlappingCondition.Status, "expected IBLinkFlapping condition to be True")
-
+	// Validate that NPD reports IB link flapping
 	expectedMessage := "check_ib_link_flapping: IB link flapping detected, multiple IB link flapping events within 6 hours. FaultCode: NHC2005"
-	require.Contains(s.T, ibLinkFlappingCondition.Message, expectedMessage, "expected IBLinkFlapping message to indicate flapping")
+	validateNPDCondition(ctx, s, "IBLinkFlapping", "IBLinkFlapping", corev1.ConditionTrue,
+		expectedMessage, "expected IBLinkFlapping message to indicate flapping")
+}
+
+func ValidateNPDUnhealthyNvidiaDevicePlugin(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	command := []string{
+		"set -ex",
+		// Check NPD unhealthy Nvidia device plugin config exists
+		"test -f /etc/node-problem-detector.d/custom-plugin-monitor/gpu_checks/custom-plugin-nvidia-device-plugin.json",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "NPD Nvidia device plugin configuration does not exist")
+}
+
+func ValidateNPDUnhealthyNvidiaDevicePluginCondition(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	// Validate that NPD is reporting healthy Nvidia device plugin
+	validateNPDCondition(ctx, s, "UnhealthyNvidiaDevicePlugin", "HealthyNvidiaDevicePlugin", corev1.ConditionFalse,
+		"NVIDIA device plugin is running properly", "expected UnhealthyNvidiaDevicePlugin message to indicate healthy status")
+}
+
+func ValidateNPDUnhealthyNvidiaDevicePluginAfterFailure(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	// Stop Nvidia device plugin systemd service to simulate failure
+	command := []string{
+		"set -ex",
+		"sudo systemctl stop nvidia-device-plugin.service",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to stop Nvidia device plugin service")
+
+	// Validate that NPD reports unhealthy Nvidia device plugin
+	validateNPDCondition(ctx, s, "UnhealthyNvidiaDevicePlugin", "UnhealthyNvidiaDevicePlugin", corev1.ConditionTrue,
+		"Systemd service nvidia-device-plugin is not active", "expected UnhealthyNvidiaDevicePlugin message to indicate unhealthy status")
+
+	// Restart Nvidia device plugin systemd service
+	command = []string{
+		"set -ex",
+		"sudo systemctl restart nvidia-device-plugin.service || true",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to restart Nvidia device plugin service")
+}
+
+func ValidateNPDUnhealthyNvidiaDCGMServices(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	command := []string{
+		"set -ex",
+		// Check NPD unhealthy Nvidia DCGM services config exists
+		"test -f /etc/node-problem-detector.d/custom-plugin-monitor/gpu_checks/custom-plugin-nvidia-dcgm-services.json",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "NPD Nvidia DCGM services configuration does not exist")
+}
+
+func ValidateNPDUnhealthyNvidiaDCGMServicesCondition(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	// Validate that NPD is reporting healthy Nvidia DCGM services
+	validateNPDCondition(ctx, s, "UnhealthyNvidiaDCGMServices", "HealthyNvidiaDCGMServices", corev1.ConditionFalse,
+		"NVIDIA DCGM services are running properly", "expected UnhealthyNvidiaDCGMServices message to indicate healthy status")
+}
+
+func ValidateNPDUnhealthyNvidiaDCGMServicesAfterFailure(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	// Stop nvidia-dcgm systemd service to simulate failure
+	command := []string{
+		"set -ex",
+		"sudo systemctl stop nvidia-dcgm.service",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to stop Nvidia DCGM service")
+
+	// Validate that NPD reports unhealthy Nvidia DCGM services
+	validateNPDCondition(ctx, s, "UnhealthyNvidiaDCGMServices", "UnhealthyNvidiaDCGMServices", corev1.ConditionTrue,
+		"Systemd service(s) nvidia-dcgm are not active", "expected UnhealthyNvidiaDCGMServices message to indicate unhealthy status")
+
+	// Stop the nvidia-dcgm-exporter system service to simulate failure
+	command = []string{
+		"set -ex",
+		"sudo systemctl stop nvidia-dcgm-exporter.service",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to stop Nvidia DCGM Exporter service")
+
+	// Validate that NPD still reports unhealthy Nvidia DCGM services
+	validateNPDCondition(ctx, s, "UnhealthyNvidiaDCGMServices", "UnhealthyNvidiaDCGMServices", corev1.ConditionTrue,
+		"Systemd service(s) nvidia-dcgm nvidia-dcgm-exporter are not active", "expected UnhealthyNvidiaDCGMServices message to indicate unhealthy status for both services")
+
+	// Restart Nvidia DCGM services
+	command = []string{
+		"set -ex",
+		"sudo systemctl restart nvidia-dcgm.service || true",
+		"sudo systemctl restart nvidia-dcgm-exporter.service || true",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to restart Nvidia DCGM services")
 }
 
 func ValidateRunc12Properties(ctx context.Context, s *Scenario, versions []string) {
