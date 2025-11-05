@@ -1456,6 +1456,38 @@
             ],
             "downloadURL": "mcr.microsoft.com/oss/binaries/kubernetes/azure-acr-credential-provider:${version}-linux-${CPU_ARCH}"
           }
+        },
+        "flatcar": {
+          "current": {
+            "versionsV2": [
+              {
+                "k8sVersion": "1.30",
+                "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/binaries/kubernetes/azure-acr-credential-provider",
+                "latestVersion": "v1.30.15"
+              },
+              {
+                "k8sVersion": "1.31",
+                "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/binaries/kubernetes/azure-acr-credential-provider",
+                "latestVersion": "v1.31.9"
+              },
+              {
+                "k8sVersion": "1.32",
+                "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/binaries/kubernetes/azure-acr-credential-provider",
+                "latestVersion": "v1.32.8"
+              },
+              {
+                "k8sVersion": "1.33",
+                "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/binaries/kubernetes/azure-acr-credential-provider",
+                "latestVersion": "v1.33.3"
+              },
+              {
+                "k8sVersion": "1.34",
+                "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/binaries/kubernetes/azure-acr-credential-provider",
+                "latestVersion": "v1.34.1"
+              }
+            ],
+            "downloadURL": "mcr.microsoft.com/oss/binaries/kubernetes/azure-acr-credential-provider:${version}-linux-${CPU_ARCH}"
+          }
         }
       }
     },
