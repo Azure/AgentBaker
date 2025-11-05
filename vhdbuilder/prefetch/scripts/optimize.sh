@@ -60,14 +60,14 @@ run_image_builder_template() {
 copy_optimized_vhd() {
     staging_rg_name=$(az resource show -n "${IMAGE_BUILDER_TEMPLATE_NAME}" -g "${IMAGE_BUILDER_RG_NAME}" \
         --resource-type Microsoft.VirtualMachineImages/imageTemplates \
-        --api-version "${API_VERSION}" | jq -r .properties.exactStagingResourceGroup)
+        --api-version "${API_VERSION}" | jq -r '.properties.exactStagingResourceGroup')
     staging_rg_name=${staging_rg_name##*/}
 
     copy_info=$(az storage blob show \
         --name "${OPTIMIZED_VHD_BLOB_NAME}" \
         --container-name "${VHD_STORAGE_CONTAINER_NAME}" \
         --account-name "${VHD_STORAGE_ACCOUNT_NAME}" \
-        --subscription "${SUBSCRIPTION_ID}" 2>/dev/null | jq .properties.copy)
+        --subscription "${SUBSCRIPTION_ID}" 2>/dev/null | jq '.properties.copy')
     copy_source=$(jq -r '.source' <<< "${copy_info}")
     if [ "${copy_source}" != "null" ]; then
         # this blob has previously been copied to from somewhere else
@@ -167,7 +167,7 @@ set_storage_details_from_vhd_blob_url() {
 ensure_image_builder_resource_group() {
   echo "ensuring resource group: $IMAGE_BUILDER_RG_NAME"
 
-  if [ -z "$(az group show --name "${IMAGE_BUILDER_RG_NAME}" | jq .id )" ]; then
+  if [ -z "$(az group show --name "${IMAGE_BUILDER_RG_NAME}" | jq '.id' )" ]; then
     echo "creating resource group ${IMAGE_BUILDER_RG_NAME}"
     az group create --name "${IMAGE_BUILDER_RG_NAME}" --location "${LOCATION}" || return $?
   fi
