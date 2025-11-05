@@ -66,12 +66,12 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 			"system-log-monitor",
 			"system-stats-monitor",
 		})
+
+		// validate plugin directory is not empty (contains actual plugin scripts)
+		ValidateNonEmptyDirectory(ctx, s, "/etc/node-problem-detector.d/plugin")
 	} else {
 		logf(ctx, "Skipping node-problem-detector validation: VHD does not have NPD installed (skip_vhd_npd file not found)")
 	}
-
-	// validate plugin directory is not empty (contains actual plugin scripts)
-	ValidateNonEmptyDirectory(ctx, s, "/etc/node-problem-detector.d/plugin")
 
 	ValidateSysctlConfig(ctx, s, map[string]string{
 		"net.ipv4.tcp_retries2":             "8",
