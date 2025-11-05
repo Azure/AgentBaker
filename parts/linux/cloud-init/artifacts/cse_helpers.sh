@@ -926,6 +926,7 @@ fallbackToKubeBinaryInstall() {
             return 1
         fi
     fi
+    return 1
 }
 
 # adds the specified LABEL_STRING (which should be in the form of 'label=value') to KUBELET_NODE_LABELS

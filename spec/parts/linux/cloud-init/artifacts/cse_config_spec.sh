@@ -846,9 +846,8 @@ Describe 'cse_config.sh'
                 return 1
             }
             fallbackToKubeBinaryInstall() {
-                echo "fallbackToKubeBinaryInstall"
+                echo "fallbackToKubeBinaryInstall $1 $2"
             }
-
             updateAptWithMicrosoftPkg() {
                 echo "updateAptWithMicrosoftPkg"
             }

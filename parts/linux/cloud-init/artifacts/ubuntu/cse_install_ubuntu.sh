@@ -268,7 +268,8 @@ installPkgWithAptGet() {
     if [ -z "${debFile}" ]; then
         if fallbackToKubeBinaryInstall "${packageName}" "${packageVersion}"; then
             echo "Successfully installed ${packageName} version ${packageVersion} from binary fallback"
-            exit 0
+            rm -rf ${downloadDir}
+            return 0
         fi
 
         # query all package versions and get the latest version for matching k8s version
@@ -276,7 +277,7 @@ installPkgWithAptGet() {
         fullPackageVersion=$(apt list ${packageName} --all-versions | grep ${packageVersion}- | awk '{print $2}' | sort -V | tail -n 1)
         if [ -z "${fullPackageVersion}" ]; then
             echo "Failed to find valid ${packageName} version for ${packageVersion}"
-            exit 1
+            return 1
         fi
         echo "Did not find cached deb file, downloading ${packageName} version ${fullPackageVersion}"
         logs_to_events "AKS.CSE.install${packageName}PkgFromPMC.downloadPkgFromVersion" "downloadPkgFromVersion ${packageName} ${fullPackageVersion} ${downloadDir}"
@@ -284,7 +285,7 @@ installPkgWithAptGet() {
     fi
     if [ -z "${debFile}" ]; then
         echo "Failed to locate ${packageName} deb"
-        exit 1
+        return 1
     fi
 
     logs_to_events "AKS.CSE.install${packageName}.installDebPackageFromFile" "installDebPackageFromFile ${debFile}" || exit $ERR_APT_INSTALL_TIMEOUT
