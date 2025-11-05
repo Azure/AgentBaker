@@ -7,7 +7,7 @@
       "bytes": 30614078,
       "size": "29.2 MiB",
       "repoTags": [
-        "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.32.5"
+        "mcr.microsoft.com/containernetworking/azure-npm:v1.6.29"
       ],
       "repoDigests": [
         "sha256:3371131c0c0c7b30b0f26d057479aead1969826cb69d08417438b38b7abffea2"
