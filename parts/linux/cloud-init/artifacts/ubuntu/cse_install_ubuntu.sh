@@ -72,6 +72,11 @@ updateAptWithMicrosoftPkg() {
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
 }
 
+updatePMCRepository() {
+    local opts="-o Dir::Etc::sourcelist=/etc/apt/sources.list.d/microsoft-prod.list"
+    apt_get_update_with_opts "${opts}" || exit $ERR_APT_UPDATE_TIMEOUT
+}
+
 updateAptWithNvidiaPkg() {
     readonly nvidia_gpg_keyring_path="/etc/apt/keyrings/nvidia.pub"
     mkdir -p "$(dirname "${nvidia_gpg_keyring_path}")"
@@ -267,7 +272,7 @@ installPkgWithAptGet() {
     debFile=$(find "${downloadDir}" -maxdepth 1 -name "${packagePrefix}" -print -quit 2>/dev/null) || debFile=""
     if [ -z "${debFile}" ]; then
         # query all package versions and get the latest version for matching k8s version
-        updateAptWithMicrosoftPkg
+        updatePMCRepository
         fullPackageVersion=$(apt list ${packageName} --all-versions | grep ${packageVersion}- | awk '{print $2}' | sort -V | tail -n 1)
         if [ -z "${fullPackageVersion}" ]; then
             echo "Failed to find valid ${packageName} version for ${packageVersion}"
