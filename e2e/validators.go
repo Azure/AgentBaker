@@ -1211,8 +1211,6 @@ func ValidateIPTablesCompatibleWithCiliumEBPF(ctx context.Context, s *Scenario) 
 	success := true
 
 	for _, table := range tables {
-		s.T.Logf("Validating iptables rules for table: %s", table)
-
 		// Get the rules for this table
 		command := fmt.Sprintf("sudo iptables -t %s -S", table)
 		execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0, fmt.Sprintf("failed to get iptables rules for table %s", table))
@@ -1262,8 +1260,6 @@ func ValidateIPTablesCompatibleWithCiliumEBPF(ctx context.Context, s *Scenario) 
 				success = false
 			}
 		}
-
-		s.T.Logf("Checked rules in table %s against expected patterns", table)
 	}
 
 	require.True(
