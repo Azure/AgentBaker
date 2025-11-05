@@ -18,7 +18,7 @@
       "bytes": 273909071,
       "size": "261.2 MiB",
       "repoTags": [
-        "mcr.microsoft.com/containernetworking/cilium/cilium:v1.17.7-250821"
+        "mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:1.14.2"
       ],
       "repoDigests": [
         "sha256:b50fb00705b3e0b3b439b62f50d22b6fab04d6bcc04c15868231bbf1d5e24be2"

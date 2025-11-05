@@ -14,14 +14,14 @@
       ]
     },
     {
-      "id": "sha256:24987af8931db6f12997bbbc8535d77050fd4b681307f1063c226634592c02d7",
-      "bytes": 233320417,
-      "size": "222.5 MiB",
+      "id": "sha256:26ef95fc28cda0c2d0db3d1a5911478575e49e59a0b17d2e9e0827d316821ca8",
+      "bytes": 236745020,
+      "size": "225.8 MiB",
       "repoTags": [
-        "mcr.microsoft.com/containernetworking/cilium/cilium:v1.16.13-250826"
+        "mcr.microsoft.com/containernetworking/cilium/cilium:v1.16.10-250610"
       ],
       "repoDigests": [
-        "sha256:87ec28470ed5dc6dd02c0dfd5ed82b3a2a541b394993db462a647212ce53d1a8"
+        "sha256:0643f5e4480444985b5e4cc62f6bd5c2505088714d72740ef68e3ade2e320bd8"
       ]
     },
     {
@@ -102,14 +102,14 @@
       ]
     },
     {
-      "id": "sha256:83fc4aaaf79c2e878204a172d452869351af15a6e887093617e6ff4a3710f385",
-      "bytes": 19440956,
-      "size": "18.5 MiB",
+      "id": "sha256:791e177e0716522d9aeaa70b52f66e59d029e666da9a8198049bece44360c485",
+      "bytes": 137597696,
+      "size": "131.2 MiB",
       "repoTags": [
-        "mcr.microsoft.com/oss/v2/kubernetes-csi/csi-node-driver-registrar:v2.14.0"
+        "mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.23.0-main-09-29-2025-f7d29698-cfg"
       ],
       "repoDigests": [
-        "sha256:8cfffae536116a98469f29c94b10b730a6546b87e412effd4008b37d56110a23"
+        "sha256:8de84c0b802816d46975718a1162d6c1cefaf274cb9c37a561a87f87e596ba43"
       ]
     },
     {
@@ -641,25 +641,25 @@
       ]
     },
     {
-      "id": "sha256:591ea3fd2d55d02520e5e8edcaaa78a31ad488f734f96097033e309bdf598d87",
-      "bytes": 26459202,
-      "size": "25.2 MiB",
+      "id": "sha256:420d2e4fbfb84d1ddabfebeb9b7a076690447e6a72274cb97eb364c98f512245",
+      "bytes": 152645404,
+      "size": "145.6 MiB",
       "repoTags": [
-        "mcr.microsoft.com/oss/v2/azure/ip-masq-agent-v2:v0.1.15-4"
+        "mcr.microsoft.com/oss/v2/kubernetes-csi/blob-csi:v1.25.10"
       ],
       "repoDigests": [
-        "sha256:3cff35a375fe1b870720a00b055d48811f7eef8257f29caf38644f852498dabf"
+        "sha256:07eecb3f267e30dac81743c08a4b894cf624afce53a4c47dc22f714d75c83bb2"
       ]
     },
     {
-      "id": "sha256:332a2dd1ad227ceefa789a9ee5bb5216eaf33e28c779cfea3e56adf6c053a060",
-      "bytes": 26496449,
-      "size": "25.3 MiB",
+      "id": "sha256:6128f2c802e1fe3b93b33441ec53494fdfb7850fadb500f946f19d394a375331",
+      "bytes": 18459804,
+      "size": "17.6 MiB",
       "repoTags": [
-        "mcr.microsoft.com/oss/v2/azure/ip-masq-agent-v2:v0.1.15-5"
+        "mcr.microsoft.com/oss/v2/kubernetes-csi/csi-node-driver-registrar:v2.15.0"
       ],
       "repoDigests": [
-        "sha256:3360c75d35809c330dbcd6f47a036f1a0b481688c573a31c1964191730b427ec"
+        "sha256:7bab5131c0299d8c088ddbaaeed48739c4e6515d4d0726fa338c6b10aedae877"
       ]
     },
     {
