@@ -73,7 +73,7 @@ updateAptWithMicrosoftPkg() {
 }
 
 updatePMCRepository() {
-    local opts="-o Dir::Etc::sourcelist=/etc/apt/sources.list.d/microsoft-prod.list"
+    local opts="-o Dir::Etc::sourcelist=/etc/apt/sources.list.d/microsoft-prod.list -o Dir::Etc::sourceparts=-"
     apt_get_update_with_opts "${opts}" || exit $ERR_APT_UPDATE_TIMEOUT
 }
 

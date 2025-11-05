@@ -223,6 +223,47 @@ func addAirgapNetworkSettings(ctx context.Context, clusterModel *armcontainerser
 	return nil
 }
 
+func addAirgapNetworkSettings(ctx context.Context, clusterModel *armcontainerservice.ManagedCluster, privateACRName, location string) error {
+	logf(ctx, "Adding network settings for airgap cluster %s in rg %s", *clusterModel.Name, *clusterModel.Properties.NodeResourceGroup)
+
+	vnet, err := getClusterVNet(ctx, *clusterModel.Properties.NodeResourceGroup)
+	if err != nil {
+		return err
+	}
+	subnetId := vnet.subnetId
+
+	nsgParams, err := airGapSecurityGroup(location, *clusterModel.Properties.Fqdn)
+	if err != nil {
+		return err
+	}
+
+	nsg, err := createAirgapSecurityGroup(ctx, clusterModel, nsgParams, nil)
+	if err != nil {
+		return err
+	}
+
+	subnetParameters := armnetwork.Subnet{
+		ID: to.Ptr(subnetId),
+		Properties: &armnetwork.SubnetPropertiesFormat{
+			AddressPrefix: to.Ptr("10.224.0.0/16"),
+			NetworkSecurityGroup: &armnetwork.SecurityGroup{
+				ID: nsg.ID,
+			},
+		},
+	}
+	if err = updateSubnet(ctx, clusterModel, subnetParameters, vnet.name); err != nil {
+		return err
+	}
+
+	err = addPrivateEndpointForACR(ctx, *clusterModel.Properties.NodeResourceGroup, privateACRName, vnet, location)
+	if err != nil {
+		return err
+	}
+
+	logf(ctx, "updated cluster %s subnet with airgap settings", *clusterModel.Name)
+	return nil
+}
+
 func airGapSecurityGroup(location, clusterFQDN string) (armnetwork.SecurityGroup, error) {
 	requiredRules, err := getRequiredSecurityRules(clusterFQDN)
 	if err != nil {
