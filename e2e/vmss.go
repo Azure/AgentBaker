@@ -75,18 +75,13 @@ func compileAKSNodeController(ctx context.Context, arch string) (*os.File, error
 	return f, nil
 }
 
-func ConfigureAndCreateVMSS(ctx context.Context, s *Scenario) *armcompute.VirtualMachineScaleSet {
-	model := createVMMSModel(ctx, s)
-
-	vmss, err := CreateVMSSWithRetry(ctx, s, model)
-	s.T.Cleanup(func() {
-		cleanupVMSS(ctx, s)
-	})
+func ConfigureAndCreateVMSS(ctx context.Context, s *Scenario) *ScenarioVM {
+	vm, err := CreateVMSSWithRetry(ctx, s)
 	skipTestIfSKUNotAvailableErr(s.T, err)
 	// fail test, but continue to extract debug information
 	require.NoError(s.T, err, "create vmss %q, check %s for vm logs", s.Runtime.VMSSName, testDir(s.T))
 
-	return vmss
+	return vm
 }
 
 // CustomDataWithHack is similar to nodeconfigutils.CustomData, but it uses a hack to run new aks-node-controller binary
@@ -152,7 +147,7 @@ coreos:
 	return base64.StdEncoding.EncodeToString([]byte(customDataYAML)), nil
 }
 
-func createVMMSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachineScaleSet {
+func createVMSSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachineScaleSet {
 	cluster := s.Runtime.Cluster
 	var nodeBootstrapping *datamodel.NodeBootstrapping
 	ab, err := agent.NewAgentBaker()
@@ -198,7 +193,7 @@ func createVMMSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachine
 		)
 	}
 
-	model := getBaseVMSSModel(s, customData, cse, s.Location)
+	model := getBaseVMSSModel(s, customData, cse)
 	if s.Tags.NonAnonymousACR {
 		// add acr pull identity
 		userAssignedIdentity := fmt.Sprintf(
@@ -227,7 +222,7 @@ func createVMMSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachine
 	return model
 }
 
-func CreateVMSSWithRetry(ctx context.Context, s *Scenario, parameters armcompute.VirtualMachineScaleSet) (*armcompute.VirtualMachineScaleSet, error) {
+func CreateVMSSWithRetry(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 	delay := 5 * time.Second
 	retryOn := func(err error) bool {
 		var respErr *azcore.ResponseError
@@ -241,61 +236,130 @@ func CreateVMSSWithRetry(ctx context.Context, s *Scenario, parameters armcompute
 
 	for {
 		attempt++
-		vmss, err := CreateVMSS(ctx, s, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, parameters)
+		vm, err := CreateVMSS(ctx, s, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup)
 		if err == nil {
 			logf(ctx, "created VMSS %s in resource group %s", s.Runtime.VMSSName, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup)
-			return vmss, nil
+			return vm, nil
 		}
 
 		// not a retryable error
 		if !retryOn(err) {
-			return nil, err
+			return vm, err
 		}
 
 		if attempt >= maxAttempts {
-			return nil, fmt.Errorf("failed to create VMSS after %d retries: %w", maxAttempts, err)
+			return vm, fmt.Errorf("failed to create VMSS after %d retries: %w", maxAttempts, err)
 		}
 
 		logf(ctx, "failed to create VMSS: %v, attempt: %v, retrying in %v", err, attempt, delay)
 		select {
 		case <-ctx.Done():
-			return nil, err
+			return vm, err
 		case <-time.After(delay):
 		}
 	}
-
 }
 
-func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string, vmssName string, parameters armcompute.VirtualMachineScaleSet) (*armcompute.VirtualMachineScaleSet, error) {
+func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*ScenarioVM, error) {
+	vm := &ScenarioVM{}
 	operation, err := config.Azure.VMSS.BeginCreateOrUpdate(
 		ctx,
 		resourceGroupName,
-		vmssName,
-		parameters,
+		s.Runtime.VMSSName,
+		createVMSSModel(ctx, s),
 		nil,
 	)
 	if err != nil {
-		return nil, err
+		return vm, err
 	}
 	// We want to generate SSH instructions as soon as possible, so we can debug CSE issues
-	s.Runtime.VMPrivateIP, err = waitForVMPrivateIP(ctx, s)
+	// Wait for VMSS VM to appear before extracting the private IP
+	vm.VM, err = waitForVMSSVM(ctx, s)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get VM private IP address: %w", err)
+		return vm, fmt.Errorf("failed to wait for VMSS VM: %w", err)
 	}
-	err = uploadSSHKey(ctx, s)
+
+	vm.PrivateIP, err = getPrivateIPFromVMSSVM(ctx, resourceGroupName, s.Runtime.VMSSName, *vm.VM.InstanceID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to upload ssh key: %w", err)
+		return vm, fmt.Errorf("failed to get VM private IP address: %w", err)
+	}
+
+	s.T.Cleanup(func() {
+		cleanupVMSS(ctx, s, vm.PrivateIP)
+	})
+
+	err = uploadSSHKey(ctx, s, vm.PrivateIP)
+	if err != nil {
+		return vm, fmt.Errorf("failed to upload ssh key: %w", err)
 	}
 
 	vmssResp, err := operation.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
 	if err != nil {
-		return nil, err
+		return vm, err
 	}
-	return &vmssResp.VirtualMachineScaleSet, nil
+
+	// Wait for VM to be in "Running" power state before proceeding
+	err = waitForVMRunningState(ctx, s, vm.VM)
+	if err != nil {
+		return vm, fmt.Errorf("failed to wait for VM to reach running state: %w", err)
+	}
+
+	return &ScenarioVM{
+		VMSS:      &vmssResp.VirtualMachineScaleSet,
+		PrivateIP: vm.PrivateIP,
+		VM:        vm.VM,
+	}, nil
 }
 
-// waitForVMPrivateIP polls until a private IP is available or the timeout elapses.
-func waitForVMPrivateIP(ctx context.Context, s *Scenario) (string, error) {
+// waitForVMRunningState polls until the VM reaches "Running" power state or the timeout elapses.
+func waitForVMRunningState(ctx context.Context, s *Scenario, vmssVM *armcompute.VirtualMachineScaleSetVM) error {
+	ctxTimeout, cancel := context.WithTimeout(ctx, 3*time.Minute)
+	defer cancel()
+
+	ticker := time.NewTicker(config.Config.DefaultPollInterval)
+	defer ticker.Stop()
+
+	var lastErr error
+	for {
+		// Get the updated VM with instance view to check power state
+		vm, err := config.Azure.VMSSVM.Get(ctxTimeout, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, *vmssVM.InstanceID, &armcompute.VirtualMachineScaleSetVMsClientGetOptions{
+			Expand: to.Ptr(armcompute.InstanceViewTypesInstanceView),
+		})
+
+		if err == nil {
+			// Check if the VM has instance view and statuses
+			if vm.Properties != nil && vm.Properties.InstanceView != nil && vm.Properties.InstanceView.Statuses != nil {
+				for _, status := range vm.Properties.InstanceView.Statuses {
+					if status.Code != nil && strings.HasPrefix(*status.Code, "PowerState/") {
+						powerState := strings.TrimPrefix(*status.Code, "PowerState/")
+						if powerState == "running" {
+							logf(ctxTimeout, "VM reached running state")
+							*vmssVM = vm.VirtualMachineScaleSetVM
+							return nil
+						}
+						logf(ctxTimeout, "VM is in power state: %s, waiting for running state...", powerState)
+					}
+				}
+			}
+		}
+
+		if err != nil {
+			lastErr = err
+		}
+
+		select {
+		case <-ctxTimeout.Done():
+			if lastErr != nil {
+				return fmt.Errorf("timeout waiting for VM to reach running state: %w", lastErr)
+			}
+			return fmt.Errorf("timeout waiting for VM to reach running state")
+		case <-ticker.C:
+		}
+	}
+}
+
+// waitForVMSSVM polls until a VMSS VM instance appears with network profile or the timeout elapses.
+func waitForVMSSVM(ctx context.Context, s *Scenario) (*armcompute.VirtualMachineScaleSetVM, error) {
 	ctxTimeout, cancel := context.WithTimeout(ctx, time.Minute)
 	defer cancel()
 
@@ -304,17 +368,69 @@ func waitForVMPrivateIP(ctx context.Context, s *Scenario) (string, error) {
 
 	var lastErr error
 	for {
-		ip, err := getVMPrivateIPAddress(ctxTimeout, s)
-		if err == nil && ip != "" {
-			return ip, nil
+		pager := config.Azure.VMSSVM.NewListPager(*s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, &armcompute.VirtualMachineScaleSetVMsClientListOptions{
+			Expand: to.Ptr("instanceView"),
+		})
+
+		if pager.More() {
+			page, err := pager.NextPage(ctxTimeout)
+			if err == nil && len(page.Value) > 0 {
+				vmssVM := page.Value[0]
+				// Verify it has network profile
+				if vmssVM.Properties != nil && vmssVM.Properties.NetworkProfile != nil {
+					return vmssVM, nil
+				}
+			}
+			if err != nil {
+				lastErr = err
+			}
 		}
-		lastErr = err
+
 		select {
 		case <-ctxTimeout.Done():
-			return "", fmt.Errorf("timeout waiting for private IP: %w", lastErr)
+			if lastErr != nil {
+				return nil, fmt.Errorf("timeout waiting for VMSS VM: %w", lastErr)
+			}
+			return nil, fmt.Errorf("timeout waiting for VMSS VM")
 		case <-ticker.C:
 		}
 	}
+}
+
+// getPrivateIPFromVMSSVM extracts the private IP address from a VMSS VM by querying its network interfaces.
+func getPrivateIPFromVMSSVM(ctx context.Context, resourceGroup, vmssName, instanceID string) (string, error) {
+	// Query the network interface to get the IP configuration
+	pager := config.Azure.NetworkInterfaces.NewListVirtualMachineScaleSetVMNetworkInterfacesPager(
+		resourceGroup,
+		vmssName,
+		instanceID,
+		nil,
+	)
+
+	if !pager.More() {
+		return "", fmt.Errorf("no network interfaces found for VMSS VM")
+	}
+
+	page, err := pager.NextPage(ctx)
+	if err != nil {
+		return "", fmt.Errorf("failed to get network interfaces: %w", err)
+	}
+
+	if len(page.Value) == 0 {
+		return "", fmt.Errorf("no network interfaces found")
+	}
+
+	nic := page.Value[0]
+	if nic.Properties == nil || nic.Properties.IPConfigurations == nil || len(nic.Properties.IPConfigurations) == 0 {
+		return "", fmt.Errorf("network interface has no IP configurations")
+	}
+
+	ipConfig := nic.Properties.IPConfigurations[0]
+	if ipConfig.Properties == nil || ipConfig.Properties.PrivateIPAddress == nil {
+		return "", fmt.Errorf("IP configuration has no private IP address")
+	}
+
+	return *ipConfig.Properties.PrivateIPAddress, nil
 }
 
 func skipTestIfSKUNotAvailableErr(t testing.TB, err error) {
@@ -328,19 +444,19 @@ func skipTestIfSKUNotAvailableErr(t testing.TB, err error) {
 	}
 }
 
-func cleanupVMSS(ctx context.Context, s *Scenario) {
+func cleanupVMSS(ctx context.Context, s *Scenario, privateIP string) {
 	// original context can be cancelled, but we still want to collect the logs
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Minute)
 	defer cancel()
 	defer deleteVMSS(ctx, s)
-	extractLogsFromVM(ctx, s)
+	extractLogsFromVM(ctx, s, privateIP)
 }
 
-func extractLogsFromVM(ctx context.Context, s *Scenario) {
+func extractLogsFromVM(ctx context.Context, s *Scenario, privateIP string) {
 	if s.IsWindows() {
 		extractLogsFromVMWindows(ctx, s)
 	} else {
-		err := extractLogsFromVMLinux(ctx, s)
+		err := extractLogsFromVMLinux(ctx, s, privateIP)
 		if err != nil {
 			s.T.Logf("failed to extract logs from VM: %s", err)
 		} else {
@@ -414,12 +530,7 @@ func extractBootDiagnostics(ctx context.Context, s *Scenario) error {
 	return nil
 }
 
-func extractLogsFromVMLinux(ctx context.Context, s *Scenario) error {
-	privateIP, err := getVMPrivateIPAddress(ctx, s)
-	if err != nil {
-		return fmt.Errorf("failed to get VM private IP address: %w", err)
-	}
-
+func extractLogsFromVMLinux(ctx context.Context, s *Scenario, privateIP string) error {
 	syslogHandle := "syslog"
 	if s.VHD.OS == config.OSMariner || s.VHD.OS == config.OSAzureLinux {
 		syslogHandle = "messages"
@@ -656,40 +767,6 @@ func addPodIPConfigsForAzureCNI(vmss *armcompute.VirtualMachineScaleSet, vmssNam
 	return nil
 }
 
-func getVMPrivateIPAddress(ctx context.Context, s *Scenario) (string, error) {
-	pager := config.Azure.NetworkInterfaces.NewListVirtualMachineScaleSetVMNetworkInterfacesPager(
-		*s.Runtime.Cluster.Model.Properties.NodeResourceGroup,
-		s.Runtime.VMSSName,
-		"0", // VM instance index
-		nil,
-	)
-
-	if !pager.More() {
-		return "", fmt.Errorf("no network interfaces found for VMSS %s", s.Runtime.VMSSName)
-	}
-
-	page, err := pager.NextPage(ctx)
-	if err != nil {
-		return "", fmt.Errorf("failed to get network interfaces for VMSS %s: %w", s.Runtime.VMSSName, err)
-	}
-
-	if len(page.Value) == 0 {
-		return "", fmt.Errorf("no network interfaces found for VMSS %s", s.Runtime.VMSSName)
-	}
-
-	networkInterface := page.Value[0]
-	if networkInterface.Properties == nil || networkInterface.Properties.IPConfigurations == nil || len(networkInterface.Properties.IPConfigurations) == 0 {
-		return "", fmt.Errorf("no IP configurations found for network interface %s", *networkInterface.ID)
-	}
-
-	ipConfig := networkInterface.Properties.IPConfigurations[0]
-	if ipConfig.Properties == nil || ipConfig.Properties.PrivateIPAddress == nil {
-		return "", fmt.Errorf("no private IP address found for IP configuration %s", *ipConfig.ID)
-	}
-
-	return *ipConfig.Properties.PrivateIPAddress, nil
-}
-
 func mustGetNewRSAKeyPair() ([]byte, []byte) {
 	private, public, err := getNewRSAKeyPair()
 	if err != nil {
@@ -758,9 +835,9 @@ func generateVMSSName(s *Scenario) string {
 	return generateVMSSNameLinux(s.T)
 }
 
-func getBaseVMSSModel(s *Scenario, customData, cseCmd, location string) armcompute.VirtualMachineScaleSet {
+func getBaseVMSSModel(s *Scenario, customData, cseCmd string) armcompute.VirtualMachineScaleSet {
 	model := armcompute.VirtualMachineScaleSet{
-		Location: to.Ptr(location),
+		Location: to.Ptr(s.Location),
 		SKU: &armcompute.SKU{
 			Name:     to.Ptr(config.Config.DefaultVMSKU),
 			Capacity: to.Ptr[int64](1),

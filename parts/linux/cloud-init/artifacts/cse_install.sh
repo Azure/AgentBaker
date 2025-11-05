@@ -706,11 +706,15 @@ retagMCRImagesForChina() {
         return
     fi
     for mcrImage in ${allMCRImages[@]+"${allMCRImages[@]}"}; do
-        # in mooncake, the mcr endpoint is: mcr.azk8s.cn
+        # in mooncake, the mcr endpoint is: mcr.azure.cn
         # shellcheck disable=SC2001
-        retagMCRImage=$(echo ${mcrImage} | sed -e 's/^mcr.microsoft.com/mcr.azk8s.cn/g')
+        retagMCRImage=$(echo ${mcrImage} | sed -e 's/^mcr.microsoft.com/mcr.azure.cn/g')
         # can't use CLI_TOOL because crictl doesn't support retagging.
         retagContainerImage "ctr" ${mcrImage} ${retagMCRImage}
+
+        # TODO(fseldow): remove azk8s when mcr.azk8s.cn is fully deprecated
+        retagMCRLagencyImage=$(echo ${mcrImage} | sed -e 's/^mcr.microsoft.com/mcr.azk8s.cn/g')
+        retagContainerImage "ctr" ${mcrImage} ${retagMCRLagencyImage}
     done
 }
 
@@ -753,9 +757,9 @@ cleanUpKubeProxyImages() {
 cleanupRetaggedImages() {
     if [ "${TARGET_CLOUD}" != "AzureChinaCloud" ]; then
         if [ "${CLI_TOOL}" = "crictl" ]; then
-            images_to_delete=$(crictl images | awk '{print $1":"$2}' | grep '^mcr.azk8s.cn/' | tr ' ' '\n')
+            images_to_delete=$(crictl images | awk '{print $1":"$2}' | grep -E '^mcr\.(azk8s|azure)\.cn/' | tr ' ' '\n') # TODO(fseldow): remove azk8s when mcr.azk8s.cn is fully deprecated
         else
-            images_to_delete=$(ctr --namespace k8s.io images list | awk '{print $1}' | grep '^mcr.azk8s.cn/' | tr ' ' '\n')
+            images_to_delete=$(ctr --namespace k8s.io images list | awk '{print $1}' | grep -E '^mcr\.(azk8s|azure)\.cn/' | tr ' ' '\n')
         fi
         if [ -n "${images_to_delete}" ]; then
             echo "${images_to_delete}" | while read -r image; do

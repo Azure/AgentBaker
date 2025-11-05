@@ -70,8 +70,6 @@ function Start-Job-To-Expected-State {
     }
 
     Process {
-
-
         Start-Job -Name $JobName -ScriptBlock $ScriptBlock
 
         do {
@@ -86,7 +84,7 @@ function Start-Job-To-Expected-State {
     }
 }
 
-function DownloadFileWithRetry {
+function DownloadFile {
     param (
         $URL,
         $Dest,
@@ -94,14 +92,18 @@ function DownloadFileWithRetry {
         $retryDelay = 0,
         [Switch]$redactUrl = $false
     )
-    Write-Output "Downloading $URL"
-    curl.exe --silent -f --retry $retryCount --retry-delay $retryDelay -L $URL -o $Dest
-    if ($LASTEXITCODE) {
+
+    Write-Host "Downloading $URL"
+    try {
+        # We don't retry as that could hide flakey upstream servers that will cause issues in prod.
+        Invoke-WebRequest -Uri $URL -OutFile $Dest -UseBasicParsing -ErrorAction Stop
+    }
+    catch {
         $logURL = $URL
         if ($redactUrl) {
             $logURL = $logURL.Split("?")[0]
         }
-        throw "Curl exited with '$LASTEXITCODE' while attemping to download '$logURL'"
+        throw "Curl exited with '$LASTEXITCODE' while attemping to download '$logURL' due to $($_.Exception.Message)"
     }
 }
 
@@ -136,10 +138,19 @@ function Test-ValidateSinglePackageSignature {
             New-Item -ItemType Directory $installDir -Force | Out-Null
         }
         if ($fileName.endswith(".zip")) {
-            Expand-Archive -path $dest -DestinationPath $installDir -Force
+            try {
+                Expand-Archive -path $dest -DestinationPath $installDir -Force -ErrorAction Stop
+            }
+            catch {
+                Write-Error "Failed to expand archive ${dest} to ${installDir}: $($_.Exception.Message)"
+                throw "Expand-Archive failed for ${dest}: $($_.Exception.Message)"
+            }
         }
         elseif ($fileName.endswith(".tar.gz")) {
             tar -xzf $dest -C $installDir
+            if ($LASTEXITCODE -ne 0) {
+                throw "Failed to extract the '$dest' archive with tar. Exit code: $LASTEXITCODE"
+            }
         }
         else {
             Write-Error "Unknown package suffix"
@@ -242,7 +253,7 @@ function Test-CompareSingleDir {
         $fileName = [IO.Path]::GetFileName($URL)
         $dest = [IO.Path]::Combine($dir, $fileName)
 
-        DownloadFileWithRetry -URL $URL -Dest $dest -redactUrl
+        DownloadFile -URL $URL -Dest $dest -redactUrl
         $globalFileSize = (Get-Item $dest).length
 
         $isIgnore = $False
@@ -262,7 +273,7 @@ function Test-CompareSingleDir {
             Write-Output "Downloading mooncake file: $mcURL"
 
             $ProgressPreference = 'SilentlyContinue'
-            $mooncakeFileSize = (Invoke-WebRequest $mcURL -UseBasicParsing -Method Head).Headers.'Content-Length'
+            $mooncakeFileSize = (Invoke-WebRequest $mcURL -UseBasicParsing -Method Head -ErrorAction Stop).Headers.'Content-Length'
             $ProgressPreference = 'Continue'
 
             if ($globalFileSize -ne $mooncakeFileSize) {

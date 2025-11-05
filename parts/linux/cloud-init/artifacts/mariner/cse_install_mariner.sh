@@ -79,9 +79,12 @@ downloadGPUDrivers() {
     # The proprietary driver will be used here in order to support older NVIDIA GPU SKUs like V100
     # Before installing cuda, check the active kernel version (uname -r) and use that to determine which cuda to install
     KERNEL_VERSION=$(uname -r | sed 's/-/./g')
-    CUDA_PACKAGE=$(dnf repoquery --available "cuda*" | grep -E "cuda-[0-9]+.*_$KERNEL_VERSION" | sort -V | tail -n 1)
+    CUDA_PACKAGE=$(dnf repoquery -y --available "cuda*" | grep -E "cuda-[0-9]+.*_$KERNEL_VERSION" | sort -V | tail -n 1)
 
-    if ! dnf_install 30 1 600 ${CUDA_PACKAGE}; then
+    if [ -z "$CUDA_PACKAGE" ]; then
+      echo "No cuda packages found"
+      exit $ERR_MISSING_CUDA_PACKAGE
+    elif ! dnf_install 30 1 600 ${CUDA_PACKAGE}; then
       exit $ERR_APT_INSTALL_TIMEOUT
     fi
 }

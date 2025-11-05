@@ -1,5 +1,7 @@
 SHELL=/bin/bash -o pipefail
 
+export AZCLI_VERSION_OVERRIDE ?= 2.77.0
+
 GOARCH=amd64
 ifeq (${ARCHITECTURE},ARM64)
 	GOARCH=arm64
@@ -97,7 +99,7 @@ endif
 	@az account set -s ${SUBSCRIPTION_ID}
 
 init-packer:
-	@./vhdbuilder/packer/produce-packer-settings.sh
+	@./vhdbuilder/packer/produce-packer-settings.sh ${AZCLI_VERSION_OVERRIDE}
 
 run-packer: az-login
 	@packer init ./vhdbuilder/packer/packer-plugin.pkr.hcl && packer version && ($(MAKE) -f packer.mk init-packer | tee packer-output) && ($(MAKE) -f packer.mk build-packer | tee -a packer-output)

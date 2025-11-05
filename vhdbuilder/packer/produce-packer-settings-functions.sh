@@ -1,5 +1,20 @@
 #!/bin/bash
 
+function enforce_azcli_version() {
+	AZ_VER_REQUIRED=$1
+	AZ_DIST=$(lsb_release -cs)
+	echo "Enforcing az cli version to ${AZ_VER_REQUIRED} for ${AZ_DIST}"
+	sudo apt-get install azure-cli=${AZ_VER_REQUIRED}-1~${AZ_DIST} -y --allow-downgrades
+
+	AZ_VER_INSTALLED=$(az version --query "[\"azure-cli\"]" -o tsv)
+	if [ "${AZ_VER_INSTALLED}" != "${AZ_VER_REQUIRED}" ]; then
+		echo "Failed to install required az cli version ${AZ_VER_REQUIRED}, installed version is ${AZ_VER_INSTALLED}"
+		exit 1
+	else
+		echo "Successfully installed az cli version ${AZ_VER_INSTALLED}"
+	fi
+}
+
 function produce_ua_token() {
 	set +x
 	UA_TOKEN="${UA_TOKEN:-}" # used to attach UA when building ESM-enabled Ubuntu SKUs
