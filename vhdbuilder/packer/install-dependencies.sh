@@ -603,7 +603,9 @@ while IFS= read -r p; do
         npdName=$(basename "${evaluatedURL}")
         #packagePath="${downloadDir}/${packageFile}"
 
-        if [ "${OS}" = "${UBUNTU_OS_NAME}" ] || isMarinerOrAzureLinux "$OS"; then
+        if isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
+          echo "Skipping $name install on OS Guard"
+        elif [ "${OS}" = "${UBUNTU_OS_NAME}" ] || isMarinerOrAzureLinux "$OS"; then
           # installNodeProblemDetector over in npd-install.sh
           installNodeProblemDetector "${downloadDir}" "${evaluatedURL}" "${npdName}"
         fi

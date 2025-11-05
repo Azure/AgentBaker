@@ -1615,6 +1615,71 @@ checkPerformanceData() {
   return 0
 }
 
+testNodeProblemDetector() {
+  local test="testNodeProblemDetector"
+  local os_sku="$1"
+  echo "$test: Start"
+
+  # NPD is not installed on OSGuard variants
+  if [ "$os_sku" = "AzureLinuxOSGuard" ]; then
+    echo "$test: Skipping check on AzureLinuxOSGuard - NPD is not installed"
+    echo "$test: Finish"
+    return 0
+  fi
+
+  local npd_config_dir="/etc/node-problem-detector.d"
+  local skip_sentinel="${npd_config_dir}/skip_vhd_npd"
+  local startup_script="/usr/local/bin/node-problem-detector-startup.sh"
+
+  # Check skip_vhd_npd sentinel file exists
+  if [ ! -f "$skip_sentinel" ]; then
+    err "$test: skip_vhd_npd sentinel file not found at $skip_sentinel"
+    return 1
+  fi
+  echo "$test: skip_vhd_npd sentinel file exists"
+
+  # Check systemd service is registered
+  if ! systemctl cat node-problem-detector.service &>/dev/null; then
+    err "$test: node-problem-detector.service not registered with systemd"
+    return 1
+  fi
+  echo "$test: node-problem-detector.service is registered with systemd"
+
+  # Check startup script exists and is executable
+  if [ ! -x "$startup_script" ]; then
+    err "$test: NPD startup script not found or not executable at $startup_script"
+    return 1
+  fi
+  echo "$test: NPD startup script exists and is executable"
+
+  # Check config directories exist
+  local config_dirs=(
+    "custom-plugin-monitor"
+    "plugin"
+    "system-log-monitor"
+    "system-stats-monitor"
+  )
+
+  for dir in "${config_dirs[@]}"; do
+    local dir_path="${npd_config_dir}/${dir}"
+    if [ ! -d "$dir_path" ]; then
+      err "$test: NPD config directory not found: $dir_path"
+      return 1
+    fi
+  done
+  echo "$test: All NPD config directories exist"
+
+  # Check plugin directory is not empty
+  if [ -z "$(ls -A ${npd_config_dir}/plugin)" ]; then
+    err "$test: NPD plugin directory is empty"
+    return 1
+  fi
+  echo "$test: NPD plugin directory contains files"
+
+  echo "$test: Finish"
+  return 0
+}
+
 #------------------------ Start of test code related to localdns ------------------------
 testCorednsBinaryExtractedAndCached() {
   local test="testCorednsBinaryExtractedAndCached"
@@ -1953,5 +2018,6 @@ testCorednsBinaryExtractedAndCached $OS_VERSION
 checkLocaldnsScriptsAndConfigs
 testInspektorGadgetAssets
 testPackageDownloadURLFallbackLogic
+testNodeProblemDetector $OS_SKU
 testFileOwnership $OS_SKU
 testDiskQueueServiceIsActive

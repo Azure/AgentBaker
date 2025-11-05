@@ -48,18 +48,27 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 	ValidateScriptlessCSECmd(ctx, s)
 
 	// validate node-problem-detector is running and properly configured
-	ValidateSystemdUnitIsRunning(ctx, s, "node-problem-detector.service")
-	ValidateSystemdUnitIsNotFailed(ctx, s, "node-problem-detector")
-	ValidateFileExists(ctx, s, "/etc/node-problem-detector.d/skip_vhd_npd")
-	ValidateFileExists(ctx, s, "/usr/local/bin/node-problem-detector-startup.sh")
+	// only if the VHD has NPD installed (skip_vhd_npd sentinel file exists)
+	// when old VHDs are used none of this will exist, test will fail and everyone is sad.
+	// So we're relying heavily on the validation in vhdbuild
+	// to make sure the skip_vhd_npd sentinel file exist going forward.
+	if fileExist(ctx, s, "/etc/node-problem-detector.d/skip_vhd_npd") {
+		logf(ctx, "skip_vhd_npd sentinel file found, validating node-problem-detector installation")
+		ValidateSystemdUnitIsRunning(ctx, s, "node-problem-detector.service")
+		ValidateSystemdUnitIsNotFailed(ctx, s, "node-problem-detector")
+		ValidateFileExists(ctx, s, "/etc/node-problem-detector.d/skip_vhd_npd")
+		ValidateFileExists(ctx, s, "/usr/local/bin/node-problem-detector-startup.sh")
 
-	// validate NPD config directories are installed
-	ValidateDirectoryContent(ctx, s, "/etc/node-problem-detector.d", []string{
-		"custom-plugin-monitor",
-		"plugin",
-		"system-log-monitor",
-		"system-stats-monitor",
-	})
+		// validate NPD config directories are installed
+		ValidateDirectoryContent(ctx, s, "/etc/node-problem-detector.d", []string{
+			"custom-plugin-monitor",
+			"plugin",
+			"system-log-monitor",
+			"system-stats-monitor",
+		})
+	} else {
+		logf(ctx, "Skipping node-problem-detector validation: VHD does not have NPD installed (skip_vhd_npd file not found)")
+	}
 
 	// validate plugin directory is not empty (contains actual plugin scripts)
 	ValidateNonEmptyDirectory(ctx, s, "/etc/node-problem-detector.d/plugin")
