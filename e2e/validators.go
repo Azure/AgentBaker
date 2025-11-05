@@ -1201,3 +1201,124 @@ func ValidateMIGInstancesCreated(ctx context.Context, s *Scenario, migProfile st
 	require.NotContains(s.T, stdout, "No MIG-enabled devices found", "no MIG devices were created.\nOutput:\n%s", stdout)
 	s.T.Logf("MIG instances with profile %s are created", migProfile)
 }
+
+// ValidateIPTablesCompatibleWithCiliumEBPF validates that all iptables rules in each table match the provided patterns which are accounted for
+// when eBPF host routing is enabled.
+func ValidateIPTablesCompatibleWithCiliumEBPF(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	tablePatterns, globalPatterns := getIPTablesRulesCompatibleWithEBPFHostRouting()
+	tables := []string{"filter", "mangle", "nat", "raw", "security"}
+	success := true
+
+	for _, table := range tables {
+		s.T.Logf("Validating iptables rules for table: %s", table)
+
+		// Get the rules for this table
+		command := fmt.Sprintf("sudo iptables -t %s -S", table)
+		execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0, fmt.Sprintf("failed to get iptables rules for table %s", table))
+
+		stdout := execResult.stdout.String()
+		rules := strings.Split(strings.TrimSpace(stdout), "\n")
+
+		// Get patterns for this table
+		patterns := tablePatterns[table]
+		if patterns == nil {
+			patterns = []string{}
+		}
+
+		// Combine with global patterns
+		allPatterns := append([]string{}, globalPatterns...)
+		allPatterns = append(allPatterns, patterns...)
+
+		// Check each rule
+		for _, rule := range rules {
+			rule = strings.TrimSpace(rule)
+			if rule == "" {
+				continue
+			}
+
+			matched := false
+			for _, pattern := range allPatterns {
+				pattern = strings.TrimSpace(pattern)
+				if pattern == "" {
+					continue
+				}
+
+				// Try regex match
+				matched, _ = regexp.MatchString(pattern, rule)
+				if matched {
+					break
+				}
+
+				// Also try exact match for non-regex patterns
+				if strings.Contains(rule, pattern) {
+					matched = true
+					break
+				}
+			}
+
+			if !matched {
+				s.T.Logf("Rule in table %s did not match any pattern: %s", table, rule)
+				success = false
+			}
+		}
+
+		s.T.Logf("Checked rules in table %s against expected patterns", table)
+	}
+
+	require.True(
+		s.T,
+		success,
+		"Rules found that do not match any of the given patterns. See previous log lines for details. "+
+			"This may indicate an unsupported iptables rule when eBPF host routing is enabled. "+
+			"Contact acndp@microsoft.com for details.",
+	)
+}
+
+// getIPTablesRulesCompatibleWithEBPFHostRouting returns the expected iptables patterns that are accounted for when EBPF host routing is enabled.
+// If tests are failing due to unexpected iptables rules, it is because an iptables rule has been found, that was not accounted for in the implementation
+// of the eBPF host routing feature in Cilium CNI. In eBPF host routing mode, iptables rules in the host network namespace are bypassed for pod
+// traffic. So, any functionality that is built using iptables needs an equivalent non-iptables implementation that works in Cilium's eBPF host routing
+// mode. For guidance on how this may be done, please contact acndp@microsoft.com (Azure Container Networking Dataplane team). Once the feature
+// is supported in eBPF host routing mode, or is blocked from being enabled alongside eBPF host routing mode, you can update this list.
+func getIPTablesRulesCompatibleWithEBPFHostRouting() (map[string][]string, []string) {
+	tablePatterns := map[string][]string{
+		"filter": {
+			`-A FORWARD -d 168.63.129.16/32 -p tcp -m tcp --dport 32526 -j DROP`,
+			`-A FORWARD -d 168.63.129.16/32 -p tcp -m tcp --dport 80 -j DROP`,
+		},
+		"mangle": {
+			`-A FORWARD -d 168\.63\.129\.16/32 -p tcp -m tcp --dport 80 -j DROP`,
+			`-A FORWARD -d 168\.63\.129\.16/32 -p tcp -m tcp --dport 32526 -j DROP`,
+		},
+		"nat": {
+			`-A POSTROUTING -j SWIFT`,
+			`-A SWIFT -s`,
+			`-A POSTROUTING -j SWIFT-POSTROUTING`,
+			`-A SWIFT-POSTROUTING -s`,
+		},
+		"raw": {
+			`^-A (PREROUTING|OUTPUT) -d 169\.254\.10\.(10|11)\/32 -p (tcp|udp) -m comment --comment "localdns: skip conntrack" -m (tcp|udp) --dport 53 -j NOTRACK$`,
+		},
+		"security": {
+			`-A OUTPUT -d 168\.63\.129\.16/32 -p tcp -m tcp --dport 53 -j ACCEPT`,
+			`-A OUTPUT -d 168\.63\.129\.16/32 -p tcp -m owner --uid-owner 0 -j ACCEPT`,
+			`-A OUTPUT -d 168\.63\.129\.16/32 -p tcp -m conntrack --ctstate INVALID,NEW -j DROP`,
+		},
+	}
+
+	globalPatterns := []string{
+		`^-N .*`,
+		`^-P .*`,
+		`^-A (KUBE-SERVICES|KUBE-EXTERNAL-SERVICES|KUBE-NODEPORTS|KUBE-POSTROUTING|KUBE-MARK-MASQ|KUBE-FORWARD|KUBE-PROXY-FIREWALL|KUBE-PROXY-CANARY|KUBE-FIREWALL|KUBE-MARK-DROP) .*`,
+		`^-A (KUBE-SEP|KUBE-SVC)`,
+		`^-A .* -j (KUBE-SEP|KUBE-SVC|KUBE-SERVICES|KUBE-EXTERNAL-SERVICES|KUBE-NODEPORTS|KUBE-POSTROUTING|KUBE-MARK-MASQ|KUBE-FORWARD|KUBE-PROXY-FIREWALL|KUBE-PROXY-CANARY|KUBE-FIREWALL|KUBE-MARK-DROP)`,
+		`^-A IP-MASQ-AGENT`,
+		`^-A .* -j IP-MASQ-AGENT`,
+		`^.*--comment.*cilium:`,
+		`^.*--comment.*cilium-feeder:`,
+		`-A FORWARD ! -s (?:\d{1,3}\.){3}\d{1,3}/32 -d 169.254.169.254/32 -p tcp -m tcp --dport 80 -m comment --comment "AKS managed: added by AgentBaker ensureIMDSRestriction for IMDS restriction feature" -j DROP`,
+	}
+
+	return tablePatterns, globalPatterns
+}
