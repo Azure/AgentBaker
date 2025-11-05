@@ -140,7 +140,6 @@ az deployment group create \
                  imageDefinitionName=${SIG_IMAGE_NAME} \
                  versionName=${CAPTURED_SIG_VERSION} \
                  regions="$REGIONS_JSON" \
-                 sourceDiskId=${STORAGE_ACCOUNT_RESOURCE_ID} \
                  sourceDiskUrl=${VHD_BLOB_URL} \
                  certificateBase64=${CERT_BASE64}
 

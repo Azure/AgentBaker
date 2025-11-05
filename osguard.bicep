@@ -3,7 +3,6 @@ param imageDefinitionName string
 param versionName string
 param location string = resourceGroup().location
 param regions array = [resourceGroup().location]
-param sourceDiskId string
 param sourceDiskUrl string
 param defaultReplicaCount int = 1
 param excludedFromLatest bool = false
