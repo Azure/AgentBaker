@@ -966,7 +966,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-runc, repository=production, os=ubuntu, release=20.04",
-                "latestVersion": "1.2.7-ubuntu20.04u1"
+                "latestVersion": "1.3.2-ubuntu20.04u2"
               }
             ]
           },
@@ -974,7 +974,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-runc, repository=production, os=ubuntu, release=22.04",
-                "latestVersion": "1.2.7-ubuntu22.04u1"
+                "latestVersion": "1.3.2-ubuntu22.04u2"
               }
             ]
           },
@@ -982,7 +982,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-runc, repository=production, os=ubuntu, release=24.04",
-                "latestVersion": "1.2.7-ubuntu24.04u1"
+                "latestVersion": "1.3.2-ubuntu24.04u2"
               }
             ]
           }
