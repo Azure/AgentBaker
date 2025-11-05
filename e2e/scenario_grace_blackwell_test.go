@@ -24,9 +24,9 @@ func Test_Ubuntu2404_GB200(t *testing.T) {
 			GB200: true,
 		},
 		Location:         "centraluseuap",
-		K8sSystemPoolSKU: "standard_d4s_v4",
+		K8sSystemPoolSKU: "standard_d2s_v5",
 		Config: Config{
-			Cluster:               ClusterCiliumNetwork,
+			Cluster:               clusterKubenet,
 			VHD:                   &vhd_img,
 			WaitForSSHAfterReboot: 5 * time.Minute,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
