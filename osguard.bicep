@@ -31,7 +31,6 @@ resource imageVersion 'Microsoft.Compute/galleries/images/versions@2024-03-03' =
       osDiskImage: {
         hostCaching: 'ReadWrite'
         source: {
-          id: sourceDiskId
           uri: sourceDiskUrl
         }
       }
