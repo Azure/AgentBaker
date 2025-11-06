@@ -25,11 +25,16 @@ installRPMPackageFromFile() {
 
     rpmFile=$(find "${downloadDir}" -maxdepth 1 -name "${packagePrefix}" -print -quit 2>/dev/null) || rpmFile=""
     if [ -z "${rpmFile}" ]; then
+        if fallbackToKubeBinaryInstall "${packageName}" "${desiredVersion}"; then
+            echo "Successfully installed ${packageName} version ${desiredVersion} from binary fallback"
+            rm -rf ${downloadDir}
+            return 0
+        fi
         # query all package versions and get the latest version for matching k8s version
         fullPackageVersion=$(tdnf list ${packageName} | grep ${desiredVersion}- | awk '{print $2}' | sort -V | tail -n 1)
         if [ -z "${fullPackageVersion}" ]; then
             echo "Failed to find valid ${packageName} version for ${desiredVersion}"
-            exit 1
+            return 1
         fi
         echo "Did not find cached rpm file, downloading ${packageName} version ${fullPackageVersion}"
         downloadPkgFromVersion "${packageName}" ${fullPackageVersion} "${downloadDir}"
@@ -37,7 +42,7 @@ installRPMPackageFromFile() {
     fi
     if [ -z "${rpmFile}" ]; then
         echo "Failed to locate ${packageName} rpm"
-        exit 1
+        return 1
     fi
 
     echo "Unpacking usr/bin/${packageName} from ${downloadDir}/${packageName}-${desiredVersion}*"
