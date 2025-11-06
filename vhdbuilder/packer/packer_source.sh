@@ -393,7 +393,20 @@ copyPackerFiles() {
     fi
   fi
 
-  cpAndMode $NOTICE_SRC $NOTICE_DEST 444
+  # Handle the NOTICE file
+  if isFlatcar "$OS"; then
+    # Append Flatcar specific license notices
+    DIR=$(dirname "$NOTICE_DEST") && mkdir -p "${DIR}" && cp "$NOTICE_SRC" "$NOTICE_DEST"
+    NOTICE_FLATCAR_SRC=/home/packer/NOTICE_FLATCAR.txt
+    echo "" >> "$NOTICE_DEST"
+    cat "$NOTICE_FLATCAR_SRC" >> "$NOTICE_DEST"
+    chmod 444 "$NOTICE_DEST"
+    # Clean up temporary Flatcar NOTICE file
+    rm -f "$NOTICE_FLATCAR_SRC"
+  else
+    # All other OS: standard copy
+    cpAndMode $NOTICE_SRC $NOTICE_DEST 444
+  fi
 
   # Always copy the VHD cleanup script responsible for prepping the instance for first boot
   # to disk so we can run it again if needed in subsequent builds/releases (prefetch during SIG release)
