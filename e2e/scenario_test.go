@@ -2207,3 +2207,18 @@ func Test_Ubuntu2404_VHDCaching(t *testing.T) {
 		},
 	})
 }
+
+func Test_AzureLinuxV3_AppArmor(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that AppArmor is properly enabled and configured on Azure Linux V3 nodes",
+		Config: Config{
+			Cluster:                ClusterKubenet,
+			VHD:                    config.VHDAzureLinuxV3Gen2,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {},
+			Validator: func(ctx context.Context, s *Scenario) {
+				// Validate that AppArmor kernel module is loaded and service is active
+				ValidateAppArmorBasic(ctx, s)
+			},
+		},
+	})
+}

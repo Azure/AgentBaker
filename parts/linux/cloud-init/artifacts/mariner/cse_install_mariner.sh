@@ -39,13 +39,32 @@ installDeps() {
     done
 
     # install 2.0 specific packages
-    # apparmor related packages and the blobfuse package are not available in AzureLinux 3.0
+    # the blobfuse package is not available in AzureLinux 3.0
     if [ "$OS_VERSION" = "2.0" ]; then
       for dnf_package in apparmor-parser libapparmor blobfuse; do
         if ! dnf_install 30 1 600 $dnf_package; then
           exit $ERR_APT_INSTALL_TIMEOUT
         fi
       done
+    fi
+
+    # install apparmor related packages in AzureLinux 3.0
+    # apparmor-utils is not installed in VHD as it brings auditd dependency
+    # Only core AppArmor functionality (apparmor-parser, libapparmor) is included
+    # Skip installation on CVM builds as they use different kernel configurations
+    if [ "$OS_VERSION" = "3.0" ]; then
+      # Check if this is a CVM build by inspecting FEATURE_FLAGS
+      if echo "$FEATURE_FLAGS" | grep -q "cvm"; then
+        echo "Skipping AppArmor installation on CVM build (FEATURE_FLAGS: $FEATURE_FLAGS)"
+      else
+        echo "Installing AppArmor packages for Azure Linux 3.0"
+        for dnf_package in apparmor-parser libapparmor; do
+          if ! dnf_install 30 1 600 $dnf_package; then
+            exit $ERR_APT_INSTALL_TIMEOUT
+          fi
+        done
+        systemctl enable apparmor.service
+      fi
     fi
 }
 
@@ -352,11 +371,16 @@ installRPMPackageFromFile() {
 
     rpmFile=$(find "${downloadDir}" -maxdepth 1 -name "${packagePrefix}" -print -quit 2>/dev/null) || rpmFile=""
     if [ -z "${rpmFile}" ]; then
+        if fallbackToKubeBinaryInstall "${packageName}" "${desiredVersion}"; then
+            echo "Successfully installed ${packageName} version ${desiredVersion} from binary fallback"
+            rm -rf ${downloadDir}
+            return 0
+        fi
         # query all package versions and get the latest version for matching k8s version
         fullPackageVersion=$(dnf list ${packageName} --showduplicates | grep ${desiredVersion}- | awk '{print $2}' | sort -V | tail -n 1)
         if [ -z "${fullPackageVersion}" ]; then
             echo "Failed to find valid ${packageName} version for ${desiredVersion}"
-            exit 1
+            return 1
         fi
         echo "Did not find cached rpm file, downloading ${packageName} version ${fullPackageVersion}"
         downloadPkgFromVersion "${packageName}" ${fullPackageVersion} "${downloadDir}"
@@ -364,7 +388,7 @@ installRPMPackageFromFile() {
     fi
 	  if [ -z "${rpmFile}" ]; then
         echo "Failed to locate ${packageName} rpm"
-        exit 1
+        return 1
     fi
 
     if ! dnf_install 30 1 600 ${rpmFile}; then

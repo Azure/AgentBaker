@@ -1238,8 +1238,6 @@ func ValidateIPTablesCompatibleWithCiliumEBPF(ctx context.Context, s *Scenario) 
 	success := true
 
 	for _, table := range tables {
-		s.T.Logf("Validating iptables rules for table: %s", table)
-
 		// Get the rules for this table
 		command := fmt.Sprintf("sudo iptables -t %s -S", table)
 		execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0, fmt.Sprintf("failed to get iptables rules for table %s", table))
@@ -1289,8 +1287,6 @@ func ValidateIPTablesCompatibleWithCiliumEBPF(ctx context.Context, s *Scenario) 
 				success = false
 			}
 		}
-
-		s.T.Logf("Checked rules in table %s against expected patterns", table)
 	}
 
 	require.True(
@@ -1348,4 +1344,35 @@ func getIPTablesRulesCompatibleWithEBPFHostRouting() (map[string][]string, []str
 	}
 
 	return tablePatterns, globalPatterns
+}
+
+// ValidateAppArmorBasic validates that AppArmor is running without requiring aa-status
+func ValidateAppArmorBasic(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	// Check if AppArmor module is enabled in the kernel
+	command := []string{
+		"set -ex",
+		"cat /sys/module/apparmor/parameters/enabled",
+	}
+	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to check AppArmor kernel parameter")
+	stdout := strings.TrimSpace(execResult.stdout.String())
+	require.Equal(s.T, "Y", stdout, "expected AppArmor to be enabled in kernel")
+
+	// Check if apparmor.service is active
+	command = []string{
+		"set -ex",
+		"systemctl is-active apparmor.service",
+	}
+	execResult = execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "apparmor.service is not active")
+	stdout = strings.TrimSpace(execResult.stdout.String())
+	require.Equal(s.T, "active", stdout, "expected apparmor.service to be active")
+
+	// Check if AppArmor is enforcing by checking current process profile
+	command = []string{
+		"set -ex",
+		"cat /proc/self/attr/apparmor/current",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to check AppArmor current profile")
+	// Any output indicates AppArmor is active (profile will be shown)
 }

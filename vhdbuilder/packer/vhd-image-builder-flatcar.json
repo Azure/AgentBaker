@@ -625,6 +625,11 @@
     },
     {
       "type": "file",
+      "source": "vhdbuilder/notice_flatcar.txt",
+      "destination": "/home/packer/NOTICE_FLATCAR.txt"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/localdns.sh",
       "destination": "/home/packer/localdns.sh"
     },

@@ -492,8 +492,8 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/azure/ip-masq-agent-v2",
-          "latestVersion": "v0.1.15-5",
-          "previousLatestVersion": "v0.1.15-4"
+          "latestVersion": "v0.1.15-6",
+          "previousLatestVersion": "v0.1.15-5"
         }
       ],
       "windowsVersions": []
@@ -1541,7 +1541,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=nvidia-device-plugin, repository=production, os=ubuntu, release=24.04",
-                "latestVersion": "0.18.0-ubuntu24.04u1"
+                "latestVersion": "0.18.0-ubuntu24.04u2"
               }
             ]
           },
@@ -1549,7 +1549,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=nvidia-device-plugin, repository=production, os=ubuntu, release=22.04",
-                "latestVersion": "0.18.0-ubuntu22.04u1"
+                "latestVersion": "0.18.0-ubuntu22.04u2"
               }
             ]
           }
@@ -1559,7 +1559,7 @@
             "versionsV2": [
               {
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=nvidia-device-plugin, os=azurelinux, release=3.0",
-                "latestVersion": "0.18.0-1.azl3"
+                "latestVersion": "0.18.0-2.azl3"
               }
             ]
           }
