@@ -694,6 +694,72 @@ func ValidateNPDUnhealthyNvidiaDCGMServicesAfterFailure(ctx context.Context, s *
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to restart Nvidia DCGM services")
 }
 
+func ValidateNPDGPUXIDPlugin(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	// Wait for the NPD to report initial GPU XID condition
+	var gpuXIDCondition *corev1.NodeCondition
+	err := wait.PollUntilContextTimeout(ctx, 2*time.Second, 3*time.Minute, true, func(ctx context.Context) (bool, error) {
+		node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.KubeNodeName, metav1.GetOptions{})
+		if err != nil {
+			s.T.Logf("Failed to get node %q: %v", s.Runtime.KubeNodeName, err)
+			return false, nil // Continue polling on transient errors
+		}
+
+		// Check for GPU XID condition with correct reason
+		for i := range node.Status.Conditions {
+			if node.Status.Conditions[i].Type == "XIDError" && node.Status.Conditions[i].Reason == "XIDErrorIsNotPresent" {
+				gpuXIDCondition = &node.Status.Conditions[i]
+				return true, nil // Found the condition we are looking for
+			}
+		}
+		return false, nil // Continue polling
+	})
+	require.NoError(s.T, err, "timed out waiting for XIDError condition to appear on node %q", s.Runtime.KubeNodeName)
+
+	require.NotNil(s.T, gpuXIDCondition, "expected to find XIDError condition with XIDErrorIsNotPresent reason on node")
+	require.Equal(s.T, corev1.ConditionFalse, gpuXIDCondition.Status, "expected XIDError condition to be False")
+	require.Contains(s.T, gpuXIDCondition.Message, "XID error status is good", "expected XIDError message to indicate no GPU XID errors")
+}
+
+func ValidateNPDGPUXIDErrorAfterFailure(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	// Let's simulate the GPU XID error
+	command := []string{
+		"set -ex",
+		"echo \"$(date '+%b %d %H:%M:%S') $(hostname) NVRM: Xid (0000:03:00): 48, Channel 00000001\" | sudo tee -a /var/log/syslog",
+		"echo \"$(date '+%b %d %H:%M:%S') $(hostname) NVRM: Xid (0000:03:00): 56, Channel 00000001\" | sudo tee -a /var/log/syslog",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to simulate GPU XID error")
+
+	// Wait for NPD to detect the change
+	var gpuXIDCondition *corev1.NodeCondition
+	err := wait.PollUntilContextTimeout(ctx, 2*time.Second, 3*time.Minute, true, func(ctx context.Context) (bool, error) {
+		node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.KubeNodeName, metav1.GetOptions{})
+		if err != nil {
+			s.T.Logf("Failed to get node %q: %v", s.Runtime.KubeNodeName, err)
+			return false, nil // Continue polling on transient errors
+		}
+
+		// Check for GPU XID condition with correct reason
+		for i := range node.Status.Conditions {
+			if node.Status.Conditions[i].Type == "XIDError" && node.Status.Conditions[i].Reason == "XIDErrorIsPresent" {
+				gpuXIDCondition = &node.Status.Conditions[i]
+				return true, nil // Found the condition we are looking for
+			}
+		}
+		return false, nil // Continue polling
+	})
+	require.NoError(s.T, err, "timed out waiting for XIDError condition to appear on node %q", s.Runtime.KubeNodeName)
+
+	require.NotNil(s.T, gpuXIDCondition, "expected to find XIDError condition with XIDErrorIsPresent reason on node")
+	require.Equal(s.T, corev1.ConditionTrue, gpuXIDCondition.Status, "expected XIDError condition to be True")
+
+	expectedMessage := "XID error-codes found: 48, 56. FaultCode: NHC2001"
+	require.Contains(s.T, gpuXIDCondition.Message, expectedMessage, "expected XIDError message to indicate presence of GPU XID errors")
+}
+
 func ValidateRunc12Properties(ctx context.Context, s *Scenario, versions []string) {
 	s.T.Helper()
 	require.Lenf(s.T, versions, 1, "Expected exactly one version for moby-runc but got %d", len(versions))
