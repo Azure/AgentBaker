@@ -311,11 +311,14 @@ func GetCloudTargetEnv(location string) string {
 	case strings.HasPrefix(loc, "china"):
 		return "AzureChinaCloud"
 	case loc == "germanynortheast" || loc == "germanycentral":
+		// Deprecated AzureGermanCloud
 		return "AzureGermanCloud"
 	case strings.HasPrefix(loc, "usgov") || strings.HasPrefix(loc, "usdod"):
 		return "AzureUSGovernmentCloud"
 	case strings.HasPrefix(loc, "bleu"):
 		return "AzureBleuCloud"
+	case strings.HasPrefix(loc, "delos"):
+		return "AzureGermanyCloud"
 	default:
 		return "AzurePublicCloud"
 	}
