@@ -453,6 +453,13 @@ cleanUpGPUDrivers() {
   for packageName in $(managedGPUPackageList); do
     rm -rf "/opt/${packageName}"
   done
+
+  # Remove NVIDIA dnf repository configuration on non-GPU nodes
+  # to prevent unnecessary network calls during dnf makecache/update
+  if [ -f /etc/yum.repos.d/nvidia-built-azurelinux.repo ]; then
+    rm -f /etc/yum.repos.d/nvidia-built-azurelinux.repo
+    echo "Removed NVIDIA dnf repository from non-GPU node"
+  fi
 }
 
 downloadContainerdFromVersion() {
