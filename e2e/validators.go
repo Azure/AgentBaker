@@ -695,6 +695,40 @@ func ValidateNPDUnhealthyNvidiaDCGMServicesAfterFailure(ctx context.Context, s *
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to restart Nvidia DCGM services")
 }
 
+func ValidateNPDHealthyNvidiaGridLicenseStatus(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	command := []string{
+		"set -ex",
+		// Check NPD unhealthy Nvidia GRID license check config exists
+		"test -f /etc/node-problem-detector.d/custom-plugin-monitor/gpu_checks/custom-plugin-nvidia-grid-status.json",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "NPD Nvidia Grid License check configuration does not exist")
+	// Validate that NPD is reporting healthy Nvidia GRID license status
+	validateNPDCondition(ctx, s, "NVIDIAGRIDStatusInvalid", "NVIDIAGRIDStatusValid", corev1.ConditionFalse,
+		"NVIDIA Grid Status Valid", "expected NVIDIAGRIDStatusValid message to indicate healthy status")
+}
+
+func ValidateNPDUnhealthyNvidiaGridLicenseStatusAfterFailure(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	// Stop nvidia-gridd systemd service to simulate failure
+	command := []string{
+		"set -ex",
+		"sudo systemctl stop nvidia-gridd.service",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to stop Nvidia GRID service")
+
+	// Validate that NPD reports unhealthy Nvidia GRID services
+	validateNPDCondition(ctx, s, "NVIDIA GRID Status Invalid", "NVIDIA GRID Status Valid", corev1.ConditionTrue,
+		"nvidia-gridd is not active", "expected UnhealthyNVIDIA GRID Status message to indicate unhealthy status")
+
+	// Restart Nvidia Grid services
+	command = []string{
+		"set -ex",
+		"sudo systemctl restart nvidia-gridd.service || true",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to restart Nvidia GRID services")
+}
+
 func ValidateRuncVersion(ctx context.Context, s *Scenario, versions []string) {
 	s.T.Helper()
 	require.Lenf(s.T, versions, 1, "Expected exactly one version for moby-runc but got %d", len(versions))
