@@ -172,6 +172,14 @@ steps:
       SKIP_SCANNING: $(SKIP_SCANNING)
       DRY_RUN: $(DRY_RUN)
 
+  - bash: make -f packer.mk replicate-captured-sig-image-version
+    condition: ne(variables['REPLICATIONS'], '')
+    displayName: Replicate captured SIG image version
+    env:
+      SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
+      RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
+      DRY_RUN: $(DRY_RUN)
+
   - bash: make -f packer.mk prefetch
     condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'), ne(variables.SKIP_PREFETCH_OPTIMIZATION, 'True'), ne(variables.BUILDER, 'imagecustomizer'))
     displayName: Prefetch optimization
