@@ -905,6 +905,11 @@ configGPUDrivers() {
     fi
 
     retrycmd_if_failure 120 5 25 pkill -SIGHUP containerd || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+
+    # Remove NVIDIA repos after GPU driver installation is complete
+    # This prevents automatic updates from upgrading GPU drivers and eliminates
+    # the need for users to allowlist NVIDIA repository URLs in their firewalls
+    removeNvidiaRepos
 }
 
 validateGPUDrivers() {

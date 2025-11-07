@@ -447,6 +447,15 @@ ensureRunc() {
   echo "Mariner Runc is included in the Mariner base image or containerd installation. Skipping downloading and installing Runc"
 }
 
+removeNvidiaRepos() {
+  # Remove NVIDIA dnf repository configuration
+  # to prevent unnecessary network calls during dnf makecache/update
+  if [ -f /etc/yum.repos.d/nvidia-built-azurelinux.repo ]; then
+    rm -f /etc/yum.repos.d/nvidia-built-azurelinux.repo
+    echo "Removed NVIDIA dnf repository"
+  fi
+}
+
 cleanUpGPUDrivers() {
   rm -Rf $GPU_DEST /opt/gpu
 
@@ -454,12 +463,7 @@ cleanUpGPUDrivers() {
     rm -rf "/opt/${packageName}"
   done
 
-  # Remove NVIDIA dnf repository configuration on non-GPU nodes
-  # to prevent unnecessary network calls during dnf makecache/update
-  if [ -f /etc/yum.repos.d/nvidia-built-azurelinux.repo ]; then
-    rm -f /etc/yum.repos.d/nvidia-built-azurelinux.repo
-    echo "Removed NVIDIA dnf repository from non-GPU node"
-  fi
+  removeNvidiaRepos
 }
 
 downloadContainerdFromVersion() {
