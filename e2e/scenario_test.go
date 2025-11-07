@@ -1894,7 +1894,7 @@ func Test_Ubuntu2404Gen2(t *testing.T) {
 				containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2404")
 				runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2404")
 				ValidateContainerd2Properties(ctx, s, containerdVersions)
-				ValidateRunc12Properties(ctx, s, runcVersions)
+				ValidateRuncVersion(ctx, s, runcVersions)
 				ValidateContainerRuntimePlugins(ctx, s)
 				ValidateSSHServiceEnabled(ctx, s)
 			},
@@ -1946,7 +1946,7 @@ func Test_Ubuntu2404Gen2_GPUNoDriver(t *testing.T) {
 
 				ValidateNvidiaSMINotInstalled(ctx, s)
 				ValidateContainerd2Properties(ctx, s, containerdVersions)
-				ValidateRunc12Properties(ctx, s, runcVersions)
+				ValidateRuncVersion(ctx, s, runcVersions)
 			},
 		},
 	})
@@ -1964,7 +1964,7 @@ func Test_Ubuntu2404Gen1(t *testing.T) {
 				containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2404")
 				runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2404")
 				ValidateContainerd2Properties(ctx, s, containerdVersions)
-				ValidateRunc12Properties(ctx, s, runcVersions)
+				ValidateRuncVersion(ctx, s, runcVersions)
 			},
 		},
 	})
@@ -1985,7 +1985,7 @@ func Test_Ubuntu2404ARM(t *testing.T) {
 				containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2404")
 				runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2404")
 				ValidateContainerd2Properties(ctx, s, containerdVersions)
-				ValidateRunc12Properties(ctx, s, runcVersions)
+				ValidateRuncVersion(ctx, s, runcVersions)
 			},
 		},
 	})
@@ -2203,6 +2203,21 @@ func Test_Ubuntu2404_VHDCaching(t *testing.T) {
 			Validator: func(ctx context.Context, s *Scenario) {
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+			},
+		},
+	})
+}
+
+func Test_AzureLinuxV3_AppArmor(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that AppArmor is properly enabled and configured on Azure Linux V3 nodes",
+		Config: Config{
+			Cluster:                ClusterKubenet,
+			VHD:                    config.VHDAzureLinuxV3Gen2,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {},
+			Validator: func(ctx context.Context, s *Scenario) {
+				// Validate that AppArmor kernel module is loaded and service is active
+				ValidateAppArmorBasic(ctx, s)
 			},
 		},
 	})

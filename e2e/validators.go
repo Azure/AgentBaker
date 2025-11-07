@@ -12,6 +12,7 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
+	"github.com/blang/semver"
 	"github.com/tidwall/gjson"
 
 	"github.com/Azure/agentbaker/e2e/config"
@@ -497,17 +498,6 @@ func ValidateContainerRuntimePlugins(ctx context.Context, s *Scenario) {
 	ValidateDirectoryContent(ctx, s, "/var/run/nri", []string{"nri.sock"})
 }
 
-func EnableGPUNPDToggle(ctx context.Context, s *Scenario) {
-	s.T.Helper()
-	command := []string{
-		"set -ex",
-		"echo '{\"enable-npd-gpu-checks\": \"true\"}' | sudo tee /etc/node-problem-detector.d/public-settings.json",
-		"sudo systemctl restart node-problem-detector",
-		"sudo systemctl is-active node-problem-detector",
-	}
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "could not enable GPU NPD toggle and restart the node-problem-detector service")
-}
-
 func ValidateNPDGPUCountPlugin(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 	command := []string{
@@ -518,10 +508,10 @@ func ValidateNPDGPUCountPlugin(ctx context.Context, s *Scenario) {
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "NPD GPU count plugin configuration does not exist")
 }
 
-func ValidateNPDGPUCountCondition(ctx context.Context, s *Scenario) {
+func validateNPDCondition(ctx context.Context, s *Scenario, conditionType, conditionReason string, conditionStatus corev1.ConditionStatus, conditionMessage, conditionMessageErr string) {
 	s.T.Helper()
-	// Wait for NPD to report initial GPU count
-	var gpuCountCondition *corev1.NodeCondition
+	// Wait for NPD to report initial condition
+	var condition *corev1.NodeCondition
 	err := wait.PollUntilContextTimeout(ctx, 2*time.Second, 3*time.Minute, true, func(ctx context.Context) (bool, error) {
 		node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
 		if err != nil {
@@ -529,21 +519,34 @@ func ValidateNPDGPUCountCondition(ctx context.Context, s *Scenario) {
 			return false, nil // Continue polling on transient errors
 		}
 
-		// Check for GpuCount condition with correct reason
+		// Check for condition with correct reason
 		for i := range node.Status.Conditions {
-			if node.Status.Conditions[i].Type == "GPUMissing" && node.Status.Conditions[i].Reason == "NoGPUMissing" {
-				gpuCountCondition = &node.Status.Conditions[i]
-				return true, nil // Found the condition we are looking for
+			if string(node.Status.Conditions[i].Type) == conditionType && string(node.Status.Conditions[i].Reason) == conditionReason {
+				condition = &node.Status.Conditions[i] // Found the partial condition we are looking for
+			}
+
+			if strings.Contains(node.Status.Conditions[i].Message, conditionMessage) {
+				condition = &node.Status.Conditions[i]
+				return true, nil // Found the exact condition we are looking for
 			}
 		}
 
 		return false, nil // Continue polling until the condition is found or timeout occurs
 	})
-	require.NoError(s.T, err, "timed out waiting for NoGPUMissing condition to appear on node %q", s.Runtime.VM.KubeName)
+	if err != nil && condition == nil {
+		require.NoError(s.T, err, "timed out waiting for %s condition with reason %s to appear on node %q", conditionType, conditionReason, s.Runtime.VM.KubeName)
+	}
 
-	require.NotNil(s.T, gpuCountCondition, "expected to find GPUMissing condition with NoGPUMissing reason on node")
-	require.Equal(s.T, corev1.ConditionFalse, gpuCountCondition.Status, "expected GPUMissing condition to be False")
-	require.Contains(s.T, gpuCountCondition.Message, "All GPUs are present", "expected GPUMissing message to indicate correct count")
+	require.NotNil(s.T, condition, "expected to find %s condition with %s reason on node", conditionType, conditionReason)
+	require.Equal(s.T, condition.Status, conditionStatus, "expected %s condition to be %s", conditionType, conditionStatus)
+	require.Contains(s.T, condition.Message, conditionMessage, conditionMessageErr)
+}
+
+func ValidateNPDGPUCountCondition(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	// Validate that NPD is reporting healthy GPU count
+	validateNPDCondition(ctx, s, "GPUMissing", "NoGPUMissing", corev1.ConditionFalse,
+		"All GPUs are present", "expected GPUMissing message to indicate correct count")
 }
 
 func ValidateNPDGPUCountAfterFailure(ctx context.Context, s *Scenario) {
@@ -563,29 +566,9 @@ func ValidateNPDGPUCountAfterFailure(ctx context.Context, s *Scenario) {
 	}
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to disable GPU")
 
-	// Wait for NPD to detect the change
-	var gpuCountCondition *corev1.NodeCondition
-	err := wait.PollUntilContextTimeout(ctx, 2*time.Second, 3*time.Minute, true, func(ctx context.Context) (bool, error) {
-		node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
-		if err != nil {
-			s.T.Logf("Failed to get node %q: %v", s.Runtime.VM.KubeName, err)
-			return false, nil // Continue polling on transient errors
-		}
-
-		for i := range node.Status.Conditions {
-			if node.Status.Conditions[i].Type == "GPUMissing" && node.Status.Conditions[i].Reason == "GPUMissing" {
-				gpuCountCondition = &node.Status.Conditions[i]
-				return true, nil // Found the condition we are looking for
-			}
-		}
-
-		return false, nil // Continue polling
-	})
-	require.NoError(s.T, err, "timed out waiting for GPUMissing condition to appear on node %q", s.Runtime.VM.KubeName)
-
-	require.NotNil(s.T, gpuCountCondition, "expected to find GPUMissing condition with GPUMissing reason on node")
-	require.Equal(s.T, corev1.ConditionTrue, gpuCountCondition.Status, "expected GPUMissing condition to be True")
-	require.Contains(s.T, gpuCountCondition.Message, "Expected to see 8 GPUs but found 7. FaultCode: NHC2009", "expected GPUMissing message to indicate GPU count mismatch")
+	// Validate that NPD reports the GPU count mismatch
+	validateNPDCondition(ctx, s, "GPUMissing", "GPUMissing", corev1.ConditionTrue,
+		"Expected to see 8 GPUs but found 7. FaultCode: NHC2009", "expected GPUMissing message to indicate GPU count mismatch")
 
 	command = []string{
 		"set -ex",
@@ -599,30 +582,9 @@ func ValidateNPDGPUCountAfterFailure(ctx context.Context, s *Scenario) {
 
 func ValidateNPDIBLinkFlappingCondition(ctx context.Context, s *Scenario) {
 	s.T.Helper()
-	// Wait for the NPD to report initial IB Link Flapping condition
-	var ibLinkFlappingCondition *corev1.NodeCondition
-	err := wait.PollUntilContextTimeout(ctx, 5*time.Second, 3*time.Minute, true, func(ctx context.Context) (bool, error) {
-		node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
-		if err != nil {
-			s.T.Logf("Failed to get node %q: %v", s.Runtime.VM.KubeName, err)
-			return false, nil // Continue polling on transient errors
-		}
-
-		// Check for IBLinkFlapping condition with correct reason
-		for i := range node.Status.Conditions {
-			if node.Status.Conditions[i].Type == "IBLinkFlapping" && node.Status.Conditions[i].Reason == "NoIBLinkFlapping" {
-				ibLinkFlappingCondition = &node.Status.Conditions[i]
-				return true, nil // Found the condition we are looking for
-			}
-		}
-
-		return false, nil // Continue polling until the condition is found or timeout occurs
-	})
-	require.NoError(s.T, err, "timed out waiting for IBLinkFlapping condition with reason NoIBLinkFlapping to appear on node %q", s.Runtime.VM.KubeName)
-
-	require.NotNil(s.T, ibLinkFlappingCondition, "expected to find IBLinkFlapping condition with NoIBLinkFlapping reason on node")
-	require.Equal(s.T, corev1.ConditionFalse, ibLinkFlappingCondition.Status, "expected IBLinkFlapping condition to be False")
-	require.Contains(s.T, ibLinkFlappingCondition.Message, "IB link is stable", "expected IBLinkFlapping message to indicate no flapping")
+	// Validate that NPD is reporting no IB link flapping
+	validateNPDCondition(ctx, s, "IBLinkFlapping", "NoIBLinkFlapping", corev1.ConditionFalse,
+		"IB link is stable", "expected IBLinkFlapping message to indicate no flapping")
 }
 
 func ValidateNPDIBLinkFlappingAfterFailure(ctx context.Context, s *Scenario) {
@@ -639,39 +601,109 @@ func ValidateNPDIBLinkFlappingAfterFailure(ctx context.Context, s *Scenario) {
 	}
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to simulate IB link flapping")
 
-	// Wait for NPD to detect the change
-	var ibLinkFlappingCondition *corev1.NodeCondition
-	err := wait.PollUntilContextTimeout(ctx, 2*time.Second, 3*time.Minute, true, func(ctx context.Context) (bool, error) {
-		node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
-		if err != nil {
-			s.T.Logf("Failed to get node %q: %v", s.Runtime.VM.KubeName, err)
-			return false, nil // Continue polling on transient errors
-		}
-
-		// Check for IBLinkFlapping condition with correct reason
-		for i := range node.Status.Conditions {
-			if node.Status.Conditions[i].Type == "IBLinkFlapping" && node.Status.Conditions[i].Reason == "IBLinkFlapping" {
-				ibLinkFlappingCondition = &node.Status.Conditions[i]
-				return true, nil // Found the condition we are looking for
-			}
-		}
-
-		return false, nil // Continue polling until the condition is found or timeout occurs
-	})
-	require.NoError(s.T, err, "timed out waiting for IBLinkFlapping condition with reason IBLinkFlapping to appear on node %q", s.Runtime.VM.KubeName)
-
-	require.NotNil(s.T, ibLinkFlappingCondition, "expected to find IBLinkFlapping condition with IBLinkFlapping reason on node")
-	require.Equal(s.T, corev1.ConditionTrue, ibLinkFlappingCondition.Status, "expected IBLinkFlapping condition to be True")
-
+	// Validate that NPD reports IB link flapping
 	expectedMessage := "check_ib_link_flapping: IB link flapping detected, multiple IB link flapping events within 6 hours. FaultCode: NHC2005"
-	require.Contains(s.T, ibLinkFlappingCondition.Message, expectedMessage, "expected IBLinkFlapping message to indicate flapping")
+	validateNPDCondition(ctx, s, "IBLinkFlapping", "IBLinkFlapping", corev1.ConditionTrue,
+		expectedMessage, "expected IBLinkFlapping message to indicate flapping")
 }
 
-func ValidateRunc12Properties(ctx context.Context, s *Scenario, versions []string) {
+func ValidateNPDUnhealthyNvidiaDevicePlugin(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	command := []string{
+		"set -ex",
+		// Check NPD unhealthy Nvidia device plugin config exists
+		"test -f /etc/node-problem-detector.d/custom-plugin-monitor/gpu_checks/custom-plugin-nvidia-device-plugin.json",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "NPD Nvidia device plugin configuration does not exist")
+}
+
+func ValidateNPDUnhealthyNvidiaDevicePluginCondition(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	// Validate that NPD is reporting healthy Nvidia device plugin
+	validateNPDCondition(ctx, s, "UnhealthyNvidiaDevicePlugin", "HealthyNvidiaDevicePlugin", corev1.ConditionFalse,
+		"NVIDIA device plugin is running properly", "expected UnhealthyNvidiaDevicePlugin message to indicate healthy status")
+}
+
+func ValidateNPDUnhealthyNvidiaDevicePluginAfterFailure(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	// Stop Nvidia device plugin systemd service to simulate failure
+	command := []string{
+		"set -ex",
+		"sudo systemctl stop nvidia-device-plugin.service",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to stop Nvidia device plugin service")
+
+	// Validate that NPD reports unhealthy Nvidia device plugin
+	validateNPDCondition(ctx, s, "UnhealthyNvidiaDevicePlugin", "UnhealthyNvidiaDevicePlugin", corev1.ConditionTrue,
+		"Systemd service nvidia-device-plugin is not active", "expected UnhealthyNvidiaDevicePlugin message to indicate unhealthy status")
+
+	// Restart Nvidia device plugin systemd service
+	command = []string{
+		"set -ex",
+		"sudo systemctl restart nvidia-device-plugin.service || true",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to restart Nvidia device plugin service")
+}
+
+func ValidateNPDUnhealthyNvidiaDCGMServices(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	command := []string{
+		"set -ex",
+		// Check NPD unhealthy Nvidia DCGM services config exists
+		"test -f /etc/node-problem-detector.d/custom-plugin-monitor/gpu_checks/custom-plugin-nvidia-dcgm-services.json",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "NPD Nvidia DCGM services configuration does not exist")
+}
+
+func ValidateNPDUnhealthyNvidiaDCGMServicesCondition(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	// Validate that NPD is reporting healthy Nvidia DCGM services
+	validateNPDCondition(ctx, s, "UnhealthyNvidiaDCGMServices", "HealthyNvidiaDCGMServices", corev1.ConditionFalse,
+		"NVIDIA DCGM services are running properly", "expected UnhealthyNvidiaDCGMServices message to indicate healthy status")
+}
+
+func ValidateNPDUnhealthyNvidiaDCGMServicesAfterFailure(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	// Stop nvidia-dcgm systemd service to simulate failure
+	command := []string{
+		"set -ex",
+		"sudo systemctl stop nvidia-dcgm.service",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to stop Nvidia DCGM service")
+
+	// Validate that NPD reports unhealthy Nvidia DCGM services
+	validateNPDCondition(ctx, s, "UnhealthyNvidiaDCGMServices", "UnhealthyNvidiaDCGMServices", corev1.ConditionTrue,
+		"Systemd service(s) nvidia-dcgm are not active", "expected UnhealthyNvidiaDCGMServices message to indicate unhealthy status")
+
+	// Stop the nvidia-dcgm-exporter system service to simulate failure
+	command = []string{
+		"set -ex",
+		"sudo systemctl stop nvidia-dcgm-exporter.service",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to stop Nvidia DCGM Exporter service")
+
+	// Validate that NPD still reports unhealthy Nvidia DCGM services
+	validateNPDCondition(ctx, s, "UnhealthyNvidiaDCGMServices", "UnhealthyNvidiaDCGMServices", corev1.ConditionTrue,
+		"Systemd service(s) nvidia-dcgm nvidia-dcgm-exporter are not active", "expected UnhealthyNvidiaDCGMServices message to indicate unhealthy status for both services")
+
+	// Restart Nvidia DCGM services
+	command = []string{
+		"set -ex",
+		"sudo systemctl restart nvidia-dcgm.service || true",
+		"sudo systemctl restart nvidia-dcgm-exporter.service || true",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to restart Nvidia DCGM services")
+}
+
+func ValidateRuncVersion(ctx context.Context, s *Scenario, versions []string) {
 	s.T.Helper()
 	require.Lenf(s.T, versions, 1, "Expected exactly one version for moby-runc but got %d", len(versions))
-	// assert versions[0] value starts with '1.2.'
-	require.Truef(s.T, strings.HasPrefix(versions[0], "1.2."), "expected moby-runc version to start with '1.2.', got %v", versions[0])
+	// check if versions[0] is great than or equal to 1.2.0
+	// check semantic version
+	semver, err := semver.ParseTolerant(versions[0])
+	require.NoError(s.T, err, "failed to parse semver from moby-runc version")
+	require.GreaterOrEqual(s.T, int(semver.Major), 1, "expected moby-runc major version to be at least 1, got %d", semver.Major)
+	require.GreaterOrEqual(s.T, int(semver.Minor), 2, "expected moby-runc minor version to be at least 2, got %d", semver.Minor)
 	ValidateInstalledPackageVersion(ctx, s, "moby-runc", versions[0])
 }
 
@@ -1200,4 +1232,152 @@ func ValidateMIGInstancesCreated(ctx context.Context, s *Scenario, migProfile st
 	require.Contains(s.T, stdout, migProfile, "expected to find MIG profile %s in output, but did not.\nOutput:\n%s", migProfile, stdout)
 	require.NotContains(s.T, stdout, "No MIG-enabled devices found", "no MIG devices were created.\nOutput:\n%s", stdout)
 	s.T.Logf("MIG instances with profile %s are created", migProfile)
+}
+
+// ValidateIPTablesCompatibleWithCiliumEBPF validates that all iptables rules in each table match the provided patterns which are accounted for
+// when eBPF host routing is enabled.
+func ValidateIPTablesCompatibleWithCiliumEBPF(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	tablePatterns, globalPatterns := getIPTablesRulesCompatibleWithEBPFHostRouting()
+	tables := []string{"filter", "mangle", "nat", "raw", "security"}
+	success := true
+
+	for _, table := range tables {
+		// Get the rules for this table
+		command := fmt.Sprintf("sudo iptables -t %s -S", table)
+		execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0, fmt.Sprintf("failed to get iptables rules for table %s", table))
+
+		stdout := execResult.stdout.String()
+		rules := strings.Split(strings.TrimSpace(stdout), "\n")
+
+		// Get patterns for this table
+		patterns := tablePatterns[table]
+		if patterns == nil {
+			patterns = []string{}
+		}
+
+		// Combine with global patterns
+		allPatterns := append([]string{}, globalPatterns...)
+		allPatterns = append(allPatterns, patterns...)
+
+		// Check each rule
+		for _, rule := range rules {
+			rule = strings.TrimSpace(rule)
+			if rule == "" {
+				continue
+			}
+
+			matched := false
+			for _, pattern := range allPatterns {
+				pattern = strings.TrimSpace(pattern)
+				if pattern == "" {
+					continue
+				}
+
+				// Try regex match
+				matched, _ = regexp.MatchString(pattern, rule)
+				if matched {
+					break
+				}
+
+				// Also try exact match for non-regex patterns
+				if strings.Contains(rule, pattern) {
+					matched = true
+					break
+				}
+			}
+
+			if !matched {
+				s.T.Logf("Rule in table %s did not match any pattern: %s", table, rule)
+				success = false
+			}
+		}
+	}
+
+	require.True(
+		s.T,
+		success,
+		"Rules found that do not match any of the given patterns. See previous log lines for details. "+
+			"This may indicate an unsupported iptables rule when eBPF host routing is enabled. "+
+			"Contact acndp@microsoft.com for details.",
+	)
+}
+
+// getIPTablesRulesCompatibleWithEBPFHostRouting returns the expected iptables patterns that are accounted for when EBPF host routing is enabled.
+// If tests are failing due to unexpected iptables rules, it is because an iptables rule has been found, that was not accounted for in the implementation
+// of the eBPF host routing feature in Cilium CNI. In eBPF host routing mode, iptables rules in the host network namespace are bypassed for pod
+// traffic. So, any functionality that is built using iptables needs an equivalent non-iptables implementation that works in Cilium's eBPF host routing
+// mode. For guidance on how this may be done, please contact acndp@microsoft.com (Azure Container Networking Dataplane team). Once the feature
+// is supported in eBPF host routing mode, or is blocked from being enabled alongside eBPF host routing mode, you can update this list.
+func getIPTablesRulesCompatibleWithEBPFHostRouting() (map[string][]string, []string) {
+	tablePatterns := map[string][]string{
+		"filter": {
+			`-A FORWARD -d 168.63.129.16/32 -p tcp -m tcp --dport 32526 -j DROP`,
+			`-A FORWARD -d 168.63.129.16/32 -p tcp -m tcp --dport 80 -j DROP`,
+		},
+		"mangle": {
+			`-A FORWARD -d 168\.63\.129\.16/32 -p tcp -m tcp --dport 80 -j DROP`,
+			`-A FORWARD -d 168\.63\.129\.16/32 -p tcp -m tcp --dport 32526 -j DROP`,
+		},
+		"nat": {
+			`-A POSTROUTING -j SWIFT`,
+			`-A SWIFT -s`,
+			`-A POSTROUTING -j SWIFT-POSTROUTING`,
+			`-A SWIFT-POSTROUTING -s`,
+		},
+		"raw": {
+			`^-A (PREROUTING|OUTPUT) -d 169\.254\.10\.(10|11)\/32 -p (tcp|udp) -m comment --comment "localdns: skip conntrack" -m (tcp|udp) --dport 53 -j NOTRACK$`,
+		},
+		"security": {
+			`-A OUTPUT -d 168\.63\.129\.16/32 -p tcp -m tcp --dport 53 -j ACCEPT`,
+			`-A OUTPUT -d 168\.63\.129\.16/32 -p tcp -m owner --uid-owner 0 -j ACCEPT`,
+			`-A OUTPUT -d 168\.63\.129\.16/32 -p tcp -m conntrack --ctstate INVALID,NEW -j DROP`,
+		},
+	}
+
+	globalPatterns := []string{
+		`^-N .*`,
+		`^-P .*`,
+		`^-A (KUBE-SERVICES|KUBE-EXTERNAL-SERVICES|KUBE-NODEPORTS|KUBE-POSTROUTING|KUBE-MARK-MASQ|KUBE-FORWARD|KUBE-PROXY-FIREWALL|KUBE-PROXY-CANARY|KUBE-FIREWALL|KUBE-MARK-DROP) .*`,
+		`^-A (KUBE-SEP|KUBE-SVC)`,
+		`^-A .* -j (KUBE-SEP|KUBE-SVC|KUBE-SERVICES|KUBE-EXTERNAL-SERVICES|KUBE-NODEPORTS|KUBE-POSTROUTING|KUBE-MARK-MASQ|KUBE-FORWARD|KUBE-PROXY-FIREWALL|KUBE-PROXY-CANARY|KUBE-FIREWALL|KUBE-MARK-DROP)`,
+		`^-A IP-MASQ-AGENT`,
+		`^-A .* -j IP-MASQ-AGENT`,
+		`^.*--comment.*cilium:`,
+		`^.*--comment.*cilium-feeder:`,
+		`-A FORWARD ! -s (?:\d{1,3}\.){3}\d{1,3}/32 -d 169.254.169.254/32 -p tcp -m tcp --dport 80 -m comment --comment "AKS managed: added by AgentBaker ensureIMDSRestriction for IMDS restriction feature" -j DROP`,
+	}
+
+	return tablePatterns, globalPatterns
+}
+
+// ValidateAppArmorBasic validates that AppArmor is running without requiring aa-status
+func ValidateAppArmorBasic(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	// Check if AppArmor module is enabled in the kernel
+	command := []string{
+		"set -ex",
+		"cat /sys/module/apparmor/parameters/enabled",
+	}
+	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to check AppArmor kernel parameter")
+	stdout := strings.TrimSpace(execResult.stdout.String())
+	require.Equal(s.T, "Y", stdout, "expected AppArmor to be enabled in kernel")
+
+	// Check if apparmor.service is active
+	command = []string{
+		"set -ex",
+		"systemctl is-active apparmor.service",
+	}
+	execResult = execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "apparmor.service is not active")
+	stdout = strings.TrimSpace(execResult.stdout.String())
+	require.Equal(s.T, "active", stdout, "expected apparmor.service to be active")
+
+	// Check if AppArmor is enforcing by checking current process profile
+	command = []string{
+		"set -ex",
+		"cat /proc/self/attr/apparmor/current",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to check AppArmor current profile")
+	// Any output indicates AppArmor is active (profile will be shown)
 }

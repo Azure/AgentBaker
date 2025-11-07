@@ -576,11 +576,11 @@
       ]
     },
     {
-      "id": "sha256:256bb68d3d0cabdfefa3039333454510acdbd5161bdfc6c45acf98cc9f361468",
-      "bytes": 93391197,
-      "size": "89.1 MiB",
+      "id": "sha256:9b09caf6bfbb56f6f274e2a5635af81c75aca4320ca42cf55a29acbe50bd8f7c",
+      "bytes": 77945660,
+      "size": "74.3 MiB",
       "repoTags": [
-        "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.31.13"
+        "mcr.microsoft.com/oss/v2/kubernetes-csi/azuredisk-csi:v1.31.12"
       ],
       "repoDigests": [
         "sha256:89051e0d4d7bcc41da0fd1e45648967e9a3fbeae65604bccfa4d66ca0fc3470d"
@@ -609,14 +609,14 @@
       ]
     },
     {
-      "id": "sha256:3e8dc0330528538cfde33e567968c4863ed3a8ec8bef86391eec263732516792",
-      "bytes": 21539650,
-      "size": "20.5 MiB",
+      "id": "sha256:d770c6ab1cf50974b74766fface2da08621ad2c8485ef26f6c93a633d19ecd65",
+      "bytes": 35305457,
+      "size": "33.7 MiB",
       "repoTags": [
-        "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.29.15"
+        "mcr.microsoft.com/oss/v2/open-policy-agent/gatekeeper:v3.20.1-1"
       ],
       "repoDigests": [
-        "sha256:049bf87e7df4653c191b31228b3868627ce2268328158ef39270ca25f3e55b39"
+        "sha256:4c61129495deea537c2a05647d138e15ec5724b33d5b279f90c2c45ae096ea0c"
       ]
     },
     {
@@ -624,10 +624,32 @@
       "bytes": 95351133,
       "size": "90.9 MiB",
       "repoTags": [
-        "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.32.7"
+        "mcr.microsoft.com/containernetworking/azure-npm:v1.6.29"
       ],
       "repoDigests": [
-        "sha256:3530ecf8ccf669090cd71c99aee38a961d5592b66357dcf51a470e60ce22529b"
+        "sha256:806d2adb1563ba5d3bb00d681f1ce512225c850b5bba7fa2369f595a1974032b"
+      ]
+    },
+    {
+      "id": "sha256:24987af8931db6f12997bbbc8535d77050fd4b681307f1063c226634592c02d7",
+      "bytes": 233320417,
+      "size": "222.5 MiB",
+      "repoTags": [
+        "mcr.microsoft.com/containernetworking/cilium/cilium:v1.16.13-250826"
+      ],
+      "repoDigests": [
+        "sha256:87ec28470ed5dc6dd02c0dfd5ed82b3a2a541b394993db462a647212ce53d1a8"
+      ]
+    },
+    {
+      "id": "sha256:8d75c6bbf9fffa820adba88479b79aad9b1754a9331b57de3d7ec25956f2da09",
+      "bytes": 21914742,
+      "size": "20.9 MiB",
+      "repoTags": [
+        "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.30.13"
+      ],
+      "repoDigests": [
+        "sha256:8a95c28ce40eab15b74d32ddc9959d9ec549e4d76014df6d19ab776e327a282f"
       ]
     },
     {

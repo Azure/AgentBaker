@@ -734,10 +734,21 @@
       "bytes": 26830903,
       "size": "25.6 MiB",
       "repoTags": [
-        "mcr.microsoft.com/containernetworking/azure-ipam:v0.2.1"
+        "mcr.microsoft.com/oss/v2/kubernetes/coredns:v1.12.1-2"
       ],
       "repoDigests": [
-        "sha256:d7426123f00d93a0d09edea68498730fc289087bcb1c2cfbea3d1b081b44c6a5"
+        "sha256:1e8ee65a3d6348904be2e7dbbd2976fed8ebbacdbe53de79d1986bac46f0c4e1"
+      ]
+    },
+    {
+      "id": "sha256:d0712c8269b917f76cf7c10b4d1894b93f02743503152e1a6c6acf8ce1609c41",
+      "bytes": 26330144,
+      "size": "25.1 MiB",
+      "repoTags": [
+        "mcr.microsoft.com/containernetworking/azure-ipam:v0.2.0"
+      ],
+      "repoDigests": [
+        "sha256:e349cb26e795e2f697a663bcfa44c2377551b3aa1a150ecade1ca48ae8e04aec"
       ]
     },
     {

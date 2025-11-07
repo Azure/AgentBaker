@@ -422,14 +422,14 @@
       ]
     },
     {
-      "id": "sha256:62cf9d7f49f70606f213092e6064c66f50312a59943a363df3cc08ff349cb347",
-      "bytes": 33740277,
-      "size": "32.2 MiB",
+      "id": "sha256:0cc596df8b6c03cac605a3d0402605b3a20886502ae5a181603d3f70ad887e41",
+      "bytes": 64812919,
+      "size": "61.8 MiB",
       "repoTags": [
-        "mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:1.13.1"
+        "mcr.microsoft.com/containernetworking/azure-cni:v1.7.4-0"
       ],
       "repoDigests": [
-        "sha256:81c1062bcbfd383d0e92029b20567640e169f0ca5bf8f861f901badee570b826"
+        "sha256:0908d18098ea08b9e79c568581380c18b17cc0c585d3b0206ff551b31061c5e9"
       ]
     },
     {
@@ -455,14 +455,14 @@
       ]
     },
     {
-      "id": "sha256:d770c6ab1cf50974b74766fface2da08621ad2c8485ef26f6c93a633d19ecd65",
-      "bytes": 35305457,
-      "size": "33.7 MiB",
+      "id": "sha256:512a01dffb8dbe4b7a46ee89d130b3183ffbb4ceceb67ccdd49f69830d7460b8",
+      "bytes": 29452567,
+      "size": "28.1 MiB",
       "repoTags": [
-        "mcr.microsoft.com/oss/v2/open-policy-agent/gatekeeper:v3.20.1-1"
+        "mcr.microsoft.com/oss/v2/kubernetes/coredns:v1.11.3-8"
       ],
       "repoDigests": [
-        "sha256:4c61129495deea537c2a05647d138e15ec5724b33d5b279f90c2c45ae096ea0c"
+        "sha256:8c08f25bcc86575ef22e1c8caf4f92ea22b55eb26c27600e29e2fe2f8dfdf824"
       ]
     },
     {
