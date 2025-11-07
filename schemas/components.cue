@@ -77,6 +77,10 @@ package components
 	ws2025?: #ReleaseDownloadURI
 }
 
+#FlatcarOSDistro: {
+	current?: #ReleaseDownloadURI
+}
+
 #DownloadURIs: {
 	default?:          #DefaultOSDistro
 	ubuntu?:           #UbuntuOSDistro
@@ -85,6 +89,7 @@ package components
 	azurelinux?:       #AzureLinuxOSDistro
 	azurelinuxkata?:   #AzureLinuxOSDistro
 	windows?:          #WindowsOsDistro
+	flatcar?:          #FlatcarOSDistro
 }
 
 #Package: {
