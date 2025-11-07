@@ -277,8 +277,9 @@ installPkgWithAptGet() {
             return 0
         fi
 
-        # query all package versions and get the latest version for matching k8s version
+        # update pmc repo to get latest package versions
         updatePMCRepository
+        # query all package versions and get the latest version for matching k8s version
         fullPackageVersion=$(apt list ${packageName} --all-versions | grep ${packageVersion}- | awk '{print $2}' | sort -V | tail -n 1)
         if [ -z "${fullPackageVersion}" ]; then
             echo "Failed to find valid ${packageName} version for ${packageVersion}"
