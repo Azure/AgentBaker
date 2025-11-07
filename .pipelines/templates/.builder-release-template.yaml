@@ -182,7 +182,7 @@ steps:
 
   - bash: make -f packer.mk prefetch
     condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'), ne(variables.SKIP_PREFETCH_OPTIMIZATION, 'True'), ne(variables.BUILDER, 'imagecustomizer'))
-    displayName: Prefetch optimization
+    displayName: Prefetch Optimization
     retryCountOnTaskFailure: 3
     env:
       SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
@@ -196,6 +196,13 @@ steps:
       IMAGE_BUILDER_IDENTITY_ID: $(AZURE_MSI_RESOURCE_STRING)
       BUILD_RUN_NUMBER: $(Build.BuildNumber)
       CAPTURED_SIG_VERSION: $(CAPTURED_SIG_VERSION)
+
+  # - bash: make -f cleanup-prefetch
+  #   condition: and(eq(variables.GENERATE_PUBLISHING_INFO, 'True'), ne(variables.SKIP_PREFETCH_OPTIMIZATION, 'True'), ne(variables.BUILDER, 'imagecustomizer'))
+  #   displayName: Cleanup Prefetch Optimization Resources
+  #   env:
+  #     BUILD_RUN_NUMBER: $(Build.BuildNumber)
+  #     CAPTURED_SIG_VERSION: $(CAPTURED_SIG_VERSION)
 
   - task: PublishPipelineArtifact@0
     condition: always()

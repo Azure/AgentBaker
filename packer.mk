@@ -131,6 +131,9 @@ evaluate-grid-compatibility: az-login
 prefetch: az-login
 	@./vhdbuilder/prefetch/scripts/optimize.sh
 
+cleanup-prefetch: az-login
+	@./vhdbuilder/prefetch/scripts/cleanup.sh
+
 generate-prefetch-scripts:
 	@echo "${MODE}: Generating prefetch scripts"
 	@bash -c "pushd vhdbuilder/prefetch; go run cmd/main.go --components-path=../../parts/common/components.json --output-path=../packer/prefetch.sh || exit 1; popd"
