@@ -39,9 +39,9 @@
       "virtual_network_subnet_name": "{{user `subnet_name`}}",
       "ssh_read_write_timeout": "5m",
       "os_type": "Linux",
-      "os_disk_size_gb": 30,
+      "os_disk_size_gb": 49,
       "shared_image_gallery": {
-        "community_gallery_image_id": "/CommunityGalleries/fedora-5e266ba4-2250-406d-adad-5d73860d958f/Images/Fedora-Cloud-42-x64/Versions/latest"
+        "community_gallery_image_id": "/CommunityGalleries/fedora-5e266ba4-2250-406d-adad-5d73860d958f/Images/Fedora-Cloud-43-Arm64/Versions/latest"
       },
       "azure_tags": {
         "buildDefinitionName": "{{user `build_definition_name`}}",
