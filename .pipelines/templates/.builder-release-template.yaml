@@ -1,7 +1,7 @@
 parameters:
   - name: artifactName
     type: string
-    default: 1604
+    default: 2404-gen2-containerd
   - name: useOverrides
     type: boolean
     default: false
@@ -9,17 +9,15 @@ parameters:
     type: string
     default: master
 
+variables:
+  - name: MODE
+    value: "linuxVhdMode"
+
 steps:
   - template: ./.template-override-components-json.yaml
     parameters:
       overrideBranch: ${{ parameters.overrideBranch }}
       useOverrides: ${{ parameters.useOverrides }}
-
-  - bash: |
-      m="linuxVhdMode" && \
-      echo "Set build mode to $m" && \
-      echo "##vso[task.setvariable variable=MODE]$m"
-    displayName: Get Build Mode
 
   - task: UniversalPackages@0
     displayName: Download CIS scanner
@@ -67,11 +65,6 @@ steps:
       itemPattern: |
         **/kata-containers.img**
       downloadPath: $(Build.SourcesDirectory)
-
-  - bash: |
-      pwd
-      ls -R
-    displayName: Show Directory
 
   - bash: |
       set -x
@@ -157,7 +150,7 @@ steps:
       echo "##vso[task.setvariable variable=JOB_STATUS]$(Agent.JobStatus)" && \
       echo "##vso[task.setvariable variable=VHD_DEBUG]False"
     condition: always()
-    displayName: Set Pipeline Variables
+    displayName: Set Post-Build Variables
 
   - bash: make -f packer.mk publish-imagecustomizer
     condition: eq(variables['BUILDER'], 'imagecustomizer')
@@ -200,29 +193,12 @@ steps:
       BUILD_RUN_NUMBER: $(Build.BuildNumber)
       CAPTURED_SIG_VERSION: $(CAPTURED_SIG_VERSION)
 
-  - bash: make -f packer.mk replicate-captured-sig-image-version
-    condition: ne(variables['REPLICATIONS'], '')
-    displayName: Replicate captured SIG image version
-    env:
-      SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
-      RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
-      DRY_RUN: $(DRY_RUN)
-
   - task: PublishPipelineArtifact@0
     condition: always()
     displayName: Publish BCC Tools Installation Log
     inputs:
       artifactName: 'bcc-tools-installation-log-$(ARTIFACT_ID)-${{ parameters.artifactName }}'
       targetPath: 'bcc-tools-installation.log'
-
-  - task: CopyFiles@2
-    condition: always()
-    displayName: Copy BCC Tools Installation Log
-    inputs:
-      Overwrite: true
-      SourceFolder: '$(System.DefaultWorkingDirectory)'
-      Contents: 'bcc-tools-installation.log'
-      TargetFolder: '$(Build.ArtifactStagingDirectory)'
 
   - task: CopyFiles@2
     displayName: Copy Trivy Report
@@ -254,26 +230,11 @@ steps:
       artifactName: 'vhd-release-notes-${{ parameters.artifactName }}'
       targetPath: 'release-notes.txt'
 
-  - task: CopyFiles@2
-    displayName: Copy Release Notes
-    inputs:
-      SourceFolder: '$(System.DefaultWorkingDirectory)'
-      Contents: 'release-notes.txt'
-      TargetFolder: '$(Build.ArtifactStagingDirectory)'
-
   - task: PublishPipelineArtifact@0
     displayName: Publish Container Image List
     inputs:
       artifactName: 'vhd-image-bom-${{ parameters.artifactName }}'
       targetPath: 'image-bom.json'
-
-  - task: CopyFiles@2
-    condition: succeeded()
-    displayName: Copy Image Bom
-    inputs:
-      SourceFolder: '$(System.DefaultWorkingDirectory)'
-      Contents: 'image-bom.json'
-      TargetFolder: '$(Build.ArtifactStagingDirectory)'
 
   - bash: make -f packer.mk convert-sig-to-classic-storage-account-blob
     condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'), ne(variables.BUILDER, 'imagecustomizer'))
@@ -326,14 +287,6 @@ steps:
     inputs:
       artifactName: 'publishing-info-${{ parameters.artifactName }}'
       targetPath: 'vhd-publishing-info.json'
-
-  - task: CopyFiles@2
-    condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'))
-    displayName: Copy Publishing Info
-    inputs:
-      SourceFolder: '$(System.DefaultWorkingDirectory)'
-      Contents: 'vhd-publishing-info.json'
-      TargetFolder: '$(Build.ArtifactStagingDirectory)'
 
   - task: PublishPipelineArtifact@0
     condition: succeeded()
