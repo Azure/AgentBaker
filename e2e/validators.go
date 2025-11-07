@@ -12,6 +12,7 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
+	"github.com/blang/semver"
 	"github.com/tidwall/gjson"
 
 	"github.com/Azure/agentbaker/e2e/config"
@@ -694,11 +695,15 @@ func ValidateNPDUnhealthyNvidiaDCGMServicesAfterFailure(ctx context.Context, s *
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to restart Nvidia DCGM services")
 }
 
-func ValidateRunc12Properties(ctx context.Context, s *Scenario, versions []string) {
+func ValidateRuncVersion(ctx context.Context, s *Scenario, versions []string) {
 	s.T.Helper()
 	require.Lenf(s.T, versions, 1, "Expected exactly one version for moby-runc but got %d", len(versions))
-	// assert versions[0] value starts with '1.2.'
-	require.Truef(s.T, strings.HasPrefix(versions[0], "1.2."), "expected moby-runc version to start with '1.2.', got %v", versions[0])
+	// check if versions[0] is great than or equal to 1.2.0
+	// check semantic version
+	semver, err := semver.ParseTolerant(versions[0])
+	require.NoError(s.T, err, "failed to parse semver from moby-runc version")
+	require.GreaterOrEqual(s.T, int(semver.Major), 1, "expected moby-runc major version to be at least 1, got %d", semver.Major)
+	require.GreaterOrEqual(s.T, int(semver.Minor), 2, "expected moby-runc minor version to be at least 2, got %d", semver.Minor)
 	ValidateInstalledPackageVersion(ctx, s, "moby-runc", versions[0])
 }
 
