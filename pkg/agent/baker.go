@@ -526,19 +526,14 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return IsKubeletConfigFileEnabled(cs, profile, config.EnableKubeletConfigFile)
 		},
 		"EnableSecureTLSBootstrapping": func() bool {
-			return config.SecureTLSBootstrappingConfig.GetEnabled()
+			// this will be true when we can perform TLS bootstrapping without the use of a hard-coded bootstrap token.
+			return config.EnableSecureTLSBootstrapping
 		},
-		"GetSecureTLSBootstrappingDeadline": func() string {
-			return config.SecureTLSBootstrappingConfig.GetDeadline()
+		"GetCustomSecureTLSBootstrapAADServerAppID": func() string {
+			return config.CustomSecureTLSBootstrapAADServerAppID
 		},
-		"GetSecureTLSBootstrappingAADResource": func() string {
-			return config.SecureTLSBootstrappingConfig.GetAADResource()
-		},
-		"GetSecureTLSBootstrappingUserAssignedIdentityID": func() string {
-			return config.SecureTLSBootstrappingConfig.GetUserAssignedIdentityID()
-		},
-		"GetCustomSecureTLSBootstrappingClientDownloadURL": func() string {
-			return config.SecureTLSBootstrappingConfig.GetCustomClientDownloadURL()
+		"GetCustomSecureTLSBootstrapClientURL": func() string {
+			return config.CustomSecureTLSBootstrapClientURL
 		},
 		"GetTLSBootstrapTokenForKubeConfig": func() string {
 			return GetTLSBootstrapTokenForKubeConfig(config.KubeletClientTLSBootstrapToken)
@@ -1607,7 +1602,7 @@ root = "{{GetDataDir}}"{{- end}}
   snapshotter = "overlaybd"
   disable_snapshot_annotations = false
 {{- end}}
-
+    
 [plugins."io.containerd.cri.v1.images".pinned_images]
   sandbox = "{{GetPodInfraContainerSpec}}"
 {{- if IsKubernetesVersionGe "1.22.0"}}
