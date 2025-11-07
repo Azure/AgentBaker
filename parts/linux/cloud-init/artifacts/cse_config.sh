@@ -533,13 +533,7 @@ configureKubeletAndKubectl() {
         logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromURL" installKubeletKubectlFromURL
     else
         if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ] ; then
-            # For network isolated clusters, try distro packages first and fallback to binary installation
-            if ! logs_to_events "AKS.CSE.configureKubeletAndKubectl.installK8sToolsFromBootstrapProfileRegistry" "installK8sToolsFromBootstrapProfileRegistry ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ${KUBERNETES_VERSION}" && [ "${SHOULD_ENFORCE_KUBE_PMC_INSTALL}" != "true" ]; then
-                # SHOULD_ENFORCE_KUBE_PMC_INSTALL will only be set for e2e tests, which should not fallback to reflect result of package installation behavior
-                # TODO: remove SHOULD_ENFORCE_KUBE_PMC_INSTALL check when the test cluster supports > 1.34.0 case
-                # if install from bootstrap profile registry fails, fallback to install from URL
-                logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromURL-Fallback" installKubeletKubectlFromURL
-            fi
+            logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromBootstrapProfileRegistry" "installKubeletKubectlFromBootstrapProfileRegistry ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ${KUBERNETES_VERSION}"
         elif isMarinerOrAzureLinux "$OS"; then
             if [ "$OS_VERSION" = "2.0" ]; then
                 # we do not publish packages to PMC for azurelinux V2
@@ -742,16 +736,20 @@ EOF
     if [[ $KUBELET_FLAGS == *"image-credential-provider-config"* && $KUBELET_FLAGS == *"image-credential-provider-bin-dir"* ]]; then
         echo "Configure credential provider for both image-credential-provider-config and image-credential-provider-bin-dir flags are specified in KUBELET_FLAGS"
         logs_to_events "AKS.CSE.ensureKubelet.configCredentialProvider" configCredentialProvider
-        if { [ "${SHOULD_ENFORCE_KUBE_PMC_INSTALL}" != "true" ] && ! semverCompare ${KUBERNETES_VERSION:-"0.0.0"} "1.34.0"; } || \
-            [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
-            logs_to_events "AKS.CSE.ensureKubelet.installCredentialProvider" installCredentialProvider
+        if { [ "${SHOULD_ENFORCE_KUBE_PMC_INSTALL}" != "true" ] && ! semverCompare ${KUBERNETES_VERSION:-"0.0.0"} "1.34.0"; }; then
+            logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromUrl" installCredentialProviderFromUrl
         else
-            if isMarinerOrAzureLinux "$OS"; then
+            if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ] ; then
+                # For network isolated clusters, try distro packages first and fallback to binary installation
+                logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromBootstrapProfileRegistry" installCredentialProviderPackageFromBootstrapProfileRegistry ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ${KUBERNETES_VERSION}
+            elif isMarinerOrAzureLinux "$OS"; then
                 if [ "$OS_VERSION" = "2.0" ]; then # PMC package installation not supported for AzureLinux V2, only V3
-                    logs_to_events "AKS.CSE.ensureKubelet.installCredentialProvider" installCredentialProvider
+                    logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromUrl" installCredentialProviderFromUrl
                 else
                     logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromPMC" "installCredentialProviderFromPMC ${KUBERNETES_VERSION}"
                 fi
+            elif isFlatcar "$OS"; then # Flatcar cannot use PMC. It will use sysext soon.
+                logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromUrl" installCredentialProviderFromUrl
             else
                 logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromPMC" "installCredentialProviderFromPMC ${KUBERNETES_VERSION}"
             fi

@@ -181,7 +181,7 @@ func Test_AzureLinuxV2_AirGap(t *testing.T) {
 				nbc.KubeletConfig["--pod-infra-container-image"] = "mcr.microsoft.com/oss/v2/kubernetes/pause:3.6"
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateDirectoryContent(ctx, s, "/run", []string{"outbound-check-skipped"})
+				ValidateDirectoryContent(ctx, s, "/opt/azure", []string{"outbound-check-skipped"})
 			},
 		},
 	})
@@ -261,6 +261,37 @@ func Test_AzureLinuxV2_ARM64AirGap(t *testing.T) {
 				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateDirectoryContent(ctx, s, "/opt/azure", []string{"outbound-check-skipped"})
+			},
+		},
+	})
+}
+
+func Test_AzureLinuxV3_AirGap_Package_Install(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using a AzureLinuxV3 VHD on ARM64 architecture can be properly bootstrapped",
+		Tags: Tags{
+			Airgap: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenetAirgap,
+			VHD:     config.VHDAzureLinuxV3Gen2,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.OutboundType = datamodel.OutboundTypeNone
+				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
+					PrivateEgress: &datamodel.PrivateEgress{
+						Enabled:                 true,
+						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io", config.PrivateACRName(config.Config.DefaultLocation)),
+					},
+				}
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				if vmss.Tags == nil {
+					vmss.Tags = map[string]*string{}
+				}
+				vmss.Tags["ShouldEnforceKubePMCInstall"] = to.Ptr("true")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateDirectoryContent(ctx, s, "/run", []string{"outbound-check-skipped"})
 			},
 		},
@@ -291,7 +322,7 @@ func Test_AzureLinuxV2_ARM64_ArtifactSourceCache(t *testing.T) {
 				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateDirectoryContent(ctx, s, "/run", []string{"outbound-check-skipped"})
+				ValidateDirectoryContent(ctx, s, "/opt/azure", []string{"outbound-check-skipped"})
 			},
 		},
 	})
@@ -478,7 +509,7 @@ func Test_MarinerV2_AirGap(t *testing.T) {
 				}
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateDirectoryContent(ctx, s, "/run", []string{"outbound-check-skipped"})
+				ValidateDirectoryContent(ctx, s, "/opt/azure", []string{"outbound-check-skipped"})
 			},
 		},
 	})
@@ -526,7 +557,7 @@ func Test_MarinerV2_ARM64AirGap(t *testing.T) {
 				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateDirectoryContent(ctx, s, "/run", []string{"outbound-check-skipped"})
+				ValidateDirectoryContent(ctx, s, "/opt/azure", []string{"outbound-check-skipped"})
 			},
 		},
 	})
@@ -859,7 +890,7 @@ func Test_Ubuntu2204_AirGap(t *testing.T) {
 				}
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateDirectoryContent(ctx, s, "/run", []string{"outbound-check-skipped"})
+				ValidateDirectoryContent(ctx, s, "/opt/azure", []string{"outbound-check-skipped"})
 			},
 		},
 	})
@@ -905,7 +936,7 @@ func Test_Ubuntu2204_AirGap_NonAnonymousACR(t *testing.T) {
 				nbc.KubeletConfig["--pod-infra-container-image"] = "mcr.microsoft.com/oss/v2/kubernetes/pause:3.6"
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateDirectoryContent(ctx, s, "/run", []string{"outbound-check-skipped"})
+				ValidateDirectoryContent(ctx, s, "/opt/azure", []string{"outbound-check-skipped"})
 			},
 		},
 	})
@@ -980,7 +1011,7 @@ func Test_Ubuntu2204Gen2_ContainerdAirgappedNonAnonymousK8sNotCached(t *testing.
 				nbc.KubeletConfig["--pod-infra-container-image"] = "mcr.microsoft.com/oss/v2/kubernetes/pause:3.6"
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateDirectoryContent(ctx, s, "/run", []string{"outbound-check-skipped"})
+				ValidateDirectoryContent(ctx, s, "/opt/azure", []string{"outbound-check-skipped"})
 			},
 		},
 	})
@@ -1863,7 +1894,7 @@ func Test_Ubuntu2404Gen2(t *testing.T) {
 				containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2404")
 				runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2404")
 				ValidateContainerd2Properties(ctx, s, containerdVersions)
-				ValidateRunc12Properties(ctx, s, runcVersions)
+				ValidateRuncVersion(ctx, s, runcVersions)
 				ValidateContainerRuntimePlugins(ctx, s)
 				ValidateSSHServiceEnabled(ctx, s)
 			},
@@ -1915,7 +1946,7 @@ func Test_Ubuntu2404Gen2_GPUNoDriver(t *testing.T) {
 
 				ValidateNvidiaSMINotInstalled(ctx, s)
 				ValidateContainerd2Properties(ctx, s, containerdVersions)
-				ValidateRunc12Properties(ctx, s, runcVersions)
+				ValidateRuncVersion(ctx, s, runcVersions)
 			},
 		},
 	})
@@ -1933,7 +1964,7 @@ func Test_Ubuntu2404Gen1(t *testing.T) {
 				containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2404")
 				runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2404")
 				ValidateContainerd2Properties(ctx, s, containerdVersions)
-				ValidateRunc12Properties(ctx, s, runcVersions)
+				ValidateRuncVersion(ctx, s, runcVersions)
 			},
 		},
 	})
@@ -1954,7 +1985,7 @@ func Test_Ubuntu2404ARM(t *testing.T) {
 				containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2404")
 				runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2404")
 				ValidateContainerd2Properties(ctx, s, containerdVersions)
-				ValidateRunc12Properties(ctx, s, runcVersions)
+				ValidateRuncVersion(ctx, s, runcVersions)
 			},
 		},
 	})
@@ -2120,11 +2151,10 @@ func Test_Ubuntu2204Gen2_ContainerdAirgappedNonAnonymousK8sNotCached_InstallPack
 					nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion)
 				nbc.K8sComponents.LinuxCredentialProviderURL = fmt.Sprintf(
 					"https://packages.aks.azure.com/cloud-provider-azure/v%s/binaries/azure-acr-credential-provider-linux-amd64-v%s.tar.gz",
-					nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion,
-					nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion)
+					"1.32.3",
+					"1.32.3") // has to use specific version because when k8s < 1.34, most credential provider versions are missing.
 				nbc.KubeletConfig["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
 				nbc.KubeletConfig["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
-				nbc.KubeletConfig["--pod-infra-container-image"] = "mcr.microsoft.com/oss/v2/kubernetes/pause:3.6"
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				if vmss.Tags == nil {
@@ -2133,7 +2163,7 @@ func Test_Ubuntu2204Gen2_ContainerdAirgappedNonAnonymousK8sNotCached_InstallPack
 				vmss.Tags["ShouldEnforceKubePMCInstall"] = to.Ptr("true")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateDirectoryContent(ctx, s, "/run", []string{"outbound-check-skipped"})
+				ValidateDirectoryContent(ctx, s, "/opt/azure", []string{"outbound-check-skipped"})
 			},
 		},
 	})
@@ -2173,6 +2203,21 @@ func Test_Ubuntu2404_VHDCaching(t *testing.T) {
 			Validator: func(ctx context.Context, s *Scenario) {
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+			},
+		},
+	})
+}
+
+func Test_AzureLinuxV3_AppArmor(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that AppArmor is properly enabled and configured on Azure Linux V3 nodes",
+		Config: Config{
+			Cluster:                ClusterKubenet,
+			VHD:                    config.VHDAzureLinuxV3Gen2,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {},
+			Validator: func(ctx context.Context, s *Scenario) {
+				// Validate that AppArmor kernel module is loaded and service is active
+				ValidateAppArmorBasic(ctx, s)
 			},
 		},
 	})

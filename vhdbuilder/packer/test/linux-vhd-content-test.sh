@@ -476,18 +476,31 @@ testImagesRetagged() {
   pulledImages=($(ctr -n k8s.io image ls))
   mcrImagesNumber=0
   mooncakeMcrImagesNumber=0
+  mooncakeLegacyMcrImagesNumber=0
   while IFS= read -r pulledImage; do
     # shellcheck disable=SC3010
     if [[ $pulledImage == "mcr.microsoft.com"* ]]; then
       mcrImagesNumber=$((${mcrImagesNumber} + 1))
     fi
     # shellcheck disable=SC3010
-    if [[ $pulledImage == "mcr.azk8s.cn"* ]]; then
+    if [[ $pulledImage == "mcr.azure.cn"* ]]; then
       mooncakeMcrImagesNumber=$((${mooncakeMcrImagesNumber} + 1))
+    fi
+    # TODO(fseldow): remove azk8s when mcr.azk8s.cn is fully deprecated
+    # shellcheck disable=SC3010
+    if [[ $pulledImage == "mcr.azk8s.cn"* ]]; then
+      mooncakeLegacyMcrImagesNumber=$((${mooncakeLegacyMcrImagesNumber} + 1))
     fi
   done <<<"$pulledImages"
   if [ "${mcrImagesNumber}" != "${mooncakeMcrImagesNumber}" ]; then
     echo "the number of the mcr images & mooncake mcr images are not the same."
+    echo "all the images are:"
+    echo "${pulledImages[@]}"
+    exit 1
+  fi
+
+  if [ "${mooncakeLegacyMcrImagesNumber}" != "${mooncakeMcrImagesNumber}" ]; then
+    echo "the number of the legacy mcr images(mcr.azk8s.cn) & mooncake mcr images(mcr.azure.cn) are not the same."
     echo "all the images are:"
     echo "${pulledImages[@]}"
     exit 1
@@ -693,6 +706,68 @@ testCloudInit() {
     else
       err $test "Cloud-init exit status with code ${cloud_init_status}, ${cloud_init_output}."
     fi
+  fi
+
+  echo "$test:Finish"
+}
+
+testAppArmorInstalled() {
+  test="testAppArmorInstalled"
+  echo "$test:Start"
+  os_sku=$1
+  os_version=$2
+
+  # Skip AppArmor tests for CVM builds as they use different kernel configurations
+  if echo "$FEATURE_FLAGS" | grep -q "cvm"; then
+    echo "$test: Skipping - AppArmor not supported on CVM builds (FEATURE_FLAGS: $FEATURE_FLAGS)"
+    return 0
+  fi
+
+  # Only test on Azure Linux 3.0 for now
+  if [ "$os_sku" = "AzureLinux" ] && [ "$os_version" = "3.0" ]; then
+    echo "Checking AppArmor installation on Azure Linux 3.0..."
+
+    # Check if AppArmor packages are installed
+    required_packages=("apparmor-parser" "libapparmor")
+    for package in "${required_packages[@]}"; do
+      if ! rpm -q "$package" &> /dev/null; then
+        err "$test" "AppArmor package '$package' is not installed"
+        return 1
+      fi
+      echo "$package is installed"
+    done
+
+    # Check if apparmor_parser command exists
+    if ! command -v apparmor_parser &> /dev/null; then
+      err "$test" "apparmor_parser command not found"
+      return 1
+    fi
+    echo "apparmor_parser command is available"
+
+    # Verify AppArmor kernel module is enabled
+    if ! grep -q "Y" /sys/module/apparmor/parameters/enabled 2>/dev/null; then
+      err "$test" "AppArmor kernel module is not enabled"
+      return 1
+    fi
+    echo "AppArmor kernel module is enabled"
+
+    # Check if apparmor.service is enabled
+    if ! systemctl is-enabled apparmor.service &> /dev/null; then
+      err "$test" "apparmor.service is not enabled"
+      return 1
+    fi
+    echo "apparmor.service is enabled"
+
+    # Verify AppArmor is functional by checking the security filesystem
+    if ! [ -d /sys/kernel/security/apparmor ]; then
+      err "$test" "AppArmor security filesystem is not available"
+      return 1
+    fi
+    echo "AppArmor security filesystem is available"
+
+    echo "$test: AppArmor is properly installed and configured"
+  else
+    echo "$test: Skipping - Test is currently limited to Azure Linux 3.0 only (Current: $os_sku $os_version)"
   fi
 
   echo "$test:Finish"
@@ -1596,6 +1671,7 @@ testAuditDNotPresent
 testFips $OS_VERSION $ENABLE_FIPS
 testLSMBPF $OS_SKU $OS_VERSION
 testCloudInit $OS_SKU
+testAppArmorInstalled $OS_SKU $OS_VERSION
 # Commenting out testImagesRetagged because at present it fails, but writes errors to stdout
 # which means the test failures haven't been caught. It also calles exit 1 on a failure,
 # which means the rest of the tests aren't being run.

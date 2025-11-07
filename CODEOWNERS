@@ -1,11 +1,11 @@
-* @juan-lee @cameronmeissner @ganeshkumarashok @anujmaheshwari1 @Devinwong @lilypan26 @AbelHu @junjiezhang1997 @djsly @phealy @r2k1 @timmy-wright @zachary-bailey @bravebeaver
+* @juan-lee @cameronmeissner @ganeshkumarashok @Devinwong @lilypan26 @AbelHu @junjiezhang1997 @djsly @phealy @r2k1 @timmy-wright @zachary-bailey @bravebeaver @awesomenix
 
 # Code owners for for cse_cmd.sh and nodecustomdata.yml. This is to ensure that the scriptless v-team is aware of the changes in order to sync with AKSNodeConfig.
 cse_cmd.sh @Devinwong @lilypan26 @r2k1 @timmy-wright @cameronmeissner
 nodecustomdata.yml @Devinwong @lilypan26 @r2k1 @timmy-wright @cameronmeissner
 
 # Code owners for the security patch release notes.
-vhdbuilder/release-notes/security-patch/ @yagmurbaydogan @yewmsft @juan-lee @cameronmeissner @ganeshkumarashok @anujmaheshwari1 @Devinwong @lilypan26 @AbelHu @junjiezhang1997 @djsly @phealy @r2k1 @timmy-wright @zachary-bailey
+vhdbuilder/release-notes/security-patch/ @yagmurbaydogan @yewmsft @juan-lee @cameronmeissner @ganeshkumarashok @Devinwong @lilypan26 @AbelHu @junjiezhang1997 @djsly @phealy @r2k1 @timmy-wright @zachary-bailey
 
 # Code owners for security patching.
 parts/linux/cloud-init/artifacts/mariner/package-update.service @yewmsft

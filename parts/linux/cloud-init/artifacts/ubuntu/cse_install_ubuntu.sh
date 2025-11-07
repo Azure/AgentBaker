@@ -209,7 +209,6 @@ installKubeletKubectlPkgFromPMC() {
 installToolFromLocalRepo() {
     local tool_name=$1
     local tool_download_dir=$2
-    local installation_root=$3
 
     # Verify the download directory exists and contains repository metadata
     if [ ! -d "${tool_download_dir}" ]; then
@@ -224,13 +223,49 @@ installToolFromLocalRepo() {
     fi
 
     echo "Installing ${tool_name} from local repository at ${tool_download_dir}..."
-    if ! apt_get_install_from_local_repo "${tool_download_dir}" "${tool_name}" "${installation_root}"; then
+    if ! apt_get_install_from_local_repo "${tool_download_dir}" "${tool_name}"; then
         echo "Failed to install ${tool_name} from local repository"
         return 1
     fi
 
     echo "${tool_name} installed successfully from local repository"
     return 0
+}
+
+installCredentialProviderPackageFromBootstrapProfileRegistry() {
+    bootstrapProfileRegistry="$1"
+    k8sVersion="${2:-}"
+
+    os=${UBUNTU_OS_NAME}
+    if [ -z "$UBUNTU_RELEASE" ]; then
+        os=${OS}
+        os_version="current"
+    else
+        os_version="${UBUNTU_RELEASE}"
+    fi
+    PACKAGE_VERSION=""
+    getLatestPkgVersionFromK8sVersion "$k8sVersion" "azure-acr-credential-provider-pmc" "$os" "$os_version"
+    packageVersion=$(echo $PACKAGE_VERSION | cut -d "-" -f 1)
+    if [ -z "$packageVersion" ]; then
+        packageVersion=$(echo "$CREDENTIAL_PROVIDER_DOWNLOAD_URL" | grep -oP 'v\d+(\.\d+)*' | sed 's/^v//' | head -n 1)
+        if [ -z "$packageVersion" ]; then
+            echo "Failed to determine package version for azure-acr-credential-provider"
+            return $ERR_ORAS_PULL_CREDENTIAL_PROVIDER
+        fi
+    fi
+    echo "installing azure-acr-credential-provider package version: $packageVersion"
+    mkdir -p "${CREDENTIAL_PROVIDER_BIN_DIR}"
+    chown -R root:root "${CREDENTIAL_PROVIDER_BIN_DIR}"
+    if ! installToolFromBootstrapProfileRegistry "azure-acr-credential-provider" $bootstrapProfileRegistry "${packageVersion}" "${CREDENTIAL_PROVIDER_BIN_DIR}/acr-credential-provider"; then
+        if [ "${SHOULD_ENFORCE_KUBE_PMC_INSTALL}" != "true" ] ; then
+            # SHOULD_ENFORCE_KUBE_PMC_INSTALL will only be set for e2e tests, which should not fallback to reflect result of package installation behavior
+            echo "Fall back to install credential provider from url installation"
+            installCredentialProviderFromUrl
+        else
+            echo "Failed to install credential provider from bootstrap profile registry, and not falling back to package installation"
+            exit $ERR_ORAS_PULL_CREDENTIAL_PROVIDER
+        fi
+    fi
 }
 
 installPkgWithAptGet() {
@@ -242,12 +277,18 @@ installPkgWithAptGet() {
     # if no deb file with desired version found then try fetching from packages.microsoft repo
     debFile=$(find "${downloadDir}" -maxdepth 1 -name "${packagePrefix}" -print -quit 2>/dev/null) || debFile=""
     if [ -z "${debFile}" ]; then
+        if fallbackToKubeBinaryInstall "${packageName}" "${packageVersion}"; then
+            echo "Successfully installed ${packageName} version ${packageVersion} from binary fallback"
+            rm -rf ${downloadDir}
+            return 0
+        fi
+
         # query all package versions and get the latest version for matching k8s version
         updateAptWithMicrosoftPkg
         fullPackageVersion=$(apt list ${packageName} --all-versions | grep ${packageVersion}- | awk '{print $2}' | sort -V | tail -n 1)
         if [ -z "${fullPackageVersion}" ]; then
             echo "Failed to find valid ${packageName} version for ${packageVersion}"
-            exit 1
+            return 1
         fi
         echo "Did not find cached deb file, downloading ${packageName} version ${fullPackageVersion}"
         logs_to_events "AKS.CSE.install${packageName}PkgFromPMC.downloadPkgFromVersion" "downloadPkgFromVersion ${packageName} ${fullPackageVersion} ${downloadDir}"
@@ -255,7 +296,7 @@ installPkgWithAptGet() {
     fi
     if [ -z "${debFile}" ]; then
         echo "Failed to locate ${packageName} deb"
-        exit 1
+        return 1
     fi
 
     logs_to_events "AKS.CSE.install${packageName}.installDebPackageFromFile" "installDebPackageFromFile ${debFile}" || exit $ERR_APT_INSTALL_TIMEOUT
@@ -462,32 +503,6 @@ ensureRunc() {
     fi
     echo "No cached runc deb file is found. Using apt-get to install runc."
     apt_get_install 20 30 120 moby-runc=${TARGET_VERSION}* --allow-downgrades || exit $ERR_RUNC_INSTALL_TIMEOUT
-}
-
-getOsVersion() {
-    # Ubuntu-specific implementation using lsb_release or DISTRIB_RELEASE
-    if [ -n "$UBUNTU_RELEASE" ]; then
-        echo "$UBUNTU_RELEASE"
-        return 0
-    fi
-
-    # Try lsb_release first
-    local version=$(lsb_release -r -s 2>/dev/null || echo "")
-    if [ -n "$version" ]; then
-        echo "$version"
-        return 0
-    fi
-
-    # Fallback to DISTRIB_RELEASE
-    local distrib_release=$(grep DISTRIB_RELEASE /etc/*-release 2>/dev/null | cut -f 2 -d "=" | head -n1)
-    if [ -n "$distrib_release" ]; then
-        echo "$distrib_release"
-        return 0
-    fi
-
-    # Error: OS version not found
-    echo "Error: Unable to determine OS version" >&2
-    return 1
 }
 
 #EOF

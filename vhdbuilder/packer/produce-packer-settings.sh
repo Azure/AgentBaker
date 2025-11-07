@@ -1,23 +1,16 @@
 #!/bin/bash
 set -e
 
-echo "Installing previous version of azcli in order to mitigate az compute bug" # TODO: (zachary-bailey) remove this code once new image picks up bug fix in azcli
+echo "Installing previous version of azcli in order to mitigate az compute bug"
 source parts/linux/cloud-init/artifacts/ubuntu/cse_helpers_ubuntu.sh
 
 SCRIPT_DIR=$(dirname "$0")
 source "$SCRIPT_DIR/produce-packer-settings-functions.sh"
 
-wait_for_apt_locks
-AZ_VER_REQUIRED=2.70.0
-AZ_DIST=$(lsb_release -cs)
-sudo apt-get install azure-cli=${AZ_VER_REQUIRED}-1~${AZ_DIST} -y --allow-downgrades
-AZ_VER_ACTUAL=$(az --version | head -n 1 | awk '{print $2}')
-if [ "$AZ_VER_ACTUAL" != "$AZ_VER_REQUIRED" ]; then
-	echo -e "Required Azure CLI Version: $AZ_VER_REQUIRED\nActual Azure CLI Version: $AZ_VER_ACTUAL"
-  	echo "Exiting due to incorrect Azure CLI version..."
-	exit 1
+if [ -n "${AZCLI_VERSION_OVERRIDE}" ]; then
+  echo "Overriding azcli version to ${AZCLI_VERSION_OVERRIDE}"
+  enforce_azcli_version "${AZCLI_VERSION_OVERRIDE}"
 fi
-echo "Azure CLI version: $AZ_VER_ACTUAL"
 
 CDIR=$(dirname "${BASH_SOURCE}")
 SETTINGS_JSON="${SETTINGS_JSON:-./packer/settings.json}"

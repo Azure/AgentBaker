@@ -662,19 +662,47 @@ retagAKSNodeCAWatcher() {
 retagAKSNodeCAWatcher
 capture_benchmark "${SCRIPT_NAME}_retag_aks_node_ca_watcher"
 
-pinPodSandboxImage() {
-  # This function pins the pod sandbox image to avoid Kubelet's Garbage Collector (GC) from removing it.
+pinPodSandboxImages() {
+  # This function pins the pod sandbox image(s) to avoid Kubelet's Garbage Collector (GC) from removing them.
   # This is achieved by setting the "io.cri-containerd.pinned" label on the image with a value of "pinned".
-  # This image is critical for pod startup and it isn't supported with private ACR since containerd won't be using azure-acr-credential to fetch it.
+  # These images are critical for pod startup and aren't supported with private ACR since containerd won't be using azure-acr-credential to fetch them.
 
-  podSandbox=$(jq '.ContainerImages[] | select(.downloadURL | contains("pause"))' $COMPONENTS_FILEPATH)
-  podSandboxBaseImg=$(echo $podSandbox | jq -r .downloadURL)
-  podSandboxVersion=$(echo $podSandbox | jq -r .multiArchVersionsV2[0].latestVersion)
-  podSandboxFullImg=${podSandboxBaseImg//\*/$podSandboxVersion}
+  # Get all pause images as individual JSON objects
+  local pause_images
+  pause_images=$(jq -c '.ContainerImages[] | select(.downloadURL | contains("pause"))' $COMPONENTS_FILEPATH)
 
-  labelContainerImage ${podSandboxFullImg} "io.cri-containerd.pinned" "pinned"
+  if [ -z "$pause_images" ]; then
+    echo "Warning: No pause images found in components.json"
+    return 0
+  fi
+
+  # Process each pause image separately
+  while IFS= read -r podSandbox; do
+    if [ -z "$podSandbox" ]; then
+      continue
+    fi
+
+    local podSandboxBaseImg
+    local podSandboxVersion
+    local podSandboxFullImg
+
+    podSandboxBaseImg=$(echo "$podSandbox" | jq -r '.downloadURL')
+    podSandboxVersion=$(echo "$podSandbox" | jq -r '.multiArchVersionsV2[0].latestVersion')
+
+    # Skip if we couldn't extract the required information
+    if [ "$podSandboxBaseImg" = "null" ] || [ "$podSandboxVersion" = "null" ]; then
+      echo "Warning: Could not extract downloadURL or latestVersion from pause image: $podSandbox"
+      continue
+    fi
+
+    podSandboxFullImg=${podSandboxBaseImg//\*/$podSandboxVersion}
+
+    echo "Pinning pause image: $podSandboxFullImg"
+    labelContainerImage "${podSandboxFullImg}" "io.cri-containerd.pinned" "pinned"
+
+  done <<< "$pause_images"
 }
-pinPodSandboxImage
+pinPodSandboxImages
 capture_benchmark "${SCRIPT_NAME}_pin_pod_sandbox_image"
 
 # IPv6 nftables rules are only available on Ubuntu or Mariner/AzureLinux

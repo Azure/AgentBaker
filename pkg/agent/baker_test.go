@@ -2084,6 +2084,25 @@ oom_score = -999
 				ContainerRuntime: datamodel.Containerd,
 			}
 		}, nil),
+		Entry("Flatcar with custom cloud", "Flatcar+CustomCloud", "1.32.0", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.OSSKU = datamodel.OSSKUFlatcar
+			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+				ContainerRuntime: datamodel.Containerd,
+			}
+			config.ContainerService.Properties.CustomCloudEnv = &datamodel.CustomCloudEnv{
+				Name: "akscustom",
+			}
+		}, nil),
+		Entry("Flatcar with custom cloud", "Flatcar+CustomCloud+USSec", "1.33.0", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.OSSKU = "Flatcar"
+			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+				ContainerRuntime: datamodel.Containerd,
+			}
+			config.ContainerService.Location = "ussecwest"
+			config.ContainerService.Properties.CustomCloudEnv = &datamodel.CustomCloudEnv{
+				Name: "akscustom",
+			}
+		}, nil),
 		Entry("AKSUbuntu2204 DisableSSH with enabled ssh", "AKSUbuntu2204+SSHStatusOn", "1.24.2", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.SSHStatus = datamodel.SSHOn
 		}, nil),
@@ -2444,7 +2463,7 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 				},
 				WindowsProfile: &datamodel.WindowsProfile{
 					ProvisioningScriptsPackageURL: "https://acs-mirror.azureedge.net/aks-engine/windows/provisioning/signedscripts-v0.0.4.zip",
-					WindowsPauseImageURL:          "mcr.microsoft.com/oss/kubernetes/pause:1.4.0",
+					WindowsPauseImageURL:          "mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.1",
 					AdminUsername:                 "azureuser",
 					AdminPassword:                 "replacepassword1234",
 					WindowsPublisher:              "microsoft-aks",
@@ -2510,7 +2529,7 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 			"--max-pods":                          "30",
 			"--network-plugin":                    "cni",
 			"--node-status-update-frequency":      "10s",
-			"--pod-infra-container-image":         "mcr.microsoft.com/oss/kubernetes/pause:3.9",
+			"--pod-infra-container-image":         "mcr.microsoft.com/oss/v2/kubernetes/pause:3.6",
 			"--pod-max-pids":                      "-1",
 			"--read-only-port":                    "0",
 			"--resolv-conf":                       `""`,
