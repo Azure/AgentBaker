@@ -9,10 +9,6 @@ parameters:
     type: string
     default: master
 
-variables:
-  - name: MODE
-    value: "linuxVhdMode"
-
 steps:
   - template: ./.template-override-components-json.yaml
     parameters:

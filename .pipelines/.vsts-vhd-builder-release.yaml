@@ -195,10 +195,13 @@ parameters:
     default: true
 
 variables:
+  - name: MODE
+    value: "linuxVhdMode"
   - group: aks-vuln-to-kusto
   - group: "AKS Node SIG UA Token (KV)"
   - group: build_performance
   - group: aks-vuln-to-kusto-tme
+
 stages:
   - stage: build
     jobs:
