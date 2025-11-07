@@ -38,7 +38,8 @@ run_image_builder_template() {
 
         echo "creating image builder template ${IMAGE_BUILDER_TEMPLATE_NAME} in resource group ${IMAGE_BUILDER_RG_NAME}"
         az resource create -n" ${IMAGE_BUILDER_TEMPLATE_NAME}" \
-            --properties @input.json --is-full-object \
+            --properties @input.json \
+            --is-full-object \
             --api-version "${API_VERSION}" \
             --resource-type Microsoft.VirtualMachineImages/imageTemplates \
             --resource-group "${IMAGE_BUILDER_RG_NAME}" || return $?
