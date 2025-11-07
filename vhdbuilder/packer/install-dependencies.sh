@@ -896,18 +896,19 @@ LOCALDNS_BINARY_PATH="/opt/azure/containers/localdns/binary"
 # - All other binaries will be at : /opt/azure/containers/localdns/binary/<version>/coredns
 # The function also handles the cleanup of temporary directories and unmounting of images.
 extractAndCacheCoreDnsBinary() {
+  # Get the list of coredns images in k8s.io namespace.
   local coredns_image_list=($(ctr -n k8s.io images list -q | grep coredns))
   if [ "${#coredns_image_list[@]}" -eq 0 ]; then
     echo "Error: No coredns images found."
     exit 1
   fi
 
-  # Clean up existing binary directories only (preserve other files like localdns.sh)
+  # Clean up existing binary directories.
   if [ -d "${LOCALDNS_BINARY_PATH}" ]; then
     rm -rf "${LOCALDNS_BINARY_PATH}" || exit 1
   fi
 
-  # Ensure the main localdns directory and binary path exist
+  # Ensure the main localdns directory and binary path exist.
   mkdir -p "${LOCALDNS_BINARY_PATH}" || exit 1
 
   local ctr_temp=""
@@ -926,19 +927,8 @@ extractAndCacheCoreDnsBinary() {
   # Extract the CoreDNS binary for each tag.
   local version_index=0
   for tag in "${sorted_coredns_tags[@]}"; do
-    local binary_path=""
 
-    if [ $version_index -eq 0 ]; then
-      # Latest version goes to the main binary path
-      binary_path="${LOCALDNS_BINARY_PATH}"
-      echo "Extracting binary of latest CoreDNS version: $tag" >> "${VHD_LOGS_FILEPATH}"
-    else
-      # Previous versions go to directories named with their actual tag under the binary path
-      binary_path="${LOCALDNS_BINARY_PATH}/${tag}"
-      echo "Extracting binary of CoreDNS version: $tag" >> "${VHD_LOGS_FILEPATH}"
-    fi
-
-    # Find the corresponding image URL for this tag
+    # Find the corresponding image URL for this tag.
     local coredns_image_url=""
     for image_url in "${coredns_image_list[@]}"; do
       if [ "${image_url##*:}" = "$tag" ]; then
@@ -970,20 +960,66 @@ extractAndCacheCoreDnsBinary() {
       exit 1
     fi
 
+    # This path is based on the standard CoreDNS image structure.
+    # Also defined in dalec spec for coredns.
     local coredns_binary="${ctr_temp}/usr/bin/coredns"
-    if [ -f "${coredns_binary}" ]; then
-      # Create parent directory if it doesn't exist.
-      mkdir -p "$(dirname "${binary_path}")" || exit 1
-      cp "${coredns_binary}" "${binary_path}" || {
-        echo "Error: Failed to copy coredns binary of ${tag}" >> "${VHD_LOGS_FILEPATH}"
-        exit 1
-      }
 
-      # Verify the binary is functional
-      if "${binary_path}" --version >/dev/null 2>&1; then
-        echo "Successfully copied and verified coredns binary of ${tag} to ${binary_path}" >> "${VHD_LOGS_FILEPATH}"
+    if [ -f "${coredns_binary}" ]; then
+      # For the latest version (index 0), create a direct copy at the root level.
+      if [ $version_index -eq 0 ]; then
+        cp "${coredns_binary}" "${LOCALDNS_BINARY_PATH}/coredns" || {
+          echo "Error: Failed to copy latest coredns binary to ${LOCALDNS_BINARY_PATH}/coredns" >> "${VHD_LOGS_FILEPATH}"
+          exit 1
+        }
+
+        # Validate that the main binary was extracted successfully.
+        if [ ! -f "${LOCALDNS_BINARY_PATH}/coredns" ]; then
+          echo "Error: Latest coredns binary not found at ${LOCALDNS_BINARY_PATH}/coredns after extraction" >> "${VHD_LOGS_FILEPATH}"
+          exit 1
+        fi
+
+        chmod +x "${LOCALDNS_BINARY_PATH}/coredns" || exit 1
+        if [ ! -x "${LOCALDNS_BINARY_PATH}/coredns" ]; then
+          echo "Error: Latest coredns binary at ${LOCALDNS_BINARY_PATH}/coredns is not executable" >> "${VHD_LOGS_FILEPATH}"
+          exit 1
+        fi
+
+        # Verify the binary is functional.
+        if [ "${LOCALDNS_BINARY_PATH}/coredns" --version >/dev/null 2>&1 ]; then
+          echo "Successfully copied and verified latest coredns binary of ${tag} to ${LOCALDNS_BINARY_PATH}/coredns" >> "${VHD_LOGS_FILEPATH}"
+        else
+          echo "Warning: coredns binary of ${tag} at ${LOCALDNS_BINARY_PATH}/coredns may not be functional" >> "${VHD_LOGS_FILEPATH}"
+        fi
+
       else
-        echo "Warning: coredns binary of ${tag} at ${binary_path} may not be functional" >> "${VHD_LOGS_FILEPATH}"
+        # Create the version-specific directory
+        mkdir -p "${LOCALDNS_BINARY_PATH}/${tag}" || exit 1
+
+        # Copy binary to version-specific directory
+        cp "${coredns_binary}" "${LOCALDNS_BINARY_PATH}/${tag}/coredns" || {
+          echo "Error: Failed to copy coredns binary of ${tag}" >> "${VHD_LOGS_FILEPATH}"
+          exit 1
+        }
+
+        # Validate that coredns binary was extracted successfully.
+        if [ ! -f "${LOCALDNS_BINARY_PATH}/${tag}/coredns" ]; then
+          echo "Error: coredns binary not found at ${LOCALDNS_BINARY_PATH}/${tag}/coredns after extraction" >> "${VHD_LOGS_FILEPATH}"
+          exit 1
+        fi
+
+        chmod +x "${LOCALDNS_BINARY_PATH}/${tag}/coredns" || exit 1
+        if [ ! -x "${LOCALDNS_BINARY_PATH}/${tag}/coredns" ]; then
+          echo "Error: coredns binary at ${LOCALDNS_BINARY_PATH}/${tag}/coredns is not executable" >> "${VHD_LOGS_FILEPATH}"
+          exit 1
+        fi
+
+        # Verify the binary is functional.
+        if [ "${LOCALDNS_BINARY_PATH}/${tag}/coredns" --version >/dev/null 2>&1 ]; then
+          echo "Successfully copied and verified coredns binary of ${tag} to ${LOCALDNS_BINARY_PATH}/${tag}/coredns" >> "${VHD_LOGS_FILEPATH}"
+        else
+          echo "Warning: coredns binary of ${tag} at ${LOCALDNS_BINARY_PATH}/${tag}/coredns may not be functional" >> "${VHD_LOGS_FILEPATH}"
+        fi
+
       fi
     else
       echo "Coredns binary not found for ${coredns_image_url}" >> "${VHD_LOGS_FILEPATH}"
@@ -995,30 +1031,6 @@ extractAndCacheCoreDnsBinary() {
 
     ((version_index++))
   done
-
-  # Log summary of extracted binaries
-  echo "CoreDNS binary extraction completed. Total versions extracted: ${#sorted_coredns_tags[@]}" >> "${VHD_LOGS_FILEPATH}"
-  for i in "${!sorted_coredns_tags[@]}"; do
-    local tag="${sorted_coredns_tags[$i]}"
-    if [ $i -eq 0 ]; then
-      echo "Latest (${tag}): ${LOCALDNS_BINARY_PATH}" >> "${VHD_LOGS_FILEPATH}"
-    else
-      echo "${tag}: ${LOCALDNS_BINARY_PATH}/${tag}" >> "${VHD_LOGS_FILEPATH}"
-    fi
-  done
-
-  # Validate that the main binary was extracted successfully
-  if [ ! -f "${LOCALDNS_BINARY_PATH}/coredns" ]; then
-    echo "Error: Main CoreDNS binary not found at ${LOCALDNS_BINARY_PATH}/coredns after extraction" >> "${VHD_LOGS_FILEPATH}"
-    exit 1
-  fi
-
-  if [ ! -x "${LOCALDNS_BINARY_PATH}/coredns" ]; then
-    echo "Error: Main CoreDNS binary at ${LOCALDNS_BINARY_PATH}/coredns is not executable" >> "${VHD_LOGS_FILEPATH}"
-    exit 1
-  fi
-
-  echo "CoreDNS binary extraction and validation successful" >> "${VHD_LOGS_FILEPATH}"
 
   # Clear the trap.
   trap - EXIT ABRT ERR INT PIPE QUIT TERM

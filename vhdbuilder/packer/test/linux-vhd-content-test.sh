@@ -1559,7 +1559,7 @@ testCorednsBinaryExtractedAndCached() {
     ((version_index++))
   done
 
-  echo "$test: All CoreDNS binaries (${#version_order[@]} versions) successfully extracted and verified"
+  echo "$test: All CoreDNS binaries (${#all_valid_tags[@]} versions) successfully extracted and verified"
   return 0
 }
 
