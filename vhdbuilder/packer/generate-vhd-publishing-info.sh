@@ -56,7 +56,7 @@ do
                 echo "$v was not set!"
                 exit 1
             fi
-        else 
+        else
             echo "$v was not set for windows!"
             exit 1
         fi

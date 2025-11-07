@@ -276,7 +276,7 @@ steps:
       TargetFolder: '$(Build.ArtifactStagingDirectory)'
 
   - bash: make -f packer.mk convert-sig-to-classic-storage-account-blob
-    condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'))
+    condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'), ne(variables.BUILDER, 'imagecustomizer'))
     displayName: Convert Shared Image Gallery To VHD Blob In Classic Storage Account
     env:
       RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
