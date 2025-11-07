@@ -165,7 +165,7 @@ steps:
     retryCountOnTaskFailure: 3
     env:
       RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
-      GENERATE_PUBLISHING_INFO: ${{ variables.GENERATE_PUBLISHING_INFO }}
+      GENERATE_PUBLISHING_INFO: $(GENERATE_PUBLISHING_INFO)
 
   - bash: make -f packer.mk test-scan-and-cleanup
     condition: always()
