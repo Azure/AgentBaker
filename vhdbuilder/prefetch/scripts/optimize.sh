@@ -15,6 +15,7 @@ set -uxo pipefail
 [ -z "${BUILD_RUN_NUMBER:-}" ] && echo "BUILD_RUN_NUMBER is not set" && exit 1
 [ -z "${CAPTURED_SIG_VERSION:-}" ] && echo "CAPTURED_SIG_VERSION is not set" && exit 1
 
+IMAGE_BUILDER_TEMPLATE_PATH="realpath $(cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd)/../templates/optimize.json"
 API_VERSION="2024-02-01"
 CAPTURED_SIG_VERSION_ID="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${SIG_GALLERY_RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/galleries/${SIG_GALLERY_NAME}/images/${SKU_NAME}/versions/${CAPTURED_SIG_VERSION}"
 IMAGE_BUILDER_RG_NAME="image-builder-${CAPTURED_SIG_VERSION}-${BUILD_RUN_NUMBER}"
@@ -34,9 +35,10 @@ run_image_builder_template() {
             -e "s#<IMAGE_BUILDER_IDENTITY_ID>#${IMAGE_BUILDER_IDENTITY_ID}#g" \
             -e "s#<CAPTURED_SIG_VERSION_ID>#${CAPTURED_SIG_VERSION_ID}#g" \
             -e "s#<OPTIMIZED_VHD_URI>#${OPTIMIZED_VHD_URI}#g" \
-            ../templates/optimize.json > input.json
+            "${IMAGE_BUILDER_TEMPLATE_PATH}" > input.json
 
-        echo "creating image builder template ${IMAGE_BUILDER_TEMPLATE_NAME} in resource group ${IMAGE_BUILDER_RG_NAME}"
+        echo "creating image builder template ${IMAGE_BUILDER_TEMPLATE_NAME} in resource group ${IMAGE_BUILDER_RG_NAME} with the following configuration:"
+        jq < input.json
         az resource create -n" ${IMAGE_BUILDER_TEMPLATE_NAME}" \
             --properties @input.json \
             --is-full-object \
