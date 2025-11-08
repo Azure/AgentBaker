@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Azure/agentbaker/e2e/components"
@@ -215,16 +216,11 @@ func Test_AzureLinuxV3_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV3Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-<<<<<<< HEAD
 				nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{
 					Enabled:                true,
 					Deadline:               (10 * time.Second).String(),
 					UserAssignedIdentityID: "invalid", // use an unexpected user-assigned identity ID to force a secure TLS bootstrapping failure
 				}
-=======
-				// secure TLS bootstrapping is not yet enabled in e2e regions, thus this will test the bootstrap token fallback case
-				nbc.EnableSecureTLSBootstrapping = true
->>>>>>> 603fc5f0a8 (chore: revert bad aks-node-controller changes (#7336))
 			},
 		},
 	})
@@ -1935,16 +1931,12 @@ func Test_Ubuntu2404_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing.T
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2404Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-<<<<<<< HEAD
+				// secure TLS bootstrapping is not yet enabled in e2e regions, thus this will test the bootstrap token fallback case
 				nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{
 					Enabled:                true,
-					Deadline:               (10 * time.Second).String(),
-					UserAssignedIdentityID: "invalid", // use an unexpected user-assigned identity ID to force a secure TLS bootstrapping failure
+					Deadline:               (30 * time.Second).String(),
+					UserAssignedIdentityID: "invalid",
 				}
-=======
-				// secure TLS bootstrapping is not yet enabled in e2e regions, thus this will test the bootstrap token fallback case
-				nbc.EnableSecureTLSBootstrapping = true
->>>>>>> 603fc5f0a8 (chore: revert bad aks-node-controller changes (#7336))
 			},
 		},
 	})
