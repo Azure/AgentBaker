@@ -41,9 +41,22 @@ message BootstrappingConfig {
   // Only required until Secure TLS bootstrapping in place. Would use kubelet identity after that.
   optional string tls_bootstrapping_token = 3;
 
-  // Only used when secure TLS bootstrapping is enabled or one of the Azure/Arc methods. This is the appserver appid that the node will use to bootstrap.
-  optional string custom_aad_resource = 4;
+  reserved 4;
+  reserved "custom_aad_resource";
+  reserved 5;
+  reserved "custom_aad_client_id";
 
-  // Only used when one of the Azure/Arc methods is enabled. This is the client ID of the MSI that the node will use to bootstrap.
-  optional string custom_aad_client_id = 5;
+  // Only used when secure TLS bootstrapping is enabled. This is the AAD resource used to request access tokens from Entra ID.
+  optional string secure_tls_bootstrapping_aad_resource = 6;
+
+  // Only used when secure TLS bootstrapping is enabled. This is the client ID of the user-assigned identity ID the node will use to perform secure TLS bootstrapping.
+  optional string secure_tls_bootstrapping_user_assigned_identity_id = 7;
+
+  // Only used when secure TLS bootstrapping is enabled. If specified, the bootstrap client installation will be replaced with the client version downloaded from this URL.
+  optional string secure_tls_bootstrapping_custom_client_download_url = 8;
+
+  // Only used when secure TLS bootstrapping is enabled. This is the bootstrapping deadline used to perform secure TLS bootstrapping.
+  // If the deadline is hit, the TLS bootstrap token will be used as a fall-back.
+  // This field will be deprecated once TLS bootstrap tokens are no longer used.
+  optional string secure_tls_bootstrapping_deadline = 9;
 }

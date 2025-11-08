@@ -435,6 +435,12 @@ func TestAKSNodeConfigCompatibilityFromJsonToCSECommand(t *testing.T) {
 				assert.Equal(t, "", vars["NO_PROXY"])
 				assert.Equal(t, "", vars["PROXY_TRUSTED_CA"])
 				assert.Equal(t, helpers.DefaultCloudName, vars["TARGET_ENVIRONMENT"])
+				assert.Equal(t, "", vars["TLS_BOOTSTRAP_TOKEN"])
+				assert.Equal(t, "false", vars["ENABLE_SECURE_TLS_BOOTSTRAPPING"])
+				assert.Equal(t, "", vars["SECURE_TLS_BOOTSTRAPPING_DEADLINE"])
+				assert.Equal(t, "", vars["SECURE_TLS_BOOTSTRAPPING_AAD_RESOURCE"])
+				assert.Equal(t, "", vars["SECURE_TLS_BOOTSTRAPPING_USER_ASSIGNED_IDENTITY_ID"])
+				assert.Equal(t, "", vars["CUSTOM_SECURE_TLS_BOOTSTRAPPING_CLIENT_URL"])
 			},
 		},
 	}

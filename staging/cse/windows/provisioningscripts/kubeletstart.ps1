@@ -16,7 +16,9 @@ $global:KubeletNodeLabels = $Global:ClusterConfiguration.Kubernetes.Kubelet.Node
 $global:IsSkipCleanupNetwork = [System.Convert]::ToBoolean($Global:ClusterConfiguration.Services.IsSkipCleanupNetwork)
 
 $global:EnableSecureTLSBootstrapping = [System.Convert]::ToBoolean($Global:ClusterConfiguration.Kubernetes.Kubelet.SecureTLSBootstrapArgs.Enabled)
-$global:SecureTLSBootstrapAADResource = $Global:ClusterConfiguration.Kubernetes.Kubelet.SecureTLSBootstrapArgs.AADResource
+$global:SecureTLSBootstrappingDeadline = $Global:ClusterConfiguration.Kubernetes.Kubelet.SecureTLSBootstrapArgs.Deadline
+$global:SecureTLSBootstrappingAADResource = $Global:ClusterConfiguration.Kubernetes.Kubelet.SecureTLSBootstrapArgs.AADResource
+$global:SecureTLSBootstrappingUserAssignedIdentityID = $Global:ClusterConfiguration.Kubernetes.Kubelet.SecureTLSBootstrapArgs.UserAssignedIdentityID
 
 $global:AzureCNIDir = [Io.path]::Combine("$global:KubeDir", "azurecni")
 $global:AzureCNIBinDir = [Io.path]::Combine("$global:AzureCNIDir", "bin")
@@ -102,7 +104,20 @@ if ($global:NetworkPlugin -eq "azure") {
 # unless secure TLS bootstrapping succeeds.
 if ($global:EnableSecureTLSBootstrapping) {
     Write-Host "Secure TLS bootstrapping is enabled, calling c:\k\securetlsbootstrap.ps1"
-    & "c:\k\securetlsbootstrap.ps1" -KubeDir $global:KubeDir -MasterIP $global:MasterIP -AADResource $global:SecureTLSBootstrapAADResource
+    $SecureTLSBootstrappingArgs= @{
+        KubeDir = "$global:KubeDir"
+        MasterIP = "$global:MasterIP"
+    }
+    if (![string]::IsNullOrEmpty($global:SecureTLSBootstrappingDeadline)) {
+        $SecureTLSBootstrappingArgs["Deadline"] = "$global:SecureTLSBootstrappingDeadline"
+    }
+    if (![string]::IsNullOrEmpty($global:SecureTLSBootstrapAADResource)) {
+        $SecureTLSBootstrappingArgs["AADResource"] = "$global:SecureTLSBootstrapAADResource"
+    }
+    if (![string]::IsNullOrEmpty($global:SecureTLSBootstrappingUserAssignedIdentityID)) {
+        $SecureTLSBootstrappingArgs["UserAssignedIdentityID"] = "$global:SecureTLSBootstrappingUserAssignedIdentityID"
+    }
+    & "c:\k\securetlsbootstrap.ps1" @SecureTLSBootstrappingArgs
 }
 
 # Start the kubelet

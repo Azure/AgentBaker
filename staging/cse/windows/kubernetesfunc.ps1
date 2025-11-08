@@ -30,7 +30,7 @@ function Initialize-DataDirectories {
     # On Windows, Go translates to c:\tmp. If that path doesn't exist, then some node tests fail
 
     Logs-To-Event -TaskName "AKS.WindowsCSE.InitializeDataDirectories" -TaskMessage "Start to create required data directories as needed"
-   
+
     $requiredPaths = 'c:\tmp'
 
     $requiredPaths | ForEach-Object {
@@ -126,8 +126,10 @@ function Write-KubeClusterConfig {
             NodeLabels = $global:KubeletNodeLabels;
             ConfigArgs = $global:KubeletConfigArgs
             SecureTLSBootstrapArgs = @{
-                Enabled     = $global:EnableSecureTLSBootstrapping;
-                AADResource = $global:AKSAADServerAppID
+                Enabled                = $global:EnableSecureTLSBootstrapping;
+                Deadline               = $global:SecureTLSBootstrappingDeadline;
+                AADResource            = $global:SecureTLSBootstrappingAADResource;
+                UserAssignedIdentityID = $global:SecureTLSBootstrappingUserAssignedIdentityID
             };
         };
         Kubeproxy    = @{
