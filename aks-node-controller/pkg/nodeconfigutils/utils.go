@@ -40,7 +40,9 @@ func MarshalConfigurationV1(cfg *aksnodeconfigv1.Configuration) ([]byte, error) 
 
 func UnmarshalConfigurationV1(data []byte) (*aksnodeconfigv1.Configuration, error) {
 	cfg := &aksnodeconfigv1.Configuration{}
-	options := protojson.UnmarshalOptions{}
+	options := protojson.UnmarshalOptions{
+		DiscardUnknown: true, // ignore unknown fields to allow forward compatibility
+	}
 	err := options.Unmarshal(data, cfg)
 	return cfg, err
 }
