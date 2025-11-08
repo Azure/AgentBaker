@@ -39,6 +39,7 @@ import (
 
 type AzureClient struct {
 	AKS                       *armcontainerservice.ManagedClustersClient
+	AzureFirewall             *armnetwork.AzureFirewallsClient
 	Blob                      *azblob.Client
 	StorageContainers         *armstorage.BlobContainersClient
 	CacheRulesClient          *armcontainerregistry.CacheRulesClient
@@ -256,6 +257,11 @@ func NewAzureClient() (*AzureClient, error) {
 	cloud.VNet, err = armnetwork.NewVirtualNetworksClient(Config.SubscriptionID, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("create vnet client: %w", err)
+	}
+
+	cloud.AzureFirewall, err = armnetwork.NewAzureFirewallsClient(Config.SubscriptionID, credential, opts)
+	if err != nil {
+		return nil, fmt.Errorf("create firewall client: %w", err)
 	}
 
 	cloud.Blob, err = azblob.NewClient(Config.BlobStorageAccountURL(), credential, nil)

@@ -182,6 +182,99 @@ func getBaseClusterModel(clusterName, location, k8sSystemPoolSKU string) *armcon
 	}
 }
 
+func addFirewallRules(ctx context.Context, resourceGroupName, location, firewallName, publicIPId, firewallSubnetID, ipConfigName string) *armnetwork.AzureFirewall {
+	var (
+		natRuleCollections []*armnetwork.AzureFirewallNatRuleCollection
+		netRuleCollections []*armnetwork.AzureFirewallNetworkRuleCollection
+	)
+
+	appRule := armnetwork.AzureFirewallApplicationRule{
+		Name:            to.Ptr("fqdn"),
+		SourceAddresses: []*string{to.Ptr("*")},
+		Protocols: []*armnetwork.AzureFirewallApplicationRuleProtocol{
+			{
+				ProtocolType: to.Ptr(armnetwork.AzureFirewallApplicationRuleProtocolTypeHTTP),
+				Port:         to.Ptr[int32](80),
+			},
+			{
+				ProtocolType: to.Ptr(armnetwork.AzureFirewallApplicationRuleProtocolTypeHTTPS),
+				Port:         to.Ptr[int32](443),
+			},
+		},
+		FqdnTags: []*string{to.Ptr("AzureKubernetesService")},
+	}
+
+	// Add to a collection
+	appRuleCollection := armnetwork.AzureFirewallApplicationRuleCollection{
+		Name: to.Ptr("aksfwar"),
+		Properties: &armnetwork.AzureFirewallApplicationRuleCollectionPropertiesFormat{
+			Priority: to.Ptr[int32](100),
+			Action: &armnetwork.AzureFirewallRCAction{
+				Type: to.Ptr(armnetwork.AzureFirewallRCActionTypeAllow),
+			},
+			Rules: []*armnetwork.AzureFirewallApplicationRule{&appRule},
+		},
+	}
+
+	ipConfigurations := []*armnetwork.AzureFirewallIPConfiguration{
+		{
+			Name: to.Ptr(ipConfigName),
+			Properties: &armnetwork.AzureFirewallIPConfigurationPropertiesFormat{
+				Subnet: &armnetwork.SubResource{
+					ID: to.Ptr(firewallSubnetID),
+				},
+				PublicIPAddress: &armnetwork.SubResource{
+					ID: to.Ptr(publicIPId),
+				},
+			},
+		},
+	}
+
+	logf(ctx, "Firewall rules added successfully")
+	return &armnetwork.AzureFirewall{
+		Location: to.Ptr(location),
+		Properties: &armnetwork.AzureFirewallPropertiesFormat{
+			ApplicationRuleCollections: []*armnetwork.AzureFirewallApplicationRuleCollection{&appRuleCollection},
+			NetworkRuleCollections:     netRuleCollections,
+			NatRuleCollections:         natRuleCollections,
+			IPConfigurations:           ipConfigurations,
+		},
+	}
+}
+
+func getFirewall(ctx context.Context, resourceGroupName, location string, vnet *VNet) *armnetwork.AzureFirewall {
+	firewallClient := config.Azure.AzureFirewall
+	firewallName := fmt.Sprintf("%s-fw", resourceGroupName)
+	ipConfigName := fmt.Sprintf("%s-fwconfig", resourceGroupName)
+	firewallSubnetId := *mustGetSubnetBySubnetName(*vnet.Subnets, handlerazure.DefaultAzureVNetFirewallSubnetName).ID
+	firewall := firewallWithDNSProxy(*publicIP.ID, firewallSubnetId, ipConfigName, location)
+
+	gomegahelper.Retry(
+		"createFirewall",
+		logger,
+		func(n uint, retrym gomegahelper.RetryAssertionBuilder) {
+			firewallCreateFuture, err := firewallClient.CreateOrUpdate(ctx, resourceGroupName, firewallName, *firewall)
+			m.Expect(err).NotTo(handlerazure.ResponseFailed(firewallCreateFuture.FutureAPI.Response()), "create firewall")
+
+			logger.LogKV("step", "create firewall", "state", "waiting", "firewall", firewallName)
+			err = firewallCreateFuture.WaitForCompletionRef(ctx, firewallClient.Client)
+			retrym.Expect(err).
+				NotTo(handlerazure.ResponseFailed(firewallCreateFuture.FutureAPI.Response()), "wait for firewall creation")
+			logger.LogKV("step", "create firewall", "state", "created", "firewall", firewallName)
+		},
+		retry.DelayType(retry.FixedDelay),
+		retry.Delay(time.Duration(1)*time.Minute),
+		retry.Attempts(5),
+	)
+
+	firewallCreated, err := firewallClient.Get(ctx, resourceGroupName, firewallName)
+	m.Expect(err).NotTo(handlerazure.ResponseFailed(firewallCreated.Response), "get firewall")
+	firewallPrivateIP := *(*firewallCreated.IPConfigurations)[0].PrivateIPAddress
+	logger.Logf("firewall private ip: %s", firewallPrivateIP)
+
+	return &firewallCreated
+}
+
 func addAirgapNetworkSettings(ctx context.Context, clusterModel *armcontainerservice.ManagedCluster, privateACRName, location string) error {
 	logf(ctx, "Adding network settings for airgap cluster %s in rg %s", *clusterModel.Name, *clusterModel.Properties.NodeResourceGroup)
 
