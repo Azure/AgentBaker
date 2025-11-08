@@ -19,23 +19,6 @@ const (
 	errMsgExitCodeRegex = "command terminated with exit code (25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)"
 )
 
-func extractKeyValuePair(key string, data string) (string, error) {
-	regexString := fmt.Sprintf(keyValuePairRegexTemplate, key)
-
-	r, err := regexp.Compile(regexString)
-	if err != nil {
-		return "", fmt.Errorf("failed to compile regex: %w", err)
-	}
-
-	matches := r.FindAllStringSubmatch(string(data), -1)
-
-	if len(matches) < 1 || len(matches[0]) < 2 {
-		return "", fmt.Errorf("expected 1 match with 1 submatch from regex, result %q", matches)
-	}
-
-	return matches[0][1], nil
-}
-
 func extractExitCode(errMsg string) (string, error) {
 	r, err := regexp.Compile(errMsgExitCodeRegex)
 	if err != nil {

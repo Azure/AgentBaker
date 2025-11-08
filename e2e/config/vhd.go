@@ -3,124 +3,307 @@ package config
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"strings"
 	"sync"
-	"testing"
-	"time"
 
-	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
-	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
+	"github.com/Azure/agentbaker/e2e/toolkit"
+	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 )
 
 const (
-	imageGallery       = "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/"
 	noSelectionTagName = "abe2e-ignore"
+)
 
-	fetchResourceIDTimeout = 5 * time.Minute
+var (
+	logf = toolkit.Logf
+	log  = toolkit.Log
+)
+
+var (
+	imageGalleryLinux = &Gallery{
+		SubscriptionID:    Config.GallerySubscriptionIDLinux,
+		ResourceGroupName: Config.GalleryResourceGroupNameLinux,
+		Name:              Config.GalleryNameLinux,
+	}
+	imageGalleryWindows = &Gallery{
+		SubscriptionID:    Config.GallerySubscriptionIDWindows,
+		ResourceGroupName: Config.GalleryResourceGroupNameWindows,
+		Name:              Config.GalleryNameWindows,
+	}
+)
+
+type Gallery struct {
+	SubscriptionID    string
+	ResourceGroupName string
+	Name              string
+}
+
+type OS string
+
+var (
+	OSWindows    OS = "windows"
+	OSUbuntu     OS = "ubuntu"
+	OSMariner    OS = "mariner"
+	OSAzureLinux OS = "azurelinux"
+	OSFlatcar    OS = "flatcar"
 )
 
 var (
 	VHDUbuntu1804Gen2Containerd = &Image{
-		Name: "1804gen2containerd",
-		OS:   "ubuntu",
-		Arch: "amd64",
+		Name:                "1804gen2containerd",
+		OS:                  OSUbuntu,
+		Arch:                "amd64",
+		Distro:              datamodel.AKSUbuntuContainerd1804Gen2,
+		Gallery:             imageGalleryLinux,
+		UnsupportedLocalDns: true,
 	}
 	VHDUbuntu2204Gen2Arm64Containerd = &Image{
-		Name: "2204gen2arm64containerd",
-		OS:   "ubuntu",
-		Arch: "arm64",
+		Name:    "2204gen2arm64containerd",
+		OS:      OSUbuntu,
+		Arch:    "arm64",
+		Distro:  datamodel.AKSUbuntuArm64Containerd2204Gen2,
+		Gallery: imageGalleryLinux,
 	}
 	VHDUbuntu2204Gen2Containerd = &Image{
-		Name: "2204gen2containerd",
-		OS:   "ubuntu",
-		Arch: "amd64",
+		Name:    "2204gen2containerd",
+		OS:      OSUbuntu,
+		Arch:    "amd64",
+		Distro:  datamodel.AKSUbuntuContainerd2204Gen2,
+		Gallery: imageGalleryLinux,
 	}
 	VHDAzureLinuxV2Gen2Arm64 = &Image{
-		Name: "AzureLinuxV2gen2arm64",
-		OS:   "azurelinux",
-		Arch: "arm64",
+		Name:    "AzureLinuxV2gen2arm64",
+		OS:      OSAzureLinux,
+		Arch:    "arm64",
+		Distro:  datamodel.AKSAzureLinuxV2Arm64Gen2,
+		Gallery: imageGalleryLinux,
 	}
 	VHDAzureLinuxV2Gen2 = &Image{
-		Name: "AzureLinuxV2gen2",
-		OS:   "azurelinux",
-		Arch: "amd64",
+		Name:    "AzureLinuxV2gen2",
+		OS:      OSAzureLinux,
+		Arch:    "amd64",
+		Distro:  datamodel.AKSAzureLinuxV2Gen2,
+		Gallery: imageGalleryLinux,
+	}
+	VHDAzureLinuxV3Gen2 = &Image{
+		Name:    "AzureLinuxV3gen2",
+		OS:      OSAzureLinux,
+		Arch:    "amd64",
+		Distro:  datamodel.AKSAzureLinuxV3Gen2,
+		Gallery: imageGalleryLinux,
+	}
+	VHDAzureLinux3OSGuard = &Image{
+		Name:                "AzureLinuxOSGuardOSGuardV3gen2fipsTL",
+		OS:                  OSAzureLinux,
+		Arch:                "amd64",
+		Distro:              datamodel.AKSAzureLinuxV3OSGuardGen2FIPSTL,
+		Gallery:             imageGalleryLinux,
+		UnsupportedLocalDns: true,
 	}
 	VHDCBLMarinerV2Gen2Arm64 = &Image{
-		Name: "CBLMarinerV2gen2arm64",
-		OS:   "mariner",
-		Arch: "arm64",
+		Name:    "CBLMarinerV2gen2arm64",
+		OS:      OSMariner,
+		Arch:    "arm64",
+		Distro:  datamodel.AKSCBLMarinerV2Arm64Gen2,
+		Gallery: imageGalleryLinux,
 	}
 	VHDCBLMarinerV2Gen2 = &Image{
-		Name: "CBLMarinerV2gen2",
-		OS:   "mariner",
-		Arch: "amd64",
+		Name:    "CBLMarinerV2gen2",
+		OS:      OSMariner,
+		Arch:    "amd64",
+		Distro:  datamodel.AKSCBLMarinerV2Gen2,
+		Gallery: imageGalleryLinux,
 	}
 	// this is a particular 2204gen2containerd image originally built with private packages,
 	// if we ever want to update this then we'd need to run a new VHD build using private package overrides
 	VHDUbuntu2204Gen2ContainerdPrivateKubePkg = &Image{
-		Name:    "2204Gen2",
-		OS:      "ubuntu",
+		// 2204Gen2 is a special image definition holding historical VHDs used by agentbaker e2e's.
+		Name:                     "2204Gen2",
+		OS:                       OSUbuntu,
+		Arch:                     "amd64",
+		Version:                  "1.1704411049.2812",
+		Distro:                   datamodel.AKSUbuntuContainerd2204Gen2,
+		Gallery:                  imageGalleryLinux,
+		UnsupportedKubeletNodeIP: true,
+		UnsupportedLocalDns:      true,
+	}
+
+	// without kubelet, kubectl, credential-provider and wasm
+	VHDUbuntu2204Gen2ContainerdAirgappedK8sNotCached = &Image{
+		Name:                "2204Gen2",
+		OS:                  OSUbuntu,
+		Arch:                "amd64",
+		Version:             "1.1725612526.29638",
+		Distro:              datamodel.AKSUbuntuContainerd2204Gen2,
+		Gallery:             imageGalleryLinux,
+		UnsupportedLocalDns: true,
+	}
+
+	VHDUbuntu2404Gen1Containerd = &Image{
+		Name:    "2404containerd",
+		OS:      OSUbuntu,
 		Arch:    "amd64",
-		Version: "1.1704411049.2812",
+		Distro:  datamodel.AKSUbuntuContainerd2404,
+		Gallery: imageGalleryLinux,
+	}
+
+	VHDUbuntu2404Gen2Containerd = &Image{
+		Name:    "2404gen2containerd",
+		OS:      OSUbuntu,
+		Arch:    "amd64",
+		Distro:  datamodel.AKSUbuntuContainerd2404Gen2,
+		Gallery: imageGalleryLinux,
+	}
+
+	VHDUbuntu2404ArmContainerd = &Image{
+		Name:    "2404gen2arm64containerd",
+		OS:      OSUbuntu,
+		Arch:    "arm64",
+		Distro:  datamodel.AKSUbuntuArm64Containerd2404Gen2,
+		Gallery: imageGalleryLinux,
+	}
+
+	VHDFlatcarGen2 = &Image{
+		Name:    "flatcargen2",
+		OS:      OSFlatcar,
+		Arch:    "amd64",
+		Distro:  datamodel.AKSFlatcarGen2,
+		Gallery: imageGalleryLinux,
+		Flatcar: true,
+	}
+
+	VHDFlatcarGen2Arm64 = &Image{
+		Name:    "flatcargen2arm64",
+		OS:      OSFlatcar,
+		Arch:    "arm64",
+		Distro:  datamodel.AKSFlatcarArm64Gen2,
+		Gallery: imageGalleryLinux,
+		Flatcar: true,
+	}
+
+	VHDWindows2019Containerd = &Image{
+		Name:    "windows-2019-containerd",
+		OS:      "windows",
+		Arch:    "amd64",
+		Distro:  datamodel.AKSWindows2019Containerd,
+		Gallery: imageGalleryWindows,
+	}
+
+	VHDWindows2022Containerd = &Image{
+		Name:    "windows-2022-containerd",
+		OS:      "windows",
+		Arch:    "amd64",
+		Distro:  datamodel.AKSWindows2022Containerd,
+		Gallery: imageGalleryWindows,
+	}
+
+	VHDWindows2022ContainerdGen2 = &Image{
+		Name:    "windows-2022-containerd-gen2",
+		OS:      OSWindows,
+		Arch:    "amd64",
+		Distro:  datamodel.AKSWindows2022ContainerdGen2,
+		Gallery: imageGalleryWindows,
+	}
+
+	VHDWindows23H2 = &Image{
+		Name:    "windows-23H2",
+		OS:      OSWindows,
+		Arch:    "amd64",
+		Distro:  datamodel.AKSWindows23H2,
+		Gallery: imageGalleryWindows,
+	}
+
+	VHDWindows23H2Gen2 = &Image{
+		Name:    "windows-23H2-gen2",
+		OS:      OSWindows,
+		Arch:    "amd64",
+		Distro:  datamodel.AKSWindows23H2Gen2,
+		Gallery: imageGalleryWindows,
+	}
+
+	VHDWindows2025 = &Image{
+		Name:    "windows-2025",
+		OS:      OSWindows,
+		Arch:    "amd64",
+		Distro:  datamodel.AKSWindows2025,
+		Gallery: imageGalleryWindows,
+	}
+
+	VHDWindows2025Gen2 = &Image{
+		Name:    "windows-2025-gen2",
+		OS:      OSWindows,
+		Arch:    "amd64",
+		Distro:  datamodel.AKSWindows2025Gen2,
+		Gallery: imageGalleryWindows,
 	}
 )
 
 var ErrNotFound = fmt.Errorf("not found")
 
+type perLocationVHDCache struct {
+	vhd  VHDResourceID
+	err  error
+	once *sync.Once
+}
+
 type Image struct {
-	Name    string
-	OS      string
-	Arch    string
-	Version string
-
-	vhd     VHDResourceID
-	vhdOnce sync.Once
-	vhdErr  error
+	Arch                     string
+	Distro                   datamodel.Distro
+	Name                     string
+	OS                       OS
+	Version                  string
+	Gallery                  *Gallery
+	UnsupportedKubeletNodeIP bool
+	UnsupportedLocalDns      bool
+	Flatcar                  bool
 }
 
-func (i *Image) VHDResourceID(ctx context.Context, t *testing.T) (VHDResourceID, error) {
-	i.vhdOnce.Do(func() {
-		imageDefinitionResourceID := imageGallery + i.Name
-		if i.Version != "" {
-			i.vhd, i.vhdErr = ensureStaticSIGImageVersion(ctx, t, imageDefinitionResourceID+"/versions/"+i.Version)
+func (i *Image) String() string {
+	// a starter for a string for debugging.
+	return fmt.Sprintf("%s %s %s %s", i.OS, i.Name, i.Version, i.Arch)
+}
+
+func GetVHDResourceID(ctx context.Context, i Image, location string) (VHDResourceID, error) {
+	switch {
+	case i.Version != "":
+		vhd, err := Azure.EnsureSIGImageVersion(ctx, &i, location)
+		if err != nil {
+			return "", fmt.Errorf("failed to ensure image version %s: %w", i.Version, err)
+		}
+		logf(ctx, "Got image by version: %s", i.azurePortalImageVersionUrl())
+		return vhd, nil
+	default:
+		vhd, err := Azure.LatestSIGImageVersionByTag(ctx, &i, Config.SIGVersionTagName, Config.SIGVersionTagValue, location)
+		if err != nil {
+			return "", fmt.Errorf("failed to get latest image by tag %s=%s: %w", Config.SIGVersionTagName, Config.SIGVersionTagValue, err)
+		}
+		if vhd != "" {
+			logf(ctx, "got version by tag %s=%s: %s", Config.SIGVersionTagName, Config.SIGVersionTagValue, i.azurePortalImageVersionUrl())
 		} else {
-			i.vhd, i.vhdErr = findLatestSIGImageVersionWithTag(ctx, t, imageDefinitionResourceID, SIGVersionTagName, SIGVersionTagValue)
+			logf(ctx, "Could not find version by tag %s=%s: %s", Config.SIGVersionTagName, Config.SIGVersionTagValue, i.azurePortalImageUrl())
 		}
-		if i.vhdErr != nil {
-			i.vhdErr = fmt.Errorf("img: %s, tag %s=%s, err %w", imageDefinitionResourceID, SIGVersionTagName, SIGVersionTagValue, i.vhdErr)
-			t.Logf("failed to find the latest image %s", i.vhdErr)
-		}
-	})
-	return i.vhd, i.vhdErr
-}
-
-type sigImageDefinition struct {
-	subscriptionID string
-	resourceGroup  string
-	gallery        string
-	definition     string
-}
-
-type sigImageVersion struct {
-	sigImageDefinition
-	version string
-}
-
-func newSIGImageDefinitionFromResourceID(resourceID *arm.ResourceID) sigImageDefinition {
-	return sigImageDefinition{
-		subscriptionID: resourceID.SubscriptionID,
-		resourceGroup:  resourceID.ResourceGroupName,
-		gallery:        resourceID.Parent.Name,
-		definition:     resourceID.Name,
+		return vhd, nil
 	}
 }
 
-func newSIGImageVersionFromResourceID(resourceID *arm.ResourceID) sigImageVersion {
-	return sigImageVersion{
-		sigImageDefinition: newSIGImageDefinitionFromResourceID(resourceID.Parent),
-		version:            resourceID.Name,
-	}
+func (i *Image) azurePortalImageUrl() string {
+	return fmt.Sprintf("https://ms.portal.azure.com/#@microsoft.onmicrosoft.com/resource/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/galleries/%s/images/%s/overview",
+		i.Gallery.SubscriptionID,
+		i.Gallery.ResourceGroupName,
+		i.Gallery.Name,
+		i.Distro,
+	)
+}
+
+func (i *Image) azurePortalImageVersionUrl() string {
+	return fmt.Sprintf("https://ms.portal.azure.com/#@microsoft.onmicrosoft.com/resource/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/galleries/%s/images/%s/versions/%s/overview",
+		i.Gallery.SubscriptionID,
+		i.Gallery.ResourceGroupName,
+		i.Gallery.Name,
+		i.Distro,
+		i.Version,
+	)
 }
 
 // VHDResourceID represents a resource ID pointing to a VHD in Azure. This could be theoretically
@@ -136,121 +319,16 @@ func (id VHDResourceID) Short() string {
 	return str
 }
 
-func ensureStaticSIGImageVersion(ctx context.Context, t *testing.T, imageVersionResourceID string) (VHDResourceID, error) {
-	ctx, cancel := context.WithTimeout(ctx, fetchResourceIDTimeout)
-	defer cancel()
-
-	rid, err := arm.ParseResourceID(imageVersionResourceID)
-	if err != nil {
-		return "", fmt.Errorf("parsing image version resouce ID: %w", err)
-	}
-	version := newSIGImageVersionFromResourceID(rid)
-
-	resp, err := Azure.GalleryImageVersionClient.Get(ctx, version.resourceGroup, version.gallery, version.definition, version.version, nil)
-	if err != nil {
-		return "", fmt.Errorf("getting live image version info: %w", err)
+func GetRandomLinuxAMD64VHD() *Image {
+	// List of VHDs to use for generic tests, this could be expanded in the future to support a map of VHD and compatible VM Skus
+	vhds := []*Image{
+		VHDUbuntu2404Gen2Containerd,
+		VHDUbuntu2204Gen2Containerd,
+		VHDAzureLinuxV2Gen2,
+		VHDAzureLinuxV3Gen2,
+		VHDCBLMarinerV2Gen2,
 	}
 
-	liveVersion := &resp.GalleryImageVersion
-	if err := ensureProvisioningState(liveVersion); err != nil {
-		return "", fmt.Errorf("ensuring image version provisioning state: %w", err)
-	}
-
-	if err := ensureReplication(ctx, t, version.sigImageDefinition, liveVersion); err != nil {
-		return "", fmt.Errorf("ensuring image replication: %w", err)
-	}
-
-	return VHDResourceID(imageVersionResourceID), nil
-}
-
-func findLatestSIGImageVersionWithTag(ctx context.Context, t *testing.T, imageDefinitionResourceID, tagName, tagValue string) (VHDResourceID, error) {
-	ctx, cancel := context.WithTimeout(ctx, fetchResourceIDTimeout)
-	defer cancel()
-
-	rid, err := arm.ParseResourceID(imageDefinitionResourceID)
-	if err != nil {
-		return "", fmt.Errorf("parsing image definition resource ID: %w", err)
-	}
-	definition := newSIGImageDefinitionFromResourceID(rid)
-
-	pager := Azure.GalleryImageVersionClient.NewListByGalleryImagePager(definition.resourceGroup, definition.gallery, definition.definition, nil)
-	var latestVersion *armcompute.GalleryImageVersion
-	for pager.More() {
-		page, err := pager.NextPage(ctx)
-		if err != nil {
-			return "", fmt.Errorf("failed to get next page: %w", err)
-		}
-		versions := page.Value
-		for _, version := range versions {
-			// skip images tagged with the no-selection tag, indicating they
-			// shouldn't be selected dynmically for running abe2e scenarios
-			if _, ok := version.Tags[noSelectionTagName]; ok {
-				continue
-			}
-			tag, ok := version.Tags[tagName]
-			if !ok || tag == nil || *tag != tagValue {
-				continue
-			}
-			if err := ensureProvisioningState(version); err != nil {
-				t.Logf("ensuring image version %s provisioning state: %s, will not consider for selection", *version.ID, err)
-				continue
-			}
-			if latestVersion == nil || version.Properties.PublishingProfile.PublishedDate.After(*latestVersion.Properties.PublishingProfile.PublishedDate) {
-				latestVersion = version
-			}
-		}
-	}
-	if latestVersion == nil {
-		return "", ErrNotFound
-	}
-
-	if err := ensureReplication(ctx, t, definition, latestVersion); err != nil {
-		return "", fmt.Errorf("ensuring image replication: %w", err)
-	}
-
-	return VHDResourceID(*latestVersion.ID), nil
-}
-
-func ensureReplication(ctx context.Context, t *testing.T, definition sigImageDefinition, version *armcompute.GalleryImageVersion) error {
-	if replicatedToCurrentRegion(version) {
-		t.Logf("image version %s is already replicated to region %s", *version.ID, Location)
-		return nil
-	}
-	return replicateToCurrentRegion(ctx, t, definition, version)
-}
-
-func replicatedToCurrentRegion(version *armcompute.GalleryImageVersion) bool {
-	for _, targetRegion := range version.Properties.PublishingProfile.TargetRegions {
-		if strings.EqualFold(strings.ReplaceAll(*targetRegion.Name, " ", ""), Location) {
-			return true
-		}
-	}
-	return false
-}
-
-func replicateToCurrentRegion(ctx context.Context, t *testing.T, definition sigImageDefinition, version *armcompute.GalleryImageVersion) error {
-	t.Logf("will replicate image version %s to region %s...", *version.ID, Location)
-
-	version.Properties.PublishingProfile.TargetRegions = append(version.Properties.PublishingProfile.TargetRegions, &armcompute.TargetRegion{
-		Name:                 &Location,
-		RegionalReplicaCount: to.Ptr[int32](1),
-		StorageAccountType:   to.Ptr(armcompute.StorageAccountTypeStandardLRS),
-	})
-
-	resp, err := Azure.GalleryImageVersionClient.BeginCreateOrUpdate(ctx, definition.resourceGroup, definition.gallery, definition.definition, *version.Name, *version, nil)
-	if err != nil {
-		return fmt.Errorf("begin updating image version target regions: %w", err)
-	}
-	if _, err := resp.PollUntilDone(ctx, nil); err != nil {
-		return fmt.Errorf("updating image version target regions: %w", err)
-	}
-
-	return nil
-}
-
-func ensureProvisioningState(version *armcompute.GalleryImageVersion) error {
-	if *version.Properties.ProvisioningState != armcompute.GalleryImageVersionPropertiesProvisioningStateSucceeded {
-		return fmt.Errorf("unexpected provisioning state: %q", *version.Properties.ProvisioningState)
-	}
-	return nil
+	// Return a random VHD from the list
+	return vhds[rand.Intn(len(vhds))]
 }

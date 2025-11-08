@@ -1,0 +1,15 @@
+name: Go Unit Tests
+on: pull_request
+
+jobs:
+  go-test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v5
+    - uses: actions/setup-go@v6
+      with:
+        go-version: '1.24'
+    - run: |
+        set -ex
+        make test
+      name: Run unit tests for go code in the repository

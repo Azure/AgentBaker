@@ -1,1 +1,25 @@
-* @juan-lee @cameronmeissner @UtheMan @ganeshkumarashok @anujmaheshwari1 @AlisonB319 @Devinwong @lilypan26 @ShiqianTao @AbelHu @junjiezhang1997 @jason1028kr @djsly
+* @juan-lee @cameronmeissner @ganeshkumarashok @Devinwong @lilypan26 @AbelHu @junjiezhang1997 @djsly @phealy @r2k1 @timmy-wright @zachary-bailey @bravebeaver @awesomenix
+
+# Code owners for for cse_cmd.sh and nodecustomdata.yml. This is to ensure that the scriptless v-team is aware of the changes in order to sync with AKSNodeConfig.
+cse_cmd.sh @Devinwong @lilypan26 @r2k1 @timmy-wright @cameronmeissner
+nodecustomdata.yml @Devinwong @lilypan26 @r2k1 @timmy-wright @cameronmeissner
+
+# Code owners for the security patch release notes.
+vhdbuilder/release-notes/security-patch/ @yagmurbaydogan @yewmsft @juan-lee @cameronmeissner @ganeshkumarashok @Devinwong @lilypan26 @AbelHu @junjiezhang1997 @djsly @phealy @r2k1 @timmy-wright @zachary-bailey
+
+# Code owners for security patching.
+parts/linux/cloud-init/artifacts/mariner/package-update.service @yewmsft
+parts/linux/cloud-init/artifacts/mariner/package-update.timer @yewmsft
+parts/linux/cloud-init/artifacts/ubuntu/ubuntu-snapshot-update.sh @yewmsft
+parts/linux/cloud-init/artifacts/mariner/mariner-package-update.sh @yewmsft
+spec/parts/linux/cloud-init/artifacts/ubuntu-snapshot-update_spec.sh @yewmsft
+spec/parts/linux/cloud-init/artifacts/mariner-package-update_spec.sh @yewmsft
+
+# Code owners for localdns.
+parts/linux/cloud-init/artifacts/localdns.sh @SriHarsha001 @yewmsft
+parts/linux/cloud-init/artifacts/localdns.service @SriHarsha001 @yewmsft
+parts/linux/cloud-init/artifacts/localdns-delegate.conf @SriHarsha001 @yewmsft
+spec/parts/linux/cloud-init/artifacts/localdns_spec.sh @SriHarsha001 @yewmsft
+
+# Set components.json to no code-owner so that it can be approved and merged by component owner.
+parts/common/components.json

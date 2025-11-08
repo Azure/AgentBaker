@@ -1,0 +1,22 @@
+[Unit]
+Description=Localdns service
+Wants=network.target
+After=network.target
+After=cloud-config.service
+Before=kubelet.service
+Before=containerd.service
+# don't run on old images; we're not compatible
+ConditionKernelVersion=>=5.15
+
+[Service]
+Type=notify
+NotifyAccess=all
+WatchdogSec=60
+Restart=on-failure
+KillMode=mixed
+TimeoutStopSec=30
+Slice=localdns.slice
+ExecStart=/opt/azure/containers/localdns/localdns.sh
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,72 @@
+{
+    "kind": "KubeletConfiguration",
+    "apiVersion": "kubelet.config.k8s.io/v1beta1",
+    "staticPodPath": "/etc/kubernetes/manifests",
+    "address": "0.0.0.0",
+    "tlsCertFile": "/etc/kubernetes/certs/kubeletserver.crt",
+    "tlsPrivateKeyFile": "/etc/kubernetes/certs/kubeletserver.key",
+    "tlsCipherSuites": [
+        "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
+        "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+        "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305",
+        "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
+        "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305",
+        "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384",
+        "TLS_RSA_WITH_AES_256_GCM_SHA384",
+        "TLS_RSA_WITH_AES_128_GCM_SHA256"
+    ],
+    "rotateCertificates": true,
+    "serverTLSBootstrap": true,
+    "authentication": {
+        "x509": {
+            "clientCAFile": "/etc/kubernetes/certs/ca.crt"
+        },
+        "webhook": {
+            "enabled": true
+        },
+        "anonymous": {}
+    },
+    "authorization": {
+        "mode": "Webhook",
+        "webhook": {}
+    },
+    "eventRecordQPS": 0,
+    "clusterDomain": "cluster.local",
+    "clusterDNS": [
+        "10.0.0.10"
+    ],
+    "streamingConnectionIdleTimeout": "4h",
+    "nodeStatusUpdateFrequency": "10s",
+    "imageGCHighThresholdPercent": 90,
+    "imageGCLowThresholdPercent": 70,
+    "cgroupsPerQOS": true,
+    "cpuManagerPolicy": "static",
+    "topologyManagerPolicy": "best-effort",
+    "maxPods": 250,
+    "cpuCFSQuota": true,
+    "cpuCFSQuotaPeriod": "200ms",
+    "evictionHard": {
+        "memory.available": "100Mi",
+        "nodefs.available": "10%",
+        "nodefs.inodesFree": "5%",
+        "pid.available": "2000"
+    },
+    "protectKernelDefaults": true,
+    "featureGates": {
+        "CustomCPUCFSQuotaPeriod": true
+    },
+    "failSwapOn": false,
+    "containerLogMaxSize": "50M",
+    "kubeReserved": {
+        "cpu": "100m",
+        "memory": "1792Mi",
+        "pid": "1000"
+    },
+    "enforceNodeAllocatable": [
+        "pods"
+    ],
+    "allowedUnsafeSysctls": [
+        "kernel.msg*",
+        "net.*"
+    ]
+}

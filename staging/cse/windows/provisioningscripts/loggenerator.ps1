@@ -10,7 +10,7 @@ filter Timestamp { "$(Get-Date -Format o): $_" }
 
 function Write-Log ($message) {
     if ($isEnableLog) {
-        $message | Timestamp | Tee-Object -FilePath $LogPath -Append
+        $message | Timestamp | Tee-Object -FilePath $LogPath -Append | Write-Host
     }
 }
 
@@ -82,9 +82,11 @@ $kLogFiles = @(
     "containerd.err.log",
     "hnsremediator.log",
     "windowslogscleanup.log",
+    "windowsnodereset.log",
     "credential-provider-config.yaml",
     "windows-exporter.err.log",
-    "windows-exporter.log"
+    "windows-exporter.log",
+    "secure-tls-bootstrap.log"
 )
 $kLogFiles | Foreach-Object {
     Create-SymbolLinkFile -SrcFile (Join-Path "C:\k\" $_) -DestFile (Join-Path $aksLogFolder $_)

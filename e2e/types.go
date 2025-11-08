@@ -1,29 +1,38 @@
 package e2e
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"os/exec"
+	"os/user"
 	"reflect"
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
+	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
+	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
-	"github.com/Azure/agentbakere2e/config"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
-	"github.com/barkimedes/go-deepcopy"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 	"github.com/stretchr/testify/require"
 )
 
 type Tags struct {
-	Name      string
-	ImageName string
-	OS        string
-	Arch      string
-	Airgap    bool
-	GPU       bool
-	WASM      bool
+	Name                   string
+	ImageName              string
+	OS                     string
+	Arch                   string
+	Airgap                 bool
+	NonAnonymousACR        bool
+	GPU                    bool
+	WASM                   bool
+	ServerTLSBootstrapping bool
+	KubeletCustomConfig    bool
+	Scriptless             bool
+	VHDCaching             bool
 }
 
 // MatchesFilters checks if the Tags struct matches all given filters.
@@ -72,7 +81,7 @@ func (t Tags) matchFilters(filters string, all bool) (bool, error) {
 			return false, fmt.Errorf("unknown filter key: %s", key)
 		}
 
-		match := false
+		var match bool
 		switch field.Kind() {
 		case reflect.String:
 			match = strings.EqualFold(field.String(), value)
@@ -97,7 +106,7 @@ func (t Tags) matchFilters(filters string, all bool) (bool, error) {
 	return all, nil
 }
 
-// Scenario represents an AgentBaker E2E scenario
+// Scenario represents an AgentBaker E2E scenario.
 type Scenario struct {
 	// Description is a short description of what the scenario does and tests for
 	Description string
@@ -107,67 +116,78 @@ type Scenario struct {
 
 	// Config contains the configuration of the scenario
 	Config
+
+	// Location is the Azure location where the scenario will run. This can be
+	// used to override the default location.
+	Location string
+
+	// K8sSystemPoolSKU is the VM size to use for the system nodepool. If empty,
+	// a default size will be used.
+	K8sSystemPoolSKU string
+
+	// Runtime contains the runtime state of the scenario. It's populated in the beginning of the test run
+	Runtime *ScenarioRuntime
+	T       testing.TB
 }
 
-// Config represents the configuration of an AgentBaker E2E scenario
-type Config struct {
-	Cluster func(ctx context.Context, t *testing.T) (*Cluster, error)
+type ScenarioRuntime struct {
+	NBC           *datamodel.NodeBootstrappingConfiguration
+	AKSNodeConfig *aksnodeconfigv1.Configuration
+	Cluster       *Cluster
+	VMSSName      string
+	KubeNodeName  string
+	VMPrivateIP   string
+}
 
-	// VHD is the function called by the e2e suite on the given scenario to get its VHD selection
+// Config represents the configuration of an AgentBaker E2E scenario.
+type Config struct {
+	// Cluster creates, updates or re-uses an AKS cluster for the scenario
+	Cluster func(ctx context.Context, request ClusterRequest) (*Cluster, error)
+
+	// VHD is the node image used by the scenario.
 	VHD *config.Image
 
 	// BootstrapConfigMutator is a function which mutates the base NodeBootstrappingConfig according to the scenario's requirements
 	BootstrapConfigMutator func(*datamodel.NodeBootstrappingConfiguration)
 
+	// AKSNodeConfigMutator if defined then aks-node-controller will be used to provision nodes
+	AKSNodeConfigMutator func(*aksnodeconfigv1.Configuration)
+
 	// VMConfigMutator is a function which mutates the base VMSS model according to the scenario's requirements
 	VMConfigMutator func(*armcompute.VirtualMachineScaleSet)
 
-	// LiveVMValidators is a slice of LiveVMValidator objects for performing any live VM validation
-	// specific to the scenario that isn't covered in the set of common validators run with all scenarios
-	LiveVMValidators []*LiveVMValidator
+	// Validator is a function where the scenario can perform any extra validation checks
+	Validator func(ctx context.Context, s *Scenario)
+
+	// SkipDefaultValidation is a flag to indicate whether the common validation (like spawning a pod) should be skipped.
+	// It shouldn't be used for majority of scenarios, currently only used for preparing VHD in a two-stage scenario
+	SkipDefaultValidation bool
+
+	// SkipSSHConnectivityValidation is a flag to indicate whether the ssh connectivity validation should be skipped.
+	// It shouldn't be used for majority of scenarios, currently only used for scenarios where the node is not expected to be reachable via ssh
+	SkipSSHConnectivityValidation bool
+
+	// WaitForSSHAfterReboot if set to non-zero duration, SSH connectivity validation will retry with exponential backoff
+	// for up to this duration when encountering reboot-related errors. This is useful for scenarios where the node
+	// reboots during provisioning (e.g., MIG-enabled GPU nodes). Default (zero value) means no retry.
+	WaitForSSHAfterReboot time.Duration
+
+	// if VHDCaching is set then a VHD will be created first for the test scenario and then a VM will be created from that VHD.
+	// The main purpose is to validate VHD Caching logic and ensure a reboot step between basePrep and nodePrep doesn't break anything.
+	VHDCaching bool
 }
 
-// VMCommandOutputAsserterFn is a function which takes in stdout and stderr stream content
-// as strings and performs arbitrary assertions on them, returning an error in the case where the assertion fails
-type VMCommandOutputAsserterFn func(code, stdout, stderr string) error
+func (s *Scenario) PrepareAKSNodeConfig() {
 
-// LiveVMValidator represents a command to be run on a live VM after
-// node bootstrapping has succeeded that generates output which can be asserted against
-// to make sure that the live VM itself is in the correct state
-type LiveVMValidator struct {
-	// Description is the description of the validator and what it actually validates on the VM
-	Description string
-
-	// Command is the command string to be run on the live VM after node bootstrapping has succeeed
-	Command string
-
-	// Asserter is the validator's VMCommandOutputAsserterFn which will be run against command output
-	Asserter VMCommandOutputAsserterFn
-
-	// IsShellBuiltIn is a boolean flag which indicates whether or not the command is a shell built-in
-	// that will fail when executed with sudo - requires separate command to avoid command not found error on node
-	IsShellBuiltIn bool
-}
-
-// PrepareNodeBootstrappingConfiguration mutates the input NodeBootstrappingConfiguration by calling the
-// scenario's BootstrapConfigMutator on it, if configured.
-func (s *Scenario) PrepareNodeBootstrappingConfiguration(nbc *datamodel.NodeBootstrappingConfiguration) (*datamodel.NodeBootstrappingConfiguration, error) {
-	// avoid mutating cluster config
-	nbcAny, err := deepcopy.Anything(nbc)
-	if err != nil {
-		return nil, fmt.Errorf("deep copy NodeBootstrappingConfiguration: %w", err)
-	}
-	nbc = nbcAny.(*datamodel.NodeBootstrappingConfiguration)
-	if s.BootstrapConfigMutator != nil {
-		s.BootstrapConfigMutator(nbc)
-	}
-	return nbc, nil
 }
 
 // PrepareVMSSModel mutates the input VirtualMachineScaleSet based on the scenario's VMConfigMutator, if configured.
 // This method will also use the scenario's configured VHD selector to modify the input VMSS to reference the correct VHD resource.
-func (s *Scenario) PrepareVMSSModel(ctx context.Context, t *testing.T, vmss *armcompute.VirtualMachineScaleSet) {
-	resourceID, err := s.VHD.VHDResourceID(ctx, t)
+func (s *Scenario) PrepareVMSSModel(ctx context.Context, t testing.TB, vmss *armcompute.VirtualMachineScaleSet) {
+	resourceID, err := CachedPrepareVHD(ctx, GetVHDRequest{
+		Image:    *s.VHD,
+		Location: s.Location,
+	})
 	require.NoError(t, err)
 	require.NotEmpty(t, resourceID, "VHDSelector.ResourceID")
 	require.NotNil(t, vmss, "input VirtualMachineScaleSet")
@@ -187,18 +207,64 @@ func (s *Scenario) PrepareVMSSModel(ctx context.Context, t *testing.T, vmss *arm
 		ID: to.Ptr(string(resourceID)),
 	}
 
+	s.updateTags(ctx, vmss)
+}
+
+func (s *Scenario) updateTags(ctx context.Context, vmss *armcompute.VirtualMachineScaleSet) {
+	if vmss.Tags == nil {
+		vmss.Tags = map[string]*string{}
+	}
+
 	// don't clean up VMSS in other tests
-	if config.KeepVMSS {
-		if vmss.Tags == nil {
-			vmss.Tags = map[string]*string{}
-		}
+	if config.Config.KeepVMSS {
 		vmss.Tags["KEEP_VMSS"] = to.Ptr("true")
 	}
 
-	if config.BuildID != "" {
-		if vmss.Tags == nil {
-			vmss.Tags = map[string]*string{}
-		}
-		vmss.Tags[buildIDTagKey] = &config.BuildID
+	if config.Config.BuildID != "" {
+		vmss.Tags[buildIDTagKey] = &config.Config.BuildID
 	}
+
+	owner, err := getLoggedInAzUser()
+	if err != nil {
+		owner, err = getLocalUsername()
+		if err != nil {
+			owner = "unknown"
+		}
+	}
+	vmss.Tags["owner"] = to.Ptr(owner)
+
+}
+
+func getLoggedInAzUser() (string, error) {
+	// Define the command and arguments
+	cmd := exec.Command("az", "account", "show", "--query", "user.name", "-o", "tsv")
+
+	// Create a buffer to capture stdout
+	var out bytes.Buffer
+	cmd.Stdout = &out
+
+	// Run the command
+	err := cmd.Run()
+	if err != nil {
+		return "", err
+	}
+
+	return out.String(), nil
+}
+
+func getLocalUsername() (string, error) {
+	currentUser, err := user.Current()
+	if err == nil {
+		return currentUser.Username, nil
+	}
+
+	return "", err
+}
+
+func (s *Scenario) IsWindows() bool {
+	return s.VHD.OS == config.OSWindows
+}
+
+func (s *Scenario) IsLinux() bool {
+	return !s.IsWindows()
 }

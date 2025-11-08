@@ -1,0 +1,166 @@
+syntax = "proto3";
+
+package aksnodeconfig.v1;
+
+import "aksnodeconfig/v1/api_server_config.proto";
+import "aksnodeconfig/v1/auth_config.proto";
+import "aksnodeconfig/v1/bootstrapping_config.proto";
+import "aksnodeconfig/v1/cluster_config.proto";
+import "aksnodeconfig/v1/containerd_config.proto";
+import "aksnodeconfig/v1/custom_cloud_config.proto";
+import "aksnodeconfig/v1/custom_linux_os_config.proto";
+import "aksnodeconfig/v1/custom_search_domain_config.proto";
+import "aksnodeconfig/v1/gpu_config.proto";
+import "aksnodeconfig/v1/http_proxy_config.proto";
+import "aksnodeconfig/v1/imds_restriction_config.proto";
+import "aksnodeconfig/v1/kube_binary_config.proto";
+import "aksnodeconfig/v1/kubelet_config.proto";
+import "aksnodeconfig/v1/localdns_config.proto";
+import "aksnodeconfig/v1/network_config.proto";
+import "aksnodeconfig/v1/runc_config.proto";
+import "aksnodeconfig/v1/teleport_config.proto";
+
+option go_package = "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1;aksnodeconfigv1";
+
+enum WorkloadRuntime {
+  WORKLOAD_RUNTIME_UNSPECIFIED = 0;
+  WORKLOAD_RUNTIME_OCI_CONTAINER = 1;
+}
+
+message Configuration {
+  // Version of configuration
+  string version = 1;
+
+  // Kube binary URL config
+  KubeBinaryConfig kube_binary_config = 2;
+
+  // Custom cloud config
+  CustomCloudConfig custom_cloud_config = 3;
+
+  // Kubernetes API server configuration
+  ApiServerConfig api_server_config = 4;
+
+  // Various Kubernetes cluster level configuration
+  ClusterConfig cluster_config = 5;
+
+  // TLS bootstrap config
+  BootstrappingConfig bootstrapping_config = 6;
+
+  // Authentication configuration
+  AuthConfig auth_config = 7;
+
+  // The CLI tool runc configuration
+  RuncConfig runc_config = 8;
+
+  // Containerd configuration
+  ContainerdConfig containerd_config = 9;
+
+  // Teleport configuration
+  TeleportConfig teleport_config = 10;
+
+  // Kubelet configuration
+  KubeletConfig kubelet_config = 11;
+
+  // Custom search domain configurations
+  CustomSearchDomainConfig custom_search_domain_config = 12;
+
+  // Custom Linux OS configurations including SwapFile, SysCtl configs, etc.
+  CustomLinuxOsConfig custom_linux_os_config = 13;
+
+  // HTTP/HTTPS proxy configuration for the node
+  HttpProxyConfig http_proxy_config = 14;
+
+  // GPU configuration for the node
+  GpuConfig gpu_config = 15;
+
+  // Network configuration for the node
+  NetworkConfig network_config = 16;
+
+  // Kubernetes certificate authority (CA) certificate, required by the node to establish TLS with the API server
+  string kubernetes_ca_cert = 17;
+
+  // Kubernetes version
+  string kubernetes_version = 18;
+
+  // Kube proxy URL
+  string kube_proxy_url = 19;
+
+  // The VM size of the node
+  string vm_size = 20;
+
+  // Linux admin username. If not specified, the default value is "azureuser"
+  string linux_admin_username = 21;
+
+  // Specifies whether the node is a VHD node. This is still needed for some customized scenarios.
+  // This is labeled as optional (explicit presence) so that we know whether it's set or not.
+  // If it's not set, the default value will be nil.
+  optional bool is_vhd = 22;
+
+  // Specifies whether SSH is enabled or disabled on the VM node
+  // This is labeled as optional (explicit presence) so that we know whether it's set or not.
+  // If it's not set, the default value will be nil, but will be set to true on the VHD.
+  optional bool enable_ssh = 23;
+
+  // Specifies whether unattended upgrade is enabled or disabled on the VM node
+  bool enable_unattended_upgrade = 24;
+
+  // The message of the day that is displayed on the VM node when a user logs in
+  string message_of_the_day = 25;
+
+  // Specifies whether the hosts config agent is enabled or disabled on the VM node
+  bool enable_hosts_config_agent = 26;
+
+  // Custom CA certificates to be added to the system trust store
+  repeated string custom_ca_certs = 27;
+
+  // A local file path where cluster provision cse output should be stored
+  string provision_output = 28;
+
+  // Workload runtime, only "OCIContainer" currently.
+  WorkloadRuntime workload_runtime = 29;
+
+  // Specifies whether IPv6 dual stack is enabled or disabled on the VM node
+  bool ipv6_dual_stack_enabled = 30;
+
+  // Command to use for outbound traffic
+  string outbound_command = 31;
+
+  // Azure private registry server URI
+  string azure_private_registry_server = 32;
+
+  //Private egress proxy address
+  string private_egress_proxy_address = 33;
+
+  // Specifies whether artifact streaming is enabled or disabled on the VM node
+  bool enable_artifact_streaming = 34;
+
+  // Specifies if it is a Kata node
+  bool is_kata = 35;
+
+  // Specifies whether the node needs cgroupv2.
+  // Labeled as optional (explicit presence) so that we know whether it's set or not.
+  // If it's not set, the default value will be nil and we will get the value on the VHD during bootstrapping.
+  optional bool needs_cgroupv2 = 36;
+
+  // Specified whether the node wants to disable custom data scripts for bootstrapping
+  bool disable_custom_data = 37;
+
+  // Bootstrap profile container registry server URI
+  string bootstrap_profile_container_registry_server = 38;
+
+  // IMDS restriction configuration
+  ImdsRestrictionConfig imds_restriction_config = 39;
+
+  // Creates a pre-provisioned image for later node spawning.
+  // Skips kubelet and some component configuration for image capture scenarios.
+  bool pre_provision_only = 40;
+
+  // Represents localdns profile for agentpool.
+  LocalDnsProfile local_dns_profile = 41;
+
+  // Specifies whether to disable ssh public key authentication on the VM node
+  // This is labeled as optional (explicit presence) so that we know whether it's set or not.
+  // If it's not set, the default value will be nil, but will be set to false on the VHD.
+  // That is, the default behavior is to enable ssh public key authentication.
+  optional bool disable_pubkey_auth = 42;
+}

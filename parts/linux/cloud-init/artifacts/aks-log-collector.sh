@@ -17,8 +17,8 @@ shopt -s nullglob nocaseglob extglob
 
 # Fetch configuration from IMDS - expected is a JSON object in the aks-log-collector tag
 # JSON body:
-# { 
-#   "disable": false, 
+# {
+#   "disable": false,
 #   "files": [ "/etc/skel/.bashrc", "/etc/skel/.bash_profile" ],
 #   "pod_log_namespaces": [ "default", "pahealy" ],
 #   "iptables": false,
@@ -69,6 +69,11 @@ GLOBS+=(/var/log/azure-vnet*)
 GLOBS+=(/var/log/cilium-cni*)
 GLOBS+=(/var/run/azure-vnet*)
 GLOBS+=(/var/run/azure-cns*)
+
+# GPU specific entries
+GLOBS+=(/var/log/nvidia*.log)
+GLOBS+=(/var/log/azure/nvidia*.log)
+GLOBS+=(/var/log/fabricmanager*.log)
 
 # based on MANIFEST_FULL from Azure Linux Agent's log collector
 # https://github.com/Azure/WALinuxAgent/blob/master/azurelinuxagent/common/logcollector_manifests.py
@@ -137,18 +142,19 @@ command -v zip >/dev/null || {
 # Create a temporary directory to store results in
 WORKDIR="$(mktemp -d)"
 # check if tmp dir was created
-if [[ ! "$WORKDIR" || "$WORKDIR" == "/" || "$WORKDIR" == "/tmp" || ! -d "$WORKDIR" ]]; then
+if [ -z "$WORKDIR" ] || [ "$WORKDIR" = "/" ] || [ "$WORKDIR" = "/tmp" ] || [ ! -d "$WORKDIR" ]; then
   echo "ERROR: Could not create temporary working directory."
   exit 1
 fi
-cd $WORKDIR
+cd $WORKDIR || { echo "Failed to change directory to $WORKDIR. Exiting."; exit 1; }
 echo "Created temporary directory: $WORKDIR"
 
 # Function to clean up the output directory and log termination
 function cleanup {
   # Make sure WORKDIR is a proper temp directory so we don't rm something we shouldn't
+  # shellcheck disable=SC3010
   if [[ $WORKDIR =~ ^/tmp/tmp\.[a-zA-Z0-9]+$ ]]; then
-    if [[ "$DEBUG" != "1" ]]; then
+    if [ "$DEBUG" != "1" ]; then
       echo "Cleaning up $WORKDIR..."
       rm -rf "$WORKDIR"
     else
@@ -170,9 +176,9 @@ trap "cleanup" EXIT
 # any disk space aside from the ZIP file itself.
 # USAGE: collectToZip FILENAME CMDTORUN
 function collectToZip {
-  command -v "${2}" >/dev/null || { printf "${2} not found, skipping.\n"; return; }
+  command -v "${2}" >/dev/null || { printf "%s not found, skipping.\n" "${2}"; return; }
   mkfifo "${1}"
-  ${@:2} >"${1}" 2>&1 &
+  "${@:2}" >"${1}" 2>&1 &
   zip -gumDZ deflate --fifo "${ZIP}" "${1}"
 }
 
@@ -187,7 +193,7 @@ zip -DZ deflate "${ZIP}" /proc/@(cmdline|cpuinfo|filesystems|interrupts|loadavg|
 collectToZip collect/file_listings.txt find /dev /etc /var/lib/waagent /var/log -ls
 
 # Collect system information
-collectToZip collect/blkid.txt blkid
+collectToZip collect/blkid.txt blkid $(find /dev -type b ! -name 'sr*')
 collectToZip collect/du_bytes.txt df -al
 collectToZip collect/du_inodes.txt df -ail
 collectToZip collect/diskinfo.txt lsblk
@@ -202,6 +208,11 @@ collectToZip collect/lsscsi.txt lsscsi -vv
 collectToZip collect/lsvmbus.txt lsvmbus -vv
 collectToZip collect/sysctl.txt sysctl -a
 collectToZip collect/systemctl-status.txt systemctl status --all -fr
+
+# Collect logs of the Nvidia services if present
+collectToZip collect/journalctl_nvidia-dcgm.txt journalctl -u nvidia-dcgm --no-pager
+collectToZip collect/journalctl_nvidia-dcgm-exporter.txt journalctl -u nvidia-dcgm-exporter --no-pager
+collectToZip collect/journalctl_nvidia-device-plugin.txt journalctl -u nvidia-device-plugin --no-pager
 
 # Collect container runtime information
 collectToZip collect/crictl_version.txt crictl version
@@ -229,12 +240,12 @@ collectToZip collect/ip_netconf.json ip -d -j netconf show
 collectToZip collect/ip_netns.json ip -d -j netns show
 collectToZip collect/ip_rule.json ip -d -j rule show
 
-if [[ "${COLLECT_IPTABLES}" == "true" ]]; then
+if [ "${COLLECT_IPTABLES}" = "true" ]; then
   collectToZip collect/iptables.txt iptables -L -vn --line-numbers
   collectToZip collect/ip6tables.txt ip6tables -L -vn --line-numbers
 fi
 
-if [[ "${COLLECT_NFTABLES}" == "true" ]]; then
+if [ "${COLLECT_NFTABLES}" = "true" ]; then
   collectToZip collect/nftables.txt nft -n list ruleset 2>&1
 fi
 
@@ -242,7 +253,7 @@ collectToZip collect/ss.txt ss -anoempiO --cgroup
 collectToZip collect/ss_stats.txt ss -s
 
 # Collect network information from network namespaces
-if [[ "${COLLECT_NETNS}" == "true" ]]; then
+if [ "${COLLECT_NETNS}" = "true" ]; then
   for NETNS in $(ip -j netns list | jq -r '.[].name'); do
     mkdir -p "collect/ip_netns_${NETNS}/"
     collectToZip collect/ip_netns_${NETNS}/conntrack.txt ip netns exec "${NETNS}" conntrack -L
@@ -259,11 +270,11 @@ if [[ "${COLLECT_NETNS}" == "true" ]]; then
     collectToZip collect/ip_netns_${NETNS}/ip_netconf.json ip -n "${NETNS}" -d -j netconf show
     collectToZip collect/ip_netns_${NETNS}/ip_netns.json ip -n "${NETNS}" -d -j netns show
     collectToZip collect/ip_netns_${NETNS}/ip_rule.json ip -n "${NETNS}" -d -j rule show
-    if [[ "${COLLECT_IPTABLES}" == "true" ]]; then
+    if [ "${COLLECT_IPTABLES}" = "true" ]; then
       collectToZip collect/ip_netns_${NETNS}/iptables.txt ip netns exec "${NETNS}" iptables -L -vn --line-numbers
       collectToZip collect/ip_netns_${NETNS}/ip6tables.txt ip netns exec "${NETNS}" ip6tables -L -vn --line-numbers
     fi
-    if [[ "${COLLECT_NFTABLES}" == "true" ]]; then
+    if [ "${COLLECT_NFTABLES}" = "true" ]; then
       collectToZip collect/ip_netns_${NETNS}/nftables.txt nft -n list ruleset
     fi
     collectToZip collect/ip_netns_${NETNS}/ss.txt ip netns exec "${NETNS}" ss -anoempiO --cgroup
@@ -272,7 +283,7 @@ if [[ "${COLLECT_NETNS}" == "true" ]]; then
 fi
 
 # Add each file sequentially to the zip archive. This is slightly less efficient then adding them
-# all at once, but allows us to easily check when we've exceeded the maximum file size and stop 
+# all at once, but allows us to easily check when we've exceeded the maximum file size and stop
 # adding things to the archive.
 echo "Adding log files to zip archive..."
 for file in ${GLOBS[*]}; do
@@ -282,7 +293,7 @@ for file in ${GLOBS[*]}; do
     # The API for the log bundle has a max file size (defined above, usually 100MB), so if
     # adding this last file made the zip go over that size, remove that file and stop processing.
     FILE_SIZE=$(stat --printf "%s" ${ZIP})
-    if [ $FILE_SIZE -ge $MAX_SIZE ]; then
+    if [ "$FILE_SIZE" -ge "$MAX_SIZE" ]; then
       echo "WARNING: ZIP file size $FILE_SIZE >= $MAX_SIZE; removing last log file and terminating adding more files."
       zip -d "${ZIP}" $file
       break

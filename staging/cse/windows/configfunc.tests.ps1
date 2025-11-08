@@ -1,6 +1,14 @@
 BeforeAll {
     . $PSScriptRoot\..\..\..\parts\windows\windowscsehelper.ps1
     . $PSCommandPath.Replace('.tests.ps1','.ps1')
+
+    $capturedContent = $null
+    Mock Set-Content -MockWith { 
+        param($Path, $Value)
+        $script:capturedContent = $Value 
+    } -Verifiable
+
+    Mock Remove-Item
 }
 
 Describe 'Adjust-DynamicPortRange' {
@@ -106,20 +114,19 @@ Describe 'Resize-OSDrive' {
     }
 }
 
-Describe 'Config-CredentialProvider' {
+Describe 'Config-CredentialProvider' {    
     BeforeEach {
         $global:credentialProviderConfigDir = "staging\cse\windows\credentialProvider.tests.suites"
         $CredentialProviderConfPATH=[Io.path]::Combine("$global:credentialProviderConfigDir", "credential-provider-config.yaml")
         function Read-Format-Yaml ([string]$YamlFile) {
-            $yaml = Get-Content $YamlFile | ConvertFrom-Yaml
-            $yaml = $yaml | ConvertTo-Yaml
-            return $yaml
+            # Read the file content directly without conversion
+            return Get-Content -Path $YamlFile -Raw
         }
     }
 
     AfterEach {
         Remove-Item -Path $CredentialProviderConfPATH
-    }
+    }    
 
     Context 'CustomCloudContainerRegistryDNSSuffix is empty' {
         It "should match the expected config file content" {
@@ -127,17 +134,22 @@ Describe 'Config-CredentialProvider' {
             Config-CredentialProvider -KubeDir $credentialProviderConfigDir -CredentialProviderConfPath $CredentialProviderConfPATH -CustomCloudContainerRegistryDNSSuffix ""
             
             $acutalCredentialProviderConfig = Read-Format-Yaml $CredentialProviderConfPATH
-            $diffence = Compare-Object $acutalCredentialProviderConfig $expectedCredentialProviderConfig
-            $diffence | Should -Be $null
+            # Compare the content by normalizing whitespace and line endings
+            $normalizedExpected = $expectedCredentialProviderConfig.Trim().Replace("`r`n", "`n")
+            $normalizedActual = $acutalCredentialProviderConfig.Trim().Replace("`r`n", "`n")
+            $normalizedActual | Should -Be $normalizedExpected
         }
-    }
-   Context 'CustomCloudContainerRegistryDNSSuffix is not empty' {
+    }   
+    Context 'CustomCloudContainerRegistryDNSSuffix is not empty' {
        It "should match the expected config file content" {
             $expectedCredentialProviderConfig = Read-Format-Yaml ([Io.path]::Combine($credentialProviderConfigDir, "CustomCloudContainerRegistryDNSSuffixNotEmpty.config.yaml"))
             Config-CredentialProvider -KubeDir $credentialProviderConfigDir -CredentialProviderConfPath $CredentialProviderConfPATH -CustomCloudContainerRegistryDNSSuffix ".azurecr.microsoft.fakecloud"
             $acutalCredentialProviderConfig = Read-Format-Yaml $CredentialProviderConfPATH
-            $diffence = Compare-Object $acutalCredentialProviderConfig $expectedCredentialProviderConfig
-            $diffence | Should -Be $null
+            
+            # Compare the content by normalizing whitespace and line endings
+            $normalizedExpected = $expectedCredentialProviderConfig.Trim().Replace("`r`n", "`n")
+            $normalizedActual = $acutalCredentialProviderConfig.Trim().Replace("`r`n", "`n")
+            $normalizedActual | Should -Be $normalizedExpected
        }
     }
 }

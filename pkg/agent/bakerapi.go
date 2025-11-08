@@ -18,18 +18,18 @@ type AgentBaker interface {
 }
 
 type agentBakerImpl struct {
-	toggles *toggles.Toggles
+	toggles toggles.Toggles
 }
 
 var _ AgentBaker = (*agentBakerImpl)(nil)
 
 func NewAgentBaker() (*agentBakerImpl, error) {
 	return &agentBakerImpl{
-		toggles: toggles.New(),
+		toggles: toggles.NewDefaultToggles(),
 	}, nil
 }
 
-func (agentBaker *agentBakerImpl) WithToggles(toggles *toggles.Toggles) *agentBakerImpl {
+func (agentBaker *agentBakerImpl) WithToggles(toggles toggles.Toggles) *agentBakerImpl {
 	agentBaker.toggles = toggles
 	return agentBaker
 }
@@ -40,7 +40,7 @@ func (agentBaker *agentBakerImpl) GetNodeBootstrapping(ctx context.Context, conf
 	if config.AgentPoolProfile.IsWindows() {
 		validateAndSetWindowsNodeBootstrappingConfiguration(config)
 	} else {
-		validateAndSetLinuxNodeBootstrappingConfiguration(config)
+		ValidateAndSetLinuxNodeBootstrappingConfiguration(config)
 	}
 
 	templateGenerator := InitializeTemplateGenerator()
@@ -50,7 +50,10 @@ func (agentBaker *agentBakerImpl) GetNodeBootstrapping(ctx context.Context, conf
 	}
 
 	distro := config.AgentPoolProfile.Distro
-	if distro == datamodel.CustomizedWindowsOSImage || distro == datamodel.CustomizedImage || distro == datamodel.CustomizedImageKata {
+	if distro == datamodel.CustomizedWindowsOSImage ||
+		distro == datamodel.CustomizedImage ||
+		distro == datamodel.CustomizedImageKata ||
+		distro == datamodel.CustomizedImageLinuxGuard {
 		return nodeBootstrapping, nil
 	}
 
@@ -76,8 +79,8 @@ func (agentBaker *agentBakerImpl) GetNodeBootstrapping(ctx context.Context, conf
 	if !config.AgentPoolProfile.IsWindows() {
 		// handle node image version toggle/override
 		e := toggles.NewEntityFromNodeBootstrappingConfiguration(config)
-		imageVersionOverrides := agentBaker.toggles.GetLinuxNodeImageVersion(e)
-		if imageVersion, ok := imageVersionOverrides[string(distro)]; ok {
+		imageVersion := agentBaker.toggles.GetLinuxNodeImageVersion(e, distro)
+		if imageVersion != "" {
 			nodeBootstrapping.SigImageConfig.Version = imageVersion
 		}
 	}
@@ -99,8 +102,8 @@ func (agentBaker *agentBakerImpl) GetLatestSigImageConfig(sigConfig datamodel.SI
 
 	if !distro.IsWindowsDistro() {
 		e := toggles.NewEntityFromEnvironmentInfo(envInfo)
-		imageVersionOverrides := agentBaker.toggles.GetLinuxNodeImageVersion(e)
-		if imageVersion, ok := imageVersionOverrides[string(distro)]; ok {
+		imageVersion := agentBaker.toggles.GetLinuxNodeImageVersion(e, distro)
+		if imageVersion != "" {
 			sigImageConfig.Version = imageVersion
 		}
 	}
@@ -115,7 +118,6 @@ func (agentBaker *agentBakerImpl) GetDistroSigImageConfig(
 	}
 
 	e := toggles.NewEntityFromEnvironmentInfo(envInfo)
-	linuxImageVersionOverrides := agentBaker.toggles.GetLinuxNodeImageVersion(e)
 
 	allDistros := map[datamodel.Distro]datamodel.SigImageConfig{}
 	for distro, sigConfig := range allAzureSigConfig.SigWindowsImageConfig {
@@ -123,29 +125,41 @@ func (agentBaker *agentBakerImpl) GetDistroSigImageConfig(
 	}
 
 	for distro, sigConfig := range allAzureSigConfig.SigCBLMarinerImageConfig {
-		if version, ok := linuxImageVersionOverrides[string(distro)]; ok {
-			sigConfig.Version = version
+		imageVersion := agentBaker.toggles.GetLinuxNodeImageVersion(e, distro)
+		if imageVersion != "" {
+			sigConfig.Version = imageVersion
 		}
 		allDistros[distro] = sigConfig
 	}
 
 	for distro, sigConfig := range allAzureSigConfig.SigAzureLinuxImageConfig {
-		if version, ok := linuxImageVersionOverrides[string(distro)]; ok {
-			sigConfig.Version = version
+		imageVersion := agentBaker.toggles.GetLinuxNodeImageVersion(e, distro)
+		if imageVersion != "" {
+			sigConfig.Version = imageVersion
 		}
 		allDistros[distro] = sigConfig
 	}
 
 	for distro, sigConfig := range allAzureSigConfig.SigUbuntuImageConfig {
-		if version, ok := linuxImageVersionOverrides[string(distro)]; ok {
-			sigConfig.Version = version
+		imageVersion := agentBaker.toggles.GetLinuxNodeImageVersion(e, distro)
+		if imageVersion != "" {
+			sigConfig.Version = imageVersion
 		}
 		allDistros[distro] = sigConfig
 	}
 
 	for distro, sigConfig := range allAzureSigConfig.SigUbuntuEdgeZoneImageConfig {
-		if version, ok := linuxImageVersionOverrides[string(distro)]; ok {
-			sigConfig.Version = version
+		imageVersion := agentBaker.toggles.GetLinuxNodeImageVersion(e, distro)
+		if imageVersion != "" {
+			sigConfig.Version = imageVersion
+		}
+		allDistros[distro] = sigConfig
+	}
+
+	for distro, sigConfig := range allAzureSigConfig.SigFlatcarImageConfig {
+		imageVersion := agentBaker.toggles.GetLinuxNodeImageVersion(e, distro)
+		if imageVersion != "" {
+			sigConfig.Version = imageVersion
 		}
 		allDistros[distro] = sigConfig
 	}
@@ -167,6 +181,9 @@ func findSIGImageConfig(sigConfig datamodel.SIGAzureEnvironmentSpecConfig, distr
 		return &imageConfig
 	}
 	if imageConfig, ok := sigConfig.SigUbuntuEdgeZoneImageConfig[distro]; ok {
+		return &imageConfig
+	}
+	if imageConfig, ok := sigConfig.SigFlatcarImageConfig[distro]; ok {
 		return &imageConfig
 	}
 

@@ -1,0 +1,261 @@
+parameters:
+  - name: build2019containerd
+    displayName: Build 2019 containerd
+    type: boolean
+  - name: build2022containerd
+    displayName: Build 2022 containerd
+    type: boolean
+  - name: build2022containerdgen2
+    displayName: Build 2022 containerd Gen 2
+    type: boolean
+  - name: build23H2
+    displayName: Build 23H2
+    type: boolean
+  - name: build23H2gen2
+    displayName: Build 23H2 Gen 2
+    type: boolean
+  - name: build2025
+    displayName: Build 2025
+    type: boolean
+  - name: build2025gen2
+    displayName: Build 2025 Gen 2
+    type: boolean
+  - name: windowsContainerImageJsonUrl
+    displayName: Windows container image JSON URL Override
+    type: string
+    default: ""
+  - name: dryrun
+    displayName: Dry run
+    type: boolean
+    default: False
+  - name: vhddebug
+    displayName: VHD Debug
+    type: boolean
+    default: False
+  - name: skipExtensionCheck
+    displayName: Skip Extension Check
+    type: boolean
+    default: False
+  - name: installOpenSshServer
+    displayName: Install Open SSH Server
+    type: boolean
+    default: True
+  - name: buildVmSize
+    displayName: Build VM Size
+    type: string
+  - name: overrideBranch
+    type: string
+    default: master
+  - name: useOverrides
+    displayName: Use component overrides
+    type: boolean
+  - name: enableBackfillCleanup
+    displayName: Run cleanup job
+    type: boolean
+    default: false
+  - name: cseFileName
+    displayName: CSE Package File Name
+    type: string
+    default: aks-windows-cse-scripts-current.zip
+  - name: csePublishDir
+    type: string
+    default: $(Build.ArtifactStagingDirectory)/packages
+stages:
+  - stage: Package
+    displayName: "Package Windows CSE"
+    jobs:
+    - job: PackageWindowsCSE
+      steps:
+      - bash: bash ./.pipelines/scripts/windows_package_cse.sh
+        displayName: Package Windows CSE Scripts
+        env:
+          CSE_RELEASE_DIR: $(Build.ArtifactStagingDirectory)/windows
+          CSE_PUBLISH_DIR: ${{ parameters.csePublishDir }}
+          CSE_FILE_NAME: ${{ parameters.cseFileName }}
+      - task: ManifestGeneratorTask@0
+        inputs:
+          BuildDropPath: ${{ parameters.csePublishDir }}
+      - task: PublishPipelineArtifact@1
+        displayName: Publish Windows CSE Package
+        inputs:
+          artifactName: windows-cse-package
+          targetPath: ${{ parameters.csePublishDir }}
+  - template: ./.build-and-test-windows-vhd-template.yaml
+    parameters:
+      stageName: win_2019_v1
+      artifactName: 2019-containerd
+      imageName: windows-2019-containerd
+      windowsSku: 2019-containerd
+      hyperVGeneration: V1
+      architecture: X86_64
+      build: ${{ parameters.build2019containerd }}
+      vhddebug: ${{ parameters.vhddebug }}
+      dryrun: ${{ parameters.dryrun }}
+      buildVmSize: ${{ parameters.buildVmSize }}
+      installOpenSshServer: ${{ parameters.installOpenSshServer }}
+      skipExtensionCheck: ${{ parameters.skipExtensionCheck }}
+      windowsBaseImageUrl: $(WINDOWS_2019_BASE_IMAGE_URL)
+      windowsNanoImageUrl: $(WINDOWS_2019_NANO_IMAGE_URL)
+      windowsCoreImageUrl: $(WINDOWS_2019_CORE_IMAGE_URL)
+      windowsContainerImageJsonUrl: ${{ parameters.windowsContainerImageJsonUrl }}
+      overrideBranch: ${{ parameters.overrideBranch }}
+      useOverrides: ${{ parameters.useOverrides }}
+      csePackageDir: ${{ parameters.csePublishDir }}
+      cseFileName: ${{ parameters.cseFileName }}
+
+  - template: ./.build-and-test-windows-vhd-template.yaml
+    parameters:
+      stageName: win_2022_v1
+      artifactName: 2022-containerd
+      imageName: windows-2022-containerd
+      windowsSku: 2022-containerd
+      hyperVGeneration: V1
+      architecture: X86_64
+      build: ${{ parameters.build2022containerd }}
+      vhddebug: ${{ parameters.vhddebug }}
+      dryrun: ${{ parameters.dryrun }}
+      buildVmSize: ${{ parameters.buildVmSize }}
+      installOpenSshServer: ${{ parameters.installOpenSshServer }}
+      skipExtensionCheck: ${{ parameters.skipExtensionCheck }}
+      windowsBaseImageUrl: $(WINDOWS_2022_BASE_IMAGE_URL)
+      windowsNanoImageUrl: $(WINDOWS_2022_NANO_IMAGE_URL)
+      windowsCoreImageUrl: $(WINDOWS_2022_CORE_IMAGE_URL)
+      windowsContainerImageJsonUrl: ${{ parameters.windowsContainerImageJsonUrl }}
+      overrideBranch: ${{ parameters.overrideBranch }}
+      useOverrides: ${{ parameters.useOverrides }}
+      csePackageDir: ${{ parameters.csePublishDir }}
+      cseFileName: ${{ parameters.cseFileName }}
+
+  - template: ./.build-and-test-windows-vhd-template.yaml
+    parameters:
+      stageName: win_2022_v2
+      artifactName: 2022-containerd-gen2
+      imageName: windows-2022-containerd-gen2
+      windowsSku: 2022-containerd-gen2
+      hyperVGeneration: V2
+      architecture: X86_64
+      buildVmSize: ${{ parameters.buildVmSize }}
+      build: ${{ parameters.build2022containerdgen2 }}
+      vhddebug: ${{ parameters.vhddebug }}
+      dryrun: ${{ parameters.dryrun }}
+      installOpenSshServer: ${{ parameters.installOpenSshServer }}
+      skipExtensionCheck: ${{ parameters.skipExtensionCheck }}
+      windowsBaseImageUrl: $(WINDOWS_2022_GEN2_BASE_IMAGE_URL)
+      windowsNanoImageUrl: $(WINDOWS_2022_NANO_IMAGE_URL)
+      windowsCoreImageUrl: $(WINDOWS_2022_CORE_IMAGE_URL)
+      windowsContainerImageJsonUrl: ${{ parameters.windowsContainerImageJsonUrl }}
+      overrideBranch: ${{ parameters.overrideBranch }}
+      useOverrides: ${{ parameters.useOverrides }}
+      csePackageDir: ${{ parameters.csePublishDir }}
+      cseFileName: ${{ parameters.cseFileName }}
+
+  - template: ./.build-and-test-windows-vhd-template.yaml
+    parameters:
+      stageName: win_23H2_v1
+      artifactName: 23H2
+      imageName: windows-23H2
+      windowsSku: 23H2
+      hyperVGeneration: V1
+      architecture: X86_64
+      buildVmSize: ${{ parameters.buildVmSize }}
+      build: ${{ parameters.build23H2 }}
+      vhddebug: ${{ parameters.vhddebug }}
+      dryrun: ${{ parameters.dryrun }}
+      installOpenSshServer: ${{ parameters.installOpenSshServer }}
+      skipExtensionCheck: ${{ parameters.skipExtensionCheck }}
+      windowsBaseImageUrl: $(WINDOWS_23H2_BASE_IMAGE_URL)
+      windowsNanoImageUrl: $(WINDOWS_2022_NANO_IMAGE_URL)
+      windowsCoreImageUrl: $(WINDOWS_2022_CORE_IMAGE_URL)
+      windowsContainerImageJsonUrl: ${{ parameters.windowsContainerImageJsonUrl }}
+      overrideBranch: ${{ parameters.overrideBranch }}
+      useOverrides: ${{ parameters.useOverrides }}
+      csePackageDir: ${{ parameters.csePublishDir }}
+      cseFileName: ${{ parameters.cseFileName }}
+
+  - template: ./.build-and-test-windows-vhd-template.yaml
+    parameters:
+      stageName: win_23H2_v2
+      artifactName: 23H2-gen2
+      imageName: windows-23H2-gen2
+      windowsSku: 23H2-gen2
+      hyperVGeneration: V2
+      architecture: X86_64
+      buildVmSize: ${{ parameters.buildVmSize }}
+      build: ${{ parameters.build23H2gen2 }}
+      vhddebug: ${{ parameters.vhddebug }}
+      dryrun: ${{ parameters.dryrun }}
+      installOpenSshServer: ${{ parameters.installOpenSshServer }}
+      skipExtensionCheck: ${{ parameters.skipExtensionCheck }}
+      windowsBaseImageUrl: $(WINDOWS_23H2_GEN2_BASE_IMAGE_URL)
+      windowsNanoImageUrl: $(WINDOWS_2022_NANO_IMAGE_URL)
+      windowsCoreImageUrl: $(WINDOWS_2022_CORE_IMAGE_URL)
+      windowsContainerImageJsonUrl: ${{ parameters.windowsContainerImageJsonUrl }}
+      overrideBranch: ${{ parameters.overrideBranch }}
+      useOverrides: ${{ parameters.useOverrides }}
+      csePackageDir: ${{ parameters.csePublishDir }}
+      cseFileName: ${{ parameters.cseFileName }}
+
+  - template: ./.build-and-test-windows-vhd-template.yaml
+    parameters:
+      stageName: win_2025_v1
+      artifactName: "2025"
+      imageName: windows-2025
+      windowsSku: "2025"
+      hyperVGeneration: V1
+      architecture: X86_64
+      buildVmSize: ${{ parameters.buildVmSize }}
+      build: ${{ parameters.build2025 }}
+      vhddebug: ${{ parameters.vhddebug }}
+      dryrun: ${{ parameters.dryrun }}
+      installOpenSshServer: ${{ parameters.installOpenSshServer }}
+      skipExtensionCheck: ${{ parameters.skipExtensionCheck }}
+      windowsBaseImageUrl: $(WINDOWS_2025_BASE_IMAGE_URL)
+      windowsNanoImageUrl: $(WINDOWS_2025_NANO_IMAGE_URL)
+      windowsCoreImageUrl: $(WINDOWS_2025_CORE_IMAGE_URL)
+      windowsContainerImageJsonUrl: ${{ parameters.windowsContainerImageJsonUrl }}
+      overrideBranch: ${{ parameters.overrideBranch }}
+      useOverrides: ${{ parameters.useOverrides }}
+      csePackageDir: ${{ parameters.csePublishDir }}
+      cseFileName: ${{ parameters.cseFileName }}
+
+  - template: ./.build-and-test-windows-vhd-template.yaml
+    parameters:
+      stageName: win_2025_v2
+      artifactName: 2025-gen2
+      imageName: windows-2025-gen2
+      windowsSku: 2025-gen2
+      hyperVGeneration: V2
+      architecture: X86_64
+      buildVmSize: ${{ parameters.buildVmSize }}
+      build: ${{ parameters.build2025gen2 }}
+      vhddebug: ${{ parameters.vhddebug }}
+      dryrun: ${{ parameters.dryrun }}
+      installOpenSshServer: ${{ parameters.installOpenSshServer }}
+      skipExtensionCheck: ${{ parameters.skipExtensionCheck }}
+      windowsBaseImageUrl: $(WINDOWS_2025_GEN2_BASE_IMAGE_URL)
+      windowsNanoImageUrl: $(WINDOWS_2025_NANO_IMAGE_URL)
+      windowsCoreImageUrl: $(WINDOWS_2025_CORE_IMAGE_URL)
+      windowsContainerImageJsonUrl: ${{ parameters.windowsContainerImageJsonUrl }}
+      overrideBranch: ${{ parameters.overrideBranch }}
+      useOverrides: ${{ parameters.useOverrides }}
+      csePackageDir: ${{ parameters.csePublishDir }}
+      cseFileName: ${{ parameters.cseFileName }}
+
+  - stage: delete_outdated_resources
+    dependsOn: [ ]
+    condition: always()
+    jobs:
+      - job: build
+        timeoutInMinutes: 180
+        steps:
+          - bash: bash ./vhdbuilder/packer/cleanup.sh
+            enabled: true
+            displayName: Cleanup
+            condition: eq(  ${{ parameters.enableBackfillCleanup }} , 'True')
+            env:
+              MODE: windowsVhdMode
+              SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
+              PROD_SUBSCRIPTION_ID: $(AZURE_PROD_SUBSCRIPTION_ID)
+              DRY_RUN: ${{ parameters.dryrun }}
+              SIG_GALLERY_NAME: $(SIG_GALLERY_NAME)
+              OS_TYPE: Windows

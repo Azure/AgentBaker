@@ -205,8 +205,114 @@ function Get-KubePackage {
             Write-Log $Error[0].Exception.Message
         }
     }
-    Expand-Archive -path $zipfile -DestinationPath C:\
+    AKS-Expand-Archive -Path $zipfile -DestinationPath C:\ 
     Remove-Item $zipfile
+}
+
+function Add-KubeletNodeLabel {
+    Param(
+        [Parameter(Mandatory=$true)][string]
+        $Label
+    )
+
+    $labelList = $global:KubeletNodeLabels -split ","
+    foreach ($existingLabel in $labelList) {
+        if ($existingLabel -eq $Label) {
+            Write-Log "found existing kubelet node label $existingLabel, will continue without adding anything"
+            return
+        }
+    }
+    Write-Log "adding label $Label to kubelet node labels..."
+    $labelList += $Label
+    $global:KubeletNodeLabels = $labelList -join ","
+}
+
+function Remove-KubeletNodeLabel {
+    Param(
+        [Parameter(Mandatory=$true)][string]
+        $Label
+    )
+
+    $labelList = $global:KubeletNodeLabels -split ","
+    $filtered = $labelList | Where-Object { $_ -ne $Label }
+    $global:KubeletNodeLabels = $filtered -join ","
+}
+
+function Get-TagValue {
+    Param(
+        [Parameter(Mandatory=$true)][string]
+        $TagName,
+        [Parameter(Mandatory=$true)][string]
+        $DefaultValue
+    )
+
+    $uri = "http://169.254.169.254/metadata/instance?api-version=2021-02-01"
+    try {
+        $response = Retry-Command -Command "Invoke-RestMethod" -Args @{Uri=$uri; Method="Get"; ContentType="application/json"; Headers=@{"Metadata"="true"}} -Retries 3 -RetryDelaySeconds 5
+    } catch {
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_LOOKUP_INSTANCE_DATA_TAG -ErrorMessage "Unable to lookup VM tag `"$TagName`" from IMDS instance data"
+    }
+
+    $tag = $response.compute.tagsList | Where-Object { $_.name -eq $TagName }
+    if (!$tag) {
+        return $DefaultValue
+    }
+    return $tag.value
+}
+
+# Note: this function modifies global kubelet config args and node labels. Thus, it MUST
+# be called before Write-KubeClusterConfig, and any other function that relies on the values of
+# kubelet config args and node labels.
+function Configure-KubeletServingCertificateRotation {
+    Logs-To-Event `
+        -TaskName "AKS.WindowsCSE.ConfigureKubeletServingCertificateRotation" `
+        -TaskMessage "EnableKubeletServingCertificateRotation: $global:EnableKubeletServingCertificateRotation. Configure kubelet config args and node labels for serving certificate rotation"
+
+    if (!($global:EnableKubeletServingCertificateRotation)) {
+        Write-Log "Kubelet serving certificate rotation is disabled, nothing to configure"
+        return
+    }
+
+    $nodeLabel = "kubernetes.azure.com/kubelet-serving-ca=cluster"
+
+    # check if kubelet serving certificate rotation is disabled via customer-specified nodepool tags
+    $tagName = "aks-disable-kubelet-serving-certificate-rotation"
+    $disabled = Get-TagValue -TagName $tagName -DefaultValue "false"
+    if ($disabled -eq "true") {
+        Write-Log "Kubelet serving certificate rotation is disabled by nodepool tags, will reconfigure kubelet flags and node labels"
+        $global:KubeletConfigArgs = $global:KubeletConfigArgs -replace "--rotate-server-certificates=true", "--rotate-server-certificates=false"
+        Remove-KubeletNodeLabel -Label $nodeLabel
+        return
+    }
+
+    Write-Log "Kubelet serving certificate rotation is enabled, will add node label if needed"
+    Add-KubeletNodeLabel -Label $nodeLabel
+}
+
+# DEPRECATED - TODO(cameissner): remove once k8s setup script has been updated
+function Disable-KubeletServingCertificateRotationForTags {
+    Logs-To-Event `
+        -TaskName "AKS.WindowsCSE.DisableKubeletServingCertificateRotationForTags" `
+        -TaskMessage "EnableKubeletServingCertificateRotation: $global:EnableKubeletServingCertificateRotation. Check whether to disable kubelet serving certificate rotation via nodepool tags."
+
+    Write-Log "Checking whether to disable kubelet serving certificate rotation for nodepool tags"
+
+    if (!($global:EnableKubeletServingCertificateRotation)) {
+        Write-Log "Kubelet serving certificate rotation is already disabled"
+        return
+    }
+
+    $tagName = "aks-disable-kubelet-serving-certificate-rotation"
+    $disabled = Get-TagValue -TagName $tagName -DefaultValue "false"
+    if ($disabled -ne "true") {
+        Write-Log "Nodepool tag `"$tagName`" is missing or not set to true, nothing to disable"
+        return
+    }
+
+    Write-Log "Kubelet serving certificate rotation is disabled by nodepool tags, will reconfigure kubelet flags and node labels"
+
+    $global:KubeletConfigArgs = $global:KubeletConfigArgs -replace "--rotate-server-certificates=true", "--rotate-server-certificates=false"
+    Remove-KubeletNodeLabel -Label "kubernetes.azure.com/kubelet-serving-ca=cluster"
 }
 
 # TODO: replace KubeletStartFile with a Kubelet config, remove NSSM, and use built-in service integration

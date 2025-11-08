@@ -1,0 +1,96 @@
+name: PR_$(Date:yyyyMMdd)$(Rev:.r)_$(Build.SourceBranchName)_$(BuildID)
+trigger: none
+
+pr:
+  branches:
+    include:
+      - master
+      - dev
+      - windows/*
+      - official/*
+
+  paths:
+    include:
+      - .pipelines/.vsts-vhd-builder-release-windows.yaml
+      - .pipelines/.vsts-vhd-builder-pr-windows.yaml
+      - .pipelines/scripts/
+      - .pipelines/templates/.template-override-components-json.yaml
+      - .pipelines/templates/.template-copy-file.yaml
+      - .pipelines/templates/.build-and-test-windows-vhds-template.yaml
+      - .pipelines/templates/.build-and-test-windows-vhd-template.yaml
+      - .pipelines/templates/.builder-release-template-windows.yaml
+      - .pipelines/templates/e2e-template.yaml
+      - packer.mk
+      - vhdbuilder/packer/packer-plugin.pkr.hcl
+      - vhdbuilder/packer/*.ps1
+      - vhdbuilder/packer/test/*.ps1
+      - vhdbuilder/packer/test/run-test.sh
+      - vhdbuilder/packer/windows-sub-cleanup.sh
+      - vhdbuilder/packer/cleanup.sh
+      - vhdbuilder/packer/convert-sig-to-classic-storage-account-blob.sh
+      - vhdbuilder/packer/generate-vhd-publishing-info.sh
+      - vhdbuilder/packer/produce-packer-settings.sh
+      - vhdbuilder/packer/windows/
+      - parts/common/components.json
+      - parts/windows
+      - go.mod
+      - go.sum
+      - e2e/
+      - staging/cse/windows/
+
+    exclude:
+      - vhdbuilder/release-notes
+      - /**/*.md
+      - .github/**
+      - e2e/scenario_test.go
+
+pool:
+  name: $(POOL_NAME)
+
+# Use variable group "ab-windows-ame-tenant" and link it to the pipeline "AKS Windows VHD Build"
+# Use variable group "ab-windows-ame-tenant" and link it to the pipeline "AKS Windows VHD Build - PR check-in gate"
+# Use variable group "ab-windows-ms-tenant" and link it to the pipeline "[TEST All VHDs] AKS Windows VHD Build - Msft Tenant"
+variables:
+  - name: VHD_BUILD_ID
+    value: $(Build.BuildId)
+  - name: LOCATION
+    value: $(PACKER_BUILD_LOCATION)
+    # if SIG_FOR_PRODUCTION is true, then the VHDs are deleted from the gallery before the e2e tests are run.
+  - name: SIG_FOR_PRODUCTION
+    value: False
+  - name: SKIP_E2E_TESTS
+    value: False
+
+stages:
+  - template: ./templates/.build-and-test-windows-vhds-template.yaml
+    parameters:
+      vhddebug: False
+      skipExtensionCheck: true
+      dryrun: False
+      overrideBranch: master
+      useOverrides: False
+      enableBackfillCleanup: True
+      buildVmSize: Standard_D16ds_v5
+      # 2019 only supports gen1, so build that for PRs
+      build2019containerd: True
+      # 2022 gen1 is the default, so build that for PRs
+      build2022containerd: True
+      build2022containerdgen2: False
+      # 23H2 gen1 is the default, so build that for PRs
+      build23H2: True
+      build23H2gen2: False
+      # 2025 gen2 is the default, so build that for PRs
+      build2025: False
+      build2025gen2: True
+  - stage: delete_old_windows_vhds
+    dependsOn: [ ]
+    condition: always()
+    jobs:
+      - job: build
+        timeoutInMinutes: 180
+        steps:
+          - bash: bash ./.pipelines/scripts/windows-sub-cleanup.sh
+            enabled: true
+            displayName: Old Windows VHD Cleanup
+            env:
+              PROD_SUBSCRIPTION_ID: $(AZURE_PROD_SUBSCRIPTION_ID)

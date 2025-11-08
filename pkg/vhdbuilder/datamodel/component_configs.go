@@ -8,8 +8,8 @@ import (
 )
 
 // Components is the data model for the component config.
-// The component config is a JSON file, for example, vhdbuilder/packer/components.json.
-// for example, vhdbuilder/packer/components.json.
+// The component config is a JSON file, for example, parts/common/components.json.
+// for example, parts/common/components.json.
 type Components struct {
 	ContainerImages []*ContainerImage `json:"ContainerImages"`
 	DownloadFiles   []DownloadFile    `json:"DownloadFiles"`

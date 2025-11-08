@@ -5,7 +5,7 @@ function Get-CalicoPackage {
 
     Write-Log "Getting Calico package"
     DownloadFileOverHttp -Url $global:WindowsCalicoPackageURL -DestinationPath 'c:\calicowindows.zip' -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CALICO_PACKAGE
-    Expand-Archive -Path 'c:\calicowindows.zip' -DestinationPath $RootDir -Force
+    AKS-Expand-Archive -Path 'c:\calicowindows.zip' -DestinationPath $RootDir
     Remove-Item -Path 'c:\calicowindows.zip' -Force
 }
 
@@ -27,6 +27,20 @@ function Set-CalicoStaticRules {
                 "Protocol": 6,
                 "RemoteAddresses": "168.63.129.16/32",
                 "RemotePorts": "80",
+                "RuleType": "Switch",
+                "Type": "ACL"
+            }
+        },
+        {
+            "Name": "EndpointPolicy",
+            "Rule": {
+                "Action": "Block",
+                "Direction": "Out",
+                "Id": "block-wireserver-32526",
+                "Priority": 200,
+                "Protocol": 6,
+                "RemoteAddresses": "168.63.129.16/32",
+                "RemotePorts": "32526",
                 "RuleType": "Switch",
                 "Type": "ACL"
             }

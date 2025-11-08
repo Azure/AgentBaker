@@ -1,0 +1,51 @@
+syntax = "proto3";
+package aksnodeconfig.v1;
+
+option go_package = "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1;aksnodeconfigv1";
+
+// Represents LocalDns profile for agentpool.
+message LocalDnsProfile {
+  // Specifies if LocalDns should be enabled or not for the nodepool.
+  bool enable_local_dns = 1;
+
+  // Specifies the Cpu limit to be set for localdns systemd unit.
+  optional int32 cpu_limit_in_milli_cores = 2;
+
+  // Specifies the memory limit to be set for localdns systemd unit.
+  optional int32 memory_limit_in_mb = 3;
+
+  // VnetDns overrides apply to DNS traffic from pods with dnsPolicy:default or kubelet (referred to as VnetDns traffic).
+  map<string, LocalDnsOverrides> vnet_dns_overrides = 4;
+
+  // KubeDns overrides apply to DNS traffic from pods with dnsPolicy:ClusterFirst (referred to as KubeDns traffic).
+  map<string, LocalDnsOverrides> kube_dns_overrides = 5;
+}
+
+// Represents DNS override settings for both VnetDNS and KubeDNS traffic.
+// VnetDns overrides apply to DNS traffic from pods with dnsPolicy:default or kubelet.
+// KubeDns overrides apply to DNS traffic from pods with dnsPolicy:ClusterFirst.
+message LocalDnsOverrides {
+  // Log level for DNS queries in localDNS.
+  string query_logging = 1;
+
+  // Enforce TCP or prefer UDP protocol for connections from localDNS to upstream DNS server
+  string protocol = 2;
+
+  // Destination server for DNS queries to be forwarded from localDNS.
+  string forward_destination = 3;
+
+  // Forward policy for selecting upstream DNS server.
+  string forward_policy = 4;
+
+  // Maximum number of concurrent queries.
+  optional int32 max_concurrent = 5;
+
+  // Cache max TTL in seconds.
+  optional int32 cache_duration_in_seconds = 6;
+
+  // Serve stale duration in seconds.
+  optional int32 serve_stale_duration_in_seconds = 7;
+
+  // Policy for serving stale data.
+  string serve_stale = 8;
+}

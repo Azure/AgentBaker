@@ -7,7 +7,7 @@ on:
 permissions: read-all
 jobs:
   Build:
-   runs-on: ubuntu-latest
+   runs-on: ubuntu-24.04
    concurrency:
      group: ${{ github.workflow }}-${{ matrix.sanitizer }}-${{ github.ref }}
      cancel-in-progress: true

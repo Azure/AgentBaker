@@ -4,11 +4,11 @@ on:
 
 jobs:
   generate-kubelet-flags:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
     - name: Set up containerd
       uses: crazy-max/ghaction-setup-containerd@v2
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     - name: Set up branch for kubelet flag changes
       run: |
         TIMESTAMP=$(date -d "${{ github.event.head_commit.timestamp }}" +'%Y-%m-%d-%H-%M-%S')

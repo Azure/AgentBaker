@@ -5,14 +5,14 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/Azure/agentbakere2e/config"
+	"github.com/Azure/agentbaker/e2e/config"
 )
 
-func testDir(t *testing.T) string {
-	return filepath.Join(config.E2ELoggingDir, t.Name())
+func testDir(t testing.TB) string {
+	return filepath.Join(config.Config.E2ELoggingDir, t.Name())
 }
 
-func writeToFile(t *testing.T, fileName, content string) error {
+func writeToFile(t testing.TB, fileName, content string) error {
 	dirPath := testDir(t)
 	// Create the directory if it doesn't exist
 	if err := os.MkdirAll(dirPath, 0755); err != nil {
@@ -23,7 +23,7 @@ func writeToFile(t *testing.T, fileName, content string) error {
 	return os.WriteFile(fullPath, []byte(content), 0644)
 }
 
-func dumpFileMapToDir(t *testing.T, files map[string]string) error {
+func dumpFileMapToDir(t testing.TB, files map[string]string) error {
 	for fileName, contents := range files {
 		fileName = filepath.Base(fileName)
 		if err := writeToFile(t, fileName, contents); err != nil {

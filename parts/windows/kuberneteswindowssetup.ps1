@@ -19,41 +19,13 @@
 #>
 [CmdletBinding(DefaultParameterSetName="Standard")]
 param(
-    [string]
-    [ValidateNotNullOrEmpty()]
-    $MasterIP,
-
-    [parameter()]
-    [ValidateNotNullOrEmpty()]
-    $KubeDnsServiceIp,
-
-    [parameter(Mandatory=$true)]
-    [ValidateNotNullOrEmpty()]
-    $MasterFQDNPrefix,
-
-    [parameter(Mandatory=$true)]
-    [ValidateNotNullOrEmpty()]
-    $Location,
-
     [parameter(Mandatory=$true)]
     [ValidateNotNullOrEmpty()]
     $AgentKey,
 
     [parameter(Mandatory=$true)]
     [ValidateNotNullOrEmpty()]
-    $AADClientId,
-
-    [parameter(Mandatory=$true)]
-    [ValidateNotNullOrEmpty()]
     $AADClientSecret, # base64
-
-    [parameter(Mandatory=$true)]
-    [ValidateNotNullOrEmpty()]
-    $NetworkAPIVersion,
-
-    [parameter(Mandatory=$true)]
-    [ValidateNotNullOrEmpty()]
-    $TargetEnvironment,
 
     # C:\AzureData\provision.complete
     # MUST keep generating this file when CSE is done and do not change the name
@@ -61,11 +33,23 @@ param(
     #  - Some customers use this file to check if CSE is done
     [parameter(Mandatory=$true)]
     [ValidateNotNullOrEmpty()]
-    $CSEResultFilePath,
-
-    [string]
-    $UserAssignedClientID
+    $CSEResultFilePath
 )
+
+# In an ideal world, all these values would be passed to this script in parameters. However, we don't live in an ideal world.
+# https://learn.microsoft.com/en-gb/troubleshoot/windows-client/shell-experience/command-line-string-limitation
+
+$MasterIP = "{{ GetKubernetesEndpoint }}"
+$KubeDnsServiceIp="{{ GetParameter "kubeDNSServiceIP" }}"
+$MasterFQDNPrefix="{{ GetParameter "masterEndpointDNSNamePrefix" }}"
+$Location="{{ GetVariable "location" }}"
+{{if UserAssignedIDEnabled}}
+$UserAssignedClientID="{{ GetVariable "userAssignedIdentityID" }}"
+{{ end }}
+$TargetEnvironment="{{ GetTargetEnvironment }}"
+$AADClientId="{{ GetParameter "servicePrincipalClientId" }}"
+$NetworkAPIVersion="2018-08-01"
+
 # Do not parse the start time from $LogFile to simplify the logic
 $StartTime=Get-Date
 $global:ExitCode=0
@@ -159,6 +143,8 @@ $global:NetworkPlugin = "{{GetParameter "networkPlugin"}}"
 $global:VNetCNIPluginsURL = "{{GetParameter "vnetCniWindowsPluginsURL"}}"
 $global:IsDualStackEnabled = {{if IsIPv6DualStackFeatureEnabled}}$true{{else}}$false{{end}}
 $global:IsAzureCNIOverlayEnabled = {{if IsAzureCNIOverlayFeatureEnabled}}$true{{else}}$false{{end}}
+$global:CiliumDataplaneEnabled = {{if CiliumDataplaneEnabled}}$true{{else}}$false{{end}}
+$global:IsIMDSRestrictionEnabled = {{if EnableIMDSRestriction}}$true{{else}}$false{{end}}
 
 # Kubelet credential provider
 $global:CredentialProviderURL = "{{GetParameter "windowsCredentialProviderURL"}}"
@@ -192,6 +178,13 @@ $global:WindowsGmsaPackageUrl = "{{GetVariable "windowsGmsaPackageUrl" }}";
 # TLS Bootstrap Token
 $global:TLSBootstrapToken = "{{GetTLSBootstrapTokenForKubeConfig}}"
 
+# Secure TLS Bootstrap settings
+$global:EnableSecureTLSBootstrapping = [System.Convert]::ToBoolean("{{EnableSecureTLSBootstrapping}}");
+$global:CustomSecureTLSBootstrapClientURL = "{{GetCustomSecureTLSBootstrapClientURL}}";
+# uniquely identifies AKS's Entra ID application, see: https://learn.microsoft.com/en-us/azure/aks/kubelogin-authentication#how-to-use-kubelogin-with-aks
+# this is used by aks-secure-tls-bootstrap-client.exe when requesting AAD tokens
+$global:AKSAADServerAppID = "6dae42f8-4368-4678-94ff-3960e28e3630"
+
 # Disable OutBoundNAT in Azure CNI configuration
 $global:IsDisableWindowsOutboundNat = [System.Convert]::ToBoolean("{{GetVariable "isDisableWindowsOutboundNat" }}");
 
@@ -212,6 +205,15 @@ $global:EnableIncreaseDynamicPortRange = $false
 $global:RebootNeeded = $false
 
 $global:IsSkipCleanupNetwork = [System.Convert]::ToBoolean("{{GetVariable "isSkipCleanupNetwork" }}");
+$PreProvisionOnly = [System.Convert]::ToBoolean("{{GetPreProvisionOnly}}");
+
+$global:EnableKubeletServingCertificateRotation = [System.Convert]::ToBoolean("{{EnableKubeletServingCertificateRotation}}")
+
+# Windows Cilium Networking (WCN) Platform configuration
+$global:EnableWindowsCiliumNetworking = [System.Convert]::ToBoolean("{{GetVariable "nextGenNetworkingEnabled" }}");
+$global:WindowsCiliumNetworkingConfiguration = "{{GetVariable "nextGenNetworkingConfig" }}";
+$global:WindowsCiliumNetworkingPath = Join-Path -Path $global:cacheDir -ChildPath 'wcn'
+$global:WindowsCiliumInstallPath = Join-Path -Path $global:WindowsCiliumNetworkingPath -ChildPath 'install'
 
 # Extract cse helper script from ZIP
 [io.file]::WriteAllBytes("scripts.zip", [System.Convert]::FromBase64String($zippedFiles))
@@ -223,51 +225,69 @@ Expand-Archive scripts.zip -DestinationPath "C:\\AzureData\\" -Force
 
 $global:OperationId = New-Guid
 
-try
-{
-    Logs-To-Event -TaskName "AKS.WindowsCSE.ExecuteCustomDataSetupScript" -TaskMessage ".\CustomDataSetupScript.ps1 -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp -MasterFQDNPrefix $MasterFQDNPrefix -Location $Location -AADClientId $AADClientId -NetworkAPIVersion $NetworkAPIVersion -TargetEnvironment $TargetEnvironment -CSEResultFilePath $CSEResultFilePath"
-
-    # Exit early if the script has been executed
-    if (Test-Path -Path $CSEResultFilePath -PathType Leaf) {
-        Write-Log "The script has been executed before, will exit without doing anything."
-        return
-    }
-
-    # This involes using proxy, log the config before fetching packages
-    Write-Log "private egress proxy address is '$global:PrivateEgressProxyAddress'"
-    # TODO update to use proxy
-
-    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.45.zip"
-    Write-Log "CSEScriptsPackageUrl is $global:CSEScriptsPackageUrl"
-    Write-Log "WindowsCSEScriptsPackage is $WindowsCSEScriptsPackage"
-    # Old AKS RP sets the full URL (https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.11.zip) in CSEScriptsPackageUrl
-    # but it is better to set the CSE package version in Windows CSE in AgentBaker
-    # since most changes in CSE package also need the change in Windows CSE in AgentBaker
-    # In future, AKS RP only sets the endpoint with the pacakge name, for example, https://acs-mirror.azureedge.net/aks/windows/cse/
+if (-not (Test-Path "C:\AzureData\windows\azurecnifunc.ps1")) {
+    # Determine the CSE package URL
+    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-current.zip"
+    # CSEScriptsPackage is cached on VHD. Previously the cse package version was managed in components.json, whereas RP set the package URL which is a storage account.
+    # From 2025-06 The CSE packages is eleased on the VHD. RP can use fully qualified URL to download CSE scripts package when required out of VHD release cycle.
+    # In the transition period, it is important that when deal with older VHD versions, the agentbaker runtime provision script needs to be compatible with the latest known storage account package, 0.0.52.
+    Write-Log "Requested CSEScriptsPackageUrl is $global:CSEScriptsPackageUrl"
     if ($global:CSEScriptsPackageUrl.EndsWith("/")) {
+        $search = @()
+        if ($global:CacheDir -and (Test-Path $global:CacheDir)) {
+            $search = [IO.Directory]::GetFiles($global:CacheDir, $WindowsCSEScriptsPackage, [IO.SearchOption]::AllDirectories)
+            # list files in the cache directory.
+            Write-Log "the directory $global:CacheDir contains the following files:"
+            Get-ChildItem -Path $global:CacheDir | ForEach-Object { Write-Log "  $_" }
+        }
+
+        if ($search.Count -eq 0) {
+            Write-Log "Could not find windows cse package on VHD. Use remote version instead."
+            $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.52.zip"
+        }
+        Write-Log "WindowsCSEScriptsPackage is $WindowsCSEScriptsPackage"
         $global:CSEScriptsPackageUrl = $global:CSEScriptsPackageUrl + $WindowsCSEScriptsPackage
-        Write-Log "CSEScriptsPackageUrl is set to $global:CSEScriptsPackageUrl"
     }
+    Write-Log "CSEScriptsPackageUrl used for provision is $global:CSEScriptsPackageUrl"
 
     # Download CSE function scripts
     Logs-To-Event -TaskName "AKS.WindowsCSE.DownloadAndExpandCSEScriptPackageUrl" -TaskMessage "Start to get CSE scripts. CSEScriptsPackageUrl: $global:CSEScriptsPackageUrl"
     $tempfile = 'c:\csescripts.zip'
     DownloadFileOverHttp -Url $global:CSEScriptsPackageUrl -DestinationPath $tempfile -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CSE_PACKAGE
-    Expand-Archive $tempfile -DestinationPath "C:\\AzureData\\windows" -Force
+    AKS-Expand-Archive -Path $tempfile -DestinationPath "C:\\AzureData\\windows"
     Remove-Item -Path $tempfile -Force
-    
-    # Dot-source cse scripts with functions that are called in this script
-    . c:\AzureData\windows\azurecnifunc.ps1
-    . c:\AzureData\windows\calicofunc.ps1
-    . c:\AzureData\windows\configfunc.ps1
-    . c:\AzureData\windows\containerdfunc.ps1
-    . c:\AzureData\windows\kubeletfunc.ps1
-    . c:\AzureData\windows\kubernetesfunc.ps1
-    . c:\AzureData\windows\nvidiagpudriverfunc.ps1
+} else {
+    Write-Log "CSE scripts already exist, skipping download"
+}
+
+# Dot-source cse scripts with functions that are called in this script
+. c:\AzureData\windows\azurecnifunc.ps1
+. c:\AzureData\windows\calicofunc.ps1
+. c:\AzureData\windows\configfunc.ps1
+. c:\AzureData\windows\containerdfunc.ps1
+. c:\AzureData\windows\kubeletfunc.ps1
+. c:\AzureData\windows\kubernetesfunc.ps1
+. c:\AzureData\windows\nvidiagpudriverfunc.ps1
+. c:\AzureData\windows\securetlsbootstrapfunc.ps1
+
+if (Test-Path -Path 'c:\AzureData\windows\windowsciliumnetworkingfunc.ps1') {
+    . c:\AzureData\windows\windowsciliumnetworkingfunc.ps1
+} else {
+    Write-Log "Windows Cilium Networking function script not found, skipping dot-source"
+}
+
+# ====== BASE PREP: BASE IMAGE PREPARATION ======
+# All operations that prepare the base VHD image
+function BasePrep {
+    Write-Log "Starting BasePrep - Base image preparation"
+    Logs-To-Event -TaskName "AKS.WindowsCSE.BasePrep" -TaskMessage "Starting BasePrep - Base image preparation"
+
+    # This involves using proxy, log the config before fetching packages
+    Write-Log "private egress proxy address is '$global:PrivateEgressProxyAddress'"
+    # TODO update to use proxy
 
     # Install OpenSSH if SSH enabled
     $sshEnabled = [System.Convert]::ToBoolean("{{ WindowsSSHEnabled }}")
-
     if ( $sshEnabled ) {
         Install-OpenSSH -SSHKeys $SSHKeys
     }
@@ -275,11 +295,11 @@ try
     Set-TelemetrySetting -WindowsTelemetryGUID $global:WindowsTelemetryGUID
 
     Resize-OSDrive
-    
+
     Initialize-DataDisks
-    
+
     Initialize-DataDirectories
-    
+
     Logs-To-Event -TaskName "AKS.WindowsCSE.GetProvisioningAndLogCollectionScripts" -TaskMessage "Start to get provisioning scripts and log collection scripts"
     Create-Directory -FullPath "c:\k"
     Write-Log "Remove `"NT AUTHORITY\Authenticated Users`" write permissions on files in c:\k"
@@ -291,13 +311,24 @@ try
     icacls.exe "c:\k"
     Get-ProvisioningScripts
     Get-LogCollectionScripts
-    
+
+    # NOTE: this function MUST be called before Write-KubeClusterConfig since it has the potential
+    # to mutate both kubelet config args and kubelet node labels.
+    Configure-KubeletServingCertificateRotation
+
     Write-KubeClusterConfig -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp
 
-    Install-CredentialProvider -KubeDir $global:KubeDir -CustomCloudContainerRegistryDNSSuffix {{if IsAKSCustomCloud}}"{{ AKSCustomCloudContainerRegistryDNSSuffix }}"{{else}}""{{end}} 
+    # to ensure we don't introduce any incompatibility between base CSE + CSE package versions
+    if (Get-Command -Name Install-SecureTLSBootstrapClient -ErrorAction SilentlyContinue) {
+        Install-SecureTLSBootstrapClient -KubeDir $global:KubeDir -CustomSecureTLSBootstrapClientDownloadUrl $global:CustomSecureTLSBootstrapClientURL
+    } else {
+        Write-Log "Install-SecureTLSBootstrapClient is not a recognized function, will skip installation of the secure TLS bootstrap client"
+    }
+
+    Install-CredentialProvider -KubeDir $global:KubeDir -CustomCloudContainerRegistryDNSSuffix {{if IsAKSCustomCloud}}"{{ AKSCustomCloudContainerRegistryDNSSuffix }}"{{else}}""{{end}}
 
     Get-KubePackage -KubeBinariesSASURL $global:KubeBinariesPackageSASURL
-    
+
     $cniBinPath = $global:AzureCNIBinDir
     $cniConfigPath = $global:AzureCNIConfDir
     if ($global:NetworkPlugin -eq "kubenet") {
@@ -306,9 +337,9 @@ try
     }
 
     Install-Containerd-Based-On-Kubernetes-Version -ContainerdUrl $global:ContainerdUrl -CNIBinDir $cniBinPath -CNIConfDir $cniConfigPath -KubeDir $global:KubeDir -KubernetesVersion $global:KubeBinariesVersion
-    
+
     Retag-ImagesForAzureChinaCloud -TargetEnvironment $TargetEnvironment
-    
+
     # For AKSClustomCloud, TargetEnvironment must be set to AzureStackCloud
     Write-AzureConfig `
         -KubeDir $global:KubeDir `
@@ -330,10 +361,10 @@ try
         -UseInstanceMetadata $global:UseInstanceMetadata `
         -LoadBalancerSku $global:LoadBalancerSku `
         -ExcludeMasterFromStandardLB $global:ExcludeMasterFromStandardLB `
-        -TargetEnvironment {{if IsAKSCustomCloud}}"AzureStackCloud"{{else}}$TargetEnvironment{{end}} 
+        -TargetEnvironment {{if IsAKSCustomCloud}}"AzureStackCloud"{{else}}$TargetEnvironment{{end}}
 
-    # we borrow the logic of AzureStackCloud to achieve AKSCustomCloud. 
-    # In case of AKSCustomCloud, customer cloud env will be loaded from azurestackcloud.json 
+    # we borrow the logic of AzureStackCloud to achieve AKSCustomCloud.
+    # In case of AKSCustomCloud, customer cloud env will be loaded from azurestackcloud.json
     {{if IsAKSCustomCloud}}
     $azureStackConfigFile = [io.path]::Combine($global:KubeDir, "azurestackcloud.json")
     $envJSON = "{{ GetBase64EncodedEnvironmentJSON }}"
@@ -344,7 +375,7 @@ try
 
     Write-CACert -CACertificate $global:CACertificate `
         -KubeDir $global:KubeDir
-    
+
     if ($global:EnableCsiProxy) {
         New-CsiProxyService -CsiProxyPackageUrl $global:CsiProxyUrl -KubeDir $global:KubeDir
     }
@@ -355,10 +386,10 @@ try
             -MasterFQDNPrefix $MasterFQDNPrefix `
             -MasterIP $MasterIP `
             -TLSBootstrapToken $global:TLSBootstrapToken
-        
-        # NOTE: we need kubeconfig to setup calico even if TLS bootstrapping is enabled
-        #       This kubeconfig will deleted after calico installation.
-        # TODO(hbc): once TLS bootstrap is fully enabled, remove this if block
+    }
+    if ($global:TLSBootstrapToken -or $global:EnableSecureTLSBootstrapping) {
+        # NOTE: we need kubeconfig to setup calico even if vanilla/secure TLS bootstrapping is enabled
+        # This kubeconfig will deleted after calico installation.
         Write-Log "Write temporary kube config"
     } else {
         Write-Log "Write kube config"
@@ -370,7 +401,7 @@ try
         -MasterIP $MasterIP `
         -AgentKey $AgentKey `
         -AgentCertificate $global:AgentCertificate
-    
+
     if ($global:EnableHostsConfigAgent) {
         New-HostsConfigService
     }
@@ -380,11 +411,11 @@ try
     # Configure network policy.
     Get-HnsPsm1 -HNSModule $global:HNSModule
     Import-Module $global:HNSModule
-    
+
     Install-VnetPlugins -AzureCNIConfDir $global:AzureCNIConfDir `
         -AzureCNIBinDir $global:AzureCNIBinDir `
         -VNetCNIPluginsURL $global:VNetCNIPluginsURL
-    
+
     Set-AzureCNIConfig -AzureCNIConfDir $global:AzureCNIConfDir `
         -KubeDnsSearchPath $global:KubeDnsSearchPath `
         -KubeClusterCIDR $global:KubeClusterCIDR `
@@ -392,7 +423,7 @@ try
         -VNetCIDR $global:VNetCIDR `
         -IsDualStackEnabled $global:IsDualStackEnabled `
         -IsAzureCNIOverlayEnabled $global:IsAzureCNIOverlayEnabled
-    
+
     if ($TargetEnvironment -ieq "AzureStackCloud") {
         GenerateAzureStackCNIConfig `
             -TenantId $global:TenantId `
@@ -407,9 +438,20 @@ try
     }
 
     New-ExternalHnsNetwork -IsDualStackEnabled $global:IsDualStackEnabled
-    
-    Install-KubernetesServices `
-        -KubeDir $global:KubeDir
+
+    # Turn off Firewall to enable pods to talk to service endpoints. (Kubelet should eventually do this)
+    netsh advfirewall set allprofiles state off
+
+    # To ensure we don't introduce any incompatibility between base CSE + CSE package versions
+    if (Get-Command -Name Enable-WindowsCiliumNetworking -ErrorAction SilentlyContinue) {
+        if ($global:EnableWindowsCiliumNetworking) {
+            Enable-WindowsCiliumNetworking
+        } else {
+            Write-Log "Windows Cilium Networking is not enabled, will skip Windows Cilium Networking installation"
+        }
+    } else {
+        Write-Log "Enable-WindowsCiliumNetworking is not a recognized function, will skip Windows Cilium Networking installation"
+    }
 
     Set-Explorer
     Adjust-PageFileSize
@@ -419,6 +461,7 @@ try
     Adjust-DynamicPortRange
     Register-LogsCleanupScriptTask
     Register-NodeResetScriptTask
+    
     Update-DefenderPreferences
 
     $windowsVersion = Get-WindowsVersion
@@ -440,24 +483,35 @@ try
         Install-GmsaPlugin -GmsaPackageUrl $global:WindowsGmsaPackageUrl
     }
 
+    Write-Log "BasePrep completed successfully"
+    Logs-To-Event -TaskName "AKS.WindowsCSE.BasePrep" -TaskMessage "BasePrep completed successfully"
+}
+
+# ====== NODE PREP: CLUSTER INTEGRATION ======
+# All operations that should only run when connecting to the actual cluster
+function NodePrep {
+    Install-KubernetesServices -KubeDir $global:KubeDir
+
+    Write-Log "Starting NodePrep - Cluster integration"
+    Logs-To-Event -TaskName "AKS.WindowsCSE.NodePrep" -TaskMessage "Starting NodePrep - Cluster integration"
+    
     Check-APIServerConnectivity -MasterIP $MasterIP
 
     if ($global:WindowsCalicoPackageURL) {
         Start-InstallCalico -RootDir "c:\" -KubeServiceCIDR $global:KubeServiceCIDR -KubeDnsServiceIp $KubeDnsServiceIp
     }
+    if ($global:TLSBootstrapToken -or $global:EnableSecureTLSBootstrapping) {
+        Write-Log "Removing temporary kube config"
+        $kubeConfigFile = [io.path]::Combine($KubeDir, "config")
+        Remove-Item $kubeConfigFile
+    }
 
     Start-InstallGPUDriver -EnableInstall $global:ConfigGPUDriverIfNeeded -GpuDriverURL $global:GpuDriverURL
-    
+
     if (Test-Path $CacheDir)
     {
         Write-Log "Removing aks cache directory"
         Remove-Item $CacheDir -Recurse -Force
-    }
-
-    if ($global:TLSBootstrapToken) {
-        Write-Log "Removing temporary kube config"
-        $kubeConfigFile = [io.path]::Combine($KubeDir, "config")
-        Remove-Item $kubeConfigFile
     }
 
     Enable-GuestVMLogs -IntervalInMinutes $global:LogGeneratorIntervalInMinutes
@@ -483,9 +537,54 @@ try
         $timer.Stop()
         Write-Log -Message "We waited [$($timer.Elapsed.TotalSeconds)] seconds on NodeResetScriptTask"
     }
+
+    Write-Log "NodePrep completed successfully"
+    Logs-To-Event -TaskName "AKS.WindowsCSE.NodePrep" -TaskMessage "NodePrep completed successfully"
+}
+
+try
+{
+    Logs-To-Event -TaskName "AKS.WindowsCSE.ExecuteCustomDataSetupScript" -TaskMessage ".\CustomDataSetupScript.ps1 -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp -MasterFQDNPrefix $MasterFQDNPrefix -Location $Location -AADClientId $AADClientId -NetworkAPIVersion $NetworkAPIVersion -TargetEnvironment $TargetEnvironment -CSEResultFilePath $CSEResultFilePath"
+
+    # Exit early if the script has been executed
+    if (Test-Path -Path $CSEResultFilePath -PathType Leaf) {
+        Write-Log "The script has been executed before, will exit without doing anything."
+        return
+    }
+
+    # The provisioning is split into two stages to support VHD image creation workflows:
+    #
+    # Stage 1: Base image preparation
+    #   - Installs and configures all required components (kubelet, containerd, etc.)
+    #   - Sets up system configurations that are common across all nodes
+    #   - DOES NOT join the node to any cluster
+    #   - After this stage, users can add customizations (e.g., pre-pull additional container images)
+    #   - The VM can then be captured as a VHD image for use as a node pool base image
+    #
+    # Stage 2: Cluster integration and hardware setup
+    #   - Performs cluster-specific configurations
+    #   - Configures hardware-specific components (GPU drivers, MIG partitions, etc.)
+    #   - Establishes connection to the API server
+    #   - Joins the node to the cluster
+    #   - Only runs when actually provisioning a node, not when creating VHD images
+    #
+    # In typical deployments, both stages run sequentially during node provisioning.
+    # For VHD image creation workflows, only basePrep runs initially, and nodePrep runs later
+    # when nodes are created from that VHD image.
+    if (-not (Test-Path "C:\AzureData\base_prep.complete")) {
+        BasePrep
+    } else {
+        Write-Log "Skipping basePrep - base_prep.complete file exists"
+    }
+    if (-not $PreProvisionOnly) {
+        NodePrep
+    } else {
+        Write-Log "Skipping nodePrep - pre-provision only mode"
+    }
 }
 catch
 {
+    Resolve-Error
     # Set-ExitCode will exit with the specified ExitCode immediately and not be caught by this catch block
     # Ideally all exceptions will be handled and no exception will be thrown.
     Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_UNKNOWN -ErrorMessage $_
@@ -496,18 +595,19 @@ finally
     $ExecutionDuration=$(New-Timespan -Start $StartTime -End $(Get-Date))
     Write-Log "CSE ExecutionDuration: $ExecutionDuration. ExitCode: $global:ExitCode"
 
-    Logs-To-Event -TaskName "AKS.WindowsCSE.cse_main" -TaskMessage "ExitCode: $global:ExitCode. ErrorMessage: $global:ErrorMessage." 
+    Logs-To-Event -TaskName "AKS.WindowsCSE.cse_main" -TaskMessage "ExitCode: $global:ExitCode. ErrorMessage: $global:ErrorMessage."
 
-    # $CSEResultFilePath is used to avoid running CSE multiple times
-    if ($global:ExitCode -ne 0) {
+    # Create appropriate completion file based on mode
+    $completionFilePath = if ($PreProvisionOnly) { "C:\AzureData\base_prep.complete" } else { $CSEResultFilePath }
+    
+    if ($global:ExitCode -eq 0) {
+        Set-Content -Path $completionFilePath -Value $global:ExitCode -Force
+    } else {
         # $JsonString = "ExitCode: |{0}|, Output: |{1}|, Error: |{2}|"
         # Max length of the full error message returned by Windows CSE is ~256. We use 240 to be safe.
         $errorMessageLength = "ExitCode: |$global:ExitCode|, Output: |$($global:ErrorCodeNames[$global:ExitCode])|, Error: ||".Length
         $turncatedErrorMessage = $global:ErrorMessage.Substring(0, [Math]::Min(240 - $errorMessageLength, $global:ErrorMessage.Length))
-        Set-Content -Path $CSEResultFilePath -Value "ExitCode: |$global:ExitCode|, Output: |$($global:ErrorCodeNames[$global:ExitCode])|, Error: |$turncatedErrorMessage|"
-    }
-    else {
-        Set-Content -Path $CSEResultFilePath -Value $global:ExitCode -Force
+        Set-Content -Path $completionFilePath -Value "ExitCode: |$global:ExitCode|, Output: |$($global:ErrorCodeNames[$global:ExitCode])|, Error: |$turncatedErrorMessage|"
     }
 
     if ($global:ExitCode -eq $global:WINDOWS_CSE_ERROR_DOWNLOAD_CSE_PACKAGE) {

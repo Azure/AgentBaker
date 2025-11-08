@@ -1,0 +1,23 @@
+[Unit]
+Description=AKS Secure TLS Bootstrap Client
+ConditionPathExists=/usr/local/bin/aks-secure-tls-bootstrap-client
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+
+ExecStart=/usr/local/bin/aks-secure-tls-bootstrap-client \
+    --verbose \
+    --ensure-authorized \
+    --next-proto=aks-tls-bootstrap \
+    --kubeconfig=/var/lib/kubelet/kubeconfig \
+    --cert-dir=/var/lib/kubelet/pki \
+    --cluster-ca-file=/etc/kubernetes/certs/ca.crt \
+    --log-file=/var/log/azure/aks/secure-tls-bootstrap.log \
+    --deadline=120s \
+    $BOOTSTRAP_FLAGS
+
+[Install]
+WantedBy=multi-user.target

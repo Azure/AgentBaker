@@ -1,0 +1,322 @@
+os:
+  additionalFiles:
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/azlosguard/10-users-ssh-enable.cfg
+      destination: /etc/cloud/cloud.cfg.d/10-users-ssh-enable.cfg
+      permissions: 644
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/azlosguard/azurelinux-cloud-native.repo
+      destination: /etc/yum.repos.d/azurelinux-cloud-native.repo
+      permissions: 644
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/azlosguard/azurelinux-cloud-native-preview.repo
+      destination: /etc/yum.repos.d/azurelinux-cloud-native-preview.repo
+      permissions: 644
+    # Build-time scripts and tools
+    - source: /AgentBaker/vhdbuilder/packer/install-dependencies.sh
+      destination: /opt/azure/containers/install-dependencies.sh
+      permissions: 744
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/cse_benchmark_functions.sh
+      destination: /opt/azure/containers/provision_source_benchmarks.sh
+      permissions: 744
+    - source: /AgentBaker/vhdbuilder/scripts/linux/tool_installs.sh
+      destination: /opt/azure/containers/tool_installs.sh
+      permissions: 744
+    - source: /AgentBaker/vhdbuilder/packer/imagecustomizer/azlosguard/scripts/tool_installs_osguard.sh
+      destination: /opt/azure/containers/tool_installs_distro.sh
+      permissions: 744
+    - source: /AgentBaker/vhdbuilder/lister/bin/lister
+      destination: /opt/azure/containers/lister
+      permissions: 744
+    - source: /AgentBaker/vhdbuilder/packer/list-images.sh
+      destination: /opt/azure/containers/list-images.sh
+      permissions: 744
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/cis.sh
+      destination: /opt/azure/containers/cis.sh
+      permissions: 744
+    # Build metadata
+    - source: /AgentBaker/parts/common/components.json
+      destination: /opt/azure/components.json
+      permissions: 644
+    - source: /AgentBaker/vhdbuilder/packer/prefetch.sh
+      destination: /opt/azure/containers/prefetch.sh
+      permissions: 755
+    - source: /AgentBaker/vhdbuilder/notice.txt
+      destination: /NOTICE.txt
+      permissions: 444
+    # Update Certs
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/update_certs.sh
+      destination: /opt/scripts/update_certs.sh
+      permissions: 755
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/mariner/update_certs_mariner.service
+      destination: /etc/systemd/system/update_certs.service
+      permissions: 600
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/update_certs.path
+      destination: /etc/systemd/system/update_certs.path
+      permissions: 600
+    # Node Controller
+    - source: /AgentBaker/aks-node-controller/bin/aks-node-controller-linux-amd64
+      destination: /opt/azure/containers/aks-node-controller
+      permissions: 755
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/aks-node-controller.service
+      destination: /etc/systemd/system/aks-node-controller.service
+      permissions: 600
+    # Fix systemd resolved caching
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/resolv-uplink-override.service
+      destination: /etc/systemd/system/resolv-uplink-override.service
+      permissions: 600
+    # Setup systemd-sysext for temporary /usr/local/bin redirection to /opt/bin
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/azlosguard/extension-release.lg-redirect-sysext
+      destination: /etc/extensions/lg-redirect-sysext/usr/lib/extension-release.d/extension-release.lg-redirect-sysext
+      permissions: 644
+    # Provisioning scripts
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/cse_main.sh
+      destination: /opt/azure/containers/provision.sh
+      permissions: 744
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/cse_start.sh
+      destination: /opt/azure/containers/provision_start.sh
+      permissions: 744
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/cse_config.sh
+      destination: /opt/azure/containers/provision_configs.sh
+      permissions: 744
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/cse_helpers.sh
+      destination: /opt/azure/containers/provision_source.sh
+      permissions: 744
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/cse_install.sh
+      destination: /opt/azure/containers/provision_installs.sh
+      permissions: 744
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/azlosguard/cse_install_osguard.sh
+      destination: /opt/azure/containers/provision_installs_distro.sh
+      permissions: 744
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/azlosguard/cse_helpers_osguard.sh
+      destination: /opt/azure/containers/provision_source_distro.sh
+      permissions: 744
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/containerd_exec_start.conf
+      destination: /etc/systemd/system/containerd.service.d/exec_start.conf
+      permissions: 644
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/cloud-init-status-check.sh
+      destination: /opt/azure/containers/cloud-init-status-check.sh
+      permissions: 755
+    # kubelet
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/kubelet.service
+      destination: /etc/systemd/system/kubelet.service
+      permissions: 600
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/validate-kubelet-credentials.sh
+      destination: /opt/azure/containers/validate-kubelet-credentials.sh
+      permissions: 755
+    # network lockdown
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/block_wireserver.sh
+      destination: /opt/azure/containers/kubelet.sh
+      permissions: 755
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/ensure_imds_restriction.sh
+      destination: /opt/azure/containers/ensure_imds_restriction.sh
+      permissions: 755
+    # cse support
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/cse_redact_cloud_config.py
+      destination: /opt/azure/containers/provision_redact_cloud_config.py
+      permissions: 744
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/cse_send_logs.py
+      destination: /opt/azure/containers/provision_send_logs.py
+      permissions: 744
+    # private hosts
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/reconcile-private-hosts.service
+      destination: /etc/systemd/system/reconcile-private-hosts.service
+      permissions: 600
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/reconcile-private-hosts.sh
+      destination: /opt/azure/containers/reconcilePrivateHosts.sh
+      permissions: 744
+    # bind mount kubelet
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/bind-mount.sh
+      destination: /opt/azure/containers/bind-mount.sh
+      permissions: 544
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/bind-mount.service
+      destination: /etc/systemd/system/bind-mount.service
+      permissions: 600
+    # dhcpv6
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/enable-dhcpv6.sh
+      destination: /opt/azure/containers/enable-dhcpv6.sh
+      permissions: 544
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/dhcpv6.service
+      destination: /etc/systemd/system/dhcpv6.service
+      permissions: 600
+    # sync container logs
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/sync-container-logs.sh
+      destination: /opt/azure/containers/sync-container-logs.sh
+      permissions: 544
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/sync-container-logs.service
+      destination: /etc/systemd/system/sync-container-logs.service
+      permissions: 600
+    # crictl settings
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/crictl.yaml
+      destination: /etc/crictl.yaml
+      permissions: 644
+    # ensure no dupe packets
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/ensure-no-dup.sh
+      destination: /opt/azure/containers/ensure-no-dup.sh
+      permissions: 755
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/ensure-no-dup.service
+      destination: /etc/systemd/system/ensure-no-dup.service
+      permissions: 600
+    # CIS hardening
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/sysctl-d-60-CIS.conf
+      destination: /etc/sysctl.d/60-CIS.conf
+      permissions: 644
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/sshd_config
+      destination: /etc/ssh/sshd_config
+      permissions: 600
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/rsyslog-d-60-CIS.conf
+      destination: /etc/rsyslog.d/60-CIS.conf
+      permissions: 644
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/logrotate-d-rsyslog-CIS.conf
+      destination: /etc/logrotate.d/rsyslog-cis.conf
+      permissions: 644
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/modprobe-CIS.conf
+      destination: /etc/modprobe.d/CIS.conf
+      permissions: 644
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/pwquality-CIS.conf
+      destination: /etc/security/pwquality.conf
+      permissions: 600
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/pam-d-su
+      destination: /etc/pam.d/su
+      permissions: 644
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/mariner/pam-d-system-auth
+      destination: /etc/pam.d/system-auth
+      permissions: 644
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/mariner/pam-d-system-password
+      destination: /etc/pam.d/system-password
+      permissions: 644
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/profile-d-cis.sh
+      destination: /etc/profile.d/CIS.sh
+      permissions: 755
+    # disk queue perf tuning
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/disk_queue.service
+      destination: /etc/systemd/system/disk_queue.service
+      permissions: 644
+    # cgroup-memory
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/cgroup-memory-telemetry.sh
+      destination: /opt/scripts/cgroup-memory-telemetry.sh
+      permissions: 755
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/cgroup-memory-telemetry.service
+      destination: /etc/systemd/system/cgroup-memory-telemetry.service
+      permissions: 600
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/cgroup-memory-telemetry.timer
+      destination: /etc/systemd/system/cgroup-memory-telemetry.timer
+      permissions: 600
+    # cgroup-pressure
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/cgroup-pressure-telemetry.sh
+      destination: /opt/scripts/cgroup-pressure-telemetry.sh
+      permissions: 755
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/cgroup-pressure-telemetry.service
+      destination: /etc/systemd/system/cgroup-pressure-telemetry.service
+      permissions: 600
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/cgroup-pressure-telemetry.timer
+      destination: /etc/systemd/system/cgroup-pressure-telemetry.timer
+      permissions: 600
+    # ci-syslog-watcher
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/ci-syslog-watcher.sh
+      destination: /opt/bin/ci-syslog-watcher.sh
+      permissions: 755
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/ci-syslog-watcher.service
+      destination: /etc/systemd/system/ci-syslog-watcher.service
+      permissions: 600
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/ci-syslog-watcher.path
+      destination: /etc/systemd/system/ci-syslog-watcher.path
+      permissions: 600
+    # measure-tls-bootstrapping-latency
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/measure-tls-bootstrapping-latency.sh
+      destination: /opt/azure/containers/measure-tls-bootstrapping-latency.sh
+      permissions: 755
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/measure-tls-bootstrapping-latency.service
+      destination: /etc/systemd/system/measure-tls-bootstrapping-latency.service
+      permissions: 600
+    # secure-tls-bootstrap
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/secure-tls-bootstrap.service
+      destination: /etc/systemd/system/secure-tls-bootstrap.service
+      permissions: 600
+    # aks-diagnostic
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/aks-diagnostic.py
+      destination: /opt/azure/containers/aks-diagnostic.py
+      permissions: 755
+    # aks log collector
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/aks-log-collector.sh
+      destination: /opt/azure/containers/aks-log-collector.sh
+      permissions: 755
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/aks-log-collector-send.py
+      destination: /opt/azure/containers/aks-log-collector-send.py
+      permissions: 755
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/aks-log-collector.service
+      destination: /etc/systemd/system/aks-log-collector.service
+      permissions: 600
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/aks-log-collector.slice
+      destination: /etc/systemd/system/aks-log-collector.slice
+      permissions: 600
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/aks-log-collector.timer
+      destination: /etc/systemd/system/aks-log-collector.timer
+      permissions: 600
+    # aks check network
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/aks-check-network.sh
+      destination: /opt/azure/containers/aks-check-network.sh
+      permissions: 755
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/aks-check-network.service
+      destination: /etc/systemd/system/aks-check-network.service
+      permissions: 600
+    # aks logrotate
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/aks-logrotate-override.conf
+      destination: /etc/systemd/system/logrotate.timer.d/override.conf
+      permissions: 644
+    # nftables
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/ipv6_nftables
+      destination: /etc/systemd/system/ipv6_nftables
+      permissions: 644
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/ipv6_nftables.service
+      destination: /etc/systemd/system/ipv6_nftables.service
+      permissions: 600
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/ipv6_nftables.sh
+      destination: /opt/scripts/ipv6_nftables.sh
+      permissions: 744
+    # kms
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/kms.service
+      destination: /etc/systemd/system/kms.service
+      permissions: 600
+    # containerd
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/containerd.service
+      destination: /etc/systemd/system/containerd.service
+      permissions: 600
+    # localdns
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/localdns.service
+      destination: /etc/systemd/system/localdns.service
+      permissions: 600
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/localdns.sh
+      destination: /opt/azure/containers/localdns.sh
+      permissions: 755
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/localdns-delegate.conf
+      destination: /etc/systemd/system/localdns.service.d/delegate.conf
+      permissions: 644
+
+  services:
+    enable:
+    - kubelet
+    - resolv-uplink-override
+    - measure-tls-bootstrapping-latency
+    - systemd-sysext
+    - ipv6_nftables
+    - aks-node-controller
+    - update_certs.path
+    - disk_queue
+    - ci-syslog-watcher.path
+    - ci-syslog-watcher.service
+    - aks-log-collector.timer
+    - sync-container-logs.service
+    disable:
+    # Disable Azure Linux iptables service so k8s has control
+    - iptables
+    - auditd
+
+previewFeatures:
+  - uki
+  - reinitialize-verity
+
+scripts:
+  postCustomization:
+    - path: scripts/azlosguard-postinstall.sh
+      environmentVariables:
+        IMG_SKU: "azure-linux-osguard-3"
+        SKU_NAME: "OSGuardV3gen2fipsTL"
+        FEATURE_FLAGS: ""

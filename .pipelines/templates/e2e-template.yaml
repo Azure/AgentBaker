@@ -1,63 +1,51 @@
+parameters:
+  - name: name
+    type: string
+    displayName: Additional name for the pipeline step
+    default: ""
+  - name: IgnoreScenariosWithMissingVhd
+    type: boolean
+    displayName: Ignore tests where the VHD can't be loaded
+
 jobs:
-  - job: E2E_Tests
-    pool:
-      name: nodesigtest-pool
-    timeoutInMinutes: 90
-    displayName: Run AgentBaker E2E
+  - job: e2e
+    condition: and(succeeded(), ne(variables.SKIP_E2E_TESTS, 'true'))
     variables:
-      - group: ab-e2e
+      - group: ab-e2e # all variables prefixed with E2E_* come from this variable group
+    pool:
+      name: $(E2E_POOL_NAME)
+    timeoutInMinutes: 90
+    displayName: Run AgentBaker E2E ${{parameters.name}}
     steps:
-      - bash: |
-          az login --identity
-          az account set -s $(AZURE_SUBSCRIPTION_ID)
-        displayName: Azure login
-      - bash: bash .pipelines/scripts/setup_go.sh
-        displayName: Setup go
-      - bash: |
-          LOGGING_DIR="scenario-logs-$(date +%s)"
-          echo "setting logging dir to $LOGGING_DIR"
-          echo "##vso[task.setvariable variable=LOGGING_DIR]$LOGGING_DIR"
-        displayName: Set logging directory
-      - bash: |
-          export PATH="/usr/local/go/bin:$PATH"
-          go version
-          
-          echo "VHD_BUILD_ID=$VHD_BUILD_ID"
-          
-          if [ -n "${VHD_BUILD_ID}" ]; then
-            export SIG_VERSION_TAG_NAME=buildId
-            export SIG_VERSION_TAG_VALUE=$VHD_BUILD_ID
-            export IGNORE_SCENARIOS_WITH_MISSING_VHD=true
-          else
-            echo "Build.BuildId is not specified. Running default e2e tests."
-          fi
-          
-          cd e2e
-          go test -parallel 100 -timeout 90m -v ./...
+      - checkout: self
+        # s is the default path for repositories - if we don't set this when using multiple repsositories, then it is the repo name
+        # "s/AgentBaker", but most of the pipeline variables still refer to "s" and many of the scripts below fail.
+        path: s
+        fetchTags: false
+        fetchDepth: 1
+
+      - bash: bash .pipelines/scripts/e2e_run.sh
         displayName: Run AgentBaker E2E
         env:
+          E2E_AGENT_IDENTITY_ID: $(E2E_AGENT_IDENTITY_ID)
+          E2E_SUBSCRIPTION_ID: $(E2E_SUBSCRIPTION_ID)
+          BUILD_SRC_DIR: $(System.DefaultWorkingDirectory)
+          DefaultWorkingDirectory: $(Build.SourcesDirectory)
           VHD_BUILD_ID: $(VHD_BUILD_ID)
-          LOCATION: $(LOCATION)
-          LOGGING_DIR: $(LOGGING_DIR)
-      # Without this step next step may fail on successful run
-      - bash: mkdir -p $(System.DefaultWorkingDirectory)/e2e/$(LOGGING_DIR)
-        condition: always()
-        displayName: Create folder for scenario logs
+          IGNORE_SCENARIOS_WITH_MISSING_VHD: ${{parameters.IgnoreScenariosWithMissingVhd}}
+
+      - task: PublishTestResults@2
+        displayName: Upload test results
+        condition: succeededOrFailed()
+        inputs:
+          testRunner: JUnit
+          testResultsFiles: "$(Build.SourcesDirectory)/e2e/report.xml"
+
       - publish: $(System.DefaultWorkingDirectory)/e2e/$(LOGGING_DIR)
         artifact: $(LOGGING_DIR)
         condition: always()
         continueOnError: true
-      - bash: |
-          set -x
-          
-          vmssResourceIds=""
-          for vmssModel in e2e/scenario-logs/*/vmssId.txt; do
-            resourceId=$(cat ${vmssModel})
-            vmssResourceIds="${vmssResourceIds} ${resourceId}"
-          done
-          
-          if [ -n "${vmssResourceIds// }" ]; then
-            az resource delete --ids ${vmssResourceIds}
-          fi
+
+      - bash: bash .pipelines/scripts/e2e_delete_vmss.sh
         displayName: ensure vmss deletion
         condition: always()

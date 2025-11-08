@@ -2,147 +2,207 @@ package e2e
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/Azure/agentbaker/e2e/toolkit"
+	"github.com/Azure/agentbaker/pkg/agent"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/stretchr/testify/require"
+	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func validateNodeHealth(ctx context.Context, t *testing.T, kube *Kubeclient, vmssName string) string {
-	nodeName := waitUntilNodeReady(ctx, t, kube, vmssName)
+func ValidatePodRunning(ctx context.Context, s *Scenario, pod *corev1.Pod) {
+	kube := s.Runtime.Cluster.Kube
+	truncatePodName(s.T, pod)
+	start := time.Now()
 
-	nginxPodName, err := ensureTestNginxPod(ctx, kube, nodeName)
-	require.NoError(t, err, "failed to validate node health, unable to ensure nginx pod on node %q", nodeName)
-
-	err = waitUntilPodDeleted(ctx, kube, nginxPodName)
-	require.NoError(t, err, "error waiting for nginx pod deletion on %s", nodeName)
-
-	return nodeName
-}
-
-func validateWasm(ctx context.Context, t *testing.T, kube *Kubeclient, nodeName, privateKey string) error {
-	spinPodName, err := ensureWasmPods(ctx, kube, nodeName)
-	if err != nil {
-		return fmt.Errorf("failed to valiate wasm, unable to ensure wasm pods on node %q: %w", nodeName, err)
-	}
-
-	spinPodIP, err := getPodIP(ctx, kube, defaultNamespace, spinPodName)
-	if err != nil {
-		return fmt.Errorf("on node %s unable to get IP of wasm spin pod %q: %w", nodeName, spinPodName, err)
-	}
-
-	debugPodName, err := getDebugPodName(ctx, kube)
-	if err != nil {
-		return fmt.Errorf("on node %s unable to get debug pod name to validate wasm: %w", nodeName, err)
-	}
-
-	execResult, err := pollExecOnPod(ctx, t, kube, defaultNamespace, debugPodName, getWasmCurlCommand(fmt.Sprintf("http://%s/hello", spinPodIP)))
-	if err != nil {
-		return fmt.Errorf("on node %sunable to execute wasm validation command: %w", nodeName, err)
-	}
-
-	if execResult.exitCode != "0" {
-		// retry getting the pod IP + curling the hello endpoint if the original curl reports connection refused or a timeout
-		// since the wasm spin pod usually restarts at least once after initial creation, giving it a new IP
-		if execResult.exitCode == "7" || execResult.exitCode == "28" {
-			spinPodIP, err = getPodIP(ctx, kube, defaultNamespace, spinPodName)
-			if err != nil {
-				return fmt.Errorf(" on node %s unable to get IP of wasm spin pod %q: %w", nodeName, spinPodName, err)
-			}
-
-			execResult, err = pollExecOnPod(ctx, t, kube, defaultNamespace, debugPodName, getWasmCurlCommand(fmt.Sprintf("http://%s/hello", spinPodIP)))
-			if err != nil {
-				return fmt.Errorf("unable to execute on node %s wasm validation command on wasm pod %q at %s: %w", nodeName, spinPodName, spinPodIP, err)
-			}
-
-			if execResult.exitCode != "0" {
-				execResult.dumpAll(t)
-				return fmt.Errorf("curl  on node %swasm endpoint on pod %q at %s terminated with exit code %s", nodeName, spinPodName, spinPodIP, execResult.exitCode)
-			}
-		} else {
-			execResult.dumpAll(t)
-			return fmt.Errorf("curl  on node %swasm endpoint on pod %q at %s terminated with exit code %s", nodeName, spinPodName, spinPodIP, execResult.exitCode)
-		}
-	}
-
-	if err := waitUntilPodDeleted(ctx, kube, spinPodName); err != nil {
-		return fmt.Errorf("error waiting for wasm pod deletion on %s: %w", nodeName, err)
-	}
-
-	return nil
-}
-
-func runLiveVMValidators(ctx context.Context, t *testing.T, vmssName, privateIP, sshPrivateKey string, opts *scenarioRunOpts) error {
-	podName, err := getDebugPodName(ctx, opts.clusterConfig.Kube)
-	if err != nil {
-		return fmt.Errorf("While running live validator for node %s, unable to get debug pod name: %w", vmssName, err)
-	}
-
-	validators := commonLiveVMValidators()
-	if opts.scenario.LiveVMValidators != nil {
-		validators = append(validators, opts.scenario.LiveVMValidators...)
-	}
-
-	for _, validator := range validators {
-		desc := validator.Description
-		command := validator.Command
-		isShellBuiltIn := validator.IsShellBuiltIn
-		t.Logf("running live VM validator on %s: %q", vmssName, desc)
-
-		execResult, err := pollExecOnVM(ctx, t, opts.clusterConfig.Kube, privateIP, podName, sshPrivateKey, command, isShellBuiltIn)
+	s.T.Logf("creating pod %q", pod.Name)
+	_, err := kube.Typed.CoreV1().Pods(pod.Namespace).Create(ctx, pod, v1.CreateOptions{})
+	require.NoErrorf(s.T, err, "failed to create pod %q", pod.Name)
+	s.T.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+		defer cancel()
+		err := kube.Typed.CoreV1().Pods(pod.Namespace).Delete(ctx, pod.Name, v1.DeleteOptions{GracePeriodSeconds: to.Ptr(int64(0))})
 		if err != nil {
-			return fmt.Errorf("unable to execute validator on node %s command %q: %w", vmssName, command, err)
+			s.T.Logf("couldn't not delete pod %s: %v", pod.Name, err)
 		}
+	})
 
-		if validator.Asserter != nil {
-			err := validator.Asserter(execResult.exitCode, execResult.stdout.String(), execResult.stderr.String())
-			if err != nil {
-				execResult.dumpAll(t)
-				return fmt.Errorf("failed validator on node %s assertion: %w", vmssName, err)
+	_, err = kube.WaitUntilPodRunning(ctx, pod.Namespace, "", "metadata.name="+pod.Name)
+	if err != nil {
+		jsonString, jsonError := json.Marshal(pod)
+		if jsonError != nil {
+			jsonString = []byte(jsonError.Error())
+		}
+		require.NoErrorf(s.T, err, "failed to wait for pod %q to be in running state. Pod data: %s", pod.Name, jsonString)
+	}
+
+	timeForReady := time.Since(start)
+	toolkit.LogDuration(ctx, timeForReady, time.Minute, fmt.Sprintf("Time for pod %q to get ready was %s", pod.Name, timeForReady))
+	s.T.Logf("node health validation: test pod %q is running on node %q", pod.Name, s.Runtime.KubeNodeName)
+}
+
+func truncatePodName(t testing.TB, pod *corev1.Pod) {
+	name := pod.Name
+	if len(pod.Name) < 63 {
+		return
+	}
+	pod.Name = pod.Name[:63]
+	pod.Name = strings.TrimRight(pod.Name, "-")
+	t.Logf("truncated pod name %q to %q", name, pod.Name)
+}
+
+func ValidateCommonLinux(ctx context.Context, s *Scenario) {
+	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo cat /etc/default/kubelet", 0, "could not read kubelet config")
+	stdout := execResult.stdout.String()
+	require.NotContains(s.T, stdout, "--dynamic-config-dir", "kubelet flag '--dynamic-config-dir' should not be present in /etc/default/kubelet\nContents:\n%s")
+
+	kubeletLogs := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo journalctl -u kubelet", 0, "could not retrieve kubelet logs with journalctl").stdout.String()
+	require.True(
+		s.T,
+		!strings.Contains(kubeletLogs, "unable to validate bootstrap credentials") && strings.Contains(kubeletLogs, "kubelet bootstrap token credential is valid"),
+		"expected to have successfully validated bootstrap token credential before kubelet startup, but did not",
+	)
+
+	ValidateSystemdWatchdogForKubernetes132Plus(ctx, s)
+
+	// ensure aks-log-collector hasn't entered a failed state
+	ValidateSystemdUnitIsNotFailed(ctx, s, "aks-log-collector")
+
+	ValidateSysctlConfig(ctx, s, map[string]string{
+		"net.ipv4.tcp_retries2":             "8",
+		"net.core.message_burst":            "80",
+		"net.core.message_cost":             "40",
+		"net.core.somaxconn":                "16384",
+		"net.ipv4.tcp_max_syn_backlog":      "16384",
+		"net.ipv4.neigh.default.gc_thresh1": "4096",
+		"net.ipv4.neigh.default.gc_thresh2": "8192",
+		"net.ipv4.neigh.default.gc_thresh3": "16384",
+	})
+
+	ValidateDirectoryContent(ctx, s, "/var/log/azure/aks", []string{
+		"cluster-provision.log",
+		"cluster-provision-cse-output.log",
+		"cloud-init-files.paved",
+		"vhd-install.complete",
+		//"cloud-config.txt", // file with UserData
+	})
+
+	_ = execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo curl http://168.63.129.16:32526/vmSettings", 0, "curl to wireserver failed")
+
+	execResult = execOnVMForScenarioOnUnprivilegedPod(ctx, s, "curl https://168.63.129.16/machine/?comp=goalstate -H 'x-ms-version: 2015-04-05' -s --connect-timeout 4")
+	require.Equal(s.T, "28", execResult.exitCode, "curl to wireserver should fail")
+
+	execResult = execOnVMForScenarioOnUnprivilegedPod(ctx, s, "curl http://168.63.129.16:32526/vmSettings --connect-timeout 4")
+	require.Equal(s.T, "28", execResult.exitCode, "curl to wireserver port 32526 shouldn't succeed")
+
+	// base NBC templates define a mock service principal profile that we can still use to test
+	// the correct bootstrapping logic: https://github.com/Azure/AgentBaker/blob/master/e2e/node_config.go#L438-L441
+	if hasServicePrincipalData(s) {
+		_ = execScriptOnVMForScenarioValidateExitCode(
+			ctx,
+			s,
+			`sudo test -n "$(sudo cat /etc/kubernetes/azure.json | jq -r '.aadClientId')" && sudo test -n "$(sudo cat /etc/kubernetes/azure.json | jq -r '.aadClientSecret')"`,
+			0,
+			"AAD client ID and secret should be present in /etc/kubernetes/azure.json")
+	}
+
+	ValidateLeakedSecrets(ctx, s)
+
+	// kubeletNodeIPValidator cannot be run on older VHDs with kubelet < 1.29
+	if !s.VHD.UnsupportedKubeletNodeIP {
+		ValidateKubeletNodeIP(ctx, s)
+	}
+
+	// localdns is not supported on 1804, privatekube, VHDUbuntu2204Gen2ContainerdAirgappedK8sNotCached
+	// and AzureLinuxV3OSGuard.
+	if !s.VHD.UnsupportedLocalDns {
+		ValidateLocalDNSService(ctx, s, "enabled")
+		ValidateLocalDNSResolution(ctx, s, "169.254.10.10")
+	}
+}
+
+func ValidateSystemdWatchdogForKubernetes132Plus(ctx context.Context, s *Scenario) {
+	var k8sVersion string
+	if s.Runtime.NBC != nil && s.Runtime.NBC.ContainerService != nil &&
+		s.Runtime.NBC.ContainerService.Properties != nil &&
+		s.Runtime.NBC.ContainerService.Properties.OrchestratorProfile != nil {
+		k8sVersion = s.Runtime.NBC.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion
+	} else if s.Runtime.AKSNodeConfig != nil {
+		k8sVersion = s.Runtime.AKSNodeConfig.GetKubernetesVersion()
+	}
+
+	if k8sVersion != "" && agent.IsKubernetesVersionGe(k8sVersion, "1.32.0") {
+		// Validate systemd watchdog is enabled and configured for kubelet
+		ValidateSystemdUnitIsRunning(ctx, s, "kubelet.service")
+		ValidateFileHasContent(ctx, s, "/etc/systemd/system/kubelet.service.d/10-watchdog.conf", "WatchdogSec=60s")
+		ValidateJournalctlOutput(ctx, s, "kubelet.service", "Starting systemd watchdog with interval")
+	}
+}
+
+func ValidateLeakedSecrets(ctx context.Context, s *Scenario) {
+	var secrets map[string]string
+	b64Encoded := func(val string) string {
+		return base64.StdEncoding.EncodeToString([]byte(val))
+	}
+	if s.Runtime.NBC != nil {
+		secrets = map[string]string{
+			"client private key":       b64Encoded(s.Runtime.NBC.ContainerService.Properties.CertificateProfile.ClientPrivateKey),
+			"service principal secret": b64Encoded(s.Runtime.NBC.ContainerService.Properties.ServicePrincipalProfile.Secret),
+			"bootstrap token":          *s.Runtime.NBC.KubeletClientTLSBootstrapToken,
+		}
+	} else {
+		token := s.Runtime.AKSNodeConfig.BootstrappingConfig.TlsBootstrappingToken
+		strToken := ""
+		if token != nil {
+			strToken = *token
+		}
+		secrets = map[string]string{
+			"client private key":       b64Encoded(s.Runtime.AKSNodeConfig.KubeletConfig.KubeletClientKey),
+			"service principal secret": b64Encoded(s.Runtime.AKSNodeConfig.AuthConfig.ServicePrincipalSecret),
+			"bootstrap token":          strToken,
+		}
+	}
+
+	for _, logFile := range []string{"/var/log/azure/cluster-provision.log", "/var/log/azure/aks-node-controller.log"} {
+		for _, secretValue := range secrets {
+			if secretValue != "" {
+				ValidateFileExcludesContent(ctx, s, logFile, secretValue)
 			}
 		}
 	}
-
-	return nil
 }
 
-func commonLiveVMValidators() []*LiveVMValidator {
-	return []*LiveVMValidator{
-		{
-			Description: "assert /etc/default/kubelet should not contain dynamic config dir flag",
-			Command:     "cat /etc/default/kubelet",
-			Asserter: func(code, stdout, stderr string) error {
-				if code != "0" {
-					return fmt.Errorf("validator command terminated with exit code %q but expected code 0", code)
-				}
-				if strings.Contains(stdout, "--dynamic-config-dir") {
-					return fmt.Errorf("/etc/default/kubelet should not contain kubelet flag '--dynamic-config-dir', but does")
-				}
-				return nil
-			},
-		},
-		SysctlConfigValidator(
-			map[string]string{
-				"net.ipv4.tcp_retries2":             "8",
-				"net.core.message_burst":            "80",
-				"net.core.message_cost":             "40",
-				"net.core.somaxconn":                "16384",
-				"net.ipv4.tcp_max_syn_backlog":      "16384",
-				"net.ipv4.neigh.default.gc_thresh1": "4096",
-				"net.ipv4.neigh.default.gc_thresh2": "8192",
-				"net.ipv4.neigh.default.gc_thresh3": "16384",
-			},
-		),
-		DirectoryValidator(
-			"/var/log/azure/aks",
-			[]string{
-				"cluster-provision.log",
-				"cluster-provision-cse-output.log",
-				"cloud-init-files.paved",
-				"vhd-install.complete",
-				"cloud-config.txt",
-			},
-		),
+func ValidateSSHServiceEnabled(ctx context.Context, s *Scenario) {
+	// Verify SSH service is active and running
+	ValidateSystemdUnitIsRunning(ctx, s, "ssh")
+
+	// Verify socket-based activation is disabled
+	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, "systemctl is-active ssh.socket", 3, "could not check ssh.socket status")
+	stdout := execResult.stdout.String()
+	require.Contains(s.T, stdout, "inactive", "ssh.socket should be inactive")
+
+	// Check that systemd recognizes SSH service should be active at boot
+	execResult = execScriptOnVMForScenarioValidateExitCode(ctx, s, "systemctl is-enabled ssh.service", 0, "could not check ssh.service status")
+	stdout = execResult.stdout.String()
+	require.Contains(s.T, stdout, "enabled", "ssh.service should be enabled at boot")
+}
+
+func hasServicePrincipalData(s *Scenario) bool {
+	if s.Runtime == nil {
+		return false
 	}
+	if s.Runtime.AKSNodeConfig != nil && s.Runtime.AKSNodeConfig.AuthConfig != nil {
+		return s.Runtime.AKSNodeConfig.AuthConfig.ServicePrincipalId != "" && s.Runtime.AKSNodeConfig.AuthConfig.ServicePrincipalSecret != ""
+	}
+	if s.Runtime.NBC != nil && s.Runtime.NBC.ContainerService != nil && s.Runtime.NBC.ContainerService.Properties != nil && s.Runtime.NBC.ContainerService.Properties.ServicePrincipalProfile != nil {
+		return s.Runtime.NBC.ContainerService.Properties.ServicePrincipalProfile.ClientID != "" && s.Runtime.NBC.ContainerService.Properties.ServicePrincipalProfile.Secret != ""
+	}
+	return false
 }

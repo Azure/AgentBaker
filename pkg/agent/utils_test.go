@@ -10,6 +10,7 @@ import (
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/google/go-cmp/cmp"
+	"github.com/stretchr/testify/assert"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -34,6 +35,7 @@ func TestGetKubeletConfigFileFromFlags(t *testing.T) {
 		"--enforce-node-allocatable":          "pods",
 		"--streaming-connection-idle-timeout": "4h0m0s",
 		"--rotate-certificates":               "true",
+		"--rotate-server-certificates":        "true",
 		"--read-only-port":                    "10255",
 		"--protect-kernel-defaults":           "true",
 		"--resolv-conf":                       "/etc/resolv.conf",
@@ -58,6 +60,7 @@ func TestGetKubeletConfigFileFromFlags(t *testing.T) {
 		ContainerLogMaxSizeMB: to.Int32Ptr(1000),
 		ContainerLogMaxFiles:  to.Int32Ptr(99),
 		PodMaxPids:            to.Int32Ptr(12345),
+		SeccompDefault:        to.BoolPtr(true),
 	}
 	configFileStr := GetKubeletConfigFileContent(kc, customKc)
 	diff := cmp.Diff(expectedKubeletJSON, configFileStr)
@@ -120,6 +123,7 @@ func getExampleKcWithContainerLogMaxSize() map[string]string {
 		"--enforce-node-allocatable":          "pods",
 		"--streaming-connection-idle-timeout": "4h0m0s",
 		"--rotate-certificates":               "true",
+		"--rotate-server-certificates":        "true",
 		"--read-only-port":                    "10255",
 		"--protect-kernel-defaults":           "true",
 		"--resolv-conf":                       "/etc/resolv.conf",
@@ -155,6 +159,7 @@ var expectedKubeletJSON = `{
         "TLS_RSA_WITH_AES_128_GCM_SHA256"
     ],
     "rotateCertificates": true,
+    "serverTLSBootstrap": true,
     "authentication": {
         "x509": {
             "clientCAFile": "/etc/kubernetes/certs/ca.crt"
@@ -213,7 +218,8 @@ var expectedKubeletJSON = `{
     "allowedUnsafeSysctls": [
         "kernel.msg*",
         "net.ipv4.route.min_pmtu"
-    ]
+    ],
+    "seccompDefault": true
 }`
 
 var expectedKubeletJSONWithNodeStatusReportFrequency = `{
@@ -314,6 +320,7 @@ var expectedKubeletJSONWithContainerMaxLogSizeDefaultFromFlags = `{
         "TLS_RSA_WITH_AES_128_GCM_SHA256"
     ],
     "rotateCertificates": true,
+    "serverTLSBootstrap": true,
     "authentication": {
         "x509": {
             "clientCAFile": "/etc/kubernetes/certs/ca.crt"
@@ -375,6 +382,66 @@ var expectedKubeletJSONWithContainerMaxLogSizeDefaultFromFlags = `{
     ]
 }`
 
+func TestIsKubeletServingCertificateRotationEnabled(t *testing.T) {
+	cases := []struct {
+		name     string
+		config   *datamodel.NodeBootstrappingConfiguration
+		expected bool
+	}{
+		{
+			name:     "nil NodeBootstrappingConfiguration",
+			config:   nil,
+			expected: false,
+		},
+		{
+			name: "nil KubeletConfig",
+			config: &datamodel.NodeBootstrappingConfiguration{
+				KubeletConfig: nil,
+			},
+			expected: false,
+		},
+		{
+			name: "KubeletConfig is missing the --rotate-server-certificates flag",
+			config: &datamodel.NodeBootstrappingConfiguration{
+				KubeletConfig: map[string]string{
+					"--tls-cert-file":        "cert.crt",
+					"--tls-private-key-file": "cert.key",
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "KubeletConfig has --rotate-server-certificates set to false",
+			config: &datamodel.NodeBootstrappingConfiguration{
+				KubeletConfig: map[string]string{
+					"--tls-cert-file":              "cert.crt",
+					"--tls-private-key-file":       "cert.key",
+					"--rotate-server-certificates": "false",
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "KubeletConfig has --rotate-server-certificates set to true",
+			config: &datamodel.NodeBootstrappingConfiguration{
+				KubeletConfig: map[string]string{
+					"--tls-cert-file":              "cert.crt",
+					"--tls-private-key-file":       "cert.key",
+					"--rotate-server-certificates": "true",
+				},
+			},
+			expected: true,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			actual := IsKubeletServingCertificateRotationEnabled(c.config)
+			assert.Equal(t, c.expected, actual)
+		})
+	}
+}
+
 func TestGetKubeletConfigFileFlagsWithNodeStatusReportFrequency(t *testing.T) {
 	kc := getExampleKcWithNodeStatusReportFrequency()
 	customKc := &datamodel.CustomKubeletConfig{
@@ -430,6 +497,7 @@ func TestGetKubeletConfigFileCustomKCShouldOverrideValuesPassedInKc(t *testing.T
 		ContainerLogMaxFiles:  to.Int32Ptr(99),
 		ContainerLogMaxSizeMB: to.Int32Ptr(1000),
 		PodMaxPids:            to.Int32Ptr(12345),
+		SeccompDefault:        to.BoolPtr(true),
 	}
 	configFileStr := GetKubeletConfigFileContent(kc, customKc)
 	diff := cmp.Diff(expectedKubeletJSON, configFileStr)
@@ -489,74 +557,120 @@ func TestGetTLSBootstrapTokenForKubeConfig(t *testing.T) {
 
 var _ = Describe("Test GetOrderedKubeletConfigFlagString", func() {
 	It("should return expected kubelet config when custom configuration is not set", func() {
-		cs := &datamodel.ContainerService{
-			Location:   "southcentralus",
-			Type:       "Microsoft.ContainerService/ManagedClusters",
-			Properties: &datamodel.Properties{},
+		config := &datamodel.NodeBootstrappingConfiguration{
+			KubeletConfig: map[string]string{
+				"--node-status-update-frequency": "10s",
+				"--node-status-report-frequency": "5m0s",
+				"--image-gc-high-threshold":      "85",
+				"--event-qps":                    "0",
+			},
+			ContainerService: &datamodel.ContainerService{
+				Location:   "southcentralus",
+				Type:       "Microsoft.ContainerService/ManagedClusters",
+				Properties: &datamodel.Properties{},
+			},
+			EnableKubeletConfigFile: false,
+			AgentPoolProfile:        &datamodel.AgentPoolProfile{},
 		}
-		k := map[string]string{
-			"--node-status-update-frequency": "10s",
-			"--node-status-report-frequency": "5m0s",
-			"--image-gc-high-threshold":      "85",
-			"--event-qps":                    "0",
-		}
-		ap := &datamodel.AgentPoolProfile{}
-
+		actucalStr := GetOrderedKubeletConfigFlagString(config)
 		expectStr := "--event-qps=0 --image-gc-high-threshold=85 --node-status-update-frequency=10s "
-		actucalStr := GetOrderedKubeletConfigFlagString(k, cs, ap, false)
 		Expect(expectStr).To(Equal(actucalStr))
 	})
+
 	It("should return expected kubelet config when custom configuration is set", func() {
-		cs := &datamodel.ContainerService{
-			Location: "southcentralus",
-			Type:     "Microsoft.ContainerService/ManagedClusters",
-			Properties: &datamodel.Properties{
-				CustomConfiguration: &datamodel.CustomConfiguration{
-					KubernetesConfigurations: map[string]*datamodel.ComponentConfiguration{
-						"kubelet": {
-							Config: map[string]string{
-								"--node-status-update-frequency":      "20s",
-								"--streaming-connection-idle-timeout": "4h0m0s",
+		config := &datamodel.NodeBootstrappingConfiguration{
+			KubeletConfig: map[string]string{
+				"--node-status-update-frequency": "10s",
+				"--node-status-report-frequency": "10s",
+				"--image-gc-high-threshold":      "85",
+				"--event-qps":                    "0",
+			},
+			ContainerService: &datamodel.ContainerService{
+				Location: "southcentralus",
+				Type:     "Microsoft.ContainerService/ManagedClusters",
+				Properties: &datamodel.Properties{
+					CustomConfiguration: &datamodel.CustomConfiguration{
+						KubernetesConfigurations: map[string]*datamodel.ComponentConfiguration{
+							"kubelet": {
+								Config: map[string]string{
+									"--node-status-update-frequency":      "20s",
+									"--streaming-connection-idle-timeout": "4h0m0s",
+									"--seccomp-default":                   "true",
+								},
 							},
 						},
 					},
 				},
 			},
+			EnableKubeletConfigFile: false,
+			AgentPoolProfile:        &datamodel.AgentPoolProfile{},
 		}
-		k := map[string]string{
-			"--node-status-update-frequency": "10s",
-			"--node-status-report-frequency": "10s",
-			"--image-gc-high-threshold":      "85",
-			"--event-qps":                    "0",
-		}
-		ap := &datamodel.AgentPoolProfile{}
 
-		expectStr := "--event-qps=0 --image-gc-high-threshold=85 --node-status-update-frequency=20s --streaming-connection-idle-timeout=4h0m0s "
-		actucalStr := GetOrderedKubeletConfigFlagString(k, cs, ap, false)
+		expectStr := "--event-qps=0 --image-gc-high-threshold=85 --node-status-update-frequency=20s --seccomp-default=true --streaming-connection-idle-timeout=4h0m0s "
+		actucalStr := GetOrderedKubeletConfigFlagString(config)
 		Expect(expectStr).To(Equal(actucalStr))
 	})
+
 	It("should return expected kubelet command line flags when a config file is being used", func() {
-		cs := &datamodel.ContainerService{
-			Location: "southcentralus",
-			Type:     "Microsoft.ContainerService/ManagedClusters",
-			Properties: &datamodel.Properties{
-				OrchestratorProfile: &datamodel.OrchestratorProfile{
-					OrchestratorType:    "Kubernetes",
-					OrchestratorVersion: "1.22.11",
+		config := &datamodel.NodeBootstrappingConfiguration{
+			KubeletConfig: map[string]string{
+				"--node-labels":                  "topology.kubernetes.io/region=southcentralus",
+				"--node-status-update-frequency": "10s",
+				"--node-status-report-frequency": "5m0s",
+				"--image-gc-high-threshold":      "85",
+				"--event-qps":                    "0",
+			},
+			ContainerService: &datamodel.ContainerService{
+				Location: "southcentralus",
+				Type:     "Microsoft.ContainerService/ManagedClusters",
+				Properties: &datamodel.Properties{
+					OrchestratorProfile: &datamodel.OrchestratorProfile{
+						OrchestratorType:    "Kubernetes",
+						OrchestratorVersion: "1.22.11",
+					},
+				},
+			},
+			EnableKubeletConfigFile: true,
+			AgentPoolProfile:        &datamodel.AgentPoolProfile{},
+		}
+
+		expectedStr := "--node-labels=topology.kubernetes.io/region=southcentralus "
+		actualStr := GetOrderedKubeletConfigFlagString(config)
+		Expect(expectedStr).To(Equal(actualStr))
+	})
+
+	//https://kubernetes.io/docs/tasks/administer-cluster/kubelet-config-file/#kubelet-configuration-merging-order
+	// [we are producing this -> command line flags] > drop in config file > kubelet config
+	It("should return expected kubelet command line flags when a config file is being used, following overriding rules", func() {
+		config := &datamodel.NodeBootstrappingConfiguration{
+			KubeletConfig: map[string]string{
+				"--node-labels": "topology.kubernetes.io/region=southcentralus",
+			},
+			ContainerService: &datamodel.ContainerService{
+				Location: "southcentralus",
+				Type:     "Microsoft.ContainerService/ManagedClusters",
+				Properties: &datamodel.Properties{
+					CustomConfiguration: &datamodel.CustomConfiguration{
+						KubernetesConfigurations: map[string]*datamodel.ComponentConfiguration{
+							"kubelet": {
+								Config: map[string]string{
+									"--seccomp-default": "true",
+								},
+							},
+						},
+					},
+				},
+			},
+			EnableKubeletConfigFile: true,
+			AgentPoolProfile: &datamodel.AgentPoolProfile{
+				CustomKubeletConfig: &datamodel.CustomKubeletConfig{
+					SeccompDefault: to.BoolPtr(false),
 				},
 			},
 		}
-		k := map[string]string{
-			"--node-labels":                  "topology.kubernetes.io/region=southcentralus",
-			"--node-status-update-frequency": "10s",
-			"--node-status-report-frequency": "5m0s",
-			"--image-gc-high-threshold":      "85",
-			"--event-qps":                    "0",
-		}
 
-		ap := &datamodel.AgentPoolProfile{}
-		expectedStr := "--node-labels=topology.kubernetes.io/region=southcentralus "
-		actualStr := GetOrderedKubeletConfigFlagString(k, cs, ap, true)
+		expectedStr := "--node-labels=topology.kubernetes.io/region=southcentralus --seccomp-default=true "
+		actualStr := GetOrderedKubeletConfigFlagString(config)
 		Expect(expectedStr).To(Equal(actualStr))
 	})
 })

@@ -67,11 +67,11 @@ func TestGetVersionsGt(t *testing.T) {
 	v := GetVersionsGt(versions, "1.1.0-alpha.1", false, true)
 	errStr := "GetVersionsGt returned an unexpected list of strings"
 	if len(v) != len(expected) {
-		t.Errorf(errStr)
+		t.Error(errStr)
 	}
 	for _, ver := range v {
 		if !expectedMap[ver] {
-			t.Errorf(errStr)
+			t.Error(errStr)
 		}
 	}
 
@@ -84,11 +84,11 @@ func TestGetVersionsGt(t *testing.T) {
 	}
 	v = GetVersionsGt(versions, "1.1.0", true, false)
 	if len(v) != len(expected) {
-		t.Errorf(errStr)
+		t.Error(errStr)
 	}
 	for _, ver := range v {
 		if !expectedMap[ver] {
-			t.Errorf(errStr)
+			t.Error(errStr)
 		}
 	}
 }
@@ -181,11 +181,11 @@ func TestGetVersionsLt(t *testing.T) {
 	v := GetVersionsLt(versions, "1.2.1", false, false)
 	errStr := "GetVersionsLt returned an unexpected list of strings"
 	if len(v) != len(expected) {
-		t.Errorf(errStr)
+		t.Error(errStr)
 	}
 	for _, ver := range v {
 		if !expectedMap[ver] {
-			t.Errorf(errStr)
+			t.Error(errStr)
 		}
 	}
 
@@ -198,11 +198,11 @@ func TestGetVersionsLt(t *testing.T) {
 	}
 	v = GetVersionsLt(versions, "1.2.1", true, false)
 	if len(v) != len(expected) {
-		t.Errorf(errStr)
+		t.Error(errStr)
 	}
 	for _, ver := range v {
 		if !expectedMap[ver] {
-			t.Errorf(errStr)
+			t.Error(errStr)
 		}
 	}
 }
@@ -217,11 +217,11 @@ func TestGetVersionsBetween(t *testing.T) {
 	v := GetVersionsBetween(versions, "1.1.0", "1.2.1", false, false)
 	errStr := "GetVersionsBetween returned an unexpected list of strings"
 	if len(v) != len(expected) {
-		t.Errorf(errStr)
+		t.Error(errStr)
 	}
 	for _, ver := range v {
 		if !expectedMap[ver] {
-			t.Errorf(errStr)
+			t.Error(errStr)
 		}
 	}
 
@@ -234,11 +234,11 @@ func TestGetVersionsBetween(t *testing.T) {
 	}
 	v = GetVersionsBetween(versions, "1.1.0", "1.2.1", true, false)
 	if len(v) != len(expected) {
-		t.Errorf(errStr)
+		t.Error(errStr)
 	}
 	for _, ver := range v {
 		if !expectedMap[ver] {
-			t.Errorf(errStr)
+			t.Error(errStr)
 		}
 	}
 
@@ -251,16 +251,16 @@ func TestGetVersionsBetween(t *testing.T) {
 	}
 	v = GetVersionsBetween(versions, "1.9.6", "1.11.0", false, true)
 	if len(v) != len(expected) {
-		t.Errorf(errStr)
+		t.Error(errStr)
 	}
 	for _, ver := range v {
 		if !expectedMap[ver] {
-			t.Errorf(errStr)
+			t.Error(errStr)
 		}
 	}
 	v = GetVersionsBetween(versions, "1.9.6", "1.11.0", false, false)
 	if len(v) != 0 {
-		t.Errorf(errStr)
+		t.Error(errStr)
 	}
 
 	versions = []string{"1.9.6", "1.10.0-beta.2", "1.10.0-beta.4", "1.10.0-rc.1"}
@@ -271,18 +271,18 @@ func TestGetVersionsBetween(t *testing.T) {
 	}
 	v = GetVersionsBetween(versions, "1.10.0-beta.2", "1.12.0", false, false)
 	if len(v) != len(expected) {
-		t.Errorf(errStr)
+		t.Error(errStr)
 	}
 	for _, ver := range v {
 		if !expectedMap[ver] {
-			t.Errorf(errStr)
+			t.Error(errStr)
 		}
 	}
 
 	versions = []string{"1.10.0", "1.10.0-beta.2", "1.10.0-beta.4", "1.10.0-rc.1"}
 	v = GetVersionsBetween(versions, "1.10.0", "1.12.0", false, false)
 	if len(v) != 0 {
-		t.Errorf(errStr)
+		t.Error(errStr)
 	}
 
 	versions = []string{"1.9.6", "1.10.0-beta.2", "1.10.0-beta.4", "1.10.0-rc.1"}
@@ -294,11 +294,11 @@ func TestGetVersionsBetween(t *testing.T) {
 	}
 	v = GetVersionsBetween(versions, "1.9.5", "1.12.0", false, true)
 	if len(v) != len(versions) {
-		t.Errorf(errStr)
+		t.Error(errStr)
 	}
 	for _, ver := range v {
 		if !expectedMap[ver] {
-			t.Errorf(errStr)
+			t.Error(errStr)
 		}
 	}
 
@@ -311,11 +311,11 @@ func TestGetVersionsBetween(t *testing.T) {
 	}
 	v = GetVersionsBetween(versions, "1.10.0-rc.1", "1.12.0", false, true)
 	if len(v) != len(expected) {
-		t.Errorf(errStr)
+		t.Error(errStr)
 	}
 	for _, ver := range v {
 		if !expectedMap[ver] {
-			t.Errorf(errStr)
+			t.Error(errStr)
 		}
 	}
 
@@ -326,11 +326,11 @@ func TestGetVersionsBetween(t *testing.T) {
 	}
 	v = GetVersionsBetween(versions, "1.11.0-alpha.1", "1.11.0-beta.1", false, true)
 	if len(v) != len(expected) {
-		t.Errorf(errStr)
+		t.Error(errStr)
 	}
 	for _, ver := range v {
 		if !expectedMap[ver] {
-			t.Errorf(errStr)
+			t.Error(errStr)
 		}
 	}
 
@@ -339,11 +339,11 @@ func TestGetVersionsBetween(t *testing.T) {
 	expectedMap = map[string]bool{}
 	v = GetVersionsBetween(versions, "1.11.0-beta.1", "1.12.0", false, true)
 	if len(v) != len(expected) {
-		t.Errorf(errStr)
+		t.Error(errStr)
 	}
 	for _, ver := range v {
 		if !expectedMap[ver] {
-			t.Errorf(errStr)
+			t.Error(errStr)
 		}
 	}
 }
@@ -474,13 +474,13 @@ func TestGetMinMaxVersion(t *testing.T) {
 		c := c
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
-			min := GetMinVersion(c.versions, c.preRelease)
-			if min != c.expectedMin {
-				t.Errorf("GetMinVersion returned the wrong min version, expected %s, got %s", c.expectedMin, min)
+			minVersion := GetMinVersion(c.versions, c.preRelease)
+			if minVersion != c.expectedMin {
+				t.Errorf("GetMinVersion returned the wrong min version, expected %s, got %s", c.expectedMin, minVersion)
 			}
-			max := GetMaxVersion(c.versions, c.preRelease)
-			if max != c.expectedMax {
-				t.Errorf("GetMaxVersion returned the wrong max version, expected %s, got %s", c.expectedMax, max)
+			maxVersion := GetMaxVersion(c.versions, c.preRelease)
+			if maxVersion != c.expectedMax {
+				t.Errorf("GetMaxVersion returned the wrong max version, expected %s, got %s", c.expectedMax, maxVersion)
 			}
 		})
 	}

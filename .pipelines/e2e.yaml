@@ -1,24 +1,41 @@
 name: $(Date:yyyyMMdd)$(Rev:.r)
-trigger: 
+variables:
+  TAGS_TO_SKIP: "os=windows"
+  SKIP_E2E_TESTS: false
+trigger:
   branches:
-    include: 
-    - master
+    include:
+      - master
+      - dev
 pr:
   branches:
     include:
       - master
       - official/*
+      - windows/*
+      - dev
   paths:
     include:
       - .pipelines/e2e.yaml
       - .pipelines/templates/e2e-template.yaml
+      - .pipelines/scripts/e2e_run.sh
       - e2e
       - parts/linux
+      - parts/common/components.json
       - pkg/agent
+      - go.mod
+      - go.sum
     exclude:
-      - e2e/windows
       - pkg/agent/datamodel/sig_config*.go # SIG config changes
       - pkg/agent/datamodel/*.json # SIG version changes
       - pkg/agent/testdata/AKSWindows* # Windows test data
+      - parts/common/components.json # centralized components management file
+      - staging/cse/windows/README
+      - /**/*.md
+      - e2e/scenario_win_test.go
+
 jobs:
   - template: ./templates/e2e-template.yaml
+    parameters:
+      name: Linux Tests
+      IgnoreScenariosWithMissingVhd: false

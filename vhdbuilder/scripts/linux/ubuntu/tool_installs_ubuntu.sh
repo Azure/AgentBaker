@@ -2,7 +2,7 @@
 {{/* FIPS-related error codes */}}
 ERR_UA_TOOLS_INSTALL_TIMEOUT=180 {{/* Timeout waiting for ubuntu-advantage-tools install */}}
 ERR_ADD_UA_APT_REPO=181 {{/* Error to add UA apt repository */}}
-ERR_AUTO_UA_ATTACH=182 {{/* Error to auto UA attach */}}
+ERR_UA_ATTACH=182 {{/* Error attaching UA */}}
 ERR_UA_DISABLE_LIVEPATCH=183 {{/* Error to disable UA livepatch */}}
 ERR_UA_ENABLE_FIPS=184 {{/* Error to enable UA FIPS */}}
 ERR_UA_DETACH=185 {{/* Error to detach UA */}}
@@ -19,39 +19,24 @@ ERR_CHRONY_START_TIMEOUT=15 {{/* Unable to start CHRONY */}}
 
 echo "Sourcing tool_installs_ubuntu.sh"
 
-installAscBaseline() {
-   echo "Installing ASC Baseline tools..."
-   ASC_BASELINE_TMP=/home/packer/asc-baseline.deb
-   retrycmd_if_failure_no_stats 120 5 25 dpkg -i $ASC_BASELINE_TMP || exit $ERR_APT_INSTALL_TIMEOUT
-   sudo cp /opt/microsoft/asc-baseline/baselines/*.xml /opt/microsoft/asc-baseline/
-   cd /opt/microsoft/asc-baseline
-   sudo ./ascbaseline -d .
-   sudo ./ascremediate -d . -m all
-   sudo ./ascbaseline -d . | grep -B2 -A6 "FAIL"
-   cd -
-   echo "Check UDF"
-   cat /etc/modprobe.d/*.conf | grep udf
-   echo "Finished Setting up ASC Baseline"
-}
-
 installBcc() {
     echo "Installing BCC tools..."
     wait_for_apt_locks
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
     VERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
-    if [[ "${VERSION}" == "22.04" || "${VERSION}" == "24.04" ]]; then
+    if [ "${VERSION}" = "22.04" ] || [ "${VERSION}" = "24.04" ]; then
         apt_get_install 120 5 300 build-essential git bison cmake flex libedit-dev libllvm14 llvm-14-dev libclang-14-dev python3 zlib1g-dev libelf-dev libfl-dev || exit $ERR_BCC_INSTALL_TIMEOUT
     else
         apt_get_install 120 5 300 build-essential git bison cmake flex libedit-dev libllvm6.0 llvm-6.0-dev libclang-6.0-dev python zlib1g-dev libelf-dev python3-distutils libfl-dev || exit $ERR_BCC_INSTALL_TIMEOUT
     fi
 
     # Installing it separately here because python3-distutils is not present in the Ubuntu packages for 24.04
-    if [[ "${VERSION}" == "22.04" ]]; then
+    if [ "${VERSION}" = "22.04" ]; then
       apt_get_install 120 5 300 python3-distutils || exit $ERR_BCC_INSTALL_TIMEOUT
     fi
 
     # libPolly.a is needed for the make target that runs later, which is not present in the default patch version of llvm-14 that is downloaded for 24.04
-    if [[ "${VERSION}" == "24.04" ]]; then
+    if [ "${VERSION}" = "24.04" ]; then
       apt_get_install 120 5 300 libpolly-14-dev || exit $ERR_BCC_INSTALL_TIMEOUT
     fi
 
@@ -60,7 +45,7 @@ installBcc() {
     git clone https://github.com/iovisor/bcc.git
     mkdir bcc/build; cd bcc/build
 
-    if [[ "${VERSION}" == "18.04" ]]; then
+    if [ "${VERSION}" = "18.04" ]; then
       git checkout v0.24.0
     else
       # v0.24.0 is not supported for kernels 6.x and there are some python packages not available in 18.04 repository that are needed to build v0.24.0
@@ -68,7 +53,7 @@ installBcc() {
       git checkout v0.29.0
     fi
 
-    cmake .. || exit 1
+    cmake -DENABLE_EXAMPLES=off .. || exit 1
     make
     sudo make install || exit 1
     cmake -DPYTHON_CMD=python3 .. || exit 1 # build python3 binding 
@@ -77,19 +62,21 @@ installBcc() {
     sudo make install || exit 1
     popd
     popd
-    # we explicitly do not remove build-essential or git
+    # we explicitly do not remove build-essential or python
     # these are standard packages we want to keep, they should usually be in the final build anyway.
     # only ensuring they are installed above.
-    if [[ "${VERSION}" == "22.04" || "${VERSION}" == "24.04" ]]; then
+    if [ "${VERSION}" = "22.04" ] || [ "${VERSION}" = "24.04" ]; then
         apt_get_purge 120 5 300 bison cmake flex libedit-dev libllvm14 llvm-14-dev libclang-14-dev zlib1g-dev libelf-dev libfl-dev || exit $ERR_BCC_INSTALL_TIMEOUT
     else
-        apt_get_purge 120 5 300 bison cmake flex libedit-dev libllvm6.0 llvm-6.0-dev libclang-6.0-dev zlib1g-dev libelf-dev libfl-dev || exit $ERR_BCC_INSTALL_TIMEOUT
+        apt_get_purge 120 5 300 git bison cmake flex libedit-dev libllvm6.0 llvm-6.0-dev libclang-6.0-dev zlib1g-dev libelf-dev libfl-dev || exit $ERR_BCC_INSTALL_TIMEOUT
     fi
 
     # libPolly.a is needed for the make target that runs later, which is not present in the default patch version of llvm-14 that is downloaded for 24.04
-    if [[ "${VERSION}" == "24.04" ]]; then
+    if [ "${VERSION}" = "24.04" ]; then
       apt_get_purge 120 5 300 libpolly-14-dev || exit $ERR_BCC_INSTALL_TIMEOUT
     fi
+
+    rm -rf /tmp/bcc
 }
 
 installBpftrace() {
@@ -99,23 +86,23 @@ installBpftrace() {
     local bpftrace_url="https://upstreamartifacts.azureedge.net/$bpftrace_bin/$version"
     local bpftrace_filepath="/usr/local/bin/$bpftrace_bin"
     local tools_filepath="/usr/local/share/$bpftrace_bin"
-    if [[ $(isARM64) == 1 ]]; then
+    if [ "$(isARM64)" -eq 1 ]; then
         # install bpftrace tool using default bpftrace apt package
         # the binary at "$bpftrace_url/$bpftrace_bin" is not for arm64
-        if [[ ! -f "/usr/sbin/bpftrace" ]]; then
+        if [ ! -f "/usr/sbin/bpftrace" ]; then
             apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
             apt_get_install 120 5 300 bpftrace || exit $ERR_BPFTRACE_TOOLS_INSTALL_TIMEOUT
         fi
         return
     fi
 
-    if [[ -f "$bpftrace_filepath" ]]; then
+    if [ -f "$bpftrace_filepath" ]; then
         installed_version="$($bpftrace_bin -V | cut -d' ' -f2)"
-        if [[ "$version" == "$installed_version" ]]; then
+        if [ "$version" = "$installed_version" ]; then
             return
         fi
         rm "$bpftrace_filepath"
-        if [[ -d "$tools_filepath" ]]; then
+        if [ -d "$tools_filepath" ]; then
             rm -r  "$tools_filepath"
         fi
     fi
@@ -133,7 +120,7 @@ installBpftrace() {
 disableNtpAndTimesyncdInstallChrony() {
     # Disable systemd-timesyncd if present
     status=$(systemctl show -p SubState --value systemd-timesyncd)
-    if [ $status == 'dead' ]; then
+    if [ "$status" = 'dead' ]; then
         echo "systemd-timesyncd is removed, no need to disable"
     else
         systemctl_stop 20 30 120 systemd-timesyncd || exit $ERR_STOP_OR_DISABLE_SYSTEMD_TIMESYNCD_TIMEOUT
@@ -142,7 +129,7 @@ disableNtpAndTimesyncdInstallChrony() {
     
     # Disable ntp if present
     status=$(systemctl show -p SubState --value ntp)
-    if [ $status == 'dead' ]; then
+    if [ "$status" = 'dead' ]; then
         echo "ntp is removed, no need to disable"
     else
         systemctl_stop 20 30 120 ntp || exit $ERR_STOP_OR_DISABLE_NTP_TIMEOUT
@@ -200,7 +187,7 @@ refclock PHC /dev/ptp0 poll 3 dpoll -2 offset 0
 makestep 1.0 -1
 EOF
 
-    systemctlEnableAndStart chrony || exit $ERR_CHRONY_START_TIMEOUT
+    systemctlEnableAndStart chrony 30 || exit $ERR_CHRONY_START_TIMEOUT
 }
 
 installFIPS() {
@@ -212,7 +199,7 @@ installFIPS() {
     linuxImages=$(apt list --installed | grep linux-image- | grep azure | cut -d '/' -f 1)
     for image in $linuxImages; do
         echo "Removing non-fips kernel ${image}..."
-        if [[ ${image} != "linux-image-$(uname -r)" ]]; then
+        if [ "${image}" != "linux-image-$(uname -r)" ]; then
             apt_get_purge 5 10 120 ${image} || exit 1
         fi
     done
@@ -225,6 +212,7 @@ relinkResolvConf() {
     # /run/systemd/resolve/stub-resolv.conf contains local nameserver 127.0.0.53
     # remove this block after toggle disable-1804-systemd-resolved is enabled prod wide
     resolvconf=$(readlink -f /etc/resolv.conf)
+    # shellcheck disable=SC3010
     if [[ "${resolvconf}" == */run/systemd/resolve/stub-resolv.conf ]]; then
         unlink /etc/resolv.conf
         ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf
@@ -235,9 +223,9 @@ listInstalledPackages() {
     apt list --installed
 }
 
-autoAttachUA() {
-    echo "auto attaching ua..."
-    retrycmd_if_failure 5 10 120 ua auto-attach || exit $ERR_AUTO_UA_ATTACH
+attachUA() {
+    echo "attaching ua..."
+    retrycmd_silent 5 10 1000 ua attach $UA_TOKEN || exit $ERR_UA_ATTACH
 
     echo "disabling ua livepatch..."
     retrycmd_if_failure 5 10 300 echo y | ua disable livepatch

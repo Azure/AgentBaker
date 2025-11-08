@@ -1,0 +1,49 @@
+syntax = "proto3";
+package aksnodeconfig.v1;
+
+option go_package = "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1;aksnodeconfigv1";
+
+enum BootstrappingAuthMethod {
+  BOOTSTRAPPING_AUTH_METHOD_UNSPECIFIED = 0;
+
+  // This is the default K8s bootstrap authentication method - a time limited bootstrap token. It's stored as a secret
+  // with a particular type in the API server.
+  //nolint:gosec // this is a const string to use in switch statements, not hardcoded credentials
+  BOOTSTRAPPING_AUTH_METHOD_BOOTSTRAP_TOKEN = 1;
+  // Secure TLS bootstrapping is a process where the node can use signed metadata from the Azure IMDS service to authenticate
+  // against the api server
+  BOOTSTRAPPING_AUTH_METHOD_SECURE_TLS_BOOTSTRAPPING = 2;
+  // Nodes running outside Azure can use the Azure Arc MSI to authenticate to an API server. This only works when the cluster is
+  //  using AAD authentication.
+  BOOTSTRAPPING_AUTH_METHOD_ARC_MSI = 3;
+  // Nodes running inside Azure can use the Azure Arc MSI to authenticate to an API server. This only works when the cluster is
+  // using AAD authentication.
+  BOOTSTRAPPING_AUTH_METHOD_AZURE_MSI = 4;
+}
+
+enum ClusterJoinMethod {
+  CLUSTER_JOIN_METHOD_UNSPECIFIED = 0;
+
+  // The default behaviour is for the node to make a certificate signing request (CSR) and then
+  // use that CSR for ongoing communication.
+  CLUSTER_JOIN_METHOD_GENERATE_CSR = 1;
+  // In some cases, the node will use the bootstrapping auth to register itself as a node and for ongoing communications.
+  CLUSTER_JOIN_METHOD_USE_BOOTSTRAPPING_AUTH = 2;
+}
+
+message BootstrappingConfig {
+  // Method to authenticate the node to the API server
+  BootstrappingAuthMethod bootstrapping_auth_method = 1;
+
+  // how the node should join and communicate with the API server after authentication
+  ClusterJoinMethod cluster_join_method = 2;
+
+  // Only required until Secure TLS bootstrapping in place. Would use kubelet identity after that.
+  optional string tls_bootstrapping_token = 3;
+
+  // Only used when secure TLS bootstrapping is enabled or one of the Azure/Arc methods. This is the appserver appid that the node will use to bootstrap.
+  optional string custom_aad_resource = 4;
+
+  // Only used when one of the Azure/Arc methods is enabled. This is the client ID of the MSI that the node will use to bootstrap.
+  optional string custom_aad_client_id = 5;
+}

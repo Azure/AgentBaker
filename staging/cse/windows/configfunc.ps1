@@ -89,7 +89,7 @@ function Adjust-DynamicPortRange()
     # The fix which reduces dynamic port usage is still needed for DSR mode
     # Update the range to avoid that it conflicts with NodePort range (30000 - 32767)
     if ($global:EnableIncreaseDynamicPortRange) {
-        # UDP port 65330 is excluded in vhdbuilder/packer/configure-windows-vhd.ps1 since it may fail when it is set in provisioning nodes
+        # UDP port 65330 is excluded in vhdbuilder/packer/windows/configure-windows-vhd.ps1 since it may fail when it is set in provisioning nodes
         Invoke-Executable -Executable "netsh.exe" -ArgList @("int", "ipv4", "set", "dynamicportrange", "tcp", "16385", "49151") -ExitCode $global:WINDOWS_CSE_ERROR_SET_TCP_DYNAMIC_PORT_RANGE
         Invoke-Executable -Executable "netsh.exe" -ArgList @("int", "ipv4", "add", "excludedportrange", "tcp", "30000", "2768") -ExitCode $global:WINDOWS_CSE_ERROR_SET_TCP_EXCLUDE_PORT_RANGE
         Invoke-Executable -Executable "netsh.exe" -ArgList @("int", "ipv4", "set", "dynamicportrange", "udp", "16385", "49151") -ExitCode $global:WINDOWS_CSE_ERROR_SET_UDP_DYNAMIC_PORT_RANGE
@@ -207,10 +207,7 @@ function Install-GmsaPlugin {
 
     Write-Log "Getting the GMSA plugin package"
     DownloadFileOverHttp -Url $GmsaPackageUrl -DestinationPath $tempPluginZipFile -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_GMSA_PACKAGE
-    Expand-Archive -Path $tempPluginZipFile -DestinationPath $tempInstallPackageFoler -Force
-    if ($LASTEXITCODE) {
-        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GMSA_EXPAND_ARCHIVE -ErrorMessage "Failed to extract the '$tempPluginZipFile' archive."
-    }
+    AKS-Expand-Archive -Path $tempPluginZipFile -DestinationPath $tempInstallPackageFoler
     Remove-Item -Path $tempPluginZipFile -Force
 
     # Copy the plugin DLL file.
@@ -460,6 +457,9 @@ function Install-CredentialProvider {
         $credentialproviderbinaryPackage = "$tempDir\credentialprovider.tar.gz"
         DownloadFileOverHttp -Url $global:CredentialProviderURL -DestinationPath $credentialproviderbinaryPackage -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CREDEDNTIAL_PROVIDER
         tar -xzf $credentialproviderbinaryPackage -C $tempDir
+        if ($LASTEXITCODE -ne 0) {
+            throw "Failed to extract the '$credentialproviderbinaryPackage' archive."
+        }
         Create-Directory -FullPath $global:credentialProviderBinDir
         cp "$tempDir\azure-acr-credential-provider.exe" "$global:credentialProviderBinDir\acr-credential-provider.exe"
         # acr-credential-provider.exe cannot be found by kubelet through provider name before the fix https://github.com/kubernetes/kubernetes/pull/120291
@@ -487,6 +487,10 @@ function New-CsiProxyService {
     DownloadFileOverHttp -Url $CsiProxyPackageUrl -DestinationPath $binaryPackage -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CSI_PROXY_PACKAGE
 
     tar -xzf $binaryPackage -C $tempdir
+    if ($LASTEXITCODE -ne 0) {
+        throw "Failed to extract the '$binaryPackage' archive."
+    }
+
     cp "$tempdir\bin\csi-proxy.exe" "$KubeDir\csi-proxy.exe"
 
     del $tempdir -Recurse

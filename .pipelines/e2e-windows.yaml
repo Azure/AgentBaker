@@ -1,146 +1,51 @@
-name: $(Date:yyyyMMdd)$(Rev:.r)_e2e
-trigger: none
+name: $(Date:yyyyMMdd)$(Rev:.r)
+variables:
+  TAGS_TO_RUN: "os=windows"
+  SKIP_E2E_TESTS: false
+  # if SIG_FOR_PRODUCTION is true, then the VHDs are deleted from the gallery before the e2e tests are run.
+  SIG_FOR_PRODUCTION: False
+
+trigger:
+  branches:
+    include:
+      - master
+      - dev
+    
 pr:
   branches:
     include:
-    - master
-    - 'official/*'
+      - master
+      - official/*
+      - windows/*
+      - dev
   paths:
     include:
-    - .pipelines/e2e-windows.yaml
-    - .pipelines/templates/e2e-windows-template.yaml
-    - 'e2e/windows/*'
-    - 'parts/windows/*'
-    - 'staging/cse/windows/*'
+      - .pipelines/e2e-windows.yaml
+      - .pipelines/templates/e2e-template.yaml
+      - .pipelines/scripts/e2e_run.sh
+      - .pipelines/scripts/e2e_delete_vmss.sh
+      - e2e
+      - parts/windows
+      - pkg/agent
+      - parts/common/components.json
+      - staging/cse/windows/
+      - go.mod
+      - go.sum
     exclude:
-    - staging/cse/windows/README
+      - pkg/agent/datamodel/sig_config*.go # SIG config changes
+      - pkg/agent/datamodel/*.json # SIG version changes
+      - pkg/agent/testdata/*Ubuntu* # Linux test data
+      - pkg/agent/testdata/*Flatcar* # Linux test data
+      - pkg/agent/testdata/*Mariner* # Linux test data
+      - pkg/agent/testdata/*AzureLinux* # Linux test data
+      - parts/common/components.json # centralized components management file
+      - staging/cse/windows/README
+      - /**/*.md
+      - .github/**
+      - e2e/scenario_test.go
 
-# Use variable group "ab-windows-ms-tenant" and link it to the pipeline "Agentbaker Windows E2E"
-
-pool:
-  # uncomment this if the auto teardown pool is down.
-  # vmImage: ubuntu-22.04
-  name: $(AZURE_POOL_NAME)
-
-parameters:
-- name: test2019containerd
-  displayName: Test 2019 containerd
-  type: boolean
-  default: True
-- name: test2022containerd
-  displayName: Test 2022 containerd
-  type: boolean
-  default: True
-- name: test2022containerdgen2
-  displayName: Test 2022 containerd Gen 2
-  type: boolean
-  default: True
-- name: test2022containerdgen2gpugrid
-  displayName: Test 2022 containerd Gen 2 GPU Grid
-  type: boolean
-  default: True
-- name: test2022containerdgpucuda
-  displayName: Test 2022 containerd GPU Cuda
-  type: boolean
-  default: True
-- name: test23H2
-  displayName: Test 23H2
-  type: boolean
-  default: False
-- name: test23H2gen2
-  displayName: Test 23H2 Gen 2
-  type: boolean
-  default: False
-- name: windowsGen2VMSize
-  type: string
-  default: Standard_D2s_v3
-- name: windowsGen1VMSize
-  type: string
-  default: Standard_D2_v2
-
-stages:
-- stage: test_2019_containerd
-  dependsOn: []
-  condition: eq('${{ parameters.test2019containerd }}', True)
-  jobs:
-  - template: ./templates/e2e-windows-template.yaml
+jobs:
+  - template: ./templates/e2e-template.yaml
     parameters:
-      windowsImage: 2019-containerd
-      windowsOSSKU: Windows2019
-      windowsVMSize: ${{ parameters.windowsGen1VMSize }}
-      windowsDistro: aks-windows-2019-containerd
-      storageAccount: akswinstore2019
-
-- stage: test_2022_containerd
-  dependsOn: []
-  condition: eq('${{ parameters.test2022containerd }}', True)
-  jobs:
-  - template: ./templates/e2e-windows-template.yaml
-    parameters:
-      windowsImage: 2022-containerd
-      windowsOSSKU: Windows2022
-      windowsVMSize: ${{ parameters.windowsGen1VMSize }}
-      windowsDistro: aks-windows-2022-containerd
-      storageAccount: akswinstore2022
-
-- stage: test_2022_containerd_gen2
-  dependsOn: []
-  condition: eq('${{ parameters.test2022containerdgen2 }}', True)
-  jobs:
-  - template: ./templates/e2e-windows-template.yaml
-    parameters:
-      windowsImage: 2022-containerd-gen2
-      windowsOSSKU: Windows2022
-      windowsVMSize: ${{ parameters.windowsGen2VMSize }}
-      windowsDistro: aks-windows-2022-containerd-gen2
-      storageAccount: akswinstore2022gen2
-
-- stage: test_2022_containerd_gen2_gpu_grid
-  dependsOn: []
-  condition: eq('${{ parameters.test2022containerdgen2gpugrid }}', True)
-  jobs:
-  - template: ./templates/e2e-windows-template.yaml
-    parameters:
-      windowsImage: 2022-containerd-gen2
-      windowsOSSKU: Windows2022
-      windowsVMSize: ${WINDOWS_GEN2_VM_SIZE}
-      windowsDistro: aks-windows-2022-containerd-gen2
-      windowsGpuDriverSuffix: -grid
-      storageAccount: akswinstore2022gen2grid
-
-- stage: test_2022_containerd_gpu_cuda
-  dependsOn: []
-  condition: eq('${{ parameters.test2022containerdgpucuda }}', True)
-  jobs:
-  - template: ./templates/e2e-windows-template.yaml
-    parameters:
-      windowsImage: 2022-containerd
-      windowsOSSKU: Windows2022
-      windowsVMSize: ${WINDOWS_GEN1_VM_SIZE}
-      windowsDistro: aks-windows-2022-containerd
-      windowsGpuDriverSuffix: -cuda
-      storageAccount: akswinstore2022cuda
-      
-- stage: test_23H2
-  dependsOn: []
-  condition: eq('${{ parameters.test23H2 }}', True)
-  jobs:
-  - template: ./templates/e2e-windows-template.yaml
-    parameters:
-      windowsImage: 23H2
-      windowsOSSKU: WindowsAnnual
-      windowsVMSize: ${{ parameters.windowsGen1VMSize }}
-      windowsDistro: aks-windows-23H2
-      storageAccount: akswinstore23H2
-
-- stage: test_23H2_gen2
-  dependsOn: []
-  condition: eq('${{ parameters.test23H2gen2 }}', True)
-  jobs:
-  - template: ./templates/e2e-windows-template.yaml
-    parameters:
-      windowsImage: 23H2-gen2
-      windowsOSSKU: WindowsAnnual
-      windowsVMSize: ${{ parameters.windowsGen2VMSize }}
-      windowsDistro: aks-windows-23H2-gen2
-      storageAccount: akswinstore23H2gen2
+      name: Windows Tests
+      IgnoreScenariosWithMissingVhd: false

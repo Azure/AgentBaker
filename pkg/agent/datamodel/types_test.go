@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/Azure/go-autorest/autorest/to"
+	"github.com/stretchr/testify/assert"
 )
 
 const (
@@ -40,15 +41,14 @@ func TestHasAadProfile(t *testing.T) {
 }
 
 func TestGetCustomEnvironmentJSON(t *testing.T) {
-	properities := getMockProperitesWithCustomClouEnv()
+	properties := getMockProperitesWithCustomClouEnv()
 	expectedRet := `{"name":"AzureStackCloud","Name":"AzureStackCloud","mcrURL":"mcr.microsoft.fakecustomcloud","repoDepotEndpoint":"https://repodepot.azure.microsoft.fakecustomcloud/ubuntu","managementPortalURL":"https://portal.azure.microsoft.fakecustomcloud/","serviceManagementEndpoint":"https://management.core.microsoft.fakecustomcloud/","resourceManagerEndpoint":"https://management.azure.microsoft.fakecustomcloud/","activeDirectoryEndpoint":"https://login.microsoftonline.microsoft.fakecustomcloud/","keyVaultEndpoint":"https://vault.cloudapi.microsoft.fakecustomcloud/","graphEndpoint":"https://graph.cloudapi.microsoft.fakecustomcloud/","storageEndpointSuffix":"core.microsoft.fakecustomcloud","sqlDatabaseDNSSuffix":"database.cloudapi.microsoft.fakecustomcloud","keyVaultDNSSuffix":"vault.cloudapi.microsoft.fakecustomcloud","resourceManagerVMDNSSuffix":"cloudapp.azure.microsoft.fakecustomcloud/","containerRegistryDNSSuffix":".azurecr.microsoft.fakecustomcloud","cosmosDBDNSSuffix":"documents.core.microsoft.fakecustomcloud/","tokenAudience":"https://management.core.microsoft.fakecustomcloud/","resourceIdentifiers":{}}` //nolint: lll
-	actual, err := properities.GetCustomEnvironmentJSON(false)
+	actual, err := properties.GetCustomEnvironmentJSON(false)
 	if err != nil {
 		t.Error(err)
 	}
-	if expectedRet != actual {
-		t.Errorf("Expected GetCustomEnvironmentJSON() to return %s, but got %s . ", expectedRet, actual)
-	}
+
+	assert.JSONEq(t, expectedRet, actual)
 }
 
 func TestPropertiesIsIPMasqAgentDisabled(t *testing.T) {
@@ -660,6 +660,79 @@ func TestGetSubnetName(t *testing.T) {
 	}
 }
 
+func TestIsNextGenNetworkingEnabled(t *testing.T) {
+	tests := []struct {
+		name     string
+		profile  *AgentPoolWindowsProfile
+		expected bool
+	}{
+		{
+			name: "NextGenNetworkingEnabled is true",
+			profile: &AgentPoolWindowsProfile{
+				NextGenNetworkingEnabled: to.BoolPtr(true),
+			},
+			expected: true,
+		},
+		{
+			name: "NextGenNetworkingEnabled is false",
+			profile: &AgentPoolWindowsProfile{
+				NextGenNetworkingEnabled: to.BoolPtr(false),
+			},
+			expected: false,
+		},
+		{
+			name:     "NextGenNetworkingEnabled is nil",
+			profile:  &AgentPoolWindowsProfile{},
+			expected: false,
+		},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			actual := test.profile.IsNextGenNetworkingEnabled()
+
+			if actual != test.expected {
+				t.Errorf("expected %t, but got %t", test.expected, actual)
+			}
+		})
+	}
+}
+
+func TestGetNextGenNetworkingConfig(t *testing.T) {
+	tests := []struct {
+		name     string
+		profile  *AgentPoolWindowsProfile
+		expected string
+	}{
+		{
+			name: "NextGenNetworkingConfig is set",
+			profile: &AgentPoolWindowsProfile{
+				NextGenNetworkingConfig: to.StringPtr("config"),
+			},
+			expected: "config",
+		},
+		{
+			name:     "NextGenNetworkingConfig is nil",
+			profile:  &AgentPoolWindowsProfile{},
+			expected: "",
+		},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			actual := test.profile.GetNextGenNetworkingConfig()
+
+			if actual != test.expected {
+				t.Errorf("expected %q, but got %q", test.expected, actual)
+			}
+		})
+	}
+}
+
 func TestGetRouteTableName(t *testing.T) {
 	p := &Properties{
 		OrchestratorProfile: &OrchestratorProfile{
@@ -995,6 +1068,20 @@ func TestAgentPoolProfileIs2404VHDDistro(t *testing.T) {
 			},
 			expected: false,
 		},
+		{
+			name: "Ubuntu 2404 CVM VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSUbuntuContainerd2404CVMGen2,
+			},
+			expected: true,
+		},
+		{
+			name: "24.04 Gen2 TL VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSUbuntuContainerd2404TLGen2,
+			},
+			expected: true,
+		},
 	}
 
 	for _, c := range cases {
@@ -1022,9 +1109,23 @@ func TestAgentPoolProfileIsAzureLinuxCgroupV2VHDDistro(t *testing.T) {
 			expected: true,
 		},
 		{
+			name: "Azure Linux V3 Gen1 VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSAzureLinuxV3,
+			},
+			expected: true,
+		},
+		{
 			name: "Azure Linux V2 Gen2 VHD distro",
 			ap: AgentPoolProfile{
 				Distro: AKSAzureLinuxV2Gen2,
+			},
+			expected: true,
+		},
+		{
+			name: "Azure Linux V3 Gen2 VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSAzureLinuxV3Gen2,
 			},
 			expected: true,
 		},
@@ -1036,9 +1137,23 @@ func TestAgentPoolProfileIsAzureLinuxCgroupV2VHDDistro(t *testing.T) {
 			expected: true,
 		},
 		{
+			name: "Azure Linux V3 Gen2 ARM64 VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSAzureLinuxV3Arm64Gen2,
+			},
+			expected: true,
+		},
+		{
 			name: "Azure Linux V2 Gen1 FIPS VHD distro",
 			ap: AgentPoolProfile{
 				Distro: AKSAzureLinuxV2FIPS,
+			},
+			expected: true,
+		},
+		{
+			name: "Azure Linux V3 Gen1 FIPS VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSAzureLinuxV3FIPS,
 			},
 			expected: true,
 		},
@@ -1050,6 +1165,13 @@ func TestAgentPoolProfileIsAzureLinuxCgroupV2VHDDistro(t *testing.T) {
 			expected: true,
 		},
 		{
+			name: "Azure Linux V3 Gen2 FIPS VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSAzureLinuxV3Gen2FIPS,
+			},
+			expected: true,
+		},
+		{
 			name: "Azure Linux V2 Gen2 TrustedLaunch VHD distro",
 			ap: AgentPoolProfile{
 				Distro: AKSAzureLinuxV2Gen2TL,
@@ -1057,9 +1179,23 @@ func TestAgentPoolProfileIsAzureLinuxCgroupV2VHDDistro(t *testing.T) {
 			expected: true,
 		},
 		{
+			name: "Azure Linux V3 Gen2 TrustedLaunch VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSAzureLinuxV3Gen2TL,
+			},
+			expected: true,
+		},
+		{
 			name: "Azure Linux V2 Gen2 Kata VHD distro",
 			ap: AgentPoolProfile{
 				Distro: AKSAzureLinuxV2Gen2Kata,
+			},
+			expected: true,
+		},
+		{
+			name: "Azure Linux V3 Gen2 Kata VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSAzureLinuxV3Gen2Kata,
 			},
 			expected: true,
 		},
@@ -1098,6 +1234,20 @@ func TestAgentPoolProfileIsAzureLinuxCgroupV2VHDDistro(t *testing.T) {
 			},
 			expected: false,
 		},
+		{
+			name: "Azure Linux V3 Arm64 + FIPS VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSAzureLinuxV3Arm64Gen2FIPS,
+			},
+			expected: true,
+		},
+		{
+			name: "Azure Linux V3 Gen2 CVM VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSAzureLinuxV3CVMGen2,
+			},
+			expected: true,
+		},
 	}
 
 	for _, c := range cases {
@@ -1107,6 +1257,107 @@ func TestAgentPoolProfileIsAzureLinuxCgroupV2VHDDistro(t *testing.T) {
 			if c.expected != c.ap.IsAzureLinuxCgroupV2VHDDistro() {
 				t.Fatalf("Got unexpected AgentPoolProfile.IsAzureLinuxCgroupV2VHDDistro() result. Expected: %t. Got: %t.",
 					c.expected, c.ap.IsAzureLinuxCgroupV2VHDDistro())
+			}
+		})
+	}
+}
+func TestAgentPoolProfileIsFlatcarVHDDistro(t *testing.T) {
+	cases := []struct {
+		name     string
+		ap       AgentPoolProfile
+		expected bool
+	}{
+		{
+			name: "flatcar VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSFlatcarGen2,
+			},
+			expected: true,
+		},
+		{
+			name: "flatcar arm64 VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSFlatcarArm64Gen2,
+			},
+			expected: true,
+		},
+		{
+			name: "ubuntu distro",
+			ap: AgentPoolProfile{
+				Distro: Ubuntu,
+			},
+			expected: false,
+		},
+	}
+
+	for _, c := range cases {
+		c := c
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			isFlatcar := c.ap.IsFlatcar()
+			if c.expected != isFlatcar {
+				t.Fatalf("Got unexpected AgentPoolProfile.IsFlatcar() result for %s. Expected: %t. Got: %t.", c.ap.Distro, c.expected, isFlatcar)
+			}
+		})
+	}
+}
+
+func TestFlatcarAndCustomDistro(t *testing.T) {
+	cases := []struct {
+		name     string
+		nbc      NodeBootstrappingConfiguration
+		expected bool
+	}{
+		{
+			name: "flatcar OSSKU with custom distro",
+			nbc: NodeBootstrappingConfiguration{
+				ContainerService: &ContainerService{
+					Properties: &Properties{
+						AgentPoolProfiles: []*AgentPoolProfile{
+							{
+								Distro: CustomizedImage,
+							},
+						},
+					},
+				},
+				AgentPoolProfile: &AgentPoolProfile{
+					Distro: CustomizedImage,
+				},
+				OSSKU: OSSKUFlatcar,
+			},
+			expected: true,
+		},
+		{
+			name: "no ossku with Flatcar distro (like e2e)",
+			nbc: NodeBootstrappingConfiguration{
+				ContainerService: &ContainerService{
+					Properties: &Properties{
+						AgentPoolProfiles: []*AgentPoolProfile{
+							{
+								Distro: AKSFlatcarGen2,
+							},
+						},
+					},
+				},
+				AgentPoolProfile: &AgentPoolProfile{
+					Distro: AKSFlatcarGen2,
+				},
+				OSSKU: "",
+			},
+			expected: true,
+		},
+	}
+
+	for _, c := range cases {
+		c := c
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			if c.nbc.AgentPoolProfile.Distro != c.nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro {
+				t.Fatalf("Expected Distros to match in test case %s", c.name)
+			}
+			isFlatcar := c.nbc.IsFlatcar()
+			if c.expected != isFlatcar {
+				t.Fatalf("Got unexpected NodeBootstrappingConfiguration.IsFlatcar() result for %s. Expected: %t. Got: %t.", c.name, c.expected, isFlatcar)
 			}
 		})
 	}
@@ -1434,7 +1685,7 @@ func TestLinuxProfile(t *testing.T) {
 		},
 	}
 
-	if !(l.HasSecrets() && l.HasSearchDomain()) {
+	if !l.HasSecrets() || !l.HasSearchDomain() {
 		t.Fatalf("Expected HasSecrets() and HasSearchDomain() to return true")
 	}
 }
@@ -1496,7 +1747,7 @@ func TestWindowsProfile(t *testing.T) {
 		AlwaysPullWindowsPauseImage: to.BoolPtr(true),
 	}
 
-	if !(w.HasSecrets() && w.HasCustomImage()) {
+	if !w.HasSecrets() || !w.HasCustomImage() {
 		t.Fatalf("Expected HasSecrets() and HasCustomImage() to return true")
 	}
 
@@ -1933,6 +2184,18 @@ func TestGetKubeProxyFeatureGatesWindowsArguments(t *testing.T) {
 			},
 			expectedFeatureGates: "\"IPv6DualStack=true\", \"WinDSR=true\", \"WinOverlay=false\"",
 		},
+		{
+			name: "WinDSR enabled with Kubernetes 1.34+",
+			properties: &Properties{
+				FeatureFlags: &FeatureFlags{
+					EnableWinDSR: true,
+				},
+				OrchestratorProfile: &OrchestratorProfile{
+					OrchestratorVersion: "1.34.0",
+				},
+			},
+			expectedFeatureGates: "\"WinDSR=true\"",
+		},
 	}
 
 	for _, test := range tests {
@@ -2093,7 +2356,7 @@ func TestGetAddonByName(t *testing.T) {
 	}
 
 	addon := c.GetAddonByName(containerMonitoringAddonName)
-	if addon.Config == nil || len(addon.Config) == 0 {
+	if len(addon.Config) == 0 {
 		t.Fatalf("KubernetesConfig.IsContainerMonitoringAddonEnabled() should have addon config instead returned null or empty")
 	}
 
@@ -2129,7 +2392,7 @@ func TestGetAddonByName(t *testing.T) {
 	}
 
 	addon = c.GetAddonByName(containerMonitoringAddonName)
-	if addon.Config == nil || len(addon.Config) == 0 {
+	if len(addon.Config) == 0 {
 		t.Fatalf("KubernetesConfig.IsContainerMonitoringAddonEnabled() should have addon config instead returned null or empty")
 	}
 
@@ -2210,83 +2473,8 @@ func TestKubernetesConfigIsAddonDisabled(t *testing.T) {
 	}
 }
 
-func TestHasContainerd(t *testing.T) {
-	tests := []struct {
-		name     string
-		k        *KubernetesConfig
-		expected bool
-	}{
-		{
-			name: "docker",
-			k: &KubernetesConfig{
-				ContainerRuntime: Docker,
-			},
-			expected: false,
-		},
-		{
-			name: "empty string",
-			k: &KubernetesConfig{
-				ContainerRuntime: "",
-			},
-			expected: false,
-		},
-		{
-			name: "unexpected string",
-			k: &KubernetesConfig{
-				ContainerRuntime: "foo",
-			},
-			expected: false,
-		},
-		{
-			name: "containerd",
-			k: &KubernetesConfig{
-				ContainerRuntime: Containerd,
-			},
-			expected: true,
-		},
-		{
-			name: "kata",
-			k: &KubernetesConfig{
-				ContainerRuntime: KataContainers,
-			},
-			expected: true,
-		},
-	}
-
-	for _, test := range tests {
-		test := test
-		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-			ret := test.k.NeedsContainerd()
-			if test.expected != ret {
-				t.Errorf("expected %t, instead got : %t", test.expected, ret)
-			}
-		})
-	}
-}
-
-func TestKubernetesConfig_RequiresDocker(t *testing.T) {
-	// k8sConfig with empty runtime string
-	k := &KubernetesConfig{
-		ContainerRuntime: "",
-	}
-
-	if !k.RequiresDocker() {
-		t.Error("expected RequiresDocker to return true for empty runtime string")
-	}
-
-	// k8sConfig with empty runtime string
-	k = &KubernetesConfig{
-		ContainerRuntime: Docker,
-	}
-
-	if !k.RequiresDocker() {
-		t.Error("expected RequiresDocker to return true for docker runtime")
-	}
-}
-
 func TestKubernetesConfigGetOrderedKubeletConfigString(t *testing.T) {
-	alphabetizedStringForPowershell := `"--address=0.0.0.0", "--allow-privileged=true", "--anonymous-auth=false", "--authorization-mode=Webhook", "--cgroups-per-qos=true", "--client-ca-file=/etc/kubernetes/certs/ca.crt", "--container-log-max-files=20", "--container-log-max-size=1024Mi", "--image-gc-high-threshold=80", "--image-gc-low-threshold=60", "--keep-terminated-pod-volumes=false", "--kubeconfig=/var/lib/kubelet/kubeconfig", "--pod-manifest-path=/etc/kubernetes/manifests"` //nolint:lll
+	alphabetizedStringForPowershell := `"--address=0.0.0.0", "--allow-privileged=true", "--anonymous-auth=false", "--authorization-mode=Webhook", "--cgroups-per-qos=true", "--client-ca-file=/etc/kubernetes/certs/ca.crt", "--container-log-max-files=20", "--container-log-max-size=1024Mi", "--image-gc-high-threshold=80", "--image-gc-low-threshold=60", "--kubeconfig=/var/lib/kubelet/kubeconfig", "--pod-manifest-path=/etc/kubernetes/manifests"` //nolint:lll
 	cases := []struct {
 		name                  string
 		config                *NodeBootstrappingConfiguration
@@ -2315,7 +2503,6 @@ func TestKubernetesConfigGetOrderedKubeletConfigString(t *testing.T) {
 					"--image-gc-high-threshold":      "80",
 					"--image-gc-low-threshold":       "60",
 					"--kubeconfig":                   "/var/lib/kubelet/kubeconfig",
-					"--keep-terminated-pod-volumes":  "false",
 				},
 			},
 			CustomKubeletConfig: &CustomKubeletConfig{
@@ -2342,7 +2529,6 @@ func TestKubernetesConfigGetOrderedKubeletConfigString(t *testing.T) {
 					"--node-status-report-frequency": "1m0s",
 					"--cgroups-per-qos":              "true",
 					"--kubeconfig":                   "/var/lib/kubelet/kubeconfig",
-					"--keep-terminated-pod-volumes":  "false",
 				},
 			},
 			CustomKubeletConfig: &CustomKubeletConfig{
@@ -2702,3 +2888,388 @@ func TestSecurityProfileGetProxyAddress(t *testing.T) {
 		})
 	}
 }
+
+func TestSecurityProfileGetPrivateEgressContainerRegistryServer(t *testing.T) {
+	testContainerRegistryServer := "https://testserver.azurecr.io"
+	cases := []struct {
+		name            string
+		securityProfile *SecurityProfile
+		expected        string
+	}{
+		{
+			name:            "SecurityProfile nil",
+			securityProfile: nil,
+			expected:        "",
+		},
+		{
+			name:            "PrivateEgress nil",
+			securityProfile: &SecurityProfile{},
+			expected:        "",
+		},
+		{
+			name:            "PrivateEgress disabled",
+			securityProfile: &SecurityProfile{PrivateEgress: &PrivateEgress{Enabled: false}},
+			expected:        "",
+		},
+		{
+			name:            "PrivateEgress enabled",
+			securityProfile: &SecurityProfile{PrivateEgress: &PrivateEgress{Enabled: true, ContainerRegistryServer: testContainerRegistryServer}},
+			expected:        testContainerRegistryServer,
+		},
+	}
+
+	for _, c := range cases {
+		c := c
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			actual := c.securityProfile.GetPrivateEgressContainerRegistryServer()
+			if c.expected != actual {
+				t.Fatalf("test case: %s, expected: %s. Got: %s.", c.name, c.expected, actual)
+			}
+		})
+	}
+}
+
+// ----------------------- Start of changes related to localdns ------------------------------------------.
+func TestShouldEnableLocalDNS(t *testing.T) {
+	tests := []struct {
+		name             string
+		agentPoolProfile *AgentPoolProfile
+		expectedData     bool
+	}{
+		{
+			name:             "ShouldEnableLocalDNS - AgentPoolProfile nil",
+			agentPoolProfile: nil,
+			expectedData:     false,
+		},
+		{
+			name: "ShouldEnableLocalDNS - LocalDNSProfile nil",
+			agentPoolProfile: &AgentPoolProfile{
+				LocalDNSProfile: nil,
+			},
+			expectedData: false,
+		},
+		{
+			name: "ShouldEnableLocalDNS - LocalDNSProfile disabled",
+			agentPoolProfile: &AgentPoolProfile{
+				LocalDNSProfile: &LocalDNSProfile{
+					EnableLocalDNS: false,
+				},
+			},
+			expectedData: false,
+		},
+		{
+			name: "ShouldEnableLocalDNS - LocalDNSProfile enabled",
+			agentPoolProfile: &AgentPoolProfile{
+				LocalDNSProfile: &LocalDNSProfile{
+					EnableLocalDNS: true,
+				},
+			},
+			expectedData: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			actualData := false
+			if tt.agentPoolProfile != nil {
+				actualData = tt.agentPoolProfile.ShouldEnableLocalDNS()
+			}
+			assert.Equal(t, tt.expectedData, actualData)
+		})
+	}
+}
+
+func TestLocalDNSProfileMethods(t *testing.T) {
+	tests := []struct {
+		name             string
+		agentPoolProfile *AgentPoolProfile
+		expectedData     interface{}
+		expectedError    bool
+	}{
+		{
+			name: "GetLocalDNSNodeListenerIP",
+			agentPoolProfile: &AgentPoolProfile{
+				LocalDNSProfile: &LocalDNSProfile{},
+			},
+			expectedData: LocalDNSNodeListenerIP,
+		},
+		{
+			name: "GetLocalDNSClusterListenerIP",
+			agentPoolProfile: &AgentPoolProfile{
+				LocalDNSProfile: &LocalDNSProfile{},
+			},
+			expectedData: LocalDNSClusterListenerIP,
+		},
+		{
+			name: "GetAzureDNSIP",
+			agentPoolProfile: &AgentPoolProfile{
+				LocalDNSProfile: &LocalDNSProfile{},
+			},
+			expectedData: AzureDNSIP,
+		},
+		{
+			name: "GetLocalDNSCPULimitInPercentage - LocalDNSProfile nil",
+			agentPoolProfile: &AgentPoolProfile{
+				LocalDNSProfile: nil,
+			},
+			expectedData: DefaultLocalDNSCPULimitInPercentage,
+		},
+		{
+			name: "GetLocalDNSCPULimitInPercentage - CPUlimit nil",
+			agentPoolProfile: &AgentPoolProfile{
+				LocalDNSProfile: &LocalDNSProfile{},
+			},
+			expectedData: DefaultLocalDNSCPULimitInPercentage,
+		},
+		{
+			name: "GetLocalDNSCPULimitInPercentage - CPUlimit set",
+			agentPoolProfile: &AgentPoolProfile{
+				LocalDNSProfile: &LocalDNSProfile{
+					CPULimitInMilliCores: to.Int32Ptr(1000),
+				},
+			},
+			expectedData: "100.0%",
+		},
+		{
+			name: "GetLocalDNSMemoryLimitInMB - LocalDNSProfile nil",
+			agentPoolProfile: &AgentPoolProfile{
+				LocalDNSProfile: &LocalDNSProfile{},
+			},
+			expectedData: DefaultLocalDNSMemoryLimitInMB,
+		},
+		{
+			name: "GetLocalDNSMemoryLimitInMB - Memorylimit nil",
+			agentPoolProfile: &AgentPoolProfile{
+				LocalDNSProfile: &LocalDNSProfile{},
+			},
+			expectedData: DefaultLocalDNSMemoryLimitInMB,
+		},
+		{
+			name: "GetLocalDNSMemoryLimitInMB - Memorylimit set",
+			agentPoolProfile: &AgentPoolProfile{
+				LocalDNSProfile: &LocalDNSProfile{
+					MemoryLimitInMB: to.Int32Ptr(4096),
+				},
+			},
+			expectedData: "4096M",
+		},
+		{
+			name: "GetCoreDNSServiceIP - DNSServiceIP in KubernetesConfig",
+			agentPoolProfile: &AgentPoolProfile{
+				KubernetesConfig: &KubernetesConfig{
+					DNSServiceIP: "10.0.0.53",
+				},
+			},
+			expectedData: "10.0.0.53",
+		},
+		{
+			name: "GetCoreDNSServiceIP - DNSServiceIP not set",
+			agentPoolProfile: &AgentPoolProfile{
+				KubernetesConfig: &KubernetesConfig{},
+			},
+			expectedData: DefaultCoreDNSServiceIP,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			switch tt.name {
+			case "GetCoreDNSServiceIP - DNSServiceIP in KubernetesConfig":
+				assert.Equal(t, tt.expectedData, tt.agentPoolProfile.GetCoreDNSServiceIP())
+			case "GetCoreDNSServiceIP - DNSServiceIP not set":
+				assert.Equal(t, tt.expectedData, tt.agentPoolProfile.GetCoreDNSServiceIP())
+			case "GetLocalDNSNodeListenerIP":
+				assert.Equal(t, tt.expectedData, tt.agentPoolProfile.GetLocalDNSNodeListenerIP())
+			case "GetLocalDNSClusterListenerIP":
+				assert.Equal(t, tt.expectedData, tt.agentPoolProfile.GetLocalDNSClusterListenerIP())
+			case "GetAzureDNSIP":
+				assert.Equal(t, tt.expectedData, tt.agentPoolProfile.GetAzureDNSIP())
+			case "GetLocalDNSCPULimitInPercentage - LocalDNSProfile nil":
+				assert.Equal(t, tt.expectedData, tt.agentPoolProfile.GetLocalDNSCPULimitInPercentage())
+			case "GetLocalDNSCPULimitInPercentage - CPUlimit set":
+				assert.Equal(t, tt.expectedData, tt.agentPoolProfile.GetLocalDNSCPULimitInPercentage())
+			case "GetLocalDNSCPULimitInPercentage - CPUlimit nil":
+				assert.Equal(t, tt.expectedData, tt.agentPoolProfile.GetLocalDNSCPULimitInPercentage())
+			case "GetLocalDNSMemoryLimitInMB - LocalDNSProfile nil":
+				assert.Equal(t, tt.expectedData, tt.agentPoolProfile.GetLocalDNSMemoryLimitInMB())
+			case "GetLocalDNSMemoryLimitInMB - Memorylimit set":
+				assert.Equal(t, tt.expectedData, tt.agentPoolProfile.GetLocalDNSMemoryLimitInMB())
+			case "GetLocalDNSMemoryLimitInMB - Memorylimit nil":
+				assert.Equal(t, tt.expectedData, tt.agentPoolProfile.GetLocalDNSMemoryLimitInMB())
+			}
+		})
+	}
+}
+
+func TestGetLocalDNSCoreFileData(t *testing.T) {
+	tests := []struct {
+		name             string
+		agentPoolProfile *AgentPoolProfile
+		expectedData     LocalDNSCoreFileData
+		expectError      bool
+	}{
+		{
+			name:             "AgentPoolProfile nil",
+			agentPoolProfile: nil,
+		},
+		{
+			name: "LocalDNSProfile nil",
+			agentPoolProfile: &AgentPoolProfile{
+				LocalDNSProfile: nil,
+			},
+		},
+		{
+			name: "LocalDNSProfile disabled",
+			agentPoolProfile: &AgentPoolProfile{
+				LocalDNSProfile: &LocalDNSProfile{
+					EnableLocalDNS: false,
+				},
+			},
+		},
+		{
+			name: "LocalDNSProfile disabled but has data",
+			agentPoolProfile: &AgentPoolProfile{
+				LocalDNSProfile: &LocalDNSProfile{
+					EnableLocalDNS:       false,
+					CPULimitInMilliCores: to.Int32Ptr(1000),
+					MemoryLimitInMB:      to.Int32Ptr(1024),
+				},
+			},
+			expectedData: LocalDNSCoreFileData{
+				LocalDNSProfile: LocalDNSProfile{
+					EnableLocalDNS:       false,
+					CPULimitInMilliCores: nil,
+					MemoryLimitInMB:      nil,
+					VnetDNSOverrides:     nil,
+					KubeDNSOverrides:     nil,
+				},
+				NodeListenerIP:    "",
+				ClusterListenerIP: "",
+				CoreDNSServiceIP:  "",
+				AzureDNSIP:        "",
+			},
+		},
+		{
+			name: "LocalDNSProfile enabled",
+			agentPoolProfile: &AgentPoolProfile{
+				LocalDNSProfile: &LocalDNSProfile{
+					EnableLocalDNS:       true,
+					CPULimitInMilliCores: to.Int32Ptr(2000),
+					MemoryLimitInMB:      to.Int32Ptr(4096),
+					VnetDNSOverrides: map[string]*LocalDNSOverrides{
+						".": {
+							QueryLogging:                "Log",
+							Protocol:                    "PreferUDP",
+							ForwardDestination:          "VnetDNS",
+							ForwardPolicy:               "Sequential",
+							MaxConcurrent:               to.Int32Ptr(1000),
+							CacheDurationInSeconds:      to.Int32Ptr(3600),
+							ServeStaleDurationInSeconds: to.Int32Ptr(3600),
+							ServeStale:                  "Verify",
+						},
+						"cluster.local": {
+							QueryLogging:                "Error",
+							Protocol:                    "ForceTCP",
+							ForwardDestination:          "ClusterCoreDNS",
+							ForwardPolicy:               "Sequential",
+							MaxConcurrent:               to.Int32Ptr(1000),
+							CacheDurationInSeconds:      to.Int32Ptr(3600),
+							ServeStaleDurationInSeconds: to.Int32Ptr(3600),
+							ServeStale:                  "Disable",
+						},
+					},
+					KubeDNSOverrides: map[string]*LocalDNSOverrides{
+						".": {
+							QueryLogging:                "Error",
+							Protocol:                    "PreferUDP",
+							ForwardDestination:          "ClusterCoreDNS",
+							ForwardPolicy:               "Sequential",
+							MaxConcurrent:               to.Int32Ptr(1000),
+							CacheDurationInSeconds:      to.Int32Ptr(3600),
+							ServeStaleDurationInSeconds: to.Int32Ptr(3600),
+							ServeStale:                  "Verify",
+						},
+						"cluster.local": {
+							QueryLogging:                "Log",
+							Protocol:                    "ForceTCP",
+							ForwardDestination:          "ClusterCoreDNS",
+							ForwardPolicy:               "RoundRobin",
+							MaxConcurrent:               to.Int32Ptr(1000),
+							CacheDurationInSeconds:      to.Int32Ptr(3600),
+							ServeStaleDurationInSeconds: to.Int32Ptr(3600),
+							ServeStale:                  "Disable",
+						},
+					},
+				},
+			},
+			expectedData: LocalDNSCoreFileData{
+				LocalDNSProfile: LocalDNSProfile{
+					EnableLocalDNS:       true,
+					CPULimitInMilliCores: to.Int32Ptr(2000),
+					MemoryLimitInMB:      to.Int32Ptr(4096),
+					VnetDNSOverrides: map[string]*LocalDNSOverrides{
+						".": {
+							QueryLogging:                "Log",
+							Protocol:                    "PreferUDP",
+							ForwardDestination:          "VnetDNS",
+							ForwardPolicy:               "Sequential",
+							MaxConcurrent:               to.Int32Ptr(1000),
+							CacheDurationInSeconds:      to.Int32Ptr(3600),
+							ServeStaleDurationInSeconds: to.Int32Ptr(3600),
+							ServeStale:                  "Verify",
+						},
+						"cluster.local": {
+							QueryLogging:                "Error",
+							Protocol:                    "ForceTCP",
+							ForwardDestination:          "ClusterCoreDNS",
+							ForwardPolicy:               "Sequential",
+							MaxConcurrent:               to.Int32Ptr(1000),
+							CacheDurationInSeconds:      to.Int32Ptr(3600),
+							ServeStaleDurationInSeconds: to.Int32Ptr(3600),
+							ServeStale:                  "Disable",
+						},
+					},
+					KubeDNSOverrides: map[string]*LocalDNSOverrides{
+						".": {
+							QueryLogging:                "Error",
+							Protocol:                    "PreferUDP",
+							ForwardDestination:          "ClusterCoreDNS",
+							ForwardPolicy:               "Sequential",
+							MaxConcurrent:               to.Int32Ptr(1000),
+							CacheDurationInSeconds:      to.Int32Ptr(3600),
+							ServeStaleDurationInSeconds: to.Int32Ptr(3600),
+							ServeStale:                  "Verify",
+						},
+						"cluster.local": {
+							QueryLogging:                "Log",
+							Protocol:                    "ForceTCP",
+							ForwardDestination:          "ClusterCoreDNS",
+							ForwardPolicy:               "RoundRobin",
+							MaxConcurrent:               to.Int32Ptr(1000),
+							CacheDurationInSeconds:      to.Int32Ptr(3600),
+							ServeStaleDurationInSeconds: to.Int32Ptr(3600),
+							ServeStale:                  "Disable",
+						},
+					},
+				},
+				NodeListenerIP:    LocalDNSNodeListenerIP,
+				ClusterListenerIP: LocalDNSClusterListenerIP,
+				CoreDNSServiceIP:  DefaultCoreDNSServiceIP,
+				AzureDNSIP:        AzureDNSIP,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var actualData LocalDNSCoreFileData
+			if tt.agentPoolProfile != nil {
+				actualData = tt.agentPoolProfile.GetLocalDNSCoreFileData()
+			}
+			assert.Equal(t, tt.expectedData, actualData)
+		})
+	}
+}
+
+// ----------------------- End of changes related to localdns ------------------------------------------.

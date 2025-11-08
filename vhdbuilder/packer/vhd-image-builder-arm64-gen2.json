@@ -1,6 +1,7 @@
 {
   "variables": {
     "subscription_id": "{{env `AZURE_SUBSCRIPTION_ID`}}",
+    "gallery_subscription_id": "{{user `gallery_subscription_id`}}",
     "location": "{{env `PACKER_BUILD_LOCATION`}}",
     "vm_size": "{{env `AZURE_VM_SIZE`}}",
     "build_definition_name": "{{env `BUILD_DEFINITION_NAME`}}",
@@ -23,7 +24,6 @@
     "img_offer": "{{env `IMG_OFFER`}}",
     "img_sku": "{{env `IMG_SKU`}}",
     "img_version": "{{env `IMG_VERSION`}}",
-    "sgx_install": "{{env `SGX_INSTALL`}}",
     "vnet_resource_group_name": "{{env `VNET_RESOURCE_GROUP_NAME`}}",
     "vnet_name": "{{env `VNET_NAME`}}",
     "subnet_name": "{{env `SUBNET_NAME`}}",
@@ -59,14 +59,14 @@
       "location": "{{user `location`}}",
       "vm_size": "{{user `vm_size`}}",
       "polling_duration_timeout": "1h",
+      "managed_image_storage_account_type": "Premium_LRS",
       "shared_image_gallery_destination": {
+        "subscription": "{{user `gallery_subscription_id`}}",
         "resource_group": "{{user `resource_group_name`}}",
         "gallery_name": "{{user `sig_gallery_name`}}",
         "image_name": "{{user `sig_image_name`}}",
         "image_version": "{{user `captured_sig_version`}}",
-        "replication_regions": [
-          "{{user `location`}}"
-        ]
+        "replication_regions": ["{{user `location`}}"]
       },
       "user_assigned_managed_identities": "{{user `msi_resource_strings`}}"
     }
@@ -76,22 +76,29 @@
       "type": "shell",
       "inline": [
         "sudo mkdir -p /opt/azure/containers",
-        "sudo chown -R $USER /opt/azure/containers"
-      ]
-    },
-    {
-      "type": "shell",
-      "inline": [
         "sudo mkdir -p /opt/scripts",
-        "sudo chown -R $USER /opt/scripts",
-        "sudo mkdir -p /opt/certs",
-        "sudo chown -R $USER /opt/certs"
+        "sudo mkdir -p /opt/certs"
       ]
     },
     {
       "type": "file",
-      "source": "nbcparser/bin/nbcparser-arm64",
-      "destination": "/home/packer/nbcparser"
+      "source": "vhdbuilder/lister/bin/lister",
+      "destination": "/home/packer/lister"
+    },
+    {
+      "type": "file",
+      "source": "aks-node-controller/bin/aks-node-controller-linux-arm64",
+      "destination": "/home/packer/aks-node-controller"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/aks-node-controller.service",
+      "destination": "/home/packer/aks-node-controller.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cloud-init-status-check.sh",
+      "destination": "/home/packer/cloud-init-status-check.sh"
     },
     {
       "type": "file",
@@ -125,6 +132,11 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cse_benchmark_functions.sh",
+      "destination": "/home/packer/provision_source_benchmarks.sh"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/ubuntu/cse_helpers_ubuntu.sh",
       "destination": "/home/packer/provision_source_distro.sh"
     },
@@ -155,6 +167,11 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/secure-tls-bootstrap.service",
+      "destination": "/home/packer/secure-tls-bootstrap.service"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/reconcile-private-hosts.sh",
       "destination": "/home/packer/reconcile-private-hosts.sh"
     },
@@ -162,6 +179,26 @@
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/block_wireserver.sh",
       "destination": "/home/packer/block_wireserver.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/ensure_imds_restriction.sh",
+      "destination": "/home/packer/ensure_imds_restriction.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/measure-tls-bootstrapping-latency.sh",
+      "destination": "/home/packer/measure-tls-bootstrapping-latency.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/measure-tls-bootstrapping-latency.service",
+      "destination": "/home/packer/measure-tls-bootstrapping-latency.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/validate-kubelet-credentials.sh",
+      "destination": "/home/packer/validate-kubelet-credentials.sh"
     },
     {
       "type": "file",
@@ -275,11 +312,6 @@
     },
     {
       "type": "file",
-      "source": "vhdbuilder/packer/asc-baseline-1.1.0-268.amd64.deb",
-      "destination": "/home/packer/asc-baseline.deb"
-    },
-    {
-      "type": "file",
       "source": "vhdbuilder/packer/pre-install-dependencies.sh",
       "destination": "/home/packer/pre-install-dependencies.sh"
     },
@@ -295,7 +327,7 @@
     },
     {
       "type": "file",
-      "source": "vhdbuilder/packer/components.json",
+      "source": "parts/common/components.json",
       "destination": "/home/packer/components.json"
     },
     {
@@ -325,6 +357,11 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/logrotate-d-rsyslog-CIS.conf",
+      "destination": "/home/packer/logrotate-d-rsyslog-CIS.conf"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/etc-issue",
       "destination": "/home/packer/etc-issue"
     },
@@ -340,6 +377,11 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/faillock-CIS.conf",
+      "destination": "/home/packer/faillock-CIS.conf"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/pwquality-CIS.conf",
       "destination": "/home/packer/pwquality-CIS.conf"
     },
@@ -347,6 +389,11 @@
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/pam-d-su",
       "destination": "/home/packer/pam-d-su"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/pam-d-common-account",
+      "destination": "/home/packer/pam-d-common-account"
     },
     {
       "type": "file",
@@ -432,6 +479,11 @@
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/ci-syslog-watcher.sh",
       "destination": "/home/packer/ci-syslog-watcher.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/aks-diagnostic.py",
+      "destination": "/home/packer/aks-diagnostic.py"
     },
     {
       "type": "file",
@@ -540,11 +592,6 @@
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/nvidia-device-plugin.service",
-      "destination": "/home/packer/nvidia-device-plugin.service"
-    },
-    {
-      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/pam-d-common-auth",
       "destination": "/home/packer/pam-d-common-auth"
     },
@@ -564,9 +611,34 @@
       "destination": "/home/packer/NOTICE.txt"
     },
     {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/localdns.sh",
+      "destination": "/home/packer/localdns.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/localdns.service",
+      "destination": "/home/packer/localdns.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/localdns-delegate.conf",
+      "destination": "/home/packer/localdns-delegate.conf"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/10_azure_nvidia",
+      "destination": "/home/packer/10_azure_nvidia"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/51-azure-nvidia.cfg",
+      "destination": "/home/packer/51-azure-nvidia.cfg"
+    },
+    {
       "type": "shell",
       "inline": [
-        "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} TELEPORTD_PLUGIN_DOWNLOAD_URL={{user `teleportd_plugin_download_url`}} ENABLE_FIPS={{user `enable_fips`}} SGX_INSTALL={{user `sgx_install`}} IMG_SKU={{user `img_sku`}} VHD_BUILD_TIMESTAMP={{user `vhd_build_timestamp`}} /bin/bash -ux /home/packer/pre-install-dependencies.sh"
+        "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} TELEPORTD_PLUGIN_DOWNLOAD_URL={{user `teleportd_plugin_download_url`}} ENABLE_FIPS={{user `enable_fips`}} IMG_SKU={{user `img_sku`}} VHD_BUILD_TIMESTAMP={{user `vhd_build_timestamp`}} /bin/bash -ux /home/packer/pre-install-dependencies.sh"
       ]
     },
     {
@@ -579,8 +651,18 @@
     {
       "type": "shell",
       "inline": [
-        "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} TELEPORTD_PLUGIN_DOWNLOAD_URL={{user `teleportd_plugin_download_url`}} ENABLE_FIPS={{user `enable_fips`}} SGX_INSTALL={{user `sgx_install`}} IMG_SKU={{user `img_sku`}} PRIVATE_PACKAGES_URL={{user `private_packages_url`}} VHD_BUILD_TIMESTAMP={{user `vhd_build_timestamp`}} /bin/bash -ux /home/packer/install-dependencies.sh"
+        "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} TELEPORTD_PLUGIN_DOWNLOAD_URL={{user `teleportd_plugin_download_url`}} ENABLE_FIPS={{user `enable_fips`}} IMG_SKU={{user `img_sku`}} PRIVATE_PACKAGES_URL={{user `private_packages_url`}} VHD_BUILD_TIMESTAMP={{user `vhd_build_timestamp`}} /bin/bash -ux /home/packer/install-dependencies.sh"
       ]
+    },
+    {
+      "type": "file",
+      "direction": "download",
+      "source": "/var/log/bcc_installation.log",
+      "destination": "bcc-tools-installation.log"
+    },
+    {
+      "type": "shell",
+      "inline": ["sudo rm /var/log/bcc_installation.log"]
     },
     {
       "type": "shell",
@@ -592,7 +674,7 @@
     {
       "type": "shell",
       "inline": [
-        "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} TELEPORTD_PLUGIN_DOWNLOAD_URL={{user `teleportd_plugin_download_url`}} ENABLE_FIPS={{user `enable_fips`}} SGX_INSTALL={{user `sgx_install`}} IMG_SKU={{user `img_sku`}} /bin/bash -ux /home/packer/post-install-dependencies.sh"
+        "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} TELEPORTD_PLUGIN_DOWNLOAD_URL={{user `teleportd_plugin_download_url`}} ENABLE_FIPS={{user `enable_fips`}} IMG_SKU={{user `img_sku`}} /bin/bash -ux /home/packer/post-install-dependencies.sh"
       ]
     },
     {
@@ -625,9 +707,16 @@
       "destination": "vhd-build-performance-data.json"
     },
     {
+      "type": "file",
+      "direction": "download",
+      "source": "/opt/azure/vhd-grid-compatibility-data.json",
+      "destination": "vhd-grid-compatibility-data.json"
+    },
+    {
       "type": "shell",
       "inline": [
-        "sudo rm /opt/azure/vhd-build-performance-data.json"
+        "sudo rm /opt/azure/vhd-build-performance-data.json",
+        "sudo rm /opt/azure/vhd-grid-compatibility-data.json"
       ]
     },
     {

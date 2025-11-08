@@ -1,37 +1,28 @@
 name: $(Date:yyyyMMdd)$(Rev:.r)_$(Build.SourceBranchName)_$(BuildID)
 trigger: none
 
-variables:
-  - name: CONTAINER_IMAGE
-    value: 'mcr.microsoft.com/oss/azcu/go-dev:v1.38.1'
-
 pool:
   name: $(POOL_NAME)
 
-
 parameters:
-  - name: build1804containerd
-    displayName: Build 1804 containerd
+  - name: useOverrides
+    displayName: Use component overrides
     type: boolean
-    default: true
-  - name: build1804gen2containerd
-    displayName: Build 1804 Gen2 containerd
-    type: boolean
-    default: true
-  - name: build1804gpucontainerd
-    displayName: Build 1804 GPU+containerd
-    type: boolean
-    default: true
-  - name: build1804gen2gpucontainerd
-    displayName: Build 1804 Gen2 GPU+containerd
-    type: boolean
-    default: true
+    default: false
+  - name: overrideBranch
+    displayName: Branch in aks-rp to use for overrides
+    type: string
+    default: master
   - name: buildMarinerV2gen1
     displayName: Build MarinerV2 Gen1
     type: boolean
     default: true
   - name: buildAzureLinuxV2gen1
     displayName: Build AzureLinuxV2 Gen1
+    type: boolean
+    default: true
+  - name: buildAzureLinuxV3gen1
+    displayName: Build AzureLinuxV3 Gen1
     type: boolean
     default: true
   - name: buildMarinerV2gen2
@@ -42,12 +33,20 @@ parameters:
     displayName: Build AzureLinuxV2 Gen2
     type: boolean
     default: true
+  - name: buildAzureLinuxV3gen2
+    displayName: Build AzureLinuxV3 Gen2
+    type: boolean
+    default: true
   - name: buildMarinerV2gen1fips
     displayName: Build MarinerV2 Gen1 FIPS
     type: boolean
     default: true
   - name: buildAzureLinuxV2gen1fips
     displayName: Build AzureLinuxV2 Gen1 FIPS
+    type: boolean
+    default: true
+  - name: buildAzureLinuxV3gen1fips
+    displayName: Build AzureLinuxV3 Gen1 FIPS
     type: boolean
     default: true
   - name: buildMarinerV2gen2fips
@@ -58,12 +57,20 @@ parameters:
     displayName: Build AzureLinuxV2 Gen2 FIPS
     type: boolean
     default: true
+  - name: buildAzureLinuxV3gen2fips
+    displayName: Build AzureLinuxV3 Gen2 FIPS
+    type: boolean
+    default: true
   - name: buildMarinerV2gen2kata
     displayName: Build MarinerV2 Gen2 Kata
     type: boolean
-    default: true
+    default: false
   - name: buildAzureLinuxV2gen2kata
     displayName: Build AzureLinuxV2 Gen2 Kata
+    type: boolean
+    default: false
+  - name: buildAzureLinuxV3gen2kata
+    displayName: Build AzureLinuxV3 Gen2 Kata
     type: boolean
     default: true
   - name: buildMarinerV2ARM64
@@ -74,12 +81,28 @@ parameters:
     displayName: Build AzureLinuxV2 Gen2 - ARM64
     type: boolean
     default: true
+  - name: buildAzureLinuxV3ARM64
+    displayName: Build AzureLinuxV3 Gen2 - ARM64
+    type: boolean
+    default: true
+  - name: buildAzureLinuxV3ARM64gen2fips
+    displayName: Build AzureLinuxV3 Gen2 - FIPS+ARM64
+    type: boolean
+    default: true
   - name: buildMarinerV2gen2TrustedLaunch
     displayName: Build MarinerV2 Gen2 - Trusted Launch
     type: boolean
     default: true
   - name: buildAzureLinuxV2gen2TrustedLaunch
     displayName: Build AzureLinuxV2 Gen2 - Trusted Launch
+    type: boolean
+    default: true
+  - name: buildAzureLinuxV3gen2TrustedLaunch
+    displayName: Build AzureLinuxV3 Gen2 - Trusted Launch
+    type: boolean
+    default: true
+  - name: buildAzureLinuxV3cvmgen2
+    displayName: Build AzureLinuxV3 CVM Gen2
     type: boolean
     default: true
   - name: buildMarinerV2gen2kataTrustedLaunch
@@ -90,12 +113,8 @@ parameters:
     displayName: Build AzureLinuxV2 Gen2 Kata - Trusted Launch
     type: boolean
     default: false
-  - name: build1804fipscontainerd
-    displayName: Build 1804 FIPS containerd
-    type: boolean
-    default: true
-  - name: build1804fipsgen2containerd
-    displayName: Build 1804 FIPS Gen2 containerd
+  - name: buildAzureLinuxOSGuardV3gen2fipsTL
+    displayName: Build AzureLinuxOSGuardV3 Gen2 FIPS - Trusted Launch
     type: boolean
     default: true
   - name: build2004fipscontainerd
@@ -121,7 +140,11 @@ parameters:
   - name: build2404arm64gen2containerd
     displayName: Build 2404 ARM64 Gen2 containerd
     type: boolean
-    default: false
+    default: true
+  - name: build2404arm64gb200gen2containerd
+    displayName: Build 2404 ARM64 GB200 Gen2 Containerd
+    type: boolean
+    default: true
   - name: build2204containerd
     displayName: Build 2204 Gen1 Containerd
     type: boolean
@@ -133,11 +156,19 @@ parameters:
   - name: build2404containerd
     displayName: Build 2404 Gen1 Containerd
     type: boolean
-    default: false
+    default: true
+  - name: build2404cvmgen2containerd
+    displayName: Build 2404 CVM Gen2 Containerd
+    type: boolean
+    default: true
   - name: build2404gen2containerd
     displayName: Build 2404 Gen2 Containerd
     type: boolean
-    default: false
+    default: true
+  - name: build2404tlgen2containerd
+    displayName: Build 2404 TL Gen2 Containerd
+    type: boolean
+    default: true
   - name: build2004cvmgen2containerd
     displayName: Build 2004 CVM Gen2 Containerd
     type: boolean
@@ -154,117 +185,29 @@ parameters:
     displayName: Build 2204 Minimal Gen2 Containerd
     type: boolean
     default: false
-  - name: dryrun
-    displayName: Dry run
+  - name: buildflatcargen2
+    displayName: Build Flatcar Gen2
     type: boolean
-    default: False
+    default: true
+  - name: buildflatcargen2arm64
+    displayName: Build Flatcar Gen2 ARM64
+    type: boolean
+    default: true
 
+variables:
+  - group: aks-vuln-to-kusto
+  - group: "AKS Node SIG UA Token (KV)"
+  - group: build_performance
+  - group: aks-vuln-to-kusto-tme
 stages:
   - stage: build
     jobs:
-      - job: build1804containerd
-        condition: eq('${{ parameters.build1804containerd }}', true)
-        dependsOn: [ ]
-        timeoutInMinutes: 180
-        steps:
-          - bash: |
-              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
-              echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
-              echo '##vso[task.setvariable variable=OS_VERSION]18.04'
-              echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
-              echo '##vso[task.setvariable variable=IMG_OFFER]UbuntuServer'
-              echo '##vso[task.setvariable variable=IMG_SKU]18.04-LTS'
-              echo '##vso[task.setvariable variable=IMG_VERSION]latest'
-              echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
-              echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
-              echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
-              echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
-              echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
-              echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
-              echo '##vso[task.setvariable variable=SGX_INSTALL]False'
-            displayName: Setup Build Variables
-          - template: ./templates/.builder-release-template.yaml
-            parameters:
-              artifactName: 1804-containerd
-      - job: build1804gen2containerd
-        condition: eq('${{ parameters.build1804gen2containerd }}', true)
-        dependsOn: [ ]
-        timeoutInMinutes: 180
-        steps:
-          - bash: |
-              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
-              echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
-              echo '##vso[task.setvariable variable=OS_VERSION]18.04'
-              echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
-              echo '##vso[task.setvariable variable=IMG_OFFER]UbuntuServer'
-              echo '##vso[task.setvariable variable=IMG_SKU]18_04-LTS-GEN2'
-              echo '##vso[task.setvariable variable=IMG_VERSION]latest'
-              echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
-              echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
-              echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
-              echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
-              echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
-              echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
-              echo '##vso[task.setvariable variable=SGX_INSTALL]True'
-            displayName: Setup Build Variables
-          - template: ./templates/.builder-release-template.yaml
-            parameters:
-              artifactName: 1804-gen2-containerd
-      - job: build1804gpucontainerd
-        condition: eq('${{ parameters.build1804gpucontainerd }}', true)
-        dependsOn: [ ]
-        timeoutInMinutes: 180
-        steps:
-          - bash: |
-              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
-              echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
-              echo '##vso[task.setvariable variable=OS_VERSION]18.04'
-              echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
-              echo '##vso[task.setvariable variable=IMG_OFFER]UbuntuServer'
-              echo '##vso[task.setvariable variable=IMG_SKU]18.04-LTS'
-              echo '##vso[task.setvariable variable=IMG_VERSION]latest'
-              echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
-              echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_NC16as_T4_v3'
-              echo '##vso[task.setvariable variable=FEATURE_FLAGS]fullgpudaemon'
-              echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
-              echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
-              echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
-              echo '##vso[task.setvariable variable=SGX_INSTALL]False'
-            displayName: Setup Build Variables
-          - template: ./templates/.builder-release-template.yaml
-            parameters:
-              artifactName: 1804-gpu-containerd
-      - job: build1804gen2gpucontainerd
-        condition: eq('${{ parameters.build1804gen2gpucontainerd }}', true)
-        dependsOn: [ ]
-        timeoutInMinutes: 180
-        steps:
-          - bash: |
-              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
-              echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
-              echo '##vso[task.setvariable variable=OS_VERSION]18.04'
-              echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
-              echo '##vso[task.setvariable variable=IMG_OFFER]UbuntuServer'
-              echo '##vso[task.setvariable variable=IMG_SKU]18_04-LTS-GEN2'
-              echo '##vso[task.setvariable variable=IMG_VERSION]latest'
-              echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
-              echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_NC16as_T4_v3'
-              echo '##vso[task.setvariable variable=FEATURE_FLAGS]fullgpudaemon'
-              echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
-              echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
-              echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
-              echo '##vso[task.setvariable variable=SGX_INSTALL]True'
-            displayName: Setup Build Variables
-          - template: ./templates/.builder-release-template.yaml
-            parameters:
-              artifactName: 1804-gen2-gpu-containerd
       - job: buildMarinerV2gen1
         condition: eq('${{ parameters.buildMarinerV2gen1 }}', true)
         dependsOn: [ ]
         timeoutInMinutes: 180
         steps:
           - bash: |
-              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
               echo '##vso[task.setvariable variable=OS_SKU]CBLMariner'
               echo '##vso[task.setvariable variable=OS_VERSION]V2'
               echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
@@ -274,15 +217,15 @@ stages:
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
-              echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
               echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
-              echo '##vso[task.setvariable variable=SGX_INSTALL]True'
               echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]False'
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: marinerv2-gen1
       - job: buildAzureLinuxV2gen1
         condition: eq('${{ parameters.buildAzureLinuxV2gen1 }}', true)
@@ -290,7 +233,6 @@ stages:
         timeoutInMinutes: 180
         steps:
           - bash: |
-              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
               echo '##vso[task.setvariable variable=OS_SKU]AzureLinux'
               echo '##vso[task.setvariable variable=OS_VERSION]V2'
               echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
@@ -300,23 +242,46 @@ stages:
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
-              echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
               echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
-              echo '##vso[task.setvariable variable=SGX_INSTALL]True'
               echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: azurelinuxv2-gen1
+      - job: buildAzureLinuxV3gen1
+        condition: eq('${{ parameters.buildAzureLinuxV3gen1 }}', true)
+        dependsOn: [ ]
+        timeoutInMinutes: 180
+        steps:
+          - bash: |
+              echo '##vso[task.setvariable variable=OS_SKU]AzureLinux'
+              echo '##vso[task.setvariable variable=OS_VERSION]V3'
+              echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
+              echo '##vso[task.setvariable variable=IMG_OFFER]azure-linux-3'
+              echo '##vso[task.setvariable variable=IMG_SKU]azure-linux-3'
+              echo '##vso[task.setvariable variable=IMG_VERSION]latest'
+              echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
+              echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
+              echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
+
+              echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
+              echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
+              echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
+              echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
+            displayName: Setup Build Variables
+          - template: ./templates/.builder-release-template.yaml
+            parameters:
+              artifactName: azurelinuxv3-gen1
       - job: buildMarinerV2gen2
         condition: eq('${{ parameters.buildMarinerV2gen2 }}', true)
         dependsOn: [ ]
         timeoutInMinutes: 180
         steps:
           - bash: |
-              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
               echo '##vso[task.setvariable variable=OS_SKU]CBLMariner'
               echo '##vso[task.setvariable variable=OS_VERSION]V2'
               echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
@@ -326,15 +291,16 @@ stages:
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
-              echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
+
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
               echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
-              echo '##vso[task.setvariable variable=SGX_INSTALL]True'
               echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]False'
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: marinerv2-gen2
       - job: buildAzureLinuxV2gen2
         condition: eq('${{ parameters.buildAzureLinuxV2gen2 }}', true)
@@ -342,7 +308,6 @@ stages:
         timeoutInMinutes: 180
         steps:
           - bash: |
-              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
               echo '##vso[task.setvariable variable=OS_SKU]AzureLinux'
               echo '##vso[task.setvariable variable=OS_VERSION]V2'
               echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
@@ -352,23 +317,47 @@ stages:
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
-              echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
+
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
               echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
-              echo '##vso[task.setvariable variable=SGX_INSTALL]True'
               echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: azurelinuxv2-gen2
+      - job: buildAzureLinuxV3gen2
+        condition: eq('${{ parameters.buildAzureLinuxV3gen2 }}', true)
+        dependsOn: [ ]
+        timeoutInMinutes: 180
+        steps:
+          - bash: |
+              echo '##vso[task.setvariable variable=OS_SKU]AzureLinux'
+              echo '##vso[task.setvariable variable=OS_VERSION]V3'
+              echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
+              echo '##vso[task.setvariable variable=IMG_OFFER]azure-linux-3'
+              echo '##vso[task.setvariable variable=IMG_SKU]azure-linux-3-gen2'
+              echo '##vso[task.setvariable variable=IMG_VERSION]latest'
+              echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
+              echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
+              echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
+
+              echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
+              echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
+              echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
+              echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
+            displayName: Setup Build Variables
+          - template: ./templates/.builder-release-template.yaml
+            parameters:
+              artifactName: azurelinuxv3-gen2
       - job: buildMarinerV2gen1fips
         condition: eq('${{ parameters.buildMarinerV2gen1fips }}', true)
         dependsOn: [ ]
         timeoutInMinutes: 180
         steps:
           - bash: |
-              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
               echo '##vso[task.setvariable variable=OS_SKU]CBLMariner'
               echo '##vso[task.setvariable variable=OS_VERSION]V2'
               echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
@@ -378,15 +367,16 @@ stages:
               echo '##vso[task.setvariable variable=IMG_VERSION]latest'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
-              echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
+
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
               echo '##vso[task.setvariable variable=ENABLE_FIPS]True'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
-              echo '##vso[task.setvariable variable=SGX_INSTALL]True'
               echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]False'
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: marinerv2-gen1-fips
       - job: buildAzureLinuxV2gen1fips
         condition: eq('${{ parameters.buildAzureLinuxV2gen1fips }}', true)
@@ -394,7 +384,6 @@ stages:
         timeoutInMinutes: 180
         steps:
           - bash: |
-              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
               echo '##vso[task.setvariable variable=OS_SKU]AzureLinux'
               echo '##vso[task.setvariable variable=OS_VERSION]V2'
               echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
@@ -404,23 +393,47 @@ stages:
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
-              echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
+
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
               echo '##vso[task.setvariable variable=ENABLE_FIPS]True'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
-              echo '##vso[task.setvariable variable=SGX_INSTALL]True'
               echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: azurelinuxv2-gen1-fips
+      - job: buildAzureLinuxV3gen1fips
+        condition: eq('${{ parameters.buildAzureLinuxV3gen1fips }}', true)
+        dependsOn: [ ]
+        timeoutInMinutes: 180
+        steps:
+          - bash: |
+              echo '##vso[task.setvariable variable=OS_SKU]AzureLinux'
+              echo '##vso[task.setvariable variable=OS_VERSION]V3'
+              echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
+              echo '##vso[task.setvariable variable=IMG_OFFER]azure-linux-3'
+              echo '##vso[task.setvariable variable=IMG_SKU]azure-linux-3'
+              echo '##vso[task.setvariable variable=IMG_VERSION]latest'
+              echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
+              echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
+              echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
+
+              echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
+              echo '##vso[task.setvariable variable=ENABLE_FIPS]True'
+              echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
+              echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
+            displayName: Setup Build Variables
+          - template: ./templates/.builder-release-template.yaml
+            parameters:
+              artifactName: azurelinuxv3-gen1-fips
       - job: buildMarinerV2gen2fips
         condition: eq('${{ parameters.buildMarinerV2gen2fips }}', true)
         dependsOn: [ ]
         timeoutInMinutes: 180
         steps:
           - bash: |
-              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
               echo '##vso[task.setvariable variable=OS_SKU]CBLMariner'
               echo '##vso[task.setvariable variable=OS_VERSION]V2'
               echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
@@ -430,15 +443,16 @@ stages:
               echo '##vso[task.setvariable variable=IMG_VERSION]latest'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
-              echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
+
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
               echo '##vso[task.setvariable variable=ENABLE_FIPS]True'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
-              echo '##vso[task.setvariable variable=SGX_INSTALL]True'
               echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]False'
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: marinerv2-gen2-fips
       - job: buildAzureLinuxV2gen2fips
         condition: eq('${{ parameters.buildAzureLinuxV2gen2fips }}', true)
@@ -446,7 +460,6 @@ stages:
         timeoutInMinutes: 180
         steps:
           - bash: |
-              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
               echo '##vso[task.setvariable variable=OS_SKU]AzureLinux'
               echo '##vso[task.setvariable variable=OS_VERSION]V2'
               echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
@@ -456,23 +469,47 @@ stages:
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
-              echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
+
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
               echo '##vso[task.setvariable variable=ENABLE_FIPS]True'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
-              echo '##vso[task.setvariable variable=SGX_INSTALL]True'
               echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: azurelinuxv2-gen2-fips
+      - job: buildAzureLinuxV3gen2fips
+        condition: eq('${{ parameters.buildAzureLinuxV3gen2fips }}', true)
+        dependsOn: [ ]
+        timeoutInMinutes: 180
+        steps:
+          - bash: |
+              echo '##vso[task.setvariable variable=OS_SKU]AzureLinux'
+              echo '##vso[task.setvariable variable=OS_VERSION]V3'
+              echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
+              echo '##vso[task.setvariable variable=IMG_OFFER]azure-linux-3'
+              echo '##vso[task.setvariable variable=IMG_SKU]azure-linux-3-gen2'
+              echo '##vso[task.setvariable variable=IMG_VERSION]latest'
+              echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
+              echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
+              echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
+
+              echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
+              echo '##vso[task.setvariable variable=ENABLE_FIPS]True'
+              echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
+              echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
+            displayName: Setup Build Variables
+          - template: ./templates/.builder-release-template.yaml
+            parameters:
+              artifactName: azurelinuxv3-gen2-fips
       - job: buildMarinerV2ARM64
         condition: eq('${{ parameters.buildMarinerV2ARM64 }}', true)
         dependsOn: [ ]
         timeoutInMinutes: 180
         steps:
           - bash: |
-              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
               echo '##vso[task.setvariable variable=OS_SKU]CBLMariner'
               echo '##vso[task.setvariable variable=OS_VERSION]V2'
               echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
@@ -482,15 +519,16 @@ stages:
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16pds_v5'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
-              echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
+
               echo '##vso[task.setvariable variable=ARCHITECTURE]ARM64'
               echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
-              echo '##vso[task.setvariable variable=SGX_INSTALL]False'
               echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]False'
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: marinerv2-gen2-arm64
       - job: buildAzureLinuxV2ARM64
         condition: eq('${{ parameters.buildAzureLinuxV2ARM64 }}', true)
@@ -498,7 +536,6 @@ stages:
         timeoutInMinutes: 180
         steps:
           - bash: |
-              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
               echo '##vso[task.setvariable variable=OS_SKU]AzureLinux'
               echo '##vso[task.setvariable variable=OS_VERSION]V2'
               echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
@@ -508,23 +545,71 @@ stages:
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16pds_v5'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
-              echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
+
               echo '##vso[task.setvariable variable=ARCHITECTURE]ARM64'
               echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
-              echo '##vso[task.setvariable variable=SGX_INSTALL]False'
               echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: azurelinuxv2-gen2-arm64
+      - job: buildAzureLinuxV3ARM64
+        condition: eq('${{ parameters.buildAzureLinuxV3ARM64 }}', true)
+        dependsOn: [ ]
+        timeoutInMinutes: 180
+        steps:
+          - bash: |
+              echo '##vso[task.setvariable variable=OS_SKU]AzureLinux'
+              echo '##vso[task.setvariable variable=OS_VERSION]V3'
+              echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
+              echo '##vso[task.setvariable variable=IMG_OFFER]azure-linux-3'
+              echo '##vso[task.setvariable variable=IMG_SKU]azure-linux-3-arm64'
+              echo '##vso[task.setvariable variable=IMG_VERSION]latest'
+              echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
+              echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16pds_v5'
+              echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
+
+              echo '##vso[task.setvariable variable=ARCHITECTURE]ARM64'
+              echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
+              echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
+              echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
+            displayName: Setup Build Variables
+          - template: ./templates/.builder-release-template.yaml
+            parameters:
+              artifactName: azurelinuxv3-gen2-arm64
+      - job: buildAzureLinuxV3ARM64gen2fips
+        condition: eq('${{ parameters.buildAzureLinuxV3ARM64gen2fips }}', true)
+        dependsOn: [ ]
+        timeoutInMinutes: 180
+        steps:
+          - bash: |
+              echo '##vso[task.setvariable variable=OS_SKU]AzureLinux'
+              echo '##vso[task.setvariable variable=OS_VERSION]V3'
+              echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
+              echo '##vso[task.setvariable variable=IMG_OFFER]azure-linux-3'
+              echo '##vso[task.setvariable variable=IMG_SKU]azure-linux-3-arm64-gen2-fips'
+              echo '##vso[task.setvariable variable=IMG_VERSION]latest'
+              echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
+              echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16pds_v5'
+              echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
+
+              echo '##vso[task.setvariable variable=ARCHITECTURE]ARM64'
+              echo '##vso[task.setvariable variable=ENABLE_FIPS]True'
+              echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
+              echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
+            displayName: Setup Build Variables
+          - template: ./templates/.builder-release-template.yaml
+            parameters:
+              artifactName: azurelinuxv3-gen2-arm64-fips
       - job: buildMarinerV2gen2kata
         condition: eq('${{ parameters.buildMarinerV2gen2kata }}', true)
         dependsOn: [ ]
         timeoutInMinutes: 180
         steps:
           - bash: |
-              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
               echo '##vso[task.setvariable variable=OS_SKU]CBLMariner'
               echo '##vso[task.setvariable variable=OS_VERSION]V2kata'
               echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
@@ -534,15 +619,16 @@ stages:
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ads_v5'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]kata'
-              echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
+
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
               echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
-              echo '##vso[task.setvariable variable=SGX_INSTALL]True'
               echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]False'
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: marinerv2-gen2-kata
       - job: buildAzureLinuxV2gen2kata
         condition: eq('${{ parameters.buildAzureLinuxV2gen2kata }}', true)
@@ -550,33 +636,58 @@ stages:
         timeoutInMinutes: 180
         steps:
           - bash: |
-              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
               echo '##vso[task.setvariable variable=OS_SKU]AzureLinux'
               echo '##vso[task.setvariable variable=OS_VERSION]V2kata'
               echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
               echo '##vso[task.setvariable variable=IMG_OFFER]cbl-mariner'
-              echo '##vso[task.setvariable variable=IMG_SKU]cbl-mariner-2-kata'
+              echo '##vso[task.setvariable variable=IMG_SKU]cbl-mariner-2-gen2'
               echo '##vso[task.setvariable variable=IMG_VERSION]latest'
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ads_v5'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]kata'
-              echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
+
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
               echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
-              echo '##vso[task.setvariable variable=SGX_INSTALL]True'
               echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: azurelinuxv2-gen2-kata
+      - job: buildAzureLinuxV3gen2kata
+        condition: eq('${{ parameters.buildAzureLinuxV3gen2kata }}', true)
+        dependsOn: [ ]
+        timeoutInMinutes: 180
+        steps:
+          - bash: |
+              echo '##vso[task.setvariable variable=OS_SKU]AzureLinux'
+              echo '##vso[task.setvariable variable=OS_VERSION]V3kata'
+              echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
+              echo '##vso[task.setvariable variable=IMG_OFFER]azure-linux-3'
+              echo '##vso[task.setvariable variable=IMG_SKU]azure-linux-3-gen2'
+              echo '##vso[task.setvariable variable=IMG_VERSION]latest'
+              echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
+              echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ads_v5'
+              echo '##vso[task.setvariable variable=FEATURE_FLAGS]kata'
+
+              echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
+              echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
+              echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
+              echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
+            displayName: Setup Build Variables
+          - template: ./templates/.builder-release-template.yaml
+            parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
+              artifactName: azurelinuxv3-gen2-kata
       - job: buildMarinerV2gen2TrustedLaunch
         condition: eq('${{ parameters.buildMarinerV2gen2TrustedLaunch }}', true)
         dependsOn: [ ]
         timeoutInMinutes: 180
         steps:
           - bash: |
-              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
               echo '##vso[task.setvariable variable=OS_SKU]CBLMariner'
               echo '##vso[task.setvariable variable=OS_VERSION]V2'
               echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
@@ -586,15 +697,16 @@ stages:
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
-              echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
+
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
               echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
-              echo '##vso[task.setvariable variable=SGX_INSTALL]True'
               echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]False'
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: marinerv2-gen2-trustedlaunch
       - job: buildAzureLinuxV2gen2TrustedLaunch
         condition: eq('${{ parameters.buildAzureLinuxV2gen2TrustedLaunch }}', true)
@@ -602,7 +714,6 @@ stages:
         timeoutInMinutes: 180
         steps:
           - bash: |
-              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
               echo '##vso[task.setvariable variable=OS_SKU]AzureLinux'
               echo '##vso[task.setvariable variable=OS_VERSION]V2'
               echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
@@ -612,23 +723,75 @@ stages:
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
-              echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
+
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
               echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
-              echo '##vso[task.setvariable variable=SGX_INSTALL]True'
               echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: azurelinuxv2-gen2-trustedlaunch
+      - job: buildAzureLinuxV3gen2TrustedLaunch
+        condition: eq('${{ parameters.buildAzureLinuxV3gen2TrustedLaunch }}', true)
+        dependsOn: [ ]
+        timeoutInMinutes: 180
+        steps:
+          - bash: |
+              echo '##vso[task.setvariable variable=OS_SKU]AzureLinux'
+              echo '##vso[task.setvariable variable=OS_VERSION]V3'
+              echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
+              echo '##vso[task.setvariable variable=IMG_OFFER]azure-linux-3'
+              echo '##vso[task.setvariable variable=IMG_SKU]azure-linux-3-gen2'
+              echo '##vso[task.setvariable variable=IMG_VERSION]latest'
+              echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
+              echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
+              echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
+
+              echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
+              echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
+              echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
+              echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
+            displayName: Setup Build Variables
+          - template: ./templates/.builder-release-template.yaml
+            parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
+              artifactName: azurelinuxv3-gen2-trustedlaunch
+      - job: buildAzureLinuxV3cvmgen2
+        condition: eq('${{ parameters.buildAzureLinuxV3cvmgen2 }}', true)
+        dependsOn: [ ]
+        timeoutInMinutes: 180
+        steps:
+          - bash: |
+              echo '##vso[task.setvariable variable=OS_SKU]AzureLinux'
+              echo '##vso[task.setvariable variable=OS_VERSION]V3'
+              echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
+              echo '##vso[task.setvariable variable=IMG_OFFER]azure-linux-3'
+              echo '##vso[task.setvariable variable=IMG_SKU]azure-linux-3-cvm'
+              echo '##vso[task.setvariable variable=IMG_VERSION]latest'
+              echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
+              echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_DC16ads_v5'
+              echo '##vso[task.setvariable variable=FEATURE_FLAGS]cvm'
+
+              echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
+              echo '##vso[task.setvariable variable=ENABLE_FIPS]False'
+              echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
+              echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
+            displayName: Setup Build Variables
+          - template: ./templates/.builder-release-template.yaml
+            parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
+              artifactName: azurelinuxv3-cvm-gen2
       - job: buildMarinerV2gen2kataTrustedLaunch
         condition: eq('${{ parameters.buildMarinerV2gen2kataTrustedLaunch }}', true)
         dependsOn: [ ]
         timeoutInMinutes: 180
         steps:
           - bash: |
-              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
               echo '##vso[task.setvariable variable=OS_SKU]CBLMariner'
               echo '##vso[task.setvariable variable=OS_VERSION]V2kata'
               echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
@@ -638,15 +801,16 @@ stages:
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ads_v5'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]kata'
-              echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
+
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
               echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
-              echo '##vso[task.setvariable variable=SGX_INSTALL]True'
               echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]False'
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: marinerv2-gen2-kata-trustedlaunch
       - job: buildAzureLinuxV2gen2kataTrustedLaunch
         condition: eq('${{ parameters.buildAzureLinuxV2gen2kataTrustedLaunch }}', true)
@@ -654,7 +818,6 @@ stages:
         timeoutInMinutes: 180
         steps:
           - bash: |
-              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
               echo '##vso[task.setvariable variable=OS_SKU]AzureLinux'
               echo '##vso[task.setvariable variable=OS_VERSION]V2kata'
               echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
@@ -664,73 +827,52 @@ stages:
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ads_v5'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]kata'
-              echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
+
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
               echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
-              echo '##vso[task.setvariable variable=SGX_INSTALL]True'
               echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: azurelinuxv2-gen2-kata-trustedlaunch
-      - job: build1804fipscontainerd
-        condition: eq('${{ parameters.build1804fipscontainerd }}', true)
+      - job: buildAzureLinuxOSGuardV3gen2fipsTL
+        condition: eq('${{ parameters.buildAzureLinuxOSGuardV3gen2fipsTL }}', true)
         dependsOn: [ ]
         timeoutInMinutes: 180
         steps:
           - bash: |
-              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
-              echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
-              echo '##vso[task.setvariable variable=OS_VERSION]18.04'
-              echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
-              echo '##vso[task.setvariable variable=IMG_OFFER]UbuntuServer'
-              echo '##vso[task.setvariable variable=IMG_SKU]18.04-LTS'
-              echo '##vso[task.setvariable variable=IMG_VERSION]latest'
-              echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
-              echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
-              echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
-              echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
-              echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
-              echo '##vso[task.setvariable variable=ENABLE_FIPS]True'
-              echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
-              echo '##vso[task.setvariable variable=SGX_INSTALL]False'
-            displayName: Setup Build Variables
-          - template: ./templates/.builder-release-template.yaml
-            parameters:
-              artifactName: 1804-fips-containerd
-      - job: build1804fipsgen2containerd
-        condition: eq('${{ parameters.build1804fipsgen2containerd }}', true)
-        dependsOn: [ ]
-        timeoutInMinutes: 180
-        steps:
-          - bash: |
-              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
-              echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
-              echo '##vso[task.setvariable variable=OS_VERSION]18.04'
-              echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
-              echo '##vso[task.setvariable variable=IMG_OFFER]UbuntuServer'
-              echo '##vso[task.setvariable variable=IMG_SKU]18_04-LTS-GEN2'
-              echo '##vso[task.setvariable variable=IMG_VERSION]latest'
+              echo '##vso[task.setvariable variable=BUILDER]imagecustomizer'
+              echo '##vso[task.setvariable variable=OS_SKU]AzureLinuxOSGuard'
+              echo '##vso[task.setvariable variable=OS_VERSION]OSGuardV3'
+              echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER]mcr.microsoft.com/azurelinux/imagecustomizer'
+              echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_VERSION]0.17.0'
+              echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONFIG]azlosguard'
+              echo '##vso[task.setvariable variable=BASE_IMG]mcr.microsoft.com/azurelinux/3.0/image/osguard'
+              echo '##vso[task.setvariable variable=BASE_IMG_VERSION]3.0.20250910'
+              echo '##vso[task.setvariable variable=IMG_SKU]azure-linux-osguard-3'
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
-              echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
-              echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
+
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
               echo '##vso[task.setvariable variable=ENABLE_FIPS]True'
-              echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
-              echo '##vso[task.setvariable variable=SGX_INSTALL]True'
+              echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
+              echo '##vso[task.setvariable variable=SGX_INSTALL]False'
+              echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
-              artifactName: 1804-fips-gen2-containerd
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
+              artifactName: azurelinuxosguardv3-gen2-fips-trustedlaunch
       - job: build2004fipscontainerd
         condition: eq('${{ parameters.build2004fipscontainerd }}', true)
         dependsOn: [ ]
         timeoutInMinutes: 180
         steps:
           - bash: |
-              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
               echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
               echo '##vso[task.setvariable variable=OS_VERSION]20.04'
               echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
@@ -740,14 +882,15 @@ stages:
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
-              echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
+
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
               echo '##vso[task.setvariable variable=ENABLE_FIPS]True'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
-              echo '##vso[task.setvariable variable=SGX_INSTALL]False'
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2004-fips-containerd
       - job: build2004fipsgen2containerd
         condition: eq('${{ parameters.build2004fipsgen2containerd }}', true)
@@ -755,7 +898,6 @@ stages:
         timeoutInMinutes: 180
         steps:
           - bash: |
-              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
               echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
               echo '##vso[task.setvariable variable=OS_VERSION]20.04'
               echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
@@ -765,14 +907,15 @@ stages:
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
-              echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
+
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
               echo '##vso[task.setvariable variable=ENABLE_FIPS]True'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
-              echo '##vso[task.setvariable variable=SGX_INSTALL]True'
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2004-fips-gen2-containerd
       - job: build2204fipscontainerd
         condition: eq('${{ parameters.build2204fipscontainerd }}', true)
@@ -780,7 +923,6 @@ stages:
         timeoutInMinutes: 180
         steps:
           - bash: |
-              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
               echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
               echo '##vso[task.setvariable variable=OS_VERSION]22.04'
               echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
@@ -788,17 +930,18 @@ stages:
               echo '##vso[task.setvariable variable=IMG_SKU]22_04-lts'
               echo '##vso[task.setvariable variable=IMG_VERSION]latest'
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
-              echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_DS2_v2'
+              echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
-              echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
+
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
               echo '##vso[task.setvariable variable=ENABLE_FIPS]True'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
-              echo '##vso[task.setvariable variable=SGX_INSTALL]False'
               echo '##vso[task.setvariable variable=IMG_VERSION]latest'
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2204-fips-containerd
       - job: build2204fipsgen2containerd
         condition: eq('${{ parameters.build2204fipsgen2containerd }}', true)
@@ -806,7 +949,6 @@ stages:
         timeoutInMinutes: 180
         steps:
           - bash: |
-              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
               echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
               echo '##vso[task.setvariable variable=OS_VERSION]22.04'
               echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
@@ -814,17 +956,18 @@ stages:
               echo '##vso[task.setvariable variable=IMG_SKU]22_04-lts-gen2'
               echo '##vso[task.setvariable variable=IMG_VERSION]latest'
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
-              echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_DS2_v2'
+              echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
-              echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
+
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
               echo '##vso[task.setvariable variable=ENABLE_FIPS]True'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
-              echo '##vso[task.setvariable variable=SGX_INSTALL]False'
               echo '##vso[task.setvariable variable=IMG_VERSION]latest'
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2204-fips-gen2-containerd
       - job: build2204arm64gen2containerd
         condition: eq('${{ parameters.build2204arm64gen2containerd }}', true)
@@ -832,7 +975,6 @@ stages:
         timeoutInMinutes: 180
         steps:
           - bash: |
-              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
               echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
               echo '##vso[task.setvariable variable=OS_VERSION]22.04'
               echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
@@ -842,40 +984,40 @@ stages:
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16pds_v5'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
-              echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
+
               echo '##vso[task.setvariable variable=ARCHITECTURE]ARM64'
               echo '##vso[task.setvariable variable=ENABLE_FIPS]False'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
-              echo '##vso[task.setvariable variable=SGX_INSTALL]False'
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2204-arm64-gen2-containerd
       - job: build2404arm64gen2containerd
         condition: eq('${{ parameters.build2404arm64gen2containerd }}', true)
         dependsOn: [ ]
         timeoutInMinutes: 180
         steps:
-          # TODO(artunduman): Remove 'daily' when available
           - bash: |
-              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
               echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
               echo '##vso[task.setvariable variable=OS_VERSION]24.04'
               echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
-              echo '##vso[task.setvariable variable=IMG_OFFER]0001-com-ubuntu-server-noble-daily'
-              echo '##vso[task.setvariable variable=IMG_SKU]24_04-daily-lts-arm64'
+              echo '##vso[task.setvariable variable=IMG_OFFER]ubuntu-24_04-lts'
+              echo '##vso[task.setvariable variable=IMG_SKU]server-arm64'
               echo '##vso[task.setvariable variable=IMG_VERSION]latest'
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16pds_v5'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
-              echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
+
               echo '##vso[task.setvariable variable=ARCHITECTURE]ARM64'
               echo '##vso[task.setvariable variable=ENABLE_FIPS]False'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
-              echo '##vso[task.setvariable variable=SGX_INSTALL]False'
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2404-arm64-gen2-containerd
       - job: build2204containerd
         condition: eq('${{ parameters.build2204containerd }}', true)
@@ -883,7 +1025,6 @@ stages:
         timeoutInMinutes: 180
         steps:
           - bash: |
-              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
               echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
               echo '##vso[task.setvariable variable=OS_VERSION]22.04'
               echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
@@ -893,13 +1034,15 @@ stages:
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
-              echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
+
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
+              echo '##vso[task.setvariable variable=ENABLE_FIPS]False'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
-              echo '##vso[task.setvariable variable=SGX_INSTALL]False'
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2204-containerd
       - job: build2204gen2containerd
         condition: eq('${{ parameters.build2204gen2containerd }}', true)
@@ -907,7 +1050,6 @@ stages:
         timeoutInMinutes: 180
         steps:
           - bash: |
-              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
               echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
               echo '##vso[task.setvariable variable=OS_VERSION]22.04'
               echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
@@ -917,13 +1059,15 @@ stages:
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
-              echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
+
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
+              echo '##vso[task.setvariable variable=ENABLE_FIPS]False'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
-              echo '##vso[task.setvariable variable=SGX_INSTALL]True'
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2204-gen2-containerd
       - job: build2404containerd
         condition: eq('${{ parameters.build2404containerd }}', true)
@@ -931,55 +1075,106 @@ stages:
         timeoutInMinutes: 180
         steps:
           - bash: |
-              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
               echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
               echo '##vso[task.setvariable variable=OS_VERSION]24.04'
               echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
-              echo '##vso[task.setvariable variable=IMG_OFFER]0001-com-ubuntu-server-noble-daily'
-              echo '##vso[task.setvariable variable=IMG_SKU]24_04-daily-lts'
+              echo '##vso[task.setvariable variable=IMG_OFFER]ubuntu-24_04-lts'
+              echo '##vso[task.setvariable variable=IMG_SKU]server-gen1'
               echo '##vso[task.setvariable variable=IMG_VERSION]latest'
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
-              echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
+
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
+              echo '##vso[task.setvariable variable=ENABLE_FIPS]False'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
-              echo '##vso[task.setvariable variable=SGX_INSTALL]False'
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2404-containerd
+      - job: build2404cvmgen2containerd
+        condition: eq('${{ parameters.build2404cvmgen2containerd }}', true)
+        dependsOn: [ ]
+        timeoutInMinutes: 180
+        steps:
+          - bash: |
+              echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
+              echo '##vso[task.setvariable variable=OS_VERSION]24.04'
+              echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
+              echo '##vso[task.setvariable variable=IMG_OFFER]ubuntu-24_04-lts'
+              echo '##vso[task.setvariable variable=IMG_SKU]cvm'
+              echo '##vso[task.setvariable variable=IMG_VERSION]latest'
+              echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
+              echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_DC16ads_v5'
+              echo '##vso[task.setvariable variable=FEATURE_FLAGS]cvm'
+
+              echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
+              echo '##vso[task.setvariable variable=ENABLE_FIPS]False'
+              echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
+            displayName: Setup Build Variables
+          - template: ./templates/.builder-release-template.yaml
+            parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
+              artifactName: 2404-cvm-gen2-containerd
       - job: build2404gen2containerd
         condition: eq('${{ parameters.build2404gen2containerd }}', true)
         dependsOn: [ ]
         timeoutInMinutes: 180
         steps:
           - bash: |
-              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
               echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
               echo '##vso[task.setvariable variable=OS_VERSION]24.04'
               echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
-              echo '##vso[task.setvariable variable=IMG_OFFER]0001-com-ubuntu-server-noble-daily'
-              echo '##vso[task.setvariable variable=IMG_SKU]24_04-daily-lts-gen2'
+              echo '##vso[task.setvariable variable=IMG_OFFER]ubuntu-24_04-lts'
+              echo '##vso[task.setvariable variable=IMG_SKU]server'
               echo '##vso[task.setvariable variable=IMG_VERSION]latest'
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
-              echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
+
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
+              echo '##vso[task.setvariable variable=ENABLE_FIPS]False'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
-              echo '##vso[task.setvariable variable=SGX_INSTALL]True'
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2404-gen2-containerd
+      - job: build2404tlgen2containerd
+        condition: eq('${{ parameters.build2404tlgen2containerd }}', true)
+        dependsOn: [ ]
+        timeoutInMinutes: 180
+        steps:
+          - bash: |
+              echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
+              echo '##vso[task.setvariable variable=OS_VERSION]24.04'
+              echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
+              echo '##vso[task.setvariable variable=IMG_OFFER]ubuntu-24_04-lts'
+              echo '##vso[task.setvariable variable=IMG_SKU]server'
+              echo '##vso[task.setvariable variable=IMG_VERSION]latest'
+              echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
+              echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
+              echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
+
+              echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
+              echo '##vso[task.setvariable variable=ENABLE_FIPS]False'
+              echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
+            displayName: Setup Build Variables
+          - template: ./templates/.builder-release-template.yaml
+            parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
+              artifactName: 2404-tl-gen2-containerd
       - job: build2004cvmgen2containerd
         condition: eq('${{ parameters.build2004cvmgen2containerd }}', true)
         dependsOn: [ ]
         timeoutInMinutes: 180
         steps:
           - bash: |
-              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
               echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
               echo '##vso[task.setvariable variable=OS_VERSION]20.04'
               echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
@@ -987,15 +1182,17 @@ stages:
               echo '##vso[task.setvariable variable=IMG_SKU]20_04-lts-cvm'
               echo '##vso[task.setvariable variable=IMG_VERSION]latest'
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
-              echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
-              echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
-              echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
+              echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_DC16ads_v5'
+              echo '##vso[task.setvariable variable=FEATURE_FLAGS]cvm'
+
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
+              echo '##vso[task.setvariable variable=ENABLE_FIPS]False'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
-              echo '##vso[task.setvariable variable=SGX_INSTALL]True'
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2004-cvm-gen2-containerd
       - job: build2204tlgen2containerd
         condition: eq('${{ parameters.build2204tlgen2containerd }}', true)
@@ -1003,7 +1200,6 @@ stages:
         timeoutInMinutes: 180
         steps:
           - bash: |
-              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
               echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
               echo '##vso[task.setvariable variable=OS_VERSION]22.04'
               echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
@@ -1013,13 +1209,15 @@ stages:
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
-              echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
+
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
+              echo '##vso[task.setvariable variable=ENABLE_FIPS]False'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
-              echo '##vso[task.setvariable variable=SGX_INSTALL]True'
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2204-tl-gen2-containerd
       - job: build2204minimalgen1containerd
         condition: eq('${{ parameters.build2204minimalgen1containerd }}', true)
@@ -1027,7 +1225,6 @@ stages:
         timeoutInMinutes: 180
         steps:
           - bash: |
-              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
               echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
               echo '##vso[task.setvariable variable=OS_VERSION]22.04'
               echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
@@ -1037,13 +1234,15 @@ stages:
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
-              echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
+
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
+              echo '##vso[task.setvariable variable=ENABLE_FIPS]False'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
-              echo '##vso[task.setvariable variable=SGX_INSTALL]False'
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2204-minimal-gen1-containerd
       - job: build2204minimalgen2containerd
         condition: eq('${{ parameters.build2204minimalgen2containerd }}', true)
@@ -1051,7 +1250,6 @@ stages:
         timeoutInMinutes: 180
         steps:
           - bash: |
-              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
               echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
               echo '##vso[task.setvariable variable=OS_VERSION]22.04'
               echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
@@ -1061,18 +1259,100 @@ stages:
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
-              echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
+
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
+              echo '##vso[task.setvariable variable=ENABLE_FIPS]False'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
-              echo '##vso[task.setvariable variable=SGX_INSTALL]False'
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2204-minimal-gen2-containerd
-  - stage: Run_E2E_Tests
-    condition: and(ne(variables.SKIP_E2E_TESTS, 'true'), eq('${{ parameters.dryrun }}', false))
+      - job: buildflatcargen2
+        condition: eq('${{ parameters.buildflatcargen2 }}', true)
+        dependsOn: [ ]
+        timeoutInMinutes: 180
+        steps:
+          - bash: |
+              echo '##vso[task.setvariable variable=OS_SKU]Flatcar'
+              echo '##vso[task.setvariable variable=OS_VERSION]flatcar'
+              echo '##vso[task.setvariable variable=IMG_PUBLISHER]kinvolk'
+              echo '##vso[task.setvariable variable=IMG_OFFER]flatcar-container-linux-corevm-amd64'
+              echo '##vso[task.setvariable variable=IMG_SKU]alpha-gen2'
+              echo '##vso[task.setvariable variable=IMG_VERSION]latest'
+              echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
+              echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
+              echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
+
+              echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
+              echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
+              echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
+            displayName: Setup Build Variables
+          - template: ./templates/.builder-release-template.yaml
+            parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
+              artifactName: flatcar-gen2
+      - job: buildflatcargen2arm64
+        condition: eq('${{ parameters.buildflatcargen2arm64 }}', true)
+        dependsOn: [ ]
+        timeoutInMinutes: 180
+        steps:
+          - bash: |
+              echo '##vso[task.setvariable variable=OS_SKU]Flatcar'
+              echo '##vso[task.setvariable variable=OS_VERSION]flatcar'
+              echo '##vso[task.setvariable variable=IMG_PUBLISHER]kinvolk'
+              echo '##vso[task.setvariable variable=IMG_OFFER]flatcar-container-linux-corevm'
+              echo '##vso[task.setvariable variable=IMG_SKU]alpha'
+              echo '##vso[task.setvariable variable=IMG_VERSION]latest'
+              echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
+              echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16pds_v5'
+              echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
+
+              echo '##vso[task.setvariable variable=ARCHITECTURE]ARM64'
+              echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
+              echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
+            displayName: Setup Build Variables
+          - template: ./templates/.builder-release-template.yaml
+            parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
+              artifactName: flatcar-gen2-arm64
+  - stage: build_vhd_2404_arm64_gb200_gen2_containerd
+    condition: eq('${{ parameters.build2404arm64gb200gen2containerd }}', true)
+    dependsOn: []
+    jobs:
+      - job: build2404arm64gb200gen2containerd
+        timeoutInMinutes: 180
+        steps:
+          - bash: |
+              echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
+              echo '##vso[task.setvariable variable=OS_VERSION]24.04'
+              echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
+              echo '##vso[task.setvariable variable=IMG_OFFER]ubuntu-24_04-lts'
+              echo '##vso[task.setvariable variable=IMG_SKU]server-arm64'
+              echo '##vso[task.setvariable variable=IMG_VERSION]latest'
+              echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
+              echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D32pds_v6'
+              echo '##vso[task.setvariable variable=FEATURE_FLAGS]GB200'
+              echo '##vso[task.setvariable variable=ARCHITECTURE]ARM64'
+              echo '##vso[task.setvariable variable=ENABLE_FIPS]False'
+              echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
+            displayName: Setup Build Variables
+          - template: ./templates/.builder-release-template.yaml
+            parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
+              artifactName: 2404-arm64-gb200-gen2-containerd
+  - stage: e2e
+    condition: and(succeeded(), ne(variables.SKIP_E2E_TESTS, 'true'))
     variables:
       VHD_BUILD_ID: $(Build.BuildId)
-      LOCATION: $(PACKER_BUILD_LOCATION)
+      TAGS_TO_SKIP: "os=windows"
     jobs:
       - template: ./templates/e2e-template.yaml
+        parameters:
+          name: All Linux
+          IgnoreScenariosWithMissingVhd: true
+

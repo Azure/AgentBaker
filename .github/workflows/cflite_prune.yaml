@@ -11,7 +11,7 @@ permissions: read-all
 
 jobs:
   Pruning:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
     - name: Build Fuzzers
       id: build
@@ -34,7 +34,7 @@ jobs:
         storage-repo-branch: main   # Optional. Defaults to "main"
         storage-repo-branch-coverage: gh-pages  # Optional. Defaults to "gh-pages".
   Coverage:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
     - name: Build Fuzzers
       id: build

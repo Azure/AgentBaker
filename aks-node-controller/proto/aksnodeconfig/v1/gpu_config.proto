@@ -1,0 +1,25 @@
+syntax = "proto3";
+package aksnodeconfig.v1;
+
+option go_package = "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1;aksnodeconfigv1";
+
+message GpuConfig {
+  // Specifies whether any nvidia configurations should be applied for GPU nodes. False when vm size is not a GPU node or driver install is skipped and no GPU configuration is needed.
+  // Making optional so that default will be set to IsNvidiaEnabledSku(vmSize) instead of false
+  optional bool enable_nvidia = 1;
+
+  // Specifies whether bootstrap process should install and configure the GPU driver when necessary. Configuration includes appropriate set up of components like the fabric manager where applicable.
+  bool config_gpu_driver = 2;
+
+  // Specifies whether special config is needed for MIG GPUs that use GPU dedicated VHDs and enable the device plugin (for all GPU dedicated VHDs)
+  bool gpu_device_plugin = 3;
+
+  // Represents the GPU instance profile.
+  string gpu_instance_profile = 4;
+
+  // Same as enable_nvidia, but for AMD GPUs.
+  optional bool enable_amd_gpu = 5;
+
+  // Specifies whether the managed GPU experience AFEC (Azure Feature Engineering Configuration) is enabled.
+  bool managed_gpu_experience_afec_enabled = 6;
+}

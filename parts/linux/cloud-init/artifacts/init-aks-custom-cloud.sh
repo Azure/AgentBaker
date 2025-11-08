@@ -1,45 +1,94 @@
 #!/bin/bash
 set -x
 mkdir -p /root/AzureCACertificates
+
+# For Flatcar: systemd timer instead of cron, skip cloud-init/apt ops, chronyd service name).
+IS_FLATCAR=0
+if [ -f /etc/os-release ] && grep -qi '^ID=flatcar' /etc/os-release; then
+  IS_FLATCAR=1
+fi
+
 # http://168.63.129.16 is a constant for the host's wireserver endpoint
 certs=$(curl "http://168.63.129.16/machine?comp=acmspackage&type=cacertificates&ext=json")
 IFS_backup=$IFS
 IFS=$'\r\n'
 certNames=($(echo $certs | grep -oP '(?<=Name\": \")[^\"]*'))
 certBodies=($(echo $certs | grep -oP '(?<=CertBody\": \")[^\"]*'))
+ext=".crt"
+if [ "$IS_FLATCAR" -eq 1 ]; then
+    ext=".pem"
+fi
 for i in ${!certBodies[@]}; do
-    echo ${certBodies[$i]}  | sed 's/\\r\\n/\n/g' | sed 's/\\//g' > "/root/AzureCACertificates/$(echo ${certNames[$i]} | sed 's/.cer/.crt/g')"
+    echo ${certBodies[$i]}  | sed 's/\\r\\n/\n/g' | sed 's/\\//g' > "/root/AzureCACertificates/$(echo ${certNames[$i]} | sed "s/.cer/.${ext}/g")"
 done
 IFS=$IFS_backup
 
-cp /root/AzureCACertificates/*.crt /usr/local/share/ca-certificates/
-/usr/sbin/update-ca-certificates
+if [ "$IS_FLATCAR" -eq 0 ]; then
+    cp /root/AzureCACertificates/*.crt /usr/local/share/ca-certificates/
+    update-ca-certificates
 
-# This copies the updated bundle to the location used by OpenSSL which is commonly used
-cp /etc/ssl/certs/ca-certificates.crt /usr/lib/ssl/cert.pem
+    # This copies the updated bundle to the location used by OpenSSL which is commonly used
+    cp /etc/ssl/certs/ca-certificates.crt /usr/lib/ssl/cert.pem
+else
+    cp /root/AzureCACertificates/*.pem /etc/ssl/certs/
+    update-ca-certificates
+fi
 
 # This section creates a cron job to poll for refreshed CA certs daily
 # It can be removed if not needed or desired
 action=${1:-init}
-if [ $action == "ca-refresh" ]
-then
+if [ "$action" = "ca-refresh" ]; then
     exit
 fi
 
-(crontab -l ; echo "0 19 * * * $0 ca-refresh") | crontab -
+if [ "$IS_FLATCAR" -eq 0 ]; then
+    (crontab -l ; echo "0 19 * * * $0 ca-refresh") | crontab -
 
-cloud-init status --wait
-repoDepotEndpoint="${REPO_DEPOT_ENDPOINT}"
-sudo sed -i "s,http://.[^ ]*,$repoDepotEndpoint,g" /etc/apt/sources.list
+    cloud-init status --wait
+    repoDepotEndpoint="${REPO_DEPOT_ENDPOINT}"
+    sudo sed -i "s,http://.[^ ]*,$repoDepotEndpoint,g" /etc/apt/sources.list
+else
+    script_path="$(readlink -f "$0")"
+    svc="/etc/systemd/system/azure-ca-refresh.service"
+    tmr="/etc/systemd/system/azure-ca-refresh.timer"
+    cat >"$svc" <<EOF
+[Unit]
+Description=Refresh Azure Custom Cloud CA certificates
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=$script_path ca-refresh
+EOF
+    cat >"$tmr" <<EOF
+[Unit]
+Description=Daily refresh of Azure Custom Cloud CA certificates
+
+[Timer]
+OnCalendar=19:00
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target
+EOF
+    systemctl daemon-reload
+    systemctl enable --now azure-ca-refresh.timer
+fi
 
 # Disable systemd-timesyncd and install chrony and uses local time source
-systemctl stop systemd-timesyncd
-systemctl disable systemd-timesyncd
-
 chrony_conf="/etc/chrony/chrony.conf"
-if [ ! -e "$chrony_conf" ]; then
-    apt-get update
-    apt-get install chrony -y
+if [ "$IS_FLATCAR" -eq 0 ]; then
+    systemctl stop systemd-timesyncd
+    systemctl disable systemd-timesyncd
+
+    if [ ! -e "$chrony_conf" ]; then
+        apt-get update
+        apt-get install chrony -y
+    fi
+else
+    rm -f ${chrony_conf}
 fi
 
 cat > $chrony_conf <<EOF
@@ -90,6 +139,10 @@ refclock PHC /dev/ptp0 poll 3 dpoll -2 offset 0
 makestep 1.0 -1
 EOF
 
-systemctl restart chrony
+if [ "$IS_FLATCAR" -eq 0 ]; then
+    systemctl restart chrony
+else
+    systemctl restart chronyd
+fi
 
 #EOF

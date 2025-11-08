@@ -1,0 +1,321 @@
+{
+  "sku": "windows-2022-containerd",
+  "imageVersion": "20348.2762.241009",
+  "imageBom": [
+    {
+      "id": "sha256:2c989d4848540c9244c93c71184ae7fc928782714c669bb6517684153015baf5",
+      "repoTags": [
+        "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-3.1.24"
+      ],
+      "repoDigests": [
+        "sha256:b418bc9acc307dea057927575bf115414dc1be126ef55c7f410f826475b86e95"
+      ]
+    },
+    {
+      "id": "sha256:a69e900899bef0e71d240503ef07ccb0f5e85b5eb25bb9f52212a3f2c31ab63b",
+      "repoTags": [
+        "mcr.microsoft.com/containernetworking/azure-cni:v1.5.35"
+      ],
+      "repoDigests": [
+        "sha256:6bfc15d78d2b73c41add69ec8efaee7f6334cb5bd41469b27337d1cb4459a4f7"
+      ]
+    },
+    {
+      "id": "sha256:f633393342932ea04935b975cec193354a9fefe03fdb946c311a74e32c848fcc",
+      "repoTags": [
+        "mcr.microsoft.com/containernetworking/azure-cni:v1.6.10"
+      ],
+      "repoDigests": [
+        "sha256:660695caf1bc1f32d1558109253679b33e597b4ced7249df0b74743fd3fe8d6c"
+      ]
+    },
+    {
+      "id": "sha256:b93f37c77f4df0c2ba8f8d208d4e482d27308627a81fe6fc152f7cdeb2750fdd",
+      "repoTags": [
+        "mcr.microsoft.com/containernetworking/azure-cni:v1.6.7"
+      ],
+      "repoDigests": [
+        "sha256:aee314a456db1eb2de43ff8d2ca5005f75700a6e74b52cefffc192fe205daa6b"
+      ]
+    },
+    {
+      "id": "sha256:eb2c068081c82e0dbeedd357e6270194e9537b41ae50e8bee6bee028066b9a75",
+      "repoTags": [
+        "mcr.microsoft.com/containernetworking/azure-cns:v1.4.52"
+      ],
+      "repoDigests": [
+        "sha256:04cc0b6770e783c99c488cd86cd21ffd21417445ded210735ba8f8507f431747"
+      ]
+    },
+    {
+      "id": "sha256:ac90bb442344ffe0a5c023bc1eab12d577cca16051d9e5ece14871b0c987d85c",
+      "repoTags": [
+        "mcr.microsoft.com/containernetworking/azure-cns:v1.5.35"
+      ],
+      "repoDigests": [
+        "sha256:be0addea05422027cd420c728cdcb67840110b63723e1b1a65047beeb9dfd2a1"
+      ]
+    },
+    {
+      "id": "sha256:90882507d9d9a0f9b1b91d857ede6d16aedaf0713562f2f34578647798098902",
+      "repoTags": [
+        "mcr.microsoft.com/containernetworking/azure-cns:v1.6.10"
+      ],
+      "repoDigests": [
+        "sha256:fa28cff961d066b6d31e380e408a826b4e9f0fe02f8d014315ea4753a0aea356"
+      ]
+    },
+    {
+      "id": "sha256:25b049c18dfdddb5bf1326af1632b0fc845d3a9614bcdeffe30ef6c9e3aecf86",
+      "repoTags": [
+        "mcr.microsoft.com/containernetworking/azure-cns:v1.6.7"
+      ],
+      "repoDigests": [
+        "sha256:d6f4cebedd0ac238d60ed6b975620608dd62070e67fe193e577155cbfd2d60ad"
+      ]
+    },
+    {
+      "id": "sha256:aa753c012ef50c17f3bd77333f7018d9d6b0608b16659fcbc7c843e5316a04b7",
+      "repoTags": [
+        "mcr.microsoft.com/containernetworking/azure-npm:v1.5.5"
+      ],
+      "repoDigests": [
+        "sha256:733a1cacb001a0a85ba25af5b053771c9dc6a58433c182038e11697536abca5b"
+      ]
+    },
+    {
+      "id": "sha256:b3b267c7bead172914736eef094c0de452b88baa75aef3139b095237c31311be",
+      "repoTags": [
+        "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.5.3"
+      ],
+      "repoDigests": [
+        "sha256:c9e17ee4d80e8d7025337960606299f494b4ffc00d10c0648db2fb9bcdbbdfd5"
+      ]
+    },
+    {
+      "id": "sha256:c55befa55a13a388cf137d32fa345789c937d1ba96739d65375b804ed971e1d6",
+      "repoTags": [
+        "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.28.10-windows-hp"
+      ],
+      "repoDigests": [
+        "sha256:94f58c75787296e6921f27354239866b3e247f587256ed167cdd62f4e1ef0d99"
+      ]
+    },
+    {
+      "id": "sha256:6756666cf6e840c35042224ed597030dca9a268c7018335942dc514953db9bda",
+      "repoTags": [
+        "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.29.9-windows-hp"
+      ],
+      "repoDigests": [
+        "sha256:de70933f70d3b8482e52d08cbe30b86d82f38dff6294e40f14a53c81b97edfe3"
+      ]
+    },
+    {
+      "id": "sha256:d3429c464da4da83d7e9afdf29e79437e9ee80abf008f935f66d83aeab14e271",
+      "repoTags": [
+        "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.30.4-windows-hp"
+      ],
+      "repoDigests": [
+        "sha256:4571a13c3700dc32cdda1614e8e09be40b5a66b5473f9de2a6989a1b647f33bb"
+      ]
+    },
+    {
+      "id": "sha256:b18ea2378e2ea56fac226d73a0cbadcafcf56c83213ef7c780386f804b67edad",
+      "repoTags": [
+        "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.28.12-windows-hp"
+      ],
+      "repoDigests": [
+        "sha256:0688d76b3e834ce4f23ac5c0b7c305c3869e2d78826e94e772397178e845ad4c"
+      ]
+    },
+    {
+      "id": "sha256:c3694812b49a9a597a33f4731d8b5de5df7e3c9a51662a8bc12991372f1e76bd",
+      "repoTags": [
+        "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.29.8-windows-hp"
+      ],
+      "repoDigests": [
+        "sha256:e69ed04c680165d2aea065f7fee623fa96d2d0a2c5d3453138bc424c92bfdaff"
+      ]
+    },
+    {
+      "id": "sha256:e407c900be9c53b6782ffd977b34c6603ad30a4b5181d1c59e6d52228c196e48",
+      "repoTags": [
+        "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.30.5-windows-hp"
+      ],
+      "repoDigests": [
+        "sha256:6f2cdebb2cf8c6869476090eea091023ddf59c2d5235205d3d4694daed9fac0c"
+      ]
+    },
+    {
+      "id": "sha256:b3bbd7a6171bff15eeefd137316fa16415aa6a4c817e5ec609662793093b3526",
+      "repoTags": [
+        "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.10.1"
+      ],
+      "repoDigests": [
+        "sha256:c6d65b09d332b22441be9c9627500813ef8e1f8d8e274415e9a9efcdebdc6a78"
+      ]
+    },
+    {
+      "id": "sha256:27a7a7ebd0f4b6d4a4cd56d9c96d27288a7b223b4feacee3b7fcf5be3c2ec63a",
+      "repoTags": [
+        "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.11.1"
+      ],
+      "repoDigests": [
+        "sha256:0d3486df2076d13df0cf376e557e5e7fb6870187f853ea3480374699293f5836"
+      ]
+    },
+    {
+      "id": "sha256:c762188c45d1b9bc9144b694b85313d5e49c741935a81d5b94fd7db978a40ae1",
+      "repoTags": [
+        "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.12.0"
+      ],
+      "repoDigests": [
+        "sha256:d95d73e12a6d2765e4889f55f9470b8b3a2d5b4e71d77efe133320bd76f970c0"
+      ]
+    },
+    {
+      "id": "sha256:20fd8754d36efc52ff0a837e646909102be5d47600a8656804aecd4eff52b7c7",
+      "repoTags": [
+        "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.13.1"
+      ],
+      "repoDigests": [
+        "sha256:405d7f0f677de30e076326ffd713c18ee009bdbd2bf0379ae270ea95b4bc9263"
+      ]
+    },
+    {
+      "id": "sha256:eb6a7a499cc4aa47d4af72c6ad72b3122a257b97f5100dc4b693b180a2c11b6d",
+      "repoTags": [
+        "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.4.5"
+      ],
+      "repoDigests": [
+        "sha256:8969de264a15871aa1d8fea14d05ca46e84ea190b2d403eb2209f87af27229eb"
+      ]
+    },
+    {
+      "id": "sha256:e4bc0d59696f4c9f76a3a7c7fabec7f3bcd6b3845759bfc28f43817ab149c698",
+      "repoTags": [
+        "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.27.21"
+      ],
+      "repoDigests": [
+        "sha256:2c38c0e80db5ff175756b6ed1f38c1500523a885dc96d4d988ddeb335e18073e"
+      ]
+    },
+    {
+      "id": "sha256:32536e76722245086006a0e6bae431984ec747f0b329ffbe89673d701595290e",
+      "repoTags": [
+        "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.27.21-windows-hpc"
+      ],
+      "repoDigests": [
+        "sha256:4bf6db0b7111a30f5dba88cbf053f210ef0c92ba518e161964bfc7ef931bd7aa"
+      ]
+    },
+    {
+      "id": "sha256:525ca9c8a44bbdfa9acc0a417776bb822a1bbdaaf27d9776b8dcf5b3519c346a",
+      "repoTags": [
+        "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.28.13"
+      ],
+      "repoDigests": [
+        "sha256:c7348070c25bef4f71bb136dcd621dc565a8ac748fff2d24ced285e8393b2d60"
+      ]
+    },
+    {
+      "id": "sha256:667a207b7dcbe02c3b16e2a80692fb0566d0c60770498d13690071340339e51a",
+      "repoTags": [
+        "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.28.13-windows-hpc"
+      ],
+      "repoDigests": [
+        "sha256:e6f6c491dac4a08d244128a89cd439417950d2a7c8416747e7b011e26f8dfd31"
+      ]
+    },
+    {
+      "id": "sha256:17888b0ebaec6735214b85d20bdcc8062f051bc27e835454e9ef89734d34aa4b",
+      "repoTags": [
+        "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.29.11"
+      ],
+      "repoDigests": [
+        "sha256:3636cd9a805168f1f80a0a17d7aa8cb0068400331bd25157ccc7d393c35940cc"
+      ]
+    },
+    {
+      "id": "sha256:2517e5b9daad4ab542c936efbafc85f8ca654c6b7b6cd6b0bf2aa8810adf39a0",
+      "repoTags": [
+        "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.29.11-windows-hpc"
+      ],
+      "repoDigests": [
+        "sha256:6168bc6bb55f0cc5ff859cd1db8b707eb4f23e6d4e9572543561601e87566306"
+      ]
+    },
+    {
+      "id": "sha256:f18feb78e36eef88f0e23d98d798476d2bf6837de11892fe118ab043afdcd497",
+      "repoTags": [
+        "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.30.7"
+      ],
+      "repoDigests": [
+        "sha256:c4cdc792a60c21ecf5357b1c6badafc65bf63319b997f0e56d24113dfb6bc89d"
+      ]
+    },
+    {
+      "id": "sha256:590b43004abd8222822e919adc869befc68ebb49c85548e8456b5e29f462852c",
+      "repoTags": [
+        "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.30.7-windows-hpc"
+      ],
+      "repoDigests": [
+        "sha256:2c13291e948499e92404a72b4a121bac0df72cf97a757f8e85ef444b4390a9fc"
+      ]
+    },
+    {
+      "id": "sha256:e9b522399e4ec6bc4ce90c173e59db135d742de7b16f0f5454b4d88ba78a98c7",
+      "repoTags": [
+        "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.31.1"
+      ],
+      "repoDigests": [
+        "sha256:499cee6497007352656d8971f81985087cc3534122ba466cc8491a066eea5aca"
+      ]
+    },
+    {
+      "id": "sha256:8614a5c14b88192a9ea7f8aa69b5642d7c9c01a3d97351320d4796af285650e6",
+      "repoTags": [
+        "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.31.1-windows-hpc"
+      ],
+      "repoDigests": [
+        "sha256:7370a48b1d0072da32874300762f255d70793321b16fc076bbe574454abacd0c"
+      ]
+    },
+    {
+      "id": "sha256:8923a59bc6d236cd0d961878885351e5b2101832f63dadcc4f8175b4324eb2ea",
+      "repoTags": [
+        "mcr.microsoft.com/oss/kubernetes/pause:3.9-hotfix-20230808"
+      ],
+      "repoDigests": [
+        "sha256:6710c1d6cb8beb5b9e849712989dcca7d4b821058b39d6bfd0e11321f06ed1af"
+      ]
+    },
+    {
+      "id": "sha256:f59e2f21720e4d1192e0dde47e32c7dbf27144d52d79be14b2538fa07145c869",
+      "repoTags": [
+        "mcr.microsoft.com/windows/nanoserver:ltsc2022"
+      ],
+      "repoDigests": [
+        "sha256:b9775a86954ef5a034be3ed2b38c47162f256abd5ccd7ada08ce9f2ee82ecda4"
+      ]
+    },
+    {
+      "id": "sha256:e8e72ca03bb6400d06baeba97dcff6da7ac1c1acbec59233ff046a024e107c28",
+      "repoTags": [
+        "mcr.microsoft.com/windows/servercore/iis:latest"
+      ],
+      "repoDigests": [
+        "sha256:3182b79397cad75cfadf613edb73c675114c0cfb9d075ddd32d880f9a83229f7"
+      ]
+    },
+    {
+      "id": "sha256:134a4de6ea1c905b526e24819ca3756c7897853c1c7fa2cfb48867f173f9f8e9",
+      "repoTags": [
+        "mcr.microsoft.com/windows/servercore:ltsc2022"
+      ],
+      "repoDigests": [
+        "sha256:dfd5ad8b20a10e3892bf0607ab1c34d3f2d0bea96a0eba721c2067e9bbd07e46"
+      ]
+    }
+  ]
+}

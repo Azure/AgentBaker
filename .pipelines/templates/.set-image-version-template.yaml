@@ -1,18 +1,23 @@
 parameters:
 - name: VHD_BUILD_ID
   type: string
-- name: IMAGE_VERSION
+- name: IMAGE_VERSION_OVERRIDE
   type: string
+  default: ""
 
 steps:
 - bash: |
-    [ -n "$IMAGE_VERSION" ] && echo "IMAGE_VERSION is already set to $IMAGE_VERSION" && exit 0
+    if [ -n "$IMAGE_VERSION_OVERRIDE" ]; then
+      echo "##vso[task.setvariable variable=IMAGE_VERSION]$IMAGE_VERSION_OVERRIDE"
+      echo "##vso[task.logissue type=warning]IMAGE_VERSION_OVERRIDE is set to ${IMAGE_VERSION_OVERRIDE}, THIS SHOULD ONLY BE USED FOR DEBUGGING!"
+      exit 0
+    fi
+  
     source vhdbuilder/scripts/automate_generate_version.sh
     echo "setting image version to $GENERATED_IMAGE_VERSION"
     echo "##vso[task.setvariable variable=IMAGE_VERSION]$GENERATED_IMAGE_VERSION"
   env:
     VHD_BUILD_ID: ${{ parameters.VHD_BUILD_ID }}
-    IMAGE_VERSION: ${{ parameters.IMAGE_VERSION }}
   displayName: 'Set image version'
 - bash: |
     echo "removing dangling publishing-info.json artifacts..."

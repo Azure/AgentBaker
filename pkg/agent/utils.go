@@ -9,6 +9,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"math"
 	"regexp"
 	"sort"
 	"strconv"
@@ -51,6 +52,7 @@ var TranslatedKubeletConfigFlags = map[string]bool{
 	"--enforce-node-allocatable":          true,
 	"--streaming-connection-idle-timeout": true,
 	"--rotate-certificates":               true,
+	"--rotate-server-certificates":        true,
 	"--read-only-port":                    true,
 	"--feature-gates":                     true,
 	"--protect-kernel-defaults":           true,
@@ -65,6 +67,7 @@ var TranslatedKubeletConfigFlags = map[string]bool{
 	"--fail-swap-on":                      true,
 	"--container-log-max-size":            true,
 	"--container-log-max-files":           true,
+	"--serialize-image-pulls":             true,
 }
 
 type paramsMap map[string]interface{}
@@ -241,17 +244,30 @@ func isCommentAtTheEndOfLine(lastHashIndex int, trimmedToCheck string) bool {
 	return getSlice(lastHashIndex-1, lastHashIndex+1, trimmedToCheck) != "<#" && getSlice(lastHashIndex, lastHashIndex+tailingCommentSegmentLen, trimmedToCheck) == "# "
 }
 
-// getBase64EncodedGzippedCustomScriptFromStr will return a base64-encoded string of the gzip'd source data.
-func getBase64EncodedGzippedCustomScriptFromStr(str string) string {
+func newGzipWriter(buf *bytes.Buffer) *gzip.Writer {
+	writer, err := gzip.NewWriterLevel(buf, gzip.BestCompression)
+	if err == nil {
+		return writer
+	}
+	return gzip.NewWriter(buf)
+}
+
+func getGzippedBufferFromBytes(b []byte) []byte {
 	var gzipB bytes.Buffer
-	w := gzip.NewWriter(&gzipB)
-	_, err := w.Write([]byte(str))
+	w := newGzipWriter(&gzipB)
+	_, err := w.Write(b)
 	if err != nil {
 		// this should never happen and this is a bug.
 		panic(fmt.Sprintf("BUG: %s", err.Error()))
 	}
 	w.Close()
-	return base64.StdEncoding.EncodeToString(gzipB.Bytes())
+	return gzipB.Bytes()
+}
+
+// getBase64EncodedGzippedCustomScriptFromStr will return a base64-encoded string of the gzip'd source data.
+func getBase64EncodedGzippedCustomScriptFromStr(str string) string {
+	gzip := getGzippedBufferFromBytes([]byte(str))
+	return base64.StdEncoding.EncodeToString(gzip)
 }
 
 func getExtensionURL(rootURL, extensionName, version, fileName, query string) string {
@@ -298,6 +314,8 @@ func GetCloudTargetEnv(location string) string {
 		return "AzureGermanCloud"
 	case strings.HasPrefix(loc, "usgov") || strings.HasPrefix(loc, "usdod"):
 		return "AzureUSGovernmentCloud"
+	case strings.HasPrefix(loc, "bleu"):
+		return "AzureBleuCloud"
 	default:
 		return "AzurePublicCloud"
 	}
@@ -321,8 +339,11 @@ func getCustomDataFromJSON(jsonStr string) string {
 
 // GetOrderedKubeletConfigFlagString returns an ordered string of key/val pairs.
 // copied from AKS-Engine and filter out flags that already translated to config file.
-func GetOrderedKubeletConfigFlagString(k map[string]string, cs *datamodel.ContainerService, profile *datamodel.AgentPoolProfile,
-	kubeletConfigFileToggleEnabled bool) string {
+func GetOrderedKubeletConfigFlagString(config *datamodel.NodeBootstrappingConfiguration) string {
+	k := config.KubeletConfig
+	cs := config.ContainerService
+	profile := config.AgentPoolProfile
+	kubeletConfigFileToggleEnabled := config.EnableKubeletConfigFile
 	/* NOTE(mainred): kubeConfigFile now relies on CustomKubeletConfig, while custom configuration is not
 	compatible with CustomKubeletConfig. When custom configuration is set we want to override every
 	configuration with the customized one. */
@@ -423,6 +444,13 @@ func GetTLSBootstrapTokenForKubeConfig(tlsBootstrapToken *string) string {
 	return *tlsBootstrapToken
 }
 
+func IsKubeletServingCertificateRotationEnabled(config *datamodel.NodeBootstrappingConfiguration) bool {
+	if config == nil || config.KubeletConfig == nil {
+		return false
+	}
+	return config.KubeletConfig["--rotate-server-certificates"] == "true"
+}
+
 func getAKSKubeletConfiguration(kc map[string]string) *datamodel.AKSKubeletConfiguration {
 	kubeletConfig := &datamodel.AKSKubeletConfiguration{
 		APIVersion:    "kubelet.config.k8s.io/v1beta1",
@@ -448,11 +476,19 @@ func getAKSKubeletConfiguration(kc map[string]string) *datamodel.AKSKubeletConfi
 		EnforceNodeAllocatable:         strings.Split(kc["--enforce-node-allocatable"], ","),
 		StreamingConnectionIdleTimeout: datamodel.Duration(kc["--streaming-connection-idle-timeout"]),
 		RotateCertificates:             strToBool(kc["--rotate-certificates"]),
+		ServerTLSBootstrap:             strToBool(kc["--rotate-server-certificates"]),
 		ReadOnlyPort:                   strToInt32(kc["--read-only-port"]),
 		ProtectKernelDefaults:          strToBool(kc["--protect-kernel-defaults"]),
 		ResolverConfig:                 kc["--resolv-conf"],
 		ContainerLogMaxSize:            kc["--container-log-max-size"],
 	}
+
+	// Serialize Image Pulls will only be set for k8s >= 1.31, currently RP doesnt pass this flag
+	// It will starting with k8s 1.31
+	if value, exists := kc["--serialize-image-pulls"]; exists {
+		kubeletConfig.SerializeImagePulls = strToBoolPtr(value)
+	}
+
 	return kubeletConfig
 }
 
@@ -494,6 +530,9 @@ func setCustomKubeletConfig(customKc *datamodel.CustomKubeletConfig,
 		}
 		if customKc.PodMaxPids != nil {
 			kubeletConfig.PodPidsLimit = to.Int64Ptr(int64(*customKc.PodMaxPids))
+		}
+		if customKc.SeccompDefault != nil {
+			kubeletConfig.SeccompDefault = customKc.SeccompDefault
 		}
 	}
 }
@@ -561,6 +600,9 @@ func strToBoolPtr(str string) *bool {
 
 func strToInt32(str string) int32 {
 	i, _ := strconv.ParseInt(str, 10, 32)
+	if i > math.MaxInt32 {
+		panic("Unable to cast int parsed as 32 bits to 32 bit int. Yeah, this shouldn't happen")
+	}
 	return int32(i)
 }
 
@@ -641,4 +683,22 @@ func addFeatureGateString(featureGates string, key string, value bool) string {
 		pairs = append(pairs, fmt.Sprintf("%s=%t", k, fgMap[k]))
 	}
 	return strings.Join(pairs, ",")
+}
+
+func removeNewlines(str string) string {
+	sanitizedStr := strings.ReplaceAll(str, "\n", "")
+	sanitizedStr = strings.ReplaceAll(sanitizedStr, "\r", "")
+	return sanitizedStr
+}
+
+type cloudInitWriteFile struct {
+	Path        string `yaml:"path"`
+	Permissions string `yaml:"permissions"`
+	Encoding    string `yaml:"encoding,omitempty"`
+	Owner       string `yaml:"owner"`
+	Content     string `yaml:"content"`
+}
+
+type cloudInit struct {
+	WriteFiles []cloudInitWriteFile `yaml:"write_files"`
 }

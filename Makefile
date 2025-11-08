@@ -77,9 +77,37 @@ validate-go:
 validate-shell:
 	@./.pipelines/scripts/verify_shell.sh
 
+.PHONY: shellspec-base-local
+shellspec-base-local:
+	# don't have access to aksdataplanedev.azurecr.io locally, so strip it
+	sed 's|aksdataplanedev.azurecr.io/||g' < ./spec/shellspec.Dockerfile | docker build -t shellspec-docker -
+
+.PHONY: shellspec-base-ci
+shellspec-base-ci:
+	# don't have access to aksdataplanedev.azurecr.io in CI, so strip it
+	sed 's|aksdataplanedev.azurecr.io/||g' < ./spec/shellspec.Dockerfile | docker build -t shellspec-docker -
+	# docker build -t shellspec-docker - < ./spec/shellspec.Dockerfile
+
 .PHONY: shellspec
-shellspec:
-	@bash ./hack/tools/bin/shellspec
+shellspec: shellspec-base-local
+	docker run --rm \
+		-v $(CURDIR):/workspace \
+		-w /workspace \
+		shellspec-docker --shell bash --format d
+
+.PHONY: shellspec-ci
+shellspec-ci: shellspec-base-ci
+	docker run --rm \
+		-v $(CURDIR):/workspace \
+		-w /workspace \
+		shellspec-docker --shell bash --format d
+
+.PHONY: shellspec-focus
+shellspec-focus: shellspec-base-local
+	docker run --rm \
+		-v $(CURDIR):/workspace \
+		-w /workspace \
+		shellspec-docker --shell bash --format d --focus
 
 .PHONY: validate-image-version
 validate-image-version:
@@ -89,23 +117,30 @@ validate-image-version:
 generate-kubelet-flags:
 	@./e2e/kubelet/generate-kubelet-flags.sh
 
-.PHONY: compile-proto-files
-compile-proto-files:
-	@./hack/tools/bin/buf generate -o . --path ./pkg/proto/ --template ./pkg/proto/buf.gen.yaml
-
-.PHONY: generate
-generate: bootstrap
-	@echo $(GOFLAGS)
+.PHONY: generate-manifest
+generate-manifest:
 	./hack/tools/bin/cue export ./schemas/manifest.cue > ./parts/linux/cloud-init/artifacts/manifest.json
 	@echo "#EOF" >> ./parts/linux/cloud-init/artifacts/manifest.json
+
+.PHONY: generate-testdata
+generate-testdata:
+	@echo $(GOFLAGS)
 	GENERATE_TEST_DATA="true" go test ./pkg/agent...
-	@echo "running validate-shell to make sure generated cse scripts are correct"
+
+.PHONY: generate # TODO: ONLY generate go testdata
+generate: bootstrap
+	@echo "Generating go testdata"
+	@$(MAKE) generate-testdata
+	@echo "Generating manifest.cue"
+	@$(MAKE) generate-manifest
+	@echo "Running validate-shell to make sure generated cse scripts are correct"
 	@$(MAKE) validate-shell
-	@echo "Running shellspec tests to validate shell/bash scripts"
-	@$(MAKE) shellspec
-	@echo "Validating if components.json conforms to the schema components.cue."
-	@echo "Error will be shown if any."
+	@echo "Validating components.json conforms to the schema schemas/components.cue."
 	@$(MAKE) validate-components
+
+.PHONY: validate-prefetch
+validate-prefetch:
+	make -C ./vhdbuilder/prefetch generate
 
 .PHONY: generate-azure-constants
 generate-azure-constants:
@@ -169,9 +204,11 @@ endif
 ginkgoBuild: generate
 	make -C ./test/e2e ginkgo-build
 
-test: generate
-	go test ./...
+test: test-aks-node-controller
+	go build -mod=readonly ./... && go test ./...
 
+test-aks-node-controller:
+	pushd aks-node-controller && go build -mod=readonly ./... && go test ./... && popd
 
 .PHONY: test-style
 test-style: validate-go validate-shell validate-copyright-headers
@@ -218,6 +255,8 @@ unit-tests:
 
 .PHONY: validate-components
 validate-components:
-	@./hack/tools/bin/cue vet -c ./schemas/components.cue ./vhdbuilder/packer/components.json
+	@./hack/tools/bin/cue vet -c ./schemas/components.cue ./parts/common/components.json
+	@./hack/tools/bin/cue vet -c ./schemas/components.cue ./vhdbuilder/packer/windows/components-test.json
+	@./hack/tools/bin/cue vet -c ./schemas/windows_settings.cue ./vhdbuilder/packer/windows/windows_settings.json
 
 include versioning.mk

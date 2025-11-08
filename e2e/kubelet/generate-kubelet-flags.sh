@@ -23,7 +23,8 @@ sed '$ d' parts/linux/cloud-init/artifacts/manifest.json > temporary_manifest.js
 KUBE_BINARY_VERSIONS="$(jq -r .kubernetes.versions[] temporary_manifest.json)"
 for KUBE_BINARY_VERSION in $KUBE_BINARY_VERSIONS; do
     K8S_DOWNLOADS_DIR="/opt/kubernetes/downloads"
-    KUBE_BINARY_URL="https://acs-mirror.azureedge.net/kubernetes/v${KUBE_BINARY_VERSION}/binaries/kubernetes-node-linux-amd64.tar.gz"
+    KUBE_BINARY_URL="https://packages.aks.azure.com/kubernetes/v${KUBE_BINARY_VERSION}/binaries/kubernetes-node-linux-amd64.tar.gz"
+    KUBE_BINARY_URL=$(update_base_url $KUBE_BINARY_URL)
     mkdir -p ${K8S_DOWNLOADS_DIR}
     K8S_TGZ_TMP=${KUBE_BINARY_URL##*/}
     retrycmd_get_tarball 120 5 "$K8S_DOWNLOADS_DIR/${K8S_TGZ_TMP}" ${KUBE_BINARY_URL} || exit 120

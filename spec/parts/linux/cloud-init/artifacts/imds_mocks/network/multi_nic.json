@@ -1,0 +1,1 @@
+[{"ipv4":{"ipAddress":[{"privateIpAddress":"0.0.0.0","publicIpAddress":""}],"subnet":[{"address":"10.10.10.10","prefix":"27"}]},"ipv6":{"ipAddress":[]},"macAddress":"AAAA525BA3A7"},{"ipv4":{"ipAddress":[{"privateIpAddress":"1.1.1.1","publicIpAddress":""}],"subnet":[{"address":"11.11.11.11","prefix":"27"}]},"ipv6":{"ipAddress":[]},"macAddress":"7C1E525AAAAA"}]

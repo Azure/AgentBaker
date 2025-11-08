@@ -1,0 +1,18 @@
+syntax = "proto3";
+package aksnodeconfig.v1;
+
+option go_package = "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1;aksnodeconfigv1";
+
+message CustomCloudConfig {
+  // Name of custom cloud
+  string custom_cloud_env_name = 1;
+
+  // RepoDepotEndpoint is the endpoint of the repo depot
+  string repo_depot_endpoint = 2;
+
+  // Base64 encoded JSON string of custom cloud environment
+  string custom_env_json_content = 3;
+
+  // AKSCustomCloudContainerRegistryDNSSuffix specifies a custom cloud container registry dns suffix for credential provider
+  string container_registry_dns_suffix = 4;
+}

@@ -1,20 +1,10 @@
 name: "Test coverage"
 on:
-  push:
-    branches: ["master"]
-  pull_request:
-    branches: ["master"]
+  workflow_dispatch:
 
 permissions:
   id-token: write
   contents: read
-
-env:
-  SUBSCRIPTION_ID: "8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8"
-  RESOURCE_GROUP_NAME: "agentbaker-e2e-tests"
-  LOCATION: "eastus"
-  CLUSTER_NAME: "agentbaker-e2e-test-cluster"
-  AZURE_TENANT_ID: "72f988bf-86f1-41af-91ab-2d7cd011db47"
 
 jobs:
   unit_tests:
@@ -22,11 +12,11 @@ jobs:
     steps:
       - name: Install Go
         if: success()
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v6
         with:
-          go-version: '1.22'
+          go-version: '1.24'
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Run unit tests
         run: go test `go list ./... | grep -v e2e` -coverprofile coverage_raw.out -covermode count
       - name: Remove mocks.go lines
@@ -46,7 +36,7 @@ jobs:
   finish:
     needs: [unit_tests]
     if: ${{ success() }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Coveralls Finished
         uses: coverallsapp/github-action@v2

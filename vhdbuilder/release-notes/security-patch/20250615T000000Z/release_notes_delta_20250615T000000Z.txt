@@ -1,0 +1,34 @@
+Release notes for security patch 20250615T000000Z timestamp
+Package difference between 20250609T000000Z and 20250615T000000Z
+No reboot required
+Upgrade: libpam-systemd:amd64 (249.11-0ubuntu3.15, 249.11-0ubuntu3.16), libsystemd0:amd64 (249.11-0ubuntu3.15, 249.11-0ubuntu3.16), libnss-systemd:amd64 (249.11-0ubuntu3.15, 249.11-0ubuntu3.16), systemd:amd64 (249.11-0ubuntu3.15, 249.11-0ubuntu3.16), systemd-sysv:amd64 (249.11-0ubuntu3.15, 249.11-0ubuntu3.16)
+Upgrade: udev:amd64 (249.11-0ubuntu3.15, 249.11-0ubuntu3.16), libudev1:amd64 (249.11-0ubuntu3.15, 249.11-0ubuntu3.16)
+
+Package difference between AKSUbuntu-2204gen2containerd-202505.09.0 and 20250615T000000Z
+Reboot required
+Upgrade: python3-requests:amd64 (2.25.1+dfsg-2ubuntu0.1, 2.25.1+dfsg-2ubuntu0.3)
+Upgrade: linux-libc-dev:amd64 (5.15.0-139.149, 5.15.0-141.151)
+Upgrade: libc6:amd64 (2.35-0ubuntu3.9, 2.35-0ubuntu3.10), libc-dev-bin:amd64 (2.35-0ubuntu3.9, 2.35-0ubuntu3.10), libc6-dev:amd64 (2.35-0ubuntu3.9, 2.35-0ubuntu3.10)
+Upgrade: python3.10:amd64 (3.10.12-1~22.04.9, 3.10.12-1~22.04.10), libpython3.10-minimal:amd64 (3.10.12-1~22.04.9, 3.10.12-1~22.04.10), libpython3.10-stdlib:amd64 (3.10.12-1~22.04.9, 3.10.12-1~22.04.10), libpython3.10:amd64 (3.10.12-1~22.04.9, 3.10.12-1~22.04.10), python3.10-minimal:amd64 (3.10.12-1~22.04.9, 3.10.12-1~22.04.10)
+Upgrade: python3-pkg-resources:amd64 (59.6.0-1.2ubuntu0.22.04.2, 59.6.0-1.2ubuntu0.22.04.3), python3-setuptools:amd64 (59.6.0-1.2ubuntu0.22.04.2, 59.6.0-1.2ubuntu0.22.04.3)
+Upgrade: udev:amd64 (249.11-0ubuntu3.15, 249.11-0ubuntu3.16), libpam-systemd:amd64 (249.11-0ubuntu3.15, 249.11-0ubuntu3.16), libsystemd0:amd64 (249.11-0ubuntu3.15, 249.11-0ubuntu3.16), libnss-systemd:amd64 (249.11-0ubuntu3.15, 249.11-0ubuntu3.16), systemd:amd64 (249.11-0ubuntu3.15, 249.11-0ubuntu3.16), libudev1:amd64 (249.11-0ubuntu3.15, 249.11-0ubuntu3.16), systemd-sysv:amd64 (249.11-0ubuntu3.15, 249.11-0ubuntu3.16)
+Upgrade: linux-headers-azure-lts-22.04:amd64 (5.15.0.1088.86, 5.15.0.1090.88)
+Upgrade: libglib2.0-data:amd64 (2.72.4-0ubuntu2.4, 2.72.4-0ubuntu2.5)
+Upgrade: libglib2.0-bin:amd64 (2.72.4-0ubuntu2.4, 2.72.4-0ubuntu2.5), libglib2.0-0:amd64 (2.72.4-0ubuntu2.4, 2.72.4-0ubuntu2.5)
+Upgrade: linux-cloud-tools-common:amd64 (5.15.0-139.149, 5.15.0-141.151)
+Upgrade: libc-bin:amd64 (2.35-0ubuntu3.9, 2.35-0ubuntu3.10)
+Upgrade: libgssapi-krb5-2:amd64 (1.19.2-2ubuntu0.6, 1.19.2-2ubuntu0.7), libkrb5support0:amd64 (1.19.2-2ubuntu0.6, 1.19.2-2ubuntu0.7), libkrb5-3:amd64 (1.19.2-2ubuntu0.6, 1.19.2-2ubuntu0.7)
+Upgrade: wireless-regdb:amd64 (2024.07.04-0ubuntu1~22.04.1, 2024.10.07-0ubuntu1~22.04.1)
+Upgrade: linux-cloud-tools-azure-lts-22.04:amd64 (5.15.0.1088.86, 5.15.0.1090.88)
+Upgrade: locales:amd64 (2.35-0ubuntu3.9, 2.35-0ubuntu3.10)
+Upgrade: linux-image-azure-lts-22.04:amd64 (5.15.0.1088.86, 5.15.0.1090.88)
+Upgrade: libsqlite3-0:amd64 (3.37.2-2ubuntu0.3, 3.37.2-2ubuntu0.4)
+Upgrade: linux-tools-azure-lts-22.04:amd64 (5.15.0.1088.86, 5.15.0.1090.88)
+Upgrade: linux-tools-common:amd64 (5.15.0-139.149, 5.15.0-141.151)
+Upgrade: libk5crypto3:amd64 (1.19.2-2ubuntu0.6, 1.19.2-2ubuntu0.7)
+Upgrade: tzdata:amd64 (2025b-0ubuntu0.22.04, 2025b-0ubuntu0.22.04.1)
+Upgrade: cifs-utils:amd64 (2:6.14-1ubuntu0.1, 2:6.14-1ubuntu0.3)
+Install: linux-headers-5.15.0-1090-azure:amd64 (5.15.0-1090.99, automatic), linux-azure-headers-5.15.0-1090:amd64 (5.15.0-1090.99, automatic)
+Install: linux-azure-cloud-tools-5.15.0-1090:amd64 (5.15.0-1090.99, automatic), linux-cloud-tools-5.15.0-1090-azure:amd64 (5.15.0-1090.99, automatic)
+Install: linux-image-5.15.0-1090-azure:amd64 (5.15.0-1090.99, automatic), linux-modules-5.15.0-1090-azure:amd64 (5.15.0-1090.99, automatic)
+Install: linux-azure-tools-5.15.0-1090:amd64 (5.15.0-1090.99, automatic), linux-tools-5.15.0-1090-azure:amd64 (5.15.0-1090.99, automatic)
