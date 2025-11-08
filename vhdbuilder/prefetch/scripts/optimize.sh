@@ -15,7 +15,7 @@ set -uxo pipefail
 [ -z "${BUILD_RUN_NUMBER:-}" ] && echo "BUILD_RUN_NUMBER is not set" && exit 1
 [ -z "${CAPTURED_SIG_VERSION:-}" ] && echo "CAPTURED_SIG_VERSION is not set" && exit 1
 
-IMAGE_BUILDER_TEMPLATE_PATH="realpath $(cd "$(dirname "${BASH_SOURCE[0]}")" &> /dev/null && pwd)/../templates/optimize.json"
+IMAGE_BUILDER_TEMPLATE_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" &> /dev/null && pwd)/../templates/optimize.json"
 API_VERSION="2024-02-01"
 CAPTURED_SIG_VERSION_ID="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${SIG_GALLERY_RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/galleries/${SIG_GALLERY_NAME}/images/${SKU_NAME}/versions/${CAPTURED_SIG_VERSION}"
 IMAGE_BUILDER_RG_NAME="image-builder-${CAPTURED_SIG_VERSION}-${BUILD_RUN_NUMBER}"
@@ -24,7 +24,10 @@ OPTIMIZED_VHD_BLOB_NAME="${CAPTURED_SIG_VERSION}.vhd"
 OPTIMIZED_VHD_URI="${STORAGE_ACCOUNT_BLOB_URL}/${OPTIMIZED_VHD_BLOB_NAME}"
 
 main() {
-    ensure_image_builder_resource_group || exit $?
+    if [ "$(az group exists -g "${IMAGE_BUILDER_RG_NAME}")" = "false" ]; then
+        echo "creating resource group ${IMAGE_BUILDER_RG_NAME}"
+        az group create -g "${IMAGE_BUILDER_RG_NAME}" --location "${LOCATION}" || exit $?
+    fi
     run_image_builder_template || exit $?
     # copy_optimized_vhd || exit $?
 }
@@ -35,7 +38,12 @@ run_image_builder_template() {
             -e "s#<IMAGE_BUILDER_IDENTITY_ID>#${IMAGE_BUILDER_IDENTITY_ID}#g" \
             -e "s#<CAPTURED_SIG_VERSION_ID>#${CAPTURED_SIG_VERSION_ID}#g" \
             -e "s#<OPTIMIZED_VHD_URI>#${OPTIMIZED_VHD_URI}#g" \
-            "${IMAGE_BUILDER_TEMPLATE_PATH}" > input.json
+            "${IMAGE_BUILDER_TEMPLATE_PATH}" > input.json || return $?
+
+        if [ ! -f "input.json" ]; then
+            echo "unable to create input image template for ${IMAGE_BUILDER_TEMPLATE_NAME}"
+            return 1
+        fi
 
         echo "creating image builder template ${IMAGE_BUILDER_TEMPLATE_NAME} in resource group ${IMAGE_BUILDER_RG_NAME} with the following configuration:"
         jq < input.json
@@ -165,15 +173,6 @@ set_storage_details_from_vhd_blob_url() {
     STORAGE_ACCOUNT_NAME="${BASH_REMATCH[1]}"
     STORAGE_CONTAINER_NAME="${BASH_REMATCH[3]}"
     VHD_BLOB_NAME="${BASH_REMATCH[4]}"
-}
-
-ensure_image_builder_resource_group() {
-  echo "ensuring resource group: $IMAGE_BUILDER_RG_NAME"
-
-  if [ -z "$(az group show --name "${IMAGE_BUILDER_RG_NAME}" | jq '.id' )" ]; then
-    echo "creating resource group ${IMAGE_BUILDER_RG_NAME}"
-    az group create --name "${IMAGE_BUILDER_RG_NAME}" --location "${LOCATION}" || return $?
-  fi
 }
 
 main "$@"
