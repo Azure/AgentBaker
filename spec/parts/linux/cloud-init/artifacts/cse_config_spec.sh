@@ -614,7 +614,26 @@ Describe 'cse_config.sh'
             The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "[Unit]"
             The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "Before=kubelet.service"
             The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "[Service]"
-            The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include 'Environment="BOOTSTRAP_FLAGS=--aad-resource=6dae42f8-4368-4678-94ff-3960e28e3630 --apiserver-fqdn=fqdn --cloud-provider-config=/etc/kubernetes/azure.json"'
+            The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include 'Environment="BOOTSTRAP_FLAGS=--deadline=2m0s --aad-resource=6dae42f8-4368-4678-94ff-3960e28e3630 --apiserver-fqdn=fqdn --cloud-provider-config=/etc/kubernetes/azure.json"'
+            The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "[Install]"
+            The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "WantedBy=kubelet.service"
+            The status should be success
+        End
+
+        It 'should configure and start secure TLS bootstrapping using provided overrides'
+            systemctlEnableAndStartNoBlock() {
+                echo "systemctlEnableAndStartNoBlock $@"
+            }
+            SECURE_TLS_BOOTSTRAPPING_DEADLINE="custom-deadline"
+            SECURE_TLS_BOOTSTRAPPING_AAD_RESOURCE="custom-resource"
+            SECURE_TLS_BOOTSTRAPPING_USER_ASSIGNED_IDENTITY_ID="custom-identity-id"
+            When call configureAndStartSecureTLSBootstrapping
+            The output should include "chmod 0600 secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf"
+            The output should include "systemctlEnableAndStartNoBlock secure-tls-bootstrap 30"
+            The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "[Unit]"
+            The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "Before=kubelet.service"
+            The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "[Service]"
+            The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include 'Environment="BOOTSTRAP_FLAGS=--deadline=custom-deadline --aad-resource=custom-resource --apiserver-fqdn=fqdn --cloud-provider-config=/etc/kubernetes/azure.json --user-assigned-identity-id=custom-identity-id"'
             The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "[Install]"
             The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "WantedBy=kubelet.service"
             The status should be success
