@@ -60,7 +60,24 @@ func TestUnmarshalConfigurationV1(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "unknown field should error",
+			name: "string is assigned with a boolean value",
+			data: []byte(`{
+				"version": "v1",
+				"LinuxAdminUsername": true,
+				"authConfig": {
+					"subscriptionId": "test-subscription"
+				}
+			}`),
+			want: &aksnodeconfigv1.Configuration{
+				Version: "v1",
+				AuthConfig: &aksnodeconfigv1.AuthConfig{
+					SubscriptionId: "test-subscription",
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "unknown field should be ignored",
 			data: []byte(`{
 				"version": "v1",
 				"unknownField": "should be ignored",
@@ -74,7 +91,7 @@ func TestUnmarshalConfigurationV1(t *testing.T) {
 					SubscriptionId: "test-subscription",
 				},
 			},
-			wantErr: true,
+			wantErr: false,
 		},
 	}
 
