@@ -99,7 +99,7 @@ need_new_template() {
 
 prepare_source() {
     if [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ] || grep -q "cvm" <<< "$FEATURE_FLAGS"; then
-        echo "image ${SKU_NAME} is a TL/CVM flavor, will create VHD source"
+        echo "image ${SKU_NAME} is a TL/CVM flavor, will create managed image source"
         convert_specialized_sig_version_to_managed_image || return $?
         SOURCE_TYPE="ManagedImage"
         SOURCE_ID_KEY="imageId"
@@ -171,7 +171,7 @@ convert_specialized_sig_version_to_managed_image() {
     fi
 
     # specialized SIG image version -> specialized managed disk -> VHD blob -> managed image
-    echo "created VHD source: ${managed_image_id}"
+    echo "created managed image source: ${managed_image_id}"
     SOURCE_MANAGED_IMAGE_ID="${managed_image_id}"
 }
 
