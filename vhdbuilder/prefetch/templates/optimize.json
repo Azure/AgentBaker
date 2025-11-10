@@ -16,7 +16,7 @@
         "customize": [
             {
                 "type": "Shell",
-                "name": "RunVHDCleanup",
+                "name": "Cleanup",
                 "inline": ["sudo /bin/bash -eux /opt/azure/containers/cleanup-vhd.sh && sudo rm -f /opt/azure/containers/cleanup-vhd.sh"]
             }
         ],
