@@ -436,6 +436,29 @@ Describe 'cse_config.sh'
         End
     End
 
+    Describe 'configureContainerdLegacyMooncakeMcrHost'
+        It 'should configure registry host correctly'
+            mkdir() {
+                echo "mkdir $@"
+            }
+            touch() {
+                echo "touch $@"
+            }
+            chmod() {
+                echo "chmod $@"
+            }
+            tee() {
+                echo "tee $@"
+            }
+            When call configureContainerdLegacyMooncakeMcrHost
+            The variable CONTAINERD_CONFIG_REGISTRY_HOST_MCR should equal '/etc/containerd/certs.d/mcr.azk8s.cn/hosts.toml'
+            The output should include "mkdir -p /etc/containerd/certs.d/mcr.azk8s.cn"
+            The output should include "touch /etc/containerd/certs.d/mcr.azk8s.cn/hosts.toml"
+            The output should include "chmod 0644 /etc/containerd/certs.d/mcr.azk8s.cn/hosts.toml"
+            The output should include "tee"
+        End
+    End
+
     Describe 'configCredentialProvider'
         Mock mkdir
             echo "mkdir $@"
