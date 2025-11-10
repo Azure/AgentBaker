@@ -226,7 +226,7 @@ This Source Code Form is "Incompatible With Secondary Licenses", as defined by t
 
 github.com%2Fhashicorp/go-cleanhttp v0.5.2 - MPL-2.0
 
-
+Copyright IBM Corp. 2015, 2025
 
 Mozilla Public License Version 2.0
 
@@ -571,7 +571,7 @@ This Source Code Form is "Incompatible With Secondary Licenses", as defined by t
 
 github.com%2Fhashicorp/go-immutable-radix v1.3.1 - MPL-2.0
 
-
+Copyright IBM Corp. 2015, 2025
 
 Mozilla Public License Version 2.0
 
@@ -743,7 +743,7 @@ This Source Code Form is "Incompatible With Secondary Licenses", as defined by t
 
 github.com%2Fhashicorp/golang-lru v0.5.4 - MPL-2.0
 
-
+Copyright IBM Corp. 2014, 2025
 
 Mozilla Public License Version 2.0
 
@@ -915,7 +915,7 @@ This Source Code Form is "Incompatible With Secondary Licenses", as defined by t
 
 github.com%2Fhashicorp/go-memdb v1.3.2 - MPL-2.0
 
-
+Copyright (c) 2015 HashiCorp, Inc.
 
 Mozilla Public License Version 2.0
 
@@ -1087,7 +1087,7 @@ This Source Code Form is "Incompatible With Secondary Licenses", as defined by t
 
 github.com%2Fhashicorp/go-multierror v1.1.1 - MPL-2.0
 
-
+Copyright IBM Corp. 2014, 2025
 
 Mozilla Public License Version 2.0
 
@@ -1259,7 +1259,7 @@ This Source Code Form is "Incompatible With Secondary Licenses", as defined by t
 
 github.com%2Fhashicorp/go-sockaddr v1.0.2 - MPL-2.0
 
-
+Copyright (c) 2016 HashiCorp, Inc.
 
 Mozilla Public License Version 2.0
 
@@ -1431,7 +1431,7 @@ This Source Code Form is "Incompatible With Secondary Licenses", as defined by t
 
 github.com%2Fhashicorp/hcl v0.0.0-20170509225359-392dba7d905e - MPL-2.0
 
-
+Copyright (c) 2014 HashiCorp, Inc.
 
 Mozilla Public License Version 2.0
 
@@ -1603,7 +1603,7 @@ This Source Code Form is "Incompatible With Secondary Licenses", as defined by t
 
 github.com%2Fhashicorp/memberlist v0.4.0 - MPL-2.0
 
-
+Copyright IBM Corp. 2013, 2025
 Copyright 2017 Google Inc.
 
 Mozilla Public License Version 2.0
@@ -1777,7 +1777,7 @@ This Source Code Form is "Incompatible With Secondary Licenses", as defined by t
 github.com%2Fhashicorp/serf v0.8.5 - MPL-2.0
 
 
-Copyright Hashicorp 2013
+Copyright (c) 2013 HashiCorp, Inc.
 (c) 2009-2013 Torstein Honsi
 
 Mozilla Public License Version 2.0
