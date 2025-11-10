@@ -182,20 +182,25 @@ steps:
 
   - bash: make -f packer.mk prefetch
     condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'), ne(variables.SKIP_PREFETCH_OPTIMIZATION, 'True'), ne(variables.BUILDER, 'imagecustomizer'))
-    displayName: Prefetch Optimization
+    displayName: Optimize with Prefetch and Convert to VHD
     retryCountOnTaskFailure: 3
     env:
       SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
       LOCATION: $(PACKER_BUILD_LOCATION)
-      SIG_GALLERY_NAME: $(SIG_GALLERY_NAME)
       SIG_GALLERY_RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
+      SIG_GALLERY_NAME: $(SIG_GALLERY_NAME)
+      SIG_IMAGE_NAME: $(SIG_IMAGE_NAME)
       SKU_NAME: $(SKU_NAME)
       STORAGE_ACCOUNT_BLOB_URL: $(CLASSIC_BLOB)
       VHD_STORAGE_ACCOUNT_NAME: $(VHD_STORAGE_ACCOUNT_NAME)
       VHD_STORAGE_CONTAINER_NAME: $(VHD_STORAGE_CONTAINER_NAME)
+      VHD_NAME: $(VHD_NAME)
       IMAGE_BUILDER_IDENTITY_ID: $(AZURE_MSI_RESOURCE_STRING)
       BUILD_RUN_NUMBER: $(Build.BuildNumber)
       CAPTURED_SIG_VERSION: $(CAPTURED_SIG_VERSION)
+      HYPERV_GENERATION: $(HYPERV_GENERATION)
+      FEATURE_FLAGS: $(FEATURE_FLAGS)
+      ENABLE_TRUSTED_LAUNCH: $(ENABLE_TRUSTED_LAUNCH)
 
   # - bash: make -f cleanup-prefetch
   #   condition: and(eq(variables.GENERATE_PUBLISHING_INFO, 'True'), ne(variables.SKIP_PREFETCH_OPTIMIZATION, 'True'), ne(variables.BUILDER, 'imagecustomizer'))
@@ -246,12 +251,6 @@ steps:
     inputs:
       artifactName: 'vhd-image-bom-${{ parameters.artifactName }}'
       targetPath: 'image-bom.json'
-
-  - bash: make -f packer.mk convert-sig-to-classic-storage-account-blob
-    condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'), ne(variables.BUILDER, 'imagecustomizer'))
-    displayName: Convert Shared Image Gallery To VHD Blob In Classic Storage Account
-    env:
-      RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
 
   - task: DownloadPipelineArtifact@2
     displayName: Download Build Performance Program

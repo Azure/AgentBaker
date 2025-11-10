@@ -10,8 +10,8 @@
     },
     "properties": {
         "source": {
-            "type": "SharedImageVersion",
-            "imageVersionId": "<CAPTURED_SIG_VERSION_ID>"
+            "type": "<SOURCE_TYPE>",
+            "<SOURCE_ID_KEY>": "<SOURCE_ID>"
         },
         "customize": [
             {
@@ -21,14 +21,14 @@
             }
         ],
         "optimize": {
-            "vmboot": {
+            "vmBoot": {
                 "state": "Enabled"
             }
         },
         "distribute": [
             {
                 "type": "VHD",
-                "uri": "<OPTIMIZED_VHD_URI>",
+                "uri": "<VHD_URI>",
                 "runOutputName": "VHD"
             }
         ]
