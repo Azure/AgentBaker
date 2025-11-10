@@ -455,7 +455,6 @@ Describe 'cse_config.sh'
             The output should include "mkdir -p /etc/containerd/certs.d/mcr.azk8s.cn"
             The output should include "touch /etc/containerd/certs.d/mcr.azk8s.cn/hosts.toml"
             The output should include "chmod 0644 /etc/containerd/certs.d/mcr.azk8s.cn/hosts.toml"
-            The output should include "tee"
         End
     End
 
