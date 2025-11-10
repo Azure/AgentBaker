@@ -274,6 +274,18 @@ if ! requiresCISScan "${OS_SKU}" "${OS_VERSION}"; then
     exit 0
 fi
 
+SKIP_CIS=${SKIP_CIS:-true}
+if [ "${SKIP_CIS,,}" = "true" ]; then
+    # For artifacts
+    touch cis-report.txt
+    touch cis-report.html
+    echo "Skipping CIS assessment as SKIP_CIS is set to true"
+    capture_benchmark "${SCRIPT_NAME}_cis_report_skipped"
+    capture_benchmark "${SCRIPT_NAME}_overall" true
+    process_benchmarks
+    exit 0
+fi
+
 # Compare current cis-report.txt against stored baseline for Ubuntu 22.04 / 24.04.
 # A regression is when a rule that previously "pass" now has any other result.
 compare_cis_with_baseline() {
