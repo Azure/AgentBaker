@@ -15,6 +15,7 @@ set -uxo pipefail
 [ -z "${BUILD_RUN_NUMBER:-}" ] && echo "BUILD_RUN_NUMBER is not set" && exit 1
 [ -z "${CAPTURED_SIG_VERSION:-}" ] && echo "CAPTURED_SIG_VERSION is not set" && exit 1
 
+CREATE_TIME="$(date +%s)"
 IMAGE_BUILDER_TEMPLATE_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" &> /dev/null && pwd)/../templates/optimize.json"
 API_VERSION="2024-02-01"
 CAPTURED_SIG_VERSION_ID="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${SIG_GALLERY_RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/galleries/${SIG_GALLERY_NAME}/images/${SKU_NAME}/versions/${CAPTURED_SIG_VERSION}"
@@ -26,7 +27,9 @@ OPTIMIZED_VHD_URI="${STORAGE_ACCOUNT_BLOB_URL}/${OPTIMIZED_VHD_BLOB_NAME}"
 main() {
     if [ "$(az group exists -g "${IMAGE_BUILDER_RG_NAME}")" = "false" ]; then
         echo "creating resource group ${IMAGE_BUILDER_RG_NAME}"
-        az group create -g "${IMAGE_BUILDER_RG_NAME}" --location "${LOCATION}" || exit $?
+        az group create -g "${IMAGE_BUILDER_RG_NAME}" \
+            --location "${LOCATION}" \
+            --tags "buildNumber=${BUILD_RUN_NUMBER}" "now=${CREATE_TIME}" "createdBy=aks-vhd-pipeline" "image_sku=${SKU_NAME}" || exit $?
     fi
     run_image_builder_template || exit $?
     # copy_optimized_vhd || exit $?
@@ -47,12 +50,13 @@ run_image_builder_template() {
 
         echo "creating image builder template ${IMAGE_BUILDER_TEMPLATE_NAME} in resource group ${IMAGE_BUILDER_RG_NAME} with the following configuration:"
         jq < input.json
-        az resource create -n" ${IMAGE_BUILDER_TEMPLATE_NAME}" \
+        az resource create -n "${IMAGE_BUILDER_TEMPLATE_NAME}" \
             --properties @input.json \
             --is-full-object \
             --api-version "${API_VERSION}" \
             --resource-type Microsoft.VirtualMachineImages/imageTemplates \
-            --resource-group "${IMAGE_BUILDER_RG_NAME}" || return $?
+            --resource-group "${IMAGE_BUILDER_RG_NAME}" \
+            --tags "buildNumber=${BUILD_RUN_NUMBER}" "now=${CREATE_TIME}" "createdBy=aks-vhd-pipeline" "image_sku=${SKU_NAME}" || return $?
 
         echo "image builder template ${IMAGE_BUILDER_TEMPLATE_NAME} has been created, starting run..."
         az image builder run -n "${IMAGE_BUILDER_TEMPLATE_NAME}" -g "${IMAGE_BUILDER_RG_NAME}"
