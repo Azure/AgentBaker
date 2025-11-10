@@ -900,16 +900,16 @@ extractAndCacheCoreDnsBinary() {
   local coredns_image_list=($(ctr -n k8s.io images list -q | grep coredns))
   if [ "${#coredns_image_list[@]}" -eq 0 ]; then
     echo "Error: No coredns images found."
-    exit 1
+    return 1
   fi
 
   # Clean up existing binary directories.
   if [ -d "${LOCALDNS_BINARY_PATH}" ]; then
-    rm -rf "${LOCALDNS_BINARY_PATH}" || exit 1
+    rm -rf "${LOCALDNS_BINARY_PATH}" || return 1
   fi
 
   # Ensure the main localdns directory and binary path exist.
-  mkdir -p "${LOCALDNS_BINARY_PATH}" || exit 1
+  mkdir -p "${LOCALDNS_BINARY_PATH}" || return 1
 
   local ctr_temp=""
   cleanup_coredns_imports() {
@@ -957,7 +957,7 @@ extractAndCacheCoreDnsBinary() {
 
     if [ "$retry_count" -eq "$max_retries" ]; then
       echo "Error: Failed to mount ${coredns_image_url} after ${max_retries} attempts." >> "${VHD_LOGS_FILEPATH}"
-      exit 1
+      return 1
     fi
 
     # This path is based on the standard CoreDNS image structure.
@@ -969,19 +969,19 @@ extractAndCacheCoreDnsBinary() {
       if [ $version_index -eq 0 ]; then
         cp "${coredns_binary}" "${LOCALDNS_BINARY_PATH}/coredns" || {
           echo "Error: Failed to copy latest coredns binary to ${LOCALDNS_BINARY_PATH}/coredns" >> "${VHD_LOGS_FILEPATH}"
-          exit 1
+          return 1
         }
 
         # Validate that the main binary was extracted successfully.
         if [ ! -f "${LOCALDNS_BINARY_PATH}/coredns" ]; then
           echo "Error: Latest coredns binary not found at ${LOCALDNS_BINARY_PATH}/coredns after extraction" >> "${VHD_LOGS_FILEPATH}"
-          exit 1
+          return 1
         fi
 
-        chmod +x "${LOCALDNS_BINARY_PATH}/coredns" || exit 1
+        chmod +x "${LOCALDNS_BINARY_PATH}/coredns" || return 1
         if [ ! -x "${LOCALDNS_BINARY_PATH}/coredns" ]; then
           echo "Error: Latest coredns binary at ${LOCALDNS_BINARY_PATH}/coredns is not executable" >> "${VHD_LOGS_FILEPATH}"
-          exit 1
+          return 1
         fi
 
         # Verify the binary is functional.
@@ -993,24 +993,24 @@ extractAndCacheCoreDnsBinary() {
 
       else
         # Create the version-specific directory
-        mkdir -p "${LOCALDNS_BINARY_PATH}/${tag}" || exit 1
+        mkdir -p "${LOCALDNS_BINARY_PATH}/${tag}" || return 1
 
         # Copy binary to version-specific directory
         cp "${coredns_binary}" "${LOCALDNS_BINARY_PATH}/${tag}/coredns" || {
           echo "Error: Failed to copy coredns binary of ${tag}" >> "${VHD_LOGS_FILEPATH}"
-          exit 1
+          return 1
         }
 
         # Validate that coredns binary was extracted successfully.
         if [ ! -f "${LOCALDNS_BINARY_PATH}/${tag}/coredns" ]; then
           echo "Error: coredns binary not found at ${LOCALDNS_BINARY_PATH}/${tag}/coredns after extraction" >> "${VHD_LOGS_FILEPATH}"
-          exit 1
+          return 1
         fi
 
-        chmod +x "${LOCALDNS_BINARY_PATH}/${tag}/coredns" || exit 1
+        chmod +x "${LOCALDNS_BINARY_PATH}/${tag}/coredns" || return 1
         if [ ! -x "${LOCALDNS_BINARY_PATH}/${tag}/coredns" ]; then
           echo "Error: coredns binary at ${LOCALDNS_BINARY_PATH}/${tag}/coredns is not executable" >> "${VHD_LOGS_FILEPATH}"
-          exit 1
+          return 1
         fi
 
         # Verify the binary is functional.
@@ -1034,9 +1034,10 @@ extractAndCacheCoreDnsBinary() {
 
   # Clear the trap.
   trap - EXIT ABRT ERR INT PIPE QUIT TERM
+  return 0
 }
 
-extractAndCacheCoreDnsBinary
+extractAndCacheCoreDnsBinary || exit $?
 
 rm -f ./azcopy # cleanup immediately after usage will return in two downloads
 echo "install-dependencies step completed successfully"
