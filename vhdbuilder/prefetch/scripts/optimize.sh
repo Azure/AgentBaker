@@ -20,8 +20,10 @@ set -uxo pipefail
 [ -z "${FEATURE_FLAGS:-}" ] && echo "FEATURE_FLAGS is not set" && exit 1
 [ -z "${ENABLE_TRUSTED_LAUNCH:-}" ] && echo "ENABLE_TRUSTED_LAUNCH is not set" && exit 1
 
+IMAGE_BUILDER_API_VERSION="2024-02-01"
+MANAGED_DISK_API_VERSION="2024-03-02"
+
 IMAGE_BUILDER_TEMPLATE_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" &> /dev/null && pwd)/../templates/optimize.json"
-API_VERSION="2024-02-01"
 CAPTURED_SIG_VERSION_ID="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${SIG_GALLERY_RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/galleries/${SIG_GALLERY_NAME}/images/${SIG_IMAGE_NAME}/versions/${CAPTURED_SIG_VERSION}"
 IMAGE_BUILDER_RG_NAME="image-builder-${CAPTURED_SIG_VERSION}-${BUILD_RUN_NUMBER}"
 IMAGE_BUILDER_TEMPLATE_NAME="template-${CAPTURED_SIG_VERSION}-${BUILD_RUN_NUMBER}"
@@ -59,7 +61,7 @@ run_image_builder_template() {
         az resource create -n "${IMAGE_BUILDER_TEMPLATE_NAME}" \
             --properties @input.json \
             --is-full-object \
-            --api-version "${API_VERSION}" \
+            --api-version "${IMAGE_BUILDER_API_VERSION}" \
             --resource-type Microsoft.VirtualMachineImages/imageTemplates \
             --resource-group "${IMAGE_BUILDER_RG_NAME}" || return $?
 
@@ -121,7 +123,7 @@ convert_specialized_sig_version_to_managed_image() {
     echo "converting $CAPTURED_SIG_VERSION_ID to $disk_resource_id"
     echo "will use security type: ${security_type}"
 
-    az resource create --id "$disk_resource_id"  --api-version 2024-03-02 --is-full-object --location "$LOCATION" --properties "{\"location\": \"$LOCATION\", \
+    az resource create --id "$disk_resource_id" --api-version "${MANAGED_DISK_API_VERSION}" --is-full-object --location "$LOCATION" --properties "{\"location\": \"$LOCATION\", \
         \"properties\": { \
             \"osType\": \"Linux\", \
             \"securityProfile\": { \
@@ -178,7 +180,7 @@ convert_specialized_sig_version_to_managed_image() {
 # copy_optimized_vhd() {
 #     staging_rg_name=$(az resource show -n "${IMAGE_BUILDER_TEMPLATE_NAME}" -g "${IMAGE_BUILDER_RG_NAME}" \
 #         --resource-type Microsoft.VirtualMachineImages/imageTemplates \
-#         --api-version "${API_VERSION}" | jq -r '.properties.exactStagingResourceGroup')
+#         --api-version "${IMAGE_BUILDER_API_VERSION}" | jq -r '.properties.exactStagingResourceGroup')
 #     staging_rg_name=${staging_rg_name##*/}
 
 #     copy_info=$(az storage blob show \
