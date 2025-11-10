@@ -140,6 +140,7 @@ convert_specialized_sig_version_to_managed_image() {
     echo "converted $CAPTURED_SIG_VERSION_ID to $disk_resource_id"
 
     echo "granting access to $disk_resource_id for 30 minutes"
+    set +x
     # shellcheck disable=SC2102
     sas=$(az disk grant-access --ids "$disk_resource_id" --duration-in-seconds 1800 --query [accessSas] -o tsv)
     if [ "$sas" = "None" ]; then
@@ -152,17 +153,16 @@ convert_specialized_sig_version_to_managed_image() {
         return 1
     fi
 
-    echo "uploading $disk_resource_id to ${VHD_URI}"
-
     echo "setting azcopy environment variables with pool identity: $IMAGE_BUILDER_IDENTITY_ID"
     export AZCOPY_AUTO_LOGIN_TYPE="MSI"
     export AZCOPY_MSI_RESOURCE_STRING="$IMAGE_BUILDER_IDENTITY_ID"
     export AZCOPY_CONCURRENCY_VALUE="AUTO"
+    echo "uploading $disk_resource_id to ${VHD_URI}"
     azcopy copy "${sas}" "${VHD_URI}" --recursive=true || return $?
-
+    set -x
     echo "uploaded $disk_resource_id to ${VHD_URI}"
-    echo "creating managed image from ${VHD_URI}"
 
+    echo "creating managed image from ${VHD_URI}"
     managed_image_id=$(az image create -g "${IMAGE_BUILDER_RG_NAME}" -n "${CAPTURED_SIG_VERSION}-template-source" \
         --os-type Linux \
         --hyper-v-generation "${HYPERV_GENERATION}" \
