@@ -4,6 +4,10 @@ set -uxo pipefail
 [ -z "${CAPTURED_SIG_VERSION:-}" ] && echo "CAPTURED_SIG_VERSION is not set" && exit 1
 [ -z "${BUILD_RUN_NUMBER:-}" ] && echo "BUILD_RUN_NUMBER is not set" && exit 1
 
+main() {
+    cleanup_image_builder_rg
+}
+
 cleanup_image_builder_rg() {
     IMAGE_BUILDER_RG_NAME="image-builder-${CAPTURED_SIG_VERSION}-${BUILD_RUN_NUMBER}"
     if [ "$(az group exists -g "${IMAGE_BUILDER_RG_NAME}")" = "true" ]; then
