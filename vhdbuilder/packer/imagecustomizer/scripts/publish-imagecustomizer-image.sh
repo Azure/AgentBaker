@@ -88,7 +88,12 @@ else
     STORAGE_ACCOUNT_NAME=${BLOB_STORAGE_NAME}
 fi
 
-echo "Will publish VHD to storage account: ${STORAGE_ACCOUNT_NAME}"
+set +x
+RESPONSE=$(az storage account show -g ${RESOURCE_GROUP_NAME} -n ${STORAGE_ACCOUNT_NAME} --subscription ${SUBSCRIPTION_ID})
+echo "$RESPONSE"
+STORAGE_ACCOUNT_LOCATION=$(jq '.region' <<< "$RESPONSE")
+echo "Will publish VHD to storage account located in ${STORAGE_ACCOUNT_NAME}: ${STORAGE_ACCOUNT_NAME}"
+set -x
 
 GALLERY_RESOURCE_ID=/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/galleries/${SIG_GALLERY_NAME}
 SIG_IMAGE_RESOURCE_ID="${GALLERY_RESOURCE_ID}/images/${SIG_IMAGE_NAME}/versions/${CAPTURED_SIG_VERSION}"
