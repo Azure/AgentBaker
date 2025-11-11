@@ -357,9 +357,7 @@ EOF
 
   if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
     logs_to_events "AKS.CSE.ensureContainerd.configureContainerdRegistryHost" configureContainerdRegistryHost
-  fi
-
-  if [ "${TARGET_CLOUD}" = "AzureChinaCloud" ]; then
+  elif [ "${TARGET_CLOUD}" = "AzureChinaCloud" ]; then
     logs_to_events "AKS.CSE.ensureContainerd.configureContainerdLegacyMooncakeMcrHost" configureContainerdLegacyMooncakeMcrHost
   fi
 
@@ -396,9 +394,8 @@ configureContainerdLegacyMooncakeMcrHost() {
     chmod 0644 "${CONTAINERD_CONFIG_REGISTRY_HOST_MCR}"
 
     TARGET_MCR_REPOSITORY_BASE="mcr.azure.cn"
-    CONTAINER_REGISTRY_URL=$(sed 's@/@/v2/@1' <<< "${TARGET_MCR_REPOSITORY_BASE}/")
     tee "${CONTAINERD_CONFIG_REGISTRY_HOST_MCR}" > /dev/null <<EOF
-[host."https://${CONTAINER_REGISTRY_URL%/}"]
+[host."https://${TARGET_MCR_REPOSITORY_BASE%/}"]
   capabilities = ["pull", "resolve"]
   override_path = true
 EOF
