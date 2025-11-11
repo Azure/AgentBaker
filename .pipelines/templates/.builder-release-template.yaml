@@ -200,7 +200,7 @@ steps:
       FEATURE_FLAGS: $(FEATURE_FLAGS)
       ENABLE_TRUSTED_LAUNCH: $(ENABLE_TRUSTED_LAUNCH)
 
-  - bash: make -f paker.mk cleanup-prefetch
+  - bash: make -f packer.mk cleanup-prefetch
     condition: and(eq(variables.GENERATE_PUBLISHING_INFO, 'True'), ne(variables.SKIP_PREFETCH_OPTIMIZATION, 'True'), ne(variables.BUILDER, 'imagecustomizer'))
     displayName: Cleanup Prefetch Optimization Resources
     env:
