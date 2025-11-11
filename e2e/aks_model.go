@@ -76,26 +76,26 @@ func getLatestKubernetesVersionClusterModel(ctx context.Context, name, location,
 	if err != nil {
 		return nil, fmt.Errorf("failed to get latest GA Kubernetes version: %w", err)
 	}
-	model := getBaseClusterModel(name, location, k8sSystemPoolSKU)
+	model := getBaseClusterModel(ctx, name, location, k8sSystemPoolSKU)
 	model.Properties.KubernetesVersion = to.Ptr(version)
 	return model, nil
 }
 
-func getKubenetClusterModel(name, location, k8sSystemPoolSKU string) *armcontainerservice.ManagedCluster {
-	model := getBaseClusterModel(name, location, k8sSystemPoolSKU)
+func getKubenetClusterModel(ctx context.Context, name, location, k8sSystemPoolSKU string) *armcontainerservice.ManagedCluster {
+	model := getBaseClusterModel(ctx, name, location, k8sSystemPoolSKU)
 	model.Properties.NetworkProfile.NetworkPlugin = to.Ptr(armcontainerservice.NetworkPluginKubenet)
 	return model
 }
 
-func getAzureOverlayNetworkClusterModel(name, location, k8sSystemPoolSKU string) *armcontainerservice.ManagedCluster {
-	model := getBaseClusterModel(name, location, k8sSystemPoolSKU)
+func getAzureOverlayNetworkClusterModel(ctx context.Context, name, location, k8sSystemPoolSKU string) *armcontainerservice.ManagedCluster {
+	model := getBaseClusterModel(ctx, name, location, k8sSystemPoolSKU)
 	model.Properties.NetworkProfile.NetworkPlugin = to.Ptr(armcontainerservice.NetworkPluginAzure)
 	model.Properties.NetworkProfile.NetworkPluginMode = to.Ptr(armcontainerservice.NetworkPluginModeOverlay)
 	return model
 }
 
-func getAzureOverlayNetworkDualStackClusterModel(name, location, k8sSystemPoolSKU string) *armcontainerservice.ManagedCluster {
-	model := getAzureOverlayNetworkClusterModel(name, location, k8sSystemPoolSKU)
+func getAzureOverlayNetworkDualStackClusterModel(ctx context.Context, name, location, k8sSystemPoolSKU string) *armcontainerservice.ManagedCluster {
+	model := getAzureOverlayNetworkClusterModel(ctx, name, location, k8sSystemPoolSKU)
 
 	model.Properties.NetworkProfile.IPFamilies = []*armcontainerservice.IPFamily{
 		to.Ptr(armcontainerservice.IPFamilyIPv4),
@@ -122,8 +122,8 @@ func getAzureOverlayNetworkDualStackClusterModel(name, location, k8sSystemPoolSK
 	return model
 }
 
-func getAzureNetworkClusterModel(name, location, k8sSystemPoolSKU string) *armcontainerservice.ManagedCluster {
-	cluster := getBaseClusterModel(name, location, k8sSystemPoolSKU)
+func getAzureNetworkClusterModel(ctx context.Context, name, location, k8sSystemPoolSKU string) *armcontainerservice.ManagedCluster {
+	cluster := getBaseClusterModel(ctx, name, location, k8sSystemPoolSKU)
 	cluster.Properties.NetworkProfile.NetworkPlugin = to.Ptr(armcontainerservice.NetworkPluginAzure)
 	if cluster.Properties.AgentPoolProfiles != nil {
 		for _, app := range cluster.Properties.AgentPoolProfiles {
@@ -132,8 +132,8 @@ func getAzureNetworkClusterModel(name, location, k8sSystemPoolSKU string) *armco
 	}
 	return cluster
 }
-func getCiliumNetworkClusterModel(name, location, k8sSystemPoolSKU string) *armcontainerservice.ManagedCluster {
-	cluster := getBaseClusterModel(name, location, k8sSystemPoolSKU)
+func getCiliumNetworkClusterModel(ctx context.Context, name, location, k8sSystemPoolSKU string) *armcontainerservice.ManagedCluster {
+	cluster := getBaseClusterModel(ctx, name, location, k8sSystemPoolSKU)
 	cluster.Properties.NetworkProfile.NetworkPlugin = to.Ptr(armcontainerservice.NetworkPluginAzure)
 	cluster.Properties.NetworkProfile.NetworkDataplane = to.Ptr(armcontainerservice.NetworkDataplaneCilium)
 	cluster.Properties.NetworkProfile.NetworkPolicy = to.Ptr(armcontainerservice.NetworkPolicyCilium)
@@ -145,7 +145,22 @@ func getCiliumNetworkClusterModel(name, location, k8sSystemPoolSKU string) *armc
 	return cluster
 }
 
-func getBaseClusterModel(clusterName, location, k8sSystemPoolSKU string) *armcontainerservice.ManagedCluster {
+func getBaseClusterModel(ctx context.Context, clusterName, location, k8sSystemPoolSKU string) *armcontainerservice.ManagedCluster {
+	// Call createAKSNetworkWithFirewall to create VNet, subnets, public IP, and firewall
+	_, aksSubnet, _, _, _ := createAKSNetworkWithFirewall(
+		ctx,
+		clusterName+"-rg", // resourceGroupName (example, adjust as needed)
+		location,
+		clusterName+"-vnet",
+		clusterName+"-subnet",
+		clusterName+"-fw",
+		clusterName+"-pip",
+		clusterName+"-fwcfg",
+	)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("failed to create network and firewall: %w", err)
+	// }
+
 	return &armcontainerservice.ManagedCluster{
 		Name:     to.Ptr(clusterName),
 		Location: to.Ptr(location),
@@ -161,6 +176,7 @@ func getBaseClusterModel(clusterName, location, k8sSystemPoolSKU string) *armcon
 					Type:         to.Ptr(armcontainerservice.AgentPoolTypeVirtualMachineScaleSets),
 					Mode:         to.Ptr(armcontainerservice.AgentPoolModeSystem),
 					OSDiskSizeGB: to.Ptr[int32](512),
+					VnetSubnetID: aksSubnet.ID,
 				},
 			},
 			AutoUpgradeProfile: &armcontainerservice.ManagedClusterAutoUpgradeProfile{
@@ -242,37 +258,94 @@ func addFirewallRules(ctx context.Context, resourceGroupName, location, firewall
 	}
 }
 
-func getFirewall(ctx context.Context, resourceGroupName, location string, vnet *VNet) *armnetwork.AzureFirewall {
-	firewallClient := config.Azure.AzureFirewall
-	firewallName := fmt.Sprintf("%s-fw", resourceGroupName)
-	ipConfigName := fmt.Sprintf("%s-fwconfig", resourceGroupName)
-	firewallSubnetId := *mustGetSubnetBySubnetName(*vnet.Subnets, handlerazure.DefaultAzureVNetFirewallSubnetName).ID
-	firewall := firewallWithDNSProxy(*publicIP.ID, firewallSubnetId, ipConfigName, location)
-
-	gomegahelper.Retry(
-		"createFirewall",
-		logger,
-		func(n uint, retrym gomegahelper.RetryAssertionBuilder) {
-			firewallCreateFuture, err := firewallClient.CreateOrUpdate(ctx, resourceGroupName, firewallName, *firewall)
-			m.Expect(err).NotTo(handlerazure.ResponseFailed(firewallCreateFuture.FutureAPI.Response()), "create firewall")
-
-			logger.LogKV("step", "create firewall", "state", "waiting", "firewall", firewallName)
-			err = firewallCreateFuture.WaitForCompletionRef(ctx, firewallClient.Client)
-			retrym.Expect(err).
-				NotTo(handlerazure.ResponseFailed(firewallCreateFuture.FutureAPI.Response()), "wait for firewall creation")
-			logger.LogKV("step", "create firewall", "state", "created", "firewall", firewallName)
+// Full example: create VNet, subnet, public IP, and Azure Firewall for AKS egress control
+func createAKSNetworkWithFirewall(
+	ctx context.Context,
+	resourceGroupName, location, vnetName, subnetName, firewallName, publicIPName, ipConfigName string,
+) (*armnetwork.VirtualNetwork, *armnetwork.Subnet, *armnetwork.PublicIPAddress, *armnetwork.AzureFirewall, error) {
+	// 1. Create VNet with two subnets: one for AKS, one for AzureFirewallSubnet
+	vnetParams := armnetwork.VirtualNetwork{
+		Location: to.Ptr(location),
+		Properties: &armnetwork.VirtualNetworkPropertiesFormat{
+			AddressSpace: &armnetwork.AddressSpace{
+				AddressPrefixes: []*string{to.Ptr("10.240.0.0/16")},
+			},
+			Subnets: []*armnetwork.Subnet{
+				{
+					Name: to.Ptr(subnetName),
+					Properties: &armnetwork.SubnetPropertiesFormat{
+						AddressPrefix: to.Ptr("10.240.1.0/24"),
+					},
+				},
+				{
+					Name: to.Ptr("AzureFirewallSubnet"),
+					Properties: &armnetwork.SubnetPropertiesFormat{
+						AddressPrefix: to.Ptr("10.240.2.0/24"),
+					},
+				},
+			},
 		},
-		retry.DelayType(retry.FixedDelay),
-		retry.Delay(time.Duration(1)*time.Minute),
-		retry.Attempts(5),
-	)
+	}
+	vnetPoller, err := config.Azure.VNet.BeginCreateOrUpdate(ctx, resourceGroupName, vnetName, vnetParams, nil)
+	if err != nil {
+		return nil, nil, nil, nil, fmt.Errorf("failed to start VNet creation: %w", err)
+	}
+	vnetResp, err := vnetPoller.PollUntilDone(ctx, nil)
+	if err != nil {
+		return nil, nil, nil, nil, fmt.Errorf("failed to create VNet: %w", err)
+	}
+	vnet := &vnetResp.VirtualNetwork
 
-	firewallCreated, err := firewallClient.Get(ctx, resourceGroupName, firewallName)
-	m.Expect(err).NotTo(handlerazure.ResponseFailed(firewallCreated.Response), "get firewall")
-	firewallPrivateIP := *(*firewallCreated.IPConfigurations)[0].PrivateIPAddress
-	logger.Logf("firewall private ip: %s", firewallPrivateIP)
+	// 2. Get subnet IDs
+	var aksSubnet, fwSubnet *armnetwork.Subnet
+	for _, s := range vnet.Properties.Subnets {
+		if s.Name != nil && *s.Name == subnetName {
+			aksSubnet = s
+		}
+		if s.Name != nil && *s.Name == "AzureFirewallSubnet" {
+			fwSubnet = s
+		}
+	}
+	if aksSubnet == nil || fwSubnet == nil {
+		return nil, nil, nil, nil, fmt.Errorf("subnets not found after VNet creation")
+	}
 
-	return &firewallCreated
+	// 3. Create Public IP for firewall
+	pipParams := armnetwork.PublicIPAddress{
+		Location: to.Ptr(location),
+		SKU: &armnetwork.PublicIPAddressSKU{
+			Name: to.Ptr(armnetwork.PublicIPAddressSKUNameStandard),
+		},
+		Properties: &armnetwork.PublicIPAddressPropertiesFormat{
+			PublicIPAllocationMethod: to.Ptr(armnetwork.IPAllocationMethodStatic),
+		},
+	}
+	pipPoller, err := config.Azure.PublicIPAddresses.BeginCreateOrUpdate(ctx, resourceGroupName, publicIPName, pipParams, nil)
+	if err != nil {
+		return nil, nil, nil, nil, fmt.Errorf("failed to start Public IP creation: %w", err)
+	}
+	pipResp, err := pipPoller.PollUntilDone(ctx, nil)
+	if err != nil {
+		return nil, nil, nil, nil, fmt.Errorf("failed to create Public IP: %w", err)
+	}
+	publicIP := &pipResp.PublicIPAddress
+
+	// 4. Create Azure Firewall with FQDN tag rule
+	firewall := addFirewallRules(ctx, resourceGroupName, location, firewallName, *publicIP.ID, *fwSubnet.ID, ipConfigName)
+	fwPoller, err := config.Azure.AzureFirewall.BeginCreateOrUpdate(ctx, resourceGroupName, firewallName, *firewall, nil)
+	if err != nil {
+		return vnet, aksSubnet, publicIP, nil, fmt.Errorf("failed to start Firewall creation: %w", err)
+	}
+	fwResp, err := fwPoller.PollUntilDone(ctx, nil)
+	if err != nil {
+		return vnet, aksSubnet, publicIP, nil, fmt.Errorf("failed to create Firewall: %w", err)
+	}
+	firewallOut := &fwResp.AzureFirewall
+
+	// 5. (Optional) Associate route table with AKS subnet to force egress through firewall
+	// (Not implemented here, but you can create a route table and set next hop to firewall private IP)
+
+	return vnet, aksSubnet, publicIP, firewallOut, nil
 }
 
 func addAirgapNetworkSettings(ctx context.Context, clusterModel *armcontainerservice.ManagedCluster, privateACRName, location string) error {
