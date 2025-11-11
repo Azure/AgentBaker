@@ -94,9 +94,14 @@ GALLERY_RESOURCE_ID=/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_
 SIG_IMAGE_RESOURCE_ID="${GALLERY_RESOURCE_ID}/images/${SIG_IMAGE_NAME}/versions/${CAPTURED_SIG_VERSION}"
 MANAGED_IMAGE_RESOURCE_ID="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/images/${IMAGE_NAME}"
 
+
 # Determine target regions for image replication.
 # Images must replicate to SIG region, and testing expects PACKER_BUILD_LOCATION
 TARGET_REGIONS=${PACKER_BUILD_LOCATION}
+STORAGE_ACCOUNT_LOCATION=$(az storage account show -n ${STORAGE_ACCOUNT_NAME} | jq -r '.region')
+if [ "$STORAGE_ACCOUNT_LOCATION" != "$PACKER_BUILD_LOCATION" ]; then
+    TARGET_REGIONS="${TARGET_REGIONS} ${STORAGE_ACCOUNT_LOCATION}"
+fi
 GALLERY_LOCATION=$(az sig show --ids ${GALLERY_RESOURCE_ID} --query location -o tsv)
 if [ "$GALLERY_LOCATION" != "$PACKER_BUILD_LOCATION" ]; then
     TARGET_REGIONS="${TARGET_REGIONS} ${GALLERY_LOCATION}"
@@ -104,12 +109,10 @@ fi
 
 # Managed image must be created within the same region as the VHD blob, which is dictated
 # by the VHD storage account's primary location.
-MANAGED_IMAGE_LOCATION=$(az storage account show -n ${STORAGE_ACCOUNT_NAME} | jq -r '.region')
-
 echo "Creating managed image ${MANAGED_IMAGE_RESOURCE_ID} from VHD ${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd"
 az image create \
     --resource-group ${RESOURCE_GROUP_NAME} \
-    --location ${MANAGED_IMAGE_LOCATION} \
+    --location ${STORAGE_ACCOUNT_LOCATION} \
     --name ${IMAGE_NAME} \
     --source "${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd" \
     --os-type Linux \
