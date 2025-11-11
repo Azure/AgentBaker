@@ -65,11 +65,21 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 	require.NotContains(s.T, stdout, "--dynamic-config-dir", "kubelet flag '--dynamic-config-dir' should not be present in /etc/default/kubelet\nContents:\n%s")
 
 	kubeletLogs := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo journalctl -u kubelet", 0, "could not retrieve kubelet logs with journalctl").stdout.String()
-	require.True(
-		s.T,
-		!strings.Contains(kubeletLogs, "unable to validate bootstrap credentials") && strings.Contains(kubeletLogs, "kubelet bootstrap token credential is valid"),
-		"expected to have successfully validated bootstrap token credential before kubelet startup, but did not",
-	)
+	kubeletBootstrapMethod := s.GetKubeletBootstrapMethod()
+	if kubeletBootstrapMethod == KubeletBootstrapMethodTLSBootstrapToken {
+		require.True(
+			s.T,
+			!strings.Contains(kubeletLogs, "unable to validate bootstrap credentials") && strings.Contains(kubeletLogs, "kubelet bootstrap token credential is valid"),
+			"expected to have successfully validated bootstrap token credential before kubelet startup, but did not",
+		)
+	}
+	if s.KubeletBootstrapMethod == KubeletBootstrapMethodSecureTLSBootstrapping {
+		require.True(
+			s.T,
+			!strings.Contains(kubeletLogs, "unable to validate bootstrap credentials") && strings.Contains(kubeletLogs, "client credential already exists within kubeconfig"),
+			"expected to have had a valid kubeconfig produced by secure TLS bootstrapping by the time bootstrap token validation was attempted, but did not",
+		)
+	}
 
 	ValidateSystemdWatchdogForKubernetes132Plus(ctx, s)
 

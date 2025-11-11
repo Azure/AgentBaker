@@ -191,8 +191,9 @@ func Test_AzureLinuxV2_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a AzureLinuxV2 (CgroupV2) VHD can be properly bootstrapped even if secure TLS bootstrapping fails",
 		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDAzureLinuxV2Gen2,
+			Cluster:                ClusterKubenet,
+			VHD:                    config.VHDAzureLinuxV2Gen2,
+			KubeletBootstrapMethod: KubeletBootstrapMethodTLSBootstrapToken,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{
 					Enabled:  true,
@@ -1891,8 +1892,9 @@ func Test_Ubuntu2404Gen2_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testi
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using an Ubuntu 2404 Gen2 VHD can be properly bootstrapped even if secure TLS bootstrapping fails",
 		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2404Gen2Containerd,
+			Cluster:                ClusterKubenet,
+			VHD:                    config.VHDUbuntu2404Gen2Containerd,
+			KubeletBootstrapMethod: KubeletBootstrapMethodTLSBootstrapToken,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{
 					Enabled:  true,

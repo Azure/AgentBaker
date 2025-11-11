@@ -145,6 +145,14 @@ type ScenarioVM struct {
 	PrivateIP string
 }
 
+type KubeletBootstrapMethod int
+
+const (
+	KubeletBootstrapMethodUnspecified            = iota
+	KubeletBootstrapMethodTLSBootstrapToken      = 1
+	KubeletBootstrapMethodSecureTLSBootstrapping = 2
+)
+
 // Config represents the configuration of an AgentBaker E2E scenario.
 type Config struct {
 	// Cluster creates, updates or re-uses an AKS cluster for the scenario
@@ -164,6 +172,9 @@ type Config struct {
 
 	// Validator is a function where the scenario can perform any extra validation checks
 	Validator func(ctx context.Context, s *Scenario)
+
+	// KubeletBootstrapMethod dictates the expected bootstrapping method to be used by the kubelet to join the control plane.
+	KubeletBootstrapMethod KubeletBootstrapMethod
 
 	// SkipDefaultValidation is a flag to indicate whether the common validation (like spawning a pod) should be skipped.
 	// It shouldn't be used for majority of scenarios, currently only used for preparing VHD in a two-stage scenario
@@ -238,7 +249,13 @@ func (s *Scenario) updateTags(ctx context.Context, vmss *armcompute.VirtualMachi
 		}
 	}
 	vmss.Tags["owner"] = to.Ptr(owner)
+}
 
+func (s *Scenario) GetKubeletBootstrapMethod() KubeletBootstrapMethod {
+	if s.KubeletBootstrapMethod == KubeletBootstrapMethodUnspecified {
+		return KubeletBootstrapMethodTLSBootstrapToken
+	}
+	return s.KubeletBootstrapMethod
 }
 
 func getLoggedInAzUser() (string, error) {
