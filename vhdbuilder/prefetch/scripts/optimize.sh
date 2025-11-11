@@ -10,8 +10,6 @@ set -uxo pipefail
 [ -z "${SIG_IMAGE_NAME:-}" ] && echo "SIG_IMAGE_NAME is not set" && exit 1
 [ -z "${SKU_NAME:-}" ] && echo "SKU_NAME is not set" && exit 1
 [ -z "${STORAGE_ACCOUNT_BLOB_URL:-}" ] && echo "STORAGE_ACCOUNT_BLOB_URL is not set" && exit 1
-[ -z "${VHD_STORAGE_ACCOUNT_NAME:-}" ] && echo "VHD_STORAGE_ACCOUNT_NAME is not set" && exit 1
-[ -z "${VHD_STORAGE_CONTAINER_NAME:-}" ] && echo "VHD_STORAGE_CONTAINER_NAME is not set" && exit 1
 [ -z "${VHD_NAME:-}" ] && echo "VHD_NAME is not set" && exit 1
 [ -z "${IMAGE_BUILDER_IDENTITY_ID:-}" ] && echo "IMAGE_BUILDER_IDENTITY_ID is not set" && exit 1
 [ -z "${BUILD_RUN_NUMBER:-}" ] && echo "BUILD_RUN_NUMBER is not set" && exit 1
@@ -30,13 +28,26 @@ IMAGE_BUILDER_TEMPLATE_NAME="template-${CAPTURED_SIG_VERSION}-${BUILD_RUN_NUMBER
 VHD_URI="${STORAGE_ACCOUNT_BLOB_URL}/${VHD_NAME}"
 
 main() {
+    # for idempotency, check to see if the VHD we're trying to create already exists
+    # if it's already in the expected state, this will cause the script to exit early.
+    # otherwise, we delete any existing VHD in an unexpected state and retry the whole
+    # optimization + conversion flow
+    check_for_existing_vhd
+
+    # attempt to perform prefetch optimization and VHD conversion
+    ensure_image_builder_rg || exit $?
+    run_image_builder_template || exit $?
+}
+
+check_for_existing_vhd() {
+    # TODO(cameissner/hebeberm): tweak to support images built by image customizer (OSGuard)
     vhd_info="$(az storage blob show --blob-url "${VHD_URI}" --auth-mode login)"
     if [ -n "${vhd_info}" ]; then
         echo "VHD already exists at: ${VHD_URI}"
         image_builder_source="$(jq -r '.metadata.VMImageBuilderSource' <<< "${vhd_info}")"
         if [ -n "${image_builder_source}" ] && [ "${image_builder_source}" != "null" ]; then
             echo "VHD ${VHD_URI} has already been produced by a previous image builder template run"
-            copy_status="$(jq -r '.properties.copy' <<< "${vhd_info}")"
+            copy_status="$(jq -r '.properties.copy.status' <<< "${vhd_info}")"
             if [ "${copy_status,,}" == "success" ]; then
                 echo "VHD ${VHD_URI} has been successfully copied from image builder storage, nothing to do"
                 exit 0
@@ -50,36 +61,20 @@ main() {
             delete_vhd || exit $?
         else
             echo "VHD ${VHD_URI} exists but was not produced by an image builder template run, will delete before proceeding"
-            az storage blob delete --blob-url "${VHD_URL}" --auth-mode login
             delete_vhd || exit $?
         fi
+    else
+        echo "no existing VHD was found at: ${VHD_URI}, will proceed with optimization and VHD creation"
     fi
-
-
-    if [ "$(az group exists -g "${IMAGE_BUILDER_RG_NAME}")" = "false" ]; then
-        echo "creating resource group ${IMAGE_BUILDER_RG_NAME}"
-        az group create -g "${IMAGE_BUILDER_RG_NAME}" -l "${LOCATION}" \
-            --tags "createdBy=aks-vhd-pipeline" "buildNumber=${BUILD_RUN_NUMBER}" "now=$(date +%s)" "image_sku=${SKU_NAME}" || exit $?
-    fi
-
-    run_image_builder_template || exit $?
 }
 
-wait_for_vhd_copy() {
-    while [ "$(az storage blob show --blob-url "${VHD_URI}" --auth-mode login | jq -r '.properties.copy.status')" = "pending" ]; do
-        echo "VHD ${VHD_URI} is still undergoing a pending copy operation"
-        sleep 30s
-    done
-    echo "copy of ${VHD_URI} has completed"
-}
-
-delete_vhd() {
-    az storage blob delete --blob-url "${VHD_URL}" --auth-mode login || return $?
-    while [ -n "$(az storage blob show --blob-url "${VHD_URL}" --auth-mode login | jq -r '.name')" ]; do
-        echo "VHD ${VHD_URI} has yet to be deleted, will wait 30s before checking again"
-        sleep 30s
-    done
-    echo "VHD ${VHD_URI} has been deleted"
+ensure_image_builder_rg() {
+    if [ "$(az group exists -g "${IMAGE_BUILDER_RG_NAME}")" = "true" ]; then
+        echo "image builder resource group ${IMAGE_BUILDER_RG_NAME} already exists"
+        return 0
+    fi
+    echo "creating resource group ${IMAGE_BUILDER_RG_NAME}"
+    az group create -g "${IMAGE_BUILDER_RG_NAME}" -l "${LOCATION}" --tags "createdBy=aks-vhd-pipeline" "buildNumber=${BUILD_RUN_NUMBER}" "now=$(date +%s)" "image_sku=${SKU_NAME}" || return $?
 }
 
 run_image_builder_template() {
@@ -167,7 +162,6 @@ convert_specialized_sig_version_to_managed_image() {
         return 0
     fi
 
-    vhd_info="$(az storage blob show --blob-url "${VHD_URI}" --auth-mode login)"
     if [ "$(az storage blob show --blob-url "${VHD_URI}" --auth-mode login | jq -r '.exists')" = "true" ]; then
         echo "creating managed image from already-existing VHD: ${VHD_URI}"
         managed_image_id=$(az image create -g "${IMAGE_BUILDER_RG_NAME}" -n "${managed_image_name}" \
@@ -239,6 +233,23 @@ convert_specialized_sig_version_to_managed_image() {
     # specialized SIG image version -> specialized managed disk -> VHD blob -> managed image
     echo "created managed image source: ${managed_image_id}"
     SOURCE_MANAGED_IMAGE_ID="${managed_image_id}"
+}
+
+wait_for_vhd_copy() {
+    while [ "$(az storage blob show --blob-url "${VHD_URI}" --auth-mode login | jq -r '.properties.copy.status')" = "pending" ]; do
+        echo "VHD ${VHD_URI} is still undergoing a pending copy operation"
+        sleep 30s
+    done
+    echo "pending copy operation over ${VHD_URI} has completed"
+}
+
+delete_vhd() {
+    az storage blob delete --blob-url "${VHD_URI}" --auth-mode login || return $?
+    while [ -n "$(az storage blob show --blob-url "${VHD_URI}" --auth-mode login | jq -r '.name')" ]; do
+        echo "VHD ${VHD_URI} has yet to be deleted, will wait 30s before checking again"
+        sleep 30s
+    done
+    echo "${VHD_URI} has been deleted"
 }
 
 main "$@"

@@ -192,8 +192,6 @@ steps:
       SIG_IMAGE_NAME: $(SIG_IMAGE_NAME)
       SKU_NAME: $(SKU_NAME)
       STORAGE_ACCOUNT_BLOB_URL: $(CLASSIC_BLOB)
-      VHD_STORAGE_ACCOUNT_NAME: $(VHD_STORAGE_ACCOUNT_NAME)
-      VHD_STORAGE_CONTAINER_NAME: $(VHD_STORAGE_CONTAINER_NAME)
       VHD_NAME: $(VHD_NAME)
       IMAGE_BUILDER_IDENTITY_ID: $(AZURE_MSI_RESOURCE_STRING)
       BUILD_RUN_NUMBER: $(Build.BuildNumber)
@@ -202,12 +200,12 @@ steps:
       FEATURE_FLAGS: $(FEATURE_FLAGS)
       ENABLE_TRUSTED_LAUNCH: $(ENABLE_TRUSTED_LAUNCH)
 
-  # - bash: make -f cleanup-prefetch
-  #   condition: and(eq(variables.GENERATE_PUBLISHING_INFO, 'True'), ne(variables.SKIP_PREFETCH_OPTIMIZATION, 'True'), ne(variables.BUILDER, 'imagecustomizer'))
-  #   displayName: Cleanup Prefetch Optimization Resources
-  #   env:
-  #     BUILD_RUN_NUMBER: $(Build.BuildNumber)
-  #     CAPTURED_SIG_VERSION: $(CAPTURED_SIG_VERSION)
+  - bash: make -f paker.mk cleanup-prefetch
+    condition: and(eq(variables.GENERATE_PUBLISHING_INFO, 'True'), ne(variables.SKIP_PREFETCH_OPTIMIZATION, 'True'), ne(variables.BUILDER, 'imagecustomizer'))
+    displayName: Cleanup Prefetch Optimization Resources
+    env:
+      BUILD_RUN_NUMBER: $(Build.BuildNumber)
+      CAPTURED_SIG_VERSION: $(CAPTURED_SIG_VERSION)
 
   - task: PublishPipelineArtifact@0
     condition: always()
