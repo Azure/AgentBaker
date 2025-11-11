@@ -88,22 +88,16 @@ else
     STORAGE_ACCOUNT_NAME=${BLOB_STORAGE_NAME}
 fi
 
-set +x
-RESPONSE=$(az storage account show -g ${RESOURCE_GROUP_NAME} -n ${STORAGE_ACCOUNT_NAME} --subscription ${SUBSCRIPTION_ID})
-echo "$RESPONSE"
-STORAGE_ACCOUNT_LOCATION=$(jq '.region' <<< "$RESPONSE")
-echo "Will publish VHD to storage account located in ${STORAGE_ACCOUNT_NAME}: ${STORAGE_ACCOUNT_NAME}"
-set -x
+echo "Will publish VHD to storage account: ${STORAGE_ACCOUNT_NAME}, URI: ${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd"
 
 GALLERY_RESOURCE_ID=/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/galleries/${SIG_GALLERY_NAME}
 SIG_IMAGE_RESOURCE_ID="${GALLERY_RESOURCE_ID}/images/${SIG_IMAGE_NAME}/versions/${CAPTURED_SIG_VERSION}"
 MANAGED_IMAGE_RESOURCE_ID="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/images/${IMAGE_NAME}"
 
-
 # Determine target regions for image replication.
 # Images must replicate to SIG region, and testing expects PACKER_BUILD_LOCATION
 TARGET_REGIONS=${PACKER_BUILD_LOCATION}
-STORAGE_ACCOUNT_LOCATION=$(az storage account show -n ${STORAGE_ACCOUNT_NAME} | jq -r '.region')
+STORAGE_ACCOUNT_LOCATION=$(az storage account show -n ${STORAGE_ACCOUNT_NAME} | jq -r '.location')
 if [ "$STORAGE_ACCOUNT_LOCATION" != "$PACKER_BUILD_LOCATION" ]; then
     TARGET_REGIONS="${TARGET_REGIONS} ${STORAGE_ACCOUNT_LOCATION}"
 fi
