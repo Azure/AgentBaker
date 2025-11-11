@@ -229,7 +229,9 @@ func prepareAKSNode(ctx context.Context, s *Scenario) *ScenarioVM {
 		s.T.Fatalf("exactly one of BootstrapConfigMutator or AKSNodeConfigMutator must be set")
 	}
 
-	nbc := getBaseNBC(s.T, s.Runtime.Cluster, s.VHD)
+	var err error
+	nbc, err := getBaseNBC(s.T, s.Runtime.Cluster, s.VHD)
+	require.NoError(s.T, err)
 
 	if s.IsWindows() {
 		nbc.ContainerService.Properties.WindowsProfile.CseScriptsPackageURL = "https://packages.aks.azure.com/aks/windows/cse/"
@@ -244,7 +246,6 @@ func prepareAKSNode(ctx context.Context, s *Scenario) *ScenarioVM {
 		s.AKSNodeConfigMutator(nodeconfig)
 		s.Runtime.AKSNodeConfig = nodeconfig
 	}
-	var err error
 	publicKeyData := datamodel.PublicKey{KeyData: string(SSHKeyPublic)}
 
 	// check it all.
