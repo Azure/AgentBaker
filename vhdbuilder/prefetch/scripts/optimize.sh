@@ -48,11 +48,11 @@ check_for_existing_vhd() {
         if [ -n "${image_builder_source}" ] && [ "${image_builder_source}" != "null" ]; then
             echo "VHD ${VHD_URI} has already been produced by a previous image builder template run"
             copy_status="$(jq -r '.properties.copy.status' <<< "${vhd_info}")"
-            if [ "${copy_status,,}" == "success" ]; then
+            if [ "${copy_status,,}" = "success" ]; then
                 echo "VHD ${VHD_URI} has been successfully copied from image builder storage, nothing to do"
                 exit 0
             fi
-            if [ "${copy_status,,}" == "pending" ]; then
+            if [ "${copy_status,,}" = "pending" ]; then
                 echo "echo VHD ${VHD_URI} is currently being copied from image builder storage, will wait for copy completion"
                 wait_for_vhd_copy || exit $?
                 exit 0
