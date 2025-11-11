@@ -174,6 +174,7 @@ type Config struct {
 	Validator func(ctx context.Context, s *Scenario)
 
 	// KubeletBootstrapMethod dictates the expected bootstrapping method to be used by the kubelet to join the control plane.
+	// If unspecified, KubeletBootstrapMethodTLSBootstrapToken will be used as a default.
 	KubeletBootstrapMethod KubeletBootstrapMethod
 
 	// SkipDefaultValidation is a flag to indicate whether the common validation (like spawning a pod) should be skipped.
