@@ -156,12 +156,27 @@ installNvidiaManagedExpPkgFromCache() {
     done
 }
 
+removeNvidiaRepos() {
+    # Remove NVIDIA apt repository configuration
+    # to prevent unnecessary network calls during apt-get update
+    if [ -f /etc/apt/sources.list.d/nvidia.list ]; then
+        rm -f /etc/apt/sources.list.d/nvidia.list
+        echo "Removed NVIDIA apt repository"
+    fi
+    if [ -f /etc/apt/keyrings/nvidia.pub ]; then
+        rm -f /etc/apt/keyrings/nvidia.pub
+        echo "Removed NVIDIA GPG key"
+    fi
+}
+
 cleanUpGPUDrivers() {
     rm -Rf $GPU_DEST /opt/gpu
 
     for packageName in $(managedGPUPackageList); do
         rm -rf "/opt/${packageName}"
     done
+
+    removeNvidiaRepos
 }
 
 installCriCtlPackage() {
