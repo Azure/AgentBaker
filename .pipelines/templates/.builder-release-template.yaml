@@ -250,6 +250,13 @@ steps:
       artifactName: 'vhd-image-bom-${{ parameters.artifactName }}'
       targetPath: 'image-bom.json'
 
+  # TODO(cameissner): remove once promoting TME-built VHD for prod usage
+  - bash: make -f packer.mk convert-sig-to-classic-storage-account-blob
+    condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'), eq(variables.SKIP_PREFETCH_OPTIMIZATION, 'True'), ne(variables.BUILDER, 'imagecustomizer'))
+    displayName: Convert Shared Image Gallery To VHD Blob In Classic Storage Account
+    env:
+      RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
+
   - task: DownloadPipelineArtifact@2
     displayName: Download Build Performance Program
     condition: and(succeeded(), eq(variables.ENVIRONMENT, 'tme'))
