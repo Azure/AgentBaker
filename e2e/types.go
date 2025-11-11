@@ -145,14 +145,6 @@ type ScenarioVM struct {
 	PrivateIP string
 }
 
-type KubeletBootstrapMethod int
-
-const (
-	KubeletBootstrapMethodUnspecified = iota
-	KubeletBootstrapMethodTLSBootstrapToken
-	KubeletBootstrapMethodSecureTLSBootstrapping
-)
-
 // Config represents the configuration of an AgentBaker E2E scenario.
 type Config struct {
 	// Cluster creates, updates or re-uses an AKS cluster for the scenario
