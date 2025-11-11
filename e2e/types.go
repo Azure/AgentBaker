@@ -148,9 +148,9 @@ type ScenarioVM struct {
 type KubeletBootstrapMethod int
 
 const (
-	KubeletBootstrapMethodUnspecified            = iota
-	KubeletBootstrapMethodTLSBootstrapToken      = 1
-	KubeletBootstrapMethodSecureTLSBootstrapping = 2
+	KubeletBootstrapMethodUnspecified = iota
+	KubeletBootstrapMethodTLSBootstrapToken
+	KubeletBootstrapMethodSecureTLSBootstrapping
 )
 
 // Config represents the configuration of an AgentBaker E2E scenario.
