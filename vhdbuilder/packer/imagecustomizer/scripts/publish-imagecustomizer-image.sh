@@ -16,6 +16,8 @@ required_env_vars=(
     "SIG_IMAGE_NAME"
     "IMAGE_NAME"
     "SUBSCRIPTION_ID"
+    "CLASSIC_BLOB"
+    "STORAGE_ACCOUNT_NAME"
     "CAPTURED_SIG_VERSION"
     "PACKER_BUILD_LOCATION"
     "GENERATE_PUBLISHING_INFO"
@@ -72,21 +74,6 @@ fi
 echo "Uploaded ${OUT_DIR}/${CONFIG}.vhd to ${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd"
 capture_benchmark "${SCRIPT_NAME}_upload_vhd_to_blob"
 
-# Use the domain name from the classic blob URL to get the storage account name.
-# If the CLASSIC_BLOB var is not set create a new var called BLOB_STORAGE_NAME in the pipeline.
-BLOB_URL_REGEX="^https:\/\/.+\.blob\.core\.windows\.net\/vhd(s)?$"
-# shellcheck disable=SC3010
-if [[ $CLASSIC_BLOB =~ $BLOB_URL_REGEX ]]; then
-    STORAGE_ACCOUNT_NAME=$(echo $CLASSIC_BLOB | sed -E 's|https://(.*)\.blob\.core\.windows\.net(:443)?/(.*)?|\1|')
-else
-    # Used in the 'AKS Linux VHD Build - PR check-in gate' pipeline.
-    if [ -z "$BLOB_STORAGE_NAME" ]; then
-        echo "BLOB_STORAGE_NAME is not set, please either set the CLASSIC_BLOB var or create a new var BLOB_STORAGE_NAME in the pipeline."
-        exit 1
-    fi
-    STORAGE_ACCOUNT_NAME=${BLOB_STORAGE_NAME}
-fi
-
 GALLERY_RESOURCE_ID=/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/galleries/${SIG_GALLERY_NAME}
 SIG_IMAGE_RESOURCE_ID="${GALLERY_RESOURCE_ID}/images/${SIG_IMAGE_NAME}/versions/${CAPTURED_SIG_VERSION}"
 MANAGED_IMAGE_RESOURCE_ID="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/images/${IMAGE_NAME}"
@@ -99,9 +86,14 @@ if [ "$GALLERY_LOCATION" != "$PACKER_BUILD_LOCATION" ]; then
     TARGET_REGIONS="${TARGET_REGIONS} ${GALLERY_LOCATION}"
 fi
 
+# Managed image must be created within the same region as the VHD blob, which is dictated
+# by the VHD storage account's primary location.
+MANAGED_IMAGE_LOCATION=$(az storage account show -n ${STORAGE_ACCOUNT_NAME} | jq -r '.region')
+
 echo "Creating managed image ${MANAGED_IMAGE_RESOURCE_ID} from VHD ${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd"
 az image create \
     --resource-group ${RESOURCE_GROUP_NAME} \
+    --location ${MANAGED_IMAGE_LOCATION} \
     --name ${IMAGE_NAME} \
     --source "${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd" \
     --os-type Linux \
