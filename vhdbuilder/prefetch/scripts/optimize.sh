@@ -77,6 +77,8 @@ run_image_builder_template() {
         echo "${IMAGE_BUILDER_TEMPLATE_NAME} failed to run successfully, finished with state: '${template_run_state}'"
         return 1
     fi
+
+    echo "template ${IMAGE_BUILDER_TEMPLATE_NAME} has ran to completion, VHD has been published to: ${VHD_URI}"
 }
 
 need_new_template() {
