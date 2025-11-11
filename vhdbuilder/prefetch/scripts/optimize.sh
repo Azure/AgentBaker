@@ -30,14 +30,56 @@ IMAGE_BUILDER_TEMPLATE_NAME="template-${CAPTURED_SIG_VERSION}-${BUILD_RUN_NUMBER
 VHD_URI="${STORAGE_ACCOUNT_BLOB_URL}/${VHD_NAME}"
 
 main() {
+    vhd_info="$(az storage blob show --blob-url "${VHD_URI}" --auth-mode login)"
+    if [ -n "${vhd_info}" ]; then
+        echo "VHD already exists at: ${VHD_URI}"
+        image_builder_source="$(jq -r '.metadata.VMImageBuilderSource' <<< "${vhd_info}")"
+        if [ -n "${image_builder_source}" ] && [ "${image_builder_source}" != "null" ]; then
+            echo "VHD ${VHD_URI} has already been produced by a previous image builder template run"
+            copy_status="$(jq -r '.properties.copy' <<< "${vhd_info}")"
+            if [ "${copy_status,,}" == "success" ]; then
+                echo "VHD ${VHD_URI} has been successfully copied from image builder storage, nothing to do"
+                exit 0
+            fi
+            if [ "${copy_status,,}" == "pending" ]; then
+                echo "echo VHD ${VHD_URI} is currently being copied from image builder storage, will wait for copy completion"
+                wait_for_vhd_copy || exit $?
+                exit 0
+            fi
+            echo "VHD ${VHD_URI} has a bad copy state: ${copy_status}, will delete it and recreate"
+            delete_vhd || exit $?
+        else
+            echo "VHD ${VHD_URI} exists but was not produced by an image builder template run, will delete before proceeding"
+            az storage blob delete --blob-url "${VHD_URL}" --auth-mode login
+            delete_vhd || exit $?
+        fi
+    fi
+
+
     if [ "$(az group exists -g "${IMAGE_BUILDER_RG_NAME}")" = "false" ]; then
         echo "creating resource group ${IMAGE_BUILDER_RG_NAME}"
-        az group create -g "${IMAGE_BUILDER_RG_NAME}" \
-            --location "${LOCATION}" \
+        az group create -g "${IMAGE_BUILDER_RG_NAME}" -l "${LOCATION}" \
             --tags "createdBy=aks-vhd-pipeline" "buildNumber=${BUILD_RUN_NUMBER}" "now=$(date +%s)" "image_sku=${SKU_NAME}" || exit $?
     fi
+
     run_image_builder_template || exit $?
-    # copy_optimized_vhd || exit $?
+}
+
+wait_for_vhd_copy() {
+    while [ "$(az storage blob show --blob-url "${VHD_URI}" --auth-mode login | jq -r '.properties.copy.status')" = "pending" ]; do
+        echo "VHD ${VHD_URI} is still undergoing a pending copy operation"
+        sleep 30s
+    done
+    echo "copy of ${VHD_URI} has completed"
+}
+
+delete_vhd() {
+    az storage blob delete --blob-url "${VHD_URL}" --auth-mode login || return $?
+    while [ -n "$(az storage blob show --blob-url "${VHD_URL}" --auth-mode login | jq -r '.name')" ]; do
+        echo "VHD ${VHD_URI} has yet to be deleted, will wait 30s before checking again"
+        sleep 30s
+    done
+    echo "VHD ${VHD_URI} has been deleted"
 }
 
 run_image_builder_template() {
@@ -117,58 +159,78 @@ prepare_source() {
 }
 
 convert_specialized_sig_version_to_managed_image() {
-    security_type="ConfidentialVM_VMGuestStateOnlyEncryptedWithPlatformKey"
-    if [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ]; then
-        security_type="TrustedLaunch"
+    managed_image_name="${CAPTURED_SIG_VERSION}-template-source"
+    managed_image_id="$(az image show -g "${IMAGE_BUILDER_RG_NAME}" -n "${managed_image_name}" | jq -r '.id')"
+    if [ -n "${managed_image_id}" ]; then
+        echo "managed image source already exists: ${managed_image_id}"
+        SOURCE_MANAGED_IMAGE_ID="${managed_image_id}"
+        return 0
     fi
-    disk_resource_id="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${IMAGE_BUILDER_RG_NAME}/providers/Microsoft.Compute/disks/${CAPTURED_SIG_VERSION}"
-    echo "converting $CAPTURED_SIG_VERSION_ID to $disk_resource_id"
-    echo "will use security type: ${security_type}"
 
-    az resource create --id "$disk_resource_id" --api-version "${MANAGED_DISK_API_VERSION}" --is-full-object --location "$LOCATION" --properties "{\"location\": \"$LOCATION\", \
-        \"properties\": { \
-            \"osType\": \"Linux\", \
-            \"securityProfile\": { \
-                \"securityType\": \"${security_type}\" \
-            }, \
-            \"creationData\": { \
-                \"createOption\": \"FromImage\", \
-                \"galleryImageReference\": { \
-                    \"id\": \"${CAPTURED_SIG_VERSION_ID}\" \
+    vhd_info="$(az storage blob show --blob-url "${VHD_URI}" --auth-mode login)"
+    if [ "$(az storage blob show --blob-url "${VHD_URI}" --auth-mode login | jq -r '.exists')" = "true" ]; then
+        echo "creating managed image from already-existing VHD: ${VHD_URI}"
+        managed_image_id=$(az image create -g "${IMAGE_BUILDER_RG_NAME}" -n "${managed_image_name}" \
+            --os-type Linux \
+            --hyper-v-generation "${HYPERV_GENERATION}" \
+            --source "${VHD_URI}" | jq -r '.id')
+        if [ -z "${managed_image_id}" ]; then
+            echo "unable to create managed image using source: ${VHD_URI}"
+            return 1
+        fi
+        echo "created managed image source: ${managed_image_id}"
+        SOURCE_MANAGED_IMAGE_ID="${managed_image_id}"
+        return 0
+    fi
+
+    disk_resource_id="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${IMAGE_BUILDER_RG_NAME}/providers/Microsoft.Compute/disks/${CAPTURED_SIG_VERSION}"
+    if [ -z "$(az disk show --ids "${disk_resource_id}" | jq -r '.id')" ]; then
+        security_type="ConfidentialVM_VMGuestStateOnlyEncryptedWithPlatformKey"
+        if [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ]; then
+            security_type="TrustedLaunch"
+        fi
+        disk_resource_id="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${IMAGE_BUILDER_RG_NAME}/providers/Microsoft.Compute/disks/${CAPTURED_SIG_VERSION}"
+        echo "converting $CAPTURED_SIG_VERSION_ID to ${disk_resource_id}"
+        echo "will use security type: ${security_type}"
+
+        az resource create --id "${disk_resource_id}" --api-version "${MANAGED_DISK_API_VERSION}" --is-full-object --location "$LOCATION" --properties "{\"location\": \"$LOCATION\", \
+            \"properties\": { \
+                \"osType\": \"Linux\", \
+                \"securityProfile\": { \
+                    \"securityType\": \"${security_type}\" \
+                }, \
+                \"creationData\": { \
+                    \"createOption\": \"FromImage\", \
+                    \"galleryImageReference\": { \
+                        \"id\": \"${CAPTURED_SIG_VERSION_ID}\" \
+                    } \
                 } \
             } \
-        } \
-    }" || return $?
-    echo "converted $CAPTURED_SIG_VERSION_ID to $disk_resource_id"
+        }" || return $?
 
-    echo "granting access to $disk_resource_id for 30 minutes"
+        echo "converted $CAPTURED_SIG_VERSION_ID to ${disk_resource_id}"
+    fi
+
     set +x
     # shellcheck disable=SC2102
-    sas=$(az disk grant-access --ids "$disk_resource_id" --duration-in-seconds 1800 --query [accessSas] -o tsv)
-    if [ "$sas" = "None" ]; then
-        echo "sas token empty. Trying alternative query string"
-        # shellcheck disable=SC2102
-        sas=$(az disk grant-access --ids "$disk_resource_id" --duration-in-seconds 1800 --query [accessSAS] -o tsv)
-    fi
-    if [ "$sas" = "None" ]; then
-        echo "sas token empty after trying both queries. Can't continue"
+    disk_sas_url=$(az disk grant-access --ids "${disk_resource_id}" --duration-in-seconds 1800 --query [accessSAS] -o tsv)
+    if [ "${disk_sas_url,,}" = "none" ]; then
+        echo "generated SAS token for managed disk is empty, cannot continue"
         return 1
     fi
-
     echo "setting azcopy environment variables with pool identity: $IMAGE_BUILDER_IDENTITY_ID"
     export AZCOPY_AUTO_LOGIN_TYPE="MSI"
     export AZCOPY_MSI_RESOURCE_STRING="$IMAGE_BUILDER_IDENTITY_ID"
     export AZCOPY_CONCURRENCY_VALUE="AUTO"
     echo "uploading $disk_resource_id to ${VHD_URI}"
-    azcopy copy "${sas}" "${VHD_URI}" --recursive=true || return $?
+    azcopy copy "${disk_sas_url}" "${VHD_URI}" --recursive=true || return $?
     set -x
-    echo "uploaded $disk_resource_id to ${VHD_URI}"
 
     echo "creating managed image from ${VHD_URI}"
-    managed_image_id=$(az image create -g "${IMAGE_BUILDER_RG_NAME}" -n "${CAPTURED_SIG_VERSION}-template-source" \
+    managed_image_id=$(az image create -g "${IMAGE_BUILDER_RG_NAME}" -n "${managed_image_name}" \
         --os-type Linux \
         --hyper-v-generation "${HYPERV_GENERATION}" \
-        --source "${VHD_URI}")
+        --source "${VHD_URI}" | jq -r '.id')
     if [ -z "${managed_image_id}" ]; then
         echo "unable to create managed image using source: ${VHD_URI}"
         return 1
@@ -178,92 +240,5 @@ convert_specialized_sig_version_to_managed_image() {
     echo "created managed image source: ${managed_image_id}"
     SOURCE_MANAGED_IMAGE_ID="${managed_image_id}"
 }
-
-# copy_optimized_vhd() {
-#     staging_rg_name=$(az resource show -n "${IMAGE_BUILDER_TEMPLATE_NAME}" -g "${IMAGE_BUILDER_RG_NAME}" \
-#         --resource-type Microsoft.VirtualMachineImages/imageTemplates \
-#         --api-version "${IMAGE_BUILDER_API_VERSION}" | jq -r '.properties.exactStagingResourceGroup')
-#     staging_rg_name=${staging_rg_name##*/}
-
-#     copy_info=$(az storage blob show \
-#         --name "${VHD_NAME}" \
-#         --container-name "${VHD_STORAGE_CONTAINER_NAME}" \
-#         --account-name "${VHD_STORAGE_ACCOUNT_NAME}" \
-#         --subscription "${SUBSCRIPTION_ID}" 2>/dev/null | jq '.properties.copy')
-#     copy_source=$(jq -r '.source' <<< "${copy_info}")
-#     if [ "${copy_source}" != "null" ]; then
-#         # this blob has previously been copied to from somewhere else
-#         set_storage_details_from_vhd_blob_url "${copy_source}" || return $?
-#         source_storage_account_name=${STORAGE_ACCOUNT_NAME}
-#         # attempt to show the storage account under the assumption it's within the template's staging resource group
-#         source_storage_account_info=$(az storage account show -g "${staging_rg_name}" -n "${source_storage_account_name}" --subscription "${SUBSCRIPTION_ID}")
-#         if [ -n "${source_storage_account_info}" ]; then
-#             # double-check the tags on the storage account to guarantee it contains the optimized blob
-#             source_storage_account_created_by=$(jq -r '.tags.createdby' <<< "${source_storage_account_info}")
-#             if [ "${source_storage_account_created_by,,}" = "azurevmimagebuilder" ]; then
-#                 copy_status=$(jq -r '.status' <<< "${copy_info}")
-#                 if [ "${copy_status,,}" = "success" ] || [ "${copy_status,,}" = "pending" ]; then
-#                     # if the copy is already done or is currently in-progress, exit early
-#                     echo "blob ${CAPTURED_SIG_VERSION}.vhd has been copied or is in an active copy operation from ${copy_source} (status = ${copy_status})"
-#                     return 0
-#                 fi
-#             fi
-#         fi
-#     fi
-
-#     set_storage_details_from_vhd_blob_url "$(az image builder show-runs -n "${IMAGE_BUILDER_TEMPLATE_NAME}" -g "${IMAGE_BUILDER_RG_NAME}" | jq -r '.[-1].artifactUri')" || return $?
-#     set_optimized_vhd_sas_url "${staging_rg_name}" "${STORAGE_ACCOUNT_NAME}" "${STORAGE_CONTAINER_NAME}" "${VHD_BLOB_NAME}" || return $?
-
-#     echo "beginning copy of ${CAPTURED_SIG_VERSION}.vhd to ${VHD_STORAGE_ACCOUNT_NAME}/${VHD_STORAGE_CONTAINER_NAME}/${CAPTURED_SIG_VERSION}.vhd"
-#     az storage blob copy start \
-#         --destination-blob "${VHD_NAME}" \
-#         --destination-container" ${VHD_STORAGE_CONTAINER_NAME}" \
-#         --account-name "${VHD_STORAGE_ACCOUNT_NAME}" \
-#         --subscription "${SUBSCRIPTION_ID}" \
-#         --source-uri "${OPTIMIZED_VHD_SAS_URL}" || return $?
-
-#     while [ "$(az storage blob show \
-#       --name "${VHD_NAME}" \
-#       --container-name "${VHD_STORAGE_CONTAINER_NAME}" \
-#       --account-name "${VHD_STORAGE_ACCOUNT_NAME}" \
-#       --subscription "${SUBSCRIPTION_ID}" 2>/dev/null | jq -r .properties.copy.status)" != "success" ]; do
-#       echo "waiting for copy to storage account: ${VHD_STORAGE_ACCOUNT_NAME}, container: ${VHD_STORAGE_CONTAINER_NAME}, blob: ${CAPTURED_SIG_VERSION}.vhd"
-#       sleep 60s
-#     done
-# }
-
-# set_optimized_vhd_sas_url() {
-#     local rg_name=$1
-#     local storage_account_name=$2
-#     local storage_container_name=$3
-#     local blob_name=$4
-
-#     set +x
-#     connection_string=$(az storage account show-connection-string --resource-group "${rg_name}" --name "${storage_account_name}" | jq -r '.connectionString')
-#     [ -z "${connection_string}" ] && echo "an error occured when generating connection string for storage account: ${rg_name}/${storage_account_name}" && return 1
-#     # set the SAS to expire after 180 minutes
-#     expiry=$(date -u -d "180 minutes" '+%Y-%m-%dT%H:%MZ')
-#     sas_token=$(az storage container generate-sas --connection-string "${connection_string}" --name "${storage_container_name}" --permissions lr --expiry "${expiry}" | tr -d '"')
-#     [ -z "${sas_token}" ] && echo "an error occured when generating SAS token for ${rg_name}/${storage_account_name}/${storage_container_name}/${blob_name}" && return 1
-#     OPTIMIZED_VHD_SAS_URL="https://${storage_account_name}.blob.core.windows.net/${storage_container_name}/${blob_name}?${sas_token}"
-#     set -x
-
-#     echo "generated SAS url for blob: ${rg_name}/${storage_account_name}/${storage_container_name}/${blob_name}"
-# }
-
-# set_storage_details_from_vhd_blob_url() {
-#     local blob_url=$1
-
-#     echo "attempting to extract storage account and container name from blob url: ${blob_url}"
-#     # shellcheck disable=SC3010
-#     if [[ ! "${blob_url%%\?*}" =~ https:\/\/(.*)?.blob.core.windows.net(:443)?\/(.*)?\/(.*)? ]]; then
-#       echo "unable to extract unique vhd version from blob url: ${blob_url}"
-#       return 1
-#     fi
-
-#     STORAGE_ACCOUNT_NAME="${BASH_REMATCH[1]}"
-#     STORAGE_CONTAINER_NAME="${BASH_REMATCH[3]}"
-#     VHD_BLOB_NAME="${BASH_REMATCH[4]}"
-# }
 
 main "$@"
