@@ -101,16 +101,31 @@ if [ -z "$SCANNING_NIC_ID" ]; then
     exit 1
 fi
 
-az vm create --resource-group $RESOURCE_GROUP_NAME \
-    --name $SCAN_VM_NAME \
-    --image $VHD_IMAGE \
-    --nics $SCANNING_NIC_ID \
-    --admin-username $SCAN_VM_ADMIN_USERNAME \
-    --admin-password $SCAN_VM_ADMIN_PASSWORD \
-    --os-disk-size-gb 50 \
-    ${VM_OPTIONS} \
-    --assign-identity "${UMSI_RESOURCE_ID}"
-    
+# Create VM using appropriate method based on scenario
+if [[ "${OS_SKU}" == "Ubuntu" ]] && [[ "${OS_VERSION}" == "22.04" ]] && [[ "${ENABLE_FIPS,,}" == "true" ]]; then
+    # Source the FIPS helper functions
+    FULL_PATH=$(realpath $0)
+    CDIR=$(dirname $FULL_PATH)
+    source "$CDIR/fips-helper.sh"
+
+    # Register FIPS feature and create VM using REST API
+    ensure_fips_feature_registered
+    create_fips_vm
+else
+    echo "Creating VM using standard az vm create command..."
+
+    # Use the standard VM creation approach for all other scenarios
+    az vm create --resource-group $RESOURCE_GROUP_NAME \
+        --name $SCAN_VM_NAME \
+        --image $VHD_IMAGE \
+        --nics $SCANNING_NIC_ID \
+        --admin-username $SCAN_VM_ADMIN_USERNAME \
+        --admin-password $SCAN_VM_ADMIN_PASSWORD \
+        --os-disk-size-gb 50 \
+        ${VM_OPTIONS} \
+        --assign-identity "${UMSI_RESOURCE_ID}"
+fi
+
 capture_benchmark "${SCRIPT_NAME}_create_scan_vm"
 set +x
 
