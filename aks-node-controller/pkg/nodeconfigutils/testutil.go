@@ -8,7 +8,7 @@ import (
 )
 
 // PopulateAllFields recursively populates all fields in a protobuf message with non-zero test values.
-// This is useful for testing to ensure all fields can be marshaled/unmarshaled correctly.
+// This is used for testing to ensure all fields can be marshaled/unmarshaled correctly.
 func PopulateAllFields(msg proto.Message) {
 	populateMessage(msg.ProtoReflect(), 0)
 }
@@ -28,7 +28,8 @@ func populateMessage(msg protoreflect.Message, depth int) {
 }
 
 func setFieldValue(msg protoreflect.Message, fd protoreflect.FieldDescriptor, depth int) {
-	if fd.IsList() {
+	switch {
+	case fd.IsList():
 		// Handle repeated fields - add 2 elements
 		list := msg.Mutable(fd).List()
 		for j := 0; j < 2; j++ {
@@ -38,11 +39,11 @@ func setFieldValue(msg protoreflect.Message, fd protoreflect.FieldDescriptor, de
 				populateMessage(elem.Message(), depth+1)
 				list.Append(elem)
 			} else {
-				val := getDefaultValueForField(fd, fmt.Sprintf("item%d", j), depth)
+				val := getDefaultValueForField(fd, fmt.Sprintf("item%d", j))
 				list.Append(val)
 			}
 		}
-	} else if fd.IsMap() {
+	case fd.IsMap():
 		// Handle map fields - add 2 entries
 		mapVal := msg.Mutable(fd).Map()
 		for j := 0; j < 2; j++ {
@@ -53,22 +54,22 @@ func setFieldValue(msg protoreflect.Message, fd protoreflect.FieldDescriptor, de
 				populateMessage(val.Message(), depth+1)
 				mapVal.Set(key, val)
 			} else {
-				val := getDefaultValueForMapValue(fd.MapValue(), j, depth)
+				val := getDefaultValueForMapValue(fd.MapValue(), j)
 				mapVal.Set(key, val)
 			}
 		}
-	} else if fd.Kind() == protoreflect.MessageKind {
+	case fd.Kind() == protoreflect.MessageKind:
 		// Handle singular message fields - use Mutable to get/create the message
 		nestedMsg := msg.Mutable(fd).Message()
 		populateMessage(nestedMsg, depth+1)
-	} else {
+	default:
 		// Handle singular primitive fields
-		val := getDefaultValueForField(fd, "", depth)
+		val := getDefaultValueForField(fd, "")
 		msg.Set(fd, val)
 	}
 }
 
-func getDefaultValueForField(fd protoreflect.FieldDescriptor, suffix string, depth int) protoreflect.Value {
+func getDefaultValueForField(fd protoreflect.FieldDescriptor, suffix string) protoreflect.Value {
 	switch fd.Kind() {
 	case protoreflect.BoolKind:
 		return protoreflect.ValueOfBool(true)
@@ -100,12 +101,12 @@ func getDefaultValueForField(fd protoreflect.FieldDescriptor, suffix string, dep
 			return protoreflect.ValueOfEnum(enumDesc.Values().Get(lastIndex).Number())
 		}
 		return protoreflect.ValueOfEnum(0)
-	case protoreflect.MessageKind:
+	case protoreflect.MessageKind, protoreflect.GroupKind:
 		// Message fields should be handled in setFieldValue using Mutable
 		// This shouldn't be called for message fields
-		return protoreflect.Value{}
+		panic(fmt.Sprintf("getDefaultValueForField called for message/group field %q - this is a bug", fd.FullName()))
 	default:
-		return protoreflect.Value{}
+		panic(fmt.Sprintf("getDefaultValueForField: unsupported field kind %v for field %q", fd.Kind(), fd.FullName()))
 	}
 }
 
@@ -113,22 +114,26 @@ func getDefaultKeyForKind(kind protoreflect.Kind, index int) protoreflect.MapKey
 	switch kind {
 	case protoreflect.StringKind:
 		return protoreflect.ValueOfString(fmt.Sprintf("test-key-%d", index)).MapKey()
-	case protoreflect.Int32Kind:
-		return protoreflect.ValueOfInt32(int32(index + 1)).MapKey()
-	case protoreflect.Int64Kind:
+	case protoreflect.Int32Kind, protoreflect.Sint32Kind, protoreflect.Sfixed32Kind:
+		return protoreflect.ValueOfInt32(int32(index + 1)).MapKey() //nolint:gosec // Index is always 0 or 1, no overflow risk
+	case protoreflect.Int64Kind, protoreflect.Sint64Kind, protoreflect.Sfixed64Kind:
 		return protoreflect.ValueOfInt64(int64(index + 1)).MapKey()
-	case protoreflect.Uint32Kind:
-		return protoreflect.ValueOfUint32(uint32(index + 1)).MapKey()
-	case protoreflect.Uint64Kind:
-		return protoreflect.ValueOfUint64(uint64(index + 1)).MapKey()
+	case protoreflect.Uint32Kind, protoreflect.Fixed32Kind:
+		return protoreflect.ValueOfUint32(uint32(index + 1)).MapKey() //nolint:gosec // Index is always 0 or 1, no overflow risk
+	case protoreflect.Uint64Kind, protoreflect.Fixed64Kind:
+		return protoreflect.ValueOfUint64(uint64(index + 1)).MapKey() //nolint:gosec // Index is always 0 or 1, no overflow risk
 	case protoreflect.BoolKind:
 		return protoreflect.ValueOfBool(index == 0).MapKey()
+	case protoreflect.FloatKind, protoreflect.DoubleKind, protoreflect.BytesKind,
+		protoreflect.EnumKind, protoreflect.MessageKind, protoreflect.GroupKind:
+		// These types are not valid map key types in protobuf
+		panic(fmt.Sprintf("getDefaultKeyForKind: invalid map key type %v", kind))
 	default:
-		return protoreflect.ValueOfString(fmt.Sprintf("key-%d", index)).MapKey()
+		panic(fmt.Sprintf("getDefaultKeyForKind: unsupported kind %v", kind))
 	}
 }
 
-func getDefaultValueForMapValue(fd protoreflect.FieldDescriptor, index int, depth int) protoreflect.Value {
+func getDefaultValueForMapValue(fd protoreflect.FieldDescriptor, index int) protoreflect.Value {
 	suffix := fmt.Sprintf("map%d", index)
-	return getDefaultValueForField(fd, suffix, depth)
+	return getDefaultValueForField(fd, suffix)
 }

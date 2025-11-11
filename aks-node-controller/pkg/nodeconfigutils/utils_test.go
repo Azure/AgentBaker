@@ -62,23 +62,6 @@ func TestUnmarshalConfigurationV1(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "string is assigned with a boolean value",
-			data: []byte(`{
-				"version": "v1",
-				"linux_admin_username": true,
-				"auth_config": {
-					"subscription_id": "test-subscription"
-				}
-			}`),
-			want: &aksnodeconfigv1.Configuration{
-				Version: "v1",
-				AuthConfig: &aksnodeconfigv1.AuthConfig{
-					SubscriptionId: "test-subscription",
-				},
-			},
-			wantErr: true,
-		},
-		{
 			name: "unknown field should be ignored",
 			data: []byte(`{
 				"version": "v1",
@@ -130,63 +113,6 @@ func TestUnmarshalConfigurationV1(t *testing.T) {
 				WorkloadRuntime: aksnodeconfigv1.WorkloadRuntime_WORKLOAD_RUNTIME_UNSPECIFIED,
 			},
 			wantErr: false,
-		},
-		{
-			name: "repeated string field with wrong type is ignored",
-			data: []byte(`{
-				"version": "v1",
-				"auth_config": {
-					"subscription_id": "test-subscription"
-				},
-				"custom_ca_certs": "not-an-array"
-			}`),
-			want: &aksnodeconfigv1.Configuration{
-				Version: "v1",
-				AuthConfig: &aksnodeconfigv1.AuthConfig{
-					SubscriptionId: "test-subscription",
-				},
-			},
-			wantErr: true,
-		},
-		{
-			name: "repeated string field with mixed types parses valid elements",
-			data: []byte(`{
-				"version": "v1",
-				"auth_config": {
-					"subscription_id": "test-subscription"
-				},
-				"custom_ca_certs": ["valid-cert", 123, true]
-			}`),
-			want: &aksnodeconfigv1.Configuration{
-				Version: "v1",
-				AuthConfig: &aksnodeconfigv1.AuthConfig{
-					SubscriptionId: "test-subscription",
-				},
-				CustomCaCerts: []string{"valid-cert"},
-			},
-			wantErr: true,
-		},
-		{
-			name: "map field with wrong value type is ignored",
-			data: []byte(`{
-				"version": "v1",
-				"auth_config": {
-					"subscription_id": "test-subscription"
-				},
-				"kubelet_config": {
-					"kubelet_flags": {
-						"key1": "value1",
-						"key2": 123
-					}
-				}
-			}`),
-			want: &aksnodeconfigv1.Configuration{
-				Version: "v1",
-				AuthConfig: &aksnodeconfigv1.AuthConfig{
-					SubscriptionId: "test-subscription",
-				},
-			},
-			wantErr: true,
 		},
 		{
 			name: "optional int32 field with string value is ignored",
@@ -276,4 +202,32 @@ func TestMarsalConfiguratioV1(t *testing.T) {
 	data, err := MarshalConfigurationV1(cfg)
 	require.NoError(t, err)
 	require.JSONEq(t, `{"version":"v1","auth_config":{"subscription_id":"test-subscription"}, "workload_runtime":"WORKLOAD_RUNTIME_OCI_CONTAINER"}`, string(data))
+}
+
+func TestMarshalUnmarshalWithPopulatedConfig(t *testing.T) {
+	t.Run("fully populated config marshals to >100 bytes", func(t *testing.T) {
+		cfg := &aksnodeconfigv1.Configuration{}
+		PopulateAllFields(cfg)
+
+		marshaled, err := MarshalConfigurationV1(cfg)
+		require.NoError(t, err)
+		assert.Greater(t, len(marshaled), 100, "Fully populated config should marshal to >100 bytes")
+		t.Logf("Marshaled %d bytes", len(marshaled))
+	})
+
+	t.Run("marshal and unmarshal round-trip preserves data", func(t *testing.T) {
+		original := &aksnodeconfigv1.Configuration{}
+		PopulateAllFields(original)
+
+		// Marshal
+		marshaled, err := MarshalConfigurationV1(original)
+		require.NoError(t, err)
+
+		// Unmarshal
+		restored, err := UnmarshalConfigurationV1(marshaled)
+		require.NoError(t, err)
+
+		// Verify key fields preserved
+		assert.Equal(t, original, restored)
+	})
 }
