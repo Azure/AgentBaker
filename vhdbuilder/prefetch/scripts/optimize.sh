@@ -162,14 +162,16 @@ convert_specialized_sig_version_to_managed_image() {
         return 0
     fi
 
-    if [ "$(az storage blob show --blob-url "${VHD_URI}" --auth-mode login | jq -r '.exists')" = "true" ]; then
-        echo "creating managed image from already-existing VHD: ${VHD_URI}"
+    create_temp_storage || return $?
+
+    if [ "$(az storage blob exists --blob-url "${TEMP_VHD_URI}" --auth-mode login | jq -r '.exists')" = "true" ]; then
+        echo "creating managed image from already-existing VHD: ${TEMP_VHD_URI}"
         managed_image_id=$(az image create -g "${IMAGE_BUILDER_RG_NAME}" -n "${managed_image_name}" \
             --os-type Linux \
             --hyper-v-generation "${HYPERV_GENERATION}" \
-            --source "${VHD_URI}" | jq -r '.id')
+            --source "${TEMP_VHD_URI}" | jq -r '.id')
         if [ -z "${managed_image_id}" ]; then
-            echo "unable to create managed image using source: ${VHD_URI}"
+            echo "unable to create managed image using source: ${TEMP_VHD_URI}"
             return 1
         fi
         echo "created managed image source: ${managed_image_id}"
@@ -216,23 +218,40 @@ convert_specialized_sig_version_to_managed_image() {
     export AZCOPY_AUTO_LOGIN_TYPE="MSI"
     export AZCOPY_MSI_RESOURCE_STRING="${IMAGE_BUILDER_IDENTITY_ID}"
     export AZCOPY_CONCURRENCY_VALUE="AUTO"
-    echo "uploading $disk_resource_id to ${VHD_URI}"
-    azcopy copy "${disk_sas_url}" "${VHD_URI}" --recursive=true || return $?
+    echo "uploading $disk_resource_id to ${TEMP_VHD_URI}"
+    azcopy copy "${disk_sas_url}" "${TEMP_VHD_URI}" --recursive=true || return $?
     set -x
 
-    echo "creating managed image from ${VHD_URI}"
+    echo "creating managed image from ${TEMP_VHD_URI}"
     managed_image_id=$(az image create -g "${IMAGE_BUILDER_RG_NAME}" -n "${managed_image_name}" \
         --os-type Linux \
         --hyper-v-generation "${HYPERV_GENERATION}" \
-        --source "${VHD_URI}" | jq -r '.id')
+        --source "${TEMP_VHD_URI}" | jq -r '.id')
     if [ -z "${managed_image_id}" ]; then
-        echo "unable to create managed image using source: ${VHD_URI}"
+        echo "unable to create managed image using source: ${TEMP_VHD_URI}"
         return 1
     fi
 
-    # specialized SIG image version -> specialized managed disk -> VHD blob -> managed image
+    # specialized SIG image version -> specialized managed disk -> VHD blob in build location -> managed image
     echo "created managed image source: ${managed_image_id}"
     SOURCE_MANAGED_IMAGE_ID="${managed_image_id}"
+}
+
+create_temp_storage() {
+    storage_account_name="tmp${VHD_NAME//./}"
+    if [ -z "$(az storage account show --account-name "${storage_account_name}" | jq -r '.name')" ]; then
+        echo "creating temporary storage account ${storage_account_name} in resource group ${IMAGE_BUILDER_RG_NAME} in location ${LOCATION}"
+        az storage account create -n "${storage_account_name}" -g "${IMAGE_BUILDER_RG_NAME}" --sku "Standard_RAGRS" --allow-shared-key-access false --location "${LOCATION}" || return $?
+    fi
+    storage_container_name="vhd"
+    if [ "$(az storage container exists -n "${storage_container_name}" --account-name "${storage_account_name}" --auth-mode login | jq -r '.exists')" = "false" ]; then
+        echo "creating container \"${storage_container_name}\" within temporary storage account ${storage_account_name}"
+        az storage container create --name "${storage_container_name}" --account-name "${storage_account_name}" --auth-mode login || return $?
+    fi
+
+    temp_vhd_uri="https://${storage_account_name}.blob.core.windows.net/${storage_container_name}/${VHD_NAME}"
+    echo "temp VHD URI is ${temp_vhd_uri}"
+    TEMP_VHD_URI="${temp_vhd_uri}"
 }
 
 wait_for_vhd_copy() {
