@@ -218,9 +218,9 @@ convert_specialized_sig_version_to_managed_image() {
         echo "generated SAS token for managed disk is empty, cannot continue"
         return 1
     fi
-    echo "setting azcopy environment variables with pool identity: $IMAGE_BUILDER_IDENTITY_ID"
+    echo "setting azcopy environment variables with pool identity: ${IMAGE_BUILDER_IDENTITY_ID}"
     export AZCOPY_AUTO_LOGIN_TYPE="MSI"
-    export AZCOPY_MSI_RESOURCE_STRING="$IMAGE_BUILDER_IDENTITY_ID"
+    export AZCOPY_MSI_RESOURCE_STRING="${IMAGE_BUILDER_IDENTITY_ID}"
     export AZCOPY_CONCURRENCY_VALUE="AUTO"
     echo "uploading $disk_resource_id to ${VHD_URI}"
     azcopy copy "${disk_sas_url}" "${VHD_URI}" --recursive=true || return $?
