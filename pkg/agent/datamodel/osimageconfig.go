@@ -3,170 +3,36 @@
 
 package datamodel
 
-// TODO: remove all the below since we no longer support PIR
-
 //nolint:gochecknoglobals
 var (
-	Ubuntu1604OSImageConfig = AzureOSImageConfig{
-		ImageOffer:     "UbuntuServer",
-		ImageSku:       "16.04-LTS",
-		ImagePublisher: "Canonical",
-		ImageVersion:   "latest",
-	}
-
-	Ubuntu1804OSImageConfig = AzureOSImageConfig{
-		ImageOffer:     "UbuntuServer",
-		ImageSku:       "18.04-LTS",
-		ImagePublisher: "Canonical",
-		ImageVersion:   "latest",
-	}
-
-	Ubuntu1804Gen2OSImageConfig = AzureOSImageConfig{
+	AKSUbuntuContainerd2204Gen2OSImageConfig = AzureOSImageConfig{
 		ImageOffer:     "aks",
-		ImageSku:       "aks-ubuntu-1804-gen2-2022-q1",
+		ImageSku:       "aks-ubuntu-containerd-22.04-gen2",
 		ImagePublisher: "microsoft-aks",
-		ImageVersion:   "2022.02.01",
-	}
-
-	RHELOSImageConfig = AzureOSImageConfig{
-		ImageOffer:     "RHEL",
-		ImageSku:       "7.3",
-		ImagePublisher: "RedHat",
-		ImageVersion:   "latest",
-	}
-
-	AKSUbuntu1604OSImageConfig = AzureOSImageConfig{
-		ImageOffer:     "aks",
-		ImageSku:       "aks-ubuntu-1604-2021-q3",
-		ImagePublisher: "microsoft-aks",
-		ImageVersion:   "2021.11.06",
-	}
-
-	AKSUbuntu1804OSImageConfig = AzureOSImageConfig{
-		ImageOffer:     "aks",
-		ImageSku:       "aks-ubuntu-1804-2022-q1",
-		ImagePublisher: "microsoft-aks",
-		ImageVersion:   "2022.02.01",
-	}
-
-	AKSWindowsServer2019OSImageConfig = AzureOSImageConfig{
-		ImageOffer:     "aks-windows",
-		ImageSku:       "aks-2019-datacenter-core-smalldisk-2107",
-		ImagePublisher: "microsoft-aks",
-		ImageVersion:   "17763.2061.210714",
-	}
-
-	ACC1604OSImageConfig = AzureOSImageConfig{
-		ImageOffer:     "confidential-compute-preview",
-		ImageSku:       "16.04-LTS",
-		ImagePublisher: "Canonical",
-		ImageVersion:   "latest",
-	}
-
-	AKSUbuntuContainerd1804OSImageConfig = AzureOSImageConfig{
-		ImageOffer:     "aks-aez",
-		ImageSku:       "aks-ubuntu-containerd-1804-2021-q2",
-		ImagePublisher: "microsoft-aks",
-		ImageVersion:   "2021.04.27",
-	}
-
-	AKSUbuntuContainerd1804Gen2OSImageConfig = AzureOSImageConfig{
-		ImageOffer:     "aks-aez",
-		ImageSku:       "aks-ubuntu-containerd-1804-gen2-2021-q2",
-		ImagePublisher: "microsoft-aks",
-		ImageVersion:   "2021.05.01",
+		ImageVersion:   "2025.06.02",
 	}
 
 	AzureCloudToOSImageMap = map[string]map[Distro]AzureOSImageConfig{
 		AzureChinaCloud: {
-			Ubuntu:            Ubuntu1604OSImageConfig,
-			Ubuntu1804:        Ubuntu1804OSImageConfig,
-			Ubuntu1804Gen2:    Ubuntu1804Gen2OSImageConfig,
-			RHEL:              RHELOSImageConfig,
-			AKSUbuntu1604:     AKSUbuntu1604OSImageConfig,
-			AKS1604Deprecated: AKSUbuntu1604OSImageConfig, // for back-compat
-			AKSUbuntu1804:     AKSUbuntu1804OSImageConfig,
-			AKS1804Deprecated: AKSUbuntu1804OSImageConfig, // for back-compat
-			AKSWindows2019PIR: AKSWindowsServer2019OSImageConfig,
+			AKSUbuntuContainerd2204Gen2: AKSUbuntuContainerd2204Gen2OSImageConfig,
 		},
 		AzureGermanCloud: {
-			Ubuntu:            Ubuntu1604OSImageConfig,
-			Ubuntu1804:        Ubuntu1804OSImageConfig,
-			Ubuntu1804Gen2:    Ubuntu1804Gen2OSImageConfig,
-			RHEL:              RHELOSImageConfig,
-			AKSUbuntu1604:     Ubuntu1604OSImageConfig,
-			AKS1604Deprecated: Ubuntu1604OSImageConfig, // for back-compat
-			AKSUbuntu1804:     Ubuntu1604OSImageConfig, // workaround for https://github.com/Azure/aks-engine/issues/761
-			AKS1804Deprecated: Ubuntu1604OSImageConfig, // for back-compat
-			AKSWindows2019PIR: AKSWindowsServer2019OSImageConfig,
+			AKSUbuntuContainerd2204Gen2: AKSUbuntuContainerd2204Gen2OSImageConfig,
 		},
 		AzureUSGovernmentCloud: {
-			Ubuntu:            Ubuntu1604OSImageConfig,
-			Ubuntu1804:        Ubuntu1804OSImageConfig,
-			Ubuntu1804Gen2:    Ubuntu1804Gen2OSImageConfig,
-			RHEL:              RHELOSImageConfig,
-			AKSUbuntu1604:     AKSUbuntu1604OSImageConfig,
-			AKS1604Deprecated: AKSUbuntu1604OSImageConfig, // for back-compat
-			AKSUbuntu1804:     AKSUbuntu1804OSImageConfig,
-			AKS1804Deprecated: AKSUbuntu1804OSImageConfig, // for back-compat
-			AKSWindows2019PIR: AKSWindowsServer2019OSImageConfig,
+			AKSUbuntuContainerd2204Gen2: AKSUbuntuContainerd2204Gen2OSImageConfig,
 		},
 		AzurePublicCloud: {
-			Ubuntu:                      Ubuntu1604OSImageConfig,
-			Ubuntu1804:                  Ubuntu1804OSImageConfig,
-			Ubuntu1804Gen2:              Ubuntu1804Gen2OSImageConfig,
-			RHEL:                        RHELOSImageConfig,
-			AKSUbuntu1604:               AKSUbuntu1604OSImageConfig,
-			AKS1604Deprecated:           AKSUbuntu1604OSImageConfig, // for back-compat
-			AKSUbuntu1804:               AKSUbuntu1804OSImageConfig,
-			AKS1804Deprecated:           AKSUbuntu1804OSImageConfig, // for back-compat
-			AKSUbuntuContainerd1804:     AKSUbuntuContainerd1804OSImageConfig,
-			AKSUbuntuContainerd1804Gen2: AKSUbuntuContainerd1804Gen2OSImageConfig,
-			AKSWindows2019PIR:           AKSWindowsServer2019OSImageConfig,
-		},
-		AzureBleuCloud: {
-			Ubuntu:            Ubuntu1604OSImageConfig,
-			Ubuntu1804:        Ubuntu1804OSImageConfig,
-			Ubuntu1804Gen2:    Ubuntu1804Gen2OSImageConfig,
-			RHEL:              RHELOSImageConfig,
-			AKSUbuntu1604:     AKSUbuntu1604OSImageConfig,
-			AKS1604Deprecated: AKSUbuntu1604OSImageConfig, // for back-compat
-			AKSUbuntu1804:     AKSUbuntu1804OSImageConfig,
-			AKS1804Deprecated: AKSUbuntu1804OSImageConfig, // for back-compat
-			AKSWindows2019PIR: AKSWindowsServer2019OSImageConfig,
+			AKSUbuntuContainerd2204Gen2: AKSUbuntuContainerd2204Gen2OSImageConfig,
 		},
 		AzureGermanyCloud: {
-			Ubuntu:            Ubuntu1604OSImageConfig,
-			Ubuntu1804:        Ubuntu1804OSImageConfig,
-			Ubuntu1804Gen2:    Ubuntu1804Gen2OSImageConfig,
-			RHEL:              RHELOSImageConfig,
-			AKSUbuntu1604:     AKSUbuntu1604OSImageConfig,
-			AKS1604Deprecated: AKSUbuntu1604OSImageConfig, // for back-compat
-			AKSUbuntu1804:     AKSUbuntu1804OSImageConfig,
-			AKS1804Deprecated: AKSUbuntu1804OSImageConfig, // for back-compat
-			AKSWindows2019PIR: AKSWindowsServer2019OSImageConfig,
+			Ubuntu: AKSUbuntuContainerd2204Gen2OSImageConfig,
 		},
 		USNatCloud: {
-			Ubuntu:            Ubuntu1604OSImageConfig,
-			Ubuntu1804:        Ubuntu1804OSImageConfig,
-			Ubuntu1804Gen2:    Ubuntu1804Gen2OSImageConfig,
-			RHEL:              RHELOSImageConfig,
-			AKSUbuntu1604:     AKSUbuntu1604OSImageConfig,
-			AKS1604Deprecated: AKSUbuntu1604OSImageConfig, // for back-compat
-			AKSUbuntu1804:     AKSUbuntu1804OSImageConfig,
-			AKS1804Deprecated: AKSUbuntu1804OSImageConfig, // for back-compat
-			AKSWindows2019PIR: AKSWindowsServer2019OSImageConfig,
+			AKSUbuntuContainerd2204Gen2: AKSUbuntuContainerd2204Gen2OSImageConfig,
 		},
 		USSecCloud: {
-			Ubuntu:            Ubuntu1604OSImageConfig,
-			Ubuntu1804:        Ubuntu1804OSImageConfig,
-			Ubuntu1804Gen2:    Ubuntu1804Gen2OSImageConfig,
-			RHEL:              RHELOSImageConfig,
-			AKSUbuntu1604:     AKSUbuntu1604OSImageConfig,
-			AKS1604Deprecated: AKSUbuntu1604OSImageConfig, // for back-compat
-			AKSUbuntu1804:     AKSUbuntu1804OSImageConfig,
-			AKS1804Deprecated: AKSUbuntu1804OSImageConfig, // for back-compat
-			AKSWindows2019PIR: AKSWindowsServer2019OSImageConfig,
+			AKSUbuntuContainerd2204Gen2: AKSUbuntuContainerd2204Gen2OSImageConfig,
 		},
 	}
 )

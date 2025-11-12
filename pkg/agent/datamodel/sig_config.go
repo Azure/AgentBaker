@@ -76,26 +76,6 @@ func GetCloudTargetEnv(location string) string {
 	}
 }
 
-/*
-AvailableUbuntu1804Distros : TODO(amaheshwari): these vars are not consumed by Agentbaker but by RP. do a
-cleanup to remove these after 20.04 work.
-*/
-//nolint:gochecknoglobals
-var AvailableUbuntu1804Distros = []Distro{
-	AKSUbuntu1804,
-	AKSUbuntu1804Gen2,
-	AKSUbuntuGPU1804,
-	AKSUbuntuGPU1804Gen2,
-	AKSUbuntuContainerd1804,
-	AKSUbuntuContainerd1804Gen2,
-	AKSUbuntuGPUContainerd1804,
-	AKSUbuntuGPUContainerd1804Gen2,
-	AKSUbuntuFipsContainerd1804,
-	AKSUbuntuFipsContainerd1804Gen2,
-	AKSUbuntuEdgeZoneContainerd1804,
-	AKSUbuntuEdgeZoneContainerd1804Gen2,
-}
-
 //nolint:gochecknoglobals
 var AvailableUbuntu2004Distros = []Distro{
 	AKSUbuntuContainerd2004CVMGen2,
@@ -129,18 +109,10 @@ var AvailableUbuntu2404Distros = []Distro{
 
 //nolint:gochecknoglobals
 var AvailableContainerdDistros = []Distro{
-	AKSUbuntuContainerd1804,
-	AKSUbuntuContainerd1804Gen2,
-	AKSUbuntuGPUContainerd1804,
-	AKSUbuntuGPUContainerd1804Gen2,
-	AKSUbuntuFipsContainerd1804,
-	AKSUbuntuFipsContainerd1804Gen2,
 	AKSUbuntuFipsContainerd2004,
 	AKSUbuntuFipsContainerd2004Gen2,
 	AKSUbuntuFipsContainerd2204,
 	AKSUbuntuFipsContainerd2204Gen2,
-	AKSUbuntuEdgeZoneContainerd1804,
-	AKSUbuntuEdgeZoneContainerd1804Gen2,
 	AKSFlatcarGen2,
 	AKSFlatcarArm64Gen2,
 	AKSCBLMarinerV1,
@@ -187,23 +159,9 @@ var AvailableContainerdDistros = []Distro{
 }
 
 //nolint:gochecknoglobals
-var AvailableGPUDistros = []Distro{
-	AKSUbuntuGPU1804,
-	AKSUbuntuGPU1804Gen2,
-	AKSUbuntuGPUContainerd1804,
-	AKSUbuntuGPUContainerd1804Gen2,
-}
-
-//nolint:gochecknoglobals
 var AvailableGen2Distros = []Distro{
-	AKSUbuntu1804Gen2,
-	AKSUbuntuGPU1804Gen2,
-	AKSUbuntuContainerd1804Gen2,
-	AKSUbuntuGPUContainerd1804Gen2,
-	AKSUbuntuFipsContainerd1804Gen2,
 	AKSUbuntuFipsContainerd2004Gen2,
 	AKSUbuntuFipsContainerd2204Gen2,
-	AKSUbuntuEdgeZoneContainerd1804Gen2,
 	AKSUbuntuArm64Containerd2204Gen2,
 	AKSUbuntuArm64Containerd2404Gen2,
 	AKSUbuntuArm64GB200Containerd2404Gen2,
@@ -311,14 +269,6 @@ func (d Distro) IsContainerdDistro() bool {
 	return false
 }
 
-func (d Distro) IsGPUDistro() bool {
-	for _, distro := range AvailableGPUDistros {
-		if d == distro {
-			return true
-		}
-	}
-	return false
-}
 func (d Distro) IsGen2Distro() bool {
 	for _, distro := range AvailableGen2Distros {
 		if d == distro {
@@ -344,17 +294,8 @@ func (d Distro) IsWindowsSIGDistro() bool {
 	return false
 }
 
-func (d Distro) IsWindowsPIRDistro() bool {
-	for _, distro := range AvailableWindowsPIRDistros {
-		if d == distro {
-			return true
-		}
-	}
-	return false
-}
-
 func (d Distro) IsWindowsDistro() bool {
-	return d.IsWindowsSIGDistro() || d.IsWindowsPIRDistro()
+	return d.IsWindowsSIGDistro()
 }
 
 // SigImageConfigTemplate represents the SIG image configuration template.
@@ -395,11 +336,6 @@ var AvailableWindowsSIGDistros = []Distro{
 	CustomizedWindowsOSImage,
 }
 
-//nolint:gochecknoglobals
-var AvailableWindowsPIRDistros = []Distro{
-	AKSWindows2019PIR,
-}
-
 // SIG const.
 const (
 	AKSSIGImagePublisher           string = "microsoft-aks"
@@ -427,17 +363,6 @@ const (
 	// CBLMarinerV1 pinned to the last image build as Mariner 1.0 is out
 	//  of support and image builds have stopped.
 	FrozenCBLMarinerV1SIGImageVersionForDeprecation string = "202308.28.0"
-
-	// DO NOT MODIFY: All 1804 are frozen since they are EOL
-	// 1804GPUContainerd Gen1 & Gen2 pinned to the last image build as GPU Dedicated preview image is being deprecated and image builds have stopped.
-
-	Frozen1804ContainerdSIGImageVersionForDeprecation         string = "202506.16.0"
-	Frozen1804Gen2ContainerdSIGImageVersionForDeprecation     string = "202506.16.0"
-	Frozen1804FipsContainerdSIGImageVersionForDeprecation     string = "202506.16.0"
-	Frozen1804FipsGen2ContainerdSIGImageVersionForDeprecation string = "202506.16.0"
-	Frozen1804GPUContainerdSIGImageVersionForDeprecation      string = "202501.05.0"
-	Frozen1804Gen2GPUContainerdSIGImageVersionForDeprecation  string = "202501.05.0"
-
 	// DO NOT MODIFY: used for freezing MarinerV2KataGen2TL.
 	FrozenCBLMarinerV2KataGen2TLSIGImageVersion = "2022.12.15"
 
@@ -481,84 +406,6 @@ func mustGetSIGVersionFromJSONContent(contents []byte) string {
 //
 //nolint:gochecknoglobals
 var (
-	SIGUbuntu1604ImageConfigTemplate = SigImageConfigTemplate{
-		ResourceGroup: AKSUbuntuResourceGroup,
-		Gallery:       AKSUbuntuGalleryName,
-		Definition:    "1604",
-		Version:       "2021.11.06",
-	}
-
-	SIGUbuntu1804ImageConfigTemplate = SigImageConfigTemplate{
-		ResourceGroup: AKSUbuntuResourceGroup,
-		Gallery:       AKSUbuntuGalleryName,
-		Definition:    "1804",
-		Version:       FrozenLinuxSIGImageVersionForDocker,
-	}
-
-	SIGUbuntu1804Gen2ImageConfigTemplate = SigImageConfigTemplate{
-		ResourceGroup: AKSUbuntuResourceGroup,
-		Gallery:       AKSUbuntuGalleryName,
-		Definition:    "1804gen2",
-		Version:       FrozenLinuxSIGImageVersionForDocker,
-	}
-
-	SIGUbuntuGPU1804ImageConfigTemplate = SigImageConfigTemplate{
-		ResourceGroup: AKSUbuntuResourceGroup,
-		Gallery:       AKSUbuntuGalleryName,
-		Definition:    "1804gpu",
-		Version:       FrozenLinuxSIGImageVersionForDocker,
-	}
-
-	SIGUbuntuGPU1804Gen2ImageConfigTemplate = SigImageConfigTemplate{
-		ResourceGroup: AKSUbuntuResourceGroup,
-		Gallery:       AKSUbuntuGalleryName,
-		Definition:    "1804gen2gpu",
-		Version:       FrozenLinuxSIGImageVersionForDocker,
-	}
-
-	SIGUbuntuContainerd1804ImageConfigTemplate = SigImageConfigTemplate{
-		ResourceGroup: AKSUbuntuResourceGroup,
-		Gallery:       AKSUbuntuGalleryName,
-		Definition:    "1804containerd",
-		Version:       Frozen1804ContainerdSIGImageVersionForDeprecation,
-	}
-
-	SIGUbuntuContainerd1804Gen2ImageConfigTemplate = SigImageConfigTemplate{
-		ResourceGroup: AKSUbuntuResourceGroup,
-		Gallery:       AKSUbuntuGalleryName,
-		Definition:    "1804gen2containerd",
-		Version:       Frozen1804Gen2ContainerdSIGImageVersionForDeprecation,
-	}
-
-	SIGUbuntuGPUContainerd1804ImageConfigTemplate = SigImageConfigTemplate{
-		ResourceGroup: AKSUbuntuResourceGroup,
-		Gallery:       AKSUbuntuGalleryName,
-		Definition:    "1804gpucontainerd",
-		Version:       Frozen1804GPUContainerdSIGImageVersionForDeprecation,
-	}
-
-	SIGUbuntuGPUContainerd1804Gen2ImageConfigTemplate = SigImageConfigTemplate{
-		ResourceGroup: AKSUbuntuResourceGroup,
-		Gallery:       AKSUbuntuGalleryName,
-		Definition:    "1804gen2gpucontainerd",
-		Version:       Frozen1804Gen2GPUContainerdSIGImageVersionForDeprecation,
-	}
-
-	SIGUbuntuFipsContainerd1804ImageConfigTemplate = SigImageConfigTemplate{
-		ResourceGroup: AKSUbuntuResourceGroup,
-		Gallery:       AKSUbuntuGalleryName,
-		Definition:    "1804fipscontainerd",
-		Version:       Frozen1804FipsContainerdSIGImageVersionForDeprecation,
-	}
-
-	// not a typo, this image was generated on 2021.05.20 UTC and assigned this version.
-	SIGUbuntuFipsContainerd1804Gen2ImageConfigTemplate = SigImageConfigTemplate{
-		ResourceGroup: AKSUbuntuResourceGroup,
-		Gallery:       AKSUbuntuGalleryName,
-		Definition:    "1804gen2fipscontainerd",
-		Version:       Frozen1804FipsGen2ContainerdSIGImageVersionForDeprecation,
-	}
-
 	SIGUbuntuFipsContainerd2004ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
@@ -973,17 +820,6 @@ func GetMaintainedLinuxSIGImageConfigMap() map[Distro]SigImageConfig {
 
 func getSigUbuntuImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]SigImageConfig {
 	return map[Distro]SigImageConfig{
-		AKSUbuntu1604:                         SIGUbuntu1604ImageConfigTemplate.WithOptions(opts...),
-		AKSUbuntu1804:                         SIGUbuntu1804ImageConfigTemplate.WithOptions(opts...),
-		AKSUbuntu1804Gen2:                     SIGUbuntu1804Gen2ImageConfigTemplate.WithOptions(opts...),
-		AKSUbuntuGPU1804:                      SIGUbuntuGPU1804ImageConfigTemplate.WithOptions(opts...),
-		AKSUbuntuGPU1804Gen2:                  SIGUbuntuGPU1804Gen2ImageConfigTemplate.WithOptions(opts...),
-		AKSUbuntuContainerd1804:               SIGUbuntuContainerd1804ImageConfigTemplate.WithOptions(opts...),
-		AKSUbuntuContainerd1804Gen2:           SIGUbuntuContainerd1804Gen2ImageConfigTemplate.WithOptions(opts...),
-		AKSUbuntuGPUContainerd1804:            SIGUbuntuGPUContainerd1804ImageConfigTemplate.WithOptions(opts...),
-		AKSUbuntuGPUContainerd1804Gen2:        SIGUbuntuGPUContainerd1804Gen2ImageConfigTemplate.WithOptions(opts...),
-		AKSUbuntuFipsContainerd1804:           SIGUbuntuFipsContainerd1804ImageConfigTemplate.WithOptions(opts...),
-		AKSUbuntuFipsContainerd1804Gen2:       SIGUbuntuFipsContainerd1804Gen2ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuFipsContainerd2004:           SIGUbuntuFipsContainerd2004ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuFipsContainerd2004Gen2:       SIGUbuntuFipsContainerd2004Gen2ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuFipsContainerd2204:           SIGUbuntuFipsContainerd2204ImageConfigTemplate.WithOptions(opts...),
@@ -1063,22 +899,6 @@ func getSigWindowsImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]S
 
 func getSigUbuntuEdgeZoneImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]SigImageConfig {
 	// This image is using a specific resource group and gallery name for edge zone scenario.
-	sigUbuntuEdgeZoneContainerd1804ImageConfigTemplate := SigImageConfigTemplate{
-		ResourceGroup: AKSUbuntuEdgeZoneResourceGroup,
-		Gallery:       AKSUbuntuEdgeZoneGalleryName,
-		Definition:    "1804containerd",
-		Version:       Frozen1804ContainerdSIGImageVersionForDeprecation,
-	}
-
-	// This image is using a specific resource group and gallery name for edge zone scenario.
-	sigUbuntuEdgeZoneContainerd1804Gen2ImageConfigTemplate := SigImageConfigTemplate{
-		ResourceGroup: AKSUbuntuEdgeZoneResourceGroup,
-		Gallery:       AKSUbuntuEdgeZoneGalleryName,
-		Definition:    "1804gen2containerd",
-		Version:       Frozen1804Gen2ContainerdSIGImageVersionForDeprecation,
-	}
-
-	// This image is using a specific resource group and gallery name for edge zone scenario.
 	sigUbuntuEdgeZoneContainerd2204ImageConfigTemplate := SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuEdgeZoneResourceGroup,
 		Gallery:       AKSUbuntuEdgeZoneGalleryName,
@@ -1095,8 +915,6 @@ func getSigUbuntuEdgeZoneImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[D
 	}
 
 	return map[Distro]SigImageConfig{
-		AKSUbuntuEdgeZoneContainerd1804:     sigUbuntuEdgeZoneContainerd1804ImageConfigTemplate.WithOptions(opts...),
-		AKSUbuntuEdgeZoneContainerd1804Gen2: sigUbuntuEdgeZoneContainerd1804Gen2ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuEdgeZoneContainerd2204:     sigUbuntuEdgeZoneContainerd2204ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuEdgeZoneContainerd2204Gen2: sigUbuntuEdgeZoneContainerd2204Gen2ImageConfigTemplate.WithOptions(opts...),
 	}

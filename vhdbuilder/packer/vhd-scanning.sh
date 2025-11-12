@@ -110,7 +110,7 @@ az vm create --resource-group $RESOURCE_GROUP_NAME \
     --os-disk-size-gb 50 \
     ${VM_OPTIONS} \
     --assign-identity "${UMSI_RESOURCE_ID}"
-    
+
 capture_benchmark "${SCRIPT_NAME}_create_scan_vm"
 set +x
 
@@ -216,7 +216,7 @@ isCISUnsupportedUbuntu() {
     local version="$2"
 
     # Only 22.04+ are supported
-    if [ "$os" = "Ubuntu" ] && { [ "$version" = "18.04" ] || [ "$version" = "20.04" ]; }; then
+    if [ "$os" = "Ubuntu" ] && { [ "$version" = "20.04" ]; }; then
         return 0
     fi
     return 1
