@@ -97,7 +97,7 @@ var baseKubeletConfig = &aksnodeconfigv1.KubeletConfig{
 	},
 }
 
-func getBaseNBC(t testing.TB, cluster *Cluster, vhd *config.Image) *datamodel.NodeBootstrappingConfiguration {
+func getBaseNBC(t testing.TB, cluster *Cluster, vhd *config.Image) (*datamodel.NodeBootstrappingConfiguration, error) {
 	var nbc *datamodel.NodeBootstrappingConfiguration
 
 	if vhd.Distro.IsWindowsDistro() {
@@ -110,17 +110,23 @@ func getBaseNBC(t testing.TB, cluster *Cluster, vhd *config.Image) *datamodel.No
 		nbc.ContainerService.Properties.ClusterID = *cluster.Model.ID
 		nbc.SubscriptionID = config.Config.SubscriptionID
 		nbc.ResourceGroupName = *cluster.Model.Properties.NodeResourceGroup
-		nbc.TenantID = *cluster.Model.Identity.TenantID
 	} else {
 		nbc = baseTemplateLinux(t, *cluster.Model.Location, *cluster.Model.Properties.CurrentKubernetesVersion, vhd.Arch)
 	}
 
+	kubeletIdentity, err := getClusterKubeletIdentity(cluster.Model)
+	if err != nil {
+		return nil, fmt.Errorf("getting cluster kubelet identity to create base NodeBootstrappingConfiguration: %w", err)
+	}
+	nbc.UserAssignedIdentityClientID = *kubeletIdentity.ClientID
+
+	nbc.TenantID = *cluster.Model.Identity.TenantID
 	nbc.ContainerService.Properties.CertificateProfile.CaCertificate = string(cluster.ClusterParams.CACert)
 	nbc.KubeletClientTLSBootstrapToken = &cluster.ClusterParams.BootstrapToken
 	nbc.ContainerService.Properties.HostedMasterProfile.FQDN = cluster.ClusterParams.FQDN
 	nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = vhd.Distro
 	nbc.AgentPoolProfile.Distro = vhd.Distro
-	return nbc
+	return nbc, nil
 }
 
 // is a temporary workaround

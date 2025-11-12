@@ -238,7 +238,6 @@ func (s *Scenario) updateTags(ctx context.Context, vmss *armcompute.VirtualMachi
 		}
 	}
 	vmss.Tags["owner"] = to.Ptr(owner)
-
 }
 
 func getLoggedInAzUser() (string, error) {

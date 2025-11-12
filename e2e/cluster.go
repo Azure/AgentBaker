@@ -100,11 +100,11 @@ func prepareCluster(ctx context.Context, cluster *armcontainerservice.ManagedClu
 	}
 
 	if isNonAnonymousPull {
-		identity, err := config.Azure.UserAssignedIdentities.Get(ctx, resourceGroupName, config.VMIdentityName, nil)
+		kubeletIdentity, err := getClusterKubeletIdentity(cluster)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get VM identity: %w", err)
+			return nil, fmt.Errorf("getting kubelet identity to assign ACR pull permissions: %w", err)
 		}
-		if err := assignACRPullToIdentity(ctx, config.GetPrivateACRName(isNonAnonymousPull, *cluster.Location), *identity.Properties.PrincipalID, *cluster.Location); err != nil {
+		if err := assignACRPullToIdentity(ctx, config.GetPrivateACRName(isNonAnonymousPull, *cluster.Location), *kubeletIdentity.ObjectID, *cluster.Location); err != nil {
 			return nil, fmt.Errorf("assign acr pull to the managed identity: %w", err)
 		}
 	}
@@ -137,6 +137,17 @@ func prepareCluster(ctx context.Context, cluster *armcontainerservice.ManagedClu
 		ClusterParams: clusterParams,
 		DebugPod:      hostPod,
 	}, nil
+}
+
+func getClusterKubeletIdentity(cluster *armcontainerservice.ManagedCluster) (*armcontainerservice.UserAssignedIdentity, error) {
+	if cluster == nil || cluster.Properties == nil || cluster.Properties.IdentityProfile == nil {
+		return nil, fmt.Errorf("cannot dereference cluster identity profile to extract kubelet identity ID")
+	}
+	kubeletIdentity := cluster.Properties.IdentityProfile["kubeletidentity"]
+	if kubeletIdentity == nil {
+		return nil, fmt.Errorf("kubelet identity is missing from cluster properties")
+	}
+	return kubeletIdentity, nil
 }
 
 func extractClusterParameters(ctx context.Context, kube *Kubeclient, cluster *armcontainerservice.ManagedCluster) (*ClusterParams, error) {
