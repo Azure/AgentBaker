@@ -309,6 +309,7 @@ func Test_Windows2025(t *testing.T) {
 				Windows2025BootstrapConfigMutator(t, configuration)
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
+				t.Fatal("oopsie daisy")
 				ValidateWindowsVersionFromWindowsSettings(ctx, s, "2025")
 				ValidateWindowsProductName(ctx, s, "Windows Server 2025 Datacenter")
 				ValidateWindowsDisplayVersion(ctx, s, "24H2")
