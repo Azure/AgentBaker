@@ -576,7 +576,7 @@ testFips() {
   enable_fips=$2
 
   # shellcheck disable=SC3010
-  if [[ (${os_version} == "18.04" || ${os_version} == "20.04" || ${os_version} == "22.04" || ${os_version} == "V2") && ${enable_fips,,} == "true" ]]; then
+  if [[ (${os_version} == "20.04" || ${os_version} == "22.04" || ${os_version} == "V2") && ${enable_fips,,} == "true" ]]; then
     kernel=$(uname -r)
     if [ -f /proc/sys/crypto/fips_enabled ]; then
       fips_enabled=$(cat /proc/sys/crypto/fips_enabled)
@@ -589,7 +589,7 @@ testFips() {
       err $test "FIPS is not enabled."
     fi
 
-    if [ ${os_version} = "18.04" ] || [ ${os_version} = "20.04" ]; then
+    if [ ${os_version} = "20.04" ]; then
       if [ -f /usr/src/linux-headers-${kernel}/Makefile ]; then
         echo "fips header files exist."
       else
@@ -844,17 +844,10 @@ testPkgDownloaded() {
   echo "$test:Finish"
 }
 
-# nc and nslookup is used in CSE to check connectivity
+# nslookup is used in CSE to check connectivity
 testCriticalTools() {
   test="testCriticalTools"
   echo "$test:Start"
-
-  #TODO (djsly): netcat is only required with 18.04, remove this check when 18.04 is deprecated
-  if ! nc -h 2>/dev/null; then
-    err $test "nc is not installed"
-  else
-    echo $test "nc is installed"
-  fi
 
   if ! curl -h 2>/dev/null; then
     err $test "curl is not installed"
@@ -1425,7 +1418,7 @@ testCriCtl() {
   expectedVersion="${1}"
   local test="testCriCtl"
   echo "$test: Start"
-  # the expectedVersion looks like this, "1.32.0-ubuntu18.04u3", need to extract the version number.
+  # the expectedVersion looks like this, "1.32.0-ubuntu24.04u3", need to extract the version number.
   expectedVersion=$(echo $expectedVersion | cut -d'-' -f1)
   # use command `crictl --version` to get the version
 
@@ -1451,7 +1444,7 @@ testContainerd() {
     echo "$test: Skipping test for containerd version, as expected version is <SKIP>"
     return 0
   fi
-  # the expectedVersion looks like this, "1.6.24-0ubuntu1~18.04.1" or "2.0.0-6.azl3", we need to extract the major.minor.patch version only.
+  # the expectedVersion looks like this, "1.6.24-0ubuntu1~24.04.1" or "2.0.0-6.azl3", we need to extract the major.minor.patch version only.
   expectedVersion=$(echo $expectedVersion | cut -d'-' -f1)
   # use command `containerd --version` to get the version
   local containerd_version=$(containerd --version)
@@ -1459,7 +1452,7 @@ testContainerd() {
   # For containerd (v1): containerd github.com/containerd/containerd 1.6.26
   # For containerd (v2): containerd github.com/containerd/containerd/v2 2.0.0
   containerd_version=$(echo $containerd_version | cut -d' ' -f3)
-  # The version could be in the format "1.6.24-11-ubuntu1~18.04.1" or "2.0.0-6.azl3" or just "2.0.0", we need to extract the major.minor.patch version only.
+  # The version could be in the format "1.6.24-11-ubuntu1~24.04.1" or "2.0.0-6.azl3" or just "2.0.0", we need to extract the major.minor.patch version only.
   containerd_version=$(echo "$containerd_version" | grep -oE '^[0-9]+\.[0-9]+\.[0-9]+')
   echo "$test: checking if containerd version is $expectedVersion"
   if [ "$containerd_version" != "$expectedVersion" ]; then
@@ -1489,12 +1482,12 @@ checkPerformanceData() {
 testCorednsBinaryExtractedAndCached() {
   local test="testCorednsBinaryExtractedAndCached"
   local os_version=$1
-  # Ubuntu 18.04 and 20.04 ship with GLIBC 2.27 and 2.31, respectively.
-  # coredns binary is built with GLIBC 2.32+, which is not compatible with 18.04 and 20.04 OS versions.
+  # Ubuntu 20.04 ship with GLIBC 2.27 and 2.31, respectively.
+  # coredns binary is built with GLIBC 2.32+, which is not compatible with 20.04 OS versions.
   # Therefore, we skip the test for these OS versions here.
   # Validation in AKS RP will be done to ensure localdns is not enabled for these OS versions.
-  if [ "${os_version}" = "18.04" ] || [ "${os_version}" = "20.04" ]; then
-    # For Ubuntu 18.04 and 20.04, the coredns binary is located in /opt/azure/containers/localdns/binary/coredns
+  if [ "${os_version}" = "20.04" ]; then
+    # For 20.04, the coredns binary is located in /opt/azure/containers/localdns/binary/coredns
     echo "$test: Coredns is not supported on OS version: ${os_version}"
     return 0
   fi

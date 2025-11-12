@@ -356,16 +356,6 @@
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/sshd_config_1604",
-      "destination": "/home/packer/sshd_config_1604"
-    },
-    {
-      "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/sshd_config_1804_fips",
-      "destination": "/home/packer/sshd_config_1804_fips"
-    },
-    {
-      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/sshd_config_2204_fips",
       "destination": "/home/packer/sshd_config_2204_fips"
     },

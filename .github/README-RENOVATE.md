@@ -318,7 +318,6 @@ Depending on what kind of component you are going to onboard.
   Fore more details, you can refer to Readme-components linked at the beginning of this document.
 
 - **Packages**: Now for datasource PMC (package.microsoft.com) we have 4 custom managers which will look up to the following 4 `defaultRegistryUrlTemplate`, based on different Ubuntu release, respectively.
-  - https://packages.microsoft.com/ubuntu/18.04/prod/dists/bionic/main/binary-amd64/Packages
   - https://packages.microsoft.com/ubuntu/20.04/prod/dists/focal/main/binary-amd64/Packages
   - https://packages.microsoft.com/ubuntu/22.04/prod/dists/jammy/main/binary-amd64/Packages
   - https://packages.microsoft.com/ubuntu/24.04/prod/dists/noble/main/binary-amd64/Packages
@@ -536,7 +535,7 @@ PS C:\Users\devinwon\git\AgentBaker> npx renovate --platform=local --dry-run=tru
 You won't see any progress in the terminal because all the outputs are piped to the file. Just wait until the process completes.
 In the `output.txt` of my case, I found this,
 ```
-       "after": {"releases": {"version": "1.32.0-ubuntu18.04u3"}}
+       "after": {"releases": {"version": "1.32.0-ubuntu24.04u3"}}
 DEBUG: Response has failed validation (repository=local)
        "err": {
          "message": "Schema error",
@@ -555,9 +554,9 @@ TRACE: Dependency lookup success (repository=local)
          ]
        }
 ```
-where `{"releases": {"version": "1.32.0-ubuntu18.04u3"}}` is not the format I want. The correct format should be
+where `{"releases": {"version": "1.32.0-ubuntu22.04u3"}}` is not the format I want. The correct format should be
 ```
-{"releases": [{"version": "1.32.0-ubuntu18.04u3"}]}
+{"releases": [{"version": "1.32.0-ubuntu24.04u3"}]}
 ```
 This demonstrates how to identify and debug issues in Renovate configurations.
 

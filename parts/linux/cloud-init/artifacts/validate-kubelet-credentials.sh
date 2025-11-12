@@ -43,9 +43,8 @@ logs_to_events() {
 validate() {
     local kubeconfig_path=$1
     
-    # extract the bootstrap token directly from bootstrap-kubeconfig since we can't use LoadCredential (not supported on 1804)
-    # and using environment variables poses security risks. We'd rather use yq/jq to do this, though we can't guarantee
-    # either utility will be available on all future node images.
+    # extract the bootstrap token directly from bootstrap-kubeconfig since using environment variables poses security risks. 
+    # We'd rather use yq/jq to do this, though we can't guarantee either utility will be available on all future node images.
     token=$(grep -Po "(?<=token: ).*$" < "$kubeconfig_path")
     token="${token//\"/}"
 
