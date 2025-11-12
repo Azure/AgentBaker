@@ -21,14 +21,14 @@ func TestUnmarshalConfigurationV1(t *testing.T) {
 			name: "valid minimal config",
 			data: []byte(`{
 				"version": "v1",
-				"authConfig": {
-					"subscriptionId": "test-subscription"
+				"auth_config": {
+					"subscription_id": "test-subscription"
 				},
-				"clusterConfig": {
-					"resourceGroup": "test-rg",
+				"cluster_config": {
+					"resource_group": "test-rg",
 					"location": "eastus"
 				},
-				"apiServerConfig": {
+				"api_server_config": {
 					"apiServerName": "test-api-server"
 				}
 			}`),
@@ -50,22 +50,24 @@ func TestUnmarshalConfigurationV1(t *testing.T) {
 		{
 			name:    "empty data",
 			data:    []byte(""),
-			want:    nil,
+			want:    &aksnodeconfigv1.Configuration{},
 			wantErr: true,
 		},
 		{
-			name:    "invalid JSON",
-			data:    []byte(`{"version": "v1", invalid}`),
-			want:    nil,
+			name: "invalid JSON",
+			data: []byte(`{"version": "v1", invalid}`),
+			want: &aksnodeconfigv1.Configuration{
+				Version: "v1",
+			},
 			wantErr: true,
 		},
 		{
-			name: "string is assigned with a boolean value",
+			name: "unknown field should be ignored",
 			data: []byte(`{
 				"version": "v1",
-				"LinuxAdminUsername": true,
-				"authConfig": {
-					"subscriptionId": "test-subscription"
+				"unknown_feld": "should be ignored",
+				"auth_config": {
+					"subscription_id": "test-subscription"
 				}
 			}`),
 			want: &aksnodeconfigv1.Configuration{
@@ -77,12 +79,50 @@ func TestUnmarshalConfigurationV1(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "unknown field should be ignored",
+			name: "valid enum values as strings",
 			data: []byte(`{
 				"version": "v1",
-				"unknownField": "should be ignored",
-				"authConfig": {
-					"subscriptionId": "test-subscription"
+				"auth_config": {
+					"subscription_id": "test-subscription"
+				},
+				"workload_runtime": "WORKLOAD_RUNTIME_OCI_CONTAINER"
+			}`),
+			want: &aksnodeconfigv1.Configuration{
+				Version: "v1",
+				AuthConfig: &aksnodeconfigv1.AuthConfig{
+					SubscriptionId: "test-subscription",
+				},
+				WorkloadRuntime: aksnodeconfigv1.WorkloadRuntime_WORKLOAD_RUNTIME_OCI_CONTAINER,
+			},
+			wantErr: false,
+		},
+		{
+			name: "unknown enum values should default to UNSPECIFIED",
+			data: []byte(`{
+				"version": "v1",
+				"auth_config": {
+					"subscription_id": "test-subscription"
+				},
+				"workload_runtime": "WHAT IS THIS?"
+			}`),
+			want: &aksnodeconfigv1.Configuration{
+				Version: "v1",
+				AuthConfig: &aksnodeconfigv1.AuthConfig{
+					SubscriptionId: "test-subscription",
+				},
+				WorkloadRuntime: aksnodeconfigv1.WorkloadRuntime_WORKLOAD_RUNTIME_UNSPECIFIED,
+			},
+			wantErr: false,
+		},
+		{
+			name: "optional int32 field with string value is ignored",
+			data: []byte(`{
+				"version": "v1",
+				"auth_config": {
+					"subscription_id": "test-subscription"
+				},
+				"kubelet_config": {
+					"max_pods": "42"
 				}
 			}`),
 			want: &aksnodeconfigv1.Configuration{
@@ -90,6 +130,7 @@ func TestUnmarshalConfigurationV1(t *testing.T) {
 				AuthConfig: &aksnodeconfigv1.AuthConfig{
 					SubscriptionId: "test-subscription",
 				},
+				KubeletConfig: &aksnodeconfigv1.KubeletConfig{},
 			},
 			wantErr: false,
 		},
@@ -104,9 +145,9 @@ func TestUnmarshalConfigurationV1(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 				// here we use proto.Equal for deep equality check
-				if !proto.Equal(tt.want, got) {
-					assert.Fail(t, "UnmarshalConfigurationV1() result mismatch", "want: %+v\n got: %+v", tt.want, got)
-				}
+			}
+			if !proto.Equal(tt.want, got) {
+				assert.Fail(t, "UnmarshalConfigurationV1() result mismatch", "want: %+v\n got: %+v", tt.want, got)
 			}
 		})
 	}
@@ -148,4 +189,45 @@ func TestUnmarshalConfigurationV1FromAJsonFile(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestMarsalConfiguratioV1(t *testing.T) {
+	cfg := &aksnodeconfigv1.Configuration{
+		Version: "v1",
+		AuthConfig: &aksnodeconfigv1.AuthConfig{
+			SubscriptionId: "test-subscription",
+		},
+		WorkloadRuntime: aksnodeconfigv1.WorkloadRuntime_WORKLOAD_RUNTIME_OCI_CONTAINER,
+	}
+	data, err := MarshalConfigurationV1(cfg)
+	require.NoError(t, err)
+	require.JSONEq(t, `{"version":"v1","auth_config":{"subscription_id":"test-subscription"}, "workload_runtime":"WORKLOAD_RUNTIME_OCI_CONTAINER"}`, string(data))
+}
+
+func TestMarshalUnmarshalWithPopulatedConfig(t *testing.T) {
+	t.Run("fully populated config marshals to >100 bytes", func(t *testing.T) {
+		cfg := &aksnodeconfigv1.Configuration{}
+		PopulateAllFields(cfg)
+
+		marshaled, err := MarshalConfigurationV1(cfg)
+		require.NoError(t, err)
+		assert.Greater(t, len(marshaled), 100, "Fully populated config should marshal to >100 bytes")
+		t.Logf("Marshaled %d bytes", len(marshaled))
+	})
+
+	t.Run("marshal and unmarshal round-trip preserves data", func(t *testing.T) {
+		original := &aksnodeconfigv1.Configuration{}
+		PopulateAllFields(original)
+
+		// Marshal
+		marshaled, err := MarshalConfigurationV1(original)
+		require.NoError(t, err)
+
+		// Unmarshal
+		restored, err := UnmarshalConfigurationV1(marshaled)
+		require.NoError(t, err)
+
+		// Verify key fields preserved
+		assert.Equal(t, original, restored)
+	})
 }
