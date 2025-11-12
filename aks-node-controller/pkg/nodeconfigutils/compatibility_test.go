@@ -19,11 +19,11 @@ const (
 	// Investigate thoroughly before updating.
 	backwardCompatCommit = "c4ddd55f7dd72bfb541313fe586f586dfa7bd114"
 
-	// Commit when PopulateAllFields was first introduced.
+	// Commit when PopulateAllFields was first introduced. (2025-11-12)
 	// CAREFUL: Test failure may indicate forward compatibility breakage.
 	// Only active RP releases (potentially multiple) need to be supported.
 	// Investigate thoroughly before updating.
-	forwardCompatCommit = "878718c80db175859a6d7cf377f7b7d40c438413"
+	forwardCompatCommit = "e1542bdb705b682bda4a87c6db07a6e5ebb01faf"
 )
 
 var (
