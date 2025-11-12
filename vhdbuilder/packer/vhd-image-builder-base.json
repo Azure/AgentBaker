@@ -287,6 +287,11 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/setup-nvme.sh",
+      "destination": "/home/packer/setup-nvme.sh"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/ubuntu/ubuntu-snapshot-update.sh",
       "destination": "/home/packer/ubuntu-snapshot-update.sh"
     },

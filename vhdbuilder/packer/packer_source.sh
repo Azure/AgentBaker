@@ -231,6 +231,13 @@ copyPackerFiles() {
   SETUP_SEARCH_DEST=/opt/azure/containers/setup-custom-search-domains.sh
   cpAndMode $SETUP_SEARCH_SRC $SETUP_SEARCH_DEST 0744
 
+  # Optional NVMe setup script for Ubuntu nodes
+  SETUP_NVME_SRC=/home/packer/setup-nvme.sh
+  SETUP_NVME_DEST=/opt/azure/containers/setup-nvme.sh
+  if [ -f "$SETUP_NVME_SRC" ]; then
+    cpAndMode $SETUP_NVME_SRC $SETUP_NVME_DEST 0744
+  fi
+
   CSE_MAIN_SRC=/home/packer/provision.sh
   CSE_MAIN_DEST=/opt/azure/containers/provision.sh
   cpAndMode $CSE_MAIN_SRC $CSE_MAIN_DEST 0744

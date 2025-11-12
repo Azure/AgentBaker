@@ -190,6 +190,16 @@ function basePrep {
         logs_to_events "AKS.CSE.configureSystemdUseDomains" configureSystemdUseDomains
     fi
 
+    # Before starting containerd/kubelet, optionally set up NVMe RAID
+    # Only on Ubuntu and when NVMe devices are present
+    if [ "$OS" = "$UBUNTU_OS_NAME" ] && ls /dev/nvme*n* >/dev/null 2>&1; then
+        if [ -f /opt/azure/containers/setup-nvme.sh ]; then
+            # shellcheck source=/dev/null
+            source /opt/azure/containers/setup-nvme.sh
+            setup_nvme || echo "setup_nvme encountered an error; continuing"
+        fi
+    fi
+
     # containerd should not be configured until cni has been configured first
     logs_to_events "AKS.CSE.ensureContainerd" ensureContainerd
 
