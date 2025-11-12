@@ -181,7 +181,7 @@ steps:
       DRY_RUN: $(DRY_RUN)
 
   - bash: make -f packer.mk prefetch
-    condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'), ne(variables.SKIP_PREFETCH_OPTIMIZATION, 'True'), ne(variables.BUILDER, 'imagecustomizer'))
+    condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'), eq(variables.RUN_PREFETCH_OPTIMIZATION, 'True'), ne(variables.BUILDER, 'imagecustomizer'))
     displayName: Run Prefetch Optimization and Convert to VHD blob
     retryCountOnTaskFailure: 3
     env:
@@ -201,7 +201,7 @@ steps:
       ENABLE_TRUSTED_LAUNCH: $(ENABLE_TRUSTED_LAUNCH)
 
   - bash: make -f packer.mk cleanup-prefetch
-    condition: and(eq(variables.GENERATE_PUBLISHING_INFO, 'True'), ne(variables.SKIP_PREFETCH_OPTIMIZATION, 'True'), ne(variables.BUILDER, 'imagecustomizer'))
+    condition: and(eq(variables.GENERATE_PUBLISHING_INFO, 'True'), eq(variables.RUN_PREFETCH_OPTIMIZATION, 'True'), ne(variables.BUILDER, 'imagecustomizer'))
     displayName: Cleanup Prefetch Optimization Resources
     env:
       BUILD_RUN_NUMBER: $(Build.BuildNumber)
@@ -250,9 +250,9 @@ steps:
       artifactName: 'vhd-image-bom-${{ parameters.artifactName }}'
       targetPath: 'image-bom.json'
 
-  # TODO(cameissner): remove once promoting TME-built VHD for prod usage
+  # TODO(cameissner): remove when running prefetch optimization + VHD blob conversion by default
   - bash: make -f packer.mk convert-sig-to-classic-storage-account-blob
-    condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'), eq(variables.SKIP_PREFETCH_OPTIMIZATION, 'True'), ne(variables.BUILDER, 'imagecustomizer'))
+    condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'), ne(variables.RUN_PREFETCH_OPTIMIZATION, 'True'), ne(variables.BUILDER, 'imagecustomizer'))
     displayName: Convert Shared Image Gallery To VHD Blob In Classic Storage Account
     env:
       RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
