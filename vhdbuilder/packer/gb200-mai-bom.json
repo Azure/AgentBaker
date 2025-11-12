@@ -1,0 +1,19 @@
+{
+  "versions": {
+    "nvidia-driver-580-open": "580.105.08-0ubuntu1",
+    "cuda-toolkit-13": "13.0.2-1",
+    "nvidia-container-toolkit": "1.18.0-1",
+    "datacenter-gpu-manager-exporter": "4.6.0-1",
+    "datacenter-gpu-manager-4-core": "1:4.4.1-1",
+    "datacenter-gpu-manager-4-proprietary": "1:4.4.1-1",
+    "datacenter-gpu-manager-4-cuda13": "1:4.4.1-1",
+    "datacenter-gpu-manager-4-proprietary-cuda13": "1:4.4.1-1",
+    "datacenter-gpu-manager-4-multinode": "1:4.4.1-1",
+    "datacenter-gpu-manager-4-multinode-cuda13": "1:4.4.1-1",
+    "libcap2-bin": "1:2.66-5ubuntu2.2",
+    "k8s-device-plugin": "0.17.3-ubuntu24.04u5",
+    "nvidia-imex": "580.105.08-1",
+    "doca-ofed": "3.1.0-091513"
+  },
+  "doca-custom-repo": "https://linux.mellanox.com/public/repo/doca/3.1.0-091513/ubuntu24.04/arm64-sbsa/"
+}
