@@ -161,6 +161,60 @@ func Test_Flatcar_AzureCNI_ChronyRestarts_Scriptless(t *testing.T) {
 	})
 }
 
+func Test_Flatcar_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using a Flatcar Gen2 VHD can be properly bootstrapped even if secure TLS bootstrapping fails",
+		Tags: Tags{
+			BootstrapTokenFallback: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDFlatcarGen2,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{
+					Enabled:     true,
+					Deadline:    (30 * time.Second).String(),
+					AADResource: "https://management.azure.com/", // use an unexpected AAD resource to force a secure TLS bootstrapping failure
+				}
+			},
+		},
+	})
+}
+
+func Test_Flatcar_SecureTLSBootstrapping(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using an Flatcar Gen2 VHD can be properly bootstrapped using secure TLS bootstrapping",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDFlatcarGen2,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{
+					Enabled: true,
+				}
+			},
+		},
+	})
+}
+
+func Test_Flatcar_SecureTLSBootstrapping_Scriptless(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using an Flatcar Gen2 VHD can be properly bootstrapped using secure TLS bootstrapping with scriptless",
+		Tags: Tags{
+			Scriptless: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDFlatcarGen2,
+			AKSNodeConfigMutator: func(c *aksnodeconfigv1.Configuration) {
+				if c.BootstrappingConfig == nil {
+					c.BootstrappingConfig = &aksnodeconfigv1.BootstrappingConfig{}
+				}
+				c.BootstrappingConfig.BootstrappingAuthMethod = aksnodeconfigv1.BootstrappingAuthMethod_BOOTSTRAPPING_AUTH_METHOD_SECURE_TLS_BOOTSTRAPPING
+			},
+		},
+	})
+}
+
 func Test_AzureLinuxV2_AirGap(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a AzureLinuxV2 (CgroupV2) VHD can be properly bootstrapped",
@@ -187,18 +241,55 @@ func Test_AzureLinuxV2_AirGap(t *testing.T) {
 	})
 }
 
-func Test_AzureLinuxV2_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing.T) {
+func Test_AzureLinuxV3_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "Tests that a node using a AzureLinuxV2 (CgroupV2) VHD can be properly bootstrapped even if secure TLS bootstrapping fails",
+		Description: "Tests that a node using a AzureLinuxV3 Gen2 VHD can be properly bootstrapped even if secure TLS bootstrapping fails",
+		Tags: Tags{
+			BootstrapTokenFallback: true,
+		},
 		Config: Config{
 			Cluster: ClusterKubenet,
-			VHD:     config.VHDAzureLinuxV2Gen2,
+			VHD:     config.VHDAzureLinuxV3Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{
 					Enabled:     true,
 					Deadline:    (30 * time.Second).String(),
 					AADResource: "https://management.azure.com/", // use an unexpected AAD resource to force a secure TLS bootstrapping failure
 				}
+			},
+		},
+	})
+}
+
+func Test_AzureLinuxV3_SecureTLSBootstrapping(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using an AzureLinuxV3 Gen2 VHD can be properly bootstrapped using secure TLS bootstrapping",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDAzureLinuxV3Gen2,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{
+					Enabled: true,
+				}
+			},
+		},
+	})
+}
+
+func Test_AzureLinuxV3_SecureTLSBootstrapping_Scriptless(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using an AzureLinuxV3 Gen2 VHD can be properly bootstrapped using secure TLS bootstrapping with scriptless",
+		Tags: Tags{
+			Scriptless: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDAzureLinuxV3Gen2,
+			AKSNodeConfigMutator: func(c *aksnodeconfigv1.Configuration) {
+				if c.BootstrappingConfig == nil {
+					c.BootstrappingConfig = &aksnodeconfigv1.BootstrappingConfig{}
+				}
+				c.BootstrappingConfig.BootstrappingAuthMethod = aksnodeconfigv1.BootstrappingAuthMethod_BOOTSTRAPPING_AUTH_METHOD_SECURE_TLS_BOOTSTRAPPING
 			},
 		},
 	})
@@ -1528,14 +1619,6 @@ func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags(t *testing
 				}
 				vmss.Tags["aks-disable-kubelet-serving-certificate-rotation"] = to.Ptr("true")
 			},
-
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "--tls-cert-file=/etc/kubernetes/certs/kubeletserver.crt")
-				ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "--tls-private-key-file=/etc/kubernetes/certs/kubeletserver.key")
-				ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "--rotate-server-certificates=true")
-				ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "kubernetes.azure.com/kubelet-serving-ca=cluster")
-				ValidateDirectoryContent(ctx, s, "/etc/kubernetes/certs", []string{"kubeletserver.crt", "kubeletserver.key"})
-			},
 		},
 	})
 }
@@ -1559,14 +1642,6 @@ func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_CustomKube
 					vmss.Tags = map[string]*string{}
 				}
 				vmss.Tags["aks-disable-kubelet-serving-certificate-rotation"] = to.Ptr("true")
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", "\"tlsCertFile\": \"/etc/kubernetes/certs/kubeletserver.crt\"")
-				ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", "\"tlsPrivateKeyFile\": \"/etc/kubernetes/certs/kubeletserver.key\"")
-				ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "--rotate-server-certificates=true")
-				ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "kubernetes.azure.com/kubelet-serving-ca=cluster")
-				ValidateFileExcludesContent(ctx, s, "/etc/default/kubeletconfig.json", "\"serverTLSBootstrap\": true")
-				ValidateDirectoryContent(ctx, s, "/etc/kubernetes/certs", []string{"kubeletserver.crt", "kubeletserver.key"})
 			},
 		},
 	})
@@ -1592,14 +1667,6 @@ func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_CustomKube
 				}
 				vmss.Tags["aks-disable-kubelet-serving-certificate-rotation"] = to.Ptr("true")
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", "\"tlsCertFile\": \"/etc/kubernetes/certs/kubeletserver.crt\"")
-				ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", "\"tlsPrivateKeyFile\": \"/etc/kubernetes/certs/kubeletserver.key\"")
-				ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "--rotate-server-certificates=true")
-				ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "kubernetes.azure.com/kubelet-serving-ca=cluster")
-				ValidateFileExcludesContent(ctx, s, "/etc/default/kubeletconfig.json", "\"serverTLSBootstrap\": true")
-				ValidateDirectoryContent(ctx, s, "/etc/kubernetes/certs", []string{"kubeletserver.crt", "kubeletserver.key"})
-			},
 		},
 	})
 }
@@ -1617,13 +1684,6 @@ func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_AlreadyDis
 					vmss.Tags = map[string]*string{}
 				}
 				vmss.Tags["aks-disable-kubelet-serving-certificate-rotation"] = to.Ptr("true")
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "--tls-cert-file=/etc/kubernetes/certs/kubeletserver.crt")
-				ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "--tls-private-key-file=/etc/kubernetes/certs/kubeletserver.key")
-				ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "--rotate-server-certificates=true")
-				ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "kubernetes.azure.com/kubelet-serving-ca=cluster")
-				ValidateDirectoryContent(ctx, s, "/etc/kubernetes/certs", []string{"kubeletserver.crt", "kubeletserver.key"})
 			},
 		},
 	})
@@ -1648,14 +1708,6 @@ func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_AlreadyDis
 					vmss.Tags = map[string]*string{}
 				}
 				vmss.Tags["aks-disable-kubelet-serving-certificate-rotation"] = to.Ptr("true")
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", "\"tlsCertFile\": \"/etc/kubernetes/certs/kubeletserver.crt\"")
-				ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", "\"tlsPrivateKeyFile\": \"/etc/kubernetes/certs/kubeletserver.key\"")
-				ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "--rotate-server-certificates=true")
-				ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "kubernetes.azure.com/kubelet-serving-ca=cluster")
-				ValidateFileExcludesContent(ctx, s, "/etc/default/kubeletconfig.json", "\"serverTLSBootstrap\": true")
-				ValidateDirectoryContent(ctx, s, "/etc/kubernetes/certs", []string{"kubeletserver.crt", "kubeletserver.key"})
 			},
 		},
 	})
@@ -1863,9 +1915,81 @@ func Test_Ubuntu2404Gen2(t *testing.T) {
 	})
 }
 
-func Test_Ubuntu2404Gen2_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing.T) {
+func Test_Ubuntu2204_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using an Ubuntu 2204 Gen2 VHD can be properly bootstrapped even if secure TLS bootstrapping fails",
+		Tags: Tags{
+			BootstrapTokenFallback: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{
+					Enabled:     true,
+					Deadline:    (30 * time.Second).String(),
+					AADResource: "https://management.azure.com/", // use an unexpected AAD resource to force a secure TLS bootstrapping failure
+				}
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2204_SecureTLSBootstrapping(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using an Ubuntu 2204 Gen2 VHD can be properly bootstrapped using secure TLS bootstrapping",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{
+					Enabled: true,
+				}
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2204ARM64_SecureTLSBootstrapping(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using an Ubuntu 2204 ARM64 Gen2 VHD can be properly bootstrapped using secure TLS bootstrapping",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Arm64Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{
+					Enabled: true,
+				}
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2204_SecureTLSBootstrapping_Scriptless(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using an Ubuntu 2204 Gen2 VHD can be properly bootstrapped using secure TLS bootstrapping with scriptless",
+		Tags: Tags{
+			Scriptless: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			AKSNodeConfigMutator: func(c *aksnodeconfigv1.Configuration) {
+				if c.BootstrappingConfig == nil {
+					c.BootstrappingConfig = &aksnodeconfigv1.BootstrappingConfig{}
+				}
+				c.BootstrappingConfig.BootstrappingAuthMethod = aksnodeconfigv1.BootstrappingAuthMethod_BOOTSTRAPPING_AUTH_METHOD_SECURE_TLS_BOOTSTRAPPING
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2404_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using an Ubuntu 2404 Gen2 VHD can be properly bootstrapped even if secure TLS bootstrapping fails",
+		Tags: Tags{
+			BootstrapTokenFallback: true,
+		},
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2404Gen2Containerd,
@@ -1875,6 +1999,40 @@ func Test_Ubuntu2404Gen2_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testi
 					Deadline:    (30 * time.Second).String(),
 					AADResource: "https://management.azure.com/", // use an unexpected AAD resource to force a secure TLS bootstrapping failure
 				}
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2404_SecureTLSBootstrapping(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using an Ubuntu 2404 Gen2 VHD can be properly bootstrapped using secure TLS bootstrapping",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2404Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{
+					Enabled: true,
+				}
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2404_SecureTLSBootstrapping_Scriptless(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using an Ubuntu 2404 Gen2 VHD can be properly bootstrapped using secure TLS bootstrapping with scriptless",
+		Tags: Tags{
+			Scriptless: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2404Gen2Containerd,
+			AKSNodeConfigMutator: func(c *aksnodeconfigv1.Configuration) {
+				if c.BootstrappingConfig == nil {
+					c.BootstrappingConfig = &aksnodeconfigv1.BootstrappingConfig{}
+				}
+				c.BootstrappingConfig.BootstrappingAuthMethod = aksnodeconfigv1.BootstrappingAuthMethod_BOOTSTRAPPING_AUTH_METHOD_SECURE_TLS_BOOTSTRAPPING
 			},
 		},
 	})

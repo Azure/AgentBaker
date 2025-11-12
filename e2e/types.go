@@ -21,17 +21,18 @@ import (
 )
 
 type Tags struct {
-	Name                string
-	ImageName           string
-	OS                  string
-	Arch                string
-	Airgap              bool
-	NonAnonymousACR     bool
-	GPU                 bool
-	WASM                bool
-	KubeletCustomConfig bool
-	Scriptless          bool
-	VHDCaching          bool
+	Name                   string
+	ImageName              string
+	OS                     string
+	Arch                   string
+	Airgap                 bool
+	NonAnonymousACR        bool
+	GPU                    bool
+	WASM                   bool
+	BootstrapTokenFallback bool
+	KubeletCustomConfig    bool
+	Scriptless             bool
+	VHDCaching             bool
 }
 
 // MatchesFilters checks if the Tags struct matches all given filters.

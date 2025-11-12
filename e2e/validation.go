@@ -2,13 +2,16 @@ package e2e
 
 import (
 	"context"
+	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
 	"strings"
 	"testing"
 	"time"
 
+	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/e2e/toolkit"
 	"github.com/Azure/agentbaker/pkg/agent"
@@ -63,21 +66,12 @@ func truncatePodName(t testing.TB, pod *corev1.Pod) {
 }
 
 func ValidateCommonLinux(ctx context.Context, s *Scenario) {
-	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo cat /etc/default/kubelet", 0, "could not read kubelet config")
-	stdout := execResult.stdout.String()
-	require.NotContains(s.T, stdout, "--dynamic-config-dir", "kubelet flag '--dynamic-config-dir' should not be present in /etc/default/kubelet\nContents:\n%s")
-
-	kubeletLogs := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo journalctl -u kubelet", 0, "could not retrieve kubelet logs with journalctl").stdout.String()
-	require.True(
-		s.T,
-		!strings.Contains(kubeletLogs, "unable to validate bootstrap credentials") && strings.Contains(kubeletLogs, "kubelet bootstrap token credential is valid"),
-		"expected to have successfully validated bootstrap token credential before kubelet startup, but did not",
-	)
-
+	ValidateTLSBootstrapping(ctx, s)
+	ValidateKubeletServingCertificateRotation(ctx, s)
 	ValidateSystemdWatchdogForKubernetes132Plus(ctx, s)
-
-	// ensure aks-log-collector hasn't entered a failed state
 	ValidateSystemdUnitIsNotFailed(ctx, s, "aks-log-collector")
+	ValidateLeakedSecrets(ctx, s)
+	ValidateIPTablesCompatibleWithCiliumEBPF(ctx, s)
 
 	ValidateSysctlConfig(ctx, s, map[string]string{
 		"net.ipv4.tcp_retries2":             "8",
@@ -89,7 +83,6 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 		"net.ipv4.neigh.default.gc_thresh2": "8192",
 		"net.ipv4.neigh.default.gc_thresh3": "16384",
 	})
-
 	ValidateDirectoryContent(ctx, s, "/var/log/azure/aks", []string{
 		"cluster-provision.log",
 		"cluster-provision-cse-output.log",
@@ -97,6 +90,9 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 		"vhd-install.complete",
 		//"cloud-config.txt", // file with UserData
 	})
+
+	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo cat /etc/default/kubelet", 0, "could not read kubelet config")
+	require.NotContains(s.T, execResult.stdout.String(), "--dynamic-config-dir", "kubelet flag '--dynamic-config-dir' should not be present in /etc/default/kubelet\nContents:\n%s")
 
 	_ = execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo curl http://168.63.129.16:32526/vmSettings", 0, "curl to wireserver failed")
 
@@ -125,8 +121,6 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 			"AAD client ID and secret should be present in /etc/kubernetes/azure.json")
 	}
 
-	ValidateLeakedSecrets(ctx, s)
-
 	// kubeletNodeIPValidator cannot be run on older VHDs with kubelet < 1.29
 	if !s.VHD.UnsupportedKubeletNodeIP {
 		ValidateKubeletNodeIP(ctx, s)
@@ -137,8 +131,6 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 		ValidateLocalDNSService(ctx, s, "enabled")
 		ValidateLocalDNSResolution(ctx, s, "169.254.10.10")
 	}
-
-	ValidateIPTablesCompatibleWithCiliumEBPF(ctx, s)
 }
 
 func ValidateSystemdWatchdogForKubernetes132Plus(ctx context.Context, s *Scenario) {
@@ -194,41 +186,81 @@ func ValidateLeakedSecrets(ctx context.Context, s *Scenario) {
 
 func ValidateKubeletServingCertificateRotation(ctx context.Context, s *Scenario) {
 	if _, ok := s.Runtime.VM.VMSS.Tags["aks-disable-kubelet-serving-certificate-rotation"]; ok {
-		s.T.Logf("ValidateKubeletServingCertificateRotation - VMSS has KSCR disablement tag, will skip standard validation")
+		s.T.Logf("ValidateKubeletServingCertificateRotation - VMSS has KSCR disablement tag, will validate that KSCR has been disabled")
+		ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "--rotate-server-certificates=true")
+		ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "kubernetes.azure.com/kubelet-serving-ca=cluster")
+		ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "--tls-cert-file")
+		ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "--tls-private-key-file")
+		ValidateDirectoryContent(ctx, s, "/etc/kubernetes/certs", []string{"kubeletserver.crt", "kubeletserver.key"})
+		if hasKubeletConfigFile(s) {
+			ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", "\"tlsCertFile\": \"/etc/kubernetes/certs/kubeletserver.crt\"")
+			ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", "\"tlsPrivateKeyFile\": \"/etc/kubernetes/certs/kubeletserver.key\"")
+			ValidateFileExcludesContent(ctx, s, "/etc/default/kubeletconfig.json", "\"serverTLSBootstrap\": true")
+		}
 		return
+	}
+	ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "--rotate-server-certificates=true")
+	ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "kubernetes.azure.com/kubelet-serving-ca=cluster")
+	ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "--tls-cert-file")
+	ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "--tls-private-key-file")
+	ValidateDirectoryContent(ctx, s, "/var/lib/kubelet/pki", []string{"kubelet-server-current.pem"})
+	if hasKubeletConfigFile(s) {
+		ValidateFileExcludesContent(ctx, s, "/etc/default/kubeletconfig.json", "\"tlsCertFile\": \"/etc/kubernetes/certs/kubeletserver.crt\"")
+		ValidateFileExcludesContent(ctx, s, "/etc/default/kubeletconfig.json", "\"tlsPrivateKeyFile\": \"/etc/kubernetes/certs/kubeletserver.key\"")
+		ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", "\"serverTLSBootstrap\": true")
 	}
 }
 
-func getCertificateSigningRequestsForNode(ctx context.Context, s *Scenario) (clientCSR *certv1.CertificateSigningRequest, servingCSR *certv1.CertificateSigningRequest, err error) {
-	s.T.Logf("attempting to get kubelet client and serving CSRs for node: %s", s.Runtime.VM.KubeName)
-	csrClient := s.Runtime.Cluster.Kube.Typed.CertificatesV1().CertificateSigningRequests()
-
-	isApprovedAndIssued := func(csr certv1.CertificateSigningRequest) bool {
-		var approved, issued bool
-		for _, cond := range csr.Status.Conditions {
-			if cond.Type == certv1.CertificateApproved && cond.Status == corev1.ConditionTrue {
-				approved = true
-			}
-		}
-		if !approved {
-			return false
-		}
+func ValidateTLSBootstrapping(ctx context.Context, s *Scenario) {
+	ValidateDirectoryContent(ctx, s, "/var/lib/kubelet", []string{"kubeconfig"})
+	ValidateDirectoryContent(ctx, s, "/var/lib/kubeket/pki", []string{"kubelet-server-current.pem"})
+	kubeletLogs := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo journalctl -u kubelet", 0, "could not retrieve kubelet logs with journalctl").stdout.String()
+	switch {
+	case isUsingSecureTLSBootstrapping(s) && s.Tags.BootstrapTokenFallback:
+		ValidateSystemdUnitIsNotRunning(ctx, s, "secure-tls-bootstrap")
+		require.True(
+			s.T,
+			!strings.Contains(kubeletLogs, "unable to validate bootstrap credentials") && strings.Contains(kubeletLogs, "kubelet bootstrap token credential is valid"),
+			"expected to have successfully validated bootstrap token credential before kubelet startup, but did not",
+		)
+	case isUsingSecureTLSBootstrapping(s):
+		ValidateSystemdUnitIsRunning(ctx, s, "secure-tls-bootstrap")
+		validateKubeletClientCSRCreatedBySecureTLSBootstrapping(ctx, s)
+		require.True(
+			s.T,
+			!strings.Contains(kubeletLogs, "unable to validate bootstrap credentials") && strings.Contains(kubeletLogs, "client credential already exists within kubeconfig"),
+			"expected to already have a valid kubeconfig before kubelet start-up obtained through secure TLS bootstrapping, but did not",
+		)
+	default:
+		ValidateSystemdUnitIsNotRunning(ctx, s, "secure-tls-bootstrap")
+		ValidateSystemdUnitIsNotFailed(ctx, s, "secure-tls-bootstrap")
+		require.True(
+			s.T,
+			!strings.Contains(kubeletLogs, "unable to validate bootstrap credentials") && strings.Contains(kubeletLogs, "kubelet bootstrap token credential is valid"),
+			"expected to have successfully validated bootstrap token credential before kubelet startup, but did not",
+		)
 	}
+}
 
-	servingCSRs, err := csrClient.List(ctx, metav1.ListOptions{
-		FieldSelector: fmt.Sprintf("spec.signerName=%s", certv1.KubeletServingSignerName),
-	})
-	require.NoError(s.T, err)
-
-	clientCSRs, err := csrClient.List(ctx, metav1.ListOptions{
+func validateKubeletClientCSRCreatedBySecureTLSBootstrapping(ctx context.Context, s *Scenario) {
+	kubeletClientCSRs, err := s.Runtime.Cluster.Kube.Typed.CertificatesV1().CertificateSigningRequests().List(ctx, metav1.ListOptions{
 		FieldSelector: fmt.Sprintf("spec.signerName=%s", certv1.KubeAPIServerClientKubeletSignerName),
 	})
 	require.NoError(s.T, err)
-
-	for _, servingCSR := range servingCSRs.Items {
-
+	var hasValidCSR bool
+	for _, csr := range kubeletClientCSRs.Items {
+		if len(csr.Status.Certificate) == 0 {
+			continue
+		}
+		if strings.HasPrefix(strings.ToLower(csr.Spec.Username), "system:bootstrap:") {
+			continue
+		}
+		if getNodeNameFromCSR(s, csr) == s.Runtime.VM.KubeName {
+			hasValidCSR = true
+			break
+		}
 	}
-
+	require.True(s.T, hasValidCSR, "expected node %s to have created a kubelet client CSR which was approved and issued, using secure TLS bootstrapping")
 }
 
 func ValidateSSHServiceEnabled(ctx context.Context, s *Scenario) {
@@ -257,4 +289,21 @@ func hasServicePrincipalData(s *Scenario) bool {
 		return s.Runtime.NBC.ContainerService.Properties.ServicePrincipalProfile.ClientID != "" && s.Runtime.NBC.ContainerService.Properties.ServicePrincipalProfile.Secret != ""
 	}
 	return false
+}
+
+func getNodeNameFromCSR(s *Scenario, csr certv1.CertificateSigningRequest) string {
+	block, _ := pem.Decode(csr.Spec.Request)
+	require.NotNil(s.T, block)
+	req, err := x509.ParseCertificateRequest(block.Bytes)
+	require.NoError(s.T, err)
+	return strings.TrimPrefix(req.Subject.CommonName, "system:node:")
+}
+
+func isUsingSecureTLSBootstrapping(s *Scenario) bool {
+	return s.Runtime.NBC.SecureTLSBootstrappingConfig.GetEnabled() ||
+		s.Runtime.AKSNodeConfig.BootstrappingConfig.GetBootstrappingAuthMethod() == aksnodeconfigv1.BootstrappingAuthMethod_BOOTSTRAPPING_AUTH_METHOD_SECURE_TLS_BOOTSTRAPPING
+}
+
+func hasKubeletConfigFile(s *Scenario) bool {
+	return s.Runtime.NBC.AgentPoolProfile.CustomKubeletConfig != nil || s.Runtime.AKSNodeConfig.KubeletConfig.EnableKubeletConfigFile
 }
