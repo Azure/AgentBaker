@@ -889,6 +889,14 @@
       "Name": "3063948942",
       "Value": "1",
       "Type": "DWORD"
+    },
+    {
+      "Comment": "2025-11B",
+      "WindowsSkuMatch": "23H2*",
+      "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
+      "Name": "2112481934",
+      "Value": "1",
+      "Type": "DWORD"
     }
   ]
 }
