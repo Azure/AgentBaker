@@ -146,10 +146,9 @@ func getCiliumNetworkClusterModel(ctx context.Context, name, location, k8sSystem
 }
 
 func getBaseClusterModel(ctx context.Context, clusterName, location, k8sSystemPoolSKU string) *armcontainerservice.ManagedCluster {
-	// Call createAKSNetworkWithFirewall to create VNet, subnets, public IP, and firewall
 	_, aksSubnet, _, _, _ := createAKSNetworkWithFirewall(
 		ctx,
-		clusterName+"-rg", // resourceGroupName (example, adjust as needed)
+		config.ResourceGroupName(location),
 		location,
 		clusterName+"-vnet",
 		clusterName+"-subnet",
@@ -220,7 +219,6 @@ func addFirewallRules(ctx context.Context, resourceGroupName, location, firewall
 		FqdnTags: []*string{to.Ptr("AzureKubernetesService")},
 	}
 
-	// Add to a collection
 	appRuleCollection := armnetwork.AzureFirewallApplicationRuleCollection{
 		Name: to.Ptr("aksfwar"),
 		Properties: &armnetwork.AzureFirewallApplicationRuleCollectionPropertiesFormat{
@@ -258,12 +256,10 @@ func addFirewallRules(ctx context.Context, resourceGroupName, location, firewall
 	}
 }
 
-// Full example: create VNet, subnet, public IP, and Azure Firewall for AKS egress control
 func createAKSNetworkWithFirewall(
 	ctx context.Context,
 	resourceGroupName, location, vnetName, subnetName, firewallName, publicIPName, ipConfigName string,
 ) (*armnetwork.VirtualNetwork, *armnetwork.Subnet, *armnetwork.PublicIPAddress, *armnetwork.AzureFirewall, error) {
-	// 1. Create VNet with two subnets: one for AKS, one for AzureFirewallSubnet
 	vnetParams := armnetwork.VirtualNetwork{
 		Location: to.Ptr(location),
 		Properties: &armnetwork.VirtualNetworkPropertiesFormat{
@@ -274,13 +270,13 @@ func createAKSNetworkWithFirewall(
 				{
 					Name: to.Ptr(subnetName),
 					Properties: &armnetwork.SubnetPropertiesFormat{
-						AddressPrefix: to.Ptr("10.240.1.0/24"),
+						AddressPrefix: to.Ptr("10.240.0.0/24"),
 					},
 				},
 				{
 					Name: to.Ptr("AzureFirewallSubnet"),
 					Properties: &armnetwork.SubnetPropertiesFormat{
-						AddressPrefix: to.Ptr("10.240.2.0/24"),
+						AddressPrefix: to.Ptr("10.240.1.0/24"),
 					},
 				},
 			},
@@ -296,7 +292,6 @@ func createAKSNetworkWithFirewall(
 	}
 	vnet := &vnetResp.VirtualNetwork
 
-	// 2. Get subnet IDs
 	var aksSubnet, fwSubnet *armnetwork.Subnet
 	for _, s := range vnet.Properties.Subnets {
 		if s.Name != nil && *s.Name == subnetName {
@@ -310,7 +305,6 @@ func createAKSNetworkWithFirewall(
 		return nil, nil, nil, nil, fmt.Errorf("subnets not found after VNet creation")
 	}
 
-	// 3. Create Public IP for firewall
 	pipParams := armnetwork.PublicIPAddress{
 		Location: to.Ptr(location),
 		SKU: &armnetwork.PublicIPAddressSKU{
@@ -330,7 +324,6 @@ func createAKSNetworkWithFirewall(
 	}
 	publicIP := &pipResp.PublicIPAddress
 
-	// 4. Create Azure Firewall with FQDN tag rule
 	firewall := addFirewallRules(ctx, resourceGroupName, location, firewallName, *publicIP.ID, *fwSubnet.ID, ipConfigName)
 	fwPoller, err := config.Azure.AzureFirewall.BeginCreateOrUpdate(ctx, resourceGroupName, firewallName, *firewall, nil)
 	if err != nil {
@@ -342,8 +335,8 @@ func createAKSNetworkWithFirewall(
 	}
 	firewallOut := &fwResp.AzureFirewall
 
-	// 5. (Optional) Associate route table with AKS subnet to force egress through firewall
-	// (Not implemented here, but you can create a route table and set next hop to firewall private IP)
+	// TODO: Associate route table with AKS subnet to force egress through firewall
+	// (create a route table and set next hop to firewall private IP)
 
 	return vnet, aksSubnet, publicIP, firewallOut, nil
 }
