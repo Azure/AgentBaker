@@ -1,0 +1,22 @@
+{
+    "version": "v1",
+    "bootstrapping_config": {
+        "bootstrapping_auth_method": "BOOTSTRAPPING_AUTH_METHOD_BOOTSTRAP_TOKEN"
+    },
+    "cluster_config": {
+        "vm_type": "VM_TYPE_VMSS",
+        "cluster_network_config": {
+            "subnet": "aks-subnet"
+        },
+        "use_instance_metadata": true,
+        "load_balancer_config": {
+            "exclude_master_from_standard_load_balancer": true,
+            "max_load_balancer_rule_count": 250
+        }
+    },
+    "is_vhd": true,
+    "enable_ssh": true,
+    "gpu_config": {
+        "config_gpu_driver": true
+    }
+}

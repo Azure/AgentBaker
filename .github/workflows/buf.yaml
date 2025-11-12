@@ -1,0 +1,24 @@
+name: Buf CI
+on:
+  push:
+    paths:
+      - "aks-node-controller/proto/**"
+      - "aks-node-controller/buf.yaml"
+      - ".github/workflows/buf.yaml"
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+    paths:
+      - "aks-node-controller/proto/**"
+      - "aks-node-controller/buf.yaml"
+      - ".github/workflows/buf.yaml"
+permissions:
+  contents: read
+  pull-requests: write
+jobs:
+  buf:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: bufbuild/buf-action@v1
+        with:
+          input: aks-node-controller

@@ -1,0 +1,270 @@
+parameters:
+  - name: artifactName
+    type: string
+  - name: overrideBranch
+    type: string
+    default: master
+  - name: useOverrides
+    displayName: Use component overrides
+    type: boolean
+  - name: dryrun
+    displayName: Dry run
+    type: boolean
+    default: False
+  - name: vhddebug
+    displayName: VHD Debug
+    type: boolean
+    default: False
+  - name: build
+    displayName: Boolean flag to actually run these stages.
+    type: boolean
+    default: True
+  - name: buildVmSize
+    type: string
+    displayName: VM SKU to build the VHD with. Has a sensible default
+  - name: hyperVGeneration
+    type: string
+    displayName: V1 or V2.
+  - name: architecture
+    type: string
+    displayName: CPU Architecture - X86_64 or ARM64
+  - name: windowsBaseImageUrl
+    displayName: Windows Base Image URL Override
+    type: string
+  - name: windowsNanoImageUrl
+    displayName: Windows nano base container image URL Override
+    type: string
+  - name: windowsCoreImageUrl
+    displayName: Windows core base container image URL Override
+    type: string
+  - name: windowsContainerImageJsonUrl
+    displayName: Windows container image JSON URL Override
+    type: string
+    default: ""
+  - name: skipExtensionCheck
+    displayName: Skip Extension Check
+    type: boolean
+    default: False
+  - name: installOpenSshServer
+    displayName: Install Open SSH Server
+    type: boolean
+    default: True
+  - name: windowsSku
+    type: string
+    displayName: The windows artifact to build. Might be a duplicate of artifactName
+  - name: csePackageDir
+    type: string
+    displayName: Path to the CSE package to use for the build.
+  - name: csePackageFileName
+    type: string
+    displayName: CSE package filename.
+
+steps:
+  - template: ./.template-override-components-json.yaml
+    parameters:
+      overrideBranch: ${{ parameters.overrideBranch }}
+      useOverrides: ${{ parameters.useOverrides }}
+
+  - task: DownloadPipelineArtifact@2
+    displayName: Download CSE package
+    inputs:
+      source: current
+      artifactName: windows-cse-package
+      itemPattern: '${{ parameters.csePackageFileName }}'
+      targetPath: ${{ parameters.csePackageDir }}
+      
+  - bash: bash ./.pipelines/scripts/windows_build_vhd.sh
+    displayName: Build and save VHD
+    env:
+      WINDOWS_SKU: ${{ parameters.windowsSku }}
+      BRANCH: $(Build.SourceBranch)
+      SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
+      AZURE_RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
+      AZURE_LOCATION: $(AZURE_BUILD_LOCATION)
+      AZURE_VM_SIZE: ${{ parameters.buildVmSize }}
+      GIT_BRANCH: $(BRANCH)
+      GIT_REPO: $(Build.Repository.Uri)
+      GIT_VERSION: $(Build.SourceVersion)
+      BUILD_DEFINITION_NAME: $(Build.DefinitionName)
+      BUILD_ID: $(Build.BuildId)
+      BUILD_NUMBER: $(Build.BuildNumber)
+      OS_TYPE: Windows
+      SKIP_EXTENSION_CHECK: ${{ parameters.skipExtensionCheck }}
+      INSTALL_OPEN_SSH_SERVER: ${{ parameters.installOpenSshServer }}
+      SIG_GALLERY_NAME: $(SIG_GALLERY_NAME)
+      SIG_IMAGE_NAME: $(SIG_IMAGE_NAME)
+      SIG_IMAGE_VERSION: $(SIG_IMAGE_VERSION)
+      SIG_FOR_PRODUCTION: $(SIG_FOR_PRODUCTION)
+      HYPERV_GENERATION: ${{ parameters.hyperVGeneration }}
+      VNET_RESOURCE_GROUP_NAME: $(VNET_RESOURCE_GROUP_NAME)
+      WINDOWS_PATCH_URL: $(WINDOWS_PATCH_URL)
+      WINDOWS_BASE_IMAGE_URL: ${{ parameters.windowsBaseImageUrl }}
+      WINDOWS_NANO_IMAGE_URL: ${{ parameters.windowsNanoImageUrl }}
+      WINDOWS_CORE_IMAGE_URL: ${{ parameters.windowsCoreImageUrl }}
+      WINDOWS_CONTAINERIMAGE_JSON_URL: ${{ parameters.windowsContainerImageJsonUrl }}
+      WINDOWS_PRIVATE_PACKAGES_URL: $(PRIVATE_PACKAGES_URL)
+      AZURE_MSI_RESOURCE_STRING: $(AZURE_MSI_RESOURCE_STRING)
+      BUILD_DATE: $(BUILD_DATE)
+      WINDOWS_CSE_PACKAGE_URI: ${{ parameters.csePackageDir }}/${{ parameters.csePackageFileName }}
+      DRY_RUN: ${{ parameters.dryrun }}
+
+  # Note: use -a to grep MANAGED_SIG_ID (packer-output should be read as a binary file in Linux)
+  - script: |
+      export TEST_VM_RESOURCE_GROUP_NAME="vhd-test-$(date +%s)-$RANDOM"
+      echo "ARCHITECTURE: ${{ parameters.architecture }}"
+      echo "##vso[task.setvariable variable=TEST_VM_RESOURCE_GROUP_NAME]$TEST_VM_RESOURCE_GROUP_NAME"
+
+      # For pipelines where the container base images are provided via storage URLs (e.g., the test pipeline),
+      # the base image tag will be 'ltscxxx', which differs from the values specified in parts/common/component.json.
+      # As a result, cache validation behaves differently. To address this, we check if the container base image URL is set,
+      # and use this environment variable to control the cache validation logic in run-test.sh.
+      if [[ -n "${{ parameters.windowsNanoImageUrl }}" || -n "${{ parameters.windowsCoreImageUrl }}" || -n "${{ parameters.windowsContainerImageJsonUrl }}" ]]; then
+        export CONTAINTER_BASE_URLS_EXISTING=true
+      else
+        export CONTAINTER_BASE_URLS_EXISTING=false
+      fi
+      echo "CONTAINTER_BASE_URLS_EXISTING is $CONTAINTER_BASE_URLS_EXISTING"
+
+      ./vhdbuilder/packer/test/run-test.sh
+    displayName: Run VHD cache test
+    # I've seen some transient failures which seem timeing related so let's retry for now
+    retryCountOnTaskFailure: 1
+    env:
+      AZURE_LOCATION: $(AZURE_BUILD_LOCATION)
+      WINDOWS_SKU: ${{ parameters.windowsSku }}
+      SKIP_EXTENSION_CHECK: ${{ parameters.skipExtensionCheck }}
+      INSTALL_OPEN_SSH_SERVER: ${{ parameters.installOpenSshServer }}
+      SKIPVALIDATEREOFFERUPDATE: $(SKIPVALIDATEREOFFERUPDATE)
+      OS_TYPE: "Windows"
+      MODE: $(MODE)
+      FEATURE_FLAGS: $(FEATURE_FLAGS)
+      VHD_DEBUG: ${{ parameters.vhddebug }}
+      SIG_GALLERY_NAME: $(SIG_GALLERY_NAME)
+      SIG_IMAGE_NAME: $(SIG_IMAGE_NAME)
+      SIG_IMAGE_VERSION: $(SIG_IMAGE_VERSION)
+      ARCHITECTURE: ${{ parameters.architecture }}
+      GIT_BRANCH: $(Build.SourceBranch)
+
+  # We can upload release notes for check-in pr and sig mode to validate whether it is expected.
+  # Use jq to reformat the image-bom.json file
+  - bash: |
+      set -e
+      # don't echo commands otherwise ADO processes the setvariable twice and all goes wrong.
+      set +x
+      sudo chmod 777 image-bom.json
+      jq . image-bom.json > tmp.json
+
+      echo "Reading image version from image-bom.json"
+      AKS_WINDOWS_IMAGE_VERSION=$(cat image-bom.json | jq -r '.imageVersion')
+      echo "##vso[task.setvariable variable=AKS_WINDOWS_IMAGE_VERSION]$AKS_WINDOWS_IMAGE_VERSION"
+      echo "Image version: $AKS_WINDOWS_IMAGE_VERSION"
+
+      mv tmp.json ${AKS_WINDOWS_IMAGE_VERSION}-image-list.json
+      cp release-notes.txt ${AKS_WINDOWS_IMAGE_VERSION}.txt
+    displayName: Reformat image-bom.json and rename release-notes.txt
+
+  - task: PublishPipelineArtifact@0
+    inputs:
+      artifactName: 'vhd-release-notes-${{ parameters.artifactName }}'
+      targetPath: '$(AKS_WINDOWS_IMAGE_VERSION).txt'
+
+  # We can upload image bom json for check-in pr and sig mode to validate whether it is expected.
+  - task: PublishPipelineArtifact@0
+    inputs:
+      artifactName: 'vhd-image-list-${{ parameters.artifactName }}'
+      targetPath: '$(AKS_WINDOWS_IMAGE_VERSION)-image-list.json'
+
+  # Moved conversion to VHD before cleanup.
+  # Gen 2 packer outputs a sig in destination. This step: dest sig=>disk=>VHD in classic SA for publishing.
+  # Credentials and resource group name come from the BUILD_**** pipeline variables because source sig is in the build subscription.
+  - bash: |
+      set -e
+      # because SUBSCRIPTION_ID and LOCATION are defined as a pipeline variable, setting this in the "env" section below doesn't work.
+      export LOCATION=$(AZURE_BUILD_LOCATION)
+
+      export SIG_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "sig_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')"
+      export CAPTURED_SIG_VERSION="$(cat vhdbuilder/packer/settings.json | grep "captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')"
+
+      make -f packer.mk convert-sig-to-classic-storage-account-blob
+    displayName: Convert Shared Image Gallery To VHD Blob In Classic Storage Account
+    condition: and(eq('${{ parameters.dryrun }}', 'False'), eq(variables.SIG_FOR_PRODUCTION, 'True'), succeeded())
+    env:
+      LOCATION: $(AZURE_BUILD_LOCATION)
+      RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
+      OS_TYPE: "Windows"
+      CLASSIC_BLOB: $(STORAGE_ACCT_BLOB_URL)
+      SKIP_EXTENSION_CHECK: ${{ parameters.skipExtensionCheck }}
+      SIG_GALLERY_NAME: $(SIG_GALLERY_NAME)
+      SIG_IMAGE_VERSION: $(SIG_IMAGE_VERSION)
+
+  # SA_NAME:             Temporary storage account name
+  # IMPORTED_IMAGE_NAME: Build output for windowsVhdMode is SIG. Packer does not support building a SIG from raw
+  #                      VHD blob directly. Will use this as an intermediate sig to import from raw VHD url.
+  #                      Can be deleted after building.
+  # SIG_IMAGE_NAME:      Packer-generated SIG image for windowsVhdMode. (Gen 2 included) If SIG_FOR_PRODUCTION = True
+  #                      This image should be deleted. Otherwise, we keep it.
+  #                      Used to define the IMAGE_NAME below.
+  # IMAGE_NAME:          Managed image created by packer: ManagedImageName in log. No longer used.
+  #                      Can be cleaned up in this step.
+  - bash: |
+      set -e
+
+      export PKR_RG_NAME="$(cat packer-output | grep -a "ResourceGroupName" | cut -d "'" -f 2 | head -1)"
+      export SA_NAME="$(cat packer-output | grep -a "storage name:" | cut -d " " -f 3)"
+      export IMPORTED_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "imported_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')"
+      export SIG_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "sig_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')"
+      export IMAGE_NAME="$(cat packer-output | grep -a "ManagedImageName:" | cut -d " " -f 2)"
+
+      ./vhdbuilder/packer/cleanup.sh
+    displayName: Clean Up Packer Generated Resources
+    condition: always()
+    env:
+      MODE: $(MODE)
+      DRY_RUN: ${{ parameters.dryrun }}
+      VNET_RESOURCE_GROUP_NAME: $(VNET_RESOURCE_GROUP_NAME)
+      TEST_VM_RESOURCE_GROUP_NAME: $(TEST_VM_RESOURCE_GROUP_NAME)
+      SKIP_EXTENSION_CHECK: ${{ parameters.skipExtensionCheck }}
+      WINDOWS_SKU: ${{ parameters.windowsSku }}
+      SIG_GALLERY_NAME: $(SIG_GALLERY_NAME)
+      SIG_IMAGE_VERSION: $(SIG_IMAGE_VERSION)
+      SIG_FOR_PRODUCTION: $(SIG_FOR_PRODUCTION)
+      OS_TYPE: "Windows"
+
+  # Set VHD_NAME and SKU_NAME which will be published.
+  # Note: use -a to grep OS_DISK_SAS (packer-output should be read as a binary file in Linux)
+  # Perform this step only if we want to publish the VHD: Gen 1 or Gen 2 and the built sig is for production.
+  - bash: |
+      set -e
+
+      if [[ "${SIG_FOR_PRODUCTION}" == "True" ]]; then
+        export captured_sig_version="$(cat vhdbuilder/packer/settings.json | grep "captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')"
+        [ -n "${captured_sig_version}" ] && export VHD_NAME="${captured_sig_version}.vhd";
+      else
+        export OS_DISK_SAS="$(cat packer-output | grep -a "OSDiskUriReadOnlySas:" | cut -d " " -f 2)";
+        export VHD_NAME="$(echo $OS_DISK_SAS | cut -d "/" -f 8 | cut -d "?" -f 1)";
+      fi
+      export SKU_NAME="windows-$WINDOWS_SKU";
+
+      make -f packer.mk generate-publishing-info
+    displayName: Getting Shared Access Signature URI
+    condition: and(succeeded(), eq('${{ parameters.dryrun }}', 'False'), eq(variables.SIG_FOR_PRODUCTION, 'True'))
+    env:
+      SUBSCRIPTION_ID: $(AZURE_PROD_SUBSCRIPTION_ID)
+      STORAGE_ACCT_BLOB_URL: $(STORAGE_ACCT_BLOB_URL)
+      VHD_NAME: $(VHD_NAME)
+      OS_NAME: "Windows"
+      SKIP_EXTENSION_CHECK: ${{ parameters.skipExtensionCheck }}
+      SKU_NAME: $(SKU_NAME)
+      OFFER_NAME: "Windows"
+      MODE: $(MODE)
+      IMAGE_VERSION: $(AKS_WINDOWS_IMAGE_VERSION)
+      HYPERV_GENERATION: ${{ parameters.hyperVGeneration }}
+      OS_TYPE: "Windows"
+      WINDOWS_SKU: ${{ parameters.windowsSku }}
+
+  # Will be stepped in if the sig is for production
+  - task: PublishPipelineArtifact@1
+    inputs:
+      artifactName: 'publishing-info-${{ parameters.artifactName }}'
+      targetPath: 'vhd-publishing-info.json'
+    condition: and(succeeded(), eq('${{ parameters.dryrun }}', 'False'), eq(variables.SIG_FOR_PRODUCTION, 'True'))

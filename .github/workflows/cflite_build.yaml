@@ -1,0 +1,31 @@
+name: ClusterFuzzLite continuous builds
+on:
+  push:
+    branches:
+      - ace/fuzzLite  # Use your actual default branch here.
+
+permissions: read-all
+jobs:
+  Build:
+   runs-on: ubuntu-24.04
+   concurrency:
+     group: ${{ github.workflow }}-${{ matrix.sanitizer }}-${{ github.ref }}
+     cancel-in-progress: true
+   strategy:
+     fail-fast: false
+     matrix:
+      sanitizer: [address, undefined]  # Override this with the sanitizers you want.
+   steps:
+   - name: Build Fuzzers (${{ matrix.sanitizer }})
+     id: build
+     uses: google/clusterfuzzlite/actions/build_fuzzers@v1
+     with:
+        language: go # Change this to the language you are fuzzing.
+        sanitizer: ${{ matrix.sanitizer }}
+        parallel-fuzzing: True
+        minimize-crashes: True
+        upload-build: true
+        storage-repo: https://${{ secrets.PERSONAL_ACCESS_TOKEN }}@github.com/alexeldeib/agentbaker-corpus.git
+        storage-repo-branch: main   # Optional. Defaults to "main"
+        storage-repo-branch-coverage: gh-pages  # Optional. Defaults to "gh-pages".
+

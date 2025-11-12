@@ -1,0 +1,19 @@
+name: Shell/Bash Script Unit Tests
+on: pull_request
+
+jobs:
+  shellspec:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v5
+    - uses: actions/setup-go@v6
+      with:
+        go-version: '1.24'
+    - run: |
+        make shellspec-ci
+      name: Run shell/bash script unit tests with shellspec
+    - run: echo "Shell/Bash script unit tests failed. Please check the logs for details. To run the shellspec unit tests locally, please refer to ./spec/README.md"
+      if: failure()
+      name: Print failure message
+    - run: echo "Shell/Bash script unit tests completed successfully!"
+      name: Print completion message

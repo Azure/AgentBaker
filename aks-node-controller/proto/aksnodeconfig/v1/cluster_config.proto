@@ -1,0 +1,77 @@
+syntax = "proto3";
+package aksnodeconfig.v1;
+
+option go_package = "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1;aksnodeconfigv1";
+
+// Cluster Config fields stored in azure.json used by cloud-provider-azure
+message ClusterConfig {
+  // Cluster network config. We assumed network mode is always "transparent" now so it's removed from the contract.
+  ClusterNetworkConfig cluster_network_config = 1;
+
+  // Load balancer config
+  LoadBalancerConfig load_balancer_config = 2;
+
+  // Rescource group name
+  string resource_group = 3;
+
+  // Location
+  string location = 4;
+
+  // VM type
+  VmType vm_type = 5; // default to standard for v1.27 and below versions and vmss for v1.28+ versions
+
+  // Primary availability set name
+  string primary_availability_set = 6;
+
+  // Primary scale set name
+  string primary_scale_set = 7;
+
+  // Specifiy if it uses instance metadata
+  bool use_instance_metadata = 8; // default to false
+}
+
+enum VmType {
+  VM_TYPE_UNSPECIFIED = 0;
+  VM_TYPE_STANDARD = 1;
+  VM_TYPE_VMSS = 2;
+}
+
+message ClusterNetworkConfig {
+  // Virtual network name
+  string vnet_name = 1;
+
+  // Virtual network resource group
+  string vnet_resource_group = 2;
+
+  // Subnet name
+  string subnet = 3;
+
+  // Network security group name
+  string security_group_name = 4;
+
+  // Route table name
+  string route_table = 5;
+
+  // CoreDNS serviceIP of the cluster
+  string core_dns_service_ip = 6;
+}
+
+message LoadBalancerConfig {
+  // Load balancer sku, default to basic
+  LoadBalancerSku load_balancer_sku = 1;
+
+  // Specify if master node should be excluded from standard load balancer, default to true
+  optional bool exclude_master_from_standard_load_balancer = 2;
+
+  // Maximum number of load balancer rules, default to 148
+  optional int32 max_load_balancer_rule_count = 3;
+
+  // Disable outbound SNAT (Source Network Address Translation) for load balancer, default to false
+  bool disable_outbound_snat = 4;
+}
+
+enum LoadBalancerSku {
+  LOAD_BALANCER_SKU_UNSPECIFIED = 0;
+  LOAD_BALANCER_SKU_BASIC = 1;
+  LOAD_BALANCER_SKU_STANDARD = 2;
+}

@@ -1,0 +1,351 @@
+#cloud-config
+
+write_files:
+- path: {{GetCSEHelpersScriptFilepath}}
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "provisionSource"}}
+
+
+{{if IsMariner}}
+- path: {{GetCSEHelpersScriptDistroFilepath}}
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "provisionSourceMariner"}}
+{{- else if IsFlatcar }}
+- path: {{GetCSEHelpersScriptDistroFilepath}}
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "provisionSourceFlatcar"}}
+{{- else }}
+- path: {{GetCSEHelpersScriptDistroFilepath}}
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "provisionSourceUbuntu"}}
+{{end}}
+
+{{ if not IsCustomImage -}}
+- path: /opt/azure/containers/provision_start.sh
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "provisionStartScript"}}
+{{- end }}
+
+- path: /opt/azure/containers/provision.sh
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "provisionScript"}}
+
+- path: {{GetCSEInstallScriptFilepath}}
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "provisionInstalls"}}
+
+- path: /opt/azure/containers/provision_redact_cloud_config.py
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "provisionRedactCloudConfig"}}
+
+- path: /opt/azure/containers/provision_send_logs.py
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "provisionSendLogs"}}
+
+{{if IsMariner}}
+- path: {{GetCSEInstallScriptDistroFilepath}}
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "provisionInstallsMariner"}}
+{{- else if IsFlatcar }}
+- path: {{GetCSEInstallScriptDistroFilepath}}
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "provisionInstallsFlatcar"}}
+{{- else }}
+- path: {{GetCSEInstallScriptDistroFilepath}}
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "provisionInstallsUbuntu"}}
+{{end}}
+
+- path: {{GetCSEConfigScriptFilepath}}
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "provisionConfigs"}}
+
+- path: /opt/azure/manifest.json
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "componentManifestFile"}}
+
+- path: {{GetInitAKSCustomCloudFilepath}}
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "initAKSCustomCloud"}}
+
+- path: /opt/azure/containers/reconcilePrivateHosts.sh
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "reconcilePrivateHostsScript"}}
+
+- path: /etc/systemd/system/reconcile-private-hosts.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "reconcilePrivateHostsService"}}
+
+- path: /etc/systemd/system/kubelet.service
+  permissions: "0600"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "kubeletSystemdService"}}
+
+- path: /etc/systemd/system/secure-tls-bootstrap.service
+  permissions: "0600"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "secureTLSBootstrapService"}}
+
+- path: /etc/systemd/system/mig-partition.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "migPartitionSystemdService"}}
+
+- path: /opt/azure/containers/mig-partition.sh
+  permissions: "0544"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "migPartitionScript"}}
+
+{{if IsMariner}}
+- path: /opt/azure/containers/mariner-package-update.sh
+  permissions: "0544"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "packageUpdateScriptMariner"}}
+
+- path: /etc/systemd/system/snapshot-update.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "packageUpdateServiceMariner"}}
+
+- path: /etc/systemd/system/snapshot-update.timer
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "packageUpdateTimerMariner"}}
+{{- else if not IsFlatcar }}
+- path: /opt/azure/containers/ubuntu-snapshot-update.sh
+  permissions: "0544"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "snapshotUpdateScript"}}
+
+- path: /etc/systemd/system/snapshot-update.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "snapshotUpdateService"}}
+
+- path: /etc/systemd/system/snapshot-update.timer
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "snapshotUpdateTimer"}}
+{{end}}
+
+- path: /opt/azure/containers/bind-mount.sh
+  permissions: "0544"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "bindMountScript"}}
+
+- path: /etc/systemd/system/bind-mount.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "bindMountSystemdService"}}
+
+- path: {{GetDHCPv6ServiceCSEScriptFilepath}}
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "dhcpv6SystemdService"}}
+
+- path: /opt/azure/containers/enable-dhcpv6.sh
+  permissions: "0544"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "dhcpv6ConfigurationScript"}}
+
+- path: /etc/systemd/system/containerd.service.d/exec_start.conf
+  permissions: "0644"
+  owner: root
+  content: |
+    [Service]
+    ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
+    #EOF
+
+- path: /etc/crictl.yaml
+  permissions: "0644"
+  owner: root
+  content: |
+    runtime-endpoint: unix:///run/containerd/containerd.sock
+    #EOF
+
+- path: /etc/systemd/system/ensure-no-dup.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "ensureNoDupEbtablesService"}}
+
+- path: /opt/azure/containers/ensure-no-dup.sh
+  permissions: "0755"
+  owner: root
+  encoding: gzip
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "ensureNoDupEbtablesScript"}}
+
+- path: /opt/azure/containers/kubelet.sh
+  permissions: "0755"
+  owner: root
+  content: |
+    #!/bin/bash
+    # Disallow container from reaching out to the special IP address 168.63.129.16
+    # for TCP protocol (which http uses)
+    #
+    # 168.63.129.16 contains protected settings that have priviledged info.
+    # HostGAPlugin (Host-GuestAgent-Plugin) is a web server process that runs on the physical host that serves the operational and diagnostic needs of the in-VM Guest Agent.
+    # IT listens on both port 80 and 32526 hence access is only needed for agent but not the containers.
+    #
+    # The host can still reach 168.63.129.16 because it goes through the OUTPUT chain, not FORWARD.
+    #
+    # Note: we should not block all traffic to 168.63.129.16. For example UDP traffic is still needed
+    # for DNS.
+    iptables -I FORWARD -d 168.63.129.16 -p tcp --dport 80 -j DROP
+    iptables -I FORWARD -d 168.63.129.16 -p tcp --dport 32526 -j DROP
+
+- path: /opt/azure/containers/ensure_imds_restriction.sh
+  permissions: "0755"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "ensureIMDSRestrictionScript"}}
+
+{{- if ShouldEnableCustomData }}
+- path: /opt/azure/containers/cloud-init-status-check.sh
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "cloudInitStatusCheckScript"}}
+{{- end }}
+
+- path: /opt/azure/containers/measure-tls-bootstrapping-latency.sh
+  permissions: "0755"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "measureTLSBootstrappingLatencyScript"}}
+
+- path: /etc/systemd/system/measure-tls-bootstrapping-latency.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "measureTLSBootstrappingLatencyService"}}
+
+- path: /opt/azure/containers/validate-kubelet-credentials.sh
+  permissions: "0755"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "validateKubeletCredentialsScript"}}
+
+- path: /etc/kubernetes/certs/ca.crt
+  permissions: "0600"
+  encoding: base64
+  owner: root
+  content: |
+    {{GetParameter "caCertificate"}}
+
+- path: {{GetCustomSearchDomainsCSEScriptFilepath}}
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "customSearchDomainsScript"}}
+
+{{if ShouldEnableLocalDNS}}
+- path: /opt/azure/containers/localdns/localdns.corefile
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetGeneratedLocalDNSCoreFile}}
+
+- path: /etc/systemd/system/localdns.slice
+  permissions: "0644"
+  owner: root
+  content: |
+    [Unit]
+    Description=localdns Slice
+    DefaultDependencies=no
+    Before=slices.target
+    Requires=system.slice
+    After=system.slice
+
+    [Slice]
+    MemoryMax={{GetLocalDNSMemoryLimitInMB}}
+    CPUQuota={{GetLocalDNSCPULimitInPercentage}}
+{{- end}}

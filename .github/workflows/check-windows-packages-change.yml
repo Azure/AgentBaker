@@ -1,0 +1,80 @@
+name: Make windows components change PR review comment
+on: pull_request
+
+jobs:
+  compare-components-output:
+    name: Compare components.json and windows_settings.json for each windows VHD
+    runs-on: windows-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v5
+        with:
+          ref: master
+          path: master
+          fetch-depth: 1
+
+      - name: Check out repository code
+        uses: actions/checkout@v5
+        with:
+          path: pr
+          fetch-depth: 1
+
+      - name: Produce vhd files - master
+        id: makeDiff
+        shell: pwsh
+        run: |
+          cd pr
+          $DIFF_DIR="vhd_files"
+
+          mkdir -Force "${DIFF_DIR}"
+          
+          pwsh -c vhdbuilder/scripts/windows/generate_cached_stuff_list.ps1 "${DIFF_DIR}" vhdbuilder/packer/windows/components_json_helpers.ps1 ../master/vhdbuilder/packer/windows/windows_settings.json ../master/parts/common/components.json 
+         
+          git add "${DIFF_DIR}"
+          git config user.email "you@example.com"
+          git config user.name "Your Name"
+          git commit -m "versions of files from master"
+
+          pwsh -c vhdbuilder/scripts/windows/generate_cached_stuff_list.ps1 "${DIFF_DIR}" vhdbuilder/packer/windows/components_json_helpers.ps1 vhdbuilder/packer/windows/windows_settings.json parts/common/components.json 
+          
+          $diffFile = "../diff.md"
+          git diff --quiet -- "${DIFF_DIR}"
+          if ( $LASTEXITCODE -eq "0" ) {
+            # This line is commented out to reduce noise in the PRs
+            # Write-Output "No changes to cached containers or packages on Windows VHDs" > $diffFile
+          } else {
+            Write-Output "### Changes cached containers or packages on windows VHDs" > $diffFile
+            Write-Output "Please get a Windows SIG member to approve." >> $diffFile
+            Write-Output "" >> $diffFile
+            Write-Output "The following dif file shows any additions or deletions from what will be cached on windows VHDs organised by VHD type." >> $diffFile
+            Write-Output "* Additions are new things cached." >> $diffFile
+            Write-Output "* Deletions are things no longer cached." >> $diffFile
+            Write-Output "" >> $diffFile
+            Write-Output "" >> $diffFile
+            Write-Output '```diff' >> $diffFile
+            git diff --unified=0 -- "${DIFF_DIR}" >> $diffFile
+            Write-Output '```' >> $diffFile
+          
+            dir $diffFile
+            Get-Content $diffFile
+          }
+
+      - name: remove comment from PR
+        # Removing and then adding the comment means that the comment will always appear at the bottom of the PR.
+        uses: thollander/actions-comment-pull-request@v3
+        with:
+          mode: delete
+          comment-tag: "WINDOWS_VHD_CONTENT_DIFF"
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+
+      - name: Add comment to PR
+        uses: thollander/actions-comment-pull-request@v3
+        if: ${{ hashFiles('diff.md') != '' }}
+        with:
+          file-path: "diff.md"
+          comment-tag: "WINDOWS_VHD_CONTENT_DIFF"
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}

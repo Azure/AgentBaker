@@ -1,0 +1,204 @@
+{
+    "variables": {
+        "build_branch": "{{env `GIT_BRANCH`}}",
+        "build_commit": "{{env `GIT_VERSION`}}",
+        "build_id": "{{env `BUILD_ID`}}",
+        "build_number": "{{env `BUILD_NUMBER`}}",
+        "build_definition_name": "{{env `BUILD_DEFINITION_NAME`}}",
+        "img_sku": "{{env `WINDOWS_SKU`}}",
+        "build_repo": "{{env `GIT_REPO`}}",
+        "windows_sku": "{{env `WINDOWS_SKU`}}",
+        "subscription_id": "{{env `AZURE_SUBSCRIPTION_ID`}}",
+        "location": "{{env `PACKER_BUILD_LOCATION`}}",
+        "vm_size": "{{env `AZURE_VM_SIZE`}}",
+        "windows_image_sku": "{{env `WINDOWS_IMAGE_SKU`}}",
+        "windows_image_version": "{{env `WINDOWS_IMAGE_VERSION`}}",
+        "sig_gallery_name": "{{env `SIG_GALLERY_NAME`}}",
+        "sig_image_name": "{{env `SIG_IMAGE_NAME`}}",
+        "sig_image_version": "{{env `SIG_IMAGE_VERSION`}}",
+        "windows_patch_url": "{{env `WINDOWS_PATCH_URL`}}",
+        "vnet_name": "{{env `VNET_NAME`}}",
+        "subnet_name": "{{env `SUBNET_NAME`}}",
+        "build_date": "{{env `BUILD_DATE`}}",
+        "branch": "{{env `BRANCH`}}",
+        "vnet_resource_group_name": "{{env `VNET_RESOURCE_GROUP_NAME`}}", 
+        "windows_cse_package_uri": "{{env `WINDOWS_CSE_PACKAGE_URI`}}"
+    },
+    "builders": [
+        {
+            "type": "azure-arm",
+            "subscription_id": "{{user `subscription_id`}}",
+            "location": "{{user `location`}}",
+            "vm_size": "{{user `vm_size`}}",
+            "os_disk_size_gb": "{{user `os_disk_size_gb`}}",
+            "os_type": "Windows",
+            "image_publisher": "{{user `windows_image_publisher`}}",
+            "image_offer": "{{user `windows_image_offer`}}",
+            "image_sku": "{{user `windows_image_sku`}}",
+            "image_version": "{{user `windows_image_version`}}",
+            "image_url": "{{user `windows_image_url`}}",
+            "shared_image_gallery": {
+              "subscription": "{{user `windows_sigmode_source_subscription_id`}}",
+              "resource_group": "{{user `windows_sigmode_source_resource_group_name`}}",
+              "gallery_name": "{{user `windows_sigmode_source_gallery_name`}}",
+              "image_name": "{{user `windows_sigmode_source_image_name`}}",
+              "image_version": "{{user `windows_sigmode_source_image_version`}}"
+            },
+            "shared_image_gallery_destination": {
+                "resource_group": "{{user `resource_group_name`}}",
+                "gallery_name": "{{user `sig_gallery_name`}}",
+                "image_name": "{{user `sig_image_name`}}",
+                "image_version": "{{user `sig_image_version`}}",
+                "replication_regions": [
+                    "{{user `location`}}"
+                ]
+            },
+            "polling_duration_timeout": "1h",
+            "communicator": "winrm",
+            "winrm_use_ssl": true,
+            "winrm_insecure": true,
+            "winrm_timeout": "10m",
+            "winrm_username": "packer",
+            "azure_tags": {
+                "os": "Windows",
+                "now": "{{user `create_time`}}",
+                "createdBy": "aks-vhd-pipeline",
+                "SkipASMAzSecPack": "True",
+                "SkipASMAV": "True",
+                "SkipCIExtensionAudit": "True",
+                "SkipCIEmergency": "True",
+                "buildDefinitionName": "{{user `build_definition_name`}}",
+                "buildNumber": "{{user `build_number`}}",
+                "buildId": "{{user `build_id`}}",
+                "image_sku": "{{user `img_sku`}}",
+                "branch": "{{user `branch`}}"
+            },
+            "virtual_network_resource_group_name": "{{user `vnet_resource_group_name`}}",
+            "virtual_network_name": "{{user `vnet_name`}}",
+            "virtual_network_subnet_name": "{{user `subnet_name`}}",
+            "user_assigned_managed_identities": "{{user `msi_resource_strings`}}"
+        }
+    ],
+    "provisioners": [
+        {
+            "type": "file",
+            "direction": "upload",
+            "sources": [
+                "parts/common/components.json",
+                "vhdbuilder/packer/windows/windows-vhd-configuration.ps1",
+                "vhdbuilder/packer/windows/windows_settings.json",
+                "vhdbuilder/packer/windows/components_json_helpers.ps1"
+            ],
+            "destination": "c:/k/"
+        },       
+        {
+        "type": "file",
+        "direction": "upload",
+        "sources": [
+            "{{user `windows_cse_package_uri`}}"
+        ],
+        "destination": "c:/akse-cache/"
+        },
+        {
+            "elevated_user": "packer",
+            "elevated_password": "{{.WinRMPassword}}",
+            "environment_vars": [
+                "ProvisioningPhase=1",
+                "WindowsSKU={{user `windows_sku`}}",
+                "CustomizedDiskSize={{user `os_disk_size_gb`}}",
+                "INSTALL_OPEN_SSH_SERVER={{ user `INSTALL_OPEN_SSH_SERVER` }}"
+            ],
+            "type": "powershell",
+            "scripts": [
+                "vhdbuilder/packer/windows/configure-windows-vhd.ps1"
+            ]
+        },
+        {
+            "restart_timeout": "10m",
+            "type": "windows-restart"
+        },
+        {
+            "elevated_user": "packer",
+            "elevated_password": "{{.WinRMPassword}}",
+            "environment_vars": [
+                "ProvisioningPhase=2",
+                "WindowsSKU={{user `windows_sku`}}",
+                "CustomizedDiskSize={{user `os_disk_size_gb`}}",
+                "WindowsNanoServerImageURL={{user `nano_image_url`}}",
+                "WindowsServerCoreImageURL={{user `core_image_url`}}",
+                "WindowsPrivatePackagesURL={{user `windows_private_packages_url`}}",
+                "INSTALL_OPEN_SSH_SERVER={{ user `INSTALL_OPEN_SSH_SERVER` }}"
+            ],
+            "type": "powershell",
+            "scripts": [
+                "vhdbuilder/packer/windows/configure-windows-vhd.ps1"
+            ]
+        },
+        {
+            "restart_timeout": "10m",
+            "type": "windows-restart"
+        },
+        {
+            "elevated_user": "packer",
+            "elevated_password": "{{.WinRMPassword}}",
+            "environment_vars": [
+                "ProvisioningPhase=3",
+                "WindowsSKU={{user `windows_sku`}}",
+                "SKIP_EXTENSION_CHECK={{ user `SKIP_EXTENSION_CHECK` }}",
+                "INSTALL_OPEN_SSH_SERVER={{ user `INSTALL_OPEN_SSH_SERVER` }}"
+            ],
+            "type": "powershell",
+            "scripts": [
+                "vhdbuilder/packer/windows/configure-windows-vhd.ps1"
+            ]
+        },
+        {
+            "type": "file",
+            "direction": "upload",
+            "source": "vhdbuilder/notice_windows.txt",
+            "destination": "c:\\NOTICE.txt"
+        },
+        {
+            "elevated_user": "packer",
+            "elevated_password": "{{.WinRMPassword}}",
+            "environment_vars": [
+                "WindowsSKU={{user `windows_sku`}}",
+                "BUILD_BRANCH={{user `build_branch`}}",
+                "BUILD_COMMIT={{user `build_commit`}}",
+                "BUILD_ID={{user `build_id`}}",
+                "BUILD_NUMBER={{user `build_number`}}",
+                "BUILD_REPO={{user `build_repo`}}"
+            ],
+            "type": "powershell",
+            "script": "vhdbuilder/packer/windows/write-release-notes-windows.ps1"
+        },
+        {
+            "elevated_user": "packer",
+            "elevated_password": "{{.WinRMPassword}}",
+            "environment_vars": [
+                "WindowsSKU={{user `windows_sku`}}",
+                "BuildDate={{user `build_date`}}"
+            ],
+            "type": "powershell",
+            "script": "vhdbuilder/packer/windows/list-images.ps1"
+        },
+        {
+            "type": "file",
+            "direction": "download",
+            "source": "c:\\release-notes.txt",
+            "destination": "release-notes.txt"
+        },
+        {
+            "type": "file",
+            "direction": "download",
+            "source": "c:\\image-bom.json",
+            "destination": "image-bom.json"
+        },
+        {
+            "elevated_user": "packer",
+            "elevated_password": "{{.WinRMPassword}}",
+            "type": "powershell",
+            "script": "vhdbuilder/packer/windows/sysprep.ps1"
+        }
+    ]
+}

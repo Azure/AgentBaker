@@ -1,0 +1,19 @@
+Release notes for security patch 20251005T000000Z timestamp
+Package difference between 20250919T000000Z and 20251005T000000Z
+No packages found
+No reboot required
+
+Package difference between AKSUbuntu-2204gen2containerd-202509.18.0 and 20251005T000000Z
+Reboot required
+Upgrade: dpkg-dev:amd64 (1.21.1ubuntu2.3, 1.21.1ubuntu2.6), libdpkg-perl:amd64 (1.21.1ubuntu2.3, 1.21.1ubuntu2.6)
+Upgrade: libcurl4:amd64 (7.81.0-1ubuntu1.20, 7.81.0-1ubuntu1.21), curl:amd64 (7.81.0-1ubuntu1.20, 7.81.0-1ubuntu1.21)
+Upgrade: linux-cloud-tools-common:amd64 (5.15.0-153.163, 5.15.0-157.167)
+Upgrade: libc-bin:amd64 (2.35-0ubuntu3.10, 2.35-0ubuntu3.11)
+Upgrade: linux-libc-dev:amd64 (5.15.0-153.163, 5.15.0-157.167)
+Upgrade: linux-tools-common:amd64 (5.15.0-153.163, 5.15.0-157.167)
+Upgrade: openssl:amd64 (3.0.2-0ubuntu1.19, 3.0.2-0ubuntu1.20)
+Upgrade: libssl3:amd64 (3.0.2-0ubuntu1.19, 3.0.2-0ubuntu1.20)
+Upgrade: dpkg:amd64 (1.21.1ubuntu2.3, 1.21.1ubuntu2.6)
+Upgrade: libcurl3-gnutls:amd64 (7.81.0-1ubuntu1.20, 7.81.0-1ubuntu1.21)
+Upgrade: libc6:amd64 (2.35-0ubuntu3.10, 2.35-0ubuntu3.11), libc-dev-bin:amd64 (2.35-0ubuntu3.10, 2.35-0ubuntu3.11), libc6-dev:amd64 (2.35-0ubuntu3.10, 2.35-0ubuntu3.11)
+Upgrade: locales:amd64 (2.35-0ubuntu3.10, 2.35-0ubuntu3.11)

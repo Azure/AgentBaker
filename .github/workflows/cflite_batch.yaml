@@ -1,0 +1,43 @@
+name: ClusterFuzzLite batch fuzzing
+on:
+  workflow_dispatch: {}
+  push:
+    branches:
+      - master  # Use your actual default branch here.
+      - ace/fuzzLite
+  schedule:
+    - cron: '*/15 * * * *'  # Every 15min. Change this to whatever is suitable.
+
+permissions: read-all
+
+jobs:
+  BatchFuzzing:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        sanitizer: [address, undefined]  # Override this with the sanitizers you want.
+    steps:
+    - name: Build Fuzzers (${{ matrix.sanitizer }})
+      id: build
+      uses: google/clusterfuzzlite/actions/build_fuzzers@cc641d4b14fedd42be7c34f57580f80eee020e36
+      with:
+        language: go
+        sanitizer: ${{ matrix.sanitizer }}
+        storage-repo: https://${{ secrets.PERSONAL_ACCESS_TOKEN }}@github.com/alexeldeib/agentbaker-corpus.git
+        storage-repo-branch: main   # Optional. Defaults to "main"
+        storage-repo-branch-coverage: gh-pages  # Optional. Defaults to "gh-pages".
+    - name: Run Fuzzers (${{ matrix.sanitizer }})
+      id: run
+      uses: google/clusterfuzzlite/actions/run_fuzzers@cc641d4b14fedd42be7c34f57580f80eee020e36
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        fuzz-seconds: 3600
+        mode: 'batch'
+        language: go
+        sanitizer: ${{ matrix.sanitizer }}
+        parallel-fuzzing: true
+        minimize-crashes: true
+        storage-repo: https://${{ secrets.PERSONAL_ACCESS_TOKEN }}@github.com/alexeldeib/agentbaker-corpus.git
+        storage-repo-branch: main   # Optional. Defaults to "main"
+        storage-repo-branch-coverage: gh-pages  # Optional. Defaults to "gh-pages".

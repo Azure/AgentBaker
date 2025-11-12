@@ -1,0 +1,22 @@
+# Explicitly configure containerd systemd service on Mariner AKS to maintain consistent
+# settings with the containerd.service file previously deployed during cloud-init.
+# Additionally set LimitNOFILE to the exact value "infinity" means on Ubuntu, eg "1048576".
+[Unit]
+Description=containerd daemon
+After=network.target
+[Service]
+ExecStartPre=/sbin/modprobe overlay
+ExecStart=/usr/bin/containerd
+Delegate=yes
+KillMode=process
+Restart=always
+# Explicitly set OOMScoreAdjust to make containerd unlikely to be oom killed
+OOMScoreAdjust=-999
+# Explicitly set LimitNOFILE to match what infinity means on Ubuntu AKS
+LimitNOFILE=1048576
+# Explicitly set LimitCORE, LimitNPROC, and TasksMax to infinity to match Ubuntu AKS
+LimitCORE=infinity
+TasksMax=infinity
+LimitNPROC=infinity
+[Install]
+WantedBy=multi-user.target

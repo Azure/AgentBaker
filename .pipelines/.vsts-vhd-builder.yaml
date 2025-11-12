@@ -1,0 +1,224 @@
+name: $(Date:yyyyMMdd)$(Rev:.r)_$(Build.SourceBranchName)_$(BuildID)
+trigger: none
+pr:
+  branches:
+    include:
+    - master
+    - dev
+    - windows/*
+    - official/*
+  paths:
+    include:
+    - schemas
+    - vhdbuilder/packer
+    - vhdbuilder/scripts/linux
+    - .pipelines/.vsts-vhd-builder.yaml
+    - .pipelines/templates/.builder-release-template.yaml
+    - .pipelines/templates/.template-override-components-json.yaml
+    - .pipelines/templates/.template-copy-file.yaml
+    - .pipelines/templates/e2e-template.yaml
+    - parts/linux/*
+    - packer.mk
+    - aks-node-controller/**
+    - parts/common/components.json
+    - go.mod
+    - go.sum
+    exclude:
+    - schemas/windows_settings.cue
+    - vhdbuilder/release-notes
+    - vhdbuilder/packer/*.ps1
+    - vhdbuilder/packer/**/*.ps1
+    - vhdbuilder/packer/windows
+    - vhdbuilder/packer/*windows*
+    - vhdbuilder/packer/**/*windows*
+    - /**/*.md
+    - .github/**
+    - e2e/scenario_win_test.go
+
+pool:
+  name: $(POOL_NAME)
+
+variables:
+  - group: aks-vuln-to-kusto
+  - group: "AKS Node SIG UA Token (KV)"
+  - group: build_performance
+  - group: aks-vuln-to-kusto-tme
+  - name: TAGS_TO_SKIP
+    value: gpu=true,os=windows
+
+stages:
+  - stage: build
+    jobs:
+    - job: build2004fipsgen2containerd
+      timeoutInMinutes: 180
+      steps:
+        - bash: |
+            echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
+            echo '##vso[task.setvariable variable=OS_VERSION]20.04'
+            echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
+            echo '##vso[task.setvariable variable=IMG_OFFER]0001-com-ubuntu-server-focal'
+            echo '##vso[task.setvariable variable=IMG_SKU]20_04-lts-gen2'
+            echo '##vso[task.setvariable variable=IMG_VERSION]latest'
+            echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
+            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
+            echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
+            echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
+            echo '##vso[task.setvariable variable=ENABLE_FIPS]True'
+            echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
+          displayName: Setup Build Variables
+        - template: ./templates/.builder-release-template.yaml
+          parameters:
+            artifactName: 2004-fips-gen2-containerd
+    - job: build2404gen2containerd
+      timeoutInMinutes: 180
+      steps:
+        - bash: |
+            echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
+            echo '##vso[task.setvariable variable=OS_VERSION]24.04'
+            echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
+            echo '##vso[task.setvariable variable=IMG_OFFER]ubuntu-24_04-lts'
+            echo '##vso[task.setvariable variable=IMG_SKU]server'
+            echo '##vso[task.setvariable variable=IMG_VERSION]latest'
+            echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
+            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
+            echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
+            echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
+            echo '##vso[task.setvariable variable=ENABLE_FIPS]False'
+            echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
+          displayName: Setup Build Variables
+        - template: ./templates/.builder-release-template.yaml
+          parameters:
+            artifactName: 2404-gen2-containerd
+    - job: build2204gen2containerd
+      timeoutInMinutes: 180
+      steps:
+        - bash: |
+            echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
+            echo '##vso[task.setvariable variable=OS_VERSION]22.04'
+            echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
+            echo '##vso[task.setvariable variable=IMG_OFFER]0001-com-ubuntu-server-jammy'
+            echo '##vso[task.setvariable variable=IMG_SKU]22_04-lts-gen2'
+            echo '##vso[task.setvariable variable=IMG_VERSION]latest'
+            echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
+            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
+            echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
+            echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
+            echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
+            echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
+          displayName: Setup Build Variables
+        - template: ./templates/.builder-release-template.yaml
+          parameters:
+            artifactName: 2204-gen2-containerd
+    - job: build2204arm64gen2containerd
+      timeoutInMinutes: 180
+      steps:
+        - bash: |
+            echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
+            echo '##vso[task.setvariable variable=OS_VERSION]22.04'
+            echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
+            echo '##vso[task.setvariable variable=IMG_OFFER]0001-com-ubuntu-server-jammy'
+            echo '##vso[task.setvariable variable=IMG_SKU]22_04-lts-arm64'
+            echo '##vso[task.setvariable variable=IMG_VERSION]latest'
+            echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
+            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16pds_v5'
+            echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
+            echo '##vso[task.setvariable variable=ARCHITECTURE]ARM64'
+            echo '##vso[task.setvariable variable=ENABLE_FIPS]False'
+            echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
+          displayName: Setup Build Variables
+        - template: ./templates/.builder-release-template.yaml
+          parameters:
+            artifactName: 2204-arm64-gen2-containerd
+    - job: buildAzureLinuxV2gen2
+      timeoutInMinutes: 180
+      steps:
+        - bash: |
+            echo '##vso[task.setvariable variable=OS_SKU]AzureLinux'
+            echo '##vso[task.setvariable variable=OS_VERSION]V2'
+            echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
+            echo '##vso[task.setvariable variable=IMG_OFFER]cbl-mariner'
+            echo '##vso[task.setvariable variable=IMG_SKU]cbl-mariner-2-gen2'
+            echo '##vso[task.setvariable variable=IMG_VERSION]latest'
+            echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
+            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
+            echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
+            echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
+            echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
+            echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
+            echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
+          displayName: Setup Build Variables
+        - template: ./templates/.builder-release-template.yaml
+          parameters:
+            artifactName: azurelinuxv2-gen2
+    - job: buildAzureLinuxV3gen2
+      timeoutInMinutes: 180
+      steps:
+        - bash: |
+            echo '##vso[task.setvariable variable=OS_SKU]AzureLinux'
+            echo '##vso[task.setvariable variable=OS_VERSION]V3'
+            echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
+            echo '##vso[task.setvariable variable=IMG_OFFER]azure-linux-3'
+            echo '##vso[task.setvariable variable=IMG_SKU]azure-linux-3-gen2'
+            echo '##vso[task.setvariable variable=IMG_VERSION]latest'
+            echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
+            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
+            echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
+            echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
+            echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
+            echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
+            echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
+          displayName: Setup Build Variables
+        - template: ./templates/.builder-release-template.yaml
+          parameters:
+            artifactName: azurelinuxv3-gen2
+    - job: buildAzureLinuxV3ARM64gen2fips
+      timeoutInMinutes: 180
+      steps:
+        - bash: |
+            echo '##vso[task.setvariable variable=OS_SKU]AzureLinux'
+            echo '##vso[task.setvariable variable=OS_VERSION]V3'
+            echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
+            echo '##vso[task.setvariable variable=IMG_OFFER]azure-linux-3'
+            echo '##vso[task.setvariable variable=IMG_SKU]azure-linux-3-arm64-gen2-fips'
+            echo '##vso[task.setvariable variable=IMG_VERSION]latest'
+            echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
+            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16pds_v5'
+            echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
+            echo '##vso[task.setvariable variable=ARCHITECTURE]ARM64'
+            echo '##vso[task.setvariable variable=ENABLE_FIPS]True'
+            echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
+            echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
+          displayName: Setup Build Variables
+        - template: ./templates/.builder-release-template.yaml
+          parameters:
+            artifactName: azurelinuxv3-gen2-arm64-fips
+    - job: buildMarinerV2gen2
+      timeoutInMinutes: 180
+      steps:
+        - bash: |
+            echo '##vso[task.setvariable variable=OS_SKU]CBLMariner'
+            echo '##vso[task.setvariable variable=OS_VERSION]V2'
+            echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
+            echo '##vso[task.setvariable variable=IMG_OFFER]cbl-mariner'
+            echo '##vso[task.setvariable variable=IMG_SKU]cbl-mariner-2-gen2'
+            echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
+            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
+            echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
+            echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
+            echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
+            echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
+            echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]False'
+          displayName: Setup Build Variables
+        - template: ./templates/.builder-release-template.yaml
+          parameters:
+            artifactName: marinerv2-gen2
+  - stage: e2e
+    condition: and(succeeded(), ne(variables.SKIP_E2E_TESTS, 'true'))
+    variables:
+      VHD_BUILD_ID: $(Build.BuildId)
+      DISABLE_SCRIPTLESS_COMPILATION: true
+    jobs:
+      - template: ./templates/e2e-template.yaml
+        parameters:
+          IgnoreScenariosWithMissingVhd: true
+

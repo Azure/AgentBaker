@@ -1,0 +1,119 @@
+name: Release_$(Date:yyyyMMdd)$(Rev:.r)_$(Build.SourceBranchName)_$(BuildID)
+trigger: none
+
+pool:
+  name: $(POOL_NAME)
+
+variables:
+  - name: VHD_BUILD_ID
+    value: $(Build.BuildId)
+  # if SIG_FOR_PRODUCTION is true, then the VHDs are deleted from the gallery before the e2e tests are run.
+  - name: SIG_FOR_PRODUCTION
+    value: False
+  - name: skipExtensionCheck
+    ${{ if eq(variables.SKIP_EXTENSION_CHECK, '') }}:
+      value: false
+    ${{ else }}:
+      value: ${{ variables.SKIP_EXTENSION_CHECK }}
+
+parameters:
+  - name: build2019containerd
+    displayName: Build 2019 containerd
+    type: boolean
+    default: True
+  - name: build2022containerd
+    displayName: Build 2022 containerd
+    type: boolean
+    default: True
+  - name: build2022containerdgen2
+    displayName: Build 2022 containerd Gen 2
+    type: boolean
+    default: True
+  - name: build23H2
+    displayName: Build 23H2
+    type: boolean
+    default: True
+  - name: build23H2gen2
+    displayName: Build 23H2 Gen 2
+    type: boolean
+    default: True
+  - name: build2025
+    displayName: Build 2025
+    type: boolean
+    default: True
+  - name: build2025gen2
+    displayName: Build 2025 Gen 2
+    type: boolean
+    default: True
+  - name: useContainerUrlsFromJson
+    displayName: Use Container Base URL from JSON
+    type: boolean
+    default: False
+  - name: windowsContainerImageJsonUrl
+    displayName: Windows Container Image Json URL
+    type: string
+    default: https://wcctagentbakerstorage.blob.core.windows.net/simship/2025/07B/payload.json
+  - name: dryrun
+    displayName: Dry run
+    type: boolean
+    default: False
+  - name: vhddebug
+    displayName: VHD Debug
+    type: boolean
+    default: False
+  - name: installOpenSshServer
+    displayName: Install Open SSH Server
+    type: boolean
+    default: True
+  - name: buildVmSize
+    displayName: Build VM Size
+    type: string
+    default: Standard_D16ds_v5
+  - name: useOverrides
+    displayName: Use component overrides
+    type: boolean
+    default: false
+  - name: overrideBranch
+    displayName: Branch in aks-rp to use for overrides
+    type: string
+    default: master
+
+# Use variable group "ab-windows-ame-tenant" and link it to the pipeline "AKS Windows VHD Build"
+# Use variable group "ab-windows-ame-tenant" and link it to the pipeline "AKS Windows VHD Build - PR check-in gate"
+# Use variable group "ab-windows-ms-tenant" and link it to the pipeline "[TEST All VHDs] AKS Windows VHD Build - Msft Tenant"
+
+stages:
+  - stage: CheckUseContainerUrlsFromJson
+    jobs:
+      - job: SetURLToDefault
+        condition: eq(variables['useContainerUrlsFromJson'], 'True')
+        steps:
+          - script: echo "Setting Windows Container Image JSON URL to ${{ parameters.windowsContainerImageJsonUrl }}"
+            displayName: Set Windows Container Image JSON URL
+          - powershell: |
+              Write-Host "##vso[task.setvariable variable=windowsContainerImageJsonUrl]${{ parameters.windowsContainerImageJsonUrl }}"
+            displayName: Set pipeline variable windowsContainerImageJsonUrl
+      - job: SetURLToEmpty
+        condition: eq(variables['useContainerUrlsFromJson'], 'False')
+        steps:
+          - script: echo "Setting Windows Container Image JSON URL to an empty string"
+            displayName: Set Windows Container Image JSON URL to empty
+          - powershell: |
+              Write-Host "##vso[task.setvariable variable=windowsContainerImageJsonUrl;isOutput=true]''"
+            displayName: Set pipeline variable windowsContainerImageJsonUrl to empty
+  - template: ./templates/.build-and-test-windows-vhds-template.yaml
+    parameters:
+      vhddebug: ${{ parameters.vhddebug }}
+      dryrun: ${{ parameters.dryrun }}
+      buildVmSize: ${{ parameters.buildVmSize }}
+      build2019containerd: ${{ parameters.build2019containerd }}
+      build2022containerd: ${{ parameters.build2022containerd }}
+      build2022containerdgen2: ${{ parameters.build2022containerdgen2 }}
+      build23H2: ${{ parameters.build23H2 }}
+      build23H2gen2: ${{ parameters.build23H2gen2 }}
+      build2025:  ${{ parameters.build2025 }}
+      build2025gen2:  ${{ parameters.build2025gen2 }}
+      skipExtensionCheck: ${{ variables.skipExtensionCheck }}
+      installOpenSshServer: ${{ parameters.installOpenSshServer }}
+      overrideBranch: ${{ parameters.overrideBranch }}
+      useOverrides: ${{ parameters.useOverrides }}

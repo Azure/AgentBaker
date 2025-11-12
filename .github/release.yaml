@@ -1,0 +1,18 @@
+changelog:
+  categories:
+    - title: Changes
+      labels:
+        - '*'
+      exclude:
+        labels:
+          - renovate
+          - components
+          - dependabot
+          - ignore-for-release
+    - title: Dependabot Updates
+      labels:
+        - dependabot
+    - title: VHD Component Updates
+      labels:
+        - renovate
+        - components

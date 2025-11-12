@@ -1,0 +1,58 @@
+name: ClusterFuzzLite cron tasks
+on:
+  workflow_dispatch: {}
+  push:
+    branches:
+      - ace/fuzzLite
+  schedule:
+    - cron: '0 */2 * * *'  # every 2 hours
+
+permissions: read-all
+
+jobs:
+  Pruning:
+    runs-on: ubuntu-24.04
+    steps:
+    - name: Build Fuzzers
+      id: build
+      uses: google/clusterfuzzlite/actions/build_fuzzers@v1
+      with:
+        language: go # Change this to the language you are fuzzing
+        storage-repo: https://${{ secrets.PERSONAL_ACCESS_TOKEN }}@github.com/alexeldeib/agentbaker-corpus.git
+        storage-repo-branch: main   # Optional. Defaults to "main"
+        storage-repo-branch-coverage: gh-pages  # Optional. Defaults to "gh-pages".
+    - name: Run Fuzzers
+      id: run
+      uses: google/clusterfuzzlite/actions/run_fuzzers@v1
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        fuzz-seconds: 600
+        mode: 'prune'
+        # Optional but recommended.
+        # See later section on "Git repo for storage".
+        storage-repo: https://${{ secrets.PERSONAL_ACCESS_TOKEN }}@github.com/alexeldeib/agentbaker-corpus.git
+        storage-repo-branch: main   # Optional. Defaults to "main"
+        storage-repo-branch-coverage: gh-pages  # Optional. Defaults to "gh-pages".
+  Coverage:
+    runs-on: ubuntu-24.04
+    steps:
+    - name: Build Fuzzers
+      id: build
+      uses: google/clusterfuzzlite/actions/build_fuzzers@v1
+      with:
+        language: go # Change this to the language you are fuzzing.
+        sanitizer: 'coverage'
+    - name: Run Fuzzers
+      id: run
+      uses: google/clusterfuzzlite/actions/run_fuzzers@cc641d4b14fedd42be7c34f57580f80eee020e36
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        fuzz-seconds: 600
+        mode: 'coverage'
+        sanitizer: 'coverage'
+        language: go
+        # Optional but recommended.
+        # See later section on "Git repo for storage".
+        storage-repo: https://${{ secrets.PERSONAL_ACCESS_TOKEN }}@github.com/alexeldeib/agentbaker-corpus.git
+        storage-repo-branch: main   # Optional. Defaults to "main"
+        storage-repo-branch-coverage: gh-pages  # Optional. Defaults to "gh-pages".

@@ -1,0 +1,56 @@
+name: Windows Files and Images Check
+on: 
+  pull_request:
+    paths:
+      - '.github/workflows/validate-windows-binary-signature.yaml'
+      - 'vhdbuilder/packer/test/windows-files-check.ps1'
+      - 'parts/common/components.json'
+      - 'vhdbuilder/packer/windows/**'
+      - 'vhdbuilder/packer/windows/windows-vhd-configuration.ps1'
+      - 'vhdbuilder/packer/windows/windows_settings.json'
+      - 'vhdbuilder/packer/windows/components_json_helpers.ps1'
+
+jobs:
+  check-files-for-ws2019:
+    name: Check for Windows 2019
+    runs-on: windows-latest
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v5
+      - name: Run check script for 2019-containerd
+        shell: powershell
+        run: |
+          ./vhdbuilder/packer/test/windows-files-check.ps1 2019-containerd
+          
+  check-files-for-ws2022:
+    name: Check for Windows 2022
+    runs-on: windows-latest
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v5
+      - name: Run check script for 2022-containerd
+        shell: powershell
+        run: |
+          ./vhdbuilder/packer/test/windows-files-check.ps1 2022-containerd
+
+  check-files-for-ws2025:
+    name: Check for Windows 2025
+    runs-on: windows-latest
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v5
+      - name: Run check script for 2025
+        shell: powershell
+        run: |
+          ./vhdbuilder/packer/test/windows-files-check.ps1 2025
+
+  check-files-for-ws23H2:
+    name: Check for Windows 23H2
+    runs-on: windows-latest
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v5
+      - name: Run check script for 23H2
+        shell: powershell
+        run: |
+          ./vhdbuilder/packer/test/windows-files-check.ps1 23H2

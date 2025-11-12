@@ -1,0 +1,51 @@
+parameters:
+  - name: name
+    type: string
+    displayName: Additional name for the pipeline step
+    default: ""
+  - name: IgnoreScenariosWithMissingVhd
+    type: boolean
+    displayName: Ignore tests where the VHD can't be loaded
+
+jobs:
+  - job: e2e
+    condition: and(succeeded(), ne(variables.SKIP_E2E_TESTS, 'true'))
+    variables:
+      - group: ab-e2e # all variables prefixed with E2E_* come from this variable group
+    pool:
+      name: $(E2E_POOL_NAME)
+    timeoutInMinutes: 90
+    displayName: Run AgentBaker E2E ${{parameters.name}}
+    steps:
+      - checkout: self
+        # s is the default path for repositories - if we don't set this when using multiple repsositories, then it is the repo name
+        # "s/AgentBaker", but most of the pipeline variables still refer to "s" and many of the scripts below fail.
+        path: s
+        fetchTags: false
+        fetchDepth: 1
+
+      - bash: bash .pipelines/scripts/e2e_run.sh
+        displayName: Run AgentBaker E2E
+        env:
+          E2E_AGENT_IDENTITY_ID: $(E2E_AGENT_IDENTITY_ID)
+          E2E_SUBSCRIPTION_ID: $(E2E_SUBSCRIPTION_ID)
+          BUILD_SRC_DIR: $(System.DefaultWorkingDirectory)
+          DefaultWorkingDirectory: $(Build.SourcesDirectory)
+          VHD_BUILD_ID: $(VHD_BUILD_ID)
+          IGNORE_SCENARIOS_WITH_MISSING_VHD: ${{parameters.IgnoreScenariosWithMissingVhd}}
+
+      - task: PublishTestResults@2
+        displayName: Upload test results
+        condition: succeededOrFailed()
+        inputs:
+          testRunner: JUnit
+          testResultsFiles: "$(Build.SourcesDirectory)/e2e/report.xml"
+
+      - publish: $(System.DefaultWorkingDirectory)/e2e/$(LOGGING_DIR)
+        artifact: $(LOGGING_DIR)
+        condition: always()
+        continueOnError: true
+
+      - bash: bash .pipelines/scripts/e2e_delete_vmss.sh
+        displayName: ensure vmss deletion
+        condition: always()

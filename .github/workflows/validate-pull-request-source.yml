@@ -1,0 +1,15 @@
+name: validate-pull-request-source
+on: pull_request
+
+jobs:
+  validate-pull-request-source:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Validate if PR is not from a forked repo
+        run: |
+          if [ "${{ github.event.pull_request.head.repo.full_name }}" != "${{ github.repository }}" ]; then
+            echo "Please create the PR from a branch in this repository, not from a forked repository."
+            exit 1
+          else
+            echo "PR is from a branch in this repository."
+          fi

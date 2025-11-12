@@ -1,0 +1,69 @@
+variant: flatcar
+version: 1.1.0
+storage:
+  files:
+  - path: /etc/extensions/aks-sysext/usr/lib/extension-release.d/extension-release.aks-sysext
+    mode: 0644
+    contents:
+      inline: |
+        ID=flatcar
+        SYSEXT_LEVEL=1.0
+  - path: /etc/flatcar/update.conf
+    mode: 0644
+    overwrite: true
+    contents:
+      inline: |
+        SERVER=disabled
+  - path: /etc/systemd/system/containerd.service.d/50-default-config.conf
+    mode: 0644
+    contents:
+      inline: |
+        [Service]
+        Environment=CONTAINERD_CONFIG=/etc/containerd/config.toml
+  # Temporary: for compatibility with azure-npm and before https://github.com/flatcar/Flatcar/issues/1852 is resolved
+  # simply copy the protocols file from baselayout to /etc.
+  - path: /etc/tmpfiles.d/protocols.conf
+    mode: 0644
+    contents:
+      inline: |
+        C /etc/protocols - - - - /usr/share/baselayout/protocols
+  - path: /etc/nsswitch.conf
+    mode: 0644
+    overwrite: true
+    contents:
+      inline: |
+        # /etc/nsswitch.conf:
+
+        passwd:      files usrfiles sss systemd
+        shadow:      files usrfiles sss
+        group:       files usrfiles sss systemd
+
+        hosts:       files usrfiles myhostname dns
+        networks:    files usrfiles dns
+
+        services:    files usrfiles
+        protocols:   files usrfiles
+        rpc:         files usrfiles
+
+        ethers:      files
+        netmasks:    files
+        netgroup:    files
+        bootparams:  files
+        automount:   files
+        aliases:     files
+  links:
+  - path: /etc/extensions/aks-sysext/usr/local/bin
+    target: /opt/bin
+    hard: false
+systemd:
+  units:
+  - name: update-ca-certificates.service
+    enabled: true
+    dropins:
+    # Ensure /etc/ssl/certs/ca-certificates.crt is a file via native update-ca.service but default configuration acts kind of weird, since it will only be active
+    # if file is NOT a symlink and by default it is. We want it to be a regular file though, so pods can mount it, which will not work if this file a symlink to /usr.
+    - name: 10-ensure-ca-file.conf
+      contents: |
+        [Unit]
+        ConditionPathIsSymbolicLink=
+        ConditionPathIsSymbolicLink=/etc/ssl/certs/ca-certificates.crt

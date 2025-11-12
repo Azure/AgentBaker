@@ -1,0 +1,278 @@
+{
+  "ContainerImages": [
+    {
+      "downloadURL": "mcr.microsoft.com/windows/windowstestimage:*",
+      "amd64OnlyVersions": [],
+      "multiArchVersionsV2": [],
+      "windowsVersions": [
+        {
+          "comment": "comment",
+          "renovateTag": "<DO_NOT_UPDATE>",
+          "latestVersion": "v1",
+          "windowsSkuMatch": "2019-containerd"
+        }
+      ]
+    },
+    {
+      "downloadURL": "mcr.microsoft.com/dummyImageWithMultiArchVersionsV2:*",
+      "amd64OnlyVersions": [],
+      "multiArchVersionsV2": [
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=dummyImage",
+          "latestVersion": "dummyVersion1.1",
+          "previousLatestVersion": "dummyVersion1"
+        },
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=dummyImage",
+          "latestVersion": "dummyVersion2.1",
+          "previousLatestVersion": "dummyVersion2"
+        }
+      ]
+    },
+    {
+      "downloadURL": "mcr.microsoft.com/dummyImageWithOldMultiArchVersions:*",
+      "amd64OnlyVersions": [],
+      "multiArchVersions": [
+        "dummyVersion3",
+        "dummyVersion4",
+        "dummyVersion5"
+      ]
+    }
+  ],
+  "Packages": [
+    {
+      "name": "pkgVersionsV2",
+      "downloadLocation": "dummy/location",
+      "downloadURIs": {
+        "ubuntu": {
+          "r2204": {
+            "versionsV2": [
+              {
+                "renovateTag": "name=pkgVersionsV2, os=ubuntu, release=22.04",
+                "latestVersion": "dummyVersion1",
+                "previousLatestVersion": "dummyVersion0.9"
+              }
+            ],
+            "downloadURL": "https://dummypath/v${version}/dummy_${version}_linux_${CPU_ARCH}.tar.gz"
+          },
+          "r2004": {
+            "versionsV2": [
+              {
+                "renovateTag": "name=pkgVersionsV2, os=ubuntu, release=20.04",
+                "latestVersion": "dummyVersion2"
+              }
+            ]
+          },
+          "current": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "dummyVersionCurrent"
+              }
+            ],
+            "downloadURL": "https://dummydefaultcurrentpath/v${version}/dummy_${version}_linux_${CPU_ARCH}.tar.gz"
+          }
+        },
+        "mariner": {
+          "current": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "dummyVersion5"
+              },
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "dummyVersion6.1",
+                "previousLatestVersion": "dummyVersion6.0"
+              }
+            ]
+          }
+        },
+        "marinerkata": {
+          "current": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "<SKIP>"
+              }
+            ]
+          }
+        },
+        "azurelinux": {
+          "v3.0": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "dummyVersion8"
+              }
+            ]
+          }
+        },
+        "default": {
+          "current": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "dummyVersion7"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "pkgVersions",
+      "downloadLocation": "/usr/local/bin",
+      "downloadURIs": {
+        "default": {
+          "current": {
+            "versions": [
+              "dummyVersionFallback1.1",
+              "dummyVersionFallback1.0"
+            ],
+            "downloadURL": "https://github.com/dummypath/v${version}/dummy_${version}_linux_${CPU_ARCH}.tar.gz"
+          }
+        }
+      }
+    },
+    {
+      "name": "containerd",
+      "downloadLocation": "dummy/location",
+      "downloadURIs": {
+        "ubuntu": {
+          "r2004": {
+            "versionsV2": [
+              {
+                "renovateTag": "name=moby-containerd, os=ubuntu, release=20.04",
+                "latestVersion": "1.2.3"
+              }
+            ]
+          },
+          "current": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "dummyVersionCurrent"
+              }
+            ],
+            "downloadURL": "https://dummydefaultcurrentpath/v${version}/dummy_${version}_linux_${CPU_ARCH}.tar.gz"
+          }
+        },
+        "mariner": {
+          "current": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "1.2.3-5.fake"
+              }
+            ]
+          }
+        },
+        "marinerkata": {
+          "current": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "<SKIP>"
+              }
+            ]
+          }
+        },
+        "azurelinux": {
+          "current": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "2.0.0-1.fake"
+              }
+            ]
+          }
+        },
+        "azurelinuxkata": {
+          "current": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "<SKIP>"
+              }
+            ]
+          }
+        },
+        "default": {
+          "current": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "dummyVersion7"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "fake-runc",
+      "downloadLocation": "fake",
+      "downloadURIs": {
+        "ubuntu": {
+          "r2004": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "dummyVersion9"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "fake-azure-acr-credential-provider",
+      "downloadLocation": "/opt/credentialprovider/downloads",
+      "windowsDownloadLocation": "c:\\akse-cache\\azure-acr-credential-provider\\",
+      "downloadURIs": {
+        "ubuntu": {
+          "r2404": {
+            "versionsV2": [
+              {
+                "k8sVersion": "1.32",
+                "renovateTag": "name=azure-acr-credential-provider, os=ubuntu, release=24.04",
+                "latestVersion": "1.32.3-ubuntu24.04u4"
+              }
+            ]
+          },
+          "r2204": {
+            "versionsV2": [
+              {
+                "k8sVersion": "1.32",
+                "renovateTag": "name=azure-acr-credential-provider, os=ubuntu, release=22.04",
+                "latestVersion": "1.32.3-ubuntu22.04u4"
+              }
+            ]
+          },
+          "r2004": {
+            "versionsV2": [
+              {
+                "k8sVersion": "1.32",
+                "renovateTag": "name=azure-acr-credential-provider, os=ubuntu, release=20.04",
+                "latestVersion": "1.32.3-ubuntu20.04u4"
+              }
+            ]
+          }
+        },
+        "azurelinux": {
+          "v3.0": {
+            "versionsV2": [
+              {
+                "k8sVersion": "1.32",
+                "renovateTag": "name=azure-acr-credential-provider, os=azurelinux, release=3.0",
+                "latestVersion": "1.32.3-4.azl3",
+                "previousLatestVersion": "1.32.2-4.azl3"
+              }
+            ]
+          }
+        }
+      }
+    }
+  ]
+}

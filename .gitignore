@@ -1,0 +1,53 @@
+debug
+_output/
+_input/
+.vscode
+.DS_Store
+test/user.env
+user.env
+.editorconfig
+_dist/
+bin/
+.env
+.coverprofile
+coverage.txt
+e2e/scenario-logs
+**/vhd-publishing-info.json
+out/
+build/
+
+test/junit/
+test/e2e/kubernetes/junit.xml
+_logs/
+*.swp
+
+# test outputs
+cmd/_test_output
+*.test
+*.coverprofile
+**/junit.xml
+
+.idea
+.vs
+
+# exclude vendor directory from gitignore
+!/vendor/**/*
+!/test/e2e/vendor/**/*
+
+translations/
+
+hack/tools/bin
+
+# to make sure we don't accidently add this back after the recent
+# migration off of go-bindata
+pkg/templates/templates_generated.go
+e2e/scenario-logs/
+
+# vhdbuilder generated prefetch scripts
+vhdbuilder/packer/prefetch.sh
+
+# ignore mise configs (https://mise.jdx.dev/)
+.mise
+
+# Ignore AI related configs
+.claude

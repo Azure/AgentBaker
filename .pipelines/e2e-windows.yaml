@@ -1,0 +1,51 @@
+name: $(Date:yyyyMMdd)$(Rev:.r)
+variables:
+  TAGS_TO_RUN: "os=windows"
+  SKIP_E2E_TESTS: false
+  # if SIG_FOR_PRODUCTION is true, then the VHDs are deleted from the gallery before the e2e tests are run.
+  SIG_FOR_PRODUCTION: False
+
+trigger:
+  branches:
+    include:
+      - master
+      - dev
+    
+pr:
+  branches:
+    include:
+      - master
+      - official/*
+      - windows/*
+      - dev
+  paths:
+    include:
+      - .pipelines/e2e-windows.yaml
+      - .pipelines/templates/e2e-template.yaml
+      - .pipelines/scripts/e2e_run.sh
+      - .pipelines/scripts/e2e_delete_vmss.sh
+      - e2e
+      - parts/windows
+      - pkg/agent
+      - parts/common/components.json
+      - staging/cse/windows/
+      - go.mod
+      - go.sum
+    exclude:
+      - pkg/agent/datamodel/sig_config*.go # SIG config changes
+      - pkg/agent/datamodel/*.json # SIG version changes
+      - pkg/agent/testdata/*Ubuntu* # Linux test data
+      - pkg/agent/testdata/*Flatcar* # Linux test data
+      - pkg/agent/testdata/*Mariner* # Linux test data
+      - pkg/agent/testdata/*AzureLinux* # Linux test data
+      - parts/common/components.json # centralized components management file
+      - staging/cse/windows/README
+      - /**/*.md
+      - .github/**
+      - e2e/scenario_test.go
+
+jobs:
+  - template: ./templates/e2e-template.yaml
+    parameters:
+      name: Windows Tests
+      IgnoreScenariosWithMissingVhd: false

@@ -1,0 +1,16 @@
+Release notes for security patch 20251005T000000Z timestamp
+Package difference between 20250919T000000Z and 20251005T000000Z
+
+Reboot required (kernel update)
+
+=== New Packages ===
+kernel  6.6.104.2-1.azl3  azurelinux-official-base
+
+=== Package Updates ===
+libcap  2.69-7.azl3  azurelinux-official-base
+hyperv-daemons-license  6.6.104.2-1.azl3  azurelinux-official-base
+hypervvssd  6.6.104.2-1.azl3  azurelinux-official-base
+hypervkvpd  6.6.104.2-1.azl3  azurelinux-official-base
+hypervfcopyd  6.6.104.2-1.azl3  azurelinux-official-base
+hyperv-daemons  6.6.104.2-1.azl3  azurelinux-official-base
+glibc  2.38-13.azl3  azurelinux-official-base

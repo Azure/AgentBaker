@@ -1,0 +1,114 @@
+parameters:
+  - name: stageName
+    type: string
+    displayName: Stage name for the created stages. Must contain only alphanmumeric values and _
+  - name: imageName
+    type: string
+    displayName: The value of the imageName tag to run E2E tests on
+  - name: windowsSku
+    type: string
+    displayName: The windows artifact to build. Might be a duplicate of artifactName
+  - name: artifactName
+    type: string
+    displayName: The artifact to build. Might be a duplicate of windowsSku
+  - name: dryrun
+    displayName: Dry run
+    type: boolean
+    default: False
+  - name: vhddebug
+    displayName: VHD Debug
+    type: boolean
+    default: False
+  - name: build
+    displayName: Boolean flag to actually run these stages.
+    type: boolean
+    default: True
+  - name: buildVmSize
+    type: string
+    displayName: VM SKU to build the VHD with. Has a sensible default
+  - name: hyperVGeneration
+    type: string
+    displayName: V1 or V2.
+  - name: architecture
+    type: string
+    displayName: CPU Architecture - X86_64 or ARM64
+  - name: skipExtensionCheck
+    displayName: Skip Extension Check
+    type: boolean
+    default: False
+  - name: installOpenSshServer
+    displayName: Install Open SSH Server
+    type: boolean
+    default: True
+  - name: windowsBaseImageUrl
+    displayName: Windows Base Image URL Override
+    type: string
+  - name: windowsNanoImageUrl
+    displayName: Windows nano base container image URL Override
+    type: string
+  - name: windowsCoreImageUrl
+    displayName: Windows core base container image URL Override
+    type: string
+  - name: windowsContainerImageJsonUrl
+    displayName: Windows container image JSON URL Override
+    type: string
+    default: ""
+  - name: overrideBranch
+    type: string
+    default: master
+  - name: useOverrides
+    displayName: Use component overrides
+    type: boolean
+  - name: csePackageDir
+    type: string
+    displayName: Path to the CSE package to use for the build.
+  - name: cseFileName
+    type: string
+    displayName: CSE package filename.
+
+stages:
+  - stage: build_${{ parameters.stageName }}
+    # Put the artifact name first so it doesn't get truncated as much in ADO
+    displayName: Build (${{ parameters.artifactName }})
+    condition: and(succeeded(), eq('${{ parameters.build }}', True))
+    dependsOn: Package
+    jobs:
+      - job: build_${{ parameters.stageName }}
+        dependsOn: [ ]
+        timeoutInMinutes: 180
+        steps:
+          - template: ./.builder-release-template-windows.yaml
+            parameters:
+              artifactName: ${{ parameters.artifactName }}
+              windowsSku: ${{ parameters.windowsSku }}
+              hyperVGeneration: ${{ parameters.hyperVGeneration }}
+              architecture: ${{ parameters.architecture }}
+              buildVmSize: ${{ parameters.buildVmSize }}
+              build: ${{ parameters.build }}
+              vhddebug: ${{ parameters.vhddebug }}
+              dryrun: ${{ parameters.dryrun }}
+              installOpenSshServer: ${{ parameters.installOpenSshServer }}
+              skipExtensionCheck: ${{ parameters.skipExtensionCheck }}
+              windowsBaseImageUrl: ${{ parameters.windowsBaseImageUrl }}
+              windowsNanoImageUrl: ${{ parameters.windowsNanoImageUrl }}
+              windowsCoreImageUrl: ${{ parameters.windowsCoreImageUrl }}
+              windowsContainerImageJsonUrl: ${{ parameters.windowsContainerImageJsonUrl }}
+              overrideBranch: ${{ parameters.overrideBranch }}
+              useOverrides: ${{ parameters.useOverrides }}
+              csePackageDir: ${{ parameters.csePackageDir }}
+              csePackageFileName: ${{ parameters.cseFileName }}
+
+  - stage: e2e_${{ parameters.stageName }}
+    displayName: E2E (${{ parameters.artifactName }})
+    dependsOn: build_${{ parameters.stageName }}
+    condition: and(succeeded(), eq('${{ parameters.build }}', True), ne(variables.SKIP_E2E_TESTS, 'true'))
+    variables:
+      VHD_BUILD_ID: $(Build.BuildId)
+      TAGS_TO_RUN: imageName=${{ parameters.imageName }}
+      DISABLE_SCRIPTLESS_COMPILATION: true
+    jobs:
+      - template: ./e2e-template.yaml
+        parameters:
+          name: For image ${{ parameters.imageName }}
+          IgnoreScenariosWithMissingVhd: false
+

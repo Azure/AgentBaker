@@ -1,0 +1,29 @@
+name: Windows Powershell Unit Test
+on: pull_request
+
+# To run these tests on a Windows machine, you can use the commands below. However, most people have their git repo
+# stored in WSL. So you'll need to change directory to whereever you have the repo checked out in WSL. Something like this:
+# cd \\wsl$\Ubuntu\home\tim\git\AgentBaker
+
+jobs:
+  pester-test:
+    name: Pester test
+    runs-on: windows-latest
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+      - name: Perform a Pester test from the parts/windows/*.tests.ps1 file
+        shell: powershell
+        run: |
+          Invoke-Pester parts/windows/*.tests.ps1 -Passthru
+      - name: Perform a Pester test from the vhdbuilder/packer/windows/*.tests.ps1 file
+        shell: pwsh
+        run: |
+          Invoke-Pester vhdbuilder/packer/windows/*.tests.ps1 -Passthru
+      - name: Perform a Pester test from the staging/cse/windows/*.tests.ps1 file
+        shell: powershell
+        run: |
+          Install-Module -Name powershell-yaml -Force
+          Invoke-Pester staging/cse/windows/*.tests.ps1 -Passthru
