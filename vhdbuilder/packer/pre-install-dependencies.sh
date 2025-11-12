@@ -126,7 +126,7 @@ capture_benchmark "${SCRIPT_NAME}_enable_cgroupv2_for_azurelinux"
 
 # shellcheck disable=SC3010
 if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]]; then
-  
+
   # Choose kernel packages based on Ubuntu version and architecture
   if grep -q "cvm" <<< "$FEATURE_FLAGS"; then
     KERNEL_IMAGE="linux-image-azure-fde-lts-${UBUNTU_RELEASE}"
@@ -139,7 +139,7 @@ if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]]; then
     )
     echo "Installing fde LTS kernel for CVM Ubuntu ${UBUNTU_RELEASE}"
   else
-    # Use LTS kernel for other versions  
+    # Use LTS kernel for other versions
     KERNEL_IMAGE="linux-image-azure-lts-${UBUNTU_RELEASE}"
     KERNEL_PACKAGES=(
       "linux-image-azure-lts-${UBUNTU_RELEASE}"
@@ -190,7 +190,7 @@ if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]]; then
     if apt-cache show "${NVIDIA_KERNEL_PACKAGE}" &> /dev/null; then
       echo "ARM64 image. Installing NVIDIA kernel and its packages alongside LTS kernel"
       wait_for_apt_locks
-      sudo apt install -y "${NVIDIA_KERNEL_PACKAGE}"
+      sudo apt-get install -y $(jq -r '.kernel-versions | to_entries[] | "\(.key)=\(.value)"' $BOM_PATH)
       echo "after installation:"
       dpkg -l | grep "linux-.*-azure-nvidia"
     else
