@@ -213,7 +213,7 @@ func ValidateKubeletServingCertificateRotation(ctx context.Context, s *Scenario)
 
 func ValidateTLSBootstrapping(ctx context.Context, s *Scenario) {
 	ValidateDirectoryContent(ctx, s, "/var/lib/kubelet", []string{"kubeconfig"})
-	ValidateDirectoryContent(ctx, s, "/var/lib/kubeket/pki", []string{"kubelet-server-current.pem"})
+	ValidateDirectoryContent(ctx, s, "/var/lib/kubelet/pki", []string{"kubelet-server-current.pem"})
 	kubeletLogs := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo journalctl -u kubelet", 0, "could not retrieve kubelet logs with journalctl").stdout.String()
 	switch {
 	case isUsingSecureTLSBootstrapping(s) && s.Tags.BootstrapTokenFallback:
