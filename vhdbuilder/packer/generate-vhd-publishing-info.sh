@@ -16,13 +16,12 @@ PUBLISHER_BASE_IMAGE_VERSION=$(az vm image list -p ${IMG_PUBLISHER} -s ${IMG_SKU
 echo "Latest ${IMG_PUBLISHER} base image version for offer ${IMG_OFFER} and sku ${IMG_SKU} is ${BASE_IMAGE_VERSION}"
 
 REPLICATION_INVERSE=1
-feature_set=("fips" "gpu" "arm64" "cvm" "tl" "kata")
+
 if [ "${OFFER_NAME,,}" != "ubuntu" ]; then
     # Since Ubuntu is our most used SKU as compared to Windows/Mariner/AzLinux, we dont need the same number of replicas for all.
     # Starting off with half replicas.
     REPLICATION_INVERSE=$((REPLICATION_INVERSE * 2))
 else
-    # 1804 SKUs are not used as much since we defaulted to 22.04 with k8s 1.25 and the lowest supported k8s version supported is 1.25
     # We only support a certain set of functionalities for 2004(CVM, FIPs)
     # Therefore they dont need to be as high in number
     # shellcheck disable=SC3010
@@ -36,6 +35,7 @@ if [ "${HYPERV_GENERATION,,}" = "v1" ]; then
     REPLICATION_INVERSE=$((REPLICATION_INVERSE * 2))
 fi
 
+feature_set=("fips" "gpu" "arm64" "cvm" "tl" "kata")
 for feature in "${feature_set[@]}"; do
     # shellcheck disable=SC3010
     if [[ "${SKU_NAME,,}" == *"${feature}"* ]]; then

@@ -848,8 +848,8 @@ Describe 'cse_config.sh'
             fallbackToKubeBinaryInstall() {
                 echo "fallbackToKubeBinaryInstall $1 $2"
             }
-            updateAptWithMicrosoftPkg() {
-                echo "updateAptWithMicrosoftPkg"
+            updatePMCRepository() {
+                echo "updatePMCRepository"
             }
 
             OS="UBUNTU"
@@ -857,7 +857,7 @@ Describe 'cse_config.sh'
             SHOULD_ENFORCE_KUBE_PMC_INSTALL=""
             When call configureKubeletAndKubectl
             The output should include "fallbackToKubeBinaryInstall"
-            The output should not include "updateAptWithMicrosoftPkg"
+            The output should not include "updatePMCRepository"
         End
     End
 End

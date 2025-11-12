@@ -195,8 +195,9 @@ func Test_AzureLinuxV2_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing
 			VHD:     config.VHDAzureLinuxV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{
-					Enabled:  true,
-					Deadline: (30 * time.Second).String(),
+					Enabled:     true,
+					Deadline:    (30 * time.Second).String(),
+					AADResource: "https://management.azure.com/", // use an unexpected AAD resource to force a secure TLS bootstrapping failure
 				}
 			},
 		},
@@ -899,12 +900,6 @@ func Test_Ubuntu2204_AirGap(t *testing.T) {
 // TODO: refactor NonAnonymous tests to use the same cluster as Anonymous airgap
 // or deprecate anonymous ACR airgap tests once it is unsupported
 func Test_Ubuntu2204_AirGap_NonAnonymousACR(t *testing.T) {
-	location := config.Config.DefaultLocation
-
-	ctx := newTestCtx(t)
-	identity, err := config.Azure.UserAssignedIdentities.Get(ctx, config.ResourceGroupName(location), config.VMIdentityName, nil)
-	require.NoError(t, err)
-
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2204 VHD and is airgap can be properly bootstrapped",
 		Tags: Tags{
@@ -915,9 +910,6 @@ func Test_Ubuntu2204_AirGap_NonAnonymousACR(t *testing.T) {
 			Cluster: ClusterKubenetAirgapNonAnon,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.TenantID = *identity.Properties.TenantID
-				nbc.UserAssignedIdentityClientID = *identity.Properties.ClientID
-
 				nbc.OutboundType = datamodel.OutboundTypeBlock
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
@@ -971,10 +963,6 @@ func Test_Ubuntu2204Gen2_ContainerdAirgappedK8sNotCached(t *testing.T) {
 }
 
 func Test_Ubuntu2204Gen2_ContainerdAirgappedNonAnonymousK8sNotCached(t *testing.T) {
-	location := config.Config.DefaultLocation
-	ctx := newTestCtx(t)
-	identity, err := config.Azure.UserAssignedIdentities.Get(ctx, config.ResourceGroupName(location), config.VMIdentityName, nil)
-	require.NoError(t, err)
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2204 VHD without k8s binary and is airgap can be properly bootstrapped",
 		Tags: Tags{
@@ -985,13 +973,11 @@ func Test_Ubuntu2204Gen2_ContainerdAirgappedNonAnonymousK8sNotCached(t *testing.
 			Cluster: ClusterKubenetAirgapNonAnon,
 			VHD:     config.VHDUbuntu2204Gen2ContainerdAirgappedK8sNotCached,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.TenantID = *identity.Properties.TenantID
-				nbc.UserAssignedIdentityClientID = *identity.Properties.ClientID
 				nbc.OutboundType = datamodel.OutboundTypeBlock
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
 						Enabled:                 true,
-						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io", config.PrivateACRNameNotAnon(location)),
+						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io", config.PrivateACRNameNotAnon(config.Config.DefaultLocation)),
 					},
 				}
 				nbc.AgentPoolProfile.LocalDNSProfile = nil
@@ -1000,7 +986,7 @@ func Test_Ubuntu2204Gen2_ContainerdAirgappedNonAnonymousK8sNotCached(t *testing.
 				// intentionally using private acr url to get kube binaries
 				nbc.AgentPoolProfile.KubernetesConfig.CustomKubeBinaryURL = fmt.Sprintf(
 					"%s.azurecr.io/oss/binaries/kubernetes/kubernetes-node:v%s-linux-amd64",
-					config.PrivateACRNameNotAnon(location),
+					config.PrivateACRNameNotAnon(config.Config.DefaultLocation),
 					nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion)
 				nbc.K8sComponents.LinuxCredentialProviderURL = fmt.Sprintf(
 					"https://packages.aks.azure.com/cloud-provider-azure/v%s/binaries/azure-acr-credential-provider-linux-amd64-v%s.tar.gz",
@@ -1910,8 +1896,9 @@ func Test_Ubuntu2404Gen2_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testi
 			VHD:     config.VHDUbuntu2404Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{
-					Enabled:  true,
-					Deadline: (30 * time.Second).String(),
+					Enabled:     true,
+					Deadline:    (30 * time.Second).String(),
+					AADResource: "https://management.azure.com/", // use an unexpected AAD resource to force a secure TLS bootstrapping failure
 				}
 			},
 		},
@@ -2118,10 +2105,6 @@ func Test_Ubuntu2204_PMC_Install(t *testing.T) {
 }
 
 func Test_Ubuntu2204Gen2_ContainerdAirgappedNonAnonymousK8sNotCached_InstallPackage(t *testing.T) {
-	location := config.Config.DefaultLocation
-	ctx := newTestCtx(t)
-	identity, err := config.Azure.UserAssignedIdentities.Get(ctx, config.ResourceGroupName(location), config.VMIdentityName, nil)
-	require.NoError(t, err)
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2204 VHD without k8s binary and is airgap can be properly bootstrapped",
 		Tags: Tags{
@@ -2132,13 +2115,11 @@ func Test_Ubuntu2204Gen2_ContainerdAirgappedNonAnonymousK8sNotCached_InstallPack
 			Cluster: ClusterKubenetAirgapNonAnon,
 			VHD:     config.VHDUbuntu2204Gen2ContainerdAirgappedK8sNotCached,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.TenantID = *identity.Properties.TenantID
-				nbc.UserAssignedIdentityClientID = *identity.Properties.ClientID
 				nbc.OutboundType = datamodel.OutboundTypeBlock
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
 						Enabled:                 true,
-						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io", config.PrivateACRNameNotAnon(location)),
+						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io", config.PrivateACRNameNotAnon(config.Config.DefaultLocation)),
 					},
 				}
 				nbc.AgentPoolProfile.LocalDNSProfile = nil
@@ -2147,7 +2128,7 @@ func Test_Ubuntu2204Gen2_ContainerdAirgappedNonAnonymousK8sNotCached_InstallPack
 				// intentionally using private acr url to get kube binaries
 				nbc.AgentPoolProfile.KubernetesConfig.CustomKubeBinaryURL = fmt.Sprintf(
 					"%s.azurecr.io/oss/binaries/kubernetes/kubernetes-node:v%s-linux-amd64",
-					config.PrivateACRNameNotAnon(location),
+					config.PrivateACRNameNotAnon(config.Config.DefaultLocation),
 					nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion)
 				nbc.K8sComponents.LinuxCredentialProviderURL = fmt.Sprintf(
 					"https://packages.aks.azure.com/cloud-provider-azure/v%s/binaries/azure-acr-credential-provider-linux-amd64-v%s.tar.gz",
@@ -2195,14 +2176,18 @@ func Test_Ubuntu2404_VHDCaching(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "T",
 		Config: Config{
-			Cluster:    ClusterKubenet,
-			VHD:        config.VHDUbuntu2204Gen2Containerd,
-			VHDCaching: true,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-			},
+			Cluster:                ClusterKubenet,
+			VHD:                    config.VHDUbuntu2204Gen2Containerd,
+			VHDCaching:             true,
+			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
 			Validator: func(ctx context.Context, s *Scenario) {
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				// If the VHD has incorrect settings (like network misconfiguration)
+				// deploying more than one VM may expose the issue.
+				// This check is not always reliable, since only one VM is created per test run in the current framework.
+				// Therefore, tests may incorrectly pass more often than they fail in these cases.
+				vmss.SKU.Capacity = to.Ptr[int64](2)
 			},
 		},
 	})

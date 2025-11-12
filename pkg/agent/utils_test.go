@@ -689,7 +689,6 @@ var _ = Describe("Assert datamodel.CSEStatus can be used to parse output JSON", 
 	})
 
 	It("When cse output format is correct and contains call known fields", func() {
-		//lint:ignore lll
 		testMessage := `{"ExitCode": "51", "Output": "test", "Error": "",
 		"ExecDuration": "39", "KernelStartTime": "kernel start time", 
 		"SystemdSummary": "systemd summary", "CSEStartTime": "cse start time",

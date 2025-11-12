@@ -30,7 +30,7 @@ var baseKubeletConfig = &aksnodeconfigv1.KubeletConfig{
 		"kubernetes.azure.com/agentpool":          "nodepool2",
 		"kubernetes.azure.com/cluster":            "test-cluster",
 		"kubernetes.azure.com/mode":               "system",
-		"kubernetes.azure.com/node-image-version": "AKSUbuntu-1804gen2containerd-2022.01.19",
+		"kubernetes.azure.com/node-image-version": "AKSUbuntu-2404gen2containerd-2025.06.02",
 	},
 	KubeletConfigFileConfig: &aksnodeconfigv1.KubeletConfigFileConfig{
 		Kind:              "KubeletConfiguration",
@@ -97,7 +97,7 @@ var baseKubeletConfig = &aksnodeconfigv1.KubeletConfig{
 	},
 }
 
-func getBaseNBC(t testing.TB, cluster *Cluster, vhd *config.Image) *datamodel.NodeBootstrappingConfiguration {
+func getBaseNBC(t testing.TB, cluster *Cluster, vhd *config.Image) (*datamodel.NodeBootstrappingConfiguration, error) {
 	var nbc *datamodel.NodeBootstrappingConfiguration
 
 	if vhd.Distro.IsWindowsDistro() {
@@ -110,17 +110,23 @@ func getBaseNBC(t testing.TB, cluster *Cluster, vhd *config.Image) *datamodel.No
 		nbc.ContainerService.Properties.ClusterID = *cluster.Model.ID
 		nbc.SubscriptionID = config.Config.SubscriptionID
 		nbc.ResourceGroupName = *cluster.Model.Properties.NodeResourceGroup
-		nbc.TenantID = *cluster.Model.Identity.TenantID
 	} else {
 		nbc = baseTemplateLinux(t, *cluster.Model.Location, *cluster.Model.Properties.CurrentKubernetesVersion, vhd.Arch)
 	}
 
+	kubeletIdentity, err := getClusterKubeletIdentity(cluster.Model)
+	if err != nil {
+		return nil, fmt.Errorf("getting cluster kubelet identity to create base NodeBootstrappingConfiguration: %w", err)
+	}
+	nbc.UserAssignedIdentityClientID = *kubeletIdentity.ClientID
+
+	nbc.TenantID = *cluster.Model.Identity.TenantID
 	nbc.ContainerService.Properties.CertificateProfile.CaCertificate = string(cluster.ClusterParams.CACert)
 	nbc.KubeletClientTLSBootstrapToken = &cluster.ClusterParams.BootstrapToken
 	nbc.ContainerService.Properties.HostedMasterProfile.FQDN = cluster.ClusterParams.FQDN
 	nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = vhd.Distro
 	nbc.AgentPoolProfile.Distro = vhd.Distro
-	return nbc
+	return nbc, nil
 }
 
 // is a temporary workaround
@@ -350,11 +356,11 @@ func baseTemplateLinux(t testing.TB, location string, k8sVersion string, arch st
 						AvailabilityProfile: "VirtualMachineScaleSets",
 						StorageProfile:      "ManagedDisks",
 						VnetSubnetID:        "",
-						Distro:              "aks-ubuntu-containerd-18.04-gen2",
+						Distro:              "aks-ubuntu-containerd-24.04-gen2",
 						CustomNodeLabels: map[string]string{
 							"kubernetes.azure.com/cluster":            "test-cluster", // Some AKS daemonsets require that this exists, but the value doesn't matter.
 							"kubernetes.azure.com/mode":               "system",
-							"kubernetes.azure.com/node-image-version": "AKSUbuntu-1804gen2containerd-2022.01.19",
+							"kubernetes.azure.com/node-image-version": "AKSUbuntu-2404gen2containerd-2025.06.02",
 						},
 						PreprovisionExtension: nil,
 						KubernetesConfig: &datamodel.KubernetesConfig{
@@ -559,11 +565,11 @@ func baseTemplateLinux(t testing.TB, location string, k8sVersion string, arch st
 			AvailabilityProfile: "VirtualMachineScaleSets",
 			StorageProfile:      "ManagedDisks",
 			VnetSubnetID:        "",
-			Distro:              "aks-ubuntu-containerd-18.04-gen2",
+			Distro:              "aks-ubuntu-containerd-24.04-gen2",
 			CustomNodeLabels: map[string]string{
 				"kubernetes.azure.com/cluster":            "test-cluster", // Some AKS daemonsets require that this exists, but the value doesn't matter.
 				"kubernetes.azure.com/mode":               "system",
-				"kubernetes.azure.com/node-image-version": "AKSUbuntu-1804gen2containerd-2022.01.19",
+				"kubernetes.azure.com/node-image-version": "AKSUbuntu-2404gen2containerd-2025.06.02",
 			},
 			PreprovisionExtension: nil,
 			KubernetesConfig: &datamodel.KubernetesConfig{

@@ -8,8 +8,8 @@
         {
           "comment": "Windows 2019 servercore. Should have latest version and latest version -1",
           "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore",
-          "latestVersion": "10.0.17763.7922",
-          "previousLatestVersion": "10.0.17763.7792",
+          "latestVersion": "10.0.17763.8027",
+          "previousLatestVersion": "10.0.17763.7922",
           "windowsSkuMatch": "2019-containerd"
         },
         {
@@ -21,8 +21,8 @@
         {
           "comment": "Windows 2022 servercore. Should have latest version and latest version -1",
           "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore",
-          "latestVersion": "10.0.20348.4297",
-          "previousLatestVersion": "10.0.20348.4171",
+          "latestVersion": "10.0.20348.4405",
+          "previousLatestVersion": "10.0.20348.4297",
           "windowsSkuMatch": "2022-containerd*"
         },
         {
@@ -34,8 +34,8 @@
         {
           "comment": "Windows 2022 servercore. Should have latest version and latest version -1",
           "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore",
-          "latestVersion": "10.0.20348.4297",
-          "previousLatestVersion": "10.0.20348.4171",
+          "latestVersion": "10.0.20348.4405",
+          "previousLatestVersion": "10.0.20348.4297",
           "windowsSkuMatch": "23H2*"
         },
         {
@@ -47,8 +47,8 @@
         {
           "comment": "Windows 2022 servercore for Windows 2025. Should have latest version and latest version -1",
           "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore",
-          "latestVersion": "10.0.20348.4297",
-          "previousLatestVersion": "10.0.20348.4171",
+          "latestVersion": "10.0.20348.4405",
+          "previousLatestVersion": "10.0.20348.4297",
           "windowsSkuMatch": "2025*"
         },
         {
@@ -60,8 +60,8 @@
         {
           "comment": "Windows 2025 servercore for windows 2025. Should have latest version and latest version -1",
           "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore",
-          "latestVersion": "10.0.26100.6905",
-          "previousLatestVersion": "10.0.26100.6584",
+          "latestVersion": "10.0.26100.7171",
+          "previousLatestVersion": "10.0.26100.6905",
           "windowsSkuMatch": "2025*"
         },
         {
@@ -203,7 +203,7 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cni",
-          "latestVersion": "v1.7.4-0"
+          "latestVersion": "v1.7.9-0"
         }
       ],
       "multiArchVersionsV2": [
@@ -231,7 +231,7 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cni",
-          "latestVersion": "v1.7.4-0",
+          "latestVersion": "v1.7.9-0",
           "containerImagePrefetch": {
             "latestVersion": {
               "binaries": [
@@ -256,7 +256,7 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
-          "latestVersion": "v1.7.4-0"
+          "latestVersion": "v1.7.9-0"
         }
       ],
       "multiArchVersionsV2": [
@@ -284,7 +284,7 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
-          "latestVersion": "v1.7.4-0",
+          "latestVersion": "v1.7.9-0",
           "containerImagePrefetch": {
             "latestVersion": {
               "binaries": [
@@ -667,8 +667,8 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=azure-policy/policy-kubernetes-addon-prod",
-          "latestVersion": "1.14.2",
-          "previousLatestVersion": "1.13.1"
+          "latestVersion": "1.15.2",
+          "previousLatestVersion": "1.14.2"
         }
       ],
       "windowsVersions": []
@@ -679,8 +679,8 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=azure-policy/policy-kubernetes-webhook",
-          "latestVersion": "1.14.2",
-          "previousLatestVersion": "1.13.1"
+          "latestVersion": "1.15.2",
+          "previousLatestVersion": "1.14.2"
         }
       ],
       "windowsVersions": []
@@ -999,7 +999,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-containerd, repository=test, os=ubuntu, release=24.04",
-                "latestVersion": "2.1.4-ubuntu24.04u1"
+                "latestVersion": "2.1.5-ubuntu24.04u1"
               }
             ]
           },
@@ -1007,7 +1007,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-containerd, repository=production, os=ubuntu, release=22.04",
-                "latestVersion": "1.7.28-ubuntu22.04u1"
+                "latestVersion": "1.7.29-ubuntu22.04u1"
               }
             ]
           },
@@ -1015,7 +1015,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-containerd, repository=production, os=ubuntu, release=20.04",
-                "latestVersion": "1.7.28-ubuntu20.04u1"
+                "latestVersion": "1.7.29-ubuntu20.04u1"
               }
             ]
           }
@@ -1446,12 +1446,12 @@
               {
                 "k8sVersion": "1.32",
                 "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/binaries/kubernetes/azure-acr-credential-provider",
-                "latestVersion": "v1.32.8"
+                "latestVersion": "v1.32.9"
               },
               {
                 "k8sVersion": "1.33",
                 "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/binaries/kubernetes/azure-acr-credential-provider",
-                "latestVersion": "v1.33.3"
+                "latestVersion": "v1.33.4"
               }
             ],
             "downloadURL": "mcr.microsoft.com/oss/binaries/kubernetes/azure-acr-credential-provider:${version}-linux-${CPU_ARCH}"
@@ -1473,17 +1473,17 @@
               {
                 "k8sVersion": "1.32",
                 "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/binaries/kubernetes/azure-acr-credential-provider",
-                "latestVersion": "v1.32.8"
+                "latestVersion": "v1.32.9"
               },
               {
                 "k8sVersion": "1.33",
                 "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/binaries/kubernetes/azure-acr-credential-provider",
-                "latestVersion": "v1.33.3"
+                "latestVersion": "v1.33.4"
               },
               {
                 "k8sVersion": "1.34",
                 "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/binaries/kubernetes/azure-acr-credential-provider",
-                "latestVersion": "v1.34.1"
+                "latestVersion": "v1.34.2"
               }
             ],
             "downloadURL": "mcr.microsoft.com/oss/binaries/kubernetes/azure-acr-credential-provider:${version}-linux-${CPU_ARCH}"

@@ -194,20 +194,16 @@ func createVMSSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachine
 	}
 
 	model := getBaseVMSSModel(s, customData, cse)
-	if s.Tags.NonAnonymousACR {
-		// add acr pull identity
-		userAssignedIdentity := fmt.Sprintf(
-			"/subscriptions/%s/resourceGroups/%s/providers/Microsoft.ManagedIdentity/userAssignedIdentities/%s",
-			config.Config.SubscriptionID,
-			config.ResourceGroupName(s.Location),
-			config.VMIdentityName,
-		)
-		model.Identity = &armcompute.VirtualMachineScaleSetIdentity{
-			Type: to.Ptr(armcompute.ResourceIdentityTypeSystemAssignedUserAssigned),
-			UserAssignedIdentities: map[string]*armcompute.UserAssignedIdentitiesValue{
-				userAssignedIdentity: {},
-			},
-		}
+
+	// always assign the abe2e + kubelet identities to the VMSS
+	kubeletIdentity, err := getClusterKubeletIdentity(s.Runtime.Cluster.Model)
+	require.NoError(s.T, err)
+	model.Identity = &armcompute.VirtualMachineScaleSetIdentity{
+		Type: to.Ptr(armcompute.ResourceIdentityTypeSystemAssignedUserAssigned),
+		UserAssignedIdentities: map[string]*armcompute.UserAssignedIdentitiesValue{
+			*kubeletIdentity.ResourceID:                    {},
+			config.Config.VMIdentityResourceID(s.Location): {},
+		},
 	}
 
 	isAzureCNI, err := cluster.IsAzureCNI()
