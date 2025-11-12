@@ -31,7 +31,6 @@ pr:
     - vhdbuilder/packer/windows
     - vhdbuilder/packer/*windows*
     - vhdbuilder/packer/**/*windows*
-    - /**/*.md
     - .github/**
     - e2e/scenario_win_test.go
 
@@ -212,6 +211,31 @@ stages:
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: marinerv2-gen2
+    - job: buildAzureLinuxOSGuardV3gen2fipsTL
+      timeoutInMinutes: 180
+      steps:
+        - bash: |
+            echo '##vso[task.setvariable variable=BUILDER]imagecustomizer'
+            echo '##vso[task.setvariable variable=OS_SKU]AzureLinuxOSGuard'
+            echo '##vso[task.setvariable variable=OS_VERSION]OSGuardV3'
+            echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER]mcr.microsoft.com/azurelinux/imagecustomizer'
+            echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_VERSION]0.17.0'
+            echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONFIG]azlosguard'
+            echo '##vso[task.setvariable variable=BASE_IMG]mcr.microsoft.com/azurelinux/3.0/image/osguard'
+            echo '##vso[task.setvariable variable=BASE_IMG_VERSION]3.0.20251021'
+            echo '##vso[task.setvariable variable=IMG_SKU]azure-linux-osguard-3'
+            echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
+            echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
+            echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
+            echo '##vso[task.setvariable variable=ENABLE_FIPS]True'
+            echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
+            echo '##vso[task.setvariable variable=SGX_INSTALL]False'
+            echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
+          displayName: Setup Build Variables
+        - template: ./templates/.builder-release-template.yaml
+          parameters:
+            artifactName: azurelinuxosguardv3-gen2-fips-trustedlaunch
+
   - stage: e2e
     condition: and(succeeded(), ne(variables.SKIP_E2E_TESTS, 'true'))
     variables:
