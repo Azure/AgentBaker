@@ -52,8 +52,7 @@
         "oss/kubernetes/kube-proxy",
         "oss/v2/kubernetes/kube-proxy",
         "oss/binaries/kubernetes/kubernetes-node",
-        "oss/binaries/kubernetes/azure-acr-credential-provider",
-        "containernetworking/azure-npm"
+        "oss/binaries/kubernetes/azure-acr-credential-provider"
       ],
       "matchUpdateTypes": [
         "minor"
@@ -289,20 +288,6 @@
         "behzad-mir",
         "jpayne3506",
         "QxBytes"
-      ]
-    },
-    {
-      "matchPackageNames": [
-        "containernetworking/azure-npm"
-      ],
-      "groupName": "azure-npm",
-      "assignees": [
-        "rayaisaiah",
-        "huntergregory"
-      ],
-      "reviewers": [
-        "rayaisaiah",
-        "huntergregory"
       ]
     },
     {
