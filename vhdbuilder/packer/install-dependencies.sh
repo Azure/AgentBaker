@@ -514,7 +514,7 @@ fi
 # Artifact Streaming enabled for Azure Linux 2.0 and 3.0
 if [ "$OS" = "$MARINER_OS_NAME" ] && [ "$OS_VERSION" = "2.0" ] && [ "$(isARM64)" -ne 1 ]; then
   installAndConfigureArtifactStreaming acr-mirror-mariner rpm
-elif [ "$OS" = "$MARINER_OS_NAME" ] && [ "$OS_VERSION" = "3.0" ] && [ "$(isARM64)" -ne 1 ]; then
+elif [ "$OS" = "$AZURELINUX_OS_NAME" ] && [ "$OS_VERSION" = "3.0" ] && [ "$(isARM64)" -ne 1 ]; then
   installAndConfigureArtifactStreaming acr-mirror-azurelinux3 rpm
 fi
 
