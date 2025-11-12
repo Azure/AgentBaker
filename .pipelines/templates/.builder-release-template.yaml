@@ -182,7 +182,7 @@ steps:
 
   - bash: make -f packer.mk prefetch
     condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'), ne(variables.SKIP_PREFETCH_OPTIMIZATION, 'True'), ne(variables.BUILDER, 'imagecustomizer'))
-    displayName: Optimize with Prefetch and Convert to VHD
+    displayName: Run Prefetch Optimization and Convert to VHD blob
     retryCountOnTaskFailure: 3
     env:
       SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)

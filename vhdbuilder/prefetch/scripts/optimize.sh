@@ -2,6 +2,7 @@
 set -uxo pipefail
 
 # TODO(cameissner): migrate to vhdbuilder go binary once VHD build scripts are hosted internally
+# TODO(cameissner/hebeberm): add support for images built by imagecustomizer (OSGuard) - it seems the cleanup script can't run due to a permissions issue
 
 [ -z "${SUBSCRIPTION_ID:-}" ] && echo "SUBSCRIPTION_ID is not set" && exit 1
 [ -z "${LOCATION:-}" ] && echo "LOCATION is not set" && exit 1
@@ -28,7 +29,7 @@ IMAGE_BUILDER_TEMPLATE_NAME="template-${CAPTURED_SIG_VERSION}-${BUILD_RUN_NUMBER
 VHD_URI="${STORAGE_ACCOUNT_BLOB_URL}/${VHD_NAME}"
 
 main() {
-    # for idempotency, check to see if the VHD we're trying to create already exists
+    # for idempotency, check to see if the VHD we're trying to create already exists.
     # if it's already in the expected state, this will cause the script to exit early.
     # otherwise, we delete any existing VHD in an unexpected state and retry the whole
     # optimization + conversion flow
@@ -40,7 +41,6 @@ main() {
 }
 
 check_for_existing_vhd() {
-    # TODO(cameissner/hebeberm): tweak to support images built by image customizer (OSGuard)
     vhd_info="$(az storage blob show --blob-url "${VHD_URI}" --auth-mode login)"
     if [ -n "${vhd_info}" ]; then
         echo "VHD already exists at: ${VHD_URI}"
@@ -93,8 +93,7 @@ run_image_builder_template() {
             return 1
         fi
 
-        echo "creating image builder template ${IMAGE_BUILDER_TEMPLATE_NAME} in resource group ${IMAGE_BUILDER_RG_NAME} with the following configuration:"
-        jq < input.json
+        echo "creating image builder template ${IMAGE_BUILDER_TEMPLATE_NAME} in resource group ${IMAGE_BUILDER_RG_NAME}"
         az resource create -n "${IMAGE_BUILDER_TEMPLATE_NAME}" \
             --properties @input.json \
             --is-full-object \
@@ -153,6 +152,18 @@ prepare_source() {
     SOURCE_ID="${CAPTURED_SIG_VERSION_ID}"
 }
 
+# This function is needed to convert SIG image versions within a specialized image defintion
+# To a managed image which can be used as a source image for the image builder template.
+# This is needed since image builder templates do not support SIG image version sources that
+# have a "Specialized" OS state. As of writing, this only applies to TrustedLaunch and CVM SKUs,
+# sonce those SKUs must be built on special hardware, and thus must be captured within a Specialized
+# SIG image definition after being built with Packer.
+# This function performs the following steps to create a suitable source image based on an image version
+# coming from a Specialized image definition:
+# 1. Create a temporary storage account in the build location which will house the intermediate VHD blob
+# 2. Create a managed disk in the build location from the image version produced by Packer, with the corresponding security type (CVM/TL)
+# 3. Copy the managed disk to a temporary VHD blob in the temporary storage account
+# 4. Create a new managed image in the build location from the temporary VHD blob, which will be used as the source image of the image builder template
 convert_specialized_sig_version_to_managed_image() {
     managed_image_name="${CAPTURED_SIG_VERSION}-template-source"
     managed_image_id="$(az image show -g "${IMAGE_BUILDER_RG_NAME}" -n "${managed_image_name}" | jq -r '.id')"
@@ -208,10 +219,9 @@ convert_specialized_sig_version_to_managed_image() {
     fi
 
     set +x
-    # shellcheck disable=SC2102
-    disk_sas_url=$(az disk grant-access --ids "${disk_resource_id}" --duration-in-seconds 1800 --query [accessSAS] -o tsv)
-    if [ "${disk_sas_url,,}" = "none" ]; then
-        echo "generated SAS token for managed disk is empty, cannot continue"
+    disk_sas_url=$(az disk grant-access --ids "${disk_resource_id}" --duration-in-seconds 1800 | jq -r '.accessSAS')
+    if [ -z "${disk_sas_url}" ] || [ "${disk_sas_url,,}" = "null" ] || [ "${disk_sas_url,,}" = "none" ]; then
+        echo "generated SAS URL for managed disk is empty, cannot continue"
         return 1
     fi
     echo "setting azcopy environment variables with pool identity: ${IMAGE_BUILDER_IDENTITY_ID}"
