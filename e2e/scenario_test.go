@@ -1517,19 +1517,11 @@ func Test_AzureLinux_Skip_Binary_Cleanup(t *testing.T) {
 
 func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Tags: Tags{
-			ServerTLSBootstrapping: true,
-		},
 		Description: "tests that a node on ubuntu 2204 bootstrapped with kubelet serving certificate rotation enabled will disable certificate rotation due to nodepool tags",
 		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2204Gen2Containerd,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				if nbc.KubeletConfig == nil {
-					nbc.KubeletConfig = map[string]string{}
-				}
-				nbc.KubeletConfig["--rotate-server-certificates"] = "true"
-			},
+			Cluster:                ClusterKubenet,
+			VHD:                    config.VHDUbuntu2204Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				if vmss.Tags == nil {
 					vmss.Tags = map[string]*string{}
@@ -1550,9 +1542,6 @@ func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags(t *testing
 
 func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_CustomKubeletConfig(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Tags: Tags{
-			ServerTLSBootstrapping: true,
-		},
 		Description: "tests that a node on ubuntu 2204 bootstrapped with custom kubelet config and kubelet serving certificate rotation enabled will disable certificate rotation due to nodepool tags",
 		Config: Config{
 			Cluster: ClusterKubenet,
@@ -1564,11 +1553,6 @@ func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_CustomKube
 					AllowedUnsafeSysctls: &[]string{"kernel.msg*", "net.ipv4.route.min_pmtu"},
 				}
 				nbc.AgentPoolProfile.CustomKubeletConfig = customKubeletConfig
-
-				if nbc.KubeletConfig == nil {
-					nbc.KubeletConfig = map[string]string{}
-				}
-				nbc.KubeletConfig["--rotate-server-certificates"] = "true"
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				if vmss.Tags == nil {
@@ -1590,9 +1574,6 @@ func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_CustomKube
 
 func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_CustomKubeletConfig_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Tags: Tags{
-			ServerTLSBootstrapping: true,
-		},
 		Description: "tests that a node on ubuntu 2204 bootstrapped with custom kubelet config and kubelet serving certificate rotation enabled will disable certificate rotation due to nodepool tags",
 		Config: Config{
 			Cluster: ClusterKubenet,
@@ -1625,9 +1606,6 @@ func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_CustomKube
 
 func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_AlreadyDisabled(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Tags: Tags{
-			ServerTLSBootstrapping: true,
-		},
 		Description: "tests that a node on ubuntu 2204 bootstrapped with kubelet serving certificate rotation disabled will disable certificate rotation regardless of nodepool tags",
 		Config: Config{
 			Cluster: ClusterKubenet,
@@ -1653,9 +1631,6 @@ func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_AlreadyDis
 
 func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_AlreadyDisabled_CustomKubeletConfig(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Tags: Tags{
-			ServerTLSBootstrapping: true,
-		},
 		Description: "tests that a node on ubuntu 2204 bootstrapped with kubelet serving certificate rotation disabled and custom kubelet config will disable certificate rotation regardless of nodepool tags",
 		Config: Config{
 			Cluster: ClusterKubenet,

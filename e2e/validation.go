@@ -15,7 +15,9 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	certv1 "k8s.io/api/certificates/v1"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -188,6 +190,45 @@ func ValidateLeakedSecrets(ctx context.Context, s *Scenario) {
 			}
 		}
 	}
+}
+
+func ValidateKubeletServingCertificateRotation(ctx context.Context, s *Scenario) {
+	if _, ok := s.Runtime.VM.VMSS.Tags["aks-disable-kubelet-serving-certificate-rotation"]; ok {
+		s.T.Logf("ValidateKubeletServingCertificateRotation - VMSS has KSCR disablement tag, will skip standard validation")
+		return
+	}
+}
+
+func getCertificateSigningRequestsForNode(ctx context.Context, s *Scenario) (clientCSR *certv1.CertificateSigningRequest, servingCSR *certv1.CertificateSigningRequest, err error) {
+	s.T.Logf("attempting to get kubelet client and serving CSRs for node: %s", s.Runtime.VM.KubeName)
+	csrClient := s.Runtime.Cluster.Kube.Typed.CertificatesV1().CertificateSigningRequests()
+
+	isApprovedAndIssued := func(csr certv1.CertificateSigningRequest) bool {
+		var approved, issued bool
+		for _, cond := range csr.Status.Conditions {
+			if cond.Type == certv1.CertificateApproved && cond.Status == corev1.ConditionTrue {
+				approved = true
+			}
+		}
+		if !approved {
+			return false
+		}
+	}
+
+	servingCSRs, err := csrClient.List(ctx, metav1.ListOptions{
+		FieldSelector: fmt.Sprintf("spec.signerName=%s", certv1.KubeletServingSignerName),
+	})
+	require.NoError(s.T, err)
+
+	clientCSRs, err := csrClient.List(ctx, metav1.ListOptions{
+		FieldSelector: fmt.Sprintf("spec.signerName=%s", certv1.KubeAPIServerClientKubeletSignerName),
+	})
+	require.NoError(s.T, err)
+
+	for _, servingCSR := range servingCSRs.Items {
+
+	}
+
 }
 
 func ValidateSSHServiceEnabled(ctx context.Context, s *Scenario) {
