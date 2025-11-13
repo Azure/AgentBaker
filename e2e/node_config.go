@@ -142,11 +142,23 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnod
 	cs := nbc.ContainerService
 	agent.ValidateAndSetLinuxNodeBootstrappingConfiguration(nbc)
 
-	config := &aksnodeconfigv1.Configuration{
-		Version:            "v1",
-		DisableCustomData:  nbc.AgentPoolProfile.IsFlatcar(),
-		LinuxAdminUsername: "azureuser",
-		VmSize:             config.Config.DefaultVMSKU,
+	bootstrappingConfig := &aksnodeconfigv1.BootstrappingConfig{
+		TlsBootstrappingToken:                         nbc.KubeletClientTLSBootstrapToken,
+		SecureTlsBootstrappingDeadline:                to.Ptr(nbc.SecureTLSBootstrappingConfig.GetDeadline()),
+		SecureTlsBootstrappingAadResource:             to.Ptr(nbc.SecureTLSBootstrappingConfig.GetAADResource()),
+		SecureTlsBootstrappingUserAssignedIdentityId:  to.Ptr(nbc.SecureTLSBootstrappingConfig.GetUserAssignedIdentityID()),
+		SecureTlsBootstrappingCustomClientDownloadUrl: to.Ptr(nbc.SecureTLSBootstrappingConfig.GetCustomClientDownloadURL()),
+	}
+	if nbc.SecureTLSBootstrappingConfig.GetEnabled() {
+		bootstrappingConfig.BootstrappingAuthMethod = aksnodeconfigv1.BootstrappingAuthMethod_BOOTSTRAPPING_AUTH_METHOD_SECURE_TLS_BOOTSTRAPPING
+	}
+
+	return &aksnodeconfigv1.Configuration{
+		Version:             "v1",
+		BootstrappingConfig: bootstrappingConfig,
+		DisableCustomData:   nbc.AgentPoolProfile.IsFlatcar(),
+		LinuxAdminUsername:  "azureuser",
+		VmSize:              config.Config.DefaultVMSKU,
 		ClusterConfig: &aksnodeconfigv1.ClusterConfig{
 			Location:      nbc.ContainerService.Location,
 			ResourceGroup: nbc.ResourceGroupName,
@@ -184,10 +196,7 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnod
 		ContainerdConfig: &aksnodeconfigv1.ContainerdConfig{
 			ContainerdDownloadUrlBase: nbc.CloudSpecConfig.KubernetesSpecConfig.ContainerdDownloadURLBase,
 		},
-		OutboundCommand: helpers.GetDefaultOutboundCommand(),
-		BootstrappingConfig: &aksnodeconfigv1.BootstrappingConfig{
-			TlsBootstrappingToken: nbc.KubeletClientTLSBootstrapToken,
-		},
+		OutboundCommand:  helpers.GetDefaultOutboundCommand(),
 		KubernetesCaCert: base64.StdEncoding.EncodeToString([]byte(cs.Properties.CertificateProfile.CaCertificate)),
 		KubeBinaryConfig: &aksnodeconfigv1.KubeBinaryConfig{
 			KubeBinaryUrl:             cs.Properties.OrchestratorProfile.KubernetesConfig.CustomKubeBinaryURL,
@@ -272,7 +281,6 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnod
 		// Therefore, we require client (e.g. AKS-RP) to provide the final kubelet config that is ready to be written to the final kubelet config file on a node.
 		KubeletConfig: baseKubeletConfig,
 	}
-	return config
 }
 
 // this is huge, but accurate, so leave it here.
