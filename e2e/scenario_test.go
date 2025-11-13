@@ -195,9 +195,9 @@ func Test_AzureLinuxV2_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing
 			VHD:     config.VHDAzureLinuxV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{
-					Enabled:     true,
-					Deadline:    (30 * time.Second).String(),
-					AADResource: "https://management.azure.com/", // use an unexpected AAD resource to force a secure TLS bootstrapping failure
+					Enabled:                true,
+					Deadline:               (30 * time.Second).String(),
+					UserAssignedIdentityID: "invalid", // use an unexpected user-assigned identity ID to force a secure TLS bootstrapping failure
 				}
 			},
 		},
@@ -1896,9 +1896,9 @@ func Test_Ubuntu2404Gen2_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testi
 			VHD:     config.VHDUbuntu2404Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{
-					Enabled:     true,
-					Deadline:    (30 * time.Second).String(),
-					AADResource: "https://management.azure.com/", // use an unexpected AAD resource to force a secure TLS bootstrapping failure
+					Enabled:                true,
+					Deadline:               (30 * time.Second).String(),
+					UserAssignedIdentityID: "invalid", // use an unexpected user-assigned identity ID to force a secure TLS bootstrapping failure
 				}
 			},
 		},
