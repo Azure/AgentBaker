@@ -1692,6 +1692,60 @@ checkLocaldnsScriptsAndConfigs() {
 
 #------------------------ End of test code related to localdns ------------------------
 
+# Basic sanity check for Inspektor Gadget artifacts baked into the image.
+testInspektorGadgetAssets() {
+  local test="testInspektorGadgetAssets"
+  echo "$test:Start"
+
+  local skip_file="/etc/ig.d/skip_vhd_ig"
+  local helper_script="/usr/share/inspektor-gadget/import_gadgets.sh"
+  local service_name="ig-import-gadgets.service"
+  local unit_file="/usr/lib/systemd/system/${service_name}"
+  local tracking_file="/var/lib/ig/imported-gadgets.txt"
+
+  # Flatcar and OSGuard do not include IG files in VHD, only install-ig.sh for sourcing
+  if [ "$OS_SKU" = "Flatcar" ] || [ "$OS_SKU" = "AzureLinuxOSGuard" ]; then
+    echo "$test: Verifying $OS_SKU has no IG files in VHD"
+    
+    # Verify that IG files do NOT exist for Flatcar/OSGuard
+    if [ -f "$skip_file" ]; then
+      err $test "Skip file should not exist for $OS_SKU but found at $skip_file"
+    fi
+    
+    if [ -f "$helper_script" ]; then
+      err $test "Helper script should not exist for $OS_SKU but found at $helper_script"
+    fi
+    
+    if [ -f "$unit_file" ]; then
+      err $test "Unit file should not exist for $OS_SKU but found at $unit_file"
+    fi
+    
+    echo "$test:Finish"
+    return 0
+  fi
+
+  if [ ! -f "$skip_file" ]; then
+    err $test "Skip sentinel missing at $skip_file"
+  fi
+
+  if [ ! -x "$helper_script" ]; then
+    err $test "Helper script missing or not executable at $helper_script"
+  fi
+
+  if [ ! -f "$unit_file" ]; then
+    err $test "Unit file missing at $unit_file"
+  fi
+
+  local service_state
+  service_state=$(systemctl is-enabled "$service_name" 2>/dev/null || true)
+  if [ "$service_state" != "enabled" ]; then
+    err $test "$service_name not enabled, state: ${service_state:-absent}"
+  fi
+
+  echo "$test:Finish"
+}
+>>>>>>> 4de7849027 (feat: add inspektor gadget)
+
 # Check that no files have a numeric UID or GID, which would indicate a file ownership issue.
 testFileOwnership() {
   local test="testFileOwnership"
@@ -1773,6 +1827,7 @@ testLtsKernel $OS_VERSION $OS_SKU $ENABLE_FIPS
 testAutologinDisabled $OS_SKU
 testCorednsBinaryExtractedAndCached $OS_VERSION
 checkLocaldnsScriptsAndConfigs
+testInspektorGadgetAssets
 testPackageDownloadURLFallbackLogic
 testFileOwnership $OS_SKU
 testDiskQueueServiceIsActive
