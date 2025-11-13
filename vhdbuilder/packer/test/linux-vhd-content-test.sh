@@ -9,6 +9,7 @@ MARINER_KATA_OS_NAME="MARINERKATA"
 AZURELINUX_KATA_OS_NAME="AZURELINUXKATA"
 
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
+
 OS_VERSION="$1"
 ENABLE_FIPS="$2"
 OS_SKU="$3"
@@ -634,6 +635,42 @@ testLtsKernel() {
 
 }
 
+# Parse loginctl sessions to find console autologin sessions
+# Console autologin sessions have Remote=no and Service=login
+# Returns: Space-separated list of autologin session IDs
+parseAutologinSessions() {
+  loginctl list-sessions --no-legend 2>/dev/null | while read -r session_id rest; do
+    if [ -n "$session_id" ]; then
+      local session_info
+      session_info=$(loginctl show-session "$session_id" 2>/dev/null || true)
+
+      if [ -z "$session_info" ]; then
+        echo "ERROR: 'loginctl show-session' Command may have failed or session may not exist" >&2
+        echo "PARSE_ERROR:$session_id"
+        continue
+      fi
+
+      local is_remote=$(echo "$session_info" | sed -n "s/^Remote=//p")
+      local service=$(echo "$session_info" | sed -n "s/^Service=//p")
+
+      # Check if we can parse the required fields
+      if [ -z "$is_remote" ] && [ -z "$service" ]; then
+        echo "ERROR: Cannot parse loginctl output for session $session_id" >&2
+        echo "ERROR: loginctl show-session output format may have changed" >&2
+        echo "ERROR: Expected 'Remote=' and 'Service=' fields but found neither" >&2
+        echo "ERROR: Actual output: $session_info" >&2
+        echo "PARSE_ERROR:$session_id"
+        continue
+      fi
+
+      # Console autologin sessions have Remote=no and Service=login
+      if [ "$is_remote" = "no" ] && [ "$service" = "login" ]; then
+        echo "$session_id"
+      fi
+    fi
+  done
+}
+
 testAutologinDisabled() {
   local test="testAutologinDisabled"
   local os_sku=$1
@@ -648,21 +685,15 @@ testAutologinDisabled() {
     echo "$test: Checking for console autologin sessions using loginctl"
 
     local autologin_session_ids=""
-    autologin_session_ids=$(loginctl list-sessions --no-legend 2>/dev/null | while read -r session_id rest; do
-      if [ -n "$session_id" ]; then
-        local session_info
-        session_info=$(loginctl show-session "$session_id" 2>/dev/null || true)
-        local is_remote=$(echo "$session_info" | sed -n "s/^Remote=//p")
-        local service=$(echo "$session_info" | sed -n "s/^Service=//p")
+    autologin_session_ids=$(parseAutologinSessions)
 
-        # Console autologin sessions have Remote=no and Service=login
-        if [ "$is_remote" = "no" ] && [ "$service" = "login" ]; then
-          echo "$session_id"
-        fi
-      fi
-    done)
-
-    if [ -n "$autologin_session_ids" ]; then
+    # Check for parse errors (indicates loginctl output format changed)
+    if echo "$autologin_session_ids" | grep -q "^PARSE_ERROR:"; then
+      err $test "Failed to parse loginctl output - format may have changed"
+      echo "$test: Parse errors detected in session parsing" >&2
+      echo "$test: Sessions with errors: $autologin_session_ids" >&2
+      failed=1
+    elif [ -n "$autologin_session_ids" ]; then
       err $test "Found console autologin session(s) with Remote=no and Service=login"
       echo "$test: Autologin session IDs: $autologin_session_ids" >&2
       echo "$test: All sessions:" >&2
