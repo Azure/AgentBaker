@@ -240,6 +240,21 @@ func (s *Scenario) updateTags(ctx context.Context, vmss *armcompute.VirtualMachi
 	vmss.Tags["owner"] = to.Ptr(owner)
 }
 
+func (s *Scenario) SecureTLSBootstrappingEnabled() bool {
+	return s.Runtime.NBC.SecureTLSBootstrappingConfig.GetEnabled() ||
+		s.Runtime.AKSNodeConfig.BootstrappingConfig.GetBootstrappingAuthMethod() == aksnodeconfigv1.BootstrappingAuthMethod_BOOTSTRAPPING_AUTH_METHOD_SECURE_TLS_BOOTSTRAPPING
+}
+
+func (s *Scenario) KubeletConfigFileEnabled() bool {
+	if nbc := s.Runtime.NBC; nbc != nil && (nbc.EnableKubeletConfigFile || (nbc.AgentPoolProfile != nil && nbc.AgentPoolProfile.CustomKubeletConfig != nil)) {
+		return true
+	}
+	if nodeConfig := s.Runtime.AKSNodeConfig; nodeConfig != nil && nodeConfig.KubeletConfig != nil && nodeConfig.KubeletConfig.EnableKubeletConfigFile {
+		return true
+	}
+	return false
+}
+
 func getLoggedInAzUser() (string, error) {
 	// Define the command and arguments
 	cmd := exec.Command("az", "account", "show", "--query", "user.name", "-o", "tsv")

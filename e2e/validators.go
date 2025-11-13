@@ -19,7 +19,6 @@ import (
 	"github.com/blang/semver"
 	"github.com/tidwall/gjson"
 
-	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/stretchr/testify/assert"
@@ -99,7 +98,7 @@ func validateKubeletServingCertificateRotationLinux(ctx context.Context, s *Scen
 		ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "--tls-cert-file")
 		ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "--tls-private-key-file")
 		ValidateDirectoryContent(ctx, s, "/etc/kubernetes/certs", []string{"kubeletserver.crt", "kubeletserver.key"})
-		if kubeletConfigFileEnabled(s) {
+		if s.KubeletConfigFileEnabled() {
 			ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", "\"tlsCertFile\": \"/etc/kubernetes/certs/kubeletserver.crt\"")
 			ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", "\"tlsPrivateKeyFile\": \"/etc/kubernetes/certs/kubeletserver.key\"")
 			ValidateFileExcludesContent(ctx, s, "/etc/default/kubeletconfig.json", "\"serverTLSBootstrap\": true")
@@ -112,7 +111,7 @@ func validateKubeletServingCertificateRotationLinux(ctx context.Context, s *Scen
 	ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "--tls-cert-file")
 	ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "--tls-private-key-file")
 	ValidateDirectoryContent(ctx, s, "/var/lib/kubelet/pki", []string{"kubelet-server-current.pem"})
-	if kubeletConfigFileEnabled(s) {
+	if s.KubeletConfigFileEnabled() {
 		ValidateFileExcludesContent(ctx, s, "/etc/default/kubeletconfig.json", "\"tlsCertFile\": \"/etc/kubernetes/certs/kubeletserver.crt\"")
 		ValidateFileExcludesContent(ctx, s, "/etc/default/kubeletconfig.json", "\"tlsPrivateKeyFile\": \"/etc/kubernetes/certs/kubeletserver.key\"")
 		ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", "\"serverTLSBootstrap\": true")
@@ -138,7 +137,7 @@ func validateTLSBootstrappingLinux(ctx context.Context, s *Scenario) {
 	ValidateDirectoryContent(ctx, s, "/var/lib/kubelet/pki", []string{"kubelet-client-current.pem"})
 	kubeletLogs := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo journalctl -u kubelet", 0, "could not retrieve kubelet logs with journalctl").stdout.String()
 	switch {
-	case secureTLSBootstrappingEnabled(s) && s.Tags.BootstrapTokenFallback:
+	case s.SecureTLSBootstrappingEnabled() && s.Tags.BootstrapTokenFallback:
 		s.T.Logf("will validate bootstrapping mode: secure TLS bootstrapping failure with bootstrap token fallback")
 		ValidateSystemdUnitIsNotRunning(ctx, s, "secure-tls-bootstrap")
 		require.True(
@@ -146,7 +145,7 @@ func validateTLSBootstrappingLinux(ctx context.Context, s *Scenario) {
 			!strings.Contains(kubeletLogs, "unable to validate bootstrap credentials") && strings.Contains(kubeletLogs, "kubelet bootstrap token credential is valid"),
 			"expected to have successfully validated bootstrap token credential before kubelet startup, but did not",
 		)
-	case secureTLSBootstrappingEnabled(s):
+	case s.SecureTLSBootstrappingEnabled():
 		s.T.Logf("will validate bootstrapping mode: secure TLS bootstrapping")
 		ValidateSystemdUnitIsRunning(ctx, s, "secure-tls-bootstrap")
 		validateKubeletClientCSRCreatedBySecureTLSBootstrapping(ctx, s)
@@ -227,21 +226,6 @@ func getNodeNameFromCSR(s *Scenario, csr certv1.CertificateSigningRequest) strin
 	req, err := x509.ParseCertificateRequest(block.Bytes)
 	require.NoError(s.T, err)
 	return strings.TrimPrefix(req.Subject.CommonName, "system:node:")
-}
-
-func secureTLSBootstrappingEnabled(s *Scenario) bool {
-	return s.Runtime.NBC.SecureTLSBootstrappingConfig.GetEnabled() ||
-		s.Runtime.AKSNodeConfig.BootstrappingConfig.GetBootstrappingAuthMethod() == aksnodeconfigv1.BootstrappingAuthMethod_BOOTSTRAPPING_AUTH_METHOD_SECURE_TLS_BOOTSTRAPPING
-}
-
-func kubeletConfigFileEnabled(s *Scenario) bool {
-	if nbc := s.Runtime.NBC; nbc != nil && (nbc.EnableKubeletConfigFile || (nbc.AgentPoolProfile != nil && nbc.AgentPoolProfile.CustomKubeletConfig != nil)) {
-		return true
-	}
-	if nodeConfig := s.Runtime.AKSNodeConfig; nodeConfig != nil && nodeConfig.KubeletConfig != nil && nodeConfig.KubeletConfig.EnableKubeletConfigFile {
-		return true
-	}
-	return false
 }
 
 func ValidateDirectoryContent(ctx context.Context, s *Scenario, path string, files []string) {
