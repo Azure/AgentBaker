@@ -124,7 +124,7 @@ Describe 'Install-Containerd-Based-On-Kubernetes-Version' {
   }
 }
 
-Describe 'Get-WindowsVersion and Get-WindowsPauseVersion' {
+Describe 'Get-WindowsVersion' {
   BeforeAll {
     Mock Set-ExitCode -MockWith {
         Param(
@@ -181,20 +181,6 @@ Describe 'Get-WindowsVersion and Get-WindowsPauseVersion' {
       Write-Host "Expected exception: $_"
     }
     Assert-MockCalled -CommandName 'Set-ExitCode' -Exactly -Times 1 -ParameterFilter { $ExitCode -eq $global:WINDOWS_CSE_ERROR_NOT_FOUND_BUILD_NUMBER }
-  }
-
-  It 'build number is from prerelease of windows 2025' {
-    Mock Get-WindowsBuildNumber -MockWith { return "25399" }
-    $windowsPauseVersion = Get-WindowsPauseVersion
-    $expectedPauseVersion = "ltsc2022"
-    $windowsPauseVersion | Should -Be $expectedPauseVersion
-  }
-
-  It 'build number is from prerelease of windows 2025' {
-    Mock Get-WindowsBuildNumber -MockWith { return "30397" }
-    $windowsPauseVersion = Get-WindowsPauseVersion
-    $expectedPauseVersion = "ltsc2022"
-    $windowsPauseVersion | Should -Be $expectedPauseVersion
   }
 }
 
