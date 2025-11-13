@@ -112,3 +112,8 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 			"AAD client ID and secret should be present in /etc/kubernetes/azure.json")
 	}
 }
+
+func ValidateCommonWindows(ctx context.Context, s *Scenario) {
+	ValidateTLSBootstrapping(ctx, s)
+	ValidateKubeletServingCertificateRotation(ctx, s)
+}

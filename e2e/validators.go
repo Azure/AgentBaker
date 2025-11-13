@@ -83,6 +83,15 @@ func ValidateLeakedSecrets(ctx context.Context, s *Scenario) {
 }
 
 func ValidateKubeletServingCertificateRotation(ctx context.Context, s *Scenario) {
+	switch s.VHD.OS {
+	case config.OSWindows:
+		validateKubeletServingCertificateRotationWindows(ctx, s)
+	default:
+		validateKubeletServingCertificateRotationLinux(ctx, s)
+	}
+}
+
+func validateKubeletServingCertificateRotationLinux(ctx context.Context, s *Scenario) {
 	if _, ok := s.Runtime.VM.VMSS.Tags["aks-disable-kubelet-serving-certificate-rotation"]; ok {
 		s.T.Logf("ValidateKubeletServingCertificateRotation - VMSS has KSCR disablement tag, will validate that KSCR has been disabled")
 		ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "--rotate-server-certificates=true")
@@ -107,9 +116,23 @@ func ValidateKubeletServingCertificateRotation(ctx context.Context, s *Scenario)
 		ValidateFileExcludesContent(ctx, s, "/etc/default/kubeletconfig.json", "\"tlsPrivateKeyFile\": \"/etc/kubernetes/certs/kubeletserver.key\"")
 		ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", "\"serverTLSBootstrap\": true")
 	}
+
+}
+
+func validateKubeletServingCertificateRotationWindows(ctx context.Context, s *Scenario) {
+
 }
 
 func ValidateTLSBootstrapping(ctx context.Context, s *Scenario) {
+	switch s.VHD.OS {
+	case config.OSWindows:
+		validateTLSBootstrappingWindows(ctx, s)
+	default:
+		validateTLSBootstrappingLinux(ctx, s)
+	}
+}
+
+func validateTLSBootstrappingLinux(ctx context.Context, s *Scenario) {
 	ValidateDirectoryContent(ctx, s, "/var/lib/kubelet", []string{"kubeconfig"})
 	ValidateDirectoryContent(ctx, s, "/var/lib/kubelet/pki", []string{"kubelet-server-current.pem"})
 	kubeletLogs := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo journalctl -u kubelet", 0, "could not retrieve kubelet logs with journalctl").stdout.String()
@@ -138,6 +161,10 @@ func ValidateTLSBootstrapping(ctx context.Context, s *Scenario) {
 			"expected to have successfully validated bootstrap token credential before kubelet startup, but did not",
 		)
 	}
+}
+
+func validateTLSBootstrappingWindows(ctx context.Context, s *Scenario) {
+
 }
 
 func validateKubeletClientCSRCreatedBySecureTLSBootstrapping(ctx context.Context, s *Scenario) {
