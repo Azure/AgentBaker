@@ -186,11 +186,11 @@ if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]]; then
     # This is the ubuntu 2404arm64gen2containerd image or the 2404arm64gb200 image
     # Uncomment if we have trouble finding the kernel package.
     # sudo add-apt-repository ppa:canonical-kernel-team/ppa
-    sudo apt update
+    apt-get update
     if apt-cache show "${NVIDIA_KERNEL_PACKAGE}" &> /dev/null; then
       echo "ARM64 image. Installing NVIDIA kernel and its packages alongside LTS kernel"
       wait_for_apt_locks
-      sudo apt-get install -y $(jq -r '.kernel-versions | to_entries[] | "\(.key)=\(.value)"' $BOM_PATH)
+      apt-get install -y $(jq -r '.kernel-versions | to_entries[] | "\(.key)=\(.value)"' $BOM_PATH)
       echo "after installation:"
       dpkg -l | grep "linux-.*-azure-nvidia"
     else
