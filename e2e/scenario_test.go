@@ -25,9 +25,10 @@ func Test_AzureLinux3OSGuard(t *testing.T) {
 			VHD:     config.VHDAzureLinux3OSGuard,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.LocalDNSProfile = nil
+				// Secure TLS Bootstrapping is not yet supported on OSGuard (FIPS)
+				nbc.SecureTLSBootstrappingConfig.Enabled = false
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-			},
+			Validator: func(ctx context.Context, s *Scenario) {},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
 			},
@@ -181,40 +182,6 @@ func Test_Flatcar_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing.T) {
 	})
 }
 
-func Test_Flatcar_SecureTLSBootstrapping(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that a node using an Flatcar Gen2 VHD can be properly bootstrapped using secure TLS bootstrapping",
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDFlatcarGen2,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{
-					Enabled: true,
-				}
-			},
-		},
-	})
-}
-
-func Test_Flatcar_SecureTLSBootstrapping_Scriptless(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that a node using an Flatcar Gen2 VHD can be properly bootstrapped using secure TLS bootstrapping with scriptless",
-		Tags: Tags{
-			Scriptless: true,
-		},
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDFlatcarGen2,
-			AKSNodeConfigMutator: func(c *aksnodeconfigv1.Configuration) {
-				if c.BootstrappingConfig == nil {
-					c.BootstrappingConfig = &aksnodeconfigv1.BootstrappingConfig{}
-				}
-				c.BootstrappingConfig.BootstrappingAuthMethod = aksnodeconfigv1.BootstrappingAuthMethod_BOOTSTRAPPING_AUTH_METHOD_SECURE_TLS_BOOTSTRAPPING
-			},
-		},
-	})
-}
-
 func Test_AzureLinuxV2_AirGap(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a AzureLinuxV2 (CgroupV2) VHD can be properly bootstrapped",
@@ -256,40 +223,6 @@ func Test_AzureLinuxV3_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing
 					Deadline:               (30 * time.Second).String(),
 					UserAssignedIdentityID: "invalid", // use an unexpected user-assigned identity ID to force a secure TLS bootstrapping failure
 				}
-			},
-		},
-	})
-}
-
-func Test_AzureLinuxV3_SecureTLSBootstrapping(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that a node using an AzureLinuxV3 Gen2 VHD can be properly bootstrapped using secure TLS bootstrapping",
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDAzureLinuxV3Gen2,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{
-					Enabled: true,
-				}
-			},
-		},
-	})
-}
-
-func Test_AzureLinuxV3_SecureTLSBootstrapping_Scriptless(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that a node using an AzureLinuxV3 Gen2 VHD can be properly bootstrapped using secure TLS bootstrapping with scriptless",
-		Tags: Tags{
-			Scriptless: true,
-		},
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDAzureLinuxV3Gen2,
-			AKSNodeConfigMutator: func(c *aksnodeconfigv1.Configuration) {
-				if c.BootstrappingConfig == nil {
-					c.BootstrappingConfig = &aksnodeconfigv1.BootstrappingConfig{}
-				}
-				c.BootstrappingConfig.BootstrappingAuthMethod = aksnodeconfigv1.BootstrappingAuthMethod_BOOTSTRAPPING_AUTH_METHOD_SECURE_TLS_BOOTSTRAPPING
 			},
 		},
 	})
@@ -1926,59 +1859,10 @@ func Test_Ubuntu2204_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing.T
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{
-					Enabled:     true,
-					Deadline:    (30 * time.Second).String(),
-					AADResource: "https://management.azure.com/", // use an unexpected AAD resource to force a secure TLS bootstrapping failure
+					Enabled:                true,
+					Deadline:               (30 * time.Second).String(),
+					UserAssignedIdentityID: "invalid", // use an unexpected user-assigned identity ID to force a secure TLS bootstrapping failure
 				}
-			},
-		},
-	})
-}
-
-func Test_Ubuntu2204_SecureTLSBootstrapping(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that a node using an Ubuntu 2204 Gen2 VHD can be properly bootstrapped using secure TLS bootstrapping",
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2204Gen2Containerd,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{
-					Enabled: true,
-				}
-			},
-		},
-	})
-}
-
-func Test_Ubuntu2204ARM64_SecureTLSBootstrapping(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that a node using an Ubuntu 2204 ARM64 Gen2 VHD can be properly bootstrapped using secure TLS bootstrapping",
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2204Gen2Arm64Containerd,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{
-					Enabled: true,
-				}
-			},
-		},
-	})
-}
-
-func Test_Ubuntu2204_SecureTLSBootstrapping_Scriptless(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that a node using an Ubuntu 2204 Gen2 VHD can be properly bootstrapped using secure TLS bootstrapping with scriptless",
-		Tags: Tags{
-			Scriptless: true,
-		},
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2204Gen2Containerd,
-			AKSNodeConfigMutator: func(c *aksnodeconfigv1.Configuration) {
-				if c.BootstrappingConfig == nil {
-					c.BootstrappingConfig = &aksnodeconfigv1.BootstrappingConfig{}
-				}
-				c.BootstrappingConfig.BootstrappingAuthMethod = aksnodeconfigv1.BootstrappingAuthMethod_BOOTSTRAPPING_AUTH_METHOD_SECURE_TLS_BOOTSTRAPPING
 			},
 		},
 	})
@@ -1999,40 +1883,6 @@ func Test_Ubuntu2404_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing.T
 					Deadline:               (30 * time.Second).String(),
 					UserAssignedIdentityID: "invalid", // use an unexpected user-assigned identity ID to force a secure TLS bootstrapping failure
 				}
-			},
-		},
-	})
-}
-
-func Test_Ubuntu2404_SecureTLSBootstrapping(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that a node using an Ubuntu 2404 Gen2 VHD can be properly bootstrapped using secure TLS bootstrapping",
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2404Gen2Containerd,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{
-					Enabled: true,
-				}
-			},
-		},
-	})
-}
-
-func Test_Ubuntu2404_SecureTLSBootstrapping_Scriptless(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that a node using an Ubuntu 2404 Gen2 VHD can be properly bootstrapped using secure TLS bootstrapping with scriptless",
-		Tags: Tags{
-			Scriptless: true,
-		},
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2404Gen2Containerd,
-			AKSNodeConfigMutator: func(c *aksnodeconfigv1.Configuration) {
-				if c.BootstrappingConfig == nil {
-					c.BootstrappingConfig = &aksnodeconfigv1.BootstrappingConfig{}
-				}
-				c.BootstrappingConfig.BootstrappingAuthMethod = aksnodeconfigv1.BootstrappingAuthMethod_BOOTSTRAPPING_AUTH_METHOD_SECURE_TLS_BOOTSTRAPPING
 			},
 		},
 	})
@@ -2291,9 +2141,10 @@ func Test_AzureLinux3OSGuard_PMC_Install(t *testing.T) {
 			VHD:     config.VHDAzureLinux3OSGuard,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.LocalDNSProfile = nil
+				// Secure TLS Bootstrapping is not yet supported on OSGuard (FIPS)
+				nbc.SecureTLSBootstrappingConfig.Enabled = false
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-			},
+			Validator: func(ctx context.Context, s *Scenario) {},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
 				if vmss.Tags == nil {

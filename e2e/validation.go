@@ -69,7 +69,6 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 		"cluster-provision-cse-output.log",
 		"cloud-init-files.paved",
 		"vhd-install.complete",
-		//"cloud-config.txt", // file with UserData
 	})
 
 	// kubeletNodeIPValidator cannot be run on older VHDs with kubelet < 1.29

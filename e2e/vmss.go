@@ -195,13 +195,11 @@ func createVMSSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachine
 
 	model := getBaseVMSSModel(s, customData, cse)
 
-	// always assign the abe2e + kubelet identities to the VMSS
-	kubeletIdentity, err := getClusterKubeletIdentity(s.Runtime.Cluster.Model)
-	require.NoError(s.T, err)
+	// always assign the kubelet and e2e VM identities to the VMSS
 	model.Identity = &armcompute.VirtualMachineScaleSetIdentity{
 		Type: to.Ptr(armcompute.ResourceIdentityTypeSystemAssignedUserAssigned),
 		UserAssignedIdentities: map[string]*armcompute.UserAssignedIdentitiesValue{
-			*kubeletIdentity.ResourceID:                    {},
+			*s.Runtime.Cluster.KubeletIdentity.ResourceID:  {},
 			config.Config.VMIdentityResourceID(s.Location): {},
 		},
 	}

@@ -114,15 +114,22 @@ func getBaseNBC(t testing.TB, cluster *Cluster, vhd *config.Image) (*datamodel.N
 		nbc = baseTemplateLinux(t, *cluster.Model.Location, *cluster.Model.Properties.CurrentKubernetesVersion, vhd.Arch)
 	}
 
-	kubeletIdentity, err := getClusterKubeletIdentity(cluster.Model)
-	if err != nil {
-		return nil, fmt.Errorf("getting cluster kubelet identity to create base NodeBootstrappingConfiguration: %w", err)
+	// use the cluster's kubelet identity to simulate how AKS works in production
+	// we assume that all E2E clusters are created with a user-assigned managed identity for the kubelet (not a service principal)
+	nbc.UserAssignedIdentityClientID = *cluster.KubeletIdentity.ClientID
+
+	// pass in the bootstrap token and enable secure TLS bootstrapping by default
+	// this allows us to test the following bootstrapping modes:
+	// 1. secure TLS bootstrapping
+	// 2. secure TLS bootstrapping failure, which falls back to bootstrap token
+	// 3. bootstrap token
+	nbc.KubeletClientTLSBootstrapToken = &cluster.ClusterParams.BootstrapToken
+	nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{
+		Enabled: true,
 	}
-	nbc.UserAssignedIdentityClientID = *kubeletIdentity.ClientID
 
 	nbc.TenantID = *cluster.Model.Identity.TenantID
 	nbc.ContainerService.Properties.CertificateProfile.CaCertificate = string(cluster.ClusterParams.CACert)
-	nbc.KubeletClientTLSBootstrapToken = &cluster.ClusterParams.BootstrapToken
 	nbc.ContainerService.Properties.HostedMasterProfile.FQDN = cluster.ClusterParams.FQDN
 	nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = vhd.Distro
 	nbc.AgentPoolProfile.Distro = vhd.Distro
