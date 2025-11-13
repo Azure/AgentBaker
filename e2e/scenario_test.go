@@ -1753,15 +1753,13 @@ func Test_AzureLinuxV2_MessageOfTheDay_Scriptless(t *testing.T) {
 
 func Test_AzureLinuxV3_MA35D(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "Tests that a node using a AzureLinuxV3 can be bootstrapped and message of the day is added to the node",
+		Description: "Tests that a node using a AzureLinuxV3 can support MA35D SKU",
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV3Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_NM16ads_MA35D"
 				nbc.AgentPoolProfile.VMSize = "Standard_NM16ads_MA35D"
-				nbc.ConfigGPUDriverIfNeeded = false
-				nbc.EnableNvidia = false
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_NM16ads_MA35D")
@@ -1775,7 +1773,7 @@ func Test_AzureLinuxV3_MA35D(t *testing.T) {
 
 func Test_AzureLinuxV3_MA35D_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "Tests that a node using a AzureLinuxV3 can be bootstrapped and message of the day is added to the node",
+		Description: "Tests that a node using a AzureLinuxV3 can support MA35D SKU",
 		Tags: Tags{
 			Scriptless: true,
 		},
@@ -1784,8 +1782,6 @@ func Test_AzureLinuxV3_MA35D_Scriptless(t *testing.T) {
 			VHD:     config.VHDAzureLinuxV3Gen2,
 			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
 				config.VmSize = "Standard_NM16ads_MA35D"
-				config.GpuConfig.ConfigGpuDriver = false
-				config.GpuConfig.EnableNvidia = to.Ptr(false)
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_NM16ads_MA35D")
