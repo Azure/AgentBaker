@@ -636,7 +636,7 @@ testLtsKernel() {
 
 testAutologinDisabled() {
   local test="testAutologinDisabled"
-  os_sku=$1
+  local os_sku=$1
   echo "$test:Start"
 
   if [ "$os_sku" = "Flatcar" ]; then
