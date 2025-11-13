@@ -3,7 +3,7 @@ set -x
 
 source ./parts/linux/cloud-init/artifacts/cse_benchmark_functions.sh
 
-EXPIRATION_IN_HOURS=288
+EXPIRATION_IN_HOURS=168 # 7 days
 # convert to seconds so we can compare it against the "tags.now" property in the resource group metadata
 (( expirationInSecs = ${EXPIRATION_IN_HOURS} * 60 * 60 ))
 # deadline = the "date +%s" representation of the oldest age we're willing to keep
@@ -193,6 +193,13 @@ if [[ "${MODE}" == "linuxVhdMode" && -n "${AZURE_RESOURCE_GROUP_NAME}" && "${DRY
   else
     echo "Did not find any old SIG versions eligible for deletion"
   fi
+
+  # cleanup any lingering image builder resource groups
+  for image_builder_rg in $(az group list | jq --arg dl $deadline '.[] | select(.name | test("^image-builder-*")) | select(.tags.now < $dl).name' | tr -d '\"' || ""); do
+    echo "deleting image builder resource group: ${image_builder_rg}"
+    az group delete -g "${image_builder_rg}" --yes --no-wait
+  done
+
   set -x
 fi
 capture_benchmark "${SCRIPT_NAME}_delete_old_sig_versions"
