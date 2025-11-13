@@ -29,7 +29,7 @@ state = 'C:\ProgramData\containerd\state'
     snapshotter = 'windows'
 
     [plugins.'io.containerd.cri.v1.images'.pinned_images]
-      sandbox = '{{pauseImage}}-windows-{{currentversion}}-amd64'
+      sandbox = '{{pauseImage}}'
 
     [plugins.'io.containerd.cri.v1.images'.registry]
       [plugins.'io.containerd.cri.v1.images'.registry.mirrors]
@@ -51,7 +51,7 @@ state = 'C:\ProgramData\containerd\state'
           [plugins.'io.containerd.cri.v1.runtime'.containerd.runtimes.default_runtime.options]
             Debug = false
             DebugType = 0
-            SandboxImage = '{{pauseImage}}-windows-{{currentversion}}-amd64'
+            SandboxImage = '{{pauseImage}}'
             SandboxPlatform = 'windows/amd64'
             SandboxIsolation = {{sandboxIsolation}}
 
@@ -62,7 +62,7 @@ state = 'C:\ProgramData\containerd\state'
           [plugins.'io.containerd.cri.v1.runtime'.containerd.runtimes.runhcs-wcow-process.options]
             Debug = true
             DebugType = 2
-            SandboxImage = '{{pauseImage}}-windows-{{currentversion}}-amd64'
+            SandboxImage = '{{pauseImage}}'
             SandboxPlatform = 'windows/amd64'
 {{hypervisors}}
     [plugins.'io.containerd.cri.v1.runtime'.cni]
