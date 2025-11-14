@@ -1453,6 +1453,8 @@ func Test_Ubuntu2204_PrivateKubePkg(t *testing.T) {
 				nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.25.6"
 				nbc.K8sComponents.LinuxPrivatePackageURL = "https://privatekube.blob.core.windows.net/kubernetes/v1.25.6-hotfix.20230612/binaries/v1.25.6-hotfix.20230612.tar.gz"
 				nbc.AgentPoolProfile.LocalDNSProfile = nil
+				// Secure TLS Bootstrapping isn't supported on this VHD
+				nbc.SecureTLSBootstrappingConfig.Enabled = false
 			},
 		},
 	})

@@ -106,7 +106,6 @@ func validateKubeletServingCertificateRotationLinux(ctx context.Context, s *Scen
 		return
 	}
 	s.T.Logf("will validate KSCR enablement")
-	ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "--rotate-server-certificates=true")
 	ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "kubernetes.azure.com/kubelet-serving-ca=cluster")
 	ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "--tls-cert-file")
 	ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "--tls-private-key-file")
@@ -115,8 +114,9 @@ func validateKubeletServingCertificateRotationLinux(ctx context.Context, s *Scen
 		ValidateFileExcludesContent(ctx, s, "/etc/default/kubeletconfig.json", "\"tlsCertFile\": \"/etc/kubernetes/certs/kubeletserver.crt\"")
 		ValidateFileExcludesContent(ctx, s, "/etc/default/kubeletconfig.json", "\"tlsPrivateKeyFile\": \"/etc/kubernetes/certs/kubeletserver.key\"")
 		ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", "\"serverTLSBootstrap\": true")
+	} else {
+		ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "--rotate-server-certificates=true")
 	}
-
 }
 
 func validateKubeletServingCertificateRotationWindows(ctx context.Context, s *Scenario) {
