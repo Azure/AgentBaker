@@ -115,14 +115,14 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2404Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.AgentPoolProfile.VMSize = "Standard_NC6s_v3"
+				nbc.AgentPoolProfile.VMSize = "Standard_NV6ads_A10_v5"
 				nbc.ConfigGPUDriverIfNeeded = true
 				nbc.EnableGPUDevicePluginIfNeeded = true
 				nbc.EnableNvidia = true
 				nbc.ManagedGPUExperienceAFECEnabled = true
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
+				vmss.SKU.Name = to.Ptr("Standard_NV6ads_A10_v5")
 				if vmss.Tags == nil {
 					vmss.Tags = map[string]*string{}
 				}
@@ -171,6 +171,9 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning(t *testing.T) {
 				ValidateNPDUnhealthyNvidiaDCGMServices(ctx, s)
 				ValidateNPDUnhealthyNvidiaDCGMServicesCondition(ctx, s)
 				ValidateNPDUnhealthyNvidiaDCGMServicesAfterFailure(ctx, s)
+				// verify nvidia grid license status checks are reporting status correctly
+				ValidateNPDHealthyNvidiaGridLicenseStatus(ctx, s)
+				ValidateNPDUnhealthyNvidiaGridLicenseStatusAfterFailure(ctx, s)
 			},
 		},
 	})
@@ -186,14 +189,14 @@ func Test_Ubuntu2204_NvidiaDevicePluginRunning(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.AgentPoolProfile.VMSize = "Standard_NC6s_v3"
+				nbc.AgentPoolProfile.VMSize = "Standard_NV6ads_A10_v5"
 				nbc.ConfigGPUDriverIfNeeded = true
 				nbc.EnableGPUDevicePluginIfNeeded = true
 				nbc.EnableNvidia = true
 				nbc.ManagedGPUExperienceAFECEnabled = true
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
+				vmss.SKU.Name = to.Ptr("Standard_NV6ads_A10_v5")
 				if vmss.Tags == nil {
 					vmss.Tags = map[string]*string{}
 				}
@@ -241,6 +244,9 @@ func Test_Ubuntu2204_NvidiaDevicePluginRunning(t *testing.T) {
 				ValidateNPDUnhealthyNvidiaDCGMServices(ctx, s)
 				ValidateNPDUnhealthyNvidiaDCGMServicesCondition(ctx, s)
 				ValidateNPDUnhealthyNvidiaDCGMServicesAfterFailure(ctx, s)
+				// verify nvidia grid license status checks are reporting status correctly
+				ValidateNPDHealthyNvidiaGridLicenseStatus(ctx, s)
+				ValidateNPDUnhealthyNvidiaGridLicenseStatusAfterFailure(ctx, s)
 			},
 		},
 	})
@@ -256,14 +262,14 @@ func Test_AzureLinux3_NvidiaDevicePluginRunning(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV3Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.AgentPoolProfile.VMSize = "Standard_NC6s_v3"
+				nbc.AgentPoolProfile.VMSize = "Standard_NV6ads_A10_v5"
 				nbc.ConfigGPUDriverIfNeeded = true
 				nbc.EnableGPUDevicePluginIfNeeded = true
 				nbc.EnableNvidia = true
 				nbc.ManagedGPUExperienceAFECEnabled = true
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
+				vmss.SKU.Name = to.Ptr("Standard_NV6ads_A10_v5")
 				if vmss.Tags == nil {
 					vmss.Tags = map[string]*string{}
 				}
@@ -311,6 +317,9 @@ func Test_AzureLinux3_NvidiaDevicePluginRunning(t *testing.T) {
 				ValidateNPDUnhealthyNvidiaDCGMServices(ctx, s)
 				ValidateNPDUnhealthyNvidiaDCGMServicesCondition(ctx, s)
 				ValidateNPDUnhealthyNvidiaDCGMServicesAfterFailure(ctx, s)
+				// verify nvidia grid license status checks are reporting status correctly
+				ValidateNPDHealthyNvidiaGridLicenseStatus(ctx, s)
+				ValidateNPDUnhealthyNvidiaGridLicenseStatusAfterFailure(ctx, s)
 			},
 		},
 	})
@@ -389,6 +398,9 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG(t *testing.T) {
 				ValidateNPDUnhealthyNvidiaDCGMServices(ctx, s)
 				ValidateNPDUnhealthyNvidiaDCGMServicesCondition(ctx, s)
 				ValidateNPDUnhealthyNvidiaDCGMServicesAfterFailure(ctx, s)
+				// verify nvidia grid license status checks are reporting status correctly
+				ValidateNPDHealthyNvidiaGridLicenseStatus(ctx, s)
+				ValidateNPDUnhealthyNvidiaGridLicenseStatusAfterFailure(ctx, s)
 			},
 		},
 	})
