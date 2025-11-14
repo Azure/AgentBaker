@@ -210,20 +210,20 @@ func evaluateProvisionStatus(data []byte) error {
 		Error    string `json:"Error"`
 		Output   string `json:"Output"`
 	}
-	var r provisionResult
-	if err := json.Unmarshal(data, &r); err != nil {
+	var result provisionResult
+	if err := json.Unmarshal(data, &result); err != nil {
 		return fmt.Errorf("parse provision.json: %w", err)
 	}
-	if r.ExitCode == "" { // missing ExitCode -> treat as success (older / unexpected format)
-		return nil
+	if result.ExitCode == "" {
+		return fmt.Errorf("missing ExitCode in provision.json")
 	}
-	code, err := strconv.Atoi(r.ExitCode)
+	code, err := strconv.Atoi(result.ExitCode)
 	if err != nil {
-		return fmt.Errorf("invalid ExitCode in provision.json: %s", r.ExitCode)
+		return fmt.Errorf("invalid ExitCode in provision.json: %s", result.ExitCode)
 	}
 	if code != 0 {
-		outSnippet := r.Output
-		return fmt.Errorf("provision failed: exitCode=%d error=%s output=%q", code, r.Error, outSnippet)
+		outSnippet := result.Output
+		return fmt.Errorf("provision failed: exitCode=%d error=%s output=%q", code, result.Error, outSnippet)
 	}
 	return nil
 }

@@ -329,4 +329,36 @@ func Test_readAndEvaluateProvision(t *testing.T) {
 			t.Fatalf("expected failure error, got=%v", gotErr)
 		}
 	})
+
+	// valid provision file with invalid ExitCode "unknown"
+	t.Run("invalid ExitCode returns error", func(t *testing.T) {
+		f, err := os.CreateTemp(t.TempDir(), "provision_invalid_exit_*.json")
+		if err != nil {
+			t.Fatalf("temp file create: %v", err)
+		}
+		if _, err := f.WriteString(`{"ExitCode":"unknown","Output":"boom","Error":"bad"}`); err != nil {
+			t.Fatalf("write: %v", err)
+		}
+		f.Close()
+		_, gotErr := readAndEvaluateProvision(f.Name())
+		if gotErr == nil || !strings.Contains(gotErr.Error(), "invalid ExitCode") {
+			t.Fatalf("expected invalid ExitCode error, got=%v", gotErr)
+		}
+	})
+
+	// valid provision file with missing ExitCode
+	t.Run("missing ExitCode returns error", func(t *testing.T) {
+		f, err := os.CreateTemp(t.TempDir(), "provision_missing_exit_*.json")
+		if err != nil {
+			t.Fatalf("temp file create: %v", err)
+		}
+		if _, err := f.WriteString(`{"Output":"boom","Error":"bad"}`); err != nil {
+			t.Fatalf("write: %v", err)
+		}
+		f.Close()
+		_, gotErr := readAndEvaluateProvision(f.Name())
+		if gotErr == nil || !strings.Contains(gotErr.Error(), "missing ExitCode") {
+			t.Fatalf("expected missing ExitCode error, got=%v", gotErr)
+		}
+	})
 }
