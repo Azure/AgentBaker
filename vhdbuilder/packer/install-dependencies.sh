@@ -631,6 +631,15 @@ EOF
     fi
 
     apt install -y \
+      nvidia-dkms-580-open=580.95.05-0ubuntu1 \
+      nvidia-kernel-common-580=580.95.05-0ubuntu1 \
+      nvidia-kernel-source-580-open=580.95.05-0ubuntu1 \
+      libnvidia-compute-580=580.95.05-0ubuntu1 \
+      libnvidia-extra-580=580.95.05-0ubuntu1 \
+      libnvidia-decode-580=580.95.05-0ubuntu1 \
+      libnvidia-encode-580=580.95.05-0ubuntu1 \
+      xserver-xorg-video-nvidia-580=580.95.05-0ubuntu1 \
+      libnvidia-fbc1-580=580.95.05-0ubuntu1 \
       nvidia-driver-580-open=580.95.05-0ubuntu1
 
     apt install -y \
