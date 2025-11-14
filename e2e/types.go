@@ -252,7 +252,8 @@ func (s *Scenario) SecureTLSBootstrappingEnabled() bool {
 }
 
 func (s *Scenario) KubeletConfigFileEnabled() bool {
-	if nbc := s.Runtime.NBC; nbc != nil && (nbc.EnableKubeletConfigFile || (nbc.AgentPoolProfile != nil && nbc.AgentPoolProfile.CustomKubeletConfig != nil)) {
+	if nbc := s.Runtime.NBC; nbc != nil && (nbc.EnableKubeletConfigFile ||
+		(nbc.AgentPoolProfile != nil && (nbc.AgentPoolProfile.CustomKubeletConfig != nil || nbc.AgentPoolProfile.CustomLinuxOSConfig != nil))) {
 		return true
 	}
 	if nodeConfig := s.Runtime.AKSNodeConfig; nodeConfig != nil && nodeConfig.KubeletConfig != nil && nodeConfig.KubeletConfig.EnableKubeletConfigFile {
