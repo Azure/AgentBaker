@@ -38,6 +38,8 @@ pool:
   name: $(POOL_NAME)
 
 variables:
+  - name: MODE
+    value: "linuxVhdMode"
   - group: aks-vuln-to-kusto
   - group: "AKS Node SIG UA Token (KV)"
   - group: build_performance
@@ -245,4 +247,3 @@ stages:
       - template: ./templates/e2e-template.yaml
         parameters:
           IgnoreScenariosWithMissingVhd: true
-
