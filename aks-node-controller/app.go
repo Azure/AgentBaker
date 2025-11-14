@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -11,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 
 	"github.com/Azure/agentbaker/aks-node-controller/parser"
 	"github.com/Azure/agentbaker/aks-node-controller/pkg/nodeconfigutils"
@@ -65,6 +67,9 @@ func (a *App) run(ctx context.Context, args []string) error {
 	case "provision-wait":
 		provisionStatusFiles := ProvisionStatusFiles{ProvisionJSONFile: provisionJSONFilePath, ProvisionCompleteFile: provisionCompleteFilePath}
 		provisionOutput, err := a.ProvisionWait(ctx, provisionStatusFiles)
+		if err != nil {
+			slog.Error("provision-wait failed", "error", err)
+		}
 		//nolint:forbidigo // stdout is part of the interface
 		fmt.Println(provisionOutput)
 		slog.Info("provision-wait finished", "provisionOutput", provisionOutput)
@@ -158,11 +163,9 @@ func (a *App) writeCompleteFileOnError(err error) {
 
 func (a *App) ProvisionWait(ctx context.Context, filepaths ProvisionStatusFiles) (string, error) {
 	if _, err := os.Stat(filepaths.ProvisionCompleteFile); err == nil {
-		data, err := os.ReadFile(filepaths.ProvisionJSONFile)
-		if err != nil {
-			return "", fmt.Errorf("failed to read provision.json: %w. One reason could be that AKSNodeConfig is not properly set", err)
-		}
-		return string(data), nil
+		// Fast path: provision.complete already exists when we enter. Avoid watcher overhead.
+		// We read and evaluate once and return immediately. Only this branch executes in this scenario.
+		return readAndEvaluateProvision(filepaths.ProvisionJSONFile)
 	}
 
 	watcher, err := fsnotify.NewWatcher()
@@ -183,11 +186,9 @@ func (a *App) ProvisionWait(ctx context.Context, filepaths ProvisionStatusFiles)
 		select {
 		case event := <-watcher.Events:
 			if event.Op&fsnotify.Create == fsnotify.Create && event.Name == filepaths.ProvisionCompleteFile {
-				data, err := os.ReadFile(filepaths.ProvisionJSONFile)
-				if err != nil {
-					return "", fmt.Errorf("failed to read provision.json: %w. One reason could be that AKSNodeConfig is not properly set", err)
-				}
-				return string(data), nil
+				// Event path: provision.complete was created after we started watching. Read and evaluate now.
+				// This is mutually exclusive with the fast path above; only one of these calls runs per invocation.
+				return readAndEvaluateProvision(filepaths.ProvisionJSONFile)
 			}
 
 		case err := <-watcher.Errors:
@@ -196,6 +197,45 @@ func (a *App) ProvisionWait(ctx context.Context, filepaths ProvisionStatusFiles)
 			return "", fmt.Errorf("context deadline exceeded waiting for provision complete: %w", ctx.Err())
 		}
 	}
+}
+
+// evaluateProvisionStatus inspects the serialized CSEStatus (provision.json contents).
+// If ExitCode is non-zero we return an error so that provision-wait exits with a failure code.
+// We still surface the full JSON on stdout (handled by caller) for diagnostics.
+func evaluateProvisionStatus(data []byte) error {
+	// provision.json values are emitted as strings by the shell jq invocation.
+	// We only care about ExitCode + Error + Output (snippet) for failure detection.
+	type provisionResult struct {
+		ExitCode string `json:"ExitCode"`
+		Error    string `json:"Error"`
+		Output   string `json:"Output"`
+	}
+	var r provisionResult
+	if err := json.Unmarshal(data, &r); err != nil {
+		return fmt.Errorf("parse provision.json: %w", err)
+	}
+	if r.ExitCode == "" { // missing ExitCode -> treat as success (older / unexpected format)
+		return nil
+	}
+	code, err := strconv.Atoi(r.ExitCode)
+	if err != nil {
+		return fmt.Errorf("invalid ExitCode in provision.json: %s", r.ExitCode)
+	}
+	if code != 0 {
+		outSnippet := r.Output
+		return fmt.Errorf("provision failed: exitCode=%d error=%s output=%q", code, r.Error, outSnippet)
+	}
+	return nil
+}
+
+// readAndEvaluateProvision reads provision.json content from the given path and evaluates its status.
+// It returns the raw JSON string plus any error derived from its parsed ExitCode.
+func readAndEvaluateProvision(path string) (string, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", fmt.Errorf("failed to read provision.json: %w. One reason could be that AKSNodeConfig is not properly set", err)
+	}
+	return string(data), evaluateProvisionStatus(data)
 }
 
 var _ ExitCoder = &exec.ExitError{}
