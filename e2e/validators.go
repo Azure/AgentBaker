@@ -93,28 +93,29 @@ func ValidateKubeletServingCertificateRotation(ctx context.Context, s *Scenario)
 func validateKubeletServingCertificateRotationLinux(ctx context.Context, s *Scenario) {
 	if _, ok := s.Runtime.VM.VMSS.Tags["aks-disable-kubelet-serving-certificate-rotation"]; ok {
 		s.T.Logf("VMSS has KSCR disablement tag, will validate that KSCR has been disabled")
-		ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "--rotate-server-certificates=true")
 		ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "kubernetes.azure.com/kubelet-serving-ca=cluster")
-		ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "--tls-cert-file")
-		ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "--tls-private-key-file")
 		ValidateDirectoryContent(ctx, s, "/etc/kubernetes/certs", []string{"kubeletserver.crt", "kubeletserver.key"})
 		if s.KubeletConfigFileEnabled() {
 			ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", "\"tlsCertFile\": \"/etc/kubernetes/certs/kubeletserver.crt\"")
 			ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", "\"tlsPrivateKeyFile\": \"/etc/kubernetes/certs/kubeletserver.key\"")
 			ValidateFileExcludesContent(ctx, s, "/etc/default/kubeletconfig.json", "\"serverTLSBootstrap\": true")
+		} else {
+			ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "--tls-cert-file")
+			ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "--tls-private-key-file")
+			ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "--rotate-server-certificates=true")
 		}
 		return
 	}
 	s.T.Logf("will validate KSCR enablement")
 	ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "kubernetes.azure.com/kubelet-serving-ca=cluster")
-	ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "--tls-cert-file")
-	ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "--tls-private-key-file")
 	ValidateDirectoryContent(ctx, s, "/var/lib/kubelet/pki", []string{"kubelet-server-current.pem"})
 	if s.KubeletConfigFileEnabled() {
 		ValidateFileExcludesContent(ctx, s, "/etc/default/kubeletconfig.json", "\"tlsCertFile\": \"/etc/kubernetes/certs/kubeletserver.crt\"")
 		ValidateFileExcludesContent(ctx, s, "/etc/default/kubeletconfig.json", "\"tlsPrivateKeyFile\": \"/etc/kubernetes/certs/kubeletserver.key\"")
 		ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", "\"serverTLSBootstrap\": true")
 	} else {
+		ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "--tls-cert-file")
+		ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "--tls-private-key-file")
 		ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "--rotate-server-certificates=true")
 	}
 }
