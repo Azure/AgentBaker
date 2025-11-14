@@ -14,7 +14,10 @@
 # pam-auth-update(8) for details.
 
 # here are the per-package modules (the "Primary" block)
-auth	[success=1 default=ignore]	pam_unix.so nullok_secure
+# 5.3.2 Ensure lockout for failed password attempts is configured
+auth	requisite pam_faillock.so preauth silent audit deny=5 unlock_time=900
+auth	[success=2 default=ignore]	pam_unix.so nullok_secure
+auth	[default=die] pam_faillock.so authfail audit deny=5 unlock_time=900
 # here's the fallback if no module succeeds
 auth	requisite			pam_deny.so
 # prime the stack with a positive return value if there isn't one already;
@@ -23,7 +26,3 @@ auth	requisite			pam_deny.so
 auth	required			pam_permit.so
 # and here are more per-package modules (the "Additional" block)
 # end of pam-auth-update config
-
-# 5.3.2 Ensure lockout for failed password attempts is configured
-auth required pam_faillock.so preauth silent audit deny=5 unlock_time=900
-auth [default=die] pam_faillock.so authfail audit deny=5 unlock_time=900
