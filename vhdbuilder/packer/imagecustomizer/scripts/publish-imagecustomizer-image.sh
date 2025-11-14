@@ -111,14 +111,94 @@ az image create \
 
 echo "Creating SIG image version $SIG_IMAGE_RESOURCE_ID from managed image $MANAGED_IMAGE_RESOURCE_ID"
 echo "Uploading to ${TARGET_REGIONS}"
-az sig image-version create \
-    --resource-group ${RESOURCE_GROUP_NAME} \
-    --gallery-name ${SIG_GALLERY_NAME} \
-    --gallery-image-definition ${SIG_IMAGE_NAME} \
-    --gallery-image-version ${CAPTURED_SIG_VERSION} \
-    --managed-image ${MANAGED_IMAGE_RESOURCE_ID} \
-    --tags "buildDefinitionName=${BUILD_DEFINITION_NAME}" "buildNumber=${BUILD_NUMBER}" "buildId=${BUILD_ID}" "SkipLinuxAzSecPack=true" "os=Linux" "now=${CREATE_TIME}" "createdBy=aks-vhd-pipeline" "image_sku=${IMG_SKU}" "branch=${BRANCH}" \
-    --target-regions ${TARGET_REGIONS}
+
+# Check if secure-boot.pem exists (dev OSGuard builds)
+CERT_PATH="${AGENTBAKER_DIR}/build/${CONFIG}/secure-boot.pem"
+if [[ -f "$CERT_PATH" ]]; then
+    echo "Found secure-boot.pem, creating SIG version with security profile..."
+    
+    # Extract certificate base64
+    CERT_BASE64=$(sed '0,/-----BEGIN CERTIFICATE-----/d;/-----END CERTIFICATE-----/d' "$CERT_PATH" | tr -d "\n")
+    
+    # Create Bicep template
+    cat > /tmp/sig-security-profile.bicep << 'BICEP_EOF'
+param galleryName string
+param imageDefinitionName string
+param versionName string
+param regions array
+param managedImageId string
+param certificateBase64 string
+
+resource gallery 'Microsoft.Compute/galleries@2024-03-03' existing = {
+  name: galleryName
+}
+
+resource imageDefinition 'Microsoft.Compute/galleries/images@2024-03-03' existing = {
+  parent: gallery
+  name: imageDefinitionName
+}
+
+resource imageVersion 'Microsoft.Compute/galleries/images/versions@2024-03-03' = {
+  parent: imageDefinition
+  name: versionName
+  location: gallery.location
+  properties: {
+    publishingProfile: {
+      targetRegions: [for region in regions: {
+        name: region
+        regionalReplicaCount: 1
+        storageAccountType: 'Standard_LRS'
+      }]
+    }
+    storageProfile: {
+      source: {
+        id: managedImageId
+      }
+    }
+    securityProfile: {
+      uefiSettings: {
+        signatureTemplateNames: [
+          'MicrosoftUefiCertificateAuthorityTemplate'
+        ]
+        additionalSignatures: {
+          db: [
+            {
+              type: 'x509'
+              value: [certificateBase64]
+            }
+          ]
+        }
+      }
+    }
+  }
+}
+BICEP_EOF
+
+    # Convert TARGET_REGIONS to JSON array
+    REGIONS_JSON=$(echo $TARGET_REGIONS | tr ' ' '\n' | jq -R . | jq -s .)
+    
+    # Deploy with Bicep
+    az deployment group create \
+        --resource-group ${RESOURCE_GROUP_NAME} \
+        --template-file /tmp/sig-security-profile.bicep \
+        --parameters \
+            galleryName=${SIG_GALLERY_NAME} \
+            imageDefinitionName=${SIG_IMAGE_NAME} \
+            versionName=${CAPTURED_SIG_VERSION} \
+            regions="$REGIONS_JSON" \
+            managedImageId=${MANAGED_IMAGE_RESOURCE_ID} \
+            certificateBase64="$CERT_BASE64"
+else
+    # Standard SIG creation without security profile
+    az sig image-version create \
+        --resource-group ${RESOURCE_GROUP_NAME} \
+        --gallery-name ${SIG_GALLERY_NAME} \
+        --gallery-image-definition ${SIG_IMAGE_NAME} \
+        --gallery-image-version ${CAPTURED_SIG_VERSION} \
+        --managed-image ${MANAGED_IMAGE_RESOURCE_ID} \
+        --tags "buildDefinitionName=${BUILD_DEFINITION_NAME}" "buildNumber=${BUILD_NUMBER}" "buildId=${BUILD_ID}" "SkipLinuxAzSecPack=true" "os=Linux" "now=${CREATE_TIME}" "createdBy=aks-vhd-pipeline" "image_sku=${IMG_SKU}" "branch=${BRANCH}" \
+        --target-regions ${TARGET_REGIONS}
+fi
 capture_benchmark "${SCRIPT_NAME}_create_sig_image_version"
 
 if [ "${GENERATE_PUBLISHING_INFO,,}" != "true" ]; then
