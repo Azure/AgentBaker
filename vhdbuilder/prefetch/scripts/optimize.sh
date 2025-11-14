@@ -248,7 +248,7 @@ convert_specialized_sig_version_to_managed_image() {
 }
 
 create_temp_storage() {
-    storage_account_name="tmp${VHD_NAME//./}"
+    storage_account_name="${VHD_NAME//./}"
     if [ -z "$(az storage account show --account-name "${storage_account_name}" | jq -r '.name')" ]; then
         echo "creating temporary storage account ${storage_account_name} in resource group ${IMAGE_BUILDER_RG_NAME} in location ${LOCATION}"
         az storage account create -n "${storage_account_name}" -g "${IMAGE_BUILDER_RG_NAME}" --sku "Standard_RAGRS" --allow-shared-key-access false --location "${LOCATION}" || return $?
@@ -265,11 +265,17 @@ create_temp_storage() {
 }
 
 wait_for_vhd_copy() {
-    while [ "$(az storage blob show --blob-url "${VHD_URI}" --auth-mode login | jq -r '.properties.copy.status')" = "pending" ]; do
+    copy_status="$(az storage blob show --blob-url "${VHD_URI}" --auth-mode login | jq -r '.properties.copy.status')"
+    while [ "${copy_status}" = "pending" ]; do
         echo "VHD ${VHD_URI} is still undergoing a pending copy operation"
         sleep 30s
+        copy_status="$(az storage blob show --blob-url "${VHD_URI}" --auth-mode login | jq -r '.properties.copy.status')"
     done
-    echo "pending copy operation over ${VHD_URI} has completed"
+    if [ "${copy_status}" != "success" ]; then
+        echo "VHD copy over ${VHD_URI} finished with unexpected status: ${copy_status}"
+        return 1
+    fi
+    echo "pending copy operation over ${VHD_URI} has completed successfully"
 }
 
 delete_vhd() {
