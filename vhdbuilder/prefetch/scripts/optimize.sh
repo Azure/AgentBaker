@@ -160,7 +160,7 @@ prepare_source() {
 # To a managed image which can be used as a source image for the image builder template.
 # This is needed since image builder templates do not support SIG image version sources that
 # have a "Specialized" OS state. As of writing, this only applies to TrustedLaunch and CVM SKUs,
-# sonce those SKUs must be built on special hardware, and thus must be captured within a Specialized
+# since those SKUs must be built on special hardware, and thus must be captured within a Specialized
 # SIG image definition after being built with Packer.
 # This function performs the following steps to create a suitable source image based on an image version
 # coming from a Specialized image definition:
