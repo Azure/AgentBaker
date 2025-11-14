@@ -1,0 +1,38 @@
+{
+    "type": "Microsoft.VirtualMachineImages",
+    "apiVersion": "2024-02-01",
+    "location": "<LOCATION>",
+    "identity": {
+        "type": "UserAssigned",
+        "userAssignedIdentities": {
+            "<IMAGE_BUILDER_IDENTITY_ID>": {}
+        }
+    },
+    "properties": {
+        "source": {
+            "type": "<SOURCE_TYPE>",
+            "<SOURCE_ID_KEY>": "<SOURCE_ID>"
+        },
+        "customize": [
+            {
+                "type": "Shell",
+                "name": "Cleanup",
+                "inline": [
+                    "sudo /bin/bash -eux /opt/azure/containers/cleanup-vhd.sh && sudo rm -f /opt/azure/containers/cleanup-vhd.sh"
+                ]
+            }
+        ],
+        "optimize": {
+            "vmBoot": {
+                "state": "Enabled"
+            }
+        },
+        "distribute": [
+            {
+                "type": "VHD",
+                "uri": "<VHD_URI>",
+                "runOutputName": "VHD"
+            }
+        ]
+    }
+}
