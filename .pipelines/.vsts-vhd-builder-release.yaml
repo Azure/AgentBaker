@@ -195,10 +195,13 @@ parameters:
     default: true
 
 variables:
+  - name: MODE
+    value: "linuxVhdMode"
   - group: aks-vuln-to-kusto
   - group: "AKS Node SIG UA Token (KV)"
   - group: build_performance
   - group: aks-vuln-to-kusto-tme
+
 stages:
   - stage: build
     jobs:
@@ -267,7 +270,6 @@ stages:
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
-
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
               echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
@@ -291,7 +293,6 @@ stages:
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
-
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
               echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
@@ -317,7 +318,6 @@ stages:
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
-
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
               echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
@@ -343,7 +343,6 @@ stages:
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
-
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
               echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
@@ -367,7 +366,6 @@ stages:
               echo '##vso[task.setvariable variable=IMG_VERSION]latest'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
-
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
               echo '##vso[task.setvariable variable=ENABLE_FIPS]True'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
@@ -393,7 +391,6 @@ stages:
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
-
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
               echo '##vso[task.setvariable variable=ENABLE_FIPS]True'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
@@ -419,7 +416,6 @@ stages:
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
-
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
               echo '##vso[task.setvariable variable=ENABLE_FIPS]True'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
@@ -443,7 +439,6 @@ stages:
               echo '##vso[task.setvariable variable=IMG_VERSION]latest'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
-
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
               echo '##vso[task.setvariable variable=ENABLE_FIPS]True'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
@@ -469,7 +464,6 @@ stages:
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
-
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
               echo '##vso[task.setvariable variable=ENABLE_FIPS]True'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
@@ -495,7 +489,6 @@ stages:
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
-
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
               echo '##vso[task.setvariable variable=ENABLE_FIPS]True'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
@@ -519,7 +512,6 @@ stages:
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16pds_v5'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
-
               echo '##vso[task.setvariable variable=ARCHITECTURE]ARM64'
               echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
@@ -545,7 +537,6 @@ stages:
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16pds_v5'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
-
               echo '##vso[task.setvariable variable=ARCHITECTURE]ARM64'
               echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
@@ -571,7 +562,6 @@ stages:
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16pds_v5'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
-
               echo '##vso[task.setvariable variable=ARCHITECTURE]ARM64'
               echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
@@ -595,7 +585,6 @@ stages:
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16pds_v5'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
-
               echo '##vso[task.setvariable variable=ARCHITECTURE]ARM64'
               echo '##vso[task.setvariable variable=ENABLE_FIPS]True'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
@@ -619,7 +608,6 @@ stages:
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ads_v5'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]kata'
-
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
               echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
@@ -645,7 +633,6 @@ stages:
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ads_v5'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]kata'
-
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
               echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
@@ -671,7 +658,6 @@ stages:
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ads_v5'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]kata'
-
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
               echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
@@ -697,7 +683,6 @@ stages:
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
-
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
               echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
@@ -723,7 +708,6 @@ stages:
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
-
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
               echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
@@ -749,7 +733,6 @@ stages:
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
-
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
               echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
@@ -775,7 +758,6 @@ stages:
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_DC16ads_v5'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]cvm'
-
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
               echo '##vso[task.setvariable variable=ENABLE_FIPS]False'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
@@ -801,7 +783,6 @@ stages:
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ads_v5'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]kata'
-
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
               echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
@@ -827,7 +808,6 @@ stages:
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ads_v5'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]kata'
-
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
               echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
@@ -855,7 +835,6 @@ stages:
               echo '##vso[task.setvariable variable=IMG_SKU]azure-linux-osguard-3'
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
-
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
               echo '##vso[task.setvariable variable=ENABLE_FIPS]True'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
@@ -882,7 +861,6 @@ stages:
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
-
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
               echo '##vso[task.setvariable variable=ENABLE_FIPS]True'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
@@ -907,7 +885,6 @@ stages:
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
-
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
               echo '##vso[task.setvariable variable=ENABLE_FIPS]True'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
@@ -932,7 +909,6 @@ stages:
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
-
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
               echo '##vso[task.setvariable variable=ENABLE_FIPS]True'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
@@ -958,7 +934,6 @@ stages:
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
-
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
               echo '##vso[task.setvariable variable=ENABLE_FIPS]True'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
@@ -984,7 +959,6 @@ stages:
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16pds_v5'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
-
               echo '##vso[task.setvariable variable=ARCHITECTURE]ARM64'
               echo '##vso[task.setvariable variable=ENABLE_FIPS]False'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
@@ -1009,7 +983,6 @@ stages:
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16pds_v5'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
-
               echo '##vso[task.setvariable variable=ARCHITECTURE]ARM64'
               echo '##vso[task.setvariable variable=ENABLE_FIPS]False'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
@@ -1034,7 +1007,6 @@ stages:
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
-
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
               echo '##vso[task.setvariable variable=ENABLE_FIPS]False'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
@@ -1059,7 +1031,6 @@ stages:
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
-
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
               echo '##vso[task.setvariable variable=ENABLE_FIPS]False'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
@@ -1084,7 +1055,6 @@ stages:
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
-
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
               echo '##vso[task.setvariable variable=ENABLE_FIPS]False'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
@@ -1109,7 +1079,6 @@ stages:
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_DC16ads_v5'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]cvm'
-
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
               echo '##vso[task.setvariable variable=ENABLE_FIPS]False'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
@@ -1134,7 +1103,6 @@ stages:
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
-
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
               echo '##vso[task.setvariable variable=ENABLE_FIPS]False'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
@@ -1159,7 +1127,6 @@ stages:
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
-
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
               echo '##vso[task.setvariable variable=ENABLE_FIPS]False'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
@@ -1184,7 +1151,6 @@ stages:
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_DC16ads_v5'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]cvm'
-
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
               echo '##vso[task.setvariable variable=ENABLE_FIPS]False'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
@@ -1209,7 +1175,6 @@ stages:
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
-
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
               echo '##vso[task.setvariable variable=ENABLE_FIPS]False'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
@@ -1234,7 +1199,6 @@ stages:
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
-
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
               echo '##vso[task.setvariable variable=ENABLE_FIPS]False'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
@@ -1259,7 +1223,6 @@ stages:
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
-
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
               echo '##vso[task.setvariable variable=ENABLE_FIPS]False'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
@@ -1284,7 +1247,6 @@ stages:
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
-
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
               echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
@@ -1353,4 +1315,3 @@ stages:
         parameters:
           name: All Linux
           IgnoreScenariosWithMissingVhd: true
-
