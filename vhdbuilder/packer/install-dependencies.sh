@@ -631,6 +631,11 @@ EOF
     fi
 
     apt install -y \
+      libnvidia-common-580=580.95.05-0ubuntu1 \
+      libnvidia-cfg1-580=580.95.05-0ubuntu1 \
+      libnvidia-gpucomp-580=580.95.05-0ubuntu1 \
+      libnvidia-gl-580=580.95.05-0ubuntu1 \
+      nvidia-firmware-580=580.95.05-0ubuntu1 \
       nvidia-dkms-580-open=580.95.05-0ubuntu1 \
       nvidia-kernel-common-580=580.95.05-0ubuntu1 \
       nvidia-kernel-source-580-open=580.95.05-0ubuntu1 \
