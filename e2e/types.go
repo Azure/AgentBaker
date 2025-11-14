@@ -241,8 +241,14 @@ func (s *Scenario) updateTags(ctx context.Context, vmss *armcompute.VirtualMachi
 }
 
 func (s *Scenario) SecureTLSBootstrappingEnabled() bool {
-	return s.Runtime.NBC.SecureTLSBootstrappingConfig.GetEnabled() ||
-		s.Runtime.AKSNodeConfig.BootstrappingConfig.GetBootstrappingAuthMethod() == aksnodeconfigv1.BootstrappingAuthMethod_BOOTSTRAPPING_AUTH_METHOD_SECURE_TLS_BOOTSTRAPPING
+	if nbc := s.Runtime.NBC; nbc != nil && nbc.SecureTLSBootstrappingConfig.GetEnabled() {
+		return true
+	}
+	if nodeConfig := s.Runtime.AKSNodeConfig; nodeConfig != nil && nodeConfig.BootstrappingConfig.GetBootstrappingAuthMethod() ==
+		aksnodeconfigv1.BootstrappingAuthMethod_BOOTSTRAPPING_AUTH_METHOD_SECURE_TLS_BOOTSTRAPPING {
+		return true
+	}
+	return false
 }
 
 func (s *Scenario) KubeletConfigFileEnabled() bool {
