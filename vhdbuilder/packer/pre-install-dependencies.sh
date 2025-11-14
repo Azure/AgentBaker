@@ -126,7 +126,6 @@ capture_benchmark "${SCRIPT_NAME}_enable_cgroupv2_for_azurelinux"
 
 # shellcheck disable=SC3010
 if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]]; then
-
   # Choose kernel packages based on Ubuntu version and architecture
   if grep -q "cvm" <<< "$FEATURE_FLAGS"; then
     KERNEL_IMAGE="linux-image-azure-fde-lts-${UBUNTU_RELEASE}"
@@ -139,30 +138,30 @@ if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]]; then
     )
     echo "Installing fde LTS kernel for CVM Ubuntu ${UBUNTU_RELEASE}"
   else
-      if [[ ${UBUNTU_RELEASE//./} -eq 2204 ]]; then
-        # Pin to specific kernel version for Ubuntu 22.04 test possible regression
-        KERNEL_IMAGE="linux-image-5.15.0-1096-azure"
-        KERNEL_PACKAGES=(
-          "linux-image-5.15.0-1096-azure"
-          "linux-headers-5.15.0-1096-azure"
-          "linux-modules-5.15.0-1096-azure"
-          "linux-modules-extra-5.15.0-1096-azure"
-          "linux-tools-5.15.0-1096-azure"
-          "linux-cloud-tools-5.15.0-1096-azure"
-        )
-        echo "Ubuntu 22.04 x86_64 detected, installing pinned kernel version 5.15.0-1096"
-      else
-        # Use LTS kernel for other versions
-        KERNEL_IMAGE="linux-image-azure-lts-${UBUNTU_RELEASE}"
-        KERNEL_PACKAGES=(
-          "linux-image-azure-lts-${UBUNTU_RELEASE}"
-          "linux-tools-azure-lts-${UBUNTU_RELEASE}"
-          "linux-cloud-tools-azure-lts-${UBUNTU_RELEASE}"
-          "linux-headers-azure-lts-${UBUNTU_RELEASE}"
-          "linux-modules-extra-azure-lts-${UBUNTU_RELEASE}"
-        )
-        echo "Installing LTS kernel for Ubuntu ${UBUNTU_RELEASE}"
-      fi
+    if [[ ${UBUNTU_RELEASE//./} -eq 2204 ]]; then
+      # Pin to specific kernel version for Ubuntu 22.04 test possible regression
+      KERNEL_IMAGE="linux-image-5.15.0-1096-azure"
+      KERNEL_PACKAGES=(
+        "linux-image-5.15.0-1096-azure"
+        "linux-headers-5.15.0-1096-azure"
+        "linux-modules-5.15.0-1096-azure"
+        "linux-modules-extra-5.15.0-1096-azure"
+        "linux-tools-5.15.0-1096-azure"
+        "linux-cloud-tools-5.15.0-1096-azure"
+      )
+      echo "Ubuntu 22.04 x86_64 detected, installing pinned kernel version 5.15.0-1096"
+    else
+      # Use LTS kernel for other versions
+      KERNEL_IMAGE="linux-image-azure-lts-${UBUNTU_RELEASE}"
+      KERNEL_PACKAGES=(
+        "linux-image-azure-lts-${UBUNTU_RELEASE}"
+        "linux-tools-azure-lts-${UBUNTU_RELEASE}"
+        "linux-cloud-tools-azure-lts-${UBUNTU_RELEASE}"
+        "linux-headers-azure-lts-${UBUNTU_RELEASE}"
+        "linux-modules-extra-azure-lts-${UBUNTU_RELEASE}"
+      )
+      echo "Installing LTS kernel for Ubuntu ${UBUNTU_RELEASE}"
+    fi
   fi
 
   echo "Logging the currently running kernel: $(uname -r)"
