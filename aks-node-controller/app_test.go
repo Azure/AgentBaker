@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"reflect"
 	"strconv"
-	"strings"
 	"testing"
 	"time"
 
@@ -319,12 +318,9 @@ func Test_readAndEvaluateProvision(t *testing.T) {
 	writeTemp := func(t *testing.T, content string) string {
 		t.Helper()
 		f, err := os.CreateTemp(t.TempDir(), "provision_*.json")
-		if err != nil {
-			t.Fatalf("temp file create: %v", err)
-		}
-		if _, err := f.WriteString(content); err != nil {
-			t.Fatalf("write temp provision: %v", err)
-		}
+		assert.NoError(t, err)
+		_, errWS := f.WriteString(content)
+		assert.NoError(t, errWS)
 		f.Close()
 		return f.Name()
 	}
@@ -332,32 +328,21 @@ func Test_readAndEvaluateProvision(t *testing.T) {
 	for _, tc := range tests {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			var path string
+			p := filepath.Join(t.TempDir(), "does_not_exist.json")
 			if tc.createFile {
-				path = writeTemp(t, tc.fileContent)
-			} else {
-				path = filepath.Join(t.TempDir(), "does_not_exist.json")
+				p = writeTemp(t, tc.fileContent)
 			}
-
-			got, err := readAndEvaluateProvision(path)
-
-			// Expecting error?
-			if tc.expectErrSub != "" {
-				if err == nil {
-					t.Fatalf("expected error containing %q; got nil", tc.expectErrSub)
+			got, err := readAndEvaluateProvision(p)
+			if tc.expectErrSub != "" { // expected error
+				assert.Error(t, err, "expected an error")
+				if err != nil { // avoid panic if err is nil
+					assert.Contains(t, err.Error(), tc.expectErrSub, "error should contain substring")
 				}
-				if !strings.Contains(err.Error(), tc.expectErrSub) {
-					t.Fatalf("error mismatch; want substring %q got %v", tc.expectErrSub, err)
+			} else { // success
+				assert.NoError(t, err, "unexpected error")
+				if tc.expectContains != "" {
+					assert.Contains(t, got, tc.expectContains, "content should contain substring")
 				}
-				return
-			}
-
-			// Expect success
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-			if tc.expectContains != "" && !strings.Contains(got, tc.expectContains) {
-				t.Fatalf("content mismatch; expected substring %q in %s", tc.expectContains, got)
 			}
 		})
 	}
