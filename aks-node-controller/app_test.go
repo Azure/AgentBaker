@@ -162,29 +162,29 @@ func TestApp_ProvisionWait(t *testing.T) {
 	}{
 		{
 			name: "provision already complete",
-			setup: func(p ProvisionStatusFiles) {
+			setup: func(provisionStatusFiles ProvisionStatusFiles) {
 				go func() {
 					time.Sleep(200 * time.Millisecond)
-					_ = os.WriteFile(p.ProvisionJSONFile, []byte(testData), 0644)
-					_, _ = os.Create(p.ProvisionCompleteFile)
+					_ = os.WriteFile(provisionStatusFiles.ProvisionJSONFile, []byte(testData), 0644)
+					_, _ = os.Create(provisionStatusFiles.ProvisionCompleteFile)
 				}()
 			},
 		},
 		{
 			name: "wait for provision completion",
-			setup: func(p ProvisionStatusFiles) {
-				_ = os.WriteFile(p.ProvisionJSONFile, []byte(testData), 0644)
-				_, _ = os.Create(p.ProvisionCompleteFile)
+			setup: func(provisionStatusFiles ProvisionStatusFiles) {
+				_ = os.WriteFile(provisionStatusFiles.ProvisionJSONFile, []byte(testData), 0644)
+				_, _ = os.Create(provisionStatusFiles.ProvisionCompleteFile)
 			},
 		},
 		{
 			name:      "provision completion with failure ExitCode",
 			wantsErr:  true,
 			errString: "provision failed",
-			setup: func(p ProvisionStatusFiles) {
+			setup: func(provisionStatusFiles ProvisionStatusFiles) {
 				failJSON := `{"ExitCode": "7", "Error": "boom", "Output": "trace"}`
-				_ = os.WriteFile(p.ProvisionJSONFile, []byte(failJSON), 0644)
-				_, _ = os.Create(p.ProvisionCompleteFile)
+				_ = os.WriteFile(provisionStatusFiles.ProvisionJSONFile, []byte(failJSON), 0644)
+				_, _ = os.Create(provisionStatusFiles.ProvisionCompleteFile)
 			},
 		},
 		{
