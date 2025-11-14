@@ -631,7 +631,7 @@ EOF
     fi
 
     apt install -y \
-      nvidia-driver-580-open
+      nvidia-driver-580-open=580.95.05-0ubuntu1
 
     apt install -y \
       cuda-toolkit-13 \
