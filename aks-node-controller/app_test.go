@@ -270,95 +270,95 @@ func TestApp_Run_Integration(t *testing.T) {
 }
 
 func Test_readAndEvaluateProvision(t *testing.T) {
-	// valid provision file with exit code 0
-	t.Run("valid provision file", func(t *testing.T) {
-		f, err := os.CreateTemp(t.TempDir(), "provision_valid_*.json")
+	type testCase struct {
+		name           string
+		fileContent    string // raw content to place in file (empty => file absent)
+		createFile     bool   // whether to create the file
+		expectErrSub   string // substring that should appear in error; empty means success expected
+		expectContains string // substring that must appear in successful content
+	}
+
+	tests := []testCase{
+		{
+			name:           "valid provision file",
+			createFile:     true,
+			fileContent:    `{"ExitCode":"0","Output":"ok","Error":"","ExecDuration":"1"}`,
+			expectContains: `"ExitCode":"0"`,
+		},
+		{
+			name:         "missing provision file",
+			createFile:   false,
+			expectErrSub: "no such file",
+		},
+		{
+			name:         "invalid provision file (bad JSON)",
+			createFile:   true,
+			fileContent:  `not-json`,
+			expectErrSub: "invalid character",
+		},
+		{
+			name:         "non-zero ExitCode returns error",
+			createFile:   true,
+			fileContent:  `{"ExitCode":"7","Output":"boom","Error":"bad"}`,
+			expectErrSub: "provision failed",
+		},
+		{
+			name:         "invalid ExitCode returns error",
+			createFile:   true,
+			fileContent:  `{"ExitCode":"unknown","Output":"boom","Error":"bad"}`,
+			expectErrSub: "invalid ExitCode",
+		},
+		{
+			name:         "missing ExitCode returns error",
+			createFile:   true,
+			fileContent:  `{"Output":"boom","Error":"bad"}`,
+			expectErrSub: "missing ExitCode",
+		},
+	}
+
+	writeTemp := func(t *testing.T, content string) string {
+		t.Helper()
+		f, err := os.CreateTemp(t.TempDir(), "provision_*.json")
 		if err != nil {
 			t.Fatalf("temp file create: %v", err)
 		}
-		content := `{"ExitCode":"0","Output":"ok","Error":"","ExecDuration":"1"}`
 		if _, err := f.WriteString(content); err != nil {
 			t.Fatalf("write temp provision: %v", err)
 		}
 		f.Close()
-		got, gotErr := readAndEvaluateProvision(f.Name())
-		if gotErr != nil {
-			t.Fatalf("unexpected error: %v", gotErr)
-		}
-		if got == "" || !strings.Contains(got, "\"ExitCode\":\"0\"") {
-			t.Errorf("content mismatch; got=%s", got)
-		}
-	})
+		return f.Name()
+	}
 
-	// missing file
-	t.Run("missing provision file", func(t *testing.T) {
-		_, err := readAndEvaluateProvision(filepath.Join(t.TempDir(), "does_not_exist.json"))
-		if err == nil {
-			t.Fatalf("expected error for missing file")
-		}
-	})
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			var path string
+			if tc.createFile {
+				path = writeTemp(t, tc.fileContent)
+			} else {
+				path = filepath.Join(t.TempDir(), "does_not_exist.json")
+			}
 
-	// invalid JSON
-	t.Run("invalid provision file (bad JSON)", func(t *testing.T) {
-		f, err := os.CreateTemp(t.TempDir(), "provision_invalid_*.json")
-		if err != nil {
-			t.Fatalf("temp file create: %v", err)
-		}
-		if _, err := f.WriteString("not-json"); err != nil {
-			t.Fatalf("write: %v", err)
-		}
-		f.Close()
-		_, gotErr := readAndEvaluateProvision(f.Name())
-		if gotErr == nil {
-			t.Fatalf("expected parse error, got nil")
-		}
-	})
+			got, err := readAndEvaluateProvision(path)
 
-	// valid provision file with non-zero exit code
-	t.Run("non-zero ExitCode returns error", func(t *testing.T) {
-		f, err := os.CreateTemp(t.TempDir(), "provision_fail_*.json")
-		if err != nil {
-			t.Fatalf("temp file create: %v", err)
-		}
-		if _, err := f.WriteString(`{"ExitCode":"7","Output":"boom","Error":"bad"}`); err != nil {
-			t.Fatalf("write: %v", err)
-		}
-		f.Close()
-		_, gotErr := readAndEvaluateProvision(f.Name())
-		if gotErr == nil || !strings.Contains(gotErr.Error(), "provision failed") {
-			t.Fatalf("expected failure error, got=%v", gotErr)
-		}
-	})
+			// Expecting error?
+			if tc.expectErrSub != "" {
+				if err == nil {
+					t.Fatalf("expected error containing %q; got nil", tc.expectErrSub)
+				}
+				if !strings.Contains(err.Error(), tc.expectErrSub) {
+					t.Fatalf("error mismatch; want substring %q got %v", tc.expectErrSub, err)
+				}
+				return
+			}
 
-	// valid provision file with invalid ExitCode "unknown"
-	t.Run("invalid ExitCode returns error", func(t *testing.T) {
-		f, err := os.CreateTemp(t.TempDir(), "provision_invalid_exit_*.json")
-		if err != nil {
-			t.Fatalf("temp file create: %v", err)
-		}
-		if _, err := f.WriteString(`{"ExitCode":"unknown","Output":"boom","Error":"bad"}`); err != nil {
-			t.Fatalf("write: %v", err)
-		}
-		f.Close()
-		_, gotErr := readAndEvaluateProvision(f.Name())
-		if gotErr == nil || !strings.Contains(gotErr.Error(), "invalid ExitCode") {
-			t.Fatalf("expected invalid ExitCode error, got=%v", gotErr)
-		}
-	})
-
-	// valid provision file with missing ExitCode
-	t.Run("missing ExitCode returns error", func(t *testing.T) {
-		f, err := os.CreateTemp(t.TempDir(), "provision_missing_exit_*.json")
-		if err != nil {
-			t.Fatalf("temp file create: %v", err)
-		}
-		if _, err := f.WriteString(`{"Output":"boom","Error":"bad"}`); err != nil {
-			t.Fatalf("write: %v", err)
-		}
-		f.Close()
-		_, gotErr := readAndEvaluateProvision(f.Name())
-		if gotErr == nil || !strings.Contains(gotErr.Error(), "missing ExitCode") {
-			t.Fatalf("expected missing ExitCode error, got=%v", gotErr)
-		}
-	})
+			// Expect success
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if tc.expectContains != "" && !strings.Contains(got, tc.expectContains) {
+				t.Fatalf("content mismatch; expected substring %q in %s", tc.expectContains, got)
+			}
+		})
+	}
 }
