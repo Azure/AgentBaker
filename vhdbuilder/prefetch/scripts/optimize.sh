@@ -54,11 +54,14 @@ check_for_existing_vhd() {
             fi
             if [ "${copy_status,,}" = "pending" ]; then
                 echo "echo VHD ${VHD_URI} is currently being copied from image builder storage, will wait for copy completion"
-                wait_for_vhd_copy || exit $?
-                exit 0
+                if wait_for_vhd_copy; then
+                    exit 0
+                fi
+                echo "pending copy operation was not successful, will delete existing blob and attempt to retry optimization and VHD creation"
+            else
+                echo "VHD ${VHD_URI} has a bad copy state: ${copy_status}, will delete it and recreate"
+                delete_vhd || exit $?
             fi
-            echo "VHD ${VHD_URI} has a bad copy state: ${copy_status}, will delete it and recreate"
-            delete_vhd || exit $?
         else
             echo "VHD ${VHD_URI} exists but was not produced by an image builder template run, will delete before proceeding"
             delete_vhd || exit $?
@@ -266,12 +269,12 @@ create_temp_storage() {
 
 wait_for_vhd_copy() {
     copy_status="$(az storage blob show --blob-url "${VHD_URI}" --auth-mode login | jq -r '.properties.copy.status')"
-    while [ "${copy_status}" = "pending" ]; do
+    while [ "${copy_status,,}" = "pending" ]; do
         echo "VHD ${VHD_URI} is still undergoing a pending copy operation"
         sleep 30s
         copy_status="$(az storage blob show --blob-url "${VHD_URI}" --auth-mode login | jq -r '.properties.copy.status')"
     done
-    if [ "${copy_status}" != "success" ]; then
+    if [ "${copy_status,,}" != "success" ]; then
         echo "VHD copy over ${VHD_URI} finished with unexpected status: ${copy_status}"
         return 1
     fi
