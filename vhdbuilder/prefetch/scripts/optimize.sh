@@ -58,6 +58,7 @@ check_for_existing_vhd() {
                     exit 0
                 fi
                 echo "pending copy operation was not successful, will delete existing blob and attempt to retry optimization and VHD creation"
+                delete_vhd || exit $?
             else
                 echo "VHD ${VHD_URI} has a bad copy state: ${copy_status}, will delete it and recreate"
                 delete_vhd || exit $?
