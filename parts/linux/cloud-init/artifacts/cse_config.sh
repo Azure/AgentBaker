@@ -357,6 +357,8 @@ EOF
 
   if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
     logs_to_events "AKS.CSE.ensureContainerd.configureContainerdRegistryHost" configureContainerdRegistryHost
+  elif [ "${TARGET_CLOUD}" = "AzureChinaCloud" ]; then
+    logs_to_events "AKS.CSE.ensureContainerd.configureContainerdLegacyMooncakeMcrHost" configureContainerdLegacyMooncakeMcrHost
   fi
 
   tee "/etc/sysctl.d/99-force-bridge-forward.conf" > /dev/null <<EOF
@@ -381,6 +383,20 @@ configureContainerdRegistryHost() {
 [host."https://${CONTAINER_REGISTRY_URL%/}"]
   capabilities = ["pull", "resolve"]
   override_path = true
+EOF
+}
+
+configureContainerdLegacyMooncakeMcrHost() {
+    LEGACY_MCR_REPOSITORY_BASE="mcr.azk8s.cn"
+    CONTAINERD_CONFIG_REGISTRY_HOST_MCR="/etc/containerd/certs.d/${LEGACY_MCR_REPOSITORY_BASE}/hosts.toml"
+    mkdir -p "$(dirname "${CONTAINERD_CONFIG_REGISTRY_HOST_MCR}")"
+    touch "${CONTAINERD_CONFIG_REGISTRY_HOST_MCR}"
+    chmod 0644 "${CONTAINERD_CONFIG_REGISTRY_HOST_MCR}"
+
+    TARGET_MCR_REPOSITORY_BASE="mcr.azure.cn"
+    tee "${CONTAINERD_CONFIG_REGISTRY_HOST_MCR}" > /dev/null <<EOF
+[host."https://${TARGET_MCR_REPOSITORY_BASE}"]
+  capabilities = ["pull", "resolve"]
 EOF
 }
 
