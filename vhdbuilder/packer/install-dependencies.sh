@@ -880,27 +880,33 @@ if [ -n "${PRIVATE_PACKAGES_URL:-}" ]; then
 fi
 
 
-
-
 LOCALDNS_BINARY_PATH="/opt/azure/containers/localdns/binary"
-# This function extracts CoreDNS binary from cached coredns images (n-1 image version and latest revision version)
-# and copies it to - /opt/azure/containers/localdns/binary/coredns.
-# The binary is later used by localdns systemd unit.
+# This function extracts CoreDNS binaries from all cached coredns images
+# and copies them to organized directories:
+# - Latest binary will be at : /opt/azure/containers/localdns/binary/coredns
+# - All other binaries will be at : /opt/azure/containers/localdns/binary/<version>/coredns
 # The function also handles the cleanup of temporary directories and unmounting of images.
 extractAndCacheCoreDnsBinary() {
+  # Get the list of coredns images in k8s.io namespace.
   local coredns_image_list=($(ctr -n k8s.io images list -q | grep coredns))
   if [ "${#coredns_image_list[@]}" -eq 0 ]; then
     echo "Error: No coredns images found."
-    exit 1
+    return 1
   fi
 
-  rm -rf "${LOCALDNS_BINARY_PATH}" || exit 1
-  mkdir -p "${LOCALDNS_BINARY_PATH}" || exit 1
+  # Clean up existing binary directories.
+  if [ -d "${LOCALDNS_BINARY_PATH}" ]; then
+    rm -rf "${LOCALDNS_BINARY_PATH}" || return 1
+  fi
 
+  # Ensure the main localdns directory and binary path exist.
+  mkdir -p "${LOCALDNS_BINARY_PATH}" || return 1
+
+  local ctr_temp=""
   cleanup_coredns_imports() {
     set +e
     if [ -n "${ctr_temp}" ]; then
-      ctr -n k8s.io images unmount "${ctr_temp}" >/dev/null
+      ctr -n k8s.io images unmount "${ctr_temp}" >/dev/null 2>&1
       rm -rf "${ctr_temp}"
     fi
   }
@@ -909,46 +915,22 @@ extractAndCacheCoreDnsBinary() {
   # Extract available coredns image tags (v1.12.0-1 format) and sort them in descending order.
   local sorted_coredns_tags=($(for image in "${coredns_image_list[@]}"; do echo "${image##*:}"; done | sort -V -r))
 
-  # Function to check version format (vMajor.Minor.Patch).
-  validate_version_format() {
-    local version=$1
-    # shellcheck disable=SC3010
-    if [[ ! "$version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-      echo "Error: Invalid coredns version format. Expected vMajor.Minor.Patch, got $version" >> "${VHD_LOGS_FILEPATH}"
-      return 1
-    fi
-    return 0
-  }
-
-  # Determine latest version (eg. v1.12.0-1).
-  local latest_coredns_tag="${sorted_coredns_tags[0]}"
-  # Extract major.minor.patch (removes -revision. eg - v1.12.0).
-  local latest_vMajorMinorPatch="${latest_coredns_tag%-*}"
-
-  local previous_coredns_tag=""
-  # Iterate through the sorted list to find the next highest major-minor version.
+  # Extract the CoreDNS binary for each tag.
+  local version_index=0
   for tag in "${sorted_coredns_tags[@]}"; do
-    # Extract major.minor.patch (eg - v1.12.0).
-    local vMajorMinorPatch="${tag%-*}"
-    if ! validate_version_format "$vMajorMinorPatch"; then
-      exit 1
-    fi
 
-    if [ "${vMajorMinorPatch}" != "${latest_vMajorMinorPatch}" ]; then
-      previous_coredns_tag="$tag"
-      # Break the loop after next highest major-minor version is found.
-      break
-    fi
-  done
+    # Find the corresponding image URL for this tag.
+    local coredns_image_url=""
+    for image_url in "${coredns_image_list[@]}"; do
+      if [ "${image_url##*:}" = "$tag" ]; then
+        coredns_image_url="$image_url"
+        break
+      fi
+    done
 
-  if [ -z "${previous_coredns_tag}" ]; then
-    echo "Warning: Previous version not found, using the latest version: $latest_coredns_tag" >> "${VHD_LOGS_FILEPATH}"
-    previous_coredns_tag="$latest_coredns_tag"
-  fi
-
-  # Extract the CoreDNS binary for the selected version.
-  for coredns_image_url in "${coredns_image_list[@]}"; do
-    if [ "${coredns_image_url##*:}" != "${previous_coredns_tag}" ]; then
+    if [ -z "$coredns_image_url" ]; then
+      echo "Warning: Could not find image URL for tag $tag" >> "${VHD_LOGS_FILEPATH}"
+      ((version_index++))
       continue
     fi
 
@@ -966,29 +948,87 @@ extractAndCacheCoreDnsBinary() {
 
     if [ "$retry_count" -eq "$max_retries" ]; then
       echo "Error: Failed to mount ${coredns_image_url} after ${max_retries} attempts." >> "${VHD_LOGS_FILEPATH}"
-      exit 1
+      return 1
     fi
 
+    # This path is based on the standard CoreDNS image structure.
+    # Also defined in dalec spec for coredns.
     local coredns_binary="${ctr_temp}/usr/bin/coredns"
+
     if [ -f "${coredns_binary}" ]; then
-      cp "${coredns_binary}" "${LOCALDNS_BINARY_PATH}/coredns" || {
-        echo "Error: Failed to copy coredns binary of ${previous_coredns_tag}" >> "${VHD_LOGS_FILEPATH}"
-        exit 1
-      }
-      echo "Successfully copied coredns binary of ${previous_coredns_tag}" >> "${VHD_LOGS_FILEPATH}"
+      # For the latest version (index 0), create a direct copy at the root level.
+      if [ $version_index -eq 0 ]; then
+        cp "${coredns_binary}" "${LOCALDNS_BINARY_PATH}/coredns" || {
+          echo "Error: Failed to copy latest coredns binary to ${LOCALDNS_BINARY_PATH}/coredns" >> "${VHD_LOGS_FILEPATH}"
+          return 1
+        }
+
+        # Validate that the main binary was extracted successfully.
+        if [ ! -f "${LOCALDNS_BINARY_PATH}/coredns" ]; then
+          echo "Error: Latest coredns binary not found at ${LOCALDNS_BINARY_PATH}/coredns after extraction" >> "${VHD_LOGS_FILEPATH}"
+          return 1
+        fi
+
+        chmod +x "${LOCALDNS_BINARY_PATH}/coredns" || return 1
+        if [ ! -x "${LOCALDNS_BINARY_PATH}/coredns" ]; then
+          echo "Error: Latest coredns binary at ${LOCALDNS_BINARY_PATH}/coredns is not executable" >> "${VHD_LOGS_FILEPATH}"
+          return 1
+        fi
+
+        # Verify the binary is functional.
+        if [ "${LOCALDNS_BINARY_PATH}/coredns" --version >/dev/null 2>&1 ]; then
+          echo "Successfully copied and verified latest coredns binary of ${tag} to ${LOCALDNS_BINARY_PATH}/coredns" >> "${VHD_LOGS_FILEPATH}"
+        else
+          echo "Warning: coredns binary of ${tag} at ${LOCALDNS_BINARY_PATH}/coredns may not be functional" >> "${VHD_LOGS_FILEPATH}"
+        fi
+
+      else
+        # Create the version-specific directory
+        mkdir -p "${LOCALDNS_BINARY_PATH}/${tag}" || return 1
+
+        # Copy binary to version-specific directory
+        cp "${coredns_binary}" "${LOCALDNS_BINARY_PATH}/${tag}/coredns" || {
+          echo "Error: Failed to copy coredns binary of ${tag}" >> "${VHD_LOGS_FILEPATH}"
+          return 1
+        }
+
+        # Validate that coredns binary was extracted successfully.
+        if [ ! -f "${LOCALDNS_BINARY_PATH}/${tag}/coredns" ]; then
+          echo "Error: coredns binary not found at ${LOCALDNS_BINARY_PATH}/${tag}/coredns after extraction" >> "${VHD_LOGS_FILEPATH}"
+          return 1
+        fi
+
+        chmod +x "${LOCALDNS_BINARY_PATH}/${tag}/coredns" || return 1
+        if [ ! -x "${LOCALDNS_BINARY_PATH}/${tag}/coredns" ]; then
+          echo "Error: coredns binary at ${LOCALDNS_BINARY_PATH}/${tag}/coredns is not executable" >> "${VHD_LOGS_FILEPATH}"
+          return 1
+        fi
+
+        # Verify the binary is functional.
+        if [ "${LOCALDNS_BINARY_PATH}/${tag}/coredns" --version >/dev/null 2>&1 ]; then
+          echo "Successfully copied and verified coredns binary of ${tag} to ${LOCALDNS_BINARY_PATH}/${tag}/coredns" >> "${VHD_LOGS_FILEPATH}"
+        else
+          echo "Warning: coredns binary of ${tag} at ${LOCALDNS_BINARY_PATH}/${tag}/coredns may not be functional" >> "${VHD_LOGS_FILEPATH}"
+        fi
+
+      fi
     else
       echo "Coredns binary not found for ${coredns_image_url}" >> "${VHD_LOGS_FILEPATH}"
     fi
 
-    ctr -n k8s.io images unmount "${ctr_temp}" >/dev/null
+    ctr -n k8s.io images unmount "${ctr_temp}" >/dev/null 2>&1
     rm -rf "${ctr_temp}"
+    ctr_temp=""
+
+    ((version_index++))
   done
 
   # Clear the trap.
   trap - EXIT ABRT ERR INT PIPE QUIT TERM
+  return 0
 }
 
-extractAndCacheCoreDnsBinary
+extractAndCacheCoreDnsBinary || exit $?
 
 rm -f ./azcopy # cleanup immediately after usage will return in two downloads
 echo "install-dependencies step completed successfully"
