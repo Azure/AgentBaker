@@ -33,7 +33,7 @@ pr:
     - vhdbuilder/packer/**/*windows*
     - .github/**
     - e2e/scenario_win_test.go
-    - /**/*.md
+    - **/*.md
 
 pool:
   name: $(POOL_NAME)
