@@ -348,7 +348,7 @@ func validateVM(ctx context.Context, s *Scenario) {
 		ValidateNodeCanRunAPod(ctx, s)
 		switch s.VHD.OS {
 		case config.OSWindows:
-			// TODO: validate something
+			ValidateCommonWindows(ctx, s)
 		default:
 			ValidateCommonLinux(ctx, s)
 		}

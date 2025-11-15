@@ -29,7 +29,7 @@ type Tags struct {
 	NonAnonymousACR        bool
 	GPU                    bool
 	WASM                   bool
-	ServerTLSBootstrapping bool
+	BootstrapTokenFallback bool
 	KubeletCustomConfig    bool
 	Scriptless             bool
 	VHDCaching             bool
@@ -214,6 +214,99 @@ func (s *Scenario) PrepareVMSSModel(ctx context.Context, t testing.TB, vmss *arm
 	}
 
 	s.updateTags(ctx, vmss)
+}
+
+func (s *Scenario) SecureTLSBootstrappingEnabled() bool {
+	if s.Runtime == nil {
+		return false
+	}
+	if nbc := s.Runtime.NBC; nbc != nil && nbc.SecureTLSBootstrappingConfig.GetEnabled() {
+		return true
+	}
+	if nodeConfig := s.Runtime.AKSNodeConfig; nodeConfig != nil && nodeConfig.BootstrappingConfig.GetBootstrappingAuthMethod() ==
+		aksnodeconfigv1.BootstrappingAuthMethod_BOOTSTRAPPING_AUTH_METHOD_SECURE_TLS_BOOTSTRAPPING {
+		return true
+	}
+	return false
+}
+
+func (s *Scenario) KubeletConfigFileEnabled() bool {
+	if s.Runtime == nil {
+		return false
+	}
+	if nbc := s.Runtime.NBC; nbc != nil && (nbc.EnableKubeletConfigFile ||
+		(nbc.AgentPoolProfile != nil && (nbc.AgentPoolProfile.CustomKubeletConfig != nil || nbc.AgentPoolProfile.CustomLinuxOSConfig != nil))) {
+		return true
+	}
+	if nodeConfig := s.Runtime.AKSNodeConfig; nodeConfig != nil && nodeConfig.KubeletConfig != nil && nodeConfig.KubeletConfig.EnableKubeletConfigFile {
+		return true
+	}
+	return false
+}
+
+func (s *Scenario) HasServicePrincipalData() bool {
+	if s.Runtime == nil {
+		return false
+	}
+	if nbc := s.Runtime.NBC; nbc != nil && nbc.ContainerService != nil && nbc.ContainerService.Properties != nil && nbc.ContainerService.Properties.ServicePrincipalProfile != nil {
+		return nbc.ContainerService.Properties.ServicePrincipalProfile.ClientID != "" && nbc.ContainerService.Properties.ServicePrincipalProfile.Secret != ""
+	}
+	if nodeConfig := s.Runtime.AKSNodeConfig; nodeConfig != nil && nodeConfig.AuthConfig != nil {
+		return nodeConfig.AuthConfig.ServicePrincipalId != "" && nodeConfig.AuthConfig.ServicePrincipalSecret != ""
+	}
+	return false
+}
+
+func (s *Scenario) GetK8sVersion() string {
+	if s.Runtime == nil {
+		return ""
+	}
+	if nbc := s.Runtime.NBC; nbc != nil && nbc.ContainerService != nil && nbc.ContainerService.Properties != nil && nbc.ContainerService.Properties.OrchestratorProfile != nil {
+		return nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion
+	}
+	if nodeConfig := s.Runtime.AKSNodeConfig; nodeConfig != nil {
+		return nodeConfig.GetKubernetesVersion()
+	}
+	return ""
+}
+
+func (s *Scenario) GetClientPrivateKey() string {
+	if s.Runtime == nil {
+		return ""
+	}
+	if nbc := s.Runtime.NBC; nbc != nil && nbc.ContainerService != nil && nbc.ContainerService.Properties != nil && nbc.ContainerService.Properties.CertificateProfile != nil {
+		return nbc.ContainerService.Properties.CertificateProfile.ClientPrivateKey
+	}
+	if nodeConfig := s.Runtime.AKSNodeConfig; nodeConfig != nil {
+		return nodeConfig.GetKubeletConfig().GetKubeletClientKey()
+	}
+	return ""
+}
+
+func (s *Scenario) GetServicePrincipalSecret() string {
+	if s.Runtime == nil {
+		return ""
+	}
+	if nbc := s.Runtime.NBC; nbc != nil && nbc.ContainerService != nil && nbc.ContainerService.Properties != nil && nbc.ContainerService.Properties.ServicePrincipalProfile != nil {
+		return nbc.ContainerService.Properties.ServicePrincipalProfile.Secret
+	}
+	if nodeConfig := s.Runtime.AKSNodeConfig; nodeConfig != nil {
+		return nodeConfig.GetAuthConfig().GetServicePrincipalSecret()
+	}
+	return ""
+}
+
+func (s *Scenario) GetTLSBootstrapToken() string {
+	if s.Runtime == nil {
+		return ""
+	}
+	if nbc := s.Runtime.NBC; nbc != nil && nbc.KubeletClientTLSBootstrapToken != nil {
+		return *nbc.KubeletClientTLSBootstrapToken
+	}
+	if nodeConfig := s.Runtime.AKSNodeConfig; nodeConfig != nil {
+		return nodeConfig.GetBootstrappingConfig().GetTlsBootstrappingToken()
+	}
+	return ""
 }
 
 func (s *Scenario) updateTags(ctx context.Context, vmss *armcompute.VirtualMachineScaleSet) {

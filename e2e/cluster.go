@@ -32,12 +32,13 @@ type ClusterParams struct {
 }
 
 type Cluster struct {
-	Model         *armcontainerservice.ManagedCluster
-	Kube          *Kubeclient
-	SubnetID      string
-	ClusterParams *ClusterParams
-	Maintenance   *armcontainerservice.MaintenanceConfiguration
-	DebugPod      *corev1.Pod
+	Model           *armcontainerservice.ManagedCluster
+	Kube            *Kubeclient
+	KubeletIdentity *armcontainerservice.UserAssignedIdentity
+	SubnetID        string
+	ClusterParams   *ClusterParams
+	Maintenance     *armcontainerservice.MaintenanceConfiguration
+	DebugPod        *corev1.Pod
 }
 
 // Returns true if the cluster is configured with Azure CNI
@@ -99,13 +100,14 @@ func prepareCluster(ctx context.Context, cluster *armcontainerservice.ManagedClu
 		}
 	}
 
+	kubeletIdentity, err := getClusterKubeletIdentity(cluster)
+	if err != nil {
+		return nil, fmt.Errorf("getting cluster kubelet identity: %w", err)
+	}
+
 	if isNonAnonymousPull {
-		kubeletIdentity, err := getClusterKubeletIdentity(cluster)
-		if err != nil {
-			return nil, fmt.Errorf("getting kubelet identity to assign ACR pull permissions: %w", err)
-		}
 		if err := assignACRPullToIdentity(ctx, config.GetPrivateACRName(isNonAnonymousPull, *cluster.Location), *kubeletIdentity.ObjectID, *cluster.Location); err != nil {
-			return nil, fmt.Errorf("assign acr pull to the managed identity: %w", err)
+			return nil, fmt.Errorf("assigning acr pull permissions to kubelet identity: %w", err)
 		}
 	}
 
@@ -130,12 +132,13 @@ func prepareCluster(ctx context.Context, cluster *armcontainerservice.ManagedClu
 	}
 
 	return &Cluster{
-		Model:         cluster,
-		Kube:          kube,
-		SubnetID:      subnetID,
-		Maintenance:   maintenance,
-		ClusterParams: clusterParams,
-		DebugPod:      hostPod,
+		Model:           cluster,
+		Kube:            kube,
+		KubeletIdentity: kubeletIdentity,
+		SubnetID:        subnetID,
+		Maintenance:     maintenance,
+		ClusterParams:   clusterParams,
+		DebugPod:        hostPod,
 	}, nil
 }
 

@@ -25,9 +25,10 @@ func Test_AzureLinux3OSGuard(t *testing.T) {
 			VHD:     config.VHDAzureLinux3OSGuard,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.LocalDNSProfile = nil
+				// Secure TLS Bootstrapping is not yet supported on OSGuard (FIPS)
+				nbc.SecureTLSBootstrappingConfig.Enabled = false
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-			},
+			Validator: func(ctx context.Context, s *Scenario) {},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
 			},
@@ -161,6 +162,26 @@ func Test_Flatcar_AzureCNI_ChronyRestarts_Scriptless(t *testing.T) {
 	})
 }
 
+func Test_Flatcar_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using a Flatcar Gen2 VHD can be properly bootstrapped even if secure TLS bootstrapping fails",
+		Tags: Tags{
+			BootstrapTokenFallback: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDFlatcarGen2,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{
+					Enabled:     true,
+					Deadline:    (30 * time.Second).String(),
+					AADResource: "https://management.azure.com/", // use an unexpected AAD resource to force a secure TLS bootstrapping failure
+				}
+			},
+		},
+	})
+}
+
 func Test_AzureLinuxV2_AirGap(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a AzureLinuxV2 (CgroupV2) VHD can be properly bootstrapped",
@@ -187,12 +208,15 @@ func Test_AzureLinuxV2_AirGap(t *testing.T) {
 	})
 }
 
-func Test_AzureLinuxV2_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing.T) {
+func Test_AzureLinuxV3_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "Tests that a node using a AzureLinuxV2 (CgroupV2) VHD can be properly bootstrapped even if secure TLS bootstrapping fails",
+		Description: "Tests that a node using a AzureLinuxV3 Gen2 VHD can be properly bootstrapped even if secure TLS bootstrapping fails",
+		Tags: Tags{
+			BootstrapTokenFallback: true,
+		},
 		Config: Config{
 			Cluster: ClusterKubenet,
-			VHD:     config.VHDAzureLinuxV2Gen2,
+			VHD:     config.VHDAzureLinuxV3Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{
 					Enabled:                true,
@@ -957,6 +981,8 @@ func Test_Ubuntu2204Gen2_ContainerdAirgappedK8sNotCached(t *testing.T) {
 					"%s.azurecr.io/oss/binaries/kubernetes/kubernetes-node:v%s-linux-amd64",
 					config.PrivateACRName(config.Config.DefaultLocation),
 					nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion)
+				// Secure TLS Bootstrapping isn't supported on this VHD
+				nbc.SecureTLSBootstrappingConfig.Enabled = false
 			},
 		},
 	})
@@ -995,6 +1021,8 @@ func Test_Ubuntu2204Gen2_ContainerdAirgappedNonAnonymousK8sNotCached(t *testing.
 				nbc.KubeletConfig["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
 				nbc.KubeletConfig["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
 				nbc.KubeletConfig["--pod-infra-container-image"] = "mcr.microsoft.com/oss/v2/kubernetes/pause:3.6"
+				// Secure TLS Bootstrapping isn't supported on this VHD
+				nbc.SecureTLSBootstrappingConfig.Enabled = false
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateDirectoryContent(ctx, s, "/opt/azure", []string{"outbound-check-skipped"})
@@ -1429,6 +1457,8 @@ func Test_Ubuntu2204_PrivateKubePkg(t *testing.T) {
 				nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.25.6"
 				nbc.K8sComponents.LinuxPrivatePackageURL = "https://privatekube.blob.core.windows.net/kubernetes/v1.25.6-hotfix.20230612/binaries/v1.25.6-hotfix.20230612.tar.gz"
 				nbc.AgentPoolProfile.LocalDNSProfile = nil
+				// Secure TLS Bootstrapping isn't supported on this VHD
+				nbc.SecureTLSBootstrappingConfig.Enabled = false
 			},
 		},
 	})
@@ -1517,32 +1547,16 @@ func Test_AzureLinux_Skip_Binary_Cleanup(t *testing.T) {
 
 func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Tags: Tags{
-			ServerTLSBootstrapping: true,
-		},
 		Description: "tests that a node on ubuntu 2204 bootstrapped with kubelet serving certificate rotation enabled will disable certificate rotation due to nodepool tags",
 		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2204Gen2Containerd,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				if nbc.KubeletConfig == nil {
-					nbc.KubeletConfig = map[string]string{}
-				}
-				nbc.KubeletConfig["--rotate-server-certificates"] = "true"
-			},
+			Cluster:                ClusterKubenet,
+			VHD:                    config.VHDUbuntu2204Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				if vmss.Tags == nil {
 					vmss.Tags = map[string]*string{}
 				}
 				vmss.Tags["aks-disable-kubelet-serving-certificate-rotation"] = to.Ptr("true")
-			},
-
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "--tls-cert-file=/etc/kubernetes/certs/kubeletserver.crt")
-				ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "--tls-private-key-file=/etc/kubernetes/certs/kubeletserver.key")
-				ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "--rotate-server-certificates=true")
-				ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "kubernetes.azure.com/kubelet-serving-ca=cluster")
-				ValidateDirectoryContent(ctx, s, "/etc/kubernetes/certs", []string{"kubeletserver.crt", "kubeletserver.key"})
 			},
 		},
 	})
@@ -1550,9 +1564,6 @@ func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags(t *testing
 
 func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_CustomKubeletConfig(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Tags: Tags{
-			ServerTLSBootstrapping: true,
-		},
 		Description: "tests that a node on ubuntu 2204 bootstrapped with custom kubelet config and kubelet serving certificate rotation enabled will disable certificate rotation due to nodepool tags",
 		Config: Config{
 			Cluster: ClusterKubenet,
@@ -1564,11 +1575,6 @@ func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_CustomKube
 					AllowedUnsafeSysctls: &[]string{"kernel.msg*", "net.ipv4.route.min_pmtu"},
 				}
 				nbc.AgentPoolProfile.CustomKubeletConfig = customKubeletConfig
-
-				if nbc.KubeletConfig == nil {
-					nbc.KubeletConfig = map[string]string{}
-				}
-				nbc.KubeletConfig["--rotate-server-certificates"] = "true"
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				if vmss.Tags == nil {
@@ -1576,23 +1582,12 @@ func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_CustomKube
 				}
 				vmss.Tags["aks-disable-kubelet-serving-certificate-rotation"] = to.Ptr("true")
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", "\"tlsCertFile\": \"/etc/kubernetes/certs/kubeletserver.crt\"")
-				ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", "\"tlsPrivateKeyFile\": \"/etc/kubernetes/certs/kubeletserver.key\"")
-				ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "--rotate-server-certificates=true")
-				ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "kubernetes.azure.com/kubelet-serving-ca=cluster")
-				ValidateFileExcludesContent(ctx, s, "/etc/default/kubeletconfig.json", "\"serverTLSBootstrap\": true")
-				ValidateDirectoryContent(ctx, s, "/etc/kubernetes/certs", []string{"kubeletserver.crt", "kubeletserver.key"})
-			},
 		},
 	})
 }
 
 func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_CustomKubeletConfig_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Tags: Tags{
-			ServerTLSBootstrapping: true,
-		},
 		Description: "tests that a node on ubuntu 2204 bootstrapped with custom kubelet config and kubelet serving certificate rotation enabled will disable certificate rotation due to nodepool tags",
 		Config: Config{
 			Cluster: ClusterKubenet,
@@ -1611,23 +1606,12 @@ func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_CustomKube
 				}
 				vmss.Tags["aks-disable-kubelet-serving-certificate-rotation"] = to.Ptr("true")
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", "\"tlsCertFile\": \"/etc/kubernetes/certs/kubeletserver.crt\"")
-				ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", "\"tlsPrivateKeyFile\": \"/etc/kubernetes/certs/kubeletserver.key\"")
-				ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "--rotate-server-certificates=true")
-				ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "kubernetes.azure.com/kubelet-serving-ca=cluster")
-				ValidateFileExcludesContent(ctx, s, "/etc/default/kubeletconfig.json", "\"serverTLSBootstrap\": true")
-				ValidateDirectoryContent(ctx, s, "/etc/kubernetes/certs", []string{"kubeletserver.crt", "kubeletserver.key"})
-			},
 		},
 	})
 }
 
 func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_AlreadyDisabled(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Tags: Tags{
-			ServerTLSBootstrapping: true,
-		},
 		Description: "tests that a node on ubuntu 2204 bootstrapped with kubelet serving certificate rotation disabled will disable certificate rotation regardless of nodepool tags",
 		Config: Config{
 			Cluster: ClusterKubenet,
@@ -1640,22 +1624,12 @@ func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_AlreadyDis
 				}
 				vmss.Tags["aks-disable-kubelet-serving-certificate-rotation"] = to.Ptr("true")
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "--tls-cert-file=/etc/kubernetes/certs/kubeletserver.crt")
-				ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "--tls-private-key-file=/etc/kubernetes/certs/kubeletserver.key")
-				ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "--rotate-server-certificates=true")
-				ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "kubernetes.azure.com/kubelet-serving-ca=cluster")
-				ValidateDirectoryContent(ctx, s, "/etc/kubernetes/certs", []string{"kubeletserver.crt", "kubeletserver.key"})
-			},
 		},
 	})
 }
 
 func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_AlreadyDisabled_CustomKubeletConfig(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Tags: Tags{
-			ServerTLSBootstrapping: true,
-		},
 		Description: "tests that a node on ubuntu 2204 bootstrapped with kubelet serving certificate rotation disabled and custom kubelet config will disable certificate rotation regardless of nodepool tags",
 		Config: Config{
 			Cluster: ClusterKubenet,
@@ -1673,14 +1647,6 @@ func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_AlreadyDis
 					vmss.Tags = map[string]*string{}
 				}
 				vmss.Tags["aks-disable-kubelet-serving-certificate-rotation"] = to.Ptr("true")
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", "\"tlsCertFile\": \"/etc/kubernetes/certs/kubeletserver.crt\"")
-				ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", "\"tlsPrivateKeyFile\": \"/etc/kubernetes/certs/kubeletserver.key\"")
-				ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "--rotate-server-certificates=true")
-				ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "kubernetes.azure.com/kubelet-serving-ca=cluster")
-				ValidateFileExcludesContent(ctx, s, "/etc/default/kubeletconfig.json", "\"serverTLSBootstrap\": true")
-				ValidateDirectoryContent(ctx, s, "/etc/kubernetes/certs", []string{"kubeletserver.crt", "kubeletserver.key"})
 			},
 		},
 	})
@@ -1888,9 +1854,32 @@ func Test_Ubuntu2404Gen2(t *testing.T) {
 	})
 }
 
-func Test_Ubuntu2404Gen2_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing.T) {
+func Test_Ubuntu2204_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using an Ubuntu 2204 Gen2 VHD can be properly bootstrapped even if secure TLS bootstrapping fails",
+		Tags: Tags{
+			BootstrapTokenFallback: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{
+					Enabled:                true,
+					Deadline:               (30 * time.Second).String(),
+					UserAssignedIdentityID: "invalid", // use an unexpected user-assigned identity ID to force a secure TLS bootstrapping failure
+				}
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2404_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using an Ubuntu 2404 Gen2 VHD can be properly bootstrapped even if secure TLS bootstrapping fails",
+		Tags: Tags{
+			BootstrapTokenFallback: true,
+		},
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2404Gen2Containerd,
@@ -2136,6 +2125,8 @@ func Test_Ubuntu2204Gen2_ContainerdAirgappedNonAnonymousK8sNotCached_InstallPack
 					"1.32.3") // has to use specific version because when k8s < 1.34, most credential provider versions are missing.
 				nbc.KubeletConfig["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
 				nbc.KubeletConfig["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
+				// Secure TLS Bootstrapping isn't supported on this VHD
+				nbc.SecureTLSBootstrappingConfig.Enabled = false
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				if vmss.Tags == nil {
@@ -2158,9 +2149,10 @@ func Test_AzureLinux3OSGuard_PMC_Install(t *testing.T) {
 			VHD:     config.VHDAzureLinux3OSGuard,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.LocalDNSProfile = nil
+				// Secure TLS Bootstrapping is not yet supported on OSGuard (FIPS)
+				nbc.SecureTLSBootstrappingConfig.Enabled = false
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-			},
+			Validator: func(ctx context.Context, s *Scenario) {},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
 				if vmss.Tags == nil {
