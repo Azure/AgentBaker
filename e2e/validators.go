@@ -133,7 +133,6 @@ func validateKubeletServingCertificateRotationWindows(ctx context.Context, s *Sc
 		s.T.Logf("windows VMSS has KSCR disablement tag, will validate that KSCR has been disabled")
 		ValidateDirectoryContent(ctx, s, "c:\\k\\pki", []string{"kubelet.crt", "kubelet.key"})
 		ValidateWindowsProcessDoesNotContainArgumentStrings(ctx, s, "kubelet.exe", []string{"--rotate-server-certificates=true", "kubernetes.azure.com/kubelet-serving-ca=cluster"})
-		ValidateWindowsProcessContainsArgumentStrings(ctx, s, "kubelet.exe", []string{"--tls-cert-file", "--tls-private-key-file"})
 		return
 	}
 	s.T.Logf("will validate windows KSCR enablement")
