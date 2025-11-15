@@ -103,7 +103,7 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 
 	// base NBC templates define a mock service principal profile that we can still use to test
 	// the correct bootstrapping logic: https://github.com/Azure/AgentBaker/blob/master/e2e/node_config.go#L438-L441
-	if hasServicePrincipalData(s) {
+	if s.HasServicePrincipalData() {
 		_ = execScriptOnVMForScenarioValidateExitCode(
 			ctx,
 			s,

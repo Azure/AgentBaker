@@ -107,6 +107,11 @@ func getBaseNBC(t testing.TB, cluster *Cluster, vhd *config.Image) (*datamodel.N
 		nbc.ContainerService.Properties.CertificateProfile.ClientCertificate = "none"
 		nbc.ContainerService.Properties.CertificateProfile.ClientPrivateKey = "none"
 
+		// this is also set below within NBC's UserAssignedIdentityClientID field, though windows is special and needs
+		// these other fields to be set as well for the client ID to actually be included within CSE
+		nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.UseManagedIdentity = true
+		nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.UserAssignedID = *cluster.KubeletIdentity.ClientID
+
 		nbc.ContainerService.Properties.ClusterID = *cluster.Model.ID
 		nbc.SubscriptionID = config.Config.SubscriptionID
 		nbc.ResourceGroupName = *cluster.Model.Properties.NodeResourceGroup

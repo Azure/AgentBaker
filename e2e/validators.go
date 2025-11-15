@@ -30,100 +30,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
-func ValidateSystemdWatchdogForKubernetes132Plus(ctx context.Context, s *Scenario) {
-	var k8sVersion string
-	if s.Runtime.NBC != nil && s.Runtime.NBC.ContainerService != nil &&
-		s.Runtime.NBC.ContainerService.Properties != nil &&
-		s.Runtime.NBC.ContainerService.Properties.OrchestratorProfile != nil {
-		k8sVersion = s.Runtime.NBC.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion
-	} else if s.Runtime.AKSNodeConfig != nil {
-		k8sVersion = s.Runtime.AKSNodeConfig.GetKubernetesVersion()
-	}
-
-	if k8sVersion != "" && agent.IsKubernetesVersionGe(k8sVersion, "1.32.0") {
-		// Validate systemd watchdog is enabled and configured for kubelet
-		ValidateSystemdUnitIsRunning(ctx, s, "kubelet.service")
-		ValidateFileHasContent(ctx, s, "/etc/systemd/system/kubelet.service.d/10-watchdog.conf", "WatchdogSec=60s")
-		ValidateJournalctlOutput(ctx, s, "kubelet.service", "Starting systemd watchdog with interval")
-	}
-}
-
-func ValidateLeakedSecrets(ctx context.Context, s *Scenario) {
-	var secrets map[string]string
-	b64Encoded := func(val string) string {
-		return base64.StdEncoding.EncodeToString([]byte(val))
-	}
-	if s.Runtime.NBC != nil {
-		secrets = map[string]string{
-			"client private key":       b64Encoded(s.Runtime.NBC.ContainerService.Properties.CertificateProfile.ClientPrivateKey),
-			"service principal secret": b64Encoded(s.Runtime.NBC.ContainerService.Properties.ServicePrincipalProfile.Secret),
-			"bootstrap token":          *s.Runtime.NBC.KubeletClientTLSBootstrapToken,
-		}
-	} else {
-		token := s.Runtime.AKSNodeConfig.BootstrappingConfig.TlsBootstrappingToken
-		strToken := ""
-		if token != nil {
-			strToken = *token
-		}
-		secrets = map[string]string{
-			"client private key":       b64Encoded(s.Runtime.AKSNodeConfig.KubeletConfig.KubeletClientKey),
-			"service principal secret": b64Encoded(s.Runtime.AKSNodeConfig.AuthConfig.ServicePrincipalSecret),
-			"bootstrap token":          strToken,
-		}
-	}
-
-	for _, logFile := range []string{"/var/log/azure/cluster-provision.log", "/var/log/azure/aks-node-controller.log"} {
-		for _, secretValue := range secrets {
-			if secretValue != "" {
-				ValidateFileExcludesContent(ctx, s, logFile, secretValue)
-			}
-		}
-	}
-}
-
-func ValidateKubeletServingCertificateRotation(ctx context.Context, s *Scenario) {
-	switch s.VHD.OS {
-	case config.OSWindows:
-		validateKubeletServingCertificateRotationWindows(ctx, s)
-	default:
-		validateKubeletServingCertificateRotationLinux(ctx, s)
-	}
-}
-
-func validateKubeletServingCertificateRotationLinux(ctx context.Context, s *Scenario) {
-	if _, ok := s.Runtime.VM.VMSS.Tags["aks-disable-kubelet-serving-certificate-rotation"]; ok {
-		s.T.Logf("VMSS has KSCR disablement tag, will validate that KSCR has been disabled")
-		ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "kubernetes.azure.com/kubelet-serving-ca=cluster")
-		ValidateDirectoryContent(ctx, s, "/etc/kubernetes/certs", []string{"kubeletserver.crt", "kubeletserver.key"})
-		if s.KubeletConfigFileEnabled() {
-			ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", "\"tlsCertFile\": \"/etc/kubernetes/certs/kubeletserver.crt\"")
-			ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", "\"tlsPrivateKeyFile\": \"/etc/kubernetes/certs/kubeletserver.key\"")
-			ValidateFileExcludesContent(ctx, s, "/etc/default/kubeletconfig.json", "\"serverTLSBootstrap\": true")
-		} else {
-			ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "--tls-cert-file")
-			ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "--tls-private-key-file")
-			ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "--rotate-server-certificates=true")
-		}
-		return
-	}
-	s.T.Logf("will validate KSCR enablement")
-	ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "kubernetes.azure.com/kubelet-serving-ca=cluster")
-	ValidateDirectoryContent(ctx, s, "/var/lib/kubelet/pki", []string{"kubelet-server-current.pem"})
-	if s.KubeletConfigFileEnabled() {
-		ValidateFileExcludesContent(ctx, s, "/etc/default/kubeletconfig.json", "\"tlsCertFile\": \"/etc/kubernetes/certs/kubeletserver.crt\"")
-		ValidateFileExcludesContent(ctx, s, "/etc/default/kubeletconfig.json", "\"tlsPrivateKeyFile\": \"/etc/kubernetes/certs/kubeletserver.key\"")
-		ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", "\"serverTLSBootstrap\": true")
-	} else {
-		ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "--tls-cert-file")
-		ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "--tls-private-key-file")
-		ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "--rotate-server-certificates=true")
-	}
-}
-
-func validateKubeletServingCertificateRotationWindows(ctx context.Context, s *Scenario) {
-	// TODO(cameissner)
-}
-
 func ValidateTLSBootstrapping(ctx context.Context, s *Scenario) {
 	switch s.VHD.OS {
 	case config.OSWindows:
@@ -168,7 +74,72 @@ func validateTLSBootstrappingLinux(ctx context.Context, s *Scenario) {
 }
 
 func validateTLSBootstrappingWindows(ctx context.Context, s *Scenario) {
-	// TOOD(cameissner)
+	ValidateDirectoryContent(ctx, s, "c:\\k", []string{" config "})
+	ValidateDirectoryContent(ctx, s, "c:\\k\\pki", []string{"kubelet-client-current.pem"})
+	switch {
+	case s.SecureTLSBootstrappingEnabled() && s.Tags.BootstrapTokenFallback:
+		s.T.Logf("will validate bootstrapping mode: secure TLS bootstrapping failure with bootstrap token fallback")
+		// nothing to validate other than node readiness
+	case s.SecureTLSBootstrappingEnabled():
+		s.T.Logf("will validate bootstrapping mode: secure TLS bootstrapping")
+		validateKubeletClientCSRCreatedBySecureTLSBootstrapping(ctx, s)
+	default:
+		s.T.Logf("will validate bootstrapping mode: bootstrap token")
+		// nothing to validate other than node readiness
+	}
+}
+
+func ValidateKubeletServingCertificateRotation(ctx context.Context, s *Scenario) {
+	switch s.VHD.OS {
+	case config.OSWindows:
+		validateKubeletServingCertificateRotationWindows(ctx, s)
+	default:
+		validateKubeletServingCertificateRotationLinux(ctx, s)
+	}
+}
+
+func validateKubeletServingCertificateRotationLinux(ctx context.Context, s *Scenario) {
+	if _, ok := s.Runtime.VM.VMSS.Tags["aks-disable-kubelet-serving-certificate-rotation"]; ok {
+		s.T.Logf("linux VMSS has KSCR disablement tag, will validate that KSCR has been disabled")
+		ValidateDirectoryContent(ctx, s, "/etc/kubernetes/certs", []string{"kubeletserver.crt", "kubeletserver.key"})
+		ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "kubernetes.azure.com/kubelet-serving-ca=cluster")
+		if s.KubeletConfigFileEnabled() {
+			ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", "\"tlsCertFile\": \"/etc/kubernetes/certs/kubeletserver.crt\"")
+			ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", "\"tlsPrivateKeyFile\": \"/etc/kubernetes/certs/kubeletserver.key\"")
+			ValidateFileExcludesContent(ctx, s, "/etc/default/kubeletconfig.json", "\"serverTLSBootstrap\": true")
+		} else {
+			ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "--tls-cert-file")
+			ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "--tls-private-key-file")
+			ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "--rotate-server-certificates=true")
+		}
+		return
+	}
+	s.T.Logf("will validate linux KSCR enablement")
+	ValidateDirectoryContent(ctx, s, "/var/lib/kubelet/pki", []string{"kubelet-server-current.pem"})
+	ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "kubernetes.azure.com/kubelet-serving-ca=cluster")
+	if s.KubeletConfigFileEnabled() {
+		ValidateFileExcludesContent(ctx, s, "/etc/default/kubeletconfig.json", "\"tlsCertFile\": \"/etc/kubernetes/certs/kubeletserver.crt\"")
+		ValidateFileExcludesContent(ctx, s, "/etc/default/kubeletconfig.json", "\"tlsPrivateKeyFile\": \"/etc/kubernetes/certs/kubeletserver.key\"")
+		ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", "\"serverTLSBootstrap\": true")
+	} else {
+		ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "--tls-cert-file")
+		ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "--tls-private-key-file")
+		ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "--rotate-server-certificates=true")
+	}
+}
+
+func validateKubeletServingCertificateRotationWindows(ctx context.Context, s *Scenario) {
+	if _, ok := s.Runtime.VM.VMSS.Tags["aks-disable-kubelet-serving-certificate-rotation"]; ok {
+		s.T.Logf("windows VMSS has KSCR disablement tag, will validate that KSCR has been disabled")
+		ValidateDirectoryContent(ctx, s, "c:\\k\\pki", []string{"kubelet.crt", "kubelet.key"})
+		ValidateWindowsProcessDoesNotContainArgumentStrings(ctx, s, "kubelet.exe", []string{"--rotate-server-certificates=true", "kubernetes.azure.com/kubelet-serving-ca=cluster"})
+		ValidateWindowsProcessContainsArgumentStrings(ctx, s, "kubelet.exe", []string{"--tls-cert-file", "--tls-private-key-file"})
+		return
+	}
+	s.T.Logf("will validate windows KSCR enablement")
+	ValidateDirectoryContent(ctx, s, "c:\\k\\pki", []string{"kubelet-server-current.pem"})
+	ValidateWindowsProcessContainsArgumentStrings(ctx, s, "kubelet.exe", []string{"--rotate-server-certificates=true", "kubernetes.azure.com/kubelet-serving-ca=cluster"})
+	ValidateWindowsProcessDoesNotContainArgumentStrings(ctx, s, "kubelet.exe", []string{"--tls-cert-file", "--tls-private-key-file"})
 }
 
 func validateKubeletClientCSRCreatedBySecureTLSBootstrapping(ctx context.Context, s *Scenario) {
@@ -190,7 +161,39 @@ func validateKubeletClientCSRCreatedBySecureTLSBootstrapping(ctx context.Context
 			break
 		}
 	}
-	require.True(s.T, hasValidCSR, "expected node %s to have created a kubelet client CSR which was approved and issued, using secure TLS bootstrapping")
+	require.True(s.T, hasValidCSR, "expected node %s to have created a kubelet client CSR which was approved and issued, using secure TLS bootstrapping", s.Runtime.VM.KubeName)
+}
+
+func getNodeNameFromCSR(s *Scenario, csr certv1.CertificateSigningRequest) string {
+	block, _ := pem.Decode(csr.Spec.Request)
+	require.NotNil(s.T, block)
+	req, err := x509.ParseCertificateRequest(block.Bytes)
+	require.NoError(s.T, err)
+	return strings.TrimPrefix(req.Subject.CommonName, "system:node:")
+}
+
+func ValidateSystemdWatchdogForKubernetes132Plus(ctx context.Context, s *Scenario) {
+	if k8sVersion := s.GetK8sVersion(); k8sVersion != "" && agent.IsKubernetesVersionGe(k8sVersion, "1.32.0") {
+		// Validate systemd watchdog is enabled and configured for kubelet
+		ValidateSystemdUnitIsRunning(ctx, s, "kubelet.service")
+		ValidateFileHasContent(ctx, s, "/etc/systemd/system/kubelet.service.d/10-watchdog.conf", "WatchdogSec=60s")
+		ValidateJournalctlOutput(ctx, s, "kubelet.service", "Starting systemd watchdog with interval")
+	}
+}
+
+func ValidateLeakedSecrets(ctx context.Context, s *Scenario) {
+	secrets := map[string]string{
+		"client private key":       base64.StdEncoding.EncodeToString([]byte(s.GetClientPrivateKey())),
+		"service principal secret": base64.StdEncoding.EncodeToString([]byte(s.GetServicePrincipalSecret())),
+		"bootstrap token":          s.GetTLSBootstrapToken(),
+	}
+	for _, logFile := range []string{"/var/log/azure/cluster-provision.log", "/var/log/azure/aks-node-controller.log"} {
+		for _, secretValue := range secrets {
+			if secretValue != "" {
+				ValidateFileExcludesContent(ctx, s, logFile, secretValue)
+			}
+		}
+	}
 }
 
 func ValidateSSHServiceEnabled(ctx context.Context, s *Scenario) {
@@ -208,32 +211,19 @@ func ValidateSSHServiceEnabled(ctx context.Context, s *Scenario) {
 	require.Contains(s.T, stdout, "enabled", "ssh.service should be enabled at boot")
 }
 
-func hasServicePrincipalData(s *Scenario) bool {
-	if s.Runtime == nil {
-		return false
-	}
-	if s.Runtime.AKSNodeConfig != nil && s.Runtime.AKSNodeConfig.AuthConfig != nil {
-		return s.Runtime.AKSNodeConfig.AuthConfig.ServicePrincipalId != "" && s.Runtime.AKSNodeConfig.AuthConfig.ServicePrincipalSecret != ""
-	}
-	if s.Runtime.NBC != nil && s.Runtime.NBC.ContainerService != nil && s.Runtime.NBC.ContainerService.Properties != nil && s.Runtime.NBC.ContainerService.Properties.ServicePrincipalProfile != nil {
-		return s.Runtime.NBC.ContainerService.Properties.ServicePrincipalProfile.ClientID != "" && s.Runtime.NBC.ContainerService.Properties.ServicePrincipalProfile.Secret != ""
-	}
-	return false
-}
-
-func getNodeNameFromCSR(s *Scenario, csr certv1.CertificateSigningRequest) string {
-	block, _ := pem.Decode(csr.Spec.Request)
-	require.NotNil(s.T, block)
-	req, err := x509.ParseCertificateRequest(block.Bytes)
-	require.NoError(s.T, err)
-	return strings.TrimPrefix(req.Subject.CommonName, "system:node:")
-}
-
 func ValidateDirectoryContent(ctx context.Context, s *Scenario, path string, files []string) {
 	s.T.Helper()
-	steps := []string{
-		"set -ex",
-		fmt.Sprintf("sudo ls -la %s", path),
+	var steps []string
+	if s.IsWindows() {
+		steps = []string{
+			"$ErrorActionPreference = \"Stop\"",
+			fmt.Sprintf("Get-ChildItem -Path %s", path),
+		}
+	} else {
+		steps = []string{
+			"set -ex",
+			fmt.Sprintf("sudo ls -la %s", path),
+		}
 	}
 	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "could not get directory contents")
 	stdout := execResult.stdout.String()
@@ -955,9 +945,28 @@ func ValidateWindowsProcessHasCliArguments(ctx context.Context, s *Scenario, pro
 
 	actualArgs := strings.Split(podExecResult.stdout.String(), " ")
 
-	for i := 0; i < len(arguments); i++ {
+	for i := range arguments {
 		expectedArgument := arguments[i]
 		require.Contains(s.T, actualArgs, expectedArgument)
+	}
+}
+
+func ValidateWindowsProcessContainsArgumentStrings(ctx context.Context, s *Scenario, processName string, substrings []string) {
+	validateWindowsProccessArgumentString(ctx, s, processName, substrings, require.Contains)
+}
+
+func ValidateWindowsProcessDoesNotContainArgumentStrings(ctx context.Context, s *Scenario, processName string, substrings []string) {
+	validateWindowsProccessArgumentString(ctx, s, processName, substrings, require.NotContains)
+}
+
+func validateWindowsProccessArgumentString(ctx context.Context, s *Scenario, processName string, substrings []string, assert func(t require.TestingT, s any, contains any, msgAndArgs ...any)) {
+	steps := []string{
+		fmt.Sprintf("(Get-CimInstance Win32_Process -Filter \"name='%[1]s'\")[0].CommandLine", processName),
+	}
+	podExecResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "could not validate command argument string - might mean file does not have params, might mean something went wrong")
+	argString := podExecResult.stdout.String()
+	for _, str := range substrings {
+		assert(s.T, argString, str)
 	}
 }
 

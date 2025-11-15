@@ -540,6 +540,9 @@ func extractLogsFromVMLinux(ctx context.Context, s *Scenario, privateIP string) 
 		"syslog":                           "sudo cat /var/log/" + syslogHandle,
 		"journalctl":                       "sudo journalctl --boot=0 --no-pager",
 	}
+	if s.SecureTLSBootstrappingEnabled() {
+		commandList["secure-tls-bootstrap.log"] = "sudo cat /var/log/azure/aks/secure-tls-bootstrap.log"
+	}
 
 	pod, err := s.Runtime.Cluster.Kube.GetHostNetworkDebugPod(ctx)
 	if err != nil {
