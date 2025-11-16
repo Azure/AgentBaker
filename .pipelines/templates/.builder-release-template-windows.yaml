@@ -59,6 +59,9 @@ parameters:
     type: string
     displayName: CSE package filename.
 
+variables:
+  DRY_RUN: ${{ parameters.dryrun }}
+
 steps:
   - template: ./.template-override-components-json.yaml
     parameters:
@@ -72,7 +75,7 @@ steps:
       artifactName: windows-cse-package
       itemPattern: '${{ parameters.csePackageFileName }}'
       targetPath: ${{ parameters.csePackageDir }}
-      
+
   - bash: bash ./.pipelines/scripts/windows_build_vhd.sh
     displayName: Build and save VHD
     env:
@@ -106,7 +109,8 @@ steps:
       AZURE_MSI_RESOURCE_STRING: $(AZURE_MSI_RESOURCE_STRING)
       BUILD_DATE: $(BUILD_DATE)
       WINDOWS_CSE_PACKAGE_URI: ${{ parameters.csePackageDir }}/${{ parameters.csePackageFileName }}
-      DRY_RUN: ${{ parameters.dryrun }}
+      DRY_RUN: $(DRY_RUN)
+
 
   # Note: use -a to grep MANAGED_SIG_ID (packer-output should be read as a binary file in Linux)
   - script: |
@@ -187,7 +191,7 @@ steps:
 
       make -f packer.mk convert-sig-to-classic-storage-account-blob
     displayName: Convert Shared Image Gallery To VHD Blob In Classic Storage Account
-    condition: and(eq('${{ parameters.dryrun }}', 'False'), eq(variables.SIG_FOR_PRODUCTION, 'True'), succeeded())
+    condition: and(eq('$( DRY_RUN )', 'False'), eq(variables.SIG_FOR_PRODUCTION, 'True'), succeeded())
     env:
       LOCATION: $(AZURE_BUILD_LOCATION)
       RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
@@ -220,7 +224,7 @@ steps:
     condition: always()
     env:
       MODE: $(MODE)
-      DRY_RUN: ${{ parameters.dryrun }}
+      DRY_RUN: $( DRY_RUN )
       VNET_RESOURCE_GROUP_NAME: $(VNET_RESOURCE_GROUP_NAME)
       TEST_VM_RESOURCE_GROUP_NAME: $(TEST_VM_RESOURCE_GROUP_NAME)
       SKIP_EXTENSION_CHECK: ${{ parameters.skipExtensionCheck }}
@@ -247,7 +251,7 @@ steps:
 
       make -f packer.mk generate-publishing-info
     displayName: Getting Shared Access Signature URI
-    condition: and(succeeded(), eq('${{ parameters.dryrun }}', 'False'), eq(variables.SIG_FOR_PRODUCTION, 'True'))
+    condition: and(succeeded(), eq('$( DRY_RUN )', 'False'), eq(variables.SIG_FOR_PRODUCTION, 'True'))
     env:
       SUBSCRIPTION_ID: $(AZURE_PROD_SUBSCRIPTION_ID)
       STORAGE_ACCT_BLOB_URL: $(STORAGE_ACCT_BLOB_URL)
@@ -267,4 +271,4 @@ steps:
     inputs:
       artifactName: 'publishing-info-${{ parameters.artifactName }}'
       targetPath: 'vhd-publishing-info.json'
-    condition: and(succeeded(), eq('${{ parameters.dryrun }}', 'False'), eq(variables.SIG_FOR_PRODUCTION, 'True'))
+    condition: and(succeeded(), eq(variables.DRY_RUN, 'False'), eq(variables.SIG_FOR_PRODUCTION, 'True'))
