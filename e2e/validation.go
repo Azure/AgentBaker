@@ -96,6 +96,8 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 		//"cloud-config.txt", // file with UserData
 	})
 
+	ValidateInspektorGadget(ctx, s)
+
 	_ = execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo curl http://168.63.129.16:32526/vmSettings", 0, "curl to wireserver failed")
 
 	execResult = execOnVMForScenarioOnUnprivilegedPod(ctx, s, "curl https://168.63.129.16/machine/?comp=goalstate -H 'x-ms-version: 2015-04-05' -s --connect-timeout 4")
