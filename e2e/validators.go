@@ -1415,3 +1415,15 @@ func ValidateAppArmorBasic(ctx context.Context, s *Scenario) {
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to check AppArmor current profile")
 	// Any output indicates AppArmor is active (profile will be shown)
 }
+
+// ValidateContainerdBinaryExists ensures that the containerd binary exists and logs its version.
+func ValidateContainerdBinaryExists(ctx context.Context, s *Scenario) {
+	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, "containerd --version", 0, "could not get containerd version")
+	s.T.Logf("containerd version output: %s", execResult.stdout.String())
+}
+
+// ValidateRuncBinaryExists ensures that the runc binary exists and logs its version.
+func ValidateRuncBinaryExists(ctx context.Context, s *Scenario) {
+	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, "runc --version", 0, "could not get runc version")
+	s.T.Logf("runc version output: %s", execResult.stdout.String())
+}
