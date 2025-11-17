@@ -631,7 +631,21 @@ EOF
     fi
 
     apt install -y \
-      nvidia-driver-580-open
+      libnvidia-common-580=580.95.05-0ubuntu1 \
+      libnvidia-cfg1-580=580.95.05-0ubuntu1 \
+      libnvidia-gpucomp-580=580.95.05-0ubuntu1 \
+      libnvidia-gl-580=580.95.05-0ubuntu1 \
+      nvidia-firmware-580=580.95.05-0ubuntu1 \
+      nvidia-dkms-580-open=580.95.05-0ubuntu1 \
+      nvidia-kernel-common-580=580.95.05-0ubuntu1 \
+      nvidia-kernel-source-580-open=580.95.05-0ubuntu1 \
+      libnvidia-compute-580=580.95.05-0ubuntu1 \
+      libnvidia-extra-580=580.95.05-0ubuntu1 \
+      libnvidia-decode-580=580.95.05-0ubuntu1 \
+      libnvidia-encode-580=580.95.05-0ubuntu1 \
+      xserver-xorg-video-nvidia-580=580.95.05-0ubuntu1 \
+      libnvidia-fbc1-580=580.95.05-0ubuntu1 \
+      nvidia-driver-580-open=580.95.05-0ubuntu1
 
     apt install -y \
       cuda-toolkit-13 \
@@ -646,7 +660,7 @@ EOF
       k8s-device-plugin
 
     apt install -y \
-      nvidia-imex
+      nvidia-imex=580.95.05-1
 
     apt install -y \
       doca-ofed
