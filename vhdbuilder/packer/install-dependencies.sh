@@ -660,7 +660,7 @@ EOF
       k8s-device-plugin
 
     apt install -y \
-      nvidia-imex
+      nvidia-imex=580.95.05-1
 
     apt install -y \
       doca-ofed
