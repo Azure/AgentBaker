@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Azure/agentbaker/e2e/components"
@@ -215,8 +216,10 @@ func Test_AzureLinuxV3_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV3Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				// secure TLS bootstrapping is not yet enabled in e2e regions, thus this will test the bootstrap token fallback case
-				nbc.EnableSecureTLSBootstrapping = true
+				nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{
+					Enabled:  true,
+					Deadline: (30 * time.Second).String(),
+				}
 			},
 		},
 	})
@@ -1927,8 +1930,10 @@ func Test_Ubuntu2404_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing.T
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2404Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				// secure TLS bootstrapping is not yet enabled in e2e regions, thus this will test the bootstrap token fallback case
-				nbc.EnableSecureTLSBootstrapping = true
+				nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{
+					Enabled:  true,
+					Deadline: (30 * time.Second).String(),
+				}
 			},
 		},
 	})
