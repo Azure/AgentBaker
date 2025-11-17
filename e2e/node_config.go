@@ -123,14 +123,14 @@ func getBaseNBC(t testing.TB, cluster *Cluster, vhd *config.Image) (*datamodel.N
 	// we assume that all E2E clusters are created with a user-assigned managed identity for the kubelet (not a service principal)
 	nbc.UserAssignedIdentityClientID = *cluster.KubeletIdentity.ClientID
 
-	// pass in the bootstrap token and enable secure TLS bootstrapping by default
+	// pass in the bootstrap token and enable secure TLS bootstrapping by default on compatible VHDs
 	// this allows us to test the following bootstrapping modes:
 	// 1. secure TLS bootstrapping
 	// 2. secure TLS bootstrapping failure, which falls back to bootstrap token
 	// 3. bootstrap token
 	nbc.KubeletClientTLSBootstrapToken = &cluster.ClusterParams.BootstrapToken
 	nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{
-		Enabled: true,
+		Enabled: !vhd.UnsupportedSecureTLSBootstrapping,
 	}
 
 	nbc.TenantID = *cluster.Model.Identity.TenantID
