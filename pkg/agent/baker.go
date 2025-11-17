@@ -1213,6 +1213,9 @@ func GetGPUDriverVersion(size string) string {
 	if isStandardNCv1(size) {
 		return datamodel.Nvidia470CudaDriverVersion
 	}
+	if useMaiaDrivers(size) {
+		return datamodel.MaiaNpuDriverVersion
+	}
 	return datamodel.NvidiaCudaDriverVersion
 }
 
@@ -1225,9 +1228,15 @@ func useGridDrivers(size string) bool {
 	return datamodel.ConvergedGPUDriverSizes[strings.ToLower(size)]
 }
 
+func useMaiaDrivers(size string) bool {
+	return datamodel.MaiaNPUDriverSizes[strings.ToLower(size)]
+}
+
 func GetAKSGPUImageSHA(size string) string {
 	if useGridDrivers(size) {
 		return datamodel.AKSGPUGridVersionSuffix
+	} else if useMaiaDrivers(size) {
+		return datamodel.AKSNPUNplVersionSuffix
 	}
 	return datamodel.AKSGPUCudaVersionSuffix
 }
@@ -1235,6 +1244,8 @@ func GetAKSGPUImageSHA(size string) string {
 func GetGPUDriverType(size string) string {
 	if useGridDrivers(size) {
 		return "grid"
+	} else if useMaiaDrivers(size) {
+		return datamodel.MaiaProgrammingSwString
 	}
 	return "cuda"
 }

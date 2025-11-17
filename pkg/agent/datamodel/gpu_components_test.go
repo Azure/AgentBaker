@@ -23,6 +23,14 @@ func TestLoadConfig(t *testing.T) {
 		t.Error(("AKSGPUGridVersionSuffix is empty"))
 	}
 
+	if MaiaNpuDriverVersion == "" {
+		t.Error("MaiaNpuDriverVersion is empty")
+	}
+
+	if AKSNPUNplVersionSuffix == "" {
+		t.Error("AKSNPUNplVersionSuffix is empty")
+	}
+
 	// Define regular expressions for expected formats
 	versionRegex := `^\d+\.\d+\.\d+$` // match version strings in a format like "X.Y.Z", where each of X, Y, and Z are numbers. e.g., "550.90.12"
 	suffixRegex := `^\d{14}$`         //  match a string of exactly 14 digits, which can represent a timestamp e.g., "20241021235610"
@@ -46,5 +54,19 @@ func TestLoadConfig(t *testing.T) {
 
 	if !suffixPattern.MatchString(AKSGPUGridVersionSuffix) {
 		t.Errorf("AKSGPUGridVersionSuffix '%s' does not match expected format", AKSGPUGridVersionSuffix)
+	}
+
+	if !versionPattern.MatchString(MaiaNpuDriverVersion) {
+		t.Errorf("MaiaNpuDriverVersion '%s' does not match expected format", MaiaNpuDriverVersion)
+	}
+
+	if !suffixPattern.MatchString(AKSNPUNplVersionSuffix) {
+		t.Errorf("AKSNPUNplVersionSuffix '%s' does not match expected format", AKSNPUNplVersionSuffix)
+	}
+}
+
+func TestMaiaNPUDriverSizesExist(t *testing.T) {
+	if len(MaiaNPUDriverSizes) == 0 {
+		t.Error("MaiaNPUDriverSizes map is empty, expected at least one MAIA SKU")
 	}
 }
