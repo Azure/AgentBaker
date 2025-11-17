@@ -67,9 +67,6 @@ func (a *App) run(ctx context.Context, args []string) error {
 	case "provision-wait":
 		provisionStatusFiles := ProvisionStatusFiles{ProvisionJSONFile: provisionJSONFilePath, ProvisionCompleteFile: provisionCompleteFilePath}
 		provisionOutput, err := a.ProvisionWait(ctx, provisionStatusFiles)
-		if err != nil {
-			slog.Error("provision-wait failed", "error", err)
-		}
 		//nolint:forbidigo // stdout is part of the interface
 		fmt.Println(provisionOutput)
 		slog.Info("provision-wait finished", "provisionOutput", provisionOutput)
@@ -162,13 +159,12 @@ func (a *App) writeCompleteFileOnError(err error) {
 }
 
 func (a *App) ProvisionWait(ctx context.Context, filepaths ProvisionStatusFiles) (string, error) {
+	watcher, err := fsnotify.NewWatcher()
 	if _, err := os.Stat(filepaths.ProvisionCompleteFile); err == nil {
 		// Fast path: provision.complete already exists when we enter. Avoid watcher overhead.
 		// We read and evaluate once and return immediately. Only this branch executes in this scenario.
 		return readAndEvaluateProvision(filepaths.ProvisionJSONFile)
 	}
-
-	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return "", fmt.Errorf("failed to create watcher: %w", err)
 	}

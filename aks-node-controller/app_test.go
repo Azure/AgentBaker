@@ -161,20 +161,22 @@ func TestApp_ProvisionWait(t *testing.T) {
 		setup     func(ProvisionStatusFiles)
 	}{
 		{
-			name: "provision already complete",
+			name: "event path (file created after call)",
 			setup: func(provisionStatusFiles ProvisionStatusFiles) {
+				// This goroutine simulates an external process writing the files after a short delay.
+				// It's running asynchronously from the main test flow.
 				go func() {
-					time.Sleep(200 * time.Millisecond)
+					time.Sleep(150 * time.Millisecond)
 					_ = os.WriteFile(provisionStatusFiles.ProvisionJSONFile, []byte(testData), 0644)
 					_, _ = os.Create(provisionStatusFiles.ProvisionCompleteFile)
 				}()
 			},
 		},
 		{
-			name: "wait for provision completion",
+			name: "fast path (file exists before call)",
 			setup: func(provisionStatusFiles ProvisionStatusFiles) {
 				_ = os.WriteFile(provisionStatusFiles.ProvisionJSONFile, []byte(testData), 0644)
-				_, _ = os.Create(provisionStatusFiles.ProvisionCompleteFile)
+				_, _ = os.Create(provisionStatusFiles.ProvisionCompleteFile) // pre-create to trigger immediate return
 			},
 		},
 		{
