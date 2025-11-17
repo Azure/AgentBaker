@@ -257,6 +257,8 @@ func Test_Windows23H2Gen2CachingRegression(t *testing.T) {
 			VMConfigMutator: EmptyVMConfigMutator,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.WindowsProfile.CseScriptsPackageURL = "https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-v0.0.52.zip"
+				// Secure TLS Bootstrapping isn't supported on this CSE script package version
+				nbc.SecureTLSBootstrappingConfig.Enabled = false
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "CSEScriptsPackageUrl used for provision is https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-v0.0.52.zip")
@@ -274,6 +276,8 @@ func Test_Windows2022CachingRegression(t *testing.T) {
 			VMConfigMutator: EmptyVMConfigMutator,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.WindowsProfile.CseScriptsPackageURL = "https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-v0.0.52.zip"
+				// Secure TLS Bootstrapping isn't supported on this CSE script package version
+				nbc.SecureTLSBootstrappingConfig.Enabled = false
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "CSEScriptsPackageUrl used for provision is https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-v0.0.52.zip")
@@ -291,6 +295,8 @@ func Test_Windows2019CachingRegression(t *testing.T) {
 			VMConfigMutator: EmptyVMConfigMutator,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.WindowsProfile.CseScriptsPackageURL = "https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-v0.0.52.zip"
+				// Secure TLS Bootstrapping isn't supported on this CSE script package version
+				nbc.SecureTLSBootstrappingConfig.Enabled = false
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "CSEScriptsPackageUrl used for provision is https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-v0.0.52.zip")
