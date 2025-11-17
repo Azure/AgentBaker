@@ -403,6 +403,39 @@ copyPackerFiles() {
     cpAndMode $NOTICE_SRC $NOTICE_DEST 444
   fi
 
+  if grep -q "GB200" <<< "$FEATURE_FLAGS"; then
+    if [ ${UBUNTU_RELEASE} = "24.04" ]; then
+      NVIDIA_LIST_SRC=/home/packer/nvidia-2404.list
+      NVIDIA_LIST_DEST=/etc/apt/sources.list.d/nvidia.list
+      cpAndMode $NVIDIA_LIST_SRC $NVIDIA_LIST_DEST 644
+
+      NVIDIA_ASC_SRC=/home/packer/nvidia.pub
+      NVIDIA_ASC_DEST=/etc/apt/keyrings/nvidia.pub
+      cpAndMode $NVIDIA_ASC_SRC $NVIDIA_ASC_DEST 644
+
+      # This will only currently work if changes are applied to the subscription
+      # the node runs in. Otherwise, until the GB200 is recognized as a GPU SKU,
+      # it'll be overwritten by a containerd configuration that doesn't support
+      # running GPU workloads.
+      CONTAINERD_NVIDIA_TOML_SRC=/home/packer/containerd-nvidia.toml
+      CONTAINERD_NVIDIA_TOML_DEST=/etc/containerd/config.toml
+      cpAndMode $CONTAINERD_NVIDIA_TOML_SRC $CONTAINERD_NVIDIA_TOML_DEST 644
+
+      DOCA_LIST_SRC=/home/packer/doca.list
+      DOCA_LIST_DEST=/etc/apt/sources.list.d/doca-net.list
+      cpAndMode $DOCA_LIST_SRC $DOCA_LIST_DEST 644
+
+      DOCA_PUB_SRC=/home/packer/doca.pub
+      DOCA_PUB_DEST=/etc/apt/keyrings/doca-net.pub
+      cpAndMode $DOCA_PUB_SRC $DOCA_PUB_DEST 644
+
+      NVIDIA_MODPROBE_PARAMETERS_SRC=/home/packer/modprobe-nvidia-parameters.conf
+      NVIDIA_MODPROBE_PARAMETERS_DEST=/etc/modprobe.d/nvidia.conf
+      cpAndMode $NVIDIA_MODPROBE_PARAMETERS_SRC $NVIDIA_MODPROBE_PARAMETERS_DEST 644
+
+    fi
+  fi
+
   # Always copy the VHD cleanup script responsible for prepping the instance for first boot
   # to disk so we can run it again if needed in subsequent builds/releases (prefetch during SIG release)
   cpAndMode $VHD_CLEANUP_SCRIPT_SRC $VHD_CLEANUP_SCRIPT_DEST 644

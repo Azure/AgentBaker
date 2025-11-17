@@ -183,7 +183,7 @@ if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]]; then
   fi
   NVIDIA_KERNEL_PACKAGE="linux-azure-nvidia"
   if [[ "${CPU_ARCH}" == "arm64" && "${UBUNTU_RELEASE}" = "24.04" ]]; then
-    # This is the ubuntu 2404arm64gen2containerd image.
+    # This is the ubuntu 2404arm64gen2containerd image or the 2404arm64gb200 image
     # Uncomment if we have trouble finding the kernel package.
     # sudo add-apt-repository ppa:canonical-kernel-team/ppa
     sudo apt update

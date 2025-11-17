@@ -185,11 +185,6 @@ $global:SecureTLSBootstrappingAADResource = "{{GetSecureTLSBootstrappingAADResou
 $global:SecureTLSBootstrappingUserAssignedIdentityID = "{{GetSecureTLSBootstrappingUserAssignedIdentityID}}";
 $global:CustomSecureTLSBootstrappingClientDownloadURL = "{{GetCustomSecureTLSBootstrappingClientDownloadURL}}";
 
-# uniquely identifies AKS's Entra ID application, see: https://learn.microsoft.com/en-us/azure/aks/kubelogin-authentication#how-to-use-kubelogin-with-aks
-# this is used by aks-secure-tls-bootstrap-client.exe when requesting AAD tokens
-# TODO(cameissner): remove once 2025-10B image is released
-$global:AKSAADServerAppID = "6dae42f8-4368-4678-94ff-3960e28e3630"
-
 # Disable OutBoundNAT in Azure CNI configuration
 $global:IsDisableWindowsOutboundNat = [System.Convert]::ToBoolean("{{GetVariable "isDisableWindowsOutboundNat" }}");
 
@@ -507,6 +502,50 @@ function NodePrep {
     } else {
         Write-Log "Enable-WindowsCiliumNetworking is not a recognized function, will skip Windows Cilium Networking installation"
     }
+
+    Set-Explorer
+    Adjust-PageFileSize
+    Logs-To-Event -TaskName "AKS.WindowsCSE.PreprovisionExtension" -TaskMessage "Start preProvisioning script"
+    PREPROVISION_EXTENSION
+    Update-ServiceFailureActions
+    Adjust-DynamicPortRange
+    Register-LogsCleanupScriptTask
+    Register-NodeResetScriptTask
+
+    Update-DefenderPreferences
+
+    $windowsVersion = Get-WindowsVersion
+    if ($windowsVersion -ne "1809") {
+        Logs-To-Event -TaskName "AKS.WindowsCSE.EnableSecureTLS" -TaskMessage "Skip secure TLS protocols for Windows version: $windowsVersion"
+    } else {
+        Logs-To-Event -TaskName "AKS.WindowsCSE.EnableSecureTLS" -TaskMessage "Start to enable secure TLS protocols"
+        try {
+            . C:\k\windowssecuretls.ps1
+            Enable-SecureTls
+        }
+        catch {
+            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_ENABLE_SECURE_TLS -ErrorMessage $_
+        }
+    }
+
+    Enable-FIPSMode -FipsEnabled $fipsEnabled
+    if ($global:WindowsGmsaPackageUrl) {
+        Install-GmsaPlugin -GmsaPackageUrl $global:WindowsGmsaPackageUrl
+    }
+
+    Write-Log "BasePrep completed successfully"
+    Logs-To-Event -TaskName "AKS.WindowsCSE.BasePrep" -TaskMessage "BasePrep completed successfully"
+}
+
+# ====== NODE PREP: CLUSTER INTEGRATION ======
+# All operations that should only run when connecting to the actual cluster
+function NodePrep {
+    Install-KubernetesServices -KubeDir $global:KubeDir
+
+    Write-Log "Starting NodePrep - Cluster integration"
+    Logs-To-Event -TaskName "AKS.WindowsCSE.NodePrep" -TaskMessage "Starting NodePrep - Cluster integration"
+
+    Check-APIServerConnectivity -MasterIP $MasterIP
 
     if ($global:WindowsCalicoPackageURL) {
         Start-InstallCalico -RootDir "c:\" -KubeServiceCIDR $global:KubeServiceCIDR -KubeDnsServiceIp $KubeDnsServiceIp

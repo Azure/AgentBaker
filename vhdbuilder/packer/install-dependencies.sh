@@ -64,6 +64,10 @@ APT::Periodic::Download-Upgradeable-Packages "0";
 APT::Periodic::AutocleanInterval "0";
 APT::Periodic::Unattended-Upgrade "0";
 EOF
+  # Make apt more patient connecting to repositories: set a timeout of 5 min.
+  tee /etc/apt/apt.conf.d/99patience > /dev/null <<EOF || exit 1
+Acquire::http::Timeout "90";
+EOF
 fi
 
 # If the IMG_SKU does not contain "minimal", installDeps normally
@@ -525,6 +529,8 @@ GPUContainerImages=$(jq  -c '.GPUContainerImages[]' $COMPONENTS_FILEPATH)
 NVIDIA_DRIVER_IMAGE=""
 NVIDIA_DRIVER_IMAGE_TAG=""
 
+# The condition that the architecture is not ARM64 will correctly prevent
+# this from being used on the GB200 platform
 if [ $OS = $UBUNTU_OS_NAME ] && [ "$(isARM64)" -ne 1 ]; then  # No ARM64 SKU with GPU now
   gpu_action="copy"
 
@@ -555,6 +561,109 @@ if [ $OS = $UBUNTU_OS_NAME ] && [ "$(isARM64)" -ne 1 ]; then  # No ARM64 SKU wit
   - nvidia-driver=${NVIDIA_DRIVER_IMAGE_TAG}
 EOF
 
+fi
+
+if grep -q "GB200" <<< "$FEATURE_FLAGS"; then
+  # The GB200 feature flag should only be set for arm64 and Ubuntu 24.04, but validate
+  if [ ${UBUNTU_RELEASE} = "24.04" ]; then
+    # Need to replicate all functionality from github.com/azure/aks-gpu/install.sh.
+    # aks-gpu is designed to run at node boot/join time, whereas the GB200 VHD is set up
+    # to have all drivers installed at VHD build time.
+    #
+    # TODO(abenn135): move all GPU installation logic back into the AgentBaker repo, and
+    # invoke it where we need it, either at VHD build time or at node boot time (for example
+    # if we do not know at VHD build time whether we will want GPU drivers installed or not).
+
+    # 1. Blacklist nouveau driver
+    cat << EOF >> /etc/modprobe.d/blacklist-nouveau.conf
+blacklist nouveau
+options nouveau modeset=0
+EOF
+    update-initramfs -u
+
+    # 2. install GPU drivers
+    # The open series driver is required for the GB200 platform. Dmesg output
+    # will appear directing the reader away from the proprietary driver. The GPUs
+    # are also not visible in nvidia-smi output with the proprietary drivers
+
+    # Install a local repository if a LOCAL_DOCA_REPO_URL is provided
+    if [ -n "${LOCAL_DOCA_REPO_URL}" ]; then
+      # Extract filename from URL path, removing query parameters
+      LOCAL_REPO_FILENAME=$(basename "${LOCAL_DOCA_REPO_URL%%\?*}")
+
+      # Store files downloaded before curl command
+      BEFORE_FILES=$(ls /tmp/*.deb 2>/dev/null || echo "")
+
+      curl --output-dir /tmp -O "${LOCAL_DOCA_REPO_URL}"
+      if [ $? -ne 0 ]; then
+        if [ "${CONTINUE_ON_LOCAL_REPO_DOWNLOAD_ERROR}" = "True" ]; then
+          echo "WARNING: Continuing despite error downloading package from ${LOCAL_DOCA_REPO_URL}."
+        else
+          echo "ERROR: Failed to download package from ${LOCAL_DOCA_REPO_URL}."
+          exit 1
+        fi
+      else
+        # Find the newly downloaded file
+        AFTER_FILES=$(ls /tmp/*.deb 2>/dev/null || echo "")
+        DOWNLOADED_FILE=$(comm -13 <(echo "$BEFORE_FILES" | sort) <(echo "$AFTER_FILES" | sort) | head -1)
+
+        # Use the detected file or fall back to the extracted filename
+        if [ -n "${DOWNLOADED_FILE}" ]; then
+          dpkg -i "${DOWNLOADED_FILE}"
+        else
+          dpkg -i "/tmp/${LOCAL_REPO_FILENAME}"
+        fi
+
+        # Disable the online repository
+        mv /etc/apt/sources.list.d/doca-net.list /etc/apt/sources.list.d/doca-net.list.disabled
+
+        apt update
+      fi
+    fi
+
+    apt install -y \
+      nvidia-driver-580-open
+
+    apt install -y \
+      cuda-toolkit-13 \
+      nvidia-container-toolkit \
+      datacenter-gpu-manager-exporter \
+      datacenter-gpu-manager-4-core \
+      datacenter-gpu-manager-4-proprietary \
+      datacenter-gpu-manager-4-cuda13 \
+      datacenter-gpu-manager-4-proprietary-cuda13 \
+      datacenter-gpu-manager-4-multinode-cuda13 \
+      libcap2-bin \
+      k8s-device-plugin
+
+    apt install -y \
+      nvidia-imex
+
+    apt install -y \
+      doca-ofed
+
+    # 3. Add char device symlinks for NVIDIA devices
+    mkdir -p "$(dirname /lib/udev/rules.d/71-nvidia-dev-char.rules)"
+    cat << EOF >> /lib/udev/rules.d/71-nvidia-dev-char.rules
+ACTION=="add", DEVPATH=="/bus/pci/drivers/nvidia", RUN+="/usr/bin/nvidia-ctk system create-dev-char-symlinks --create-all"
+EOF
+
+    # Create systemd drop-in to override nvidia-device-plugin dependencies
+    mkdir -p /etc/systemd/system/nvidia-device-plugin.service.d
+    cat << EOF > /etc/systemd/system/nvidia-device-plugin.service.d/override.conf
+[Unit]
+After=kubelet.service
+
+[Service]
+ExecStartPre=-/usr/bin/mkdir -p /var/lib/kubelet/device-plugins
+EOF
+
+    # Now we are off-piste: enable DCGM, DCGM exporter, container device plugin, and the NVIDIA containerd config.
+    systemctl enable nvidia-dcgm
+    systemctl enable nvidia-dcgm-exporter
+    systemctl enable nvidia-device-plugin
+    systemctl enable openibd
+  fi
 fi
 
 if [ -d "/opt/gpu" ] && [ "$(ls -A /opt/gpu)" ]; then

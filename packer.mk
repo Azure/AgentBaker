@@ -12,8 +12,13 @@ build-packer: generate-prefetch-scripts build-aks-node-controller build-lister-b
 ifeq (${ARCHITECTURE},ARM64)
 	@echo "${MODE}: Building with Hyper-v generation 2 ARM64 VM"
 ifeq (${OS_SKU},Ubuntu)
+ifeq ($(findstring GB200,$(FEATURE_FLAGS)),GB200)
+	@echo "Using packer template file vhd-image-builder-arm64-gb200.json"
+	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-arm64-gb200.json
+else
 	@echo "Using packer template file vhd-image-builder-arm64-gen2.json"
 	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-arm64-gen2.json
+endif
 else ifeq (${OS_SKU},CBLMariner)
 	@echo "Using packer template file vhd-image-builder-mariner-arm64.json"
 	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner-arm64.json

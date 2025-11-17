@@ -100,6 +100,8 @@ steps:
       BUILD_ID: $(Build.BuildId)
       BUILD_DEFINITION_NAME: $(Build.DefinitionName)
       UA_TOKEN: $(ua-token)
+      LOCAL_DOCA_REPO_URL: $(LOCAL_DOCA_REPO_URL)
+      CONTINUE_ON_LOCAL_REPO_DOWNLOAD_ERROR: $(CONTINUE_ON_LOCAL_REPO_DOWNLOAD_ERROR)
 
   - bash: make -f packer.mk run-imagecustomizer
     condition: eq(variables['BUILDER'], 'imagecustomizer')
@@ -229,7 +231,7 @@ steps:
       TargetFolder: '$(Build.ArtifactStagingDirectory)'
 
   - task: CopyFiles@2
-    condition: and(eq(variables.OS_SKU, 'Ubuntu'), in(variables.OS_VERSION, '22.04', '24.04'), in(variables.FEATURE_FLAGS, 'None', 'cvm'))
+    condition: and(eq(variables.OS_SKU, 'Ubuntu'), in(variables.OS_VERSION, '22.04', '24.04'), in(variables.FEATURE_FLAGS, 'None', 'cvm', 'GB200'))
     displayName: Copy CIS Reports
     inputs:
       SourceFolder: '$(System.DefaultWorkingDirectory)'
