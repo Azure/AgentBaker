@@ -361,9 +361,9 @@ func Test_Windows2022_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing.
 			VMConfigMutator: EmptyVMConfigMutator,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{
-					Enabled:     true,
-					Deadline:    (30 * time.Second).String(),
-					AADResource: "https://management.azure.com/", // use an unexpected AAD resource to force a secure TLS bootstrapping failure
+					Enabled:                true,
+					Deadline:               (30 * time.Second).String(),
+					UserAssignedIdentityID: "invalid", // use an unexpected user-assigned identity ID to force a secure TLS bootstrapping failure
 				}
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
