@@ -73,6 +73,10 @@ echo -e "=== os-release Begin" >> ${VHD_LOGS_FILEPATH}
 cat /etc/os-release >> ${VHD_LOGS_FILEPATH}
 echo -e "=== os-release End" >> ${VHD_LOGS_FILEPATH}
 
+if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
+  echo -e "PUUID:$(efibootmgr -v)" >> ${VHD_LOGS_FILEPATH}
+fi
+
 echo "Using kernel:" >> ${VHD_LOGS_FILEPATH}
 tee -a ${VHD_LOGS_FILEPATH} < /proc/version
 {
