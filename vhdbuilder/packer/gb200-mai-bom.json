@@ -1,5 +1,5 @@
 {
-  "versions": {
+  "versions-wave1": {
     "libnvidia-common-580": "580.95.05-0ubuntu1",
     "libnvidia-cfg1-580": "580.95.05-0ubuntu1",
     "libnvidia-gpucomp-580": "580.95.05-0ubuntu1",
@@ -14,7 +14,9 @@
     "libnvidia-encode-580": "580.95.05-0ubuntu1",
     "xserver-xorg-video-nvidia-580": "580.95.05-0ubuntu1",
     "libnvidia-fbc1-580": "580.95.05-0ubuntu1",
-    "nvidia-driver-580-open": "580.95.05-0ubuntu1",
+    "nvidia-driver-580-open": "580.95.05-0ubuntu1"
+  },
+  "versions-wave2": {
     "cuda-toolkit-13": "13.0.2-1",
     "nvidia-container-toolkit": "1.18.0-1",
     "datacenter-gpu-manager-exporter": "4.6.0-1",

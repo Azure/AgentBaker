@@ -592,7 +592,8 @@ EOF
       apt-get update
     fi
 
-    sudo apt-get install -y $(jq -r '.versions | to_entries[] | "\(.key)=\(.value)"' $BOM_PATH)
+    sudo apt-get install -y $(jq -r '.["versions-wave1"] | to_entries[] | "\(.key)=\(.value)"' $BOM_PATH)
+    sudo apt-get install -y $(jq -r '.["versions-wave2"] | to_entries[] | "\(.key)=\(.value)"' $BOM_PATH)
 
     # 3. Add char device symlinks for NVIDIA devices
     mkdir -p "$(dirname /lib/udev/rules.d/71-nvidia-dev-char.rules)"
