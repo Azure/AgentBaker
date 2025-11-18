@@ -1471,10 +1471,10 @@ oom_score = -999
 				// Verify device plugin is enabled
 				Expect(o.vars["ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED"]).To(Equal("true"))
 				// Verify NPU driver type
-				Expect(o.vars["GPU_DRIVER_TYPE"]).To(Equal("npl"))
-				// Verify correct driver version is set
+				Expect(o.vars["GPU_DRIVER_TYPE"]).To(Equal("maia"))
+				// Verify driver version is set
 				Expect(o.vars["GPU_DRIVER_VERSION"]).NotTo(BeEmpty())
-				// Verify NPL version is set
+				// Verify MAIA Image version is set
 				Expect(o.vars["GPU_IMAGE_SHA"]).NotTo(BeEmpty())
 			}),
 		Entry("AKSUbuntu2204 with MAIA NPU disabled", "AKSUbuntu2204+MAIA+Disabled", "1.29.7",
@@ -1491,7 +1491,7 @@ oom_score = -999
 				Expect(o.vars["CONFIG_GPU_DRIVER_IF_NEEDED"]).To(Equal("false"))
 				// Even when disabled, MAIA SKU still gets MAIA driver type/version
 				// based on SKU, not on whether it's enabled
-				Expect(o.vars["GPU_DRIVER_TYPE"]).To(Equal("npl"))
+				Expect(o.vars["GPU_DRIVER_TYPE"]).To(Equal("maia"))
 				Expect(o.vars["GPU_DRIVER_VERSION"]).NotTo(BeEmpty())
 			}),
 		Entry("AKSUbuntu2204 with MAIA NPU lowercase SKU", "AKSUbuntu2204+MAIA+LowercaseSKU", "1.29.7",
@@ -1511,7 +1511,7 @@ oom_score = -999
 				// Verify device plugin is enabled
 				Expect(o.vars["ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED"]).To(Equal("true"))
 				// Verify NPU driver type - MAIA detection should work with lowercase SKU
-				Expect(o.vars["GPU_DRIVER_TYPE"]).To(Equal("npl"))
+				Expect(o.vars["GPU_DRIVER_TYPE"]).To(Equal("maia"))
 				Expect(o.vars["GPU_DRIVER_VERSION"]).NotTo(BeEmpty())
 			}),
 		Entry("AKSUbuntu2204 with non-MAIA SKU should not set MAIA variables", "AKSUbuntu2204+NonMAIA", "1.29.7",
@@ -1527,8 +1527,8 @@ oom_score = -999
 			}, func(o *nodeBootstrappingOutput) {
 				// Verify driver configuration is disabled
 				Expect(o.vars["CONFIG_GPU_DRIVER_IF_NEEDED"]).To(Equal("false"))
-				// Most importantly: Driver type should NOT be NPL (MAIA-specific)
-				Expect(o.vars["GPU_DRIVER_TYPE"]).NotTo(Equal("npl"))
+				// Most importantly: Driver type should NOT be maia (MAIA-specific)
+				Expect(o.vars["GPU_DRIVER_TYPE"]).NotTo(Equal("maia"))
 				// Driver type should be "cuda" for non-MAIA SKUs
 				Expect(o.vars["GPU_DRIVER_TYPE"]).To(Equal("cuda"))
 			}),

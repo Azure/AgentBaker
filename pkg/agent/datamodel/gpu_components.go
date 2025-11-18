@@ -9,8 +9,7 @@ import (
 )
 
 const Nvidia470CudaDriverVersion = "cuda-470.82.01"
-const MaiaNpuString = "maia"
-const MaiaProgrammingSwString = "npl"
+const NPUTypeMaia = "maia"
 
 //nolint:gochecknoglobals
 var (
@@ -19,8 +18,7 @@ var (
 	MaiaNpuDriverVersion    string
 	AKSGPUCudaVersionSuffix string
 	AKSGPUGridVersionSuffix string
-	//Maia NPL is equivalent of Nvidia Cuda
-	AKSNPUNplVersionSuffix string
+	AKSNPUMaiaVersionSuffix string
 )
 
 type gpuVersion struct {
@@ -66,7 +64,7 @@ func LoadConfig() error {
 		} else if strings.Contains(image.DownloadURL, "aks-gpu-grid") {
 			NvidiaGridDriverVersion = version
 			AKSGPUGridVersionSuffix = suffix
-		} else if strings.Contains(image.DownloadURL, "aks-npu-"+MaiaProgrammingSwString) {
+		} else if strings.Contains(image.DownloadURL, "aks-npu-"+NPUTypeMaia) {
 			MaiaNpuDriverVersion = version
 			AKSNPUNplVersionSuffix = suffix
 		}

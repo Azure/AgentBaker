@@ -1245,7 +1245,7 @@ func GetGPUDriverType(size string) string {
 	if useGridDrivers(size) {
 		return "grid"
 	} else if useMaiaDrivers(size) {
-		return datamodel.MaiaProgrammingSwString
+		return datamodel.NPUTypeMaia
 	}
 	return "cuda"
 }

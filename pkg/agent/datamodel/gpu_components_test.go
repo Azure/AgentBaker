@@ -27,8 +27,8 @@ func TestLoadConfig(t *testing.T) {
 		t.Error("MaiaNpuDriverVersion is empty")
 	}
 
-	if AKSNPUNplVersionSuffix == "" {
-		t.Error("AKSNPUNplVersionSuffix is empty")
+	if AKSNPUMaiaVersionSuffix == "" {
+		t.Error("AKSNPUMaiaVersionSuffix is empty")
 	}
 
 	// Define regular expressions for expected formats
@@ -60,8 +60,8 @@ func TestLoadConfig(t *testing.T) {
 		t.Errorf("MaiaNpuDriverVersion '%s' does not match expected format", MaiaNpuDriverVersion)
 	}
 
-	if !suffixPattern.MatchString(AKSNPUNplVersionSuffix) {
-		t.Errorf("AKSNPUNplVersionSuffix '%s' does not match expected format", AKSNPUNplVersionSuffix)
+	if !suffixPattern.MatchString(AKSNPUMaiaVersionSuffix) {
+		t.Errorf("AKSNPUMaiaVersionSuffix '%s' does not match expected format", AKSNPUMaiaVersionSuffix)
 	}
 }
 

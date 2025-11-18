@@ -787,9 +787,9 @@
       }
     },
     {
-      "downloadURL": "mcr.microsoft.com/aks/aks-npu-npl:*",
+      "downloadURL": "mcr.microsoft.com/aks/aks-npu-maia:*",
       "gpuVersion": {
-        "renovateTag": "registry=https://mcr.microsoft.com, name=aks/aks-npu-npl",
+        "renovateTag": "registry=https://mcr.microsoft.com, name=aks/aks-npu-maia",
         "latestVersion": "580.95.05-20251021155213"
       }
     }
