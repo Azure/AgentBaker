@@ -187,8 +187,15 @@ if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]]; then
     # Uncomment if we have trouble finding the kernel package.
     # sudo add-apt-repository ppa:canonical-kernel-team/ppa
     BOM_PATH="gb200-mai-bom.json"
-    if grep -q "GB200" <<< "$FEATURE_FLAGS" && [ -n "$(jq -r '.["kernel-versions"] | keys[]' $BOM_PATH)" ]; then
-      NVIDIA_KERNEL_PACKAGE=$(jq -r '.["kernel-versions"] | to_entries[] | "\(.key)=\(.value)"' $BOM_PATH)
+    if grep -q "GB200" <<< "$FEATURE_FLAGS"; then
+      # Purge all current kernels and dependencies
+      echo "GB200 image. Removing non-NVIDIA Azure kernels."
+      wait_for_apt_locks
+      DEBIAN_FRONTEND=noninteractive apt-get remove --purge -y $(dpkg-query -W 'linux-*azure*' | awk '$2 != "" { print $1 }' | paste -s)
+      echo "After purging kernel, dpkg list should be empty"; dpkg -l 'linux-*azure*'
+      if [ -n "$(jq -r '.["kernel-versions"] | keys[]' $BOM_PATH)" ]; then
+        NVIDIA_KERNEL_PACKAGE=$(jq -r '.["kernel-versions"] | to_entries[] | "\(.key)=\(.value)"' $BOM_PATH)
+      fi
     fi
     apt-get update
     if apt-cache show "${NVIDIA_KERNEL_PACKAGE}" &> /dev/null; then
