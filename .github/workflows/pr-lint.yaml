@@ -5,6 +5,10 @@ on:
     branches:
       - master
       - dev
+    types:
+      - opened
+      - edited
+      - synchronize
 
 jobs:
   lint-pr-title:
@@ -13,14 +17,12 @@ jobs:
       contents: read
     runs-on: ubuntu-latest
     steps:
-      - name: Lint PR Title
-        id: lint-pr-title
-        uses: dreampulse/action-lint-pull-request-title@master
+      - id: lint-pr-title
+        uses: Weburz/pr-lint-action@v0.0.1
         continue-on-error: true
 
-      - name: Comment on PR if lint failed
-        if: steps.lint-pr-title.outcome == 'failure'
-        uses: actions/github-script@v7
+      - if: steps.lint-pr-title.outcome == 'failure'
+        uses: actions/github-script@v8
         with:
           script: |
             const prNumber = context.payload.pull_request.number;
@@ -89,6 +91,5 @@ jobs:
               });
             }
 
-      - name: Fail workflow if lint failed
-        if: steps.lint-pr-title.outcome == 'failure'
+      - if: steps.lint-pr-title.outcome == 'failure'
         run: exit 1
