@@ -14,11 +14,62 @@ jobs:
   lint-pr-title:
     permissions:
       pull-requests: write
-      contents: read
     runs-on: ubuntu-latest
     steps:
-      - id: lint-pr-title
-        uses: Weburz/pr-lint-action@v0.0.1
+      - name: Lint PR Title
+        id: lint-pr-title
+        uses: amannn/action-semantic-pull-request@v6
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          # chore(deps): bump <some dependency>
+          #  ^    ^       ^
+          #  |    |       | __ Subject
+          #  |    |_______ Scope
+          #  |____________ Type
+
+          # Configure which types are allowed (newline-delimited).
+          # These are regex patterns auto-wrapped in `^ $`.
+          # Default: https://github.com/commitizen/conventional-commit-types
+          types: |
+            feat
+            fix
+            refactor
+            chore
+            test
+            perf
+            ci
+            docs
+
+          # Configure which scopes are allowed (newline-delimited).
+          # These are regex patterns auto-wrapped in `^ $`.
+          scopes: |
+            deps
+            e2e
+
+          # Configure an optional scope
+          requireScope: false
+
+          # Configure additional validation for the subject based on a regex.
+          # This ensures the subject doesn't start with an uppercase character.
+          subjectPattern: ^(?![A-Z]).+$
+
+          # If `subjectPattern` is configured, you can use this property to override
+          # the default error message that is shown when the pattern doesn't match.
+          # The variables `subject` and `title` can be used within the message.
+          subjectPatternError: |
+            The subject "{subject}" found in the pull request title "{title}"
+            didn't match the configured pattern. Please ensure that the subject
+            doesn't start with an uppercase character.
+
+          # If the PR only contains a single commit, the action will validate that
+          # it matches the configured pattern.
+          validateSingleCommit: true
+
+          # Related to `validateSingleCommit` you can opt-in to validate that the PR
+          # title matches a single commit to avoid confusion.
+          validateSingleCommitMatchesPrTitle: true
+
         continue-on-error: true
 
       - if: steps.lint-pr-title.outcome == 'failure'
@@ -40,9 +91,8 @@ jobs:
             - \`docs: update README\` - for documentation changes
             - \`refactor: improve code structure\` - for refactoring
             - \`test: add unit tests\` - for test additions
-            - \`chore: update dependencies\` - for maintenance tasks
+            - \`chore(deps): update dependencies\` - for maintenance tasks
             - \`ci: update build pipeline\` - for CI/CD changes
-            - \`style: fix code formatting\` - for style changes
             - \`perf: improve performance\` - for performance improvements
 
             ### Guidelines:
