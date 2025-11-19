@@ -15,7 +15,7 @@ import (
 
 func Test_Ubuntu2404_GB200(t *testing.T) {
 	vhd_img := *config.VHDUbuntu2404GB200 // Shallow copy
-	vhd_img.Version = "1.1.303"           // specific GB200 image version present in relevant regions
+	vhd_img.Version = "1.1.316"           // specific GB200 image version present in relevant regions
 
 	RunScenario(t, &Scenario{
 		Description: "Tests that GB200 images boot on GB200, have all expected services and packages, and match the current checked-in CRD",
