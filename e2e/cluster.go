@@ -56,7 +56,7 @@ func (c *Cluster) MaxPodsPerNode() (int, error) {
 	return 0, fmt.Errorf("cluster agentpool profiles were nil or empty: %+v", c.Model)
 }
 
-func prepareCluster(ctx context.Context, cluster *armcontainerservice.ManagedCluster, isAirgap, isNonAnonymousPull bool) (*Cluster, error) {
+func prepareCluster(ctx context.Context, cluster *armcontainerservice.ManagedCluster, isAirgap, isNonAnonymousPull, addFirewall bool) (*Cluster, error) {
 	ctx, cancel := context.WithTimeout(ctx, config.Config.TestTimeoutCluster)
 	defer cancel()
 	cluster.Name = to.Ptr(fmt.Sprintf("%s-%s", *cluster.Name, hash(cluster)))
@@ -96,6 +96,12 @@ func prepareCluster(ctx context.Context, cluster *armcontainerservice.ManagedClu
 
 		if err := addAirgapNetworkSettings(ctx, cluster, config.GetPrivateACRName(isNonAnonymousPull, *cluster.Location), *cluster.Location); err != nil {
 			return nil, fmt.Errorf("add airgap network settings: %w", err)
+		}
+	}
+
+	if addFirewall {
+		if err := addFirewallRules(ctx, cluster, *cluster.Location); err != nil {
+			return nil, fmt.Errorf("add firewall rules: %w", err)
 		}
 	}
 
