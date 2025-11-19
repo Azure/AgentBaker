@@ -433,6 +433,9 @@ copyPackerFiles() {
       NVIDIA_MODPROBE_PARAMETERS_DEST=/etc/modprobe.d/nvidia.conf
       cpAndMode $NVIDIA_MODPROBE_PARAMETERS_SRC $NVIDIA_MODPROBE_PARAMETERS_DEST 644
 
+      BOM_SRC=/home/packer/gb200-mai-bom.json
+      BOM_DEST=/opt/azure/containers/gb200-mai-bom.json
+      cpAndMode $BOM_SRC $BOM_DEST 644
     fi
   fi
 

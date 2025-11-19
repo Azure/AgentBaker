@@ -581,66 +581,21 @@ options nouveau modeset=0
 EOF
     update-initramfs -u
 
-    # 2. install GPU drivers
-    # The open series driver is required for the GB200 platform. Dmesg output
-    # will appear directing the reader away from the proprietary driver. The GPUs
-    # are also not visible in nvidia-smi output with the proprietary drivers
+    # 2. install drivers
+    BOM_PATH="gb200-mai-bom.json"
 
-    # Install a local repository if a LOCAL_DOCA_REPO_URL is provided
-    if [ -n "${LOCAL_DOCA_REPO_URL}" ]; then
-      # Extract filename from URL path, removing query parameters
-      LOCAL_REPO_FILENAME=$(basename "${LOCAL_DOCA_REPO_URL%%\?*}")
-
-      # Store files downloaded before curl command
-      BEFORE_FILES=$(ls /tmp/*.deb 2>/dev/null || echo "")
-
-      curl --output-dir /tmp -O "${LOCAL_DOCA_REPO_URL}"
-      if [ $? -ne 0 ]; then
-        if [ "${CONTINUE_ON_LOCAL_REPO_DOWNLOAD_ERROR}" = "True" ]; then
-          echo "WARNING: Continuing despite error downloading package from ${LOCAL_DOCA_REPO_URL}."
-        else
-          echo "ERROR: Failed to download package from ${LOCAL_DOCA_REPO_URL}."
-          exit 1
-        fi
-      else
-        # Find the newly downloaded file
-        AFTER_FILES=$(ls /tmp/*.deb 2>/dev/null || echo "")
-        DOWNLOADED_FILE=$(comm -13 <(echo "$BEFORE_FILES" | sort) <(echo "$AFTER_FILES" | sort) | head -1)
-
-        # Use the detected file or fall back to the extracted filename
-        if [ -n "${DOWNLOADED_FILE}" ]; then
-          dpkg -i "${DOWNLOADED_FILE}"
-        else
-          dpkg -i "/tmp/${LOCAL_REPO_FILENAME}"
-        fi
-
-        # Disable the online repository
-        mv /etc/apt/sources.list.d/doca-net.list /etc/apt/sources.list.d/doca-net.list.disabled
-
-        apt update
-      fi
+    # Install a custom repository if a doca-custom-repo is specified
+    DOCA_CUSTOM_REPO=$(jq -r '.["doca-custom-repo"]' $BOM_PATH)
+    if [ -n "$DOCA_CUSTOM_REPO" ]; then
+      mv /etc/apt/sources.list.d/doca-net.list /etc/apt/sources.list.d/doca-net.list.backup
+      echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/doca-net.pub] $DOCA_CUSTOM_REPO ./" > /etc/apt/sources.list.d/doca-net.list
+      apt-get update
     fi
 
-    apt install -y \
-      nvidia-driver-580-open
-
-    apt install -y \
-      cuda-toolkit-13 \
-      nvidia-container-toolkit \
-      datacenter-gpu-manager-exporter \
-      datacenter-gpu-manager-4-core \
-      datacenter-gpu-manager-4-proprietary \
-      datacenter-gpu-manager-4-cuda13 \
-      datacenter-gpu-manager-4-proprietary-cuda13 \
-      datacenter-gpu-manager-4-multinode-cuda13 \
-      libcap2-bin \
-      k8s-device-plugin
-
-    apt install -y \
-      nvidia-imex
-
-    apt install -y \
-      doca-ofed
+    # Farcically, nvidia-dkms-580-open cannot be installed together with the CUDA toolkit. Something about that package changes the build environment in an incompatible way. I've seen people mention CUDA including an old version of gcc that somehow makes its way onto the PATH...
+    # Therefore we install the GPU driver and its dependencies first, then install all downstream reverse-dependencies (CUDA, DCGM, and so forth) second.
+    sudo apt-get install -y $(jq -r '.["versions-wave1"] | to_entries[] | "\(.key)=\(.value)"' $BOM_PATH)
+    sudo apt-get install -y $(jq -r '.["versions-wave2"] | to_entries[] | "\(.key)=\(.value)"' $BOM_PATH)
 
     # 3. Add char device symlinks for NVIDIA devices
     mkdir -p "$(dirname /lib/udev/rules.d/71-nvidia-dev-char.rules)"
