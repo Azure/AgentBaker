@@ -1601,10 +1601,10 @@ testCorednsBinaryExtractedAndCached() {
   local binaryPath="$localdnsBinaryDir/coredns"
   local coredns_image_list=($(ctr -n k8s.io images list -q | grep coredns))
 
-  echo "$test: Checking for existence of coredns binary at ${binaryPath}"
+  echo "$test: Checking for existence of latest coredns binary at ${binaryPath}"
 
   if [ ! -f "${binaryPath}" ]; then
-    echo "$test: Coredns binary does not exist at ${binaryPath}"
+    echo "$test: Latest coredns binary does not exist at ${binaryPath}"
     return 1
   fi
 
@@ -1617,59 +1617,109 @@ testCorednsBinaryExtractedAndCached() {
   # Extract available coredns image tags (v1.12.0-1 format) and sort them in descending order.
   local sorted_coredns_tags=($(for image in "${coredns_image_list[@]}"; do echo "${image##*:}"; done | sort -V -r))
 
-  # Determine latest version (eg. v1.12.0-1).
-  local latest_coredns_tag="${sorted_coredns_tags[0]}"
-  # Extract major.minor.patch (removes -revision. eg - v1.12.0).
-  local latest_vMajorMinorPatch="${latest_coredns_tag%-*}"
+  # Keep all revision versions instead of just unique major.minor.patch versions
+  local all_valid_tags=()
 
-  local previous_coredns_tag=""
-  # Iterate through the sorted list to find the next highest major-minor version.
   for tag in "${sorted_coredns_tags[@]}"; do
-    # Extract major.minor.patch (eg - v1.12.0).
+    # Extract major.minor.patch (removes -revision. eg - v1.12.0).
     local vMajorMinorPatch="${tag%-*}"
-    if [ "${vMajorMinorPatch}" != "${latest_vMajorMinorPatch}" ]; then
-      previous_coredns_tag="$tag"
-      # Break the loop after the next highest major-minor version is found.
-      break
+    # Validate version format (vMajor.Minor.Patch).
+    # shellcheck disable=SC3010
+    if [[ ! "$vMajorMinorPatch" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+      echo "$test: Invalid coredns version format. Expected vMajor.Minor.Patch, got $vMajorMinorPatch"
+      return 1
     fi
+
+    # Keep all revision versions
+    all_valid_tags+=("$tag")
   done
 
-  if [ -z "${previous_coredns_tag}" ]; then
-    echo "$test: Warning: Previous version not found, using the latest version: ${latest_coredns_tag}"
-    previous_coredns_tag="$latest_coredns_tag"
+  echo "$test: Found ${#all_valid_tags[@]} CoreDNS revision versions"
+
+  # Test the latest version binary (should be at the main path)
+  if [ "${#all_valid_tags[@]}" -gt 0 ]; then
+    local latest_tag="${all_valid_tags[0]}"
+    echo "$test: Testing latest version binary: ${latest_tag}"
+
+    local builtInPlugins
+    builtInPlugins=$("$binaryPath" --plugins)
+    if [ "$?" -eq 0 ]; then
+      echo "$test: Succeeded to execute coredns --plugins command from $binaryPath"
+    else
+      echo "$test: Failed to execute coredns --plugins command from $binaryPath"
+      return 1
+    fi
+
+    # Get the actual version from the extracted CoreDNS binary
+    local actualVersion
+    actualVersion=$("$binaryPath" --version | awk -F'-' '{print $2}')
+    local actualVersionWithoutV="${actualVersion#v}"
+
+    if [ -z "${actualVersionWithoutV}" ]; then
+      echo "$test: Failed to retrieve coredns version from $binaryPath"
+      return 1
+    fi
+
+    echo "$test: Latest binary version: ${actualVersionWithoutV}"
+
+    # Verify the version matches expected latest
+    local expectedVersionWithoutV="${latest_tag#v}"
+    if [ "${actualVersion}" != "${expectedVersionWithoutV}" ]; then
+      echo "$test: Latest coredns version: ${actualVersion} does not match expected version: ${expectedVersionWithoutV}"
+      return 1
+    fi
+
+    echo "$test: Latest version ${expectedVersionWithoutV} correctly extracted to ${binaryPath}"
   fi
 
-  local expectedVersion="$previous_coredns_tag"
-  local expectedVersionWithoutV="${expectedVersion#v}"
-  echo "$test: Expected coredns version (n-1 latest): ${expectedVersionWithoutV}"
+  # Test all revision versions (v1.12.0-7, v1.12.0-6, v1.11.3-14, etc.)
+  local version_index=1
+  while [ $version_index -lt "${#all_valid_tags[@]}" ]; do
+    local tag="${all_valid_tags[$version_index]}"
+    local version_binary="/opt/azure/containers/localdns/binary/${tag}/coredns"
 
-  local builtInPlugins
-  builtInPlugins=$("$binaryPath" --plugins)
-  if [ "$?" -eq 0 ]; then
-    echo "$test: Succeeded to execute coredns --plugins command from $binaryPath"
-  else
-    echo "$test: Failed to execute coredns --plugins command from $binaryPath"
-    return 1
-  fi
+    echo "$test: Testing version binary: ${tag}"
 
-  # Get the actual version from the extracted CoreDNS binary
-  local actualVersion
-  actualVersion=$("$binaryPath" --version | awk -F'-' '{print $2}')
+    if [ ! -f "$version_binary" ]; then
+      echo "$test: Binary $version_binary does not exist for version ${tag}"
+      return 1
+    fi
 
-  local actualVersionWithoutV="${actualVersion#v}"
-  if [ -z "${actualVersionWithoutV}" ]; then
-    echo "$test: Failed to retrieve coredns version from $binaryPath"
-    return 1
-  fi
+    # Test that the binary is executable
+    local version_plugins
+    version_plugins=$("$version_binary" --plugins)
+    if [ "$?" -eq 0 ]; then
+      echo "$test: Succeeded to execute coredns --plugins command from $version_binary"
+    else
+      echo "$test: Failed to execute coredns --plugins command from $version_binary"
+      return 1
+    fi
 
-  echo "$test: Verify extracted coredns version: ${actualVersionWithoutV}"
+    # Get the actual version from the CoreDNS binary
+    local version_actual_version
+    version_actual_version=$("$version_binary" --version | awk -F'-' '{print $2}')
+    local version_actual_version_without_v="${version_actual_version#v}"
 
-  if [ "${actualVersion%-*}" != "${expectedVersionWithoutV%-*}" ]; then
-    echo "$test: Extracted coredns version: ${actualVersion} does not match expected version: ${expectedVersionWithoutV}"
-    return 1
-  fi
+    if [ -z "${version_actual_version_without_v}" ]; then
+      echo "$test: Failed to retrieve coredns version from $version_binary"
+      return 1
+    fi
 
-  echo "$test: Expected version: ${expectedVersionWithoutV} of coredns binary is extracted and cached at ${binaryPath}"
+    echo "$test: ${tag} binary version: ${version_actual_version_without_v}"
+
+    # Verify the version matches expected
+    local expected_version_without_v="${tag#v}"
+    if [ "${version_actual_version}" != "${expected_version_without_v}" ]; then
+      echo "$test: ${tag} coredns version: ${version_actual_version} does not match expected version: ${expected_version_without_v}"
+      return 1
+    fi
+
+    echo "$test: ${tag} version ${expected_version_without_v} correctly extracted to $version_binary"
+
+    ((version_index++))
+  done
+
+  echo "$test: All CoreDNS binaries (${#all_valid_tags[@]} versions) successfully extracted and verified"
   return 0
 }
 
