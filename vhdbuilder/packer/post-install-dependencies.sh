@@ -23,7 +23,7 @@ fi
 capture_benchmark "${SCRIPT_NAME}_source_packer_files_and_declare_variables"
 
 if [ $OS = $UBUNTU_OS_NAME ]; then
-  # We do not purge extra kernels from the Ubuntu 24.04 ARM image, since that image must dual-boot for GB200.
+  # We do not purge extra kernels from the Ubuntu 24.04 ARM images, since those images must dual-boot for GB200.
   if [ $CPU_ARCH != "arm64" ] || [ $UBUNTU_RELEASE != "24.04" ]; then
     # shellcheck disable=SC2021
     current_kernel="$(uname -r | cut -d- -f-2)"
@@ -32,6 +32,11 @@ if [ $OS = $UBUNTU_OS_NAME ]; then
       dpkg --get-selections | grep -e "linux-\(headers\|modules\|image\)" | grep -v "$current_kernel" | grep -v "fips" | tr -s '[[:space:]]' | tr '\t' ' ' | cut -d' ' -f1 | xargs -I{} apt-get --purge remove -yq {}
     else
       dpkg --get-selections | grep -e "linux-\(headers\|modules\|image\)" | grep -v "linux-\(headers\|modules\|image\)-azure" | grep -v "$current_kernel" | tr -s '[[:space:]]' | tr '\t' ' ' | cut -d' ' -f1 | xargs -I{} apt-get --purge remove -yq {}
+    fi
+  else
+    # However, for the 24.04 ARM images, we MUST have both -azure and -azure-nvidia kernels, so that we can run on either vanilla ARM64 hardware or GB200.
+    if [ $(dpkg --get-selections | grep -e "linux-image" | wc -l) -lt 2 ]; then
+      echo "ERROR: Ubuntu 24.04 ARM image is missing either the -azure or -azure-nvidia kernel, cannot continue!" && exit 1
     fi
   fi
 
