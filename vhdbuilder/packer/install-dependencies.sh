@@ -592,6 +592,8 @@ EOF
       apt-get update
     fi
 
+    # Farcically, nvidia-dkms-580-open cannot be installed together with the CUDA toolkit. Something about that package changes the build environment in an incompatible way. I've seen online CUDA including an old version of gcc that somehow makes its way onto the PATH...
+    # Therefore we install the GPU driver and its dependencies first, then install all downstream reverse-dependencies (CUDA, DCGM, and so forth) second.
     sudo apt-get install -y $(jq -r '.["versions-wave1"] | to_entries[] | "\(.key)=\(.value)"' $BOM_PATH)
     sudo apt-get install -y $(jq -r '.["versions-wave2"] | to_entries[] | "\(.key)=\(.value)"' $BOM_PATH)
 
