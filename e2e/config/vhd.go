@@ -50,14 +50,6 @@ var (
 )
 
 var (
-	VHDUbuntu1804Gen2Containerd = &Image{
-		Name:                "1804gen2containerd",
-		OS:                  OSUbuntu,
-		Arch:                "amd64",
-		Distro:              datamodel.AKSUbuntuContainerd1804Gen2,
-		Gallery:             imageGalleryLinux,
-		UnsupportedLocalDns: true,
-	}
 	VHDUbuntu2204Gen2Arm64Containerd = &Image{
 		Name:    "2204gen2arm64containerd",
 		OS:      OSUbuntu,
@@ -100,6 +92,8 @@ var (
 		Distro:              datamodel.AKSAzureLinuxV3OSGuardGen2FIPSTL,
 		Gallery:             imageGalleryLinux,
 		UnsupportedLocalDns: true,
+		// Secure TLS Bootstrapping isn't currently supported on FIPS-enabled VHDs
+		UnsupportedSecureTLSBootstrapping: true,
 	}
 	VHDCBLMarinerV2Gen2Arm64 = &Image{
 		Name:    "CBLMarinerV2gen2arm64",
@@ -127,6 +121,8 @@ var (
 		Gallery:                  imageGalleryLinux,
 		UnsupportedKubeletNodeIP: true,
 		UnsupportedLocalDns:      true,
+		// Old image, doesn't have Secure TLS Bootstrapping support
+		UnsupportedSecureTLSBootstrapping: true,
 	}
 
 	// without kubelet, kubectl, credential-provider and wasm
@@ -138,6 +134,8 @@ var (
 		Distro:              datamodel.AKSUbuntuContainerd2204Gen2,
 		Gallery:             imageGalleryLinux,
 		UnsupportedLocalDns: true,
+		// Old image, doesn't have Secure TLS Bootstrapping support
+		UnsupportedSecureTLSBootstrapping: true,
 	}
 
 	VHDUbuntu2404Gen1Containerd = &Image{
@@ -248,15 +246,16 @@ type perLocationVHDCache struct {
 }
 
 type Image struct {
-	Arch                     string
-	Distro                   datamodel.Distro
-	Name                     string
-	OS                       OS
-	Version                  string
-	Gallery                  *Gallery
-	UnsupportedKubeletNodeIP bool
-	UnsupportedLocalDns      bool
-	Flatcar                  bool
+	Arch                              string
+	Distro                            datamodel.Distro
+	Name                              string
+	OS                                OS
+	Version                           string
+	Gallery                           *Gallery
+	UnsupportedKubeletNodeIP          bool
+	UnsupportedLocalDns               bool
+	UnsupportedSecureTLSBootstrapping bool
+	Flatcar                           bool
 }
 
 func (i *Image) String() string {

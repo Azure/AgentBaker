@@ -40,9 +40,8 @@ if [ $OS = $UBUNTU_OS_NAME ]; then
   retrycmd_if_failure 10 2 60 apt-get -y clean || exit 1
   capture_benchmark "${SCRIPT_NAME}_purge_ubuntu_kernels_and_packages"
 
-  # Final step, if 18.04 or FIPS, log ua status, detach UA and clean up
-  # shellcheck disable=SC3010
-  if [[ "${UBUNTU_RELEASE}" == "18.04" ]] || [[ "${UBUNTU_RELEASE}" == "20.04" ]] || [[ "${ENABLE_FIPS,,}" == "true" ]]; then
+  # Final step, FIPS, log ua status, detach UA and clean up
+  if [ "${UBUNTU_RELEASE}" = "20.04" ] || [ "${ENABLE_FIPS,,}" = "true" ]; then
     # 'ua status' for logging
     ua status
     detachAndCleanUpUA

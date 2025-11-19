@@ -3,11 +3,15 @@ package e2e
 import (
 	"bytes"
 	"context"
+	"crypto/x509"
+	"encoding/base64"
+	"encoding/pem"
 	"fmt"
 	"net"
 	"os"
 	"regexp"
 	"strings"
+	"testing"
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
@@ -16,19 +20,209 @@ import (
 	"github.com/tidwall/gjson"
 
 	"github.com/Azure/agentbaker/e2e/config"
+	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	certv1 "k8s.io/api/certificates/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
+func ValidateTLSBootstrapping(ctx context.Context, s *Scenario) {
+	switch s.VHD.OS {
+	case config.OSWindows:
+		validateTLSBootstrappingWindows(ctx, s)
+	default:
+		validateTLSBootstrappingLinux(ctx, s)
+	}
+}
+
+func validateTLSBootstrappingLinux(ctx context.Context, s *Scenario) {
+	ValidateDirectoryContent(ctx, s, "/var/lib/kubelet", []string{"kubeconfig"})
+	ValidateDirectoryContent(ctx, s, "/var/lib/kubelet/pki", []string{"kubelet-client-current.pem"})
+	kubeletLogs := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo journalctl -u kubelet", 0, "could not retrieve kubelet logs with journalctl").stdout.String()
+	switch {
+	case s.SecureTLSBootstrappingEnabled() && s.Tags.BootstrapTokenFallback:
+		s.T.Logf("will validate bootstrapping mode: secure TLS bootstrapping failure with bootstrap token fallback")
+		ValidateSystemdUnitIsNotRunning(ctx, s, "secure-tls-bootstrap")
+		require.True(
+			s.T,
+			!strings.Contains(kubeletLogs, "unable to validate bootstrap credentials") && strings.Contains(kubeletLogs, "kubelet bootstrap token credential is valid"),
+			"expected to have successfully validated bootstrap token credential before kubelet startup, but did not",
+		)
+	case s.SecureTLSBootstrappingEnabled():
+		s.T.Logf("will validate bootstrapping mode: secure TLS bootstrapping")
+		ValidateSystemdUnitIsRunning(ctx, s, "secure-tls-bootstrap")
+		validateKubeletClientCSRCreatedBySecureTLSBootstrapping(ctx, s)
+		require.True(
+			s.T,
+			!strings.Contains(kubeletLogs, "unable to validate bootstrap credentials") && strings.Contains(kubeletLogs, "client credential already exists within kubeconfig"),
+			"expected to already have a valid kubeconfig before kubelet start-up obtained through secure TLS bootstrapping, but did not",
+		)
+	default:
+		s.T.Logf("will validate bootstrapping mode: bootstrap token")
+		ValidateSystemdUnitIsNotRunning(ctx, s, "secure-tls-bootstrap")
+		ValidateSystemdUnitIsNotFailed(ctx, s, "secure-tls-bootstrap")
+		require.True(
+			s.T,
+			!strings.Contains(kubeletLogs, "unable to validate bootstrap credentials") && strings.Contains(kubeletLogs, "kubelet bootstrap token credential is valid"),
+			"expected to have successfully validated bootstrap token credential before kubelet startup, but did not",
+		)
+	}
+}
+
+func validateTLSBootstrappingWindows(ctx context.Context, s *Scenario) {
+	ValidateDirectoryContent(ctx, s, "c:\\k", []string{" config "})
+	ValidateDirectoryContent(ctx, s, "c:\\k\\pki", []string{"kubelet-client-current.pem"})
+	switch {
+	case s.SecureTLSBootstrappingEnabled() && s.Tags.BootstrapTokenFallback:
+		s.T.Logf("will validate bootstrapping mode: secure TLS bootstrapping failure with bootstrap token fallback")
+		// nothing to validate other than node readiness
+	case s.SecureTLSBootstrappingEnabled():
+		s.T.Logf("will validate bootstrapping mode: secure TLS bootstrapping")
+		validateKubeletClientCSRCreatedBySecureTLSBootstrapping(ctx, s)
+	default:
+		s.T.Logf("will validate bootstrapping mode: bootstrap token")
+		// nothing to validate other than node readiness
+	}
+}
+
+func ValidateKubeletServingCertificateRotation(ctx context.Context, s *Scenario) {
+	switch s.VHD.OS {
+	case config.OSWindows:
+		validateKubeletServingCertificateRotationWindows(ctx, s)
+	default:
+		validateKubeletServingCertificateRotationLinux(ctx, s)
+	}
+}
+
+func validateKubeletServingCertificateRotationLinux(ctx context.Context, s *Scenario) {
+	if _, ok := s.Runtime.VM.VMSS.Tags["aks-disable-kubelet-serving-certificate-rotation"]; ok {
+		s.T.Logf("linux VMSS has KSCR disablement tag, will validate that KSCR has been disabled")
+		ValidateDirectoryContent(ctx, s, "/etc/kubernetes/certs", []string{"kubeletserver.crt", "kubeletserver.key"})
+		ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "kubernetes.azure.com/kubelet-serving-ca=cluster")
+		if s.KubeletConfigFileEnabled() {
+			ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", "\"tlsCertFile\": \"/etc/kubernetes/certs/kubeletserver.crt\"")
+			ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", "\"tlsPrivateKeyFile\": \"/etc/kubernetes/certs/kubeletserver.key\"")
+			ValidateFileExcludesContent(ctx, s, "/etc/default/kubeletconfig.json", "\"serverTLSBootstrap\": true")
+		} else {
+			ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "--tls-cert-file")
+			ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "--tls-private-key-file")
+			ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "--rotate-server-certificates=true")
+		}
+		return
+	}
+	s.T.Logf("will validate linux KSCR enablement")
+	ValidateDirectoryContent(ctx, s, "/var/lib/kubelet/pki", []string{"kubelet-server-current.pem"})
+	ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "kubernetes.azure.com/kubelet-serving-ca=cluster")
+	if s.KubeletConfigFileEnabled() {
+		ValidateFileExcludesContent(ctx, s, "/etc/default/kubeletconfig.json", "\"tlsCertFile\": \"/etc/kubernetes/certs/kubeletserver.crt\"")
+		ValidateFileExcludesContent(ctx, s, "/etc/default/kubeletconfig.json", "\"tlsPrivateKeyFile\": \"/etc/kubernetes/certs/kubeletserver.key\"")
+		ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", "\"serverTLSBootstrap\": true")
+	} else {
+		ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "--tls-cert-file")
+		ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "--tls-private-key-file")
+		ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "--rotate-server-certificates=true")
+	}
+}
+
+func validateKubeletServingCertificateRotationWindows(ctx context.Context, s *Scenario) {
+	if _, ok := s.Runtime.VM.VMSS.Tags["aks-disable-kubelet-serving-certificate-rotation"]; ok {
+		s.T.Logf("windows VMSS has KSCR disablement tag, will validate that KSCR has been disabled")
+		ValidateDirectoryContent(ctx, s, "c:\\k\\pki", []string{"kubelet.crt", "kubelet.key"})
+		ValidateWindowsProcessDoesNotContainArgumentStrings(ctx, s, "kubelet.exe", []string{"--rotate-server-certificates=true", "kubernetes.azure.com/kubelet-serving-ca=cluster"})
+		return
+	}
+	s.T.Logf("will validate windows KSCR enablement")
+	ValidateDirectoryContent(ctx, s, "c:\\k\\pki", []string{"kubelet-server-current.pem"})
+	ValidateWindowsProcessContainsArgumentStrings(ctx, s, "kubelet.exe", []string{"--rotate-server-certificates=true", "kubernetes.azure.com/kubelet-serving-ca=cluster"})
+	ValidateWindowsProcessDoesNotContainArgumentStrings(ctx, s, "kubelet.exe", []string{"--tls-cert-file", "--tls-private-key-file"})
+}
+
+func validateKubeletClientCSRCreatedBySecureTLSBootstrapping(ctx context.Context, s *Scenario) {
+	fieldSelector := fmt.Sprintf("spec.signerName=%s", certv1.KubeAPIServerClientKubeletSignerName)
+	kubeletClientCSRs, err := s.Runtime.Cluster.Kube.Typed.CertificatesV1().CertificateSigningRequests().List(ctx, metav1.ListOptions{
+		FieldSelector: fieldSelector,
+	})
+	require.NoError(s.T, err, "failed to list CSRs with field selector: %s", fieldSelector)
+	var hasValidCSR bool
+	for _, csr := range kubeletClientCSRs.Items {
+		if len(csr.Status.Certificate) == 0 {
+			continue
+		}
+		if strings.HasPrefix(strings.ToLower(csr.Spec.Username), "system:bootstrap:") {
+			continue
+		}
+		if getNodeNameFromCSR(s, csr) == s.Runtime.VM.KubeName {
+			hasValidCSR = true
+			break
+		}
+	}
+	require.True(s.T, hasValidCSR, "expected node %s to have created a kubelet client CSR which was approved and issued, using secure TLS bootstrapping", s.Runtime.VM.KubeName)
+}
+
+func getNodeNameFromCSR(s *Scenario, csr certv1.CertificateSigningRequest) string {
+	block, _ := pem.Decode(csr.Spec.Request)
+	require.NotNil(s.T, block)
+	req, err := x509.ParseCertificateRequest(block.Bytes)
+	require.NoError(s.T, err)
+	return strings.TrimPrefix(req.Subject.CommonName, "system:node:")
+}
+
+func ValidateSystemdWatchdogForKubernetes132Plus(ctx context.Context, s *Scenario) {
+	if k8sVersion := s.GetK8sVersion(); k8sVersion != "" && agent.IsKubernetesVersionGe(k8sVersion, "1.32.0") {
+		// Validate systemd watchdog is enabled and configured for kubelet
+		ValidateSystemdUnitIsRunning(ctx, s, "kubelet.service")
+		ValidateFileHasContent(ctx, s, "/etc/systemd/system/kubelet.service.d/10-watchdog.conf", "WatchdogSec=60s")
+		ValidateJournalctlOutput(ctx, s, "kubelet.service", "Starting systemd watchdog with interval")
+	}
+}
+
+func ValidateLeakedSecrets(ctx context.Context, s *Scenario) {
+	secrets := map[string]string{
+		"client private key":       base64.StdEncoding.EncodeToString([]byte(s.GetClientPrivateKey())),
+		"service principal secret": base64.StdEncoding.EncodeToString([]byte(s.GetServicePrincipalSecret())),
+		"bootstrap token":          s.GetTLSBootstrapToken(),
+	}
+	for _, logFile := range []string{"/var/log/azure/cluster-provision.log", "/var/log/azure/aks-node-controller.log"} {
+		for _, secretValue := range secrets {
+			if secretValue != "" {
+				ValidateFileExcludesContent(ctx, s, logFile, secretValue)
+			}
+		}
+	}
+}
+
+func ValidateSSHServiceEnabled(ctx context.Context, s *Scenario) {
+	// Verify SSH service is active and running
+	ValidateSystemdUnitIsRunning(ctx, s, "ssh")
+
+	// Verify socket-based activation is disabled
+	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, "systemctl is-active ssh.socket", 3, "could not check ssh.socket status")
+	stdout := execResult.stdout.String()
+	require.Contains(s.T, stdout, "inactive", "ssh.socket should be inactive")
+
+	// Check that systemd recognizes SSH service should be active at boot
+	execResult = execScriptOnVMForScenarioValidateExitCode(ctx, s, "systemctl is-enabled ssh.service", 0, "could not check ssh.service status")
+	stdout = execResult.stdout.String()
+	require.Contains(s.T, stdout, "enabled", "ssh.service should be enabled at boot")
+}
+
 func ValidateDirectoryContent(ctx context.Context, s *Scenario, path string, files []string) {
 	s.T.Helper()
-	steps := []string{
-		"set -ex",
-		fmt.Sprintf("sudo ls -la %s", path),
+	var steps []string
+	if s.IsWindows() {
+		steps = []string{
+			"$ErrorActionPreference = \"Stop\"",
+			fmt.Sprintf("Get-ChildItem -Path %s", path),
+		}
+	} else {
+		steps = []string{
+			"set -ex",
+			fmt.Sprintf("sudo ls -la %s", path),
+		}
 	}
 	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "could not get directory contents")
 	stdout := execResult.stdout.String()
@@ -695,6 +889,40 @@ func ValidateNPDUnhealthyNvidiaDCGMServicesAfterFailure(ctx context.Context, s *
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to restart Nvidia DCGM services")
 }
 
+func ValidateNPDHealthyNvidiaGridLicenseStatus(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	command := []string{
+		"set -ex",
+		// Check NPD unhealthy Nvidia GRID license check config exists
+		"test -f /etc/node-problem-detector.d/custom-plugin-monitor/gpu_checks/custom-plugin-nvidia-grid-status.json",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "NPD Nvidia Grid License check configuration does not exist")
+	// Validate that NPD is reporting healthy Nvidia GRID license status
+	validateNPDCondition(ctx, s, "NVIDIAGRIDStatusInvalid", "NVIDIAGRIDStatusValid", corev1.ConditionFalse,
+		"NVIDIA Grid Status Valid", "expected NVIDIAGRIDStatusValid message to indicate healthy status")
+}
+
+func ValidateNPDUnhealthyNvidiaGridLicenseStatusAfterFailure(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	// Stop nvidia-gridd systemd service to simulate failure
+	command := []string{
+		"set -ex",
+		"sudo systemctl stop nvidia-gridd.service",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to stop Nvidia GRID service")
+
+	// Validate that NPD reports unhealthy Nvidia GRID services
+	validateNPDCondition(ctx, s, "NVIDIA GRID Status Invalid", "NVIDIA GRID Status Valid", corev1.ConditionTrue,
+		"nvidia-gridd is not active", "expected UnhealthyNVIDIA GRID Status message to indicate unhealthy status")
+
+	// Restart Nvidia Grid services
+	command = []string{
+		"set -ex",
+		"sudo systemctl restart nvidia-gridd.service || true",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to restart Nvidia GRID services")
+}
+
 func ValidateRuncVersion(ctx context.Context, s *Scenario, versions []string) {
 	s.T.Helper()
 	require.Lenf(s.T, versions, 1, "Expected exactly one version for moby-runc but got %d", len(versions))
@@ -716,9 +944,28 @@ func ValidateWindowsProcessHasCliArguments(ctx context.Context, s *Scenario, pro
 
 	actualArgs := strings.Split(podExecResult.stdout.String(), " ")
 
-	for i := 0; i < len(arguments); i++ {
+	for i := range arguments {
 		expectedArgument := arguments[i]
 		require.Contains(s.T, actualArgs, expectedArgument)
+	}
+}
+
+func ValidateWindowsProcessContainsArgumentStrings(ctx context.Context, s *Scenario, processName string, substrings []string) {
+	validateWindowsProccessArgumentString(ctx, s, processName, substrings, require.Contains)
+}
+
+func ValidateWindowsProcessDoesNotContainArgumentStrings(ctx context.Context, s *Scenario, processName string, substrings []string) {
+	validateWindowsProccessArgumentString(ctx, s, processName, substrings, require.NotContains)
+}
+
+func validateWindowsProccessArgumentString(ctx context.Context, s *Scenario, processName string, substrings []string, assert func(t require.TestingT, s any, contains any, msgAndArgs ...any)) {
+	steps := []string{
+		fmt.Sprintf("(Get-CimInstance Win32_Process -Filter \"name='%[1]s'\")[0].CommandLine", processName),
+	}
+	podExecResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "could not validate command argument string - might mean file does not have params, might mean something went wrong")
+	argString := podExecResult.stdout.String()
+	for _, str := range substrings {
+		assert(s.T, argString, str)
 	}
 }
 
@@ -1380,4 +1627,14 @@ func ValidateAppArmorBasic(ctx context.Context, s *Scenario) {
 	}
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to check AppArmor current profile")
 	// Any output indicates AppArmor is active (profile will be shown)
+}
+
+func truncatePodName(t testing.TB, pod *corev1.Pod) {
+	name := pod.Name
+	if len(pod.Name) < 63 {
+		return
+	}
+	pod.Name = pod.Name[:63]
+	pod.Name = strings.TrimRight(pod.Name, "-")
+	t.Logf("truncated pod name %q to %q", name, pod.Name)
 }

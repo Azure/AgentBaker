@@ -286,8 +286,16 @@ function LogReleaseNotesForWindowsRegistryKeys
         $names = $releaseNotesToSet[$key]
         foreach ($name in $names)
         {
-            $value = (Get-ItemProperty -Path $key -Name $name).$name
-            $logLines += ("`t`t{0} : {1}" -f $name, $value)
+            # Set error action to stop so that if the key or name doesn't exist we get notified - as this indicates an issue
+            # with setting the field
+            try {
+                $value = (Get-ItemProperty -Path $key -Name $name -ErrorAction Stop).$name
+                Write-Host "Found registry key value for $key\$name : $value"
+                $logLines += ("`t`t{0} : {1}" -f $name, $value)
+            }
+            catch {
+                throw "Failed to get registry key value for $key\$name. $_"
+            }
         }
     }
 

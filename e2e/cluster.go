@@ -32,12 +32,13 @@ type ClusterParams struct {
 }
 
 type Cluster struct {
-	Model         *armcontainerservice.ManagedCluster
-	Kube          *Kubeclient
-	SubnetID      string
-	ClusterParams *ClusterParams
-	Maintenance   *armcontainerservice.MaintenanceConfiguration
-	DebugPod      *corev1.Pod
+	Model           *armcontainerservice.ManagedCluster
+	Kube            *Kubeclient
+	KubeletIdentity *armcontainerservice.UserAssignedIdentity
+	SubnetID        string
+	ClusterParams   *ClusterParams
+	Maintenance     *armcontainerservice.MaintenanceConfiguration
+	DebugPod        *corev1.Pod
 }
 
 // Returns true if the cluster is configured with Azure CNI
@@ -104,14 +105,14 @@ func prepareCluster(ctx context.Context, cluster *armcontainerservice.ManagedClu
 			return nil, fmt.Errorf("add firewall rules: %w", err)
 		}
 	}
+	kubeletIdentity, err := getClusterKubeletIdentity(cluster)
+	if err != nil {
+		return nil, fmt.Errorf("getting cluster kubelet identity: %w", err)
+	}
 
 	if isNonAnonymousPull {
-		identity, err := config.Azure.UserAssignedIdentities.Get(ctx, resourceGroupName, config.VMIdentityName, nil)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get VM identity: %w", err)
-		}
-		if err := assignACRPullToIdentity(ctx, config.GetPrivateACRName(isNonAnonymousPull, *cluster.Location), *identity.Properties.PrincipalID, *cluster.Location); err != nil {
-			return nil, fmt.Errorf("assign acr pull to the managed identity: %w", err)
+		if err := assignACRPullToIdentity(ctx, config.GetPrivateACRName(isNonAnonymousPull, *cluster.Location), *kubeletIdentity.ObjectID, *cluster.Location); err != nil {
+			return nil, fmt.Errorf("assigning acr pull permissions to kubelet identity: %w", err)
 		}
 	}
 
@@ -136,13 +137,25 @@ func prepareCluster(ctx context.Context, cluster *armcontainerservice.ManagedClu
 	}
 
 	return &Cluster{
-		Model:         cluster,
-		Kube:          kube,
-		SubnetID:      subnetID,
-		Maintenance:   maintenance,
-		ClusterParams: clusterParams,
-		DebugPod:      hostPod,
+		Model:           cluster,
+		Kube:            kube,
+		KubeletIdentity: kubeletIdentity,
+		SubnetID:        subnetID,
+		Maintenance:     maintenance,
+		ClusterParams:   clusterParams,
+		DebugPod:        hostPod,
 	}, nil
+}
+
+func getClusterKubeletIdentity(cluster *armcontainerservice.ManagedCluster) (*armcontainerservice.UserAssignedIdentity, error) {
+	if cluster == nil || cluster.Properties == nil || cluster.Properties.IdentityProfile == nil {
+		return nil, fmt.Errorf("cannot dereference cluster identity profile to extract kubelet identity ID")
+	}
+	kubeletIdentity := cluster.Properties.IdentityProfile["kubeletidentity"]
+	if kubeletIdentity == nil {
+		return nil, fmt.Errorf("kubelet identity is missing from cluster properties")
+	}
+	return kubeletIdentity, nil
 }
 
 func extractClusterParameters(ctx context.Context, kube *Kubeclient, cluster *armcontainerservice.ManagedCluster) (*ClusterParams, error) {

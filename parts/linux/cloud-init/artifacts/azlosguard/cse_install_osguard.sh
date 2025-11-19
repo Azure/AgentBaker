@@ -78,6 +78,10 @@ ensureRunc() {
     stub
 }
 
+removeNvidiaRepos() {
+    stub
+}
+
 cleanUpGPUDrivers() {
     stub
 }

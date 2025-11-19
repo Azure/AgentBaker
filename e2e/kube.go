@@ -18,12 +18,9 @@ import (
 	errorsk8s "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -52,12 +49,8 @@ func getClusterKubeClient(ctx context.Context, resourceGroupName, clusterName st
 	if err != nil {
 		return nil, fmt.Errorf("convert kubeconfig bytes to rest config: %w", err)
 	}
-	config.NegotiatedSerializer = serializer.WithoutConversionCodecFactory{CodecFactory: scheme.Codecs}
-	config.APIPath = "/api"
-	config.GroupVersion = &schema.GroupVersion{
-		Version: "v1",
-	}
-	// it's test cluster avoid unnecessary rate limiting
+
+	// it's a test cluster - avoid unnecessary rate limiting
 	config.QPS = 200
 	config.Burst = 400
 
@@ -66,16 +59,14 @@ func getClusterKubeClient(ctx context.Context, resourceGroupName, clusterName st
 		return nil, fmt.Errorf("create dynamic Kubeclient: %w", err)
 	}
 
-	restClient, err := rest.RESTClientFor(config)
+	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		return nil, fmt.Errorf("create rest kube client: %w", err)
+		return nil, fmt.Errorf("creating kubernetes clientset from rest config: %w", err)
 	}
-
-	typed := kubernetes.New(restClient)
 
 	return &Kubeclient{
 		Dynamic:    dynamic,
-		Typed:      typed,
+		Typed:      clientset,
 		RESTConfig: config,
 		KubeConfig: data,
 	}, nil

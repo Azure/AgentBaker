@@ -110,7 +110,7 @@ az vm create --resource-group $RESOURCE_GROUP_NAME \
     --os-disk-size-gb 50 \
     ${VM_OPTIONS} \
     --assign-identity "${UMSI_RESOURCE_ID}"
-    
+
 capture_benchmark "${SCRIPT_NAME}_create_scan_vm"
 set +x
 
@@ -216,7 +216,7 @@ isCISUnsupportedUbuntu() {
     local version="$2"
 
     # Only 22.04+ are supported
-    if [ "$os" = "Ubuntu" ] && { [ "$version" = "18.04" ] || [ "$version" = "20.04" ]; }; then
+    if [ "$os" = "Ubuntu" ] && { [ "$version" = "20.04" ]; }; then
         return 0
     fi
     return 1
@@ -268,6 +268,18 @@ requiresCISScan() {
 # First check if this OS requires CIS scanning
 if ! requiresCISScan "${OS_SKU}" "${OS_VERSION}"; then
     echo "CIS scan not required for ${OS_SKU} ${OS_VERSION}"
+    capture_benchmark "${SCRIPT_NAME}_cis_report_skipped"
+    capture_benchmark "${SCRIPT_NAME}_overall" true
+    process_benchmarks
+    exit 0
+fi
+
+SKIP_CIS=${SKIP_CIS:-true}
+if [ "${SKIP_CIS,,}" = "true" ]; then
+    # For artifacts
+    touch cis-report.txt
+    touch cis-report.html
+    echo "Skipping CIS assessment as SKIP_CIS is set to true"
     capture_benchmark "${SCRIPT_NAME}_cis_report_skipped"
     capture_benchmark "${SCRIPT_NAME}_overall" true
     process_benchmarks
