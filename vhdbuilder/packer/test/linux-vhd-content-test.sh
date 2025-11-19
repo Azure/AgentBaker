@@ -1619,29 +1619,10 @@ testCorednsBinaryExtractedAndCached() {
 
   # Determine latest version (eg. v1.12.0-1).
   local latest_coredns_tag="${sorted_coredns_tags[0]}"
-  # Extract major.minor.patch (removes -revision. eg - v1.12.0).
-  local latest_vMajorMinorPatch="${latest_coredns_tag%-*}"
 
-  local previous_coredns_tag=""
-  # Iterate through the sorted list to find the next highest major-minor version.
-  for tag in "${sorted_coredns_tags[@]}"; do
-    # Extract major.minor.patch (eg - v1.12.0).
-    local vMajorMinorPatch="${tag%-*}"
-    if [ "${vMajorMinorPatch}" != "${latest_vMajorMinorPatch}" ]; then
-      previous_coredns_tag="$tag"
-      # Break the loop after the next highest major-minor version is found.
-      break
-    fi
-  done
-
-  if [ -z "${previous_coredns_tag}" ]; then
-    echo "$test: Warning: Previous version not found, using the latest version: ${latest_coredns_tag}"
-    previous_coredns_tag="$latest_coredns_tag"
-  fi
-
-  local expectedVersion="$previous_coredns_tag"
+  local expectedVersion="$latest_coredns_tag"
   local expectedVersionWithoutV="${expectedVersion#v}"
-  echo "$test: Expected coredns version (n-1 latest): ${expectedVersionWithoutV}"
+  echo "$test: Expected coredns version (latest): ${expectedVersionWithoutV}"
 
   local builtInPlugins
   builtInPlugins=$("$binaryPath" --plugins)
