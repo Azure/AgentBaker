@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - id: lint-pr-title
-        uses: dreampulse/action-lint-pull-request-title@master
+        uses: Weburz/pr-lint-action@v0.0.1
         continue-on-error: true
 
       - if: steps.lint-pr-title.outcome == 'failure'
