@@ -1,5 +1,6 @@
 {
   "versions-wave1": {
+    "libxnvctrl0": "580.95.05-0ubuntu1",
     "libnvidia-common-580": "580.95.05-0ubuntu1",
     "libnvidia-cfg1-580": "580.95.05-0ubuntu1",
     "libnvidia-gpucomp-580": "580.95.05-0ubuntu1",
