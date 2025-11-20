@@ -540,28 +540,47 @@ installAndConfigureArtifactStreaming() {
   fi
   local MIRROR_DOWNLOAD_PATH="./$(basename "${downloadURL}")"
   retrycmd_curl_file 10 5 60 "$MIRROR_DOWNLOAD_PATH" "$downloadURL" || exit ${ERR_ARTIFACT_STREAMING_DOWNLOAD}
-  case "$downloadURL" in
-    *.deb)
-      apt_get_install 30 1 600 "$MIRROR_DOWNLOAD_PATH" || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD
-      ;;
-    *.rpm)
-      dnf_install 30 1 600 "$MIRROR_DOWNLOAD_PATH" || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD
-      ;;
-    *)
-      echo "Unsupported acr-mirror package extension in URL: ${downloadURL}" >&2
-      exit ${ERR_ARTIFACT_STREAMING_DOWNLOAD}
-      ;;
-  esac
+
+  # ACL is an immutable OS that cannot use apt/dnf, so extract the package contents directly with bsdtar instead.
+  if isACL "$OS" "$OS_VARIANT"; then
+    bsdtar -C / -xf "${MIRROR_DOWNLOAD_PATH}" opt/ ||
+      exit $ERR_ARTIFACT_STREAMING_DOWNLOAD
+    bsdtar -Oxf "${MIRROR_DOWNLOAD_PATH}" usr/lib/systemd/system/acr-mirror.service | install -m0644 /dev/stdin /etc/systemd/system/acr-mirror.service ||
+      exit $ERR_ARTIFACT_STREAMING_DOWNLOAD
+    env -C /opt/acr/bin ./acr init --min-init
+  else
+    case "$downloadURL" in
+      *.deb)
+        apt_get_install 30 1 600 "$MIRROR_DOWNLOAD_PATH" || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD
+        ;;
+      *.rpm)
+        dnf_install 30 1 600 "$MIRROR_DOWNLOAD_PATH" || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD
+        ;;
+      *)
+        echo "Unsupported acr-mirror package extension in URL: ${downloadURL}" >&2
+        exit ${ERR_ARTIFACT_STREAMING_DOWNLOAD}
+        ;;
+    esac
+  fi
   rm "$MIRROR_DOWNLOAD_PATH"
 
-  /opt/acr/tools/overlaybd/install.sh
+  # On ACL overlaybd is already laid out by the bsdtar extraction above, so skip the install script and systemctl link.
+  if ! isACL "$OS" "$OS_VARIANT"; then
+    /opt/acr/tools/overlaybd/install.sh
+    systemctl link /opt/overlaybd/overlaybd-tcmu.service /opt/overlaybd/snapshotter/overlaybd-snapshotter.service
+  fi
+
   /opt/acr/tools/overlaybd/config-user-agent.sh azure
   /opt/acr/tools/overlaybd/enable-http-auth.sh
   /opt/acr/tools/overlaybd/config.sh download.enable false
   /opt/acr/tools/overlaybd/config.sh cacheConfig.cacheSizeGB 32
   /opt/acr/tools/overlaybd/config.sh exporterConfig.enable true
   /opt/acr/tools/overlaybd/config.sh exporterConfig.port 9863
-  systemctl link /opt/overlaybd/overlaybd-tcmu.service /opt/overlaybd/snapshotter/overlaybd-snapshotter.service
+
+  if isACL "$OS" "$OS_VARIANT"; then
+    rm -r /opt/acr/tools
+  fi
+
   echo "  - acr-mirror version ${version}" >> ${VHD_LOGS_FILEPATH}
 }
 

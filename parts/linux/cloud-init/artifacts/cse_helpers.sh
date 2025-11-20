@@ -905,9 +905,9 @@ getPackageJSON() {
         search=".downloadURIs.${osLowerCase}.\"${osVariant}/r${osVersion//.}\" // .downloadURIs.${osLowerCase}.\"r${osVersion//.}\" // ${search}"
     fi
 
-    # ACL is Flatcar-based; use flatcar download entries.
+    # ACL is Flatcar-based; check for ACL-specific entries first, then fall back to flatcar.
     if isACL "${os}" "${osVariant}"; then
-        search=".downloadURIs.flatcar.current // .downloadURIs.default.current"
+        search=".downloadURIs.azurecontainerlinux.current // .downloadURIs.flatcar.current // .downloadURIs.default.current"
     fi
 
     jq -r -c "${search}" <<< "${package}"

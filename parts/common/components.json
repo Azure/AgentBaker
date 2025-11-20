@@ -851,7 +851,7 @@
       "downloadURL": "mcr.microsoft.com/aks/aks-gpu-grid:*",
       "gpuVersion": {
         "renovateTag": "registry=https://mcr.microsoft.com, name=aks/aks-gpu-grid",
-          "latestVersion": "550.144.06-20260126030228"
+        "latestVersion": "550.144.06-20260126030228"
       }
     }
   ],
@@ -2227,6 +2227,17 @@
                 "latestVersion": "<SKIP>"
               }
             ]
+          }
+        },
+        "azurecontainerlinux": {
+          "current": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "0.3.1"
+              }
+            ],
+            "downloadURL": "https://acrstreamingpackage.z5.web.core.windows.net/${version}/acr-mirror-azurelinux3.rpm"
           }
         }
       }
