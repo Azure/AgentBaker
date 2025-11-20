@@ -188,8 +188,9 @@ func getFirewallRules(ctx context.Context, location, firewallSubnetID, publicIPI
 		netRuleCollections []*armnetwork.AzureFirewallNetworkRuleCollection
 	)
 
-	appRule := armnetwork.AzureFirewallApplicationRule{
-		Name:            to.Ptr("fqdn"),
+	// Application rule for AKS FQDN tags
+	aksAppRule := armnetwork.AzureFirewallApplicationRule{
+		Name:            to.Ptr("aks-fqdn"),
 		SourceAddresses: []*string{to.Ptr("*")},
 		Protocols: []*armnetwork.AzureFirewallApplicationRuleProtocol{
 			{
@@ -204,6 +205,20 @@ func getFirewallRules(ctx context.Context, location, firewallSubnetID, publicIPI
 		FqdnTags: []*string{to.Ptr("AzureKubernetesService")},
 	}
 
+	// needed for scriptless e2e hack
+	blobStorageFqdn := config.Config.BlobStorageAccount() + ".blob.core.windows.net"
+	blobStorageAppRule := armnetwork.AzureFirewallApplicationRule{
+		Name:            to.Ptr("blob-storage-fqdn"),
+		SourceAddresses: []*string{to.Ptr("*")},
+		Protocols: []*armnetwork.AzureFirewallApplicationRuleProtocol{
+			{
+				ProtocolType: to.Ptr(armnetwork.AzureFirewallApplicationRuleProtocolTypeHTTPS),
+				Port:         to.Ptr[int32](443),
+			},
+		},
+		TargetFqdns: []*string{to.Ptr(blobStorageFqdn)},
+	}
+
 	appRuleCollection := armnetwork.AzureFirewallApplicationRuleCollection{
 		Name: to.Ptr("aksfwar"),
 		Properties: &armnetwork.AzureFirewallApplicationRuleCollectionPropertiesFormat{
@@ -211,7 +226,7 @@ func getFirewallRules(ctx context.Context, location, firewallSubnetID, publicIPI
 			Action: &armnetwork.AzureFirewallRCAction{
 				Type: to.Ptr(armnetwork.AzureFirewallRCActionTypeAllow),
 			},
-			Rules: []*armnetwork.AzureFirewallApplicationRule{&appRule},
+			Rules: []*armnetwork.AzureFirewallApplicationRule{&aksAppRule, &blobStorageAppRule},
 		},
 	}
 
