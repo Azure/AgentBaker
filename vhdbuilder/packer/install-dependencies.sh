@@ -479,21 +479,35 @@ installAndConfigureArtifactStreaming() {
   MIRROR_DOWNLOAD_PATH="./$1.$2"
   MIRROR_PROXY_URL="https://acrstreamingpackage.z5.web.core.windows.net/${MIRROR_PROXY_VERSION}/${PACKAGE_NAME}.${PACKAGE_EXTENSION}"
   retrycmd_curl_file 10 5 60 $MIRROR_DOWNLOAD_PATH $MIRROR_PROXY_URL || exit ${ERR_ARTIFACT_STREAMING_DOWNLOAD}
-  if [ "$2" = "deb" ]; then
+
+  if isFlatcar "$OS"; then
+    bsdtar -C / -xf "${MIRROR_DOWNLOAD_PATH}" opt/ ||
+      exit $ERR_ARTIFACT_STREAMING_DOWNLOAD
+    bsdtar -Oxf "${MIRROR_DOWNLOAD_PATH}" usr/lib/systemd/system/acr-mirror.service | install -m0644 /dev/stdin /etc/systemd/system/acr-mirror.service ||
+      exit $ERR_ARTIFACT_STREAMING_DOWNLOAD
+    env -C /opt/acr/bin ./acr init --min-init
+  elif [ "$2" = "deb" ]; then
     apt_get_install 30 1 600 $MIRROR_DOWNLOAD_PATH || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD
   elif [ "$2" = "rpm" ]; then
     dnf_install 30 1 600 $MIRROR_DOWNLOAD_PATH || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD
   fi
   rm $MIRROR_DOWNLOAD_PATH
 
-  /opt/acr/tools/overlaybd/install.sh
+  if ! isFlatcar "$OS"; then
+    /opt/acr/tools/overlaybd/install.sh
+    systemctl link /opt/overlaybd/overlaybd-tcmu.service /opt/overlaybd/snapshotter/overlaybd-snapshotter.service
+  fi
+
   /opt/acr/tools/overlaybd/config-user-agent.sh azure
   /opt/acr/tools/overlaybd/enable-http-auth.sh
   /opt/acr/tools/overlaybd/config.sh download.enable false
   /opt/acr/tools/overlaybd/config.sh cacheConfig.cacheSizeGB 32
   /opt/acr/tools/overlaybd/config.sh exporterConfig.enable true
   /opt/acr/tools/overlaybd/config.sh exporterConfig.port 9863
-  systemctl link /opt/overlaybd/overlaybd-tcmu.service /opt/overlaybd/snapshotter/overlaybd-snapshotter.service
+
+  if isFlatcar "$OS"; then
+    rm -r /opt/acr/tools
+  fi
 }
 
 UBUNTU_MAJOR_VERSION=$(echo $UBUNTU_RELEASE | cut -d. -f1)
@@ -505,7 +519,7 @@ fi
 # Artifact Streaming enabled for Azure Linux 2.0 and 3.0
 if [ "$OS" = "$MARINER_OS_NAME" ] && [ "$OS_VERSION" = "2.0" ] && ! isARM64; then
   installAndConfigureArtifactStreaming acr-mirror-mariner rpm
-elif ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT" && [ "$OS" = "$AZURELINUX_OS_NAME" ] && [ "$OS_VERSION" = "3.0" ] && ! isARM64; then
+elif isFlatcar "$OS" || { ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT" && [ "$OS" = "$AZURELINUX_OS_NAME" ] && [ "$OS_VERSION" = "3.0" ]; } && ! isARM64; then
   installAndConfigureArtifactStreaming acr-mirror-azurelinux3 rpm
 fi
 
