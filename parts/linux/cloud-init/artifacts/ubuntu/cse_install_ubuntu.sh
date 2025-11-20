@@ -35,7 +35,7 @@ installDeps() {
     fi
 
     if [ "${OSVERSION}" = "22.04" ] || [ "${OSVERSION}" = "24.04" ]; then
-        if [ "$(isARM64)" -eq 0 ]; then
+        if ! isARM64; then
             pkg_list+=("aznfs=0.3.15")
         fi
     fi
@@ -48,7 +48,7 @@ installDeps() {
     done
 
     if [ "${OSVERSION}" = "22.04" ] || [ "${OSVERSION}" = "24.04" ]; then
-        if [ "$(isARM64)" -eq 0 ]; then
+        if ! isARM64; then
             # disable aznfswatchdog since aznfs install and enable aznfswatchdog and aznfswatchdogv4 services at the same time while we only need aznfswatchdogv4
             systemctl disable aznfswatchdog
             systemctl stop aznfswatchdog
@@ -454,7 +454,7 @@ ensureRunc() {
 
     TARGET_VERSION=${1:-""}
 
-    if [ "$(isARM64)" -eq 1 ]; then
+    if isARM64; then
         if [ "${TARGET_VERSION}" = "1.0.0-rc92" ] || [ "${TARGET_VERSION}" = "1.0.0-rc95" ]; then
             # only moby-runc-1.0.3+azure-1 exists in ARM64 ubuntu repo now, no 1.0.0-rc92 or 1.0.0-rc95
             return
