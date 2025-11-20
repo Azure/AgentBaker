@@ -956,7 +956,7 @@ setupAmdAma() {
         sudo wget https://packages.microsoft.com/azurelinux/3.0/prod/extended/x86_64/config.repo -O /etc/yum.repos.d/azurelinux-official-extended.repo
         # Install driver
         # Install core package
-        sudo tdnf install -y https://download.microsoft.com/download/16b04fa7-883e-4a94-88c2-801881a47b28/amd-ama-core_1.3.0-2503242033-amd64.rpm
+        sudo RPM_FRONTEND=noninteractive tdnf install -y https://download.microsoft.com/download/16b04fa7-883e-4a94-88c2-801881a47b28/amd-ama-core_1.3.0-2503242033-amd64.rpm
         # Install device plugin
         sudo tdnf install -y amdama-device-plugin.x86_64
         # Configure huge pages
