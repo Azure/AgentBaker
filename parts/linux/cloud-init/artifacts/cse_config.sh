@@ -942,7 +942,7 @@ configGPUDrivers() {
 }
 
 validateGPUDrivers() {
-    if [ "$(isARM64)" -eq 1 ]; then
+    if isARM64; then
         return
     fi
 
@@ -967,7 +967,7 @@ validateGPUDrivers() {
 }
 
 ensureGPUDrivers() {
-    if [ "$(isARM64)" -eq 1 ]; then
+    if isARM64; then
         return
     fi
 
