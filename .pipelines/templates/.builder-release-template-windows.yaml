@@ -87,7 +87,7 @@ steps:
       AZURE_RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
       AZURE_LOCATION: $(AZURE_BUILD_LOCATION)
       AZURE_VM_SIZE: ${{ parameters.buildVmSize }}
-      GIT_BRANCH: $(BRANCH)
+      GIT_BRANCH: $(Build.SourceBranch)
       GIT_REPO: $(Build.Repository.Uri)
       GIT_VERSION: $(Build.SourceVersion)
       BUILD_DEFINITION_NAME: $(Build.DefinitionName)
