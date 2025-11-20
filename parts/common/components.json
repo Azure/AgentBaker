@@ -1606,6 +1606,22 @@
       }
     },
     {
+      "name": "maia-device-plugin",
+      "downloadLocation": "/opt/maia-device-plugin/downloads",
+      "downloadURIs": {
+        "ubuntu": {
+          "r2404": {
+            "versionsV2": [
+              {
+                "renovateTag": "name=maia-device-plugin, repository=production, os=ubuntu, release=24.04",
+                "latestVersion": "0.18.0-ubuntu24.04u2-dummy"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
       "name": "datacenter-gpu-manager-4-core",
       "downloadLocation": "/opt/datacenter-gpu-manager-4-core/downloads",
       "downloadURIs": {
@@ -1707,6 +1723,38 @@
               {
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=dcgm-exporter, os=azurelinux, release=3.0",
                 "latestVersion": "4.6.0-1.azl3"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "dcnm-exporter-maia",
+      "downloadLocation": "/opt/dcnm-exporter-maia/downloads",
+      "downloadURIs": {
+        "ubuntu": {
+          "r2404": {
+            "versionsV2": [
+              {
+                "renovateTag": "name=dcnm-exporter-maia, repository=maia-ado, os=ubuntu, release=24.04",
+                "latestVersion": "4.6.0-1-dummy"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "dcnm-core-maia",
+      "downloadLocation": "/opt/dcnm-core-maia/downloads",
+      "downloadURIs": {
+        "ubuntu": {
+          "r2404": {
+            "versionsV2": [
+              {
+                "renovateTag": "name=dcnm-core-maia, repository=maia-ado, os=ubuntu, release=24.04",
+                "latestVersion": "1:4.4.1-1-dummy"
               }
             ]
           }

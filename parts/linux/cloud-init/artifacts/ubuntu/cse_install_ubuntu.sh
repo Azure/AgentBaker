@@ -110,6 +110,48 @@ updateAptWithNvidiaPkg() {
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
 }
 
+#TODO: revisit, as paths are currently placeholders aligned with nvidia
+updateAptWithMaiaPkg() {
+    #TODO: what is the correct maia gpg key url? what is the source of nvidia one?
+    readonly maia_gpg_keyring_path="/etc/apt/keyrings/maia.pub"
+    mkdir -p "$(dirname "${maia_gpg_keyring_path}")"
+
+    readonly maia_sources_list_path="/etc/apt/sources.list.d/maia.list"
+    local cpu_arch=$(getCPUArch)  # Returns amd64 or arm64
+    local repo_arch=""
+    local maia_ubuntu_release=""
+
+    if [ "$cpu_arch" = "amd64" ]; then
+        repo_arch="x86_64"
+    elif [ "$cpu_arch" = "arm64" ]; then
+        repo_arch="sbsa"
+    else
+        echo "Unknown CPU architecture: ${cpu_arch}"
+        return
+    fi
+
+    # MAIA is supported on ubuntu 24.04 for now
+    if [ "${UBUNTU_RELEASE}" = "24.04" ]; then
+        maia_ubuntu_release="ubuntu2404"
+    else
+        echo "MAIA repo setup is not supported on Ubuntu ${UBUNTU_RELEASE}"
+        return
+    fi
+
+    #TODO: what is the correct maia repo url pattern?
+    # no public access to maia artifacts yet.
+    # refer: https://aiinfra.visualstudio.com/MAIA/_git/MAIA?path=/src/EngineeringSystems/lisa_runbooks/publish_marketplace_vhd.yml&version=GBmain&_a=contents
+    # Construct URLs based on detected architecture and Ubuntu version
+    echo "deb [arch=${cpu_arch} signed-by=${maia_gpg_keyring_path}] https://developer.download.maia.com/compute/cuda/repos/${maia_ubuntu_release}/${repo_arch} /" > ${maia_sources_list_path}
+
+    # Add MAIA repository
+    local maia_gpg_key_url="https://developer.download.maia.com/compute/cuda/repos/${maia_ubuntu_release}/${repo_arch}/3bf863cc.pub"
+
+    # Download and add the GPG key for the MAIA repository
+    retrycmd_curl_file 120 5 25 ${maia_gpg_keyring_path} ${maia_gpg_key_url} || exit $ERR_MAIA_GPG_KEY_DOWNLOAD_TIMEOUT
+    apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
+}
+
 isPackageInstalled() {
     local packageName="${1}"
     if dpkg -l "${packageName}" 2>/dev/null | grep -q "^ii"; then
@@ -125,6 +167,15 @@ managedGPUPackageList() {
         datacenter-gpu-manager-4-core
         datacenter-gpu-manager-4-proprietary
         datacenter-gpu-manager-exporter
+    )
+    echo "${packages[@]}"
+}
+
+managedMaiaPackageList() {
+    packages=(
+        maia-device-plugin
+        dcnm-core-maia
+        dcnm-exporter-maia
     )
     echo "${packages[@]}"
 }
@@ -151,6 +202,28 @@ installNvidiaManagedExpPkgFromCache() {
     done
 }
 
+installMaiaManagedExpPkgFromCache() {
+    # Ensure kubelet device-plugins directory exists BEFORE package installation
+    mkdir -p /var/lib/kubelet/device-plugins
+
+    for packageName in $(managedMaiaPackageList); do
+        downloadDir="/opt/${packageName}/downloads"
+        if isPackageInstalled "${packageName}"; then
+            echo "${packageName} is already installed, skipping."
+            rm -rf $(dirname ${downloadDir})
+            continue
+        fi
+
+        debFile=$(find "${downloadDir}" -maxdepth 1 -name "${packageName}*" -print -quit 2>/dev/null) || debFile=""
+        if [ -z "${debFile}" ]; then
+            echo "Failed to locate ${packageName} deb"
+            exit $ERR_MANAGED_MAIA_EXP_INSTALL_FAIL
+        fi
+        logs_to_events "AKS.CSE.install${packageName}.installDebPackageFromFile" "installDebPackageFromFile ${debFile}" || exit $ERR_APT_INSTALL_TIMEOUT
+        rm -rf $(dirname ${downloadDir})
+    done
+}
+
 removeNvidiaRepos() {
     # Remove NVIDIA apt repository configuration
     # to prevent unnecessary network calls during apt-get update
@@ -164,6 +237,23 @@ removeNvidiaRepos() {
     fi
 }
 
+#TODO: at the moment maia packages are part of ADO, need to evaluate how/if to enable them via apt
+removeMaiaRepos() {
+    # Remove MAIA apt repository configuration
+    # to prevent unnecessary network calls during apt-get update
+    if [ -f /etc/apt/sources.list.d/maia.list ]; then
+        rm -f /etc/apt/sources.list.d/maia.list
+        echo "Removed MAIA apt repository"
+    fi
+    if [ -f /etc/apt/keyrings/maia.pub ]; then
+        rm -f /etc/apt/keyrings/maia.pub
+        echo "Removed MAIA GPG key"
+    fi
+}
+
+#TODO: finalize maia cleanup steps, installation paths, etc.
+#      reuse /opt/gpu or /opt/maia?
+#      refer CTR_GPU_INSTALL_CMD in parts/linux/cloud-init/artifacts/cse_helpers.sh
 cleanUpGPUDrivers() {
     rm -Rf $GPU_DEST /opt/gpu
 
@@ -172,6 +262,7 @@ cleanUpGPUDrivers() {
     done
 
     removeNvidiaRepos
+    removeMaiaRepos
 }
 
 installCriCtlPackage() {

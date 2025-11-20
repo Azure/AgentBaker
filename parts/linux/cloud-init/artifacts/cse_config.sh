@@ -1197,4 +1197,54 @@ EOF
     logs_to_events "AKS.CSE.start.nvidia-dcgm-exporter" "systemctlEnableAndStart nvidia-dcgm-exporter 30" || exit $ERR_NVIDIA_DCGM_EXPORTER_FAIL
 }
 
+startMaiaManagedExpServices() {
+    # 1. Start the maia-device-plugin service.
+    # Create systemd override directory to configure device plugin
+    MAIA_DEVICE_PLUGIN_OVERRIDE_DIR="/etc/systemd/system/maia-device-plugin.service.d"
+    mkdir -p "${MAIA_DEVICE_PLUGIN_OVERRIDE_DIR}"
+
+    # Configure with a conf file similar to yaml as an input to device plugin
+    # TODO: how to manage RBACs for maia device plugin?
+    # TODO: adding a dummy env variable as input for now
+    tee "${MAIA_DEVICE_PLUGIN_OVERRIDE_DIR}/10-device-plugin-config.conf" > /dev/null <<'EOF'
+[Service]
+ExecStart=
+ExecStart=/usr/bin/maia-device-plugin --pass-config-specs-dummy
+EOF
+    fi
+
+    # Reload systemd to pick up the override
+    systemctl daemon-reload
+
+    # TODO:what is ERR_GPU_DEVICE_PLUGIN_START_FAIL?
+    logs_to_events "AKS.CSE.start.maia-device-plugin" "systemctlEnableAndStart maia-device-plugin 30" || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
+
+    # 2. Start the maia-dcnm service.
+    logs_to_events "AKS.CSE.start.maia-dcnm" "systemctlEnableAndStart maia-dcnm 30" || exit $ERR_MAIA_DCNM_FAIL
+
+    # 3. Start the maia-dcnm-exporter service.
+    # TODO: does maia dcnm has an exporter?
+    # Create systemd drop-in directory for maia-dcnm-exporter service
+    DCNM_EXPORTER_OVERRIDE_DIR="/etc/systemd/system/maia-dcnm-exporter.service.d"
+    mkdir -p "${DCNM_EXPORTER_OVERRIDE_DIR}"
+
+    # Create drop-in file to override service configuration
+    # TODO: prepend 2 to port number to avoid conflict with user installed dcgm-exporter
+    tee "${DCNM_EXPORTER_OVERRIDE_DIR}/10-aks-override.conf" > /dev/null <<EOF
+[Service]
+# Remove file-based logging - let systemd handle logs
+StandardOutput=journal
+StandardError=journal
+# Change default port from 9400 to 29400 so that it does not conflict with user installed dcgm-exporter
+ExecStart=
+ExecStart=/usr/bin/maia-dcnm-exporter -f /etc/maia-dcnm-exporter/default-counters.csv --address ":29400"
+EOF
+
+    # Reload systemd to apply the override configuration
+    systemctl daemon-reload
+
+    # Start the maia-dcnm-exporter service.
+    logs_to_events "AKS.CSE.start.maia-dcnm-exporter" "systemctlEnableAndStart maia-dcnm-exporter 30" || exit $ERR_MAIA_DCNM_EXPORTER_FAIL
+}
+
 #EOF
