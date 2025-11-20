@@ -28,6 +28,10 @@ ensureRunc() {
     stub
 }
 
+removeNvidiaRepos() {
+    stub
+}
+
 cleanUpGPUDrivers() {
     rm -Rf $GPU_DEST /opt/gpu
 }
