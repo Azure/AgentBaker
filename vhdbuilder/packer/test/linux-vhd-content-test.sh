@@ -179,7 +179,7 @@ testAcrCredentialProviderInstalled() {
 
 testPackagesInstalled() {
   local test="testPackagesInstalled"
-  if [ "$(isARM64)" -eq 1 ]; then
+  if isARM64; then
     return
   fi
   CPU_ARCH="amd64"
@@ -399,7 +399,7 @@ testImagesPulled() {
       amd64OnlyVersions=$(echo "${amd64OnlyVersionsStr}" | jq -r ".[]")
     fi
 
-    if [ "$(isARM64)" -eq 1 ]; then
+    if isARM64; then
       echo "ARM64 detected, using only multiArchVersions"
       if [ ${#MULTI_ARCH_VERSIONS[@]} -eq 0 ]; then
         echo "Warning: No multi-arch versions found for ARM64"

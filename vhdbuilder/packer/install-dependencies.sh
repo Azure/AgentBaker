@@ -103,7 +103,7 @@ ForwardToSyslog=yes
 EOF
 capture_benchmark "${SCRIPT_NAME}_install_deps_and_set_configs"
 
-if [ "$(isARM64)" -eq 1 ]; then
+if isARM64; then
   # shellcheck disable=SC3010
   if [[ ${HYPERV_GENERATION,,} == "v1" ]]; then
     echo "No arm64 support on V1 VM, exiting..."
@@ -501,14 +501,14 @@ installAndConfigureArtifactStreaming() {
 
 UBUNTU_MAJOR_VERSION=$(echo $UBUNTU_RELEASE | cut -d. -f1)
 # Artifact Streaming enabled for all supported Ubuntu versions including 24.04
-if [ "$OS" = "$UBUNTU_OS_NAME" ] && [ "$(isARM64)" -ne 1 ] && [ "$UBUNTU_MAJOR_VERSION" -ge 20 ]; then
+if [ "$OS" = "$UBUNTU_OS_NAME" ] && ! isARM64 && [ "$UBUNTU_MAJOR_VERSION" -ge 20 ]; then
   installAndConfigureArtifactStreaming acr-mirror-${UBUNTU_RELEASE//.} deb
 fi
 
 # Artifact Streaming enabled for Azure Linux 2.0 and 3.0
-if [ "$OS" = "$MARINER_OS_NAME" ] && [ "$OS_VERSION" = "2.0" ] && [ "$(isARM64)" -ne 1 ]; then
+if [ "$OS" = "$MARINER_OS_NAME" ] && [ "$OS_VERSION" = "2.0" ] && ! isARM64; then
   installAndConfigureArtifactStreaming acr-mirror-mariner rpm
-elif ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT" && [ "$OS" = "$AZURELINUX_OS_NAME" ] && [ "$OS_VERSION" = "3.0" ] && [ "$(isARM64)" -ne 1 ]; then
+elif ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT" && [ "$OS" = "$AZURELINUX_OS_NAME" ] && [ "$OS_VERSION" = "3.0" ] && ! isARM64; then
   installAndConfigureArtifactStreaming acr-mirror-azurelinux3 rpm
 fi
 
@@ -541,7 +541,7 @@ while IFS= read -r imageToBePulled; do
 done <<< "$GPUContainerImages"
 
 # For Ubuntu, pre-pull the CUDA driver image
-if [ $OS = $UBUNTU_OS_NAME ] && [ "$(isARM64)" -ne 1 ]; then  # No ARM64 SKU with GPU now
+if [ $OS = $UBUNTU_OS_NAME ] && ! isARM64; then  # No ARM64 SKU with GPU now
   gpu_action="copy"
 
   while IFS= read -r imageToBePulled; do
@@ -628,7 +628,7 @@ while IFS= read -r imageToBePulled; do
     amd64OnlyVersions=$(echo "${amd64OnlyVersionsStr}" | jq -r ".[]")
   fi
 
-  if [ "$(isARM64)" -eq 1 ]; then
+  if isARM64; then
     versions="${MULTI_ARCH_VERSIONS[*]}"
   else
     versions="${amd64OnlyVersions} ${MULTI_ARCH_VERSIONS[*]}"
