@@ -16,36 +16,42 @@ jobs:
       pull-requests: write
     runs-on: ubuntu-latest
     steps:
-      - name: Lint PR Title
+      - name: Lint PR title
         id: lint-pr-title
         uses: amannn/action-semantic-pull-request@v6
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           # chore(deps): bump <some dependency>
-          #  ^    ^       ^
-          #  |    |       | __ Subject
-          #  |    |_______ Scope
+          #  ^     ^       ^
+          #  |     |       | __Subject
+          #  |     |_______ Scope
           #  |____________ Type
 
           # Configure which types are allowed (newline-delimited).
           # These are regex patterns auto-wrapped in `^ $`.
           # Default: https://github.com/commitizen/conventional-commit-types
           types: |
+            ci
+            chore
+            docs
             feat
             fix
             refactor
-            chore
             test
-            perf
-            ci
-            docs
 
           # Configure which scopes are allowed (newline-delimited).
           # These are regex patterns auto-wrapped in `^ $`.
           scopes: |
+            azurelinux
+            cse
             deps
             e2e
+            flatcar
+            osguard
+            ubuntu
+            vhd
+            windows
 
           # Configure scope as optional.
           requireScope: false
@@ -70,9 +76,12 @@ jobs:
           # title matches a single commit to avoid confusion.
           validateSingleCommitMatchesPrTitle: true
 
+        # Continue on error so we can leave a comment on the PR to give the author some guidance.
         continue-on-error: true
 
-      - if: steps.lint-pr-title.outcome == 'failure'
+        # Add a comment to the PR to provide guidance if the linting failed.
+      - name: Leave guidance comment
+        if: steps.lint-pr-title.outcome == 'failure'
         uses: actions/github-script@v8
         with:
           script: |
@@ -91,9 +100,9 @@ jobs:
             - \`docs: update README\` - for documentation changes
             - \`refactor: improve code structure\` - for refactoring
             - \`test: add unit tests\` - for test additions
-            - \`chore(deps): update dependencies\` - for maintenance tasks
+            - \`chore: remove dead code\` - for maintenance tasks
+            - \`chore(deps): update dependencies\` - for updating dependencies
             - \`ci: update build pipeline\` - for CI/CD changes
-            - \`perf: improve performance\` - for performance improvements
 
             ### Guidelines:
             - Use lowercase for the type and description
@@ -141,5 +150,7 @@ jobs:
               });
             }
 
-      - if: steps.lint-pr-title.outcome == 'failure'
+        # If linting failed, fail the workflow run.
+      - name: Fail the workflow
+        if: steps.lint-pr-title.outcome == 'failure'
         run: exit 1
