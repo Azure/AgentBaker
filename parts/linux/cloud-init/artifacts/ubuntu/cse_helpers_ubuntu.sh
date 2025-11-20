@@ -46,6 +46,10 @@ _apt_get_update() {
 apt_get_update() {
     _apt_get_update 10 ""
 }
+apt_get_update_with_opts() {
+    local apt_opts=$1
+    _apt_get_update 10 "${apt_opts}"
+}
 _apt_get_install() {
     local retries=$1
     local wait_sleep=$2
