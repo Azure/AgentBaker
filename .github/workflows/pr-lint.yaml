@@ -79,6 +79,37 @@ jobs:
         # Continue on error so we can leave a comment on the PR to give the author some guidance.
         continue-on-error: true
 
+        # Delete previous lint failure comments if linting succeeded.
+      - name: Delete previous lint failure comments
+        if: steps.lint-pr-title.outcome == 'success'
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const prNumber = context.payload.pull_request.number;
+
+            // Get all comments on this PR
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+            });
+
+            // Find all bot comments that are lint failure comments
+            const lintFailureComments = comments.filter(comment =>
+              comment.user.type === 'Bot' &&
+              comment.body.includes('PR Title Lint Failed')
+            );
+
+            // Delete each lint failure comment
+            for (const comment of lintFailureComments) {
+              await github.rest.issues.deleteComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: comment.id,
+              });
+              console.log(`Deleted lint failure comment ${comment.id}`);
+            }
+
         # Add a comment to the PR to provide guidance if the linting failed.
       - name: Leave guidance comment
         if: steps.lint-pr-title.outcome == 'failure'
