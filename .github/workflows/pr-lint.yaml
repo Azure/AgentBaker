@@ -111,7 +111,7 @@ jobs:
             - Don't end with a period
 
             ### Examples:
-            - ✅ \`feat: add secure TLS bootstrapping for Windows nodes\`
+            - ✅ \`feat(windows): add secure TLS bootstrapping for Windows nodes\`
             - ✅ \`fix: resolve kubelet certificate rotation issue\`
             - ✅ \`docs: update installation guide\`
             - ❌ \`Added new feature\`
