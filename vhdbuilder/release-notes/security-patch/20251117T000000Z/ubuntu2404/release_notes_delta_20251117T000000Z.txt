@@ -1,0 +1,12 @@
+Release notes for security patch 20251117T000000Z timestamp
+Package difference for Ubuntu 24.04 with 20251117T000000Z
+Reboot required
+Upgrade: libssh-4:amd64 (0.10.6-2ubuntu0.1, 0.10.6-2ubuntu0.2)
+Upgrade: libwbclient0:amd64 (2:4.19.5+dfsg-4ubuntu9.3, 2:4.19.5+dfsg-4ubuntu9.4)
+Upgrade: libctf-nobfd0:amd64 (2.42-4ubuntu2.5, 2.42-4ubuntu2.6), libbinutils:amd64 (2.42-4ubuntu2.5, 2.42-4ubuntu2.6), binutils-x86-64-linux-gnu:amd64 (2.42-4ubuntu2.5, 2.42-4ubuntu2.6), libctf0:amd64 (2.42-4ubuntu2.5, 2.42-4ubuntu2.6), binutils-common:amd64 (2.42-4ubuntu2.5, 2.42-4ubuntu2.6), libsframe1:amd64 (2.42-4ubuntu2.5, 2.42-4ubuntu2.6), libgprofng0:amd64 (2.42-4ubuntu2.5, 2.42-4ubuntu2.6), binutils:amd64 (2.42-4ubuntu2.5, 2.42-4ubuntu2.6)
+Upgrade: bind9-host:amd64 (1:9.18.39-0ubuntu0.24.04.1, 1:9.18.39-0ubuntu0.24.04.2), bind9-dnsutils:amd64 (1:9.18.39-0ubuntu0.24.04.1, 1:9.18.39-0ubuntu0.24.04.2), bind9-libs:amd64 (1:9.18.39-0ubuntu0.24.04.1, 1:9.18.39-0ubuntu0.24.04.2)
+Upgrade: linux-tools-common:amd64 (6.8.0-85.85, 6.8.0-87.88), linux-cloud-tools-common:amd64 (6.8.0-85.85, 6.8.0-87.88), linux-libc-dev:amd64 (6.8.0-85.85, 6.8.0-87.88)
+Upgrade: linux-image-azure-lts-24.04:amd64 (6.8.0-1038.44, 6.8.0-1041.47+1), linux-cloud-tools-azure-lts-24.04:amd64 (6.8.0-1038.44, 6.8.0-1041.47+1), linux-tools-azure-lts-24.04:amd64 (6.8.0-1038.44, 6.8.0-1041.47+1), linux-headers-azure-lts-24.04:amd64 (6.8.0-1038.44, 6.8.0-1041.47+1)
+Upgrade: python3-minimal:amd64 (3.12.3-0ubuntu2, 3.12.3-0ubuntu2.1), python3:amd64 (3.12.3-0ubuntu2, 3.12.3-0ubuntu2.1), libpython3-stdlib:amd64 (3.12.3-0ubuntu2, 3.12.3-0ubuntu2.1)
+Upgrade: libxml2:amd64 (2.9.14+dfsg-1.3ubuntu3.5, 2.9.14+dfsg-1.3ubuntu3.6)
+Install: linux-cloud-tools-6.8.0-1041-azure:amd64 (6.8.0-1041.47, automatic), linux-azure-headers-6.8.0-1041:amd64 (6.8.0-1041.47, automatic), linux-azure-tools-6.8.0-1041:amd64 (6.8.0-1041.47, automatic), linux-tools-6.8.0-1041-azure:amd64 (6.8.0-1041.47, automatic), linux-image-6.8.0-1041-azure:amd64 (6.8.0-1041.47+1, automatic), linux-headers-6.8.0-1041-azure:amd64 (6.8.0-1041.47, automatic), linux-azure-cloud-tools-6.8.0-1041:amd64 (6.8.0-1041.47, automatic), linux-modules-6.8.0-1041-azure:amd64 (6.8.0-1041.47, automatic)
