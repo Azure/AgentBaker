@@ -1,0 +1,29 @@
+Release notes for security patch 20251117T000000Z timestamp
+Package difference between 20251107T000000Z and 20251117T000000Z
+
+Reboot required (kernel update)
+
+
+=== Package Updates ===
+openssh-server  9.8p1-5.azl3  azurelinux-official-base
+openssh-clients  9.8p1-5.azl3  azurelinux-official-base
+openssh  9.8p1-5.azl3  azurelinux-official-base
+lz4  1.9.4-2.azl3  azurelinux-official-base
+libxml2  2.11.5-7.azl3  azurelinux-official-base
+libselinux  3.6-4.azl3  azurelinux-official-base
+libcap  2.69-9.azl3  azurelinux-official-base
+hyperv-daemons-license  6.6.112.1-1.azl3  azurelinux-official-base
+hypervvssd  6.6.112.1-1.azl3  azurelinux-official-base
+hypervkvpd  6.6.112.1-1.azl3  azurelinux-official-base
+hypervfcopyd  6.6.112.1-1.azl3  azurelinux-official-base
+hyperv-daemons  6.6.112.1-1.azl3  azurelinux-official-base
+glibc  2.38-15.azl3  azurelinux-official-base
+elfutils-libelf  0.189-6.azl3  azurelinux-official-base
+elfutils-default-yama-scope  0.189-6.azl3  azurelinux-official-base
+elfutils  0.189-6.azl3  azurelinux-official-base
+binutils-devel  2.41-10.azl3  azurelinux-official-base
+binutils  2.41-10.azl3  azurelinux-official-base
+azurelinux-release  3.0-36.azl3  azurelinux-official-base
+
+=== Removed Packages ===
+kernel  6.6.96.2-2.azl3  @System
