@@ -45,7 +45,7 @@ jobs:
           private-key: ${{ steps.app-private-key.outputs.private-key }}
           repositories: AgentBaker
           
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           token: ${{ steps.app-token.outputs.token }}
           ref: ${{ github.head_ref }}

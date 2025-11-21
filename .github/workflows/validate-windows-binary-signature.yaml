@@ -16,7 +16,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Check out repository code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
       - name: Run check script for 2019-containerd
         shell: powershell
         run: |
@@ -27,7 +27,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Check out repository code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
       - name: Run check script for 2022-containerd
         shell: powershell
         run: |
@@ -38,7 +38,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Check out repository code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
       - name: Run check script for 2025
         shell: powershell
         run: |
@@ -49,7 +49,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Check out repository code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
       - name: Run check script for 23H2
         shell: powershell
         run: |
