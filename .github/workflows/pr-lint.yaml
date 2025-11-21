@@ -42,15 +42,7 @@ jobs:
           # Configure which scopes are allowed (newline-delimited).
           # These are regex patterns auto-wrapped in `^ $`.
           scopes: |
-            azurelinux
-            cse
-            deps
-            e2e
-            flatcar
-            osguard
-            ubuntu
-            vhd
-            windows
+            *
 
           # Configure scope as optional.
           requireScope: false
