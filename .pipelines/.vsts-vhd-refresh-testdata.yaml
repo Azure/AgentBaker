@@ -2,7 +2,7 @@ name: $(Date:yyyyMMdd)$(Rev:.r)_$(Build.SourceBranchName)_$(BuildID)
 trigger:
   branches:
     include:
-    - master
+    - main
   paths:
     include:
     - schemas

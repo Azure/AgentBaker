@@ -8,16 +8,14 @@ variables:
 trigger:
   branches:
     include:
-      - master
-      - dev
-    
+      - main
+
 pr:
   branches:
     include:
-      - master
       - official/*
       - windows/*
-      - dev
+      - main
   paths:
     include:
       - .pipelines/e2e-windows.yaml
