@@ -182,6 +182,258 @@ func getBaseClusterModel(clusterName, location, k8sSystemPoolSKU string) *armcon
 	}
 }
 
+func getFirewall(ctx context.Context, location, firewallSubnetID, publicIPID string) *armnetwork.AzureFirewall {
+	var (
+		natRuleCollections []*armnetwork.AzureFirewallNatRuleCollection
+		netRuleCollections []*armnetwork.AzureFirewallNetworkRuleCollection
+	)
+
+	// Application rule for AKS FQDN tags
+	aksAppRule := armnetwork.AzureFirewallApplicationRule{
+		Name:            to.Ptr("aks-fqdn"),
+		SourceAddresses: []*string{to.Ptr("*")},
+		Protocols: []*armnetwork.AzureFirewallApplicationRuleProtocol{
+			{
+				ProtocolType: to.Ptr(armnetwork.AzureFirewallApplicationRuleProtocolTypeHTTP),
+				Port:         to.Ptr[int32](80),
+			},
+			{
+				ProtocolType: to.Ptr(armnetwork.AzureFirewallApplicationRuleProtocolTypeHTTPS),
+				Port:         to.Ptr[int32](443),
+			},
+		},
+		FqdnTags: []*string{to.Ptr("AzureKubernetesService")},
+	}
+
+	// needed for scriptless e2e hack
+	blobStorageFqdn := config.Config.BlobStorageAccount() + ".blob.core.windows.net"
+	blobStorageAppRule := armnetwork.AzureFirewallApplicationRule{
+		Name:            to.Ptr("blob-storage-fqdn"),
+		SourceAddresses: []*string{to.Ptr("*")},
+		Protocols: []*armnetwork.AzureFirewallApplicationRuleProtocol{
+			{
+				ProtocolType: to.Ptr(armnetwork.AzureFirewallApplicationRuleProtocolTypeHTTPS),
+				Port:         to.Ptr[int32](443),
+			},
+		},
+		TargetFqdns: []*string{to.Ptr(blobStorageFqdn)},
+	}
+
+	appRuleCollection := armnetwork.AzureFirewallApplicationRuleCollection{
+		Name: to.Ptr("aksfwar"),
+		Properties: &armnetwork.AzureFirewallApplicationRuleCollectionPropertiesFormat{
+			Priority: to.Ptr[int32](100),
+			Action: &armnetwork.AzureFirewallRCAction{
+				Type: to.Ptr(armnetwork.AzureFirewallRCActionTypeAllow),
+			},
+			Rules: []*armnetwork.AzureFirewallApplicationRule{&aksAppRule, &blobStorageAppRule},
+		},
+	}
+
+	ipConfigurations := []*armnetwork.AzureFirewallIPConfiguration{
+		{
+			Name: to.Ptr("firewall-ip-config"),
+			Properties: &armnetwork.AzureFirewallIPConfigurationPropertiesFormat{
+				Subnet: &armnetwork.SubResource{
+					ID: to.Ptr(firewallSubnetID),
+				},
+				PublicIPAddress: &armnetwork.SubResource{
+					ID: to.Ptr(publicIPID),
+				},
+			},
+		},
+	}
+
+	logf(ctx, "Firewall rules configured successfully")
+	return &armnetwork.AzureFirewall{
+		Location: to.Ptr(location),
+		Properties: &armnetwork.AzureFirewallPropertiesFormat{
+			ApplicationRuleCollections: []*armnetwork.AzureFirewallApplicationRuleCollection{&appRuleCollection},
+			NetworkRuleCollections:     netRuleCollections,
+			NatRuleCollections:         natRuleCollections,
+			IPConfigurations:           ipConfigurations,
+		},
+	}
+}
+
+func addFirewallRules(
+	ctx context.Context, clusterModel *armcontainerservice.ManagedCluster,
+	location string,
+) error {
+
+	vnet, err := getClusterVNet(ctx, *clusterModel.Properties.NodeResourceGroup)
+	if err != nil {
+		return err
+	}
+
+	// Create AzureFirewallSubnet - this subnet name is required by Azure Firewall
+	firewallSubnetName := "AzureFirewallSubnet"
+	firewallSubnetParams := armnetwork.Subnet{
+		Properties: &armnetwork.SubnetPropertiesFormat{
+			AddressPrefix: to.Ptr("10.225.0.0/24"), // Use a different CIDR that doesn't overlap with 10.224.0.0/16
+		},
+	}
+
+	logf(ctx, "Creating subnet %s in VNet %s", firewallSubnetName, vnet.name)
+	subnetPoller, err := config.Azure.Subnet.BeginCreateOrUpdate(
+		ctx,
+		*clusterModel.Properties.NodeResourceGroup,
+		vnet.name,
+		firewallSubnetName,
+		firewallSubnetParams,
+		nil,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to start creating firewall subnet: %w", err)
+	}
+
+	subnetResp, err := subnetPoller.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
+	if err != nil {
+		return fmt.Errorf("failed to create firewall subnet: %w", err)
+	}
+
+	firewallSubnetID := *subnetResp.ID
+	logf(ctx, "Created firewall subnet with ID: %s", firewallSubnetID)
+
+	// Create public IP for the firewall
+	publicIPName := "abe2e-fw-pip"
+	publicIPParams := armnetwork.PublicIPAddress{
+		Location: to.Ptr(location),
+		SKU: &armnetwork.PublicIPAddressSKU{
+			Name: to.Ptr(armnetwork.PublicIPAddressSKUNameStandard),
+		},
+		Properties: &armnetwork.PublicIPAddressPropertiesFormat{
+			PublicIPAllocationMethod: to.Ptr(armnetwork.IPAllocationMethodStatic),
+		},
+	}
+
+	logf(ctx, "Creating public IP %s", publicIPName)
+	pipPoller, err := config.Azure.PublicIPAddresses.BeginCreateOrUpdate(
+		ctx,
+		*clusterModel.Properties.NodeResourceGroup,
+		publicIPName,
+		publicIPParams,
+		nil,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to start creating public IP: %w", err)
+	}
+
+	pipResp, err := pipPoller.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
+	if err != nil {
+		return fmt.Errorf("failed to create public IP: %w", err)
+	}
+
+	publicIPID := *pipResp.ID
+	logf(ctx, "Created public IP with ID: %s", publicIPID)
+
+	firewallName := "abe2e-fw"
+	firewall := getFirewall(ctx, location, firewallSubnetID, publicIPID)
+	fwPoller, err := config.Azure.AzureFirewall.BeginCreateOrUpdate(ctx, *clusterModel.Properties.NodeResourceGroup, firewallName, *firewall, nil)
+	if err != nil {
+		return fmt.Errorf("failed to start Firewall creation: %w", err)
+	}
+	fwResp, err := fwPoller.PollUntilDone(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create Firewall: %w", err)
+	}
+
+	// Get the firewall's private IP address
+	var firewallPrivateIP string
+	if fwResp.Properties != nil && fwResp.Properties.IPConfigurations != nil && len(fwResp.Properties.IPConfigurations) > 0 {
+		if fwResp.Properties.IPConfigurations[0].Properties != nil && fwResp.Properties.IPConfigurations[0].Properties.PrivateIPAddress != nil {
+			firewallPrivateIP = *fwResp.Properties.IPConfigurations[0].Properties.PrivateIPAddress
+			logf(ctx, "Firewall private IP: %s", firewallPrivateIP)
+		}
+	}
+
+	if firewallPrivateIP == "" {
+		return fmt.Errorf("failed to get firewall private IP address")
+	}
+
+	routeTableName := "abe2e-fw-rt"
+	routeTableParams := armnetwork.RouteTable{
+		Location: to.Ptr(location),
+		Properties: &armnetwork.RouteTablePropertiesFormat{
+			Routes: []*armnetwork.Route{
+				// Allow internal VNet traffic to bypass the firewall
+				{
+					Name: to.Ptr("vnet-local"),
+					Properties: &armnetwork.RoutePropertiesFormat{
+						AddressPrefix: to.Ptr("10.224.0.0/16"), // AKS subnet CIDR
+						NextHopType:   to.Ptr(armnetwork.RouteNextHopTypeVnetLocal),
+					},
+				},
+				// Route all other traffic (internet-bound) through the firewall
+				{
+					Name: to.Ptr("default-route-to-firewall"),
+					Properties: &armnetwork.RoutePropertiesFormat{
+						AddressPrefix:    to.Ptr("0.0.0.0/0"),
+						NextHopType:      to.Ptr(armnetwork.RouteNextHopTypeVirtualAppliance),
+						NextHopIPAddress: to.Ptr(firewallPrivateIP),
+					},
+				},
+			},
+			DisableBgpRoutePropagation: to.Ptr(true),
+		},
+	}
+
+	logf(ctx, "Creating route table %s", routeTableName)
+	rtPoller, err := config.Azure.RouteTables.BeginCreateOrUpdate(
+		ctx,
+		*clusterModel.Properties.NodeResourceGroup,
+		routeTableName,
+		routeTableParams,
+		nil,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to start creating route table: %w", err)
+	}
+
+	rtResp, err := rtPoller.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
+	if err != nil {
+		return fmt.Errorf("failed to create route table: %w", err)
+	}
+
+	logf(ctx, "Created route table with ID: %s", *rtResp.ID)
+
+	// Get the AKS subnet and associate it with the route table
+	aksSubnetResp, err := config.Azure.Subnet.Get(ctx, *clusterModel.Properties.NodeResourceGroup, vnet.name, "aks-subnet", nil)
+	if err != nil {
+		return fmt.Errorf("failed to get AKS subnet: %w", err)
+	}
+
+	// Update subnet to associate with route table
+	aksSubnet := aksSubnetResp.Subnet
+	if aksSubnet.Properties == nil {
+		aksSubnet.Properties = &armnetwork.SubnetPropertiesFormat{}
+	}
+	aksSubnet.Properties.RouteTable = &armnetwork.RouteTable{
+		ID: rtResp.ID,
+	}
+
+	logf(ctx, "Associating route table with AKS subnet")
+	subnetUpdatePoller, err := config.Azure.Subnet.BeginCreateOrUpdate(
+		ctx,
+		*clusterModel.Properties.NodeResourceGroup,
+		vnet.name,
+		"aks-subnet",
+		aksSubnet,
+		nil,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to start updating subnet with route table: %w", err)
+	}
+
+	_, err = subnetUpdatePoller.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
+	if err != nil {
+		return fmt.Errorf("failed to associate route table with subnet: %w", err)
+	}
+
+	logf(ctx, "Successfully configured firewall and routing for AKS cluster")
+	return nil
+}
+
 func addAirgapNetworkSettings(ctx context.Context, clusterModel *armcontainerservice.ManagedCluster, privateACRName, location string) error {
 	logf(ctx, "Adding network settings for airgap cluster %s in rg %s", *clusterModel.Name, *clusterModel.Properties.NodeResourceGroup)
 
