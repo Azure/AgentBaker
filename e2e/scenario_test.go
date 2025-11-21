@@ -21,7 +21,7 @@ func Test_AzureLinux3OSGuard(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using an Azure Linux V3 OS Guard VHD can be properly bootstrapped",
 		Config: Config{
-			Cluster: ClusterKubenetFirewall,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinux3OSGuard,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.LocalDNSProfile = nil
@@ -38,7 +38,7 @@ func Test_Flatcar(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a Flatcar VHD can be properly bootstrapped",
 		Config: Config{
-			Cluster: ClusterKubenetFirewall,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDFlatcarGen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 			},
@@ -54,7 +54,7 @@ func Test_Flatcar_CustomCATrust(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Flatcar VHD can be properly bootstrapped and custom CA was correctly added",
 		Config: Config{
-			Cluster: ClusterKubenetFirewall,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDFlatcarGen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.CustomCATrustConfig = &datamodel.CustomCATrustConfig{
@@ -76,7 +76,7 @@ func Test_Flatcar_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a Flatcar and the self-contained installer can be properly bootstrapped",
 		Config: Config{
-			Cluster: ClusterKubenetFirewall,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDFlatcarGen2,
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.log", "aks-node-controller finished successfully")
@@ -91,7 +91,7 @@ func Test_Flatcar_ARM64(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a Flatcar VHD on ARM64 architecture can be properly bootstrapped",
 		Config: Config{
-			Cluster: ClusterKubenetFirewall,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDFlatcarGen2Arm64,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
@@ -213,7 +213,7 @@ func Test_AzureLinuxV3_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing
 			BootstrapTokenFallback: true,
 		},
 		Config: Config{
-			Cluster: ClusterKubenetFirewall,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV3Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{
@@ -230,7 +230,7 @@ func Test_AzureLinuxV2_ARM64(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a AzureLinuxV2 (CgroupV2) VHD on ARM64 architecture can be properly bootstrapped",
 		Config: Config{
-			Cluster: ClusterKubenetFirewall,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV2Gen2Arm64,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
@@ -247,7 +247,7 @@ func Test_AzureLinuxV2_ARM64_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a AzureLinuxV2 (CgroupV2) VHD on ARM64 architecture can be properly bootstrapped",
 		Config: Config{
-			Cluster: ClusterKubenetFirewall,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV2Gen2Arm64,
 			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
 				config.VmSize = "Standard_D2pds_V5"
@@ -328,7 +328,7 @@ func Test_AzureLinuxV2_ARM64_ArtifactSourceCache(t *testing.T) {
 			Airgap: false,
 		},
 		Config: Config{
-			Cluster: ClusterKubenetFirewall,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV2Gen2Arm64,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
@@ -369,7 +369,7 @@ func Test_AzureLinuxV2_ChronyRestarts(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that the chrony service restarts if it is killed",
 		Config: Config{
-			Cluster: ClusterKubenetFirewall,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 			},
@@ -397,7 +397,7 @@ func Test_AzureLinuxV2_CustomSysctls(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that a AzureLinuxV2 (CgroupV2) VHD can be properly bootstrapped when supplied custom node config that contains custom sysctl settings",
 		Config: Config{
-			Cluster: ClusterKubenetFirewall,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				customLinuxConfig := &datamodel.CustomLinuxOSConfig{
@@ -430,7 +430,7 @@ func Test_AzureLinuxV2_GPU(t *testing.T) {
 			GPU: true,
 		},
 		Config: Config{
-			Cluster: ClusterKubenetFirewall,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.VMSize = "Standard_NC6s_v3"
@@ -502,7 +502,7 @@ func Test_MarinerV2(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a MarinerV2 VHD can be properly bootstrapped",
 		Config: Config{
-			Cluster: ClusterKubenetFirewall,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDCBLMarinerV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 			},
@@ -542,7 +542,7 @@ func Test_MarinerV2_ARM64(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a MarinerV2 VHD on ARM64 architecture can be properly bootstrapped",
 		Config: Config{
-			Cluster: ClusterKubenetFirewall,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDCBLMarinerV2Gen2Arm64,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
@@ -640,7 +640,7 @@ func Test_MarinerV2_CustomSysctls(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that a MarinerV2 VHD can be properly bootstrapped when supplied custom node config that contains custom sysctl settings",
 		Config: Config{
-			Cluster: ClusterKubenetFirewall,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDCBLMarinerV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				customLinuxConfig := &datamodel.CustomLinuxOSConfig{
@@ -672,7 +672,7 @@ func Test_MarinerV2_GPU(t *testing.T) {
 			GPU: true,
 		},
 		Config: Config{
-			Cluster: ClusterKubenetFirewall,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDCBLMarinerV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.VMSize = "Standard_NC6s_v3"
@@ -721,7 +721,7 @@ func Test_Ubuntu2204_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that a new ubuntu 2204 node using self contained installer can be properly bootstrapped",
 		Config: Config{
-			Cluster: ClusterKubenetFirewall,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.log", "aks-node-controller finished successfully")
@@ -736,7 +736,7 @@ func Test_Ubuntu2404_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "testing that a new ubuntu 2404 node using self contained installer can be properly bootstrapped",
 		Config: Config{
-			Cluster: ClusterKubenetFirewall,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2404Gen2Containerd,
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.log", "aks-node-controller finished successfully")
@@ -752,7 +752,7 @@ func Test_Ubuntu2204(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2204 VHD can be properly bootstrapped",
 		Config: Config{
-			Cluster: ClusterKubenetFirewall,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				// Check that we don't leak these secrets if they're
@@ -773,7 +773,7 @@ func Test_Ubuntu2204_EntraIDSSH(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using Ubuntu 2204 VHD with Entra ID SSH can be properly bootstrapped and SSH private key authentication is disabled",
 		Config: Config{
-			Cluster: ClusterKubenetFirewall,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				// Enable Entra ID SSH authentication
@@ -798,7 +798,7 @@ func Test_Ubuntu2204_EntraIDSSH_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using Ubuntu 2204 VHD with Entra ID SSH can be properly bootstrapped and SSH private key authentication is disabled",
 		Config: Config{
-			Cluster: ClusterKubenetFirewall,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
 				config.DisablePubkeyAuth = to.Ptr(true)
@@ -822,7 +822,7 @@ func Test_Ubuntu2204_DisableSSH(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using Ubuntu 2204 VHD with SSH disabled can be properly bootstrapped and SSH daemon is disabled",
 		Config: Config{
-			Cluster: ClusterKubenetFirewall,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.SSHStatus = datamodel.SSHOff
@@ -841,7 +841,7 @@ func Test_AzureLinuxV2_DisableSSH(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using AzureLinuxV2 VHD with SSH disabled can be properly bootstrapped and SSH daemon is disabled",
 		Config: Config{
-			Cluster: ClusterKubenetFirewall,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.SSHStatus = datamodel.SSHOff
@@ -860,7 +860,7 @@ func Test_MarinerV2_DisableSSH(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using MarinerV2 VHD with SSH disabled can be properly bootstrapped and SSH daemon is disabled",
 		Config: Config{
-			Cluster: ClusterKubenetFirewall,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDCBLMarinerV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.SSHStatus = datamodel.SSHOff
@@ -879,7 +879,7 @@ func Test_Flatcar_DisableSSH(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using Flatcar VHD with SSH disabled can be properly bootstrapped and SSH daemon is disabled",
 		Config: Config{
-			Cluster: ClusterKubenetFirewall,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDFlatcarGen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.SSHStatus = datamodel.SSHOff
@@ -1029,7 +1029,7 @@ func Test_Ubuntu2204ARM64(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that an Ubuntu 2204 Node using ARM64 architecture can be properly bootstrapped",
 		Config: Config{
-			Cluster: ClusterKubenetFirewall,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Arm64Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
@@ -1046,7 +1046,7 @@ func Test_Ubuntu2204_ArtifactStreaming(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that a new ubuntu 2204 node using artifact streaming can be properly bootstrapepd",
 		Config: Config{
-			Cluster: ClusterKubenetFirewall,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.EnableArtifactStreaming = true
@@ -1066,7 +1066,7 @@ func Test_Ubuntu2204_ArtifactStreaming_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that a new ubuntu 2204 node using artifact streaming can be properly bootstrapepd",
 		Config: Config{
-			Cluster: ClusterKubenetFirewall,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
 				config.EnableArtifactStreaming = true
@@ -1086,7 +1086,7 @@ func Test_Ubuntu2204_ChronyRestarts_Taints_And_Tolerations(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that the chrony service restarts if it is killed. Also tests taints and tolerations",
 		Config: Config{
-			Cluster: ClusterKubenetFirewall,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.KubeletConfig["--register-with-taints"] = "testkey1=value1:NoSchedule,testkey2=value2:NoSchedule"
@@ -1105,7 +1105,7 @@ func Test_Ubuntu2204_ChronyRestarts_Taints_And_Tolerations_Scriptless(t *testing
 	RunScenario(t, &Scenario{
 		Description: "Tests that the chrony service restarts if it is killed. Also tests taints and tolerations",
 		Config: Config{
-			Cluster: ClusterKubenetFirewall,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
 				config.KubeletConfig.KubeletFlags["--register-with-taints"] = "testkey1=value1:NoSchedule,testkey2=value2:NoSchedule"
@@ -1124,7 +1124,7 @@ func Test_AzureLinuxV2_CustomCATrust(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Azure Linux 2204 VHD can be properly bootstrapped and custom CA was correctly added",
 		Config: Config{
-			Cluster: ClusterKubenetFirewall,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.CustomCATrustConfig = &datamodel.CustomCATrustConfig{
@@ -1144,7 +1144,7 @@ func Test_Ubuntu2204_CustomCATrust(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2204 VHD can be properly bootstrapped and custom CA was correctly added",
 		Config: Config{
-			Cluster: ClusterKubenetFirewall,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.CustomCATrustConfig = &datamodel.CustomCATrustConfig{
@@ -1164,7 +1164,7 @@ func Test_Ubuntu2204_CustomCATrust_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2204 VHD can be properly bootstrapped and custom CA was correctly added",
 		Config: Config{
-			Cluster: ClusterKubenetFirewall,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
 				config.CustomCaCerts = []string{encodedTestCert}
@@ -1191,7 +1191,7 @@ func Test_Ubuntu2204_CustomSysctls(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that an ubuntu 2204 VHD can be properly bootstrapped when supplied custom node config that contains custom sysctl settings",
 		Config: Config{
-			Cluster: ClusterKubenetFirewall,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				customLinuxConfig := &datamodel.CustomLinuxOSConfig{
@@ -1231,7 +1231,7 @@ func Test_Ubuntu2204_CustomSysctls_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that an ubuntu 2204 VHD can be properly bootstrapped when supplied custom node config that contains custom sysctl settings",
 		Config: Config{
-			Cluster: ClusterKubenetFirewall,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
 				customLinuxOsConfig := &aksnodeconfigv1.CustomLinuxOsConfig{
@@ -1276,7 +1276,7 @@ func runScenarioUbuntu2204GPU(t *testing.T, vmSize string) {
 			GPU: true,
 		},
 		Config: Config{
-			Cluster: ClusterKubenetFirewall,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.VMSize = vmSize
@@ -1304,7 +1304,7 @@ func runScenarioUbuntuGRID(t *testing.T, vmSize string) {
 			GPU: true,
 		},
 		Config: Config{
-			Cluster: ClusterKubenetFirewall,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.VMSize = vmSize
@@ -1334,7 +1334,7 @@ func Test_Ubuntu2204_GPUA10_Scriptless(t *testing.T) {
 			GPU: true,
 		},
 		Config: Config{
-			Cluster: ClusterKubenetFirewall,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_NV6ads_A10_v5")
@@ -1362,7 +1362,7 @@ func Test_Ubuntu2204_GPUGridDriver(t *testing.T) {
 			GPU: true,
 		},
 		Config: Config{
-			Cluster: ClusterKubenetFirewall,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.VMSize = "Standard_NV6ads_A10_v5"
@@ -1389,7 +1389,7 @@ func Test_Ubuntu2204_GPUNoDriver(t *testing.T) {
 			GPU: true,
 		},
 		Config: Config{
-			Cluster: ClusterKubenetFirewall,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.VMSize = "Standard_NC6s_v3"
@@ -1418,7 +1418,7 @@ func Test_Ubuntu2204_GPUNoDriver_Scriptless(t *testing.T) {
 			GPU: true,
 		},
 		Config: Config{
-			Cluster: ClusterKubenetFirewall,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
 				config.VmSize = "Standard_NC6s_v3"
@@ -1445,7 +1445,7 @@ func Test_Ubuntu2204_PrivateKubePkg(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2204 VHD that was built with private kube packages can be properly bootstrapped with the specified kube version",
 		Config: Config{
-			Cluster: ClusterKubenetFirewall,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2ContainerdPrivateKubePkg,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.25.6"
@@ -1466,7 +1466,7 @@ func Test_Ubuntu2204_ContainerdURL_IMDSRestrictionFilterTable(t *testing.T) {
 		Description: `tests that a node using the Ubuntu 2204 VHD with the ContainerdPackageURL override bootstraps with the provided URL and not the components.json containerd version,
 		              tests that the imds restriction filter table is properly set`,
 		Config: Config{
-			Cluster: ClusterKubenetFirewall,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerdPackageURL = "https://packages.microsoft.com/ubuntu/22.04/prod/pool/main/m/moby-containerd/moby-containerd_1.6.9+azure-ubuntu22.04u1_amd64.deb"
@@ -1486,7 +1486,7 @@ func Test_Ubuntu2204_ContainerdURL_IMDSRestrictionFilterTable_Scriptless(t *test
 		Description: `tests that a node using the Ubuntu 2204 VHD with the ContainerdPackageURL override the provided URL and not the components.json containerd version,
 		              tests that the imds restriction filter table is properly set`,
 		Config: Config{
-			Cluster: ClusterKubenetFirewall,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
 				config.ContainerdConfig.ContainerdPackageUrl = "https://packages.microsoft.com/ubuntu/22.04/prod/pool/main/m/moby-containerd/moby-containerd_1.6.9+azure-ubuntu22.04u1_amd64.deb"
@@ -1506,7 +1506,7 @@ func Test_Ubuntu2204_ContainerdHasCurrentVersion(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that a node using an Ubuntu2204 VHD and the ContainerdVersion override bootstraps with the correct components.json containerd version and ignores the override",
 		Config: Config{
-			Cluster: ClusterKubenetFirewall,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 			},
@@ -1521,7 +1521,7 @@ func Test_AzureLinux_Skip_Binary_Cleanup(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that an AzureLinux node will skip binary cleanup and can be properly bootstrapped",
 		Config: Config{
-			Cluster:                ClusterKubenetFirewall,
+			Cluster:                ClusterKubenet,
 			VHD:                    config.VHDAzureLinuxV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
@@ -1541,7 +1541,7 @@ func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags(t *testing
 	RunScenario(t, &Scenario{
 		Description: "tests that a node on ubuntu 2204 bootstrapped with kubelet serving certificate rotation enabled will disable certificate rotation due to nodepool tags",
 		Config: Config{
-			Cluster:                ClusterKubenetFirewall,
+			Cluster:                ClusterKubenet,
 			VHD:                    config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
@@ -1558,7 +1558,7 @@ func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_CustomKube
 	RunScenario(t, &Scenario{
 		Description: "tests that a node on ubuntu 2204 bootstrapped with custom kubelet config and kubelet serving certificate rotation enabled will disable certificate rotation due to nodepool tags",
 		Config: Config{
-			Cluster: ClusterKubenetFirewall,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				// to force kubelet config file
@@ -1582,7 +1582,7 @@ func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_CustomKube
 	RunScenario(t, &Scenario{
 		Description: "tests that a node on ubuntu 2204 bootstrapped with custom kubelet config and kubelet serving certificate rotation enabled will disable certificate rotation due to nodepool tags",
 		Config: Config{
-			Cluster: ClusterKubenetFirewall,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
 				config.KubeletConfig.EnableKubeletConfigFile = true
@@ -1606,7 +1606,7 @@ func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_AlreadyDis
 	RunScenario(t, &Scenario{
 		Description: "tests that a node on ubuntu 2204 bootstrapped with kubelet serving certificate rotation disabled will disable certificate rotation regardless of nodepool tags",
 		Config: Config{
-			Cluster: ClusterKubenetFirewall,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 			},
@@ -1624,7 +1624,7 @@ func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_AlreadyDis
 	RunScenario(t, &Scenario{
 		Description: "tests that a node on ubuntu 2204 bootstrapped with kubelet serving certificate rotation disabled and custom kubelet config will disable certificate rotation regardless of nodepool tags",
 		Config: Config{
-			Cluster: ClusterKubenetFirewall,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				// to force kubelet config file
@@ -1648,7 +1648,7 @@ func Test_Ubuntu2204_MessageOfTheDay(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that a node on ubuntu 2204 bootstrapped and message of the day is properly added to the node",
 		Config: Config{
-			Cluster: ClusterKubenetFirewall,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.MessageOfTheDay = "Zm9vYmFyDQo=" // base64 for foobar
@@ -1665,7 +1665,7 @@ func Test_AzureLinuxV2_MessageOfTheDay(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a AzureLinuxV2 can be bootstrapped and message of the day is added to the node",
 		Config: Config{
-			Cluster: ClusterKubenetFirewall,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.MessageOfTheDay = "Zm9vYmFyDQo=" // base64 for foobar
@@ -1682,7 +1682,7 @@ func Test_AzureLinuxV2_MessageOfTheDay_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a AzureLinuxV2 can be bootstrapped and message of the day is added to the node",
 		Config: Config{
-			Cluster: ClusterKubenetFirewall,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV2Gen2,
 			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
 				config.MessageOfTheDay = "Zm9vYmFyDQo=" // base64 for foobar
@@ -1722,7 +1722,7 @@ func Test_Ubuntu2204_KubeletCustomConfig(t *testing.T) {
 		},
 		Description: "tests that a node on ubuntu 2204 bootstrapped with kubelet custom config for seccomp set to non default values",
 		Config: Config{
-			Cluster: ClusterKubenetFirewall,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
@@ -1749,7 +1749,7 @@ func Test_AzureLinuxV2_KubeletCustomConfig(t *testing.T) {
 		},
 		Description: "tests that a node on azure linux v2 bootstrapped with kubelet custom config for seccomp set to non default values",
 		Config: Config{
-			Cluster: ClusterKubenetFirewall,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-azurelinux-v2-gen2"
@@ -1777,7 +1777,7 @@ func Test_AzureLinuxV2_KubeletCustomConfig_Scriptless(t *testing.T) {
 		},
 		Description: "tests that a node on azure linux v2 bootstrapped with kubelet custom config for seccomp set to non default values",
 		Config: Config{
-			Cluster: ClusterKubenetFirewall,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV2Gen2,
 			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
 				config.KubeletConfig.KubeletConfigFileConfig.SeccompDefault = true
@@ -1799,7 +1799,7 @@ func Test_Ubuntu2204ARM64_KubeletCustomConfig(t *testing.T) {
 		},
 		Description: "tests that a node on ubuntu 2204 ARM64 bootstrapped with kubelet custom config",
 		Config: Config{
-			Cluster: ClusterKubenetFirewall,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Arm64Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.IsARM64 = true
@@ -1830,7 +1830,7 @@ func Test_Ubuntu2404Gen2(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2404 VHD can be properly bootstrapped with containerd v2",
 		Config: Config{
-			Cluster: ClusterKubenetFirewall,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2404Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 			},
@@ -1873,7 +1873,7 @@ func Test_Ubuntu2404_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing.T
 			BootstrapTokenFallback: true,
 		},
 		Config: Config{
-			Cluster: ClusterKubenetFirewall,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2404Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{
@@ -1893,7 +1893,7 @@ func Test_Ubuntu2404Gen2_GPUNoDriver(t *testing.T) {
 			GPU: true,
 		},
 		Config: Config{
-			Cluster: ClusterKubenetFirewall,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2404Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.VMSize = "Standard_NC6s_v3"
@@ -1924,7 +1924,7 @@ func Test_Ubuntu2404Gen1(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2404 VHD can be properly bootstrapped with containerd v2",
 		Config: Config{
-			Cluster: ClusterKubenetFirewall,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2404Gen1Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 			},
@@ -1942,7 +1942,7 @@ func Test_Ubuntu2404ARM(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2404 VHD can be properly bootstrapped with containerd v2",
 		Config: Config{
-			Cluster: ClusterKubenetFirewall,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2404ArmContainerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 			},
@@ -1978,7 +1978,7 @@ func runScenarioUbuntu2404GRID(t *testing.T, vmSize string) {
 			GPU: true,
 		},
 		Config: Config{
-			Cluster: ClusterKubenetFirewall,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2404Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.VMSize = vmSize
@@ -2009,7 +2009,7 @@ func Test_Ubuntu2404_NPD_Basic(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Test that a node with AKS VM Extension enabled can report simulated node problem detector events",
 		Config: Config{
-			Cluster: ClusterKubenetFirewall,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2404Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 			},
@@ -2038,7 +2038,7 @@ func Test_AzureLinux3_PMC_Install(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that an AzureLinux node will install kube pkgs from PMC and can be properly bootstrapped",
 		Config: Config{
-			Cluster: ClusterKubenetFirewall,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV3Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.KubeletConfig["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
@@ -2060,7 +2060,7 @@ func Test_Ubuntu2204_PMC_Install(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2204 VHD and install kube pkgs from PMC can be properly bootstrapped",
 		Config: Config{
-			Cluster: ClusterKubenetFirewall,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				// Check that we don't leak these secrets if they're
@@ -2135,7 +2135,7 @@ func Test_AzureLinux3OSGuard_PMC_Install(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using an Azure Linux V3 OS Guard VHD and install kube pkgs from PMC can be properly bootstrapped",
 		Config: Config{
-			Cluster: ClusterKubenetFirewall,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinux3OSGuard,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.LocalDNSProfile = nil
@@ -2156,7 +2156,7 @@ func Test_Ubuntu2404_VHDCaching(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "T",
 		Config: Config{
-			Cluster:                ClusterKubenetFirewall,
+			Cluster:                ClusterKubenet,
 			VHD:                    config.VHDUbuntu2204Gen2Containerd,
 			VHDCaching:             true,
 			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
@@ -2177,7 +2177,7 @@ func Test_AzureLinuxV3_AppArmor(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that AppArmor is properly enabled and configured on Azure Linux V3 nodes",
 		Config: Config{
-			Cluster:                ClusterKubenetFirewall,
+			Cluster:                ClusterKubenet,
 			VHD:                    config.VHDAzureLinuxV3Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {},
 			Validator: func(ctx context.Context, s *Scenario) {
