@@ -99,7 +99,7 @@ steps:
       export AZCOPY_MSI_RESOURCE_STRING="$AZURE_MSI_RESOURCE_STRING"
       export AZCOPY_CONCURRENCY_VALUE="AUTO"
 
-      azcopy copy "$(blob_url)" "$VHD_RELEASE_CANDIDATE_FILE" --recursive=true
+      azcopy copy "$(blob_url_vhd)" "$VHD_RELEASE_CANDIDATE_FILE" --recursive=true
 
       echo "blob downloaded successfully"
 
