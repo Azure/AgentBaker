@@ -4,7 +4,7 @@ name: Auto-update
 on:
   push:
     branches:
-      - master
+      - main
 
 jobs:
   Auto:
