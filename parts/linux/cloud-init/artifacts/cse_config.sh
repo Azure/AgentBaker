@@ -910,6 +910,11 @@ configGPUDrivers() {
     # This prevents automatic updates from upgrading Nvidia repo dependencies and eliminates
     # the need for users to allowlist NVIDIA repository URLs in their firewalls
     removeNvidiaRepos
+
+    # NPD is installed as a VM extension, which might happen before/after/during CSE, so this
+    # line may fail. This will need to be updated when NPD is shipped in the VHD - we can control
+    # the startup ordering in that case.
+    systemctl restart node-problem-detector || true
 }
 
 validateGPUDrivers() {
