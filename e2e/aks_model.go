@@ -182,7 +182,7 @@ func getBaseClusterModel(clusterName, location, k8sSystemPoolSKU string) *armcon
 	}
 }
 
-func getFirewallRules(ctx context.Context, location, firewallSubnetID, publicIPID string) *armnetwork.AzureFirewall {
+func getFirewall(ctx context.Context, location, firewallSubnetID, publicIPID string) *armnetwork.AzureFirewall {
 	var (
 		natRuleCollections []*armnetwork.AzureFirewallNatRuleCollection
 		netRuleCollections []*armnetwork.AzureFirewallNetworkRuleCollection
@@ -328,7 +328,7 @@ func addFirewallRules(
 	logf(ctx, "Created public IP with ID: %s", publicIPID)
 
 	firewallName := "abe2e-fw"
-	firewall := getFirewallRules(ctx, location, firewallSubnetID, publicIPID)
+	firewall := getFirewall(ctx, location, firewallSubnetID, publicIPID)
 	fwPoller, err := config.Azure.AzureFirewall.BeginCreateOrUpdate(ctx, *clusterModel.Properties.NodeResourceGroup, firewallName, *firewall, nil)
 	if err != nil {
 		return fmt.Errorf("failed to start Firewall creation: %w", err)
