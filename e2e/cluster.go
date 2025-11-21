@@ -100,6 +100,10 @@ func prepareCluster(ctx context.Context, cluster *armcontainerservice.ManagedClu
 		}
 	}
 
+	if err := addFirewallRules(ctx, cluster, *cluster.Location); err != nil {
+		return nil, fmt.Errorf("add firewall rules: %w", err)
+	}
+
 	kubeletIdentity, err := getClusterKubeletIdentity(cluster)
 	if err != nil {
 		return nil, fmt.Errorf("getting cluster kubelet identity: %w", err)
