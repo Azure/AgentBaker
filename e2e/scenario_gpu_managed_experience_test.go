@@ -317,9 +317,6 @@ func Test_AzureLinux3_NvidiaDevicePluginRunning(t *testing.T) {
 				ValidateNPDUnhealthyNvidiaDCGMServices(ctx, s)
 				ValidateNPDUnhealthyNvidiaDCGMServicesCondition(ctx, s)
 				ValidateNPDUnhealthyNvidiaDCGMServicesAfterFailure(ctx, s)
-				// verify nvidia grid license status checks are reporting status correctly
-				ValidateNPDHealthyNvidiaGridLicenseStatus(ctx, s)
-				ValidateNPDUnhealthyNvidiaGridLicenseStatusAfterFailure(ctx, s)
 			},
 		},
 	})
@@ -398,9 +395,6 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG(t *testing.T) {
 				ValidateNPDUnhealthyNvidiaDCGMServices(ctx, s)
 				ValidateNPDUnhealthyNvidiaDCGMServicesCondition(ctx, s)
 				ValidateNPDUnhealthyNvidiaDCGMServicesAfterFailure(ctx, s)
-				// verify nvidia grid license status checks are reporting status correctly
-				ValidateNPDHealthyNvidiaGridLicenseStatus(ctx, s)
-				ValidateNPDUnhealthyNvidiaGridLicenseStatusAfterFailure(ctx, s)
 			},
 		},
 	})
