@@ -176,7 +176,7 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/coredns",
-          "latestVersion": "v1.13.1-2"
+          "latestVersion": "v1.13.1-3"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/coredns",
