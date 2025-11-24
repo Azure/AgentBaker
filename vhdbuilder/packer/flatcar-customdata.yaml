@@ -54,6 +54,14 @@ storage:
         bootparams:  files
         automount:   files
         aliases:     files
+  - path: /opt/azure/containers/hello_world.txt
+    mode: 0644
+    contents:
+      inline: |
+        Hello World from AKS Flatcar Node!
+        This file was created during VHD build time.
+        Build date: $(date)
+        Node will be ready for Kubernetes workloads!
   links:
   - path: /etc/extensions/aks-sysext/usr/local/bin
     target: /opt/bin
