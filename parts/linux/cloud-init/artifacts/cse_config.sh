@@ -355,9 +355,11 @@ EOF
     echo "${CONTAINERD_CONFIG_CONTENT}" | base64 -d > /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
   fi
 
+  export -f e2e_mock_azure_china_cloud
+  E2EMockAzureChinaCloud=$(retrycmd_silent 10 1 10 bash -cx e2e_mock_azure_china_cloud)
   if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
     logs_to_events "AKS.CSE.ensureContainerd.configureContainerdRegistryHost" configureContainerdRegistryHost
-  elif [ "${TARGET_CLOUD}" = "AzureChinaCloud" ]; then
+  elif [ "${TARGET_CLOUD}" = "AzureChinaCloud" ] || [ "${E2EMockAzureChinaCloud}" = "true" ]; then
     logs_to_events "AKS.CSE.ensureContainerd.configureContainerdLegacyMooncakeMcrHost" configureContainerdLegacyMooncakeMcrHost
   fi
 
