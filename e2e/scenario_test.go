@@ -1292,6 +1292,8 @@ func runScenarioUbuntu2204GPU(t *testing.T, vmSize string) {
 				ValidateNvidiaModProbeInstalled(ctx, s)
 				ValidateKubeletHasNotStopped(ctx, s)
 				ValidateServicesDoNotRestartKubelet(ctx, s)
+				// should have dcgm-exporter=disabled if GPU node without managed GPU enabled
+				ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "kubernetes.azure.com/dcgm-exporter=disabled")
 			},
 		},
 	})

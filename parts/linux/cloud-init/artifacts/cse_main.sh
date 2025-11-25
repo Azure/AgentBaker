@@ -403,10 +403,20 @@ function nodePrep {
     elif [ "${GPU_NODE}" = "true" ] && [ "${skip_nvidia_driver_install}" != "true" ] && [ "${ENABLE_MANAGED_GPU_EXPERIENCE}" = "true" ]; then
         logs_to_events "AKS.CSE.installNvidiaManagedExpPkgFromCache" "installNvidiaManagedExpPkgFromCache" || exit $ERR_NVIDIA_DCGM_INSTALL
         logs_to_events "AKS.CSE.startNvidiaManagedExpServices" "startNvidiaManagedExpServices" || exit $ERR_NVIDIA_DCGM_EXPORTER_FAIL
-    elif [ "${GPU_NODE}" = "true" ] && [ "${skip_nvidia_driver_install}" != "true" ] && [ "${ENABLE_MANAGED_GPU_EXPERIENCE}" = "false" ]; then
+
+        # Add node label to indicate DCGM exporter is enabled
+        DCGM_EXPORTER_LABEL="kubernetes.azure.com/dcgm-exporter=enabled"
+        echo "adding node label $DCGM_EXPORTER_LABEL"
+        addKubeletNodeLabel $DCGM_EXPORTER_LABEL
+    elif [ "${GPU_NODE}" = "true" ] && [ "${skip_nvidia_driver_install}" != "true" ] && [ "${ENABLE_MANAGED_GPU_EXPERIENCE}" != "true" ]; then
         logs_to_events "AKS.CSE.stop.nvidia-device-plugin" "systemctlDisableAndStop nvidia-device-plugin"
         logs_to_events "AKS.CSE.stop.nvidia-dcgm" "systemctlDisableAndStop nvidia-dcgm"
         logs_to_events "AKS.CSE.stop.nvidia-dcgm-exporter" "systemctlDisableAndStop nvidia-dcgm-exporter"
+
+        # Add node label to indicate DCGM exporter is disabled
+        DCGM_EXPORTER_LABEL="kubernetes.azure.com/dcgm-exporter=disabled"
+        echo "adding node label $DCGM_EXPORTER_LABEL"
+        addKubeletNodeLabel $DCGM_EXPORTER_LABEL
     fi
 
     VALIDATION_ERR=0
