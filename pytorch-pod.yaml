@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pytorch-sleep
+spec:
+  restartPolicy: OnFailure
+  containers:
+  - name: cuda
+    image: "pytorch/pytorch:latest"
+    command: ["/bin/sh", "-c"]
+    args: ["sleep infinity"]
+    resources:
+      limits:
+        nvidia.com/gpu: 1
