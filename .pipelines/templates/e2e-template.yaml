@@ -24,10 +24,15 @@ jobs:
         fetchTags: false
         fetchDepth: 1
 
-      - bash: bash .pipelines/scripts/e2e_run.sh
+      - task: AzureCLI@2
+        inputs:
+          azureSubscription: $(E2E_ARM_SERVICE_CONNECTION)
+          scriptType: bash
+          scriptLocation: inlineScript
+          inlineScript: |
+            bash .pipelines/scripts/e2e_run.sh
         displayName: Run AgentBaker E2E
         env:
-          E2E_AGENT_IDENTITY_ID: $(E2E_AGENT_IDENTITY_ID)
           E2E_SUBSCRIPTION_ID: $(E2E_SUBSCRIPTION_ID)
           BUILD_SRC_DIR: $(System.DefaultWorkingDirectory)
           DefaultWorkingDirectory: $(Build.SourcesDirectory)
@@ -46,6 +51,12 @@ jobs:
         condition: always()
         continueOnError: true
 
-      - bash: bash .pipelines/scripts/e2e_delete_vmss.sh
+      - task: AzureCLI@2
+        inputs:
+          azureSubscription: $(E2E_ARM_SERVICE_CONNECTION)
+          scriptType: bash
+          scriptLocation: inlineScript
+          inlineScript: |
+            bash .pipelines/scripts/e2e_delete_vmss.sh
         displayName: ensure vmss deletion
         condition: always()
