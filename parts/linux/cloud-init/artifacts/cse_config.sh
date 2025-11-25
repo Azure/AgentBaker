@@ -388,6 +388,10 @@ configureContainerdRegistryHost() {
 EOF
 }
 
+# this function craetes containerd host config to map mcr.azk8s.cn host to mcr.azure.cn
+# containerd will resolve mcr.azk8s.cn as mcr.azure.cn and pull the image. If failed, it will fallback to mcr.azk8s.cn
+# https://github.com/containerd/containerd/blob/main/docs/hosts.md#registry-configuration---examples
+# TODO(xinhl): remove when aks rp fully deprecates mcr.azk8s.cn
 configureContainerdLegacyMooncakeMcrHost() {
     LEGACY_MCR_REPOSITORY_BASE="mcr.azk8s.cn"
     CONTAINERD_CONFIG_REGISTRY_HOST_MCR="/etc/containerd/certs.d/${LEGACY_MCR_REPOSITORY_BASE}/hosts.toml"
