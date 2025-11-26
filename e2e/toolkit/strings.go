@@ -3,24 +3,8 @@ package toolkit
 import (
 	"context"
 	"strconv"
-	"strings"
 	"time"
-
-	"k8s.io/apimachinery/pkg/util/duration"
 )
-
-func StrToBoolMap(str string) map[string]bool {
-	str = strings.ReplaceAll(str, " ", "")
-	if str == "" {
-		return nil
-	}
-	parts := strings.SplitN(str, ",", -1)
-	m := make(map[string]bool, len(parts))
-	for _, p := range parts {
-		m[p] = true
-	}
-	return m
-}
 
 func StrToInt32(s string) int32 {
 	i, err := strconv.ParseInt(s, 10, 32)
@@ -36,8 +20,4 @@ func LogDuration(ctx context.Context, duration time.Duration, warningDuration ti
 	} else {
 		Log(ctx, message)
 	}
-}
-
-func FormatDuration(length time.Duration) string {
-	return duration.ShortHumanDuration(length)
 }
