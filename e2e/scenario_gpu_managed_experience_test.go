@@ -161,7 +161,7 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning(t *testing.T) {
 				ValidateNvidiaDCGMExporterSystemDServiceRunning(ctx, s)
 				ValidateNvidiaDCGMExporterIsScrapable(ctx, s)
 				ValidateNvidiaDCGMExporterScrapeCommonMetric(ctx, s, "DCGM_FI_DEV_GPU_UTIL")
-				ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "kubernetes.azure.com/dcgm-exporter=enabled")
+				ValidateNodeHasLabel(ctx, s, "kubernetes.azure.com/dcgm-exporter", "enabled")
 
 				// Let's run the NPD validation tests to verify that the nvidia
 				// device plugin & DCGM services are reporting status correctly
@@ -235,7 +235,7 @@ func Test_Ubuntu2204_NvidiaDevicePluginRunning(t *testing.T) {
 				ValidateNvidiaDCGMExporterSystemDServiceRunning(ctx, s)
 				ValidateNvidiaDCGMExporterIsScrapable(ctx, s)
 				ValidateNvidiaDCGMExporterScrapeCommonMetric(ctx, s, "DCGM_FI_DEV_GPU_UTIL")
-				ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "kubernetes.azure.com/dcgm-exporter=enabled")
+				ValidateNodeHasLabel(ctx, s, "kubernetes.azure.com/dcgm-exporter", "enabled")
 
 				// Let's run the NPD validation tests to verify that the nvidia
 				// device plugin & DCGM services are reporting status correctly
@@ -309,7 +309,7 @@ func Test_AzureLinux3_NvidiaDevicePluginRunning(t *testing.T) {
 				ValidateNvidiaDCGMExporterSystemDServiceRunning(ctx, s)
 				ValidateNvidiaDCGMExporterIsScrapable(ctx, s)
 				ValidateNvidiaDCGMExporterScrapeCommonMetric(ctx, s, "DCGM_FI_DEV_GPU_UTIL")
-				ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "kubernetes.azure.com/dcgm-exporter=enabled")
+				ValidateNodeHasLabel(ctx, s, "kubernetes.azure.com/dcgm-exporter", "enabled")
 
 				// Let's run the NPD validation tests to verify that the nvidia
 				// device plugin & DCGM services are reporting status correctly
@@ -388,7 +388,7 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG(t *testing.T) {
 				ValidateNvidiaDCGMExporterSystemDServiceRunning(ctx, s)
 				ValidateNvidiaDCGMExporterIsScrapable(ctx, s)
 				ValidateNvidiaDCGMExporterScrapeCommonMetric(ctx, s, "DCGM_FI_DEV_GPU_TEMP")
-				ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "kubernetes.azure.com/dcgm-exporter=enabled")
+				ValidateNodeHasLabel(ctx, s, "kubernetes.azure.com/dcgm-exporter", "enabled")
 
 				// Let's run the NPD validation tests to verify that the nvidia
 				// device plugin & DCGM services are reporting status correctly
