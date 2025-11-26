@@ -952,6 +952,29 @@ ensureGPUDrivers() {
     fi
 }
 
+setupAmdAma() {
+    if [ "$(isARM64)" -eq 1 ]; then
+        return
+    fi
+
+    if isMarinerOrAzureLinux "$OS"; then
+        # Install required packages/setup additional repos
+        sudo tdnf install -y libzip
+        sudo wget https://packages.microsoft.com/azurelinux/3.0/prod/extended/x86_64/config.repo -O /etc/yum.repos.d/azurelinux-official-extended.repo
+        # Install driver
+        # Install core package
+        sudo RPM_FRONTEND=noninteractive tdnf install -y https://download.microsoft.com/download/16b04fa7-883e-4a94-88c2-801881a47b28/amd-ama-core_1.3.0-2503242033-amd64.rpm
+        # Install device plugin
+        sudo tdnf install -y amdama-device-plugin.x86_64
+        # Configure huge pages
+        sudo sh -c "echo 'vm.nr_hugepages=4096' >> /etc/sysctl.conf"
+        sudo sh -c "echo 4096 >> /proc/sys/vm/nr_hugepages"
+        if [ $(systemctl is-active kubelet) = "active" ]; then
+            sudo systemctl restart kubelet
+        fi
+    fi
+}
+
 disableSSH() {
     # On ubuntu, the ssh service is named "ssh.service"
     systemctlDisableAndStop ssh || exit $ERR_DISABLE_SSH
