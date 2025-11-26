@@ -397,6 +397,10 @@ function nodePrep {
 
     export -f enableManagedGPUExperience
     ENABLE_MANAGED_GPU_EXPERIENCE=$(retrycmd_silent 10 1 10 bash -cx enableManagedGPUExperience)
+    if [ "$?" -ne 0 ] && [ "${GPU_NODE}" = "true" ] && [ "${skip_nvidia_driver_install}" != "true" ]; then
+        echo "failed to determine if managed GPU experience should be enabled by nodepool tags"
+        exit $ERR_LOOKUP_ENABLE_MANAGED_GPU_EXPERIENCE_TAG
+    fi
     logs_to_events "AKS.CSE.configureManagedGPUExperience" configureManagedGPUExperience || exit $ERR_ENABLE_MANAGED_GPU_EXPERIENCE
 
     VALIDATION_ERR=0
