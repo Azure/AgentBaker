@@ -1176,7 +1176,7 @@ func Test_Ubuntu2204_CustomCATrust_Scriptless(t *testing.T) {
 	})
 }
 
-func Test_Ubuntu2204_CustomSysctls(t *testing.T) {
+func Test_Ubuntu2204_CustomSysctls_Kubelet_Lifecycle(t *testing.T) {
 	customSysctls := map[string]string{
 		"net.ipv4.ip_local_port_range":       "32768 65535",
 		"net.netfilter.nf_conntrack_max":     "2097152",
@@ -1211,6 +1211,7 @@ func Test_Ubuntu2204_CustomSysctls(t *testing.T) {
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateUlimitSettings(ctx, s, customContainerdUlimits)
 				ValidateSysctlConfig(ctx, s, customSysctls)
+				ValidateKubeletFollowsContainerd(ctx, s)
 			},
 		},
 	})

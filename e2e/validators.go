@@ -426,6 +426,57 @@ func ServiceCanRestartValidator(ctx context.Context, s *Scenario, serviceName st
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "command to restart service failed")
 }
 
+// ValidateKubeletFollowsContainerd checks that when containerd is stopped, kubelet also stops,
+// and when containerd is started, kubelet also starts.
+func ValidateKubeletFollowsContainerd(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	steps := []string{
+		"set -ex",
+
+		// get the PID of containerd service, so we can check it's changed
+		"INITIAL_CONTAINERD_PID=`sudo pgrep -x containerd`",
+		"echo INITIAL_CONTAINERD_PID: $INITIAL_CONTAINERD_PID",
+
+		// get the PID of kubelet service, so we can have it in the logs
+		"INITIAL_KUBELET_PID=`sudo pgrep -x kubelet`",
+		"echo INITIAL_KUBELET_PID: $INITIAL_KUBELET_PID",
+
+		// stop containerd service
+		"sudo systemctl stop containerd",
+
+		// sleep for 10 seconds to give kubelet time to react
+		"sleep 10",
+		// Verify the kubelet service is inactive
+		"(systemctl -n 5 status kubelet || true)",
+		"! systemctl is-active kubelet",
+
+		// start containerd service
+		"sudo systemctl start containerd",
+		// sleep for 10 seconds to give kubelet time to react
+		"sleep 10",
+
+		// print the status of the kubelet service and then verify it is active.
+		"(systemctl -n 5 status kubelet || true)",
+		"systemctl is-active kubelet",
+
+		// get the PID of containerd service after restart, so we can check it's changed
+		"POST_CONTAINERD_PID=`sudo pgrep containerd`",
+		"echo POST_CONTAINERD_PID: $POST_CONTAINERD_PID",
+
+		// verify the PID has changed.
+		"if [[ \"$INITIAL_CONTAINERD_PID\" == \"$POST_CONTAINERD_PID\" ]]; then echo PID did not change after restart, failing validator. ; exit 1; fi",
+
+		// get the PID of kubelet service after containerd restart, so we can check it's changed
+		"POST_KUBELET_PID=`sudo pgrep kubelet`",
+		"echo POST_KUBELET_PID: $POST_KUBELET_PID",
+
+		// verify the PID has changed.
+		"if [[ \"$INITIAL_KUBELET_PID\" == \"$POST_KUBELET_PID\" ]]; then echo PID did not change after containerd restart, failing validator. ; exit 1; fi",
+	}
+
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "kubelet did not follow containerd state changes")
+}
+
 func ValidateSystemdUnitIsRunning(ctx context.Context, s *Scenario, serviceName string) {
 	s.T.Helper()
 	command := []string{

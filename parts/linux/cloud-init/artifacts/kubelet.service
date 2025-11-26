@@ -3,7 +3,7 @@ Description=Kubelet
 ConditionPathExists=/usr/local/bin/kubelet
 Wants=network-online.target
 After=network-online.target containerd.service
-Requires=containerd.service
+BindsTo=containerd.service
 
 [Service]
 Restart=always
