@@ -248,7 +248,13 @@ stages:
       - job: build
         timeoutInMinutes: 180
         steps:
-          - bash: bash ./vhdbuilder/packer/cleanup.sh
+          - task: AzureCLI@2
+            inputs:
+              azureSubscription: $(VHD_ARM_SERVICE_CONNECTION)
+              scriptType: bash
+              scriptLocation: inlineScript
+              inlineScript: |
+                bash ./vhdbuilder/packer/cleanup.sh
             enabled: true
             displayName: Cleanup
             condition: eq(  ${{ parameters.enableBackfillCleanup }} , 'True')
