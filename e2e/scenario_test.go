@@ -1211,13 +1211,13 @@ func Test_Ubuntu2204_CustomSysctls_Kubelet_Lifecycle(t *testing.T) {
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateUlimitSettings(ctx, s, customContainerdUlimits)
 				ValidateSysctlConfig(ctx, s, customSysctls)
-				ValidateKubeletFollowsContainerd(ctx, s)
+				ValidateKubeletFollowsContainerdLifecycle(ctx, s)
 			},
 		},
 	})
 }
 
-func Test_Ubuntu2204_CustomSysctls_Scriptless(t *testing.T) {
+func Test_Ubuntu2204_CustomSysctls_Kubelet_Lifecycle_Scriptless(t *testing.T) {
 	customSysctls := map[string]string{
 		"net.ipv4.ip_local_port_range":       "32768 65535",
 		"net.netfilter.nf_conntrack_max":     "2097152",
@@ -1252,6 +1252,7 @@ func Test_Ubuntu2204_CustomSysctls_Scriptless(t *testing.T) {
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateUlimitSettings(ctx, s, customContainerdUlimits)
 				ValidateSysctlConfig(ctx, s, customSysctls)
+				ValidateKubeletFollowsContainerdLifecycle(ctx, s)
 			},
 		},
 	})
@@ -2035,7 +2036,7 @@ func Test_Ubuntu2404_GPU_A100(t *testing.T) {
 	RunScenario(t, runScenarioGPUNPD(t, "Standard_ND96asr_v4", "southcentralus", "Standard_D2s_v3"))
 }
 
-func Test_AzureLinux3_PMC_Install(t *testing.T) {
+func Test_AzureLinux3_PMC_Install_Kubelet_Lifecycle(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that an AzureLinux node will install kube pkgs from PMC and can be properly bootstrapped",
 		Config: Config{
@@ -2052,6 +2053,7 @@ func Test_AzureLinux3_PMC_Install(t *testing.T) {
 				vmss.Tags["ShouldEnforceKubePMCInstall"] = to.Ptr("true")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateKubeletFollowsContainerdLifecycle(ctx, s)
 			},
 		},
 	})
