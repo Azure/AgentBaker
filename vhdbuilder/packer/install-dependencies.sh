@@ -804,6 +804,11 @@ capture_benchmark "${SCRIPT_NAME}_finish_installing_bcc_tools"
 
 # Configure LSM modules to include BPF
 configureLsmWithBpf() {
+  if isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
+    echo "Warning: Azure Linux OS Guard built with signed UKI, not enabling BPF LSM"
+    return 0
+  fi
+
   echo "Configuring LSM modules to include BPF..."
 
   # Read current LSM modules
@@ -818,20 +823,10 @@ configureLsmWithBpf() {
 
   # Prepend bpf to the LSM list if not already present
   if ! echo "$current_lsm" | grep -q bpf; then
-    if [ "$IS_KATA" = "true" ] || echo "$FEATURE_FLAGS" | grep -q "cvm"; then
-      echo "Warning: this is a Kata/CVM SKU - will not add BPF to LSM configuration"
-      return 0
-    fi
-
-    if isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
-      echo "Warning: Azure Linux OS Guard built with signed UKI, not enabling BPF LSM"
-      return 0
-    fi
-
     local new_lsm="bpf,$current_lsm"
     echo "New LSM configuration: $new_lsm"
 
-    if [ "$OS" = "$UBUNTU_OS_NAME" ] && [ "$OS_VERSION" = "24.04" ]; then
+    if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
       local grub_cfg="/etc/default/grub.d/50-cloudimg-settings.cfg"
       if [ -f "$grub_cfg" ]; then
         if grep -q "lsm=" "$grub_cfg"; then
@@ -839,8 +834,13 @@ configureLsmWithBpf() {
         else
           sed -i "s/GRUB_CMDLINE_LINUX_DEFAULT=\"/GRUB_CMDLINE_LINUX_DEFAULT=\"lsm=$new_lsm /" "$grub_cfg"
         fi
-        echo "Updating GRUB configuration for Ubuntu 24.04..."
-        update-grub2 /boot/grub/grub.cfg || echo "Warning: Failed to update GRUB configuration"
+        if [ "$OS_VERSION" == "24.04" ]; then
+          echo "Updating GRUB configuration for Ubuntu 24.04..."
+          update-grub2 /boot/grub/grub.cfg || echo "Warning: Failed to update GRUB configuration"
+        else if [ "$OS_VERSION" == "22.04" ]; then
+          echo "Updating GRUB configuration for Ubuntu 22.04..."
+          grub-mkconfig -o /boot/grub/grub.cfg || echo "Warning: Failed to update GRUB configuration"
+        fi
       else
         echo "Warning: $grub_cfg not found, skipping LSM configuration"
       fi
