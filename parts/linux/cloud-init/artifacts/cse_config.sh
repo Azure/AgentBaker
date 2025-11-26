@@ -1148,6 +1148,28 @@ EOF
     echo "Enable localdns succeeded."
 }
 
+configureManagedGPUExperience() {
+    if [ "$?" -ne 0 ] && [ "${GPU_NODE}" = "true" ] && [ "${skip_nvidia_driver_install}" != "true" ]; then
+        echo "failed to determine if managed GPU experience should be enabled by nodepool tags"
+        exit $ERR_LOOKUP_ENABLE_MANAGED_GPU_EXPERIENCE_TAG
+    elif [ "${GPU_NODE}" = "true" ] && [ "${skip_nvidia_driver_install}" != "true" ] && [ "${ENABLE_MANAGED_GPU_EXPERIENCE}" = "true" ]; then
+        logs_to_events "AKS.CSE.installNvidiaManagedExpPkgFromCache" "installNvidiaManagedExpPkgFromCache" || exit $ERR_NVIDIA_DCGM_INSTALL
+        logs_to_events "AKS.CSE.startNvidiaManagedExpServices" "startNvidiaManagedExpServices" || exit $ERR_NVIDIA_DCGM_EXPORTER_FAIL
+
+        # Add node label to indicate DCGM exporter is enabled
+        DCGM_EXPORTER_LABEL="kubernetes.azure.com/dcgm-exporter=enabled"
+        addKubeletNodeLabel $DCGM_EXPORTER_LABEL
+    elif [ "${GPU_NODE}" = "true" ] && [ "${skip_nvidia_driver_install}" != "true" ] && [ "${ENABLE_MANAGED_GPU_EXPERIENCE}" = "false" ]; then
+        logs_to_events "AKS.CSE.stop.nvidia-device-plugin" "systemctlDisableAndStop nvidia-device-plugin"
+        logs_to_events "AKS.CSE.stop.nvidia-dcgm" "systemctlDisableAndStop nvidia-dcgm"
+        logs_to_events "AKS.CSE.stop.nvidia-dcgm-exporter" "systemctlDisableAndStop nvidia-dcgm-exporter"
+
+        # Add node label to indicate DCGM exporter is disabled
+        DCGM_EXPORTER_LABEL="kubernetes.azure.com/dcgm-exporter=disabled"
+        addKubeletNodeLabel $DCGM_EXPORTER_LABEL
+    fi
+}
+
 startNvidiaManagedExpServices() {
     # 1. Start the nvidia-device-plugin service.
     # Create systemd override directory to configure device plugin

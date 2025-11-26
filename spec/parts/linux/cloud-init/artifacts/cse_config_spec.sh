@@ -860,4 +860,95 @@ Describe 'cse_config.sh'
             The output should not include "updatePMCRepository"
         End
     End
+
+    Describe 'configureManagedGPUExperience'
+        # Mock the helper functions
+        logs_to_events() {
+            echo "logs_to_events $1 $2"
+            eval "$2"
+        }
+
+        installNvidiaManagedExpPkgFromCache() {
+            echo "installNvidiaManagedExpPkgFromCache called"
+            return 0
+        }
+
+        startNvidiaManagedExpServices() {
+            echo "startNvidiaManagedExpServices called"
+            return 0
+        }
+
+        systemctlDisableAndStop() {
+            echo "systemctlDisableAndStop $1"
+            return 0
+        }
+
+        addKubeletNodeLabel() {
+            echo "addKubeletNodeLabel $1"
+            if [[ -z "$KUBELET_NODE_LABELS" ]]; then
+                KUBELET_NODE_LABELS="$1"
+            else
+                KUBELET_NODE_LABELS="$KUBELET_NODE_LABELS,$1"
+            fi
+        }
+
+        # Mock exit to prevent actual exit and allow testing
+        exit() {
+            echo "exit $1"
+            return "$1"
+        }
+
+        BeforeEach() {
+            KUBELET_NODE_LABELS=""
+        }
+
+        It 'should not enable managed GPU experience if not GPU node'
+            GPU_NODE="false"
+
+            When call configureManagedGPUExperience
+
+            The output should not include "installNvidiaManagedExpPkgFromCache called"
+            The output should not include "startNvidiaManagedExpServices called"
+            The output should not include "addKubeletNodeLabel kubernetes.azure.com/dcgm-exporter=enabled"
+        End
+
+        It 'should not enable managed GPU experience when skip_nvidia_driver_install is true'
+            GPU_NODE="true"
+            skip_nvidia_driver_install="true"
+            ENABLE_MANAGED_GPU_EXPERIENCE="true"
+
+            When call configureManagedGPUExperience
+
+            The output should not include "installNvidiaManagedExpPkgFromCache called"
+            The output should not include "startNvidiaManagedExpServices called"
+            The output should not include "addKubeletNodeLabel kubernetes.azure.com/dcgm-exporter=enabled"
+        End
+
+        It 'should enable managed GPU experience when ENABLE_MANAGED_GPU_EXPERIENCE is true'
+            GPU_NODE="true"
+            skip_nvidia_driver_install="false"
+            ENABLE_MANAGED_GPU_EXPERIENCE="true"
+
+            When call configureManagedGPUExperience
+
+            The output should include "installNvidiaManagedExpPkgFromCache called"
+            The output should include "startNvidiaManagedExpServices called"
+            The output should include "addKubeletNodeLabel kubernetes.azure.com/dcgm-exporter=enabled"
+            The variable KUBELET_NODE_LABELS should equal 'kubernetes.azure.com/dcgm-exporter=enabled'
+        End
+
+        It 'should disable managed GPU experience when ENABLE_MANAGED_GPU_EXPERIENCE is false'
+            GPU_NODE="true"
+            skip_nvidia_driver_install="false"
+            ENABLE_MANAGED_GPU_EXPERIENCE="false"
+
+            When call configureManagedGPUExperience
+
+            The output should include "systemctlDisableAndStop nvidia-device-plugin"
+            The output should include "systemctlDisableAndStop nvidia-dcgm"
+            The output should include "systemctlDisableAndStop nvidia-dcgm-exporter"
+            The output should include "addKubeletNodeLabel kubernetes.azure.com/dcgm-exporter=disabled"
+            The variable KUBELET_NODE_LABELS should equal 'kubernetes.azure.com/dcgm-exporter=disabled'
+        End
+    End
 End
