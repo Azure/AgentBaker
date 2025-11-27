@@ -424,9 +424,16 @@ function BasePrep {
     Update-ServiceFailureActions
     Adjust-DynamicPortRange
     Register-LogsCleanupScriptTask
-    Register-NodeResetScriptTask
 
+    $timer = [Diagnostics.Stopwatch]::StartNew()
+    Register-NodeResetScriptTask
+    $timer.Stop()
+    Write-Log "Register-NodeResetScriptTask took $($timer.Elapsed.TotalSeconds) seconds"
+
+    $timer = [Diagnostics.Stopwatch]::StartNew()
     Update-DefenderPreferences
+    $timer.Stop()
+    Write-Log "Update-DefenderPreferences took $($timer.Elapsed.TotalSeconds) seconds"
 
     $windowsVersion = Get-WindowsVersion
     if ($windowsVersion -ne "1809") {
@@ -460,13 +467,24 @@ function NodePrep {
     Write-Log "Configuring networking with NetworkPlugin:$global:NetworkPlugin"
 
     # Configure network policy.
+    $timer = [Diagnostics.Stopwatch]::StartNew()
     Get-HnsPsm1 -HNSModule $global:HNSModule
-    Import-Module $global:HNSModule
+    $timer.Stop()
+    Write-Log "Get-HnsPsm1 took $($timer.Elapsed.TotalSeconds) seconds"
 
+    $timer = [Diagnostics.Stopwatch]::StartNew()
+    Import-Module $global:HNSModule
+    $timer.Stop()
+    Write-Log "Import-Module HNS took $($timer.Elapsed.TotalSeconds) seconds"
+
+    $timer = [Diagnostics.Stopwatch]::StartNew()
     Install-VnetPlugins -AzureCNIConfDir $global:AzureCNIConfDir `
         -AzureCNIBinDir $global:AzureCNIBinDir `
         -VNetCNIPluginsURL $global:VNetCNIPluginsURL
+    $timer.Stop()
+    Write-Log "Install-VnetPlugins took $($timer.Elapsed.TotalSeconds) seconds"
 
+    $timer = [Diagnostics.Stopwatch]::StartNew()
     Set-AzureCNIConfig -AzureCNIConfDir $global:AzureCNIConfDir `
         -KubeDnsSearchPath $global:KubeDnsSearchPath `
         -KubeClusterCIDR $global:KubeClusterCIDR `
@@ -474,8 +492,11 @@ function NodePrep {
         -VNetCIDR $global:VNetCIDR `
         -IsDualStackEnabled $global:IsDualStackEnabled `
         -IsAzureCNIOverlayEnabled $global:IsAzureCNIOverlayEnabled
+    $timer.Stop()
+    Write-Log "Set-AzureCNIConfig took $($timer.Elapsed.TotalSeconds) seconds"
 
     if ($TargetEnvironment -ieq "AzureStackCloud") {
+        $timer = [Diagnostics.Stopwatch]::StartNew()
         GenerateAzureStackCNIConfig `
             -TenantId $global:TenantId `
             -SubscriptionId $global:SubscriptionId `
@@ -486,12 +507,20 @@ function NodePrep {
             -NetworkAPIVersion $NetworkAPIVersion `
             -AzureEnvironmentFilePath $([io.path]::Combine($global:KubeDir, "azurestackcloud.json")) `
             -IdentitySystem "{{ GetIdentitySystem }}"
+        $timer.Stop()
+        Write-Log "GenerateAzureStackCNIConfig took $($timer.Elapsed.TotalSeconds) seconds"
     }
 
+    $timer = [Diagnostics.Stopwatch]::StartNew()
     New-ExternalHnsNetwork -IsDualStackEnabled $global:IsDualStackEnabled
+    $timer.Stop()
+    Write-Log "New-ExternalHnsNetwork took $($timer.Elapsed.TotalSeconds) seconds"
 
+    $timer = [Diagnostics.Stopwatch]::StartNew()
     # Turn off Firewall to enable pods to talk to service endpoints. (Kubelet should eventually do this)
     netsh advfirewall set allprofiles state off
+    $timer.Stop()
+    Write-Log "netsh advfirewall took $($timer.Elapsed.TotalSeconds) seconds"
 
     # To ensure we don't introduce any incompatibility between base CSE + CSE package versions
     if (Get-Command -Name Enable-WindowsCiliumNetworking -ErrorAction SilentlyContinue) {
@@ -504,8 +533,16 @@ function NodePrep {
         Write-Log "Enable-WindowsCiliumNetworking is not a recognized function, will skip Windows Cilium Networking installation"
     }
 
+    $timer = [Diagnostics.Stopwatch]::StartNew()
     Install-KubernetesServices -KubeDir $global:KubeDir
+    $timer.Stop()
+    Write-Log "Install-KubernetesServices took $($timer.Elapsed.TotalSeconds) seconds"
+
+    $timer = [Diagnostics.Stopwatch]::StartNew()
     Check-APIServerConnectivity -MasterIP $MasterIP
+    $timer.Stop()
+    Write-Log "Check-APIServerConnectivity took $($timer.Elapsed.TotalSeconds) seconds"
+
 
     if ($global:WindowsCalicoPackageURL) {
         Start-InstallCalico -RootDir "c:\" -KubeServiceCIDR $global:KubeServiceCIDR -KubeDnsServiceIp $KubeDnsServiceIp
