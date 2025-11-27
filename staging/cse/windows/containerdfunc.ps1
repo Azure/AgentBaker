@@ -36,7 +36,7 @@ function RegisterContainerDService {
   & "$KubeDir\nssm.exe" set containerd AppRotateBytes 10485760 | RemoveNulls
 
   $retryCount=0
-  $retryInterval=10
+  $retryInterval=0.5
   $maxRetryCount=6 # 1 minutes
 
   do {
@@ -89,7 +89,7 @@ function CreateHypervisorRuntimes {
     [Parameter(Mandatory = $true)][string]
     $image
   )
-  
+
   Write-Log "Adding hyperv runtimes $builds"
   $hypervRuntimes = ""
   ForEach ($buildNumber in $builds) {
@@ -115,7 +115,7 @@ function ProcessAndWriteContainerdConfig {
     [Parameter(Mandatory = $true)][string]
     $CNIConfDir
   )
-  
+
   $sandboxIsolation = 0
   if ($global:DefaultContainerdWindowsSandboxIsolation -eq "hyperv") {
     Write-Log "default runtime for containerd set to hyperv"
@@ -124,7 +124,7 @@ function ProcessAndWriteContainerdConfig {
 
   $clusterConfig = ConvertFrom-Json ((Get-Content $global:KubeClusterConfigPath -ErrorAction Stop) | Out-String)
   $pauseImage = $clusterConfig.Cri.Images.Pause
-  
+
   $hypervHandlers = $global:ContainerdWindowsRuntimeHandlers.split(",", [System.StringSplitOptions]::RemoveEmptyEntries)
   $hypervRuntimes = ""
 
@@ -135,7 +135,7 @@ function ProcessAndWriteContainerdConfig {
 
   $templatePath = [Io.Path]::Combine( $global:WindowsDataDir, $templateFilePath)
 
-  $template = Get-Content -Path $templatePath 
+  $template = Get-Content -Path $templatePath
   if ($SandboxIsolation -eq 0 -And $hypervHandlers.Count -eq 0) {
     # Remove the hypervisors placeholder when not needed
     $template = $template | Select-String -Pattern 'hypervisors' -NotMatch
@@ -143,7 +143,7 @@ function ProcessAndWriteContainerdConfig {
   else {
     $hypervRuntimes = CreateHypervisorRuntimes -builds $hypervHandlers -image $pauseImage
   }
-  
+
   if (([version]$ContainerdVersion).CompareTo([version]"1.7.9") -lt 0) {
     # Remove annotations placeholders for older containerd versions
     $template = $template | Select-String -Pattern 'containerAnnotations' -NotMatch
@@ -167,7 +167,7 @@ function ProcessAndWriteContainerdConfig {
     Replace('{{currentversion}}', $pauseWindowsVersion).
     Replace('{{containerAnnotations}}', $containerAnnotations).
     Replace('{{podAnnotations}}', $podAnnotations)
-  
+
   # Write the processed template to the config file
   $configFile = [Io.Path]::Combine($global:ContainerdInstallLocation, "config.toml")
   Write-Log "using template $templatePath to write containerd config to $configFile"
@@ -208,7 +208,7 @@ function Install-Containerd {
   }
 
   # Extract the package
-  # upstream containerd package is a tar 
+  # upstream containerd package is a tar
   $tarfile = [Io.path]::Combine($ENV:TEMP, "containerd.tar.gz")
   DownloadFileOverHttp -Url $ContainerdUrl -DestinationPath $tarfile -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CONTAINERD_PACKAGE
   Create-Directory -FullPath $global:ContainerdInstallLocation -DirectoryUsage "storing containerd"

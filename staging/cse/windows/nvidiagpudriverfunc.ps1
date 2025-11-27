@@ -7,14 +7,14 @@ function Start-InstallGPUDriver {
         [string]$GpuDriverURL
     )
     Logs-To-Event -TaskName "AKS.WindowsCSE.InstallGPUDriver" -TaskMessage "Start to install GPU driver. ConfigGPUDriverIfNeeded: $global:ConfigGPUDriverIfNeeded, GpuDriverURL: $global:GpuDriverURL"
-  
+
     if (-not $EnableInstall) {
         Write-Log "ConfigGPUDriverIfNeeded is false. GPU driver installation skipped as per configuration."
         return
     }
-  
+
     Write-Log "ConfigGPUDriverIfNeeded is true. GPU driver installation started as per configuration."
-  
+
     if ([string]::IsNullOrEmpty($GpuDriverURL)) {
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_URL_NOT_SET -ErrorMessage "DriverURL is not properly specified."
     }
@@ -32,16 +32,16 @@ function Start-InstallGPUDriver {
     Write-Log "Downloading from $GpuDriverURL to $Target"
     DownloadFileOverHttp -Url $GpuDriverURL -DestinationPath $Target -ExitCode $global:WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_DOWNLOAD_FAILURE
     Write-Log "Installer download complete"
-    
-    VerifySignature $Target 
+
+    VerifySignature $Target
 
     Write-Log "Installing $Target ..."
     try {
         $InstallLogFolder = "$LogFolder\NvidiaInstallLog"
         $Arguments = "-s -n -log:$InstallLogFolder -loglevel:6"
-    
+
         $p = Start-Process -FilePath $Target -ArgumentList $Arguments -PassThru
-        
+
         $Timeout = 10 * 60 # in seconds. 10 minutes for timeout of the installation
 
         # This is for testability. Start-Process mock returns a hashtable.
@@ -91,7 +91,7 @@ function Handle-InstallationResult {
 
     Remove-InstallerFile -InstallerPath $Target
 }
-  
+
 function Get-VmData {
     [OutputType([hashtable])]
 
@@ -102,7 +102,7 @@ function Get-VmData {
     }
 
     try {
-        $Compute = Retry-Command -Command Invoke-RestMethod -Args $arguments -Retries 5 -RetryDelaySeconds 10
+        $Compute = Retry-Command -Command Invoke-RestMethod -Args $arguments -Retries 5 -RetryDelaySeconds 0.5
     }
     catch {
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GPU_SKU_INFO_NOT_FOUND -ErrorMessage "Failed to query the SKU information."
@@ -133,9 +133,9 @@ function Remove-InstallerFile {
         [Parameter(Mandatory = $true)]
         [string]$InstallerPath
     )
-  
+
     Write-Log "Attempting to remove installer file at $InstallerPath..."
-  
+
     try {
         Remove-Item -Path $InstallerPath -Force
         Write-Log "Installer file removed successfully."

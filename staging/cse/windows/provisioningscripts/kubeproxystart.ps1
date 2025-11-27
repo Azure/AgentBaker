@@ -58,7 +58,7 @@ if ($global:IsSkipCleanupNetwork) {
     $hnsNetwork = Get-HnsNetwork | ? Name -EQ $KubeNetwork
     while (!$hnsNetwork) {
         Write-Host "$(Get-Date -Format o) Waiting for Network [$KubeNetwork] to be created . . ."
-        Start-Sleep 10
+        Start-Sleep 0.5
         $hnsNetwork = Get-HnsNetwork | ? Name -EQ $KubeNetwork
     }
 }

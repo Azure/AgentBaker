@@ -56,13 +56,13 @@ if ($hnsNetwork) {
             } catch {
                 Write-Log "Failed to get port pools. Error: $_"
             }
-            Start-Sleep 10
+            Start-Sleep 0.5
         }
     } else {
         # Legacy codes
         Write-Log "Original code. Remove HNS Network and sleep 10s."
         Remove-HnsNetwork $hnsNetwork
-        Start-Sleep 10
+        Start-Sleep 0.5
     }
 
     Write-Log "Cleaning up old HNS network completed"

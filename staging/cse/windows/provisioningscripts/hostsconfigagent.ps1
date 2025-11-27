@@ -1,7 +1,7 @@
 $Global:ClusterConfiguration = ConvertFrom-Json ((Get-Content "c:\k\kubeclusterconfig.json" -ErrorAction Stop) | out-string)
 $clusterFQDN = $Global:ClusterConfiguration.Kubernetes.ControlPlane.IpAddress
 $hostsFile="C:\Windows\System32\drivers\etc\hosts"
-$retryDelaySeconds = 15
+$retryDelaySeconds = 0.5
 
 filter Timestamp { "$(Get-Date -Format o): $_" }
 
@@ -18,7 +18,7 @@ function Retry-Command {
         $Args,
         [Parameter(Mandatory = $true)][ValidateNotNullOrEmpty()][int]
         $Retries,
-        [Parameter(Mandatory = $true)][ValidateNotNullOrEmpty()][int]
+        [Parameter(Mandatory = $true)][ValidateNotNullOrEmpty()][double]
         $RetryDelaySeconds
     )
 
@@ -35,7 +35,7 @@ function Retry-Command {
 function Get-APIServer-IPAddress
 {
     $uri = "http://169.254.169.254/metadata/instance/compute/tags?api-version=2019-03-11&format=text"
-    $response = Retry-Command -Command "Invoke-RestMethod" -Args @{Uri=$uri; Method="Get"; ContentType="application/json"; Headers=@{"Metadata"="true"}} -Retries 3 -RetryDelaySeconds 5
+    $response = Retry-Command -Command "Invoke-RestMethod" -Args @{Uri=$uri; Method="Get"; ContentType="application/json"; Headers=@{"Metadata"="true"}} -Retries 3 -RetryDelaySeconds 0.5
 
     if(!$response) {
         return ""

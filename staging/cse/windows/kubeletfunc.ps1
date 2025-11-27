@@ -205,7 +205,7 @@ function Get-KubePackage {
             Write-Log $Error[0].Exception.Message
         }
     }
-    AKS-Expand-Archive -Path $zipfile -DestinationPath C:\ 
+    AKS-Expand-Archive -Path $zipfile -DestinationPath C:\
     Remove-Item $zipfile
 }
 
@@ -248,7 +248,7 @@ function Get-TagValue {
 
     $uri = "http://169.254.169.254/metadata/instance?api-version=2021-02-01"
     try {
-        $response = Retry-Command -Command "Invoke-RestMethod" -Args @{Uri=$uri; Method="Get"; ContentType="application/json"; Headers=@{"Metadata"="true"}} -Retries 3 -RetryDelaySeconds 5
+        $response = Retry-Command -Command "Invoke-RestMethod" -Args @{Uri=$uri; Method="Get"; ContentType="application/json"; Headers=@{"Metadata"="true"}} -Retries 3 -RetryDelaySeconds 0.5
     } catch {
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_LOOKUP_INSTANCE_DATA_TAG -ErrorMessage "Unable to lookup VM tag `"$TagName`" from IMDS instance data"
     }

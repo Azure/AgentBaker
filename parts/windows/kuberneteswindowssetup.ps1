@@ -543,7 +543,7 @@ function NodePrep {
             }
 
             Write-Log -Message "Waiting on NodeResetScriptTask..."
-            Start-Sleep -Seconds 3
+            Start-Sleep -Seconds 0.5
         }
         $timer.Stop()
         Write-Log -Message "We waited [$($timer.Elapsed.TotalSeconds)] seconds on NodeResetScriptTask"

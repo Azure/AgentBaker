@@ -245,7 +245,7 @@ function DownloadFileOverHttp {
         $downloadTimer = [System.Diagnostics.Stopwatch]::StartNew()
         try {
             $args = @{Uri=$MappedUrl; Method="Get"; OutFile=$DestinationPath; ErrorAction="Stop"}
-            Retry-Command -Command "Invoke-RestMethod" -Args $args -Retries 5 -RetryDelaySeconds 10
+            Retry-Command -Command "Invoke-RestMethod" -Args $args -Retries 5 -RetryDelaySeconds 0.5
         } catch {
             Set-ExitCode -ExitCode $ExitCode -ErrorMessage "Failed in downloading $MappedUrl. Error: $_"
         }
@@ -343,7 +343,7 @@ function Retry-Command {
         $Args,
         [Parameter(Mandatory = $true)][ValidateNotNullOrEmpty()][int]
         $Retries,
-        [Parameter(Mandatory = $true)][ValidateNotNullOrEmpty()][int]
+        [Parameter(Mandatory = $true)][ValidateNotNullOrEmpty()][double]
         $RetryDelaySeconds
     )
 
@@ -375,8 +375,8 @@ function Invoke-Executable {
         $AllowedExitCodes = @(0),
         [int]
         $Retries = 0,
-        [int]
-        $RetryDelaySeconds = 1
+        [double]
+        $RetryDelaySeconds = 0.5
     )
 
     for ($i = 0; $i -le $Retries; $i++) {
@@ -558,8 +558,8 @@ function Resolve-PackagesDownloadFqdn {
         $FallbackFqdn,
         [Parameter(Mandatory = $false)][int]
         $Retries = 5,
-        [Parameter(Mandatory = $false)][int]
-        $WaitSleepSeconds = 1
+        [Parameter(Mandatory = $false)][double]
+        $WaitSleepSeconds = 0.5
     )
 
     $packageDownloadBaseUrl = $PreferredFqdn
