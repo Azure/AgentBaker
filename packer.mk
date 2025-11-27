@@ -83,12 +83,6 @@ build-imagecustomizer: generate-prefetch-scripts build-aks-node-controller build
 	@./vhdbuilder/packer/imagecustomizer/scripts/build-imagecustomizer-image.sh
 
 az-login:
-ifeq (${MODE},windowsVhdMode)
-	@echo "Logging in with Hosted Pool's Default Managed Identity"
-else
-	@echo "Logging into Azure with identity: ${AZURE_MSI_RESOURCE_STRING}..."
-	@az login --identity --resource-id ${AZURE_MSI_RESOURCE_STRING}
-endif
 	@echo "Using the subscription ${SUBSCRIPTION_ID}"
 	@az account set -s ${SUBSCRIPTION_ID}
 
