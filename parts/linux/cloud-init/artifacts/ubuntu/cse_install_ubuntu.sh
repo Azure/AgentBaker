@@ -73,7 +73,7 @@ updatePMCRepository() {
     apt_get_update_with_opts "${opts}" || exit $ERR_APT_UPDATE_TIMEOUT
 
     # if the package version contains a tilde (~), indicating pre-release version, updating test repo
-    if [ -f /etc/apt/sources.list.d/microsoft-prod-testing.list ] && [[ $packageVersion == *"~"* ]]; then
+    if [ -f /etc/apt/sources.list.d/microsoft-prod-testing.list ] && echo "$packageVersion" | grep -q '~'; then
         local testing_opts="-o Dir::Etc::sourcelist=/etc/apt/sources.list.d/microsoft-prod-testing.list -o Dir::Etc::sourceparts=-"
         apt_get_update_with_opts "${testing_opts}" || exit $ERR_APT_UPDATE_TIMEOUT
     fi
@@ -213,8 +213,8 @@ installCredentialProviderFromPMC() {
 
 installKubeletKubectlPkgFromPMC() {
     k8sVersion="${1}"
-    installPkgWithAptGet "kubelet" "1.35.0~beta.0" || exit $ERR_KUBELET_INSTALL_FAIL
-    installPkgWithAptGet "kubectl" "1.35.0~beta.0" || exit $ERR_KUBECTL_INSTALL_FAIL
+    installPkgWithAptGet "kubelet" "$k8sVersion" || exit $ERR_KUBELET_INSTALL_FAIL
+    installPkgWithAptGet "kubectl" "$k8sVersion" || exit $ERR_KUBECTL_INSTALL_FAIL
 }
 
 installToolFromLocalRepo() {
