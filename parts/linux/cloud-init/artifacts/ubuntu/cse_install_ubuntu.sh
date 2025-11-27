@@ -68,8 +68,15 @@ updateAptWithMicrosoftPkg() {
 }
 
 updatePMCRepository() {
+    packageVersion="${1:-}"
     local opts="-o Dir::Etc::sourcelist=/etc/apt/sources.list.d/microsoft-prod.list -o Dir::Etc::sourceparts=-"
     apt_get_update_with_opts "${opts}" || exit $ERR_APT_UPDATE_TIMEOUT
+
+    # if the package version contains a tilde (~), indicating pre-release version, updating test repo
+    if [ -f /etc/apt/sources.list.d/microsoft-prod-testing.list ] && [[ $packageVersion == *"~"* ]]; then
+        local testing_opts="-o Dir::Etc::sourcelist=/etc/apt/sources.list.d/microsoft-prod-testing.list -o Dir::Etc::sourceparts=-"
+        apt_get_update_with_opts "${testing_opts}" || exit $ERR_APT_UPDATE_TIMEOUT
+    fi
 }
 
 updateAptWithNvidiaPkg() {
@@ -206,8 +213,8 @@ installCredentialProviderFromPMC() {
 
 installKubeletKubectlPkgFromPMC() {
     k8sVersion="${1}"
-    installPkgWithAptGet "kubelet" "${k8sVersion}" || exit $ERR_KUBELET_INSTALL_FAIL
-    installPkgWithAptGet "kubectl" "${k8sVersion}" || exit $ERR_KUBECTL_INSTALL_FAIL
+    installPkgWithAptGet "kubelet" "1.35.0~beta.0" || exit $ERR_KUBELET_INSTALL_FAIL
+    installPkgWithAptGet "kubectl" "1.35.0~beta.0" || exit $ERR_KUBECTL_INSTALL_FAIL
 }
 
 installToolFromLocalRepo() {
@@ -288,7 +295,7 @@ installPkgWithAptGet() {
         fi
 
         # update pmc repo to get latest package versions
-        updatePMCRepository
+        updatePMCRepository $packageVersion
         # query all package versions and get the latest version for matching k8s version
         fullPackageVersion=$(apt list ${packageName} --all-versions | grep ${packageVersion}- | awk '{print $2}' | sort -V | tail -n 1)
         if [ -z "${fullPackageVersion}" ]; then
