@@ -1158,8 +1158,6 @@ configureManagedGPUExperience() {
         logs_to_events "AKS.CSE.stop.nvidia-device-plugin" "systemctlDisableAndStop nvidia-device-plugin"
         logs_to_events "AKS.CSE.stop.nvidia-dcgm" "systemctlDisableAndStop nvidia-dcgm"
         logs_to_events "AKS.CSE.stop.nvidia-dcgm-exporter" "systemctlDisableAndStop nvidia-dcgm-exporter"
-
-        addKubeletNodeLabel "kubernetes.azure.com/dcgm-exporter=disabled"
     fi
 }
 

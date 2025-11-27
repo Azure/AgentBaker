@@ -928,7 +928,6 @@ Describe 'cse_config.sh'
             The output should not include "installNvidiaManagedExpPkgFromCache called"
             The output should not include "startNvidiaManagedExpServices called"
             The output should not include "addKubeletNodeLabel kubernetes.azure.com/dcgm-exporter=enabled"
-            The output should not include "addKubeletNodeLabel kubernetes.azure.com/dcgm-exporter=disabled"
         End
 
         It 'should enable managed GPU experience when ENABLE_MANAGED_GPU_EXPERIENCE is true'
@@ -954,8 +953,7 @@ Describe 'cse_config.sh'
             The output should include "systemctlDisableAndStop nvidia-device-plugin"
             The output should include "systemctlDisableAndStop nvidia-dcgm"
             The output should include "systemctlDisableAndStop nvidia-dcgm-exporter"
-            The output should include "addKubeletNodeLabel kubernetes.azure.com/dcgm-exporter=disabled"
-            The variable KUBELET_NODE_LABELS should equal 'kubernetes.azure.com/dcgm-exporter=disabled'
+            The output should not include "addKubeletNodeLabel kubernetes.azure.com/dcgm-exporter=enabled"
         End
     End
 End
