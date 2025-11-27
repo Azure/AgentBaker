@@ -546,6 +546,7 @@ func (a *AzureClient) waitForVersionOperationCompletion(ctx context.Context, ima
 	}
 
 	// Use the standard wait.PollUntilContextTimeout helper used throughout the codebase
+	var lastLoggedState armcompute.GalleryProvisioningState
 	err = wait.PollUntilContextTimeout(ctx, 5*time.Second, 10*time.Minute, true, func(ctx context.Context) (bool, error) {
 		// Get the latest version state using the existing client
 		resp, err := imgVersionClient.Get(ctx, image.Gallery.ResourceGroupName, image.Gallery.Name, image.Name, *version.Name, nil)
@@ -555,7 +556,11 @@ func (a *AzureClient) waitForVersionOperationCompletion(ctx context.Context, ima
 		}
 
 		currentState := *resp.Properties.ProvisioningState
-		logf(ctx, "Image version %s current state: %s", *version.ID, currentState)
+		// Only log if state has changed
+		if currentState != lastLoggedState {
+			logf(ctx, "Image version %s current state: %s", *version.ID, currentState)
+			lastLoggedState = currentState
+		}
 
 		// Check if operation completed
 		if currentState != armcompute.GalleryProvisioningStateUpdating {
