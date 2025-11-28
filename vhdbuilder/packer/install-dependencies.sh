@@ -593,7 +593,7 @@ BCC_PID=$!
 if [ -n "$NVIDIA_GRID_DRIVER_VERSION" ] && [ "$OS" = "$UBUNTU_OS_NAME" ]; then
   cat << EOF >> ${VHD_LOGS_FILEPATH}
 Components installed at node provisioning time (CSE) for supported GPU VM sizes (example A10 family):
-  - nvidia-grid-driver=${NVIDIA_GRID_DRIVER_VERSION} (for A10-family NV-series VMs only)
+  - nvidia-grid-driver=${NVIDIA_GRID_DRIVER_VERSION}
 EOF
 fi
 
