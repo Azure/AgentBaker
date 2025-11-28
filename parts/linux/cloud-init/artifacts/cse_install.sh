@@ -338,7 +338,7 @@ installCrictl() {
 downloadTeleportdPlugin() {
     DOWNLOAD_URL=$1
     TELEPORTD_VERSION=$2
-    if [ "$(isARM64)" -eq 1 ]; then
+    if isARM64; then
         return
     fi
 
@@ -355,7 +355,7 @@ downloadTeleportdPlugin() {
 }
 
 installTeleportdPlugin() {
-    if [ "$(isARM64)" -eq 1 ]; then
+    if isARM64; then
         return
     fi
 
@@ -424,7 +424,7 @@ installCNI() {
     packageVersion=${PACKAGE_VERSIONS[0]}
 
     # Is there a ${arch} variable I can use instead of the iff
-    if [ "$(isARM64)" -eq 1 ]; then
+    if isARM64; then
         CNI_DIR_TMP="cni-plugins-linux-arm64-v${packageVersion}"
     else
         CNI_DIR_TMP="cni-plugins-linux-amd64-v${packageVersion}"
