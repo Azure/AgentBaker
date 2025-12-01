@@ -516,9 +516,20 @@ function New-ExternalHnsNetwork {
     )
     Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Start to create new external hns network"
 
+    $timer = [Diagnostics.Stopwatch]::StartNew()
     $ipv4Address = Get-Node-Ipv4-Address
+    $timer.Stop()
+    Write-Log "Get-Node-Ipv4-Address (first call) took $($timer.Elapsed.TotalSeconds) seconds"
+
+    $timer = [Diagnostics.Stopwatch]::StartNew()
     $nodeIps = Get-AKS-NodeIPs
+    $timer.Stop()
+    Write-Log "Get-AKS-NodeIPs took $($timer.Elapsed.TotalSeconds) seconds"
+
+    $timer = [Diagnostics.Stopwatch]::StartNew()
     $na = Get-AKS-NetworkAdaptor
+    $timer.Stop()
+    Write-Log "Get-AKS-NetworkAdaptor took $($timer.Elapsed.TotalSeconds) seconds"
 
     $adapterName = $na.Name
     $externalNetwork = "ext"
@@ -530,14 +541,19 @@ function New-ExternalHnsNetwork {
     $stopWatch.Start()
 
     # Fixme : use a smallest range possible, that will not collide with any pod space
+    $timer = [Diagnostics.Stopwatch]::StartNew()
     if ($IsDualStackEnabled) {
         New-HNSNetwork -Type $global:NetworkMode -AddressPrefix @("192.168.255.0/30", "192:168:255::0/127") -Gateway @("192.168.255.1", "192:168:255::1") -AdapterName $adapterName -Name $externalNetwork -Verbose
     }
     else {
         New-HNSNetwork -Type $global:NetworkMode -AddressPrefix "192.168.255.0/30" -Gateway "192.168.255.1" -AdapterName $adapterName -Name $externalNetwork -Verbose
     }
+    $timer.Stop()
+    Write-Log "New-HNSNetwork took $($timer.Elapsed.TotalSeconds) seconds"
+
     # Wait 2 minutes for the switch to be created and the ip address to be assigned.
     $RecheckTimeoutMilliseconds = 500
+    $timer = [Diagnostics.Stopwatch]::StartNew()
     for ($i = 0; $i -lt 120; $i++) {
         $mgmtIPAfterNetworkCreate = Get-NetIPAddress $ipv4Address -ErrorAction SilentlyContinue
         if ($mgmtIPAfterNetworkCreate) {
@@ -545,6 +561,8 @@ function New-ExternalHnsNetwork {
         }
         Start-Sleep -Milliseconds $RecheckTimeoutMilliseconds
     }
+    $timer.Stop()
+    Write-Log "IP address verification loop took $($timer.Elapsed.TotalSeconds) seconds ($i iterations)"
 
     $stopWatch.Stop()
     if (-not $mgmtIPAfterNetworkCreate) {
@@ -682,12 +700,18 @@ function Invoke-WithRetry {
 }
 
 function Get-AKS-NetworkAdaptor {
+    $timer = [Diagnostics.Stopwatch]::StartNew()
     $ipv4Address = Get-Node-Ipv4-Address
+    $timer.Stop()
+    Write-Log "Get-Node-Ipv4-Address (second call) took $($timer.Elapsed.TotalSeconds) seconds"
     Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Found IPv4 address from metadata: $ipv4Address"
 
     # we need the default gateway interface to create the external network
     try {
+        $timer = [Diagnostics.Stopwatch]::StartNew()
         $netIP = Invoke-WithRetry -Command { Get-NetIPAddress -AddressFamily IPv4 -ErrorAction Stop -IpAddress $ipv4Address } -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -MaxRetries 5 -DelaySeconds 60
+        $timer.Stop()
+        Write-Log "Get-NetIPAddress took $($timer.Elapsed.TotalSeconds) seconds"
     }
     catch {
         Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Failed to find IP address info for ip address ${ipv4Address}: $($_.Exception.Message). Reverting to old way to configure network"
@@ -695,7 +719,10 @@ function Get-AKS-NetworkAdaptor {
     }
 
     try {
+        $timer = [Diagnostics.Stopwatch]::StartNew()
         $na = Invoke-WithRetry -Command { Get-NetAdapter -IncludeHidden -ifindex $netIP.ifIndex -ErrorAction stop } -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -MaxRetries 5 -DelaySeconds 60
+        $timer.Stop()
+        Write-Log "Get-NetAdapter took $($timer.Elapsed.TotalSeconds) seconds"
         if (!$na) {
             Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Failed to find network adapter info for ip address index $($netIP.ifIndex) and ip address $ipv4Address. Reverting to old way to configure network"
             return Get-NetworkAdaptor-Fallback
