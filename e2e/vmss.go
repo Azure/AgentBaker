@@ -603,10 +603,10 @@ hnsdiag list endpoints >> network_config.txt
 // extractLogsFromVMWindows runs a script on windows VM to collect logs and upload them to a blob storage
 // it then lists the blobs in the container and prints the content of each blob
 func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
-	//if !s.T.Failed() {
-	//	s.T.Logf("skipping logs extraction from windows VM, as the test didn't fail")
-	//	return
-	//}
+	if !s.T.Failed() {
+		s.T.Logf("skipping logs extraction from windows VM, as the test didn't fail")
+		return
+	}
 
 	ctx, cancel := context.WithTimeout(ctx, 4*time.Minute)
 	defer cancel()
