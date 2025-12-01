@@ -1856,7 +1856,7 @@ func Test_Ubuntu2404Gen2_McrChinaCloud_Scriptless(t *testing.T) {
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2404Gen2Containerd,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				if vmss.Tags == nil {
