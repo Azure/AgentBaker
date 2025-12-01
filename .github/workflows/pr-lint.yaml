@@ -3,11 +3,11 @@ name: Lint Pull Request Title
 on:
   pull_request:
     branches:
-      - master
-      - dev
+      - main
     types:
       - opened
       - edited
+      - synchronize
 
 jobs:
   lint-pr-title:

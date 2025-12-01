@@ -57,6 +57,7 @@
       },
       "location": "{{user `location`}}",
       "vm_size": "{{user `vm_size`}}",
+      "use_azure_cli_auth": "true",
       "polling_duration_timeout": "1h",
       "managed_image_storage_account_type": "Premium_LRS",
       "secure_boot_enabled": true,

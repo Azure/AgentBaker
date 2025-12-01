@@ -390,15 +390,15 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=azuremonitor/containerinsights/ciprod/prometheus-collector/images",
-          "latestVersion": "6.24.0-main-10-20-2025-fe8f6d51"
+          "latestVersion": "6.24.1-main-11-14-2025-15146744"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=azuremonitor/containerinsights/ciprod/prometheus-collector/images",
-          "latestVersion": "6.24.0-main-10-20-2025-fe8f6d51-targetallocator"
+          "latestVersion": "6.24.1-main-11-14-2025-15146744-targetallocator"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=azuremonitor/containerinsights/ciprod/prometheus-collector/images",
-          "latestVersion": "6.24.0-main-10-20-2025-fe8f6d51-cfg"
+          "latestVersion": "6.24.1-main-11-14-2025-15146744-cfg"
         }
       ],
       "windowsVersions": []
@@ -1573,7 +1573,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=nvidia-device-plugin, repository=production, os=ubuntu, release=24.04",
-                "latestVersion": "0.18.0-ubuntu24.04u2"
+                "latestVersion": "0.18.0-ubuntu24.04u3"
               }
             ]
           },
@@ -1581,7 +1581,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=nvidia-device-plugin, repository=production, os=ubuntu, release=22.04",
-                "latestVersion": "0.18.0-ubuntu22.04u2"
+                "latestVersion": "0.18.0-ubuntu22.04u3"
               }
             ]
           }
@@ -1591,7 +1591,7 @@
             "versionsV2": [
               {
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=nvidia-device-plugin, os=azurelinux, release=3.0",
-                "latestVersion": "0.18.0-2.azl3"
+                "latestVersion": "0.18.0-3.azl3"
               }
             ]
           }
