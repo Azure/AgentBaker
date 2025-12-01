@@ -239,6 +239,10 @@ func (s *Scenario) updateTags(ctx context.Context, vmss *armcompute.VirtualMachi
 		}
 	}
 	vmss.Tags["owner"] = to.Ptr(owner)
+
+	if config.Config.VMSSTipSessionId != "" {
+		vmss.Tags["TipNode.SessionId"] = to.Ptr(config.Config.VMSSTipSessionId)
+	}
 }
 
 func getLoggedInAzUser() (string, error) {

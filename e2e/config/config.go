@@ -70,6 +70,7 @@ type Configuration struct {
 	TestTimeoutCluster                     time.Duration `env:"TEST_TIMEOUT_CLUSTER" envDefault:"20m"`
 	TestTimeoutVMSS                        time.Duration `env:"TEST_TIMEOUT_VMSS" envDefault:"17m"`
 	WindowsAdminPassword                   string        `env:"WINDOWS_ADMIN_PASSWORD"`
+	VMSSTipSessionId                       string        `env:"VMSS_TIP_SESSION_ID"`
 }
 
 func (c *Configuration) BlobStorageAccount() string {
