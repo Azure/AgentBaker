@@ -454,8 +454,12 @@ function BasePrep {
 # ====== NODE PREP: CLUSTER INTEGRATION ======
 # All operations that should only run when connecting to the actual cluster
 function NodePrep {
+    Install-KubernetesServices -KubeDir $global:KubeDir
+
     Write-Log "Starting NodePrep - Cluster integration"
     Logs-To-Event -TaskName "AKS.WindowsCSE.NodePrep" -TaskMessage "Starting NodePrep - Cluster integration"
+
+    Check-APIServerConnectivity -MasterIP $MasterIP
 
     Write-Log "Configuring networking with NetworkPlugin:$global:NetworkPlugin"
 
@@ -503,9 +507,6 @@ function NodePrep {
     } else {
         Write-Log "Enable-WindowsCiliumNetworking is not a recognized function, will skip Windows Cilium Networking installation"
     }
-
-    Install-KubernetesServices -KubeDir $global:KubeDir
-    Check-APIServerConnectivity -MasterIP $MasterIP
 
     if ($global:WindowsCalicoPackageURL) {
         Start-InstallCalico -RootDir "c:\" -KubeServiceCIDR $global:KubeServiceCIDR -KubeDnsServiceIp $KubeDnsServiceIp
