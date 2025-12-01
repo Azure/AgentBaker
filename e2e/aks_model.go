@@ -219,6 +219,21 @@ func getFirewall(ctx context.Context, location, firewallSubnetID, publicIPID str
 		TargetFqdns: []*string{to.Ptr(blobStorageFqdn)},
 	}
 
+	// needed for Mock Azure China Cloud tests
+	mooncakeMAR := "mcr.azure.cn"
+	mooncakeMARData := "*.data.mcr.azure.cn"
+	mooncakeMARRule := armnetwork.AzureFirewallApplicationRule{
+		Name:            to.Ptr("mooncake-mar-fqdn"),
+		SourceAddresses: []*string{to.Ptr("*")},
+		Protocols: []*armnetwork.AzureFirewallApplicationRuleProtocol{
+			{
+				ProtocolType: to.Ptr(armnetwork.AzureFirewallApplicationRuleProtocolTypeHTTPS),
+				Port:         to.Ptr[int32](443),
+			},
+		},
+		TargetFqdns: []*string{to.Ptr(mooncakeMAR), to.Ptr(mooncakeMARData)},
+	}
+
 	appRuleCollection := armnetwork.AzureFirewallApplicationRuleCollection{
 		Name: to.Ptr("aksfwar"),
 		Properties: &armnetwork.AzureFirewallApplicationRuleCollectionPropertiesFormat{
@@ -226,7 +241,7 @@ func getFirewall(ctx context.Context, location, firewallSubnetID, publicIPID str
 			Action: &armnetwork.AzureFirewallRCAction{
 				Type: to.Ptr(armnetwork.AzureFirewallRCActionTypeAllow),
 			},
-			Rules: []*armnetwork.AzureFirewallApplicationRule{&aksAppRule, &blobStorageAppRule},
+			Rules: []*armnetwork.AzureFirewallApplicationRule{&aksAppRule, &blobStorageAppRule, &mooncakeMARRule},
 		},
 	}
 

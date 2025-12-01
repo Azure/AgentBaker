@@ -33,6 +33,7 @@ type Tags struct {
 	KubeletCustomConfig    bool
 	Scriptless             bool
 	VHDCaching             bool
+	MockAzureChinaCloud    bool
 }
 
 // MatchesFilters checks if the Tags struct matches all given filters.
