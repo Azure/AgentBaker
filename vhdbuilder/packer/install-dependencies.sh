@@ -804,11 +804,6 @@ capture_benchmark "${SCRIPT_NAME}_finish_installing_bcc_tools"
 
 # Configure LSM modules to include BPF
 configureLsmWithBpf() {
-  if isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
-    echo "Warning: Azure Linux OS Guard built with signed UKI, not enabling BPF LSM"
-    return 0
-  fi
-
   echo "Configuring LSM modules to include BPF..."
 
   # Read current LSM modules
@@ -823,6 +818,16 @@ configureLsmWithBpf() {
 
   # Prepend bpf to the LSM list if not already present
   if ! echo "$current_lsm" | grep -q bpf; then
+    if [ "$IS_KATA" = "true" ] || echo "$FEATURE_FLAGS" | grep -q "cvm"; then
+      echo "Warning: this is a Kata/CVM SKU - will not add BPF to LSM configuration"
+      return 0
+    fi
+
+    if isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
+      echo "Warning: Azure Linux OS Guard built with signed UKI, not enabling BPF LSM"
+      return 0
+    fi
+
     local new_lsm="bpf,$current_lsm"
     echo "New LSM configuration: $new_lsm"
 
