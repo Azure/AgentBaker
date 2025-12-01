@@ -1846,6 +1846,31 @@ func Test_Ubuntu2404Gen2(t *testing.T) {
 	})
 }
 
+func Test_Ubuntu2404Gen2_McrChinaCloud_Scriptless(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Tags: Tags{
+			MockAzureChinaCloud: true,
+			Scriptless:          true,
+		},
+		Description: "Tests that a node using the Ubuntu 2404 VHD can be properly bootstrapped with containerd v2",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2404Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				if vmss.Tags == nil {
+					vmss.Tags = map[string]*string{}
+				}
+				vmss.Tags["E2EMockAzureChinaCloud"] = to.Ptr("true")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateDirectoryContent(ctx, s, "/etc/containerd/certs.d/mcr.azk8s.cn", []string{"hosts.toml"})
+			},
+		},
+	})
+}
+
 func Test_Ubuntu2404Gen2_McrChinaCloud(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Tags: Tags{
@@ -1870,6 +1895,7 @@ func Test_Ubuntu2404Gen2_McrChinaCloud(t *testing.T) {
 				ValidateRuncVersion(ctx, s, runcVersions)
 				ValidateContainerRuntimePlugins(ctx, s)
 				ValidateSSHServiceEnabled(ctx, s)
+				ValidateDirectoryContent(ctx, s, "/etc/containerd/certs.d/mcr.azk8s.cn", []string{"hosts.toml"})
 			},
 		},
 	})
