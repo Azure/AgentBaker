@@ -271,6 +271,8 @@ if (-not (Test-Path "C:\AzureData\windows\azurecnifunc.ps1")) {
     Write-Log "CSE scripts already exist, skipping download"
 }
 
+Mark "Start"
+
 # Dot-source cse scripts with functions that are called in this script
 . c:\AzureData\windows\azurecnifunc.ps1
 . c:\AzureData\windows\calicofunc.ps1
@@ -287,6 +289,8 @@ if (Test-Path -Path 'c:\AzureData\windows\windowsciliumnetworkingfunc.ps1') {
     Write-Log "Windows Cilium Networking function script not found, skipping dot-source"
 }
 
+Mark "Functions Sourced"
+
 # ====== BASE PREP: BASE IMAGE PREPARATION ======
 # All operations that prepare the base VHD image
 function BasePrep {
@@ -301,15 +305,20 @@ function BasePrep {
     $sshEnabled = [System.Convert]::ToBoolean("{{ WindowsSSHEnabled }}")
     if ( $sshEnabled ) {
         Install-OpenSSH -SSHKeys $SSHKeys
+        Mark "Open SSH Installed"
     }
 
     Set-TelemetrySetting -WindowsTelemetryGUID $global:WindowsTelemetryGUID
+    Mark "Telemetry Set"
 
     Resize-OSDrive
+    Mark "OS Drive Resized"
 
     Initialize-DataDisks
+    Mark "Data Disks Initialized"
 
     Initialize-DataDirectories
+    Mark "Data Directories Initialized"
 
     Logs-To-Event -TaskName "AKS.WindowsCSE.GetProvisioningAndLogCollectionScripts" -TaskMessage "Start to get provisioning scripts and log collection scripts"
     Create-Directory -FullPath "c:\k"
@@ -320,25 +329,33 @@ function BasePrep {
     icacls.exe "c:\k" /grant:r BUILTIN\Users:`(OI`)`(CI`)`(RX`)
     Write-Log "c:\k permissions: "
     icacls.exe "c:\k"
+    Mark "icals"
     Get-ProvisioningScripts
+    Mark "Provisioning Scripts Retrieved"
     Get-LogCollectionScripts
+    Mark "Log Collection Scripts Retrieved"
 
     # NOTE: this function MUST be called before Write-KubeClusterConfig since it has the potential
     # to mutate both kubelet config args and kubelet node labels.
     Configure-KubeletServingCertificateRotation
+    Mark "Kubelet Serving Certificate Rotation Configured"
 
     Write-KubeClusterConfig -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp
+    Mark "Write-KubeClusterConfig"
 
     # to ensure we don't introduce any incompatibility between base CSE + CSE package versions
     if (Get-Command -Name Install-SecureTLSBootstrapClient -ErrorAction SilentlyContinue) {
         Install-SecureTLSBootstrapClient -KubeDir $global:KubeDir -CustomSecureTLSBootstrapClientDownloadUrl $global:CustomSecureTLSBootstrappingClientDownloadURL
+        Mark "Secure TLS Bootstrap Client Installed"
     } else {
         Write-Log "Install-SecureTLSBootstrapClient is not a recognized function, will skip installation of the secure TLS bootstrap client"
     }
 
     Install-CredentialProvider -KubeDir $global:KubeDir -CustomCloudContainerRegistryDNSSuffix {{if IsAKSCustomCloud}}"{{ AKSCustomCloudContainerRegistryDNSSuffix }}"{{else}}""{{end}}
+    Mark "Credential Provider Installed"
 
     Get-KubePackage -KubeBinariesSASURL $global:KubeBinariesPackageSASURL
+    Mark "Kube Package Retrieved"
 
     $cniBinPath = $global:AzureCNIBinDir
     $cniConfigPath = $global:AzureCNIConfDir
@@ -348,8 +365,10 @@ function BasePrep {
     }
 
     Install-Containerd-Based-On-Kubernetes-Version -ContainerdUrl $global:ContainerdUrl -CNIBinDir $cniBinPath -CNIConfDir $cniConfigPath -KubeDir $global:KubeDir -KubernetesVersion $global:KubeBinariesVersion
+    Mark "Containerd Installed"
 
     Retag-ImagesForAzureChinaCloud -TargetEnvironment $TargetEnvironment
+    Mark "Images Retagged for Azure China Cloud"
 
     # For AKSClustomCloud, TargetEnvironment must be set to AzureStackCloud
     Write-AzureConfig `
@@ -373,6 +392,7 @@ function BasePrep {
         -LoadBalancerSku $global:LoadBalancerSku `
         -ExcludeMasterFromStandardLB $global:ExcludeMasterFromStandardLB `
         -TargetEnvironment {{if IsAKSCustomCloud}}"AzureStackCloud"{{else}}$TargetEnvironment{{end}}
+    Mark "Azure Config Written"
 
     # we borrow the logic of AzureStackCloud to achieve AKSCustomCloud.
     # In case of AKSCustomCloud, customer cloud env will be loaded from azurestackcloud.json
@@ -386,9 +406,11 @@ function BasePrep {
 
     Write-CACert -CACertificate $global:CACertificate `
         -KubeDir $global:KubeDir
+    Mark "CA Certificate Written"
 
     if ($global:EnableCsiProxy) {
         New-CsiProxyService -CsiProxyPackageUrl $global:CsiProxyUrl -KubeDir $global:KubeDir
+        Mark "CSI Proxy Service Created"
     }
 
     if ($global:TLSBootstrapToken) {
@@ -397,6 +419,7 @@ function BasePrep {
             -MasterFQDNPrefix $MasterFQDNPrefix `
             -MasterIP $MasterIP `
             -TLSBootstrapToken $global:TLSBootstrapToken
+        Mark "Bootstrap KubeConfig Written"
     }
     if ($global:TLSBootstrapToken -or $global:EnableSecureTLSBootstrapping) {
         # NOTE: we need kubeconfig to setup calico even if vanilla/secure TLS bootstrapping is enabled
@@ -412,21 +435,31 @@ function BasePrep {
         -MasterIP $MasterIP `
         -AgentKey $AgentKey `
         -AgentCertificate $global:AgentCertificate
+    Mark "KubeConfig Written"
 
     if ($global:EnableHostsConfigAgent) {
         New-HostsConfigService
+        Mark "Hosts Config Service Created"
     }
 
     Set-Explorer
+    Mark "Explorer Settings Configured"
     Adjust-PageFileSize
+    Mark "Page File Size Adjusted"
     Logs-To-Event -TaskName "AKS.WindowsCSE.PreprovisionExtension" -TaskMessage "Start preProvisioning script"
     PREPROVISION_EXTENSION
+    Mark "Preprovision Extension Completed"
     Update-ServiceFailureActions
+    Mark "Service Failure Actions Updated"
     Adjust-DynamicPortRange
+    Mark "Dynamic Port Range Adjusted"
     Register-LogsCleanupScriptTask
+    Mark "Logs Cleanup Script Task Registered"
     Register-NodeResetScriptTask
+    Mark "Node Reset Script Task Registered"
 
     Update-DefenderPreferences
+    Mark "Defender Preferences Updated"
 
     $windowsVersion = Get-WindowsVersion
     if ($windowsVersion -ne "1809") {
@@ -436,6 +469,7 @@ function BasePrep {
         try {
             . C:\k\windowssecuretls.ps1
             Enable-SecureTls
+            Mark "Secure TLS Enabled"
         }
         catch {
             Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_ENABLE_SECURE_TLS -ErrorMessage $_
@@ -443,8 +477,10 @@ function BasePrep {
     }
 
     Enable-FIPSMode -FipsEnabled $fipsEnabled
+    Mark "FIPS Mode Configured"
     if ($global:WindowsGmsaPackageUrl) {
         Install-GmsaPlugin -GmsaPackageUrl $global:WindowsGmsaPackageUrl
+        Mark "GMSA Plugin Installed"
     }
 
     Write-Log "BasePrep completed successfully"
@@ -455,21 +491,26 @@ function BasePrep {
 # All operations that should only run when connecting to the actual cluster
 function NodePrep {
     Install-KubernetesServices -KubeDir $global:KubeDir
+    Mark "Kubernetes Services Installed"
 
     Write-Log "Starting NodePrep - Cluster integration"
     Logs-To-Event -TaskName "AKS.WindowsCSE.NodePrep" -TaskMessage "Starting NodePrep - Cluster integration"
 
     Check-APIServerConnectivity -MasterIP $MasterIP
+    Mark "API Server Connectivity Checked"
 
     Write-Log "Configuring networking with NetworkPlugin:$global:NetworkPlugin"
 
     # Configure network policy.
     Get-HnsPsm1 -HNSModule $global:HNSModule
+    Mark "HNS Module Retrieved"
     Import-Module $global:HNSModule
+    Mark "HNS Module Imported"
 
     Install-VnetPlugins -AzureCNIConfDir $global:AzureCNIConfDir `
         -AzureCNIBinDir $global:AzureCNIBinDir `
         -VNetCNIPluginsURL $global:VNetCNIPluginsURL
+    Mark "VNet Plugins Installed"
 
     Set-AzureCNIConfig -AzureCNIConfDir $global:AzureCNIConfDir `
         -KubeDnsSearchPath $global:KubeDnsSearchPath `
@@ -478,6 +519,7 @@ function NodePrep {
         -VNetCIDR $global:VNetCIDR `
         -IsDualStackEnabled $global:IsDualStackEnabled `
         -IsAzureCNIOverlayEnabled $global:IsAzureCNIOverlayEnabled
+    Mark "Azure CNI Configured"
 
     if ($TargetEnvironment -ieq "AzureStackCloud") {
         GenerateAzureStackCNIConfig `
@@ -490,17 +532,21 @@ function NodePrep {
             -NetworkAPIVersion $NetworkAPIVersion `
             -AzureEnvironmentFilePath $([io.path]::Combine($global:KubeDir, "azurestackcloud.json")) `
             -IdentitySystem "{{ GetIdentitySystem }}"
+        Mark "Azure Stack CNI Config Generated"
     }
 
     New-ExternalHnsNetwork -IsDualStackEnabled $global:IsDualStackEnabled
+    Mark "External HNS Network Created"
 
     # Turn off Firewall to enable pods to talk to service endpoints. (Kubelet should eventually do this)
     netsh advfirewall set allprofiles state off
+    Mark "Firewall Disabled"
 
     # To ensure we don't introduce any incompatibility between base CSE + CSE package versions
     if (Get-Command -Name Enable-WindowsCiliumNetworking -ErrorAction SilentlyContinue) {
         if ($global:EnableWindowsCiliumNetworking) {
             Enable-WindowsCiliumNetworking
+            Mark "Windows Cilium Networking Enabled"
         } else {
             Write-Log "Windows Cilium Networking is not enabled, will skip Windows Cilium Networking installation"
         }
@@ -510,29 +556,36 @@ function NodePrep {
 
     if ($global:WindowsCalicoPackageURL) {
         Start-InstallCalico -RootDir "c:\" -KubeServiceCIDR $global:KubeServiceCIDR -KubeDnsServiceIp $KubeDnsServiceIp
+        Mark "Calico Installed"
     }
     if ($global:TLSBootstrapToken -or $global:EnableSecureTLSBootstrapping) {
         Write-Log "Removing temporary kube config"
         $kubeConfigFile = [io.path]::Combine($KubeDir, "config")
         Remove-Item $kubeConfigFile
+        Mark "Temporary Kube Config Removed"
     }
 
     Start-InstallGPUDriver -EnableInstall $global:ConfigGPUDriverIfNeeded -GpuDriverURL $global:GpuDriverURL
+    Mark "GPU Driver Installation Attempted"
 
     if (Test-Path $CacheDir)
     {
         Write-Log "Removing aks cache directory"
         Remove-Item $CacheDir -Recurse -Force
+        Mark "Aks Cache Directory Removed"
     }
 
     Enable-GuestVMLogs -IntervalInMinutes $global:LogGeneratorIntervalInMinutes
+    Mark "Guest VM Logs Enabled"
 
     if ($global:RebootNeeded) {
         Logs-To-Event -TaskName "AKS.WindowsCSE.RestartComputer" -TaskMessage "Setup Complete, calling Postpone-RestartComputer with reboot"
         Postpone-RestartComputer
+        Mark "Reboot Postponed"
     } else {
         Logs-To-Event -TaskName "AKS.WindowsCSE.StartScheduledTask" -TaskMessage "Setup Complete, start NodeResetScriptTask to register Windows node without reboot"
         Start-ScheduledTask -TaskName "k8s-restart-job"
+        Mark "NodeResetScriptTask Started"
 
         $timeout = 180 ##  seconds
         $timer = [Diagnostics.Stopwatch]::StartNew()
@@ -547,6 +600,7 @@ function NodePrep {
         }
         $timer.Stop()
         Write-Log -Message "We waited [$($timer.Elapsed.TotalSeconds)] seconds on NodeResetScriptTask"
+        Mark "NodeResetScriptTask Completed"
     }
 
     Write-Log "NodePrep completed successfully"
