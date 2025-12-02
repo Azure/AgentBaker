@@ -52,3 +52,12 @@ vhdbuilder/packer/prefetch.sh
 
 # Ignore AI related configs
 .claude
+
+.pipelines/local/containerImages/
+.pipelines/local/hostImages/
+.pipelines/local/logs/
+.pipelines/local/ws2019/
+.pipelines/local/ws2022/
+.pipelines/local/ws2025/
+.pipelines/local/ws2025lt/
+.pipelines/local/*.txt

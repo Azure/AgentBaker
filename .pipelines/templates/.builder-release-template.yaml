@@ -21,7 +21,7 @@ steps:
       command: download
       vstsFeed: AzCoreLinux-Compliance
       vstsFeedPackage: cisassessor
-      vstsPackageVersion: '0.0.141'
+      vstsPackageVersion: '0.0.17'
       downloadDirectory: vhdbuilder/
 
   - task: DownloadPipelineArtifact@2
@@ -82,7 +82,7 @@ steps:
       if grep -q "cvm" <<< "$FEATURE_FLAGS"; then SKU_NAME="${SKU_NAME}CVM"; fi && \
       if [[ "${IMG_SKU}" == *"minimal"* ]]; then SKU_NAME="${SKU_NAME}minimal"; fi && \
       if [[ "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then SKU_NAME="${SKU_NAME}TL"; fi && \
-      if [[ ${OS_SKU} != "CBLMariner" && ${OS_SKU} != "AzureLinux" && ${OS_SKU} != "AzureLinuxOSGuard" && ${OS_SKU} != "Flatcar" && ${OS_SKU} != "AzureContainerLinux" ]]; then SKU_NAME="${SKU_NAME}containerd"; fi && \
+      if [[ ${OS_SKU} != "CBLMariner" && ${OS_SKU} != "AzureLinux" && ${OS_SKU} != "AzureLinuxOSGuard" && ${OS_SKU} != "Flatcar" ]]; then SKU_NAME="${SKU_NAME}containerd"; fi && \
       SKU_NAME=$(echo ${SKU_NAME} | tr -d '.') && \
       echo "##vso[task.setvariable variable=SKU_NAME]$SKU_NAME"
       echo "Set SKU_NAME to $SKU_NAME"
@@ -132,7 +132,6 @@ steps:
       SIG_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "sig_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
       BUILD_LOCATION="$(cat vhdbuilder/packer/settings.json | grep "location" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
       ARTIFACT_ID=$(date +%s) && \
-      echo "##vso[task.setvariable variable=DESTINATION_STORAGE_CONTAINER]${CLASSIC_BLOB}" && \
       echo "##vso[task.setvariable variable=ARTIFACT_ID]${ARTIFACT_ID}" && \
       echo "##vso[task.setvariable variable=PACKER_BUILD_LOCATION]${BUILD_LOCATION}" && \
       echo "##vso[task.setvariable variable=PACKER_VNET_RESOURCE_GROUP_NAME]${PACKER_VNET_RESOURCE_GROUP_NAME}" && \
@@ -320,14 +319,6 @@ steps:
       artifactName: 'bcc-tools-installation-log-$(ARTIFACT_ID)-${{ parameters.artifactName }}'
       targetPath: 'bcc-tools-installation.log'
 
-  - task: PublishPipelineArtifact@0
-    condition: ne(variables.BUILDER, 'imagecustomizer')
-    continueOnError: true
-    displayName: Publish Disk Usage Report
-    inputs:
-      artifactName: 'disk-usage-$(ARTIFACT_ID)-${{ parameters.artifactName }}'
-      targetPath: 'disk-usage.txt'
-
   - task: CopyFiles@2
     displayName: Copy Trivy Report
     inputs:
@@ -450,7 +441,7 @@ steps:
       scriptLocation: inlineScript
       inlineScript: |
         make -f packer.mk evaluate-grid-compatibility
-    condition: false # temporarily disabling since this causing build warnings in corp/tme due to internal issues
+    condition: always()
     continueOnError: true
     displayName: Check Grid Compatibility
 
