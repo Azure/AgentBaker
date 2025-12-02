@@ -656,7 +656,6 @@ get_imds_metadata_body() {
 
 should_skip_nvidia_drivers() {
     set -x
-
     if [ -z "${IMDS_BODY:-}" ]; then
         get_imds_metadata_body || return $?
     fi
@@ -697,11 +696,10 @@ should_enforce_kube_pmc_install() {
 
 e2e_mock_azure_china_cloud() {
     set -x
-    body=$(curl -fsSL -H "Metadata: true" --noproxy "*" "http://169.254.169.254/metadata/instance?api-version=2021-02-01")
-    ret=$?
-    if [ "$ret" -ne 0 ]; then
-      return $ret
+    if [ -z "${IMDS_BODY:-}" ]; then
+        get_imds_metadata_body || return $?
     fi
+    body="${IMDS_BODY}"
     should_enforce=$(echo "$body" | jq -r '.compute.tagsList[] | select(.name == "E2EMockAzureChinaCloud") | .value')
     echo "${should_enforce,,}"
 }
