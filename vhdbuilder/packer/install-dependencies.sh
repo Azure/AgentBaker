@@ -839,13 +839,8 @@ configureLsmWithBpf() {
         else
           sed -i "s/GRUB_CMDLINE_LINUX_DEFAULT=\"/GRUB_CMDLINE_LINUX_DEFAULT=\"lsm=$new_lsm /" "$grub_cfg"
         fi
-        if [ "$OS_VERSION" = "24.04" ]; then
-          echo "Updating GRUB configuration for Ubuntu 24.04..."
-          update-grub2 /boot/grub/grub.cfg || echo "Warning: Failed to update GRUB configuration"
-        elif [ "$OS_VERSION" = "22.04" ]; then
-          echo "Updating GRUB configuration for Ubuntu 22.04..."
-          grub-mkconfig -o /boot/grub/grub.cfg || echo "Warning: Failed to update GRUB configuration"
-        fi
+        echo "Updating GRUB configuration for Ubuntu..."
+        update-grub2 /boot/grub/grub.cfg || echo "Warning: Failed to update GRUB configuration"
       else
         echo "Warning: $grub_cfg not found, skipping LSM configuration"
       fi
