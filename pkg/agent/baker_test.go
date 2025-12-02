@@ -2426,3 +2426,270 @@ var _ = Describe("GetAKSGPUImageSHA", func() {
 		Expect(GetAKSGPUImageSHA("standard_nc6_v3")).To(Equal(datamodel.AKSGPUCudaVersionSuffix))
 	})
 })
+
+var _ = Describe("getLinuxNodeCSECommand", func() {
+	var (
+		templateGenerator *TemplateGenerator
+		baseConfig        *datamodel.NodeBootstrappingConfiguration
+	)
+
+	BeforeEach(func() {
+		templateGenerator = InitializeTemplateGenerator()
+		agentPoolProfile := &datamodel.AgentPoolProfile{
+			Name:   "nodepool1",
+			OSType: datamodel.Linux,
+			Distro: datamodel.AKSUbuntuContainerd2204Gen2,
+		}
+		baseConfig = &datamodel.NodeBootstrappingConfiguration{
+			ContainerService: &datamodel.ContainerService{
+				Location: "eastus",
+				Properties: &datamodel.Properties{
+					OrchestratorProfile: &datamodel.OrchestratorProfile{
+						OrchestratorVersion: "1.29.0",
+						KubernetesConfig: &datamodel.KubernetesConfig{
+							ContainerRuntimeConfig: map[string]string{},
+						},
+					},
+					HostedMasterProfile: &datamodel.HostedMasterProfile{
+						FQDN: "test-cluster.hcp.eastus.azmk8s.io",
+					},
+					AgentPoolProfiles: []*datamodel.AgentPoolProfile{agentPoolProfile},
+				},
+			},
+			AgentPoolProfile: agentPoolProfile,
+			CloudSpecConfig:  datamodel.AzurePublicCloudSpecForTest,
+			KubeletConfig:    map[string]string{},
+		}
+	})
+
+	It("should generate a valid single-line CSE command", func() {
+		cseCmd := templateGenerator.getLinuxNodeCSECommand(baseConfig)
+
+		Expect(cseCmd).NotTo(BeEmpty())
+		// Verify it's a single line (no newlines)
+		Expect(strings.Contains(cseCmd, "\n")).To(BeFalse())
+		// Verify it contains expected CSE components
+		Expect(cseCmd).To(ContainSubstring("bash"))
+	})
+
+	It("should handle configuration with custom kubelet config", func() {
+		baseConfig.KubeletConfig = map[string]string{
+			"--max-pods":                "110",
+			"--pod-max-pids":            "-1",
+			"--image-gc-high-threshold": "85",
+		}
+
+		cseCmd := templateGenerator.getLinuxNodeCSECommand(baseConfig)
+
+		Expect(cseCmd).NotTo(BeEmpty())
+		Expect(strings.Contains(cseCmd, "\n")).To(BeFalse())
+	})
+
+	It("should handle different distros", func() {
+		distros := []datamodel.Distro{
+			datamodel.AKSUbuntuContainerd2204Gen2,
+			datamodel.AKSCBLMarinerV2Gen2,
+			datamodel.AKSAzureLinuxV2Gen2,
+		}
+
+		for _, distro := range distros {
+			config, err := deepcopy.Anything(baseConfig)
+			Expect(err).To(BeNil())
+			typedConfig := config.(*datamodel.NodeBootstrappingConfiguration)
+			typedConfig.AgentPoolProfile.Distro = distro
+
+			cseCmd := templateGenerator.getLinuxNodeCSECommand(typedConfig)
+
+			Expect(cseCmd).NotTo(BeEmpty())
+			Expect(strings.Contains(cseCmd, "\n")).To(BeFalse())
+		}
+	})
+
+	It("should handle GPU configuration", func() {
+		baseConfig.EnableNvidia = true
+		baseConfig.ConfigGPUDriverIfNeeded = true
+		baseConfig.AgentPoolProfile.VMSize = "Standard_NC6s_v3"
+
+		cseCmd := templateGenerator.getLinuxNodeCSECommand(baseConfig)
+
+		Expect(cseCmd).NotTo(BeEmpty())
+		Expect(strings.Contains(cseCmd, "\n")).To(BeFalse())
+	})
+
+	It("should handle custom cloud environment", func() {
+		baseConfig.ContainerService.Properties.CustomCloudEnv = &datamodel.CustomCloudEnv{
+			Name:                    "akscustom",
+			ResourceManagerEndpoint: "https://management.azure.fakecustomcloud/",
+		}
+
+		cseCmd := templateGenerator.getLinuxNodeCSECommand(baseConfig)
+
+		Expect(cseCmd).NotTo(BeEmpty())
+		Expect(strings.Contains(cseCmd, "\n")).To(BeFalse())
+	})
+
+	It("should handle TLS bootstrapping configuration", func() {
+		baseConfig.KubeletClientTLSBootstrapToken = to.StringPtr("07401b.f395accd246ae52d")
+
+		cseCmd := templateGenerator.getLinuxNodeCSECommand(baseConfig)
+
+		Expect(cseCmd).NotTo(BeEmpty())
+		Expect(strings.Contains(cseCmd, "\n")).To(BeFalse())
+	})
+
+	It("should handle kubelet serving certificate rotation", func() {
+		baseConfig.KubeletConfig["--rotate-server-certificates"] = "true"
+
+		cseCmd := templateGenerator.getLinuxNodeCSECommand(baseConfig)
+
+		Expect(cseCmd).NotTo(BeEmpty())
+		Expect(strings.Contains(cseCmd, "\n")).To(BeFalse())
+	})
+
+	It("should handle outbound type blocked configuration", func() {
+		baseConfig.OutboundType = datamodel.OutboundTypeBlock
+
+		cseCmd := templateGenerator.getLinuxNodeCSECommand(baseConfig)
+
+		Expect(cseCmd).NotTo(BeEmpty())
+		Expect(strings.Contains(cseCmd, "\n")).To(BeFalse())
+	})
+
+	It("should handle private egress configuration", func() {
+		baseConfig.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
+			PrivateEgress: &datamodel.PrivateEgress{
+				Enabled:      true,
+				ProxyAddress: "https://test-proxy.com",
+			},
+		}
+
+		cseCmd := templateGenerator.getLinuxNodeCSECommand(baseConfig)
+
+		Expect(cseCmd).NotTo(BeEmpty())
+		Expect(strings.Contains(cseCmd, "\n")).To(BeFalse())
+	})
+
+	It("should handle IMDS restriction configuration", func() {
+		baseConfig.EnableIMDSRestriction = true
+		baseConfig.InsertIMDSRestrictionRuleToMangleTable = true
+
+		cseCmd := templateGenerator.getLinuxNodeCSECommand(baseConfig)
+
+		Expect(cseCmd).NotTo(BeEmpty())
+		Expect(strings.Contains(cseCmd, "\n")).To(BeFalse())
+	})
+
+	It("should handle artifact streaming configuration", func() {
+		baseConfig.EnableArtifactStreaming = true
+
+		cseCmd := templateGenerator.getLinuxNodeCSECommand(baseConfig)
+
+		Expect(cseCmd).NotTo(BeEmpty())
+		Expect(strings.Contains(cseCmd, "\n")).To(BeFalse())
+	})
+
+	It("should handle custom CA trust certificates", func() {
+		baseConfig.CustomCATrustConfig = &datamodel.CustomCATrustConfig{
+			CustomCATrustCerts: []string{"cert1", "cert2"},
+		}
+
+		cseCmd := templateGenerator.getLinuxNodeCSECommand(baseConfig)
+
+		Expect(cseCmd).NotTo(BeEmpty())
+		Expect(strings.Contains(cseCmd, "\n")).To(BeFalse())
+	})
+
+	It("should handle custom Linux OS config", func() {
+		netCoreSomaxconn := int32(16384)
+		baseConfig.ContainerService.Properties.AgentPoolProfiles[0].CustomLinuxOSConfig = &datamodel.CustomLinuxOSConfig{
+			Sysctls: &datamodel.SysctlConfig{
+				NetCoreSomaxconn: &netCoreSomaxconn,
+			},
+			TransparentHugePageEnabled: "never",
+		}
+
+		cseCmd := templateGenerator.getLinuxNodeCSECommand(baseConfig)
+
+		Expect(cseCmd).NotTo(BeEmpty())
+		Expect(strings.Contains(cseCmd, "\n")).To(BeFalse())
+	})
+
+	It("should handle SSH configuration", func() {
+		baseConfig.SSHStatus = datamodel.SSHOff
+
+		cseCmd := templateGenerator.getLinuxNodeCSECommand(baseConfig)
+
+		Expect(cseCmd).NotTo(BeEmpty())
+		Expect(strings.Contains(cseCmd, "\n")).To(BeFalse())
+	})
+
+	It("should handle FIPS enabled configuration", func() {
+		baseConfig.FIPSEnabled = true
+
+		cseCmd := templateGenerator.getLinuxNodeCSECommand(baseConfig)
+
+		Expect(cseCmd).NotTo(BeEmpty())
+		Expect(strings.Contains(cseCmd, "\n")).To(BeFalse())
+	})
+
+	It("should panic when template processing fails", func() {
+		// Create invalid config that will cause template processing to fail
+		invalidConfig := &datamodel.NodeBootstrappingConfiguration{
+			AgentPoolProfile: nil, // This should cause an error
+		}
+
+		Expect(func() {
+			templateGenerator.getLinuxNodeCSECommand(invalidConfig)
+		}).To(Panic())
+	})
+
+	It("should handle credential provider configuration", func() {
+		baseConfig.K8sComponents = &datamodel.K8sComponents{
+			LinuxCredentialProviderURL: "https://example.com/provider.tar.gz",
+		}
+		baseConfig.KubeletConfig["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
+		baseConfig.KubeletConfig["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
+
+		cseCmd := templateGenerator.getLinuxNodeCSECommand(baseConfig)
+
+		Expect(cseCmd).NotTo(BeEmpty())
+		Expect(strings.Contains(cseCmd, "\n")).To(BeFalse())
+	})
+
+	It("should handle multiple kubernetes versions", func() {
+		versions := []string{"1.28.0", "1.29.0", "1.30.0"}
+
+		for _, version := range versions {
+			config, err := deepcopy.Anything(baseConfig)
+			Expect(err).To(BeNil())
+			typedConfig := config.(*datamodel.NodeBootstrappingConfiguration)
+			typedConfig.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = version
+
+			cseCmd := templateGenerator.getLinuxNodeCSECommand(typedConfig)
+
+			Expect(cseCmd).NotTo(BeEmpty())
+			Expect(strings.Contains(cseCmd, "\n")).To(BeFalse())
+		}
+	})
+
+	It("should handle MIG GPU configuration", func() {
+		baseConfig.GPUInstanceProfile = "MIG7g"
+		baseConfig.ConfigGPUDriverIfNeeded = true
+		baseConfig.EnableNvidia = true
+		baseConfig.AgentPoolProfile.VMSize = "Standard_ND96asr_v4"
+
+		cseCmd := templateGenerator.getLinuxNodeCSECommand(baseConfig)
+
+		Expect(cseCmd).NotTo(BeEmpty())
+		Expect(strings.Contains(cseCmd, "\n")).To(BeFalse())
+	})
+
+	It("should handle disable unattended upgrades", func() {
+		baseConfig.DisableUnattendedUpgrades = true
+
+		cseCmd := templateGenerator.getLinuxNodeCSECommand(baseConfig)
+
+		Expect(cseCmd).NotTo(BeEmpty())
+		Expect(strings.Contains(cseCmd, "\n")).To(BeFalse())
+	})
+})
