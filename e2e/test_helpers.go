@@ -272,7 +272,7 @@ func prepareAKSNode(ctx context.Context, s *Scenario) *ScenarioVM {
 		scenarioVM.KubeName = s.Runtime.Cluster.Kube.WaitUntilNodeReady(ctx, s.T, s.Runtime.VMSSName)
 		readyElapse := time.Since(vmssCreatedAt) // Calculate the elapsed time
 		totalElapse := time.Since(start)
-		toolkit.LogDuration(ctx, totalElapse, 3*time.Minute, fmt.Sprintf("Node %s took %s to be created and %s to be ready", s.Runtime.VMSSName, toolkit.FormatDuration(creationElapse), toolkit.FormatDuration(readyElapse)))
+		toolkit.LogDuration(ctx, totalElapse, 3*time.Minute, fmt.Sprintf("Node %s took %s to be created and %s to be ready", s.Runtime.VMSSName, creationElapse, readyElapse))
 	}
 
 	return scenarioVM
@@ -517,7 +517,7 @@ func RunCommand(ctx context.Context, s *Scenario, command string) (armcompute.Ru
 	start := time.Now()
 	defer func() {
 		elapsed := time.Since(start)
-		logf(ctx, "Command %q took %s", command, toolkit.FormatDuration(elapsed))
+		logf(ctx, "Command %q took %s", command, elapsed)
 	}()
 
 	runPoller, err := config.Azure.VMSSVM.BeginRunCommand(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, *s.Runtime.VM.VM.InstanceID, armcompute.RunCommandInput{
@@ -577,7 +577,7 @@ func CreateImage(ctx context.Context, s *Scenario) *config.Image {
 func CreateSIGImageVersionFromDisk(ctx context.Context, s *Scenario, version string, diskResourceID string) *config.Image {
 	startTime := time.Now()
 	defer func() {
-		s.T.Logf("Created SIG image version %s from disk %s in %s", version, diskResourceID, toolkit.FormatDuration(time.Since(startTime)))
+		s.T.Logf("Created SIG image version %s from disk %s in %s", version, diskResourceID, time.Since(startTime))
 	}()
 	rg := config.ResourceGroupName(s.Location)
 	gallery, err := CachedCreateGallery(ctx, CreateGalleryRequest{
@@ -683,7 +683,7 @@ func validateSSHConnectivity(ctx context.Context, s *Scenario) error {
 		err := attemptSSHConnection(ctx, s)
 		if err == nil {
 			elapsed := time.Since(startTime)
-			s.T.Logf("SSH connectivity established after %s", toolkit.FormatDuration(elapsed))
+			s.T.Logf("SSH connectivity established after %s", elapsed)
 			return true, nil
 		}
 
@@ -712,7 +712,7 @@ func validateSSHConnectivity(ctx context.Context, s *Scenario) error {
 	// If we timed out while retrying reboot-related errors, provide a better error message
 	if err != nil && lastSSHError != nil {
 		elapsed := time.Since(startTime)
-		return fmt.Errorf("SSH connection failed after waiting %s for node to reboot and come back up. Last SSH error: %w", toolkit.FormatDuration(elapsed), lastSSHError)
+		return fmt.Errorf("SSH connection failed after waiting %s for node to reboot and come back up. Last SSH error: %w", elapsed, lastSSHError)
 	}
 
 	return err
