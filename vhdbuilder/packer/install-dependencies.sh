@@ -524,7 +524,21 @@ GPUContainerImages=$(jq  -c '.GPUContainerImages[]' $COMPONENTS_FILEPATH)
 
 NVIDIA_DRIVER_IMAGE=""
 NVIDIA_DRIVER_IMAGE_TAG=""
+NVIDIA_GRID_DRIVER_VERSION=""
 
+# Extract GRID driver version for release notes (applicable to all Linux distributions)
+while IFS= read -r imageToBePulled; do
+  downloadURL=$(echo "${imageToBePulled}" | jq -r '.downloadURL')
+  # shellcheck disable=SC2001
+  imageName=$(echo "$downloadURL" | sed 's/:.*$//')
+
+  if [ "$imageName" = "mcr.microsoft.com/aks/aks-gpu-grid" ]; then
+    NVIDIA_GRID_DRIVER_VERSION=$(echo "${imageToBePulled}" | jq -r '.gpuVersion.latestVersion')
+    # Continue to extract CUDA driver info as well
+  fi
+done <<< "$GPUContainerImages"
+
+# For Ubuntu, pre-pull the CUDA driver image
 if [ $OS = $UBUNTU_OS_NAME ] && [ "$(isARM64)" -ne 1 ]; then  # No ARM64 SKU with GPU now
   gpu_action="copy"
 
@@ -552,9 +566,8 @@ if [ $OS = $UBUNTU_OS_NAME ] && [ "$(isARM64)" -ne 1 ]; then  # No ARM64 SKU wit
   ctr -n k8s.io image pull "$NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG"
 
     cat << EOF >> ${VHD_LOGS_FILEPATH}
-  - nvidia-driver=${NVIDIA_DRIVER_IMAGE_TAG}
+  - nvidia-cuda-driver=${NVIDIA_DRIVER_IMAGE_TAG}
 EOF
-
 fi
 
 if [ -d "/opt/gpu" ] && [ "$(ls -A /opt/gpu)" ]; then
@@ -573,6 +586,16 @@ PRESENT_DIR=$(pwd)
 ) > /var/log/bcc_installation.log 2>&1 &
 
 BCC_PID=$!
+
+# Add a separate section for runtime-installed components
+# This clearly distinguishes components installed during CSE from VHD build-time components
+# Only add for Ubuntu
+if [ -n "$NVIDIA_GRID_DRIVER_VERSION" ] && [ "$OS" = "$UBUNTU_OS_NAME" ]; then
+  cat << EOF >> ${VHD_LOGS_FILEPATH}
+Components installed at node provisioning time (CSE) for supported GPU VM sizes (example A10 family):
+  - nvidia-grid-driver=${NVIDIA_GRID_DRIVER_VERSION}
+EOF
+fi
 
 echo "images pre-pulled:" >> ${VHD_LOGS_FILEPATH}
 capture_benchmark "${SCRIPT_NAME}_pull_nvidia_driver_and_start_ebpf_downloads"

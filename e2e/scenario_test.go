@@ -1846,6 +1846,61 @@ func Test_Ubuntu2404Gen2(t *testing.T) {
 	})
 }
 
+func Test_Ubuntu2404Gen2_McrChinaCloud_Scriptless(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Tags: Tags{
+			MockAzureChinaCloud: true,
+			Scriptless:          true,
+		},
+		Description: "Tests that a node using the Ubuntu 2404 VHD can be properly bootstrapped with containerd v2",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2404Gen2Containerd,
+			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				if vmss.Tags == nil {
+					vmss.Tags = map[string]*string{}
+				}
+				vmss.Tags["E2EMockAzureChinaCloud"] = to.Ptr("true")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateDirectoryContent(ctx, s, "/etc/containerd/certs.d/mcr.azk8s.cn", []string{"hosts.toml"})
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2404Gen2_McrChinaCloud(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Tags: Tags{
+			MockAzureChinaCloud: true,
+		},
+		Description: "Tests that a node using the Ubuntu 2404 VHD can be properly bootstrapped with containerd v2",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2404Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				if vmss.Tags == nil {
+					vmss.Tags = map[string]*string{}
+				}
+				vmss.Tags["E2EMockAzureChinaCloud"] = to.Ptr("true")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2404")
+				runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2404")
+				ValidateContainerd2Properties(ctx, s, containerdVersions)
+				ValidateRuncVersion(ctx, s, runcVersions)
+				ValidateContainerRuntimePlugins(ctx, s)
+				ValidateSSHServiceEnabled(ctx, s)
+				ValidateDirectoryContent(ctx, s, "/etc/containerd/certs.d/mcr.azk8s.cn", []string{"hosts.toml"})
+			},
+		},
+	})
+}
+
 func Test_Ubuntu2204_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using an Ubuntu 2204 Gen2 VHD can be properly bootstrapped even if secure TLS bootstrapping fails",
