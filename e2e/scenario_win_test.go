@@ -493,3 +493,20 @@ func Test_Windows23H2Gen2_WindowsCiliumNetworking(t *testing.T) {
 		},
 	})
 }
+
+func Test_Ubuntu2404Gen2_McrChinaCloud_Windows(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Tags: Tags{
+			MockAzureChinaCloud: true,
+		},
+		Description: "Windows Server 2022 Azure Network to test Azure China Cloud MCR host",
+		Config: Config{
+			Cluster:                ClusterAzureNetwork,
+			VHD:                    config.VHDWindows2022Containerd,
+			VMConfigMutator:        EmptyVMConfigMutator,
+			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
+			Validator: func(ctx context.Context, s *Scenario) {
+			},
+		},
+	})
+}

@@ -31,10 +31,8 @@ state = 'C:\ProgramData\containerd\state'
     [plugins.'io.containerd.cri.v1.images'.pinned_images]
       sandbox = '{{pauseImage}}-windows-{{currentversion}}-amd64'
 
-    [plugins.'io.containerd.cri.v1.images'.registry]
-      [plugins.'io.containerd.cri.v1.images'.registry.mirrors]
-        [plugins.'io.containerd.cri.v1.images'.registry.mirrors.'docker.io']
-          endpoint = ['https://registry-1.docker.io']
+    [plugins."io.containerd.cri.v1.images".registry]
+      config_path = "C:\\ProgramData\\containerd\\certs.d"
 
   [plugins.'io.containerd.cri.v1.runtime']
     enable_selinux = false

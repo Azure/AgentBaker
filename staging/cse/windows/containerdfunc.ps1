@@ -89,7 +89,7 @@ function CreateHypervisorRuntimes {
     [Parameter(Mandatory = $true)][string]
     $image
   )
-  
+
   Write-Log "Adding hyperv runtimes $builds"
   $hypervRuntimes = ""
   ForEach ($buildNumber in $builds) {
@@ -106,6 +106,28 @@ function CreateHypervisorRuntimes {
   return $hypervRuntimes
 }
 
+function Set-ContainerdRegistryConfig {
+  Param(
+    [Parameter(Mandatory = $true)][string] $Registry,
+    [Parameter(Mandatory = $true)][string] $RegistryHost
+  )
+
+  $rootRegistryPath = "C:\ProgramData\containerd\certs.d"
+  $registryPath = Join-Path $rootRegistryPath $Registry
+  $hostsTomlPath = Join-Path $registryPath "hosts.toml"
+
+  Create-Directory -FullPath $registryPath -DirectoryUsage "storing containerd registry hosts config"
+
+  $content = @"
+server = "https://$Registry"
+[host."https://$RegistryHost"]
+  capabilities = ["pull", "resolve"]
+"@
+
+  $content | Out-File -FilePath $hostsTomlPath -Encoding ascii
+  Write-Log "Wrote containerd hosts config for registry '$Registry' to '$hostsTomlPath'"
+}
+
 function ProcessAndWriteContainerdConfig {
   Param(
     [Parameter(Mandatory = $true)][string]
@@ -115,7 +137,7 @@ function ProcessAndWriteContainerdConfig {
     [Parameter(Mandatory = $true)][string]
     $CNIConfDir
   )
-  
+
   $sandboxIsolation = 0
   if ($global:DefaultContainerdWindowsSandboxIsolation -eq "hyperv") {
     Write-Log "default runtime for containerd set to hyperv"
@@ -124,7 +146,7 @@ function ProcessAndWriteContainerdConfig {
 
   $clusterConfig = ConvertFrom-Json ((Get-Content $global:KubeClusterConfigPath -ErrorAction Stop) | Out-String)
   $pauseImage = $clusterConfig.Cri.Images.Pause
-  
+
   $hypervHandlers = $global:ContainerdWindowsRuntimeHandlers.split(",", [System.StringSplitOptions]::RemoveEmptyEntries)
   $hypervRuntimes = ""
 
@@ -135,7 +157,7 @@ function ProcessAndWriteContainerdConfig {
 
   $templatePath = [Io.Path]::Combine( $global:WindowsDataDir, $templateFilePath)
 
-  $template = Get-Content -Path $templatePath 
+  $template = Get-Content -Path $templatePath
   if ($SandboxIsolation -eq 0 -And $hypervHandlers.Count -eq 0) {
     # Remove the hypervisors placeholder when not needed
     $template = $template | Select-String -Pattern 'hypervisors' -NotMatch
@@ -143,7 +165,11 @@ function ProcessAndWriteContainerdConfig {
   else {
     $hypervRuntimes = CreateHypervisorRuntimes -builds $hypervHandlers -image $pauseImage
   }
-  
+
+  Set-ContainerdRegistryConfig -Registry "docker.io" -RegistryHost "registry-1.docker.io"
+  # TODO(fseldow): remove when mcr.azk8s.cn is deprecaated from aks rp
+  Set-ContainerdRegistryConfig -Registry "mcr.azk8s.cn" -RegistryHost "mcr.azure.cn"
+
   if (([version]$ContainerdVersion).CompareTo([version]"1.7.9") -lt 0) {
     # Remove annotations placeholders for older containerd versions
     $template = $template | Select-String -Pattern 'containerAnnotations' -NotMatch
@@ -167,7 +193,7 @@ function ProcessAndWriteContainerdConfig {
     Replace('{{currentversion}}', $pauseWindowsVersion).
     Replace('{{containerAnnotations}}', $containerAnnotations).
     Replace('{{podAnnotations}}', $podAnnotations)
-  
+
   # Write the processed template to the config file
   $configFile = [Io.Path]::Combine($global:ContainerdInstallLocation, "config.toml")
   Write-Log "using template $templatePath to write containerd config to $configFile"
@@ -208,7 +234,7 @@ function Install-Containerd {
   }
 
   # Extract the package
-  # upstream containerd package is a tar 
+  # upstream containerd package is a tar
   $tarfile = [Io.path]::Combine($ENV:TEMP, "containerd.tar.gz")
   DownloadFileOverHttp -Url $ContainerdUrl -DestinationPath $tarfile -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CONTAINERD_PACKAGE
   Create-Directory -FullPath $global:ContainerdInstallLocation -DirectoryUsage "storing containerd"
