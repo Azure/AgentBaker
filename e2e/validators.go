@@ -1441,7 +1441,7 @@ func ValidateGB200CRDSatisfied(ctx context.Context, s *Scenario) {
 	execResult, err := execPythonScriptFileOnVmWithSupportFiles(
 		ctx,
 		s,
-		s.Runtime.VMPrivateIP,
+		s.Runtime.VM.PrivateIP,
 		s.Runtime.Cluster.DebugPod.Name,
 		string(crdchecker_py),
 		"--hpc-crd-file bom.json --vhd-relnotes-file release-notes.txt",

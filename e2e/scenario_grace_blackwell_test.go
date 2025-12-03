@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
+	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Azure/agentbaker/e2e/components"
 	"github.com/Azure/agentbaker/e2e/config"
-	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 	"github.com/stretchr/testify/require"
@@ -15,7 +15,8 @@ import (
 
 func Test_Ubuntu2404_GB200(t *testing.T) {
 	vhd_img := *config.VHDUbuntu2404GB200 // Shallow copy
-	vhd_img.Version = "1.1.316"           // specific GB200 image version present in relevant regions
+	vhd_img.Name = "2404gen2arm64gb200containerd"
+	vhd_img.Version = "1.1.303" // specific GB200 image version present in relevant regions
 
 	RunScenario(t, &Scenario{
 		Description: "Tests that GB200 images boot on GB200, have all expected services and packages, and match the current checked-in CRD",
@@ -29,14 +30,13 @@ func Test_Ubuntu2404_GB200(t *testing.T) {
 			Cluster:               clusterKubenet,
 			VHD:                   &vhd_img,
 			WaitForSSHAfterReboot: 5 * time.Minute,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.AgentPoolProfile.VMSize = "Standard_ND128isr_NDR_GB200_v6"
-				nbc.ConfigGPUDriverIfNeeded = true
-				nbc.EnableGPUDevicePluginIfNeeded = true
-				nbc.EnableNvidia = true
+			// GB200 VHD only works with Scriptless.
+			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+				config.VmSize = "Standard_ND128isr_NDR_GB200_v6"
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_ND128isr_NDR_GB200_v6")
+				vmss.Properties.VirtualMachineProfile.StorageProfile.OSDisk.DiskSizeGB = to.Ptr[int32](1024)
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				os := "ubuntu"
