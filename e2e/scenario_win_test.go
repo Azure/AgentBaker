@@ -130,7 +130,6 @@ func Test_Windows2022Gen2AzureNetwork(t *testing.T) {
 			VMConfigMutator:        EmptyVMConfigMutator,
 			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
 			Validator: func(ctx context.Context, s *Scenario) {
-				s.T.Fatal("temporary fail to get logs")
 				ValidateWindowsVersionFromWindowsSettings(ctx, s, "2022-containerd-gen2")
 				ValidateWindowsProductName(ctx, s, "Windows Server 2022 Datacenter")
 				ValidateWindowsDisplayVersion(ctx, s, "21H2")
