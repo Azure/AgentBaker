@@ -328,7 +328,7 @@ function GetSubnetPrefix {
     $headers = @{ Authorization = "Bearer $Token" }
 
     try {
-        $response = Retry-Command -Command "Invoke-RestMethod" -Args @{ Uri = $uri; Method = "Get"; ContentType = "application/json"; Headers = $headers } -Retries 5 -RetryDelaySeconds 10
+        $response = Retry-Command -Command "Invoke-RestMethod" -Args @{ Uri = $uri; Method = "Get"; ContentType = "application/json"; Headers = $headers } -Retries 5 -RetryDelaySeconds 0.5
     }
     catch {
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GET_SUBNET_PREFIX -ErrorMessage "Error getting subnet prefix. Error: $_"
@@ -391,7 +391,7 @@ function GenerateAzureStackCNIConfig {
     $body = "grant_type=client_credentials&client_id=$AADClientId&client_secret=$encodedSecret&resource=$( $azureEnvironment.serviceManagementEndpoint )"
     $args = @{ Uri = $tokenURL; Method = "Post"; Body = $body; ContentType = 'application/x-www-form-urlencoded' }
     try {
-        $tokenResponse = Retry-Command -Command "Invoke-RestMethod" -Args $args -Retries 5 -RetryDelaySeconds 10
+        $tokenResponse = Retry-Command -Command "Invoke-RestMethod" -Args $args -Retries 5 -RetryDelaySeconds 0.5
     }
     catch {
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GENERATE_TOKEN_FOR_ARM -ErrorMessage "Error generating token for Azure Resource Manager. Error: $_"
@@ -405,7 +405,7 @@ function GenerateAzureStackCNIConfig {
     $headers = @{ Authorization = "Bearer $token" }
     $args = @{ Uri = $interfacesUri; Method = "Get"; ContentType = "application/json"; Headers = $headers; OutFile = $networkInterfacesFile }
     try {
-        Retry-Command -Command "Invoke-RestMethod" -Args $args -Retries 5 -RetryDelaySeconds 10
+        Retry-Command -Command "Invoke-RestMethod" -Args $args -Retries 5 -RetryDelaySeconds 0.5
     }
     catch {
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_NETWORK_INTERFACES_NOT_EXIST -ErrorMessage "Error fetching network interface configuration for node. Error: $_"
@@ -480,7 +480,7 @@ function GetIpv6AddressFromParsedContent {
 function GetMetadataContent {
     # try every second for 2 minutes to get the metadata content
     $Retries = 120
-    $RetryDelaySeconds = 1
+    $RetryDelaySeconds = 0.5
 
     for ($i = 0; $i -lt $Retries; $i++) {
         try {
@@ -656,7 +656,7 @@ function Invoke-WithRetry {
         [string]$TaskName,
 
         [int]$MaxRetries = 3,
-        [int]$DelaySeconds = 20
+        [double]$DelaySeconds = 0.5
     )
 
     for ($attempt = 1; $attempt -le $MaxRetries; $attempt++) {
