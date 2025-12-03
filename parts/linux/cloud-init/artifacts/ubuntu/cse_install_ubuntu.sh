@@ -68,8 +68,15 @@ updateAptWithMicrosoftPkg() {
 }
 
 updatePMCRepository() {
+    packageVersion="${1}"
     local opts="-o Dir::Etc::sourcelist=/etc/apt/sources.list.d/microsoft-prod.list -o Dir::Etc::sourceparts=-"
     apt_get_update_with_opts "${opts}" || exit $ERR_APT_UPDATE_TIMEOUT
+
+    # if the package version contains a tilde (~), indicating pre-release version, updating test repo
+    if [ -f /etc/apt/sources.list.d/microsoft-prod-testing.list ] && echo "$packageVersion" | grep -q '~'; then
+        local testing_opts="-o Dir::Etc::sourcelist=/etc/apt/sources.list.d/microsoft-prod-testing.list -o Dir::Etc::sourceparts=-"
+        apt_get_update_with_opts "${testing_opts}" || exit $ERR_APT_UPDATE_TIMEOUT
+    fi
 }
 
 updateAptWithNvidiaPkg() {
@@ -288,7 +295,7 @@ installPkgWithAptGet() {
         fi
 
         # update pmc repo to get latest package versions
-        updatePMCRepository
+        updatePMCRepository ${packageVersion}
         # query all package versions and get the latest version for matching k8s version
         fullPackageVersion=$(apt list ${packageName} --all-versions | grep ${packageVersion}- | awk '{print $2}' | sort -V | tail -n 1)
         if [ -z "${fullPackageVersion}" ]; then
