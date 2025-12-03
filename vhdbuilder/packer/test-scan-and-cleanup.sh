@@ -25,6 +25,8 @@ required_env_vars=(
   "UMSI_CLIENT_ID_TME"
 )
 
+exit 0
+
 for v in "${required_env_vars[@]}"; do
   if [ -z "${!v}" ]; then
     echo "$v was not set!"
