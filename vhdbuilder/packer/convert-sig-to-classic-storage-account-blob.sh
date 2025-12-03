@@ -84,9 +84,9 @@ elif [ "${OS_TYPE}" = "Linux" ] && grep -q "cvm" <<< "$FEATURE_FLAGS"; then
       } \
     } \
   }"
-elif [ "${OS_TYPE}" = "Linux" ] && grep -q "GB200" <<< "$FEATURE_FLAGS"; then
-  echo "GB200: Creating standard disk from SIG image"
-  # GB200 uses standard disk creation for now, but can be customized in the future if needed
+elif [ "${OS_TYPE}" = "Linux" ] && grep -q "GB[23]00" <<< "$FEATURE_FLAGS"; then
+  echo "GB200/GB300: Creating standard disk from SIG image"
+  # GB200/GB300 uses standard disk creation for now, but can be customized in the future if needed
   az resource create --id $disk_resource_id  --api-version 2024-03-02 --is-full-object --location $LOCATION --properties "{\"location\": \"$LOCATION\", \
     \"properties\": { \
       \"osType\": \"$OS_TYPE\", \
