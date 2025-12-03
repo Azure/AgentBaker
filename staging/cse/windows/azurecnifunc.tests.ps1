@@ -1760,7 +1760,7 @@ Describe 'Get-AKS-NetworkAdaptor' {
             Get-AKS-NetworkAdaptor  | Should -Be $mockFallbackAdapter
 
             Assert-MockCalled -CommandName "Get-Node-Ipv4-Address" -Exactly -Times 1
-            Assert-MockCalled -CommandName "Get-NetIPAddress" -Exactly -Times 5
+            Assert-MockCalled -CommandName "Get-NetIPAddress" -Exactly -Times 300
             # Should not reach these calls due to exception
             Assert-MockCalled -CommandName "Get-NetAdapter" -Exactly -Times 0
             Assert-MockCalled -CommandName "Get-NetworkAdaptor-Fallback" -Exactly -Times 1
@@ -1790,7 +1790,7 @@ Describe 'Get-AKS-NetworkAdaptor' {
             $nas | Should -Be $mockFallback
             Assert-MockCalled -CommandName "Get-Node-Ipv4-Address" -Exactly -Times 1
             Assert-MockCalled -CommandName "Get-NetIPAddress" -Exactly -Times 1
-            Assert-MockCalled -CommandName "Get-NetAdapter" -Exactly -Times 5
+            Assert-MockCalled -CommandName "Get-NetAdapter" -Exactly -Times 300
             Assert-MockCalled -CommandName "Get-NetworkAdaptor-Fallback" -Exactly -Times 1
         }
 
