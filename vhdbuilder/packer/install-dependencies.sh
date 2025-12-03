@@ -605,8 +605,8 @@ EOF
 
     # Farcically, nvidia-dkms-580-open cannot be installed together with the CUDA toolkit. Something about that package changes the build environment in an incompatible way. I've seen people mention CUDA including an old version of gcc that somehow makes its way onto the PATH...
     # Therefore we install the GPU driver and its dependencies first, then install all downstream reverse-dependencies (CUDA, DCGM, and so forth) second.
-    sudo apt-get install -y $(jq -r '.["versions-wave1"] | to_entries[] | "\(.key)=\(.value)"' $BOM_PATH)
-    sudo apt-get install -y $(jq -r '.["versions-wave2"] | to_entries[] | "\(.key)=\(.value)"' $BOM_PATH)
+    sudo apt-get install -y --allow-downgrades $(jq -r '.["versions-wave1"] | to_entries[] | "\(.key)=\(.value)"' $BOM_PATH)
+    sudo apt-get install -y --allow-downgrades $(jq -r '.["versions-wave2"] | to_entries[] | "\(.key)=\(.value)"' $BOM_PATH)
 
     # 3. Add char device symlinks for NVIDIA devices
     mkdir -p "$(dirname /lib/udev/rules.d/71-nvidia-dev-char.rules)"
