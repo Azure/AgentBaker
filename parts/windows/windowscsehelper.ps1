@@ -202,6 +202,18 @@ function Write-Log($message) {
     Write-Host $msg
 }
 
+function Mark($message) {
+    if ($null -eq $global:LastMarkTime ) {
+        $global:LastMarkTime = Get-Date
+        Write-Log "Mark: $message (initial mark)"
+    } else {
+        $currentTime = Get-Date
+        $elapsed = ($currentTime - $global:LastMarkTime).TotalMilliseconds
+        Write-Log "Mark: $message ($elapsed ms since last mark)"
+        $global:LastMarkTime = $currentTime
+    }
+}
+
 function DownloadFileOverHttp {
     Param(
         [Parameter(Mandatory = $true)][string]
