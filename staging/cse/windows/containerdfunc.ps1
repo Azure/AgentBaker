@@ -36,7 +36,6 @@ function RegisterContainerDService {
   & "$KubeDir\nssm.exe" set containerd AppRotateBytes 10485760 | RemoveNulls
 
   $retryCount=0
-  $retryInterval=10
   $maxRetryCount=6 # 1 minutes
 
   do {
@@ -44,14 +43,30 @@ function RegisterContainerDService {
     if ($null -eq $svc) {
       Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_CONTAINERD_NOT_INSTALLED -ErrorMessage "containerd.exe did not get installed as a service correctly."
     }
+
     if ($svc.Status -eq "Running") {
+      Write-Log "containerd service is running"
       break
     }
-    Write-Log "Starting containerd, current status: $svc.Status"
-    Start-Service containerd
+
     $retryCount++
-    Write-Log "Retry $retryCount : Sleep $retryInterval and check containerd status"
-    Start-Sleep $retryInterval
+    Write-Log "Starting containerd service (attempt $retryCount of $maxRetryCount), current status: $($svc.Status)"
+
+    try {
+      Start-Service containerd -ErrorAction Stop
+      $svc = Get-Service -Name "containerd"
+      $svc.WaitForStatus('Running', [timespan]::FromSeconds(5))
+      Write-Log "containerd service started successfully"
+      break
+    }
+    catch {
+      Write-Log "Failed to start containerd service: $_"
+    }
+
+    if ($retryCount -lt $maxRetryCount) {
+      Write-Log "Retry $retryCount failed. Waiting 5 seconds before next attempt..."
+      Start-Sleep -Seconds 5
+    }
   } while ($retryCount -lt $maxRetryCount)
 
   if ($svc.Status -ne "Running") {
