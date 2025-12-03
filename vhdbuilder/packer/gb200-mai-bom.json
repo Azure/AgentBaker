@@ -20,6 +20,7 @@
   "versions-wave2": {
     "cuda-toolkit-13": "13.0.2-1",
     "nvidia-container-toolkit-base": "1.18.0-1",
+    "libnvidia-container1": "1.18.0-1",
     "libnvidia-container-tools": "1.18.0-1",
     "nvidia-container-toolkit": "1.18.0-1",
     "datacenter-gpu-manager-exporter": "4.6.0-1",
