@@ -36,7 +36,6 @@ function RegisterContainerDService {
   & "$KubeDir\nssm.exe" set containerd AppRotateBytes 10485760 | RemoveNulls
 
   $retryCount=0
-  $retryInterval=10
   $maxRetryCount=6 # 1 minutes
 
   do {
@@ -55,20 +54,18 @@ function RegisterContainerDService {
 
     try {
       Start-Service containerd -ErrorAction Stop
-      # Check immediately after starting
-      $svc = Get-Service -Name "containerd" -ErrorAction SilentlyContinue
-      if ($svc.Status -eq "Running") {
-        Write-Log "containerd service started successfully"
-        break
-      }
+      $svc = Get-Service -Name "containerd"
+      $svc.WaitForStatus('Running', [timespan]::FromSeconds(5))
+      Write-Log "containerd service started successfully"
+      break
     }
     catch {
       Write-Log "Failed to start containerd service: $_"
     }
 
     if ($retryCount -lt $maxRetryCount) {
-      Write-Log "Retry $retryCount failed. Waiting $retryInterval seconds before next attempt..."
-      Start-Sleep -Seconds $retryInterval
+      Write-Log "Retry $retryCount failed. Waiting 5 seconds before next attempt..."
+      Start-Sleep -Seconds 5
     }
   } while ($retryCount -lt $maxRetryCount)
 
