@@ -746,7 +746,7 @@ function Install-WindowsCiliumNetworking
 
     # Invoke install script.
     try {
-        & $wcnInstallScript -DisableCiliumStack -SourceDirectory $wcnDirectory -SkipNugetUnpack
+        & $wcnInstallScript -DisableCiliumStack -SourceDirectory $wcnDirectory
     }
     catch {
         Write-Log "Error occurred while installing Windows Cilium Networking: $_"
