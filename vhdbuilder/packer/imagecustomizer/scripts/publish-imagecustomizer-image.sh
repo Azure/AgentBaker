@@ -39,8 +39,7 @@ capture_benchmark "${SCRIPT_NAME}_prepare_upload_vhd_to_blob"
 echo "Uploading ${OUT_DIR}/${CONFIG}.vhd to ${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd"
 
 echo "Setting azcopy environment variables with pool identity: $AZURE_MSI_RESOURCE_STRING"
-export AZCOPY_AUTO_LOGIN_TYPE="MSI"
-export AZCOPY_MSI_RESOURCE_STRING="$AZURE_MSI_RESOURCE_STRING"
+export AZCOPY_AUTO_LOGIN_TYPE="AZCLI"
 export AZCOPY_CONCURRENCY_VALUE="AUTO"
 
 export AZCOPY_LOG_LOCATION="$(pwd)/azcopy-log-files/"

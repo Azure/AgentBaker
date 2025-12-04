@@ -43,7 +43,7 @@ type AzureClient struct {
 	StorageContainers         *armstorage.BlobContainersClient
 	CacheRulesClient          *armcontainerregistry.CacheRulesClient
 	Core                      *azcore.Client
-	Credential                *azidentity.DefaultAzureCredential
+	Credential                *azidentity.AzureCLICredential
 	Maintenance               *armcontainerservice.MaintenanceConfigurationsClient
 	NetworkInterfaces         *armnetwork.InterfacesClient
 	PrivateDNSZoneGroup       *armnetwork.PrivateDNSZoneGroupsClient
@@ -125,9 +125,9 @@ func NewAzureClient() (*AzureClient, error) {
 		},
 	}
 
-	credential, err := azidentity.NewDefaultAzureCredential(nil)
+	credential, err := azidentity.NewAzureCLICredential(nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create credential: %w", err)
+		return nil, fmt.Errorf("creating azure cli credential: %w", err)
 	}
 
 	plOpts := runtime.PipelineOptions{}
