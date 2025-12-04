@@ -395,6 +395,23 @@ function nodePrep {
         echo $(date),$(hostname), "End configuring GPU drivers"
     fi
 
+    # Install and configure NPU drivers if this is a MAIA NPU node
+    # TODO: how to detect uniquely MAIA NPU node?
+    # TODO: create a function to handle device sw installations and handle maia within that to
+    #       to keep this function short and simple
+    if [ "${GPU_NODE}" = "true" ] && [ "${skip_maia_driver_install}" != "true" ]; then
+        echo $(date),$(hostname), "Start configuring MAIA drivers"
+
+        # Install GPU drivers
+        # TODO: what is below code doing?
+        logs_to_events "AKS.CSE.ensureGPUDrivers" ensureGPUDrivers
+
+        echo $(date),$(hostname), "End configuring MAIA drivers"
+    fi
+
+    #TODO: add maia DCNM installation here similar to nvidia DCGM below based on flag logic
+
+    #TODO: protect below code block with NVIDIA node check when available
     export -f enableManagedGPUExperience
     ENABLE_MANAGED_GPU_EXPERIENCE=$(retrycmd_silent 10 1 10 bash -cx enableManagedGPUExperience)
     if [ "$?" -ne 0 ] && [ "${GPU_NODE}" = "true" ] && [ "${skip_nvidia_driver_install}" != "true" ]; then

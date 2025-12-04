@@ -137,13 +137,19 @@ ERR_LOCALDNS_BINARY_ERR=219 # Localdns binary not found or not executable.
 
 ERR_SECURE_TLS_BOOTSTRAP_START_FAILURE=220 # Error starting the secure TLS bootstrap systemd service
 
+#TODO: align value same as nvidia for maia so that caller logic can be reused
 ERR_CLOUD_INIT_FAILED=223 # Error indicating that cloud-init returned exit code 1 in cse_cmd.sh
 ERR_NVIDIA_DRIVER_INSTALL=224 # Error determining if nvidia driver install should be skipped
+ERR_MAIA_DRIVER_INSTALL=224 # Error determining if maia driver install should be skipped
 ERR_NVIDIA_GPG_KEY_DOWNLOAD_TIMEOUT=225 # Timeout waiting for NVIDIA GPG key download
+ERR_MAIA_GPG_KEY_DOWNLOAD_TIMEOUT=225 # Timeout waiting for MAIA GPG key download
 ERR_NVIDIA_AZURELINUX_REPO_FILE_DOWNLOAD_TIMEOUT=226 # Timeout waiting for NVIDIA AzureLinux repo file download
 ERR_MANAGED_NVIDIA_EXP_INSTALL_FAIL=227 # Error installing Managed NVIDIA GPU experience packages
+ERR_MANAGED_MAIA_EXP_INSTALL_FAIL=227 # Error installing Managed MAIA NPU experience packages
 ERR_NVIDIA_DCGM_FAIL=228 # Error starting or enabling NVIDIA DCGM service
+ERR_MAIA_DCNM_FAIL=228 # Error starting or enabling MAIA DCNM service
 ERR_NVIDIA_DCGM_EXPORTER_FAIL=229 # Error starting or enabling NVIDIA DCGM Exporter service
+ERR_MAIA_DCNM_EXPORTER_FAIL=229 # Error starting or enabling MAIA DCNM Exporter service
 ERR_LOOKUP_ENABLE_MANAGED_GPU_EXPERIENCE_TAG=230 # Error checking nodepool tags for whether we need to enable managed GPU experience
 
 ERR_PULL_POD_INFRA_CONTAINER_IMAGE=225 # Error pulling pause image
@@ -173,6 +179,7 @@ DOCKER=/usr/bin/docker
 # but vhd build runs with `set -o nounset`
 # so needs a default value
 # prefer empty string to avoid potential "it works but did something weird" scenarios
+#TODO : Handle maia cleanly 
 export GPU_DV="${GPU_DRIVER_VERSION:=}"
 export GPU_DEST=/usr/local/nvidia
 export NVIDIA_DRIVER_IMAGE_SHA="${GPU_IMAGE_SHA:=}"

@@ -9,13 +9,16 @@ import (
 )
 
 const Nvidia470CudaDriverVersion = "cuda-470.82.01"
+const NPUTypeMaia = "maia"
 
 //nolint:gochecknoglobals
 var (
 	NvidiaCudaDriverVersion string
 	NvidiaGridDriverVersion string
+	MaiaNpuDriverVersion    string
 	AKSGPUCudaVersionSuffix string
 	AKSGPUGridVersionSuffix string
+	AKSNPUMaiaVersionSuffix string
 )
 
 type gpuVersion struct {
@@ -61,6 +64,9 @@ func LoadConfig() error {
 		} else if strings.Contains(image.DownloadURL, "aks-gpu-grid") {
 			NvidiaGridDriverVersion = version
 			AKSGPUGridVersionSuffix = suffix
+		} else if strings.Contains(image.DownloadURL, "aks-npu-"+NPUTypeMaia) {
+			MaiaNpuDriverVersion = version
+			AKSNPUNplVersionSuffix = suffix
 		}
 	}
 	return nil
@@ -91,6 +97,17 @@ var ConvergedGPUDriverSizes = map[string]bool{
 	"standard_nc8ads_a10_v4":   true,
 	"standard_nc16ads_a10_v4":  true,
 	"standard_nc32ads_a10_v4":  true,
+}
+
+/* MaiaNPUDriverSizes : these sizes use Maia NPUs that require special drivers.
+The drivers are similar to Nvidia drivers, so we reuse the same driver versioning scheme.
+*/
+//nolint:gochecknoglobals
+var MaiaNPUDriverSizes = map[string]bool{
+	// legacy SKU for Maia-100
+	"standard_internal_nd80sr_ms_v1": true,
+	// TODO: Future SKUs for Maia-200, name may change before release
+	"standard_internal_nd80sr_ms_v2": true,
 }
 
 //nolint:gochecknoglobals
