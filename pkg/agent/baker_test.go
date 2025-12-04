@@ -2472,6 +2472,17 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 		Expect(cseCmd).To(ContainSubstring("bash"))
 	})
 
+	It("should embed cloud-init status checks when custom data is enabled", func() {
+		Expect(baseConfig.DisableCustomData).To(BeFalse())
+
+		cseCmd := templateGenerator.getLinuxNodeCSECommand(baseConfig)
+
+		Expect(cseCmd).To(ContainSubstring("CLOUD_INIT_STATUS_SCRIPT=\"/opt/azure/containers/cloud-init-status-check.sh\""))
+		Expect(cseCmd).To(ContainSubstring("handleCloudInitStatus"))
+		Expect(cseCmd).To(ContainSubstring("cloud-init status --wait"))
+		Expect(cseCmd).To(ContainSubstring("cloudInitExitCode=$?"))
+	})
+
 	It("should handle configuration with custom kubelet config", func() {
 		baseConfig.KubeletConfig = map[string]string{
 			"--max-pods":                "110",
