@@ -195,13 +195,11 @@ func createVMSSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachine
 
 	model := getBaseVMSSModel(s, customData, cse)
 
-	// always assign the abe2e + kubelet identities to the VMSS
-	kubeletIdentity, err := getClusterKubeletIdentity(s.Runtime.Cluster.Model)
-	require.NoError(s.T, err)
+	// always assign the kubelet and e2e VM identities to the VMSS
 	model.Identity = &armcompute.VirtualMachineScaleSetIdentity{
 		Type: to.Ptr(armcompute.ResourceIdentityTypeSystemAssignedUserAssigned),
 		UserAssignedIdentities: map[string]*armcompute.UserAssignedIdentitiesValue{
-			*kubeletIdentity.ResourceID:                    {},
+			*s.Runtime.Cluster.KubeletIdentity.ResourceID:  {},
 			config.Config.VMIdentityResourceID(s.Location): {},
 		},
 	}
@@ -542,6 +540,9 @@ func extractLogsFromVMLinux(ctx context.Context, s *Scenario, privateIP string) 
 		"syslog":                           "sudo cat /var/log/" + syslogHandle,
 		"journalctl":                       "sudo journalctl --boot=0 --no-pager",
 	}
+	if s.SecureTLSBootstrappingEnabled() {
+		commandList["secure-tls-bootstrap.log"] = "sudo cat /var/log/azure/aks/secure-tls-bootstrap.log"
+	}
 
 	pod, err := s.Runtime.Cluster.Kube.GetHostNetworkDebugPod(ctx)
 	if err != nil {
@@ -638,7 +639,6 @@ func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
 	s.T.Logf("##vso[task.logissue type=warning;]Storage account %s (%s) in Azure portal: %s", config.Config.BlobStorageAccount(), blobPrefix, azurePortalURL)
 
 	runCommandTimeout := int32((20 * time.Minute).Seconds())
-	s.T.Logf("run command timeout: %d", runCommandTimeout)
 
 	pollerResp, err := client.BeginCreateOrUpdate(
 		ctx,

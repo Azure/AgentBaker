@@ -21,7 +21,7 @@
         "subnet_name": "{{env `SUBNET_NAME`}}",
         "build_date": "{{env `BUILD_DATE`}}",
         "branch": "{{env `BRANCH`}}",
-        "vnet_resource_group_name": "{{env `VNET_RESOURCE_GROUP_NAME`}}", 
+        "vnet_resource_group_name": "{{env `VNET_RESOURCE_GROUP_NAME`}}",
         "windows_cse_package_uri": "{{env `WINDOWS_CSE_PACKAGE_URI`}}"
     },
     "builders": [
@@ -53,6 +53,7 @@
                     "{{user `location`}}"
                 ]
             },
+            "use_azure_cli_auth": "true",
             "polling_duration_timeout": "1h",
             "communicator": "winrm",
             "winrm_use_ssl": true,
@@ -90,7 +91,7 @@
                 "vhdbuilder/packer/windows/components_json_helpers.ps1"
             ],
             "destination": "c:/k/"
-        },       
+        },
         {
         "type": "file",
         "direction": "upload",

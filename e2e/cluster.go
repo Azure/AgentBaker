@@ -32,12 +32,13 @@ type ClusterParams struct {
 }
 
 type Cluster struct {
-	Model         *armcontainerservice.ManagedCluster
-	Kube          *Kubeclient
-	SubnetID      string
-	ClusterParams *ClusterParams
-	Maintenance   *armcontainerservice.MaintenanceConfiguration
-	DebugPod      *corev1.Pod
+	Model           *armcontainerservice.ManagedCluster
+	Kube            *Kubeclient
+	KubeletIdentity *armcontainerservice.UserAssignedIdentity
+	SubnetID        string
+	ClusterParams   *ClusterParams
+	Maintenance     *armcontainerservice.MaintenanceConfiguration
+	DebugPod        *corev1.Pod
 }
 
 // Returns true if the cluster is configured with Azure CNI
@@ -99,13 +100,18 @@ func prepareCluster(ctx context.Context, cluster *armcontainerservice.ManagedClu
 		}
 	}
 
+	if err := addFirewallRules(ctx, cluster, *cluster.Location); err != nil {
+		return nil, fmt.Errorf("add firewall rules: %w", err)
+	}
+
+	kubeletIdentity, err := getClusterKubeletIdentity(cluster)
+	if err != nil {
+		return nil, fmt.Errorf("getting cluster kubelet identity: %w", err)
+	}
+
 	if isNonAnonymousPull {
-		kubeletIdentity, err := getClusterKubeletIdentity(cluster)
-		if err != nil {
-			return nil, fmt.Errorf("getting kubelet identity to assign ACR pull permissions: %w", err)
-		}
 		if err := assignACRPullToIdentity(ctx, config.GetPrivateACRName(isNonAnonymousPull, *cluster.Location), *kubeletIdentity.ObjectID, *cluster.Location); err != nil {
-			return nil, fmt.Errorf("assign acr pull to the managed identity: %w", err)
+			return nil, fmt.Errorf("assigning acr pull permissions to kubelet identity: %w", err)
 		}
 	}
 
@@ -130,12 +136,13 @@ func prepareCluster(ctx context.Context, cluster *armcontainerservice.ManagedClu
 	}
 
 	return &Cluster{
-		Model:         cluster,
-		Kube:          kube,
-		SubnetID:      subnetID,
-		Maintenance:   maintenance,
-		ClusterParams: clusterParams,
-		DebugPod:      hostPod,
+		Model:           cluster,
+		Kube:            kube,
+		KubeletIdentity: kubeletIdentity,
+		SubnetID:        subnetID,
+		Maintenance:     maintenance,
+		ClusterParams:   clusterParams,
+		DebugPod:        hostPod,
 	}, nil
 }
 
@@ -272,9 +279,15 @@ func getExistingCluster(ctx context.Context, location, clusterName string) (*arm
 		fallthrough
 	case "Failed":
 		logf(ctx, "echo \"##vso[task.logissue type=warning;]Cluster %s in Failed state\"", clusterName)
-		derr := deleteCluster(ctx, clusterName, resourceGroupName)
-		if derr != nil {
-			return nil, derr
+		if err := deleteCluster(ctx, clusterName, resourceGroupName); err != nil {
+			return nil, err
+		}
+		// Wait for Azure to confirm cluster is fully deleted before allowing recreation.
+		// This prevents "Reconcile managed identity credential failed" errors where Azure's
+		// backend still has stale references to the old cluster during the new cluster's
+		// identity reconciliation process.
+		if err := waitForClusterDeletion(ctx, clusterName, resourceGroupName); err != nil {
+			return nil, fmt.Errorf("failed waiting for cluster deletion: %w", err)
 		}
 		return nil, nil
 	default:
@@ -307,6 +320,20 @@ func deleteCluster(ctx context.Context, clusterName, resourceGroupName string) e
 	}
 	logf(ctx, "deleted cluster %s in rg %s", clusterName, resourceGroupName)
 	return nil
+}
+
+func waitForClusterDeletion(ctx context.Context, clusterName, resourceGroupName string) error {
+	return wait.PollUntilContextCancel(ctx, 5*time.Second, true, func(ctx context.Context) (bool, error) {
+		_, err := config.Azure.AKS.Get(ctx, resourceGroupName, clusterName, nil)
+		if err != nil {
+			var azErr *azcore.ResponseError
+			if errors.As(err, &azErr) && azErr.StatusCode == 404 {
+				return true, nil // Cluster is gone
+			}
+			return false, fmt.Errorf("unexpected error checking cluster: %w", err)
+		}
+		return false, nil // Still exists, keep polling
+	})
 }
 
 func waitUntilClusterReady(ctx context.Context, name, location string) (*armcontainerservice.ManagedCluster, error) {
@@ -342,7 +369,7 @@ func isExistingResourceGroup(ctx context.Context, resourceGroupName string) (boo
 }
 
 func createNewAKSCluster(ctx context.Context, cluster *armcontainerservice.ManagedCluster) (*armcontainerservice.ManagedCluster, error) {
-	logf(ctx, "creating or updating cluster %s in rg %s", *cluster.Name, *cluster.Location)
+	logf(ctx, "creating or updating cluster %s in location %s", *cluster.Name, *cluster.Location)
 	// Note, it seems like the operation still can start a trigger a new operation even if nothing has changes
 	pollerResp, err := config.Azure.AKS.BeginCreateOrUpdate(
 		ctx,
