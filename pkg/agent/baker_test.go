@@ -2506,7 +2506,8 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 		for _, distro := range distros {
 			config, err := deepcopy.Anything(baseConfig)
 			Expect(err).To(BeNil())
-			typedConfig := config.(*datamodel.NodeBootstrappingConfiguration)
+			typedConfig, ok := config.(*datamodel.NodeBootstrappingConfiguration)
+			Expect(ok).To(BeTrue())
 			typedConfig.AgentPoolProfile.Distro = distro
 
 			cseCmd := templateGenerator.getLinuxNodeCSECommand(typedConfig)
@@ -2673,7 +2674,8 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 		for _, version := range versions {
 			config, err := deepcopy.Anything(baseConfig)
 			Expect(err).To(BeNil())
-			typedConfig := config.(*datamodel.NodeBootstrappingConfiguration)
+			typedConfig, ok := config.(*datamodel.NodeBootstrappingConfiguration)
+			Expect(ok).To(BeTrue())
 			typedConfig.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = version
 
 			cseCmd := templateGenerator.getLinuxNodeCSECommand(typedConfig)
