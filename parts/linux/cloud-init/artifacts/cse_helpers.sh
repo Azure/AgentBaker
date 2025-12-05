@@ -145,6 +145,7 @@ ERR_MANAGED_NVIDIA_EXP_INSTALL_FAIL=227 # Error installing Managed NVIDIA GPU ex
 ERR_NVIDIA_DCGM_FAIL=228 # Error starting or enabling NVIDIA DCGM service
 ERR_NVIDIA_DCGM_EXPORTER_FAIL=229 # Error starting or enabling NVIDIA DCGM Exporter service
 ERR_LOOKUP_ENABLE_MANAGED_GPU_EXPERIENCE_TAG=230 # Error checking nodepool tags for whether we need to enable managed GPU experience
+ERR_ENABLE_MANAGED_GPU_EXPERIENCE=231 # Error configuring managed GPU experience
 
 ERR_PULL_POD_INFRA_CONTAINER_IMAGE=225 # Error pulling pause image
 
