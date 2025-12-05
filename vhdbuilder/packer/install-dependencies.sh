@@ -723,7 +723,7 @@ if [ -d "/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/" ] && [ 
 fi
 capture_benchmark "${SCRIPT_NAME}_configure_telemetry"
 
-# download kubernetes package from the given URL using MSI for auth for azcopy
+# download kubernetes package from the given URL using azcopy
 # if it is a kube-proxy package, extract image from the downloaded package
 cacheKubePackageFromPrivateUrl() {
   local kube_private_binary_url="$1"
@@ -736,14 +736,15 @@ cacheKubePackageFromPrivateUrl() {
   local k8s_tgz_name
   k8s_tgz_name=$(echo "$kube_private_binary_url" | grep -o -P '(?<=\/kubernetes\/).*(?=\/binaries\/)').tar.gz
 
-  # use azcopy with MSI instead of curl to download packages
+  # use azcopy instead of curl to download packages
   getAzCopyCurrentPath
-	export AZCOPY_LOG_LOCATION="$(pwd)/azcopy-log-files/"
-	export AZCOPY_JOB_PLAN_LOCATION="$(pwd)/azcopy-job-plan-files/"
-	mkdir -p "${AZCOPY_LOG_LOCATION}"
-	mkdir -p "${AZCOPY_JOB_PLAN_LOCATION}"
 
-  ./azcopy login --login-type=MSI
+  export AZCOPY_AUTO_LOGIN_TYPE="AZCLI"
+  export AZCOPY_CONCURRENCY_VALUE="AUTO"
+  export AZCOPY_LOG_LOCATION="$(pwd)/azcopy-log-files/"
+  export AZCOPY_JOB_PLAN_LOCATION="$(pwd)/azcopy-job-plan-files/"
+  mkdir -p "${AZCOPY_LOG_LOCATION}"
+  mkdir -p "${AZCOPY_JOB_PLAN_LOCATION}"
 
   cached_pkg="${K8S_PRIVATE_PACKAGES_CACHE_DIR}/${k8s_tgz_name}"
   echo "download private package ${kube_private_binary_url} and store as ${cached_pkg}"
