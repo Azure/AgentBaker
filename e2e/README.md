@@ -31,7 +31,7 @@ To write an E2E scenario,
   as well as `nbc.agentPoolProfile`. It is because when RP invokes AgentBaker, it will set the properties in this way
   and in e2e we follow the pattern.
 - use `VMConfigMutator` to set VMSS properties such as SKU when needed.
-  Check [vmss](https://github.com/Azure/AgentBaker/blob/dev/e2e/vmss.go) for other configs.  
+  Check [vmss](https://github.com/Azure/AgentBaker/blob/dev/e2e/vmss.go) for other configs.
   it is necessary to set `nbc.agentPoolProfile.VMSize` to match the VMSS SKU if you choose to change.
 - use `Validator` to include your own verification of the VM's live state, such as file existsnce, sysctl settings, etc.
 
@@ -152,7 +152,7 @@ in [scenario_test.go](scenario_test.go).
 ## E2E VHDs.
 
 Node images are pushed to Shared Image Gallery (SIG). Each image is tagged with branch name and build id.
-By default E2E tests use latest version of images from SIG with `branch=refs/heads/master` tag.
+By default E2E tests use latest version of images from SIG with `branch=refs/heads/main` tag.
 
 ## Using VHD Images from Custom ADO Builds
 

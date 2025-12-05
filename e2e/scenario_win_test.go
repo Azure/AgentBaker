@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/Azure/agentbaker/e2e/components"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
@@ -256,6 +257,8 @@ func Test_Windows23H2Gen2CachingRegression(t *testing.T) {
 			VMConfigMutator: EmptyVMConfigMutator,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.WindowsProfile.CseScriptsPackageURL = "https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-v0.0.52.zip"
+				// Secure TLS Bootstrapping isn't supported on this CSE script package version
+				nbc.SecureTLSBootstrappingConfig.Enabled = false
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "CSEScriptsPackageUrl used for provision is https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-v0.0.52.zip")
@@ -273,6 +276,8 @@ func Test_Windows2022CachingRegression(t *testing.T) {
 			VMConfigMutator: EmptyVMConfigMutator,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.WindowsProfile.CseScriptsPackageURL = "https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-v0.0.52.zip"
+				// Secure TLS Bootstrapping isn't supported on this CSE script package version
+				nbc.SecureTLSBootstrappingConfig.Enabled = false
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "CSEScriptsPackageUrl used for provision is https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-v0.0.52.zip")
@@ -290,6 +295,8 @@ func Test_Windows2019CachingRegression(t *testing.T) {
 			VMConfigMutator: EmptyVMConfigMutator,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.WindowsProfile.CseScriptsPackageURL = "https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-v0.0.52.zip"
+				// Secure TLS Bootstrapping isn't supported on this CSE script package version
+				nbc.SecureTLSBootstrappingConfig.Enabled = false
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "CSEScriptsPackageUrl used for provision is https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-v0.0.52.zip")
@@ -336,6 +343,58 @@ func Test_Windows2025Gen2(t *testing.T) {
 				ValidateWindowsDisplayVersion(ctx, s, "24H2")
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
 				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
+				ValidateCiliumIsNotRunningWindows(ctx, s)
+			},
+		},
+	})
+}
+
+func Test_Windows2022_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Windows Server 2022 with Containerd 2- hyperv gen 2 using secure TLS bootstrapping bootstrap token fallback",
+		Tags: Tags{
+			BootstrapTokenFallback: true,
+		},
+		Config: Config{
+			Cluster:         ClusterAzureNetwork,
+			VHD:             config.VHDWindows2022ContainerdGen2,
+			VMConfigMutator: EmptyVMConfigMutator,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{
+					Enabled:                true,
+					Deadline:               (10 * time.Second).String(),
+					UserAssignedIdentityID: "invalid", // use an unexpected user-assigned identity ID to force a secure TLS bootstrapping failure
+				}
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateWindowsVersionFromWindowsSettings(ctx, s, "2022-containerd-gen2")
+				ValidateWindowsProductName(ctx, s, "Windows Server 2022 Datacenter")
+				ValidateWindowsDisplayVersion(ctx, s, "21H2")
+				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
+				ValidateCiliumIsNotRunningWindows(ctx, s)
+			},
+		},
+	})
+}
+
+func Test_Windows2022_DisableKubeletServingCertificateRotationWithTags(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Windows Server 2022 with Containerd 2- hyperv gen 2 with kubelet serving certificate rotation disabled by VMSS tag",
+		Config: Config{
+			Cluster:                ClusterAzureNetwork,
+			VHD:                    config.VHDWindows2022ContainerdGen2,
+			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				if vmss.Tags == nil {
+					vmss.Tags = map[string]*string{}
+				}
+				vmss.Tags["aks-disable-kubelet-serving-certificate-rotation"] = to.Ptr("true")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateWindowsVersionFromWindowsSettings(ctx, s, "2022-containerd-gen2")
+				ValidateWindowsProductName(ctx, s, "Windows Server 2022 Datacenter")
+				ValidateWindowsDisplayVersion(ctx, s, "21H2")
+				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
 				ValidateCiliumIsNotRunningWindows(ctx, s)
 			},
 		},

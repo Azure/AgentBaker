@@ -37,6 +37,7 @@
         "azuremonitor/containerinsights/ciprod",
         "azuremonitor/containerinsights/ciprod/prometheus-collector/images",
         "oss/kubernetes/azure-cloud-node-manager",
+        "oss/v2/kubernetes/azure-cloud-node-manager",
         "aks/ip-masq-agent-v2",
         "oss/v2/azure/ip-masq-agent-v2",
         "oss/kubernetes-csi/azuredisk-csi",

@@ -229,8 +229,7 @@ convert_specialized_sig_version_to_managed_image() {
         return 1
     fi
     echo "setting azcopy environment variables with pool identity: ${IMAGE_BUILDER_IDENTITY_ID}"
-    export AZCOPY_AUTO_LOGIN_TYPE="MSI"
-    export AZCOPY_MSI_RESOURCE_STRING="${IMAGE_BUILDER_IDENTITY_ID}"
+    export AZCOPY_AUTO_LOGIN_TYPE="AZCLI"
     export AZCOPY_CONCURRENCY_VALUE="AUTO"
     echo "uploading $disk_resource_id to ${TEMP_VHD_URI}"
     azcopy copy "${disk_sas_url}" "${TEMP_VHD_URI}" --recursive=true || return $?

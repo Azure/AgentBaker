@@ -78,7 +78,7 @@ else
   updateAptWithMicrosoftPkg
   # The following packages are required for an Ubuntu Minimal Image to build and successfully run CSE
   # blobfuse2 and fuse3 - ubuntu 22.04 supports blobfuse2 and is fuse3 compatible
-  BLOBFUSE2_VERSION="2.5.1"
+  BLOBFUSE2_VERSION="2.5.0"
   required_pkg_list=("blobfuse2="${BLOBFUSE2_VERSION} fuse3)
   for apt_package in ${required_pkg_list[*]}; do
       if ! apt_get_install 30 1 600 $apt_package; then
@@ -528,9 +528,21 @@ GPUContainerImages=$(jq  -c '.GPUContainerImages[]' $COMPONENTS_FILEPATH)
 
 NVIDIA_DRIVER_IMAGE=""
 NVIDIA_DRIVER_IMAGE_TAG=""
+NVIDIA_GRID_DRIVER_VERSION=""
 
-# The condition that the architecture is not ARM64 will correctly prevent
-# this from being used on the GB200 platform
+# Extract GRID driver version for release notes (applicable to all Linux distributions)
+while IFS= read -r imageToBePulled; do
+  downloadURL=$(echo "${imageToBePulled}" | jq -r '.downloadURL')
+  # shellcheck disable=SC2001
+  imageName=$(echo "$downloadURL" | sed 's/:.*$//')
+
+  if [ "$imageName" = "mcr.microsoft.com/aks/aks-gpu-grid" ]; then
+    NVIDIA_GRID_DRIVER_VERSION=$(echo "${imageToBePulled}" | jq -r '.gpuVersion.latestVersion')
+    # Continue to extract CUDA driver info as well
+  fi
+done <<< "$GPUContainerImages"
+
+# For Ubuntu, pre-pull the CUDA driver image
 if [ $OS = $UBUNTU_OS_NAME ] && [ "$(isARM64)" -ne 1 ]; then  # No ARM64 SKU with GPU now
   gpu_action="copy"
 
@@ -558,9 +570,8 @@ if [ $OS = $UBUNTU_OS_NAME ] && [ "$(isARM64)" -ne 1 ]; then  # No ARM64 SKU wit
   ctr -n k8s.io image pull "$NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG"
 
     cat << EOF >> ${VHD_LOGS_FILEPATH}
-  - nvidia-driver=${NVIDIA_DRIVER_IMAGE_TAG}
+  - nvidia-cuda-driver=${NVIDIA_DRIVER_IMAGE_TAG}
 EOF
-
 fi
 
 if grep -q "GB200" <<< "$FEATURE_FLAGS"; then
@@ -637,6 +648,16 @@ PRESENT_DIR=$(pwd)
 ) > /var/log/bcc_installation.log 2>&1 &
 
 BCC_PID=$!
+
+# Add a separate section for runtime-installed components
+# This clearly distinguishes components installed during CSE from VHD build-time components
+# Only add for Ubuntu
+if [ -n "$NVIDIA_GRID_DRIVER_VERSION" ] && [ "$OS" = "$UBUNTU_OS_NAME" ]; then
+  cat << EOF >> ${VHD_LOGS_FILEPATH}
+Components installed at node provisioning time (CSE) for supported GPU VM sizes (example A10 family):
+  - nvidia-grid-driver=${NVIDIA_GRID_DRIVER_VERSION}
+EOF
+fi
 
 echo "images pre-pulled:" >> ${VHD_LOGS_FILEPATH}
 capture_benchmark "${SCRIPT_NAME}_pull_nvidia_driver_and_start_ebpf_downloads"
@@ -943,11 +964,8 @@ if [ -n "${PRIVATE_PACKAGES_URL:-}" ]; then
   done
 fi
 
-
-
-
 LOCALDNS_BINARY_PATH="/opt/azure/containers/localdns/binary"
-# This function extracts CoreDNS binary from cached coredns images (n-1 image version and latest revision version)
+# This function extracts CoreDNS binary from cached coredns images (latest version)
 # and copies it to - /opt/azure/containers/localdns/binary/coredns.
 # The binary is later used by localdns systemd unit.
 # The function also handles the cleanup of temporary directories and unmounting of images.
@@ -973,46 +991,12 @@ extractAndCacheCoreDnsBinary() {
   # Extract available coredns image tags (v1.12.0-1 format) and sort them in descending order.
   local sorted_coredns_tags=($(for image in "${coredns_image_list[@]}"; do echo "${image##*:}"; done | sort -V -r))
 
-  # Function to check version format (vMajor.Minor.Patch).
-  validate_version_format() {
-    local version=$1
-    # shellcheck disable=SC3010
-    if [[ ! "$version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-      echo "Error: Invalid coredns version format. Expected vMajor.Minor.Patch, got $version" >> "${VHD_LOGS_FILEPATH}"
-      return 1
-    fi
-    return 0
-  }
-
-  # Determine latest version (eg. v1.12.0-1).
+  # Determine latest version.
   local latest_coredns_tag="${sorted_coredns_tags[0]}"
-  # Extract major.minor.patch (removes -revision. eg - v1.12.0).
-  local latest_vMajorMinorPatch="${latest_coredns_tag%-*}"
 
-  local previous_coredns_tag=""
-  # Iterate through the sorted list to find the next highest major-minor version.
-  for tag in "${sorted_coredns_tags[@]}"; do
-    # Extract major.minor.patch (eg - v1.12.0).
-    local vMajorMinorPatch="${tag%-*}"
-    if ! validate_version_format "$vMajorMinorPatch"; then
-      exit 1
-    fi
-
-    if [ "${vMajorMinorPatch}" != "${latest_vMajorMinorPatch}" ]; then
-      previous_coredns_tag="$tag"
-      # Break the loop after next highest major-minor version is found.
-      break
-    fi
-  done
-
-  if [ -z "${previous_coredns_tag}" ]; then
-    echo "Warning: Previous version not found, using the latest version: $latest_coredns_tag" >> "${VHD_LOGS_FILEPATH}"
-    previous_coredns_tag="$latest_coredns_tag"
-  fi
-
-  # Extract the CoreDNS binary for the selected version.
+  # Extract the CoreDNS binary for the latest version.
   for coredns_image_url in "${coredns_image_list[@]}"; do
-    if [ "${coredns_image_url##*:}" != "${previous_coredns_tag}" ]; then
+    if [ "${coredns_image_url##*:}" != "${latest_coredns_tag}" ]; then
       continue
     fi
 
@@ -1036,10 +1020,10 @@ extractAndCacheCoreDnsBinary() {
     local coredns_binary="${ctr_temp}/usr/bin/coredns"
     if [ -f "${coredns_binary}" ]; then
       cp "${coredns_binary}" "${LOCALDNS_BINARY_PATH}/coredns" || {
-        echo "Error: Failed to copy coredns binary of ${previous_coredns_tag}" >> "${VHD_LOGS_FILEPATH}"
+        echo "Error: Failed to copy coredns binary of ${latest_coredns_tag}" >> "${VHD_LOGS_FILEPATH}"
         exit 1
       }
-      echo "Successfully copied coredns binary of ${previous_coredns_tag}" >> "${VHD_LOGS_FILEPATH}"
+      echo "Successfully copied coredns binary of ${latest_coredns_tag}" >> "${VHD_LOGS_FILEPATH}"
     else
       echo "Coredns binary not found for ${coredns_image_url}" >> "${VHD_LOGS_FILEPATH}"
     fi

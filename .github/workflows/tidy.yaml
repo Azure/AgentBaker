@@ -5,7 +5,7 @@ on:
   # https://github.blog/changelog/2021-02-19-github-actions-workflows-triggered-by-dependabot-prs-will-run-with-read-only-permissions/
   pull_request_target:
     branches:
-      - master
+      - main
     paths:
       - go.mod
       - e2e/go.mod
@@ -27,7 +27,7 @@ jobs:
           client-id: ${{ secrets.AZURE_KV_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_KV_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_KV_SUBSCRIPTION_ID }}
-      
+
       - uses: azure/cli@v2
         id: app-private-key
         with:
@@ -44,8 +44,8 @@ jobs:
           app-id: ${{ vars.APP_ID }}
           private-key: ${{ steps.app-private-key.outputs.private-key }}
           repositories: AgentBaker
-          
-      - uses: actions/checkout@v5
+
+      - uses: actions/checkout@v6
         with:
           token: ${{ steps.app-token.outputs.token }}
           ref: ${{ github.head_ref }}
@@ -79,7 +79,7 @@ jobs:
                 awk 'BEGIN { skip=0 } { if (skip && $0 ~ /^[[:space:]]*$/) { next } else if (skip) { skip=0 } if ($0 ~ /^toolchain/) { skip=1; next } print }' go.mod > tmp && mv tmp go.mod
             popd
           done
-        
+
       - if: env.changes_detected == 'true'
         name: Commit changes
         run: |

@@ -60,6 +60,11 @@ parameters:
     displayName: CSE package filename.
 
 steps:
+  - bash: |
+      echo "##vso[task.setvariable variable=DRY_RUN]${{ parameters.dryrun }}"
+      echo "##vso[task.setvariable variable=MODE]windowsVhdMode"
+    displayName: Set DRY_RUN and MODE variables
+
   - template: ./.template-override-components-json.yaml
     parameters:
       overrideBranch: ${{ parameters.overrideBranch }}
@@ -72,8 +77,14 @@ steps:
       artifactName: windows-cse-package
       itemPattern: '${{ parameters.csePackageFileName }}'
       targetPath: ${{ parameters.csePackageDir }}
-      
-  - bash: bash ./.pipelines/scripts/windows_build_vhd.sh
+
+  - task: AzureCLI@2
+    inputs:
+      azureSubscription: $(VHD_ARM_SERVICE_CONNECTION)
+      scriptType: bash
+      scriptLocation: inlineScript
+      inlineScript: |
+        bash ./.pipelines/scripts/windows_build_vhd.sh
     displayName: Build and save VHD
     env:
       WINDOWS_SKU: ${{ parameters.windowsSku }}
@@ -82,7 +93,7 @@ steps:
       AZURE_RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
       AZURE_LOCATION: $(AZURE_BUILD_LOCATION)
       AZURE_VM_SIZE: ${{ parameters.buildVmSize }}
-      GIT_BRANCH: $(BRANCH)
+      GIT_BRANCH: $(Build.SourceBranch)
       GIT_REPO: $(Build.Repository.Uri)
       GIT_VERSION: $(Build.SourceVersion)
       BUILD_DEFINITION_NAME: $(Build.DefinitionName)
@@ -106,26 +117,32 @@ steps:
       AZURE_MSI_RESOURCE_STRING: $(AZURE_MSI_RESOURCE_STRING)
       BUILD_DATE: $(BUILD_DATE)
       WINDOWS_CSE_PACKAGE_URI: ${{ parameters.csePackageDir }}/${{ parameters.csePackageFileName }}
-      DRY_RUN: ${{ parameters.dryrun }}
+      DRY_RUN: $(DRY_RUN)
+
 
   # Note: use -a to grep MANAGED_SIG_ID (packer-output should be read as a binary file in Linux)
-  - script: |
-      export TEST_VM_RESOURCE_GROUP_NAME="vhd-test-$(date +%s)-$RANDOM"
-      echo "ARCHITECTURE: ${{ parameters.architecture }}"
-      echo "##vso[task.setvariable variable=TEST_VM_RESOURCE_GROUP_NAME]$TEST_VM_RESOURCE_GROUP_NAME"
+  - task: AzureCLI@2
+    inputs:
+      azureSubscription: $(VHD_ARM_SERVICE_CONNECTION)
+      scriptType: bash
+      scriptLocation: inlineScript
+      inlineScript: |
+        export TEST_VM_RESOURCE_GROUP_NAME="vhd-test-$(date +%s)-$RANDOM"
+        echo "ARCHITECTURE: ${{ parameters.architecture }}"
+        echo "##vso[task.setvariable variable=TEST_VM_RESOURCE_GROUP_NAME]$TEST_VM_RESOURCE_GROUP_NAME"
 
-      # For pipelines where the container base images are provided via storage URLs (e.g., the test pipeline),
-      # the base image tag will be 'ltscxxx', which differs from the values specified in parts/common/component.json.
-      # As a result, cache validation behaves differently. To address this, we check if the container base image URL is set,
-      # and use this environment variable to control the cache validation logic in run-test.sh.
-      if [[ -n "${{ parameters.windowsNanoImageUrl }}" || -n "${{ parameters.windowsCoreImageUrl }}" || -n "${{ parameters.windowsContainerImageJsonUrl }}" ]]; then
-        export CONTAINTER_BASE_URLS_EXISTING=true
-      else
-        export CONTAINTER_BASE_URLS_EXISTING=false
-      fi
-      echo "CONTAINTER_BASE_URLS_EXISTING is $CONTAINTER_BASE_URLS_EXISTING"
+        # For pipelines where the container base images are provided via storage URLs (e.g., the test pipeline),
+        # the base image tag will be 'ltscxxx', which differs from the values specified in parts/common/component.json.
+        # As a result, cache validation behaves differently. To address this, we check if the container base image URL is set,
+        # and use this environment variable to control the cache validation logic in run-test.sh.
+        if [[ -n "${{ parameters.windowsNanoImageUrl }}" || -n "${{ parameters.windowsCoreImageUrl }}" || -n "${{ parameters.windowsContainerImageJsonUrl }}" ]]; then
+          export CONTAINTER_BASE_URLS_EXISTING=true
+        else
+          export CONTAINTER_BASE_URLS_EXISTING=false
+        fi
+        echo "CONTAINTER_BASE_URLS_EXISTING is $CONTAINTER_BASE_URLS_EXISTING"
 
-      ./vhdbuilder/packer/test/run-test.sh
+        ./vhdbuilder/packer/test/run-test.sh
     displayName: Run VHD cache test
     # I've seen some transient failures which seem timeing related so let's retry for now
     retryCountOnTaskFailure: 1
@@ -177,17 +194,22 @@ steps:
   # Moved conversion to VHD before cleanup.
   # Gen 2 packer outputs a sig in destination. This step: dest sig=>disk=>VHD in classic SA for publishing.
   # Credentials and resource group name come from the BUILD_**** pipeline variables because source sig is in the build subscription.
-  - bash: |
-      set -e
-      # because SUBSCRIPTION_ID and LOCATION are defined as a pipeline variable, setting this in the "env" section below doesn't work.
-      export LOCATION=$(AZURE_BUILD_LOCATION)
+  - task: AzureCLI@2
+    inputs:
+      azureSubscription: $(VHD_ARM_SERVICE_CONNECTION)
+      scriptType: bash
+      scriptLocation: inlineScript
+      inlineScript: |
+        set -e
+        # because SUBSCRIPTION_ID and LOCATION are defined as a pipeline variable, setting this in the "env" section below doesn't work.
+        export LOCATION=$(AZURE_BUILD_LOCATION)
 
-      export SIG_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "sig_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')"
-      export CAPTURED_SIG_VERSION="$(cat vhdbuilder/packer/settings.json | grep "captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')"
+        export SIG_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "sig_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')"
+        export CAPTURED_SIG_VERSION="$(cat vhdbuilder/packer/settings.json | grep "captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')"
 
-      make -f packer.mk convert-sig-to-classic-storage-account-blob
+        make -f packer.mk convert-sig-to-classic-storage-account-blob
     displayName: Convert Shared Image Gallery To VHD Blob In Classic Storage Account
-    condition: and(eq('${{ parameters.dryrun }}', 'False'), eq(variables.SIG_FOR_PRODUCTION, 'True'), succeeded())
+    condition: and(eq('$( DRY_RUN )', 'False'), eq(variables.SIG_FOR_PRODUCTION, 'True'), succeeded())
     env:
       LOCATION: $(AZURE_BUILD_LOCATION)
       RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
@@ -206,21 +228,26 @@ steps:
   #                      Used to define the IMAGE_NAME below.
   # IMAGE_NAME:          Managed image created by packer: ManagedImageName in log. No longer used.
   #                      Can be cleaned up in this step.
-  - bash: |
-      set -e
+  - task: AzureCLI@2
+    inputs:
+      azureSubscription: $(VHD_ARM_SERVICE_CONNECTION)
+      scriptType: bash
+      scriptLocation: inlineScript
+      inlineScript: |
+        set -e
 
-      export PKR_RG_NAME="$(cat packer-output | grep -a "ResourceGroupName" | cut -d "'" -f 2 | head -1)"
-      export SA_NAME="$(cat packer-output | grep -a "storage name:" | cut -d " " -f 3)"
-      export IMPORTED_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "imported_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')"
-      export SIG_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "sig_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')"
-      export IMAGE_NAME="$(cat packer-output | grep -a "ManagedImageName:" | cut -d " " -f 2)"
+        export PKR_RG_NAME="$(cat packer-output | grep -a "ResourceGroupName" | cut -d "'" -f 2 | head -1)"
+        export SA_NAME="$(cat packer-output | grep -a "storage name:" | cut -d " " -f 3)"
+        export IMPORTED_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "imported_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')"
+        export SIG_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "sig_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')"
+        export IMAGE_NAME="$(cat packer-output | grep -a "ManagedImageName:" | cut -d " " -f 2)"
 
-      ./vhdbuilder/packer/cleanup.sh
+        ./vhdbuilder/packer/cleanup.sh
     displayName: Clean Up Packer Generated Resources
     condition: always()
     env:
       MODE: $(MODE)
-      DRY_RUN: ${{ parameters.dryrun }}
+      DRY_RUN: $( DRY_RUN )
       VNET_RESOURCE_GROUP_NAME: $(VNET_RESOURCE_GROUP_NAME)
       TEST_VM_RESOURCE_GROUP_NAME: $(TEST_VM_RESOURCE_GROUP_NAME)
       SKIP_EXTENSION_CHECK: ${{ parameters.skipExtensionCheck }}
@@ -233,21 +260,26 @@ steps:
   # Set VHD_NAME and SKU_NAME which will be published.
   # Note: use -a to grep OS_DISK_SAS (packer-output should be read as a binary file in Linux)
   # Perform this step only if we want to publish the VHD: Gen 1 or Gen 2 and the built sig is for production.
-  - bash: |
-      set -e
+  - task: AzureCLI@2
+    inputs:
+      azureSubscription: $(VHD_ARM_SERVICE_CONNECTION)
+      scriptType: bash
+      scriptLocation: inlineScript
+      inlineScript: |
+        set -e
 
-      if [[ "${SIG_FOR_PRODUCTION}" == "True" ]]; then
-        export captured_sig_version="$(cat vhdbuilder/packer/settings.json | grep "captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')"
-        [ -n "${captured_sig_version}" ] && export VHD_NAME="${captured_sig_version}.vhd";
-      else
-        export OS_DISK_SAS="$(cat packer-output | grep -a "OSDiskUriReadOnlySas:" | cut -d " " -f 2)";
-        export VHD_NAME="$(echo $OS_DISK_SAS | cut -d "/" -f 8 | cut -d "?" -f 1)";
-      fi
-      export SKU_NAME="windows-$WINDOWS_SKU";
+        if [[ "${SIG_FOR_PRODUCTION}" == "True" ]]; then
+          export captured_sig_version="$(cat vhdbuilder/packer/settings.json | grep "captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')"
+          [ -n "${captured_sig_version}" ] && export VHD_NAME="${captured_sig_version}.vhd";
+        else
+          export OS_DISK_SAS="$(cat packer-output | grep -a "OSDiskUriReadOnlySas:" | cut -d " " -f 2)";
+          export VHD_NAME="$(echo $OS_DISK_SAS | cut -d "/" -f 8 | cut -d "?" -f 1)";
+        fi
+        export SKU_NAME="windows-$WINDOWS_SKU";
 
-      make -f packer.mk generate-publishing-info
+        make -f packer.mk generate-publishing-info
     displayName: Getting Shared Access Signature URI
-    condition: and(succeeded(), eq('${{ parameters.dryrun }}', 'False'), eq(variables.SIG_FOR_PRODUCTION, 'True'))
+    condition: and(succeeded(), eq('$( DRY_RUN )', 'False'), eq(variables.SIG_FOR_PRODUCTION, 'True'))
     env:
       SUBSCRIPTION_ID: $(AZURE_PROD_SUBSCRIPTION_ID)
       STORAGE_ACCT_BLOB_URL: $(STORAGE_ACCT_BLOB_URL)
@@ -267,4 +299,4 @@ steps:
     inputs:
       artifactName: 'publishing-info-${{ parameters.artifactName }}'
       targetPath: 'vhd-publishing-info.json'
-    condition: and(succeeded(), eq('${{ parameters.dryrun }}', 'False'), eq(variables.SIG_FOR_PRODUCTION, 'True'))
+    condition: and(succeeded(), eq(variables.DRY_RUN, 'False'), eq(variables.SIG_FOR_PRODUCTION, 'True'))

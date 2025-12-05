@@ -60,6 +60,7 @@
       },
       "location": "{{user `location`}}",
       "vm_size": "{{user `vm_size`}}",
+      "use_azure_cli_auth": "true",
       "polling_duration_timeout": "1h",
       "managed_image_storage_account_type": "Premium_LRS",
       "shared_image_gallery_destination": {
@@ -68,7 +69,9 @@
         "gallery_name": "{{user `sig_gallery_name`}}",
         "image_name": "{{user `sig_image_name`}}",
         "image_version": "{{user `captured_sig_version`}}",
-        "replication_regions": ["{{user `location`}}"]
+        "replication_regions": [
+          "{{user `location`}}"
+        ]
       },
       "user_assigned_managed_identities": "{{user `msi_resource_strings`}}"
     }
@@ -694,7 +697,9 @@
     },
     {
       "type": "shell",
-      "inline": ["sudo rm /var/log/bcc_installation.log"]
+      "inline": [
+        "sudo rm /var/log/bcc_installation.log"
+      ]
     },
     {
       "type": "shell",

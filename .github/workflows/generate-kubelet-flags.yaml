@@ -8,7 +8,7 @@ jobs:
     steps:
     - name: Set up containerd
       uses: crazy-max/ghaction-setup-containerd@v2
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v6
     - name: Set up branch for kubelet flag changes
       run: |
         TIMESTAMP=$(date -d "${{ github.event.head_commit.timestamp }}" +'%Y-%m-%d-%H-%M-%S')
@@ -28,7 +28,7 @@ jobs:
         curl \
           -X POST \
           https://api.github.com/repos/Azure/AgentBaker/pulls \
-          -d '{"head" : "'kubeletFlags/${{ env.TIMESTAMP }}'", "base" : "master", "title" : "bump: automated PR for updating kubelet flags files"}' \
+          -d '{"head" : "'kubeletFlags/${{ env.TIMESTAMP }}'", "base" : "main", "title" : "bump: automated PR for updating kubelet flags files"}' \
           -u "alexeldeib:$github_token"
       env:
         github_token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}

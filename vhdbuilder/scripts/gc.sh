@@ -12,7 +12,6 @@ STANDARD_DEADLINE=$(( $(date +%s) - 14400 )) # 4 hours ago
 WEEK_AGO=$(( $(date +%s) - 604800 )) # 7 days ago
 
 function main() {
-    az login --identity # relies on an appropriately permissioned identity being attached to the build agent
     az account set -s $SUBSCRIPTION_ID
 
     echo "garbage collecting ephemeral resource groups..."

@@ -6,8 +6,6 @@ if [ ${SUBSCRIPTION_ID} = ${PROD_SUBSCRIPTION_ID} ]; then
   exit 1
 fi
 
-make -f packer.mk az-login
-
 EXPIRATION_IN_HOURS=168
 # convert to seconds so we can compare it against the "tags.now" property in the resource group metadata
 (( expirationInSecs = ${EXPIRATION_IN_HOURS} * 60 * 60 ))
@@ -89,7 +87,7 @@ if [ -n "${AZURE_RESOURCE_GROUP_NAME}" ]; then
       if [ -n "$image_defs" ]; then
         echo "$image_defs"
       fi
-      
+
       echo "Deleting gallery ${gallery}"
       az sig delete --gallery-name ${gallery} --resource-group ${AZURE_RESOURCE_GROUP_NAME}
     fi
@@ -133,7 +131,7 @@ if [ -n "${AZURE_RESOURCE_GROUP_NAME}" ]; then
   pkr_groups=$(az group list | jq --arg dl $deadline -r '.[] | select(.name | test("pkr-Resource-Group*")) | select(.tags.now < $dl).name')
   for pkr_group in $pkr_groups; do
       echo "Deleting packer resource group $pkr_group"
-      az group delete --name ${pkr_group} --yes 
+      az group delete --name ${pkr_group} --yes
       echo "Deleted packer resource group $pkr_group"
   done
 fi

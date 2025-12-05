@@ -110,7 +110,6 @@ echo "Set build date to $BUILD_DATE"
 echo "Use CSE pacakge at URI: ${WINDOWS_CSE_PACKAGE_URI}"
 
 # Finally, we invoke packer to build the VHD.
-make -f packer.mk az-login
 packer init ./vhdbuilder/packer/packer-plugin.pkr.hcl
 packer version
 ./vhdbuilder/packer/produce-packer-settings.sh

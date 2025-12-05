@@ -4,7 +4,6 @@
 set -euo pipefail
 
 # This script runs the AgentBaker e2e tests for a VHD. It uses the following environment variables:
-# * E2E_AGENT_IDENTITY_ID: this variable contains the managed identity ID to log into azure with
 # * E2E_SUBSCRIPTION_ID: this variable contains the subscription to run the e2e tests in
 # * DefaultWorkingDirectory: this variable contains the default working directory. Likely "." is sufficient
 # * VHD_BUILD_ID - the build identifier for the pipeline. This is optional and if it is missing then the latest build from
@@ -15,8 +14,6 @@ set -euo pipefail
 # In addition, the e2e test framework reads a whole lot of environment variables.
 # These are defined in: e2e/config/config.go
 
-# First, login.
-az login --identity --resource-id "${E2E_AGENT_IDENTITY_ID}"
 az account set -s "${E2E_SUBSCRIPTION_ID}"
 echo "Using subscription ${E2E_SUBSCRIPTION_ID} for e2e tests"
 
