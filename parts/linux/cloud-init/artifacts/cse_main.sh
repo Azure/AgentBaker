@@ -106,7 +106,7 @@ function basePrep {
     logs_to_events "AKS.CSE.setCPUArch" setCPUArch
     source /etc/os-release
 
-    if [ "${ID}" != "mariner" ] && [ "${ID}" != "azurelinux" ]; then
+    if [ "${ID}" != "mariner" ] && [ "${ID}" != "azurelinux" ] && [ "${ID}" != "flatcar" ]; then
         echo "Removing man-db auto-update flag file..."
         logs_to_events "AKS.CSE.removeManDbAutoUpdateFlagFile" removeManDbAutoUpdateFlagFile
     fi
@@ -298,7 +298,7 @@ EOF
         logs_to_events "AKS.CSE.shouldEnableLocalDns" shouldEnableLocalDns || exit $ERR_LOCALDNS_FAIL
     fi
 
-    if [ "${ID}" != "mariner" ] && [ "${ID}" != "azurelinux" ]; then
+    if [ "${ID}" != "mariner" ] && [ "${ID}" != "azurelinux" ] && [ "${ID}" != "flatcar" ]; then
         echo "Recreating man-db auto-update flag file and kicking off man-db update process at $(date)"
         createManDbAutoUpdateFlagFile
         /usr/bin/mandb && echo "man-db finished updates at $(date)" &
