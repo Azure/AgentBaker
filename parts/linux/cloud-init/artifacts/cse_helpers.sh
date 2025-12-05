@@ -643,68 +643,73 @@ logs_to_events() {
     fi
 }
 
-should_skip_nvidia_drivers() {
+get_imds_metadata_body() {
     set -x
     body=$(curl -fsSL -H "Metadata: true" --noproxy "*" "http://169.254.169.254/metadata/instance?api-version=2021-02-01")
     ret=$?
     if [ "$ret" -ne 0 ]; then
+      export IMDS_BODY=""
       return $ret
     fi
+    export IMDS_BODY="$body"
+}
+
+should_skip_nvidia_drivers() {
+    set -x
+    if [ -z "${IMDS_BODY:-}" ]; then
+        get_imds_metadata_body || return $?
+    fi
+    body="${IMDS_BODY}"
     should_skip=$(echo "$body" | jq -e '.compute.tagsList | map(select(.name | test("SkipGpuDriverInstall"; "i")))[0].value // "false" | test("true"; "i")')
     echo "$should_skip"
 }
 
 should_disable_kubelet_serving_certificate_rotation() {
     set -x
-    body=$(curl -fsSL -H "Metadata: true" --noproxy "*" "http://169.254.169.254/metadata/instance?api-version=2021-02-01")
-    ret=$?
-    if [ "$ret" -ne 0 ]; then
-      return $ret
+    if [ -z "${IMDS_BODY:-}" ]; then
+        get_imds_metadata_body || return $?
     fi
+    body="${IMDS_BODY}"
     should_disable=$(echo "$body" | jq -r '.compute.tagsList[] | select(.name == "aks-disable-kubelet-serving-certificate-rotation") | .value')
     echo "${should_disable,,}"
 }
 
 should_skip_binary_cleanup() {
     set -x
-    body=$(curl -fsSL -H "Metadata: true" --noproxy "*" "http://169.254.169.254/metadata/instance?api-version=2021-02-01")
-    ret=$?
-    if [ "$ret" -ne 0 ]; then
-      return $ret
+    if [ -z "${IMDS_BODY:-}" ]; then
+        get_imds_metadata_body || return $?
     fi
+    body="${IMDS_BODY}"
     should_skip=$(echo "$body" | jq -r '.compute.tagsList[] | select(.name == "SkipBinaryCleanup") | .value')
     echo "${should_skip,,}"
 }
 
 should_enforce_kube_pmc_install() {
     set -x
-    body=$(curl -fsSL -H "Metadata: true" --noproxy "*" "http://169.254.169.254/metadata/instance?api-version=2021-02-01")
-    ret=$?
-    if [ "$ret" -ne 0 ]; then
-      return $ret
+    if [ -z "${IMDS_BODY:-}" ]; then
+        get_imds_metadata_body || return $?
     fi
+    body="${IMDS_BODY}"
     should_enforce=$(echo "$body" | jq -r '.compute.tagsList[] | select(.name == "ShouldEnforceKubePMCInstall") | .value')
     echo "${should_enforce,,}"
 }
 
 e2e_mock_azure_china_cloud() {
     set -x
-    body=$(curl -fsSL -H "Metadata: true" --noproxy "*" "http://169.254.169.254/metadata/instance?api-version=2021-02-01")
-    ret=$?
-    if [ "$ret" -ne 0 ]; then
-      return $ret
+    if [ -z "${IMDS_BODY:-}" ]; then
+        get_imds_metadata_body || return $?
     fi
+    body="${IMDS_BODY}"
     should_enforce=$(echo "$body" | jq -r '.compute.tagsList[] | select(.name == "E2EMockAzureChinaCloud") | .value')
     echo "${should_enforce,,}"
 }
 
 enableManagedGPUExperience() {
     set -x
-    body=$(curl -fsSL -H "Metadata: true" --noproxy "*" "http://169.254.169.254/metadata/instance?api-version=2021-02-01")
-    ret=$?
-    if [ "$ret" -ne 0 ]; then
-      return $ret
+    if [ -z "${IMDS_BODY:-}" ]; then
+        get_imds_metadata_body || return $?
     fi
+    body="${IMDS_BODY}"
     should_enforce=$(echo "$body" | jq -r '.compute.tagsList[] | select(.name == "EnableManagedGPUExperience") | .value')
     echo "${should_enforce,,}"
 }
