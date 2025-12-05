@@ -13,7 +13,6 @@
             "type": "<SOURCE_TYPE>",
             "<SOURCE_ID_KEY>": "<SOURCE_ID>"
         },
-        "customize": [],
         "optimize": {
             "vmBoot": {
                 "state": "Enabled"
