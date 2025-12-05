@@ -1638,3 +1638,14 @@ func truncatePodName(t testing.TB, pod *corev1.Pod) {
 	pod.Name = strings.TrimRight(pod.Name, "-")
 	t.Logf("truncated pod name %q to %q", name, pod.Name)
 }
+
+// ValidateNodeHasLabel checks if the node has the expected label with the expected value
+func ValidateNodeHasLabel(ctx context.Context, s *Scenario, labelKey, expectedValue string) {
+	s.T.Helper()
+	node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
+	require.NoError(s.T, err, "failed to get node %q", s.Runtime.VM.KubeName)
+
+	actualValue, exists := node.Labels[labelKey]
+	require.True(s.T, exists, "expected node %q to have label %q, but it was not found", s.Runtime.VM.KubeName, labelKey)
+	require.Equal(s.T, expectedValue, actualValue, "expected node %q label %q to have value %q, but got %q", s.Runtime.VM.KubeName, labelKey, expectedValue, actualValue)
+}
