@@ -1281,11 +1281,8 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: flatcar-gen2-arm64
-  - stage: build_vhd_2404_arm64_gb200_gen2_containerd
-    condition: eq('${{ parameters.build2404arm64gb200gen2containerd }}', true)
-    dependsOn: []
-    jobs:
       - job: build2404arm64gb200gen2containerd
+        condition: eq('${{ parameters.build2404arm64gb200gen2containerd }}', true)
         timeoutInMinutes: 180
         steps:
           - bash: |
