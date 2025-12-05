@@ -47,7 +47,7 @@ export AZCOPY_JOB_PLAN_LOCATION="$(pwd)/azcopy-job-plan-files/"
 mkdir -p "${AZCOPY_LOG_LOCATION}"
 mkdir -p "${AZCOPY_JOB_PLAN_LOCATION}"
 
-az storage blob upload --container-name "$VHD_CONTAINER_NAME" --file "${OUT_DIR}/${CONFIG}.vhd" --name "${CAPTURED_SIG_VERSION}.vhd" --account-name "$STORAGE_ACCOUNT_NAME" --auth-mode login --overwrite true
+az storage blob upload --container-name "$VHD_CONTAINER_NAME" --file "${OUT_DIR}/${CONFIG}.vhd" --name "${CAPTURED_SIG_VERSION}.vhd" --account-name "$STORAGE_ACCOUNT_NAME" --auth-mode login --overwrite true --type page
 
 echo "Uploaded ${OUT_DIR}/${CONFIG}.vhd to ${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd"
 capture_benchmark "${SCRIPT_NAME}_upload_vhd_to_blob"
