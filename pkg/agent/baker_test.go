@@ -2460,7 +2460,15 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 			CloudSpecConfig:  datamodel.AzurePublicCloudSpecForTest,
 			KubeletConfig:    map[string]string{},
 		}
+		baseConfig.K8sComponents = &datamodel.K8sComponents{}
+		baseConfig.ContainerService.Properties.OrchestratorProfile.OrchestratorType = datamodel.Kubernetes
 	})
+
+	decodeCSEVars := func(cseCmd string) map[string]string {
+		vars, err := getDecodedVarsFromCseCmd([]byte(cseCmd))
+		Expect(err).NotTo(HaveOccurred())
+		return vars
+	}
 
 	It("should generate a valid single-line CSE command", func() {
 		cseCmd := templateGenerator.getLinuxNodeCSECommand(baseConfig)
@@ -2492,8 +2500,12 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 
 		cseCmd := templateGenerator.getLinuxNodeCSECommand(baseConfig)
 
-		Expect(cseCmd).NotTo(BeEmpty())
 		Expect(strings.Contains(cseCmd, "\n")).To(BeFalse())
+
+		vars, err := getDecodedVarsFromCseCmd([]byte(cseCmd))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(vars).To(HaveKey("KUBELET_FLAGS"))
+		Expect(vars["KUBELET_FLAGS"]).To(Equal("--image-gc-high-threshold=85 --max-pods=110 --pod-max-pids=-1 "))
 	})
 
 	It("should handle different distros", func() {
@@ -2514,6 +2526,12 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 
 			Expect(cseCmd).NotTo(BeEmpty())
 			Expect(strings.Contains(cseCmd, "\n")).To(BeFalse())
+
+			vars, decodeErr := getDecodedVarsFromCseCmd([]byte(cseCmd))
+			Expect(decodeErr).NotTo(HaveOccurred())
+			Expect(vars).To(HaveKeyWithValue("CSE_HELPERS_FILEPATH", "/opt/azure/containers/provision_source.sh"))
+			Expect(vars).To(HaveKeyWithValue("CSE_DISTRO_HELPERS_FILEPATH", "/opt/azure/containers/provision_source_distro.sh"))
+			Expect(vars).To(HaveKeyWithValue("CSE_DISTRO_INSTALL_FILEPATH", "/opt/azure/containers/provision_installs_distro.sh"))
 		}
 	})
 
@@ -2526,6 +2544,11 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 
 		Expect(cseCmd).NotTo(BeEmpty())
 		Expect(strings.Contains(cseCmd, "\n")).To(BeFalse())
+
+		vars := decodeCSEVars(cseCmd)
+		Expect(vars).To(HaveKeyWithValue("GPU_NODE", "true"))
+		Expect(vars).To(HaveKeyWithValue("CONFIG_GPU_DRIVER_IF_NEEDED", "true"))
+		Expect(vars).To(HaveKeyWithValue("GPU_DRIVER_TYPE", "cuda"))
 	})
 
 	It("should handle custom cloud environment", func() {
@@ -2538,6 +2561,12 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 
 		Expect(cseCmd).NotTo(BeEmpty())
 		Expect(strings.Contains(cseCmd, "\n")).To(BeFalse())
+
+		vars := decodeCSEVars(cseCmd)
+		Expect(vars).To(HaveKeyWithValue("IS_CUSTOM_CLOUD", "true"))
+		Expect(vars).To(HaveKeyWithValue("TARGET_ENVIRONMENT", "akscustom"))
+		Expect(strings.TrimSpace(vars["TARGET_CLOUD"])).To(Equal("AzureStackCloud"))
+		Expect(vars["CUSTOM_ENV_JSON"]).NotTo(BeEmpty())
 	})
 
 	It("should handle TLS bootstrapping configuration", func() {
@@ -2547,6 +2576,9 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 
 		Expect(cseCmd).NotTo(BeEmpty())
 		Expect(strings.Contains(cseCmd, "\n")).To(BeFalse())
+
+		vars := decodeCSEVars(cseCmd)
+		Expect(vars).To(HaveKeyWithValue("TLS_BOOTSTRAP_TOKEN", "07401b.f395accd246ae52d"))
 	})
 
 	It("should handle kubelet serving certificate rotation", func() {
@@ -2556,6 +2588,10 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 
 		Expect(cseCmd).NotTo(BeEmpty())
 		Expect(strings.Contains(cseCmd, "\n")).To(BeFalse())
+
+		vars := decodeCSEVars(cseCmd)
+		Expect(vars).To(HaveKeyWithValue("ENABLE_KUBELET_SERVING_CERTIFICATE_ROTATION", "true"))
+		Expect(vars["KUBELET_FLAGS"]).To(ContainSubstring("--rotate-server-certificates=true"))
 	})
 
 	It("should handle outbound type blocked configuration", func() {
@@ -2565,6 +2601,10 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 
 		Expect(cseCmd).NotTo(BeEmpty())
 		Expect(strings.Contains(cseCmd, "\n")).To(BeFalse())
+
+		vars := decodeCSEVars(cseCmd)
+		Expect(vars).To(HaveKeyWithValue("BLOCK_OUTBOUND_NETWORK", "true"))
+		Expect(vars["OUTBOUND_COMMAND"]).To(BeEmpty())
 	})
 
 	It("should handle private egress configuration", func() {
@@ -2579,6 +2619,9 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 
 		Expect(cseCmd).NotTo(BeEmpty())
 		Expect(strings.Contains(cseCmd, "\n")).To(BeFalse())
+
+		vars := decodeCSEVars(cseCmd)
+		Expect(vars).To(HaveKeyWithValue("PRIVATE_EGRESS_PROXY_ADDRESS", "https://test-proxy.com"))
 	})
 
 	It("should handle IMDS restriction configuration", func() {
@@ -2589,6 +2632,10 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 
 		Expect(cseCmd).NotTo(BeEmpty())
 		Expect(strings.Contains(cseCmd, "\n")).To(BeFalse())
+
+		vars := decodeCSEVars(cseCmd)
+		Expect(vars).To(HaveKeyWithValue("ENABLE_IMDS_RESTRICTION", "true"))
+		Expect(vars).To(HaveKeyWithValue("INSERT_IMDS_RESTRICTION_RULE_TO_MANGLE_TABLE", "true"))
 	})
 
 	It("should handle artifact streaming configuration", func() {
@@ -2598,6 +2645,9 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 
 		Expect(cseCmd).NotTo(BeEmpty())
 		Expect(strings.Contains(cseCmd, "\n")).To(BeFalse())
+
+		vars := decodeCSEVars(cseCmd)
+		Expect(vars).To(HaveKeyWithValue("ARTIFACT_STREAMING_ENABLED", "true"))
 	})
 
 	It("should handle custom CA trust certificates", func() {
@@ -2609,6 +2659,12 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 
 		Expect(cseCmd).NotTo(BeEmpty())
 		Expect(strings.Contains(cseCmd, "\n")).To(BeFalse())
+
+		vars := decodeCSEVars(cseCmd)
+		Expect(vars).To(HaveKeyWithValue("SHOULD_CONFIGURE_CUSTOM_CA_TRUST", "true"))
+		Expect(vars).To(HaveKeyWithValue("CUSTOM_CA_TRUST_COUNT", "2"))
+		Expect(vars).To(HaveKeyWithValue("CUSTOM_CA_CERT_0", "cert1"))
+		Expect(vars).To(HaveKeyWithValue("CUSTOM_CA_CERT_1", "cert2"))
 	})
 
 	It("should handle custom Linux OS config", func() {
@@ -2624,6 +2680,15 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 
 		Expect(cseCmd).NotTo(BeEmpty())
 		Expect(strings.Contains(cseCmd, "\n")).To(BeFalse())
+
+		vars := decodeCSEVars(cseCmd)
+		Expect(vars).To(HaveKeyWithValue("SHOULD_CONFIG_TRANSPARENT_HUGE_PAGE", "true"))
+		Expect(vars).To(HaveKeyWithValue("THP_ENABLED", "never"))
+		sysctlContentEncoded := vars["SYSCTL_CONTENT"]
+		Expect(sysctlContentEncoded).NotTo(BeEmpty())
+		decodedSysctl, decodeErr := base64.StdEncoding.DecodeString(sysctlContentEncoded)
+		Expect(decodeErr).NotTo(HaveOccurred())
+		Expect(string(decodedSysctl)).To(ContainSubstring("net.core.somaxconn"))
 	})
 
 	It("should handle SSH configuration", func() {
@@ -2633,6 +2698,10 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 
 		Expect(cseCmd).NotTo(BeEmpty())
 		Expect(strings.Contains(cseCmd, "\n")).To(BeFalse())
+
+		vars := decodeCSEVars(cseCmd)
+		Expect(vars).To(HaveKeyWithValue("DISABLE_SSH", "true"))
+		Expect(vars).To(HaveKeyWithValue("DISABLE_PUBKEY_AUTH", "false"))
 	})
 
 	It("should handle FIPS enabled configuration", func() {
@@ -2642,6 +2711,9 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 
 		Expect(cseCmd).NotTo(BeEmpty())
 		Expect(strings.Contains(cseCmd, "\n")).To(BeFalse())
+
+		vars := decodeCSEVars(cseCmd)
+		Expect(vars).To(HaveKeyWithValue("NEEDS_CGROUPV2", "true"))
 	})
 
 	It("should panic when template processing fails", func() {
@@ -2656,9 +2728,10 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 	})
 
 	It("should handle credential provider configuration", func() {
-		baseConfig.K8sComponents = &datamodel.K8sComponents{
-			LinuxCredentialProviderURL: "https://example.com/provider.tar.gz",
+		if baseConfig.K8sComponents == nil {
+			baseConfig.K8sComponents = &datamodel.K8sComponents{}
 		}
+		baseConfig.K8sComponents.LinuxCredentialProviderURL = "https://example.com/provider.tar.gz"
 		baseConfig.KubeletConfig["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
 		baseConfig.KubeletConfig["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
 
@@ -2666,6 +2739,11 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 
 		Expect(cseCmd).NotTo(BeEmpty())
 		Expect(strings.Contains(cseCmd, "\n")).To(BeFalse())
+
+		vars := decodeCSEVars(cseCmd)
+		Expect(vars).To(HaveKeyWithValue("CREDENTIAL_PROVIDER_DOWNLOAD_URL", "https://example.com/provider.tar.gz"))
+		Expect(vars["KUBELET_FLAGS"]).To(ContainSubstring("--image-credential-provider-config=/var/lib/kubelet/credential-provider-config.yaml"))
+		Expect(vars["KUBELET_FLAGS"]).To(ContainSubstring("--image-credential-provider-bin-dir=/var/lib/kubelet/credential-provider"))
 	})
 
 	It("should handle multiple kubernetes versions", func() {
@@ -2682,6 +2760,9 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 
 			Expect(cseCmd).NotTo(BeEmpty())
 			Expect(strings.Contains(cseCmd, "\n")).To(BeFalse())
+
+			vars := decodeCSEVars(cseCmd)
+			Expect(vars).To(HaveKeyWithValue("KUBERNETES_VERSION", version))
 		}
 	})
 
@@ -2695,6 +2776,11 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 
 		Expect(cseCmd).NotTo(BeEmpty())
 		Expect(strings.Contains(cseCmd, "\n")).To(BeFalse())
+
+		vars := decodeCSEVars(cseCmd)
+		Expect(vars).To(HaveKeyWithValue("GPU_NODE", "true"))
+		Expect(vars).To(HaveKeyWithValue("CONFIG_GPU_DRIVER_IF_NEEDED", "true"))
+		Expect(vars).To(HaveKeyWithValue("GPU_INSTANCE_PROFILE", "MIG7g"))
 	})
 
 	It("should handle disable unattended upgrades", func() {
@@ -2704,5 +2790,8 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 
 		Expect(cseCmd).NotTo(BeEmpty())
 		Expect(strings.Contains(cseCmd, "\n")).To(BeFalse())
+
+		vars := decodeCSEVars(cseCmd)
+		Expect(vars).To(HaveKeyWithValue("ENABLE_UNATTENDED_UPGRADES", "false"))
 	})
 })

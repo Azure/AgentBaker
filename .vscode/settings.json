@@ -76,8 +76,5 @@
   "files.trimTrailingWhitespace": true,
   "files.trimTrailingWhitespaceInRegexAndStrings": true,
   "files.insertFinalNewline": true,
-  "go.testTimeout": "30m",
-  "go.testFlags": [
-    "-test.v"
-  ]
+  "go.testTimeout": "30m"
 }
