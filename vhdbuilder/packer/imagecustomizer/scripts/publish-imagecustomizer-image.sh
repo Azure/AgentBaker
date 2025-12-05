@@ -38,15 +38,6 @@ capture_benchmark "${SCRIPT_NAME}_prepare_upload_vhd_to_blob"
 
 echo "Uploading ${OUT_DIR}/${CONFIG}.vhd to ${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd"
 
-echo "Setting azcopy environment variables with pool identity: $AZURE_MSI_RESOURCE_STRING"
-export AZCOPY_AUTO_LOGIN_TYPE="AZCLI"
-export AZCOPY_CONCURRENCY_VALUE="AUTO"
-
-export AZCOPY_LOG_LOCATION="$(pwd)/azcopy-log-files/"
-export AZCOPY_JOB_PLAN_LOCATION="$(pwd)/azcopy-job-plan-files/"
-mkdir -p "${AZCOPY_LOG_LOCATION}"
-mkdir -p "${AZCOPY_JOB_PLAN_LOCATION}"
-
 az storage blob upload --container-name "$VHD_CONTAINER_NAME" --file "${OUT_DIR}/${CONFIG}.vhd" --name "${CAPTURED_SIG_VERSION}.vhd" --account-name "$STORAGE_ACCOUNT_NAME" --auth-mode login --overwrite true --type page
 
 echo "Uploaded ${OUT_DIR}/${CONFIG}.vhd to ${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd"
