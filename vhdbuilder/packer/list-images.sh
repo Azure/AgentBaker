@@ -20,6 +20,3 @@ echo "Generating image-bom with IMAGE_VERSION=${IMAGE_VERSION}"
 pushd /home/packer
     chmod +x lister
 popd
-
-chmod a+r $IMAGE_BOM_PATH
-chmod a+rx /opt/azure/ /opt/azure/containers/
