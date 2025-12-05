@@ -19,7 +19,6 @@ fi
 echo "Generating image-bom with IMAGE_VERSION=${IMAGE_VERSION}"
 pushd /home/packer
     chmod +x lister
-    ./lister --sku "$SKU_NAME" --node-image-version "$IMAGE_VERSION" --output-path "$IMAGE_BOM_PATH" || exit $?
 popd
 
 chmod a+r $IMAGE_BOM_PATH
