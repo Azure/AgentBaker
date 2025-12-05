@@ -38,6 +38,8 @@ capture_benchmark "${SCRIPT_NAME}_prepare_upload_vhd_to_blob"
 
 echo "Uploading ${OUT_DIR}/${CONFIG}.vhd to ${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd"
 
+az storage blob copy start --account-name "$STORAGE_ACCOUNT_NAME" --destination-blob "${CAPTURED_SIG_VERSION}.vhd" --destination-container "$VHD_CONTAINER_NAME" --source-uri "${TEST_BLOB_URL}" --auth-mode login
+
 az storage blob upload --overwrite true --container-name "$VHD_CONTAINER_NAME" --file "${OUT_DIR}/${CONFIG}.vhd" --name "${CAPTURED_SIG_VERSION}.vhd" --account-name "$STORAGE_ACCOUNT_NAME" --auth-mode login --type page
 
 echo "Uploaded ${OUT_DIR}/${CONFIG}.vhd to ${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd"
