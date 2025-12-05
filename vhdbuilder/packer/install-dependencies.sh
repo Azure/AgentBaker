@@ -1,6 +1,6 @@
 #!/bin/bash
 set -euo pipefail
-
+exit 0
 K8S_DEVICE_PLUGIN_PKG="${K8S_DEVICE_PLUGIN_PKG:-nvidia-device-plugin}"
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
