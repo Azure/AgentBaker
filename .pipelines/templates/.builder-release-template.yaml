@@ -219,7 +219,6 @@ steps:
         make -f packer.mk prefetch
     condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'), eq(variables.RUN_PREFETCH_OPTIMIZATION, 'True'))
     displayName: Run Prefetch Optimization and Convert to VHD blob
-    retryCountOnTaskFailure: 3
     env:
       SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
       LOCATION: $(PACKER_BUILD_LOCATION)
@@ -243,7 +242,7 @@ steps:
       scriptLocation: inlineScript
       inlineScript: |
         make -f packer.mk cleanup-prefetch
-    condition: and(eq(variables.GENERATE_PUBLISHING_INFO, 'True'), eq(variables.RUN_PREFETCH_OPTIMIZATION, 'True'), ne(variables.BUILDER, 'imagecustomizer'))
+    condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'), eq(variables.RUN_PREFETCH_OPTIMIZATION, 'True'), ne(variables.BUILDER, 'imagecustomizer'))
     displayName: Cleanup Prefetch Optimization Resources
     env:
       BUILD_RUN_NUMBER: $(Build.BuildNumber)
