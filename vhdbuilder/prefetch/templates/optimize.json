@@ -18,15 +18,6 @@
                 "state": "Enabled"
             }
         },
-        "customize": [
-            {
-                "type": "Shell",
-                "name": "Cleanup",
-                "inline": [
-                    "sudo /bin/bash -eux /opt/azure/containers/cleanup-vhd.sh && sudo rm -f /opt/azure/containers/cleanup-vhd.sh"
-                ]
-            }
-        ],
         "distribute": [
             {
                 "type": "VHD",
