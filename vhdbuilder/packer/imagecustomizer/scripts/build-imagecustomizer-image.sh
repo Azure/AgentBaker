@@ -83,7 +83,6 @@ cp $IMAGE_PATH $OUT_DIR/$CONFIG.vhd
 
 # Place build artifacts where later pipeline stages expect them
 cp "$AGENTBAKER_DIR/vhdbuilder/packer/imagecustomizer/$CONFIG/out/release-notes.txt" "$AGENTBAKER_DIR"
-cp "$AGENTBAKER_DIR/vhdbuilder/packer/imagecustomizer/$CONFIG/out/bcc-tools-installation.log" "$AGENTBAKER_DIR"
 cp "$AGENTBAKER_DIR/vhdbuilder/packer/imagecustomizer/$CONFIG/out/image-bom.json" "$AGENTBAKER_DIR"
 cp "$AGENTBAKER_DIR/vhdbuilder/packer/imagecustomizer/$CONFIG/out/vhd-build-performance-data.json" "$AGENTBAKER_DIR"
 

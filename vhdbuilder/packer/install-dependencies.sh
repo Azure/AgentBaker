@@ -577,13 +577,6 @@ fi
 installBpftrace
 echo "  - $(bpftrace --version)" >> ${VHD_LOGS_FILEPATH}
 
-PRESENT_DIR=$(pwd)
-# run installBcc in a subshell and continue on with container image pull in order to decrease total build time
-(
-  cd $PRESENT_DIR || { echo "Subshell in the wrong directory" >&2; exit 1; }
-  installBcc
-  exit $?
-) > /var/log/bcc_installation.log 2>&1 &
 
 BCC_PID=$!
 
@@ -809,10 +802,6 @@ if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
   sed -i 's/After=network-online.target/After=multi-user.target/g' /lib/systemd/system/motd-news.service
 fi
 capture_benchmark "${SCRIPT_NAME}_purge_and_update_ubuntu"
-
-wait $BCC_PID
-BCC_EXIT_CODE=$?
-chmod 644 /var/log/bcc_installation.log
 
 if [ "$BCC_EXIT_CODE" -eq 0 ]; then
   echo "Bcc tools successfully installed."

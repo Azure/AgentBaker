@@ -1468,24 +1468,6 @@ testContainerImagePrefetchScript() {
   return 0
 }
 
-testBccTools () {
-  local test="BCCInstallTest"
-  os_sku="${1}"
-  echo "$test: checking if BCC tools were successfully installed"
-  if [ "$os_sku" = "AzureLinuxOSGuard" ]; then
-    echo "$test: Skipping check on AzureLinuxOSGuard - BCC tools are not installed"
-    return 0
-  fi
-  for line in '  - bcc-tools' '  - libbcc-examples'; do
-    if ! grep -F -x -e "$line" $VHD_LOGS_FILEPATH; then
-      err "BCC tools were not successfully installed"
-      return 1
-    fi
-  done
-  echo "$test: BCC tools were successfully installed"
-  return 0
-}
-
 testAKSNodeControllerBinary () {
   local test="testAKSNodeControllerBinary"
   local go_binary_path="/opt/azure/containers/aks-node-controller"
