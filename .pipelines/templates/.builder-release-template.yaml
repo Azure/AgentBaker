@@ -249,13 +249,6 @@ steps:
       BUILD_RUN_NUMBER: $(Build.BuildNumber)
       CAPTURED_SIG_VERSION: $(CAPTURED_SIG_VERSION)
 
-  - task: PublishPipelineArtifact@0
-    condition: always()
-    displayName: Publish BCC Tools Installation Log
-    inputs:
-      artifactName: 'bcc-tools-installation-log-$(ARTIFACT_ID)-${{ parameters.artifactName }}'
-      targetPath: 'bcc-tools-installation.log'
-
   - task: CopyFiles@2
     displayName: Copy Trivy Report
     inputs:
