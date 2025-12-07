@@ -315,17 +315,6 @@
       "windowsVersions": []
     },
     {
-      "downloadURL": "mcr.microsoft.com/containernetworking/azure-npm:*",
-      "amd64OnlyVersions": [],
-      "multiArchVersionsV2": [
-        {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-npm",
-          "latestVersion": "v1.6.29"
-        }
-      ],
-      "windowsVersions": []
-    },
-    {
       "downloadURL": "mcr.microsoft.com/containernetworking/cilium/cilium:*",
       "amd64OnlyVersions": [],
       "multiArchVersionsV2": [
