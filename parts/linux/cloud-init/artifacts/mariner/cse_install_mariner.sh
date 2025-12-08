@@ -240,7 +240,7 @@ EOF
 
     # Install the package from the local repository
     echo "Installing ${tool_name} from local repository"
-    if ! dnf_install 30 1 600 ${tool_name} --disablerepo='*' --enablerepo="${repo_name}"; then
+    if ! dnf_install 4 1 120 ${tool_name} --disablerepo='*' --enablerepo="${repo_name}"; then
         echo "Failed to install ${tool_name} from local repository"
         rm -f "${repo_file}"
         return 1
