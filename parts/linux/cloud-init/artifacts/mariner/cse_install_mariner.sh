@@ -50,7 +50,10 @@ installDeps() {
     fi
 
     if isFedora "$OS"; then
-      makeRepoFile cloud-native ms-oss ms-non-oss base
+      makeRepoFile "base"
+      makeRepoFile "cloud-native"
+      makeRepoFile "ms-oss"
+      makeRepoFile "ms-non-oss"
     fi
 
     if ! isFedora "$OS"; then
