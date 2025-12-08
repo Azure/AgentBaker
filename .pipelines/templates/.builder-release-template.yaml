@@ -258,6 +258,7 @@ steps:
 
   - task: PublishPipelineArtifact@0
     condition: always()
+    continueOnError: true
     displayName: Publish Disk Usage Report
     inputs:
       artifactName: 'disk-usage-$(ARTIFACT_ID)-${{ parameters.artifactName }}'

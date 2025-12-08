@@ -1,8 +1,11 @@
 #!/bin/bash
 # Script to generate disk usage diagnostics for VHD builds
-# Used by both install-dependencies.sh and error-cleanup-provisioner
+# Used by packer provisioner and error-cleanup-provisioner
 
 DISK_USAGE_FILE="/opt/azure/disk-usage.txt"
+
+# Ensure the directory exists
+mkdir -p /opt/azure
 
 {
   echo "=== Disk Space Diagnostics ==="
