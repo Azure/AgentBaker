@@ -94,12 +94,12 @@ echo "Moving to immutable container...."
 az storage blob copy start --account-name "$STORAGE_ACCOUNT_NAME" --destination-blob "${CAPTURED_SIG_VERSION}.vhd" --destination-container "$VHD_CONTAINER_NAME" --source-uri "${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd" --auth-mode login
 echo "Successfully moved to immutable container...."
 
-echo "Removing blob from original container...."
-azcopy remove "${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd" --recursive=true
-echo "Removed blob from original container...."
+#echo "Removing blob from original container...."
+#azcopy remove "${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd" --recursive=true
+#echo "Removed blob from original container...."
 
 echo "Moving back to standard container...."
-az storage blob copy start --account-name "$STORAGE_ACCOUNT_NAME" --destination-blob "${CAPTURED_SIG_VERSION}.vhd" --destination-container "$OLD_VHD_CONTAINER_NAME" --source-uri "${NEW_CLASSIC_BLOB_URL}/${CAPTURED_SIG_VERSION}.vhd" --auth-mode login
+az storage blob copy start --account-name "$STORAGE_ACCOUNT_NAME" --destination-blob "${CAPTURED_SIG_VERSION}x.vhd" --destination-container "$OLD_VHD_CONTAINER_NAME" --source-uri "${NEW_CLASSIC_BLOB_URL}/${CAPTURED_SIG_VERSION}.vhd" --auth-mode login
 echo "Successfully moved to standard container...."
 
 # Determine target regions for image replication.
@@ -114,7 +114,7 @@ echo "Creating managed image ${MANAGED_IMAGE_RESOURCE_ID} from VHD ${CLASSIC_BLO
 az image create \
     --resource-group ${RESOURCE_GROUP_NAME} \
     --name ${IMAGE_NAME} \
-    --source "${CLASSIC_BLOB_URL}/${CAPTURED_SIG_VERSION}.vhd" \
+    --source "${CLASSIC_BLOB_URL}/${CAPTURED_SIG_VERSION}x.vhd" \
     --os-type Linux \
     --storage-sku Standard_LRS \
     --hyper-v-generation V2 \
