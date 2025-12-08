@@ -90,6 +90,12 @@ GALLERY_RESOURCE_ID=/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_
 SIG_IMAGE_RESOURCE_ID="${GALLERY_RESOURCE_ID}/images/${SIG_IMAGE_NAME}/versions/${CAPTURED_SIG_VERSION}"
 MANAGED_IMAGE_RESOURCE_ID="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/images/${IMAGE_NAME}"
 
+echo "Moving to immutable container...."
+
+az storage blob copy start --account-name "$STORAGE_ACCOUNT_NAME" --destination-blob "${CAPTURED_SIG_VERSION}.vhd" --destination-container "$VHD_CONTAINER_NAME" --source-uri "${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd" --auth-mode login
+
+echo "Successfully moved to immutable container...."
+
 # Determine target regions for image replication.
 # Images must replicate to SIG region, and testing expects PACKER_BUILD_LOCATION
 TARGET_REGIONS=${PACKER_BUILD_LOCATION}
@@ -102,7 +108,7 @@ echo "Creating managed image ${MANAGED_IMAGE_RESOURCE_ID} from VHD ${CLASSIC_BLO
 az image create \
     --resource-group ${RESOURCE_GROUP_NAME} \
     --name ${IMAGE_NAME} \
-    --source "${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd" \
+    --source "${NEW_CLASSIC_BLOB_URL}/${CAPTURED_SIG_VERSION}.vhd" \
     --os-type Linux \
     --storage-sku Standard_LRS \
     --hyper-v-generation V2 \
