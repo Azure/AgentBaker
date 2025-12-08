@@ -19,14 +19,17 @@ var (
 		AzureGermanCloud: {
 			AKSUbuntuContainerd2204Gen2: AKSUbuntuContainerd2204Gen2OSImageConfig,
 		},
+		AzureGermanyCloud: {
+			AKSUbuntuContainerd2204Gen2: AKSUbuntuContainerd2204Gen2OSImageConfig,
+		},
 		AzureUSGovernmentCloud: {
 			AKSUbuntuContainerd2204Gen2: AKSUbuntuContainerd2204Gen2OSImageConfig,
 		},
 		AzurePublicCloud: {
 			AKSUbuntuContainerd2204Gen2: AKSUbuntuContainerd2204Gen2OSImageConfig,
 		},
-		AzureGermanyCloud: {
-			Ubuntu: AKSUbuntuContainerd2204Gen2OSImageConfig,
+		AzureBleuCloud: {
+			AKSUbuntuContainerd2204Gen2: AKSUbuntuContainerd2204Gen2OSImageConfig,
 		},
 		USNatCloud: {
 			AKSUbuntuContainerd2204Gen2: AKSUbuntuContainerd2204Gen2OSImageConfig,
