@@ -655,6 +655,12 @@
       "destination": "bcc-tools-installation.log"
     },
     {
+      "type": "file",
+      "direction": "download",
+      "source": "/opt/azure/disk-usage.txt",
+      "destination": "disk-usage.txt"
+    },
+    {
       "type": "shell",
       "inline": [
         "sudo rm /var/log/bcc_installation.log"

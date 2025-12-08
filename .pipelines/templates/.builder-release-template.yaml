@@ -256,6 +256,13 @@ steps:
       artifactName: 'bcc-tools-installation-log-$(ARTIFACT_ID)-${{ parameters.artifactName }}'
       targetPath: 'bcc-tools-installation.log'
 
+  - task: PublishPipelineArtifact@0
+    condition: always()
+    displayName: Publish Disk Usage Report
+    inputs:
+      artifactName: 'disk-usage-$(ARTIFACT_ID)-${{ parameters.artifactName }}'
+      targetPath: 'disk-usage.txt'
+
   - task: CopyFiles@2
     displayName: Copy Trivy Report
     inputs:
