@@ -1,8 +1,19 @@
 echo $(date),$(hostname) > ${PROVISION_OUTPUT};
 {{if not .GetDisableCustomData}}
-cloud-init status --wait > /dev/null 2>&1;
-[ "$?" -ne 0 ] && echo 'cloud-init failed' >> ${PROVISION_OUTPUT} && exit 1;
-echo "cloud-init succeeded" >> ${PROVISION_OUTPUT};
+CLOUD_INIT_STATUS_SCRIPT="/opt/azure/containers/cloud-init-status-check.sh";
+cloudInitExitCode=0;
+if [ -f "${CLOUD_INIT_STATUS_SCRIPT}" ]; then
+	/bin/bash -c "source ${CLOUD_INIT_STATUS_SCRIPT}; handleCloudInitStatus \"${PROVISION_OUTPUT}\"; returnStatus=\$?; echo \"Cloud init status check exit code: \$returnStatus\" >> ${PROVISION_OUTPUT}; exit \$returnStatus" >> ${PROVISION_OUTPUT} 2>&1;
+else
+    cloud-init status --wait > /dev/null 2>&1;
+fi;
+cloudInitExitCode=$?;
+if [ "$cloudInitExitCode" -eq 0 ]; then
+	echo "cloud-init succeeded" >> ${PROVISION_OUTPUT};
+else
+	echo "cloud-init failed with exit code ${cloudInitExitCode}" >> ${PROVISION_OUTPUT};
+	exit ${cloudInitExitCode};
+fi;
 {{end}}
 {{if getIsAksCustomCloud .CustomCloudConfig}}
 REPO_DEPOT_ENDPOINT="{{.CustomCloudConfig.RepoDepotEndpoint}}"
