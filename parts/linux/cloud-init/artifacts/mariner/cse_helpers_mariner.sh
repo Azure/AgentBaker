@@ -32,8 +32,11 @@ dnf_install() {
         if [ $i -eq $retries ]; then
             return 1
         else
-            sleep $wait_sleep
-            dnf_makecache
+            sleep "$wait_sleep"
+            case " $* " in
+                *" --disablerepo "*) ;;    # skip dnf_makecache when --disablerepo is present
+                *) dnf_makecache ;;
+            esac
         fi
     done
     echo Executed dnf install -y \"$@\" $i times;
