@@ -774,6 +774,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return datamodel.AzureADIdentitySystem
 		},
 		"GetPodInfraContainerSpec": func() string {
+			if config.K8sComponents == nil {
+				return ""
+			}
 			return config.K8sComponents.PodInfraContainerImageURL
 		},
 		"IsKubenet": func() bool {
@@ -838,9 +841,15 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return cs.Properties.HasDCSeriesSKU()
 		},
 		"GetHyperkubeImageReference": func() string {
+			if config.K8sComponents == nil {
+				return ""
+			}
 			return config.K8sComponents.HyperkubeImageURL
 		},
 		"GetLinuxPrivatePackageURL": func() string {
+			if config.K8sComponents == nil {
+				return ""
+			}
 			return config.K8sComponents.LinuxPrivatePackageURL
 		},
 		"GetTargetEnvironment": func() string {
