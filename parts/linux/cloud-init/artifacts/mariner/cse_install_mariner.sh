@@ -32,12 +32,14 @@ installDeps() {
       fi
     else
       sudo rpm -Uvh https://packages.microsoft.com/config/rhel/9/packages-microsoft-prod.rpm
+      sudo rpm -Uvh https://packages.microsoft.com/config/rhel/9/packages-microsoft-prod.rpm
+
       dnf_update || exit $ERR_APT_UPDATE_TIMEOUT
     fi
 
     dnf_makecache || exit $ERR_APT_UPDATE_TIMEOUT
     dnf_update || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
-    for dnf_package in ca-certificates cifs-utils conntrack-tools cracklib dnf-automatic ebtables ethtool fuse inotify-tools iotop iproute ipset iptables jq logrotate lsof nmap-ncat nfs-utils pam pigz psmisc rsyslog socat sysstat traceroute util-linux xz zip nftables iscsi-initiator-utils device-mapper-multipath; do
+    for dnf_package in ca-certificates cifs-utils conntrack-tools cracklib dnf-automatic ebtables ethtool fuse inotify-tools iotop iproute ipset iptables jq logrotate lsof nmap-ncat nfs-utils pam pigz psmisc rsyslog socat sysstat traceroute util-linux xz zip nftables iscsi-initiator-utils device-mapper-multipath wget; do
       if ! dnf_install 30 1 600 $dnf_package; then
         exit $ERR_APT_INSTALL_TIMEOUT
       fi
@@ -46,6 +48,10 @@ installDeps() {
     if isFedora "$OS"; then
       sudo yum install fuse3 fuse3-libs blobfuse2 nslookup -y
       dnf_remove 30 1 600 zram-generator-defaults
+    fi
+
+    if isFedora "$OS"; then
+      makeRepoFile cloud-native ms-oss ms-non-oss base
     fi
 
     if ! isFedora "$OS"; then
@@ -62,6 +68,20 @@ installDeps() {
         fi
       done
     fi
+}
+
+makeRepoFile() {
+  reponame=$1
+  cat << EOF > /etc/yum.repos.d/azurelinux-$reponame.repo
+[azurelinux-official-$reponame]
+name=Azure Linux Official $reponame 3.0 x86_64
+baseurl=https://packages.microsoft.com/azurelinux/3.0/prod/$reponame/x86_64
+gpgcheck=0
+repo_gpgcheck=0
+enabled=1
+skip_if_unavailable=True
+sslverify=1
+EOF
 }
 
 installKataDeps() {
@@ -177,7 +197,7 @@ installCredentialProviderFromPMC() {
    	PACKAGE_VERSION=""
     getLatestPkgVersionFromK8sVersion "$k8sVersion" "azure-acr-credential-provider-pmc" "$os" "$os_version"
     packageVersion=$(echo $PACKAGE_VERSION | cut -d "-" -f 1)
-	echo "installing azure-acr-credential-provider package version: $packageVersion"
+    echo "installing azure-acr-credential-provider package version: $packageVersion"
     mkdir -p "${CREDENTIAL_PROVIDER_BIN_DIR}"
     chown -R root:root "${CREDENTIAL_PROVIDER_BIN_DIR}"
     installRPMPackageFromFile "azure-acr-credential-provider" "${packageVersion}" || exit $ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT
