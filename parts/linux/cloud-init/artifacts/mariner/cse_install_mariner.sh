@@ -32,7 +32,6 @@ installDeps() {
       fi
     else
       sudo rpm -Uvh https://packages.microsoft.com/config/rhel/9/packages-microsoft-prod.rpm
-      sudo rpm -Uvh https://packages.microsoft.com/config/rhel/9/packages-microsoft-prod.rpm
 
       dnf_update || exit $ERR_APT_UPDATE_TIMEOUT
     fi
