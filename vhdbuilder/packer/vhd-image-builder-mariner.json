@@ -326,6 +326,11 @@
     },
     {
       "type": "file",
+      "source": "vhdbuilder/packer/generate-disk-usage.sh",
+      "destination": "/home/packer/generate-disk-usage.sh"
+    },
+    {
+      "type": "file",
       "source": "vhdbuilder/packer/post-install-dependencies.sh",
       "destination": "/home/packer/post-install-dependencies.sh"
     },
@@ -625,6 +630,12 @@
       "destination": "bcc-tools-installation.log"
     },
     {
+      "type": "shell",
+      "inline": [
+        "sudo /bin/bash /home/packer/generate-disk-usage.sh"
+      ]
+    },
+    {
       "type": "file",
       "direction": "download",
       "source": "/opt/azure/disk-usage.txt",
@@ -699,5 +710,11 @@
         "sudo waagent -force -deprovision+user && export HISTSIZE=0 && sync || exit 125"
       ]
     }
-  ]
+  ],
+  "error-cleanup-provisioner": {
+    "type": "shell",
+    "inline": [
+      "sudo /bin/bash /home/packer/generate-disk-usage.sh"
+    ]
+  }
 }

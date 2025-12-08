@@ -604,33 +604,6 @@ string_replace() {
   echo ${1//\*/$2}
 }
 
-logDiskUsage() {
-  local DISK_USAGE_FILE="/opt/azure/disk-usage.txt"
-  set +x
-  {
-    echo "=== Disk Space Diagnostics ==="
-    echo "Timestamp: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
-    echo ""
-    echo "--- df -h ---"
-    df -h
-    echo ""
-    echo "--- Containerd content store ---"
-    du -sh /var/lib/containerd/io.containerd.content.v1.content/ 2>/dev/null || echo "Could not read content store"
-    echo ""
-    echo "--- Containerd snapshotter ---"
-    du -sh /var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/ 2>/dev/null || echo "Could not read snapshotter"
-    echo ""
-    echo "--- Kubernetes downloads ---"
-    du -sh /opt/kubernetes/* 2>/dev/null || echo "Could not read /opt/kubernetes"
-    echo ""
-    echo "--- Container images (sorted by size, top 20) ---"
-    ctr --namespace k8s.io images list 2>/dev/null | tail -n +2 | sort -k4 -h | tail -20 || echo "Could not list images"
-    echo ""
-    echo "=== End Disk Space Diagnostics ==="
-  } | tee "$DISK_USAGE_FILE"
-  set -x
-}
-
 # Limit number of parallel pulls to 2 less than number of processor cores in order to prevent issues with network, CPU, and disk resources
 # Account for possibility that number of cores is 3 or less
 num_proc=$(nproc)
@@ -669,7 +642,6 @@ while IFS= read -r imageToBePulled; do
       wait -n || {
         ret=$?
         echo "A background job pullContainerImage failed: ${ret}, ${CONTAINER_IMAGE}. Exiting..." >&2
-        logDiskUsage >&2
         for pid in "${image_pids[@]}"; do
           kill -9 "$pid" 2>/dev/null || echo "Failed to kill process $pid"
         done
@@ -680,7 +652,6 @@ while IFS= read -r imageToBePulled; do
 done <<< "$ContainerImages"
 echo "Waiting for container image pulls to finish. PID: ${image_pids[@]}"
 wait ${image_pids[@]}
-logDiskUsage
 capture_benchmark "${SCRIPT_NAME}_caching_container_images"
 
 retagAKSNodeCAWatcher() {
