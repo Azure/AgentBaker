@@ -37,15 +37,15 @@ fi
 capture_benchmark "${SCRIPT_NAME}_prepare_upload_vhd_to_blob"
 
 echo "Testing az storage blob copy start...."
-az storage blob copy start --account-name "$STORAGE_ACCOUNT_NAME" --destination-blob "immutabletestblob.vhd" --destination-container "$VHD_CONTAINER_NAME" --source-uri  "${TEST_BLOB_URL}" --auth-mode login
+az storage blob copy start --account-name "$STORAGE_ACCOUNT_NAME" --destination-blob "immutabletestblob1.vhd" --destination-container "$VHD_CONTAINER_NAME" --source-uri  "${TEST_BLOB_URL}" --auth-mode login
 echo "az storage blob copy start test finished."
 
 echo "Testing az storage blob copy start....2"
-az storage blob copy start --account-name "$STORAGE_ACCOUNT_NAME" --destination-blob "${CAPTURED_SIG_VERSION}.vhd" --destination-container "$VHD_CONTAINER_NAME" --source-uri "${TEST_BLOB_URL}" --overwrite --auth-mode login
+az storage blob copy start --account-name "$STORAGE_ACCOUNT_NAME" --destination-blob "immutabletestblob2.vhd" --destination-container "$VHD_CONTAINER_NAME" --source-uri "${TEST_BLOB_URL}" --overwrite --auth-mode login
 echo "az storage blob copy start test 2 finished."
 
 echo "Testing az storage blob copy start....3"
-az storage blob copy start --account-name "$STORAGE_ACCOUNT_NAME" --destination-blob "${CAPTURED_SIG_VERSION}.vhd" --destination-container "$VHD_CONTAINER_NAME" --source-uri "${TEST_BLOB_URL}" --overwrite true --auth-mode login
+az storage blob copy start --account-name "$STORAGE_ACCOUNT_NAME" --destination-blob "immutabletestblob3.vhd" --destination-container "$VHD_CONTAINER_NAME" --source-uri "${TEST_BLOB_URL}" --overwrite true --auth-mode login
 echo "az storage blob copy start test 3 finished."
 
 echo "Uploading ${OUT_DIR}/${CONFIG}.vhd to ${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd"
