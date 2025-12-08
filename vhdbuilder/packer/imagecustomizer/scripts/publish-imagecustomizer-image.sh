@@ -37,7 +37,7 @@ fi
 capture_benchmark "${SCRIPT_NAME}_prepare_upload_vhd_to_blob"
 
 echo "Testing az storage blob copy start...."
-az storage blob copy start --account-name "$STORAGE_ACCOUNT_NAME" --destination-blob "${CAPTURED_SIG_VERSION}.vhd" --destination-container "$VHD_CONTAINER_NAME" --source-uri "${TEST_BLOB_URL}" --auth-mode login
+az storage blob copy start --account-name "$STORAGE_ACCOUNT_NAME" --destination-blob "immutabletestblob.vhd" --destination-container "vhd" --source-uri  --auth-mode login
 echo "az storage blob copy start test finished."
 
 echo "Testing az storage blob copy start....2"
