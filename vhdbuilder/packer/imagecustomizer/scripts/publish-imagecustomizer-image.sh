@@ -99,7 +99,7 @@ echo "Successfully moved to immutable container...."
 #echo "Removed blob from original container...."
 
 echo "Moving back to standard container...."
-az storage blob copy start --account-name "$STORAGE_ACCOUNT_NAME" --destination-blob "${CAPTURED_SIG_VERSION}x.vhd" --destination-container "$OLD_VHD_CONTAINER_NAME" --source-uri "${NEW_CLASSIC_BLOB_URL}/${CAPTURED_SIG_VERSION}.vhd" --auth-mode login
+az storage blob copy start --account-name "$STORAGE_ACCOUNT_NAME" --destination-blob "${CAPTURED_SIG_VERSION}x.vhd" --destination-container "$OLD_VHD_CONTAINER_NAME" --source-uri "${NEW_CLASSIC_BLOB_URL}/${CAPTURED_SIG_VERSION}.vhd" --overwrite true --auth-mode login
 echo "Successfully moved to standard container...."
 
 # Determine target regions for image replication.
