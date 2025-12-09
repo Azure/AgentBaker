@@ -36,7 +36,7 @@ fi
 
 capture_benchmark "${SCRIPT_NAME}_prepare_upload_vhd_to_blob"
 
-echo "Uploading ${OUT_DIR}/${CONFIG}.vhd to ${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd"
+echo "Uploading ${OUT_DIR}/${CONFIG}.vhd to ${CLASSIC_BLOB_STAGING}/${CAPTURED_SIG_VERSION}.vhd"
 
 echo "Setting azcopy environment variables with pool identity: $AZURE_MSI_RESOURCE_STRING"
 export AZCOPY_AUTO_LOGIN_TYPE="AZCLI"
@@ -47,7 +47,7 @@ export AZCOPY_JOB_PLAN_LOCATION="$(pwd)/azcopy-job-plan-files/"
 mkdir -p "${AZCOPY_LOG_LOCATION}"
 mkdir -p "${AZCOPY_JOB_PLAN_LOCATION}"
 
-if ! azcopy copy "${OUT_DIR}/${CONFIG}.vhd" "${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd" --recursive=true ; then
+if ! azcopy copy "${OUT_DIR}/${CONFIG}.vhd" "${CLASSIC_BLOB_STAGING}/${CAPTURED_SIG_VERSION}.vhd" --recursive=true ; then
     azExitCode=$?
     # loop through azcopy log files
     shopt -s nullglob
@@ -68,23 +68,15 @@ if ! azcopy copy "${OUT_DIR}/${CONFIG}.vhd" "${CLASSIC_BLOB}/${CAPTURED_SIG_VERS
     exit $azExitCode
 fi
 
-echo "Uploaded ${OUT_DIR}/${CONFIG}.vhd to ${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd"
-capture_benchmark "${SCRIPT_NAME}_upload_vhd_to_blob"
+echo "Uploaded ${OUT_DIR}/${CONFIG}.vhd to ${CLASSIC_BLOB_STAGING}/${CAPTURED_SIG_VERSION}.vhd"
 
-# Use the domain name from the classic blob URL to get the storage account name.
-# If the CLASSIC_BLOB var is not set create a new var called BLOB_STORAGE_NAME in the pipeline.
-BLOB_URL_REGEX="^https:\/\/.+\.blob\.core\.windows\.net\/vhd(s)?$"
-# shellcheck disable=SC3010
-if [[ $CLASSIC_BLOB =~ $BLOB_URL_REGEX ]]; then
-    STORAGE_ACCOUNT_NAME=$(echo $CLASSIC_BLOB | sed -E 's|https://(.*)\.blob\.core\.windows\.net(:443)?/(.*)?|\1|')
+if [ "${GENERATE_PUBLISHING_INFO,,}" = "true" ]; then
+    echo "Moving ${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd to immutable storage container"
+    azcopy remove "${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd" --recursive=true
 else
-    # Used in the 'AKS Linux VHD Build - PR check-in gate' pipeline.
-    if [ -z "$BLOB_STORAGE_NAME" ]; then
-        echo "BLOB_STORAGE_NAME is not set, please either set the CLASSIC_BLOB var or create a new var BLOB_STORAGE_NAME in the pipeline."
-        exit 1
-    fi
-    STORAGE_ACCOUNT_NAME=${BLOB_STORAGE_NAME}
+    echo "GENERATE_PUBLISHING_INFO is false, skipping moving ${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd to immutable storage container"
 fi
+capture_benchmark "${SCRIPT_NAME}_upload_vhd_to_blob"
 
 GALLERY_RESOURCE_ID=/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/galleries/${SIG_GALLERY_NAME}
 SIG_IMAGE_RESOURCE_ID="${GALLERY_RESOURCE_ID}/images/${SIG_IMAGE_NAME}/versions/${CAPTURED_SIG_VERSION}"
