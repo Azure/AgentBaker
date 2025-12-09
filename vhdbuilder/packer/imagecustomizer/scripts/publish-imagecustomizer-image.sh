@@ -72,7 +72,8 @@ echo "Uploaded ${OUT_DIR}/${CONFIG}.vhd to ${CLASSIC_BLOB_STAGING}/${CAPTURED_SI
 
 if [ "${GENERATE_PUBLISHING_INFO,,}" = "true" ]; then
     echo "Moving ${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd to immutable storage container"
-    azcopy remove "${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd" --recursive=true
+    az storage blob copy start --account-name "$STORAGE_ACCOUNT_NAME" --destination-blob "${CAPTURED_SIG_VERSION}.vhd" --destination-container "$VHD_CONTAINER_NAME" --source-uri "${CLASSIC_BLOB_STAGING}/${CAPTURED_SIG_VERSION}.vhd" --auth-mode login || exit 1
+    echo "Successfully moved to immutable container...."
 else
     echo "GENERATE_PUBLISHING_INFO is false, skipping moving ${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd to immutable storage container"
 fi
