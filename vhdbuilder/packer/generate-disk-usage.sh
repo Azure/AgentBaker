@@ -23,26 +23,16 @@ START_TIME=$(date +%s)
   echo ""
 
   echo "----------------------------------------------"
-  echo "CONTAINER IMAGES BY UNPACKED SIZE"
+  echo "CONTAINER IMAGES (manifest size)"
   echo "----------------------------------------------"
-  echo "(Showing actual disk usage per image)"
+  echo "Note: Sizes shown are compressed manifest sizes, not actual disk usage."
+  echo "Actual unpacked size is in CONTAINERD STORAGE SUMMARY below."
   echo ""
-  # Build a mapping of snapshot parents to find root snapshots for each image
-  # Then calculate total size per image
   if command -v ctr &>/dev/null; then
-    # Get list of images with their digests
-    while IFS= read -r line; do
-      image_name=$(echo "$line" | awk '{print $1}')
-      # Skip sha256 references (duplicates)
-      if [[ "$image_name" == sha256:* ]]; then
-        continue
-      fi
-      # Get the unpacked size by checking the snapshot
-      size=$(ctr --namespace k8s.io images usage "$image_name" 2>/dev/null | tail -1 | awk '{print $1}')
-      if [[ -n "$size" && "$size" != "0" ]]; then
-        echo "$size $image_name"
-      fi
-    done < <(ctr --namespace k8s.io images list 2>/dev/null | tail -n +2) | sort -hr
+    ctr --namespace k8s.io images list 2>/dev/null | tail -n +2 | \
+      awk '{print $1, $4, $5}' | \
+      grep -v '^sha256:' | \
+      sort -k2 -hr
   else
     echo "ctr not available"
   fi
@@ -57,7 +47,7 @@ START_TIME=$(date +%s)
   echo "----------------------------------------------"
   echo "LARGEST FILES (over 100MB)"
   echo "----------------------------------------------"
-  find / -type f -size +100M -exec ls -lh {} \; 2>/dev/null | awk '{print $5, $9}' | grep -v '^128T' | sort -hr
+  find / -type f -size +100M ! -path "/proc/*" -exec ls -lh {} \; 2>/dev/null | awk '{print $5, $9}' | sort -hr
   echo ""
 
   echo "----------------------------------------------"
