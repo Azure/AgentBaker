@@ -70,12 +70,27 @@ fi
 
 echo "Uploaded ${OUT_DIR}/${CONFIG}.vhd to ${CLASSIC_BLOB_STAGING}/${CAPTURED_SIG_VERSION}.vhd"
 
-if [ "${GENERATE_PUBLISHING_INFO,,}" = "true" ]; then
-    echo "Moving ${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd to immutable storage container"
-    az storage blob copy start --account-name "$STORAGE_ACCOUNT_NAME" --destination-blob "${CAPTURED_SIG_VERSION}.vhd" --destination-container "$VHD_CONTAINER_NAME" --source-uri "${CLASSIC_BLOB_STAGING}/${CAPTURED_SIG_VERSION}.vhd" --auth-mode login || exit 1
-    echo "Successfully moved to immutable container...."
+# Use the domain name from the classic blob URL to get the storage account name.
+# If the CLASSIC_BLOB var is not set create a new var called BLOB_STORAGE_NAME in the pipeline.
+BLOB_URL_REGEX="^https:\/\/.+\.blob\.core\.windows\.net\/vhd(s)?$"
+# shellcheck disable=SC3010
+if [[ $CLASSIC_BLOB =~ $BLOB_URL_REGEX ]]; then
+    STORAGE_ACCOUNT_NAME=$(echo $CLASSIC_BLOB | sed -E 's|https://(.*)\.blob\.core\.windows\.net(:443)?/(.*)?|\1|')
 else
-    echo "GENERATE_PUBLISHING_INFO is false, skipping moving ${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd to immutable storage container"
+    # Used in the 'AKS Linux VHD Build - PR check-in gate' pipeline.
+    if [ -z "$BLOB_STORAGE_NAME" ]; then
+        echo "BLOB_STORAGE_NAME is not set, please either set the CLASSIC_BLOB var or create a new var BLOB_STORAGE_NAME in the pipeline."
+        exit 1
+    fi
+    STORAGE_ACCOUNT_NAME=${BLOB_STORAGE_NAME}
+fi
+
+if [ "${GENERATE_PUBLISHING_INFO,,}" = "true" ]; then
+    echo "Copying ${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd to immutable storage container"
+    az storage blob copy start --account-name "$STORAGE_ACCOUNT_NAME" --destination-blob "${CAPTURED_SIG_VERSION}.vhd" --destination-container "$VHD_CONTAINER_NAME" --source-uri "${CLASSIC_BLOB_STAGING}/${CAPTURED_SIG_VERSION}.vhd" --auth-mode login || exit 1
+    echo "Successfully copied to immutable container"
+else
+    echo "GENERATE_PUBLISHING_INFO is false, skipping copying ${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd to immutable storage container"
 fi
 capture_benchmark "${SCRIPT_NAME}_upload_vhd_to_blob"
 
@@ -91,11 +106,11 @@ if [ "$GALLERY_LOCATION" != "$PACKER_BUILD_LOCATION" ]; then
     TARGET_REGIONS="${TARGET_REGIONS} ${GALLERY_LOCATION}"
 fi
 
-echo "Creating managed image ${MANAGED_IMAGE_RESOURCE_ID} from VHD ${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd"
+echo "Creating managed image ${MANAGED_IMAGE_RESOURCE_ID} from VHD ${CLASSIC_BLOB_STAGING}/${CAPTURED_SIG_VERSION}.vhd"
 az image create \
     --resource-group ${RESOURCE_GROUP_NAME} \
     --name ${IMAGE_NAME} \
-    --source "${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd" \
+    --source "${CLASSIC_BLOB_STAGING}/${CAPTURED_SIG_VERSION}.vhd" \
     --os-type Linux \
     --storage-sku Standard_LRS \
     --hyper-v-generation V2 \
@@ -114,10 +129,10 @@ az sig image-version create \
 capture_benchmark "${SCRIPT_NAME}_create_sig_image_version"
 
 if [ "${GENERATE_PUBLISHING_INFO,,}" != "true" ]; then
-    echo "Cleaning up ${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd from the storage account"
-    azcopy remove "${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd" --recursive=true
+    echo "Cleaning up ${CLASSIC_BLOB_STAGING}/${CAPTURED_SIG_VERSION}.vhd from the storage account"
+    azcopy remove "${CLASSIC_BLOB_STAGING}/${CAPTURED_SIG_VERSION}.vhd" --recursive=true
 else
-    echo "GENERATE_PUBLISHING_INFO is true, skipping cleanup of ${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd"
+    echo "GENERATE_PUBLISHING_INFO is true, skipping cleanup of ${CLASSIC_BLOB_STAGING}/${CAPTURED_SIG_VERSION}.vhd"
 fi
 
 # Set SIG ID in pipeline for use during testing
