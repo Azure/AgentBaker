@@ -72,10 +72,10 @@ echo "Uploaded ${OUT_DIR}/${CONFIG}.vhd to ${CLASSIC_BLOB_STAGING}/${CAPTURED_SI
 
 # Use the domain name from the classic blob URL to get the storage account name.
 # If the CLASSIC_BLOB var is not set create a new var called BLOB_STORAGE_NAME in the pipeline.
-BLOB_URL_REGEX="^https:\/\/.+\.blob\.core\.windows\.net\/vhd(s)?$"
+BLOB_URL_REGEX="^https:\/\/.+\.blob\.core\.windows\.net\/vhdstaging(s)?$"
 # shellcheck disable=SC3010
-if [[ $CLASSIC_BLOB =~ $BLOB_URL_REGEX ]]; then
-    STORAGE_ACCOUNT_NAME=$(echo $CLASSIC_BLOB | sed -E 's|https://(.*)\.blob\.core\.windows\.net(:443)?/(.*)?|\1|')
+if [[ $CLASSIC_BLOB_STAGING =~ $BLOB_URL_REGEX ]]; then
+    STORAGE_ACCOUNT_NAME=$(echo $CLASSIC_BLOB_STAGING | sed -E 's|https://(.*)\.blob\.core\.windows\.net(:443)?/(.*)?|\1|')
 else
     # Used in the 'AKS Linux VHD Build - PR check-in gate' pipeline.
     if [ -z "$BLOB_STORAGE_NAME" ]; then
@@ -86,11 +86,11 @@ else
 fi
 
 if [ "${GENERATE_PUBLISHING_INFO,,}" = "true" ]; then
-    echo "Copying ${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd to immutable storage container"
+    echo "Copying ${CLASSIC_BLOB_STAGING}/${CAPTURED_SIG_VERSION}.vhd to immutable storage container"
     az storage blob copy start --account-name "$STORAGE_ACCOUNT_NAME" --destination-blob "${CAPTURED_SIG_VERSION}.vhd" --destination-container "$VHD_CONTAINER_NAME" --source-uri "${CLASSIC_BLOB_STAGING}/${CAPTURED_SIG_VERSION}.vhd" --auth-mode login || exit 1
     echo "Successfully copied to immutable container"
 else
-    echo "GENERATE_PUBLISHING_INFO is false, skipping copying ${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd to immutable storage container"
+    echo "GENERATE_PUBLISHING_INFO is false, skipping copying ${CLASSIC_BLOB_STAGING}/${CAPTURED_SIG_VERSION}.vhd to immutable storage container"
 fi
 capture_benchmark "${SCRIPT_NAME}_upload_vhd_to_blob"
 
