@@ -120,12 +120,6 @@ az sig image-version create \
     --target-regions ${TARGET_REGIONS}
 capture_benchmark "${SCRIPT_NAME}_create_sig_image_version"
 
-if [ "${GENERATE_PUBLISHING_INFO,,}" != "true" ]; then
-    echo "Cleaning up ${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd from the storage account"
-    azcopy remove "${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd" --recursive=true
-else
-    echo "GENERATE_PUBLISHING_INFO is true, skipping cleanup of ${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd"
-fi
 
 # Set SIG ID in pipeline for use during testing
 echo "##vso[task.setvariable variable=MANAGED_SIG_ID]$SIG_IMAGE_RESOURCE_ID"
