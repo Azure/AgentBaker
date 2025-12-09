@@ -4,8 +4,9 @@
 
 DISK_USAGE_FILE="/opt/azure/disk-usage.txt"
 
-# Ensure the directory exists
+# Ensure the directory exists and is accessible
 mkdir -p /opt/azure
+chmod 755 /opt/azure
 
 START_TIME=$(date +%s)
 
@@ -70,3 +71,6 @@ START_TIME=$(date +%s)
   echo "Total collection time: $((END_TIME - START_TIME)) seconds"
   echo "=============================================="
 } | tee "$DISK_USAGE_FILE"
+
+# Make file readable for packer SCP download
+chmod 644 "$DISK_USAGE_FILE"
