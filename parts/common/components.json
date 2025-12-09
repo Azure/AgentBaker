@@ -1705,6 +1705,40 @@
           }
         }
       }
+    },
+    {
+      "name": "aks-localdns",
+      "downloadLocation": "/opt/aks-localdns/downloads",
+      "downloadURIs": {
+        "azurelinux": {
+          "v3.0": {
+            "versionsV2": [
+              {
+                "renovateTag": "OCI_registry=upstream.azurecr.io, name=oss/v2/packages/localdns/aks-localdns",
+                "latestVersion": "1.13.1-1"
+              }
+            ]
+          }
+        },
+        "ubuntu": {
+          "r2204": {
+            "versionsV2": [
+              {
+                "renovateTag": "OCI_registry=upstream.azurecr.io, name=oss/v2/packages/localdns/aks-localdns",
+                "latestVersion": "1.13.1-1"
+              }
+            ]
+          },
+          "r2404": {
+            "versionsV2": [
+              {
+                "renovateTag": "OCI_registry=upstream.azurecr.io, name=oss/v2/packages/localdns/aks-localdns",
+                "latestVersion": "1.13.1-1"
+              }
+            ]
+          }
+        }
+      }
     }
   ],
   "OCIArtifacts": [
