@@ -114,7 +114,7 @@ echo "Creating managed image ${MANAGED_IMAGE_RESOURCE_ID} from VHD ${CLASSIC_BLO
 az image create \
     --resource-group ${RESOURCE_GROUP_NAME} \
     --name ${IMAGE_NAME} \
-    --source "${CLASSIC_BLOB_URL}/${CAPTURED_SIG_VERSION}x.vhd" \
+    --source "${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}x.vhd" \
     --os-type Linux \
     --storage-sku Standard_LRS \
     --hyper-v-generation V2 \
