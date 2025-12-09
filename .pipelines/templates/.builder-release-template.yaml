@@ -51,15 +51,21 @@ steps:
     inputs:
       source: specific
       project: CloudNativeCompute
-      pipeline: 417429
+      pipeline: 318279
       specificBuildWithTriggering: true
       allowPartiallySucceededBuilds: false
       buildVersionToDownload: 'latestFromBranch'
       branchName: 'refs/heads/master'
       downloadType: 'single'
-      artifactName: 'mariner-kata-3-0-uvm'
+      artifactName: 'drop_container_job_sign_uvm_azl3'
       itemPattern: |
+        **/kata-containers-igvm-debug.img**
+        **/igvm-measurement**
+        **/kata-containers-igvm.img**
+        **/kata-containers-cc.img**
         **/kata-containers.img**
+        **/kata-containers-initrd-base.img**
+        **/reference-info-base64**
       downloadPath: $(Build.SourcesDirectory)
 
   - bash: |
