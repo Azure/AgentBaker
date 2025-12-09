@@ -38,7 +38,7 @@ steps:
       artifactName: 'drop_container_job_sign_uvm'
       itemPattern: |
         **/kata-containers-igvm-debug.img**
-        **/igvm-measurement**
+        **/igvm-measurement.cose**
         **/kata-containers-igvm.img**
         **/kata-containers-cc.img**
         **/kata-containers.img**
