@@ -601,8 +601,8 @@
     },
     {
       "type": "file",
-      "source": "reference-info-base64",
-      "destination": "/home/packer/reference-info-base64"
+      "source": "igvm-measurement.cose",
+      "destination": "/home/packer/igvm-measurement.cose"
     },
     {
       "type": "file",
