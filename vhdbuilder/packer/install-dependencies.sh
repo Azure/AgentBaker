@@ -444,6 +444,11 @@ while IFS= read -r p; do
         echo "  - datacenter-gpu-manager-4-proprietary version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
+    "aks-localdns")
+      for version in ${PACKAGE_VERSIONS[@]}; do
+        installLocalDNSPackage "${version}"
+      done
+      ;;
     "datacenter-gpu-manager-exporter")
       for version in ${PACKAGE_VERSIONS[@]}; do
         if [ "${OS}" = "${UBUNTU_OS_NAME}" ]; then

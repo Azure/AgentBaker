@@ -86,6 +86,72 @@ installCriCtlPackage() {
   dnf_install 30 1 600 ${packageName} || exit 1
 }
 
+installLocalDNSPackage() {
+  version="${1:-}"
+  packageName="aks-localdns=${version}"
+  if [ -z "$version" ]; then
+    echo "Error: No version specified for aks-localdns package but it is required. Exiting with error."
+    exit 1
+  fi
+  echo "Installing ${packageName} with dnf"
+  dnf_install 30 1 600 ${packageName} || exit 1
+
+  # Copy the installed binary to the expected path for localdns service
+  COREDNS_BINARY_PATH="/opt/azure/containers/localdns/binary/coredns"
+
+  # Find the installed coredns binary
+  source_binary=""
+
+  # Common installation paths to check (in priority order)
+  search_paths=(
+    "/usr/bin/coredns"
+    "/usr/local/bin/coredns"
+    "/opt/bin/coredns"
+  )
+
+  for path in "${search_paths[@]}"; do
+    if [ -f "${path}" ]; then
+      source_binary="${path}"
+      break
+    fi
+  done
+
+  # If not found in common paths, search the entire system
+  if [ -z "${source_binary}" ]; then
+    source_binary=$(find /usr /opt -name "coredns" -type f 2>/dev/null | head -n 1)
+  fi
+
+  if [ -z "${source_binary}" ] || [ ! -f "${source_binary}" ]; then
+    echo "Error: Failed to find installed coredns binary. Exiting with error."
+    exit 1
+  fi
+
+  echo "Found installed coredns binary at ${source_binary}"
+
+  # Create the destination directory if it doesn't exist
+  dest_dir=$(dirname "${COREDNS_BINARY_PATH}")
+  mkdir -p "${dest_dir}"
+
+  # Copy the binary to the expected path
+  echo "Copying coredns binary to ${COREDNS_BINARY_PATH}"
+  cp -f "${source_binary}" "${COREDNS_BINARY_PATH}"
+  if [ $? -ne 0 ]; then
+    echo "Error: Failed to copy coredns binary to ${COREDNS_BINARY_PATH}. Exiting with error."
+    exit 1
+  fi
+
+  # Make sure the binary is executable
+  chmod +x "${COREDNS_BINARY_PATH}"
+
+  # Verify the installed binary works
+  if ! "${COREDNS_BINARY_PATH}" --version >/dev/null 2>&1; then
+    echo "Error: Installed coredns binary failed version check. Exiting with error."
+    exit 1
+  fi
+
+  echo "Successfully verified coredns binary at ${COREDNS_BINARY_PATH}"
+}
+
 downloadGPUDrivers() {
     # Mariner CUDA rpm name comes in the following format:
     #
