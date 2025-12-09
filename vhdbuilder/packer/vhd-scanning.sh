@@ -231,10 +231,18 @@ isFlatcar() {
 }
 isAzureLinuxOSGuard() {
     local os="$1"
+    local os_variant="${2:-}"
 
+    # Check if OS is explicitly AzureLinuxOSGuard
     if [ "$os" = "AzureLinuxOSGuard" ]; then
         return 0
     fi
+    
+    # Check if OS is AZURELINUX with OSGUARD variant
+    if [ "$os" = "AZURELINUX" ] && [ "$os_variant" = "OSGUARD" ]; then
+        return 0
+    fi
+    
     return 1
 }
 isUbuntuCVM() {
