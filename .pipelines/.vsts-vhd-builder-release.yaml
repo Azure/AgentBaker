@@ -973,6 +973,7 @@ stages:
     dependsOn: []
     jobs:
       - job: build2404arm64gb200gen2containerd
+        condition: eq('${{ parameters.build2404arm64gb200gen2containerd }}', true)
         timeoutInMinutes: 180
         steps:
           - bash: |
