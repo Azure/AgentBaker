@@ -47,7 +47,18 @@ export AZCOPY_JOB_PLAN_LOCATION="$(pwd)/azcopy-job-plan-files/"
 mkdir -p "${AZCOPY_LOG_LOCATION}"
 mkdir -p "${AZCOPY_JOB_PLAN_LOCATION}"
 
-if ! azcopy copy "${OUT_DIR}/${CONFIG}.vhd" "${CLASSIC_BLOB_STAGING}/${CAPTURED_SIG_VERSION}.vhd" --recursive=true ; then
+if [ "${ENVIRONMENT,,}" = "test" ]; then
+    DESTINATION_STORAGE_CONTAINER=${CLASSIC_BLOB}
+    BLOB_URL_REGEX="^https:\/\/.+\.blob\.core\.windows\.net\/vhd(s)?$"
+else
+    # If environment is TME or AME, we use a staging blob storage account in order to later copy the blob to an immutable container.
+    DESTINATION_STORAGE_CONTAINER=${CLASSIC_BLOB_STAGING}
+    BLOB_URL_REGEX="^https:\/\/.+\.blob\.core\.windows\.net\/${VHD_CONTAINER_NAME}(s)?$"
+fi
+
+AZCOPYCMD="azcopy copy \"${OUT_DIR}/${CONFIG}.vhd" "${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd\""
+
+if ! "${AZCOPYCMD}" --recursive=true ; then
     azExitCode=$?
     # loop through azcopy log files
     shopt -s nullglob
@@ -68,14 +79,13 @@ if ! azcopy copy "${OUT_DIR}/${CONFIG}.vhd" "${CLASSIC_BLOB_STAGING}/${CAPTURED_
     exit $azExitCode
 fi
 
-echo "Uploaded ${OUT_DIR}/${CONFIG}.vhd to ${CLASSIC_BLOB_STAGING}/${CAPTURED_SIG_VERSION}.vhd"
+echo "Uploaded ${OUT_DIR}/${CONFIG}.vhd to ${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd"
 
 # Use the domain name from the classic blob URL to get the storage account name.
 # If the CLASSIC_BLOB var is not set create a new var called BLOB_STORAGE_NAME in the pipeline.
-BLOB_URL_REGEX="^https:\/\/.+\.blob\.core\.windows\.net\/vhdstaging(s)?$"
 # shellcheck disable=SC3010
-if [[ $CLASSIC_BLOB_STAGING =~ $BLOB_URL_REGEX ]]; then
-    STORAGE_ACCOUNT_NAME=$(echo $CLASSIC_BLOB_STAGING | sed -E 's|https://(.*)\.blob\.core\.windows\.net(:443)?/(.*)?|\1|')
+if [[ $DESTINATION_STORAGE_CONTAINER =~ $BLOB_URL_REGEX ]]; then
+    STORAGE_ACCOUNT_NAME=$(echo $DESTINATION_STORAGE_CONTAINER | sed -E 's|https://(.*)\.blob\.core\.windows\.net(:443)?/(.*)?|\1|')
 else
     # Used in the 'AKS Linux VHD Build - PR check-in gate' pipeline.
     if [ -z "$BLOB_STORAGE_NAME" ]; then
@@ -86,11 +96,11 @@ else
 fi
 
 if [ "${GENERATE_PUBLISHING_INFO,,}" = "true" ]; then
-    echo "Copying ${CLASSIC_BLOB_STAGING}/${CAPTURED_SIG_VERSION}.vhd to immutable storage container"
-    az storage blob copy start --account-name "$STORAGE_ACCOUNT_NAME" --destination-blob "${CAPTURED_SIG_VERSION}.vhd" --destination-container "$VHD_CONTAINER_NAME" --source-uri "${CLASSIC_BLOB_STAGING}/${CAPTURED_SIG_VERSION}.vhd" --auth-mode login || exit 1
+    echo "Copying ${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd to immutable storage container"
+    az storage blob copy start --account-name "$STORAGE_ACCOUNT_NAME" --destination-blob "${CAPTURED_SIG_VERSION}.vhd" --destination-container "$VHD_CONTAINER_NAME" --source-uri "${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd" --auth-mode login || exit 1
     echo "Successfully copied to immutable container"
 else
-    echo "GENERATE_PUBLISHING_INFO is false, skipping copying ${CLASSIC_BLOB_STAGING}/${CAPTURED_SIG_VERSION}.vhd to immutable storage container"
+    echo "GENERATE_PUBLISHING_INFO is false, skipping copying ${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd to immutable storage container"
 fi
 capture_benchmark "${SCRIPT_NAME}_upload_vhd_to_blob"
 
@@ -110,7 +120,7 @@ echo "Creating managed image ${MANAGED_IMAGE_RESOURCE_ID} from VHD ${CLASSIC_BLO
 az image create \
     --resource-group ${RESOURCE_GROUP_NAME} \
     --name ${IMAGE_NAME} \
-    --source "${CLASSIC_BLOB_STAGING}/${CAPTURED_SIG_VERSION}.vhd" \
+    --source "${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd" \
     --os-type Linux \
     --storage-sku Standard_LRS \
     --hyper-v-generation V2 \
