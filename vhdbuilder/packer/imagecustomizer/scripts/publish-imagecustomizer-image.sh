@@ -47,11 +47,9 @@ mkdir -p "${AZCOPY_JOB_PLAN_LOCATION}"
 
 if [ "${ENVIRONMENT,,}" != "tme" ]; then
     DESTINATION_STORAGE_CONTAINER=${CLASSIC_BLOB}
-    BLOB_URL_REGEX="^https:\/\/.+\.blob\.core\.windows\.net\/${VHD_CONTAINER_NAME}(s)?$"
 else
     # If environment is TME, we use a staging container in order to later copy the blob to an immutable container.
     DESTINATION_STORAGE_CONTAINER=${CLASSIC_BLOB_STAGING}
-    BLOB_URL_REGEX="^https:\/\/.+\.blob\.core\.windows\.net\/${VHD_STAGING_CONTAINER_NAME}(s)?$"
 fi
 
 # Use the domain name from the classic blob URL to get the storage account name.
