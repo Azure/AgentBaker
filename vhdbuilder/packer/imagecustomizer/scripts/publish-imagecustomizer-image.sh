@@ -49,7 +49,7 @@ if [ "${ENVIRONMENT,,}" = "test" ]; then
     DESTINATION_STORAGE_CONTAINER=${CLASSIC_BLOB}
     BLOB_URL_REGEX="^https:\/\/.+\.blob\.core\.windows\.net\/${VHD_CONTAINER_NAME}(s)?$"
 else
-    # If environment is TME or AME, we use a staging blob storage account in order to later copy the blob to an immutable container.
+    # If environment is TME or AME, we use a staging container in order to later copy the blob to an immutable container.
     DESTINATION_STORAGE_CONTAINER=${CLASSIC_BLOB_STAGING}
     BLOB_URL_REGEX="^https:\/\/.+\.blob\.core\.windows\.net\/${VHD_STAGING_CONTAINER_NAME}(s)?$"
 fi
@@ -70,7 +70,7 @@ fi
 
 if [ "${ENVIRONMENT,,}" != "test" ]; then
     STAGING_CONTAINER_EXISTS=$(az storage container exists --account-name ${STORAGE_ACCOUNT_NAME} --name $VHD_STAGING_CONTAINER_NAME --auth-mode login | jq -r '.exists')
-    if [ "$STAGING_CONTAINER_EXISTS" = "false" ]; then
+    if [ "${STAGING_CONTAINER_EXISTS,,}" = "false" ]; then
         echo "Creating staging container $VHD_STAGING_CONTAINER_NAME in storage account $STORAGE_ACCOUNT_NAME"
         az storage container create --account-name "$STORAGE_ACCOUNT_NAME" --name "$VHD_STAGING_CONTAINER_NAME" --auth-mode login || exit 1
     else
