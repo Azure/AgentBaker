@@ -68,7 +68,7 @@ else
     STORAGE_ACCOUNT_NAME=${BLOB_STORAGE_NAME}
 fi
 
-STAGING_CONTAINER_EXISTS=$(az storage container exists --account-name vhdbuildereastustme --name $VHD_STAGING_CONTAINER_NAME --auth-mode login | jq -r '.exists')
+STAGING_CONTAINER_EXISTS=$(az storage container exists --account-name ${STORAGE_ACCOUNT_NAME} --name $VHD_STAGING_CONTAINER_NAME --auth-mode login | jq -r '.exists')
 if [ "$STAGING_CONTAINER_EXISTS" = "false" ]; then
     echo "Creating staging container $VHD_STAGING_CONTAINER_NAME in storage account $STORAGE_ACCOUNT_NAME"
     az storage container create --account-name "$STORAGE_ACCOUNT_NAME" --name "$VHD_STAGING_CONTAINER_NAME" --auth-mode login || exit 1
