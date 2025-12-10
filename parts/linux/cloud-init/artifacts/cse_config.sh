@@ -403,6 +403,8 @@ configureContainerdLegacyMooncakeMcrHost() {
     tee "${CONTAINERD_CONFIG_REGISTRY_HOST_MCR}" > /dev/null <<EOF
 [host."https://${TARGET_MCR_REPOSITORY_BASE}"]
   capabilities = ["pull", "resolve"]
+[host."https://${TARGET_MCR_REPOSITORY_BASE}".header]
+    X-Forwarded-For = ["${LEGACY_MCR_REPOSITORY_BASE}"]
 EOF
 }
 
