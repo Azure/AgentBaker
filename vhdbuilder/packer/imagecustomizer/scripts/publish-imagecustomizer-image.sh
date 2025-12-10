@@ -45,28 +45,14 @@ export AZCOPY_JOB_PLAN_LOCATION="$(pwd)/azcopy-job-plan-files/"
 mkdir -p "${AZCOPY_LOG_LOCATION}"
 mkdir -p "${AZCOPY_JOB_PLAN_LOCATION}"
 
-if [ "${ENVIRONMENT,,}" != "tme" ]; then
-    DESTINATION_STORAGE_CONTAINER=${CLASSIC_BLOB}
-else
+if [ "${ENVIRONMENT,,}" = "tme" ]; then
     # If environment is TME, we use a staging container in order to later copy the blob to an immutable container.
     DESTINATION_STORAGE_CONTAINER=${CLASSIC_BLOB_STAGING}
-fi
-
-# Use the domain name from the classic blob URL to get the storage account name.
-# If the CLASSIC_BLOB var is not set create a new var called BLOB_STORAGE_NAME in the pipeline.
-# shellcheck disable=SC3010
-if [[ $DESTINATION_STORAGE_CONTAINER =~ $BLOB_URL_REGEX ]]; then
-    STORAGE_ACCOUNT_NAME=$(echo $DESTINATION_STORAGE_CONTAINER | sed -E 's|https://(.*)\.blob\.core\.windows\.net(:443)?/(.*)?|\1|')
 else
-    # Used in the 'AKS Linux VHD Build - PR check-in gate' pipeline.
-    if [ -z "$BLOB_STORAGE_NAME" ]; then
-        echo "BLOB_STORAGE_NAME is not set, please either set the CLASSIC_BLOB var or create a new var BLOB_STORAGE_NAME in the pipeline."
-        exit 1
-    fi
-    STORAGE_ACCOUNT_NAME=${BLOB_STORAGE_NAME}
+    DESTINATION_STORAGE_CONTAINER=${CLASSIC_BLOB}
 fi
 
-if [ "${ENVIRONMENT,,}" != "test" ]; then
+if [ "${ENVIRONMENT,,}" = "tme" ]; then
     STAGING_CONTAINER_EXISTS=$(az storage container exists --account-name ${STORAGE_ACCOUNT_NAME} --name $VHD_STAGING_CONTAINER_NAME --auth-mode login | jq -r '.exists')
     if [ "${STAGING_CONTAINER_EXISTS,,}" = "false" ]; then
         echo "Creating staging container $VHD_STAGING_CONTAINER_NAME in storage account $STORAGE_ACCOUNT_NAME"
@@ -102,7 +88,7 @@ fi
 
 echo "Uploaded ${OUT_DIR}/${CONFIG}.vhd to ${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd"
 
-if [ "${GENERATE_PUBLISHING_INFO,,}" = "true" ] && [ "${ENVIRONMENT,,}" != "test"  ]; then
+if [ "${GENERATE_PUBLISHING_INFO,,}" = "true" ] && [ "${ENVIRONMENT,,}" = "tme"  ]; then
     echo "Copying ${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd to immutable storage container"
     az storage blob copy start --account-name "$STORAGE_ACCOUNT_NAME" --destination-blob "${CAPTURED_SIG_VERSION}.vhd" --destination-container "$VHD_CONTAINER_NAME" --source-uri "${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd" --auth-mode login || exit 1
     echo "Successfully copied to immutable container"
