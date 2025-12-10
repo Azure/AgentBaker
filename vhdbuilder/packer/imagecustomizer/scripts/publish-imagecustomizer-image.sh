@@ -93,7 +93,7 @@ if [ "${GENERATE_PUBLISHING_INFO,,}" = "true" ] && [ "${ENVIRONMENT,,}" = "tme" 
     az storage blob copy start --account-name "$STORAGE_ACCOUNT_NAME" --destination-blob "${CAPTURED_SIG_VERSION}.vhd" --destination-container "$VHD_CONTAINER_NAME" --source-uri "${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd" --auth-mode login || exit 1
     echo "Successfully copied to immutable container"
 else
-    echo "GENERATE_PUBLISHING_INFO is false or we are in a testing environment, skipping copying ${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd to immutable storage container"
+    echo "GENERATE_PUBLISHING_INFO is false or we are in a testing / prod environment, skipping copying ${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd to immutable storage container"
 fi
 capture_benchmark "${SCRIPT_NAME}_upload_vhd_to_blob"
 
