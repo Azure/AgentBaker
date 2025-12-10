@@ -1,4 +1,4 @@
-Starting build on  Thu Nov 20 21:14:22 UTC 2025
+Starting build on  Sat Dec 6 01:04:12 UTC 2025
 Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):
   - oras version 1.2.2
   - aks-secure-tls-bootstrap-client version 1.0.1
@@ -10,31 +10,31 @@ Components downloaded in this VHD build (some of the below components might get 
   - kubelet version 1.34.0-5.azl3
   - kubectl version 1.34.1-4.azl3
   - kubectl version 1.34.0-5.azl3
-  - kubernetes-binaries version v1.28.102-akslts
-  - kubernetes-binaries version v1.29.100-akslts
-  - kubernetes-binaries version v1.30.100-akslts
+  - kubernetes-binaries version v1.28.103-akslts
+  - kubernetes-binaries version v1.29.101-akslts
+  - kubernetes-binaries version v1.30.101-akslts
   - kubernetes-binaries version v1.29.15
   - kubernetes-binaries version v1.30.14
-  - kubernetes-binaries version v1.31.13
-  - kubernetes-binaries version v1.32.9
-  - kubernetes-binaries version v1.33.5
+  - kubernetes-binaries version v1.31.14
+  - kubernetes-binaries version v1.32.10
+  - kubernetes-binaries version v1.33.6
   - kubernetes-binaries version v1.34.1
-  - kubernetes-binaries version v1.28.101-akslts
+  - kubernetes-binaries version v1.28.102-akslts
   - kubernetes-binaries version v1.29.100-akslts
   - kubernetes-binaries version v1.30.100-akslts
   - kubernetes-binaries version v1.29.14
   - kubernetes-binaries version v1.30.13
-  - kubernetes-binaries version v1.31.11
-  - kubernetes-binaries version v1.32.7
-  - kubernetes-binaries version v1.33.4
+  - kubernetes-binaries version v1.31.13
+  - kubernetes-binaries version v1.32.9
+  - kubernetes-binaries version v1.33.5
   - kubernetes-binaries version v1.34.0
   - azure-acr-credential-provider version v1.30.15
-  - azure-acr-credential-provider version v1.31.9
-  - azure-acr-credential-provider version v1.32.9
-  - azure-acr-credential-provider version v1.33.4
+  - azure-acr-credential-provider version v1.31.12
+  - azure-acr-credential-provider version v1.32.11
+  - azure-acr-credential-provider version v1.33.6
   - azure-acr-credential-provider version 1.34.1-1.azl3
   - azure-acr-credential-provider version 1.34.0-2.azl3
-  - nvidia-device-plugin version 0.18.0-2.azl3
+  - nvidia-device-plugin version 0.18.0-3.azl3
   - datacenter-gpu-manager-4-core version 1:4.4.1-1
   - datacenter-gpu-manager-4-proprietary version 1:4.4.1-1
   - dcgm-exporter version 4.6.0-1.azl3
@@ -103,24 +103,24 @@ images pre-pulled:
   - mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:1.15.2
   - mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:1.14.2
   - mcr.microsoft.com/aks/aks-node-ca-watcher:master.241021.1
-  - mcr.microsoft.com/oss/v2/kubernetes/windows-gmsa-webhook:v0.12.1-6
-  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.28.102-akslts
-  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.29.100-akslts
-  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.30.100-akslts
+  - mcr.microsoft.com/oss/v2/kubernetes/windows-gmsa-webhook:v0.12.1-7
+  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.28.103-akslts
+  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.29.101-akslts
+  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.30.101-akslts
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.29.15
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.30.14
-  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.31.13
-  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.32.9
+  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.31.14
+  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.32.10
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.33.5-hotfix.20250926
-  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.28.101-akslts
+  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.28.102-akslts
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.29.100-akslts
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.30.100-akslts
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.29.14
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.30.13
-  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.31.11
-  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.32.7
+  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.31.13
+  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.32.9
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.33.5
-  - mcr.microsoft.com/oss/v2/kubernetes/kube-proxy:v1.34.1-3
+  - mcr.microsoft.com/oss/v2/kubernetes/kube-proxy:v1.34.2-1
   - bcc-tools
   - libbcc-examples
 Successfully copied coredns binary of v1.13.1-2
@@ -131,18 +131,10 @@ kubelet/kubectl downloaded:
 -rwxr-xr-x 1 root root  48758936 Feb 25  2025 /usr/local/bin/kubectl-1.29.14
 -rwxr-xr-x 1 root root 109183236 Mar 12  2025 /usr/local/bin/kubelet-1.29.15
 -rwxr-xr-x 1 root root  49283224 Mar 12  2025 /usr/local/bin/kubectl-1.29.15
--rwxr-xr-x 1 root root 106758404 Apr 11  2025 /usr/local/bin/kubelet-1.28.101-akslts
--rwxr-xr-x 1 root root  48169112 Apr 11  2025 /usr/local/bin/kubectl-1.28.101-akslts
 -rwxr-xr-x 1 root root  96893720 Jun 30 16:34 /usr/local/bin/kubelet-1.30.14
 -rwxr-xr-x 1 root root  50462872 Jun 30 16:34 /usr/local/bin/kubectl-1.30.14
 -rwxr-xr-x 1 root root  96893720 Jul  1 19:56 /usr/local/bin/kubelet-1.30.13
 -rwxr-xr-x 1 root root  50462872 Jul  1 19:56 /usr/local/bin/kubectl-1.30.13
--rwxr-xr-x 1 root root  75088696 Jul 22 16:44 /usr/local/bin/kubelet-1.31.11
--rwxr-xr-x 1 root root  55509144 Jul 22 16:44 /usr/local/bin/kubectl-1.31.11
--rwxr-xr-x 1 root root  75301124 Jul 22 16:47 /usr/local/bin/kubelet-1.32.7
--rwxr-xr-x 1 root root  55902360 Jul 22 16:47 /usr/local/bin/kubectl-1.32.7
--rwxr-xr-x 1 root root  78184740 Aug 13 22:12 /usr/local/bin/kubelet-1.33.4
--rwxr-xr-x 1 root root  57671864 Aug 13 22:12 /usr/local/bin/kubectl-1.33.4
 -rwxr-xr-x 1 root root  96893720 Aug 25 21:52 /usr/local/bin/kubelet-1.30.100-akslts
 -rwxr-xr-x 1 root root  50462872 Aug 25 21:52 /usr/local/bin/kubectl-1.30.100-akslts
 -rwxr-xr-x 1 root root 106758404 Aug 25 22:08 /usr/local/bin/kubelet-1.28.102-akslts
@@ -160,7 +152,19 @@ kubelet/kubectl downloaded:
 -rwxr-xr-x 1 root root  75100888 Sep 26 20:54 /usr/local/bin/kubelet-1.31.13
 -rwxr-xr-x 1 root root  55509144 Sep 26 20:54 /usr/local/bin/kubectl-1.31.13
 -rwxr-xr-x 1 root root  54222697 Oct 28 20:26 /usr/local/bin/aks-secure-tls-bootstrap-client
--rwxr-xr-x 1 root root       699 Nov 20 21:14 /usr/local/bin/ci-syslog-watcher.sh
+-rwxr-xr-x 1 root root  78184740 Nov 17 19:19 /usr/local/bin/kubelet-1.33.6
+-rwxr-xr-x 1 root root  57671864 Nov 17 19:19 /usr/local/bin/kubectl-1.33.6
+-rwxr-xr-x 1 root root  74669320 Nov 17 19:48 /usr/local/bin/kubelet-1.31.14
+-rwxr-xr-x 1 root root  55181496 Nov 17 19:48 /usr/local/bin/kubectl-1.31.14
+-rwxr-xr-x 1 root root  74907940 Nov 17 21:46 /usr/local/bin/kubelet-1.32.10
+-rwxr-xr-x 1 root root  55574712 Nov 17 21:46 /usr/local/bin/kubectl-1.32.10
+-rwxr-xr-x 1 root root 106758404 Nov 25 18:05 /usr/local/bin/kubelet-1.28.103-akslts
+-rwxr-xr-x 1 root root  48169112 Nov 25 18:05 /usr/local/bin/kubectl-1.28.103-akslts
+-rwxr-xr-x 1 root root 109183236 Nov 25 18:08 /usr/local/bin/kubelet-1.29.101-akslts
+-rwxr-xr-x 1 root root  49283224 Nov 25 18:08 /usr/local/bin/kubectl-1.29.101-akslts
+-rwxr-xr-x 1 root root  96897816 Nov 25 20:44 /usr/local/bin/kubelet-1.30.101-akslts
+-rwxr-xr-x 1 root root  50462872 Nov 25 20:44 /usr/local/bin/kubectl-1.30.101-akslts
+-rwxr-xr-x 1 root root       699 Dec  6 01:04 /usr/local/bin/ci-syslog-watcher.sh
 === Installed Packages Begin
 filesystem-1.1-21.azl3.aarch64
 glibc-2.38-15.azl3.aarch64
@@ -299,7 +303,6 @@ ca-certificates-base-3.0.0-13.azl3.noarch
 findutils-4.9.0-1.azl3.aarch64
 gzip-1.13-1.azl3.aarch64
 sed-4.9-1.azl3.aarch64
-glib-2.78.6-4.azl3.aarch64
 irqbalance-1.9.3-2.azl3.aarch64
 libaio-0.3.113-1.azl3.aarch64
 lvm2-2.03.23-1.azl3.aarch64
@@ -438,6 +441,7 @@ gpg-pubkey-3135ce90-5e6fda74
 oniguruma-6.9.8-1.azl3.aarch64
 jq-1.7.1-4.azl3.aarch64
 inotify-tools-4.23.9.0-1.azl3.aarch64
+glib-2.78.6-5.azl3.aarch64
 azurelinux-repos-cloud-native-preview-3.0-5.azl3.noarch
 python3-dateutil-2.7.3-5.azl3.noarch
 python3-dnf-plugins-core-4.0.24-3.azl3.noarch
@@ -549,7 +553,7 @@ bcc-examples-0.29.1-3.azl3.aarch64
 === Installed Packages End
 Disk usage:
 Filesystem      Size  Used Avail Use% Mounted on
-/dev/sda3        29G  9.2G   19G  34% /
+/dev/sda3        29G  9.6G   19G  35% /
 devtmpfs        4.0M     0  4.0M   0% /dev
 tmpfs            32G     0   32G   0% /dev/shm
 efivarfs        128M   13K  128M   1% /sys/firmware/efi/efivars
@@ -572,10 +576,10 @@ SUPPORT_URL="https://aka.ms/azurelinux"
 === os-release End
 Using kernel:
 Linux version 6.6.112.1-2.azl3 (root@CBL-Mariner) (gcc (GCC) 13.2.0, GNU ld (GNU Binutils) 2.41) #1 SMP Thu Nov  6 22:59:41 UTC 2025
-Install completed successfully on  Thu Nov 20 21:21:22 UTC 2025
-VSTS Build NUMBER: 20251120.4_master_144378144
-VSTS Build ID: 144378144
-Commit: 77a54cc4d7ac08acc77a152e946f249abf9346f2
+Install completed successfully on  Sat Dec 6 01:13:52 UTC 2025
+VSTS Build NUMBER: 20251206.1_master_145770474
+VSTS Build ID: 145770474
+Commit: 8d1cbfc76a6f4fd9e4c6dbe725e47d01f3737d1d
 Ubuntu version: 
 Hyperv generation: V2
 Feature flags: None
