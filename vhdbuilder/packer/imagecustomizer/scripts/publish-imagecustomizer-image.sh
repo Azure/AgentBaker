@@ -48,11 +48,6 @@ mkdir -p "${AZCOPY_JOB_PLAN_LOCATION}"
 if [ "${ENVIRONMENT,,}" = "tme" ]; then
     # If environment is TME, we use a staging container in order to later copy the blob to an immutable container.
     DESTINATION_STORAGE_CONTAINER=${CLASSIC_BLOB_STAGING}
-else
-    DESTINATION_STORAGE_CONTAINER=${CLASSIC_BLOB}
-fi
-
-if [ "${ENVIRONMENT,,}" = "tme" ]; then
     STAGING_CONTAINER_EXISTS=$(az storage container exists --account-name ${STORAGE_ACCOUNT_NAME} --name $VHD_STAGING_CONTAINER_NAME --auth-mode login | jq -r '.exists')
     if [ "${STAGING_CONTAINER_EXISTS,,}" = "false" ]; then
         echo "Creating staging container $VHD_STAGING_CONTAINER_NAME in storage account $STORAGE_ACCOUNT_NAME"
@@ -60,6 +55,8 @@ if [ "${ENVIRONMENT,,}" = "tme" ]; then
     else
         echo "Staging container $VHD_STAGING_CONTAINER_NAME already exists in storage account $STORAGE_ACCOUNT_NAME"
     fi
+else
+    DESTINATION_STORAGE_CONTAINER=${CLASSIC_BLOB}
 fi
 
 AZCOPYCMD="azcopy copy \"${OUT_DIR}/${CONFIG}.vhd\" \"${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd\""
