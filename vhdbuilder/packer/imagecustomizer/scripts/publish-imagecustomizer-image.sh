@@ -47,11 +47,33 @@ mkdir -p "${AZCOPY_JOB_PLAN_LOCATION}"
 
 if [ "${ENVIRONMENT,,}" = "test" ]; then
     DESTINATION_STORAGE_CONTAINER=${CLASSIC_BLOB}
-    BLOB_URL_REGEX="^https:\/\/.+\.blob\.core\.windows\.net\/vhd(s)?$"
+    BLOB_URL_REGEX="^https:\/\/.+\.blob\.core\.windows\.net\/${VHD_CONTAINER_NAME}(s)?$"
 else
     # If environment is TME or AME, we use a staging blob storage account in order to later copy the blob to an immutable container.
     DESTINATION_STORAGE_CONTAINER=${CLASSIC_BLOB_STAGING}
-    BLOB_URL_REGEX="^https:\/\/.+\.blob\.core\.windows\.net\/vhdstaging(s)?$"
+    BLOB_URL_REGEX="^https:\/\/.+\.blob\.core\.windows\.net\/${VHD_STAGING_CONTAINER_NAME}(s)?$"
+fi
+
+# Use the domain name from the classic blob URL to get the storage account name.
+# If the CLASSIC_BLOB var is not set create a new var called BLOB_STORAGE_NAME in the pipeline.
+# shellcheck disable=SC3010
+if [[ $DESTINATION_STORAGE_CONTAINER =~ $BLOB_URL_REGEX ]]; then
+    STORAGE_ACCOUNT_NAME=$(echo $DESTINATION_STORAGE_CONTAINER | sed -E 's|https://(.*)\.blob\.core\.windows\.net(:443)?/(.*)?|\1|')
+else
+    # Used in the 'AKS Linux VHD Build - PR check-in gate' pipeline.
+    if [ -z "$BLOB_STORAGE_NAME" ]; then
+        echo "BLOB_STORAGE_NAME is not set, please either set the CLASSIC_BLOB var or create a new var BLOB_STORAGE_NAME in the pipeline."
+        exit 1
+    fi
+    STORAGE_ACCOUNT_NAME=${BLOB_STORAGE_NAME}
+fi
+
+STAGING_CONTAINER_EXISTS=$(az storage container exists --account-name vhdbuildereastustme --name $VHD_STAGING_CONTAINER_NAME --auth-mode login | jq -r '.exists')
+if [ "$STAGING_CONTAINER_EXISTS" = "false" ]; then
+    echo "Creating staging container $VHD_STAGING_CONTAINER_NAME in storage account $STORAGE_ACCOUNT_NAME"
+    az storage container create --account-name "$STORAGE_ACCOUNT_NAME" --name "$VHD_STAGING_CONTAINER_NAME" --auth-mode login || exit 1
+else
+    echo "Staging container $VHD_STAGING_CONTAINER_NAME already exists in storage account $STORAGE_ACCOUNT_NAME"
 fi
 
 AZCOPYCMD="azcopy copy \"${OUT_DIR}/${CONFIG}.vhd" "${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd\""
@@ -79,20 +101,6 @@ if ! "${AZCOPYCMD}" --recursive=true ; then
 fi
 
 echo "Uploaded ${OUT_DIR}/${CONFIG}.vhd to ${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd"
-
-# Use the domain name from the classic blob URL to get the storage account name.
-# If the CLASSIC_BLOB var is not set create a new var called BLOB_STORAGE_NAME in the pipeline.
-# shellcheck disable=SC3010
-if [[ $DESTINATION_STORAGE_CONTAINER =~ $BLOB_URL_REGEX ]]; then
-    STORAGE_ACCOUNT_NAME=$(echo $DESTINATION_STORAGE_CONTAINER | sed -E 's|https://(.*)\.blob\.core\.windows\.net(:443)?/(.*)?|\1|')
-else
-    # Used in the 'AKS Linux VHD Build - PR check-in gate' pipeline.
-    if [ -z "$BLOB_STORAGE_NAME" ]; then
-        echo "BLOB_STORAGE_NAME is not set, please either set the CLASSIC_BLOB var or create a new var BLOB_STORAGE_NAME in the pipeline."
-        exit 1
-    fi
-    STORAGE_ACCOUNT_NAME=${BLOB_STORAGE_NAME}
-fi
 
 if [ "${GENERATE_PUBLISHING_INFO,,}" = "true" ] && [ "${ENVIRONMENT,,}" != "test"  ]; then
     echo "Copying ${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd to immutable storage container"
