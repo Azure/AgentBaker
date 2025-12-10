@@ -45,11 +45,11 @@ export AZCOPY_JOB_PLAN_LOCATION="$(pwd)/azcopy-job-plan-files/"
 mkdir -p "${AZCOPY_LOG_LOCATION}"
 mkdir -p "${AZCOPY_JOB_PLAN_LOCATION}"
 
-if [ "${ENVIRONMENT,,}" = "test" ]; then
+if [ "${ENVIRONMENT,,}" != "tme" ]; then
     DESTINATION_STORAGE_CONTAINER=${CLASSIC_BLOB}
     BLOB_URL_REGEX="^https:\/\/.+\.blob\.core\.windows\.net\/${VHD_CONTAINER_NAME}(s)?$"
 else
-    # If environment is TME or AME, we use a staging container in order to later copy the blob to an immutable container.
+    # If environment is TME, we use a staging container in order to later copy the blob to an immutable container.
     DESTINATION_STORAGE_CONTAINER=${CLASSIC_BLOB_STAGING}
     BLOB_URL_REGEX="^https:\/\/.+\.blob\.core\.windows\.net\/${VHD_STAGING_CONTAINER_NAME}(s)?$"
 fi
