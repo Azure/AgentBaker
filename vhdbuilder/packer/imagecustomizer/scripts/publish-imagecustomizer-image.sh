@@ -36,8 +36,6 @@ fi
 
 capture_benchmark "${SCRIPT_NAME}_prepare_upload_vhd_to_blob"
 
-echo "Uploading ${OUT_DIR}/${CONFIG}.vhd to ${CLASSIC_BLOB_STAGING}/${CAPTURED_SIG_VERSION}.vhd"
-
 echo "Setting azcopy environment variables with pool identity: $AZURE_MSI_RESOURCE_STRING"
 export AZCOPY_AUTO_LOGIN_TYPE="AZCLI"
 export AZCOPY_CONCURRENCY_VALUE="AUTO"
@@ -53,11 +51,12 @@ if [ "${ENVIRONMENT,,}" = "test" ]; then
 else
     # If environment is TME or AME, we use a staging blob storage account in order to later copy the blob to an immutable container.
     DESTINATION_STORAGE_CONTAINER=${CLASSIC_BLOB_STAGING}
-    BLOB_URL_REGEX="^https:\/\/.+\.blob\.core\.windows\.net\/${VHD_CONTAINER_NAME}(s)?$"
+    BLOB_URL_REGEX="^https:\/\/.+\.blob\.core\.windows\.net\/vhdstaging(s)?$"
 fi
 
 AZCOPYCMD="azcopy copy \"${OUT_DIR}/${CONFIG}.vhd" "${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd\""
 
+echo "Uploading ${OUT_DIR}/${CONFIG}.vhd to ${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd"
 if ! "${AZCOPYCMD}" --recursive=true ; then
     azExitCode=$?
     # loop through azcopy log files
@@ -95,12 +94,12 @@ else
     STORAGE_ACCOUNT_NAME=${BLOB_STORAGE_NAME}
 fi
 
-if [ "${GENERATE_PUBLISHING_INFO,,}" = "true" ]; then
+if [ "${GENERATE_PUBLISHING_INFO,,}" = "true" ] && [ "${ENVIRONMENT,,}" != "test"  ]; then
     echo "Copying ${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd to immutable storage container"
     az storage blob copy start --account-name "$STORAGE_ACCOUNT_NAME" --destination-blob "${CAPTURED_SIG_VERSION}.vhd" --destination-container "$VHD_CONTAINER_NAME" --source-uri "${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd" --auth-mode login || exit 1
     echo "Successfully copied to immutable container"
 else
-    echo "GENERATE_PUBLISHING_INFO is false, skipping copying ${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd to immutable storage container"
+    echo "GENERATE_PUBLISHING_INFO is false or we are in a testing environment, skipping copying ${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd to immutable storage container"
 fi
 capture_benchmark "${SCRIPT_NAME}_upload_vhd_to_blob"
 
