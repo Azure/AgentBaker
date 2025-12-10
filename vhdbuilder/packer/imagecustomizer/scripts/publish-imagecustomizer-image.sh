@@ -125,7 +125,7 @@ if [ "$GALLERY_LOCATION" != "$PACKER_BUILD_LOCATION" ]; then
     TARGET_REGIONS="${TARGET_REGIONS} ${GALLERY_LOCATION}"
 fi
 
-echo "Creating managed image ${MANAGED_IMAGE_RESOURCE_ID} from VHD ${CLASSIC_BLOB_STAGING}/${CAPTURED_SIG_VERSION}.vhd"
+echo "Creating managed image ${MANAGED_IMAGE_RESOURCE_ID} from VHD ${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd"
 az image create \
     --resource-group ${RESOURCE_GROUP_NAME} \
     --name ${IMAGE_NAME} \
