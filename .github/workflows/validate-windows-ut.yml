@@ -11,7 +11,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Check out repository code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           fetch-depth: 1
       - name: Perform a Pester test from the parts/windows/*.tests.ps1 file

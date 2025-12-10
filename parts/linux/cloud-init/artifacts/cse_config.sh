@@ -359,8 +359,12 @@ EOF
     echo "${CONTAINERD_CONFIG_CONTENT}" | base64 -d > /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
   fi
 
+  export -f e2e_mock_azure_china_cloud
+  E2EMockAzureChinaCloud=$(retrycmd_silent 10 1 10 bash -cx e2e_mock_azure_china_cloud)
   if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
     logs_to_events "AKS.CSE.ensureContainerd.configureContainerdRegistryHost" configureContainerdRegistryHost
+  elif [ "${TARGET_CLOUD}" = "AzureChinaCloud" ] || [ "${E2EMockAzureChinaCloud}" = "true" ]; then
+    logs_to_events "AKS.CSE.ensureContainerd.configureContainerdLegacyMooncakeMcrHost" configureContainerdLegacyMooncakeMcrHost
   fi
 
   tee "/etc/sysctl.d/99-force-bridge-forward.conf" > /dev/null <<EOF
@@ -385,6 +389,24 @@ configureContainerdRegistryHost() {
 [host."https://${CONTAINER_REGISTRY_URL%/}"]
   capabilities = ["pull", "resolve"]
   override_path = true
+EOF
+}
+
+# this function craetes containerd host config to map mcr.azk8s.cn host to mcr.azure.cn
+# containerd will resolve mcr.azk8s.cn as mcr.azure.cn and pull the image. If failed, it will fallback to mcr.azk8s.cn
+# https://github.com/containerd/containerd/blob/main/docs/hosts.md#registry-configuration---examples
+# TODO(xinhl): remove when aks rp fully deprecates mcr.azk8s.cn
+configureContainerdLegacyMooncakeMcrHost() {
+    LEGACY_MCR_REPOSITORY_BASE="mcr.azk8s.cn"
+    CONTAINERD_CONFIG_REGISTRY_HOST_MCR="/etc/containerd/certs.d/${LEGACY_MCR_REPOSITORY_BASE}/hosts.toml"
+    mkdir -p "$(dirname "${CONTAINERD_CONFIG_REGISTRY_HOST_MCR}")"
+    touch "${CONTAINERD_CONFIG_REGISTRY_HOST_MCR}"
+    chmod 0644 "${CONTAINERD_CONFIG_REGISTRY_HOST_MCR}"
+
+    TARGET_MCR_REPOSITORY_BASE="mcr.azure.cn"
+    tee "${CONTAINERD_CONFIG_REGISTRY_HOST_MCR}" > /dev/null <<EOF
+[host."https://${TARGET_MCR_REPOSITORY_BASE}"]
+  capabilities = ["pull", "resolve"]
 EOF
 }
 
@@ -952,6 +974,11 @@ configGPUDrivers() {
     # This prevents automatic updates from upgrading Nvidia repo dependencies and eliminates
     # the need for users to allowlist NVIDIA repository URLs in their firewalls
     removeNvidiaRepos
+
+    # NPD is installed as a VM extension, which might happen before/after/during CSE, so this
+    # line may fail. This will need to be updated when NPD is shipped in the VHD - we can control
+    # the startup ordering in that case.
+    systemctl restart node-problem-detector || true
 }
 
 validateGPUDrivers() {

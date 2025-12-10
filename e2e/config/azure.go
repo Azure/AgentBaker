@@ -39,11 +39,12 @@ import (
 
 type AzureClient struct {
 	AKS                       *armcontainerservice.ManagedClustersClient
+	AzureFirewall             *armnetwork.AzureFirewallsClient
 	Blob                      *azblob.Client
 	StorageContainers         *armstorage.BlobContainersClient
 	CacheRulesClient          *armcontainerregistry.CacheRulesClient
 	Core                      *azcore.Client
-	Credential                *azidentity.DefaultAzureCredential
+	Credential                *azidentity.AzureCLICredential
 	Maintenance               *armcontainerservice.MaintenanceConfigurationsClient
 	NetworkInterfaces         *armnetwork.InterfacesClient
 	PrivateDNSZoneGroup       *armnetwork.PrivateDNSZoneGroupsClient
@@ -57,6 +58,8 @@ type AzureClient struct {
 	SecurityGroup             *armnetwork.SecurityGroupsClient
 	StorageAccounts           *armstorage.AccountsClient
 	Subnet                    *armnetwork.SubnetsClient
+	PublicIPAddresses         *armnetwork.PublicIPAddressesClient
+	RouteTables               *armnetwork.RouteTablesClient
 	UserAssignedIdentities    *armmsi.UserAssignedIdentitiesClient
 	VMSS                      *armcompute.VirtualMachineScaleSetsClient
 	VMSSVM                    *armcompute.VirtualMachineScaleSetVMsClient
@@ -125,9 +128,9 @@ func NewAzureClient() (*AzureClient, error) {
 		},
 	}
 
-	credential, err := azidentity.NewDefaultAzureCredential(nil)
+	credential, err := azidentity.NewAzureCLICredential(nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create credential: %w", err)
+		return nil, fmt.Errorf("creating azure cli credential: %w", err)
 	}
 
 	plOpts := runtime.PipelineOptions{}
@@ -146,6 +149,11 @@ func NewAzureClient() (*AzureClient, error) {
 	cloud.Core, err = azcore.NewClient("agentbakere2e.e2e_test", "v0.0.0", plOpts, clOpts)
 	if err != nil {
 		return nil, fmt.Errorf("create core client: %w", err)
+	}
+
+	cloud.PublicIPAddresses, err = armnetwork.NewPublicIPAddressesClient(Config.SubscriptionID, credential, opts)
+	if err != nil {
+		return nil, fmt.Errorf("create public ip addresses client: %w", err)
 	}
 
 	cloud.RegistriesClient, err = armcontainerregistry.NewRegistriesClient(Config.SubscriptionID, credential, opts)
@@ -191,6 +199,11 @@ func NewAzureClient() (*AzureClient, error) {
 	cloud.Subnet, err = armnetwork.NewSubnetsClient(Config.SubscriptionID, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("create subnet client: %w", err)
+	}
+
+	cloud.RouteTables, err = armnetwork.NewRouteTablesClient(Config.SubscriptionID, credential, opts)
+	if err != nil {
+		return nil, fmt.Errorf("create route tables client: %w", err)
 	}
 
 	cloud.AKS, err = armcontainerservice.NewManagedClustersClient(Config.SubscriptionID, credential, opts)
@@ -256,6 +269,16 @@ func NewAzureClient() (*AzureClient, error) {
 	cloud.VNet, err = armnetwork.NewVirtualNetworksClient(Config.SubscriptionID, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("create vnet client: %w", err)
+	}
+
+	cloud.AzureFirewall, err = armnetwork.NewAzureFirewallsClient(Config.SubscriptionID, credential, opts)
+	if err != nil {
+		return nil, fmt.Errorf("create firewall client: %w", err)
+	}
+
+	cloud.PublicIPAddresses, err = armnetwork.NewPublicIPAddressesClient(Config.SubscriptionID, credential, opts)
+	if err != nil {
+		return nil, fmt.Errorf("create public ip addresses client: %w", err)
 	}
 
 	cloud.Blob, err = azblob.NewClient(Config.BlobStorageAccountURL(), credential, nil)
@@ -527,7 +550,7 @@ func (a *AzureClient) ensureReplication(ctx context.Context, image *Image, versi
 	err := a.replicateImageVersionToCurrentRegion(ctx, image, version, location)
 	elapsed := time.Since(start) // Calculate the elapsed time
 
-	toolkit.LogDuration(ctx, elapsed, 3*time.Minute, fmt.Sprintf("Replication took: %s (%s)", toolkit.FormatDuration(elapsed), *version.ID))
+	toolkit.LogDuration(ctx, elapsed, 3*time.Minute, fmt.Sprintf("Replication took: %s (%s)", elapsed, *version.ID))
 
 	return err
 }
@@ -546,6 +569,7 @@ func (a *AzureClient) waitForVersionOperationCompletion(ctx context.Context, ima
 	}
 
 	// Use the standard wait.PollUntilContextTimeout helper used throughout the codebase
+	var lastLoggedState armcompute.GalleryProvisioningState
 	err = wait.PollUntilContextTimeout(ctx, 5*time.Second, 10*time.Minute, true, func(ctx context.Context) (bool, error) {
 		// Get the latest version state using the existing client
 		resp, err := imgVersionClient.Get(ctx, image.Gallery.ResourceGroupName, image.Gallery.Name, image.Name, *version.Name, nil)
@@ -555,7 +579,11 @@ func (a *AzureClient) waitForVersionOperationCompletion(ctx context.Context, ima
 		}
 
 		currentState := *resp.Properties.ProvisioningState
-		logf(ctx, "Image version %s current state: %s", *version.ID, currentState)
+		// Only log if state has changed
+		if currentState != lastLoggedState {
+			logf(ctx, "Image version %s current state: %s", *version.ID, currentState)
+			lastLoggedState = currentState
+		}
 
 		// Check if operation completed
 		if currentState != armcompute.GalleryProvisioningStateUpdating {
