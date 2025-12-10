@@ -214,6 +214,12 @@ collectToZip collect/journalctl_nvidia-dcgm.txt journalctl -u nvidia-dcgm --no-p
 collectToZip collect/journalctl_nvidia-dcgm-exporter.txt journalctl -u nvidia-dcgm-exporter --no-pager
 collectToZip collect/journalctl_nvidia-device-plugin.txt journalctl -u nvidia-device-plugin --no-pager
 
+# Collect logs of the Maia services if present
+#TODO: how to push it to geneva?
+collectToZip collect/journalctl_dcnm-maia.txt journalctl -u dcnm-maia --no-pager
+collectToZip collect/journalctl_dcnm-exporter-maia.txt journalctl -u dcnm-exporter-maia --no-pager
+collectToZip collect/journalctl_maia-device-plugin.txt journalctl -u maia-device-plugin --no-pager
+
 # Collect container runtime information
 collectToZip collect/crictl_version.txt crictl version
 collectToZip collect/crictl_info.json crictl info -o json
