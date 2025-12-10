@@ -145,7 +145,12 @@ az sig image-version create \
     --target-regions ${TARGET_REGIONS}
 capture_benchmark "${SCRIPT_NAME}_create_sig_image_version"
 
-azcopy remove "${CLASSIC_BLOB_STAGING}/${CAPTURED_SIG_VERSION}.vhd" --recursive=true
-
+if [ "${GENERATE_PUBLISHING_INFO,,}" != "true" ]
+    if [ "${ENVIRONMENT,,}" = "test" ]; then
+        azcopy remove "${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd" --recursive=true
+    else
+        azcopy remove "${CLASSIC_BLOB_STAGING}/${CAPTURED_SIG_VERSION}.vhd" --recursive=true
+    fi
+fi
 # Set SIG ID in pipeline for use during testing
 echo "##vso[task.setvariable variable=MANAGED_SIG_ID]$SIG_IMAGE_RESOURCE_ID"
