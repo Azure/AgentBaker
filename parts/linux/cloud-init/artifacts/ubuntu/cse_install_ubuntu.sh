@@ -203,7 +203,7 @@ installLocalDNSPackage() {
     apt_get_install 20 30 120 ${packageName} || exit 1
 
     # Copy the installed binary to the expected path for localdns service
-    COREDNS_BINARY_PATH="/opt/azure/containers/localdns/binary/coredns"
+    COREDNS_BINARY_PATH="/opt/azure/containers/localdns/binary/${version}/coredns"
 
     # Find the installed coredns binary
     source_binary=""

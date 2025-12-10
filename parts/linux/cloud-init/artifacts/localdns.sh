@@ -44,8 +44,10 @@ LOCALDNS_SHUTDOWN_DELAY=5
 # Localdns pid file.
 LOCALDNS_PID_FILE="/run/localdns.pid"
 
+COREDNS_BINARY_VERSION="1.13.1-1"
+
 # Path of coredns binary used by localdns.
-COREDNS_BINARY_PATH="${LOCALDNS_SCRIPT_PATH}/binary/coredns"
+COREDNS_BINARY_PATH="${LOCALDNS_SCRIPT_PATH}/binary/${COREDNS_BINARY_VERSION}/coredns"
 
 # Path to systemd resolv.
 RESOLV_CONF="/run/systemd/resolve/resolv.conf"
@@ -96,6 +98,7 @@ verify_localdns_slicefile() {
 }
 
 # Verify that the localdns binary exists and is executable.
+# If the binary doesn't exist, attempt to download and install it.
 verify_localdns_binary() {
     if [ -z "${COREDNS_BINARY_PATH:-}" ]; then
         echo "COREDNS_BINARY_PATH is not set or is empty."
@@ -104,7 +107,19 @@ verify_localdns_binary() {
 
     if [ ! -f "${COREDNS_BINARY_PATH}" ] || [ ! -x "${COREDNS_BINARY_PATH}" ]; then
         echo "Coredns binary either doesn't exist or isn't executable at ${COREDNS_BINARY_PATH}."
-        return 1
+        echo "Attempting to download and install aks-localdns package..."
+
+        # Attempt to download and install the localdns binary
+        if ! download_and_install_localdns_binary "upstream.azurecr.io" "oss/v2/packages/localdns/aks-localdns" "${COREDNS_BINARY_VERSION}"; then
+            echo "Failed to download and install aks-localdns package."
+            return 1
+        fi
+
+        # Verify again after installation
+        if [ ! -f "${COREDNS_BINARY_PATH}" ] || [ ! -x "${COREDNS_BINARY_PATH}" ]; then
+            echo "Coredns binary still doesn't exist or isn't executable after installation at ${COREDNS_BINARY_PATH}."
+            return 1
+        fi
     fi
 
     if ! "${COREDNS_BINARY_PATH}" --version >/dev/null 2>&1; then
