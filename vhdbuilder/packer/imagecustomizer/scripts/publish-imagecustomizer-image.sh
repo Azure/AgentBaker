@@ -78,7 +78,7 @@ if [ "${ENVIRONMENT,,}" != "test" ]; then
     fi
 fi
 
-AZCOPYCMD="azcopy copy \"${OUT_DIR}/${CONFIG}.vhd" "${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd\""
+AZCOPYCMD="azcopy copy \"${OUT_DIR}/${CONFIG}.vhd\" \"${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd\""
 
 echo "Uploading ${OUT_DIR}/${CONFIG}.vhd to ${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd"
 if ! "${AZCOPYCMD}" --recursive=true ; then
