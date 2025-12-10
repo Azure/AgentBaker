@@ -136,7 +136,7 @@ if [ "${ENVIRONMENT,,}" != "tme" ]; then
         azcopy remove "${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd" --recursive=true
     fi
 else
-    # We always remove the VHD from the staging container in TME after creating the SIG image version because we will always retain the immutable blob copy, which can not be deleted until after the retention period ends
+    # We always remove the VHD from the staging container in TME after creating the SIG image version because we will always retain the immutable blob copy if its created, which can not be deleted until after the retention period ends
     azcopy remove "${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd" --recursive=true
 fi
 
