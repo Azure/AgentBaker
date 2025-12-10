@@ -70,7 +70,7 @@ usage=${usage%.*}
 [ ${usage} -ge 99 ] && echo "ERROR: root partition on OS device (${os_device}) already passed 99% of the 30GB cap!" && exit 1
 [ ${usage} -ge 75 ] && echo "WARNING: root partition on OS device (${os_device}) already passed 75% of the 30GB cap!"
 
-if isFedora; then
+if isFedora $OS; then
   cat >/etc/os-release <<'EOF'
 NAME="Azure Linux"
 VERSION="3.0"
