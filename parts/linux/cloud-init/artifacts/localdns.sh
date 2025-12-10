@@ -114,6 +114,167 @@ verify_localdns_binary() {
     return 0
 }
 
+# Download and install localdns binary using oras and native package managers.
+# This function downloads the aks-localdns package from the OCI registry and installs it using
+# the appropriate package manager (apt for Ubuntu/Debian, dnf for Mariner/Azure Linux).
+# The installed package places the coredns binary at COREDNS_BINARY_PATH for use by the localdns service.
+download_and_install_localdns_binary() {
+    local localdns_oci_registry="${1:-upstream.azurecr.io}"
+    local localdns_package_name="${2:-oss/v2/packages/localdns/aks-localdns}"
+    local localdns_version="${3:-}"
+
+    if [ -z "${localdns_version}" ]; then
+        echo "Error: localdns version is required but not provided."
+        return 1
+    fi
+
+    # Construct the OCI artifact URL
+    local localdns_oci_url="${localdns_oci_registry}/${localdns_package_name}:${localdns_version}"
+    echo "Downloading aks-localdns package from ${localdns_oci_url}"
+
+    # Create temporary directory for download
+    local download_dir="${LOCALDNS_SCRIPT_PATH}/downloads"
+    mkdir -p "${download_dir}"
+
+    # Download the package using oras
+    # Note: This requires ORAS_REGISTRY_CONFIG_FILE to be set and ORAS_OUTPUT for error logging
+    # These are typically set by the CSE environment
+    local oras_retries=3
+    local oras_wait_sleep=5
+
+    # Source cse_helpers.sh to get access to retrycmd_pull_from_registry_with_oras and other helper functions
+    # The CSE_HELPERS_FILEPATH is typically set to /opt/azure/containers/provision_source.sh
+    local cse_helpers_path="${CSE_HELPERS_FILEPATH:-/opt/azure/containers/provision_source.sh}"
+    if [ -f "${cse_helpers_path}" ]; then
+        source "${cse_helpers_path}"
+    else
+        echo "Error: cse_helpers file not found at ${cse_helpers_path}"
+        rm -rf "${download_dir}"
+        return 1
+    fi
+
+    # Download the package
+    if ! retrycmd_pull_from_registry_with_oras "${oras_retries}" "${oras_wait_sleep}" "${download_dir}" "${localdns_oci_url}"; then
+        echo "Failed to download aks-localdns package from ${localdns_oci_url}"
+        rm -rf "${download_dir}"
+        return 1
+    fi
+
+    # Detect OS and install using appropriate package manager
+    # Use the same OS detection pattern as install-dependencies.sh
+    local detected_os=$(sort -r /etc/*-release | gawk 'match($0, /^(ID=(.*))$/, a) { print toupper(a[2]); exit }')
+    local package_file=""
+
+    if [ -z "${detected_os}" ]; then
+        echo "Cannot detect OS from /etc/*-release files"
+        rm -rf "${download_dir}"
+        return 1
+    fi
+    echo "Detected OS: ${detected_os}"
+
+    # Check OS type to determine package format and installation method
+    case "${detected_os}" in
+        UBUNTU|DEBIAN)
+            # Ubuntu/Debian - use .deb package
+            package_file=$(find "${download_dir}" -maxdepth 1 -name "*.deb" -type f 2>/dev/null | head -n 1)
+            if [ -z "${package_file}" ]; then
+                echo "No .deb package found in download directory"
+                rm -rf "${download_dir}"
+                return 1
+            fi
+            echo "Installing aks-localdns from ${package_file} on ${detected_os}"
+            apt_get_install 20 30 120 "${package_file}" || {
+                echo "Failed to install aks-localdns package"
+                rm -rf "${download_dir}"
+                return 1
+            }
+            ;;
+        MARINER|AZURELINUX)
+            # Mariner/Azure Linux - use .rpm package
+            package_file=$(find "${download_dir}" -maxdepth 1 -name "*.rpm" -type f 2>/dev/null | head -n 1)
+            if [ -z "${package_file}" ]; then
+                echo "No .rpm package found in download directory"
+                rm -rf "${download_dir}"
+                return 1
+            fi
+            echo "Installing aks-localdns from ${package_file} on ${detected_os}"
+            dnf_install 30 1 600 "${package_file}" || {
+                echo "Failed to install aks-localdns package"
+                rm -rf "${download_dir}"
+                return 1
+            }
+            ;;
+        *)
+            echo "Unsupported OS: ${detected_os}"
+            rm -rf "${download_dir}"
+            return 1
+            ;;
+    esac
+    echo "Successfully installed aks-localdns package"
+
+    # Find the installed coredns binary
+    # The package installs the binary to /usr/bin/coredns (standard location for system binaries)
+    local source_binary=""
+
+    # Common installation paths to check (in priority order)
+    local search_paths=(
+        "/usr/bin/coredns"
+        "/usr/local/bin/coredns"
+        "/opt/bin/coredns"
+    )
+
+    for path in "${search_paths[@]}"; do
+        if [ -f "${path}" ]; then
+            source_binary="${path}"
+            break
+        fi
+    done
+
+    # If not found in common paths, search the entire system
+    if [ -z "${source_binary}" ]; then
+        source_binary=$(find /usr /opt -name "coredns" -type f 2>/dev/null | head -n 1)
+    fi
+
+    if [ -z "${source_binary}" ] || [ ! -f "${source_binary}" ]; then
+        echo "Failed to find installed coredns binary"
+        rm -rf "${download_dir}"
+        return 1
+    fi
+
+    echo "Found installed coredns binary at ${source_binary}"
+
+    # Create the destination directory if it doesn't exist
+    local dest_dir=$(dirname "${COREDNS_BINARY_PATH}")
+    mkdir -p "${dest_dir}"
+
+    # Copy the binary to the expected path
+    echo "Copying coredns binary to ${COREDNS_BINARY_PATH}"
+    cp -f "${source_binary}" "${COREDNS_BINARY_PATH}"
+    if [ $? -ne 0 ]; then
+        echo "Failed to copy coredns binary to ${COREDNS_BINARY_PATH}"
+        rm -rf "${download_dir}"
+        return 1
+    fi
+
+    # Clean up the download directory
+    rm -rf "${download_dir}"
+
+    echo "Successfully installed coredns binary"
+
+    # Make sure the binary is executable
+    chmod +x "${COREDNS_BINARY_PATH}"
+
+    # Verify the installed binary works
+    if ! "${COREDNS_BINARY_PATH}" --version >/dev/null 2>&1; then
+        echo "Warning: Installed coredns binary failed version check"
+        return 1
+    fi
+
+    echo "Successfully verified coredns binary at ${COREDNS_BINARY_PATH}"
+
+    return 0
+}
+
 # Replace AzureDNSIP in corefile with VNET DNS ServerIPs if necessary.
 replace_azurednsip_in_corefile() {
     if [ -z "${RESOLV_CONF:-}" ]; then
