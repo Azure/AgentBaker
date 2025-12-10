@@ -129,7 +129,7 @@ az sig image-version create \
 capture_benchmark "${SCRIPT_NAME}_create_sig_image_version"
 
 if [ "${ENVIRONMENT,,}" != "tme" ]; then
-    if [ "${GENERATE_PUBLISHING_INFO,,}" != "true" ]
+    if [ "${GENERATE_PUBLISHING_INFO,,}" != "true" ]; then
         azcopy remove "${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd" --recursive=true
     fi
 else
