@@ -30,10 +30,12 @@ START_TIME=$(date +%s)
   echo "Actual unpacked size is in CONTAINERD STORAGE SUMMARY below."
   echo ""
   if command -v ctr &>/dev/null; then
+    # ctr images list format: REF TYPE DIGEST SIZE PLATFORMS LABELS
+    # We want REF (col 1) and SIZE (col 4), filtering out sha256: digest refs
     ctr --namespace k8s.io images list 2>/dev/null | tail -n +2 | \
-      awk '{print $1, $4, $5}' | \
-      grep -v '^sha256:' | \
-      sort -k2 -hr
+      awk '{printf "%-12s %s\n", $4, $1}' | \
+      grep -v ' sha256:' | \
+      sort -hr
   else
     echo "ctr not available"
   fi
