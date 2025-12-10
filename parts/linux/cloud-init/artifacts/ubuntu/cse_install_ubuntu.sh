@@ -194,13 +194,24 @@ installCriCtlPackage() {
 
 installLocalDNSPackage() {
     version="${1:-}"
-    packageName="aks-localdns=${version}"
     if [ -z "$version" ]; then
         echo "Error: No version specified for aks-localdns package but it is required. Exiting with error."
         exit 1
     fi
-    echo "Installing ${packageName} with apt-get"
-    apt_get_install 20 30 120 ${packageName} || exit 1
+
+    # Find the downloaded package file
+    local package_file=""
+    if [ -d "${ORAS_DOWNLOADS_DIR}" ]; then
+        package_file=$(find "${ORAS_DOWNLOADS_DIR}" -name "aks-localdns_${version}_*.deb" -type f 2>/dev/null | head -n 1)
+    fi
+
+    if [ -z "${package_file}" ] || [ ! -f "${package_file}" ]; then
+        echo "Error: aks-localdns package file not found for version ${version}. Exiting with error."
+        exit 1
+    fi
+
+    echo "Installing aks-localdns from ${package_file}"
+    apt_get_install 20 30 120 "${package_file}" || exit 1
 
     # Copy the installed binary to the expected path for localdns service
     COREDNS_BINARY_PATH="/opt/azure/containers/localdns/binary/${version}/coredns"
