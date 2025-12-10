@@ -928,7 +928,7 @@ PRIVACY_POLICY_URL="https://www.ubuntu.com/legal/terms-and-policies/privacy-poli
 VERSION_CODENAME=focal
 UBUNTU_CODENAME=focal
 === os-release End
-PUUID: 
+PUUID:
 Using kernel:
 Linux version 5.4.0-1155-azure-fips (buildd@lcy02-amd64-024) (gcc version 9.4.0 (Ubuntu 9.4.0-1ubuntu1~20.04.2)) #162+fips1-Ubuntu SMP Mon Oct 6 14:09:11 UTC 2025
 Install completed successfully on  Sat Dec 6 01:22:30 UTC 2025

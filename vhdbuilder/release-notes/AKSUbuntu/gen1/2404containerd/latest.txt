@@ -946,7 +946,7 @@ PRIVACY_POLICY_URL="https://www.ubuntu.com/legal/terms-and-policies/privacy-poli
 UBUNTU_CODENAME=noble
 LOGO=ubuntu-logo
 === os-release End
-PUUID: 
+PUUID:
 Using kernel:
 Linux version 6.8.0-1042-azure (buildd@lcy02-amd64-035) (x86_64-linux-gnu-gcc-13 (Ubuntu 13.3.0-6ubuntu2~24.04) 13.3.0, GNU ld (GNU Binutils for Ubuntu) 2.42) #48-Ubuntu SMP Wed Oct 15 21:20:11 UTC 2025
 Install completed successfully on  Sat Dec 6 02:32:22 UTC 2025
