@@ -131,11 +131,12 @@ az sig image-version create \
     --target-regions ${TARGET_REGIONS}
 capture_benchmark "${SCRIPT_NAME}_create_sig_image_version"
 
-if [ "${ENVIRONMENT,,}" = "test" ]; then
+if [ "${ENVIRONMENT,,}" != "tme" ]; then
     if [ "${GENERATE_PUBLISHING_INFO,,}" != "true" ]
         azcopy remove "${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd" --recursive=true
     fi
 else
+    # We always remove the VHD from the staging container in TME after creating the SIG image version because we will always retain the immutable blob copy, which can not be deleted until after the retention period ends
     azcopy remove "${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd" --recursive=true
 fi
 
