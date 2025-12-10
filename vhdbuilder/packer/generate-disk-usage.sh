@@ -1,6 +1,8 @@
 #!/bin/bash
-# Script to generate disk usage diagnostics for VHD builds
-# Used by packer provisioner and error-cleanup-provisioner
+# Script to generate disk usage diagnostics for VHD builds.
+# Used by packer provisioner and error-cleanup-provisioner.
+# NOTE: This script is for diagnostic purposes only and is not critical.
+# Failures in this script should not affect the VHD build process.
 
 DISK_USAGE_FILE="/opt/azure/disk-usage.txt"
 
