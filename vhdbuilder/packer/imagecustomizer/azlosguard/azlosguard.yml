@@ -186,7 +186,7 @@ os:
       destination: /etc/profile.d/CIS.sh
       permissions: 755
     # disk queue perf tuning
-    - source: /AgentBaker/parts/linux/cloud-init/artifacts/disk_queue.service
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/disk_queue.sh
       destination: /opt/azure/containers/disk_queue.sh
       permissions: 755
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/disk_queue.service
