@@ -85,7 +85,7 @@ fi
 
 echo "Uploaded ${OUT_DIR}/${CONFIG}.vhd to ${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd"
 
-if [ "${GENERATE_PUBLISHING_INFO,,}" = "true" ] && [ "${ENVIRONMENT,,}" = "tme"  ]; then
+if [ "${ENVIRONMENT,,}" = "tme"  ] && [ "${GENERATE_PUBLISHING_INFO,,}" = "true" ]; then
     echo "Copying ${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd to immutable storage container"
     az storage blob copy start --account-name "$STORAGE_ACCOUNT_NAME" --destination-blob "${CAPTURED_SIG_VERSION}.vhd" --destination-container "$VHD_CONTAINER_NAME" --source-uri "${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd" --auth-mode login || exit 1
     echo "Successfully copied to immutable container"
@@ -128,12 +128,7 @@ az sig image-version create \
     --target-regions ${TARGET_REGIONS}
 capture_benchmark "${SCRIPT_NAME}_create_sig_image_version"
 
-if [ "${ENVIRONMENT,,}" != "tme" ]; then
-    if [ "${GENERATE_PUBLISHING_INFO,,}" != "true" ]; then
-        azcopy remove "${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd" --recursive=true
-    fi
-else
-    # We always remove the VHD from the staging container in TME after creating the SIG image version because we will always retain the immutable blob copy if its created, which can not be deleted until after the retention period ends
+if [ "${ENVIRONMENT,,}" = "tme" ] || [ "${GENERATE_PUBLISHING_INFO,,}" = "false" ]; then
     azcopy remove "${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd" --recursive=true
 fi
 
