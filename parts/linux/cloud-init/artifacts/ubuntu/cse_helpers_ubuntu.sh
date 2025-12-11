@@ -71,7 +71,10 @@ _apt_get_install() {
             return 1
         else
             sleep $wait_sleep
-            apt_get_update
+            case " $apt_opts " in
+                *" Dir::Etc::sourcelist="*) ;;  # skip update when using custom sourcelist
+                *) apt_get_update ;;
+            esac
         fi
     done
 }
