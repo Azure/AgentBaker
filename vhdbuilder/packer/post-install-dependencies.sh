@@ -72,15 +72,19 @@ usage=${usage%.*}
 
 if isFedora $OS; then
   cat >/etc/os-release <<'EOF'
-NAME="Azure Linux"
-VERSION="3.0"
+NAME="Microsoft Azure Linux"
+VERSION="3.0.20251211.43"
 ID=azurelinux
 VERSION_ID="3.0"
-PRETTY_NAME="Azure Linux 3.0"
+PRETTY_NAME="Microsoft Azure Linux 3.0"
+ANSI_COLOR="1;34"
+HOME_URL="https://aka.ms/azurelinux"
+BUG_REPORT_URL="https://aka.ms/azurelinux"
+SUPPORT_URL="https://aka.ms/azurelinux"
 EOF
 
   for release_file in /etc/fedora-release /etc/system-release /etc/azurelinux-release; do
-    echo "Azure Linux release 3.0" > "$release_file"
+    echo "Azure Linux 3.0" > "$release_file"
   done
 fi
 
