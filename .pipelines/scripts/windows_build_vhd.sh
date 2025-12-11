@@ -51,11 +51,10 @@ if [ "${IS_RELEASE_PIPELINE}" = "True" ]; then
   else
     echo "This is a release build triggered from the release pipeline. DRY_RUN=${DRY_RUN}"
 
-    echo "${BRANCH}" | grep -E '^refs/heads/windows/v[[:digit:]]{8}$'
-    if (( $? != 0 )); then
-      echo "The branch ${BRANCH} is not release branch. Please use the release branch. Release branch name format: windows/vYYYYMMDD."
-      exit 1
-    fi
+	if ! (echo "${BRANCH}" | grep -E '^refs/heads/windows/v[[:digit:]]{8}$' > /dev/null); then
+	  echo "The branch ${BRANCH} is not release branch. Please use the release branch. Release branch name format: windows/vYYYYMMDD."
+	  exit 1
+	fi
     echo "##vso[task.setvariable variable=SIG_FOR_PRODUCTION]True"
   fi
 else
