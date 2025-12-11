@@ -59,8 +59,6 @@ else
     DESTINATION_STORAGE_CONTAINER=${CLASSIC_BLOB}
 fi
 
-#AZCOPYCMD="azcopy copy \"${OUT_DIR}/${CONFIG}.vhd\" \"${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd\" --recursive=true"
-
 echo "Uploading ${OUT_DIR}/${CONFIG}.vhd to ${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd"
 if ! azcopy copy "${OUT_DIR}/${CONFIG}.vhd" "${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd" --recursive=true; then
     azExitCode=$?
