@@ -187,6 +187,9 @@ os:
       permissions: 755
     # disk queue perf tuning
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/disk_queue.service
+      destination: /opt/azure/containers/disk_queue.sh
+      permissions: 755
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/disk_queue.service
       destination: /etc/systemd/system/disk_queue.service
       permissions: 644
     # cgroup-memory
