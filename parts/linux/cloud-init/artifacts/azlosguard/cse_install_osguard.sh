@@ -13,10 +13,11 @@ installKubeletKubectlPkgFromPMC() {
 installRPMPackageFromFile() {
     local packageName="${1}"
     local desiredVersion="${2}"
+    local targetBinDir="${3:-"/usr/local/bin"}"
 
     echo "installing ${packageName} version ${desiredVersion} by manually unpacking the RPM"
-    if [ "${packageName}" != "kubelet" ] && [ "${packageName}" != "kubectl" ]; then
-        echo "Error: Unsupported package ${packageName}. Only kubelet and kubectl installs are allowed on OSGuard."
+    if [ "${packageName}" != "kubelet" ] && [ "${packageName}" != "kubectl" ] && [ "${packageName}" != "azure-acr-credential-provider" ]; then
+        echo "Error: Unsupported package ${packageName}. Only kubelet, kubectl, and azure-acr-credential-provider installs are allowed on OSGuard."
         exit 1
     fi
     echo "installing ${packageName} version ${desiredVersion}"
@@ -24,13 +25,12 @@ installRPMPackageFromFile() {
     packagePrefix="${packageName}-${desiredVersion}-*"
 
     rpmFile=$(find "${downloadDir}" -maxdepth 1 -name "${packagePrefix}" -print -quit 2>/dev/null) || rpmFile=""
+    if [ -z "${rpmFile}" ] && { [ "${packageName}" = "kubelet" ] || [ "${packageName}" = "kubectl" ]; } && fallbackToKubeBinaryInstall "${packageName}" "${desiredVersion}"; then
+        echo "Successfully installed ${packageName} version ${desiredVersion} from binary fallback"
+        rm -rf ${downloadDir}
+        return 0
+    fi
     if [ -z "${rpmFile}" ]; then
-        if fallbackToKubeBinaryInstall "${packageName}" "${desiredVersion}"; then
-            echo "Successfully installed ${packageName} version ${desiredVersion} from binary fallback"
-            rm -rf ${downloadDir}
-            return 0
-        fi
-        # query all package versions and get the latest version for matching k8s version
         fullPackageVersion=$(tdnf list ${packageName} | grep ${desiredVersion}- | awk '{print $2}' | sort -V | tail -n 1)
         if [ -z "${fullPackageVersion}" ]; then
             echo "Failed to find valid ${packageName} version for ${desiredVersion}"
@@ -45,10 +45,25 @@ installRPMPackageFromFile() {
         return 1
     fi
 
-    echo "Unpacking usr/bin/${packageName} from ${downloadDir}/${packageName}-${desiredVersion}*"
+    local rpmBinaryName="${packageName}"
+    local targetBinaryName="${packageName}"
+    if [ "${packageName}" = "azure-acr-credential-provider" ]; then
+        targetBinaryName="acr-credential-provider"
+    fi
+
+    echo "Unpacking usr/bin/${rpmBinaryName} from ${downloadDir}/${packageName}-${desiredVersion}*"
     pushd ${downloadDir} || exit 1
     rpm2cpio "${rpmFile}" | cpio -idmv
-    mv "usr/bin/${packageName}" "/usr/local/bin/${packageName}"
+    mkdir -p "${targetBinDir}"
+    if [ -f "usr/bin/${rpmBinaryName}" ]; then
+        mv "usr/bin/${rpmBinaryName}" "${targetBinDir}/${targetBinaryName}"
+    elif [ -f "usr/local/bin/${rpmBinaryName}" ]; then
+        mv "usr/local/bin/${rpmBinaryName}" "${targetBinDir}/${targetBinaryName}"
+    else
+        popd || exit 1
+        rm -rf ${downloadDir}
+        return 1
+    fi
     popd || exit 1
 	rm -rf ${downloadDir}
 }
@@ -60,6 +75,24 @@ downloadPkgFromVersion() {
     mkdir -p ${downloadDir}
     tdnf_download 30 1 600 ${downloadDir} ${packageName}=${packageVersion} || exit $ERR_APT_INSTALL_TIMEOUT
     echo "Succeeded to download ${packageName} version ${packageVersion}"
+}
+
+installCredentialProviderFromPMC() {
+    k8sVersion="${1:-}"
+    os=${AZURELINUX_OS_NAME}
+    if [ -z "$OS_VERSION" ]; then
+        os=${OS}
+        os_version="current"
+    else
+        os_version="${OS_VERSION}"
+    fi
+   	PACKAGE_VERSION=""
+    getLatestPkgVersionFromK8sVersion "$k8sVersion" "azure-acr-credential-provider-pmc" "$os" "$os_version"
+    packageVersion=$(echo $PACKAGE_VERSION | cut -d "-" -f 1)
+	echo "installing azure-acr-credential-provider package version: $packageVersion"
+    mkdir -p "${CREDENTIAL_PROVIDER_BIN_DIR}"
+    chown -R root:root "${CREDENTIAL_PROVIDER_BIN_DIR}"
+    installRPMPackageFromFile "azure-acr-credential-provider" "${packageVersion}" "${CREDENTIAL_PROVIDER_BIN_DIR}" || exit $ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT
 }
 
 installDeps() {
