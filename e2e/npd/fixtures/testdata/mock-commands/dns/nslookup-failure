@@ -1,0 +1,9 @@
+#!/bin/bash
+# Mock nslookup failure
+cat <<END
+Server:    10.0.0.10
+Address:   10.0.0.10#53
+
+** server can't find test-cluster-api.hcp.eastus.azmk8s.io: NXDOMAIN
+END
+exit 1

@@ -1,0 +1,10 @@
+{
+  "Version": "1.0",
+  "Timestamp": "2025-10-28T21:43:20Z",
+  "TaskName": "test:crictl:memory",
+  "EventLevel": "Warning",
+  "Message": "{\n  \"containers\": [\n    {\n      \"namespace\": \"default\",\n      \"pod\": \"memory-intensive-pod\",\n      \"container\": \"memory-hog\",\n      \"restarts\": \"0\",\n      \"cpu_mcore\": \"100m\",\n      \"mem_mib\": \"1024Mi\",\n      \"mem_pct\": \"12.5%\"\n    },\n    {\n      \"namespace\": \"apps\",\n      \"pod\": \"normal-app-pod\",\n      \"container\": \"normal-app\",\n      \"restarts\": \"0\",\n      \"cpu_mcore\": \"200m\",\n      \"mem_mib\": \"128Mi\",\n      \"mem_pct\": \"1.5%\"\n    }\n  ]\n}",
+  "EventPid": "22",
+  "EventTid": "1",
+  "OperationId": "7b6bd2a0-9d15-436b--742--c596ebe7891"
+}

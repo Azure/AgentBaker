@@ -1,0 +1,15 @@
+#!/bin/bash
+# Mock kubectl for healthy CoreDNS scenario
+case "$*" in
+    *"get pods"*)
+        echo "coredns-7968c94f89-5f2m9:10.240.0.150"
+        echo "coredns-7968c94f89-gs585:10.240.1.239"
+        ;;
+    *"config view"*)
+        echo "https://test-cluster-api.hcp.eastus.azmk8s.io:443"
+        ;;
+    *)
+        echo "Mock kubectl: unknown command: $*" >&2
+        exit 1
+        ;;
+esac

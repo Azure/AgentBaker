@@ -1,0 +1,18 @@
+.:53 {
+    errors
+    bind 169.254.10.11
+    forward . 10.0.0.10 {
+        policy sequential
+    }
+    cache 3600
+    loop
+}
+cluster.local:53 {
+    errors
+    bind 169.254.10.11
+    forward . 10.0.0.10 {
+        force_tcp
+    }
+    cache 3600
+    loop
+}

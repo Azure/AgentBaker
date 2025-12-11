@@ -1,0 +1,11 @@
+#!/bin/bash
+# kubectl dispatcher for DNS tests
+SCENARIO="${DNS_SCENARIO:-healthy}"
+
+# Look for scenario-specific mock in dns directory
+if [ -f "/mock-commands/dns/kubectl-$SCENARIO" ]; then
+    exec "/mock-commands/dns/kubectl-$SCENARIO" "$@"
+fi
+
+# Default to healthy scenario
+exec "/mock-commands/dns/kubectl-healthy" "$@"
