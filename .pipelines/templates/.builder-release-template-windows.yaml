@@ -209,7 +209,7 @@ steps:
 
         make -f packer.mk convert-sig-to-classic-storage-account-blob
     displayName: Convert Shared Image Gallery To VHD Blob In Classic Storage Account
-    condition: and(eq('$( DRY_RUN )', 'False'), eq(variables.SIG_FOR_PRODUCTION, 'True'), succeeded())
+    condition: and(succeeded(), eq(variables.DRY_RUN, 'False'), eq(variables.SIG_FOR_PRODUCTION, 'True'))
     env:
       LOCATION: $(AZURE_BUILD_LOCATION)
       RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
