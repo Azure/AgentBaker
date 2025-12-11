@@ -823,7 +823,7 @@
       "WindowsSkuMatch": "2022*",
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
       "Name": "140377743",
-      "Value": "1",
+      "Value": "0",
       "Type": "DWORD"
     },
     {
@@ -831,7 +831,7 @@
       "WindowsSkuMatch": "23H2*",
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
       "Name": "66715279",
-      "Value": "1",
+      "Value": "0",
       "Type": "DWORD"
     },
     {
