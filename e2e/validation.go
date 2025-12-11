@@ -51,6 +51,7 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 	ValidateKubeletServingCertificateRotation(ctx, s)
 	ValidateSystemdWatchdogForKubernetes132Plus(ctx, s)
 	ValidateSystemdUnitIsNotFailed(ctx, s, "aks-log-collector")
+	ValidateDiskQueueService(ctx, s)
 	ValidateLeakedSecrets(ctx, s)
 	ValidateIPTablesCompatibleWithCiliumEBPF(ctx, s)
 
