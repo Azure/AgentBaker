@@ -54,6 +54,7 @@ installDeps() {
       makeRepoFile "cloud-native"
       makeRepoFile "ms-oss"
       makeRepoFile "ms-non-oss"
+      dnf_install 30 1 600 kubernetes-cri-tools
     fi
 
     if ! isFedora "$OS"; then
