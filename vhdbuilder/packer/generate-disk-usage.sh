@@ -1,6 +1,8 @@
 #!/bin/bash
-# Script to generate disk usage diagnostics for VHD builds
-# Used by packer provisioner and error-cleanup-provisioner
+# Script to generate disk usage diagnostics for VHD builds.
+# Used by packer provisioner and error-cleanup-provisioner.
+# NOTE: This script is for diagnostic purposes only and is not critical.
+# Failures in this script should not affect the VHD build process.
 
 DISK_USAGE_FILE="/opt/azure/disk-usage.txt"
 
@@ -30,10 +32,11 @@ START_TIME=$(date +%s)
   echo "Actual unpacked size is in CONTAINERD STORAGE SUMMARY below."
   echo ""
   if command -v ctr &>/dev/null; then
+    # ctr images list format: REF TYPE DIGEST SIZE UNIT PLATFORMS LABELS
+    # We want SIZE+UNIT (col 4-5) and REF (col 1), filtering out sha256: digest refs
     ctr --namespace k8s.io images list 2>/dev/null | tail -n +2 | \
-      awk '{print $1, $4, $5}' | \
-      grep -v '^sha256:' | \
-      sort -k2 -hr
+      awk '!/^sha256:/ {printf "%s %s\t%s\n", $4, $5, $1}' | \
+      sort -t$'\t' -k1 -hr
   else
     echo "ctr not available"
   fi
