@@ -83,7 +83,11 @@ regenerate_localdns_corefile() {
         return 1
     fi
 
-    chmod 0644 "${LOCALDNS_CORE_FILE}"
+    chmod 0644 "${LOCALDNS_CORE_FILE}" || {
+        echo "Failed to set permissions on ${LOCALDNS_CORE_FILE}"
+        return 1
+    }
+
     echo "Successfully regenerated localdns corefile."
     return 0
 }
