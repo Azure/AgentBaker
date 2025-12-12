@@ -36,7 +36,7 @@ installDeps() {
 
     if [ "${OSVERSION}" = "22.04" ] || [ "${OSVERSION}" = "24.04" ]; then
         if [ "$(isARM64)" -eq 0 ]; then
-            pkg_list+=("aznfs=0.3.15")
+            pkg_list+=("aznfs=3.0.10")
         fi
     fi
 
