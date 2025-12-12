@@ -1252,8 +1252,8 @@
               {
                 "k8sVersion": "1.34",
                 "renovateTag": "name=kubelet, repository=production, os=ubuntu, release=24.04",
-                "latestVersion": "1.34.2-ubuntu24.04u1",
-                "previousLatestVersion": "1.34.1-ubuntu24.04u4"
+                "latestVersion": "1.34.3-ubuntu24.04u1",
+                "previousLatestVersion": "1.34.2-ubuntu24.04u1"
               }
             ]
           },
@@ -1262,8 +1262,8 @@
               {
                 "k8sVersion": "1.34",
                 "renovateTag": "name=kubelet, repository=production, os=ubuntu, release=22.04",
-                "latestVersion": "1.34.2-ubuntu22.04u1",
-                "previousLatestVersion": "1.34.1-ubuntu22.04u4"
+                "latestVersion": "1.34.3-ubuntu22.04u1",
+                "previousLatestVersion": "1.34.2-ubuntu22.04u1"
               }
             ]
           },
@@ -1272,8 +1272,8 @@
               {
                 "k8sVersion": "1.34",
                 "renovateTag": "name=kubelet, repository=production, os=ubuntu, release=20.04",
-                "latestVersion": "1.34.2-ubuntu20.04u1",
-                "previousLatestVersion": "1.34.1-ubuntu20.04u4"
+                "latestVersion": "1.34.3-ubuntu20.04u1",
+                "previousLatestVersion": "1.34.2-ubuntu20.04u1"
               }
             ]
           }
@@ -1303,8 +1303,8 @@
               {
                 "k8sVersion": "1.34",
                 "renovateTag": "name=kubectl, repository=production, os=ubuntu, release=24.04",
-                "latestVersion": "1.34.2-ubuntu24.04u1",
-                "previousLatestVersion": "1.34.1-ubuntu24.04u4"
+                "latestVersion": "1.34.3-ubuntu24.04u1",
+                "previousLatestVersion": "1.34.2-ubuntu24.04u1"
               }
             ]
           },
@@ -1313,8 +1313,8 @@
               {
                 "k8sVersion": "1.34",
                 "renovateTag": "name=kubectl, repository=production, os=ubuntu, release=22.04",
-                "latestVersion": "1.34.2-ubuntu22.04u1",
-                "previousLatestVersion": "1.34.1-ubuntu22.04u4"
+                "latestVersion": "1.34.3-ubuntu22.04u1",
+                "previousLatestVersion": "1.34.2-ubuntu22.04u1"
               }
             ]
           },
@@ -1323,8 +1323,8 @@
               {
                 "k8sVersion": "1.34",
                 "renovateTag": "name=kubectl, repository=production, os=ubuntu, release=20.04",
-                "latestVersion": "1.34.2-ubuntu20.04u1",
-                "previousLatestVersion": "1.34.1-ubuntu20.04u4"
+                "latestVersion": "1.34.3-ubuntu20.04u1",
+                "previousLatestVersion": "1.34.2-ubuntu20.04u1"
               }
             ]
           }
