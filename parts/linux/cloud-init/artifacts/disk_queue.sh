@@ -7,5 +7,5 @@ DEV_NAME=$(basename "$ROOT_DEV")
 
 echo "resolved root device: $DEV_NAME, will apply settings to /sys/block/$DEV_NAME/queue/{nr_requests, depth}"
 
+# 128 is the default queue depth, so this is effectively enforcing the default value...
 echo 128 > "/sys/block/$DEV_NAME/queue/nr_requests"
-echo 128 > "/sys/block/$DEV_NAME/queue/depth"
