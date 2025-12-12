@@ -10,6 +10,13 @@ Describe 'localdns.sh'
 # These functions are defined in parts/linux/cloud-init/artifacts/localdns.sh file.
 #------------------------------------------------------------------------------------------------------------------------------------
     Describe 'verify_localdns_files'
+        check_file_permissions() {
+            local file=$1
+            local expected_perms=$2
+            local actual_perms=$(stat -c '%a' "$file" 2>/dev/null)
+            [ "$actual_perms" = "$expected_perms" ]
+        }
+
         setup() {
             Include "./parts/linux/cloud-init/artifacts/localdns.sh"
 
@@ -18,8 +25,12 @@ Describe 'localdns.sh'
             LOCALDNS_CORE_FILE="${LOCALDNS_SCRIPT_PATH}/localdns.corefile"
             UPDATED_LOCALDNS_CORE_FILE="${LOCALDNS_SCRIPT_PATH}/updated.localdns.corefile"
             mkdir -p "$LOCALDNS_SCRIPT_PATH"
-            echo "forward . 168.63.129.16" >> "$LOCALDNS_CORE_FILE"
-            echo "forward . 168.63.129.16" >> "$UPDATED_LOCALDNS_CORE_FILE"
+            echo ".:5353 {" >> "$LOCALDNS_CORE_FILE"
+            echo "    forward . 168.63.129.16" >> "$LOCALDNS_CORE_FILE"
+            echo "}" >> "$LOCALDNS_CORE_FILE"
+            echo ".:5353 {" >> "$UPDATED_LOCALDNS_CORE_FILE"
+            echo "    forward . 168.63.129.16" >> "$UPDATED_LOCALDNS_CORE_FILE"
+            echo "}" >> "$UPDATED_LOCALDNS_CORE_FILE"
 
             LOCALDNS_SLICE_PATH="${TEST_DIR}/etc/systemd/system"
             LOCALDNS_SLICE_FILE="${LOCALDNS_SLICE_PATH}/localdns.slice"
@@ -54,24 +65,83 @@ EOF
         }
         BeforeEach 'setup'
         AfterEach 'cleanup'
+        #------------------------ regenerate_localdns_corefile ---------------------------------------------
+        It 'should regenerate corefile successfully when LOCALDNS_BASE64_ENCODED_COREFILE is set'
+            rm -f "$LOCALDNS_CORE_FILE"
+            LOCALDNS_BASE64_ENCODED_COREFILE=$(echo ".:5353 {
+    forward . 168.63.129.16
+}" | base64)
+            When run regenerate_localdns_corefile
+            The status should be success
+            The stdout should include "Regenerating localdns corefile at $LOCALDNS_CORE_FILE"
+            The stdout should include "Successfully regenerated localdns corefile."
+            The path "$LOCALDNS_CORE_FILE" should be file
+        End
+
+        It 'should fail to regenerate when LOCALDNS_BASE64_ENCODED_COREFILE is not set'
+            rm -f "$LOCALDNS_CORE_FILE"
+            unset LOCALDNS_BASE64_ENCODED_COREFILE
+            When run regenerate_localdns_corefile
+            The status should be failure
+            The stdout should include "LOCALDNS_BASE64_ENCODED_COREFILE is not set. Cannot regenerate corefile."
+        End
+
+        It 'should set correct permissions on regenerated corefile'
+            rm -f "$LOCALDNS_CORE_FILE"
+            LOCALDNS_BASE64_ENCODED_COREFILE=$(echo ".:5353 {
+    forward . 168.63.129.16
+}" | base64)
+            When run regenerate_localdns_corefile
+            The status should be success
+            The stdout should include "Successfully regenerated localdns corefile."
+            The path "$LOCALDNS_CORE_FILE" should be file
+        End
+
         #------------------------ verify_localdns_corefile -------------------------------------------------
         It 'should return success if localdns corefile exists and is not empty'
             When run verify_localdns_corefile
             The status should be success
         End
 
-        It 'should return failure if localdns corefile does not exist'
+        It 'should regenerate and succeed if corefile is corrupted and LOCALDNS_BASE64_ENCODED_COREFILE is set'
+            echo "corrupted data" > "$LOCALDNS_CORE_FILE"
+            LOCALDNS_BASE64_ENCODED_COREFILE=$(echo ".:5353 {
+    forward . 168.63.129.16
+}" | base64)
+            When run verify_localdns_corefile
+            The status should be success
+            The stdout should include "Localdns corefile either does not exist, is empty, or appears to be corrupted"
+            The stdout should include "Attempting to regenerate localdns corefile..."
+            The stdout should include "Successfully regenerated localdns corefile."
+            The stdout should include "Localdns corefile regenerated successfully."
+        End
+
+        It 'should regenerate and succeed if corefile is missing and LOCALDNS_BASE64_ENCODED_COREFILE is set'
+            rm -f "$LOCALDNS_CORE_FILE"
+            LOCALDNS_BASE64_ENCODED_COREFILE=$(echo ".:5353 {
+    forward . 168.63.129.16
+}" | base64)
+            When run verify_localdns_corefile
+            The status should be success
+            The stdout should include "Attempting to regenerate localdns corefile..."
+            The stdout should include "Localdns corefile regenerated successfully."
+        End
+
+        It 'should return failure if localdns corefile does not exist and regeneration fails'
             rm -r "$LOCALDNS_CORE_FILE"
             When run verify_localdns_corefile
             The status should be failure
-            The stdout should include "Localdns corefile either does not exist or is empty at $LOCALDNS_CORE_FILE."
+            The stdout should include "Localdns corefile either does not exist, is empty, or appears to be corrupted at $LOCALDNS_CORE_FILE."
+            The stdout should include "Attempting to regenerate localdns corefile..."
+            The stdout should include "LOCALDNS_BASE64_ENCODED_COREFILE is not set. Cannot regenerate corefile."
         End
 
-        It 'should return failure if localdns corefile is empty'
+        It 'should return failure if localdns corefile is empty and regeneration fails'
             > "$LOCALDNS_CORE_FILE"
             When run verify_localdns_corefile
             The status should be failure
-            The stdout should include "Localdns corefile either does not exist or is empty at $LOCALDNS_CORE_FILE."
+            The stdout should include "Localdns corefile either does not exist, is empty, or appears to be corrupted at $LOCALDNS_CORE_FILE."
+            The stdout should include "Attempting to regenerate localdns corefile..."
         End
 
         It 'should return failure if LOCALDNS_CORE_FILE is unset'
