@@ -1715,6 +1715,47 @@ func Test_AzureLinuxV2_LocalDns_Disabled_Scriptless(t *testing.T) {
 	})
 }
 
+// func Test_Ubuntu2204_LocalDns_Corefile_Regeneration_Scriptless(t *testing.T) {
+// 	RunScenario(t, &Scenario{
+// 		Description: "Tests that localdns corefile can be regenerated after deletion using systemd environment variable",
+// 		Tags: Tags{
+// 			Scriptless: true,
+// 		},
+// 		Config: Config{
+// 			Cluster: ClusterAzureNetwork,
+// 			VHD:     config.VHDUbuntu2204Gen2Containerd,
+// 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+// 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
+// 				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
+// 			},
+// 			Validator: func(ctx context.Context, s *Scenario) {
+// 				validateLocalDNSCorefileRegeneration(ctx, s)
+// 			},
+// 		},
+// 	})
+// }
+
+// func Test_AzureLinuxV2_LocalDns_Corefile_Regeneration_Scriptless(t *testing.T) {
+// 	RunScenario(t, &Scenario{
+// 		Description: "Tests that localdns corefile can be regenerated after deletion on Azure Linux V2",
+// 		Tags: Tags{
+// 			Scriptless: true,
+// 		},
+// 		Config: Config{
+// 			Cluster: ClusterAzureNetwork,
+// 			VHD:     config.VHDAzureLinuxV2Gen2,
+// 			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+// 				config.LocalDnsProfile = &aksnodeconfigv1.LocalDnsProfile{
+// 					EnableLocalDns: true,
+// 				}
+// 			},
+// 			Validator: func(ctx context.Context, s *Scenario) {
+// 				validateLocalDNSCorefileRegeneration(ctx, s)
+// 			},
+// 		},
+// 	})
+// }
+
 func Test_Ubuntu2204_KubeletCustomConfig(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Tags: Tags{
