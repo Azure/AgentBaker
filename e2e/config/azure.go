@@ -44,7 +44,7 @@ type AzureClient struct {
 	StorageContainers         *armstorage.BlobContainersClient
 	CacheRulesClient          *armcontainerregistry.CacheRulesClient
 	Core                      *azcore.Client
-	Credential                *azidentity.DefaultAzureCredential
+	Credential                *azidentity.AzureCLICredential
 	Maintenance               *armcontainerservice.MaintenanceConfigurationsClient
 	NetworkInterfaces         *armnetwork.InterfacesClient
 	PrivateDNSZoneGroup       *armnetwork.PrivateDNSZoneGroupsClient
@@ -128,9 +128,9 @@ func NewAzureClient() (*AzureClient, error) {
 		},
 	}
 
-	credential, err := azidentity.NewDefaultAzureCredential(nil)
+	credential, err := azidentity.NewAzureCLICredential(nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create credential: %w", err)
+		return nil, fmt.Errorf("creating azure cli credential: %w", err)
 	}
 
 	plOpts := runtime.PipelineOptions{}
@@ -550,7 +550,7 @@ func (a *AzureClient) ensureReplication(ctx context.Context, image *Image, versi
 	err := a.replicateImageVersionToCurrentRegion(ctx, image, version, location)
 	elapsed := time.Since(start) // Calculate the elapsed time
 
-	toolkit.LogDuration(ctx, elapsed, 3*time.Minute, fmt.Sprintf("Replication took: %s (%s)", toolkit.FormatDuration(elapsed), *version.ID))
+	toolkit.LogDuration(ctx, elapsed, 3*time.Minute, fmt.Sprintf("Replication took: %s (%s)", elapsed, *version.ID))
 
 	return err
 }
@@ -569,6 +569,7 @@ func (a *AzureClient) waitForVersionOperationCompletion(ctx context.Context, ima
 	}
 
 	// Use the standard wait.PollUntilContextTimeout helper used throughout the codebase
+	var lastLoggedState armcompute.GalleryProvisioningState
 	err = wait.PollUntilContextTimeout(ctx, 5*time.Second, 10*time.Minute, true, func(ctx context.Context) (bool, error) {
 		// Get the latest version state using the existing client
 		resp, err := imgVersionClient.Get(ctx, image.Gallery.ResourceGroupName, image.Gallery.Name, image.Name, *version.Name, nil)
@@ -578,7 +579,11 @@ func (a *AzureClient) waitForVersionOperationCompletion(ctx context.Context, ima
 		}
 
 		currentState := *resp.Properties.ProvisioningState
-		logf(ctx, "Image version %s current state: %s", *version.ID, currentState)
+		// Only log if state has changed
+		if currentState != lastLoggedState {
+			logf(ctx, "Image version %s current state: %s", *version.ID, currentState)
+			lastLoggedState = currentState
+		}
 
 		// Check if operation completed
 		if currentState != armcompute.GalleryProvisioningStateUpdating {

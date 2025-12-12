@@ -73,8 +73,6 @@ func getClusterKubeClient(ctx context.Context, resourceGroupName, clusterName st
 }
 
 func (k *Kubeclient) WaitUntilPodRunning(ctx context.Context, namespace string, labelSelector string, fieldSelector string) (*corev1.Pod, error) {
-	logf(ctx, "waiting for pod %s %s in %q namespace to be ready", labelSelector, fieldSelector, namespace)
-
 	var pod *corev1.Pod
 
 	err := wait.PollUntilContextTimeout(ctx, time.Second, 5*time.Minute, true, func(ctx context.Context) (bool, error) {
@@ -122,7 +120,6 @@ func (k *Kubeclient) WaitUntilPodRunning(ctx context.Context, namespace string, 
 			// Check if the pod is ready
 			for _, cond := range pod.Status.Conditions {
 				if cond.Type == "Ready" && cond.Status == "True" {
-					logf(ctx, "pod %s is ready", pod.Name)
 					return true, nil
 				}
 			}
@@ -471,6 +468,9 @@ func getClusterSubnetID(ctx context.Context, mcResourceGroupName string) (string
 
 func podHTTPServerLinux(s *Scenario) *corev1.Pod {
 	image := "mcr.microsoft.com/cbl-mariner/busybox:2.0"
+	if s.Tags.MockAzureChinaCloud {
+		image = "mcr.azk8s.cn/cbl-mariner/busybox:2.0"
+	}
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-test-pod", s.Runtime.VM.KubeName),

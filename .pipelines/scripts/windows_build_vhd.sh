@@ -51,11 +51,10 @@ if [ "${IS_RELEASE_PIPELINE}" = "True" ]; then
   else
     echo "This is a release build triggered from the release pipeline. DRY_RUN=${DRY_RUN}"
 
-    echo "${BRANCH}" | grep -E '^refs/heads/windows/v[[:digit:]]{8}$'
-    if (( $? != 0 )); then
-      echo "The branch ${BRANCH} is not release branch. Please use the release branch. Release branch name format: windows/vYYYYMMDD."
-      exit 1
-    fi
+	if ! (echo "${BRANCH}" | grep -E '^refs/heads/windows/v[[:digit:]]{8}$' > /dev/null); then
+	  echo "The branch ${BRANCH} is not release branch. Please use the release branch. Release branch name format: windows/vYYYYMMDD."
+	  exit 1
+	fi
     echo "##vso[task.setvariable variable=SIG_FOR_PRODUCTION]True"
   fi
 else
@@ -110,7 +109,6 @@ echo "Set build date to $BUILD_DATE"
 echo "Use CSE pacakge at URI: ${WINDOWS_CSE_PACKAGE_URI}"
 
 # Finally, we invoke packer to build the VHD.
-make -f packer.mk az-login
 packer init ./vhdbuilder/packer/packer-plugin.pkr.hcl
 packer version
 ./vhdbuilder/packer/produce-packer-settings.sh

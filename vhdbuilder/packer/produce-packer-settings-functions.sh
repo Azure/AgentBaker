@@ -297,8 +297,7 @@ function prepare_windows_vhd() {
 	windows_sigmode_source_image_version=""
 
 	# default: build VHD images from a marketplace base image
-	export AZCOPY_AUTO_LOGIN_TYPE="MSI" # use Managed Identity for AzCopy authentication
-	export AZCOPY_MSI_RESOURCE_STRING="${AZURE_MSI_RESOURCE_STRING}"
+	export AZCOPY_AUTO_LOGIN_TYPE="AZCLI" # use AZCLI for AzCopy authentication
 	export AZCOPY_LOG_LOCATION="$(pwd)/azcopy-log-files/"
 	export AZCOPY_JOB_PLAN_LOCATION="$(pwd)/azcopy-job-plan-files/"
 	mkdir -p "${AZCOPY_LOG_LOCATION}"
