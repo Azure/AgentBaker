@@ -67,6 +67,27 @@ START_LOCALDNS_TIMEOUT=10
 # functions defined until "${__SOURCED__:+return}" are sourced and tested in -
 # spec/parts/linux/cloud-init/artifacts/localdns_spec.sh.
 # -------------------------------------------------------------------------------------------------
+# Regenerate the localdns corefile from base64 encoded content.
+# This is used when the corefile is missing, corrupted, or deleted.
+regenerate_localdns_corefile() {
+    if [ -z "${LOCALDNS_BASE64_ENCODED_COREFILE:-}" ]; then
+        echo "LOCALDNS_BASE64_ENCODED_COREFILE is not set. Cannot regenerate corefile."
+        return 1
+    fi
+    echo "Regenerating localdns corefile at ${LOCALDNS_CORE_FILE}"
+
+    mkdir -p "$(dirname "${LOCALDNS_CORE_FILE}")"
+    # Decode base64 corefile content and write to corefile.
+    if ! echo "${LOCALDNS_BASE64_ENCODED_COREFILE}" | base64 -d > "${LOCALDNS_CORE_FILE}"; then
+        echo "Failed to decode and write corefile."
+        return 1
+    fi
+
+    chmod 0644 "${LOCALDNS_CORE_FILE}"
+    echo "Successfully regenerated localdns corefile."
+    return 0
+}
+
 # Verify that the localdns corefile exists and is not empty.
 verify_localdns_corefile() {
     if [ -z "${LOCALDNS_CORE_FILE:-}" ]; then
@@ -74,9 +95,18 @@ verify_localdns_corefile() {
         return 1
     fi
 
-    if [ ! -f "${LOCALDNS_CORE_FILE}" ] || [ ! -s "${LOCALDNS_CORE_FILE}" ]; then
-        echo "Localdns corefile either does not exist or is empty at ${LOCALDNS_CORE_FILE}."
-        return 1
+    # Check if corefile exists, is not empty, and has valid coredns server block.
+    if [ ! -f "${LOCALDNS_CORE_FILE}" ] || [ ! -s "${LOCALDNS_CORE_FILE}" ] || ! grep -qE '^\.:' "${LOCALDNS_CORE_FILE}"; then
+        echo "Localdns corefile either does not exist, is empty, or appears to be corrupted at ${LOCALDNS_CORE_FILE}."
+
+        echo "Attempting to regenerate localdns corefile..."
+        if regenerate_localdns_corefile; then
+            echo "Localdns corefile regenerated successfully."
+            return 0
+        else
+            echo "Failed to regenerate localdns corefile."
+            return 1
+        fi
     fi
     return 0
 }
