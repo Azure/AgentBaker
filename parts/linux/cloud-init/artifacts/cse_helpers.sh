@@ -69,6 +69,7 @@ ERR_CTR_OPERATION_ERROR=119 # Error executing a ctr containerd cli operation
 ERR_INVALID_CLI_TOOL=120 # Invalid CLI tool specified, should be one of ctr, crictl, docker
 ERR_KUBELET_INSTALL_FAIL=121 # Error installing kubelet
 ERR_KUBECTL_INSTALL_FAIL=122 # Error installing kubectl
+ERR_ENABLE_MANAGED_GPU_EXPERIENCE=123 # Error confguring managed GPU experience
 
 # 123 is free for use
 
