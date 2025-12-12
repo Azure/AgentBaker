@@ -21,5 +21,6 @@ parts/linux/cloud-init/artifacts/localdns.service @SriHarsha001 @yewmsft
 parts/linux/cloud-init/artifacts/localdns-delegate.conf @SriHarsha001 @yewmsft
 spec/parts/linux/cloud-init/artifacts/localdns_spec.sh @SriHarsha001 @yewmsft
 
-# Set components.json to no code-owner so that it can be approved and merged by component owner.
+# Set components.json & windows_settings.json to no code-owner so that it can be approved and merged by component owner.
 parts/common/components.json
+vhdbuilder/packer/windows/windows_settings.json
