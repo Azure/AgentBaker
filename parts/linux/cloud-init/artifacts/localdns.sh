@@ -52,7 +52,7 @@ RESOLV_CONF="/run/systemd/resolve/resolv.conf"
 
 # Curl check if localdns is running.
 # This is used by start_localdns_watchdog and wait_for_localdns_ready.
-CURL_COMMAND="curl -s http://${LOCALDNS_NODE_LISTENER_IP}:8181/ready"
+CURL_COMMAND="curl -s --max-time 5 http://${LOCALDNS_NODE_LISTENER_IP}:8181/ready"
 
 # Constant for networkctl reload command.
 # This is used by disable_dhcp_use_clusterlistener and cleanup_localdns_configs functions.
@@ -60,6 +60,10 @@ NETWORKCTL_RELOAD_CMD="networkctl reload"
 
 # The health check is a DNS request to the localdns service IPs.
 HEALTH_CHECK_DNS_REQUEST=$'health-check.localdns.local @'"${LOCALDNS_NODE_LISTENER_IP}"$'\nhealth-check.localdns.local @'"${LOCALDNS_CLUSTER_LISTENER_IP}"
+
+# DNS health check timeout (in seconds) for dig command.
+# This should be less than HEALTH_CHECK_INTERVAL to allow the check to complete within the interval.
+DNS_HEALTH_CHECK_TIMEOUT=5
 
 START_LOCALDNS_TIMEOUT=10
 
@@ -349,6 +353,12 @@ wait_for_localdns_ready() {
 
     echo "Waiting for localdns to start and be able to serve traffic."
     until [ "$($CURL_COMMAND)" = "OK" ]; do
+        # Check if CoreDNS process has crashed/exited
+        if [ -n "${COREDNS_PID:-}" ] && ! ps -p "${COREDNS_PID}" >/dev/null 2>&1; then
+            echo "CoreDNS process (PID ${COREDNS_PID}) has exited unexpectedly. Check logs for errors (e.g., DNS loop detection)."
+            return 1
+        fi
+        
         if [ $attempts -ge $maxattempts ]; then
             echo "Localdns failed to come online after $maxattempts attempts."
             return 1
@@ -536,19 +546,51 @@ cleanup_localdns_configs() {
 # The watchdog interval is set in the systemd unit file and is passed to the script via the WATCHDOG_USEC environment variable.
 # The health check is a DNS request to the localdns service IPs.
 # The health check is run at 20% of the WATCHDOG_USEC interval.
-# If the health check fails, the script will exit and systemd will restart the service.
+# If the failure rate exceeds MAX_FAILURE_RATE within FAILURE_WINDOW_SECONDS, the script will exit and systemd will restart the service.
 start_localdns_watchdog() {
     if [ -n "${NOTIFY_SOCKET:-}" ] && [ -n "${WATCHDOG_USEC:-}" ]; then
         # Health check at 20% of WATCHDOG_USEC; this means that we should check.
         # five times in every watchdog interval, and thus need to fail five checks to get restarted.
         HEALTH_CHECK_INTERVAL=$((${WATCHDOG_USEC:-5000000} * 20 / 100 / 1000000))
-        echo "Starting watchdog loop at ${HEALTH_CHECK_INTERVAL} second intervals."
+
+        # Track failures within a time window to handle intermittent failures.
+        # Exit if MAX_FAILURE_RATE failures occur within FAILURE_WINDOW_SECONDS.
+        FAILURE_WINDOW_SECONDS=300  # 5 minutes
+        MAX_FAILURE_RATE=5  # Exit if 5 or more failures occur within the window
+
+        # Array to store timestamps of recent failures
+        declare -a failure_timestamps=()
+
+        echo "Starting watchdog loop at ${HEALTH_CHECK_INTERVAL} second intervals (will exit if ${MAX_FAILURE_RATE}+ failures occur within ${FAILURE_WINDOW_SECONDS}s)."
         while true; do
-            if [ "$($CURL_COMMAND)" = "OK" ] && dig +short +timeout=1 +tries=1 -f <(printf '%s\n' "$HEALTH_CHECK_DNS_REQUEST"); then
+            current_time=$(date +%s)
+
+            if [ "$($CURL_COMMAND)" = "OK" ] && dig +short +timeout=${DNS_HEALTH_CHECK_TIMEOUT} +tries=1 -f <(printf '%s\n' "$HEALTH_CHECK_DNS_REQUEST"); then
+                # Health check passed - send watchdog ping.
                 systemd-notify WATCHDOG=1
             else
-                echo "Localdns health check failed - will be restarted."
+                # Health check failed - record timestamp.
+                failure_timestamps+=("$current_time")
+                echo "Localdns health check failed at $(date -d @${current_time} '+%Y-%m-%d %H:%M:%S')."
             fi
+
+            # Remove failures outside the time window.
+            window_start=$((current_time - FAILURE_WINDOW_SECONDS))
+            declare -a recent_failures=()
+            for timestamp in "${failure_timestamps[@]}"; do
+                if [ "$timestamp" -ge "$window_start" ]; then
+                    recent_failures+=("$timestamp")
+                fi
+            done
+            failure_timestamps=("${recent_failures[@]}")
+
+            # Exit if failure rate threshold is exceeded within the window.
+            failure_count=${#failure_timestamps[@]}
+            if [ $failure_count -ge $MAX_FAILURE_RATE ]; then
+                echo "Localdns health check failure rate threshold exceeded: ${failure_count} failures in last ${FAILURE_WINDOW_SECONDS}s - exiting to trigger restart."
+                exit $ERR_LOCALDNS_FAIL
+            fi
+
             sleep "${HEALTH_CHECK_INTERVAL}"
         done
     else
@@ -580,6 +622,29 @@ initialize_network_variables || exit $ERR_LOCALDNS_FAIL
 # Clean up any existing iptables rules and DNS configuration before starting.
 # ---------------------------------------------------------------------------------------------------------------------
 cleanup_iptables_and_dns || exit $ERR_LOCALDNS_FAIL
+
+# Wait for systemd-resolved to update resolv.conf after cleanup.
+# This ensures we don't read stale DNS configuration that still points to localdns.
+echo "Waiting for DNS configuration to stabilize after cleanup..."
+max_wait=10
+waited=0
+while grep -q "${LOCALDNS_NODE_LISTENER_IP}" "$RESOLV_CONF" 2>/dev/null; do
+    if [ $waited -ge $max_wait ]; then
+        echo "Warning: DNS configuration still contains localdns IP after ${max_wait}s. Proceeding anyway."
+        echo "Current resolv.conf content:"
+        cat "$RESOLV_CONF" || echo "Failed to read $RESOLV_CONF"
+        break
+    fi
+    sleep 1
+    waited=$((waited + 1))
+done
+if [ $waited -eq 0 ]; then
+    echo "DNS configuration ready immediately (no localdns IP found)."
+else
+    echo "DNS configuration ready after waiting ${waited}s."
+fi
+echo "Current nameservers in resolv.conf:"
+grep "^nameserver" "$RESOLV_CONF" || echo "No nameservers found in $RESOLV_CONF"
 
 # Replace AzureDNSIP in corefile with VNET DNS ServerIPs.
 # ---------------------------------------------------------------------------------------------------------------------
