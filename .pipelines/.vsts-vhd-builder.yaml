@@ -51,7 +51,7 @@ stages:
   - stage: build
     jobs:
     - job: build2004fipsgen2containerd
-      timeoutInMinutes: 180
+      timeoutInMinutes: 360
       steps:
         - bash: |
             echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
@@ -71,7 +71,7 @@ stages:
           parameters:
             artifactName: 2004-fips-gen2-containerd
     - job: build2404gen2containerd
-      timeoutInMinutes: 180
+      timeoutInMinutes: 360
       steps:
         - bash: |
             echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
@@ -91,7 +91,7 @@ stages:
           parameters:
             artifactName: 2404-gen2-containerd
     - job: build2204gen2containerd
-      timeoutInMinutes: 180
+      timeoutInMinutes: 360
       steps:
         - bash: |
             echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
@@ -111,7 +111,7 @@ stages:
           parameters:
             artifactName: 2204-gen2-containerd
     - job: build2204arm64gen2containerd
-      timeoutInMinutes: 180
+      timeoutInMinutes: 360
       steps:
         - bash: |
             echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
@@ -131,7 +131,7 @@ stages:
           parameters:
             artifactName: 2204-arm64-gen2-containerd
     - job: buildAzureLinuxV2gen2
-      timeoutInMinutes: 180
+      timeoutInMinutes: 360
       steps:
         - bash: |
             echo '##vso[task.setvariable variable=OS_SKU]AzureLinux'
@@ -152,7 +152,7 @@ stages:
           parameters:
             artifactName: azurelinuxv2-gen2
     - job: buildAzureLinuxV3gen2
-      timeoutInMinutes: 180
+      timeoutInMinutes: 360
       steps:
         - bash: |
             echo '##vso[task.setvariable variable=OS_SKU]AzureLinux'
@@ -173,7 +173,7 @@ stages:
           parameters:
             artifactName: azurelinuxv3-gen2
     - job: buildAzureLinuxV3ARM64gen2fips
-      timeoutInMinutes: 180
+      timeoutInMinutes: 360
       steps:
         - bash: |
             echo '##vso[task.setvariable variable=OS_SKU]AzureLinux'
@@ -194,7 +194,7 @@ stages:
           parameters:
             artifactName: azurelinuxv3-gen2-arm64-fips
     - job: buildMarinerV2gen2
-      timeoutInMinutes: 180
+      timeoutInMinutes: 360
       steps:
         - bash: |
             echo '##vso[task.setvariable variable=OS_SKU]CBLMariner'
@@ -214,7 +214,7 @@ stages:
           parameters:
             artifactName: marinerv2-gen2
     - job: buildAzureLinuxOSGuardV3gen2fipsTL
-      timeoutInMinutes: 180
+      timeoutInMinutes: 360
       steps:
         - bash: |
             echo '##vso[task.setvariable variable=BUILDER]imagecustomizer'
