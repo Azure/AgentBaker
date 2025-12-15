@@ -514,7 +514,7 @@ start_localdns_watchdog() {
         # Sliding window failure detection: 10 failures in 10 minutes (600 seconds).
         # This catches intermittent but frequent failures that might not be consecutive.
         max_sliding_window_failures=10
-        sliding_window_duration=600
+        sliding_window_duration_in_seconds=600
         sliding_window_failure_count=0
         sliding_window_start_time=0
 
@@ -538,7 +538,7 @@ start_localdns_watchdog() {
 
                 current_time=$(date +%s)
                 # If this is the first failure or window has expired, start a new window
-                if [ "$sliding_window_start_time" -eq 0 ] || [ $((current_time - sliding_window_start_time)) -gt "$sliding_window_duration" ]; then
+                if [ "$sliding_window_start_time" -eq 0 ] || [ $((current_time - sliding_window_start_time)) -gt "$sliding_window_duration_in_seconds" ]; then
                     sliding_window_start_time=$current_time
                     sliding_window_failure_count=1
                 else
@@ -547,7 +547,7 @@ start_localdns_watchdog() {
 
                 # Check if sliding window threshold is exceeded
                 if [ "$sliding_window_failure_count" -ge "$max_sliding_window_failures" ]; then
-                    echo "Max sliding window failures (${max_sliding_window_failures} in ${sliding_window_duration}s) reached. Triggering restart."
+                    echo "max sliding window failures (${max_sliding_window_failures} in ${sliding_window_duration_in_seconds}s) reached. Triggering restart."
                     systemd-notify WATCHDOG=trigger
                     break
                 fi
