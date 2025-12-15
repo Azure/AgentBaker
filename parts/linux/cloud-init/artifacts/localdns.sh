@@ -58,10 +58,11 @@ CURL_COMMAND="curl -s http://${LOCALDNS_NODE_LISTENER_IP}:8181/ready"
 # This is used by disable_dhcp_use_clusterlistener and cleanup_localdns_configs functions.
 NETWORKCTL_RELOAD_CMD="networkctl reload"
 
-# The health check is a DNS request to the localdns service IPs.
-HEALTH_CHECK_DNS_REQUEST=$'health-check.localdns.local @'"${LOCALDNS_NODE_LISTENER_IP}"$'\nhealth-check.localdns.local @'"${LOCALDNS_CLUSTER_LISTENER_IP}"
-
 START_LOCALDNS_TIMEOUT=10
+
+# DNS health check timeout - use 5 seconds with 2 retries to tolerate temporary timeouts
+DNS_HEALTH_CHECK_TIMEOUT=5
+DNS_HEALTH_CHECK_TRIES=2
 
 # Function definitions used in this file.
 # functions defined until "${__SOURCED__:+return}" are sourced and tested in -
@@ -509,11 +510,28 @@ start_localdns_watchdog() {
         # five times in every watchdog interval, and thus need to fail five checks to get restarted.
         HEALTH_CHECK_INTERVAL=$((${WATCHDOG_USEC:-5000000} * 20 / 100 / 1000000))
         echo "Starting watchdog loop at ${HEALTH_CHECK_INTERVAL} second intervals."
+        failure_count=0
         while true; do
-            if [ "$($CURL_COMMAND)" = "OK" ] && dig +short +timeout=1 +tries=1 -f <(printf '%s\n' "$HEALTH_CHECK_DNS_REQUEST"); then
+            # Check both localdns IPs separately - using -f returns success if ANY query succeeds,
+            # which masks failures on one IP. We need BOTH IPs to be healthy.
+            health_check_passed=true
+            if [ "$($CURL_COMMAND)" != "OK" ]; then
+                echo "Health check failed: HTTP ready endpoint not responding."
+                health_check_passed=false
+            elif ! dig +short +timeout=${DNS_HEALTH_CHECK_TIMEOUT} +tries=${DNS_HEALTH_CHECK_TRIES} health-check.localdns.local @${LOCALDNS_NODE_LISTENER_IP} >/dev/null 2>&1; then
+                echo "Health check failed: DNS query to ${LOCALDNS_NODE_LISTENER_IP} failed."
+                health_check_passed=false
+            elif ! dig +short +timeout=${DNS_HEALTH_CHECK_TIMEOUT} +tries=${DNS_HEALTH_CHECK_TRIES} health-check.localdns.local @${LOCALDNS_CLUSTER_LISTENER_IP} >/dev/null 2>&1; then
+                echo "Health check failed: DNS query to ${LOCALDNS_CLUSTER_LISTENER_IP} failed."
+                health_check_passed=false
+            fi
+
+            if [ "$health_check_passed" = true ]; then
                 systemd-notify WATCHDOG=1
+                failure_count=0
             else
-                echo "Localdns health check failed - will be restarted."
+                failure_count=$((failure_count + 1))
+                echo "Localdns health check failed (failure count: ${failure_count}) - will be restarted if failures persist."
             fi
             sleep "${HEALTH_CHECK_INTERVAL}"
         done
