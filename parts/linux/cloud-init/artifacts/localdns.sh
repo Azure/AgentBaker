@@ -60,8 +60,8 @@ NETWORKCTL_RELOAD_CMD="networkctl reload"
 
 START_LOCALDNS_TIMEOUT=10
 
-# DNS health check timeout - use 5 seconds with 2 retries to tolerate temporary timeouts
-DNS_HEALTH_CHECK_TIMEOUT=5
+# DNS health check timeout.
+DNS_HEALTH_CHECK_TIMEOUT=2
 DNS_HEALTH_CHECK_TRIES=2
 
 # Function definitions used in this file.
@@ -510,10 +510,15 @@ start_localdns_watchdog() {
         # five times in every watchdog interval, and thus need to fail five checks to get restarted.
         HEALTH_CHECK_INTERVAL=$((${WATCHDOG_USEC:-5000000} * 20 / 100 / 1000000))
         echo "Starting watchdog loop at ${HEALTH_CHECK_INTERVAL} second intervals."
-        failure_count=0
+
+        # Sliding window failure detection: 10 failures in 10 minutes (600 seconds).
+        # This catches intermittent but frequent failures that might not be consecutive.
+        max_sliding_window_failures=10
+        sliding_window_duration=600
+        sliding_window_failure_count=0
+        sliding_window_start_time=0
+
         while true; do
-            # Check both localdns IPs separately - using -f returns success if ANY query succeeds,
-            # which masks failures on one IP. We need BOTH IPs to be healthy.
             health_check_passed=true
             if [ "$($CURL_COMMAND)" != "OK" ]; then
                 echo "Health check failed: HTTP ready endpoint not responding."
@@ -528,13 +533,28 @@ start_localdns_watchdog() {
 
             if [ "$health_check_passed" = true ]; then
                 systemd-notify WATCHDOG=1
-                failure_count=0
             else
-                failure_count=$((failure_count + 1))
-                echo "Localdns health check failed (failure count: ${failure_count}) - will be restarted if failures persist."
+                echo "localdns health check failed - will be restarted if failures persist."
+
+                current_time=$(date +%s)
+                # If this is the first failure or window has expired, start a new window
+                if [ "$sliding_window_start_time" -eq 0 ] || [ $((current_time - sliding_window_start_time)) -gt "$sliding_window_duration" ]; then
+                    sliding_window_start_time=$current_time
+                    sliding_window_failure_count=1
+                else
+                    sliding_window_failure_count=$((sliding_window_failure_count + 1))
+                fi
+
+                # Check if sliding window threshold is exceeded
+                if [ "$sliding_window_failure_count" -ge "$max_sliding_window_failures" ]; then
+                    echo "Max sliding window failures (${max_sliding_window_failures} in ${sliding_window_duration}s) reached. Triggering restart."
+                    systemd-notify WATCHDOG=trigger
+                    break
+                fi
             fi
             sleep "${HEALTH_CHECK_INTERVAL}"
         done
+        return 1
     else
         wait "${COREDNS_PID}"
     fi
@@ -618,7 +638,7 @@ fi
 # Systemd watchdog: send pings so we get restarted if we go unhealthy.
 # --------------------------------------------------------------------------------------------------------------------
 # If the watchdog is defined, we check status and pass success to systemd.
-start_localdns_watchdog
+start_localdns_watchdog || exit $ERR_LOCALDNS_FAIL
 
 # The cleanup function is called on exit, so it will be run after the
 # wait ends (which will be when a signal is sent or localdns crashes) or the script receives a terminal signal.
