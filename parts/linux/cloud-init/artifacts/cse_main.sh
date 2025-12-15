@@ -111,8 +111,6 @@ function basePrep {
         logs_to_events "AKS.CSE.removeManDbAutoUpdateFlagFile" removeManDbAutoUpdateFlagFile
     fi
 
-    logs_to_events "AKS.CSE.getIMDSMetadataBody" get_imds_instance_metadata
-
     # oras login must be in front of configureKubeletAndKubectl and ensureKubelet
     if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
         # Compute registry domain name for ORAS login
