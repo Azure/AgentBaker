@@ -260,7 +260,7 @@ steps:
       targetPath: 'bcc-tools-installation.log'
 
   - task: PublishPipelineArtifact@0
-    condition: always()
+    condition: ne(variables.BUILDER, 'imagecustomizer')
     continueOnError: true
     displayName: Publish Disk Usage Report
     inputs:
