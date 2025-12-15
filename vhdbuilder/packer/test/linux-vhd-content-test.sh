@@ -1730,11 +1730,10 @@ testDiskQueueSettings() {
   local test="testDiskQueueSettings"
   echo "$test: Start"
 
-  local status=$(systemctl show -p SubState --value disk_queue.service)
-  if [ "$status" = "running" ]; then
+  if [ "$(systemctl is-active disk_queue.service)" = "running" ]; then
     echo $test "disk_queue.service is running, as expected"
   else
-    err $test "disk_queue.service is not running with status ${status}"
+    err $test "disk_queue.service is not running, status: $(systemctl show -p SubState --value disk_queue.service)"
   fi
 
   local nr_requests_path="/sys/block/$(basename "$(findmnt -n -o SOURCE / | sed 's/[0-9]*$//')")/queue/nr_requests"
