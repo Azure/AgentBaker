@@ -1705,6 +1705,8 @@ checkLocaldnsScriptsAndConfigs() {
   return 0
 }
 
+#------------------------ End of test code related to localdns ------------------------
+
 # Check that no files have a numeric UID or GID, which would indicate a file ownership issue.
 testFileOwnership() {
   local test="testFileOwnership"
@@ -1724,7 +1726,27 @@ testFileOwnership() {
   return 0
 }
 
-#------------------------ End of test code related to localdns ------------------------
+testDiskQueueSettings() {
+  local test="testDiskQueueSettings"
+  echo "$test: Start"
+
+  local status=$(systemctl show -p SubState --value disk_queue.service)
+  if [ "$status" = "running" ]; then
+    echo $test "disk_queue.service is running, as expected"
+  else
+    err $test "disk_queue.service is not running with status ${status}"
+  fi
+
+  local nr_requests_path="/sys/block/$(basename "$(findmnt -n -o SOURCE / | sed 's/[0-9]*$//')")/queue/nr_requests"
+  local nr_requests=$(cat "$nr_requests_path")
+  if [ "$nr_requests" -eq 128 ]; then
+    echo "nr_request setting is set as expected"
+  else
+    err $test "nr_requests is not set as expected within $nr_requests_path, should be 128 but is currently set to: $nr_requests"
+  fi
+
+  echo "$test:Finish"
+}
 
 # As we call these tests, we need to bear in mind how the test results are processed by the
 # the caller in run-tests.sh. That code uses az vm run-command invoke to run this script
