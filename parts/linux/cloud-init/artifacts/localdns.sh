@@ -523,10 +523,12 @@ start_localdns_watchdog() {
             if [ "$($CURL_COMMAND)" != "OK" ]; then
                 echo "Health check failed: HTTP ready endpoint not responding."
                 health_check_passed=false
-            elif ! dig +short +timeout=${DNS_HEALTH_CHECK_TIMEOUT} +tries=${DNS_HEALTH_CHECK_TRIES} health-check.localdns.local @${LOCALDNS_NODE_LISTENER_IP} >/dev/null 2>&1; then
+            fi
+            if ! dig +short +timeout=${DNS_HEALTH_CHECK_TIMEOUT} +tries=${DNS_HEALTH_CHECK_TRIES} health-check.localdns.local @${LOCALDNS_NODE_LISTENER_IP} >/dev/null 2>&1; then
                 echo "Health check failed: DNS query to ${LOCALDNS_NODE_LISTENER_IP} failed."
                 health_check_passed=false
-            elif ! dig +short +timeout=${DNS_HEALTH_CHECK_TIMEOUT} +tries=${DNS_HEALTH_CHECK_TRIES} health-check.localdns.local @${LOCALDNS_CLUSTER_LISTENER_IP} >/dev/null 2>&1; then
+            fi
+            if ! dig +short +timeout=${DNS_HEALTH_CHECK_TIMEOUT} +tries=${DNS_HEALTH_CHECK_TRIES} health-check.localdns.local @${LOCALDNS_CLUSTER_LISTENER_IP} >/dev/null 2>&1; then
                 echo "Health check failed: DNS query to ${LOCALDNS_CLUSTER_LISTENER_IP} failed."
                 health_check_passed=false
             fi
