@@ -1724,6 +1724,13 @@ testFileOwnership() {
   return 0
 }
 
+testThatFails() {
+  local test="testThatFails"
+  echo "$test: Start"
+
+  err "$test" "this test failed!"
+}
+
 #------------------------ End of test code related to localdns ------------------------
 
 # As we call these tests, we need to bear in mind how the test results are processed by the
@@ -1777,3 +1784,4 @@ testCorednsBinaryExtractedAndCached $OS_VERSION
 checkLocaldnsScriptsAndConfigs
 testPackageDownloadURLFallbackLogic
 testFileOwnership $OS_SKU
+testThatFails
