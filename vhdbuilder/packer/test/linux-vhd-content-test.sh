@@ -1730,7 +1730,7 @@ testDiskQueueSettings() {
   local test="testDiskQueueSettings"
   echo "$test: Start"
 
-  if ! systemctl is-active --quiet disk_queue.service; then
+  if systemctl is-active --quiet disk_queue.service; then
     echo $test "disk_queue.service is active, as expected"
   else
     err $test "disk_queue.service is not active, status: $(systemctl show -p SubState --value disk_queue.service)"
