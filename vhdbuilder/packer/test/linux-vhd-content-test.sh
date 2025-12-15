@@ -1730,16 +1730,16 @@ testDiskQueueSettings() {
   local test="testDiskQueueSettings"
   echo "$test: Start"
 
-  if [ "$(systemctl is-active disk_queue.service)" = "running" ]; then
-    echo $test "disk_queue.service is running, as expected"
+  if ! systemctl is-active --quiet disk_queue.service; then
+    echo $test "disk_queue.service is active, as expected"
   else
-    err $test "disk_queue.service is not running, status: $(systemctl show -p SubState --value disk_queue.service)"
+    err $test "disk_queue.service is not active, status: $(systemctl show -p SubState --value disk_queue.service)"
   fi
 
   local nr_requests_path="/sys/block/$(basename "$(findmnt -n -o SOURCE / | sed 's/[0-9]*$//')")/queue/nr_requests"
   local nr_requests=$(cat "$nr_requests_path")
   if [ "$nr_requests" -eq 128 ]; then
-    echo "nr_request setting is set as expected"
+    echo "nr_requests is set as expected within $nr_requests_path"
   else
     err $test "nr_requests is not set as expected within $nr_requests_path, should be 128 but is currently set to: $nr_requests"
   fi
