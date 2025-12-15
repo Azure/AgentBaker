@@ -1799,3 +1799,4 @@ testCorednsBinaryExtractedAndCached $OS_VERSION
 checkLocaldnsScriptsAndConfigs
 testPackageDownloadURLFallbackLogic
 testFileOwnership $OS_SKU
+testDiskQueueSettings
