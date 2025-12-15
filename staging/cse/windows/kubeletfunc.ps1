@@ -239,13 +239,18 @@ function Remove-KubeletNodeLabel {
 }
 
 function Get-InstanceMetadata {
-    $uri = "http://169.254.169.254/metadata/instance?api-version=2021-02-01"
-    try {
-        $response = Retry-Command -Command "Invoke-RestMethod" -Args @{Uri=$uri; Method="Get"; ContentType="application/json"; Headers=@{"Metadata"="true"}} -Retries 3 -RetryDelaySeconds 5
-    } catch {
-        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_LOOKUP_INSTANCE_DATA_TAG -ErrorMessage "Unable to lookup VM tag `"$TagName`" from IMDS instance data"
+    if (-not $global:InstanceMetadataResponse) {
+        $uri = "http://169.254.169.254/metadata/instance?api-version=2021-02-01"
+        try {
+            $response = Retry-Command -Command "Invoke-RestMethod" -Args @{Uri=$uri; Method="Get"; ContentType="application/json"; Headers=@{"Metadata"="true"}} -Retries 3 -RetryDelaySeconds 5
+        } catch {
+            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_LOOKUP_INSTANCE_DATA_TAG -ErrorMessage "Unable to lookup VM tag `"$TagName`" from IMDS instance data"
+        }
+        $global:InstanceMetadataResponse = $response
+        return $response
     }
-    $global:InstanceMetadataResponse = $response
+    return $global:InstanceMetadataResponse
+
 }
 
 function Get-TagValue {
@@ -256,11 +261,7 @@ function Get-TagValue {
         $DefaultValue
     )
 
-    if (-not $global:InstanceMetadataResponse) {
-        Get-InstanceMetadata
-    }
-
-    $response = $global:InstanceMetadataResponse
+    $response = Get-InstanceMetadata
 
     $tag = $response.compute.tagsList | Where-Object { $_.name -eq $TagName }
     if (!$tag) {
