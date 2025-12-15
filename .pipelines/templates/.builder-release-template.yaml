@@ -355,7 +355,7 @@ steps:
       scriptLocation: inlineScript
       inlineScript: |
         make -f packer.mk evaluate-grid-compatibility
-    condition: False # temporarily disabling since this causing build warnings in corp/tme due to internal issues
+    condition: true # temporarily disabling since this causing build warnings in corp/tme due to internal issues
     continueOnError: true
     displayName: Check Grid Compatibility
 
