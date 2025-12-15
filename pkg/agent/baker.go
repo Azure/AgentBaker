@@ -639,6 +639,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"IsKata": func() bool {
 			return profile.Distro.IsKataDistro()
 		},
+		"IsKataCc": func() bool {
+			return profile.Distro.IsKataCcDistro()
+		},
 		"IsCustomImage": func() bool {
 			return profile.Distro == datamodel.CustomizedImage ||
 				profile.Distro == datamodel.CustomizedImageKata ||
@@ -1419,7 +1422,11 @@ const (
 oom_score = -999{{if HasDataDir }}
 root = "{{GetDataDir}}"{{- end}}
 [plugins."io.containerd.grpc.v1.cri"]
+	{{- if IsKataCc }}
+	sandbox_image = "mcr.microsoft.com/oss/kubernetes/pause:3.6" {{/* Remove once kata-cc is deprecated */}}
+	{{- else }}
   sandbox_image = "{{GetPodInfraContainerSpec}}"
+	{{- end }}
   enable_cdi = true
   [plugins."io.containerd.grpc.v1.cri".containerd]
     {{- if TeleportEnabled }}
@@ -1499,6 +1506,7 @@ root = "{{GetDataDir}}"{{- end}}
     address = "/run/containerd/tardev-snapshotter.sock"
 [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-cc]
   snapshotter = "tardev"
+	pod_annotations = ["io.katacontainers.*"]
   runtime_type = "io.containerd.kata-cc.v2"
   privileged_without_host_devices = true
   [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-cc.options]
@@ -1519,7 +1527,11 @@ root = "{{GetDataDir}}"{{- end}}
 {{- end}}
 
 [plugins."io.containerd.cri.v1.images".pinned_images]
+	{{- if IsKataCc }}
+	sandbox_image = "mcr.microsoft.com/oss/kubernetes/pause:3.6" {{/* Remove once kata-cc is deprecated */}}
+	{{- else }}
   sandbox = "{{GetPodInfraContainerSpec}}"
+	{{- end}}
 {{- if IsKubernetesVersionGe "1.22.0"}}
 [plugins."io.containerd.cri.v1.images".registry]
   config_path = "/etc/containerd/certs.d"
@@ -1585,6 +1597,7 @@ root = "{{GetDataDir}}"{{- end}}
     address = "/run/containerd/tardev-snapshotter.sock"
 [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-cc]
   snapshotter = "tardev"
+	pod_annotations = ["io.katacontainers.*"]
   runtime_type = "io.containerd.kata-cc.v2"
   privileged_without_host_devices = true
   [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-cc.options]
@@ -1606,7 +1619,11 @@ root = "{{GetDataDir}}"{{- end}}
 {{- end}}
 
 [plugins."io.containerd.cri.v1.images".pinned_images]
+	{{- if IsKataCc }}
+	sandbox_image = "mcr.microsoft.com/oss/kubernetes/pause:3.6" {{/* Remove once kata-cc is deprecated */}}
+	{{- else }}
   sandbox = "{{GetPodInfraContainerSpec}}"
+	{{- end}}
 {{- if IsKubernetesVersionGe "1.22.0"}}
 [plugins."io.containerd.cri.v1.images".registry]
   config_path = "/etc/containerd/certs.d"
@@ -1663,7 +1680,11 @@ root = "{{GetDataDir}}"{{- end}}
 oom_score = -999{{if HasDataDir }}
 root = "{{GetDataDir}}"{{- end}}
 [plugins."io.containerd.grpc.v1.cri"]
+	{{- if IsKataCc }}
+	sandbox_image = "mcr.microsoft.com/oss/kubernetes/pause:3.6" {{/* Remove once kata-cc is deprecated */}}
+	{{- else }}
   sandbox_image = "{{GetPodInfraContainerSpec}}"
+	{{- end }}
   [plugins."io.containerd.grpc.v1.cri".containerd]
     {{- if TeleportEnabled }}
     snapshotter = "teleportd"
@@ -1727,6 +1748,7 @@ root = "{{GetDataDir}}"{{- end}}
     address = "/run/containerd/tardev-snapshotter.sock"
 [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-cc]
   snapshotter = "tardev"
+	pod_annotations = ["io.katacontainers.*"]
   runtime_type = "io.containerd.kata-cc.v2"
   privileged_without_host_devices = true
   [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-cc.options]

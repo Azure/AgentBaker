@@ -320,6 +320,11 @@ func (d Distro) IsKataDistro() bool {
 	return d == AKSCBLMarinerV2Gen2Kata || d == AKSAzureLinuxV3Gen2Kata || d == AKSAzureLinuxV2Gen2Kata || d == AKSCBLMarinerV2KataGen2TL || d == CustomizedImageKata
 }
 
+// TODO(mheberling): Remove once kata-cc has ben deprecated.
+func (d Distro) IsKataCcDistro() bool {
+	return d == AKSCBLMarinerV2Gen2Kata || d == AKSAzureLinuxV2Gen2Kata
+}
+
 func (d Distro) IsFlatcarDistro() bool {
 	for _, distro := range AvailableFlatcarDistros {
 		if d == distro {
