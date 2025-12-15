@@ -260,7 +260,7 @@ steps:
       targetPath: 'bcc-tools-installation.log'
 
   - task: PublishPipelineArtifact@0
-    condition: always()
+    condition: ne(variables.BUILDER, 'imagecustomizer')
     continueOnError: true
     displayName: Publish Disk Usage Report
     inputs:
@@ -355,7 +355,7 @@ steps:
       scriptLocation: inlineScript
       inlineScript: |
         make -f packer.mk evaluate-grid-compatibility
-    condition: always()
+    condition: false # temporarily disabling since this causing build warnings in corp/tme due to internal issues
     continueOnError: true
     displayName: Check Grid Compatibility
 
