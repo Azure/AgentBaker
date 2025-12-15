@@ -660,42 +660,42 @@ get_imds_instance_metadata() {
 
 should_skip_nvidia_drivers() {
     set -x
-    body="$(get_imds_instance_metadata)" || { echo "get IMDS instance metadata failed; return $?; }
+    body="$(get_imds_instance_metadata)" || return $?
     should_skip=$(echo "$body" | jq -e '.compute.tagsList | map(select(.name | test("SkipGpuDriverInstall"; "i")))[0].value // "false" | test("true"; "i")')
     echo "$should_skip"
 }
 
 should_disable_kubelet_serving_certificate_rotation() {
     set -x
-    body="$(get_imds_instance_metadata)" || { echo "get IMDS instance metadata failed; return $?; }
+    body="$(get_imds_instance_metadata)" || return $?
     should_disable=$(echo "$body" | jq -r '.compute.tagsList[] | select(.name == "aks-disable-kubelet-serving-certificate-rotation") | .value')
     echo "${should_disable,,}"
 }
 
 should_skip_binary_cleanup() {
     set -x
-    body="$(get_imds_instance_metadata)" || { echo "get IMDS instance metadata failed; return $?; }
+    body="$(get_imds_instance_metadata)" || return $?
     should_skip=$(echo "$body" | jq -r '.compute.tagsList[] | select(.name == "SkipBinaryCleanup") | .value')
     echo "${should_skip,,}"
 }
 
 should_enforce_kube_pmc_install() {
     set -x
-    body="$(get_imds_instance_metadata)" || { echo "get IMDS instance metadata failed; return $?; }
+    body="$(get_imds_instance_metadata)" || return $?
     should_enforce=$(echo "$body" | jq -r '.compute.tagsList[] | select(.name == "ShouldEnforceKubePMCInstall") | .value')
     echo "${should_enforce,,}"
 }
 
 e2e_mock_azure_china_cloud() {
     set -x
-    body="$(get_imds_instance_metadata)" || { echo "get IMDS instance metadata failed; return $?; }
+    body="$(get_imds_instance_metadata)" || return $?
     should_enforce=$(echo "$body" | jq -r '.compute.tagsList[] | select(.name == "E2EMockAzureChinaCloud") | .value')
     echo "${should_enforce,,}"
 }
 
 enableManagedGPUExperience() {
     set -x
-    body="$(get_imds_instance_metadata)" || { echo "get IMDS instance metadata failed; return $?; }
+    body="$(get_imds_instance_metadata)" || return $?
     should_enforce=$(echo "$body" | jq -r '.compute.tagsList[] | select(.name == "EnableManagedGPUExperience") | .value')
     echo "${should_enforce,,}"
 }
