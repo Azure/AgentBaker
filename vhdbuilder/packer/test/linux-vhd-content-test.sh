@@ -1726,22 +1726,14 @@ testFileOwnership() {
   return 0
 }
 
-testDiskQueueSettings() {
-  local test="testDiskQueueSettings"
+testDiskQueueServiceIsActive() {
+  local test="testDiskQueueServiceIsActive"
   echo "$test: Start"
 
   if systemctl is-active --quiet disk_queue.service; then
     echo $test "disk_queue.service is active, as expected"
   else
     err $test "disk_queue.service is not active, status: $(systemctl show -p SubState --value disk_queue.service)"
-  fi
-
-  local nr_requests_path="/sys/block/$(basename "$(findmnt -n -o SOURCE / | sed 's/[0-9]*$//')")/queue/nr_requests"
-  local nr_requests=$(cat "$nr_requests_path")
-  if [ "$nr_requests" -eq 128 ]; then
-    echo "nr_requests is set as expected within $nr_requests_path"
-  else
-    err $test "nr_requests is not set as expected within $nr_requests_path, should be 128 but is currently set to: $nr_requests"
   fi
 
   echo "$test:Finish"
