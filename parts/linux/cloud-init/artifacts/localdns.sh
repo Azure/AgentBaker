@@ -75,7 +75,7 @@ verify_localdns_corefile() {
     fi
 
     # Check if corefile exists, is not empty, and has valid coredns server block.
-    if [ ! -f "${LOCALDNS_CORE_FILE}" ] || [ ! -s "${LOCALDNS_CORE_FILE}" ] || ! grep -qE '^\.:' "${LOCALDNS_CORE_FILE}"; then
+    if [ ! -f "${LOCALDNS_CORE_FILE}" ] || [ ! -s "${LOCALDNS_CORE_FILE}" ]; then
         echo "Localdns corefile either does not exist or is empty at ${LOCALDNS_CORE_FILE}."
 
         echo "Attempting to regenerate localdns corefile..."
