@@ -551,12 +551,11 @@ start_localdns_watchdog() {
                 if [ "$sliding_window_failure_count" -ge "$max_sliding_window_failures" ]; then
                     echo "max sliding window failures (${max_sliding_window_failures} in ${sliding_window_duration_in_seconds}s) reached. Triggering restart."
                     systemd-notify WATCHDOG=trigger
-                    break
+                    exit $ERR_LOCALDNS_FAIL
                 fi
             fi
             sleep "${HEALTH_CHECK_INTERVAL}"
         done
-        return 1
     else
         wait "${COREDNS_PID}"
     fi
@@ -640,7 +639,7 @@ fi
 # Systemd watchdog: send pings so we get restarted if we go unhealthy.
 # --------------------------------------------------------------------------------------------------------------------
 # If the watchdog is defined, we check status and pass success to systemd.
-start_localdns_watchdog || exit $ERR_LOCALDNS_FAIL
+start_localdns_watchdog
 
 # The cleanup function is called on exit, so it will be run after the
 # wait ends (which will be when a signal is sent or localdns crashes) or the script receives a terminal signal.
