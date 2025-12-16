@@ -32,7 +32,7 @@ BeforeAll {
 
 Describe "ProcessAndWriteContainerdConfig" {
   BeforeAll {
-    Mock Get-Content -ParameterFilter { $Path -like "*kubeclusterconfig.json" } -MockWith { 
+    Mock Get-Content -ParameterFilter { $Path -like "*kubeclusterconfig.json" } -MockWith {
       return "{`"Cri`":{`"Images`":{`"Pause`":`"$pauseImage`"}}}"
     }
   }
@@ -56,14 +56,14 @@ Describe "ProcessAndWriteContainerdConfig" {
       $global:ContainerdWindowsRuntimeHandlers = "" # default to no hyperv handlers
 
       { ProcessAndWriteContainerdConfig -ContainerDVersion "1.7.9" -CNIBinDir $cniBinDir -CNIConfDir $cniConfDir } | Should -Not -Throw
-      
+
       $configPath | Should -Exist
       $content = Get-Content -Path $configPath -Raw
       $content | Should -Not -BeNullOrEmpty
-      
+
       # Check that placeholders are replaced
       $content | Should -Not -Match ([regex]::Escape("{{"))
-      
+
       # Check that the values were replaced correctly
       $content | Should -Match $pauseImage
       $content | Should -Match $cniBinDir
@@ -76,7 +76,7 @@ Describe "ProcessAndWriteContainerdConfig" {
       $global:DefaultContainerdWindowsSandboxIsolation = "hyperv"
       $global:ContainerdWindowsRuntimeHandlers = "1234,5678"
       { ProcessAndWriteContainerdConfig -ContainerDVersion "1.7.9" -CNIBinDir $cniBinDir -CNIConfDir $cniConfDir } | Should -Not -Throw
-      
+
       $content = Get-Content -Path $configPath -Raw
       $content | Should -Match 'plugins.cri.containerd.runtimes.runhcs-wcow-hypervisor-1234'
       $content | Should -Match 'SandboxIsolation = 1'
@@ -86,17 +86,25 @@ Describe "ProcessAndWriteContainerdConfig" {
     It "Should handle older containerd versions (<1.7.9) by removing annotations" {
       # Call the function under test and ensure it doesn't throw
       { ProcessAndWriteContainerdConfig -ContainerDVersion "1.6.9" -CNIBinDir $cniBinDir -CNIConfDir $cniConfDir } | Should -Not -Throw
-      
+
       $content = Get-Content -Path $configPath -Raw
-      
+
       # Should not contain annotation placeholders or values
       $content | Should -Not -Match 'container_annotations'
       $content | Should -Not -Match 'pod_annotations'
       $content | Should -Not -Match 'version = 3'
     }
+
+    It "Should configure azure china cloud mcr mirror" {
+      { ProcessAndWriteContainerdConfig -ContainerDVersion "1.7.9" -CNIBinDir $cniBinDir -CNIConfDir $cniConfDir } | Should -Not -Throw
+
+      $content = Get-Content -Path $configPath -Raw
+      $content | Should -Match 'plugins.cri.registry.mirrors."mcr.azk8s.cn"'
+      $content | Should -Match 'endpoint = \["https://mcr.azure.cn"\]'
+    }
   }
 
-  
+
   Context 'containerd template v2' {
 
     BeforeAll {
@@ -117,14 +125,14 @@ Describe "ProcessAndWriteContainerdConfig" {
       $global:ContainerdWindowsRuntimeHandlers = "" # default to no hyperv handlers
 
       { ProcessAndWriteContainerdConfig -ContainerDVersion "2.0.5" -CNIBinDir $cniBinDir -CNIConfDir $cniConfDir } | Should -Not -Throw
-      
+
       $configPath | Should -Exist
       $content = Get-Content -Path $configPath -Raw
       $content | Should -Not -BeNullOrEmpty
-      
+
       # Check that placeholders are replaced
       $content | Should -Not -Match ([regex]::Escape("{{"))
-      
+
       # Check that the values were replaced correctly
       $content | Should -Match $pauseImage
       $content | Should -Match $cniBinDir
@@ -137,11 +145,19 @@ Describe "ProcessAndWriteContainerdConfig" {
       $global:DefaultContainerdWindowsSandboxIsolation = "hyperv"
       $global:ContainerdWindowsRuntimeHandlers = "1234,5678"
       { ProcessAndWriteContainerdConfig -ContainerDVersion "2.0.5" -CNIBinDir $cniBinDir -CNIConfDir $cniConfDir } | Should -Not -Throw
-      
+
       $content = Get-Content -Path $configPath -Raw
       $content | Should -Match 'plugins.cri.containerd.runtimes.runhcs-wcow-hypervisor-1234'
       $content | Should -Match 'SandboxIsolation = 1'
       $content | Should -Match 'version = 3'
+    }
+
+    It "Should configure azure china cloud mcr mirror" {
+      { ProcessAndWriteContainerdConfig -ContainerDVersion "2.0.5" -CNIBinDir $cniBinDir -CNIConfDir $cniConfDir } | Should -Not -Throw
+
+      $content = Get-Content -Path $configPath -Raw
+      $content | Should -Match 'plugins.cri.registry.mirrors."mcr.azk8s.cn"'
+      $content | Should -Match 'endpoint = \["https://mcr.azure.cn"\]'
     }
   }
 }

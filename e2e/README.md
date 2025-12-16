@@ -31,7 +31,7 @@ To write an E2E scenario,
   as well as `nbc.agentPoolProfile`. It is because when RP invokes AgentBaker, it will set the properties in this way
   and in e2e we follow the pattern.
 - use `VMConfigMutator` to set VMSS properties such as SKU when needed.
-  Check [vmss](https://github.com/Azure/AgentBaker/blob/dev/e2e/vmss.go) for other configs.  
+  Check [vmss](https://github.com/Azure/AgentBaker/blob/dev/e2e/vmss.go) for other configs.
   it is necessary to set `nbc.agentPoolProfile.VMSize` to match the VMSS SKU if you choose to change.
 - use `Validator` to include your own verification of the VM's live state, such as file existsnce, sysctl settings, etc.
 
@@ -159,7 +159,8 @@ By default E2E tests use latest version of images from SIG with `branch=refs/hea
 Set `SIG_VERSION_TAG_NAME` and `SIG_VERSION_TAG_VALUE` to specify custom VHD builds:
 
 ```bash
-SIG_VERSION_TAG_NAME=buildId SIG_VERSION_TAG_VALUE=123456789 TAGS_TO_RUN="os=ubuntu2204" ./e2e-local.sh
+SIG_VERSION_TAG_NAME=buildId SIG_VERSION_TAG_VALUE=123456789
+KEEP_VMSS=true TAGS_TO_RUN="os=ubuntu2204" ./e2e-local.sh
 ```
 
 ### Registering New VHD SKUs

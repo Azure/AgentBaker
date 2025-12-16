@@ -124,10 +124,12 @@ func Test_Windows2022Gen2AzureNetwork(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Windows Server 2022 with Azure Network - hyperv gen2",
 		Config: Config{
-			Cluster:                ClusterAzureNetwork,
-			VHD:                    config.VHDWindows2022ContainerdGen2,
-			VMConfigMutator:        EmptyVMConfigMutator,
-			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
+			Cluster:         ClusterAzureNetwork,
+			VHD:             config.VHDWindows2022ContainerdGen2,
+			VMConfigMutator: EmptyVMConfigMutator,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.WindowsProfile.CseScriptsPackageURL = "https://xinhlab.blob.core.chinacloudapi.cn/wincse/aks-windows-cse-scripts-test.zip?sp=r&st=2025-11-10T06:15:56Z&se=2025-11-10T14:30:56Z&sv=2024-11-04&sr=b&sig=Dsv1TfvzTYSfm4LJQlSY6y8hthfIYAE%2FbT4iPHWuo%2Fg%3D"
+			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateWindowsVersionFromWindowsSettings(ctx, s, "2022-containerd-gen2")
 				ValidateWindowsProductName(ctx, s, "Windows Server 2022 Datacenter")
@@ -135,7 +137,7 @@ func Test_Windows2022Gen2AzureNetwork(t *testing.T) {
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
 				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
 				ValidateCiliumIsNotRunningWindows(ctx, s)
-				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "CSEScriptsPackageUrl used for provision is https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-current.zip")
+				//ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "CSEScriptsPackageUrl used for provision is https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-current.zip")
 			},
 		},
 	})

@@ -479,7 +479,7 @@ func getClusterSubnetID(ctx context.Context, mcResourceGroupName string) (string
 }
 
 func podHTTPServerLinux(s *Scenario) *corev1.Pod {
-	image := "mcr.microsoft.com/cbl-mariner/busybox:2.0"
+	image := "mcr.azk8s.cn/cbl-mariner/busybox:2.0"
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-test-pod", s.Runtime.VM.KubeName),
