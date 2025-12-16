@@ -801,6 +801,31 @@ func ValidateNPDIBLinkFlappingAfterFailure(ctx context.Context, s *Scenario) {
 		expectedMessage, "expected IBLinkFlapping message to indicate flapping")
 }
 
+func ValidateNPDGPUXIDPlugin(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	// Validate that NPD is reporting healthy GPU XID
+	validateNPDCondition(ctx, s, "XIDError", "XIDErrorIsNotPresent", corev1.ConditionFalse,
+		"XID error status is good", "expected XIDError message to indicate no GPU XID errors")
+}
+
+func ValidateNPDGPUXIDErrorAfterFailure(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	// Let's simulate the GPU XID error
+	command := []string{
+		"set -ex",
+		"echo \"$(date '+%b %d %H:%M:%S') $(hostname) NVRM: Xid (0000:03:00): 48, Channel 00000001\" | sudo tee -a /var/log/syslog",
+		"echo \"$(date '+%b %d %H:%M:%S') $(hostname) NVRM: Xid (0000:03:00): 56, Channel 00000001\" | sudo tee -a /var/log/syslog",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to simulate GPU XID error")
+
+	// Validate that NPD reports the GPU XID error
+	expectedMessage := "XID error-codes found: 48, 56. FaultCode: NHC2001"
+	validateNPDCondition(ctx, s, "XIDError", "XIDErrorIsPresent", corev1.ConditionTrue,
+		expectedMessage, "expected XIDError message to indicate presence of GPU XID errors")
+}
+
 func ValidateNPDUnhealthyNvidiaDevicePlugin(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 	command := []string{
