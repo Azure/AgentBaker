@@ -17,6 +17,7 @@ echo "found device link: $LINK_PATH"
 DEV_NAME=$(basename "$(readlink -f "$LINK_PATH")")
 echo "resolved root device: $DEV_NAME"
 
+# shellcheck disable=SC3010
 if [[ "${DEV_NAME,,}" == *"nvme"* ]]; then
     # Disk tuning doesn't currently work as expected on NVMe devices - namely that the /device/queue_depth parameter
     # doesn't seem to be a settable option, and that the default /queue/nr_requests can actually be higher than what we
