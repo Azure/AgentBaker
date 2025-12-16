@@ -188,8 +188,8 @@ if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]]; then
   NVIDIA_KERNEL_PACKAGE="linux-azure-nvidia"
   if [[ "${CPU_ARCH}" == "arm64" && "${UBUNTU_RELEASE}" = "24.04" ]]; then
     # This is the ubuntu 2404arm64gen2containerd image or the 2404arm64gb200 image
-    # Uncomment if we have trouble finding the kernel package.
-    # sudo add-apt-repository ppa:canonical-kernel-team/ppa
+    # The Ubuntu PPA has early access to new kernels, such as the one in the GB300 CRD.
+    add-apt-repository ppa:canonical-kernel-team/ppa
     if grep -q "GB200" <<< "$FEATURE_FLAGS"; then
       BOM_PATH="gb200-mai-bom.json"
       if [ -n "$(jq -r '.["kernel-versions"] | keys[]' $BOM_PATH)" ]; then
