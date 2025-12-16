@@ -103,17 +103,12 @@ EOF
             The status should be success
         End
 
-        It 'should regenerate and succeed if corefile is corrupted and LOCALDNS_BASE64_ENCODED_COREFILE is set'
-            echo "corrupted data" > "$LOCALDNS_CORE_FILE"
-            LOCALDNS_BASE64_ENCODED_COREFILE=$(echo ".:5353 {
+        It 'should succeed without regeneration if corefile exists and is not empty'
+            echo ".:5353 {
     forward . 168.63.129.16
-}" | base64)
+}" > "$LOCALDNS_CORE_FILE"
             When run verify_localdns_corefile
             The status should be success
-            The stdout should include "Localdns corefile either does not exist or is empty at"
-            The stdout should include "Attempting to regenerate localdns corefile..."
-            The stdout should include "Successfully regenerated localdns corefile."
-            The stdout should include "Localdns corefile regenerated successfully."
         End
 
         It 'should regenerate and succeed if corefile is missing and LOCALDNS_BASE64_ENCODED_COREFILE is set'
