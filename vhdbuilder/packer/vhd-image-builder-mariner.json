@@ -581,6 +581,11 @@
     },
     {
       "type": "file",
+      "source": "kata-containers-initrd-base.img",
+      "destination": "/home/packer/kata-containers-initrd-base.img"
+    },
+    {
+      "type": "file",
       "source": "vhdbuilder/notice.txt",
       "destination": "/home/packer/NOTICE.txt"
     },

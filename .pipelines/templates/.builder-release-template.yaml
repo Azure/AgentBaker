@@ -39,6 +39,7 @@ steps:
       itemPattern: |
         **/kata-containers-igvm-debug.img**
         **/igvm-measurement**
+        **/kata-containers-initrd-base.img**
         **/kata-containers-igvm.img**
         **/kata-containers-cc.img**
         **/kata-containers.img**
