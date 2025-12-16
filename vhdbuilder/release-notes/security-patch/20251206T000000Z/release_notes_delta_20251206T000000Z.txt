@@ -1,0 +1,38 @@
+Release notes for security patch 20251206T000000Z timestamp
+Package difference between 20251112T000000Z and 20251206T000000Z
+Reboot required
+Upgrade: linux-tools-azure-lts-22.04:amd64 (5.15.0.1098.96, 5.15.0.1101.99)
+Upgrade: python3.10:amd64 (3.10.12-1~22.04.11, 3.10.12-1~22.04.12), libpython3.10-minimal:amd64 (3.10.12-1~22.04.11, 3.10.12-1~22.04.12), libpython3.10-stdlib:amd64 (3.10.12-1~22.04.11, 3.10.12-1~22.04.12), libpython3.10:amd64 (3.10.12-1~22.04.11, 3.10.12-1~22.04.12), python3.10-minimal:amd64 (3.10.12-1~22.04.11, 3.10.12-1~22.04.12)
+Upgrade: linux-libc-dev:amd64 (5.15.0-161.171, 5.15.0-163.173)
+Upgrade: libbinutils:amd64 (2.38-4ubuntu2.10, 2.38-4ubuntu2.11), binutils-x86-64-linux-gnu:amd64 (2.38-4ubuntu2.10, 2.38-4ubuntu2.11), libctf0:amd64 (2.38-4ubuntu2.10, 2.38-4ubuntu2.11), binutils-common:amd64 (2.38-4ubuntu2.10, 2.38-4ubuntu2.11), binutils:amd64 (2.38-4ubuntu2.10, 2.38-4ubuntu2.11)
+Upgrade: linux-headers-azure-lts-22.04:amd64 (5.15.0.1098.96, 5.15.0.1101.99)
+Upgrade: wireless-regdb:amd64 (2024.10.07-0ubuntu1~22.04.1, 2025.07.10-0ubuntu1~22.04.1)
+Upgrade: libctf-nobfd0:amd64 (2.38-4ubuntu2.10, 2.38-4ubuntu2.11)
+Upgrade: linux-cloud-tools-common:amd64 (5.15.0-161.171, 5.15.0-163.173)
+Upgrade: linux-tools-common:amd64 (5.15.0-161.171, 5.15.0-163.173)
+Upgrade: linux-image-azure-lts-22.04:amd64 (5.15.0.1098.96, 5.15.0.1101.99)
+Upgrade: linux-cloud-tools-azure-lts-22.04:amd64 (5.15.0.1098.96, 5.15.0.1101.99)
+Install: linux-tools-5.15.0-1101-azure:amd64 (5.15.0-1101.110, automatic), linux-azure-tools-5.15.0-1101:amd64 (5.15.0-1101.110, automatic)
+Install: linux-azure-headers-5.15.0-1101:amd64 (5.15.0-1101.110, automatic), linux-headers-5.15.0-1101-azure:amd64 (5.15.0-1101.110, automatic)
+Install: linux-image-5.15.0-1101-azure:amd64 (5.15.0-1101.110, automatic), linux-modules-5.15.0-1101-azure:amd64 (5.15.0-1101.110, automatic)
+Install: linux-azure-cloud-tools-5.15.0-1101:amd64 (5.15.0-1101.110, automatic), linux-cloud-tools-5.15.0-1101-azure:amd64 (5.15.0-1101.110, automatic)
+Remove: linux-tools-5.15.0-1096-azure:amd64 (5.15.0-1096.105), linux-azure-tools-5.15.0-1096:amd64 (5.15.0-1096.105)
+Remove: linux-azure-cloud-tools-5.15.0-1096:amd64 (5.15.0-1096.105), linux-cloud-tools-5.15.0-1096-azure:amd64 (5.15.0-1096.105)
+
+Package difference between AKSUbuntu-2204gen2containerd-202511.12.0 and 20251206T000000Z
+Reboot required
+Upgrade: python3.10:amd64 (3.10.12-1~22.04.11, 3.10.12-1~22.04.12), libpython3.10-minimal:amd64 (3.10.12-1~22.04.11, 3.10.12-1~22.04.12), libpython3.10-stdlib:amd64 (3.10.12-1~22.04.11, 3.10.12-1~22.04.12), libpython3.10:amd64 (3.10.12-1~22.04.11, 3.10.12-1~22.04.12), python3.10-minimal:amd64 (3.10.12-1~22.04.11, 3.10.12-1~22.04.12)
+Upgrade: libbinutils:amd64 (2.38-4ubuntu2.10, 2.38-4ubuntu2.11), binutils-x86-64-linux-gnu:amd64 (2.38-4ubuntu2.10, 2.38-4ubuntu2.11), libctf0:amd64 (2.38-4ubuntu2.10, 2.38-4ubuntu2.11), binutils-common:amd64 (2.38-4ubuntu2.10, 2.38-4ubuntu2.11), binutils:amd64 (2.38-4ubuntu2.10, 2.38-4ubuntu2.11)
+Upgrade: linux-cloud-tools-azure-lts-22.04:amd64 (5.15.0.1098.96, 5.15.0.1101.99)
+Upgrade: linux-headers-azure-lts-22.04:amd64 (5.15.0.1098.96, 5.15.0.1101.99)
+Upgrade: libctf-nobfd0:amd64 (2.38-4ubuntu2.10, 2.38-4ubuntu2.11)
+Upgrade: linux-cloud-tools-common:amd64 (5.15.0-161.171, 5.15.0-163.173)
+Upgrade: wireless-regdb:amd64 (2024.10.07-0ubuntu1~22.04.1, 2025.07.10-0ubuntu1~22.04.1)
+Upgrade: linux-tools-common:amd64 (5.15.0-161.171, 5.15.0-163.173)
+Upgrade: linux-image-azure-lts-22.04:amd64 (5.15.0.1098.96, 5.15.0.1101.99)
+Upgrade: linux-tools-azure-lts-22.04:amd64 (5.15.0.1098.96, 5.15.0.1101.99)
+Upgrade: linux-libc-dev:amd64 (5.15.0-161.171, 5.15.0-163.173)
+Install: linux-azure-cloud-tools-5.15.0-1101:amd64 (5.15.0-1101.110, automatic), linux-cloud-tools-5.15.0-1101-azure:amd64 (5.15.0-1101.110, automatic)
+Install: linux-azure-headers-5.15.0-1101:amd64 (5.15.0-1101.110, automatic), linux-headers-5.15.0-1101-azure:amd64 (5.15.0-1101.110, automatic)
+Install: linux-image-5.15.0-1101-azure:amd64 (5.15.0-1101.110, automatic), linux-modules-5.15.0-1101-azure:amd64 (5.15.0-1101.110, automatic)
+Install: linux-tools-5.15.0-1101-azure:amd64 (5.15.0-1101.110, automatic), linux-azure-tools-5.15.0-1101:amd64 (5.15.0-1101.110, automatic)
