@@ -518,6 +518,7 @@ start_localdns_watchdog() {
         sliding_window_failure_count=0
         sliding_window_start_time=0
 
+        # If health check failed 5 consecutive times or failed 10 times in a 10 minute sliding window, watchdog restarts the systemd unit.
         while true; do
             health_check_passed=true
             if [ "$($CURL_COMMAND)" != "OK" ]; then
