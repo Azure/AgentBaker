@@ -444,6 +444,15 @@ while IFS= read -r p; do
         echo "  - datacenter-gpu-manager-4-proprietary version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
+    "aks-localdns")
+      for version in ${PACKAGE_VERSIONS[@]}; do
+        if [ "${OS}" = "${UBUNTU_OS_NAME}" ] || isMarinerOrAzureLinux "$OS"; then
+          downloadPkgFromVersion "aks-localdns" "${version}" "${downloadDir}"
+          installLocalDNSPackage "${version}"
+        fi
+        echo "  - aks-localdns version ${version}" >> ${VHD_LOGS_FILEPATH}
+      done
+      ;;
     "datacenter-gpu-manager-exporter")
       for version in ${PACKAGE_VERSIONS[@]}; do
         if [ "${OS}" = "${UBUNTU_OS_NAME}" ]; then
