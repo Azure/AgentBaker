@@ -365,7 +365,7 @@ const (
 	FrozenCBLMarinerV1SIGImageVersionForDeprecation string = "202308.28.0"
 
 	// DO NOT MODIFY: used for freezing MarinerV2/AzureLinuxV2, all flavors.
-	FrozenCBLMarinerV2AndAzureLinuxV2SIGImageVersion = "2025.12.06"
+	FrozenCBLMarinerV2AndAzureLinuxV2SIGImageVersion = "202512.06.0"
 
 	// DO NOT MODIFY: used for freezing MarinerV2KataGen2TL.
 	FrozenCBLMarinerV2KataGen2TLSIGImageVersion = "2022.12.15"
