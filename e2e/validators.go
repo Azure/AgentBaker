@@ -1170,6 +1170,58 @@ func ValidateLocalDNSResolution(ctx context.Context, s *Scenario, server string)
 	assert.Contains(s.T, execResult.stdout.String(), fmt.Sprintf("SERVER: %s", server))
 }
 
+func validateLocalDNSCorefileRegeneration(ctx context.Context, s *Scenario) {
+	ValidateLocalDNSService(ctx, s, "enabled")
+
+	// Validate systemd drop-in file exists with correct environment variable
+	dropinFile := "/etc/systemd/system/localdns.service.d/10-localdns-environment.conf"
+	ValidateFileExists(ctx, s, dropinFile)
+	ValidateFileHasContent(ctx, s, dropinFile, "[Service]")
+	ValidateFileHasContent(ctx, s, dropinFile, "Environment=\"LOCALDNS_BASE64_ENCODED_COREFILE=")
+
+	// Validate original corefile exists
+	corefilePath := "/opt/azure/containers/localdns/localdns.corefile"
+	ValidateFileExists(ctx, s, corefilePath)
+
+	// Test corefile regeneration: delete corefile and restart service
+	s.T.Log("Testing corefile regeneration after deletion...")
+	script := `set -euo pipefail
+# Delete the corefile
+sudo rm -f /opt/azure/containers/localdns/localdns.corefile
+
+# Verify file is deleted
+if [ -f /opt/azure/containers/localdns/localdns.corefile ]; then
+    echo "ERROR: Corefile still exists after deletion"
+    exit 1
+fi
+
+# Restart localdns service
+sudo systemctl restart localdns
+
+# Wait for service to be active
+sleep 2
+systemctl is-active localdns
+
+# Verify corefile was regenerated
+if [ ! -f /opt/azure/containers/localdns/localdns.corefile ]; then
+    echo "ERROR: Corefile was not regenerated"
+    exit 1
+fi
+
+echo "SUCCESS: Corefile regenerated successfully"
+exit 0
+`
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0, "corefile regeneration test failed")
+
+	// Validate localdns service is still running after regeneration
+	ValidateLocalDNSService(ctx, s, "enabled")
+
+	// Validate DNS resolution still works
+	ValidateLocalDNSResolution(ctx, s, "169.254.10.10")
+
+	s.T.Log("All localdns corefile regeneration tests passed successfully")
+}
+
 // ValidateJournalctlOutput checks if specific content exists in the systemd service logs
 func ValidateJournalctlOutput(ctx context.Context, s *Scenario, serviceName string, expectedContent string) {
 	s.T.Helper()

@@ -74,9 +74,18 @@ verify_localdns_corefile() {
         return 1
     fi
 
-    if [ ! -f "${LOCALDNS_CORE_FILE}" ] || [ ! -s "${LOCALDNS_CORE_FILE}" ]; then
+    # Check if corefile exists, is not empty, and has valid coredns server block.
+    if [ ! -f "${LOCALDNS_CORE_FILE}" ] || [ ! -s "${LOCALDNS_CORE_FILE}" ] || ! grep -qE '^\.:' "${LOCALDNS_CORE_FILE}"; then
         echo "Localdns corefile either does not exist or is empty at ${LOCALDNS_CORE_FILE}."
-        return 1
+
+        echo "Attempting to regenerate localdns corefile..."
+        if regenerate_localdns_corefile; then
+            echo "Localdns corefile regenerated successfully."
+            return 0
+        else
+            echo "Failed to regenerate localdns corefile."
+            return 1
+        fi
     fi
     return 0
 }
@@ -111,6 +120,31 @@ verify_localdns_binary() {
         echo "Failed to execute '--version'."
         return 1
     fi
+    return 0
+}
+
+# Regenerate the localdns corefile from base64 encoded content.
+# This is used when the corefile goes missing.
+regenerate_localdns_corefile() {
+    if [ -z "${LOCALDNS_BASE64_ENCODED_COREFILE:-}" ]; then
+        echo "LOCALDNS_BASE64_ENCODED_COREFILE is not set. Cannot regenerate corefile."
+        return 1
+    fi
+    echo "Regenerating localdns corefile at ${LOCALDNS_CORE_FILE}"
+
+    mkdir -p "$(dirname "${LOCALDNS_CORE_FILE}")"
+    # Decode base64 corefile content and write to corefile.
+    if ! echo "${LOCALDNS_BASE64_ENCODED_COREFILE}" | base64 -d > "${LOCALDNS_CORE_FILE}"; then
+        echo "Failed to decode and write corefile."
+        return 1
+    fi
+
+    chmod 0644 "${LOCALDNS_CORE_FILE}" || {
+        echo "Failed to set permissions on ${LOCALDNS_CORE_FILE}"
+        return 1
+    }
+
+    echo "Successfully regenerated localdns corefile."
     return 0
 }
 

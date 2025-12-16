@@ -1152,6 +1152,14 @@ shouldEnableLocalDns() {
     chmod 0644 "${LOCALDNS_COREFILE}"
     echo "${LOCALDNS_GENERATED_COREFILE}" | base64 -d > "${LOCALDNS_COREFILE}" || exit $ERR_LOCALDNS_FAIL
 
+    # Create systemd drop-in directory and environment file for corefile regeneration.
+    mkdir -p /etc/systemd/system/localdns.service.d
+    cat > /etc/systemd/system/localdns.service.d/10-localdns-environment.conf <<EOF
+[Service]
+Environment="LOCALDNS_BASE64_ENCODED_COREFILE=${LOCALDNS_GENERATED_COREFILE}"
+EOF
+    chmod 0644 /etc/systemd/system/localdns.service.d/10-localdns-environment.conf
+
 	mkdir -p "$(dirname "${LOCALDNS_SLICEFILE}")"
     touch "${LOCALDNS_SLICEFILE}"
     chmod 0644 "${LOCALDNS_SLICEFILE}"
