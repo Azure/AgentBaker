@@ -644,7 +644,7 @@ logs_to_events() {
     fi
 }
 
-get_imds_instance_metadata() {
+function get_imds_instance_metadata() {
     set -x
     if [ -z "${IMDS_INSTANCE_METADATA:-}" ]; then
         body=$(curl -fsSL -H "Metadata: true" --noproxy "*" "http://169.254.169.254/metadata/instance?api-version=2021-02-01")

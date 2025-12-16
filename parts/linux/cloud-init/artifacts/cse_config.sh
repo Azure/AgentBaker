@@ -342,6 +342,7 @@ EOF
   if [ "${GPU_NODE}" = "true" ]; then
     # Check VM tag directly to determine if GPU drivers should be skipped
     export -f should_skip_nvidia_drivers
+    export -f get_imds_instance_metadata
     should_skip=$(retrycmd_silent 10 1 10 bash -cx should_skip_nvidia_drivers)
     if [ "$?" -eq 0 ] && [ "${should_skip}" = "true" ]; then
       echo "Generating non-GPU containerd config for GPU node due to VM tags"
@@ -356,6 +357,7 @@ EOF
   fi
 
   export -f e2e_mock_azure_china_cloud
+  export -f get_imds_instance_metadata
   E2EMockAzureChinaCloud=$(retrycmd_silent 10 1 10 bash -cx e2e_mock_azure_china_cloud)
   if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
     logs_to_events "AKS.CSE.ensureContainerd.configureContainerdRegistryHost" configureContainerdRegistryHost
@@ -468,6 +470,7 @@ configureKubeletServing() {
     KUBELET_SERVER_CERT_PATH="/etc/kubernetes/certs/kubeletserver.crt"
 
     # check if kubelet serving certificate rotation is disabled by customer-specified nodepool tags
+    export -f get_imds_instance_metadata
     export -f should_disable_kubelet_serving_certificate_rotation
     DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION=$(retrycmd_silent 10 1 10 bash -cx should_disable_kubelet_serving_certificate_rotation)
     if [ "$?" -ne 0 ]; then
