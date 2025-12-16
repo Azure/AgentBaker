@@ -110,7 +110,7 @@ EOF
 }" | base64)
             When run verify_localdns_corefile
             The status should be success
-            The stdout should include "Localdns corefile either does not exist, is empty, or appears to be corrupted"
+            The stdout should include "Localdns corefile either does not exist or is empty at"
             The stdout should include "Attempting to regenerate localdns corefile..."
             The stdout should include "Successfully regenerated localdns corefile."
             The stdout should include "Localdns corefile regenerated successfully."
@@ -131,7 +131,7 @@ EOF
             rm -r "$LOCALDNS_CORE_FILE"
             When run verify_localdns_corefile
             The status should be failure
-            The stdout should include "Localdns corefile either does not exist, is empty, or appears to be corrupted at $LOCALDNS_CORE_FILE."
+            The stdout should include "Localdns corefile either does not exist or is empty at $LOCALDNS_CORE_FILE."
             The stdout should include "Attempting to regenerate localdns corefile..."
             The stdout should include "LOCALDNS_BASE64_ENCODED_COREFILE is not set. Cannot regenerate corefile."
         End
@@ -140,7 +140,7 @@ EOF
             > "$LOCALDNS_CORE_FILE"
             When run verify_localdns_corefile
             The status should be failure
-            The stdout should include "Localdns corefile either does not exist, is empty, or appears to be corrupted at $LOCALDNS_CORE_FILE."
+            The stdout should include "Localdns corefile either does not exist or is empty at $LOCALDNS_CORE_FILE."
             The stdout should include "Attempting to regenerate localdns corefile..."
         End
 
