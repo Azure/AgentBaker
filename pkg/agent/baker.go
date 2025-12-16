@@ -1507,6 +1507,7 @@ root = "{{GetDataDir}}"{{- end}}
     type = "snapshot"
     address = "/run/containerd/tardev-snapshotter.sock"
 [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-cc]
+	pod_annotations = ["io.katacontainers.*"]
   snapshotter = "tardev"
   runtime_type = "io.containerd.kata-cc.v2"
   privileged_without_host_devices = true
@@ -1593,6 +1594,7 @@ root = "{{GetDataDir}}"{{- end}}
     type = "snapshot"
     address = "/run/containerd/tardev-snapshotter.sock"
 [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-cc]
+	pod_annotations = ["io.katacontainers.*"]
   snapshotter = "tardev"
   runtime_type = "io.containerd.kata-cc.v2"
   privileged_without_host_devices = true
@@ -1735,6 +1737,7 @@ root = "{{GetDataDir}}"{{- end}}
     type = "snapshot"
     address = "/run/containerd/tardev-snapshotter.sock"
 [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-cc]
+	pod_annotations = ["io.katacontainers.*"]
   snapshotter = "tardev"
   runtime_type = "io.containerd.kata-cc.v2"
   privileged_without_host_devices = true
