@@ -29,7 +29,6 @@ source /home/packer/provision_source_benchmarks.sh
 source /home/packer/provision_source_distro.sh
 source /home/packer/tool_installs.sh
 source /home/packer/tool_installs_distro.sh
-source "${THIS_DIR}/apt-cleanup.sh"
 
 CPU_ARCH=$(getCPUArch)  #amd64 or arm64
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
@@ -980,8 +979,6 @@ extractAndCacheCoreDnsBinary
 
 rm -f ./azcopy # cleanup immediately after usage will return in two downloads
 echo "install-dependencies step completed successfully"
-
-cleanup_apt_artifacts "$OS"
 
 # Collect grid compatibility data (placeholder for now - will be extended later)
 collect_grid_compatibility_data() {
