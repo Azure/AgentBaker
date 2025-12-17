@@ -30,6 +30,41 @@ source /home/packer/provision_source_distro.sh
 source /home/packer/tool_installs.sh
 source /home/packer/tool_installs_distro.sh
 
+cleanup_apt_cache() {
+  # We only clean apt caches on Ubuntu systems because it is the OS always have full disk space issue.
+  # AzureLinuxv3 is still far from full disk space yet.
+  if [ "$OS" != "$UBUNTU_OS_NAME" ]; then
+    return 0
+  fi
+
+  local cache_parent="${APT_CACHE_PARENT_DIR:-/var/cache/apt}"
+  local cache_dir="${APT_CACHE_DIR:-${cache_parent}/archives}"
+  local lists_dir="${APT_LISTS_DIR:-/var/lib/apt/lists}"
+
+  echo "Cleaning apt cache directories to reclaim disk space"
+
+  if command -v apt-get >/dev/null 2>&1; then
+    if command -v wait_for_apt_locks >/dev/null 2>&1; then
+      wait_for_apt_locks
+    fi
+
+    DEBIAN_FRONTEND=noninteractive apt-get -y clean || echo "Warning: apt-get clean failed"
+    DEBIAN_FRONTEND=noninteractive apt-get -y autoclean || echo "Warning: apt-get autoclean failed"
+  fi
+
+  if [ -d "$cache_dir" ]; then
+    find "$cache_dir" -mindepth 1 -exec rm -rf {} + 2>/dev/null || true
+  fi
+
+  if [ -d "$lists_dir" ]; then
+    find "$lists_dir" -mindepth 1 -delete 2>/dev/null || true
+  fi
+
+  if [ -d "$cache_parent" ]; then
+    find "$cache_parent" -maxdepth 1 -name '*.bin' -delete 2>/dev/null || true
+  fi
+}
+
 CPU_ARCH=$(getCPUArch)  #amd64 or arm64
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 COMPONENTS_FILEPATH=/opt/azure/components.json
@@ -976,6 +1011,9 @@ extractAndCacheCoreDnsBinary() {
 }
 
 extractAndCacheCoreDnsBinary
+
+cleanup_apt_cache
+capture_benchmark "${SCRIPT_NAME}_cleanup_apt_cache"
 
 rm -f ./azcopy # cleanup immediately after usage will return in two downloads
 echo "install-dependencies step completed successfully"
