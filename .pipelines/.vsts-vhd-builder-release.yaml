@@ -16,11 +16,11 @@ parameters:
   - name: buildMarinerV2gen1
     displayName: Build MarinerV2 Gen1
     type: boolean
-    default: true
+    default: false
   - name: buildAzureLinuxV2gen1
     displayName: Build AzureLinuxV2 Gen1
     type: boolean
-    default: true
+    default: false
   - name: buildAzureLinuxV3gen1
     displayName: Build AzureLinuxV3 Gen1
     type: boolean
@@ -28,11 +28,11 @@ parameters:
   - name: buildMarinerV2gen2
     displayName: Build MarinerV2 Gen2
     type: boolean
-    default: true
+    default: false
   - name: buildAzureLinuxV2gen2
     displayName: Build AzureLinuxV2 Gen2
     type: boolean
-    default: true
+    default: false
   - name: buildAzureLinuxV3gen2
     displayName: Build AzureLinuxV3 Gen2
     type: boolean
@@ -40,11 +40,11 @@ parameters:
   - name: buildMarinerV2gen1fips
     displayName: Build MarinerV2 Gen1 FIPS
     type: boolean
-    default: true
+    default: false
   - name: buildAzureLinuxV2gen1fips
     displayName: Build AzureLinuxV2 Gen1 FIPS
     type: boolean
-    default: true
+    default: false
   - name: buildAzureLinuxV3gen1fips
     displayName: Build AzureLinuxV3 Gen1 FIPS
     type: boolean
@@ -52,11 +52,11 @@ parameters:
   - name: buildMarinerV2gen2fips
     displayName: Build MarinerV2 Gen2 FIPS
     type: boolean
-    default: true
+    default: false
   - name: buildAzureLinuxV2gen2fips
     displayName: Build AzureLinuxV2 Gen2 FIPS
     type: boolean
-    default: true
+    default: false
   - name: buildAzureLinuxV3gen2fips
     displayName: Build AzureLinuxV3 Gen2 FIPS
     type: boolean
@@ -76,11 +76,11 @@ parameters:
   - name: buildMarinerV2ARM64
     displayName: Build MarinerV2 Gen2 - ARM64
     type: boolean
-    default: true
+    default: false
   - name: buildAzureLinuxV2ARM64
     displayName: Build AzureLinuxV2 Gen2 - ARM64
     type: boolean
-    default: true
+    default: false
   - name: buildAzureLinuxV3ARM64
     displayName: Build AzureLinuxV3 Gen2 - ARM64
     type: boolean
@@ -92,11 +92,11 @@ parameters:
   - name: buildMarinerV2gen2TrustedLaunch
     displayName: Build MarinerV2 Gen2 - Trusted Launch
     type: boolean
-    default: true
+    default: false
   - name: buildAzureLinuxV2gen2TrustedLaunch
     displayName: Build AzureLinuxV2 Gen2 - Trusted Launch
     type: boolean
-    default: true
+    default: false
   - name: buildAzureLinuxV3gen2TrustedLaunch
     displayName: Build AzureLinuxV3 Gen2 - Trusted Launch
     type: boolean
