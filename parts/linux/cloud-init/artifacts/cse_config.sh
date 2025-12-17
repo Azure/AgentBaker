@@ -908,7 +908,7 @@ configAzurePolicyAddon() {
 configGPUDrivers() {
     if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
         mkdir -p /opt/{actions,gpu}
-        ctr -n k8s.io image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
+        ctr -n k8s.io content fetch $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
         retrycmd_if_failure 5 10 600 bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install"
         ret=$?
         if [ "$ret" -ne 0 ]; then

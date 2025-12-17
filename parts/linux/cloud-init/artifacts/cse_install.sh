@@ -649,7 +649,7 @@ pullContainerImage() {
     echo "pulling the image ${CONTAINER_IMAGE_URL} using ${CLI_TOOL} with a timeout of ${PULL_TIMEOUT_SECONDS}s"
 
     if [ "${CLI_TOOL,,}" = "ctr" ]; then
-        retrycmd_if_failure $PULL_RETRIES $PULL_WAIT_SLEEP_SECONDS $PULL_TIMEOUT_SECONDS ctr --namespace k8s.io image pull $CONTAINER_IMAGE_URL
+        retrycmd_if_failure $PULL_RETRIES $PULL_WAIT_SLEEP_SECONDS $PULL_TIMEOUT_SECONDS ctr --namespace k8s.io content fetch $CONTAINER_IMAGE_URL
         code=$?
     elif [ "${CLI_TOOL,,}" = "crictl" ]; then
         retrycmd_if_failure $PULL_RETRIES $PULL_WAIT_SLEEP_SECONDS $PULL_TIMEOUT_SECONDS crictl pull $CONTAINER_IMAGE_URL

@@ -524,7 +524,7 @@ if [ $OS = $UBUNTU_OS_NAME ] && [ "$(isARM64)" -ne 1 ]; then  # No ARM64 SKU wit
 
   mkdir -p /opt/{actions,gpu}
 
-  ctr -n k8s.io image pull "$NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG"
+  ctr -n k8s.io content fetch "$NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG"
 
     cat << EOF >> ${VHD_LOGS_FILEPATH}
   - nvidia-cuda-driver=${NVIDIA_DRIVER_IMAGE_TAG}
