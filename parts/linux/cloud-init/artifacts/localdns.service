@@ -16,7 +16,7 @@ Restart=on-failure
 KillMode=mixed
 TimeoutStopSec=30
 Slice=localdns.slice
-EnvironmentFile=/etc/localdns/environment
+EnvironmentFile=-/etc/localdns/environment
 ExecStart=/opt/azure/containers/localdns/localdns.sh
 
 [Install]
