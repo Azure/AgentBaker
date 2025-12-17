@@ -8,7 +8,7 @@ ifeq (${ARCHITECTURE},ARM64)
 endif
 GOHOSTARCH = $(shell go env GOHOSTARCH)
 
-build-packer: generate-prefetch-scripts build-aks-node-controller build-lister-binary
+build-packer: generate-prefetch-scripts build-image-fetcher build-aks-node-controller build-lister-binary
 ifeq (${ARCHITECTURE},ARM64)
 	@echo "${MODE}: Building with Hyper-v generation 2 ARM64 VM"
 ifeq (${OS_SKU},Ubuntu)
@@ -82,7 +82,7 @@ endif
 	@packer build -timestamp-ui -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/windows/windows-vhd-builder-sig.json
 endif
 
-build-imagecustomizer: generate-prefetch-scripts build-aks-node-controller build-lister-binary
+build-imagecustomizer: generate-prefetch-scripts build-image-fetcher build-aks-node-controller build-lister-binary
 	@./vhdbuilder/packer/imagecustomizer/scripts/build-imagecustomizer-image.sh
 
 az-login:
@@ -135,6 +135,14 @@ build-aks-node-controller:
 	go test ./... && \
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o bin/aks-node-controller-linux-amd64 && \
 	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o bin/aks-node-controller-linux-arm64 && \
+	popd"
+
+build-image-fetcher:
+	@echo "Building image-fetcher binaries"
+	@bash -c "pushd image-fetcher && \
+	go test ./... && \
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o bin/image-fetcher-linux-amd64 && \
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o bin/image-fetcher-linux-arm64 && \
 	popd"
 
 build-lister-binary:
