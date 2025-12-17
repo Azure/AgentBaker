@@ -639,6 +639,8 @@ string_replace() {
   echo ${1//\*/$2}
 }
 
+cleanup_apt_cache # Cleanup apt cache before pulling images to free up space
+
 # Limit number of parallel pulls to 2 less than number of processor cores in order to prevent issues with network, CPU, and disk resources
 # Account for possibility that number of cores is 3 or less
 num_proc=$(nproc)
@@ -1012,7 +1014,6 @@ extractAndCacheCoreDnsBinary() {
 
 extractAndCacheCoreDnsBinary
 
-cleanup_apt_cache
 capture_benchmark "${SCRIPT_NAME}_cleanup_apt_cache"
 
 rm -f ./azcopy # cleanup immediately after usage will return in two downloads
