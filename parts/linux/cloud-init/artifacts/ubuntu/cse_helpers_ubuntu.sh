@@ -64,6 +64,8 @@ _apt_get_install() {
         if apt-get install ${apt_opts} -o Dpkg::Options::="--force-confold" --no-install-recommends "${@}"; then
             echo "Executed apt-get install \"${packages[@]}\" $i times"
             wait_for_apt_locks
+            DEBIAN_FRONTEND=noninteractive apt-get clean
+            wait_for_apt_locks
             return 0
         fi
 
