@@ -16,11 +16,11 @@ parameters:
   - name: buildMarinerV2gen1
     displayName: Build MarinerV2 Gen1
     type: boolean
-    default: true
+    default: false
   - name: buildAzureLinuxV2gen1
     displayName: Build AzureLinuxV2 Gen1
     type: boolean
-    default: true
+    default: false
   - name: buildAzureLinuxV3gen1
     displayName: Build AzureLinuxV3 Gen1
     type: boolean
@@ -28,11 +28,11 @@ parameters:
   - name: buildMarinerV2gen2
     displayName: Build MarinerV2 Gen2
     type: boolean
-    default: true
+    default: false
   - name: buildAzureLinuxV2gen2
     displayName: Build AzureLinuxV2 Gen2
     type: boolean
-    default: true
+    default: false
   - name: buildAzureLinuxV3gen2
     displayName: Build AzureLinuxV3 Gen2
     type: boolean
@@ -40,11 +40,11 @@ parameters:
   - name: buildMarinerV2gen1fips
     displayName: Build MarinerV2 Gen1 FIPS
     type: boolean
-    default: true
+    default: false
   - name: buildAzureLinuxV2gen1fips
     displayName: Build AzureLinuxV2 Gen1 FIPS
     type: boolean
-    default: true
+    default: false
   - name: buildAzureLinuxV3gen1fips
     displayName: Build AzureLinuxV3 Gen1 FIPS
     type: boolean
@@ -52,11 +52,11 @@ parameters:
   - name: buildMarinerV2gen2fips
     displayName: Build MarinerV2 Gen2 FIPS
     type: boolean
-    default: true
+    default: false
   - name: buildAzureLinuxV2gen2fips
     displayName: Build AzureLinuxV2 Gen2 FIPS
     type: boolean
-    default: true
+    default: false
   - name: buildAzureLinuxV3gen2fips
     displayName: Build AzureLinuxV3 Gen2 FIPS
     type: boolean
@@ -76,11 +76,11 @@ parameters:
   - name: buildMarinerV2ARM64
     displayName: Build MarinerV2 Gen2 - ARM64
     type: boolean
-    default: true
+    default: false
   - name: buildAzureLinuxV2ARM64
     displayName: Build AzureLinuxV2 Gen2 - ARM64
     type: boolean
-    default: true
+    default: false
   - name: buildAzureLinuxV3ARM64
     displayName: Build AzureLinuxV3 Gen2 - ARM64
     type: boolean
@@ -92,11 +92,11 @@ parameters:
   - name: buildMarinerV2gen2TrustedLaunch
     displayName: Build MarinerV2 Gen2 - Trusted Launch
     type: boolean
-    default: true
+    default: false
   - name: buildAzureLinuxV2gen2TrustedLaunch
     displayName: Build AzureLinuxV2 Gen2 - Trusted Launch
     type: boolean
-    default: true
+    default: false
   - name: buildAzureLinuxV3gen2TrustedLaunch
     displayName: Build AzureLinuxV3 Gen2 - Trusted Launch
     type: boolean
@@ -208,7 +208,7 @@ stages:
       - job: buildMarinerV2gen1
         condition: eq('${{ parameters.buildMarinerV2gen1 }}', true)
         dependsOn: [ ]
-        timeoutInMinutes: 180
+        timeoutInMinutes: 360
         steps:
           - bash: |
               echo '##vso[task.setvariable variable=OS_SKU]CBLMariner'
@@ -233,7 +233,7 @@ stages:
       - job: buildAzureLinuxV2gen1
         condition: eq('${{ parameters.buildAzureLinuxV2gen1 }}', true)
         dependsOn: [ ]
-        timeoutInMinutes: 180
+        timeoutInMinutes: 360
         steps:
           - bash: |
               echo '##vso[task.setvariable variable=OS_SKU]AzureLinux'
@@ -258,7 +258,7 @@ stages:
       - job: buildAzureLinuxV3gen1
         condition: eq('${{ parameters.buildAzureLinuxV3gen1 }}', true)
         dependsOn: [ ]
-        timeoutInMinutes: 180
+        timeoutInMinutes: 360
         steps:
           - bash: |
               echo '##vso[task.setvariable variable=OS_SKU]AzureLinux'
@@ -281,7 +281,7 @@ stages:
       - job: buildMarinerV2gen2
         condition: eq('${{ parameters.buildMarinerV2gen2 }}', true)
         dependsOn: [ ]
-        timeoutInMinutes: 180
+        timeoutInMinutes: 360
         steps:
           - bash: |
               echo '##vso[task.setvariable variable=OS_SKU]CBLMariner'
@@ -306,7 +306,7 @@ stages:
       - job: buildAzureLinuxV2gen2
         condition: eq('${{ parameters.buildAzureLinuxV2gen2 }}', true)
         dependsOn: [ ]
-        timeoutInMinutes: 180
+        timeoutInMinutes: 360
         steps:
           - bash: |
               echo '##vso[task.setvariable variable=OS_SKU]AzureLinux'
@@ -331,7 +331,7 @@ stages:
       - job: buildAzureLinuxV3gen2
         condition: eq('${{ parameters.buildAzureLinuxV3gen2 }}', true)
         dependsOn: [ ]
-        timeoutInMinutes: 180
+        timeoutInMinutes: 360
         steps:
           - bash: |
               echo '##vso[task.setvariable variable=OS_SKU]AzureLinux'
@@ -354,7 +354,7 @@ stages:
       - job: buildMarinerV2gen1fips
         condition: eq('${{ parameters.buildMarinerV2gen1fips }}', true)
         dependsOn: [ ]
-        timeoutInMinutes: 180
+        timeoutInMinutes: 360
         steps:
           - bash: |
               echo '##vso[task.setvariable variable=OS_SKU]CBLMariner'
@@ -379,7 +379,7 @@ stages:
       - job: buildAzureLinuxV2gen1fips
         condition: eq('${{ parameters.buildAzureLinuxV2gen1fips }}', true)
         dependsOn: [ ]
-        timeoutInMinutes: 180
+        timeoutInMinutes: 360
         steps:
           - bash: |
               echo '##vso[task.setvariable variable=OS_SKU]AzureLinux'
@@ -404,7 +404,7 @@ stages:
       - job: buildAzureLinuxV3gen1fips
         condition: eq('${{ parameters.buildAzureLinuxV3gen1fips }}', true)
         dependsOn: [ ]
-        timeoutInMinutes: 180
+        timeoutInMinutes: 360
         steps:
           - bash: |
               echo '##vso[task.setvariable variable=OS_SKU]AzureLinux'
@@ -427,7 +427,7 @@ stages:
       - job: buildMarinerV2gen2fips
         condition: eq('${{ parameters.buildMarinerV2gen2fips }}', true)
         dependsOn: [ ]
-        timeoutInMinutes: 180
+        timeoutInMinutes: 360
         steps:
           - bash: |
               echo '##vso[task.setvariable variable=OS_SKU]CBLMariner'
@@ -452,7 +452,7 @@ stages:
       - job: buildAzureLinuxV2gen2fips
         condition: eq('${{ parameters.buildAzureLinuxV2gen2fips }}', true)
         dependsOn: [ ]
-        timeoutInMinutes: 180
+        timeoutInMinutes: 360
         steps:
           - bash: |
               echo '##vso[task.setvariable variable=OS_SKU]AzureLinux'
@@ -477,7 +477,7 @@ stages:
       - job: buildAzureLinuxV3gen2fips
         condition: eq('${{ parameters.buildAzureLinuxV3gen2fips }}', true)
         dependsOn: [ ]
-        timeoutInMinutes: 180
+        timeoutInMinutes: 360
         steps:
           - bash: |
               echo '##vso[task.setvariable variable=OS_SKU]AzureLinux'
@@ -500,7 +500,7 @@ stages:
       - job: buildMarinerV2ARM64
         condition: eq('${{ parameters.buildMarinerV2ARM64 }}', true)
         dependsOn: [ ]
-        timeoutInMinutes: 180
+        timeoutInMinutes: 360
         steps:
           - bash: |
               echo '##vso[task.setvariable variable=OS_SKU]CBLMariner'
@@ -525,7 +525,7 @@ stages:
       - job: buildAzureLinuxV2ARM64
         condition: eq('${{ parameters.buildAzureLinuxV2ARM64 }}', true)
         dependsOn: [ ]
-        timeoutInMinutes: 180
+        timeoutInMinutes: 360
         steps:
           - bash: |
               echo '##vso[task.setvariable variable=OS_SKU]AzureLinux'
@@ -550,7 +550,7 @@ stages:
       - job: buildAzureLinuxV3ARM64
         condition: eq('${{ parameters.buildAzureLinuxV3ARM64 }}', true)
         dependsOn: [ ]
-        timeoutInMinutes: 180
+        timeoutInMinutes: 360
         steps:
           - bash: |
               echo '##vso[task.setvariable variable=OS_SKU]AzureLinux'
@@ -573,7 +573,7 @@ stages:
       - job: buildAzureLinuxV3ARM64gen2fips
         condition: eq('${{ parameters.buildAzureLinuxV3ARM64gen2fips }}', true)
         dependsOn: [ ]
-        timeoutInMinutes: 180
+        timeoutInMinutes: 360
         steps:
           - bash: |
               echo '##vso[task.setvariable variable=OS_SKU]AzureLinux'
@@ -596,7 +596,7 @@ stages:
       - job: buildMarinerV2gen2kata
         condition: eq('${{ parameters.buildMarinerV2gen2kata }}', true)
         dependsOn: [ ]
-        timeoutInMinutes: 180
+        timeoutInMinutes: 360
         steps:
           - bash: |
               echo '##vso[task.setvariable variable=OS_SKU]CBLMariner'
@@ -621,7 +621,7 @@ stages:
       - job: buildAzureLinuxV2gen2kata
         condition: eq('${{ parameters.buildAzureLinuxV2gen2kata }}', true)
         dependsOn: [ ]
-        timeoutInMinutes: 180
+        timeoutInMinutes: 360
         steps:
           - bash: |
               echo '##vso[task.setvariable variable=OS_SKU]AzureLinux'
@@ -646,7 +646,7 @@ stages:
       - job: buildAzureLinuxV3gen2kata
         condition: eq('${{ parameters.buildAzureLinuxV3gen2kata }}', true)
         dependsOn: [ ]
-        timeoutInMinutes: 180
+        timeoutInMinutes: 360
         steps:
           - bash: |
               echo '##vso[task.setvariable variable=OS_SKU]AzureLinux'
@@ -671,7 +671,7 @@ stages:
       - job: buildMarinerV2gen2TrustedLaunch
         condition: eq('${{ parameters.buildMarinerV2gen2TrustedLaunch }}', true)
         dependsOn: [ ]
-        timeoutInMinutes: 180
+        timeoutInMinutes: 360
         steps:
           - bash: |
               echo '##vso[task.setvariable variable=OS_SKU]CBLMariner'
@@ -696,7 +696,7 @@ stages:
       - job: buildAzureLinuxV2gen2TrustedLaunch
         condition: eq('${{ parameters.buildAzureLinuxV2gen2TrustedLaunch }}', true)
         dependsOn: [ ]
-        timeoutInMinutes: 180
+        timeoutInMinutes: 360
         steps:
           - bash: |
               echo '##vso[task.setvariable variable=OS_SKU]AzureLinux'
@@ -721,7 +721,7 @@ stages:
       - job: buildAzureLinuxV3gen2TrustedLaunch
         condition: eq('${{ parameters.buildAzureLinuxV3gen2TrustedLaunch }}', true)
         dependsOn: [ ]
-        timeoutInMinutes: 180
+        timeoutInMinutes: 360
         steps:
           - bash: |
               echo '##vso[task.setvariable variable=OS_SKU]AzureLinux'
@@ -746,7 +746,7 @@ stages:
       - job: buildAzureLinuxV3cvmgen2
         condition: eq('${{ parameters.buildAzureLinuxV3cvmgen2 }}', true)
         dependsOn: [ ]
-        timeoutInMinutes: 180
+        timeoutInMinutes: 360
         steps:
           - bash: |
               echo '##vso[task.setvariable variable=OS_SKU]AzureLinux'
@@ -771,7 +771,7 @@ stages:
       - job: buildMarinerV2gen2kataTrustedLaunch
         condition: eq('${{ parameters.buildMarinerV2gen2kataTrustedLaunch }}', true)
         dependsOn: [ ]
-        timeoutInMinutes: 180
+        timeoutInMinutes: 360
         steps:
           - bash: |
               echo '##vso[task.setvariable variable=OS_SKU]CBLMariner'
@@ -796,7 +796,7 @@ stages:
       - job: buildAzureLinuxV2gen2kataTrustedLaunch
         condition: eq('${{ parameters.buildAzureLinuxV2gen2kataTrustedLaunch }}', true)
         dependsOn: [ ]
-        timeoutInMinutes: 180
+        timeoutInMinutes: 360
         steps:
           - bash: |
               echo '##vso[task.setvariable variable=OS_SKU]AzureLinux'
@@ -821,7 +821,7 @@ stages:
       - job: buildAzureLinuxOSGuardV3gen2fipsTL
         condition: eq('${{ parameters.buildAzureLinuxOSGuardV3gen2fipsTL }}', true)
         dependsOn: [ ]
-        timeoutInMinutes: 180
+        timeoutInMinutes: 360
         steps:
           - bash: |
               echo '##vso[task.setvariable variable=BUILDER]imagecustomizer'
@@ -849,7 +849,7 @@ stages:
       - job: build2004fipscontainerd
         condition: eq('${{ parameters.build2004fipscontainerd }}', true)
         dependsOn: [ ]
-        timeoutInMinutes: 180
+        timeoutInMinutes: 360
         steps:
           - bash: |
               echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
@@ -873,7 +873,7 @@ stages:
       - job: build2004fipsgen2containerd
         condition: eq('${{ parameters.build2004fipsgen2containerd }}', true)
         dependsOn: [ ]
-        timeoutInMinutes: 180
+        timeoutInMinutes: 360
         steps:
           - bash: |
               echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
@@ -897,7 +897,7 @@ stages:
       - job: build2204fipscontainerd
         condition: eq('${{ parameters.build2204fipscontainerd }}', true)
         dependsOn: [ ]
-        timeoutInMinutes: 180
+        timeoutInMinutes: 360
         steps:
           - bash: |
               echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
@@ -922,7 +922,7 @@ stages:
       - job: build2204fipsgen2containerd
         condition: eq('${{ parameters.build2204fipsgen2containerd }}', true)
         dependsOn: [ ]
-        timeoutInMinutes: 180
+        timeoutInMinutes: 360
         steps:
           - bash: |
               echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
@@ -947,7 +947,7 @@ stages:
       - job: build2204arm64gen2containerd
         condition: eq('${{ parameters.build2204arm64gen2containerd }}', true)
         dependsOn: [ ]
-        timeoutInMinutes: 180
+        timeoutInMinutes: 360
         steps:
           - bash: |
               echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
@@ -971,7 +971,7 @@ stages:
       - job: build2404arm64gen2containerd
         condition: eq('${{ parameters.build2404arm64gen2containerd }}', true)
         dependsOn: [ ]
-        timeoutInMinutes: 180
+        timeoutInMinutes: 360
         steps:
           - bash: |
               echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
@@ -995,7 +995,7 @@ stages:
       - job: build2204containerd
         condition: eq('${{ parameters.build2204containerd }}', true)
         dependsOn: [ ]
-        timeoutInMinutes: 180
+        timeoutInMinutes: 360
         steps:
           - bash: |
               echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
@@ -1019,7 +1019,7 @@ stages:
       - job: build2204gen2containerd
         condition: eq('${{ parameters.build2204gen2containerd }}', true)
         dependsOn: [ ]
-        timeoutInMinutes: 180
+        timeoutInMinutes: 360
         steps:
           - bash: |
               echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
@@ -1043,7 +1043,7 @@ stages:
       - job: build2404containerd
         condition: eq('${{ parameters.build2404containerd }}', true)
         dependsOn: [ ]
-        timeoutInMinutes: 180
+        timeoutInMinutes: 360
         steps:
           - bash: |
               echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
@@ -1067,7 +1067,7 @@ stages:
       - job: build2404cvmgen2containerd
         condition: eq('${{ parameters.build2404cvmgen2containerd }}', true)
         dependsOn: [ ]
-        timeoutInMinutes: 180
+        timeoutInMinutes: 360
         steps:
           - bash: |
               echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
@@ -1091,7 +1091,7 @@ stages:
       - job: build2404gen2containerd
         condition: eq('${{ parameters.build2404gen2containerd }}', true)
         dependsOn: [ ]
-        timeoutInMinutes: 180
+        timeoutInMinutes: 360
         steps:
           - bash: |
               echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
@@ -1115,7 +1115,7 @@ stages:
       - job: build2404tlgen2containerd
         condition: eq('${{ parameters.build2404tlgen2containerd }}', true)
         dependsOn: [ ]
-        timeoutInMinutes: 180
+        timeoutInMinutes: 360
         steps:
           - bash: |
               echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
@@ -1139,7 +1139,7 @@ stages:
       - job: build2004cvmgen2containerd
         condition: eq('${{ parameters.build2004cvmgen2containerd }}', true)
         dependsOn: [ ]
-        timeoutInMinutes: 180
+        timeoutInMinutes: 360
         steps:
           - bash: |
               echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
@@ -1163,7 +1163,7 @@ stages:
       - job: build2204tlgen2containerd
         condition: eq('${{ parameters.build2204tlgen2containerd }}', true)
         dependsOn: [ ]
-        timeoutInMinutes: 180
+        timeoutInMinutes: 360
         steps:
           - bash: |
               echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
@@ -1187,7 +1187,7 @@ stages:
       - job: build2204minimalgen1containerd
         condition: eq('${{ parameters.build2204minimalgen1containerd }}', true)
         dependsOn: [ ]
-        timeoutInMinutes: 180
+        timeoutInMinutes: 360
         steps:
           - bash: |
               echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
@@ -1211,7 +1211,7 @@ stages:
       - job: build2204minimalgen2containerd
         condition: eq('${{ parameters.build2204minimalgen2containerd }}', true)
         dependsOn: [ ]
-        timeoutInMinutes: 180
+        timeoutInMinutes: 360
         steps:
           - bash: |
               echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
@@ -1235,7 +1235,7 @@ stages:
       - job: buildflatcargen2
         condition: eq('${{ parameters.buildflatcargen2 }}', true)
         dependsOn: [ ]
-        timeoutInMinutes: 180
+        timeoutInMinutes: 360
         steps:
           - bash: |
               echo '##vso[task.setvariable variable=OS_SKU]Flatcar'
@@ -1259,7 +1259,7 @@ stages:
       - job: buildflatcargen2arm64
         condition: eq('${{ parameters.buildflatcargen2arm64 }}', true)
         dependsOn: [ ]
-        timeoutInMinutes: 180
+        timeoutInMinutes: 360
         steps:
           - bash: |
               echo '##vso[task.setvariable variable=OS_SKU]Flatcar'
@@ -1284,7 +1284,7 @@ stages:
       - job: build2404arm64gb200gen2containerd
         condition: eq('${{ parameters.build2404arm64gb200gen2containerd }}', true)
         dependsOn: [ ]
-        timeoutInMinutes: 180
+        timeoutInMinutes: 360
         steps:
           - bash: |
               echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
