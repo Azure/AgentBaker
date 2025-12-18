@@ -180,6 +180,14 @@ func ValidateSystemdWatchdogForKubernetes132Plus(ctx context.Context, s *Scenari
 	}
 }
 
+func ValidateAKSLogCollector(ctx context.Context, s *Scenario) {
+	ValidateSystemdUnitIsNotFailed(ctx, s, "aks-log-collector")
+}
+
+func ValidateDiskQueueService(ctx context.Context, s *Scenario) {
+	ValidateSystemdUnitIsRunning(ctx, s, "disk_queue.service")
+}
+
 func ValidateLeakedSecrets(ctx context.Context, s *Scenario) {
 	secrets := map[string]string{
 		"client private key":       base64.StdEncoding.EncodeToString([]byte(s.GetClientPrivateKey())),

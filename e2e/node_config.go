@@ -20,7 +20,6 @@ import (
 var baseKubeletConfig = &aksnodeconfigv1.KubeletConfig{
 	EnableKubeletConfigFile: true,
 	KubeletFlags: map[string]string{
-		"--cloud-config":              "",
 		"--cloud-provider":            "external",
 		"--kubeconfig":                "/var/lib/kubelet/kubeconfig",
 		"--pod-infra-container-image": "mcr.microsoft.com/oss/v2/kubernetes/pause:3.6",
@@ -687,7 +686,6 @@ func baseTemplateLinux(t testing.TB, location string, k8sVersion string, arch st
 			"--azure-container-registry-config":   "/etc/kubernetes/azure.json",
 			"--cgroups-per-qos":                   "true",
 			"--client-ca-file":                    "/etc/kubernetes/certs/ca.crt",
-			"--cloud-config":                      "",
 			"--cloud-provider":                    "external",
 			"--cluster-dns":                       "10.0.0.10",
 			"--cluster-domain":                    "cluster.local",
