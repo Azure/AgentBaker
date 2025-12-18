@@ -1620,9 +1620,9 @@ testNodeProblemDetector() {
   local os_sku="$1"
   echo "$test: Start"
 
-  # NPD is not installed on OSGuard variants
-  if [ "$os_sku" = "AzureLinuxOSGuard" ]; then
-    echo "$test: Skipping check on AzureLinuxOSGuard - NPD is not installed"
+  # NPD is not installed on OSGuard variants and Flatcar
+  if [ "$os_sku" = "AzureLinuxOSGuard" ] || [ "$os_sku" = "Flatcar" ]; then
+    echo "$test: Skipping check on $os_sku - NPD is not installed"
     echo "$test: Finish"
     return 0
   fi
