@@ -58,10 +58,11 @@ CURL_COMMAND="curl -s http://${LOCALDNS_NODE_LISTENER_IP}:8181/ready"
 # This is used by disable_dhcp_use_clusterlistener and cleanup_localdns_configs functions.
 NETWORKCTL_RELOAD_CMD="networkctl reload"
 
-# The health check is a DNS request to the localdns service IPs.
-HEALTH_CHECK_DNS_REQUEST=$'health-check.localdns.local @'"${LOCALDNS_NODE_LISTENER_IP}"$'\nhealth-check.localdns.local @'"${LOCALDNS_CLUSTER_LISTENER_IP}"
-
 START_LOCALDNS_TIMEOUT=10
+
+# DNS health check timeout.
+DNS_HEALTH_CHECK_TIMEOUT=2
+DNS_HEALTH_CHECK_TRIES=2
 
 # Function definitions used in this file.
 # functions defined until "${__SOURCED__:+return}" are sourced and tested in -
@@ -509,11 +510,50 @@ start_localdns_watchdog() {
         # five times in every watchdog interval, and thus need to fail five checks to get restarted.
         HEALTH_CHECK_INTERVAL=$((${WATCHDOG_USEC:-5000000} * 20 / 100 / 1000000))
         echo "Starting watchdog loop at ${HEALTH_CHECK_INTERVAL} second intervals."
+
+        # Sliding window failure detection: 10 failures in 10 minutes (600 seconds).
+        # This catches intermittent but frequent failures that might not be consecutive.
+        max_sliding_window_failures=10
+        sliding_window_duration_in_seconds=600
+        sliding_window_failure_count=0
+        sliding_window_start_time=0
+
+        # If health check failed 5 consecutive times or failed 10 times in a 10 minute sliding window, watchdog restarts the systemd unit.
         while true; do
-            if [ "$($CURL_COMMAND)" = "OK" ] && dig +short +timeout=1 +tries=1 -f <(printf '%s\n' "$HEALTH_CHECK_DNS_REQUEST"); then
+            health_check_passed=true
+            if [ "$($CURL_COMMAND)" != "OK" ]; then
+                echo "Health check failed: HTTP ready endpoint not responding."
+                health_check_passed=false
+            fi
+            if ! dig +short +timeout=${DNS_HEALTH_CHECK_TIMEOUT} +tries=${DNS_HEALTH_CHECK_TRIES} health-check.localdns.local @${LOCALDNS_NODE_LISTENER_IP} >/dev/null 2>&1; then
+                echo "Health check failed: DNS query to ${LOCALDNS_NODE_LISTENER_IP} failed."
+                health_check_passed=false
+            fi
+            if ! dig +short +timeout=${DNS_HEALTH_CHECK_TIMEOUT} +tries=${DNS_HEALTH_CHECK_TRIES} health-check.localdns.local @${LOCALDNS_CLUSTER_LISTENER_IP} >/dev/null 2>&1; then
+                echo "Health check failed: DNS query to ${LOCALDNS_CLUSTER_LISTENER_IP} failed."
+                health_check_passed=false
+            fi
+
+            if [ "$health_check_passed" = true ]; then
                 systemd-notify WATCHDOG=1
             else
-                echo "Localdns health check failed - will be restarted."
+                echo "localdns health check failed - will be restarted if failures persist."
+
+                current_time=$(date +%s)
+                # If this is the first failure or window has expired, start a new window
+                if [ "$sliding_window_start_time" -eq 0 ] || [ $((current_time - sliding_window_start_time)) -gt "$sliding_window_duration_in_seconds" ]; then
+                    sliding_window_start_time=$current_time
+                    sliding_window_failure_count=1
+                else
+                    sliding_window_failure_count=$((sliding_window_failure_count + 1))
+                fi
+
+                # Check if sliding window threshold is exceeded
+                if [ "$sliding_window_failure_count" -ge "$max_sliding_window_failures" ]; then
+                    echo "max sliding window failures (${max_sliding_window_failures} in ${sliding_window_duration_in_seconds}s) reached. Triggering restart."
+                    systemd-notify WATCHDOG=trigger
+                    exit $ERR_LOCALDNS_FAIL
+                fi
             fi
             sleep "${HEALTH_CHECK_INTERVAL}"
         done
