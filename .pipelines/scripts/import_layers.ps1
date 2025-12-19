@@ -84,16 +84,16 @@ function ValidateManifest {
     )
     # just checks that the config file and the layer tarballs
     # are present in the WorkingDir
-    
+
     # validate the manifest.json file
     Write-Host "[*] Validating the manifest.json file" -ForegroundColor Yellow
 
     $jsonFiles = Get-ChildItem -Path $Path -Filter "*manifest.json" -File
     $jsonContent = Get-Content -Path $jsonFiles[0].FullName -Raw
-    
+
     $manifest = $jsonContent | ConvertFrom-Json
     $configDigest = $($manifest.config.digest).Split(":")[1]
-    
+
     # check config file
     if (-not $sha256Map.ContainsKey($configDigest)) {
         throw "Validation: config file referenced in the manifest is not present: sha256:$configDigest"
@@ -124,23 +124,23 @@ function GetSha256Map {
         [Parameter(Mandatory = $true)]
         [string]$DirectoryPath
     )
-    
+
     # Create a hashtable to store the SHA256 -> FilePath map
     $sha256Map = @{}
-    
+
     $files = Get-ChildItem -Path $DirectoryPath -File
-    
+
     # Initialize progress bar
     $totalFiles = $files.Count
     $counter = 0
-    
+
     foreach ($file in $files) {
         $counter++
         $percentComplete = [math]::Round(($counter / $totalFiles) * 100, 2)
-        
+
         # Update progress bar
         Write-Progress -Activity "Calculating SHA256 hashes" -Status "Processing $counter of $totalFiles files" -PercentComplete $percentComplete
-        
+
         try {
             $fileHash = Get-FileHash -Path $file.FullName -Algorithm SHA256
             $sha256Map[$fileHash.Hash.ToLower()] = $file.FullName
@@ -148,10 +148,10 @@ function GetSha256Map {
             Write-Warning "Failed to compute SHA256 for file: $($file.FullName). Error: $_"
         }
     }
-    
+
     # Clear the progress bar after completion
     Write-Progress -Activity "Calculating SHA256 hashes" -Status "Completed" -PercentComplete 100
-    
+
     return $sha256Map
 }
 
@@ -161,7 +161,7 @@ function CreateRegistryTree {
     Write-Host "Cleaning up registry directories"
     $path = "$($env:root)/Import_Layers/"
     if (Test-Path -Path $path) {
-        Remove-Item $path -Recurse -Force 
+        Remove-Item $path -Recurse -Force
     }
     Write-Host "Cleaning complete" -ForegroundColor Green
 
@@ -208,7 +208,7 @@ function CreateBlobs {
     )
 
     Write-Host "Creating SHA256 blobs" -ForegroundColor Green
-    
+
     $Sha256Map.GetEnumerator() | ForEach-Object {
         [string]$digest = $_.Key
         [string]$src = $_.Value
@@ -258,7 +258,7 @@ function CreateRepo {
 
     $jsonFiles = Get-ChildItem -Path $WorkingDir -Filter "*manifest.json" -File
     $manifestSHA = (Get-FileHash -Path $jsonFiles[0].FullName -Algorithm SHA256).Hash.ToLower()
-    
+
     Write-Host "=== Manifest File: $($jsonFiles[0].FullName)"
     Write-Host "=== Manifest SHA256: $manifestSHA"
 
@@ -274,7 +274,7 @@ function CreateRepo {
 
     # setup _layers
     # we create layers for all blobs, except the manifest
-    # this will typically be for the base layer, delta layer 
+    # this will typically be for the base layer, delta layer
     # and config (which is treated as a layer too by distribution/distribution)
     $Sha256Map.GetEnumerator() | ForEach-Object {
         [string]$digest = $_.Key
@@ -305,7 +305,7 @@ function StartRegistryServer {
     )
 
     Write-Host "Starting the registry.exe server ..."
-    
+
     Push-Location .
     Set-Location $RegRoot
 
@@ -372,7 +372,7 @@ function RunDockerPull {
         Write-Host "Image composed successfully!"
 
         # tagging with the acr name
-        $tag = $Key.Substring(2,4)
+        $tag = $Key.Substring(2)
         docker tag $dockerImageTag "${ContainerRegistry}.azurecr.io/windows/servercore:ltsc$tag"
         docker push "${ContainerRegistry}.azurecr.io/windows/servercore:ltsc$tag"
                 Write-Host "Container image pushed servercore:ltsc$tag"
@@ -448,12 +448,12 @@ $versionMap = @{}
 foreach ($key in $ProductMap.Keys) {
     Write-Output "Working on product: $key, WorkingDir: $($ProductMap[$key])"
     $WorkingDir = $ProductMap[$key]
-    
+
     # validation
     $versionMap[$key] = ValidateWorkingDir $WorkingDir
     [hashtable]$sha256Map = GetSha256Map $WorkingDir
     ValidateManifest $WorkingDir $sha256Map
-    
+
     CreateBlobs -RegRoot $RegRoot -Sha256Map $sha256Map
     # create repo for the new image
     $repoTag = $(GetRandomString 8)

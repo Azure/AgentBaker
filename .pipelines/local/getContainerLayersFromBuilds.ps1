@@ -1,6 +1,6 @@
 function Log {
     param (
-        [string] 
+        [string]
         $text
     )
 
@@ -8,11 +8,13 @@ function Log {
         "$(Get-Date)> $text" | Tee-Object -FilePath $LOGFILEPATH -Append
     } else {
         Write-Host ("$(Get-Date)> $text")
-    } 
+    }
 }
 
-$products = ("ws2025","ws2022","ws2019")
+$products = ("ws2025lt","ws2025","ws2022","ws2019")
+#$products = ("ws2025lt")
 $drops= @{
+    "ws2025lt" = "\\winbuilds\Release\lt_release_svc_refresh"
     "ws2025" = "\\winbuilds\Release\ge_release_svc_refresh"
     "ws2022" = "\\winbuilds\Release\fe_release_svc_refresh"
     "ws2019" = "\\winbuilds\release\rs5_release_svc_refresh"
@@ -21,6 +23,7 @@ $deltaLayerDirectories = @{
     "ws2019" = @("cbaseospkg_nanoserver_en-us", "cbaseospkg_serverdatacentercore_en-us")
     "ws2022" = @("cbaseospkg_nanoserver_en-us", "cbaseospkg_serverdatacentercore_ltsc_en-us_vl")
     "ws2025" = @("cbaseospkg_nanoserver_en-us", "cbaseospkg_serverdatacentercore_ltsc_en-us_vl")
+    "ws2025lt" = @("cbaseospkg_nanoserver_en-us", "cbaseospkg_serverdatacentercore_ltsc_en-us_vl")
 }
 
 $runningDir = $PSScriptRoot
@@ -45,7 +48,7 @@ foreach ($product in $products) {
     #Log("the sasToken is ${sasToken}.")
 
     # Pick the first x build to try to avoid the scenerio where the latest build image are still being built
-    $latestBuilds = Get-ChildItem -Path $dropPath | Sort-Object -Property LastWriteTime -Descending | Select-Object -First 8 | Sort-Object -Property LastWriteTime
+    $latestBuilds = Get-ChildItem -Path $dropPath | Sort-Object -Property LastWriteTime -Descending | Select-Object -First 20 | Sort-Object -Property LastWriteTime
 
     # clean up the former directories if any
     $targetDirectory = Join-Path $runningDir -ChildPath $product
@@ -57,14 +60,14 @@ foreach ($product in $products) {
         foreach ($latestBuild in $latestBuilds)
         {
             $sourcePath = Join-Path -Path $latestBuild -ChildPath "amd64fre\containerbaseospkgs\$sourceDir"
-        
+
             if (Test-Path -Path $sourcePath -PathType Container) {
                 Log("The source path $sourcePath exists.")
             } else {
                 Log("The source path $sourcePath does not exist. skip to try the next builds")
                 continue
             }
-            
+
             $filesToCopy = Get-ChildItem -Path $sourcePath -File
             foreach ($file in $filesToCopy) {
                 if ($file.Name.EndsWith(".tar.gz", [System.StringComparison]::InvariantCultureIgnoreCase)) {
@@ -79,15 +82,15 @@ foreach ($product in $products) {
             $destinationFile = Join-Path -Path $targetDirectory -ChildPath ($sourceDir + '\' +  $fileToCopy.Name)
 
             $imageFilePath = Split-Path -Path $fileToCopy.FullName
-            
+
             # Remove the older version one if found
             $destinationDir = Split-Path -Path $destinationFile
             Remove-Item -Path $destinationDir -Recurse -Force  -ErrorAction SilentlyContinue
             New-Item -Path $destinationDir -ItemType Directory -Force | Out-Null
-            
+
             Copy-Item -Path $fileToCopy.FullName -Destination $destinationFile -Force
             Log("Copied: $($fileToCopy.FullName) -> $destinationFile");
-            
+
             $zippedFileName = $fileToCopy.Name
             $cfgFileName = "$zippedFileName.config.json"
             $cfgFile = Join-Path -Path $imageFilePath -ChildPath $cfgFileName
@@ -114,7 +117,7 @@ foreach ($product in $products) {
                 Log("Image: $fileToCopy.FullName has been pushed to blob storage successfully.")
                 # update the version file
                 $index = "${product}_${tag}"
-                
+
                 Log("Update $index version to $version")
                 $fileContent =  Get-Content -Path $versionPath
 
@@ -143,7 +146,7 @@ foreach ($product in $products) {
         }
         else {
             Log("No images have been found in recent builds for $sourceDir")
-        } 
+        }
     }
 
 }

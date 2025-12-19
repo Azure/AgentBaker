@@ -10,8 +10,7 @@ if [ "$version" = "activebranch" ]; then
     TAGs=("latest")
     dockerfile="buildxdocker_active"
 else
-    #TODO: add the support for 2025
-    TAGs=("ltsc2019" "ltsc2022" "ltsc2025")
+    TAGs=("ltsc2019" "ltsc2022" "ltsc2025" "ltsc2025lt")
     dockerfile="buildxdocker"
 fi
 
@@ -31,9 +30,9 @@ for TAG in "${TAGs[@]}"; do
     # Loop through editions
     for EDITION in "${EDITIONs[@]}"; do
         echo $TAG, $EDITION
-        
+
         docker buildx prune -af
-        
+
         #check the os version info for the build image
         # Build the Docker image
         docker buildx build \

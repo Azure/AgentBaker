@@ -156,7 +156,8 @@ stages:
               go install -v github.com/distribution/distribution/v3/cmd/registry@latest > $null 2>&1
               & "$env:GOBIN\registry" --version
 
-              $products = @("ws2025","ws2022","ws2019")
+              $products = @("ws2025lt","ws2025","ws2022","ws2019")
+              # $products = @("ws2025lt")
               $productMap = @{}
               foreach ($product in $products) {
                 $productMap[$product] = "$path/$product/ServerDatacenterCore"
@@ -184,7 +185,7 @@ stages:
           kustoUrls: "https://wccttest.eastus.kusto.windows.net:443?DatabaseName=wccttest"
           connectedServiceARM: 'agentbaker_kusto'
           continueOnError: false
-        displayName: Publish wcct container info into Kusto
+        displayName: Publish windows container info into Kusto
 - stage: crossbuild_container_images
   jobs:
   - job: run

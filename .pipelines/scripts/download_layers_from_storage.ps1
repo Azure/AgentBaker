@@ -5,7 +5,7 @@ param (
 
 function Log {
     param (
-        [string] 
+        [string]
         $text
     )
 
@@ -13,34 +13,36 @@ function Log {
         "$(Get-Date)> $text" | Tee-Object -FilePath $LOGFILEPATH -Append
     } else {
         Write-Host ("$(Get-Date)> $text")
-    } 
+    }
 }
 
 Push-Location .
 $path = $env:root
 Set-Location $path
 
-$products = @("ws2025","ws2022","ws2019")
+$products = @("ws2025lt","ws2025","ws2022","ws2019")
+#$products = @("ws2025lt")
 
 # TODO: add the clean up logic but remember to keep the following
-# They are from the folder of 
+# They are from the folder of
 # \\ntdev\release\ge_release_svc_refresh
 # \\ntdev\release\fe_release_svc_refresh
 # \\ntdev\release\rs5_release_svc_refresh
 # this will only for the reference purpose, we will rename them to be Base_serverDatacentercore.tar.gz in the storage container
 # To avoid it from being cleaned up from the clean up script
 $drops= @{
+    "ws2025lt" = ""
     "ws2025" = "CBaseOs_ge_release_svc_refresh_26100.2605.241208-2210_amd64fre_ServerDatacenterCore_ltsc_en-us_vl.tar.gz"
     "ws2022" = "CBaseOs_fe_release_svc_refresh_20348.2700.240905-2338_amd64fre_ServerDatacenterCore_ltsc_en-us_vl.tar.gz"
     "ws2019" = "CBaseOs_rs5_release_svc_refresh_17763.6293.240906-0050_amd64fre_ServerDatacenterCore_en-us.tar.gz"
   }
-  
+
 foreach ($product in $products) {
     Log("QUERYING PRODUCT - {0}" -f $product)
     Remove-Item -Path $product -Recurse -Force  -ErrorAction SilentlyContinue
     New-Item -Path $product -ItemType Directory -Force | Out-Null
     Set-Location $product
-    
+
     # We only download the sererdatacentercore, the nano server is download and exported in export_nano_images.ps1
     # foreach($edition in $env:editions) {
     foreach($edition in @("ServerDatacenterCore")) {
