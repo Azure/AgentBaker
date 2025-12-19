@@ -957,36 +957,5 @@ extractAndCacheCoreDnsBinary
 rm -f ./azcopy # cleanup immediately after usage will return in two downloads
 echo "install-dependencies step completed successfully"
 
-# Collect grid compatibility data (placeholder for now - will be extended later)
-collect_grid_compatibility_data() {
-  if [ -z "${GRID_COMPATIBILITY_DATA_FILE}" ] ; then
-    return
-  fi
-
-  # Create basic grid compatibility data structure
-  # This is scaffolding - the actual Kusto query and analysis will be added later
-  local compatibility_data=$(jq -n \
-    --arg os "${OS}" \
-    --arg os_version "${OS_VERSION}" \
-    --arg cpu_arch "${CPU_ARCH}" \
-    --arg timestamp "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
-    --arg feature_flags "${FEATURE_FLAGS:-}" \
-    '{
-      "grid_compatibility_check": {
-        "timestamp": $timestamp,
-        "os": $os,
-        "os_version": $os_version,
-        "cpu_architecture": $cpu_arch,
-        "feature_flags": $feature_flags,
-        "compatibility_status": "data_collected",
-        "kusto_query_placeholder": "SELECT * FROM GridCompatibility WHERE timestamp > ago(1d)"
-      }
-    }')
-
-  echo "${compatibility_data}" > "${GRID_COMPATIBILITY_DATA_FILE}"
-  chmod 755 "${GRID_COMPATIBILITY_DATA_FILE}"
-}
-
-collect_grid_compatibility_data
 capture_benchmark "${SCRIPT_NAME}_overall" true
 process_benchmarks
