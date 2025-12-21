@@ -423,23 +423,24 @@ func Test_AzureLinuxV2_CustomSysctls(t *testing.T) {
 }
 
 // Returns config for the 'gpu' E2E scenario
-func Test_AzureLinuxV2_GPU(t *testing.T) {
+func Test_AzureLinuxV3_GPU(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "Tests that a GPU-enabled node using a AzureLinuxV2 (CgroupV2) VHD can be properly bootstrapped",
+		Description: "Tests that a GPU-enabled node using a AzureLinuxV3 (CgroupV2) VHD can be properly bootstrapped",
 		Tags: Tags{
 			GPU: true,
 		},
 		Config: Config{
 			Cluster: ClusterKubenet,
-			VHD:     config.VHDAzureLinuxV2Gen2,
+			VHD:     config.VHDAzureLinuxV3Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.AgentPoolProfile.VMSize = "Standard_NC6s_v3"
+				nbc.AgentPoolProfile.VMSize = "Standard_ND96isr_H100_v5"
 				nbc.ConfigGPUDriverIfNeeded = true
 				nbc.EnableGPUDevicePluginIfNeeded = false
 				nbc.EnableNvidia = true
+				nbc.GPUInstanceProfile = "MIG1g"
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
+				vmss.SKU.Name = to.Ptr("Standard_ND96isr_H100_v5")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 			},
