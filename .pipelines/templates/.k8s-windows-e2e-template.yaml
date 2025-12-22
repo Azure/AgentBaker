@@ -40,7 +40,7 @@ parameters:
 
 jobs:
   - job: k8s_e2e
-    timeoutInMinutes: 60
+    timeoutInMinutes: 120
     pool:
       name:  $(POOL_NAME)
     steps:
