@@ -232,7 +232,7 @@ EOF
 
     # Update DNF cache for the new repository
     echo "Updating DNF cache for local repository"
-    dnf makecache --disablerepo='*' --enablerepo="${repo_name}" || {
+    dnf_makecache 6 10 30 --disablerepo='*' --enablerepo="${repo_name}" || {
         echo "Failed to update DNF cache for local repository"
         rm -f "${repo_file}"
         return 1
