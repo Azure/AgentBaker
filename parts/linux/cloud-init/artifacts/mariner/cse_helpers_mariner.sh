@@ -11,6 +11,10 @@ aptmarkWALinuxAgent() {
 }
 
 dnf_makecache() {
+    _dnf_makecache 10 5 600
+}
+
+_dnf_makecache() {
     retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
     dnf_makecache_output=/tmp/dnf-makecache.out
     for i in $(seq 1 $retries); do
@@ -35,7 +39,7 @@ dnf_install() {
             sleep "$wait_sleep"
             case " $* " in
                 *" --disablerepo "*) ;;    # skip dnf_makecache when --disablerepo is present
-                *) dnf_makecache 10 5 $timeout ;;
+                *) dnf_makecache ;;
             esac
         fi
     done
