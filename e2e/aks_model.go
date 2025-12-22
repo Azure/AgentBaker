@@ -175,6 +175,16 @@ func getBaseClusterModel(clusterName, location, k8sSystemPoolSKU string) *armcon
 					Enabled: to.Ptr(false),
 				},
 			},
+			LinuxProfile: &armcontainerservice.LinuxProfile{
+				AdminUsername: to.Ptr("azureuser"),
+				SSH: &armcontainerservice.SSHConfiguration{
+					PublicKeys: []*armcontainerservice.SSHPublicKey{
+						{
+							KeyData: to.Ptr(string(config.SysSSHPublicKey)),
+						},
+					},
+				},
+			},
 		},
 		Identity: &armcontainerservice.ManagedClusterIdentity{
 			Type: to.Ptr(armcontainerservice.ResourceIdentityTypeSystemAssigned),

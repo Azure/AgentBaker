@@ -3,20 +3,39 @@ package e2e
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"fmt"
+	"net"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strconv"
 	"strings"
+	"sync"
+	"sync/atomic"
+	"syscall"
 	"time"
 
 	"github.com/Azure/agentbaker/e2e/config"
+	scp "github.com/bramvdbogaerde/go-scp"
 	"github.com/google/uuid"
+	"golang.org/x/crypto/ssh"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/remotecommand"
 )
 
+var bufferPool = sync.Pool{
+	New: func() any {
+		return new(bytes.Buffer)
+	},
+}
+
+var freePort int64 = 30000
+
 type podExecResult struct {
 	exitCode       string
-	stderr, stdout *bytes.Buffer
+	stderr, stdout string
 }
 
 func (r podExecResult) String() string {
@@ -27,7 +46,7 @@ func (r podExecResult) String() string {
 ----------------------------------- begin stdout -----------------------------------,
 %s
 ----------------------------------- end stdout ------------------------------------
-`, r.exitCode, r.stderr.String(), r.stdout.String())
+`, r.exitCode, r.stderr, r.stdout)
 }
 
 func sshKeyName(vmPrivateIP string) string {
@@ -43,7 +62,214 @@ func quoteForBash(command string) string {
 	return fmt.Sprintf("'%s'", strings.ReplaceAll(command, "'", "'\"'\"'"))
 }
 
-func execScriptOnVm(ctx context.Context, s *Scenario, vmPrivateIP, jumpboxPodName string, script string) (*podExecResult, error) {
+func waitForPort(port string, timeout time.Duration) error {
+	deadline := time.Now().Add(timeout)
+
+	for time.Now().Before(deadline) {
+		conn, err := net.DialTimeout(
+			"tcp",
+			fmt.Sprintf("127.0.0.1:%s", port),
+			time.Second,
+		)
+		if err == nil {
+			conn.Close()
+			return nil
+		}
+		time.Sleep(250 * time.Millisecond)
+	}
+
+	return fmt.Errorf("port %s not ready", port)
+}
+
+func findFreeTCPPort(port string) error {
+	ln, err := net.Listen("tcp", "127.0.0.1:"+port)
+	if err != nil {
+		return err
+	}
+	ln.Close()
+
+	return nil
+}
+
+func startBastionTunnel(
+	ctx context.Context,
+	bastionName,
+	bastionResourceGroup,
+	vmID string,
+) (string, int, error) {
+
+	deadline := time.Now().Add(5 * time.Second)
+	var err error
+	var localPort string
+	for time.Now().Before(deadline) {
+		atomic.AddInt64(&freePort, 1)
+		localPort = strconv.FormatInt(freePort, 10)
+		err = findFreeTCPPort(localPort)
+		if err == nil {
+			break
+		}
+		select {
+		case <-time.After(50 * time.Millisecond):
+			// Continue to next iteration
+		case <-ctx.Done():
+			return "", 0, fmt.Errorf("context canceled: %w", ctx.Err())
+		}
+	}
+	if err != nil {
+		return "", 0, fmt.Errorf("failed to get free tcp port: %v", err)
+	}
+
+	cmd := exec.Command(
+		"az",
+		"network", "bastion", "tunnel",
+		"--name", bastionName,
+		"--resource-group", bastionResourceGroup,
+		"--target-resource-id", vmID,
+		"--resource-port", "22",
+		"--port", localPort,
+	)
+
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Start(); err != nil {
+		cleanupBastionTunnel(localPort, cmd.Process.Pid)
+		return "", 0, fmt.Errorf("failed to start tunnel: %v", err)
+	}
+
+	if err := waitForPort(localPort, 30*time.Second); err != nil {
+		cleanupBastionTunnel(localPort, cmd.Process.Pid)
+		return "", 0, fmt.Errorf("failed to wait for port to be ready: %v", err)
+	}
+
+	return localPort, cmd.Process.Pid, nil
+}
+
+func cleanupBastionTunnel(localPort string, pid int) {
+	// We have to do this because az network tunnel creates a new detached process for tunnel
+	if pid != 0 {
+		_ = syscall.Kill(-pid, syscall.SIGINT)
+	}
+	time.Sleep(1 * time.Second)
+	if pid != 0 {
+		_ = syscall.Kill(-pid, syscall.SIGKILL)
+	}
+	if localPort != "" {
+		_ = exec.Command("sh", "-c", fmt.Sprintf("lsof -ti tcp:%s | xargs kill -9", localPort)).Run()
+	}
+}
+
+func sshClientConfig(user string, privateKey []byte) (*ssh.ClientConfig, error) {
+	signer, err := ssh.ParsePrivateKey(privateKey)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ssh.ClientConfig{
+		User: user,
+		Auth: []ssh.AuthMethod{
+			ssh.PublicKeys(signer),
+		},
+		HostKeyCallback: func(hostname string, remote net.Addr, key ssh.PublicKey) error {
+			return nil
+		}, // same as StrictHostKeyChecking=no
+		Timeout: 5 * time.Second,
+	}, nil
+}
+
+func runSSHCommand(
+	ctx context.Context,
+	port,
+	command string,
+) (*podExecResult, error) {
+	return runSSHCommandWithPrivateKeyFile(ctx, port, command, config.VMSSHPrivateKey)
+}
+
+func copyScriptToRemoteIfRequired(ctx context.Context, client *ssh.Client, command string) (string, error) {
+	if !strings.Contains(command, "\n") {
+		return command, nil
+	}
+
+	randBytes := make([]byte, 16)
+	rand.Read(randBytes)
+	tmpFileName := fmt.Sprintf("remote-script-%x.sh", randBytes)
+
+	remotePath := filepath.Join("/home/azureuser", tmpFileName)
+
+	scpClient, err := scp.NewClientBySSH(client)
+	if err != nil {
+		return "", err
+	}
+	defer scpClient.Close()
+
+	copyCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	return remotePath, scpClient.Copy(copyCtx,
+		strings.NewReader(command),
+		remotePath,
+		"0755",
+		int64(len(command)))
+}
+
+func runSSHCommandWithPrivateKeyFile(
+	ctx context.Context,
+	port,
+	command string,
+	sshPrivateKey []byte,
+) (*podExecResult, error) {
+	config, err := sshClientConfig("azureuser", sshPrivateKey)
+	if err != nil {
+		return nil, err
+	}
+
+	addr := fmt.Sprintf("%s:%s", "localhost", port)
+	client, err := ssh.Dial("tcp", addr, config)
+	if err != nil {
+		return nil, err
+	}
+	defer client.Close()
+
+	command, err = copyScriptToRemoteIfRequired(ctx, client, command)
+	if err != nil {
+		return nil, err
+	}
+
+	session, err := client.NewSession()
+	if err != nil {
+		return nil, err
+	}
+	defer session.Close()
+
+	stdout := bufferPool.Get().(*bytes.Buffer)
+	stderr := bufferPool.Get().(*bytes.Buffer)
+	stdout.Reset()
+	stderr.Reset()
+
+	defer bufferPool.Put(stdout)
+	defer bufferPool.Put(stderr)
+	session.Stdout = stdout
+	session.Stderr = stderr
+
+	err = session.Run(command)
+
+	exitCode := 0
+	if err != nil {
+		if exitErr, ok := err.(*ssh.ExitError); ok {
+			exitCode = exitErr.ExitStatus()
+		} else {
+			return nil, err // real SSH failure
+		}
+	}
+
+	return &podExecResult{
+		exitCode: strconv.Itoa(exitCode),
+		stdout:   stdout.String(),
+		stderr:   stderr.String(),
+	}, nil
+}
+
+func execScriptOnVm(ctx context.Context, s *Scenario, vm *ScenarioVM, jumpboxPodName string, script string) (*podExecResult, error) {
 	// Assuming uploadSSHKey has been called before this function
 	s.T.Helper()
 	/*
@@ -53,36 +279,33 @@ func execScriptOnVm(ctx context.Context, s *Scenario, vmPrivateIP, jumpboxPodNam
 		* Then we scp the script to the node under test.
 		* Then we execute the script using an interpreter (powershell or bash) based on the OS of the node.
 	*/
-	identifier := uuid.New().String()
-	var scriptFileName, remoteScriptFileName, interpreter string
 
 	if s.IsWindows() {
+		identifier := uuid.New().String()
+		var scriptFileName, remoteScriptFileName, interpreter string
 		interpreter = "powershell"
 		scriptFileName = fmt.Sprintf("script_file_%s.ps1", identifier)
 		remoteScriptFileName = fmt.Sprintf("c:/%s", scriptFileName)
-	} else {
-		interpreter = "bash"
-		scriptFileName = fmt.Sprintf("script_file_%s.sh", identifier)
-		remoteScriptFileName = scriptFileName
+		steps := []string{
+			"set -x",
+			fmt.Sprintf("echo %[1]s > %[2]s", quoteForBash(script), scriptFileName),
+			fmt.Sprintf("chmod 0755 %s", scriptFileName),
+			fmt.Sprintf(`scp -i %[1]s -o PasswordAuthentication=no -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o ConnectTimeout=5 %[3]s azureuser@%[2]s:%[4]s`, sshKeyName(vm.PrivateIP), vm.PrivateIP, scriptFileName, remoteScriptFileName),
+			fmt.Sprintf("%s %s %s", sshString(vm.PrivateIP), interpreter, remoteScriptFileName),
+		}
+
+		joinedSteps := strings.Join(steps, " && ")
+
+		kube := s.Runtime.Cluster.Kube
+		execResult, err := execOnPrivilegedPod(ctx, kube, defaultNamespace, jumpboxPodName, joinedSteps)
+		if err != nil {
+			return nil, fmt.Errorf("error executing command on pod: %w", err)
+		}
+
+		return execResult, nil
 	}
 
-	steps := []string{
-		"set -x",
-		fmt.Sprintf("echo %[1]s > %[2]s", quoteForBash(script), scriptFileName),
-		fmt.Sprintf("chmod 0755 %s", scriptFileName),
-		fmt.Sprintf(`scp -i %[1]s -o PasswordAuthentication=no -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o ConnectTimeout=5 %[3]s azureuser@%[2]s:%[4]s`, sshKeyName(vmPrivateIP), vmPrivateIP, scriptFileName, remoteScriptFileName),
-		fmt.Sprintf("%s %s %s", sshString(vmPrivateIP), interpreter, remoteScriptFileName),
-	}
-
-	joinedSteps := strings.Join(steps, " && ")
-
-	kube := s.Runtime.Cluster.Kube
-	execResult, err := execOnPrivilegedPod(ctx, kube, defaultNamespace, jumpboxPodName, joinedSteps)
-	if err != nil {
-		return nil, fmt.Errorf("error executing command on pod: %w", err)
-	}
-
-	return execResult, nil
+	return runSSHCommand(ctx, vm.TunnelPort, script)
 }
 
 func execOnPrivilegedPod(ctx context.Context, kube *Kubeclient, namespace string, podName string, bashCommand string) (*podExecResult, error) {
@@ -175,8 +398,8 @@ func attemptExecOnPod(ctx context.Context, kube *Kubeclient, namespace, podName 
 
 	return &podExecResult{
 		exitCode: exitCode,
-		stdout:   &stdout,
-		stderr:   &stderr,
+		stdout:   stdout.String(),
+		stderr:   stderr.String(),
 	}, nil
 }
 
@@ -199,7 +422,7 @@ func unprivilegedCommandArray() []string {
 func uploadSSHKey(ctx context.Context, s *Scenario, vmPrivateIP string) error {
 	s.T.Helper()
 	steps := []string{
-		fmt.Sprintf("echo '%[1]s' > %[2]s", string(SSHKeyPrivate), sshKeyName(vmPrivateIP)),
+		fmt.Sprintf("echo '%[1]s' > %[2]s", string(config.VMSSHPrivateKey), sshKeyName(vmPrivateIP)),
 		fmt.Sprintf("chmod 0600 %s", sshKeyName(vmPrivateIP)),
 	}
 	joinedSteps := strings.Join(steps, " && ")

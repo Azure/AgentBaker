@@ -28,9 +28,8 @@ import (
 )
 
 var (
-	logf                        = toolkit.Logf
-	log                         = toolkit.Log
-	SSHKeyPrivate, SSHKeyPublic = mustGetNewRSAKeyPair()
+	logf = toolkit.Logf
+	log  = toolkit.Log
 )
 
 // it's important to share context between tests to allow graceful shutdown
@@ -216,12 +215,12 @@ func runScenario(t testing.TB, s *Scenario) {
 	}
 
 	// use shorter timeout for faster feedback on test failures
-	ctx, cancel := context.WithTimeout(ctx, config.Config.TestTimeoutVMSS)
+	vmssCtx, cancel := context.WithTimeout(ctx, config.Config.TestTimeoutVMSS)
 	defer cancel()
-	s.Runtime.VM = prepareAKSNode(ctx, s)
+	s.Runtime.VM = prepareAKSNode(vmssCtx, s)
 
 	t.Logf("Choosing the private ACR %q for the vm validation", config.GetPrivateACRName(s.Tags.NonAnonymousACR, s.Location))
-	validateVM(ctx, s)
+	validateVM(vmssCtx, s)
 }
 
 func prepareAKSNode(ctx context.Context, s *Scenario) *ScenarioVM {
@@ -246,7 +245,7 @@ func prepareAKSNode(ctx context.Context, s *Scenario) *ScenarioVM {
 		s.AKSNodeConfigMutator(nodeconfig)
 		s.Runtime.AKSNodeConfig = nodeconfig
 	}
-	publicKeyData := datamodel.PublicKey{KeyData: string(SSHKeyPublic)}
+	publicKeyData := datamodel.PublicKey{KeyData: string(config.VMSSHPublicKey)}
 
 	// check it all.
 	if s.Runtime.NBC != nil && s.Runtime.NBC.ContainerService != nil && s.Runtime.NBC.ContainerService.Properties != nil && s.Runtime.NBC.ContainerService.Properties.LinuxProfile != nil {
@@ -483,21 +482,21 @@ func addTrustedLaunchToVMSS(properties *armcompute.VirtualMachineScaleSetPropert
 	return properties
 }
 
-func createVMExtensionLinuxAKSNode(location *string) (*armcompute.VirtualMachineScaleSetExtension, error) {
+func createVMExtensionLinuxAKSNode(_ *string) (*armcompute.VirtualMachineScaleSetExtension, error) {
 	// Default to "westus" if location is nil.
-	region := "westus"
-	if location != nil {
-		region = *location
-	}
+	// region := "westus"
+	// if location != nil {
+	// 	region = *location
+	// }
 
 	extensionName := "Compute.AKS.Linux.AKSNode"
 	publisher := "Microsoft.AKS"
-
+	extensionVersion := "1.374"
 	// NOTE (@surajssd): If this is gonna be called multiple times, then find a way to cache the latest version.
-	extensionVersion, err := config.Azure.GetLatestVMExtensionImageVersion(context.TODO(), region, extensionName, publisher)
-	if err != nil {
-		return nil, fmt.Errorf("getting latest VM extension image version: %v", err)
-	}
+	// extensionVersion, err := config.Azure.GetLatestVMExtensionImageVersion(context.TODO(), region, extensionName, publisher)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("getting latest VM extension image version: %v", err)
+	// }
 
 	return &armcompute.VirtualMachineScaleSetExtension{
 		Name: to.Ptr(extensionName),
@@ -720,16 +719,21 @@ func validateSSHConnectivity(ctx context.Context, s *Scenario) error {
 
 // attemptSSHConnection performs a single SSH connectivity check
 func attemptSSHConnection(ctx context.Context, s *Scenario) error {
-	connectionTest := fmt.Sprintf("%s echo 'SSH_CONNECTION_OK'", sshString(s.Runtime.VM.PrivateIP))
-	connectionResult, err := execOnPrivilegedPod(ctx, s.Runtime.Cluster.Kube, defaultNamespace, s.Runtime.Cluster.DebugPod.Name, connectionTest)
+	var connectionResult *podExecResult
+	var err error
+	if s.IsWindows() {
+		connectionTest := fmt.Sprintf("%s echo 'SSH_CONNECTION_OK'", sshString(s.Runtime.VM.PrivateIP))
+		connectionResult, err = execOnPrivilegedPod(ctx, s.Runtime.Cluster.Kube, defaultNamespace, s.Runtime.Cluster.DebugPod.Name, connectionTest)
+	} else {
+		connectionResult, err = runSSHCommand(ctx, s.Runtime.VM.TunnelPort, "echo 'SSH_CONNECTION_OK'")
+	}
 
-	if err != nil || !strings.Contains(connectionResult.stdout.String(), "SSH_CONNECTION_OK") {
-		output := ""
-		if connectionResult != nil {
-			output = connectionResult.String()
-		}
+	if err != nil {
+		return fmt.Errorf("SSH connection to %s failed: %s", s.Runtime.VM.PrivateIP, err)
+	}
 
-		return fmt.Errorf("SSH connection to %s failed: %s: %s", s.Runtime.VM.PrivateIP, err, output)
+	if !strings.Contains(connectionResult.stdout, "SSH_CONNECTION_OK") {
+		return fmt.Errorf("SSH_CONNECTION_OK not found on %s: %s", s.Runtime.VM.PrivateIP, connectionResult.String())
 	}
 
 	s.T.Logf("SSH connectivity to %s verified successfully", s.Runtime.VM.PrivateIP)
