@@ -355,7 +355,7 @@ func baseTemplateLinux(t testing.TB, location string, k8sVersion string, arch st
 						NodeStatusUpdateFrequency:         "",
 						LoadBalancerSku:                   "Standard",
 						ExcludeMasterFromStandardLB:       nil,
-						AzureCNIURLLinux:                  "https://packages.aks.azure.com/azure-cni/v1.1.8/binaries/azure-vnet-cni-linux-amd64-v1.1.8.tgz",
+						AzureCNIURLLinux:                  "https://packages.aks.azure.com/azure-cni/v1.6.21/binaries/azure-vnet-cni-linux-amd64-v1.6.21.tgz",
 						AzureCNIURLARM64Linux:             "",
 						AzureCNIURLWindows:                "",
 						MaximumLoadBalancerRuleCount:      250,

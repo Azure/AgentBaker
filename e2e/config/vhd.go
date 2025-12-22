@@ -323,9 +323,7 @@ func GetRandomLinuxAMD64VHD() *Image {
 	vhds := []*Image{
 		VHDUbuntu2404Gen2Containerd,
 		VHDUbuntu2204Gen2Containerd,
-		VHDAzureLinuxV2Gen2,
 		VHDAzureLinuxV3Gen2,
-		VHDCBLMarinerV2Gen2,
 	}
 
 	// Return a random VHD from the list

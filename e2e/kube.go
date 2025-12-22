@@ -72,10 +72,10 @@ func getClusterKubeClient(ctx context.Context, resourceGroupName, clusterName st
 	}, nil
 }
 
-func (k *Kubeclient) WaitUntilPodRunning(ctx context.Context, namespace string, labelSelector string, fieldSelector string) (*corev1.Pod, error) {
+func (k *Kubeclient) WaitUntilPodRunningWithRetry(ctx context.Context, namespace string, labelSelector string, fieldSelector string, maxRetries int) (*corev1.Pod, error) {
 	var pod *corev1.Pod
 
-	err := wait.PollUntilContextTimeout(ctx, time.Second, 5*time.Minute, true, func(ctx context.Context) (bool, error) {
+	err := wait.PollUntilContextTimeout(ctx, 3*time.Second, 5*time.Minute, true, func(ctx context.Context) (bool, error) {
 		pods, err := k.Typed.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{
 			FieldSelector: fieldSelector,
 			LabelSelector: labelSelector,
@@ -103,7 +103,13 @@ func (k *Kubeclient) WaitUntilPodRunning(ctx context.Context, namespace string, 
 		if err == nil {
 			for _, event := range events.Items {
 				if event.Reason == "FailedCreatePodSandBox" {
-					return false, fmt.Errorf("pod %s has FailedCreatePodSandBox event: %s", pod.Name, event.Message)
+					maxRetries--
+					sandboxErr := fmt.Errorf("pod %s has FailedCreatePodSandBox event: %s", pod.Name, event.Message)
+					if maxRetries <= 0 {
+						return false, sandboxErr
+					}
+					k.Typed.CoreV1().Pods(pod.Namespace).Delete(ctx, pod.Name, metav1.DeleteOptions{GracePeriodSeconds: to.Ptr(int64(0))})
+					return false, nil // Keep polling
 				}
 			}
 		}
@@ -131,6 +137,10 @@ func (k *Kubeclient) WaitUntilPodRunning(ctx context.Context, namespace string, 
 	})
 
 	return pod, err
+}
+
+func (k *Kubeclient) WaitUntilPodRunning(ctx context.Context, namespace string, labelSelector string, fieldSelector string) (*corev1.Pod, error) {
+	return k.WaitUntilPodRunningWithRetry(ctx, namespace, labelSelector, fieldSelector, 0)
 }
 
 func (k *Kubeclient) WaitUntilNodeReady(ctx context.Context, t testing.TB, vmssName string) string {
@@ -189,18 +199,13 @@ func (k *Kubeclient) WaitUntilNodeReady(ctx context.Context, t testing.TB, vmssN
 	return node.Name
 }
 
-// GetHostNetworkDebugPod returns a pod that's a member of the 'debug' daemonset, running on an aks-nodepool node.
-func (k *Kubeclient) GetHostNetworkDebugPod(ctx context.Context) (*corev1.Pod, error) {
-	return k.WaitUntilPodRunning(ctx, defaultNamespace, fmt.Sprintf("app=%s", hostNetworkDebugAppLabel), "")
-}
-
 // GetPodNetworkDebugPodForNode returns a pod that's a member of the 'debugnonhost' daemonset running in the cluster - this will return
 // the name of the pod that is running on the node created for specifically for the test case which is running validation checks.
 func (k *Kubeclient) GetPodNetworkDebugPodForNode(ctx context.Context, kubeNodeName string) (*corev1.Pod, error) {
 	if kubeNodeName == "" {
 		return nil, fmt.Errorf("kubeNodeName must not be empty")
 	}
-	return k.WaitUntilPodRunning(ctx, defaultNamespace, fmt.Sprintf("app=%s", podNetworkDebugAppLabel), "spec.nodeName="+kubeNodeName)
+	return k.WaitUntilPodRunningWithRetry(ctx, defaultNamespace, fmt.Sprintf("app=%s", podNetworkDebugAppLabel), "spec.nodeName="+kubeNodeName, 3)
 }
 
 func logPodDebugInfo(ctx context.Context, kube *Kubeclient, pod *corev1.Pod) {
