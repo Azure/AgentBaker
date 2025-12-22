@@ -157,7 +157,7 @@ var ClusterKubenet = cachedFunc(clusterKubenet)
 
 // clusterKubenet creates a basic cluster using kubenet networking
 func clusterKubenet(ctx context.Context, request ClusterRequest) (*Cluster, error) {
-	return prepareCluster(ctx, getKubenetClusterModel("abe2e-kubenet-v3", request.Location, request.K8sSystemPoolSKU), false, false)
+	return prepareCluster(ctx, getKubenetClusterModel("abe2e-kubenet-v4", request.Location, request.K8sSystemPoolSKU), false, false)
 }
 
 var ClusterKubenetAirgap = cachedFunc(clusterKubenetAirgap)

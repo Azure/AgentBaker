@@ -40,6 +40,7 @@ import (
 type AzureClient struct {
 	AKS                       *armcontainerservice.ManagedClustersClient
 	AzureFirewall             *armnetwork.AzureFirewallsClient
+	BastionHosts              *armnetwork.BastionHostsClient
 	Blob                      *azblob.Client
 	StorageContainers         *armstorage.BlobContainersClient
 	CacheRulesClient          *armcontainerregistry.CacheRulesClient
@@ -154,6 +155,16 @@ func NewAzureClient() (*AzureClient, error) {
 	cloud.PublicIPAddresses, err = armnetwork.NewPublicIPAddressesClient(Config.SubscriptionID, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("create public ip addresses client: %w", err)
+	}
+
+	cloud.BastionHosts, err = armnetwork.NewBastionHostsClient(Config.SubscriptionID, credential, opts)
+	if err != nil {
+		return nil, fmt.Errorf("create bastion hosts client: %w", err)
+	}
+
+	cloud.BastionHosts, err = armnetwork.NewBastionHostsClient(Config.SubscriptionID, credential, opts)
+	if err != nil {
+		return nil, fmt.Errorf("create bastion hosts client: %w", err)
 	}
 
 	cloud.RegistriesClient, err = armcontainerregistry.NewRegistriesClient(Config.SubscriptionID, credential, opts)

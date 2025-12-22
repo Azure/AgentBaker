@@ -140,10 +140,11 @@ type ScenarioRuntime struct {
 }
 
 type ScenarioVM struct {
-	KubeName  string
-	VMSS      *armcompute.VirtualMachineScaleSet
-	VM        *armcompute.VirtualMachineScaleSetVM
-	PrivateIP string
+	KubeName   string
+	VMSS       *armcompute.VirtualMachineScaleSet
+	VM         *armcompute.VirtualMachineScaleSetVM
+	PrivateIP  string
+	TunnelPort string
 }
 
 // Config represents the configuration of an AgentBaker E2E scenario.

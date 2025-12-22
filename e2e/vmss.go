@@ -2,12 +2,12 @@ package e2e
 
 import (
 	"context"
+
 	crand "crypto/rand"
-	"crypto/rsa"
-	"crypto/x509"
+
 	"encoding/base64"
 	"encoding/json"
-	"encoding/pem"
+
 	"errors"
 	"fmt"
 	"io"
@@ -27,7 +27,6 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/crypto/ssh"
 )
 
 const (
@@ -278,13 +277,20 @@ func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*Sc
 		return vm, fmt.Errorf("failed to get VM private IP address: %w", err)
 	}
 
+	vm.TunnelPort, err = startBastionTunnel(ctx, *s.Runtime.Cluster.Bastion.Name, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, *vm.VM.ID)
+	if err != nil {
+		return vm, fmt.Errorf("failed to start bastion tunnel: %w", err)
+	}
+
 	s.T.Cleanup(func() {
-		cleanupVMSS(ctx, s, vm.PrivateIP)
+		cleanupVMSS(ctx, s, vm)
 	})
 
-	err = uploadSSHKey(ctx, s, vm.PrivateIP)
-	if err != nil {
-		return vm, fmt.Errorf("failed to upload ssh key: %w", err)
+	if s.IsWindows() {
+		err = uploadSSHKey(ctx, s, vm.PrivateIP)
+		if err != nil {
+			return vm, fmt.Errorf("failed to upload ssh key: %w", err)
+		}
 	}
 
 	vmssResp, err := operation.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
@@ -299,9 +305,10 @@ func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*Sc
 	}
 
 	return &ScenarioVM{
-		VMSS:      &vmssResp.VirtualMachineScaleSet,
-		PrivateIP: vm.PrivateIP,
-		VM:        vm.VM,
+		VMSS:       &vmssResp.VirtualMachineScaleSet,
+		PrivateIP:  vm.PrivateIP,
+		VM:         vm.VM,
+		TunnelPort: vm.TunnelPort,
 	}, nil
 }
 
@@ -438,19 +445,19 @@ func skipTestIfSKUNotAvailableErr(t testing.TB, err error) {
 	}
 }
 
-func cleanupVMSS(ctx context.Context, s *Scenario, privateIP string) {
+func cleanupVMSS(ctx context.Context, s *Scenario, vm *ScenarioVM) {
 	// original context can be cancelled, but we still want to collect the logs
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Minute)
 	defer cancel()
 	defer deleteVMSS(ctx, s)
-	extractLogsFromVM(ctx, s, privateIP)
+	extractLogsFromVM(ctx, s, vm)
 }
 
-func extractLogsFromVM(ctx context.Context, s *Scenario, privateIP string) {
+func extractLogsFromVM(ctx context.Context, s *Scenario, vm *ScenarioVM) {
 	if s.IsWindows() {
 		extractLogsFromVMWindows(ctx, s)
 	} else {
-		err := extractLogsFromVMLinux(ctx, s, privateIP)
+		err := extractLogsFromVMLinux(ctx, s, vm)
 		if err != nil {
 			s.T.Logf("failed to extract logs from VM: %s", err)
 		} else {
@@ -524,7 +531,7 @@ func extractBootDiagnostics(ctx context.Context, s *Scenario) error {
 	return nil
 }
 
-func extractLogsFromVMLinux(ctx context.Context, s *Scenario, privateIP string) error {
+func extractLogsFromVMLinux(ctx context.Context, s *Scenario, vm *ScenarioVM) error {
 	syslogHandle := "syslog"
 	if s.VHD.OS == config.OSMariner || s.VHD.OS == config.OSAzureLinux {
 		syslogHandle = "messages"
@@ -551,7 +558,7 @@ func extractLogsFromVMLinux(ctx context.Context, s *Scenario, privateIP string) 
 
 	var logFiles = map[string]string{}
 	for file, sourceCmd := range commandList {
-		execResult, err := execScriptOnVm(ctx, s, privateIP, pod.Name, sourceCmd)
+		execResult, err := execScriptOnVm(ctx, s, vm, pod.Name, sourceCmd)
 		if err != nil {
 			s.T.Logf("error executing %s: %s", sourceCmd, err)
 			continue
@@ -718,7 +725,7 @@ func deleteVMSS(ctx context.Context, s *Scenario) {
 	defer cancel()
 	if config.Config.KeepVMSS {
 		s.T.Logf("vmss %q will be retained for debugging purposes, please make sure to manually delete it later", s.Runtime.VMSSName)
-		if err := writeToFile(s.T, "sshkey", string(SSHKeyPrivate)); err != nil {
+		if err := writeToFile(s.T, "sshkey", string(config.VMSSHPrivateKey)); err != nil {
 			s.T.Logf("failed to write retained vmss %s private ssh key to disk: %s", s.Runtime.VMSSName, err)
 		}
 		return
@@ -761,49 +768,6 @@ func addPodIPConfigsForAzureCNI(vmss *armcompute.VirtualMachineScaleSet, vmssNam
 	vmss.Properties.VirtualMachineProfile.NetworkProfile.NetworkInterfaceConfigurations[0].Properties.IPConfigurations =
 		append(vmssNICConfig.Properties.IPConfigurations, podIPConfigs...)
 	return nil
-}
-
-func mustGetNewRSAKeyPair() ([]byte, []byte) {
-	private, public, err := getNewRSAKeyPair()
-	if err != nil {
-		panic(fmt.Sprintf("failed to generate RSA key pair: %v", err))
-	}
-	return private, public
-}
-
-// Returns a newly generated RSA public/private key pair with the private key in PEM format.
-func getNewRSAKeyPair() (privatePEMBytes []byte, publicKeyBytes []byte, e error) {
-	privateKey, err := rsa.GenerateKey(crand.Reader, 4096)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create rsa private key: %w", err)
-	}
-
-	err = privateKey.Validate()
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to validate rsa private key: %w", err)
-	}
-
-	publicRsaKey, err := ssh.NewPublicKey(&privateKey.PublicKey)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to convert private to public key: %w", err)
-	}
-
-	publicKeyBytes = ssh.MarshalAuthorizedKey(publicRsaKey)
-
-	// Get ASN.1 DER format
-	privDER := x509.MarshalPKCS1PrivateKey(privateKey)
-
-	// pem.Block
-	privBlock := pem.Block{
-		Type:    "RSA PRIVATE KEY",
-		Headers: nil,
-		Bytes:   privDER,
-	}
-
-	// Private key in PEM format
-	privatePEMBytes = pem.EncodeToMemory(&privBlock)
-
-	return
 }
 
 func generateVMSSNameLinux(t testing.TB) string {
@@ -857,7 +821,7 @@ func getBaseVMSSModel(s *Scenario, customData, cseCmd string) armcompute.Virtual
 						SSH: &armcompute.SSHConfiguration{
 							PublicKeys: []*armcompute.SSHPublicKey{
 								{
-									KeyData: to.Ptr(string(SSHKeyPublic)),
+									KeyData: to.Ptr(string(config.VMSSHPublicKey)),
 									Path:    to.Ptr("/home/azureuser/.ssh/authorized_keys"),
 								},
 							},

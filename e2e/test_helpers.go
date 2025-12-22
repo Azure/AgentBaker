@@ -28,9 +28,8 @@ import (
 )
 
 var (
-	logf                        = toolkit.Logf
-	log                         = toolkit.Log
-	SSHKeyPrivate, SSHKeyPublic = mustGetNewRSAKeyPair()
+	logf = toolkit.Logf
+	log  = toolkit.Log
 )
 
 // it's important to share context between tests to allow graceful shutdown
@@ -246,7 +245,7 @@ func prepareAKSNode(ctx context.Context, s *Scenario) *ScenarioVM {
 		s.AKSNodeConfigMutator(nodeconfig)
 		s.Runtime.AKSNodeConfig = nodeconfig
 	}
-	publicKeyData := datamodel.PublicKey{KeyData: string(SSHKeyPublic)}
+	publicKeyData := datamodel.PublicKey{KeyData: string(config.VMSSHPublicKey)}
 
 	// check it all.
 	if s.Runtime.NBC != nil && s.Runtime.NBC.ContainerService != nil && s.Runtime.NBC.ContainerService.Properties != nil && s.Runtime.NBC.ContainerService.Properties.LinuxProfile != nil {
@@ -720,16 +719,17 @@ func validateSSHConnectivity(ctx context.Context, s *Scenario) error {
 
 // attemptSSHConnection performs a single SSH connectivity check
 func attemptSSHConnection(ctx context.Context, s *Scenario) error {
-	connectionTest := fmt.Sprintf("%s echo 'SSH_CONNECTION_OK'", sshString(s.Runtime.VM.PrivateIP))
-	connectionResult, err := execOnPrivilegedPod(ctx, s.Runtime.Cluster.Kube, defaultNamespace, s.Runtime.Cluster.DebugPod.Name, connectionTest)
+	var connectionResult *podExecResult
+	var err error
+	if s.IsWindows() {
+		connectionTest := fmt.Sprintf("%s echo 'SSH_CONNECTION_OK'", sshString(s.Runtime.VM.PrivateIP))
+		connectionResult, err = execOnPrivilegedPod(ctx, s.Runtime.Cluster.Kube, defaultNamespace, s.Runtime.Cluster.DebugPod.Name, connectionTest)
+	} else {
+		connectionResult, err = runSSHCommand(s.Runtime.VM.TunnelPort, "echo 'SSH_CONNECTION_OK'")
+	}
 
 	if err != nil || !strings.Contains(connectionResult.stdout.String(), "SSH_CONNECTION_OK") {
-		output := ""
-		if connectionResult != nil {
-			output = connectionResult.String()
-		}
-
-		return fmt.Errorf("SSH connection to %s failed: %s: %s", s.Runtime.VM.PrivateIP, err, output)
+		return fmt.Errorf("SSH connection to %s failed: %s: %s", s.Runtime.VM.PrivateIP, err, connectionResult.String())
 	}
 
 	s.T.Logf("SSH connectivity to %s verified successfully", s.Runtime.VM.PrivateIP)

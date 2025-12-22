@@ -532,7 +532,7 @@ func execOnVMForScenarioOnUnprivilegedPod(ctx context.Context, s *Scenario, cmd 
 
 func execScriptOnVMForScenario(ctx context.Context, s *Scenario, cmd string) *podExecResult {
 	s.T.Helper()
-	result, err := execScriptOnVm(ctx, s, s.Runtime.VM.PrivateIP, s.Runtime.Cluster.DebugPod.Name, cmd)
+	result, err := execScriptOnVm(ctx, s, s.Runtime.VM, s.Runtime.Cluster.DebugPod.Name, cmd)
 	require.NoError(s.T, err, "failed to execute command on VM")
 	return result
 }

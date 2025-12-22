@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/netip"
 	"strings"
 	"time"
 
@@ -17,6 +18,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization/v2"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v6"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v6"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
@@ -39,6 +41,7 @@ type Cluster struct {
 	ClusterParams   *ClusterParams
 	Maintenance     *armcontainerservice.MaintenanceConfiguration
 	DebugPod        *corev1.Pod
+	Bastion         *armnetwork.BastionHost
 }
 
 // Returns true if the cluster is configured with Azure CNI
@@ -64,6 +67,11 @@ func prepareCluster(ctx context.Context, cluster *armcontainerservice.ManagedClu
 	cluster, err := getOrCreateCluster(ctx, cluster)
 	if err != nil {
 		return nil, fmt.Errorf("get or create cluster: %w", err)
+	}
+
+	bastion, err := getOrCreateBastion(ctx, cluster)
+	if err != nil {
+		return nil, fmt.Errorf("get or create bastion: %w", err)
 	}
 
 	maintenance, err := getOrCreateMaintenanceConfiguration(ctx, cluster)
@@ -143,6 +151,7 @@ func prepareCluster(ctx context.Context, cluster *armcontainerservice.ManagedClu
 		Maintenance:     maintenance,
 		ClusterParams:   clusterParams,
 		DebugPod:        hostPod,
+		Bastion:         bastion,
 	}, nil
 }
 
@@ -468,6 +477,203 @@ func createNewMaintenanceConfiguration(ctx context.Context, cluster *armcontaine
 	}
 
 	return &maintenance, nil
+}
+
+func getOrCreateBastion(ctx context.Context, cluster *armcontainerservice.ManagedCluster) (*armnetwork.BastionHost, error) {
+	nodeRG := *cluster.Properties.NodeResourceGroup
+	bastionName := fmt.Sprintf("%s-bastion", *cluster.Name)
+
+	existing, err := config.Azure.BastionHosts.Get(ctx, nodeRG, bastionName, nil)
+	var azErr *azcore.ResponseError
+	if errors.As(err, &azErr) && azErr.StatusCode == http.StatusNotFound {
+		return createNewBastion(ctx, cluster)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get bastion %q in rg %q: %w", bastionName, nodeRG, err)
+	}
+	return &existing.BastionHost, nil
+}
+
+func createNewBastion(ctx context.Context, cluster *armcontainerservice.ManagedCluster) (*armnetwork.BastionHost, error) {
+	nodeRG := *cluster.Properties.NodeResourceGroup
+	location := *cluster.Location
+	bastionName := fmt.Sprintf("%s-bastion", *cluster.Name)
+	publicIPName := fmt.Sprintf("%s-bastion-pip", *cluster.Name)
+	publicIPName = sanitizeAzureResourceName(publicIPName)
+
+	vnet, err := getClusterVNet(ctx, nodeRG)
+	if err != nil {
+		return nil, fmt.Errorf("get cluster vnet in rg %q: %w", nodeRG, err)
+	}
+
+	// Azure Bastion requires a dedicated subnet named AzureBastionSubnet. Standard SKU (required for
+	// native client support/tunneling) requires at least a /26.
+	bastionSubnetName := "AzureBastionSubnet"
+	bastionSubnetPrefix := "10.226.0.0/26"
+	if _, err := netip.ParsePrefix(bastionSubnetPrefix); err != nil {
+		return nil, fmt.Errorf("invalid bastion subnet prefix %q: %w", bastionSubnetPrefix, err)
+	}
+
+	var bastionSubnetID string
+	bastionSubnet, subnetGetErr := config.Azure.Subnet.Get(ctx, nodeRG, vnet.name, bastionSubnetName, nil)
+	if subnetGetErr != nil {
+		var subnetAzErr *azcore.ResponseError
+		if !errors.As(subnetGetErr, &subnetAzErr) || subnetAzErr.StatusCode != http.StatusNotFound {
+			return nil, fmt.Errorf("get subnet %q in vnet %q rg %q: %w", bastionSubnetName, vnet.name, nodeRG, subnetGetErr)
+		}
+
+		logf(ctx, "creating subnet %s in VNet %s (rg %s)", bastionSubnetName, vnet.name, nodeRG)
+		subnetParams := armnetwork.Subnet{
+			Properties: &armnetwork.SubnetPropertiesFormat{
+				AddressPrefix: to.Ptr(bastionSubnetPrefix),
+			},
+		}
+		subnetPoller, err := config.Azure.Subnet.BeginCreateOrUpdate(ctx, nodeRG, vnet.name, bastionSubnetName, subnetParams, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to start creating bastion subnet: %w", err)
+		}
+		bastionSubnet, err := subnetPoller.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create bastion subnet: %w", err)
+		}
+		bastionSubnetID = *bastionSubnet.ID
+	} else {
+		bastionSubnetID = *bastionSubnet.ID
+	}
+
+	// Public IP for Bastion
+	pipParams := armnetwork.PublicIPAddress{
+		Location: to.Ptr(location),
+		SKU: &armnetwork.PublicIPAddressSKU{
+			Name: to.Ptr(armnetwork.PublicIPAddressSKUNameStandard),
+		},
+		Properties: &armnetwork.PublicIPAddressPropertiesFormat{
+			PublicIPAllocationMethod: to.Ptr(armnetwork.IPAllocationMethodStatic),
+		},
+	}
+
+	logf(ctx, "creating bastion public IP %s (rg %s)", publicIPName, nodeRG)
+	pipPoller, err := config.Azure.PublicIPAddresses.BeginCreateOrUpdate(ctx, nodeRG, publicIPName, pipParams, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to start creating bastion public IP: %w", err)
+	}
+	pipResp, err := pipPoller.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create bastion public IP: %w", err)
+	}
+	if pipResp.ID == nil {
+		return nil, fmt.Errorf("bastion public IP response missing ID")
+	}
+
+	bastion := armnetwork.BastionHost{
+		Location: to.Ptr(location),
+		SKU: &armnetwork.SKU{
+			Name: to.Ptr(armnetwork.BastionHostSKUNameStandard),
+		},
+		Properties: &armnetwork.BastionHostPropertiesFormat{
+			// Native client support is enabled via tunneling.
+			EnableTunneling: to.Ptr(true),
+			IPConfigurations: []*armnetwork.BastionHostIPConfiguration{
+				{
+					Name: to.Ptr("bastion-ipcfg"),
+					Properties: &armnetwork.BastionHostIPConfigurationPropertiesFormat{
+						Subnet: &armnetwork.SubResource{
+							ID: to.Ptr(bastionSubnetID),
+						},
+						PublicIPAddress: &armnetwork.SubResource{
+							ID: pipResp.ID,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	logf(ctx, "creating bastion %s (native client/tunneling enabled) in rg %s", bastionName, nodeRG)
+	bastionPoller, err := config.Azure.BastionHosts.BeginCreateOrUpdate(ctx, nodeRG, bastionName, bastion, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to start creating bastion: %w", err)
+	}
+	resp, err := bastionPoller.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create bastion: %w", err)
+	}
+
+	if err := verifyBastion(ctx, cluster, &resp.BastionHost); err != nil {
+		return nil, fmt.Errorf("failed to verify bastion: %w", err)
+	}
+	return &resp.BastionHost, nil
+}
+
+func verifyBastion(ctx context.Context, cluster *armcontainerservice.ManagedCluster, bastion *armnetwork.BastionHost) error {
+	nodeRG := *cluster.Properties.NodeResourceGroup
+	vmssName, err := getSystemPoolVMSSName(ctx, cluster)
+	if err != nil {
+		return err
+	}
+
+	var vmssVM *armcompute.VirtualMachineScaleSetVM
+	pager := config.Azure.VMSSVM.NewListPager(nodeRG, vmssName, nil)
+	if pager.More() {
+		page, err := pager.NextPage(ctx)
+		if err != nil {
+			return fmt.Errorf("list vmss vms for %q in rg %q: %w", vmssName, nodeRG, err)
+		}
+		if len(page.Value) > 0 {
+			vmssVM = page.Value[0]
+		}
+	}
+
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	localPort, err := startBastionTunnel(ctx, *bastion.Name, nodeRG, *vmssVM.ID)
+	if err != nil {
+		return err
+	}
+
+	result, err := runSSHCommandWithPrivateKeyFile(localPort, "uname -a", config.SysSSHPrivateKeyFileName)
+	if err != nil {
+		return err
+	}
+	if strings.Contains(result.stdout.String(), *vmssVM.Name) {
+		return nil
+	}
+	return fmt.Errorf("Executed ssh on wrong VM: %s", result.stdout.String())
+}
+
+func getSystemPoolVMSSName(ctx context.Context, cluster *armcontainerservice.ManagedCluster) (string, error) {
+	nodeRG := *cluster.Properties.NodeResourceGroup
+	var systemPoolName string
+	for _, pool := range cluster.Properties.AgentPoolProfiles {
+		if strings.EqualFold(string(*pool.Mode), "System") {
+			systemPoolName = *pool.Name
+		}
+	}
+	pager := config.Azure.VMSS.NewListPager(nodeRG, nil)
+	if pager.More() {
+		page, err := pager.NextPage(ctx)
+		if err != nil {
+			return "", fmt.Errorf("list vmss in rg %q: %w", nodeRG, err)
+		}
+		for _, vmss := range page.Value {
+			if strings.Contains(strings.ToLower(*vmss.Name), strings.ToLower(systemPoolName)) {
+				return *vmss.Name, nil
+			}
+		}
+	}
+	return "", fmt.Errorf("no matching VMSS found for system pool %q in rg %q", systemPoolName, nodeRG)
+}
+
+func sanitizeAzureResourceName(name string) string {
+	// Azure resource name restrictions vary by type. For our usage here (Public IP name) we just
+	// keep it simple and strip problematic characters.
+	replacer := strings.NewReplacer("/", "-", "\\", "-", ":", "-", "_", "-", " ", "-")
+	name = replacer.Replace(name)
+	name = strings.Trim(name, "-")
+	if len(name) > 80 {
+		name = name[:80]
+	}
+	return name
 }
 
 type VNet struct {
