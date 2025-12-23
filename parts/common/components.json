@@ -882,6 +882,31 @@
       }
     },
     {
+      "name": "windows credential provider dalec",
+      "windowsDownloadLocation": "c:\\akse-cache\\azure-acr-credential-provider\\",
+      "downloadURIs": {
+        "windows": {
+          "default": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "1.32.11-1"
+              },
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "1.33.6-1"
+              },
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "1.34.3-1"
+              }
+            ],
+            "downloadURL": "https://packages.aks.azure.com/dalec-packages/azure-acr-credential-provider/${version%-*}/windows/amd64/azure-acr-credential-provider_${version}_amd64.zip"
+          }
+        }
+      }
+    },
+    {
       "name": "windows calico",
       "windowsDownloadLocation": "c:\\akse-cache\\calico\\",
       "downloadURIs": {
