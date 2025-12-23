@@ -43,11 +43,11 @@ type ProvisionStatusFiles struct {
 }
 
 func (a *App) Run(ctx context.Context, args []string) int {
-	slog.Info("aks-node-controller started")
+	slog.Info("aks-node-controller started", "args", args)
 	err := a.run(ctx, args)
 	exitCode := errToExitCode(err)
 	if exitCode == 0 {
-		slog.Info("aks-node-controller finished successfully")
+		slog.Info("aks-node-controller finished successfully.")
 	} else {
 		slog.Error("aks-node-controller failed", "error", err)
 	}
