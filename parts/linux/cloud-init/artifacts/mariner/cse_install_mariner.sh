@@ -163,6 +163,7 @@ Type=forking
 ExecStart=/usr/bin/nvidia-persistenced --verbose
 ExecStopPost=/bin/rm -rf /var/run/nvidia-persistenced
 Restart=always
+TimeoutSec=300
 
 [Install]
 WantedBy=multi-user.target
