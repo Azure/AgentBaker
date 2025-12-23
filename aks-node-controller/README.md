@@ -109,13 +109,14 @@ Clients need to provide CSE and Custom Data. [nodeconfigutils](pkg/nodeconfiguti
 ```mermaid
 sequenceDiagram
     participant Client as Client
-    participant AgentBaker as AgentBaker Service
-    participant ARM as Azure Resource Manager (ARM)
-    participant VM as Virtual Machine (VM)
+    participant AgentBaker as Versioned AgentBaker Services<br/>(Deprecated)
+    participant ARM as Azure Resource Manager<br/>(ARM)
+    participant VM as Virtual Machine<br/>(VM)
 
-    Client -x AgentBaker: ~~Request artifacts for node provisioning~~ (deprecated)
+    Client -x AgentBaker: ~~Request artifacts for<br/> node provisioning~~ (deprecated)
+    note over Client, AgentBaker: Scriptless no longer needs the 26+ absvc pods.<br/> Instead it uses one AgentBaker service that keeps<br/> providing the latest SIG images list (not shown).
 
-    AgentBaker-xClient: ~~Provide "CSE command & provisioning scripts" (deprecated)~~
+    AgentBaker-->>Client: ~~Provide "CSE command<br/> & provisioning scripts"~~ (deprecated)
 
     Client->>ARM: Request to create VM<br/>with CustomData & CSE<br/>(using AgentBaker artifacts)
     ARM->>VM: Deploy config.json<br/>(CustomData)
