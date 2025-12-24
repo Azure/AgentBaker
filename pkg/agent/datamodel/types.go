@@ -2358,7 +2358,23 @@ func (a *AgentPoolWindowsProfile) GetNextGenNetworkingURL() string {
 
 // SecurityProfile begin.
 type SecurityProfile struct {
-	PrivateEgress *PrivateEgress `json:"privateEgress,omitempty"`
+	PrivateEgress            *PrivateEgress            `json:"privateEgress,omitempty"`
+	ImagePullIdentityProfile *ImagePullIdentityProfile `json:"imagePullIdentity,omitempty"`
+}
+
+// ImagePullIdentityProfile represents AKS-specific identity configurations.
+// This is part of SecurityProfile to keep cloud-agnostic AgentBaker
+// cleanly separated from AKS-specific features.
+type ImagePullIdentityProfile struct {
+	// Enabled indicates whether identity binding-based image pull is enabled (KEP-4412).
+	Enabled bool `json:"enabled,omitempty"`
+	// DefaultClientID is the default client ID of the identity used for image pull.
+	DefaultClientID string `json:"defaultClientID,omitempty"`
+	// DefaultTenantID is the default tenant ID of the identity used for image pull.
+	DefaultTenantID string `json:"defaultTenantID,omitempty"`
+	// LocalAuthoritySNI is the SNI endpoint for Identity Bindings Local Authority.
+	// Used by credential provider for image pull identity binding authentication.
+	LocalAuthoritySNI string `json:"localAuthoritySNI,omitempty"`
 }
 
 type PrivateEgress struct {
@@ -2379,6 +2395,20 @@ func (s *SecurityProfile) GetPrivateEgressContainerRegistryServer() string {
 		return s.PrivateEgress.ContainerRegistryServer
 	}
 	return ""
+}
+
+func (s *SecurityProfile) GetImagePullIdentity() *ImagePullIdentityProfile {
+	if s != nil {
+		return s.ImagePullIdentityProfile
+	}
+	return nil
+}
+
+func (s *SecurityProfile) IsImagePullIdentityBindingEnabled() bool {
+	if s != nil && s.ImagePullIdentityProfile != nil {
+		return s.ImagePullIdentityProfile.Enabled
+	}
+	return false
 }
 
 // SecurityProfile end.
