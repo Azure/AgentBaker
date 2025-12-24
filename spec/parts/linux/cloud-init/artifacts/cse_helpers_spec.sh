@@ -603,7 +603,7 @@ Describe 'cse_helpers.sh'
             The status should be success
         End
 
-        It 'get result from containerd config'
+        It 'get result from v1 containerd config'
             cat > existing_file << EOF
 version = 2
 oom_score = -999
@@ -614,6 +614,36 @@ oom_score = -999
 EOF
             When call get_sandbox_image_from_containerd_config "existing_file"
             The output should eq "sandbox_image_from_containerd_config"
+            The status should be success
+			rm -f existing_file
+        End
+
+        It 'get result from v2 containerd config'
+            cat > existing_file << EOF
+version = 2
+oom_score = -999
+[plugins."io.containerd.grpc.v1.cri"]
+  sandbox = "sandbox_image_from_containerd_config"
+[metrics]
+  address = "0.0.0.0:10257"
+EOF
+            When call get_sandbox_image_from_containerd_config "existing_file"
+            The output should eq "sandbox_image_from_containerd_config"
+            The status should be success
+			rm -f existing_file
+        End
+
+        It 'fails from invalid containerd config'
+            cat > existing_file << EOF
+version = 2
+oom_score = -999
+[plugins."io.containerd.grpc.v1.cri"]
+  sandbox_xxxx = "sandbox_image_from_containerd_config"
+[metrics]
+  address = "0.0.0.0:10257"
+EOF
+            When call get_sandbox_image_from_containerd_config "existing_file"
+            The output should eq ""
             The status should be success
 			rm -f existing_file
         End
