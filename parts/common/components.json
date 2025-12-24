@@ -957,7 +957,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-runc, repository=production, os=ubuntu, release=20.04",
-                "latestVersion": "1.3.3-ubuntu20.04u1"
+                "latestVersion": "1.3.4-ubuntu20.04u1"
               }
             ]
           },
@@ -965,7 +965,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-runc, repository=production, os=ubuntu, release=22.04",
-                "latestVersion": "1.3.3-ubuntu22.04u1"
+                "latestVersion": "1.3.4-ubuntu22.04u1"
               }
             ]
           },
@@ -973,7 +973,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-runc, repository=production, os=ubuntu, release=24.04",
-                "latestVersion": "1.3.3-ubuntu24.04u1"
+                "latestVersion": "1.3.4-ubuntu24.04u1"
               }
             ]
           }
@@ -990,7 +990,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-containerd, repository=test, os=ubuntu, release=24.04",
-                "latestVersion": "2.1.5-ubuntu24.04u1"
+                "latestVersion": "2.1.6-ubuntu24.04u1"
               }
             ]
           },
@@ -998,7 +998,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-containerd, repository=production, os=ubuntu, release=22.04",
-                "latestVersion": "1.7.29-ubuntu22.04u1"
+                "latestVersion": "1.7.30-ubuntu22.04u1"
               }
             ]
           },
@@ -1006,7 +1006,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-containerd, repository=production, os=ubuntu, release=20.04",
-                "latestVersion": "1.7.29-ubuntu20.04u1"
+                "latestVersion": "1.7.30-ubuntu20.04u1"
               }
             ]
           }
@@ -1016,7 +1016,7 @@
             "versionsV2": [
               {
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/cbl-mariner/2.0/prod/base/x86_64/repodata, name=moby-containerd, os=mariner, release=2.0",
-                "latestVersion": "1.6.26-12.cm2"
+                "latestVersion": "1.6.26-13.cm2"
               }
             ]
           }
@@ -1036,7 +1036,7 @@
             "versionsV2": [
               {
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/base/x86_64/repodata, name=containerd2, os=azurelinux, release=3.0",
-                "latestVersion": "2.0.0-14.azl3"
+                "latestVersion": "2.0.0-16.azl3"
               }
             ]
           }
