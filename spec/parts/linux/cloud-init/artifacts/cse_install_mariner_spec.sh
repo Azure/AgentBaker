@@ -31,4 +31,41 @@ Describe 'cse_install_mariner.sh'
             The output line 1 should include "Installing azurelinux-repos-cloud-native"
         End
     End
+
+    Describe 'installToolFromLocalRepo'
+        function rm() {
+            return 0
+        }
+        function _dnf_makecache() {
+            return 0
+        }
+        setup_repo(){
+            mkdir -p /tmp/to/repo
+            mkdir -p /tmp/to/repo/repodata
+            mkdir -p /etc/yum.repos.d
+        }
+        BeforeAll 'setup_repo'
+        AfterAll 'rm -rf /tmp/to'
+
+        It 'dnf make cache and install both succeeded'
+            When call installToolFromLocalRepo "test-tool" "/tmp/to/repo"
+            The output should include "Successfully installed test-tool from local repository"
+        End
+        It 'dnf make cache failed'
+            function _dnf_makecache() {
+                return 1
+            }
+            When call installToolFromLocalRepo "test-tool" "/tmp/to/repo"
+            The status should eq 1
+            The output should include "Failed to update DNF cache for local repository"
+        End
+        It 'dnf install failed'
+            function dnf_install() {
+                return 1
+            }
+            When call installToolFromLocalRepo "test-tool" "/tmp/to/repo"
+            The status should eq 1
+            The output should include "Failed to install test-tool from local repository"
+        End
+    End
 End

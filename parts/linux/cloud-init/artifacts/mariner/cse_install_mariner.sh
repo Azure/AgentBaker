@@ -232,7 +232,7 @@ EOF
 
     # Update DNF cache for the new repository
     echo "Updating DNF cache for local repository"
-    dnf makecache --disablerepo='*' --enablerepo="${repo_name}" || {
+    _dnf_makecache 6 10 30 --disablerepo='*' --enablerepo="${repo_name}" || {
         echo "Failed to update DNF cache for local repository"
         rm -f "${repo_file}"
         return 1
@@ -240,7 +240,7 @@ EOF
 
     # Install the package from the local repository
     echo "Installing ${tool_name} from local repository"
-    if ! dnf_install 30 1 600 ${tool_name} --disablerepo='*' --enablerepo="${repo_name}"; then
+    if ! dnf_install 4 1 120 ${tool_name} --disablerepo='*' --enablerepo="${repo_name}"; then
         echo "Failed to install ${tool_name} from local repository"
         rm -f "${repo_file}"
         return 1
