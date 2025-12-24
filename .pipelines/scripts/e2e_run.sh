@@ -94,7 +94,7 @@ rm -f "$temp_file"
 # gotestsum configure to only show logs for failed tests, json file for detailed logs
 # Run the tests! Yey!
 test_exit_code=0
-./bin/gotestsum --format testdox --junitfile "${BUILD_SRC_DIR}/e2e/report.xml" --jsonfile "${BUILD_SRC_DIR}/e2e/test-log.json" -- -parallel 100 -timeout 90m || test_exit_code=$?
+./bin/gotestsum --format testdox --junitfile "${BUILD_SRC_DIR}/e2e/report.xml" --jsonfile "${BUILD_SRC_DIR}/e2e/test-log.json" -- -parallel 150 -timeout 90m || test_exit_code=$?
 
 # Upload test results as Azure DevOps artifacts
 echo "##vso[artifact.upload containerfolder=test-results;artifactname=e2e-test-log]${BUILD_SRC_DIR}/e2e/test-log.json"

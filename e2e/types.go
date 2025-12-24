@@ -18,6 +18,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/crypto/ssh"
 )
 
 type Tags struct {
@@ -140,12 +141,11 @@ type ScenarioRuntime struct {
 }
 
 type ScenarioVM struct {
-	KubeName   string
-	VMSS       *armcompute.VirtualMachineScaleSet
-	VM         *armcompute.VirtualMachineScaleSetVM
-	PrivateIP  string
-	TunnelPort string
-	TunnelPid  int
+	KubeName  string
+	VMSS      *armcompute.VirtualMachineScaleSet
+	VM        *armcompute.VirtualMachineScaleSetVM
+	PrivateIP string
+	SSHClient *ssh.Client
 }
 
 // Config represents the configuration of an AgentBaker E2E scenario.

@@ -36,11 +36,11 @@ func ResourceGroupName(location string) string {
 }
 
 func PrivateACRNameNotAnon(location string) string {
-	return "privateace2enonanonpull" + location // will have anonymous pull enabled
+	return "e2eprivateacrnonanon" + location // will have anonymous pull enabled
 }
 
 func PrivateACRName(location string) string {
-	return "privateacre2e" + location // will not have anonymous pull enabled
+	return "e2eprivateacr" + location // will not have anonymous pull enabled
 }
 
 type Configuration struct {
@@ -145,7 +145,7 @@ func mustLoadConfig() *Configuration {
 	if cfg.SysSSHPrivateKeyB64 == "" {
 		SysSSHPrivateKeyFileName = VMSSHPrivateKeyFileName
 	} else {
-		SysSSHPrivateKey, err := base64.StdEncoding.DecodeString(cfg.SysSSHPrivateKeyB64)
+		SysSSHPrivateKey, err = base64.StdEncoding.DecodeString(cfg.SysSSHPrivateKeyB64)
 		if err != nil {
 			panic(err)
 		}

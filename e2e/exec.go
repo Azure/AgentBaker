@@ -6,14 +6,10 @@ import (
 	"crypto/rand"
 	"fmt"
 	"net"
-	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
-	"syscall"
 	"time"
 
 	"github.com/Azure/agentbaker/e2e/config"
@@ -81,108 +77,19 @@ func waitForPort(port string, timeout time.Duration) error {
 	return fmt.Errorf("port %s not ready", port)
 }
 
-func findFreeTCPPort(port string) error {
-	ln, err := net.Listen("tcp", "127.0.0.1:"+port)
-	if err != nil {
-		return err
-	}
-	ln.Close()
-
-	return nil
-}
-
-func startBastionTunnel(
-	ctx context.Context,
-	bastionName,
-	bastionResourceGroup,
-	vmID string,
-) (string, int, error) {
-
-	deadline := time.Now().Add(5 * time.Second)
-	var err error
-	var localPort string
-	for time.Now().Before(deadline) {
-		atomic.AddInt64(&freePort, 1)
-		localPort = strconv.FormatInt(freePort, 10)
-		err = findFreeTCPPort(localPort)
-		if err == nil {
-			break
-		}
-		select {
-		case <-time.After(50 * time.Millisecond):
-			// Continue to next iteration
-		case <-ctx.Done():
-			return "", 0, fmt.Errorf("context canceled: %w", ctx.Err())
-		}
-	}
-	if err != nil {
-		return "", 0, fmt.Errorf("failed to get free tcp port: %v", err)
-	}
-
-	cmd := exec.Command(
-		"az",
-		"network", "bastion", "tunnel",
-		"--name", bastionName,
-		"--resource-group", bastionResourceGroup,
-		"--target-resource-id", vmID,
-		"--resource-port", "22",
-		"--port", localPort,
-	)
-
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	if err := cmd.Start(); err != nil {
-		cleanupBastionTunnel(localPort, cmd.Process.Pid)
-		return "", 0, fmt.Errorf("failed to start tunnel: %v", err)
-	}
-
-	if err := waitForPort(localPort, 30*time.Second); err != nil {
-		cleanupBastionTunnel(localPort, cmd.Process.Pid)
-		return "", 0, fmt.Errorf("failed to wait for port to be ready: %v", err)
-	}
-
-	return localPort, cmd.Process.Pid, nil
-}
-
-func cleanupBastionTunnel(localPort string, pid int) {
+func cleanupBastionTunnel(sshClient *ssh.Client) {
 	// We have to do this because az network tunnel creates a new detached process for tunnel
-	if pid != 0 {
-		_ = syscall.Kill(-pid, syscall.SIGINT)
+	if sshClient != nil {
+		_ = sshClient.Close()
 	}
-	time.Sleep(1 * time.Second)
-	if pid != 0 {
-		_ = syscall.Kill(-pid, syscall.SIGKILL)
-	}
-	if localPort != "" {
-		_ = exec.Command("sh", "-c", fmt.Sprintf("lsof -ti tcp:%s | xargs kill -9", localPort)).Run()
-	}
-}
-
-func sshClientConfig(user string, privateKey []byte) (*ssh.ClientConfig, error) {
-	signer, err := ssh.ParsePrivateKey(privateKey)
-	if err != nil {
-		return nil, err
-	}
-
-	return &ssh.ClientConfig{
-		User: user,
-		Auth: []ssh.AuthMethod{
-			ssh.PublicKeys(signer),
-		},
-		HostKeyCallback: func(hostname string, remote net.Addr, key ssh.PublicKey) error {
-			return nil
-		}, // same as StrictHostKeyChecking=no
-		Timeout: 5 * time.Second,
-	}, nil
 }
 
 func runSSHCommand(
 	ctx context.Context,
-	port,
+	client *ssh.Client,
 	command string,
 ) (*podExecResult, error) {
-	return runSSHCommandWithPrivateKeyFile(ctx, port, command, config.VMSSHPrivateKey)
+	return runSSHCommandWithPrivateKeyFile(ctx, client, command)
 }
 
 func copyScriptToRemoteIfRequired(ctx context.Context, client *ssh.Client, command string) (string, error) {
@@ -214,22 +121,13 @@ func copyScriptToRemoteIfRequired(ctx context.Context, client *ssh.Client, comma
 
 func runSSHCommandWithPrivateKeyFile(
 	ctx context.Context,
-	port,
+	client *ssh.Client,
 	command string,
-	sshPrivateKey []byte,
 ) (*podExecResult, error) {
-	config, err := sshClientConfig("azureuser", sshPrivateKey)
-	if err != nil {
-		return nil, err
+	if client == nil {
+		return nil, fmt.Errorf("Permission denied: ssh client is nil")
 	}
-
-	addr := fmt.Sprintf("%s:%s", "localhost", port)
-	client, err := ssh.Dial("tcp", addr, config)
-	if err != nil {
-		return nil, err
-	}
-	defer client.Close()
-
+	var err error
 	command, err = copyScriptToRemoteIfRequired(ctx, client, command)
 	if err != nil {
 		return nil, err
@@ -257,6 +155,9 @@ func runSSHCommandWithPrivateKeyFile(
 	if err != nil {
 		if exitErr, ok := err.(*ssh.ExitError); ok {
 			exitCode = exitErr.ExitStatus()
+		} else if _, ok := err.(*ssh.ExitMissingError); ok {
+			// Bastion closed channel early – ignore
+			err = nil
 		} else {
 			return nil, err // real SSH failure
 		}
@@ -305,7 +206,7 @@ func execScriptOnVm(ctx context.Context, s *Scenario, vm *ScenarioVM, jumpboxPod
 		return execResult, nil
 	}
 
-	return runSSHCommand(ctx, vm.TunnelPort, script)
+	return runSSHCommand(ctx, vm.SSHClient, script)
 }
 
 func execOnPrivilegedPod(ctx context.Context, kube *Kubeclient, namespace string, podName string, bashCommand string) (*podExecResult, error) {
@@ -321,7 +222,7 @@ func execOnUnprivilegedPod(ctx context.Context, kube *Kubeclient, namespace stri
 // isRetryableConnectionError checks if the error is a transient connection issue that should be retried
 func isRetryableConnectionError(err error) bool {
 	errorMsg := err.Error()
-	return strings.Contains(errorMsg, "error dialing backend: EOF") ||
+	return strings.Contains(errorMsg, "error dialing backend") ||
 		strings.Contains(errorMsg, "connection refused") ||
 		strings.Contains(errorMsg, "dial tcp") ||
 		strings.Contains(errorMsg, "i/o timeout") ||
@@ -427,7 +328,7 @@ func uploadSSHKey(ctx context.Context, s *Scenario, vmPrivateIP string) error {
 	}
 	joinedSteps := strings.Join(steps, " && ")
 	kube := s.Runtime.Cluster.Kube
-	_, err := execOnPrivilegedPod(ctx, kube, defaultNamespace, s.Runtime.Cluster.DebugPod.Name, joinedSteps)
+	_, err := execOnPrivilegedPod(ctx, kube, defaultNamespace, s.Runtime.Cluster.DebugPodName, joinedSteps)
 	if err != nil {
 		return fmt.Errorf("error executing command on pod: %w", err)
 	}
@@ -438,7 +339,7 @@ func uploadSSHKey(ctx context.Context, s *Scenario, vmPrivateIP string) error {
 	}
 	result := "SSH Instructions: (may take a few minutes for the VM to be ready for SSH)\n========================\n"
 	// We combine the az aks get credentials in the same line so we don't overwrite the user's kubeconfig.
-	result += fmt.Sprintf(`kubectl --kubeconfig <(az aks get-credentials --subscription "%s" --resource-group "%s"  --name "%s" -f -) exec -it %s -- bash -c "chroot /proc/1/root /bin/bash -c '%s'"`, config.Config.SubscriptionID, config.ResourceGroupName(s.Location), *s.Runtime.Cluster.Model.Name, s.Runtime.Cluster.DebugPod.Name, sshString(vmPrivateIP))
+	result += fmt.Sprintf(`kubectl --kubeconfig <(az aks get-credentials --subscription "%s" --resource-group "%s"  --name "%s" -f -) exec -it %s -- bash -c "chroot /proc/1/root /bin/bash -c '%s'"`, config.Config.SubscriptionID, config.ResourceGroupName(s.Location), *s.Runtime.Cluster.Model.Name, s.Runtime.Cluster.DebugPodName, sshString(vmPrivateIP))
 	s.T.Log(result)
 
 	return nil

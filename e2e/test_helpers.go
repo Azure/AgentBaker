@@ -205,6 +205,12 @@ func runScenario(t testing.TB, s *Scenario) {
 		K8sSystemPoolSKU: s.K8sSystemPoolSKU,
 	})
 
+	if s.IsWindows() {
+		hostPod, err := cluster.Kube.GetHostNetworkDebugPod(ctx)
+		require.NoError(s.T, err, "get host network debug pod")
+		cluster.DebugPodName = hostPod.Name
+	}
+
 	require.NoError(s.T, err, "failed to get cluster")
 	// in some edge cases cluster cache is broken and nil cluster is returned
 	// need to find the root cause and fix it, this should help to catch such cases
@@ -723,9 +729,9 @@ func attemptSSHConnection(ctx context.Context, s *Scenario) error {
 	var err error
 	if s.IsWindows() {
 		connectionTest := fmt.Sprintf("%s echo 'SSH_CONNECTION_OK'", sshString(s.Runtime.VM.PrivateIP))
-		connectionResult, err = execOnPrivilegedPod(ctx, s.Runtime.Cluster.Kube, defaultNamespace, s.Runtime.Cluster.DebugPod.Name, connectionTest)
+		connectionResult, err = execOnPrivilegedPod(ctx, s.Runtime.Cluster.Kube, defaultNamespace, s.Runtime.Cluster.DebugPodName, connectionTest)
 	} else {
-		connectionResult, err = runSSHCommand(ctx, s.Runtime.VM.TunnelPort, "echo 'SSH_CONNECTION_OK'")
+		connectionResult, err = runSSHCommand(ctx, s.Runtime.VM.SSHClient, "echo 'SSH_CONNECTION_OK'")
 	}
 
 	if err != nil {

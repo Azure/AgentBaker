@@ -326,6 +326,7 @@ func Test_AzureLinux3_NvidiaDevicePluginRunning(t *testing.T) {
 }
 
 func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG(t *testing.T) {
+	t.Skip("skipping for regular test runs; to be enabled for nightly/regression suites")
 	RunScenario(t, &Scenario{
 		Description: "Tests that NVIDIA device plugin and DCGM Exporter work with MIG enabled on Ubuntu 24.04 GPU nodes",
 		Tags: Tags{

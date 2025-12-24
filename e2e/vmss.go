@@ -278,7 +278,7 @@ func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*Sc
 	}
 
 	s.T.Cleanup(func() {
-		defer cleanupBastionTunnel(vm.TunnelPort, vm.TunnelPid)
+		defer cleanupBastionTunnel(vm.SSHClient)
 		cleanupVMSS(ctx, s, vm)
 	})
 
@@ -300,17 +300,18 @@ func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*Sc
 		return vm, fmt.Errorf("failed to wait for VM to reach running state: %w", err)
 	}
 
-	vm.TunnelPort, vm.TunnelPid, err = startBastionTunnel(ctx, *s.Runtime.Cluster.Bastion.Name, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, *vm.VM.ID)
-	if err != nil {
-		return vm, fmt.Errorf("failed to start bastion tunnel: %w", err)
+	if !s.Config.SkipSSHConnectivityValidation && !s.IsWindows() {
+		vm.SSHClient, err = DialSSHOverBastion(ctx, s.Runtime.Cluster.Bastion, vm.PrivateIP, config.VMSSHPrivateKey)
+		if err != nil {
+			return vm, fmt.Errorf("failed to start bastion tunnel: %w", err)
+		}
 	}
 
 	return &ScenarioVM{
-		VMSS:       &vmssResp.VirtualMachineScaleSet,
-		PrivateIP:  vm.PrivateIP,
-		VM:         vm.VM,
-		TunnelPort: vm.TunnelPort,
-		TunnelPid:  vm.TunnelPid,
+		VMSS:      &vmssResp.VirtualMachineScaleSet,
+		PrivateIP: vm.PrivateIP,
+		VM:        vm.VM,
+		SSHClient: vm.SSHClient,
 	}, nil
 }
 
@@ -553,14 +554,24 @@ func extractLogsFromVMLinux(ctx context.Context, s *Scenario, vm *ScenarioVM) er
 		commandList["secure-tls-bootstrap.log"] = "sudo cat /var/log/azure/aks/secure-tls-bootstrap.log"
 	}
 
-	pod, err := s.Runtime.Cluster.Kube.GetHostNetworkDebugPod(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to get host network debug pod: %w", err)
+	isAzureCNI, err := s.Runtime.Cluster.IsAzureCNI()
+	if err == nil && isAzureCNI {
+		commandList["azure-vnet.log"] = "sudo cat /var/log/azure-vnet.log"
+		commandList["azure-vnet-ipam.log"] = "sudo cat /var/log/azure-vnet-ipam.log"
+	}
+
+	var podName string
+	if s.IsWindows() {
+		pod, err := s.Runtime.Cluster.Kube.GetHostNetworkDebugPod(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to get host network debug pod: %w", err)
+		}
+		podName = pod.Name
 	}
 
 	var logFiles = map[string]string{}
 	for file, sourceCmd := range commandList {
-		execResult, err := execScriptOnVm(ctx, s, vm, pod.Name, sourceCmd)
+		execResult, err := execScriptOnVm(ctx, s, vm, podName, sourceCmd)
 		if err != nil {
 			s.T.Logf("error executing %s: %s", sourceCmd, err)
 			continue

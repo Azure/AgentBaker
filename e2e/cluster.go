@@ -40,8 +40,8 @@ type Cluster struct {
 	SubnetID        string
 	ClusterParams   *ClusterParams
 	Maintenance     *armcontainerservice.MaintenanceConfiguration
-	DebugPod        *corev1.Pod
-	Bastion         *armnetwork.BastionHost
+	DebugPodName    string
+	Bastion         *Bastion
 }
 
 // Returns true if the cluster is configured with Azure CNI
@@ -138,11 +138,6 @@ func prepareCluster(ctx context.Context, cluster *armcontainerservice.ManagedClu
 		return nil, fmt.Errorf("extracting cluster parameters: %w", err)
 	}
 
-	hostPod, err := kube.GetHostNetworkDebugPod(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("get host network debug pod: %w", err)
-	}
-
 	return &Cluster{
 		Model:           cluster,
 		Kube:            kube,
@@ -150,7 +145,6 @@ func prepareCluster(ctx context.Context, cluster *armcontainerservice.ManagedClu
 		SubnetID:        subnetID,
 		Maintenance:     maintenance,
 		ClusterParams:   clusterParams,
-		DebugPod:        hostPod,
 		Bastion:         bastion,
 	}, nil
 }
@@ -479,7 +473,7 @@ func createNewMaintenanceConfiguration(ctx context.Context, cluster *armcontaine
 	return &maintenance, nil
 }
 
-func getOrCreateBastion(ctx context.Context, cluster *armcontainerservice.ManagedCluster) (*armnetwork.BastionHost, error) {
+func getOrCreateBastion(ctx context.Context, cluster *armcontainerservice.ManagedCluster) (*Bastion, error) {
 	nodeRG := *cluster.Properties.NodeResourceGroup
 	bastionName := fmt.Sprintf("%s-bastion", *cluster.Name)
 
@@ -491,10 +485,11 @@ func getOrCreateBastion(ctx context.Context, cluster *armcontainerservice.Manage
 	if err != nil {
 		return nil, fmt.Errorf("failed to get bastion %q in rg %q: %w", bastionName, nodeRG, err)
 	}
-	return &existing.BastionHost, nil
+
+	return NewBastion(config.Azure.Credential, config.Config.SubscriptionID, nodeRG, *existing.BastionHost.Properties.DNSName), nil
 }
 
-func createNewBastion(ctx context.Context, cluster *armcontainerservice.ManagedCluster) (*armnetwork.BastionHost, error) {
+func createNewBastion(ctx context.Context, cluster *armcontainerservice.ManagedCluster) (*Bastion, error) {
 	nodeRG := *cluster.Properties.NodeResourceGroup
 	location := *cluster.Location
 	bastionName := fmt.Sprintf("%s-bastion", *cluster.Name)
@@ -565,7 +560,7 @@ func createNewBastion(ctx context.Context, cluster *armcontainerservice.ManagedC
 		return nil, fmt.Errorf("bastion public IP response missing ID")
 	}
 
-	bastion := armnetwork.BastionHost{
+	bastionHost := armnetwork.BastionHost{
 		Location: to.Ptr(location),
 		SKU: &armnetwork.SKU{
 			Name: to.Ptr(armnetwork.BastionHostSKUNameStandard),
@@ -590,7 +585,7 @@ func createNewBastion(ctx context.Context, cluster *armcontainerservice.ManagedC
 	}
 
 	logf(ctx, "creating bastion %s (native client/tunneling enabled) in rg %s", bastionName, nodeRG)
-	bastionPoller, err := config.Azure.BastionHosts.BeginCreateOrUpdate(ctx, nodeRG, bastionName, bastion, nil)
+	bastionPoller, err := config.Azure.BastionHosts.BeginCreateOrUpdate(ctx, nodeRG, bastionName, bastionHost, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to start creating bastion: %w", err)
 	}
@@ -599,13 +594,15 @@ func createNewBastion(ctx context.Context, cluster *armcontainerservice.ManagedC
 		return nil, fmt.Errorf("failed to create bastion: %w", err)
 	}
 
-	if err := verifyBastion(ctx, cluster, &resp.BastionHost); err != nil {
+	bastion := NewBastion(config.Azure.Credential, config.Config.SubscriptionID, nodeRG, *resp.BastionHost.Properties.DNSName)
+
+	if err := verifyBastion(ctx, cluster, bastion); err != nil {
 		return nil, fmt.Errorf("failed to verify bastion: %w", err)
 	}
-	return &resp.BastionHost, nil
+	return bastion, nil
 }
 
-func verifyBastion(ctx context.Context, cluster *armcontainerservice.ManagedCluster, bastion *armnetwork.BastionHost) error {
+func verifyBastion(ctx context.Context, cluster *armcontainerservice.ManagedCluster, bastion *Bastion) error {
 	nodeRG := *cluster.Properties.NodeResourceGroup
 	vmssName, err := getSystemPoolVMSSName(ctx, cluster)
 	if err != nil {
@@ -624,23 +621,26 @@ func verifyBastion(ctx context.Context, cluster *armcontainerservice.ManagedClus
 		}
 	}
 
+	vmPrivateIP, err := getPrivateIPFromVMSSVM(ctx, nodeRG, vmssName, *vmssVM.InstanceID)
+
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	localPort, pid, err := startBastionTunnel(ctx, *bastion.Name, nodeRG, *vmssVM.ID)
+
+	sshClient, err := DialSSHOverBastion(ctx, bastion, vmPrivateIP, config.SysSSHPrivateKey)
 	if err != nil {
 		return err
 	}
 
-	defer cleanupBastionTunnel(localPort, pid)
+	defer sshClient.Close()
 
-	result, err := runSSHCommandWithPrivateKeyFile(ctx, localPort, "uname -a", config.SysSSHPrivateKey)
+	result, err := runSSHCommandWithPrivateKeyFile(ctx, sshClient, "uname -a")
 	if err != nil {
 		return err
 	}
-	if strings.Contains(result.stdout, *vmssVM.Name) {
+	if strings.Contains(result.stdout, vmssName) {
 		return nil
 	}
-	return fmt.Errorf("Executed ssh on wrong VM: %s", result.stdout)
+	return fmt.Errorf("Executed ssh on wrong VM, Expected %s: %s", vmssName, result.stdout)
 }
 
 func getSystemPoolVMSSName(ctx context.Context, cluster *armcontainerservice.ManagedCluster) (string, error) {
