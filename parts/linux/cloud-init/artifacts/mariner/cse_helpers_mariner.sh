@@ -38,7 +38,7 @@ dnf_install() {
         else
             sleep "$wait_sleep"
             case " $* " in
-                *" --disablerepo "*) ;;    # skip dnf_makecache when --disablerepo is present
+                *"--disablerepo"*) ;;    # skip dnf_makecache when --disablerepo is present
                 *) dnf_makecache ;;
             esac
         fi
