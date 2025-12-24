@@ -1454,6 +1454,84 @@ oom_score = -999
 				Expect(o.vars["GPU_NODE"]).To(Equal("true"))
 				Expect(o.vars["ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED"]).To(Equal("true"))
 			}),
+		Entry("AKSUbuntu2204 with MAIA NPU - Maia-100 SKU", "AKSUbuntu2204+MAIA+Maia100", "1.29.7",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+					ContainerRuntime: datamodel.Containerd,
+				}
+				config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSUbuntuContainerd2204
+				// Standard_Internal_ND80sr_MS_v1 is a Maia-100 NPU SKU
+				config.AgentPoolProfile.VMSize = "Standard_Internal_ND80sr_MS_v1"
+				config.EnableMaiaNPU = true
+				config.ConfigGPUDriverIfNeeded = true
+				config.EnableGPUDevicePluginIfNeeded = true
+			}, func(o *nodeBootstrappingOutput) {
+				// Verify MAIA driver configuration is enabled
+				Expect(o.vars["CONFIG_GPU_DRIVER_IF_NEEDED"]).To(Equal("true"))
+				// Verify device plugin is enabled
+				Expect(o.vars["ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED"]).To(Equal("true"))
+				// Verify NPU driver type
+				Expect(o.vars["GPU_DRIVER_TYPE"]).To(Equal("maia"))
+				// Verify driver version is set
+				Expect(o.vars["GPU_DRIVER_VERSION"]).NotTo(BeEmpty())
+				// Verify MAIA Image version is set
+				Expect(o.vars["GPU_IMAGE_SHA"]).NotTo(BeEmpty())
+			}),
+		Entry("AKSUbuntu2204 with MAIA NPU disabled", "AKSUbuntu2204+MAIA+Disabled", "1.29.7",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+					ContainerRuntime: datamodel.Containerd,
+				}
+				config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSUbuntuContainerd2204
+				config.AgentPoolProfile.VMSize = "Standard_Internal_ND80sr_MS_v1"
+				config.EnableMaiaNPU = false
+				config.ConfigGPUDriverIfNeeded = false
+			}, func(o *nodeBootstrappingOutput) {
+				// Verify driver configuration is disabled
+				Expect(o.vars["CONFIG_GPU_DRIVER_IF_NEEDED"]).To(Equal("false"))
+				// Even when disabled, MAIA SKU still gets MAIA driver type/version
+				// based on SKU, not on whether it's enabled
+				Expect(o.vars["GPU_DRIVER_TYPE"]).To(Equal("maia"))
+				Expect(o.vars["GPU_DRIVER_VERSION"]).NotTo(BeEmpty())
+			}),
+		Entry("AKSUbuntu2204 with MAIA NPU lowercase SKU", "AKSUbuntu2204+MAIA+LowercaseSKU", "1.29.7",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+					ContainerRuntime: datamodel.Containerd,
+				}
+				config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSUbuntuContainerd2204
+				// Test case-insensitive SKU matching
+				config.AgentPoolProfile.VMSize = "standard_internal_nd80sr_ms_v1"
+				config.EnableMaiaNPU = true
+				config.ConfigGPUDriverIfNeeded = true
+				config.EnableGPUDevicePluginIfNeeded = true
+			}, func(o *nodeBootstrappingOutput) {
+				// Verify driver configuration is enabled
+				Expect(o.vars["CONFIG_GPU_DRIVER_IF_NEEDED"]).To(Equal("true"))
+				// Verify device plugin is enabled
+				Expect(o.vars["ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED"]).To(Equal("true"))
+				// Verify NPU driver type - MAIA detection should work with lowercase SKU
+				Expect(o.vars["GPU_DRIVER_TYPE"]).To(Equal("maia"))
+				Expect(o.vars["GPU_DRIVER_VERSION"]).NotTo(BeEmpty())
+			}),
+		Entry("AKSUbuntu2204 with non-MAIA SKU should not set MAIA variables", "AKSUbuntu2204+NonMAIA", "1.29.7",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+					ContainerRuntime: datamodel.Containerd,
+				}
+				config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSUbuntuContainerd2204
+				// Regular non-GPU, non-MAIA SKU
+				config.AgentPoolProfile.VMSize = "Standard_DS1_v2"
+				config.EnableMaiaNPU = false
+				config.ConfigGPUDriverIfNeeded = false
+			}, func(o *nodeBootstrappingOutput) {
+				// Verify driver configuration is disabled
+				Expect(o.vars["CONFIG_GPU_DRIVER_IF_NEEDED"]).To(Equal("false"))
+				// Most importantly: Driver type should NOT be maia (MAIA-specific)
+				Expect(o.vars["GPU_DRIVER_TYPE"]).NotTo(Equal("maia"))
+				// Driver type should be "cuda" for non-MAIA SKUs
+				Expect(o.vars["GPU_DRIVER_TYPE"]).To(Equal("cuda"))
+			}),
 		Entry("CustomizedImage VHD should not have provision_start.sh", "CustomizedImage", "1.24.2",
 			func(c *datamodel.NodeBootstrappingConfiguration) {
 				c.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
