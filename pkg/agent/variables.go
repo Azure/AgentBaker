@@ -151,6 +151,10 @@ func getCSECommandVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 		"isSkipCleanupNetwork":                 strconv.FormatBool(config.AgentPoolProfile.IsSkipCleanupNetwork()),
 		"nextGenNetworkingEnabled":             strconv.FormatBool(agentPoolProfileWindows.IsNextGenNetworkingEnabled()),
 		"nextGenNetworkingConfig":              agentPoolProfileWindows.GetNextGenNetworkingConfig(),
+		"imagePullIdentityBindingEnabled":      strconv.FormatBool(cs.Properties.SecurityProfile.IsImagePullIdentityBindingEnabled()),
+		"imagePullIdentityDefaultClientID":     getImagePullIdentityDefaultClientID(cs),
+		"imagePullIdentityDefaultTenantID":     getImagePullIdentityDefaultTenantID(cs),
+		"identityBindingsLocalAuthoritySNI":    getImagePullIdentityLocalAuthoritySNI(cs),
 	}
 }
 
@@ -172,6 +176,27 @@ func getMaximumLoadBalancerRuleCount(cs *datamodel.ContainerService) int {
 		return cs.Properties.OrchestratorProfile.KubernetesConfig.MaximumLoadBalancerRuleCount
 	}
 	return 0
+}
+
+func getImagePullIdentityDefaultClientID(cs *datamodel.ContainerService) string {
+	if cs.Properties.SecurityProfile != nil && cs.Properties.SecurityProfile.ImagePullIdentityProfile != nil {
+		return cs.Properties.SecurityProfile.ImagePullIdentityProfile.DefaultClientID
+	}
+	return ""
+}
+
+func getImagePullIdentityDefaultTenantID(cs *datamodel.ContainerService) string {
+	if cs.Properties.SecurityProfile != nil && cs.Properties.SecurityProfile.ImagePullIdentityProfile != nil {
+		return cs.Properties.SecurityProfile.ImagePullIdentityProfile.DefaultTenantID
+	}
+	return ""
+}
+
+func getImagePullIdentityLocalAuthoritySNI(cs *datamodel.ContainerService) string {
+	if cs.Properties.SecurityProfile != nil && cs.Properties.SecurityProfile.ImagePullIdentityProfile != nil {
+		return cs.Properties.SecurityProfile.ImagePullIdentityProfile.LocalAuthoritySNI
+	}
+	return ""
 }
 
 func isVHD(profile *datamodel.AgentPoolProfile) string {
