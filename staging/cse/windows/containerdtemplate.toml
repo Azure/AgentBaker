@@ -25,7 +25,7 @@ state = "C:\\ProgramData\\containerd\\state"
     stream_server_address = "127.0.0.1"
     stream_server_port = "0"
     enable_selinux = false
-    sandbox_image = "{{pauseImage}}-windows-{{currentversion}}-amd64"
+    sandbox_image = "{{pauseImage}}"
     stats_collect_period = 10
     systemd_cgroup = false
     enable_tls_streaming = false
@@ -42,7 +42,7 @@ state = "C:\\ProgramData\\containerd\\state"
         [plugins.cri.containerd.default_runtime.options]
           Debug = false
           DebugType = 0
-          SandboxImage = "{{pauseImage}}-windows-{{currentversion}}-amd64"
+          SandboxImage = "{{pauseImage}}"
           SandboxPlatform = "windows/amd64"
           SandboxIsolation = {{sandboxIsolation}}
       [plugins.cri.containerd.runtimes]
@@ -53,7 +53,7 @@ state = "C:\\ProgramData\\containerd\\state"
           [plugins.cri.containerd.runtimes.runhcs-wcow-process.options]
             Debug = true
             DebugType = 2
-            SandboxImage = "{{pauseImage}}-windows-{{currentversion}}-amd64"
+            SandboxImage = "{{pauseImage}}"
             SandboxPlatform = "windows/amd64"
 {{hypervisors}}
     [plugins.cri.cni]
