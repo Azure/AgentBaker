@@ -1,0 +1,10 @@
+{
+  "Version": "1.0",
+  "Timestamp": "2025-10-28T21:43:45Z",
+  "TaskName": "npd:check_cpu_pressure:systemd-cgtop",
+  "EventLevel": "Warning",
+  "Message": "{\n  \"cgroups\": [\n    {\n      \"cgroup\": \"mock\",\n      \"tasks\": \"systemd-cgtop\",\n      \"cpu_percent\": \"output\",\n      \"memory\": \"\",\n      \"memory_percent\": \"-%\",\n      \"input_per_sec\": \"\",\n      \"output_per_sec\": \"\"\n    }\n  ]\n}",
+  "EventPid": "22",
+  "EventTid": "1",
+  "OperationId": "7dd7610d-f152-4089--1e9--5da4768fd2a"
+}

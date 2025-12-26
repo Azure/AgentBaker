@@ -1,0 +1,34 @@
+{
+  "plugin": "custom",
+  "pluginConfig": {
+    "invoke_interval": "5m",
+    "timeout": "1m",
+    "max_output_length": 80,
+    "concurrency": 1
+  },
+  "source": "kernel-monitor",
+  "metricsReporting": true,
+  "conditions": [
+    {
+      "type": "FrequentUnregisterNetDevice",
+      "reason": "NoFrequentUnregisterNetDevice",
+      "message": "node is functioning properly"
+    }
+  ],
+  "rules": [
+    {
+      "type": "permanent",
+      "condition": "FrequentUnregisterNetDevice",
+      "reason": "UnregisterNetDevice",
+      "path": "/usr/bin/npd-log-counter",
+      "args": [
+        "--journald-source=kernel",
+        "--log-path=/var/log/journal",
+        "--lookback=20m",
+        "--count=3",
+        "--pattern=unregister_netdevice: waiting for \\w+ to become free. Usage count = \\d+"
+      ],
+      "timeout": "1m"
+    }
+  ]
+}

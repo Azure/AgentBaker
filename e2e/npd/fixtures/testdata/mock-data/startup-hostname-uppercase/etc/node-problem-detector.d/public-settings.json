@@ -1,0 +1,4 @@
+{
+  "enable-npd-gpu-checks": "true",
+  "npd-validate-in-prod": "true"
+}

@@ -183,6 +183,16 @@ testPackagesInstalled() {
     return
   fi
   CPU_ARCH="amd64"
+  # packages.microsoft.com for npd uses x86_64 instead of amd64 in some cases.
+  # I don't make the rules on their silly naming inconsistencies.
+  # components.json accounts for when to CPU_ARCH and when to CPU_ARCH_NPD
+  CPU_ARCH_NPD=$(
+    if [ "$CPU_ARCH" = "amd64" ]; then
+      echo "x86_64"
+    else
+      echo "$CPU_ARCH"
+    fi
+  )
   echo "$test:Start"
   packages=$(jq ".Packages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
 
@@ -1583,6 +1593,71 @@ checkPerformanceData() {
   return 0
 }
 
+testNodeProblemDetector() {
+  local test="testNodeProblemDetector"
+  local os_sku="$1"
+  echo "$test: Start"
+
+  # NPD is not installed on OSGuard variants and Flatcar
+  if [ "$os_sku" = "AzureLinuxOSGuard" ] || [ "$os_sku" = "Flatcar" ]; then
+    echo "$test: Skipping check on $os_sku - NPD is not installed"
+    echo "$test: Finish"
+    return 0
+  fi
+
+  local npd_config_dir="/etc/node-problem-detector.d"
+  local skip_sentinel="${npd_config_dir}/skip_vhd_npd"
+  local startup_script="/usr/local/bin/node-problem-detector-startup.sh"
+
+  # Check skip_vhd_npd sentinel file exists
+  if [ ! -f "$skip_sentinel" ]; then
+    err "$test: skip_vhd_npd sentinel file not found at $skip_sentinel"
+    return 1
+  fi
+  echo "$test: skip_vhd_npd sentinel file exists"
+
+  # Check systemd service is registered
+  if ! systemctl cat node-problem-detector.service &>/dev/null; then
+    err "$test: node-problem-detector.service not registered with systemd"
+    return 1
+  fi
+  echo "$test: node-problem-detector.service is registered with systemd"
+
+  # Check startup script exists and is executable
+  if [ ! -x "$startup_script" ]; then
+    err "$test: NPD startup script not found or not executable at $startup_script"
+    return 1
+  fi
+  echo "$test: NPD startup script exists and is executable"
+
+  # Check config directories exist
+  local config_dirs=(
+    "custom-plugin-monitor"
+    "plugin"
+    "system-log-monitor"
+    "system-stats-monitor"
+  )
+
+  for dir in "${config_dirs[@]}"; do
+    local dir_path="${npd_config_dir}/${dir}"
+    if [ ! -d "$dir_path" ]; then
+      err "$test: NPD config directory not found: $dir_path"
+      return 1
+    fi
+  done
+  echo "$test: All NPD config directories exist"
+
+  # Check plugin directory is not empty
+  if [ -z "$(ls -A ${npd_config_dir}/plugin)" ]; then
+    err "$test: NPD plugin directory is empty"
+    return 1
+  fi
+  echo "$test: NPD plugin directory contains files"
+
+  echo "$test: Finish"
+  return 0
+}
+
 #------------------------ Start of test code related to localdns ------------------------
 testCorednsBinaryExtractedAndCached() {
   local test="testCorednsBinaryExtractedAndCached"
@@ -1789,5 +1864,6 @@ testAutologinDisabled $OS_SKU
 testCorednsBinaryExtractedAndCached $OS_VERSION
 checkLocaldnsScriptsAndConfigs
 testPackageDownloadURLFallbackLogic
+testNodeProblemDetector $OS_SKU
 testFileOwnership $OS_SKU
 testDiskQueueServiceIsActive

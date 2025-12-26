@@ -1,0 +1,11 @@
+#!/bin/bash
+# wget dispatcher for DNS tests
+SCENARIO="${WGET_SCENARIO:-no-leading-spaces}"
+
+# Look for scenario-specific mock in dns directory
+if [ -f "/mock-commands/dns/wget-$SCENARIO" ]; then
+    exec "/mock-commands/dns/wget-$SCENARIO" "$@"
+fi
+
+# Default to no leading spaces scenario
+exec "/mock-commands/dns/wget-no-leading-spaces" "$@"

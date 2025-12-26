@@ -1,0 +1,8 @@
+#!/bin/bash
+cat <<'DMESG_EOF'
+[    0.000000] Linux version 5.4.0-1064-azure (buildd@lcy02-amd64-112) 
+[    1.234567] Memory: 8192000K/8388608K available
+[   10.123456] systemd[1]: Started Kernel log.
+[ 3590.123456] systemd[1]: Started some-service.service.
+[ 3600.789012] systemd[1]: Reached target multi-user.target.
+DMESG_EOF

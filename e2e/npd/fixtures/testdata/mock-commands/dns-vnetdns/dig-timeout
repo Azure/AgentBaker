@@ -1,0 +1,4 @@
+#!/bin/bash
+# Mock dig that simulates timeout
+sleep 10  # This will be interrupted by timeout
+exit 9

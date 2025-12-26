@@ -1,0 +1,31 @@
+#!/bin/bash
+cat <<'IOTOP_OUTPUT'
+Total DISK READ: 50.25 M/s | Total DISK WRITE: 30.45 M/s
+Current DISK READ: 25.12 M/s | Current DISK WRITE: 15.23 M/s
+    TID  PRIO  USER     DISK READ  DISK WRITE  SWAPIN      IO    COMMAND
+ 2000    be/4 user0   6.52 M/s   5.30 M/s  ?unavailable?  process-2000 --config=/etc/config2000.conf
+ 2001    be/4 user1   7.20 M/s   4.85 M/s  ?unavailable?  process-2001 --config=/etc/config2001.conf
+ 2002    be/4 user2   4.96 M/s   1.25 M/s  ?unavailable?  process-2002 --config=/etc/config2002.conf
+ 2003    be/4 user3   3.07 M/s   3.65 M/s  ?unavailable?  process-2003 --config=/etc/config2003.conf
+ 2004    be/4 user4   5.52 M/s   2.65 M/s  ?unavailable?  process-2004 --config=/etc/config2004.conf
+ 2005    be/4 user0   6.36 M/s   2.86 M/s  ?unavailable?  process-2005 --config=/etc/config2005.conf
+ 2006    be/4 user1   4.25 M/s   1.59 M/s  ?unavailable?  process-2006 --config=/etc/config2006.conf
+ 2007    be/4 user2   6.61 M/s   4.13 M/s  ?unavailable?  process-2007 --config=/etc/config2007.conf
+ 2008    be/4 user3   8.86 M/s   5.32 M/s  ?unavailable?  process-2008 --config=/etc/config2008.conf
+ 2009    be/4 user4   4.45 M/s   3.23 M/s  ?unavailable?  process-2009 --config=/etc/config2009.conf
+ 2010    be/4 user0   1.92 M/s   3.22 M/s  ?unavailable?  process-2010 --config=/etc/config2010.conf
+ 2011    be/4 user1   6.26 M/s   3.89 M/s  ?unavailable?  process-2011 --config=/etc/config2011.conf
+ 2012    be/4 user2   6.32 M/s   2.46 M/s  ?unavailable?  process-2012 --config=/etc/config2012.conf
+ 2013    be/4 user3   5.96 M/s   2.51 M/s  ?unavailable?  process-2013 --config=/etc/config2013.conf
+ 2014    be/4 user4   5.91 M/s   2.71 M/s  ?unavailable?  process-2014 --config=/etc/config2014.conf
+ 2015    be/4 user0   1.12 M/s   1.53 M/s  ?unavailable?  process-2015 --config=/etc/config2015.conf
+ 2016    be/4 user1   3.29 M/s   4.66 M/s  ?unavailable?  process-2016 --config=/etc/config2016.conf
+ 2017    be/4 user2   2.81 M/s   3.17 M/s  ?unavailable?  process-2017 --config=/etc/config2017.conf
+ 2018    be/4 user3   3.43 M/s   5.22 M/s  ?unavailable?  process-2018 --config=/etc/config2018.conf
+ 2019    be/4 user4   4.94 M/s   2.54 M/s  ?unavailable?  process-2019 --config=/etc/config2019.conf
+ 2020    be/4 user0   6.53 M/s   1.75 M/s  ?unavailable?  process-2020 --config=/etc/config2020.conf
+ 2021    be/4 user1   7.73 M/s   4.89 M/s  ?unavailable?  process-2021 --config=/etc/config2021.conf
+ 2022    be/4 user2   2.53 M/s   3.22 M/s  ?unavailable?  process-2022 --config=/etc/config2022.conf
+ 2023    be/4 user3   6.74 M/s   2.69 M/s  ?unavailable?  process-2023 --config=/etc/config2023.conf
+ 2024    be/4 user4   3.05 M/s   1.56 M/s  ?unavailable?  process-2024 --config=/etc/config2024.conf
+ 2025    be/4 user0   4.85 M/s   5.35 M/s  ?unavailable?  process-2025 --config=/etc/config2025.conf

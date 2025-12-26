@@ -1,0 +1,7 @@
+.:53 {
+    bind 169.254.10.10
+    forward . 168.63.129.16,8.8.8.8,1.1.1.1 {
+        policy sequential
+    }
+    cache 30
+}
