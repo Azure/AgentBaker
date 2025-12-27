@@ -78,6 +78,7 @@ steps:
       if [[ "${HYPERV_GENERATION,,}" == "v2" ]]; then SKU_NAME="${SKU_NAME}gen2"; fi && \
       if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then SKU_NAME="${SKU_NAME}arm64"; fi && \
       if grep -q "GB200" <<< "$FEATURE_FLAGS"; then SKU_NAME="${SKU_NAME}gb200"; fi && \
+      if grep -q "GB300" <<< "$FEATURE_FLAGS"; then SKU_NAME="${SKU_NAME}gb300"; fi && \
       if [[ "${ENABLE_FIPS,,}" == "true" ]]; then SKU_NAME="${SKU_NAME}fips"; fi && \
       if grep -q "cvm" <<< "$FEATURE_FLAGS"; then SKU_NAME="${SKU_NAME}CVM"; fi && \
       if [[ "${IMG_SKU}" == *"minimal"* ]]; then SKU_NAME="${SKU_NAME}minimal"; fi && \
