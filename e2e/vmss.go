@@ -600,11 +600,18 @@ hnsdiag list endpoints >> network_config.txt
 .\azcopy.exe copy "network_config.txt" "$arg1/network_config.txt"
 `
 
+func skipLogExtraction(ctx context.Context, s *Scenario) (bool, string) {
+	if !s.T.Failed() {
+		return true, "the test didn't fail"
+	}
+	return false, ""
+}
+
 // extractLogsFromVMWindows runs a script on windows VM to collect logs and upload them to a blob storage
 // it then lists the blobs in the container and prints the content of each blob
 func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
-	if !s.T.Failed() {
-		s.T.Logf("skipping logs extraction from windows VM, as the test didn't fail")
+	if skip, message := skipLogExtraction(ctx, s); skip {
+		s.T.Logf("skipping logs extraction from windows VM, as %s", message)
 		return
 	}
 
