@@ -157,21 +157,21 @@ var ClusterKubenet = cachedFunc(clusterKubenet)
 
 // clusterKubenet creates a basic cluster using kubenet networking
 func clusterKubenet(ctx context.Context, request ClusterRequest) (*Cluster, error) {
-	return prepareCluster(ctx, getKubenetClusterModel("abe2e-kubenet-v3", request.Location, request.K8sSystemPoolSKU), false, false)
+	return prepareCluster(ctx, getKubenetClusterModel("abe2e-kubenet-v4", request.Location, request.K8sSystemPoolSKU), false, false)
 }
 
 var ClusterKubenetAirgap = cachedFunc(clusterKubenetAirgap)
 
 // clusterKubenetAirgap creates an airgapped kubenet cluster (no internet access)
 func clusterKubenetAirgap(ctx context.Context, request ClusterRequest) (*Cluster, error) {
-	return prepareCluster(ctx, getKubenetClusterModel("abe2e-kubenet-airgap-v2", request.Location, request.K8sSystemPoolSKU), true, false)
+	return prepareCluster(ctx, getKubenetClusterModel("abe2e-kubenet-airgap-v3", request.Location, request.K8sSystemPoolSKU), true, false)
 }
 
 var ClusterKubenetAirgapNonAnon = cachedFunc(clusterKubenetAirgapNonAnon)
 
 // clusterKubenetAirgapNonAnon creates an airgapped kubenet cluster with non-anonymous image pulls
 func clusterKubenetAirgapNonAnon(ctx context.Context, request ClusterRequest) (*Cluster, error) {
-	return prepareCluster(ctx, getKubenetClusterModel("abe2e-kubenet-nonanonpull-airgap-v2", request.Location, request.K8sSystemPoolSKU), true, true)
+	return prepareCluster(ctx, getKubenetClusterModel("abe2e-kubenet-nonanonpull-airgap-v3", request.Location, request.K8sSystemPoolSKU), true, true)
 }
 
 var ClusterAzureNetwork = cachedFunc(clusterAzureNetwork)

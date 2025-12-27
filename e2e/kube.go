@@ -75,7 +75,7 @@ func getClusterKubeClient(ctx context.Context, resourceGroupName, clusterName st
 func (k *Kubeclient) WaitUntilPodRunning(ctx context.Context, namespace string, labelSelector string, fieldSelector string) (*corev1.Pod, error) {
 	var pod *corev1.Pod
 
-	err := wait.PollUntilContextTimeout(ctx, time.Second, 5*time.Minute, true, func(ctx context.Context) (bool, error) {
+	err := wait.PollUntilContextTimeout(ctx, 3*time.Second, 5*time.Minute, true, func(ctx context.Context) (bool, error) {
 		pods, err := k.Typed.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{
 			FieldSelector: fieldSelector,
 			LabelSelector: labelSelector,
