@@ -235,7 +235,7 @@ installToolFromLocalRepo() {
         return 1
     fi
 
-    echo "${tool_name} installed successfully from local repository"
+    echo "Successfully installed ${tool_name} from local repository"
     return 0
 }
 

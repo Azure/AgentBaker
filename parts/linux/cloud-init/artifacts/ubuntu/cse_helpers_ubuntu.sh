@@ -33,8 +33,8 @@ _apt_get_update() {
         wait_for_apt_locks
         export DEBIAN_FRONTEND=noninteractive
         dpkg --configure -a --force-confdef
-        timeout $timeout apt-get ${apt_opts} -f -y install
-        ! (apt-get ${apt_opts} update 2>&1 | tee $apt_update_output | grep -E "^([WE]:.*)|^([Ee][Rr][Rr][Oo][Rr].*)$") && \
+        apt-get ${apt_opts} -f -y install
+        ! (timeout $timeout apt-get ${apt_opts} update 2>&1 | tee $apt_update_output | grep -E "^([WE]:.*)|^([Ee][Rr][Rr][Oo][Rr].*)$") && \
         cat $apt_update_output && break || \
         cat $apt_update_output
         if [ $i -eq $retries ]; then
@@ -75,8 +75,8 @@ _apt_get_install() {
             return 1
         else
             sleep $wait_sleep
-            case " $apt_opts " in
-                *" Dir::Etc::sourcelist="*) ;;  # skip update when using custom sourcelist
+            case " $apt_opts ${@}" in
+                *"Dir::Etc::sourcelist="*) ;;  # skip update when using custom sourcelist
                 *) apt_get_update ;;
             esac
         fi
@@ -157,7 +157,7 @@ apt_get_install_from_local_repo() {
     # Create temporary sources.list pointing to local repo
     printf 'deb [trusted=yes] file:%s ./\n' "${local_repo_dir}" > "${tmp_list}"
 
-    local opts="-o Dir::Etc::sourcelist=${tmp_list} -o Dir::Etc::sourceparts=${tmp_dir}"
+    local opts="-y -o Dir::Etc::sourcelist=${tmp_list} -o Dir::Etc::sourceparts=${tmp_dir}"
 
     # Update apt cache with local repo using core update function
     if ! _apt_get_update 6 5 30 "${opts}"; then
