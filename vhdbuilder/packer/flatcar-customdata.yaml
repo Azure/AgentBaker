@@ -11,6 +11,11 @@ storage:
       inline: |
         ID=flatcar
         SYSEXT_LEVEL=1.0
+  - path: /etc/flatcar/enabled-sysext.conf
+    mode: 0644
+    contents:
+      inline: |
+        overlaybd
   - path: /etc/flatcar/update.conf
     mode: 0644
     overwrite: true
@@ -60,6 +65,10 @@ storage:
     hard: false
 systemd:
   units:
+  - name: overlaybd-tcmu.service
+    mask: true
+  - name: overlaybd-snapshotter.service
+    mask: true
   - name: update-ca-certificates.service
     enabled: true
     dropins:
