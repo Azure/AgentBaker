@@ -1658,39 +1658,33 @@
       }
     },
     {
-      "name": "datacenter-gpu-manager-exporter",
-      "downloadLocation": "/opt/datacenter-gpu-manager-exporter/downloads",
+      "name": "dcgm-exporter",
+      "downloadLocation": "/opt/dcgm-exporter/downloads",
       "downloadURIs": {
         "ubuntu": {
           "r2404": {
             "versionsV2": [
               {
-                "renovateTag": "name=datacenter-gpu-manager-exporter, repository=nvidia, os=ubuntu, release=24.04",
-                "latestVersion": "4.6.0-1"
+                "renovateTag": "RPM_registry=https://packages.microsoft.com/ubuntu/24.04/prod/dists/noble/main/binary-amd64/Packages, name=dcgm-exporter, os=ubuntu, release=24.04",
+                "latestVersion": "4.6.0-ubuntu24.04u2_amd64"
               }
             ]
           },
           "r2204": {
             "versionsV2": [
               {
-                "renovateTag": "name=datacenter-gpu-manager-exporter, repository=nvidia, os=ubuntu, release=22.04",
-                "latestVersion": "4.6.0-1"
+                "renovateTag": "RPM_registry=https://packages.microsoft.com/ubuntu/22.04/prod/dists/jammy/main/binary-amd64/Packages, name=dcgm-exporter, os=ubuntu, release=22.04",
+                "latestVersion": "4.6.0-ubuntu22.04u2_amd64"
               }
             ]
           }
-        }
-      }
-    },
-    {
-      "name": "dcgm-exporter",
-      "downloadLocation": "/opt/dcgm-exporter/downloads",
-      "downloadURIs": {
+        },
         "azurelinux": {
           "v3.0": {
             "versionsV2": [
               {
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=dcgm-exporter, os=azurelinux, release=3.0",
-                "latestVersion": "4.6.0-1.azl3"
+                "latestVersion": "4.6.0-2.azl3" 
               }
             ]
           }
