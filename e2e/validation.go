@@ -15,22 +15,24 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func ValidatePodRunning(ctx context.Context, s *Scenario, pod *corev1.Pod) {
+func validatePodRunning(ctx context.Context, s *Scenario, pod *corev1.Pod) error {
 	kube := s.Runtime.Cluster.Kube
 	truncatePodName(s.T, pod)
 	start := time.Now()
 
 	s.T.Logf("creating pod %q", pod.Name)
 	_, err := kube.Typed.CoreV1().Pods(pod.Namespace).Create(ctx, pod, v1.CreateOptions{})
-	require.NoErrorf(s.T, err, "failed to create pod %q", pod.Name)
-	s.T.Cleanup(func() {
+	if err != nil {
+		return fmt.Errorf("failed to create pod %q: %v", pod.Name, err)
+	}
+	defer func() {
 		ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 		defer cancel()
 		err := kube.Typed.CoreV1().Pods(pod.Namespace).Delete(ctx, pod.Name, v1.DeleteOptions{GracePeriodSeconds: to.Ptr(int64(0))})
 		if err != nil {
 			s.T.Logf("couldn't not delete pod %s: %v", pod.Name, err)
 		}
-	})
+	}()
 
 	_, err = kube.WaitUntilPodRunning(ctx, pod.Namespace, "", "metadata.name="+pod.Name)
 	if err != nil {
@@ -38,12 +40,29 @@ func ValidatePodRunning(ctx context.Context, s *Scenario, pod *corev1.Pod) {
 		if jsonError != nil {
 			jsonString = []byte(jsonError.Error())
 		}
-		require.NoErrorf(s.T, err, "failed to wait for pod %q to be in running state. Pod data: %s", pod.Name, jsonString)
+		return fmt.Errorf("failed to wait for pod %q to be in running state. Pod data: %s, Error: %v", pod.Name, jsonString, err)
 	}
 
 	timeForReady := time.Since(start)
 	toolkit.LogDuration(ctx, timeForReady, time.Minute, fmt.Sprintf("Time for pod %q to get ready was %s", pod.Name, timeForReady))
 	s.T.Logf("node health validation: test pod %q is running on node %q", pod.Name, s.Runtime.VM.KubeName)
+	return nil
+}
+
+func ValidatePodRunningWithRetry(ctx context.Context, s *Scenario, pod *corev1.Pod, maxRetries int) {
+	var err error
+	for i := 0; i < maxRetries && err != nil; i++ {
+		err = validatePodRunning(ctx, s, pod)
+		if err != nil {
+			time.Sleep(1 * time.Second)
+			s.T.Logf("retrying pod %q validation (%d/%d)", pod.Name, i+1, maxRetries)
+		}
+	}
+	require.NoErrorf(s.T, err, "failed to validate pod running %q", pod.Name)
+}
+
+func ValidatePodRunning(ctx context.Context, s *Scenario, pod *corev1.Pod) {
+	require.NoErrorf(s.T, validatePodRunning(ctx, s, pod), "failed to validate pod running %q", pod.Name)
 }
 
 func ValidateCommonLinux(ctx context.Context, s *Scenario) {
@@ -84,7 +103,7 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 	}
 
 	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo cat /etc/default/kubelet", 0, "could not read kubelet config")
-	require.NotContains(s.T, execResult.stdout.String(), "--dynamic-config-dir", "kubelet flag '--dynamic-config-dir' should not be present in /etc/default/kubelet\nContents:\n%s")
+	require.NotContains(s.T, execResult.stdout, "--dynamic-config-dir", "kubelet flag '--dynamic-config-dir' should not be present in /etc/default/kubelet\nContents:\n%s")
 
 	_ = execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo curl http://168.63.129.16:32526/vmSettings", 0, "curl to wireserver failed")
 
