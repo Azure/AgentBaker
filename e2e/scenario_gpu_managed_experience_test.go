@@ -18,13 +18,7 @@ func getDCGMPackageNames(os string) []string {
 	packages := []string{
 		"datacenter-gpu-manager-4-core",
 		"datacenter-gpu-manager-4-proprietary",
-	}
-
-	switch os {
-	case "ubuntu":
-		packages = append(packages, "datacenter-gpu-manager-exporter")
-	case "azurelinux":
-		packages = append(packages, "dcgm-exporter")
+		"dcgm-exporter",
 	}
 
 	return packages
