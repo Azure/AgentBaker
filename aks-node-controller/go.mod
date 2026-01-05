@@ -1,6 +1,6 @@
 module github.com/Azure/agentbaker/aks-node-controller
 
-go 1.23.7
+go 1.24.0
 
 require (
 	github.com/Azure/agentbaker v0.20240503.0
@@ -28,7 +28,7 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/vincent-petithory/dataurl v1.0.0 // indirect
-	golang.org/x/sys v0.35.0 // indirect
+	golang.org/x/sys v0.39.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
