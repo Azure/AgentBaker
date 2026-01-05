@@ -312,14 +312,14 @@
       ]
     },
     {
-      "id": "sha256:8a2966b993762dd7507cad2a572f6578bb727b68df983c65ceecac1b8a5e4735",
-      "bytes": 273909071,
-      "size": "261.2 MiB",
+      "id": "sha256:b1fcd5a0a08301eebf43b11e4c422f717d3039ac2b4ec3dcc3d6a55993a84b3d",
+      "bytes": 72190147,
+      "size": "68.8 MiB",
       "repoTags": [
-        "mcr.microsoft.com/containernetworking/cilium/cilium:v1.17.7-250821"
+        "mcr.microsoft.com/oss/v2/kubernetes/kube-proxy:v1.34.2-1"
       ],
       "repoDigests": [
-        "sha256:b50fb00705b3e0b3b439b62f50d22b6fab04d6bcc04c15868231bbf1d5e24be2"
+        "sha256:b5a7c0e06d8b5c0a882f15b67d54a4df60e918250e2fdddb4eb68625084f811c"
       ]
     },
     {
@@ -444,14 +444,14 @@
       ]
     },
     {
-      "id": "sha256:d0712c8269b917f76cf7c10b4d1894b93f02743503152e1a6c6acf8ce1609c41",
-      "bytes": 26330144,
-      "size": "25.1 MiB",
+      "id": "sha256:8a2966b993762dd7507cad2a572f6578bb727b68df983c65ceecac1b8a5e4735",
+      "bytes": 273909071,
+      "size": "261.2 MiB",
       "repoTags": [
-        "mcr.microsoft.com/containernetworking/azure-ipam:v0.2.0"
+        "mcr.microsoft.com/containernetworking/cilium/cilium:v1.17.7-250821"
       ],
       "repoDigests": [
-        "sha256:e349cb26e795e2f697a663bcfa44c2377551b3aa1a150ecade1ca48ae8e04aec"
+        "sha256:b50fb00705b3e0b3b439b62f50d22b6fab04d6bcc04c15868231bbf1d5e24be2"
       ]
     },
     {
@@ -653,11 +653,11 @@
       ]
     },
     {
-      "id": "sha256:0de157d19366d8054779c05e10e0b3eacf107dcc06086412f9f9101c617bce00",
-      "bytes": 26830903,
-      "size": "25.6 MiB",
+      "id": "sha256:4044205d88f6688f41be9e5ac236b414457c586754277287fc4c06ee6fbc3a32",
+      "bytes": 24823569,
+      "size": "23.7 MiB",
       "repoTags": [
-        "mcr.microsoft.com/containernetworking/azure-ipam:v0.2.1"
+        "mcr.microsoft.com/oss/v2/kubernetes/autoscaler/addon-resizer:v1.8.23-7"
       ],
       "repoDigests": [
         "sha256:d7426123f00d93a0d09edea68498730fc289087bcb1c2cfbea3d1b081b44c6a5"

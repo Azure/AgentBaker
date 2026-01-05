@@ -668,7 +668,7 @@
       "bytes": 18220818,
       "size": "17.4 MiB",
       "repoTags": [
-        "mcr.microsoft.com/oss/v2/kubernetes-csi/csi-node-driver-registrar:v2.15.0"
+        "mcr.microsoft.com/oss/v2/kubernetes-csi/blob-csi:v1.25.10"
       ],
       "repoDigests": [
         "sha256:7654bbf36cb1598836c051d7d96894a53a5f032f59843c21fa02fc3a8910d1b5"

@@ -581,7 +581,7 @@ Install completed successfully on  Thu Dec 18 18:27:56 UTC 2025
 VSTS Build NUMBER: 20251218.1_master_147133940
 VSTS Build ID: 147133940
 Commit: ea7bc446b509287b3fafc2df5d4fb52c0dba83f2
-Ubuntu version: 
+Ubuntu version:
 Hyperv generation: V2
 Feature flags: None
 FIPS enabled: false

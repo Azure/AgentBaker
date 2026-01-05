@@ -190,14 +190,14 @@
       ]
     },
     {
-      "id": "sha256:031fd28dd3803d3b306e146af578cc39e33b53b801f5f91513f22e05529c9300",
-      "bytes": 185206307,
-      "size": "176.6 MiB",
+      "id": "sha256:5ef49e9d40036be16800127b3efe03d19ba59c2c73a02cdc8e7969656fd051ef",
+      "bytes": 41081009,
+      "size": "39.2 MiB",
       "repoTags": [
-        "mcr.microsoft.com/containernetworking/azure-cns:v1.5.49"
+        "mcr.microsoft.com/oss/v2/kubernetes-csi/secrets-store/driver:v1.5.4"
       ],
       "repoDigests": [
-        "sha256:d5c72688ea45c5c474f5063d6e84ffbc28a1996893717b3edd28d4d1643a035a"
+        "sha256:5db0debce8e9de468fac3a41cb07e44c3feca56138b59b9229712aad93e4fd94"
       ]
     },
     {
@@ -355,14 +355,14 @@
       ]
     },
     {
-      "id": "sha256:a5ece69a1c70c0566f7cbacb3e33650942fd3cbe2b5886206bee7e5ae0420c08",
-      "bytes": 19728910,
-      "size": "18.8 MiB",
+      "id": "sha256:2127b0cbca2c5dd89c192256111bab2355adae3139306c85fc668de3f1021572",
+      "bytes": 222225645,
+      "size": "211.9 MiB",
       "repoTags": [
-        "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.29.15"
+        "mcr.microsoft.com/containernetworking/cilium/cilium:v1.16.10-250610"
       ],
       "repoDigests": [
-        "sha256:049bf87e7df4653c191b31228b3868627ce2268328158ef39270ca25f3e55b39"
+        "sha256:0643f5e4480444985b5e4cc62f6bd5c2505088714d72740ef68e3ade2e320bd8"
       ]
     },
     {
@@ -580,10 +580,10 @@
       "bytes": 28919370,
       "size": "27.6 MiB",
       "repoTags": [
-        "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.33.1"
+        "mcr.microsoft.com/oss/v2/kubernetes-csi/livenessprobe:v2.17.0"
       ],
       "repoDigests": [
-        "sha256:6a722e20afb038a364a22a368dc9778b2e195c36b53b9561d209ce26400181a2"
+        "sha256:5d5e50beaac6a7af8b1b165f30458e26261bb0b0e4cf135e237cca0093df5792"
       ]
     },
     {
@@ -675,14 +675,14 @@
       ]
     },
     {
-      "id": "sha256:0b0a2e893eb9a7eb8f52682d2a23af39a2b0d15aedb1fab2765ff2ee48d96d2e",
-      "bytes": 23628646,
-      "size": "22.5 MiB",
+      "id": "sha256:5e1c8d8d84f9504171d98f510c104be440301cc549de6a9acce6da27b9decf7b",
+      "bytes": 24317463,
+      "size": "23.2 MiB",
       "repoTags": [
-        "mcr.microsoft.com/oss/v2/kubernetes/kube-state-metrics:v2.15.0-4"
+        "mcr.microsoft.com/oss/v2/azure/ip-masq-agent-v2:v0.1.15-5"
       ],
       "repoDigests": [
-        "sha256:0738ce4c55e88e7abb873a32170bf580f75eddb7156eb00fb5c2d04510f93c64"
+        "sha256:3360c75d35809c330dbcd6f47a036f1a0b481688c573a31c1964191730b427ec"
       ]
     },
     {
