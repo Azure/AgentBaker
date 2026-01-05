@@ -1556,6 +1556,7 @@ root = "{{GetDataDir}}"{{- end}}
   bin_dir = "/opt/cni/bin"
   conf_dir = "/etc/cni/net.d"
   conf_template = "/etc/containerd/kubenet_template.conf"
+  use_internal_loopback = true
 {{- end}}
 
 [metrics]
