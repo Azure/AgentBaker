@@ -21,15 +21,15 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization/v2"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerregistry/armcontainerregistry"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v6"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization/v3"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerregistry/armcontainerregistry/v2"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v8"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/msi/armmsi"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v6"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v7"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/privatedns/armprivatedns"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources/v3"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage/v3"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/sas"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/service"
@@ -40,6 +40,7 @@ import (
 type AzureClient struct {
 	AKS                       *armcontainerservice.ManagedClustersClient
 	AzureFirewall             *armnetwork.AzureFirewallsClient
+	BastionHosts              *armnetwork.BastionHostsClient
 	Blob                      *azblob.Client
 	StorageContainers         *armstorage.BlobContainersClient
 	CacheRulesClient          *armcontainerregistry.CacheRulesClient
@@ -154,6 +155,16 @@ func NewAzureClient() (*AzureClient, error) {
 	cloud.PublicIPAddresses, err = armnetwork.NewPublicIPAddressesClient(Config.SubscriptionID, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("create public ip addresses client: %w", err)
+	}
+
+	cloud.BastionHosts, err = armnetwork.NewBastionHostsClient(Config.SubscriptionID, credential, opts)
+	if err != nil {
+		return nil, fmt.Errorf("create bastion hosts client: %w", err)
+	}
+
+	cloud.BastionHosts, err = armnetwork.NewBastionHostsClient(Config.SubscriptionID, credential, opts)
+	if err != nil {
+		return nil, fmt.Errorf("create bastion hosts client: %w", err)
 	}
 
 	cloud.RegistriesClient, err = armcontainerregistry.NewRegistriesClient(Config.SubscriptionID, credential, opts)

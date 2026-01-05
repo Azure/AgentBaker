@@ -1,7 +1,12 @@
 package config
 
 import (
+	"crypto/ed25519"
+	"crypto/rand"
+	"encoding/base64"
+	"encoding/pem"
 	"fmt"
+	"os"
 	"reflect"
 	"sort"
 	"strings"
@@ -10,6 +15,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
 	"github.com/caarlos0/env/v11"
 	"github.com/joho/godotenv"
+	"golang.org/x/crypto/ssh"
 )
 
 var (
@@ -20,6 +26,8 @@ var (
 	DefaultPollUntilDoneOptions = &runtime.PollUntilDoneOptions{
 		Frequency: time.Second,
 	}
+	VMSSHPublicKey, VMSSHPrivateKey, SysSSHPublicKey, SysSSHPrivateKey []byte
+	VMSSHPrivateKeyFileName, SysSSHPrivateKeyFileName                  string
 )
 
 func ResourceGroupName(location string) string {
@@ -27,11 +35,11 @@ func ResourceGroupName(location string) string {
 }
 
 func PrivateACRNameNotAnon(location string) string {
-	return "privateace2enonanonpull" + location // will have anonymous pull enabled
+	return "e2eprivateacrnonanon" + location // will have anonymous pull enabled
 }
 
 func PrivateACRName(location string) string {
-	return "privateacre2e" + location // will not have anonymous pull enabled
+	return "e2eprivateacr" + location // will not have anonymous pull enabled
 }
 
 type Configuration struct {
@@ -70,6 +78,8 @@ type Configuration struct {
 	TestTimeoutCluster                     time.Duration `env:"TEST_TIMEOUT_CLUSTER" envDefault:"20m"`
 	TestTimeoutVMSS                        time.Duration `env:"TEST_TIMEOUT_VMSS" envDefault:"17m"`
 	WindowsAdminPassword                   string        `env:"WINDOWS_ADMIN_PASSWORD"`
+	SysSSHPublicKey                        string        `env:"SYS_SSH_PUBLIC_KEY"`
+	SysSSHPrivateKeyB64                    string        `env:"SYS_SSH_PRIVATE_KEY_B64"`
 }
 
 func (c *Configuration) BlobStorageAccount() string {
@@ -117,6 +127,7 @@ func (c *Configuration) VMIdentityResourceID(location string) string {
 }
 
 func mustLoadConfig() *Configuration {
+	VMSSHPublicKey, VMSSHPrivateKeyFileName = mustGetNewED25519KeyPair()
 	err := godotenv.Load(".env")
 	if err != nil {
 		fmt.Printf("Error loading .env file: %s\n", err)
@@ -125,7 +136,95 @@ func mustLoadConfig() *Configuration {
 	if err := env.Parse(cfg); err != nil {
 		panic(err)
 	}
+	if cfg.SysSSHPublicKey == "" {
+		SysSSHPublicKey = VMSSHPublicKey
+	} else {
+		SysSSHPublicKey = []byte(cfg.SysSSHPublicKey)
+	}
+	if cfg.SysSSHPrivateKeyB64 == "" {
+		SysSSHPrivateKeyFileName = VMSSHPrivateKeyFileName
+	} else {
+		SysSSHPrivateKey, err = base64.StdEncoding.DecodeString(cfg.SysSSHPrivateKeyB64)
+		if err != nil {
+			panic(err)
+		}
+
+		SysSSHPrivateKeyFileName, err = writePrivateKeyToTempFile(SysSSHPrivateKey)
+		if err != nil {
+			panic(err)
+		}
+	}
+
 	return cfg
+}
+
+func mustGetNewED25519KeyPair() ([]byte, string) {
+	public, privateKeyFileName, err := getNewED25519KeyPair()
+	if err != nil {
+		panic(fmt.Sprintf("failed to generate RSA key pair: %v", err))
+	}
+
+	return public, privateKeyFileName
+}
+
+// Returns a newly generated RSA public/private key pair with the private key in PEM format.
+func getNewED25519KeyPair() (publicKeyBytes []byte, privateKeyFileName string, e error) {
+	publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to create rsa private key: %w", err)
+	}
+
+	sshPubKey, err := ssh.NewPublicKey(publicKey)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to create ssh public key: %w", err)
+	}
+
+	publicKeyBytes = ssh.MarshalAuthorizedKey(sshPubKey)
+
+	// ----- PRIVATE KEY (OpenSSH format) -----
+	pemBlock, err := ssh.MarshalPrivateKey(privateKey, "azureuser")
+	if err != nil {
+		return nil, "", err
+	}
+
+	VMSSHPrivateKey = pem.EncodeToMemory(pemBlock)
+
+	privateKeyFileName, err = writePrivateKeyToTempFile(VMSSHPrivateKey)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to write private key to temp file: %w", err)
+	}
+
+	return
+}
+
+func writePrivateKeyToTempFile(key []byte) (string, error) {
+	// Create temp file with secure permissions
+	tmpFile, err := os.CreateTemp("", "private-key-*")
+	if err != nil {
+		return "", err
+	}
+
+	// Ensure file permissions are restricted (owner read/write only)
+	if err := tmpFile.Chmod(0600); err != nil {
+		tmpFile.Close()
+		os.Remove(tmpFile.Name())
+		return "", err
+	}
+
+	// Write key
+	if _, err := tmpFile.Write(key); err != nil {
+		tmpFile.Close()
+		os.Remove(tmpFile.Name())
+		return "", err
+	}
+
+	// Close file (important!)
+	if err := tmpFile.Close(); err != nil {
+		os.Remove(tmpFile.Name())
+		return "", err
+	}
+
+	return tmpFile.Name(), nil
 }
 
 func GetPrivateACRName(isNonAnonymousPull bool, location string) string {

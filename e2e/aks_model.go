@@ -13,9 +13,9 @@ import (
 	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerregistry/armcontainerregistry"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v6"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v6"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerregistry/armcontainerregistry/v2"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v8"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v7"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/privatedns/armprivatedns"
 )
 
@@ -175,6 +175,16 @@ func getBaseClusterModel(clusterName, location, k8sSystemPoolSKU string) *armcon
 					Enabled: to.Ptr(false),
 				},
 			},
+			LinuxProfile: &armcontainerservice.LinuxProfile{
+				AdminUsername: to.Ptr("azureuser"),
+				SSH: &armcontainerservice.SSHConfiguration{
+					PublicKeys: []*armcontainerservice.SSHPublicKey{
+						{
+							KeyData: to.Ptr(string(config.SysSSHPublicKey)),
+						},
+					},
+				},
+			},
 		},
 		Identity: &armcontainerservice.ManagedClusterIdentity{
 			Type: to.Ptr(armcontainerservice.ResourceIdentityTypeSystemAssigned),
@@ -275,6 +285,17 @@ func addFirewallRules(
 	ctx context.Context, clusterModel *armcontainerservice.ManagedCluster,
 	location string,
 ) error {
+	routeTableName := "abe2e-fw-rt"
+	rtGetResp, err := config.Azure.RouteTables.Get(
+		ctx,
+		*clusterModel.Properties.NodeResourceGroup,
+		routeTableName,
+		nil,
+	)
+	if err == nil && len(rtGetResp.Properties.Subnets) != 0 {
+		// already associated with aks subnet
+		return nil
+	}
 
 	vnet, err := getClusterVNet(ctx, *clusterModel.Properties.NodeResourceGroup)
 	if err != nil {
@@ -366,7 +387,6 @@ func addFirewallRules(
 		return fmt.Errorf("failed to get firewall private IP address")
 	}
 
-	routeTableName := "abe2e-fw-rt"
 	routeTableParams := armnetwork.RouteTable{
 		Location: to.Ptr(location),
 		Properties: &armnetwork.RouteTablePropertiesFormat{
@@ -535,26 +555,16 @@ func airGapSecurityGroup(location, clusterFQDN string) (armnetwork.SecurityGroup
 
 func addPrivateEndpointForACR(ctx context.Context, nodeResourceGroup, privateACRName string, vnet VNet, location string) error {
 	logf(ctx, "Checking if private endpoint for private container registry is in rg %s", nodeResourceGroup)
-
 	var err error
-	var exists bool
+	var privateEndpoint *armnetwork.PrivateEndpoint
 	privateEndpointName := "PE-for-ABE2ETests"
-	if exists, err = privateEndpointExists(ctx, nodeResourceGroup, privateEndpointName); err != nil {
-		return err
-	}
-	if exists {
-		logf(ctx, "Private Endpoint already exists, skipping creation")
-		return nil
-	}
-
-	var peResp armnetwork.PrivateEndpointsClientCreateOrUpdateResponse
-	if peResp, err = createPrivateEndpoint(ctx, nodeResourceGroup, privateEndpointName, privateACRName, vnet, location); err != nil {
+	if privateEndpoint, err = createPrivateEndpoint(ctx, nodeResourceGroup, privateEndpointName, privateACRName, vnet, location); err != nil {
 		return err
 	}
 
 	privateZoneName := "privatelink.azurecr.io"
-	var pzResp armprivatedns.PrivateZonesClientCreateOrUpdateResponse
-	if pzResp, err = createPrivateZone(ctx, nodeResourceGroup, privateZoneName); err != nil {
+	var privateZone *armprivatedns.PrivateZone
+	if privateZone, err = createPrivateZone(ctx, nodeResourceGroup, privateZoneName); err != nil {
 		return err
 	}
 
@@ -562,26 +572,14 @@ func addPrivateEndpointForACR(ctx context.Context, nodeResourceGroup, privateACR
 		return err
 	}
 
-	if err = addRecordSetToPrivateDNSZone(ctx, peResp, nodeResourceGroup, privateZoneName); err != nil {
+	if err = addRecordSetToPrivateDNSZone(ctx, privateEndpoint, nodeResourceGroup, privateZoneName); err != nil {
 		return err
 	}
 
-	if err = addDNSZoneGroup(ctx, pzResp, nodeResourceGroup, privateZoneName, *peResp.Name); err != nil {
+	if err = addDNSZoneGroup(ctx, privateZone, nodeResourceGroup, privateZoneName, *privateEndpoint.Name); err != nil {
 		return err
 	}
 	return nil
-}
-
-func privateEndpointExists(ctx context.Context, nodeResourceGroup, privateEndpointName string) (bool, error) {
-	existingPE, err := config.Azure.PrivateEndpointClient.Get(ctx, nodeResourceGroup, privateEndpointName, nil)
-	if err == nil && existingPE.ID != nil {
-		logf(ctx, "Private Endpoint already exists with ID: %s", *existingPE.ID)
-		return true, nil
-	}
-	if err != nil && !strings.Contains(err.Error(), "ResourceNotFound") {
-		return false, fmt.Errorf("failed to get private endpoint: %w", err)
-	}
-	return false, nil
 }
 
 func createPrivateAzureContainerRegistryPullSecret(ctx context.Context, cluster *armcontainerservice.ManagedCluster, kubeconfig *Kubeclient, resourceGroup string, isNonAnonymousPull bool) error {
@@ -768,7 +766,15 @@ func addCacheRulesToPrivateAzureContainerRegistry(ctx context.Context, resourceG
 	return nil
 }
 
-func createPrivateEndpoint(ctx context.Context, nodeResourceGroup, privateEndpointName, privateACRName string, vnet VNet, location string) (armnetwork.PrivateEndpointsClientCreateOrUpdateResponse, error) {
+func createPrivateEndpoint(ctx context.Context, nodeResourceGroup, privateEndpointName, privateACRName string, vnet VNet, location string) (*armnetwork.PrivateEndpoint, error) {
+	existingPE, err := config.Azure.PrivateEndpointClient.Get(ctx, nodeResourceGroup, privateEndpointName, nil)
+	if err == nil && existingPE.ID != nil {
+		logf(ctx, "Private Endpoint already exists with ID: %s", *existingPE.ID)
+		return &existingPE.PrivateEndpoint, nil
+	}
+	if err != nil && !strings.Contains(err.Error(), "ResourceNotFound") {
+		return nil, fmt.Errorf("failed to get private endpoint: %w", err)
+	}
 	logf(ctx, "Creating Private Endpoint in rg %s", nodeResourceGroup)
 	acrID := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.ContainerRegistry/registries/%s", config.Config.SubscriptionID, config.ResourceGroupName(location), privateACRName)
 
@@ -798,18 +804,27 @@ func createPrivateEndpoint(ctx context.Context, nodeResourceGroup, privateEndpoi
 		nil,
 	)
 	if err != nil {
-		return armnetwork.PrivateEndpointsClientCreateOrUpdateResponse{}, fmt.Errorf("failed to create private endpoint in BeginCreateOrUpdate: %w", err)
+		return nil, fmt.Errorf("failed to create private endpoint in BeginCreateOrUpdate: %w", err)
 	}
 	resp, err := poller.PollUntilDone(ctx, nil)
 	if err != nil {
-		return armnetwork.PrivateEndpointsClientCreateOrUpdateResponse{}, fmt.Errorf("failed to create private endpoint in polling: %w", err)
+		return nil, fmt.Errorf("failed to create private endpoint in polling: %w", err)
 	}
 
 	logf(ctx, "Private Endpoint created or updated with ID: %s", *resp.ID)
-	return resp, nil
+	return &resp.PrivateEndpoint, nil
 }
 
-func createPrivateZone(ctx context.Context, nodeResourceGroup, privateZoneName string) (armprivatedns.PrivateZonesClientCreateOrUpdateResponse, error) {
+func createPrivateZone(ctx context.Context, nodeResourceGroup, privateZoneName string) (*armprivatedns.PrivateZone, error) {
+	pzResp, err := config.Azure.PrivateZonesClient.Get(
+		ctx,
+		nodeResourceGroup,
+		privateZoneName,
+		nil,
+	)
+	if err == nil {
+		return &pzResp.PrivateZone, nil
+	}
 	dnsZoneParams := armprivatedns.PrivateZone{
 		Location: to.Ptr("global"),
 	}
@@ -821,23 +836,36 @@ func createPrivateZone(ctx context.Context, nodeResourceGroup, privateZoneName s
 		nil,
 	)
 	if err != nil {
-		return armprivatedns.PrivateZonesClientCreateOrUpdateResponse{}, fmt.Errorf("failed to create private dns zone in BeginCreateOrUpdate: %w", err)
+		return nil, fmt.Errorf("failed to create private dns zone in BeginCreateOrUpdate: %w", err)
 	}
 	resp, err := poller.PollUntilDone(ctx, nil)
 	if err != nil {
-		return armprivatedns.PrivateZonesClientCreateOrUpdateResponse{}, fmt.Errorf("failed to create private dns zone in polling: %w", err)
+		return nil, fmt.Errorf("failed to create private dns zone in polling: %w", err)
 	}
 
 	logf(ctx, "Private DNS Zone created or updated with ID: %s", *resp.ID)
-	return resp, nil
+	return &resp.PrivateZone, nil
 }
 
 func createPrivateDNSLink(ctx context.Context, vnet VNet, nodeResourceGroup, privateZoneName string) error {
+	networkLinkName := "link-ABE2ETests"
+	_, err := config.Azure.VirutalNetworkLinksClient.Get(
+		ctx,
+		nodeResourceGroup,
+		privateZoneName,
+		networkLinkName,
+		nil,
+	)
+
+	if err == nil {
+		// private dns link already created
+		return nil
+	}
+
 	vnetForId, err := config.Azure.VNet.Get(ctx, nodeResourceGroup, vnet.name, nil)
 	if err != nil {
 		return fmt.Errorf("failed to get vnet: %w", err)
 	}
-	networkLinkName := "link-ABE2ETests"
 	linkParams := armprivatedns.VirtualNetworkLink{
 		Location: to.Ptr("global"),
 		Properties: &armprivatedns.VirtualNetworkLinkProperties{
@@ -867,8 +895,8 @@ func createPrivateDNSLink(ctx context.Context, vnet VNet, nodeResourceGroup, pri
 	return nil
 }
 
-func addRecordSetToPrivateDNSZone(ctx context.Context, peResp armnetwork.PrivateEndpointsClientCreateOrUpdateResponse, nodeResourceGroup, privateZoneName string) error {
-	for i, dnsConfigPtr := range peResp.Properties.CustomDNSConfigs {
+func addRecordSetToPrivateDNSZone(ctx context.Context, privateEndpoint *armnetwork.PrivateEndpoint, nodeResourceGroup, privateZoneName string) error {
+	for i, dnsConfigPtr := range privateEndpoint.Properties.CustomDNSConfigs {
 		var ipAddresses []string
 		if dnsConfigPtr == nil {
 			return fmt.Errorf("CustomDNSConfigs[%d] is nil", i)
@@ -876,7 +904,7 @@ func addRecordSetToPrivateDNSZone(ctx context.Context, peResp armnetwork.Private
 
 		// get the ip addresses
 		dnsConfig := *dnsConfigPtr
-		if dnsConfig.IPAddresses == nil || len(dnsConfig.IPAddresses) == 0 {
+		if len(dnsConfig.IPAddresses) == 0 {
 			return fmt.Errorf("CustomDNSConfigs[%d].IPAddresses is nil or empty", i)
 		}
 		for _, ipPtr := range dnsConfig.IPAddresses {
@@ -907,15 +935,19 @@ func addRecordSetToPrivateDNSZone(ctx context.Context, peResp armnetwork.Private
 	return nil
 }
 
-func addDNSZoneGroup(ctx context.Context, pzResp armprivatedns.PrivateZonesClientCreateOrUpdateResponse, nodeResourceGroup, privateZoneName, endpointName string) error {
+func addDNSZoneGroup(ctx context.Context, privateZone *armprivatedns.PrivateZone, nodeResourceGroup, privateZoneName, endpointName string) error {
 	groupName := strings.Replace(privateZoneName, ".", "-", -1) // replace . with -
+	_, err := config.Azure.PrivateDNSZoneGroup.Get(ctx, nodeResourceGroup, endpointName, groupName, nil)
+	if err == nil {
+		return nil
+	}
 	dnsZonegroup := armnetwork.PrivateDNSZoneGroup{
 		Name: to.Ptr(fmt.Sprintf("%s/default", privateZoneName)),
 		Properties: &armnetwork.PrivateDNSZoneGroupPropertiesFormat{
 			PrivateDNSZoneConfigs: []*armnetwork.PrivateDNSZoneConfig{{
 				Name: to.Ptr(groupName),
 				Properties: &armnetwork.PrivateDNSZonePropertiesFormat{
-					PrivateDNSZoneID: pzResp.ID,
+					PrivateDNSZoneID: privateZone.ID,
 				},
 			}},
 		},
