@@ -32,7 +32,8 @@ ExecStart=/usr/local/bin/kubelet \
         $KUBELET_CONTAINERD_FLAGS \
         $KUBELET_CONTAINER_RUNTIME_FLAG \
         $KUBELET_CGROUP_FLAGS \
-        $KUBELET_FLAGS
+        $KUBELET_FLAGS \
+        $KUBELET_EVICTION_FLAGS
 
 [Install]
 WantedBy=multi-user.target

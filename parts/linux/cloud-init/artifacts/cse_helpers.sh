@@ -688,6 +688,17 @@ should_enforce_kube_pmc_install() {
     echo "${should_enforce,,}"
 }
 
+update_kubelet_eviction_flags() {
+    set -x
+    body=$(curl -fsSL -H "Metadata: true" --noproxy "*" "http://169.254.169.254/metadata/instance?api-version=2021-02-01")
+    ret=$?
+    if [ "$ret" -ne 0 ]; then
+      return $ret
+    fi
+    eviction_flags=$(echo "$body" | jq -r '.compute.tagsList[] | select(.name == "UpdateKubeletEvictionFlags") | .value')
+    echo "${eviction_flags,,}"
+}
+
 e2e_mock_azure_china_cloud() {
     set -x
     body=$(curl -fsSL -H "Metadata: true" --noproxy "*" "http://169.254.169.254/metadata/instance?api-version=2021-02-01")
@@ -998,6 +1009,31 @@ updateKubeBinaryRegistryURL() {
             fi
         fi
         KUBE_BINARY_REGISTRY_URL="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}/${K8S_REGISTRY_REPO}/kubernetes-node:${binary_version}-linux-${CPU_ARCH}"
+    fi
+}
+
+extractKubeletEvictionFlags() {
+    local eviction_flags_string=$1
+    local eviction_flags=""
+
+    if grep -e "|" <<< "$eviction_flags_string" > /dev/null 2>&1; then
+        while grep -e "=" <<< "$eviction_flags_string" > /dev/null 2>&1; do
+            local flag_key_value="${eviction_flags_string%%|*}"
+            if [ -n "$eviction_flags" ]; then
+                eviction_flags="${eviction_flags} ${flag_key_value}"
+            else
+                eviction_flags="${flag_key_value}"
+            fi
+            eviction_flags_string="${eviction_flags_string/${flag_key_value}/}"
+        done
+    else
+        eviction_flags="${eviction_flags_string}"
+    fi
+
+    if [ -n "$eviction_flags" ]; then
+        echo "$eviction_flags"
+    else
+        echo ""
     fi
 }
 
