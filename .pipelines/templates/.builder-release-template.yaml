@@ -333,6 +333,17 @@ steps:
     env:
       RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
 
+  - bash: |
+      if [ "${ENVIRONMENT,,}" = "tme"  ] && [ "${GENERATE_PUBLISHING_INFO,,}" = "true" ]; then
+          echo "Copying ${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd to immutable storage container"
+          az storage blob copy start --account-name "$STORAGE_ACCOUNT_NAME" --destination-blob "${CAPTURED_SIG_VERSION}.vhd" --destination-container "$VHD_CONTAINER_NAME" --source-uri "${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd" --auth-mode login || exit 1
+          echo "Successfully copied to immutable container"
+      else
+          echo "GENERATE_PUBLISHING_INFO is false or we are in a testing / prod environment, skipping copying ${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd to immutable storage container"
+      fi
+    condition: always()
+    displayName: Copy to Immutable Storage Container
+
   - task: DownloadPipelineArtifact@2
     displayName: Download Build Performance Program
     condition: and(succeeded(), eq(variables.ENVIRONMENT, 'tme'))
