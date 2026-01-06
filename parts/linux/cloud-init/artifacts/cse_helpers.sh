@@ -1012,6 +1012,7 @@ updateKubeBinaryRegistryURL() {
     fi
 }
 
+# extracts eviction flags from a string in the form of 'key1=value1|key2=value2|...'
 extractKubeletEvictionFlags() {
     local eviction_flags_string=$1
     local eviction_flags=""
