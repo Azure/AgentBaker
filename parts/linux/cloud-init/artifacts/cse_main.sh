@@ -164,6 +164,17 @@ function basePrep {
     # TODO: Remove tag and usages once 1.34.0 is GA.
     export -f should_enforce_kube_pmc_install
     SHOULD_ENFORCE_KUBE_PMC_INSTALL=$(retrycmd_silent 10 1 10 bash -cx should_enforce_kube_pmc_install)
+
+    # UpdateKubeletEvictionFlags is a nodepool or cluster tag we curl from IMDS.
+    export -f update_kubelet_eviction_flags
+    export -f extractKubeletEvictionFlags
+    RAW_EVICTION_FLAGS=$(retrycmd_silent 10 1 10 bash -cx update_kubelet_eviction_flags)
+    if [ -n "$RAW_EVICTION_FLAGS" ]; then
+        UPDATED_KUBELET_EVICTION_FLAGS=$(extractKubeletEvictionFlags "$RAW_EVICTION_FLAGS")
+    else
+        UPDATED_KUBELET_EVICTION_FLAGS=""
+    fi
+
     logs_to_events "AKS.CSE.configureKubeletAndKubectl" configureKubeletAndKubectl
 
     createKubeManifestDir
@@ -251,6 +262,13 @@ EOF
         tee "/etc/systemd/system/kubelet.service.d/10-container-runtime-flag.conf" > /dev/null <<'EOF'
 [Service]
 Environment="KUBELET_CONTAINER_RUNTIME_FLAG=--container-runtime=remote"
+EOF
+    fi
+
+    if [ -n "${UPDATED_KUBELET_EVICTION_FLAGS}" ]; then
+        tee "/etc/systemd/system/kubelet.service.d/10-kubelet-eviction-flags.conf" > /dev/null <<EOF
+[Service]
+Environment="KUBELET_EVICTION_FLAGS=${UPDATED_KUBELET_EVICTION_FLAGS}"
 EOF
     fi
 
