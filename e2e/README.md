@@ -43,16 +43,15 @@ sequenceDiagram
     AgentBakerCode-->>-E2E: VM Configuration
     E2E->>+ARM: Create VM using fetched VM Config in cluster network
     ARM-->>-E2E: VM instance
-    E2E->>+KubeAPI: Create test Pod
-    KubeAPI->>+TestPod: Perform healthcheck
-    TestPod-->>-KubeAPI: Healthcheck OK
-    KubeAPI-->>-E2E: Test Pod ready
-    E2E->>+KubeAPI: Execute test validators
-    KubeAPI->>+DebugPod: Execute test validator
-    DebugPod->>+VM: Execute test validator
-    VM-->>-DebugPod: Test results
-    DebugPod-->>-KubeAPI: Test results
-    KubeAPI-->>-E2E: Final results
+    E2E->>+Bastion: Create SSH Tunnel
+    Bastion->>+VM: Forward SSH Connection
+    E2E->>VM: Healthcheck via SSH Tunnel
+    VM-->>E2E: Healthcheck OK
+    E2E->>+KubeAPI: Verify Node Ready
+    KubeAPI-->>-E2E: Node Ready
+    E2E->>VM: Execute test validators via SSH Tunnel
+    VM-->>-E2E: Test results
+    Bastion-->>-E2E: Close SSH Tunnel
 ```
 
 ## Running Locally
