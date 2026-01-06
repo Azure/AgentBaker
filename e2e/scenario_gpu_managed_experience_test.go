@@ -18,13 +18,7 @@ func getDCGMPackageNames(os string) []string {
 	packages := []string{
 		"datacenter-gpu-manager-4-core",
 		"datacenter-gpu-manager-4-proprietary",
-	}
-
-	switch os {
-	case "ubuntu":
-		packages = append(packages, "datacenter-gpu-manager-exporter")
-	case "azurelinux":
-		packages = append(packages, "dcgm-exporter")
+		"dcgm-exporter",
 	}
 
 	return packages
@@ -75,8 +69,8 @@ func Test_Version_Consistency_GPU_Managed_Components(t *testing.T) {
 			{"datacenter-gpu-manager-4-proprietary", "azurelinux", "v3.0"},
 		},
 		{
-			{"datacenter-gpu-manager-exporter", "ubuntu", "r2404"},
-			{"datacenter-gpu-manager-exporter", "ubuntu", "r2204"},
+			{"dcgm-exporter", "ubuntu", "r2404"},
+			{"dcgm-exporter", "ubuntu", "r2204"},
 			{"dcgm-exporter", "azurelinux", "v3.0"},
 		},
 	}

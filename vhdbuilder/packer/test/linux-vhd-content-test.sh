@@ -227,22 +227,9 @@ testPackagesInstalled() {
       "kubectl"|\
       "nvidia-device-plugin"|\
       "datacenter-gpu-manager-4-core"|\
-      "datacenter-gpu-manager-4-proprietary")
-        testPkgDownloaded "${name}" "${PACKAGE_VERSIONS[@]}"
-        continue
-        ;;
-      "datacenter-gpu-manager-exporter")
-        # On Ubuntu 22.04 and 24.04, the package is called datacenter-gpu-manager-exporter
-        [ "$OS_SKU" = "Ubuntu" ] && \
-          { [ "$OS_VERSION" = "22.04" ] || [ "$OS_VERSION" = "24.04" ]; } && \
-          testPkgDownloaded "${name}" "${PACKAGE_VERSIONS[@]}"
-        continue
-        ;;
+      "datacenter-gpu-manager-4-proprietary"|\
       "dcgm-exporter")
-        # The package is called dcgm-exporter in AzureLinux 3.0
-        [ "$OS_SKU" = "AzureLinux" ] && \
-          [ "$OS_VERSION" = "3.0" ] && \
-          testPkgDownloaded "${name}" "${PACKAGE_VERSIONS[@]}"
+        testPkgDownloaded "${name}" "${PACKAGE_VERSIONS[@]}"
         continue
         ;;
     esac

@@ -127,7 +127,7 @@ managedGPUPackageList() {
         nvidia-device-plugin
         datacenter-gpu-manager-4-core
         datacenter-gpu-manager-4-proprietary
-        datacenter-gpu-manager-exporter
+        dcgm-exporter
     )
     echo "${packages[@]}"
 }
