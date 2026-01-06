@@ -620,7 +620,7 @@ EOF
 
         It 'get result from v2 containerd config'
             cat > existing_file << EOF
-version = 2
+version = 3
 oom_score = -999
 [plugins."io.containerd.grpc.v1.cri"]
   sandbox = "sandbox_image_from_containerd_config"
