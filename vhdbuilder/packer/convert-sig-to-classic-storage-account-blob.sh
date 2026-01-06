@@ -139,7 +139,7 @@ export AZCOPY_JOB_PLAN_LOCATION="$(pwd)/azcopy-job-plan-files/"
 mkdir -p "${AZCOPY_LOG_LOCATION}"
 mkdir -p "${AZCOPY_JOB_PLAN_LOCATION}"
 
-if ! azcopy copy "${sas}" "${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd" --recursive=true ; then
+if ! azcopy copy "${sas}" "${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd" --recursive=true ; then
   azExitCode=$?
   # loop through azcopy log files
   shopt -s nullglob
@@ -159,7 +159,7 @@ if ! azcopy copy "${sas}" "${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd" --recurs
   exit $azExitCode
 fi
 
-echo "Uploaded $disk_resource_id to ${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd"
+echo "Uploaded $disk_resource_id to ${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd"
 capture_benchmark "${SCRIPT_NAME}_upload_disk_to_blob"
 
 if ! az disk revoke-access --ids $disk_resource_id; then
