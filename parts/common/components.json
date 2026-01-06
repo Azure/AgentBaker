@@ -450,7 +450,7 @@
           "latestVersion": "v1.33.6-windows-hpc",
           "previousLatestVersion": "v1.33.3-windows-hpc"
         }
-      ] 
+      ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/v2/kubernetes/azure-cloud-node-manager:*",
