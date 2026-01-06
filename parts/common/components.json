@@ -494,7 +494,7 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/autoscaler/cluster-proportional-autoscaler",
-          "latestVersion": "v1.9.0-5"
+          "latestVersion": "v1.9.0-7"
         }
       ],
       "windowsVersions": []
