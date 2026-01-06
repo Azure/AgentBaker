@@ -1250,7 +1250,7 @@ get_kubernetes_tools() {
 
 function get_sandbox_image(){
     sandbox_image=$(get_sandbox_image_from_containerd_config "/etc/containerd/config.toml")
-    if [ -z "$sandbox_image" ]; then
+    if [ -z "$sandbox_image" ] && ! semverCompare ${KUBERNETES_VERSION:-"0.0.0"} "1.35.0"; then
         sandbox_image=$(extract_value_from_kubelet_flags "$KUBELET_FLAGS" "pod-infra-container-image")
     fi
 
