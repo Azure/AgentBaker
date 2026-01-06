@@ -444,19 +444,11 @@ while IFS= read -r p; do
         echo "  - datacenter-gpu-manager-4-proprietary version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
-    "datacenter-gpu-manager-exporter")
-      for version in ${PACKAGE_VERSIONS[@]}; do
-        if [ "${OS}" = "${UBUNTU_OS_NAME}" ]; then
-          downloadPkgFromVersion "datacenter-gpu-manager-exporter" "${version}" "${downloadDir}"
-        fi
-        echo "  - datacenter-gpu-manager-exporter version ${version}" >> ${VHD_LOGS_FILEPATH}
-      done
-      ;;
     "dcgm-exporter")
       for version in ${PACKAGE_VERSIONS[@]}; do
         if isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
           echo "Skipping $name install on OS Guard"
-        elif isMarinerOrAzureLinux "$OS"; then
+        elif [ "${OS}" = "${UBUNTU_OS_NAME}" ] || isMarinerOrAzureLinux "$OS"; then
           downloadPkgFromVersion "dcgm-exporter" "${version}" "${downloadDir}"
         fi
         echo "  - dcgm-exporter version ${version}" >> ${VHD_LOGS_FILEPATH}
