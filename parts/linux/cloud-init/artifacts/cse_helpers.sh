@@ -1250,7 +1250,7 @@ get_kubernetes_tools() {
 
 function get_sandbox_image(){
     sandbox_image=$(get_sandbox_image_from_containerd_config "/etc/containerd/config.toml")
-    if [ -z "$sandbox_image" ]; then
+    if [ -z "$sandbox_image" ] && ! semverCompare ${KUBERNETES_VERSION:-"0.0.0"} "1.35.0"; then
         sandbox_image=$(extract_value_from_kubelet_flags "$KUBELET_FLAGS" "pod-infra-container-image")
     fi
 
@@ -1277,15 +1277,24 @@ function get_sandbox_image_from_containerd_config() {
 
     # Extract sandbox_image value from the CRI plugin section
     # The sandbox_image is typically under [plugins."io.containerd.grpc.v1.cri"]
-    sandbox_image=$(awk '/sandbox_image/ && /=/ {
-        # Remove quotes and spaces
-        gsub(/[" ]/, "", $3)
-        print $3
-    }' FS='=' "$config_file")
+    sandbox_image=$(
+    awk -F '=' '
+    /^[[:space:]]*(sandbox_image|sandbox)[[:space:]]*=/ {
+        val=$2
+        sub(/#.*/, "", val)
+        gsub(/^[[:space:]]*"/, "", val)
+        gsub(/"[[:space:]]*$/, "", val)
+        gsub(/^[[:space:]]+|[[:space:]]+$/, "", val)
+        print val
+    }
+    ' "$config_file"
+    )
 
     # Alternative method if the above doesn't work
     if [ -z "$sandbox_image" ]; then
-        sandbox_image=$(grep -E '^\s*sandbox_image\s*=' "$config_file" | sed 's/.*sandbox_image\s*=\s*"\([^"]*\)".*/\1/')
+        sandbox_image=$(grep -E '^[[:space:]]*(sandbox_image|sandbox)[[:space:]]*=' "$config_file" | \
+            head -n1 | \
+            sed -e 's/^[^=]*=[[:space:]]*//' -e 's/[[:space:]]*#.*//' -e 's/^"//' -e 's/"$//' -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
     fi
 
     echo "$sandbox_image"

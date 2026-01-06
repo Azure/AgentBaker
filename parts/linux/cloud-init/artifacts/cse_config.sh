@@ -579,10 +579,14 @@ ensurePodInfraContainerImage() {
 
     pod_infra_container_image=$(get_sandbox_image)
 
+    if [ -z "${pod_infra_container_image}" ]; then
+        echo "Failed to recognize pod infra container image"
+        exit $ERR_PULL_POD_INFRA_CONTAINER_IMAGE
+    fi
+
     echo "Checking if $pod_infra_container_image already exists locally..."
     if ctr -n k8s.io images list -q | grep -q "^${pod_infra_container_image}$"; then
         echo "Image $pod_infra_container_image already exists locally, skipping pull"
-        echo "Cached image details:"
         return 0
     fi
     base_name="${pod_infra_container_image%@:*}"
