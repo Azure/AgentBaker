@@ -680,8 +680,8 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=azure-policy/policy-kubernetes-addon-prod",
-          "latestVersion": "1.15.2",
-          "previousLatestVersion": "1.14.2"
+          "latestVersion": "1.15.4",
+          "previousLatestVersion": "1.15.2"
         }
       ],
       "windowsVersions": []
