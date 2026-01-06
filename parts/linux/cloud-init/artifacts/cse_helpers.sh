@@ -1030,10 +1030,8 @@ extractKubeletEvictionFlags() {
         eviction_flags="${eviction_flags_string}"
     fi
 
-    # Trim leading spaces (if any) and echo result for the caller to capture
     if [ -n "$eviction_flags" ]; then
-        local trimmed="${eviction_flags#${eviction_flags%%[! ]*}}"
-        echo "$trimmed"
+        echo "$eviction_flags"
     else
         echo ""
     fi
