@@ -51,12 +51,14 @@ func validatePodRunning(ctx context.Context, s *Scenario, pod *corev1.Pod) error
 
 func ValidatePodRunningWithRetry(ctx context.Context, s *Scenario, pod *corev1.Pod, maxRetries int) {
 	var err error
-	for i := 0; i < maxRetries && err != nil; i++ {
+	for i := range maxRetries {
 		err = validatePodRunning(ctx, s, pod)
 		if err != nil {
 			time.Sleep(1 * time.Second)
 			s.T.Logf("retrying pod %q validation (%d/%d)", pod.Name, i+1, maxRetries)
+			continue
 		}
+		break
 	}
 	require.NoErrorf(s.T, err, "failed to validate pod running %q", pod.Name)
 }
