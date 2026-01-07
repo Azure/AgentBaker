@@ -103,7 +103,7 @@ az sig image-version create \
     --target-regions ${TARGET_REGIONS}
 capture_benchmark "${SCRIPT_NAME}_create_sig_image_version"
 
-if [ "${ENVIRONMENT,,}" = "tme" ] || [ "${GENERATE_PUBLISHING_INFO,,}" = "false" ]; then
+if [ "${ENVIRONMENT,,}" = "tme" ] && [ "${GENERATE_PUBLISHING_INFO,,}" = "false" ]; then
     azcopy remove "${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd" --recursive=true
 fi
 
