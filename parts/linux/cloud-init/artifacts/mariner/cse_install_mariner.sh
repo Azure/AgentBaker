@@ -463,8 +463,6 @@ cleanUpGPUDrivers() {
   for packageName in $(managedGPUPackageList); do
     rm -rf "/opt/${packageName}"
   done
-
-  removeNvidiaRepos
 }
 
 downloadContainerdFromVersion() {
