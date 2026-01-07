@@ -126,7 +126,7 @@ steps:
       BUILD_DEFINITION_NAME: $(Build.DefinitionName)
 
   - bash: |
-      if [ "${ENVIRONMENT,,}" = "tme" ] && [ "${GENERATE_PUBLISHING_INFO,,}" = "true" ] && [ ${RUN_PREFETCH_OPTIMIZATION,,} = "false" ] || [ ${BUILDER} = "imagecustomizer" ]; then
+      if [ "${ENVIRONMENT,,}" = "tme" ] && [ "${GENERATE_PUBLISHING_INFO,,}" = "true" ] && [ ${RUN_PREFETCH_OPTIMIZATION,,} = "false" ] || [ ${BUILDER,,} = "imagecustomizer" ]; then
           DESTINATION_STORAGE_CONTAINER=${CLASSIC_BLOB_STAGING}
           STAGING_CONTAINER_EXISTS=$(az storage container exists --account-name ${STORAGE_ACCOUNT_NAME} --name $VHD_STAGING_CONTAINER_NAME --auth-mode login | jq -r '.exists')
           if [ "${STAGING_CONTAINER_EXISTS,,}" = "false" ]; then
