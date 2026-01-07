@@ -129,7 +129,7 @@ if [ "$sas" = "None" ]; then
 fi
 capture_benchmark "${SCRIPT_NAME}_grant_access_to_disk"
 
-echo "Uploading $disk_resource_id to ${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd"
+echo "Uploading $disk_resource_id to ${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd"
 
 echo "Setting azcopy environment variables with pool identity: $AZURE_MSI_RESOURCE_STRING"
 export AZCOPY_AUTO_LOGIN_TYPE="AZCLI"
