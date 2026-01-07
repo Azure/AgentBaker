@@ -340,6 +340,8 @@ steps:
       scriptLocation: inlineScript
       inlineScript: |
         echo "Copying ${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd to immutable storage container"
+        export AZCOPY_AUTO_LOGIN_TYPE="AZCLI"
+        export AZCOPY_CONCURRENCY_VALUE="AUTO"
         az storage blob copy start --account-name "$STORAGE_ACCOUNT_NAME" --destination-blob "${CAPTURED_SIG_VERSION}.vhd" --destination-container "$VHD_CONTAINER_NAME" --source-uri "${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd" --auth-mode login || exit 1
         echo "Successfully copied to immutable container"
         # Remove old VHD from staging container after copy to immutable container is complete
