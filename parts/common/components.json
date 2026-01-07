@@ -348,7 +348,7 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/apiserver-network-proxy/agent",
-          "latestVersion": "v0.31.4-6"
+          "latestVersion": "v0.31.4-7"
         }
       ],
       "windowsVersions": []
@@ -680,8 +680,8 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=azure-policy/policy-kubernetes-addon-prod",
-          "latestVersion": "1.15.2",
-          "previousLatestVersion": "1.14.2"
+          "latestVersion": "1.15.4",
+          "previousLatestVersion": "1.15.2"
         }
       ],
       "windowsVersions": []
@@ -692,8 +692,8 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=azure-policy/policy-kubernetes-webhook",
-          "latestVersion": "1.15.2",
-          "previousLatestVersion": "1.14.2"
+          "latestVersion": "1.15.4",
+          "previousLatestVersion": "1.15.2"
         }
       ],
       "windowsVersions": []
@@ -1745,39 +1745,33 @@
       }
     },
     {
-      "name": "datacenter-gpu-manager-exporter",
-      "downloadLocation": "/opt/datacenter-gpu-manager-exporter/downloads",
+      "name": "dcgm-exporter",
+      "downloadLocation": "/opt/dcgm-exporter/downloads",
       "downloadURIs": {
         "ubuntu": {
           "r2404": {
             "versionsV2": [
               {
-                "renovateTag": "name=datacenter-gpu-manager-exporter, repository=nvidia, os=ubuntu, release=24.04",
-                "latestVersion": "4.6.0-1"
+                "renovateTag": "name=dcgm-exporter, repository=production, os=ubuntu, release=24.04",
+                "latestVersion": "4.6.0-ubuntu24.04u2"
               }
             ]
           },
           "r2204": {
             "versionsV2": [
               {
-                "renovateTag": "name=datacenter-gpu-manager-exporter, repository=nvidia, os=ubuntu, release=22.04",
-                "latestVersion": "4.6.0-1"
+                "renovateTag": "name=dcgm-exporter, repository=production, os=ubuntu, release=22.04",
+                "latestVersion": "4.6.0-ubuntu22.04u2"
               }
             ]
           }
-        }
-      }
-    },
-    {
-      "name": "dcgm-exporter",
-      "downloadLocation": "/opt/dcgm-exporter/downloads",
-      "downloadURIs": {
+        },
         "azurelinux": {
           "v3.0": {
             "versionsV2": [
               {
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=dcgm-exporter, os=azurelinux, release=3.0",
-                "latestVersion": "4.6.0-1.azl3"
+                "latestVersion": "4.6.0-2.azl3" 
               }
             ]
           }
