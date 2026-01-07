@@ -432,22 +432,44 @@
       ]
     },
     {
-      "id": "sha256:f7598214249579c25d329989b99a7615dc7fb761a694b78ef3b9cd0416f36e75",
-      "bytes": 83041629,
-      "size": "79.2 MiB",
+      "id": "sha256:4044205d88f6688f41be9e5ac236b414457c586754277287fc4c06ee6fbc3a32",
+      "bytes": 24823569,
+      "size": "23.7 MiB",
       "repoTags": [
-        "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.28.102-akslts"
+        "mcr.microsoft.com/oss/v2/kubernetes/autoscaler/addon-resizer:v1.8.23-7"
       ],
       "repoDigests": [
-        "sha256:0b6c2718a77d9449c57b1bfb44e79c6f9e0156235d342cdffb11c82a63e99560"
+        "sha256:95e40970fbb222f95b076203ae882e9f45e12d125451bc9dfdfa6b98f460c3c4"
       ]
     },
     {
-      "id": "sha256:e5e9ce105ccead12062ce2628d2f49de6d9e94a54b42f7b3749f4e4c3272469f",
-      "bytes": 84648797,
+      "id": "sha256:a36caabdc1e5fa4458745f26c92d305e8f4b3379ff01d2ee583cec66e7c29caf",
+      "bytes": 22364708,
+      "size": "21.3 MiB",
+      "repoTags": [
+        "mcr.microsoft.com/oss/v2/kubernetes/autoscaler/cluster-proportional-autoscaler:v1.8.11-10"
+      ],
+      "repoDigests": [
+        "sha256:e5833c72e9d2e265b6bbbb9208a9e160a352dc9a2a6aec2c94afd17324f2f46a"
+      ]
+    },
+    {
+      "id": "sha256:1b26431092bb247181cf7f84c724e9ced87635e905fd97379a76e5adfd34d5a2",
+      "bytes": 26248010,
+      "size": "25.0 MiB",
+      "repoTags": [
+        "mcr.microsoft.com/oss/v2/kubernetes/kube-state-metrics:v2.15.0-4"
+      ],
+      "repoDigests": [
+        "sha256:0738ce4c55e88e7abb873a32170bf580f75eddb7156eb00fb5c2d04510f93c64"
+      ]
+    },
+    {
+      "id": "sha256:6f31e6ab1dc31ba8fc8b13a44ad699b9dbdf98ab08633d08c4e065b947b9bb0d",
+      "bytes": 84666530,
       "size": "80.7 MiB",
       "repoTags": [
-        "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.29.100-akslts"
+        "mcr.microsoft.com/containernetworking/azure-cni:v1.5.44"
       ],
       "repoDigests": [
         "sha256:d1efb0d1e0e1de2afe7d56fa506070266761fef3a3ae5ce29f40b85e31f61e2b"
