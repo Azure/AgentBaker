@@ -20,7 +20,7 @@ func writeToFile(t testing.TB, fileName, content string) error {
 	}
 
 	fullPath := filepath.Join(dirPath, fileName)
-	return os.WriteFile(fullPath, []byte(content), 0644)
+	return os.WriteFile(fullPath, []byte(content), 0600)
 }
 
 func dumpFileMapToDir(t testing.TB, files map[string]string) error {
