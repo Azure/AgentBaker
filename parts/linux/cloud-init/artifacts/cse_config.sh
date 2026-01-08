@@ -1145,7 +1145,7 @@ LOCALDNS_SLICEFILE="/etc/systemd/system/localdns.slice"
 # It creates the localdns corefile and slicefile, then enables and starts localdns.
 # In this function, generated base64 encoded localdns corefile is decoded and written to the corefile path.
 # This function also creates the localdns slice file with memory and cpu limits, that will be used by localdns systemd unit.
-shouldEnableLocalDns() {
+enableLocalDNSForScriptless() {
     mkdir -p "$(dirname "${LOCALDNS_COREFILE}")"
     touch "${LOCALDNS_COREFILE}"
     chmod 0644 "${LOCALDNS_COREFILE}"
