@@ -298,6 +298,9 @@ EOF
         logs_to_events "AKS.CSE.shouldEnableLocalDns" shouldEnableLocalDns || exit $ERR_LOCALDNS_FAIL
     fi
 
+    # Enable mcr-hosts-setup timer to periodically resolve and cache MCR DNS addresses
+    logs_to_events "AKS.CSE.shouldEnableMCRHostsSetup" shouldEnableMCRHostsSetup || exit $ERR_SYSTEMCTL_START_FAIL
+
     if [ "${ID}" != "mariner" ] && [ "${ID}" != "azurelinux" ]; then
         echo "Recreating man-db auto-update flag file and kicking off man-db update process at $(date)"
         createManDbAutoUpdateFlagFile
