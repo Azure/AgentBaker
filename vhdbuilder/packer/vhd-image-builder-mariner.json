@@ -621,6 +621,21 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/mcr-hosts-setup.sh",
+      "destination": "/home/packer/mcr-hosts-setup.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/mcr-hosts-setup.service",
+      "destination": "/home/packer/mcr-hosts-setup.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/mcr-hosts-setup.timer",
+      "destination": "/home/packer/mcr-hosts-setup.timer"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/configure-azure-network.sh",
       "destination": "/home/packer/configure-azure-network.sh"
     },
