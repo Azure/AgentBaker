@@ -1216,6 +1216,14 @@ EOF
     echo "Enable localdns succeeded."
 }
 
+# This function enables and starts the mcr-hosts-setup timer.
+# The timer periodically resolves mcr.microsoft.com DNS records and populates /etc/hosts.testing.
+shouldEnableMCRHostsSetup() {
+    echo "mcr-hosts-setup timer should be enabled."
+    systemctlEnableAndStart mcr-hosts-setup.timer 30 || exit $ERR_SYSTEMCTL_START_FAIL
+    echo "Enable mcr-hosts-setup timer succeeded."
+}
+
 configureManagedGPUExperience() {
     if [ "${GPU_NODE}" != "true" ] || [ "${skip_nvidia_driver_install}" = "true" ]; then
         return

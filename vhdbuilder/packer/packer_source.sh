@@ -309,6 +309,20 @@ copyPackerFiles() {
   cpAndMode $AZURE_NETWORK_UDEV_RULE_SRC $AZURE_NETWORK_UDEV_RULE_DEST 0644
 # ---------------------------------------------------------------------------------------
 
+# ------------------------- Files related to mcr-hosts-setup ----------------------------
+  MCR_HOSTS_SETUP_SCRIPT_SRC=/home/packer/mcr-hosts-setup.sh
+  MCR_HOSTS_SETUP_SCRIPT_DEST=/opt/azure/containers/mcr-hosts-setup.sh
+  cpAndMode $MCR_HOSTS_SETUP_SCRIPT_SRC $MCR_HOSTS_SETUP_SCRIPT_DEST 0755
+
+  MCR_HOSTS_SETUP_SERVICE_SRC=/home/packer/mcr-hosts-setup.service
+  MCR_HOSTS_SETUP_SERVICE_DEST=/etc/systemd/system/mcr-hosts-setup.service
+  cpAndMode $MCR_HOSTS_SETUP_SERVICE_SRC $MCR_HOSTS_SETUP_SERVICE_DEST 0644
+
+  MCR_HOSTS_SETUP_TIMER_SRC=/home/packer/mcr-hosts-setup.timer
+  MCR_HOSTS_SETUP_TIMER_DEST=/etc/systemd/system/mcr-hosts-setup.timer
+  cpAndMode $MCR_HOSTS_SETUP_TIMER_SRC $MCR_HOSTS_SETUP_TIMER_DEST 0644
+# ---------------------------------------------------------------------------------------
+
   # Install AKS diagnostic
   cpAndMode $AKS_DIAGNOSTIC_SCRIPT_SRC $AKS_DIAGNOSTIC_SCRIPT_DEST 755
 
