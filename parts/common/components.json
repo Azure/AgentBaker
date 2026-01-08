@@ -1524,12 +1524,12 @@
               {
                 "k8sVersion": "1.32",
                 "renovateTag": "name=azure-acr-credential-provider, repository=production, os=ubuntu, release=24.04",
-                "latestVersion": "1.32.11-ubuntu24.04u1"
+                "latestVersion": "1.34.3-ubuntu24.04u1"
               },
               {
                 "k8sVersion": "1.33",
                 "renovateTag": "name=azure-acr-credential-provider, repository=production, os=ubuntu, release=24.04",
-                "latestVersion": "1.33.6-ubuntu24.04u1"
+                "latestVersion": "1.34.3-ubuntu24.04u1"
               },
               {
                 "k8sVersion": "1.34",
@@ -1544,12 +1544,12 @@
               {
                 "k8sVersion": "1.32",
                 "renovateTag": "name=azure-acr-credential-provider, repository=production, os=ubuntu, release=22.04",
-                "latestVersion": "1.32.11-ubuntu22.04u1"
+                "latestVersion": "1.34.3-ubuntu22.04u1"
               },
               {
                 "k8sVersion": "1.33",
                 "renovateTag": "name=azure-acr-credential-provider, repository=production, os=ubuntu, release=22.04",
-                "latestVersion": "1.33.6-ubuntu22.04u1"
+                "latestVersion": "1.34.3-ubuntu22.04u1"
               },
               {
                 "k8sVersion": "1.34",
@@ -1564,12 +1564,12 @@
               {
                 "k8sVersion": "1.32",
                 "renovateTag": "name=azure-acr-credential-provider, repository=production, os=ubuntu, release=20.04",
-                "latestVersion": "1.32.11-ubuntu20.04u1"
+                "latestVersion": "1.34.3-ubuntu20.04u1"
               },
               {
                 "k8sVersion": "1.33",
                 "renovateTag": "name=azure-acr-credential-provider, repository=production, os=ubuntu, release=20.04",
-                "latestVersion": "1.33.6-ubuntu20.04u1"
+                "latestVersion": "1.34.3-ubuntu20.04u1"
               },
               {
                 "k8sVersion": "1.34",
