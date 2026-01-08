@@ -1,7 +1,0 @@
-Release notes for security patch 20251112T000000Z timestamp
-Package difference between 20251107T000000Z and 20251112T000000Z
-
-No reboot required
-
-
-No packages found
