@@ -544,6 +544,14 @@ func extractLogsFromVMLinux(ctx context.Context, s *Scenario, privateIP string) 
 		commandList["secure-tls-bootstrap.log"] = "sudo cat /var/log/azure/aks/secure-tls-bootstrap.log"
 	}
 
+	isAzureCNI, err := s.Runtime.Cluster.IsAzureCNI()
+	if err != nil {
+		s.T.Logf("error checking if cluster is using Azure CNI: %s", err)
+	}
+	if isAzureCNI {
+		commandList["azure-vnet.log"] = "sudo cat /var/log/azure-vnet.log"
+	}
+
 	pod, err := s.Runtime.Cluster.Kube.GetHostNetworkDebugPod(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get host network debug pod: %w", err)
