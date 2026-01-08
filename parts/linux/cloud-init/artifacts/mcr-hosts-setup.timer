@@ -1,0 +1,14 @@
+[Unit]
+Description=Run MCR hosts setup every 30 seconds
+Before=localdns.service
+
+[Timer]
+# Run immediately on boot
+OnBootSec=0
+# Run 30 seconds after the last activation
+OnUnitActiveSec=30s
+# Timer accuracy (how much systemd can delay)
+AccuracySec=1s
+
+[Install]
+WantedBy=timers.target
