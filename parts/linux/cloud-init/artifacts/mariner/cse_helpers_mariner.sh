@@ -68,15 +68,19 @@ dnf_update() {
 }
 dnf_download() {
     retries=$1; wait_sleep=$2; timeout=$3; downloadDir=$4; shift && shift && shift && shift
-    mkdir -p "${downloadDir}"
     for i in $(seq 1 $retries); do
         if [ "${downloadDir}" = "${DNF_DEFAULT_PATH}" ]; then
             dnf download --resolve "$@"
         else
+            mkdir -p "${downloadDir}"
             dnf download --resolve --downloaddir="${downloadDir}" "$@"
         fi
 
         if [ $? -eq 0 ]; then
+            #print where it's cached
+            for pkg in "$@"; do
+                find /var/cache/dnf -path '*/packages/*.rpm' -name "$pkg" -print
+            done
             break
         elif [ $i -eq $retries ]; then
             return 1
