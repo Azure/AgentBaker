@@ -1145,11 +1145,20 @@ LOCALDNS_SLICEFILE="/etc/systemd/system/localdns.slice"
 # It creates the localdns corefile and slicefile, then enables and starts localdns.
 # In this function, generated base64 encoded localdns corefile is decoded and written to the corefile path.
 # This function also creates the localdns slice file with memory and cpu limits, that will be used by localdns systemd unit.
-shouldEnableLocalDns() {
+enableLocalDNSForScriptless() {
     mkdir -p "$(dirname "${LOCALDNS_COREFILE}")"
     touch "${LOCALDNS_COREFILE}"
     chmod 0644 "${LOCALDNS_COREFILE}"
     echo "${LOCALDNS_GENERATED_COREFILE}" | base64 -d > "${LOCALDNS_COREFILE}" || exit $ERR_LOCALDNS_FAIL
+
+    # Create environment file for corefile regeneration.
+    # This file will be referenced by localdns.service using EnvironmentFile directive.
+    LOCALDNS_ENV_FILE="/etc/localdns/environment"
+    mkdir -p "$(dirname "${LOCALDNS_ENV_FILE}")"
+    cat > "${LOCALDNS_ENV_FILE}" <<EOF
+LOCALDNS_BASE64_ENCODED_COREFILE=${LOCALDNS_GENERATED_COREFILE}
+EOF
+    chmod 0644 "${LOCALDNS_ENV_FILE}"
 
 	mkdir -p "$(dirname "${LOCALDNS_SLICEFILE}")"
     touch "${LOCALDNS_SLICEFILE}"

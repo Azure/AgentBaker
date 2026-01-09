@@ -238,7 +238,7 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnod
 				"testdomain456.com": {
 					QueryLogging:                "Log",
 					Protocol:                    "PreferUDP",
-					ForwardDestination:          "ClusterCoreDNS",
+					ForwardDestination:          "VnetDNS",
 					ForwardPolicy:               "Random",
 					MaxConcurrent:               to.Ptr(int32(1000)),
 					CacheDurationInSeconds:      to.Ptr(int32(3600)),

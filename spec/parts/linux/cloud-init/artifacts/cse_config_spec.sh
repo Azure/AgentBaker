@@ -548,7 +548,7 @@ Describe 'cse_config.sh'
 
         # Success case.
         It 'should enable localdns successfully'
-            When call shouldEnableLocalDns
+            When call enableLocalDNSForScriptless
             The status should be success
             The output should include "localdns should be enabled."
             The output should include "Enable localdns succeeded."
@@ -556,7 +556,7 @@ Describe 'cse_config.sh'
 
         # Corefile file creation.
         It 'should create localdns.corefile with correct data'
-            When call shouldEnableLocalDns
+            When call enableLocalDNSForScriptless
             The status should be success
             The output should include "localdns should be enabled."
             The path "$LOCALDNS_COREFILE" should be file
@@ -568,7 +568,7 @@ Describe 'cse_config.sh'
         # Corefile already exists (idempotency).
         It 'should overwrite existing localdns.corefile'
             echo "wrong data" > "$LOCALDNS_COREFILE"
-            When call shouldEnableLocalDns
+            When call enableLocalDNSForScriptless
             The status should be success
             The path "$LOCALDNS_COREFILE" should be file
             The contents of file "$LOCALDNS_COREFILE" should include "localdns corefile"
@@ -578,7 +578,7 @@ Describe 'cse_config.sh'
 
         # Slice file creation.
         It 'should create localdns.slice with correct CPU and Memory limits'
-            When call shouldEnableLocalDns
+            When call enableLocalDNSForScriptless
             The status should be success
             The output should include "localdns should be enabled."
             The path "$LOCALDNS_SLICEFILE" should be file
