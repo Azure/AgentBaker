@@ -439,6 +439,9 @@ installRPMPackageFromFile() {
         echo "Installing ${packageName} with cached dependency RPMs: ${rpmArgs[*]}"
     fi
 
+    # When dependency RPMs are cached, they are included in the argument list to dnf_install.
+    # When no dependency RPM is cached, only the main package RPM is included.
+    # And dnf_install will handle installing dependencies from configured repos (downloading from network) as needed.
     if ! dnf_install 30 1 600 "${rpmArgs[@]}"; then
         exit $ERR_APT_INSTALL_TIMEOUT
     fi
