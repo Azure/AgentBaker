@@ -79,7 +79,8 @@ dnf_download() {
         if [ $? -eq 0 ]; then
             #print where it's cached
             for pkg in "$@"; do
-                find /var/cache/dnf -path '*/packages/*.rpm' -name "$pkg" -print
+                echo "Package $pkg downloaded to:"
+                find / -name "$pkg" -print 2>/dev/null
             done
             break
         elif [ $i -eq $retries ]; then

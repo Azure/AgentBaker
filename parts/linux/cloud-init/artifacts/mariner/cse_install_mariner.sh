@@ -403,7 +403,6 @@ downloadPkgFromVersion() {
     packageName="${1:-}"
     packageVersion="${2:-}"
     downloadDir="${3:-"/opt/${packageName}/downloads"}"
-    mkdir -p ${downloadDir}
     dnf_download 30 1 600 ${downloadDir} ${packageName}-${packageVersion} || exit $ERR_APT_INSTALL_TIMEOUT
     echo "Succeeded to download ${packageName} version ${packageVersion}"
 }
