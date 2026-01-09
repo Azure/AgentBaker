@@ -7,7 +7,7 @@ Wants=cloud-init.target
 
 [Service]
 Type=oneshot
-ExecStart=/opt/azure/containers/aks-node-controller provision --provision-config=/opt/azure/containers/aks-node-controller-config.json
+ExecStart=/opt/azure/containers/aks-node-controller-wrapper.sh
 RemainAfterExit=No
 
 [Install]
