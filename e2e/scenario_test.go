@@ -72,6 +72,21 @@ func Test_Flatcar_CustomCATrust(t *testing.T) {
 	})
 }
 
+func Test_Flatcar_CACertsCompatibility(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using the Flatcar VHD has Ubuntu-compatible local CA certificates directory",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDFlatcarGen2,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				execScriptOnVMForScenarioValidateExitCode(ctx, s, "test -d /usr/local/share/ca-certificates", 0, "/usr/local/share/ca-certificates is not a directory")
+			},
+		},
+	})
+}
+
 func Test_Flatcar_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a Flatcar and the self-contained installer can be properly bootstrapped",
