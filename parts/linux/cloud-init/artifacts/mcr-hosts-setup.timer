@@ -1,14 +1,16 @@
 [Unit]
-Description=Run MCR hosts setup every 30 seconds
+Description=Run MCR hosts setup periodically
 Before=localdns.service
 
 [Timer]
 # Run immediately on boot
 OnBootSec=0
-# Run 30 seconds after the last activation
-OnUnitActiveSec=30s
+# Run 5 minutes after the last activation (MCR IPs don't change frequently)
+OnUnitActiveSec=5min
 # Timer accuracy (how much systemd can delay)
 AccuracySec=1s
+# Add randomization to avoid thundering herd if multiple nodes boot simultaneously
+RandomizedDelaySec=60s
 
 [Install]
 WantedBy=timers.target
