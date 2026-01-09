@@ -605,6 +605,8 @@ while IFS= read -r p; do
 
         if isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
           echo "Skipping $name install on OS Guard"
+        elif [ "$IS_KATA" = "true" ]; then
+          echo "Skipping NPD install for kata VHD"
         elif [ "${OS}" = "${UBUNTU_OS_NAME}" ] || isMarinerOrAzureLinux "$OS"; then
           # installNodeProblemDetector over in npd-install.sh
           installNodeProblemDetector "${downloadDir}" "${evaluatedURL}" "${npdName}"

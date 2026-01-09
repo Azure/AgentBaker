@@ -2100,12 +2100,34 @@
             "downloadURL": "https://packages.microsoft.com/cbl-mariner/2.0/prod/cloud-native/${CPU_ARCH_NPD}/Packages/n/node-problem-detector-kubernetes-${version}.cm2.${CPU_ARCH_NPD}.rpm"
           }
         },
+        "marinerkata": {
+          "current": {
+            "versionsV2": [
+              {
+                "renovateTag": "name=node-problem-detector-kubernetes, os=mariner, release=2.0",
+                "latestVersion": "<SKIP>"
+              }
+            ],
+            "downloadURL": "https://packages.microsoft.com/cbl-mariner/2.0/prod/cloud-native/${CPU_ARCH_NPD}/Packages/n/node-problem-detector-kubernetes-${version}.cm2.${CPU_ARCH_NPD}.rpm"
+          }
+        },
         "azurelinux": {
           "v3.0": {
             "versionsV2": [
               {
                 "renovateTag": "name=node-problem-detector-kubernetes, os=azurelinux, release=3.0",
                 "latestVersion": "0.8.20-2"
+              }
+            ],
+            "downloadURL": "https://packages.microsoft.com/azurelinux/3.0/prod/base/${CPU_ARCH_NPD}/Packages/n/node-problem-detector-${version}.azl3.${CPU_ARCH_NPD}.rpm"
+          }
+        },
+        "azurelinuxkata": {
+          "v3.0": {
+            "versionsV2": [
+              {
+                "renovateTag": "name=node-problem-detector-kubernetes, os=azurelinux, release=3.0",
+                "latestVersion": "<SKIP>"
               }
             ],
             "downloadURL": "https://packages.microsoft.com/azurelinux/3.0/prod/base/${CPU_ARCH_NPD}/Packages/n/node-problem-detector-${version}.azl3.${CPU_ARCH_NPD}.rpm"
