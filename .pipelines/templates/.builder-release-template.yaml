@@ -175,7 +175,7 @@ steps:
         else
           echo "Staging container $VHD_STAGING_CONTAINER_NAME already exists in storage account $STORAGE_ACCOUNT_NAME"
         fi
-        echo "DESTINATION_STORAGE_CONTAINER is set to ${DESTINATION_STORAGE_CONTAINER}"
+        echo "DESTINATION_STORAGE_CONTAINER is set to ${CLASSIC_BLOB_STAGING}"
     condition: |
       or(
         and(
