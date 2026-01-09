@@ -24,7 +24,9 @@ wait_for_apt_locks() {
 # Core update function used by apt_get_update and apt_get_install_from_local_repo
 _apt_get_update() {
     local retries=$1
-    local apt_opts=$2
+    local wait_sleep=$2
+    local timeout=$3
+    local apt_opts=$4
     local apt_update_output=/tmp/apt-get-update.out
 
     for i in $(seq 1 $retries); do
@@ -32,23 +34,23 @@ _apt_get_update() {
         export DEBIAN_FRONTEND=noninteractive
         dpkg --configure -a --force-confdef
         apt-get ${apt_opts} -f -y install
-        ! (apt-get ${apt_opts} update 2>&1 | tee $apt_update_output | grep -E "^([WE]:.*)|^([Ee][Rr][Rr][Oo][Rr].*)$") && \
+        ! (timeout $timeout apt-get ${apt_opts} update 2>&1 | tee $apt_update_output | grep -E "^([WE]:.*)|^([Ee][Rr][Rr][Oo][Rr].*)$") && \
         cat $apt_update_output && break || \
         cat $apt_update_output
         if [ $i -eq $retries ]; then
             return 1
-        else sleep 5
+        else sleep $wait_sleep
         fi
     done
     echo Executed apt-get update $i times
     wait_for_apt_locks
 }
 apt_get_update() {
-    _apt_get_update 10 ""
+    _apt_get_update 10 5 600 ""
 }
 apt_get_update_with_opts() {
     local apt_opts=$1
-    _apt_get_update 10 "${apt_opts}"
+    _apt_get_update 10 5 600 "${apt_opts}"
 }
 _apt_get_install() {
     local retries=$1
@@ -73,7 +75,10 @@ _apt_get_install() {
             return 1
         else
             sleep $wait_sleep
-            apt_get_update
+            case " $apt_opts ${@}" in
+                *"Dir::Etc::sourcelist="*) ;;  # skip update when using custom sourcelist
+                *) apt_get_update ;;
+            esac
         fi
     done
 }
@@ -152,10 +157,10 @@ apt_get_install_from_local_repo() {
     # Create temporary sources.list pointing to local repo
     printf 'deb [trusted=yes] file:%s ./\n' "${local_repo_dir}" > "${tmp_list}"
 
-    local opts="-o Dir::Etc::sourcelist=${tmp_list} -o Dir::Etc::sourceparts=${tmp_dir}"
+    local opts="-y -o Dir::Etc::sourcelist=${tmp_list} -o Dir::Etc::sourceparts=${tmp_dir}"
 
     # Update apt cache with local repo using core update function
-    if ! _apt_get_update 10 "${opts}"; then
+    if ! _apt_get_update 6 5 30 "${opts}"; then
         echo "Failed to update apt cache from local repo ${local_repo_dir}"
         rm -f "${tmp_list}"
         rmdir "${tmp_dir}"
