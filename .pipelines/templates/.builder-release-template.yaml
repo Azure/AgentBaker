@@ -186,7 +186,7 @@ steps:
         ),
           eq(variables.BUILDER, 'imagecustomizer')
       )
-    displayName: Set Destination Storage Container if Prefectch Optimization is Disabled
+    displayName: Set Destination Storage Container
 
   - task: AzureCLI@2
     inputs:
