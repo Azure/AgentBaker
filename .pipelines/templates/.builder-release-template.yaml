@@ -167,7 +167,7 @@ steps:
       scriptType: bash
       scriptLocation: inlineScript
       inlineScript: |
-        DESTINATION_STORAGE_CONTAINER=${CLASSIC_BLOB_STAGING}
+        echo "##vso[task.setvariable variable=DESTINATION_STORAGE_CONTAINER]${CLASSIC_BLOB_STAGING}" && \
         STAGING_CONTAINER_EXISTS=$(az storage container exists --account-name ${STORAGE_ACCOUNT_NAME} --name $VHD_STAGING_CONTAINER_NAME --auth-mode login | jq -r '.exists')
         if [ "${STAGING_CONTAINER_EXISTS,,}" = "false" ]; then
           echo "Creating staging container $VHD_STAGING_CONTAINER_NAME in storage account $STORAGE_ACCOUNT_NAME"
