@@ -1290,6 +1290,7 @@
     },
     {
       "name": "kubelet",
+      "downloadLocation": "/opt/kubelet/downloads",
       "windowsDownloadLocation": "c:\\akse-cache\\kubelet\\",
       "downloadURIs": {
         "ubuntu": {
@@ -1340,6 +1341,7 @@
     },
     {
       "name": "kubectl",
+      "downloadLocation": "/opt/kubectl/downloads",
       "windowsDownloadLocation": "c:\\akse-cache\\kubectl\\",
       "downloadURIs": {
         "ubuntu": {
@@ -1769,7 +1771,7 @@
             "versionsV2": [
               {
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=dcgm-exporter, os=azurelinux, release=3.0",
-                "latestVersion": "4.6.0-2.azl3"
+                "latestVersion": "4.6.0-2.azl3" 
               }
             ]
           }
