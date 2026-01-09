@@ -893,6 +893,31 @@ providers:
         End
     End
 
+    Describe 'shouldEnableMCRHostsSetup'
+        setup() {
+            systemctlEnableAndStart() {
+                echo "systemctlEnableAndStart $@"
+                return 0
+            }
+        }
+
+        BeforeEach 'setup'
+
+        It 'should enable mcr-hosts-setup timer successfully'
+            When call shouldEnableMCRHostsSetup
+            The status should be success
+            The output should include "mcr-hosts-setup timer should be enabled."
+            The output should include "systemctlEnableAndStart mcr-hosts-setup.timer 30"
+            The output should include "Enable mcr-hosts-setup timer succeeded."
+        End
+
+        It 'should call systemctlEnableAndStart with correct parameters'
+            When call shouldEnableMCRHostsSetup
+            The status should be success
+            The output should include "systemctlEnableAndStart mcr-hosts-setup.timer 30"
+        End
+    End
+
     Describe 'configureAndStartSecureTLSBootstrapping'
         SECURE_TLS_BOOTSTRAPPING_DROP_IN="secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf"
         API_SERVER_NAME="fqdn"
