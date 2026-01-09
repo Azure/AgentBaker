@@ -11,16 +11,18 @@ echo "Starting MCR hosts resolution at $(date)"
 
 # Get IPv4 addresses (A records)
 echo "Resolving IPv4 addresses for ${DOMAIN}..."
-IPV4_ADDRS=$(dig +short A "${DOMAIN}" | grep -E '^[0-9]+\.' || true)
+IPV4_ADDRS=$(dig +short A "${DOMAIN}" | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' || true)
 
 # Get IPv6 addresses (AAAA records)
 echo "Resolving IPv6 addresses for ${DOMAIN}..."
-IPV6_ADDRS=$(dig +short AAAA "${DOMAIN}" | grep -E '^[0-9a-f:]+' || true)
+IPV6_ADDRS=$(dig +short AAAA "${DOMAIN}" | grep -E '^[0-9a-f:]+$' || true)
 
 # Check if we got any results
 if [[ -z "${IPV4_ADDRS}" ]] && [[ -z "${IPV6_ADDRS}" ]]; then
-    echo "WARNING: No IP addresses resolved for ${DOMAIN}"
-    exit 1
+    echo "WARNING: No IP addresses resolved for ${DOMAIN} at $(date)"
+    echo "This is likely a temporary DNS issue. Timer will retry later."
+    # Keep existing hosts file intact and exit successfully so systemd doesn't mark unit as failed
+    exit 0
 fi
 
 # Populate hosts file

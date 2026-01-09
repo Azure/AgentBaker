@@ -1847,6 +1847,10 @@ health-check.localdns.local:53 {
     log
     {{- end }}
     bind {{$.NodeListenerIP}}
+    # Check /etc/hosts.testing first for mcr.microsoft.com and other cached entries
+    hosts /etc/hosts.testing {
+        fallthrough
+    }
     {{- if $isRootDomain}}
     forward . {{$.AzureDNSIP}} {
     {{- else}}
