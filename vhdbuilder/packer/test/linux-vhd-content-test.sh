@@ -229,7 +229,7 @@ testPackagesInstalled() {
       "datacenter-gpu-manager-4-core"|\
       "datacenter-gpu-manager-4-proprietary"|\
       "dcgm-exporter")
-        testPkgDownloaded "${name}" "${PACKAGE_VERSIONS[@]}"
+        testPkgDownloaded "${name}" "${downloadLocation}" "${PACKAGE_VERSIONS[@]}"
         continue
         ;;
     esac
@@ -914,8 +914,13 @@ testPkgDownloaded() {
   test="testPkgDownloaded"
   echo "$test:Start"
   local packageName=$1; shift
+  #downloadLocation is set to "/opt/${packageName}/downloads" if not set
+  local downloadLocation=${2:-/opt/${packageName}/downloads}
   local packageVersions=("$@")
-  downloadLocation="/opt/${packageName}/downloads"
+  if [ "${downloadLocation}" = "DNF_DEFAULT_PATH" ]; then
+    downloadLocation="/var/cache/dnf"
+  fi
+
   for packageVersion in "${packageVersions[@]}"; do
     echo "checking package version: $packageVersion ..."
     # Strip epoch (e.g., 1:4.4.1-1 -> 4.4.1-1)
