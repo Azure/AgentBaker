@@ -1036,6 +1036,32 @@ configCredentialProvider() {
     CREDENTIAL_PROVIDER_CONFIG_FILE=/var/lib/kubelet/credential-provider-config.yaml
     mkdir -p "$(dirname "${CREDENTIAL_PROVIDER_CONFIG_FILE}")"
     touch "${CREDENTIAL_PROVIDER_CONFIG_FILE}"
+
+    # Prepare identity binding configuration if enabled (including leading newlines)
+    IB_TOKEN_ATTRIBUTES=""
+    IB_ARGS=""
+    if [ "${SERVICE_ACCOUNT_IMAGE_PULL_ENABLED}" = "true" ]; then
+        IB_TOKEN_ATTRIBUTES="
+    tokenAttributes:
+      serviceAccountTokenAudience: api://AKSIdentityBinding
+      requireServiceAccount: false
+      cacheType: ServiceAccount
+      optionalServiceAccountAnnotationKeys:
+        - kubernetes.azure.com/acr-client-id"
+        IB_ARGS="
+      - --ib-sni-name=${IDENTITY_BINDINGS_LOCAL_AUTHORITY_SNI}"
+        if [ -n "${SERVICE_ACCOUNT_IMAGE_PULL_DEFAULT_CLIENT_ID}" ]; then
+            IB_ARGS="${IB_ARGS}
+      - --ib-default-client-id=${SERVICE_ACCOUNT_IMAGE_PULL_DEFAULT_CLIENT_ID}"
+        fi
+        if [ -n "${SERVICE_ACCOUNT_IMAGE_PULL_DEFAULT_TENANT_ID}" ]; then
+            IB_ARGS="${IB_ARGS}
+      - --ib-default-tenant-id=${SERVICE_ACCOUNT_IMAGE_PULL_DEFAULT_TENANT_ID}"
+        fi
+        IB_ARGS="${IB_ARGS}
+      - --ib-apiserver-ip=${API_SERVER_NAME}"
+    fi
+
     if [ -n "$AKS_CUSTOM_CLOUD_CONTAINER_REGISTRY_DNS_SUFFIX" ]; then
         echo "configure credential provider for custom cloud"
         tee "${CREDENTIAL_PROVIDER_CONFIG_FILE}" > /dev/null <<EOF
@@ -1050,9 +1076,9 @@ providers:
       - "*.azurecr.us"
       - "*$AKS_CUSTOM_CLOUD_CONTAINER_REGISTRY_DNS_SUFFIX"
     defaultCacheDuration: "10m"
-    apiVersion: credentialprovider.kubelet.k8s.io/v1
+    apiVersion: credentialprovider.kubelet.k8s.io/v1${IB_TOKEN_ATTRIBUTES}
     args:
-      - /etc/kubernetes/azure.json
+      - /etc/kubernetes/azure.json${IB_ARGS}
 EOF
     elif [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
         echo "configure credential provider for network isolated cluster"
@@ -1068,10 +1094,10 @@ providers:
       - "*.azurecr.us"
       - "mcr.microsoft.com"
     defaultCacheDuration: "10m"
-    apiVersion: credentialprovider.kubelet.k8s.io/v1
+    apiVersion: credentialprovider.kubelet.k8s.io/v1${IB_TOKEN_ATTRIBUTES}
     args:
       - /etc/kubernetes/azure.json
-      - --registry-mirror=mcr.microsoft.com:$BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER
+      - --registry-mirror=mcr.microsoft.com:$BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER${IB_ARGS}
 EOF
     else
         echo "configure credential provider with default settings"
@@ -1086,9 +1112,9 @@ providers:
       - "*.azurecr.de"
       - "*.azurecr.us"
     defaultCacheDuration: "10m"
-    apiVersion: credentialprovider.kubelet.k8s.io/v1
+    apiVersion: credentialprovider.kubelet.k8s.io/v1${IB_TOKEN_ATTRIBUTES}
     args:
-      - /etc/kubernetes/azure.json
+      - /etc/kubernetes/azure.json${IB_ARGS}
 EOF
     fi
 }

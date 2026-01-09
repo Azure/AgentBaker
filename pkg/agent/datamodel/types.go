@@ -2358,7 +2358,23 @@ func (a *AgentPoolWindowsProfile) GetNextGenNetworkingURL() string {
 
 // SecurityProfile begin.
 type SecurityProfile struct {
-	PrivateEgress *PrivateEgress `json:"privateEgress,omitempty"`
+	PrivateEgress                  *PrivateEgress                  `json:"privateEgress,omitempty"`
+	ServiceAccountImagePullProfile *ServiceAccountImagePullProfile `json:"serviceAccountImagePullProfile,omitempty"`
+}
+
+// ServiceAccountImagePullProfile defines service account based image pull settings.
+// This is part of SecurityProfile to keep cloud-agnostic AgentBaker
+// cleanly separated from AKS-specific features.
+type ServiceAccountImagePullProfile struct {
+	// Enabled indicates whether service account based image pull feature is enabled.
+	Enabled bool `json:"enabled,omitempty"`
+	// DefaultClientID is the default client ID of the identity used for image pull.
+	DefaultClientID string `json:"defaultClientID,omitempty"`
+	// DefaultTenantID is the default tenant ID of the identity used for image pull.
+	DefaultTenantID string `json:"defaultTenantID,omitempty"`
+	// LocalAuthoritySNI is the SNI endpoint for Identity Bindings Local Authority.
+	// Used by credential provider for image pull identity binding authentication.
+	LocalAuthoritySNI string `json:"localAuthoritySNI,omitempty"`
 }
 
 type PrivateEgress struct {
@@ -2377,6 +2393,41 @@ func (s *SecurityProfile) GetProxyAddress() string {
 func (s *SecurityProfile) GetPrivateEgressContainerRegistryServer() string {
 	if s != nil && s.PrivateEgress != nil && s.PrivateEgress.Enabled {
 		return s.PrivateEgress.ContainerRegistryServer
+	}
+	return ""
+}
+
+func (s *SecurityProfile) GetServiceAccountImagePull() *ServiceAccountImagePullProfile {
+	if s != nil {
+		return s.ServiceAccountImagePullProfile
+	}
+	return nil
+}
+
+func (s *SecurityProfile) IsServiceAccountImagePullEnabled() bool {
+	if s != nil && s.ServiceAccountImagePullProfile != nil {
+		return s.ServiceAccountImagePullProfile.Enabled
+	}
+	return false
+}
+
+func (s *SecurityProfile) GetServiceAccountImagePullDefaultClientID() string {
+	if s != nil && s.ServiceAccountImagePullProfile != nil {
+		return s.ServiceAccountImagePullProfile.DefaultClientID
+	}
+	return ""
+}
+
+func (s *SecurityProfile) GetServiceAccountImagePullDefaultTenantID() string {
+	if s != nil && s.ServiceAccountImagePullProfile != nil {
+		return s.ServiceAccountImagePullProfile.DefaultTenantID
+	}
+	return ""
+}
+
+func (s *SecurityProfile) GetServiceAccountImagePullLocalAuthoritySNI() string {
+	if s != nil && s.ServiceAccountImagePullProfile != nil {
+		return s.ServiceAccountImagePullProfile.LocalAuthoritySNI
 	}
 	return ""
 }
