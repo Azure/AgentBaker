@@ -56,14 +56,17 @@ Describe 'cse_install_mariner.sh'
             rpmDir="$RPM_PACKAGE_CACHE_BASE_DIR/kubelet/downloads"
             kubeletRpm="$rpmDir/kubelet-${desiredVersion}.x86_64.rpm"
             dependencyRpm="$rpmDir/containernetworking-plugins-1.7.1-4.azl3.x86_64.rpm"
+            conflictRpm="$rpmDir/kubelet-1.34.1-4.azl3.x86_64.rpm"
             touch "$kubeletRpm"
             touch "$dependencyRpm"
+            touch "$conflictRpm"
             When call installRPMPackageFromFile kubelet "$desiredVersion"
-            The output line 2 should include "Installing kubelet with cached dependency RPMs"
-            The output line 2 should include "$dependencyRpm"
-            The output line 2 should include "$kubeletRpm"
-            The output line 3 should include "dnf install 30 1 600"
-            The output line 4 should include "mv /usr/bin/kubelet /usr/local/bin/kubelet"
+            The output should include "Skipping cached kubelet rpm $(basename "$conflictRpm") because it does not match desired version $desiredVersion"
+            The output should include "Installing kubelet with cached dependency RPMs"
+            The output should include "$dependencyRpm"
+            The output should include "$kubeletRpm"
+            The output should include "dnf install 30 1 600"
+            The output should include "mv /usr/bin/kubelet /usr/local/bin/kubelet"
         End
 
         It 'installs only the requested RPM when no cached dependencies exist'
@@ -72,8 +75,8 @@ Describe 'cse_install_mariner.sh'
             kubeletRpm="$rpmDir/kubelet-${desiredVersion}.x86_64.rpm"
             touch "$kubeletRpm"
             When call installRPMPackageFromFile kubelet "$desiredVersion"
-            The output line 2 should include "dnf install 30 1 600 $kubeletRpm"
-            The output line 3 should include "mv /usr/bin/kubelet /usr/local/bin/kubelet"
+            The output should include "dnf install 30 1 600 $kubeletRpm"
+            The output should include "mv /usr/bin/kubelet /usr/local/bin/kubelet"
         End
     End
 End
