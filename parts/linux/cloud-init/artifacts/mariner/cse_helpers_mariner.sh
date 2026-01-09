@@ -80,7 +80,7 @@ dnf_download() {
             #print where it's cached
             for pkg in "$@"; do
                 echo "Package $pkg downloaded to:"
-                find / -name "$pkg" -print 2>/dev/null
+                find / -name "${pkg}*.rpm" -print 2>/dev/null
             done
             break
         elif [ $i -eq $retries ]; then
