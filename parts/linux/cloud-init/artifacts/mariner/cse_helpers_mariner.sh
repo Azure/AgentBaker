@@ -2,6 +2,8 @@
 
 echo "Sourcing cse_helpers_distro.sh for Mariner"
 
+DNF_DEFAULT_PATH="DNF_DEFAULT_PATH"
+
 dnfversionlockWALinuxAgent() {
     echo "No aptmark equivalent for DNF by default. If this is necessary add support for dnf versionlock plugin"
 }
@@ -68,14 +70,25 @@ dnf_download() {
     retries=$1; wait_sleep=$2; timeout=$3; downloadDir=$4; shift && shift && shift && shift
     mkdir -p "${downloadDir}"
     for i in $(seq 1 $retries); do
-        dnf download --downloaddir="${downloadDir}" "$@" && break || \
-        if [ $i -eq $retries ]; then
+        if [ "${downloadDir}" = "${DNF_DEFAULT_PATH}" ]; then
+            dnf download --resolve "$@"
+        else
+            dnf download --resolve --downloaddir="${downloadDir}" "$@"
+        fi
+
+        if [ $? -eq 0 ]; then
+            break
+        elif [ $i -eq $retries ]; then
             return 1
         else
             sleep "$wait_sleep"
             dnf_makecache
         fi
     done
-    echo Executed dnf download --downloaddir="\"${downloadDir}\"" "$@" $i times;
+    if [ "${downloadDir}" = "${DNF_DEFAULT_PATH}" ]; then
+        echo Executed dnf download --resolve "$@" $i times;
+    else
+        echo Executed dnf download --resolve --downloaddir="\"${downloadDir}\"" "$@" $i times;
+    fi
 }
 #EOF
