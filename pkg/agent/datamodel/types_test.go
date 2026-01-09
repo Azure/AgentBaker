@@ -2853,6 +2853,169 @@ func TestSecurityProfileGetPrivateEgressContainerRegistryServer(t *testing.T) {
 	}
 }
 
+func TestSecurityProfileGetServiceAccountImagePullDefaultClientID(t *testing.T) {
+	testClientID := "test-client-id"
+	cases := []struct {
+		name            string
+		securityProfile *SecurityProfile
+		expected        string
+	}{
+		{
+			name:            "SecurityProfile nil",
+			securityProfile: nil,
+			expected:        "",
+		},
+		{
+			name:            "ServiceAccountImagePullProfile nil",
+			securityProfile: &SecurityProfile{},
+			expected:        "",
+		},
+		{
+			name:            "ServiceAccountImagePullProfile with client ID",
+			securityProfile: &SecurityProfile{ServiceAccountImagePullProfile: &ServiceAccountImagePullProfile{DefaultClientID: testClientID}},
+			expected:        testClientID,
+		},
+		{
+			name:            "ServiceAccountImagePullProfile with empty client ID",
+			securityProfile: &SecurityProfile{ServiceAccountImagePullProfile: &ServiceAccountImagePullProfile{DefaultClientID: ""}},
+			expected:        "",
+		},
+	}
+
+	for _, c := range cases {
+		c := c
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			actual := c.securityProfile.GetServiceAccountImagePullDefaultClientID()
+			if c.expected != actual {
+				t.Fatalf("test case: %s, expected: %s. Got: %s.", c.name, c.expected, actual)
+			}
+		})
+	}
+}
+
+func TestSecurityProfileGetServiceAccountImagePullDefaultTenantID(t *testing.T) {
+	testTenantID := "test-tenant-id"
+	cases := []struct {
+		name            string
+		securityProfile *SecurityProfile
+		expected        string
+	}{
+		{
+			name:            "SecurityProfile nil",
+			securityProfile: nil,
+			expected:        "",
+		},
+		{
+			name:            "ServiceAccountImagePullProfile nil",
+			securityProfile: &SecurityProfile{},
+			expected:        "",
+		},
+		{
+			name:            "ServiceAccountImagePullProfile with tenant ID",
+			securityProfile: &SecurityProfile{ServiceAccountImagePullProfile: &ServiceAccountImagePullProfile{DefaultTenantID: testTenantID}},
+			expected:        testTenantID,
+		},
+		{
+			name:            "ServiceAccountImagePullProfile with empty tenant ID",
+			securityProfile: &SecurityProfile{ServiceAccountImagePullProfile: &ServiceAccountImagePullProfile{DefaultTenantID: ""}},
+			expected:        "",
+		},
+	}
+
+	for _, c := range cases {
+		c := c
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			actual := c.securityProfile.GetServiceAccountImagePullDefaultTenantID()
+			if c.expected != actual {
+				t.Fatalf("test case: %s, expected: %s. Got: %s.", c.name, c.expected, actual)
+			}
+		})
+	}
+}
+
+func TestSecurityProfileGetServiceAccountImagePullLocalAuthoritySNI(t *testing.T) {
+	testSNI := "test.local.authority.sni"
+	cases := []struct {
+		name            string
+		securityProfile *SecurityProfile
+		expected        string
+	}{
+		{
+			name:            "SecurityProfile nil",
+			securityProfile: nil,
+			expected:        "",
+		},
+		{
+			name:            "ServiceAccountImagePullProfile nil",
+			securityProfile: &SecurityProfile{},
+			expected:        "",
+		},
+		{
+			name:            "ServiceAccountImagePullProfile with SNI",
+			securityProfile: &SecurityProfile{ServiceAccountImagePullProfile: &ServiceAccountImagePullProfile{LocalAuthoritySNI: testSNI}},
+			expected:        testSNI,
+		},
+		{
+			name:            "ServiceAccountImagePullProfile with empty SNI",
+			securityProfile: &SecurityProfile{ServiceAccountImagePullProfile: &ServiceAccountImagePullProfile{LocalAuthoritySNI: ""}},
+			expected:        "",
+		},
+	}
+
+	for _, c := range cases {
+		c := c
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			actual := c.securityProfile.GetServiceAccountImagePullLocalAuthoritySNI()
+			if c.expected != actual {
+				t.Fatalf("test case: %s, expected: %s. Got: %s.", c.name, c.expected, actual)
+			}
+		})
+	}
+}
+
+func TestSecurityProfileIsServiceAccountImagePullEnabled(t *testing.T) {
+	cases := []struct {
+		name            string
+		securityProfile *SecurityProfile
+		expected        bool
+	}{
+		{
+			name:            "SecurityProfile nil",
+			securityProfile: nil,
+			expected:        false,
+		},
+		{
+			name:            "ServiceAccountImagePullProfile nil",
+			securityProfile: &SecurityProfile{},
+			expected:        false,
+		},
+		{
+			name:            "ServiceAccountImagePullProfile enabled",
+			securityProfile: &SecurityProfile{ServiceAccountImagePullProfile: &ServiceAccountImagePullProfile{Enabled: true}},
+			expected:        true,
+		},
+		{
+			name:            "ServiceAccountImagePullProfile disabled",
+			securityProfile: &SecurityProfile{ServiceAccountImagePullProfile: &ServiceAccountImagePullProfile{Enabled: false}},
+			expected:        false,
+		},
+	}
+
+	for _, c := range cases {
+		c := c
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			actual := c.securityProfile.IsServiceAccountImagePullEnabled()
+			if c.expected != actual {
+				t.Fatalf("test case: %s, expected: %t. Got: %t.", c.name, c.expected, actual)
+			}
+		})
+	}
+}
+
 // ----------------------- Start of changes related to localdns ------------------------------------------.
 func TestShouldEnableLocalDNS(t *testing.T) {
 	tests := []struct {

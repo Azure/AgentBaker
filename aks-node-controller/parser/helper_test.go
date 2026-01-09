@@ -1811,3 +1811,239 @@ func Test_getLocalDnsMemoryLimitInMb(t *testing.T) {
 		})
 	}
 }
+
+func Test_getServiceAccountImagePullEnabled(t *testing.T) {
+	tests := []struct {
+		name   string
+		config *aksnodeconfigv1.Configuration
+		want   bool
+	}{
+		{
+			name:   "nil Configuration",
+			config: nil,
+			want:   false,
+		},
+		{
+			name: "nil SecurityProfile",
+			config: &aksnodeconfigv1.Configuration{
+				SecurityProfile: nil,
+			},
+			want: false,
+		},
+		{
+			name: "nil ServiceAccountImagePullProfile",
+			config: &aksnodeconfigv1.Configuration{
+				SecurityProfile: &aksnodeconfigv1.SecurityProfile{
+					ServiceAccountImagePullProfile: nil,
+				},
+			},
+			want: false,
+		},
+		{
+			name: "enabled true",
+			config: &aksnodeconfigv1.Configuration{
+				SecurityProfile: &aksnodeconfigv1.SecurityProfile{
+					ServiceAccountImagePullProfile: &aksnodeconfigv1.ServiceAccountImagePullProfile{
+						Enabled: true,
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "enabled false",
+			config: &aksnodeconfigv1.Configuration{
+				SecurityProfile: &aksnodeconfigv1.SecurityProfile{
+					ServiceAccountImagePullProfile: &aksnodeconfigv1.ServiceAccountImagePullProfile{
+						Enabled: false,
+					},
+				},
+			},
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := getServiceAccountImagePullEnabled(tt.config); got != tt.want {
+				t.Errorf("getServiceAccountImagePullEnabled() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_getServiceAccountImagePullDefaultClientID(t *testing.T) {
+	tests := []struct {
+		name   string
+		config *aksnodeconfigv1.Configuration
+		want   string
+	}{
+		{
+			name:   "nil Configuration",
+			config: nil,
+			want:   "",
+		},
+		{
+			name: "nil SecurityProfile",
+			config: &aksnodeconfigv1.Configuration{
+				SecurityProfile: nil,
+			},
+			want: "",
+		},
+		{
+			name: "nil ServiceAccountImagePullProfile",
+			config: &aksnodeconfigv1.Configuration{
+				SecurityProfile: &aksnodeconfigv1.SecurityProfile{
+					ServiceAccountImagePullProfile: nil,
+				},
+			},
+			want: "",
+		},
+		{
+			name: "with client ID",
+			config: &aksnodeconfigv1.Configuration{
+				SecurityProfile: &aksnodeconfigv1.SecurityProfile{
+					ServiceAccountImagePullProfile: &aksnodeconfigv1.ServiceAccountImagePullProfile{
+						DefaultClientId: "test-client-id",
+					},
+				},
+			},
+			want: "test-client-id",
+		},
+		{
+			name: "empty client ID",
+			config: &aksnodeconfigv1.Configuration{
+				SecurityProfile: &aksnodeconfigv1.SecurityProfile{
+					ServiceAccountImagePullProfile: &aksnodeconfigv1.ServiceAccountImagePullProfile{
+						DefaultClientId: "",
+					},
+				},
+			},
+			want: "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := getServiceAccountImagePullDefaultClientID(tt.config); got != tt.want {
+				t.Errorf("getServiceAccountImagePullDefaultClientID() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_getServiceAccountImagePullDefaultTenantID(t *testing.T) {
+	tests := []struct {
+		name   string
+		config *aksnodeconfigv1.Configuration
+		want   string
+	}{
+		{
+			name:   "nil Configuration",
+			config: nil,
+			want:   "",
+		},
+		{
+			name: "nil SecurityProfile",
+			config: &aksnodeconfigv1.Configuration{
+				SecurityProfile: nil,
+			},
+			want: "",
+		},
+		{
+			name: "nil ServiceAccountImagePullProfile",
+			config: &aksnodeconfigv1.Configuration{
+				SecurityProfile: &aksnodeconfigv1.SecurityProfile{
+					ServiceAccountImagePullProfile: nil,
+				},
+			},
+			want: "",
+		},
+		{
+			name: "with tenant ID",
+			config: &aksnodeconfigv1.Configuration{
+				SecurityProfile: &aksnodeconfigv1.SecurityProfile{
+					ServiceAccountImagePullProfile: &aksnodeconfigv1.ServiceAccountImagePullProfile{
+						DefaultTenantId: "test-tenant-id",
+					},
+				},
+			},
+			want: "test-tenant-id",
+		},
+		{
+			name: "empty tenant ID",
+			config: &aksnodeconfigv1.Configuration{
+				SecurityProfile: &aksnodeconfigv1.SecurityProfile{
+					ServiceAccountImagePullProfile: &aksnodeconfigv1.ServiceAccountImagePullProfile{
+						DefaultTenantId: "",
+					},
+				},
+			},
+			want: "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := getServiceAccountImagePullDefaultTenantID(tt.config); got != tt.want {
+				t.Errorf("getServiceAccountImagePullDefaultTenantID() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_getServiceAccountImagePullLocalAuthoritySNI(t *testing.T) {
+	tests := []struct {
+		name   string
+		config *aksnodeconfigv1.Configuration
+		want   string
+	}{
+		{
+			name:   "nil Configuration",
+			config: nil,
+			want:   "",
+		},
+		{
+			name: "nil SecurityProfile",
+			config: &aksnodeconfigv1.Configuration{
+				SecurityProfile: nil,
+			},
+			want: "",
+		},
+		{
+			name: "nil ServiceAccountImagePullProfile",
+			config: &aksnodeconfigv1.Configuration{
+				SecurityProfile: &aksnodeconfigv1.SecurityProfile{
+					ServiceAccountImagePullProfile: nil,
+				},
+			},
+			want: "",
+		},
+		{
+			name: "with local authority SNI",
+			config: &aksnodeconfigv1.Configuration{
+				SecurityProfile: &aksnodeconfigv1.SecurityProfile{
+					ServiceAccountImagePullProfile: &aksnodeconfigv1.ServiceAccountImagePullProfile{
+						LocalAuthoritySni: "test-sni.local",
+					},
+				},
+			},
+			want: "test-sni.local",
+		},
+		{
+			name: "empty local authority SNI",
+			config: &aksnodeconfigv1.Configuration{
+				SecurityProfile: &aksnodeconfigv1.SecurityProfile{
+					ServiceAccountImagePullProfile: &aksnodeconfigv1.ServiceAccountImagePullProfile{
+						LocalAuthoritySni: "",
+					},
+				},
+			},
+			want: "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := getServiceAccountImagePullLocalAuthoritySNI(tt.config); got != tt.want {
+				t.Errorf("getServiceAccountImagePullLocalAuthoritySNI() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

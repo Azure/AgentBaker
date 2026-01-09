@@ -173,6 +173,10 @@ func getCSEEnv(config *aksnodeconfigv1.Configuration) map[string]string {
 		"LOCALDNS_MEMORY_LIMIT":                              getLocalDnsMemoryLimitInMb(config),
 		"LOCALDNS_GENERATED_COREFILE":                        getLocalDnsCorefileBase64(config),
 		"DISABLE_PUBKEY_AUTH":                                fmt.Sprintf("%v", config.GetDisablePubkeyAuth()),
+		"SERVICE_ACCOUNT_IMAGE_PULL_ENABLED":                 fmt.Sprintf("%v", getServiceAccountImagePullEnabled(config)),
+		"SERVICE_ACCOUNT_IMAGE_PULL_DEFAULT_CLIENT_ID":       getServiceAccountImagePullDefaultClientID(config),
+		"SERVICE_ACCOUNT_IMAGE_PULL_DEFAULT_TENANT_ID":       getServiceAccountImagePullDefaultTenantID(config),
+		"IDENTITY_BINDINGS_LOCAL_AUTHORITY_SNI":              getServiceAccountImagePullLocalAuthoritySNI(config),
 	}
 
 	for i, cert := range config.CustomCaCerts {

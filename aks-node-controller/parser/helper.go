@@ -810,3 +810,26 @@ func getLocalDnsMemoryLimitInMb(aksnodeconfig *aksnodeconfigv1.Configuration) st
 }
 
 // ---------------------- End of localdns related helper code ----------------------//
+// ---------------------- Service Account Image Pull helper functions ----------------------//
+
+// getServiceAccountImagePullEnabled returns whether service account based image pull is enabled.
+func getServiceAccountImagePullEnabled(config *aksnodeconfigv1.Configuration) bool {
+	return config.GetSecurityProfile().GetServiceAccountImagePullProfile().GetEnabled()
+}
+
+// getServiceAccountImagePullDefaultClientID returns the default client ID for service account image pull.
+func getServiceAccountImagePullDefaultClientID(config *aksnodeconfigv1.Configuration) string {
+	return config.GetSecurityProfile().GetServiceAccountImagePullProfile().GetDefaultClientId()
+}
+
+// getServiceAccountImagePullDefaultTenantID returns the default tenant ID for service account image pull.
+func getServiceAccountImagePullDefaultTenantID(config *aksnodeconfigv1.Configuration) string {
+	return config.GetSecurityProfile().GetServiceAccountImagePullProfile().GetDefaultTenantId()
+}
+
+// getServiceAccountImagePullLocalAuthoritySNI returns the local authority SNI for service account image pull.
+func getServiceAccountImagePullLocalAuthoritySNI(config *aksnodeconfigv1.Configuration) string {
+	return config.GetSecurityProfile().GetServiceAccountImagePullProfile().GetLocalAuthoritySni()
+}
+
+// ---------------------- End of Service Account Image Pull helper functions ----------------------//
