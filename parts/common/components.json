@@ -1703,7 +1703,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=datacenter-gpu-manager-4-proprietary, repository=nvidia, os=ubuntu, release=24.04",
-                "latestVersion": "1:4.4.1-1"
+                "latestVersion": "1:4.5.0-1"
               }
             ]
           },
@@ -1711,7 +1711,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=datacenter-gpu-manager-4-proprietary, repository=nvidia, os=ubuntu, release=22.04",
-                "latestVersion": "1:4.4.1-1"
+                "latestVersion": "1:4.5.0-1"
               }
             ]
           }
