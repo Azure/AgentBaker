@@ -184,7 +184,9 @@ steps:
           eq(variables.RUN_PREFETCH_OPTIMIZATION, 'False'),
           eq(variables.ENVIRONMENT, 'tme')
         ),
-        eq(variables.BUILDER, 'imagecustomizer')
+        and(
+          eq(variables.BUILDER, 'imagecustomizer'),
+          eq(variables.ENVIRONMENT, 'tme')
       )
     displayName: Set Destination Storage Container to Staging
 
@@ -362,7 +364,9 @@ steps:
           eq(variables.RUN_PREFETCH_OPTIMIZATION, 'False'),
           eq(variables.ENVIRONMENT, 'tme')
         ),
-        eq(variables.BUILDER, 'imagecustomizer')
+        and(
+          eq(variables.BUILDER, 'imagecustomizer'),
+          eq(variables.ENVIRONMENT, 'tme')
       )
     displayName: Copy to Immutable Storage Container
 
