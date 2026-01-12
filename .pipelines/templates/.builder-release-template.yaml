@@ -184,7 +184,7 @@ steps:
           eq(variables.RUN_PREFETCH_OPTIMIZATION, 'False'),
           eq(variables.ENVIRONMENT, 'tme')
         ),
-          eq(variables.BUILDER, 'imagecustomizer')
+        eq(variables.BUILDER, 'imagecustomizer')
       )
     displayName: Set Destination Storage Container to Staging
 
