@@ -817,6 +817,10 @@ ensureSysctl() {
     retrycmd_if_failure 24 5 25 sysctl --system
 }
 
+ensureAksEthtoolConfig() {
+    systemctlEnableAndStart aks-ethtool-config 30 || exit "$ERR_SYSTEMCTL_START_FAIL"
+}
+
 ensureK8sControlPlane() {
     if $REBOOTREQUIRED || [ "$NO_OUTBOUND" = "true" ]; then
         return
