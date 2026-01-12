@@ -260,7 +260,7 @@ func ValidateEthtoolConfig(ctx context.Context, s *Scenario, EthtoolConfig map[s
 	}
 	getNicsCommand := []string{
 		"set -ex",
-		"echo /run/nics-to-configure",
+		"cat /run/nics-to-configure",
 	}
 	nicsResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(getNicsCommand, "\n"), 0, "could not get nics to configure")
 	nics := strings.Split(strings.TrimSpace(nicsResult.stdout), "\n")
