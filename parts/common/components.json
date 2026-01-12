@@ -111,7 +111,7 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/autoscaler/addon-resizer",
-          "latestVersion": "v1.8.23-7"
+          "latestVersion": "v1.8.23-9"
         }
       ],
       "windowsVersions": []
@@ -176,15 +176,19 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/coredns",
-          "latestVersion": "v1.13.1-2"
+          "latestVersion": "v1.13.2-2"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/coredns",
-          "latestVersion": "v1.12.1-7"
+          "latestVersion": "v1.13.1-4"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/coredns",
-          "latestVersion": "v1.11.3-14"
+          "latestVersion": "v1.12.1-9"
+        },
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/coredns",
+          "latestVersion": "v1.11.3-17"
         }
       ],
       "windowsVersions": []
@@ -490,11 +494,11 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/autoscaler/cluster-proportional-autoscaler",
-          "latestVersion": "v1.8.11-10"
+          "latestVersion": "v1.8.11-12"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/autoscaler/cluster-proportional-autoscaler",
-          "latestVersion": "v1.9.0-5"
+          "latestVersion": "v1.9.0-7"
         }
       ],
       "windowsVersions": []
@@ -1755,7 +1759,7 @@
             "versionsV2": [
               {
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=dcgm-exporter, os=azurelinux, release=3.0",
-                "latestVersion": "4.6.0-2.azl3" 
+                "latestVersion": "4.6.0-2.azl3"
               }
             ]
           }
