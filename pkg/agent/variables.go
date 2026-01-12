@@ -54,6 +54,9 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 			"cloudInitStatusCheckScript":            getBase64EncodedGzippedCustomScript(cloudInitStatusCheckScript, config),
 			"measureTLSBootstrappingLatencyScript":  getBase64EncodedGzippedCustomScript(measureTLSBootstrappingLatencyScript, config),
 			"measureTLSBootstrappingLatencyService": getBase64EncodedGzippedCustomScript(measureTLSBootstrappingLatencyService, config),
+			"configureAksNicsScript":                getBase64EncodedGzippedCustomScript(configureAksNicsScript, config),
+			"aksNicsUdevRule":                       getBase64EncodedGzippedCustomScript(aksNicsUdevRule, config),
+			"aksEthtoolService":                     getBase64EncodedGzippedCustomScript(aksEthtoolService, config),
 		},
 	}
 

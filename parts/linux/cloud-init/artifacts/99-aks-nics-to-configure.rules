@@ -1,0 +1,1 @@
+SUBSYSTEM=="net", ACTION=="add", ENV{ID_NET_NAME_SLOT}=="enP*", RUN+="/bin/bash -c \"echo %k >> /run/nics-to-configure\""

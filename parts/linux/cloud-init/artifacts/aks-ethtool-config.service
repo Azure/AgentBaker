@@ -1,0 +1,12 @@
+[Unit]
+Description=Configure AKS Network Interface RX Buffers
+After=network-online.target
+Wants=network-online.target
+Before=kubelet.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/scripts/configure-aks-nics.sh
+
+[Install]
+WantedBy=multi-user.target

@@ -57,3 +57,9 @@ const (
 	// defaultLocalDnsMemoryLimitInMb specifies the default Memory limit used in akslocaldns.
 	defaultLocalDnsMemoryLimitInMb string = "128M"
 )
+
+const (
+	// defaultRxBufferSize specifies the default RX buffer size for NICs.
+	defaultRxBufferSizeSmall int = 1024
+	defaultRxBufferSize      int = 2048
+)
