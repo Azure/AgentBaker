@@ -33,7 +33,21 @@ import (
 func ValidateNoFailedSystemdUnits(ctx context.Context, s *Scenario) {
 	cmd := "systemctl list-units --failed 2>&1"
 	result := execScriptOnVMForScenarioValidateExitCode(ctx, s, cmd, 0, fmt.Sprintf("unable to list failed systemd units"))
-	require.Contains(s.T, strings.ToLower(result.stdout), "0 loaded units listed", "expected to find no systemd units in a failed state")
+	if !s.Tags.BootstrapTokenFallback {
+		require.Contains(s.T, strings.ToLower(result.stdout), "0 loaded units listed", "expected to find no systemd units in a failed state")
+		return
+	}
+
+	// in the bootstrap token fallback case, we expect the secure-tls-bootstrap service to be in a failed state
+	var services []string
+	matches := regexp.MustCompile(`(\S+\.service)`).FindAllStringSubmatch(result.stdout, -1)
+	for _, match := range matches {
+		if len(match) > 1 {
+			services = append(services, match[1])
+		}
+	}
+	require.Equal(s.T, 1, len(services))
+	require.Equal(s.T, strings.ToLower("secure-tls-bootstrap"), services[0])
 }
 
 func ValidateTLSBootstrapping(ctx context.Context, s *Scenario) {
