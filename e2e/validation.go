@@ -67,7 +67,6 @@ func ValidatePodRunning(ctx context.Context, s *Scenario, pod *corev1.Pod) {
 }
 
 func ValidateCommonLinux(ctx context.Context, s *Scenario) {
-	ValidateNoFailedSystemdUnits(ctx, s)
 	ValidateTLSBootstrapping(ctx, s)
 	ValidateKubeletServingCertificateRotation(ctx, s)
 	ValidateSystemdWatchdogForKubernetes132Plus(ctx, s)
@@ -133,6 +132,9 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 			0,
 			"AAD client ID and secret should be present in /etc/kubernetes/azure.json")
 	}
+
+	// ensure that no unexpected systemd units are in a failed state
+	ValidateNoFailedSystemdUnits(ctx, s)
 }
 
 func ValidateCommonWindows(ctx context.Context, s *Scenario) {
