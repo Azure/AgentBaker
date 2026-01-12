@@ -358,6 +358,11 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/99-rx-buffer-default.rules",
+      "destination": "/home/packer/99-rx-buffer-default.rules"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/sshd_config",
       "destination": "/home/packer/sshd_config"
     },
