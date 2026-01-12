@@ -462,6 +462,10 @@ health-check.localdns.local:53 {
 .:53 {
     log
     bind 169.254.10.10
+    # Check /etc/hosts.testing first for mcr.microsoft.com and other cached entries
+    hosts /etc/hosts.testing {
+        fallthrough
+    }
     forward . 168.63.129.16 {
         policy sequential
         max_concurrent 1000
@@ -650,6 +654,10 @@ health-check.localdns.local:53 {
 .:53 {
     log
     bind 169.254.10.10
+    # Check /etc/hosts.testing first for mcr.microsoft.com and other cached entries
+    hosts /etc/hosts.testing {
+        fallthrough
+    }
     forward . 168.63.129.16 {
         policy sequential
         max_concurrent 1000
