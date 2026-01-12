@@ -914,7 +914,7 @@ BUG_REPORT_URL="https://bugs.launchpad.net/ubuntu/"
 PRIVACY_POLICY_URL="https://www.ubuntu.com/legal/terms-and-policies/privacy-policy"
 UBUNTU_CODENAME=jammy
 === os-release End
-PUUID: 
+PUUID:
 Using kernel:
 Linux version 5.15.0-1102-azure (buildd@lcy02-amd64-065) (gcc (Ubuntu 11.4.0-1ubuntu1~22.04.2) 11.4.0, GNU ld (GNU Binutils for Ubuntu) 2.38) #111-Ubuntu SMP Fri Nov 21 22:22:11 UTC 2025
 Install completed successfully on  Wed Jan 7 22:25:57 UTC 2026

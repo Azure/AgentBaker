@@ -256,6 +256,50 @@
       ]
     },
     {
+      "id": "sha256:acdc8d4eb4401c75abcf7f08b2dfd6104c340407fa711ffe41d1c202d444b397",
+      "bytes": 99197678,
+      "size": "94.6 MiB",
+      "repoTags": [
+        "mcr.microsoft.com/containernetworking/azure-npm:v1.6.29"
+      ],
+      "repoDigests": [
+        "sha256:806d2adb1563ba5d3bb00d681f1ce512225c850b5bba7fa2369f595a1974032b"
+      ]
+    },
+    {
+      "id": "sha256:871353e67354a21b4b41e11b28518019863188bc505f4f21b8e28e573cfd4b6f",
+      "bytes": 266996560,
+      "size": "254.6 MiB",
+      "repoTags": [
+        "mcr.microsoft.com/containernetworking/cilium/cilium:v1.17.7-250927"
+      ],
+      "repoDigests": [
+        "sha256:3aac4cca38949955ac707fa9db6aed6fc939fa3572a069021507d4ba5f1913bb"
+      ]
+    },
+    {
+      "id": "sha256:9d73574a8da9e2bf139afa716ac79141f662d01d3f0af050f64f074b9af5745e",
+      "bytes": 19967136,
+      "size": "19.0 MiB",
+      "repoTags": [
+        "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.30.12"
+      ],
+      "repoDigests": [
+        "sha256:5725b02ca72e3d8204e2f12b50845a261772db87ab722621bc9f1aba9c5197c7"
+      ]
+    },
+    {
+      "id": "sha256:292cdf86ace8ca37edb28b205fadf7ee9c3fdc5d6c115235f09ca2e1d9d81952",
+      "bytes": 31911505,
+      "size": "30.4 MiB",
+      "repoTags": [
+        "mcr.microsoft.com/oss/v2/open-policy-agent/gatekeeper:v3.20.1-1"
+      ],
+      "repoDigests": [
+        "sha256:4c61129495deea537c2a05647d138e15ec5724b33d5b279f90c2c45ae096ea0c"
+      ]
+    },
+    {
       "id": "sha256:727c02fa9b3ff41764d079c4cdeba4bf0450fe1e309e32f7b57967c457e0a635",
       "bytes": 3492536,
       "size": "3.3 MiB",

@@ -547,7 +547,7 @@
       "bytes": 17284223,
       "size": "16.5 MiB",
       "repoTags": [
-        "mcr.microsoft.com/oss/v2/kubernetes-csi/csi-node-driver-registrar:v2.14.0"
+        "mcr.microsoft.com/oss/v2/kubernetes-csi/azurefile-csi:v1.32.7"
       ],
       "repoDigests": [
         "sha256:630a356666c0750102b775f24b6f9674502812cd630dacb98ac55534505f6ab3"
@@ -631,11 +631,11 @@
       ]
     },
     {
-      "id": "sha256:f8083bd3e4d2007df90baa59418ec4811cf4eb64138f0cff215847ee59f1fa4d",
-      "bytes": 219960902,
-      "size": "209.8 MiB",
+      "id": "sha256:6eda930ad1e57d6849b97fd4d956c5ea99c805f1f65e46b50987e595c8c43207",
+      "bytes": 25453126,
+      "size": "24.3 MiB",
       "repoTags": [
-        "mcr.microsoft.com/containernetworking/cilium/cilium:v1.16.13-250826"
+        "mcr.microsoft.com/oss/v2/kubernetes/coredns:v1.11.3-14"
       ],
       "repoDigests": [
         "sha256:87ec28470ed5dc6dd02c0dfd5ed82b3a2a541b394993db462a647212ce53d1a8"

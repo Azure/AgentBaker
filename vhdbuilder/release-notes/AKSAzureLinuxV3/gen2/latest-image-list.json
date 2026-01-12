@@ -58,14 +58,14 @@
       ]
     },
     {
-      "id": "sha256:3d41ffd499fc6e93faa407251e50fac7c036509488d2c60734f4a0dc53110754",
-      "bytes": 109068249,
-      "size": "104.0 MiB",
+      "id": "sha256:537658439897ec37783649b17a92690f7268c3298d0715320318efde748f2d2e",
+      "bytes": 34192200,
+      "size": "32.6 MiB",
       "repoTags": [
-        "mcr.microsoft.com/containernetworking/azure-cni:v1.6.32"
+        "mcr.microsoft.com/oss/v2/kubernetes/coredns:v1.13.1-2"
       ],
       "repoDigests": [
-        "sha256:8805a24fe6747f30fd275f9e2032f45612816a86251f7af6ce29852d8a8879b0"
+        "sha256:66a5fe028fa3cbfcf102d69bbc65b359cd40b888775445da5fe7edf4795955b3"
       ]
     },
     {
@@ -411,25 +411,25 @@
       ]
     },
     {
-      "id": "sha256:84d8a1c401e1d4016c6c10e75581a700d5c2477d7b822cd3377b18c44d21adea",
-      "bytes": 21528233,
-      "size": "20.5 MiB",
+      "id": "sha256:0f9db910bf224e91db5749699dae6ff711751b4208d5e290dd82acc7921b8457",
+      "bytes": 288384365,
+      "size": "275.0 MiB",
       "repoTags": [
-        "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.29.13"
+        "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:3.1.31"
       ],
       "repoDigests": [
-        "sha256:fd8aa37ecaf8e8075555be84a98aff28527ffddbcd084f4e3b3cd31c80748253"
+        "sha256:942c5112e94fc2d820f2cfbc3fa46bd3fa0115863a1a46d8d1d19cb59c1f5ec2"
       ]
     },
     {
-      "id": "sha256:256bb68d3d0cabdfefa3039333454510acdbd5161bdfc6c45acf98cc9f361468",
-      "bytes": 93391197,
-      "size": "89.1 MiB",
+      "id": "sha256:a889577262a3901c2351d28fe0721a204f3923502f1e27b3ef6bb3567413c3b2",
+      "bytes": 83041629,
+      "size": "79.2 MiB",
       "repoTags": [
-        "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.31.13"
+        "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.28.103-akslts"
       ],
       "repoDigests": [
-        "sha256:89051e0d4d7bcc41da0fd1e45648967e9a3fbeae65604bccfa4d66ca0fc3470d"
+        "sha256:10625919c79f7a894d6c8ed13b1b10f86d4de793a6394e7d9780e49f9cd33ed6"
       ]
     },
     {
@@ -488,11 +488,11 @@
       ]
     },
     {
-      "id": "sha256:0de157d19366d8054779c05e10e0b3eacf107dcc06086412f9f9101c617bce00",
-      "bytes": 26830903,
-      "size": "25.6 MiB",
+      "id": "sha256:4044205d88f6688f41be9e5ac236b414457c586754277287fc4c06ee6fbc3a32",
+      "bytes": 24823569,
+      "size": "23.7 MiB",
       "repoTags": [
-        "mcr.microsoft.com/containernetworking/azure-ipam:v0.2.1"
+        "mcr.microsoft.com/oss/v2/kubernetes/autoscaler/addon-resizer:v1.8.23-7"
       ],
       "repoDigests": [
         "sha256:d7426123f00d93a0d09edea68498730fc289087bcb1c2cfbea3d1b081b44c6a5"

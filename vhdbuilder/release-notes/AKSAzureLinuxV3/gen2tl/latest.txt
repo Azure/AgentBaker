@@ -559,7 +559,7 @@ Filesystem      Size  Used Avail Use% Mounted on
 /dev/sda3        29G   11G   18G  38% /
 devtmpfs        4.0M     0  4.0M   0% /dev
 tmpfs            32G     0   32G   0% /dev/shm
-efivarfs        128M  9.8K  128M   1% /sys/firmware/efi/efivars
+efivarfs        128M   30K  128M   1% /sys/firmware/efi/efivars
 tmpfs            13G  700K   13G   1% /run
 tmpfs            32G  4.0K   32G   1% /tmp
 /dev/sda2       452M   39M  379M  10% /boot
@@ -583,7 +583,7 @@ Install completed successfully on  Wed Jan 7 22:16:25 UTC 2026
 VSTS Build NUMBER: 20260107.1_master_148616021
 VSTS Build ID: 148616021
 Commit: b014d2f6dcc6d7dd2bcd4c0e256e4aec4d8fe49a
-Ubuntu version: 
+Ubuntu version:
 Hyperv generation: V2
 Feature flags: None
 FIPS enabled: false

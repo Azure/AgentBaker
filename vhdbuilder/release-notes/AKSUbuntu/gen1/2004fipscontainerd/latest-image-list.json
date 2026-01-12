@@ -421,14 +421,91 @@
       ]
     },
     {
-      "id": "sha256:68a6f10bb24e8af61f59f7270958a3540de32b7669ee64c5ed3e97881a4d192f",
+      "id": "sha256:7c537eff70effeb8818384c82191014796d0900f416697d7c1db5bd34cf5c1ca",
+      "bytes": 26496650,
+      "size": "25.3 MiB",
+      "repoTags": [
+        "mcr.microsoft.com/oss/v2/azure/ip-masq-agent-v2:v0.1.15-6"
+      ],
+      "repoDigests": [
+        "sha256:29a9cb1823f0048f3c57d635e8c407ce6e2505a8744bc46e8d14a8e4a857a762"
+      ]
+    },
+    {
+      "id": "sha256:367fa195333328a4fba29075ca35b4e8327421b74cfb46a68fe902bd5fd38259",
+      "bytes": 17546522,
+      "size": "16.7 MiB",
+      "repoTags": [
+        "mcr.microsoft.com/oss/v2/azure/secrets-store/provider-azure:v1.7.2"
+      ],
+      "repoDigests": [
+        "sha256:c34ca57730d55189e843ebfb8343ef6b865e73b80adc3fd43f6181227c1320a7"
+      ]
+    },
+    {
+      "id": "sha256:12d2bda94041aa9e7ea1c5f9ce17af258347dc0dee75cf75121d3d05e45b7d27",
+      "bytes": 19184155,
+      "size": "18.3 MiB",
+      "repoTags": [
+        "mcr.microsoft.com/oss/v2/kubernetes-csi/livenessprobe:v2.16.0"
+      ],
+      "repoDigests": [
+        "sha256:0dfec8471c4c50070e504259add043a9b3f1343ce69c4a6ec9237a7cf370a88c"
+      ]
+    },
+    {
+      "id": "sha256:6081dea4d21051c04e278b83406025041126e67fff28f8f0fb9283bbefcd89e0",
+      "bytes": 709343011,
+      "size": "676.5 MiB",
+      "repoTags": [
+        "mcr.microsoft.com/aks/aks-gpu-cuda:580.95.05-20251021155213"
+      ],
+      "repoDigests": [
+        "sha256:0030c917ff77ddcf9178b308183f3206e87a09caa469919091c56f636b2f085d"
+      ]
+    },
+    {
+      "id": "sha256:bcd56ca5f89a1271a5d4a9499fde61f721b77c6479bc8433bf4147743435d105",
+      "bytes": 31338639,
+      "size": "29.9 MiB",
+      "repoTags": [
+        "mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:1.15.2"
+      ],
+      "repoDigests": [
+        "sha256:1ae4f1a0ac808610ee768bdd5c2333c47e96b7ae51550040e6200544f1ef15a4"
+      ]
+    },
+    {
+      "id": "sha256:2b49162c487b93cc011b5c3a8ae1b0f873ef7b60df82783f5cefcccf724381bf",
+      "bytes": 45742748,
+      "size": "43.6 MiB",
+      "repoTags": [
+        "mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.24.0-main-10-20-2025-fe8f6d51-targetallocator"
+      ],
+      "repoDigests": [
+        "sha256:95d26b26a012b149815b0e449664ab5939864b66b2690530efcbcfb17e570028"
+      ]
+    },
+    {
+      "id": "sha256:d0712c8269b917f76cf7c10b4d1894b93f02743503152e1a6c6acf8ce1609c41",
+      "bytes": 26330144,
+      "size": "25.1 MiB",
+      "repoTags": [
+        "mcr.microsoft.com/containernetworking/azure-ipam:v0.2.0"
+      ],
+      "repoDigests": [
+        "sha256:e349cb26e795e2f697a663bcfa44c2377551b3aa1a150ecade1ca48ae8e04aec"
+      ]
+    },
+    {
+      "id": "sha256:529423048567b89f21c76d7e871baa4676341d629448a3d86712273ff621b252",
       "bytes": 84648797,
       "size": "80.7 MiB",
       "repoTags": [
-        "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.29.15"
+        "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.29.101-akslts"
       ],
       "repoDigests": [
-        "sha256:4b0ac56116edb354a4dcb5e12c76221d0a1cf2ffd4a1230f4433a25b0c5c994c"
+        "sha256:0db5faba822530214b7c958e9c627bbd324cbc38e04d115933c6931784d9069e"
       ]
     },
     {
@@ -509,14 +586,14 @@
       ]
     },
     {
-      "id": "sha256:1b5ace612b3a74d3046e4ec143c8dff06279c82677ab494cc1ad5f0d7927ab17",
-      "bytes": 31742763,
-      "size": "30.3 MiB",
+      "id": "sha256:d4a55327f8d04cba80bfab8d5efed000f242222ab6e37698d1871d821b75a7fe",
+      "bytes": 18220818,
+      "size": "17.4 MiB",
       "repoTags": [
-        "mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:1.14.2"
+        "mcr.microsoft.com/oss/v2/kubernetes-csi/csi-node-driver-registrar:v2.15.0"
       ],
       "repoDigests": [
-        "sha256:9f7a01cfa2e73a4c269a7950b5da0d9ca78677d3d9a38240c73b4b306ee8a5ff"
+        "sha256:7654bbf36cb1598836c051d7d96894a53a5f032f59843c21fa02fc3a8910d1b5"
       ]
     },
     {
@@ -745,7 +822,7 @@
       "bytes": 29115848,
       "size": "27.8 MiB",
       "repoTags": [
-        "mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:1.15.2"
+        "mcr.microsoft.com/oss/v2/kubernetes-csi/secrets-store/driver:v1.5.4"
       ],
       "repoDigests": [
         "sha256:0989d8e62f05addc7ac2c5fc747103acc808944fc4a459d479884a817cc14e0a"

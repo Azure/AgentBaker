@@ -359,10 +359,10 @@
       "bytes": 74383328,
       "size": "70.9 MiB",
       "repoTags": [
-        "mcr.microsoft.com/containernetworking/azure-cns:v1.6.33"
+        "mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:1.14.2"
       ],
       "repoDigests": [
-        "sha256:7baaeff81d3d1939c8b8dcbd733c6bae6f0e6b0c9f046fefde7d1bcb61fcbd66"
+        "sha256:10367e83e64bb345bbdc8796231702c3f39dd84b662da2eb2b2f51d91b75ee1e"
       ]
     },
     {
@@ -388,14 +388,25 @@
       ]
     },
     {
-      "id": "sha256:8d75c6bbf9fffa820adba88479b79aad9b1754a9331b57de3d7ec25956f2da09",
-      "bytes": 21914742,
-      "size": "20.9 MiB",
+      "id": "sha256:12d2bda94041aa9e7ea1c5f9ce17af258347dc0dee75cf75121d3d05e45b7d27",
+      "bytes": 19184155,
+      "size": "18.3 MiB",
       "repoTags": [
-        "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.30.13"
+        "mcr.microsoft.com/oss/v2/kubernetes-csi/livenessprobe:v2.16.0"
       ],
       "repoDigests": [
-        "sha256:8a95c28ce40eab15b74d32ddc9959d9ec549e4d76014df6d19ab776e327a282f"
+        "sha256:0dfec8471c4c50070e504259add043a9b3f1343ce69c4a6ec9237a7cf370a88c"
+      ]
+    },
+    {
+      "id": "sha256:c3333e35c5d5b2ba7a137fee68483d59519827c296572729784f9cf846c867a4",
+      "bytes": 18295212,
+      "size": "17.4 MiB",
+      "repoTags": [
+        "mcr.microsoft.com/oss/v2/kubernetes-csi/livenessprobe:v2.17.0"
+      ],
+      "repoDigests": [
+        "sha256:5d5e50beaac6a7af8b1b165f30458e26261bb0b0e4cf135e237cca0093df5792"
       ]
     },
     {

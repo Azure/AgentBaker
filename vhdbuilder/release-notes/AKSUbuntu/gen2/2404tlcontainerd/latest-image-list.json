@@ -799,10 +799,10 @@
       "bytes": 236745020,
       "size": "225.8 MiB",
       "repoTags": [
-        "mcr.microsoft.com/containernetworking/cilium/cilium:v1.16.10-250610"
+        "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.29.100-akslts"
       ],
       "repoDigests": [
-        "sha256:0643f5e4480444985b5e4cc62f6bd5c2505088714d72740ef68e3ade2e320bd8"
+        "sha256:d1efb0d1e0e1de2afe7d56fa506070266761fef3a3ae5ce29f40b85e31f61e2b"
       ]
     },
     {

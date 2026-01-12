@@ -565,14 +565,14 @@
       ]
     },
     {
-      "id": "sha256:d770c6ab1cf50974b74766fface2da08621ad2c8485ef26f6c93a633d19ecd65",
-      "bytes": 35305457,
-      "size": "33.7 MiB",
+      "id": "sha256:2b49162c487b93cc011b5c3a8ae1b0f873ef7b60df82783f5cefcccf724381bf",
+      "bytes": 45742748,
+      "size": "43.6 MiB",
       "repoTags": [
-        "mcr.microsoft.com/oss/v2/open-policy-agent/gatekeeper:v3.20.1-1"
+        "mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.24.0-main-10-20-2025-fe8f6d51-targetallocator"
       ],
       "repoDigests": [
-        "sha256:4c61129495deea537c2a05647d138e15ec5724b33d5b279f90c2c45ae096ea0c"
+        "sha256:95d26b26a012b149815b0e449664ab5939864b66b2690530efcbcfb17e570028"
       ]
     },
     {
@@ -591,10 +591,10 @@
       "bytes": 30614078,
       "size": "29.2 MiB",
       "repoTags": [
-        "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.32.5"
+        "mcr.microsoft.com/oss/v2/azure/ip-masq-agent-v2:v0.1.15-6"
       ],
       "repoDigests": [
-        "sha256:3371131c0c0c7b30b0f26d057479aead1969826cb69d08417438b38b7abffea2"
+        "sha256:29a9cb1823f0048f3c57d635e8c407ce6e2505a8744bc46e8d14a8e4a857a762"
       ]
     },
     {
@@ -668,10 +668,21 @@
       "bytes": 84243293,
       "size": "80.3 MiB",
       "repoTags": [
-        "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.29.14"
+        "mcr.microsoft.com/oss/v2/kubernetes-csi/secrets-store/driver:v1.5.4"
       ],
       "repoDigests": [
-        "sha256:8a27e99a5db60be03ea986776da1311d2fccb07c364e6f324f155d992becdf5f"
+        "sha256:5db0debce8e9de468fac3a41cb07e44c3feca56138b59b9229712aad93e4fd94"
+      ]
+    },
+    {
+      "id": "sha256:ce008d72d7c8487ecfc0c6ea70cf10fd01c359821c5508561ec32a44139aeb7e",
+      "bytes": 2235671,
+      "size": "2.1 MiB",
+      "repoTags": [
+        "mcr.microsoft.com/oss/v2/kubernetes/pause:3.6"
+      ],
+      "repoDigests": [
+        "sha256:b49d4e34cfb0d41baa7c33934f0356db83d5e972ff0b122313847db86ef1c0b5"
       ]
     },
     {

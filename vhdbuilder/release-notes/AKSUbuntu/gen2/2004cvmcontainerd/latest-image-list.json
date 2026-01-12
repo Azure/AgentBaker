@@ -40,7 +40,7 @@
       "bytes": 84666530,
       "size": "80.7 MiB",
       "repoTags": [
-        "mcr.microsoft.com/containernetworking/azure-cni:v1.5.44"
+        "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.29.100-akslts"
       ],
       "repoDigests": [
         "sha256:853e5afdadebbb54ee1a5f6db480053f80aa1b7c70a8f13ba45f6f80d5dda872"
@@ -80,11 +80,11 @@
       ]
     },
     {
-      "id": "sha256:1b5ace612b3a74d3046e4ec143c8dff06279c82677ab494cc1ad5f0d7927ab17",
-      "bytes": 31742763,
-      "size": "30.3 MiB",
+      "id": "sha256:95766ab771ff73bb15a4a78c68ccb52be1d463c17713dc52752966dd8556efbf",
+      "bytes": 145495837,
+      "size": "138.8 MiB",
       "repoTags": [
-        "mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:1.14.2"
+        "mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.24.0-main-10-20-2025-fe8f6d51-cfg"
       ],
       "repoDigests": [
         "sha256:9f7a01cfa2e73a4c269a7950b5da0d9ca78677d3d9a38240c73b4b306ee8a5ff"
