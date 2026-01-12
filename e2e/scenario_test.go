@@ -3,6 +3,7 @@ package e2e
 import (
 	"context"
 	"fmt"
+	"runtime"
 	"testing"
 	"time"
 
@@ -805,6 +806,89 @@ func Test_Ubuntu2204_CustomSysctls_Scriptless(t *testing.T) {
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateUlimitSettings(ctx, s, customContainerdUlimits)
 				ValidateSysctlConfig(ctx, s, customSysctls)
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2204_EthtoolConfig(t *testing.T) {
+
+	customEthtool := map[string]string{
+		"rx": "3072",
+	}
+	RunScenario(t, &Scenario{
+		Description: "tests that an ubuntu 2204 VHD can be properly bootstrapped when supplied custom ethtool settings",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				customLinuxConfig := &datamodel.CustomLinuxOSConfig{
+					EthtoolConfig: &datamodel.EthtoolConfig{
+						RxBufferSize: toolkit.StrToInt32(customEthtool["rx"]),
+					},
+				}
+				nbc.AgentPoolProfile.CustomLinuxOSConfig = customLinuxConfig
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateEthtoolConfigFiles(ctx, s)
+				ValidateEthtoolConfig(ctx, s, customEthtool)
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2204_EthtoolConfig_Default(t *testing.T) {
+
+	rx := "1024"
+	if runtime.NumCPU() >= 4 {
+		rx = "2048"
+	}
+	customEthtool := map[string]string{
+		"rx": rx,
+	}
+	RunScenario(t, &Scenario{
+		Description: "tests that an ubuntu 2204 VHD can be properly bootstrapped when supplied with no ethtool settings",
+		Tags: Tags{
+			Ethtool: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				customLinuxConfig := &datamodel.CustomLinuxOSConfig{}
+				nbc.AgentPoolProfile.CustomLinuxOSConfig = customLinuxConfig
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateEthtoolConfigFiles(ctx, s)
+				ValidateEthtoolConfig(ctx, s, customEthtool)
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2204_EthtoolConfig_Scriptless(t *testing.T) {
+	customEthtool := map[string]string{
+		"rx": "4096",
+	}
+	RunScenario(t, &Scenario{
+		Description: "tests that an ubuntu 2204 VHD can be properly bootstrapped with custom ethtool settings using scriptless installer",
+		Tags: Tags{
+			Ethtool:    true,
+			Scriptless: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+				config.CustomLinuxOsConfig = &aksnodeconfigv1.CustomLinuxOsConfig{
+					EthtoolConfig: &aksnodeconfigv1.EthtoolConfig{
+						RxBufferSize: to.Ptr(toolkit.StrToInt32(customEthtool["rx"])),
+					},
+				}
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateEthtoolConfigFiles(ctx, s)
+				ValidateEthtoolConfig(ctx, s, customEthtool)
 			},
 		},
 	})

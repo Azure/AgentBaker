@@ -173,6 +173,7 @@ func getCSEEnv(config *aksnodeconfigv1.Configuration) map[string]string {
 		"LOCALDNS_MEMORY_LIMIT":                              getLocalDnsMemoryLimitInMb(config),
 		"LOCALDNS_GENERATED_COREFILE":                        getLocalDnsCorefileBase64(config),
 		"DISABLE_PUBKEY_AUTH":                                fmt.Sprintf("%v", config.GetDisablePubkeyAuth()),
+		"ETHTOOL_CONTENT":                                    fmt.Sprintf("%v", getEthtoolContents(config.GetCustomLinuxOsConfig().GetEthtoolConfig())),
 	}
 
 	for i, cert := range config.CustomCaCerts {

@@ -312,6 +312,27 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "validateKubeletCredentialsScript"}}
 
+- path: /opt/scripts/configure-aks-nics.sh
+  permissions: "0755"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "configureAksNicsScript"}}
+
+- path: /etc/udev/rules.d/99-aks-nics-to-configure.rules
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "aksNicsUdevRule"}}
+
+- path: /etc/systemd/system/aks-ethtool-config.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "aksEthtoolService"}}
+
 - path: /etc/kubernetes/certs/ca.crt
   permissions: "0600"
   encoding: base64
