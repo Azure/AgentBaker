@@ -187,6 +187,7 @@ steps:
         and(
           eq(variables.BUILDER, 'imagecustomizer'),
           eq(variables.ENVIRONMENT, 'tme')
+        ),
       )
     displayName: Set Destination Storage Container to Staging
 
@@ -367,6 +368,7 @@ steps:
         and(
           eq(variables.BUILDER, 'imagecustomizer'),
           eq(variables.ENVIRONMENT, 'tme')
+        ),
       )
     displayName: Copy to Immutable Storage Container
 
