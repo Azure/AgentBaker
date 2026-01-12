@@ -67,6 +67,7 @@ func ValidatePodRunning(ctx context.Context, s *Scenario, pod *corev1.Pod) {
 }
 
 func ValidateCommonLinux(ctx context.Context, s *Scenario) {
+	ValidateNoFailedSystemdUnits(ctx, s)
 	ValidateTLSBootstrapping(ctx, s)
 	ValidateKubeletServingCertificateRotation(ctx, s)
 	ValidateSystemdWatchdogForKubernetes132Plus(ctx, s)

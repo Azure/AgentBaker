@@ -30,6 +30,12 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
+func ValidateNoFailedSystemdUnits(ctx context.Context, s *Scenario) {
+	cmd := "systemctl list-units --failed 2>&1"
+	result := execScriptOnVMForScenarioValidateExitCode(ctx, s, cmd, 0, fmt.Sprintf("unable to list failed systemd units"))
+	require.Contains(s.T, strings.ToLower(result.stdout), "0 loaded units listed", "expected to find no systemd units in a failed state")
+}
+
 func ValidateTLSBootstrapping(ctx context.Context, s *Scenario) {
 	switch s.VHD.OS {
 	case config.OSWindows:
