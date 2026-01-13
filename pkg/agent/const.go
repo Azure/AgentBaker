@@ -96,7 +96,7 @@ const (
 	ensureNoDupEbtablesScript  = "linux/cloud-init/artifacts/ensure-no-dup.sh"
 	ensureNoDupEbtablesService = "linux/cloud-init/artifacts/ensure-no-dup.service"
 
-	// Ethtool configuration files
+	// Ethtool configuration files.
 	configureAksNicsScript = "linux/cloud-init/artifacts/configure-aks-nics.sh"
 	aksNicsUdevRule        = "linux/cloud-init/artifacts/99-aks-nics-to-configure.rules"
 	aksEthtoolService      = "linux/cloud-init/artifacts/aks-ethtool-config.service"
