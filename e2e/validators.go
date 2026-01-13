@@ -46,7 +46,7 @@ func ValidateNoFailedSystemdUnits(ctx context.Context, s *Scenario) {
 			services = append(services, match[1])
 		}
 	}
-	require.Equal(s.T, []string{"secure-tls-bootstrap"}, services, "expected to only find the secure-tls-bootstrap service in a failed state")
+	require.Equal(s.T, []string{"secure-tls-bootstrap.service"}, services, "expected to only find the secure-tls-bootstrap service in a failed state")
 }
 
 func ValidateTLSBootstrapping(ctx context.Context, s *Scenario) {
