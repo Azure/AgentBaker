@@ -283,20 +283,16 @@ func ValidateEthtoolConfig(ctx context.Context, s *Scenario, EthtoolConfig map[s
 	}
 }
 
-// ValidateEthtoolConfigFiles checks that configuration files exist
+// ValidateEthtoolConfigFiles checks that configuration files exist.
 func ValidateEthtoolConfigFiles(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 
-	// Check script exists
 	ValidateFileExists(ctx, s, "/opt/azure/containers/configure-aks-nics.sh")
 
-	// Check udev rule exists
 	ValidateFileExists(ctx, s, "/etc/udev/rules.d/99-aks-nics-to-configure.rules")
 
-	// Check service file exists
 	ValidateFileExists(ctx, s, "/etc/systemd/system/aks-ethtool-config.service")
 
-	// Check service content
 	ValidateFileHasContent(ctx, s, "/etc/systemd/system/aks-ethtool-config.service",
 		"ExecStart=/opt/azure/containers/configure-aks-nics.sh")
 }

@@ -220,7 +220,7 @@ oom_score = -999
 			aksNodeConfigUpdator: func(aksNodeConfig *aksnodeconfigv1.Configuration) {
 				aksNodeConfig.CustomLinuxOsConfig = &aksnodeconfigv1.CustomLinuxOsConfig{
 					EthtoolConfig: &aksnodeconfigv1.EthtoolConfig{
-						// No RxBufferSize set, should use CPU-based default
+						// No RxBufferSize set, should use CPU-based default.
 					},
 				}
 			},
@@ -228,8 +228,8 @@ oom_score = -999
 				vars := environToMap(cmd.Env)
 				ethtoolContent, err := getBase64DecodedValue([]byte(vars["ETHTOOL_CONTENT"]))
 				require.NoError(t, err)
-				// Should be CPU-based default (2048 for >=4 cores, 1024 for <4 cores)
-				// Since test environment likely has >=4 cores, expect 2048
+				// Should be CPU-based default (2048 for >=4 cores, 1024 for <4 cores).
+				// Since test environment likely has >=4 cores, expect 2048.
 				assert.Contains(t, ethtoolContent, "rx=")
 				assert.True(t, ethtoolContent == "rx=1024" || ethtoolContent == "rx=2048",
 					"Expected CPU-based default (rx=1024 or rx=2048), got: %s", ethtoolContent)
@@ -242,7 +242,7 @@ oom_score = -999
 			aksNodeConfigUpdator: func(aksNodeConfig *aksnodeconfigv1.Configuration) {
 				aksNodeConfig.CustomLinuxOsConfig = &aksnodeconfigv1.CustomLinuxOsConfig{
 					EthtoolConfig: &aksnodeconfigv1.EthtoolConfig{
-						RxBufferSize: to.Ptr(int32(0)), // Zero should use CPU default
+						RxBufferSize: to.Ptr(int32(0)), // Zero should use CPU default.
 					},
 				}
 			},
@@ -250,7 +250,7 @@ oom_score = -999
 				vars := environToMap(cmd.Env)
 				ethtoolContent, err := getBase64DecodedValue([]byte(vars["ETHTOOL_CONTENT"]))
 				require.NoError(t, err)
-				// Zero value should trigger CPU-based default
+				// Zero value should trigger CPU-based default.
 				assert.True(t, ethtoolContent == "rx=1024" || ethtoolContent == "rx=2048",
 					"Expected CPU-based default for zero value (rx=1024 or rx=2048), got: %s", ethtoolContent)
 			},

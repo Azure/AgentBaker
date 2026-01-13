@@ -824,15 +824,15 @@ func getEthtoolContents(ethtool_config *aksnodeconfigv1.EthtoolConfig) string {
 
 	cpuCount := runtime.NumCPU()
 
-	// Set default based on CPU count: 2048 for >= 4 cores, 1024 for < 4 cores
+	// Set default based on CPU count: 2048 for >= 4 cores, 1024 for < 4 cores.
 	var defaultRx int32
 	if cpuCount >= 4 {
-		defaultRx = int32(defaultRxBufferSize) // 2048
+		defaultRx = int32(defaultRxBufferSize) // 2048.
 	} else {
-		defaultRx = int32(defaultRxBufferSizeSmall) // 1024
+		defaultRx = int32(defaultRxBufferSizeSmall) // 1024.
 	}
 
-	// Use user-provided value if set, otherwise use the CPU-based default
+	// Use user-provided value if set, otherwise use the CPU-based default.
 	if ethtool_config.GetRxBufferSize() > 0 {
 		m["rx"] = ethtool_config.GetRxBufferSize()
 	} else {
