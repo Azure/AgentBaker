@@ -30,31 +30,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
-func ValidateNoFailedSystemdUnits(ctx context.Context, s *Scenario) {
-	result := execScriptOnVMForScenarioValidateExitCode(ctx, s, "systemctl list-units --failed 2>&1", 0, fmt.Sprintf("unable to list failed systemd units"))
-	if strings.Contains(strings.ToLower(result.stdout), "0 loaded units listed") {
-		return
-	}
-	failedUnitMatches := regexp.MustCompile(`(\S+\.service)`).FindAllStringSubmatch(result.stdout, -1)
-	var failedUnits []string
-	for _, failedUnitMatch := range failedUnitMatches {
-		if len(failedUnitMatch) <= 1 {
-			continue
-		}
-		unitName := failedUnitMatch[1]
-		if s.Tags.BootstrapTokenFallback && strings.EqualFold(unitName, "secure-tls-bootstrap.service") {
-			// secure-tls-bootstrap.service is expected to fail within scenarios that test bootstrap token fall-back behavior
-			continue
-		}
-		failedUnits = append(failedUnits, unitName)
-	}
-	if s.Runtime.ValidationResult == nil {
-		s.Runtime.ValidationResult = &ValidationResult{}
-	}
-	s.Runtime.ValidationResult.FailedSystemdUnits = failedUnits
-	s.T.Fatalf("found %d systemd units in a failed state unexpectedly, failed unit status dump will be included within scenario logs. failed units: %s", len(failedUnits), failedUnits)
-}
-
 func ValidateTLSBootstrapping(ctx context.Context, s *Scenario) {
 	switch s.VHD.OS {
 	case config.OSWindows:
@@ -526,6 +501,32 @@ func ValidateSystemdUnitIsNotFailed(ctx context.Context, s *Scenario, serviceNam
 	)
 }
 
+func ValidateNoFailedSystemdUnits(ctx context.Context, s *Scenario) {
+	result := execScriptOnVMForScenarioValidateExitCode(ctx, s, "systemctl list-units --failed 2>&1", 0, fmt.Sprintf("unable to list failed systemd units"))
+	if strings.Contains(strings.ToLower(result.stdout), "0 loaded units listed") {
+		// no failed units, we're good
+		return
+	}
+	failedUnitMatches := regexp.MustCompile(`(\S+\.service)`).FindAllStringSubmatch(result.stdout, -1)
+	var failedUnits []string
+	for _, failedUnitMatch := range failedUnitMatches {
+		if len(failedUnitMatch) <= 1 {
+			continue
+		}
+		unitName := failedUnitMatch[1]
+		if s.Tags.BootstrapTokenFallback && strings.EqualFold(unitName, "secure-tls-bootstrap.service") {
+			// secure-tls-bootstrap.service is expected to fail within scenarios that test bootstrap token fall-back behavior
+			continue
+		}
+		failedUnits = append(failedUnits, unitName)
+	}
+	if s.Runtime.ValidationResult == nil {
+		s.Runtime.ValidationResult = &ValidationResult{}
+	}
+	s.Runtime.ValidationResult.FailedSystemdUnits = failedUnits
+	s.T.Fatalf("found %d systemd units in a failed state unexpectedly, failed unit status dump will be included within scenario logs. failed units: %s", len(failedUnits), failedUnits)
+}
+
 func ValidateUlimitSettings(ctx context.Context, s *Scenario, ulimits map[string]string) {
 	s.T.Helper()
 	ulimitKeys := make([]string, 0, len(ulimits))
@@ -539,34 +540,6 @@ func ValidateUlimitSettings(ctx context.Context, s *Scenario, ulimits map[string
 	for name, value := range ulimits {
 		require.Contains(s.T, execResult.stdout, fmt.Sprintf("%s=%v", name, value), "expected to find %s set to %v, but was not", name, value)
 	}
-}
-
-func execOnVMForScenarioOnUnprivilegedPod(ctx context.Context, s *Scenario, cmd string) *podExecResult {
-	s.T.Helper()
-	nonHostPod, err := s.Runtime.Cluster.Kube.GetPodNetworkDebugPodForNode(ctx, s.Runtime.VM.KubeName)
-	require.NoError(s.T, err, "failed to get non host debug pod name")
-	execResult, err := execOnUnprivilegedPod(ctx, s.Runtime.Cluster.Kube, nonHostPod.Namespace, nonHostPod.Name, cmd)
-	require.NoErrorf(s.T, err, "failed to execute command on pod: %v", cmd)
-	return execResult
-}
-
-func execScriptOnVMForScenario(ctx context.Context, s *Scenario, cmd string) *podExecResult {
-	s.T.Helper()
-	result, err := execScriptOnVm(ctx, s, s.Runtime.VM, cmd)
-	require.NoError(s.T, err, "failed to execute command on VM")
-	return result
-}
-
-func execScriptOnVMForScenarioValidateExitCode(ctx context.Context, s *Scenario, cmd string, expectedExitCode int, additionalErrorMessage string) *podExecResult {
-	s.T.Helper()
-	execResult := execScriptOnVMForScenario(ctx, s, cmd)
-
-	expectedExitCodeStr := fmt.Sprint(expectedExitCode)
-	if expectedExitCodeStr != execResult.exitCode {
-		s.T.Logf("Command: %s\nStdout: %s\nStderr: %s", cmd, execResult.stdout, execResult.stderr)
-		s.T.Fatalf("expected exit code %s, but got %s\nCommand: %s\n%s", expectedExitCodeStr, execResult.exitCode, cmd, additionalErrorMessage)
-	}
-	return execResult
 }
 
 func ValidateInstalledPackageVersion(ctx context.Context, s *Scenario, component, version string) {
@@ -666,40 +639,6 @@ func ValidateKubeletHasFlags(ctx context.Context, s *Scenario, filePath string) 
 	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo journalctl -u kubelet", 0, "could not retrieve kubelet logs with journalctl")
 	configFileFlags := fmt.Sprintf("FLAG: --config=\"%s\"", filePath)
 	require.Containsf(s.T, execResult.stdout, configFileFlags, "expected to find flag %s, but not found", "config")
-}
-
-// Waits until the specified resource is available on the given node.
-// Returns an error if the resource is not available within the specified timeout period.
-func waitUntilResourceAvailable(ctx context.Context, s *Scenario, resourceName string) {
-	s.T.Helper()
-	nodeName := s.Runtime.VM.KubeName
-	ticker := time.NewTicker(time.Second)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			s.T.Fatalf("context cancelled: %v", ctx.Err())
-		case <-ticker.C:
-			node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
-			require.NoError(s.T, err, "failed to get node %q", nodeName)
-
-			if isResourceAvailable(node, resourceName) {
-				s.T.Logf("resource %q is available", resourceName)
-				return
-			}
-		}
-	}
-}
-
-// Checks if the specified resource is available on the node.
-func isResourceAvailable(node *corev1.Node, resourceName string) bool {
-	for rn, quantity := range node.Status.Allocatable {
-		if rn == corev1.ResourceName(resourceName) && quantity.Cmp(resource.MustParse("1")) >= 0 {
-			return true
-		}
-	}
-	return false
 }
 
 func ValidateContainerd2Properties(ctx context.Context, s *Scenario, versions []string) {
@@ -1096,20 +1035,6 @@ func ValidateDllIsNotLoadedWindows(ctx context.Context, s *Scenario, dllName str
 	if dllLoadedWindows(ctx, s, dllName) {
 		s.T.Fatalf("expected DLL %s to not be loaded, but it is", dllName)
 	}
-}
-
-func dllLoadedWindows(ctx context.Context, s *Scenario, dllName string) bool {
-	s.T.Helper()
-
-	steps := []string{
-		"$ErrorActionPreference = \"Continue\"",
-		fmt.Sprintf("tasklist /m %s", dllName),
-	}
-	execResult := execScriptOnVMForScenario(ctx, s, strings.Join(steps, "\n"))
-	dllLoaded := strings.Contains(execResult.stdout, dllName)
-
-	s.T.Logf("stdout: %s\nstderr: %s", execResult.stdout, execResult.stderr)
-	return dllLoaded
 }
 
 func ValidateJsonFileHasField(ctx context.Context, s *Scenario, fileName string, jsonPath string, expectedValue string) {

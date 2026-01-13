@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/Azure/agentbaker/e2e/toolkit"
@@ -11,42 +12,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
-
-func validatePodRunning(ctx context.Context, s *Scenario, pod *corev1.Pod) error {
-	kube := s.Runtime.Cluster.Kube
-	truncatePodName(s.T, pod)
-	start := time.Now()
-
-	s.T.Logf("creating pod %q", pod.Name)
-	_, err := kube.Typed.CoreV1().Pods(pod.Namespace).Create(ctx, pod, v1.CreateOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to create pod %q: %v", pod.Name, err)
-	}
-	defer func() {
-		ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
-		defer cancel()
-		err := kube.Typed.CoreV1().Pods(pod.Namespace).Delete(ctx, pod.Name, v1.DeleteOptions{GracePeriodSeconds: to.Ptr(int64(0))})
-		if err != nil {
-			s.T.Logf("couldn't not delete pod %s: %v", pod.Name, err)
-		}
-	}()
-
-	_, err = kube.WaitUntilPodRunning(ctx, pod.Namespace, "", "metadata.name="+pod.Name)
-	if err != nil {
-		jsonString, jsonError := json.Marshal(pod)
-		if jsonError != nil {
-			jsonString = []byte(jsonError.Error())
-		}
-		return fmt.Errorf("failed to wait for pod %q to be in running state. Pod data: %s, Error: %v", pod.Name, jsonString, err)
-	}
-
-	timeForReady := time.Since(start)
-	toolkit.LogDuration(ctx, timeForReady, time.Minute, fmt.Sprintf("Time for pod %q to get ready was %s", pod.Name, timeForReady))
-	s.T.Logf("node health validation: test pod %q is running on node %q", pod.Name, s.Runtime.VM.KubeName)
-	return nil
-}
 
 func ValidatePodRunningWithRetry(ctx context.Context, s *Scenario, pod *corev1.Pod, maxRetries int) {
 	var err error
@@ -140,4 +109,86 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 func ValidateCommonWindows(ctx context.Context, s *Scenario) {
 	ValidateTLSBootstrapping(ctx, s)
 	ValidateKubeletServingCertificateRotation(ctx, s)
+}
+
+func validatePodRunning(ctx context.Context, s *Scenario, pod *corev1.Pod) error {
+	kube := s.Runtime.Cluster.Kube
+	truncatePodName(s.T, pod)
+	start := time.Now()
+
+	s.T.Logf("creating pod %q", pod.Name)
+	_, err := kube.Typed.CoreV1().Pods(pod.Namespace).Create(ctx, pod, v1.CreateOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to create pod %q: %v", pod.Name, err)
+	}
+	defer func() {
+		ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+		defer cancel()
+		err := kube.Typed.CoreV1().Pods(pod.Namespace).Delete(ctx, pod.Name, v1.DeleteOptions{GracePeriodSeconds: to.Ptr(int64(0))})
+		if err != nil {
+			s.T.Logf("couldn't not delete pod %s: %v", pod.Name, err)
+		}
+	}()
+
+	_, err = kube.WaitUntilPodRunning(ctx, pod.Namespace, "", "metadata.name="+pod.Name)
+	if err != nil {
+		jsonString, jsonError := json.Marshal(pod)
+		if jsonError != nil {
+			jsonString = []byte(jsonError.Error())
+		}
+		return fmt.Errorf("failed to wait for pod %q to be in running state. Pod data: %s, Error: %v", pod.Name, jsonString, err)
+	}
+
+	timeForReady := time.Since(start)
+	toolkit.LogDuration(ctx, timeForReady, time.Minute, fmt.Sprintf("Time for pod %q to get ready was %s", pod.Name, timeForReady))
+	s.T.Logf("node health validation: test pod %q is running on node %q", pod.Name, s.Runtime.VM.KubeName)
+	return nil
+}
+
+// Waits until the specified resource is available on the given node.
+// Returns an error if the resource is not available within the specified timeout period.
+func waitUntilResourceAvailable(ctx context.Context, s *Scenario, resourceName string) {
+	s.T.Helper()
+	nodeName := s.Runtime.VM.KubeName
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			s.T.Fatalf("context cancelled: %v", ctx.Err())
+		case <-ticker.C:
+			node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
+			require.NoError(s.T, err, "failed to get node %q", nodeName)
+
+			if isResourceAvailable(node, resourceName) {
+				s.T.Logf("resource %q is available", resourceName)
+				return
+			}
+		}
+	}
+}
+
+// Checks if the specified resource is available on the node.
+func isResourceAvailable(node *corev1.Node, resourceName string) bool {
+	for rn, quantity := range node.Status.Allocatable {
+		if rn == corev1.ResourceName(resourceName) && quantity.Cmp(resource.MustParse("1")) >= 0 {
+			return true
+		}
+	}
+	return false
+}
+
+func dllLoadedWindows(ctx context.Context, s *Scenario, dllName string) bool {
+	s.T.Helper()
+
+	steps := []string{
+		"$ErrorActionPreference = \"Continue\"",
+		fmt.Sprintf("tasklist /m %s", dllName),
+	}
+	execResult := execScriptOnVMForScenario(ctx, s, strings.Join(steps, "\n"))
+	dllLoaded := strings.Contains(execResult.stdout, dllName)
+
+	s.T.Logf("stdout: %s\nstderr: %s", execResult.stdout, execResult.stderr)
+	return dllLoaded
 }
