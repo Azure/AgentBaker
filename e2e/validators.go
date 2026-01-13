@@ -530,7 +530,7 @@ func ValidateNoFailedSystemdUnits(ctx context.Context, s *Scenario) {
 	var failedUnits []string
 	for _, failedUnitMatch := range regexp.MustCompile(`(\S+\.service)`).FindAllStringSubmatch(result.stdout, -1) {
 		if len(failedUnitMatch) < 2 {
-			s.T.Fatalf("unable to validate no failed systemd units due to unexpected validation command output, output:\n%s", result.stdout)
+			s.T.Fatalf("unable to validate systemd unit failures due to unexpected validation command output, output:\n%s", result.stdout)
 		}
 		if unitName := failedUnitMatch[1]; !unitFailureAllowList[strings.ToLower(unitName)] {
 			failedUnits = append(failedUnits, unitName)
@@ -544,7 +544,7 @@ func ValidateNoFailedSystemdUnits(ctx context.Context, s *Scenario) {
 		s.Runtime.ValidationResult = &ValidationResult{}
 	}
 	s.Runtime.ValidationResult.FailedSystemdUnits = failedUnits
-	s.T.Fatalf("found %d systemd units in a failed state unexpectedly, failed unit status dump will be included within scenario logs. failed units: %s", len(failedUnits), failedUnits)
+	s.T.Fatalf("the following systemd units have unexpectedly entered a failed state: %s - failed unit logs be included in scenario log bundle within <service-name>.service.log", failedUnits)
 }
 
 func ValidateUlimitSettings(ctx context.Context, s *Scenario, ulimits map[string]string) {
