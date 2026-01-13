@@ -1523,54 +1523,6 @@ func ValidateIPTablesCompatibleWithCiliumEBPF(ctx context.Context, s *Scenario) 
 	)
 }
 
-// getIPTablesRulesCompatibleWithEBPFHostRouting returns the expected iptables patterns that are accounted for when EBPF host routing is enabled.
-// If tests are failing due to unexpected iptables rules, it is because an iptables rule has been found, that was not accounted for in the implementation
-// of the eBPF host routing feature in Cilium CNI. In eBPF host routing mode, iptables rules in the host network namespace are bypassed for pod
-// traffic. So, any functionality that is built using iptables needs an equivalent non-iptables implementation that works in Cilium's eBPF host routing
-// mode. For guidance on how this may be done, please contact acndp@microsoft.com (Azure Container Networking Dataplane team). Once the feature
-// is supported in eBPF host routing mode, or is blocked from being enabled alongside eBPF host routing mode, you can update this list.
-func getIPTablesRulesCompatibleWithEBPFHostRouting() (map[string][]string, []string) {
-	tablePatterns := map[string][]string{
-		"filter": {
-			`-A FORWARD -d 168.63.129.16/32 -p tcp -m tcp --dport 32526 -j DROP`,
-			`-A FORWARD -d 168.63.129.16/32 -p tcp -m tcp --dport 80 -j DROP`,
-		},
-		"mangle": {
-			`-A FORWARD -d 168\.63\.129\.16/32 -p tcp -m tcp --dport 80 -j DROP`,
-			`-A FORWARD -d 168\.63\.129\.16/32 -p tcp -m tcp --dport 32526 -j DROP`,
-		},
-		"nat": {
-			`-A POSTROUTING -j SWIFT`,
-			`-A SWIFT -s`,
-			`-A POSTROUTING -j SWIFT-POSTROUTING`,
-			`-A SWIFT-POSTROUTING -s`,
-		},
-		"raw": {
-			`^-A (PREROUTING|OUTPUT) -d 169\.254\.10\.(10|11)\/32 -p (tcp|udp) -m comment --comment "localdns: skip conntrack" -m (tcp|udp) --dport 53 -j NOTRACK$`,
-		},
-		"security": {
-			`-A OUTPUT -d 168\.63\.129\.16/32 -p tcp -m tcp --dport 53 -j ACCEPT`,
-			`-A OUTPUT -d 168\.63\.129\.16/32 -p tcp -m owner --uid-owner 0 -j ACCEPT`,
-			`-A OUTPUT -d 168\.63\.129\.16/32 -p tcp -m conntrack --ctstate INVALID,NEW -j DROP`,
-		},
-	}
-
-	globalPatterns := []string{
-		`^-N .*`,
-		`^-P .*`,
-		`^-A (KUBE-SERVICES|KUBE-EXTERNAL-SERVICES|KUBE-NODEPORTS|KUBE-POSTROUTING|KUBE-MARK-MASQ|KUBE-FORWARD|KUBE-PROXY-FIREWALL|KUBE-PROXY-CANARY|KUBE-FIREWALL|KUBE-MARK-DROP) .*`,
-		`^-A (KUBE-SEP|KUBE-SVC)`,
-		`^-A .* -j (KUBE-SEP|KUBE-SVC|KUBE-SERVICES|KUBE-EXTERNAL-SERVICES|KUBE-NODEPORTS|KUBE-POSTROUTING|KUBE-MARK-MASQ|KUBE-FORWARD|KUBE-PROXY-FIREWALL|KUBE-PROXY-CANARY|KUBE-FIREWALL|KUBE-MARK-DROP)`,
-		`^-A IP-MASQ-AGENT`,
-		`^-A .* -j IP-MASQ-AGENT`,
-		`^.*--comment.*cilium:`,
-		`^.*--comment.*cilium-feeder:`,
-		`-A FORWARD ! -s (?:\d{1,3}\.){3}\d{1,3}/32 -d 169.254.169.254/32 -p tcp -m tcp --dport 80 -m comment --comment "AKS managed: added by AgentBaker ensureIMDSRestriction for IMDS restriction feature" -j DROP`,
-	}
-
-	return tablePatterns, globalPatterns
-}
-
 // ValidateAppArmorBasic validates that AppArmor is running without requiring aa-status
 func ValidateAppArmorBasic(ctx context.Context, s *Scenario) {
 	s.T.Helper()
