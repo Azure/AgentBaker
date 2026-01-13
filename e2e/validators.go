@@ -502,23 +502,43 @@ func ValidateSystemdUnitIsNotFailed(ctx context.Context, s *Scenario, serviceNam
 }
 
 func ValidateNoFailedSystemdUnits(ctx context.Context, s *Scenario) {
+	unitFailureAllowList := map[string]bool{
+		// this service depends on non-network-isolated environment - E2Es are run in an environment
+		// which simulates network-isolation by only allowing egress to recommended domains outlined
+		// on public AKS documentation via a firewall. This service depends on some other domain which is
+		// not currently allowed by the firewall. It also seems that this service is only installed on
+		// Ubuntu - do we even need it? it seems that it's coming from the base image
+		"fwupd-refresh.service": true,
+	}
+	if s.Tags.BootstrapTokenFallback {
+		// secure-tls-bootstrap.service is expected to fail within scenarios that test bootstrap token fall-back behavior
+		unitFailureAllowList["secure-tls-bootstrap.service"] = true
+	}
+	if s.VHD.Name == "2204Gen2" {
+		// 2204Gen2 is the name of both VHDs: VHDUbuntu2204Gen2ContainerdPrivateKubePkg and VHDUbuntu2204Gen2ContainerdAirgappedK8sNotCached.
+		// Neither of these VHDs contain the fixed version of the scripts backing these services, thus we only allow these services
+		// to fail on these VHDs specifically
+		unitFailureAllowList["cgroup-memory-telemetry.service"] = true
+		unitFailureAllowList["cgroup-pressure-telemetry.service"] = true
+	}
+
 	result := execScriptOnVMForScenarioValidateExitCode(ctx, s, "systemctl list-units --failed 2>&1", 0, fmt.Sprintf("unable to list failed systemd units"))
 	if strings.Contains(strings.ToLower(result.stdout), "0 loaded units listed") {
-		// no failed units, we're good
+		// no failed units
 		return
 	}
-	failedUnitMatches := regexp.MustCompile(`(\S+\.service)`).FindAllStringSubmatch(result.stdout, -1)
 	var failedUnits []string
-	for _, failedUnitMatch := range failedUnitMatches {
-		if len(failedUnitMatch) <= 1 {
-			continue
+	for _, failedUnitMatch := range regexp.MustCompile(`(\S+\.service)`).FindAllStringSubmatch(result.stdout, -1) {
+		if len(failedUnitMatch) < 2 {
+			s.T.Fatalf("unable to validate no failed systemd units due to unexpected validation command output, output:\n%s", result.stdout)
 		}
-		unitName := failedUnitMatch[1]
-		if s.Tags.BootstrapTokenFallback && strings.EqualFold(unitName, "secure-tls-bootstrap.service") {
-			// secure-tls-bootstrap.service is expected to fail within scenarios that test bootstrap token fall-back behavior
-			continue
+		if unitName := failedUnitMatch[1]; !unitFailureAllowList[strings.ToLower(unitName)] {
+			failedUnits = append(failedUnits, unitName)
 		}
-		failedUnits = append(failedUnits, unitName)
+	}
+	if len(failedUnits) < 1 {
+		// no unexpectedly failed units
+		return
 	}
 	if s.Runtime.ValidationResult == nil {
 		s.Runtime.ValidationResult = &ValidationResult{}
