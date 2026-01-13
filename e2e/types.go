@@ -108,6 +108,13 @@ func (t Tags) matchFilters(filters string, all bool) (bool, error) {
 	return all, nil
 }
 
+// ScenarioValidationResult contains actionable validation results for the scenario.
+type ValidationResult struct {
+	// FailedSystemdUnits is a list of systemd units which were in a failed state
+	// by the time common Linux validation was run on the E2E node.
+	FailedSystemdUnits []string
+}
+
 // Scenario represents an AgentBaker E2E scenario.
 type Scenario struct {
 	// Description is a short description of what the scenario does and tests for
@@ -133,11 +140,12 @@ type Scenario struct {
 }
 
 type ScenarioRuntime struct {
-	NBC           *datamodel.NodeBootstrappingConfiguration
-	AKSNodeConfig *aksnodeconfigv1.Configuration
-	Cluster       *Cluster
-	VM            *ScenarioVM
-	VMSSName      string
+	NBC              *datamodel.NodeBootstrappingConfiguration
+	AKSNodeConfig    *aksnodeconfigv1.Configuration
+	Cluster          *Cluster
+	VM               *ScenarioVM
+	VMSSName         string
+	ValidationResult *ValidationResult
 }
 
 type ScenarioVM struct {

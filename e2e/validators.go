@@ -31,22 +31,28 @@ import (
 )
 
 func ValidateNoFailedSystemdUnits(ctx context.Context, s *Scenario) {
-	cmd := "systemctl list-units --failed 2>&1"
-	result := execScriptOnVMForScenarioValidateExitCode(ctx, s, cmd, 0, fmt.Sprintf("unable to list failed systemd units"))
-	if !s.Tags.BootstrapTokenFallback {
-		require.Contains(s.T, strings.ToLower(result.stdout), "0 loaded units listed", "expected to find no systemd units in a failed state")
+	result := execScriptOnVMForScenarioValidateExitCode(ctx, s, "systemctl list-units --failed 2>&1", 0, fmt.Sprintf("unable to list failed systemd units"))
+	if strings.Contains(strings.ToLower(result.stdout), "0 loaded units listed") {
 		return
 	}
-
-	// in the bootstrap token fallback case, we expect the secure-tls-bootstrap service to be in a failed state
-	var services []string
-	matches := regexp.MustCompile(`(\S+\.service)`).FindAllStringSubmatch(result.stdout, -1)
-	for _, match := range matches {
-		if len(match) > 1 {
-			services = append(services, match[1])
+	failedUnitMatches := regexp.MustCompile(`(\S+\.service)`).FindAllStringSubmatch(result.stdout, -1)
+	var failedUnits []string
+	for _, failedUnitMatch := range failedUnitMatches {
+		if len(failedUnitMatch) <= 1 {
+			continue
 		}
+		unitName := failedUnitMatch[1]
+		if s.Tags.BootstrapTokenFallback && strings.EqualFold(unitName, "secure-tls-bootstrap.service") {
+			// secure-tls-bootstrap.service is expected to fail within scenarios that test bootstrap token fall-back behavior
+			continue
+		}
+		failedUnits = append(failedUnits, unitName)
 	}
-	require.Equal(s.T, []string{"secure-tls-bootstrap.service"}, services, "expected to only find the secure-tls-bootstrap service in a failed state")
+	if s.Runtime.ValidationResult == nil {
+		s.Runtime.ValidationResult = &ValidationResult{}
+	}
+	s.Runtime.ValidationResult.FailedSystemdUnits = failedUnits
+	s.T.Fatalf("found %d systemd units in a failed state unexpectedly, failed unit status dump will be included within scenario logs. failed units: %s", len(failedUnits), failedUnits)
 }
 
 func ValidateTLSBootstrapping(ctx context.Context, s *Scenario) {
