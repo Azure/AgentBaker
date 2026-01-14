@@ -29,6 +29,16 @@ This re-runs code to embed static files in Go code, which is what will actually 
 
 This additionally runs unit tests (equivalent of `go test ./...`) and regenerates snapshot testdata.
 
+### Commit Signing
+
+To ensure commit authenticity, we recommend setting up GPG commit signing. Use our automated setup script:
+
+```bash
+./hack/setup-git-signing.sh
+```
+
+For more details, see [CONTRIBUTING.md](CONTRIBUTING.md#signing-agentbaker-commits).
+
 ## Style
 
 We use [golangci-lint](https://golangci-lint.run/) to enforce style.
