@@ -1180,6 +1180,17 @@ EOF
     echo "Enable localdns succeeded."
 }
 
+# This function enables and starts the mcr-hosts-setup timer.
+# The timer periodically resolves mcr.microsoft.com DNS records and populates /etc/hosts.testing.
+shouldEnableMCRHostsSetup() {
+    # Enable periodic resolution and caching of MCR (Microsoft Container Registry) DNS addresses
+    # Writes resolved IPs to /etc/hosts.testing which is read by LocalDNS corefile
+    # This reduces external DNS queries and improves reliability for container image pulls
+    echo "mcr-hosts-setup timer should be enabled."
+    systemctlEnableAndStart mcr-hosts-setup.timer 30 || exit $ERR_SYSTEMCTL_START_FAIL
+    echo "Enable mcr-hosts-setup timer succeeded."
+}
+
 configureManagedGPUExperience() {
     if [ "${GPU_NODE}" = "true" ] && [ "${skip_nvidia_driver_install}" != "true" ] && [ "${ENABLE_MANAGED_GPU_EXPERIENCE}" = "true" ]; then
         logs_to_events "AKS.CSE.installNvidiaManagedExpPkgFromCache" "installNvidiaManagedExpPkgFromCache" || exit $ERR_NVIDIA_DCGM_INSTALL
