@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/x509"
 	"encoding/base64"
+	"encoding/json"
 	"encoding/pem"
 	"fmt"
 	"net"
@@ -17,6 +18,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
 	"github.com/blang/semver"
+	"github.com/samber/lo"
 	"github.com/tidwall/gjson"
 
 	"github.com/Azure/agentbaker/e2e/config"
@@ -519,34 +521,29 @@ func ValidateNoFailedSystemdUnits(ctx context.Context, s *Scenario) {
 		unitFailureAllowList["cgroup-pressure-telemetry.service"] = true
 	}
 
-	result := execScriptOnVMForScenarioValidateExitCode(ctx, s, "systemctl list-units --failed 2>&1", 0, fmt.Sprintf("unable to list failed systemd units"))
-	if strings.Contains(strings.ToLower(result.stdout), "0 loaded units listed") {
-		// no failed units
-		return
+	type systemdUnit struct {
+		Name string `json:"unit,omitempty"`
 	}
-
-	var failedUnits []string
-	for _, failedUnitMatch := range regexp.MustCompile(`(\S+\.service)`).FindAllStringSubmatch(result.stdout, -1) {
-		if len(failedUnitMatch) < 2 {
-			s.T.Fatalf("unable to validate systemd unit failures due to unexpected validation command output, output:\n%s", result.stdout)
-		}
-		if unitName := failedUnitMatch[1]; !unitFailureAllowList[strings.ToLower(unitName)] {
-			failedUnits = append(failedUnits, unitName)
-		}
-	}
+	var failedUnits []systemdUnit
+	result := execScriptOnVMForScenarioValidateExitCode(ctx, s, "systemctl list-units --failed --output json 2>/dev/null", 0, fmt.Sprintf("unable to list failed systemd units"))
+	assert.NoError(s.T, json.Unmarshal([]byte(result.stdout), &failedUnits), `unable to parse and unmarhsal "systemctl list-units" command output`)
 	if len(failedUnits) < 1 {
-		// no unexpectedly failed units
 		return
 	}
 
 	// extract failed unit logs
 	failedUnitLogs := make(map[string]string, len(failedUnits))
-	for _, unitName := range failedUnits {
-		failedUnitLogs[unitName+".log"] = execScriptOnVMForScenario(ctx, s, fmt.Sprintf("journalctl -u %s", unitName)).String()
+	for _, unit := range failedUnits {
+		failedUnitLogs[unit.Name+".log"] = execScriptOnVMForScenario(ctx, s, fmt.Sprintf("journalctl -u %s", unit.Name)).String()
 	}
 	assert.NoError(s.T, dumpFileMapToDir(s.T, failedUnitLogs), "failed to dump failed systemd unit logs")
 
-	s.T.Fatalf("the following systemd units have unexpectedly entered a failed state: %s - failed unit logs will be included in scenario log bundle within <service-name>.service.log", failedUnits)
+	s.T.Fatalf(
+		"the following systemd units have unexpectedly entered a failed state: %s - failed unit logs will be included in scenario log bundle within <service-name>.service.log",
+		lo.Map(failedUnits, func(unit systemdUnit, _ int) string {
+			return unit.Name
+		}),
+	)
 }
 
 func ValidateUlimitSettings(ctx context.Context, s *Scenario, ulimits map[string]string) {
