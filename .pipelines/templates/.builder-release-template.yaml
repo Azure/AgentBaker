@@ -94,6 +94,18 @@ steps:
       scriptType: bash
       scriptLocation: inlineScript
       inlineScript: |
+        az storage blob copy start --account-name "$STORAGE_ACCOUNT_NAME" --destination-blob "$TEST_BLOB_NAME" --destination-container "$VHD_STAGING_CONTAINER_NAME" --source-uri "$TEST_BLOB_URL" --auth-mode login
+    condition: ne(variables['BUILDER'], 'imagecustomizer')
+    displayName: Build VHD
+    retryCountOnTaskFailure: 3
+    env:
+
+  - task: AzureCLI@2
+    inputs:
+      azureSubscription: $(VHD_ARM_SERVICE_CONNECTION)
+      scriptType: bash
+      scriptLocation: inlineScript
+      inlineScript: |
         make -f packer.mk run-packer
     condition: ne(variables['BUILDER'], 'imagecustomizer')
     displayName: Build VHD
