@@ -12,6 +12,7 @@ import (
 	"time"
 
 	scp "github.com/bramvdbogaerde/go-scp"
+	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/ssh"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -150,6 +151,34 @@ func execScriptOnVm(ctx context.Context, s *Scenario, vm *ScenarioVM, script str
 func execOnUnprivilegedPod(ctx context.Context, kube *Kubeclient, namespace string, podName string, bashCommand string) (*podExecResult, error) {
 	nonPrivilegedCommand := append(unprivilegedCommandArray(), bashCommand)
 	return execOnPod(ctx, kube, namespace, podName, nonPrivilegedCommand)
+}
+
+func execOnVMForScenarioOnUnprivilegedPod(ctx context.Context, s *Scenario, cmd string) *podExecResult {
+	s.T.Helper()
+	nonHostPod, err := s.Runtime.Cluster.Kube.GetPodNetworkDebugPodForNode(ctx, s.Runtime.VM.KubeName)
+	require.NoError(s.T, err, "failed to get non host debug pod name")
+	execResult, err := execOnUnprivilegedPod(ctx, s.Runtime.Cluster.Kube, nonHostPod.Namespace, nonHostPod.Name, cmd)
+	require.NoErrorf(s.T, err, "failed to execute command on pod: %v", cmd)
+	return execResult
+}
+
+func execScriptOnVMForScenario(ctx context.Context, s *Scenario, cmd string) *podExecResult {
+	s.T.Helper()
+	result, err := execScriptOnVm(ctx, s, s.Runtime.VM, cmd)
+	require.NoError(s.T, err, "failed to execute command on VM")
+	return result
+}
+
+func execScriptOnVMForScenarioValidateExitCode(ctx context.Context, s *Scenario, cmd string, expectedExitCode int, additionalErrorMessage string) *podExecResult {
+	s.T.Helper()
+	execResult := execScriptOnVMForScenario(ctx, s, cmd)
+
+	expectedExitCodeStr := fmt.Sprint(expectedExitCode)
+	if expectedExitCodeStr != execResult.exitCode {
+		s.T.Logf("Command: %s\nStdout: %s\nStderr: %s", cmd, execResult.stdout, execResult.stderr)
+		s.T.Fatalf("expected exit code %s, but got %s\nCommand: %s\n%s", expectedExitCodeStr, execResult.exitCode, cmd, additionalErrorMessage)
+	}
+	return execResult
 }
 
 // isRetryableConnectionError checks if the error is a transient connection issue that should be retried
