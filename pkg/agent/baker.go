@@ -147,6 +147,17 @@ func (t *TemplateGenerator) getFlatcarLinuxNodeCustomDataJSONObject(config *data
 		}
 		newfiles = append(newfiles, *newfile)
 	}
+	if len(customData.BootCommands) > 0 {
+		var contents = strings.Join(append([]string{"#!/bin/sh"}, customData.BootCommands...), "\n")
+		newfiles = append(newfiles, base0_5.File{
+			Path:      "/etc/ignition-bootcmds.sh",
+			User:      base0_5.NodeUser{Name: to.StringPtr("root")},
+			Group:     base0_5.NodeGroup{Name: to.StringPtr("root")},
+			Mode:      to.IntPtr(0o755),
+			Overwrite: to.BoolPtr(true),
+			Contents:  base0_5.Resource{Inline: to.StringPtr(contents)},
+		})
+	}
 
 	butaneconfig.Storage.Files = append(newfiles, butaneconfig.Storage.Files...)
 	ignition, report, e := butaneconfig.ToIgn3_4(butanecommon.TranslateOptions{})
