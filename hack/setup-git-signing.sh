@@ -73,7 +73,7 @@ fi
 # Extract the GPG key ID
 echo ""
 info "Extracting GPG key ID..."
-GPG_KEY_ID=$(gpg --list-secret-keys --keyid-format=long | grep '^sec' | head -n 1 | sed -E 's/.*\/([A-F0-9]+).*/\1/')
+GPG_KEY_ID=$(gpg --list-secret-keys --keyid-format=long | grep '^sec' | head -n 1 | sed -E 's/.*\/([A-Fa-f0-9]+).*/\1/')
 
 if [ -z "$GPG_KEY_ID" ]; then
     error "Could not extract GPG key ID"
@@ -142,6 +142,6 @@ echo ""
 echo -e "${GREEN}Your Git is now configured to sign all commits automatically!${NC}"
 echo ""
 echo "To sign commits in this repository only (instead of globally), run:"
-echo "  cd /path/to/AgentBaker"
+echo "  cd \$(git rev-parse --show-toplevel)"
 echo "  git config --local commit.gpgsign true"
 echo ""
