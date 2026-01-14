@@ -94,9 +94,10 @@ steps:
       scriptType: bash
       scriptLocation: inlineScript
       inlineScript: |
+        echo "copying blob...."
         az storage blob copy start --account-name "$STORAGE_ACCOUNT_NAME" --destination-blob "$TEST_BLOB_NAME" --destination-container "$VHD_STAGING_CONTAINER_NAME" --source-uri "$TEST_BLOB_URL" --auth-mode login
     condition: ne(variables['BUILDER'], 'imagecustomizer')
-    displayName: Build VHD
+    displayName: Copy VHD for testing
     retryCountOnTaskFailure: 3
 
   - task: AzureCLI@2
