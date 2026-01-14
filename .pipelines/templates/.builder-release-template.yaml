@@ -98,7 +98,6 @@ steps:
     condition: ne(variables['BUILDER'], 'imagecustomizer')
     displayName: Build VHD
     retryCountOnTaskFailure: 3
-    env:
 
   - task: AzureCLI@2
     inputs:
