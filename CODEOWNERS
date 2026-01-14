@@ -8,12 +8,18 @@ nodecustomdata.yml @Devinwong @lilypan26 @r2k1 @timmy-wright @cameronmeissner
 vhdbuilder/release-notes/security-patch/ @yagmurbaydogan @yewmsft @juan-lee @cameronmeissner @ganeshkumarashok @Devinwong @lilypan26 @AbelHu @junjiezhang1997 @djsly @phealy @r2k1 @timmy-wright @zachary-bailey
 
 # Code owners for security patching.
-parts/linux/cloud-init/artifacts/mariner/package-update.service @yewmsft
-parts/linux/cloud-init/artifacts/mariner/package-update.timer @yewmsft
-parts/linux/cloud-init/artifacts/ubuntu/ubuntu-snapshot-update.sh @yewmsft
-parts/linux/cloud-init/artifacts/mariner/mariner-package-update.sh @yewmsft
-spec/parts/linux/cloud-init/artifacts/ubuntu-snapshot-update_spec.sh @yewmsft
-spec/parts/linux/cloud-init/artifacts/mariner-package-update_spec.sh @yewmsft
+parts/linux/cloud-init/artifacts/mariner/package-update.service @yewmsft @YaoC
+parts/linux/cloud-init/artifacts/mariner/package-update.timer @yewmsft @YaoC
+parts/linux/cloud-init/artifacts/mariner/mariner-package-update.sh @yewmsft @YaoC
+parts/linux/cloud-init/artifacts/ubuntu/snapshot-update.service @yewmsft @YaoC
+parts/linux/cloud-init/artifacts/ubuntu/snapshot-update.timer @yewmsft @YaoC
+parts/linux/cloud-init/artifacts/ubuntu/ubuntu-snapshot-update.sh @yewmsft @YaoC
+spec/parts/linux/cloud-init/artifacts/ubuntu-snapshot-update_spec.sh @yewmsft @YaoC
+spec/parts/linux/cloud-init/artifacts/mariner-package-update_spec.sh @yewmsft @YaoC
+# Security patch scripts changes will cause the related custom data snapshot to change.
+# Since the snapshot changes are auto generated based on the scripts,
+# adding pkg/agent/testdata/ to avoid the need for additional approvers.
+pkg/agent/testdata/ @yewmsft @YaoC
 
 # Code owners for localdns.
 parts/linux/cloud-init/artifacts/localdns.sh @SriHarsha001 @yewmsft
