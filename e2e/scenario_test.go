@@ -305,6 +305,52 @@ func Test_Ubuntu2204_Scriptless(t *testing.T) {
 	})
 }
 
+func Test_Ubuntu2204_Failure_Scriptless(t *testing.T) {
+	err := RunScenario(t, &Scenario{
+		Description: "tests that a new ubuntu 2204 node using self contained installer can be properly bootstrapped",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFileExists(ctx, s, "/opt/azure/containers/provision.complete")
+				ValidateFileExists(ctx, s, "/var/log/azure/aks/provision.json")
+			},
+			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+				// Intentionally causing a failure here
+				//config.Version = "v200"
+				config.BootstrappingConfig = nil
+				config.KubernetesCaCert = ""
+			},
+			ReturnErrorOnVMSSCreation: true,
+		},
+	})
+
+	// Expect the error to contain API server connection failure since we provided invalid config
+	require.ErrorContains(t, err, "API server connection check code: 51")
+}
+
+func Test_Ubuntu2204_Early_Failure_Scriptless(t *testing.T) {
+	err := RunScenario(t, &Scenario{
+		Description: "tests that a new ubuntu 2204 node using self contained installer can be properly bootstrapped",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFileExists(ctx, s, "/opt/azure/containers/provision.complete")
+				ValidateFileExists(ctx, s, "/var/log/azure/aks/provision.json")
+			},
+			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+				// Intentionally causing a failure here
+				config.Version = "VeryBadVersion"
+			},
+			ReturnErrorOnVMSSCreation: true,
+		},
+	})
+
+	// Expect the error to contain unsupported version
+	require.ErrorContains(t, err, "unsupported version: VeryBadVersion")
+}
+
 func Test_Ubuntu2404_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "testing that a new ubuntu 2404 node using self contained installer can be properly bootstrapped",
