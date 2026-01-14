@@ -4,8 +4,12 @@
 cse_cmd.sh @Devinwong @lilypan26 @r2k1 @timmy-wright @cameronmeissner
 nodecustomdata.yml @Devinwong @lilypan26 @r2k1 @timmy-wright @cameronmeissner
 
+# Code owners for testdata snapshots.
+# These include security patch owners since security patch script changes will cause the related custom data snapshots to change.
+pkg/agent/testdata/ @yewmsft @YaoC @juan-lee @cameronmeissner @ganeshkumarashok @Devinwong @lilypan26 @AbelHu @junjiezhang1997 @djsly @phealy @r2k1 @timmy-wright @zachary-bailey @awesomenix
+
 # Code owners for the security patch release notes.
-vhdbuilder/release-notes/security-patch/ @yagmurbaydogan @yewmsft @juan-lee @cameronmeissner @ganeshkumarashok @Devinwong @lilypan26 @AbelHu @junjiezhang1997 @djsly @phealy @r2k1 @timmy-wright @zachary-bailey
+vhdbuilder/release-notes/security-patch/ @yagmurbaydogan @yewmsft @juan-lee @cameronmeissner @ganeshkumarashok @Devinwong @lilypan26 @AbelHu @junjiezhang1997 @djsly @phealy @r2k1 @timmy-wright @zachary-bailey @awesomenix
 
 # Code owners for security patching.
 parts/linux/cloud-init/artifacts/mariner/package-update.service @yewmsft @YaoC
@@ -16,10 +20,6 @@ parts/linux/cloud-init/artifacts/ubuntu/snapshot-update.timer @yewmsft @YaoC
 parts/linux/cloud-init/artifacts/ubuntu/ubuntu-snapshot-update.sh @yewmsft @YaoC
 spec/parts/linux/cloud-init/artifacts/ubuntu-snapshot-update_spec.sh @yewmsft @YaoC
 spec/parts/linux/cloud-init/artifacts/mariner-package-update_spec.sh @yewmsft @YaoC
-# Security patch scripts changes will cause the related custom data snapshot to change.
-# Since the snapshot changes are auto generated based on the scripts,
-# adding pkg/agent/testdata/ to avoid the need for additional approvers.
-pkg/agent/testdata/ @yewmsft @YaoC
 
 # Code owners for localdns.
 parts/linux/cloud-init/artifacts/localdns.sh @SriHarsha001 @yewmsft
