@@ -544,7 +544,7 @@ func ValidateNoFailedSystemdUnits(ctx context.Context, s *Scenario) {
 	for _, unitName := range failedUnits {
 		failedUnitLogs[unitName+".log"] = execScriptOnVMForScenario(ctx, s, fmt.Sprintf("journalctl -u %s", unitName)).String()
 	}
-	assert.NoError(s.T, dumpFileMapToDir(s.T, failedUnitLogs), "failed to dump systemd unit logs")
+	assert.NoError(s.T, dumpFileMapToDir(s.T, failedUnitLogs), "failed to dump failed systemd unit logs")
 
 	s.T.Fatalf("the following systemd units have unexpectedly entered a failed state: %s - failed unit logs will be included in scenario log bundle within <service-name>.service.log", failedUnits)
 }
