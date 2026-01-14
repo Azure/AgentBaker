@@ -1,13 +1,8 @@
 #!/bin/bash
-
-set -o nounset
-set -o pipefail
-
-find /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/ -mtime +5 -type f -delete
+set -uo pipefail
 
 EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/
 EVENTS_FILE_NAME=$(date +%s%3N)
-STARTTIME=$(date)
 STARTTIME_FORMATTED=$(date +"%F %T.%3N")
 ENDTIME_FORMATTED=$(date +"%F %T.%3N")
 CGROUP_VERSION=$(stat -fc %T /sys/fs/cgroup)
@@ -17,7 +12,6 @@ CSLICE=$(systemctl show containerd -p Slice | cut -d= -f2)
 KSLICE=$(systemctl show kubelet -p Slice | cut -d= -f2)
 
 if [ "$CGROUP_VERSION" = "cgroup2fs" ]; then
-
     VERSION="cgroupv2"
     TASK_NAME="AKS.Runtime.memory_telemetry_cgroupv2"
     CGROUP="/sys/fs/cgroup"
@@ -34,9 +28,7 @@ if [ "$CGROUP_VERSION" = "cgroup2fs" ]; then
         --arg KUBEPODS_CGROUP_MEMORY_MAX "$(if [ -f "${CGROUP}/kubepods.slice/memory.max" ]; then cat ${CGROUP}/kubepods.slice/memory.max; else echo "Not Found"; fi)" \
         '{ system_slice_memory: $SYSTEM_SLICE_MEMORY, azure_slice_memory: $AZURE_SLICE_MEMORY, kubepods_slice_memory: $KUBEPODS_SLICE_MEMORY, user_slice_memory: $USER_SLICE_MEMORY, containerd_service_memory: $CONTAINERD_MEMORY, kubelet_service_memory: $KUBELET_MEMORY, cgroup_memory: $EMPLOYED_MEMORY, cgroup_capacity_memory: $CAPACITY_MEMORY, kubepods_max_memory: $KUBEPODS_CGROUP_MEMORY_MAX } | tostring'
     )
-    
 elif [ "$CGROUP_VERSION" = "tmpfs" ]; then
-
     VERSION="cgroupv1"
     TASK_NAME="AKS.Runtime.memory_telemetry_cgroupv1"
     CGROUP="/sys/fs/cgroup/memory"
@@ -53,7 +45,6 @@ elif [ "$CGROUP_VERSION" = "tmpfs" ]; then
         --arg KUBEPODS_CGROUP_MEMORY_MAX "$(if [ -f ${CGROUP}/kubepods/memory.limit_in_bytes ]; then cat ${CGROUP}/kubepods/memory.limit_in_bytes; else echo "Not Found"; fi)" \
         '{ system_slice_memory: $SYSTEM_SLICE_MEMORY, azure_slice_memory: $AZURE_SLICE_MEMORY, kubepods_slice_memory: $KUBEPODS_SLICE_MEMORY, user_slice_memory: $USER_SLICE_MEMORY, containerd_service_memory: $CONTAINERD_MEMORY, kubelet_service_memory: $KUBELET_MEMORY, cgroup_memory: $EMPLOYED_MEMORY, cgroup_capacity_memory: $CAPACITY_MEMORY, kubepods_max_memory: $KUBEPODS_CGROUP_MEMORY_MAX } | tostring'
     )
-
 else
     echo "Unexpected cgroup type. Exiting"
     exit 1
@@ -81,4 +72,5 @@ EVENT_JSON=$( jq -n \
     '{Timestamp: $Timestamp, OperationId: $OperationId, Version: $Version, TaskName: $TaskName, EventLevel: $EventLevel, Message: $Message, EventPid: $EventPid, EventTid: $EventTid}'
 )
 
+mkdir -p "${EVENTS_LOGGING_DIR}"
 echo ${EVENT_JSON} > ${EVENTS_LOGGING_DIR}${EVENTS_FILE_NAME}.json

@@ -22,6 +22,7 @@ require (
 	github.com/caarlos0/env/v11 v11.3.1
 	github.com/coder/websocket v1.8.14
 	github.com/joho/godotenv v1.5.1
+	github.com/samber/lo v1.52.0
 	github.com/sanity-io/litter v1.5.5
 	github.com/stretchr/testify v1.11.1
 	github.com/tidwall/gjson v1.18.0
