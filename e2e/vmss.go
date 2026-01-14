@@ -563,12 +563,6 @@ func extractLogsFromVMLinux(ctx context.Context, s *Scenario, vm *ScenarioVM) er
 		commandList["azure-vnet-ipam.log"] = "sudo cat /var/log/azure-vnet-ipam.log"
 	}
 
-	if s.Runtime.ValidationResult != nil {
-		for _, unitName := range s.Runtime.ValidationResult.FailedSystemdUnits {
-			commandList[unitName+".log"] = fmt.Sprintf("sudo journalctl -u %s", unitName)
-		}
-	}
-
 	var logFiles = map[string]string{}
 	for file, sourceCmd := range commandList {
 		execResult, err := execScriptOnVm(ctx, s, vm, sourceCmd)

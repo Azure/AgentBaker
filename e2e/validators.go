@@ -514,10 +514,7 @@ func ValidateNoFailedSystemdUnits(ctx context.Context, s *Scenario) {
 		// secure-tls-bootstrap.service is expected to fail within scenarios that test bootstrap token fall-back behavior
 		unitFailureAllowList["secure-tls-bootstrap.service"] = true
 	}
-	if s.VHD.Name == "2204Gen2" {
-		// 2204Gen2 is the name of both VHDs: VHDUbuntu2204Gen2ContainerdPrivateKubePkg and VHDUbuntu2204Gen2ContainerdAirgappedK8sNotCached.
-		// Neither of these VHDs contain the fixed version of the scripts backing these services, thus we only allow these services
-		// to fail on these VHDs specifically
+	if s.VHD.IgnoreFailedCgroupTelemetryServices {
 		unitFailureAllowList["cgroup-memory-telemetry.service"] = true
 		unitFailureAllowList["cgroup-pressure-telemetry.service"] = true
 	}
@@ -527,6 +524,7 @@ func ValidateNoFailedSystemdUnits(ctx context.Context, s *Scenario) {
 		// no failed units
 		return
 	}
+
 	var failedUnits []string
 	for _, failedUnitMatch := range regexp.MustCompile(`(\S+\.service)`).FindAllStringSubmatch(result.stdout, -1) {
 		if len(failedUnitMatch) < 2 {
@@ -540,11 +538,15 @@ func ValidateNoFailedSystemdUnits(ctx context.Context, s *Scenario) {
 		// no unexpectedly failed units
 		return
 	}
-	if s.Runtime.ValidationResult == nil {
-		s.Runtime.ValidationResult = &ValidationResult{}
+
+	// extract failed unit logs
+	failedUnitLogs := make(map[string]string, len(failedUnits))
+	for _, unitName := range failedUnits {
+		failedUnitLogs[unitName+".log"] = execScriptOnVMForScenario(ctx, s, fmt.Sprintf("journalctl -u %s", unitName)).String()
 	}
-	s.Runtime.ValidationResult.FailedSystemdUnits = failedUnits
-	s.T.Fatalf("the following systemd units have unexpectedly entered a failed state: %s - failed unit logs be included in scenario log bundle within <service-name>.service.log", failedUnits)
+	assert.NoError(s.T, dumpFileMapToDir(s.T, failedUnitLogs), "failed to dump systemd unit logs")
+
+	s.T.Fatalf("the following systemd units have unexpectedly entered a failed state: %s - failed unit logs will be included in scenario log bundle within <service-name>.service.log", failedUnits)
 }
 
 func ValidateUlimitSettings(ctx context.Context, s *Scenario, ulimits map[string]string) {
