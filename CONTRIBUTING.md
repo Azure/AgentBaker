@@ -2,7 +2,25 @@
 
 ## Signing AgentBaker commits
 
-### Steps to enable signature on commits
+### Automated Setup (Recommended)
+
+For a quick and easy setup, run the automated script:
+
+```bash
+./hack/setup-git-signing.sh
+```
+
+This script will:
+- Check for or create a GPG key
+- Configure Git to automatically sign commits
+- Display your public GPG key to add to GitHub
+- Set up the GPG agent configuration
+
+### Manual Setup
+
+If you prefer to set up commit signing manually, follow these steps:
+
+#### Steps to enable signature on commits
 This is an example that has been tested on WSL Ubuntu 22.04 and Ubuntu 22.04. For Mac and Windows powershell it should be similar.
 
 1. List an existing key on your local machine. `gpg --list-secret-keys --keyid-format=long`
