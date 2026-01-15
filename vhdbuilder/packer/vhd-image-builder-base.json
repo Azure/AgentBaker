@@ -74,7 +74,7 @@
           "{{user `location`}}"
         ]
       },
-      "user_assigned_managed_identities": "{{user `msi_resource_strings`}}"
+      "user_assigned_managed_identities": ""
     }
   ],
   "provisioners": [
