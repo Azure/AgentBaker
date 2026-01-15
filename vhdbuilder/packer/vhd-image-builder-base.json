@@ -358,8 +358,8 @@
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/99-rx-buffer-default.rules",
-      "destination": "/home/packer/99-rx-buffer-default.rules"
+      "source": "parts/linux/cloud-init/artifacts/99-azure-network.rules",
+      "destination": "/home/packer/99-azure-network.rules"
     },
     {
       "type": "file",
