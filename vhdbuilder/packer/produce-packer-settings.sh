@@ -187,7 +187,7 @@ windows_private_packages_url=""
 # msi_resource_strings is an array that will be used to build VHD build vm
 # test pipelines may not set it
 msi_resource_strings=()
-if [ -n "${AZURE_MSI_RESOURCE_STRING}" ]; then
+if [ -n "${AZURE_MSI_RESOURCE_STRING}" ] && [ "${PRIVATE_PACKAGES_URL}" ]; then
 	msi_resource_strings+=(${AZURE_MSI_RESOURCE_STRING})
 fi
 
