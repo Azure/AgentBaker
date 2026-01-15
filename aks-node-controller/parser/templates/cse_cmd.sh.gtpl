@@ -12,6 +12,7 @@ if [ "$cloudInitExitCode" -eq 0 ]; then
 	echo "cloud-init succeeded" >> ${PROVISION_OUTPUT};
 else
 	echo "cloud-init failed with exit code ${cloudInitExitCode}" >> ${PROVISION_OUTPUT};
+	cat ${PROVISION_OUTPUT}
 	exit ${cloudInitExitCode};
 fi;
 {{end}}
