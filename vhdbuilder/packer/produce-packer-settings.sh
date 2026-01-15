@@ -187,8 +187,11 @@ windows_private_packages_url=""
 # msi_resource_strings is an array that will be used to build VHD build vm
 # test pipelines may not set it
 msi_resource_strings=()
-if [ -n "${AZURE_MSI_RESOURCE_STRING}" ] && [ "${PRIVATE_PACKAGES_URL}" ]; then
+if [ -n "${AZURE_MSI_RESOURCE_STRING}" ] && [ -n "${PRIVATE_PACKAGES_URL}" ]; then
+  echo "AZURE_MSI_RESOURCE_STRING and PRIVATE_PACKAGES_URL are set. Assigning UAMI to Packer VM for VHD Build."
 	msi_resource_strings+=(${AZURE_MSI_RESOURCE_STRING})
+else
+  echo "AZURE_MSI_RESOURCE_STRING or PRIVATE_PACKAGES_URL is not set. Skipping UAMI assignment to Packer VM for VHD Build."
 fi
 
 # shellcheck disable=SC2236
