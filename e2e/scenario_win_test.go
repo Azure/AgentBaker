@@ -493,3 +493,28 @@ func Test_Windows23H2Gen2_WindowsCiliumNetworking(t *testing.T) {
 		},
 	})
 }
+
+func Test_Windows2022_McrChinaCloud_Windows(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Tags: Tags{
+			MockAzureChinaCloud: true,
+		},
+		Description: "Windows Server 2022 Azure Network to test Azure China Cloud MCR host",
+		Config: Config{
+			Cluster:                ClusterAzureNetwork,
+			VHD:                    config.VHDWindows2022Containerd,
+			VMConfigMutator:        EmptyVMConfigMutator,
+			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFileExists(ctx, s, `C:\ProgramData\containerd\certs.d\docker.io\hosts.toml`)
+				ValidateFileExists(ctx, s, `C:\ProgramData\containerd\certs.d\mcr.azk8s.cn\hosts.toml`)
+				ValidateFileHasContent(ctx, s,
+					`C:\ProgramData\containerd\certs.d\docker.io\hosts.toml`,
+					`server = "https://docker.io"`)
+				ValidateFileHasContent(ctx, s,
+					`C:\ProgramData\containerd\certs.d\mcr.azk8s.cn\hosts.toml`,
+					`server = "https://mcr.azk8s.cn"`)
+			},
+		},
+	})
+}

@@ -32,7 +32,7 @@ BeforeAll {
 
 Describe "ProcessAndWriteContainerdConfig" {
   BeforeAll {
-    Mock Get-Content -ParameterFilter { $Path -like "*kubeclusterconfig.json" } -MockWith { 
+    Mock Get-Content -ParameterFilter { $Path -like "*kubeclusterconfig.json" } -MockWith {
       return "{`"Cri`":{`"Images`":{`"Pause`":`"$pauseImage`"}}}"
     }
   }
@@ -56,14 +56,14 @@ Describe "ProcessAndWriteContainerdConfig" {
       $global:ContainerdWindowsRuntimeHandlers = "" # default to no hyperv handlers
 
       { ProcessAndWriteContainerdConfig -ContainerDVersion "1.7.9" -CNIBinDir $cniBinDir -CNIConfDir $cniConfDir } | Should -Not -Throw
-      
+
       $configPath | Should -Exist
       $content = Get-Content -Path $configPath -Raw
       $content | Should -Not -BeNullOrEmpty
-      
+
       # Check that placeholders are replaced
       $content | Should -Not -Match ([regex]::Escape("{{"))
-      
+
       # Check that the values were replaced correctly
       $content | Should -Match $pauseImage
       $content | Should -Match $cniBinDir
@@ -76,7 +76,7 @@ Describe "ProcessAndWriteContainerdConfig" {
       $global:DefaultContainerdWindowsSandboxIsolation = "hyperv"
       $global:ContainerdWindowsRuntimeHandlers = "1234,5678"
       { ProcessAndWriteContainerdConfig -ContainerDVersion "1.7.9" -CNIBinDir $cniBinDir -CNIConfDir $cniConfDir } | Should -Not -Throw
-      
+
       $content = Get-Content -Path $configPath -Raw
       $content | Should -Match 'plugins.cri.containerd.runtimes.runhcs-wcow-hypervisor-1234'
       $content | Should -Match 'SandboxIsolation = 1'
@@ -86,9 +86,9 @@ Describe "ProcessAndWriteContainerdConfig" {
     It "Should handle older containerd versions (<1.7.9) by removing annotations" {
       # Call the function under test and ensure it doesn't throw
       { ProcessAndWriteContainerdConfig -ContainerDVersion "1.6.9" -CNIBinDir $cniBinDir -CNIConfDir $cniConfDir } | Should -Not -Throw
-      
+
       $content = Get-Content -Path $configPath -Raw
-      
+
       # Should not contain annotation placeholders or values
       $content | Should -Not -Match 'container_annotations'
       $content | Should -Not -Match 'pod_annotations'
@@ -96,7 +96,7 @@ Describe "ProcessAndWriteContainerdConfig" {
     }
   }
 
-  
+
   Context 'containerd template v2' {
 
     BeforeAll {
@@ -117,14 +117,14 @@ Describe "ProcessAndWriteContainerdConfig" {
       $global:ContainerdWindowsRuntimeHandlers = "" # default to no hyperv handlers
 
       { ProcessAndWriteContainerdConfig -ContainerDVersion "2.0.5" -CNIBinDir $cniBinDir -CNIConfDir $cniConfDir } | Should -Not -Throw
-      
+
       $configPath | Should -Exist
       $content = Get-Content -Path $configPath -Raw
       $content | Should -Not -BeNullOrEmpty
-      
+
       # Check that placeholders are replaced
       $content | Should -Not -Match ([regex]::Escape("{{"))
-      
+
       # Check that the values were replaced correctly
       $content | Should -Match $pauseImage
       $content | Should -Match $cniBinDir
@@ -137,11 +137,145 @@ Describe "ProcessAndWriteContainerdConfig" {
       $global:DefaultContainerdWindowsSandboxIsolation = "hyperv"
       $global:ContainerdWindowsRuntimeHandlers = "1234,5678"
       { ProcessAndWriteContainerdConfig -ContainerDVersion "2.0.5" -CNIBinDir $cniBinDir -CNIConfDir $cniConfDir } | Should -Not -Throw
-      
+
       $content = Get-Content -Path $configPath -Raw
       $content | Should -Match 'plugins.cri.containerd.runtimes.runhcs-wcow-hypervisor-1234'
       $content | Should -Match 'SandboxIsolation = 1'
       $content | Should -Match 'version = 3'
     }
+  }
+}
+
+Describe "Set-ContainerdRegistryConfig" {
+  BeforeAll {
+    # Define Create-Directory mock function if not already defined
+    function Create-Directory {
+      param($FullPath, $DirectoryUsage)
+    }
+  }
+
+  BeforeEach {
+    # Mock Create-Directory to track calls
+    Mock Create-Directory -MockWith {
+      param($FullPath, $DirectoryUsage)
+      # Do nothing in tests - we'll verify the call was made
+    }
+
+    # Mock Out-File to capture content without writing to disk
+    Mock Out-File -MockWith {
+      param($FilePath, $Encoding)
+    }
+  }
+
+  It "Should create hosts.toml file for docker.io registry" {
+    $registry = "docker.io"
+    $registryHost = "registry-1.docker.io"
+
+    Set-ContainerdRegistryConfig -Registry $registry -RegistryHost $registryHost
+
+    # Verify Create-Directory was called with correct parameters
+    Assert-MockCalled -CommandName 'Create-Directory' -Exactly -Times 1 -ParameterFilter {
+      $FullPath -eq "C:\ProgramData\containerd\certs.d\docker.io" -and
+      $DirectoryUsage -eq "storing containerd registry hosts config"
+    }
+
+    # Verify Out-File was called with correct path
+    Assert-MockCalled -CommandName 'Out-File' -Exactly -Times 1 -ParameterFilter {
+      $FilePath -eq "C:\ProgramData\containerd\certs.d\docker.io\hosts.toml" -and
+      $Encoding -eq "ascii"
+    }
+  }
+
+  It "Should create hosts.toml file for mcr.azk8s.cn registry" {
+    $registry = "mcr.azk8s.cn"
+    $registryHost = "mcr.azure.cn"
+
+    Set-ContainerdRegistryConfig -Registry $registry -RegistryHost $registryHost
+
+    # Verify Create-Directory was called with correct parameters
+    Assert-MockCalled -CommandName 'Create-Directory' -Exactly -Times 1 -ParameterFilter {
+      $FullPath -eq "C:\ProgramData\containerd\certs.d\mcr.azk8s.cn" -and
+      $DirectoryUsage -eq "storing containerd registry hosts config"
+    }
+
+    # Verify Out-File was called with correct path
+    Assert-MockCalled -CommandName 'Out-File' -Exactly -Times 1 -ParameterFilter {
+      $FilePath -eq "C:\ProgramData\containerd\certs.d\mcr.azk8s.cn\hosts.toml" -and
+      $Encoding -eq "ascii"
+    }
+  }
+
+  It "Should generate correct hosts.toml content structure" {
+    $registry = "docker.io"
+    $registryHost = "registry-1.docker.io"
+    $script:capturedContent = $null
+
+    # Capture the content being written
+    Mock Out-File -MockWith {
+      param($FilePath, $Encoding)
+      $script:capturedContent = $input | Out-String
+    }
+
+    Set-ContainerdRegistryConfig -Registry $registry -RegistryHost $registryHost
+
+    # Verify the content structure
+    $script:capturedContent | Should -Match "server = `"https://$registry`""
+    $script:capturedContent | Should -Match "\[host\.`"https://$registryHost`"\]"
+    $script:capturedContent | Should -Match 'capabilities = \["pull", "resolve"\]'
+    $script:capturedContent | Should -Match "\[host\.`"https://$registryHost`"\.header\]"
+    $script:capturedContent | Should -Match "X-Forwarded-For = \[`"$registry`"\]"
+  }
+
+  It "Should handle custom registry and host correctly" {
+    $registry = "myregistry.example.com"
+    $registryHost = "mirror.example.com"
+    $script:capturedContent = $null
+
+    Mock Out-File -MockWith {
+      param($FilePath, $Encoding)
+      $script:capturedContent = $input | Out-String
+    }
+
+    Set-ContainerdRegistryConfig -Registry $registry -RegistryHost $registryHost
+
+    # Verify custom values are used in content
+    $script:capturedContent | Should -Match "server = `"https://$registry`""
+    $script:capturedContent | Should -Match "\[host\.`"https://$registryHost`"\]"
+    $script:capturedContent | Should -Match "X-Forwarded-For = \[`"$registry`"\]"
+
+    # Verify Create-Directory was called with correct registry path
+    Assert-MockCalled -CommandName 'Create-Directory' -ParameterFilter {
+      $FullPath -eq "C:\ProgramData\containerd\certs.d\myregistry.example.com"
+    }
+  }
+
+  It "Should write to correct hosts.toml file path" {
+    $registry = "test.registry.io"
+    $registryHost = "test.mirror.io"
+    $script:capturedFilePath = $null
+
+    Mock Out-File -MockWith {
+      param($FilePath, $Encoding)
+      $script:capturedFilePath = $FilePath
+    }
+
+    Set-ContainerdRegistryConfig -Registry $registry -RegistryHost $registryHost
+
+    $script:capturedFilePath | Should -Be "C:\ProgramData\containerd\certs.d\test.registry.io\hosts.toml"
+  }
+
+  It "Should use ascii encoding when writing hosts.toml" {
+    $registry = "docker.io"
+    $registryHost = "registry-1.docker.io"
+    $script:capturedEncoding = $null
+
+    Mock Out-File -MockWith {
+      param($FilePath, $Encoding)
+      $script:capturedEncoding = $Encoding
+    }
+
+    Set-ContainerdRegistryConfig -Registry $registry -RegistryHost $registryHost
+
+    $script:capturedEncoding | Should -Be "ascii"
   }
 }

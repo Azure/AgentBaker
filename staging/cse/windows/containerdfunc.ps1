@@ -158,6 +158,9 @@ function ProcessAndWriteContainerdConfig {
   else {
     $hypervRuntimes = CreateHypervisorRuntimes -builds $hypervHandlers -image $pauseImage
   }
+
+  Set-ContainerdRegistryConfig -Registry "docker.io" -RegistryHost "registry-1.docker.io"
+  Set-ContainerdRegistryConfig -Registry "mcr.azk8s.cn" -RegistryHost "mcr.azure.cn"
   
   if (([version]$ContainerdVersion).CompareTo([version]"1.7.9") -lt 0) {
     # Remove annotations placeholders for older containerd versions
@@ -201,6 +204,31 @@ function Enable-Logging {
   else {
     Write-Log "Containerd hyperv logging script not avalaible"
   }
+}
+
+function Set-ContainerdRegistryConfig {
+  Param(
+    [Parameter(Mandatory = $true)][string] $Registry,
+    [Parameter(Mandatory = $true)][string] $RegistryHost
+  )
+
+  $rootRegistryPath = "C:\ProgramData\containerd\certs.d"
+  $registryPath = Join-Path $rootRegistryPath $Registry
+  $hostsTomlPath = Join-Path $registryPath "hosts.toml"
+
+  Create-Directory -FullPath $registryPath -DirectoryUsage "storing containerd registry hosts config"
+
+  $content = @"
+server = "https://$Registry"
+
+[host."https://$RegistryHost"]
+  capabilities = ["pull", "resolve"]
+[host."https://$RegistryHost".header]
+    X-Forwarded-For = ["$Registry"]
+"@
+
+  $content | Out-File -FilePath $hostsTomlPath -Encoding ascii
+  Write-Log "Wrote containerd hosts config for registry '$Registry' to '$hostsTomlPath'"
 }
 
 function Install-Containerd {
