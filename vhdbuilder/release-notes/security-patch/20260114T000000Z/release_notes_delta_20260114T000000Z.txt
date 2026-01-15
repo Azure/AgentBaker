@@ -1,0 +1,8 @@
+Release notes for security patch 20260114T000000Z timestamp
+Package difference between 20251206T000000Z and 20260114T000000Z
+No packages found
+No reboot required
+
+Package difference between AKSUbuntu-2204gen2containerd-202512.18.0 and 20260114T000000Z
+No packages found
+No reboot required
