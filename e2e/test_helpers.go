@@ -77,7 +77,7 @@ func newTestCtx(t testing.TB) context.Context {
 	return ctx
 }
 
-func RunScenario(t *testing.T, s *Scenario) {
+func RunScenario(t *testing.T, s *Scenario) error {
 	t.Parallel()
 	// Special case for testing VHD caching. Not used by default.
 	if config.Config.TestPreProvision || s.VHDCaching {
@@ -85,11 +85,10 @@ func RunScenario(t *testing.T, s *Scenario) {
 			t.Parallel()
 			runScenarioWithPreProvision(t, s)
 		})
-	} else {
-		// Default path
-		runScenario(t, s)
+		return nil
 	}
-
+	// Default path
+	return runScenario(t, s)
 }
 
 func runScenarioWithPreProvision(t *testing.T, original *Scenario) {
@@ -180,7 +179,7 @@ func copyScenario(s *Scenario) *Scenario {
 	return &copied
 }
 
-func runScenario(t testing.TB, s *Scenario) {
+func runScenario(t testing.TB, s *Scenario) error {
 	t = toolkit.WithTestLogger(t)
 	if s.Location == "" {
 		s.Location = config.Config.DefaultLocation
@@ -220,13 +219,18 @@ func runScenario(t testing.TB, s *Scenario) {
 	// use shorter timeout for faster feedback on test failures
 	vmssCtx, cancel := context.WithTimeout(ctx, config.Config.TestTimeoutVMSS)
 	defer cancel()
-	s.Runtime.VM = prepareAKSNode(vmssCtx, s)
+	s.Runtime.VM, err = prepareAKSNode(vmssCtx, s)
+	if err != nil {
+		return err
+	}
 
 	t.Logf("Choosing the private ACR %q for the vm validation", config.GetPrivateACRName(s.Tags.NonAnonymousACR, s.Location))
 	validateVM(vmssCtx, s)
+
+	return nil
 }
 
-func prepareAKSNode(ctx context.Context, s *Scenario) *ScenarioVM {
+func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 	if (s.BootstrapConfigMutator == nil) == (s.AKSNodeConfigMutator == nil) {
 		s.T.Fatalf("exactly one of BootstrapConfigMutator or AKSNodeConfigMutator must be set")
 	}
@@ -248,6 +252,7 @@ func prepareAKSNode(ctx context.Context, s *Scenario) *ScenarioVM {
 		s.AKSNodeConfigMutator(nodeconfig)
 		s.Runtime.AKSNodeConfig = nodeconfig
 	}
+
 	publicKeyData := datamodel.PublicKey{KeyData: string(config.VMSSHPublicKey)}
 
 	// check it all.
@@ -263,7 +268,13 @@ func prepareAKSNode(ctx context.Context, s *Scenario) *ScenarioVM {
 	require.NoError(s.T, err)
 
 	start := time.Now() // Record the start time
-	scenarioVM := ConfigureAndCreateVMSS(ctx, s)
+	scenarioVM, err := ConfigureAndCreateVMSS(ctx, s)
+	// fail test, but continue to extract debug information
+	if s.ReturnErrorOnVMSSCreation {
+		return scenarioVM, err
+	} else {
+		require.NoError(s.T, err, "create vmss %q, check %s for vm logs", s.Runtime.VMSSName, testDir(s.T))
+	}
 
 	err = getCustomScriptExtensionStatus(s, scenarioVM.VM)
 	require.NoError(s.T, err)
@@ -277,7 +288,7 @@ func prepareAKSNode(ctx context.Context, s *Scenario) *ScenarioVM {
 		toolkit.LogDuration(ctx, totalElapse, 3*time.Minute, fmt.Sprintf("Node %s took %s to be created and %s to be ready", s.Runtime.VMSSName, creationElapse, readyElapse))
 	}
 
-	return scenarioVM
+	return scenarioVM, nil
 }
 
 func maybeSkipScenario(ctx context.Context, t testing.TB, s *Scenario) {

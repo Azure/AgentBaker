@@ -133,7 +133,7 @@ func TestApp_Provision(t *testing.T) {
 				tt.setupMocks(mc)
 			}
 			app := &App{cmdRunner: mc.Run}
-			err := app.Provision(context.Background(), tt.flags)
+			_, err := app.Provision(context.Background(), tt.flags)
 			if tt.wantErr {
 				assert.Error(t, err)
 			} else {

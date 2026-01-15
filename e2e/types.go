@@ -184,6 +184,9 @@ type Config struct {
 	// if VHDCaching is set then a VHD will be created first for the test scenario and then a VM will be created from that VHD.
 	// The main purpose is to validate VHD Caching logic and ensure a reboot step between basePrep and nodePrep doesn't break anything.
 	VHDCaching bool
+
+	// ReturnErrorOnVMSSCreation indicates whether to return error on VMSS creation failure or fail the test immediately.
+	ReturnErrorOnVMSSCreation bool
 }
 
 func (s *Scenario) PrepareAKSNodeConfig() {
