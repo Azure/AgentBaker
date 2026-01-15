@@ -74,13 +74,11 @@ func compileAKSNodeController(ctx context.Context, arch string) (*os.File, error
 	return f, nil
 }
 
-func ConfigureAndCreateVMSS(ctx context.Context, s *Scenario) *ScenarioVM {
+func ConfigureAndCreateVMSS(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 	vm, err := CreateVMSSWithRetry(ctx, s)
 	skipTestIfSKUNotAvailableErr(s.T, err)
-	// fail test, but continue to extract debug information
-	require.NoError(s.T, err, "create vmss %q, check %s for vm logs", s.Runtime.VMSSName, testDir(s.T))
 
-	return vm
+	return vm, err
 }
 
 // CustomDataWithHack is similar to nodeconfigutils.CustomData, but it uses a hack to run new aks-node-controller binary
