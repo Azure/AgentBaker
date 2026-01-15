@@ -1,0 +1,4 @@
+Release notes for security patch 20260114T000000Z timestamp
+Package difference for Ubuntu 24.04 with 20260114T000000Z
+No packages found
+No reboot required
