@@ -392,14 +392,12 @@ func fileHasContent(ctx context.Context, s *Scenario, fileName string, contents 
 	if s.IsWindows() {
 		steps = []string{
 			"$ErrorActionPreference = \"Stop\"",
-			fmt.Sprintf("Get-Content %s", fileName),
 			fmt.Sprintf("if ( -not ( Test-Path -Path %s ) ) { exit 2 }", fileName),
 			fmt.Sprintf("if (Select-String -Path %s -Pattern \"%s\" -SimpleMatch -Quiet) { exit 0 } else { exit 1 }", fileName, contents),
 		}
 	} else {
 		steps = []string{
 			"set -ex",
-			fmt.Sprintf("sudo cat %s", fileName),
 			fmt.Sprintf("(sudo cat %s | grep -q -F -e %q)", fileName, contents),
 		}
 	}
