@@ -227,22 +227,9 @@ testPackagesInstalled() {
       "kubectl"|\
       "nvidia-device-plugin"|\
       "datacenter-gpu-manager-4-core"|\
-      "datacenter-gpu-manager-4-proprietary")
-        testPkgDownloaded "${name}" "${PACKAGE_VERSIONS[@]}"
-        continue
-        ;;
-      "datacenter-gpu-manager-exporter")
-        # On Ubuntu 22.04 and 24.04, the package is called datacenter-gpu-manager-exporter
-        [ "$OS_SKU" = "Ubuntu" ] && \
-          { [ "$OS_VERSION" = "22.04" ] || [ "$OS_VERSION" = "24.04" ]; } && \
-          testPkgDownloaded "${name}" "${PACKAGE_VERSIONS[@]}"
-        continue
-        ;;
+      "datacenter-gpu-manager-4-proprietary"|\
       "dcgm-exporter")
-        # The package is called dcgm-exporter in AzureLinux 3.0
-        [ "$OS_SKU" = "AzureLinux" ] && \
-          [ "$OS_VERSION" = "3.0" ] && \
-          testPkgDownloaded "${name}" "${PACKAGE_VERSIONS[@]}"
+        testPkgDownloaded "${name}" "${PACKAGE_VERSIONS[@]}"
         continue
         ;;
     esac
@@ -1705,6 +1692,8 @@ checkLocaldnsScriptsAndConfigs() {
   return 0
 }
 
+#------------------------ End of test code related to localdns ------------------------
+
 # Check that no files have a numeric UID or GID, which would indicate a file ownership issue.
 testFileOwnership() {
   local test="testFileOwnership"
@@ -1724,7 +1713,18 @@ testFileOwnership() {
   return 0
 }
 
-#------------------------ End of test code related to localdns ------------------------
+testDiskQueueServiceIsActive() {
+  local test="testDiskQueueServiceIsActive"
+  echo "$test: Start"
+
+  if systemctl is-active --quiet disk_queue.service; then
+    echo $test "disk_queue.service is active, as expected"
+  else
+    err $test "disk_queue.service is not active, status: $(systemctl show -p SubState --value disk_queue.service)"
+  fi
+
+  echo "$test:Finish"
+}
 
 # As we call these tests, we need to bear in mind how the test results are processed by the
 # the caller in run-tests.sh. That code uses az vm run-command invoke to run this script
@@ -1777,3 +1777,4 @@ testCorednsBinaryExtractedAndCached $OS_VERSION
 checkLocaldnsScriptsAndConfigs
 testPackageDownloadURLFallbackLogic
 testFileOwnership $OS_SKU
+testDiskQueueServiceIsActive

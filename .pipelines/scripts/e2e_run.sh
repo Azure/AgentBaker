@@ -64,16 +64,37 @@ if [ -n "${SIG_GALLERY_NAME}" ]; then
   export GALLERY_NAME=$SIG_GALLERY_NAME
 fi
 
+az extension add --name bastion
+
 # this software is used to take the output of "go test" and produce a junit report that we can upload to the pipeline
 # and see fancy test results.
 cd e2e
 mkdir -p bin
-GOBIN=`pwd`/bin/ go install gotest.tools/gotestsum@latest
+architecture=$(uname -m)
+
+case "$architecture" in
+  x86_64 | amd64) architecture="amd64" ;;
+  aarch64 | arm64) architecture="arm64" ;;
+  *)
+    echo "Unsupported architecture: $architecture"
+    exit 1
+    ;;
+esac
+
+gotestsum_version="1.13.0"
+gotestsum_archive="gotestsum_${gotestsum_version}_linux_${architecture}.tar.gz"
+gotestsum_url="https://github.com/gotestyourself/gotestsum/releases/download/v${gotestsum_version}/${gotestsum_archive}"
+
+temp_file="$(mktemp)"
+curl -fsSL "$gotestsum_url" -o "$temp_file"
+tar -xzf "$temp_file" -C bin
+chmod +x bin/gotestsum
+rm -f "$temp_file"
 
 # gotestsum configure to only show logs for failed tests, json file for detailed logs
 # Run the tests! Yey!
 test_exit_code=0
-./bin/gotestsum --format testdox --junitfile "${BUILD_SRC_DIR}/e2e/report.xml" --jsonfile "${BUILD_SRC_DIR}/e2e/test-log.json" -- -parallel 100 -timeout 90m || test_exit_code=$?
+./bin/gotestsum --format testdox --junitfile "${BUILD_SRC_DIR}/e2e/report.xml" --jsonfile "${BUILD_SRC_DIR}/e2e/test-log.json" -- -parallel 150 -timeout 90m || test_exit_code=$?
 
 # Upload test results as Azure DevOps artifacts
 echo "##vso[artifact.upload containerfolder=test-results;artifactname=e2e-test-log]${BUILD_SRC_DIR}/e2e/test-log.json"

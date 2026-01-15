@@ -12,8 +12,8 @@ import (
 	"github.com/Azure/agentbaker/e2e/toolkit"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v6"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v8"
 	"github.com/stretchr/testify/require"
 )
 
@@ -180,15 +180,15 @@ func Test_Flatcar_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing.T) {
 	})
 }
 
-func Test_AzureLinuxV2_AirGap(t *testing.T) {
+func Test_AzureLinuxV3_AirGap(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "Tests that a node using a AzureLinuxV2 (CgroupV2) VHD can be properly bootstrapped",
+		Description: "Tests that a node using a AzureLinuxV3 (CgroupV2) VHD can be properly bootstrapped",
 		Tags: Tags{
 			Airgap: true,
 		},
 		Config: Config{
 			Cluster: ClusterKubenetAirgap,
-			VHD:     config.VHDAzureLinuxV2Gen2,
+			VHD:     config.VHDAzureLinuxV3Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.OutboundType = datamodel.OutboundTypeBlock
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
@@ -226,70 +226,6 @@ func Test_AzureLinuxV3_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing
 	})
 }
 
-func Test_AzureLinuxV2_ARM64(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that a node using a AzureLinuxV2 (CgroupV2) VHD on ARM64 architecture can be properly bootstrapped",
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDAzureLinuxV2Gen2Arm64,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
-				nbc.IsARM64 = true
-			},
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
-			},
-		},
-	})
-}
-
-func Test_AzureLinuxV2_ARM64_Scriptless(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that a node using a AzureLinuxV2 (CgroupV2) VHD on ARM64 architecture can be properly bootstrapped",
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDAzureLinuxV2Gen2Arm64,
-			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
-				config.VmSize = "Standard_D2pds_V5"
-			},
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
-			},
-		},
-	})
-}
-
-func Test_AzureLinuxV2_ARM64AirGap(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that a node using a AzureLinuxV2 (CgroupV2) VHD on ARM64 architecture can be properly bootstrapped",
-		Tags: Tags{
-			Airgap: true,
-		},
-		Config: Config{
-			Cluster: ClusterKubenetAirgap,
-			VHD:     config.VHDAzureLinuxV2Gen2Arm64,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
-				nbc.IsARM64 = true
-
-				nbc.OutboundType = datamodel.OutboundTypeBlock
-				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
-					PrivateEgress: &datamodel.PrivateEgress{
-						Enabled:                 true,
-						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io", config.PrivateACRName(config.Config.DefaultLocation)),
-					},
-				}
-			},
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateDirectoryContent(ctx, s, "/opt/azure", []string{"outbound-check-skipped"})
-			},
-		},
-	})
-}
-
 func Test_AzureLinuxV3_AirGap_Package_Install(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a AzureLinuxV3 VHD on ARM64 architecture can be properly bootstrapped",
@@ -321,42 +257,12 @@ func Test_AzureLinuxV3_AirGap_Package_Install(t *testing.T) {
 	})
 }
 
-func Test_AzureLinuxV2_ARM64_ArtifactSourceCache(t *testing.T) {
+func Test_AzureLinuxV3_AzureCNI(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "Tests that a node using a AzureLinuxV2 (CgroupV2) VHD on ARM64 architecture can be properly bootstrapped",
-		Tags: Tags{
-			Airgap: false,
-		},
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDAzureLinuxV2Gen2Arm64,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
-				nbc.IsARM64 = true
-
-				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
-					PrivateEgress: &datamodel.PrivateEgress{
-						Enabled:                 true,
-						ContainerRegistryServer: "mcr.microsoft.com",
-					},
-				}
-			},
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateDirectoryContent(ctx, s, "/opt/azure", []string{"outbound-check-skipped"})
-			},
-		},
-	})
-}
-
-func Test_AzureLinuxV2_AzureCNI(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "azurelinuxv2 scenario on a cluster configured with Azure CNI",
+		Description: "azurelinuxv3 scenario on a cluster configured with Azure CNI",
 		Config: Config{
 			Cluster: ClusterAzureNetwork,
-			VHD:     config.VHDAzureLinuxV2Gen2,
+			VHD:     config.VHDAzureLinuxV3Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
 				nbc.AgentPoolProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
@@ -365,351 +271,18 @@ func Test_AzureLinuxV2_AzureCNI(t *testing.T) {
 	})
 }
 
-func Test_AzureLinuxV2_ChronyRestarts(t *testing.T) {
+func Test_AzureLinuxV3_ChronyRestarts(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that the chrony service restarts if it is killed",
 		Config: Config{
 			Cluster: ClusterKubenet,
-			VHD:     config.VHDAzureLinuxV2Gen2,
+			VHD:     config.VHDAzureLinuxV3Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "Restart=always")
 				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "RestartSec=5")
 				ServiceCanRestartValidator(ctx, s, "chronyd", 10)
-			},
-		},
-	})
-}
-
-func Test_AzureLinuxV2_CustomSysctls(t *testing.T) {
-	customSysctls := map[string]string{
-		"net.ipv4.ip_local_port_range":       "32768 62535",
-		"net.netfilter.nf_conntrack_max":     "2097152",
-		"net.netfilter.nf_conntrack_buckets": "524288",
-		"net.ipv4.tcp_keepalive_intvl":       "90",
-		"net.ipv4.ip_local_reserved_ports":   "",
-	}
-	customContainerdUlimits := map[string]string{
-		"LimitMEMLOCK": "75000",
-		"LimitNOFILE":  "1048",
-	}
-	RunScenario(t, &Scenario{
-		Description: "tests that a AzureLinuxV2 (CgroupV2) VHD can be properly bootstrapped when supplied custom node config that contains custom sysctl settings",
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDAzureLinuxV2Gen2,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				customLinuxConfig := &datamodel.CustomLinuxOSConfig{
-					Sysctls: &datamodel.SysctlConfig{
-						NetNetfilterNfConntrackMax:     to.Ptr(toolkit.StrToInt32(customSysctls["net.netfilter.nf_conntrack_max"])),
-						NetNetfilterNfConntrackBuckets: to.Ptr(toolkit.StrToInt32(customSysctls["net.netfilter.nf_conntrack_buckets"])),
-						NetIpv4IpLocalPortRange:        customSysctls["net.ipv4.ip_local_port_range"],
-						NetIpv4TcpkeepaliveIntvl:       to.Ptr(toolkit.StrToInt32(customSysctls["net.ipv4.tcp_keepalive_intvl"])),
-					},
-					UlimitConfig: &datamodel.UlimitConfig{
-						MaxLockedMemory: customContainerdUlimits["LimitMEMLOCK"],
-						NoFile:          customContainerdUlimits["LimitNOFILE"],
-					},
-				}
-				nbc.AgentPoolProfile.CustomLinuxOSConfig = customLinuxConfig
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateUlimitSettings(ctx, s, customContainerdUlimits)
-				ValidateSysctlConfig(ctx, s, customSysctls)
-			},
-		},
-	})
-}
-
-// Returns config for the 'gpu' E2E scenario
-func Test_AzureLinuxV2_GPU(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that a GPU-enabled node using a AzureLinuxV2 (CgroupV2) VHD can be properly bootstrapped",
-		Tags: Tags{
-			GPU: true,
-		},
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDAzureLinuxV2Gen2,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.AgentPoolProfile.VMSize = "Standard_NC6s_v3"
-				nbc.ConfigGPUDriverIfNeeded = true
-				nbc.EnableGPUDevicePluginIfNeeded = false
-				nbc.EnableNvidia = true
-			},
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-			},
-		},
-	})
-}
-
-func Test_AzureLinuxV2_GPUAzureCNI(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "AzureLinux V2 (CgroupV2) gpu scenario on cluster configured with Azure CNI",
-		Tags: Tags{
-			GPU: true,
-		},
-		Config: Config{
-			Cluster: ClusterAzureNetwork,
-			VHD:     config.VHDAzureLinuxV2Gen2,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
-				nbc.AgentPoolProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
-				nbc.AgentPoolProfile.VMSize = "Standard_NC6s_v3"
-				nbc.ConfigGPUDriverIfNeeded = true
-				nbc.EnableGPUDevicePluginIfNeeded = false
-				nbc.EnableNvidia = true
-			},
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-			},
-		},
-	})
-}
-
-func Test_AzureLinuxV2_GPUAzureCNI_Scriptless(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "AzureLinux V2 (CgroupV2) gpu scenario on cluster configured with Azure CNI",
-		Tags: Tags{
-			GPU: true,
-		},
-		Config: Config{
-			Cluster: ClusterAzureNetwork,
-			VHD:     config.VHDAzureLinuxV2Gen2,
-			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
-				config.NetworkConfig.NetworkPlugin = aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_AZURE
-				config.VmSize = "Standard_NC6s_v3"
-				config.GpuConfig.ConfigGpuDriver = true
-				config.GpuConfig.GpuDevicePlugin = false
-				config.GpuConfig.EnableNvidia = to.Ptr(true)
-			},
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-			},
-		},
-	})
-}
-
-func Test_MarinerV2(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that a node using a MarinerV2 VHD can be properly bootstrapped",
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDCBLMarinerV2Gen2,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", components.GetExpectedPackageVersions("containerd", "mariner", "current")[0])
-			},
-		},
-	})
-}
-
-func Test_MarinerV2_AirGap(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that a node using a MarinerV2 VHD can be properly bootstrapped",
-		Tags: Tags{
-			Airgap: true,
-		},
-		Config: Config{
-			Cluster: ClusterKubenetAirgap,
-			VHD:     config.VHDCBLMarinerV2Gen2,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.OutboundType = datamodel.OutboundTypeBlock
-				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
-					PrivateEgress: &datamodel.PrivateEgress{
-						Enabled:                 true,
-						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io", config.PrivateACRName(config.Config.DefaultLocation)),
-					},
-				}
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateDirectoryContent(ctx, s, "/opt/azure", []string{"outbound-check-skipped"})
-			},
-		},
-	})
-}
-
-func Test_MarinerV2_ARM64(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that a node using a MarinerV2 VHD on ARM64 architecture can be properly bootstrapped",
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDCBLMarinerV2Gen2Arm64,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
-				nbc.IsARM64 = true
-			},
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
-			},
-		},
-	})
-}
-
-func Test_MarinerV2_ARM64AirGap(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that a node using a MarinerV2 VHD on ARM64 architecture can be properly bootstrapped",
-		Tags: Tags{
-			Airgap: true,
-		},
-		Config: Config{
-			Cluster: ClusterKubenetAirgap,
-			VHD:     config.VHDCBLMarinerV2Gen2Arm64,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
-				nbc.IsARM64 = true
-
-				nbc.OutboundType = datamodel.OutboundTypeBlock
-				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
-					PrivateEgress: &datamodel.PrivateEgress{
-						Enabled:                 true,
-						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io", config.PrivateACRName(config.Config.DefaultLocation)),
-					},
-				}
-			},
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateDirectoryContent(ctx, s, "/opt/azure", []string{"outbound-check-skipped"})
-			},
-		},
-	})
-}
-
-// Merge test case MarinerV2 AzureCNI with MarinerV2 ChronyRestarts
-func Test_MarinerV2_AzureCNI_ChronyRestarts(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Test marinerv2 scenario on a cluster configured with Azure CNI and the chrony service restarts if it is killed",
-		Config: Config{
-			Cluster: ClusterAzureNetwork,
-			VHD:     config.VHDCBLMarinerV2Gen2,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
-				nbc.AgentPoolProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ServiceCanRestartValidator(ctx, s, "chronyd", 10)
-				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "Restart=always")
-				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "RestartSec=5")
-			},
-		},
-	})
-}
-
-// Merge scriptless test case MarinerV2 AzureCNI with MarinerV2 ChronyRestarts
-func Test_MarinerV2_AzureCNI_ChronyRestarts_Scriptless(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Test marinerv2 scenario on a cluster configured with Azure CNI and the chrony service restarts if it is killed",
-		Config: Config{
-			Cluster: ClusterAzureNetwork,
-			VHD:     config.VHDCBLMarinerV2Gen2,
-			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
-				config.NetworkConfig.NetworkPlugin = aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_AZURE
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ServiceCanRestartValidator(ctx, s, "chronyd", 10)
-				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "Restart=always")
-				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "RestartSec=5")
-			},
-		},
-	})
-}
-
-func Test_MarinerV2_CustomSysctls(t *testing.T) {
-	customSysctls := map[string]string{
-		"net.ipv4.ip_local_port_range":       "32768 62535",
-		"net.netfilter.nf_conntrack_max":     "2097152",
-		"net.netfilter.nf_conntrack_buckets": "524288",
-		"net.ipv4.tcp_keepalive_intvl":       "90",
-		"net.ipv4.ip_local_reserved_ports":   "",
-	}
-	customContainerdUlimits := map[string]string{
-		"LimitMEMLOCK": "75000",
-		"LimitNOFILE":  "1048",
-	}
-	RunScenario(t, &Scenario{
-		Description: "tests that a MarinerV2 VHD can be properly bootstrapped when supplied custom node config that contains custom sysctl settings",
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDCBLMarinerV2Gen2,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				customLinuxConfig := &datamodel.CustomLinuxOSConfig{
-					Sysctls: &datamodel.SysctlConfig{
-						NetNetfilterNfConntrackMax:     to.Ptr(toolkit.StrToInt32(customSysctls["net.netfilter.nf_conntrack_max"])),
-						NetNetfilterNfConntrackBuckets: to.Ptr(toolkit.StrToInt32(customSysctls["net.netfilter.nf_conntrack_buckets"])),
-						NetIpv4IpLocalPortRange:        customSysctls["net.ipv4.ip_local_port_range"],
-						NetIpv4TcpkeepaliveIntvl:       to.Ptr(toolkit.StrToInt32(customSysctls["net.ipv4.tcp_keepalive_intvl"])),
-					},
-					UlimitConfig: &datamodel.UlimitConfig{
-						MaxLockedMemory: customContainerdUlimits["LimitMEMLOCK"],
-						NoFile:          customContainerdUlimits["LimitNOFILE"],
-					},
-				}
-				nbc.AgentPoolProfile.CustomLinuxOSConfig = customLinuxConfig
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateUlimitSettings(ctx, s, customContainerdUlimits)
-				ValidateSysctlConfig(ctx, s, customSysctls)
-			},
-		},
-	})
-}
-
-func Test_MarinerV2_GPU(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that a GPU-enabled node using a MarinerV2 VHD can be properly bootstrapped",
-		Tags: Tags{
-			GPU: true,
-		},
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDCBLMarinerV2Gen2,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.AgentPoolProfile.VMSize = "Standard_NC6s_v3"
-				nbc.ConfigGPUDriverIfNeeded = true
-				nbc.EnableGPUDevicePluginIfNeeded = false
-				nbc.EnableNvidia = true
-			},
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-			},
-		},
-	})
-}
-
-func Test_MarinerV2_GPUAzureCNI(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "MarinerV2 gpu scenario on cluster configured with Azure CNI",
-		Tags: Tags{
-			GPU: true,
-		},
-		Config: Config{
-			Cluster: ClusterAzureNetwork,
-			VHD:     config.VHDCBLMarinerV2Gen2,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
-				nbc.AgentPoolProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
-				nbc.AgentPoolProfile.VMSize = "Standard_NC6s_v3"
-				nbc.ConfigGPUDriverIfNeeded = true
-				nbc.EnableGPUDevicePluginIfNeeded = false
-				nbc.EnableNvidia = true
-			},
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
 			},
 		},
 	})
@@ -730,6 +303,52 @@ func Test_Ubuntu2204_Scriptless(t *testing.T) {
 			},
 		},
 	})
+}
+
+func Test_Ubuntu2204_Failure_Scriptless(t *testing.T) {
+	err := RunScenario(t, &Scenario{
+		Description: "tests that a new ubuntu 2204 node using self contained installer can be properly bootstrapped",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFileExists(ctx, s, "/opt/azure/containers/provision.complete")
+				ValidateFileExists(ctx, s, "/var/log/azure/aks/provision.json")
+			},
+			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+				// Intentionally causing a failure here
+				//config.Version = "v200"
+				config.BootstrappingConfig = nil
+				config.KubernetesCaCert = ""
+			},
+			ReturnErrorOnVMSSCreation: true,
+		},
+	})
+
+	// Expect the error to contain API server connection failure since we provided invalid config
+	require.ErrorContains(t, err, "API server connection check code: 51")
+}
+
+func Test_Ubuntu2204_Early_Failure_Scriptless(t *testing.T) {
+	err := RunScenario(t, &Scenario{
+		Description: "tests that a new ubuntu 2204 node using self contained installer can be properly bootstrapped",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFileExists(ctx, s, "/opt/azure/containers/provision.complete")
+				ValidateFileExists(ctx, s, "/var/log/azure/aks/provision.json")
+			},
+			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+				// Intentionally causing a failure here
+				config.Version = "VeryBadVersion"
+			},
+			ReturnErrorOnVMSSCreation: true,
+		},
+	})
+
+	// Expect the error to contain unsupported version
+	require.ErrorContains(t, err, "unsupported version: VeryBadVersion")
 }
 
 func Test_Ubuntu2404_Scriptless(t *testing.T) {
@@ -818,50 +437,31 @@ func Test_Ubuntu2204_EntraIDSSH_Scriptless(t *testing.T) {
 	})
 }
 
+func Test_AzureLinuxV3_DisableSSH(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using AzureLinuxV3 VHD with SSH disabled can be properly bootstrapped and SSH daemon is disabled",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDAzureLinuxV3Gen2,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.SSHStatus = datamodel.SSHOff
+			},
+			SkipSSHConnectivityValidation: true, // Skip SSH connectivity validation since SSH is down
+			SkipDefaultValidation:         true, // Skip default validation since it requires SSH connectivity
+			Validator: func(ctx context.Context, s *Scenario) {
+				// Validate SSH daemon is disabled via RunCommand
+				ValidateSSHServiceDisabled(ctx, s)
+			},
+		},
+	})
+}
+
 func Test_Ubuntu2204_DisableSSH(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using Ubuntu 2204 VHD with SSH disabled can be properly bootstrapped and SSH daemon is disabled",
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.SSHStatus = datamodel.SSHOff
-			},
-			SkipSSHConnectivityValidation: true, // Skip SSH connectivity validation since SSH is down
-			SkipDefaultValidation:         true, // Skip default validation since it requires SSH connectivity
-			Validator: func(ctx context.Context, s *Scenario) {
-				// Validate SSH daemon is disabled via RunCommand
-				ValidateSSHServiceDisabled(ctx, s)
-			},
-		},
-	})
-}
-
-func Test_AzureLinuxV2_DisableSSH(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that a node using AzureLinuxV2 VHD with SSH disabled can be properly bootstrapped and SSH daemon is disabled",
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDAzureLinuxV2Gen2,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.SSHStatus = datamodel.SSHOff
-			},
-			SkipSSHConnectivityValidation: true, // Skip SSH connectivity validation since SSH is down
-			SkipDefaultValidation:         true, // Skip default validation since it requires SSH connectivity
-			Validator: func(ctx context.Context, s *Scenario) {
-				// Validate SSH daemon is disabled via RunCommand
-				ValidateSSHServiceDisabled(ctx, s)
-			},
-		},
-	})
-}
-
-func Test_MarinerV2_DisableSSH(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that a node using MarinerV2 VHD with SSH disabled can be properly bootstrapped and SSH daemon is disabled",
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDCBLMarinerV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.SSHStatus = datamodel.SSHOff
 			},
@@ -1120,12 +720,12 @@ func Test_Ubuntu2204_ChronyRestarts_Taints_And_Tolerations_Scriptless(t *testing
 	})
 }
 
-func Test_AzureLinuxV2_CustomCATrust(t *testing.T) {
+func Test_AzureLinuxV3_CustomCATrust(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "Tests that a node using the Azure Linux 2204 VHD can be properly bootstrapped and custom CA was correctly added",
+		Description: "Tests that a node using the Azure Linux V3 VHD can be properly bootstrapped and custom CA was correctly added",
 		Config: Config{
 			Cluster: ClusterKubenet,
-			VHD:     config.VHDAzureLinuxV2Gen2,
+			VHD:     config.VHDAzureLinuxV3Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.CustomCATrustConfig = &datamodel.CustomCATrustConfig{
 					CustomCATrustCerts: []string{
@@ -1522,7 +1122,7 @@ func Test_AzureLinux_Skip_Binary_Cleanup(t *testing.T) {
 		Description: "tests that an AzureLinux node will skip binary cleanup and can be properly bootstrapped",
 		Config: Config{
 			Cluster:                ClusterKubenet,
-			VHD:                    config.VHDAzureLinuxV2Gen2,
+			VHD:                    config.VHDAzureLinuxV3Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				if vmss.Tags == nil {
@@ -1661,12 +1261,12 @@ func Test_Ubuntu2204_MessageOfTheDay(t *testing.T) {
 	})
 }
 
-func Test_AzureLinuxV2_MessageOfTheDay(t *testing.T) {
+func Test_AzureLinuxV3_MessageOfTheDay(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "Tests that a node using a AzureLinuxV2 can be bootstrapped and message of the day is added to the node",
+		Description: "Tests that a node using a AzureLinuxV3 can be bootstrapped and message of the day is added to the node",
 		Config: Config{
 			Cluster: ClusterKubenet,
-			VHD:     config.VHDAzureLinuxV2Gen2,
+			VHD:     config.VHDAzureLinuxV3Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.MessageOfTheDay = "Zm9vYmFyDQo=" // base64 for foobar
 			},
@@ -1678,12 +1278,12 @@ func Test_AzureLinuxV2_MessageOfTheDay(t *testing.T) {
 	})
 }
 
-func Test_AzureLinuxV2_MessageOfTheDay_Scriptless(t *testing.T) {
+func Test_AzureLinuxV3_MessageOfTheDay_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "Tests that a node using a AzureLinuxV2 can be bootstrapped and message of the day is added to the node",
+		Description: "Tests that a node using a AzureLinuxV3 can be bootstrapped and message of the day is added to the node",
 		Config: Config{
 			Cluster: ClusterKubenet,
-			VHD:     config.VHDAzureLinuxV2Gen2,
+			VHD:     config.VHDAzureLinuxV3Gen2,
 			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
 				config.MessageOfTheDay = "Zm9vYmFyDQo=" // base64 for foobar
 			},
@@ -1695,12 +1295,12 @@ func Test_AzureLinuxV2_MessageOfTheDay_Scriptless(t *testing.T) {
 	})
 }
 
-func Test_AzureLinuxV2_LocalDns_Disabled_Scriptless(t *testing.T) {
+func Test_AzureLinuxV3LocalDns_Disabled_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "Tests that a node using a AzureLinuxV2 can be bootstrapped with localdns disabled",
+		Description: "Tests that a node using a AzureLinuxV3 can be bootstrapped with localdns disabled",
 		Config: Config{
 			Cluster: ClusterAzureNetwork,
-			VHD:     config.VHDAzureLinuxV2Gen2,
+			VHD:     config.VHDAzureLinuxV3Gen2,
 			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
 				config.LocalDnsProfile = &aksnodeconfigv1.LocalDnsProfile{
 					EnableLocalDns: false,
@@ -1710,6 +1310,46 @@ func Test_AzureLinuxV2_LocalDns_Disabled_Scriptless(t *testing.T) {
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateLocalDNSService(ctx, s, "disabled")
 				ValidateLocalDNSResolution(ctx, s, "168.63.129.16")
+			},
+		},
+	})
+}
+
+func Test_AzureLinuxV3_CustomSysctls(t *testing.T) {
+	customSysctls := map[string]string{
+		"net.ipv4.ip_local_port_range":       "32768 62535",
+		"net.netfilter.nf_conntrack_max":     "2097152",
+		"net.netfilter.nf_conntrack_buckets": "524288",
+		"net.ipv4.tcp_keepalive_intvl":       "90",
+		"net.ipv4.ip_local_reserved_ports":   "",
+	}
+	customContainerdUlimits := map[string]string{
+		"LimitMEMLOCK": "75000",
+		"LimitNOFILE":  "1048",
+	}
+	RunScenario(t, &Scenario{
+		Description: "tests that a AzureLinuxV3 (CgroupV2) VHD can be properly bootstrapped when supplied custom node config that contains custom sysctl settings",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDAzureLinuxV3Gen2,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				customLinuxConfig := &datamodel.CustomLinuxOSConfig{
+					Sysctls: &datamodel.SysctlConfig{
+						NetNetfilterNfConntrackMax:     to.Ptr(toolkit.StrToInt32(customSysctls["net.netfilter.nf_conntrack_max"])),
+						NetNetfilterNfConntrackBuckets: to.Ptr(toolkit.StrToInt32(customSysctls["net.netfilter.nf_conntrack_buckets"])),
+						NetIpv4IpLocalPortRange:        customSysctls["net.ipv4.ip_local_port_range"],
+						NetIpv4TcpkeepaliveIntvl:       to.Ptr(toolkit.StrToInt32(customSysctls["net.ipv4.tcp_keepalive_intvl"])),
+					},
+					UlimitConfig: &datamodel.UlimitConfig{
+						MaxLockedMemory: customContainerdUlimits["LimitMEMLOCK"],
+						NoFile:          customContainerdUlimits["LimitNOFILE"],
+					},
+				}
+				nbc.AgentPoolProfile.CustomLinuxOSConfig = customLinuxConfig
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateUlimitSettings(ctx, s, customContainerdUlimits)
+				ValidateSysctlConfig(ctx, s, customSysctls)
 			},
 		},
 	})
@@ -1742,18 +1382,18 @@ func Test_Ubuntu2204_KubeletCustomConfig(t *testing.T) {
 	})
 }
 
-func Test_AzureLinuxV2_KubeletCustomConfig(t *testing.T) {
+func Test_AzureLinuxV3_KubeletCustomConfig(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Tags: Tags{
 			KubeletCustomConfig: true,
 		},
-		Description: "tests that a node on azure linux v2 bootstrapped with kubelet custom config for seccomp set to non default values",
+		Description: "tests that a node on azure linux v3 bootstrapped with kubelet custom config for seccomp set to non default values",
 		Config: Config{
 			Cluster: ClusterKubenet,
-			VHD:     config.VHDAzureLinuxV2Gen2,
+			VHD:     config.VHDAzureLinuxV3Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-azurelinux-v2-gen2"
-				nbc.AgentPoolProfile.Distro = "aks-azurelinux-v2-gen2"
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-azurelinux-v3-gen2"
+				nbc.AgentPoolProfile.Distro = "aks-azurelinux-v3-gen2"
 				customKubeletConfig := &datamodel.CustomKubeletConfig{
 					SeccompDefault: to.Ptr(true),
 				}
@@ -1764,21 +1404,21 @@ func Test_AzureLinuxV2_KubeletCustomConfig(t *testing.T) {
 				kubeletConfigFilePath := "/etc/default/kubeletconfig.json"
 				ValidateFileHasContent(ctx, s, kubeletConfigFilePath, `"seccompDefault": true`)
 				ValidateKubeletHasFlags(ctx, s, kubeletConfigFilePath)
-				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", components.GetExpectedPackageVersions("containerd", "mariner", "current")[0])
+				ValidateInstalledPackageVersion(ctx, s, "containerd2", components.GetExpectedPackageVersions("containerd", "azurelinux", "v3.0")[0])
 			},
 		},
 	})
 }
 
-func Test_AzureLinuxV2_KubeletCustomConfig_Scriptless(t *testing.T) {
+func Test_AzureLinuxV3_KubeletCustomConfig_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Tags: Tags{
 			KubeletCustomConfig: true,
 		},
-		Description: "tests that a node on azure linux v2 bootstrapped with kubelet custom config for seccomp set to non default values",
+		Description: "tests that a node on azure linux v3 bootstrapped with kubelet custom config for seccomp set to non default values",
 		Config: Config{
 			Cluster: ClusterKubenet,
-			VHD:     config.VHDAzureLinuxV2Gen2,
+			VHD:     config.VHDAzureLinuxV3Gen2,
 			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
 				config.KubeletConfig.KubeletConfigFileConfig.SeccompDefault = true
 			},
@@ -1786,7 +1426,82 @@ func Test_AzureLinuxV2_KubeletCustomConfig_Scriptless(t *testing.T) {
 				kubeletConfigFilePath := "/etc/default/kubeletconfig.json"
 				ValidateFileHasContent(ctx, s, kubeletConfigFilePath, `"seccompDefault": true`)
 				ValidateKubeletHasFlags(ctx, s, kubeletConfigFilePath)
-				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", components.GetExpectedPackageVersions("containerd", "mariner", "current")[0])
+				ValidateInstalledPackageVersion(ctx, s, "containerd2", components.GetExpectedPackageVersions("containerd", "azurelinux", "v3.0")[0])
+			},
+		},
+	})
+}
+
+func Test_AzureLinuxV3_GPU(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a GPU-enabled node using a AzureLinuxV3 (CgroupV2) VHD can be properly bootstrapped",
+		Tags: Tags{
+			GPU: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDAzureLinuxV3Gen2,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.AgentPoolProfile.VMSize = "Standard_NC6s_v3"
+				nbc.ConfigGPUDriverIfNeeded = true
+				nbc.EnableGPUDevicePluginIfNeeded = false
+				nbc.EnableNvidia = true
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+			},
+		},
+	})
+}
+
+func Test_AzureLinuxV3_GPUAzureCNI(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "AzureLinux V3 (CgroupV2) gpu scenario on cluster configured with Azure CNI",
+		Tags: Tags{
+			GPU: true,
+		},
+		Config: Config{
+			Cluster: ClusterAzureNetwork,
+			VHD:     config.VHDAzureLinuxV3Gen2,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
+				nbc.AgentPoolProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
+				nbc.AgentPoolProfile.VMSize = "Standard_NC6s_v3"
+				nbc.ConfigGPUDriverIfNeeded = true
+				nbc.EnableGPUDevicePluginIfNeeded = false
+				nbc.EnableNvidia = true
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+			},
+		},
+	})
+}
+
+func Test_AzureLinuxV3_GPUAzureCNI_Scriptless(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "AzureLinux V3 (CgroupV2) gpu scenario on cluster configured with Azure CNI",
+		Tags: Tags{
+			GPU: true,
+		},
+		Config: Config{
+			Cluster: ClusterAzureNetwork,
+			VHD:     config.VHDAzureLinuxV3Gen2,
+			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+				config.NetworkConfig.NetworkPlugin = aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_AZURE
+				config.VmSize = "Standard_NC6s_v3"
+				config.GpuConfig.ConfigGpuDriver = true
+				config.GpuConfig.GpuDevicePlugin = false
+				config.GpuConfig.EnableNvidia = to.Ptr(true)
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
 			},
 		},
 	})

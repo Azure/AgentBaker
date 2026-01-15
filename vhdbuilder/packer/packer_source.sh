@@ -57,6 +57,8 @@ copyPackerFiles() {
   NVIDIA_MODPROBE_SERVICE_DEST=/etc/systemd/system/nvidia-modprobe.service
   NVIDIA_DOCKER_DAEMON_SRC=/home/packer/nvidia-docker-daemon.json
   NVIDIA_DOCKER_DAEMON_DEST=/etc/systemd/system/nvidia-docker-daemon.json
+  DISK_QUEUE_SCRIPT_SRC=/home/packer/disk_queue.sh
+  DISK_QUEUE_SCRIPT_DEST=/opt/azure/containers/disk_queue.sh
   DISK_QUEUE_SERVICE_SRC=/home/packer/disk_queue.service
   DISK_QUEUE_SERVICE_DEST=/etc/systemd/system/disk_queue.service
   CGROUP_MEMORY_TELEMETRY_SERVICE_SRC=/home/packer/cgroup-memory-telemetry.service
@@ -109,6 +111,8 @@ copyPackerFiles() {
   AKS_CHECK_NETWORK_SCRIPT_DEST=/opt/azure/containers/aks-check-network.sh
   AKS_CHECK_NETWORK_SERVICE_SRC=/home/packer/aks-check-network.service
   AKS_CHECK_NETWORK_SERVICE_DEST=/etc/systemd/system/aks-check-network.service
+  AKS_NODE_CONTROLLER_WRAPPER_SRC=/home/packer/aks-node-controller-wrapper.sh
+  AKS_NODE_CONTROLLER_WRAPPER_DEST=/opt/azure/containers/aks-node-controller-wrapper.sh
   BLOCK_WIRESERVER_SRC=/home/packer/block_wireserver.sh
   BLOCK_WIRESERVER_DEST=/opt/azure/containers/kubelet.sh
   ENSURE_IMDS_RESTRICTION_SRC=/home/packer/ensure_imds_restriction.sh
@@ -262,6 +266,7 @@ copyPackerFiles() {
   AKS_NODE_CONTROLLER_SRC=/home/packer/aks-node-controller
   AKS_NODE_CONTROLLER_DEST=/opt/azure/containers/aks-node-controller
   cpAndMode $AKS_NODE_CONTROLLER_SRC $AKS_NODE_CONTROLLER_DEST 755
+  cpAndMode $AKS_NODE_CONTROLLER_WRAPPER_SRC $AKS_NODE_CONTROLLER_WRAPPER_DEST 755
 
   AKS_NODE_CONTROLLER_SERVICE_SRC=/home/packer/aks-node-controller.service
   AKS_NODE_CONTROLLER_SERVICE_DEST=/etc/systemd/system/aks-node-controller.service
@@ -342,6 +347,7 @@ copyPackerFiles() {
   cpAndMode $KMS_SERVICE_SRC $KMS_SERVICE_DEST 644
   cpAndMode $MIG_PARTITION_SRC $MIG_PARTITION_DEST 544
   cpAndMode $CONTAINERD_EXEC_START_SRC $CONTAINERD_EXEC_START_DEST 644
+  cpAndMode $DISK_QUEUE_SCRIPT_SRC $DISK_QUEUE_SCRIPT_DEST 755
   cpAndMode $DISK_QUEUE_SERVICE_SRC $DISK_QUEUE_SERVICE_DEST 644
   cpAndMode $CGROUP_MEMORY_TELEMETRY_SERVICE_SRC $CGROUP_MEMORY_TELEMETRY_SERVICE_DEST 644
   cpAndMode $CGROUP_MEMORY_TELEMETRY_SCRIPT_SRC $CGROUP_MEMORY_TELEMETRY_SCRIPT_DEST 755

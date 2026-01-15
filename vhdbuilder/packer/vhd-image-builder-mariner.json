@@ -101,6 +101,11 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/aks-node-controller-wrapper.sh",
+      "destination": "/home/packer/aks-node-controller-wrapper.sh"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/cloud-init-status-check.sh",
       "destination": "/home/packer/cloud-init-status-check.sh"
     },
@@ -413,6 +418,11 @@
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/profile-d-cis.sh",
       "destination": "/home/packer/profile-d-cis.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/disk_queue.sh",
+      "destination": "/home/packer/disk_queue.sh"
     },
     {
       "type": "file",

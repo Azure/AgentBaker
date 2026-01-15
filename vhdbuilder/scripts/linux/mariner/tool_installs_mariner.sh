@@ -93,8 +93,10 @@ listInstalledPackages() {
 
 # disable and mask all UU timers/services
 disableDNFAutomatic() {
-    # Make sure dnf-automatic is running with the notify timer rather than the auto install timer
-    systemctlEnableAndStart dnf-automatic-notifyonly.timer 30 || exit $ERR_SYSTEMCTL_START_FAIL
+    # Ensure the automatic notifyonly timer is disabled.
+    systemctl stop dnf-automatic-notifyonly.timer || exit 1
+    systemctl disable dnf-automatic-notifyonly.timer || exit 1
+    systemctl mask dnf-automatic-notifyonly.timer || exit 1
 
     # Ensure the automatic install timer is disabled.
     # systemctlDisableAndStop adds .service to the end which doesn't work on timers.

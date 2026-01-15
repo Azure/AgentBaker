@@ -579,10 +579,14 @@ ensurePodInfraContainerImage() {
 
     pod_infra_container_image=$(get_sandbox_image)
 
+    if [ -z "${pod_infra_container_image}" ]; then
+        echo "Failed to recognize pod infra container image"
+        exit $ERR_PULL_POD_INFRA_CONTAINER_IMAGE
+    fi
+
     echo "Checking if $pod_infra_container_image already exists locally..."
     if ctr -n k8s.io images list -q | grep -q "^${pod_infra_container_image}$"; then
         echo "Image $pod_infra_container_image already exists locally, skipping pull"
-        echo "Cached image details:"
         return 0
     fi
     base_name="${pod_infra_container_image%@:*}"
@@ -930,11 +934,6 @@ configGPUDrivers() {
 
     retrycmd_if_failure 120 5 25 pkill -SIGHUP containerd || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
 
-    # Remove NVIDIA repos after GPU driver installation is complete
-    # This prevents automatic updates from upgrading Nvidia repo dependencies and eliminates
-    # the need for users to allowlist NVIDIA repository URLs in their firewalls
-    removeNvidiaRepos
-
     # NPD is installed as a VM extension, which might happen before/after/during CSE, so this
     # line may fail. This will need to be updated when NPD is shipped in the VHD - we can control
     # the startup ordering in that case.
@@ -1146,11 +1145,20 @@ LOCALDNS_SLICEFILE="/etc/systemd/system/localdns.slice"
 # It creates the localdns corefile and slicefile, then enables and starts localdns.
 # In this function, generated base64 encoded localdns corefile is decoded and written to the corefile path.
 # This function also creates the localdns slice file with memory and cpu limits, that will be used by localdns systemd unit.
-shouldEnableLocalDns() {
+enableLocalDNSForScriptless() {
     mkdir -p "$(dirname "${LOCALDNS_COREFILE}")"
     touch "${LOCALDNS_COREFILE}"
     chmod 0644 "${LOCALDNS_COREFILE}"
     echo "${LOCALDNS_GENERATED_COREFILE}" | base64 -d > "${LOCALDNS_COREFILE}" || exit $ERR_LOCALDNS_FAIL
+
+    # Create environment file for corefile regeneration.
+    # This file will be referenced by localdns.service using EnvironmentFile directive.
+    LOCALDNS_ENV_FILE="/etc/localdns/environment"
+    mkdir -p "$(dirname "${LOCALDNS_ENV_FILE}")"
+    cat > "${LOCALDNS_ENV_FILE}" <<EOF
+LOCALDNS_BASE64_ENCODED_COREFILE=${LOCALDNS_GENERATED_COREFILE}
+EOF
+    chmod 0644 "${LOCALDNS_ENV_FILE}"
 
 	mkdir -p "$(dirname "${LOCALDNS_SLICEFILE}")"
     touch "${LOCALDNS_SLICEFILE}"
@@ -1176,7 +1184,6 @@ configureManagedGPUExperience() {
     if [ "${GPU_NODE}" = "true" ] && [ "${skip_nvidia_driver_install}" != "true" ] && [ "${ENABLE_MANAGED_GPU_EXPERIENCE}" = "true" ]; then
         logs_to_events "AKS.CSE.installNvidiaManagedExpPkgFromCache" "installNvidiaManagedExpPkgFromCache" || exit $ERR_NVIDIA_DCGM_INSTALL
         logs_to_events "AKS.CSE.startNvidiaManagedExpServices" "startNvidiaManagedExpServices" || exit $ERR_NVIDIA_DCGM_EXPORTER_FAIL
-
         addKubeletNodeLabel "kubernetes.azure.com/dcgm-exporter=enabled"
     elif [ "${GPU_NODE}" = "true" ] && [ "${skip_nvidia_driver_install}" != "true" ] && [ "${ENABLE_MANAGED_GPU_EXPERIENCE}" = "false" ]; then
         logs_to_events "AKS.CSE.stop.nvidia-device-plugin" "systemctlDisableAndStop nvidia-device-plugin"

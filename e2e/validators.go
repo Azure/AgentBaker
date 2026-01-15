@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/x509"
 	"encoding/base64"
+	"encoding/json"
 	"encoding/pem"
 	"fmt"
 	"net"
@@ -15,8 +16,9 @@ import (
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
 	"github.com/blang/semver"
+	"github.com/samber/lo"
 	"github.com/tidwall/gjson"
 
 	"github.com/Azure/agentbaker/e2e/config"
@@ -42,7 +44,7 @@ func ValidateTLSBootstrapping(ctx context.Context, s *Scenario) {
 func validateTLSBootstrappingLinux(ctx context.Context, s *Scenario) {
 	ValidateDirectoryContent(ctx, s, "/var/lib/kubelet", []string{"kubeconfig"})
 	ValidateDirectoryContent(ctx, s, "/var/lib/kubelet/pki", []string{"kubelet-client-current.pem"})
-	kubeletLogs := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo journalctl -u kubelet", 0, "could not retrieve kubelet logs with journalctl").stdout.String()
+	kubeletLogs := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo journalctl -u kubelet", 0, "could not retrieve kubelet logs with journalctl").stdout
 	switch {
 	case s.SecureTLSBootstrappingEnabled() && s.Tags.BootstrapTokenFallback:
 		s.T.Logf("will validate bootstrapping mode: secure TLS bootstrapping failure with bootstrap token fallback")
@@ -180,6 +182,14 @@ func ValidateSystemdWatchdogForKubernetes132Plus(ctx context.Context, s *Scenari
 	}
 }
 
+func ValidateAKSLogCollector(ctx context.Context, s *Scenario) {
+	ValidateSystemdUnitIsNotFailed(ctx, s, "aks-log-collector")
+}
+
+func ValidateDiskQueueService(ctx context.Context, s *Scenario) {
+	ValidateSystemdUnitIsRunning(ctx, s, "disk_queue.service")
+}
+
 func ValidateLeakedSecrets(ctx context.Context, s *Scenario) {
 	secrets := map[string]string{
 		"client private key":       base64.StdEncoding.EncodeToString([]byte(s.GetClientPrivateKey())),
@@ -201,13 +211,11 @@ func ValidateSSHServiceEnabled(ctx context.Context, s *Scenario) {
 
 	// Verify socket-based activation is disabled
 	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, "systemctl is-active ssh.socket", 3, "could not check ssh.socket status")
-	stdout := execResult.stdout.String()
-	require.Contains(s.T, stdout, "inactive", "ssh.socket should be inactive")
+	require.Contains(s.T, execResult.stdout, "inactive", "ssh.socket should be inactive")
 
 	// Check that systemd recognizes SSH service should be active at boot
 	execResult = execScriptOnVMForScenarioValidateExitCode(ctx, s, "systemctl is-enabled ssh.service", 0, "could not check ssh.service status")
-	stdout = execResult.stdout.String()
-	require.Contains(s.T, stdout, "enabled", "ssh.service should be enabled at boot")
+	require.Contains(s.T, execResult.stdout, "enabled", "ssh.service should be enabled at boot")
 }
 
 func ValidateDirectoryContent(ctx context.Context, s *Scenario, path string, files []string) {
@@ -225,9 +233,8 @@ func ValidateDirectoryContent(ctx context.Context, s *Scenario, path string, fil
 		}
 	}
 	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "could not get directory contents")
-	stdout := execResult.stdout.String()
 	for _, file := range files {
-		require.Contains(s.T, stdout, file, "expected to find file %s within directory %s, but did not.\nDirectory contents:\n%s", file, path, stdout)
+		require.Contains(s.T, execResult.stdout, file, "expected to find file %s within directory %s, but did not.\nDirectory contents:\n%s", file, path, execResult.stdout)
 	}
 }
 
@@ -242,9 +249,8 @@ func ValidateSysctlConfig(ctx context.Context, s *Scenario, customSysctls map[st
 		fmt.Sprintf("sudo sysctl %s | sed -E 's/([0-9])\\s+([0-9])/\\1 \\2/g'", strings.Join(keysToCheck, " ")),
 	}
 	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "systmctl command failed")
-	stdout := execResult.stdout.String()
 	for name, value := range customSysctls {
-		require.Contains(s.T, stdout, fmt.Sprintf("%s = %v", name, value), "expected to find %s set to %v, but was not.\nStdout:\n%s", name, value, stdout)
+		require.Contains(s.T, execResult.stdout, fmt.Sprintf("%s = %v", name, value), "expected to find %s set to %v, but was not.\nStdout:\n%s", name, value, execResult.stdout)
 	}
 }
 
@@ -255,8 +261,7 @@ func ValidateNvidiaSMINotInstalled(ctx context.Context, s *Scenario) {
 		"sudo nvidia-smi",
 	}
 	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 1, "")
-	stderr := execResult.stderr.String()
-	require.Contains(s.T, stderr, "nvidia-smi: command not found", "expected stderr to contain 'nvidia-smi: command not found', but got %q", stderr)
+	require.Contains(s.T, execResult.stderr, "nvidia-smi: command not found", "expected stderr to contain 'nvidia-smi: command not found', but got %q", execResult.stderr)
 }
 
 func ValidateNvidiaSMIInstalled(ctx context.Context, s *Scenario) {
@@ -344,7 +349,7 @@ func fileExist(ctx context.Context, s *Scenario, fileName string) bool {
 			fmt.Sprintf("if (Test-Path -Path '%s') { exit 0 } else { exit 1 }", fileName),
 		}
 		execResult := execScriptOnVMForScenario(ctx, s, strings.Join(steps, "\n"))
-		s.T.Logf("stdout: %s\nstderr: %s", execResult.stdout.String(), execResult.stderr.String())
+		s.T.Logf("stdout: %s\nstderr: %s", execResult.stdout, execResult.stderr)
 		return execResult.exitCode == "0"
 	} else {
 		steps := []string{
@@ -498,6 +503,54 @@ func ValidateSystemdUnitIsNotFailed(ctx context.Context, s *Scenario, serviceNam
 	)
 }
 
+func ValidateNoFailedSystemdUnits(ctx context.Context, s *Scenario) {
+	unitFailureAllowList := map[string]bool{
+		// this service depends on non-network-isolated environment - E2Es are run in an environment
+		// which simulates network-isolation by only allowing egress to recommended domains outlined
+		// on public AKS documentation via a firewall. This service depends on some other domain which is
+		// not currently allowed by the firewall. It also seems that this service is only installed on
+		// Ubuntu - do we even need it? it seems that it's coming from the base image
+		"fwupd-refresh.service": true,
+	}
+	if s.Tags.BootstrapTokenFallback {
+		// secure-tls-bootstrap.service is expected to fail within scenarios that test bootstrap token fall-back behavior
+		unitFailureAllowList["secure-tls-bootstrap.service"] = true
+	}
+	if s.VHD.IgnoreFailedCgroupTelemetryServices {
+		unitFailureAllowList["cgroup-memory-telemetry.service"] = true
+		unitFailureAllowList["cgroup-pressure-telemetry.service"] = true
+	}
+
+	type systemdUnit struct {
+		Name string `json:"unit,omitempty"`
+	}
+	var failedUnits []systemdUnit
+	result := execScriptOnVMForScenarioValidateExitCode(ctx, s, "systemctl list-units --failed --output json", 0, fmt.Sprintf("unable to list failed systemd units"))
+	assert.NoError(s.T, json.Unmarshal([]byte(result.stdout), &failedUnits), `unable to parse and unmarshal "systemctl list-units" command output`)
+	failedUnits = lo.Filter(failedUnits, func(unit systemdUnit, _ int) bool {
+		return !unitFailureAllowList[unit.Name]
+	})
+
+	if len(failedUnits) < 1 {
+		// no unexpectedly failed units
+		return
+	}
+
+	// extract failed unit logs
+	failedUnitLogs := make(map[string]string, len(failedUnits))
+	for _, unit := range failedUnits {
+		failedUnitLogs[unit.Name+".log"] = execScriptOnVMForScenario(ctx, s, fmt.Sprintf("journalctl -u %s", unit.Name)).String()
+	}
+	assert.NoError(s.T, dumpFileMapToDir(s.T, failedUnitLogs), "failed to dump failed systemd unit logs")
+
+	s.T.Fatalf(
+		"the following systemd units have unexpectedly entered a failed state: %s - failed unit logs will be included in scenario log bundle within <service-name>.service.log",
+		lo.Map(failedUnits, func(unit systemdUnit, _ int) string {
+			return unit.Name
+		}),
+	)
+}
+
 func ValidateUlimitSettings(ctx context.Context, s *Scenario, ulimits map[string]string) {
 	s.T.Helper()
 	ulimitKeys := make([]string, 0, len(ulimits))
@@ -509,36 +562,8 @@ func ValidateUlimitSettings(ctx context.Context, s *Scenario, ulimits map[string
 	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0, "could not read containerd.service file")
 
 	for name, value := range ulimits {
-		require.Contains(s.T, execResult.stdout.String(), fmt.Sprintf("%s=%v", name, value), "expected to find %s set to %v, but was not", name, value)
+		require.Contains(s.T, execResult.stdout, fmt.Sprintf("%s=%v", name, value), "expected to find %s set to %v, but was not", name, value)
 	}
-}
-
-func execOnVMForScenarioOnUnprivilegedPod(ctx context.Context, s *Scenario, cmd string) *podExecResult {
-	s.T.Helper()
-	nonHostPod, err := s.Runtime.Cluster.Kube.GetPodNetworkDebugPodForNode(ctx, s.Runtime.VM.KubeName)
-	require.NoError(s.T, err, "failed to get non host debug pod name")
-	execResult, err := execOnUnprivilegedPod(ctx, s.Runtime.Cluster.Kube, nonHostPod.Namespace, nonHostPod.Name, cmd)
-	require.NoErrorf(s.T, err, "failed to execute command on pod: %v", cmd)
-	return execResult
-}
-
-func execScriptOnVMForScenario(ctx context.Context, s *Scenario, cmd string) *podExecResult {
-	s.T.Helper()
-	result, err := execScriptOnVm(ctx, s, s.Runtime.VM.PrivateIP, s.Runtime.Cluster.DebugPod.Name, cmd)
-	require.NoError(s.T, err, "failed to execute command on VM")
-	return result
-}
-
-func execScriptOnVMForScenarioValidateExitCode(ctx context.Context, s *Scenario, cmd string, expectedExitCode int, additionalErrorMessage string) *podExecResult {
-	s.T.Helper()
-	execResult := execScriptOnVMForScenario(ctx, s, cmd)
-
-	expectedExitCodeStr := fmt.Sprint(expectedExitCode)
-	if expectedExitCodeStr != execResult.exitCode {
-		s.T.Logf("Command: %s\nStdout: %s\nStderr: %s", cmd, execResult.stdout.String(), execResult.stderr.String())
-		s.T.Fatalf("expected exit code %s, but got %s\nCommand: %s\n%s", expectedExitCodeStr, execResult.exitCode, cmd, additionalErrorMessage)
-	}
-	return execResult
 }
 
 func ValidateInstalledPackageVersion(ctx context.Context, s *Scenario, component, version string) {
@@ -555,7 +580,7 @@ func ValidateInstalledPackageVersion(ctx context.Context, s *Scenario, component
 		}
 	}()
 	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, installedCommand, 0, "could not get package list")
-	for _, line := range strings.Split(execResult.stdout.String(), "\n") {
+	for _, line := range strings.Split(execResult.stdout, "\n") {
 		if strings.Contains(line, component) && strings.Contains(line, version) {
 			s.T.Logf("found %s %s in the installed packages", component, version)
 			return
@@ -567,7 +592,7 @@ func ValidateInstalledPackageVersion(ctx context.Context, s *Scenario, component
 func ValidateKubeletNodeIP(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo cat /etc/default/kubelet", 0, "could not read kubelet config")
-	stdout := execResult.stdout.String()
+	stdout := execResult.stdout
 
 	// Search for "--node-ip" flag and its value.
 	matches := regexp.MustCompile(`--node-ip=([a-zA-Z0-9.,]*)`).FindStringSubmatch(stdout)
@@ -598,7 +623,7 @@ func ValidateMultipleKubeProxyVersionsExist(ctx context.Context, s *Scenario) {
 		return
 	}
 
-	versions := bytes.NewBufferString(strings.TrimSpace(execResult.stdout.String()))
+	versions := bytes.NewBufferString(strings.TrimSpace(execResult.stdout))
 	versionMap := make(map[string]struct{})
 	for _, version := range strings.Split(versions.String(), "\n") {
 		if version != "" {
@@ -620,7 +645,7 @@ func ValidateKubeletHasNotStopped(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 	command := "sudo journalctl -u kubelet"
 	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0, "could not retrieve kubelet logs with journalctl")
-	stdout := strings.ToLower(execResult.stdout.String())
+	stdout := strings.ToLower(execResult.stdout)
 	assert.NotContains(s.T, stdout, "stopped kubelet")
 	assert.Contains(s.T, stdout, "started kubelet")
 }
@@ -637,41 +662,7 @@ func ValidateKubeletHasFlags(ctx context.Context, s *Scenario, filePath string) 
 	s.T.Helper()
 	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo journalctl -u kubelet", 0, "could not retrieve kubelet logs with journalctl")
 	configFileFlags := fmt.Sprintf("FLAG: --config=\"%s\"", filePath)
-	require.Containsf(s.T, execResult.stdout.String(), configFileFlags, "expected to find flag %s, but not found", "config")
-}
-
-// Waits until the specified resource is available on the given node.
-// Returns an error if the resource is not available within the specified timeout period.
-func waitUntilResourceAvailable(ctx context.Context, s *Scenario, resourceName string) {
-	s.T.Helper()
-	nodeName := s.Runtime.VM.KubeName
-	ticker := time.NewTicker(time.Second)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			s.T.Fatalf("context cancelled: %v", ctx.Err())
-		case <-ticker.C:
-			node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
-			require.NoError(s.T, err, "failed to get node %q", nodeName)
-
-			if isResourceAvailable(node, resourceName) {
-				s.T.Logf("resource %q is available", resourceName)
-				return
-			}
-		}
-	}
-}
-
-// Checks if the specified resource is available on the node.
-func isResourceAvailable(node *corev1.Node, resourceName string) bool {
-	for rn, quantity := range node.Status.Allocatable {
-		if rn == corev1.ResourceName(resourceName) && quantity.Cmp(resource.MustParse("1")) >= 0 {
-			return true
-		}
-	}
-	return false
+	require.Containsf(s.T, execResult.stdout, configFileFlags, "expected to find flag %s, but not found", "config")
 }
 
 func ValidateContainerd2Properties(ctx context.Context, s *Scenario, versions []string) {
@@ -684,7 +675,7 @@ func ValidateContainerd2Properties(ctx context.Context, s *Scenario, versions []
 
 	execResult := execOnVMForScenarioOnUnprivilegedPod(ctx, s, "containerd config dump ")
 	// validate containerd config dump has no warnings
-	require.NotContains(s.T, execResult.stdout.String(), "level=warning", "do not expect warning message when converting config file %", execResult.stdout.String())
+	require.NotContains(s.T, execResult.stdout, "level=warning", "do not expect warning message when converting config file %", execResult.stdout)
 }
 
 func ValidateContainerRuntimePlugins(ctx context.Context, s *Scenario) {
@@ -942,7 +933,7 @@ func ValidateWindowsProcessHasCliArguments(ctx context.Context, s *Scenario, pro
 
 	podExecResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "could not validate command has parameters - might mean file does not have params, might mean something went wrong")
 
-	actualArgs := strings.Split(podExecResult.stdout.String(), " ")
+	actualArgs := strings.Split(podExecResult.stdout, " ")
 
 	for i := range arguments {
 		expectedArgument := arguments[i]
@@ -963,7 +954,7 @@ func validateWindowsProccessArgumentString(ctx context.Context, s *Scenario, pro
 		fmt.Sprintf("(Get-CimInstance Win32_Process -Filter \"name='%[1]s'\")[0].CommandLine", processName),
 	}
 	podExecResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "could not validate command argument string - might mean file does not have params, might mean something went wrong")
-	argString := podExecResult.stdout.String()
+	argString := podExecResult.stdout
 	for _, str := range substrings {
 		assert(s.T, argString, str)
 	}
@@ -981,7 +972,7 @@ func ValidateWindowsVersionFromWindowsSettings(ctx context.Context, s *Scenario,
 	osMajorVersion := versionSliced[0]
 
 	podExecResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "could not validate command has parameters - might mean file does not have params, might mean something went wrong")
-	podExecResultStdout := strings.TrimSpace(podExecResult.stdout.String())
+	podExecResultStdout := strings.TrimSpace(podExecResult.stdout)
 
 	s.T.Logf("Found windows version in windows_settings: \"%s\": \"%s\" (\"%s\")", windowsVersion, osMajorVersion, osVersion)
 	s.T.Logf("Windows version returned from VM \"%s\"", podExecResultStdout)
@@ -996,7 +987,7 @@ func ValidateWindowsProductName(ctx context.Context, s *Scenario, productName st
 	}
 
 	podExecResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "could not validate command has parameters - might mean file does not have params, might mean something went wrong")
-	podExecResultStdout := strings.TrimSpace(podExecResult.stdout.String())
+	podExecResultStdout := strings.TrimSpace(podExecResult.stdout)
 
 	require.Contains(s.T, podExecResultStdout, productName)
 }
@@ -1008,7 +999,7 @@ func ValidateWindowsDisplayVersion(ctx context.Context, s *Scenario, displayVers
 	}
 
 	podExecResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "could not validate command has parameters - might mean file does not have params, might mean something went wrong")
-	podExecResultStdout := strings.TrimSpace(podExecResult.stdout.String())
+	podExecResultStdout := strings.TrimSpace(podExecResult.stdout)
 
 	s.T.Logf("Windows display version returned from VM \"%s\". Expected display version \"%s\"", podExecResultStdout, displayVersion)
 
@@ -1070,20 +1061,6 @@ func ValidateDllIsNotLoadedWindows(ctx context.Context, s *Scenario, dllName str
 	}
 }
 
-func dllLoadedWindows(ctx context.Context, s *Scenario, dllName string) bool {
-	s.T.Helper()
-
-	steps := []string{
-		"$ErrorActionPreference = \"Continue\"",
-		fmt.Sprintf("tasklist /m %s", dllName),
-	}
-	execResult := execScriptOnVMForScenario(ctx, s, strings.Join(steps, "\n"))
-	dllLoaded := strings.Contains(execResult.stdout.String(), dllName)
-
-	s.T.Logf("stdout: %s\nstderr: %s", execResult.stdout.String(), execResult.stderr.String())
-	return dllLoaded
-}
-
 func ValidateJsonFileHasField(ctx context.Context, s *Scenario, fileName string, jsonPath string, expectedValue string) {
 	s.T.Helper()
 	require.Equal(s.T, GetFieldFromJsonObjectOnNode(ctx, s, fileName, jsonPath), expectedValue)
@@ -1102,7 +1079,7 @@ func GetFieldFromJsonObjectOnNode(ctx context.Context, s *Scenario, fileName str
 
 	podExecResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "could not validate command has parameters - might mean file does not have params, might mean something went wrong")
 
-	return podExecResult.stdout.String()
+	return podExecResult.stdout
 }
 
 // ValidateTaints checks if the node has the expected taints that are set in the kubelet config with --register-with-taints flag
@@ -1110,14 +1087,14 @@ func ValidateTaints(ctx context.Context, s *Scenario, expectedTaints string) {
 	s.T.Helper()
 	node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
 	require.NoError(s.T, err, "failed to get node %q", s.Runtime.VM.KubeName)
-	actualTaints := ""
-	for i, taint := range node.Spec.Taints {
-		actualTaints += fmt.Sprintf("%s=%s:%s", taint.Key, taint.Value, taint.Effect)
-		// add a comma if it's not the last element
-		if i < len(node.Spec.Taints)-1 {
-			actualTaints += ","
+	var taints []string
+	for _, taint := range node.Spec.Taints {
+		if strings.Contains(taint.Key, "node.kubernetes.io") {
+			continue
 		}
+		taints = append(taints, fmt.Sprintf("%s=%s:%s", taint.Key, taint.Value, taint.Effect))
 	}
+	actualTaints := strings.Join(taints, ",")
 	require.Equal(s.T, expectedTaints, actualTaints, "expected node %q to have taint %q, but got %q", s.Runtime.VM.KubeName, expectedTaints, actualTaints)
 }
 
@@ -1166,8 +1143,8 @@ func ValidateLocalDNSResolution(ctx context.Context, s *Scenario, server string)
 	testdomain := "bing.com"
 	command := fmt.Sprintf("dig %s +timeout=1 +tries=1", testdomain)
 	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0, "dns resolution failed")
-	assert.Contains(s.T, execResult.stdout.String(), "status: NOERROR")
-	assert.Contains(s.T, execResult.stdout.String(), fmt.Sprintf("SERVER: %s", server))
+	assert.Contains(s.T, execResult.stdout, "status: NOERROR")
+	assert.Contains(s.T, execResult.stdout, fmt.Sprintf("SERVER: %s", server))
 }
 
 // ValidateJournalctlOutput checks if specific content exists in the systemd service logs
@@ -1456,7 +1433,7 @@ func ValidateMIGModeEnabled(ctx context.Context, s *Scenario) {
 	}
 	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "MIG mode is not enabled")
 
-	stdout := strings.TrimSpace(execResult.stdout.String())
+	stdout := strings.TrimSpace(execResult.stdout)
 	s.T.Logf("MIG mode status: %s", stdout)
 	require.Contains(s.T, stdout, "Enabled", "expected MIG mode to be enabled, but got: %s", stdout)
 	s.T.Logf("MIG mode is enabled")
@@ -1475,7 +1452,7 @@ func ValidateMIGInstancesCreated(ctx context.Context, s *Scenario, migProfile st
 	}
 	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "MIG instances with profile "+migProfile+" were not found")
 
-	stdout := execResult.stdout.String()
+	stdout := execResult.stdout
 	require.Contains(s.T, stdout, migProfile, "expected to find MIG profile %s in output, but did not.\nOutput:\n%s", migProfile, stdout)
 	require.NotContains(s.T, stdout, "No MIG-enabled devices found", "no MIG devices were created.\nOutput:\n%s", stdout)
 	s.T.Logf("MIG instances with profile %s are created", migProfile)
@@ -1494,7 +1471,7 @@ func ValidateIPTablesCompatibleWithCiliumEBPF(ctx context.Context, s *Scenario) 
 		command := fmt.Sprintf("sudo iptables -t %s -S", table)
 		execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0, fmt.Sprintf("failed to get iptables rules for table %s", table))
 
-		stdout := execResult.stdout.String()
+		stdout := execResult.stdout
 		rules := strings.Split(strings.TrimSpace(stdout), "\n")
 
 		// Get patterns for this table
@@ -1550,54 +1527,6 @@ func ValidateIPTablesCompatibleWithCiliumEBPF(ctx context.Context, s *Scenario) 
 	)
 }
 
-// getIPTablesRulesCompatibleWithEBPFHostRouting returns the expected iptables patterns that are accounted for when EBPF host routing is enabled.
-// If tests are failing due to unexpected iptables rules, it is because an iptables rule has been found, that was not accounted for in the implementation
-// of the eBPF host routing feature in Cilium CNI. In eBPF host routing mode, iptables rules in the host network namespace are bypassed for pod
-// traffic. So, any functionality that is built using iptables needs an equivalent non-iptables implementation that works in Cilium's eBPF host routing
-// mode. For guidance on how this may be done, please contact acndp@microsoft.com (Azure Container Networking Dataplane team). Once the feature
-// is supported in eBPF host routing mode, or is blocked from being enabled alongside eBPF host routing mode, you can update this list.
-func getIPTablesRulesCompatibleWithEBPFHostRouting() (map[string][]string, []string) {
-	tablePatterns := map[string][]string{
-		"filter": {
-			`-A FORWARD -d 168.63.129.16/32 -p tcp -m tcp --dport 32526 -j DROP`,
-			`-A FORWARD -d 168.63.129.16/32 -p tcp -m tcp --dport 80 -j DROP`,
-		},
-		"mangle": {
-			`-A FORWARD -d 168\.63\.129\.16/32 -p tcp -m tcp --dport 80 -j DROP`,
-			`-A FORWARD -d 168\.63\.129\.16/32 -p tcp -m tcp --dport 32526 -j DROP`,
-		},
-		"nat": {
-			`-A POSTROUTING -j SWIFT`,
-			`-A SWIFT -s`,
-			`-A POSTROUTING -j SWIFT-POSTROUTING`,
-			`-A SWIFT-POSTROUTING -s`,
-		},
-		"raw": {
-			`^-A (PREROUTING|OUTPUT) -d 169\.254\.10\.(10|11)\/32 -p (tcp|udp) -m comment --comment "localdns: skip conntrack" -m (tcp|udp) --dport 53 -j NOTRACK$`,
-		},
-		"security": {
-			`-A OUTPUT -d 168\.63\.129\.16/32 -p tcp -m tcp --dport 53 -j ACCEPT`,
-			`-A OUTPUT -d 168\.63\.129\.16/32 -p tcp -m owner --uid-owner 0 -j ACCEPT`,
-			`-A OUTPUT -d 168\.63\.129\.16/32 -p tcp -m conntrack --ctstate INVALID,NEW -j DROP`,
-		},
-	}
-
-	globalPatterns := []string{
-		`^-N .*`,
-		`^-P .*`,
-		`^-A (KUBE-SERVICES|KUBE-EXTERNAL-SERVICES|KUBE-NODEPORTS|KUBE-POSTROUTING|KUBE-MARK-MASQ|KUBE-FORWARD|KUBE-PROXY-FIREWALL|KUBE-PROXY-CANARY|KUBE-FIREWALL|KUBE-MARK-DROP) .*`,
-		`^-A (KUBE-SEP|KUBE-SVC)`,
-		`^-A .* -j (KUBE-SEP|KUBE-SVC|KUBE-SERVICES|KUBE-EXTERNAL-SERVICES|KUBE-NODEPORTS|KUBE-POSTROUTING|KUBE-MARK-MASQ|KUBE-FORWARD|KUBE-PROXY-FIREWALL|KUBE-PROXY-CANARY|KUBE-FIREWALL|KUBE-MARK-DROP)`,
-		`^-A IP-MASQ-AGENT`,
-		`^-A .* -j IP-MASQ-AGENT`,
-		`^.*--comment.*cilium:`,
-		`^.*--comment.*cilium-feeder:`,
-		`-A FORWARD ! -s (?:\d{1,3}\.){3}\d{1,3}/32 -d 169.254.169.254/32 -p tcp -m tcp --dport 80 -m comment --comment "AKS managed: added by AgentBaker ensureIMDSRestriction for IMDS restriction feature" -j DROP`,
-	}
-
-	return tablePatterns, globalPatterns
-}
-
 // ValidateAppArmorBasic validates that AppArmor is running without requiring aa-status
 func ValidateAppArmorBasic(ctx context.Context, s *Scenario) {
 	s.T.Helper()
@@ -1608,7 +1537,7 @@ func ValidateAppArmorBasic(ctx context.Context, s *Scenario) {
 		"cat /sys/module/apparmor/parameters/enabled",
 	}
 	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to check AppArmor kernel parameter")
-	stdout := strings.TrimSpace(execResult.stdout.String())
+	stdout := strings.TrimSpace(execResult.stdout)
 	require.Equal(s.T, "Y", stdout, "expected AppArmor to be enabled in kernel")
 
 	// Check if apparmor.service is active
@@ -1617,7 +1546,7 @@ func ValidateAppArmorBasic(ctx context.Context, s *Scenario) {
 		"systemctl is-active apparmor.service",
 	}
 	execResult = execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "apparmor.service is not active")
-	stdout = strings.TrimSpace(execResult.stdout.String())
+	stdout = strings.TrimSpace(execResult.stdout)
 	require.Equal(s.T, "active", stdout, "expected apparmor.service to be active")
 
 	// Check if AppArmor is enforcing by checking current process profile

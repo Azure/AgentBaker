@@ -31,4 +31,52 @@ Describe 'cse_install_mariner.sh'
             The output line 1 should include "Installing azurelinux-repos-cloud-native"
         End
     End
+
+    Describe 'installRPMPackageFromFile'
+        rpm_cache_root="$PWD/spec/tmp/rpm-cache"
+
+        setup_rpm_cache() {
+            RPM_PACKAGE_CACHE_BASE_DIR="$rpm_cache_root"
+            mkdir -p "$RPM_PACKAGE_CACHE_BASE_DIR/kubelet/downloads"
+        }
+
+        cleanup_rpm_cache() {
+            rm -rf "$rpm_cache_root"
+        }
+
+        mv() {
+            echo "mv $@"
+        }
+
+        BeforeEach 'setup_rpm_cache'
+        AfterEach 'cleanup_rpm_cache'
+
+        It 'installs cached dependency RPMs when they are present'
+            desiredVersion="1.34.0-5.azl3"
+            rpmDir="$RPM_PACKAGE_CACHE_BASE_DIR/kubelet/downloads"
+            kubeletRpm="$rpmDir/kubelet-${desiredVersion}.x86_64.rpm"
+            dependencyRpm="$rpmDir/containernetworking-plugins-1.7.1-4.azl3.x86_64.rpm"
+            conflictRpm="$rpmDir/kubelet-1.34.1-4.azl3.x86_64.rpm"
+            touch "$kubeletRpm"
+            touch "$dependencyRpm"
+            touch "$conflictRpm"
+            When call installRPMPackageFromFile kubelet "$desiredVersion"
+            The output should include "Skipping cached kubelet rpm $(basename "$conflictRpm") because it does not match desired version $desiredVersion"
+            The output should include "Installing kubelet with cached dependency RPMs"
+            The output should include "$dependencyRpm"
+            The output should include "$kubeletRpm"
+            The output should include "dnf install 30 1 600"
+            The output should include "mv /usr/bin/kubelet /usr/local/bin/kubelet"
+        End
+
+        It 'installs only the requested RPM when no cached dependencies exist'
+            desiredVersion="1.34.0-5.azl3"
+            rpmDir="$RPM_PACKAGE_CACHE_BASE_DIR/kubelet/downloads"
+            kubeletRpm="$rpmDir/kubelet-${desiredVersion}.x86_64.rpm"
+            touch "$kubeletRpm"
+            When call installRPMPackageFromFile kubelet "$desiredVersion"
+            The output should include "dnf install 30 1 600 $kubeletRpm"
+            The output should include "mv /usr/bin/kubelet /usr/local/bin/kubelet"
+        End
+    End
 End

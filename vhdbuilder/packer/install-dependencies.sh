@@ -216,8 +216,11 @@ if isMarinerOrAzureLinux "$OS" && ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; the
     disableDNFAutomatic
     enableCheckRestart
     activateNfConntrack
+elif [ "${OS}" = "${UBUNTU_OS_NAME}" ]; then
+  updateAptWithMicrosoftPkg
+  updateAptWithNvidiaPkg
 fi
-capture_benchmark "${SCRIPT_NAME}_handle_azurelinux_configs"
+capture_benchmark "${SCRIPT_NAME}_handle_os_specific_configurations"
 
 # doing this at vhd allows CSE to be faster with just mv
 unpackTgzToCNIDownloadsDIR() {
@@ -261,13 +264,6 @@ downloadAndInstallCriTools() {
 }
 
 echo "VHD will be built with containerd as the container runtime"
-if [ "${OS}" = "${UBUNTU_OS_NAME}" ]; then
-  updateAptWithMicrosoftPkg
-  capture_benchmark "${SCRIPT_NAME}_update_apt_with_msft_pkg"
-  updateAptWithNvidiaPkg
-  capture_benchmark "${SCRIPT_NAME}_update_apt_with_nvidia_pkg"
-fi
-
 # check if COMPONENTS_FILEPATH exists
 if [ ! -f "$COMPONENTS_FILEPATH" ]; then
   echo "Components file not found at $COMPONENTS_FILEPATH. Exiting..."
@@ -444,19 +440,11 @@ while IFS= read -r p; do
         echo "  - datacenter-gpu-manager-4-proprietary version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
-    "datacenter-gpu-manager-exporter")
-      for version in ${PACKAGE_VERSIONS[@]}; do
-        if [ "${OS}" = "${UBUNTU_OS_NAME}" ]; then
-          downloadPkgFromVersion "datacenter-gpu-manager-exporter" "${version}" "${downloadDir}"
-        fi
-        echo "  - datacenter-gpu-manager-exporter version ${version}" >> ${VHD_LOGS_FILEPATH}
-      done
-      ;;
     "dcgm-exporter")
       for version in ${PACKAGE_VERSIONS[@]}; do
         if isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
           echo "Skipping $name install on OS Guard"
-        elif isMarinerOrAzureLinux "$OS"; then
+        elif [ "${OS}" = "${UBUNTU_OS_NAME}" ] || isMarinerOrAzureLinux "$OS"; then
           downloadPkgFromVersion "dcgm-exporter" "${version}" "${downloadDir}"
         fi
         echo "  - dcgm-exporter version ${version}" >> ${VHD_LOGS_FILEPATH}
@@ -514,7 +502,6 @@ capture_benchmark "${SCRIPT_NAME}_install_artifact_streaming"
 # k8s will use images in the k8s.io namespaces - create it
 ctr namespace create k8s.io
 cliTool="ctr"
-
 
 INSTALLED_RUNC_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
 echo "  - runc version ${INSTALLED_RUNC_VERSION}" >> ${VHD_LOGS_FILEPATH}
@@ -1011,5 +998,12 @@ collect_grid_compatibility_data() {
 }
 
 collect_grid_compatibility_data
+
+# nvidia repos are non msft public endpoints and should not be present on VHDs.
+# The installation logic during provisioning time will use the cached rpm/deb files
+# to install extra packages required for the managed gpu experience.
+removeNvidiaRepos
+capture_benchmark "${SCRIPT_NAME}_remove_nvidia_repos"
+
 capture_benchmark "${SCRIPT_NAME}_overall" true
 process_benchmarks

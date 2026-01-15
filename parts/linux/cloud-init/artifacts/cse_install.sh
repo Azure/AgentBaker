@@ -535,7 +535,12 @@ installToolFromBootstrapProfileRegistry() {
     # Try to pull distro-specific packages (e.g., .deb for Ubuntu) from registry
     local download_root="/tmp/kubernetes/downloads" # /opt folder will return permission error
 
-    tool_package_url="${registry_server}/aks/packages/kubernetes/${tool_name}:v${version}"
+    version_tag="${version}"
+    if [ "${version}" != "v*" ]; then
+        version_tag="v${version_tag}"
+    fi
+    version_tag="${version_tag/\~/-}"
+    tool_package_url="${registry_server}/aks/packages/kubernetes/${tool_name}:${version_tag}"
     tool_download_dir="${download_root}/${tool_name}"
     mkdir -p "${tool_download_dir}"
 
