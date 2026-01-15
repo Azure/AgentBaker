@@ -3,8 +3,8 @@
 copyPackerFiles() {
   SYSCTL_CONFIG_SRC=/home/packer/sysctl-d-60-CIS.conf
   SYSCTL_CONFIG_DEST=/etc/sysctl.d/60-CIS.conf
-  UDEV_RX_BUFFER_SRC=/home/packer/99-rx-buffer-default.rules
-  UDEV_RX_BUFFER_DEST=/etc/udev/rules.d/99-rx-buffer-default.rules
+  UDEV_AZURE_NETWORK_SRC=/home/packer/99-azure-network.rules
+  UDEV_AZURE_NETWORK_DEST=/etc/udev/rules.d/99-azure-network.rules
   RSYSLOG_CONFIG_SRC=/home/packer/rsyslog-d-60-CIS.conf
   RSYSLOG_CONFIG_DEST=/etc/rsyslog.d/60-CIS.conf
   LOGROTATE_CIS_CONFIG_SRC=/home/packer/logrotate-d-rsyslog-CIS.conf
@@ -335,7 +335,7 @@ copyPackerFiles() {
   cpAndMode $VALIDATE_KUBELET_CREDENTIALS_SCRIPT_SRC $VALIDATE_KUBELET_CREDENTIALS_SCRIPT_DEST 755
   cpAndMode $RECONCILE_PRIVATE_HOSTS_SRC $RECONCILE_PRIVATE_HOSTS_DEST 744
   cpAndMode $SYSCTL_CONFIG_SRC $SYSCTL_CONFIG_DEST 644
-  cpAndMode $UDEV_RX_BUFFER_SRC $UDEV_RX_BUFFER_DEST 644
+  cpAndMode $UDEV_AZURE_NETWORK_SRC $UDEV_AZURE_NETWORK_DEST 644
   cpAndMode $RSYSLOG_CONFIG_SRC $RSYSLOG_CONFIG_DEST 644
   cpAndMode $LOGROTATE_CIS_CONFIG_SRC $LOGROTATE_CIS_CONFIG_DEST 644
   cpAndMode $ETC_ISSUE_CONFIG_SRC $ETC_ISSUE_CONFIG_DEST 644
