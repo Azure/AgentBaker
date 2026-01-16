@@ -26,7 +26,7 @@ variable "feature_flags" {
 
 variable "common_file_upload_for_paker_vm" {
   type    = string
-  default = "vhdbuilder/packer/buildconfig/initial_file_upload_for_packer_vm.json"
+  default = "/home/zbailey/go/src/go.goms.io/aks/agentBaker/vhdbuilder/packer/buildconfig/dynamic-provisioners/common_file_upload_for_packer_vm.json"
 }
 
 
