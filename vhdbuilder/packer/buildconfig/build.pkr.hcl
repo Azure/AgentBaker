@@ -2,11 +2,7 @@ build {
   sources = ["source.azure-arm.nodelifecycle-image-builder"]
 
   provisioner "shell" {
-    inline = [
-      "sudo mkdir -p /opt/azure/containers",
-      "sudo mkdir -p /opt/scripts",
-      "sudo mkdir -p /opt/certs"
-    ]
+    inline = ["sudo mkdir -p /opt/azure/containers", "sudo mkdir -p /opt/scripts","sudo mkdir -p /opt/certs"]
   }
 
   // These files are common to all VHDs, and will be uploaded to the Packer VM regardless of distro
