@@ -1,21 +1,25 @@
 locals {
+  // Managed Image settings - empty for ARM64 builds
   managed_image_resource_group_name  = "${var.architecture}" == "ARM64" ? "" : "${var.resource_group_name}"
   managed_image_name                 = "${var.architecture}" == "ARM64" ? "" : "${var.sig_image_name}-${var.captured_sig_version}"
 
+  // Confidential VM settings, if enabled via feature flags
   secure_boot_enabled = can(regex("cvm", var.feature_flags)) ? true : false
   vtpm_enabled = can(regex("cvm", var.feature_flags)) ? true : false
   security_type = can(regex("cvm", var.feature_flags)) ? "ConfidentialVM" : ""
   security_encryption_type = can(regex("cvm", var.feature_flags)) ? "VMGuestStateOnly" : ""
 
+  // File uploads for build process
   custom_data_file = lower(var.os_version) == "flatcar" ? "./vhdbuilder/packer/flatcar-customdata.json" : ""
+  aks_node_controller = "${var.architecture}" == "X86_64" ? "aks-node-controller/bin/aks-node-controller-linux-amd64" : "aks-node-controller/bin/aks-node-controller-linux-arm64"
   common_file_upload = jsondecode(file(var.common_file_upload)).files
   ubuntu_file_upload = jsondecode(file(var.common_file_upload)).files
   azlinux_file_upload = jsondecode(file(var.common_file_upload)).files
   flatcar_file_upload = jsondecode(file(var.common_file_upload)).files
-  post_build_file_downloads = jsondecode(file(var.post_build_file_downloads)).files
 
-
-  aks_node_controller = "${var.architecture}" == "X86_64" ? "aks-node-controller/bin/aks-node-controller-linux-amd64" : "aks-node-controller/bin/aks-node-controller-linux-arm64"
+  // File downloads for artifact creation
+  midway_file_downloads = jsondecode(file(var.file_downloads)).midway
+  post_build_file_downloads = jsondecode(file(var.file_downloads)).post-build
 }
 
 // Variables for resolving locals
@@ -29,6 +33,10 @@ variable "feature_flags" {
   type    = string
   default = "${env("FEATURE_FLAGS")}"
 }
+
+
+
+// Provisioner files
 
 variable "common_file_upload" {
   type    = string
