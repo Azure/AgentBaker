@@ -1,3 +1,4 @@
+// This source block is used for all Linux VHD builds with Packer
 source "azure-arm" "nodelifecycle-image-builder" {
   image_offer                         = "${var.img_offer}"
   image_publisher                     = "${var.img_publisher}"

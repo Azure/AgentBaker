@@ -30,7 +30,7 @@ build {
     }
   }
 
-  // Azure Linux-specific file uploads
+  // AzureLinux-specific file uploads
   dynamic "provisioner" {
     for_each = "${local.azlinux_file_upload}"
     content {
@@ -58,6 +58,9 @@ build {
     source      = "/home/packer/aks-node-controller"
   }
 
+
+  // Build Process begins
+  // pre-install-dependencies.sh, install-dependencies.sh, post-install-dependencies.sh, and list-images.sh are run in order, typically with reboots and file downloads in between
   provisioner "shell" {
     inline = ["/bin/bash -ux /home/packer/pre-install-dependencies.sh"]
     environment_vars = [
@@ -103,19 +106,14 @@ build {
     inline = ["sudo /bin/bash /home/packer/generate-disk-usage.sh"]
   }
 
-  // Midway file downloads
   dynamic "provisioner" {
-    for_each = "${local.azlinux_file_upload}"
+    for_each = "${local.midway_file_downloads}"
     content {
       type        = "file"
       direction   = "download"
       source      = provisioner.value.source
       destination = provisioner.value.destination
     }
-  }
-
-  provisioner "shell" {
-    inline = ["sudo rm /var/log/bcc_installation.log"]
   }
 
   provisioner "shell" {
@@ -160,7 +158,7 @@ build {
   }
 
   provisioner "shell" {
-    inline = ["sudo rm /opt/azure/vhd-build-performance-data.json", "sudo rm /opt/azure/vhd-grid-compatibility-data.json"]
+    inline = ["sudo rm /opt/azure/vhd-build-performance-data.json", "sudo rm /opt/azure/vhd-grid-compatibility-data.json", "sudo rm /var/log/bcc_installation.log"]
   }
 
   provisioner "shell" {
