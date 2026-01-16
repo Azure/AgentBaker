@@ -1,7 +1,4 @@
 locals {
-  gallery_subscription_id = "${var.gallery_subscription_id}"
-  vhd_build_timestamp     = "${var.VHD_BUILD_TIMESTAMP}"
-
   managed_image_resource_group_name  = "${var.architecture}" == "ARM64" ? "" : "${var.resource_group_name}"
   managed_image_name                 = "${var.architecture}" == "ARM64" ? "" : "${var.sig_image_name}-${var.captured_sig_version}"
 
