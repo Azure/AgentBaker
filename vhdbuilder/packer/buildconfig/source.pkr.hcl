@@ -10,13 +10,18 @@ source "azure-arm" "nodelifecycle-image-builder" {
   location                            = "${var.location}"
   vm_size                             = "${var.vm_size}"
 
-  managed_image_resource_group_name  = "${var.resource_group_name}"
-  managed_image_name                 = "${var.sig_image_name}-${var.captured_sig_version}"
+  managed_image_resource_group_name  = "${local.managed_image_resource_group_name}"
+  managed_image_name                 = "${local.managed_image_name}"
   managed_image_storage_account_type = "Premium_LRS"
 
   virtual_network_resource_group_name = "${var.vnet_resource_group_name}"
   virtual_network_name                = "${var.vnet_name}"
   virtual_network_subnet_name         = "${var.subnet_name}"
+
+  secure_boot_enabled = "${local.secure_boot_enabled}"
+  vtpm_enabled = "${local.vtpm_enabled}"
+  security_type = "${local.security_type}"
+  security_encryption_type = "${local.security_encryption_type}"
 
   os_disk_size_gb                    = 30
   os_type                            = "Linux"
