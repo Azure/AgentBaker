@@ -15,6 +15,7 @@ $bomList = @()
 
 # starting containerd for printing containerD info, the same way as we pre-pull containerD images in configure-windows-vhd.ps1
 Start-Job -Name containerd -ScriptBlock { containerd.exe }
+ctr.exe -n k8s.io image ls
 $imageList=$(ctr.exe -n k8s.io image ls | select -Skip 1)
 foreach($image in $imageList) {
     $splitResult=($image -split '\s+')
