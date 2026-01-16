@@ -42,7 +42,7 @@ variable "feature_flags" {
 
 variable "common_file_upload" {
   type    = string
-  default = "vhdbuilder/packer/buildconfig/dynamic-provisioners/common_file_upload_for_packer_vm.json"
+  default = "vhdbuilder/packer/buildconfig/dynamic-provisioners/common_file_upload.json"
 }
 
 variable "ubuntu_file_upload" {
