@@ -5,10 +5,10 @@ locals {
   managed_image_resource_group_name  = "${var.architecture}" == "ARM64" ? "" : "${var.resource_group_name}"
   managed_image_name                 = "${var.architecture}" == "ARM64" ? "" : "${var.sig_image_name}-${var.captured_sig_version}"
 
-  secure_boot_enabled = true
-  vtpm_enabled = true
-  security_type = ConfidentialVM
-  security_encryption_type = VMGuestStateOnly
+  secure_boot_enabled = can(regex("cvm", var.feature_flags)) ? true : false
+  vtpm_enabled = can(regex("cvm", var.feature_flags)) ? true : false
+  security_type = can(regex("cvm", var.feature_flags)) ? "ConfidentialVM" : ""
+  security_encryption_type = can(regex("cvm", var.feature_flags)) ? "VMGuestStateOnly" : ""
 }
 
 variable "architecture" {
