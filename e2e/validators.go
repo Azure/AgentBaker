@@ -1578,3 +1578,63 @@ func ValidateNodeHasLabel(ctx context.Context, s *Scenario, labelKey, expectedVa
 	require.True(s.T, exists, "expected node %q to have label %q, but it was not found", s.Runtime.VM.KubeName, labelKey)
 	require.Equal(s.T, expectedValue, actualValue, "expected node %q label %q to have value %q, but got %q", s.Runtime.VM.KubeName, labelKey, expectedValue, actualValue)
 }
+
+func ValidateAzureNetworkUdevRule(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	// Step 1: Get NICs with ID_NET_NAME_SLOT starting with enP.
+	command := []string{
+		"set -ex",
+		"for dev in /sys/class/net/*; do",
+		"  iface=$(basename $dev)",
+		"  slot=$(udevadm info --path=$dev --query=property | grep '^ID_NET_NAME_SLOT=' | cut -d'=' -f2 || true)",
+		"  case $slot in",
+		"    enP*)",
+		"      echo \"$iface\"",
+		"      ;;",
+		"  esac",
+		"done",
+	}
+	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to get network interfaces")
+	interfaceList := strings.TrimSpace(execResult.stdout)
+
+	if interfaceList == "" {
+		s.T.Logf("No interfaces with ID_NET_NAME_SLOT=enP* found")
+		return
+	}
+
+	interfaces := strings.Split(interfaceList, "\n")
+	s.T.Logf("Found %d interface(s) with ID_NET_NAME_SLOT=enP*: %v", len(interfaces), interfaces)
+
+	// Step 2 & 3: Check RX buffer and validate based on cores.
+	command = []string{
+		"set -ex",
+		"nproc",
+	}
+	execResult = execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to get CPU count")
+	cpuCount := strings.TrimSpace(execResult.stdout)
+	cores := 0
+	fmt.Sscanf(cpuCount, "%d", &cores)
+	s.T.Logf("CPU cores: %d", cores)
+
+	for _, iface := range interfaces {
+		iface = strings.TrimSpace(iface)
+		if iface == "" {
+			continue
+		}
+
+		command = []string{
+			"set -ex",
+			fmt.Sprintf("sudo ethtool -g %s | grep -A4 'Current hardware settings:' | grep 'RX:' | awk '{print $2}'", iface),
+		}
+		execResult = execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, fmt.Sprintf("failed to get RX ring buffer for %s", iface))
+		rxSize := strings.TrimSpace(execResult.stdout)
+
+		if cores >= 4 {
+			require.Equal(s.T, "2048", rxSize, "interface %s should have RX ring buffer of 2048 (cores=%d >= 4), got %s", iface, cores, rxSize)
+			s.T.Logf("Interface %s has RX ring buffer correctly set to 2048 (cores=%d >= 4)", iface, cores)
+		} else {
+			s.T.Logf("Interface %s has RX ring buffer %s (cores=%d < 4, rule does not apply)", iface, rxSize, cores)
+		}
+	}
+}
