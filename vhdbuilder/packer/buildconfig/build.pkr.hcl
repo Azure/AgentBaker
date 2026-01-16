@@ -2,7 +2,25 @@ build {
   sources = ["source.azure-arm.nodelifecycle-image-builder"]
 
   provisioner "shell" {
-    inline = ["sudo mkdir -p /opt/azure/containers", "sudo mkdir -p /opt/scripts", "sudo mkdir -p /opt/certs"]
+    inline = [
+      "sudo mkdir -p /opt/azure/containers",
+      "sudo mkdir -p /opt/scripts",
+      "sudo mkdir -p /opt/certs"
+    ]
+  }
+
+  dynamic "provisioner" {
+    for_each = "${local.common_file_upload_for_packer_vm}"
+    content {
+      type        = "file"
+      source      = provisioner.value.source
+      destination = provisioner.value.destination
+    }
+  }
+
+  provisioner "file" {
+    destination = "${var.aks_node_controller}"
+    source      = "vhdbuilder/lister/bin/lister"
   }
 
   provisioner "file" {
