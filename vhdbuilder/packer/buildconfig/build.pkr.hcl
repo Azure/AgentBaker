@@ -9,6 +9,7 @@ build {
     ]
   }
 
+  // These files are common to all VHDs, and will be uploaded to the Packer VM regardless of distro
   dynamic "provisioner" {
     for_each = "${local.common_file_upload}"
     content {
@@ -18,6 +19,7 @@ build {
     }
   }
 
+  // Ubuntu-specific file uploads
   dynamic "provisioner" {
     for_each = "${local.ubuntu_file_upload}"
     content {
@@ -28,6 +30,7 @@ build {
     }
   }
 
+  // Azure Linux-specific file uploads
   dynamic "provisioner" {
     for_each = "${local.azlinux_file_upload}"
     content {
@@ -38,6 +41,7 @@ build {
     }
   }
 
+  // Flatcar-specific file uploads
   dynamic "provisioner" {
     for_each = "${local.flatcar_file_upload}"
     content {
@@ -48,6 +52,7 @@ build {
     }
   }
 
+  // Architecture-specific aks-node-controller upload
   provisioner "file" {
     destination = "${var.aks_node_controller}"
     source      = "/home/packer/aks-node-controller"
@@ -94,24 +99,23 @@ build {
     ]
   }
 
-  provisioner "file" {
-    destination = "bcc-tools-installation.log"
-    direction   = "download"
-    source      = "/var/log/bcc_installation.log"
-  }
-
-  provisioner "shell" {
-    inline = ["sudo rm /var/log/bcc_installation.log"]
-  }
-
   provisioner "shell" {
     inline = ["sudo /bin/bash /home/packer/generate-disk-usage.sh"]
   }
 
-  provisioner "file" {
-    destination = "disk-usage.txt"
-    direction   = "download"
-    source      = "/opt/azure/disk-usage.txt"
+  // Midway file downloads
+  dynamic "provisioner" {
+    for_each = "${local.azlinux_file_upload}"
+    content {
+      type        = "file"
+      direction   = "download"
+      source      = provisioner.value.source
+      destination = provisioner.value.destination
+    }
+  }
+
+  provisioner "shell" {
+    inline = ["sudo rm /var/log/bcc_installation.log"]
   }
 
   provisioner "shell" {

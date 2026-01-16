@@ -1,5 +1,17 @@
 {
-  "files": [
+  "midway": [
+    {
+      "type": "file",
+      "source": "/var/log/bcc_installation.log",
+      "destination": "bcc-tools-installation.log"
+    },
+    {
+      "type": "file",
+      "source": "/opt/azure/disk-usage.txt",
+      "destination": "disk-usage.txt"
+    }
+  ],
+  "post-build": [
     {
       "type": "file",
       "source": "/opt/azure/containers/image-bom.json",
