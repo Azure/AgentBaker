@@ -64,7 +64,13 @@
       "managed_image_name": "{{user `sig_image_name`}}-{{user `captured_sig_version`}}",
       "managed_image_resource_group_name": "{{user `resource_group_name`}}",
       "managed_image_storage_account_type": "Premium_LRS",
+      "secure_boot_enabled": false,
+      "vtpm_enabled": false,
+      "security_type": "",
+      "security_encryption_type": "",
       "shared_image_gallery_destination": {
+        "specialized": false,
+        "confidential_vm_image_encryption_type": "",
         "subscription": "{{user `gallery_subscription_id`}}",
         "resource_group": "{{user `resource_group_name`}}",
         "gallery_name": "{{user `sig_gallery_name`}}",
