@@ -10,7 +10,6 @@ if [[ -f /etc/os-release ]]; then
     # shellcheck disable=SC3010
     if [[ $NAME == *"Ubuntu"* ]]; then
         IS_UBUNTU=1
-    # shellcheck disable=SC3010
     elif [[ $ID == *"flatcar"* ]]; then
         IS_FLATCAR=1
     else

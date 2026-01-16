@@ -10,7 +10,6 @@ if [[ -f /etc/os-release ]]; then
     # shellcheck disable=SC3010
     if [[ $NAME == *"Mariner"* ]]; then
         IS_MARINER=1
-    # shellcheck disable=SC3010
     elif [[ $NAME == *"Microsoft Azure Linux"* ]]; then
         IS_AZURELINUX=1
     else
