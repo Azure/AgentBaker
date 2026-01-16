@@ -60,9 +60,9 @@ variable "flatcar_file_upload" {
   default = "vhdbuilder/packer/buildconfig/dynamic-provisioners/flatcar_file_upload.json"
 }
 
-variable "post_build_file_downloads" {
+variable "file_downloads" {
   type    = string
-  default = "vhdbuilder/packer/buildconfig/dynamic-provisioners/post-build-downloads.json"
+  default = "vhdbuilder/packer/buildconfig/dynamic-provisioners/file-downloads.json"
 }
 
 
