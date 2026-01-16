@@ -23,6 +23,8 @@ source "azure-arm" "nodelifecycle-image-builder-source" {
   security_type = "${local.security_type}"
   security_encryption_type = "${local.security_encryption_type}"
 
+  custom_data_file                  = "${local.custom_data_file}"
+
   os_disk_size_gb                    = 30
   os_type                            = "Linux"
   polling_duration_timeout           = "1h"

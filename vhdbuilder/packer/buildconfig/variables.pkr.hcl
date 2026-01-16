@@ -6,6 +6,8 @@ locals {
   vtpm_enabled = can(regex("cvm", var.feature_flags)) ? true : false
   security_type = can(regex("cvm", var.feature_flags)) ? "ConfidentialVM" : ""
   security_encryption_type = can(regex("cvm", var.feature_flags)) ? "VMGuestStateOnly" : ""
+
+  custom_data_file = lower(var.os_version) == "flatcar" ? "./vhdbuilder/packer/flatcar-customdata.json" : ""
 }
 
 // Variables for resolving locals
