@@ -1181,11 +1181,13 @@ EOF
 }
 
 configureManagedGPUExperience() {
-    if [ "${GPU_NODE}" = "true" ] && [ "${skip_nvidia_driver_install}" != "true" ] && [ "${ENABLE_MANAGED_GPU_EXPERIENCE}" = "true" ]; then
+    if [ "${ENABLE_MANAGED_GPU_EXPERIENCE}" = "true" ]; then
         logs_to_events "AKS.CSE.installNvidiaManagedExpPkgFromCache" "installNvidiaManagedExpPkgFromCache" || exit $ERR_NVIDIA_DCGM_INSTALL
         logs_to_events "AKS.CSE.startNvidiaManagedExpServices" "startNvidiaManagedExpServices" || exit $ERR_NVIDIA_DCGM_EXPORTER_FAIL
         addKubeletNodeLabel "kubernetes.azure.com/dcgm-exporter=enabled"
-    elif [ "${GPU_NODE}" = "true" ] && [ "${skip_nvidia_driver_install}" != "true" ] && [ "${ENABLE_MANAGED_GPU_EXPERIENCE}" = "false" ]; then
+    else
+        # EnableManagedGPUExperience is mutable, so services may have been
+        # installed on a previous CSE run. Stop them if they exist.
         logs_to_events "AKS.CSE.stop.nvidia-device-plugin" "systemctlDisableAndStop nvidia-device-plugin"
         logs_to_events "AKS.CSE.stop.nvidia-dcgm" "systemctlDisableAndStop nvidia-dcgm"
         logs_to_events "AKS.CSE.stop.nvidia-dcgm-exporter" "systemctlDisableAndStop nvidia-dcgm-exporter"
