@@ -58,7 +58,7 @@ variable "subscription_id" {
 
 variable "msi_resource_strings" {
   type    = string
-  default = "${env("MSI_RESOURCE_STRINGS")}"
+  default = "${env("msi_resource_strings")}"
 }
 
 variable "use_azure_cli_auth" {
