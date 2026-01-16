@@ -363,6 +363,70 @@ var _ = Describe("Windows custom data variables check", func() {
 		Expect(vars["isSkipCleanupNetwork"]).To(Equal("false"))
 	})
 
+	It("sets serviceAccountImagePullBindingEnabled to true", func() {
+		config.ContainerService.Properties.ServiceAccountImagePullProfile = &datamodel.ServiceAccountImagePullProfile{
+			Enabled: true,
+		}
+		vars := getWindowsCustomDataVariables(config)
+		Expect(vars["serviceAccountImagePullBindingEnabled"]).To(Equal("true"))
+	})
+
+	It("sets serviceAccountImagePullBindingEnabled to false", func() {
+		config.ContainerService.Properties.ServiceAccountImagePullProfile = &datamodel.ServiceAccountImagePullProfile{
+			Enabled: false,
+		}
+		vars := getWindowsCustomDataVariables(config)
+		Expect(vars["serviceAccountImagePullBindingEnabled"]).To(Equal("false"))
+	})
+
+	It("sets serviceAccountImagePullBindingEnabled to false when ServiceAccountImagePullProfile is nil", func() {
+		config.ContainerService.Properties.ServiceAccountImagePullProfile = nil
+		vars := getWindowsCustomDataVariables(config)
+		Expect(vars["serviceAccountImagePullBindingEnabled"]).To(Equal("false"))
+	})
+
+	It("sets serviceAccountImagePullDefaultClientID", func() {
+		config.ContainerService.Properties.ServiceAccountImagePullProfile = &datamodel.ServiceAccountImagePullProfile{
+			DefaultClientID: "test-client-id",
+		}
+		vars := getWindowsCustomDataVariables(config)
+		Expect(vars["serviceAccountImagePullDefaultClientID"]).To(Equal("test-client-id"))
+	})
+
+	It("sets serviceAccountImagePullDefaultClientID to empty when ServiceAccountImagePullProfile is nil", func() {
+		config.ContainerService.Properties.ServiceAccountImagePullProfile = nil
+		vars := getWindowsCustomDataVariables(config)
+		Expect(vars["serviceAccountImagePullDefaultClientID"]).To(Equal(""))
+	})
+
+	It("sets serviceAccountImagePullDefaultTenantID", func() {
+		config.ContainerService.Properties.ServiceAccountImagePullProfile = &datamodel.ServiceAccountImagePullProfile{
+			DefaultTenantID: "test-tenant-id",
+		}
+		vars := getWindowsCustomDataVariables(config)
+		Expect(vars["serviceAccountImagePullDefaultTenantID"]).To(Equal("test-tenant-id"))
+	})
+
+	It("sets serviceAccountImagePullDefaultTenantID to empty when ServiceAccountImagePullProfile is nil", func() {
+		config.ContainerService.Properties.ServiceAccountImagePullProfile = nil
+		vars := getWindowsCustomDataVariables(config)
+		Expect(vars["serviceAccountImagePullDefaultTenantID"]).To(Equal(""))
+	})
+
+	It("sets identityBindingsLocalAuthoritySNI", func() {
+		config.ContainerService.Properties.ServiceAccountImagePullProfile = &datamodel.ServiceAccountImagePullProfile{
+			LocalAuthoritySNI: "test-sni.local",
+		}
+		vars := getWindowsCustomDataVariables(config)
+		Expect(vars["identityBindingsLocalAuthoritySNI"]).To(Equal("test-sni.local"))
+	})
+
+	It("sets identityBindingsLocalAuthoritySNI to empty when ServiceAccountImagePullProfile is nil", func() {
+		config.ContainerService.Properties.ServiceAccountImagePullProfile = nil
+		vars := getWindowsCustomDataVariables(config)
+		Expect(vars["identityBindingsLocalAuthoritySNI"]).To(Equal(""))
+	})
+
 })
 
 var _ = Describe("Windows CSE variables check", func() {
@@ -680,6 +744,46 @@ var _ = Describe("Windows CSE variables check", func() {
 		config.AgentPoolProfile.NotRebootWindowsNode = nil
 		vars := getCSECommandVariables(config)
 		Expect(vars["isSkipCleanupNetwork"]).To(Equal("false"))
+	})
+
+	It("sets serviceAccountImagePullBindingEnabled to true in CSE variables", func() {
+		config.ContainerService.Properties.ServiceAccountImagePullProfile = &datamodel.ServiceAccountImagePullProfile{
+			Enabled: true,
+		}
+		vars := getCSECommandVariables(config)
+		Expect(vars["serviceAccountImagePullBindingEnabled"]).To(Equal("true"))
+	})
+
+	It("sets serviceAccountImagePullBindingEnabled to false in CSE variables", func() {
+		config.ContainerService.Properties.ServiceAccountImagePullProfile = &datamodel.ServiceAccountImagePullProfile{
+			Enabled: false,
+		}
+		vars := getCSECommandVariables(config)
+		Expect(vars["serviceAccountImagePullBindingEnabled"]).To(Equal("false"))
+	})
+
+	It("sets serviceAccountImagePullDefaultClientID in CSE variables", func() {
+		config.ContainerService.Properties.ServiceAccountImagePullProfile = &datamodel.ServiceAccountImagePullProfile{
+			DefaultClientID: "test-cse-client-id",
+		}
+		vars := getCSECommandVariables(config)
+		Expect(vars["serviceAccountImagePullDefaultClientID"]).To(Equal("test-cse-client-id"))
+	})
+
+	It("sets serviceAccountImagePullDefaultTenantID in CSE variables", func() {
+		config.ContainerService.Properties.ServiceAccountImagePullProfile = &datamodel.ServiceAccountImagePullProfile{
+			DefaultTenantID: "test-cse-tenant-id",
+		}
+		vars := getCSECommandVariables(config)
+		Expect(vars["serviceAccountImagePullDefaultTenantID"]).To(Equal("test-cse-tenant-id"))
+	})
+
+	It("sets identityBindingsLocalAuthoritySNI in CSE variables", func() {
+		config.ContainerService.Properties.ServiceAccountImagePullProfile = &datamodel.ServiceAccountImagePullProfile{
+			LocalAuthoritySNI: "test-cse-sni.local",
+		}
+		vars := getCSECommandVariables(config)
+		Expect(vars["identityBindingsLocalAuthoritySNI"]).To(Equal("test-cse-sni.local"))
 	})
 
 })
