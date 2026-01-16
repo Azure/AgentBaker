@@ -10,7 +10,7 @@ build {
   }
 
   dynamic "provisioner" {
-    for_each = "${local.common_file_upload_for_packer_vm}"
+    for_each = "${local.common_file_upload}"
     content {
       type        = "file"
       source      = provisioner.value.source
@@ -18,9 +18,39 @@ build {
     }
   }
 
+  dynamic "provisioner" {
+    for_each = "${local.ubuntu_file_upload}"
+    content {
+      type        = "file"
+      source      = provisioner.value.source
+      destination = provisioner.value.destination
+      when        = lower(var.os_sku) == "ubuntu"
+    }
+  }
+
+  dynamic "provisioner" {
+    for_each = "${local.azlinux_file_upload}"
+    content {
+      type        = "file"
+      source      = provisioner.value.source
+      destination = provisioner.value.destination
+      when        = lower(var.os_sku) == "cblmariner"
+    }
+  }
+
+  dynamic "provisioner" {
+    for_each = "${local.flatcar_file_upload}"
+    content {
+      type        = "file"
+      source      = provisioner.value.source
+      destination = provisioner.value.destination
+      when        = lower(var.os_sku) == "flatcar"
+    }
+  }
+
   provisioner "file" {
     destination = "${var.aks_node_controller}"
-    source      = "vhdbuilder/lister/bin/lister"
+    source      = "/home/packer/aks-node-controller"
   }
 
   provisioner "file" {
