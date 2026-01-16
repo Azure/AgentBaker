@@ -1,5 +1,5 @@
 locals {
-  gallery_subscription_id = "${local.gallery_subscription_id}"
+  gallery_subscription_id = "${var.gallery_subscription_id}"
   vhd_build_timestamp     = "${var.VHD_BUILD_TIMESTAMP}"
 
   managed_image_resource_group_name  = "${var.architecture}" == "ARM64" ? "" : "${var.resource_group_name}"
@@ -11,9 +11,116 @@ locals {
   security_encryption_type = can(regex("cvm", var.feature_flags)) ? "VMGuestStateOnly" : ""
 }
 
+// Variables for resolving locals
+
 variable "architecture" {
   type    = string
   default = "${env("ARCHITECTURE")}"
+}
+
+variable "feature_flags" {
+  type    = string
+  default = "${env("FEATURE_FLAGS")}"
+}
+
+
+
+// Base Marketplace Image Variables
+
+variable "img_offer" {
+  type    = string
+  default = "${env("IMG_OFFER")}"
+}
+
+variable "img_publisher" {
+  type    = string
+  default = "${env("IMG_PUBLISHER")}"
+}
+
+variable "img_sku" {
+  type    = string
+  default = "${env("IMG_SKU")}"
+}
+
+variable "img_version" {
+  type    = string
+  default = "${env("IMG_VERSION")}"
+}
+
+
+
+// Azure Infrastructure / Resources Variables
+
+variable "subscription_id" {
+  type    = string
+  default = "${env("AZURE_SUBSCRIPTION_ID")}"
+}
+
+variable "msi_resource_strings" {
+  type    = string
+  default = "${env("MSI_RESOURCE_STRINGS")}"
+}
+
+variable "use_azure_cli_auth" {
+  type    = bool
+  default = true
+}
+
+variable "location" {
+  type    = string
+  default = "${env("PACKER_BUILD_LOCATION")}"
+}
+
+variable "vm_size" {
+  type    = string
+  default = "${env("AZURE_VM_SIZE")}"
+}
+
+
+
+// Packer Virtual Network Variables
+
+variable "vnet_resource_group_name" {
+  type    = string
+  default = "${env("VNET_RESOURCE_GROUP_NAME")}"
+}
+
+variable "vnet_name" {
+  type    = string
+  default = "${env("VNET_NAME")}"
+}
+
+variable "subnet_name" {
+  type    = string
+  default = "${env("SUBNET_NAME")}"
+}
+
+
+
+// Azure Compute Gallery Variables
+
+variable "sig_gallery_name" {
+  type    = string
+  default = "${env("SIG_GALLERY_NAME")}"
+}
+
+variable "sig_image_name" {
+  type    = string
+  default = "${env("SIG_IMAGE_NAME")}"
+}
+
+variable "captured_sig_version" {
+  type    = string
+  default = "${env("$${CAPTURED_SIG_VERSION")}"
+}
+
+
+
+// Tag variables
+
+variable "SkipLinuxAzSecPack" {
+  type    = string
+  default = true
 }
 
 variable "branch" {
@@ -36,10 +143,9 @@ variable "build_number" {
   default = "${env("BUILD_NUMBER")}"
 }
 
-variable "captured_sig_version" {
-  type    = string
-  default = "${env("$${CAPTURED_SIG_VERSION")}"
-}
+
+
+// General Variables - Typically used in provisioners and scripts
 
 variable "commit" {
   type    = string
@@ -56,44 +162,9 @@ variable "enable_fips" {
   default = "${env("ENABLE_FIPS")}"
 }
 
-variable "feature_flags" {
-  type    = string
-  default = "${env("FEATURE_FLAGS")}"
-}
-
 variable "hyperv_generation" {
   type    = string
   default = "${env("HYPERV_GENERATION")}"
-}
-
-variable "image_version" {
-  type    = string
-  default = "${env("IMAGE_VERSION")}"
-}
-
-variable "img_offer" {
-  type    = string
-  default = "${env("IMG_OFFER")}"
-}
-
-variable "img_publisher" {
-  type    = string
-  default = "${env("IMG_PUBLISHER")}"
-}
-
-variable "img_sku" {
-  type    = string
-  default = "${env("IMG_SKU")}"
-}
-
-variable "img_version" {
-  type    = string
-  default = "${env("IMG_VERSION")}"
-}
-
-variable "location" {
-  type    = string
-  default = "${env("PACKER_BUILD_LOCATION")}"
 }
 
 variable "os_version" {
@@ -106,34 +177,9 @@ variable "private_packages_url" {
   default = "${env("PRIVATE_PACKAGES_URL")}"
 }
 
-variable "sig_gallery_name" {
-  type    = string
-  default = "${env("SIG_GALLERY_NAME")}"
-}
-
-variable "sig_image_name" {
-  type    = string
-  default = "${env("SIG_IMAGE_NAME")}"
-}
-
-variable "sig_image_version" {
-  type    = string
-  default = "${env("SIG_IMAGE_VERSION")}"
-}
-
 variable "sku_name" {
   type    = string
   default = "${env("SKU_NAME")}"
-}
-
-variable "subnet_name" {
-  type    = string
-  default = "${env("SUBNET_NAME")}"
-}
-
-variable "subscription_id" {
-  type    = string
-  default = "${env("AZURE_SUBSCRIPTION_ID")}"
 }
 
 variable "teleportd_plugin_download_url" {
@@ -146,17 +192,8 @@ variable "ua_token" {
   default = "${env("UA_TOKEN")}"
 }
 
-variable "vm_size" {
+variable "image_version" {
   type    = string
-  default = "${env("AZURE_VM_SIZE")}"
+  default = "${env("IMAGE_VERSION")}"
 }
 
-variable "vnet_name" {
-  type    = string
-  default = "${env("VNET_NAME")}"
-}
-
-variable "vnet_resource_group_name" {
-  type    = string
-  default = "${env("VNET_RESOURCE_GROUP_NAME")}"
-}
