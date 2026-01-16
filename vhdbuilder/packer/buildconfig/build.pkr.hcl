@@ -101,6 +101,10 @@ build {
   }
 
   provisioner "shell" {
+    inline = ["sudo rm /var/log/bcc_installation.log"]
+  }
+
+  provisioner "shell" {
     inline = ["sudo /bin/bash /home/packer/generate-disk-usage.sh"]
   }
 
@@ -108,10 +112,6 @@ build {
     destination = "disk-usage.txt"
     direction   = "download"
     source      = "/opt/azure/disk-usage.txt"
-  }
-
-  provisioner "shell" {
-    inline = ["sudo rm /var/log/bcc_installation.log"]
   }
 
   provisioner "shell" {
@@ -136,11 +136,6 @@ build {
     ]
   }
 
-  provisioner "file" {
-    destination = "/home/packer/list-images.sh"
-    source      = "vhdbuilder/packer/list-images.sh"
-  }
-
   provisioner "shell" {
     inline = ["/bin/bash -ux /home/packer/list-images.sh"]
     environment_vars = [
@@ -150,28 +145,14 @@ build {
     ]
   }
 
-  provisioner "file" {
-    destination = "image-bom.json"
-    direction   = "download"
-    source      = "/opt/azure/containers/image-bom.json"
-  }
-
-  provisioner "file" {
-    destination = "release-notes.txt"
-    direction   = "download"
-    source      = "/opt/azure/vhd-install.complete"
-  }
-
-  provisioner "file" {
-    destination = "vhd-build-performance-data.json"
-    direction   = "download"
-    source      = "/opt/azure/vhd-build-performance-data.json"
-  }
-
-  provisioner "file" {
-    destination = "vhd-grid-compatibility-data.json"
-    direction   = "download"
-    source      = "/opt/azure/vhd-grid-compatibility-data.json"
+  dynamic "provisioner" {
+    for_each = "${local.post_build_file_downloads}"
+    content {
+      type        = "file"
+      direction   = "download"
+      source      = provisioner.value.source
+      destination = provisioner.value.destination
+    }
   }
 
   provisioner "shell" {

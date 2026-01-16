@@ -12,6 +12,7 @@ locals {
   ubuntu_file_upload = jsondecode(file(var.common_file_upload)).files
   azlinux_file_upload = jsondecode(file(var.common_file_upload)).files
   flatcar_file_upload = jsondecode(file(var.common_file_upload)).files
+  post_build_file_downloads = jsondecode(file(var.post_build_file_downloads)).files
 
 
   aks_node_controller = "${var.architecture}" == "X86_64" ? "aks-node-controller/bin/aks-node-controller-linux-amd64" : "aks-node-controller/bin/aks-node-controller-linux-arm64"
@@ -47,6 +48,11 @@ variable "azlinux_file_upload" {
 variable "flatcar_file_upload" {
   type    = string
   default = "vhdbuilder/packer/buildconfig/dynamic-provisioners/flatcar_file_upload.json"
+}
+
+variable "post_build_file_downloads" {
+  type    = string
+  default = "vhdbuilder/packer/buildconfig/dynamic-provisioners/post-build-downloads.json"
 }
 
 

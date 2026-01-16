@@ -524,6 +524,11 @@
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/localdns-delegate.conf",
       "destination": "/home/packer/localdns-delegate.conf"
+    },
+    {
+      "type": "file",
+      "source": "vhdbuilder/packer/list-images.sh",
+      "destination": "/home/packer/list-images.sh"
     }
   ]
 }
