@@ -31,12 +31,22 @@ variable "feature_flags" {
 
 variable "common_file_upload" {
   type    = string
-  default = "/home/zbailey/go/src/go.goms.io/aks/agentBaker/vhdbuilder/packer/buildconfig/dynamic-provisioners/common_file_upload_for_packer_vm.json"
+  default = "vhdbuilder/packer/buildconfig/dynamic-provisioners/common_file_upload_for_packer_vm.json"
 }
 
 variable "ubuntu_file_upload" {
   type    = string
-  default = "/home/zbailey/go/src/go.goms.io/aks/agentBaker/vhdbuilder/packer/buildconfig/dynamic-provisioners/common_file_upload_for_packer_vm.json"
+  default = "vhdbuilder/packer/buildconfig/dynamic-provisioners/ubuntu_file_upload.json"
+}
+
+variable "azlinux_file_upload" {
+  type    = string
+  default = "vhdbuilder/packer/buildconfig/dynamic-provisioners/azlinux_file_upload.json"
+}
+
+variable "flatcar_file_upload" {
+  type    = string
+  default = "vhdbuilder/packer/buildconfig/dynamic-provisioners/flatcar_file_upload.json"
 }
 
 
@@ -188,6 +198,11 @@ variable "hyperv_generation" {
 variable "os_version" {
   type    = string
   default = "${env("OS_VERSION")}"
+}
+
+variable "os_sku" {
+  type    = string
+  default = "${env("OS_SKU")}"
 }
 
 variable "private_packages_url" {
