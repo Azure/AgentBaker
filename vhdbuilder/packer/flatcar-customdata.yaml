@@ -4,8 +4,21 @@ kernel_arguments:
   should_not_exist:
     - flatcar.autologin
 storage:
+  directories:
+  - path: /mnt/aks-sysext-rw/usr/local
+    mode: 0755
+  - path: /mnt/aks-sysext-rw/usr/local/bin
+    mode: 0755
+  - path: /mnt/aks-sysext-rw/usr/local/lib
+    mode: 0755
+  - path: /mnt/aks-sysext-rw/usr/local/lib64
+    mode: 0755
+  - path: /mnt/aks-sysext-rw/usr/local/sbin
+    mode: 0755
+  - path: /mnt/aks-sysext-rw/usr/local/share
+    mode: 0755
   files:
-  - path: /etc/extensions/aks-sysext/usr/lib/extension-release.d/extension-release.aks-sysext
+  - path: /mnt/aks-sysext/usr/lib/extension-release.d/extension-release.aks-sysext
     mode: 0644
     contents:
       inline: |
@@ -55,8 +68,11 @@ storage:
         automount:   files
         aliases:     files
   links:
-  - path: /etc/extensions/aks-sysext/usr/local/bin
-    target: /opt/bin
+  - path: /etc/extensions/aks-sysext
+    target: /mnt/aks-sysext
+    hard: false
+  - path: /mnt/aks-sysext/usr/local
+    target: /mnt/aks-sysext-rw/usr/local
     hard: false
   - path: /etc/containerd/config.toml
     target: /usr/share/containerd/config.toml
