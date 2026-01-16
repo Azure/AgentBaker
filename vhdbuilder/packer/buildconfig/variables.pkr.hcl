@@ -1,15 +1,15 @@
 locals {
   // Managed Image settings - empty for ARM64 builds
-  managed_image_resource_group_name  = "${var.architecture}" == "ARM64" ? "" : "${var.resource_group_name}"
-  managed_image_name                 = "${var.architecture}" == "ARM64" ? "" : "${var.sig_image_name}-${var.captured_sig_version}"
+  managed_image_resource_group_name  = lower("${var.architecture}") == "arm64" ? "" : "${var.resource_group_name}"
+  managed_image_name                 = lower("${var.architecture}") == "arm64" ? "" : "${var.sig_image_name}-${var.captured_sig_version}"
 
   // Confidential VM settings, if enabled via feature flags
-  secure_boot_enabled = can(regex("cvm", var.feature_flags)) ? true : false
-  vtpm_enabled = can(regex("cvm", var.feature_flags)) ? true : false
-  security_type = can(regex("cvm", var.feature_flags)) ? "ConfidentialVM" : ""
-  security_encryption_type = can(regex("cvm", var.feature_flags)) ? "VMGuestStateOnly" : ""
-  specialized_image = can(regex("cvm", var.feature_flags)) ? true : false
-  cvm_encryption_type = can(regex("cvm", var.feature_flags)) ? "EncryptedVMGuestStateOnlyWithPmk" : ""
+  secure_boot_enabled = can(regex("cvm", lower(var.feature_flags))) ? true : false
+  vtpm_enabled = can(regex("cvm", lower(var.feature_flags))) ? true : false
+  security_type = can(regex("cvm", lower(var.feature_flags))) ? "ConfidentialVM" : ""
+  security_encryption_type = can(regex("cvm", lower(var.feature_flags))) ? "VMGuestStateOnly" : ""
+  specialized_image = can(regex("cvm", lower(var.feature_flags))) ? true : false
+  cvm_encryption_type = can(regex("cvm", lower(var.feature_flags))) ? "EncryptedVMGuestStateOnlyWithPmk" : ""
 
   // File uploads for build process
   custom_data_file = lower(var.os_version) == "flatcar" ? "./vhdbuilder/packer/flatcar-customdata.json" : ""
