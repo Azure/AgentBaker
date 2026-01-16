@@ -1,4 +1,4 @@
-source "azure-arm" "nodelifecycle-image-builder" {
+source "azure-arm" "nodelifecycle-image-builder-source" {
   image_offer                        = "${var.img_offer}"
   image_publisher                    = "${var.img_publisher}"
   image_sku                          = "${var.img_sku}"
