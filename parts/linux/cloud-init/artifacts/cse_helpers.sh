@@ -707,7 +707,7 @@ enableManagedGPUExperience() {
     set -x
 
     # Check if nvidiaManagementMode is enabled via NBC
-    if [ "${NVIDIA_MANAGEMENT_MODE,,}" == "true" ]; then
+    if [ "${NVIDIA_MANAGEMENT_MODE,,}" = "true" ]; then
         echo "true"
         return 0
     fi
