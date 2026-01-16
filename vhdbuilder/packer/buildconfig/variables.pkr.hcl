@@ -15,9 +15,9 @@ locals {
   custom_data_file = lower(var.os_version) == "flatcar" ? "./vhdbuilder/packer/flatcar-customdata.json" : ""
   aks_node_controller = "${var.architecture}" == "X86_64" ? "aks-node-controller/bin/aks-node-controller-linux-amd64" : "aks-node-controller/bin/aks-node-controller-linux-arm64"
   common_file_upload = jsondecode(file(var.common_file_upload)).files
-  ubuntu_file_upload = jsondecode(file(var.common_file_upload)).files
-  azlinux_file_upload = jsondecode(file(var.common_file_upload)).files
-  flatcar_file_upload = jsondecode(file(var.common_file_upload)).files
+  ubuntu_file_upload = jsondecode(file(var.ubuntu_file_upload)).files
+  azlinux_file_upload = jsondecode(file(var.azlinux_file_upload)).files
+  flatcar_file_upload = jsondecode(file(var.flatcar_file_upload)).files
 
   // File downloads for artifact creation
   midway_file_downloads = jsondecode(file(var.file_downloads)).midway
@@ -216,11 +216,6 @@ variable "os_version" {
   default = "${env("OS_VERSION")}"
 }
 
-variable "os_sku" {
-  type    = string
-  default = "${env("OS_SKU")}"
-}
-
 variable "private_packages_url" {
   type    = string
   default = "${env("PRIVATE_PACKAGES_URL")}"
@@ -244,5 +239,10 @@ variable "ua_token" {
 variable "image_version" {
   type    = string
   default = "${env("IMAGE_VERSION")}"
+}
+
+variable "os_sku" {
+  type    = string
+  default = "${env("OS_SKU")}"
 }
 
