@@ -8,7 +8,7 @@ locals {
   security_encryption_type = can(regex("cvm", var.feature_flags)) ? "VMGuestStateOnly" : ""
 
   custom_data_file = lower(var.os_version) == "flatcar" ? "./vhdbuilder/packer/flatcar-customdata.json" : ""
-  common_file_upload_for_packer_vm = jsondecode(file(var.initial_file_upload_for_paker_vm)).files
+  common_file_upload_for_packer_vm = jsondecode(file(var.common_file_upload_for_paker_vm)).files
   aks_node_controller = "${var.architecture}" == "X86_64" ? "aks-node-controller/bin/aks-node-controller-linux-amd64" : "aks-node-controller/bin/aks-node-controller-linux-arm64"
 }
 
@@ -24,7 +24,7 @@ variable "feature_flags" {
   default = "${env("FEATURE_FLAGS")}"
 }
 
-variable "initial_file_upload_for_paker_vm" {
+variable "common_file_upload_for_paker_vm" {
   type    = string
   default = "vhdbuilder/packer/buildconfig/initial_file_upload_for_packer_vm.json"
 }
