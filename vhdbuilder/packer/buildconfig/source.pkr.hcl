@@ -5,9 +5,9 @@ source "azure-arm" "nodelifecycle-image-builder" {
   image_version                      = "${var.img_version}"
 
   subscription_id                     = "${var.subscription_id}"
-  location                           = "${var.location}"
   user_assigned_managed_identities    = "${var.msi_resource_strings}"
   use_azure_cli_auth                  = "true"
+  location                            = "${var.location}"
 
   managed_image_resource_group_name  = "${var.resource_group_name}"
   managed_image_name                 = "${var.sig_image_name}-${var.captured_sig_version}"
