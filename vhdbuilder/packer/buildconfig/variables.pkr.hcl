@@ -1,3 +1,21 @@
+locals {
+  gallery_subscription_id = "${local.gallery_subscription_id}"
+  vhd_build_timestamp     = "${var.VHD_BUILD_TIMESTAMP}"
+
+  managed_image_resource_group_name  = "${var.architecture}" == "ARM64" ? "" : "${var.resource_group_name}"
+  managed_image_name                 = "${var.architecture}" == "ARM64" ? "" : "${var.sig_image_name}-${var.captured_sig_version}"
+
+  secure_boot_enabled = true
+  vtpm_enabled = true
+  security_type = ConfidentialVM
+  security_encryption_type = VMGuestStateOnly
+}
+
+variable "architecture" {
+  type    = string
+  default = "${env("ARCHITECTURE")}"
+}
+
 variable "branch" {
   type    = string
   default = "${env("BRANCH")}"
@@ -141,9 +159,4 @@ variable "vnet_name" {
 variable "vnet_resource_group_name" {
   type    = string
   default = "${env("VNET_RESOURCE_GROUP_NAME")}"
-}
-
-locals {
-  gallery_subscription_id = "${local.gallery_subscription_id}"
-  vhd_build_timestamp     = "${var.VHD_BUILD_TIMESTAMP}"
 }
