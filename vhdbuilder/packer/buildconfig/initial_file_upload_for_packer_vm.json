@@ -1,0 +1,559 @@
+{
+  "files": [
+    {
+      "type": "file",
+      "source": "vhdbuilder/lister/bin/lister",
+      "destination": "/home/packer/lister"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/aks-node-controller.service",
+      "destination": "/home/packer/aks-node-controller.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/aks-node-controller-wrapper.sh",
+      "destination": "/home/packer/aks-node-controller-wrapper.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cloud-init-status-check.sh",
+      "destination": "/home/packer/cloud-init-status-check.sh"
+    },
+    {
+      "type": "file",
+      "source": "vhdbuilder/packer/prefetch.sh",
+      "destination": "/home/packer/prefetch.sh"
+    },
+    {
+      "type": "file",
+      "source": "vhdbuilder/packer/cleanup-vhd.sh",
+      "destination": "/home/packer/cleanup-vhd.sh"
+    },
+    {
+      "type": "file",
+      "source": "vhdbuilder/packer/packer_source.sh",
+      "destination": "/home/packer/packer_source.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cse_install.sh",
+      "destination": "/home/packer/provision_installs.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh",
+      "destination": "/home/packer/provision_installs_distro.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cse_helpers.sh",
+      "destination": "/home/packer/provision_source.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cse_benchmark_functions.sh",
+      "destination": "/home/packer/provision_source_benchmarks.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/ubuntu/cse_helpers_ubuntu.sh",
+      "destination": "/home/packer/provision_source_distro.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cse_config.sh",
+      "destination": "/home/packer/provision_configs.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cse_main.sh",
+      "destination": "/home/packer/provision.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cse_start.sh",
+      "destination": "/home/packer/provision_start.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/containerd_exec_start.conf",
+      "destination": "/home/packer/containerd_exec_start.conf"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/kubelet.service",
+      "destination": "/home/packer/kubelet.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/secure-tls-bootstrap.service",
+      "destination": "/home/packer/secure-tls-bootstrap.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/reconcile-private-hosts.sh",
+      "destination": "/home/packer/reconcile-private-hosts.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/block_wireserver.sh",
+      "destination": "/home/packer/block_wireserver.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/ensure_imds_restriction.sh",
+      "destination": "/home/packer/ensure_imds_restriction.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/measure-tls-bootstrapping-latency.sh",
+      "destination": "/home/packer/measure-tls-bootstrapping-latency.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/measure-tls-bootstrapping-latency.service",
+      "destination": "/home/packer/measure-tls-bootstrapping-latency.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/validate-kubelet-credentials.sh",
+      "destination": "/home/packer/validate-kubelet-credentials.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cse_redact_cloud_config.py",
+      "destination": "/home/packer/cse_redact_cloud_config.py"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cse_send_logs.py",
+      "destination": "/home/packer/cse_send_logs.py"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/init-aks-custom-cloud.sh",
+      "destination": "/home/packer/init-aks-custom-cloud.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/reconcile-private-hosts.service",
+      "destination": "/home/packer/reconcile-private-hosts.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/mig-partition.service",
+      "destination": "/home/packer/mig-partition.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/bind-mount.sh",
+      "destination": "/home/packer/bind-mount.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/bind-mount.service",
+      "destination": "/home/packer/bind-mount.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/enable-dhcpv6.sh",
+      "destination": "/home/packer/enable-dhcpv6.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/dhcpv6.service",
+      "destination": "/home/packer/dhcpv6.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/sync-container-logs.sh",
+      "destination": "/home/packer/sync-container-logs.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/sync-container-logs.service",
+      "destination": "/home/packer/sync-container-logs.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/crictl.yaml",
+      "destination": "/home/packer/crictl.yaml"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/ensure-no-dup.sh",
+      "destination": "/home/packer/ensure-no-dup.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/ensure-no-dup.service",
+      "destination": "/home/packer/ensure-no-dup.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/teleportd.service",
+      "destination": "/home/packer/teleportd.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/setup-custom-search-domains.sh",
+      "destination": "/home/packer/setup-custom-search-domains.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/ubuntu/ubuntu-snapshot-update.sh",
+      "destination": "/home/packer/ubuntu-snapshot-update.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/ubuntu/snapshot-update.service",
+      "destination": "/home/packer/snapshot-update.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/ubuntu/snapshot-update.timer",
+      "destination": "/home/packer/snapshot-update.timer"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cis.sh",
+      "destination": "/home/packer/cis.sh"
+    },
+    {
+      "type": "file",
+      "source": "vhdbuilder/scripts/linux/tool_installs.sh",
+      "destination": "/home/packer/tool_installs.sh"
+    },
+    {
+      "type": "file",
+      "source": "vhdbuilder/scripts/linux/ubuntu/tool_installs_ubuntu.sh",
+      "destination": "/home/packer/tool_installs_distro.sh"
+    },
+    {
+      "type": "file",
+      "source": "vhdbuilder/packer/pre-install-dependencies.sh",
+      "destination": "/home/packer/pre-install-dependencies.sh"
+    },
+    {
+      "type": "file",
+      "source": "vhdbuilder/packer/install-dependencies.sh",
+      "destination": "/home/packer/install-dependencies.sh"
+    },
+    {
+      "type": "file",
+      "source": "vhdbuilder/packer/generate-disk-usage.sh",
+      "destination": "/home/packer/generate-disk-usage.sh"
+    },
+    {
+      "type": "file",
+      "source": "vhdbuilder/packer/post-install-dependencies.sh",
+      "destination": "/home/packer/post-install-dependencies.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/common/components.json",
+      "destination": "/home/packer/components.json"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/manifest.json",
+      "destination": "/home/packer/manifest.json"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/sysctl-d-60-CIS.conf",
+      "destination": "/home/packer/sysctl-d-60-CIS.conf"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/sshd_config",
+      "destination": "/home/packer/sshd_config"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/sshd_config_2204_fips",
+      "destination": "/home/packer/sshd_config_2204_fips"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/rsyslog-d-60-CIS.conf",
+      "destination": "/home/packer/rsyslog-d-60-CIS.conf"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/logrotate-d-rsyslog-CIS.conf",
+      "destination": "/home/packer/logrotate-d-rsyslog-CIS.conf"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/etc-issue",
+      "destination": "/home/packer/etc-issue"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/etc-issue.net",
+      "destination": "/home/packer/etc-issue.net"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/modprobe-CIS.conf",
+      "destination": "/home/packer/modprobe-CIS.conf"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/faillock-CIS.conf",
+      "destination": "/home/packer/faillock-CIS.conf"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/pwquality-CIS.conf",
+      "destination": "/home/packer/pwquality-CIS.conf"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/pam-d-su",
+      "destination": "/home/packer/pam-d-su"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/pam-d-common-account",
+      "destination": "/home/packer/pam-d-common-account"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/pam-d-common-auth",
+      "destination": "/home/packer/pam-d-common-auth"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/pam-d-common-auth-2204",
+      "destination": "/home/packer/pam-d-common-auth-2204"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/pam-d-common-password",
+      "destination": "/home/packer/pam-d-common-password"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/profile-d-cis.sh",
+      "destination": "/home/packer/profile-d-cis.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/disk_queue.sh",
+      "destination": "/home/packer/disk_queue.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/disk_queue.service",
+      "destination": "/home/packer/disk_queue.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cgroup-memory-telemetry.sh",
+      "destination": "/home/packer/cgroup-memory-telemetry.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cgroup-memory-telemetry.service",
+      "destination": "/home/packer/cgroup-memory-telemetry.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cgroup-memory-telemetry.timer",
+      "destination": "/home/packer/cgroup-memory-telemetry.timer"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cgroup-pressure-telemetry.sh",
+      "destination": "/home/packer/cgroup-pressure-telemetry.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cgroup-pressure-telemetry.service",
+      "destination": "/home/packer/cgroup-pressure-telemetry.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cgroup-pressure-telemetry.timer",
+      "destination": "/home/packer/cgroup-pressure-telemetry.timer"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/update_certs.service",
+      "destination": "/home/packer/update_certs.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/update_certs.path",
+      "destination": "/home/packer/update_certs.path"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/update_certs.sh",
+      "destination": "/home/packer/update_certs.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/ci-syslog-watcher.path",
+      "destination": "/home/packer/ci-syslog-watcher.path"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/ci-syslog-watcher.service",
+      "destination": "/home/packer/ci-syslog-watcher.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/ci-syslog-watcher.sh",
+      "destination": "/home/packer/ci-syslog-watcher.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/aks-diagnostic.py",
+      "destination": "/home/packer/aks-diagnostic.py"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/aks-log-collector.sh",
+      "destination": "/home/packer/aks-log-collector.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/aks-log-collector-send.py",
+      "destination": "/home/packer/aks-log-collector-send.py"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/aks-log-collector.service",
+      "destination": "/home/packer/aks-log-collector.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/aks-log-collector.slice",
+      "destination": "/home/packer/aks-log-collector.slice"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/aks-log-collector.timer",
+      "destination": "/home/packer/aks-log-collector.timer"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/aks-check-network.sh",
+      "destination": "/home/packer/aks-check-network.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/aks-check-network.service",
+      "destination": "/home/packer/aks-check-network.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/aks-logrotate.sh",
+      "destination": "/home/packer/logrotate.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/aks-logrotate.service",
+      "destination": "/home/packer/logrotate.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/aks-logrotate.timer",
+      "destination": "/home/packer/logrotate.timer"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/aks-logrotate-override.conf",
+      "destination": "/home/packer/override.conf"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/aks-rsyslog",
+      "destination": "/home/packer/rsyslog"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/ipv6_nftables",
+      "destination": "/home/packer/ipv6_nftables"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/ipv6_nftables.service",
+      "destination": "/home/packer/ipv6_nftables.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/ipv6_nftables.sh",
+      "destination": "/home/packer/ipv6_nftables.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/apt-preferences",
+      "destination": "/home/packer/apt-preferences"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/kms.service",
+      "destination": "/home/packer/kms.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/mig-partition.sh",
+      "destination": "/home/packer/mig-partition.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/docker_clear_mount_propagation_flags.conf",
+      "destination": "/home/packer/docker_clear_mount_propagation_flags.conf"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/nvidia-modprobe.service",
+      "destination": "/home/packer/nvidia-modprobe.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/nvidia-docker-daemon.json",
+      "destination": "/home/packer/nvidia-docker-daemon.json"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/pam-d-common-auth",
+      "destination": "/home/packer/pam-d-common-auth"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/pam-d-common-password",
+      "destination": "/home/packer/pam-d-common-password"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/pam-d-su",
+      "destination": "/home/packer/pam-d-su"
+    },
+    {
+      "type": "file",
+      "source": "vhdbuilder/notice.txt",
+      "destination": "/home/packer/NOTICE.txt"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/localdns.sh",
+      "destination": "/home/packer/localdns.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/localdns.service",
+      "destination": "/home/packer/localdns.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/localdns-delegate.conf",
+      "destination": "/home/packer/localdns-delegate.conf"
+    }
+  ]
+}
