@@ -8,6 +8,8 @@ locals {
   vtpm_enabled = can(regex("cvm", var.feature_flags)) ? true : false
   security_type = can(regex("cvm", var.feature_flags)) ? "ConfidentialVM" : ""
   security_encryption_type = can(regex("cvm", var.feature_flags)) ? "VMGuestStateOnly" : ""
+  specialized_image = can(regex("cvm", var.feature_flags)) ? true : false
+  cvm_encryption_type = can(regex("cvm", var.feature_flags)) ? "EncryptedVMGuestStateOnlyWithPmk" : ""
 
   // File uploads for build process
   custom_data_file = lower(var.os_version) == "flatcar" ? "./vhdbuilder/packer/flatcar-customdata.json" : ""
