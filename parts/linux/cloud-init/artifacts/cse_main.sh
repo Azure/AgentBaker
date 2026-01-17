@@ -8,6 +8,9 @@ if [ -f /opt/azure/containers/provision.complete ]; then
     exit 0
 fi
 
+# Cleanup cache file to force fetch fresh instance metadata from IMDS
+rm -f /opt/azure/containers/imds_instance_metadata_cache.json
+
 for i in $(seq 1 120); do
     if [ -s "${CSE_HELPERS_FILEPATH}" ]; then
         grep -Fq '#HELPERSEOF' "${CSE_HELPERS_FILEPATH}" && break
@@ -130,7 +133,7 @@ function basePrep {
     export -f getInstallModeAndCleanupContainerImages
     export -f should_skip_binary_cleanup
 
-    SKIP_BINARY_CLEANUP=$(retrycmd_silent 10 1 10 bash -cx should_skip_binary_cleanup)
+    SKIP_BINARY_CLEANUP=$(should_skip_binary_cleanup)
     # this needs better fix to separate logs and return value;
     FULL_INSTALL_REQUIRED=$(getInstallModeAndCleanupContainerImages "$SKIP_BINARY_CLEANUP" "$IS_VHD" | tail -1)
     if [ "$?" -ne 0 ]; then
@@ -163,7 +166,7 @@ function basePrep {
     # Added as a temporary workaround to test installing packages from PMC prior to 1.34.0 GA.
     # TODO: Remove tag and usages once 1.34.0 is GA.
     export -f should_enforce_kube_pmc_install
-    SHOULD_ENFORCE_KUBE_PMC_INSTALL=$(retrycmd_silent 10 1 10 bash -cx should_enforce_kube_pmc_install)
+    SHOULD_ENFORCE_KUBE_PMC_INSTALL=$(should_enforce_kube_pmc_install)
     logs_to_events "AKS.CSE.configureKubeletAndKubectl" configureKubeletAndKubectl
 
     createKubeManifestDir
@@ -337,7 +340,7 @@ function nodePrep {
 
     # Determine if GPU driver installation should be skipped
     export -f should_skip_nvidia_drivers
-    skip_nvidia_driver_install=$(retrycmd_silent 10 1 10 bash -cx should_skip_nvidia_drivers)
+    skip_nvidia_driver_install=$(should_skip_nvidia_drivers)
 
     if [ "$?" -ne 0 ]; then
         echo "Failed to determine if nvidia driver install should be skipped"
@@ -396,7 +399,7 @@ function nodePrep {
     fi
 
     export -f enableManagedGPUExperience
-    ENABLE_MANAGED_GPU_EXPERIENCE=$(retrycmd_silent 10 1 10 bash -cx enableManagedGPUExperience)
+    ENABLE_MANAGED_GPU_EXPERIENCE=$(enableManagedGPUExperience)
     if [ "$?" -ne 0 ] && [ "${GPU_NODE}" = "true" ] && [ "${skip_nvidia_driver_install}" != "true" ]; then
         echo "failed to determine if managed GPU experience should be enabled by nodepool tags"
         exit $ERR_LOOKUP_ENABLE_MANAGED_GPU_EXPERIENCE_TAG
