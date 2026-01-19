@@ -96,10 +96,10 @@ const (
 	ensureNoDupEbtablesScript  = "linux/cloud-init/artifacts/ensure-no-dup.sh"
 	ensureNoDupEbtablesService = "linux/cloud-init/artifacts/ensure-no-dup.service"
 
-	// Ethtool configuration files.
-	configureAksNicsScript = "linux/cloud-init/artifacts/configure-aks-nics.sh"
-	aksNicsUdevRule        = "linux/cloud-init/artifacts/99-aks-nics-to-configure.rules"
-	aksEthtoolService      = "linux/cloud-init/artifacts/aks-ethtool-config.service"
+	// Azure network configuration files.
+	configureAzureNetworkScript = "linux/cloud-init/artifacts/configure-azure-network.sh"
+	azureNetworkUdevRule        = "linux/cloud-init/artifacts/99-azure-network.rules"
+	azureNetworkService         = "linux/cloud-init/artifacts/azure-network-config.service"
 
 	componentManifestFile = "linux/cloud-init/artifacts/manifest.json"
 )

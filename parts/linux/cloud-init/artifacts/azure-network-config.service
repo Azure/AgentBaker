@@ -1,12 +1,12 @@
 [Unit]
-Description=Configure AKS Network Interface RX Buffers
+Description=Configure Azure Network Interface Settings
 After=network-online.target
 Wants=network-online.target
 Before=kubelet.service
 
 [Service]
 Type=oneshot
-ExecStart=/opt/scripts/configure-aks-nics.sh
+ExecStart=/opt/azure-network/configure-azure-network.sh
 
 [Install]
 WantedBy=multi-user.target
