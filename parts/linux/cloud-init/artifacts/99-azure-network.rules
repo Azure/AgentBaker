@@ -1,0 +1,2 @@
+SUBSYSTEM=="net", ACTION=="add|change", ENV{ID_NET_NAME_SLOT}=="enP*", RUN+="/bin/bash -c \"echo %k >> /etc/azure-network/nics-to-configure\""
+SUBSYSTEM=="net", ACTION=="add|change", ENV{ID_NET_NAME_SLOT}=="enP*", TAG+="systemd", ENV{SYSTEMD_WANTS}="azure-network-config.service"

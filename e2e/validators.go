@@ -254,6 +254,49 @@ func ValidateSysctlConfig(ctx context.Context, s *Scenario, customSysctls map[st
 	}
 }
 
+func ValidateEthtoolConfig(ctx context.Context, s *Scenario, EthtoolConfig map[string]string) {
+	s.T.Helper()
+	keysToCheck := make([]string, 0, len(EthtoolConfig))
+	for k := range EthtoolConfig {
+		keysToCheck = append(keysToCheck, k)
+	}
+	getNicsCommand := []string{
+		"set -ex",
+		"cat /run/nics-to-configure",
+	}
+	nicsResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(getNicsCommand, "\n"), 0, "could not get nics to configure")
+	nics := strings.Split(strings.TrimSpace(nicsResult.stdout), "\n")
+
+	if len(nics) == 0 {
+		s.T.Fatalf("no nics found to validate ethtool config")
+		return
+	}
+	for _, nic := range nics {
+		for setting, expectedValue := range EthtoolConfig {
+			command := []string{
+				"set -ex",
+				fmt.Sprintf("sudo ethtool -g %s | grep %s | awk '{print $2}'", nic, setting),
+			}
+			execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "could not get ethtool config")
+			require.Contains(s.T, execResult.stdout, expectedValue, "expected to find %s set to %v on nic %s, but was not.\nStdout:\n%s", setting, expectedValue, nic, execResult.stdout)
+		}
+	}
+}
+
+// ValidateEthtoolConfigFiles checks that configuration files exist.
+func ValidateEthtoolConfigFiles(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	ValidateFileExists(ctx, s, "/opt/azure/containers/configure-aks-nics.sh")
+
+	ValidateFileExists(ctx, s, "/etc/udev/rules.d/99-aks-nics-to-configure.rules")
+
+	ValidateFileExists(ctx, s, "/etc/systemd/system/aks-ethtool-config.service")
+
+	ValidateFileHasContent(ctx, s, "/etc/systemd/system/aks-ethtool-config.service",
+		"ExecStart=/opt/azure/containers/configure-aks-nics.sh")
+}
+
 func ValidateNvidiaSMINotInstalled(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 	command := []string{

@@ -312,6 +312,27 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "validateKubeletCredentialsScript"}}
 
+- path: /opt/azure-network/configure-azure-network.sh
+  permissions: "0755"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "configureAzureNetworkScript"}}
+
+- path: /etc/udev/rules.d/99-azure-network.rules
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "azureNetworkUdevRule"}}
+
+- path: /etc/systemd/system/azure-network-config.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "azureNetworkService"}}
+
 - path: /etc/kubernetes/certs/ca.crt
   permissions: "0600"
   encoding: base64

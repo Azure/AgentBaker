@@ -96,6 +96,11 @@ const (
 	ensureNoDupEbtablesScript  = "linux/cloud-init/artifacts/ensure-no-dup.sh"
 	ensureNoDupEbtablesService = "linux/cloud-init/artifacts/ensure-no-dup.service"
 
+	// Azure network configuration files.
+	configureAzureNetworkScript = "linux/cloud-init/artifacts/configure-azure-network.sh"
+	azureNetworkUdevRule        = "linux/cloud-init/artifacts/99-azure-network.rules"
+	azureNetworkService         = "linux/cloud-init/artifacts/azure-network-config.service"
+
 	componentManifestFile = "linux/cloud-init/artifacts/manifest.json"
 )
 

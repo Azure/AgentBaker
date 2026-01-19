@@ -829,6 +829,27 @@ ensureSysctl() {
     retrycmd_if_failure 24 5 25 sysctl --system
 }
 
+ensureAzureNetworkConfig() {
+    # Create the azure-network directory if it doesn't exist
+    mkdir -p /etc/azure-network
+
+    # Write the ethtool configuration file if ETHTOOL_CONTENT is provided
+    if [ -n "${ETHTOOL_CONTENT}" ]; then
+        echo "${ETHTOOL_CONTENT}" | base64 -d > /etc/azure-network/ethtool.conf
+        chmod 0644 /etc/azure-network/ethtool.conf
+    fi
+
+    # Trigger udev to detect and populate network interfaces
+    echo "Triggering udev for network devices..."
+    udevadm trigger --subsystem-match=net --action=add
+
+    # Reload udev rules to pick up the new azure-network rules
+    udevadm control --reload-rules
+
+    # Give udev time to process and trigger the systemd service
+    sleep 2
+}
+
 ensureK8sControlPlane() {
     if $REBOOTREQUIRED || [ "$NO_OUTBOUND" = "true" ]; then
         return
