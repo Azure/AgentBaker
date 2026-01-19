@@ -45,20 +45,6 @@ export AZCOPY_JOB_PLAN_LOCATION="$(pwd)/azcopy-job-plan-files/"
 mkdir -p "${AZCOPY_LOG_LOCATION}"
 mkdir -p "${AZCOPY_JOB_PLAN_LOCATION}"
 
-if [ "${ENVIRONMENT,,}" = "tme" ]; then
-    # If environment is TME, we use a staging container in order to later copy the blob to an immutable container.
-    DESTINATION_STORAGE_CONTAINER=${CLASSIC_BLOB_STAGING}
-    STAGING_CONTAINER_EXISTS=$(az storage container exists --account-name ${STORAGE_ACCOUNT_NAME} --name $VHD_STAGING_CONTAINER_NAME --auth-mode login | jq -r '.exists')
-    if [ "${STAGING_CONTAINER_EXISTS,,}" = "false" ]; then
-        echo "Creating staging container $VHD_STAGING_CONTAINER_NAME in storage account $STORAGE_ACCOUNT_NAME"
-        az storage container create --account-name "$STORAGE_ACCOUNT_NAME" --name "$VHD_STAGING_CONTAINER_NAME" --auth-mode login || exit 1
-    else
-        echo "Staging container $VHD_STAGING_CONTAINER_NAME already exists in storage account $STORAGE_ACCOUNT_NAME"
-    fi
-else
-    DESTINATION_STORAGE_CONTAINER=${CLASSIC_BLOB}
-fi
-
 echo "Uploading ${OUT_DIR}/${CONFIG}.vhd to ${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd"
 if ! azcopy copy "${OUT_DIR}/${CONFIG}.vhd" "${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd" --recursive=true; then
     azExitCode=$?
@@ -82,15 +68,6 @@ if ! azcopy copy "${OUT_DIR}/${CONFIG}.vhd" "${DESTINATION_STORAGE_CONTAINER}/${
 fi
 
 echo "Uploaded ${OUT_DIR}/${CONFIG}.vhd to ${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd"
-
-if [ "${ENVIRONMENT,,}" = "tme"  ] && [ "${GENERATE_PUBLISHING_INFO,,}" = "true" ]; then
-    echo "Copying ${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd to immutable storage container"
-    az storage blob copy start --account-name "$STORAGE_ACCOUNT_NAME" --destination-blob "${CAPTURED_SIG_VERSION}.vhd" --destination-container "$VHD_CONTAINER_NAME" --source-uri "${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd" --auth-mode login || exit 1
-    echo "Successfully copied to immutable container"
-else
-    echo "GENERATE_PUBLISHING_INFO is false or we are in a testing / prod environment, skipping copying ${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd to immutable storage container"
-fi
-capture_benchmark "${SCRIPT_NAME}_upload_vhd_to_blob"
 
 GALLERY_RESOURCE_ID=/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/galleries/${SIG_GALLERY_NAME}
 SIG_IMAGE_RESOURCE_ID="${GALLERY_RESOURCE_ID}/images/${SIG_IMAGE_NAME}/versions/${CAPTURED_SIG_VERSION}"
@@ -126,7 +103,7 @@ az sig image-version create \
     --target-regions ${TARGET_REGIONS}
 capture_benchmark "${SCRIPT_NAME}_create_sig_image_version"
 
-if [ "${ENVIRONMENT,,}" = "tme" ] || [ "${GENERATE_PUBLISHING_INFO,,}" = "false" ]; then
+if [ "${GENERATE_PUBLISHING_INFO,,}" = "false" ]; then
     azcopy remove "${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd" --recursive=true
 fi
 

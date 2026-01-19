@@ -854,24 +854,25 @@ func (a *AgentPoolProfile) GetAgentPoolWindowsProfile() *AgentPoolWindowsProfile
 
 // Properties represents the AKS cluster definition.
 type Properties struct {
-	ClusterID               string
-	ProvisioningState       ProvisioningState        `json:"provisioningState,omitempty"`
-	OrchestratorProfile     *OrchestratorProfile     `json:"orchestratorProfile,omitempty"`
-	AgentPoolProfiles       []*AgentPoolProfile      `json:"agentPoolProfiles,omitempty"`
-	LinuxProfile            *LinuxProfile            `json:"linuxProfile,omitempty"`
-	WindowsProfile          *WindowsProfile          `json:"windowsProfile,omitempty"`
-	ExtensionProfiles       []*ExtensionProfile      `json:"extensionProfiles"`
-	DiagnosticsProfile      *DiagnosticsProfile      `json:"diagnosticsProfile,omitempty"`
-	ServicePrincipalProfile *ServicePrincipalProfile `json:"servicePrincipalProfile,omitempty"`
-	CertificateProfile      *CertificateProfile      `json:"certificateProfile,omitempty"`
-	AADProfile              *AADProfile              `json:"aadProfile,omitempty"`
-	CustomProfile           *CustomProfile           `json:"customProfile,omitempty"`
-	HostedMasterProfile     *HostedMasterProfile     `json:"hostedMasterProfile,omitempty"`
-	AddonProfiles           map[string]AddonProfile  `json:"addonProfiles,omitempty"`
-	FeatureFlags            *FeatureFlags            `json:"featureFlags,omitempty"`
-	CustomCloudEnv          *CustomCloudEnv          `json:"customCloudEnv,omitempty"`
-	CustomConfiguration     *CustomConfiguration     `json:"customConfiguration,omitempty"`
-	SecurityProfile         *SecurityProfile         `json:"securityProfile,omitempty"`
+	ClusterID                      string
+	ProvisioningState              ProvisioningState               `json:"provisioningState,omitempty"`
+	OrchestratorProfile            *OrchestratorProfile            `json:"orchestratorProfile,omitempty"`
+	AgentPoolProfiles              []*AgentPoolProfile             `json:"agentPoolProfiles,omitempty"`
+	LinuxProfile                   *LinuxProfile                   `json:"linuxProfile,omitempty"`
+	WindowsProfile                 *WindowsProfile                 `json:"windowsProfile,omitempty"`
+	ExtensionProfiles              []*ExtensionProfile             `json:"extensionProfiles"`
+	DiagnosticsProfile             *DiagnosticsProfile             `json:"diagnosticsProfile,omitempty"`
+	ServicePrincipalProfile        *ServicePrincipalProfile        `json:"servicePrincipalProfile,omitempty"`
+	CertificateProfile             *CertificateProfile             `json:"certificateProfile,omitempty"`
+	AADProfile                     *AADProfile                     `json:"aadProfile,omitempty"`
+	CustomProfile                  *CustomProfile                  `json:"customProfile,omitempty"`
+	HostedMasterProfile            *HostedMasterProfile            `json:"hostedMasterProfile,omitempty"`
+	AddonProfiles                  map[string]AddonProfile         `json:"addonProfiles,omitempty"`
+	FeatureFlags                   *FeatureFlags                   `json:"featureFlags,omitempty"`
+	CustomCloudEnv                 *CustomCloudEnv                 `json:"customCloudEnv,omitempty"`
+	CustomConfiguration            *CustomConfiguration            `json:"customConfiguration,omitempty"`
+	SecurityProfile                *SecurityProfile                `json:"securityProfile,omitempty"`
+	ServiceAccountImagePullProfile *ServiceAccountImagePullProfile `json:"serviceAccountImagePullProfile,omitempty"`
 }
 
 // ContainerService complies with the ARM model of resource definition in a JSON template.
@@ -2364,6 +2365,21 @@ func (a *AgentPoolWindowsProfile) GetNextGenNetworkingURL() string {
 // SecurityProfile begin.
 type SecurityProfile struct {
 	PrivateEgress *PrivateEgress `json:"privateEgress,omitempty"`
+}
+
+// ServiceAccountImagePullProfile defines service account based image pull settings.
+// This is part of SecurityProfile to keep cloud-agnostic AgentBaker
+// cleanly separated from AKS-specific features.
+type ServiceAccountImagePullProfile struct {
+	// Enabled indicates whether service account based image pull feature is enabled.
+	Enabled bool `json:"enabled,omitempty"`
+	// DefaultClientID is the default client ID of the identity used for image pull.
+	DefaultClientID string `json:"defaultClientID,omitempty"`
+	// DefaultTenantID is the default tenant ID of the identity used for image pull.
+	DefaultTenantID string `json:"defaultTenantID,omitempty"`
+	// LocalAuthoritySNI is the SNI endpoint for Identity Bindings Local Authority.
+	// Used by credential provider for image pull identity binding authentication.
+	LocalAuthoritySNI string `json:"localAuthoritySNI,omitempty"`
 }
 
 type PrivateEgress struct {

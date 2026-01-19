@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/x509"
 	"encoding/base64"
+	"encoding/json"
 	"encoding/pem"
 	"fmt"
 	"net"
@@ -17,6 +18,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
 	"github.com/blang/semver"
+	"github.com/samber/lo"
 	"github.com/tidwall/gjson"
 
 	"github.com/Azure/agentbaker/e2e/config"
@@ -544,6 +546,54 @@ func ValidateSystemdUnitIsNotFailed(ctx context.Context, s *Scenario, serviceNam
 	)
 }
 
+func ValidateNoFailedSystemdUnits(ctx context.Context, s *Scenario) {
+	unitFailureAllowList := map[string]bool{
+		// this service depends on non-network-isolated environment - E2Es are run in an environment
+		// which simulates network-isolation by only allowing egress to recommended domains outlined
+		// on public AKS documentation via a firewall. This service depends on some other domain which is
+		// not currently allowed by the firewall. It also seems that this service is only installed on
+		// Ubuntu - do we even need it? it seems that it's coming from the base image
+		"fwupd-refresh.service": true,
+	}
+	if s.Tags.BootstrapTokenFallback {
+		// secure-tls-bootstrap.service is expected to fail within scenarios that test bootstrap token fall-back behavior
+		unitFailureAllowList["secure-tls-bootstrap.service"] = true
+	}
+	if s.VHD.IgnoreFailedCgroupTelemetryServices {
+		unitFailureAllowList["cgroup-memory-telemetry.service"] = true
+		unitFailureAllowList["cgroup-pressure-telemetry.service"] = true
+	}
+
+	type systemdUnit struct {
+		Name string `json:"unit,omitempty"`
+	}
+	var failedUnits []systemdUnit
+	result := execScriptOnVMForScenarioValidateExitCode(ctx, s, "systemctl list-units --failed --output json", 0, fmt.Sprintf("unable to list failed systemd units"))
+	assert.NoError(s.T, json.Unmarshal([]byte(result.stdout), &failedUnits), `unable to parse and unmarshal "systemctl list-units" command output`)
+	failedUnits = lo.Filter(failedUnits, func(unit systemdUnit, _ int) bool {
+		return !unitFailureAllowList[unit.Name]
+	})
+
+	if len(failedUnits) < 1 {
+		// no unexpectedly failed units
+		return
+	}
+
+	// extract failed unit logs
+	failedUnitLogs := make(map[string]string, len(failedUnits))
+	for _, unit := range failedUnits {
+		failedUnitLogs[unit.Name+".log"] = execScriptOnVMForScenario(ctx, s, fmt.Sprintf("journalctl -u %s", unit.Name)).String()
+	}
+	assert.NoError(s.T, dumpFileMapToDir(s.T, failedUnitLogs), "failed to dump failed systemd unit logs")
+
+	s.T.Fatalf(
+		"the following systemd units have unexpectedly entered a failed state: %s - failed unit logs will be included in scenario log bundle within <service-name>.service.log",
+		lo.Map(failedUnits, func(unit systemdUnit, _ int) string {
+			return unit.Name
+		}),
+	)
+}
+
 func ValidateUlimitSettings(ctx context.Context, s *Scenario, ulimits map[string]string) {
 	s.T.Helper()
 	ulimitKeys := make([]string, 0, len(ulimits))
@@ -557,34 +607,6 @@ func ValidateUlimitSettings(ctx context.Context, s *Scenario, ulimits map[string
 	for name, value := range ulimits {
 		require.Contains(s.T, execResult.stdout, fmt.Sprintf("%s=%v", name, value), "expected to find %s set to %v, but was not", name, value)
 	}
-}
-
-func execOnVMForScenarioOnUnprivilegedPod(ctx context.Context, s *Scenario, cmd string) *podExecResult {
-	s.T.Helper()
-	nonHostPod, err := s.Runtime.Cluster.Kube.GetPodNetworkDebugPodForNode(ctx, s.Runtime.VM.KubeName)
-	require.NoError(s.T, err, "failed to get non host debug pod name")
-	execResult, err := execOnUnprivilegedPod(ctx, s.Runtime.Cluster.Kube, nonHostPod.Namespace, nonHostPod.Name, cmd)
-	require.NoErrorf(s.T, err, "failed to execute command on pod: %v", cmd)
-	return execResult
-}
-
-func execScriptOnVMForScenario(ctx context.Context, s *Scenario, cmd string) *podExecResult {
-	s.T.Helper()
-	result, err := execScriptOnVm(ctx, s, s.Runtime.VM, cmd)
-	require.NoError(s.T, err, "failed to execute command on VM")
-	return result
-}
-
-func execScriptOnVMForScenarioValidateExitCode(ctx context.Context, s *Scenario, cmd string, expectedExitCode int, additionalErrorMessage string) *podExecResult {
-	s.T.Helper()
-	execResult := execScriptOnVMForScenario(ctx, s, cmd)
-
-	expectedExitCodeStr := fmt.Sprint(expectedExitCode)
-	if expectedExitCodeStr != execResult.exitCode {
-		s.T.Logf("Command: %s\nStdout: %s\nStderr: %s", cmd, execResult.stdout, execResult.stderr)
-		s.T.Fatalf("expected exit code %s, but got %s\nCommand: %s\n%s", expectedExitCodeStr, execResult.exitCode, cmd, additionalErrorMessage)
-	}
-	return execResult
 }
 
 func ValidateInstalledPackageVersion(ctx context.Context, s *Scenario, component, version string) {
@@ -684,40 +706,6 @@ func ValidateKubeletHasFlags(ctx context.Context, s *Scenario, filePath string) 
 	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo journalctl -u kubelet", 0, "could not retrieve kubelet logs with journalctl")
 	configFileFlags := fmt.Sprintf("FLAG: --config=\"%s\"", filePath)
 	require.Containsf(s.T, execResult.stdout, configFileFlags, "expected to find flag %s, but not found", "config")
-}
-
-// Waits until the specified resource is available on the given node.
-// Returns an error if the resource is not available within the specified timeout period.
-func waitUntilResourceAvailable(ctx context.Context, s *Scenario, resourceName string) {
-	s.T.Helper()
-	nodeName := s.Runtime.VM.KubeName
-	ticker := time.NewTicker(time.Second)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			s.T.Fatalf("context cancelled: %v", ctx.Err())
-		case <-ticker.C:
-			node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
-			require.NoError(s.T, err, "failed to get node %q", nodeName)
-
-			if isResourceAvailable(node, resourceName) {
-				s.T.Logf("resource %q is available", resourceName)
-				return
-			}
-		}
-	}
-}
-
-// Checks if the specified resource is available on the node.
-func isResourceAvailable(node *corev1.Node, resourceName string) bool {
-	for rn, quantity := range node.Status.Allocatable {
-		if rn == corev1.ResourceName(resourceName) && quantity.Cmp(resource.MustParse("1")) >= 0 {
-			return true
-		}
-	}
-	return false
 }
 
 func ValidateContainerd2Properties(ctx context.Context, s *Scenario, versions []string) {
@@ -1114,20 +1102,6 @@ func ValidateDllIsNotLoadedWindows(ctx context.Context, s *Scenario, dllName str
 	if dllLoadedWindows(ctx, s, dllName) {
 		s.T.Fatalf("expected DLL %s to not be loaded, but it is", dllName)
 	}
-}
-
-func dllLoadedWindows(ctx context.Context, s *Scenario, dllName string) bool {
-	s.T.Helper()
-
-	steps := []string{
-		"$ErrorActionPreference = \"Continue\"",
-		fmt.Sprintf("tasklist /m %s", dllName),
-	}
-	execResult := execScriptOnVMForScenario(ctx, s, strings.Join(steps, "\n"))
-	dllLoaded := strings.Contains(execResult.stdout, dllName)
-
-	s.T.Logf("stdout: %s\nstderr: %s", execResult.stdout, execResult.stderr)
-	return dllLoaded
 }
 
 func ValidateJsonFileHasField(ctx context.Context, s *Scenario, fileName string, jsonPath string, expectedValue string) {
@@ -1594,54 +1568,6 @@ func ValidateIPTablesCompatibleWithCiliumEBPF(ctx context.Context, s *Scenario) 
 			"This may indicate an unsupported iptables rule when eBPF host routing is enabled. "+
 			"Contact acndp@microsoft.com for details.",
 	)
-}
-
-// getIPTablesRulesCompatibleWithEBPFHostRouting returns the expected iptables patterns that are accounted for when EBPF host routing is enabled.
-// If tests are failing due to unexpected iptables rules, it is because an iptables rule has been found, that was not accounted for in the implementation
-// of the eBPF host routing feature in Cilium CNI. In eBPF host routing mode, iptables rules in the host network namespace are bypassed for pod
-// traffic. So, any functionality that is built using iptables needs an equivalent non-iptables implementation that works in Cilium's eBPF host routing
-// mode. For guidance on how this may be done, please contact acndp@microsoft.com (Azure Container Networking Dataplane team). Once the feature
-// is supported in eBPF host routing mode, or is blocked from being enabled alongside eBPF host routing mode, you can update this list.
-func getIPTablesRulesCompatibleWithEBPFHostRouting() (map[string][]string, []string) {
-	tablePatterns := map[string][]string{
-		"filter": {
-			`-A FORWARD -d 168.63.129.16/32 -p tcp -m tcp --dport 32526 -j DROP`,
-			`-A FORWARD -d 168.63.129.16/32 -p tcp -m tcp --dport 80 -j DROP`,
-		},
-		"mangle": {
-			`-A FORWARD -d 168\.63\.129\.16/32 -p tcp -m tcp --dport 80 -j DROP`,
-			`-A FORWARD -d 168\.63\.129\.16/32 -p tcp -m tcp --dport 32526 -j DROP`,
-		},
-		"nat": {
-			`-A POSTROUTING -j SWIFT`,
-			`-A SWIFT -s`,
-			`-A POSTROUTING -j SWIFT-POSTROUTING`,
-			`-A SWIFT-POSTROUTING -s`,
-		},
-		"raw": {
-			`^-A (PREROUTING|OUTPUT) -d 169\.254\.10\.(10|11)\/32 -p (tcp|udp) -m comment --comment "localdns: skip conntrack" -m (tcp|udp) --dport 53 -j NOTRACK$`,
-		},
-		"security": {
-			`-A OUTPUT -d 168\.63\.129\.16/32 -p tcp -m tcp --dport 53 -j ACCEPT`,
-			`-A OUTPUT -d 168\.63\.129\.16/32 -p tcp -m owner --uid-owner 0 -j ACCEPT`,
-			`-A OUTPUT -d 168\.63\.129\.16/32 -p tcp -m conntrack --ctstate INVALID,NEW -j DROP`,
-		},
-	}
-
-	globalPatterns := []string{
-		`^-N .*`,
-		`^-P .*`,
-		`^-A (KUBE-SERVICES|KUBE-EXTERNAL-SERVICES|KUBE-NODEPORTS|KUBE-POSTROUTING|KUBE-MARK-MASQ|KUBE-FORWARD|KUBE-PROXY-FIREWALL|KUBE-PROXY-CANARY|KUBE-FIREWALL|KUBE-MARK-DROP) .*`,
-		`^-A (KUBE-SEP|KUBE-SVC)`,
-		`^-A .* -j (KUBE-SEP|KUBE-SVC|KUBE-SERVICES|KUBE-EXTERNAL-SERVICES|KUBE-NODEPORTS|KUBE-POSTROUTING|KUBE-MARK-MASQ|KUBE-FORWARD|KUBE-PROXY-FIREWALL|KUBE-PROXY-CANARY|KUBE-FIREWALL|KUBE-MARK-DROP)`,
-		`^-A IP-MASQ-AGENT`,
-		`^-A .* -j IP-MASQ-AGENT`,
-		`^.*--comment.*cilium:`,
-		`^.*--comment.*cilium-feeder:`,
-		`-A FORWARD ! -s (?:\d{1,3}\.){3}\d{1,3}/32 -d 169.254.169.254/32 -p tcp -m tcp --dport 80 -m comment --comment "AKS managed: added by AgentBaker ensureIMDSRestriction for IMDS restriction feature" -j DROP`,
-	}
-
-	return tablePatterns, globalPatterns
 }
 
 // ValidateAppArmorBasic validates that AppArmor is running without requiring aa-status

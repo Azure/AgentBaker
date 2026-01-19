@@ -458,27 +458,335 @@ Describe 'cse_config.sh'
         End
     End
 
-    Describe 'configCredentialProvider'
-        Mock mkdir
-            echo "mkdir $@"
-        End
+    Describe 'writeCredentialProviderConfig'
+        setup() {
+            TMP_DIR=$(mktemp -d)
+            # Reset all related variables before each test
+            SERVICE_ACCOUNT_IMAGE_PULL_ENABLED=""
+            IDENTITY_BINDINGS_LOCAL_AUTHORITY_SNI=""
+            SERVICE_ACCOUNT_IMAGE_PULL_DEFAULT_CLIENT_ID=""
+            SERVICE_ACCOUNT_IMAGE_PULL_DEFAULT_TENANT_ID=""
+            API_SERVER_NAME=""
+            AKS_CUSTOM_CLOUD_CONTAINER_REGISTRY_DNS_SUFFIX=""
+            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER=""
+        }
+        cleanup() {
+            rm -rf "$TMP_DIR"
+        }
+        BeforeEach 'setup'
+        AfterEach 'cleanup'
 
-        Mock touch
-            echo "touch $@"
-        End
-
-        Mock tee
-            echo "tee $@"
+        It 'should configure credential provider with default settings when no special flags are set'
+            expected_config='apiVersion: kubelet.config.k8s.io/v1
+kind: CredentialProviderConfig
+providers:
+  - name: acr-credential-provider
+    matchImages:
+      - "*.azurecr.io"
+      - "*.azurecr.cn"
+      - "*.azurecr.de"
+      - "*.azurecr.us"
+    defaultCacheDuration: "10m"
+    apiVersion: credentialprovider.kubelet.k8s.io/v1
+    args:
+      - /etc/kubernetes/azure.json'
+            When call writeCredentialProviderConfig "$TMP_DIR/credential-provider-config.yaml"
+            The output should include "configure credential provider with default settings"
+            The contents of file "$TMP_DIR/credential-provider-config.yaml" should equal "$expected_config"
         End
 
         It 'should configure credential provider for network isolated cluster'
             BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="test.azurecr.io"
-            When call configCredentialProvider
-            The variable CREDENTIAL_PROVIDER_CONFIG_FILE should equal '/var/lib/kubelet/credential-provider-config.yaml'
-            The output should include "mkdir -p /var/lib/kubelet"
-            The output should include "touch /var/lib/kubelet/credential-provider-config.yaml"
+            expected_config='apiVersion: kubelet.config.k8s.io/v1
+kind: CredentialProviderConfig
+providers:
+  - name: acr-credential-provider
+    matchImages:
+      - "*.azurecr.io"
+      - "*.azurecr.cn"
+      - "*.azurecr.de"
+      - "*.azurecr.us"
+      - "mcr.microsoft.com"
+    defaultCacheDuration: "10m"
+    apiVersion: credentialprovider.kubelet.k8s.io/v1
+    args:
+      - /etc/kubernetes/azure.json
+      - --registry-mirror=mcr.microsoft.com:test.azurecr.io'
+            When call writeCredentialProviderConfig "$TMP_DIR/credential-provider-config.yaml"
             The output should include "configure credential provider for network isolated cluster"
-            The output should not include "tee"
+            The contents of file "$TMP_DIR/credential-provider-config.yaml" should equal "$expected_config"
+        End
+
+        It 'should configure credential provider for custom cloud'
+            AKS_CUSTOM_CLOUD_CONTAINER_REGISTRY_DNS_SUFFIX=".custom.registry.io"
+            expected_config='apiVersion: kubelet.config.k8s.io/v1
+kind: CredentialProviderConfig
+providers:
+  - name: acr-credential-provider
+    matchImages:
+      - "*.azurecr.io"
+      - "*.azurecr.cn"
+      - "*.azurecr.de"
+      - "*.azurecr.us"
+      - "*.custom.registry.io"
+    defaultCacheDuration: "10m"
+    apiVersion: credentialprovider.kubelet.k8s.io/v1
+    args:
+      - /etc/kubernetes/azure.json'
+            When call writeCredentialProviderConfig "$TMP_DIR/credential-provider-config.yaml"
+            The output should include "configure credential provider for custom cloud"
+            The contents of file "$TMP_DIR/credential-provider-config.yaml" should equal "$expected_config"
+        End
+
+        It 'should configure credential provider with identity binding enabled and all args'
+            SERVICE_ACCOUNT_IMAGE_PULL_ENABLED="true"
+            IDENTITY_BINDINGS_LOCAL_AUTHORITY_SNI="test.sni.local"
+            SERVICE_ACCOUNT_IMAGE_PULL_DEFAULT_CLIENT_ID="my-client-id"
+            SERVICE_ACCOUNT_IMAGE_PULL_DEFAULT_TENANT_ID="my-tenant-id"
+            API_SERVER_NAME="apiserver.example.com"
+            expected_config='apiVersion: kubelet.config.k8s.io/v1
+kind: CredentialProviderConfig
+providers:
+  - name: acr-credential-provider
+    matchImages:
+      - "*.azurecr.io"
+      - "*.azurecr.cn"
+      - "*.azurecr.de"
+      - "*.azurecr.us"
+    defaultCacheDuration: "10m"
+    apiVersion: credentialprovider.kubelet.k8s.io/v1
+    tokenAttributes:
+      serviceAccountTokenAudience: api://AKSIdentityBinding
+      requireServiceAccount: false
+      cacheType: ServiceAccount
+      optionalServiceAccountAnnotationKeys:
+        - kubernetes.azure.com/acr-client-id
+    args:
+      - /etc/kubernetes/azure.json
+      - --ib-sni-name=test.sni.local
+      - --ib-default-client-id=my-client-id
+      - --ib-default-tenant-id=my-tenant-id
+      - --ib-apiserver-ip=apiserver.example.com'
+            When call writeCredentialProviderConfig "$TMP_DIR/credential-provider-config.yaml"
+            The output should include "configure credential provider with default settings"
+            The contents of file "$TMP_DIR/credential-provider-config.yaml" should equal "$expected_config"
+        End
+
+        It 'should configure credential provider with identity binding enabled without optional client-id'
+            SERVICE_ACCOUNT_IMAGE_PULL_ENABLED="true"
+            IDENTITY_BINDINGS_LOCAL_AUTHORITY_SNI="test.sni.local"
+            SERVICE_ACCOUNT_IMAGE_PULL_DEFAULT_CLIENT_ID=""
+            SERVICE_ACCOUNT_IMAGE_PULL_DEFAULT_TENANT_ID="my-tenant-id"
+            API_SERVER_NAME="apiserver.example.com"
+            expected_config='apiVersion: kubelet.config.k8s.io/v1
+kind: CredentialProviderConfig
+providers:
+  - name: acr-credential-provider
+    matchImages:
+      - "*.azurecr.io"
+      - "*.azurecr.cn"
+      - "*.azurecr.de"
+      - "*.azurecr.us"
+    defaultCacheDuration: "10m"
+    apiVersion: credentialprovider.kubelet.k8s.io/v1
+    tokenAttributes:
+      serviceAccountTokenAudience: api://AKSIdentityBinding
+      requireServiceAccount: false
+      cacheType: ServiceAccount
+      optionalServiceAccountAnnotationKeys:
+        - kubernetes.azure.com/acr-client-id
+    args:
+      - /etc/kubernetes/azure.json
+      - --ib-sni-name=test.sni.local
+      - --ib-default-tenant-id=my-tenant-id
+      - --ib-apiserver-ip=apiserver.example.com'
+            When call writeCredentialProviderConfig "$TMP_DIR/credential-provider-config.yaml"
+            The output should include "configure credential provider with default settings"
+            The contents of file "$TMP_DIR/credential-provider-config.yaml" should equal "$expected_config"
+        End
+
+        It 'should configure credential provider with identity binding enabled without optional tenant-id'
+            SERVICE_ACCOUNT_IMAGE_PULL_ENABLED="true"
+            IDENTITY_BINDINGS_LOCAL_AUTHORITY_SNI="test.sni.local"
+            SERVICE_ACCOUNT_IMAGE_PULL_DEFAULT_CLIENT_ID="my-client-id"
+            SERVICE_ACCOUNT_IMAGE_PULL_DEFAULT_TENANT_ID=""
+            API_SERVER_NAME="apiserver.example.com"
+            expected_config='apiVersion: kubelet.config.k8s.io/v1
+kind: CredentialProviderConfig
+providers:
+  - name: acr-credential-provider
+    matchImages:
+      - "*.azurecr.io"
+      - "*.azurecr.cn"
+      - "*.azurecr.de"
+      - "*.azurecr.us"
+    defaultCacheDuration: "10m"
+    apiVersion: credentialprovider.kubelet.k8s.io/v1
+    tokenAttributes:
+      serviceAccountTokenAudience: api://AKSIdentityBinding
+      requireServiceAccount: false
+      cacheType: ServiceAccount
+      optionalServiceAccountAnnotationKeys:
+        - kubernetes.azure.com/acr-client-id
+    args:
+      - /etc/kubernetes/azure.json
+      - --ib-sni-name=test.sni.local
+      - --ib-default-client-id=my-client-id
+      - --ib-apiserver-ip=apiserver.example.com'
+            When call writeCredentialProviderConfig "$TMP_DIR/credential-provider-config.yaml"
+            The output should include "configure credential provider with default settings"
+            The contents of file "$TMP_DIR/credential-provider-config.yaml" should equal "$expected_config"
+        End
+
+        It 'should configure credential provider with identity binding enabled with only required args'
+            SERVICE_ACCOUNT_IMAGE_PULL_ENABLED="true"
+            IDENTITY_BINDINGS_LOCAL_AUTHORITY_SNI="test.sni.local"
+            SERVICE_ACCOUNT_IMAGE_PULL_DEFAULT_CLIENT_ID=""
+            SERVICE_ACCOUNT_IMAGE_PULL_DEFAULT_TENANT_ID=""
+            API_SERVER_NAME="apiserver.example.com"
+            expected_config='apiVersion: kubelet.config.k8s.io/v1
+kind: CredentialProviderConfig
+providers:
+  - name: acr-credential-provider
+    matchImages:
+      - "*.azurecr.io"
+      - "*.azurecr.cn"
+      - "*.azurecr.de"
+      - "*.azurecr.us"
+    defaultCacheDuration: "10m"
+    apiVersion: credentialprovider.kubelet.k8s.io/v1
+    tokenAttributes:
+      serviceAccountTokenAudience: api://AKSIdentityBinding
+      requireServiceAccount: false
+      cacheType: ServiceAccount
+      optionalServiceAccountAnnotationKeys:
+        - kubernetes.azure.com/acr-client-id
+    args:
+      - /etc/kubernetes/azure.json
+      - --ib-sni-name=test.sni.local
+      - --ib-apiserver-ip=apiserver.example.com'
+            When call writeCredentialProviderConfig "$TMP_DIR/credential-provider-config.yaml"
+            The output should include "configure credential provider with default settings"
+            The contents of file "$TMP_DIR/credential-provider-config.yaml" should equal "$expected_config"
+        End
+
+        It 'should configure credential provider for network isolated cluster with identity binding enabled'
+            SERVICE_ACCOUNT_IMAGE_PULL_ENABLED="true"
+            IDENTITY_BINDINGS_LOCAL_AUTHORITY_SNI="test.sni.local"
+            SERVICE_ACCOUNT_IMAGE_PULL_DEFAULT_CLIENT_ID="my-client-id"
+            SERVICE_ACCOUNT_IMAGE_PULL_DEFAULT_TENANT_ID="my-tenant-id"
+            API_SERVER_NAME="apiserver.example.com"
+            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="test.azurecr.io"
+            expected_config='apiVersion: kubelet.config.k8s.io/v1
+kind: CredentialProviderConfig
+providers:
+  - name: acr-credential-provider
+    matchImages:
+      - "*.azurecr.io"
+      - "*.azurecr.cn"
+      - "*.azurecr.de"
+      - "*.azurecr.us"
+      - "mcr.microsoft.com"
+    defaultCacheDuration: "10m"
+    apiVersion: credentialprovider.kubelet.k8s.io/v1
+    tokenAttributes:
+      serviceAccountTokenAudience: api://AKSIdentityBinding
+      requireServiceAccount: false
+      cacheType: ServiceAccount
+      optionalServiceAccountAnnotationKeys:
+        - kubernetes.azure.com/acr-client-id
+    args:
+      - /etc/kubernetes/azure.json
+      - --registry-mirror=mcr.microsoft.com:test.azurecr.io
+      - --ib-sni-name=test.sni.local
+      - --ib-default-client-id=my-client-id
+      - --ib-default-tenant-id=my-tenant-id
+      - --ib-apiserver-ip=apiserver.example.com'
+            When call writeCredentialProviderConfig "$TMP_DIR/credential-provider-config.yaml"
+            The output should include "configure credential provider for network isolated cluster"
+            The contents of file "$TMP_DIR/credential-provider-config.yaml" should equal "$expected_config"
+        End
+
+        It 'should configure credential provider for custom cloud with identity binding enabled'
+            SERVICE_ACCOUNT_IMAGE_PULL_ENABLED="true"
+            IDENTITY_BINDINGS_LOCAL_AUTHORITY_SNI="test.sni.local"
+            SERVICE_ACCOUNT_IMAGE_PULL_DEFAULT_CLIENT_ID="my-client-id"
+            SERVICE_ACCOUNT_IMAGE_PULL_DEFAULT_TENANT_ID="my-tenant-id"
+            API_SERVER_NAME="apiserver.example.com"
+            AKS_CUSTOM_CLOUD_CONTAINER_REGISTRY_DNS_SUFFIX=".custom.registry.io"
+            expected_config='apiVersion: kubelet.config.k8s.io/v1
+kind: CredentialProviderConfig
+providers:
+  - name: acr-credential-provider
+    matchImages:
+      - "*.azurecr.io"
+      - "*.azurecr.cn"
+      - "*.azurecr.de"
+      - "*.azurecr.us"
+      - "*.custom.registry.io"
+    defaultCacheDuration: "10m"
+    apiVersion: credentialprovider.kubelet.k8s.io/v1
+    tokenAttributes:
+      serviceAccountTokenAudience: api://AKSIdentityBinding
+      requireServiceAccount: false
+      cacheType: ServiceAccount
+      optionalServiceAccountAnnotationKeys:
+        - kubernetes.azure.com/acr-client-id
+    args:
+      - /etc/kubernetes/azure.json
+      - --ib-sni-name=test.sni.local
+      - --ib-default-client-id=my-client-id
+      - --ib-default-tenant-id=my-tenant-id
+      - --ib-apiserver-ip=apiserver.example.com'
+            When call writeCredentialProviderConfig "$TMP_DIR/credential-provider-config.yaml"
+            The output should include "configure credential provider for custom cloud"
+            The contents of file "$TMP_DIR/credential-provider-config.yaml" should equal "$expected_config"
+        End
+
+        It 'should not add identity binding config when SERVICE_ACCOUNT_IMAGE_PULL_ENABLED is false'
+            SERVICE_ACCOUNT_IMAGE_PULL_ENABLED="false"
+            IDENTITY_BINDINGS_LOCAL_AUTHORITY_SNI="test.sni.local"
+            SERVICE_ACCOUNT_IMAGE_PULL_DEFAULT_CLIENT_ID="my-client-id"
+            API_SERVER_NAME="apiserver.example.com"
+            expected_config='apiVersion: kubelet.config.k8s.io/v1
+kind: CredentialProviderConfig
+providers:
+  - name: acr-credential-provider
+    matchImages:
+      - "*.azurecr.io"
+      - "*.azurecr.cn"
+      - "*.azurecr.de"
+      - "*.azurecr.us"
+    defaultCacheDuration: "10m"
+    apiVersion: credentialprovider.kubelet.k8s.io/v1
+    args:
+      - /etc/kubernetes/azure.json'
+            When call writeCredentialProviderConfig "$TMP_DIR/credential-provider-config.yaml"
+            The output should include "configure credential provider with default settings"
+            The contents of file "$TMP_DIR/credential-provider-config.yaml" should equal "$expected_config"
+        End
+
+        It 'should not add identity binding config when SERVICE_ACCOUNT_IMAGE_PULL_ENABLED is empty'
+            SERVICE_ACCOUNT_IMAGE_PULL_ENABLED=""
+            IDENTITY_BINDINGS_LOCAL_AUTHORITY_SNI="test.sni.local"
+            SERVICE_ACCOUNT_IMAGE_PULL_DEFAULT_CLIENT_ID="my-client-id"
+            API_SERVER_NAME="apiserver.example.com"
+            expected_config='apiVersion: kubelet.config.k8s.io/v1
+kind: CredentialProviderConfig
+providers:
+  - name: acr-credential-provider
+    matchImages:
+      - "*.azurecr.io"
+      - "*.azurecr.cn"
+      - "*.azurecr.de"
+      - "*.azurecr.us"
+    defaultCacheDuration: "10m"
+    apiVersion: credentialprovider.kubelet.k8s.io/v1
+    args:
+      - /etc/kubernetes/azure.json'
+            When call writeCredentialProviderConfig "$TMP_DIR/credential-provider-config.yaml"
+            The output should include "configure credential provider with default settings"
+            The contents of file "$TMP_DIR/credential-provider-config.yaml" should equal "$expected_config"
         End
     End
 
@@ -548,7 +856,7 @@ Describe 'cse_config.sh'
 
         # Success case.
         It 'should enable localdns successfully'
-            When call shouldEnableLocalDns
+            When call enableLocalDNSForScriptless
             The status should be success
             The output should include "localdns should be enabled."
             The output should include "Enable localdns succeeded."
@@ -556,7 +864,7 @@ Describe 'cse_config.sh'
 
         # Corefile file creation.
         It 'should create localdns.corefile with correct data'
-            When call shouldEnableLocalDns
+            When call enableLocalDNSForScriptless
             The status should be success
             The output should include "localdns should be enabled."
             The path "$LOCALDNS_COREFILE" should be file
@@ -568,7 +876,7 @@ Describe 'cse_config.sh'
         # Corefile already exists (idempotency).
         It 'should overwrite existing localdns.corefile'
             echo "wrong data" > "$LOCALDNS_COREFILE"
-            When call shouldEnableLocalDns
+            When call enableLocalDNSForScriptless
             The status should be success
             The path "$LOCALDNS_COREFILE" should be file
             The contents of file "$LOCALDNS_COREFILE" should include "localdns corefile"
@@ -578,7 +886,7 @@ Describe 'cse_config.sh'
 
         # Slice file creation.
         It 'should create localdns.slice with correct CPU and Memory limits'
-            When call shouldEnableLocalDns
+            When call enableLocalDNSForScriptless
             The status should be success
             The output should include "localdns should be enabled."
             The path "$LOCALDNS_SLICEFILE" should be file

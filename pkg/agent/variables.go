@@ -115,45 +115,49 @@ func getCSECommandVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 	}
 
 	return map[string]interface{}{
-		"tenantID":                             config.TenantID,
-		"subscriptionId":                       config.SubscriptionID,
-		"resourceGroup":                        config.ResourceGroupName,
-		"location":                             cs.Location,
-		"vmType":                               cs.Properties.GetVMType(),
-		"subnetName":                           cs.Properties.GetSubnetName(),
-		"nsgName":                              cs.Properties.GetNSGName(),
-		"virtualNetworkName":                   cs.Properties.GetVirtualNetworkName(),
-		"virtualNetworkResourceGroupName":      cs.Properties.GetVNetResourceGroupName(),
-		"routeTableName":                       cs.Properties.GetRouteTableName(),
-		"primaryAvailabilitySetName":           cs.Properties.GetPrimaryAvailabilitySetName(),
-		"primaryScaleSetName":                  config.PrimaryScaleSetName,
-		"useManagedIdentityExtension":          useManagedIdentity(cs),
-		"useInstanceMetadata":                  useInstanceMetadata(cs),
-		"loadBalancerSku":                      cs.Properties.OrchestratorProfile.KubernetesConfig.LoadBalancerSku,
-		"excludeMasterFromStandardLB":          true,
-		"maximumLoadBalancerRuleCount":         getMaximumLoadBalancerRuleCount(cs),
-		"userAssignedIdentityID":               config.UserAssignedIdentityClientID,
-		"isVHD":                                isVHD(profile),
-		"gpuNode":                              strconv.FormatBool(config.EnableNvidia),
-		"sgxNode":                              strconv.FormatBool(datamodel.IsSgxEnabledSKU(profile.VMSize)),
-		"configGPUDriverIfNeeded":              config.ConfigGPUDriverIfNeeded,
-		"enableGPUDevicePluginIfNeeded":        config.EnableGPUDevicePluginIfNeeded,
-		"migNode":                              strconv.FormatBool(datamodel.IsMIGNode(config.GPUInstanceProfile)),
-		"gpuInstanceProfile":                   config.GPUInstanceProfile,
-		"windowsEnableCSIProxy":                windowsProfile.IsCSIProxyEnabled(),
-		"windowsPauseImageURL":                 windowsProfile.WindowsPauseImageURL,
-		"windowsCSIProxyURL":                   windowsProfile.CSIProxyURL,
-		"windowsProvisioningScriptsPackageURL": windowsProfile.ProvisioningScriptsPackageURL,
-		"alwaysPullWindowsPauseImage":          strconv.FormatBool(windowsProfile.IsAlwaysPullWindowsPauseImage()),
-		"windowsCalicoPackageURL":              windowsProfile.WindowsCalicoPackageURL,
-		"windowsSecureTlsEnabled":              windowsProfile.IsWindowsSecureTlsEnabled(),
-		"windowsGmsaPackageUrl":                windowsProfile.WindowsGmsaPackageUrl,
-		"windowsGpuDriverURL":                  windowsProfile.GpuDriverURL,
-		"windowsCSEScriptsPackageURL":          windowsProfile.CseScriptsPackageURL,
-		"isDisableWindowsOutboundNat":          strconv.FormatBool(config.AgentPoolProfile.IsDisableWindowsOutboundNat()),
-		"isSkipCleanupNetwork":                 strconv.FormatBool(config.AgentPoolProfile.IsSkipCleanupNetwork()),
-		"nextGenNetworkingEnabled":             strconv.FormatBool(agentPoolProfileWindows.IsNextGenNetworkingEnabled()),
-		"nextGenNetworkingConfig":              agentPoolProfileWindows.GetNextGenNetworkingConfig(),
+		"tenantID":                               config.TenantID,
+		"subscriptionId":                         config.SubscriptionID,
+		"resourceGroup":                          config.ResourceGroupName,
+		"location":                               cs.Location,
+		"vmType":                                 cs.Properties.GetVMType(),
+		"subnetName":                             cs.Properties.GetSubnetName(),
+		"nsgName":                                cs.Properties.GetNSGName(),
+		"virtualNetworkName":                     cs.Properties.GetVirtualNetworkName(),
+		"virtualNetworkResourceGroupName":        cs.Properties.GetVNetResourceGroupName(),
+		"routeTableName":                         cs.Properties.GetRouteTableName(),
+		"primaryAvailabilitySetName":             cs.Properties.GetPrimaryAvailabilitySetName(),
+		"primaryScaleSetName":                    config.PrimaryScaleSetName,
+		"useManagedIdentityExtension":            useManagedIdentity(cs),
+		"useInstanceMetadata":                    useInstanceMetadata(cs),
+		"loadBalancerSku":                        cs.Properties.OrchestratorProfile.KubernetesConfig.LoadBalancerSku,
+		"excludeMasterFromStandardLB":            true,
+		"maximumLoadBalancerRuleCount":           getMaximumLoadBalancerRuleCount(cs),
+		"userAssignedIdentityID":                 config.UserAssignedIdentityClientID,
+		"isVHD":                                  isVHD(profile),
+		"gpuNode":                                strconv.FormatBool(config.EnableNvidia),
+		"sgxNode":                                strconv.FormatBool(datamodel.IsSgxEnabledSKU(profile.VMSize)),
+		"configGPUDriverIfNeeded":                config.ConfigGPUDriverIfNeeded,
+		"enableGPUDevicePluginIfNeeded":          config.EnableGPUDevicePluginIfNeeded,
+		"migNode":                                strconv.FormatBool(datamodel.IsMIGNode(config.GPUInstanceProfile)),
+		"gpuInstanceProfile":                     config.GPUInstanceProfile,
+		"windowsEnableCSIProxy":                  windowsProfile.IsCSIProxyEnabled(),
+		"windowsPauseImageURL":                   windowsProfile.WindowsPauseImageURL,
+		"windowsCSIProxyURL":                     windowsProfile.CSIProxyURL,
+		"windowsProvisioningScriptsPackageURL":   windowsProfile.ProvisioningScriptsPackageURL,
+		"alwaysPullWindowsPauseImage":            strconv.FormatBool(windowsProfile.IsAlwaysPullWindowsPauseImage()),
+		"windowsCalicoPackageURL":                windowsProfile.WindowsCalicoPackageURL,
+		"windowsSecureTlsEnabled":                windowsProfile.IsWindowsSecureTlsEnabled(),
+		"windowsGmsaPackageUrl":                  windowsProfile.WindowsGmsaPackageUrl,
+		"windowsGpuDriverURL":                    windowsProfile.GpuDriverURL,
+		"windowsCSEScriptsPackageURL":            windowsProfile.CseScriptsPackageURL,
+		"isDisableWindowsOutboundNat":            strconv.FormatBool(config.AgentPoolProfile.IsDisableWindowsOutboundNat()),
+		"isSkipCleanupNetwork":                   strconv.FormatBool(config.AgentPoolProfile.IsSkipCleanupNetwork()),
+		"nextGenNetworkingEnabled":               strconv.FormatBool(agentPoolProfileWindows.IsNextGenNetworkingEnabled()),
+		"nextGenNetworkingConfig":                agentPoolProfileWindows.GetNextGenNetworkingConfig(),
+		"serviceAccountImagePullBindingEnabled":  strconv.FormatBool(getServiceAccountImagePullEnabled(cs)),
+		"serviceAccountImagePullDefaultClientID": getServiceAccountImagePullDefaultClientID(cs),
+		"serviceAccountImagePullDefaultTenantID": getServiceAccountImagePullDefaultTenantID(cs),
+		"identityBindingsLocalAuthoritySNI":      getServiceAccountImagePullLocalAuthoritySNI(cs),
 	}
 }
 
@@ -175,6 +179,34 @@ func getMaximumLoadBalancerRuleCount(cs *datamodel.ContainerService) int {
 		return cs.Properties.OrchestratorProfile.KubernetesConfig.MaximumLoadBalancerRuleCount
 	}
 	return 0
+}
+
+func getServiceAccountImagePullEnabled(cs *datamodel.ContainerService) bool {
+	if cs.Properties.ServiceAccountImagePullProfile == nil {
+		return false
+	}
+	return cs.Properties.ServiceAccountImagePullProfile.Enabled
+}
+
+func getServiceAccountImagePullDefaultClientID(cs *datamodel.ContainerService) string {
+	if cs.Properties.ServiceAccountImagePullProfile == nil {
+		return ""
+	}
+	return cs.Properties.ServiceAccountImagePullProfile.DefaultClientID
+}
+
+func getServiceAccountImagePullDefaultTenantID(cs *datamodel.ContainerService) string {
+	if cs.Properties.ServiceAccountImagePullProfile == nil {
+		return ""
+	}
+	return cs.Properties.ServiceAccountImagePullProfile.DefaultTenantID
+}
+
+func getServiceAccountImagePullLocalAuthoritySNI(cs *datamodel.ContainerService) string {
+	if cs.Properties.ServiceAccountImagePullProfile == nil {
+		return ""
+	}
+	return cs.Properties.ServiceAccountImagePullProfile.LocalAuthoritySNI
 }
 
 func isVHD(profile *datamodel.AgentPoolProfile) string {

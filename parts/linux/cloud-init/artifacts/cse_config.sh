@@ -1053,13 +1053,45 @@ configureSSHPubkeyAuth() {
   sudo systemctl reload sshd || sudo systemctl restart sshd || exit $ERR_CONFIG_PUBKEY_AUTH_SSH
 }
 
-configCredentialProvider() {
-    CREDENTIAL_PROVIDER_CONFIG_FILE=/var/lib/kubelet/credential-provider-config.yaml
-    mkdir -p "$(dirname "${CREDENTIAL_PROVIDER_CONFIG_FILE}")"
-    touch "${CREDENTIAL_PROVIDER_CONFIG_FILE}"
+# Internal function that writes credential provider config to a specified path
+# This function is extracted to allow unit testing without root permissions
+# Usage: writeCredentialProviderConfig <config_file_path>
+writeCredentialProviderConfig() {
+    if [ -z "$1" ]; then
+        echo "Error: writeCredentialProviderConfig requires config file path as argument"
+        return 1
+    fi
+    local config_file_path="$1"
+    mkdir -p "$(dirname "${config_file_path}")"
+    touch "${config_file_path}"
+
+    # Prepare identity binding configuration if enabled (including leading newlines)
+    local ib_token_attributes=""
+    local ib_args=""
+    local ib_args_list=()
+    if [ "${SERVICE_ACCOUNT_IMAGE_PULL_ENABLED}" = "true" ]; then
+        ib_token_attributes="
+    tokenAttributes:
+      serviceAccountTokenAudience: api://AKSIdentityBinding
+      requireServiceAccount: false
+      cacheType: ServiceAccount
+      optionalServiceAccountAnnotationKeys:
+        - kubernetes.azure.com/acr-client-id"
+        # Build identity binding args list using an array to avoid word splitting
+        ib_args_list=( "--ib-sni-name=${IDENTITY_BINDINGS_LOCAL_AUTHORITY_SNI}" )
+        [ -n "${SERVICE_ACCOUNT_IMAGE_PULL_DEFAULT_CLIENT_ID}" ] && ib_args_list+=( "--ib-default-client-id=${SERVICE_ACCOUNT_IMAGE_PULL_DEFAULT_CLIENT_ID}" )
+        [ -n "${SERVICE_ACCOUNT_IMAGE_PULL_DEFAULT_TENANT_ID}" ] && ib_args_list+=( "--ib-default-tenant-id=${SERVICE_ACCOUNT_IMAGE_PULL_DEFAULT_TENANT_ID}" )
+        ib_args_list+=( "--ib-apiserver-ip=${API_SERVER_NAME}" )
+        # Format args as YAML list items with proper indentation
+        for arg in "${ib_args_list[@]}"; do
+            ib_args="${ib_args}
+      - ${arg}"
+        done
+    fi
+
     if [ -n "$AKS_CUSTOM_CLOUD_CONTAINER_REGISTRY_DNS_SUFFIX" ]; then
         echo "configure credential provider for custom cloud"
-        tee "${CREDENTIAL_PROVIDER_CONFIG_FILE}" > /dev/null <<EOF
+        tee "${config_file_path}" > /dev/null <<EOF
 apiVersion: kubelet.config.k8s.io/v1
 kind: CredentialProviderConfig
 providers:
@@ -1071,13 +1103,13 @@ providers:
       - "*.azurecr.us"
       - "*$AKS_CUSTOM_CLOUD_CONTAINER_REGISTRY_DNS_SUFFIX"
     defaultCacheDuration: "10m"
-    apiVersion: credentialprovider.kubelet.k8s.io/v1
+    apiVersion: credentialprovider.kubelet.k8s.io/v1${ib_token_attributes}
     args:
-      - /etc/kubernetes/azure.json
+      - /etc/kubernetes/azure.json${ib_args}
 EOF
     elif [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
         echo "configure credential provider for network isolated cluster"
-        tee "${CREDENTIAL_PROVIDER_CONFIG_FILE}" > /dev/null <<EOF
+        tee "${config_file_path}" > /dev/null <<EOF
 apiVersion: kubelet.config.k8s.io/v1
 kind: CredentialProviderConfig
 providers:
@@ -1089,14 +1121,14 @@ providers:
       - "*.azurecr.us"
       - "mcr.microsoft.com"
     defaultCacheDuration: "10m"
-    apiVersion: credentialprovider.kubelet.k8s.io/v1
+    apiVersion: credentialprovider.kubelet.k8s.io/v1${ib_token_attributes}
     args:
       - /etc/kubernetes/azure.json
-      - --registry-mirror=mcr.microsoft.com:$BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER
+      - --registry-mirror=mcr.microsoft.com:$BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER${ib_args}
 EOF
     else
         echo "configure credential provider with default settings"
-        tee "${CREDENTIAL_PROVIDER_CONFIG_FILE}" > /dev/null <<EOF
+        tee "${config_file_path}" > /dev/null <<EOF
 apiVersion: kubelet.config.k8s.io/v1
 kind: CredentialProviderConfig
 providers:
@@ -1107,11 +1139,15 @@ providers:
       - "*.azurecr.de"
       - "*.azurecr.us"
     defaultCacheDuration: "10m"
-    apiVersion: credentialprovider.kubelet.k8s.io/v1
+    apiVersion: credentialprovider.kubelet.k8s.io/v1${ib_token_attributes}
     args:
-      - /etc/kubernetes/azure.json
+      - /etc/kubernetes/azure.json${ib_args}
 EOF
     fi
+}
+
+configCredentialProvider() {
+    writeCredentialProviderConfig "/var/lib/kubelet/credential-provider-config.yaml"
 }
 
 setKubeletNodeIPFlag() {
@@ -1166,11 +1202,20 @@ LOCALDNS_SLICEFILE="/etc/systemd/system/localdns.slice"
 # It creates the localdns corefile and slicefile, then enables and starts localdns.
 # In this function, generated base64 encoded localdns corefile is decoded and written to the corefile path.
 # This function also creates the localdns slice file with memory and cpu limits, that will be used by localdns systemd unit.
-shouldEnableLocalDns() {
+enableLocalDNSForScriptless() {
     mkdir -p "$(dirname "${LOCALDNS_COREFILE}")"
     touch "${LOCALDNS_COREFILE}"
     chmod 0644 "${LOCALDNS_COREFILE}"
     echo "${LOCALDNS_GENERATED_COREFILE}" | base64 -d > "${LOCALDNS_COREFILE}" || exit $ERR_LOCALDNS_FAIL
+
+    # Create environment file for corefile regeneration.
+    # This file will be referenced by localdns.service using EnvironmentFile directive.
+    LOCALDNS_ENV_FILE="/etc/localdns/environment"
+    mkdir -p "$(dirname "${LOCALDNS_ENV_FILE}")"
+    cat > "${LOCALDNS_ENV_FILE}" <<EOF
+LOCALDNS_BASE64_ENCODED_COREFILE=${LOCALDNS_GENERATED_COREFILE}
+EOF
+    chmod 0644 "${LOCALDNS_ENV_FILE}"
 
 	mkdir -p "$(dirname "${LOCALDNS_SLICEFILE}")"
     touch "${LOCALDNS_SLICEFILE}"

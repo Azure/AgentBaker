@@ -174,6 +174,10 @@ func getCSEEnv(config *aksnodeconfigv1.Configuration) map[string]string {
 		"LOCALDNS_GENERATED_COREFILE":                        getLocalDnsCorefileBase64(config),
 		"DISABLE_PUBKEY_AUTH":                                fmt.Sprintf("%v", config.GetDisablePubkeyAuth()),
 		"ETHTOOL_CONTENT":                                    fmt.Sprintf("%v", getEthtoolContents(config.GetCustomLinuxOsConfig().GetEthtoolConfig())),
+		"SERVICE_ACCOUNT_IMAGE_PULL_ENABLED":                 fmt.Sprintf("%v", config.GetServiceAccountImagePullProfile().GetEnabled()),
+		"SERVICE_ACCOUNT_IMAGE_PULL_DEFAULT_CLIENT_ID":       config.GetServiceAccountImagePullProfile().GetDefaultClientId(),
+		"SERVICE_ACCOUNT_IMAGE_PULL_DEFAULT_TENANT_ID":       config.GetServiceAccountImagePullProfile().GetDefaultTenantId(),
+		"IDENTITY_BINDINGS_LOCAL_AUTHORITY_SNI":              config.GetServiceAccountImagePullProfile().GetLocalAuthoritySni(),
 	}
 
 	for i, cert := range config.CustomCaCerts {
