@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# This script configures the RX buffer size for NICs on an AKS node.
+# This script configures network interface settings for Azure NICs.
 
-NICS_TO_CONFIGURE_FILE="/run/nics-to-configure"
+NICS_TO_CONFIGURE_FILE="/etc/azure-network/nics-to-configure"
 DEFAULT_RX_BUFFER_SIZE=1024  # Fallback only - CPU logic handled by Node Controller
 
 if [ ! -f "$NICS_TO_CONFIGURE_FILE" ]; then

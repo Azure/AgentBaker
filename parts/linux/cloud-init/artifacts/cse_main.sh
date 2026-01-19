@@ -264,7 +264,7 @@ EOF
 
     logs_to_events "AKS.CSE.ensureSysctl" ensureSysctl || exit $ERR_SYSCTL_RELOAD
 
-    logs_to_events "AKS.CSE.ensureAksEthtoolConfig" ensureAksEthtoolConfig
+    logs_to_events "AKS.CSE.ensureAzureNetworkConfig" ensureAzureNetworkConfig
 
     if [ "${SHOULD_CONFIG_CONTAINERD_ULIMITS}" = "true" ]; then
       logs_to_events "AKS.CSE.setContainerdUlimits" configureContainerdUlimits
