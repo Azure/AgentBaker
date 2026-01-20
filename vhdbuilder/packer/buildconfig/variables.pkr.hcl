@@ -234,6 +234,7 @@ variable "teleportd_plugin_download_url" {
 variable "ua_token" {
   type    = string
   default = "${env("UA_TOKEN")}"
+  sensitive = true
 }
 
 variable "image_version" {
