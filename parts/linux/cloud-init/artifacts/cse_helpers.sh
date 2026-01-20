@@ -709,13 +709,7 @@ e2e_mock_azure_china_cloud() {
 enableManagedGPUExperience() {
     set -x
 
-    # Check if EnableManagedGPU is enabled via NBC
-    if [ "${ENABLE_MANAGED_GPU,,}" = "true" ]; then
-        echo "true"
-        return 0
-    fi
-
-    # Fall back to VMSS tag check
+    # Check VMSS tag for managed GPU experience
     body=$(curl -fsSL -H "Metadata: true" --noproxy "*" "http://169.254.169.254/metadata/instance?api-version=2021-02-01")
     ret=$?
     if [ "$ret" -ne 0 ]; then

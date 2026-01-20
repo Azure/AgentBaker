@@ -395,11 +395,17 @@ function nodePrep {
 
         # Configure managed GPU experience (device-plugin, dcgm, dcgm-exporter)
         export -f enableManagedGPUExperience
-        ENABLE_MANAGED_GPU_EXPERIENCE=$(retrycmd_silent 10 1 10 bash -cx enableManagedGPUExperience)
+        ENABLE_MANAGED_GPU_BY_TAG=$(retrycmd_silent 10 1 10 bash -cx enableManagedGPUExperience)
         if [ "$?" -ne 0 ]; then
             echo "failed to determine if managed GPU experience should be enabled by nodepool tags"
             exit $ERR_LOOKUP_ENABLE_MANAGED_GPU_EXPERIENCE_TAG
         fi
+
+        # Combine NBC and tag-based settings
+        if [ "${ENABLE_MANAGED_GPU_BY_TAG}" = "true" ]; then
+            ENABLE_MANAGED_GPU="true"
+        fi
+
         logs_to_events "AKS.CSE.configureManagedGPUExperience" configureManagedGPUExperience || exit $ERR_ENABLE_MANAGED_GPU_EXPERIENCE
 
         echo $(date),$(hostname), "End configuring GPU drivers"

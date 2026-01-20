@@ -1217,7 +1217,7 @@ EOF
 }
 
 configureManagedGPUExperience() {
-    if [ "${ENABLE_MANAGED_GPU_EXPERIENCE}" = "true" ]; then
+    if [ "${ENABLE_MANAGED_GPU}" = "true" ]; then
         logs_to_events "AKS.CSE.installNvidiaManagedExpPkgFromCache" "installNvidiaManagedExpPkgFromCache" || exit $ERR_NVIDIA_DCGM_INSTALL
         logs_to_events "AKS.CSE.startNvidiaManagedExpServices" "startNvidiaManagedExpServices" || exit $ERR_NVIDIA_DCGM_EXPORTER_FAIL
         addKubeletNodeLabel "kubernetes.azure.com/dcgm-exporter=enabled"
