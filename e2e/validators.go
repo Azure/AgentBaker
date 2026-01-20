@@ -260,24 +260,57 @@ func ValidateEthtoolConfig(ctx context.Context, s *Scenario, EthtoolConfig map[s
 	for k := range EthtoolConfig {
 		keysToCheck = append(keysToCheck, k)
 	}
+
+	// Log the ethtool config file contents
+	configFileCommand := []string{
+		"set -ex",
+		"echo '=== Ethtool Config File ==='",
+		"cat /etc/azure-network/ethtool.conf || echo 'Config file not found'",
+	}
+	configResult := execScriptOnVMForScenario(ctx, s, strings.Join(configFileCommand, "\n"))
+	s.T.Logf("Ethtool config file contents:\n%s", configResult.stdout)
+
+	// Log the NICs to configure
 	getNicsCommand := []string{
 		"set -ex",
+		"echo '=== NICs to Configure ==='",
 		"cat /etc/azure-network/nics-to-configure",
 	}
 	nicsResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(getNicsCommand, "\n"), 0, "could not get nics to configure")
+	s.T.Logf("NICs to configure:\n%s", nicsResult.stdout)
+
 	nics := strings.Split(strings.TrimSpace(nicsResult.stdout), "\n")
 
 	if len(nics) == 0 {
 		s.T.Fatalf("no nics found to validate ethtool config")
 		return
 	}
+
 	for _, nic := range nics {
+		// Skip empty lines
+		nic = strings.TrimSpace(nic)
+		if nic == "" || strings.Contains(nic, "===") {
+			continue
+		}
+
+		s.T.Logf("Validating ethtool config for NIC: %s", nic)
+
 		for setting, expectedValue := range EthtoolConfig {
+			// Get full ethtool output for debugging
+			debugCommand := []string{
+				"set -ex",
+				fmt.Sprintf("echo '=== Full ethtool output for %s ==='", nic),
+				fmt.Sprintf("sudo ethtool -g %s", nic),
+			}
+			debugResult := execScriptOnVMForScenario(ctx, s, strings.Join(debugCommand, "\n"))
+			s.T.Logf("Full ethtool output for %s:\n%s", nic, debugResult.stdout)
+
 			command := []string{
 				"set -ex",
 				fmt.Sprintf("sudo ethtool -g %s | grep -A 5 'Current hardware settings' | grep -i %s: | awk '{print $2}'", nic, setting),
 			}
 			execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "could not get ethtool config")
+			s.T.Logf("Ethtool setting %s for NIC %s: expected=%s, actual=%s", setting, nic, expectedValue, strings.TrimSpace(execResult.stdout))
 			require.Contains(s.T, execResult.stdout, expectedValue, "expected to find %s set to %v on nic %s, but was not.\nStdout:\n%s", setting, expectedValue, nic, execResult.stdout)
 		}
 	}
