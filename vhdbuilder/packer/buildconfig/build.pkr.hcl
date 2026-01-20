@@ -1,3 +1,4 @@
+// This build block is used for all Linux VHD builds with Packer
 build {
   sources = ["source.azure-arm.nodelifecycle-image-builder"]
 
