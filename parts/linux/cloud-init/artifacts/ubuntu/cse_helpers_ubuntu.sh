@@ -46,6 +46,10 @@ _apt_get_update() {
 apt_get_update() {
     _apt_get_update 10 ""
 }
+apt_get_update_with_opts() {
+    local apt_opts=$1
+    _apt_get_update 10 "${apt_opts}"
+}
 _apt_get_install() {
     local retries=$1
     local wait_sleep=$2
@@ -59,6 +63,8 @@ _apt_get_install() {
 
         if apt-get install ${apt_opts} -o Dpkg::Options::="--force-confold" --no-install-recommends "${@}"; then
             echo "Executed apt-get install \"${packages[@]}\" $i times"
+            wait_for_apt_locks
+            DEBIAN_FRONTEND=noninteractive apt-get clean
             wait_for_apt_locks
             return 0
         fi

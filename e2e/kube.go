@@ -18,12 +18,9 @@ import (
 	errorsk8s "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -52,12 +49,8 @@ func getClusterKubeClient(ctx context.Context, resourceGroupName, clusterName st
 	if err != nil {
 		return nil, fmt.Errorf("convert kubeconfig bytes to rest config: %w", err)
 	}
-	config.NegotiatedSerializer = serializer.WithoutConversionCodecFactory{CodecFactory: scheme.Codecs}
-	config.APIPath = "/api"
-	config.GroupVersion = &schema.GroupVersion{
-		Version: "v1",
-	}
-	// it's test cluster avoid unnecessary rate limiting
+
+	// it's a test cluster - avoid unnecessary rate limiting
 	config.QPS = 200
 	config.Burst = 400
 
@@ -66,16 +59,14 @@ func getClusterKubeClient(ctx context.Context, resourceGroupName, clusterName st
 		return nil, fmt.Errorf("create dynamic Kubeclient: %w", err)
 	}
 
-	restClient, err := rest.RESTClientFor(config)
+	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		return nil, fmt.Errorf("create rest kube client: %w", err)
+		return nil, fmt.Errorf("creating kubernetes clientset from rest config: %w", err)
 	}
-
-	typed := kubernetes.New(restClient)
 
 	return &Kubeclient{
 		Dynamic:    dynamic,
-		Typed:      typed,
+		Typed:      clientset,
 		RESTConfig: config,
 		KubeConfig: data,
 	}, nil
@@ -147,10 +138,12 @@ func (k *Kubeclient) WaitUntilPodRunning(ctx context.Context, namespace string, 
 
 func (k *Kubeclient) WaitUntilNodeReady(ctx context.Context, t testing.TB, vmssName string) string {
 	startTime := time.Now()
-	var node *corev1.Node = nil
-	t.Logf("waiting for node %s to be ready", vmssName)
-	defer t.Logf("waited for node %s to be ready for %s", vmssName, time.Since(startTime))
+	t.Logf("waiting for node %s to be ready in k8s API", vmssName)
+	defer func() {
+		t.Logf("waited for node %s to be ready in k8s API for %s", vmssName, time.Since(startTime))
+	}()
 
+	var node *corev1.Node = nil
 	watcher, err := k.Typed.CoreV1().Nodes().Watch(ctx, metav1.ListOptions{})
 	require.NoError(t, err, "failed to start watching nodes")
 	defer watcher.Stop()
@@ -480,7 +473,7 @@ func podHTTPServerLinux(s *Scenario) *corev1.Pod {
 	image := "mcr.microsoft.com/cbl-mariner/busybox:2.0"
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-test-pod", s.Runtime.KubeNodeName),
+			Name:      fmt.Sprintf("%s-test-pod", s.Runtime.VM.KubeName),
 			Namespace: "default",
 		},
 		Spec: corev1.PodSpec{
@@ -517,7 +510,7 @@ func podHTTPServerLinux(s *Scenario) *corev1.Pod {
 				},
 			},
 			NodeSelector: map[string]string{
-				"kubernetes.io/hostname": s.Runtime.KubeNodeName,
+				"kubernetes.io/hostname": s.Runtime.VM.KubeName,
 			},
 		},
 	}
@@ -526,7 +519,7 @@ func podHTTPServerLinux(s *Scenario) *corev1.Pod {
 func podWindows(s *Scenario, podName string, imageName string) *corev1.Pod {
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-test-%s-pod", s.Runtime.KubeNodeName, podName),
+			Name:      fmt.Sprintf("%s-test-%s-pod", s.Runtime.VM.KubeName, podName),
 			Namespace: "default",
 		},
 		Spec: corev1.PodSpec{
@@ -540,7 +533,7 @@ func podWindows(s *Scenario, podName string, imageName string) *corev1.Pod {
 				},
 			},
 			NodeSelector: map[string]string{
-				"kubernetes.io/hostname": s.Runtime.KubeNodeName,
+				"kubernetes.io/hostname": s.Runtime.VM.KubeName,
 			},
 		},
 	}
@@ -549,7 +542,7 @@ func podWindows(s *Scenario, podName string, imageName string) *corev1.Pod {
 func podRunNvidiaWorkload(s *Scenario) *corev1.Pod {
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-gpu-validation", s.Runtime.KubeNodeName),
+			Name:      fmt.Sprintf("%s-gpu-validation", s.Runtime.VM.KubeName),
 			Namespace: defaultNamespace,
 		},
 		Spec: corev1.PodSpec{

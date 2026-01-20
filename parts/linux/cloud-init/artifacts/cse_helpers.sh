@@ -6,6 +6,7 @@ ERR_FILE_WATCH_TIMEOUT=6 # Timeout waiting for a file
 ERR_HOLD_WALINUXAGENT=7 # Unable to place walinuxagent apt package on hold during install
 ERR_RELEASE_HOLD_WALINUXAGENT=8 # Unable to release hold on walinuxagent apt package after install
 ERR_APT_INSTALL_TIMEOUT=9 # Timeout installing required apt packages
+ERR_MISSING_CUDA_PACKAGE=10 # Unable to query required cuda packages
 ERR_DOCKER_INSTALL_TIMEOUT=20 # Timeout waiting for docker install
 ERR_DOCKER_DOWNLOAD_TIMEOUT=21 # Timout waiting for docker downloads
 ERR_DOCKER_KEY_DOWNLOAD_TIMEOUT=22 # Timeout waiting to download docker repo key
@@ -27,7 +28,7 @@ ERR_CONTAINERD_CRICTL_IMG_PULL_TIMEOUT=37 # Timeout trying to pull a containerd 
 ERR_CONTAINERD_INSTALL_FILE_NOT_FOUND=38 # Unable to locate containerd debian pkg file
 ERR_CONTAINERD_VERSION_INVALID=39 # Containerd version is invalid
 ERR_CNI_DOWNLOAD_TIMEOUT=41 # Timeout waiting for CNI downloads
-ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT=42 # Timeout waiting for https://packages.microsoft.com/config/ubuntu/16.04/packages-microsoft-prod.deb
+ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT=42 # Timeout waiting for https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/packages-microsoft-prod.deb
 ERR_MS_PROD_DEB_PKG_ADD_FAIL=43 # Failed to add repo pkg file
 # ERR_FLEXVOLUME_DOWNLOAD_TIMEOUT=44 Failed to add repo pkg file -- DEPRECATED
 ERR_ORAS_DOWNLOAD_ERROR=45 # Unable to install oras
@@ -910,6 +911,27 @@ getLatestPkgVersionFromK8sVersion() {
     echo $PACKAGE_VERSION
 }
 
+# installs kube binary if cached
+fallbackToKubeBinaryInstall() {
+    packageName="${1:-}"
+    packageVersion="${2:-}"
+    if [ "${packageName}" = "kubelet" ] || [ "${packageName}" = "kubectl" ]; then
+        if [ "${SHOULD_ENFORCE_KUBE_PMC_INSTALL}" = "true" ]; then
+            echo "Kube PMC install is enforced, skipping fallback to kube binary install for ${packageName}"
+            return 1
+        elif [ -f "/usr/local/bin/${packageName}-${packageVersion}" ]; then
+            mv "/usr/local/bin/${packageName}-${packageVersion}" "/usr/local/bin/${packageName}"
+            chmod a+x /usr/local/bin/${packageName}
+            rm -rf /usr/local/bin/${packageName}-* &
+            return 0
+        else
+            echo "No binary fallback found for ${packageName} version ${packageVersion}"
+            return 1
+        fi
+    fi
+    return 1
+}
+
 # adds the specified LABEL_STRING (which should be in the form of 'label=value') to KUBELET_NODE_LABELS
 addKubeletNodeLabel() {
     local LABEL_STRING=$1
@@ -1052,14 +1074,14 @@ assert_refresh_token() {
         3) token_payload="${token_payload}=" ;;
     esac
     decoded_token=$(echo "$token_payload" | base64 -d 2>/dev/null)
-    
+
     # Check if permissions.actions exists and contains all required actions
     if [ -n "$decoded_token" ]; then
         # Check if permissions field exists (RBAC token vs ABAC token)
         local has_permissions=$(echo "$decoded_token" | jq -r 'has("permissions")' 2>/dev/null)
         if [ "$has_permissions" = "true" ]; then
             echo "RBAC token detected, validating permissions"
-            
+
             for action in "${required_actions[@]}"; do
                 local action_exists=$(echo "$decoded_token" | jq -r --arg action "$action" \
                     '(.permissions.actions // []) | contains([$action])' 2>/dev/null)

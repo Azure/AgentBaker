@@ -75,7 +75,8 @@ SIG_VERSION=$(az sig image-version show \
 if [ -z "${SIG_VERSION}" ]; then
   echo -e "\nBuild step did not produce an image version. Running cleanup and then exiting."
   retrycmd_if_failure 2 3 "${SCRIPT_ARRAY[@]}"
-  exit $?
+  # Always return error even if cleanup succeeded
+  exit $(($? > 0 ? $? : 1))
 fi
 
 # Setup testing
@@ -83,7 +84,7 @@ SCRIPT_ARRAY+=("./vhdbuilder/packer/test/run-test.sh")
 
 # Setup scanning
 echo -e "\nENVIRONMENT ${ENVIRONMENT}, OS_VERSION ${OS_VERSION}, SKIP_SCANNING: ${SKIP_SCANNING}"
-if [ "${SKIP_SCANNING,,}" != "true" ] && [ "${ENVIRONMENT,,}" != "prod" ] && [ "$OS_VERSION" != "18.04" ]; then
+if [ "${SKIP_SCANNING,,}" != "true" ] && [ "${ENVIRONMENT,,}" != "prod" ]; then
   echo -e "Running scanning step"
   SCRIPT_ARRAY+=("./vhdbuilder/packer/vhd-scanning.sh")
 else

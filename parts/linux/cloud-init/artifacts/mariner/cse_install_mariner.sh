@@ -39,13 +39,32 @@ installDeps() {
     done
 
     # install 2.0 specific packages
-    # apparmor related packages and the blobfuse package are not available in AzureLinux 3.0
+    # the blobfuse package is not available in AzureLinux 3.0
     if [ "$OS_VERSION" = "2.0" ]; then
       for dnf_package in apparmor-parser libapparmor blobfuse; do
         if ! dnf_install 30 1 600 $dnf_package; then
           exit $ERR_APT_INSTALL_TIMEOUT
         fi
       done
+    fi
+
+    # install apparmor related packages in AzureLinux 3.0
+    # apparmor-utils is not installed in VHD as it brings auditd dependency
+    # Only core AppArmor functionality (apparmor-parser, libapparmor) is included
+    # Skip installation on CVM builds as they use different kernel configurations
+    if [ "$OS_VERSION" = "3.0" ]; then
+      # Check if this is a CVM build by inspecting FEATURE_FLAGS
+      if echo "$FEATURE_FLAGS" | grep -q "cvm"; then
+        echo "Skipping AppArmor installation on CVM build (FEATURE_FLAGS: $FEATURE_FLAGS)"
+      else
+        echo "Installing AppArmor packages for Azure Linux 3.0"
+        for dnf_package in apparmor-parser libapparmor; do
+          if ! dnf_install 30 1 600 $dnf_package; then
+            exit $ERR_APT_INSTALL_TIMEOUT
+          fi
+        done
+        systemctl enable apparmor.service
+      fi
     fi
 }
 
@@ -79,9 +98,12 @@ downloadGPUDrivers() {
     # The proprietary driver will be used here in order to support older NVIDIA GPU SKUs like V100
     # Before installing cuda, check the active kernel version (uname -r) and use that to determine which cuda to install
     KERNEL_VERSION=$(uname -r | sed 's/-/./g')
-    CUDA_PACKAGE=$(dnf repoquery --available "cuda*" | grep -E "cuda-[0-9]+.*_$KERNEL_VERSION" | sort -V | tail -n 1)
+    CUDA_PACKAGE=$(dnf repoquery -y --available "cuda*" | grep -E "cuda-[0-9]+.*_$KERNEL_VERSION" | sort -V | tail -n 1)
 
-    if ! dnf_install 30 1 600 ${CUDA_PACKAGE}; then
+    if [ -z "$CUDA_PACKAGE" ]; then
+      echo "No cuda packages found"
+      exit $ERR_MISSING_CUDA_PACKAGE
+    elif ! dnf_install 30 1 600 ${CUDA_PACKAGE}; then
       exit $ERR_APT_INSTALL_TIMEOUT
     fi
 }
@@ -349,11 +371,16 @@ installRPMPackageFromFile() {
 
     rpmFile=$(find "${downloadDir}" -maxdepth 1 -name "${packagePrefix}" -print -quit 2>/dev/null) || rpmFile=""
     if [ -z "${rpmFile}" ]; then
+        if fallbackToKubeBinaryInstall "${packageName}" "${desiredVersion}"; then
+            echo "Successfully installed ${packageName} version ${desiredVersion} from binary fallback"
+            rm -rf ${downloadDir}
+            return 0
+        fi
         # query all package versions and get the latest version for matching k8s version
         fullPackageVersion=$(dnf list ${packageName} --showduplicates | grep ${desiredVersion}- | awk '{print $2}' | sort -V | tail -n 1)
         if [ -z "${fullPackageVersion}" ]; then
             echo "Failed to find valid ${packageName} version for ${desiredVersion}"
-            exit 1
+            return 1
         fi
         echo "Did not find cached rpm file, downloading ${packageName} version ${fullPackageVersion}"
         downloadPkgFromVersion "${packageName}" ${fullPackageVersion} "${downloadDir}"
@@ -361,7 +388,7 @@ installRPMPackageFromFile() {
     fi
 	  if [ -z "${rpmFile}" ]; then
         echo "Failed to locate ${packageName} rpm"
-        exit 1
+        return 1
     fi
 
     if ! dnf_install 30 1 600 ${rpmFile}; then
@@ -418,6 +445,15 @@ installStandaloneContainerd() {
 
 ensureRunc() {
   echo "Mariner Runc is included in the Mariner base image or containerd installation. Skipping downloading and installing Runc"
+}
+
+removeNvidiaRepos() {
+  # Remove NVIDIA dnf repository configuration
+  # to prevent unnecessary network calls during dnf makecache/update
+  if [ -f /etc/yum.repos.d/nvidia-built-azurelinux.repo ]; then
+    rm -f /etc/yum.repos.d/nvidia-built-azurelinux.repo
+    echo "Removed NVIDIA dnf repository"
+  fi
 }
 
 cleanUpGPUDrivers() {

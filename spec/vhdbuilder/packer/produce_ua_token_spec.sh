@@ -16,65 +16,6 @@ Describe 'produce_ua_token function'
 
   BeforeEach 'setup_environment'
 
-  Describe 'Ubuntu 18.04 scenarios'
-    It 'should succeed with valid UA_TOKEN for Ubuntu 18.04 in linuxVhdMode'
-      MODE="linuxVhdMode"
-      OS_SKU="ubuntu"
-      OS_VERSION="18.04"
-      UA_TOKEN="test-token-123"
-      When call produce_ua_token
-      The status should be success
-      The variable UA_TOKEN should eq "test-token-123"
-	  The output should be present
-    End
-
-    It 'should succeed with mixed case Ubuntu for 18.04 in linuxVhdMode'
-      MODE="linuxVhdMode"
-      OS_SKU="Ubuntu"
-      OS_VERSION="18.04"
-      UA_TOKEN="mixed-case-token"
-      When call produce_ua_token
-      The status should be success
-      The variable UA_TOKEN should eq "mixed-case-token"
- 	  The output should be present
-    End
-
-
-    It 'should succeed with uppercase UBUNTU for 18.04 in linuxVhdMode'
-      MODE="linuxVhdMode"
-      OS_SKU="UBUNTU"
-      OS_VERSION="18.04"
-      UA_TOKEN="uppercase-token"
-      When call produce_ua_token
-      The status should be success
-      The variable UA_TOKEN should eq "uppercase-token"
- 	  The output should be present
-    End
-
-    It 'should fail without UA_TOKEN for Ubuntu 18.04 in linuxVhdMode'
-      MODE="linuxVhdMode"
-      OS_SKU="ubuntu"
-      OS_VERSION="18.04"
-      UA_TOKEN=""
-      When run produce_ua_token
-      The status should equal 1
- 	  The output should be present
-    End
-
-
-    It 'should preserve existing environment UA_TOKEN for Ubuntu 18.04'
-      MODE="linuxVhdMode"
-      OS_SKU="ubuntu"
-      OS_VERSION="18.04"
-      export UA_TOKEN="env-token-123"
-      When call produce_ua_token
-      The status should be success
-      The variable UA_TOKEN should eq "env-token-123"
- 	  The output should be present
-    End
-
-  End
-
   Describe 'Ubuntu 20.04 scenarios'
     It 'should succeed with valid UA_TOKEN for Ubuntu 20.04 in linuxVhdMode'
       MODE="linuxVhdMode"
@@ -248,7 +189,7 @@ Describe 'produce_ua_token function'
     It 'should set UA_TOKEN to "notused" for empty OS_SKU'
       MODE="linuxVhdMode"
       OS_SKU=""
-      OS_VERSION="18.04"
+      OS_VERSION="20.04"
       UA_TOKEN=""
       When call produce_ua_token
       The status should be success
@@ -259,10 +200,10 @@ Describe 'produce_ua_token function'
   End
 
   Describe 'Non-linuxVhdMode scenarios'
-    It 'should set UA_TOKEN to "notused" for windowsVhdMode with Ubuntu 18.04'
+    It 'should set UA_TOKEN to "notused" for windowsVhdMode with Ubuntu 20.04'
       MODE="windowsVhdMode"
       OS_SKU="ubuntu"
-      OS_VERSION="18.04"
+      OS_VERSION="20.04"
       UA_TOKEN=""
       When call produce_ua_token
       The status should be success
@@ -271,10 +212,10 @@ Describe 'produce_ua_token function'
     End
 
 
-    It 'should set UA_TOKEN to "notused" for unknown mode with Ubuntu 18.04'
+    It 'should set UA_TOKEN to "notused" for unknown mode with Ubuntu 20.04'
       MODE="unknownMode"
       OS_SKU="ubuntu"
-      OS_VERSION="18.04"
+      OS_VERSION="20.04"
       UA_TOKEN=""
       When call produce_ua_token
       The status should be success
@@ -282,10 +223,10 @@ Describe 'produce_ua_token function'
 	  The output should be present
     End
 
-    It 'should set UA_TOKEN to "notused" for empty MODE with Ubuntu 18.04'
+    It 'should set UA_TOKEN to "notused" for empty MODE with Ubuntu 20.04'
       MODE=""
       OS_SKU="ubuntu"
-      OS_VERSION="18.04"
+      OS_VERSION="20.04"
       UA_TOKEN=""
       When call produce_ua_token
       The status should be success
@@ -310,7 +251,7 @@ Describe 'produce_ua_token function'
     It 'should handle complex version strings'
       MODE="linuxVhdMode"
       OS_SKU="ubuntu"
-      OS_VERSION="18.04.6"
+      OS_VERSION="20.04.6"
       UA_TOKEN=""
       When call produce_ua_token
       The status should be success

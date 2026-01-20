@@ -1044,6 +1044,9 @@ try
             Get-ToolsToVHD
             Get-PrivatePackagesToCacheOnVHD
             Install-WindowsCiliumNetworking
+            # Update all the registry keys again in case the steps in between reset them. Ok, some of the steps in between do reset them. But there's a risk that the steps also need
+            # the keys set. So we kinda have to do both now :cry:
+            Update-Registry
             Log-ReofferUpdate
         }
         "3" {

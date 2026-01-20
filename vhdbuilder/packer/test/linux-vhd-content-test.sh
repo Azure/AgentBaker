@@ -9,6 +9,7 @@ MARINER_KATA_OS_NAME="MARINERKATA"
 AZURELINUX_KATA_OS_NAME="AZURELINUXKATA"
 
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
+
 OS_VERSION="$1"
 ENABLE_FIPS="$2"
 OS_SKU="$3"
@@ -476,18 +477,31 @@ testImagesRetagged() {
   pulledImages=($(ctr -n k8s.io image ls))
   mcrImagesNumber=0
   mooncakeMcrImagesNumber=0
+  mooncakeLegacyMcrImagesNumber=0
   while IFS= read -r pulledImage; do
     # shellcheck disable=SC3010
     if [[ $pulledImage == "mcr.microsoft.com"* ]]; then
       mcrImagesNumber=$((${mcrImagesNumber} + 1))
     fi
     # shellcheck disable=SC3010
-    if [[ $pulledImage == "mcr.azk8s.cn"* ]]; then
+    if [[ $pulledImage == "mcr.azure.cn"* ]]; then
       mooncakeMcrImagesNumber=$((${mooncakeMcrImagesNumber} + 1))
+    fi
+    # TODO(fseldow): remove azk8s when mcr.azk8s.cn is fully deprecated
+    # shellcheck disable=SC3010
+    if [[ $pulledImage == "mcr.azk8s.cn"* ]]; then
+      mooncakeLegacyMcrImagesNumber=$((${mooncakeLegacyMcrImagesNumber} + 1))
     fi
   done <<<"$pulledImages"
   if [ "${mcrImagesNumber}" != "${mooncakeMcrImagesNumber}" ]; then
     echo "the number of the mcr images & mooncake mcr images are not the same."
+    echo "all the images are:"
+    echo "${pulledImages[@]}"
+    exit 1
+  fi
+
+  if [ "${mooncakeLegacyMcrImagesNumber}" != "${mooncakeMcrImagesNumber}" ]; then
+    echo "the number of the legacy mcr images(mcr.azk8s.cn) & mooncake mcr images(mcr.azure.cn) are not the same."
     echo "all the images are:"
     echo "${pulledImages[@]}"
     exit 1
@@ -563,7 +577,7 @@ testFips() {
   enable_fips=$2
 
   # shellcheck disable=SC3010
-  if [[ (${os_version} == "18.04" || ${os_version} == "20.04" || ${os_version} == "22.04" || ${os_version} == "V2") && ${enable_fips,,} == "true" ]]; then
+  if [[ (${os_version} == "20.04" || ${os_version} == "22.04" || ${os_version} == "V2") && ${enable_fips,,} == "true" ]]; then
     kernel=$(uname -r)
     if [ -f /proc/sys/crypto/fips_enabled ]; then
       fips_enabled=$(cat /proc/sys/crypto/fips_enabled)
@@ -576,7 +590,7 @@ testFips() {
       err $test "FIPS is not enabled."
     fi
 
-    if [ ${os_version} = "18.04" ] || [ ${os_version} = "20.04" ]; then
+    if [ ${os_version} = "20.04" ]; then
       if [ -f /usr/src/linux-headers-${kernel}/Makefile ]; then
         echo "fips header files exist."
       else
@@ -619,6 +633,110 @@ testLtsKernel() {
     echo "OS is not Ubuntu OR OS is Ubuntu and FIPS is true, skip LTS kernel test"
   fi
 
+}
+
+# Parse loginctl sessions to find console autologin sessions
+# Console autologin sessions have Remote=no and Service=login
+# Returns: Space-separated list of autologin session IDs
+parseAutologinSessions() {
+  loginctl list-sessions --no-legend 2>/dev/null | while read -r session_id rest; do
+    if [ -n "$session_id" ]; then
+      local session_info
+      session_info=$(loginctl show-session "$session_id" 2>/dev/null || true)
+
+      if [ -z "$session_info" ]; then
+        echo "ERROR: 'loginctl show-session' Command may have failed or session may not exist" >&2
+        echo "PARSE_ERROR:$session_id"
+        continue
+      fi
+
+      local is_remote=$(echo "$session_info" | sed -n "s/^Remote=//p")
+      local service=$(echo "$session_info" | sed -n "s/^Service=//p")
+
+      # Check if we can parse the required fields
+      if [ -z "$is_remote" ] && [ -z "$service" ]; then
+        echo "ERROR: Cannot parse loginctl output for session $session_id" >&2
+        echo "ERROR: loginctl show-session output format may have changed" >&2
+        echo "ERROR: Expected 'Remote=' and 'Service=' fields but found neither" >&2
+        echo "ERROR: Actual output: $session_info" >&2
+        echo "PARSE_ERROR:$session_id"
+        continue
+      fi
+
+      # Console autologin sessions have Remote=no and Service=login
+      if [ "$is_remote" = "no" ] && [ "$service" = "login" ]; then
+        echo "$session_id"
+      fi
+    fi
+  done
+}
+
+testAutologinDisabled() {
+  local test="testAutologinDisabled"
+  local os_sku=$1
+  echo "$test:Start"
+
+  if [ "$os_sku" = "Flatcar" ]; then
+    local failed=0
+
+    # Test 1: Check actual behavior using loginctl
+    # With autologin: we should see sessions with Remote=no and Service=login
+    # Without autologin: we should see only SSH sessions (Remote=yes) or no sessions
+    echo "$test: Checking for console autologin sessions using loginctl"
+
+    local autologin_session_ids=""
+    autologin_session_ids=$(parseAutologinSessions)
+
+    # Check for parse errors (indicates loginctl output format changed)
+    if echo "$autologin_session_ids" | grep -q "^PARSE_ERROR:"; then
+      err $test "Failed to parse loginctl output - format may have changed"
+      echo "$test: Parse errors detected in session parsing" >&2
+      echo "$test: Sessions with errors: $autologin_session_ids" >&2
+      failed=1
+    elif [ -n "$autologin_session_ids" ]; then
+      err $test "Found console autologin session(s) with Remote=no and Service=login"
+      echo "$test: Autologin session IDs: $autologin_session_ids" >&2
+      echo "$test: All sessions:" >&2
+      loginctl list-sessions 2>/dev/null >&2 || true
+      failed=1
+    else
+      echo "$test: No console autologin sessions found"
+    fi
+
+    # Test 2: Check for running agetty processes
+    # When autologin is disabled, agetty processes wait for login
+    # When autologin is enabled, getty completes immediately and hands off to login
+    echo "$test: Checking for agetty processes"
+    if pgrep -x agetty >/dev/null 2>&1; then
+      echo "$test: Found agetty processes waiting for login (autologin disabled, correct)"
+    else
+      err $test "No agetty processes found - getty may have completed due to autologin"
+      failed=1
+    fi
+
+    # Test 3: Check kernel parameter configuration
+    echo "$test: Checking kernel command line for flatcar.autologin parameter"
+    if grep -q "flatcar.autologin" /proc/cmdline; then
+      err $test "flatcar.autologin kernel parameter found in /proc/cmdline but should be absent for AKS security compliance"
+      echo "$test: Full kernel command line:" >&2
+      cat /proc/cmdline >&2
+      failed=1
+    else
+      echo "$test: flatcar.autologin parameter correctly absent from kernel command line"
+    fi
+
+    if [ $failed -eq 1 ]; then
+      echo "$test: FAILED - autologin security check failed" >&2
+      return 1
+    else
+      echo "$test: PASSED - autologin is correctly disabled"
+    fi
+
+  else
+    echo "$test: Skipping for non-Flatcar OS"
+  fi
+
+  echo "$test:Finish"
 }
 
 testLSMBPF() {
@@ -698,6 +816,68 @@ testCloudInit() {
   echo "$test:Finish"
 }
 
+testAppArmorInstalled() {
+  test="testAppArmorInstalled"
+  echo "$test:Start"
+  os_sku=$1
+  os_version=$2
+
+  # Skip AppArmor tests for CVM builds as they use different kernel configurations
+  if echo "$FEATURE_FLAGS" | grep -q "cvm"; then
+    echo "$test: Skipping - AppArmor not supported on CVM builds (FEATURE_FLAGS: $FEATURE_FLAGS)"
+    return 0
+  fi
+
+  # Only test on Azure Linux 3.0 for now
+  if [ "$os_sku" = "AzureLinux" ] && [ "$os_version" = "3.0" ]; then
+    echo "Checking AppArmor installation on Azure Linux 3.0..."
+
+    # Check if AppArmor packages are installed
+    required_packages=("apparmor-parser" "libapparmor")
+    for package in "${required_packages[@]}"; do
+      if ! rpm -q "$package" &> /dev/null; then
+        err "$test" "AppArmor package '$package' is not installed"
+        return 1
+      fi
+      echo "$package is installed"
+    done
+
+    # Check if apparmor_parser command exists
+    if ! command -v apparmor_parser &> /dev/null; then
+      err "$test" "apparmor_parser command not found"
+      return 1
+    fi
+    echo "apparmor_parser command is available"
+
+    # Verify AppArmor kernel module is enabled
+    if ! grep -q "Y" /sys/module/apparmor/parameters/enabled 2>/dev/null; then
+      err "$test" "AppArmor kernel module is not enabled"
+      return 1
+    fi
+    echo "AppArmor kernel module is enabled"
+
+    # Check if apparmor.service is enabled
+    if ! systemctl is-enabled apparmor.service &> /dev/null; then
+      err "$test" "apparmor.service is not enabled"
+      return 1
+    fi
+    echo "apparmor.service is enabled"
+
+    # Verify AppArmor is functional by checking the security filesystem
+    if ! [ -d /sys/kernel/security/apparmor ]; then
+      err "$test" "AppArmor security filesystem is not available"
+      return 1
+    fi
+    echo "AppArmor security filesystem is available"
+
+    echo "$test: AppArmor is properly installed and configured"
+  else
+    echo "$test: Skipping - Test is currently limited to Azure Linux 3.0 only (Current: $os_sku $os_version)"
+  fi
+
+  echo "$test:Finish"
+}
+
 testKubeBinariesPresent() {
   test="testKubeBinaries"
   echo "$test:Start"
@@ -769,17 +949,10 @@ testPkgDownloaded() {
   echo "$test:Finish"
 }
 
-# nc and nslookup is used in CSE to check connectivity
+# nslookup is used in CSE to check connectivity
 testCriticalTools() {
   test="testCriticalTools"
   echo "$test:Start"
-
-  #TODO (djsly): netcat is only required with 18.04, remove this check when 18.04 is deprecated
-  if ! nc -h 2>/dev/null; then
-    err $test "nc is not installed"
-  else
-    echo $test "nc is installed"
-  fi
 
   if ! curl -h 2>/dev/null; then
     err $test "curl is not installed"
@@ -1350,7 +1523,7 @@ testCriCtl() {
   expectedVersion="${1}"
   local test="testCriCtl"
   echo "$test: Start"
-  # the expectedVersion looks like this, "1.32.0-ubuntu18.04u3", need to extract the version number.
+  # the expectedVersion looks like this, "1.32.0-ubuntu24.04u3", need to extract the version number.
   expectedVersion=$(echo $expectedVersion | cut -d'-' -f1)
   # use command `crictl --version` to get the version
 
@@ -1376,7 +1549,7 @@ testContainerd() {
     echo "$test: Skipping test for containerd version, as expected version is <SKIP>"
     return 0
   fi
-  # the expectedVersion looks like this, "1.6.24-0ubuntu1~18.04.1" or "2.0.0-6.azl3", we need to extract the major.minor.patch version only.
+  # the expectedVersion looks like this, "1.6.24-0ubuntu1~24.04.1" or "2.0.0-6.azl3", we need to extract the major.minor.patch version only.
   expectedVersion=$(echo $expectedVersion | cut -d'-' -f1)
   # use command `containerd --version` to get the version
   local containerd_version=$(containerd --version)
@@ -1384,7 +1557,7 @@ testContainerd() {
   # For containerd (v1): containerd github.com/containerd/containerd 1.6.26
   # For containerd (v2): containerd github.com/containerd/containerd/v2 2.0.0
   containerd_version=$(echo $containerd_version | cut -d' ' -f3)
-  # The version could be in the format "1.6.24-11-ubuntu1~18.04.1" or "2.0.0-6.azl3" or just "2.0.0", we need to extract the major.minor.patch version only.
+  # The version could be in the format "1.6.24-11-ubuntu1~24.04.1" or "2.0.0-6.azl3" or just "2.0.0", we need to extract the major.minor.patch version only.
   containerd_version=$(echo "$containerd_version" | grep -oE '^[0-9]+\.[0-9]+\.[0-9]+')
   echo "$test: checking if containerd version is $expectedVersion"
   if [ "$containerd_version" != "$expectedVersion" ]; then
@@ -1414,12 +1587,12 @@ checkPerformanceData() {
 testCorednsBinaryExtractedAndCached() {
   local test="testCorednsBinaryExtractedAndCached"
   local os_version=$1
-  # Ubuntu 18.04 and 20.04 ship with GLIBC 2.27 and 2.31, respectively.
-  # coredns binary is built with GLIBC 2.32+, which is not compatible with 18.04 and 20.04 OS versions.
+  # Ubuntu 20.04 ship with GLIBC 2.27 and 2.31, respectively.
+  # coredns binary is built with GLIBC 2.32+, which is not compatible with 20.04 OS versions.
   # Therefore, we skip the test for these OS versions here.
   # Validation in AKS RP will be done to ensure localdns is not enabled for these OS versions.
-  if [ "${os_version}" = "18.04" ] || [ "${os_version}" = "20.04" ]; then
-    # For Ubuntu 18.04 and 20.04, the coredns binary is located in /opt/azure/containers/localdns/binary/coredns
+  if [ "${os_version}" = "20.04" ]; then
+    # For 20.04, the coredns binary is located in /opt/azure/containers/localdns/binary/coredns
     echo "$test: Coredns is not supported on OS version: ${os_version}"
     return 0
   fi
@@ -1446,29 +1619,10 @@ testCorednsBinaryExtractedAndCached() {
 
   # Determine latest version (eg. v1.12.0-1).
   local latest_coredns_tag="${sorted_coredns_tags[0]}"
-  # Extract major.minor.patch (removes -revision. eg - v1.12.0).
-  local latest_vMajorMinorPatch="${latest_coredns_tag%-*}"
 
-  local previous_coredns_tag=""
-  # Iterate through the sorted list to find the next highest major-minor version.
-  for tag in "${sorted_coredns_tags[@]}"; do
-    # Extract major.minor.patch (eg - v1.12.0).
-    local vMajorMinorPatch="${tag%-*}"
-    if [ "${vMajorMinorPatch}" != "${latest_vMajorMinorPatch}" ]; then
-      previous_coredns_tag="$tag"
-      # Break the loop after the next highest major-minor version is found.
-      break
-    fi
-  done
-
-  if [ -z "${previous_coredns_tag}" ]; then
-    echo "$test: Warning: Previous version not found, using the latest version: ${latest_coredns_tag}"
-    previous_coredns_tag="$latest_coredns_tag"
-  fi
-
-  local expectedVersion="$previous_coredns_tag"
+  local expectedVersion="$latest_coredns_tag"
   local expectedVersionWithoutV="${expectedVersion#v}"
-  echo "$test: Expected coredns version (n-1 latest): ${expectedVersionWithoutV}"
+  echo "$test: Expected coredns version (latest): ${expectedVersionWithoutV}"
 
   local builtInPlugins
   builtInPlugins=$("$binaryPath" --plugins)
@@ -1551,6 +1705,8 @@ checkLocaldnsScriptsAndConfigs() {
   return 0
 }
 
+#------------------------ End of test code related to localdns ------------------------
+
 # Check that no files have a numeric UID or GID, which would indicate a file ownership issue.
 testFileOwnership() {
   local test="testFileOwnership"
@@ -1570,7 +1726,18 @@ testFileOwnership() {
   return 0
 }
 
-#------------------------ End of test code related to localdns ------------------------
+testDiskQueueServiceIsActive() {
+  local test="testDiskQueueServiceIsActive"
+  echo "$test: Start"
+
+  if systemctl is-active --quiet disk_queue.service; then
+    echo $test "disk_queue.service is active, as expected"
+  else
+    err $test "disk_queue.service is not active, status: $(systemctl show -p SubState --value disk_queue.service)"
+  fi
+
+  echo "$test:Finish"
+}
 
 # As we call these tests, we need to bear in mind how the test results are processed by the
 # the caller in run-tests.sh. That code uses az vm run-command invoke to run this script
@@ -1596,6 +1763,7 @@ testAuditDNotPresent
 testFips $OS_VERSION $ENABLE_FIPS
 testLSMBPF $OS_SKU $OS_VERSION
 testCloudInit $OS_SKU
+testAppArmorInstalled $OS_SKU $OS_VERSION
 # Commenting out testImagesRetagged because at present it fails, but writes errors to stdout
 # which means the test failures haven't been caught. It also calles exit 1 on a failure,
 # which means the rest of the tests aren't being run.
@@ -1617,7 +1785,9 @@ testContainerImagePrefetchScript
 testAKSNodeControllerBinary
 testAKSNodeControllerService
 testLtsKernel $OS_VERSION $OS_SKU $ENABLE_FIPS
+testAutologinDisabled $OS_SKU
 testCorednsBinaryExtractedAndCached $OS_VERSION
 checkLocaldnsScriptsAndConfigs
 testPackageDownloadURLFallbackLogic
 testFileOwnership $OS_SKU
+testDiskQueueServiceIsActive

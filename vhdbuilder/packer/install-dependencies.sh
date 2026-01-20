@@ -74,11 +74,7 @@ else
   updateAptWithMicrosoftPkg
   # The following packages are required for an Ubuntu Minimal Image to build and successfully run CSE
   # blobfuse2 and fuse3 - ubuntu 22.04 supports blobfuse2 and is fuse3 compatible
-  BLOBFUSE2_VERSION="2.5.1"
-  if [ "${OS_VERSION}" = "18.04" ]; then
-    # keep legacy version on ubuntu 18.04
-    BLOBFUSE2_VERSION="2.2.0"
-  fi
+  BLOBFUSE2_VERSION="2.5.0"
   required_pkg_list=("blobfuse2="${BLOBFUSE2_VERSION} fuse3)
   for apt_package in ${required_pkg_list[*]}; do
       if ! apt_get_install 30 1 600 $apt_package; then
@@ -89,11 +85,6 @@ else
 fi
 
 CHRONYD_DIR=/etc/systemd/system/chronyd.service.d
-if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
-  if [ "${OS_VERSION}" = "18.04" ]; then
-    CHRONYD_DIR=/etc/systemd/system/chrony.service.d
-  fi
-fi
 
 mkdir -p "${CHRONYD_DIR}"
 cat >> "${CHRONYD_DIR}"/10-chrony-restarts.conf <<EOF
@@ -119,7 +110,7 @@ if [ "$(isARM64)" -eq 1 ]; then
   fi
 fi
 
-# Since we do not build Ubuntu 16.04 images anymore, always override network config and disable NTP + Timesyncd and install Chrony
+# Always override network config and disable NTP + Timesyncd and install Chrony
 # Mariner does this differently, so only do it for Ubuntu
 if ! isMarinerOrAzureLinux "$OS"; then
   overrideNetworkConfig || exit 1
@@ -225,8 +216,11 @@ if isMarinerOrAzureLinux "$OS" && ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; the
     disableDNFAutomatic
     enableCheckRestart
     activateNfConntrack
+elif [ "${OS}" = "${UBUNTU_OS_NAME}" ]; then
+  updateAptWithMicrosoftPkg
+  updateAptWithNvidiaPkg
 fi
-capture_benchmark "${SCRIPT_NAME}_handle_azurelinux_configs"
+capture_benchmark "${SCRIPT_NAME}_handle_os_specific_configurations"
 
 # doing this at vhd allows CSE to be faster with just mv
 unpackTgzToCNIDownloadsDIR() {
@@ -270,13 +264,6 @@ downloadAndInstallCriTools() {
 }
 
 echo "VHD will be built with containerd as the container runtime"
-if [ "${OS}" = "${UBUNTU_OS_NAME}" ]; then
-  updateAptWithMicrosoftPkg
-  capture_benchmark "${SCRIPT_NAME}_update_apt_with_msft_pkg"
-  updateAptWithNvidiaPkg
-  capture_benchmark "${SCRIPT_NAME}_update_apt_with_nvidia_pkg"
-fi
-
 # check if COMPONENTS_FILEPATH exists
 if [ ! -f "$COMPONENTS_FILEPATH" ]; then
   echo "Components file not found at $COMPONENTS_FILEPATH. Exiting..."
@@ -514,7 +501,7 @@ fi
 # Artifact Streaming enabled for Azure Linux 2.0 and 3.0
 if [ "$OS" = "$MARINER_OS_NAME" ] && [ "$OS_VERSION" = "2.0" ] && [ "$(isARM64)" -ne 1 ]; then
   installAndConfigureArtifactStreaming acr-mirror-mariner rpm
-elif [ "$OS" = "$MARINER_OS_NAME" ] && [ "$OS_VERSION" = "3.0" ] && [ "$(isARM64)" -ne 1 ]; then
+elif ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT" && [ "$OS" = "$AZURELINUX_OS_NAME" ] && [ "$OS_VERSION" = "3.0" ] && [ "$(isARM64)" -ne 1 ]; then
   installAndConfigureArtifactStreaming acr-mirror-azurelinux3 rpm
 fi
 
@@ -523,7 +510,6 @@ capture_benchmark "${SCRIPT_NAME}_install_artifact_streaming"
 # k8s will use images in the k8s.io namespaces - create it
 ctr namespace create k8s.io
 cliTool="ctr"
-
 
 INSTALLED_RUNC_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
 echo "  - runc version ${INSTALLED_RUNC_VERSION}" >> ${VHD_LOGS_FILEPATH}
@@ -662,19 +648,47 @@ retagAKSNodeCAWatcher() {
 retagAKSNodeCAWatcher
 capture_benchmark "${SCRIPT_NAME}_retag_aks_node_ca_watcher"
 
-pinPodSandboxImage() {
-  # This function pins the pod sandbox image to avoid Kubelet's Garbage Collector (GC) from removing it.
+pinPodSandboxImages() {
+  # This function pins the pod sandbox image(s) to avoid Kubelet's Garbage Collector (GC) from removing them.
   # This is achieved by setting the "io.cri-containerd.pinned" label on the image with a value of "pinned".
-  # This image is critical for pod startup and it isn't supported with private ACR since containerd won't be using azure-acr-credential to fetch it.
+  # These images are critical for pod startup and aren't supported with private ACR since containerd won't be using azure-acr-credential to fetch them.
 
-  podSandbox=$(jq '.ContainerImages[] | select(.downloadURL | contains("pause"))' $COMPONENTS_FILEPATH)
-  podSandboxBaseImg=$(echo $podSandbox | jq -r .downloadURL)
-  podSandboxVersion=$(echo $podSandbox | jq -r .multiArchVersionsV2[0].latestVersion)
-  podSandboxFullImg=${podSandboxBaseImg//\*/$podSandboxVersion}
+  # Get all pause images as individual JSON objects
+  local pause_images
+  pause_images=$(jq -c '.ContainerImages[] | select(.downloadURL | contains("pause"))' $COMPONENTS_FILEPATH)
 
-  labelContainerImage ${podSandboxFullImg} "io.cri-containerd.pinned" "pinned"
+  if [ -z "$pause_images" ]; then
+    echo "Warning: No pause images found in components.json"
+    return 0
+  fi
+
+  # Process each pause image separately
+  while IFS= read -r podSandbox; do
+    if [ -z "$podSandbox" ]; then
+      continue
+    fi
+
+    local podSandboxBaseImg
+    local podSandboxVersion
+    local podSandboxFullImg
+
+    podSandboxBaseImg=$(echo "$podSandbox" | jq -r '.downloadURL')
+    podSandboxVersion=$(echo "$podSandbox" | jq -r '.multiArchVersionsV2[0].latestVersion')
+
+    # Skip if we couldn't extract the required information
+    if [ "$podSandboxBaseImg" = "null" ] || [ "$podSandboxVersion" = "null" ]; then
+      echo "Warning: Could not extract downloadURL or latestVersion from pause image: $podSandbox"
+      continue
+    fi
+
+    podSandboxFullImg=${podSandboxBaseImg//\*/$podSandboxVersion}
+
+    echo "Pinning pause image: $podSandboxFullImg"
+    labelContainerImage "${podSandboxFullImg}" "io.cri-containerd.pinned" "pinned"
+
+  done <<< "$pause_images"
 }
-pinPodSandboxImage
+pinPodSandboxImages
 capture_benchmark "${SCRIPT_NAME}_pin_pod_sandbox_image"
 
 # IPv6 nftables rules are only available on Ubuntu or Mariner/AzureLinux
@@ -704,7 +718,7 @@ if [ -d "/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/" ] && [ 
 fi
 capture_benchmark "${SCRIPT_NAME}_configure_telemetry"
 
-# download kubernetes package from the given URL using MSI for auth for azcopy
+# download kubernetes package from the given URL using azcopy
 # if it is a kube-proxy package, extract image from the downloaded package
 cacheKubePackageFromPrivateUrl() {
   local kube_private_binary_url="$1"
@@ -717,14 +731,15 @@ cacheKubePackageFromPrivateUrl() {
   local k8s_tgz_name
   k8s_tgz_name=$(echo "$kube_private_binary_url" | grep -o -P '(?<=\/kubernetes\/).*(?=\/binaries\/)').tar.gz
 
-  # use azcopy with MSI instead of curl to download packages
+  # use azcopy instead of curl to download packages
   getAzCopyCurrentPath
-	export AZCOPY_LOG_LOCATION="$(pwd)/azcopy-log-files/"
-	export AZCOPY_JOB_PLAN_LOCATION="$(pwd)/azcopy-job-plan-files/"
-	mkdir -p "${AZCOPY_LOG_LOCATION}"
-	mkdir -p "${AZCOPY_JOB_PLAN_LOCATION}"
 
-  ./azcopy login --login-type=MSI
+  export AZCOPY_AUTO_LOGIN_TYPE="AZCLI"
+  export AZCOPY_CONCURRENCY_VALUE="AUTO"
+  export AZCOPY_LOG_LOCATION="$(pwd)/azcopy-log-files/"
+  export AZCOPY_JOB_PLAN_LOCATION="$(pwd)/azcopy-job-plan-files/"
+  mkdir -p "${AZCOPY_LOG_LOCATION}"
+  mkdir -p "${AZCOPY_JOB_PLAN_LOCATION}"
 
   cached_pkg="${K8S_PRIVATE_PACKAGES_CACHE_DIR}/${k8s_tgz_name}"
   echo "download private package ${kube_private_binary_url} and store as ${cached_pkg}"
@@ -860,11 +875,8 @@ if [ -n "${PRIVATE_PACKAGES_URL:-}" ]; then
   done
 fi
 
-
-
-
 LOCALDNS_BINARY_PATH="/opt/azure/containers/localdns/binary"
-# This function extracts CoreDNS binary from cached coredns images (n-1 image version and latest revision version)
+# This function extracts CoreDNS binary from cached coredns images (latest version)
 # and copies it to - /opt/azure/containers/localdns/binary/coredns.
 # The binary is later used by localdns systemd unit.
 # The function also handles the cleanup of temporary directories and unmounting of images.
@@ -890,46 +902,12 @@ extractAndCacheCoreDnsBinary() {
   # Extract available coredns image tags (v1.12.0-1 format) and sort them in descending order.
   local sorted_coredns_tags=($(for image in "${coredns_image_list[@]}"; do echo "${image##*:}"; done | sort -V -r))
 
-  # Function to check version format (vMajor.Minor.Patch).
-  validate_version_format() {
-    local version=$1
-    # shellcheck disable=SC3010
-    if [[ ! "$version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-      echo "Error: Invalid coredns version format. Expected vMajor.Minor.Patch, got $version" >> "${VHD_LOGS_FILEPATH}"
-      return 1
-    fi
-    return 0
-  }
-
-  # Determine latest version (eg. v1.12.0-1).
+  # Determine latest version.
   local latest_coredns_tag="${sorted_coredns_tags[0]}"
-  # Extract major.minor.patch (removes -revision. eg - v1.12.0).
-  local latest_vMajorMinorPatch="${latest_coredns_tag%-*}"
 
-  local previous_coredns_tag=""
-  # Iterate through the sorted list to find the next highest major-minor version.
-  for tag in "${sorted_coredns_tags[@]}"; do
-    # Extract major.minor.patch (eg - v1.12.0).
-    local vMajorMinorPatch="${tag%-*}"
-    if ! validate_version_format "$vMajorMinorPatch"; then
-      exit 1
-    fi
-
-    if [ "${vMajorMinorPatch}" != "${latest_vMajorMinorPatch}" ]; then
-      previous_coredns_tag="$tag"
-      # Break the loop after next highest major-minor version is found.
-      break
-    fi
-  done
-
-  if [ -z "${previous_coredns_tag}" ]; then
-    echo "Warning: Previous version not found, using the latest version: $latest_coredns_tag" >> "${VHD_LOGS_FILEPATH}"
-    previous_coredns_tag="$latest_coredns_tag"
-  fi
-
-  # Extract the CoreDNS binary for the selected version.
+  # Extract the CoreDNS binary for the latest version.
   for coredns_image_url in "${coredns_image_list[@]}"; do
-    if [ "${coredns_image_url##*:}" != "${previous_coredns_tag}" ]; then
+    if [ "${coredns_image_url##*:}" != "${latest_coredns_tag}" ]; then
       continue
     fi
 
@@ -953,10 +931,10 @@ extractAndCacheCoreDnsBinary() {
     local coredns_binary="${ctr_temp}/usr/bin/coredns"
     if [ -f "${coredns_binary}" ]; then
       cp "${coredns_binary}" "${LOCALDNS_BINARY_PATH}/coredns" || {
-        echo "Error: Failed to copy coredns binary of ${previous_coredns_tag}" >> "${VHD_LOGS_FILEPATH}"
+        echo "Error: Failed to copy coredns binary of ${latest_coredns_tag}" >> "${VHD_LOGS_FILEPATH}"
         exit 1
       }
-      echo "Successfully copied coredns binary of ${previous_coredns_tag}" >> "${VHD_LOGS_FILEPATH}"
+      echo "Successfully copied coredns binary of ${latest_coredns_tag}" >> "${VHD_LOGS_FILEPATH}"
     else
       echo "Coredns binary not found for ${coredns_image_url}" >> "${VHD_LOGS_FILEPATH}"
     fi
@@ -1005,5 +983,12 @@ collect_grid_compatibility_data() {
 }
 
 collect_grid_compatibility_data
+
+# nvidia repos are non msft public endpoints and should not be present on VHDs.
+# The installation logic during provisioning time will use the cached rpm/deb files
+# to install extra packages required for the managed gpu experience.
+removeNvidiaRepos
+capture_benchmark "${SCRIPT_NAME}_remove_nvidia_repos"
+
 capture_benchmark "${SCRIPT_NAME}_overall" true
 process_benchmarks

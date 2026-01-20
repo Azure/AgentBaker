@@ -489,9 +489,6 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 	cs := config.ContainerService
 	profile := config.AgentPoolProfile
 	return template.FuncMap{
-		"Disable1804SystemdResolved": func() bool {
-			return config.Disable1804SystemdResolved
-		},
 		// This was DisableUnattendedUpgrade when we had UU enabled by default in image.
 		// Now we don't, so we have to deliberately enable it.
 		// Someone smarter than me can fix the API.

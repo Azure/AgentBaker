@@ -30,7 +30,7 @@ var baseKubeletConfig = &aksnodeconfigv1.KubeletConfig{
 		"kubernetes.azure.com/agentpool":          "nodepool2",
 		"kubernetes.azure.com/cluster":            "test-cluster",
 		"kubernetes.azure.com/mode":               "system",
-		"kubernetes.azure.com/node-image-version": "AKSUbuntu-1804gen2containerd-2022.01.19",
+		"kubernetes.azure.com/node-image-version": "AKSUbuntu-2404gen2containerd-2025.06.02",
 	},
 	KubeletConfigFileConfig: &aksnodeconfigv1.KubeletConfigFileConfig{
 		Kind:              "KubeletConfiguration",
@@ -50,7 +50,7 @@ var baseKubeletConfig = &aksnodeconfigv1.KubeletConfig{
 			"TLS_RSA_WITH_AES_128_GCM_SHA256",
 		},
 		RotateCertificates: true,
-		ServerTlsBootstrap: false,
+		ServerTlsBootstrap: true,
 		Authentication: &aksnodeconfigv1.KubeletAuthentication{
 			X509: &aksnodeconfigv1.KubeletX509Authentication{
 				ClientCaFile: "/etc/kubernetes/certs/ca.crt",
@@ -97,7 +97,7 @@ var baseKubeletConfig = &aksnodeconfigv1.KubeletConfig{
 	},
 }
 
-func getBaseNBC(t testing.TB, cluster *Cluster, vhd *config.Image) *datamodel.NodeBootstrappingConfiguration {
+func getBaseNBC(t testing.TB, cluster *Cluster, vhd *config.Image) (*datamodel.NodeBootstrappingConfiguration, error) {
 	var nbc *datamodel.NodeBootstrappingConfiguration
 
 	if vhd.Distro.IsWindowsDistro() {
@@ -107,20 +107,38 @@ func getBaseNBC(t testing.TB, cluster *Cluster, vhd *config.Image) *datamodel.No
 		nbc.ContainerService.Properties.CertificateProfile.ClientCertificate = "none"
 		nbc.ContainerService.Properties.CertificateProfile.ClientPrivateKey = "none"
 
+		// this is also set below within NBC's UserAssignedIdentityClientID field, though windows is special and needs
+		// these other fields to be set as well for the client ID to actually be included within CSE
+		nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.UseManagedIdentity = true
+		nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.UserAssignedID = *cluster.KubeletIdentity.ClientID
+
 		nbc.ContainerService.Properties.ClusterID = *cluster.Model.ID
 		nbc.SubscriptionID = config.Config.SubscriptionID
 		nbc.ResourceGroupName = *cluster.Model.Properties.NodeResourceGroup
-		nbc.TenantID = *cluster.Model.Identity.TenantID
 	} else {
 		nbc = baseTemplateLinux(t, *cluster.Model.Location, *cluster.Model.Properties.CurrentKubernetesVersion, vhd.Arch)
 	}
 
-	nbc.ContainerService.Properties.CertificateProfile.CaCertificate = string(cluster.ClusterParams.CACert)
+	// use the cluster's kubelet identity to simulate how AKS works in production
+	// we assume that all E2E clusters are created with a user-assigned managed identity for the kubelet (not a service principal)
+	nbc.UserAssignedIdentityClientID = *cluster.KubeletIdentity.ClientID
+
+	// pass in the bootstrap token and enable secure TLS bootstrapping by default on compatible VHDs
+	// this allows us to test the following bootstrapping modes:
+	// 1. secure TLS bootstrapping
+	// 2. secure TLS bootstrapping failure, which falls back to bootstrap token
+	// 3. bootstrap token
 	nbc.KubeletClientTLSBootstrapToken = &cluster.ClusterParams.BootstrapToken
+	nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{
+		Enabled: !vhd.UnsupportedSecureTLSBootstrapping,
+	}
+
+	nbc.TenantID = *cluster.Model.Identity.TenantID
+	nbc.ContainerService.Properties.CertificateProfile.CaCertificate = string(cluster.ClusterParams.CACert)
 	nbc.ContainerService.Properties.HostedMasterProfile.FQDN = cluster.ClusterParams.FQDN
 	nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = vhd.Distro
 	nbc.AgentPoolProfile.Distro = vhd.Distro
-	return nbc
+	return nbc, nil
 }
 
 // is a temporary workaround
@@ -129,11 +147,23 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnod
 	cs := nbc.ContainerService
 	agent.ValidateAndSetLinuxNodeBootstrappingConfiguration(nbc)
 
-	config := &aksnodeconfigv1.Configuration{
-		Version:            "v1",
-		DisableCustomData:  nbc.AgentPoolProfile.IsFlatcar(),
-		LinuxAdminUsername: "azureuser",
-		VmSize:             config.Config.DefaultVMSKU,
+	bootstrappingConfig := &aksnodeconfigv1.BootstrappingConfig{
+		TlsBootstrappingToken:                         nbc.KubeletClientTLSBootstrapToken,
+		SecureTlsBootstrappingDeadline:                to.Ptr(nbc.SecureTLSBootstrappingConfig.GetDeadline()),
+		SecureTlsBootstrappingAadResource:             to.Ptr(nbc.SecureTLSBootstrappingConfig.GetAADResource()),
+		SecureTlsBootstrappingUserAssignedIdentityId:  to.Ptr(nbc.SecureTLSBootstrappingConfig.GetUserAssignedIdentityID()),
+		SecureTlsBootstrappingCustomClientDownloadUrl: to.Ptr(nbc.SecureTLSBootstrappingConfig.GetCustomClientDownloadURL()),
+	}
+	if nbc.SecureTLSBootstrappingConfig.GetEnabled() {
+		bootstrappingConfig.BootstrappingAuthMethod = aksnodeconfigv1.BootstrappingAuthMethod_BOOTSTRAPPING_AUTH_METHOD_SECURE_TLS_BOOTSTRAPPING
+	}
+
+	return &aksnodeconfigv1.Configuration{
+		Version:             "v1",
+		BootstrappingConfig: bootstrappingConfig,
+		DisableCustomData:   nbc.AgentPoolProfile.IsFlatcar(),
+		LinuxAdminUsername:  "azureuser",
+		VmSize:              config.Config.DefaultVMSKU,
 		ClusterConfig: &aksnodeconfigv1.ClusterConfig{
 			Location:      nbc.ContainerService.Location,
 			ResourceGroup: nbc.ResourceGroupName,
@@ -171,10 +201,7 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnod
 		ContainerdConfig: &aksnodeconfigv1.ContainerdConfig{
 			ContainerdDownloadUrlBase: nbc.CloudSpecConfig.KubernetesSpecConfig.ContainerdDownloadURLBase,
 		},
-		OutboundCommand: helpers.GetDefaultOutboundCommand(),
-		BootstrappingConfig: &aksnodeconfigv1.BootstrappingConfig{
-			TlsBootstrappingToken: nbc.KubeletClientTLSBootstrapToken,
-		},
+		OutboundCommand:  helpers.GetDefaultOutboundCommand(),
 		KubernetesCaCert: base64.StdEncoding.EncodeToString([]byte(cs.Properties.CertificateProfile.CaCertificate)),
 		KubeBinaryConfig: &aksnodeconfigv1.KubeBinaryConfig{
 			KubeBinaryUrl:             cs.Properties.OrchestratorProfile.KubernetesConfig.CustomKubeBinaryURL,
@@ -259,7 +286,6 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnod
 		// Therefore, we require client (e.g. AKS-RP) to provide the final kubelet config that is ready to be written to the final kubelet config file on a node.
 		KubeletConfig: baseKubeletConfig,
 	}
-	return config
 }
 
 // this is huge, but accurate, so leave it here.
@@ -350,11 +376,11 @@ func baseTemplateLinux(t testing.TB, location string, k8sVersion string, arch st
 						AvailabilityProfile: "VirtualMachineScaleSets",
 						StorageProfile:      "ManagedDisks",
 						VnetSubnetID:        "",
-						Distro:              "aks-ubuntu-containerd-18.04-gen2",
+						Distro:              "aks-ubuntu-containerd-24.04-gen2",
 						CustomNodeLabels: map[string]string{
 							"kubernetes.azure.com/cluster":            "test-cluster", // Some AKS daemonsets require that this exists, but the value doesn't matter.
 							"kubernetes.azure.com/mode":               "system",
-							"kubernetes.azure.com/node-image-version": "AKSUbuntu-1804gen2containerd-2022.01.19",
+							"kubernetes.azure.com/node-image-version": "AKSUbuntu-2404gen2containerd-2025.06.02",
 						},
 						PreprovisionExtension: nil,
 						KubernetesConfig: &datamodel.KubernetesConfig{
@@ -531,7 +557,7 @@ func baseTemplateLinux(t testing.TB, location string, k8sVersion string, arch st
 				ContainerdDownloadURLBase:            "https://storage.googleapis.com/cri-containerd-release/",
 				CSIProxyDownloadURL:                  "https://packages.aks.azure.com/csi-proxy/v0.1.0/binaries/csi-proxy.tar.gz",
 				WindowsProvisioningScriptsPackageURL: "https://packages.aks.azure.com/aks-engine/windows/provisioning/signedscripts-v0.2.2.zip",
-				WindowsPauseImageURL:                 "mcr.microsoft.com/oss/kubernetes/pause:1.4.0",
+				WindowsPauseImageURL:                 "mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.1",
 				AlwaysPullWindowsPauseImage:          false,
 				CseScriptsPackageURL:                 "https://packages.aks.azure.com/aks/windows/cse/",
 				CNIARM64PluginsDownloadURL:           "https://packages.aks.azure.com/cni-plugins/v0.8.7/binaries/cni-plugins-linux-arm64-v0.8.7.tgz",
@@ -559,11 +585,11 @@ func baseTemplateLinux(t testing.TB, location string, k8sVersion string, arch st
 			AvailabilityProfile: "VirtualMachineScaleSets",
 			StorageProfile:      "ManagedDisks",
 			VnetSubnetID:        "",
-			Distro:              "aks-ubuntu-containerd-18.04-gen2",
+			Distro:              "aks-ubuntu-containerd-24.04-gen2",
 			CustomNodeLabels: map[string]string{
 				"kubernetes.azure.com/cluster":            "test-cluster", // Some AKS daemonsets require that this exists, but the value doesn't matter.
 				"kubernetes.azure.com/mode":               "system",
-				"kubernetes.azure.com/node-image-version": "AKSUbuntu-1804gen2containerd-2022.01.19",
+				"kubernetes.azure.com/node-image-version": "AKSUbuntu-2404gen2containerd-2025.06.02",
 			},
 			PreprovisionExtension: nil,
 			KubernetesConfig: &datamodel.KubernetesConfig{
@@ -684,6 +710,7 @@ func baseTemplateLinux(t testing.TB, location string, k8sVersion string, arch st
 			"--read-only-port":                    "0",
 			"--resolv-conf":                       "/run/systemd/resolve/resolv.conf",
 			"--rotate-certificates":               "true",
+			"--rotate-server-certificates":        "true",
 			"--streaming-connection-idle-timeout": "4h",
 			"--tls-cert-file":                     "/etc/kubernetes/certs/kubeletserver.crt",
 			"--tls-cipher-suites":                 "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256",
@@ -805,7 +832,7 @@ func baseTemplateWindows(t testing.TB, location string) *datamodel.NodeBootstrap
 					WindowsDockerVersion:           "",
 					WindowsImageSourceURL:          "",
 					WindowsOffer:                   "aks-windows",
-					WindowsPauseImageURL:           "mcr.microsoft.com/oss/kubernetes/pause:3.9-hotfix-20230808",
+					WindowsPauseImageURL:           "mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.1",
 					WindowsPublisher:               "microsoft-aks",
 					WindowsSku:                     "",
 				},
@@ -848,7 +875,7 @@ DXRqvV7TWO2hndliQq3BW385ZkiephlrmpUVM= r2k1@arturs-mbp.lan`,
 				// VnetCNIARM64LinuxPluginsDownloadURL:  "https://packages.aks.azure.com/azure-cni/v1.4.13/binaries/azure-vnet-cni-linux-arm64-v1.4.14.tgz",
 				// VnetCNILinuxPluginsDownloadURL:       "https://packages.aks.azure.com/azure-cni/v1.1.3/binaries/azure-vnet-cni-linux-amd64-v1.1.3.tgz",
 				VnetCNIWindowsPluginsDownloadURL:     "https://packages.aks.azure.com/azure-cni/v1.6.21/binaries/azure-vnet-cni-windows-amd64-v1.6.21.zip",
-				WindowsPauseImageURL:                 "mcr.microsoft.com/oss/kubernetes/pause:3.9-hotfix-20230808",
+				WindowsPauseImageURL:                 "mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.1",
 				WindowsProvisioningScriptsPackageURL: "https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-v0.0.52.zip",
 				WindowsTelemetryGUID:                 "fb801154-36b9-41bc-89c2-f4d4f05472b0",
 			},
@@ -894,11 +921,12 @@ DXRqvV7TWO2hndliQq3BW385ZkiephlrmpUVM= r2k1@arturs-mbp.lan`,
 			"--kube-reserved":                   "cpu=100m,memory=3891Mi",
 			"--kubeconfig":                      "c:\\k\\config",
 			"--max-pods":                        "30",
-			"--pod-infra-container-image":       "mcr.microsoft.com/oss/kubernetes/pause:3.9-hotfix-20230808",
+			"--pod-infra-container-image":       "mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.1",
 			"--resolv-conf":                     "\"\"\"\"",
 			"--cluster-dns":                     "10.0.0.10",
 			"--cluster-domain":                  "cluster.local",
 			"--rotate-certificates":             "true",
+			"--rotate-server-certificates":      "true",
 			"--tls-cipher-suites":               "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256",
 		},
 		SIGConfig: datamodel.SIGConfig{

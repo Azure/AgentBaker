@@ -91,8 +91,8 @@ if isMarinerOrAzureLinux "$OS"; then
     installFIPS
   fi
 else
-  # Enable ESM only for 18.04, 20.04, and FIPS
-  if [ "${UBUNTU_RELEASE}" = "18.04" ] || [ "${UBUNTU_RELEASE}" = "20.04" ] || [ "${ENABLE_FIPS,,}" = "true" ]; then
+  # Enable ESM only for 20.04, and FIPS
+  if [ "${UBUNTU_RELEASE}" = "20.04" ] || [ "${ENABLE_FIPS,,}" = "true" ]; then
     set +x
     attachUA
     set -x
@@ -126,7 +126,7 @@ capture_benchmark "${SCRIPT_NAME}_enable_cgroupv2_for_azurelinux"
 
 # shellcheck disable=SC3010
 if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]]; then
-  
+
   # Choose kernel packages based on Ubuntu version and architecture
   if grep -q "cvm" <<< "$FEATURE_FLAGS"; then
     KERNEL_IMAGE="linux-image-azure-fde-lts-${UBUNTU_RELEASE}"
@@ -139,7 +139,7 @@ if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]]; then
     )
     echo "Installing fde LTS kernel for CVM Ubuntu ${UBUNTU_RELEASE}"
   else
-    # Use LTS kernel for other versions  
+    # Use LTS kernel for other versions
     KERNEL_IMAGE="linux-image-azure-lts-${UBUNTU_RELEASE}"
     KERNEL_PACKAGES=(
       "linux-image-azure-lts-${UBUNTU_RELEASE}"
@@ -170,14 +170,18 @@ if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]]; then
 
     # Install new kernel packages
     wait_for_apt_locks
-    DEBIAN_FRONTEND=noninteractive apt-get install -y "${KERNEL_PACKAGES[@]}"
+    DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y "${KERNEL_PACKAGES[@]}"
     echo "After installing new kernel, here is a list of kernels/headers installed:"; dpkg -l 'linux-*azure*'
 
     # Reinstall nullboot package only for cvm
     if grep -q "cvm" <<< "$FEATURE_FLAGS"; then
       wait_for_apt_locks
-      DEBIAN_FRONTEND=noninteractive apt-get install -y nullboot
+      DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y nullboot
     fi
+
+    # Cleanup
+    wait_for_apt_locks
+    DEBIAN_FRONTEND=noninteractive apt-get autoremove -y && DEBIAN_FRONTEND=noninteractive apt-get clean
   else
     echo "Kernel packages for Ubuntu ${UBUNTU_RELEASE} are not available. Skipping purging and subsequent installation."
   fi
@@ -190,7 +194,7 @@ if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]]; then
     if apt-cache show "${NVIDIA_KERNEL_PACKAGE}" &> /dev/null; then
       echo "ARM64 image. Installing NVIDIA kernel and its packages alongside LTS kernel"
       wait_for_apt_locks
-      sudo apt install -y "${NVIDIA_KERNEL_PACKAGE}"
+      sudo apt install --no-install-recommends -y "${NVIDIA_KERNEL_PACKAGE}"
       echo "after installation:"
       dpkg -l | grep "linux-.*-azure-nvidia"
     else

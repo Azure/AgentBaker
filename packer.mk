@@ -1,5 +1,7 @@
 SHELL=/bin/bash -o pipefail
 
+export AZCLI_VERSION_OVERRIDE ?= 2.77.0
+
 GOARCH=amd64
 ifeq (${ARCHITECTURE},ARM64)
 	GOARCH=arm64
@@ -81,23 +83,11 @@ build-imagecustomizer: generate-prefetch-scripts build-aks-node-controller build
 	@./vhdbuilder/packer/imagecustomizer/scripts/build-imagecustomizer-image.sh
 
 az-login:
-ifeq (${MODE},windowsVhdMode)
-ifeq ($(origin MANAGED_IDENTITY_ID), undefined)
-	@echo "Logging in with Hosted Pool's Default Managed Identity"
-	@az login --identity
-else
-	@echo "Logging in with Hosted Pool's Managed Identity: ${MANAGED_IDENTITY_ID}"
-	@az login --identity --client-id ${MANAGED_IDENTITY_ID}
-endif
-else
-	@echo "Logging into Azure with identity: ${AZURE_MSI_RESOURCE_STRING}..."
-	@az login --identity --resource-id ${AZURE_MSI_RESOURCE_STRING}
-endif
 	@echo "Using the subscription ${SUBSCRIPTION_ID}"
 	@az account set -s ${SUBSCRIPTION_ID}
 
 init-packer:
-	@./vhdbuilder/packer/produce-packer-settings.sh
+	@./vhdbuilder/packer/produce-packer-settings.sh ${AZCLI_VERSION_OVERRIDE}
 
 run-packer: az-login
 	@packer init ./vhdbuilder/packer/packer-plugin.pkr.hcl && packer version && ($(MAKE) -f packer.mk init-packer | tee packer-output) && ($(MAKE) -f packer.mk build-packer | tee -a packer-output)
@@ -126,11 +116,15 @@ evaluate-build-performance: az-login
 evaluate-grid-compatibility: az-login
 	@./vhdbuilder/packer/gridcompatibility/evaluate-grid-compatibility.sh
 
+prefetch: az-login
+	@./vhdbuilder/prefetch/scripts/optimize.sh
+
+cleanup-prefetch: az-login
+	@./vhdbuilder/prefetch/scripts/cleanup.sh
+
 generate-prefetch-scripts:
-#ifeq (${MODE},linuxVhdMode)
 	@echo "${MODE}: Generating prefetch scripts"
 	@bash -c "pushd vhdbuilder/prefetch; go run cmd/main.go --components-path=../../parts/common/components.json --output-path=../packer/prefetch.sh || exit 1; popd"
-#endif
 
 build-aks-node-controller:
 	@echo "Building aks-node-controller binaries"

@@ -18,7 +18,7 @@ installDeps() {
     OSVERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
     BLOBFUSE_VERSION="1.4.5"
     # Blobfuse2 has been upgraded in upstream, using this version for parity between 22.04 and 24.04
-    BLOBFUSE2_VERSION="2.5.1"
+    BLOBFUSE2_VERSION="2.5.0"
 
     # blobfuse2 is installed for all ubuntu versions, it is included in pkg_list
     # for 22.04, fuse3 is installed. for all others, fuse is installed
@@ -59,17 +59,17 @@ installDeps() {
 updateAptWithMicrosoftPkg() {
     retrycmd_silent 120 5 25 curl https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/prod.list > /tmp/microsoft-prod.list || exit $ERR_MOBY_APT_LIST_TIMEOUT
     retrycmd_if_failure 10 5 10 cp /tmp/microsoft-prod.list /etc/apt/sources.list.d/ || exit $ERR_MOBY_APT_LIST_TIMEOUT
-    if [ "${UBUNTU_RELEASE}" = "18.04" ]; then {
-        echo "deb [arch=amd64,arm64,armhf] https://packages.microsoft.com/ubuntu/18.04/multiarch/prod testing main" > /etc/apt/sources.list.d/microsoft-prod-testing.list
-    }
-    elif [ "${UBUNTU_RELEASE}" = "20.04" ] || [ "${UBUNTU_RELEASE}" = "22.04" ] || [ "${UBUNTU_RELEASE}" = "24.04" ]; then {
-        echo "deb [arch=amd64,arm64,armhf] https://packages.microsoft.com/ubuntu/${UBUNTU_RELEASE}/prod testing main" > /etc/apt/sources.list.d/microsoft-prod-testing.list
-    }
-    fi
+
+    echo "deb [arch=amd64,arm64,armhf] https://packages.microsoft.com/ubuntu/${UBUNTU_RELEASE}/prod testing main" > /etc/apt/sources.list.d/microsoft-prod-testing.list
 
     retrycmd_silent 120 5 25 curl https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > /tmp/microsoft.gpg || exit $ERR_MS_GPG_KEY_DOWNLOAD_TIMEOUT
     retrycmd_if_failure 10 5 10 cp /tmp/microsoft.gpg /etc/apt/trusted.gpg.d/ || exit $ERR_MS_GPG_KEY_DOWNLOAD_TIMEOUT
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
+}
+
+updatePMCRepository() {
+    local opts="-o Dir::Etc::sourcelist=/etc/apt/sources.list.d/microsoft-prod.list -o Dir::Etc::sourceparts=-"
+    apt_get_update_with_opts "${opts}" || exit $ERR_APT_UPDATE_TIMEOUT
 }
 
 updateAptWithNvidiaPkg() {
@@ -149,6 +149,19 @@ installNvidiaManagedExpPkgFromCache() {
         logs_to_events "AKS.CSE.install${packageName}.installDebPackageFromFile" "installDebPackageFromFile ${debFile}" || exit $ERR_APT_INSTALL_TIMEOUT
         rm -rf $(dirname ${downloadDir})
     done
+}
+
+removeNvidiaRepos() {
+    # Remove NVIDIA apt repository configuration
+    # to prevent unnecessary network calls during apt-get update
+    if [ -f /etc/apt/sources.list.d/nvidia.list ]; then
+        rm -f /etc/apt/sources.list.d/nvidia.list
+        echo "Removed NVIDIA apt repository"
+    fi
+    if [ -f /etc/apt/keyrings/nvidia.pub ]; then
+        rm -f /etc/apt/keyrings/nvidia.pub
+        echo "Removed NVIDIA GPG key"
+    fi
 }
 
 cleanUpGPUDrivers() {
@@ -266,12 +279,19 @@ installPkgWithAptGet() {
     # if no deb file with desired version found then try fetching from packages.microsoft repo
     debFile=$(find "${downloadDir}" -maxdepth 1 -name "${packagePrefix}" -print -quit 2>/dev/null) || debFile=""
     if [ -z "${debFile}" ]; then
+        if fallbackToKubeBinaryInstall "${packageName}" "${packageVersion}"; then
+            echo "Successfully installed ${packageName} version ${packageVersion} from binary fallback"
+            rm -rf ${downloadDir}
+            return 0
+        fi
+
+        # update pmc repo to get latest package versions
+        updatePMCRepository
         # query all package versions and get the latest version for matching k8s version
-        updateAptWithMicrosoftPkg
         fullPackageVersion=$(apt list ${packageName} --all-versions | grep ${packageVersion}- | awk '{print $2}' | sort -V | tail -n 1)
         if [ -z "${fullPackageVersion}" ]; then
             echo "Failed to find valid ${packageName} version for ${packageVersion}"
-            exit 1
+            return 1
         fi
         echo "Did not find cached deb file, downloading ${packageName} version ${fullPackageVersion}"
         logs_to_events "AKS.CSE.install${packageName}PkgFromPMC.downloadPkgFromVersion" "downloadPkgFromVersion ${packageName} ${fullPackageVersion} ${downloadDir}"
@@ -279,7 +299,7 @@ installPkgWithAptGet() {
     fi
     if [ -z "${debFile}" ]; then
         echo "Failed to locate ${packageName} deb"
-        exit 1
+        return 1
     fi
 
     logs_to_events "AKS.CSE.install${packageName}.installDebPackageFromFile" "installDebPackageFromFile ${debFile}" || exit $ERR_APT_INSTALL_TIMEOUT
@@ -386,19 +406,7 @@ installStandaloneContainerd() {
         return 0
     fi
 
-    #if there is no containerd_version input from RP, use hardcoded version
-    if [ -z "${CONTAINERD_VERSION}" ]; then
-        # pin 18.04 to 1.7.1
-        CONTAINERD_VERSION="1.7.15"
-        if [ "${UBUNTU_RELEASE}" = "18.04" ]; then
-            CONTAINERD_VERSION="1.7.1"
-        fi
-        CONTAINERD_PATCH_VERSION="1"
-        echo "Containerd Version not specified, using default version: ${CONTAINERD_VERSION}-${CONTAINERD_PATCH_VERSION}"
-    else
-        echo "Using specified Containerd Version: ${CONTAINERD_VERSION}-${CONTAINERD_PATCH_VERSION}"
-    fi
-
+    echo "Using specified Containerd Version: ${CONTAINERD_VERSION}-${CONTAINERD_PATCH_VERSION}"
     installContainerdWithAptGet "${CONTAINERD_VERSION}" "${CONTAINERD_PATCH_VERSION}" || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
 }
 

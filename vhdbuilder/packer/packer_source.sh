@@ -57,6 +57,8 @@ copyPackerFiles() {
   NVIDIA_MODPROBE_SERVICE_DEST=/etc/systemd/system/nvidia-modprobe.service
   NVIDIA_DOCKER_DAEMON_SRC=/home/packer/nvidia-docker-daemon.json
   NVIDIA_DOCKER_DAEMON_DEST=/etc/systemd/system/nvidia-docker-daemon.json
+  DISK_QUEUE_SCRIPT_SRC=/home/packer/disk_queue.sh
+  DISK_QUEUE_SCRIPT_DEST=/opt/azure/containers/disk_queue.sh
   DISK_QUEUE_SERVICE_SRC=/home/packer/disk_queue.service
   DISK_QUEUE_SERVICE_DEST=/etc/systemd/system/disk_queue.service
   CGROUP_MEMORY_TELEMETRY_SERVICE_SRC=/home/packer/cgroup-memory-telemetry.service
@@ -274,12 +276,7 @@ copyPackerFiles() {
   NOTICE_SRC=/home/packer/NOTICE.txt
   NOTICE_DEST=/NOTICE.txt
 
-  # shellcheck disable=SC3010
-  if [[ ${UBUNTU_RELEASE} == "16.04" ]]; then
-    SSHD_CONFIG_SRC=/home/packer/sshd_config_1604
-  elif [[ ${UBUNTU_RELEASE} == "18.04" && ${ENABLE_FIPS,,} == "true" ]]; then
-    SSHD_CONFIG_SRC=/home/packer/sshd_config_1804_fips
-  elif [[ ${UBUNTU_RELEASE} == "22.04" && ${ENABLE_FIPS,,} == "true" ]]; then
+  if [ ${UBUNTU_RELEASE} = "22.04" ] && [ ${ENABLE_FIPS,,} = "true" ]; then
     SSHD_CONFIG_SRC=/home/packer/sshd_config_2204_fips
   fi
 
@@ -347,6 +344,7 @@ copyPackerFiles() {
   cpAndMode $KMS_SERVICE_SRC $KMS_SERVICE_DEST 644
   cpAndMode $MIG_PARTITION_SRC $MIG_PARTITION_DEST 544
   cpAndMode $CONTAINERD_EXEC_START_SRC $CONTAINERD_EXEC_START_DEST 644
+  cpAndMode $DISK_QUEUE_SCRIPT_SRC $DISK_QUEUE_SCRIPT_DEST 755
   cpAndMode $DISK_QUEUE_SERVICE_SRC $DISK_QUEUE_SERVICE_DEST 644
   cpAndMode $CGROUP_MEMORY_TELEMETRY_SERVICE_SRC $CGROUP_MEMORY_TELEMETRY_SERVICE_DEST 644
   cpAndMode $CGROUP_MEMORY_TELEMETRY_SCRIPT_SRC $CGROUP_MEMORY_TELEMETRY_SCRIPT_DEST 755
@@ -393,7 +391,20 @@ copyPackerFiles() {
     fi
   fi
 
-  cpAndMode $NOTICE_SRC $NOTICE_DEST 444
+  # Handle the NOTICE file
+  if isFlatcar "$OS"; then
+    # Append Flatcar specific license notices
+    DIR=$(dirname "$NOTICE_DEST") && mkdir -p "${DIR}" && cp "$NOTICE_SRC" "$NOTICE_DEST"
+    NOTICE_FLATCAR_SRC=/home/packer/NOTICE_FLATCAR.txt
+    echo "" >> "$NOTICE_DEST"
+    cat "$NOTICE_FLATCAR_SRC" >> "$NOTICE_DEST"
+    chmod 444 "$NOTICE_DEST"
+    # Clean up temporary Flatcar NOTICE file
+    rm -f "$NOTICE_FLATCAR_SRC"
+  else
+    # All other OS: standard copy
+    cpAndMode $NOTICE_SRC $NOTICE_DEST 444
+  fi
 
   # Always copy the VHD cleanup script responsible for prepping the instance for first boot
   # to disk so we can run it again if needed in subsequent builds/releases (prefetch during SIG release)

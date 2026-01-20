@@ -1,0 +1,31 @@
+Release notes for security patch 20251021T000000Z timestamp
+Package difference between 20251005T000000Z and 20251021T000000Z
+Reboot required
+Upgrade: linux-headers-azure-lts-22.04:amd64 (5.15.0.1096.94, 5.15.0.1097.95)
+Upgrade: linux-cloud-tools-common:amd64 (5.15.0-157.167, 5.15.0-160.170)
+Upgrade: linux-cloud-tools-azure-lts-22.04:amd64 (5.15.0.1096.94, 5.15.0.1097.95)
+Upgrade: linux-libc-dev:amd64 (5.15.0-157.167, 5.15.0-160.170)
+Upgrade: linux-image-azure-lts-22.04:amd64 (5.15.0.1096.94, 5.15.0.1097.95)
+Upgrade: linux-tools-azure-lts-22.04:amd64 (5.15.0.1096.94, 5.15.0.1097.95)
+Upgrade: linux-tools-common:amd64 (5.15.0-157.167, 5.15.0-160.170)
+Upgrade: libwbclient0:amd64 (2:4.15.13+dfsg-0ubuntu1.7, 2:4.15.13+dfsg-0ubuntu1.10)
+Install: linux-headers-5.15.0-1097-azure:amd64 (5.15.0-1097.106, automatic), linux-azure-headers-5.15.0-1097:amd64 (5.15.0-1097.106, automatic)
+Install: linux-cloud-tools-5.15.0-1097-azure:amd64 (5.15.0-1097.106, automatic), linux-azure-cloud-tools-5.15.0-1097:amd64 (5.15.0-1097.106, automatic)
+Install: linux-modules-5.15.0-1097-azure:amd64 (5.15.0-1097.106, automatic), linux-image-5.15.0-1097-azure:amd64 (5.15.0-1097.106, automatic)
+Install: linux-azure-tools-5.15.0-1097:amd64 (5.15.0-1097.106, automatic), linux-tools-5.15.0-1097-azure:amd64 (5.15.0-1097.106, automatic)
+Remove: linux-cloud-tools-5.15.0-1094-azure:amd64 (5.15.0-1094.103), linux-azure-cloud-tools-5.15.0-1094:amd64 (5.15.0-1094.103)
+Remove: linux-tools-5.15.0-1094-azure:amd64 (5.15.0-1094.103)
+Remove: linux-azure-tools-5.15.0-1094:amd64 (5.15.0-1094.103)
+
+Package difference between AKSUbuntu-2204gen2containerd-202509.23.0 and 20251021T000000Z
+No reboot required
+Upgrade: libwbclient0:amd64 (2:4.15.13+dfsg-0ubuntu1.8, 2:4.15.13+dfsg-0ubuntu1.10)
+Upgrade: libssl3:amd64 (3.0.2-0ubuntu1.19, 3.0.2-0ubuntu1.20)
+Upgrade: libcurl4:amd64 (7.81.0-1ubuntu1.20, 7.81.0-1ubuntu1.21), curl:amd64 (7.81.0-1ubuntu1.20, 7.81.0-1ubuntu1.21)
+Upgrade: openssl:amd64 (3.0.2-0ubuntu1.19, 3.0.2-0ubuntu1.20)
+Upgrade: linux-cloud-tools-common:amd64 (5.15.0-153.163, 5.15.0-160.170)
+Upgrade: linux-libc-dev:amd64 (5.15.0-153.163, 5.15.0-160.170)
+Upgrade: dpkg:amd64 (1.21.1ubuntu2.3, 1.21.1ubuntu2.6)
+Upgrade: libcurl3-gnutls:amd64 (7.81.0-1ubuntu1.20, 7.81.0-1ubuntu1.21)
+Upgrade: linux-tools-common:amd64 (5.15.0-153.163, 5.15.0-160.170)
+Upgrade: dpkg-dev:amd64 (1.21.1ubuntu2.3, 1.21.1ubuntu2.6), libdpkg-perl:amd64 (1.21.1ubuntu2.3, 1.21.1ubuntu2.6)

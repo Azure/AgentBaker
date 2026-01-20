@@ -1,17 +1,32 @@
 #!/bin/bash
 
+function enforce_azcli_version() {
+	AZ_VER_REQUIRED=$1
+	AZ_DIST=$(lsb_release -cs)
+	echo "Enforcing az cli version to ${AZ_VER_REQUIRED} for ${AZ_DIST}"
+	sudo DEBIAN_FRONTEND=noninteractive dpkg --configure -a
+	sudo DEBIAN_FRONTEND=noninteractive apt-get install azure-cli=${AZ_VER_REQUIRED}-1~${AZ_DIST} -y --no-install-recommends --allow-downgrades
+	AZ_VER_INSTALLED=$(az version --query "[\"azure-cli\"]" -o tsv)
+	if [ "${AZ_VER_INSTALLED}" != "${AZ_VER_REQUIRED}" ]; then
+		echo "Failed to install required az cli version ${AZ_VER_REQUIRED}, installed version is ${AZ_VER_INSTALLED}"
+		exit 1
+	else
+		echo "Successfully installed az cli version ${AZ_VER_INSTALLED}"
+	fi
+}
+
 function produce_ua_token() {
 	set +x
 	UA_TOKEN="${UA_TOKEN:-}" # used to attach UA when building ESM-enabled Ubuntu SKUs
 	if [ "$MODE" = "linuxVhdMode" ] && [ "${OS_SKU,,}" = "ubuntu" ]; then
-		if [ "${OS_VERSION}" = "18.04" ] || [ "${OS_VERSION}" = "20.04" ] || [ "${ENABLE_FIPS,,}" = "true" ]; then
+		if [ "${OS_VERSION}" = "20.04" ] || [ "${ENABLE_FIPS,,}" = "true" ]; then
 			echo "OS_VERSION: ${OS_VERSION}, ENABLE_FIPS: ${ENABLE_FIPS,,}, will use token for UA attachment"
 			if [ -z "${UA_TOKEN}" ]; then
 				echo "UA_TOKEN must be provided when building SKUs which require ESM"
 				exit 1
 			fi
 		else
-			echo "UA_TOKEN not used for ubuntu 18.04, 20.04, and FIPS"
+			echo "UA_TOKEN not used for ubuntu 20.04, and FIPS"
 			UA_TOKEN="notused"
 		fi
 	else
@@ -282,8 +297,7 @@ function prepare_windows_vhd() {
 	windows_sigmode_source_image_version=""
 
 	# default: build VHD images from a marketplace base image
-	export AZCOPY_AUTO_LOGIN_TYPE="MSI" # use Managed Identity for AzCopy authentication
-	export AZCOPY_MSI_RESOURCE_STRING="${AZURE_MSI_RESOURCE_STRING}"
+	export AZCOPY_AUTO_LOGIN_TYPE="AZCLI" # use AZCLI for AzCopy authentication
 	export AZCOPY_LOG_LOCATION="$(pwd)/azcopy-log-files/"
 	export AZCOPY_JOB_PLAN_LOCATION="$(pwd)/azcopy-job-plan-files/"
 	mkdir -p "${AZCOPY_LOG_LOCATION}"

@@ -78,16 +78,17 @@ func createGallery(ctx context.Context, request CreateGalleryRequest) (armcomput
 var CachedCreateGalleryImage = cachedFunc(createGalleryImage)
 
 type CreateGalleryImageRequest struct {
-	ResourceGroup string
-	GalleryName   string
-	Location      string
-	Arch          string
-	Windows       bool
+	ResourceGroup    string
+	GalleryName      string
+	Location         string
+	Arch             string
+	Windows          bool
+	HyperVGeneration *armcompute.HyperVGeneration
 }
 
 // createGalleryImage creates or retrieves an Azure Compute Gallery Image for e2e testing
 func createGalleryImage(ctx context.Context, request CreateGalleryImageRequest) (armcompute.GalleryImage, error) {
-	imageName := fmt.Sprintf("%s-%s-%s", config.Config.TestGalleryImagePrefix, request.Location, request.Arch)
+	imageName := fmt.Sprintf("%s-%s-%s-gen%s", config.Config.TestGalleryImagePrefix, request.Location, request.Arch, *request.HyperVGeneration)
 	if request.Windows {
 		imageName += "-windows"
 	} else {
@@ -122,7 +123,7 @@ func createGalleryImage(ctx context.Context, request CreateGalleryImageRequest) 
 				Offer:     to.Ptr("akse2e"),
 				SKU:       to.Ptr(imageName),
 			},
-			HyperVGeneration: to.Ptr(armcompute.HyperVGenerationV2),
+			HyperVGeneration: request.HyperVGeneration, // IMPORTANT, INCORRECT VALUE CAUSES VM PROVISIONING TO FAIL WITHOUT CLEAR ERROR MESSAGE
 		},
 	}, nil)
 	if err != nil {

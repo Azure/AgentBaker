@@ -80,6 +80,8 @@ const (
 	AzureChinaCloud = "AzureChinaCloud"
 	// AzureGermanCloud is a const string reference identifier for german cloud.
 	AzureGermanCloud = "AzureGermanCloud"
+	// AzureGermanCloud is a const string reference identifier for german cloud.
+	AzureGermanyCloud = "AzureGermanyCloud"
 	// AzureBleuCloud is a const string reference identifier for bleu cloud.
 	AzureBleuCloud = "AzureBleuCloud"
 	// AzureUSGovernmentCloud is a const string reference identifier for us government cloud.
