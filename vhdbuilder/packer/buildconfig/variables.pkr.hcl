@@ -24,7 +24,7 @@ locals {
   post_build_file_downloads = jsondecode(file(var.file_downloads)).post-build
 
   // Reboot command based on distro
-  reboot_command = lower(var.os_version) == "flatcar" ? "reboot" : "sudo reboot"
+  reboot_command = lower(var.os_version) == "flatcar" ? ": reboot" : "sudo reboot"
 }
 
 // Variables for resolving locals
