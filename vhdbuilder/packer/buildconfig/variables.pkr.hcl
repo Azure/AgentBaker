@@ -12,7 +12,7 @@ locals {
   cvm_encryption_type = can(regex("cvm", lower(var.feature_flags))) ? "EncryptedVMGuestStateOnlyWithPmk" : ""
 
   // File uploads for build process
-  custom_data_file = lower(var.os_version) == "flatcar" ? "./vhdbuilder/packer/flatcar-customdata.json" : ""
+  custom_data_file = lower(var.os_version) == "flatcar" ? var.custom_data_file : ""
   aks_node_controller = lower("${var.architecture}") == "x86_64" ? "aks-node-controller/bin/aks-node-controller-linux-amd64" : "aks-node-controller/bin/aks-node-controller-linux-arm64"
   common_file_upload = jsondecode(file(var.common_file_upload)).files
   ubuntu_file_upload = jsondecode(file(var.ubuntu_file_upload)).files
@@ -63,6 +63,11 @@ variable "flatcar_file_upload" {
 variable "file_downloads" {
   type    = string
   default = "vhdbuilder/packer/buildconfig/dynamic-provisioners/file-downloads.json"
+}
+
+variable "custom_data_file" {
+  type    = string
+  default = "./vhdbuilder/packer/flatcar-customdata.json"
 }
 
 
