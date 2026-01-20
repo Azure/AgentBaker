@@ -23,6 +23,6 @@ message GpuConfig {
   // Specifies whether the managed GPU experience AFEC (Azure Feature Engineering Configuration) is enabled.
   bool managed_gpu_experience_afec_enabled = 6;
 
-  // Specifies whether nvidia management mode is enabled for the managed GPU experience.
-  bool nvidia_management_mode = 7;
+  // Specifies whether managed GPU is enabled.
+  bool enable_managed_gpu = 7;
 }

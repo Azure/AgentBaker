@@ -1454,7 +1454,7 @@ oom_score = -999
 				Expect(o.vars["GPU_NODE"]).To(Equal("true"))
 				Expect(o.vars["ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED"]).To(Equal("true"))
 			}),
-		Entry("AKSUbuntu2204 with NvidiaManagementMode", "AKSUbuntu2204+NvidiaManagementMode", "1.29.7",
+		Entry("AKSUbuntu2204 with EnableManagedGPU", "AKSUbuntu2204+EnableManagedGPU", "1.29.7",
 			func(config *datamodel.NodeBootstrappingConfiguration) {
 				config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
 					ContainerRuntime: datamodel.Containerd,
@@ -1464,15 +1464,15 @@ oom_score = -999
 				config.EnableNvidia = true
 				config.ConfigGPUDriverIfNeeded = true
 				config.EnableGPUDevicePluginIfNeeded = true
-				config.NvidiaManagementMode = true
+				config.EnableManagedGPU = true
 			}, func(o *nodeBootstrappingOutput) {
-				// Verify NvidiaManagementMode is set
-				Expect(o.vars["NVIDIA_MANAGEMENT_MODE"]).To(Equal("true"))
+				// Verify EnableManagedGPU is set
+				Expect(o.vars["ENABLE_MANAGED_GPU"]).To(Equal("true"))
 				// Verify other GPU settings are also correct
 				Expect(o.vars["GPU_NODE"]).To(Equal("true"))
 				Expect(o.vars["ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED"]).To(Equal("true"))
 			}),
-		Entry("AKSUbuntu2204 with NvidiaManagementMode disabled", "AKSUbuntu2204+NvidiaManagementMode+Disabled", "1.29.7",
+		Entry("AKSUbuntu2204 with EnableManagedGPU disabled", "AKSUbuntu2204+EnableManagedGPU+Disabled", "1.29.7",
 			func(config *datamodel.NodeBootstrappingConfiguration) {
 				config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
 					ContainerRuntime: datamodel.Containerd,
@@ -1482,10 +1482,10 @@ oom_score = -999
 				config.EnableNvidia = true
 				config.ConfigGPUDriverIfNeeded = true
 				config.EnableGPUDevicePluginIfNeeded = true
-				config.NvidiaManagementMode = false
+				config.EnableManagedGPU = false
 			}, func(o *nodeBootstrappingOutput) {
-				// Verify NvidiaManagementMode is disabled
-				Expect(o.vars["NVIDIA_MANAGEMENT_MODE"]).To(Equal("false"))
+				// Verify EnableManagedGPU is disabled
+				Expect(o.vars["ENABLE_MANAGED_GPU"]).To(Equal("false"))
 				// Verify other GPU settings are still correct
 				Expect(o.vars["GPU_NODE"]).To(Equal("true"))
 				Expect(o.vars["ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED"]).To(Equal("true"))

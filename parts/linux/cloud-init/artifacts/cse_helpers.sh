@@ -706,8 +706,8 @@ e2e_mock_azure_china_cloud() {
 enableManagedGPUExperience() {
     set -x
 
-    # Check if nvidiaManagementMode is enabled via NBC
-    if [ "${NVIDIA_MANAGEMENT_MODE,,}" = "true" ]; then
+    # Check if EnableManagedGPU is enabled via NBC
+    if [ "${ENABLE_MANAGED_GPU,,}" = "true" ]; then
         echo "true"
         return 0
     fi
