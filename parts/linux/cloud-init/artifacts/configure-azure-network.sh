@@ -12,18 +12,18 @@ fi
 
 echo "Configuring NICs listed in $NICS_TO_CONFIGURE_FILE"
 
-# Parse ETHTOOL_CONTENT environment variable for RX buffer size
+# Parse ethtool configuration from file
 RX_SIZE=$DEFAULT_RX_BUFFER_SIZE
-if [ -n "$ETHTOOL_CONTENT" ]; then
-    # Decode base64 ETHTOOL_CONTENT and extract rx value
-    ETHTOOL_CONFIG=$(echo "$ETHTOOL_CONTENT" | base64 -d 2>/dev/null)
-    if [ -n "$ETHTOOL_CONFIG" ]; then
-        CONFIG_RX_SIZE=$(echo "$ETHTOOL_CONFIG" | grep "^rx=" | cut -d'=' -f2)
-        if [ -n "$CONFIG_RX_SIZE" ] && [ "$CONFIG_RX_SIZE" -gt 0 ] 2>/dev/null; then
-            RX_SIZE=$CONFIG_RX_SIZE
-            echo "Using ETHTOOL_CONTENT rx buffer size: $RX_SIZE"
-        fi
+ETHTOOL_CONFIG_FILE="/etc/azure-network/ethtool.conf"
+
+if [ -f "$ETHTOOL_CONFIG_FILE" ]; then
+    CONFIG_RX_SIZE=$(grep "^rx=" "$ETHTOOL_CONFIG_FILE" | cut -d'=' -f2)
+    if [ -n "$CONFIG_RX_SIZE" ] && [ "$CONFIG_RX_SIZE" -gt 0 ] 2>/dev/null; then
+        RX_SIZE=$CONFIG_RX_SIZE
+        echo "Using configured rx buffer size from $ETHTOOL_CONFIG_FILE: $RX_SIZE"
     fi
+else
+    echo "No ethtool config file found at $ETHTOOL_CONFIG_FILE, using default rx=$RX_SIZE"
 fi
 
 while read -r nic; do
