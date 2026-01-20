@@ -860,7 +860,7 @@ func Test_Ubuntu2204_CustomSysctls_Scriptless(t *testing.T) {
 func Test_Ubuntu2204_EthtoolConfig(t *testing.T) {
 
 	customEthtool := map[string]string{
-		"rx": "3072",
+		"rx": "4096",
 	}
 	RunScenario(t, &Scenario{
 		Description: "tests that an ubuntu 2204 VHD can be properly bootstrapped when supplied custom ethtool settings",
@@ -942,7 +942,7 @@ func Test_Ubuntu2204_EthtoolConfig_Scriptless(t *testing.T) {
 
 func Test_Ubuntu2404ARM64_EthtoolConfig(t *testing.T) {
 	customEthtool := map[string]string{
-		"rx": "3072",
+		"rx": "4096",
 	}
 	RunScenario(t, &Scenario{
 		Description: "tests that an ubuntu 2404 ARM64 VHD can be properly bootstrapped with custom ethtool settings",
@@ -975,7 +975,7 @@ func Test_Ubuntu2404ARM64_EthtoolConfig(t *testing.T) {
 
 func Test_AzureLinuxV3_EthtoolConfig(t *testing.T) {
 	customEthtool := map[string]string{
-		"rx": "3072",
+		"rx": "4096",
 	}
 	RunScenario(t, &Scenario{
 		Description: "tests that an AzureLinuxV3 VHD can be properly bootstrapped with custom ethtool settings",
