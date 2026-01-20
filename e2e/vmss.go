@@ -291,6 +291,13 @@ func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*Sc
 	s.T.Log(result)
 
 	vmssResp, err := operation.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
+	if !s.Config.SkipSSHConnectivityValidation {
+		var bastErr error
+		vm.SSHClient, bastErr = DialSSHOverBastion(ctx, s.Runtime.Cluster.Bastion, vm.PrivateIP, config.VMSSHPrivateKey)
+		if bastErr != nil {
+			return vm, fmt.Errorf("failed to start bastion tunnel: %w", bastErr)
+		}
+	}
 	if err != nil {
 		return vm, err
 	}
@@ -299,13 +306,6 @@ func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*Sc
 	err = waitForVMRunningState(ctx, s, vm.VM)
 	if err != nil {
 		return vm, fmt.Errorf("failed to wait for VM to reach running state: %w", err)
-	}
-
-	if !s.Config.SkipSSHConnectivityValidation {
-		vm.SSHClient, err = DialSSHOverBastion(ctx, s.Runtime.Cluster.Bastion, vm.PrivateIP, config.VMSSHPrivateKey)
-		if err != nil {
-			return vm, fmt.Errorf("failed to start bastion tunnel: %w", err)
-		}
 	}
 
 	return &ScenarioVM{
