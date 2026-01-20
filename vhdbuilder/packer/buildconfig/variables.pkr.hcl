@@ -13,7 +13,7 @@ locals {
 
   // File uploads for build process
   custom_data_file = lower(var.os_version) == "flatcar" ? var.custom_data_file : ""
-  aks_node_controller = lower("${var.architecture}") == "x86_64" ? "aks-node-controller/bin/aks-node-controller-linux-amd64" : "aks-node-controller/bin/aks-node-controller-linux-arm64"
+  aks_node_controller = lower("${var.architecture}") == "x86_64" ? var.aksnode_controller_amd64 : var.aksnode_controller_arm64
   common_file_upload = jsondecode(file(var.common_file_upload)).files
   ubuntu_file_upload = jsondecode(file(var.ubuntu_file_upload)).files
   azlinux_file_upload = jsondecode(file(var.azlinux_file_upload)).files
@@ -70,7 +70,15 @@ variable "custom_data_file" {
   default = "./vhdbuilder/packer/flatcar-customdata.json"
 }
 
+variable "aksnode_controller_amd64" {
+  type    = string
+  default = "aks-node-controller/bin/aks-node-controller-linux-amd64"
+}
 
+variable "aksnode_controller_arm64" {
+  type    = string
+  default = "aks-node-controller/bin/aks-node-controller-linux-arm64"
+}
 
 
 
