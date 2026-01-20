@@ -791,7 +791,7 @@ type SysctlConfig struct {
 }
 
 type EthtoolConfig struct {
-	RxBufferSize int32 `json:"rxBufferSize,omitempty"`
+	RxBufferSize int32 `json:"rxBufferSize,omitempty" validate:"omitempty,oneof=1024 2048 4096 8192"`
 }
 
 type UlimitConfig struct {

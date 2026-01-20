@@ -3,7 +3,14 @@
 # This script configures network interface settings for Azure NICs.
 
 NICS_TO_CONFIGURE_FILE="/etc/azure-network/nics-to-configure"
-DEFAULT_RX_BUFFER_SIZE=1024  # Fallback only - CPU logic handled by Node Controller
+
+# Determine default RX buffer size based on number of CPUs
+NUM_CPUS=$(nproc)
+if [ "$NUM_CPUS" -ge 4 ]; then
+    DEFAULT_RX_BUFFER_SIZE=2048
+else
+    DEFAULT_RX_BUFFER_SIZE=1024
+fi
 
 if [ ! -f "$NICS_TO_CONFIGURE_FILE" ]; then
     echo "No NICs to configure."
@@ -11,6 +18,7 @@ if [ ! -f "$NICS_TO_CONFIGURE_FILE" ]; then
 fi
 
 echo "Configuring NICs listed in $NICS_TO_CONFIGURE_FILE"
+echo "Detected $NUM_CPUS CPUs, default RX buffer size: $DEFAULT_RX_BUFFER_SIZE"
 
 # Parse ethtool configuration from file
 RX_SIZE=$DEFAULT_RX_BUFFER_SIZE
