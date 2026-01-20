@@ -990,6 +990,189 @@ func Test_Ubuntu2204_EthtoolConfig_Scriptless(t *testing.T) {
 	})
 }
 
+func Test_Ubuntu2404ARM64_EthtoolConfig(t *testing.T) {
+	customEthtool := map[string]string{
+		"rx": "3072",
+	}
+	RunScenario(t, &Scenario{
+		Description: "tests that an ubuntu 2404 ARM64 VHD can be properly bootstrapped with custom ethtool settings",
+		Tags: Tags{
+			Ethtool: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2404ArmContainerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
+				nbc.IsARM64 = true
+				customLinuxConfig := &datamodel.CustomLinuxOSConfig{
+					EthtoolConfig: &datamodel.EthtoolConfig{
+						RxBufferSize: toolkit.StrToInt32(customEthtool["rx"]),
+					},
+				}
+				nbc.AgentPoolProfile.CustomLinuxOSConfig = customLinuxConfig
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateEthtoolConfigFiles(ctx, s)
+				ValidateEthtoolConfig(ctx, s, customEthtool)
+			},
+		},
+	})
+}
+
+func Test_AzureLinuxV3_EthtoolConfig(t *testing.T) {
+	customEthtool := map[string]string{
+		"rx": "3072",
+	}
+	RunScenario(t, &Scenario{
+		Description: "tests that an AzureLinuxV3 VHD can be properly bootstrapped with custom ethtool settings",
+		Tags: Tags{
+			Ethtool: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDAzureLinuxV3Gen2,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				customLinuxConfig := &datamodel.CustomLinuxOSConfig{
+					EthtoolConfig: &datamodel.EthtoolConfig{
+						RxBufferSize: toolkit.StrToInt32(customEthtool["rx"]),
+					},
+				}
+				nbc.AgentPoolProfile.CustomLinuxOSConfig = customLinuxConfig
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateEthtoolConfigFiles(ctx, s)
+				ValidateEthtoolConfig(ctx, s, customEthtool)
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2204ARM64_EthtoolConfig_Default(t *testing.T) {
+	rx := "1024"
+	if runtime.NumCPU() >= 4 {
+		rx = "2048"
+	}
+	customEthtool := map[string]string{
+		"rx": rx,
+	}
+	RunScenario(t, &Scenario{
+		Description: "tests that an ubuntu 2204 ARM64 VHD can be properly bootstrapped when supplied with no ethtool settings",
+		Tags: Tags{
+			Ethtool: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Arm64Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
+				nbc.IsARM64 = true
+				customLinuxConfig := &datamodel.CustomLinuxOSConfig{}
+				nbc.AgentPoolProfile.CustomLinuxOSConfig = customLinuxConfig
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateEthtoolConfigFiles(ctx, s)
+				ValidateEthtoolConfig(ctx, s, customEthtool)
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2404Gen2_EthtoolConfig_Default(t *testing.T) {
+	rx := "1024"
+	if runtime.NumCPU() >= 4 {
+		rx = "2048"
+	}
+	customEthtool := map[string]string{
+		"rx": rx,
+	}
+	RunScenario(t, &Scenario{
+		Description: "tests that an ubuntu 2404 VHD can be properly bootstrapped when supplied with no ethtool settings",
+		Tags: Tags{
+			Ethtool: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2404Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				customLinuxConfig := &datamodel.CustomLinuxOSConfig{}
+				nbc.AgentPoolProfile.CustomLinuxOSConfig = customLinuxConfig
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateEthtoolConfigFiles(ctx, s)
+				ValidateEthtoolConfig(ctx, s, customEthtool)
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2404ARM64_EthtoolConfig_Default(t *testing.T) {
+	rx := "1024"
+	if runtime.NumCPU() >= 4 {
+		rx = "2048"
+	}
+	customEthtool := map[string]string{
+		"rx": rx,
+	}
+	RunScenario(t, &Scenario{
+		Description: "tests that an ubuntu 2404 ARM64 VHD can be properly bootstrapped when supplied with no ethtool settings",
+		Tags: Tags{
+			Ethtool: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2404ArmContainerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
+				nbc.IsARM64 = true
+				customLinuxConfig := &datamodel.CustomLinuxOSConfig{}
+				nbc.AgentPoolProfile.CustomLinuxOSConfig = customLinuxConfig
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateEthtoolConfigFiles(ctx, s)
+				ValidateEthtoolConfig(ctx, s, customEthtool)
+			},
+		},
+	})
+}
+
+func Test_AzureLinuxV3_EthtoolConfig_Default(t *testing.T) {
+	rx := "1024"
+	if runtime.NumCPU() >= 4 {
+		rx = "2048"
+	}
+	customEthtool := map[string]string{
+		"rx": rx,
+	}
+	RunScenario(t, &Scenario{
+		Description: "tests that an AzureLinuxV3 VHD can be properly bootstrapped when supplied with no ethtool settings",
+		Tags: Tags{
+			Ethtool: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDAzureLinuxV3Gen2,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				customLinuxConfig := &datamodel.CustomLinuxOSConfig{}
+				nbc.AgentPoolProfile.CustomLinuxOSConfig = customLinuxConfig
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateEthtoolConfigFiles(ctx, s)
+				ValidateEthtoolConfig(ctx, s, customEthtool)
+			},
+		},
+	})
+}
+
 func Test_Ubuntu2204_GPUNC(t *testing.T) {
 	runScenarioUbuntu2204GPU(t, "Standard_NC6s_v3")
 }

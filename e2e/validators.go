@@ -262,7 +262,7 @@ func ValidateEthtoolConfig(ctx context.Context, s *Scenario, EthtoolConfig map[s
 	}
 	getNicsCommand := []string{
 		"set -ex",
-		"cat /run/nics-to-configure",
+		"cat /etc/azure-network/nics-to-configure",
 	}
 	nicsResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(getNicsCommand, "\n"), 0, "could not get nics to configure")
 	nics := strings.Split(strings.TrimSpace(nicsResult.stdout), "\n")
@@ -287,14 +287,14 @@ func ValidateEthtoolConfig(ctx context.Context, s *Scenario, EthtoolConfig map[s
 func ValidateEthtoolConfigFiles(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 
-	ValidateFileExists(ctx, s, "/opt/azure/containers/configure-aks-nics.sh")
+	ValidateFileExists(ctx, s, "/opt/azure-network/configure-azure-network.sh")
 
-	ValidateFileExists(ctx, s, "/etc/udev/rules.d/99-aks-nics-to-configure.rules")
+	ValidateFileExists(ctx, s, "/etc/udev/rules.d/99-azure-network.rules")
 
-	ValidateFileExists(ctx, s, "/etc/systemd/system/aks-ethtool-config.service")
+	ValidateFileExists(ctx, s, "/etc/systemd/system/azure-network-config.service")
 
-	ValidateFileHasContent(ctx, s, "/etc/systemd/system/aks-ethtool-config.service",
-		"ExecStart=/opt/azure/containers/configure-aks-nics.sh")
+	ValidateFileHasContent(ctx, s, "/etc/systemd/system/azure-network-config.service",
+		"ExecStart=/opt/azure-network/configure-azure-network.sh")
 }
 
 func ValidateNvidiaSMINotInstalled(ctx context.Context, s *Scenario) {
