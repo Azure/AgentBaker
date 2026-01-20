@@ -29,6 +29,11 @@
       "type": "file",
       "source": "vhdbuilder/scripts/linux/ubuntu/tool_installs_ubuntu.sh",
       "destination": "/home/packer/tool_installs_distro.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/update_certs.service",
+      "destination": "/home/packer/update_certs.service"
     }
   ]
 }
