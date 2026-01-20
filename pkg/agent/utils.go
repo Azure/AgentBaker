@@ -703,5 +703,6 @@ type cloudInitWriteFile struct {
 }
 
 type cloudInit struct {
-	WriteFiles []cloudInitWriteFile `yaml:"write_files"`
+	BootCommands []string             `yaml:"bootcmd"`
+	WriteFiles   []cloudInitWriteFile `yaml:"write_files"`
 }
