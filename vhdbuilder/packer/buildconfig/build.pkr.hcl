@@ -76,7 +76,7 @@ build {
 
   provisioner "shell" {
     expect_disconnect = true
-    inline            = "${var.reboot_command}"
+    inline            = "${local.reboot_command}"
     pause_after       = "60s"
     skip_clean        = true
   }
@@ -114,7 +114,7 @@ build {
 
   provisioner "shell" {
     expect_disconnect = true
-    inline            = "${var.reboot_command}"
+    inline            = "${local.reboot_command}"
     pause_after       = "60s"
     skip_clean        = true
   }
