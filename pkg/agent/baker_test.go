@@ -15,6 +15,7 @@ import (
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/barkimedes/go-deepcopy"
+	flatcar1_1 "github.com/coreos/butane/config/flatcar/v1_1"
 	ign3_4 "github.com/coreos/ignition/v2/config/v3_4/types"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
@@ -2829,5 +2830,31 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 
 		vars := decodeCSEVars(cseCmd)
 		Expect(vars).To(HaveKeyWithValue("ENABLE_UNATTENDED_UPGRADES", "false"))
+	})
+})
+
+var _ = Describe("cloudInitToButane", func() {
+	checkForUnit := func(butane flatcar1_1.Config) {
+		Expect(butane.Systemd.Units).To(HaveLen(1))
+		var unit = butane.Systemd.Units[0]
+		Expect(unit.Name).To(Equal("ignition-bootcmds.service"))
+		Expect(*unit.Contents).To(ContainSubstring("/etc/ignition-bootcmds.sh"))
+	}
+
+	It("should convert bootcmds to a systemd unit and shell script", func() {
+		var config = cloudInit{BootCommands: []string{"echo hello world", "ls 'some dir'"}}
+		var butane = cloudInitToButane(config)
+		checkForUnit(butane)
+		Expect(butane.Storage.Files).To(HaveLen(1))
+		var file = butane.Storage.Files[0]
+		Expect(file.Path).To(Equal("/etc/ignition-bootcmds.sh"))
+		Expect(*file.Contents.Inline).To(Equal("#!/bin/sh\necho hello world\nls 'some dir'"))
+	})
+
+	It("should create a system unit but not a shell script with no bootcmds", func() {
+		var config = cloudInit{BootCommands: []string{}}
+		var butane = cloudInitToButane(config)
+		checkForUnit(butane)
+		Expect(butane.Storage.Files).To(BeEmpty())
 	})
 })
