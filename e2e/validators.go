@@ -275,7 +275,7 @@ func ValidateEthtoolConfig(ctx context.Context, s *Scenario, EthtoolConfig map[s
 		for setting, expectedValue := range EthtoolConfig {
 			command := []string{
 				"set -ex",
-				fmt.Sprintf("sudo ethtool -g %s | grep %s | awk '{print $2}'", nic, setting),
+				fmt.Sprintf("sudo ethtool -g %s | grep -A 5 'Current hardware settings' | grep -i %s: | awk '{print $2}'", nic, setting),
 			}
 			execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "could not get ethtool config")
 			require.Contains(s.T, execResult.stdout, expectedValue, "expected to find %s set to %v on nic %s, but was not.\nStdout:\n%s", setting, expectedValue, nic, execResult.stdout)
