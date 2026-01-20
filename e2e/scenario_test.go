@@ -1695,6 +1695,48 @@ func Test_AzureLinuxV2_MessageOfTheDay_Scriptless(t *testing.T) {
 	})
 }
 
+func Test_AzureLinuxV3_MA35D(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using a AzureLinuxV3 can support MA35D SKU",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDAzureLinuxV3Gen2,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_NM16ads_MA35D"
+				nbc.AgentPoolProfile.VMSize = "Standard_NM16ads_MA35D"
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr("Standard_NM16ads_MA35D")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateSystemdUnitIsRunning(ctx, s, "amdama-device-plugin.service")
+			},
+		},
+	})
+}
+
+func Test_AzureLinuxV3_MA35D_Scriptless(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using a AzureLinuxV3 can support MA35D SKU",
+		Tags: Tags{
+			Scriptless: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDAzureLinuxV3Gen2,
+			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+				config.VmSize = "Standard_NM16ads_MA35D"
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr("Standard_NM16ads_MA35D")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateSystemdUnitIsRunning(ctx, s, "amdama-device-plugin.service")
+			},
+		},
+	})
+}
+
 func Test_AzureLinuxV2_LocalDns_Disabled_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a AzureLinuxV2 can be bootstrapped with localdns disabled",

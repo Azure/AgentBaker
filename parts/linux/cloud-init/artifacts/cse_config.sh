@@ -948,6 +948,32 @@ ensureGPUDrivers() {
     fi
 }
 
+setupAmdAma() {
+    if [ "$(isARM64)" -eq 1 ]; then
+        return
+    fi
+
+    if isMarinerOrAzureLinux "$OS"; then
+        # Install driver
+        sudo tdnf install -y azurelinux-repos-amd
+        KERNEL_VERSION=$(uname -r | sed 's/-/./g')
+        AMD_AMA_DRIVER_PACKAGE=$(dnf repoquery -y --available "amd-ama-driver*" | grep -E "amd-ama-driver-[0-9]+.*_$KERNEL_VERSION" | sort -V | tail -n 1)
+        sudo tdnf install -y $AMD_AMA_DRIVER_PACKAGE
+        # Install core package
+        sudo tdnf install -y libzip
+        sudo tdnf install -y azurelinux-repos-extended
+        sudo RPM_FRONTEND=noninteractive tdnf install -y https://download.microsoft.com/download/16b04fa7-883e-4a94-88c2-801881a47b28/amd-ama-core_1.3.0-2503242033-amd64.rpm
+        # Install AKS device plugin
+        sudo tdnf install -y amdama-device-plugin.x86_64
+        # Configure huge pages
+        sudo sh -c "echo 'vm.nr_hugepages=4096' >> /etc/sysctl.conf"
+        sudo sh -c "echo 4096 >> /proc/sys/vm/nr_hugepages"
+        if [ $(systemctl is-active kubelet) = "active" ]; then
+            sudo systemctl restart kubelet
+        fi
+    fi
+}
+
 disableSSH() {
     # On ubuntu, the ssh service is named "ssh.service"
     systemctlDisableAndStop ssh || exit $ERR_DISABLE_SSH
