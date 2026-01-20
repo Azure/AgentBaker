@@ -955,13 +955,13 @@ setupAmdAma() {
 
     if isMarinerOrAzureLinux "$OS"; then
         # Install driver
-        sudo wget https://packages.microsoft.com/azurelinux/3.0/prod/amd/x86_64/config.repo -O /etc/yum.repos.d/azurelinux-official-amd.repo
+        sudo tdnf install -y azurelinux-repos-amd
         KERNEL_VERSION=$(uname -r | sed 's/-/./g')
         AMD_AMA_DRIVER_PACKAGE=$(dnf repoquery -y --available "amd-ama-driver*" | grep -E "amd-ama-driver-[0-9]+.*_$KERNEL_VERSION" | sort -V | tail -n 1)
         sudo tdnf install -y $AMD_AMA_DRIVER_PACKAGE
         # Install core package
         sudo tdnf install -y libzip
-        sudo wget https://packages.microsoft.com/azurelinux/3.0/prod/extended/x86_64/config.repo -O /etc/yum.repos.d/azurelinux-official-extended.repo
+        sudo tdnf install -y azurelinux-repos-extended
         sudo RPM_FRONTEND=noninteractive tdnf install -y https://download.microsoft.com/download/16b04fa7-883e-4a94-88c2-801881a47b28/amd-ama-core_1.3.0-2503242033-amd64.rpm
         # Install AKS device plugin
         sudo tdnf install -y amdama-device-plugin.x86_64
