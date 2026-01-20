@@ -1114,6 +1114,13 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			}
 			return base64.StdEncoding.EncodeToString(b.Bytes()), nil
 		},
+		"GetEthtoolContent": func() (string, error) {
+			if profile.CustomLinuxOSConfig == nil || profile.CustomLinuxOSConfig.EthtoolConfig == nil || profile.CustomLinuxOSConfig.EthtoolConfig.RxBufferSize == 0 {
+				return "", nil
+			}
+			ethtoolConfig := fmt.Sprintf("rx=%d\n", profile.CustomLinuxOSConfig.EthtoolConfig.RxBufferSize)
+			return base64.StdEncoding.EncodeToString([]byte(ethtoolConfig)), nil
+		},
 		"ShouldEnableCustomData": func() bool {
 			return !config.DisableCustomData && !config.IsFlatcar()
 		},
