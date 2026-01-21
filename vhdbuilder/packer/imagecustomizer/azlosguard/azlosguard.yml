@@ -292,6 +292,10 @@ os:
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/localdns-delegate.conf
       destination: /etc/systemd/system/localdns.service.d/delegate.conf
       permissions: 644
+    # profile-path-d
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/profile-d-path.sh
+      destination: /etc/profile.d/path.sh
+      permissions: 755
 
   services:
     enable:
