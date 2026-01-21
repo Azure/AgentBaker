@@ -1024,6 +1024,8 @@ configureSSHPubkeyAuth() {
   # Validate the candidate config
   sudo sshd -t -f "$TMP" || { rm -f "$TMP"; exit $ERR_CONFIG_PUBKEY_AUTH_SSH; }
 
+  echo "this is a change that would require regenerating snapshot data!"
+
   # Replace the original with the candidate (permissions 644, owned by root)
   sudo install -m 644 -o root -g root "$TMP" "$SSHD_CONFIG"
   rm -f "$TMP"
