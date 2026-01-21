@@ -109,7 +109,7 @@ install_npd_systemd_assets() {
     local artifacts_dir=$1
     local startup_src=$2
     local service_src=$3
-    local startup_dest="/usr/local/bin/node-problem-detector-startup.sh"
+    local startup_dest="/opt/bin/node-problem-detector-startup.sh"
     local service_dest="/etc/systemd/system/node-problem-detector.service"
 
     cp "${startup_src}" "${startup_dest}"
@@ -250,10 +250,8 @@ installNodeProblemDetector() {
 
     local NPD_STARTUP_SCRIPT_SRC="/home/packer/node-problem-detector-startup.sh"
     local NPD_SERVICE_SRC="/home/packer/node-problem-detector.service"
-    # NOTE: PR #7125 proposes relocating binaries from /usr/local/bin to /opt/bin to
-    # align with sysext redirection. When that merges we will need to (1) update
-    # NPD_STARTUP_SCRIPT_DEST, (2) ensure the systemd unit matches the new path, and
-    # (3) keep the cached copy relationships intact for VHD validation.
+    # NOTE: PR #7125 relocated binaries from /usr/local/bin to /opt/bin for sysext
+    # redirection. The startup script now installs to /opt/bin to stay consistent.
 
     install_npd_systemd_assets "${NPD_ARTIFACTS_DIR}" "${NPD_STARTUP_SCRIPT_SRC}" "${NPD_SERVICE_SRC}"
 
