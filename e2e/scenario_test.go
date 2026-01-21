@@ -1438,17 +1438,18 @@ func Test_AzureLinuxV3_GPU(t *testing.T) {
 		Tags: Tags{
 			GPU: true,
 		},
+		Location: "australiaeast", // A100 VMs available here (Standard_NC*ads_A100_v4)
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV3Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.AgentPoolProfile.VMSize = "Standard_NC6s_v3"
+				nbc.AgentPoolProfile.VMSize = "Standard_NC24ads_A100_v4"
 				nbc.ConfigGPUDriverIfNeeded = true
 				nbc.EnableGPUDevicePluginIfNeeded = false
 				nbc.EnableNvidia = true
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
+				vmss.SKU.Name = to.Ptr("Standard_NC24ads_A100_v4")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 			},

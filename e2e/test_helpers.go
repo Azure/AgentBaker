@@ -192,14 +192,16 @@ func runScenario(t testing.TB, s *Scenario) error {
 	}
 
 	ctx := newTestCtx(t)
+	s.T = t
+	ctrruntimelog.SetLogger(zap.New())
+
+	// Check if scenario should be skipped BEFORE any resource creation
+	maybeSkipScenario(ctx, t, s)
+
 	_, err := CachedEnsureResourceGroup(ctx, s.Location)
 	require.NoError(t, err)
 	_, err = CachedCreateVMManagedIdentity(ctx, s.Location)
 	require.NoError(t, err)
-	s.T = t
-	ctrruntimelog.SetLogger(zap.New())
-
-	maybeSkipScenario(ctx, t, s)
 
 	cluster, err := s.Config.Cluster(ctx, ClusterRequest{
 		Location:         s.Location,
