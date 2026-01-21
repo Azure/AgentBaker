@@ -1083,6 +1083,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"GPUDriverType": func() string {
 			return GetGPUDriverType(profile.VMSize)
 		},
+		"AmdAmaEnabledSKU": func() bool {
+			return IsAmdAmaEnabledSKU(profile.VMSize)
+		},
 		"GetHnsRemediatorIntervalInMinutes": func() uint32 {
 			// Only need to enable HNSRemediator for Windows 2019
 			if cs.Properties.WindowsProfile != nil && profile.Distro == datamodel.AKSWindows2019Containerd {
@@ -1267,6 +1270,15 @@ func GetGPUDriverType(size string) string {
 
 func GPUNeedsFabricManager(size string) bool {
 	return datamodel.FabricManagerGPUSizes[strings.ToLower(size)]
+}
+
+// IsAmdAmaEnabledSKU determines if an VM SKU has AMD AMA GPU HW support.
+func IsAmdAmaEnabledSKU(vmSize string) bool {
+	switch vmSize {
+	case "Standard_NM16ads_MA35D":
+		return true
+	}
+	return false
 }
 
 func areCustomCATrustCertsPopulated(config datamodel.NodeBootstrappingConfiguration) bool {
