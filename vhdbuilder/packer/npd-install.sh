@@ -15,6 +15,9 @@ download_and_install_npd_package() {
 
     if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
         apt_get_install 30 1 600 "${download_dir}/${package_name}" || exit $ERR_NPD_INSTALL_TIMEOUT
+        # Create symlink to /opt/bin for Flatcar sysext compatibility
+        mkdir -p /opt/bin
+        ln -snf /usr/bin/node-problem-detector /opt/bin/node-problem-detector
         return 0
     fi
 
@@ -23,6 +26,9 @@ download_and_install_npd_package() {
             echo "ERROR: dnf_install failed for ${package_name} with exit code $?"
             exit $ERR_NPD_INSTALL_TIMEOUT
         fi
+        # Create symlink to /opt/bin for Flatcar sysext compatibility
+        mkdir -p /opt/bin
+        ln -snf /usr/bin/node-problem-detector /opt/bin/node-problem-detector
         echo "Successfully installed NPD package: ${package_name}"
         return 0
     fi
