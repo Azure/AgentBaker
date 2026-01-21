@@ -414,7 +414,7 @@ func fileHasExactContent(ctx context.Context, s *Scenario, fileName string, cont
 }
 
 // ValidateFileHasContent passes the test if the specified file contains the specified contents.
-// The contents doesn't need to surrounded by non-word characters.
+// The contents doesn't need to be surrounded by non-word characters.
 // E.g.: searching "bcd" in "abcdef" is a match, thus the validation passes.
 func ValidateFileHasContent(ctx context.Context, s *Scenario, fileName string, contents string) {
 	s.T.Helper()
@@ -424,7 +424,7 @@ func ValidateFileHasContent(ctx context.Context, s *Scenario, fileName string, c
 }
 
 // ValidateFileExcludesContent fails the test if the specified file contains the specified contents.
-// The contents doesn't need to surrounded by non-word characters.
+// The contents doesn't need to be surrounded by non-word characters.
 // E.g.: searching "bcd" in "abcdef" is a match, thus the validation fails.
 func ValidateFileExcludesContent(ctx context.Context, s *Scenario, fileName string, contents string) {
 	s.T.Helper()
