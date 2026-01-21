@@ -72,7 +72,7 @@ type Configuration struct {
 	SIGVersionTagValue                     string        `env:"SIG_VERSION_TAG_VALUE" envDefault:"refs/heads/main"`
 	SkipTestsWithSKUCapacityIssue          bool          `env:"SKIP_TESTS_WITH_SKU_CAPACITY_ISSUE"`
 	SubscriptionID                         string        `env:"SUBSCRIPTION_ID" envDefault:"8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8"`
-	TagsToRun                              string        `env:"TAGS_TO_RUN" envDefault:"name=Test_AzureLinuxV3_GPU"`
+	TagsToRun                              string        `env:"TAGS_TO_RUN" envDefault:"GPU=true"`
 	TagsToSkip                             string        `env:"TAGS_TO_SKIP"`
 	TestGalleryImagePrefix                 string        `env:"TEST_GALLERY_IMAGE_PREFIX" envDefault:"abe2etest"`
 	TestGalleryNamePrefix                  string        `env:"TEST_GALLERY_NAME_PREFIX" envDefault:"abe2etest"`

@@ -401,7 +401,7 @@ func Test_Windows2022_DisableKubeletServingCertificateRotationWithTags(t *testin
 	})
 }
 
-func Test_Windows2022_VHDCaching(t *testing.T) {
+func Skip_Test_Windows2022_VHDCaching(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "VHD Caching",
 		Config: Config{

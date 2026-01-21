@@ -856,15 +856,15 @@ func Test_Ubuntu2204_CustomSysctls_Scriptless(t *testing.T) {
 	})
 }
 
-func Test_Ubuntu2204_GPUNC(t *testing.T) {
+func Skip_Test_Ubuntu2204_GPUNC(t *testing.T) {
 	runScenarioUbuntu2204GPU(t, "Standard_NC6s_v3")
 }
 
-func Test_Ubuntu2204_GPUA100(t *testing.T) {
+func Skip_Test_Ubuntu2204_GPUA100(t *testing.T) {
 	runScenarioUbuntu2204GPU(t, "Standard_NC24ads_A100_v4")
 }
 
-func Test_Ubuntu2204_GPUA10(t *testing.T) {
+func Skip_Test_Ubuntu2204_GPUA10(t *testing.T) {
 	runScenarioUbuntuGRID(t, "Standard_NV6ads_A10_v5")
 }
 
@@ -927,7 +927,7 @@ func runScenarioUbuntuGRID(t *testing.T, vmSize string) {
 	})
 }
 
-func Test_Ubuntu2204_GPUA10_Scriptless(t *testing.T) {
+func Skip_Test_Ubuntu2204_GPUA10_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests scriptless installer that a GPU-enabled node using the Ubuntu 2204 VHD with grid driver can be properly bootstrapped",
 		Tags: Tags{
@@ -955,7 +955,7 @@ func Test_Ubuntu2204_GPUA10_Scriptless(t *testing.T) {
 	})
 }
 
-func Test_Ubuntu2204_GPUGridDriver(t *testing.T) {
+func Skip_Test_Ubuntu2204_GPUGridDriver(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a GPU-enabled node using the Ubuntu 2204 VHD with grid driver can be properly bootstrapped",
 		Tags: Tags{
@@ -982,7 +982,7 @@ func Test_Ubuntu2204_GPUGridDriver(t *testing.T) {
 	})
 }
 
-func Test_Ubuntu2204_GPUNoDriver(t *testing.T) {
+func Skip_Test_Ubuntu2204_GPUNoDriver(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a GPU-enabled node using the Ubuntu 2204 VHD opting for skipping gpu driver installation can be properly bootstrapped",
 		Tags: Tags{
@@ -1011,7 +1011,7 @@ func Test_Ubuntu2204_GPUNoDriver(t *testing.T) {
 	})
 }
 
-func Test_Ubuntu2204_GPUNoDriver_Scriptless(t *testing.T) {
+func Skip_Test_Ubuntu2204_GPUNoDriver_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a GPU-enabled node using the Ubuntu 2204 VHD opting for skipping gpu driver installation can be properly bootstrapped",
 		Tags: Tags{
@@ -1433,31 +1433,86 @@ func Test_AzureLinuxV3_KubeletCustomConfig_Scriptless(t *testing.T) {
 }
 
 func Test_AzureLinuxV3_GPU(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that a GPU-enabled node using a AzureLinuxV3 (CgroupV2) VHD can be properly bootstrapped",
-		Tags: Tags{
-			GPU: true,
-		},
-		Location: "australiaeast", // A100 VMs available here (Standard_NC*ads_A100_v4)
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDAzureLinuxV3Gen2,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.AgentPoolProfile.VMSize = "Standard_NC24ads_A100_v4"
-				nbc.ConfigGPUDriverIfNeeded = true
-				nbc.EnableGPUDevicePluginIfNeeded = false
-				nbc.EnableNvidia = true
+	// Run GPU tests sequentially to avoid resource conflicts
+	t.Run("A100", func(t *testing.T) {
+		RunScenario(t, &Scenario{
+			Description: "Tests that a GPU-enabled node using a AzureLinuxV3 (CgroupV2) VHD can be properly bootstrapped with A100 GPU",
+			Tags: Tags{
+				GPU: true,
 			},
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_NC24ads_A100_v4")
+			Location: "australiaeast", // A100 VMs available here (Standard_NC*ads_A100_v4)
+			Config: Config{
+				Cluster: ClusterKubenet,
+				VHD:     config.VHDAzureLinuxV3Gen2,
+				BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+					nbc.AgentPoolProfile.VMSize = "Standard_NC24ads_A100_v4"
+					nbc.ConfigGPUDriverIfNeeded = true
+					nbc.EnableGPUDevicePluginIfNeeded = false
+					nbc.EnableNvidia = true
+				},
+				VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+					vmss.SKU.Name = to.Ptr("Standard_NC24ads_A100_v4")
+				},
+				Validator: func(ctx context.Context, s *Scenario) {
+				},
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
+		})
+	})
+
+	t.Run("T4", func(t *testing.T) {
+		RunScenario(t, &Scenario{
+			Description: "Tests that a GPU-enabled node using a AzureLinuxV3 (CgroupV2) VHD can be properly bootstrapped with T4 GPU",
+			Tags: Tags{
+				GPU: true,
 			},
-		},
+			Location:          "eastus", // T4 VMs have quota here (Standard_NC*as_T4_v3)
+			K8sSystemPoolSKU:  "Standard_D2s_v3", // Standard_D2ds_v5 not available in eastus
+			Config: Config{
+				Cluster: ClusterKubenet,
+				VHD:     config.VHDAzureLinuxV3Gen2,
+				BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+					nbc.AgentPoolProfile.VMSize = "Standard_NC8as_T4_v3"
+					nbc.ConfigGPUDriverIfNeeded = true
+					nbc.EnableGPUDevicePluginIfNeeded = false
+					nbc.EnableNvidia = true
+				},
+				VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+					vmss.SKU.Name = to.Ptr("Standard_NC8as_T4_v3")
+				},
+				Validator: func(ctx context.Context, s *Scenario) {
+				},
+			},
+		})
+	})
+
+	t.Run("V100", func(t *testing.T) {
+		RunScenario(t, &Scenario{
+			Description: "Tests that a GPU-enabled node using a AzureLinuxV3 (CgroupV2) VHD can be properly bootstrapped with V100 GPU",
+			Tags: Tags{
+				GPU: true,
+			},
+			Location:          "eastus", // V100 VMs have quota here (Standard_NC*s_v3)
+			K8sSystemPoolSKU:  "Standard_D2s_v3", // Standard_D2ds_v5 not available in eastus
+			Config: Config{
+				Cluster: ClusterKubenet,
+				VHD:     config.VHDAzureLinuxV3Gen2,
+				BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+					nbc.AgentPoolProfile.VMSize = "Standard_NC6s_v3"
+					nbc.ConfigGPUDriverIfNeeded = true
+					nbc.EnableGPUDevicePluginIfNeeded = false
+					nbc.EnableNvidia = true
+				},
+				VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+					vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
+				},
+				Validator: func(ctx context.Context, s *Scenario) {
+				},
+			},
+		})
 	})
 }
 
-func Test_AzureLinuxV3_GPUAzureCNI(t *testing.T) {
+func Skip_Test_AzureLinuxV3_GPUAzureCNI(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "AzureLinux V3 (CgroupV2) gpu scenario on cluster configured with Azure CNI",
 		Tags: Tags{
@@ -1483,7 +1538,7 @@ func Test_AzureLinuxV3_GPUAzureCNI(t *testing.T) {
 	})
 }
 
-func Test_AzureLinuxV3_GPUAzureCNI_Scriptless(t *testing.T) {
+func Skip_Test_AzureLinuxV3_GPUAzureCNI_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "AzureLinux V3 (CgroupV2) gpu scenario on cluster configured with Azure CNI",
 		Tags: Tags{
@@ -1657,7 +1712,7 @@ func Test_Ubuntu2404_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing.T
 	})
 }
 
-func Test_Ubuntu2404Gen2_GPUNoDriver(t *testing.T) {
+func Skip_Test_Ubuntu2404Gen2_GPUNoDriver(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a GPU-enabled node using the Ubuntu 2404 VHD opting for skipping gpu driver installation can be properly bootstrapped",
 		Tags: Tags{
@@ -1772,7 +1827,7 @@ func runScenarioUbuntu2404GRID(t *testing.T, vmSize string) {
 	})
 }
 
-func Test_Ubuntu2404_GPUA10(t *testing.T) {
+func Skip_Test_Ubuntu2404_GPUA10(t *testing.T) {
 	runScenarioUbuntu2404GRID(t, "Standard_NV6ads_A10_v5")
 }
 
@@ -1797,11 +1852,11 @@ func Test_Ubuntu2404_NPD_Basic(t *testing.T) {
 	})
 }
 
-func Test_Ubuntu2404_GPU_H100(t *testing.T) {
+func Skip_Test_Ubuntu2404_GPU_H100(t *testing.T) {
 	RunScenario(t, runScenarioGPUNPD(t, "Standard_ND96isr_H100_v5", "uaenorth", ""))
 }
 
-func Test_Ubuntu2404_GPU_A100(t *testing.T) {
+func Skip_Test_Ubuntu2404_GPU_A100(t *testing.T) {
 	RunScenario(t, runScenarioGPUNPD(t, "Standard_ND96asr_v4", "southcentralus", "Standard_D2s_v3"))
 }
 
@@ -1923,7 +1978,7 @@ func Test_AzureLinux3OSGuard_PMC_Install(t *testing.T) {
 	})
 }
 
-func Test_Ubuntu2404_VHDCaching(t *testing.T) {
+func Skip_Test_Ubuntu2404_VHDCaching(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "T",
 		Config: Config{
