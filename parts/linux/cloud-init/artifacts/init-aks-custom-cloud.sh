@@ -213,6 +213,7 @@ elif [ "$IS_FLATCAR" -eq 1 ]; then
     script_path="$(readlink -f "$0")"
     svc="/etc/systemd/system/azure-ca-refresh.service"
     tmr="/etc/systemd/system/azure-ca-refresh.timer"
+
     cat >"$svc" <<EOF
 [Unit]
 Description=Refresh Azure Custom Cloud CA certificates
@@ -223,6 +224,7 @@ Wants=network-online.target
 Type=oneshot
 ExecStart=$script_path ca-refresh
 EOF
+
     cat >"$tmr" <<EOF
 [Unit]
 Description=Daily refresh of Azure Custom Cloud CA certificates
@@ -235,6 +237,7 @@ RandomizedDelaySec=300
 [Install]
 WantedBy=timers.target
 EOF
+
     systemctl daemon-reload
     systemctl enable --now azure-ca-refresh.timer
 fi
