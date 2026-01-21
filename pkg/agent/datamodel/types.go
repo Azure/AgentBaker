@@ -1728,6 +1728,7 @@ type NodeBootstrappingConfiguration struct {
 	EnableAMDGPU                    bool
 	ManagedGPUExperienceAFECEnabled bool
 	EnableManagedGPU                bool
+	MigStrategy                     string
 	EnableACRTeleportPlugin         bool
 	TeleportdPluginURL              string
 	EnableArtifactStreaming         bool

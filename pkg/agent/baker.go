@@ -530,6 +530,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"IsMIGEnabledNode": func() bool {
 			return config.GPUInstanceProfile != ""
 		},
+		"GetMigStrategy": func() string {
+			return config.MigStrategy
+		},
 		"GetKubeletConfigFileContent": func() string {
 			return GetKubeletConfigFileContent(config.KubeletConfig, profile.CustomKubeletConfig)
 		},

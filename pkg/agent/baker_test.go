@@ -1491,6 +1491,66 @@ oom_score = -999
 				Expect(o.vars["GPU_NODE"]).To(Equal("true"))
 				Expect(o.vars["ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED"]).To(Equal("true"))
 			}),
+		Entry("AKSUbuntu2204 with MIG Strategy Mixed", "AKSUbuntu2204+MigStrategy+Mixed", "1.29.7",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+					ContainerRuntime: datamodel.Containerd,
+				}
+				config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSUbuntuContainerd2204
+				config.AgentPoolProfile.VMSize = "Standard_NC6s_v3"
+				config.EnableNvidia = true
+				config.ConfigGPUDriverIfNeeded = true
+				config.EnableGPUDevicePluginIfNeeded = true
+				config.GPUInstanceProfile = "MIG7g"
+				config.MigStrategy = "Mixed"
+			}, func(o *nodeBootstrappingOutput) {
+				// Verify MigStrategy is set
+				Expect(o.vars["NVIDIA_MIG_STRATEGY"]).To(Equal("Mixed"))
+				// Verify MIG settings are correct
+				Expect(o.vars["MIG_NODE"]).To(Equal("true"))
+				Expect(o.vars["GPU_NODE"]).To(Equal("true"))
+				Expect(o.vars["ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED"]).To(Equal("true"))
+			}),
+		Entry("AKSUbuntu2204 with MIG Strategy Single", "AKSUbuntu2204+MigStrategy+Single", "1.29.7",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+					ContainerRuntime: datamodel.Containerd,
+				}
+				config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSUbuntuContainerd2204
+				config.AgentPoolProfile.VMSize = "Standard_NC6s_v3"
+				config.EnableNvidia = true
+				config.ConfigGPUDriverIfNeeded = true
+				config.EnableGPUDevicePluginIfNeeded = true
+				config.GPUInstanceProfile = "MIG7g"
+				config.MigStrategy = "Single"
+			}, func(o *nodeBootstrappingOutput) {
+				// Verify MigStrategy is set
+				Expect(o.vars["NVIDIA_MIG_STRATEGY"]).To(Equal("Single"))
+				// Verify MIG settings are correct
+				Expect(o.vars["MIG_NODE"]).To(Equal("true"))
+				Expect(o.vars["GPU_NODE"]).To(Equal("true"))
+				Expect(o.vars["ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED"]).To(Equal("true"))
+			}),
+		Entry("AKSUbuntu2204 with MIG Strategy None", "AKSUbuntu2204+MigStrategy+None", "1.29.7",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+					ContainerRuntime: datamodel.Containerd,
+				}
+				config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSUbuntuContainerd2204
+				config.AgentPoolProfile.VMSize = "Standard_NC6s_v3"
+				config.EnableNvidia = true
+				config.ConfigGPUDriverIfNeeded = true
+				config.EnableGPUDevicePluginIfNeeded = true
+				config.GPUInstanceProfile = "MIG7g"
+				config.MigStrategy = "None"
+			}, func(o *nodeBootstrappingOutput) {
+				// Verify MigStrategy is set
+				Expect(o.vars["NVIDIA_MIG_STRATEGY"]).To(Equal("None"))
+				// Verify MIG settings are correct
+				Expect(o.vars["MIG_NODE"]).To(Equal("true"))
+				Expect(o.vars["GPU_NODE"]).To(Equal("true"))
+				Expect(o.vars["ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED"]).To(Equal("true"))
+			}),
 		Entry("CustomizedImage VHD should not have provision_start.sh", "CustomizedImage", "1.24.2",
 			func(c *datamodel.NodeBootstrappingConfiguration) {
 				c.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
