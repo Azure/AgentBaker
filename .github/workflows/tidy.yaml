@@ -18,8 +18,8 @@ permissions:
 jobs:
   auto-tidy:
     runs-on: ubuntu-latest
-    # prevent triggering from forks
-    if: github.event.pull_request.head.repo.full_name == 'Azure/AgentBaker'
+    # prevent actors that aren't dependabot from triggering from forks
+    if: github.actor == 'dependabot[bot]' || github.event.pull_request.head.repo.full_name == 'Azure/AgentBaker'
     environment: test
     steps:
       - uses: azure/login@v2
