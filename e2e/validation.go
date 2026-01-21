@@ -57,7 +57,7 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 		ValidateSystemdUnitIsRunning(ctx, s, "node-problem-detector.service")
 		ValidateSystemdUnitIsNotFailed(ctx, s, "node-problem-detector")
 		ValidateFileExists(ctx, s, "/etc/node-problem-detector.d/skip_vhd_npd")
-		ValidateFileExists(ctx, s, "/usr/local/bin/node-problem-detector-startup.sh")
+		ValidateFileExists(ctx, s, "/opt/bin/node-problem-detector-startup.sh")
 
 		// validate NPD config directories are installed
 		ValidateDirectoryContent(ctx, s, "/etc/node-problem-detector.d", []string{

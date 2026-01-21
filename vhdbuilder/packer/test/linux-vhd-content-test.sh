@@ -1629,7 +1629,7 @@ testNodeProblemDetector() {
 
   local npd_config_dir="/etc/node-problem-detector.d"
   local skip_sentinel="${npd_config_dir}/skip_vhd_npd"
-  local startup_script="/usr/local/bin/node-problem-detector-startup.sh"
+  local startup_script="/opt/bin/node-problem-detector-startup.sh"
 
   # Check skip_vhd_npd sentinel file exists
   if [ ! -f "$skip_sentinel" ]; then
