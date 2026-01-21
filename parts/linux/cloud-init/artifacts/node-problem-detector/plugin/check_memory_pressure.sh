@@ -15,130 +15,9 @@ source "${SCRIPT_DIR}/pressure_common.sh" || { echo "ERROR: Failed to source pre
 # Exit codes
 OK=0
 NOTOK=0   # Always exit with OK for now so we don't raise an event
-UNKNOWN=0 # Always exit with OK for now so we don't raise an event
-
-# Configurable thresholds (can be overridden via environment variables)
-MEMORY_AVAILABLE_THRESHOLD="${MEMORY_AVAILABLE_THRESHOLD:-10}"  # 10% of total memory available
-PSI_MEMORY_SOME_THRESHOLD="${PSI_MEMORY_SOME_THRESHOLD:-50}"  # 50% memory stall over 1 minutes
 
 # Clean up old log files
 cleanup_old_logs
-
-# Get total memory in kB
-TOTAL_MEMORY_KB=$(grep MemTotal /proc/meminfo | awk '{print $2}')
-if [ -z "$TOTAL_MEMORY_KB" ]; then
-    log "Failed to determine total memory"
-    exit $UNKNOWN
-fi
-
-# Convert to MB for easier reading
-TOTAL_MEMORY_MB=$((TOTAL_MEMORY_KB / 1024))
-
-# Calculate memory threshold in kB
-MEMORY_AVAILABLE_THRESHOLD_KB=$((TOTAL_MEMORY_KB * MEMORY_AVAILABLE_THRESHOLD / 100))
-
-log "Total memory: $TOTAL_MEMORY_MB MB"
-log "Memory available threshold: $MEMORY_AVAILABLE_THRESHOLD% ($((MEMORY_AVAILABLE_THRESHOLD_KB / 1024)) MB)"
-
-# Function to check if memory is under pressure
-check_memory_pressure() {
-    # Initialize pressure flag
-    local pressure_detected=0
-        
-    # Check cgroup v2 PSI metrics if available
-    if [ -f "/sys/fs/cgroup/memory.pressure" ]; then
-        PSI_MEMORY_SOME=$(cat /sys/fs/cgroup/memory.pressure | awk '/some/ {print $3}' | cut -d= -f2)
-        
-        log "PSI memory some avg60: ${PSI_MEMORY_SOME:-not available}"
-        
-        if [ -n "$PSI_MEMORY_SOME" ] && [ "$(echo "$PSI_MEMORY_SOME > $PSI_MEMORY_SOME_THRESHOLD" | bc)" -eq 1 ]; then
-            log "PRESSURE: High memory pressure detected via cgroup PSI: ${PSI_MEMORY_SOME}% (threshold: ${PSI_MEMORY_SOME_THRESHOLD}%)"
-            pressure_detected=1
-        fi
-    else
-        log "sys/fs/cgroup/memory.pressure not available"
-    fi
-
-    # Check available memory
-    MEMORY_AVAILABLE_KB=$(grep MemAvailable /proc/meminfo | awk '{print $2}')
-    MEMORY_FREE_KB=$(grep MemFree /proc/meminfo | awk '{print $2}')
-    MEMORY_BUFFERS_KB=$(grep Buffers /proc/meminfo | awk '{print $2}')
-    MEMORY_CACHED_KB=$(grep "^Cached:" /proc/meminfo | awk '{print $2}')
-    
-    # If MemAvailable is not available (older kernels), calculate it
-    if [ -z "$MEMORY_AVAILABLE_KB" ]; then
-        MEMORY_AVAILABLE_KB=$((MEMORY_FREE_KB + MEMORY_BUFFERS_KB + MEMORY_CACHED_KB))
-    fi
-    
-    # Calculate memory usage percentage
-    MEMORY_USED_KB=$((TOTAL_MEMORY_KB - MEMORY_AVAILABLE_KB))
-    MEMORY_USED_PCT=$((MEMORY_USED_KB * 100 / TOTAL_MEMORY_KB))
-    
-    log "Memory stats from /proc/meminfo:"
-    log "  Total: $((TOTAL_MEMORY_KB / 1024)) MB"
-    log "  Available: $((MEMORY_AVAILABLE_KB / 1024)) MB"
-    log "  Used: $((MEMORY_USED_KB / 1024)) MB ($MEMORY_USED_PCT%)"
-    
-    if [ "$MEMORY_AVAILABLE_KB" -lt "$MEMORY_AVAILABLE_THRESHOLD_KB" ]; then
-        log "PRESSURE: Low available memory: $((MEMORY_AVAILABLE_KB / 1024)) MB (threshold: $((MEMORY_AVAILABLE_THRESHOLD_KB / 1024)) MB)"
-        pressure_detected=1
-    fi
-
-    # Reset the global OOM messages variable
-    RECENT_OOM_KILLS=""
-
-    if command -v dmesg >/dev/null 2>&1; then        
-        log "Checking for OOM events in the last 5 minutes..."
-        
-        # Get system uptime in seconds
-        UPTIME_SECONDS=$(cat /proc/uptime | awk '{print $1}' | cut -d. -f1)
-        DMESG_CUTOFF=$((UPTIME_SECONDS - 300))  # 5 minutes ago in uptime seconds
-        
-        if [ "$DMESG_CUTOFF" -lt 0 ]; then
-            DMESG_CUTOFF=0  # If system uptime is less than 5 minutes
-        fi
-        
-        log "Current uptime: $UPTIME_SECONDS seconds, cutoff time: $DMESG_CUTOFF seconds"
-                
-        RECENT_OOM_KILLS=$(dmesg | awk -v cutoff="$DMESG_CUTOFF" '
-            # Match various OOM message patterns
-            /[Oo]ut of [Mm]emory/ || /OOM/ || /oom/ {
-                # Extract timestamp (seconds) from dmesg output
-                if ($1 ~ /^\[/) {
-                    # Extract the timestamp between [ and ]
-                    ts = $1
-                    gsub(/[\[\]]/, "", ts)
-                    # Extract seconds part before the dot
-                    split(ts, parts, ".")
-                    timestamp = parts[1]
-                    # Compare with cutoff time
-                    if (timestamp >= cutoff) {
-                        print
-                    }
-                } else {
-                    # No timestamp available, include all matches as a fallback
-                    print
-                }
-            }
-        ')
-        
-        if [ -n "$RECENT_OOM_KILLS" ]; then
-            log "PRESSURE: Recent OOM kills detected in kernel log (last 5 minutes):"
-            # Not setting pressure here for now as OOMs in logs often don't correlate 
-            # with actual memory pressure at the time of the check
-            # pressure_detected=1 
-        else
-            log "No OOM kills detected in the last 5 minutes"
-        fi
-    fi
-    
-    # Return overall pressure status
-    if [ "$pressure_detected" -eq 1 ]; then
-        return 1
-    else
-        return 0
-    fi
-}
 
 # Function to log OOM events in JSON format
 log_ooms() {
@@ -217,9 +96,12 @@ log_ooms() {
 }
 
 # Main logic - check for memory pressure once
-RECENT_OOM_KILLS=""  # Initialize RECENT_OOM_KILLS at the global scope
+# Initialize global variables that check_memory_pressure will set
+RECENT_OOM_KILLS=""
+TOTAL_MEMORY_KB=""
 
 # Run single pressure check
+# Thresholds can be overridden via environment variables (see pressure_common.sh)
 if ! check_memory_pressure; then
     log "Memory pressure detected on node"
     

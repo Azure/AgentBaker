@@ -14,6 +14,11 @@ check_dependencies
 # Get the CoreDNS serviceIP.
 coredns_service_ip=$(get_coredns_ip)
 
+if [ -z "$coredns_service_ip" ]; then
+    echo "No coredns service IP found to test. Exiting gracefully." >&2
+    exit $OK
+fi
+
 # DNS check over UDP.
 check_dns_with_retry "$TEST_IN_CLUSTER_DOMAIN" "$coredns_service_ip" "$UDP_PROTOCOL" "coredns"
 udp_result=$?

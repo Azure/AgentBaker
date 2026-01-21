@@ -1,0 +1,28 @@
+{
+    "plugin": "custom",
+    "pluginConfig": {
+        "invoke_interval": "60s",
+        "timeout": "30s",
+        "max_output_length": 80,
+        "concurrency": 3,
+        "enable_message_change_based_condition_update": true
+    },
+    "source": "custom-plugin-nvidia-device-plugin",
+    "metricsReporting": false,
+    "conditions": [
+        {
+            "type": "UnhealthyNvidiaDevicePlugin",
+            "reason": "HealthyNvidiaDevicePlugin",
+            "message": "NVIDIA device plugin is running properly"
+        }
+    ],
+    "rules": [
+        {
+            "type": "permanent",
+            "condition": "UnhealthyNvidiaDevicePlugin",
+            "reason": "UnhealthyNvidiaDevicePlugin",
+            "path": "/etc/node-problem-detector.d/plugin/check_nvidia_device_plugin.sh",
+            "timeout": "30s"
+        }
+    ]
+}
