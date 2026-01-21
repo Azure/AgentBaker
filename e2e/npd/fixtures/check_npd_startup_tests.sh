@@ -7,7 +7,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common/test_common.sh"
 
 # Script under test
-readonly SCRIPT_UNDER_TEST="/usr/local/bin/node-problem-detector-startup.sh"
+readonly SCRIPT_UNDER_TEST="/opt/bin/node-problem-detector-startup.sh"
 
 # Helper function to run NPD startup tests following CPU/Memory test patterns
 run_startup_test() {
