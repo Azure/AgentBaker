@@ -361,6 +361,11 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/azure-network-tuning.sh",
+      "destination": "/home/packer/azure-network-tuning.sh"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/sshd_config",
       "destination": "/home/packer/sshd_config"
     },

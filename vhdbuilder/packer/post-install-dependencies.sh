@@ -19,8 +19,6 @@ MAX_BLOCK_COUNT=30298176 # 30 GB
 capture_benchmark "${SCRIPT_NAME}_source_packer_files_and_declare_variables"
 
 # Reload udev rules and trigger for network subsystem
-# This is done in post-install to ensure all udev-related files (script + rules) are copied
-# Avoids race condition between file copy and udev trigger
 udevadm control --reload-rules
 udevadm trigger --subsystem-match=net --action=add
 capture_benchmark "${SCRIPT_NAME}_reload_and_trigger_udev_rules"
