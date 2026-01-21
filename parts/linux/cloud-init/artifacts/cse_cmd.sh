@@ -94,6 +94,7 @@ CUSTOM_CA_TRUST_COUNT="{{len GetCustomCATrustConfigCerts}}"
 CUSTOM_CA_CERT_{{$i}}="{{$cert}}"
 {{end}}
 GPU_NEEDS_FABRIC_MANAGER="{{GPUNeedsFabricManager}}"
+USE_OPEN_GPU_DRIVER="{{UseOpenGPUDriver}}"
 IPV6_DUAL_STACK_ENABLED="{{IsIPv6DualStackFeatureEnabled}}"
 OUTBOUND_COMMAND="{{GetOutboundCommand}}"
 BLOCK_OUTBOUND_NETWORK="{{BlockOutboundNetwork}}"

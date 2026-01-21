@@ -87,25 +87,32 @@ installCriCtlPackage() {
 }
 
 downloadGPUDrivers() {
-    # Mariner CUDA rpm name comes in the following format:
-    #
-    # 1. NVIDIA proprietary driver:
-    # cuda-%{nvidia gpu driver version}_%{kernel source version}.%{kernel release version}.{mariner rpm postfix}
-    #
-    # 2. NVIDIA OpenRM driver:
-    # cuda-open-%{nvidia gpu driver version}_%{kernel source version}.%{kernel release version}.{mariner rpm postfix}
-    #
-    # The proprietary driver will be used here in order to support older NVIDIA GPU SKUs like V100
-    # Before installing cuda, check the active kernel version (uname -r) and use that to determine which cuda to install
+    # CUDA package format:
+    # - Proprietary: cuda-{version}_{kernel_version}.rpm
+    # - Open-source: cuda-open-{version}_{kernel_version}.rpm
+    
     KERNEL_VERSION=$(uname -r | sed 's/-/./g')
-    CUDA_PACKAGE=$(dnf repoquery -y --available "cuda*" | grep -E "cuda-[0-9]+.*_$KERNEL_VERSION" | sort -V | tail -n 1)
+    
+    mkdir -p /opt/azure/gpu-driver-info
+    echo "KERNEL_VERSION=${KERNEL_VERSION}" > /opt/azure/gpu-driver-info/vmsize.txt
+    echo "USE_OPEN_GPU_DRIVER=${USE_OPEN_GPU_DRIVER}" >> /opt/azure/gpu-driver-info/vmsize.txt
+    
+    # A100+, H100, H200, GB200 use open-source driver; T4, V100 use proprietary driver
+    if [ "${USE_OPEN_GPU_DRIVER}" = "true" ]; then
+        echo "Installing open-source GPU driver (cuda-open)"
+        CUDA_PACKAGE=$(dnf repoquery -y --available "cuda-open*" | grep -E "cuda-open-[0-9]+.*_${KERNEL_VERSION}" | sort -V | tail -n 1)
+    else
+        echo "Installing proprietary GPU driver (cuda)"
+        CUDA_PACKAGE=$(dnf repoquery -y --available "cuda-[0-9]*" | grep -E "^cuda-[0-9]+.*_${KERNEL_VERSION}" | grep -v "cuda-open" | sort -V | tail -n 1)
+    fi
 
     if [ -z "$CUDA_PACKAGE" ]; then
-      echo "No cuda packages found"
-      exit $ERR_MISSING_CUDA_PACKAGE
-    elif ! dnf_install 30 1 600 ${CUDA_PACKAGE}; then
-      exit $ERR_APT_INSTALL_TIMEOUT
+        echo "No CUDA package found for kernel ${KERNEL_VERSION} (open_driver=${USE_OPEN_GPU_DRIVER})"
+        exit $ERR_MISSING_CUDA_PACKAGE
     fi
+    
+    echo "Installing: ${CUDA_PACKAGE}"
+    dnf_install 30 1 600 ${CUDA_PACKAGE} || exit $ERR_APT_INSTALL_TIMEOUT
 }
 
 createNvidiaSymlinkToAllDeviceNodes() {
