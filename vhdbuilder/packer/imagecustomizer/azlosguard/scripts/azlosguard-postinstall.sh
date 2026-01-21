@@ -75,6 +75,9 @@ rm /home/packer/list-images.sh
 rm /home/packer/cis.sh
 rm /home/packer
 
+# Ensure password expiry is set to “never expire” if you don’t want runtime failures
+chage -E -1 -I -1 -m 0 -M 99999 root
+
 # Create release-notes.txt
 mkdir -p /_imageconfigs/out
 
