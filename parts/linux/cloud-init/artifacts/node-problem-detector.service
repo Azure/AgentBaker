@@ -6,7 +6,7 @@ Wants=kubelet.service
 After=kubelet.service
 
 [Service]
-ExecStart=/usr/local/bin/node-problem-detector-startup.sh
+ExecStart=/opt/bin/node-problem-detector-startup.sh
 
 Restart=on-failure
 RestartSec=10
