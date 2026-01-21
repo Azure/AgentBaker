@@ -6,8 +6,8 @@ on:
       - main
 
 permissions:
-    id-token: write
-    contents: read
+  id-token: write
+  contents: read
 jobs:
   auto-generate:
     runs-on: ubuntu-latest
