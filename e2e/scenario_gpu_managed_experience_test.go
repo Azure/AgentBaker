@@ -114,7 +114,6 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning(t *testing.T) {
 				nbc.EnableGPUDevicePluginIfNeeded = true
 				nbc.EnableNvidia = true
 				nbc.ManagedGPUExperienceAFECEnabled = true
-				nbc.EnableManagedGPU = true
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_NV6ads_A10_v5")
@@ -264,7 +263,6 @@ func Test_AzureLinux3_NvidiaDevicePluginRunning(t *testing.T) {
 				nbc.EnableGPUDevicePluginIfNeeded = true
 				nbc.EnableNvidia = true
 				nbc.ManagedGPUExperienceAFECEnabled = true
-				nbc.EnableManagedGPU = true
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
