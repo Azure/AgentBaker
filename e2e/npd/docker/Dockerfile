@@ -41,16 +41,16 @@ COPY parts/linux/cloud-init/artifacts/node-problem-detector/system-log-monitor/ 
 COPY parts/linux/cloud-init/artifacts/node-problem-detector/system-stats-monitor/ /etc/node-problem-detector.d/system-stats-monitor/
 
 # Copy the NPD startup script
-COPY parts/linux/cloud-init/artifacts/node-problem-detector-startup.sh /usr/local/bin/
+COPY parts/linux/cloud-init/artifacts/node-problem-detector-startup.sh /opt/bin/
 
-RUN chmod +x /etc/node-problem-detector.d/plugin/*.sh /etc/node-problem-detector.d/plugin/*.sh /usr/local/bin/node-problem-detector-startup.sh
+RUN chmod +x /etc/node-problem-detector.d/plugin/*.sh /etc/node-problem-detector.d/plugin/*.sh /opt/bin/node-problem-detector-startup.sh
 
 # Create mock commands for missing tools
 RUN echo '#!/bin/bash\necho "mock systemd-cgtop output"' > /usr/bin/systemd-cgtop && chmod +x /usr/bin/systemd-cgtop
 RUN echo '#!/bin/bash\necho "mock crictl output"' > /usr/bin/crictl && chmod +x /usr/bin/crictl
 
 # Create mock node-problem-detector for startup script tests
-RUN echo '#!/bin/bash\necho "node-problem-detector started successfully with args: $@"' > /usr/local/bin/node-problem-detector && chmod +x /usr/local/bin/node-problem-detector
+RUN echo '#!/bin/bash\necho "node-problem-detector started successfully with args: $@"' > /opt/bin/node-problem-detector && chmod +x /opt/bin/node-problem-detector
 
 # Override PATH to use our mock commands first
 ENV PATH="/mock-commands:$PATH"
