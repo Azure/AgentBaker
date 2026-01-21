@@ -1,0 +1,12 @@
+#!/bin/bash
+# Mock kubectl for RBAC forbidden scenario
+case "$*" in
+    *"get node"*)
+        echo 'Error from server (Forbidden): nodes is forbidden: User "system:node:aks-test-node" cannot get resource "nodes" in API group "" at the cluster scope' >&2
+        exit 1
+        ;;
+    *)
+        echo "Mock kubectl: unknown command: $*" >&2
+        exit 1
+        ;;
+esac

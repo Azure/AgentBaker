@@ -1,0 +1,39 @@
+{
+    "plugin": "journald",
+    "pluginConfig": {
+      "source": "kubelet"
+    },
+    "source": "aks-disk-contention-monitor",
+    "logPath": "/var/log/journal",
+    "lookback": "60m",
+    "bufferSize": 64,
+    "metricsReporting": true,
+    "conditions": [],
+    "rules": [
+      {
+        "type": "temporary",
+        "reason": "DockerSocketCannotConnect",
+        "pattern": "Cannot connect to the Docker daemon at unix:\/\/\/var\/run\/docker.sock. Is the docker daemon running?"
+      },
+      {
+        "type": "temporary",
+        "reason": "KubeletRPCDeadlineExceeded",
+        "pattern": "rpc error: code = DeadlineExceeded desc = context deadline exceeded"
+      },
+      {
+        "type": "temporary",
+        "reason": "KubeletRPCNoSuchContainer",
+        "pattern": "rpc error: code = Unknown desc = Error: No such container"
+      },
+      {
+        "type": "temporary",
+        "reason": "CNICannotStatFS",
+        "pattern": "network: failed to Statfs"
+      },
+      {
+        "type": "temporary",
+        "reason": "PLEGUnhealthy",
+        "pattern": "PLEG is not healthy"
+      }
+    ]
+}

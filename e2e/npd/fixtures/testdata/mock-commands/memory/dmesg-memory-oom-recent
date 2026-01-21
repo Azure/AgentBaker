@@ -1,0 +1,22 @@
+#!/bin/bash
+# Generate OOM events with recent timestamps (within last 5 minutes)
+# Get current uptime and calculate recent timestamps
+UPTIME_SECONDS=$(cat /proc/uptime | awk '{print $1}' | cut -d. -f1)
+RECENT_TIME1=$((UPTIME_SECONDS - 120))  # 2 minutes ago
+RECENT_TIME2=$((UPTIME_SECONDS - 60))   # 1 minute ago
+
+cat <<DMESG_EOF
+[    0.000000] Linux version 5.4.0-1064-azure (buildd@lcy02-amd64-112) (gcc version 9.4.0 (Ubuntu 9.4.0-1ubuntu1~20.04.1) ) #69~20.04.1-Ubuntu SMP Wed Jan 12 22:28:45 UTC 2022
+[    1.234567] Memory: 4096000K/4194304K available (12288K kernel code, 2048K rwdata, 4096K rodata, 1536K init, 1024K bss, 98304K reserved, 0K cma-reserved)
+[   10.123456] systemd[1]: Started Kernel Logging Service.
+[$RECENT_TIME1.567890] chrome invoked oom-killer: gfp_mask=0x6200ca(GFP_HIGHUSER_MOVABLE), order=0, oom_score_adj=300
+[$RECENT_TIME1.567891] CPU: 0 PID: 1234 Comm: chrome Not tainted 5.4.0-1064-azure #69~20.04.1-Ubuntu
+[$RECENT_TIME1.567892] Out of memory: Kill process 1234 (chrome) score 850 or sacrifice child
+[$RECENT_TIME1.567893] Killed process 1234 (chrome) total-vm:2345678kB, anon-rss:1234567kB, file-rss:0kB, shmem-rss:0kB
+[$RECENT_TIME2.789012] node invoked oom-killer: gfp_mask=0x6200ca(GFP_HIGHUSER_MOVABLE), order=0, oom_score_adj=0
+[$RECENT_TIME2.789013] oom-kill:constraint=CONSTRAINT_NONE,nodemask=(null),cpuset=/,mems_allowed=0,global_oom,task_memcg=/user.slice/user-1000.slice/session-2.scope,task=node,pid=5678,uid=1000
+[$RECENT_TIME2.789014] Out of memory: Kill process 5678 (node) score 500 or sacrifice child
+[$RECENT_TIME2.789015] Killed process 5678 (node) total-vm:1234567kB, anon-rss:987654kB, file-rss:123456kB, shmem-rss:0kB
+[$RECENT_TIME2.234567] systemd[1]: session-2.scope: A process of this unit has been killed by the OOM killer.
+[$UPTIME_SECONDS.123456] systemd[1]: Started some-service.service.
+DMESG_EOF

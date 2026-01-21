@@ -1,0 +1,10 @@
+.:53 {
+    errors
+    bind 169.254.10.10
+    forward . 168.63.129.16 {
+        policy sequential
+    }
+    # Missing closing brace - malformed
+cluster.local:53 {
+    errors
+}

@@ -1,0 +1,11 @@
+#!/bin/bash
+# Mock nslookup successful resolution
+cat <<END
+Server:    10.0.0.10
+Address:   10.0.0.10#53
+
+Non-authoritative answer:
+Name: test-cluster-api.hcp.eastus.azmk8s.io
+Address: 20.231.239.123
+END
+exit 0

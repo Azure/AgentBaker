@@ -1,0 +1,33 @@
+{
+  "plugin": "custom",
+  "pluginConfig": {
+    "invoke_interval": "5m",
+    "timeout": "60s",
+    "max_output_length": 80,
+    "concurrency": 1
+  },
+  "source": "fs-corruption-plugin-monitor",
+  "metricsReporting": true,
+  "conditions": [
+    {
+      "type": "FilesystemCorruptionProblem",
+      "reason": "FilesystemIsOK",
+      "message": "Filesystem is healthy"
+    }
+  ],
+  "rules": [
+    {
+      "type": "temporary",
+      "reason": "FilesystemCorruptionDetected",
+      "path": "/etc/node-problem-detector.d/plugin/check_fs_corruption.sh",
+      "timeout": "30s"
+    },
+    {
+      "type": "permanent",
+      "condition": "FilesystemCorruptionProblem",
+      "reason": "FilesystemCorruptionDetected",
+      "path": "/etc/node-problem-detector.d/plugin/check_fs_corruption.sh",
+      "timeout": "30s"
+    }
+  ]
+}
