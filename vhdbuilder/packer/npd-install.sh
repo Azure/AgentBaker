@@ -250,8 +250,6 @@ installNodeProblemDetector() {
 
     local NPD_STARTUP_SCRIPT_SRC="/home/packer/node-problem-detector-startup.sh"
     local NPD_SERVICE_SRC="/home/packer/node-problem-detector.service"
-    # NOTE: PR #7125 relocated binaries from /usr/local/bin to /opt/bin for sysext
-    # redirection. The startup script now installs to /opt/bin to stay consistent.
 
     install_npd_systemd_assets "${NPD_ARTIFACTS_DIR}" "${NPD_STARTUP_SCRIPT_SRC}" "${NPD_SERVICE_SRC}"
 
