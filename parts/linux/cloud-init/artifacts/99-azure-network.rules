@@ -1,4 +1,5 @@
 # AKS Network Tuning udev rule
 # This rule sets the network interface RX ring buffer to 2048 for multi-core systems
 # Applies to network interfaces with names matching enP* pattern
-SUBSYSTEM=="net", ACTION=="add|change", ENV{ID_NET_NAME_SLOT}=="enP*", RUN+="/bin/bash -c 'if [ \"$(/usr/bin/nproc)\" -ge 4 ]; then /usr/sbin/ethtool -G %k rx 2048; fi'"
+# Only updates the value if the current RX buffer is 1024
+SUBSYSTEM=="net", ACTION=="add|change", ENV{ID_NET_NAME_SLOT}=="enP*", RUN+="/opt/azure-network/azure-network-tuning.sh %k"
