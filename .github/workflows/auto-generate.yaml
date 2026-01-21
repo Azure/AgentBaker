@@ -1,65 +1,171 @@
 name: auto-generate
 
-on: pull_request
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - edited
+      - synchronize
 
-permissions:
-  id-token: write
-  contents: read
 jobs:
   auto-generate:
+    permissions:
+      id-token: write
+      contents: read
     runs-on: ubuntu-latest
-    environment: test
     steps:
-      - uses: azure/login@v2
+      - name: Lint PR title
+        id: lint-pr-title
+        uses: amannn/action-semantic-pull-request@v6
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          client-id: ${{ secrets.AZURE_KV_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_KV_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_KV_SUBSCRIPTION_ID }}
+          # chore(deps): bump <some dependency>
+          #  ^     ^       ^
+          #  |     |       | __Subject
+          #  |     |_______ Scope
+          #  |____________ Type
 
-      - uses: azure/cli@v2
-        id: app-private-key
+          # Configure which types are allowed (newline-delimited).
+          # These are regex patterns auto-wrapped in `^ $`.
+          # Default: https://github.com/commitizen/conventional-commit-types
+          types: |
+            ci
+            chore
+            docs
+            feat
+            fix
+            refactor
+            test
+
+          # Configure which scopes are allowed (newline-delimited).
+          # These are regex patterns auto-wrapped in `^ $`.
+          scopes: |
+            .*
+
+          # Configure scope as optional.
+          requireScope: false
+
+          # Configure additional validation for the subject based on a regex.
+          # This ensures the subject doesn't start with an uppercase character.
+          subjectPattern: ^(?![A-Z]).+$
+
+          # If `subjectPattern` is configured, you can use this property to override
+          # the default error message that is shown when the pattern doesn't match.
+          # The variables `subject` and `title` can be used within the message.
+          subjectPatternError: |
+            The subject "{subject}" found in the pull request title "{title}"
+            didn't match the configured pattern. Please ensure that the subject
+            doesn't start with an uppercase character.
+
+        # Continue on error so we can leave a comment on the PR to give the author some guidance.
+        continue-on-error: true
+
+        # Delete previous lint failure comments if linting succeeded.
+      - name: Delete previous lint failure comments
+        if: steps.lint-pr-title.outcome == 'success'
+        uses: actions/github-script@v8
         with:
-          azcliversion: latest
-          inlineScript: |
-              # https://github.com/actions/create-github-app-token?tab=readme-ov-file#inputs
-              private_key=$(az keyvault secret show --vault-name ${{ secrets.AZURE_KV_NAME }} -n ${{ secrets.APP_PRIVATE_KEY_SECRET_NAME }} --query value -o tsv | sed 's/$/\\n/g' | tr -d '\n' | head -c -2) &> /dev/null
-              echo "::add-mask::$private_key"
-              echo "private-key=$private_key" >> $GITHUB_OUTPUT
+          script: |
+            const prNumber = context.payload.pull_request.number;
 
-      - uses: actions/create-github-app-token@v2
-        id: app-token
+            // Get all comments on this PR
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+            });
+
+            // Find all bot comments that are lint failure comments
+            const lintFailureComments = comments.filter(comment =>
+              comment.user.type === 'Bot' &&
+              comment.body.includes('PR Title Lint Failed')
+            );
+
+            // Delete each lint failure comment
+            for (const comment of lintFailureComments) {
+              await github.rest.issues.deleteComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: comment.id,
+              });
+              console.log(`Deleted lint failure comment ${comment.id}`);
+            }
+
+        # Add a comment to the PR to provide guidance if the linting failed.
+      - name: Leave guidance comment
+        if: steps.lint-pr-title.outcome == 'failure'
+        uses: actions/github-script@v8
         with:
-          app-id: ${{ vars.APP_ID }}
-          private-key: ${{ steps.app-private-key.outputs.private-key }}
-          repositories: AgentBaker
+          script: |
+            const prNumber = context.payload.pull_request.number;
+            const prTitle = context.payload.pull_request.title;
 
-      - uses: actions/checkout@v6
-        with:
-          token: ${{ steps.app-token.outputs.token }}
-          ref: ${{ github.head_ref }}
+            const comment = `## PR Title Lint Failed ❌
 
-      - name: Run make generate
-        run: |
-          set -e
-          make generate
+            **Current Title:** \`${prTitle}\`
 
-      - if: env.changes_detected == 'true'
-        name: Commit changes
-        run: |
-          set -e
-          echo "committing changes..."
-          for file in $(git status --porcelain | awk '{print $2}'); do
-            CONTENT=$(base64 -w 0 $file)
-            FILENAME=$(basename $file)
-            SHA=$(curl -s \
-              -H "Authorization: Bearer ${{ steps.app-token.outputs.token }}" \
-              https://api.github.com/repos/${{ github.repository }}/contents/$file?ref=$GITHUB_HEAD_REF | jq -r .sha)
-            if [ "$SHA" == "null" ]; then
-              echo "unable to get SHA of file $file on branch $GITHUB_HEAD_REF"
-              exit 1
-            fi
-            curl -s -X PUT \
-              -H "Authorization: Bearer ${{ steps.app-token.outputs.token }}" \
-              -d "{\"message\":\"chore: auto-generate\", \"content\":\"$CONTENT\", \"branch\":\"$GITHUB_HEAD_REF\", \"sha\":\"$SHA\"}" \
-              https://api.github.com/repos/${{ github.repository }}/contents/$file
-          done
+            Your PR title doesn't follow the expected format. Please update your PR title to follow one of these patterns:
+
+            ### Conventional Commits Format:
+            - \`feat: add new feature\` - for new features
+            - \`fix: resolve bug in component\` - for bug fixes
+            - \`docs: update README\` - for documentation changes
+            - \`refactor: improve code structure\` - for refactoring
+            - \`test: add unit tests\` - for test additions
+            - \`chore: remove dead code\` - for maintenance tasks
+            - \`chore(deps): update dependencies\` - for updating dependencies
+            - \`ci: update build pipeline\` - for CI/CD changes
+
+            ### Guidelines:
+            - Use lowercase for the type and description
+            - Keep the description concise but descriptive
+            - Use imperative mood (e.g., "add" not "adds" or "added")
+            - Don't end with a period
+
+            ### Examples:
+            - ✅ \`feat(windows): add secure TLS bootstrapping for Windows nodes\`
+            - ✅ \`fix: resolve kubelet certificate rotation issue\`
+            - ✅ \`docs: update installation guide\`
+            - ❌ \`Added new feature\`
+            - ❌ \`Fix bug.\`
+            - ❌ \`Update docs\`
+
+            Please update your PR title and the lint check will run again automatically.`;
+
+            // Check if we already commented on this PR to avoid spam
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+            });
+
+            const botComment = comments.find(comment =>
+              comment.user.type === 'Bot' &&
+              comment.body.includes('PR Title Lint Failed')
+            );
+
+            if (botComment) {
+              // Update existing comment
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: comment
+              });
+            } else {
+              // Create new comment
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body: comment
+              });
+            }
+
+        # If linting failed, fail the workflow run.
+      - name: Fail the workflow
+        if: steps.lint-pr-title.outcome == 'failure'
+        run: exit 1
