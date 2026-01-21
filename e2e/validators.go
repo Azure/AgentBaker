@@ -404,7 +404,7 @@ func fileHasExactContent(ctx context.Context, s *Scenario, fileName string, cont
 			"set -ex",
 			fmt.Sprintf("if [ ! -f %s ]; then exit 2; fi", fileName),
 			fmt.Sprintf("pattern=$(printf '%%s' '%s' | base64 -d)", encodedPattern),
-			"escaped=$(printf '%s\n' \"$pattern\" | sed -e 's/[.[\\()*?^$+{}|]/\\\\&/g')",
+			"escaped=$(printf '%s\n' \"$pattern\" | sed -e 's/[.\\[\\()*?^$+{}|]/\\\\&/g')",
 			"regex='(^|[^[:alnum:]_])'\"$escaped\"'([^[:alnum:]_]|$)'",
 			fmt.Sprintf("if sudo grep -Eq \"$regex\" %s; then exit 0; else exit 1; fi", fileName),
 		}
