@@ -402,8 +402,8 @@ function nodePrep {
         fi
 
         # Combine NBC and tag-based settings
-        if [ "${ENABLE_MANAGED_GPU_BY_TAG}" = "true" ]; then
-            ENABLE_MANAGED_GPU="true"
+        if [ "${ENABLE_MANAGED_GPU_BY_TAG}" = "true" ] || [ "${ENABLE_MANAGED_GPU,,}" = "true" ]; then
+            ENABLE_MANAGED_GPU_EXPERIENCE="true"
         fi
 
         logs_to_events "AKS.CSE.configureManagedGPUExperience" configureManagedGPUExperience || exit $ERR_ENABLE_MANAGED_GPU_EXPERIENCE
