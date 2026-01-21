@@ -1,5 +1,14 @@
 #cloud-config
 
+bootcmd:
+- |
+  mkdir -p /opt/bin
+  for bin in aks-secure-tls-bootstrap-client ci-syslog-watcher.sh logrotate.sh teleportd; do
+    [ -e /opt/bin/${bin} ] && continue
+    [ -e /usr/local/bin/${bin} ] || continue
+    ln -s /usr/local/bin/${bin} /opt/bin/
+  done
+
 write_files:
 - path: {{GetCSEHelpersScriptFilepath}}
   permissions: "0744"

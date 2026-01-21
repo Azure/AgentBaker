@@ -29,7 +29,7 @@ for KUBE_BINARY_VERSION in $KUBE_BINARY_VERSIONS; do
     K8S_TGZ_TMP=${KUBE_BINARY_URL##*/}
     retrycmd_get_tarball 120 5 "$K8S_DOWNLOADS_DIR/${K8S_TGZ_TMP}" ${KUBE_BINARY_URL} || exit 120
     tar --transform="s|.*|&-${KUBE_BINARY_VERSION}|" --show-transformed-names -xzvf "$K8S_DOWNLOADS_DIR/${K8S_TGZ_TMP}" \
-        --strip-components=3 -C /usr/local/bin kubernetes/node/bin/kubelet kubernetes/node/bin/kubectl
+        --strip-components=3 -C /opt/bin kubernetes/node/bin/kubelet kubernetes/node/bin/kubectl
     rm -f "$K8S_DOWNLOADS_DIR/${K8S_TGZ_TMP}"
     export KUBE_BINARY_VERSION
     pushd e2e || exit 1

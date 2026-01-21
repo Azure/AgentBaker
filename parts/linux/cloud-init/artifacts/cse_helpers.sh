@@ -149,6 +149,13 @@ ERR_LOOKUP_ENABLE_MANAGED_GPU_EXPERIENCE_TAG=230 # Error checking nodepool tags 
 
 ERR_PULL_POD_INFRA_CONTAINER_IMAGE=225 # Error pulling pause image
 
+# ----------------------- AKS Node Controller----------------------------------
+ERR_AKS_NODE_CONTROLLER_ERROR=240 # Generic error in AKS Node Controller
+# -----------------------------------------------------------------------------
+
+# This probably wasn't launched via a login shell, so ensure the PATH is correct.
+[ -f /etc/profile.d/path.sh ] && . /etc/profile.d/path.sh
+
 # For both Ubuntu and Mariner, /etc/*-release should exist.
 # For unit tests, the OS and OS_VERSION will be set in the unit test script.
 # So whether it's if or else actually doesn't matter to our unit test.
@@ -168,7 +175,7 @@ AZURELINUX_KATA_OS_NAME="AZURELINUXKATA"
 AZURELINUX_OS_NAME="AZURELINUX"
 FLATCAR_OS_NAME="FLATCAR"
 AZURELINUX_OSGUARD_OS_VARIANT="OSGUARD"
-KUBECTL=/usr/local/bin/kubectl
+KUBECTL=/opt/bin/kubectl
 DOCKER=/usr/bin/docker
 # this will be empty during VHD build
 # but vhd build runs with `set -o nounset`
@@ -1231,6 +1238,7 @@ extract_tarball() {
     local tarball="$1"
     local dest="$2"
     shift 2
+    mkdir -p "$dest"
     # Use tar options if provided, otherwise default to -xzf
     case "$tarball" in
         *.tar.gz|*.tgz)
