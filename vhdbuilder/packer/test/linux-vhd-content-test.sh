@@ -1652,6 +1652,21 @@ testNodeProblemDetector() {
   fi
   echo "$test: NPD startup script exists and is executable"
 
+  # Check NPD binary symlink exists in /opt/bin (for Flatcar sysext compatibility)
+  local npd_binary="/opt/bin/node-problem-detector"
+  if [ ! -L "$npd_binary" ]; then
+    err "$test: NPD binary symlink not found at $npd_binary"
+    return 1
+  fi
+  # Verify symlink points to /usr/bin/node-problem-detector
+  local symlink_target
+  symlink_target=$(readlink "$npd_binary")
+  if [ "$symlink_target" != "/usr/bin/node-problem-detector" ]; then
+    err "$test: NPD binary symlink at $npd_binary points to '$symlink_target' instead of '/usr/bin/node-problem-detector'"
+    return 1
+  fi
+  echo "$test: NPD binary symlink exists and points to correct location"
+
   # Check config directories exist
   local config_dirs=(
     "custom-plugin-monitor"
