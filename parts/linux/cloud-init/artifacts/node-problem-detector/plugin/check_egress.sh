@@ -13,6 +13,9 @@ readonly NONOK=1
 if [ -f "/var/run/outbound-check-skipped" ]; then
     echo "Found file /var/run/outbound-check-skipped; skipping check egress test."
     exit $OK
+elif [ -f "/opt/azure/outbound-check-skipped" ]; then
+    echo "Found file /opt/azure/outbound-check-skipped; skipping check egress test."
+    exit $OK
 fi
 
 # Global timeout for curl requests (for endpoints)

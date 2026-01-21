@@ -1,0 +1,28 @@
+{
+    "plugin": "custom",
+    "pluginConfig": {
+        "invoke_interval": "60s",
+        "timeout": "30s",
+        "max_output_length": 80,
+        "concurrency": 3,
+        "enable_message_change_based_condition_update": true
+    },
+    "source": "custom-plugin-nvidia-dcgm-services",
+    "metricsReporting": false,
+    "conditions": [
+        {
+            "type": "UnhealthyNvidiaDCGMServices",
+            "reason": "HealthyNvidiaDCGMServices",
+            "message": "NVIDIA DCGM services are running properly"
+        }
+    ],
+    "rules": [
+        {
+            "type": "permanent",
+            "condition": "UnhealthyNvidiaDCGMServices",
+            "reason": "UnhealthyNvidiaDCGMServices",
+            "path": "/etc/node-problem-detector.d/plugin/check_nvidia_dcgm_services.sh",
+            "timeout": "30s"
+        }
+    ]
+}
