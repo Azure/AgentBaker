@@ -3,7 +3,6 @@
 # Common helper functions for Node Problem Detector plugins
 # This file contains shared code used by all NPD plugins for basic logging and utilities
 
-
 # Log directory
 LOG_DIR="/var/log/azure/Microsoft.AKS.Compute.AKS.Linux.AKSNode/events"
 # Max message length for Telemetry events
@@ -29,23 +28,216 @@ generate_guid() {
 # use same operation id for all records in a session so can correlate and concat chunked log messages
 OPERATION_ID=$(generate_guid)
 
+# Function to check if a key is sensitive and should be redacted
+is_sensitive_key() {
+    local key="$1"
+    local key_lower
+    
+    # Remove quotes if present
+    key="${key#\"}"
+    key="${key%\"}"
+    key="${key#\'}"
+    key="${key%\'}"
+    
+    key_lower=$(echo "$key" | tr '[:upper:]' '[:lower:]')
+    
+    # Check for exact matches or word boundaries to avoid false positives
+    case "$key_lower" in
+        *password|*passwd|*pwd|password*|passwd*|pwd*)
+            return 0
+            ;;
+        *token|token*)
+            return 0
+            ;;
+        *key|key*)
+            return 0
+            ;;
+        *secret|secret*)
+            return 0
+            ;;
+        authorization*)
+            return 0
+            ;;
+        *auth*)
+            return 0
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
+# slice_leading_prefix removes a prefix from body text, returning both the string and the prefix.
+# The returned prefix will be one of the following:
+# - a block of whitespace (kind = "W")
+# - a quoted string (either 'single' or "double" quoted, kind = "S")
+# - a command line flag or switch (kind = "F")
+# - an identifier (kind = "I")
+# - a whitespace value including other symbols (kind = "V")
+# - a single symbol (kind = ":")
+slice_leading_prefix() {
+    declare -n prefix_ref="$1"
+    declare -n prefix_kind="$2"
+    declare -n body_ref="$3"
+    
+    lastTokenKind="$4"
+    
+    # Initialize prefix
+    prefix_ref=""
+    
+    # Return early if body is empty
+    if [[ -z "$body_ref" ]]; then
+        return
+    fi
+    
+    # Check for leading whitespace
+    if [[ "$body_ref" =~ ^([[:space:]]+) ]]; then
+        prefix_ref="${BASH_REMATCH[1]}"
+        prefix_kind="W"
+        body_ref="${body_ref#"$prefix_ref"}"
+        return
+    fi
+    
+    # Check for quoted strings (double quotes)
+    if [[ "$body_ref" =~ ^(\"[^\"]*\") ]]; then
+        prefix_ref="${BASH_REMATCH[1]}"
+        prefix_kind="S"
+        body_ref="${body_ref#"$prefix_ref"}"
+        return
+    fi
+    
+    # Check for quoted strings (single quotes)
+    if [[ "$body_ref" =~ ^(\'[^\']*\') ]]; then
+        prefix_ref="${BASH_REMATCH[1]}"
+        prefix_kind="S"
+        body_ref="${body_ref#"$prefix_ref"}"
+        return
+    fi
+
+    # Check for values (whitespace delimited sequence of non-whitespace characters)
+    # but only after a delimiting symbol
+    if [[ "$lastTokenKind" == ":" && "$body_ref" =~ ^([^\ ]+) ]]; then
+        prefix_ref="${BASH_REMATCH[1]}"
+        prefix_kind="V"
+        body_ref="${body_ref#"$prefix_ref"}"
+        return
+    fi
+    
+    # Check for command line flags & switches (e.g., --flag, -f, --ignore-case)
+    if [[ "$body_ref" =~ ^(--?[A-Za-z0-9_.-]+) ]]; then
+        prefix_ref="${BASH_REMATCH[1]}"
+        prefix_kind="F"
+        body_ref="${body_ref#"$prefix_ref"}"
+        return
+    fi
+
+    # Check for identifiers (alphanumeric + underscore + hyphen + dot)
+    if [[ "$body_ref" =~ ^([A-Za-z_][A-Za-z0-9_.-]*) ]]; then
+        prefix_ref="${BASH_REMATCH[1]}"
+        prefix_kind="I"
+        body_ref="${body_ref#"$prefix_ref"}"
+        return
+    fi
+
+    # Fall back to single symbol/character
+    prefix_ref="${body_ref:0:1}"
+    # shellcheck disable=SC2034
+    prefix_kind=":"
+    body_ref="${body_ref:1}"
+}
+
+
 # Function to redact sensitive information from command lines and log output
 redact_sensitive_data() {
     local input="$1"
-    echo "$input" | sed -E \
-        -e 's/(password|passwd|pwd)([=:])[^[:space:]]*/\1\2***REDACTED***/gi' \
-        -e 's/(token|auth_token|access_token)([=:])[^[:space:]]*/\1\2***REDACTED***/gi' \
-        -e 's/(key|api_key|secret_key|private_key)([=:])[^[:space:]]*/\1\2***REDACTED***/gi' \
-        -e 's/(secret|auth_secret|client_secret)([=:])[^[:space:]]*/\1\2***REDACTED***/gi' \
-        -e 's/(auth|authorization)([=:])[^[:space:]]*/\1\2***REDACTED***/gi' \
-        -e 's/(-D[^[:space:]]*password[^[:space:]]*)([=:])[^[:space:]]*/\1\2***REDACTED***/gi' \
-        -e 's/(-D[^[:space:]]*token[^[:space:]]*)([=:])[^[:space:]]*/\1\2***REDACTED***/gi' \
-        -e 's/(-D[^[:space:]]*key[^[:space:]]*)([=:])[^[:space:]]*/\1\2***REDACTED***/gi' \
-        -e 's/(-D[^[:space:]]*secret[^[:space:]]*)([=:])[^[:space:]]*/\1\2***REDACTED***/gi' \
-        -e 's/(--[^[:space:]]*token[^[:space:]]*)([=:])[^[:space:]]*/\1\2***REDACTED***/gi' \
-        -e 's/(--[^[:space:]]*password[^[:space:]]*)([=:])[^[:space:]]*/\1\2***REDACTED***/gi' \
-        -e 's/(--[^[:space:]]*key[^[:space:]]*)([=:])[^[:space:]]*/\1\2***REDACTED***/gi' \
-        -e 's/(--[^[:space:]]*secret[^[:space:]]*)([=:])[^[:space:]]*/\1\2***REDACTED***/gi'
+    local body="$input"
+    local elements=()
+    local kinds=()
+    local prefix
+    local kind=""
+    
+    # Process the input using slice_leading_prefix
+    while [[ -n "$body" ]]; do
+        slice_leading_prefix prefix kind body "$kind"
+        elements+=("$prefix")
+        kinds+=("$kind")
+    done
+
+    # Now process the elements array to find and redact sensitive key-value pairs
+    local i
+    local kind
+    local keyIndex=-1
+    local valueIndex=-1
+
+    for ((i=0; i<${#elements[@]}; i++)); do
+        # Iterate through the string parts, making decisions based on the kind of each element
+        case "${kinds[i]}" in 
+            "I")
+                # We've found a simple identifier
+                valueIndex=$i
+                ;;
+            "V")
+                # We've found a simple value
+                valueIndex=$i
+                ;;
+            "S")
+                # We've found a string value
+                valueIndex=$i
+                ;;
+            "F")
+                # We've found a flag; any value must follow this
+                keyIndex=$i
+                valueIndex=-1
+                ;;
+            ":")
+                # Some symbols separate keys and values, others delimit scopes
+                local symbol="${elements[i]}"
+                if [[ $symbol == "{" ]] ; then
+                    # Start of scope, reset key/value tracking
+                    keyIndex=-1
+                    valueIndex=-1
+                elif [[ $symbol == "=" || $symbol == ":" ]]; then
+                    # Key-value delimiter
+                    # If we only have a value, it's likely actually a key
+                    if [[ $valueIndex -ne -1 && $keyIndex -eq -1 ]]; then
+                        keyIndex=$valueIndex
+                        valueIndex=-1
+                    fi
+                fi
+                ;;
+            "W")
+                # For command line style (--key=value), whitespace resets key/value tracking
+                # but for JSON ("key": "value"), whitespace is expected
+                if [[ "${kinds[keyIndex]}" != "S" ]]; then 
+                    keyIndex=-1
+                    valueIndex=-1
+                fi
+                ;;
+        esac
+
+        # If we have both a key and a value, check if the key is sensitive
+        if [[ $keyIndex -ne -1 && $valueIndex -ne -1 ]]; then
+            local key="${elements[keyIndex]}"
+            if is_sensitive_key "$key"; then
+                # Redact the value, preserving quotes if present
+                if [[ "${kinds[valueIndex]}" == "S" ]]; then
+                    # Preserve quotes
+                    local original_value="${elements[valueIndex]}"
+                    local quote_char="${original_value:0:1}"
+                    elements[valueIndex]="${quote_char}***REDACTED***${quote_char}"
+                else
+                    elements[valueIndex]="***REDACTED***"
+                fi
+            fi
+            # Reset for the next match
+            keyIndex=-1
+            valueIndex=-1
+        fi
+
+    done
+    
+    # Join all elements back together
+    printf "%s" "${elements[@]}"
 }
 
 # Function to log debug messages

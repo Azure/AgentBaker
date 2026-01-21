@@ -17,14 +17,6 @@ source "${SCRIPT_DIR}/pressure_common.sh" || { echo "ERROR: Failed to source pre
 OK=0
 NOTOK=0   # Always exit with OK for now so we don't raise an event
 
-# Configurable thresholds (can be overridden via environment variables)
-CPU_LOAD_THRESHOLD="${CPU_LOAD_THRESHOLD:-0.9}"  # 90% of available CPUs
-CPU_IOWAIT_THRESHOLD="${CPU_IOWAIT_THRESHOLD:-20}"  # 20% in iowait state
-CPU_STEAL_THRESHOLD="${CPU_STEAL_THRESHOLD:-10}"  # 10% CPU steal time
-# PSI thresholds - these match Kubernetes defaults for node pressure eviction
-PSI_CPU_SOME_THRESHOLD="${PSI_CPU_SOME_THRESHOLD:-60}"  # 60% CPU stall over 5 minutes
-PSI_IO_SOME_THRESHOLD="${PSI_IO_SOME_THRESHOLD:-40}"  # 40% IO stall over 5 minutes
-PSI_CPU_SOME_PERIOD="${PSI_CPU_SOME_PERIOD:-300000}"    # 5 minutes in milliseconds
 # Command truncation length for iotop output
 MAX_COMMAND_LENGTH="${MAX_COMMAND_LENGTH:-30}"  # Maximum length for command strings in JSON output
 
@@ -33,114 +25,6 @@ cleanup_old_logs
 
 # Get number of CPU cores
 NUM_CORES=$(nproc)
-
-# Calculate load threshold based on number of cores
-LOAD_THRESHOLD=$(echo "$NUM_CORES * $CPU_LOAD_THRESHOLD" | bc)
-
-log "Number of CPU cores: $NUM_CORES"
-log "Load threshold: $LOAD_THRESHOLD (${CPU_LOAD_THRESHOLD} * $NUM_CORES)"
-
-# Function to check if CPU is under pressure
-check_cpu_pressure() {
-    # Initialize pressure flag
-    local pressure_detected=0
-        
-    # Check cgroup v2 PSI metrics if available
-    if [ -f "/sys/fs/cgroup/cpu.pressure" ]; then
-        PSI_CPU_SOME=$(cat /sys/fs/cgroup/cpu.pressure | awk '/some/ {print $4}' | cut -d= -f2)
-        
-        log "PSI CPU some avg300: ${PSI_CPU_SOME:-not available}"
-        
-        if [ -n "$PSI_CPU_SOME" ] && [ "$(echo "$PSI_CPU_SOME > $PSI_CPU_SOME_THRESHOLD" | bc)" -eq 1 ]; then
-            log "PRESSURE: High CPU pressure detected via cgroup PSI (avg300): ${PSI_CPU_SOME}% (threshold: ${PSI_CPU_SOME_THRESHOLD}%)"
-            pressure_detected=1
-        fi
-
-         # Check for IO pressure
-        if [ -f "/sys/fs/cgroup/io.pressure" ]; then
-            PSI_IO_SOME=$(cat /sys/fs/cgroup/io.pressure | awk '/some/ {print $4}' | cut -d= -f2)
-            
-            log "PSI IO some avg300: ${PSI_IO_SOME:-not available}"
-            
-            if [ -n "$PSI_IO_SOME" ] && [ "$(echo "$PSI_IO_SOME > $PSI_IO_SOME_THRESHOLD" | bc)" -eq 1 ]; then
-                log "PRESSURE: High IO pressure detected via cgroup PSI (avg300): ${PSI_IO_SOME}% (threshold: ${PSI_IO_SOME_THRESHOLD}%)"
-                pressure_detected=1
-            fi
-        else
-            log "sys/fs/cgroup/io.pressure not available"
-        fi        
-    else
-        log "sys/fs/cgroup/cpu.pressure not available"
-    fi
-
-    # Check current load average (1 minute)
-    LOAD_AVG=$(cat /proc/loadavg | awk '{print $1}')
-    log "/proc/loadavg: $LOAD_AVG"
-    
-    if [ "$(echo "$LOAD_AVG > $LOAD_THRESHOLD" | bc)" -eq 1 ]; then
-        log "INFO: High CPU load: $LOAD_AVG"
-        # pressure_detected=1 # Not setting pressure here as this may be too sensitive
-    fi
-
-    # Get CPU usage statistics
-    if command -v mpstat >/dev/null 2>&1; then
-        MPSTAT_OUTPUT=$(mpstat 1 1 | grep -v Linux | tail -n 1)
-        
-        if [ -n "$MPSTAT_OUTPUT" ]; then
-            # Format: CPU %usr %nice %sys %iowait %irq %soft %steal %guest %nice %idle
-            USER_PCT=0
-            SYSTEM_PCT=0
-            IOWAIT_PCT=0
-            STEAL_PCT=0
-            IDLE_PCT=0
-                            
-            USER_PCT=$(echo "$MPSTAT_OUTPUT" | awk '{print $3}')
-            SYSTEM_PCT=$(echo "$MPSTAT_OUTPUT" | awk '{print $5}')
-            IOWAIT_PCT=$(echo "$MPSTAT_OUTPUT" | awk '{print $6}')
-            STEAL_PCT=$(echo "$MPSTAT_OUTPUT" | awk '{print $9}')
-            IDLE_PCT=$(echo "$MPSTAT_OUTPUT" | awk '{print $12}')
-            
-            log "CPU stats from mpstat: user: ${USER_PCT}% system: ${SYSTEM_PCT}% iowait: ${IOWAIT_PCT}% steal: ${STEAL_PCT}% idle: ${IDLE_PCT}%"
-        else
-            log "Failed to get CPU statistics from mpstat"
-        fi
-    else
-        log "mpstat not available"
-    fi    
-    
-    # Check for high iowait
-    if [ "$(echo "$IOWAIT_PCT > $CPU_IOWAIT_THRESHOLD" | bc)" -eq 1 ]; then
-        log "INFO: High CPU iowait: ${IOWAIT_PCT}% (threshold: ${CPU_IOWAIT_THRESHOLD}%)"
-        pressure_detected=1
-    fi
-    
-    # Check for high CPU steal
-    if [ "$(echo "$STEAL_PCT > $CPU_STEAL_THRESHOLD" | bc)" -eq 1 ]; then
-        log "INFO: High CPU steal time: ${STEAL_PCT}%"
-        # pressure_detected=1 # Not setting pressure here as this may be too sensitive
-    fi
-    
-    # Check for throttling events
-    if [ -f "/sys/fs/cgroup/cpu.stat" ]; then
-        THROTTLED_TIME=$(grep 'throttled_usec' /sys/fs/cgroup/cpu.stat | awk '{print $2}')
-        
-        log "CPU throttled time: ${THROTTLED_TIME:-0} us"
-        
-        if [ -n "$THROTTLED_TIME" ] && [ "$THROTTLED_TIME" -gt 0 ]; then
-            log "PRESSURE: CPU throttling detected: $THROTTLED_TIME us"
-            # pressure_detected=1 # Not setting pressure here as this may be too sensitive
-        fi
-    else
-        log "sys/fs/cgroup/cpu/cpu.stat not available"
-    fi
-    
-    # Return overall pressure status
-    if [ "$pressure_detected" -eq 1 ]; then
-        return 1
-    else
-        return 0
-    fi
-}
 
 # Function to log iotop results in JSON format
 log_iotop_results() {
@@ -284,6 +168,7 @@ log_iotop_results() {
 
 ## Main logic - check for CPU pressure once
 # Run single pressure check
+# Thresholds can be overridden via environment variables (see pressure_common.sh)
 if ! check_cpu_pressure; then
     log "CPU pressure detected on node"
         

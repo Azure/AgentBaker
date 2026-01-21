@@ -1,5 +1,90 @@
 {
-  "Standard_ND96isr_H100_v5": {
+  "Standard_NC6s_v3": {
+    "GPUs": "1",
+    "RdmaEnabled": "False",
+    "NVLinkEnabled": "False"
+  },
+  "Standard_NC12s_v3": {
+    "GPUs": "2",
+    "RdmaEnabled": "False",
+    "NVLinkEnabled": "False"
+  },
+  "Standard_NC24s_v3": {
+    "GPUs": "4",
+    "RdmaEnabled": "False",
+    "NVLinkEnabled": "False"
+  },
+  "Standard_NC24rs_v3": {
+    "GPUs": "4",
+    "RdmaEnabled": "True",
+    "NVLinkEnabled": "False"
+  },
+  "Standard_NC4as_T4_v3": {
+    "GPUs": "1",
+    "RdmaEnabled": "False",
+    "NVLinkEnabled": "False"
+  },
+  "Standard_NC8as_T4_v3": {
+    "GPUs": "1",
+    "RdmaEnabled": "False",
+    "NVLinkEnabled": "False"
+  },
+  "Standard_NC16as_T4_v3": {
+    "GPUs": "1",
+    "RdmaEnabled": "False",
+    "NVLinkEnabled": "False"
+  },
+  "Standard_NC64as_T4_v3": {
+    "GPUs": "4",
+    "RdmaEnabled": "False",
+    "NVLinkEnabled": "False"
+  },
+  "Standard_NC24ads_A100_v4": {
+    "GPUs": "1",
+    "RdmaEnabled": "False",
+    "NVLinkEnabled": "False"
+  },
+  "Standard_NC48ads_A100_v4": {
+    "GPUs": "2",
+    "RdmaEnabled": "False",
+    "NVLinkEnabled": "False"
+  },
+  "Standard_NC96ads_A100_v4": {
+    "GPUs": "4",
+    "RdmaEnabled": "False",
+    "NVLinkEnabled": "False"
+  },
+  "Standard_NC40ads_H100_v5": {
+    "GPUs": "1",
+    "RdmaEnabled": "False",
+    "NVLinkEnabled": "True"
+  },
+  "Standard_NC80adis_H100_v5": {
+    "GPUs": "2",
+    "RdmaEnabled": "False",
+    "NVLinkEnabled": "True"
+  },
+  "Standard_NCC40ads_H100_v5": {
+    "GPUs": "1",
+    "RdmaEnabled": "False",
+    "NVLinkEnabled": "False"
+  },
+  "Standard_NC8ads_A10_v4": {
+    "GPUs": "1",
+    "RdmaEnabled": "False",
+    "NVLinkEnabled": "False"
+  },
+  "Standard_NC16ads_A10_v4": {
+    "GPUs": "1",
+    "RdmaEnabled": "False",
+    "NVLinkEnabled": "False"
+  },
+  "Standard_NC32ads_A10_v4": {
+    "GPUs": "1",
+    "RdmaEnabled": "False",
+    "NVLinkEnabled": "False"
+  },
+  "Standard_ND40rs_v2": {
     "GPUs": "8",
     "RdmaEnabled": "True",
     "NVLinkEnabled": "True"
@@ -8,5 +93,110 @@
     "GPUs": "8",
     "RdmaEnabled": "True",
     "NVLinkEnabled": "True"
+  },
+  "Standard_ND96ams_A100_v4": {
+    "GPUs": "8",
+    "RdmaEnabled": "False",
+    "NVLinkEnabled": "True"
+  },
+  "Standard_ND96amsr_A100_v4": {
+    "GPUs": "8",
+    "RdmaEnabled": "True",
+    "NVLinkEnabled": "True"
+  },
+  "Standard_ND96is_H100_v5": {
+    "GPUs": "8",
+    "RdmaEnabled": "False",
+    "NVLinkEnabled": "True"
+  },
+  "Standard_ND96isr_H100_v5": {
+    "GPUs": "8",
+    "RdmaEnabled": "True",
+    "NVLinkEnabled": "True"
+  },
+  "Standard_ND128isr_NDR_GB200_v6": {
+    "GPUs": "4",
+    "RdmaEnabled": "True",
+    "NVLinkEnabled": "True"
+  },
+  "Standard_ND128isr_GB300_v6": {
+    "GPUs": "4",
+    "RdmaEnabled": "True",
+    "NVLinkEnabled": "True"
+  },
+  "Standard_NV6s_v2": {
+    "GPUs": "1",
+    "RdmaEnabled": "False",
+    "NVLinkEnabled": "False"
+  },
+  "Standard_NV12s_v2": {
+    "GPUs": "2",
+    "RdmaEnabled": "False",
+    "NVLinkEnabled": "False"
+  },
+  "Standard_NV24s_v2": {
+    "GPUs": "4",
+    "RdmaEnabled": "False",
+    "NVLinkEnabled": "False"
+  },
+  "Standard_NV12s_v3": {
+    "GPUs": "1",
+    "RdmaEnabled": "False",
+    "NVLinkEnabled": "False"
+  },
+  "Standard_NV12hs_v3": {
+    "GPUs": "1",
+    "RdmaEnabled": "False",
+    "NVLinkEnabled": "False"
+  },
+  "Standard_NV24s_v3": {
+    "GPUs": "2",
+    "RdmaEnabled": "False",
+    "NVLinkEnabled": "False"
+  },
+  "Standard_NV24ms_v3": {
+    "GPUs": "1",
+    "RdmaEnabled": "False",
+    "NVLinkEnabled": "False"
+  },
+  "Standard_NV32ms_v3": {
+    "GPUs": "1",
+    "RdmaEnabled": "False",
+    "NVLinkEnabled": "False"
+  },
+  "Standard_NV48s_v3": {
+    "GPUs": "4",
+    "RdmaEnabled": "False",
+    "NVLinkEnabled": "False"
+  },
+  "Standard_NV6ads_A10_v5": {
+    "GPUs": "1",
+    "RdmaEnabled": "False",
+    "NVLinkEnabled": "False"
+  },
+  "Standard_NV12ads_A10_v5": {
+    "GPUs": "1",
+    "RdmaEnabled": "False",
+    "NVLinkEnabled": "False"
+  },
+  "Standard_NV18ads_A10_v5": {
+    "GPUs": "1",
+    "RdmaEnabled": "False",
+    "NVLinkEnabled": "False"
+  },
+  "Standard_NV36ads_A10_v5": {
+    "GPUs": "1",
+    "RdmaEnabled": "False",
+    "NVLinkEnabled": "False"
+  },
+  "Standard_NV36adms_A10_v5": {
+    "GPUs": "1",
+    "RdmaEnabled": "False",
+    "NVLinkEnabled": "False"
+  },
+  "Standard_NV72ads_A10_v5": {
+    "GPUs": "2",
+    "RdmaEnabled": "False",
+    "NVLinkEnabled": "False"
   }
 }

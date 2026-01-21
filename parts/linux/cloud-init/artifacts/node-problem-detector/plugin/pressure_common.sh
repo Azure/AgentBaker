@@ -275,6 +275,81 @@ log_crictl_stats() {
     write_chunked_event_log "$taskname" "$VALID_JSON" 10
 }
 
+# Function to log IG top_process results in JSON format
+log_ig_top_process_results() {
+    local taskname="$1"  # Pass in the specific taskname (e.g., "npd:check_cpu_pressure_ig:top_process")
+    local sort_by="$2"  # Pass in the sort flag ("cpu" or "memory")
+
+    # Check if ig is available
+    if ! command -v ig >/dev/null 2>&1; then
+        log "ig not installed, cannot log process information via IG"
+        return
+    fi
+
+    log "Running ig top_process command for $sort_by..."
+
+    # Set max entries to a reasonable number of processes we want to log
+    local max_entries=15
+    log "Using $max_entries max entries for IG output"
+
+    # Determine sort parameter based on sort_by
+    local sort_param
+    if [ "$sort_by" = "cpu" ]; then
+        sort_param="-cpuUsageRelative"
+    else
+        sort_param="-memoryRelative"
+    fi
+
+    # Run ig command to get top process with the following parameters:
+    # --sort: sort by CPU or memory
+    # --max-entries: limit to a reasonable number of processes
+    # --output jsonpretty: output in JSON format with pretty printing
+    # --count 1: get a single snapshot. Note that ig will print two snapshots because ig takes a
+    #     fast initial snapshot (which is not counted) and then a second one after the interval
+    # --interval 5s: wait 5 seconds between snapshots to get more accurate values
+    # --timeout 7: timeout the command after 7 seconds to force the ig process to exit (Otherwise it remains hanging indefinitely)
+    #
+    # Future improvements to ig could help here:
+    # - ig should exit automatically after the count of snapshots is reached so that we don't need the --timeout parameter:
+    #   https://github.com/inspektor-gadget/inspektor-gadget/issues/4926
+    # - ig should have a parameter to avoid producing the fast initial snapshot to avoid the need for filtering it out below with awk:
+    #   https://github.com/inspektor-gadget/inspektor-gadget/issues/4955
+    local IG_RAW
+    IG_RAW=$(timeout 10s ig run top_process \
+        --sort "$sort_param" \
+        --max-entries "$max_entries" \
+        --output jsonpretty \
+        --count 1 \
+        --interval 5s \
+        --timeout 7 2>&1)
+    local IG_EXIT_CODE=$?
+
+    # Redact sensitive information from ig output
+    IG_RAW=$(redact_sensitive_data "$IG_RAW")
+
+    if [ $IG_EXIT_CODE -ne 0 ]; then
+        log "WARNING: ig command failed with exit code $IG_EXIT_CODE"
+        log "ig output: $IG_RAW"
+        return
+    elif [ -z "$IG_RAW" ]; then
+        log "WARNING: ig returned empty output"
+        return
+    fi
+
+    # Check if output contains an error/warning logs (any text before the first '[' character).
+    # If so, log it as a warning and continue processing the rest of the output
+    local IG_LOGS
+    IG_LOGS=$(printf '%s' "$IG_RAW" | sed '/^\[/q' | sed '/^\[/,$d')
+    if [ -n "$IG_LOGS" ]; then
+        log "WARNING: ig command returned a warning: $IG_LOGS"
+    fi
+
+    # Filter out error/warning logs and the first fast iteration (after 250ms) and keep only the second iteration which is after 5 seconds
+    IG_RAW=$(printf '%s' "$IG_RAW" | awk 'BEGIN{scr=0} /^\[/ {scr++} scr==2')
+
+    write_chunked_event_log "$taskname" "$IG_RAW"
+}
+
 # Function to run multiple pressure checks
 run_pressure_checks() {
     local check_function="$1"  # Function to call for each check
@@ -310,4 +385,276 @@ run_pressure_checks() {
     
     # Return pressure count for caller to handle - use return code instead of echo
     return $pressure_count
+}
+
+# Function to check if CPU is under pressure
+# Uses environment variables for thresholds (with defaults):
+#   CPU_LOAD_THRESHOLD - Load threshold multiplier (default: 0.9 = 90% of cores)
+#   PSI_CPU_SOME_THRESHOLD - PSI CPU some avg300 threshold (default: 60)
+#   PSI_IO_SOME_THRESHOLD - PSI IO some avg300 threshold (default: 40)
+#   CPU_IOWAIT_THRESHOLD - CPU iowait percentage threshold (default: 20)
+#   CPU_STEAL_THRESHOLD - CPU steal percentage threshold (default: 10)
+# Returns: 0 if no pressure, 1 if pressure detected
+check_cpu_pressure() {
+    # Get number of CPU cores
+    local num_cores
+    num_cores=$(nproc)
+    
+    # Configurable thresholds (can be overridden via environment variables)
+    local cpu_load_threshold="${CPU_LOAD_THRESHOLD:-0.9}"      # 90% of available CPUs
+    local psi_cpu_some_threshold="${PSI_CPU_SOME_THRESHOLD:-60}"  # 60% CPU stall over 5 minutes
+    local psi_io_some_threshold="${PSI_IO_SOME_THRESHOLD:-40}"    # 40% IO stall over 5 minutes
+    local cpu_iowait_threshold="${CPU_IOWAIT_THRESHOLD:-20}"      # 20% in iowait state
+    local cpu_steal_threshold="${CPU_STEAL_THRESHOLD:-10}"        # 10% CPU steal time
+    
+    # Calculate load threshold based on number of cores
+    local load_threshold
+    load_threshold=$(echo "$num_cores * $cpu_load_threshold" | bc)
+    
+    log "Number of CPU cores: $num_cores"
+    log "Load threshold: $load_threshold (${cpu_load_threshold} * $num_cores)"
+    
+    # Initialize pressure flag
+    local pressure_detected=0
+    
+    # Initialize mpstat variables
+    local user_pct=0
+    local system_pct=0
+    local iowait_pct=0
+    local steal_pct=0
+    local idle_pct=0
+        
+    # Check cgroup v2 PSI metrics if available
+    if [ -f "/sys/fs/cgroup/cpu.pressure" ]; then
+        local psi_cpu_some
+        psi_cpu_some=$(awk '/some/ {print $4}' /sys/fs/cgroup/cpu.pressure | cut -d= -f2)
+        
+        log "PSI CPU some avg300: ${psi_cpu_some:-not available}"
+        
+        if [ -n "$psi_cpu_some" ] && [ "$(echo "$psi_cpu_some > $psi_cpu_some_threshold" | bc)" -eq 1 ]; then
+            log "PRESSURE: High CPU pressure detected via cgroup PSI (avg300): ${psi_cpu_some}% (threshold: ${psi_cpu_some_threshold}%)"
+            pressure_detected=1
+        fi
+
+        # Check for IO pressure
+        if [ -f "/sys/fs/cgroup/io.pressure" ]; then
+            local psi_io_some
+            psi_io_some=$(awk '/some/ {print $4}' /sys/fs/cgroup/io.pressure | cut -d= -f2)
+            
+            log "PSI IO some avg300: ${psi_io_some:-not available}"
+            
+            if [ -n "$psi_io_some" ] && [ "$(echo "$psi_io_some > $psi_io_some_threshold" | bc)" -eq 1 ]; then
+                log "PRESSURE: High IO pressure detected via cgroup PSI (avg300): ${psi_io_some}% (threshold: ${psi_io_some_threshold}%)"
+                pressure_detected=1
+            fi
+        else
+            log "sys/fs/cgroup/io.pressure not available"
+        fi        
+    else
+        log "sys/fs/cgroup/cpu.pressure not available"
+    fi
+
+    # Check current load average (1 minute)
+    local load_avg
+    load_avg=$(awk '{print $1}' /proc/loadavg)
+    log "/proc/loadavg: $load_avg"
+    
+    if [ -n "$load_threshold" ] && [ "$(echo "$load_avg > $load_threshold" | bc)" -eq 1 ]; then
+        log "INFO: High CPU load: $load_avg"
+        # pressure_detected=1 # Not setting pressure here as this may be too sensitive
+    fi
+
+    # Get CPU usage statistics
+    if command -v mpstat >/dev/null 2>&1; then
+        local mpstat_output
+        mpstat_output=$(mpstat 1 1 | grep -v Linux | tail -n 1)
+        
+        if [ -n "$mpstat_output" ]; then
+            # Format: CPU %usr %nice %sys %iowait %irq %soft %steal %guest %nice %idle
+            user_pct=$(echo "$mpstat_output" | awk '{print $3}')
+            system_pct=$(echo "$mpstat_output" | awk '{print $5}')
+            iowait_pct=$(echo "$mpstat_output" | awk '{print $6}')
+            steal_pct=$(echo "$mpstat_output" | awk '{print $9}')
+            idle_pct=$(echo "$mpstat_output" | awk '{print $12}')
+            
+            log "CPU stats from mpstat: user: ${user_pct}% system: ${system_pct}% iowait: ${iowait_pct}% steal: ${steal_pct}% idle: ${idle_pct}%"
+        else
+            log "Failed to get CPU statistics from mpstat"
+        fi
+    else
+        log "mpstat not available"
+    fi    
+    
+    # Check for high iowait
+    if [ "$(echo "$iowait_pct > $cpu_iowait_threshold" | bc)" -eq 1 ]; then
+        log "INFO: High CPU iowait: ${iowait_pct}% (threshold: ${cpu_iowait_threshold}%)"
+        pressure_detected=1
+    fi
+    
+    # Check for high CPU steal
+    if [ "$(echo "$steal_pct > $cpu_steal_threshold" | bc)" -eq 1 ]; then
+        log "INFO: High CPU steal time: ${steal_pct}%"
+        # pressure_detected=1 # Not setting pressure here as this may be too sensitive
+    fi
+    
+    # Check for throttling events
+    if [ -f "/sys/fs/cgroup/cpu.stat" ]; then
+        local throttled_time
+        throttled_time=$(grep 'throttled_usec' /sys/fs/cgroup/cpu.stat | awk '{print $2}')
+        
+        log "CPU throttled time: ${throttled_time:-0} us"
+        
+        if [ -n "$throttled_time" ] && [ "$throttled_time" -gt 0 ]; then
+            log "PRESSURE: CPU throttling detected: $throttled_time us"
+            # pressure_detected=1 # Not setting pressure here as this may be too sensitive
+        fi
+    else
+        log "sys/fs/cgroup/cpu/cpu.stat not available"
+    fi
+    
+    # Return overall pressure status
+    if [ "$pressure_detected" -eq 1 ]; then
+        return 1
+    else
+        return 0
+    fi
+}
+
+# Function to check if memory is under pressure
+# Uses environment variables for thresholds (with defaults):
+#   MEMORY_AVAILABLE_THRESHOLD - Percentage of total memory that should be available (default: 10)
+#   PSI_MEMORY_SOME_THRESHOLD - PSI memory some avg60 threshold (default: 50)
+# Sets global variable:
+#   RECENT_OOM_KILLS - Recent OOM kill messages (for use by caller)
+#   TOTAL_MEMORY_KB - Total memory in KB (for use by caller)
+# Returns: 0 if no pressure, 1 if pressure detected
+check_memory_pressure() {
+    # Configurable thresholds (can be overridden via environment variables)
+    local memory_available_threshold="${MEMORY_AVAILABLE_THRESHOLD:-10}"  # 10% of total memory
+    local psi_memory_some_threshold="${PSI_MEMORY_SOME_THRESHOLD:-50}"    # 50% memory stall over 1 minute
+    
+    # Initialize pressure flag
+    local pressure_detected=0
+    
+    # Reset global OOM messages variable
+    RECENT_OOM_KILLS=""
+    
+    # Get total memory in kB
+    local total_memory_kb
+    total_memory_kb=$(grep MemTotal /proc/meminfo | awk '{print $2}')
+    if [ -z "$total_memory_kb" ]; then
+        log "Failed to determine total memory"
+        return 2  # Return different code for unknown state
+    fi
+    
+    # Export total memory for caller's use (e.g., for log_crictl_stats)
+    TOTAL_MEMORY_KB="$total_memory_kb"
+    
+    # Convert to MB for easier reading
+    local total_memory_mb=$((total_memory_kb / 1024))
+    
+    # Calculate memory threshold in kB
+    local memory_available_threshold_kb=$((total_memory_kb * memory_available_threshold / 100))
+    
+    log "Total memory: $total_memory_mb MB"
+    log "Memory available threshold: $memory_available_threshold% ($((memory_available_threshold_kb / 1024)) MB)"
+    
+    # Check cgroup v2 PSI metrics if available
+    if [ -f "/sys/fs/cgroup/memory.pressure" ]; then
+        local psi_memory_some
+        psi_memory_some=$(awk '/some/ {print $3}' /sys/fs/cgroup/memory.pressure | cut -d= -f2)
+        
+        log "PSI memory some avg60: ${psi_memory_some:-not available}"
+        
+        if [ -n "$psi_memory_some" ] && [ "$(echo "$psi_memory_some > $psi_memory_some_threshold" | bc)" -eq 1 ]; then
+            log "PRESSURE: High memory pressure detected via cgroup PSI: ${psi_memory_some}% (threshold: ${psi_memory_some_threshold}%)"
+            pressure_detected=1
+        fi
+    else
+        log "sys/fs/cgroup/memory.pressure not available"
+    fi
+
+    # Check available memory
+    local memory_available_kb
+    local memory_free_kb
+    local memory_buffers_kb
+    local memory_cached_kb
+    
+    memory_available_kb=$(grep MemAvailable /proc/meminfo | awk '{print $2}')
+    memory_free_kb=$(grep MemFree /proc/meminfo | awk '{print $2}')
+    memory_buffers_kb=$(grep Buffers /proc/meminfo | awk '{print $2}')
+    memory_cached_kb=$(grep "^Cached:" /proc/meminfo | awk '{print $2}')
+    
+    # If MemAvailable is not available (older kernels), calculate it
+    if [ -z "$memory_available_kb" ]; then
+        memory_available_kb=$((memory_free_kb + memory_buffers_kb + memory_cached_kb))
+    fi
+    
+    # Calculate memory usage percentage
+    local memory_used_kb=$((total_memory_kb - memory_available_kb))
+    local memory_used_pct=$((memory_used_kb * 100 / total_memory_kb))
+    
+    log "Memory stats from /proc/meminfo:"
+    log "  Total: $((total_memory_kb / 1024)) MB"
+    log "  Available: $((memory_available_kb / 1024)) MB"
+    log "  Used: $((memory_used_kb / 1024)) MB ($memory_used_pct%)"
+    
+    if [ "$memory_available_kb" -lt "$memory_available_threshold_kb" ]; then
+        log "PRESSURE: Low available memory: $((memory_available_kb / 1024)) MB (threshold: $((memory_available_threshold_kb / 1024)) MB)"
+        pressure_detected=1
+    fi
+
+    # Check for recent OOM events
+    if command -v dmesg >/dev/null 2>&1; then        
+        log "Checking for OOM events in the last 5 minutes..."
+        
+        # Get system uptime in seconds
+        local uptime_seconds
+        uptime_seconds=$(awk '{print $1}' /proc/uptime | cut -d. -f1)
+        local dmesg_cutoff=$((uptime_seconds - 300))  # 5 minutes ago in uptime seconds
+        
+        if [ "$dmesg_cutoff" -lt 0 ]; then
+            dmesg_cutoff=0  # If system uptime is less than 5 minutes
+        fi
+        
+        log "Current uptime: $uptime_seconds seconds, cutoff time: $dmesg_cutoff seconds"
+                
+        RECENT_OOM_KILLS=$(dmesg | awk -v cutoff="$dmesg_cutoff" '
+            # Match various OOM message patterns
+            /[Oo]ut of [Mm]emory/ || /OOM/ || /oom/ {
+                # Extract timestamp (seconds) from dmesg output
+                if ($1 ~ /^\[/) {
+                    # Extract the timestamp between [ and ]
+                    ts = $1
+                    gsub(/[\[\]]/, "", ts)
+                    # Extract seconds part before the dot
+                    split(ts, parts, ".")
+                    timestamp = parts[1]
+                    # Compare with cutoff time
+                    if (timestamp >= cutoff) {
+                        print
+                    }
+                } else {
+                    # No timestamp available, include all matches as a fallback
+                    print
+                }
+            }
+        ')
+        
+        if [ -n "$RECENT_OOM_KILLS" ]; then
+            log "PRESSURE: Recent OOM kills detected in kernel log (last 5 minutes):"
+            # Not setting pressure here for now as OOMs in logs often don't correlate 
+            # with actual memory pressure at the time of the check
+            # pressure_detected=1 
+        else
+            log "No OOM kills detected in the last 5 minutes"
+        fi
+    fi
+    
+    # Return overall pressure status
+    if [ "$pressure_detected" -eq 1 ]; then
+        return 1
+    else
+        return 0
+    fi
 } 

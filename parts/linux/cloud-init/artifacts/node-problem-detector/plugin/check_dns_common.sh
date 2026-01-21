@@ -18,7 +18,7 @@ readonly UDP_PROTOCOL="udp"
 readonly TCP_PROTOCOL="tcp"
 
 readonly COMMAND_TIMEOUT_SECONDS=4
-readonly DIG_TIMEOUT_SECONDS=5
+readonly DIG_TIMEOUT_SECONDS=3
 
 readonly RETRY_COUNT=2
 readonly RETRY_DELAY=1
@@ -55,20 +55,18 @@ check_dependencies() {
     fi
 }
 
-
-
 # -----------------------------------------------------------------------------
 # Function: wait_for_kubelet_flags_file
 #
 # Waits for the kubelet flags file to be available with timeout.
 # -----------------------------------------------------------------------------
 wait_for_kubelet_flags_file() {
-    local timeout=25  # Wait max 25 seconds (less than script timeout of 30s)
+    local timeout=3  # Wait max 3 seconds
     local elapsed=0
     
     while [ ! -f "${KUBELET_DEFAULT_FLAG_FILE}" ] && [ $elapsed -lt $timeout ]; do
-        sleep 3
-        elapsed=$((elapsed + 3))
+        sleep 1
+        elapsed=$((elapsed + 1))
     done
 }
 
@@ -83,6 +81,78 @@ is_localdns_enabled() {
         return 0
     else
         return 1
+    fi
+}
+
+# -----------------------------------------------------------------------------
+# Function: get_kubelet_config_file_path
+#
+# Extracts the kubelet config file path from systemd environment.
+# Returns the config file path if KUBELET_CONFIG_FILE_FLAGS is set, empty otherwise.
+# -----------------------------------------------------------------------------
+get_kubelet_config_file_path() {
+    local env
+    local env_kubeletconfig_flag
+    local kubeletconfig_path
+
+    # Get kubelet environment with timeout to prevent hanging.
+    env=$(timeout "$COMMAND_TIMEOUT_SECONDS" systemctl show kubelet --property=Environment 2>/dev/null | sed 's/^Environment=//')
+    if [ -z "$env" ]; then
+        return
+    fi
+
+    # Extract the entire KUBELET_CONFIG_FILE_FLAGS entry.
+    env_kubeletconfig_flag=$(
+        echo "$env" \
+        | sed 's/[[:space:]]\(["A-Z_][A-Z_]*=\)/\n\1/g' \
+        | sed 's/^"\(.*\)"$/\1/' \
+        | sed -n 's/^KUBELET_CONFIG_FILE_FLAGS=\(.*\)$/\1/p'
+    )
+    if [ -z "$env_kubeletconfig_flag" ]; then
+        return
+    fi
+
+    # Extract only the path following --config
+    kubeletconfig_path=$(echo "$env_kubeletconfig_flag" | sed -n 's/.*--config[ =]\([^ ]*\).*/\1/p' | head -1)
+    if [ -n "$kubeletconfig_path" ]; then
+        echo "$kubeletconfig_path"
+    fi
+}
+
+# -----------------------------------------------------------------------------
+# Function: get_coredns_ip_from_kubelet_json_file
+#
+# Extracts CoreDNS IP from kubelet JSON configuration file.
+# Returns the clusterDNS IP if found, empty otherwise.
+# -----------------------------------------------------------------------------
+get_coredns_ip_from_kubelet_json_file() {
+    local json_file
+    local clusterdns_ip
+    
+    # Get the kubelet json file path.
+    # Typically - /etc/default/kubeletconfig.json
+    json_file=$(get_kubelet_config_file_path)
+    
+    if [ -z "$json_file" ]; then
+        return
+    fi
+    
+    # Wait for the JSON config file to be available.
+    local timeout=3  # Wait max 3 seconds
+    local elapsed=0
+    
+    while [ ! -s "$json_file" ] && [ $elapsed -lt $timeout ]; do
+        sleep 1
+        elapsed=$((elapsed + 1))
+    done
+    
+    # Extract clusterDNS IP if file exists and is readable.
+    if [ -n "$json_file" ] && [ -f "$json_file" ] && [ -r "$json_file" ]; then
+        clusterdns_ip=$(
+            tr -d '\n' < "$json_file" |
+            sed -n 's/.*"clusterDNS"[[:space:]]*:[[:space:]]*\[[[:space:]]*"\([0-9]\{1,3\}\(\.[0-9]\{1,3\}\)\{3\}\)".*/\1/p'
+            )
+        echo "$clusterdns_ip"
     fi
 }
 
@@ -112,28 +182,21 @@ check_dns_with_retry() {
         return 1
     fi
 
-    local attempt=1
-    local output
-    local dig_cmd=(dig +timeout="$DIG_TIMEOUT_SECONDS" +tries=1 +retry=0 "$domain" @"$server_ip")
+    local dig_cmd=(dig +short +timeout="$DIG_TIMEOUT_SECONDS" +tries=2 "$domain" @"$server_ip")
+    local shell_timeout=$((DIG_TIMEOUT_SECONDS * 2))
     
     # Add TCP flag if specified.
     if [ "$protocol" = "tcp" ]; then
         dig_cmd+=(+tcp)
     fi
     
-    while [ $attempt -le $RETRY_COUNT ]; do
-        if "${dig_cmd[@]}" >/dev/null 2>&1; then
-            return 0
-        fi
-        
-        if [ $attempt -eq $RETRY_COUNT ]; then
-            echo "dns test to $server:$server_ip over $protocol failed after $RETRY_COUNT attempts"
-            return 1
-        fi
-        
-        attempt=$((attempt + 1))
-        sleep $RETRY_DELAY
-    done
+    # Use shell timeout as safety net (2x dig timeout to allow for retries)
+    if timeout "$shell_timeout" "${dig_cmd[@]}" >/dev/null 2>&1; then
+        return 0
+    else
+        echo "dns test to $server:$server_ip over $protocol failed after 2 attempts"
+        return 1
+    fi
 }
 
 # -----------------------------------------------------------------------------
@@ -145,10 +208,11 @@ check_dns_with_retry() {
 # -----------------------------------------------------------------------------
 get_vnet_dns_ips() {
     if is_localdns_enabled; then
-        # Extract VNet DNS IPs from localdns Corefile.
+        # Extract VNet DNS IPs from localdns Corefile with timeout protection.
         # Look for exact root zone sections ".:53 {" with VNet DNS override binding (bind 169.254.10.10)
         # and extract all forward IPs from that specific section.
-        awk '
+        # shellcheck disable=SC2016 # awk variables like $1 must not be expanded by bash
+        timeout "$COMMAND_TIMEOUT_SECONDS" awk '
         /^\.[ ]*:[ ]*53[ ]*\{/ { 
             in_vnet_root_zone=1
             has_vnet_bind=0
@@ -177,13 +241,13 @@ get_vnet_dns_ips() {
                     print $i
                 }
             }
-        }' "$LOCALDNS_CORE_FILE" | sort -u
+        }' "$LOCALDNS_CORE_FILE" 2>/dev/null | sort -u
     else
-        # If LocalDNS is not enabled, return nameservers from systemd's resolv.conf.
+        # If LocalDNS is not enabled, return nameservers from systemd's resolv.conf with timeout protection.
         if [ -s "$SYSTEMD_RESOLV_CONF" ]; then
-            grep -Ei '^nameserver' "$SYSTEMD_RESOLV_CONF" | awk '{print $2}' | sort -u
+            timeout "$COMMAND_TIMEOUT_SECONDS" grep -Ei '^nameserver' "$SYSTEMD_RESOLV_CONF" 2>/dev/null | awk '{print $2}' | sort -u
         else
-            grep -Ei '^nameserver' /etc/resolv.conf | awk '{print $2}' | sort -u
+            timeout "$COMMAND_TIMEOUT_SECONDS" grep -Ei '^nameserver' /etc/resolv.conf 2>/dev/null | awk '{print $2}' | sort -u
         fi
     fi
 }
@@ -195,56 +259,37 @@ get_vnet_dns_ips() {
 # Returns the CoreDNS service IP or a default value.
 # -----------------------------------------------------------------------------
 get_coredns_ip() {
-    local coredns_ip
-    
-    # Try to find CoreDNS IP from iptables NAT rules using the exact pattern.
-    coredns_ip=$(iptables-save -t nat 2>/dev/null | \
-        grep -m1 -- 'kube-system/kube-dns:dns-tcp cluster IP' | \
-        sed -n 's/.*-d \([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)\/32.*/\1/p')
-    
-    # Fallback: try any kube-dns cluster IP if the specific dns-tcp pattern not found.
-    if [ -z "$coredns_ip" ]; then
-        coredns_ip=$(iptables-save -t nat 2>/dev/null | \
-            grep -- 'kube-system/kube-dns.*cluster IP' | \
-            sed -n 's/.*-d \([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)\/32.*/\1/p' | \
-            head -n1)
-    fi
+    local coredns_ip=""
 
-    # Try localdns corefile or kubelet flags if iptables method failed.
-    if [ -z "$coredns_ip" ]; then
-        if is_localdns_enabled; then
-            # Extract from localdns Corefile.
-            coredns_ip=$(
-                awk '
-                /^cluster\.local:/ { zone=1 }
-                zone && /forward \. [0-9]+\.[0-9]+\.[0-9]+\.[0-9]+/ {
-                    gsub(/^.*forward \. /, "")  # Remove everything up to "forward . "
-                    gsub(/[ {].*$/, "")         # Remove everything after the first IP (space or brace)
-                    print $0
-                    exit
-                }' "$LOCALDNS_CORE_FILE"
-            )
-        else
-            # Wait for kubelet flags file and fallback to kubelet flags if available.
-            wait_for_kubelet_flags_file
-            
-            # If file exists after waiting, extract CoreDNS IP from it.
-            if [ -f "${KUBELET_DEFAULT_FLAG_FILE}" ]; then
-                coredns_ip=$(sed -n 's/.*--cluster-dns=\([0-9]\{1,3\}\(\.[0-9]\{1,3\}\)\{3\}\).*/\1/p' "$KUBELET_DEFAULT_FLAG_FILE" | head -1)
-            fi
-            # If file doesn't exist after timeout, coredns_ip remains empty and will fallback to default.
+    if is_localdns_enabled; then
+        # Extract from localdns Corefile.
+        coredns_ip=$(
+            awk '
+            /^cluster\.local:/ { zone=1 }
+            zone && /forward \. [0-9]+\.[0-9]+\.[0-9]+\.[0-9]+/ {
+                gsub(/^.*forward \. /, "")  # Remove everything up to "forward . "
+                gsub(/[ {].*$/, "")         # Remove everything after the first IP (space or brace)
+                print $0
+                exit
+            }' "$LOCALDNS_CORE_FILE"
+        )
+    else
+        # Try kubelet flags file first (most common case).
+        wait_for_kubelet_flags_file
+        
+        if [ -f "${KUBELET_DEFAULT_FLAG_FILE}" ]; then
+            coredns_ip=$(sed -n 's/.*--cluster-dns=\([0-9]\{1,3\}\(\.[0-9]\{1,3\}\)\{3\}\).*/\1/p' "$KUBELET_DEFAULT_FLAG_FILE" | head -1)
+        fi
+
+        # Fallback to kubelet JSON config file.
+        if [ -z "$coredns_ip" ]; then
+            coredns_ip=$(get_coredns_ip_from_kubelet_json_file)
         fi
     fi
     
     # Validate IP format and return.
     if [ -n "$coredns_ip" ] && [[ "$coredns_ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
         echo "$coredns_ip"
-    else
-        echo "WARNING: Could not discover CoreDNS IP from iptables, falling back to default: 10.0.0.10" >&2
-        # Debug info for troubleshooting.
-        echo "DEBUG: Available iptables NAT rules with 'kube-system' or 'dns':" >&2
-        iptables-save -t nat 2>/dev/null | grep -E 'kube-system|dns' | head -3 >&2 || true
-        echo "10.0.0.10"
     fi
 }
 
@@ -264,12 +309,12 @@ get_localdns_state_label() {
 
     # Extract the localdns-state value from KUBELET_NODE_LABELS using the defined variable.
     local localdns_state_label
-    if ! grep -q '^KUBELET_NODE_LABELS=' "$KUBELET_DEFAULT_FLAG_FILE"; then
+    if ! timeout "$COMMAND_TIMEOUT_SECONDS" grep -q '^KUBELET_NODE_LABELS=' "$KUBELET_DEFAULT_FLAG_FILE" 2>/dev/null; then
         echo "WARNING: KUBELET_NODE_LABELS not found in kubelet flags file" >&2
         exit $OK
     fi
     
-    localdns_state_label=$(grep -E '^KUBELET_NODE_LABELS=' "$KUBELET_DEFAULT_FLAG_FILE" | \
+    localdns_state_label=$(timeout "$COMMAND_TIMEOUT_SECONDS" grep -E '^KUBELET_NODE_LABELS=' "$KUBELET_DEFAULT_FLAG_FILE" 2>/dev/null | \
         sed -n "s/.*${LOCALDNS_STATE_LABEL}=\([^,]*\).*/\1/p")
     
     if [ -z "$localdns_state_label" ]; then

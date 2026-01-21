@@ -18,12 +18,6 @@
       },
       {
         "type": "temporary",
-        "reason": "LocalDNSError",
-        "path": "/etc/node-problem-detector.d/plugin/check_dns_to_localdns.sh",
-        "timeout": "30s"
-      },
-      {
-        "type": "temporary",
         "reason": "VnetDNSUnreachable",
         "path": "/etc/node-problem-detector.d/plugin/check_dns_to_vnetdns.sh",
         "timeout": "30s"
