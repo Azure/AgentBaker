@@ -334,6 +334,20 @@ oom_score = -999
 	}
 }
 
+func TestBuildCSECmd_SetsServicePrincipalFileContent(t *testing.T) {
+	secret := "super-secret-value"
+	cmd, err := BuildCSECmd(context.TODO(), &aksnodeconfigv1.Configuration{
+		AuthConfig: &aksnodeconfigv1.AuthConfig{ServicePrincipalSecret: secret},
+	})
+	require.NoError(t, err)
+
+	vars := environToMap(cmd.Env)
+	require.Contains(t, vars, "SERVICE_PRINCIPAL_FILE_CONTENT")
+
+	// note the encoding is done in the script, so we expect the raw secret here
+	assert.Equal(t, secret, vars["SERVICE_PRINCIPAL_FILE_CONTENT"])
+}
+
 func TestAKSNodeConfigCompatibilityFromJsonToCSECommand(t *testing.T) {
 	tests := []struct {
 		name      string

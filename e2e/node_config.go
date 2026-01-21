@@ -532,7 +532,7 @@ func baseTemplateLinux(t testing.TB, location string, k8sVersion string, arch st
 				},
 				ServicePrincipalProfile: &datamodel.ServicePrincipalProfile{
 					ClientID: "msi",
-					Secret:   "**msi**",
+					Secret:   base64.StdEncoding.EncodeToString([]byte("**msi**")),
 				},
 				CertificateProfile:  &datamodel.CertificateProfile{},
 				HostedMasterProfile: &datamodel.HostedMasterProfile{},
@@ -816,7 +816,7 @@ func baseTemplateWindows(t testing.TB, location string) *datamodel.NodeBootstrap
 				},
 				ServicePrincipalProfile: &datamodel.ServicePrincipalProfile{
 					ClientID: "msi",
-					Secret:   "**msi**",
+					Secret:   base64.StdEncoding.EncodeToString([]byte("msi")),
 				},
 				FeatureFlags: &datamodel.FeatureFlags{
 					EnableWinDSR: true,
