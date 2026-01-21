@@ -12,7 +12,7 @@ jobs:
   auto-generate:
     runs-on: ubuntu-latest
     # prevent actors that aren't dependabot from triggering from forks
-    if: github.actor == 'dependabot[bot]' || github.event.pull_request.head.repo.full_name == 'Azure/AgentBaker'
+    if: github.event.pull_request.head.repo.full_name == 'Azure/AgentBaker'
     environment: test
     steps:
       - uses: azure/login@v2
