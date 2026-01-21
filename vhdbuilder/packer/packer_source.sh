@@ -406,6 +406,19 @@ copyPackerFiles() {
     cpAndMode $NOTICE_SRC $NOTICE_DEST 444
   fi
 
+  if grep -q "GB200" <<< "$FEATURE_FLAGS"; then
+    # Only applicable to Ubuntu 24.04 and ARM64
+    if [ ${UBUNTU_RELEASE} = "24.04" ] && [ ${CPU_ARCH} = "arm64" ]; then
+      MELLANOX_LIST_SRC=/home/packer/mellanox_mlnx_ofed.list
+      MELLANOX_LIST_DEST=/etc/apt/sources.list.d/mellanox_mlnx_ofed.list
+      cpAndMode $MELLANOX_LIST_SRC $MELLANOX_LIST_DEST 644
+
+      MELLANOX_ASC_SRC=/home/packer/mellanox_mlnx_ofed.pub
+      MELLANOX_ASC_DEST=/etc/apt/keyrings/mellanox_mlnx_ofed.pub
+      cpAndMode $MELLANOX_ASC_SRC $MELLANOX_ASC_DEST 644
+    fi
+  fi
+
   # Always copy the VHD cleanup script responsible for prepping the instance for first boot
   # to disk so we can run it again if needed in subsequent builds/releases (prefetch during SIG release)
   cpAndMode $VHD_CLEANUP_SCRIPT_SRC $VHD_CLEANUP_SCRIPT_DEST 644
