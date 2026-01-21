@@ -1240,12 +1240,26 @@ startNvidiaManagedExpServices() {
     mkdir -p "${NVIDIA_DEVICE_PLUGIN_OVERRIDE_DIR}"
 
     if [ "${MIG_NODE}" = "true" ]; then
-        # Configure with MIG strategy for MIG nodes
-        tee "${NVIDIA_DEVICE_PLUGIN_OVERRIDE_DIR}/10-device-plugin-config.conf" > /dev/null <<'EOF'
+        # Configure with MIG strategy for MIG nodes.
+        # MIG strategy controls how nvidia-device-plugin exposes MIG instances to Kubernetes:
+        #   - "single": All MIG devices exposed as generic nvidia.com/gpu resources
+        #   - "mixed": MIG devices exposed with specific types like nvidia.com/mig-1g.5gb
+        #
+        # We only use "mixed" when explicitly specified via NVIDIA_MIG_STRATEGY.
+        # Otherwise, we default to "single" which is the safer/simpler option.
+        # Note: NVIDIA_MIG_STRATEGY values from RP are "None", "Single", "Mixed".
+        # "None" and "Single" both result in using the "single" strategy.
+        if [ "${NVIDIA_MIG_STRATEGY}" = "Mixed" ]; then
+            MIG_STRATEGY_FLAG="--mig-strategy mixed"
+        else
+            # Default to "single" for "Single", "None", empty, or any other value
+            MIG_STRATEGY_FLAG="--mig-strategy single"
+        fi
+
+        tee "${NVIDIA_DEVICE_PLUGIN_OVERRIDE_DIR}/10-device-plugin-config.conf" > /dev/null <<EOF
 [Service]
-Environment="MIG_STRATEGY=--mig-strategy single"
 ExecStart=
-ExecStart=/usr/bin/nvidia-device-plugin $MIG_STRATEGY --pass-device-specs
+ExecStart=/usr/bin/nvidia-device-plugin ${MIG_STRATEGY_FLAG} --pass-device-specs
 EOF
     else
         # Configure with pass-device-specs for non-MIG nodes
