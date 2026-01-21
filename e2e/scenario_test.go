@@ -305,6 +305,52 @@ func Test_Ubuntu2204_Scriptless(t *testing.T) {
 	})
 }
 
+func Test_Ubuntu2204_Failure_Scriptless(t *testing.T) {
+	err := RunScenario(t, &Scenario{
+		Description: "tests that a new ubuntu 2204 node using self contained installer can be properly bootstrapped",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFileExists(ctx, s, "/opt/azure/containers/provision.complete")
+				ValidateFileExists(ctx, s, "/var/log/azure/aks/provision.json")
+			},
+			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+				// Intentionally causing a failure here
+				//config.Version = "v200"
+				config.BootstrappingConfig = nil
+				config.KubernetesCaCert = ""
+			},
+			ReturnErrorOnVMSSCreation: true,
+		},
+	})
+
+	// Expect the error to contain API server connection failure since we provided invalid config
+	require.ErrorContains(t, err, "API server connection check code: 51")
+}
+
+func Test_Ubuntu2204_Early_Failure_Scriptless(t *testing.T) {
+	err := RunScenario(t, &Scenario{
+		Description: "tests that a new ubuntu 2204 node using self contained installer can be properly bootstrapped",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFileExists(ctx, s, "/opt/azure/containers/provision.complete")
+				ValidateFileExists(ctx, s, "/var/log/azure/aks/provision.json")
+			},
+			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+				// Intentionally causing a failure here
+				config.Version = "VeryBadVersion"
+			},
+			ReturnErrorOnVMSSCreation: true,
+		},
+	})
+
+	// Expect the error to contain unsupported version
+	require.ErrorContains(t, err, "unsupported version: VeryBadVersion")
+}
+
 func Test_Ubuntu2404_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "testing that a new ubuntu 2404 node using self contained installer can be properly bootstrapped",
@@ -1907,6 +1953,248 @@ func Test_AzureLinuxV3_AppArmor(t *testing.T) {
 			Validator: func(ctx context.Context, s *Scenario) {
 				// Validate that AppArmor kernel module is loaded and service is active
 				ValidateAppArmorBasic(ctx, s)
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2204Gen2_ImagePullIdentityBinding_Enabled(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that credential provider config includes identity binding when ServiceAccountImagePullProfile is enabled",
+		Config: Config{
+			Cluster: ClusterLatestKubernetesVersion,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				// Enforce Kubernetes 1.34.0 for ServiceAccountImagePullProfile testing
+				nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.34.0"
+				// Enable ServiceAccountImagePullProfile with test values
+				nbc.ContainerService.Properties.ServiceAccountImagePullProfile = &datamodel.ServiceAccountImagePullProfile{
+					Enabled:           true,
+					DefaultClientID:   "test-client-id-12345",
+					DefaultTenantID:   "test-tenant-id-67890",
+					LocalAuthoritySNI: "test.sni.local",
+				}
+				// Set kubelet flags to enable credential provider config generation
+				nbc.KubeletConfig["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
+				nbc.KubeletConfig["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				// Verify credential provider config file exists
+				ValidateFileExists(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml")
+
+				// Verify the config contains identity binding arguments
+				ValidateFileHasContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-default-client-id=test-client-id-12345")
+				ValidateFileHasContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-default-tenant-id=test-tenant-id-67890")
+				ValidateFileHasContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-sni-name=test.sni.local")
+
+				// Verify the config contains the identity binding token attributes section
+				ValidateFileHasContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "serviceAccountTokenAudience: api://AKSIdentityBinding")
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2204Gen2_ImagePullIdentityBinding_Disabled(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that credential provider config excludes identity binding when ServiceAccountImagePullProfile is disabled",
+		Config: Config{
+			Cluster: ClusterLatestKubernetesVersion,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				// Enforce Kubernetes 1.34.0 for ServiceAccountImagePullProfile testing
+				nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.34.0"
+				// Explicitly disable ServiceAccountImagePullProfile
+				nbc.ContainerService.Properties.ServiceAccountImagePullProfile = &datamodel.ServiceAccountImagePullProfile{
+					Enabled: false,
+				}
+				// Set kubelet flags to enable credential provider config generation
+				nbc.KubeletConfig["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
+				nbc.KubeletConfig["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				// Verify credential provider config file exists
+				ValidateFileExists(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml")
+
+				// Verify the config does NOT contain identity binding arguments
+				ValidateFileExcludesContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-default-client-id")
+				ValidateFileExcludesContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-default-tenant-id")
+				ValidateFileExcludesContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-sni-name")
+				ValidateFileExcludesContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "serviceAccountTokenAudience: api://AKSIdentityBinding")
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2204Gen2_ImagePullIdentityBinding_EnabledWithoutDefaultIDs(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that credential provider config includes identity binding without default client/tenant IDs when not specified",
+		Config: Config{
+			Cluster: ClusterLatestKubernetesVersion,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				// Enforce Kubernetes 1.34.0 for ServiceAccountImagePullProfile testing
+				nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.34.0"
+				// Enable ServiceAccountImagePullProfile without default client/tenant IDs
+				nbc.ContainerService.Properties.ServiceAccountImagePullProfile = &datamodel.ServiceAccountImagePullProfile{
+					Enabled:           true,
+					DefaultClientID:   "", // Empty - should not generate --ib-default-client-id flag
+					DefaultTenantID:   "", // Empty - should not generate --ib-default-tenant-id flag
+					LocalAuthoritySNI: "test.sni.local",
+				}
+				// Set kubelet flags to enable credential provider config generation
+				nbc.KubeletConfig["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
+				nbc.KubeletConfig["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				// Verify credential provider config file exists
+				ValidateFileExists(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml")
+
+				// Verify the config contains identity binding token attributes
+				ValidateFileHasContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "serviceAccountTokenAudience: api://AKSIdentityBinding")
+				ValidateFileHasContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-sni-name=test.sni.local")
+
+				// Verify the config does NOT contain default client/tenant ID flags
+				ValidateFileExcludesContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-default-client-id")
+				ValidateFileExcludesContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-default-tenant-id")
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2204Gen2_ImagePullIdentityBinding_NetworkIsolated(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that credential provider config includes identity binding in network isolated (NI) clusters",
+		Tags: Tags{
+			Airgap:          true,
+			NonAnonymousACR: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenetAirgapNonAnon,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				// Enforce Kubernetes 1.34.0 for ServiceAccountImagePullProfile testing
+				nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.34.0"
+				nbc.OutboundType = datamodel.OutboundTypeBlock
+				// Enable ServiceAccountImagePullProfile with test values
+				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
+					PrivateEgress: &datamodel.PrivateEgress{
+						Enabled:                 true,
+						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io", config.PrivateACRNameNotAnon(config.Config.DefaultLocation)),
+					},
+				}
+				nbc.ContainerService.Properties.ServiceAccountImagePullProfile = &datamodel.ServiceAccountImagePullProfile{
+					Enabled:           true,
+					DefaultClientID:   "ni-test-client-id",
+					DefaultTenantID:   "ni-test-tenant-id",
+					LocalAuthoritySNI: "ni.test.sni.local",
+				}
+				// Set kubelet flags to enable credential provider config generation
+				nbc.KubeletConfig["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
+				nbc.KubeletConfig["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
+				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.UseManagedIdentity = true
+				nbc.AgentPoolProfile.KubernetesConfig.UseManagedIdentity = true
+				nbc.KubeletConfig["--pod-infra-container-image"] = "mcr.microsoft.com/oss/v2/kubernetes/pause:3.6"
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				// Verify credential provider config file exists
+				ValidateFileExists(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml")
+
+				// Verify the config contains identity binding arguments for NI cluster
+				ValidateFileHasContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-default-client-id=ni-test-client-id")
+				ValidateFileHasContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-default-tenant-id=ni-test-tenant-id")
+				ValidateFileHasContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-sni-name=ni.test.sni.local")
+				ValidateFileHasContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "serviceAccountTokenAudience: api://AKSIdentityBinding")
+
+				// Verify outbound check was skipped (network isolated)
+				ValidateDirectoryContent(ctx, s, "/opt/azure", []string{"outbound-check-skipped"})
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2204Gen2_ImagePullIdentityBinding_Enabled_Scriptless(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that credential provider config includes identity binding when ServiceAccountImagePullProfile is enabled in scriptless mode",
+		Config: Config{
+			Cluster: ClusterLatestKubernetesVersion,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			AKSNodeConfigMutator: func(aksConfig *aksnodeconfigv1.Configuration) {
+				// Enforce Kubernetes 1.34.0 for ServiceAccountImagePullProfile testing
+				aksConfig.KubernetesVersion = "1.34.0"
+				// Enable ServiceAccountImagePullProfile with test values
+				aksConfig.ServiceAccountImagePullProfile = &aksnodeconfigv1.ServiceAccountImagePullProfile{
+					Enabled:           true,
+					DefaultClientId:   "test-client-id-12345",
+					DefaultTenantId:   "test-tenant-id-67890",
+					LocalAuthoritySni: "test.sni.local",
+				}
+				// Set kubelet flags to enable credential provider
+				if aksConfig.KubeletConfig == nil {
+					aksConfig.KubeletConfig = &aksnodeconfigv1.KubeletConfig{}
+				}
+				if aksConfig.KubeletConfig.KubeletFlags == nil {
+					aksConfig.KubeletConfig.KubeletFlags = make(map[string]string)
+				}
+				aksConfig.KubeletConfig.KubeletFlags["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
+				aksConfig.KubeletConfig.KubeletFlags["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				// Verify aks-node-controller completed successfully
+				ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.log", "aks-node-controller finished successfully")
+
+				// Verify credential provider config file exists
+				ValidateFileExists(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml")
+
+				// Verify the config contains identity binding arguments
+				ValidateFileHasContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-default-client-id=test-client-id-12345")
+				ValidateFileHasContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-default-tenant-id=test-tenant-id-67890")
+				ValidateFileHasContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-sni-name=test.sni.local")
+
+				// Verify the config contains the identity binding token attributes section
+				ValidateFileHasContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "serviceAccountTokenAudience: api://AKSIdentityBinding")
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2204Gen2_ImagePullIdentityBinding_Disabled_Scriptless(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that credential provider config excludes identity binding when ServiceAccountImagePullProfile is disabled in scriptless mode",
+		Config: Config{
+			Cluster: ClusterLatestKubernetesVersion,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			AKSNodeConfigMutator: func(aksConfig *aksnodeconfigv1.Configuration) {
+				// Enforce Kubernetes 1.34.0 for ServiceAccountImagePullProfile testing
+				aksConfig.KubernetesVersion = "1.34.0"
+				// Disable ServiceAccountImagePullProfile
+				aksConfig.ServiceAccountImagePullProfile = &aksnodeconfigv1.ServiceAccountImagePullProfile{
+					Enabled:           false,
+					DefaultClientId:   "should-not-appear-client-id",
+					DefaultTenantId:   "should-not-appear-tenant-id",
+					LocalAuthoritySni: "should.not.appear.sni",
+				}
+				// Set kubelet config to enable credential provider
+				if aksConfig.KubeletConfig == nil {
+					aksConfig.KubeletConfig = &aksnodeconfigv1.KubeletConfig{}
+				}
+				if aksConfig.KubeletConfig.KubeletFlags == nil {
+					aksConfig.KubeletConfig.KubeletFlags = make(map[string]string)
+				}
+				aksConfig.KubeletConfig.KubeletFlags["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
+				aksConfig.KubeletConfig.KubeletFlags["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				// Verify aks-node-controller completed successfully
+				ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.log", "aks-node-controller finished successfully")
+
+				// Verify credential provider config file exists
+				ValidateFileExists(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml")
+
+				// Verify the config does NOT contain identity binding arguments
+				ValidateFileExcludesContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-default-client-id")
+				ValidateFileExcludesContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-default-tenant-id")
+				ValidateFileExcludesContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-sni-name")
+				ValidateFileExcludesContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "serviceAccountTokenAudience: api://AKSIdentityBinding")
 			},
 		},
 	})

@@ -295,7 +295,7 @@ EOF
 
     # This is to enable localdns using scriptless.
     if [ "${SHOULD_ENABLE_LOCALDNS}" = "true" ]; then
-        logs_to_events "AKS.CSE.shouldEnableLocalDns" shouldEnableLocalDns || exit $ERR_LOCALDNS_FAIL
+        logs_to_events "AKS.CSE.enableLocalDNSForScriptless" enableLocalDNSForScriptless || exit $ERR_LOCALDNS_FAIL
     fi
 
     if [ "${ID}" != "mariner" ] && [ "${ID}" != "azurelinux" ]; then
