@@ -349,6 +349,34 @@ func Test_Windows2025Gen2(t *testing.T) {
 	})
 }
 
+func Test_Windows2025Gen2_WindowsCiliumNetworking(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Windows Server 2025 Gen2 with Windows Cilium Networking (WCN) enabled",
+		Config: Config{
+			Cluster:               ClusterAzureNetwork,
+			VHD:                   config.VHDWindows2025Gen2,
+			VMConfigMutator:       EmptyVMConfigMutator,
+			WaitForSSHAfterReboot: 5 * time.Minute,
+			BootstrapConfigMutator: func(configuration *datamodel.NodeBootstrappingConfiguration) {
+				Windows2025BootstrapConfigMutator(t, configuration)
+				if configuration.AgentPoolProfile.AgentPoolWindowsProfile == nil {
+					configuration.AgentPoolProfile.AgentPoolWindowsProfile = &datamodel.AgentPoolWindowsProfile{}
+				}
+				configuration.AgentPoolProfile.AgentPoolWindowsProfile.NextGenNetworkingEnabled = to.Ptr(true)
+				configuration.AgentPoolProfile.AgentPoolWindowsProfile.NextGenNetworkingConfig = to.Ptr("")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateWindowsVersionFromWindowsSettings(ctx, s, "2025-gen2")
+				ValidateWindowsProductName(ctx, s, "Windows Server 2025 Datacenter")
+				ValidateWindowsDisplayVersion(ctx, s, "24H2")
+				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
+				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
+				ValidateWindowsCiliumIsRunning(ctx, s)
+			},
+		},
+	})
+}
+
 func Test_Windows2022_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Windows Server 2022 with Containerd 2- hyperv gen 2 using secure TLS bootstrapping bootstrap token fallback",
@@ -473,7 +501,6 @@ func Test_Windows23H2_Cilium2(t *testing.T) {
 }
 
 func Test_Windows23H2Gen2_WindowsCiliumNetworking(t *testing.T) {
-	t.Skip("skipping test for Windows Cilium Networking (WCN) on Windows 23H2 Gen2, as it needs a reboot after provisioning - and that is not working yet")
 	RunScenario(t, &Scenario{
 		Description: "Windows Server 23H2 Gen2 with Windows Cilium Networking (WCN) enabled",
 		Config: Config{
