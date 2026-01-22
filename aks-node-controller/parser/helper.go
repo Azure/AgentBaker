@@ -24,7 +24,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -804,35 +803,3 @@ func getLocalDnsMemoryLimitInMb(aksnodeconfig *aksnodeconfigv1.Configuration) st
 }
 
 // ---------------------- End of localdns related helper code ----------------------//
-
-// ---------------------- Start of Ethtool Config related helper code ----------------------//
-
-func getEthtoolContents(ethtool_config *aksnodeconfigv1.EthtoolConfig) string {
-	if ethtool_config == nil {
-		// If the ethtool config is nil, setting it to non-nil so that it can go through the defaulting logic below to get the default values.
-		ethtool_config = &aksnodeconfigv1.EthtoolConfig{}
-	}
-
-	m := make(map[string]interface{})
-
-	cpuCount := runtime.NumCPU()
-
-	// Set default based on CPU count: 2048 for >= 4 cores, 1024 for < 4 cores.
-	var defaultRx int32
-	if cpuCount >= 4 {
-		defaultRx = int32(defaultRxBufferSize) // 2048.
-	} else {
-		defaultRx = int32(defaultRxBufferSizeSmall) // 1024.
-	}
-
-	// Use user-provided value if set, otherwise use the CPU-based default.
-	if ethtool_config.GetRxBufferSize() > 0 {
-		m["rx"] = ethtool_config.GetRxBufferSize()
-	} else {
-		m["rx"] = defaultRx
-	}
-
-	return base64.StdEncoding.EncodeToString([]byte(createSortedKeyValuePairs(m, "\n")))
-}
-
-// ---------------------- End of Ethtool Config related helper code ----------------------//

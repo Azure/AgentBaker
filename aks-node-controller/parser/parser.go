@@ -179,7 +179,6 @@ func getCSEEnv(config *aksnodeconfigv1.Configuration) map[string]string {
 		"SERVICE_ACCOUNT_IMAGE_PULL_DEFAULT_CLIENT_ID":       config.GetServiceAccountImagePullProfile().GetDefaultClientId(),
 		"SERVICE_ACCOUNT_IMAGE_PULL_DEFAULT_TENANT_ID":       config.GetServiceAccountImagePullProfile().GetDefaultTenantId(),
 		"IDENTITY_BINDINGS_LOCAL_AUTHORITY_SNI":              config.GetServiceAccountImagePullProfile().GetLocalAuthoritySni(),
-		"ETHTOOL_CONTENT":                                    fmt.Sprintf("%v", getEthtoolContents(config.GetCustomLinuxOsConfig().GetEthtoolConfig())),
 	}
 
 	for i, cert := range config.CustomCaCerts {

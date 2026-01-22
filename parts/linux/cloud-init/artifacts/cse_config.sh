@@ -818,15 +818,6 @@ ensureSysctl() {
 }
 
 ensureAzureNetworkConfig() {
-    # Create the azure-network directory if it doesn't exist
-    mkdir -p /etc/azure-network
-
-    # Write the ethtool configuration file if ETHTOOL_CONTENT is provided
-    if [ -n "${ETHTOOL_CONTENT}" ]; then
-        echo "${ETHTOOL_CONTENT}" | base64 -d > /etc/azure-network/ethtool.conf
-        chmod 0644 /etc/azure-network/ethtool.conf
-    fi
-
     # Trigger udev to detect and populate network interfaces
     echo "Triggering udev for network devices..."
     udevadm trigger --subsystem-match=net --action=add
