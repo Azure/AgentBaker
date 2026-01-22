@@ -901,6 +901,9 @@ func Test_Ubuntu2204_EthtoolConfig_Default(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{
+					Enabled: false,
+				}
 				customLinuxConfig := &datamodel.CustomLinuxOSConfig{}
 				nbc.AgentPoolProfile.CustomLinuxOSConfig = customLinuxConfig
 			},

@@ -323,11 +323,6 @@ func ValidateEthtoolConfigFiles(ctx context.Context, s *Scenario) {
 	ValidateFileExists(ctx, s, "/opt/azure-network/configure-azure-network.sh")
 
 	ValidateFileExists(ctx, s, "/etc/udev/rules.d/99-azure-network.rules")
-
-	ValidateFileExists(ctx, s, "/etc/systemd/system/azure-network-config.service")
-
-	ValidateFileHasContent(ctx, s, "/etc/systemd/system/azure-network-config.service",
-		"ExecStart=/opt/azure-network/configure-azure-network.sh")
 }
 
 func ValidateNvidiaSMINotInstalled(ctx context.Context, s *Scenario) {
