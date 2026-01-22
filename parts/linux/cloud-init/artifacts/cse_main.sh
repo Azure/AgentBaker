@@ -55,6 +55,8 @@ get_ubuntu_release() {
 function basePrep {
     aptmarkWALinuxAgent hold &
 
+    logs_to_events "AKS.CSE.configureAdminUser" configureAdminUser
+
     UBUNTU_RELEASE=$(get_ubuntu_release)
     if [ "${UBUNTU_RELEASE}" = "16.04" ]; then
         sudo apt-get -y autoremove chrony
@@ -124,8 +126,6 @@ function basePrep {
     fi
 
     logs_to_events "AKS.CSE.disableSystemdResolved" disableSystemdResolved
-
-    logs_to_events "AKS.CSE.configureAdminUser" configureAdminUser
 
     export -f getInstallModeAndCleanupContainerImages
     export -f should_skip_binary_cleanup
