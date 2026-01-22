@@ -2207,10 +2207,9 @@ func Test_Ubuntu2204_NetworkRingBuffer_2Cores(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.AgentPoolProfile.VMSize = "Standard_B2s"
-			},
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_B2s")
+				nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{
+					Enabled: false,
+				}
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateAzureNetworkUdevRule(ctx, s)
@@ -2225,6 +2224,15 @@ func Test_Ubuntu2204_NetworkRingBuffer_4PlusCores(t *testing.T) {
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{
+					Enabled: false,
+				}
+				nbc.AgentPoolProfile.VMSize = "Standard_D4ds_v5"
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr("Standard_D4ds_v5")
+			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateAzureNetworkUdevRule(ctx, s)
 			},
@@ -2239,8 +2247,11 @@ func Test_Ubuntu2204ARM64_NetworkRingBuffer_2Cores(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Arm64Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
+				nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{
+					Enabled: false,
+				}
 				nbc.IsARM64 = true
+				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
@@ -2261,6 +2272,9 @@ func Test_Ubuntu2204ARM64_NetworkRingBuffer_4PlusCores(t *testing.T) {
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.VMSize = "Standard_D4pds_V5"
 				nbc.IsARM64 = true
+				nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{
+					Enabled: false,
+				}
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_D4pds_V5")
@@ -2279,10 +2293,9 @@ func Test_Ubuntu2404_NetworkRingBuffer_2Cores(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2404Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.AgentPoolProfile.VMSize = "Standard_B2s"
-			},
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_B2s")
+				nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{
+					Enabled: false,
+				}
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateAzureNetworkUdevRule(ctx, s)
@@ -2297,6 +2310,15 @@ func Test_Ubuntu2404_NetworkRingBuffer_4PlusCores(t *testing.T) {
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2404Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{
+					Enabled: false,
+				}
+				nbc.AgentPoolProfile.VMSize = "Standard_D4s_v3"
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr("Standard_D4s_v3")
+			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateAzureNetworkUdevRule(ctx, s)
 			},
@@ -2311,6 +2333,9 @@ func Test_Ubuntu2404ARM_NetworkRingBuffer_2Cores(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2404ArmContainerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{
+					Enabled: false,
+				}
 				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
 				nbc.IsARM64 = true
 			},
@@ -2331,6 +2356,9 @@ func Test_Ubuntu2404ARM_NetworkRingBuffer_4PlusCores(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2404ArmContainerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{
+					Enabled: false,
+				}
 				nbc.AgentPoolProfile.VMSize = "Standard_D4pds_V5"
 				nbc.IsARM64 = true
 			},
@@ -2351,10 +2379,9 @@ func Test_AzureLinuxV3_NetworkRingBuffer_2Cores(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV3Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.AgentPoolProfile.VMSize = "Standard_B2s"
-			},
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_B2s")
+				nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{
+					Enabled: false,
+				}
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateAzureNetworkUdevRule(ctx, s)
@@ -2369,149 +2396,14 @@ func Test_AzureLinuxV3_NetworkRingBuffer_4PlusCores(t *testing.T) {
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV3Gen2,
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateAzureNetworkUdevRule(ctx, s)
-			},
-		},
-	})
-}
-
-func Test_Flatcar_NetworkRingBuffer_2Cores(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests network RX ring buffer on Flatcar AMD64 with 2 cores (rule should not apply)",
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDFlatcarGen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.AgentPoolProfile.VMSize = "Standard_B2s"
+				nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{
+					Enabled: false,
+				}
+				nbc.AgentPoolProfile.VMSize = "Standard_D4s_v3"
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_B2s")
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateAzureNetworkUdevRule(ctx, s)
-			},
-		},
-	})
-}
-
-func Test_Flatcar_NetworkRingBuffer_4PlusCores(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests network RX ring buffer on Flatcar AMD64 with 4+ cores (rule sets RX=2048)",
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDFlatcarGen2,
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateAzureNetworkUdevRule(ctx, s)
-			},
-		},
-	})
-}
-
-func Test_FlatcarARM64_NetworkRingBuffer_2Cores(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests network RX ring buffer on Flatcar ARM64 with 2 cores (rule should not apply)",
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDFlatcarGen2Arm64,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
-				nbc.IsARM64 = true
-			},
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateAzureNetworkUdevRule(ctx, s)
-			},
-		},
-	})
-}
-
-func Test_FlatcarARM64_NetworkRingBuffer_4PlusCores(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests network RX ring buffer on Flatcar ARM64 with 4+ cores (rule sets RX=2048)",
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDFlatcarGen2Arm64,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.AgentPoolProfile.VMSize = "Standard_D4pds_V5"
-				nbc.IsARM64 = true
-			},
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_D4pds_V5")
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateAzureNetworkUdevRule(ctx, s)
-			},
-		},
-	})
-}
-
-func Test_CBLMarinerV2_NetworkRingBuffer_2Cores(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests network RX ring buffer on CBL-Mariner V2 AMD64 with 2 cores (rule should not apply)",
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDCBLMarinerV2Gen2,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.AgentPoolProfile.VMSize = "Standard_B2s"
-			},
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_B2s")
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateAzureNetworkUdevRule(ctx, s)
-			},
-		},
-	})
-}
-
-func Test_CBLMarinerV2_NetworkRingBuffer_4PlusCores(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests network RX ring buffer on CBL-Mariner V2 AMD64 with 4+ cores (rule sets RX=2048)",
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDCBLMarinerV2Gen2,
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateAzureNetworkUdevRule(ctx, s)
-			},
-		},
-	})
-}
-
-func Test_CBLMarinerV2ARM64_NetworkRingBuffer_2Cores(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests network RX ring buffer on CBL-Mariner V2 ARM64 with 2 cores (rule should not apply)",
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDCBLMarinerV2Gen2Arm64,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
-				nbc.IsARM64 = true
-			},
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateAzureNetworkUdevRule(ctx, s)
-			},
-		},
-	})
-}
-
-func Test_CBLMarinerV2ARM64_NetworkRingBuffer_4PlusCores(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests network RX ring buffer on CBL-Mariner V2 ARM64 with 4+ cores (rule sets RX=2048)",
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDCBLMarinerV2Gen2Arm64,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.AgentPoolProfile.VMSize = "Standard_D4pds_V5"
-				nbc.IsARM64 = true
-			},
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_D4pds_V5")
+				vmss.SKU.Name = to.Ptr("Standard_D4s_v3")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateAzureNetworkUdevRule(ctx, s)

@@ -30,7 +30,7 @@ if [ "$NPROC" -ge 4 ]; then
     current=$(/usr/sbin/ethtool -g "$INTERFACE" 2>/dev/null | grep -A5 "Current hardware settings:" | grep "RX:" | awk '{print $2}')
 
     if [ -z "$current" ]; then
-        log "Could not retrieve RX buffer size for $INTERFACE (ethtool may not support -g)"
+        log "Failed to get RX ring buffer size for $INTERFACE"
         exit 0
     fi
 
