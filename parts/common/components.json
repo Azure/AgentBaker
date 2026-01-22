@@ -773,14 +773,14 @@
       "downloadURL": "mcr.microsoft.com/aks/aks-gpu-cuda:*",
       "gpuVersion": {
         "renovateTag": "registry=https://mcr.microsoft.com, name=aks/aks-gpu-cuda",
-          "latestVersion": "580.95.05-20260108182831"
+        "latestVersion": "580.95.05-20260108182831"
       }
     },
     {
       "downloadURL": "mcr.microsoft.com/aks/aks-gpu-grid:*",
       "gpuVersion": {
         "renovateTag": "registry=https://mcr.microsoft.com, name=aks/aks-gpu-grid",
-          "latestVersion": "550.144.06-20260108183226"
+        "latestVersion": "550.144.06-20260108183226"
       }
     }
   ],
@@ -1772,6 +1772,11 @@
           "renovateTag": "<DO_NOT_UPDATE>",
           "latestVersion": "1.3.0",
           "windowsSkuMatch": "23H2*"
+        },
+        {
+          "renovateTag": "<DO_NOT_UPDATE>",
+          "latestVersion": "1.3.0",
+          "windowsSkuMatch": "2025*"
         }
       ]
     }
