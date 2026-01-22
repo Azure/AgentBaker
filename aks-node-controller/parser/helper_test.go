@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"reflect"
 	"regexp"
-	"runtime"
 	"strings"
 	"testing"
 
@@ -207,15 +206,6 @@ func Test_getEthtoolContents(t *testing.T) {
 		return base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("rx=%d", value)))
 	}
 
-	// Determine default based on current system's CPU count.
-	cpuCount := runtime.NumCPU()
-	var expectedDefault int32
-	if cpuCount >= 4 {
-		expectedDefault = int32(defaultRxBufferSize)
-	} else {
-		expectedDefault = int32(defaultRxBufferSizeSmall)
-	}
-
 	type args struct {
 		e *aksnodeconfigv1.EthtoolConfig
 	}
@@ -225,39 +215,39 @@ func Test_getEthtoolContents(t *testing.T) {
 		want string
 	}{
 		{
-			name: "Nil EthtoolConfig - uses CPU-based default",
+			name: "Nil EthtoolConfig - returns empty string",
 			args: args{
 				e: nil,
 			},
-			want: encodeRxValue(expectedDefault),
+			want: "",
 		},
 		{
-			name: "Empty EthtoolConfig - uses CPU-based default",
+			name: "Empty EthtoolConfig - returns empty string",
 			args: args{
 				e: &aksnodeconfigv1.EthtoolConfig{},
 			},
-			want: encodeRxValue(expectedDefault),
+			want: "",
 		},
 		{
-			name: "Zero RxBufferSize pointer - uses CPU-based default",
+			name: "Zero RxBufferSize pointer - returns empty string",
 			args: args{
 				e: &aksnodeconfigv1.EthtoolConfig{
 					RxBufferSize: to.Ptr(int32(0)),
 				},
 			},
-			want: encodeRxValue(expectedDefault),
+			want: "",
 		},
 		{
-			name: "Negative RxBufferSize - uses CPU-based default",
+			name: "Negative RxBufferSize - returns empty string",
 			args: args{
 				e: &aksnodeconfigv1.EthtoolConfig{
 					RxBufferSize: to.Ptr(int32(-1)),
 				},
 			},
-			want: encodeRxValue(expectedDefault),
+			want: "",
 		},
 		{
-			name: "Minimum positive value - overrides default",
+			name: "Minimum positive value",
 			args: args{
 				e: &aksnodeconfigv1.EthtoolConfig{
 					RxBufferSize: to.Ptr(int32(1)),
@@ -266,7 +256,7 @@ func Test_getEthtoolContents(t *testing.T) {
 			want: encodeRxValue(1),
 		},
 		{
-			name: "Very small custom value - overrides default",
+			name: "Very small custom value",
 			args: args{
 				e: &aksnodeconfigv1.EthtoolConfig{
 					RxBufferSize: to.Ptr(int32(256)),
@@ -275,7 +265,7 @@ func Test_getEthtoolContents(t *testing.T) {
 			want: encodeRxValue(256),
 		},
 		{
-			name: "Custom RxBufferSize 512 - overrides default",
+			name: "Custom RxBufferSize 512",
 			args: args{
 				e: &aksnodeconfigv1.EthtoolConfig{
 					RxBufferSize: to.Ptr(int32(512)),
@@ -284,7 +274,7 @@ func Test_getEthtoolContents(t *testing.T) {
 			want: encodeRxValue(512),
 		},
 		{
-			name: "Custom RxBufferSize 1024 - overrides default",
+			name: "Custom RxBufferSize 1024",
 			args: args{
 				e: &aksnodeconfigv1.EthtoolConfig{
 					RxBufferSize: to.Ptr(int32(1024)),
@@ -293,7 +283,7 @@ func Test_getEthtoolContents(t *testing.T) {
 			want: encodeRxValue(1024),
 		},
 		{
-			name: "Custom RxBufferSize 2048 - overrides default",
+			name: "Custom RxBufferSize 2048",
 			args: args{
 				e: &aksnodeconfigv1.EthtoolConfig{
 					RxBufferSize: to.Ptr(int32(2048)),
@@ -302,7 +292,7 @@ func Test_getEthtoolContents(t *testing.T) {
 			want: encodeRxValue(2048),
 		},
 		{
-			name: "Custom RxBufferSize 4096 - overrides default",
+			name: "Custom RxBufferSize 4096",
 			args: args{
 				e: &aksnodeconfigv1.EthtoolConfig{
 					RxBufferSize: to.Ptr(int32(4096)),
@@ -311,7 +301,7 @@ func Test_getEthtoolContents(t *testing.T) {
 			want: encodeRxValue(4096),
 		},
 		{
-			name: "Very large custom value - overrides default",
+			name: "Very large custom value",
 			args: args{
 				e: &aksnodeconfigv1.EthtoolConfig{
 					RxBufferSize: to.Ptr(int32(8192)),
@@ -320,10 +310,6 @@ func Test_getEthtoolContents(t *testing.T) {
 			want: encodeRxValue(8192),
 		},
 	}
-
-	t.Logf("Running tests with CPU count: %d, expected default rx buffer size: %d", cpuCount, expectedDefault)
-	t.Logf("CPU threshold logic: >= 4 cores → %d, < 4 cores → %d", defaultRxBufferSize, defaultRxBufferSizeSmall)
-	t.Logf("Value override logic: > 0 → custom, <= 0 → CPU default")
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

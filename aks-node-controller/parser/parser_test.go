@@ -214,13 +214,13 @@ oom_score = -999
 			},
 		},
 		{
-			name:       "AKSUbuntu2204 with default ethtool config (CPU-based)",
+			name:       "AKSUbuntu2204 with default ethtool config (no defaults set)",
 			folder:     "AKSUbuntu2204+DefaultEthtoolConfig",
 			k8sVersion: "1.24.2",
 			aksNodeConfigUpdator: func(aksNodeConfig *aksnodeconfigv1.Configuration) {
 				aksNodeConfig.CustomLinuxOsConfig = &aksnodeconfigv1.CustomLinuxOsConfig{
 					EthtoolConfig: &aksnodeconfigv1.EthtoolConfig{
-						// No RxBufferSize set, should use CPU-based default.
+						// No RxBufferSize set, should return empty string.
 					},
 				}
 			},
@@ -228,21 +228,18 @@ oom_score = -999
 				vars := environToMap(cmd.Env)
 				ethtoolContent, err := getBase64DecodedValue([]byte(vars["ETHTOOL_CONTENT"]))
 				require.NoError(t, err)
-				// Should be CPU-based default (2048 for >=4 cores, 1024 for <4 cores).
-				// Since test environment likely has >=4 cores, expect 2048.
-				assert.Contains(t, ethtoolContent, "rx=")
-				assert.True(t, ethtoolContent == "rx=1024" || ethtoolContent == "rx=2048",
-					"Expected CPU-based default (rx=1024 or rx=2048), got: %s", ethtoolContent)
+				// Should return empty string when no value is set.
+				assert.Equal(t, "", ethtoolContent)
 			},
 		},
 		{
-			name:       "AKSUbuntu2204 with zero ethtool buffer (uses CPU default)",
+			name:       "AKSUbuntu2204 with zero ethtool buffer (returns empty)",
 			folder:     "AKSUbuntu2204+ZeroEthtoolConfig",
 			k8sVersion: "1.24.2",
 			aksNodeConfigUpdator: func(aksNodeConfig *aksnodeconfigv1.Configuration) {
 				aksNodeConfig.CustomLinuxOsConfig = &aksnodeconfigv1.CustomLinuxOsConfig{
 					EthtoolConfig: &aksnodeconfigv1.EthtoolConfig{
-						RxBufferSize: to.Ptr(int32(0)), // Zero should use CPU default.
+						RxBufferSize: to.Ptr(int32(0)), // Zero should return empty string.
 					},
 				}
 			},
@@ -250,9 +247,8 @@ oom_score = -999
 				vars := environToMap(cmd.Env)
 				ethtoolContent, err := getBase64DecodedValue([]byte(vars["ETHTOOL_CONTENT"]))
 				require.NoError(t, err)
-				// Zero value should trigger CPU-based default.
-				assert.True(t, ethtoolContent == "rx=1024" || ethtoolContent == "rx=2048",
-					"Expected CPU-based default for zero value (rx=1024 or rx=2048), got: %s", ethtoolContent)
+				// Zero value should return empty string.
+				assert.Equal(t, "", ethtoolContent)
 			},
 		},
 	}
@@ -449,9 +445,8 @@ func TestAKSNodeConfigCompatibilityFromJsonToCSECommand(t *testing.T) {
 				assert.Equal(t, "", vars["CUSTOM_SECURE_TLS_BOOTSTRAPPING_CLIENT_URL"])
 				ethtoolContent, err := getBase64DecodedValue([]byte(vars["ETHTOOL_CONTENT"]))
 				require.NoError(t, err)
-				assert.Contains(t, ethtoolContent, "rx=")
-				assert.True(t, ethtoolContent == "rx=1024" || ethtoolContent == "rx=2048",
-					"Expected CPU-based default ethtool config (rx=1024 or rx=2048), got: %s", ethtoolContent)
+				// With empty config, no default should be set, so ethtool content should be empty.
+				assert.Equal(t, "", ethtoolContent)
 			},
 		},
 	}
