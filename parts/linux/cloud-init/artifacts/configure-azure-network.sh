@@ -25,6 +25,15 @@ else
     DEFAULT_RX_BUFFER_SIZE=1024
 fi
 
+# Get current RX buffer size
+CURRENT_RX=$(ethtool -g "$INTERFACE" 2>/dev/null | grep -A4 "Current hardware settings" | grep "^RX:" | awk '{print $2}')
+
+# Only proceed if current RX is 1024
+if [ "$CURRENT_RX" != "1024" ]; then
+    echo "Current RX buffer size is $CURRENT_RX (not 1024), skipping configuration for $INTERFACE"
+    exit 0
+fi
+
 # Use default unless overridden by config file
 RX_SIZE=$DEFAULT_RX_BUFFER_SIZE
 ETHTOOL_CONFIG_FILE="/etc/azure-network/ethtool.conf"
@@ -37,5 +46,5 @@ if [ -f "$ETHTOOL_CONFIG_FILE" ]; then
     fi
 fi
 
-echo "Detected $NUM_CPUS CPUs, configuring $INTERFACE with rx=$RX_SIZE"
+echo "Detected $NUM_CPUS CPUs, current RX is 1024, configuring $INTERFACE with rx=$RX_SIZE"
 ethtool -G "$INTERFACE" rx "$RX_SIZE" || echo "Failed to set ring parameters for $INTERFACE"
