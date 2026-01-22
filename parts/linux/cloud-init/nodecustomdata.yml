@@ -326,13 +326,6 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "azureNetworkUdevRule"}}
 
-- path: /etc/systemd/system/azure-network-config.service
-  permissions: "0644"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "azureNetworkService"}}
-
 - path: /etc/kubernetes/certs/ca.crt
   permissions: "0600"
   encoding: base64

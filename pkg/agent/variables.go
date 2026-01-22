@@ -56,7 +56,6 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 			"measureTLSBootstrappingLatencyService": getBase64EncodedGzippedCustomScript(measureTLSBootstrappingLatencyService, config),
 			"configureAzureNetworkScript":           getBase64EncodedGzippedCustomScript(configureAzureNetworkScript, config),
 			"azureNetworkUdevRule":                  getBase64EncodedGzippedCustomScript(azureNetworkUdevRule, config),
-			"azureNetworkService":                   getBase64EncodedGzippedCustomScript(azureNetworkService, config),
 		},
 	}
 
