@@ -216,9 +216,7 @@
           "latestVersion": "v1.5.50",
           "containerImagePrefetch": {
             "latestVersion": {
-              "binaries": [
-                "/dropgz"
-              ]
+              "binaries": ["/dropgz"]
             }
           }
         },
@@ -227,9 +225,7 @@
           "latestVersion": "v1.6.35-0",
           "containerImagePrefetch": {
             "latestVersion": {
-              "binaries": [
-                "/dropgz"
-              ]
+              "binaries": ["/dropgz"]
             }
           }
         },
@@ -238,9 +234,7 @@
           "latestVersion": "v1.7.9-0",
           "containerImagePrefetch": {
             "latestVersion": {
-              "binaries": [
-                "/dropgz"
-              ]
+              "binaries": ["/dropgz"]
             }
           }
         }
@@ -269,9 +263,7 @@
           "latestVersion": "v1.5.50",
           "containerImagePrefetch": {
             "latestVersion": {
-              "binaries": [
-                "/usr/local/bin/azure-cns"
-              ]
+              "binaries": ["/usr/local/bin/azure-cns"]
             }
           }
         },
@@ -280,9 +272,7 @@
           "latestVersion": "v1.6.35-0",
           "containerImagePrefetch": {
             "latestVersion": {
-              "binaries": [
-                "/usr/local/bin/azure-cns"
-              ]
+              "binaries": ["/usr/local/bin/azure-cns"]
             }
           }
         },
@@ -291,9 +281,7 @@
           "latestVersion": "v1.7.9-0",
           "containerImagePrefetch": {
             "latestVersion": {
-              "binaries": [
-                "/usr/local/bin/azure-cns"
-              ]
+              "binaries": ["/usr/local/bin/azure-cns"]
             }
           }
         }
@@ -309,9 +297,7 @@
           "latestVersion": "v0.2.1",
           "containerImagePrefetch": {
             "latestVersion": {
-              "binaries": [
-                "/dropgz"
-              ]
+              "binaries": ["/dropgz"]
             }
           }
         }
@@ -2043,6 +2029,11 @@
           "renovateTag": "<DO_NOT_UPDATE>",
           "latestVersion": "1.3.0",
           "windowsSkuMatch": "23H2*"
+        },
+        {
+          "renovateTag": "<DO_NOT_UPDATE>",
+          "latestVersion": "1.3.0",
+          "windowsSkuMatch": "2025*"
         }
       ]
     }
