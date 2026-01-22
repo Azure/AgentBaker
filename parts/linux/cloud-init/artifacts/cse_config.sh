@@ -835,7 +835,7 @@ ensureAzureNetworkConfig() {
     udevadm control --reload-rules
 
     # Give udev time to process and trigger the systemd service
-    sleep 2
+    udevadm settle --timeout=10
 }
 
 ensureK8sControlPlane() {
