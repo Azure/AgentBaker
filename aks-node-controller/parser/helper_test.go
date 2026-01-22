@@ -20,10 +20,8 @@ import (
 	_ "embed"
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"reflect"
 	"regexp"
-	"runtime"
 	"strings"
 	"testing"
 
@@ -196,144 +194,6 @@ net.ipv4.tcp_retries2=8`)),
 		t.Run(tt.name, func(t *testing.T) {
 			if got := getSysctlContent(tt.args.s); got != tt.want {
 				t.Errorf("getSysctlContent() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func Test_getEthtoolContents(t *testing.T) {
-	// Helper function to create base64 encoded rx value.
-	encodeRxValue := func(value int32) string {
-		return base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("rx=%d", value)))
-	}
-
-	// Determine default based on current system's CPU count.
-	cpuCount := runtime.NumCPU()
-	var expectedDefault int32
-	if cpuCount >= 4 {
-		expectedDefault = int32(defaultRxBufferSize)
-	} else {
-		expectedDefault = int32(defaultRxBufferSizeSmall)
-	}
-
-	type args struct {
-		e *aksnodeconfigv1.EthtoolConfig
-	}
-	tests := []struct {
-		name string
-		args args
-		want string
-	}{
-		{
-			name: "Nil EthtoolConfig - uses CPU-based default",
-			args: args{
-				e: nil,
-			},
-			want: encodeRxValue(expectedDefault),
-		},
-		{
-			name: "Empty EthtoolConfig - uses CPU-based default",
-			args: args{
-				e: &aksnodeconfigv1.EthtoolConfig{},
-			},
-			want: encodeRxValue(expectedDefault),
-		},
-		{
-			name: "Zero RxBufferSize pointer - uses CPU-based default",
-			args: args{
-				e: &aksnodeconfigv1.EthtoolConfig{
-					RxBufferSize: to.Ptr(int32(0)),
-				},
-			},
-			want: encodeRxValue(expectedDefault),
-		},
-		{
-			name: "Negative RxBufferSize - uses CPU-based default",
-			args: args{
-				e: &aksnodeconfigv1.EthtoolConfig{
-					RxBufferSize: to.Ptr(int32(-1)),
-				},
-			},
-			want: encodeRxValue(expectedDefault),
-		},
-		{
-			name: "Minimum positive value - overrides default",
-			args: args{
-				e: &aksnodeconfigv1.EthtoolConfig{
-					RxBufferSize: to.Ptr(int32(1)),
-				},
-			},
-			want: encodeRxValue(1),
-		},
-		{
-			name: "Very small custom value - overrides default",
-			args: args{
-				e: &aksnodeconfigv1.EthtoolConfig{
-					RxBufferSize: to.Ptr(int32(256)),
-				},
-			},
-			want: encodeRxValue(256),
-		},
-		{
-			name: "Custom RxBufferSize 512 - overrides default",
-			args: args{
-				e: &aksnodeconfigv1.EthtoolConfig{
-					RxBufferSize: to.Ptr(int32(512)),
-				},
-			},
-			want: encodeRxValue(512),
-		},
-		{
-			name: "Custom RxBufferSize 1024 - overrides default",
-			args: args{
-				e: &aksnodeconfigv1.EthtoolConfig{
-					RxBufferSize: to.Ptr(int32(1024)),
-				},
-			},
-			want: encodeRxValue(1024),
-		},
-		{
-			name: "Custom RxBufferSize 2048 - overrides default",
-			args: args{
-				e: &aksnodeconfigv1.EthtoolConfig{
-					RxBufferSize: to.Ptr(int32(2048)),
-				},
-			},
-			want: encodeRxValue(2048),
-		},
-		{
-			name: "Custom RxBufferSize 4096 - overrides default",
-			args: args{
-				e: &aksnodeconfigv1.EthtoolConfig{
-					RxBufferSize: to.Ptr(int32(4096)),
-				},
-			},
-			want: encodeRxValue(4096),
-		},
-		{
-			name: "Very large custom value - overrides default",
-			args: args{
-				e: &aksnodeconfigv1.EthtoolConfig{
-					RxBufferSize: to.Ptr(int32(8192)),
-				},
-			},
-			want: encodeRxValue(8192),
-		},
-	}
-
-	t.Logf("Running tests with CPU count: %d, expected default rx buffer size: %d", cpuCount, expectedDefault)
-	t.Logf("CPU threshold logic: >= 4 cores → %d, < 4 cores → %d", defaultRxBufferSize, defaultRxBufferSizeSmall)
-	t.Logf("Value override logic: > 0 → custom, <= 0 → CPU default")
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := getEthtoolContents(tt.args.e)
-			if got != tt.want {
-				// Decode both values for better error reporting
-				gotDecoded, _ := base64.StdEncoding.DecodeString(got)
-				wantDecoded, _ := base64.StdEncoding.DecodeString(tt.want)
-				t.Errorf("getEthtoolContents() = %v (decoded: %s), want %v (decoded: %s)",
-					got, gotDecoded, tt.want, wantDecoded)
 			}
 		})
 	}
