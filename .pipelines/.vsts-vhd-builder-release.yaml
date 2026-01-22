@@ -5,6 +5,10 @@ pool:
   name: $(POOL_NAME)
 
 parameters:
+  - name: skipAllBuilds
+    displayName: Skip all VHD builds (use existing images for E2E only)
+    type: boolean
+    default: false
   - name: useOverrides
     displayName: Use component overrides
     type: boolean
@@ -204,6 +208,7 @@ variables:
 
 stages:
   - stage: build
+    condition: eq('${{ parameters.skipAllBuilds }}', false)
     jobs:
       - job: buildMarinerV2gen1
         condition: eq('${{ parameters.buildMarinerV2gen1 }}', true)
@@ -1306,9 +1311,12 @@ stages:
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2404-arm64-gb200-gen2-containerd
   - stage: e2e
-    condition: and(succeeded(), ne(variables.SKIP_E2E_TESTS, 'true'))
+    condition: and(or(eq('${{ parameters.skipAllBuilds }}', true), succeeded()), ne(variables.SKIP_E2E_TESTS, 'true'))
     variables:
-      VHD_BUILD_ID: $(Build.BuildId)
+      ${{ if eq(parameters.skipAllBuilds, true) }}:
+        VHD_BUILD_ID: '150265971'  # Use existing build with AzureLinuxV3gen2-1.1769109180.27413
+      ${{ else }}:
+        VHD_BUILD_ID: $(Build.BuildId)
       TAGS_TO_SKIP: "os=windows"
     jobs:
       - template: ./templates/e2e-template.yaml
