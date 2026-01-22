@@ -1,4 +1,4 @@
 # AKS Network Tuning udev rule
 # This rule configures network interface RX ring buffer settings
 # Applies to network interfaces with names matching enP* pattern
-SUBSYSTEM=="net", ACTION=="add|change", ENV{ID_NET_NAME_SLOT}=="enP*", RUN+="/bin/bash -c 'echo %k > /etc/azure-network/nics-to-configure && /opt/azure-network/configure-azure-network.sh'"
+SUBSYSTEM=="net", ACTION=="add|change", ENV{ID_NET_NAME_SLOT}=="enP*", RUN+="/opt/azure-network/configure-azure-network.sh %k"

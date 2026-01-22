@@ -11,6 +11,7 @@ import (
 	"net"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -270,26 +271,48 @@ func ValidateEthtoolConfig(ctx context.Context, s *Scenario, EthtoolConfig map[s
 	configResult := execScriptOnVMForScenario(ctx, s, strings.Join(configFileCommand, "\n"))
 	s.T.Logf("Ethtool config file contents:\n%s", configResult.stdout)
 
-	// Log the NICs to configure
+	// Get list of NICs using udevadm (same logic as udev rule)
 	getNicsCommand := []string{
-		"set -ex",
+		"#!/usr/bin/env bash",
+		"set -euo pipefail",
 		"echo '=== NICs to Configure ==='",
-		"cat /etc/azure-network/nics-to-configure",
+		"enp_ifaces=()",
+		"for dev in /sys/class/net/*; do",
+		"  iface=\"$(basename \"$dev\")\"",
+		"  slot=\"$(udevadm info -q property -p \"$dev\" 2>/dev/null | awk -F= '$1==\"ID_NET_NAME_SLOT\"{print $2; exit}')\"",
+		"  [[ \"$slot\" == enP* ]] && enp_ifaces+=(\"$iface\")",
+		"done",
+		"IFS=,; echo \"${enp_ifaces[*]}\"",
 	}
 	nicsResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(getNicsCommand, "\n"), 0, "could not get nics to configure")
 	s.T.Logf("NICs to configure:\n%s", nicsResult.stdout)
 
-	nics := strings.Split(strings.TrimSpace(nicsResult.stdout), "\n")
+	// Parse NIC output - it may be multi-line with header
+	lines := strings.Split(strings.TrimSpace(nicsResult.stdout), "\n")
+	nicsOutput := ""
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		// Skip header lines
+		if strings.Contains(line, "===") || line == "" {
+			continue
+		}
+		nicsOutput = line
+		break
+	}
 
-	if len(nics) == 0 {
+	nics := strings.Split(nicsOutput, ",")
+
+	s.T.Logf("Parsed NICs list: %v (count: %d)", nics, len(nics))
+
+	if len(nics) == 0 || (len(nics) == 1 && strings.TrimSpace(nics[0]) == "") {
 		s.T.Fatalf("no nics found to validate ethtool config")
 		return
 	}
 
 	for _, nic := range nics {
-		// Skip empty lines
+		// Skip empty entries
 		nic = strings.TrimSpace(nic)
-		if nic == "" || strings.Contains(nic, "===") {
+		if nic == "" {
 			continue
 		}
 
@@ -321,7 +344,6 @@ func ValidateEthtoolConfigFiles(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 
 	ValidateFileExists(ctx, s, "/opt/azure-network/configure-azure-network.sh")
-
 	ValidateFileExists(ctx, s, "/etc/udev/rules.d/99-azure-network.rules")
 }
 
@@ -1693,4 +1715,36 @@ func ValidateNodeHasLabel(ctx context.Context, s *Scenario, labelKey, expectedVa
 	actualValue, exists := node.Labels[labelKey]
 	require.True(s.T, exists, "expected node %q to have label %q, but it was not found", s.Runtime.VM.KubeName, labelKey)
 	require.Equal(s.T, expectedValue, actualValue, "expected node %q label %q to have value %q, but got %q", s.Runtime.VM.KubeName, labelKey, expectedValue, actualValue)
+}
+
+// ValidateEthtoolConfigDefault validates ethtool config using default values based on VM's CPU count
+func ValidateEthtoolConfigDefault(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	// Query the VM's actual CPU count using nproc
+	cpuCountCmd := "nproc"
+	result := execScriptOnVMForScenarioValidateExitCode(ctx, s, cpuCountCmd, 0, "could not get CPU count from VM")
+	vmCPUCount := strings.TrimSpace(result.stdout)
+
+	// Parse CPU count
+	cpuCount, err := strconv.Atoi(vmCPUCount)
+	require.NoError(s.T, err, "failed to parse CPU count: %s", vmCPUCount)
+
+	// Determine expected rx based on VM's CPU count (matching configure-azure-network.sh logic)
+	expectedRx := "1024"
+	if cpuCount >= 4 {
+		expectedRx = "2048"
+	}
+
+	s.T.Logf("VM has %d CPUs, expecting rx buffer size: %s", cpuCount, expectedRx)
+
+	customEthtool := map[string]string{
+		"rx": expectedRx,
+	}
+
+	// Validate files exist
+	ValidateEthtoolConfigFiles(ctx, s)
+
+	// Validate ethtool settings match expected default
+	ValidateEthtoolConfig(ctx, s, customEthtool)
 }
