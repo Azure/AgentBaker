@@ -5,7 +5,21 @@ stub() {
 }
 
 installDeps() {
-    stub
+    # We must configure containerd before running Docker commands.
+    installStandaloneContainerd ""
+
+    local ARCH; ARCH="$(uname -m)"
+    local BLOB_CSI_IMAGE="mcr.microsoft.com/oss/v2/kubernetes-csi/blob-csi:v1.27.1"
+
+    docker run --rm \
+        -v /var/bin:/host/var/bin  \
+        --env DISTRIBUTION=flatcar \
+        --env ARCH="${ARCH}" \
+        --env INSTALL_BLOBFUSE2=true  \
+        --env INSTALL_BLOBFUSE_PROXY=false  \
+        --entrypoint /blobfuse-proxy/install-proxy-rhcos.sh \
+        "${BLOB_CSI_IMAGE}"
+    docker image rm "${BLOB_CSI_IMAGE}"
 }
 
 installCriCtlPackage() {
