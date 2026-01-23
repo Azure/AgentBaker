@@ -1276,7 +1276,7 @@ func UseOpenGPUDriver(size string) bool {
 	return !strings.Contains(lower, "t4_v3") &&
 		!strings.Contains(lower, "nd40rs_v2") &&
 		!strings.Contains(lower, "nd40s_v3") &&
-		!(strings.HasPrefix(lower, "standard_nc") && strings.Contains(lower, "s_v3"))
+		(!strings.HasPrefix(lower, "standard_nc") || !strings.Contains(lower, "s_v3"))
 }
 
 func GPUNeedsFabricManager(size string) bool {
