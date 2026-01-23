@@ -1,12 +1,12 @@
 #!/bin/bash
 COMPONENTS_FILEPATH=/opt/azure/components.json
-MANIFEST_FILEPATH=/opt/azure/manifest.json
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
 AZURELINUX_OS_NAME="AZURELINUX"
 MARINER_KATA_OS_NAME="MARINERKATA"
 AZURELINUX_KATA_OS_NAME="AZURELINUXKATA"
+FLATCAR_OS_NAME="FLATCAR"
 
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
 
@@ -184,6 +184,24 @@ testPackagesInstalled() {
   fi
   CPU_ARCH="amd64"
   echo "$test:Start"
+
+  # shellcheck disable=SC3010
+  if [[ $OS_SKU = CBLMariner || ( $OS_SKU = AzureLinux && $OS_VERSION = 2.0 ) ]]; then
+    OS=${MARINER_OS_NAME}
+    # If the feature flag kata is enabled, we set $MARINER_KATA_OS_NAME as the OS name and it will get the version from that OS from components.json
+    # We have similar logic in install-dependencies.sh
+    if grep -q "kata" <<< "$FEATURE_FLAGS"; then
+      OS=${MARINER_KATA_OS_NAME}
+    fi
+  elif [[ $OS_SKU = AzureLinux* ]]; then
+    OS=${AZURELINUX_OS_NAME}
+    if grep -q "kata" <<< "$FEATURE_FLAGS"; then
+      OS=${AZURELINUX_KATA_OS_NAME}
+    fi
+  else
+    OS=${OS_SKU^^}
+  fi
+
   packages=$(jq ".Packages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
 
   while IFS= read -r p; do
@@ -191,21 +209,6 @@ testPackagesInstalled() {
     downloadLocation=$(echo "${p}" | jq .downloadLocation -r)
     if [ "$downloadLocation" = "" ]; then
       continue
-    fi
-    if [ "$OS_SKU" = "CBLMariner" ] || { [ "$OS_SKU" = "AzureLinux" ] && [ "$OS_VERSION" = "2.0" ]; }; then
-      OS=$MARINER_OS_NAME
-      # If the feature flag kata is enabled, we set $MARINER_KATA_OS_NAME as the OS name and it will get the version from that OS from components.json
-      # We have similar logic in install-dependencies.sh
-      if (echo "$FEATURE_FLAGS" | grep -q "kata"); then
-        OS=${MARINER_KATA_OS_NAME}
-      fi
-    elif [ "$OS_SKU" = "AzureLinux" ] && [ "$OS_VERSION" = "3.0" ]; then
-      OS=$AZURELINUX_OS_NAME
-      if (echo "$FEATURE_FLAGS" | grep -q "kata"); then
-        OS=${AZURELINUX_KATA_OS_NAME}
-      fi
-    else
-      OS=$UBUNTU_OS_NAME
     fi
     PACKAGE_VERSIONS=()
     updatePackageVersions "${p}" "${OS}" "${OS_VERSION}"
@@ -223,13 +226,14 @@ testPackagesInstalled() {
         testAcrCredentialProviderInstalled "$PACKAGE_DOWNLOAD_URL" "${PACKAGE_VERSIONS[@]}"
         continue
         ;;
+      "azure-acr-credential-provider-pmc"|\
       "kubelet"|\
       "kubectl"|\
       "nvidia-device-plugin"|\
       "datacenter-gpu-manager-4-core"|\
       "datacenter-gpu-manager-4-proprietary"|\
       "dcgm-exporter")
-        testPkgDownloaded "${name}" "${PACKAGE_VERSIONS[@]}"
+        testPkgDownloaded "${name%-pmc}" "${downloadLocation}" "${PACKAGE_VERSIONS[@]}"
         continue
         ;;
     esac
@@ -911,9 +915,10 @@ testKubeBinariesPresent() {
 testPkgDownloaded() {
   local test="testPkgDownloaded"
   echo "$test:Start"
-  local packageName=$1; shift
+  local packageName=$1 downloadLocation=$2; shift 2
   local packageVersions=("$@")
-  downloadLocation="/opt/${packageName}/downloads"
+  local seArch seFile
+  seArch=$(getSystemdArch)
   for packageVersion in "${packageVersions[@]}"; do
     echo "checking package version: $packageVersion ..."
     # Strip epoch (e.g., 1:4.4.1-1 -> 4.4.1-1)
@@ -927,6 +932,11 @@ testPkgDownloaded() {
       rpmFile=$(find "${downloadLocation}" -maxdepth 1 -name "${packageName}-${packageVersion}*" -print -quit 2>/dev/null) || rpmFile=""
       if [ -z "${rpmFile}" ]; then
         err $test "Package ${packageName}-${packageVersion} does not exist, content of downloads dir is $(ls -al ${downloadLocation})"
+      fi
+    elif [ "$OS" = "$FLATCAR_OS_NAME" ]; then
+      seFile=$(find "${downloadLocation}" -maxdepth 1 -name "${packageName}-${packageVersion}*-${seArch}.raw" -print -quit 2>/dev/null) || seFile=""
+      if [ -z "${seFile}" ]; then
+        err $test "System extension ${packageName}-${packageVersion} for ${seArch} does not exist, content of downloads dir is $(ls -al "${downloadLocation}")"
       fi
     fi
 

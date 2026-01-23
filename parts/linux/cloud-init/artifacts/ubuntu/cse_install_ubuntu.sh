@@ -186,7 +186,7 @@ installCriCtlPackage() {
     apt_get_install 20 30 120 ${packageName} || exit 1
 }
 
-installCredentialProviderFromPMC() {
+installCredentialProviderFromPkg() {
     k8sVersion="${1:-}"
     os=${UBUNTU_OS_NAME}
     if [ -z "$UBUNTU_RELEASE" ]; then
@@ -205,7 +205,7 @@ installCredentialProviderFromPMC() {
     ln -snf /usr/bin/azure-acr-credential-provider "$CREDENTIAL_PROVIDER_BIN_DIR/acr-credential-provider"
 }
 
-installKubeletKubectlPkgFromPMC() {
+installKubeletKubectlFromPkg() {
     k8sVersion="${1}"
     installPkgWithAptGet "kubelet" "${k8sVersion}" || exit $ERR_KUBELET_INSTALL_FAIL
     installPkgWithAptGet "kubectl" "${k8sVersion}" || exit $ERR_KUBECTL_INSTALL_FAIL
@@ -297,7 +297,7 @@ installPkgWithAptGet() {
             return 1
         fi
         echo "Did not find cached deb file, downloading ${packageName} version ${fullPackageVersion}"
-        logs_to_events "AKS.CSE.install${packageName}PkgFromPMC.downloadPkgFromVersion" "downloadPkgFromVersion ${packageName} ${fullPackageVersion} ${downloadDir}"
+        logs_to_events "AKS.CSE.install${packageName}FromPkg.downloadPkgFromVersion" "downloadPkgFromVersion ${packageName} ${fullPackageVersion} ${downloadDir}"
         debFile=$(find "${downloadDir}" -maxdepth 1 -name "${packagePrefix}" -print -quit 2>/dev/null) || debFile=""
     fi
     if [ -z "${debFile}" ]; then

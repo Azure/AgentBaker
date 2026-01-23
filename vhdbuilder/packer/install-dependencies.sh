@@ -31,6 +31,7 @@ source /home/packer/tool_installs.sh
 source /home/packer/tool_installs_distro.sh
 
 CPU_ARCH=$(getCPUArch)  #amd64 or arm64
+SYSTEMD_ARCH=$(getSystemdArch)  # x86-64 or arm64
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 COMPONENTS_FILEPATH=/opt/azure/components.json
 PERFORMANCE_DATA_FILE=/opt/azure/vhd-build-performance-data.json
@@ -342,7 +343,8 @@ while IFS= read -r p; do
         elif isMarinerOrAzureLinux "$OS"; then
           installStandaloneContainerd "${version}"
         elif isFlatcar "$OS"; then
-          installStandaloneContainerd "${version}"
+          echo "Skipping containerd install on Flatcar, package preinstalled on immutable /usr"
+          version=$(containerd --version | grep -Po "(?<=\s)v[\d.]+")
         fi
         echo "  - containerd version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
@@ -388,20 +390,16 @@ while IFS= read -r p; do
         echo "  - kubernetes-binaries version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
-    "kubelet")
+    azure-acr-credential-provider-pmc|kubelet|kubectl)
+      name=${name%-pmc}
       for version in ${PACKAGE_VERSIONS[@]}; do
-        if [ "${OS}" = "${UBUNTU_OS_NAME}" ] || isMarinerOrAzureLinux "$OS"; then
-          downloadPkgFromVersion "kubelet" "${version}" "${downloadDir}"
+        if isMarinerOrAzureLinux || isUbuntu; then
+          downloadPkgFromVersion "${name}" "${version}" "${downloadDir}"
+        elif isFlatcar; then
+          evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+          downloadSysextFromVersion "${name}" "${evaluatedURL}" "${downloadDir}" || exit $?
         fi
-        echo "  - kubelet version ${version}" >> ${VHD_LOGS_FILEPATH}
-      done
-      ;;
-    "kubectl")
-      for version in ${PACKAGE_VERSIONS[@]}; do
-        if [ "${OS}" = "${UBUNTU_OS_NAME}" ] || isMarinerOrAzureLinux "$OS"; then
-          downloadPkgFromVersion "kubectl" "${version}" "${downloadDir}"
-        fi
-        echo "  - kubectl version ${version}" >> ${VHD_LOGS_FILEPATH}
+        echo "  - ${name} version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
     "${K8S_DEVICE_PLUGIN_PKG}")
@@ -410,14 +408,6 @@ while IFS= read -r p; do
           downloadPkgFromVersion "${K8S_DEVICE_PLUGIN_PKG}" "${version}" "${downloadDir}"
         fi
         echo "  - ${K8S_DEVICE_PLUGIN_PKG} version ${version}" >> ${VHD_LOGS_FILEPATH}
-      done
-      ;;
-    "azure-acr-credential-provider-pmc")
-      for version in ${PACKAGE_VERSIONS[@]}; do
-        if [ "${OS}" = "${UBUNTU_OS_NAME}" ] || isMarinerOrAzureLinux "$OS"; then
-          downloadPkgFromVersion "azure-acr-credential-provider" "${version}" "${downloadDir}"
-        fi
-        echo "  - azure-acr-credential-provider version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
     "datacenter-gpu-manager-4-core")
