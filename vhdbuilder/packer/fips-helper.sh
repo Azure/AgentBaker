@@ -3,7 +3,7 @@
 
 # FIPS 140-3 encryption is not automatically supported in Linux VMs.
 # Because not all extensions are onboarded to FIPS 140-3 yet, subscriptions must register the Microsoft.Compute/OptInToFips1403Compliance feature.
-# After reguster the feature, the VM must be created via Azure REST API calls to enable support for FIPS 140-3.
+# After registering the feature, the VM must be created via Azure REST API calls to enable support for FIPS 140-3.
 # There is currently no ETA for when FIPS 140-3 encryption is natively supported, but all information can be found here: https://learn.microsoft.com/en-us/azure/virtual-machines/extensions/agent-linux-fips
 
 # This script contains functions related to FIPS 140-3 compliance for Ubuntu 22.04
