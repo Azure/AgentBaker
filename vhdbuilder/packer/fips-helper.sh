@@ -99,21 +99,8 @@ EOF
 
 # Function to create FIPS-enabled VM using REST API
 create_fips_vm() {
+    local vm_size="$1"
     echo "Creating VM with FIPS 140-3 encryption using REST API..."
-
-    # Prepare VM creation parameters
-    local VM_SIZE="Standard_D8ds_v5"
-
-    # shellcheck disable=SC3010
-    if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then
-        VM_SIZE="Standard_D8pds_v5"
-    fi
-
-    # GB200 specific VM options for scanning (uses standard ARM64 VM for now)
-    if [ "${OS_TYPE}" = "Linux" ] && grep -q "GB200" <<< "$FEATURE_FLAGS"; then
-        echo "GB200: Using standard ARM64 VM options for scanning"
-        # Additional GB200-specific VM options can be added here when GB200 SKUs are available
-    fi
 
     # Build the VM request body for FIPS scenario
     local VM_BODY=$(build_fips_vm_body \
@@ -124,7 +111,7 @@ create_fips_vm() {
         "$VHD_IMAGE" \
         "$SCANNING_NIC_ID" \
         "$UMSI_RESOURCE_ID" \
-        "$VM_SIZE")
+        "$vm_size")
 
     # Create the VM using REST API
     az rest \

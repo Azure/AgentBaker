@@ -74,10 +74,12 @@ function cleanup() {
 trap cleanup EXIT
 capture_benchmark "${SCRIPT_NAME}_set_variables_and_create_scan_resource_group"
 
-VM_OPTIONS="--size Standard_D8ds_v5"
+VM_SIZE="Standard_D8ds_v5"
+VM_OPTIONS="--size $VM_SIZE"
 # shellcheck disable=SC3010
 if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then
-    VM_OPTIONS="--size Standard_D8pds_v5"
+    VM_SIZE="Standard_D8pds_v5"
+    VM_OPTIONS="--size $VM_SIZE"
 fi
 
 if [ "${OS_TYPE}" = "Linux" ] && [ "${ENABLE_TRUSTED_LAUNCH}" = "True" ]; then
@@ -85,8 +87,9 @@ if [ "${OS_TYPE}" = "Linux" ] && [ "${ENABLE_TRUSTED_LAUNCH}" = "True" ]; then
 fi
 
 if [ "${OS_TYPE}" = "Linux" ] && grep -q "cvm" <<< "$FEATURE_FLAGS"; then
+    VM_SIZE="Standard_DC8ads_v5"
     # We completely re-assign the VM_OPTIONS string here to ensure that no artifacts from earlier conditionals are included
-    VM_OPTIONS="--size Standard_DC8ads_v5 --security-type ConfidentialVM --enable-secure-boot true --enable-vtpm true --os-disk-security-encryption-type VMGuestStateOnly --specialized true"
+    VM_OPTIONS="--size $VM_SIZE --security-type ConfidentialVM --enable-secure-boot true --enable-vtpm true --os-disk-security-encryption-type VMGuestStateOnly --specialized true"
 fi
 
 # GB200 specific VM options for scanning (uses standard ARM64 VM for now)
@@ -110,7 +113,7 @@ if [ "${OS_SKU}" = "Ubuntu" ] && [ "${OS_VERSION}" = "22.04" ] && [ "$(printf %s
 
     # Register FIPS feature and create VM using REST API
     ensure_fips_feature_registered
-    create_fips_vm
+    create_fips_vm "$VM_SIZE"
 else
     echo "Creating VM using standard az vm create command..."
 
