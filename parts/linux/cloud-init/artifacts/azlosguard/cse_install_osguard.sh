@@ -52,6 +52,7 @@ installRPMPackageFromFile() {
     fi
 
     echo "Unpacking usr/bin/${rpmBinaryName} from ${downloadDir}/${packageName}-${desiredVersion}*"
+    mkdir -p "${targetBinDir}"
     # This assumes that the binary will either be in /usr/bin or /usr/local/bin, but not both.
     rpm2cpio "${rpmFile}" | cpio -i --to-stdout "./usr/bin/${rpmBinaryName}" "./usr/local/bin/${rpmBinaryName}" | install -m0755 /dev/stdin "${targetBinDir}/${targetBinaryName}"
 	rm -rf ${downloadDir}

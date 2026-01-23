@@ -938,10 +938,10 @@ fallbackToKubeBinaryInstall() {
         if [ "${SHOULD_ENFORCE_KUBE_PMC_INSTALL}" = "true" ]; then
             echo "Kube PMC install is enforced, skipping fallback to kube binary install for ${packageName}"
             return 1
-        elif [ -f "/usr/local/bin/${packageName}-${packageVersion}" ]; then
-            mv "/usr/local/bin/${packageName}-${packageVersion}" "/usr/local/bin/${packageName}"
-            chmod a+x /usr/local/bin/${packageName}
-            rm -rf /usr/local/bin/${packageName}-* &
+        elif [ -f "/opt/bin/${packageName}-${packageVersion}" ]; then
+            mv "/opt/bin/${packageName}-${packageVersion}" "/opt/bin/${packageName}"
+            chmod a+x /opt/bin/${packageName}
+            rm -rf /opt/bin/${packageName}-* &
             return 0
         else
             echo "No binary fallback found for ${packageName} version ${packageVersion}"
