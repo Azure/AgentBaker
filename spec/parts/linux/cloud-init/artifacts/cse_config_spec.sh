@@ -126,17 +126,13 @@ Describe 'cse_config.sh'
 
     Describe 'getPrimaryNicIP'
         It 'should return the correct IP when a single network interface is attached to the VM'
-            curl() {
-                cat spec/parts/linux/cloud-init/artifacts/imds_mocks/network/single_nic.json
-            }
+            IMDS_INSTANCE_METADATA_CACHE_FILE="spec/parts/linux/cloud-init/artifacts/imds_mocks/network/single_nic.json"
             When call getPrimaryNicIP
             The output should equal "0.0.0.0"
         End
 
         It 'should return the correct IP when multiple network interfaces are attached to the VM'
-            curl() {
-                cat spec/parts/linux/cloud-init/artifacts/imds_mocks/network/multi_nic.json
-            }
+            IMDS_INSTANCE_METADATA_CACHE_FILE="spec/parts/linux/cloud-init/artifacts/imds_mocks/network/multi_nic.json"
             When call getPrimaryNicIP
             The output should equal "0.0.0.0"
         End
@@ -160,7 +156,7 @@ Describe 'cse_config.sh'
         End
 
         It 'should only generate the self-signed serving cert when EnableKubeletServingCertificateRotation is false'
-            retrycmd_silent() { # for mocking IMDS calls
+            should_disable_kubelet_serving_certificate_rotation() { # for mocking IMDS calls
                 echo "false"
             }
             KUBELET_FLAGS="--tls-cert-file=/etc/kubernetes/certs/kubeletserver.crt,--tls-private-key-file=/etc/kubernetes/certs/kubeletserver.key,--rotate-certificates=true,--rotate-server-certificates=false,--node-ip=10.0.0.1,anonymous-auth=false"
@@ -176,7 +172,7 @@ Describe 'cse_config.sh'
         End
 
         It 'should reconfigure kubelet flags to disable kubelet serving certificate rotation if opt-out tag is set'
-            retrycmd_silent() {
+            should_disable_kubelet_serving_certificate_rotation() {
                 echo "true"
             }
             KUBELET_FLAGS="--tls-cert-file=/etc/kubernetes/certs/kubeletserver.crt,--tls-private-key-file=/etc/kubernetes/certs/kubeletserver.key,--rotate-certificates=true,--rotate-server-certificates=true,--node-ip=10.0.0.1,anonymous-auth=false"
@@ -191,7 +187,7 @@ Describe 'cse_config.sh'
         End
 
         It 'should reconfigure kubelet flags to disable kubelet serving certificate rotation if opt-out tag is set and kubelet config file is enabled'
-            retrycmd_silent() {
+            should_disable_kubelet_serving_certificate_rotation() {
                 echo "true"
             }
             kubelet_config_file() {
@@ -215,7 +211,7 @@ Describe 'cse_config.sh'
         End
 
         It 'should reconfigure kubelet flags and node labels to disable kubelet serving certificate rotation if opt-out tag is set'
-            retrycmd_silent() {
+            should_disable_kubelet_serving_certificate_rotation() {
                 echo "true"
             }
             KUBELET_FLAGS="--tls-cert-file=/etc/kubernetes/certs/kubeletserver.crt,--tls-private-key-file=/etc/kubernetes/certs/kubeletserver.key,--rotate-certificates=true,--rotate-server-certificates=true,--node-ip=10.0.0.1,anonymous-auth=false"
@@ -230,7 +226,7 @@ Describe 'cse_config.sh'
         End
 
         It 'should no-op if kubelet flags and node labels are already correct when the opt-out tag is set'
-            retrycmd_silent() {
+            should_disable_kubelet_serving_certificate_rotation() {
                 echo "true"
             }
             KUBELET_FLAGS="--tls-cert-file=/etc/kubernetes/certs/kubeletserver.crt,--tls-private-key-file=/etc/kubernetes/certs/kubeletserver.key,--rotate-certificates=true,--rotate-server-certificates=false,--node-ip=10.0.0.1,anonymous-auth=false"
@@ -245,7 +241,7 @@ Describe 'cse_config.sh'
         End
 
         It 'should no-op if kubelet flags and node labels are already correct when the opt-out tag is set and kubelet config file is enabled'
-            retrycmd_silent() {
+            should_disable_kubelet_serving_certificate_rotation() {
                 echo "true"
             }
             kubelet_config_file() {
@@ -269,7 +265,7 @@ Describe 'cse_config.sh'
         End
 
         It 'should reconfigure kubelet flags node labels to enable kubelet serving certificate rotation if opt-out tag is not set'
-            retrycmd_silent() {
+            should_disable_kubelet_serving_certificate_rotation() {
                 echo "false"
             }
             KUBELET_FLAGS="--tls-cert-file=/etc/kubernetes/certs/kubeletserver.crt,--tls-private-key-file=/etc/kubernetes/certs/kubeletserver.key,--rotate-certificates=true,--rotate-server-certificates=true,--node-ip=10.0.0.1,anonymous-auth=false"
@@ -284,7 +280,7 @@ Describe 'cse_config.sh'
         End
 
         It 'should reconfigure kubelet flags and node labels to enable kubelet serving certificate rotation if opt-out tag is not set and kubelet config file is enabled'
-            retrycmd_silent() {
+            should_disable_kubelet_serving_certificate_rotation() {
                 echo "false"
             }
             kubelet_config_file() {
@@ -308,7 +304,7 @@ Describe 'cse_config.sh'
         End
 
         It 'should no-op if kubelet flags and node labels are already correct when the opt-out tag is not set'
-            retrycmd_silent() {
+            should_disable_kubelet_serving_certificate_rotation() {
                 echo "false"
             }
             KUBELET_FLAGS="--rotate-certificates=true,--rotate-server-certificates=true,--node-ip=10.0.0.1,anonymous-auth=false"
