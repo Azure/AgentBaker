@@ -49,6 +49,9 @@ JSON_STRING=$( jq -n \
 mkdir -p /var/log/azure/aks
 echo $JSON_STRING | tee /var/log/azure/aks/provision.json
 
+# Cleanup cache file
+rm -f /opt/azure/containers/imds_instance_metadata_cache.json || true
+
 # Create stage marker for two-stage workflow
 if [ "${PRE_PROVISION_ONLY}" = "true" ]; then
     # Stage 1: Create marker indicating Stage 2 is needed
