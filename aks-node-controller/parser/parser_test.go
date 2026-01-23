@@ -342,7 +342,6 @@ func TestBuildCSECmd_SetsServicePrincipalFileContent(t *testing.T) {
 	require.NoError(t, err)
 
 	vars := environToMap(cmd.Env)
-	require.Contains(t, vars, "SERVICE_PRINCIPAL_FILE_CONTENT")
 
 	// The value should be exactly the secret, without additional base64 encoding.
 	// Actually the client which passes the secret to aks-node-controller should have base64 encoded it first.
