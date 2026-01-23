@@ -1,5 +1,11 @@
 #!/bin/bash
 # FIPS Helper Functions for VHD Scanning
+
+# FIPS 140-3 encryption is not automatically supported in Linux VMs.
+# Because not all extensions are onboarded to FIPS 140-3 yet, subscriptions must register the Microsoft.Compute/OptInToFips1403Compliance feature.
+# After reguster the feature, the VM must be created via Azure REST API calls to enable support for FIPS 140-3.
+# There is currently no ETA for when FIPS 140-3 encryption is natively supported, but all information can be found here: https://learn.microsoft.com/en-us/azure/virtual-machines/extensions/agent-linux-fips
+
 # This script contains functions related to FIPS 140-3 compliance for Ubuntu 22.04
 
 # Function to ensure FIPS 140-3 compliance feature is registered
@@ -9,11 +15,11 @@ ensure_fips_feature_registered() {
     # Enable FIPS 140-3 compliance feature if not already enabled
     echo "Checking FIPS 140-3 compliance feature registration..."
     FIPS_FEATURE_STATE=$(az feature show --namespace Microsoft.Compute --name OptInToFips1403Compliance --query 'properties.state' -o tsv 2>/dev/null || echo "NotRegistered")
-    
+
     if [ "$FIPS_FEATURE_STATE" != "Registered" ]; then
         echo "Registering FIPS 140-3 compliance feature..."
         az feature register --namespace Microsoft.Compute --name OptInToFips1403Compliance
-        
+
         # Poll until registered (timeout after 5 minutes)
         local TIMEOUT=300
         local ELAPSED=0
@@ -23,7 +29,7 @@ ensure_fips_feature_registered() {
             FIPS_FEATURE_STATE=$(az feature show --namespace Microsoft.Compute --name OptInToFips1403Compliance --query 'properties.state' -o tsv)
             echo "Feature state: $FIPS_FEATURE_STATE (waited ${ELAPSED}s)"
         done
-        
+
         if [ "$FIPS_FEATURE_STATE" != "Registered" ]; then
             echo "Warning: FIPS 140-3 feature registration timed out. Continuing anyway..."
         else
@@ -45,7 +51,7 @@ build_fips_vm_body() {
     local nic_id="$6"
     local umsi_resource_id="$7"
     local vm_size="$8"
-    
+
     cat <<EOF
 {
   "location": "$location",
