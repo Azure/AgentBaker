@@ -2419,6 +2419,33 @@ var _ = Describe("GetGPUDriverType", func() {
 	})
 })
 
+var _ = Describe("UseOpenGPUDriver", func() {
+	It("should return false for T4 GPUs", func() {
+		Expect(UseOpenGPUDriver("Standard_NC4as_T4_v3")).To(BeFalse())
+		Expect(UseOpenGPUDriver("Standard_NC16as_T4_v3")).To(BeFalse())
+	})
+	It("should return false for V100 GPUs (NCsv3)", func() {
+		Expect(UseOpenGPUDriver("Standard_NC6s_v3")).To(BeFalse())
+		Expect(UseOpenGPUDriver("Standard_NC24s_v3")).To(BeFalse())
+	})
+	It("should return false for V100 GPUs (NDv2)", func() {
+		Expect(UseOpenGPUDriver("Standard_ND40rs_v2")).To(BeFalse())
+	})
+	It("should return false for V100 GPUs (NDv3)", func() {
+		Expect(UseOpenGPUDriver("Standard_ND40s_v3")).To(BeFalse())
+	})
+	It("should return true for A100 GPUs", func() {
+		Expect(UseOpenGPUDriver("Standard_NC24ads_A100_v4")).To(BeTrue())
+		Expect(UseOpenGPUDriver("Standard_ND96asr_v4")).To(BeTrue())
+	})
+	It("should return true for H100 GPUs", func() {
+		Expect(UseOpenGPUDriver("Standard_ND96isr_H100_v5")).To(BeTrue())
+	})
+	It("should return true for other NC series without s_v3", func() {
+		Expect(UseOpenGPUDriver("Standard_NC24ads_A100_v4")).To(BeTrue())
+	})
+})
+
 var _ = Describe("GetAKSGPUImageSHA", func() {
 	It("should use newest AKSGPUGridVersionSuffix with nv v5", func() {
 		Expect(GetAKSGPUImageSHA("standard_nv6ads_a10_v5")).To(Equal(datamodel.AKSGPUGridVersionSuffix))
