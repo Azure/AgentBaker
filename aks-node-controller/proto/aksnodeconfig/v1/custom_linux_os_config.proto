@@ -24,9 +24,6 @@ message CustomLinuxOsConfig {
   // Valid values are "always", "madvise" and "never"
   // If it's unset or set to empty string, it will use the default value in the VHD "madvise"
   string transparent_defrag = 6;
-
-  // Ethtool Settings for Linux agent Nodes
-  EthtoolConfig ethtool_config = 7;
 }
 
 message SysctlConfig {
@@ -65,9 +62,4 @@ message UlimitConfig {
   // using optional here to allow detecting if the field is set or not (explicit presence in proto3)
   optional string no_file = 1;
   optional string max_locked_memory = 2;
-}
-
-message EthtoolConfig {
-  // using optional here to allow detecting if the field is set or not (explicit presence in proto3)
-  optional int32 rx_buffer_size = 1;
 }

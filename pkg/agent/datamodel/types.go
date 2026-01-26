@@ -743,12 +743,11 @@ type CustomKubeletConfig struct {
 
 // CustomLinuxOSConfig represents custom os configurations for agent pool nodes.
 type CustomLinuxOSConfig struct {
-	Sysctls                    *SysctlConfig  `json:"sysctls,omitempty"`
-	TransparentHugePageEnabled string         `json:"transparentHugePageEnabled,omitempty"`
-	TransparentHugePageDefrag  string         `json:"transparentHugePageDefrag,omitempty"`
-	SwapFileSizeMB             *int32         `json:"swapFileSizeMB,omitempty"`
-	UlimitConfig               *UlimitConfig  `json:"ulimitConfig,omitempty"`
-	EthtoolConfig              *EthtoolConfig `json:"ethtoolConfig,omitempty"`
+	Sysctls                    *SysctlConfig `json:"sysctls,omitempty"`
+	TransparentHugePageEnabled string        `json:"transparentHugePageEnabled,omitempty"`
+	TransparentHugePageDefrag  string        `json:"transparentHugePageDefrag,omitempty"`
+	SwapFileSizeMB             *int32        `json:"swapFileSizeMB,omitempty"`
+	UlimitConfig               *UlimitConfig `json:"ulimitConfig,omitempty"`
 }
 
 func (c *CustomLinuxOSConfig) GetUlimitConfig() *UlimitConfig {
@@ -788,10 +787,6 @@ type SysctlConfig struct {
 	VMMaxMapCount                  *int32 `json:"vmMaxMapCount,omitempty"`
 	VMSwappiness                   *int32 `json:"vmSwappiness,omitempty"`
 	VMVfsCachePressure             *int32 `json:"vmVfsCachePressure,omitempty"`
-}
-
-type EthtoolConfig struct {
-	RxBufferSize int32 `json:"rxBufferSize,omitempty" validate:"omitempty,oneof=1024 2048 4096 8192"`
 }
 
 type UlimitConfig struct {
