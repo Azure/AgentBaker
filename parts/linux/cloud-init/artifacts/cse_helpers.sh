@@ -877,7 +877,7 @@ getPackageJSON() {
 # sets PACKAGE_VERSIONS to the versions of the package based on the os and osVersion
 updatePackageVersions() {
     PACKAGE_VERSIONS=()
-    readarray -t PACKAGE_VERSIONS < <(jq -r "if .versionsV2 == null then .versions // [] else .versionsV2 // [] | map(.latestVersion, .previousLatestVersion) end | .[] | values" <<< "$(getPackageJSON "$@")")
+    readarray -t PACKAGE_VERSIONS < <(jq -r ".versionsV2 // [] | map(.latestVersion, .previousLatestVersion) | .[] | values" <<< "$(getPackageJSON "$@")")
     return
 }
 

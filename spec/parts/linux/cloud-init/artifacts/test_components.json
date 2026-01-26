@@ -121,21 +121,6 @@
       }
     },
     {
-      "name": "pkgVersions",
-      "downloadLocation": "/usr/local/bin",
-      "downloadURIs": {
-        "default": {
-          "current": {
-            "versions": [
-              "dummyVersionFallback1.1",
-              "dummyVersionFallback1.0"
-            ],
-            "downloadURL": "https://github.com/dummypath/v${version}/dummy_${version}_linux_${CPU_ARCH}.tar.gz"
-          }
-        }
-      }
-    },
-    {
       "name": "containerd",
       "downloadLocation": "dummy/location",
       "downloadURIs": {
