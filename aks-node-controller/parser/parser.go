@@ -138,7 +138,7 @@ func getCSEEnv(config *aksnodeconfigv1.Configuration) map[string]string {
 		"DHCPV6_CONFIG_FILEPATH":                             getDHCPV6ConfigFilepath(),
 		"THP_ENABLED":                                        config.GetCustomLinuxOsConfig().GetTransparentHugepageSupport(),
 		"THP_DEFRAG":                                         config.GetCustomLinuxOsConfig().GetTransparentDefrag(),
-		"SERVICE_PRINCIPAL_FILE_CONTENT":                     getServicePrincipalFileContent(config.AuthConfig),
+		"SERVICE_PRINCIPAL_FILE_CONTENT":                     config.GetAuthConfig().GetServicePrincipalSecret(),
 		"KUBELET_CLIENT_CONTENT":                             config.GetKubeletConfig().GetKubeletClientKey(),
 		"KUBELET_CLIENT_CERT_CONTENT":                        config.GetKubeletConfig().GetKubeletClientCertContent(),
 		"KUBELET_CONFIG_FILE_ENABLED":                        fmt.Sprintf("%v", config.GetKubeletConfig().GetEnableKubeletConfigFile()),
