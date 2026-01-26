@@ -1152,6 +1152,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"IsManagedGPUExperienceAFECEnabled": func() bool {
 			return config.ManagedGPUExperienceAFECEnabled
 		},
+		"IsEnableManagedGPU": func() bool {
+			return config.EnableManagedGPU
+		},
 		"EnableIMDSRestriction": func() bool {
 			return config.EnableIMDSRestriction
 		},

@@ -1455,6 +1455,42 @@ oom_score = -999
 				Expect(o.vars["GPU_NODE"]).To(Equal("true"))
 				Expect(o.vars["ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED"]).To(Equal("true"))
 			}),
+		Entry("AKSUbuntu2204 with EnableManagedGPU", "AKSUbuntu2204+EnableManagedGPU", "1.29.7",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+					ContainerRuntime: datamodel.Containerd,
+				}
+				config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSUbuntuContainerd2204
+				config.AgentPoolProfile.VMSize = "Standard_NC6s_v3"
+				config.EnableNvidia = true
+				config.ConfigGPUDriverIfNeeded = true
+				config.EnableGPUDevicePluginIfNeeded = true
+				config.EnableManagedGPU = true
+			}, func(o *nodeBootstrappingOutput) {
+				// Verify EnableManagedGPU is set
+				Expect(o.vars["ENABLE_MANAGED_GPU"]).To(Equal("true"))
+				// Verify other GPU settings are also correct
+				Expect(o.vars["GPU_NODE"]).To(Equal("true"))
+				Expect(o.vars["ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED"]).To(Equal("true"))
+			}),
+		Entry("AKSUbuntu2204 with EnableManagedGPU disabled", "AKSUbuntu2204+EnableManagedGPU+Disabled", "1.29.7",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+					ContainerRuntime: datamodel.Containerd,
+				}
+				config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSUbuntuContainerd2204
+				config.AgentPoolProfile.VMSize = "Standard_NC6s_v3"
+				config.EnableNvidia = true
+				config.ConfigGPUDriverIfNeeded = true
+				config.EnableGPUDevicePluginIfNeeded = true
+				config.EnableManagedGPU = false
+			}, func(o *nodeBootstrappingOutput) {
+				// Verify EnableManagedGPU is disabled
+				Expect(o.vars["ENABLE_MANAGED_GPU"]).To(Equal("false"))
+				// Verify other GPU settings are still correct
+				Expect(o.vars["GPU_NODE"]).To(Equal("true"))
+				Expect(o.vars["ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED"]).To(Equal("true"))
+			}),
 		Entry("CustomizedImage VHD should not have provision_start.sh", "CustomizedImage", "1.24.2",
 			func(c *datamodel.NodeBootstrappingConfiguration) {
 				c.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{

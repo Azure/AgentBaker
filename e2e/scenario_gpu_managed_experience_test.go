@@ -397,3 +397,76 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG(t *testing.T) {
 		},
 	})
 }
+
+func Test_Ubuntu2204_NvidiaDevicePluginRunning_WithoutVMSSTag(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that NVIDIA device plugin and DCGM Exporter work via NBC EnableManagedGPU field without VMSS tag",
+		Tags: Tags{
+			GPU: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.AgentPoolProfile.VMSize = "Standard_NV6ads_A10_v5"
+				nbc.ConfigGPUDriverIfNeeded = true
+				nbc.EnableGPUDevicePluginIfNeeded = true
+				nbc.EnableNvidia = true
+				nbc.ManagedGPUExperienceAFECEnabled = true
+				nbc.EnableManagedGPU = true
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr("Standard_NV6ads_A10_v5")
+				// Explicitly DO NOT set the EnableManagedGPUExperience VMSS tag
+				// to test that NBC EnableManagedGPU field works independently
+
+				// Enable the AKS VM extension for GPU nodes
+				extension, err := createVMExtensionLinuxAKSNode(vmss.Location)
+				require.NoError(t, err, "creating AKS VM extension")
+				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				os := "ubuntu"
+				osVersion := "r2204"
+
+				// Validate that the NVIDIA device plugin binary was installed correctly
+				versions := components.GetExpectedPackageVersions("nvidia-device-plugin", os, osVersion)
+				require.Lenf(s.T, versions, 1, "Expected exactly one nvidia-device-plugin version for %s %s but got %d", os, osVersion, len(versions))
+				ValidateInstalledPackageVersion(ctx, s, "nvidia-device-plugin", versions[0])
+
+				// Validate that the NVIDIA device plugin systemd service is running
+				ValidateNvidiaDevicePluginServiceRunning(ctx, s)
+
+				// Validate that GPU resources are advertised by the device plugin
+				ValidateNodeAdvertisesGPUResources(ctx, s, 1)
+
+				// Validate that GPU workloads can be scheduled
+				ValidateGPUWorkloadSchedulable(ctx, s, 1)
+
+				for _, packageName := range getDCGMPackageNames(os) {
+					versions := components.GetExpectedPackageVersions(packageName, os, osVersion)
+					require.Lenf(s.T, versions, 1, "Expected exactly one %s version for %s %s but got %d", packageName, os, osVersion, len(versions))
+					ValidateInstalledPackageVersion(ctx, s, packageName, versions[0])
+				}
+
+				ValidateNvidiaDCGMExporterSystemDServiceRunning(ctx, s)
+				ValidateNvidiaDCGMExporterIsScrapable(ctx, s)
+				ValidateNvidiaDCGMExporterScrapeCommonMetric(ctx, s, "DCGM_FI_DEV_GPU_UTIL")
+				ValidateNodeHasLabel(ctx, s, "kubernetes.azure.com/dcgm-exporter", "enabled")
+
+				// Let's run the NPD validation tests to verify that the nvidia
+				// device plugin & DCGM services are reporting status correctly
+				ValidateNodeProblemDetector(ctx, s)
+				ValidateNPDUnhealthyNvidiaDevicePlugin(ctx, s)
+				ValidateNPDUnhealthyNvidiaDevicePluginCondition(ctx, s)
+				ValidateNPDUnhealthyNvidiaDevicePluginAfterFailure(ctx, s)
+				ValidateNPDUnhealthyNvidiaDCGMServices(ctx, s)
+				ValidateNPDUnhealthyNvidiaDCGMServicesCondition(ctx, s)
+				ValidateNPDUnhealthyNvidiaDCGMServicesAfterFailure(ctx, s)
+				// verify nvidia grid license status checks are reporting status correctly
+				ValidateNPDHealthyNvidiaGridLicenseStatus(ctx, s)
+				ValidateNPDUnhealthyNvidiaGridLicenseStatusAfterFailure(ctx, s)
+			},
+		},
+	})
+}
