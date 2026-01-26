@@ -516,6 +516,10 @@ func getGpuDriverVersion(vmSize string) string {
 	return agent.GetGPUDriverVersion(vmSize)
 }
 
+func getUseOpenGPUDriver(vmSize string) bool {
+	return agent.UseOpenGPUDriver(vmSize)
+}
+
 // IsSgxEnabledSKU determines if an VM SKU has SGX driver support.
 func getIsSgxEnabledSKU(vmSize string) bool {
 	switch vmSize {
