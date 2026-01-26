@@ -207,9 +207,7 @@ testPackagesInstalled() {
     else
       OS=${OS_SKU^^}
     fi
-    PACKAGE_VERSIONS=()
     updatePackageVersions "${p}" "${OS}" "${OS_VERSION}"
-    PACKAGE_DOWNLOAD_URL=""
     updatePackageDownloadURL "${p}" "${OS}" "${OS_VERSION}"
     case "${name}" in
       "kubernetes-binaries")
@@ -386,7 +384,6 @@ testImagesPulled() {
     else
       amd64OnlyVersionsStr=$(echo "${imageToBePulled}" | jq -r '.amd64OnlyVersions // empty')
     fi
-    declare -a MULTI_ARCH_VERSIONS=()
     updateMultiArchVersions "${imageToBePulled}"
 
     amd64OnlyVersions=""

@@ -59,7 +59,6 @@ installContainerdWithComponentsJson() {
     fi
 
     containerdPackage=$(jq ".Packages" "$COMPONENTS_FILEPATH" | jq ".[] | select(.name == \"containerd\")") || exit $ERR_CONTAINERD_VERSION_INVALID
-    PACKAGE_VERSIONS=()
     if isMariner "${OS}" && [ "${IS_KATA}" = "true" ]; then
         os=${MARINER_KATA_OS_NAME}
     fi
@@ -412,7 +411,6 @@ installCNI() {
     if isMarinerOrAzureLinux "${OS}" && [ "${IS_KATA}" = "true" ]; then
         os=${MARINER_KATA_OS_NAME}
     fi
-    PACKAGE_VERSIONS=()
     updatePackageVersions "${cniPackage}" "${os}" "${os_version}"
 
     #should change to ne
