@@ -262,15 +262,6 @@ func ValidateEthtoolConfig(ctx context.Context, s *Scenario, EthtoolConfig map[s
 		keysToCheck = append(keysToCheck, k)
 	}
 
-	// Log the ethtool config file contents
-	configFileCommand := []string{
-		"set -ex",
-		"echo '=== Ethtool Config File ==='",
-		"cat /etc/azure-network/ethtool.conf || echo 'Config file not found'",
-	}
-	configResult := execScriptOnVMForScenario(ctx, s, strings.Join(configFileCommand, "\n"))
-	s.T.Logf("Ethtool config file contents:\n%s", configResult.stdout)
-
 	// Get list of NICs using udevadm (same logic as udev rule)
 	getNicsCommand := []string{
 		"#!/usr/bin/env bash",
@@ -339,7 +330,7 @@ func ValidateEthtoolConfig(ctx context.Context, s *Scenario, EthtoolConfig map[s
 	}
 }
 
-// ValidateEthtoolConfigFiles checks that configuration files exist.
+// ValidateEthtoolConfigFiles checks that udev rules files exist.
 func ValidateEthtoolConfigFiles(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 
@@ -1717,8 +1708,8 @@ func ValidateNodeHasLabel(ctx context.Context, s *Scenario, labelKey, expectedVa
 	require.Equal(s.T, expectedValue, actualValue, "expected node %q label %q to have value %q, but got %q", s.Runtime.VM.KubeName, labelKey, expectedValue, actualValue)
 }
 
-// ValidateEthtoolConfigDefault validates ethtool config using default values based on VM's CPU count
-func ValidateEthtoolConfigDefault(ctx context.Context, s *Scenario) {
+// ValidateRxBufferDefault validates rx buffer config using default values based on VM's CPU count
+func ValidateRxBufferDefault(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 
 	// Query the VM's actual CPU count using nproc
