@@ -128,7 +128,7 @@ else
         ${VM_OPTIONS} \
         --assign-identity "${UMSI_RESOURCE_ID}"
 
-    local az_vm_create_exit_code=$?
+    az_vm_create_exit_code=$?
     if [ $az_vm_create_exit_code -ne 0 ]; then
         echo "Error: Failed to create VM" >&2
         exit 1
