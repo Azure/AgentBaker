@@ -334,6 +334,20 @@ oom_score = -999
 	}
 }
 
+func TestBuildCSECmd_SetsServicePrincipalFileContent(t *testing.T) {
+	secret := "super-secret-value"
+	cmd, err := BuildCSECmd(context.TODO(), &aksnodeconfigv1.Configuration{
+		AuthConfig: &aksnodeconfigv1.AuthConfig{ServicePrincipalSecret: secret},
+	})
+	require.NoError(t, err)
+
+	vars := environToMap(cmd.Env)
+
+	// The value should be exactly the secret, without additional base64 encoding.
+	// Actually the client which passes the secret to aks-node-controller should have base64 encoded it first.
+	assert.Equal(t, secret, vars["SERVICE_PRINCIPAL_FILE_CONTENT"])
+}
+
 func TestAKSNodeConfigCompatibilityFromJsonToCSECommand(t *testing.T) {
 	tests := []struct {
 		name      string
