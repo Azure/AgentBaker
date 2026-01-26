@@ -412,7 +412,7 @@ func ValidateFileHasContent(ctx context.Context, s *Scenario, fileName string, c
 	if !fileHasContent(ctx, s, fileName, contents) {
 		actualContents, err := getFileContent(ctx, s, fileName)
 		if err != nil {
-			s.T.Fatalf("expected file %s to have contents %q, but it does not. Could not determine actual contents due to %s", fileName, contents, err.Error())
+			s.T.Fatalf("Expected file %s to have contents %q. Could not determine actual contents due to %s", fileName, contents, err.Error())
 		} else {
 			s.T.Fatalf("expected file %s to have contents %q, but it does not. It had contents %s", fileName, contents, actualContents)
 		}
@@ -424,7 +424,7 @@ func ValidateFileExcludesContent(ctx context.Context, s *Scenario, fileName stri
 	if fileHasContent(ctx, s, fileName, contents) {
 		actualContents, err := getFileContent(ctx, s, fileName)
 		if err != nil {
-			s.T.Fatalf("expected file %s to have contents %q, but it does. Could not determine actual contents due to %s", fileName, contents, err.Error())
+			s.T.Fatalf("Expected file %s to have contents %q. Could not determine actual contents due to %s", fileName, contents, err.Error())
 		} else {
 			s.T.Fatalf("expected file %s to have contents %q, but it does. It had contents %s", fileName, contents, actualContents)
 		}
