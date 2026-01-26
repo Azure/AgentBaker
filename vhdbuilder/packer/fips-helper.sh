@@ -19,6 +19,11 @@ ensure_fips_feature_registered() {
     if [ "$FIPS_FEATURE_STATE" != "Registered" ]; then
         echo "Registering FIPS 140-3 compliance feature..."
         az feature register --namespace Microsoft.Compute --name OptInToFips1403Compliance
+        local az_register_exit_code=$?
+        if [ "$az_register_exit_code" -ne 0 ]; then
+            echo "Error: Failed to register FIPS 140-3 compliance feature (exit code: $az_register_exit_code)" >&2
+            return "$az_register_exit_code"
+        fi
 
         # Poll until registered (timeout after 5 minutes)
         local TIMEOUT=300
@@ -31,11 +36,12 @@ ensure_fips_feature_registered() {
         done
 
         if [ "$FIPS_FEATURE_STATE" != "Registered" ]; then
-            echo "Warning: FIPS 140-3 feature registration timed out. Continuing anyway..."
-        else
-            echo "FIPS 140-3 feature registered successfully. Refreshing provider..."
-            az provider register -n Microsoft.Compute
+            echo "Error: FIPS 140-3 feature registration timed out after ${TIMEOUT}s" >&2
+            return 1
         fi
+
+        echo "FIPS 140-3 feature registered successfully. Refreshing provider..."
+        az provider register -n Microsoft.Compute
     else
         echo "FIPS 140-3 compliance feature already registered"
     fi
@@ -119,7 +125,21 @@ create_fips_vm() {
         --url "https://management.azure.com/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/virtualMachines/${SCAN_VM_NAME}?api-version=2024-11-01" \
         --body "$VM_BODY"
 
-    # Wait for VM to be ready
+    # Check for errors in the REST API call
+    local az_rest_exit_code=$?
+    if [ "$az_rest_exit_code" -ne 0 ]; then
+        echo "Error: Failed to create VM with FIPS 140-3 encryption via REST API (exit code: $az_rest_exit_code)" >&2
+        return "$az_rest_exit_code"
+    fi
+
+    # Wait for VM to be ready (timeout after 10 minutes)
     echo "Waiting for VM to be ready..."
-    az vm wait --created --name $SCAN_VM_NAME --resource-group $RESOURCE_GROUP_NAME
+    az vm wait --created --name $SCAN_VM_NAME --resource-group $RESOURCE_GROUP_NAME --timeout 600
+
+    # Check for errors in the Azure CLI wait command
+    local az_wait_exit_code=$?
+    if [ "$az_wait_exit_code" -ne 0 ]; then
+        echo "Error: Failed to await VM readiness (exit code: $az_wait_exit_code)" >&2
+        return "$az_wait_exit_code"
+    fi
 }

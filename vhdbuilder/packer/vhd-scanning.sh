@@ -111,9 +111,9 @@ if [ "${OS_SKU}" = "Ubuntu" ] && [ "${OS_VERSION}" = "22.04" ] && [ "$(printf %s
     CDIR=$(dirname $FULL_PATH)
     source "$CDIR/fips-helper.sh"
 
-    # Register FIPS feature and create VM using REST API
-    ensure_fips_feature_registered
-    create_fips_vm "$VM_SIZE"
+    # Register FIPS feature and create VM using REST API. Exit if any step fails.
+    ensure_fips_feature_registered || exit $?
+    create_fips_vm "$VM_SIZE" || exit $?
 else
     echo "Creating VM using standard az vm create command..."
 
@@ -127,6 +127,12 @@ else
         --os-disk-size-gb 50 \
         ${VM_OPTIONS} \
         --assign-identity "${UMSI_RESOURCE_ID}"
+
+    local az_vm_create_exit_code=$?
+    if [ $az_vm_create_exit_code -ne 0 ]; then
+        echo "Error: Failed to create VM" >&2
+        exit 1
+    fi
 fi
 
 capture_benchmark "${SCRIPT_NAME}_create_scan_vm"
