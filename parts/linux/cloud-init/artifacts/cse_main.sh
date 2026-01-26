@@ -416,17 +416,6 @@ function nodePrep {
         echo $(date),$(hostname), "End configuring GPU drivers"
     fi
 
-<<<<<<< HEAD
-=======
-    export -f should_enable_managed_gpu_experience
-    ENABLE_MANAGED_GPU_EXPERIENCE=$(should_enable_managed_gpu_experience)
-    if [ "$?" -ne 0 ] && [ "${GPU_NODE}" = "true" ] && [ "${skip_nvidia_driver_install}" != "true" ]; then
-        echo "failed to determine if managed GPU experience should be enabled by nodepool tags"
-        exit $ERR_LOOKUP_ENABLE_MANAGED_GPU_EXPERIENCE_TAG
-    fi
-    logs_to_events "AKS.CSE.configureManagedGPUExperience" configureManagedGPUExperience || exit $ERR_ENABLE_MANAGED_GPU_EXPERIENCE
-
->>>>>>> 191c38c84a7e849323cb6fc9d46fe4e3e913d693
     VALIDATION_ERR=0
 
     # TODO(djsly): Look at leveraging the `aks-check-network.sh` script for this validation instead of duplicating the logic here
