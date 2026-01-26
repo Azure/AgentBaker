@@ -64,6 +64,24 @@ var (
 		Distro:  datamodel.AKSUbuntuContainerd2204Gen2,
 		Gallery: imageGalleryLinux,
 	}
+	VHDUbuntu2204Gen2ContainerdFIPS = &Image{
+		Name:    "2204gen2containerdfips",
+		OS:      OSUbuntu,
+		Arch:    "amd64",
+		Distro:  datamodel.AKSUbuntuFipsContainerd2204Gen2,
+		Gallery: imageGalleryLinux,
+		// Secure TLS Bootstrapping isn't currently supported on FIPS-enabled VHDs
+		UnsupportedSecureTLSBootstrapping: true,
+	}
+	VHDUbuntu2204ContainerdFIPS = &Image{
+		Name:    "2204containerdfips",
+		OS:      OSUbuntu,
+		Arch:    "amd64",
+		Distro:  datamodel.AKSUbuntuFipsContainerd2204,
+		Gallery: imageGalleryLinux,
+		// Secure TLS Bootstrapping isn't currently supported on FIPS-enabled VHDs
+		UnsupportedSecureTLSBootstrapping: true,
+	}
 	VHDAzureLinuxV2Gen2Arm64 = &Image{
 		Name:    "AzureLinuxV2gen2arm64",
 		OS:      OSAzureLinux,

@@ -388,6 +388,48 @@ func Test_Ubuntu2204(t *testing.T) {
 	})
 }
 
+func Test_Ubuntu2204_FIPS(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using the Ubuntu 2204 FIPS VHD can be properly bootstrapped",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204ContainerdFIPS,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				// Check that we don't leak these secrets if they're
+				// set (which they mostly aren't in these scenarios).
+				nbc.ContainerService.Properties.CertificateProfile.ClientPrivateKey = "client cert private key"
+				nbc.ContainerService.Properties.ServicePrincipalProfile.Secret = "SP secret"
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", components.GetExpectedPackageVersions("containerd", "ubuntu", "r2204")[0])
+				ValidateInstalledPackageVersion(ctx, s, "moby-runc", components.GetExpectedPackageVersions("runc", "ubuntu", "r2204")[0])
+				ValidateSSHServiceEnabled(ctx, s)
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2204_FIPS_Gen2(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using the Ubuntu 2204 Gen2 FIPS VHD can be properly bootstrapped",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2ContainerdFIPS,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				// Check that we don't leak these secrets if they're
+				// set (which they mostly aren't in these scenarios).
+				nbc.ContainerService.Properties.CertificateProfile.ClientPrivateKey = "client cert private key"
+				nbc.ContainerService.Properties.ServicePrincipalProfile.Secret = "SP secret"
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", components.GetExpectedPackageVersions("containerd", "ubuntu", "r2204")[0])
+				ValidateInstalledPackageVersion(ctx, s, "moby-runc", components.GetExpectedPackageVersions("runc", "ubuntu", "r2204")[0])
+				ValidateSSHServiceEnabled(ctx, s)
+			},
+		},
+	})
+}
+
 func Test_Ubuntu2204_EntraIDSSH(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using Ubuntu 2204 VHD with Entra ID SSH can be properly bootstrapped and SSH private key authentication is disabled",
