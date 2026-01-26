@@ -8,6 +8,9 @@ if [ -f /opt/azure/containers/provision.complete ]; then
     exit 0
 fi
 
+# Cleanup cache file to force fetch fresh instance metadata from IMDS
+rm -f /opt/azure/containers/imds_instance_metadata_cache.json
+
 for i in $(seq 1 120); do
     if [ -s "${CSE_HELPERS_FILEPATH}" ]; then
         grep -Fq '#HELPERSEOF' "${CSE_HELPERS_FILEPATH}" && break
@@ -55,6 +58,8 @@ get_ubuntu_release() {
 function basePrep {
     aptmarkWALinuxAgent hold &
 
+    logs_to_events "AKS.CSE.configureAdminUser" configureAdminUser
+
     UBUNTU_RELEASE=$(get_ubuntu_release)
     if [ "${UBUNTU_RELEASE}" = "16.04" ]; then
         sudo apt-get -y autoremove chrony
@@ -73,6 +78,7 @@ function basePrep {
     logs_to_events "AKS.CSE.setPackagesBaseURL" "echo $PACKAGE_DOWNLOAD_BASE_URL"
 
 
+    logs_to_events "AKS.CSE.fetch_and_cache_imds_instance_metadata" fetch_and_cache_imds_instance_metadata
     # This function creates the /etc/kubernetes/azure.json file. It also creates the custom
     # cloud configuration file if running in a custom cloud environment.
     logs_to_events "AKS.CSE.configureAzureJson" configureAzureJson
@@ -125,12 +131,10 @@ function basePrep {
 
     logs_to_events "AKS.CSE.disableSystemdResolved" disableSystemdResolved
 
-    logs_to_events "AKS.CSE.configureAdminUser" configureAdminUser
-
     export -f getInstallModeAndCleanupContainerImages
     export -f should_skip_binary_cleanup
 
-    SKIP_BINARY_CLEANUP=$(retrycmd_silent 10 1 10 bash -cx should_skip_binary_cleanup)
+    SKIP_BINARY_CLEANUP=$(should_skip_binary_cleanup)
     # this needs better fix to separate logs and return value;
     FULL_INSTALL_REQUIRED=$(getInstallModeAndCleanupContainerImages "$SKIP_BINARY_CLEANUP" "$IS_VHD" | tail -1)
     if [ "$?" -ne 0 ]; then
@@ -163,7 +167,7 @@ function basePrep {
     # Added as a temporary workaround to test installing packages from PMC prior to 1.34.0 GA.
     # TODO: Remove tag and usages once 1.34.0 is GA.
     export -f should_enforce_kube_pmc_install
-    SHOULD_ENFORCE_KUBE_PMC_INSTALL=$(retrycmd_silent 10 1 10 bash -cx should_enforce_kube_pmc_install)
+    SHOULD_ENFORCE_KUBE_PMC_INSTALL=$(should_enforce_kube_pmc_install)
     logs_to_events "AKS.CSE.configureKubeletAndKubectl" configureKubeletAndKubectl
 
     createKubeManifestDir
@@ -310,6 +314,7 @@ EOF
 # After this stage the node should be fully integrated into the cluster.
 # IMPORTANT: This stage should only run when actually joining a node to the cluster. This step should not be run when creating a VHD image
 function nodePrep {
+    logs_to_events "AKS.CSE.fetch_and_cache_imds_instance_metadata" fetch_and_cache_imds_instance_metadata
     # IMPORTANT NOTE: We do this here since this function can mutate kubelet flags and node labels,
     # which is used by configureK8s and other functions. Thus, we need to make sure flag and label content is correct beforehand.
     logs_to_events "AKS.CSE.configureKubeletServing" configureKubeletServing
@@ -337,7 +342,7 @@ function nodePrep {
 
     # Determine if GPU driver installation should be skipped
     export -f should_skip_nvidia_drivers
-    skip_nvidia_driver_install=$(retrycmd_silent 10 1 10 bash -cx should_skip_nvidia_drivers)
+    skip_nvidia_driver_install=$(should_skip_nvidia_drivers)
 
     if [ "$?" -ne 0 ]; then
         echo "Failed to determine if nvidia driver install should be skipped"
@@ -411,6 +416,17 @@ function nodePrep {
         echo $(date),$(hostname), "End configuring GPU drivers"
     fi
 
+<<<<<<< HEAD
+=======
+    export -f should_enable_managed_gpu_experience
+    ENABLE_MANAGED_GPU_EXPERIENCE=$(should_enable_managed_gpu_experience)
+    if [ "$?" -ne 0 ] && [ "${GPU_NODE}" = "true" ] && [ "${skip_nvidia_driver_install}" != "true" ]; then
+        echo "failed to determine if managed GPU experience should be enabled by nodepool tags"
+        exit $ERR_LOOKUP_ENABLE_MANAGED_GPU_EXPERIENCE_TAG
+    fi
+    logs_to_events "AKS.CSE.configureManagedGPUExperience" configureManagedGPUExperience || exit $ERR_ENABLE_MANAGED_GPU_EXPERIENCE
+
+>>>>>>> 191c38c84a7e849323cb6fc9d46fe4e3e913d693
     VALIDATION_ERR=0
 
     # TODO(djsly): Look at leveraging the `aks-check-network.sh` script for this validation instead of duplicating the logic here
