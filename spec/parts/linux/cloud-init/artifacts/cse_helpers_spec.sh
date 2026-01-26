@@ -116,20 +116,20 @@ Describe 'cse_helpers.sh'
         End
     End
 
-    Describe 'pkgVersionsV2'
-        It 'returns release version r2004 for package pkgVersionsV2 in UBUNTU 20.04'
+    Describe 'getPackageJSON'
+        It 'with pkgVersionsV2 against UBUNTU 20.04 returns JSON for OS release "r2004"'
             package=$(readPackage "pkgVersionsV2")
             os="UBUNTU"
             osVersion="20.04"
-            When call updateRelease "$package" "$os" "$osVersion"
-            The variable RELEASE should equal "\"r2004\""
+            When call getPackageJSON "$package" "$os" "$osVersion"
+            The output should equal '{"versionsV2":[{"renovateTag":"name=pkgVersionsV2, os=ubuntu, release=20.04","latestVersion":"dummyVersion2"}]}'
         End
-        It 'returns release version current for package pkgVersionsV2 in Mariner.uknown_release'
+        It 'with pkgVersionsV2 against Mariner unknown_release returns JSON for OS release "current"'
             package=$(readPackage "pkgVersionsV2")
             os="MARINER"
-            osVersion="uknown_release"
-            When call updateRelease "$package" "$os" "$osVersion"
-            The variable RELEASE should equal "current"
+            osVersion="unknown_release"
+            When call getPackageJSON "$package" "$os" "$osVersion"
+            The output should equal '{"versionsV2":[{"renovateTag":"<DO_NOT_UPDATE>","latestVersion":"dummyVersion5"},{"renovateTag":"<DO_NOT_UPDATE>","latestVersion":"dummyVersion6.1","previousLatestVersion":"dummyVersion6.0"}]}'
         End
     End
 
@@ -137,7 +137,7 @@ Describe 'cse_helpers.sh'
         It 'returns multiArchVersionsV2 for containerImage mcr.microsoft.com/dummyImageWithMultiArchVersionsV2'
             containerImage=$(readContainerImage "mcr.microsoft.com/dummyImageWithMultiArchVersionsV2")
             When call updateMultiArchVersions "$containerImage"
-            The variable MULTI_ARCH_VERSIONS[@] should equal "dummyVersion1.1 dummyVersion2.1 dummyVersion1 dummyVersion2"
+            The variable MULTI_ARCH_VERSIONS[@] should equal "dummyVersion1.1 dummyVersion1 dummyVersion2.1 dummyVersion2"
         End
         It 'returns multiArchVersions for containerImage mcr.microsoft.com/dummyImageWithOldMultiArchVersions'
             containerImage=$(readContainerImage "mcr.microsoft.com/dummyImageWithOldMultiArchVersions")

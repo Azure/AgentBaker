@@ -849,133 +849,57 @@ installJq() {
     fi
 }
 
-# sets RELEASE to proper release metadata for the package based on the os and osVersion
-# e.g., For os UBUNTU 20.04, if there is a release "r2004" defined in components.json, then set RELEASE to "r2004".
-# Otherwise set RELEASE to "current"
-updateRelease() {
-    local package="$1"
-    local os="$2"
-    local osVersion="$3"
-    RELEASE="current"
-    local osLowerCase=$(echo "${os}" | tr '[:upper:]' '[:lower:]')
-    #For UBUNTU, if $osVersion is 20.04 and "r2004" is also defined in components.json, then $release is set to "r2004"
-    #Similarly for 22.04 and 24.04. Otherwise $release is set to .current.
-    #For MARINER, the release is always set to "current" now.
-    #For AZURELINUX, if $osVersion is 3.0 and "v3.0" is also defined in components.json, then $RELEASE is set to "v3.0"
+# Returns the JSON for the given package on the given OS and OS version.
+getPackageJSON() {
+    local package=$1
+    local os=$2
+    local osVersion=$3
+    local osLowerCase=${os,,}
+
+    # By default, use the first match from these:
+    # .downloadURIs.${osLowerCase}.current
+    # .downloadURIs.default.current
+    local search=".downloadURIs.${osLowerCase}.current // .downloadURIs.default.current"
+
+    # For AZURELINUX, check the OS version (e.g. 3.0) prefixed with "v" before "current" (e.g. v3.0).
     if isMarinerOrAzureLinux "${os}"; then
-        if [ "$(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}.\"v${osVersion}\"" 2>/dev/null)" != "null" ]; then
-            RELEASE="\"v${osVersion}\""
-        fi
-        return 0
+        search=".downloadURIs.${osLowerCase}.\"v${osVersion}\" // ${search}"
+    # For UBUNTU, check the OS version (e.g. 20.04) with no dots and prefixed with "r" before "current" (e.g. r2004).
+    elif isUbuntu "${os}"; then
+        search=".downloadURIs.${osLowerCase}.\"r${osVersion//.}\" // ${search}"
     fi
-    local osVersionWithoutDot=$(echo "${osVersion}" | sed 's/\.//g')
-    if [ "$(echo "${package}" | jq -r ".downloadURIs.ubuntu.r${osVersionWithoutDot}" 2>/dev/null)" != "null" ]; then
-        RELEASE="\"r${osVersionWithoutDot}\""
-    fi
+
+    jq -r -c "${search}" <<< "${package}"
 }
 
 # sets PACKAGE_VERSIONS to the versions of the package based on the os and osVersion
 updatePackageVersions() {
-    local package="$1"
-    local os="$2"
-    local osVersion="$3"
-    RELEASE="current"
-    updateRelease "${package}" "${os}" "${osVersion}"
-    local osLowerCase=$(echo "${os}" | tr '[:upper:]' '[:lower:]')
     PACKAGE_VERSIONS=()
-
-    # if .downloadURIs.${osLowerCase} doesn't exist, it will get the versions from .downloadURIs.default.
-    # Otherwise get the versions from .downloadURIs.${osLowerCase
-    if [ "$(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}" 2>/dev/null)" = "null" ]; then
-        osLowerCase="default"
-    fi
-
-    # jq the versions from the package. If downloadURIs.$osLowerCase.$release.versionsV2 is not null, then get the versions from there.
-    # Otherwise get the versions from .downloadURIs.$osLowerCase.$release.versions
-    if [ "$(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}.${RELEASE}.versionsV2")" != "null" ]; then
-        local latestVersions=($(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}.${RELEASE}.versionsV2[] | select(.latestVersion != null) | .latestVersion"))
-        local previousLatestVersions=($(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}.${RELEASE}.versionsV2[] | select(.previousLatestVersion != null) | .previousLatestVersion"))
-        for version in "${latestVersions[@]}"; do
-            PACKAGE_VERSIONS+=("${version}")
-        done
-        for version in "${previousLatestVersions[@]}"; do
-            PACKAGE_VERSIONS+=("${version}")
-        done
-        return 0
-    fi
-
-    # Fallback to versions if versionsV2 is null
-    if [ "$(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}.${RELEASE}.versions")" = "null" ]; then
-        return 0
-    fi
-    local versions=($(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}.${RELEASE}.versions[]"))
-    for version in "${versions[@]}"; do
-        PACKAGE_VERSIONS+=("${version}")
-    done
-    return 0
+    readarray -t PACKAGE_VERSIONS < <(jq -r "if .versionsV2 == null then .versions // [] else .versionsV2 // [] | map(.latestVersion, .previousLatestVersion) end | .[] | values" <<< "$(getPackageJSON "$@")")
+    return
 }
 
 # sets MULTI_ARCH_VERSIONS to multiArchVersionsV2 if it exists, otherwise multiArchVersions
 updateMultiArchVersions() {
-  local imageToBePulled="$1"
-
-  #jq the MultiArchVersions from the containerImages. If ContainerImages[i].multiArchVersionsV2 is not null, return that, else return ContainerImages[i].multiArchVersions
-  if [ "$(echo "${imageToBePulled}" | jq -r '.multiArchVersionsV2 // [] | select(. != null and . != [])')" ]; then
-    local latestVersions=($(echo "${imageToBePulled}" | jq -r ".multiArchVersionsV2[] | select(.latestVersion != null) | .latestVersion"))
-    local previousLatestVersions=($(echo "${imageToBePulled}" | jq -r ".multiArchVersionsV2[] | select(.previousLatestVersion != null) | .previousLatestVersion"))
-    for version in "${latestVersions[@]}"; do
-      MULTI_ARCH_VERSIONS+=("${version}")
-    done
-    for version in "${previousLatestVersions[@]}"; do
-      MULTI_ARCH_VERSIONS+=("${version}")
-    done
+    readarray -t MULTI_ARCH_VERSIONS < <(jq -r "if .multiArchVersionsV2 == null then .multiArchVersions // [] else .multiArchVersionsV2 // [] | map(.latestVersion, .previousLatestVersion) end | .[] | values" <<< "$1")
     return
-  fi
-
-  # check if multiArchVersions not exists
-  if [ "$(echo "${imageToBePulled}" | jq -r '.multiArchVersions | if . == null then "null" else empty end')" = "null" ]; then
-    MULTI_ARCH_VERSIONS=()
-    return
-  fi
-
-  local versions=($(echo "${imageToBePulled}" | jq -r ".multiArchVersions[]"))
-  for version in "${versions[@]}"; do
-    MULTI_ARCH_VERSIONS+=("${version}")
-  done
 }
 
+# sets PACKAGE_DOWNLOAD_URL to the URL of the package based on the os and osVersion
 updatePackageDownloadURL() {
-    local package=$1
-    local os=$2
-    local osVersion=$3
-    RELEASE="current"
-    updateRelease "${package}" "${os}" "${osVersion}"
-    local osLowerCase=$(echo "${os}" | tr '[:upper:]' '[:lower:]')
-
-    #if .downloadURIs.${osLowerCase} exist, then get the downloadURL from there.
-    #otherwise get the downloadURL from .downloadURIs.default
-    if [ "$(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}")" != "null" ]; then
-        downloadURL=$(echo "${package}" | jq ".downloadURIs.${osLowerCase}.${RELEASE}.downloadURL" -r)
-        [ "${downloadURL}" = "null" ] && PACKAGE_DOWNLOAD_URL="" || PACKAGE_DOWNLOAD_URL="${downloadURL}"
-        return
-    fi
-    downloadURL=$(echo "${package}" | jq ".downloadURIs.default.${RELEASE}.downloadURL" -r)
-    [ "${downloadURL}" = "null" ] && PACKAGE_DOWNLOAD_URL="" || PACKAGE_DOWNLOAD_URL="${downloadURL}"
+    PACKAGE_DOWNLOAD_URL=$(jq -r ".downloadURL | values" <<< "$(getPackageJSON "$@")")
     return
 }
 
-# Function to get latestVersion for a given k8sVersion from components.json
+# Get latestVersion for a given k8sVersion from components.json based on the os and osVersion
 getLatestPkgVersionFromK8sVersion() {
     local k8sVersion="$1"
     local componentName="$2"
-    local os="$3"
-    local os_version="$4"
 
     k8sMajorMinorVersion="$(echo "$k8sVersion" | cut -d- -f1 | cut -d. -f1,2)"
 
     package=$(jq ".Packages" "$COMPONENTS_FILEPATH" | jq ".[] | select(.name == \"${componentName}\")")
-    PACKAGE_VERSIONS=()
-    updatePackageVersions "${package}" "${os}" "${os_version}"
+    updatePackageVersions "${package}" "${@:3}"
 
     # shellcheck disable=SC3010
     if [[ ${#PACKAGE_VERSIONS[@]} -eq 0 || ${PACKAGE_VERSIONS[0]} == "<SKIP>" ]]; then

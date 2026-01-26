@@ -207,9 +207,7 @@ testPackagesInstalled() {
     else
       OS=$UBUNTU_OS_NAME
     fi
-    PACKAGE_VERSIONS=()
     updatePackageVersions "${p}" "${OS}" "${OS_VERSION}"
-    PACKAGE_DOWNLOAD_URL=""
     updatePackageDownloadURL "${p}" "${OS}" "${OS_VERSION}"
     case "${name}" in
       "kubernetes-binaries")

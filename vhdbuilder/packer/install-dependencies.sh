@@ -275,7 +275,6 @@ packages=$(jq ".Packages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --co
 while IFS= read -r p; do
   #getting metadata for each package
   name=$(echo "${p}" | jq .name -r)
-  PACKAGE_VERSIONS=()
   os=${OS}
   # TODO(mheberling): Remove this once kata uses standard containerd. This OS is referenced
   # in file `parts/common/component.json` with the same ${MARINER_KATA_OS_NAME}.
@@ -290,7 +289,6 @@ while IFS= read -r p; do
     os=${AZURELINUX_KATA_OS_NAME}
   fi
   updatePackageVersions "${p}" "${os}" "${OS_VERSION}"
-  PACKAGE_DOWNLOAD_URL=""
   updatePackageDownloadURL "${p}" "${os}" "${OS_VERSION}"
   echo "In components.json, processing components.packages \"${name}\" \"${PACKAGE_VERSIONS[@]}\" \"${PACKAGE_DOWNLOAD_URL}\""
 
