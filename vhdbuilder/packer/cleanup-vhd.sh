@@ -11,3 +11,5 @@ touch /etc/machine-id
 chmod 644 /etc/machine-id
 # Cleanup disk usage diagnostics file (created by generate-disk-usage.sh)
 rm -f /opt/azure/disk-usage.txt
+# Cleanup IMDS instance metadata cache file
+rm -f /opt/azure/containers/imds_instance_metadata_cache.json

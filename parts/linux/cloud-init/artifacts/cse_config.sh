@@ -5,6 +5,7 @@ NODE_NAME=$(hostname)
 configureAdminUser(){
     chage -E -1 -I -1 -m 0 -M 99999 "${ADMINUSER}"
     chage -l "${ADMINUSER}"
+    chage -I -1 -M -1 root
 }
 
 configPrivateClusterHosts() {
@@ -342,7 +343,7 @@ EOF
   if [ "${GPU_NODE}" = "true" ]; then
     # Check VM tag directly to determine if GPU drivers should be skipped
     export -f should_skip_nvidia_drivers
-    should_skip=$(retrycmd_silent 10 1 10 bash -cx should_skip_nvidia_drivers)
+    should_skip=$(should_skip_nvidia_drivers)
     if [ "$?" -eq 0 ] && [ "${should_skip}" = "true" ]; then
       echo "Generating non-GPU containerd config for GPU node due to VM tags"
       echo "${CONTAINERD_CONFIG_NO_GPU_CONTENT}" | base64 -d > /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
@@ -355,8 +356,8 @@ EOF
     echo "${CONTAINERD_CONFIG_CONTENT}" | base64 -d > /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
   fi
 
-  export -f e2e_mock_azure_china_cloud
-  E2EMockAzureChinaCloud=$(retrycmd_silent 10 1 10 bash -cx e2e_mock_azure_china_cloud)
+  export -f should_e2e_mock_azure_china_cloud
+  E2EMockAzureChinaCloud=$(should_e2e_mock_azure_china_cloud)
   if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
     logs_to_events "AKS.CSE.ensureContainerd.configureContainerdRegistryHost" configureContainerdRegistryHost
   elif [ "${TARGET_CLOUD}" = "AzureChinaCloud" ] || [ "${E2EMockAzureChinaCloud}" = "true" ]; then
@@ -427,23 +428,10 @@ ensureDHCPv6() {
 }
 
 getPrimaryNicIP() {
-    local sleepTime=1
-    local maxRetries=10
-    local i=0
     local ip=""
-
-    while [ "$i" -lt "$maxRetries" ]; do
-        ip=$(curl -sSL -H "Metadata: true" "http://169.254.169.254/metadata/instance/network/interface?api-version=2021-02-01")
-        if [ "$?" -eq 0 ]; then
-            ip=$(echo "$ip" | jq -r '.[0].ipv4.ipAddress[0].privateIpAddress')
-            if [ -n "$ip" ]; then
-                break
-            fi
-        fi
-        sleep $sleepTime
-        i=$((i+1))
-    done
-    echo "$ip"
+    export -f get_primary_nic_ip
+    ip=$(get_primary_nic_ip)
+    echo "${ip}"
 }
 
 generateSelfSignedKubeletServingCertificate() {
@@ -469,7 +457,7 @@ configureKubeletServing() {
 
     # check if kubelet serving certificate rotation is disabled by customer-specified nodepool tags
     export -f should_disable_kubelet_serving_certificate_rotation
-    DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION=$(retrycmd_silent 10 1 10 bash -cx should_disable_kubelet_serving_certificate_rotation)
+    DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION=$(should_disable_kubelet_serving_certificate_rotation)
     if [ "$?" -ne 0 ]; then
         echo "failed to determine if kubelet serving certificate rotation should be disabled by nodepool tags"
         exit $ERR_LOOKUP_DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION_TAG
@@ -1130,18 +1118,18 @@ configCredentialProvider() {
 }
 
 setKubeletNodeIPFlag() {
-    imdsOutput=$(curl -s -H Metadata:true --noproxy "*" --max-time 5 "http://169.254.169.254/metadata/instance/network/interface?api-version=2021-02-01" 2> /dev/null)
-    if [ "$?" -eq 0 ]; then
-        nodeIPAddrs=()
-        ipv4Addr=$(echo $imdsOutput | jq -r '.[0].ipv4.ipAddress[0].privateIpAddress // ""')
-        [ -n "$ipv4Addr" ] && nodeIPAddrs+=("$ipv4Addr")
-        ipv6Addr=$(echo $imdsOutput | jq -r '.[0].ipv6.ipAddress[0].privateIpAddress // ""')
-        [ -n "$ipv6Addr" ] && nodeIPAddrs+=("$ipv6Addr")
-        nodeIPArg=$(IFS=, ; echo "${nodeIPAddrs[*]}") # join, comma-separated
-        if [ -n "$nodeIPArg" ]; then
-            echo "Adding --node-ip=$nodeIPArg to kubelet flags"
-            KUBELET_FLAGS="$KUBELET_FLAGS --node-ip=$nodeIPArg"
-        fi
+    local imdsOutput
+    export -f get_imds_network_metadata
+    imdsOutput=$(get_imds_network_metadata)
+    nodeIPAddrs=()
+    ipv4Addr=$(echo $imdsOutput | jq -r '.[0].ipv4.ipAddress[0].privateIpAddress // ""')
+    [ -n "$ipv4Addr" ] && nodeIPAddrs+=("$ipv4Addr")
+    ipv6Addr=$(echo $imdsOutput | jq -r '.[0].ipv6.ipAddress[0].privateIpAddress // ""')
+    [ -n "$ipv6Addr" ] && nodeIPAddrs+=("$ipv6Addr")
+    nodeIPArg=$(IFS=, ; echo "${nodeIPAddrs[*]}") # join, comma-separated
+    if [ -n "$nodeIPArg" ]; then
+        echo "Adding --node-ip=$nodeIPArg to kubelet flags"
+        KUBELET_FLAGS="$KUBELET_FLAGS --node-ip=$nodeIPArg"
     fi
 }
 

@@ -60,9 +60,7 @@ state = "C:\\ProgramData\\containerd\\state"
       bin_dir = "{{cnibin}}"
       conf_dir = "{{cniconf}}"
     [plugins.cri.registry]
-      [plugins.cri.registry.mirrors]
-        [plugins.cri.registry.mirrors."docker.io"]
-          endpoint = ["https://registry-1.docker.io"]
+      config_path = "C:\\ProgramData\\containerd\\certs.d"
   [plugins.diff-service]
     default = ["windows"]
   [plugins.scheduler]
