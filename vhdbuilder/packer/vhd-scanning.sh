@@ -117,6 +117,8 @@ if [ "${OS_SKU}" = "Ubuntu" ] && [ "${OS_VERSION}" = "22.04" ] && [ "$(printf %s
 else
     echo "Creating VM using standard az vm create command..."
 
+    # Disable tracing to prevent password from appearing in logs
+    set +x
     # Use the standard VM creation approach for all other scenarios
     az vm create --resource-group $RESOURCE_GROUP_NAME \
         --name $SCAN_VM_NAME \
@@ -128,7 +130,10 @@ else
         ${VM_OPTIONS} \
         --assign-identity "${UMSI_RESOURCE_ID}"
 
+    # Check for errors in the az vm create command
     AZ_VM_CREATE_EXIT_CODE=$?
+    # Re-enable tracing after sensitive command
+    set -x
     if [ $AZ_VM_CREATE_EXIT_CODE -ne 0 ]; then
         echo "Error: Failed to create VM" >&2
         exit 1

@@ -108,6 +108,8 @@ create_fips_vm() {
     local vm_size="$1"
     echo "Creating VM with FIPS 140-3 encryption using REST API..."
 
+    # Disable tracing to prevent password from appearing in logs
+    set +x
     # Build the VM request body for FIPS scenario
     local VM_BODY=$(build_fips_vm_body \
         "$PACKER_BUILD_LOCATION" \
@@ -127,6 +129,8 @@ create_fips_vm() {
 
     # Check for errors in the REST API call
     local az_rest_exit_code=$?
+    # Re-enable tracing after sensitive command
+    set -x
     if [ "$az_rest_exit_code" -ne 0 ]; then
         echo "Error: Failed to create VM with FIPS 140-3 encryption via REST API (exit code: $az_rest_exit_code)" >&2
         return "$az_rest_exit_code"
@@ -136,7 +140,7 @@ create_fips_vm() {
     echo "Waiting for VM to be ready..."
     az vm wait --created --name $SCAN_VM_NAME --resource-group $RESOURCE_GROUP_NAME --timeout 600
 
-    # Check for errors in the Azure CLI wait command
+    # Check for errors in the az wait command
     local az_wait_exit_code=$?
     if [ "$az_wait_exit_code" -ne 0 ]; then
         echo "Error: Failed to await VM readiness (exit code: $az_wait_exit_code)" >&2
