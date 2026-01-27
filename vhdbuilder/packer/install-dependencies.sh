@@ -307,6 +307,9 @@ while IFS= read -r p; do
         echo "  - Azure CNI version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
+    "containernetworking-plugins")
+      installCNI
+      ;;
     "runc")
       for version in ${PACKAGE_VERSIONS[@]}; do
         evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
