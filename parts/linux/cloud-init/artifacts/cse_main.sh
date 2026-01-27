@@ -399,8 +399,8 @@ function nodePrep {
         fi
 
         # Configure managed GPU experience (device-plugin, dcgm, dcgm-exporter)
-        export -f enableManagedGPUExperience
-        ENABLE_MANAGED_GPU_BY_TAG=$(retrycmd_silent 10 1 10 bash -cx enableManagedGPUExperience)
+        export -f should_enable_managed_gpu_experience
+        ENABLE_MANAGED_GPU_BY_TAG=$(should_enable_managed_gpu_experience)
         if [ "$?" -ne 0 ]; then
             echo "failed to determine if managed GPU experience should be enabled by nodepool tags"
             exit $ERR_LOOKUP_ENABLE_MANAGED_GPU_EXPERIENCE_TAG

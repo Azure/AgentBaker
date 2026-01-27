@@ -335,13 +335,11 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG(t *testing.T) {
 				nbc.EnableGPUDevicePluginIfNeeded = true
 				nbc.EnableNvidia = true
 				nbc.GPUInstanceProfile = "MIG2g"
+				nbc.EnableManagedGPU = true
+				nbc.MigStrategy = "Single"
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_NC24ads_A100_v4")
-				if vmss.Tags == nil {
-					vmss.Tags = map[string]*string{}
-				}
-				vmss.Tags["EnableManagedGPUExperience"] = to.Ptr("true")
 
 				// Enable the AKS VM extension for GPU nodes
 				extension, err := createVMExtensionLinuxAKSNode(vmss.Location)
