@@ -20,6 +20,9 @@ node_exporter_locate_root_dir() {
         NODE_EXPORTER_ROOT_DIR="$(cd "${SCRIPT_DIR}/../../parts/linux/cloud-init/artifacts/node-exporter" && pwd)"
     elif [ -d "/home/packer/node-exporter" ]; then
         NODE_EXPORTER_ROOT_DIR="/home/packer/node-exporter"
+    elif [ -d "/opt/azure/containers/node-exporter" ]; then
+        # OSGuard/image customizer path
+        NODE_EXPORTER_ROOT_DIR="/opt/azure/containers/node-exporter"
     else
         echo "[node-exporter] Unable to locate asset directory"
         return 1
