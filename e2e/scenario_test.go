@@ -909,7 +909,7 @@ func Test_Ubuntu2204_CustomSysctls_Scriptless(t *testing.T) {
 func Test_Ubuntu2204_RxBuffer_Default_2Core(t *testing.T) {
 
 	RunScenario(t, &Scenario{
-		Description: "tests that RxBuffer is set to default for ubuntu 2204 on 2-core VM",
+		Description: "tests that RxBuffer remains at current value (1024) for ubuntu 2204 on 2-core VM",
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
@@ -927,7 +927,7 @@ func Test_Ubuntu2204_RxBuffer_Default_2Core(t *testing.T) {
 
 func Test_Ubuntu2204_RxBuffer_Default_4CorePlus(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "tests that RxBuffer is set to default for ubuntu 2204 with 4+ cores",
+		Description: "tests that RxBuffer is set to default value (2048) for ubuntu 2204 with 4+ cores",
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
@@ -954,7 +954,7 @@ func Test_Ubuntu2204_RxBuffer_Default_4CorePlus(t *testing.T) {
 
 func Test_Ubuntu2204ARM64_RxBuffer_Default_2Core(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "tests that RxBuffer is set to default for ubuntu 2204 ARM64 on 2-core VM",
+		Description: "tests that RxBuffer remains at current value (1024) for ubuntu 2204 ARM64 on 2-core VM",
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Arm64Containerd,
@@ -977,7 +977,7 @@ func Test_Ubuntu2204ARM64_RxBuffer_Default_2Core(t *testing.T) {
 
 func Test_Ubuntu2204ARM64_RxBuffer_Default_4CorePlus(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "tests that RxBuffer is set to default for ubuntu 2204 ARM64 with 4+ cores",
+		Description: "tests that RxBuffer is set to default value (2048) for ubuntu 2204 ARM64 with 4+ cores",
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Arm64Containerd,
@@ -1005,7 +1005,7 @@ func Test_Ubuntu2204ARM64_RxBuffer_Default_4CorePlus(t *testing.T) {
 
 func Test_Ubuntu2404Gen2_RxBuffer_Default_2Core(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "tests that RxBuffer is set to default for ubuntu 2404 on 2-core VM",
+		Description: "tests that RxBuffer remains at current value (1024) for ubuntu 2404 on 2-core VM",
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2404Gen2Containerd,
@@ -1023,7 +1023,7 @@ func Test_Ubuntu2404Gen2_RxBuffer_Default_2Core(t *testing.T) {
 
 func Test_Ubuntu2404Gen2_RxBuffer_Default_4CorePlus(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "tests that RxBuffer is set to default for ubuntu 2404 with 4+ cores",
+		Description: "tests that RxBuffer is set to default value (2048) for ubuntu 2404 with 4+ cores",
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2404Gen2Containerd,
@@ -1052,7 +1052,7 @@ func Test_Ubuntu2404Gen2_RxBuffer_Default_4CorePlus(t *testing.T) {
 
 func Test_Ubuntu2404ARM64_RxBuffer_Default_2Core(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "tests that RxBuffer is set to default for ubuntu 2404 ARM64 on 2-core VM",
+		Description: "tests that RxBuffer remains at current value (1024) for ubuntu 2404 ARM64 on 2-core VM",
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2404ArmContainerd,
@@ -1075,7 +1075,7 @@ func Test_Ubuntu2404ARM64_RxBuffer_Default_2Core(t *testing.T) {
 
 func Test_Ubuntu2404ARM64_RxBuffer_Default_4CorePlus(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "tests that RxBuffer is set to default for ubuntu 2404 ARM64 with 4+ cores",
+		Description: "tests that RxBuffer is set to default value (2048) for ubuntu 2404 ARM64 with 4+ cores",
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2404ArmContainerd,
@@ -1103,7 +1103,7 @@ func Test_Ubuntu2404ARM64_RxBuffer_Default_4CorePlus(t *testing.T) {
 
 func Test_AzureLinuxV3_RxBuffer_Default_2Core(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "tests that RxBuffer is set to default for AzureLinuxV3 on 2-core VM",
+		Description: "tests that RxBuffer remains at current value (1024) for AzureLinuxV3 on 2-core VM",
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV3Gen2,
@@ -1121,7 +1121,7 @@ func Test_AzureLinuxV3_RxBuffer_Default_2Core(t *testing.T) {
 
 func Test_AzureLinuxV3_RxBuffer_Default_4CorePlus(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "tests that RxBuffer is set to default for AzureLinuxV3 with 4+ cores",
+		Description: "tests that RxBuffer is set to default value (2048) for AzureLinuxV3 with 4+ cores",
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV3Gen2,
