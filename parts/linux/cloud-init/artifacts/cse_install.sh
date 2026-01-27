@@ -391,70 +391,51 @@ installCNI() {
     # Old versions of VHDs will not have components.json. If it does not exist, we will fall back to the hardcoded download for CNI.
     # Network Isolated Cluster / Bring Your Own ACR will not work with a vhd that requres a hardcoded CNI download.
     if [ ! -f "$COMPONENTS_FILEPATH" ] || ! jq '.Packages[] | select(.name == "cni-plugins")' < $COMPONENTS_FILEPATH > /dev/null; then
-        echo "WARNING: no cni-plugins components present falling back to hard coded download of 1.4.1. This should error eventually"
+        echo "WARNING: no cni-plugins components present falling back to hard coded download of 1.6.2. This should error eventually"
         # could we fail if not Ubuntu2204Gen2ContainerdPrivateKubePkg vhd? Are there others?
         # definitely not handling arm here.
-        retrycmd_get_tarball 120 5 "${CNI_DOWNLOADS_DIR}/refcni.tar.gz" "https://${PACKAGE_DOWNLOAD_BASE_URL}/cni-plugins/v1.4.1/binaries/cni-plugins-linux-amd64-v1.4.1.tgz" || exit $ERR_CNI_DOWNLOAD_TIMEOUT
-        extract_tarball "${CNI_DOWNLOADS_DIR}/refcni.tar.gz" "$CNI_BIN_DIR"
-        return
+        #retrycmd_get_tarball 120 5 "${CNI_DOWNLOADS_DIR}/refcni.tar.gz" "https://${PACKAGE_DOWNLOAD_BASE_URL}/cni-plugins/v1.6.2/binaries/cni-plugins-linux-amd64-v1.6.2.tgz" || exit $ERR_CNI_DOWNLOAD_TIMEOUT
+        #extract_tarball "${CNI_DOWNLOADS_DIR}/refcni.tar.gz" "$CNI_BIN_DIR"
+        exit $ERR_CNI_VERSION_INVALID
     fi
 
     #always just use what is listed in components.json so we don't have to sync.
     cniPackage=$(jq ".Packages" "$COMPONENTS_FILEPATH" | jq ".[] | select(.name == \"cni-plugins\")") || exit $ERR_CNI_VERSION_INVALID
 
     #CNI doesn't really care about this but wanted to reuse updatePackageVersions which requires it.
-    os=${UBUNTU_OS_NAME}
+    os=${OS}
+    os_version="current"
     if [ -z "$UBUNTU_RELEASE" ]; then
-        os=${OS}
-        os_version="current"
+
     fi
     os_version="${UBUNTU_RELEASE}"
-    if isMarinerOrAzureLinux "${OS}" && [ "${IS_KATA}" = "true" ]; then
-        os=${MARINER_KATA_OS_NAME}
+    if isMarinerOrAzureLinux "${OS}"; then
         DNF = 1
     fi
     PACKAGE_VERSIONS=()
+    #will this work with default?
     updatePackageVersions "${cniPackage}" "${os}" "${os_version}"
 
     #should change to ne
     # shellcheck disable=SC3010
     if [[ ${#PACKAGE_VERSIONS[@]} -gt 1 ]]; then
-        echo "WARNING: containerd package versions array has more than one element. Installing the last element in the array."
-        exit $ERR_CONTAINERD_VERSION_INVALID
-    fi
-<<<<<<< HEAD
-    packageVersion=${PACKAGE_VERSIONS[0]}   
-    
-    if [ "$(isDNF)" -eq 1 ]; then 
-        packageName="containernetworking-plugins-${version}"
-         echo "Installing ${packageName} with dnf"
-        dnf_install 30 1 600 ${packageName} || exit 1
-    else 
-        packageName="containernetworking-plugins=${version}"
-        echo "Installing ${packageName} with apt-get"
-        apt_get_install 20 30 120 ${packageName} || exit 1
-    fi
-    
-    #not clear to me when this would ever happen. assume its related to the line above Latest VHD should have the untar, older should have the tgz. 
-    mv /usr/bin/containernetworking-plugins/* $CNI_BIN_DIR 
-=======
-    packageVersion=${PACKAGE_VERSIONS[0]}
-
-    # Is there a ${arch} variable I can use instead of the iff
-    if [ "$(isARM64)" -eq 1 ]; then
-        CNI_DIR_TMP="cni-plugins-linux-arm64-v${packageVersion}"
-    else
-        CNI_DIR_TMP="cni-plugins-linux-amd64-v${packageVersion}"
-    fi
-
-    if [ -d "$CNI_DOWNLOADS_DIR/${CNI_DIR_TMP}" ]; then
-        #not clear to me when this would ever happen. assume its related to the line above Latest VHD should have the untar, older should have the tgz.
-        mv ${CNI_DOWNLOADS_DIR}/${CNI_DIR_TMP}/* $CNI_BIN_DIR
-    else
-        echo "CNI tarball should already be unzipped by components.json"
+        echo "WARNING: containerd package versions array has more than one element."
         exit $ERR_CNI_VERSION_INVALID
     fi
->>>>>>> origin/master
+    packageVersion=${PACKAGE_VERSIONS[0]}
+
+    #TODO new exit codes
+    #does version cotnain the distro name?
+    packageName="containernetworking-plugins-${version}"
+    if [ "$(isDNF)" -eq 1 ]; then
+         echo "Installing ${packageName} with dnf"
+        dnf_install 30 1 600 ${packageName} || exit $ERR_CNI_VERSION_INVALID
+    else
+        echo "Installing ${packageName} with apt-get"
+        apt_get_install 20 30 120 ${packageName} || exit $ERR_CNI_VERSION_INVALID
+    fi
+
+    mv /usr/bin/containernetworking-plugins/* $CNI_BIN_DIR
 
     chown -R root:root $CNI_BIN_DIR
 }
