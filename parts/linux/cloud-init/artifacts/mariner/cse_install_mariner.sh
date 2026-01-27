@@ -129,7 +129,14 @@ EOF
 
 installNvidiaFabricManager() {
     # Check the NVIDIA driver version installed and install nvidia-fabric-manager
-    NVIDIA_DRIVER_VERSION=$(cut -d - -f 2 <<< "$(rpm -qa cuda)")
+    # cuda-open is used for A100+, H100, H200, GB200, etc; cuda is used for T4, V100
+    if rpm -qa cuda-open | grep -q .; then
+        # cuda-open package format: cuda-open-{version}-{release}_{kernel}
+        NVIDIA_DRIVER_VERSION=$(rpm -qa cuda-open | head -1 | cut -d - -f 3)
+    else
+        # cuda package format: cuda-{version}-{release}_{kernel}
+        NVIDIA_DRIVER_VERSION=$(rpm -qa cuda | head -1 | cut -d - -f 2)
+    fi
     for nvidia_package in nvidia-fabric-manager-${NVIDIA_DRIVER_VERSION} nvidia-fabric-manager-devel-${NVIDIA_DRIVER_VERSION}; do
       if ! dnf_install 30 1 600 $nvidia_package; then
         exit $ERR_APT_INSTALL_TIMEOUT
