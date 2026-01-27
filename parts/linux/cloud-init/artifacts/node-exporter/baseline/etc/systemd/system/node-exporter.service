@@ -1,0 +1,12 @@
+[Unit]
+Description=Prometheus Node Exporter
+Documentation=https://github.com/prometheus/node_exporter
+
+[Service]
+ExecStart=/opt/bin/node-exporter-startup.sh
+
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
