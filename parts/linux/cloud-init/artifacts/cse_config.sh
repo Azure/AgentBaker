@@ -810,6 +810,25 @@ EOF
     systemctlEnableAndStart mig-partition 300
 }
 
+configureNodeExporter() {
+    echo "Configuring Node Exporter"
+    # Check for skip file to determine if node-exporter was installed on this VHD
+    if [ ! -f /etc/node-exporter.d/skip_vhd_node_exporter ]; then
+        echo "Node Exporter assets not found on this VHD (missing /etc/node-exporter.d/skip_vhd_node_exporter); skipping configuration."
+        return 0
+    fi
+
+    if ! systemctlEnableAndStart node-exporter 30; then
+        echo "Failed to start node-exporter service"
+        return $ERR_NODE_EXPORTER_START_FAIL
+    fi
+    if ! systemctlEnableAndStart node-exporter-restart.path 30; then
+        echo "Failed to start node-exporter-restart.path"
+        return $ERR_NODE_EXPORTER_START_FAIL
+    fi
+    echo "Node Exporter started successfully"
+}
+
 ensureSysctl() {
     SYSCTL_CONFIG_FILE=/etc/sysctl.d/999-sysctl-aks.conf
     mkdir -p "$(dirname "${SYSCTL_CONFIG_FILE}")"

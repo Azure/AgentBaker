@@ -1845,6 +1845,42 @@
           }
         }
       }
+    },
+    {
+      "name": "node-exporter",
+      "downloadLocation": "/opt/node-exporter",
+      "downloadURIs": {
+        "ubuntu": {
+          "current": {
+            "versionsV2": [
+              {
+                "renovateTag": "name=node-exporter-kubernetes, repository=production, os=ubuntu, release=18.04",
+                "latestVersion": "1.9.1-ubuntu18.04u5"
+              }
+            ]
+          }
+        },
+        "mariner": {
+          "current": {
+            "versionsV2": [
+              {
+                "renovateTag": "RPM_registry=https://packages.microsoft.com/cbl-mariner/2.0/prod/cloud-native/x86_64/repodata, name=node-exporter-kubernetes, os=mariner, release=2.0",
+                "latestVersion": "1.9.1-8.cm2"
+              }
+            ]
+          }
+        },
+        "azurelinux": {
+          "v3.0": {
+            "versionsV2": [
+              {
+                "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=node-exporter-kubernetes, os=azurelinux, release=3.0",
+                "latestVersion": "1.9.1-8.azl3"
+              }
+            ]
+          }
+        }
+      }
     }
   ],
   "OCIArtifacts": [
