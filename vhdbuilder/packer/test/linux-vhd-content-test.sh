@@ -341,7 +341,6 @@ testPackageInAzureChinaCloud() {
   supportedProxyLocations=(
     "aks"
     "kubernetes"
-    "cni-plugins"
     "azure-cni"
     "csi-proxy"
     "aks-engine"
