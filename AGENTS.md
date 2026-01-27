@@ -7,7 +7,7 @@ AgentBaker repo has 2 main services discussed below:
 
 ## VHD Builder
 
-It builds VHDs using Packer for base OS: Windows, Azure Linux/Mariner and Ubuntu. For each OS there are multiple supported versions (windows 2019, 2022, ubuntu 2004, 2204 etc). THe VHDs are base images for a node in an aks cluster.
+It builds VHDs using Packer for base OS: Windows, Azure Linux/Mariner and Ubuntu. For each OS there are multiple supported versions (windows 2019, 2022, ubuntu 2004, 2204 etc). The VHDs are base images for a node in an aks cluster.
 
 VHDs are built using [Packer](https://developer.hashicorp.com/packer/docs) in [vhdbuilder](../vhdbuilder/).
 
@@ -61,12 +61,12 @@ The SRE guidelines ground other coding guidelines and practices.
 
 ### Golang Guidelines
 
-- Follow golang best practice
+- Follow Go best practice
 - Use vanilla go test framework
 
 ### PowerShell Guidelines
 
-- follow powershell best practices
+- follow PowerShell best practices
 
 ### ShellScripts Guidelines
 
