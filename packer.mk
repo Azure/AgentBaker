@@ -12,16 +12,12 @@ build-packer: generate-prefetch-scripts build-aks-node-controller build-lister-b
 ifeq (${ARCHITECTURE},ARM64)
 	@echo "${MODE}: Building with Hyper-v generation 2 ARM64 VM"
 ifeq (${OS_SKU},Ubuntu)
-	@echo "Using packer template file vhd-image-builder-arm64-gen2.json"
 	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/buildconfig
 else ifeq (${OS_SKU},CBLMariner)
-	@echo "Using packer template file vhd-image-builder-mariner-arm64.json"
 	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/buildconfig
 else ifeq (${OS_SKU},AzureLinux)
-	@echo "Using packer template file vhd-image-builder-mariner-arm64.json"
 	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/buildconfig
 else ifeq (${OS_SKU},Flatcar)
-	@echo "Using packer template file vhd-image-builder-flatcar-arm64.json"
 	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/buildconfig
 else
 	$(error OS_SKU was invalid ${OS_SKU})
@@ -36,25 +32,19 @@ else
 endif
 ifeq (${OS_SKU},Ubuntu)
 ifeq ($(findstring cvm,$(FEATURE_FLAGS)),cvm)
-	@echo "Using packer template file vhd-image-builder-cvm.json"
 	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/buildconfig
 else
-	@echo "Using packer template file vhd-image-builder-base.json"
 	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/buildconfig
 endif
 else ifeq (${OS_SKU},CBLMariner)
-	@echo "Using packer template file vhd-image-builder-mariner.json"
 	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/buildconfig
 else ifeq (${OS_SKU},AzureLinux)
 ifeq ($(findstring cvm,$(FEATURE_FLAGS)),cvm)
-	@echo "Using packer template file vhd-image-builder-mariner-cvm.json"
 	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/buildconfig
 else
-	@echo "Using packer template file vhd-image-builder-mariner.json"
 	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/buildconfig
 endif
 else ifeq (${OS_SKU},Flatcar)
-	@echo "Using packer template file vhd-image-builder-flatcar.json"
 	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/buildconfig
 else
 	$(error OS_SKU was invalid ${OS_SKU})
@@ -90,7 +80,7 @@ init-packer:
 	@./vhdbuilder/packer/buildconfig/produce-packer-settings.sh ${AZCLI_VERSION_OVERRIDE}
 
 run-packer: az-login
-	@packer init ./vhdbuilder/packer/packer-plugin.pkr.hcl && packer version && ($(MAKE) -f packer.mk init-packer | tee packer-output) && ($(MAKE) -f packer.mk build-packer | tee -a packer-output)
+	@packer init ./vhdbuilder/packer/buildconfig/build.pkr.hcl && packer version && ($(MAKE) -f packer.mk init-packer | tee packer-output) && ($(MAKE) -f packer.mk build-packer | tee -a packer-output)
 
 run-imagecustomizer: az-login
 	@($(MAKE) -f packer.mk init-packer | tee packer-output) && ($(MAKE) -f packer.mk build-imagecustomizer | tee -a packer-output)
