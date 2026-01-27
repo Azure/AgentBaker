@@ -86,8 +86,7 @@ installCNI() {
     packageVersion=${PACKAGE_VERSIONS[0]}
 
     #TODO new exit codes
-    #does version cotnain the distro name? sudo apt-get install containernetworking-plugins=1.9.0-ubuntu22.04u1 worksfor example but how does comoentns.json get
-    packageName="containernetworking-plugins-${version}"
+    packageName="containernetworking-plugins=${version}"
     ##dnf_install 30 1 600 ${packageName} || exit $ERR_CNI_VERSION_INVALID
     echo "Installing ${packageName} with apt-get"
     apt_get_install 20 30 120 ${packageName} || exit $ERR_CNI_VERSION_INVALID
