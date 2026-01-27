@@ -589,32 +589,106 @@ param(
     [string]$arg3
 )
 
-Invoke-WebRequest -UseBasicParsing https://aka.ms/downloadazcopy-v10-windows -OutFile azcopy.zip
-Expand-Archive azcopy.zip
-cd .\azcopy\*
-$env:AZCOPY_AUTO_LOGIN_TYPE="MSI"
-$env:AZCOPY_MSI_RESOURCE_STRING=$arg3
-C:\k\debug\collect-windows-logs.ps1
-$CollectedLogs=(Get-ChildItem . -Filter "*_logs.zip" -File)[0].Name
-.\azcopy.exe copy $CollectedLogs "$arg1/collected-node-logs.zip"
-.\azcopy.exe copy "C:\azuredata\CustomDataSetupScript.log" "$arg1/cse.log"
-.\azcopy.exe copy "C:\AzureData\provision.complete" "$arg1/provision.complete"
-.\azcopy.exe copy "C:\k\kubelet.err.log" "$arg1/kubelet.err.log"
-.\azcopy.exe copy "C:\k\containerd.err.log" "$arg1/containerd.err.log"
+function Write-Log {
+    param([string]$Message)
+    $timestamp = (Get-Date).ToString("o")
+    Write-Output "[$timestamp] $Message"
+}
 
-# Collect network configuration information
-ipconfig /all > network_config.txt
-Get-NetIPConfiguration -Detailed >> network_config.txt
-Get-NetAdapter | Format-Table -AutoSize >> network_config.txt
-Get-DnsClientServerAddress >> network_config.txt
-Get-NetRoute >> network_config.txt
-Get-NetNat >> network_config.txt
-Get-NetIPAddress >> network_config.txt
-Get-NetNeighbor >> network_config.txt
-Get-NetConnectionProfile >> network_config.txt
-hnsdiag list networks >> network_config.txt
-hnsdiag list endpoints >> network_config.txt
-.\azcopy.exe copy "network_config.txt" "$arg1/network_config.txt"
+Write-Log "RunCommand starting"
+Write-Log "Blob prefix: $arg2"
+Write-Log "Target container: $arg1"
+
+# Exit codes:
+# 0 = Success
+# 1 = Azcopy setup or upload test failed
+# 2 = collect-windows-logs.ps1 not found
+# 3 = collect-windows-logs.ps1 execution failed
+# 4 = No zip file created
+# 5 = Zip file upload failed
+
+# Setup azcopy (prefer pre-baked binary when available)
+try {
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+    Write-Log "TLS version set to 1.2"
+    $azcopyExePath = "C:\aks-tools\azcopy.exe"
+    if (Test-Path $azcopyExePath) {
+        Write-Log "Using pre-baked azcopy at $azcopyExePath"
+    } else {
+        try {
+            Write-Log "Attempting azcopy download via Invoke-WebRequest"
+            Invoke-WebRequest -UseBasicParsing https://aka.ms/downloadazcopy-v10-windows -OutFile azcopy.zip -ErrorAction Stop
+            Write-Log "Invoke-WebRequest download succeeded"
+        } catch {
+            Write-Log "Invoke-WebRequest failed: $_"
+            throw
+        }
+        Expand-Archive azcopy.zip -ErrorAction Stop
+        cd .\azcopy\*
+        $azcopyExePath = (Join-Path (Get-Location) "azcopy.exe")
+        Write-Log "Azcopy extracted to $(Get-Location)"
+    }
+    $env:AZCOPY_AUTO_LOGIN_TYPE = "MSI"
+    $env:AZCOPY_MSI_RESOURCE_STRING = $arg3
+    Write-Log "AZCOPY_AUTO_LOGIN_TYPE=MSI"
+    if (Test-Path $azcopyExePath) {
+        $azcopyVersion = & $azcopyExePath --version 2>&1
+        Write-Log "Azcopy version: $azcopyVersion"
+    } else {
+        Write-Log "Azcopy binary not found at $azcopyExePath"
+    }
+} catch {
+    Write-Error "Failed to setup azcopy: $_"
+    exit 1
+}
+
+# Test azcopy works
+try {
+    "Azcopy test at $(Get-Date)" | Out-File azcopy-test.txt -Encoding ASCII -ErrorAction Stop
+    & $azcopyExePath copy azcopy-test.txt "$arg1/azcopy-test.txt"
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "Azcopy upload failed with exit code $LASTEXITCODE"
+        exit 1
+    }
+    Write-Log "Azcopy test upload succeeded"
+} catch {
+    Write-Error "Failed to test azcopy: $_"
+    exit 1
+}
+
+# Run collect-windows-logs.ps1
+$collectScript = "C:\k\debug\collect-windows-logs.ps1"
+if (-not (Test-Path $collectScript)) {
+    Write-Error "Script not found at $collectScript"
+    exit 2
+}
+
+Write-Log "Found collect script at $collectScript"
+
+try {
+    & $collectScript -ErrorAction Stop
+    Write-Log "collect-windows-logs.ps1 completed"
+} catch {
+    Write-Error "Script execution failed: $_"
+    exit 3
+}
+
+# Upload the zip file
+$zipFile = Get-ChildItem . -Filter "*_logs.zip" -File | Select-Object -First 1
+if (-not $zipFile) {
+    Write-Error "No zip file created by collect-windows-logs.ps1"
+    exit 4
+}
+
+Write-Log "Found zip file: $($zipFile.Name)"
+
+& $azcopyExePath copy $zipFile.Name "$arg1/collected-logs.zip"
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "Failed to upload zip file with azcopy, exit code: $LASTEXITCODE"
+    exit 5
+}
+Write-Log "Zip upload succeeded"
+exit 0
 `
 
 // extractLogsFromVMWindows runs a script on windows VM to collect logs and upload them to a blob storage
@@ -640,6 +714,14 @@ func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
 	instanceID := *page.Value[0].InstanceID
 	blobPrefix := s.Runtime.VMSSName
 	blobUrl := config.Config.BlobStorageAccountURL() + "/" + config.Config.BlobContainer + "/" + blobPrefix
+	outputBlobName := "runcommand-output.txt"
+	errorBlobName := "runcommand-error.txt"
+	outputBlobUrl := blobUrl + "/" + outputBlobName
+	errorBlobUrl := blobUrl + "/" + errorBlobName
+	vmIdentityClientID, identityErr := CachedCreateVMManagedIdentity(ctx, s.Location)
+	if identityErr != nil {
+		s.T.Logf("failed to get VM managed identity client ID: %v", identityErr)
+	}
 
 	client := config.Azure.VMSSVMRunCommands
 
@@ -666,6 +748,20 @@ func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
 		armcompute.VirtualMachineRunCommand{
 			Properties: &armcompute.VirtualMachineRunCommandProperties{
 				TimeoutInSeconds: to.Ptr(runCommandTimeout), // 20 minutes should be enough
+				OutputBlobURI:    to.Ptr(outputBlobUrl),
+				ErrorBlobURI:     to.Ptr(errorBlobUrl),
+				OutputBlobManagedIdentity: func() *armcompute.RunCommandManagedIdentity {
+					if identityErr != nil {
+						return nil
+					}
+					return &armcompute.RunCommandManagedIdentity{ClientID: to.Ptr(vmIdentityClientID)}
+				}(),
+				ErrorBlobManagedIdentity: func() *armcompute.RunCommandManagedIdentity {
+					if identityErr != nil {
+						return nil
+					}
+					return &armcompute.RunCommandManagedIdentity{ClientID: to.Ptr(vmIdentityClientID)}
+				}(),
 				Source: &armcompute.VirtualMachineRunCommandScriptSource{
 					//CommandID: to.Ptr("RunPowerShellScript"),
 					Script: to.Ptr(uploadLogsPowershellScript),
@@ -695,7 +791,56 @@ func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
 	require.NoError(s.T, err, "failed to poll run command on VMSS instance %s", instanceID)
 
 	respJSON, _ := json.MarshalIndent(runCommandResp, "", "  ")
-	s.T.Logf("run command executed successfully:\n%s", respJSON)
+	s.T.Logf("run command executed:\n%s", respJSON)
+
+	// Interpret exit code
+	gotExitCode := false
+	if runCommandResp.Properties != nil && runCommandResp.Properties.InstanceView != nil {
+		instanceView := runCommandResp.Properties.InstanceView
+		if instanceView.ExitCode != nil {
+			gotExitCode = true
+			exitCode := *instanceView.ExitCode
+			s.T.Logf("RunCommand exit code: %d", exitCode)
+			switch exitCode {
+			case 0:
+				s.T.Logf("✓ Log collection completed successfully")
+			case 1:
+				s.T.Logf("✗ Azcopy setup or upload test failed")
+			case 2:
+				s.T.Logf("✗ collect-windows-logs.ps1 not found at C:\\k\\debug\\collect-windows-logs.ps1")
+			case 3:
+				s.T.Logf("✗ collect-windows-logs.ps1 execution failed")
+			case 4:
+				s.T.Logf("✗ No zip file created by collect-windows-logs.ps1")
+			case 5:
+				s.T.Logf("✗ Zip file upload failed")
+			default:
+				s.T.Logf("✗ Unknown exit code: %d", exitCode)
+			}
+		}
+		if instanceView.Error != nil {
+			s.T.Logf("RunCommand error: %s", *instanceView.Error)
+		}
+		if instanceView.Output != nil {
+			s.T.Logf("RunCommand output: %s", *instanceView.Output)
+		}
+	}
+
+	// Fallback: If InstanceView is null/empty, check which files were uploaded to infer what happened
+	if !gotExitCode {
+		s.T.Logf("⚠️  InstanceView.ExitCode is null/empty, checking uploaded files to diagnose...")
+		checkBlob := func(blobName string) bool {
+			_, err := config.Azure.Blob.DownloadStream(ctx, config.Config.BlobContainer, blobPrefix+"/"+blobName, nil)
+			return err == nil
+		}
+		if checkBlob("collected-logs.zip") {
+			s.T.Logf("✓ collected-logs.zip exists - log collection succeeded")
+		} else if checkBlob("azcopy-test.txt") {
+			s.T.Logf("⚠️  azcopy-test.txt exists but no collected-logs.zip - script failed (exit code 2/3/4/5)")
+		} else {
+			s.T.Logf("✗ No files uploaded - azcopy setup failed (exit code 1)")
+		}
+	}
 
 	s.T.Logf("uploaded logs to %s", blobUrl)
 
@@ -722,10 +867,10 @@ func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
 			return
 		}
 	}
-	downloadBlob("collected-node-logs.zip")
-	downloadBlob("cse.log")
-	downloadBlob("provision.complete")
-	downloadBlob("network_config.txt")
+	downloadBlob("collected-logs.zip")
+	downloadBlob(outputBlobName)
+	downloadBlob(errorBlobName)
+
 	s.T.Logf("logs collected to %s", testDir(s.T))
 }
 

@@ -117,19 +117,12 @@ function Download-FileWithAzCopy
         $Dest
     )
 
-
-    if (!(Test-Path -Path $global:aksTempDir))
+    # Ensure AzCopy is always available on the VHD before using it for downloads.
+    Ensure-AzCopyOnVHD -AzCopyZipUrl $env:AzCopyZipURL
+    $azcopyExePath = "$global:aksToolsDir\azcopy.exe"
+    if (!(Test-Path -Path $azcopyExePath))
     {
-        Write-Log "Creating temp dir for tools of building vhd"
-        New-Item -ItemType Directory $global:aksTempDir -Force
-    }
-
-    if (!(Test-Path -Path "$global:aksTempDir\azcopy.exe"))
-    {
-        Write-Log "Downloading azcopy"
-        Invoke-WebRequest -UseBasicParsing "https://aka.ms/downloadazcopy-v10-windows" -OutFile "$global:aksTempDir\azcopy.zip"
-        Expand-Archive -Path "$global:aksTempDir\azcopy.zip" -DestinationPath "$global:aksTempDir\tmp" -Force
-        Move-Item "$global:aksTempDir\tmp\*\azcopy.exe" "$global:aksTempDir\azcopy.exe"
+        throw "AzCopy not found at $azcopyExePath"
     }
 
     pushd "$global:aksTempDir"
@@ -144,10 +137,10 @@ function Download-FileWithAzCopy
 
     Write-Log "Logging in to AzCopy"
     # user_assigned_managed_identities has been bound in vhdbuilder/packer/windows/windows-vhd-builder-sig.json
-    .\azcopy.exe login --login-type=MSI
+    & $azcopyExePath login --login-type=MSI
 
     Write-Log "Copying $URL to $Dest"
-    .\azcopy.exe copy "$URL" "$Dest"
+    & $azcopyExePath copy "$URL" "$Dest"
 
     dir "$Dest"
 
@@ -155,6 +148,56 @@ function Download-FileWithAzCopy
     Get-Content "$env:AZCOPY_LOG_LOCATION\*.log" | Write-Log
     Write-Log "--- END AzCopy Log"
     popd
+}
+
+function Ensure-AzCopyOnVHD
+{
+    param (
+        [string]$AzCopyZipUrl
+    )
+
+    # Prefer an override URL when provided (e.g., internal mirrors or air-gapped builds).
+    if ([string]::IsNullOrEmpty($AzCopyZipUrl))
+    {
+        $AzCopyZipUrl = "https://aka.ms/downloadazcopy-v10-windows"
+    }
+
+    $azcopyExePath = "$global:aksToolsDir\azcopy.exe"
+    if (Test-Path -Path $azcopyExePath)
+    {
+        Write-Log "AzCopy already present at $azcopyExePath"
+        return
+    }
+
+    if (!(Test-Path -Path $global:aksTempDir))
+    {
+        Write-Log "Creating temp dir for tools of building vhd"
+        New-Item -ItemType Directory $global:aksTempDir -Force | Out-Null
+    }
+
+    if (!(Test-Path -Path $global:aksToolsDir))
+    {
+        Write-Log "Creating AKS tools dir $global:aksToolsDir"
+        New-Item -ItemType Directory $global:aksToolsDir -Force | Out-Null
+    }
+
+    $zipPath = Join-Path $global:aksTempDir "azcopy.zip"
+    $extractDir = Join-Path $global:aksTempDir "azcopy-extract"
+    $tempAzCopyExe = Join-Path $global:aksTempDir "azcopy.exe"
+
+    Write-Log "Downloading AzCopy from $AzCopyZipUrl"
+    Download-File -URL $AzCopyZipUrl -Dest $zipPath
+
+    Write-Log "Extracting AzCopy"
+    if (Test-Path -Path $extractDir)
+    {
+        Remove-Item -Path $extractDir -Recurse -Force
+    }
+    Expand-Archive -Path $zipPath -DestinationPath $extractDir -Force
+    Move-Item "$extractDir\*\azcopy.exe" $tempAzCopyExe -Force
+
+    Copy-Item -Path $tempAzCopyExe -Destination $azcopyExePath -Force
+    Write-Log "AzCopy pre-baked to $azcopyExePath"
 }
 
 function Pull-OCIArtifact
@@ -501,6 +544,9 @@ function Get-ToolsToVHD
     {
         New-Item -ItemType Directory -Path $global:aksToolsDir -Force | Out-Null
     }
+
+    # Ensure azcopy is pre-baked so runtime scripts do not rely on outbound downloads.
+    Ensure-AzCopyOnVHD -AzCopyZipUrl $env:AzCopyZipURL
 
     Write-Log "Getting DU (Windows Disk Usage)"
     Download-File -URL "https://download.sysinternals.com/files/DU.zip" -Dest "$global:aksToolsDir\DU.zip"

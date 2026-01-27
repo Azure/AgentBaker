@@ -27,8 +27,7 @@ Installs Windows Cilium Networking using the global configuration settings.
 - Expects node prep to remove source NuGet package from aks-cache following installation
 
 #>
-function Enable-WindowsCiliumNetworking
-{
+function Enable-WindowsCiliumNetworking {
     if (!$global:EnableWindowsCiliumNetworking) {
         Write-Log "Windows Cilium Networking is disabled, skipping installation"
         return
@@ -40,15 +39,16 @@ function Enable-WindowsCiliumNetworking
     $isRebootNeeded = $false
     $installArgs = @{
         RestartRequiredOut = ([ref]$isRebootNeeded)
-        SourceDirectory = $global:WindowsCiliumInstallPath
-        SkipNugetUnpack = [switch]::Present 
+        SourceDirectory    = $global:WindowsCiliumInstallPath
+        SkipNugetUnpack    = [switch]::Present
     }
 
     # Add scenario configuration if specified
     if (![string]::IsNullOrEmpty($global:WindowsCiliumNetworkingConfiguration)) {
         if (!(Test-Json -Json $global:WindowsCiliumNetworkingConfiguration)) {
             Write-Log "Windows Cilium Networking configuration is not valid JSON. Proceeding with default configuration."
-        } else {
+        }
+        else {
             $installArgs['ScenarioConfig'] = $global:WindowsCiliumNetworkingConfiguration
         }
     }
@@ -60,6 +60,11 @@ function Enable-WindowsCiliumNetworking
         Write-Log "Windows Cilium Networking installation completed successfully$(if ($isRebootNeeded) { ' (restart required)' })."
         if ($isRebootNeeded) {
             $global:RebootNeeded = $true
+            # Create marker file with boot time for reboot verification during log collection
+            $markerPath = "C:\AzureData\wcn-reboot-required.txt"
+            $bootTime = (Get-CimInstance -ClassName Win32_OperatingSystem).LastBootUpTime.ToString("o")
+            Set-Content -Path $markerPath -Value $bootTime -Force
+            Write-Log "Created reboot marker at $markerPath with boot time: $bootTime"
         }
     }
     catch {
