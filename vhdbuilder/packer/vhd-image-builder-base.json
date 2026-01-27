@@ -353,6 +353,26 @@
     },
     {
       "type": "file",
+      "source": "vhdbuilder/packer/install-node-exporter.sh",
+      "destination": "/home/packer/install-node-exporter.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/node-exporter/",
+      "destination": "/home/packer/node-exporter/"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/node-exporter/node-exporter-startup.sh",
+      "destination": "/home/packer/node-exporter-startup.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/node-exporter/skip_vhd_node_exporter",
+      "destination": "/home/packer/skip_vhd_node_exporter"
+    },
+    {
+      "type": "file",
       "source": "vhdbuilder/packer/generate-disk-usage.sh",
       "destination": "/home/packer/generate-disk-usage.sh"
     },

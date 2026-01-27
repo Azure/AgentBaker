@@ -30,6 +30,7 @@ source /home/packer/provision_source_distro.sh
 source /home/packer/tool_installs.sh
 source /home/packer/tool_installs_distro.sh
 source /home/packer/install-ig.sh
+source "${THIS_DIR}/install-node-exporter.sh"
 
 CPU_ARCH=$(getCPUArch)  #amd64 or arm64
 SYSTEMD_ARCH=$(getSystemdArch)  # x86-64 or arm64
@@ -474,6 +475,14 @@ while IFS= read -r p; do
         downloadPkgFromVersion "dcgm-exporter" "${version}" "${downloadDir}"
         echo "  - dcgm-exporter version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
+      ;;
+    "node-exporter")
+      if isFlatcar "$OS" || isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || [ "${IS_KATA}" = "true" ]; then
+        echo "Skipping node-exporter installation for ${OS} ${OS_VARIANT:-default} (IS_KATA=${IS_KATA})"
+      else
+        # installNodeExporter is defined in install-node-exporter.sh
+        installNodeExporter "${p}" "${downloadDir}"
+      fi
       ;;
     *)
       echo "Package name: ${name} not supported for download. Please implement the download logic in the script."
