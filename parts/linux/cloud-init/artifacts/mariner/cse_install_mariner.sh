@@ -68,6 +68,45 @@ installDeps() {
     fi
 }
 
+# Reference CNI plugins is used by kubenet and the loopback plugin used by containerd 1.0 (dependency gone in 2.0)
+# The version used to be deteremined by RP/toggle but are now just hadcoded in vhd as they rarely change and require a node image upgrade anyways
+# Latest VHD should have the untar, older should have the tgz. And who knows will have neither.
+installCNI() {
+    # Old versions of VHDs will not have components.json. If it does not exist, we will fall back to the hardcoded download for CNI.
+    # Network Isolated Cluster / Bring Your Own ACR will not work with a vhd that requres a hardcoded CNI download.
+    if [ ! -f "$COMPONENTS_FILEPATH" ] || ! jq '.Packages[] | select(.name == "cni-plugins")' < $COMPONENTS_FILEPATH > /dev/null; then
+        echo "WARNING: no cni-plugins components present falling back to hard coded download of 1.6.2. This should error eventually"
+        exit $ERR_CNI_VERSION_INVALID
+    fi
+
+    #always just use what is listed in components.json so we don't have to sync.
+    cniPackage=$(jq ".Packages" "$COMPONENTS_FILEPATH" | jq ".[] | select(.name == \"cni-plugins\")") || exit $ERR_CNI_VERSION_INVALID
+
+    #CNI doesn't really care about this but wanted to reuse updatePackageVersions which requires it.
+    os=${OS}
+    os_version="current"
+    PACKAGE_VERSIONS=()
+    #will this work with default?
+    updatePackageVersions "${cniPackage}" "${os}" "${os_version}"
+
+    #should change to ne
+    # shellcheck disable=SC3010
+    if [[ ${#PACKAGE_VERSIONS[@]} -gt 1 ]]; then
+        echo "WARNING: containerd package versions array has more than one element."
+        exit $ERR_CNI_VERSION_INVALID
+    fi
+    packageVersion=${PACKAGE_VERSIONS[0]}
+
+    #TODO new exit codes
+    #does version cotnain the distro name? sudo apt-get install containernetworking-plugins=1.9.0-ubuntu22.04u1 worksfor example but how does comoentns.json get
+    packageName="containernetworking-plugins-${version}"
+    echo "Installing ${packageName} with dnf"
+    dnf_install 30 1 600 ${packageName} || exit $ERR_CNI_VERSION_INVALID
+
+    mv /usr/bin/containernetworking-plugins/* $CNI_BIN_DIR
+    chown -R root:root $CNI_BIN_DIR
+}
+
 installKataDeps() {
     if [ "$OS_VERSION" != "1.0" ]; then
       if ! dnf_install 30 1 600 kata-packages-host; then
