@@ -1405,6 +1405,50 @@ func ValidateNodeProblemDetector(ctx context.Context, s *Scenario) {
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "Node Problem Detector (NPD) service validation failed")
 }
 
+func ValidateNodeExporter(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	skipFile := "/etc/node-exporter.d/skip_vhd_node_exporter"
+	serviceName := "node-exporter.service"
+
+	// Check if node-exporter is installed on this VHD by looking for the skip sentinel file.
+	// The skip file is only present on VHDs that have node-exporter installed (Ubuntu, Mariner, Azure Linux).
+	// Flatcar, OSGuard, and older VHDs do not have node-exporter installed and will not have the skip file.
+	if !fileExist(ctx, s, skipFile) {
+		s.T.Logf("Skipping node-exporter validation: sentinel file %s not found (VHD does not have node-exporter installed)", skipFile)
+		return
+	}
+
+	s.T.Logf("skip_vhd_node_exporter sentinel file found, validating node-exporter installation")
+
+	// Validate service is running
+	ValidateSystemdUnitIsRunning(ctx, s, serviceName)
+	ValidateSystemdUnitIsNotFailed(ctx, s, serviceName)
+
+	// Validate service is enabled
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, fmt.Sprintf("systemctl is-enabled %s", serviceName), 0, fmt.Sprintf("%s should be enabled", serviceName))
+
+	// Validate binary exists and is executable
+	// The binary is installed at /usr/bin and symlinked to /opt/bin for consistency with other binaries (kubelet, etc.)
+	ValidateFileExists(ctx, s, "/usr/bin/node-exporter")
+	ValidateFileExists(ctx, s, "/opt/bin/node-exporter")
+	ValidateFileExists(ctx, s, "/opt/bin/node-exporter-startup.sh")
+
+	// Validate configuration files exist
+	ValidateFileExists(ctx, s, skipFile)
+	ValidateFileExists(ctx, s, "/etc/node-exporter.d/web-config.yml")
+
+	// Validate that node-exporter is listening on port 9100 (metrics endpoint)
+	s.T.Logf("Validating node-exporter metrics endpoint is accessible")
+	command := []string{
+		"set -ex",
+		"curl -sf http://localhost:9100/metrics > /dev/null",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "node-exporter metrics endpoint should be accessible")
+
+	s.T.Logf("node-exporter validation passed")
+}
+
 func ValidateNPDFilesystemCorruption(ctx context.Context, s *Scenario) {
 	command := []string{
 		"set -ex",
