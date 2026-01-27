@@ -1135,21 +1135,47 @@
           }
         },
         "ubuntu": {
-          "current": {
+          "r2004": {
             "versionsV2": [
               {
-                "renovateTag": "name=containernetworking-plugins",
-                "latestVersion": "1.9.0"
+                "renovateTag": "name=containernetworking-plugins, repository=production, os=ubuntu, release=20.04",
+                "latestVersion": "1.9.0-ubuntu20.04u1"
+              }
+            ]
+          },
+          "r2204": {
+            "versionsV2": [
+              {
+                "renovateTag": "name=containernetworking-plugins, repository=production, os=ubuntu, release=22.04",
+                "latestVersion": "1.9.0-ubuntu22.04u1"
+              }
+            ]
+          },
+          "r2404": {
+            "versionsV2": [
+              {
+                "renovateTag": "name=containernetworking-plugins, repository=production, os=ubuntu, release=24.04",
+                "latestVersion": "1.9.0-ubuntu24.04u1"
               }
             ]
           }
         },
-        "default": {
-          "current": {
+        "azurelinux": {
+          "v3.0": {
             "versionsV2": [
               {
-                "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=containernetworking-plugins",
-                "latestVersion": "1.9.0"
+                "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=containernetworking-plugins, os=azurelinux, release=3.0",
+                "latestVersion": "1.9.0-1.azl3"
+              }
+            ]
+          }
+        },
+        "azurelinuxkata": {
+          "v3.0": {
+            "versionsV2": [
+              {
+                "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=containernetworking-plugins, os=azurelinux, release=3.0",
+                "latestVersion": "1.9.0-1.azl3"
               }
             ]
           }
