@@ -1739,6 +1739,29 @@ testDiskQueueServiceIsActive() {
   echo "$test:Finish"
 }
 
+testContainerNetworkingPluginsInstalled() {
+  local test="testContainerNetworkingPluginsInstalled"
+  echo "$test: Start"
+
+  local cni_bin_dir="/opt/cni/bin"
+  #there are several other plugins but these are used by kubenet and containerd so focus on them.
+  local required_plugins=("bridge" "host-local" "loopback")
+
+  for plugin in "${required_plugins[@]}"; do
+    local plugin_path="$cni_bin_dir/$plugin"
+    echo "$test: Checking for existence of CNI plugin $plugin at $plugin_path"
+    if [ ! -f "$plugin_path" ]; then
+      err "$test: CNI plugin $plugin not found at $plugin_path"
+      return 1
+    fi
+    echo "$test: CNI plugin $plugin found at $plugin_path"
+  done
+
+  echo "$test: All required CNI plugins are installed."
+  echo "$test: Finish"
+  return 0
+}
+
 # As we call these tests, we need to bear in mind how the test results are processed by the
 # the caller in run-tests.sh. That code uses az vm run-command invoke to run this script
 # on a VM. It then looks at stderr to see if any errors were reported. Notably it doesn't
@@ -1755,6 +1778,7 @@ testBccTools $OS_SKU
 testVHDBuildLogsExist
 testCriticalTools
 testPackagesInstalled
+testContainerNetworkingPluginsInstalled
 testImagesPulled "$(cat $COMPONENTS_FILEPATH)"
 testImagesCompleted
 testPodSandboxImagePinned
