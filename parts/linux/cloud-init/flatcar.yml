@@ -1,2 +1,20 @@
 variant: flatcar
 version: 1.1.0
+systemd:
+  units:
+    - name: ignition-bootcmds.service
+      enabled: true
+      contents: |
+        [Unit]
+        Description=Ignition Early Boot Commands
+        DefaultDependencies=no
+        After=local-fs.target
+        Before=sysinit.target
+        ConditionPathExists=/etc/ignition-bootcmds.sh
+
+        [Service]
+        Type=oneshot
+        ExecStart=-/etc/ignition-bootcmds.sh
+
+        [Install]
+        WantedBy=sysinit.target

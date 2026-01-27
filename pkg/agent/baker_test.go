@@ -15,6 +15,7 @@ import (
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/barkimedes/go-deepcopy"
+	flatcar1_1 "github.com/coreos/butane/config/flatcar/v1_1"
 	ign3_4 "github.com/coreos/ignition/v2/config/v3_4/types"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
@@ -1454,6 +1455,102 @@ oom_score = -999
 				Expect(o.vars["GPU_NODE"]).To(Equal("true"))
 				Expect(o.vars["ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED"]).To(Equal("true"))
 			}),
+		Entry("AKSUbuntu2204 with EnableManagedGPU", "AKSUbuntu2204+EnableManagedGPU", "1.29.7",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+					ContainerRuntime: datamodel.Containerd,
+				}
+				config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSUbuntuContainerd2204
+				config.AgentPoolProfile.VMSize = "Standard_NC6s_v3"
+				config.EnableNvidia = true
+				config.ConfigGPUDriverIfNeeded = true
+				config.EnableGPUDevicePluginIfNeeded = true
+				config.EnableManagedGPU = true
+			}, func(o *nodeBootstrappingOutput) {
+				// Verify EnableManagedGPU is set
+				Expect(o.vars["ENABLE_MANAGED_GPU"]).To(Equal("true"))
+				// Verify other GPU settings are also correct
+				Expect(o.vars["GPU_NODE"]).To(Equal("true"))
+				Expect(o.vars["ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED"]).To(Equal("true"))
+			}),
+		Entry("AKSUbuntu2204 with EnableManagedGPU disabled", "AKSUbuntu2204+EnableManagedGPU+Disabled", "1.29.7",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+					ContainerRuntime: datamodel.Containerd,
+				}
+				config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSUbuntuContainerd2204
+				config.AgentPoolProfile.VMSize = "Standard_NC6s_v3"
+				config.EnableNvidia = true
+				config.ConfigGPUDriverIfNeeded = true
+				config.EnableGPUDevicePluginIfNeeded = true
+				config.EnableManagedGPU = false
+			}, func(o *nodeBootstrappingOutput) {
+				// Verify EnableManagedGPU is disabled
+				Expect(o.vars["ENABLE_MANAGED_GPU"]).To(Equal("false"))
+				// Verify other GPU settings are still correct
+				Expect(o.vars["GPU_NODE"]).To(Equal("true"))
+				Expect(o.vars["ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED"]).To(Equal("true"))
+			}),
+		Entry("AKSUbuntu2204 with MIG Strategy Mixed", "AKSUbuntu2204+MigStrategy+Mixed", "1.29.7",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+					ContainerRuntime: datamodel.Containerd,
+				}
+				config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSUbuntuContainerd2204
+				config.AgentPoolProfile.VMSize = "Standard_NC6s_v3"
+				config.EnableNvidia = true
+				config.ConfigGPUDriverIfNeeded = true
+				config.EnableGPUDevicePluginIfNeeded = true
+				config.GPUInstanceProfile = "MIG7g"
+				config.MigStrategy = "Mixed"
+			}, func(o *nodeBootstrappingOutput) {
+				// Verify MigStrategy is set
+				Expect(o.vars["NVIDIA_MIG_STRATEGY"]).To(Equal("Mixed"))
+				// Verify MIG settings are correct
+				Expect(o.vars["MIG_NODE"]).To(Equal("true"))
+				Expect(o.vars["GPU_NODE"]).To(Equal("true"))
+				Expect(o.vars["ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED"]).To(Equal("true"))
+			}),
+		Entry("AKSUbuntu2204 with MIG Strategy Single", "AKSUbuntu2204+MigStrategy+Single", "1.29.7",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+					ContainerRuntime: datamodel.Containerd,
+				}
+				config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSUbuntuContainerd2204
+				config.AgentPoolProfile.VMSize = "Standard_NC6s_v3"
+				config.EnableNvidia = true
+				config.ConfigGPUDriverIfNeeded = true
+				config.EnableGPUDevicePluginIfNeeded = true
+				config.GPUInstanceProfile = "MIG7g"
+				config.MigStrategy = "Single"
+			}, func(o *nodeBootstrappingOutput) {
+				// Verify MigStrategy is set
+				Expect(o.vars["NVIDIA_MIG_STRATEGY"]).To(Equal("Single"))
+				// Verify MIG settings are correct
+				Expect(o.vars["MIG_NODE"]).To(Equal("true"))
+				Expect(o.vars["GPU_NODE"]).To(Equal("true"))
+				Expect(o.vars["ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED"]).To(Equal("true"))
+			}),
+		Entry("AKSUbuntu2204 with MIG Strategy None", "AKSUbuntu2204+MigStrategy+None", "1.29.7",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+					ContainerRuntime: datamodel.Containerd,
+				}
+				config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSUbuntuContainerd2204
+				config.AgentPoolProfile.VMSize = "Standard_NC6s_v3"
+				config.EnableNvidia = true
+				config.ConfigGPUDriverIfNeeded = true
+				config.EnableGPUDevicePluginIfNeeded = true
+				config.GPUInstanceProfile = "MIG7g"
+				config.MigStrategy = "None"
+			}, func(o *nodeBootstrappingOutput) {
+				// Verify MigStrategy is set
+				Expect(o.vars["NVIDIA_MIG_STRATEGY"]).To(Equal("None"))
+				// Verify MIG settings are correct
+				Expect(o.vars["MIG_NODE"]).To(Equal("true"))
+				Expect(o.vars["GPU_NODE"]).To(Equal("true"))
+				Expect(o.vars["ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED"]).To(Equal("true"))
+			}),
 		Entry("CustomizedImage VHD should not have provision_start.sh", "CustomizedImage", "1.24.2",
 			func(c *datamodel.NodeBootstrappingConfiguration) {
 				c.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
@@ -2793,5 +2890,31 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 
 		vars := decodeCSEVars(cseCmd)
 		Expect(vars).To(HaveKeyWithValue("ENABLE_UNATTENDED_UPGRADES", "false"))
+	})
+})
+
+var _ = Describe("cloudInitToButane", func() {
+	checkForUnit := func(butane flatcar1_1.Config) {
+		Expect(butane.Systemd.Units).To(HaveLen(1))
+		var unit = butane.Systemd.Units[0]
+		Expect(unit.Name).To(Equal("ignition-bootcmds.service"))
+		Expect(*unit.Contents).To(ContainSubstring("/etc/ignition-bootcmds.sh"))
+	}
+
+	It("should convert bootcmds to a systemd unit and shell script", func() {
+		var config = cloudInit{BootCommands: []string{"echo hello world", "ls 'some dir'"}}
+		var butane = cloudInitToButane(config)
+		checkForUnit(butane)
+		Expect(butane.Storage.Files).To(HaveLen(1))
+		var file = butane.Storage.Files[0]
+		Expect(file.Path).To(Equal("/etc/ignition-bootcmds.sh"))
+		Expect(*file.Contents.Inline).To(Equal("#!/bin/sh\necho hello world\nls 'some dir'"))
+	})
+
+	It("should create a system unit but not a shell script with no bootcmds", func() {
+		var config = cloudInit{BootCommands: []string{}}
+		var butane = cloudInitToButane(config)
+		checkForUnit(butane)
+		Expect(butane.Storage.Files).To(BeEmpty())
 	})
 })

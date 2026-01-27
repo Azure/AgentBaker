@@ -17,83 +17,85 @@ import (
 )
 
 // this is a base kubelet config for Scriptless e2e test
-var baseKubeletConfig = &aksnodeconfigv1.KubeletConfig{
-	EnableKubeletConfigFile: true,
-	KubeletFlags: map[string]string{
-		"--cloud-provider":            "external",
-		"--kubeconfig":                "/var/lib/kubelet/kubeconfig",
-		"--pod-infra-container-image": "mcr.microsoft.com/oss/v2/kubernetes/pause:3.6",
-	},
-	KubeletNodeLabels: map[string]string{
-		"agentpool":                               "nodepool2",
-		"kubernetes.azure.com/agentpool":          "nodepool2",
-		"kubernetes.azure.com/cluster":            "test-cluster",
-		"kubernetes.azure.com/mode":               "system",
-		"kubernetes.azure.com/node-image-version": "AKSUbuntu-2404gen2containerd-2025.06.02",
-	},
-	KubeletConfigFileConfig: &aksnodeconfigv1.KubeletConfigFileConfig{
-		Kind:              "KubeletConfiguration",
-		ApiVersion:        "kubelet.config.k8s.io/v1beta1",
-		StaticPodPath:     "/etc/kubernetes/manifests",
-		Address:           "0.0.0.0",
-		TlsCertFile:       "/etc/kubernetes/certs/kubeletserver.crt",
-		TlsPrivateKeyFile: "/etc/kubernetes/certs/kubeletserver.key",
-		TlsCipherSuites: []string{
-			"TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
-			"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
-			"TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305",
-			"TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
-			"TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305",
-			"TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384",
-			"TLS_RSA_WITH_AES_256_GCM_SHA384",
-			"TLS_RSA_WITH_AES_128_GCM_SHA256",
+func baseKubeletConfig() *aksnodeconfigv1.KubeletConfig {
+	return &aksnodeconfigv1.KubeletConfig{
+		EnableKubeletConfigFile: true,
+		KubeletFlags: map[string]string{
+			"--cloud-provider":            "external",
+			"--kubeconfig":                "/var/lib/kubelet/kubeconfig",
+			"--pod-infra-container-image": "mcr.microsoft.com/oss/v2/kubernetes/pause:3.6",
 		},
-		RotateCertificates: true,
-		ServerTlsBootstrap: true,
-		Authentication: &aksnodeconfigv1.KubeletAuthentication{
-			X509: &aksnodeconfigv1.KubeletX509Authentication{
-				ClientCaFile: "/etc/kubernetes/certs/ca.crt",
+		KubeletNodeLabels: map[string]string{
+			"agentpool":                               "nodepool2",
+			"kubernetes.azure.com/agentpool":          "nodepool2",
+			"kubernetes.azure.com/cluster":            "test-cluster",
+			"kubernetes.azure.com/mode":               "system",
+			"kubernetes.azure.com/node-image-version": "AKSUbuntu-2404gen2containerd-2025.06.02",
+		},
+		KubeletConfigFileConfig: &aksnodeconfigv1.KubeletConfigFileConfig{
+			Kind:              "KubeletConfiguration",
+			ApiVersion:        "kubelet.config.k8s.io/v1beta1",
+			StaticPodPath:     "/etc/kubernetes/manifests",
+			Address:           "0.0.0.0",
+			TlsCertFile:       "/etc/kubernetes/certs/kubeletserver.crt",
+			TlsPrivateKeyFile: "/etc/kubernetes/certs/kubeletserver.key",
+			TlsCipherSuites: []string{
+				"TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
+				"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+				"TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305",
+				"TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
+				"TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305",
+				"TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384",
+				"TLS_RSA_WITH_AES_256_GCM_SHA384",
+				"TLS_RSA_WITH_AES_128_GCM_SHA256",
 			},
-			Webhook: &aksnodeconfigv1.KubeletWebhookAuthentication{
-				Enabled: true,
+			RotateCertificates: true,
+			ServerTlsBootstrap: true,
+			Authentication: &aksnodeconfigv1.KubeletAuthentication{
+				X509: &aksnodeconfigv1.KubeletX509Authentication{
+					ClientCaFile: "/etc/kubernetes/certs/ca.crt",
+				},
+				Webhook: &aksnodeconfigv1.KubeletWebhookAuthentication{
+					Enabled: true,
+				},
+			},
+			Authorization: &aksnodeconfigv1.KubeletAuthorization{
+				Mode: "Webhook",
+			},
+			EventRecordQps: to.Ptr(int32(0)),
+			ClusterDomain:  "cluster.local",
+			ClusterDns: []string{
+				"10.0.0.10",
+			},
+			StreamingConnectionIdleTimeout: "4h",
+			NodeStatusUpdateFrequency:      "10s",
+			ImageGcHighThresholdPercent:    to.Ptr(int32(85)),
+			ImageGcLowThresholdPercent:     to.Ptr(int32(80)),
+			CgroupsPerQos:                  to.Ptr(true),
+			MaxPods:                        to.Ptr(int32(110)),
+			PodPidsLimit:                   to.Ptr(int32(-1)),
+			ResolvConf:                     "/run/systemd/resolve/resolv.conf",
+			EvictionHard: map[string]string{
+				"memory.available":  "750Mi",
+				"nodefs.available":  "10%",
+				"nodefs.inodesFree": "5%",
+			},
+			ProtectKernelDefaults: true,
+			FeatureGates:          map[string]bool{},
+			FailSwapOn:            to.Ptr(false),
+			KubeReserved: map[string]string{
+				"cpu":    "100m",
+				"memory": "1638Mi",
+			},
+			EnforceNodeAllocatable: []string{
+				"pods",
+			},
+			AllowedUnsafeSysctls: []string{
+				"kernel.msg*",
+				"net.ipv4.route.min_pmtu",
 			},
 		},
-		Authorization: &aksnodeconfigv1.KubeletAuthorization{
-			Mode: "Webhook",
-		},
-		EventRecordQps: to.Ptr(int32(0)),
-		ClusterDomain:  "cluster.local",
-		ClusterDns: []string{
-			"10.0.0.10",
-		},
-		StreamingConnectionIdleTimeout: "4h",
-		NodeStatusUpdateFrequency:      "10s",
-		ImageGcHighThresholdPercent:    to.Ptr(int32(85)),
-		ImageGcLowThresholdPercent:     to.Ptr(int32(80)),
-		CgroupsPerQos:                  to.Ptr(true),
-		MaxPods:                        to.Ptr(int32(110)),
-		PodPidsLimit:                   to.Ptr(int32(-1)),
-		ResolvConf:                     "/run/systemd/resolve/resolv.conf",
-		EvictionHard: map[string]string{
-			"memory.available":  "750Mi",
-			"nodefs.available":  "10%",
-			"nodefs.inodesFree": "5%",
-		},
-		ProtectKernelDefaults: true,
-		FeatureGates:          map[string]bool{},
-		FailSwapOn:            to.Ptr(false),
-		KubeReserved: map[string]string{
-			"cpu":    "100m",
-			"memory": "1638Mi",
-		},
-		EnforceNodeAllocatable: []string{
-			"pods",
-		},
-		AllowedUnsafeSysctls: []string{
-			"kernel.msg*",
-			"net.ipv4.route.min_pmtu",
-		},
-	},
+	}
 }
 
 func getBaseNBC(t testing.TB, cluster *Cluster, vhd *config.Image) (*datamodel.NodeBootstrappingConfiguration, error) {
@@ -283,7 +285,7 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnod
 		// Before scriptless, absvc combined kubelet configs from multiple sources such as nbc.AgentPoolProfile.CustomKubeletConfig, nbc.KubeletConfig and more.
 		// Now in scriptless, we don't have absvc to process nbc and nbc is no longer a dependency.
 		// Therefore, we require client (e.g. AKS-RP) to provide the final kubelet config that is ready to be written to the final kubelet config file on a node.
-		KubeletConfig: baseKubeletConfig,
+		KubeletConfig: baseKubeletConfig(),
 	}
 }
 
@@ -530,7 +532,7 @@ func baseTemplateLinux(t testing.TB, location string, k8sVersion string, arch st
 				},
 				ServicePrincipalProfile: &datamodel.ServicePrincipalProfile{
 					ClientID: "msi",
-					Secret:   "**msi**",
+					Secret:   base64.StdEncoding.EncodeToString([]byte("msi")),
 				},
 				CertificateProfile:  &datamodel.CertificateProfile{},
 				HostedMasterProfile: &datamodel.HostedMasterProfile{},
@@ -814,7 +816,7 @@ func baseTemplateWindows(t testing.TB, location string) *datamodel.NodeBootstrap
 				},
 				ServicePrincipalProfile: &datamodel.ServicePrincipalProfile{
 					ClientID: "msi",
-					Secret:   "**msi**",
+					Secret:   base64.StdEncoding.EncodeToString([]byte("msi")),
 				},
 				FeatureFlags: &datamodel.FeatureFlags{
 					EnableWinDSR: true,

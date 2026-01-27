@@ -26,7 +26,7 @@ func run() error {
 	}
 
 	fmt.Println("k8s version is:", k8sVersion)
-	binaryPath := fmt.Sprintf("/usr/local/bin/kubelet-%s", k8sVersion)
+	binaryPath := fmt.Sprintf("/opt/bin/kubelet-%s", k8sVersion)
 
 	r, w := io.Pipe()
 

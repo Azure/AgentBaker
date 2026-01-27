@@ -74,10 +74,12 @@ function cleanup() {
 trap cleanup EXIT
 capture_benchmark "${SCRIPT_NAME}_set_variables_and_create_scan_resource_group"
 
-VM_OPTIONS="--size Standard_D8ds_v5"
+VM_SIZE="Standard_D8ds_v5"
+VM_OPTIONS="--size $VM_SIZE"
 # shellcheck disable=SC3010
 if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then
-    VM_OPTIONS="--size Standard_D8pds_v5"
+    VM_SIZE="Standard_D8pds_v5"
+    VM_OPTIONS="--size $VM_SIZE"
 fi
 
 if [ "${OS_TYPE}" = "Linux" ] && [ "${ENABLE_TRUSTED_LAUNCH}" = "True" ]; then
@@ -85,8 +87,9 @@ if [ "${OS_TYPE}" = "Linux" ] && [ "${ENABLE_TRUSTED_LAUNCH}" = "True" ]; then
 fi
 
 if [ "${OS_TYPE}" = "Linux" ] && grep -q "cvm" <<< "$FEATURE_FLAGS"; then
+    VM_SIZE="Standard_DC8ads_v5"
     # We completely re-assign the VM_OPTIONS string here to ensure that no artifacts from earlier conditionals are included
-    VM_OPTIONS="--size Standard_DC8ads_v5 --security-type ConfidentialVM --enable-secure-boot true --enable-vtpm true --os-disk-security-encryption-type VMGuestStateOnly --specialized true"
+    VM_OPTIONS="--size $VM_SIZE --security-type ConfidentialVM --enable-secure-boot true --enable-vtpm true --os-disk-security-encryption-type VMGuestStateOnly --specialized true"
 fi
 
 # GB200 specific VM options for scanning (uses standard ARM64 VM for now)
@@ -101,15 +104,41 @@ if [ -z "$SCANNING_NIC_ID" ]; then
     exit 1
 fi
 
-az vm create --resource-group $RESOURCE_GROUP_NAME \
-    --name $SCAN_VM_NAME \
-    --image $VHD_IMAGE \
-    --nics $SCANNING_NIC_ID \
-    --admin-username $SCAN_VM_ADMIN_USERNAME \
-    --admin-password $SCAN_VM_ADMIN_PASSWORD \
-    --os-disk-size-gb 50 \
-    ${VM_OPTIONS} \
-    --assign-identity "${UMSI_RESOURCE_ID}"
+# Create VM using appropriate method based on scenario
+if [ "${OS_SKU}" = "Ubuntu" ] && [ "${OS_VERSION}" = "22.04" ] && [ "$(printf %s "${ENABLE_FIPS}" | tr '[:upper:]' '[:lower:]')" = "true" ]; then
+    # Source the FIPS helper functions
+    FULL_PATH=$(realpath $0)
+    CDIR=$(dirname $FULL_PATH)
+    source "$CDIR/fips-helper.sh"
+
+    # Register FIPS feature and create VM using REST API. Exit if any step fails.
+    ensure_fips_feature_registered || exit $?
+    create_fips_vm "$VM_SIZE" || exit $?
+else
+    echo "Creating VM using standard az vm create command..."
+
+    # Disable tracing to prevent password from appearing in logs
+    set +x
+    # Use the standard VM creation approach for all other scenarios
+    az vm create --resource-group $RESOURCE_GROUP_NAME \
+        --name $SCAN_VM_NAME \
+        --image $VHD_IMAGE \
+        --nics $SCANNING_NIC_ID \
+        --admin-username $SCAN_VM_ADMIN_USERNAME \
+        --admin-password $SCAN_VM_ADMIN_PASSWORD \
+        --os-disk-size-gb 50 \
+        ${VM_OPTIONS} \
+        --assign-identity "${UMSI_RESOURCE_ID}"
+
+    # Check for errors in the az vm create command
+    AZ_VM_CREATE_EXIT_CODE=$?
+    # Re-enable tracing after sensitive command
+    set -x
+    if [ $AZ_VM_CREATE_EXIT_CODE -ne 0 ]; then
+        echo "Error: Failed to create VM" >&2
+        exit 1
+    fi
+fi
 
 capture_benchmark "${SCRIPT_NAME}_create_scan_vm"
 set +x
