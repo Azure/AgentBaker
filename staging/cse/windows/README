@@ -6,7 +6,7 @@
     - Courses: https://docs.microsoft.com/en-us/shows/testing-powershell-with-pester/
   1. You need to run unit tests on Windows.
   1. If your git repo is stored in WSL, you can invoke the tests by doing something like this in powershell from windows (not from a WSL shell itself):
-     - ` cd \\wsl$\Ubuntu\home\tim\git\AgentBaker`
+     - `cd \\wsl$\Ubuntu\home\tim\git\AgentBaker`
      - `Invoke-Pester vhdbuilder/packer/windows/*.tests.ps1 -Passthru` (or whatever pester test you want to run)
  1. Run unit test:
     - `Invoke-Pester parts/windows/*.tests.ps1 -Passthru`
@@ -29,7 +29,7 @@ pushd aks-windows-cse
     unzip ../aks-windows-cse-scripts-*.zip
     rm ../*.zip
 
-	files=("azurecnifunc.ps1" "calicofunc.ps1" "configfunc.ps1" "containerdfunc.ps1" "containerdtemplate.toml" "kubeletfunc.ps1" "kubernetesfunc.ps1" "nvidiagpudriverfunc.ps1")
+	files=("azurecnifunc.ps1" "calicofunc.ps1" "configfunc.ps1" "containerdfunc.ps1" "containerdtemplate.toml" "kubeletfunc.ps1" "kubernetesfunc.ps1" "nvidiagpudriverfunc.ps1" "securetlsbootstrapfunc.ps1" "windowsciliumnetworkingfunc.ps1")
 	for file in ${files[@]}; do
 	    echo "Downloading $file from $url/$file"
 	   curl -O "$url/$file"
@@ -44,7 +44,7 @@ pushd aks-windows-cse
 	popd
 	
 	pushd provisioningscripts
-		files=("cleanupnetwork.ps1" "hnsremediator.ps1" "hostsconfigagent.ps1" "kubeletstart.ps1" "kubeproxystart.ps1" "loggenerator.ps1" "windowslogscleanup.ps1" "windowsnodereset.ps1" "windowssecuretls.ps1")
+		files=("cleanupnetwork.ps1" "hnsremediator.ps1" "hostsconfigagent.ps1" "kubeletstart.ps1" "kubeproxystart.ps1" "loggenerator.ps1" "windowslogscleanup.ps1" "windowsnodereset.ps1" "windowssecuretls.ps1" "securetlsbootstrap.ps1")
 		for file in ${files[@]}; do
 		    echo "Downloading $file from $url/provisioningscripts/$file"
 		   curl -O "$url/provisioningscripts/$file"

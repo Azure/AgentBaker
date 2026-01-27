@@ -19,21 +19,6 @@ ERR_CHRONY_START_TIMEOUT=15 {{/* Unable to start CHRONY */}}
 
 echo "Sourcing tool_installs_ubuntu.sh"
 
-installAscBaseline() {
-   echo "Installing ASC Baseline tools..."
-   ASC_BASELINE_TMP=/home/packer/asc-baseline.deb
-   retrycmd_silent 120 5 25 dpkg -i $ASC_BASELINE_TMP || exit $ERR_APT_INSTALL_TIMEOUT
-   cd /opt/microsoft/asc-baseline
-   sudo ./ascbaseline -d baselines
-   sudo ./ascremediate -d baselines -m all
-   sudo ./ascbaseline -d baselines | grep -B2 -A6 "FAIL"
-   cd -
-   echo "Check UDF"
-   cat /etc/modprobe.d/*.conf | grep udf
-   echo "Finished Setting up ASC Baseline"
-   apt_get_purge 20 30 120 asc-baseline || exit $ERR_APT_PURGE_TIMEOUT
-}
-
 installBcc() {
     echo "Installing BCC tools..."
     wait_for_apt_locks
@@ -60,14 +45,8 @@ installBcc() {
     git clone https://github.com/iovisor/bcc.git
     mkdir bcc/build; cd bcc/build
 
-    if [ "${VERSION}" = "18.04" ]; then
-      git checkout v0.24.0
-    else
-      # v0.24.0 is not supported for kernels 6.x and there are some python packages not available in 18.04 repository that are needed to build v0.24.0
-      # Hence this distinction
-      git checkout v0.29.0
-    fi
-
+    git checkout v0.29.0
+    
     cmake -DENABLE_EXAMPLES=off .. || exit 1
     make
     sudo make install || exit 1
@@ -77,13 +56,13 @@ installBcc() {
     sudo make install || exit 1
     popd
     popd
-    # we explicitly do not remove build-essential or git
+    # we explicitly do not remove build-essential or python
     # these are standard packages we want to keep, they should usually be in the final build anyway.
     # only ensuring they are installed above.
     if [ "${VERSION}" = "22.04" ] || [ "${VERSION}" = "24.04" ]; then
         apt_get_purge 120 5 300 bison cmake flex libedit-dev libllvm14 llvm-14-dev libclang-14-dev zlib1g-dev libelf-dev libfl-dev || exit $ERR_BCC_INSTALL_TIMEOUT
     else
-        apt_get_purge 120 5 300 bison cmake flex libedit-dev libllvm6.0 llvm-6.0-dev libclang-6.0-dev zlib1g-dev libelf-dev libfl-dev || exit $ERR_BCC_INSTALL_TIMEOUT
+        apt_get_purge 120 5 300 git bison cmake flex libedit-dev libllvm6.0 llvm-6.0-dev libclang-6.0-dev zlib1g-dev libelf-dev libfl-dev || exit $ERR_BCC_INSTALL_TIMEOUT
     fi
 
     # libPolly.a is needed for the make target that runs later, which is not present in the default patch version of llvm-14 that is downloaded for 24.04
@@ -240,7 +219,7 @@ listInstalledPackages() {
 
 attachUA() {
     echo "attaching ua..."
-    retrycmd_silent 5 10 120 ua attach $UA_TOKEN || exit $ERR_UA_ATTACH
+    retrycmd_silent 5 10 1000 ua attach $UA_TOKEN || exit $ERR_UA_ATTACH
 
     echo "disabling ua livepatch..."
     retrycmd_if_failure 5 10 300 echo y | ua disable livepatch

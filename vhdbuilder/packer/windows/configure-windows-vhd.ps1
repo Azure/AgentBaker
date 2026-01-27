@@ -7,12 +7,9 @@
 #>
 
 param(
-    [string]
-    $windowsSKUParam,
-    [string]
-    $provisioningPhaseParam,
-    [string]
-    $customizedDiskSizeParam
+    [string]$windowsSKUParam,
+    [string]$provisioningPhaseParam,
+    [string]$customizedDiskSizeParam
 )
 
 if (![string]::IsNullOrEmpty($windowsSKUParam))
@@ -43,7 +40,7 @@ filter Timestamp
 function Write-Log($Message)
 {
     $msg = $message | Timestamp
-    Write-Output $msg
+    Write-Host $msg
 }
 
 . c:/k/windows-vhd-configuration.ps1
@@ -78,6 +75,22 @@ function Download-File
         $retryDelay = 0,
         [Switch]$redactUrl = $false
     )
+    # replicate same check as in windowscsehelper.ps1, check if the file already exists before downloading
+    $cleanUrl = $URL.Split('?')[0]
+    $fileName = [IO.Path]::GetFileName($cleanUrl)
+
+    $search = @()
+    if ($global:cacheDir -and (Test-Path $global:cacheDir)) {
+        $search = [IO.Directory]::GetFiles($global:cacheDir, $fileName, [IO.SearchOption]::AllDirectories)
+    }
+
+    if ($search.Count -ne 0) {
+        Write-Log "Package exist $fileName in cache dir $global:CacheDir, skipping download"
+        Get-ChildItem "$Dest"
+        return
+    }
+
+    Write-Log "Downloading $URL to $Dest"
     curl.exe -f --retry $retryCount --retry-delay $retryDelay -L $URL -o $Dest
     $curlExitCode = $LASTEXITCODE
     if ($curlExitCode)
@@ -94,8 +107,7 @@ function Download-File
         }
         throw "Curl exited with '$curlExitCode' while attempting to download '$logURL' to '$Dest'"
     }
-
-    dir "$Dest"
+    Get-ChildItem "$Dest"
 }
 
 function Download-FileWithAzCopy
@@ -143,6 +155,59 @@ function Download-FileWithAzCopy
     Get-Content "$env:AZCOPY_LOG_LOCATION\*.log" | Write-Log
     Write-Log "--- END AzCopy Log"
     popd
+}
+
+function Pull-OCIArtifact
+{
+    param (
+        $Name,
+        $Dest
+    )
+
+    if (!(Test-Path -Path "$global:aksTempDir\oras.exe"))
+    {
+        if (!(Test-Path -Path "$global:aksTempDir"))
+        {
+            Write-Log "Creating temp dir $global:aksTempDir for oras"
+            New-Item -ItemType Directory $global:aksTempDir -Force
+        }
+
+        $orasVersion = '1.2.3'
+        $orasZip = "oras_${orasVersion}_windows_amd64.zip"
+        $orasUrl = "https://github.com/oras-project/oras/releases/download/v${orasVersion}/${orasZip}"
+
+        Write-Log "Downloading oras v${orasVersion}"
+        Invoke-WebRequest -UseBasicParsing $orasUrl -OutFile "$global:aksTempDir\$orasZip"
+        Expand-Archive -Path "$global:aksTempDir\$orasZip" -DestinationPath "$global:aksTempDir" -Force
+    }
+
+    Push-Location $global:aksTempDir
+
+    try
+    {
+        Write-Log "Pulling OCI artifact $Name"
+
+        if (!(Test-Path -Path $Dest))
+        {
+            Write-Log "Creating destination directory $Dest"
+            New-Item -ItemType Directory -Path $Dest -Force | Out-Null
+        }
+
+        .\oras.exe pull $Name -o $Dest
+        $orasExitCode = $LASTEXITCODE
+        if ($orasExitCode)
+        {
+            Log-VHDFreeSize
+            .\oras.exe version
+            throw "Oras pull failed with exit code $orasExitCode"
+        }
+
+        Get-ChildItem "$Dest"
+    }
+    finally
+    {
+        Pop-Location
+    }
 }
 
 function Cleanup-TemporaryFiles
@@ -302,8 +367,12 @@ function Get-ContainerImages
     Write-Log "Pulling images for windows server $windowsSKU" # The variable $windowsSKU will be "2019-containerd", "2022-containerd", ...
     foreach ($image in $imagesToPull)
     {
-        Write-Output "* $image"
+        Write-Host "* $image"
     }
+
+    # ./.clusterfuzzliteThere is a regression in crictl.exe in kube-tools 1.33 for windows that it cannot find the default config file. Has been discussed with upstream and pending fix
+    $crictlPath = (Get-Command crictl.exe -ErrorAction SilentlyContinue).Path
+    $configPath = Join-Path (Split-Path -Parent $crictlPath) "crictl.yaml"
 
     foreach ($image in $imagesToPull)
     {
@@ -320,38 +389,48 @@ function Get-ContainerImages
             {
                 $url = $env:WindowsNanoServerImageURL
             }
-            $fileName = [IO.Path]::GetFileName($url.Split("?")[0])
-            $tmpDest = [IO.Path]::Combine([System.IO.Path]::GetTempPath(), $fileName)
-            Write-Log "Downloading image $image to $tmpDest"
-            Download-FileWithAzCopy -URL $url -Dest $tmpDest
 
-            Write-Log "Loading image $image from $tmpDest"
-            Retry-Command -ScriptBlock {
-                & ctr -n k8s.io images import $tmpDest
-            } -ErrorMessage "Failed to load image $image from $tmpDest"
+            # In 2025 case, we will need to cache container base images for both 2022 and 2025
+            # To support multiple versions of container base images, we expect the URL to be provided as a list of strings
+            # seperated by commas or semicolons, while each string specify a version of the image.
+            # For example: mcr.microsoft.com/windows/servercore:ltsc2022, mcr.microsoft.com/windows/servercore:ltsc2025
+            $containerBaseImageurls = $url -split '\s*[;,]\s*'
 
-            Write-Log "Removing tmp tar file $tmpDest"
-            Remove-Item -Path $tmpDest
+            foreach ($url in $containerBaseImageurls)
+            {
+                $fileName = [IO.Path]::GetFileName($url.Split("?")[0])
+                $tmpDest = [IO.Path]::Combine([System.IO.Path]::GetTempPath(), $fileName)
+                Write-Log "Downloading image $image to $tmpDest"
+                Download-FileWithAzCopy -URL $url -Dest $tmpDest
+
+                Write-Log "Loading image $image from $tmpDest"
+                Retry-Command -ScriptBlock {
+                    & ctr -n k8s.io images import $tmpDest
+                } -ErrorMessage "Failed to load image $image from $tmpDest"
+
+                Write-Log "Removing tmp tar file $tmpDest"
+                Remove-Item -Path $tmpDest
+            }
         }
         else
         {
             Write-Log "Pulling image $image"
             Retry-Command -ScriptBlock {
-                & crictl.exe pull $image
+                & crictl.exe -c $configPath pull $image
             } -ErrorMessage "Failed to pull image $image"
         }
     }
 
     # before stopping containerd, let's echo the cached images and their sizes.
-    crictl images show
+    crictl -c $configPath images show
 
     Stop-Job  -Name containerd
     Remove-Job -Name containerd
 }
 
-function Get-FilesToCacheOnVHD
+function Get-PackagesToCacheOnVHD
 {
-    Write-Log "Caching misc files on VHD"
+    Write-Log "Caching packages on VHD"
 
     foreach ($dir in $map.Keys)
     {
@@ -371,7 +450,36 @@ function Get-FilesToCacheOnVHD
     foreach ($dir in $map.Keys)
     {
         LogFilesInDirectory "$dir"
+    }   return $global:map.Keys
+}
+
+function Get-OCIArtifactsToCacheOnVHD
+{
+    Write-Log "Caching $($ociArtifactsToPull.Count) OCI artifacts on VHD"
+
+    foreach ($dir in $ociArtifactsToPull.Keys)
+    {
+        New-Item -ItemType Directory $dir -Force | Out-Null
+
+        foreach ($ociArtifactName in $global:ociArtifactsToPull[$dir])
+        {
+            Write-Log "Pulling OCI artifact $ociArtifactName to $dir"
+            Pull-OCIArtifact -Name $ociArtifactName -Dest $dir
+        }
     }
+
+
+    foreach ($dir in $ociArtifactsToPull.Keys)
+    {
+        LogFilesInDirectory "$dir"
+    }
+}
+
+function Get-FilesToCacheOnVHD
+{
+    Write-Log "Caching misc files on VHD"
+    Get-OCIArtifactsToCacheOnVHD
+    Get-PackagesToCacheOnVHD
 }
 
 function LogFilesInDirectory
@@ -383,7 +491,7 @@ function LogFilesInDirectory
 
     Get-ChildItem -Path "$Directory" | ForEach-Object {
         $sizeKB = [math]::Round($_.Length / 1KB, 2)
-        Write-Output "$( $_.Name ) - $sizeKB KB"
+        Write-Host "$( $_.Name ) - $sizeKB KB"
     }
 }
 
@@ -545,7 +653,7 @@ function Install-OpenSSH
 
     Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0
 
-    # It’s by design that files within the C:\Windows\System32\ folder are not modifiable. 
+    # It’s by design that files within the C:\Windows\System32\ folder are not modifiable.
     # When the OpenSSH Server starts, it copies C:\windows\system32\openssh\sshd_config_default to C:\programdata\ssh\sshd_config, if the file does not already exist.
     $OriginalConfigPath = "C:\windows\system32\OpenSSH\sshd_config_default"
     $ConfigDirectory = "C:\programdata\ssh"
@@ -605,6 +713,44 @@ function Install-WindowsPatches
                 throw "Installing patches with extension $fileExtension is not currently supported."
             }
         }
+    }
+}
+
+function Install-WindowsCiliumNetworking
+{
+    $wcnDirectory = Join-Path -Path $global:cacheDir -ChildPath 'wcn'
+    $wcnInstallDirectory = Join-Path -Path $wcnDirectory -ChildPath 'install'
+    $wcnScriptsDirectory = Join-Path -Path $wcnInstallDirectory -ChildPath 'scripts'
+    $wcnInstallScript = Join-Path -Path $wcnScriptsDirectory -ChildPath 'install' | Join-Path -ChildPath 'install.ps1'
+
+    if (!(Test-Path -PathType Container -Path $wcnDirectory))
+    {
+        Write-Log "Windows Cilium Networking (WCN) installation package not staged; skipping installation."
+        return
+    }
+
+    # Select the highest versioned package available.
+    $wcnPackageNuget = (Get-ChildItem -Path $wcnDirectory -File -Filter '*.nupkg' | Sort-Object -Property Name -Descending) | Select-Object -First 1
+    if (!$wcnPackageNuget -or !(Test-Path -Path $wcnPackageNuget.FullName))
+    {
+        Write-Log "No Windows Cilium Networking package found in $wcnDirectory"
+        throw "No Windows Cilium Networking package found in $wcnDirectory"
+    }
+
+    Write-Log "Installing Windows Cilium Networking (WCN) Platform with '$wcnPackageNuget'"
+
+    # Extract NuGet package contents.
+    New-Item -ItemType Directory -Path $wcnInstallDirectory -Force
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    [System.IO.Compression.ZipFile]::ExtractToDirectory($wcnPackageNuget.FullName, $wcnInstallDirectory)
+
+    # Invoke install script.
+    try {
+        & $wcnInstallScript -DisableCiliumStack -SourceDirectory $wcnDirectory -SkipNugetUnpack
+    }
+    catch {
+        Write-Log "Error occurred while installing Windows Cilium Networking: $_"
+        throw "Error occurred while installing Windows Cilium Networking: $_"
     }
 }
 
@@ -897,6 +1043,10 @@ try
             Get-FilesToCacheOnVHD
             Get-ToolsToVHD
             Get-PrivatePackagesToCacheOnVHD
+            Install-WindowsCiliumNetworking
+            # Update all the registry keys again in case the steps in between reset them. Ok, some of the steps in between do reset them. But there's a risk that the steps also need
+            # the keys set. So we kinda have to do both now :cry:
+            Update-Registry
             Log-ReofferUpdate
         }
         "3" {
@@ -906,9 +1056,6 @@ try
             Clear-TempFolder
             Log-VHDFreeSize
             Test-AzureExtensions
-
-            Write-Output "creating test.txt file"
-            Write-Output "this is a test file" > "c:\k\test.txt"
         }
         default {
             Write-Log "Unable to determine provisiong phase... exiting"

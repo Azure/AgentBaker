@@ -1,0 +1,9 @@
+Release notes for security patch 20250721T000000Z timestamp
+Package difference between 20250714T000000Z and 20250721T000000Z
+No reboot required
+
+=== Package Updates ===
+gnutls  3.8.3-6.azl3  azurelinux-official-base
+cloud-init-azure-kvp  24.3.1-2.azl3  azurelinux-official-base
+cloud-init  24.3.1-2.azl3  azurelinux-official-base
+blobfuse2  2.5.0-1  azurelinux-official-ms-oss

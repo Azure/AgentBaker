@@ -1,6 +1,10 @@
 BeforeAll {
     . $PSScriptRoot\..\..\..\parts\windows\windowscsehelper.ps1
     . $PSCommandPath.Replace('.tests.ps1', '.ps1')
+
+    Mock Set-Content
+    Mock Get-Item -MockWith { return New-Object -TypeName PSObject -Property @{ FullName = $DestinationPath } }
+
 }
 
 Describe 'Start-InstallGPUDriver' {

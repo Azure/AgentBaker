@@ -93,7 +93,9 @@ linters:
     gocognit:
       min-complexity: 20
     goconst:
-      ignore-strings: (true|false)
+      ignore-string-values:
+        - "true"
+        - "false"
     gocritic:
       settings:
         captLocal:

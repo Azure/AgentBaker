@@ -180,7 +180,7 @@ func TestOSType(t *testing.T) {
 			},
 			{
 				OSType: "Linux",
-				Distro: AKSUbuntu1604,
+				Distro: AKSUbuntuContainerd2404Gen2,
 			},
 		},
 	}
@@ -479,7 +479,7 @@ func TestIsVHDDistroForAllNodes(t *testing.T) {
 			p: Properties{
 				AgentPoolProfiles: []*AgentPoolProfile{
 					{
-						Distro: AKSUbuntu1604,
+						Distro: AKSUbuntuContainerd2404Gen2,
 					},
 				},
 			},
@@ -660,6 +660,79 @@ func TestGetSubnetName(t *testing.T) {
 	}
 }
 
+func TestIsNextGenNetworkingEnabled(t *testing.T) {
+	tests := []struct {
+		name     string
+		profile  *AgentPoolWindowsProfile
+		expected bool
+	}{
+		{
+			name: "NextGenNetworkingEnabled is true",
+			profile: &AgentPoolWindowsProfile{
+				NextGenNetworkingEnabled: to.BoolPtr(true),
+			},
+			expected: true,
+		},
+		{
+			name: "NextGenNetworkingEnabled is false",
+			profile: &AgentPoolWindowsProfile{
+				NextGenNetworkingEnabled: to.BoolPtr(false),
+			},
+			expected: false,
+		},
+		{
+			name:     "NextGenNetworkingEnabled is nil",
+			profile:  &AgentPoolWindowsProfile{},
+			expected: false,
+		},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			actual := test.profile.IsNextGenNetworkingEnabled()
+
+			if actual != test.expected {
+				t.Errorf("expected %t, but got %t", test.expected, actual)
+			}
+		})
+	}
+}
+
+func TestGetNextGenNetworkingConfig(t *testing.T) {
+	tests := []struct {
+		name     string
+		profile  *AgentPoolWindowsProfile
+		expected string
+	}{
+		{
+			name: "NextGenNetworkingConfig is set",
+			profile: &AgentPoolWindowsProfile{
+				NextGenNetworkingConfig: to.StringPtr("config"),
+			},
+			expected: "config",
+		},
+		{
+			name:     "NextGenNetworkingConfig is nil",
+			profile:  &AgentPoolWindowsProfile{},
+			expected: "",
+		},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			actual := test.profile.GetNextGenNetworkingConfig()
+
+			if actual != test.expected {
+				t.Errorf("expected %q, but got %q", test.expected, actual)
+			}
+		})
+	}
+}
+
 func TestGetRouteTableName(t *testing.T) {
 	p := &Properties{
 		OrchestratorProfile: &OrchestratorProfile{
@@ -832,39 +905,11 @@ func TestAgentPoolProfileIsVHDDistro(t *testing.T) {
 		expected bool
 	}{
 		{
-			name: "16.04 VHD distro",
-			ap: AgentPoolProfile{
-				Distro: AKSUbuntu1604,
-			},
-			expected: true,
-		},
-		{
-			name: "18.04 VHD distro",
-			ap: AgentPoolProfile{
-				Distro: AKSUbuntu1804,
-			},
-			expected: true,
-		},
-		{
 			name: "ubuntu distro",
 			ap: AgentPoolProfile{
 				Distro: Ubuntu,
 			},
 			expected: false,
-		},
-		{
-			name: "ubuntu 18.04 non-VHD distro",
-			ap: AgentPoolProfile{
-				Distro: Ubuntu1804,
-			},
-			expected: false,
-		},
-		{
-			name: "ubuntu 18.04 gen2 non-VHD distro",
-			ap: AgentPoolProfile{
-				Distro: Ubuntu1804Gen2,
-			},
-			expected: true,
 		},
 	}
 
@@ -913,27 +958,6 @@ func TestAgentPoolProfileIs2204VHDDistro(t *testing.T) {
 			},
 			expected: true,
 		},
-		{
-			name: "ubuntu 18.04 non-VHD distro",
-			ap: AgentPoolProfile{
-				Distro: Ubuntu1804,
-			},
-			expected: false,
-		},
-		{
-			name: "ubuntu 18.04 gen2 non-VHD distro",
-			ap: AgentPoolProfile{
-				Distro: Ubuntu1804Gen2,
-			},
-			expected: false,
-		},
-		{
-			name: "18.04 Ubuntu VHD distro",
-			ap: AgentPoolProfile{
-				Distro: AKSUbuntuContainerd1804,
-			},
-			expected: false,
-		},
 	}
 
 	for _, c := range cases {
@@ -973,27 +997,6 @@ func TestAgentPoolProfileIs2404VHDDistro(t *testing.T) {
 				Distro: AKSUbuntuArm64Containerd2404Gen2,
 			},
 			expected: true,
-		},
-		{
-			name: "ubuntu 18.04 non-VHD distro",
-			ap: AgentPoolProfile{
-				Distro: Ubuntu1804,
-			},
-			expected: false,
-		},
-		{
-			name: "ubuntu 18.04 gen2 non-VHD distro",
-			ap: AgentPoolProfile{
-				Distro: Ubuntu1804Gen2,
-			},
-			expected: false,
-		},
-		{
-			name: "18.04 Ubuntu VHD distro",
-			ap: AgentPoolProfile{
-				Distro: AKSUbuntuContainerd1804,
-			},
-			expected: false,
 		},
 		{
 			name: "Ubuntu 2404 CVM VHD distro",
@@ -1120,6 +1123,13 @@ func TestAgentPoolProfileIsAzureLinuxCgroupV2VHDDistro(t *testing.T) {
 			expected: true,
 		},
 		{
+			name: "Azure Linux V3 Gen2 Kata VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSAzureLinuxV3Gen2Kata,
+			},
+			expected: true,
+		},
+		{
 			name: "CBLMariner V2 Gen2 VHD distro",
 			ap: AgentPoolProfile{
 				Distro: AKSCBLMarinerV2Gen2,
@@ -1148,13 +1158,6 @@ func TestAgentPoolProfileIsAzureLinuxCgroupV2VHDDistro(t *testing.T) {
 			expected: false,
 		},
 		{
-			name: "18.04 Ubuntu VHD distro",
-			ap: AgentPoolProfile{
-				Distro: AKSUbuntuContainerd1804,
-			},
-			expected: false,
-		},
-		{
 			name: "Azure Linux V3 Arm64 + FIPS VHD distro",
 			ap: AgentPoolProfile{
 				Distro: AKSAzureLinuxV3Arm64Gen2FIPS,
@@ -1177,6 +1180,107 @@ func TestAgentPoolProfileIsAzureLinuxCgroupV2VHDDistro(t *testing.T) {
 			if c.expected != c.ap.IsAzureLinuxCgroupV2VHDDistro() {
 				t.Fatalf("Got unexpected AgentPoolProfile.IsAzureLinuxCgroupV2VHDDistro() result. Expected: %t. Got: %t.",
 					c.expected, c.ap.IsAzureLinuxCgroupV2VHDDistro())
+			}
+		})
+	}
+}
+func TestAgentPoolProfileIsFlatcarVHDDistro(t *testing.T) {
+	cases := []struct {
+		name     string
+		ap       AgentPoolProfile
+		expected bool
+	}{
+		{
+			name: "flatcar VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSFlatcarGen2,
+			},
+			expected: true,
+		},
+		{
+			name: "flatcar arm64 VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSFlatcarArm64Gen2,
+			},
+			expected: true,
+		},
+		{
+			name: "ubuntu distro",
+			ap: AgentPoolProfile{
+				Distro: Ubuntu,
+			},
+			expected: false,
+		},
+	}
+
+	for _, c := range cases {
+		c := c
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			isFlatcar := c.ap.IsFlatcar()
+			if c.expected != isFlatcar {
+				t.Fatalf("Got unexpected AgentPoolProfile.IsFlatcar() result for %s. Expected: %t. Got: %t.", c.ap.Distro, c.expected, isFlatcar)
+			}
+		})
+	}
+}
+
+func TestFlatcarAndCustomDistro(t *testing.T) {
+	cases := []struct {
+		name     string
+		nbc      NodeBootstrappingConfiguration
+		expected bool
+	}{
+		{
+			name: "flatcar OSSKU with custom distro",
+			nbc: NodeBootstrappingConfiguration{
+				ContainerService: &ContainerService{
+					Properties: &Properties{
+						AgentPoolProfiles: []*AgentPoolProfile{
+							{
+								Distro: CustomizedImage,
+							},
+						},
+					},
+				},
+				AgentPoolProfile: &AgentPoolProfile{
+					Distro: CustomizedImage,
+				},
+				OSSKU: OSSKUFlatcar,
+			},
+			expected: true,
+		},
+		{
+			name: "no ossku with Flatcar distro (like e2e)",
+			nbc: NodeBootstrappingConfiguration{
+				ContainerService: &ContainerService{
+					Properties: &Properties{
+						AgentPoolProfiles: []*AgentPoolProfile{
+							{
+								Distro: AKSFlatcarGen2,
+							},
+						},
+					},
+				},
+				AgentPoolProfile: &AgentPoolProfile{
+					Distro: AKSFlatcarGen2,
+				},
+				OSSKU: "",
+			},
+			expected: true,
+		},
+	}
+
+	for _, c := range cases {
+		c := c
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			if c.nbc.AgentPoolProfile.Distro != c.nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro {
+				t.Fatalf("Expected Distros to match in test case %s", c.name)
+			}
+			isFlatcar := c.nbc.IsFlatcar()
+			if c.expected != isFlatcar {
+				t.Fatalf("Got unexpected NodeBootstrappingConfiguration.IsFlatcar() result for %s. Expected: %t. Got: %t.", c.name, c.expected, isFlatcar)
 			}
 		})
 	}
@@ -2003,6 +2107,18 @@ func TestGetKubeProxyFeatureGatesWindowsArguments(t *testing.T) {
 			},
 			expectedFeatureGates: "\"IPv6DualStack=true\", \"WinDSR=true\", \"WinOverlay=false\"",
 		},
+		{
+			name: "WinDSR enabled with Kubernetes 1.34+",
+			properties: &Properties{
+				FeatureFlags: &FeatureFlags{
+					EnableWinDSR: true,
+				},
+				OrchestratorProfile: &OrchestratorProfile{
+					OrchestratorVersion: "1.34.0",
+				},
+			},
+			expectedFeatureGates: "\"WinDSR=true\"",
+		},
 	}
 
 	for _, test := range tests {
@@ -2277,81 +2393,6 @@ func TestKubernetesConfigIsAddonDisabled(t *testing.T) {
 			t.Fatalf("expected KubernetesConfig.IsAddonDisabled(%s) to return %t but instead returned %t", c.addonName, c.expected,
 				c.k.IsAddonDisabled(c.addonName))
 		}
-	}
-}
-
-func TestHasContainerd(t *testing.T) {
-	tests := []struct {
-		name     string
-		k        *KubernetesConfig
-		expected bool
-	}{
-		{
-			name: "docker",
-			k: &KubernetesConfig{
-				ContainerRuntime: Docker,
-			},
-			expected: false,
-		},
-		{
-			name: "empty string",
-			k: &KubernetesConfig{
-				ContainerRuntime: "",
-			},
-			expected: false,
-		},
-		{
-			name: "unexpected string",
-			k: &KubernetesConfig{
-				ContainerRuntime: "foo",
-			},
-			expected: false,
-		},
-		{
-			name: "containerd",
-			k: &KubernetesConfig{
-				ContainerRuntime: Containerd,
-			},
-			expected: true,
-		},
-		{
-			name: "kata",
-			k: &KubernetesConfig{
-				ContainerRuntime: KataContainers,
-			},
-			expected: true,
-		},
-	}
-
-	for _, test := range tests {
-		test := test
-		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-			ret := test.k.NeedsContainerd()
-			if test.expected != ret {
-				t.Errorf("expected %t, instead got : %t", test.expected, ret)
-			}
-		})
-	}
-}
-
-func TestKubernetesConfig_RequiresDocker(t *testing.T) {
-	// k8sConfig with empty runtime string
-	k := &KubernetesConfig{
-		ContainerRuntime: "",
-	}
-
-	if !k.RequiresDocker() {
-		t.Error("expected RequiresDocker to return true for empty runtime string")
-	}
-
-	// k8sConfig with empty runtime string
-	k = &KubernetesConfig{
-		ContainerRuntime: Docker,
-	}
-
-	if !k.RequiresDocker() {
-		t.Error("expected RequiresDocker to return true for docker runtime")
 	}
 }
 

@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/google/uuid"
@@ -42,19 +43,9 @@ func quoteForBash(command string) string {
 	return fmt.Sprintf("'%s'", strings.ReplaceAll(command, "'", "'\"'\"'"))
 }
 
-type Interpreter string
-
-const (
-	Powershell Interpreter = "powershell"
-	Bash       Interpreter = "bash"
-)
-
-type Script struct {
-	script      string
-	interpreter Interpreter
-}
-
-func execScriptOnVm(ctx context.Context, s *Scenario, vmPrivateIP, jumpboxPodName, sshPrivateKey string, script Script) (*podExecResult, error) {
+func execScriptOnVm(ctx context.Context, s *Scenario, vmPrivateIP, jumpboxPodName string, script string) (*podExecResult, error) {
+	// Assuming uploadSSHKey has been called before this function
+	s.T.Helper()
 	/*
 		This works in a way that doesn't rely on the node having joined the cluster:
 		* We create a linux pod on a different node.
@@ -65,30 +56,25 @@ func execScriptOnVm(ctx context.Context, s *Scenario, vmPrivateIP, jumpboxPodNam
 	identifier := uuid.New().String()
 	var scriptFileName, remoteScriptFileName, interpreter string
 
-	switch script.interpreter {
-	case Powershell:
+	if s.IsWindows() {
 		interpreter = "powershell"
 		scriptFileName = fmt.Sprintf("script_file_%s.ps1", identifier)
 		remoteScriptFileName = fmt.Sprintf("c:/%s", scriptFileName)
-	default:
+	} else {
 		interpreter = "bash"
 		scriptFileName = fmt.Sprintf("script_file_%s.sh", identifier)
 		remoteScriptFileName = scriptFileName
 	}
 
 	steps := []string{
-		fmt.Sprintf("echo '%[1]s' > %[2]s", sshPrivateKey, sshKeyName(vmPrivateIP)),
 		"set -x",
-		fmt.Sprintf("echo %[1]s > %[2]s", quoteForBash(script.script), scriptFileName),
-		fmt.Sprintf("chmod 0600 %s", sshKeyName(vmPrivateIP)),
+		fmt.Sprintf("echo %[1]s > %[2]s", quoteForBash(script), scriptFileName),
 		fmt.Sprintf("chmod 0755 %s", scriptFileName),
 		fmt.Sprintf(`scp -i %[1]s -o PasswordAuthentication=no -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o ConnectTimeout=5 %[3]s azureuser@%[2]s:%[4]s`, sshKeyName(vmPrivateIP), vmPrivateIP, scriptFileName, remoteScriptFileName),
 		fmt.Sprintf("%s %s %s", sshString(vmPrivateIP), interpreter, remoteScriptFileName),
 	}
 
 	joinedSteps := strings.Join(steps, " && ")
-
-	s.T.Logf("Executing script %[1]s using %[2]s:\n---START-SCRIPT---\n%[3]s\n---END-SCRIPT---\n", scriptFileName, interpreter, script.script)
 
 	kube := s.Runtime.Cluster.Kube
 	execResult, err := execOnPrivilegedPod(ctx, kube, defaultNamespace, jumpboxPodName, joinedSteps)
@@ -109,7 +95,45 @@ func execOnUnprivilegedPod(ctx context.Context, kube *Kubeclient, namespace stri
 	return execOnPod(ctx, kube, namespace, podName, nonPrivilegedCommand)
 }
 
+// isRetryableConnectionError checks if the error is a transient connection issue that should be retried
+func isRetryableConnectionError(err error) bool {
+	errorMsg := err.Error()
+	return strings.Contains(errorMsg, "error dialing backend: EOF") ||
+		strings.Contains(errorMsg, "connection refused") ||
+		strings.Contains(errorMsg, "dial tcp") ||
+		strings.Contains(errorMsg, "i/o timeout") ||
+		strings.Contains(errorMsg, "connection reset by peer")
+}
+
 func execOnPod(ctx context.Context, kube *Kubeclient, namespace, podName string, command []string) (*podExecResult, error) {
+	maxRetries := 3
+	retryDelay := 1 * time.Second
+
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		result, err := attemptExecOnPod(ctx, kube, namespace, podName, command)
+		if err == nil {
+			return result, nil
+		}
+
+		// If it's a retryable connection error and we have retries left, retry
+		if isRetryableConnectionError(err) && attempt < maxRetries-1 {
+			select {
+			case <-time.After(retryDelay):
+				// Continue to next attempt
+			case <-ctx.Done():
+				return nil, fmt.Errorf("context cancelled during retry attempt %d: %w", attempt+1, ctx.Err())
+			}
+			continue
+		}
+
+		// For non-retryable errors or final attempt, return the error
+		return nil, err
+	}
+
+	return nil, fmt.Errorf("failed after %d attempts", maxRetries)
+}
+
+func attemptExecOnPod(ctx context.Context, kube *Kubeclient, namespace, podName string, command []string) (*podExecResult, error) {
 	req := kube.Typed.CoreV1().RESTClient().Post().Resource("pods").Name(podName).Namespace(namespace).SubResource("exec")
 
 	option := &corev1.PodExecOptions{
@@ -172,15 +196,27 @@ func unprivilegedCommandArray() []string {
 	}
 }
 
-func logSSHInstructions(s *Scenario) {
-	result := "SSH Instructions:"
-	if !config.Config.KeepVMSS {
-		result += " (VM will be automatically deleted after the test finishes, set KEEP_VMSS=true to preserve it or pause the test with a breakpoint before the test finishes)"
+func uploadSSHKey(ctx context.Context, s *Scenario, vmPrivateIP string) error {
+	s.T.Helper()
+	steps := []string{
+		fmt.Sprintf("echo '%[1]s' > %[2]s", string(SSHKeyPrivate), sshKeyName(vmPrivateIP)),
+		fmt.Sprintf("chmod 0600 %s", sshKeyName(vmPrivateIP)),
 	}
-	result += "\n========================\n"
-	result += fmt.Sprintf("az account set --subscription %s\n", config.Config.SubscriptionID)
-	result += fmt.Sprintf("az aks get-credentials --resource-group %s --name %s --overwrite-existing\n", config.ResourceGroupName, *s.Runtime.Cluster.Model.Name)
-	result += fmt.Sprintf(`kubectl exec -it %s -- bash -c "chroot /proc/1/root /bin/bash -c '%s'"`, s.Runtime.Cluster.DebugPod.Name, sshString(s.Runtime.VMPrivateIP))
+	joinedSteps := strings.Join(steps, " && ")
+	kube := s.Runtime.Cluster.Kube
+	_, err := execOnPrivilegedPod(ctx, kube, defaultNamespace, s.Runtime.Cluster.DebugPod.Name, joinedSteps)
+	if err != nil {
+		return fmt.Errorf("error executing command on pod: %w", err)
+	}
+	if config.Config.KeepVMSS {
+		s.T.Logf("VM will be preserved after the test finishes, PLEASE MANUALLY DELETE THE VMSS. Set KEEP_VMSS=false to delete it automatically after the test finishes")
+	} else {
+		s.T.Logf("VM will be automatically deleted after the test finishes, to preserve it for debugging purposes set KEEP_VMSS=true or pause the test with a breakpoint before the test finishes or failed")
+	}
+	result := "SSH Instructions: (may take a few minutes for the VM to be ready for SSH)\n========================\n"
+	// We combine the az aks get credentials in the same line so we don't overwrite the user's kubeconfig.
+	result += fmt.Sprintf(`kubectl --kubeconfig <(az aks get-credentials --subscription "%s" --resource-group "%s"  --name "%s" -f -) exec -it %s -- bash -c "chroot /proc/1/root /bin/bash -c '%s'"`, config.Config.SubscriptionID, config.ResourceGroupName(s.Location), *s.Runtime.Cluster.Model.Name, s.Runtime.Cluster.DebugPod.Name, sshString(vmPrivateIP))
 	s.T.Log(result)
-	//runtime.Breakpoint() // uncomment to pause the test
+
+	return nil
 }

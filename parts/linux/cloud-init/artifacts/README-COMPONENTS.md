@@ -102,7 +102,6 @@ Please refer to [components.cue](../../../../schemas/components.cue) for the mos
 }
 #UbuntuOSDistro: {
 	current?: #ReleaseDownloadURI
-	r1804?:   #ReleaseDownloadURI
 	r2004?:   #ReleaseDownloadURI
 	r2204?:   #ReleaseDownloadURI
 	r2404?:   #ReleaseDownloadURI
@@ -135,7 +134,7 @@ Here are the explanation of the above schema.
 1. A `Package` consists of `name`, `downloadLocation` and a struct of downloadURI entries `downloadURIs`.
 1. In `downloadURIs`, we can define different OS distro. For now for Linux, we have _ubuntu_, _mariner_, _marinerkata_ and _default_.
 1. There are 3 types of OSDistro
-    - In `UbuntuOSDistro`, we can define different OS release versions. For example, `r1804` implies release 18.04.
+    - In `UbuntuOSDistro`, we can define different OS release versions. For example, `r2404` implies release 24.04.
      - In `MarinerOSDistro`, we only have `current` now, which implies that single configurations will be applied to all Mariner release versions. We can distinguish them in needed. Note, we confirmed with Mariner team, Azure Linux 2.0 is reporting itself as `mariner` in the file `/etc/os-release`. So for Azure Linux 2.0 case, it will still read the package versions from `mariner` block.
     - In `AzureLinuxOSDistro`, `v3.0` is for Azure Linux v3.0. `current` is for otherwise but we are not using it now. Azure Linux 2.0 case is described in the `MarinerOSDistro` above. 
     - `DefaultOSDistro` means the default case of OS Distro. If an OSDistro metadata is not defined, it will fetch it from `default`. For example, if a node is Ubuntu 20.04, but we don't specify `ubuntu` in components.json, then it will fetch `default.current`. For another example, if only `default.current` is specified in the components.json, No matter what OSDistro is the node running, it will only fetch `default.current` because it's the default metadata. This provides flexibility while elimiating unnecessary duplication when defining the metadata.
@@ -149,16 +148,18 @@ Here are the explanation of the above schema.
 
 ## How to ask Renovate to auto-update an existing component in `components.json` to a new version?
 Many of the components are already tagged as auto-update. However, there are still some components requested not to be updated for some reasons.
-For example, for package `containerd` in Ubuntu 18.04, we have
+For example, for package `containerd` in Mariner V1, we have
 ```
-        "r1804": {
+        "mariner": {
+          "current": {
             "versionsV2": [
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.7.1-1"
+                "latestVersion": "1.6.26-11.cm2"
               }
             ]
           }
+        }
 ```
 which means it wants to pin to that version. In this case, Renovate will not find this `latestVersion` because of the unknown renovateTag. Therefore it won't try to update this version either. 
 
@@ -211,7 +212,7 @@ Yes. Just place the latest version of the component in `latestVersion`. `previou
 ## Can I avoid repeating a single version for all OS distros/releases?
 It depends.
 For a `containerImage`, you don't need to distinguish among distros and releases.
-- If you are adding a `package` to Ubuntu and you want it to be monitored by Renovate, you will need to separate them into different releases. The reason behind is that each release is actually using its own PMC registry (with different URL) to host the packages. Renovate doesn't provide a custom variable for us to extract that variable to abstract the custom datasources. So far we still need to separate them into `r1804`, `r2004`, `r2204` and `r2404` unless there is a better way or Renovate supports a new custom variable to store that information.
+- If you are adding a `package` to Ubuntu and you want it to be monitored by Renovate, you will need to separate them into different releases. The reason behind is that each release is actually using its own PMC registry (with different URL) to host the packages. Renovate doesn't provide a custom variable for us to extract that variable to abstract the custom datasources. So far we still need to separate them into `r2004`, `r2204` and `r2404` unless there is a better way or Renovate supports a new custom variable to store that information.
 - If you don't need the component to be monitored by Renovate, you can place it in `current` for all releases, and in `default` for all OS distros. Here is an example for azure-cni.
 ```
     {

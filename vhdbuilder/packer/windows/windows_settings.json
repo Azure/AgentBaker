@@ -15,52 +15,52 @@
   },
   "WindowsBaseVersions": {
     "2019-containerd": {
+      "os_disk_size": "30",
       "base_image_sku": "2019-Datacenter-Core-smalldisk",
       "windows_image_name": "windows-2019-containerd",
-      "base_image_version": "17763.7240.250409",
-      "os_disk_size": "30",
+      "base_image_version": "17763.8146.251205",
       "patches_to_apply": []
     },
     "2022-containerd": {
       "os_disk_size": "35",
       "base_image_sku": "2022-Datacenter-Core-smalldisk",
       "windows_image_name": "windows-2022-containerd",
-      "base_image_version": "20348.3561.250409",
+      "base_image_version": "20348.4529.251205",
       "patches_to_apply": []
     },
     "2022-containerd-gen2": {
       "os_disk_size": "35",
       "base_image_sku": "2022-datacenter-core-smalldisk-g2",
       "windows_image_name": "windows-2022-containerd",
-      "base_image_version": "20348.3561.250409",
-      "patches_to_apply": []
-    },
-    "23H2": {
-      "os_disk_size": "35",
-      "base_image_sku": "23h2-datacenter-core",
-      "windows_image_name": "windows-23H2",
-      "base_image_version": "25398.1551.250406",
-      "patches_to_apply": []
-    },
-    "23H2-gen2": {
-      "os_disk_size": "35",
-      "base_image_sku": "23h2-datacenter-core-g2",
-      "windows_image_name": "windows-23H2",
-      "base_image_version": "25398.1551.250406",
+      "base_image_version": "20348.4529.251205",
       "patches_to_apply": []
     },
     "2025": {
       "os_disk_size": "45",
       "base_image_sku": "2025-datacenter-core-smalldisk",
       "windows_image_name": "windows-2025",
-      "base_image_version": "26100.3775.250406",
+      "base_image_version": "26100.7462.251206",
       "patches_to_apply": []
     },
     "2025-gen2": {
       "os_disk_size": "45",
       "base_image_sku": "2025-datacenter-core-smalldisk-g2",
       "windows_image_name": "windows-2025",
-      "base_image_version": "26100.3775.250406",
+      "base_image_version": "26100.7462.251206",
+      "patches_to_apply": []
+    },
+    "23H2": {
+      "os_disk_size": "35",
+      "base_image_sku": "23h2-datacenter-core",
+      "windows_image_name": "windows-23H2",
+      "base_image_version": "25398.2025.251204",
+      "patches_to_apply": []
+    },
+    "23H2-gen2": {
+      "os_disk_size": "35",
+      "base_image_sku": "23h2-datacenter-core-g2",
+      "windows_image_name": "windows-23H2",
+      "base_image_version": "25398.2025.251204",
       "patches_to_apply": []
     }
   },
@@ -739,6 +739,14 @@
       "Type": "DWORD"
     },
     {
+      "Comment": "2025-6B",
+      "WindowsSkuMatch": "2022*",
+      "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
+      "Name": "424033934",
+      "Value": "1",
+      "Type": "DWORD"
+    },
+    {
       "Comment": "2025-2B",
       "WindowsSkuMatch": "23H2*",
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
@@ -759,6 +767,134 @@
       "WindowsSkuMatch": "23H2*",
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
       "Name": "677922958",
+      "Value": "1",
+      "Type": "DWORD"
+    },
+    {
+      "Comment": "2025-5B",
+      "WindowsSkuMatch": "23H2*",
+      "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Services\\hns\\State",
+      "Name": "FwPerfImprovementChange",
+      "Value": "1",
+      "Type": "DWORD"
+    },
+    {
+      "Comment": "2025-5B",
+      "WindowsSkuMatch": "23H2*",
+      "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
+      "Name": "2336372879",
+      "Value": "1",
+      "Type": "DWORD"
+    },
+    {
+      "Comment": "2025-6B",
+      "WindowsSkuMatch": "23H2*",
+      "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
+      "Name": "296495759",
+      "Value": "1",
+      "Type": "DWORD"
+    },
+    {
+      "Comment": "2025-7B",
+      "WindowsSkuMatch": "2022*",
+      "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
+      "Name": "1846288527",
+      "Value": "1",
+      "Type": "DWORD"
+    },
+    {
+      "Comment": "2025-8B",
+      "WindowsSkuMatch": "2022*",
+      "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
+      "Name": "222700687",
+      "Value": "1",
+      "Type": "DWORD"
+    },
+    {
+      "Comment": "2025-7B",
+      "WindowsSkuMatch": "23H2*",
+      "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
+      "Name": "502146190",
+      "Value": "1",
+      "Type": "DWORD"
+    },
+    {
+      "Comment": "2025-10B",
+      "WindowsSkuMatch": "2022*",
+      "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
+      "Name": "140377743",
+      "Value": "0",
+      "Type": "DWORD"
+    },
+    {
+      "Comment": "2025-10B",
+      "WindowsSkuMatch": "23H2*",
+      "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
+      "Name": "66715279",
+      "Value": "0",
+      "Type": "DWORD"
+    },
+    {
+      "Comment": "2025-10B",
+      "WindowsSkuMatch": "23H2*",
+      "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
+      "Name": "403177103",
+      "Value": "1",
+      "Type": "DWORD"
+    },
+    {
+      "Comment": "2025-11B",
+      "WindowsSkuMatch": "2022*",
+      "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
+      "Name": "2113538702",
+      "Value": "1",
+      "Type": "DWORD"
+    },
+    {
+      "Comment": "2025-11B",
+      "WindowsSkuMatch": "2022*",
+      "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
+      "Name": "2854356110",
+      "Value": "1",
+      "Type": "DWORD"
+    },
+    {
+      "Comment": "2025-11B",
+      "WindowsSkuMatch": "2022*",
+      "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
+      "Name": "300542606",
+      "Value": "1",
+      "Type": "DWORD"
+    },
+    {
+      "Comment": "2025-11B",
+      "WindowsSkuMatch": "23H2*",
+      "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
+      "Name": "1898182287",
+      "Value": "1",
+      "Type": "DWORD"
+    },
+    {
+      "Comment": "2025-11B",
+      "WindowsSkuMatch": "23H2*",
+      "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
+      "Name": "916190351",
+      "Value": "1",
+      "Type": "DWORD"
+    },
+    {
+      "Comment": "2025-11B",
+      "WindowsSkuMatch": "23H2*",
+      "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
+      "Name": "3063948942",
+      "Value": "1",
+      "Type": "DWORD"
+    },
+    {
+      "Comment": "2025-11B",
+      "WindowsSkuMatch": "23H2*",
+      "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
+      "Name": "2112481934",
       "Value": "1",
       "Type": "DWORD"
     }

@@ -1,6 +1,5 @@
 [Unit]
 Description=azurekms
-Requires=docker.service
 After=network-online.target
 
 [Service]

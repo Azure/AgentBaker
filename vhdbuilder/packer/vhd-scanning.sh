@@ -89,6 +89,12 @@ if [ "${OS_TYPE}" = "Linux" ] && grep -q "cvm" <<< "$FEATURE_FLAGS"; then
     VM_OPTIONS="--size Standard_DC8ads_v5 --security-type ConfidentialVM --enable-secure-boot true --enable-vtpm true --os-disk-security-encryption-type VMGuestStateOnly --specialized true"
 fi
 
+# GB200 specific VM options for scanning (uses standard ARM64 VM for now)
+if [ "${OS_TYPE}" = "Linux" ] && grep -q "GB200" <<< "$FEATURE_FLAGS"; then
+    echo "GB200: Using standard ARM64 VM options for scanning"
+    # Additional GB200-specific VM options can be added here when GB200 SKUs are available
+fi
+
 SCANNING_NIC_ID=$(az network nic create --resource-group $RESOURCE_GROUP_NAME --name "scanning${CURRENT_TIME}${RANDOM}" --subnet $SCANNING_SUBNET_ID | jq -r '.NewNIC.id')
 if [ -z "$SCANNING_NIC_ID" ]; then
     echo "unable to create new NIC for scanning VM"
@@ -104,7 +110,7 @@ az vm create --resource-group $RESOURCE_GROUP_NAME \
     --os-disk-size-gb 50 \
     ${VM_OPTIONS} \
     --assign-identity "${UMSI_RESOURCE_ID}"
-    
+
 capture_benchmark "${SCRIPT_NAME}_create_scan_vm"
 set +x
 
@@ -192,5 +198,228 @@ if [ -s cve-list.txt ]; then
 fi
 
 echo -e "Trivy Scan Script Completed\n\n\n"
+
+capture_benchmark "${SCRIPT_NAME}_cis_report_start"
+
+# --- CIS Report Generation and Upload ---
+
+# Check if OS requires CIS scan
+isMarinerOrAzureLinux() {
+    local os="$1"
+    if [ "$os" = "CBLMariner" ] || [ "$os" = "AzureLinux" ]; then
+        return 0
+    fi
+    return 1
+}
+isCISUnsupportedUbuntu() {
+    local os="$1"
+    local version="$2"
+
+    # Only 22.04+ are supported
+    if [ "$os" = "Ubuntu" ] && { [ "$version" = "20.04" ]; }; then
+        return 0
+    fi
+    return 1
+}
+isFlatcar() {
+    local os="$1"
+
+    if [ "$os" = "Flatcar" ]; then
+        return 0
+    fi
+    return 1
+}
+isAzureLinuxOSGuard() {
+    local os="$1"
+
+    if [ "$os" = "AzureLinuxOSGuard" ]; then
+        return 0
+    fi
+    return 1
+}
+isUbuntuCVM() {
+    local os="$1"
+    local feature_flags="$2"
+
+    if [ "$os" = "Ubuntu" ] && grep -q "cvm" <<< "$feature_flags"; then
+        return 0
+    fi
+    return 1
+}
+requiresCISScan() {
+    local os="$1"
+    local version="$2"
+
+    if isMarinerOrAzureLinux "$os"; then
+        return 1
+    fi
+    if isCISUnsupportedUbuntu "$os" "$version"; then
+        return 1
+    fi
+    if isFlatcar "$os"; then
+        return 1
+    fi
+    if isAzureLinuxOSGuard "$os"; then
+        return 1
+    fi
+    return 0 # Requires scan
+}
+
+# First check if this OS requires CIS scanning
+if ! requiresCISScan "${OS_SKU}" "${OS_VERSION}"; then
+    echo "CIS scan not required for ${OS_SKU} ${OS_VERSION}"
+    capture_benchmark "${SCRIPT_NAME}_cis_report_skipped"
+    capture_benchmark "${SCRIPT_NAME}_overall" true
+    process_benchmarks
+    exit 0
+fi
+
+SKIP_CIS=${SKIP_CIS:-true}
+if [ "${SKIP_CIS,,}" = "true" ]; then
+    # For artifacts
+    touch cis-report.txt
+    touch cis-report.html
+    echo "Skipping CIS assessment as SKIP_CIS is set to true"
+    capture_benchmark "${SCRIPT_NAME}_cis_report_skipped"
+    capture_benchmark "${SCRIPT_NAME}_overall" true
+    process_benchmarks
+    exit 0
+fi
+
+# Compare current cis-report.txt against stored baseline for Ubuntu 22.04 / 24.04.
+# A regression is when a rule that previously "pass" now has any other result.
+compare_cis_with_baseline() {
+    local baseline_file="vhdbuilder/packer/cis/baselines/${OS_SKU,,}/${OS_VERSION}.txt"
+    local current_file="cis-report.txt"
+    local regressions_file="cis-regressions.txt"
+
+    if [ ! -f "${baseline_file}" ]; then
+        printf '##vso[task.logissue type=error]Missing baseline file: %s\n' "$baseline_file"
+        echo "Baseline file ${baseline_file} not found; skipping comparison"
+        return 0
+    fi
+    if [ ! -f "${current_file}" ]; then
+        printf '##vso[task.logissue type=error]Missing cis-report file: %s\n' "$current_file"
+        return 0
+    fi
+
+    # Build associative arrays of baseline pass statuses and current statuses
+    # shellcheck disable=SC2034
+    declare -A baseline_pass
+    declare -A current_status
+
+    # Extract pass rule IDs from baseline (status line format: "pass: <RULE_ID> <Description>")
+    # Accept rule IDs composed of digits and dots.
+    while IFS= read -r line; do
+        # quick filter
+        case "$line" in
+            pass:*) ;;
+            *) continue ;;
+        esac
+        # shellcheck disable=SC2001
+        rule_id=$(echo "$line" | sed -E 's/^pass: ([0-9][0-9.]*).*$/\1/')
+        if [ -n "$rule_id" ]; then
+            # We can't modify bootloader configuration for CVM so need to skip this rule
+            if isUbuntuCVM "${OS_SKU}" "$FEATURE_FLAGS" && [ "$rule_id" = "1.3.1.2" ]; then
+                continue
+            fi
+            baseline_pass["$rule_id"]=1
+        fi
+    done < "${baseline_file}"
+
+    # Capture any status line in current report and map rule id -> status
+    while IFS= read -r line; do
+        # Expected prefixes: pass: fail: manual: (others ignored)
+        case "$line" in
+            pass:*|fail:*|manual:*|error:*|unknown:*) ;;
+            *) continue ;;
+        esac
+        # status is token before colon
+        status_token=${line%%:*}
+        # Extract rule id if present
+        # shellcheck disable=SC2001
+        rule_id=$(echo "$line" | sed -E 's/^[a-zA-Z]+: ([0-9][0-9.]*).*$/\1/')
+        if [ -n "$rule_id" ]; then
+            current_status["$rule_id"]=$status_token
+        fi
+    done < "${current_file}"
+
+    : > "${regressions_file}"
+    local regression_count=0
+    for rule_id in "${!baseline_pass[@]}"; do
+        baseline_status="pass"
+        current_rule_status=${current_status["$rule_id"]}
+        if [ -z "$current_rule_status" ]; then
+            # Missing rule considered regression
+            printf '%s|%s->MISSING\n' "$rule_id" "$baseline_status" >> "${regressions_file}"
+            regression_count=$((regression_count+1))
+        elif [ "$current_rule_status" != "pass" ]; then
+            printf '%s|%s->%s\n' "$rule_id" "$baseline_status" "$current_rule_status" >> "${regressions_file}"
+            regression_count=$((regression_count+1))
+        fi
+    done
+
+    if [ $regression_count -gt 0 ]; then
+        echo "CIS regressions detected: $regression_count"
+        echo "Regression details (rule_id|baseline->current):"
+        cat "${regressions_file}"
+        # Azure DevOps error log issue so it surfaces clearly
+        printf '##vso[task.logissue type=error]CIS regressions detected (%d). See cis-regressions.txt for details.\n' "$regression_count"
+        echo "##vso[task.complete result=SucceededWithIssues;]"
+    else
+        echo "No CIS regressions detected against baseline ${baseline_file}"
+        rm -f "${regressions_file}"
+    fi
+}
+
+CIS_SCRIPT_PATH="$CDIR/cis-report.sh"
+CIS_REPORT_TXT_NAME="cis-report-${BUILD_ID}-${TIMESTAMP}.txt"
+CIS_REPORT_HTML_NAME="cis-report-${BUILD_ID}-${TIMESTAMP}.html"
+
+# Upload cisassessor tarball to storage account
+if [ "${ARCHITECTURE,,}" = "arm64" ]; then
+    CISASSESSOR_LOCAL_PATH="$CDIR/../cisassessor-arm64.tar.gz"
+else
+    CISASSESSOR_LOCAL_PATH="$CDIR/../cisassessor-amd64.tar.gz"
+fi
+CISASSESSOR_BLOB_NAME="cisassessor-${BUILD_ID}-${TIMESTAMP}.tar.gz"
+az storage blob upload --container-name "${SIG_CONTAINER_NAME}" --file "${CISASSESSOR_LOCAL_PATH}" --name "${CISASSESSOR_BLOB_NAME}" --account-name "${STORAGE_ACCOUNT_NAME}" --auth-mode login
+
+# Run CIS report script on VM (pass storage info)
+ret=$(az vm run-command invoke \
+    --command-id RunShellScript \
+    --name $SCAN_VM_NAME \
+    --resource-group $RESOURCE_GROUP_NAME \
+    --scripts @$CIS_SCRIPT_PATH \
+    --parameters "CISASSESSOR_BLOB_NAME=${CISASSESSOR_BLOB_NAME}" \
+        "STORAGE_ACCOUNT_NAME=${STORAGE_ACCOUNT_NAME}" \
+        "SIG_CONTAINER_NAME=${SIG_CONTAINER_NAME}" \
+        "AZURE_MSI_RESOURCE_STRING=${AZURE_MSI_RESOURCE_STRING}" \
+        "ENABLE_TRUSTED_LAUNCH=${ENABLE_TRUSTED_LAUNCH}" \
+        "CIS_REPORT_TXT_NAME=${CIS_REPORT_TXT_NAME}" \
+        "CIS_REPORT_HTML_NAME=${CIS_REPORT_HTML_NAME}" \
+        "TEST_VM_ADMIN_USERNAME=${SCAN_VM_ADMIN_USERNAME}" \
+        "OS_SKU=${OS_SKU}"
+)
+echo "$ret"
+msg=$(echo -E "$ret" | jq -r '.value[].message')
+echo "$msg"
+
+# Download CIS report files to working directory
+az storage blob download --container-name "${SIG_CONTAINER_NAME}" --name "${CIS_REPORT_TXT_NAME}" --file cis-report.txt --account-name "${STORAGE_ACCOUNT_NAME}" --auth-mode login
+az storage blob download --container-name "${SIG_CONTAINER_NAME}" --name "${CIS_REPORT_HTML_NAME}" --file cis-report.html --account-name "${STORAGE_ACCOUNT_NAME}" --auth-mode login
+
+# Remove CIS report blobs from storage
+az storage blob delete --account-name "${STORAGE_ACCOUNT_NAME}" --container-name "${SIG_CONTAINER_NAME}" --name "${CIS_REPORT_TXT_NAME}" --auth-mode login
+az storage blob delete --account-name "${STORAGE_ACCOUNT_NAME}" --container-name "${SIG_CONTAINER_NAME}" --name "${CIS_REPORT_HTML_NAME}" --auth-mode login
+# Remove CIS assessor tarball blob from storage
+az storage blob delete --account-name "${STORAGE_ACCOUNT_NAME}" --container-name "${SIG_CONTAINER_NAME}" --name "${CISASSESSOR_BLOB_NAME}" --auth-mode login
+
+echo -e "CIS Report Script Completed\n\n\n"
+capture_benchmark "${SCRIPT_NAME}_cis_report_upload_and_download"
+
+echo -e "Comparing CIS report against baseline"
+compare_cis_with_baseline
+
 capture_benchmark "${SCRIPT_NAME}_overall" true
 process_benchmarks

@@ -118,7 +118,7 @@ type WorkloadRuntime string
 const (
 	// OCIContainer indicates that kubelet will be used for a container workload.
 	OCIContainer WorkloadRuntime = "OCIContainer"
-	// WasmWasi indicates Krustlet will be used for a WebAssembly workload.
+	// Deprecated. WasmWasi indicates Krustlet will be used for a WebAssembly workload.
 	WasmWasi WorkloadRuntime = "WasmWasi"
 )
 
@@ -142,70 +142,55 @@ type Distro string
 
 // Distro string consts.
 const (
-	Ubuntu                              Distro = "ubuntu"
-	Ubuntu1804                          Distro = "ubuntu-18.04"
-	Ubuntu1804Gen2                      Distro = "ubuntu-18.04-gen2"
-	AKSUbuntu1804Gen2                   Distro = "ubuntu-18.04-gen2" // same distro as Ubuntu1804Gen2, renamed for clarity
-	AKSUbuntu1604                       Distro = "aks-ubuntu-16.04"
-	AKSUbuntu1804                       Distro = "aks-ubuntu-18.04"
-	AKSUbuntuGPU1804                    Distro = "aks-ubuntu-gpu-18.04"
-	AKSUbuntuGPU1804Gen2                Distro = "aks-ubuntu-gpu-18.04-gen2"
-	AKSUbuntuContainerd1804             Distro = "aks-ubuntu-containerd-18.04"
-	AKSUbuntuContainerd1804Gen2         Distro = "aks-ubuntu-containerd-18.04-gen2"
-	AKSUbuntuGPUContainerd1804          Distro = "aks-ubuntu-gpu-containerd-18.04"
-	AKSUbuntuGPUContainerd1804Gen2      Distro = "aks-ubuntu-gpu-containerd-18.04-gen2"
-	AKSCBLMarinerV1                     Distro = "aks-cblmariner-v1"
-	AKSCBLMarinerV2                     Distro = "aks-cblmariner-v2"
-	AKSAzureLinuxV2                     Distro = "aks-azurelinux-v2"
-	AKSAzureLinuxV3                     Distro = "aks-azurelinux-v3"
-	AKSCBLMarinerV2Gen2                 Distro = "aks-cblmariner-v2-gen2"
-	AKSAzureLinuxV2Gen2                 Distro = "aks-azurelinux-v2-gen2"
-	AKSAzureLinuxV3Gen2                 Distro = "aks-azurelinux-v3-gen2"
-	AKSCBLMarinerV2FIPS                 Distro = "aks-cblmariner-v2-fips"
-	AKSAzureLinuxV2FIPS                 Distro = "aks-azurelinux-v2-fips"
-	AKSAzureLinuxV3FIPS                 Distro = "aks-azurelinux-v3-fips"
-	AKSCBLMarinerV2Gen2FIPS             Distro = "aks-cblmariner-v2-gen2-fips"
-	AKSAzureLinuxV2Gen2FIPS             Distro = "aks-azurelinux-v2-gen2-fips"
-	AKSAzureLinuxV3Gen2FIPS             Distro = "aks-azurelinux-v3-gen2-fips"
-	AKSCBLMarinerV2Gen2Kata             Distro = "aks-cblmariner-v2-gen2-kata"
-	AKSAzureLinuxV2Gen2Kata             Distro = "aks-azurelinux-v2-gen2-kata"
-	AKSCBLMarinerV2Gen2TL               Distro = "aks-cblmariner-v2-gen2-tl"
-	AKSAzureLinuxV2Gen2TL               Distro = "aks-azurelinux-v2-gen2-tl"
-	AKSAzureLinuxV3Gen2TL               Distro = "aks-azurelinux-v3-gen2-tl"
-	AKSCBLMarinerV2KataGen2TL           Distro = "aks-cblmariner-v2-kata-gen2-tl"
-	AKSUbuntuFipsContainerd1804         Distro = "aks-ubuntu-fips-containerd-18.04"
-	AKSUbuntuFipsContainerd1804Gen2     Distro = "aks-ubuntu-fips-containerd-18.04-gen2"
-	AKSUbuntuFipsContainerd2004         Distro = "aks-ubuntu-fips-containerd-20.04"
-	AKSUbuntuFipsContainerd2004Gen2     Distro = "aks-ubuntu-fips-containerd-20.04-gen2"
-	AKSUbuntuFipsContainerd2204         Distro = "aks-ubuntu-fips-containerd-22.04"
-	AKSUbuntuFipsContainerd2204Gen2     Distro = "aks-ubuntu-fips-containerd-22.04-gen2"
-	AKSUbuntuEdgeZoneContainerd1804     Distro = "aks-ubuntu-edgezone-containerd-18.04"
-	AKSUbuntuEdgeZoneContainerd1804Gen2 Distro = "aks-ubuntu-edgezone-containerd-18.04-gen2"
-	AKSUbuntuEdgeZoneContainerd2204     Distro = "aks-ubuntu-edgezone-containerd-22.04"
-	AKSUbuntuEdgeZoneContainerd2204Gen2 Distro = "aks-ubuntu-edgezone-containerd-22.04-gen2"
-	AKSUbuntuContainerd2204             Distro = "aks-ubuntu-containerd-22.04"
-	AKSUbuntuContainerd2204Gen2         Distro = "aks-ubuntu-containerd-22.04-gen2"
-	AKSUbuntuContainerd2004CVMGen2      Distro = "aks-ubuntu-containerd-20.04-cvm-gen2"
-	AKSUbuntuArm64Containerd2204Gen2    Distro = "aks-ubuntu-arm64-containerd-22.04-gen2"
-	AKSUbuntuArm64Containerd2404Gen2    Distro = "aks-ubuntu-arm64-containerd-24.04-gen2"
-	AKSUbuntuContainerd2404CVMGen2      Distro = "aks-ubuntu-containerd-24.04-cvm-gen2"
-	AKSCBLMarinerV2Arm64Gen2            Distro = "aks-cblmariner-v2-arm64-gen2"
-	AKSAzureLinuxV2Arm64Gen2            Distro = "aks-azurelinux-v2-arm64-gen2"
-	AKSAzureLinuxV3Arm64Gen2            Distro = "aks-azurelinux-v3-arm64-gen2"
-	AKSAzureLinuxV3Arm64Gen2FIPS        Distro = "aks-azurelinux-v3-arm64-gen2-fips"
-	AKSUbuntuContainerd2204TLGen2       Distro = "aks-ubuntu-containerd-22.04-tl-gen2"
-	AKSUbuntuMinimalContainerd2204      Distro = "aks-ubuntu-minimal-containerd-22.04"
-	AKSUbuntuMinimalContainerd2204Gen2  Distro = "aks-ubuntu-minimal-containerd-22.04-gen2"
-	AKSUbuntuEgressContainerd2204Gen2   Distro = "aks-ubuntu-egress-containerd-22.04-gen2"
-	AKSUbuntuContainerd2404             Distro = "aks-ubuntu-containerd-24.04"
-	AKSUbuntuContainerd2404Gen2         Distro = "aks-ubuntu-containerd-24.04-gen2"
-	AKSAzureLinuxV3CVMGen2              Distro = "aks-azurelinux-v3-cvm-gen2"
-	AKSUbuntuContainerd2404TLGen2       Distro = "aks-ubuntu-containerd-24.04-tl-gen2"
-
-	RHEL              Distro = "rhel"
-	CoreOS            Distro = "coreos"
-	AKS1604Deprecated Distro = "aks"      // deprecated AKS 16.04 distro. Equivalent to aks-ubuntu-16.04.
-	AKS1804Deprecated Distro = "aks-1804" // deprecated AKS 18.04 distro. Equivalent to aks-ubuntu-18.04.
+	Ubuntu                                Distro = "ubuntu"
+	AKSCBLMarinerV1                       Distro = "aks-cblmariner-v1"
+	AKSCBLMarinerV2                       Distro = "aks-cblmariner-v2"
+	AKSAzureLinuxV2                       Distro = "aks-azurelinux-v2"
+	AKSAzureLinuxV3                       Distro = "aks-azurelinux-v3"
+	AKSCBLMarinerV2Gen2                   Distro = "aks-cblmariner-v2-gen2"
+	AKSAzureLinuxV2Gen2                   Distro = "aks-azurelinux-v2-gen2"
+	AKSAzureLinuxV3Gen2                   Distro = "aks-azurelinux-v3-gen2"
+	AKSCBLMarinerV2FIPS                   Distro = "aks-cblmariner-v2-fips"
+	AKSAzureLinuxV2FIPS                   Distro = "aks-azurelinux-v2-fips"
+	AKSAzureLinuxV3FIPS                   Distro = "aks-azurelinux-v3-fips"
+	AKSCBLMarinerV2Gen2FIPS               Distro = "aks-cblmariner-v2-gen2-fips"
+	AKSAzureLinuxV2Gen2FIPS               Distro = "aks-azurelinux-v2-gen2-fips"
+	AKSAzureLinuxV3Gen2FIPS               Distro = "aks-azurelinux-v3-gen2-fips"
+	AKSCBLMarinerV2Gen2Kata               Distro = "aks-cblmariner-v2-gen2-kata"
+	AKSAzureLinuxV2Gen2Kata               Distro = "aks-azurelinux-v2-gen2-kata"
+	AKSAzureLinuxV3Gen2Kata               Distro = "aks-azurelinux-v3-gen2-kata"
+	AKSCBLMarinerV2Gen2TL                 Distro = "aks-cblmariner-v2-gen2-tl"
+	AKSAzureLinuxV2Gen2TL                 Distro = "aks-azurelinux-v2-gen2-tl"
+	AKSAzureLinuxV3Gen2TL                 Distro = "aks-azurelinux-v3-gen2-tl"
+	AKSAzureLinuxV3OSGuardGen2FIPSTL      Distro = "aks-azurelinux-v3-osguard-gen2-fips-tl"
+	AKSCBLMarinerV2KataGen2TL             Distro = "aks-cblmariner-v2-kata-gen2-tl"
+	AKSUbuntuFipsContainerd2004           Distro = "aks-ubuntu-fips-containerd-20.04"
+	AKSUbuntuFipsContainerd2004Gen2       Distro = "aks-ubuntu-fips-containerd-20.04-gen2"
+	AKSUbuntuFipsContainerd2204           Distro = "aks-ubuntu-fips-containerd-22.04"
+	AKSUbuntuFipsContainerd2204Gen2       Distro = "aks-ubuntu-fips-containerd-22.04-gen2"
+	AKSUbuntuEdgeZoneContainerd2204       Distro = "aks-ubuntu-edgezone-containerd-22.04"
+	AKSUbuntuEdgeZoneContainerd2204Gen2   Distro = "aks-ubuntu-edgezone-containerd-22.04-gen2"
+	AKSUbuntuContainerd2204               Distro = "aks-ubuntu-containerd-22.04"
+	AKSUbuntuContainerd2204Gen2           Distro = "aks-ubuntu-containerd-22.04-gen2"
+	AKSUbuntuContainerd2004CVMGen2        Distro = "aks-ubuntu-containerd-20.04-cvm-gen2"
+	AKSUbuntuArm64Containerd2204Gen2      Distro = "aks-ubuntu-arm64-containerd-22.04-gen2"
+	AKSUbuntuArm64Containerd2404Gen2      Distro = "aks-ubuntu-arm64-containerd-24.04-gen2"
+	AKSUbuntuArm64GB200Containerd2404Gen2 Distro = "aks-ubuntu-arm64-gb200-containerd-24.04-gen2"
+	AKSUbuntuContainerd2404CVMGen2        Distro = "aks-ubuntu-containerd-24.04-cvm-gen2"
+	AKSCBLMarinerV2Arm64Gen2              Distro = "aks-cblmariner-v2-arm64-gen2"
+	AKSAzureLinuxV2Arm64Gen2              Distro = "aks-azurelinux-v2-arm64-gen2"
+	AKSAzureLinuxV3Arm64Gen2              Distro = "aks-azurelinux-v3-arm64-gen2"
+	AKSAzureLinuxV3Arm64Gen2FIPS          Distro = "aks-azurelinux-v3-arm64-gen2-fips"
+	AKSUbuntuContainerd2204TLGen2         Distro = "aks-ubuntu-containerd-22.04-tl-gen2"
+	AKSUbuntuMinimalContainerd2204        Distro = "aks-ubuntu-minimal-containerd-22.04"
+	AKSUbuntuMinimalContainerd2204Gen2    Distro = "aks-ubuntu-minimal-containerd-22.04-gen2"
+	AKSUbuntuEgressContainerd2204Gen2     Distro = "aks-ubuntu-egress-containerd-22.04-gen2"
+	AKSUbuntuContainerd2404               Distro = "aks-ubuntu-containerd-24.04"
+	AKSUbuntuContainerd2404Gen2           Distro = "aks-ubuntu-containerd-24.04-gen2"
+	AKSAzureLinuxV3CVMGen2                Distro = "aks-azurelinux-v3-cvm-gen2"
+	AKSUbuntuContainerd2404TLGen2         Distro = "aks-ubuntu-containerd-24.04-tl-gen2"
+	AKSFlatcarGen2                        Distro = "aks-flatcar-gen2"
+	AKSFlatcarArm64Gen2                   Distro = "aks-flatcar-arm64-gen2"
 
 	// Windows string const.
 	// AKSWindows2019 stands for distro of windows server 2019 SIG image with docker.
@@ -225,10 +210,11 @@ const (
 	// AKSWindows2025Gen2 stands for distro for windows server 2025 Gen 2 SIG image.
 	AKSWindows2025Gen2 Distro = "aks-windows-2025-gen2"
 	// AKSWindows2019PIR stands for distro of windows server 2019 PIR image with docker.
-	AKSWindows2019PIR        Distro = "aks-windows-2019-pir"
-	CustomizedImage          Distro = "CustomizedImage"
-	CustomizedImageKata      Distro = "CustomizedImageKata"
-	CustomizedWindowsOSImage Distro = "CustomizedWindowsOSImage"
+	AKSWindows2019PIR         Distro = "aks-windows-2019-pir"
+	CustomizedImage           Distro = "CustomizedImage"
+	CustomizedImageKata       Distro = "CustomizedImageKata"
+	CustomizedImageLinuxGuard Distro = "CustomizedImageLinuxGuard"
+	CustomizedWindowsOSImage  Distro = "CustomizedWindowsOSImage"
 
 	// USNatCloud is a const string reference identifier for USNat.
 	USNatCloud = "USNatCloud"
@@ -238,15 +224,6 @@ const (
 
 //nolint:gochecknoglobals
 var AKSDistrosAvailableOnVHD = []Distro{
-	AKSUbuntu1604,
-	AKSUbuntu1804,
-	AKSUbuntu1804Gen2,
-	AKSUbuntuGPU1804,
-	AKSUbuntuGPU1804Gen2,
-	AKSUbuntuContainerd1804,
-	AKSUbuntuContainerd1804Gen2,
-	AKSUbuntuGPUContainerd1804,
-	AKSUbuntuGPUContainerd1804Gen2,
 	AKSCBLMarinerV1,
 	AKSCBLMarinerV2,
 	AKSAzureLinuxV2,
@@ -265,15 +242,12 @@ var AKSDistrosAvailableOnVHD = []Distro{
 	AKSCBLMarinerV2Gen2TL,
 	AKSAzureLinuxV2Gen2TL,
 	AKSAzureLinuxV3Gen2TL,
+	AKSAzureLinuxV3OSGuardGen2FIPSTL,
 	AKSCBLMarinerV2KataGen2TL,
-	AKSUbuntuFipsContainerd1804,
-	AKSUbuntuFipsContainerd1804Gen2,
 	AKSUbuntuFipsContainerd2004,
 	AKSUbuntuFipsContainerd2004Gen2,
 	AKSUbuntuFipsContainerd2204,
 	AKSUbuntuFipsContainerd2204Gen2,
-	AKSUbuntuEdgeZoneContainerd1804,
-	AKSUbuntuEdgeZoneContainerd1804Gen2,
 	AKSUbuntuEdgeZoneContainerd2204,
 	AKSUbuntuEdgeZoneContainerd2204Gen2,
 	AKSUbuntuContainerd2204,
@@ -282,6 +256,7 @@ var AKSDistrosAvailableOnVHD = []Distro{
 	AKSAzureLinuxV3CVMGen2,
 	AKSUbuntuArm64Containerd2204Gen2,
 	AKSUbuntuArm64Containerd2404Gen2,
+	AKSUbuntuArm64GB200Containerd2404Gen2,
 	AKSUbuntuContainerd2404CVMGen2,
 	AKSCBLMarinerV2Arm64Gen2,
 	AKSAzureLinuxV2Arm64Gen2,
@@ -293,6 +268,8 @@ var AKSDistrosAvailableOnVHD = []Distro{
 	AKSUbuntuContainerd2404,
 	AKSUbuntuContainerd2404Gen2,
 	AKSUbuntuContainerd2404TLGen2,
+	AKSFlatcarGen2,
+	AKSFlatcarArm64Gen2,
 }
 
 type CustomConfigurationComponent string
@@ -340,7 +317,25 @@ func (d Distro) IsAzureLinuxCgroupV2VHDDistro() bool {
 }
 
 func (d Distro) IsKataDistro() bool {
-	return d == AKSCBLMarinerV2Gen2Kata || d == AKSAzureLinuxV2Gen2Kata || d == AKSCBLMarinerV2KataGen2TL || d == CustomizedImageKata
+	return d == AKSCBLMarinerV2Gen2Kata || d == AKSAzureLinuxV3Gen2Kata || d == AKSAzureLinuxV2Gen2Kata || d == AKSCBLMarinerV2KataGen2TL || d == CustomizedImageKata
+}
+
+func (d Distro) IsFlatcarDistro() bool {
+	for _, distro := range AvailableFlatcarDistros {
+		if d == distro {
+			return true
+		}
+	}
+	return false
+}
+
+func (d Distro) IsAzureLinuxOSGuardDistro() bool {
+	for _, distro := range AvailableAzureLinuxOSGuardDistros {
+		if d == distro {
+			return true
+		}
+	}
+	return false
 }
 
 /*
@@ -708,6 +703,7 @@ type KubernetesConfig struct {
 	PrivateAzureRegistryServer        string            `json:"privateAzureRegistryServer,omitempty"`
 	NetworkPluginMode                 string            `json:"networkPluginMode,omitempty"`
 	EbpfDataplane                     EbpfDataplane     `json:"ebpfDataplane,omitempty"`
+	BlockIptables                     bool              `json:"blockIptables,omitempty"`
 }
 
 /*
@@ -1156,9 +1152,11 @@ func (p *Properties) GetKubeProxyFeatureGatesWindowsArguments() string {
 		featureGates["IPv6DualStack"] = true
 	}
 	if p.FeatureFlags.IsFeatureEnabled(EnableWinDSR) {
-		// WinOverlay must be set to false.
 		featureGates["WinDSR"] = true
-		featureGates["WinOverlay"] = false
+		// WinOverlay feature gate is GA and locked to true in Kubernetes 1.34.0 and later
+		if p.OrchestratorProfile == nil || !IsKubernetesVersionGe(p.OrchestratorProfile.OrchestratorVersion, "1.34.0") {
+			featureGates["WinOverlay"] = false
+		}
 	}
 
 	keys := []string{}
@@ -1201,6 +1199,14 @@ func (a *AgentPoolProfile) IsCustomVNET() bool {
 // IsWindows returns true if the agent pool is windows.
 func (a *AgentPoolProfile) IsWindows() bool {
 	return strings.EqualFold(string(a.OSType), string(Windows))
+}
+
+func (a *AgentPoolProfile) IsFlatcar() bool {
+	return a.Distro.IsFlatcarDistro()
+}
+
+func (a *AgentPoolProfile) IsAzureLinuxOSGuard() bool {
+	return a.Distro.IsAzureLinuxOSGuardDistro()
 }
 
 // IsSkipCleanupNetwork returns true if AKS-RP sets the field NotRebootWindowsNode to true.
@@ -1493,21 +1499,6 @@ func (k *KubernetesConfig) IsAddonDisabled(addonName string) bool {
 	return kubeAddon.IsDisabled()
 }
 
-// NeedsContainerd returns whether or not we need the containerd runtime configuration.
-// E.g., kata configuration requires containerd config.
-func (k *KubernetesConfig) NeedsContainerd() bool {
-	return strings.EqualFold(k.ContainerRuntime, KataContainers) || strings.EqualFold(k.ContainerRuntime, Containerd)
-}
-
-// RequiresDocker returns if the kubernetes settings require docker binary to be installed.
-func (k *KubernetesConfig) RequiresDocker() bool {
-	if k == nil {
-		return false
-	}
-
-	return strings.EqualFold(k.ContainerRuntime, Docker) || k.ContainerRuntime == ""
-}
-
 // IsAADPodIdentityEnabled checks if the AAD pod identity addon is enabled.
 func (k *KubernetesConfig) IsAADPodIdentityEnabled() bool {
 	return k.IsAddonEnabled(AADPodIdentityAddonName)
@@ -1684,7 +1675,7 @@ func FormatProdFQDNByLocation(fqdnPrefix string, location string, cloudSpecConfi
 
 type K8sComponents struct {
 	// Full path to the "pause" image. Used for --pod-infra-container-image.
-	// For example: "mcr.microsoft.com/oss/kubernetes/pause:1.3.1".
+	// For example: "mcr.microsoft.com/oss/v2/kubernetes/pause:3.6".
 	PodInfraContainerImageURL string
 
 	// Full path to the hyperkube image.
@@ -1720,26 +1711,26 @@ type GetLatestSigImageConfigRequest struct {
 
 // NodeBootstrappingConfiguration represents configurations for node bootstrapping.
 type NodeBootstrappingConfiguration struct {
-	ContainerService              *ContainerService
-	CloudSpecConfig               *AzureEnvironmentSpecConfig
-	K8sComponents                 *K8sComponents
-	AgentPoolProfile              *AgentPoolProfile
-	TenantID                      string
-	SubscriptionID                string
-	ResourceGroupName             string
-	UserAssignedIdentityClientID  string
-	OSSKU                         string
-	ConfigGPUDriverIfNeeded       bool
-	Disable1804SystemdResolved    bool
-	EnableGPUDevicePluginIfNeeded bool
-	EnableKubeletConfigFile       bool
-	EnableNvidia                  bool
-	EnableAMDGPU                  bool
-	EnableACRTeleportPlugin       bool
-	TeleportdPluginURL            string
-	EnableArtifactStreaming       bool
-	ContainerdVersion             string
-	RuncVersion                   string
+	ContainerService                *ContainerService
+	CloudSpecConfig                 *AzureEnvironmentSpecConfig
+	K8sComponents                   *K8sComponents
+	AgentPoolProfile                *AgentPoolProfile
+	TenantID                        string
+	SubscriptionID                  string
+	ResourceGroupName               string
+	UserAssignedIdentityClientID    string
+	OSSKU                           string
+	ConfigGPUDriverIfNeeded         bool
+	EnableGPUDevicePluginIfNeeded   bool
+	EnableKubeletConfigFile         bool
+	EnableNvidia                    bool
+	EnableAMDGPU                    bool
+	ManagedGPUExperienceAFECEnabled bool
+	EnableACRTeleportPlugin         bool
+	TeleportdPluginURL              string
+	EnableArtifactStreaming         bool
+	ContainerdVersion               string
+	RuncVersion                     string
 	// ContainerdPackageURL and RuncPackageURL are beneficial for testing non-official.
 	// containerd and runc, like the pre-released ones.
 	// Currently both configurations are for test purpose, and only deb package is supported.
@@ -1750,36 +1741,37 @@ type NodeBootstrappingConfiguration struct {
 	kubeconfig. */
 	// ref: https://kubernetes.io/docs/reference/command-line-tools-reference/kubelet-tls-bootstrapping.
 	KubeletClientTLSBootstrapToken *string
-	// EnableSecureTLSBootstraping - when this feature is enabled we don't hard-code TLS bootstrap tokens at all,
-	// instead we create a modified bootstrap kubeconfig which points towards the STLS bootstrap client-go
-	// credential plugin installed on the VHD, which will be responsible for generating TLS bootstrap tokens on the fly
-	EnableSecureTLSBootstrapping bool
-	// CustomSecureTLSBootstrapAADServerAppID serves as an optional override of the AAD server application ID
-	// used by the secure TLS bootstrap client-go credential plugin when requesting JWTs from AAD
-	CustomSecureTLSBootstrapAADServerAppID string
-	FIPSEnabled                            bool
-	HTTPProxyConfig                        *HTTPProxyConfig
-	KubeletConfig                          map[string]string
-	KubeproxyConfig                        map[string]string
-	EnableRuncShimV2                       bool
-	GPUInstanceProfile                     string
-	PrimaryScaleSetName                    string
-	SIGConfig                              SIGConfig
-	IsARM64                                bool
-	CustomCATrustConfig                    *CustomCATrustConfig
-	DisableUnattendedUpgrades              bool
-	SSHStatus                              SSHStatus
-	DisableCustomData                      bool
-	OutboundType                           string
-	EnableIMDSRestriction                  bool
+	SecureTLSBootstrappingConfig   *SecureTLSBootstrappingConfig
+	FIPSEnabled                    bool
+	HTTPProxyConfig                *HTTPProxyConfig
+	KubeletConfig                  map[string]string
+	KubeproxyConfig                map[string]string
+	EnableRuncShimV2               bool
+	GPUInstanceProfile             string
+	PrimaryScaleSetName            string
+	SIGConfig                      SIGConfig
+	IsARM64                        bool
+	CustomCATrustConfig            *CustomCATrustConfig
+	DisableUnattendedUpgrades      bool
+	SSHStatus                      SSHStatus
+	DisableCustomData              bool
+	OutboundType                   string
+	EnableIMDSRestriction          bool
 	// InsertIMDSRestrictionRuleToMangleTable is only checked when EnableIMDSRestriction is true.
 	// When this is true, iptables rule will be inserted to `mangle` table. This is for Linux Cilium
 	// CNI, which will overwrite the `filter` table so that we can only insert to `mangle` table to avoid
 	// our added rule is overwritten by Cilium.
 	InsertIMDSRestrictionRuleToMangleTable bool
-
 	// Version is required for aks-node-controller application to determine the version of the config file.
 	Version string
+
+	// PreProvisionOnly creates a pre-provisioned image for later node spawning.
+	// Skips kubelet and some component configuration for image capture scenarios.
+	PreProvisionOnly bool
+}
+
+func (config *NodeBootstrappingConfiguration) IsFlatcar() bool {
+	return config.OSSKU == OSSKUFlatcar || config.AgentPoolProfile.IsFlatcar()
 }
 
 type SSHStatus int
@@ -1788,6 +1780,10 @@ const (
 	SSHUnspecified SSHStatus = iota
 	SSHOff
 	SSHOn
+	// EntraIDSSH means the cluster has enabled Entra ID SSH feature on the cluster,
+	// AADSSHLoginForLinux extension will be installed on the node. In this case,
+	// we should disable Pubkey authentication in sshd_config.
+	EntraIDSSH
 )
 
 // NodeBootstrapping represents the custom data, CSE, and OS image info needed for node bootstrapping.
@@ -1808,6 +1804,65 @@ type HTTPProxyConfig struct {
 
 type CustomCATrustConfig struct {
 	CustomCATrustCerts []string `json:"customCATrustCerts,omitempty"`
+}
+
+// SecureTLSBootstrappingConfig represents configuration specific to secure TLS bootstrapping.
+type SecureTLSBootstrappingConfig struct {
+	// Enabled indicates whether secure TLS bootstrapping is enabled.
+	Enabled bool `json:"secureTLSBootstrappingEnabled"`
+	// Deadline is an optional override passed to the secure TLS bootstrap client during provisioning.
+	// This is the amount of time we let secure TLS bootstrapping attempt to succeed before falling back
+	// to using the bootstrap token. This will be removed once bootstrap tokens are no longer a viable fall-back.
+	// A default value is specified directly within the bootstrapping scripts.
+	Deadline string `json:"secureTLSBootstrappingDeadline,omitempty"`
+	// AADResource is an optional override passed to the secure TLS bootstrap client during provisioning.
+	// This determines the resource used to request access tokens from Entra ID.
+	// Defaults to the AKS AAD server APP ID within bootstrapping scripts.
+	AADResource string `json:"secureTLSBootstrappingAADResource,omitempty"`
+	// UserAssignedIdentityID is an optional override passed to the secure TLS bootstrap client during provisioning.
+	// This determines the client ID of the user assigned identity attached to the node which will be
+	// used to fetch access tokens from Entra ID via IMDS if the node has one or more user-assigned managed identities.
+	// Defaults to the kubelet identity within bootstrapping scripts.
+	UserAssignedIdentityID string `json:"secureTLSBootstrappingUserAssignedIdentityID,omitempty"`
+	// CustomClientDownloadURL is an optional override which will have the bootstrap scripts
+	// overwrite the existing secure TLS bootstrap client installation on the node image using
+	// the version specified by the URL before bootstrapping.
+	CustomClientDownloadURL string `json:"secureTLSBootstrappingCustomClientDownloadURL"`
+}
+
+func (c *SecureTLSBootstrappingConfig) GetEnabled() bool {
+	if c == nil {
+		return false
+	}
+	return c.Enabled
+}
+
+func (c *SecureTLSBootstrappingConfig) GetDeadline() string {
+	if c == nil {
+		return ""
+	}
+	return c.Deadline
+}
+
+func (c *SecureTLSBootstrappingConfig) GetAADResource() string {
+	if c == nil {
+		return ""
+	}
+	return c.AADResource
+}
+
+func (c *SecureTLSBootstrappingConfig) GetUserAssignedIdentityID() string {
+	if c == nil {
+		return ""
+	}
+	return c.UserAssignedIdentityID
+}
+
+func (c *SecureTLSBootstrappingConfig) GetCustomClientDownloadURL() string {
+	if c == nil {
+		return ""
+	}
+	return c.CustomClientDownloadURL
 }
 
 // AKSKubeletConfiguration contains the configuration for the Kubelet that AKS set.
@@ -2270,7 +2325,9 @@ type AgentPoolWindowsProfile struct {
 	DisableOutboundNat *bool `json:"disableOutboundNat,omitempty"`
 
 	// Windows next-gen networking uses Windows eBPF for the networking dataplane.
-	NextGenNetworkingURL *string `json:"nextGenNetworkingURL,omitempty"`
+	NextGenNetworkingURL     *string `json:"nextGenNetworkingURL,omitempty"`
+	NextGenNetworkingEnabled *bool   `json:"nextGenNetworkingEnabled,omitempty"`
+	NextGenNetworkingConfig  *string `json:"nextGenNetworkingConfig,omitempty"`
 }
 
 // IsDisableWindowsOutboundNat returns true if the Windows agent pool disable OutboundNAT.
@@ -2281,7 +2338,15 @@ func (a *AgentPoolProfile) IsDisableWindowsOutboundNat() bool {
 }
 
 func (a *AgentPoolWindowsProfile) IsNextGenNetworkingEnabled() bool {
-	return a != nil && a.NextGenNetworkingURL != nil
+	return a != nil &&
+		a.NextGenNetworkingEnabled != nil && *a.NextGenNetworkingEnabled
+}
+
+func (a *AgentPoolWindowsProfile) GetNextGenNetworkingConfig() string {
+	if a == nil || a.NextGenNetworkingConfig == nil {
+		return ""
+	}
+	return *a.NextGenNetworkingConfig
 }
 
 func (a *AgentPoolWindowsProfile) GetNextGenNetworkingURL() string {

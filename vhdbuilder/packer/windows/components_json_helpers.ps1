@@ -5,6 +5,8 @@ function SafeReplaceString {
         $stringToReplace
     )
 
+    # this is a security guard - ensure that only allow-listed variables can be replaced by removing all others.
+    # We run in a sub-shell so clearing all other variables doesn't impact the shell running this code.
     $stringToReplace = &{
         Clear-Variable -Name * -Exclude version,CPU_ARCH,stringToReplace -ErrorAction SilentlyContinue
         $executionContext.InvokeCommand.ExpandString($stringToReplace)
@@ -150,6 +152,65 @@ function GetPackagesFromComponentsJson
     return $output
 }
 
+function GetOCIArtifactsFromComponentsJson
+{
+
+    Param(
+        [Parameter(Mandatory = $true)][Object]
+        $componentsJsonContent
+    )
+    $output = @{ }
+
+    foreach ($ociArtifact in $componentsJsonContent.OCIArtifacts)
+    {
+        $registry = $ociArtifact.registry
+        $downloadLocation = $ociArtifact.windowsDownloadLocation
+        if ($downloadLocation -eq $null -or $downloadLocation -eq "")
+        {
+            continue
+        }
+
+        $thisList = $output[$downloadLocation]
+        if ($thisList -eq $null)
+        {
+            $thisList = New-Object System.Collections.ArrayList
+        }
+
+        $versions = $ociArtifact.windowsVersions
+        if ($versions -eq $null)
+        {
+            continue
+        }
+
+        foreach ($windowsVersion in $versions)
+        {
+            $skuMatch = $windowsVersion.windowsSkuMatch
+            if ([string]::IsNullOrEmpty($skuMatch) -or $windowsSku -Like $skuMatch)
+            {
+                $version = $windowsVersion.latestVersion
+                $artifactName = SafeReplaceString($registry)
+                $artifactName = $artifactName.replace("*", $version)
+                $thisList += $artifactName
+            }
+
+            if (-not [string]::IsNullOrEmpty($windowsVersion.previousLatestVersion))
+            {
+                $version = $windowsVersion.previousLatestVersion
+                $artifactName = SafeReplaceString($registry)
+                $artifactName = $artifactName.replace("*", $version)
+                $thisList += $artifactName
+            }
+        }
+
+        if ($thisList.Length -gt 0)
+        {
+            $output[$downloadLocation] = $thisList
+        }
+    }
+
+    return $output
+}
+
 function GetDefaultContainerDFromComponentsJson
 {
     Param(
@@ -225,8 +286,16 @@ function LogReleaseNotesForWindowsRegistryKeys
         $names = $releaseNotesToSet[$key]
         foreach ($name in $names)
         {
-            $value = (Get-ItemProperty -Path $key -Name $name).$name
-            $logLines += ("`t`t{0} : {1}" -f $name, $value)
+            # Set error action to stop so that if the key or name doesn't exist we get notified - as this indicates an issue
+            # with setting the field
+            try {
+                $value = (Get-ItemProperty -Path $key -Name $name -ErrorAction Stop).$name
+                Write-Host "Found registry key value for $key\$name : $value"
+                $logLines += ("`t`t{0} : {1}" -f $name, $value)
+            }
+            catch {
+                throw "Failed to get registry key value for $key\$name. $_"
+            }
         }
     }
 
@@ -259,6 +328,27 @@ function GetPatchInfo
     # returning lots of items. But there is usually only one patch to apply.
     return $patchData
 }
+
+function GetWindowsBaseVersion
+{
+    Param(
+        [Parameter(Mandatory = $true)][String]
+        $windowsSku,
+
+        [Parameter(Mandatory = $true)][Object]
+        $windowsSettingsContent
+    )
+
+
+    $baseVersionBlock = $windowsSettingsContent.WindowsBaseVersions."$windowsSku";
+
+    if ($baseVersionBlock -eq $null) {
+        return ""
+    }
+
+    return $baseVersionBlock.base_image_version
+}
+
 
 function GetWindowsBaseVersions {
     Param(
@@ -298,7 +388,11 @@ function GetAllCachedThings {
 
     $items = GetComponentsFromComponentsJson $componentsJsonContent
     $packages = GetPackagesFromComponentsJson $componentsJsonContent
+    $ociArtifacts = GetOCIArtifactsFromComponentsJson $componentsJsonContent
     $regKeys = GetRegKeysToApply $windowsSettingsContent
+    $baseVersion =  GetWindowsBaseVersion -windowsSku $windowsSku -windowsSettingsContent $windowsSettingsContent
+
+    $items += "Windows ${windowsSku} base version: ${baseVersion}"
 
     foreach ($packageName in $packages.keys) {
         foreach ($package in $packages[$packageName]) {
@@ -306,9 +400,15 @@ function GetAllCachedThings {
         }
     }
 
+    foreach ($ociArtifactName in $ociArtifacts.keys) {
+        foreach ($ociArtifact in $ociArtifacts[$ociArtifactName]) {
+            $items += $ociArtifactName + ": " + $ociArtifact
+        }
+    }
+
     foreach ($regKey in $regKeys) {
         $items += $regKey.Path + "\" + $regKey.Name + "=" + $regKey.Value
     }
 
-    return ($items | Sort-Object)
+    return ($items | Sort-Object -Unique )
 }

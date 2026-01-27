@@ -7,7 +7,8 @@
 
 param (
     $windowsSKU,
-    $skipValidateReofferUpdate
+    $skipValidateReofferUpdate,
+    $validatecontainerBaseImageFromUrl = $false
 )
 
 Set-PSDebug -Trace 1
@@ -15,7 +16,7 @@ Set-PSDebug -Trace 1
 # On a rare occasion, these functions aren't imported properly. So let's pre-define them.
 filter Timestamp { "$(Get-Date -Format o): $_" }
 function Write-Log ($message) {
-    $message | Timestamp | Tee-Object -FilePath $LogPath -Append
+    $message | Timestamp | Tee-Object -FilePath $LogPath -Append | Write-Host
 }
 
 
@@ -321,6 +322,43 @@ function Test-ImagesPulled
     # 2. As select-string with nomatch pattern returns additional line breaks, qurying MatchInfo's Line property keeps
     #    only image reference as a workaround
     $pulledImages = (ctr.exe -n k8s.io image ls -q | Select-String -notmatch "sha256:.*" | % { $_.Line })
+
+    # Example logic of setting the value of $validatecontainerBaseImageFromUrl:
+    # caller fucntion vhdbuilder/packer/test/run-test.sh get the value from env set from pipeline
+    # .pipelines/templates/.builder-release-template-windows.yaml and pass it to this function.
+    if ($validatecontainerBaseImageFromUrl -eq $true)
+    {
+        Write-OutputWithTimestamp "validate container base image cached to be sync with the images from URLs"
+        # Find items to remove
+        $targetImagesToPull = $targetImagesToPull | Where-Object {
+            $_ -notmatch '^mcr\.microsoft\.com/windows/(nanoserver|servercore):[^/]+$'
+        }
+        # Find items to add
+        switch -Wildcard ($windowsSKU.ToLower()) {
+            "*2019*" {
+               $targetImagesToPull += "mcr.microsoft.com/windows/nanoserver:1809"
+               $targetImagesToPull += "mcr.microsoft.com/windows/servercore:ltsc2019"
+            }
+            "*2022*" {
+               $targetImagesToPull += "mcr.microsoft.com/windows/nanoserver:ltsc2022"
+               $targetImagesToPull += "mcr.microsoft.com/windows/servercore:ltsc2022"
+            }
+            "*23h2*" {
+               $targetImagesToPull += "mcr.microsoft.com/windows/nanoserver:ltsc2022"
+               $targetImagesToPull += "mcr.microsoft.com/windows/servercore:ltsc2022"
+            }
+            "*2025*" {
+               $targetImagesToPull += "mcr.microsoft.com/windows/nanoserver:ltsc2022"
+               $targetImagesToPull += "mcr.microsoft.com/windows/servercore:ltsc2022"
+               $targetImagesToPull += "mcr.microsoft.com/windows/nanoserver:ltsc2025"
+               $targetImagesToPull += "mcr.microsoft.com/windows/servercore:ltsc2025"
+            }
+            default {
+               Write-OutputWithTimestamp "No additional images to pull for SKU: $windowsSKU"
+               exit 1
+            }
+        }
+    }
 
     $result = (Compare-Object $targetImagesToPull $pulledImages)
     if ($result)
@@ -724,7 +762,11 @@ function Test-ValidateImageBinarySignature {
         "containernetworking/azure-cni" # dropgz.exe or dropgz
     )
 
-    $images = crictl images -o json | ConvertFrom-Json
+    # TODO: remove when crictl.exe can find the default config file
+    $crictlPath = (Get-Command crictl.exe -ErrorAction SilentlyContinue).Path
+    $configPath = Join-Path (Split-Path -Parent $crictlPath) "crictl.yaml"
+
+    $images = crictl -c $configPath images -o json | ConvertFrom-Json
     foreach ($image in $images.images) {
         $imageTag = $image.repoTags[0]
         $skipImageMatch = $skipImageMapForSignature | Where-Object { $imageTag -match $_ }

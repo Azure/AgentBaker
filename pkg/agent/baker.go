@@ -7,6 +7,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -16,6 +17,10 @@ import (
 	"github.com/Azure/agentbaker/parts"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/go-autorest/autorest/to"
+	base0_5 "github.com/coreos/butane/base/v0_5"
+	butanecommon "github.com/coreos/butane/config/common"
+	flatcar1_1 "github.com/coreos/butane/config/flatcar/v1_1"
+	"gopkg.in/yaml.v3"
 )
 
 // TemplateGenerator represents the object that performs the template generation.
@@ -47,8 +52,15 @@ func (t *TemplateGenerator) getWindowsNodeBootstrappingPayload(config *datamodel
 func (t *TemplateGenerator) getLinuxNodeBootstrappingPayload(config *datamodel.NodeBootstrappingConfiguration) string {
 	// this might seem strange that we're encoding the custom data to a JSON string and then extracting it, but without that serialisation and deserialisation
 	// lots of tests fail.
-	customData := getCustomDataFromJSON(t.getLinuxNodeCustomDataJSONObject(config))
-	return getBase64EncodedGzippedCustomScriptFromStr(customData)
+	var encoded string
+	if config.IsFlatcar() {
+		customData := getCustomDataFromJSON(t.getFlatcarLinuxNodeCustomDataJSONObject(config))
+		encoded = base64.StdEncoding.EncodeToString([]byte(customData))
+	} else {
+		customData := getCustomDataFromJSON(t.getLinuxNodeCustomDataJSONObject(config))
+		encoded = getBase64EncodedGzippedCustomScriptFromStr(customData)
+	}
+	return encoded
 }
 
 // GetLinuxNodeCustomDataJSONObject returns Linux customData JSON object in the form.
@@ -65,6 +77,121 @@ func (t *TemplateGenerator) getLinuxNodeCustomDataJSONObject(config *datamodel.N
 	}
 
 	return fmt.Sprintf("{\"customData\": \"%s\"}", str)
+}
+
+func toButaneFile(file cloudInitWriteFile) (*base0_5.File, error) {
+	newfile := base0_5.File{}
+	newfile.Path = file.Path
+	newfile.User.Name = &file.Owner
+	newfile.Overwrite = to.BoolPtr(true)
+	mode, e := strconv.ParseInt(file.Permissions, 8, 32)
+	if e != nil {
+		return nil, fmt.Errorf("failed to parse file mode: %w", e)
+	}
+	newfile.Mode = to.IntPtr(int(mode))
+	switch file.Encoding {
+	case "gzip":
+		newfile.Contents.Inline = &file.Content
+		// This is hit for AKSCustomCloud file
+		if file.Content != "" {
+			newfile.Contents.Compression = &file.Encoding
+		}
+	case "base64":
+		inline, e := base64.StdEncoding.DecodeString(file.Content)
+		if e != nil {
+			return nil, fmt.Errorf("failed to decode base64 content: %w", e)
+		}
+		newfile.Contents.Inline = to.StringPtr(string(inline))
+		newfile.Contents.Compression = nil
+	case "":
+		newfile.Contents.Inline = to.StringPtr(file.Content)
+	default:
+		return nil, fmt.Errorf("unsupported encoding: %s", file.Encoding)
+	}
+	return &newfile, nil
+}
+
+// GetLinuxNodeCustomDataJSONObject returns Linux customData JSON object in the form.
+// { "customData": "<customData string>" }.
+func (t *TemplateGenerator) getFlatcarLinuxNodeCustomDataJSONObject(config *datamodel.NodeBootstrappingConfiguration) string {
+	// get parameters
+	parameters := getParameters(config)
+	// get variable cloudInit
+	variables := getCustomDataVariables(config)
+	str, e := t.getSingleLine(kubernetesNodeCustomDataYaml, config.AgentPoolProfile, getBakerFuncMap(config, parameters, variables), true)
+	if e != nil {
+		panic(e)
+	}
+	var customData cloudInit
+	if e = yaml.Unmarshal([]byte(str), &customData); e != nil {
+		panic(fmt.Errorf("failed to unmarshal customData: %w", e))
+	}
+	if len(customData.WriteFiles) == 0 {
+		panic(fmt.Errorf("no write files found in customData"))
+	}
+	butaneconfig := flatcar1_1.Config{}
+	b, e := parts.Templates.ReadFile(kubernetesFlatcarNodeCustomDataYaml)
+	if e != nil {
+		panic(fmt.Errorf("yaml file %s does not exist", kubernetesFlatcarNodeCustomDataYaml))
+	}
+	if e = yaml.Unmarshal(b, &butaneconfig); e != nil {
+		panic(fmt.Errorf("failed to unmarshal butane config: %w", e))
+	}
+
+	newfiles := make([]base0_5.File, 0)
+	var newfile *base0_5.File
+	for _, file := range customData.WriteFiles {
+		newfile, e = toButaneFile(file)
+		if e != nil {
+			panic(fmt.Errorf("failed to convert cloudInit file to butane file: %w", e))
+		}
+		newfiles = append(newfiles, *newfile)
+	}
+
+	butaneconfig.Storage.Files = append(newfiles, butaneconfig.Storage.Files...)
+	ignition, report, e := butaneconfig.ToIgn3_4(butanecommon.TranslateOptions{})
+	if e != nil {
+		panic(fmt.Errorf("butane -> ignition: error: %w:\n%s", e, report.String()))
+	}
+	if len(report.Entries) > 0 {
+		panic(fmt.Errorf("butane -> ignition: warning:\n%s", report.String()))
+	}
+	ignjson, e := json.Marshal(ignition)
+	if e != nil {
+		panic(fmt.Errorf("failed to marshal Ignition config: %w", e))
+	}
+
+	envelope := flatcar1_1.Config{
+		Config: base0_5.Config{
+			Variant: "flatcar",
+			Version: "1.1.0",
+			Ignition: base0_5.Ignition{
+				Config: base0_5.IgnitionConfig{
+					Replace: base0_5.Resource{
+						Inline: to.StringPtr(string(ignjson)),
+						// TODO: butane 0.24.0 broke support for explicit compression
+						// so we depend on automatic resource compression.
+						// Compression: to.StringPtr("gzip"),
+					},
+				},
+			},
+		},
+	}
+	wrapped, report, e := envelope.ToIgn3_4(butanecommon.TranslateOptions{})
+	if e != nil {
+		panic(fmt.Errorf("butane -> ignition: error: %w:\n%s", e, report.String()))
+	}
+	if len(report.Entries) > 0 {
+		panic(fmt.Errorf("butane -> ignition: warning:\n%s", report.String()))
+	}
+	// Marshal the Ignition config to JSON
+	enc, err := json.Marshal(wrapped)
+	if err != nil {
+		panic(fmt.Errorf("failed to marshal Ignition config: %w", err))
+	}
+	escstr := escapeSingleLine(string(enc))
+
+	return fmt.Sprintf("{\"customData\": \"%s\"}", escstr)
 }
 
 // GetWindowsNodeCustomDataJSONObject returns Windows customData JSON object in the form.
@@ -282,7 +409,6 @@ func ValidateAndSetLinuxNodeBootstrappingConfiguration(config *datamodel.NodeBoo
 	if config.KubeletConfig == nil {
 		return
 	}
-	profile := config.AgentPoolProfile
 	kubeletFlags := config.KubeletConfig
 
 	// If using kubelet config file, disable DynamicKubeletConfig feature gate and remove dynamic-config-dir
@@ -290,19 +416,19 @@ func ValidateAndSetLinuxNodeBootstrappingConfiguration(config *datamodel.NodeBoo
 	delete(kubeletFlags, "--dynamic-config-dir")
 	delete(kubeletFlags, "--non-masquerade-cidr")
 
-	if profile != nil && profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntime == "containerd" {
-		dockerShimFlags := []string{
-			"--cni-bin-dir",
-			"--cni-cache-dir",
-			"--cni-conf-dir",
-			"--docker-endpoint",
-			"--image-pull-progress-deadline",
-			"--network-plugin",
-			"--network-plugin-mtu",
-		}
-		for _, flag := range dockerShimFlags {
-			delete(kubeletFlags, flag)
-		}
+	// Docker and dockershim were removed in Kubernetes 1.24
+	// These flags are no longer supported and should be removed for all configurations
+	dockerShimFlags := []string{
+		"--cni-bin-dir",
+		"--cni-cache-dir",
+		"--cni-conf-dir",
+		"--docker-endpoint",
+		"--image-pull-progress-deadline",
+		"--network-plugin",
+		"--network-plugin-mtu",
+	}
+	for _, flag := range dockerShimFlags {
+		delete(kubeletFlags, flag)
 	}
 
 	if IsKubeletServingCertificateRotationEnabled(config) {
@@ -363,9 +489,6 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 	cs := config.ContainerService
 	profile := config.AgentPoolProfile
 	return template.FuncMap{
-		"Disable1804SystemdResolved": func() bool {
-			return config.Disable1804SystemdResolved
-		},
 		// This was DisableUnattendedUpgrade when we had UU enabled by default in image.
 		// Now we don't, so we have to deliberately enable it.
 		// Someone smarter than me can fix the API.
@@ -400,11 +523,19 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return IsKubeletConfigFileEnabled(cs, profile, config.EnableKubeletConfigFile)
 		},
 		"EnableSecureTLSBootstrapping": func() bool {
-			// this will be true when we can perform TLS bootstrapping without the use of a hard-coded bootstrap token.
-			return config.EnableSecureTLSBootstrapping
+			return config.SecureTLSBootstrappingConfig.GetEnabled()
 		},
-		"GetCustomSecureTLSBootstrapAADServerAppID": func() string {
-			return config.CustomSecureTLSBootstrapAADServerAppID
+		"GetSecureTLSBootstrappingDeadline": func() string {
+			return config.SecureTLSBootstrappingConfig.GetDeadline()
+		},
+		"GetSecureTLSBootstrappingAADResource": func() string {
+			return config.SecureTLSBootstrappingConfig.GetAADResource()
+		},
+		"GetSecureTLSBootstrappingUserAssignedIdentityID": func() string {
+			return config.SecureTLSBootstrappingConfig.GetUserAssignedIdentityID()
+		},
+		"GetCustomSecureTLSBootstrappingClientDownloadURL": func() string {
+			return config.SecureTLSBootstrappingConfig.GetCustomClientDownloadURL()
 		},
 		"GetTLSBootstrapTokenForKubeConfig": func() string {
 			return GetTLSBootstrapTokenForKubeConfig(config.KubeletClientTLSBootstrapToken)
@@ -422,7 +553,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return config.GetOrderedKubeproxyConfigStringForPowershell()
 		},
 		"IsCgroupV2": func() bool {
-			return profile.Is2204VHDDistro() || profile.IsAzureLinuxCgroupV2VHDDistro() || profile.Is2404VHDDistro()
+			return profile.Is2204VHDDistro() || profile.IsAzureLinuxCgroupV2VHDDistro() || profile.Is2404VHDDistro() || profile.IsFlatcar()
 		},
 		"GetKubeProxyFeatureGatesPsh": func() string {
 			return cs.Properties.GetKubeProxyFeatureGatesWindowsArguments()
@@ -498,6 +629,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"IsNoneCNI": func() bool {
 			return cs.Properties.OrchestratorProfile.IsNoneCNI()
 		},
+		"IsFlatcar": func() bool {
+			return config.IsFlatcar()
+		},
 		"IsMariner": func() bool {
 			// TODO(ace): do we care about both? 2nd one should be more general and catch custom VHD for mariner
 			return profile.Distro.IsAzureLinuxDistro() || isMariner(config.OSSKU)
@@ -506,7 +640,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return profile.Distro.IsKataDistro()
 		},
 		"IsCustomImage": func() bool {
-			return profile.Distro == datamodel.CustomizedImage || profile.Distro == datamodel.CustomizedImageKata
+			return profile.Distro == datamodel.CustomizedImage ||
+				profile.Distro == datamodel.CustomizedImageKata ||
+				profile.Distro == datamodel.CustomizedImageLinuxGuard
 		},
 		"EnableHostsConfigAgent": func() bool {
 			return cs.Properties.OrchestratorProfile.KubernetesConfig != nil &&
@@ -643,26 +779,8 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"IsKubenet": func() bool {
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin == NetworkPluginKubenet
 		},
-		"NeedsContainerd": func() bool {
-			if profile != nil && profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntime != "" {
-				return profile.KubernetesConfig.NeedsContainerd()
-			}
-			return cs.Properties.OrchestratorProfile.KubernetesConfig.NeedsContainerd()
-		},
 		"UseRuncShimV2": func() bool {
 			return config.EnableRuncShimV2
-		},
-		"IsDockerContainerRuntime": func() bool {
-			if profile != nil && profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntime != "" {
-				return profile.KubernetesConfig.ContainerRuntime == datamodel.Docker
-			}
-			return cs.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntime == datamodel.Docker
-		},
-		"RequiresDocker": func() bool {
-			if profile != nil && profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntime != "" {
-				return profile.KubernetesConfig.RequiresDocker()
-			}
-			return cs.Properties.OrchestratorProfile.KubernetesConfig.RequiresDocker()
 		},
 		"HasDataDir": func() bool {
 			return HasDataDir(config)
@@ -678,9 +796,6 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 				return string(profile.KubeletDiskType)
 			}
 			return ""
-		},
-		"IsKrustlet": func() bool {
-			return strings.EqualFold(string(profile.WorkloadRuntime), string(datamodel.WasmWasi))
 		},
 		"GetBase64CertificateAuthorityData": func() string {
 			if cs != nil && cs.Properties != nil && cs.Properties.CertificateProfile != nil && cs.Properties.CertificateProfile.CaCertificate != "" {
@@ -711,7 +826,6 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 				}
 				return containerdV1NoGPUConfigTemplate
 			}(profile))
-
 			if err != nil {
 				panic(err)
 			}
@@ -908,7 +1022,8 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"GetHTTPProxyCA": func() string {
 			if config.HTTPProxyConfig != nil && config.HTTPProxyConfig.TrustedCA != nil {
-				return *config.HTTPProxyConfig.TrustedCA
+				// remove newline so it does not interfere with cse script formatting
+				return removeNewlines(*config.HTTPProxyConfig.TrustedCA)
 			}
 			return ""
 		},
@@ -954,7 +1069,13 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"GetCustomCATrustConfigCerts": func() []string {
 			if areCustomCATrustCertsPopulated(*config) {
-				return config.CustomCATrustConfig.CustomCATrustCerts
+				var customCATrustCerts []string
+				for _, cert := range config.CustomCATrustConfig.CustomCATrustCerts {
+					// remove newline so it does not interfere with cse script formatting
+					caCert := removeNewlines(cert)
+					customCATrustCerts = append(customCATrustCerts, caCert)
+				}
+				return customCATrustCerts
 			}
 			return []string{}
 		},
@@ -966,6 +1087,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"ShouldDisableSSH": func() bool {
 			return config.SSHStatus == datamodel.SSHOff
+		},
+		"ShouldTurnOffPubkeyAuthSSH": func() bool {
+			return config.SSHStatus == datamodel.EntraIDSSH
 		},
 		"GetSysctlContent": func() (string, error) {
 			templateFuncMap := make(template.FuncMap)
@@ -982,7 +1106,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return base64.StdEncoding.EncodeToString(b.Bytes()), nil
 		},
 		"ShouldEnableCustomData": func() bool {
-			return !config.DisableCustomData
+			return !config.DisableCustomData && !config.IsFlatcar()
 		},
 		"GetPrivateEgressProxyAddress": func() string {
 			return config.ContainerService.Properties.SecurityProfile.GetProxyAddress()
@@ -998,6 +1122,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"IsArtifactStreamingEnabled": func() bool {
 			return config.EnableArtifactStreaming
+		},
+		"IsManagedGPUExperienceAFECEnabled": func() bool {
+			return config.ManagedGPUExperienceAFECEnabled
 		},
 		"EnableIMDSRestriction": func() bool {
 			return config.EnableIMDSRestriction
@@ -1020,6 +1147,10 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"GetLocalDNSMemoryLimitInMB": func() string {
 			return profile.GetLocalDNSMemoryLimitInMB()
+		},
+		"GetPreProvisionOnly": func() bool { return config.PreProvisionOnly },
+		"BlockIptables": func() bool {
+			return cs.Properties.OrchestratorProfile.KubernetesConfig.BlockIptables
 		},
 	}
 }
@@ -1289,6 +1420,7 @@ oom_score = -999{{if HasDataDir }}
 root = "{{GetDataDir}}"{{- end}}
 [plugins."io.containerd.grpc.v1.cri"]
   sandbox_image = "{{GetPodInfraContainerSpec}}"
+  enable_cdi = true
   [plugins."io.containerd.grpc.v1.cri".containerd]
     {{- if TeleportEnabled }}
     snapshotter = "teleportd"
@@ -1329,28 +1461,6 @@ root = "{{GetDataDir}}"{{- end}}
     [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted.options]
       BinaryName = "/usr/bin/runc"
     {{- end}}
-    {{- if IsKrustlet }}
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin]
-      runtime_type = "io.containerd.spin.v2"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight]
-      runtime_type = "io.containerd.slight-v0-3-0.v1"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin-v0-3-0]
-      runtime_type = "io.containerd.spin-v0-3-0.v1"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight-v0-3-0]
-      runtime_type = "io.containerd.slight-v0-3-0.v1"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin-v0-5-1]
-      runtime_type = "io.containerd.spin-v0-5-1.v1"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight-v0-5-1]
-      runtime_type = "io.containerd.slight-v0-5-1.v1"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin-v0-8-0]
-      runtime_type = "io.containerd.spin-v0-8-0.v1"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight-v0-8-0]
-      runtime_type = "io.containerd.slight-v0-8-0.v1"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.wws-v0-8-0]
-      runtime_type = "io.containerd.wws-v0-8-0.v1"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin-v0-15-1]
-      runtime_type = "io.containerd.spin.v2"
-    {{- end}}
   {{- if and (IsKubenet) (not HasCalicoNetworkPolicy) }}
   [plugins."io.containerd.grpc.v1.cri".cni]
     bin_dir = "/opt/cni/bin"
@@ -1380,18 +1490,9 @@ root = "{{GetDataDir}}"{{- end}}
 {{- if IsKata }}
 [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]
   runtime_type = "io.containerd.kata.v2"
-[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.katacli]
-  runtime_type = "io.containerd.runc.v1"
-[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.katacli.options]
-  NoPivotRoot = false
-  NoNewKeyring = false
-  ShimCgroup = ""
-  IoUid = 0
-  IoGid = 0
-  BinaryName = "/usr/bin/kata-runtime"
-  Root = ""
-  CriuPath = ""
-  SystemdCgroup = false
+  privileged_without_host_devices = true
+  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata.options]
+    ConfigPath = "/usr/share/defaults/kata-containers/configuration.toml"
 [proxy_plugins]
   [proxy_plugins.tardev]
     type = "snapshot"
@@ -1400,7 +1501,6 @@ root = "{{GetDataDir}}"{{- end}}
   snapshotter = "tardev"
   runtime_type = "io.containerd.kata-cc.v2"
   privileged_without_host_devices = true
-  pod_annotations = ["io.katacontainers.*"]
   [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-cc.options]
     ConfigPath = "/opt/confidential-containers/share/defaults/kata-containers/configuration-clh-snp.toml"
 {{- end}}
@@ -1451,28 +1551,6 @@ root = "{{GetDataDir}}"{{- end}}
     [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted.options]
       BinaryName = "/usr/bin/runc"
 {{- end}}
-{{- if IsKrustlet }}
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.spin]
-    runtime_type = "io.containerd.spin.v2"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.slight]
-    runtime_type = "io.containerd.slight-v0-3-0.v1"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.spin-v0-3-0]
-    runtime_type = "io.containerd.spin-v0-3-0.v1"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.slight-v0-3-0]
-    runtime_type = "io.containerd.slight-v0-3-0.v1"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.spin-v0-5-1]
-    runtime_type = "io.containerd.spin-v0-5-1.v1"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.slight-v0-5-1]
-    runtime_type = "io.containerd.slight-v0-5-1.v1"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.spin-v0-8-0]
-    runtime_type = "io.containerd.spin-v0-8-0.v1"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.slight-v0-8-0]
-    runtime_type = "io.containerd.slight-v0-8-0.v1"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.wws-v0-8-0]
-    runtime_type = "io.containerd.wws-v0-8-0.v1"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.spin-v0-15-1]
-    runtime_type = "io.containerd.spin.v2"
-{{- end}}
 {{- if and (IsKubenet) (not HasCalicoNetworkPolicy) }}
 [plugins."io.containerd.cri.v1.runtime".cni]
   bin_dir = "/opt/cni/bin"
@@ -1496,30 +1574,20 @@ root = "{{GetDataDir}}"{{- end}}
     address = "/run/overlaybd-snapshotter/overlaybd.sock"
 {{- end}}
 {{- if IsKata }}
-[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata]
+[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]
   runtime_type = "io.containerd.kata.v2"
-  snapshotter = "tardev"
-  disable_snapshot_annotations = false
-[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.katacli]
-  runtime_type = "io.containerd.runc.v1"
-[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.katacli.options]
-  NoPivotRoot = false
-  NoNewKeyring = false
-  ShimCgroup = ""
-  IoUid = 0
-  IoGid = 0
-  BinaryName = "/usr/bin/kata-runtime"
-  Root = ""
-  SystemdCgroup = false
+  privileged_without_host_devices = true
+  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata.options]
+    ConfigPath = "/usr/share/defaults/kata-containers/configuration.toml"
 [proxy_plugins]
   [proxy_plugins.tardev]
     type = "snapshot"
     address = "/run/containerd/tardev-snapshotter.sock"
-[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-cc]
+[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-cc]
+  snapshotter = "tardev"
   runtime_type = "io.containerd.kata-cc.v2"
   privileged_without_host_devices = true
-  pod_annotations = ["io.katacontainers.*"]
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-cc.options]
+  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-cc.options]
     ConfigPath = "/opt/confidential-containers/share/defaults/kata-containers/configuration-clh-snp.toml"
 {{- end}}
 `
@@ -1536,7 +1604,7 @@ root = "{{GetDataDir}}"{{- end}}
   snapshotter = "overlaybd"
   disable_snapshot_annotations = false
 {{- end}}
-    
+
 [plugins."io.containerd.cri.v1.images".pinned_images]
   sandbox = "{{GetPodInfraContainerSpec}}"
 {{- if IsKubernetesVersionGe "1.22.0"}}
@@ -1557,28 +1625,6 @@ root = "{{GetDataDir}}"{{- end}}
     runtime_type = "io.containerd.runc.v2"
   [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted.options]
     BinaryName = "/usr/bin/runc"
-{{- if IsKrustlet }}
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.spin]
-    runtime_type = "io.containerd.spin.v2"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.slight]
-    runtime_type = "io.containerd.slight-v0-3-0.v1"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.spin-v0-3-0]
-    runtime_type = "io.containerd.spin-v0-3-0.v1"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.slight-v0-3-0]
-    runtime_type = "io.containerd.slight-v0-3-0.v1"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.spin-v0-5-1]
-    runtime_type = "io.containerd.spin-v0-5-1.v1"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.slight-v0-5-1]
-    runtime_type = "io.containerd.slight-v0-5-1.v1"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.spin-v0-8-0]
-    runtime_type = "io.containerd.spin-v0-8-0.v1"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.slight-v0-8-0]
-    runtime_type = "io.containerd.slight-v0-8-0.v1"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.wws-v0-8-0]
-    runtime_type = "io.containerd.wws-v0-8-0.v1"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.spin-v0-15-1]
-    runtime_type = "io.containerd.spin.v2"
-{{- end}}
 {{- if and (IsKubenet) (not HasCalicoNetworkPolicy) }}
 [plugins."io.containerd.cri.v1.runtime".cni]
   bin_dir = "/opt/cni/bin"
@@ -1602,19 +1648,11 @@ root = "{{GetDataDir}}"{{- end}}
     address = "/run/overlaybd-snapshotter/overlaybd.sock"
 {{- end}}
 {{- if IsKata }}
-[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata]
+[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]
   runtime_type = "io.containerd.kata.v2"
-[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.katacli]
-  runtime_type = "io.containerd.runc.v1"
-[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.katacli.options]
-  NoPivotRoot = false
-  NoNewKeyring = false
-  ShimCgroup = ""
-  IoUid = 0
-  IoGid = 0
-  BinaryName = "/usr/bin/kata-runtime"
-  Root = ""
-  SystemdCgroup = false
+  privileged_without_host_devices = true
+  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata.options]
+    ConfigPath = "/usr/share/defaults/kata-containers/configuration.toml"
 [proxy_plugins]
   [proxy_plugins.tardev]
     type = "snapshot"
@@ -1651,28 +1689,6 @@ root = "{{GetDataDir}}"{{- end}}
       runtime_type = "io.containerd.runc.v2"
     [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted.options]
       BinaryName = "/usr/bin/runc"
-    {{- if IsKrustlet }}
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin]
-      runtime_type = "io.containerd.spin.v2"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight]
-      runtime_type = "io.containerd.slight-v0-3-0.v1"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin-v0-3-0]
-      runtime_type = "io.containerd.spin-v0-3-0.v1"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight-v0-3-0]
-      runtime_type = "io.containerd.slight-v0-3-0.v1"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin-v0-5-1]
-      runtime_type = "io.containerd.spin-v0-5-1.v1"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight-v0-5-1]
-      runtime_type = "io.containerd.slight-v0-5-1.v1"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin-v0-8-0]
-      runtime_type = "io.containerd.spin-v0-8-0.v1"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight-v0-8-0]
-      runtime_type = "io.containerd.slight-v0-8-0.v1"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.wws-v0-8-0]
-      runtime_type = "io.containerd.wws-v0-8-0.v1"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin-v0-15-1]
-      runtime_type = "io.containerd.spin.v2"
-    {{- end}}
   {{- if and (IsKubenet) (not HasCalicoNetworkPolicy) }}
   [plugins."io.containerd.grpc.v1.cri".cni]
     bin_dir = "/opt/cni/bin"
@@ -1702,18 +1718,9 @@ root = "{{GetDataDir}}"{{- end}}
 {{- if IsKata }}
 [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]
   runtime_type = "io.containerd.kata.v2"
-[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.katacli]
-  runtime_type = "io.containerd.runc.v1"
-[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.katacli.options]
-  NoPivotRoot = false
-  NoNewKeyring = false
-  ShimCgroup = ""
-  IoUid = 0
-  IoGid = 0
-  BinaryName = "/usr/bin/kata-runtime"
-  Root = ""
-  CriuPath = ""
-  SystemdCgroup = false
+  privileged_without_host_devices = true
+  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata.options]
+    ConfigPath = "/usr/share/defaults/kata-containers/configuration.toml"
 [proxy_plugins]
   [proxy_plugins.tardev]
     type = "snapshot"
@@ -1722,7 +1729,6 @@ root = "{{GetDataDir}}"{{- end}}
   snapshotter = "tardev"
   runtime_type = "io.containerd.kata-cc.v2"
   privileged_without_host_devices = true
-  pod_annotations = ["io.katacontainers.*"]
   [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-cc.options]
     ConfigPath = "/opt/confidential-containers/share/defaults/kata-containers/configuration-clh-snp.toml"
 {{- end}}
@@ -1822,7 +1828,7 @@ health-check.localdns.local:53 {
         max_concurrent {{$override.MaxConcurrent}}
     }
     ready {{$.NodeListenerIP}}:8181
-    cache {{$override.CacheDurationInSeconds}}s {
+    cache {{$override.CacheDurationInSeconds}} {
         success 9984
         denial 9984
         {{- if ne $override.ServeStale "Disable"}}
@@ -1879,7 +1885,7 @@ health-check.localdns.local:53 {
         max_concurrent {{$override.MaxConcurrent}}
     }
     ready {{$.ClusterListenerIP}}:8181
-    cache {{$override.CacheDurationInSeconds}}s {
+    cache {{$override.CacheDurationInSeconds}} {
         success 9984
         denial 9984
         {{- if ne $override.ServeStale "Disable"}}

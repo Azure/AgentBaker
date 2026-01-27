@@ -120,9 +120,7 @@ func TestApp_Provision(t *testing.T) {
 			name:  "command runner error",
 			flags: ProvisionFlags{ProvisionConfig: "parser/testdata/test_aksnodeconfig.json"},
 			setupMocks: func(mc *MockCmdRunner) {
-				mc.RunFunc = func(cmd *exec.Cmd) error {
-					return errors.New("command runner error")
-				}
+				mc.RunFunc = func(cmd *exec.Cmd) error { return errors.New("command runner error") }
 			},
 			wantErr: true,
 		},
@@ -134,11 +132,7 @@ func TestApp_Provision(t *testing.T) {
 			if tt.setupMocks != nil {
 				tt.setupMocks(mc)
 			}
-
-			app := &App{
-				cmdRunner: mc.Run,
-			}
-
+			app := &App{cmdRunner: mc.Run}
 			err := app.Provision(context.Background(), tt.flags)
 			if tt.wantErr {
 				assert.Error(t, err)
@@ -150,9 +144,7 @@ func TestApp_Provision(t *testing.T) {
 }
 
 func TestApp_Provision_DryRun(t *testing.T) {
-	app := &App{
-		cmdRunner: cmdRunner,
-	}
+	app := &App{cmdRunner: cmdRunner}
 	result := app.Run(context.Background(), []string{"aks-node-controller", "provision", "--provision-config=parser/testdata/test_aksnodeconfig.json", "--dry-run"})
 	assert.Equal(t, 0, result)
 	if reflect.ValueOf(app.cmdRunner).Pointer() != reflect.ValueOf(cmdRunnerDryRun).Pointer() {
@@ -161,31 +153,39 @@ func TestApp_Provision_DryRun(t *testing.T) {
 }
 
 func TestApp_ProvisionWait(t *testing.T) {
-	testData := "hello world"
-
+	testData := `{"ExitCode": "0", "Output": "hello world", "Error": ""}`
 	tests := []struct {
 		name      string
 		wantsErr  bool
 		errString string
-		setup     func(provisionStatusFiles ProvisionStatusFiles)
+		setup     func(ProvisionStatusFiles)
 	}{
 		{
-			name:     "provision already complete",
-			wantsErr: false,
+			name: "event path (file created after call)",
 			setup: func(provisionStatusFiles ProvisionStatusFiles) {
-				// Run the test in a goroutine to simulate file creation after some delay
+				// This goroutine simulates an external process writing the files after a short delay.
+				// It's running asynchronously from the main test flow.
 				go func() {
-					time.Sleep(200 * time.Millisecond) // Simulate file creation delay
+					time.Sleep(150 * time.Millisecond)
 					_ = os.WriteFile(provisionStatusFiles.ProvisionJSONFile, []byte(testData), 0644)
 					_, _ = os.Create(provisionStatusFiles.ProvisionCompleteFile)
 				}()
 			},
 		},
 		{
-			name:     "wait for provision completion",
-			wantsErr: false,
+			name: "fast path (file exists before call)",
 			setup: func(provisionStatusFiles ProvisionStatusFiles) {
 				_ = os.WriteFile(provisionStatusFiles.ProvisionJSONFile, []byte(testData), 0644)
+				_, _ = os.Create(provisionStatusFiles.ProvisionCompleteFile) // pre-create to trigger immediate return
+			},
+		},
+		{
+			name:      "provision completion with failure ExitCode",
+			wantsErr:  true,
+			errString: "provision failed",
+			setup: func(provisionStatusFiles ProvisionStatusFiles) {
+				failJSON := `{"ExitCode": "7", "Error": "boom", "Output": "trace"}`
+				_ = os.WriteFile(provisionStatusFiles.ProvisionJSONFile, []byte(failJSON), 0644)
 				_, _ = os.Create(provisionStatusFiles.ProvisionCompleteFile)
 			},
 		},
@@ -199,31 +199,152 @@ func TestApp_ProvisionWait(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mc := &MockCmdRunner{}
-			// Setup a temporary directory
 			tempDir, err := os.MkdirTemp("", "provisiontest")
 			assert.NoError(t, err)
 			tempFile := filepath.Join(tempDir, "testfile.txt")
 			completeFile := filepath.Join(tempDir, "provision.complete")
 			defer os.RemoveAll(tempDir)
 
-			provisionStatusFiles := ProvisionStatusFiles{ProvisionJSONFile: tempFile, ProvisionCompleteFile: completeFile}
+			p := ProvisionStatusFiles{ProvisionJSONFile: tempFile, ProvisionCompleteFile: completeFile}
 			ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 			defer cancel()
-
-			app := &App{
-				cmdRunner: mc.Run,
-			}
+			app := &App{cmdRunner: mc.Run}
 			if tt.setup != nil {
-				tt.setup(provisionStatusFiles)
+				tt.setup(p)
 			}
 
-			data, err := app.ProvisionWait(ctx, ProvisionStatusFiles{ProvisionJSONFile: tempFile, ProvisionCompleteFile: completeFile})
+			data, err := app.ProvisionWait(ctx, p)
 			if tt.wantsErr {
 				assert.Error(t, err)
 				assert.Contains(t, err.Error(), tt.errString)
 			} else {
 				assert.NoError(t, err)
 				assert.Equal(t, testData, data)
+			}
+		})
+	}
+}
+func TestApp_Run_Integration(t *testing.T) {
+	t.Run("success case", func(t *testing.T) {
+		mc := &MockCmdRunner{}
+		app := &App{cmdRunner: mc.Run}
+		// Use a valid provision config file from testdata
+		exitCode := app.Run(context.Background(), []string{"aks-node-controller", "provision", "--provision-config=parser/testdata/test_aksnodeconfig.json"})
+		assert.Equal(t, 0, exitCode)
+	})
+
+	t.Run("failure case - unknown command", func(t *testing.T) {
+		mc := &MockCmdRunner{}
+		app := &App{cmdRunner: mc.Run}
+		exitCode := app.Run(context.Background(), []string{"aks-node-controller", "unknown"})
+		assert.Equal(t, 1, exitCode)
+	})
+
+	t.Run("failure case - missing command argument", func(t *testing.T) {
+		mc := &MockCmdRunner{}
+		app := &App{cmdRunner: mc.Run}
+		exitCode := app.Run(context.Background(), []string{"aks-node-controller"})
+		assert.Equal(t, 1, exitCode)
+	})
+
+	t.Run("failure case - command runner returns ExitError", func(t *testing.T) {
+		mc := &MockCmdRunner{
+			RunFunc: func(cmd *exec.Cmd) error {
+				return &ExitError{Code: 42}
+			},
+		}
+		app := &App{cmdRunner: mc.Run}
+		exitCode := app.Run(context.Background(), []string{"aks-node-controller", "provision", "--provision-config=parser/testdata/test_aksnodeconfig.json"})
+		assert.Equal(t, 42, exitCode)
+	})
+
+	t.Run("failure case - command runner returns generic error", func(t *testing.T) {
+		mc := &MockCmdRunner{
+			RunFunc: func(cmd *exec.Cmd) error {
+				return errors.New("generic error")
+			},
+		}
+		app := &App{cmdRunner: mc.Run}
+		exitCode := app.Run(context.Background(), []string{"aks-node-controller", "provision", "--provision-config=parser/testdata/test_aksnodeconfig.json"})
+		assert.Equal(t, 1, exitCode)
+	})
+}
+
+func Test_readAndEvaluateProvision(t *testing.T) {
+	type testCase struct {
+		name           string
+		fileContent    string // raw content to place in file (empty => file absent)
+		createFile     bool   // whether to create the file
+		expectErrSub   string // substring that should appear in error; empty means success expected
+		expectContains string // substring that must appear in successful content
+	}
+
+	tests := []testCase{
+		{
+			name:           "valid provision file",
+			createFile:     true,
+			fileContent:    `{"ExitCode":"0","Output":"ok","Error":"","ExecDuration":"1"}`,
+			expectContains: `"ExitCode":"0"`,
+		},
+		{
+			name:         "missing provision file",
+			createFile:   false,
+			expectErrSub: "no such file",
+		},
+		{
+			name:         "invalid provision file (bad JSON)",
+			createFile:   true,
+			fileContent:  `not-json`,
+			expectErrSub: "invalid character",
+		},
+		{
+			name:         "non-zero ExitCode returns error",
+			createFile:   true,
+			fileContent:  `{"ExitCode":"7","Output":"boom","Error":"bad"}`,
+			expectErrSub: "provision failed",
+		},
+		{
+			name:         "invalid ExitCode returns error",
+			createFile:   true,
+			fileContent:  `{"ExitCode":"unknown","Output":"boom","Error":"bad"}`,
+			expectErrSub: "invalid ExitCode",
+		},
+		{
+			name:         "missing ExitCode returns error",
+			createFile:   true,
+			fileContent:  `{"Output":"boom","Error":"bad"}`,
+			expectErrSub: "missing ExitCode",
+		},
+	}
+
+	writeTemp := func(t *testing.T, content string) string {
+		t.Helper()
+		f, err := os.CreateTemp(t.TempDir(), "provision_*.json")
+		assert.NoError(t, err)
+		_, errWS := f.WriteString(content)
+		assert.NoError(t, errWS)
+		f.Close()
+		return f.Name()
+	}
+
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			p := filepath.Join(t.TempDir(), "does_not_exist.json")
+			if tc.createFile {
+				p = writeTemp(t, tc.fileContent)
+			}
+			got, err := readAndEvaluateProvision(p)
+			if tc.expectErrSub != "" { // expected error
+				assert.Error(t, err, "expected an error")
+				if err != nil { // avoid panic if err is nil
+					assert.Contains(t, err.Error(), tc.expectErrSub, "error should contain substring")
+				}
+			} else { // success
+				assert.NoError(t, err, "unexpected error")
+				if tc.expectContains != "" {
+					assert.Contains(t, got, tc.expectContains, "content should contain substring")
+				}
 			}
 		})
 	}

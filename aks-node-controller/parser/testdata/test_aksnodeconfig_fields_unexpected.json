@@ -3,6 +3,7 @@
     "bootstrapping_config": {
         "bootstrapping_auth_method": "BOOTSTRAPPING_AUTH_METHOD_BOOTSTRAP_TOKEN"
     },
+    "unexpected_new_field1": "unexpected_new_value1",
     "cluster_config": {
         "vm_type": 2,
         "cluster_network_config": {
@@ -19,7 +20,6 @@
     "gpu_config": {
         "config_gpu_driver": true
     },
-    "unexpected_new_field1": "unexpected_new_value1",
     "unexpected_new_config2": {
         "unexpected_new_field2": "unexpected_new_value2"
     }

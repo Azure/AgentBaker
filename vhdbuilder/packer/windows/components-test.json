@@ -5,13 +5,13 @@
       "amd64OnlyVersions": [],
       "multiArchVersionsV2": [
         {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/pause",
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/pause",
           "latestVersion": "lin-version"
         }
       ],
       "windowsVersions": [
         {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/pause",
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/pause",
           "latestVersion": "win-version"
         }
       ]
@@ -886,6 +886,74 @@
           }
         }
       }
+    }
+  ],
+  "OCIArtifacts": [
+    {
+      "name": "oci-test-registry",
+      "registry": "mcr.microsoft.com/aks/oci-test-registry:*",
+      "windowsDownloadLocation": "c:\\akse-cache\\oci-test\\",
+      "windowsVersions": [
+        {
+          "renovateTag": "<DO_NOT_UPDATE>",
+          "latestVersion": "1.0.0",
+          "previousLatestVersion": "0.9.0"
+        }
+      ]
+    },
+    {
+      "name": "oci-test-registry-arch",
+      "registry": "mcr.microsoft.com/aks/oci-test-registry-arch-${CPU_ARCH}:*",
+      "windowsDownloadLocation": "c:\\akse-cache\\oci-test-arch\\",
+      "windowsVersions": [
+        {
+          "renovateTag": "<DO_NOT_UPDATE>",
+          "latestVersion": "2.0.0"
+        }
+      ]
+    },
+    {
+      "name": "oci-test-registry-arch-and-version",
+      "registry": "mcr.microsoft.com/aks/oci-test-registry-arch-and-version:${version}-${CPU_ARCH}",
+      "windowsDownloadLocation": "c:\\akse-cache\\oci-test-arch-and-version\\",
+      "windowsVersions": [
+        {
+          "renovateTag": "<DO_NOT_UPDATE>",
+          "latestVersion": "2.0.0"
+        }
+      ]
+    },
+    {
+      "name": "oci-test-registry-sku",
+      "registry": "mcr.microsoft.com/aks/oci-test-registry-sku:*",
+      "windowsDownloadLocation": "c:\\akse-cache\\oci-test-sku\\",
+      "windowsVersions": [
+        {
+          "renovateTag": "<DO_NOT_UPDATE>",
+          "latestVersion": "2019-version",
+          "windowsSkuMatch": "2019*"
+        },
+        {
+          "renovateTag": "<DO_NOT_UPDATE>",
+          "latestVersion": "2022-version",
+          "windowsSkuMatch": "2022*"
+        },
+        {
+          "renovateTag": "<DO_NOT_UPDATE>",
+          "latestVersion": "2025-version",
+          "windowsSkuMatch": "2025*"
+        }
+      ]
+    },
+    {
+      "name": "oci-test-registry-no-location",
+      "registry": "mcr.microsoft.com/aks/oci-test-registry-no-location:*",
+      "windowsVersions": [
+        {
+          "renovateTag": "<DO_NOT_UPDATE>",
+          "latestVersion": "3.0.0"
+        }
+      ]
     }
   ]
 }

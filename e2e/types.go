@@ -1,12 +1,16 @@
 package e2e
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"os/exec"
+	"os/user"
 	"reflect"
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Azure/agentbaker/e2e/config"
@@ -25,9 +29,10 @@ type Tags struct {
 	NonAnonymousACR        bool
 	GPU                    bool
 	WASM                   bool
-	ServerTLSBootstrapping bool
+	BootstrapTokenFallback bool
 	KubeletCustomConfig    bool
 	Scriptless             bool
+	VHDCaching             bool
 }
 
 // MatchesFilters checks if the Tags struct matches all given filters.
@@ -112,26 +117,38 @@ type Scenario struct {
 	// Config contains the configuration of the scenario
 	Config
 
+	// Location is the Azure location where the scenario will run. This can be
+	// used to override the default location.
+	Location string
+
+	// K8sSystemPoolSKU is the VM size to use for the system nodepool. If empty,
+	// a default size will be used.
+	K8sSystemPoolSKU string
+
 	// Runtime contains the runtime state of the scenario. It's populated in the beginning of the test run
 	Runtime *ScenarioRuntime
-	T       *testing.T
+	T       testing.TB
 }
 
 type ScenarioRuntime struct {
 	NBC           *datamodel.NodeBootstrappingConfiguration
 	AKSNodeConfig *aksnodeconfigv1.Configuration
 	Cluster       *Cluster
+	VM            *ScenarioVM
 	VMSSName      string
-	KubeNodeName  string
-	SSHKeyPublic  []byte
-	SSHKeyPrivate []byte
-	VMPrivateIP   string
+}
+
+type ScenarioVM struct {
+	KubeName  string
+	VMSS      *armcompute.VirtualMachineScaleSet
+	VM        *armcompute.VirtualMachineScaleSetVM
+	PrivateIP string
 }
 
 // Config represents the configuration of an AgentBaker E2E scenario.
 type Config struct {
 	// Cluster creates, updates or re-uses an AKS cluster for the scenario
-	Cluster func(ctx context.Context, t *testing.T) (*Cluster, error)
+	Cluster func(ctx context.Context, request ClusterRequest) (*Cluster, error)
 
 	// VHD is the node image used by the scenario.
 	VHD *config.Image
@@ -147,6 +164,23 @@ type Config struct {
 
 	// Validator is a function where the scenario can perform any extra validation checks
 	Validator func(ctx context.Context, s *Scenario)
+
+	// SkipDefaultValidation is a flag to indicate whether the common validation (like spawning a pod) should be skipped.
+	// It shouldn't be used for majority of scenarios, currently only used for preparing VHD in a two-stage scenario
+	SkipDefaultValidation bool
+
+	// SkipSSHConnectivityValidation is a flag to indicate whether the ssh connectivity validation should be skipped.
+	// It shouldn't be used for majority of scenarios, currently only used for scenarios where the node is not expected to be reachable via ssh
+	SkipSSHConnectivityValidation bool
+
+	// WaitForSSHAfterReboot if set to non-zero duration, SSH connectivity validation will retry with exponential backoff
+	// for up to this duration when encountering reboot-related errors. This is useful for scenarios where the node
+	// reboots during provisioning (e.g., MIG-enabled GPU nodes). Default (zero value) means no retry.
+	WaitForSSHAfterReboot time.Duration
+
+	// if VHDCaching is set then a VHD will be created first for the test scenario and then a VM will be created from that VHD.
+	// The main purpose is to validate VHD Caching logic and ensure a reboot step between basePrep and nodePrep doesn't break anything.
+	VHDCaching bool
 }
 
 func (s *Scenario) PrepareAKSNodeConfig() {
@@ -155,14 +189,15 @@ func (s *Scenario) PrepareAKSNodeConfig() {
 
 // PrepareVMSSModel mutates the input VirtualMachineScaleSet based on the scenario's VMConfigMutator, if configured.
 // This method will also use the scenario's configured VHD selector to modify the input VMSS to reference the correct VHD resource.
-func (s *Scenario) PrepareVMSSModel(ctx context.Context, t *testing.T, vmss *armcompute.VirtualMachineScaleSet) {
-	resourceID, err := s.VHD.VHDResourceID(ctx, t)
+func (s *Scenario) PrepareVMSSModel(ctx context.Context, t testing.TB, vmss *armcompute.VirtualMachineScaleSet) {
+	resourceID, err := CachedPrepareVHD(ctx, GetVHDRequest{
+		Image:    *s.VHD,
+		Location: s.Location,
+	})
 	require.NoError(t, err)
 	require.NotEmpty(t, resourceID, "VHDSelector.ResourceID")
 	require.NotNil(t, vmss, "input VirtualMachineScaleSet")
 	require.NotNil(t, vmss.Properties, "input VirtualMachineScaleSet.Properties")
-
-	s.T.Logf("got vhd resource id %s", resourceID)
 
 	if s.VMConfigMutator != nil {
 		s.VMConfigMutator(vmss)
@@ -178,18 +213,156 @@ func (s *Scenario) PrepareVMSSModel(ctx context.Context, t *testing.T, vmss *arm
 		ID: to.Ptr(string(resourceID)),
 	}
 
+	s.updateTags(ctx, vmss)
+}
+
+func (s *Scenario) SecureTLSBootstrappingEnabled() bool {
+	if s.Runtime == nil {
+		return false
+	}
+	if nbc := s.Runtime.NBC; nbc != nil && nbc.SecureTLSBootstrappingConfig.GetEnabled() {
+		return true
+	}
+	if nodeConfig := s.Runtime.AKSNodeConfig; nodeConfig != nil && nodeConfig.BootstrappingConfig.GetBootstrappingAuthMethod() ==
+		aksnodeconfigv1.BootstrappingAuthMethod_BOOTSTRAPPING_AUTH_METHOD_SECURE_TLS_BOOTSTRAPPING {
+		return true
+	}
+	return false
+}
+
+func (s *Scenario) KubeletConfigFileEnabled() bool {
+	if s.Runtime == nil {
+		return false
+	}
+	if nbc := s.Runtime.NBC; nbc != nil && (nbc.EnableKubeletConfigFile ||
+		(nbc.AgentPoolProfile != nil && (nbc.AgentPoolProfile.CustomKubeletConfig != nil || nbc.AgentPoolProfile.CustomLinuxOSConfig != nil))) {
+		return true
+	}
+	if nodeConfig := s.Runtime.AKSNodeConfig; nodeConfig != nil && nodeConfig.KubeletConfig != nil && nodeConfig.KubeletConfig.EnableKubeletConfigFile {
+		return true
+	}
+	return false
+}
+
+func (s *Scenario) HasServicePrincipalData() bool {
+	if s.Runtime == nil {
+		return false
+	}
+	if nbc := s.Runtime.NBC; nbc != nil && nbc.ContainerService != nil && nbc.ContainerService.Properties != nil && nbc.ContainerService.Properties.ServicePrincipalProfile != nil {
+		return nbc.ContainerService.Properties.ServicePrincipalProfile.ClientID != "" && nbc.ContainerService.Properties.ServicePrincipalProfile.Secret != ""
+	}
+	if nodeConfig := s.Runtime.AKSNodeConfig; nodeConfig != nil && nodeConfig.AuthConfig != nil {
+		return nodeConfig.AuthConfig.ServicePrincipalId != "" && nodeConfig.AuthConfig.ServicePrincipalSecret != ""
+	}
+	return false
+}
+
+func (s *Scenario) GetK8sVersion() string {
+	if s.Runtime == nil {
+		return ""
+	}
+	if nbc := s.Runtime.NBC; nbc != nil && nbc.ContainerService != nil && nbc.ContainerService.Properties != nil && nbc.ContainerService.Properties.OrchestratorProfile != nil {
+		return nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion
+	}
+	if nodeConfig := s.Runtime.AKSNodeConfig; nodeConfig != nil {
+		return nodeConfig.GetKubernetesVersion()
+	}
+	return ""
+}
+
+func (s *Scenario) GetClientPrivateKey() string {
+	if s.Runtime == nil {
+		return ""
+	}
+	if nbc := s.Runtime.NBC; nbc != nil && nbc.ContainerService != nil && nbc.ContainerService.Properties != nil && nbc.ContainerService.Properties.CertificateProfile != nil {
+		return nbc.ContainerService.Properties.CertificateProfile.ClientPrivateKey
+	}
+	if nodeConfig := s.Runtime.AKSNodeConfig; nodeConfig != nil {
+		return nodeConfig.GetKubeletConfig().GetKubeletClientKey()
+	}
+	return ""
+}
+
+func (s *Scenario) GetServicePrincipalSecret() string {
+	if s.Runtime == nil {
+		return ""
+	}
+	if nbc := s.Runtime.NBC; nbc != nil && nbc.ContainerService != nil && nbc.ContainerService.Properties != nil && nbc.ContainerService.Properties.ServicePrincipalProfile != nil {
+		return nbc.ContainerService.Properties.ServicePrincipalProfile.Secret
+	}
+	if nodeConfig := s.Runtime.AKSNodeConfig; nodeConfig != nil {
+		return nodeConfig.GetAuthConfig().GetServicePrincipalSecret()
+	}
+	return ""
+}
+
+func (s *Scenario) GetTLSBootstrapToken() string {
+	if s.Runtime == nil {
+		return ""
+	}
+	if nbc := s.Runtime.NBC; nbc != nil && nbc.KubeletClientTLSBootstrapToken != nil {
+		return *nbc.KubeletClientTLSBootstrapToken
+	}
+	if nodeConfig := s.Runtime.AKSNodeConfig; nodeConfig != nil {
+		return nodeConfig.GetBootstrappingConfig().GetTlsBootstrappingToken()
+	}
+	return ""
+}
+
+func (s *Scenario) updateTags(ctx context.Context, vmss *armcompute.VirtualMachineScaleSet) {
+	if vmss.Tags == nil {
+		vmss.Tags = map[string]*string{}
+	}
+
 	// don't clean up VMSS in other tests
 	if config.Config.KeepVMSS {
-		if vmss.Tags == nil {
-			vmss.Tags = map[string]*string{}
-		}
 		vmss.Tags["KEEP_VMSS"] = to.Ptr("true")
 	}
 
 	if config.Config.BuildID != "" {
-		if vmss.Tags == nil {
-			vmss.Tags = map[string]*string{}
-		}
 		vmss.Tags[buildIDTagKey] = &config.Config.BuildID
 	}
+
+	owner, err := getLoggedInAzUser()
+	if err != nil {
+		owner, err = getLocalUsername()
+		if err != nil {
+			owner = "unknown"
+		}
+	}
+	vmss.Tags["owner"] = to.Ptr(owner)
+}
+
+func getLoggedInAzUser() (string, error) {
+	// Define the command and arguments
+	cmd := exec.Command("az", "account", "show", "--query", "user.name", "-o", "tsv")
+
+	// Create a buffer to capture stdout
+	var out bytes.Buffer
+	cmd.Stdout = &out
+
+	// Run the command
+	err := cmd.Run()
+	if err != nil {
+		return "", err
+	}
+
+	return out.String(), nil
+}
+
+func getLocalUsername() (string, error) {
+	currentUser, err := user.Current()
+	if err == nil {
+		return currentUser.Username, nil
+	}
+
+	return "", err
+}
+
+func (s *Scenario) IsWindows() bool {
+	return s.VHD.OS == config.OSWindows
+}
+
+func (s *Scenario) IsLinux() bool {
+	return !s.IsWindows()
 }

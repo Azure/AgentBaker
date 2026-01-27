@@ -21,6 +21,8 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"reflect"
+	"regexp"
+	"strings"
 	"testing"
 
 	"github.com/Azure/agentbaker/aks-node-controller/helpers"
@@ -383,6 +385,7 @@ func Test_getContainerdConfig(t *testing.T) {
 oom_score = -999
 [plugins."io.containerd.grpc.v1.cri"]
   sandbox_image = ""
+  enable_cdi = true
   [plugins."io.containerd.grpc.v1.cri".containerd]
     default_runtime_name = "runc"
     [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
@@ -390,6 +393,34 @@ oom_score = -999
     [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
       BinaryName = "/usr/bin/runc"
       SystemdCgroup = true
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted.options]
+      BinaryName = "/usr/bin/runc"
+  [plugins."io.containerd.grpc.v1.cri".registry.headers]
+    X-Meta-Source-Client = ["azure/aks"]
+[metrics]
+  address = "0.0.0.0:10257"
+`)),
+		},
+		{
+			name: "Default Containerd Configurations with NeedsCgroupv2 unset",
+			args: args{
+				aksnodeconfig: &aksnodeconfigv1.Configuration{
+					NeedsCgroupv2: to.Ptr(false),
+				},
+			},
+			want: base64.StdEncoding.EncodeToString([]byte(`version = 2
+oom_score = -999
+[plugins."io.containerd.grpc.v1.cri"]
+  sandbox_image = ""
+  enable_cdi = true
+  [plugins."io.containerd.grpc.v1.cri".containerd]
+    default_runtime_name = "runc"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
+      BinaryName = "/usr/bin/runc"
     [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted]
       runtime_type = "io.containerd.runc.v2"
     [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted.options]
@@ -415,6 +446,7 @@ oom_score = -999
 oom_score = -999
 [plugins."io.containerd.grpc.v1.cri"]
   sandbox_image = ""
+  enable_cdi = true
   [plugins."io.containerd.grpc.v1.cri".containerd]
     default_runtime_name = "nvidia-container-runtime"
     [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia-container-runtime]
@@ -444,6 +476,7 @@ oom_score = -999
 oom_score = -999
 [plugins."io.containerd.grpc.v1.cri"]
   sandbox_image = ""
+  enable_cdi = true
   [plugins."io.containerd.grpc.v1.cri".containerd]
     default_runtime_name = "runc"
     [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
@@ -1396,6 +1429,384 @@ func Test_getKubeletFlags(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := getKubeletFlags(tt.args.kubeletConfig); got != tt.want {
 				t.Errorf("getKubeletFlags() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+const expectedlocalDNSCorefile = `# ***********************************************************************************
+# WARNING: Changes to this file will be overwritten and not persisted.
+# ***********************************************************************************
+# whoami (used for health check of DNS)
+health-check.localdns.local:53 {
+    bind 169.254.10.10 169.254.10.11
+    whoami
+}
+# VnetDNS overrides apply to DNS traffic from pods with dnsPolicy:default or kubelet (referred to as VnetDNS traffic).
+.:53 {
+    log
+    bind 169.254.10.10
+    forward . 168.63.129.16 {
+        policy sequential
+        max_concurrent 1000
+    }
+    ready 169.254.10.10:8181
+    cache 3600 {
+        success 9984
+        denial 9984
+        serve_stale 3600s immediate
+        servfail 0
+    }
+    loop
+    nsid localdns
+    prometheus :9253
+    template ANY ANY internal.cloudapp.net {
+        match "^(?:[^.]+\.){4,}internal\.cloudapp\.net\.$"
+        rcode NXDOMAIN
+        fallthrough
+    }
+    template ANY ANY reddog.microsoft.com {
+        rcode NXDOMAIN
+    }
+}
+cluster.local:53 {
+    errors
+    bind 169.254.10.10
+    forward . 10.0.0.10 {
+        force_tcp
+        policy sequential
+        max_concurrent 1000
+    }
+    ready 169.254.10.10:8181
+    cache 3600 {
+        success 9984
+        denial 9984
+        servfail 0
+    }
+    loop
+    nsid localdns
+    prometheus :9253
+}
+testdomain456.com:53 {
+    log
+    bind 169.254.10.10
+    forward . 10.0.0.10 {
+        policy sequential
+        max_concurrent 1000
+    }
+    ready 169.254.10.10:8181
+    cache 3600 {
+        success 9984
+        denial 9984
+        serve_stale 3600s verify
+        servfail 0
+    }
+    loop
+    nsid localdns
+    prometheus :9253
+}
+# KubeDNS overrides apply to DNS traffic from pods with dnsPolicy:ClusterFirst (referred to as KubeDNS traffic).
+.:53 {
+    errors
+    bind 169.254.10.11
+    forward . 10.0.0.10 {
+        policy sequential
+        max_concurrent 2000
+    }
+    ready 169.254.10.11:8181
+    cache 3600 {
+        success 9984
+        denial 9984
+        serve_stale 72000s verify
+        servfail 0
+    }
+    loop
+    nsid localdns-pod
+    prometheus :9253
+    template ANY ANY internal.cloudapp.net {
+        match "^(?:[^.]+\.){4,}internal\.cloudapp\.net\.$"
+        rcode NXDOMAIN
+        fallthrough
+    }
+    template ANY ANY reddog.microsoft.com {
+        rcode NXDOMAIN
+    }
+}`
+
+func Test_getLocalDNSCorefileBase64(t *testing.T) {
+	type args struct {
+		aksnodeconfig *aksnodeconfigv1.Configuration
+	}
+	tests := []struct {
+		name         string
+		args         args
+		wantContains string
+	}{
+		{
+			name: "aksnodeconfig is nil, should return empty string",
+			args: args{
+				aksnodeconfig: nil,
+			},
+			wantContains: "",
+		},
+		{
+			name: "LocalDNSProfile is nil, should return empty string",
+			args: args{
+				aksnodeconfig: &aksnodeconfigv1.Configuration{},
+			},
+			wantContains: "",
+		},
+		{
+			name: "EnableLocalDNS state is false, should return empty string",
+			args: args{
+				aksnodeconfig: &aksnodeconfigv1.Configuration{
+					LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
+						EnableLocalDns: false,
+					},
+				},
+			},
+			wantContains: "",
+		},
+		{
+			name: "LocalDNSProfile enabled returns base64 string",
+			args: args{
+				aksnodeconfig: &aksnodeconfigv1.Configuration{
+					LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
+						EnableLocalDns:       true,
+						CpuLimitInMilliCores: to.Ptr(int32(2008)),
+						MemoryLimitInMb:      to.Ptr(int32(512)),
+						VnetDnsOverrides: map[string]*aksnodeconfigv1.LocalDnsOverrides{
+							".": {
+								QueryLogging:                "Log",
+								Protocol:                    "PreferUDP",
+								ForwardDestination:          "VnetDNS",
+								ForwardPolicy:               "Sequential",
+								MaxConcurrent:               to.Ptr(int32(1000)),
+								CacheDurationInSeconds:      to.Ptr(int32(3600)),
+								ServeStaleDurationInSeconds: to.Ptr(int32(3600)),
+								ServeStale:                  "Immediate",
+							},
+							"cluster.local": {
+								QueryLogging:                "Error",
+								Protocol:                    "ForceTCP",
+								ForwardDestination:          "ClusterCoreDNS",
+								ForwardPolicy:               "Sequential",
+								MaxConcurrent:               to.Ptr(int32(1000)),
+								CacheDurationInSeconds:      to.Ptr(int32(3600)),
+								ServeStaleDurationInSeconds: to.Ptr(int32(3600)),
+								ServeStale:                  "Disable",
+							},
+							"testdomain456.com": {
+								QueryLogging:                "Log",
+								Protocol:                    "PreferUDP",
+								ForwardDestination:          "ClusterCoreDNS",
+								ForwardPolicy:               "Sequential",
+								MaxConcurrent:               to.Ptr(int32(1000)),
+								CacheDurationInSeconds:      to.Ptr(int32(3600)),
+								ServeStaleDurationInSeconds: to.Ptr(int32(3600)),
+								ServeStale:                  "Verify",
+							},
+						},
+						KubeDnsOverrides: map[string]*aksnodeconfigv1.LocalDnsOverrides{
+							".": {
+								QueryLogging:                "Error",
+								Protocol:                    "PreferUDP",
+								ForwardDestination:          "ClusterCoreDNS",
+								ForwardPolicy:               "Sequential",
+								MaxConcurrent:               to.Ptr(int32(2000)),
+								CacheDurationInSeconds:      to.Ptr(int32(3600)),
+								ServeStaleDurationInSeconds: to.Ptr(int32(72000)),
+								ServeStale:                  "Verify",
+							},
+						},
+					},
+				},
+			},
+			wantContains: expectedlocalDNSCorefile,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := getLocalDnsCorefileBase64(tt.args.aksnodeconfig)
+
+			if tt.wantContains == "" && got != "" {
+				t.Errorf("expected empty string, got %q", got)
+				return
+			}
+
+			normalize := func(s string) string {
+				s = strings.ReplaceAll(s, "\r\n", "\n")
+				s = strings.TrimSpace(s)
+
+				// Collapse multiple blank lines into one
+				re := regexp.MustCompile(`\n\s*\n+`)
+				s = re.ReplaceAllString(s, "\n")
+
+				// Remove extra indentation
+				re = regexp.MustCompile(`[ \t]+`)
+				s = re.ReplaceAllString(s, " ")
+
+				return s
+			}
+
+			if tt.wantContains != "" {
+				decoded, err := base64.StdEncoding.DecodeString(got)
+				if err != nil {
+					t.Fatalf("failed to decode base64: %v", err)
+				}
+
+				decodedNorm := normalize(string(decoded))
+				wantNorm := normalize(tt.wantContains)
+
+				if !strings.Contains(decodedNorm, wantNorm) {
+					t.Errorf("expected decoded corefile to contain %q, got:\n%s", tt.wantContains, string(decoded))
+				}
+			}
+		})
+	}
+}
+
+func Test_shouldEnableLocalDns(t *testing.T) {
+	type args struct {
+		aksnodeconfig *aksnodeconfigv1.Configuration
+	}
+	tests := []struct {
+		name string
+		args args
+		want string
+	}{
+		{
+			name: "nil config",
+			args: args{aksnodeconfig: nil},
+			want: "false",
+		},
+		{
+			name: "nil LocalDnsProfile",
+			args: args{aksnodeconfig: &aksnodeconfigv1.Configuration{}},
+			want: "false",
+		},
+		{
+			name: "LocalDns disabled",
+			args: args{aksnodeconfig: &aksnodeconfigv1.Configuration{
+				LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
+					EnableLocalDns: false},
+			}},
+			want: "false",
+		},
+		{
+			name: "LocalDns enabled",
+			args: args{aksnodeconfig: &aksnodeconfigv1.Configuration{
+				LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
+					EnableLocalDns: true},
+			}},
+			want: "true",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := shouldEnableLocalDns(tt.args.aksnodeconfig); got != tt.want {
+				t.Errorf("shouldEnableLocalDns() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_getLocalDnsCpuLimitInPercentage(t *testing.T) {
+	type args struct {
+		aksnodeconfig *aksnodeconfigv1.Configuration
+	}
+	tests := []struct {
+		name string
+		args args
+		want string
+	}{
+		{
+			name: "nil LocalDnsProfile",
+			args: args{aksnodeconfig: &aksnodeconfigv1.Configuration{}},
+			want: defaultLocalDnsCpuLimitInPercentage,
+		},
+		{
+			name: "zero CPU limit",
+			args: args{aksnodeconfig: &aksnodeconfigv1.Configuration{
+				LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
+					CpuLimitInMilliCores: to.Ptr(int32(0))},
+			}},
+			want: defaultLocalDnsCpuLimitInPercentage,
+		},
+		{
+			name: "1000m CPU (1 core -> 100%) with localdns enabled",
+			args: args{aksnodeconfig: &aksnodeconfigv1.Configuration{
+				LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
+					EnableLocalDns:       true,
+					CpuLimitInMilliCores: to.Ptr(int32(1000))},
+			}},
+			want: "100.0%",
+		},
+		{
+			name: "localdns not enabled",
+			args: args{aksnodeconfig: &aksnodeconfigv1.Configuration{
+				LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
+					EnableLocalDns:       false,
+					CpuLimitInMilliCores: to.Ptr(int32(250))},
+			}},
+			want: "200.0%",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := getLocalDnsCpuLimitInPercentage(tt.args.aksnodeconfig); got != tt.want {
+				t.Errorf("getLocalDnsCpuLimitInPercentage() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_getLocalDnsMemoryLimitInMb(t *testing.T) {
+	type args struct {
+		aksnodeconfig *aksnodeconfigv1.Configuration
+	}
+	tests := []struct {
+		name string
+		args args
+		want string
+	}{
+		{
+			name: "nil LocalDnsProfile",
+			args: args{aksnodeconfig: &aksnodeconfigv1.Configuration{}},
+			want: defaultLocalDnsMemoryLimitInMb,
+		},
+		{
+			name: "zero memory limit",
+			args: args{aksnodeconfig: &aksnodeconfigv1.Configuration{
+				LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
+					EnableLocalDns:  true,
+					MemoryLimitInMb: to.Ptr(int32(0))},
+			}},
+			want: defaultLocalDnsMemoryLimitInMb,
+		},
+		{
+			name: "512 MB memory with localdns enabled",
+			args: args{aksnodeconfig: &aksnodeconfigv1.Configuration{
+				LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
+					EnableLocalDns:  true,
+					MemoryLimitInMb: to.Ptr(int32(512))},
+			}},
+			want: "512M",
+		},
+		{
+			name: "localdns not enabled",
+			args: args{aksnodeconfig: &aksnodeconfigv1.Configuration{
+				LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
+					EnableLocalDns:  false,
+					MemoryLimitInMb: to.Ptr(int32(2048))},
+			}},
+			want: "128M",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := getLocalDnsMemoryLimitInMb(tt.args.aksnodeconfig); got != tt.want {
+				t.Errorf("getLocalDnsMemoryLimitInMb() = %v, want %v", got, tt.want)
 			}
 		})
 	}

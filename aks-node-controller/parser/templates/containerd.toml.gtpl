@@ -3,6 +3,7 @@ oom_score = -999{{if getHasDataDir .KubeletConfig}}
 root = "{{.KubeletConfig.GetContainerDataDir}}"{{- end}}
 [plugins."io.containerd.grpc.v1.cri"]
   sandbox_image = "{{ .KubeBinaryConfig.GetPodInfraContainerImageUrl }}"
+  enable_cdi = true
   [plugins."io.containerd.grpc.v1.cri".containerd]
     {{- if .TeleportConfig.GetStatus }}
     snapshotter = "teleportd"
@@ -22,7 +23,7 @@ root = "{{.KubeletConfig.GetContainerDataDir}}"{{- end}}
       runtime_type = "io.containerd.runc.v2"
     [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia-container-runtime.options]
       BinaryName = "/usr/bin/nvidia-container-runtime"
-      {{- if .NeedsCgroupv2 }}
+      {{- if .GetNeedsCgroupv2 }}
       SystemdCgroup = true
       {{- end}}
     [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted]
@@ -35,35 +36,13 @@ root = "{{.KubeletConfig.GetContainerDataDir}}"{{- end}}
       runtime_type = "io.containerd.runc.v2"
     [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
       BinaryName = "/usr/bin/runc"
-      {{- if .NeedsCgroupv2 }}
+      {{- if .GetNeedsCgroupv2 }}
       SystemdCgroup = true
       {{- end}}
     [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted]
       runtime_type = "io.containerd.runc.v2"
     [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted.options]
       BinaryName = "/usr/bin/runc"
-    {{- end}}
-    {{- if getIsKrustlet .GetWorkloadRuntime }}
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin]
-      runtime_type = "io.containerd.spin.v2"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight]
-      runtime_type = "io.containerd.slight-v0-3-0.v1"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin-v0-3-0]
-      runtime_type = "io.containerd.spin-v0-3-0.v1"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight-v0-3-0]
-      runtime_type = "io.containerd.slight-v0-3-0.v1"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin-v0-5-1]
-      runtime_type = "io.containerd.spin-v0-5-1.v1"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight-v0-5-1]
-      runtime_type = "io.containerd.slight-v0-5-1.v1"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin-v0-8-0]
-      runtime_type = "io.containerd.spin-v0-8-0.v1"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight-v0-8-0]
-      runtime_type = "io.containerd.slight-v0-8-0.v1"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.wws-v0-8-0]
-      runtime_type = "io.containerd.wws-v0-8-0.v1"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin-v0-15-1]
-      runtime_type = "io.containerd.spin.v2"
     {{- end}}
   {{- if getEnsureNoDupePromiscuousBridge .GetNetworkConfig }}
   [plugins."io.containerd.grpc.v1.cri".cni]

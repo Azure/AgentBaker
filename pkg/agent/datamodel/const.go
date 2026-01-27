@@ -80,6 +80,10 @@ const (
 	AzureChinaCloud = "AzureChinaCloud"
 	// AzureGermanCloud is a const string reference identifier for german cloud.
 	AzureGermanCloud = "AzureGermanCloud"
+	// AzureGermanCloud is a const string reference identifier for german cloud.
+	AzureGermanyCloud = "AzureGermanyCloud"
+	// AzureBleuCloud is a const string reference identifier for bleu cloud.
+	AzureBleuCloud = "AzureBleuCloud"
 	// AzureUSGovernmentCloud is a const string reference identifier for us government cloud.
 	AzureUSGovernmentCloud = "AzureUSGovernmentCloud"
 	// AzureStackCloud is a const string reference identifier for Azure Stack cloud.
@@ -121,6 +125,7 @@ const (
 	OSSKUCBLMariner = "CBLMariner"
 	OSSKUMariner    = "Mariner"
 	OSSKUAzureLinux = "AzureLinux"
+	OSSKUFlatcar    = "Flatcar"
 )
 
 // Feature Flags.

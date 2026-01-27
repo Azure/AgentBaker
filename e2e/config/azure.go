@@ -8,9 +8,12 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"sort"
+	"strconv"
 	"strings"
-	"testing"
 	"time"
+
+	"github.com/Azure/agentbaker/e2e/toolkit"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
@@ -31,6 +34,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/sas"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/service"
 	"github.com/google/uuid"
+	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 type AzureClient struct {
@@ -39,8 +43,9 @@ type AzureClient struct {
 	StorageContainers         *armstorage.BlobContainersClient
 	CacheRulesClient          *armcontainerregistry.CacheRulesClient
 	Core                      *azcore.Client
-	Credential                *azidentity.DefaultAzureCredential
+	Credential                *azidentity.AzureCLICredential
 	Maintenance               *armcontainerservice.MaintenanceConfigurationsClient
+	NetworkInterfaces         *armnetwork.InterfacesClient
 	PrivateDNSZoneGroup       *armnetwork.PrivateDNSZoneGroupsClient
 	PrivateEndpointClient     *armnetwork.PrivateEndpointsClient
 	PrivateZonesClient        *armprivatedns.PrivateZonesClient
@@ -55,10 +60,17 @@ type AzureClient struct {
 	UserAssignedIdentities    *armmsi.UserAssignedIdentitiesClient
 	VMSS                      *armcompute.VirtualMachineScaleSetsClient
 	VMSSVM                    *armcompute.VirtualMachineScaleSetVMsClient
+	VMs                       *armcompute.VirtualMachinesClient
+	Images                    *armcompute.ImagesClient
+	Snapshots                 *armcompute.SnapshotsClient
+	Galleries                 *armcompute.GalleriesClient
+	GalleryImages             *armcompute.GalleryImagesClient
+	GalleryImageVersions      *armcompute.GalleryImageVersionsClient
 	VNet                      *armnetwork.VirtualNetworksClient
 	VirutalNetworkLinksClient *armprivatedns.VirtualNetworkLinksClient
 	ArmOptions                *arm.ClientOptions
 	VMSSVMRunCommands         *armcompute.VirtualMachineScaleSetVMRunCommandsClient
+	VMExtensionImages         *armcompute.VirtualMachineExtensionImagesClient
 }
 
 func mustNewAzureClient() *AzureClient {
@@ -70,7 +82,7 @@ func mustNewAzureClient() *AzureClient {
 
 }
 
-func NewAzureClient() (*AzureClient, error) {
+func NewHttpClient() *http.Client {
 	httpClient := &http.Client{
 		// use a bunch of connections for load balancing
 		// ensure all timeouts are defined and reasonable
@@ -94,7 +106,11 @@ func NewAzureClient() (*AzureClient, error) {
 			},
 		},
 	}
+	return httpClient
+}
 
+func NewAzureClient() (*AzureClient, error) {
+	httpClient := NewHttpClient()
 	logger := runtime.NewLogPolicy(&policy.LogOptions{
 		IncludeBody: true,
 	})
@@ -109,9 +125,9 @@ func NewAzureClient() (*AzureClient, error) {
 		},
 	}
 
-	credential, err := azidentity.NewDefaultAzureCredential(nil)
+	credential, err := azidentity.NewAzureCLICredential(nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create credential: %w", err)
+		return nil, fmt.Errorf("creating azure cli credential: %w", err)
 	}
 
 	plOpts := runtime.PipelineOptions{}
@@ -187,6 +203,11 @@ func NewAzureClient() (*AzureClient, error) {
 		return nil, fmt.Errorf("failed to create maintenance client: %w", err)
 	}
 
+	cloud.NetworkInterfaces, err = armnetwork.NewInterfacesClient(Config.SubscriptionID, credential, opts)
+	if err != nil {
+		return nil, fmt.Errorf("create network interfaces client: %w", err)
+	}
+
 	cloud.VMSS, err = armcompute.NewVirtualMachineScaleSetsClient(Config.SubscriptionID, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("create vmss client: %w", err)
@@ -195,6 +216,31 @@ func NewAzureClient() (*AzureClient, error) {
 	cloud.VMSSVM, err = armcompute.NewVirtualMachineScaleSetVMsClient(Config.SubscriptionID, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("create vmss vm client: %w", err)
+	}
+
+	cloud.VMs, err = armcompute.NewVirtualMachinesClient(Config.SubscriptionID, credential, opts)
+	if err != nil {
+		return nil, fmt.Errorf("create vms client: %w", err)
+	}
+
+	cloud.Images, err = armcompute.NewImagesClient(Config.SubscriptionID, credential, opts)
+	if err != nil {
+		return nil, fmt.Errorf("create images client: %w", err)
+	}
+
+	cloud.Snapshots, err = armcompute.NewSnapshotsClient(Config.SubscriptionID, credential, opts)
+	if err != nil {
+		return nil, fmt.Errorf("create snapshots client: %w", err)
+	}
+
+	cloud.GalleryImages, err = armcompute.NewGalleryImagesClient(Config.SubscriptionID, credential, opts)
+	if err != nil {
+		return nil, fmt.Errorf("create gallery images client: %w", err)
+	}
+
+	cloud.GalleryImageVersions, err = armcompute.NewGalleryImageVersionsClient(Config.SubscriptionID, credential, opts)
+	if err != nil {
+		return nil, fmt.Errorf("create gallery image versions client: %w", err)
 	}
 
 	cloud.Resource, err = armresources.NewClient(Config.SubscriptionID, credential, opts)
@@ -242,6 +288,17 @@ func NewAzureClient() (*AzureClient, error) {
 		return nil, fmt.Errorf("create vmss vm run command client: %w", err)
 	}
 
+	cloud.VMExtensionImages, err = armcompute.NewVirtualMachineExtensionImagesClient(Config.SubscriptionID, credential, opts)
+	if err != nil {
+		return nil, fmt.Errorf("create vm extension images client: %w", err)
+	}
+
+	// Ensure the gallery exists
+	cloud.Galleries, err = armcompute.NewGalleriesClient(Config.SubscriptionID, credential, opts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create galleries client: %w", err)
+	}
+
 	cloud.Credential = credential
 	cloud.ArmOptions = opts
 
@@ -278,7 +335,7 @@ func (a *AzureClient) UploadAndGetSignedLink(ctx context.Context, blobName strin
 
 	sig, err := sas.BlobSignatureValues{
 		Protocol:      sas.ProtocolHTTPS,
-		ExpiryTime:    time.Now().Add(time.Hour),
+		ExpiryTime:    time.Now().Add(time.Hour).UTC(),
 		Permissions:   to.Ptr(sas.BlobPermissions{Read: true}).String(),
 		ContainerName: Config.BlobContainer,
 		BlobName:      blobName,
@@ -290,13 +347,16 @@ func (a *AzureClient) UploadAndGetSignedLink(ctx context.Context, blobName strin
 	return fmt.Sprintf("%s/%s/%s?%s", Config.BlobStorageAccountURL(), Config.BlobContainer, blobName, sig.Encode()), nil
 }
 
-func (a *AzureClient) CreateVMManagedIdentity(ctx context.Context) (string, error) {
-	identity, err := a.UserAssignedIdentities.CreateOrUpdate(ctx, ResourceGroupName, VMIdentityName, armmsi.Identity{
-		Location: to.Ptr(Config.Location),
+func (a *AzureClient) CreateVMManagedIdentity(ctx context.Context, identityLocation string) (string, error) {
+	identity, err := a.UserAssignedIdentities.CreateOrUpdate(ctx, ResourceGroupName(identityLocation), VMIdentityName, armmsi.Identity{
+		Location: to.Ptr(identityLocation),
 	}, nil)
 	if err != nil {
 		return "", fmt.Errorf("create managed identity: %w", err)
 	}
+
+	// NOTE: We are not creating new storage account per location, we will use the one
+	// that's already created in the default location.
 	err = a.createBlobStorageAccount(ctx)
 	if err != nil {
 		return "", err
@@ -313,9 +373,9 @@ func (a *AzureClient) CreateVMManagedIdentity(ctx context.Context) (string, erro
 }
 
 func (a *AzureClient) createBlobStorageAccount(ctx context.Context) error {
-	poller, err := a.StorageAccounts.BeginCreate(ctx, ResourceGroupName, Config.BlobStorageAccount(), armstorage.AccountCreateParameters{
+	poller, err := a.StorageAccounts.BeginCreate(ctx, ResourceGroupName(Config.DefaultLocation), Config.BlobStorageAccount(), armstorage.AccountCreateParameters{
 		Kind:     to.Ptr(armstorage.KindStorageV2),
-		Location: &Config.Location,
+		Location: to.Ptr(Config.DefaultLocation),
 		SKU: &armstorage.SKU{
 			Name: to.Ptr(armstorage.SKUNameStandardLRS),
 		},
@@ -335,7 +395,7 @@ func (a *AzureClient) createBlobStorageAccount(ctx context.Context) error {
 }
 
 func (a *AzureClient) createBlobStorageContainer(ctx context.Context) error {
-	_, err := a.StorageContainers.Create(ctx, ResourceGroupName, Config.BlobStorageAccount(), Config.BlobContainer, armstorage.BlobContainer{}, nil)
+	_, err := a.StorageContainers.Create(ctx, ResourceGroupName(Config.DefaultLocation), Config.BlobStorageAccount(), Config.BlobContainer, armstorage.BlobContainer{}, nil)
 	if err != nil {
 		return fmt.Errorf("create blob container: %w", err)
 	}
@@ -343,7 +403,7 @@ func (a *AzureClient) createBlobStorageContainer(ctx context.Context) error {
 }
 
 func (a *AzureClient) assignRolesToVMIdentity(ctx context.Context, principalID *string) error {
-	scope := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Storage/storageAccounts/%s", Config.SubscriptionID, ResourceGroupName, Config.BlobStorageAccount())
+	scope := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Storage/storageAccounts/%s", Config.SubscriptionID, ResourceGroupName(Config.DefaultLocation), Config.BlobStorageAccount())
 	// Role assignment requires uid to be provided
 	uid := uuid.New().String()
 	_, err := a.RoleAssignments.Create(ctx, scope, uid, armauthorization.RoleAssignmentCreateParameters{
@@ -365,8 +425,8 @@ func (a *AzureClient) assignRolesToVMIdentity(ctx context.Context, principalID *
 	return nil
 }
 
-func (a *AzureClient) LatestSIGImageVersionByTag(ctx context.Context, t *testing.T, image *Image, tagName, tagValue string) (VHDResourceID, error) {
-	t.Logf("Looking up images in %s", image.azurePortalImageUrl())
+func (a *AzureClient) LatestSIGImageVersionByTag(ctx context.Context, image *Image, tagName, tagValue, location string) (VHDResourceID, error) {
+	logf(ctx, "Looking up images in %s", image.azurePortalImageUrl())
 
 	imagesClient, imagesClientErr := armcompute.NewGalleryImagesClient(image.Gallery.SubscriptionID, a.Credential, a.ArmOptions)
 	if imagesClientErr != nil {
@@ -398,25 +458,32 @@ func (a *AzureClient) LatestSIGImageVersionByTag(ctx context.Context, t *testing
 			// skip images tagged with the no-selection tag, indicating they
 			// shouldn't be selected dynmically for running abe2e scenarios
 			if _, ok := version.Tags[noSelectionTagName]; ok {
-				t.Logf("Skipping version %s as it has no selection tag %s", *version.ID, noSelectionTagName)
+				logf(ctx, "Skipping version %s as it has no selection tag %s", *version.ID, noSelectionTagName)
 				continue
 			}
 
 			if tagName != "" {
-				tag, ok := version.Tags[tagName]
+				var tag *string
+				var ok bool
+				// Case-insensitive tag lookup
+				for k, v := range version.Tags {
+					if strings.EqualFold(k, tagName) {
+						tag = v
+						ok = true
+						break
+					}
+				}
 				if !ok || tag == nil || *tag != tagValue {
-					t.Logf("Skipping version %s as it doesn't have tag %s=%s", *version.ID, tagName, tagValue)
 					continue
 				}
 			}
 
-			if err := ensureProvisioningState(version); err != nil {
-				t.Logf("Skipping version %s with tag %s=%s due to %s", *version.ID, tagName, tagValue, err)
+			if *version.Properties.ProvisioningState != armcompute.GalleryProvisioningStateSucceeded && *version.Properties.ProvisioningState != armcompute.GalleryProvisioningStateUpdating {
+				logf(ctx, "Skipping version %s with tag %s=%s due to %s", *version.ID, tagName, tagValue, err)
 				continue
 			}
 
 			if latestVersion == nil || version.Properties.PublishingProfile.PublishedDate.After(*latestVersion.Properties.PublishingProfile.PublishedDate) {
-				t.Logf("Found version %s with tag %s=%s", *version.ID, tagName, tagValue)
 				latestVersion = version
 			}
 		}
@@ -426,37 +493,101 @@ func (a *AzureClient) LatestSIGImageVersionByTag(ctx context.Context, t *testing
 	}
 
 	if latestVersion == nil {
-		t.Logf("Could not find VHD with tag %s=%s in %s",
+		logf(ctx, "Could not find VHD with tag %s=%s in %s",
 			tagName,
 			tagValue,
 			image.azurePortalImageUrl())
 		return "", ErrNotFound
 	}
 
-	if err := a.ensureReplication(ctx, t, image, latestVersion); err != nil {
+	if err := a.ensureReplication(ctx, image, latestVersion, location); err != nil {
 		return "", fmt.Errorf("failed ensuring image replication: %w", err)
 	}
-
-	t.Logf("Using version %s", *latestVersion.ID)
 
 	return VHDResourceID(*latestVersion.ID), nil
 }
 
-func (a *AzureClient) ensureReplication(ctx context.Context, t *testing.T, image *Image, version *armcompute.GalleryImageVersion) error {
-	if replicatedToCurrentRegion(version) {
+func (a *AzureClient) ensureReplication(ctx context.Context, image *Image, version *armcompute.GalleryImageVersion, location string) error {
+	// Wait for any ongoing update operations to complete first
+	if err := a.waitForVersionOperationCompletion(ctx, image, version); err != nil {
+		return fmt.Errorf("waiting for version operation completion: %w", err)
+	}
+
+	if replicatedToCurrentRegion(version, location) {
+		logf(ctx, "Image version %s is already in region %s", *version.ID, location)
 		return nil
 	}
-	t.Logf("Replicating to region %s: image version %s", Config.Location, *version.ID)
-	return a.replicateImageVersionToCurrentRegion(ctx, image, version)
+	regions := make([]string, 0, len(version.Properties.PublishingProfile.TargetRegions))
+	for _, targetRegion := range version.Properties.PublishingProfile.TargetRegions {
+		regions = append(regions, *targetRegion.Name)
+	}
+	logf(ctx, "##vso[task.logissue type=warning;]Replicating to region %s, available regions: %s, image version %s", location, strings.Join(regions, ", "), *version.ID)
+
+	start := time.Now() // Record the start time
+	err := a.replicateImageVersionToCurrentRegion(ctx, image, version, location)
+	elapsed := time.Since(start) // Calculate the elapsed time
+
+	toolkit.LogDuration(ctx, elapsed, 3*time.Minute, fmt.Sprintf("Replication took: %s (%s)", toolkit.FormatDuration(elapsed), *version.ID))
+
+	return err
 }
 
-func (a *AzureClient) replicateImageVersionToCurrentRegion(ctx context.Context, image *Image, version *armcompute.GalleryImageVersion) error {
+func (a *AzureClient) waitForVersionOperationCompletion(ctx context.Context, image *Image, version *armcompute.GalleryImageVersion) error {
+	// If not in updating state, no need to wait
+	if *version.Properties.ProvisioningState != armcompute.GalleryProvisioningStateUpdating {
+		return nil
+	}
+
+	logf(ctx, "Image version %s is in 'Updating' state, waiting for operation to complete", *version.ID)
+
+	imgVersionClient, err := armcompute.NewGalleryImageVersionsClient(image.Gallery.SubscriptionID, a.Credential, a.ArmOptions)
+	if err != nil {
+		return fmt.Errorf("create a new image version client: %v", err)
+	}
+
+	// Use the standard wait.PollUntilContextTimeout helper used throughout the codebase
+	err = wait.PollUntilContextTimeout(ctx, 5*time.Second, 10*time.Minute, true, func(ctx context.Context) (bool, error) {
+		// Get the latest version state using the existing client
+		resp, err := imgVersionClient.Get(ctx, image.Gallery.ResourceGroupName, image.Gallery.Name, image.Name, *version.Name, nil)
+		if err != nil {
+			// Return error to stop polling on permanent errors
+			return false, fmt.Errorf("get image version during wait: %w", err)
+		}
+
+		currentState := *resp.Properties.ProvisioningState
+		logf(ctx, "Image version %s current state: %s", *version.ID, currentState)
+
+		// Check if operation completed
+		if currentState != armcompute.GalleryProvisioningStateUpdating {
+			if currentState == armcompute.GalleryProvisioningStateSucceeded {
+				logf(ctx, "Image version %s operation completed successfully", *version.ID)
+				// Update the version object with the latest state
+				*version = resp.GalleryImageVersion
+				return true, nil // Done successfully
+			} else {
+				// Operation failed
+				return false, fmt.Errorf("image version %s operation failed with state: %s", *version.ID, currentState)
+			}
+		}
+
+		// Still updating, continue polling
+		return false, nil
+	})
+
+	if err != nil {
+		return fmt.Errorf("waiting for image version operation completion: %w", err)
+	}
+
+	return nil
+}
+
+func (a *AzureClient) replicateImageVersionToCurrentRegion(ctx context.Context, image *Image, version *armcompute.GalleryImageVersion, location string) error {
 	galleryImageVersion, err := armcompute.NewGalleryImageVersionsClient(image.Gallery.SubscriptionID, a.Credential, a.ArmOptions)
 	if err != nil {
 		return fmt.Errorf("create a new images client: %v", err)
 	}
 	version.Properties.PublishingProfile.TargetRegions = append(version.Properties.PublishingProfile.TargetRegions, &armcompute.TargetRegion{
-		Name:                 &Config.Location,
+		Name:                 &location,
 		RegionalReplicaCount: to.Ptr[int32](1),
 		StorageAccountType:   to.Ptr(armcompute.StorageAccountTypeStandardLRS),
 	})
@@ -472,13 +603,12 @@ func (a *AzureClient) replicateImageVersionToCurrentRegion(ctx context.Context, 
 	return nil
 }
 
-func (a *AzureClient) EnsureSIGImageVersion(ctx context.Context, t *testing.T, image *Image) (VHDResourceID, error) {
-	t.Logf("Looking up gallery images for subcription %s", image.Gallery.SubscriptionID)
+func (a *AzureClient) EnsureSIGImageVersion(ctx context.Context, image *Image, location string) (VHDResourceID, error) {
 	galleryImageVersion, err := armcompute.NewGalleryImageVersionsClient(image.Gallery.SubscriptionID, a.Credential, a.ArmOptions)
 	if err != nil {
 		return "", fmt.Errorf("create a new images client: %v", err)
 	}
-	t.Logf("Looking up images for gallery subscription %s resource group %s gallery name %s image name %s ersion %s ",
+	logf(ctx, "Looking up images for gallery subscription %s resource group %s gallery name %s image name %s version %s ",
 		image.Gallery.SubscriptionID,
 		image.Gallery.ResourceGroupName,
 		image.Gallery.Name,
@@ -490,14 +620,12 @@ func (a *AzureClient) EnsureSIGImageVersion(ctx context.Context, t *testing.T, i
 		return "", fmt.Errorf("getting live image version info: %w", err)
 	}
 
-	t.Logf("Found image with id %s", *resp.ID)
-
 	liveVersion := &resp.GalleryImageVersion
-	if err := ensureProvisioningState(liveVersion); err != nil {
-		return "", fmt.Errorf("Failed ensuring image version provisioning state: %w", err)
+	if *liveVersion.Properties.ProvisioningState != armcompute.GalleryProvisioningStateSucceeded && *liveVersion.Properties.ProvisioningState != armcompute.GalleryProvisioningStateUpdating {
+		return "", fmt.Errorf("unexpected provisioning state: %q", *liveVersion.Properties.ProvisioningState)
 	}
 
-	if err := a.ensureReplication(ctx, t, image, liveVersion); err != nil {
+	if err := a.ensureReplication(ctx, image, liveVersion, location); err != nil {
 		return "", fmt.Errorf("Failed ensuring image replication: %w", err)
 	}
 
@@ -520,74 +648,123 @@ func DefaultRetryOpts() policy.RetryOptions {
 	}
 }
 
-func replicatedToCurrentRegion(version *armcompute.GalleryImageVersion) bool {
+func replicatedToCurrentRegion(version *armcompute.GalleryImageVersion, location string) bool {
 	for _, targetRegion := range version.Properties.PublishingProfile.TargetRegions {
-		if strings.EqualFold(strings.ReplaceAll(*targetRegion.Name, " ", ""), Config.Location) {
+		if strings.EqualFold(strings.ReplaceAll(*targetRegion.Name, " ", ""), location) {
 			return true
 		}
 	}
 	return false
 }
 
-func ensureProvisioningState(version *armcompute.GalleryImageVersion) error {
-	if *version.Properties.ProvisioningState != armcompute.GalleryProvisioningStateSucceeded {
-		return fmt.Errorf("unexpected provisioning state: %q", *version.Properties.ProvisioningState)
+// DeleteSIGImageVersion deletes a SIG image version
+func (a *AzureClient) DeleteSIGImageVersion(ctx context.Context, galleryResourceGroup, galleryName, imageName, version string) {
+	// Ignore errors, don't need to wait for the deletion to complete
+	_, _ = a.GalleryImageVersions.BeginDelete(ctx, galleryResourceGroup, galleryName, imageName, version, nil)
+}
+
+// DeleteDisk deletes a managed disk
+func (a *AzureClient) DeleteDisk(ctx context.Context, resourceGroupName, diskName string) error {
+	disks, err := armcompute.NewDisksClient(Config.SubscriptionID, a.Credential, a.ArmOptions)
+	if err != nil {
+		return fmt.Errorf("failed to create disks client: %w", err)
 	}
+
+	deleteOp, err := disks.BeginDelete(ctx, resourceGroupName, diskName, nil)
+	if err != nil {
+		return fmt.Errorf("failed to delete disk: %w", err)
+	}
+
+	_, err = deleteOp.PollUntilDone(ctx, DefaultPollUntilDoneOptions)
+	if err != nil {
+		return fmt.Errorf("failed to complete disk deletion: %w", err)
+	}
+
 	return nil
 }
 
-func (a *AzureClient) CreateVMSSWithRetry(ctx context.Context, t *testing.T, resourceGroupName string, vmssName string, parameters armcompute.VirtualMachineScaleSet) (*armcompute.VirtualMachineScaleSet, error) {
-	t.Logf("creating VMSS %s in resource group %s", vmssName, resourceGroupName)
-	delay := 5 * time.Second
-	retryOn := func(err error) bool {
-		var respErr *azcore.ResponseError
-		// AllocationFailed sometimes happens for exotic SKUs (new GPUs) with limited availability, sometimes retrying helps
-		// It's not a quota issue
-		return errors.As(err, &respErr) && respErr.StatusCode == 200 && respErr.ErrorCode == "AllocationFailed"
-	}
-	attempt := 0
-	for {
-		attempt++
-		vmss, err := a.createVMSS(ctx, resourceGroupName, vmssName, parameters)
-		if err == nil {
-			t.Logf("created VMSS %s in resource group %s", vmssName, resourceGroupName)
-			return vmss, nil
-		}
-
-		// not a retryable error
-		if !retryOn(err) {
-			return nil, err
-		}
-
-		if attempt >= 10 {
-			return nil, fmt.Errorf("failed to create VMSS after 10 retries: %w", err)
-		}
-
-		t.Logf("failed to create VMSS: %v, attempt: %v, retrying in %v", err, attempt, delay)
-		select {
-		case <-ctx.Done():
-			return nil, err
-		case <-time.After(delay):
-		}
+// DeleteSnapshot deletes a disk snapshot
+func (a *AzureClient) DeleteSnapshot(ctx context.Context, resourceGroupName, snapshotName string) error {
+	deleteOp, err := a.Snapshots.BeginDelete(ctx, resourceGroupName, snapshotName, nil)
+	if err != nil {
+		return fmt.Errorf("failed to delete snapshot: %w", err)
 	}
 
+	_, err = deleteOp.PollUntilDone(ctx, DefaultPollUntilDoneOptions)
+	if err != nil {
+		return fmt.Errorf("failed to complete snapshot deletion: %w", err)
+	}
+
+	return nil
 }
 
-func (a *AzureClient) createVMSS(ctx context.Context, resourceGroupName string, vmssName string, parameters armcompute.VirtualMachineScaleSet) (*armcompute.VirtualMachineScaleSet, error) {
-	operation, err := a.VMSS.BeginCreateOrUpdate(
-		ctx,
-		resourceGroupName,
-		vmssName,
-		parameters,
-		nil,
-	)
+// GetLatestVMExtensionImageVersion lists VM extension images for a given extension name and returns the latest version.
+// This is equivalent to: az vm extension image list -n Compute.AKS.Linux.AKSNode --latest
+func (a *AzureClient) GetLatestVMExtensionImageVersion(ctx context.Context, location, extType, extPublisher string) (string, error) {
+	// List extension versions
+	resp, err := a.VMExtensionImages.ListVersions(ctx, location, extPublisher, extType, &armcompute.VirtualMachineExtensionImagesClientListVersionsOptions{})
 	if err != nil {
-		return nil, err
+		return "", fmt.Errorf("listing extension versions: %w", err)
 	}
-	vmssResp, err := operation.PollUntilDone(ctx, DefaultPollUntilDoneOptions)
-	if err != nil {
-		return nil, err
-	}
-	return &vmssResp.VirtualMachineScaleSet, nil
 
+	if len(resp.VirtualMachineExtensionImageArray) == 0 {
+		return "", fmt.Errorf("no extension versions found")
+	}
+
+	version := make([]VMExtenstionVersion, len(resp.VirtualMachineExtensionImageArray))
+	for i, ext := range resp.VirtualMachineExtensionImageArray {
+		version[i] = parseVersion(ext)
+	}
+
+	sort.Slice(version, func(i, j int) bool {
+		return version[i].Less(version[j])
+	})
+
+	return *version[len(version)-1].Original.Name, nil
+}
+
+// VMExtenstionVersion represents a parsed version of a VM extension image.
+type VMExtenstionVersion struct {
+	Original *armcompute.VirtualMachineExtensionImage
+	Major    int
+	Minor    int
+	Patch    int
+}
+
+// parseVersion parses the version from a VM extension image name, which can be in the format 1.151, 1.0.1, etc.
+// You can find all the versions of a specific VM extension by running:
+// az vm extension image list -n Compute.AKS.Linux.AKSNode
+func parseVersion(v *armcompute.VirtualMachineExtensionImage) VMExtenstionVersion {
+	// Split by dots
+	parts := strings.Split(*v.Name, ".")
+
+	version := VMExtenstionVersion{Original: v}
+
+	if len(parts) >= 1 {
+		if major, err := strconv.Atoi(parts[0]); err == nil {
+			version.Major = major
+		}
+	}
+	if len(parts) >= 2 {
+		if minor, err := strconv.Atoi(parts[1]); err == nil {
+			version.Minor = minor
+		}
+	}
+	if len(parts) >= 3 {
+		if patch, err := strconv.Atoi(parts[2]); err == nil {
+			version.Patch = patch
+		}
+	}
+
+	return version
+}
+
+func (v VMExtenstionVersion) Less(other VMExtenstionVersion) bool {
+	if v.Major != other.Major {
+		return v.Major < other.Major
+	}
+	if v.Minor != other.Minor {
+		return v.Minor < other.Minor
+	}
+	return v.Patch < other.Patch
 }

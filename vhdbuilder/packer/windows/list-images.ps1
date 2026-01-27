@@ -47,7 +47,7 @@ foreach($image in $imageList) {
     } else {
         # Get id and repoTags
         # Example:
-        # mcr.azk8s.cn/windows/servercore:ltsc2022
+        # mcr.azure.cn/windows/servercore:ltsc2022
         # application/vnd.docker.distribution.manifest.list.v2+json
         # sha256:dfd3ce22e4b6e987ff2bfb3efe5e4912512fce35660be2ae5faa91e6f4da9748
         # 1.3

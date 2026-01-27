@@ -1,6 +1,19 @@
 {
   "ContainerImages": [
     {
+      "downloadURL": "mcr.microsoft.com/windows/windowstestimage:*",
+      "amd64OnlyVersions": [],
+      "multiArchVersionsV2": [],
+      "windowsVersions": [
+        {
+          "comment": "comment",
+          "renovateTag": "<DO_NOT_UPDATE>",
+          "latestVersion": "v1",
+          "windowsSkuMatch": "2019-containerd"
+        }
+      ]
+    },
+    {
       "downloadURL": "mcr.microsoft.com/dummyImageWithMultiArchVersionsV2:*",
       "amd64OnlyVersions": [],
       "multiArchVersionsV2": [
@@ -47,18 +60,6 @@
               {
                 "renovateTag": "name=pkgVersionsV2, os=ubuntu, release=20.04",
                 "latestVersion": "dummyVersion2"
-              }
-            ]
-          },
-          "r1804": {
-            "versionsV2": [
-              {
-                "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "dummyVersion3"
-              },
-              {
-                "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "dummyVersion4"
               }
             ]
           },
@@ -187,6 +188,16 @@
             ]
           }
         },
+        "azurelinuxkata": {
+          "current": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "<SKIP>"
+              }
+            ]
+          }
+        },
         "default": {
           "current": {
             "versionsV2": [
@@ -204,11 +215,59 @@
       "downloadLocation": "fake",
       "downloadURIs": {
         "ubuntu": {
-          "r1804": {
+          "r2004": {
             "versionsV2": [
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
                 "latestVersion": "dummyVersion9"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "fake-azure-acr-credential-provider",
+      "downloadLocation": "/opt/credentialprovider/downloads",
+      "windowsDownloadLocation": "c:\\akse-cache\\azure-acr-credential-provider\\",
+      "downloadURIs": {
+        "ubuntu": {
+          "r2404": {
+            "versionsV2": [
+              {
+                "k8sVersion": "1.32",
+                "renovateTag": "name=azure-acr-credential-provider, os=ubuntu, release=24.04",
+                "latestVersion": "1.32.3-ubuntu24.04u4"
+              }
+            ]
+          },
+          "r2204": {
+            "versionsV2": [
+              {
+                "k8sVersion": "1.32",
+                "renovateTag": "name=azure-acr-credential-provider, os=ubuntu, release=22.04",
+                "latestVersion": "1.32.3-ubuntu22.04u4"
+              }
+            ]
+          },
+          "r2004": {
+            "versionsV2": [
+              {
+                "k8sVersion": "1.32",
+                "renovateTag": "name=azure-acr-credential-provider, os=ubuntu, release=20.04",
+                "latestVersion": "1.32.3-ubuntu20.04u4"
+              }
+            ]
+          }
+        },
+        "azurelinux": {
+          "v3.0": {
+            "versionsV2": [
+              {
+                "k8sVersion": "1.32",
+                "renovateTag": "name=azure-acr-credential-provider, os=azurelinux, release=3.0",
+                "latestVersion": "1.32.3-4.azl3",
+                "previousLatestVersion": "1.32.2-4.azl3"
               }
             ]
           }

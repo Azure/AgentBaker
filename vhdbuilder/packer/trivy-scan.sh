@@ -46,6 +46,8 @@ CVE_DIFF_UPLOAD_REPORT_NAME=${30}
 CVE_LIST_UPLOAD_REPORT_NAME=${31}
 SCAN_RESOURCE_PREFIX=${32}
 
+source /opt/azure/containers/provision_source_distro.sh
+
 retrycmd_if_failure() {
     retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
     for i in $(seq 1 $retries); do
@@ -66,11 +68,9 @@ install_azure_cli() {
     ARCHITECTURE=${3}
     TEST_VM_ADMIN_USERNAME=${4}
 
-    if [ "$OS_SKU" = "Ubuntu" ] && [ "$OS_VERSION" = "20.04" ]; then
-        sudo apt-get install -y azure-cli
-    elif [ "$OS_SKU" = "Ubuntu" ] && [ "$OS_VERSION" = "22.04" ] && [ "${ARCHITECTURE,,}" = "arm64" ]; then
-        sudo apt update
-        sudo apt install -y python3-pip
+    if [ "$OS_SKU" = "Ubuntu" ] && [ "$OS_VERSION" = "22.04" ] && [ "${ARCHITECTURE,,}" = "arm64" ]; then
+        apt_get_update
+        apt_get_install 5 1 60 python3-pip
         pip install azure-cli
         export PATH="/home/$TEST_VM_ADMIN_USERNAME/.local/bin:$PATH"
         CHECKAZ=$(pip freeze | grep "azure-cli==")
@@ -79,21 +79,30 @@ install_azure_cli() {
             exit 1
         fi
     elif [ "$OS_SKU" = "Ubuntu" ] && [ "$OS_VERSION" = "24.04" ] && [ "${ARCHITECTURE,,}" = "arm64" ]; then
-        sudo apt-get install -y ca-certificates curl apt-transport-https lsb-release gnupg
+        apt_get_install 5 1 60 ca-certificates curl apt-transport-https lsb-release gnupg
         curl -sL https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
         echo "deb [arch=arm64] https://packages.microsoft.com/repos/azure-cli/ $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/azure-cli.list
-        sudo apt-get update -y && sudo apt-get upgrade -y
-        sudo apt-get install -y azure-cli
-    elif [ "$OS_SKU" = "Ubuntu" ] && { [ "$OS_VERSION" = "22.04" ] || [ "$OS_VERSION" = "24.04" ]; } && [ "${ARCHITECTURE,,}" != "arm64" ]; then
-        sudo apt-get install -y ca-certificates curl apt-transport-https lsb-release gnupg
+        apt_get_update
+        apt_get_install 5 1 60 azure-cli
+    elif [ "$OS_SKU" = "Ubuntu" ] && { [ "$OS_VERSION" = "20.04" ] || [ "$OS_VERSION" = "22.04" ] || [ "$OS_VERSION" = "24.04" ]; } && [ "${ARCHITECTURE,,}" != "arm64" ]; then
+        apt_get_install 5 1 60 ca-certificates curl apt-transport-https lsb-release gnupg
         curl -sL https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
         echo "deb [arch=amd64] https://packages.microsoft.com/repos/azure-cli/ $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/azure-cli.list
-        sudo apt-get update -y && sudo apt-get upgrade -y
-        sudo apt-get install -y azure-cli
+        apt_get_update
+        apt_get_install 5 1 60 azure-cli
     elif [ "$OS_SKU" = "CBLMariner" ] || [ "$OS_SKU" = "AzureLinux" ]; then
         sudo rpm --import https://packages.microsoft.com/keys/microsoft.asc
         sudo sh -c 'echo -e "[azure-cli]\nname=Azure CLI\nbaseurl=https://packages.microsoft.com/yumrepos/azure-cli\nenabled=1\ngpgcheck=1\ngpgkey=https://packages.microsoft.com/keys/microsoft.asc" > /etc/yum.repos.d/azure-cli.repo'
         sudo dnf install -y azure-cli
+    elif [ "$OS_SKU" = "Flatcar" ] || [ "$OS_SKU" = "AzureLinuxOSGuard" ]; then
+        python3 -m venv "/home/$TEST_VM_ADMIN_USERNAME/venv"
+        export PATH="/home/$TEST_VM_ADMIN_USERNAME/venv/bin:$PATH"
+        pip install azure-cli
+        CHECKAZ=$(pip freeze | grep "azure-cli==")
+        if [ -z $CHECKAZ ]; then
+            echo "Azure CLI is not installed properly."
+            exit 1
+        fi
     else
         echo "Unrecognized SKU, Version, and Architecture combination for downloading az: $OS_SKU $OS_VERSION $ARCHITECTURE"
         exit 1
@@ -101,9 +110,10 @@ install_azure_cli() {
 }
 
 login_with_user_assigned_managed_identity() {
-    local USERNAME=$1
+    local TYPE_FLAG="$1"
+    local ID=$2
 
-    LOGIN_FLAGS="--identity --username $USERNAME"
+    LOGIN_FLAGS="--identity $TYPE_FLAG $ID"
     if [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ]; then
         LOGIN_FLAGS="$LOGIN_FLAGS --allow-no-subscriptions"
     fi
@@ -111,10 +121,16 @@ login_with_user_assigned_managed_identity() {
    echo "logging into azure with flags: $LOGIN_FLAGS"
    az login $LOGIN_FLAGS
 }
+login_with_umsi_object_id() {
+    login_with_user_assigned_managed_identity "--object-id" "$1"
+}
+login_with_umsi_resource_id() {
+    login_with_user_assigned_managed_identity "--resource-id" "$1"
+}
 
 install_azure_cli $OS_SKU $OS_VERSION $ARCHITECTURE $TEST_VM_ADMIN_USERNAME
 
-login_with_user_assigned_managed_identity ${UMSI_PRINCIPAL_ID}
+login_with_umsi_object_id ${UMSI_PRINCIPAL_ID}
 
 arch="$(uname -m)"
 if [ "${arch,,}" = "arm64" ] || [ "${arch,,}" = "aarch64" ]; then
@@ -130,8 +146,8 @@ fi
 
 mkdir -p "$(dirname "${TRIVY_REPORT_DIRNAME}")"
 
-wget "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_${TRIVY_ARCH}.tar.gz"
-tar -xvzf "trivy_${TRIVY_VERSION}_${TRIVY_ARCH}.tar.gz"
+curl -fL -o "trivy_${TRIVY_VERSION}_${TRIVY_ARCH}.tar.gz" "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_${TRIVY_ARCH}.tar.gz"
+tar -xvzf "trivy_${TRIVY_VERSION}_${TRIVY_ARCH}.tar.gz" --no-same-owner
 rm "trivy_${TRIVY_VERSION}_${TRIVY_ARCH}.tar.gz"
 chmod a+x trivy 
 
@@ -219,7 +235,7 @@ chmod a+r "${TRIVY_REPORT_ROOTFS_JSON_PATH}"
 chmod a+r "${TRIVY_REPORT_IMAGE_TABLE_PATH}"
 chmod a+r "${CVE_LIST_QUERY_OUTPUT_PATH}"
 
-login_with_user_assigned_managed_identity ${AZURE_MSI_RESOURCE_STRING}
+login_with_umsi_resource_id ${AZURE_MSI_RESOURCE_STRING}
 
 az storage blob upload --file ${CVE_DIFF_QUERY_OUTPUT_PATH} \
     --container-name ${SIG_CONTAINER_NAME} \

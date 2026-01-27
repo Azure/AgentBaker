@@ -22,7 +22,7 @@ var (
 	prefetchScriptTestDataPath = filepath.Join(testDataPath, "prefetch.sh")
 )
 
-func TestContianerImage(t *testing.T) {
+func TestContainerImage(t *testing.T) {
 	componentsPath := resolveComponentsPath(t)
 
 	if strings.EqualFold(os.Getenv(regenerateTestData), "true") {

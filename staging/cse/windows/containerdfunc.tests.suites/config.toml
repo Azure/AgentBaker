@@ -1,0 +1,105 @@
+version = 3
+root = 'C:\ProgramData\containerd\root'
+state = 'C:\ProgramData\containerd\state'
+
+[grpc]
+  address = '\\.\pipe\containerd-containerd'
+  max_recv_message_size = 16777216
+  max_send_message_size = 16777216
+
+[ttrpc]
+  address = ''
+
+[debug]
+  address = ''
+  level = 'info'
+
+[metrics]
+  address = '0.0.0.0:10257'
+  grpc_histogram = false
+
+[cgroup]
+  path = ''
+
+[plugins]
+
+  [plugins.'io.containerd.cri.v1.images']
+    stats_collect_period = 10
+    discard_unpacked_layers = true
+    snapshotter = 'windows'
+
+    [plugins.'io.containerd.cri.v1.images'.pinned_images]
+      sandbox = 'mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.1-windows-ltsc2022-amd64'
+
+    [plugins.'io.containerd.cri.v1.images'.registry]
+      [plugins.'io.containerd.cri.v1.images'.registry.mirrors]
+        [plugins.'io.containerd.cri.v1.images'.registry.mirrors.'docker.io']
+          endpoint = ['https://registry-1.docker.io']
+
+  [plugins.'io.containerd.cri.v1.runtime']
+    enable_selinux = false
+    max_container_log_line_size = 16384
+
+    [plugins.'io.containerd.cri.v1.runtime'.containerd]
+      default_runtime_name = 'default_runtime'
+
+      [plugins.'io.containerd.cri.v1.runtime'.containerd.runtimes]
+        [plugins.'io.containerd.cri.v1.runtime'.containerd.runtimes.default_runtime]
+          runtime_type = 'io.containerd.runhcs.v1'
+          container_annotations = ["io.microsoft.container.processdumplocation", "io.microsoft.wcow.processdumptype", "io.microsoft.wcow.processdumpcount"]
+          pod_annotations = ["io.microsoft.container.processdumplocation","io.microsoft.wcow.processdumptype", "io.microsoft.wcow.processdumpcount"]
+          [plugins.'io.containerd.cri.v1.runtime'.containerd.runtimes.default_runtime.options]
+            Debug = false
+            DebugType = 0
+            SandboxImage = 'mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.1-windows-ltsc2022-amd64'
+            SandboxPlatform = 'windows/amd64'
+            SandboxIsolation = 1
+
+        [plugins.'io.containerd.cri.v1.runtime'.containerd.runtimes.runhcs-wcow-process]
+          runtime_type = 'io.containerd.runhcs.v1'
+          container_annotations = ["io.microsoft.container.processdumplocation", "io.microsoft.wcow.processdumptype", "io.microsoft.wcow.processdumpcount"]
+          pod_annotations = ["io.microsoft.container.processdumplocation","io.microsoft.wcow.processdumptype", "io.microsoft.wcow.processdumpcount"]
+          [plugins.'io.containerd.cri.v1.runtime'.containerd.runtimes.runhcs-wcow-process.options]
+            Debug = true
+            DebugType = 2
+            SandboxImage = 'mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.1-windows-ltsc2022-amd64'
+            SandboxPlatform = 'windows/amd64'
+        [plugins.cri.containerd.runtimes.runhcs-wcow-hypervisor-1234]
+          runtime_type = "io.containerd.runhcs.v1"
+          [plugins.cri.containerd.runtimes.runhcs-wcow-hypervisor-1234.options]
+            Debug = true
+            DebugType = 2
+            SandboxImage = "mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.1-windows-ltsc2022-amd64"
+            SandboxPlatform = "windows/amd64"
+            SandboxIsolation = 1
+            ScaleCPULimitsToSandbox = true
+        [plugins.cri.containerd.runtimes.runhcs-wcow-hypervisor-5678]
+          runtime_type = "io.containerd.runhcs.v1"
+          [plugins.cri.containerd.runtimes.runhcs-wcow-hypervisor-5678.options]
+            Debug = true
+            DebugType = 2
+            SandboxImage = "mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.1-windows-ltsc2022-amd64"
+            SandboxPlatform = "windows/amd64"
+            SandboxIsolation = 1
+            ScaleCPULimitsToSandbox = true
+    [plugins.'io.containerd.cri.v1.runtime'.cni]
+      bin_dir = 'C:/cni/bin'
+      conf_dir = 'C:/cni/conf'
+
+  [plugins.'io.containerd.gc.v1.scheduler']
+    pause_threshold = 0.02
+    deletion_threshold = 0
+    mutation_threshold = 100
+    schedule_delay = '0s'
+    startup_delay = '100ms'
+
+  [plugins.'io.containerd.grpc.v1.cri']
+    disable_tcp_service = true
+    stream_server_address = '127.0.0.1'
+    stream_server_port = '0'
+    stream_idle_timeout = '4h0m0s'
+    enable_tls_streaming = false
+
+  [plugins.'io.containerd.service.v1.diff-service']
+    default = ['windows']
+

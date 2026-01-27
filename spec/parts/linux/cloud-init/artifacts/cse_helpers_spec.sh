@@ -28,11 +28,6 @@ Describe 'cse_helpers.sh'
             When call updatePackageVersions "$package" "UBUNTU" "20.04"
             The variable PACKAGE_VERSIONS[@] should equal "dummyVersion2"
         End
-        It 'returns downloadURIs.ubuntu.r1804.versionsV2 of package pkgVersionsV2 for UBUNTU 18.04'
-            package=$(readPackage "pkgVersionsV2")
-            When call updatePackageVersions "$package" "UBUNTU" "18.04"
-            The variable PACKAGE_VERSIONS[@] should equal "dummyVersion3 dummyVersion4"
-        End
         It 'returns downloadURIs.mariner.current.versionsV2 of package pkgVersionsV2 for MARINER current'
             package=$(readPackage "pkgVersionsV2")
             When call updatePackageVersions "$package" "MARINER" "current"
@@ -119,7 +114,7 @@ Describe 'cse_helpers.sh'
             The output should equal "Established connectivity to packages.aks.azure.com."
             The variable PACKAGE_DOWNLOAD_BASE_URL should equal "packages.aks.azure.com"
         End
-    End       
+    End
 
     Describe 'pkgVersionsV2'
         It 'returns release version r2004 for package pkgVersionsV2 in UBUNTU 20.04'
@@ -149,9 +144,47 @@ Describe 'cse_helpers.sh'
             When call updateMultiArchVersions "$containerImage"
             The variable MULTI_ARCH_VERSIONS[@] should equal "dummyVersion3 dummyVersion4 dummyVersion5"
         End
+        It 'returns multiArchVersions for containerImage mcr.microsoft.com/windows/nanoserver'
+            containerImage=$(readContainerImage "mcr.microsoft.com/windows/windowstestimage")
+            When call updateMultiArchVersions "$containerImage"
+            The variable MULTI_ARCH_VERSIONS[@] should be undefined
+        End
     End
 
-        Describe 'addKubeletNodeLabel'
+    Describe 'getLatestPkgVersionFromK8sVersion'
+    COMPONENTS_FILEPATH="spec/parts/linux/cloud-init/artifacts/test_components.json"
+
+        It 'returns correct latestVersion for Ubuntu'
+            k8sVersion="1.32.3"
+            OS="UBUNTU"
+            OS_VERSION="22.04"
+            When call getLatestPkgVersionFromK8sVersion "$k8sVersion" "fake-azure-acr-credential-provider" "$OS" "$OS_VERSION"
+            The output should equal "1.32.3-ubuntu22.04u4"
+        End
+        It 'returns correct latestVersion for AzureLinux'
+            k8sVersion="1.32.3"
+            OS="AZURELINUX"
+            OS_VERSION="3.0"
+            When call getLatestPkgVersionFromK8sVersion "$k8sVersion" "fake-azure-acr-credential-provider" "$OS" "$OS_VERSION"
+            The output should equal '1.32.3-4.azl3'
+        End
+        It 'returns highest latestVersion for Ubuntu if no matching k8s version'
+            k8sVersion="1.34.0"
+            OS="UBUNTU"
+            OS_VERSION="22.04"
+            When call getLatestPkgVersionFromK8sVersion "$k8sVersion" "fake-azure-acr-credential-provider" "$OS" "$OS_VERSION"
+            The output should equal "1.32.3-ubuntu22.04u4"
+        End
+        It 'returns highest latestVersion for AzureLinux if no matching k8s version'
+            k8sVersion="1.34.0"
+            OS="AZURELINUX"
+            OS_VERSION="3.0"
+            When call getLatestPkgVersionFromK8sVersion "$k8sVersion" "fake-azure-acr-credential-provider" "$OS" "$OS_VERSION"
+            The output should equal '1.32.3-4.azl3'
+        End
+    End
+
+    Describe 'addKubeletNodeLabel'
         It 'should perform a no-op when the specified label already exists within the label string'
             KUBELET_NODE_LABELS="kubernetes.azure.com/nodepool-type=VirtualMachineScaleSets,kubernetes.azure.com/kubelet-serving-ca=cluster,kubernetes.azure.com/agentpool=wp0"
             When call addKubeletNodeLabel kubernetes.azure.com/kubelet-serving-ca=cluster
@@ -198,6 +231,46 @@ Describe 'cse_helpers.sh'
             The variable KUBELET_NODE_LABELS should equal ''
         End
     End
+
+    Describe 'assert_refresh_token'
+        # Helper function to create a mock JWT token
+        # Usage: create_mock_jwt_token '{"permissions":{"actions":["read","pull"]}}'
+        create_mock_jwt_token() {
+            local payload="$1"
+            # JWT format: header.payload.signature
+            # We only care about the payload for this test
+            local header='{"alg":"none","typ":"JWT"}'
+            local encoded_header=$(printf '%s' "$header" | base64 -w0 | tr '+/' '-_' | tr -d '=')
+            local encoded_payload=$(printf '%s' "$payload" | base64 -w0 | tr '+/' '-_' | tr -d '=')
+            local signature="mock_signature"
+            printf '%s.%s.%s' "$encoded_header" "$encoded_payload" "$signature"
+        }
+
+        It 'should fail for no read RBAC token'
+            # Create a token with permissions but without "read"
+            local token=$(create_mock_jwt_token '{"permissions":{"actions":["delete"]}}')
+            When run assert_refresh_token "$token" "read"
+            The status should equal 212  # ERR_ORAS_PULL_UNAUTHORIZED
+            The stdout should include "Required action 'read' not found in token permissions"
+        End
+
+        It 'should pass read RBAC token'
+            # Create a token with permissions including "read"
+            local token=$(create_mock_jwt_token '{"permissions":{"actions":["read", "delete"]}}')
+            When run assert_refresh_token "$token" "read"
+            The status should be success
+            The stdout should include "Token validation passed"
+        End
+
+        It 'should pass ABAC token'
+            # Create a token without permissions field (ABAC token)
+            local token=$(create_mock_jwt_token '{"sub":"test@example.com","exp":1234567890}')
+            When run assert_refresh_token "$token" "read"
+            The status should be success
+            The stdout should include "No permissions field found in token. Assuming ABAC token, skipping permission validation"
+        End
+    End
+
     Describe 'oras_login_with_kubelet_identity'
         It 'should return if client_id or tenant_id is empty'
             local acr_url="unneeded.azurecr.io"
@@ -208,10 +281,10 @@ Describe 'cse_helpers.sh'
             The stdout should include "client_id or tenant_id are not set. Oras login is not possible, proceeding with anonymous pull"
         End
         It 'should fail if access token is an error'
-            retrycmd_can_oras_ls_acr() {
+            retrycmd_can_oras_ls_acr_anonymously() {
                 return 1
             }
-            retrycmd_get_access_token_for_oras(){
+            retrycmd_get_aad_access_token(){
                 echo "failed to retrieve kubelet identity token from IMDS, http code: 400, msg: {\"error\":\"invalid_request\",\"error_description\":\"Identity not found\"}"
                 return $ERR_ORAS_PULL_UNAUTHORIZED
             }
@@ -222,12 +295,12 @@ Describe 'cse_helpers.sh'
             When run oras_login_with_kubelet_identity $acr_url $client_id $tenant_id
             The status should be failure
             The stdout should include "failed to retrieve kubelet identity token"
-        End  
+        End
         It 'should fail if refresh token is an error'
-            retrycmd_can_oras_ls_acr() {
+            retrycmd_can_oras_ls_acr_anonymously() {
                 return 1
             }
-            retrycmd_get_access_token_for_oras(){
+            retrycmd_get_aad_access_token(){
                 echo "{\"access_token\":\"myAccessToken\"}"
             }
             retrycmd_get_refresh_token_for_oras(){
@@ -239,12 +312,12 @@ Describe 'cse_helpers.sh'
             When run oras_login_with_kubelet_identity $acr_url $client_id $tenant_id
             The status should be failure
             The stdout should include "failed to retrieve refresh token"
-        End  
+        End
         It 'should fail if oras cannot login'
-            retrycmd_can_oras_ls_acr() {
+            retrycmd_can_oras_ls_acr_anonymously() {
                 return 1
             }
-            retrycmd_get_access_token_for_oras(){
+            retrycmd_get_aad_access_token(){
                 echo "{\"access_token\":\"myAccessToken\"}"
             }
             retrycmd_get_refresh_token_for_oras(){
@@ -259,9 +332,9 @@ Describe 'cse_helpers.sh'
             When run oras_login_with_kubelet_identity $acr_url $client_id $tenant_id
             The status should be failure
             The stdout should include "failed to login to acr '$acr_url' with identity token"
-        End  
+        End
         It 'should succeed if oras can login'
-            retrycmd_get_access_token_for_oras(){
+            retrycmd_get_aad_access_token(){
                 echo "{\"access_token\":\"myAccessToken\"}"
             }
             retrycmd_get_refresh_token_for_oras(){
@@ -270,16 +343,8 @@ Describe 'cse_helpers.sh'
             retrycmd_oras_login(){
                 return 0
             }
-            mock_retrycmd_can_oras_ls_acr_counter=0
-            retrycmd_can_oras_ls_acr() {
-                response_var=-1
-                ((mock_retrycmd_can_oras_ls_acr_counter++))
-                if [[ $mock_retrycmd_can_oras_ls_acr_counter -eq 1 ]]; then
-                    response_var=1
-                else
-                    response_var=0
-                fi
-                return $response_var
+            retrycmd_can_oras_ls_acr_anonymously() {
+                return 1
             }
 
             local acr_url="success.azurecr.io"
@@ -329,6 +394,228 @@ Describe 'cse_helpers.sh'
             When call updateKubeBinaryRegistryURL
             The variable KUBE_BINARY_REGISTRY_URL should equal "$BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER/oss/binaries/kubernetes/kubernetes-node:v1.30.0-linux-amd64"
             The output line 1 should equal "KUBE_BINARY_URL is formatted unexpectedly, will use the kubernetes version as binary version: v$KUBERNETES_VERSION"
+        End
+    End
+
+    Describe 'configureSSHService'
+        systemctl() {
+            case "$1" in
+                "is-active")
+                    if  [ "$3" = "ssh" ]; then
+                        [ "${MOCK_SSH_SERVICE_ACTIVE:-false}" = "true" ] && return 0 || return 1
+                    elif [ "$3" = "ssh.socket" ]; then
+                        [ "${MOCK_SSH_SOCKET_ACTIVE:-false}" = "true" ] && return 0 || return 1
+                    fi
+                    ;;
+                "is-enabled")
+                    if  [ "$3" = "ssh.service" ]; then
+                        [ "${MOCK_SSH_SERVICE_ENABLED:-false}" = "true" ] && return 0 || return 1
+                    elif [ "$3" = "ssh.socket" ]; then
+                        [ "${MOCK_SSH_SOCKET_ENABLED:-false}" = "true" ] && return 0 || return 1
+                    fi
+                    ;;
+                "disable")
+                    echo "systemctl disable called with: $*"
+                    return 0
+                    ;;
+                *) return 0 ;;
+            esac
+        }
+
+        systemctlEnableAndStart() {
+            echo "systemctlEnableAndStart called with: $1"
+            return 0
+        }
+
+        rm() {
+            echo "rm called with: $1"
+        }
+
+        semverCompare() {
+            # return 1 if MOCK_VERSION_COMPARE is 1, else return 0
+            if [ "$MOCK_VERSION_COMPARE" = "1" ]; then
+                return 1
+            fi
+            return 0
+        }
+
+        It 'handles non-Ubuntu OS correctly'
+            When call configureSSHService "MARINER"
+            The status should be success
+        End
+
+        It 'handles Ubuntu versions before 22.10 correctly'
+            MOCK_VERSION_COMPARE=0
+            When call configureSSHService "UBUNTU" "22.04"
+            The status should be success
+        End
+
+        It 'handles Ubuntu 24.04 when service is already enabled'
+            MOCK_VERSION_COMPARE=1
+            MOCK_SSH_SERVICE_ENABLED="true"
+            MOCK_SSH_SERVICE_ACTIVE="true"
+            When call configureSSHService "UBUNTU" "24.04"
+            The stdout should include "SSH service successfully reconfigured and started"
+            The status should be success
+        End
+
+        It 'properly configures SSH for Ubuntu 24.04 with active socket'
+            MOCK_VERSION_COMPARE=1
+            MOCK_SSH_SOCKET_ACTIVE="true"
+            MOCK_SSH_SERVICE_ENABLED="false"
+            MOCK_SSH_SERVICE_ACTIVE="true"
+            When call configureSSHService "UBUNTU" "24.04"
+            The stdout should include "systemctlEnableAndStart called with: ssh"
+            The status should be success
+        End
+
+        It 'returns error when SSH service fails to start'
+            MOCK_VERSION_COMPARE=1
+            MOCK_SSH_SOCKET_ACTIVE="true"
+            MOCK_SSH_SERVICE_ENABLED="false"
+            MOCK_SSH_SERVICE_ACTIVE="false"
+            When call configureSSHService "UBUNTU" "24.04"
+            The stdout should include "systemctlEnableAndStart called with: ssh"
+            The status should equal $ERR_SYSTEMCTL_START_FAIL
+        End
+    End
+
+    Describe 'isRegistryUrl'
+        It 'returns true for valid registry url with tag'
+            When call isRegistryUrl 'mcr.microsoft.com/component/binary:1.0'
+            The status should be success
+            The stdout should eq ''
+            The stderr should eq ''
+        End
+
+        It 'returns false for url without tag'
+            When call isRegistryUrl 'mcr.microsoft.com/component/binary'
+            The status should be failure
+            The stdout should eq ''
+            The stderr should eq ''
+        End
+
+        It 'returns false for http url'
+            When call isRegistryUrl 'https://example.com/file.tar.gz'
+            The status should be failure
+            The stdout should eq ''
+            The stderr should eq ''
+        End
+
+        It 'returns true for registry url with complex tag'
+            When call isRegistryUrl 'myrepo.azurecr.io/myimage:1.2.3-beta_4'
+            The status should be success
+            The stdout should eq ''
+            The stderr should eq ''
+        End
+
+        It 'returns false for empty string'
+            When call isRegistryUrl ''
+            The status should be failure
+            The stdout should eq ''
+            The stderr should eq ''
+        End
+    End
+
+    Describe 'extract_value_from_kubelet_flags'
+        It 'extracts value for existing flag'
+            KUBELET_FLAGS="--flag1=value1 --flag2=value2 --flag3=value3"
+            When call extract_value_from_kubelet_flags "$KUBELET_FLAGS" "flag2"
+            The output should eq "value2"
+            The status should be success
+        End
+
+        It 'extracts value for existing flag with dash'
+            KUBELET_FLAGS="--flag1=value1 --flag2=value2 --flag3=value3"
+            When call extract_value_from_kubelet_flags "$KUBELET_FLAGS" "--flag1"
+            The output should eq "value1"
+            The status should be success
+        End
+
+        It 'returns empty string for non-existing flag'
+            KUBELET_FLAGS="--flag1=value1 --flag2=value2 --flag3=value3"
+            When call extract_value_from_kubelet_flags "$KUBELET_FLAGS" "flag4"
+            The output should eq ""
+            The status should be success
+        End
+
+        It 'handles flags without values'
+            KUBELET_FLAGS="--flag1 --flag2=value2 --flag3"
+            When call extract_value_from_kubelet_flags "$KUBELET_FLAGS" "flag1"
+            The output should eq ""
+            The status should be success
+        End
+
+        It 'handles empty KUBELET_FLAGS'
+            KUBELET_FLAGS=""
+            When call extract_value_from_kubelet_flags "$KUBELET_FLAGS" "flag1"
+            The output should eq ""
+            The status should be success
+        End
+
+        It 'handles flags with special characters in values'
+            KUBELET_FLAGS="--flag1=value-with-dash --flag2=value_with_underscore --flag3=value.with.dot"
+            When call extract_value_from_kubelet_flags "$KUBELET_FLAGS" "flag1"
+            The output should eq "value-with-dash"
+            The status should be success
+        End
+    End
+
+    Describe 'get_sandbox_image'
+        It 'get result from containerd config'
+            get_sandbox_image_from_containerd_config(){
+                echo "sandbox_image_from_containerd_config"
+            }
+            When call get_sandbox_image
+            The output should eq "sandbox_image_from_containerd_config"
+            The status should be success
+        End
+
+        It 'get result from kubelet flags if failed to get from containerd config'
+            get_sandbox_image_from_containerd_config(){
+                echo ""
+            }
+            extract_value_from_kubelet_flags(){
+                echo "sandbox_image_from_kubelet_flags"
+            }
+            When call get_sandbox_image
+            The output should eq "sandbox_image_from_kubelet_flags"
+            The status should be success
+        End
+
+        It 'returns empty string if both failed'
+            get_sandbox_image_from_containerd_config(){
+                echo ""
+            }
+            extract_value_from_kubelet_flags(){
+                echo ""
+            }
+            When call get_sandbox_image
+            The output should eq ""
+            The status should be success
+        End
+    End
+
+    Describe 'get_sandbox_image_from_containerd_config'
+        It 'returns empty string if config file does not exist'
+            When call get_sandbox_image_from_containerd_config "non_existing_file"
+            The output should eq ""
+            The status should be success
+        End
+
+        It 'get result from containerd config'
+            cat > existing_file << EOF
+version = 2
+oom_score = -999
+[plugins."io.containerd.grpc.v1.cri"]
+  sandbox_image = "sandbox_image_from_containerd_config"
+[metrics]
+  address = "0.0.0.0:10257"
+EOF
+            When call get_sandbox_image_from_containerd_config "existing_file"
+            The output should eq "sandbox_image_from_containerd_config"
+            The status should be success
+			rm -f existing_file
         End
     End
 End

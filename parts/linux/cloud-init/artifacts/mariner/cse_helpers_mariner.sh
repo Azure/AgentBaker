@@ -24,6 +24,7 @@ dnf_makecache() {
     done
     echo Executed dnf makecache -y $i times
 }
+
 dnf_install() {
     retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
     for i in $(seq 1 $retries); do
@@ -62,5 +63,19 @@ dnf_update() {
     fi
   done
   echo Executed dnf update -y --refresh $i times
+}
+dnf_download() {
+    retries=$1; wait_sleep=$2; timeout=$3; downloadDir=$4; shift && shift && shift && shift
+    mkdir -p "${downloadDir}"
+    for i in $(seq 1 $retries); do
+        dnf download --downloaddir="${downloadDir}" "$@" && break || \
+        if [ $i -eq $retries ]; then
+            return 1
+        else
+            sleep "$wait_sleep"
+            dnf_makecache
+        fi
+    done
+    echo Executed dnf download --downloaddir="\"${downloadDir}\"" "$@" $i times;
 }
 #EOF

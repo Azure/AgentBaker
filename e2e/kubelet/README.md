@@ -162,7 +162,7 @@ map[string]string{
   "--storage-driver-buffer-duration": "\"1m0s\"",
   "--storage-driver-db": "\"cadvisor\"",
   "--storage-driver-host": "\"localhost:8086\"",
-  "--storage-driver-password": "\"root\"",
+  "--storage-driver-password": "\"Placeholder\"",
   "--storage-driver-secure": "\"false\"",
   "--storage-driver-table": "\"stats\"",
   "--storage-driver-user": "\"root\"",

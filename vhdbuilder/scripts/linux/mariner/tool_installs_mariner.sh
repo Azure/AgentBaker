@@ -2,10 +2,6 @@
 
 echo "Sourcing tool_installs_mariner.sh"
 
-installAscBaseline() {
-   echo "Mariner TODO: installAscBaseline"
-}
-
 installBcc() {
     echo "Installing BCC tools..."
     dnf_makecache || exit $ERR_APT_UPDATE_TIMEOUT
@@ -21,7 +17,7 @@ installBpftrace() {
 }
 
 addMarinerNvidiaRepo() {
-    if [ "$OS_VERSION" = "2.0" ]; then 
+    if [ "$OS_VERSION" = "2.0" ]; then
         MARINER_NVIDIA_REPO_FILEPATH="/etc/yum.repos.d/mariner-nvidia.repo"
         touch "${MARINER_NVIDIA_REPO_FILEPATH}"
         cat << EOF > "${MARINER_NVIDIA_REPO_FILEPATH}"
@@ -44,7 +40,7 @@ EOF
 [azurelinux-official-nvidia]
 name=Azure Linux Official Nvidia 3.0 x86_64
 baseurl=https://packages.microsoft.com/azurelinux/3.0/prod/nvidia/x86_64/
-gpgkey=file:///etc/pki/rpm-gpg/MICROSOFT-RPM-GPG-KEY file:///etc/pki/rpm-gpg/MICROSOFT-METADATA-GPG-KEY
+gpgkey=file:///etc/pki/rpm-gpg/MICROSOFT-RPM-GPG-KEY
 gpgcheck=1
 repo_gpgcheck=1
 enabled=1
@@ -71,7 +67,7 @@ EOF
 setMarinerNetworkdConfig() {
     CONFIG_FILEPATH="/etc/systemd/network/99-dhcp-en.network"
     touch ${CONFIG_FILEPATH}
-    cat << EOF > ${CONFIG_FILEPATH} 
+    cat << EOF > ${CONFIG_FILEPATH}
     [Match]
     Name=eth0
 
@@ -100,7 +96,7 @@ disableDNFAutomatic() {
     # Make sure dnf-automatic is running with the notify timer rather than the auto install timer
     systemctlEnableAndStart dnf-automatic-notifyonly.timer 30 || exit $ERR_SYSTEMCTL_START_FAIL
 
-    # Ensure the automatic install timer is disabled. 
+    # Ensure the automatic install timer is disabled.
     # systemctlDisableAndStop adds .service to the end which doesn't work on timers.
     systemctl disable dnf-automatic-install.service || exit 1
     systemctl mask dnf-automatic-install.service || exit 1
@@ -115,7 +111,7 @@ disableTimesyncd() {
     systemctl stop systemd-timesyncd || exit 1
     systemctl disable systemd-timesyncd || exit 1
     systemctl mask systemd-timesyncd || exit 1
-    
+
     # Before we return, make sure that chronyd is running
     systemctlEnableAndStart chronyd 30 || exit $ERR_SYSTEMCTL_START_FAIL
 }
@@ -170,7 +166,7 @@ enableMarinerKata() {
 }
 
 activateNfConntrack() {
-    # explicitly activate nf_conntrack module so associated sysctls can be properly set 
+    # explicitly activate nf_conntrack module so associated sysctls can be properly set
     echo nf_conntrack >> /etc/modules-load.d/contrack.conf
 }
 
@@ -195,5 +191,5 @@ installFIPS() {
                 grubby --update-kernel=ALL --args="fips=1 boot=$boot_uuid"
         fi
     fi
-    
+
 }

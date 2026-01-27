@@ -4,7 +4,7 @@
 
 AKS Node Controller is a go binary that is responsible for bootstrapping AKS nodes. The controller expects a predefined contract from the client of type [`aksnodeconfigv1.Configuration`](pkg/gen/aksnodeconfig/v1).
 
-AKS Node Controller relies on two Azure mechanisms for injecting the necessary bootstrap data during provisioning: [`Custom Script Extension (CSE)`](https://learn.microsoft.com/en-us/azure/virtual-machines/extensions/custom-script-linux) and [`Custom Data`](https://learn.microsoft.com/en-us/azure/virtual-machines/custom-data}). The bootstrapper should use `GetNodeBootstrapping` which returns the corresponding `CustomData` and `CSE` based on the given `AKSNodeConfig`. For guidance on populating the config, please refer to this [doc](https://github.com/Azure/AgentBaker/tree/dev/pkg/proto/aksnodeconfig/v1).
+AKS Node Controller relies on two Azure mechanisms for injecting the necessary bootstrap data during provisioning: [`Custom Script Extension (CSE)`](https://learn.microsoft.com/en-us/azure/virtual-machines/extensions/custom-script-linux) and [`Custom Data`](https://learn.microsoft.com/en-us/azure/virtual-machines/custom-data}). The bootstrapper should use `GetNodeBootstrapping` which returns the corresponding `CustomData` and `CSE` based on the given `AKSNodeConfig`. For guidance on populating the config, please refer to this [doc](https://github.com/Azure/AgentBaker/tree/master/aks-node-controller/proto).
 
 ## Usage
 
@@ -88,20 +88,20 @@ Clients need to provide CSE and Custom Data. [nodeconfigutils](pkg/nodeconfiguti
 
 1. Custom Data: Contains base64 encoded bootstrap configuration of type [aksnodeconfigv1.Configuration](pkg/gen/aksnodeconfig/v1) in json format which is placed on the node through cloud-init write directive.
 
-Format:
-```yaml
-#cloud-config
-write_files:
-- path: /opt/azure/containers/aks-node-controller-config.json
-  permissions: "0755"
-  owner: root
-  content: !!binary |
-   {{ encodedAKSNodeConfig }}`
-```
+    Format:
+    ```yaml
+    #cloud-config
+    write_files:
+    - path: /opt/azure/containers/aks-node-controller-config.json
+    permissions: "0755"
+    owner: root
+    content: !!binary |
+    {{ encodedAKSNodeConfig }}`
+    ```
 
 2. CSE: Script used to poll bootstrap status and return exit status once complete.
 
-CSE script: `/opt/azure/containers/aks-node-controller provision-wait`
+   CSE script: `/opt/azure/containers/aks-node-controller provision-wait`
 
 
 #### Provisioning flow diagram:
@@ -134,5 +134,12 @@ Key components:
 1. `aks-node-controller.service`: systemd unit that is triggered once cloud-init is complete (guaranteeing that config is present on disk) and then kickstarts bootstrapping.
 2. `aks-node-controller` go binary with two modes:
 
-- **provision**: parses the node config and triggers bootstrap process
-- **provision-wait**: waits for `provision.complete` to be present and reads `provision.json` which contains the provision output of type `CSEStatus` and is returned by CSE through capturing stdout
+- **provision**: Parses the node configuration and starts the bootstrap sequence.
+    - The controller performs a tolerant (forward‑compatible) parse of `aksnodeconfigv1.Configuration`: unknown fields, additional enum values, or future‑version knobs are ignored (and may be logged) so that a newer control‑plane can talk to an older VHD image.
+    - If the config cannot be safely interpreted (e.g. unsupported `Version`, malformed required field, or incompatible schema change), the controller fails fast. It writes the sentinel file `provision.complete` early so the `provision-wait` process stops polling and can surface an error instead of hanging indefinitely.
+    - In a fail‑fast path the normal bootstrap scripts never run, therefore `provision.json` (which would contain the serialized `CSEStatus`) is never created. A typical error looks like:
+        ```
+        failed to read provision.json: open /var/log/azure/aks/provision.json: no such file or directory. One reason could be that AKSNodeConfig is not properly set.
+        ```
+        This indicates the controller exited before emitting `provision.json`. Most commonly the rendered AKSNodeConfig was missing, had the wrong `Version` (expected `v1`), or was written to the wrong path (`/opt/azure/containers/aks-node-controller-config.json`). Fix the config generation, redeploy, and the bootstrap scripts will then populate `provision.json`.
+- **provision-wait**: waits for `provision.complete` to be present and reads `provision.json` which contains the provision output of type `CSEStatus` and is returned by CSE through capturing stdout.
