@@ -255,6 +255,10 @@ func ValidateSysctlConfig(ctx context.Context, s *Scenario, customSysctls map[st
 	}
 }
 
+// ValidateNetworkInterfaceConfig validates network interface configuration settings using ethtool.
+// It identifies network interfaces with slot names matching the enP* pattern (same logic as the udev rule),
+// then verifies that each interface has the expected configuration settings (e.g., rx buffer size).
+// The nicConfig map specifies the ethtool settings to validate (key: setting name, value: expected value).
 func ValidateNetworkInterfaceConfig(ctx context.Context, s *Scenario, nicConfig map[string]string) {
 	s.T.Helper()
 	keysToCheck := make([]string, 0, len(nicConfig))
@@ -310,22 +314,18 @@ func ValidateNetworkInterfaceConfig(ctx context.Context, s *Scenario, nicConfig 
 		s.T.Logf("Validating network interface config for NIC: %s", nic)
 
 		for setting, expectedValue := range nicConfig {
-			// Get full ethtool output for debugging
-			debugCommand := []string{
-				"set -ex",
-				fmt.Sprintf("echo '=== Full ethtool output for %s ==='", nic),
-				fmt.Sprintf("sudo ethtool -g %s", nic),
-			}
-			debugResult := execScriptOnVMForScenario(ctx, s, strings.Join(debugCommand, "\n"))
-			s.T.Logf("Full ethtool output for %s:\n%s", nic, debugResult.stdout)
-
+			// Get ethtool JSON output
 			command := []string{
 				"set -ex",
-				fmt.Sprintf("sudo ethtool -g %s | grep -A 5 'Current hardware settings' | grep -i %s: | awk '{print $2}'", nic, setting),
+				fmt.Sprintf("sudo ethtool --json -g %s", nic),
 			}
 			execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "could not get ethtool config")
-			s.T.Logf("Ethtool setting %s for NIC %s: expected=%s, actual=%s", setting, nic, expectedValue, strings.TrimSpace(execResult.stdout))
-			require.Contains(s.T, execResult.stdout, expectedValue, "expected to find %s set to %v on nic %s, but was not.\nStdout:\n%s", setting, expectedValue, nic, execResult.stdout)
+			s.T.Logf("Ethtool JSON output for %s:\n%s", nic, execResult.stdout)
+
+			actualValue := gjson.Get(execResult.stdout, "0."+setting).String()
+
+			s.T.Logf("Ethtool setting %s for NIC %s: expected=%s, actual=%s", setting, nic, expectedValue, actualValue)
+			require.Equal(s.T, expectedValue, actualValue, "expected %s to be %s on nic %s, but got %s", setting, expectedValue, nic, actualValue)
 		}
 	}
 }

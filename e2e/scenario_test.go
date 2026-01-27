@@ -1032,8 +1032,6 @@ func Test_Ubuntu2404Gen2_RxBuffer_Default_4CorePlus(t *testing.T) {
 					Enabled: false,
 				}
 				nbc.AgentPoolProfile.VMSize = "Standard_D8s_v3"
-				customLinuxConfig := &datamodel.CustomLinuxOSConfig{}
-				nbc.AgentPoolProfile.CustomLinuxOSConfig = customLinuxConfig
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_D8s_v3")
@@ -1145,6 +1143,58 @@ func Test_AzureLinuxV3_RxBuffer_Default_4CorePlus(t *testing.T) {
 		},
 	})
 }
+
+func Test_AzureLinux3OSGuard_RxBuffer_Default_2Core(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "tests that RxBuffer remains at current value (1024) for AzureLinux3 OSGuard (FIPS) on 2-core VM",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDAzureLinux3OSGuard,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{
+					Enabled: false,
+				}
+				nbc.AgentPoolProfile.LocalDNSProfile = nil
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateRxBufferDefault(ctx, s)
+			},
+		},
+	})
+}
+
+func Test_AzureLinux3OSGuard_RxBuffer_Default_4CorePlus(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "tests that RxBuffer is set to default value (2048) for AzureLinux3 OSGuard (FIPS) with 4+ cores",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDAzureLinux3OSGuard,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{
+					Enabled: false,
+				}
+				nbc.AgentPoolProfile.LocalDNSProfile = nil
+				nbc.AgentPoolProfile.VMSize = "Standard_D8s_v3"
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
+				vmss.SKU.Name = to.Ptr("Standard_D8s_v3")
+				if vmss.Properties != nil && vmss.Properties.VirtualMachineProfile != nil &&
+					vmss.Properties.VirtualMachineProfile.NetworkProfile != nil &&
+					len(vmss.Properties.VirtualMachineProfile.NetworkProfile.NetworkInterfaceConfigurations) > 0 {
+					vmss.Properties.VirtualMachineProfile.NetworkProfile.NetworkInterfaceConfigurations[0].Properties.EnableAcceleratedNetworking = to.Ptr(true)
+				}
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateRxBufferDefault(ctx, s)
+			},
+		},
+	})
+}
+
 func Test_Ubuntu2204_GPUNC(t *testing.T) {
 	runScenarioUbuntu2204GPU(t, "Standard_NC6s_v3")
 }
