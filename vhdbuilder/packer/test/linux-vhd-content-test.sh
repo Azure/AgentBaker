@@ -199,16 +199,19 @@ testPackagesInstalled() {
       if (echo "$FEATURE_FLAGS" | grep -q "kata"); then
         OS=${MARINER_KATA_OS_NAME}
       fi
-    elif [ "$OS_SKU" = "AzureLinux" ] && [ "$OS_VERSION" = "3.0" ]; then
+    elif [ "$OS_SKU" = "AzureLinux" ]; then
       OS=$AZURELINUX_OS_NAME
       if (echo "$FEATURE_FLAGS" | grep -q "kata"); then
         OS=${AZURELINUX_KATA_OS_NAME}
       fi
+    elif [ "$OS_SKU" = "AzureLinuxOSGuard" ]; then
+      OS=$AZURELINUX_OS_NAME
+      OS_VARIANT=OSGUARD
     else
       OS=$UBUNTU_OS_NAME
     fi
-    updatePackageVersions "${p}" "${OS}" "${OS_VERSION}"
-    updatePackageDownloadURL "${p}" "${OS}" "${OS_VERSION}"
+    updatePackageVersions "${p}" "${OS}" "${OS_VERSION}" "${OS_VARIANT}"
+    updatePackageDownloadURL "${p}" "${OS}" "${OS_VERSION}" "${OS_VARIANT}"
     case "${name}" in
       "kubernetes-binaries")
         # kubernetes-binaries, namely, kubelet and kubectl are installed in a different way so we test them separately
