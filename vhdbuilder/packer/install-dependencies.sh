@@ -308,6 +308,7 @@ while IFS= read -r p; do
       done
       ;;
     "containernetworking-plugins")
+      #only ever one version of refence plugins because we never update it in CSE or with daemonset
       installCNI
       ;;
     "runc")
