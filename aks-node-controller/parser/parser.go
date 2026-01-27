@@ -85,6 +85,8 @@ func getCSEEnv(config *aksnodeconfigv1.Configuration) map[string]string {
 		"CONFIG_GPU_DRIVER_IF_NEEDED":                        fmt.Sprintf("%v", config.GetGpuConfig().GetConfigGpuDriver()),
 		"ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED":                 fmt.Sprintf("%v", config.GetGpuConfig().GetGpuDevicePlugin()),
 		"MANAGED_GPU_EXPERIENCE_AFEC_ENABLED":                fmt.Sprintf("%v", config.GetGpuConfig().GetManagedGpuExperienceAfecEnabled()),
+		"ENABLE_MANAGED_GPU":                                 fmt.Sprintf("%v", config.GetGpuConfig().GetEnableManagedGpu()),
+		"NVIDIA_MIG_STRATEGY":                                config.GetGpuConfig().GetMigStrategy(),
 		"TELEPORTD_PLUGIN_DOWNLOAD_URL":                      config.GetTeleportConfig().GetTeleportdPluginDownloadUrl(),
 		"CREDENTIAL_PROVIDER_DOWNLOAD_URL":                   config.GetKubeBinaryConfig().GetLinuxCredentialProviderUrl(),
 		"CONTAINERD_VERSION":                                 config.GetContainerdConfig().GetContainerdVersion(),

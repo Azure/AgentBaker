@@ -22,4 +22,12 @@ message GpuConfig {
 
   // Specifies whether the managed GPU experience AFEC (Azure Feature Engineering Configuration) is enabled.
   bool managed_gpu_experience_afec_enabled = 6;
+
+  // Specifies whether managed GPU is enabled.
+  bool enable_managed_gpu = 7;
+
+  // mig_strategy specifies the MIG strategy for the nvidia-device-plugin.
+  // Valid values are "None", "Single", "Mixed". Only meaningful when MIG is enabled
+  // (i.e., when gpu_instance_profile is set). Defaults to "Single" if not specified.
+  string mig_strategy = 8;
 }
