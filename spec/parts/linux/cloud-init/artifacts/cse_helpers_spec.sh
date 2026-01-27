@@ -136,11 +136,6 @@ Describe 'cse_helpers.sh'
             When call updateMultiArchVersions "$containerImage"
             The variable MULTI_ARCH_VERSIONS[@] should equal "dummyVersion1.1 dummyVersion1 dummyVersion2.1 dummyVersion2"
         End
-        It 'returns multiArchVersions for containerImage mcr.microsoft.com/dummyImageWithOldMultiArchVersions'
-            containerImage=$(readContainerImage "mcr.microsoft.com/dummyImageWithOldMultiArchVersions")
-            When call updateMultiArchVersions "$containerImage"
-            The variable MULTI_ARCH_VERSIONS[@] should equal "dummyVersion3 dummyVersion4 dummyVersion5"
-        End
         It 'returns multiArchVersions for containerImage mcr.microsoft.com/windows/nanoserver'
             containerImage=$(readContainerImage "mcr.microsoft.com/windows/windowstestimage")
             When call updateMultiArchVersions "$containerImage"

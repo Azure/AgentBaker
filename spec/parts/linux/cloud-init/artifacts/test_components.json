@@ -28,15 +28,6 @@
           "previousLatestVersion": "dummyVersion2"
         }
       ]
-    },
-    {
-      "downloadURL": "mcr.microsoft.com/dummyImageWithOldMultiArchVersions:*",
-      "amd64OnlyVersions": [],
-      "multiArchVersions": [
-        "dummyVersion3",
-        "dummyVersion4",
-        "dummyVersion5"
-      ]
     }
   ],
   "Packages": [

@@ -881,9 +881,9 @@ updatePackageVersions() {
     return
 }
 
-# sets MULTI_ARCH_VERSIONS to multiArchVersionsV2 if it exists, otherwise multiArchVersions
+# sets MULTI_ARCH_VERSIONS to multiArchVersionsV2
 updateMultiArchVersions() {
-    readarray -t MULTI_ARCH_VERSIONS < <(jq -r "if .multiArchVersionsV2 == null then .multiArchVersions // [] else .multiArchVersionsV2 // [] | map(.latestVersion, .previousLatestVersion) end | .[] | values" <<< "$1")
+    readarray -t MULTI_ARCH_VERSIONS < <(jq -r ".multiArchVersionsV2 // [] | map(.latestVersion, .previousLatestVersion) | .[] | values" <<< "$1")
     return
 }
 

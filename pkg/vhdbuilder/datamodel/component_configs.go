@@ -18,7 +18,10 @@ type Components struct {
 type ContainerImage struct {
 	DownloadURL       string   `json:"downloadURL"`
 	Amd64OnlyVersions []string `json:"amd64OnlyVersions"`
-	MultiArchVersions []string `json:"multiArchVersions"`
+	MultiArchVersions []struct {
+		LatestVersion         string `json:"latestVersion"`
+		PreviousLatestVersion string `json:"previousLatestVersion,omitempty"`
+	} `json:"multiArchVersionsV2,omitempty"`
 }
 
 type DownloadFile struct {
@@ -95,7 +98,14 @@ func (c *Components) ToImageList() []string {
 			}
 
 			if image.MultiArchVersions != nil {
-				multiArchImageList, _ := toImageList(image.DownloadURL, image.MultiArchVersions)
+				var versions []string
+				for _, v := range image.MultiArchVersions {
+					versions = append(versions, v.LatestVersion)
+					if v.PreviousLatestVersion != "" {
+						versions = append(versions, v.PreviousLatestVersion)
+					}
+				}
+				multiArchImageList, _ := toImageList(image.DownloadURL, versions)
 				ret = append(ret, multiArchImageList...)
 			}
 		}
@@ -138,7 +148,14 @@ func processProxyImages(image *ContainerImage, ret *[]string) error {
 	}
 
 	if image.MultiArchVersions != nil {
-		multiArchImageList, err = toImageList(image.DownloadURL, image.MultiArchVersions)
+		var versions []string
+		for _, v := range image.MultiArchVersions {
+			versions = append(versions, v.LatestVersion)
+			if v.PreviousLatestVersion != "" {
+				versions = append(versions, v.PreviousLatestVersion)
+			}
+		}
+		multiArchImageList, err = toImageList(image.DownloadURL, versions)
 		if err != nil {
 			return err
 		}

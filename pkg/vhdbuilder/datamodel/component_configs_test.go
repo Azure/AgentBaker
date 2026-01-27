@@ -16,8 +16,12 @@ const (
 			"amd64OnlyVersions": [
 				"mock.000000.1"
 			],
-			"multiArchVersions": [
-				"mock.000000.2"
+			"multiArchVersionsV2": [
+				{
+					"renovateTag": "registry=https://mcr.microsoft.com, name=unittest/mockimage",
+					"latestVersion": "mock.000000.2",
+					"previousLatestVersion": "mock.000000.1"
+				}
 			]
 		}
 	],
@@ -39,15 +43,21 @@ const (
 	"ContainerImages": [
 		{
 			"downloadURL": "mcr.microsoft.com/unittest/mockimage:*",
-			"multiArchVersions": [
-				"mock.000000.1"
+			"multiArchVersionsV2": [
+				{
+					"renovateTag": "registry=https://mcr.microsoft.com, name=unittest/mockimage",
+					"latestVersion": "mock.000000.1"
+				}
 			]
 		},
 		{
 			"downloadURL": "mcr.microsoft.com/unittest/mockimage2:*",
 			"amd64OnlyVersions": [],
-			"multiArchVersions": [
-				"mock.000000.2"
+			"multiArchVersionsV2": [
+				{
+					"renovateTag": "registry=https://mcr.microsoft.com, name=unittest/mockimage2",
+					"latestVersion": "mock.000000.2"
+				}
 			]
 		}
 	],
@@ -73,8 +83,11 @@ const (
 				"amd64OnlyVersions": [
 					"test.111111.0"
 				],
-				"multiArchVersions": [
-					"test.111111.1"
+				"multiArchVersionsV2": [
+					{
+						"renovateTag": "registry=https://mcr.microsoft.com, name=unittest/mockimage",
+						"latestVersion": "test.111111.1"
+					}
 				]
 			}
 		]
@@ -86,8 +99,11 @@ const (
 				"amd64OnlyVersions": [
 					"test.000000.0"
 				],
-				"multiArchVersions": [
-					"test.000000.1"
+				"multiArchVersionsV2": [
+					{
+						"renovateTag": "registry=https://mcr.microsoft.com, name=unittest/mockimage",
+						"latestVersion": "test.000000.1"
+					}
 				]
 			}
 		]
@@ -97,18 +113,21 @@ const (
 
 	MockKubeProxyImageBarebone = `
 {
-    "dockerKubeProxyImages": null,
-    "containerdKubeProxyImages": {
-        "ContainerImages": [
-            {
-                "downloadURL": "mcr.microsoft.com/unittest/mockimage:v*",
-                "amd64OnlyVersions": [],
-                "multiArchVersions": [
-                    "test.000000.1"
-                ]
-            }
-        ]
-    }
+	"dockerKubeProxyImages": null,
+	"containerdKubeProxyImages": {
+		"ContainerImages": [
+			{
+				"downloadURL": "mcr.microsoft.com/unittest/mockimage:v*",
+				"amd64OnlyVersions": [],
+				"multiArchVersionsV2": [
+					{
+						"renovateTag": "registry=https://mcr.microsoft.com, name=unittest/mockimage",
+						"latestVersion": "test.000000.1"
+					}
+				]
+			}
+		]
+	}
 }
 `
 )
@@ -148,7 +167,8 @@ var _ = Describe("Test Components", func() {
 			Expect(components.ContainerImages[0].Amd64OnlyVersions).To(HaveLen(1))
 			Expect(components.ContainerImages[0].MultiArchVersions).To(HaveLen(1))
 			Expect(components.ContainerImages[0].Amd64OnlyVersions[0]).To(Equal("mock.000000.1"))
-			Expect(components.ContainerImages[0].MultiArchVersions[0]).To(Equal("mock.000000.2"))
+			Expect(components.ContainerImages[0].MultiArchVersions[0].LatestVersion).To(Equal("mock.000000.2"))
+			Expect(components.ContainerImages[0].MultiArchVersions[0].PreviousLatestVersion).To(Equal("mock.000000.1"))
 
 			// verify DownloadFiles
 			Expect(components.DownloadFiles).To(HaveLen(1))
@@ -176,11 +196,13 @@ var _ = Describe("Test Components", func() {
 			Expect(components.ContainerImages[0].DownloadURL).To(Equal("mcr.microsoft.com/unittest/mockimage:*"))
 			Expect(components.ContainerImages[0].Amd64OnlyVersions).To(HaveLen(0))
 			Expect(components.ContainerImages[0].MultiArchVersions).To(HaveLen(1))
-			Expect(components.ContainerImages[0].MultiArchVersions[0]).To(Equal("mock.000000.1"))
+			Expect(components.ContainerImages[0].MultiArchVersions[0].LatestVersion).To(Equal("mock.000000.1"))
+			Expect(components.ContainerImages[0].MultiArchVersions[0].PreviousLatestVersion).To(BeEmpty())
 			Expect(components.ContainerImages[1].DownloadURL).To(Equal("mcr.microsoft.com/unittest/mockimage2:*"))
 			Expect(components.ContainerImages[1].Amd64OnlyVersions).To(HaveLen(0))
 			Expect(components.ContainerImages[1].MultiArchVersions).To(HaveLen(1))
-			Expect(components.ContainerImages[1].MultiArchVersions[0]).To(Equal("mock.000000.2"))
+			Expect(components.ContainerImages[1].MultiArchVersions[0].LatestVersion).To(Equal("mock.000000.2"))
+			Expect(components.ContainerImages[1].MultiArchVersions[0].PreviousLatestVersion).To(BeEmpty())
 		})
 	})
 
@@ -198,9 +220,10 @@ var _ = Describe("Test Components", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			imageList := components.ToImageList()
-			Expect(imageList).To(HaveLen(2))
+			Expect(imageList).To(HaveLen(3))
 			Expect(imageList[0]).To(Equal("mcr.microsoft.com/unittest/mockimage:mock.000000.1"))
 			Expect(imageList[1]).To(Equal("mcr.microsoft.com/unittest/mockimage:mock.000000.2"))
+			Expect(imageList[2]).To(Equal("mcr.microsoft.com/unittest/mockimage:mock.000000.1"))
 		})
 	})
 })
@@ -241,14 +264,16 @@ var _ = Describe("Test KubeProxyImages", func() {
 			Expect(kubeProxyImages.DockerKubeProxyImages.ContainerImages[0].Amd64OnlyVersions).To(HaveLen(1))
 			Expect(kubeProxyImages.DockerKubeProxyImages.ContainerImages[0].Amd64OnlyVersions[0]).To(Equal("test.111111.0"))
 			Expect(kubeProxyImages.DockerKubeProxyImages.ContainerImages[0].MultiArchVersions).To(HaveLen(1))
-			Expect(kubeProxyImages.DockerKubeProxyImages.ContainerImages[0].MultiArchVersions[0]).To(Equal("test.111111.1"))
+			Expect(kubeProxyImages.DockerKubeProxyImages.ContainerImages[0].MultiArchVersions[0].LatestVersion).To(Equal("test.111111.1"))
+			Expect(kubeProxyImages.DockerKubeProxyImages.ContainerImages[0].MultiArchVersions[0].PreviousLatestVersion).To(BeEmpty())
 			Expect(kubeProxyImages.ContainerdKubeProxyImages).NotTo(BeNil())
 			Expect(kubeProxyImages.ContainerdKubeProxyImages.ContainerImages).To(HaveLen(1))
 			Expect(kubeProxyImages.ContainerdKubeProxyImages.ContainerImages[0].DownloadURL).To(Equal("mcr.microsoft.com/unittest/mockimage:v*"))
 			Expect(kubeProxyImages.ContainerdKubeProxyImages.ContainerImages[0].Amd64OnlyVersions).To(HaveLen(1))
 			Expect(kubeProxyImages.ContainerdKubeProxyImages.ContainerImages[0].Amd64OnlyVersions[0]).To(Equal("test.000000.0"))
 			Expect(kubeProxyImages.ContainerdKubeProxyImages.ContainerImages[0].MultiArchVersions).To(HaveLen(1))
-			Expect(kubeProxyImages.ContainerdKubeProxyImages.ContainerImages[0].MultiArchVersions[0]).To(Equal("test.000000.1"))
+			Expect(kubeProxyImages.ContainerdKubeProxyImages.ContainerImages[0].MultiArchVersions[0].LatestVersion).To(Equal("test.000000.1"))
+			Expect(kubeProxyImages.ContainerdKubeProxyImages.ContainerImages[0].MultiArchVersions[0].PreviousLatestVersion).To(BeEmpty())
 		})
 
 		It("should return correct components when one of them is nil", func() {
@@ -270,7 +295,8 @@ var _ = Describe("Test KubeProxyImages", func() {
 			Expect(kubeProxyImages.ContainerdKubeProxyImages.ContainerImages[0].DownloadURL).To(Equal("mcr.microsoft.com/unittest/mockimage:v*"))
 			Expect(kubeProxyImages.ContainerdKubeProxyImages.ContainerImages[0].Amd64OnlyVersions).To(HaveLen(0))
 			Expect(kubeProxyImages.ContainerdKubeProxyImages.ContainerImages[0].MultiArchVersions).To(HaveLen(1))
-			Expect(kubeProxyImages.ContainerdKubeProxyImages.ContainerImages[0].MultiArchVersions[0]).To(Equal("test.000000.1"))
+			Expect(kubeProxyImages.ContainerdKubeProxyImages.ContainerImages[0].MultiArchVersions[0].LatestVersion).To(Equal("test.000000.1"))
+			Expect(kubeProxyImages.ContainerdKubeProxyImages.ContainerImages[0].MultiArchVersions[0].PreviousLatestVersion).To(BeEmpty())
 		})
 	})
 
