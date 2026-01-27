@@ -49,6 +49,8 @@ if (![string]::IsNullOrEmpty($componentsJsonFileParam))
 
 . "$HelpersFile"
 
+$CPU_ARCH="cpu-arch"
+
 $componentsJson = Get-Content $ComponentsJsonFile | Out-String | ConvertFrom-Json
 $windowsSettingsJson = Get-Content $WindowsSettingsFile | Out-String | ConvertFrom-Json
 $BaseVersions = GetWindowsBaseVersions $windowsSettingsJson
@@ -61,5 +63,5 @@ foreach ($WindowsSku in $BaseVersions)
     Write-Output "Creating file $fileName"
     Write-Output $WindowsSku > $fileName
 
-    echo $cachedThings | ConvertTo-Json | Write-Output >> $fileName
+    echo $cachedThings | Set-Content -Path $fileName
 }

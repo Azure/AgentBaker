@@ -12,16 +12,16 @@ readPackage() {
 Describe 'cse_install.sh'
     Include "./parts/linux/cloud-init/artifacts/cse_install.sh"
     Include "./parts/linux/cloud-init/artifacts/cse_helpers.sh"
+
     Describe 'installContainerRuntime'
         logs_to_events() {
             echo "mock logs to events calling with $1"
         }
-        NEEDS_CONTAINERD="true"
         COMPONENTS_FILEPATH="spec/parts/linux/cloud-init/artifacts/test_components.json"
         It 'returns expected output for successful installation of fake containerd in UBUNTU 20.04'
             UBUNTU_RELEASE="20.04"
             containerdPackage=$(readPackage "containerd")
-            When call installContainerRuntime 
+            When call installContainerRuntime
             The variable containerdMajorMinorPatchVersion should equal "1.2.3"
             The variable containerdHotFixVersion should equal ""
             The output line 3 should equal "mock logs to events calling with AKS.CSE.installContainerRuntime.installStandaloneContainerd"
@@ -31,20 +31,30 @@ Describe 'cse_install.sh'
             UBUNTU_RELEASE="" # mocking Mariner doesn't have command `lsb_release -cs`
             OS="MARINER"
             containerdPackage=$(readPackage "containerd")
-            When call installContainerRuntime 
+            When call installContainerRuntime
             The variable containerdMajorMinorPatchVersion should equal "1.2.3"
             The variable containerdHotFixVersion should equal "5.fake"
             The output line 3 should equal "mock logs to events calling with AKS.CSE.installContainerRuntime.installStandaloneContainerd"
             The output line 4 should equal "in installContainerRuntime - CONTAINERD_VERSION = 1.2.3-5.fake"
         End
+        # TODO(mheberling): In a ~month this will probably be removed when we use the standard containerd.
         It 'skips the containerd installation for Mariner with Kata'
             UBUNTU_RELEASE="" # mocking Mariner doesn't have command `lsb_release -cs`
             OS="MARINER"
             containerdPackage=$(readPackage "containerd")
             IS_KATA="true"
             When call installContainerRuntime
-            The output line 3 should equal "INFO: containerd package versions array is either empty or the first element is <SKIP>. Skipping containerd installation."   
-        End         
+            The output line 3 should equal "INFO: containerd package versions array is either empty or the first element is <SKIP>. Skipping containerd installation."
+        End
+        # TODO(mheberling): In a ~month this will probably be removed when we use the standard containerd.
+        It 'skips the containerd installation for AzureLinux with Kata'
+            UBUNTU_RELEASE="" # mocking Mariner doesn't have command `lsb_release -cs`
+            OS="AZURELINUX"
+            containerdPackage=$(readPackage "containerd")
+            IS_KATA="true"
+            When call installContainerRuntime
+            The output line 3 should equal "INFO: containerd package versions array is either empty or the first element is <SKIP>. Skipping containerd installation."
+        End
         It 'returns expected output for successful installation of containerd in AzureLinux'
             UBUNTU_RELEASE="" # mocking AzureLinux doesn't have command `lsb_release -cs`
             OS="AZURELINUX"
@@ -60,11 +70,12 @@ Describe 'cse_install.sh'
             installContainerdWithManifestJson() {
                 echo "mock installContainerdWithManifestJson calling"
             }
-            When call installContainerRuntime 
+            When call installContainerRuntime
             The output line 2 should equal "Package \"containerd\" does not exist in $COMPONENTS_FILEPATH."
             The output line 3 should equal "mock installContainerdWithManifestJson calling"
         End
     End
+
     Describe 'getInstallModeAndCleanupContainerImages'
         logs_to_events() {
             echo "mock logs to events calling with $1"
@@ -118,8 +129,9 @@ Describe 'cse_install.sh'
             The output line 2 should equal "true"
         End
     End
+
     Describe 'extractKubeBinaries'
-        k8s_version="1.31.5"        
+        k8s_version="1.31.5"
         is_private_url="false"
         k8s_downloads_dir="/opt/kubernetes/downloads"
         ORAS_REGISTRY_CONFIG_FILE=/etc/oras/config.yaml
@@ -163,7 +175,7 @@ Describe 'cse_install.sh'
         export -f logs_to_events
 
         AfterEach 'cleanup'
-        It 'should use retrycmd_get_tarball_from_registry_with_oras to download kube binaries' 
+        It 'should use retrycmd_get_tarball_from_registry_with_oras to download kube binaries'
             kube_binary_url="mcr.microsoft.com/oss/binaries/kubernetes/kubernetes-node:FakeTag"
             When call extractKubeBinaries $k8s_version $kube_binary_url $is_private_url $k8s_downloads_dir
             The status should be success
@@ -185,6 +197,113 @@ Describe 'cse_install.sh'
             When call extractKubeBinaries $k8s_version $kube_binary_url $is_private_url $k8s_downloads_dir
             The status should be failure
             The output line 2 should include "cached package /opt/kubernetes/downloads/private-packages/kubernetes-node-linux-amd64.tar.gz not found"
+        End
+    End
+
+    Describe 'installSecureTLSBootstrapClient'
+        SECURE_TLS_BOOTSTRAP_CLIENT_BIN_DIR="bin"
+        SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_DIR="downloads"
+        CUSTOM_SECURE_TLS_BOOTSTRAPPING_CLIENT_DOWNLOAD_URL="https://packages/custom-client-binary-url.tar.gz"
+
+        sudo() {
+            echo "sudo $@"
+        }
+        chmod() {
+            echo "chmod $@"
+        }
+        tar() {
+            echo "tar $@"
+        }
+        mv() {
+            echo "mv $@"
+        }
+
+        It 'should cleanup binary installation and return when secure TLS bootstrapping is disabled'
+            ENABLE_SECURE_TLS_BOOTSTRAPPING="false"
+            When call installSecureTLSBootstrapClient
+            The output line 1 should equal "secure TLS bootstrapping is disabled, will remove secure TLS bootstrap client binary installation"
+            The status should be success
+        End
+
+        It 'should return with a no-op if CUSTOM_SECURE_TLS_BOOTSTRAPPING_CLIENT_DOWNLOAD_URL is not set'
+            ENABLE_SECURE_TLS_BOOTSTRAPPING="true"
+            CUSTOM_SECURE_TLS_BOOTSTRAPPING_CLIENT_DOWNLOAD_URL=""
+            When call installSecureTLSBootstrapClient
+            The output line 1 should equal "secure TLS bootstrapping is enabled but no custom client download URL was provided, nothing to download"
+            The status should be success
+        End
+
+        It 'should download the secure TLS bootstrap client from the provided custom URL if set'
+            retrycmd_get_tarball() {
+                echo "retrycmd_get_tarball $@"
+                touch "${SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_DIR}/custom-client-binary-url.tar.gz"
+            }
+
+            ENABLE_SECURE_TLS_BOOTSTRAPPING="true"
+            When call installSecureTLSBootstrapClient
+            The output should include "installing aks-secure-tls-bootstrap-client from: https://packages/custom-client-binary-url.tar.gz"
+            The output should include "retrycmd_get_tarball 120 5 downloads/custom-client-binary-url.tar.gz https://packages/custom-client-binary-url.tar.gz"
+            The output should include "tar -xvzf downloads/custom-client-binary-url.tar.gz -C downloads/"
+            The output should include "mv downloads/aks-secure-tls-bootstrap-client bin"
+            The output should include "chmod 755 bin/aks-secure-tls-bootstrap-client"
+            The output should include "aks-secure-tls-bootstrap-client installed successfully"
+            The status should be success
+        End
+    End
+
+    Describe 'installKubeletKubectlFromBootstrapProfileRegistry'
+        logs_to_events() {
+            echo "logs_to_events $1 $2"
+            # Execute the actual function that was passed
+            eval "$2"
+        }
+
+        exit() {
+            echo "mock exit calling with $1"
+        }
+
+        installToolFromBootstrapProfileRegistry() {
+            echo "installToolFromBootstrapProfileRegistry"
+        }
+
+        installKubeletKubectlFromURL() {
+            echo "installKubeletKubectlFromURL"
+        }
+
+        BeforeEach() {
+            SHOULD_ENFORCE_KUBE_PMC_INSTALL="false"
+            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myregistry.azurecr.io"
+            KUBERNETES_VERSION="1.34.0"
+        }
+
+        It 'should call installKubeletKubectlFromBootstrapProfileRegistry'
+            When call installKubeletKubectlFromBootstrapProfileRegistry $BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER $KUBERNETES_VERSION
+            The status should be success
+            The output should include "installToolFromBootstrapProfileRegistry"
+            The output should not include "installKubeletKubectlFromURL"
+        End
+
+        It 'should call installKubeletKubectlFromURL if installToolFromBootstrapProfileRegistry fails'
+            installToolFromBootstrapProfileRegistry() {
+                echo "installToolFromBootstrapProfileRegistry fails"
+                return 1
+            }
+            When call installKubeletKubectlFromBootstrapProfileRegistry $BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER $KUBERNETES_VERSION
+            The status should be success
+            The output line 1 should include "installToolFromBootstrapProfileRegistry fails"
+            The output line 2 should include "installKubeletKubectlFromURL"
+        End
+
+        It 'should not call installKubeletKubectlFromURL if installToolFromBootstrapProfileRegistry fails but SHOULD_ENFORCE_KUBE_PMC_INSTALL is true'
+            installToolFromBootstrapProfileRegistry() {
+                echo "installToolFromBootstrapProfileRegistry fails"
+                return 1
+            }
+            SHOULD_ENFORCE_KUBE_PMC_INSTALL="true"
+            When call installKubeletKubectlFromBootstrapProfileRegistry $BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER $KUBERNETES_VERSION
+            The output line 1 should include "installToolFromBootstrapProfileRegistry fails"
+            The output line 2 should include "Failed to install k8s tools from bootstrap profile registry, and not falling back to binary installation due to SHOULD_ENFORCE_KUBE_PMC_INSTALL=true"
+            The output line 3 should include "mock exit calling with 207"
         End
     End
 End

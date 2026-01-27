@@ -55,7 +55,7 @@ capture_benchmark "${SCRIPT_NAME}_set_variables_for_converting_to_disk"
 
 echo "Converting $sig_resource_id to $disk_resource_id"
 if [ "${OS_TYPE}" = "Linux" ] && [ "${ENABLE_TRUSTED_LAUNCH}" = "True" ]; then
-  az resource create --id $disk_resource_id  --is-full-object --location $LOCATION --properties "{\"location\": \"$LOCATION\", \
+  az resource create --id $disk_resource_id  --api-version 2024-03-02 --is-full-object --location $LOCATION --properties "{\"location\": \"$LOCATION\", \
     \"properties\": { \
       \"osType\": \"$OS_TYPE\", \
       \"securityProfile\": { \
@@ -70,7 +70,7 @@ if [ "${OS_TYPE}" = "Linux" ] && [ "${ENABLE_TRUSTED_LAUNCH}" = "True" ]; then
     } \
   }"
 elif [ "${OS_TYPE}" = "Linux" ] && grep -q "cvm" <<< "$FEATURE_FLAGS"; then
-  az resource create --id $disk_resource_id  --is-full-object --location $LOCATION --properties "{\"location\": \"$LOCATION\", \
+  az resource create --id $disk_resource_id --api-version 2024-03-02 --is-full-object --location $LOCATION --properties "{\"location\": \"$LOCATION\", \
     \"properties\": { \
       \"osType\": \"$OS_TYPE\", \
       \"securityProfile\": { \
@@ -84,8 +84,22 @@ elif [ "${OS_TYPE}" = "Linux" ] && grep -q "cvm" <<< "$FEATURE_FLAGS"; then
       } \
     } \
   }"
+elif [ "${OS_TYPE}" = "Linux" ] && grep -q "GB200" <<< "$FEATURE_FLAGS"; then
+  echo "GB200: Creating standard disk from SIG image"
+  # GB200 uses standard disk creation for now, but can be customized in the future if needed
+  az resource create --id $disk_resource_id  --api-version 2024-03-02 --is-full-object --location $LOCATION --properties "{\"location\": \"$LOCATION\", \
+    \"properties\": { \
+      \"osType\": \"$OS_TYPE\", \
+      \"creationData\": { \
+        \"createOption\": \"FromImage\", \
+        \"galleryImageReference\": { \
+          \"id\": \"${sig_resource_id}\" \
+        } \
+      } \
+    } \
+  }"
 else
-  az resource create --id $disk_resource_id  --is-full-object --location $LOCATION --properties "{\"location\": \"$LOCATION\", \
+  az resource create --id $disk_resource_id  --api-version 2024-03-02 --is-full-object --location $LOCATION --properties "{\"location\": \"$LOCATION\", \
     \"properties\": { \
       \"osType\": \"$OS_TYPE\", \
       \"creationData\": { \
@@ -118,20 +132,46 @@ capture_benchmark "${SCRIPT_NAME}_grant_access_to_disk"
 echo "Uploading $disk_resource_id to ${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd"
 
 echo "Setting azcopy environment variables with pool identity: $AZURE_MSI_RESOURCE_STRING"
-export AZCOPY_AUTO_LOGIN_TYPE="MSI"
-export AZCOPY_MSI_RESOURCE_STRING="$AZURE_MSI_RESOURCE_STRING"
-
+export AZCOPY_AUTO_LOGIN_TYPE="AZCLI"
 export AZCOPY_CONCURRENCY_VALUE="AUTO"
-azcopy copy "${sas}" "${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd" --recursive=true || exit $?
+export AZCOPY_LOG_LOCATION="$(pwd)/azcopy-log-files/"
+export AZCOPY_JOB_PLAN_LOCATION="$(pwd)/azcopy-job-plan-files/"
+mkdir -p "${AZCOPY_LOG_LOCATION}"
+mkdir -p "${AZCOPY_JOB_PLAN_LOCATION}"
+
+if ! azcopy copy "${sas}" "${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd" --recursive=true ; then
+  azExitCode=$?
+  # loop through azcopy log files
+  shopt -s nullglob
+  for f in "${AZCOPY_LOG_LOCATION}"/*.log; do
+    echo "Azcopy log file: $f"
+    # upload the log file as an attachment to vso
+    echo "##vso[build.uploadlog]$f"
+    # check if the log file contains any errors
+    if grep -q '"level":"Error"' "$f"; then
+ 	 echo "log file $f contains errors"
+     echo "##vso[task.logissue type=error]Azcopy log file $f contains errors"
+      # print the log file
+      cat "$f"
+    fi
+  done
+  shopt -u nullglob
+  exit $azExitCode
+fi
 
 echo "Uploaded $disk_resource_id to ${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd"
 capture_benchmark "${SCRIPT_NAME}_upload_disk_to_blob"
 
-az disk revoke-access --ids $disk_resource_id 
+if ! az disk revoke-access --ids $disk_resource_id; then
+  echo "##vso[task.logissue type=warning]unable to revoke access to $disk_resource_id"
+fi
 
-az resource delete --ids $disk_resource_id
+if ! az resource delete --ids $disk_resource_id; then
+  echo "##vso[task.logissue type=warning]unable to delete $disk_resource_id"
+else
+  echo "deleted $disk_resource_id"
+fi
 
-echo "Deleted $disk_resource_id"
 capture_benchmark "${SCRIPT_NAME}_revoke_access_and_delete_disk"
 
 capture_benchmark "${SCRIPT_NAME}_overall" true

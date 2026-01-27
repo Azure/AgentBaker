@@ -1,5 +1,5 @@
 #!/bin/bash
-OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
+OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID=(.*))$/, a) { print toupper(a[2]); exit }')
 UBUNTU_OS_NAME="UBUNTU"
 
 source /home/packer/provision_installs.sh
@@ -19,13 +19,16 @@ MAX_BLOCK_COUNT=30298176 # 30 GB
 capture_benchmark "${SCRIPT_NAME}_source_packer_files_and_declare_variables"
 
 if [ $OS = $UBUNTU_OS_NAME ]; then
-  # shellcheck disable=SC2021
-  current_kernel="$(uname -r | cut -d- -f-2)"
-  # shellcheck disable=SC3010
-  if [[ "${ENABLE_FIPS,,}" == "true" ]]; then
-    dpkg --get-selections | grep -e "linux-\(headers\|modules\|image\)" | grep -v "$current_kernel" | grep -v "fips" | tr -s '[[:space:]]' | tr '\t' ' ' | cut -d' ' -f1 | xargs -I{} apt-get --purge remove -yq {}
-  else
-    dpkg --get-selections | grep -e "linux-\(headers\|modules\|image\)" | grep -v "linux-\(headers\|modules\|image\)-azure" | grep -v "$current_kernel" | tr -s '[[:space:]]' | tr '\t' ' ' | cut -d' ' -f1 | xargs -I{} apt-get --purge remove -yq {}
+  # We do not purge extra kernels from the Ubuntu 24.04 ARM image, since that image must dual-boot for GB200.
+  if [ $CPU_ARCH != "arm64" ] || [ $UBUNTU_RELEASE != "24.04" ]; then
+    # shellcheck disable=SC2021
+    current_kernel="$(uname -r | cut -d- -f-2)"
+    # shellcheck disable=SC3010
+    if [[ "${ENABLE_FIPS,,}" == "true" ]]; then
+      dpkg --get-selections | grep -e "linux-\(headers\|modules\|image\)" | grep -v "$current_kernel" | grep -v "fips" | tr -s '[[:space:]]' | tr '\t' ' ' | cut -d' ' -f1 | xargs -I{} apt-get --purge remove -yq {}
+    else
+      dpkg --get-selections | grep -e "linux-\(headers\|modules\|image\)" | grep -v "linux-\(headers\|modules\|image\)-azure" | grep -v "$current_kernel" | tr -s '[[:space:]]' | tr '\t' ' ' | cut -d' ' -f1 | xargs -I{} apt-get --purge remove -yq {}
+    fi
   fi
 
   # remove apport
@@ -37,9 +40,8 @@ if [ $OS = $UBUNTU_OS_NAME ]; then
   retrycmd_if_failure 10 2 60 apt-get -y clean || exit 1
   capture_benchmark "${SCRIPT_NAME}_purge_ubuntu_kernels_and_packages"
 
-  # Final step, if 18.04 or FIPS, log ua status, detach UA and clean up
-  # shellcheck disable=SC3010
-  if [[ "${UBUNTU_RELEASE}" == "18.04" ]] || [[ "${UBUNTU_RELEASE}" == "20.04" ]] || [[ "${ENABLE_FIPS,,}" == "true" ]]; then
+  # Final step, FIPS, log ua status, detach UA and clean up
+  if [ "${UBUNTU_RELEASE}" = "20.04" ] || [ "${ENABLE_FIPS,,}" = "true" ]; then
     # 'ua status' for logging
     ua status
     detachAndCleanUpUA
@@ -52,7 +54,7 @@ echo "kubelet/kubectl downloaded:" >> ${VHD_LOGS_FILEPATH}
 ls -ltr /usr/local/bin/* >> ${VHD_LOGS_FILEPATH}
 
 # shellcheck disable=SC2010
-ls -ltr /dev/* | grep sgx >>  ${VHD_LOGS_FILEPATH} 
+ls -ltr /dev/* | grep sgx >>  ${VHD_LOGS_FILEPATH}
 
 echo -e "=== Installed Packages Begin\n$(listInstalledPackages)\n=== Installed Packages End" >> ${VHD_LOGS_FILEPATH}
 
@@ -71,6 +73,10 @@ echo -e "=== os-release Begin" >> ${VHD_LOGS_FILEPATH}
 cat /etc/os-release >> ${VHD_LOGS_FILEPATH}
 echo -e "=== os-release End" >> ${VHD_LOGS_FILEPATH}
 
+if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
+  echo -e "PUUID: $(efibootmgr -v)" >> ${VHD_LOGS_FILEPATH}
+fi
+
 echo "Using kernel:" >> ${VHD_LOGS_FILEPATH}
 tee -a ${VHD_LOGS_FILEPATH} < /proc/version
 {
@@ -81,16 +87,9 @@ tee -a ${VHD_LOGS_FILEPATH} < /proc/version
   echo "Ubuntu version: ${UBUNTU_RELEASE}"
   echo "Hyperv generation: ${HYPERV_GENERATION}"
   echo "Feature flags: ${FEATURE_FLAGS}"
-  echo "Container runtime: ${CONTAINER_RUNTIME}"
   echo "FIPS enabled: ${ENABLE_FIPS}"
 } >> ${VHD_LOGS_FILEPATH}
 capture_benchmark "${SCRIPT_NAME}_finish_vhd_build_logs"
-
-if [ "$(isARM64)" -ne 1 ]; then
-  # no asc-baseline-1.1.0-268.arm64.deb
-  installAscBaseline
-fi
-capture_benchmark "${SCRIPT_NAME}_install_asc_baseline"
 
 if [ $OS = $UBUNTU_OS_NAME ]; then
   # shellcheck disable=SC3010

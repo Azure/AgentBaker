@@ -7,11 +7,13 @@ import (
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/reporters"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/format"
 
 	"testing"
 )
 
 var _ = BeforeSuite(func() {
+	format.MaxLength = 20000 // Increase from default ~4000
 })
 
 func TestUtils(t *testing.T) {

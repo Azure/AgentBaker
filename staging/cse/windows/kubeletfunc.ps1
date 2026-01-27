@@ -205,7 +205,7 @@ function Get-KubePackage {
             Write-Log $Error[0].Exception.Message
         }
     }
-    Expand-Archive -path $zipfile -DestinationPath C:\
+    AKS-Expand-Archive -Path $zipfile -DestinationPath C:\ 
     Remove-Item $zipfile
 }
 

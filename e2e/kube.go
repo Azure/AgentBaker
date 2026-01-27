@@ -18,12 +18,9 @@ import (
 	errorsk8s "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/runtime/serializer"
-	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -52,12 +49,8 @@ func getClusterKubeClient(ctx context.Context, resourceGroupName, clusterName st
 	if err != nil {
 		return nil, fmt.Errorf("convert kubeconfig bytes to rest config: %w", err)
 	}
-	config.NegotiatedSerializer = serializer.WithoutConversionCodecFactory{CodecFactory: scheme.Codecs}
-	config.APIPath = "/api"
-	config.GroupVersion = &schema.GroupVersion{
-		Version: "v1",
-	}
-	// it's test cluster avoid unnecessary rate limiting
+
+	// it's a test cluster - avoid unnecessary rate limiting
 	config.QPS = 200
 	config.Burst = 400
 
@@ -66,86 +59,91 @@ func getClusterKubeClient(ctx context.Context, resourceGroupName, clusterName st
 		return nil, fmt.Errorf("create dynamic Kubeclient: %w", err)
 	}
 
-	restClient, err := rest.RESTClientFor(config)
+	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		return nil, fmt.Errorf("create rest kube client: %w", err)
+		return nil, fmt.Errorf("creating kubernetes clientset from rest config: %w", err)
 	}
-
-	typed := kubernetes.New(restClient)
 
 	return &Kubeclient{
 		Dynamic:    dynamic,
-		Typed:      typed,
+		Typed:      clientset,
 		RESTConfig: config,
 		KubeConfig: data,
 	}, nil
 }
 
-func (k *Kubeclient) WaitUntilPodRunning(ctx context.Context, t *testing.T, namespace string, labelSelector string, fieldSelector string) (*corev1.Pod, error) {
-	t.Logf("waiting for pod %s %s in %q namespace to be ready", labelSelector, fieldSelector, namespace)
+func (k *Kubeclient) WaitUntilPodRunning(ctx context.Context, namespace string, labelSelector string, fieldSelector string) (*corev1.Pod, error) {
+	logf(ctx, "waiting for pod %s %s in %q namespace to be ready", labelSelector, fieldSelector, namespace)
 
-	watcher, err := k.Typed.CoreV1().Pods(namespace).Watch(ctx, metav1.ListOptions{
-		FieldSelector: fieldSelector,
-		LabelSelector: labelSelector,
-	})
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to start watching pod: %v", err)
-	}
-	defer watcher.Stop()
-
-	logTicker := time.NewTicker(5 * time.Minute)
 	var pod *corev1.Pod
-	for {
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		case <-logTicker.C:
-			if deadline, ok := ctx.Deadline(); ok {
-				remaining := time.Until(deadline)
-				t.Logf("time before timeout: %v\n", remaining)
-			}
-			if pod != nil {
-				logPodDebugInfo(ctx, k, pod, t)
-			}
-		case event := <-watcher.ResultChan():
-			if event.Type != "ADDED" && event.Type != "MODIFIED" {
-				continue
-			}
-			pod = event.Object.(*corev1.Pod)
 
-			for _, containerStatus := range pod.Status.ContainerStatuses {
-				if containerStatus.State.Waiting != nil && containerStatus.State.Waiting.Reason == "CrashLoopBackOff" {
-					logPodDebugInfo(ctx, k, pod, t)
-					return nil, fmt.Errorf("pod %s is in CrashLoopBackOff state", pod.Name)
-				}
-			}
+	err := wait.PollUntilContextTimeout(ctx, time.Second, 5*time.Minute, true, func(ctx context.Context) (bool, error) {
+		pods, err := k.Typed.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{
+			FieldSelector: fieldSelector,
+			LabelSelector: labelSelector,
+		})
+		if err != nil {
+			return false, err
+		}
 
-			switch pod.Status.Phase {
-			case corev1.PodPending:
-				continue
-			case corev1.PodSucceeded:
-				//return pod, nil
-			case corev1.PodRunning:
-				// Check if the pod is ready
-				for _, cond := range pod.Status.Conditions {
-					if cond.Type == "Ready" && cond.Status == "True" {
-						t.Logf("pod %s is ready", pod.Name)
-						return pod, nil
-					}
-				}
-			default:
-				logPodDebugInfo(ctx, k, pod, t)
-				return nil, fmt.Errorf("pod %s is in %s phase", pod.Name, pod.Status.Phase)
+		if len(pods.Items) == 0 {
+			return false, nil // Keep polling
+		}
+
+		pod = &pods.Items[0]
+
+		// Check for container failure states
+		for _, containerStatus := range pod.Status.ContainerStatuses {
+			if containerStatus.State.Waiting != nil && containerStatus.State.Waiting.Reason == "CrashLoopBackOff" {
+				logPodDebugInfo(ctx, k, pod)
+				return false, fmt.Errorf("pod %s is in CrashLoopBackOff state", pod.Name)
 			}
 		}
-	}
+
+		// Check for FailedCreatePodSandBox events
+		events, err := k.Typed.CoreV1().Events(pod.Namespace).List(ctx, metav1.ListOptions{FieldSelector: "involvedObject.name=" + pod.Name})
+		if err == nil {
+			for _, event := range events.Items {
+				if event.Reason == "FailedCreatePodSandBox" {
+					return false, fmt.Errorf("pod %s has FailedCreatePodSandBox event: %s", pod.Name, event.Message)
+				}
+			}
+		}
+
+		switch pod.Status.Phase {
+		case corev1.PodFailed:
+			logPodDebugInfo(ctx, k, pod)
+			return false, fmt.Errorf("pod %s has failed", pod.Name)
+		case corev1.PodPending:
+			return false, nil // Keep polling
+		case corev1.PodSucceeded:
+			return true, nil // Pod completed successfully
+		case corev1.PodRunning:
+			// Check if the pod is ready
+			for _, cond := range pod.Status.Conditions {
+				if cond.Type == "Ready" && cond.Status == "True" {
+					logf(ctx, "pod %s is ready", pod.Name)
+					return true, nil
+				}
+			}
+			return false, nil // Running but not ready yet
+		default:
+			logPodDebugInfo(ctx, k, pod)
+			return false, fmt.Errorf("pod %s is in unexpected phase %s", pod.Name, pod.Status.Phase)
+		}
+	})
+
+	return pod, err
 }
 
-func (k *Kubeclient) WaitUntilNodeReady(ctx context.Context, t *testing.T, vmssName string) string {
-	var node *corev1.Node = nil
-	t.Logf("waiting for node %s to be ready", vmssName)
+func (k *Kubeclient) WaitUntilNodeReady(ctx context.Context, t testing.TB, vmssName string) string {
+	startTime := time.Now()
+	t.Logf("waiting for node %s to be ready in k8s API", vmssName)
+	defer func() {
+		t.Logf("waited for node %s to be ready in k8s API for %s", vmssName, time.Since(startTime))
+	}()
 
+	var node *corev1.Node = nil
 	watcher, err := k.Typed.CoreV1().Nodes().Watch(ctx, metav1.ListOptions{})
 	require.NoError(t, err, "failed to start watching nodes")
 	defer watcher.Stop()
@@ -155,13 +153,22 @@ func (k *Kubeclient) WaitUntilNodeReady(ctx context.Context, t *testing.T, vmssN
 			continue
 		}
 
-		castNode := event.Object.(*corev1.Node)
-		if !strings.HasPrefix(castNode.Name, vmssName) {
+		var nodeFromEvent *corev1.Node
+		switch v := event.Object.(type) {
+		case *corev1.Node:
+			nodeFromEvent = v
+
+		default:
+			t.Logf("skipping object type %T", event.Object)
+			continue
+		}
+
+		if !strings.HasPrefix(nodeFromEvent.Name, vmssName) {
 			continue
 		}
 
 		// found the right node. Use it!
-		node = castNode
+		node = nodeFromEvent
 		nodeTaints, _ := json.Marshal(node.Spec.Taints)
 		nodeConditions, _ := json.Marshal(node.Status.Conditions)
 
@@ -176,7 +183,7 @@ func (k *Kubeclient) WaitUntilNodeReady(ctx context.Context, t *testing.T, vmssN
 	}
 
 	if node == nil {
-		t.Fatalf("failed to find wait for %q to appear in the API server", vmssName)
+		t.Fatalf("%q haven't appeared in k8s API server", vmssName)
 		return ""
 	}
 
@@ -186,17 +193,20 @@ func (k *Kubeclient) WaitUntilNodeReady(ctx context.Context, t *testing.T, vmssN
 }
 
 // GetHostNetworkDebugPod returns a pod that's a member of the 'debug' daemonset, running on an aks-nodepool node.
-func (k *Kubeclient) GetHostNetworkDebugPod(ctx context.Context, t *testing.T) (*corev1.Pod, error) {
-	return k.WaitUntilPodRunning(ctx, t, defaultNamespace, fmt.Sprintf("app=%s", hostNetworkDebugAppLabel), "")
+func (k *Kubeclient) GetHostNetworkDebugPod(ctx context.Context) (*corev1.Pod, error) {
+	return k.WaitUntilPodRunning(ctx, defaultNamespace, fmt.Sprintf("app=%s", hostNetworkDebugAppLabel), "")
 }
 
 // GetPodNetworkDebugPodForNode returns a pod that's a member of the 'debugnonhost' daemonset running in the cluster - this will return
 // the name of the pod that is running on the node created for specifically for the test case which is running validation checks.
-func (k *Kubeclient) GetPodNetworkDebugPodForNode(ctx context.Context, kubeNodeName string, t *testing.T) (*corev1.Pod, error) {
-	return k.WaitUntilPodRunning(ctx, t, defaultNamespace, fmt.Sprintf("app=%s", podNetworkDebugAppLabel), "spec.nodeName="+kubeNodeName)
+func (k *Kubeclient) GetPodNetworkDebugPodForNode(ctx context.Context, kubeNodeName string) (*corev1.Pod, error) {
+	if kubeNodeName == "" {
+		return nil, fmt.Errorf("kubeNodeName must not be empty")
+	}
+	return k.WaitUntilPodRunning(ctx, defaultNamespace, fmt.Sprintf("app=%s", podNetworkDebugAppLabel), "spec.nodeName="+kubeNodeName)
 }
 
-func logPodDebugInfo(ctx context.Context, kube *Kubeclient, pod *corev1.Pod, t *testing.T) {
+func logPodDebugInfo(ctx context.Context, kube *Kubeclient, pod *corev1.Pod) {
 	if pod == nil {
 		return
 	}
@@ -265,9 +275,9 @@ func logPodDebugInfo(ctx context.Context, kube *Kubeclient, pod *corev1.Pod, t *
 		Logs:       string(logs),
 	}, "", "  ")
 	if err != nil {
-		t.Logf("couldn't debug info: %s", info)
+		logf(ctx, "couldn't debug info: %s", info)
 	}
-	t.Log(string(info))
+	logf(ctx, string(info))
 }
 
 func getClusterKubeconfigBytes(ctx context.Context, resourceGroupName, clusterName string) ([]byte, error) {
@@ -284,23 +294,19 @@ func getClusterKubeconfigBytes(ctx context.Context, resourceGroupName, clusterNa
 }
 
 // this is a bit ugly, but we don't want to execute this piece concurrently with other tests
-func (k *Kubeclient) EnsureDebugDaemonsets(ctx context.Context, t *testing.T, isAirgap bool, privateACRName string) error {
-	ds := daemonsetDebug(t, hostNetworkDebugAppLabel, "nodepool1", privateACRName, true, isAirgap)
+func (k *Kubeclient) EnsureDebugDaemonsets(ctx context.Context, isAirgap bool, privateACRName string) error {
+	ds := daemonsetDebug(ctx, hostNetworkDebugAppLabel, "nodepool1", privateACRName, true, isAirgap)
 	err := k.CreateDaemonset(ctx, ds)
 	if err != nil {
 		return err
 	}
 
-	nonHostDS := daemonsetDebug(t, podNetworkDebugAppLabel, "nodepool2", privateACRName, false, isAirgap)
+	nonHostDS := daemonsetDebug(ctx, podNetworkDebugAppLabel, "nodepool2", privateACRName, false, isAirgap)
 	err = k.CreateDaemonset(ctx, nonHostDS)
 	if err != nil {
 		return err
 	}
 
-	err = k.CreateDaemonset(ctx, nvidiaDevicePluginDaemonSet())
-	if err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -316,11 +322,11 @@ func (k *Kubeclient) CreateDaemonset(ctx context.Context, ds *appsv1.DaemonSet) 
 	return nil
 }
 
-func (k *Kubeclient) createKubernetesSecret(ctx context.Context, t *testing.T, namespace, kubeconfigPath, secretName, registryName, username, password string) error {
-	t.Logf("Creating Kubernetes secret %s in namespace %s", secretName, namespace)
+func (k *Kubeclient) createKubernetesSecret(ctx context.Context, namespace, secretName, registryName, username, password string) error {
+	logf(ctx, "Creating Kubernetes secret %s in namespace %s", secretName, namespace)
 	clientset, err := kubernetes.NewForConfig(k.RESTConfig)
 	if err != nil {
-		t.Logf("failed to create Kubernetes client: %v", err)
+		logf(ctx, "failed to create Kubernetes client: %v", err)
 		return err
 	}
 
@@ -348,22 +354,22 @@ func (k *Kubeclient) createKubernetesSecret(ctx context.Context, t *testing.T, n
 	_, err = clientset.CoreV1().Secrets(namespace).Create(ctx, secret, metav1.CreateOptions{})
 	if err != nil {
 		if !errorsk8s.IsAlreadyExists(err) {
-			t.Logf("failed to create Kubernetes secret: %v", err)
+			logf(ctx, "failed to create Kubernetes secret: %v", err)
 			return err
 		}
 	}
-	t.Logf("Kubernetes secret %s created", secretName)
+	logf(ctx, "Kubernetes secret %s created", secretName)
 	return nil
 }
 
-func daemonsetDebug(t *testing.T, deploymentName, targetNodeLabel, privateACRName string, isHostNetwork, isAirgap bool) *appsv1.DaemonSet {
+func daemonsetDebug(ctx context.Context, deploymentName, targetNodeLabel, privateACRName string, isHostNetwork, isAirgap bool) *appsv1.DaemonSet {
 	image := "mcr.microsoft.com/cbl-mariner/base/core:2.0"
 	secretName := ""
 	if isAirgap {
 		image = fmt.Sprintf("%s.azurecr.io/cbl-mariner/base/core:2.0", privateACRName)
 		secretName = config.Config.ACRSecretName
 	}
-	t.Logf("Creating daemonset %s with image %s", deploymentName, image)
+	logf(ctx, "Creating daemonset %s with image %s", deploymentName, image)
 
 	return &appsv1.DaemonSet{
 		TypeMeta: metav1.TypeMeta{
@@ -394,11 +400,16 @@ func daemonsetDebug(t *testing.T, deploymentName, targetNodeLabel, privateACRNam
 					NodeSelector: map[string]string{
 						"kubernetes.azure.com/agentpool": targetNodeLabel,
 					},
-					ImagePullSecrets: []corev1.LocalObjectReference{
-						{
-							Name: secretName,
-						},
-					},
+					ImagePullSecrets: func() []corev1.LocalObjectReference {
+						if secretName == "" {
+							return nil
+						}
+						return []corev1.LocalObjectReference{
+							{
+								Name: secretName,
+							},
+						}
+					}(),
 					HostPID: true,
 					Containers: []corev1.Container{
 						{
@@ -429,6 +440,11 @@ func daemonsetDebug(t *testing.T, deploymentName, targetNodeLabel, privateACRNam
 							Value:    "value2",
 							Effect:   corev1.TaintEffectNoSchedule,
 						},
+						{
+							Key:      "node.cloudprovider.kubernetes.io/uninitialized",
+							Operator: corev1.TolerationOpExists,
+							Effect:   corev1.TaintEffectNoSchedule,
+						},
 					},
 				},
 			},
@@ -436,7 +452,7 @@ func daemonsetDebug(t *testing.T, deploymentName, targetNodeLabel, privateACRNam
 	}
 }
 
-func getClusterSubnetID(ctx context.Context, mcResourceGroupName string, t *testing.T) (string, error) {
+func getClusterSubnetID(ctx context.Context, mcResourceGroupName string) (string, error) {
 	pager := config.Azure.VNet.NewListPager(mcResourceGroupName, nil)
 	for pager.More() {
 		nextResult, err := pager.NextPage(ctx)
@@ -455,14 +471,9 @@ func getClusterSubnetID(ctx context.Context, mcResourceGroupName string, t *test
 
 func podHTTPServerLinux(s *Scenario) *corev1.Pod {
 	image := "mcr.microsoft.com/cbl-mariner/busybox:2.0"
-	secretName := ""
-	if s.Tags.Airgap {
-		image = fmt.Sprintf("%s.azurecr.io/cbl-mariner/busybox:2.0", config.GetPrivateACRName(s.Tags.NonAnonymousACR))
-		secretName = config.Config.ACRSecretName
-	}
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-test-pod", s.Runtime.KubeNodeName),
+			Name:      fmt.Sprintf("%s-test-pod", s.Runtime.VM.KubeName),
 			Namespace: "default",
 		},
 		Spec: corev1.PodSpec{
@@ -499,77 +510,30 @@ func podHTTPServerLinux(s *Scenario) *corev1.Pod {
 				},
 			},
 			NodeSelector: map[string]string{
-				"kubernetes.io/hostname": s.Runtime.KubeNodeName,
-			},
-			ImagePullSecrets: []corev1.LocalObjectReference{
-				{
-					Name: secretName,
-				},
+				"kubernetes.io/hostname": s.Runtime.VM.KubeName,
 			},
 		},
 	}
 }
 
-func podHTTPServerWindows(s *Scenario) *corev1.Pod {
+func podWindows(s *Scenario, podName string, imageName string) *corev1.Pod {
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-test-pod", s.Runtime.KubeNodeName),
+			Name:      fmt.Sprintf("%s-test-%s-pod", s.Runtime.VM.KubeName, podName),
 			Namespace: "default",
 		},
 		Spec: corev1.PodSpec{
 			Containers: []corev1.Container{
 				{
-					Name:  "iis-container",
-					Image: "mcr.microsoft.com/windows/servercore/iis",
-					Ports: []corev1.ContainerPort{
-						{
-							ContainerPort: 80,
-						},
-					},
-					ReadinessProbe: &corev1.Probe{
-						PeriodSeconds: 1,
-						ProbeHandler: corev1.ProbeHandler{
-							HTTPGet: &corev1.HTTPGetAction{
-								Path: "/",
-								Port: intstr.FromInt32(80),
-							},
-						},
-					},
+					Name:            podName,
+					Image:           imageName,
+					ImagePullPolicy: "IfNotPresent",
+					// this should exist on both servercore and nanoserve
+					Command: []string{"cmd", "/c", "ping", "-t", "localhost"},
 				},
 			},
 			NodeSelector: map[string]string{
-				"kubernetes.io/hostname": s.Runtime.KubeNodeName,
-			},
-		},
-	}
-}
-
-func podWASMSpin(s *Scenario) *corev1.Pod {
-	return &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-wasm-spin", s.Runtime.KubeNodeName),
-			Namespace: "default",
-		},
-		Spec: corev1.PodSpec{
-			NodeSelector: map[string]string{
-				"kubernetes.io/hostname": s.Runtime.KubeNodeName,
-			},
-			RuntimeClassName: to.Ptr("wasmtime-spin"),
-			Containers: []corev1.Container{
-				{
-					Name:    "spin-hello",
-					Image:   "ghcr.io/spinkube/containerd-shim-spin/examples/spin-rust-hello:v0.15.1",
-					Command: []string{"/"},
-					ReadinessProbe: &corev1.Probe{
-						PeriodSeconds: 1,
-						ProbeHandler: corev1.ProbeHandler{
-							HTTPGet: &corev1.HTTPGetAction{
-								Path: "/hello",
-								Port: intstr.FromInt32(80),
-							},
-						},
-					},
-				},
+				"kubernetes.io/hostname": s.Runtime.VM.KubeName,
 			},
 		},
 	}
@@ -578,7 +542,7 @@ func podWASMSpin(s *Scenario) *corev1.Pod {
 func podRunNvidiaWorkload(s *Scenario) *corev1.Pod {
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-gpu-validation", s.Runtime.KubeNodeName),
+			Name:      fmt.Sprintf("%s-gpu-validation", s.Runtime.VM.KubeName),
 			Namespace: defaultNamespace,
 		},
 		Spec: corev1.PodSpec{
@@ -592,74 +556,6 @@ func podRunNvidiaWorkload(s *Scenario) *corev1.Pod {
 					Resources: corev1.ResourceRequirements{
 						Limits: corev1.ResourceList{
 							"nvidia.com/gpu": resource.MustParse("1"),
-						},
-					},
-				},
-			},
-		},
-	}
-}
-
-func nvidiaDevicePluginDaemonSet() *appsv1.DaemonSet {
-	return &appsv1.DaemonSet{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "nvidia-device-plugin-daemonset",
-			Namespace: "kube-system",
-		},
-		Spec: appsv1.DaemonSetSpec{
-			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{
-					"name": "nvidia-device-plugin-ds",
-				},
-			},
-			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{
-						"name": "nvidia-device-plugin-ds",
-					},
-				},
-				Spec: corev1.PodSpec{
-					Tolerations: []corev1.Toleration{
-						{
-							Key:      "sku",
-							Operator: corev1.TolerationOpEqual,
-							Value:    "gpu",
-							Effect:   corev1.TaintEffectNoSchedule,
-						},
-					},
-					PriorityClassName: "system-node-critical",
-					Containers: []corev1.Container{
-						{
-							Image: "nvcr.io/nvidia/k8s-device-plugin:v0.15.0",
-							Name:  "nvidia-device-plugin-ctr",
-							Env: []corev1.EnvVar{
-								{
-									Name:  "FAIL_ON_INIT_ERROR",
-									Value: "false",
-								},
-							},
-							SecurityContext: &corev1.SecurityContext{
-								AllowPrivilegeEscalation: to.Ptr(false),
-								Capabilities: &corev1.Capabilities{
-									Drop: []corev1.Capability{"ALL"},
-								},
-							},
-							VolumeMounts: []corev1.VolumeMount{
-								{
-									Name:      "device-plugin",
-									MountPath: "/var/lib/kubelet/device-plugins",
-								},
-							},
-						},
-					},
-					Volumes: []corev1.Volume{
-						{
-							Name: "device-plugin",
-							VolumeSource: corev1.VolumeSource{
-								HostPath: &corev1.HostPathVolumeSource{
-									Path: "/var/lib/kubelet/device-plugins",
-								},
-							},
 						},
 					},
 				},

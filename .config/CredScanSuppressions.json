@@ -1,0 +1,13 @@
+{
+  "tool": "Credential Scanner",
+  "suppressions": [
+    {
+     "file": "vhdbuilder\\packer\\test\\run-test.sh",
+      "_justification": "Hard-coded credential for an ephemeral test resource that only exists for the lifetime of the test being run"
+    },
+    {
+     "file": "parts\\linux\\cloud-init\\artifacts\\cis.sh",
+      "_justification": "Invalid result – output is not a credential or a secret"
+    }
+  ]
+}

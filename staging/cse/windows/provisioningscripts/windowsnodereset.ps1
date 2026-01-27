@@ -26,7 +26,7 @@ $global:HNSModule = "c:\k\hns.v2.psm1"
 filter Timestamp { "$(Get-Date -Format o): $_" }
 
 function Write-Log ($message) {
-    $message | Timestamp | Tee-Object -FilePath $global:LogPath -Append
+    $message | Timestamp | Tee-Object -FilePath $global:LogPath -Append | Write-Host
 }
 
 function Register-HNSRemediatorScriptTask {

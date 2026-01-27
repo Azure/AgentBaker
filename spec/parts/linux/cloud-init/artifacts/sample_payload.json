@@ -1,0 +1,58 @@
+{
+    "datetime": "20250809",
+    "service-release": "08B",
+    "images": [
+        {
+            "name": "WINDOWS_2019_BASE_IMAGE_URL",
+            "value": "https://wcctagentbakerstorage.blob.core.windows.net/simship/2025/08B/ws2019/2019-datacenter-core-smalldisk-sim.vhd"
+        },
+        {
+            "name": "WINDOWS_2019_CORE_IMAGE_URL",
+            "value": "https://wcctagentbakerstorage.blob.core.windows.net/simship/2025/08B/ws2019/CONTAINERS/servercore.tar"
+        },
+        {
+            "name": "WINDOWS_2019_NANO_IMAGE_URL",
+            "value": "https://wcctagentbakerstorage.blob.core.windows.net/simship/2025/08B/ws2019/CONTAINERS/nanoserver.tar"
+        },
+        {
+            "name": "WINDOWS_2022_BASE_IMAGE_URL",
+            "value": "https://wcctagentbakerstorage.blob.core.windows.net/simship/2025/08B/ws2022/2022-datacenter-core-smalldisk-sim.vhd"
+        },
+        {
+            "name": "WINDOWS_2022_CORE_IMAGE_URL",
+            "value": "https://wcctagentbakerstorage.blob.core.windows.net/simship/2025/08B/ws2022/CONTAINERS/servercore.tar"
+        },
+        {
+            "name": "WINDOWS_2022_NANO_IMAGE_URL",
+            "value": "https://wcctagentbakerstorage.blob.core.windows.net/simship/2025/08B/ws2022/CONTAINERS/nanoserver.tar"
+        },
+        {
+            "name": "WINDOWS_2022_GEN2_BASE_IMAGE_URL",
+            "value": "https://wcctagentbakerstorage.blob.core.windows.net/simship/2025/08B/ws2022/GEN2/2022-datacenter-core-smalldisk-g2-sim.vhd"
+        },
+        {
+            "name": "WINDOWS_2025_BASE_IMAGE_URL",
+            "value": "https://wcctagentbakerstorage.blob.core.windows.net/simship/2025/08B/ws2025/2025-datacenter-core-smalldisk-sim.vhd"
+        },
+        {
+            "name": "WINDOWS_2025_CORE_IMAGE_URL",
+            "value": "https://wcctagentbakerstorage.blob.core.windows.net/simship/2025/08B/ws2025/CONTAINERS/servercore.tar"
+        },
+        {
+            "name": "WINDOWS_2025_NANO_IMAGE_URL",
+            "value": "https://wcctagentbakerstorage.blob.core.windows.net/simship/2025/08B/ws2025/CONTAINERS/nanoserver.tar"
+        },
+        {
+            "name": "WINDOWS_2025_GEN2_BASE_IMAGE_URL",
+            "value": "https://wcctagentbakerstorage.blob.core.windows.net/simship/2025/08B/ws2025/GEN2/2025-datacenter-core-smalldisk-g2-sim.vhd"
+        },
+        {
+            "name": "WINDOWS_23H2_BASE_IMAGE_URL",
+            "value": "https://wcctagentbakerstorage.blob.core.windows.net/simship/2025/08B/ws23H2/23h2-datacenter-core-sim.vhd"
+        },
+        {
+            "name": "WINDOWS_23H2_GEN2_BASE_IMAGE_URL",
+            "value": "https://wcctagentbakerstorage.blob.core.windows.net/simship/2025/08B/ws23H2/GEN2/23h2-datacenter-core-g2-sim.vhd"
+        }
+    ]
+}

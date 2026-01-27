@@ -2,3 +2,5 @@
 components:
 - changed-files:
   - any-glob-to-any-file: 'parts/common/components.json'
+requires-component-owner-approval:
+- head-branch: ['renovate\/[0-9a-zA-Z-]+ciprod']

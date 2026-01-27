@@ -8,9 +8,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"testing"
 
 	"github.com/Azure/agentbaker/e2e/config"
+	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerregistry/armcontainerregistry"
@@ -19,14 +19,111 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/privatedns/armprivatedns"
 )
 
-func getKubenetClusterModel(name string) *armcontainerservice.ManagedCluster {
-	model := getBaseClusterModel(name)
+// getLatestGAKubernetesVersion returns the highest GA Kubernetes version for the given location.
+func getLatestGAKubernetesVersion(ctx context.Context, location string) (string, error) {
+	versions, err := config.Azure.AKS.ListKubernetesVersions(context.Background(), location, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to list Kubernetes versions: %w", err)
+	}
+	if len(versions.Values) == 0 {
+		return "", fmt.Errorf("no Kubernetes versions available")
+	}
+
+	var latestPatchVersion string
+	msg := fmt.Sprintf("Available Kubernetes versions for location %s:\n", location)
+	defer func() { logf(ctx, "%s", msg) }()
+	// Iterate through the available versions to find the latest GA version
+	for _, k8sVersion := range versions.Values {
+		if k8sVersion == nil {
+			continue
+		}
+		msg += fmt.Sprintf("- %s\n", *k8sVersion.Version)
+
+		// Skip preview versions
+		if k8sVersion.IsPreview != nil && *k8sVersion.IsPreview {
+			msg += " - - is in preview, skipping\n"
+			continue
+		}
+		for patchVersion := range k8sVersion.PatchVersions {
+			if patchVersion == "" {
+				continue
+			}
+			msg += fmt.Sprintf(" - - %s\n", patchVersion)
+			// Initialize latestVersion with first GA version found
+			if latestPatchVersion == "" {
+				latestPatchVersion = patchVersion
+				msg += fmt.Sprintf(" - - first latest found, updating to: %s\n", latestPatchVersion)
+				continue
+			}
+			// Compare versions
+			if agent.IsKubernetesVersionGe(patchVersion, latestPatchVersion) {
+				latestPatchVersion = patchVersion
+				msg += fmt.Sprintf(" - - new latest found, updating to: %s\n", latestPatchVersion)
+			}
+		}
+	}
+
+	if latestPatchVersion == "" {
+		return "", fmt.Errorf("no GA Kubernetes version found")
+	}
+	msg += fmt.Sprintf("Latest GA Kubernetes version for location %s: %s\n", location, latestPatchVersion)
+	return latestPatchVersion, nil
+}
+
+// getLatestKubernetesVersionClusterModel returns a cluster model with the latest GA Kubernetes version.
+func getLatestKubernetesVersionClusterModel(ctx context.Context, name, location, k8sSystemPoolSKU string) (*armcontainerservice.ManagedCluster, error) {
+	version, err := getLatestGAKubernetesVersion(ctx, location)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get latest GA Kubernetes version: %w", err)
+	}
+	model := getBaseClusterModel(name, location, k8sSystemPoolSKU)
+	model.Properties.KubernetesVersion = to.Ptr(version)
+	return model, nil
+}
+
+func getKubenetClusterModel(name, location, k8sSystemPoolSKU string) *armcontainerservice.ManagedCluster {
+	model := getBaseClusterModel(name, location, k8sSystemPoolSKU)
 	model.Properties.NetworkProfile.NetworkPlugin = to.Ptr(armcontainerservice.NetworkPluginKubenet)
 	return model
 }
 
-func getAzureNetworkClusterModel(name string) *armcontainerservice.ManagedCluster {
-	cluster := getBaseClusterModel(name)
+func getAzureOverlayNetworkClusterModel(name, location, k8sSystemPoolSKU string) *armcontainerservice.ManagedCluster {
+	model := getBaseClusterModel(name, location, k8sSystemPoolSKU)
+	model.Properties.NetworkProfile.NetworkPlugin = to.Ptr(armcontainerservice.NetworkPluginAzure)
+	model.Properties.NetworkProfile.NetworkPluginMode = to.Ptr(armcontainerservice.NetworkPluginModeOverlay)
+	return model
+}
+
+func getAzureOverlayNetworkDualStackClusterModel(name, location, k8sSystemPoolSKU string) *armcontainerservice.ManagedCluster {
+	model := getAzureOverlayNetworkClusterModel(name, location, k8sSystemPoolSKU)
+
+	model.Properties.NetworkProfile.IPFamilies = []*armcontainerservice.IPFamily{
+		to.Ptr(armcontainerservice.IPFamilyIPv4),
+		to.Ptr(armcontainerservice.IPFamilyIPv6),
+	}
+
+	networkProfile := model.Properties.NetworkProfile
+	networkProfile.PodCidr = to.Ptr("10.244.0.0/16")
+	networkProfile.PodCidrs = []*string{
+		networkProfile.PodCidr,
+		to.Ptr("fd12:3456:789a::/64 "),
+	}
+	networkProfile.ServiceCidr = to.Ptr("10.0.0.0/16")
+	networkProfile.ServiceCidrs = []*string{
+		networkProfile.ServiceCidr,
+		to.Ptr("fd12:3456:789a:1::/108"),
+	}
+
+	networkProfile.PodCidr = nil
+	networkProfile.PodCidrs = nil
+	networkProfile.ServiceCidr = nil
+	networkProfile.ServiceCidrs = nil
+
+	return model
+}
+
+func getAzureNetworkClusterModel(name, location, k8sSystemPoolSKU string) *armcontainerservice.ManagedCluster {
+	cluster := getBaseClusterModel(name, location, k8sSystemPoolSKU)
 	cluster.Properties.NetworkProfile.NetworkPlugin = to.Ptr(armcontainerservice.NetworkPluginAzure)
 	if cluster.Properties.AgentPoolProfiles != nil {
 		for _, app := range cluster.Properties.AgentPoolProfiles {
@@ -35,18 +132,30 @@ func getAzureNetworkClusterModel(name string) *armcontainerservice.ManagedCluste
 	}
 	return cluster
 }
+func getCiliumNetworkClusterModel(name, location, k8sSystemPoolSKU string) *armcontainerservice.ManagedCluster {
+	cluster := getBaseClusterModel(name, location, k8sSystemPoolSKU)
+	cluster.Properties.NetworkProfile.NetworkPlugin = to.Ptr(armcontainerservice.NetworkPluginAzure)
+	cluster.Properties.NetworkProfile.NetworkDataplane = to.Ptr(armcontainerservice.NetworkDataplaneCilium)
+	cluster.Properties.NetworkProfile.NetworkPolicy = to.Ptr(armcontainerservice.NetworkPolicyCilium)
+	if cluster.Properties.AgentPoolProfiles != nil {
+		for _, app := range cluster.Properties.AgentPoolProfiles {
+			app.MaxPods = to.Ptr[int32](30)
+		}
+	}
+	return cluster
+}
 
-func getBaseClusterModel(clusterName string) *armcontainerservice.ManagedCluster {
+func getBaseClusterModel(clusterName, location, k8sSystemPoolSKU string) *armcontainerservice.ManagedCluster {
 	return &armcontainerservice.ManagedCluster{
 		Name:     to.Ptr(clusterName),
-		Location: to.Ptr(config.Config.Location),
+		Location: to.Ptr(location),
 		Properties: &armcontainerservice.ManagedClusterProperties{
 			DNSPrefix: to.Ptr(clusterName),
 			AgentPoolProfiles: []*armcontainerservice.ManagedClusterAgentPoolProfile{
 				{
 					Name:         to.Ptr("nodepool1"),
 					Count:        to.Ptr[int32](1),
-					VMSize:       to.Ptr("standard_d2ds_v5"),
+					VMSize:       to.Ptr(k8sSystemPoolSKU),
 					MaxPods:      to.Ptr[int32](110),
 					OSType:       to.Ptr(armcontainerservice.OSTypeLinux),
 					Type:         to.Ptr(armcontainerservice.AgentPoolTypeVirtualMachineScaleSets),
@@ -61,6 +170,11 @@ func getBaseClusterModel(clusterName string) *armcontainerservice.ManagedCluster
 			NetworkProfile: &armcontainerservice.NetworkProfile{
 				NetworkPlugin: to.Ptr(armcontainerservice.NetworkPluginKubenet),
 			},
+			AddonProfiles: map[string]*armcontainerservice.ManagedClusterAddonProfile{
+				"omsagent": {
+					Enabled: to.Ptr(false),
+				},
+			},
 		},
 		Identity: &armcontainerservice.ManagedClusterIdentity{
 			Type: to.Ptr(armcontainerservice.ResourceIdentityTypeSystemAssigned),
@@ -68,8 +182,8 @@ func getBaseClusterModel(clusterName string) *armcontainerservice.ManagedCluster
 	}
 }
 
-func addAirgapNetworkSettings(ctx context.Context, t *testing.T, clusterModel *armcontainerservice.ManagedCluster, privateACRName string) error {
-	t.Logf("Adding network settings for airgap cluster %s in rg %s", *clusterModel.Name, *clusterModel.Properties.NodeResourceGroup)
+func addAirgapNetworkSettings(ctx context.Context, clusterModel *armcontainerservice.ManagedCluster, privateACRName, location string) error {
+	logf(ctx, "Adding network settings for airgap cluster %s in rg %s", *clusterModel.Name, *clusterModel.Properties.NodeResourceGroup)
 
 	vnet, err := getClusterVNet(ctx, *clusterModel.Properties.NodeResourceGroup)
 	if err != nil {
@@ -77,7 +191,7 @@ func addAirgapNetworkSettings(ctx context.Context, t *testing.T, clusterModel *a
 	}
 	subnetId := vnet.subnetId
 
-	nsgParams, err := airGapSecurityGroup(config.Config.Location, *clusterModel.Properties.Fqdn)
+	nsgParams, err := airGapSecurityGroup(location, *clusterModel.Properties.Fqdn)
 	if err != nil {
 		return err
 	}
@@ -100,12 +214,12 @@ func addAirgapNetworkSettings(ctx context.Context, t *testing.T, clusterModel *a
 		return err
 	}
 
-	err = addPrivateEndpointForACR(ctx, t, *clusterModel.Properties.NodeResourceGroup, privateACRName, vnet)
+	err = addPrivateEndpointForACR(ctx, *clusterModel.Properties.NodeResourceGroup, privateACRName, vnet, location)
 	if err != nil {
 		return err
 	}
 
-	t.Logf("updated cluster %s subnet with airgap settings", *clusterModel.Name)
+	logf(ctx, "updated cluster %s subnet with airgap settings", *clusterModel.Name)
 	return nil
 }
 
@@ -152,49 +266,49 @@ func airGapSecurityGroup(location, clusterFQDN string) (armnetwork.SecurityGroup
 	}, nil
 }
 
-func addPrivateEndpointForACR(ctx context.Context, t *testing.T, nodeResourceGroup, privateACRName string, vnet VNet) error {
-	t.Logf("Checking if private endpoint for private container registry is in rg %s", nodeResourceGroup)
+func addPrivateEndpointForACR(ctx context.Context, nodeResourceGroup, privateACRName string, vnet VNet, location string) error {
+	logf(ctx, "Checking if private endpoint for private container registry is in rg %s", nodeResourceGroup)
 
 	var err error
 	var exists bool
 	privateEndpointName := "PE-for-ABE2ETests"
-	if exists, err = privateEndpointExists(ctx, t, nodeResourceGroup, privateEndpointName); err != nil {
+	if exists, err = privateEndpointExists(ctx, nodeResourceGroup, privateEndpointName); err != nil {
 		return err
 	}
 	if exists {
-		t.Logf("Private Endpoint already exists, skipping creation")
+		logf(ctx, "Private Endpoint already exists, skipping creation")
 		return nil
 	}
 
 	var peResp armnetwork.PrivateEndpointsClientCreateOrUpdateResponse
-	if peResp, err = createPrivateEndpoint(ctx, t, nodeResourceGroup, privateEndpointName, privateACRName, vnet); err != nil {
+	if peResp, err = createPrivateEndpoint(ctx, nodeResourceGroup, privateEndpointName, privateACRName, vnet, location); err != nil {
 		return err
 	}
 
 	privateZoneName := "privatelink.azurecr.io"
 	var pzResp armprivatedns.PrivateZonesClientCreateOrUpdateResponse
-	if pzResp, err = createPrivateZone(ctx, t, nodeResourceGroup, privateZoneName); err != nil {
+	if pzResp, err = createPrivateZone(ctx, nodeResourceGroup, privateZoneName); err != nil {
 		return err
 	}
 
-	if err = createPrivateDNSLink(ctx, t, vnet, nodeResourceGroup, privateZoneName); err != nil {
+	if err = createPrivateDNSLink(ctx, vnet, nodeResourceGroup, privateZoneName); err != nil {
 		return err
 	}
 
-	if err = addRecordSetToPrivateDNSZone(ctx, t, peResp, nodeResourceGroup, privateZoneName); err != nil {
+	if err = addRecordSetToPrivateDNSZone(ctx, peResp, nodeResourceGroup, privateZoneName); err != nil {
 		return err
 	}
 
-	if err = addDNSZoneGroup(ctx, t, pzResp, nodeResourceGroup, privateZoneName, *peResp.Name); err != nil {
+	if err = addDNSZoneGroup(ctx, pzResp, nodeResourceGroup, privateZoneName, *peResp.Name); err != nil {
 		return err
 	}
 	return nil
 }
 
-func privateEndpointExists(ctx context.Context, t *testing.T, nodeResourceGroup, privateEndpointName string) (bool, error) {
+func privateEndpointExists(ctx context.Context, nodeResourceGroup, privateEndpointName string) (bool, error) {
 	existingPE, err := config.Azure.PrivateEndpointClient.Get(ctx, nodeResourceGroup, privateEndpointName, nil)
 	if err == nil && existingPE.ID != nil {
-		t.Logf("Private Endpoint already exists with ID: %s", *existingPE.ID)
+		logf(ctx, "Private Endpoint already exists with ID: %s", *existingPE.ID)
 		return true, nil
 	}
 	if err != nil && !strings.Contains(err.Error(), "ResourceNotFound") {
@@ -203,27 +317,49 @@ func privateEndpointExists(ctx context.Context, t *testing.T, nodeResourceGroup,
 	return false, nil
 }
 
-func createPrivateAzureContainerRegistry(ctx context.Context, t *testing.T, cluster *armcontainerservice.ManagedCluster, kubeconfig *Kubeclient, resourceGroup string, isNonAnonymousPull bool) error {
-	privateACRName := config.GetPrivateACRName(isNonAnonymousPull)
-	t.Logf("Creating private Azure Container Registry %s in rg %s", privateACRName, resourceGroup)
+func createPrivateAzureContainerRegistryPullSecret(ctx context.Context, cluster *armcontainerservice.ManagedCluster, kubeconfig *Kubeclient, resourceGroup string, isNonAnonymousPull bool) error {
+	privateACRName := config.GetPrivateACRName(isNonAnonymousPull, *cluster.Location)
+	if isNonAnonymousPull {
+		logf(ctx, "Creating the secret for non-anonymous pull ACR for the e2e debug pods")
+		kubeconfigPath := os.Getenv("HOME") + "/.kube/config"
+		if err := fetchAndSaveKubeconfig(ctx, resourceGroup, *cluster.Name, kubeconfigPath); err != nil {
+			logf(ctx, "failed to fetch kubeconfig: %v", err)
+			return err
+		}
+		username, password, err := getAzureContainerRegistryCredentials(ctx, resourceGroup, privateACRName)
+		if err != nil {
+			logf(ctx, "failed to get private ACR credentials: %v", err)
+			return err
+		}
+		if err := kubeconfig.createKubernetesSecret(ctx, "default", config.Config.ACRSecretName, privateACRName, username, password); err != nil {
+			logf(ctx, "failed to create Kubernetes secret: %v", err)
+			return err
+		}
+	}
+	return nil
+}
+
+func createPrivateAzureContainerRegistry(ctx context.Context, cluster *armcontainerservice.ManagedCluster, resourceGroup string, isNonAnonymousPull bool) error {
+	privateACRName := config.GetPrivateACRName(isNonAnonymousPull, *cluster.Location)
+	logf(ctx, "Creating private Azure Container Registry %s in rg %s", privateACRName, resourceGroup)
 
 	acr, err := config.Azure.RegistriesClient.Get(ctx, resourceGroup, privateACRName, nil)
 	if err == nil {
-		err, recreateACR := shouldRecreateACR(ctx, t, resourceGroup, privateACRName)
+		err, recreateACR := shouldRecreateACR(ctx, resourceGroup, privateACRName)
 		if err != nil {
 			return fmt.Errorf("failed to check cache rules: %w", err)
 		}
 		if !recreateACR {
-			t.Logf("Private ACR already exists at id %s, skipping creation", *acr.ID)
+			logf(ctx, "Private ACR already exists at id %s, skipping creation", *acr.ID)
 			return nil
 		}
-		t.Logf("Private ACR exists with the wrong cache deleting...")
-		if err := deletePrivateAzureContainerRegistry(ctx, t, resourceGroup, privateACRName); err != nil {
+		logf(ctx, "Private ACR exists with the wrong cache deleting...")
+		if err := deletePrivateAzureContainerRegistry(ctx, resourceGroup, privateACRName); err != nil {
 			return fmt.Errorf("failed to delete private acr: %w", err)
 		}
 		// if ACR gets recreated so should the cluster
-		t.Logf("Private ACR deleted, deleting cluster %s", *cluster.Name)
-		if err := deleteCluster(ctx, t, cluster); err != nil {
+		logf(ctx, "Private ACR deleted, deleting cluster %s", *cluster.Name)
+		if err := deleteCluster(ctx, *cluster.Name, resourceGroup); err != nil {
 			return fmt.Errorf("failed to delete cluster: %w", err)
 		}
 	} else {
@@ -234,9 +370,9 @@ func createPrivateAzureContainerRegistry(ctx context.Context, t *testing.T, clus
 		}
 	}
 
-	t.Logf("ACR does not exist, creating...")
+	logf(ctx, "ACR does not exist, creating...")
 	createParams := armcontainerregistry.Registry{
-		Location: to.Ptr(config.Config.Location),
+		Location: to.Ptr(*cluster.Location),
 		SKU: &armcontainerregistry.SKU{
 			Name: to.Ptr(armcontainerregistry.SKUNamePremium),
 		},
@@ -260,46 +396,28 @@ func createPrivateAzureContainerRegistry(ctx context.Context, t *testing.T, clus
 		return fmt.Errorf("failed to create private ACR during polling: %w", err)
 	}
 
-	t.Logf("Private Azure Container Registry created")
+	logf(ctx, "Private Azure Container Registry created")
 
-	if isNonAnonymousPull {
-		t.Logf("Creating the secret for non-anonymous pull ACR for the e2e debug pods")
-		kubeconfigPath := os.Getenv("HOME") + "/.kube/config"
-		if err := fetchAndSaveKubeconfig(ctx, t, resourceGroup, *cluster.Name, kubeconfigPath); err != nil {
-			t.Logf("failed to fetch kubeconfig: %v", err)
-			return err
-		}
-		username, password, err := getAzureContainerRegistryCredentials(ctx, t, resourceGroup, privateACRName)
-		if err != nil {
-			t.Logf("failed to get private ACR credentials: %v", err)
-			return err
-		}
-		if err := kubeconfig.createKubernetesSecret(ctx, t, "default", kubeconfigPath, config.Config.ACRSecretName, privateACRName, username, password); err != nil {
-			t.Logf("failed to create Kubernetes secret: %v", err)
-			return err
-		}
-	}
-
-	if err := addCacheRulesToPrivateAzureContainerRegistry(ctx, t, config.ResourceGroupName, privateACRName); err != nil {
+	if err := addCacheRulesToPrivateAzureContainerRegistry(ctx, config.ResourceGroupName(*cluster.Location), privateACRName); err != nil {
 		return fmt.Errorf("failed to add cache rules to private acr: %w", err)
 	}
 
 	return nil
 }
 
-func getAzureContainerRegistryCredentials(ctx context.Context, t *testing.T, resourceGroup, privateACRName string) (string, string, error) {
-	t.Logf("Getting credentials for private Azure Container Registry in rg %s", resourceGroup)
+func getAzureContainerRegistryCredentials(ctx context.Context, resourceGroup, privateACRName string) (string, string, error) {
+	logf(ctx, "Getting credentials for private Azure Container Registry in rg %s", resourceGroup)
 	acrCreds, err := config.Azure.RegistriesClient.ListCredentials(ctx, resourceGroup, privateACRName, nil)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to get private ACR credentials: %w", err)
 	}
 	username := *acrCreds.Username
 	password := *acrCreds.Passwords[0].Value
-	t.Logf("Private Azure Container Registry credentials retrieved")
+	logf(ctx, "Private Azure Container Registry credentials retrieved")
 	return username, password, nil
 }
 
-func fetchAndSaveKubeconfig(ctx context.Context, t *testing.T, resourceGroup, clusterName, kubeconfigPath string) error {
+func fetchAndSaveKubeconfig(ctx context.Context, resourceGroup, clusterName, kubeconfigPath string) error {
 	adminCredentials, err := config.Azure.AKS.ListClusterAdminCredentials(ctx, resourceGroup, clusterName, nil)
 	if err != nil {
 		return fmt.Errorf("failed to get cluster admin credentials: %w", err)
@@ -314,12 +432,12 @@ func fetchAndSaveKubeconfig(ctx context.Context, t *testing.T, resourceGroup, cl
 	if err := os.WriteFile(kubeconfigPath, adminCredentials.Kubeconfigs[0].Value, 0600); err != nil {
 		return fmt.Errorf("failed to save kubeconfig to %s: %w", kubeconfigPath, err)
 	}
-	t.Logf("Kubeconfig successfully saved to %s", kubeconfigPath)
+	logf(ctx, "Kubeconfig successfully saved to %s", kubeconfigPath)
 	return nil
 }
 
-func deletePrivateAzureContainerRegistry(ctx context.Context, t *testing.T, resourceGroup, privateACRName string) error {
-	t.Logf("Deleting private Azure Container Registry in rg %s", resourceGroup)
+func deletePrivateAzureContainerRegistry(ctx context.Context, resourceGroup, privateACRName string) error {
+	logf(ctx, "Deleting private Azure Container Registry in rg %s", resourceGroup)
 
 	pollerResp, err := config.Azure.RegistriesClient.BeginDelete(ctx, resourceGroup, privateACRName, nil)
 	if err != nil {
@@ -329,33 +447,33 @@ func deletePrivateAzureContainerRegistry(ctx context.Context, t *testing.T, reso
 	if err != nil {
 		return fmt.Errorf("failed to delete private ACR during polling: %w", err)
 	}
-	t.Logf("Private Azure Container Registry deleted")
+	logf(ctx, "Private Azure Container Registry deleted")
 	return nil
 }
 
 // if the ACR needs to be recreated so does the airgap k8s cluster
-func shouldRecreateACR(ctx context.Context, t *testing.T, resourceGroup, privateACRName string) (error, bool) {
-	t.Logf("Checking if private Azure Container Registry cache rules are correct in rg %s", resourceGroup)
+func shouldRecreateACR(ctx context.Context, resourceGroup, privateACRName string) (error, bool) {
+	logf(ctx, "Checking if private Azure Container Registry cache rules are correct in rg %s", resourceGroup)
 
 	cacheRules, err := config.Azure.CacheRulesClient.Get(ctx, resourceGroup, privateACRName, "aks-managed-rule", nil)
 	if err != nil {
 		var azErr *azcore.ResponseError
 		if errors.As(err, &azErr) && azErr.StatusCode == 404 {
-			t.Logf("Private ACR cache not found, need to recreate")
+			logf(ctx, "Private ACR cache not found, need to recreate")
 			return nil, true
 		}
 		return fmt.Errorf("failed to get cache rules: %w", err), false
 	}
 	if cacheRules.Properties != nil && cacheRules.Properties.TargetRepository != nil && *cacheRules.Properties.TargetRepository != config.Config.AzureContainerRegistrytargetRepository {
-		t.Logf("Private ACR cache is not correct: %s", *cacheRules.Properties.TargetRepository)
+		logf(ctx, "Private ACR cache is not correct: %s", *cacheRules.Properties.TargetRepository)
 		return nil, true
 	}
-	t.Logf("Private ACR cache is correct")
+	logf(ctx, "Private ACR cache is correct")
 	return nil, false
 }
 
-func addCacheRulesToPrivateAzureContainerRegistry(ctx context.Context, t *testing.T, resourceGroup, privateACRName string) error {
-	t.Logf("Adding cache rules to private Azure Container Registry in rg %s", resourceGroup)
+func addCacheRulesToPrivateAzureContainerRegistry(ctx context.Context, resourceGroup, privateACRName string) error {
+	logf(ctx, "Adding cache rules to private Azure Container Registry in rg %s", resourceGroup)
 
 	cacheParams := armcontainerregistry.CacheRule{
 		Properties: &armcontainerregistry.CacheRuleProperties{
@@ -379,16 +497,16 @@ func addCacheRulesToPrivateAzureContainerRegistry(ctx context.Context, t *testin
 		return fmt.Errorf("failed to create cache rule in polling: %w", err)
 	}
 
-	t.Logf("Cache rule created")
+	logf(ctx, "Cache rule created")
 	return nil
 }
 
-func createPrivateEndpoint(ctx context.Context, t *testing.T, nodeResourceGroup, privateEndpointName, privateACRName string, vnet VNet) (armnetwork.PrivateEndpointsClientCreateOrUpdateResponse, error) {
-	t.Logf("Creating Private Endpoint in rg %s", nodeResourceGroup)
-	acrID := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.ContainerRegistry/registries/%s", config.Config.SubscriptionID, config.ResourceGroupName, privateACRName)
+func createPrivateEndpoint(ctx context.Context, nodeResourceGroup, privateEndpointName, privateACRName string, vnet VNet, location string) (armnetwork.PrivateEndpointsClientCreateOrUpdateResponse, error) {
+	logf(ctx, "Creating Private Endpoint in rg %s", nodeResourceGroup)
+	acrID := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.ContainerRegistry/registries/%s", config.Config.SubscriptionID, config.ResourceGroupName(location), privateACRName)
 
 	peParams := armnetwork.PrivateEndpoint{
-		Location: to.Ptr(config.Config.Location),
+		Location: to.Ptr(location),
 		Properties: &armnetwork.PrivateEndpointProperties{
 			Subnet: &armnetwork.Subnet{
 				ID: to.Ptr(vnet.subnetId),
@@ -420,11 +538,11 @@ func createPrivateEndpoint(ctx context.Context, t *testing.T, nodeResourceGroup,
 		return armnetwork.PrivateEndpointsClientCreateOrUpdateResponse{}, fmt.Errorf("failed to create private endpoint in polling: %w", err)
 	}
 
-	t.Logf("Private Endpoint created or updated with ID: %s", *resp.ID)
+	logf(ctx, "Private Endpoint created or updated with ID: %s", *resp.ID)
 	return resp, nil
 }
 
-func createPrivateZone(ctx context.Context, t *testing.T, nodeResourceGroup, privateZoneName string) (armprivatedns.PrivateZonesClientCreateOrUpdateResponse, error) {
+func createPrivateZone(ctx context.Context, nodeResourceGroup, privateZoneName string) (armprivatedns.PrivateZonesClientCreateOrUpdateResponse, error) {
 	dnsZoneParams := armprivatedns.PrivateZone{
 		Location: to.Ptr("global"),
 	}
@@ -443,11 +561,11 @@ func createPrivateZone(ctx context.Context, t *testing.T, nodeResourceGroup, pri
 		return armprivatedns.PrivateZonesClientCreateOrUpdateResponse{}, fmt.Errorf("failed to create private dns zone in polling: %w", err)
 	}
 
-	t.Logf("Private DNS Zone created or updated with ID: %s", *resp.ID)
+	logf(ctx, "Private DNS Zone created or updated with ID: %s", *resp.ID)
 	return resp, nil
 }
 
-func createPrivateDNSLink(ctx context.Context, t *testing.T, vnet VNet, nodeResourceGroup, privateZoneName string) error {
+func createPrivateDNSLink(ctx context.Context, vnet VNet, nodeResourceGroup, privateZoneName string) error {
 	vnetForId, err := config.Azure.VNet.Get(ctx, nodeResourceGroup, vnet.name, nil)
 	if err != nil {
 		return fmt.Errorf("failed to get vnet: %w", err)
@@ -478,11 +596,11 @@ func createPrivateDNSLink(ctx context.Context, t *testing.T, vnet VNet, nodeReso
 		return fmt.Errorf("failed to create virtual network link in polling: %w", err)
 	}
 
-	t.Logf("Virtual Network Link created or updated with ID: %s", *resp.ID)
+	logf(ctx, "Virtual Network Link created or updated with ID: %s", *resp.ID)
 	return nil
 }
 
-func addRecordSetToPrivateDNSZone(ctx context.Context, t *testing.T, peResp armnetwork.PrivateEndpointsClientCreateOrUpdateResponse, nodeResourceGroup, privateZoneName string) error {
+func addRecordSetToPrivateDNSZone(ctx context.Context, peResp armnetwork.PrivateEndpointsClientCreateOrUpdateResponse, nodeResourceGroup, privateZoneName string) error {
 	for i, dnsConfigPtr := range peResp.Properties.CustomDNSConfigs {
 		var ipAddresses []string
 		if dnsConfigPtr == nil {
@@ -518,11 +636,11 @@ func addRecordSetToPrivateDNSZone(ctx context.Context, t *testing.T, peResp armn
 		}
 	}
 
-	t.Logf("Record Set created or updated")
+	logf(ctx, "Record Set created or updated")
 	return nil
 }
 
-func addDNSZoneGroup(ctx context.Context, t *testing.T, pzResp armprivatedns.PrivateZonesClientCreateOrUpdateResponse, nodeResourceGroup, privateZoneName, endpointName string) error {
+func addDNSZoneGroup(ctx context.Context, pzResp armprivatedns.PrivateZonesClientCreateOrUpdateResponse, nodeResourceGroup, privateZoneName, endpointName string) error {
 	groupName := strings.Replace(privateZoneName, ".", "-", -1) // replace . with -
 	dnsZonegroup := armnetwork.PrivateDNSZoneGroup{
 		Name: to.Ptr(fmt.Sprintf("%s/default", privateZoneName)),
@@ -544,7 +662,7 @@ func addDNSZoneGroup(ctx context.Context, t *testing.T, pzResp armprivatedns.Pri
 		return fmt.Errorf("failed to create private dns zone group in polling: %w", err)
 	}
 
-	t.Logf("Private DNS Zone Group created or updated with ID")
+	logf(ctx, "Private DNS Zone Group created or updated with ID")
 	return nil
 }
 
@@ -586,7 +704,7 @@ func getSecurityRule(name, destinationAddressPrefix string, priority int32) *arm
 			SourcePortRange:          to.Ptr("*"),
 			DestinationAddressPrefix: to.Ptr(destinationAddressPrefix),
 			DestinationPortRange:     to.Ptr("*"),
-			Priority:                 to.Ptr[int32](priority),
+			Priority:                 to.Ptr(priority),
 		},
 	}
 }

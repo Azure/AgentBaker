@@ -34,8 +34,6 @@ for file in $generatedTestData; do
     # shellcheck disable=SC3010
     if [[ "${firstLine}" =~ "#!/bin/bash" || "${firstLine}" =~ "#!/usr/bin/env bash" ]]; then
         filesToCheck+=(${file})
-    else
-         echo "Skipping file as wrong shell $file : firstLine: $firstLine"
     fi
 done
 

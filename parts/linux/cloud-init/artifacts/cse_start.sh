@@ -2,8 +2,11 @@
 
 CSE_STARTTIME=$(date)
 CSE_STARTTIME_FORMATTED=$(date +"%F %T.%3N")
+export CSE_STARTTIME_SECONDS=$(date -d "$CSE_STARTTIME_FORMATTED" +%s) # Export for child processes, used in early retry loop exits
+
 EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/
 mkdir -p $EVENTS_LOGGING_DIR
+# this is the "global" CSE execution timeout - we allow CSE to run for 15 minutes before timeout will attempt to kill the script. We exit early from some of the retry loops using `check_cse_timeout` in `cse_helpers.sh`.`
 timeout -k5s 15m /bin/bash /opt/azure/containers/provision.sh >> /var/log/azure/cluster-provision.log 2>&1
 EXIT_CODE=$?
 systemctl --no-pager -l status kubelet >> /var/log/azure/cluster-provision-cse-output.log 2>&1
@@ -46,6 +49,16 @@ JSON_STRING=$( jq -n \
 mkdir -p /var/log/azure/aks
 echo $JSON_STRING | tee /var/log/azure/aks/provision.json
 
+# Create stage marker for two-stage workflow
+if [ "${PRE_PROVISION_ONLY}" = "true" ]; then
+    # Stage 1: Create marker indicating Stage 2 is needed
+    mkdir -p /opt/azure/containers && touch /opt/azure/containers/base_prep.complete
+    echo "Stage 1 complete - kubelet configuration skipped, Stage 2 required" >> /var/log/azure/cluster-provision.log
+    echo "Created base_prep.complete marker file" >> /var/log/azure/cluster-provision.log
+    exit 0
+fi
+
+# provision.complete is the marker for the second stage of the workflow
 mkdir -p /opt/azure/containers && touch /opt/azure/containers/provision.complete
 
 # messsage_string is here because GA only accepts strings in Message.

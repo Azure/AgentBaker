@@ -20,6 +20,10 @@ parameters:
   - name: build2025gen2
     displayName: Build 2025 Gen 2
     type: boolean
+  - name: windowsContainerImageJsonUrl
+    displayName: Windows container image JSON URL Override
+    type: string
+    default: ""
   - name: dryrun
     displayName: Dry run
     type: boolean
@@ -45,8 +49,38 @@ parameters:
   - name: useOverrides
     displayName: Use component overrides
     type: boolean
+  - name: enableBackfillCleanup
+    displayName: Run cleanup job
+    type: boolean
+    default: false
+  - name: cseFileName
+    displayName: CSE Package File Name
+    type: string
+    default: aks-windows-cse-scripts-current.zip
+  - name: csePublishDir
+    type: string
+    default: $(Build.ArtifactStagingDirectory)/packages
 
 stages:
+  - stage: Package
+    displayName: "Package Windows CSE"
+    jobs:
+    - job: PackageWindowsCSE
+      steps:
+      - bash: bash ./.pipelines/scripts/windows_package_cse.sh
+        displayName: Package Windows CSE Scripts
+        env:
+          CSE_RELEASE_DIR: $(Build.ArtifactStagingDirectory)/windows
+          CSE_PUBLISH_DIR: ${{ parameters.csePublishDir }}
+          CSE_FILE_NAME: ${{ parameters.cseFileName }}
+      - task: ManifestGeneratorTask@0
+        inputs:
+          BuildDropPath: ${{ parameters.csePublishDir }}
+      - task: PublishPipelineArtifact@1
+        displayName: Publish Windows CSE Package
+        inputs:
+          artifactName: windows-cse-package
+          targetPath: ${{ parameters.csePublishDir }}
   - template: ./.build-and-test-windows-vhd-template.yaml
     parameters:
       stageName: win_2019_v1
@@ -64,8 +98,11 @@ stages:
       windowsBaseImageUrl: $(WINDOWS_2019_BASE_IMAGE_URL)
       windowsNanoImageUrl: $(WINDOWS_2019_NANO_IMAGE_URL)
       windowsCoreImageUrl: $(WINDOWS_2019_CORE_IMAGE_URL)
+      windowsContainerImageJsonUrl: ${{ parameters.windowsContainerImageJsonUrl }}
       overrideBranch: ${{ parameters.overrideBranch }}
       useOverrides: ${{ parameters.useOverrides }}
+      csePackageDir: ${{ parameters.csePublishDir }}
+      cseFileName: ${{ parameters.cseFileName }}
 
   - template: ./.build-and-test-windows-vhd-template.yaml
     parameters:
@@ -84,8 +121,11 @@ stages:
       windowsBaseImageUrl: $(WINDOWS_2022_BASE_IMAGE_URL)
       windowsNanoImageUrl: $(WINDOWS_2022_NANO_IMAGE_URL)
       windowsCoreImageUrl: $(WINDOWS_2022_CORE_IMAGE_URL)
+      windowsContainerImageJsonUrl: ${{ parameters.windowsContainerImageJsonUrl }}
       overrideBranch: ${{ parameters.overrideBranch }}
       useOverrides: ${{ parameters.useOverrides }}
+      csePackageDir: ${{ parameters.csePublishDir }}
+      cseFileName: ${{ parameters.cseFileName }}
 
   - template: ./.build-and-test-windows-vhd-template.yaml
     parameters:
@@ -101,11 +141,14 @@ stages:
       dryrun: ${{ parameters.dryrun }}
       installOpenSshServer: ${{ parameters.installOpenSshServer }}
       skipExtensionCheck: ${{ parameters.skipExtensionCheck }}
-      windowsBaseImageUrl: $(WINDOWS_23H2_GEN2_BASE_IMAGE_URL)
+      windowsBaseImageUrl: $(WINDOWS_2022_GEN2_BASE_IMAGE_URL)
       windowsNanoImageUrl: $(WINDOWS_2022_NANO_IMAGE_URL)
       windowsCoreImageUrl: $(WINDOWS_2022_CORE_IMAGE_URL)
+      windowsContainerImageJsonUrl: ${{ parameters.windowsContainerImageJsonUrl }}
       overrideBranch: ${{ parameters.overrideBranch }}
       useOverrides: ${{ parameters.useOverrides }}
+      csePackageDir: ${{ parameters.csePublishDir }}
+      cseFileName: ${{ parameters.cseFileName }}
 
   - template: ./.build-and-test-windows-vhd-template.yaml
     parameters:
@@ -124,8 +167,11 @@ stages:
       windowsBaseImageUrl: $(WINDOWS_23H2_BASE_IMAGE_URL)
       windowsNanoImageUrl: $(WINDOWS_2022_NANO_IMAGE_URL)
       windowsCoreImageUrl: $(WINDOWS_2022_CORE_IMAGE_URL)
+      windowsContainerImageJsonUrl: ${{ parameters.windowsContainerImageJsonUrl }}
       overrideBranch: ${{ parameters.overrideBranch }}
       useOverrides: ${{ parameters.useOverrides }}
+      csePackageDir: ${{ parameters.csePublishDir }}
+      cseFileName: ${{ parameters.cseFileName }}
 
   - template: ./.build-and-test-windows-vhd-template.yaml
     parameters:
@@ -144,8 +190,11 @@ stages:
       windowsBaseImageUrl: $(WINDOWS_23H2_GEN2_BASE_IMAGE_URL)
       windowsNanoImageUrl: $(WINDOWS_2022_NANO_IMAGE_URL)
       windowsCoreImageUrl: $(WINDOWS_2022_CORE_IMAGE_URL)
+      windowsContainerImageJsonUrl: ${{ parameters.windowsContainerImageJsonUrl }}
       overrideBranch: ${{ parameters.overrideBranch }}
       useOverrides: ${{ parameters.useOverrides }}
+      csePackageDir: ${{ parameters.csePublishDir }}
+      cseFileName: ${{ parameters.cseFileName }}
 
   - template: ./.build-and-test-windows-vhd-template.yaml
     parameters:
@@ -164,8 +213,11 @@ stages:
       windowsBaseImageUrl: $(WINDOWS_2025_BASE_IMAGE_URL)
       windowsNanoImageUrl: $(WINDOWS_2025_NANO_IMAGE_URL)
       windowsCoreImageUrl: $(WINDOWS_2025_CORE_IMAGE_URL)
+      windowsContainerImageJsonUrl: ${{ parameters.windowsContainerImageJsonUrl }}
       overrideBranch: ${{ parameters.overrideBranch }}
       useOverrides: ${{ parameters.useOverrides }}
+      csePackageDir: ${{ parameters.csePublishDir }}
+      cseFileName: ${{ parameters.cseFileName }}
 
   - template: ./.build-and-test-windows-vhd-template.yaml
     parameters:
@@ -184,30 +236,33 @@ stages:
       windowsBaseImageUrl: $(WINDOWS_2025_GEN2_BASE_IMAGE_URL)
       windowsNanoImageUrl: $(WINDOWS_2025_NANO_IMAGE_URL)
       windowsCoreImageUrl: $(WINDOWS_2025_CORE_IMAGE_URL)
+      windowsContainerImageJsonUrl: ${{ parameters.windowsContainerImageJsonUrl }}
       overrideBranch: ${{ parameters.overrideBranch }}
       useOverrides: ${{ parameters.useOverrides }}
+      csePackageDir: ${{ parameters.csePublishDir }}
+      cseFileName: ${{ parameters.cseFileName }}
 
-  - stage: backfill_cleanup_outdated_resources
+  - stage: delete_outdated_resources
     dependsOn: [ ]
     condition: always()
     jobs:
       - job: build
         timeoutInMinutes: 180
         steps:
-          - bash: |
-              # because SUBSCRIPTION_ID is defined as a pipeline variable, setting this in the "env" section below doesn't work.
-              export SUBSCRIPTION_ID=$(AZURE_BUILD_SUBSCRIPTION_ID)
-      
-              make -f packer.mk backfill-cleanup
+          - task: AzureCLI@2
+            inputs:
+              azureSubscription: $(VHD_ARM_SERVICE_CONNECTION)
+              scriptType: bash
+              scriptLocation: inlineScript
+              inlineScript: |
+                bash ./vhdbuilder/packer/cleanup.sh
             enabled: true
-            displayName: Backfill Clean Up Older Resources
-            condition: eq(variables.ENABLE_BACKFILL_CLEANUP, 'True')
+            displayName: Cleanup
+            condition: eq(  ${{ parameters.enableBackfillCleanup }} , 'True')
             env:
               MODE: windowsVhdMode
-              SUBSCRIPTION_ID: $(AZURE_BUILD_SUBSCRIPTION_ID)
+              SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
               PROD_SUBSCRIPTION_ID: $(AZURE_PROD_SUBSCRIPTION_ID)
-              AZURE_RESOURCE_GROUP_NAME: $(AZURE_BUILD_RESOURCE_GROUP_NAME)
-              DRY_RUN:  ${{ parameters.dryrun }}
+              DRY_RUN: ${{ parameters.dryrun }}
               SIG_GALLERY_NAME: $(SIG_GALLERY_NAME)
               OS_TYPE: Windows
-

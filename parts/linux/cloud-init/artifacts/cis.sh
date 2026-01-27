@@ -18,6 +18,8 @@ assignRootPW() {
         echo 'root:'$HASH | /usr/sbin/chpasswd -e || exit $ERR_CIS_ASSIGN_ROOT_PW
     fi
     set -x
+    chage --maxdays 90 root
+    chage --inactive 30 root
 }
 
 assignFilePermissions() {
@@ -185,7 +187,7 @@ function maskNfsServer() {
     # Note that on ubuntu systems, it isn't installed but on mariner/azurelinux we need it
     # due to a dependency, but disable it by default.
     if systemctl list-unit-files nfs-server.service >/dev/null; then
-        systemctl --now mask nfs-server || exit $ERR_SYSTEMCTL_MASK_FAIL
+        systemctl mask nfs-server || exit $ERR_SYSTEMCTL_MASK_FAIL
     fi
 }
 
@@ -209,6 +211,100 @@ function addFailLockDir() {
     fi
 }
 
+configureGrub() {
+    if ! grep -q apparmor /etc/default/grub.d/99-aks-cis.cfg; then
+        # shellcheck disable=SC2016
+        echo 'GRUB_CMDLINE_LINUX="$GRUB_CMDLINE_LINUX apparmor=1 security=apparmor"' >>/etc/default/grub.d/99-aks-cis.cfg
+    fi
+    cat <<"EOF" >/etc/grub.d/09_unrestricted
+#!/bin/sh
+exec tail -n +3 $0
+# This file provides an easy way to add custom menu entries.  Simply type the
+# menu entries you want to add after this comment.  Be careful not to change
+# the 'exec tail' line above.
+
+menuentry_id_option="--unrestricted $menuentry_id_option"
+EOF
+    chmod +x /etc/grub.d/09_unrestricted
+    if ! grep -q superusers /etc/grub.d/40_custom; then
+        set +x
+        password=$(openssl rand -hex 64)
+        hash=$(echo -e "${password}\n${password}" | grub-mkpasswd-pbkdf2 | tail -n1 | sed -e 's/.*grub.pbkdf2/grub.pbkdf2/')
+        set -x
+        cat <<EOF >>/etc/grub.d/40_custom
+set superusers="root"
+password_pbkdf2 root ${hash}
+EOF
+    fi
+    update-grub2 || exit 1
+    chmod 0600 /boot/grub/grub.cfg
+}
+
+prepareTmp() {
+    local changed=0
+    if ! grep -q /tmp /etc/fstab; then
+        #echo 'tmpfs /tmp tmpfs nodev,nosuid,noexec,size=50%,mode=1777' >>/etc/fstab
+        #changed=1
+	:
+    fi
+    if ! grep -q /dev/shm /etc/fstab; then
+        echo 'tmpfs /dev/shm tmpfs nodev,nosuid,noexec' >>/etc/fstab
+        changed=1
+    fi
+
+    if [ "${changed}" = 1 ]; then
+        systemctl daemon-reload
+        mount -o remount /dev/shm
+        # A noexec /tmp interferes with packer operations
+    fi
+}
+
+configureSsh() {
+    mkdir -p /etc/ssh/sshd_config.d
+    cat <<EOF >/etc/ssh/sshd_config.d/99-aks-cis.conf
+ClientAliveInterval 120
+ClientAliveCountMax 3
+EOF
+    chmod 0600 -R /etc/ssh/sshd_config.d/
+    chmod 0755    /etc/ssh/sshd_config.d
+    chmod 0600    /etc/ssh/sshd_config
+    systemctl restart ssh
+}
+
+configureSudo() {
+    cat <<EOF >/etc/sudoers.d/99-cis
+Defaults logfile="/var/log/sudo.log"
+EOF
+    chmod 0440 /etc/sudoers.d/99-cis
+    cat <<EOF >/etc/logrotate.d/sudo
+/var/log/sudo.log {
+  rotate 5
+  daily
+  maxsize 50M
+  missingok
+  notifempty
+  compress
+  delaycompress
+  sharedscripts
+}
+EOF
+}
+
+configureRootPath() {
+    sed -i -e 's|:/snap/bin||' /etc/sudoers /etc/environment
+}
+
+configureLimits() {
+    mkdir -p /etc/security/limits.d/
+    cat <<EOF >/etc/security/limits.d/99-aks-cis.conf
+* hard core 0
+EOF
+}
+
+configureAzureAgent() {
+    sed -i -e 's/\(Provisioning.DeleteRootPassword\).*/\1=n/' /etc/waagent.conf
+}
+
 applyCIS() {
     setPWExpiration
     assignRootPW
@@ -217,6 +313,19 @@ applyCIS() {
     fixUmaskSettings
     maskNfsServer
     addFailLockDir
+    if isMarinerOrAzureLinux "$OS" || isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || isFlatcar "$OS" ; then
+        echo "Further functions only work for Ubuntu"
+        return
+    fi
+    configureGrub
+    prepareTmp
+    configureSsh
+    configureSudo
+    configureRootPath
+    configureLimits
+    configureAzureAgent
+    # Apply system configuration to running system
+    sysctl --write --system
 }
 
 applyCIS

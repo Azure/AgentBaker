@@ -15,6 +15,7 @@ import "aksnodeconfig/v1/http_proxy_config.proto";
 import "aksnodeconfig/v1/imds_restriction_config.proto";
 import "aksnodeconfig/v1/kube_binary_config.proto";
 import "aksnodeconfig/v1/kubelet_config.proto";
+import "aksnodeconfig/v1/localdns_config.proto";
 import "aksnodeconfig/v1/network_config.proto";
 import "aksnodeconfig/v1/runc_config.proto";
 import "aksnodeconfig/v1/teleport_config.proto";
@@ -24,7 +25,6 @@ option go_package = "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aks
 enum WorkloadRuntime {
   WORKLOAD_RUNTIME_UNSPECIFIED = 0;
   WORKLOAD_RUNTIME_OCI_CONTAINER = 1;
-  WORKLOAD_RUNTIME_WASM_WASI = 2;
 }
 
 message Configuration {
@@ -116,7 +116,7 @@ message Configuration {
   // A local file path where cluster provision cse output should be stored
   string provision_output = 28;
 
-  // Workload runtime, e.g., either "OCIContainer" or "WasmWasi", currently.
+  // Workload runtime, only "OCIContainer" currently.
   WorkloadRuntime workload_runtime = 29;
 
   // Specifies whether IPv6 dual stack is enabled or disabled on the VM node
@@ -150,4 +150,17 @@ message Configuration {
 
   // IMDS restriction configuration
   ImdsRestrictionConfig imds_restriction_config = 39;
+
+  // Creates a pre-provisioned image for later node spawning.
+  // Skips kubelet and some component configuration for image capture scenarios.
+  bool pre_provision_only = 40;
+
+  // Represents localdns profile for agentpool.
+  LocalDnsProfile local_dns_profile = 41;
+
+  // Specifies whether to disable ssh public key authentication on the VM node
+  // This is labeled as optional (explicit presence) so that we know whether it's set or not.
+  // If it's not set, the default value will be nil, but will be set to false on the VHD.
+  // That is, the default behavior is to enable ssh public key authentication.
+  optional bool disable_pubkey_auth = 42;
 }

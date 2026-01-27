@@ -1,3 +1,5 @@
+Include /etc/ssh/sshd_config.d/99-aks-cis.conf
+
 # What ports, IPs and protocols we listen for
 Port 22
 # Use these options to restrict which interfaces/protocols sshd will bind to
@@ -6,7 +8,7 @@ Port 22
 Protocol 2
 
 # 5.2.11 Ensure only approved MAC algorithms are used
-MACs hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com,umac-128-etm@openssh.com,hmac-sha2-512,hmac-sha2-256,umac-128@openssh.com
+MACs hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com,hmac-sha2-512,hmac-sha2-256
 KexAlgorithms curve25519-sha256@libssh.org
 Ciphers chacha20-poly1305@openssh.com,aes256-gcm@openssh.com,aes128-gcm@openssh.com,aes256-ctr,aes192-ctr,aes128-ctr
 
@@ -16,7 +18,6 @@ ClientAliveCountMax 3
 
 # HostKeys for protocol version 2
 HostKey /etc/ssh/ssh_host_rsa_key
-HostKey /etc/ssh/ssh_host_dsa_key
 HostKey /etc/ssh/ssh_host_ecdsa_key
 HostKey /etc/ssh/ssh_host_ed25519_key
 
@@ -63,7 +64,8 @@ PrintLastLog yes
 TCPKeepAlive yes
 #UseLogin no
 
-#MaxStartups 10:30:60
+# CIS
+MaxStartups 10:30:60
 Banner /etc/issue.net
 
 # Allow client to pass locale environment variables

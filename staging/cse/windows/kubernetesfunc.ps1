@@ -30,7 +30,7 @@ function Initialize-DataDirectories {
     # On Windows, Go translates to c:\tmp. If that path doesn't exist, then some node tests fail
 
     Logs-To-Event -TaskName "AKS.WindowsCSE.InitializeDataDirectories" -TaskMessage "Start to create required data directories as needed"
-   
+
     $requiredPaths = 'c:\tmp'
 
     $requiredPaths | ForEach-Object {
@@ -85,7 +85,7 @@ function Write-KubeClusterConfig {
     $Global:ClusterConfiguration | Add-Member -MemberType NoteProperty -Name Cri -Value @{
         Name   = "containerd";
         Images = @{
-            # e.g. "mcr.microsoft.com/oss/kubernetes/pause:1.4.1"
+            # e.g. "mcr.microsoft.com/oss/v2/kubernetes/pause:3.6"
             "Pause" = $global:WindowsPauseImageURL
         }
     }
@@ -125,6 +125,12 @@ function Write-KubeClusterConfig {
         Kubelet      = @{
             NodeLabels = $global:KubeletNodeLabels;
             ConfigArgs = $global:KubeletConfigArgs
+            SecureTLSBootstrapArgs = @{
+                Enabled                = $global:EnableSecureTLSBootstrapping;
+                Deadline               = $global:SecureTLSBootstrappingDeadline;
+                AADResource            = $global:SecureTLSBootstrappingAADResource;
+                UserAssignedIdentityID = $global:SecureTLSBootstrappingUserAssignedIdentityID
+            };
         };
         Kubeproxy    = @{
             FeatureGates = $global:KubeproxyFeatureGates;

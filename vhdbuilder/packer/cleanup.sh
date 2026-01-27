@@ -3,7 +3,7 @@ set -x
 
 source ./parts/linux/cloud-init/artifacts/cse_benchmark_functions.sh
 
-EXPIRATION_IN_HOURS=288
+EXPIRATION_IN_HOURS=168 # 7 days
 # convert to seconds so we can compare it against the "tags.now" property in the resource group metadata
 (( expirationInSecs = ${EXPIRATION_IN_HOURS} * 60 * 60 ))
 # deadline = the "date +%s" representation of the oldest age we're willing to keep
@@ -93,7 +93,7 @@ if [ "${MODE}" = "windowsVhdMode" ] && [ "$SIG_FOR_PRODUCTION" = "True" ] && [ "
         id=$(az sig image-version show -e $version -i ${SIG_IMAGE_NAME} -r ${SIG_GALLERY_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} | jq .id)
         if [ -n "$id" ]; then
             echo "Deleting sig image-version $version failed"
-        else 
+        else
             echo "Deletion of sig image-version $version completed"
         fi
     done
@@ -109,7 +109,7 @@ if [ "${MODE}" = "windowsVhdMode" ] && [ "$SIG_FOR_PRODUCTION" = "True" ] && [ "
       id=$(az sig image-definition show --gallery-image-definition ${SIG_IMAGE_NAME} -r ${SIG_GALLERY_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} | jq .id)
       if [ -n "$id" ]; then
           echo "Deleting sig image-definition ${SIG_IMAGE_NAME} failed"
-      else 
+      else
           echo "Deletion of sig image-definition ${SIG_IMAGE_NAME} completed"
       fi
     fi
@@ -145,7 +145,7 @@ if [[ "${MODE}" == "linuxVhdMode" && -n "${AZURE_RESOURCE_GROUP_NAME}" && "${DRY
   managed_image_ids=""
   sig_version_ids=""
   # we limit deletions to 25 managed images to make sure the build doesn't take too long and can finish successfully
-  for image in $(az image list -g ${AZURE_RESOURCE_GROUP_NAME} | jq --arg dl $deadline '.[] | select(.name | test("Ubuntu*|CBLMariner*|V1*|V2*|1804*|2004*|2204*")) | select(.tags.now < $dl).name' | head -n 25 | tr -d '\"' || ""); do
+  for image in $(az image list -g ${AZURE_RESOURCE_GROUP_NAME} | jq --arg dl $deadline '.[] | select(.name | test("Ubuntu*|CBLMariner*|V1*|V2*|2004*|2204*")) | select(.tags.now < $dl).name' | head -n 25 | tr -d '\"' || ""); do
     managed_image_ids="${managed_image_ids} /subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/images/${image}"
     sig_version_ids="${sig_version_ids} /subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/galleries/${SIG_GALLERY_NAME}/images/${image%-*}/versions/${image#*-}"
     echo "Will delete managed image ${image} and associated SIG version from resource group ${AZURE_RESOURCE_GROUP_NAME}"
@@ -168,21 +168,38 @@ if [[ "${MODE}" == "linuxVhdMode" && -n "${AZURE_RESOURCE_GROUP_NAME}" && "${DRY
   old_sig_version_ids=""
   # we limit deletion to 15 SIG image versions per image definition
   set +x
-  for image_definition in $(az sig image-definition list -g ${AZURE_RESOURCE_GROUP_NAME} -r ${SIG_GALLERY_NAME} | jq '.[] | select(.name | test("Ubuntu*|CBLMariner*|V1*|V2*|1804*|2004*|2204*")).name' | tr -d '\"' || ""); do
+  for image_definition in $(az sig image-definition list -g ${AZURE_RESOURCE_GROUP_NAME} -r ${SIG_GALLERY_NAME} | jq '.[] | select(.name | test("Ubuntu*|CBLMariner*|V1*|V2*|2004*|2204*|2404*")).name' | tr -d '\"' || ""); do
     for image_version in $(az sig image-version list -g ${AZURE_RESOURCE_GROUP_NAME} -r ${SIG_GALLERY_NAME} -i ${image_definition} | jq --arg dl $deadline '.[] | select(.tags.now < $dl).name' | head -n 15 | tr -d '\"' || ""); do
+      image_version_id="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/galleries/${SIG_GALLERY_NAME}/images/${image_definition}/versions/${image_version}"
+
+      # TODO: remove 2404gen2arm64gb200containerd exemption once released to official production galleries
+      # shellcheck disable=SC3010
+      if [ "${image_definition,,}" = "2404gen2arm64gb200containerd" ] && [[ "$image_version" == "1.1."* ]]; then
+        echo "Will not consider garbage collection of image: ${image_version_id}"
+        continue
+      fi
+
       lock_name=$(az lock list --resource /subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/galleries/${SIG_GALLERY_NAME}/images/${image_definition}/versions/${image_version} --query "[0].name" --output tsv)
       if [ -z "${lock_name}" ]; then
-        old_sig_version_ids="${old_sig_version_ids} /subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/galleries/${SIG_GALLERY_NAME}/images/${image_definition}/versions/${image_version}"
+        old_sig_version_ids="${old_sig_version_ids} ${image_version_id}"
       fi
     done
   done
 
   if [ -n "${old_sig_version_ids}" ]; then
-    echo "Attempting to delete $(echo ${old_sig_version_ids} | wc -w) SIG image versions older than ${EXPIRATION_IN_HOURS} hours..."
+    echo "Attempting to delete $(echo ${old_sig_version_ids} | wc -w) SIG image versions older than ${EXPIRATION_IN_HOURS} hours:"
+    echo "${old_sig_version_ids}" | tr ' ' '\n'
     az resource delete --ids ${old_sig_version_ids} > /dev/null || echo "SIG image version deletion was not successful, continuing..."
   else
     echo "Did not find any old SIG versions eligible for deletion"
   fi
+
+  # cleanup any lingering image builder resource groups
+  for image_builder_rg in $(az group list | jq --arg dl $deadline '.[] | select(.name | test("^image-builder-*")) | select(.tags.now < $dl).name' | tr -d '\"' || ""); do
+    echo "deleting image builder resource group: ${image_builder_rg}"
+    az group delete -g "${image_builder_rg}" --yes --no-wait
+  done
+
   set -x
 fi
 capture_benchmark "${SCRIPT_NAME}_delete_old_sig_versions"

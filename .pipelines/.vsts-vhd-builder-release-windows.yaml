@@ -2,28 +2,19 @@ name: Release_$(Date:yyyyMMdd)$(Rev:.r)_$(Build.SourceBranchName)_$(BuildID)
 trigger: none
 
 pool:
-  name: $(AZURE_POOL_NAME)
+  name: $(POOL_NAME)
 
-# Some templates use POOL_NAME instead of AZURE_POOL_NAME, so set POOL_NAME here just in case.
 variables:
   - name: VHD_BUILD_ID
     value: $(Build.BuildId)
-  - name: LOCATION
-    value: $(PACKER_BUILD_LOCATION)
-  - name: POOL_NAME
-    value: $(AZURE_POOL_NAME)
-  - name: SUBSCRIPTION_ID
-    value: $(AZURE_BUILD_SUBSCRIPTION_ID)
-    # if SIG_FOR_PRODUCTION is true, then the VHDs are deleted from the gallery before the e2e tests are run.
+  # if SIG_FOR_PRODUCTION is true, then the VHDs are deleted from the gallery before the e2e tests are run.
   - name: SIG_FOR_PRODUCTION
     value: False
-    # These next vars are used for the e2e tests
-  - name: AZURE_RESOURCE_GROUP_NAME
-    value: $(AZURE_BUILD_RESOURCE_GROUP_NAME)
-  - name: GALLERY_RESOURCE_GROUP
-    value: $(AZURE_BUILD_RESOURCE_GROUP_NAME)
-  - name: GALLERY_SUBSCRIPTION_ID
-    value: $(AZURE_BUILD_SUBSCRIPTION_ID)
+  - name: skipExtensionCheck
+    ${{ if eq(variables.SKIP_EXTENSION_CHECK, '') }}:
+      value: false
+    ${{ else }}:
+      value: ${{ variables.SKIP_EXTENSION_CHECK }}
 
 parameters:
   - name: build2019containerd
@@ -54,16 +45,20 @@ parameters:
     displayName: Build 2025 Gen 2
     type: boolean
     default: True
+  - name: useContainerUrlsFromJson
+    displayName: Use Container Base URL from JSON
+    type: boolean
+    default: False
+  - name: windowsContainerImageJsonUrl
+    displayName: Windows Container Image Json URL
+    type: string
+    default: https://wcctagentbakerstorage.blob.core.windows.net/simship/2025/07B/payload.json
   - name: dryrun
     displayName: Dry run
     type: boolean
     default: False
   - name: vhddebug
     displayName: VHD Debug
-    type: boolean
-    default: False
-  - name: skipExtensionCheck
-    displayName: Skip Extension Check
     type: boolean
     default: False
   - name: installOpenSshServer
@@ -73,7 +68,7 @@ parameters:
   - name: buildVmSize
     displayName: Build VM Size
     type: string
-    default: Standard_D4ds_v5
+    default: Standard_D16ds_v5
   - name: useOverrides
     displayName: Use component overrides
     type: boolean
@@ -88,6 +83,24 @@ parameters:
 # Use variable group "ab-windows-ms-tenant" and link it to the pipeline "[TEST All VHDs] AKS Windows VHD Build - Msft Tenant"
 
 stages:
+  - stage: CheckUseContainerUrlsFromJson
+    jobs:
+      - job: SetURLToDefault
+        condition: eq(variables['useContainerUrlsFromJson'], 'True')
+        steps:
+          - script: echo "Setting Windows Container Image JSON URL to ${{ parameters.windowsContainerImageJsonUrl }}"
+            displayName: Set Windows Container Image JSON URL
+          - powershell: |
+              Write-Host "##vso[task.setvariable variable=windowsContainerImageJsonUrl]${{ parameters.windowsContainerImageJsonUrl }}"
+            displayName: Set pipeline variable windowsContainerImageJsonUrl
+      - job: SetURLToEmpty
+        condition: eq(variables['useContainerUrlsFromJson'], 'False')
+        steps:
+          - script: echo "Setting Windows Container Image JSON URL to an empty string"
+            displayName: Set Windows Container Image JSON URL to empty
+          - powershell: |
+              Write-Host "##vso[task.setvariable variable=windowsContainerImageJsonUrl;isOutput=true]''"
+            displayName: Set pipeline variable windowsContainerImageJsonUrl to empty
   - template: ./templates/.build-and-test-windows-vhds-template.yaml
     parameters:
       vhddebug: ${{ parameters.vhddebug }}
@@ -100,7 +113,7 @@ stages:
       build23H2gen2: ${{ parameters.build23H2gen2 }}
       build2025:  ${{ parameters.build2025 }}
       build2025gen2:  ${{ parameters.build2025gen2 }}
-      skipExtensionCheck: ${{ parameters.skipExtensionCheck }}
+      skipExtensionCheck: ${{ variables.skipExtensionCheck }}
       installOpenSshServer: ${{ parameters.installOpenSshServer }}
       overrideBranch: ${{ parameters.overrideBranch }}
       useOverrides: ${{ parameters.useOverrides }}

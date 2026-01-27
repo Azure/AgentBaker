@@ -1,0 +1,79 @@
+{
+  "github.copilot.chat.commitMessageGeneration.instructions": [
+    {
+      "text": "Follow the commit message conventions of the project, fetch from https://www.conventionalcommits.org/",
+    }
+  ],
+  "github.copilot.chat.codeGeneration.instructions": [
+    {
+      "text": "Generate code that is efficient and follows best practices.",
+    },
+    {
+      "text": "Use the same programming language and framework as the existing code.",
+    },
+    {
+      "text": "Follow the coding style and conventions of the project.",
+    },
+    {
+      "text": "Include comments and documentation for the generated code.",
+    },
+    {
+      "text": "Ensure all new code is covered by tests.",
+    },
+    {
+      "text": "If changes are in folder 'parts', 'pkg', run 'make generate' to regenerate the snapshot test data.",
+    }
+  ],
+  "github.copilot.chat.testGeneration.instructions": [
+    {
+      "text": "Generate unit tests for the function, including edge cases and error handling.",
+    },
+    {
+      "text": "Use the same programming language and framework as the function.",
+    },
+    {
+      "text": "Follow best practices for writing unit tests.",
+    },
+    {
+      "text": "Generete e2e tests when applicable, following the same pattern as the existing tests.",
+    },
+  ],
+  "github.copilot.chat.pullRequestGeneration.instructions": [
+    {
+      "text": "When updating Pull Requests, follow these guidelines:",
+    },
+    {
+      "text": "1. Ensure all tests pass before submitting: `make test`",
+    },
+    {
+      "text": "2. If changes were made to parts/ or pkg/ directories, run `make generate` to update testdata",
+    },
+    {
+      "text": "3. Provide a clear description of the changes in the PR description",
+    },
+    {
+      "text": "4. Link any related issues using GitHub keywords (Fixes, Closes, Resolves)",
+    },
+    {
+      "text": "5. Be responsive to code review feedback and make requested changes promptly",
+    },
+    {
+      "text": "When resolving merge conflicts in PRs, use the following strategy for testdata directories:",
+    },
+    {
+      "text": "1. Accept 'theirs' for the testdata directory: `git checkout --theirs origin/master pkg/agent/testdata`",
+    },
+    {
+      "text": "2. Stage the changes: `git add pkg/agent/testdata`",
+    },
+    {
+      "text": "3. Regenerate test data: `make generate`",
+    },
+    {
+      "text": "4. Commit with message 'test: update testdata'",
+    }
+  ],
+  "files.trimTrailingWhitespace": true,
+  "files.trimTrailingWhitespaceInRegexAndStrings": true,
+  "files.insertFinalNewline": true
+}

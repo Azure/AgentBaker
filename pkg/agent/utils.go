@@ -252,17 +252,22 @@ func newGzipWriter(buf *bytes.Buffer) *gzip.Writer {
 	return gzip.NewWriter(buf)
 }
 
-// getBase64EncodedGzippedCustomScriptFromStr will return a base64-encoded string of the gzip'd source data.
-func getBase64EncodedGzippedCustomScriptFromStr(str string) string {
+func getGzippedBufferFromBytes(b []byte) []byte {
 	var gzipB bytes.Buffer
 	w := newGzipWriter(&gzipB)
-	_, err := w.Write([]byte(str))
+	_, err := w.Write(b)
 	if err != nil {
 		// this should never happen and this is a bug.
 		panic(fmt.Sprintf("BUG: %s", err.Error()))
 	}
 	w.Close()
-	return base64.StdEncoding.EncodeToString(gzipB.Bytes())
+	return gzipB.Bytes()
+}
+
+// getBase64EncodedGzippedCustomScriptFromStr will return a base64-encoded string of the gzip'd source data.
+func getBase64EncodedGzippedCustomScriptFromStr(str string) string {
+	gzip := getGzippedBufferFromBytes([]byte(str))
+	return base64.StdEncoding.EncodeToString(gzip)
 }
 
 func getExtensionURL(rootURL, extensionName, version, fileName, query string) string {
@@ -306,9 +311,14 @@ func GetCloudTargetEnv(location string) string {
 	case strings.HasPrefix(loc, "china"):
 		return "AzureChinaCloud"
 	case loc == "germanynortheast" || loc == "germanycentral":
+		// Deprecated AzureGermanCloud
 		return "AzureGermanCloud"
 	case strings.HasPrefix(loc, "usgov") || strings.HasPrefix(loc, "usdod"):
 		return "AzureUSGovernmentCloud"
+	case strings.HasPrefix(loc, "bleu"):
+		return "AzureBleuCloud"
+	case strings.HasPrefix(loc, "delos"):
+		return "AzureGermanyCloud"
 	default:
 		return "AzurePublicCloud"
 	}
@@ -676,4 +686,22 @@ func addFeatureGateString(featureGates string, key string, value bool) string {
 		pairs = append(pairs, fmt.Sprintf("%s=%t", k, fgMap[k]))
 	}
 	return strings.Join(pairs, ",")
+}
+
+func removeNewlines(str string) string {
+	sanitizedStr := strings.ReplaceAll(str, "\n", "")
+	sanitizedStr = strings.ReplaceAll(sanitizedStr, "\r", "")
+	return sanitizedStr
+}
+
+type cloudInitWriteFile struct {
+	Path        string `yaml:"path"`
+	Permissions string `yaml:"permissions"`
+	Encoding    string `yaml:"encoding,omitempty"`
+	Owner       string `yaml:"owner"`
+	Content     string `yaml:"content"`
+}
+
+type cloudInit struct {
+	WriteFiles []cloudInitWriteFile `yaml:"write_files"`
 }

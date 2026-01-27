@@ -1,5 +1,6 @@
 #!/bin/bash
 set -eux
+: "${CONTAINTER_BASE_URLS_EXISTING:=false}"
 
 source ./parts/linux/cloud-init/artifacts/cse_benchmark_functions.sh
 
@@ -44,7 +45,7 @@ az group create --name "$TEST_VM_RESOURCE_GROUP_NAME" --location "${AZURE_LOCATI
 # defer function to cleanup resource group when VHD debug is not enabled
 function cleanup() {
   if [ "$VHD_DEBUG" = "True" ]; then
-    echo "VHD debug mode is enabled, please manually delete test vm resource group $RESOURCE_GROUP_NAME after debugging"
+    echo "VHD debug mode is enabled, please manually delete test vm resource group $TEST_VM_RESOURCE_GROUP_NAME after debugging"
   else
     echo "Deleting resource group ${TEST_VM_RESOURCE_GROUP_NAME}"
     az group delete --name "$TEST_VM_RESOURCE_GROUP_NAME" --yes --no-wait
@@ -79,6 +80,13 @@ if [ "${OS_TYPE}" = "Linux" ] && grep -q "cvm" <<< "$FEATURE_FLAGS"; then
     TARGET_COMMAND_STRING="--size Standard_DC8ads_v5 --security-type ConfidentialVM --enable-secure-boot true --enable-vtpm true --os-disk-security-encryption-type VMGuestStateOnly --specialized true"
 fi
 
+# GB200 specific test VM configuration (uses standard ARM64 VM for now)
+if [ "${OS_TYPE}" = "Linux" ] && grep -q "GB200" <<< "$FEATURE_FLAGS"; then
+    echo "GB200: Using ARM64 VM size for testing"
+    # GB200 will use standard ARM64 VM for testing until GB200 SKUs are available
+    # Additional GB200-specific test parameters can be added here
+fi
+
 if [ "${OS_TYPE,,}" = "linux" ]; then
   # in linux mode, explicitly create the NIC referencing the existing packer subnet to be attached to the testing VM so we avoid creating ephemeral vnets
   PACKER_SUBNET_ID="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${PACKER_VNET_RESOURCE_GROUP_NAME}/providers/Microsoft.Network/virtualNetworks/${PACKER_VNET_NAME}/subnets/packer"
@@ -92,7 +100,6 @@ if [ "${OS_TYPE,,}" = "linux" ]; then
       exit 1
   fi
   az vm create \
-      --debug \
       --resource-group "$TEST_VM_RESOURCE_GROUP_NAME" \
       --name "$VM_NAME" \
       --image "$MANAGED_SIG_ID" \
@@ -128,13 +135,14 @@ if [ "$OS_TYPE" = "Linux" ]; then
 
   # If the pipeline that called this didn't set a branch, default to master.
   GIT_BRANCH="${GIT_BRANCH:-refs/heads/master}"
+  GIT_COMMIT_HASH="${GIT_COMMIT_HASH:-$(git rev-parse HEAD)}"
   SCRIPT_PATH="$CDIR/$LINUX_SCRIPT_PATH"
   for i in $(seq 1 3); do
     ret=$(az vm run-command invoke --command-id RunShellScript \
       --name "$VM_NAME" \
       --resource-group "$TEST_VM_RESOURCE_GROUP_NAME" \
       --scripts "@$SCRIPT_PATH" \
-      --parameters "${CONTAINER_RUNTIME}" "${OS_VERSION}" "${ENABLE_FIPS}" "${OS_SKU}" "${GIT_BRANCH}" "${IMG_SKU}" "${FEATURE_FLAGS}") && break
+      --parameters "${OS_VERSION}" "${ENABLE_FIPS}" "${OS_SKU}" "${GIT_BRANCH}" "${IMG_SKU}" "${FEATURE_FLAGS}" "${GIT_COMMIT_HASH}") && break
     echo "${i}: retrying az vm run-command"
   done
   # The error message for a Linux VM run-command is as follows:
@@ -165,7 +173,7 @@ else
     --resource-group "$TEST_VM_RESOURCE_GROUP_NAME" \
     --scripts "@$SCRIPT_PATH" \
     --output json \
-    --parameters "windowsSKU=${WINDOWS_SKU}" "skipValidateReofferUpdate=${SKIPVALIDATEREOFFERUPDATE}")
+    --parameters "windowsSKU=${WINDOWS_SKU}" "skipValidateReofferUpdate=${SKIPVALIDATEREOFFERUPDATE}" "validatecontainerBaseImageFromUrl=${CONTAINTER_BASE_URLS_EXISTING}")
   # An example of failed run-command output:
   # {
   #   "value": [

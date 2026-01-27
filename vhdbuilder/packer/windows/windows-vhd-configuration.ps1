@@ -10,6 +10,9 @@ $global:aksTempDir = "c:\akstemp"
 # We use the same dir for all tools that will be used in AKS Windows nodes
 $global:aksToolsDir = "c:\aks-tools"
 
+# We cache images and packages in this directory.
+$global:cacheDir = "c:\akse-cache"
+
 # We need to guarantee that the node provisioning will not fail because the vhd is full before resize-osdisk is called in AKS Windows CSE script.
 $global:lowestFreeSpace = 1*1024*1024*1024 # 1GB
 
@@ -28,7 +31,7 @@ $CPU_ARCH = switch ($cpu.Architecture) {
 if ([string]::IsNullOrEmpty($CPU_ARCH)) {
     $cpuName = $cpu.Name
     $cpuArch = $cpu.Architecture
-    Write-Output "Unknown architecture for CPU $cpuName with arch $cpuArch"
+    Write-Host "Unknown architecture for CPU $cpuName with arch $cpuArch"
     throw "Unsupported architecture for SKU $windowsSKU for CPU $cpuName with arch $cpuArch"
 }
 
@@ -52,9 +55,9 @@ if (!(Test-Path $ComponentsJsonFile))
     $ComponentsJsonFile = "parts/common/components.json"
 }
 
-Write-Output "Components JSON: $ComponentsJsonFile"
-Write-Output "Helpers Ps1: $HelpersFile"
-Write-Output "WindowsSettingsFile: $WindowsSettingsFile"
+Write-Host "Components JSON: $ComponentsJsonFile"
+Write-Host "Helpers Ps1: $HelpersFile"
+Write-Host "WindowsSettingsFile: $WindowsSettingsFile"
 
 . "$HelpersFile"
 
@@ -65,6 +68,7 @@ $global:patchUrls = $patch_data | % { $_.url }
 $global:patchIDs = $patch_data | % { $_.id }
 
 $global:imagesToPull = GetComponentsFromComponentsJson $componentsJson
+$global:ociArtifactsToPull = GetOCIArtifactsFromComponentsJson $componentsJson
 $global:keysToSet = GetRegKeysToApply $windowsSettingsJson
 $global:map = GetPackagesFromComponentsJson $componentsJson
 $global:releaseNotesToSet = GetKeyMapForReleaseNotes $windowsSettingsJson

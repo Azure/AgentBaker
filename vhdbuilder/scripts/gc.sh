@@ -8,11 +8,10 @@ SKIP_TAG_VALUE="true"
 
 DRY_RUN="${DRY_RUN:-}"
 
-DAY_AGO=$(( $(date +%s) - 86400 )) # 24 hours ago
+STANDARD_DEADLINE=$(( $(date +%s) - 14400 )) # 4 hours ago
 WEEK_AGO=$(( $(date +%s) - 604800 )) # 7 days ago
 
 function main() {
-    az login --identity # relies on an appropriately permissioned identity being attached to the build agent
     az account set -s $SUBSCRIPTION_ID
 
     echo "garbage collecting ephemeral resource groups..."
@@ -22,7 +21,7 @@ function main() {
 }
 
 function cleanup_rgs() {
-    groups=$(az group list | jq -r --arg dl $DAY_AGO '.[] | select(.name | test("vhd-test*|vhd-scanning*|pkr-Resource-Group*")) | select(.tags.now < $dl).name'  | tr -d '\"' || "")
+    groups=$(az group list | jq -r --arg dl $STANDARD_DEADLINE '.[] | select(.name | test("vhd-test*|vhd-scanning*|pkr-Resource-Group*")) | select(.tags.now < $dl).name'  | tr -d '\"' || "")
     if [ -z "$groups" ]; then
         echo "no resource groups found for garbage collection"
         return 0
