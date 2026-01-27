@@ -255,10 +255,10 @@ func ValidateSysctlConfig(ctx context.Context, s *Scenario, customSysctls map[st
 	}
 }
 
-func ValidateEthtoolConfig(ctx context.Context, s *Scenario, EthtoolConfig map[string]string) {
+func ValidateNetworkInterfaceConfig(ctx context.Context, s *Scenario, nicConfig map[string]string) {
 	s.T.Helper()
-	keysToCheck := make([]string, 0, len(EthtoolConfig))
-	for k := range EthtoolConfig {
+	keysToCheck := make([]string, 0, len(nicConfig))
+	for k := range nicConfig {
 		keysToCheck = append(keysToCheck, k)
 	}
 
@@ -296,7 +296,7 @@ func ValidateEthtoolConfig(ctx context.Context, s *Scenario, EthtoolConfig map[s
 	s.T.Logf("Parsed NICs list: %v (count: %d)", nics, len(nics))
 
 	if len(nics) == 0 || (len(nics) == 1 && strings.TrimSpace(nics[0]) == "") {
-		s.T.Fatalf("no nics found to validate ethtool config")
+		s.T.Fatalf("no nics found to validate network interface config")
 		return
 	}
 
@@ -307,9 +307,9 @@ func ValidateEthtoolConfig(ctx context.Context, s *Scenario, EthtoolConfig map[s
 			continue
 		}
 
-		s.T.Logf("Validating ethtool config for NIC: %s", nic)
+		s.T.Logf("Validating network interface config for NIC: %s", nic)
 
-		for setting, expectedValue := range EthtoolConfig {
+		for setting, expectedValue := range nicConfig {
 			// Get full ethtool output for debugging
 			debugCommand := []string{
 				"set -ex",
@@ -330,8 +330,8 @@ func ValidateEthtoolConfig(ctx context.Context, s *Scenario, EthtoolConfig map[s
 	}
 }
 
-// ValidateEthtoolConfigFiles checks that udev rules files exist.
-func ValidateEthtoolConfigFiles(ctx context.Context, s *Scenario) {
+// ValidateAzureNetworkFiles checks that udev rules files exist.
+func ValidateAzureNetworkFiles(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 
 	ValidateFileExists(ctx, s, "/opt/azure-network/configure-azure-network.sh")
@@ -1729,13 +1729,13 @@ func ValidateRxBufferDefault(ctx context.Context, s *Scenario) {
 
 	s.T.Logf("VM has %d CPUs, expecting rx buffer size: %s", cpuCount, expectedRx)
 
-	customEthtool := map[string]string{
+	customNicConfig := map[string]string{
 		"rx": expectedRx,
 	}
 
 	// Validate files exist
-	ValidateEthtoolConfigFiles(ctx, s)
+	ValidateAzureNetworkFiles(ctx, s)
 
-	// Validate ethtool settings match expected default
-	ValidateEthtoolConfig(ctx, s, customEthtool)
+	// Validate network interface settings match expected default
+	ValidateNetworkInterfaceConfig(ctx, s, customNicConfig)
 }
