@@ -332,6 +332,13 @@
       "destination": "/home/packer/install-dependencies.sh"
     },
     {
+      "type": "shell",
+      "inline": [
+        "mkdir -p /home/packer/node-exporter/baseline/etc/systemd/system",
+        "mkdir -p /home/packer/node-exporter/baseline/etc/node-exporter.d"
+      ]
+    },
+    {
       "type": "file",
       "source": "vhdbuilder/packer/install-node-exporter.sh",
       "destination": "/home/packer/install-node-exporter.sh"
