@@ -895,7 +895,7 @@ func getBaseVMSSModel(s *Scenario, customData, cseCmd string) armcompute.Virtual
 					Properties: &armcompute.VirtualMachineScaleSetExtensionProperties{
 						Publisher:               to.Ptr("Microsoft.Azure.Extensions"),
 						Type:                    to.Ptr("CustomScript"),
-						TypeHandlerVersion:      to.Ptr("2.0"),
+						TypeHandlerVersion:      to.Ptr("2.1"),
 						AutoUpgradeMinorVersion: to.Ptr(true),
 						Settings:                map[string]interface{}{},
 						ProtectedSettings: map[string]interface{}{
