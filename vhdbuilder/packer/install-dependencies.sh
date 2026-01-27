@@ -233,15 +233,6 @@ unpackTgzToCNIDownloadsDIR() {
   echo "  - Ran tar -xzf on the CNI downloaded then rm -rf to clean up"
 }
 
-#this is the reference cni it is only ever downloaded in caching for build not at provisioning time
-#but conceptually it is very similiar to downloadAzureCNI in that it takes a url and puts in CNI_DOWNLOADS_DIR
-downloadCNI() {
-    downloadDir=${1}
-    mkdir -p $downloadDir
-    CNI_PLUGINS_URL=${2}
-    cniTgzTmp=${CNI_PLUGINS_URL##*/}
-    retrycmd_get_tarball 120 5 "$downloadDir/${cniTgzTmp}" ${CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
-}
 
 downloadAndInstallCriTools() {
   downloadDir=${1}
@@ -314,14 +305,6 @@ while IFS= read -r p; do
         downloadAzureCNI "${downloadDir}" "${evaluatedURL}"
         unpackTgzToCNIDownloadsDIR "${evaluatedURL}" #alternatively we could put thus directly in CNI_BIN_DIR to avoid provisioing time move
         echo "  - Azure CNI version ${version}" >> ${VHD_LOGS_FILEPATH}
-      done
-      ;;
-    "cni-plugins")
-      for version in ${PACKAGE_VERSIONS[@]}; do
-        evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-        downloadCNI "${downloadDir}" "${evaluatedURL}"
-        unpackTgzToCNIDownloadsDIR "${evaluatedURL}"
-        echo "  - CNI plugin version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
     "runc")
