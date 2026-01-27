@@ -854,19 +854,21 @@ getPackageJSON() {
     local package=$1
     local os=$2
     local osVersion=$3
+    local osVariant=${4:-DEFAULT}
     local osLowerCase=${os,,}
 
     # By default, use the first match from these:
+    # .downloadURIs.${osLowerCase}.${osVariant}/current
     # .downloadURIs.${osLowerCase}.current
     # .downloadURIs.default.current
-    local search=".downloadURIs.${osLowerCase}.current // .downloadURIs.default.current"
+    local search=".downloadURIs.${osLowerCase}.\"${osVariant}/current\" // .downloadURIs.${osLowerCase}.current // .downloadURIs.default.current"
 
     # For AZURELINUX, check the OS version (e.g. 3.0) prefixed with "v" before "current" (e.g. v3.0).
     if isMarinerOrAzureLinux "${os}"; then
-        search=".downloadURIs.${osLowerCase}.\"v${osVersion}\" // ${search}"
+        search=".downloadURIs.${osLowerCase}.\"${osVariant}/v${osVersion}\" // .downloadURIs.${osLowerCase}.\"v${osVersion}\" // ${search}"
     # For UBUNTU, check the OS version (e.g. 20.04) with no dots and prefixed with "r" before "current" (e.g. r2004).
     elif isUbuntu "${os}"; then
-        search=".downloadURIs.${osLowerCase}.\"r${osVersion//.}\" // ${search}"
+        search=".downloadURIs.${osLowerCase}.\"${osVariant}/r${osVersion//.}\" // .downloadURIs.${osLowerCase}.\"r${osVersion//.}\" // ${search}"
     fi
 
     jq -r -c "${search}" <<< "${package}"

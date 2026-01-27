@@ -942,6 +942,16 @@
             ],
             "downloadURL": "https://github.com/oras-project/oras/releases/download/v${version}/oras_${version}_linux_${CPU_ARCH}.tar.gz"
           }
+        },
+        "azurelinux": {
+          "OSGUARD/v3.0": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "<SKIP>"
+              }
+            ]
+          }
         }
       }
     },
@@ -1068,6 +1078,14 @@
               {
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/base/x86_64/repodata, name=containerd2, os=azurelinux, release=3.0",
                 "latestVersion": "2.0.0-16.azl3"
+              }
+            ]
+          },
+          "OSGUARD/v3.0": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "<SKIP>"
               }
             ]
           }
@@ -1692,7 +1710,7 @@
           }
         },
         "azurelinux": {
-          "v3.0": {
+          "DEFAULT/v3.0": {
             "versionsV2": [
               {
                 "renovateTag": "RPM_registry=https://developer.download.nvidia.com/compute/cuda/repos/azl3/x86_64/repodata, name=datacenter-gpu-manager-4-core, repository=nvidia, os=azurelinux, release=3.0",
@@ -1726,7 +1744,7 @@
           }
         },
         "azurelinux": {
-          "v3.0": {
+          "DEFAULT/v3.0": {
             "versionsV2": [
               {
                 "renovateTag": "RPM_registry=https://developer.download.nvidia.com/compute/cuda/repos/azl3/x86_64/repodata, name=datacenter-gpu-manager-4-proprietary, repository=nvidia, os=azurelinux, release=3.0",
@@ -1760,7 +1778,7 @@
           }
         },
         "azurelinux": {
-          "v3.0": {
+          "DEFAULT/v3.0": {
             "versionsV2": [
               {
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=dcgm-exporter, os=azurelinux, release=3.0",

@@ -288,8 +288,8 @@ while IFS= read -r p; do
     # name is referenced in parts/common.json azurelinuxkata.
     os=${AZURELINUX_KATA_OS_NAME}
   fi
-  updatePackageVersions "${p}" "${os}" "${OS_VERSION}"
-  updatePackageDownloadURL "${p}" "${os}" "${OS_VERSION}"
+  updatePackageVersions "${p}" "${os}" "${OS_VERSION}" "${OS_VARIANT}"
+  updatePackageDownloadURL "${p}" "${os}" "${OS_VERSION}" "${OS_VARIANT}"
   echo "In components.json, processing components.packages \"${name}\" \"${PACKAGE_VERSIONS[@]}\" \"${PACKAGE_DOWNLOAD_URL}\""
 
   # if ${PACKAGE_VERSIONS[@]} count is 0 or if the first element of the array is <SKIP>, then skip and move on to next package
@@ -334,9 +334,6 @@ while IFS= read -r p; do
         evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
         if [ "${OS}" = "${UBUNTU_OS_NAME}" ]; then
           installContainerd "${downloadDir}" "${evaluatedURL}" "${version}"
-        elif isMarinerOrAzureLinux "$OS" && isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
-          echo "Skipping containerd install on Azure Linux OS Guard, package preinstalled on immutable /usr"
-          version=$(rpm -q containerd2)
         elif isMarinerOrAzureLinux "$OS"; then
           installStandaloneContainerd "${version}"
         fi
@@ -346,12 +343,7 @@ while IFS= read -r p; do
     "oras")
       for version in ${PACKAGE_VERSIONS[@]}; do
         evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-        if isMarinerOrAzureLinux "$OS" && isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
-          echo "Skipping Oras install on Azure Linux OS Guard, package preinstalled on immutable /usr"
-          version=$(oras version | head -n1 | awk '{print $2}')
-        else
-          installOras "${downloadDir}" "${evaluatedURL}" "${version}"
-        fi
+        installOras "${downloadDir}" "${evaluatedURL}" "${version}"
         echo "  - oras version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
@@ -410,39 +402,25 @@ while IFS= read -r p; do
       ;;
     "azure-acr-credential-provider-pmc")
       for version in ${PACKAGE_VERSIONS[@]}; do
-        if [ "${OS}" = "${UBUNTU_OS_NAME}" ] || isMarinerOrAzureLinux "$OS"; then
-          downloadPkgFromVersion "azure-acr-credential-provider" "${version}" "${downloadDir}"
-        fi
+        downloadPkgFromVersion "azure-acr-credential-provider" "${version}" "${downloadDir}"
         echo "  - azure-acr-credential-provider version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
     "datacenter-gpu-manager-4-core")
       for version in ${PACKAGE_VERSIONS[@]}; do
-        if isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
-          echo "Skipping $name install on OS Guard"
-        elif [ "${OS}" = "${UBUNTU_OS_NAME}" ] || isMarinerOrAzureLinux "$OS"; then
-          downloadPkgFromVersion "datacenter-gpu-manager-4-core" "${version}" "${downloadDir}"
-        fi
+        downloadPkgFromVersion "datacenter-gpu-manager-4-core" "${version}" "${downloadDir}"
         echo "  - datacenter-gpu-manager-4-core version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
     "datacenter-gpu-manager-4-proprietary")
       for version in ${PACKAGE_VERSIONS[@]}; do
-        if isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
-          echo "Skipping $name install on OS Guard"
-        elif [ "${OS}" = "${UBUNTU_OS_NAME}" ] || isMarinerOrAzureLinux "$OS"; then
-          downloadPkgFromVersion "datacenter-gpu-manager-4-proprietary" "${version}" "${downloadDir}"
-        fi
+        downloadPkgFromVersion "datacenter-gpu-manager-4-proprietary" "${version}" "${downloadDir}"
         echo "  - datacenter-gpu-manager-4-proprietary version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
     "dcgm-exporter")
       for version in ${PACKAGE_VERSIONS[@]}; do
-        if isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
-          echo "Skipping $name install on OS Guard"
-        elif [ "${OS}" = "${UBUNTU_OS_NAME}" ] || isMarinerOrAzureLinux "$OS"; then
-          downloadPkgFromVersion "dcgm-exporter" "${version}" "${downloadDir}"
-        fi
+        downloadPkgFromVersion "dcgm-exporter" "${version}" "${downloadDir}"
         echo "  - dcgm-exporter version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
