@@ -1,6 +1,7 @@
 [Unit]
 Description=Prometheus Node Exporter
 Documentation=https://github.com/prometheus/node_exporter
+After=kubelet.service
 
 [Service]
 ExecStart=/opt/bin/node-exporter-startup.sh
