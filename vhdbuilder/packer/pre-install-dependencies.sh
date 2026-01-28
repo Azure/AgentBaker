@@ -33,6 +33,7 @@ if isMarinerOrAzureLinux "$OS"; then
 fi
 
 installJq || echo "WARNING: jq installation failed, VHD Build benchmarks will not be available for this build."
+updateWALinuxAgent || echo "WARNING: WALinuxAgent update failed"
 capture_benchmark "${SCRIPT_NAME}_source_packer_files_and_declare_variables"
 
 copyPackerFiles
@@ -46,6 +47,7 @@ else
 fi
 systemctl daemon-reload
 systemctlEnableAndStart systemd-journald 30 || exit 1
+
 if ! isFlatcar "$OS" ; then
     systemctlEnableAndStart rsyslog 30 || exit 1
 fi

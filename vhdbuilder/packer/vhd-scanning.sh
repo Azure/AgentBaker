@@ -114,6 +114,18 @@ if [ "${OS_SKU}" = "Ubuntu" ] && [ "${OS_VERSION}" = "22.04" ] && [ "$(printf %s
     # Register FIPS feature and create VM using REST API. Exit if any step fails.
     ensure_fips_feature_registered || exit $?
     create_fips_vm "$VM_SIZE" || exit $?
+
+    # Test extension functionality using Custom Script Extension (cat /etc/os-release)
+    # This validates that the Linux agent and Custom Script Extension work on this VM
+    echo "Testing Custom Script Extension functionality..."
+    az vm extension set \
+        --resource-group $RESOURCE_GROUP_NAME \
+        --vm-name $SCAN_VM_NAME \
+        --name customScript \
+        --publisher Microsoft.Azure.Extensions \
+        --protected-settings '{"commandToExecute":"cat /etc/os-release"}'
+
+    capture_benchmark "${SCRIPT_NAME}_test_custom_script_extension"
 else
     echo "Creating VM using standard az vm create command..."
 

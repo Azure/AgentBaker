@@ -426,3 +426,52 @@ cpAndMode() {
   mode=$3
   DIR=$(dirname "$dest") && mkdir -p ${DIR} && cp $src $dest && chmod $mode $dest || exit $ERR_PACKER_COPY_FILE
 }
+
+updateWALinuxAgent() {
+  local waagent_version="2.15.0.1"
+  local tarball="v${waagent_version}.tar.gz"
+  local extract_dir="WALinuxAgent-${waagent_version}"
+
+  apt-get purge -y walinuxagent
+  systemctl daemon-reload
+  rm -rf /usr/lib/python3/dist-packages/azurelinuxagent*
+  rm -rf /usr/local/lib/python3.10/dist-packages/azurelinuxagent*
+
+  # Download WALinuxAgent source
+  wget -O "${tarball}" "https://github.com/Azure/WALinuxAgent/archive/refs/tags/${tarball}" || {
+    echo "Failed to download WALinuxAgent"
+    return 1
+  }
+
+  # Extract and install
+  tar -xvf "${tarball}" || {
+    echo "Failed to extract WALinuxAgent tarball"
+    rm -f "${tarball}"
+    return 1
+  }
+
+  pushd "${extract_dir}" || {
+    echo "Failed to enter WALinuxAgent directory"
+    rm -rf "${tarball}" "${extract_dir}"
+    return 1
+  }
+
+  python3 setup.py install --register-service --install-lib=/usr/lib/python3/dist-packages --install-scripts=/usr/sbin || {
+    echo "Failed to install WALinuxAgent"
+    popd
+    rm -rf "${tarball}" "${extract_dir}"
+    return 1
+  }
+
+  popd
+
+  # Disable auto-update to prevent the agent from updating itself
+  sed -i 's/^AutoUpdate.Enabled=y/AutoUpdate.Enabled=n/' /etc/waagent.conf
+
+  systemctl enable walinuxagent
+
+  # Cleanup downloaded files
+  rm -rf "${tarball}" "${extract_dir}"
+
+  echo "WALinuxAgent ${waagent_version} installed successfully"
+}
