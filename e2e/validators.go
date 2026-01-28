@@ -324,8 +324,9 @@ func ValidateNetworkInterfaceConfig(ctx context.Context, s *Scenario, nicConfig 
 				fmt.Sprintf("sudo ethtool -g %s | grep -A 5 'Current hardware settings' | grep -i %s: | awk '{print $2}'", nic, setting),
 			}
 			execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "could not get ethtool config")
-			s.T.Logf("Ethtool setting %s for NIC %s: expected=%s, actual=%s", setting, nic, expectedValue, strings.TrimSpace(execResult.stdout))
-			require.Contains(s.T, execResult.stdout, expectedValue, "expected to find %s set to %v on nic %s, but was not.\nStdout:\n%s", setting, expectedValue, nic, execResult.stdout)
+			actualValue := strings.TrimSpace(execResult.stdout)
+			s.T.Logf("Ethtool setting %s for NIC %s: expected=%s, actual=%s", setting, nic, expectedValue, actualValue)
+			require.Equal(s.T, expectedValue, actualValue, "expected %s to be %s on nic %s, but got %s.\nFull ethtool output:\n%s", setting, expectedValue, nic, actualValue, debugResult.stdout)
 		}
 	}
 }
