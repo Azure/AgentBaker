@@ -61,17 +61,17 @@ build {
   provisioner "shell" {
     inline = ["/bin/bash -ux /home/packer/pre-install-dependencies.sh"]
     environment_vars = [
-      FEATURE_FLAGS=${var.feature_flags},
-      BUILD_NUMBER=${var.build_number},
-      BUILD_ID=${var.build_id},
-      COMMIT=${var.commit},
-      HYPERV_GENERATION=${var.hyperv_generation},
-      CONTAINER_RUNTIME=${var.container_runtime},
-      TELEPORTD_PLUGIN_DOWNLOAD_URL=${var.teleportd_plugin_download_url},
-      ENABLE_FIPS=${var.enable_fips},
-      IMG_SKU=${var.img_sku},
-      UA_TOKEN=${var.ua_token},
-      VHD_BUILD_TIMESTAMP=${local.vhd_build_timestamp}
+      "FEATURE_FLAGS=${var.feature_flags}",
+      "BUILD_NUMBER=${var.build_number}",
+      "BUILD_ID=${var.build_id}",
+      "COMMIT=${var.commit}",
+      "HYPERV_GENERATION=${var.hyperv_generation}",
+      "CONTAINER_RUNTIME=${var.container_runtime}",
+      "TELEPORTD_PLUGIN_DOWNLOAD_URL=${var.teleportd_plugin_download_url}",
+      "ENABLE_FIPS=${var.enable_fips}",
+      "IMG_SKU=${var.img_sku}",
+      "UA_TOKEN=${var.ua_token}",
+      "VHD_BUILD_TIMESTAMP=${local.vhd_build_timestamp}"
     ]
   }
 
@@ -85,17 +85,17 @@ build {
   provisioner "shell" {
     inline = ["/bin/bash -ux /home/packer/install-dependencies.sh"]
     environment_vars = [
-      FEATURE_FLAGS=${var.feature_flags},
-      BUILD_NUMBER=${var.build_number},
-      BUILD_ID=${var.build_id},
-      COMMIT=${var.commit},
-      HYPERV_GENERATION=${var.hyperv_generation},
-      CONTAINER_RUNTIME=${var.container_runtime},
-      TELEPORTD_PLUGIN_DOWNLOAD_URL=${var.teleportd_plugin_download_url},
-      ENABLE_FIPS=${var.enable_fips},
-      IMG_SKU=${var.img_sku},
-      PRIVATE_PACKAGES_URL=${var.private_packages_url},
-      VHD_BUILD_TIMESTAMP=${local.vhd_build_timestamp}
+      "FEATURE_FLAGS=${var.feature_flags}",
+      "BUILD_NUMBER=${var.build_number}",
+      "BUILD_ID=${var.build_id}",
+      "COMMIT=${var.commit}",
+      "HYPERV_GENERATION=${var.hyperv_generation}",
+      "CONTAINER_RUNTIME=${var.container_runtime}",
+      "TELEPORTD_PLUGIN_DOWNLOAD_URL=${var.teleportd_plugin_download_url}",
+      "ENABLE_FIPS=${var.enable_fips}",
+      "IMG_SKU=${var.img_sku}",
+      "PRIVATE_PACKAGES_URL=${var.private_packages_url}",
+      "VHD_BUILD_TIMESTAMP=${local.vhd_build_timestamp}"
     ]
   }
 
@@ -123,15 +123,15 @@ build {
   provisioner "shell" {
     inline = ["/bin/bash -ux /home/packer/post-install-dependencies.sh"]
     environment_vars = [
-      FEATURE_FLAGS=${var.feature_flags},
-      BUILD_NUMBER=${var.build_number},
-      BUILD_ID=${var.build_id},
-      COMMIT=${var.commit},
-      HYPERV_GENERATION=${var.hyperv_generation},
-      CONTAINER_RUNTIME=${var.container_runtime},
-      TELEPORTD_PLUGIN_DOWNLOAD_URL=${var.teleportd_plugin_download_url},
-      ENABLE_FIPS=${var.enable_fips},
-      IMG_SKU=${var.img_sku}
+      "FEATURE_FLAGS=${var.feature_flags}",
+      "BUILD_NUMBER=${var.build_number}",
+      "BUILD_ID=${var.build_id}",
+      "COMMIT=${var.commit}",
+      "HYPERV_GENERATION=${var.hyperv_generation}",
+      "CONTAINER_RUNTIME=${var.container_runtime}",
+      "TELEPORTD_PLUGIN_DOWNLOAD_URL=${var.teleportd_plugin_download_url}",
+      "ENABLE_FIPS=${var.enable_fips}",
+      "IMG_SKU=${var.img_sku}"
     ]
   }
 
