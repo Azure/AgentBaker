@@ -75,6 +75,8 @@ rm /home/packer/list-images.sh
 rm /home/packer/cis.sh
 rm /home/packer
 
+chage -I -1 -M -1 root
+
 # Create release-notes.txt
 mkdir -p /_imageconfigs/out
 
