@@ -1077,9 +1077,6 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"GPUNeedsFabricManager": func() bool {
 			return GPUNeedsFabricManager(profile.VMSize)
 		},
-		"UseOpenGPUDriver": func() bool {
-			return UseOpenGPUDriver(profile.VMSize)
-		},
 		"GPUDriverVersion": func() string {
 			return GetGPUDriverVersion(profile.VMSize)
 		},
@@ -1272,17 +1269,6 @@ func GetGPUDriverType(size string) string {
 		return "grid"
 	}
 	return "cuda"
-}
-
-func UseOpenGPUDriver(size string) bool {
-	// Legacy GPUs (T4, V100) use NVIDIA proprietary drivers; A100+ use NVIDIA open drivers
-	// T4 GPUs: NC*_T4_v3 family
-	// V100 GPUs: NDv2 (nd40rs_v2), NDv3 (nd40s_v3), NCsv3 (nc*s_v3)
-	lower := strings.ToLower(size)
-	return !strings.Contains(lower, "t4_v3") &&
-		!strings.Contains(lower, "nd40rs_v2") &&
-		!strings.Contains(lower, "nd40s_v3") &&
-		(!strings.HasPrefix(lower, "standard_nc") || !strings.Contains(lower, "s_v3"))
 }
 
 func GPUNeedsFabricManager(size string) bool {

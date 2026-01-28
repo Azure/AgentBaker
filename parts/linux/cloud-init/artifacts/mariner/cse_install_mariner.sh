@@ -86,6 +86,42 @@ installCriCtlPackage() {
   dnf_install 30 1 600 ${packageName} || exit 1
 }
 
+get_compute_sku() {
+    # Retrieves the VM SKU (size) from the cached IMDS instance metadata.
+    local vm_sku=""
+    vm_sku=$(jq -r '.compute.vmSize // ""' "$IMDS_INSTANCE_METADATA_CACHE_FILE")
+    echo "$vm_sku"
+}
+
+should_use_nvidia_open_drivers() {
+    # Checks if the VM SKU should use NVIDIA open drivers (vs proprietary drivers).
+    # Legacy GPUs (T4, V100) use NVIDIA proprietary drivers; A100+ use NVIDIA open drivers.
+    # Returns: 0 (true) for open drivers, 1 (false) for proprietary drivers
+    local vm_sku
+    vm_sku=$(get_compute_sku)
+    local lower="${vm_sku,,}"
+
+    # T4 GPUs (NC*_T4_v3 family) use proprietary drivers
+    # V100 GPUs: NDv2 (nd40rs_v2), NDv3 (nd40s_v3), NCsv3 (nc*s_v3) use proprietary drivers
+    case "$lower" in
+      *t4_v3*)
+        return 1
+        ;;
+      *nd40rs_v2*)
+        return 1
+        ;;
+      *nd40s_v3*)
+        return 1
+        ;;
+      standard_nc*s_v3*)
+        return 1
+        ;;
+    esac
+
+    # All other GPU SKUs (A100+) use open drivers
+    return 0
+}
+
 downloadGPUDrivers() {
     # Mariner CUDA rpm name comes in the following format:
     #
@@ -95,20 +131,21 @@ downloadGPUDrivers() {
     # 2. NVIDIA OpenRM driver:
     # cuda-open-%{nvidia gpu driver version}_%{kernel source version}.%{kernel release version}.{mariner rpm postfix}
     #
-    # The proprietary driver will be used here in order to support older NVIDIA GPU SKUs like V100
-    # Before installing cuda, check the active kernel version (uname -r) and use that to determine which cuda to install
+    # Legacy GPUs (T4, V100) require proprietary drivers; A100+ use NVIDIA open drivers.
+    # VM SKU is retrieved from cached IMDS metadata to determine which driver to use.
     KERNEL_VERSION=$(uname -r | sed 's/-/./g')
-    
-    if [ "${USE_OPEN_GPU_DRIVER}" = "true" ]; then
-        echo "Installing NVIDIA OpenRM driver (cuda-open)"
+    VM_SKU=$(get_compute_sku)
+
+    if should_use_nvidia_open_drivers; then
+        echo "VM SKU ${VM_SKU} uses NVIDIA OpenRM driver (cuda-open)"
         CUDA_PACKAGE=$(dnf repoquery -y --available "cuda-open*" | grep -E "cuda-open-[0-9]+.*_${KERNEL_VERSION}" | sort -V | tail -n 1)
     else
-        echo "Installing NVIDIA proprietary driver (cuda)"
-        CUDA_PACKAGE=$(dnf repoquery -y --available "cuda-[0-9]*" | grep -E "^cuda-[0-9]+.*_${KERNEL_VERSION}" | grep -v "cuda-open" | sort -V | tail -n 1)
+        echo "VM SKU ${VM_SKU} uses NVIDIA proprietary driver (cuda)"
+        CUDA_PACKAGE=$(dnf repoquery -y --available "cuda-[0-9]*" | grep -E "cuda-[0-9]+.*_${KERNEL_VERSION}" | grep -v "cuda-open" | sort -V | tail -n 1)
     fi
 
     if [ -z "$CUDA_PACKAGE" ]; then
-        echo "No CUDA package found for kernel ${KERNEL_VERSION} (open_driver=${USE_OPEN_GPU_DRIVER})"
+        echo "No CUDA package found for kernel ${KERNEL_VERSION} (vm_sku=${VM_SKU})"
         exit $ERR_MISSING_CUDA_PACKAGE
     fi
     
