@@ -10,6 +10,7 @@ build {
   dynamic "provisioner" {
     for_each = "${local.common_file_upload}"
     content {
+      labels = ["azure-arm.nodelifecycle-image-builder"]
       type        = "file"
       source      = provisioner.value.source
       destination = provisioner.value.destination
@@ -20,6 +21,7 @@ build {
   dynamic "provisioner" {
     for_each = "${local.ubuntu_file_upload}"
     content {
+      labels = ["azure-arm.nodelifecycle-image-builder"]
       type        = "file"
       source      = provisioner.value.source
       destination = provisioner.value.destination
@@ -31,6 +33,7 @@ build {
   dynamic "provisioner" {
     for_each = "${local.azlinux_file_upload}"
     content {
+      labels = ["azure-arm.nodelifecycle-image-builder"]
       type        = "file"
       source      = provisioner.value.source
       destination = provisioner.value.destination
@@ -42,6 +45,7 @@ build {
   dynamic "provisioner" {
     for_each = "${local.flatcar_file_upload}"
     content {
+      labels = ["azure-arm.nodelifecycle-image-builder"]
       type        = "file"
       source      = provisioner.value.source
       destination = provisioner.value.destination
@@ -106,6 +110,7 @@ build {
   dynamic "provisioner" {
     for_each = "${local.midway_file_downloads}"
     content {
+      labels = ["azure-arm.nodelifecycle-image-builder"]
       type        = "file"
       direction   = "download"
       source      = provisioner.value.source
@@ -147,6 +152,7 @@ build {
   dynamic "provisioner" {
     for_each = "${local.post_build_file_downloads}"
     content {
+      labels = ["azure-arm.nodelifecycle-image-builder"]
       type        = "file"
       direction   = "download"
       source      = provisioner.value.source
