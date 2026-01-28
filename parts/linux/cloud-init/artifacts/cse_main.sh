@@ -268,8 +268,6 @@ EOF
 
     logs_to_events "AKS.CSE.ensureSysctl" ensureSysctl || exit $ERR_SYSCTL_RELOAD
 
-    logs_to_events "AKS.CSE.ensureAzureNetworkConfig" ensureAzureNetworkConfig
-
     if [ "${SHOULD_CONFIG_CONTAINERD_ULIMITS}" = "true" ]; then
       logs_to_events "AKS.CSE.setContainerdUlimits" configureContainerdUlimits
     fi
@@ -341,6 +339,9 @@ function nodePrep {
         touch /var/run/outbound-check-skipped # TODO(fseldow): remove this file in future when egress extension checks /opt/azure/outbound-check-skipped
         touch /opt/azure/outbound-check-skipped
     fi
+
+    # Configure Azure network settings (udev rules for NIC configuration)
+    logs_to_events "AKS.CSE.ensureAzureNetworkConfig" ensureAzureNetworkConfig
 
     # Determine if GPU driver installation should be skipped
     export -f should_skip_nvidia_drivers

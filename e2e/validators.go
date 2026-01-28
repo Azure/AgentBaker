@@ -261,10 +261,6 @@ func ValidateSysctlConfig(ctx context.Context, s *Scenario, customSysctls map[st
 // The nicConfig map specifies the ethtool settings to validate (key: setting name, value: expected value).
 func ValidateNetworkInterfaceConfig(ctx context.Context, s *Scenario, nicConfig map[string]string) {
 	s.T.Helper()
-	keysToCheck := make([]string, 0, len(nicConfig))
-	for k := range nicConfig {
-		keysToCheck = append(keysToCheck, k)
-	}
 
 	// Get list of NICs using udevadm (same logic as udev rule)
 	getNicsCommand := []string{
