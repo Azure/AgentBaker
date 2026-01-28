@@ -303,7 +303,8 @@ if ! requiresCISScan "${OS_SKU}" "${OS_VERSION}"; then
     exit 0
 fi
 
-SKIP_CIS=${SKIP_CIS:-true}
+# Set this pipeline variable to true if CIS scanning is broken
+SKIP_CIS=${SKIP_CIS:-false}
 if [ "${SKIP_CIS,,}" = "true" ]; then
     # For artifacts
     touch cis-report.txt
