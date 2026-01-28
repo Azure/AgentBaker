@@ -55,7 +55,7 @@ build {
 
   // Architecture-specific aks-node-controller upload
   provisioner "file" {
-    destination = "${var.aks_node_controller}"
+    destination = "${local.aks_node_controller}"
     source      = "/home/packer/aks-node-controller"
   }
 
