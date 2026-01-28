@@ -121,8 +121,11 @@ var (
 		Gallery:                  imageGalleryLinux,
 		UnsupportedKubeletNodeIP: true,
 		UnsupportedLocalDns:      true,
-		// Old image, doesn't have Secure TLS Bootstrapping support
+		// old image, doesn't have Secure TLS Bootstrapping support
 		UnsupportedSecureTLSBootstrapping: true,
+		// this VHD doesn't contain fixed versions of cgroup telemetry scripts,
+		// thus it's possible cgroup telemetry services will be in a failed state after node provisioning
+		IgnoreFailedCgroupTelemetryServices: true,
 	}
 
 	// without kubelet, kubectl, credential-provider and wasm
@@ -134,8 +137,11 @@ var (
 		Distro:              datamodel.AKSUbuntuContainerd2204Gen2,
 		Gallery:             imageGalleryLinux,
 		UnsupportedLocalDns: true,
-		// Old image, doesn't have Secure TLS Bootstrapping support
+		// old image, doesn't have Secure TLS Bootstrapping support
 		UnsupportedSecureTLSBootstrapping: true,
+		// this VHD doesn't contain fixed versions of cgroup telemetry scripts,
+		// thus it's possible cgroup telemetry services will be in a failed state after node provisioning
+		IgnoreFailedCgroupTelemetryServices: true,
 	}
 
 	VHDUbuntu2404Gen1Containerd = &Image{
@@ -246,16 +252,17 @@ type perLocationVHDCache struct {
 }
 
 type Image struct {
-	Arch                              string
-	Distro                            datamodel.Distro
-	Name                              string
-	OS                                OS
-	Version                           string
-	Gallery                           *Gallery
-	UnsupportedKubeletNodeIP          bool
-	UnsupportedLocalDns               bool
-	UnsupportedSecureTLSBootstrapping bool
-	Flatcar                           bool
+	Arch                                string
+	Distro                              datamodel.Distro
+	Name                                string
+	OS                                  OS
+	Version                             string
+	Gallery                             *Gallery
+	UnsupportedKubeletNodeIP            bool
+	UnsupportedLocalDns                 bool
+	UnsupportedSecureTLSBootstrapping   bool
+	IgnoreFailedCgroupTelemetryServices bool
+	Flatcar                             bool
 }
 
 func (i *Image) String() string {
@@ -323,9 +330,7 @@ func GetRandomLinuxAMD64VHD() *Image {
 	vhds := []*Image{
 		VHDUbuntu2404Gen2Containerd,
 		VHDUbuntu2204Gen2Containerd,
-		VHDAzureLinuxV2Gen2,
 		VHDAzureLinuxV3Gen2,
-		VHDCBLMarinerV2Gen2,
 	}
 
 	// Return a random VHD from the list

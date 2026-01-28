@@ -363,6 +363,10 @@ const (
 	// CBLMarinerV1 pinned to the last image build as Mariner 1.0 is out
 	//  of support and image builds have stopped.
 	FrozenCBLMarinerV1SIGImageVersionForDeprecation string = "202308.28.0"
+
+	// DO NOT MODIFY: used for freezing MarinerV2/AzureLinuxV2, all flavors.
+	FrozenCBLMarinerV2AndAzureLinuxV2SIGImageVersion = "202512.06.0"
+
 	// DO NOT MODIFY: used for freezing MarinerV2KataGen2TL.
 	FrozenCBLMarinerV2KataGen2TLSIGImageVersion = "2022.12.15"
 
@@ -425,14 +429,14 @@ var (
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "2204fipscontainerd",
-		Version:       "202404.09.0", // TODO(artunduman): Update version when the image is ready
+		Version:       LinuxSIGImageVersion,
 	}
 
 	SIGUbuntuFipsContainerd2204Gen2ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "2204gen2fipscontainerd",
-		Version:       "202404.09.0", // TODO(artunduman): Update version when the image is ready
+		Version:       LinuxSIGImageVersion,
 	}
 
 	SIGUbuntuArm64Containerd2204Gen2ImageConfigTemplate = SigImageConfigTemplate{
@@ -544,14 +548,14 @@ var (
 		ResourceGroup: AKSCBLMarinerResourceGroup,
 		Gallery:       AKSCBLMarinerGalleryName,
 		Definition:    "V2",
-		Version:       LinuxSIGImageVersion,
+		Version:       FrozenCBLMarinerV2AndAzureLinuxV2SIGImageVersion,
 	}
 
 	SIGAzureLinuxV2Gen1ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSAzureLinuxResourceGroup,
 		Gallery:       AKSAzureLinuxGalleryName,
 		Definition:    "V2",
-		Version:       LinuxSIGImageVersion,
+		Version:       FrozenCBLMarinerV2AndAzureLinuxV2SIGImageVersion,
 	}
 
 	SIGAzureLinuxV3Gen1ImageConfigTemplate = SigImageConfigTemplate{
@@ -565,14 +569,14 @@ var (
 		ResourceGroup: AKSCBLMarinerResourceGroup,
 		Gallery:       AKSCBLMarinerGalleryName,
 		Definition:    "V2gen2",
-		Version:       LinuxSIGImageVersion,
+		Version:       FrozenCBLMarinerV2AndAzureLinuxV2SIGImageVersion,
 	}
 
 	SIGAzureLinuxV2Gen2ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSAzureLinuxResourceGroup,
 		Gallery:       AKSAzureLinuxGalleryName,
 		Definition:    "V2gen2",
-		Version:       LinuxSIGImageVersion,
+		Version:       FrozenCBLMarinerV2AndAzureLinuxV2SIGImageVersion,
 	}
 
 	SIGAzureLinuxV3Gen2ImageConfigTemplate = SigImageConfigTemplate{
@@ -586,14 +590,14 @@ var (
 		ResourceGroup: AKSCBLMarinerResourceGroup,
 		Gallery:       AKSCBLMarinerGalleryName,
 		Definition:    "V2fips",
-		Version:       LinuxSIGImageVersion,
+		Version:       FrozenCBLMarinerV2AndAzureLinuxV2SIGImageVersion,
 	}
 
 	SIGAzureLinuxV2Gen1FIPSImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSAzureLinuxResourceGroup,
 		Gallery:       AKSAzureLinuxGalleryName,
 		Definition:    "V2fips",
-		Version:       LinuxSIGImageVersion,
+		Version:       FrozenCBLMarinerV2AndAzureLinuxV2SIGImageVersion,
 	}
 
 	SIGAzureLinuxV3Gen1FIPSImageConfigTemplate = SigImageConfigTemplate{
@@ -607,14 +611,14 @@ var (
 		ResourceGroup: AKSCBLMarinerResourceGroup,
 		Gallery:       AKSCBLMarinerGalleryName,
 		Definition:    "V2gen2fips",
-		Version:       LinuxSIGImageVersion,
+		Version:       FrozenCBLMarinerV2AndAzureLinuxV2SIGImageVersion,
 	}
 
 	SIGAzureLinuxV2Gen2FIPSImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSAzureLinuxResourceGroup,
 		Gallery:       AKSAzureLinuxGalleryName,
 		Definition:    "V2gen2fips",
-		Version:       LinuxSIGImageVersion,
+		Version:       FrozenCBLMarinerV2AndAzureLinuxV2SIGImageVersion,
 	}
 
 	SIGAzureLinuxV3Gen2FIPSImageConfigTemplate = SigImageConfigTemplate{
@@ -656,14 +660,14 @@ var (
 		ResourceGroup: AKSCBLMarinerResourceGroup,
 		Gallery:       AKSCBLMarinerGalleryName,
 		Definition:    "V2gen2arm64",
-		Version:       LinuxSIGImageVersion,
+		Version:       FrozenCBLMarinerV2AndAzureLinuxV2SIGImageVersion,
 	}
 
 	SIGAzureLinuxV2Arm64ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSAzureLinuxResourceGroup,
 		Gallery:       AKSAzureLinuxGalleryName,
 		Definition:    "V2gen2arm64",
-		Version:       LinuxSIGImageVersion,
+		Version:       FrozenCBLMarinerV2AndAzureLinuxV2SIGImageVersion,
 	}
 
 	SIGAzureLinuxV3Arm64ImageConfigTemplate = SigImageConfigTemplate{
@@ -677,14 +681,14 @@ var (
 		ResourceGroup: AKSCBLMarinerResourceGroup,
 		Gallery:       AKSCBLMarinerGalleryName,
 		Definition:    "V2gen2TL",
-		Version:       LinuxSIGImageVersion,
+		Version:       FrozenCBLMarinerV2AndAzureLinuxV2SIGImageVersion,
 	}
 
 	SIGAzureLinuxV2TLImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSAzureLinuxResourceGroup,
 		Gallery:       AKSAzureLinuxGalleryName,
 		Definition:    "V2gen2TL",
-		Version:       LinuxSIGImageVersion,
+		Version:       FrozenCBLMarinerV2AndAzureLinuxV2SIGImageVersion,
 	}
 
 	SIGAzureLinuxV3TLImageConfigTemplate = SigImageConfigTemplate{

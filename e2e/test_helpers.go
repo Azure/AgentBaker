@@ -20,7 +20,7 @@ import (
 	"github.com/Azure/agentbaker/e2e/toolkit"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/util/wait"
 	ctrruntimelog "sigs.k8s.io/controller-runtime/pkg/log"
@@ -28,9 +28,8 @@ import (
 )
 
 var (
-	logf                        = toolkit.Logf
-	log                         = toolkit.Log
-	SSHKeyPrivate, SSHKeyPublic = mustGetNewRSAKeyPair()
+	logf = toolkit.Logf
+	log  = toolkit.Log
 )
 
 // it's important to share context between tests to allow graceful shutdown
@@ -78,7 +77,7 @@ func newTestCtx(t testing.TB) context.Context {
 	return ctx
 }
 
-func RunScenario(t *testing.T, s *Scenario) {
+func RunScenario(t *testing.T, s *Scenario) error {
 	t.Parallel()
 	// Special case for testing VHD caching. Not used by default.
 	if config.Config.TestPreProvision || s.VHDCaching {
@@ -86,11 +85,10 @@ func RunScenario(t *testing.T, s *Scenario) {
 			t.Parallel()
 			runScenarioWithPreProvision(t, s)
 		})
-	} else {
-		// Default path
-		runScenario(t, s)
+		return nil
 	}
-
+	// Default path
+	return runScenario(t, s)
 }
 
 func runScenarioWithPreProvision(t *testing.T, original *Scenario) {
@@ -121,6 +119,8 @@ func runScenarioWithPreProvision(t *testing.T, original *Scenario) {
 		customVHD = CreateImage(ctx, stage1)
 		customVHDJSON, _ := json.MarshalIndent(customVHD, "", "  ")
 		t.Logf("Created custom VHD image: %s", string(customVHDJSON))
+		cleanupBastionTunnel(firstStage.Runtime.VM.SSHClient)
+		firstStage.Runtime.VM.SSHClient = nil
 	}
 	firstStage.Config.VMConfigMutator = func(vmss *armcompute.VirtualMachineScaleSet) {
 		if original.VMConfigMutator != nil {
@@ -179,7 +179,7 @@ func copyScenario(s *Scenario) *Scenario {
 	return &copied
 }
 
-func runScenario(t testing.TB, s *Scenario) {
+func runScenario(t testing.TB, s *Scenario) error {
 	t = toolkit.WithTestLogger(t)
 	if s.Location == "" {
 		s.Location = config.Config.DefaultLocation
@@ -205,26 +205,32 @@ func runScenario(t testing.TB, s *Scenario) {
 		Location:         s.Location,
 		K8sSystemPoolSKU: s.K8sSystemPoolSKU,
 	})
-
 	require.NoError(s.T, err, "failed to get cluster")
+
 	// in some edge cases cluster cache is broken and nil cluster is returned
 	// need to find the root cause and fix it, this should help to catch such cases
 	require.NotNil(t, cluster)
+
 	s.Runtime = &ScenarioRuntime{
 		Cluster:  cluster,
 		VMSSName: generateVMSSName(s),
 	}
 
 	// use shorter timeout for faster feedback on test failures
-	ctx, cancel := context.WithTimeout(ctx, config.Config.TestTimeoutVMSS)
+	vmssCtx, cancel := context.WithTimeout(ctx, config.Config.TestTimeoutVMSS)
 	defer cancel()
-	s.Runtime.VM = prepareAKSNode(ctx, s)
+	s.Runtime.VM, err = prepareAKSNode(vmssCtx, s)
+	if err != nil {
+		return err
+	}
 
 	t.Logf("Choosing the private ACR %q for the vm validation", config.GetPrivateACRName(s.Tags.NonAnonymousACR, s.Location))
-	validateVM(ctx, s)
+	validateVM(vmssCtx, s)
+
+	return nil
 }
 
-func prepareAKSNode(ctx context.Context, s *Scenario) *ScenarioVM {
+func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 	if (s.BootstrapConfigMutator == nil) == (s.AKSNodeConfigMutator == nil) {
 		s.T.Fatalf("exactly one of BootstrapConfigMutator or AKSNodeConfigMutator must be set")
 	}
@@ -246,7 +252,8 @@ func prepareAKSNode(ctx context.Context, s *Scenario) *ScenarioVM {
 		s.AKSNodeConfigMutator(nodeconfig)
 		s.Runtime.AKSNodeConfig = nodeconfig
 	}
-	publicKeyData := datamodel.PublicKey{KeyData: string(SSHKeyPublic)}
+
+	publicKeyData := datamodel.PublicKey{KeyData: string(config.VMSSHPublicKey)}
 
 	// check it all.
 	if s.Runtime.NBC != nil && s.Runtime.NBC.ContainerService != nil && s.Runtime.NBC.ContainerService.Properties != nil && s.Runtime.NBC.ContainerService.Properties.LinuxProfile != nil {
@@ -261,7 +268,13 @@ func prepareAKSNode(ctx context.Context, s *Scenario) *ScenarioVM {
 	require.NoError(s.T, err)
 
 	start := time.Now() // Record the start time
-	scenarioVM := ConfigureAndCreateVMSS(ctx, s)
+	scenarioVM, err := ConfigureAndCreateVMSS(ctx, s)
+	// fail test, but continue to extract debug information
+	if s.ReturnErrorOnVMSSCreation {
+		return scenarioVM, err
+	} else {
+		require.NoError(s.T, err, "create vmss %q, check %s for vm logs", s.Runtime.VMSSName, testDir(s.T))
+	}
 
 	err = getCustomScriptExtensionStatus(s, scenarioVM.VM)
 	require.NoError(s.T, err)
@@ -275,7 +288,7 @@ func prepareAKSNode(ctx context.Context, s *Scenario) *ScenarioVM {
 		toolkit.LogDuration(ctx, totalElapse, 3*time.Minute, fmt.Sprintf("Node %s took %s to be created and %s to be ready", s.Runtime.VMSSName, creationElapse, readyElapse))
 	}
 
-	return scenarioVM
+	return scenarioVM, nil
 }
 
 func maybeSkipScenario(ctx context.Context, t testing.TB, s *Scenario) {
@@ -334,7 +347,7 @@ func ValidateNodeCanRunAPod(ctx context.Context, s *Scenario) {
 			ValidatePodRunning(ctx, s, podWindows(s, fmt.Sprintf("nanoserver%d", i), pod))
 		}
 	} else {
-		ValidatePodRunning(ctx, s, podHTTPServerLinux(s))
+		ValidatePodRunningWithRetry(ctx, s, podHTTPServerLinux(s), 3)
 	}
 }
 
@@ -483,21 +496,21 @@ func addTrustedLaunchToVMSS(properties *armcompute.VirtualMachineScaleSetPropert
 	return properties
 }
 
-func createVMExtensionLinuxAKSNode(location *string) (*armcompute.VirtualMachineScaleSetExtension, error) {
+func createVMExtensionLinuxAKSNode(_ *string) (*armcompute.VirtualMachineScaleSetExtension, error) {
 	// Default to "westus" if location is nil.
-	region := "westus"
-	if location != nil {
-		region = *location
-	}
+	// region := "westus"
+	// if location != nil {
+	// 	region = *location
+	// }
 
 	extensionName := "Compute.AKS.Linux.AKSNode"
 	publisher := "Microsoft.AKS"
-
+	extensionVersion := "1.374"
 	// NOTE (@surajssd): If this is gonna be called multiple times, then find a way to cache the latest version.
-	extensionVersion, err := config.Azure.GetLatestVMExtensionImageVersion(context.TODO(), region, extensionName, publisher)
-	if err != nil {
-		return nil, fmt.Errorf("getting latest VM extension image version: %v", err)
-	}
+	// extensionVersion, err := config.Azure.GetLatestVMExtensionImageVersion(context.TODO(), region, extensionName, publisher)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("getting latest VM extension image version: %v", err)
+	// }
 
 	return &armcompute.VirtualMachineScaleSetExtension{
 		Name: to.Ptr(extensionName),
@@ -720,16 +733,16 @@ func validateSSHConnectivity(ctx context.Context, s *Scenario) error {
 
 // attemptSSHConnection performs a single SSH connectivity check
 func attemptSSHConnection(ctx context.Context, s *Scenario) error {
-	connectionTest := fmt.Sprintf("%s echo 'SSH_CONNECTION_OK'", sshString(s.Runtime.VM.PrivateIP))
-	connectionResult, err := execOnPrivilegedPod(ctx, s.Runtime.Cluster.Kube, defaultNamespace, s.Runtime.Cluster.DebugPod.Name, connectionTest)
+	var connectionResult *podExecResult
+	var err error
+	connectionResult, err = runSSHCommand(ctx, s.Runtime.VM.SSHClient, "echo 'SSH_CONNECTION_OK'", s.IsWindows())
 
-	if err != nil || !strings.Contains(connectionResult.stdout.String(), "SSH_CONNECTION_OK") {
-		output := ""
-		if connectionResult != nil {
-			output = connectionResult.String()
-		}
+	if err != nil {
+		return fmt.Errorf("SSH connection to %s failed: %s", s.Runtime.VM.PrivateIP, err)
+	}
 
-		return fmt.Errorf("SSH connection to %s failed: %s: %s", s.Runtime.VM.PrivateIP, err, output)
+	if !strings.Contains(connectionResult.stdout, "SSH_CONNECTION_OK") {
+		return fmt.Errorf("SSH_CONNECTION_OK not found on %s: %s", s.Runtime.VM.PrivateIP, connectionResult.String())
 	}
 
 	s.T.Logf("SSH connectivity to %s verified successfully", s.Runtime.VM.PrivateIP)

@@ -18,6 +18,7 @@ import "aksnodeconfig/v1/kubelet_config.proto";
 import "aksnodeconfig/v1/localdns_config.proto";
 import "aksnodeconfig/v1/network_config.proto";
 import "aksnodeconfig/v1/runc_config.proto";
+import "aksnodeconfig/v1/service_account_image_pull_profile.proto";
 import "aksnodeconfig/v1/teleport_config.proto";
 
 option go_package = "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1;aksnodeconfigv1";
@@ -163,4 +164,7 @@ message Configuration {
   // If it's not set, the default value will be nil, but will be set to false on the VHD.
   // That is, the default behavior is to enable ssh public key authentication.
   optional bool disable_pubkey_auth = 42;
+
+  // Service account based image pull profile configuration
+  ServiceAccountImagePullProfile service_account_image_pull_profile = 43;
 }

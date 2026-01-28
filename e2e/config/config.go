@@ -1,7 +1,15 @@
 package config
 
 import (
+	"crypto/ed25519"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"encoding/base64"
+	"encoding/pem"
 	"fmt"
+	"os"
+	"path/filepath"
 	"reflect"
 	"sort"
 	"strings"
@@ -10,6 +18,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
 	"github.com/caarlos0/env/v11"
 	"github.com/joho/godotenv"
+	"golang.org/x/crypto/ssh"
 )
 
 var (
@@ -20,6 +29,8 @@ var (
 	DefaultPollUntilDoneOptions = &runtime.PollUntilDoneOptions{
 		Frequency: time.Second,
 	}
+	VMSSHPublicKey, VMSSHPrivateKey, SysSSHPublicKey, SysSSHPrivateKey []byte
+	VMSSHPrivateKeyFileName, SysSSHPrivateKeyFileName                  string
 )
 
 func ResourceGroupName(location string) string {
@@ -27,11 +38,11 @@ func ResourceGroupName(location string) string {
 }
 
 func PrivateACRNameNotAnon(location string) string {
-	return "privateace2enonanonpull" + location // will have anonymous pull enabled
+	return "e2eprivateacrnonanon" + location // will have anonymous pull enabled
 }
 
 func PrivateACRName(location string) string {
-	return "privateacre2e" + location // will not have anonymous pull enabled
+	return "e2eprivateacr" + location // will not have anonymous pull enabled
 }
 
 type Configuration struct {
@@ -70,6 +81,8 @@ type Configuration struct {
 	TestTimeoutCluster                     time.Duration `env:"TEST_TIMEOUT_CLUSTER" envDefault:"20m"`
 	TestTimeoutVMSS                        time.Duration `env:"TEST_TIMEOUT_VMSS" envDefault:"17m"`
 	WindowsAdminPassword                   string        `env:"WINDOWS_ADMIN_PASSWORD"`
+	SysSSHPublicKey                        string        `env:"SYS_SSH_PUBLIC_KEY"`
+	SysSSHPrivateKeyB64                    string        `env:"SYS_SSH_PRIVATE_KEY_B64"`
 }
 
 func (c *Configuration) BlobStorageAccount() string {
@@ -117,6 +130,7 @@ func (c *Configuration) VMIdentityResourceID(location string) string {
 }
 
 func mustLoadConfig() *Configuration {
+	VMSSHPublicKey, VMSSHPrivateKeyFileName = mustGetNewED25519KeyPair()
 	err := godotenv.Load(".env")
 	if err != nil {
 		fmt.Printf("Error loading .env file: %s\n", err)
@@ -125,7 +139,187 @@ func mustLoadConfig() *Configuration {
 	if err := env.Parse(cfg); err != nil {
 		panic(err)
 	}
+	if cfg.SysSSHPublicKey == "" {
+		SysSSHPublicKey = VMSSHPublicKey
+	} else {
+		SysSSHPublicKey = []byte(cfg.SysSSHPublicKey)
+	}
+	if cfg.SysSSHPrivateKeyB64 == "" {
+		SysSSHPrivateKey, SysSSHPublicKey, SysSSHPrivateKeyFileName, err = getOrCreateRSAKeyPair()
+		if err != nil {
+			panic(fmt.Sprintf("failed to get or create RSA key pair: %v", err))
+		}
+	} else {
+		SysSSHPrivateKey, err = base64.StdEncoding.DecodeString(cfg.SysSSHPrivateKeyB64)
+		if err != nil {
+			panic(err)
+		}
+
+		SysSSHPrivateKeyFileName, err = writePrivateKeyToTempFile(SysSSHPrivateKey)
+		if err != nil {
+			panic(err)
+		}
+	}
+
 	return cfg
+}
+
+func mustGetNewED25519KeyPair() ([]byte, string) {
+	public, privateKeyFileName, err := getNewED25519KeyPair()
+	if err != nil {
+		panic(fmt.Sprintf("failed to generate ED25519 key pair: %v", err))
+	}
+
+	return public, privateKeyFileName
+}
+
+// Returns a newly generated ED25519 public/private key pair with the private key in PEM format.
+func getNewED25519KeyPair() (publicKeyBytes []byte, privateKeyFileName string, e error) {
+	publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to create rsa private key: %w", err)
+	}
+
+	sshPubKey, err := ssh.NewPublicKey(publicKey)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to create ssh public key: %w", err)
+	}
+
+	publicKeyBytes = ssh.MarshalAuthorizedKey(sshPubKey)
+
+	// ----- PRIVATE KEY (OpenSSH format) -----
+	pemBlock, err := ssh.MarshalPrivateKey(privateKey, "azureuser")
+	if err != nil {
+		return nil, "", err
+	}
+
+	VMSSHPrivateKey = pem.EncodeToMemory(pemBlock)
+
+	privateKeyFileName, err = writePrivateKeyToTempFile(VMSSHPrivateKey)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to write private key to temp file: %w", err)
+	}
+
+	return
+}
+
+// Returns a newly generated RSA public/private key pair with the private key in PEM format.
+// We need to use RSA keys because AKS doesnt currently support ED25519 keys for node SSH access.
+func getNewRSAKeyPair() (privatePEMBytes []byte, publicKeyBytes []byte, e error) {
+	privateKey, err := rsa.GenerateKey(rand.Reader, 4096)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create rsa private key: %w", err)
+	}
+
+	err = privateKey.Validate()
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to validate rsa private key: %w", err)
+	}
+
+	publicRsaKey, err := ssh.NewPublicKey(&privateKey.PublicKey)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to convert private to public key: %w", err)
+	}
+
+	publicKeyBytes = ssh.MarshalAuthorizedKey(publicRsaKey)
+
+	// Get ASN.1 DER format
+	privDER := x509.MarshalPKCS1PrivateKey(privateKey)
+
+	// pem.Block
+	privBlock := pem.Block{
+		Type:    "RSA PRIVATE KEY",
+		Headers: nil,
+		Bytes:   privDER,
+	}
+
+	// Private key in PEM format
+	privatePEMBytes = pem.EncodeToMemory(&privBlock)
+
+	return
+}
+
+// getOrCreateRSAKeyPair checks if an RSA key pair exists at ~/.ssh/ssh_rsa_agentbaker_e2e.
+// If it exists, it reads and returns the existing key pair.
+// If not, it generates a new key pair and saves it to that location.
+func getOrCreateRSAKeyPair() (privatePEMBytes []byte, publicKeyBytes []byte, privateKeyFileName string, e error) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return nil, nil, "", fmt.Errorf("failed to get user home directory: %w", err)
+	}
+
+	sshDir := filepath.Join(homeDir, ".ssh")
+	privateKeyPath := filepath.Join(sshDir, "ssh_rsa_agentbaker_e2e")
+	publicKeyPath := privateKeyPath + ".pub"
+
+	// Check if the private key file already exists
+	if _, err := os.Stat(privateKeyPath); err == nil {
+		// File exists, read it
+		privatePEMBytes, err = os.ReadFile(privateKeyPath)
+		if err != nil {
+			return nil, nil, "", fmt.Errorf("failed to read existing private key: %w", err)
+		}
+
+		publicKeyBytes, err = os.ReadFile(publicKeyPath)
+		if err != nil {
+			return nil, nil, "", fmt.Errorf("failed to read existing public key: %w", err)
+		}
+
+		return privatePEMBytes, publicKeyBytes, privateKeyPath, nil
+	}
+
+	// Generate new key pair
+	privatePEMBytes, publicKeyBytes, err = getNewRSAKeyPair()
+	if err != nil {
+		return nil, nil, "", err
+	}
+
+	// Ensure .ssh directory exists
+	if err := os.MkdirAll(sshDir, 0700); err != nil {
+		return nil, nil, "", fmt.Errorf("failed to create .ssh directory: %w", err)
+	}
+
+	// Write private key
+	if err := os.WriteFile(privateKeyPath, privatePEMBytes, 0600); err != nil {
+		return nil, nil, "", fmt.Errorf("failed to write private key: %w", err)
+	}
+
+	// Write public key
+	if err := os.WriteFile(publicKeyPath, publicKeyBytes, 0644); err != nil {
+		return nil, nil, "", fmt.Errorf("failed to write public key: %w", err)
+	}
+
+	return privatePEMBytes, publicKeyBytes, privateKeyPath, nil
+}
+
+func writePrivateKeyToTempFile(key []byte) (string, error) {
+	// Create temp file with secure permissions
+	tmpFile, err := os.CreateTemp("", "private-key-*")
+	if err != nil {
+		return "", err
+	}
+
+	// Ensure file permissions are restricted (owner read/write only)
+	if err := tmpFile.Chmod(0600); err != nil {
+		tmpFile.Close()
+		os.Remove(tmpFile.Name())
+		return "", err
+	}
+
+	// Write key
+	if _, err := tmpFile.Write(key); err != nil {
+		tmpFile.Close()
+		os.Remove(tmpFile.Name())
+		return "", err
+	}
+
+	// Close file (important!)
+	if err := tmpFile.Close(); err != nil {
+		os.Remove(tmpFile.Name())
+		return "", err
+	}
+
+	return tmpFile.Name(), nil
 }
 
 func GetPrivateACRName(isNonAnonymousPull bool, location string) string {

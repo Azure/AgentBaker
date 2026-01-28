@@ -33,6 +33,8 @@ copyPackerFiles() {
   PAM_D_SU_DEST=/etc/pam.d/su
   PROFILE_D_CIS_SH_SRC=/home/packer/profile-d-cis.sh
   PROFILE_D_CIS_SH_DEST=/etc/profile.d/CIS.sh
+  PROFILE_D_PATH_SH_SRC=/home/packer/profile-d-path.sh
+  PROFILE_D_PATH_SH_DEST=/etc/profile.d/path.sh
   CIS_SRC=/home/packer/cis.sh
   CIS_DEST=/opt/azure/containers/provision_cis.sh
   APT_PREFERENCES_SRC=/home/packer/apt-preferences
@@ -57,6 +59,8 @@ copyPackerFiles() {
   NVIDIA_MODPROBE_SERVICE_DEST=/etc/systemd/system/nvidia-modprobe.service
   NVIDIA_DOCKER_DAEMON_SRC=/home/packer/nvidia-docker-daemon.json
   NVIDIA_DOCKER_DAEMON_DEST=/etc/systemd/system/nvidia-docker-daemon.json
+  DISK_QUEUE_SCRIPT_SRC=/home/packer/disk_queue.sh
+  DISK_QUEUE_SCRIPT_DEST=/opt/azure/containers/disk_queue.sh
   DISK_QUEUE_SERVICE_SRC=/home/packer/disk_queue.service
   DISK_QUEUE_SERVICE_DEST=/etc/systemd/system/disk_queue.service
   CGROUP_MEMORY_TELEMETRY_SERVICE_SRC=/home/packer/cgroup-memory-telemetry.service
@@ -82,7 +86,7 @@ copyPackerFiles() {
   CI_SYSLOG_WATCHER_SERVICE_SRC=/home/packer/ci-syslog-watcher.service
   CI_SYSLOG_WATCHER_SERVICE_DEST=/etc/systemd/system/ci-syslog-watcher.service
   CI_SYSLOG_WATCHER_SCRIPT_SRC=/home/packer/ci-syslog-watcher.sh
-  CI_SYSLOG_WATCHER_SCRIPT_DEST=/usr/local/bin/ci-syslog-watcher.sh
+  CI_SYSLOG_WATCHER_SCRIPT_DEST=/opt/bin/ci-syslog-watcher.sh
   AKS_DIAGNOSTIC_SCRIPT_SRC=/home/packer/aks-diagnostic.py
   AKS_DIAGNOSTIC_SCRIPT_DEST=/opt/azure/containers/aks-diagnostic.py
   AKS_LOG_COLLECTOR_SCRIPT_SRC=/home/packer/aks-log-collector.sh
@@ -96,7 +100,7 @@ copyPackerFiles() {
   AKS_LOG_COLLECTOR_TIMER_SRC=/home/packer/aks-log-collector.timer
   AKS_LOG_COLLECTOR_TIMER_DEST=/etc/systemd/system/aks-log-collector.timer
   AKS_LOGROTATE_SCRIPT_SRC=/home/packer/logrotate.sh
-  AKS_LOGROTATE_SCRIPT_DEST=/usr/local/bin/logrotate.sh
+  AKS_LOGROTATE_SCRIPT_DEST=/opt/bin/logrotate.sh
   AKS_LOGROTATE_SERVICE_SRC=/home/packer/logrotate.service
   AKS_LOGROTATE_SERVICE_DEST=/etc/systemd/system/logrotate.service
   AKS_LOGROTATE_TIMER_SRC=/home/packer/logrotate.timer
@@ -109,6 +113,8 @@ copyPackerFiles() {
   AKS_CHECK_NETWORK_SCRIPT_DEST=/opt/azure/containers/aks-check-network.sh
   AKS_CHECK_NETWORK_SERVICE_SRC=/home/packer/aks-check-network.service
   AKS_CHECK_NETWORK_SERVICE_DEST=/etc/systemd/system/aks-check-network.service
+  AKS_NODE_CONTROLLER_WRAPPER_SRC=/home/packer/aks-node-controller-wrapper.sh
+  AKS_NODE_CONTROLLER_WRAPPER_DEST=/opt/azure/containers/aks-node-controller-wrapper.sh
   BLOCK_WIRESERVER_SRC=/home/packer/block_wireserver.sh
   BLOCK_WIRESERVER_DEST=/opt/azure/containers/kubelet.sh
   ENSURE_IMDS_RESTRICTION_SRC=/home/packer/ensure_imds_restriction.sh
@@ -262,6 +268,7 @@ copyPackerFiles() {
   AKS_NODE_CONTROLLER_SRC=/home/packer/aks-node-controller
   AKS_NODE_CONTROLLER_DEST=/opt/azure/containers/aks-node-controller
   cpAndMode $AKS_NODE_CONTROLLER_SRC $AKS_NODE_CONTROLLER_DEST 755
+  cpAndMode $AKS_NODE_CONTROLLER_WRAPPER_SRC $AKS_NODE_CONTROLLER_WRAPPER_DEST 755
 
   AKS_NODE_CONTROLLER_SERVICE_SRC=/home/packer/aks-node-controller.service
   AKS_NODE_CONTROLLER_SERVICE_DEST=/etc/systemd/system/aks-node-controller.service
@@ -336,12 +343,14 @@ copyPackerFiles() {
   cpAndMode $MODPROBE_CIS_SRC $MODPROBE_CIS_DEST 644
   cpAndMode $PWQUALITY_CONF_SRC $PWQUALITY_CONF_DEST 600
   cpAndMode $PAM_D_SU_SRC $PAM_D_SU_DEST 644
+  cpAndMode $PROFILE_D_PATH_SH_SRC $PROFILE_D_PATH_SH_DEST 755
   cpAndMode $PROFILE_D_CIS_SH_SRC $PROFILE_D_CIS_SH_DEST 755
   cpAndMode $CIS_SRC $CIS_DEST 744
   cpAndMode $APT_PREFERENCES_SRC $APT_PREFERENCES_DEST 644
   cpAndMode $KMS_SERVICE_SRC $KMS_SERVICE_DEST 644
   cpAndMode $MIG_PARTITION_SRC $MIG_PARTITION_DEST 544
   cpAndMode $CONTAINERD_EXEC_START_SRC $CONTAINERD_EXEC_START_DEST 644
+  cpAndMode $DISK_QUEUE_SCRIPT_SRC $DISK_QUEUE_SCRIPT_DEST 755
   cpAndMode $DISK_QUEUE_SERVICE_SRC $DISK_QUEUE_SERVICE_DEST 644
   cpAndMode $CGROUP_MEMORY_TELEMETRY_SERVICE_SRC $CGROUP_MEMORY_TELEMETRY_SERVICE_DEST 644
   cpAndMode $CGROUP_MEMORY_TELEMETRY_SCRIPT_SRC $CGROUP_MEMORY_TELEMETRY_SCRIPT_DEST 755

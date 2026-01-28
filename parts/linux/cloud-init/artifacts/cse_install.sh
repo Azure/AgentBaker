@@ -7,7 +7,7 @@ CNI_BIN_DIR="/opt/cni/bin"
 #TODO pull this out of componetns.json too?
 CNI_DOWNLOADS_DIR="/opt/cni/downloads"
 CRICTL_DOWNLOAD_DIR="/opt/crictl/downloads"
-CRICTL_BIN_DIR="/usr/local/bin"
+CRICTL_BIN_DIR="/opt/bin"
 CONTAINERD_DOWNLOADS_DIR="/opt/containerd/downloads"
 RUNC_DOWNLOADS_DIR="/opt/runc/downloads"
 K8S_DOWNLOADS_DIR="/opt/kubernetes/downloads"
@@ -18,11 +18,11 @@ UBUNTU_RELEASE=$(lsb_release -r -s 2>/dev/null || echo "")
 OS=$(if ls /etc/*-release 1> /dev/null 2>&1; then sort -r /etc/*-release | gawk 'match($0, /^(ID=(.*))$/, a) { print toupper(a[2]); exit }'; fi)
 OS_VARIANT=$(if ls /etc/*-release 1> /dev/null 2>&1; then sort -r /etc/*-release | gawk 'match($0, /^(VARIANT_ID=(.*))$/, a) { print toupper(a[2]); exit }' | tr -d '"'; fi)
 SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_DIR="/opt/aks-secure-tls-bootstrap-client/downloads"
-SECURE_TLS_BOOTSTRAP_CLIENT_BIN_DIR="/usr/local/bin"
+SECURE_TLS_BOOTSTRAP_CLIENT_BIN_DIR="/opt/bin"
 TELEPORTD_PLUGIN_DOWNLOAD_DIR="/opt/teleportd/downloads"
 CREDENTIAL_PROVIDER_DOWNLOAD_DIR="/opt/credentialprovider/downloads"
 CREDENTIAL_PROVIDER_BIN_DIR="/var/lib/kubelet/credential-provider"
-TELEPORTD_PLUGIN_BIN_DIR="/usr/local/bin"
+TELEPORTD_PLUGIN_BIN_DIR="/opt/bin"
 MANIFEST_FILEPATH="/opt/azure/manifest.json"
 COMPONENTS_FILEPATH="/opt/azure/components.json"
 VHD_LOGS_FILEPATH="/opt/azure/vhd-install.complete"
@@ -201,7 +201,7 @@ installCredentialProviderFromUrl() {
 # TODO (alburgess) have oras version managed by dependant or Renovate
 installOras() {
     ORAS_DOWNLOAD_DIR="/opt/oras/downloads"
-    ORAS_EXTRACTED_DIR=${1} # Use components.json var for /usr/local/bin for linux-vhd-content-test.sh binary file checks.
+    ORAS_EXTRACTED_DIR=${1} # Use components.json var for /opt/bin for linux-vhd-content-test.sh binary file checks.
     ORAS_DOWNLOAD_URL=${2}
     ORAS_VERSION=${3}
 
@@ -459,15 +459,15 @@ installAzureCNI() {
 }
 
 # extract the cached or downloaded kube package and remove
-extractKubeBinariesToUsrLocalBin() {
+extractKubeBinariesToOptBin() {
     local k8s_tgz_tmp=$1
     local k8s_version=$2
     local is_private_url=$3
 
-    extract_tarball "${k8s_tgz_tmp}" "/usr/local/bin" \
+    extract_tarball "${k8s_tgz_tmp}" "/opt/bin" \
         --transform="s|.*|&-${k8s_version}|" --show-transformed-names --strip-components=3 \
         kubernetes/node/bin/kubelet kubernetes/node/bin/kubectl || exit $ERR_K8S_INSTALL_ERR
-    if [ ! -f "/usr/local/bin/kubectl-${k8s_version}" ] || [ ! -f "/usr/local/bin/kubelet-${k8s_version}" ]; then
+    if [ ! -f "/opt/bin/kubectl-${k8s_version}" ] || [ ! -f "/opt/bin/kubelet-${k8s_version}" ]; then
         exit $ERR_K8S_INSTALL_ERR
     fi
     if [ "$is_private_url" = "false" ]; then
@@ -500,7 +500,7 @@ extractKubeBinaries() {
 
         echo "cached package ${k8s_tgz_tmp} found, will extract that"
         # remove the current kubelet and kubectl binaries before extracting new binaries from the cached package
-        rm -rf /usr/local/bin/kubelet-* /usr/local/bin/kubectl-*
+        rm -rf /opt/bin/kubelet-* /opt/bin/kubectl-*
     else
         k8s_tgz_tmp="${k8s_downloads_dir}/${k8s_tgz_tmp_filename}"
         mkdir -p ${k8s_downloads_dir}
@@ -523,7 +523,7 @@ extractKubeBinaries() {
         fi
     fi
 
-    extractKubeBinariesToUsrLocalBin "${k8s_tgz_tmp}" "${k8s_version}" "${is_private_url}"
+    extractKubeBinariesToOptBin "${k8s_tgz_tmp}" "${k8s_version}" "${is_private_url}"
 }
 
 installToolFromBootstrapProfileRegistry() {
@@ -535,7 +535,12 @@ installToolFromBootstrapProfileRegistry() {
     # Try to pull distro-specific packages (e.g., .deb for Ubuntu) from registry
     local download_root="/tmp/kubernetes/downloads" # /opt folder will return permission error
 
-    tool_package_url="${registry_server}/aks/packages/kubernetes/${tool_name}:v${version}"
+    version_tag="${version}"
+    if [ "${version}" != "v*" ]; then
+        version_tag="v${version_tag}"
+    fi
+    version_tag="${version_tag/\~/-}"
+    tool_package_url="${registry_server}/aks/packages/kubernetes/${tool_name}:${version_tag}"
     tool_download_dir="${download_root}/${tool_name}"
     mkdir -p "${tool_download_dir}"
 
@@ -574,7 +579,7 @@ installKubeletKubectlFromBootstrapProfileRegistry() {
     local registry_server=$1
     local kubernetes_version=$2
     for tool_name in $(get_kubernetes_tools); do
-        install_path="/usr/local/bin/${tool_name}"
+        install_path="/opt/bin/${tool_name}"
         if ! installToolFromBootstrapProfileRegistry "${tool_name}" "${registry_server}" "${kubernetes_version}" "${install_path}"; then
             # SHOULD_ENFORCE_KUBE_PMC_INSTALL will only be set for e2e tests, which should not fallback to reflect result of package installation behavior
             # TODO: remove SHOULD_ENFORCE_KUBE_PMC_INSTALL check when the test cluster supports > 1.34.0 case
@@ -599,7 +604,7 @@ installKubeletKubectlFromURL() {
 
     if [ ! -z "${CUSTOM_KUBE_BINARY_DOWNLOAD_URL}" ]; then
         # remove the kubelet and kubectl binaries to make sure the only binary left is from the CUSTOM_KUBE_BINARY_DOWNLOAD_URL
-        rm -rf /usr/local/bin/kubelet-* /usr/local/bin/kubectl-*
+        rm -rf /opt/bin/kubelet-* /opt/bin/kubectl-*
 
         # NOTE(mainred): we expect kubelet binary to be under `kubernetes/node/bin`. This suits the current setting of
         # kube binaries used by AKS and Kubernetes upstream.
@@ -612,7 +617,7 @@ installKubeletKubectlFromURL() {
     fi
 
     # if the custom url is not specified and the required kubectl/kubelet-version via private url is not installed, install using the default url/package
-    if [ ! -f "/usr/local/bin/kubectl-${KUBERNETES_VERSION}" ] || [ ! -f "/usr/local/bin/kubelet-${KUBERNETES_VERSION}" ]; then
+    if [ ! -f "/opt/bin/kubectl-${KUBERNETES_VERSION}" ] || [ ! -f "/opt/bin/kubelet-${KUBERNETES_VERSION}" ]; then
         if [ "$install_default_if_missing" = "true" ]; then
             if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
                 # network isolated cluster
@@ -630,11 +635,10 @@ installKubeletKubectlFromURL() {
             fi
         fi
     fi
-    mv "/usr/local/bin/kubelet-${KUBERNETES_VERSION}" "/usr/local/bin/kubelet"
-    mv "/usr/local/bin/kubectl-${KUBERNETES_VERSION}" "/usr/local/bin/kubectl"
+    install -m0755 "/opt/bin/kubelet-${KUBERNETES_VERSION}" /opt/bin/kubelet
+    install -m0755 "/opt/bin/kubectl-${KUBERNETES_VERSION}" /opt/bin/kubectl
 
-    chmod a+x /usr/local/bin/kubelet /usr/local/bin/kubectl
-    rm -rf /usr/local/bin/kubelet-* /usr/local/bin/kubectl-* /home/hyperkube-downloads &
+    rm -rf /opt/bin/kubelet-* /opt/bin/kubectl-* /home/hyperkube-downloads &
 }
 
 pullContainerImage() {

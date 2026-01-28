@@ -23,14 +23,14 @@ func Test_getLoadBalancerSKU(t *testing.T) {
 		{
 			name: "LoadBalancerSKU Standard",
 			args: args{
-				sku: "Standard",
+				sku: "standard",
 			},
 			want: aksnodeconfigv1.LoadBalancerSku_LOAD_BALANCER_SKU_STANDARD,
 		},
 		{
 			name: "LoadBalancerSKU Basic",
 			args: args{
-				sku: "Basic",
+				sku: "basic",
 			},
 			want: aksnodeconfigv1.LoadBalancerSku_LOAD_BALANCER_SKU_BASIC,
 		},
@@ -297,5 +297,112 @@ func TestIsKubeletServingCertificateRotationEnabled(t *testing.T) {
 				t.Errorf("expected isKubeletServingCertificateRotationEnabled to be %t, but was %t", tt.expected, actual)
 			}
 		})
+	}
+}
+
+func TestValidateAndSetLinuxKubeletFlags_RemovesDeprecatedFlags(t *testing.T) {
+	kubeletFlags := map[string]string{
+		"--dynamic-config-dir":           "/var/lib/kubelet",
+		"--non-masquerade-cidr":          "10.240.0.0/12",
+		"--cni-bin-dir":                  "/opt/cni/bin",
+		"--cni-cache-dir":                "/var/lib/cni",
+		"--cni-conf-dir":                 "/etc/cni/net.d",
+		"--docker-endpoint":              "npipe:////./pipe/docker_engine",
+		"--image-pull-progress-deadline": "30m",
+		"--network-plugin":               "cni",
+		"--network-plugin-mtu":           "1500",
+		"--feature-gates":                "",
+	}
+
+	ValidateAndSetLinuxKubeletFlags(kubeletFlags, newTestContainerService("1.27.3"), &datamodel.AgentPoolProfile{})
+
+	removedFlags := []string{
+		"--dynamic-config-dir",
+		"--non-masquerade-cidr",
+		"--cni-bin-dir",
+		"--cni-cache-dir",
+		"--cni-conf-dir",
+		"--docker-endpoint",
+		"--image-pull-progress-deadline",
+		"--network-plugin",
+		"--network-plugin-mtu",
+	}
+
+	for _, flag := range removedFlags {
+		if _, exists := kubeletFlags[flag]; exists {
+			t.Fatalf("expected flag %s to be removed", flag)
+		}
+	}
+}
+
+func TestValidateAndSetLinuxKubeletFlags_FeatureGatesByVersion(t *testing.T) {
+	testCases := []struct {
+		name                 string
+		version              string
+		initialFeatureGates  string
+		rotateServerCerts    bool
+		expectedFeatureGates map[string]bool
+	}{
+		{
+			name:                "removes dynamic gate when version >= 1.24",
+			version:             "1.26.0",
+			initialFeatureGates: "DynamicKubeletConfig=false,OtherFeature=true",
+			expectedFeatureGates: map[string]bool{
+				"OtherFeature": true,
+			},
+		},
+		{
+			name:                "adds dynamic and disable accelerator gates for 1.22",
+			version:             "1.22.6",
+			initialFeatureGates: "FooBar=true",
+			expectedFeatureGates: map[string]bool{
+				"FooBar":                         true,
+				"DynamicKubeletConfig":           false,
+				"DisableAcceleratorUsageMetrics": false,
+			},
+		},
+		{
+			name:                 "does not add dynamic gate before 1.11",
+			version:              "1.10.13",
+			initialFeatureGates:  "",
+			expectedFeatureGates: map[string]bool{},
+		},
+		{
+			name:                "adds rotate kubelet server certificate gate when enabled",
+			version:             "1.28.2",
+			initialFeatureGates: "",
+			rotateServerCerts:   true,
+			expectedFeatureGates: map[string]bool{
+				"RotateKubeletServerCertificate": true,
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			kubeletFlags := map[string]string{
+				"--feature-gates": tc.initialFeatureGates,
+			}
+			if tc.rotateServerCerts {
+				kubeletFlags["--rotate-server-certificates"] = "true"
+			}
+
+			ValidateAndSetLinuxKubeletFlags(kubeletFlags, newTestContainerService(tc.version), &datamodel.AgentPoolProfile{})
+
+			featureGateMap := strKeyValToMapBool(kubeletFlags["--feature-gates"], ",", "=")
+			if !reflect.DeepEqual(featureGateMap, tc.expectedFeatureGates) {
+				t.Fatalf("unexpected feature gates: got %v, want %v", featureGateMap, tc.expectedFeatureGates)
+			}
+		})
+	}
+}
+
+func newTestContainerService(version string) *datamodel.ContainerService {
+	return &datamodel.ContainerService{
+		Properties: &datamodel.Properties{
+			OrchestratorProfile: &datamodel.OrchestratorProfile{
+				OrchestratorVersion: version,
+			},
+		},
 	}
 }

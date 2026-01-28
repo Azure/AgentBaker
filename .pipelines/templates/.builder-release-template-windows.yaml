@@ -65,6 +65,11 @@ steps:
       echo "##vso[task.setvariable variable=MODE]windowsVhdMode"
     displayName: Set DRY_RUN and MODE variables
 
+  - bash: |
+      echo "##vso[task.setvariable variable=DRY_RUN]${{ parameters.dryrun }}"
+      echo "##vso[task.setvariable variable=MODE]windowsVhdMode"
+    displayName: Set DRY_RUN and MODE variables
+
   - template: ./.template-override-components-json.yaml
     parameters:
       overrideBranch: ${{ parameters.overrideBranch }}
@@ -209,12 +214,13 @@ steps:
 
         make -f packer.mk convert-sig-to-classic-storage-account-blob
     displayName: Convert Shared Image Gallery To VHD Blob In Classic Storage Account
-    condition: and(eq('$( DRY_RUN )', 'False'), eq(variables.SIG_FOR_PRODUCTION, 'True'), succeeded())
+    condition: and(succeeded(), eq(variables.DRY_RUN, 'False'), eq(variables.SIG_FOR_PRODUCTION, 'True'))
     env:
       LOCATION: $(AZURE_BUILD_LOCATION)
       RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
       OS_TYPE: "Windows"
       CLASSIC_BLOB: $(STORAGE_ACCT_BLOB_URL)
+      DESTINATION_STORAGE_CONTAINER: $(STORAGE_ACCT_BLOB_URL)
       SKIP_EXTENSION_CHECK: ${{ parameters.skipExtensionCheck }}
       SIG_GALLERY_NAME: $(SIG_GALLERY_NAME)
       SIG_IMAGE_VERSION: $(SIG_IMAGE_VERSION)
@@ -279,7 +285,7 @@ steps:
 
         make -f packer.mk generate-publishing-info
     displayName: Getting Shared Access Signature URI
-    condition: and(succeeded(), eq('$( DRY_RUN )', 'False'), eq(variables.SIG_FOR_PRODUCTION, 'True'))
+    condition: and(succeeded(), eq(variables.DRY_RUN, 'False'), eq(variables.SIG_FOR_PRODUCTION, 'True'))
     env:
       SUBSCRIPTION_ID: $(AZURE_PROD_SUBSCRIPTION_ID)
       STORAGE_ACCT_BLOB_URL: $(STORAGE_ACCT_BLOB_URL)

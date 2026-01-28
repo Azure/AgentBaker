@@ -13,6 +13,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/Azure/agentbaker/aks-node-controller/parser"
 	"github.com/Azure/agentbaker/aks-node-controller/pkg/nodeconfigutils"
@@ -23,6 +24,14 @@ type App struct {
 	// cmdRunner is a function that runs the given command.
 	// the goal of this field is to make it easier to test the app by mocking the command runner.
 	cmdRunner func(cmd *exec.Cmd) error
+}
+
+// provision.json values are emitted as strings by the shell jq invocation.
+// We only care about ExitCode + Error + Output (snippet) for failure detection.
+type ProvisionResult struct {
+	ExitCode string `json:"ExitCode"`
+	Error    string `json:"Error"`
+	Output   string `json:"Output"`
 }
 
 func cmdRunner(cmd *exec.Cmd) error {
@@ -43,11 +52,11 @@ type ProvisionStatusFiles struct {
 }
 
 func (a *App) Run(ctx context.Context, args []string) int {
-	slog.Info("aks-node-controller started")
+	slog.Info("aks-node-controller started", "args", args)
 	err := a.run(ctx, args)
 	exitCode := errToExitCode(err)
 	if exitCode == 0 {
-		slog.Info("aks-node-controller finished successfully")
+		slog.Info("aks-node-controller finished successfully.")
 	} else {
 		slog.Error("aks-node-controller failed", "error", err)
 	}
@@ -60,9 +69,9 @@ func (a *App) run(ctx context.Context, args []string) error {
 	}
 	switch args[1] {
 	case "provision":
-		err := a.runProvision(ctx, args[2:])
+		provisionResult, err := a.runProvision(ctx, args[2:])
 		// Always notify after provisioning attempt (success is a no-op inside notifier)
-		a.writeCompleteFileOnError(err)
+		a.writeCompleteFileOnError(provisionResult, err)
 		return err
 	case "provision-wait":
 		provisionStatusFiles := ProvisionStatusFiles{ProvisionJSONFile: provisionJSONFilePath, ProvisionCompleteFile: provisionCompleteFilePath}
@@ -76,10 +85,13 @@ func (a *App) run(ctx context.Context, args []string) error {
 	}
 }
 
-func (a *App) Provision(ctx context.Context, flags ProvisionFlags) error {
+func (a *App) Provision(ctx context.Context, flags ProvisionFlags) (*ProvisionResult, error) {
+	provisionResult := &ProvisionResult{}
 	inputJSON, err := os.ReadFile(flags.ProvisionConfig)
 	if err != nil {
-		return fmt.Errorf("open provision file %s: %w", flags.ProvisionConfig, err)
+		provisionResult.ExitCode = strconv.Itoa(240)
+		provisionResult.Error = fmt.Sprintf("open provision file %s: %v", flags.ProvisionConfig, err)
+		return provisionResult, errors.New(provisionResult.Error)
 	}
 
 	config, err := nodeconfigutils.UnmarshalConfigurationV1(inputJSON)
@@ -99,7 +111,9 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) error {
 	// TODO: "v0" were a mistake. We are not going to have different logic maintaining both v0 and v1
 	// Disallow "v0" after some time (allow some time to update consumers)
 	if config.Version != "v0" && config.Version != "v1" {
-		return fmt.Errorf("unsupported version: %s", config.Version)
+		provisionResult.ExitCode = strconv.Itoa(240)
+		provisionResult.Error = fmt.Sprintf("unsupported version: %s", config.Version)
+		return provisionResult, errors.New(provisionResult.Error)
 	}
 
 	if config.Version == "v0" {
@@ -108,7 +122,9 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) error {
 
 	cmd, err := parser.BuildCSECmd(ctx, config)
 	if err != nil {
-		return fmt.Errorf("build CSE command: %w", err)
+		provisionResult.ExitCode = strconv.Itoa(240)
+		provisionResult.Error = fmt.Sprintf("build CSE command: %v", err)
+		return provisionResult, errors.New(provisionResult.Error)
 	}
 	var stdoutBuf, stderrBuf bytes.Buffer
 	cmd.Stdout = io.MultiWriter(os.Stdout, &stdoutBuf)
@@ -118,22 +134,44 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) error {
 	if cmd.ProcessState != nil {
 		exitCode = cmd.ProcessState.ExitCode()
 	}
+
 	slog.Info("CSE finished", "exitCode", exitCode, "stdout", stdoutBuf.String(), "stderr", stderrBuf.String(), "error", err)
-	return err
+	provisionResult.ExitCode = strconv.Itoa(exitCode)
+	provisionResult.Error = fmt.Sprintf("%v", err)
+	provisionResult.Output = strings.Join([]string{stdoutBuf.String(), stderrBuf.String()}, "\n")
+	return provisionResult, err
 }
 
 // runProvision encapsulates argument parsing and execution for the "provision" subcommand.
 // It returns an error describing any failure; callers should pass that error to
 // writeCompleteFileOnError so the sentinel file can be written on fail-fast paths.
-func (a *App) runProvision(ctx context.Context, args []string) error {
+func (a *App) runProvision(ctx context.Context, args []string) (*ProvisionResult, error) {
+	// Handle panics gracefully to ensure we always return a valid result
+	provisionResult := &ProvisionResult{}
+	var err error
+
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("panic recovered in runProvision", "panic", r)
+			provisionResult.ExitCode = strconv.Itoa(240)
+			provisionResult.Error = fmt.Sprintf("panic during provisioning: %v", r)
+			err = fmt.Errorf("panic during provisioning: %v", r)
+			a.writeCompleteFileOnError(provisionResult, err)
+		}
+	}()
+
 	fs := flag.NewFlagSet("provision", flag.ContinueOnError)
 	provisionConfig := fs.String("provision-config", "", "path to the provision config file")
 	dryRun := fs.Bool("dry-run", false, "print the command that would be run without executing it")
-	if err := fs.Parse(args); err != nil {
-		return fmt.Errorf("parse args: %w", err)
+	if parseErr := fs.Parse(args); parseErr != nil {
+		provisionResult.ExitCode = strconv.Itoa(240)
+		provisionResult.Error = fmt.Sprintf("parse args: %v", parseErr)
+		return provisionResult, errors.New(provisionResult.Error)
 	}
 	if *provisionConfig == "" {
-		return errors.New("--provision-config is required")
+		provisionResult.ExitCode = strconv.Itoa(240)
+		provisionResult.Error = "--provision-config is required"
+		return provisionResult, errors.New(provisionResult.Error)
 	}
 	if *dryRun {
 		a.cmdRunner = cmdRunnerDryRun
@@ -143,9 +181,22 @@ func (a *App) runProvision(ctx context.Context, args []string) error {
 
 // writeCompleteFileOnError writes the provision.complete sentinel if err is non-nil,
 // allowing provision-wait mode to unblock early on fail-fast validation errors.
-func (a *App) writeCompleteFileOnError(err error) {
+func (a *App) writeCompleteFileOnError(provisionResult *ProvisionResult, err error) {
 	if err == nil {
 		return
+	}
+	if _, statErr := os.Stat(provisionJSONFilePath); statErr != nil && errors.Is(statErr, os.ErrNotExist) {
+		data, err := json.Marshal(provisionResult)
+		if err != nil {
+			slog.Error("failed to marshal provision result", "error", err)
+		}
+		baseDir := filepath.Dir(provisionJSONFilePath)
+		if writeErr := os.MkdirAll(baseDir, 0755); writeErr != nil {
+			slog.Error("failed to create directory for provision.json file", "path", baseDir, "error", writeErr)
+		}
+		if writeErr := os.WriteFile(provisionJSONFilePath, data, 0600); writeErr != nil {
+			slog.Error("failed to write provision.json file", "path", provisionJSONFilePath, "error", writeErr)
+		}
 	}
 	if _, statErr := os.Stat(provisionCompleteFilePath); statErr == nil {
 		return // already exists
@@ -200,14 +251,7 @@ func (a *App) ProvisionWait(ctx context.Context, filepaths ProvisionStatusFiles)
 // If ExitCode is non-zero we return an error so that provision-wait exits with a failure code.
 // We still surface the full JSON on stdout (handled by caller) for diagnostics.
 func evaluateProvisionStatus(data []byte) error {
-	// provision.json values are emitted as strings by the shell jq invocation.
-	// We only care about ExitCode + Error + Output (snippet) for failure detection.
-	type provisionResult struct {
-		ExitCode string `json:"ExitCode"`
-		Error    string `json:"Error"`
-		Output   string `json:"Output"`
-	}
-	var result provisionResult
+	var result ProvisionResult
 	if err := json.Unmarshal(data, &result); err != nil {
 		return fmt.Errorf("parse provision.json: %w", err)
 	}
