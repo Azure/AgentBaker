@@ -69,9 +69,7 @@
         "gallery_name": "{{user `sig_gallery_name`}}",
         "image_name": "{{user `sig_image_name`}}",
         "image_version": "{{user `captured_sig_version`}}",
-        "replication_regions": [
-          "{{user `location`}}"
-        ]
+        "replication_regions": ["{{user `location`}}"]
       },
       "user_assigned_managed_identities": "{{user `msi_resource_strings`}}"
     }
@@ -99,6 +97,11 @@
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/aks-node-controller.service",
       "destination": "/home/packer/aks-node-controller.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/aks-node-controller-wrapper.sh",
+      "destination": "/home/packer/aks-node-controller-wrapper.sh"
     },
     {
       "type": "file",
@@ -327,6 +330,11 @@
     },
     {
       "type": "file",
+      "source": "vhdbuilder/packer/generate-disk-usage.sh",
+      "destination": "/home/packer/generate-disk-usage.sh"
+    },
+    {
+      "type": "file",
       "source": "vhdbuilder/packer/post-install-dependencies.sh",
       "destination": "/home/packer/post-install-dependencies.sh"
     },
@@ -414,6 +422,16 @@
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/profile-d-cis.sh",
       "destination": "/home/packer/profile-d-cis.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/profile-d-path.sh",
+      "destination": "/home/packer/profile-d-path.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/disk_queue.sh",
+      "destination": "/home/packer/disk_queue.sh"
     },
     {
       "type": "file",
@@ -697,9 +715,17 @@
     },
     {
       "type": "shell",
-      "inline": [
-        "sudo rm /var/log/bcc_installation.log"
-      ]
+      "inline": ["sudo rm /var/log/bcc_installation.log"]
+    },
+    {
+      "type": "shell",
+      "inline": ["sudo /bin/bash /home/packer/generate-disk-usage.sh"]
+    },
+    {
+      "type": "file",
+      "direction": "download",
+      "source": "/opt/azure/disk-usage.txt",
+      "destination": "disk-usage.txt"
     },
     {
       "type": "shell",
@@ -764,5 +790,9 @@
         "sudo /usr/sbin/waagent -force -deprovision+user && export HISTSIZE=0 && sync || exit 125"
       ]
     }
-  ]
+  ],
+  "error-cleanup-provisioner": {
+    "type": "shell",
+    "inline": ["sudo /bin/bash /home/packer/generate-disk-usage.sh"]
+  }
 }
