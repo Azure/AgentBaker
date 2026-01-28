@@ -121,6 +121,7 @@ func TestApp_Provision(t *testing.T) {
 			flags: ProvisionFlags{ProvisionConfig: "parser/testdata/test_aksnodeconfig.json"},
 			setupMocks: func(mc *MockCmdRunner) {
 				mc.RunFunc = func(cmd *exec.Cmd) error { return errors.New("command runner error") }
+				mc.RunFunc = func(cmd *exec.Cmd) error { return errors.New("command runner error") }
 			},
 			wantErr: true,
 		},
@@ -133,7 +134,7 @@ func TestApp_Provision(t *testing.T) {
 				tt.setupMocks(mc)
 			}
 			app := &App{cmdRunner: mc.Run}
-			err := app.Provision(context.Background(), tt.flags)
+			_, err := app.Provision(context.Background(), tt.flags)
 			if tt.wantErr {
 				assert.Error(t, err)
 			} else {

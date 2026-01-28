@@ -170,14 +170,18 @@ if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]]; then
 
     # Install new kernel packages
     wait_for_apt_locks
-    DEBIAN_FRONTEND=noninteractive apt-get install -y "${KERNEL_PACKAGES[@]}"
+    DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y "${KERNEL_PACKAGES[@]}"
     echo "After installing new kernel, here is a list of kernels/headers installed:"; dpkg -l 'linux-*azure*'
 
     # Reinstall nullboot package only for cvm
     if grep -q "cvm" <<< "$FEATURE_FLAGS"; then
       wait_for_apt_locks
-      DEBIAN_FRONTEND=noninteractive apt-get install -y nullboot
+      DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y nullboot
     fi
+
+    # Cleanup
+    wait_for_apt_locks
+    DEBIAN_FRONTEND=noninteractive apt-get autoremove -y && DEBIAN_FRONTEND=noninteractive apt-get clean
   else
     echo "Kernel packages for Ubuntu ${UBUNTU_RELEASE} are not available. Skipping purging and subsequent installation."
   fi
@@ -196,7 +200,7 @@ if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]]; then
     if apt-cache show "${NVIDIA_KERNEL_PACKAGE}" &> /dev/null; then
       echo "ARM64 image. Installing NVIDIA kernel and its packages alongside LTS kernel"
       wait_for_apt_locks
-      apt-get install -y $NVIDIA_KERNEL_PACKAGE
+      sudo apt install --no-install-recommends -y "${NVIDIA_KERNEL_PACKAGE}"
       echo "after installation:"
       dpkg -l | grep "linux-.*-azure-nvidia"
     else

@@ -128,10 +128,8 @@ set -x
 FULL_PATH=$(realpath $0)
 CDIR=$(dirname "$FULL_PATH")
 
-if [ "$OS_TYPE" = "Linux" ]; then
-  if [ -z "${ENABLE_FIPS// }" ]; then
-    ENABLE_FIPS="false"
-  fi
+if [ "${OS_TYPE,,}" = "linux" ]; then
+  [ -z "${ENABLE_FIPS// }" ] && ENABLE_FIPS="false"
 
   # If the pipeline that called this didn't set a branch, default to master.
   GIT_BRANCH="${GIT_BRANCH:-refs/heads/master}"
@@ -158,14 +156,20 @@ if [ "$OS_TYPE" = "Linux" ]; then
   #  ]
   #  We have extract the message field from the json, and get the errors outputted to stderr + remove \n
   errMsg=$(echo -e "$(echo "$ret" | jq ".value[] | .message" | grep -oP '(?<=stderr]).*(?=\\n")')")
-  if [ "$errMsg" != '' ]; then
+  # Test failures as specifically written to stderr in the form of "testname:Error: message", thus we specifically check to see if there was at least
+  # one test failure via the following regex comparison on errMsg. Otherwise, transient errors not produced by a test case
+  # (such as "sudo: unable to resolve host vhd-test-vm: Name or service not known") will cause the entire run-test step to fail.
+  # shellcheck disable=SC3010
+  if [[ "$errMsg" == *":Error:"* ]]; then
     echo "Tests failed."
     echo "Extracted error message: $errMsg"
     echo "Test output is: "
     echo "$ret"
     exit 1
   fi
-else
+fi
+
+if [ "${OS_TYPE,,}" = "windows" ]; then
   SCRIPT_PATH="$CDIR/$WIN_SCRIPT_PATH"
   echo "Run $SCRIPT_PATH"
   ret=$(az vm run-command invoke --command-id RunPowerShellScript \

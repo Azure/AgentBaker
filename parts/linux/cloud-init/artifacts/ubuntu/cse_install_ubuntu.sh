@@ -35,9 +35,7 @@ installDeps() {
     fi
 
     if [ "${OSVERSION}" = "22.04" ] || [ "${OSVERSION}" = "24.04" ]; then
-        if [ "$(isARM64)" -eq 0 ]; then
-            pkg_list+=("aznfs=0.3.15")
-        fi
+        pkg_list+=("aznfs=3.0.10")
     fi
 
     for apt_package in ${pkg_list[*]}; do
@@ -48,11 +46,9 @@ installDeps() {
     done
 
     if [ "${OSVERSION}" = "22.04" ] || [ "${OSVERSION}" = "24.04" ]; then
-        if [ "$(isARM64)" -eq 0 ]; then
-            # disable aznfswatchdog since aznfs install and enable aznfswatchdog and aznfswatchdogv4 services at the same time while we only need aznfswatchdogv4
-            systemctl disable aznfswatchdog
-            systemctl stop aznfswatchdog
-        fi
+        # disable aznfswatchdog since aznfs install and enable aznfswatchdog and aznfswatchdogv4 services at the same time while we only need aznfswatchdogv4
+        systemctl disable aznfswatchdog
+        systemctl stop aznfswatchdog
     fi
 }
 
@@ -131,7 +127,7 @@ managedGPUPackageList() {
         nvidia-device-plugin
         datacenter-gpu-manager-4-core
         datacenter-gpu-manager-4-proprietary
-        datacenter-gpu-manager-exporter
+        dcgm-exporter
     )
     echo "${packages[@]}"
 }
@@ -177,8 +173,6 @@ cleanUpGPUDrivers() {
     for packageName in $(managedGPUPackageList); do
         rm -rf "/opt/${packageName}"
     done
-
-    removeNvidiaRepos
 }
 
 installCriCtlPackage() {
@@ -208,7 +202,7 @@ installCredentialProviderFromPMC() {
     mkdir -p "${CREDENTIAL_PROVIDER_BIN_DIR}"
     chown -R root:root "${CREDENTIAL_PROVIDER_BIN_DIR}"
     installPkgWithAptGet "azure-acr-credential-provider" "${packageVersion}" || exit $ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT
-    mv "/usr/local/bin/azure-acr-credential-provider" "$CREDENTIAL_PROVIDER_BIN_DIR/acr-credential-provider"
+    ln -snf /usr/bin/azure-acr-credential-provider "$CREDENTIAL_PROVIDER_BIN_DIR/acr-credential-provider"
 }
 
 installKubeletKubectlPkgFromPMC() {
@@ -313,7 +307,8 @@ installPkgWithAptGet() {
 
     logs_to_events "AKS.CSE.install${packageName}.installDebPackageFromFile" "installDebPackageFromFile ${debFile}" || exit $ERR_APT_INSTALL_TIMEOUT
 
-    mv "/usr/bin/${packageName}" "/usr/local/bin/${packageName}"
+    mkdir -p /opt/bin
+    ln -snf "/usr/bin/${packageName}" "/opt/bin/${packageName}"
     rm -rf ${downloadDir}
 }
 

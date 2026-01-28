@@ -163,6 +163,7 @@ Type=forking
 ExecStart=/usr/bin/nvidia-persistenced --verbose
 ExecStopPost=/bin/rm -rf /var/run/nvidia-persistenced
 Restart=always
+TimeoutSec=300
 
 [Install]
 WantedBy=multi-user.target
@@ -188,8 +189,22 @@ installCredentialProviderFromPMC() {
     mkdir -p "${CREDENTIAL_PROVIDER_BIN_DIR}"
     chown -R root:root "${CREDENTIAL_PROVIDER_BIN_DIR}"
     installRPMPackageFromFile "azure-acr-credential-provider" "${packageVersion}" || exit $ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT
-    mv "/usr/local/bin/azure-acr-credential-provider" "$CREDENTIAL_PROVIDER_BIN_DIR/acr-credential-provider"
+    ln -snf /usr/bin/azure-acr-credential-provider "$CREDENTIAL_PROVIDER_BIN_DIR/acr-credential-provider"
 }
+
+  getPackageCacheRoot() {
+    echo "${RPM_PACKAGE_CACHE_BASE_DIR:-/opt}"
+  }
+
+  getPackageCacheDir() {
+    local packageName="${1}"
+    echo "$(getPackageCacheRoot)/${packageName}"
+  }
+
+  getPackageDownloadDir() {
+    local packageName="${1}"
+    echo "$(getPackageCacheDir "${packageName}")/downloads"
+  }
 
 installKubeletKubectlPkgFromPMC() {
     local desiredVersion="${1}"
@@ -344,10 +359,11 @@ installNvidiaManagedExpPkgFromCache() {
   mkdir -p /var/lib/kubelet/device-plugins
 
   for packageName in $(managedGPUPackageList); do
-    downloadDir="/opt/${packageName}/downloads"
+    downloadDir="$(getPackageDownloadDir "${packageName}")"
+    packageCacheDir="$(getPackageCacheDir "${packageName}")"
     if isPackageInstalled "${packageName}"; then
       echo "${packageName} is already installed, skipping."
-      rm -rf $(dirname ${downloadDir})
+      rm -rf "${packageCacheDir}"
       continue
     fi
 
@@ -358,7 +374,7 @@ installNvidiaManagedExpPkgFromCache() {
     fi
 
     logs_to_events "AKS.CSE.install${packageName}.dnf_install" "dnf_install 30 1 600 ${rpmFile}" || exit $ERR_APT_INSTALL_TIMEOUT
-    rm -rf $(dirname ${downloadDir})
+    rm -rf "${packageCacheDir}"
   done
 }
 
@@ -366,14 +382,15 @@ installRPMPackageFromFile() {
     local packageName="${1}"
     local desiredVersion="${2}"
     echo "installing ${packageName} version ${desiredVersion}"
-    downloadDir="/opt/${packageName}/downloads"
-    packagePrefix="${packageName}-${desiredVersion}-*"
+    local downloadDir
+    downloadDir="$(getPackageDownloadDir "${packageName}")"
+    local rpmPattern="${packageName}-${desiredVersion}"
 
-    rpmFile=$(find "${downloadDir}" -maxdepth 1 -name "${packagePrefix}" -print -quit 2>/dev/null) || rpmFile=""
+    rpmFile=$(find "${downloadDir}" -maxdepth 1 -type f -name "${rpmPattern}*.rpm" -print -quit 2>/dev/null) || rpmFile=""
     if [ -z "${rpmFile}" ]; then
         if fallbackToKubeBinaryInstall "${packageName}" "${desiredVersion}"; then
             echo "Successfully installed ${packageName} version ${desiredVersion} from binary fallback"
-            rm -rf ${downloadDir}
+            rm -rf "${downloadDir}"
             return 0
         fi
         # query all package versions and get the latest version for matching k8s version
@@ -384,26 +401,61 @@ installRPMPackageFromFile() {
         fi
         echo "Did not find cached rpm file, downloading ${packageName} version ${fullPackageVersion}"
         downloadPkgFromVersion "${packageName}" ${fullPackageVersion} "${downloadDir}"
-        rpmFile=$(find "${downloadDir}" -maxdepth 1 -name "${packagePrefix}" -print -quit 2>/dev/null) || rpmFile=""
+        rpmFile=$(find "${downloadDir}" -maxdepth 1 -type f -name "${rpmPattern}*.rpm" -print -quit 2>/dev/null) || rpmFile=""
     fi
-	  if [ -z "${rpmFile}" ]; then
+    if [ -z "${rpmFile}" ]; then
         echo "Failed to locate ${packageName} rpm"
         return 1
     fi
 
-    if ! dnf_install 30 1 600 ${rpmFile}; then
+    local rpmArgs=("${rpmFile}")
+    local -a cachedRpmFiles=()
+    mapfile -t cachedRpmFiles < <(find "${downloadDir}" -maxdepth 1 -type f -name "*.rpm" -print 2>/dev/null | sort)
+
+    # selecting the correct version of dependency rpms from the cache
+    for cachedRpm in "${cachedRpmFiles[@]}"; do
+      if [ "${cachedRpm}" = "${rpmFile}" ]; then
+        continue
+      fi
+
+      local cachedBaseName
+      cachedBaseName=$(basename "${cachedRpm}")
+
+      case "${cachedBaseName}" in
+        ${packageName}-${desiredVersion}-*.rpm)
+          rpmArgs+=("${cachedRpm}")
+          continue
+          ;;
+        ${packageName}-*.rpm)
+          echo "Skipping cached ${packageName} rpm ${cachedBaseName} because it does not match desired version ${desiredVersion}"
+          continue
+          ;;
+      esac
+
+      rpmArgs+=("${cachedRpm}")
+    done
+
+    if [ ${#rpmArgs[@]} -gt 1 ]; then
+        echo "Installing ${packageName} with cached dependency RPMs: ${rpmArgs[*]}"
+    fi
+
+    # When dependency RPMs are cached, they are included in the argument list to dnf_install.
+    # When no dependency RPM is cached, only the main package RPM is included.
+    # And dnf_install will handle installing dependencies from configured repos (downloading from network) as needed.
+    if ! dnf_install 30 1 600 "${rpmArgs[@]}"; then
         exit $ERR_APT_INSTALL_TIMEOUT
     fi
-    mv "/usr/bin/${packageName}" "/usr/local/bin/${packageName}"
-	rm -rf ${downloadDir}
+    mkdir -p /opt/bin
+    ln -snf "/usr/bin/${packageName}" "/opt/bin/${packageName}"
+    rm -rf "${downloadDir}"
 }
 
 downloadPkgFromVersion() {
     packageName="${1:-}"
     packageVersion="${2:-}"
-    downloadDir="${3:-"/opt/${packageName}/downloads"}"
-    mkdir -p ${downloadDir}
-    dnf_download 30 1 600 ${downloadDir} ${packageName}-${packageVersion} || exit $ERR_APT_INSTALL_TIMEOUT
+    downloadDir="${3:-$(getPackageDownloadDir "${packageName}")}"
+    mkdir -p "${downloadDir}"
+    dnf_download 30 1 600 "${downloadDir}" ${packageName}-${packageVersion} || exit $ERR_APT_INSTALL_TIMEOUT
     echo "Succeeded to download ${packageName} version ${packageVersion}"
 }
 
@@ -460,10 +512,8 @@ cleanUpGPUDrivers() {
   rm -Rf $GPU_DEST /opt/gpu
 
   for packageName in $(managedGPUPackageList); do
-    rm -rf "/opt/${packageName}"
+    rm -rf "$(getPackageCacheDir "${packageName}")"
   done
-
-  removeNvidiaRepos
 }
 
 downloadContainerdFromVersion() {
