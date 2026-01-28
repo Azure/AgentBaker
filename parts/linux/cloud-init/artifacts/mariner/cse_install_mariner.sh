@@ -88,17 +88,30 @@ installCriCtlPackage() {
 
 get_compute_sku() {
     # Retrieves the VM SKU (size) from the cached IMDS instance metadata.
+    # IMDS_INSTANCE_METADATA_CACHE_FILE is defined in cse_helpers.sh which is sourced first.
     local vm_sku=""
-    vm_sku=$(jq -r '.compute.vmSize // ""' "$IMDS_INSTANCE_METADATA_CACHE_FILE")
+    if [ ! -f "$IMDS_INSTANCE_METADATA_CACHE_FILE" ]; then
+        echo "IMDS cache file not found: $IMDS_INSTANCE_METADATA_CACHE_FILE" >&2
+        return 1
+    fi
+    vm_sku=$(jq -r '.compute.vmSize // empty' "$IMDS_INSTANCE_METADATA_CACHE_FILE")
+    if [ -z "$vm_sku" ]; then
+        echo "Failed to retrieve VM SKU from IMDS cache" >&2
+        return 1
+    fi
     echo "$vm_sku"
 }
 
 should_use_nvidia_open_drivers() {
     # Checks if the VM SKU should use NVIDIA open drivers (vs proprietary drivers).
     # Legacy GPUs (T4, V100) use NVIDIA proprietary drivers; A100+ use NVIDIA open drivers.
-    # Returns: 0 (true) for open drivers, 1 (false) for proprietary drivers
+    # Returns: 0 (true) for open drivers, 1 (false) for proprietary drivers, 2 on error
     local vm_sku
     vm_sku=$(get_compute_sku)
+    if [ -z "$vm_sku" ]; then
+        echo "Error: Unable to determine VM SKU, cannot select GPU driver" >&2
+        return 2
+    fi
     local lower="${vm_sku,,}"
 
     # T4 GPUs (NC*_T4_v3 family) use proprietary drivers
@@ -132,16 +145,22 @@ downloadGPUDrivers() {
     # cuda-open-%{nvidia gpu driver version}_%{kernel source version}.%{kernel release version}.{mariner rpm postfix}
     #
     # Legacy GPUs (T4, V100) require proprietary drivers; A100+ use NVIDIA open drivers.
-    # VM SKU is retrieved from cached IMDS metadata to determine which driver to use.
+    # VM SKU is retrieved from IMDS to determine which driver to use.
     KERNEL_VERSION=$(uname -r | sed 's/-/./g')
     VM_SKU=$(get_compute_sku)
 
-    if should_use_nvidia_open_drivers; then
+    local driver_ret
+    should_use_nvidia_open_drivers
+    driver_ret=$?
+    if [ "$driver_ret" -eq 2 ]; then
+        echo "Failed to determine GPU driver type"
+        exit $ERR_MISSING_CUDA_PACKAGE
+    elif [ "$driver_ret" -eq 0 ]; then
         echo "VM SKU ${VM_SKU} uses NVIDIA OpenRM driver (cuda-open)"
-        CUDA_PACKAGE=$(dnf repoquery -y --available "cuda-open*" | grep -E "cuda-open-[0-9]+.*_${KERNEL_VERSION}" | sort -V | tail -n 1)
+        CUDA_PACKAGE=$(dnf repoquery -y --available "cuda-open*" | grep -E "^cuda-open-[0-9]+.*_${KERNEL_VERSION}" | sort -V | tail -n 1)
     else
         echo "VM SKU ${VM_SKU} uses NVIDIA proprietary driver (cuda)"
-        CUDA_PACKAGE=$(dnf repoquery -y --available "cuda-[0-9]*" | grep -E "cuda-[0-9]+.*_${KERNEL_VERSION}" | grep -v "cuda-open" | sort -V | tail -n 1)
+        CUDA_PACKAGE=$(dnf repoquery -y --available "cuda-[0-9]*" | grep -E "^cuda-[0-9]+\.[0-9]+.*_${KERNEL_VERSION}" | sort -V | tail -n 1)
     fi
 
     if [ -z "$CUDA_PACKAGE" ]; then

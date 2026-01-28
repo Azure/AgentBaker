@@ -84,113 +84,104 @@ Describe 'cse_install_mariner.sh'
         # Tests for the GPU driver selection logic
         # Returns 0 (true) for open driver (A100+, H100, H200, etc.)
         # Returns 1 (false) for proprietary driver (T4, V100)
-        # Uses mocked IMDS_INSTANCE_METADATA_CACHE_FILE to provide VM SKU
-        imds_mock_dir="$PWD/spec/parts/linux/cloud-init/artifacts/imds_mocks/gpu"
+        # Mocks get_compute_sku to return specific VM SKU for testing
 
-        setup_imds_mock() {
-            mkdir -p "$imds_mock_dir"
+        # Variable to hold mocked VM SKU
+        MOCK_VM_SKU=""
+        # Override get_compute_sku to return mocked value
+        get_compute_sku() {
+            echo "$MOCK_VM_SKU"
         }
-
-        cleanup_imds_mock() {
-            rm -rf "$imds_mock_dir"
+        set_mock_sku() {
+            MOCK_VM_SKU="$1"
         }
-
-        create_imds_mock() {
-            local vm_size="$1"
-            local mock_file="$imds_mock_dir/${vm_size}.json"
-            echo "{\"compute\": {\"vmSize\": \"${vm_size}\"}}" > "$mock_file"
-            IMDS_INSTANCE_METADATA_CACHE_FILE="$mock_file"
-        }
-
-        BeforeAll 'setup_imds_mock'
-        AfterAll 'cleanup_imds_mock'
-
+        
         It 'returns false (1) for T4 GPU SKU Standard_NC4as_T4_v3'
-            create_imds_mock "Standard_NC4as_T4_v3"
+            set_mock_sku "Standard_NC4as_T4_v3"
             When call should_use_nvidia_open_drivers
             The status should equal 1
         End
 
         It 'returns false (1) for T4 GPU SKU Standard_NC64as_T4_v3'
-            create_imds_mock "Standard_NC64as_T4_v3"
+            set_mock_sku "Standard_NC64as_T4_v3"
             When call should_use_nvidia_open_drivers
             The status should equal 1
         End
 
         It 'returns false (1) for T4 GPU SKU with lowercase standard_nc8as_t4_v3'
-            create_imds_mock "standard_nc8as_t4_v3"
+            set_mock_sku "standard_nc8as_t4_v3"
             When call should_use_nvidia_open_drivers
             The status should equal 1
         End
 
         It 'returns false (1) for V100 NDv2 SKU Standard_ND40rs_v2'
-            create_imds_mock "Standard_ND40rs_v2"
+            set_mock_sku "Standard_ND40rs_v2"
             When call should_use_nvidia_open_drivers
             The status should equal 1
         End
 
         It 'returns false (1) for V100 NDv3 SKU Standard_ND40s_v3'
-            create_imds_mock "Standard_ND40s_v3"
+            set_mock_sku "Standard_ND40s_v3"
             When call should_use_nvidia_open_drivers
             The status should equal 1
         End
 
         It 'returns false (1) for V100 NCsv3 SKU Standard_NC6s_v3'
-            create_imds_mock "Standard_NC6s_v3"
+            set_mock_sku "Standard_NC6s_v3"
             When call should_use_nvidia_open_drivers
             The status should equal 1
         End
 
         It 'returns false (1) for V100 NCsv3 SKU Standard_NC24s_v3'
-            create_imds_mock "Standard_NC24s_v3"
+            set_mock_sku "Standard_NC24s_v3"
             When call should_use_nvidia_open_drivers
             The status should equal 1
         End
 
         It 'returns true (0) for A100 SKU Standard_ND96asr_v4'
-            create_imds_mock "Standard_ND96asr_v4"
+            set_mock_sku "Standard_ND96asr_v4"
             When call should_use_nvidia_open_drivers
             The status should equal 0
         End
 
         It 'returns true (0) for A100 SKU Standard_NC24ads_A100_v4'
-            create_imds_mock "Standard_NC24ads_A100_v4"
+            set_mock_sku "Standard_NC24ads_A100_v4"
             When call should_use_nvidia_open_drivers
             The status should equal 0
         End
 
         It 'returns true (0) for A100 SKU Standard_NC96ads_A100_v4'
-            create_imds_mock "Standard_NC96ads_A100_v4"
+            set_mock_sku "Standard_NC96ads_A100_v4"
             When call should_use_nvidia_open_drivers
             The status should equal 0
         End
 
         It 'returns true (0) for H100 SKU Standard_ND96isr_H100_v5'
-            create_imds_mock "Standard_ND96isr_H100_v5"
+            set_mock_sku "Standard_ND96isr_H100_v5"
             When call should_use_nvidia_open_drivers
             The status should equal 0
         End
 
         It 'returns true (0) for H200 SKU Standard_ND96isr_H200_v5'
-            create_imds_mock "Standard_ND96isr_H200_v5"
+            set_mock_sku "Standard_ND96isr_H200_v5"
             When call should_use_nvidia_open_drivers
             The status should equal 0
         End
 
         It 'returns true (0) for NVadsA10 SKU Standard_NV36ads_A10_v5'
-            create_imds_mock "Standard_NV36ads_A10_v5"
+            set_mock_sku "Standard_NV36ads_A10_v5"
             When call should_use_nvidia_open_drivers
             The status should equal 0
         End
 
         It 'handles mixed case VM SKU names correctly'
-            create_imds_mock "STANDARD_NC4AS_T4_V3"
+            set_mock_sku "STANDARD_NC4AS_T4_V3"
             When call should_use_nvidia_open_drivers
             The status should equal 1
         End
 
         It 'handles lowercase VM SKU names correctly for open driver'
-            create_imds_mock "standard_nd96asr_v4"
+            set_mock_sku "standard_nd96asr_v4"
             When call should_use_nvidia_open_drivers
             The status should equal 0
         End
