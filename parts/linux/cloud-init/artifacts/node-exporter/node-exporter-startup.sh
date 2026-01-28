@@ -65,9 +65,13 @@ KEY_FILE=""
 if [ -f "/var/lib/kubelet/pki/kubelet-server-current.pem" ]; then
     CERT_FILE="/var/lib/kubelet/pki/kubelet-server-current.pem"
     KEY_FILE="/var/lib/kubelet/pki/kubelet-server-current.pem"
+    echo "Using kubelet serving certificate rotation cert: $CERT_FILE"
 elif [ -f "/etc/kubernetes/certs/kubeletserver.crt" ] && [ -f "/etc/kubernetes/certs/kubeletserver.key" ]; then
     CERT_FILE="/etc/kubernetes/certs/kubeletserver.crt"
     KEY_FILE="/etc/kubernetes/certs/kubeletserver.key"
+    echo "Using static kubelet serving certs: $CERT_FILE, $KEY_FILE"
+else
+    echo "WARNING: No kubelet serving certs found after ${WAIT_TIMEOUT}s, node-exporter will run without TLS. Restart the service after certs are available to enable TLS."
 fi
 
 # Configure TLS if we found valid cert paths
