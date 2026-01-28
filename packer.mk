@@ -80,7 +80,7 @@ init-packer:
 	@./vhdbuilder/packer/buildconfig/produce-packer-settings.sh ${AZCLI_VERSION_OVERRIDE}
 
 run-packer: az-login
-	@packer init ./vhdbuilder/packer/buildconfig/build.pkr.hcl && packer version && ($(MAKE) -f packer.mk init-packer | tee packer-output) && ($(MAKE) -f packer.mk build-packer | tee -a packer-output)
+	@packer init ./vhdbuilder/packer/buildconfig && packer version && ($(MAKE) -f packer.mk init-packer | tee packer-output) && ($(MAKE) -f packer.mk build-packer | tee -a packer-output)
 
 run-imagecustomizer: az-login
 	@($(MAKE) -f packer.mk init-packer | tee packer-output) && ($(MAKE) -f packer.mk build-imagecustomizer | tee -a packer-output)
