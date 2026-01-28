@@ -1,6 +1,7 @@
 [Unit]
 Description=Prometheus Node Exporter
 Documentation=https://github.com/prometheus/node_exporter
+Wants=kubelet.service
 After=kubelet.service
 
 [Service]

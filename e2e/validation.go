@@ -44,6 +44,7 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 	ValidateLeakedSecrets(ctx, s)
 	ValidateIPTablesCompatibleWithCiliumEBPF(ctx, s)
 	ValidateRxBufferDefault(ctx, s)
+	ValidateNodeExporter(ctx, s)
 
 	ValidateSysctlConfig(ctx, s, map[string]string{
 		"net.ipv4.tcp_retries2":             "8",
