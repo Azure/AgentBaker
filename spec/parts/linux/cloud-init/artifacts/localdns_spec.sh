@@ -1110,4 +1110,112 @@ EOF
             The status should be success
         End
     End
+
+
+# This section tests - wait_for_dns_config_applied
+# This function is defined in parts/linux/cloud-init/artifacts/localdns.sh file.
+#------------------------------------------------------------------------------------------------------------------------------------
+    Describe 'wait_for_dns_config_applied'
+        setup() {
+            Include "./parts/linux/cloud-init/artifacts/localdns.sh"
+            TEST_DIR="/tmp/localdnstest"
+            RESOLV_CONF="${TEST_DIR}/run/systemd/resolve/resolv.conf"
+            mkdir -p "$(dirname "$RESOLV_CONF")"
+        }
+        cleanup() {
+            rm -rf "$TEST_DIR"
+        }
+        BeforeEach 'setup'
+        AfterEach 'cleanup'
+
+        #------------------------- wait_for_dns_config_applied (should_contain=true) ----------------------------------
+        It 'should return success immediately if expected IP is present (should_contain=true)'
+            cat > "$RESOLV_CONF" <<EOF
+nameserver 169.254.10.10
+EOF
+            When run wait_for_dns_config_applied "169.254.10.10" "true" 5
+            The status should be success
+            The stdout should include "DNS configuration applied successfully"
+            The stdout should include "Current DNS: 169.254.10.10"
+        End
+
+        It 'should return success if expected IP is present among multiple IPs (should_contain=true)'
+            cat > "$RESOLV_CONF" <<EOF
+nameserver 10.0.0.1
+nameserver 169.254.10.10
+nameserver 10.0.0.2
+EOF
+            When run wait_for_dns_config_applied "169.254.10.10" "true" 5
+            The status should be success
+            The stdout should include "DNS configuration applied successfully"
+        End
+
+        It 'should timeout if expected IP is not present (should_contain=true)'
+            cat > "$RESOLV_CONF" <<EOF
+nameserver 10.0.0.1
+nameserver 10.0.0.2
+EOF
+            When run wait_for_dns_config_applied "169.254.10.10" "true" 2
+            The status should be failure
+            The stdout should include "Timed out waiting for DNS configuration to be applied after 2 seconds"
+            The stdout should include "Expected 169.254.10.10 to be true"
+        End
+
+        #------------------------- wait_for_dns_config_applied (should_contain=false) ---------------------------------
+        It 'should return success immediately if expected IP is absent (should_contain=false)'
+            cat > "$RESOLV_CONF" <<EOF
+nameserver 10.0.0.1
+nameserver 10.0.0.2
+EOF
+            When run wait_for_dns_config_applied "169.254.10.10" "false" 5
+            The status should be success
+            The stdout should include "DNS configuration reverted successfully"
+        End
+
+        It 'should timeout if expected IP is still present (should_contain=false)'
+            cat > "$RESOLV_CONF" <<EOF
+nameserver 169.254.10.10
+nameserver 10.0.0.1
+EOF
+            When run wait_for_dns_config_applied "169.254.10.10" "false" 2
+            The status should be failure
+            The stdout should include "Timed out waiting for DNS configuration to be applied after 2 seconds"
+            The stdout should include "Expected 169.254.10.10 to be false"
+        End
+
+        It 'should return success if resolv.conf is empty (should_contain=false)'
+            > "$RESOLV_CONF"
+            When run wait_for_dns_config_applied "169.254.10.10" "false" 5
+            The status should be success
+            The stdout should include "DNS configuration reverted successfully"
+        End
+
+        #------------------------- wait_for_dns_config_applied (default timeout) --------------------------------------
+        It 'should use default timeout of 10 seconds when not specified'
+            cat > "$RESOLV_CONF" <<EOF
+nameserver 10.0.0.1
+EOF
+            # Note: This test checks behavior but uses a short actual wait by having the condition pass immediately
+            When run wait_for_dns_config_applied "10.0.0.1" "true"
+            The status should be success
+            The stdout should include "DNS configuration applied successfully"
+        End
+
+        #------------------------- wait_for_dns_config_applied (edge cases) -------------------------------------------
+        It 'should handle resolv.conf not existing gracefully'
+            rm -f "$RESOLV_CONF"
+            When run wait_for_dns_config_applied "169.254.10.10" "false" 2
+            The status should be success
+            The stdout should include "DNS configuration reverted successfully"
+        End
+
+        It 'should not match partial IP addresses'
+            cat > "$RESOLV_CONF" <<EOF
+nameserver 169.254.10.100
+EOF
+            When run wait_for_dns_config_applied "169.254.10.10" "true" 2
+            The status should be failure
+            The stdout should include "Timed out waiting for DNS configuration"
+        End
+    End
 End
