@@ -16,13 +16,11 @@ pr:
     - .pipelines/templates/.template-override-components-json.yaml
     - .pipelines/templates/.template-copy-file.yaml
     - .pipelines/templates/e2e-template.yaml
-    - parts/linux/*
     - packer.mk
     - aks-node-controller/**
     - parts/common/components.json
     - go.mod
     - go.sum
-    - e2e/scenario_gpu_managed_experience_test.go
     exclude:
     - schemas/windows_settings.cue
     - vhdbuilder/release-notes
