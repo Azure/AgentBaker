@@ -110,6 +110,8 @@ _apt_get_install() {
             wait_for_apt_locks
             DEBIAN_FRONTEND=noninteractive apt-get clean
             wait_for_apt_locks
+            DEBIAN_FRONTEND=noninteractive apt-get clean
+            wait_for_apt_locks
             return 0
         fi
 
