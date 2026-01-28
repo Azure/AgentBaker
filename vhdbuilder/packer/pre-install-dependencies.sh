@@ -206,6 +206,7 @@ if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]]; then
     else
       echo "ARM64 image. NVIDIA kernel not available, skipping installation."
     fi
+    add-apt-repository --remove ppa:canonical-kernel-team/ppa
   fi
   wait_for_apt_locks
   update-grub
