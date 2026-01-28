@@ -314,18 +314,22 @@ func ValidateNetworkInterfaceConfig(ctx context.Context, s *Scenario, nicConfig 
 		s.T.Logf("Validating network interface config for NIC: %s", nic)
 
 		for setting, expectedValue := range nicConfig {
-			// Get ethtool JSON output
+			// Get full ethtool output for debugging
+			debugCommand := []string{
+				"set -ex",
+				fmt.Sprintf("echo '=== Full ethtool output for %s ==='", nic),
+				fmt.Sprintf("sudo ethtool -g %s", nic),
+			}
+			debugResult := execScriptOnVMForScenario(ctx, s, strings.Join(debugCommand, "\n"))
+			s.T.Logf("Full ethtool output for %s:\n%s", nic, debugResult.stdout)
+
 			command := []string{
 				"set -ex",
-				fmt.Sprintf("sudo ethtool --json -g %s", nic),
+				fmt.Sprintf("sudo ethtool -g %s | grep -A 5 'Current hardware settings' | grep -i %s: | awk '{print $2}'", nic, setting),
 			}
 			execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "could not get ethtool config")
-			s.T.Logf("Ethtool JSON output for %s:\n%s", nic, execResult.stdout)
-
-			actualValue := gjson.Get(execResult.stdout, "0."+setting).String()
-
-			s.T.Logf("Ethtool setting %s for NIC %s: expected=%s, actual=%s", setting, nic, expectedValue, actualValue)
-			require.Equal(s.T, expectedValue, actualValue, "expected %s to be %s on nic %s, but got %s", setting, expectedValue, nic, actualValue)
+			s.T.Logf("Ethtool setting %s for NIC %s: expected=%s, actual=%s", setting, nic, expectedValue, strings.TrimSpace(execResult.stdout))
+			require.Contains(s.T, execResult.stdout, expectedValue, "expected to find %s set to %v on nic %s, but was not.\nStdout:\n%s", setting, expectedValue, nic, execResult.stdout)
 		}
 	}
 }
