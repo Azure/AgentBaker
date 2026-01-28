@@ -27,7 +27,6 @@ func Test_AzureLinux3OSGuard(t *testing.T) {
 				nbc.AgentPoolProfile.LocalDNSProfile = nil
 			},
 			Validator: func(ctx context.Context, s *Scenario) {},
-			Validator: func(ctx context.Context, s *Scenario) {},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
 			},

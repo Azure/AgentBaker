@@ -94,8 +94,6 @@ var (
 		UnsupportedLocalDns: true,
 		// Secure TLS Bootstrapping isn't currently supported on FIPS-enabled VHDs
 		UnsupportedSecureTLSBootstrapping: true,
-		// Secure TLS Bootstrapping isn't currently supported on FIPS-enabled VHDs
-		UnsupportedSecureTLSBootstrapping: true,
 	}
 	VHDCBLMarinerV2Gen2Arm64 = &Image{
 		Name:    "CBLMarinerV2gen2arm64",
