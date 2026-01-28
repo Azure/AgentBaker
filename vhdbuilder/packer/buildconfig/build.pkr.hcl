@@ -138,9 +138,9 @@ build {
   provisioner "shell" {
     inline = ["/bin/bash -ux /home/packer/list-images.sh"]
     environment_vars = [
-      SKU_NAME=${var.sku_name},
-      IMAGE_VERSION=${var.image_version},
-      CONTAINER_RUNTIME=${var.container_runtime}
+      "SKU_NAME=${var.sku_name}",
+      "IMAGE_VERSION=${var.image_version}",
+      "CONTAINER_RUNTIME=${var.container_runtime}"
     ]
   }
 
