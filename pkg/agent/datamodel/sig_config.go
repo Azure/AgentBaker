@@ -429,14 +429,14 @@ var (
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "2204fipscontainerd",
-		Version:       "202404.09.0", // TODO(artunduman): Update version when the image is ready
+		Version:       LinuxSIGImageVersion,
 	}
 
 	SIGUbuntuFipsContainerd2204Gen2ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "2204gen2fipscontainerd",
-		Version:       "202404.09.0", // TODO(artunduman): Update version when the image is ready
+		Version:       LinuxSIGImageVersion,
 	}
 
 	SIGUbuntuArm64Containerd2204Gen2ImageConfigTemplate = SigImageConfigTemplate{

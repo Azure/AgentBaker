@@ -199,7 +199,7 @@ func ValidateLeakedSecrets(ctx context.Context, s *Scenario) {
 	for _, logFile := range []string{"/var/log/azure/cluster-provision.log", "/var/log/azure/aks-node-controller.log"} {
 		for _, secretValue := range secrets {
 			if secretValue != "" {
-				ValidateFileExcludesContent(ctx, s, logFile, secretValue)
+				ValidateFileExcludesExactContent(ctx, s, logFile, secretValue)
 			}
 		}
 	}
@@ -384,6 +384,38 @@ func fileHasContent(ctx context.Context, s *Scenario, fileName string, contents 
 	}
 }
 
+func fileHasExactContent(ctx context.Context, s *Scenario, fileName string, contents string) bool {
+	s.T.Helper()
+	require.NotEmpty(s.T, contents, "Test setup failure: Can't validate that a file has contents with an empty string. Filename: %s", fileName)
+	encodedPattern := base64.StdEncoding.EncodeToString([]byte(contents))
+	if s.IsWindows() {
+		steps := []string{
+			"$ErrorActionPreference = \"Stop\"",
+			fmt.Sprintf("if ( -not ( Test-Path -Path %s ) ) { exit 2 }", fileName),
+			fmt.Sprintf("$pattern = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('%s'))", encodedPattern),
+			fmt.Sprintf("$content = Get-Content -Path %s -Raw", fileName),
+			"$escaped = [regex]::Escape($pattern)",
+			"if ([regex]::Match($content, \"(?<!\\w)\" + $escaped + \"(?!\\w)\").Success) { exit 0 } else { exit 1 }",
+		}
+		execResult := execScriptOnVMForScenario(ctx, s, strings.Join(steps, "\n"))
+		return execResult.exitCode == "0"
+	} else {
+		steps := []string{
+			"set -ex",
+			fmt.Sprintf("if [ ! -f %s ]; then exit 2; fi", fileName),
+			fmt.Sprintf("pattern=$(printf '%%s' '%s' | base64 -d)", encodedPattern),
+			"escaped=$(printf '%s\n' \"$pattern\" | sed -e 's/[.\\[\\()*?^$+{}|]/\\\\&/g')",
+			"regex='(^|[^[:alnum:]_])'\"$escaped\"'([^[:alnum:]_]|$)'",
+			fmt.Sprintf("if sudo grep -Eq \"$regex\" %s; then exit 0; else exit 1; fi", fileName),
+		}
+		execResult := execScriptOnVMForScenario(ctx, s, strings.Join(steps, "\n"))
+		return execResult.exitCode == "0"
+	}
+}
+
+// ValidateFileHasContent passes the test if the specified file contains the specified contents.
+// The contents doesn't need to be surrounded by non-word characters.
+// E.g.: searching "bcd" in "abcdef" is a match, thus the validation passes.
 func ValidateFileHasContent(ctx context.Context, s *Scenario, fileName string, contents string) {
 	s.T.Helper()
 	if !fileHasContent(ctx, s, fileName, contents) {
@@ -391,10 +423,23 @@ func ValidateFileHasContent(ctx context.Context, s *Scenario, fileName string, c
 	}
 }
 
+// ValidateFileExcludesContent fails the test if the specified file contains the specified contents.
+// The contents doesn't need to be surrounded by non-word characters.
+// E.g.: searching "bcd" in "abcdef" is a match, thus the validation fails.
 func ValidateFileExcludesContent(ctx context.Context, s *Scenario, fileName string, contents string) {
 	s.T.Helper()
 	if fileHasContent(ctx, s, fileName, contents) {
 		s.T.Fatalf("expected file %s to not have contents %q, but it does", fileName, contents)
+	}
+}
+
+// ValidateFileExcludesExactContent fails the test if the specified file contains the specified contents.
+// The contents needs to be surrounded by non-word characters.
+// E.g.: searching "bcd" in "abcdef" is not a match, thus the validation passes.
+func ValidateFileExcludesExactContent(ctx context.Context, s *Scenario, fileName string, contents string) {
+	s.T.Helper()
+	if fileHasExactContent(ctx, s, fileName, contents) {
+		s.T.Fatalf("expected file %s to not have exact contents %q, but it does", fileName, contents)
 	}
 }
 

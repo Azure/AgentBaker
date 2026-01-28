@@ -600,13 +600,6 @@ func getDisableSSH(v *aksnodeconfigv1.Configuration) bool {
 	return !v.GetEnableSsh()
 }
 
-func getServicePrincipalFileContent(authConfig *aksnodeconfigv1.AuthConfig) string {
-	if authConfig.GetServicePrincipalSecret() == "" {
-		return ""
-	}
-	return base64.StdEncoding.EncodeToString([]byte(authConfig.GetServicePrincipalSecret()))
-}
-
 func getKubeletFlags(kubeletConfig *aksnodeconfigv1.KubeletConfig) string {
 	return createSortedKeyValuePairs(kubeletConfig.GetKubeletFlags(), " ")
 }
