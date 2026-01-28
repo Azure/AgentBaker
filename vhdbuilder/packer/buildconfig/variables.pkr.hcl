@@ -39,6 +39,11 @@ variable "feature_flags" {
   default = "${env("FEATURE_FLAGS")}"
 }
 
+variable "resource_group_name" {
+  type    = string
+  default = "${env("AZURE_RESOURCE_GROUP_NAM")}"
+}
+
 
 
 // Provisioner files

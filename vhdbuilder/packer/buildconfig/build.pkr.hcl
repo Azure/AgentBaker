@@ -9,8 +9,8 @@ build {
   // These files are common to all VHDs, and will be uploaded to the Packer VM regardless of distro
   dynamic "provisioner" {
     for_each = "${local.common_file_upload}"
+    labels = ["azure-arm.nodelifecycle-image-builder"]
     content {
-      labels = ["azure-arm.nodelifecycle-image-builder"]
       type        = "file"
       source      = provisioner.value.source
       destination = provisioner.value.destination
@@ -20,8 +20,8 @@ build {
   // Ubuntu-specific file uploads
   dynamic "provisioner" {
     for_each = "${local.ubuntu_file_upload}"
+    labels = ["azure-arm.nodelifecycle-image-builder"]
     content {
-      labels = ["azure-arm.nodelifecycle-image-builder"]
       type        = "file"
       source      = provisioner.value.source
       destination = provisioner.value.destination
@@ -32,8 +32,8 @@ build {
   // AzureLinux-specific file uploads
   dynamic "provisioner" {
     for_each = "${local.azlinux_file_upload}"
+    labels = ["azure-arm.nodelifecycle-image-builder"]
     content {
-      labels = ["azure-arm.nodelifecycle-image-builder"]
       type        = "file"
       source      = provisioner.value.source
       destination = provisioner.value.destination
@@ -44,8 +44,8 @@ build {
   // Flatcar-specific file uploads
   dynamic "provisioner" {
     for_each = "${local.flatcar_file_upload}"
+    labels = ["azure-arm.nodelifecycle-image-builder"]
     content {
-      labels = ["azure-arm.nodelifecycle-image-builder"]
       type        = "file"
       source      = provisioner.value.source
       destination = provisioner.value.destination
@@ -109,8 +109,8 @@ build {
 
   dynamic "provisioner" {
     for_each = "${local.midway_file_downloads}"
+    labels = ["azure-arm.nodelifecycle-image-builder"]
     content {
-      labels = ["azure-arm.nodelifecycle-image-builder"]
       type        = "file"
       direction   = "download"
       source      = provisioner.value.source
@@ -151,8 +151,8 @@ build {
 
   dynamic "provisioner" {
     for_each = "${local.post_build_file_downloads}"
+    labels = ["azure-arm.nodelifecycle-image-builder"]
     content {
-      labels = ["azure-arm.nodelifecycle-image-builder"]
       type        = "file"
       direction   = "download"
       source      = provisioner.value.source
