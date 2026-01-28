@@ -45,27 +45,27 @@ variable "feature_flags" {
 
 variable "common_file_upload" {
   type    = string
-  default = "vhdbuilder/packer/buildconfig/dynamic-provisioners/common_file_upload.json"
+  default = "dynamic-provisioners/common_file_upload.json"
 }
 
 variable "ubuntu_file_upload" {
   type    = string
-  default = "vhdbuilder/packer/buildconfig/dynamic-provisioners/ubuntu_file_upload.json"
+  default = "dynamic-provisioners/ubuntu_file_upload.json"
 }
 
 variable "azlinux_file_upload" {
   type    = string
-  default = "vhdbuilder/packer/buildconfig/dynamic-provisioners/azlinux_file_upload.json"
+  default = "dynamic-provisioners/azlinux_file_upload.json"
 }
 
 variable "flatcar_file_upload" {
   type    = string
-  default = "vhdbuilder/packer/buildconfig/dynamic-provisioners/flatcar_file_upload.json"
+  default = "dynamic-provisioners/flatcar_file_upload.json"
 }
 
 variable "file_downloads" {
   type    = string
-  default = "vhdbuilder/packer/buildconfig/dynamic-provisioners/file-downloads.json"
+  default = "dynamic-provisioners/file-downloads.json"
 }
 
 variable "custom_data_file" {
