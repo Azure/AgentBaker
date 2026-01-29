@@ -76,7 +76,7 @@ installCNI() {
     # Network Isolated Cluster / Bring Your Own ACR will not work with a vhd that requres a hardcoded CNI download.
     if [ ! -f "$COMPONENTS_FILEPATH" ] || ! jq '.Packages[] | select(.name == "containernetworking-plugins")' < $COMPONENTS_FILEPATH > /dev/null; then
         echo "WARNING: no containernetworking-plugins components present falling back to hard coded download of 1.6.2. This should error eventually"
-        exit $ERR_CNI_VERSION_INVALID
+        return
     fi
 
     #always just use what is listed in components.json so we don't have to sync.
