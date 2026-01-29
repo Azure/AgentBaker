@@ -1,4 +1,4 @@
-* @juan-lee @cameronmeissner @ganeshkumarashok @Devinwong @lilypan26 @AbelHu @junjiezhang1997 @djsly @phealy @r2k1 @timmy-wright @zachary-bailey @awesomenix
+* @juan-lee @cameronmeissner @ganeshkumarashok @Devinwong @lilypan26 @AbelHu @junjiezhang1997 @djsly @phealy @r2k1 @timmy-wright @zachary-bailey @awesomenix @mxj220 @pdamianov-dev
 
 # Code owners for for cse_cmd.sh and nodecustomdata.yml. This is to ensure that the scriptless v-team is aware of the changes in order to sync with AKSNodeConfig.
 cse_cmd.sh @Devinwong @lilypan26 @r2k1 @timmy-wright @cameronmeissner
@@ -6,10 +6,10 @@ nodecustomdata.yml @Devinwong @lilypan26 @r2k1 @timmy-wright @cameronmeissner
 
 # Code owners for testdata snapshots.
 # These include security patch owners since security patch script changes will cause the related custom data snapshots to change.
-pkg/agent/testdata/ @yewmsft @YaoC @juan-lee @cameronmeissner @ganeshkumarashok @Devinwong @lilypan26 @AbelHu @junjiezhang1997 @djsly @phealy @r2k1 @timmy-wright @zachary-bailey @awesomenix
+pkg/agent/testdata/ @yewmsft @YaoC @juan-lee @cameronmeissner @ganeshkumarashok @Devinwong @lilypan26 @AbelHu @junjiezhang1997 @djsly @phealy @r2k1 @timmy-wright @zachary-bailey @awesomenix @mxj220 @pdamianov-dev
 
 # Code owners for the security patch release notes.
-vhdbuilder/release-notes/security-patch/ @yagmurbaydogan @yewmsft @juan-lee @cameronmeissner @ganeshkumarashok @Devinwong @lilypan26 @AbelHu @junjiezhang1997 @djsly @phealy @r2k1 @timmy-wright @zachary-bailey @awesomenix
+vhdbuilder/release-notes/security-patch/ @yagmurbaydogan @yewmsft @juan-lee @cameronmeissner @ganeshkumarashok @Devinwong @lilypan26 @AbelHu @junjiezhang1997 @djsly @phealy @r2k1 @timmy-wright @zachary-bailey @awesomenix @mxj220 @pdamianov-dev
 
 # Code owners for security patching.
 parts/linux/cloud-init/artifacts/mariner/package-update.service @yewmsft @YaoC
