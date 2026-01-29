@@ -8,7 +8,7 @@ build {
 
   // These files are common to all VHDs, and will be uploaded to the Packer VM regardless of distro
   dynamic "provisioner" {
-    for_each = "${local.common_file_upload}"
+    for_each = "${local.common_file_upload.files}"
     labels = ["azure-arm.nodelifecycle-image-builder"]
     content {
       type        = "file"
@@ -19,7 +19,7 @@ build {
 
   // Ubuntu-specific file uploads
   dynamic "provisioner" {
-    for_each = "${local.ubuntu_file_upload}"
+    for_each = "${local.ubuntu_file_upload.files}"
     labels = ["azure-arm.nodelifecycle-image-builder"]
     content {
       type        = "file"
@@ -31,7 +31,7 @@ build {
 
   // AzureLinux-specific file uploads
   dynamic "provisioner" {
-    for_each = "${local.azlinux_file_upload}"
+    for_each = "${local.azlinux_file_upload.files}"
     labels = ["azure-arm.nodelifecycle-image-builder"]
     content {
       type        = "file"
@@ -43,7 +43,7 @@ build {
 
   // Flatcar-specific file uploads
   dynamic "provisioner" {
-    for_each = "${local.flatcar_file_upload}"
+    for_each = "${local.flatcar_file_upload.files}"
     labels = ["azure-arm.nodelifecycle-image-builder"]
     content {
       type        = "file"
