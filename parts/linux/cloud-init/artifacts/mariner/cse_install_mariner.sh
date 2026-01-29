@@ -90,7 +90,6 @@ should_use_nvidia_open_drivers() {
     # Checks if the VM SKU should use NVIDIA open drivers (vs proprietary drivers).
     # Legacy GPUs (T4, V100) use NVIDIA proprietary drivers; A100+ use NVIDIA open drivers.
     # Returns: 0 (true) for open drivers, 1 (false) for proprietary drivers, 2 on error
-    export -f get_compute_sku
     local vm_sku
     vm_sku=$(get_compute_sku)
     if [ -z "$vm_sku" ]; then
@@ -146,7 +145,7 @@ downloadGPUDrivers() {
         CUDA_PACKAGE=$(dnf repoquery -y --available "cuda-open*" | grep -E "^cuda-open-[0-9]+.*_${KERNEL_VERSION}" | sort -V | tail -n 1)
     else
         echo "VM SKU ${VM_SKU} uses NVIDIA proprietary driver (cuda)"
-        CUDA_PACKAGE=$(dnf repoquery -y --available "cuda-[0-9]*" | grep -E "^cuda-[0-9]+\.[0-9]+.*_${KERNEL_VERSION}" | sort -V | tail -n 1)
+        CUDA_PACKAGE=$(dnf repoquery -y --available "cuda-[0-9]*" | grep -E "^cuda-[0-9]+.*_${KERNEL_VERSION}" | sort -V | tail -n 1)
     fi
 
     if [ -z "$CUDA_PACKAGE" ]; then
