@@ -5,6 +5,7 @@ NODE_NAME=$(hostname)
 configureAdminUser(){
     chage -E -1 -I -1 -m 0 -M 99999 "${ADMINUSER}"
     chage -l "${ADMINUSER}"
+    chage -I -1 -M -1 root
 }
 
 configPrivateClusterHosts() {
@@ -342,7 +343,7 @@ EOF
   if [ "${GPU_NODE}" = "true" ]; then
     # Check VM tag directly to determine if GPU drivers should be skipped
     export -f should_skip_nvidia_drivers
-    should_skip=$(retrycmd_silent 10 1 10 bash -cx should_skip_nvidia_drivers)
+    should_skip=$(should_skip_nvidia_drivers)
     if [ "$?" -eq 0 ] && [ "${should_skip}" = "true" ]; then
       echo "Generating non-GPU containerd config for GPU node due to VM tags"
       echo "${CONTAINERD_CONFIG_NO_GPU_CONTENT}" | base64 -d > /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
@@ -355,8 +356,8 @@ EOF
     echo "${CONTAINERD_CONFIG_CONTENT}" | base64 -d > /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
   fi
 
-  export -f e2e_mock_azure_china_cloud
-  E2EMockAzureChinaCloud=$(retrycmd_silent 10 1 10 bash -cx e2e_mock_azure_china_cloud)
+  export -f should_e2e_mock_azure_china_cloud
+  E2EMockAzureChinaCloud=$(should_e2e_mock_azure_china_cloud)
   if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
     logs_to_events "AKS.CSE.ensureContainerd.configureContainerdRegistryHost" configureContainerdRegistryHost
   elif [ "${TARGET_CLOUD}" = "AzureChinaCloud" ] || [ "${E2EMockAzureChinaCloud}" = "true" ]; then
@@ -427,23 +428,10 @@ ensureDHCPv6() {
 }
 
 getPrimaryNicIP() {
-    local sleepTime=1
-    local maxRetries=10
-    local i=0
     local ip=""
-
-    while [ "$i" -lt "$maxRetries" ]; do
-        ip=$(curl -sSL -H "Metadata: true" "http://169.254.169.254/metadata/instance/network/interface?api-version=2021-02-01")
-        if [ "$?" -eq 0 ]; then
-            ip=$(echo "$ip" | jq -r '.[0].ipv4.ipAddress[0].privateIpAddress')
-            if [ -n "$ip" ]; then
-                break
-            fi
-        fi
-        sleep $sleepTime
-        i=$((i+1))
-    done
-    echo "$ip"
+    export -f get_primary_nic_ip
+    ip=$(get_primary_nic_ip)
+    echo "${ip}"
 }
 
 generateSelfSignedKubeletServingCertificate() {
@@ -469,7 +457,7 @@ configureKubeletServing() {
 
     # check if kubelet serving certificate rotation is disabled by customer-specified nodepool tags
     export -f should_disable_kubelet_serving_certificate_rotation
-    DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION=$(retrycmd_silent 10 1 10 bash -cx should_disable_kubelet_serving_certificate_rotation)
+    DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION=$(should_disable_kubelet_serving_certificate_rotation)
     if [ "$?" -ne 0 ]; then
         echo "failed to determine if kubelet serving certificate rotation should be disabled by nodepool tags"
         exit $ERR_LOOKUP_DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION_TAG
@@ -1032,13 +1020,45 @@ configureSSHPubkeyAuth() {
   sudo systemctl reload sshd || sudo systemctl restart sshd || exit $ERR_CONFIG_PUBKEY_AUTH_SSH
 }
 
-configCredentialProvider() {
-    CREDENTIAL_PROVIDER_CONFIG_FILE=/var/lib/kubelet/credential-provider-config.yaml
-    mkdir -p "$(dirname "${CREDENTIAL_PROVIDER_CONFIG_FILE}")"
-    touch "${CREDENTIAL_PROVIDER_CONFIG_FILE}"
+# Internal function that writes credential provider config to a specified path
+# This function is extracted to allow unit testing without root permissions
+# Usage: writeCredentialProviderConfig <config_file_path>
+writeCredentialProviderConfig() {
+    if [ -z "$1" ]; then
+        echo "Error: writeCredentialProviderConfig requires config file path as argument"
+        return 1
+    fi
+    local config_file_path="$1"
+    mkdir -p "$(dirname "${config_file_path}")"
+    touch "${config_file_path}"
+
+    # Prepare identity binding configuration if enabled (including leading newlines)
+    local ib_token_attributes=""
+    local ib_args=""
+    local ib_args_list=()
+    if [ "${SERVICE_ACCOUNT_IMAGE_PULL_ENABLED}" = "true" ]; then
+        ib_token_attributes="
+    tokenAttributes:
+      serviceAccountTokenAudience: api://AKSIdentityBinding
+      requireServiceAccount: false
+      cacheType: ServiceAccount
+      optionalServiceAccountAnnotationKeys:
+        - kubernetes.azure.com/acr-client-id"
+        # Build identity binding args list using an array to avoid word splitting
+        ib_args_list=( "--ib-sni-name=${IDENTITY_BINDINGS_LOCAL_AUTHORITY_SNI}" )
+        [ -n "${SERVICE_ACCOUNT_IMAGE_PULL_DEFAULT_CLIENT_ID}" ] && ib_args_list+=( "--ib-default-client-id=${SERVICE_ACCOUNT_IMAGE_PULL_DEFAULT_CLIENT_ID}" )
+        [ -n "${SERVICE_ACCOUNT_IMAGE_PULL_DEFAULT_TENANT_ID}" ] && ib_args_list+=( "--ib-default-tenant-id=${SERVICE_ACCOUNT_IMAGE_PULL_DEFAULT_TENANT_ID}" )
+        ib_args_list+=( "--ib-apiserver-ip=${API_SERVER_NAME}" )
+        # Format args as YAML list items with proper indentation
+        for arg in "${ib_args_list[@]}"; do
+            ib_args="${ib_args}
+      - ${arg}"
+        done
+    fi
+
     if [ -n "$AKS_CUSTOM_CLOUD_CONTAINER_REGISTRY_DNS_SUFFIX" ]; then
         echo "configure credential provider for custom cloud"
-        tee "${CREDENTIAL_PROVIDER_CONFIG_FILE}" > /dev/null <<EOF
+        tee "${config_file_path}" > /dev/null <<EOF
 apiVersion: kubelet.config.k8s.io/v1
 kind: CredentialProviderConfig
 providers:
@@ -1050,13 +1070,13 @@ providers:
       - "*.azurecr.us"
       - "*$AKS_CUSTOM_CLOUD_CONTAINER_REGISTRY_DNS_SUFFIX"
     defaultCacheDuration: "10m"
-    apiVersion: credentialprovider.kubelet.k8s.io/v1
+    apiVersion: credentialprovider.kubelet.k8s.io/v1${ib_token_attributes}
     args:
-      - /etc/kubernetes/azure.json
+      - /etc/kubernetes/azure.json${ib_args}
 EOF
     elif [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
         echo "configure credential provider for network isolated cluster"
-        tee "${CREDENTIAL_PROVIDER_CONFIG_FILE}" > /dev/null <<EOF
+        tee "${config_file_path}" > /dev/null <<EOF
 apiVersion: kubelet.config.k8s.io/v1
 kind: CredentialProviderConfig
 providers:
@@ -1068,14 +1088,14 @@ providers:
       - "*.azurecr.us"
       - "mcr.microsoft.com"
     defaultCacheDuration: "10m"
-    apiVersion: credentialprovider.kubelet.k8s.io/v1
+    apiVersion: credentialprovider.kubelet.k8s.io/v1${ib_token_attributes}
     args:
       - /etc/kubernetes/azure.json
-      - --registry-mirror=mcr.microsoft.com:$BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER
+      - --registry-mirror=mcr.microsoft.com:$BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER${ib_args}
 EOF
     else
         echo "configure credential provider with default settings"
-        tee "${CREDENTIAL_PROVIDER_CONFIG_FILE}" > /dev/null <<EOF
+        tee "${config_file_path}" > /dev/null <<EOF
 apiVersion: kubelet.config.k8s.io/v1
 kind: CredentialProviderConfig
 providers:
@@ -1086,26 +1106,30 @@ providers:
       - "*.azurecr.de"
       - "*.azurecr.us"
     defaultCacheDuration: "10m"
-    apiVersion: credentialprovider.kubelet.k8s.io/v1
+    apiVersion: credentialprovider.kubelet.k8s.io/v1${ib_token_attributes}
     args:
-      - /etc/kubernetes/azure.json
+      - /etc/kubernetes/azure.json${ib_args}
 EOF
     fi
 }
 
+configCredentialProvider() {
+    writeCredentialProviderConfig "/var/lib/kubelet/credential-provider-config.yaml"
+}
+
 setKubeletNodeIPFlag() {
-    imdsOutput=$(curl -s -H Metadata:true --noproxy "*" --max-time 5 "http://169.254.169.254/metadata/instance/network/interface?api-version=2021-02-01" 2> /dev/null)
-    if [ "$?" -eq 0 ]; then
-        nodeIPAddrs=()
-        ipv4Addr=$(echo $imdsOutput | jq -r '.[0].ipv4.ipAddress[0].privateIpAddress // ""')
-        [ -n "$ipv4Addr" ] && nodeIPAddrs+=("$ipv4Addr")
-        ipv6Addr=$(echo $imdsOutput | jq -r '.[0].ipv6.ipAddress[0].privateIpAddress // ""')
-        [ -n "$ipv6Addr" ] && nodeIPAddrs+=("$ipv6Addr")
-        nodeIPArg=$(IFS=, ; echo "${nodeIPAddrs[*]}") # join, comma-separated
-        if [ -n "$nodeIPArg" ]; then
-            echo "Adding --node-ip=$nodeIPArg to kubelet flags"
-            KUBELET_FLAGS="$KUBELET_FLAGS --node-ip=$nodeIPArg"
-        fi
+    local imdsOutput
+    export -f get_imds_network_metadata
+    imdsOutput=$(get_imds_network_metadata)
+    nodeIPAddrs=()
+    ipv4Addr=$(echo $imdsOutput | jq -r '.[0].ipv4.ipAddress[0].privateIpAddress // ""')
+    [ -n "$ipv4Addr" ] && nodeIPAddrs+=("$ipv4Addr")
+    ipv6Addr=$(echo $imdsOutput | jq -r '.[0].ipv6.ipAddress[0].privateIpAddress // ""')
+    [ -n "$ipv6Addr" ] && nodeIPAddrs+=("$ipv6Addr")
+    nodeIPArg=$(IFS=, ; echo "${nodeIPAddrs[*]}") # join, comma-separated
+    if [ -n "$nodeIPArg" ]; then
+        echo "Adding --node-ip=$nodeIPArg to kubelet flags"
+        KUBELET_FLAGS="$KUBELET_FLAGS --node-ip=$nodeIPArg"
     fi
 }
 
@@ -1181,11 +1205,16 @@ EOF
 }
 
 configureManagedGPUExperience() {
-    if [ "${GPU_NODE}" = "true" ] && [ "${skip_nvidia_driver_install}" != "true" ] && [ "${ENABLE_MANAGED_GPU_EXPERIENCE}" = "true" ]; then
+    if [ "${GPU_NODE}" != "true" ] || [ "${skip_nvidia_driver_install}" = "true" ]; then
+        return
+    fi
+    if [ "${ENABLE_MANAGED_GPU_EXPERIENCE}" = "true" ]; then
         logs_to_events "AKS.CSE.installNvidiaManagedExpPkgFromCache" "installNvidiaManagedExpPkgFromCache" || exit $ERR_NVIDIA_DCGM_INSTALL
         logs_to_events "AKS.CSE.startNvidiaManagedExpServices" "startNvidiaManagedExpServices" || exit $ERR_NVIDIA_DCGM_EXPORTER_FAIL
         addKubeletNodeLabel "kubernetes.azure.com/dcgm-exporter=enabled"
-    elif [ "${GPU_NODE}" = "true" ] && [ "${skip_nvidia_driver_install}" != "true" ] && [ "${ENABLE_MANAGED_GPU_EXPERIENCE}" = "false" ]; then
+    else
+        # EnableManagedGPUExperience is mutable, so services may have been
+        # installed on a previous CSE run. Stop them if they exist.
         logs_to_events "AKS.CSE.stop.nvidia-device-plugin" "systemctlDisableAndStop nvidia-device-plugin"
         logs_to_events "AKS.CSE.stop.nvidia-dcgm" "systemctlDisableAndStop nvidia-dcgm"
         logs_to_events "AKS.CSE.stop.nvidia-dcgm-exporter" "systemctlDisableAndStop nvidia-dcgm-exporter"
@@ -1199,12 +1228,26 @@ startNvidiaManagedExpServices() {
     mkdir -p "${NVIDIA_DEVICE_PLUGIN_OVERRIDE_DIR}"
 
     if [ "${MIG_NODE}" = "true" ]; then
-        # Configure with MIG strategy for MIG nodes
-        tee "${NVIDIA_DEVICE_PLUGIN_OVERRIDE_DIR}/10-device-plugin-config.conf" > /dev/null <<'EOF'
+        # Configure with MIG strategy for MIG nodes.
+        # MIG strategy controls how nvidia-device-plugin exposes MIG instances to Kubernetes:
+        #   - "single": All MIG devices exposed as generic nvidia.com/gpu resources
+        #   - "mixed": MIG devices exposed with specific types like nvidia.com/mig-1g.5gb
+        #
+        # We only use "mixed" when explicitly specified via NVIDIA_MIG_STRATEGY.
+        # Otherwise, we default to "single" which is the safer/simpler option.
+        # Note: NVIDIA_MIG_STRATEGY values from RP are "None", "Single", "Mixed".
+        # "None" and "Single" both result in using the "single" strategy.
+        if [ "${NVIDIA_MIG_STRATEGY}" = "Mixed" ]; then
+            MIG_STRATEGY_FLAG="--mig-strategy mixed"
+        else
+            # Default to "single" for "Single", "None", empty, or any other value
+            MIG_STRATEGY_FLAG="--mig-strategy single"
+        fi
+
+        tee "${NVIDIA_DEVICE_PLUGIN_OVERRIDE_DIR}/10-device-plugin-config.conf" > /dev/null <<EOF
 [Service]
-Environment="MIG_STRATEGY=--mig-strategy single"
 ExecStart=
-ExecStart=/usr/bin/nvidia-device-plugin $MIG_STRATEGY --pass-device-specs
+ExecStart=/usr/bin/nvidia-device-plugin ${MIG_STRATEGY_FLAG} --pass-device-specs
 EOF
     else
         # Configure with pass-device-specs for non-MIG nodes
