@@ -631,25 +631,34 @@ EOF
 #------------------------------------------------------------------------------------------------------------------------------------
     Describe 'disable_dhcp_use_clusterlistener'
         setup() {
-            NETWORK_DROPIN_DIR="/tmp/test-systemd-network"
+            Include "./parts/linux/cloud-init/artifacts/localdns.sh"
+
+            TEST_DIR="/tmp/test-disable-dhcp-$$"
+            NETWORK_DROPIN_DIR="${TEST_DIR}/systemd-network"
             NETWORK_DROPIN_FILE="${NETWORK_DROPIN_DIR}/10-localdns.conf"
             LOCALDNS_NODE_LISTENER_IP="169.254.10.10"
 
-            Include "./parts/linux/cloud-init/artifacts/localdns.sh"
+            # Setup RESOLV_CONF for wait_for_dns_config_applied (must be after Include)
+            mkdir -p "${TEST_DIR}/run/systemd/resolve"
+            RESOLV_CONF="${TEST_DIR}/run/systemd/resolve/resolv.conf"
         }
         cleanup() {
-            rm -rf "$NETWORK_DROPIN_DIR"
+            rm -rf "$TEST_DIR"
         }
         BeforeEach 'setup'
         AfterEach 'cleanup'
         #------------------------- disable_dhcp_use_clusterlistener -------------------------------------------------
             It 'should update network configuration and reload networkctl'
+                # Pre-populate resolv.conf with expected IP so wait succeeds immediately
+                echo "nameserver 169.254.10.10" > "$RESOLV_CONF"
                 NETWORKCTL_RELOAD_CMD="true"
                 When call disable_dhcp_use_clusterlistener
                 The status should be success
                 The file "${NETWORK_DROPIN_FILE}" should be exist
                 The contents of file "${NETWORK_DROPIN_FILE}" should include "UseDNS=false"
                 The contents of file "${NETWORK_DROPIN_FILE}" should include "DNS=169.254.10.10"
+                The stdout should include "DNS configuration applied successfully"
+                The contents of file "${RESOLV_CONF}" should include "nameserver 169.254.10.10"
             End
 
             It 'should fail if networkctl reload fails'
@@ -799,6 +808,88 @@ EOF
             When call cleanup_iptables_and_dns
             The status should be success
             The stdout should include "No existing localdns iptables rules found."
+        End
+    End
+
+
+# This section tests - async networkctl reload behavior with wait_for_dns_config_applied
+# These tests verify that cleanup_iptables_and_dns properly waits for resolv.conf to be updated
+#------------------------------------------------------------------------------------------------------------------------------------
+    Describe 'cleanup_iptables_and_dns_with_async_resolv_update'
+        setup() {
+            # Mock iptables to return no rules (must be defined before Include)
+            iptables() {
+                case "$1" in
+                    "-w")
+                        if [ "$2" = "-t" ] && [ "$3" = "raw" ] && [ "$4" = "-L" ]; then
+                            echo "Chain OUTPUT (policy ACCEPT 0 packets, 0 bytes)"
+                            echo "Chain PREROUTING (policy ACCEPT 0 packets, 0 bytes)"
+                        fi
+                        ;;
+                esac
+                return 0
+            }
+
+            Include "./parts/linux/cloud-init/artifacts/localdns.sh"
+
+            TEST_DIR="/tmp/localdns-async-test-$$"
+            mkdir -p "${TEST_DIR}/run/systemd/resolve"
+            mkdir -p "${TEST_DIR}/network.d"
+
+            # Set RESOLV_CONF AFTER including the script to override the default
+            RESOLV_CONF="${TEST_DIR}/run/systemd/resolve/resolv.conf"
+            NETWORK_DROPIN_FILE="${TEST_DIR}/test-network-dropin.conf"
+            DEFAULT_ROUTE_INTERFACE="eth0"
+            NETWORK_FILE="/etc/systemd/network/eth0.network"
+            NETWORK_DROPIN_DIR="${TEST_DIR}/network.d"
+        }
+        cleanup() {
+            rm -rf "$TEST_DIR"
+        }
+        BeforeEach 'setup'
+        AfterEach 'cleanup'
+
+        It 'should wait for resolv.conf update after networkctl reload (simulating async behavior)'
+            # Setup resolv.conf with localdns IP present
+            cat > "$RESOLV_CONF" <<EOF
+nameserver 169.254.10.10
+nameserver 10.0.0.1
+EOF
+            touch "$NETWORK_DROPIN_FILE"
+
+            # Create a script that simulates async update
+            ASYNC_SCRIPT="${TEST_DIR}/async_update.sh"
+            cat > "$ASYNC_SCRIPT" <<SCRIPT
+#!/bin/bash
+sleep 2
+echo "nameserver 10.0.0.1" > "$RESOLV_CONF"
+SCRIPT
+            chmod +x "$ASYNC_SCRIPT"
+
+            # networkctl reload triggers async update and returns immediately
+            NETWORKCTL_RELOAD_CMD="$ASYNC_SCRIPT &"
+
+            When call cleanup_iptables_and_dns
+            The status should be success
+            The stdout should include "Waiting for DNS configuration to be applied"
+            The stdout should include "DNS configuration reverted successfully"
+            The stdout should include "Current DNS: 10.0.0.1"
+        End
+
+        It 'should handle immediate resolv.conf update (no delay)'
+            # Setup resolv.conf without localdns IP (already in expected state)
+            cat > "$RESOLV_CONF" <<EOF
+nameserver 10.0.0.1
+nameserver 10.0.0.2
+EOF
+
+            touch "$NETWORK_DROPIN_FILE"
+            NETWORKCTL_RELOAD_CMD="true"
+
+            When call cleanup_iptables_and_dns
+            The status should be success
+            The stdout should include "DNS configuration reverted successfully"
+            The stdout should include "Current DNS: 10.0.0.1 10.0.0.2"
         End
     End
 
@@ -1148,6 +1239,7 @@ EOF
             When run wait_for_dns_config_applied "169.254.10.10" "true" 5
             The status should be success
             The stdout should include "DNS configuration applied successfully"
+            The stdout should include "Current DNS: 10.0.0.1 169.254.10.10 10.0.0.2"
         End
 
         It 'should timeout if expected IP is not present (should_contain=true)'
@@ -1159,6 +1251,7 @@ EOF
             The status should be failure
             The stdout should include "Timed out waiting for DNS configuration to be applied after 2 seconds"
             The stdout should include "Expected 169.254.10.10 to be true"
+            The stdout should include "current DNS: 10.0.0.1 10.0.0.2"
         End
 
         #------------------------- wait_for_dns_config_applied (should_contain=false) ---------------------------------
@@ -1170,6 +1263,7 @@ EOF
             When run wait_for_dns_config_applied "169.254.10.10" "false" 5
             The status should be success
             The stdout should include "DNS configuration reverted successfully"
+            The stdout should include "Current DNS: 10.0.0.1 10.0.0.2"
         End
 
         It 'should timeout if expected IP is still present (should_contain=false)'
@@ -1181,6 +1275,7 @@ EOF
             The status should be failure
             The stdout should include "Timed out waiting for DNS configuration to be applied after 2 seconds"
             The stdout should include "Expected 169.254.10.10 to be false"
+            The stdout should include "current DNS: 169.254.10.10 10.0.0.1"
         End
 
         It 'should return success if resolv.conf is empty (should_contain=false)'
@@ -1199,6 +1294,7 @@ EOF
             When run wait_for_dns_config_applied "10.0.0.1" "true"
             The status should be success
             The stdout should include "DNS configuration applied successfully"
+            The stdout should include "Current DNS: 10.0.0.1"
         End
 
         #------------------------- wait_for_dns_config_applied (edge cases) -------------------------------------------
@@ -1216,6 +1312,7 @@ EOF
             When run wait_for_dns_config_applied "169.254.10.10" "true" 2
             The status should be failure
             The stdout should include "Timed out waiting for DNS configuration"
+            The stdout should include "current DNS: 169.254.10.100"
         End
     End
 End
