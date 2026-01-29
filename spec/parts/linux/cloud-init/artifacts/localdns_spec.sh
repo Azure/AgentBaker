@@ -668,6 +668,40 @@ EOF
                 The output should include "Failed to reload networkctl."
             End
 
+            It 'should fail if wait_for_dns_config_applied times out'
+                # resolv.conf has a different DNS IP, simulating the race condition
+                # where networkctl reload succeeds but systemd-resolved hasn't updated resolv.conf yet
+                echo "nameserver 168.63.129.16" > "$RESOLV_CONF"
+                NETWORKCTL_RELOAD_CMD="true"
+                # Override disable_dhcp_use_clusterlistener to use a short timeout for testing
+                disable_dhcp_use_clusterlistener() {
+                    mkdir -p "${NETWORK_DROPIN_DIR}"
+                    verify_network_dropin_dir || return 1
+                    cat > "${NETWORK_DROPIN_FILE}" <<EOF
+[Network]
+DNS=${LOCALDNS_NODE_LISTENER_IP}
+[DHCP]
+UseDNS=false
+EOF
+                    chmod -R ugo+rX "${NETWORK_DROPIN_DIR}"
+                    eval "$NETWORKCTL_RELOAD_CMD"
+                    if [ "$?" -ne 0 ]; then
+                        echo "Failed to reload networkctl."
+                        return 1
+                    fi
+                    # Use a 2-second timeout for testing
+                    if ! wait_for_dns_config_applied "${LOCALDNS_NODE_LISTENER_IP}" "true" 2; then
+                        echo "Error: DNS configuration was not applied within timeout."
+                        return 1
+                    fi
+                    return 0
+                }
+                When call disable_dhcp_use_clusterlistener
+                The status should be failure
+                The output should include "Timed out waiting for DNS configuration"
+                The output should include "Error: DNS configuration was not applied within timeout."
+            End
+
     End
 
 

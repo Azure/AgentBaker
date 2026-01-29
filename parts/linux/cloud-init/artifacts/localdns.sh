@@ -458,7 +458,7 @@ EOF
     # Wait for the DNS configuration to be applied.
     # This ensures systemd-resolved has updated resolv.conf before we proceed.
     if ! wait_for_dns_config_applied "${LOCALDNS_NODE_LISTENER_IP}" "true" 10; then
-        echo "Warning: DNS configuration may not have been fully applied."
+        echo "Error: DNS configuration was not applied within timeout."
         return 1
     fi
 
@@ -526,8 +526,8 @@ cleanup_iptables_and_dns() {
     # This ensures systemd-resolved has removed localdns from resolv.conf before we proceed.
     # This is called both at startup (to clean up leftover state) and during shutdown.
     if ! wait_for_dns_config_applied "${LOCALDNS_NODE_LISTENER_IP}" "false" 10; then
-        echo "Warning: DNS configuration may not have been fully reverted."
-        # Don't fail for this - the localdns IP might not have been configured previously.
+        echo "Error: DNS configuration was not reverted within timeout."
+        return 1
     fi
 
     return 0
