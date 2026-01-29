@@ -378,7 +378,7 @@ compare_cis_with_baseline() {
     local regression_count=0
     for rule_id in "${!baseline_pass[@]}"; do
         baseline_status="pass"
-        current_rule_status=${current_status["$rule_id"]}
+        current_rule_status=${current_status["$rule_id"]-}
         if [ -z "$current_rule_status" ]; then
             # Missing rule considered regression
             printf '%s|%s->MISSING\n' "$rule_id" "$baseline_status" >> "${regressions_file}"
