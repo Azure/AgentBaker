@@ -78,7 +78,7 @@ installCNI() {
     updatePackageVersions "${cniPackage}" "${os}" "${os_version}"
     if [[ ${#PACKAGE_VERSIONS[@]} -eq 0 ]]; then
         echo "no containernetworking-plugins versions for ${os} ${os_version}"
-        exit $ERR_CNI_VERSION_INVALID
+        return
     fi
 
     #should change to ne
