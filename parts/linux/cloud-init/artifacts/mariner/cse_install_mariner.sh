@@ -89,6 +89,10 @@ installCNI() {
     #will this work with default?
     updatePackageVersions "${cniPackage}" "${os}" "${os_version}"
 
+    if [[ ${#PACKAGE_VERSIONS[@]} -eq 0 ]]; then
+        echo "no containernetworking-plugins versions for ${os} ${os_version}"
+        exit $ERR_CNI_VERSION_INVALID
+    fi
     #should change to ne
     # shellcheck disable=SC3010
     if [[ ${#PACKAGE_VERSIONS[@]} -gt 1 ]]; then
