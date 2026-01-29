@@ -145,7 +145,7 @@ downloadGPUDrivers() {
         CUDA_PACKAGE=$(dnf repoquery -y --available "cuda-open*" | grep -E "^cuda-open-[0-9]+.*_${KERNEL_VERSION}" | sort -V | tail -n 1)
     else
         echo "VM SKU ${VM_SKU} uses NVIDIA proprietary driver (cuda)"
-        CUDA_PACKAGE=$(dnf repoquery -y --available "cuda-[0-9]*" | grep -E "^cuda-[0-9]+\.[0-9]+.*_${KERNEL_VERSION}" | sort -V | tail -n 1)
+        CUDA_PACKAGE=$(dnf repoquery -y --available "cuda-[0-9]*" | grep -E "^cuda-[0-9]+.*_${KERNEL_VERSION}" | sort -V | tail -n 1)
     fi
 
     if [ -z "$CUDA_PACKAGE" ]; then

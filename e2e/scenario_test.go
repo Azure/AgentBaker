@@ -1434,32 +1434,34 @@ func Test_AzureLinuxV3_KubeletCustomConfig_Scriptless(t *testing.T) {
 
 func Test_AzureLinuxV3_GPU(t *testing.T) {
 	// Run GPU tests sequentially to avoid resource conflicts
-	t.Run("ND_A100", func(t *testing.T) {
-		RunScenario(t, &Scenario{
-			Description: "Tests that a GPU-enabled node using a AzureLinuxV3 (CgroupV2) VHD can be properly bootstrapped with ND A100 GPU",
-			Tags: Tags{
-				GPU: true,
-			},
-			Location:         "westeurope", // Standard_ND96asr_v4 available with 100 vCPU quota (NDASv4_A100 Family)
-			K8sSystemPoolSKU: "Standard_D2s_v3", // Use allowed VM size for system pool
-			Config: Config{
-				Cluster: ClusterKubenet,
-				VHD:     config.VHDAzureLinuxV3Gen2,
-				BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-					nbc.AgentPoolProfile.VMSize = "Standard_ND96asr_v4"
-					nbc.ConfigGPUDriverIfNeeded = true
-					nbc.EnableGPUDevicePluginIfNeeded = false
-					nbc.EnableNvidia = true
-					nbc.GPUInstanceProfile = "MIG1g"
-				},
-				VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-					vmss.SKU.Name = to.Ptr("Standard_ND96asr_v4")
-				},
-				Validator: func(ctx context.Context, s *Scenario) {
-				},
-			},
-		})
-	})
+
+	// Skip NDA100 test - already validated cuda-open driver works
+	// t.Run("ND_A100", func(t *testing.T) {
+	// 	RunScenario(t, &Scenario{
+	// 		Description: "Tests that a GPU-enabled node using a AzureLinuxV3 (CgroupV2) VHD can be properly bootstrapped with ND A100 GPU",
+	// 		Tags: Tags{
+	// 			GPU: true,
+	// 		},
+	// 		Location:         "westeurope", // Standard_ND96asr_v4 available with 100 vCPU quota (NDASv4_A100 Family)
+	// 		K8sSystemPoolSKU: "Standard_D2s_v3", // Use allowed VM size for system pool
+	// 		Config: Config{
+	// 			Cluster: ClusterKubenet,
+	// 			VHD:     config.VHDAzureLinuxV3Gen2,
+	// 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+	// 				nbc.AgentPoolProfile.VMSize = "Standard_ND96asr_v4"
+	// 				nbc.ConfigGPUDriverIfNeeded = true
+	// 				nbc.EnableGPUDevicePluginIfNeeded = false
+	// 				nbc.EnableNvidia = true
+	// 				nbc.GPUInstanceProfile = "MIG1g"
+	// 			},
+	// 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+	// 				vmss.SKU.Name = to.Ptr("Standard_ND96asr_v4")
+	// 			},
+	// 			Validator: func(ctx context.Context, s *Scenario) {
+	// 			},
+	// 		},
+	// 	})
+	// })
 
 	// Skip H100 test - focusing on A100 for now
 	// t.Run("ND_H100", func(t *testing.T) {
@@ -1488,14 +1490,36 @@ func Test_AzureLinuxV3_GPU(t *testing.T) {
 	// 	})
 	// })
 
-	// Skip T4 and V100 tests - only testing A100 (cuda-open) for now
-	// T4 and V100 use cuda (proprietary) driver which is already well-tested
-	t.Run("T4", func(t *testing.T) {
-		t.Skip("Skipping T4 test - cuda proprietary driver already well-tested")
+	// Test V100 (cuda proprietary driver)
+	t.Run("V100", func(t *testing.T) {
+		RunScenario(t, &Scenario{
+			Description: "Tests that a GPU-enabled node using a AzureLinuxV3 (CgroupV2) VHD can be properly bootstrapped with V100 GPU",
+			Tags: Tags{
+				GPU: true,
+			},
+			Location:         "eastus", // V100 VMs have quota here (Standard_NC*s_v3)
+			K8sSystemPoolSKU: "Standard_D2s_v3",
+			Config: Config{
+				Cluster: ClusterKubenet,
+				VHD:     config.VHDAzureLinuxV3Gen2,
+				BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+					nbc.AgentPoolProfile.VMSize = "Standard_NC6s_v3"
+					nbc.ConfigGPUDriverIfNeeded = true
+					nbc.EnableGPUDevicePluginIfNeeded = false
+					nbc.EnableNvidia = true
+				},
+				VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+					vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
+				},
+				Validator: func(ctx context.Context, s *Scenario) {
+				},
+			},
+		})
 	})
 
-	t.Run("V100", func(t *testing.T) {
-		t.Skip("Skipping V100 test - cuda proprietary driver already well-tested")
+	// Skip T4 test for now
+	t.Run("T4", func(t *testing.T) {
+		t.Skip("Skipping T4 test - no quota available")
 	})
 }
 
