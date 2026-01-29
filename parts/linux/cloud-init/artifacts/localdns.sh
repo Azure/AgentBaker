@@ -409,13 +409,14 @@ wait_for_dns_config_applied() {
 
         if [ "$should_contain" = "true" ]; then
             # Check if the expected DNS IP is present.
-            if echo "$current_dns" | grep -qF "$expected_dns_ip"; then
+            # Use word boundary matching (-w) with fixed string (-F) to avoid partial IP matches.
+            if echo "$current_dns" | grep -qwF "$expected_dns_ip"; then
                 echo "DNS configuration applied successfully. Current DNS: ${current_dns}"
                 return 0
             fi
         else
             # Check if the expected DNS IP is absent.
-            if ! echo "$current_dns" | grep -qF "$expected_dns_ip"; then
+            if ! echo "$current_dns" | grep -qwF "$expected_dns_ip"; then
                 echo "DNS configuration reverted successfully. Current DNS: ${current_dns}"
                 return 0
             fi
