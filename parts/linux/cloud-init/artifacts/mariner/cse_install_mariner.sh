@@ -86,26 +86,11 @@ installCriCtlPackage() {
   dnf_install 30 1 600 ${packageName} || exit 1
 }
 
-get_compute_sku() {
-    # Retrieves the VM SKU (size) from the cached IMDS instance metadata.
-    # IMDS_INSTANCE_METADATA_CACHE_FILE is defined in cse_helpers.sh which is sourced first.
-    local vm_sku=""
-    if [ ! -f "$IMDS_INSTANCE_METADATA_CACHE_FILE" ]; then
-        echo "IMDS cache file not found: $IMDS_INSTANCE_METADATA_CACHE_FILE" >&2
-        return 1
-    fi
-    vm_sku=$(jq -r '.compute.vmSize // empty' "$IMDS_INSTANCE_METADATA_CACHE_FILE")
-    if [ -z "$vm_sku" ]; then
-        echo "Failed to retrieve VM SKU from IMDS cache" >&2
-        return 1
-    fi
-    echo "$vm_sku"
-}
-
 should_use_nvidia_open_drivers() {
     # Checks if the VM SKU should use NVIDIA open drivers (vs proprietary drivers).
     # Legacy GPUs (T4, V100) use NVIDIA proprietary drivers; A100+ use NVIDIA open drivers.
     # Returns: 0 (true) for open drivers, 1 (false) for proprietary drivers, 2 on error
+    export -f get_compute_sku
     local vm_sku
     vm_sku=$(get_compute_sku)
     if [ -z "$vm_sku" ]; then
@@ -117,18 +102,18 @@ should_use_nvidia_open_drivers() {
     # T4 GPUs (NC*_T4_v3 family) use proprietary drivers
     # V100 GPUs: NDv2 (nd40rs_v2), NDv3 (nd40s_v3), NCsv3 (nc*s_v3) use proprietary drivers
     case "$lower" in
-      *t4_v3*)
-        return 1
-        ;;
-      *nd40rs_v2*)
-        return 1
-        ;;
-      *nd40s_v3*)
-        return 1
-        ;;
-      standard_nc*s_v3*)
-        return 1
-        ;;
+        *t4_v3*)
+            return 1
+            ;;
+        *nd40rs_v2*)
+            return 1
+            ;;
+        *nd40s_v3*)
+            return 1
+            ;;
+        standard_nc*s_v3*)
+            return 1
+            ;;
     esac
 
     # All other GPU SKUs (A100+) use open drivers
@@ -147,11 +132,12 @@ downloadGPUDrivers() {
     # Legacy GPUs (T4, V100) require proprietary drivers; A100+ use NVIDIA open drivers.
     # VM SKU is retrieved from IMDS to determine which driver to use.
     KERNEL_VERSION=$(uname -r | sed 's/-/./g')
-    VM_SKU=$(get_compute_sku)
 
     local driver_ret
     should_use_nvidia_open_drivers
     driver_ret=$?
+    # Get VM SKU for logging (export already done by should_use_nvidia_open_drivers)
+    VM_SKU=$(get_compute_sku)
     if [ "$driver_ret" -eq 2 ]; then
         echo "Failed to determine GPU driver type"
         exit $ERR_MISSING_CUDA_PACKAGE
