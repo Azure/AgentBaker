@@ -1289,4 +1289,19 @@ EOF
     logs_to_events "AKS.CSE.start.nvidia-dcgm-exporter" "systemctlEnableAndStart nvidia-dcgm-exporter 30" || exit $ERR_NVIDIA_DCGM_EXPORTER_FAIL
 }
 
+get_compute_sku() {
+    # Retrieves the VM SKU (size) from the cached IMDS instance metadata.
+    local vm_sku=""
+    if [ ! -f "$IMDS_INSTANCE_METADATA_CACHE_FILE" ]; then
+        echo "IMDS cache file not found: $IMDS_INSTANCE_METADATA_CACHE_FILE" >&2
+        return 1
+    fi
+    vm_sku=$(jq -r '.compute.vmSize // empty' "$IMDS_INSTANCE_METADATA_CACHE_FILE")
+    if [ -z "$vm_sku" ]; then
+        echo "Failed to retrieve VM SKU from IMDS cache" >&2
+        return 1
+    fi
+    echo "$vm_sku"
+}
+
 #EOF
