@@ -86,6 +86,39 @@ installCriCtlPackage() {
   dnf_install 30 1 600 ${packageName} || exit 1
 }
 
+should_use_nvidia_open_drivers() {
+    # Checks if the VM SKU should use NVIDIA open drivers (vs proprietary drivers).
+    # Legacy GPUs (T4, V100) use NVIDIA proprietary drivers; A100+ use NVIDIA open drivers.
+    # Returns: 0 (true) for open drivers, 1 (false) for proprietary drivers, 2 on error
+    local vm_sku
+    vm_sku=$(get_compute_sku)
+    if [ -z "$vm_sku" ]; then
+        echo "Error: Unable to determine VM SKU, cannot select GPU driver" >&2
+        return 2
+    fi
+    local lower="${vm_sku,,}"
+
+    # T4 GPUs (NC*_T4_v3 family) use proprietary drivers
+    # V100 GPUs: NDv2 (nd40rs_v2), NDv3 (nd40s_v3), NCsv3 (nc*s_v3) use proprietary drivers
+    case "$lower" in
+        *t4_v3*)
+            return 1
+            ;;
+        *nd40rs_v2*)
+            return 1
+            ;;
+        *nd40s_v3*)
+            return 1
+            ;;
+        standard_nc*s_v3*)
+            return 1
+            ;;
+    esac
+
+    # All other GPU SKUs (A100+) use open drivers
+    return 0
+}
+
 downloadGPUDrivers() {
     # Mariner CUDA rpm name comes in the following format:
     #
@@ -95,17 +128,33 @@ downloadGPUDrivers() {
     # 2. NVIDIA OpenRM driver:
     # cuda-open-%{nvidia gpu driver version}_%{kernel source version}.%{kernel release version}.{mariner rpm postfix}
     #
-    # The proprietary driver will be used here in order to support older NVIDIA GPU SKUs like V100
-    # Before installing cuda, check the active kernel version (uname -r) and use that to determine which cuda to install
+    # Legacy GPUs (T4, V100) require proprietary drivers; A100+ use NVIDIA open drivers.
+    # VM SKU is retrieved from IMDS to determine which driver to use.
     KERNEL_VERSION=$(uname -r | sed 's/-/./g')
-    CUDA_PACKAGE=$(dnf repoquery -y --available "cuda*" | grep -E "cuda-[0-9]+.*_$KERNEL_VERSION" | sort -V | tail -n 1)
+
+    local driver_ret
+    should_use_nvidia_open_drivers
+    driver_ret=$?
+    # Get VM SKU for logging (export already done by should_use_nvidia_open_drivers)
+    VM_SKU=$(get_compute_sku)
+    if [ "$driver_ret" -eq 2 ]; then
+        echo "Failed to determine GPU driver type"
+        exit $ERR_MISSING_CUDA_PACKAGE
+    elif [ "$driver_ret" -eq 0 ]; then
+        echo "VM SKU ${VM_SKU} uses NVIDIA OpenRM driver (cuda-open)"
+        CUDA_PACKAGE=$(dnf repoquery -y --available "cuda-open*" | grep -E "^cuda-open-[0-9]+.*_${KERNEL_VERSION}" | sort -V | tail -n 1)
+    else
+        echo "VM SKU ${VM_SKU} uses NVIDIA proprietary driver (cuda)"
+        CUDA_PACKAGE=$(dnf repoquery -y --available "cuda-[0-9]*" | grep -E "^cuda-[0-9]+.*_${KERNEL_VERSION}" | sort -V | tail -n 1)
+    fi
 
     if [ -z "$CUDA_PACKAGE" ]; then
-      echo "No cuda packages found"
-      exit $ERR_MISSING_CUDA_PACKAGE
-    elif ! dnf_install 30 1 600 ${CUDA_PACKAGE}; then
-      exit $ERR_APT_INSTALL_TIMEOUT
+        echo "No CUDA package found for kernel ${KERNEL_VERSION} (vm_sku=${VM_SKU})"
+        exit $ERR_MISSING_CUDA_PACKAGE
     fi
+    
+    echo "Installing: ${CUDA_PACKAGE}"
+    dnf_install 30 1 600 ${CUDA_PACKAGE} || exit $ERR_APT_INSTALL_TIMEOUT
 }
 
 createNvidiaSymlinkToAllDeviceNodes() {
@@ -121,7 +170,14 @@ EOF
 
 installNvidiaFabricManager() {
     # Check the NVIDIA driver version installed and install nvidia-fabric-manager
-    NVIDIA_DRIVER_VERSION=$(cut -d - -f 2 <<< "$(rpm -qa cuda)")
+    # cuda-open is used for A100+, H100, H200, GB200, etc; cuda is used for T4, V100
+    if rpm -qa cuda-open | grep -q .; then
+        # cuda-open package format: cuda-open-{version}-{release}_{kernel}
+        NVIDIA_DRIVER_VERSION=$(rpm -qa cuda-open | head -1 | cut -d - -f 3)
+    else
+        # cuda package format: cuda-{version}-{release}_{kernel}
+        NVIDIA_DRIVER_VERSION=$(rpm -qa cuda | head -1 | cut -d - -f 2)
+    fi
     for nvidia_package in nvidia-fabric-manager-${NVIDIA_DRIVER_VERSION} nvidia-fabric-manager-devel-${NVIDIA_DRIVER_VERSION}; do
       if ! dnf_install 30 1 600 $nvidia_package; then
         exit $ERR_APT_INSTALL_TIMEOUT
