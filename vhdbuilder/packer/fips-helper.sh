@@ -57,6 +57,20 @@ build_fips_vm_body() {
     local nic_id="$6"
     local umsi_resource_id="$7"
     local vm_size="$8"
+    local enable_trusted_launch="$9"
+
+    # Build security profile section if Trusted Launch is enabled
+    local security_profile=""
+    if [ "$enable_trusted_launch" = "True" ]; then
+        security_profile=',
+    "securityProfile": {
+      "securityType": "TrustedLaunch",
+      "uefiSettings": {
+        "secureBootEnabled": true,
+        "vTpmEnabled": true
+      }
+    }'
+    fi
 
     cat <<EOF
 {
@@ -98,6 +112,7 @@ build_fips_vm_body() {
         }
       ]
     }
+    ${security_profile}
   }
 }
 EOF
@@ -119,7 +134,8 @@ create_fips_vm() {
         "$VHD_IMAGE" \
         "$SCANNING_NIC_ID" \
         "$UMSI_RESOURCE_ID" \
-        "$vm_size")
+        "$vm_size" \
+        "$ENABLE_TRUSTED_LAUNCH")
 
     # Create the VM using REST API
     az rest \
