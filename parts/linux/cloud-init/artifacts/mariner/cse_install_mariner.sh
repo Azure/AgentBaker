@@ -127,6 +127,39 @@ installCriCtlPackage() {
   dnf_install 30 1 600 ${packageName} || exit 1
 }
 
+should_use_nvidia_open_drivers() {
+    # Checks if the VM SKU should use NVIDIA open drivers (vs proprietary drivers).
+    # Legacy GPUs (T4, V100) use NVIDIA proprietary drivers; A100+ use NVIDIA open drivers.
+    # Returns: 0 (true) for open drivers, 1 (false) for proprietary drivers, 2 on error
+    local vm_sku
+    vm_sku=$(get_compute_sku)
+    if [ -z "$vm_sku" ]; then
+        echo "Error: Unable to determine VM SKU, cannot select GPU driver" >&2
+        return 2
+    fi
+    local lower="${vm_sku,,}"
+
+    # T4 GPUs (NC*_T4_v3 family) use proprietary drivers
+    # V100 GPUs: NDv2 (nd40rs_v2), NDv3 (nd40s_v3), NCsv3 (nc*s_v3) use proprietary drivers
+    case "$lower" in
+        *t4_v3*)
+            return 1
+            ;;
+        *nd40rs_v2*)
+            return 1
+            ;;
+        *nd40s_v3*)
+            return 1
+            ;;
+        standard_nc*s_v3*)
+            return 1
+            ;;
+    esac
+
+    # All other GPU SKUs (A100+) use open drivers
+    return 0
+}
+
 downloadGPUDrivers() {
     # Mariner CUDA rpm name comes in the following format:
     #
@@ -136,17 +169,33 @@ downloadGPUDrivers() {
     # 2. NVIDIA OpenRM driver:
     # cuda-open-%{nvidia gpu driver version}_%{kernel source version}.%{kernel release version}.{mariner rpm postfix}
     #
-    # The proprietary driver will be used here in order to support older NVIDIA GPU SKUs like V100
-    # Before installing cuda, check the active kernel version (uname -r) and use that to determine which cuda to install
+    # Legacy GPUs (T4, V100) require proprietary drivers; A100+ use NVIDIA open drivers.
+    # VM SKU is retrieved from IMDS to determine which driver to use.
     KERNEL_VERSION=$(uname -r | sed 's/-/./g')
-    CUDA_PACKAGE=$(dnf repoquery -y --available "cuda*" | grep -E "cuda-[0-9]+.*_$KERNEL_VERSION" | sort -V | tail -n 1)
+
+    local driver_ret
+    should_use_nvidia_open_drivers
+    driver_ret=$?
+    # Get VM SKU for logging (export already done by should_use_nvidia_open_drivers)
+    VM_SKU=$(get_compute_sku)
+    if [ "$driver_ret" -eq 2 ]; then
+        echo "Failed to determine GPU driver type"
+        exit $ERR_MISSING_CUDA_PACKAGE
+    elif [ "$driver_ret" -eq 0 ]; then
+        echo "VM SKU ${VM_SKU} uses NVIDIA OpenRM driver (cuda-open)"
+        CUDA_PACKAGE=$(dnf repoquery -y --available "cuda-open*" | grep -E "^cuda-open-[0-9]+.*_${KERNEL_VERSION}" | sort -V | tail -n 1)
+    else
+        echo "VM SKU ${VM_SKU} uses NVIDIA proprietary driver (cuda)"
+        CUDA_PACKAGE=$(dnf repoquery -y --available "cuda-[0-9]*" | grep -E "^cuda-[0-9]+.*_${KERNEL_VERSION}" | sort -V | tail -n 1)
+    fi
 
     if [ -z "$CUDA_PACKAGE" ]; then
-      echo "No cuda packages found"
-      exit $ERR_MISSING_CUDA_PACKAGE
-    elif ! dnf_install 30 1 600 ${CUDA_PACKAGE}; then
-      exit $ERR_APT_INSTALL_TIMEOUT
+        echo "No CUDA package found for kernel ${KERNEL_VERSION} (vm_sku=${VM_SKU})"
+        exit $ERR_MISSING_CUDA_PACKAGE
     fi
+    
+    echo "Installing: ${CUDA_PACKAGE}"
+    dnf_install 30 1 600 ${CUDA_PACKAGE} || exit $ERR_APT_INSTALL_TIMEOUT
 }
 
 createNvidiaSymlinkToAllDeviceNodes() {
@@ -162,7 +211,14 @@ EOF
 
 installNvidiaFabricManager() {
     # Check the NVIDIA driver version installed and install nvidia-fabric-manager
-    NVIDIA_DRIVER_VERSION=$(cut -d - -f 2 <<< "$(rpm -qa cuda)")
+    # cuda-open is used for A100+, H100, H200, GB200, etc; cuda is used for T4, V100
+    if rpm -qa cuda-open | grep -q .; then
+        # cuda-open package format: cuda-open-{version}-{release}_{kernel}
+        NVIDIA_DRIVER_VERSION=$(rpm -qa cuda-open | head -1 | cut -d - -f 3)
+    else
+        # cuda package format: cuda-{version}-{release}_{kernel}
+        NVIDIA_DRIVER_VERSION=$(rpm -qa cuda | head -1 | cut -d - -f 2)
+    fi
     for nvidia_package in nvidia-fabric-manager-${NVIDIA_DRIVER_VERSION} nvidia-fabric-manager-devel-${NVIDIA_DRIVER_VERSION}; do
       if ! dnf_install 30 1 600 $nvidia_package; then
         exit $ERR_APT_INSTALL_TIMEOUT
@@ -204,6 +260,7 @@ Type=forking
 ExecStart=/usr/bin/nvidia-persistenced --verbose
 ExecStopPost=/bin/rm -rf /var/run/nvidia-persistenced
 Restart=always
+TimeoutSec=300
 
 [Install]
 WantedBy=multi-user.target
@@ -229,8 +286,22 @@ installCredentialProviderFromPMC() {
     mkdir -p "${CREDENTIAL_PROVIDER_BIN_DIR}"
     chown -R root:root "${CREDENTIAL_PROVIDER_BIN_DIR}"
     installRPMPackageFromFile "azure-acr-credential-provider" "${packageVersion}" || exit $ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT
-    mv "/usr/local/bin/azure-acr-credential-provider" "$CREDENTIAL_PROVIDER_BIN_DIR/acr-credential-provider"
+    ln -snf /usr/bin/azure-acr-credential-provider "$CREDENTIAL_PROVIDER_BIN_DIR/acr-credential-provider"
 }
+
+  getPackageCacheRoot() {
+    echo "${RPM_PACKAGE_CACHE_BASE_DIR:-/opt}"
+  }
+
+  getPackageCacheDir() {
+    local packageName="${1}"
+    echo "$(getPackageCacheRoot)/${packageName}"
+  }
+
+  getPackageDownloadDir() {
+    local packageName="${1}"
+    echo "$(getPackageCacheDir "${packageName}")/downloads"
+  }
 
 installKubeletKubectlPkgFromPMC() {
     local desiredVersion="${1}"
@@ -385,10 +456,11 @@ installNvidiaManagedExpPkgFromCache() {
   mkdir -p /var/lib/kubelet/device-plugins
 
   for packageName in $(managedGPUPackageList); do
-    downloadDir="/opt/${packageName}/downloads"
+    downloadDir="$(getPackageDownloadDir "${packageName}")"
+    packageCacheDir="$(getPackageCacheDir "${packageName}")"
     if isPackageInstalled "${packageName}"; then
       echo "${packageName} is already installed, skipping."
-      rm -rf $(dirname ${downloadDir})
+      rm -rf "${packageCacheDir}"
       continue
     fi
 
@@ -399,7 +471,7 @@ installNvidiaManagedExpPkgFromCache() {
     fi
 
     logs_to_events "AKS.CSE.install${packageName}.dnf_install" "dnf_install 30 1 600 ${rpmFile}" || exit $ERR_APT_INSTALL_TIMEOUT
-    rm -rf $(dirname ${downloadDir})
+    rm -rf "${packageCacheDir}"
   done
 }
 
@@ -407,14 +479,15 @@ installRPMPackageFromFile() {
     local packageName="${1}"
     local desiredVersion="${2}"
     echo "installing ${packageName} version ${desiredVersion}"
-    downloadDir="/opt/${packageName}/downloads"
-    packagePrefix="${packageName}-${desiredVersion}-*"
+    local downloadDir
+    downloadDir="$(getPackageDownloadDir "${packageName}")"
+    local rpmPattern="${packageName}-${desiredVersion}"
 
-    rpmFile=$(find "${downloadDir}" -maxdepth 1 -name "${packagePrefix}" -print -quit 2>/dev/null) || rpmFile=""
+    rpmFile=$(find "${downloadDir}" -maxdepth 1 -type f -name "${rpmPattern}*.rpm" -print -quit 2>/dev/null) || rpmFile=""
     if [ -z "${rpmFile}" ]; then
         if fallbackToKubeBinaryInstall "${packageName}" "${desiredVersion}"; then
             echo "Successfully installed ${packageName} version ${desiredVersion} from binary fallback"
-            rm -rf ${downloadDir}
+            rm -rf "${downloadDir}"
             return 0
         fi
         # query all package versions and get the latest version for matching k8s version
@@ -425,26 +498,61 @@ installRPMPackageFromFile() {
         fi
         echo "Did not find cached rpm file, downloading ${packageName} version ${fullPackageVersion}"
         downloadPkgFromVersion "${packageName}" ${fullPackageVersion} "${downloadDir}"
-        rpmFile=$(find "${downloadDir}" -maxdepth 1 -name "${packagePrefix}" -print -quit 2>/dev/null) || rpmFile=""
+        rpmFile=$(find "${downloadDir}" -maxdepth 1 -type f -name "${rpmPattern}*.rpm" -print -quit 2>/dev/null) || rpmFile=""
     fi
-	  if [ -z "${rpmFile}" ]; then
+    if [ -z "${rpmFile}" ]; then
         echo "Failed to locate ${packageName} rpm"
         return 1
     fi
 
-    if ! dnf_install 30 1 600 ${rpmFile}; then
+    local rpmArgs=("${rpmFile}")
+    local -a cachedRpmFiles=()
+    mapfile -t cachedRpmFiles < <(find "${downloadDir}" -maxdepth 1 -type f -name "*.rpm" -print 2>/dev/null | sort)
+
+    # selecting the correct version of dependency rpms from the cache
+    for cachedRpm in "${cachedRpmFiles[@]}"; do
+      if [ "${cachedRpm}" = "${rpmFile}" ]; then
+        continue
+      fi
+
+      local cachedBaseName
+      cachedBaseName=$(basename "${cachedRpm}")
+
+      case "${cachedBaseName}" in
+        ${packageName}-${desiredVersion}-*.rpm)
+          rpmArgs+=("${cachedRpm}")
+          continue
+          ;;
+        ${packageName}-*.rpm)
+          echo "Skipping cached ${packageName} rpm ${cachedBaseName} because it does not match desired version ${desiredVersion}"
+          continue
+          ;;
+      esac
+
+      rpmArgs+=("${cachedRpm}")
+    done
+
+    if [ ${#rpmArgs[@]} -gt 1 ]; then
+        echo "Installing ${packageName} with cached dependency RPMs: ${rpmArgs[*]}"
+    fi
+
+    # When dependency RPMs are cached, they are included in the argument list to dnf_install.
+    # When no dependency RPM is cached, only the main package RPM is included.
+    # And dnf_install will handle installing dependencies from configured repos (downloading from network) as needed.
+    if ! dnf_install 30 1 600 "${rpmArgs[@]}"; then
         exit $ERR_APT_INSTALL_TIMEOUT
     fi
-    mv "/usr/bin/${packageName}" "/usr/local/bin/${packageName}"
-	rm -rf ${downloadDir}
+    mkdir -p /opt/bin
+    ln -snf "/usr/bin/${packageName}" "/opt/bin/${packageName}"
+    rm -rf "${downloadDir}"
 }
 
 downloadPkgFromVersion() {
     packageName="${1:-}"
     packageVersion="${2:-}"
-    downloadDir="${3:-"/opt/${packageName}/downloads"}"
-    mkdir -p ${downloadDir}
-    dnf_download 30 1 600 ${downloadDir} ${packageName}-${packageVersion} || exit $ERR_APT_INSTALL_TIMEOUT
+    downloadDir="${3:-$(getPackageDownloadDir "${packageName}")}"
+    mkdir -p "${downloadDir}"
+    dnf_download 30 1 600 "${downloadDir}" ${packageName}-${packageVersion} || exit $ERR_APT_INSTALL_TIMEOUT
     echo "Succeeded to download ${packageName} version ${packageVersion}"
 }
 
@@ -501,7 +609,7 @@ cleanUpGPUDrivers() {
   rm -Rf $GPU_DEST /opt/gpu
 
   for packageName in $(managedGPUPackageList); do
-    rm -rf "/opt/${packageName}"
+    rm -rf "$(getPackageCacheDir "${packageName}")"
   done
 }
 

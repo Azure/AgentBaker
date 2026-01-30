@@ -8,7 +8,7 @@ const (
 	NetworkPolicyAzure   = "azure"
 	NetworkPolicyCalico  = "calico"
 	LoadBalancerBasic    = "basic"
-	LoadBalancerStandard = "Standard"
+	LoadBalancerStandard = "standard"
 	VMSizeStandardDc2s   = "Standard_DC2s"
 	VMSizeStandardDc4s   = "Standard_DC4s"
 	DefaultLinuxUser     = "azureuser"

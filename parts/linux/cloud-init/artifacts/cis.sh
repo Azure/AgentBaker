@@ -18,8 +18,6 @@ assignRootPW() {
         echo 'root:'$HASH | /usr/sbin/chpasswd -e || exit $ERR_CIS_ASSIGN_ROOT_PW
     fi
     set -x
-    chage --maxdays 90 root
-    chage --inactive 30 root
 }
 
 assignFilePermissions() {

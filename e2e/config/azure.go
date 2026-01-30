@@ -21,15 +21,15 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization/v2"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerregistry/armcontainerregistry"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v6"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization/v3"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerregistry/armcontainerregistry/v2"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v8"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/msi/armmsi"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v6"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v7"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/privatedns/armprivatedns"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources/v3"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage/v3"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/sas"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/service"
@@ -39,6 +39,8 @@ import (
 
 type AzureClient struct {
 	AKS                       *armcontainerservice.ManagedClustersClient
+	AzureFirewall             *armnetwork.AzureFirewallsClient
+	BastionHosts              *armnetwork.BastionHostsClient
 	Blob                      *azblob.Client
 	StorageContainers         *armstorage.BlobContainersClient
 	CacheRulesClient          *armcontainerregistry.CacheRulesClient
@@ -57,6 +59,8 @@ type AzureClient struct {
 	SecurityGroup             *armnetwork.SecurityGroupsClient
 	StorageAccounts           *armstorage.AccountsClient
 	Subnet                    *armnetwork.SubnetsClient
+	PublicIPAddresses         *armnetwork.PublicIPAddressesClient
+	RouteTables               *armnetwork.RouteTablesClient
 	UserAssignedIdentities    *armmsi.UserAssignedIdentitiesClient
 	VMSS                      *armcompute.VirtualMachineScaleSetsClient
 	VMSSVM                    *armcompute.VirtualMachineScaleSetVMsClient
@@ -148,6 +152,21 @@ func NewAzureClient() (*AzureClient, error) {
 		return nil, fmt.Errorf("create core client: %w", err)
 	}
 
+	cloud.PublicIPAddresses, err = armnetwork.NewPublicIPAddressesClient(Config.SubscriptionID, credential, opts)
+	if err != nil {
+		return nil, fmt.Errorf("create public ip addresses client: %w", err)
+	}
+
+	cloud.BastionHosts, err = armnetwork.NewBastionHostsClient(Config.SubscriptionID, credential, opts)
+	if err != nil {
+		return nil, fmt.Errorf("create bastion hosts client: %w", err)
+	}
+
+	cloud.BastionHosts, err = armnetwork.NewBastionHostsClient(Config.SubscriptionID, credential, opts)
+	if err != nil {
+		return nil, fmt.Errorf("create bastion hosts client: %w", err)
+	}
+
 	cloud.RegistriesClient, err = armcontainerregistry.NewRegistriesClient(Config.SubscriptionID, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create registry client: %w", err)
@@ -191,6 +210,11 @@ func NewAzureClient() (*AzureClient, error) {
 	cloud.Subnet, err = armnetwork.NewSubnetsClient(Config.SubscriptionID, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("create subnet client: %w", err)
+	}
+
+	cloud.RouteTables, err = armnetwork.NewRouteTablesClient(Config.SubscriptionID, credential, opts)
+	if err != nil {
+		return nil, fmt.Errorf("create route tables client: %w", err)
 	}
 
 	cloud.AKS, err = armcontainerservice.NewManagedClustersClient(Config.SubscriptionID, credential, opts)
@@ -256,6 +280,16 @@ func NewAzureClient() (*AzureClient, error) {
 	cloud.VNet, err = armnetwork.NewVirtualNetworksClient(Config.SubscriptionID, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("create vnet client: %w", err)
+	}
+
+	cloud.AzureFirewall, err = armnetwork.NewAzureFirewallsClient(Config.SubscriptionID, credential, opts)
+	if err != nil {
+		return nil, fmt.Errorf("create firewall client: %w", err)
+	}
+
+	cloud.PublicIPAddresses, err = armnetwork.NewPublicIPAddressesClient(Config.SubscriptionID, credential, opts)
+	if err != nil {
+		return nil, fmt.Errorf("create public ip addresses client: %w", err)
 	}
 
 	cloud.Blob, err = azblob.NewClient(Config.BlobStorageAccountURL(), credential, nil)
@@ -527,7 +561,7 @@ func (a *AzureClient) ensureReplication(ctx context.Context, image *Image, versi
 	err := a.replicateImageVersionToCurrentRegion(ctx, image, version, location)
 	elapsed := time.Since(start) // Calculate the elapsed time
 
-	toolkit.LogDuration(ctx, elapsed, 3*time.Minute, fmt.Sprintf("Replication took: %s (%s)", toolkit.FormatDuration(elapsed), *version.ID))
+	toolkit.LogDuration(ctx, elapsed, 3*time.Minute, fmt.Sprintf("Replication took: %s (%s)", elapsed, *version.ID))
 
 	return err
 }
@@ -546,6 +580,7 @@ func (a *AzureClient) waitForVersionOperationCompletion(ctx context.Context, ima
 	}
 
 	// Use the standard wait.PollUntilContextTimeout helper used throughout the codebase
+	var lastLoggedState armcompute.GalleryProvisioningState
 	err = wait.PollUntilContextTimeout(ctx, 5*time.Second, 10*time.Minute, true, func(ctx context.Context) (bool, error) {
 		// Get the latest version state using the existing client
 		resp, err := imgVersionClient.Get(ctx, image.Gallery.ResourceGroupName, image.Gallery.Name, image.Name, *version.Name, nil)
@@ -555,7 +590,11 @@ func (a *AzureClient) waitForVersionOperationCompletion(ctx context.Context, ima
 		}
 
 		currentState := *resp.Properties.ProvisioningState
-		logf(ctx, "Image version %s current state: %s", *version.ID, currentState)
+		// Only log if state has changed
+		if currentState != lastLoggedState {
+			logf(ctx, "Image version %s current state: %s", *version.ID, currentState)
+			lastLoggedState = currentState
+		}
 
 		// Check if operation completed
 		if currentState != armcompute.GalleryProvisioningStateUpdating {

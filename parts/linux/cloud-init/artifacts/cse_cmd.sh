@@ -1,9 +1,20 @@
 PROVISION_OUTPUT="/var/log/azure/cluster-provision-cse-output.log";
 echo $(date),$(hostname) > ${PROVISION_OUTPUT};
 {{if ShouldEnableCustomData}}
-/bin/bash -c "source /opt/azure/containers/cloud-init-status-check.sh; handleCloudInitStatus \"${PROVISION_OUTPUT}\"; returnStatus=\$?; echo \"Cloud init status check exit code: \$returnStatus\" >> ${PROVISION_OUTPUT}; exit \$returnStatus" >> ${PROVISION_OUTPUT} 2>&1;
+CLOUD_INIT_STATUS_SCRIPT="/opt/azure/containers/cloud-init-status-check.sh";
+cloudInitExitCode=0;
+if [ -f "${CLOUD_INIT_STATUS_SCRIPT}" ]; then
+	/bin/bash -c "source ${CLOUD_INIT_STATUS_SCRIPT}; handleCloudInitStatus \"${PROVISION_OUTPUT}\"; returnStatus=\$?; echo \"Cloud init status check exit code: \$returnStatus\" >> ${PROVISION_OUTPUT}; exit \$returnStatus" >> ${PROVISION_OUTPUT} 2>&1;
+else
+    cloud-init status --wait > /dev/null 2>&1;
+fi;
 cloudInitExitCode=$?;
-[ "$cloudInitExitCode" -ne 0 ] && echo "cloud-init failed with exit code ${cloudInitExitCode}" >> ${PROVISION_OUTPUT} && exit ${cloudInitExitCode};
+if [ "$cloudInitExitCode" -eq 0 ]; then
+	echo "cloud-init succeeded" >> ${PROVISION_OUTPUT};
+else
+	echo "cloud-init failed with exit code ${cloudInitExitCode}" >> ${PROVISION_OUTPUT};
+	exit ${cloudInitExitCode};
+fi;
 {{end}}
 {{if IsAKSCustomCloud}}
 REPO_DEPOT_ENDPOINT="{{AKSCustomCloudRepoDepotEndpoint}}"
@@ -56,6 +67,10 @@ CONTAINERD_DOWNLOAD_URL_BASE={{GetParameter "containerdDownloadURLBase"}}
 NETWORK_MODE={{GetParameter "networkMode"}}
 KUBE_BINARY_URL={{GetParameter "kubeBinaryURL"}}
 USER_ASSIGNED_IDENTITY_ID={{GetVariable "userAssignedIdentityID"}}
+SERVICE_ACCOUNT_IMAGE_PULL_ENABLED={{GetVariable "serviceAccountImagePullBindingEnabled"}}
+SERVICE_ACCOUNT_IMAGE_PULL_DEFAULT_CLIENT_ID={{GetVariable "serviceAccountImagePullDefaultClientID"}}
+SERVICE_ACCOUNT_IMAGE_PULL_DEFAULT_TENANT_ID={{GetVariable "serviceAccountImagePullDefaultTenantID"}}
+IDENTITY_BINDINGS_LOCAL_AUTHORITY_SNI={{GetVariable "identityBindingsLocalAuthoritySNI"}}
 API_SERVER_NAME={{GetKubernetesEndpoint}}
 IS_VHD={{GetVariable "isVHD"}}
 GPU_NODE={{GetVariable "gpuNode"}}
@@ -64,6 +79,8 @@ MIG_NODE={{GetVariable "migNode"}}
 CONFIG_GPU_DRIVER_IF_NEEDED={{GetVariable "configGPUDriverIfNeeded"}}
 ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED={{GetVariable "enableGPUDevicePluginIfNeeded"}}
 MANAGED_GPU_EXPERIENCE_AFEC_ENABLED="{{IsManagedGPUExperienceAFECEnabled}}"
+ENABLE_MANAGED_GPU="{{IsEnableManagedGPU}}"
+NVIDIA_MIG_STRATEGY="{{GetMigStrategy}}"
 TELEPORTD_PLUGIN_DOWNLOAD_URL={{GetParameter "teleportdPluginURL"}}
 CREDENTIAL_PROVIDER_DOWNLOAD_URL={{GetParameter "linuxCredentialProviderURL"}}
 CONTAINERD_VERSION={{GetParameter "containerdVersion"}}

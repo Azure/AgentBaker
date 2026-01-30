@@ -132,6 +132,7 @@ steps:
       SIG_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "sig_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
       BUILD_LOCATION="$(cat vhdbuilder/packer/settings.json | grep "location" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
       ARTIFACT_ID=$(date +%s) && \
+      echo "##vso[task.setvariable variable=DESTINATION_STORAGE_CONTAINER]${CLASSIC_BLOB}" && \
       echo "##vso[task.setvariable variable=ARTIFACT_ID]${ARTIFACT_ID}" && \
       echo "##vso[task.setvariable variable=PACKER_BUILD_LOCATION]${BUILD_LOCATION}" && \
       echo "##vso[task.setvariable variable=PACKER_VNET_RESOURCE_GROUP_NAME]${PACKER_VNET_RESOURCE_GROUP_NAME}" && \
@@ -159,6 +160,36 @@ steps:
       echo "##vso[task.setvariable variable=VHD_DEBUG]False"
     condition: always()
     displayName: Set Post-Build Variables
+
+  - task: AzureCLI@2
+    inputs:
+      azureSubscription: $(VHD_ARM_SERVICE_CONNECTION)
+      scriptType: bash
+      scriptLocation: inlineScript
+      inlineScript: |
+        echo "##vso[task.setvariable variable=DESTINATION_STORAGE_CONTAINER]${CLASSIC_BLOB_STAGING}" && \
+        STAGING_CONTAINER_EXISTS=$(az storage container exists --account-name ${STORAGE_ACCOUNT_NAME} --name $VHD_STAGING_CONTAINER_NAME --auth-mode login | jq -r '.exists')
+        if [ "${STAGING_CONTAINER_EXISTS,,}" = "false" ]; then
+          echo "Creating staging container $VHD_STAGING_CONTAINER_NAME in storage account $STORAGE_ACCOUNT_NAME"
+          az storage container create --account-name "$STORAGE_ACCOUNT_NAME" --name "$VHD_STAGING_CONTAINER_NAME" --auth-mode login || exit 1
+        else
+          echo "Staging container $VHD_STAGING_CONTAINER_NAME already exists in storage account $STORAGE_ACCOUNT_NAME"
+        fi
+        echo "DESTINATION_STORAGE_CONTAINER is set to ${CLASSIC_BLOB_STAGING}"
+    condition: |
+      or(
+        and(
+          succeeded(),
+          eq(variables.GENERATE_PUBLISHING_INFO, 'True'),
+          eq(variables.RUN_PREFETCH_OPTIMIZATION, 'False'),
+          eq(variables.ENVIRONMENT, 'tme')
+        ),
+        and(
+          eq(variables.BUILDER, 'imagecustomizer'),
+          eq(variables.ENVIRONMENT, 'tme')
+        )
+      )
+    displayName: Set Destination Storage Container to Staging
 
   - task: AzureCLI@2
     inputs:
@@ -256,6 +287,14 @@ steps:
       artifactName: 'bcc-tools-installation-log-$(ARTIFACT_ID)-${{ parameters.artifactName }}'
       targetPath: 'bcc-tools-installation.log'
 
+  - task: PublishPipelineArtifact@0
+    condition: ne(variables.BUILDER, 'imagecustomizer')
+    continueOnError: true
+    displayName: Publish Disk Usage Report
+    inputs:
+      artifactName: 'disk-usage-$(ARTIFACT_ID)-${{ parameters.artifactName }}'
+      targetPath: 'disk-usage.txt'
+
   - task: CopyFiles@2
     displayName: Copy Trivy Report
     inputs:
@@ -305,6 +344,34 @@ steps:
     env:
       RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
 
+  - task: AzureCLI@2
+    inputs:
+      azureSubscription: $(VHD_ARM_SERVICE_CONNECTION)
+      scriptType: bash
+      scriptLocation: inlineScript
+      inlineScript: |
+        echo "Copying ${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd to immutable storage container"
+        export AZCOPY_AUTO_LOGIN_TYPE="AZCLI"
+        export AZCOPY_CONCURRENCY_VALUE="AUTO"
+        az storage blob copy start --account-name "$STORAGE_ACCOUNT_NAME" --destination-blob "${CAPTURED_SIG_VERSION}.vhd" --destination-container "$VHD_CONTAINER_NAME" --source-uri "${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd" --auth-mode login || exit 1
+        echo "Successfully copied to immutable container"
+        # Remove old VHD from staging container after copy to immutable container is complete
+        azcopy remove "${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd" --recursive=true
+    condition: |
+      or(
+        and(
+          succeeded(),
+          eq(variables.GENERATE_PUBLISHING_INFO, 'True'),
+          eq(variables.RUN_PREFETCH_OPTIMIZATION, 'False'),
+          eq(variables.ENVIRONMENT, 'tme')
+        ),
+        and(
+          eq(variables.BUILDER, 'imagecustomizer'),
+          eq(variables.ENVIRONMENT, 'tme')
+        )
+      )
+    displayName: Copy to Immutable Storage Container
+
   - task: DownloadPipelineArtifact@2
     displayName: Download Build Performance Program
     condition: and(succeeded(), eq(variables.ENVIRONMENT, 'tme'))
@@ -344,7 +411,7 @@ steps:
       scriptLocation: inlineScript
       inlineScript: |
         make -f packer.mk evaluate-grid-compatibility
-    condition: always()
+    condition: false # temporarily disabling since this causing build warnings in corp/tme due to internal issues
     continueOnError: true
     displayName: Check Grid Compatibility
 

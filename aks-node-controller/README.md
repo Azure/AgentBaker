@@ -109,15 +109,21 @@ Clients need to provide CSE and Custom Data. [nodeconfigutils](pkg/nodeconfiguti
 ```mermaid
 sequenceDiagram
     participant Client as Client
-    participant ARM as Azure Resource Manager (ARM)
-    participant VM as Virtual Machine (VM)
+    participant AgentBaker as Versioned AgentBaker Services<br/>(Deprecated)
+    participant ARM as Azure Resource Manager<br/>(ARM)
+    participant VM as Virtual Machine<br/>(VM)
 
-    Client->>ARM: Request to create VM<br/>with CustomData & CSE
+    Client -x AgentBaker: ~~Request artifacts for<br/> node provisioning~~ (deprecated)
+    note over Client, AgentBaker: Scriptless no longer needs the 26+ absvc pods.<br/> Instead it uses one AgentBaker service that keeps<br/> providing the latest SIG images list (not shown).
+
+    AgentBaker-->>Client: ~~Provide "CSE command<br/> & provisioning scripts"~~ (deprecated)
+
+    Client->>ARM: Request to create VM<br/>with CustomData & CSE<br/>(using AgentBaker artifacts)
     ARM->>VM: Deploy config.json<br/>(CustomData)
     note over VM: cloud-init handles<br/>config.json deployment
 
     note over VM: cloud-init completes processing
-    note over VM: Start aks-node-controller.service (systemd service)<br/> after cloud-init
+    note over VM: Start aks-node-controller.service (systemd service)<br/>after cloud-init
     VM->>VM: Run aks-node-controller<br/>(Go binary) in provision mode<br/>using config.json
 
     ARM->>VM: Initiate aks-node-controller (Go binary)<br/>in provision-wait mode via CSE
@@ -126,7 +132,7 @@ sequenceDiagram
         VM->>VM: Check /opt/azure/containers/provision.complete
     end
 
-    VM->>Client: Return CSE status with<br/>/var/log/azure/aks/provision.json content
+    VM-->>Client: Return CSE status with<br/>/var/log/azure/aks/provision.json content
 ```
 
 Key components:

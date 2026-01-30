@@ -111,24 +111,7 @@ func toButaneFile(file cloudInitWriteFile) (*base0_5.File, error) {
 	return &newfile, nil
 }
 
-// GetLinuxNodeCustomDataJSONObject returns Linux customData JSON object in the form.
-// { "customData": "<customData string>" }.
-func (t *TemplateGenerator) getFlatcarLinuxNodeCustomDataJSONObject(config *datamodel.NodeBootstrappingConfiguration) string {
-	// get parameters
-	parameters := getParameters(config)
-	// get variable cloudInit
-	variables := getCustomDataVariables(config)
-	str, e := t.getSingleLine(kubernetesNodeCustomDataYaml, config.AgentPoolProfile, getBakerFuncMap(config, parameters, variables), true)
-	if e != nil {
-		panic(e)
-	}
-	var customData cloudInit
-	if e = yaml.Unmarshal([]byte(str), &customData); e != nil {
-		panic(fmt.Errorf("failed to unmarshal customData: %w", e))
-	}
-	if len(customData.WriteFiles) == 0 {
-		panic(fmt.Errorf("no write files found in customData"))
-	}
+func cloudInitToButane(customData cloudInit) flatcar1_1.Config {
 	butaneconfig := flatcar1_1.Config{}
 	b, e := parts.Templates.ReadFile(kubernetesFlatcarNodeCustomDataYaml)
 	if e != nil {
@@ -147,8 +130,42 @@ func (t *TemplateGenerator) getFlatcarLinuxNodeCustomDataJSONObject(config *data
 		}
 		newfiles = append(newfiles, *newfile)
 	}
+	if len(customData.BootCommands) > 0 {
+		var contents = strings.Join(append([]string{"#!/bin/sh"}, customData.BootCommands...), "\n")
+		newfiles = append(newfiles, base0_5.File{
+			Path:      "/etc/ignition-bootcmds.sh",
+			User:      base0_5.NodeUser{Name: to.StringPtr("root")},
+			Group:     base0_5.NodeGroup{Name: to.StringPtr("root")},
+			Mode:      to.IntPtr(0o755),
+			Overwrite: to.BoolPtr(true),
+			Contents:  base0_5.Resource{Inline: to.StringPtr(contents)},
+		})
+	}
 
 	butaneconfig.Storage.Files = append(newfiles, butaneconfig.Storage.Files...)
+	return butaneconfig
+}
+
+// GetLinuxNodeCustomDataJSONObject returns Linux customData JSON object in the form.
+// { "customData": "<customData string>" }.
+func (t *TemplateGenerator) getFlatcarLinuxNodeCustomDataJSONObject(config *datamodel.NodeBootstrappingConfiguration) string {
+	// get parameters
+	parameters := getParameters(config)
+	// get variable cloudInit
+	variables := getCustomDataVariables(config)
+	str, e := t.getSingleLine(kubernetesNodeCustomDataYaml, config.AgentPoolProfile, getBakerFuncMap(config, parameters, variables), true)
+	if e != nil {
+		panic(e)
+	}
+	var customData cloudInit
+	if e = yaml.Unmarshal([]byte(str), &customData); e != nil {
+		panic(fmt.Errorf("failed to unmarshal customData: %w", e))
+	}
+	if len(customData.WriteFiles) == 0 {
+		panic(fmt.Errorf("no write files found in customData"))
+	}
+
+	var butaneconfig = cloudInitToButane(customData)
 	ignition, report, e := butaneconfig.ToIgn3_4(butanecommon.TranslateOptions{})
 	if e != nil {
 		panic(fmt.Errorf("butane -> ignition: error: %w:\n%s", e, report.String()))
@@ -513,6 +530,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"IsMIGEnabledNode": func() bool {
 			return config.GPUInstanceProfile != ""
 		},
+		"GetMigStrategy": func() string {
+			return config.MigStrategy
+		},
 		"GetKubeletConfigFileContent": func() string {
 			return GetKubeletConfigFileContent(config.KubeletConfig, profile.CustomKubeletConfig)
 		},
@@ -774,6 +794,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return datamodel.AzureADIdentitySystem
 		},
 		"GetPodInfraContainerSpec": func() string {
+			if config.K8sComponents == nil {
+				return ""
+			}
 			return config.K8sComponents.PodInfraContainerImageURL
 		},
 		"IsKubenet": func() bool {
@@ -838,9 +861,15 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return cs.Properties.HasDCSeriesSKU()
 		},
 		"GetHyperkubeImageReference": func() string {
+			if config.K8sComponents == nil {
+				return ""
+			}
 			return config.K8sComponents.HyperkubeImageURL
 		},
 		"GetLinuxPrivatePackageURL": func() string {
+			if config.K8sComponents == nil {
+				return ""
+			}
 			return config.K8sComponents.LinuxPrivatePackageURL
 		},
 		"GetTargetEnvironment": func() string {
@@ -1125,6 +1154,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"IsManagedGPUExperienceAFECEnabled": func() bool {
 			return config.ManagedGPUExperienceAFECEnabled
+		},
+		"IsEnableManagedGPU": func() bool {
+			return config.EnableManagedGPU
 		},
 		"EnableIMDSRestriction": func() bool {
 			return config.EnableIMDSRestriction
@@ -1498,6 +1530,7 @@ root = "{{GetDataDir}}"{{- end}}
     type = "snapshot"
     address = "/run/containerd/tardev-snapshotter.sock"
 [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-cc]
+	pod_annotations = ["io.katacontainers.*"]
   snapshotter = "tardev"
   runtime_type = "io.containerd.kata-cc.v2"
   privileged_without_host_devices = true
@@ -1584,6 +1617,7 @@ root = "{{GetDataDir}}"{{- end}}
     type = "snapshot"
     address = "/run/containerd/tardev-snapshotter.sock"
 [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-cc]
+	pod_annotations = ["io.katacontainers.*"]
   snapshotter = "tardev"
   runtime_type = "io.containerd.kata-cc.v2"
   privileged_without_host_devices = true
@@ -1726,6 +1760,7 @@ root = "{{GetDataDir}}"{{- end}}
     type = "snapshot"
     address = "/run/containerd/tardev-snapshotter.sock"
 [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-cc]
+	pod_annotations = ["io.katacontainers.*"]
   snapshotter = "tardev"
   runtime_type = "io.containerd.kata-cc.v2"
   privileged_without_host_devices = true

@@ -35,9 +35,7 @@ installDeps() {
     fi
 
     if [ "${OSVERSION}" = "22.04" ] || [ "${OSVERSION}" = "24.04" ]; then
-        if [ "$(isARM64)" -eq 0 ]; then
-            pkg_list+=("aznfs=0.3.15")
-        fi
+        pkg_list+=("aznfs=3.0.10")
     fi
 
     for apt_package in ${pkg_list[*]}; do
@@ -48,11 +46,9 @@ installDeps() {
     done
 
     if [ "${OSVERSION}" = "22.04" ] || [ "${OSVERSION}" = "24.04" ]; then
-        if [ "$(isARM64)" -eq 0 ]; then
-            # disable aznfswatchdog since aznfs install and enable aznfswatchdog and aznfswatchdogv4 services at the same time while we only need aznfswatchdogv4
-            systemctl disable aznfswatchdog
-            systemctl stop aznfswatchdog
-        fi
+        # disable aznfswatchdog since aznfs install and enable aznfswatchdog and aznfswatchdogv4 services at the same time while we only need aznfswatchdogv4
+        systemctl disable aznfswatchdog
+        systemctl stop aznfswatchdog
     fi
 }
 
@@ -109,8 +105,15 @@ updateAptWithMicrosoftPkg() {
 }
 
 updatePMCRepository() {
+    packageVersion="${1}"
     local opts="-o Dir::Etc::sourcelist=/etc/apt/sources.list.d/microsoft-prod.list -o Dir::Etc::sourceparts=-"
     apt_get_update_with_opts "${opts}" || exit $ERR_APT_UPDATE_TIMEOUT
+
+    # if the package version contains a tilde (~), indicating pre-release version, updating test repo
+    if [ -f /etc/apt/sources.list.d/microsoft-prod-testing.list ] && echo "$packageVersion" | grep -q '~'; then
+        local testing_opts="-o Dir::Etc::sourcelist=/etc/apt/sources.list.d/microsoft-prod-testing.list -o Dir::Etc::sourceparts=-"
+        apt_get_update_with_opts "${testing_opts}" || exit $ERR_APT_UPDATE_TIMEOUT
+    fi
 }
 
 updateAptWithNvidiaPkg() {
@@ -165,7 +168,7 @@ managedGPUPackageList() {
         nvidia-device-plugin
         datacenter-gpu-manager-4-core
         datacenter-gpu-manager-4-proprietary
-        datacenter-gpu-manager-exporter
+        dcgm-exporter
     )
     echo "${packages[@]}"
 }
@@ -240,7 +243,7 @@ installCredentialProviderFromPMC() {
     mkdir -p "${CREDENTIAL_PROVIDER_BIN_DIR}"
     chown -R root:root "${CREDENTIAL_PROVIDER_BIN_DIR}"
     installPkgWithAptGet "azure-acr-credential-provider" "${packageVersion}" || exit $ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT
-    mv "/usr/local/bin/azure-acr-credential-provider" "$CREDENTIAL_PROVIDER_BIN_DIR/acr-credential-provider"
+    ln -snf /usr/bin/azure-acr-credential-provider "$CREDENTIAL_PROVIDER_BIN_DIR/acr-credential-provider"
 }
 
 installKubeletKubectlPkgFromPMC() {
@@ -327,7 +330,7 @@ installPkgWithAptGet() {
         fi
 
         # update pmc repo to get latest package versions
-        updatePMCRepository
+        updatePMCRepository ${packageVersion}
         # query all package versions and get the latest version for matching k8s version
         fullPackageVersion=$(apt list ${packageName} --all-versions | grep ${packageVersion}- | awk '{print $2}' | sort -V | tail -n 1)
         if [ -z "${fullPackageVersion}" ]; then
@@ -345,7 +348,8 @@ installPkgWithAptGet() {
 
     logs_to_events "AKS.CSE.install${packageName}.installDebPackageFromFile" "installDebPackageFromFile ${debFile}" || exit $ERR_APT_INSTALL_TIMEOUT
 
-    mv "/usr/bin/${packageName}" "/usr/local/bin/${packageName}"
+    mkdir -p /opt/bin
+    ln -snf "/usr/bin/${packageName}" "/opt/bin/${packageName}"
     rm -rf ${downloadDir}
 }
 

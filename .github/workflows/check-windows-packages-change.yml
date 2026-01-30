@@ -11,8 +11,8 @@ jobs:
       - name: Check out repository code
         uses: actions/checkout@v6
         with:
-          ref: master
-          path: master
+          ref: main
+          path: main
           fetch-depth: 1
 
       - name: Check out repository code
@@ -21,7 +21,7 @@ jobs:
           path: pr
           fetch-depth: 1
 
-      - name: Produce vhd files - master
+      - name: Produce vhd files - main
         id: makeDiff
         shell: pwsh
         run: |
@@ -29,16 +29,16 @@ jobs:
           $DIFF_DIR="vhd_files"
 
           mkdir -Force "${DIFF_DIR}"
-          
-          pwsh -c vhdbuilder/scripts/windows/generate_cached_stuff_list.ps1 "${DIFF_DIR}" vhdbuilder/packer/windows/components_json_helpers.ps1 ../master/vhdbuilder/packer/windows/windows_settings.json ../master/parts/common/components.json 
-         
+
+          pwsh -c vhdbuilder/scripts/windows/generate_cached_stuff_list.ps1 "${DIFF_DIR}" vhdbuilder/packer/windows/components_json_helpers.ps1 ../main/vhdbuilder/packer/windows/windows_settings.json ../main/parts/common/components.json
+
           git add "${DIFF_DIR}"
           git config user.email "you@example.com"
           git config user.name "Your Name"
-          git commit -m "versions of files from master"
+          git commit -m "versions of files from main"
 
-          pwsh -c vhdbuilder/scripts/windows/generate_cached_stuff_list.ps1 "${DIFF_DIR}" vhdbuilder/packer/windows/components_json_helpers.ps1 vhdbuilder/packer/windows/windows_settings.json parts/common/components.json 
-          
+          pwsh -c vhdbuilder/scripts/windows/generate_cached_stuff_list.ps1 "${DIFF_DIR}" vhdbuilder/packer/windows/components_json_helpers.ps1 vhdbuilder/packer/windows/windows_settings.json parts/common/components.json
+
           $diffFile = "../diff.md"
           git diff --quiet -- "${DIFF_DIR}"
           if ( $LASTEXITCODE -eq "0" ) {
@@ -56,7 +56,7 @@ jobs:
             Write-Output '```diff' >> $diffFile
             git diff --unified=0 -- "${DIFF_DIR}" >> $diffFile
             Write-Output '```' >> $diffFile
-          
+
             dir $diffFile
             Get-Content $diffFile
           }

@@ -1,13 +1,8 @@
 #!/bin/bash
-
-set -o nounset
-set -o pipefail
-
-find /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/ -mtime +5 -type f -delete
+set -uo pipefail
 
 EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/
 EVENTS_FILE_NAME=$(date +%s%3N)
-STARTTIME=$(date)
 STARTTIME_FORMATTED=$(date +"%F %T.%3N")
 ENDTIME_FORMATTED=$(date +"%F %T.%3N")
 CGROUP_VERSION=$(stat -fc %T /sys/fs/cgroup)
@@ -18,7 +13,6 @@ CSLICE=$(systemctl show containerd -p Slice | cut -d= -f2)
 KSLICE=$(systemctl show kubelet -p Slice | cut -d= -f2)
 
 if [ "$CGROUP_VERSION" = "cgroup2fs" ]; then
-
     VERSION="cgroupv2"
     TASK_NAME="AKS.Runtime.pressure_telemetry_cgroupv2"
 
@@ -333,7 +327,6 @@ if [ "$CGROUP_VERSION" = "cgroup2fs" ]; then
         --argjson PRESSURE "$(echo $pressure_string)" \
         '{ CgroupVersion: $CGROUPV, Pressure: $PRESSURE } | tostring'
     )
-
 else
     echo "Unexpected cgroup type. Exiting"
     exit 1
@@ -354,4 +347,5 @@ EVENT_JSON=$( jq -n \
     '{Timestamp: $Timestamp, OperationId: $OperationId, Version: $Version, TaskName: $TaskName, EventLevel: $EventLevel, Message: $Message, EventPid: $EventPid, EventTid: $EventTid}'
 )
 
+mkdir -p "${EVENTS_LOGGING_DIR}"
 echo ${EVENT_JSON} > ${EVENTS_LOGGING_DIR}${EVENTS_FILE_NAME}.json
