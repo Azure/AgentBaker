@@ -29,7 +29,6 @@ filesToCheck=$(find . -type f -name "*.sh" -not -path './pkg/agent/testdata/*' -
 
 # Known bash-only scripts that intentionally use bash specific syntax.
 BASH_ONLY_LIST=$(cat <<'EOF'
-./parts/linux/cloud-init/artifacts/inspektor-gadget/mkextimg.sh
 ./vhdbuilder/packer/install-ig.sh
 EOF
 )
