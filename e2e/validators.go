@@ -959,7 +959,78 @@ func ValidateNPDUnhealthyNvidiaGridLicenseStatusAfterFailure(ctx context.Context
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to restart Nvidia GRID services")
 }
 
-func ValidateRuncVersion(ctx context.Context, s *Scenario, versions []string) {
+func ValidateNPDNVLinkCondition(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	// Wait for the NPD to report initial NVLink condition
+	var nvlinkCondition *corev1.NodeCondition
+	err := wait.PollUntilContextTimeout(ctx, 5*time.Second, 3*time.Minute, true, func(ctx context.Context) (bool, error) {
+		node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
+		if err != nil {
+			s.T.Logf("Failed to get node %q: %v", s.Runtime.VM.KubeName, err)
+			return false, nil // Continue polling on transient errors
+		}
+
+		// Check for NVLinkError condition with correct reason
+		for i := range node.Status.Conditions {
+			if node.Status.Conditions[i].Type == "NVLinkError" && node.Status.Conditions[i].Reason == "NoNVLinkError" {
+				nvlinkCondition = &node.Status.Conditions[i]
+				return true, nil // Found the condition we are looking for
+			}
+		}
+
+		return false, nil // Continue polling until the condition is found or timeout occurs
+	})
+	require.NoError(s.T, err, "timed out waiting for NVLinkError condition with reason NoNVLinkError to appear on node %q", s.Runtime.VM.KubeName)
+
+	require.NotNil(s.T, nvlinkCondition, "expected to find NVLinkError condition with NoNVLinkError reason on node")
+	require.Equal(s.T, corev1.ConditionFalse, nvlinkCondition.Status, "expected NVLinkError condition to be False")
+	require.Contains(s.T, nvlinkCondition.Message, "No NVLink errors detected", "expected NVLinkError message to indicate no errors")
+}
+
+func ValidateNPDNVLinkAfterFailure(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	// Simulate NVLink failure by injecting NVIDIA driver error logs
+	command := []string{
+		"set -ex",
+		"echo \"$(date '+%b %d %H:%M:%S') $(hostname) kernel: [12345.123456] NVRM: GPU at PCI:0000:01:00: GPU-12345678-1234-1234-1234-123456789abc\" | sudo tee -a /var/log/syslog",
+		"echo \"$(date '+%b %d %H:%M:%S') $(hostname) kernel: [12345.123456] NVRM: GPU 0: NVLink: Link training failed on link 0\" | sudo tee -a /var/log/syslog",
+		"sleep 5",
+		"echo \"$(date '+%b %d %H:%M:%S') $(hostname) kernel: [12346.123456] NVRM: GPU 0: NVLink: Link training failed on link 1\" | sudo tee -a /var/log/syslog",
+		"sleep 5",
+		"echo \"$(date '+%b %d %H:%M:%S') $(hostname) kernel: [12347.123456] NVRM: GPU 0: NVLink: Fatal error detected on link 0\" | sudo tee -a /var/log/syslog",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to simulate NVLink failure")
+
+	// Wait for NPD to detect the change
+	var nvlinkCondition *corev1.NodeCondition
+	err := wait.PollUntilContextTimeout(ctx, 2*time.Second, 3*time.Minute, true, func(ctx context.Context) (bool, error) {
+		node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
+		if err != nil {
+			s.T.Logf("Failed to get node %q: %v", s.Runtime.VM.KubeName, err)
+			return false, nil // Continue polling on transient errors
+		}
+
+		// Check for NVLinkError condition with correct reason
+		for i := range node.Status.Conditions {
+			if node.Status.Conditions[i].Type == "NVLinkError" && node.Status.Conditions[i].Reason == "NVLinkError" {
+				nvlinkCondition = &node.Status.Conditions[i]
+				return true, nil // Found the condition we are looking for
+			}
+		}
+
+		return false, nil // Continue polling until the condition is found or timeout occurs
+	})
+	require.NoError(s.T, err, "timed out waiting for NVLinkError condition with reason NVLinkError to appear on node %q", s.Runtime.VM.KubeName)
+
+	require.NotNil(s.T, nvlinkCondition, "expected to find NVLinkError condition with NVLinkError reason on node")
+	require.Equal(s.T, corev1.ConditionTrue, nvlinkCondition.Status, "expected NVLinkError condition to be True")
+
+	expectedMessage := "check_nvlink_status: NVLink errors detected. FaultCode: NHC2010"
+	require.Contains(s.T, nvlinkCondition.Message, expectedMessage, "expected NVLinkError message to indicate NVLink failures")
+}
+
+func ValidateRunc12Properties(ctx context.Context, s *Scenario, versions []string) {
 	s.T.Helper()
 	require.Lenf(s.T, versions, 1, "Expected exactly one version for moby-runc but got %d", len(versions))
 	// check if versions[0] is great than or equal to 1.2.0

@@ -788,6 +788,10 @@ func runScenarioGPUNPD(t *testing.T, vmSize, location, k8sSystemPoolSKU string) 
 				// Validate the if IB NPD is reporting the flapping condition
 				ValidateNPDIBLinkFlappingCondition(ctx, s)
 				ValidateNPDIBLinkFlappingAfterFailure(ctx, s)
+
+				// Validate NVLink error detection
+				ValidateNPDNVLinkCondition(ctx, s)
+				ValidateNPDNVLinkAfterFailure(ctx, s)
 			},
 		}}
 }
