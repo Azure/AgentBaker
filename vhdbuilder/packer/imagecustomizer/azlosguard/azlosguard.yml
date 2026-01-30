@@ -54,11 +54,20 @@ os:
     - source: /AgentBaker/vhdbuilder/lister/bin/lister
       destination: /opt/azure/containers/lister
       permissions: 744
+    - source: /AgentBaker/vhdbuilder/lister/bin/lister
+      destination: /home/packer/lister
+      permissions: 744
     - source: /AgentBaker/vhdbuilder/packer/list-images.sh
       destination: /opt/azure/containers/list-images.sh
       permissions: 744
+    - source: /AgentBaker/vhdbuilder/packer/list-images.sh
+      destination: /home/packer/list-images.sh
+      permissions: 744
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/cis.sh
       destination: /opt/azure/containers/cis.sh
+      permissions: 744
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/cis.sh
+      destination: /home/packer/cis.sh
       permissions: 744
     # Build metadata
     - source: /AgentBaker/parts/common/components.json
