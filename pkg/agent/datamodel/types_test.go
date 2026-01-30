@@ -3196,3 +3196,79 @@ func TestGetLocalDNSCoreFileData(t *testing.T) {
 }
 
 // ----------------------- End of changes related to localdns ------------------------------------------.
+
+func TestEthtoolConfig(t *testing.T) {
+	tests := []struct {
+		name           string
+		ethtoolConfig  *EthtoolConfig
+		expectedJSON   string
+		expectedStruct EthtoolConfig
+	}{
+		{
+			name:          "Empty EthtoolConfig",
+			ethtoolConfig: &EthtoolConfig{},
+			expectedJSON:  `{}`,
+			expectedStruct: EthtoolConfig{
+				RxBufferSize: 0,
+			},
+		},
+		{
+			name: "EthtoolConfig with standard buffer size",
+			ethtoolConfig: &EthtoolConfig{
+				RxBufferSize: 1024,
+			},
+			expectedJSON: `{"rxBufferSize":1024}`,
+			expectedStruct: EthtoolConfig{
+				RxBufferSize: 1024,
+			},
+		},
+		{
+			name: "EthtoolConfig with high performance buffer size",
+			ethtoolConfig: &EthtoolConfig{
+				RxBufferSize: 2048,
+			},
+			expectedJSON: `{"rxBufferSize":2048}`,
+			expectedStruct: EthtoolConfig{
+				RxBufferSize: 2048,
+			},
+		},
+		{
+			name: "EthtoolConfig with custom large buffer size",
+			ethtoolConfig: &EthtoolConfig{
+				RxBufferSize: 8192,
+			},
+			expectedJSON: `{"rxBufferSize":8192}`,
+			expectedStruct: EthtoolConfig{
+				RxBufferSize: 8192,
+			},
+		},
+		{
+			name: "EthtoolConfig with small buffer size",
+			ethtoolConfig: &EthtoolConfig{
+				RxBufferSize: 512,
+			},
+			expectedJSON: `{"rxBufferSize":512}`,
+			expectedStruct: EthtoolConfig{
+				RxBufferSize: 512,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Test JSON marshaling
+			jsonBytes, err := json.Marshal(tt.ethtoolConfig)
+			if err != nil {
+				t.Fatalf("Expected JSON marshal to not return an error, but returned: %s", err)
+			}
+			assert.JSONEq(t, tt.expectedJSON, string(jsonBytes))
+
+			// Test JSON unmarshaling
+			unmarshalled := EthtoolConfig{}
+			if err = json.Unmarshal(jsonBytes, &unmarshalled); err != nil {
+				t.Fatalf("Expected JSON unmarshal to not return an error, but returned: %s", err)
+			}
+			assert.Equal(t, tt.expectedStruct, unmarshalled)
+		})
+	}
+}

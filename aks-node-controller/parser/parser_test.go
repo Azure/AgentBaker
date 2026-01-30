@@ -195,6 +195,62 @@ oom_score = -999
 				assert.Equal(t, "true", vars["NEEDS_CGROUPV2"])
 			},
 		},
+		{
+			name:       "AKSUbuntu2204 with custom ethtool config",
+			folder:     "AKSUbuntu2204+CustomEthtoolConfig",
+			k8sVersion: "1.24.2",
+			aksNodeConfigUpdator: func(aksNodeConfig *aksnodeconfigv1.Configuration) {
+				aksNodeConfig.CustomLinuxOsConfig = &aksnodeconfigv1.CustomLinuxOsConfig{
+					EthtoolConfig: &aksnodeconfigv1.EthtoolConfig{
+						RxBufferSize: to.Ptr(int32(4096)),
+					},
+				}
+			},
+			validator: func(cmd *exec.Cmd) {
+				vars := environToMap(cmd.Env)
+				ethtoolContent, err := getBase64DecodedValue([]byte(vars["ETHTOOL_CONTENT"]))
+				require.NoError(t, err)
+				assert.Equal(t, "rx=4096", ethtoolContent)
+			},
+		},
+		{
+			name:       "AKSUbuntu2204 with default ethtool config (no defaults set)",
+			folder:     "AKSUbuntu2204+DefaultEthtoolConfig",
+			k8sVersion: "1.24.2",
+			aksNodeConfigUpdator: func(aksNodeConfig *aksnodeconfigv1.Configuration) {
+				aksNodeConfig.CustomLinuxOsConfig = &aksnodeconfigv1.CustomLinuxOsConfig{
+					EthtoolConfig: &aksnodeconfigv1.EthtoolConfig{
+						// No RxBufferSize set, should return empty string.
+					},
+				}
+			},
+			validator: func(cmd *exec.Cmd) {
+				vars := environToMap(cmd.Env)
+				ethtoolContent, err := getBase64DecodedValue([]byte(vars["ETHTOOL_CONTENT"]))
+				require.NoError(t, err)
+				// Should return empty string when no value is set.
+				assert.Equal(t, "", ethtoolContent)
+			},
+		},
+		{
+			name:       "AKSUbuntu2204 with zero ethtool buffer (returns empty)",
+			folder:     "AKSUbuntu2204+ZeroEthtoolConfig",
+			k8sVersion: "1.24.2",
+			aksNodeConfigUpdator: func(aksNodeConfig *aksnodeconfigv1.Configuration) {
+				aksNodeConfig.CustomLinuxOsConfig = &aksnodeconfigv1.CustomLinuxOsConfig{
+					EthtoolConfig: &aksnodeconfigv1.EthtoolConfig{
+						RxBufferSize: to.Ptr(int32(0)), // Zero should return empty string.
+					},
+				}
+			},
+			validator: func(cmd *exec.Cmd) {
+				vars := environToMap(cmd.Env)
+				ethtoolContent, err := getBase64DecodedValue([]byte(vars["ETHTOOL_CONTENT"]))
+				require.NoError(t, err)
+				// Zero value should return empty string.
+				assert.Equal(t, "", ethtoolContent)
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -401,6 +457,10 @@ func TestAKSNodeConfigCompatibilityFromJsonToCSECommand(t *testing.T) {
 				assert.Equal(t, "", vars["SECURE_TLS_BOOTSTRAPPING_AAD_RESOURCE"])
 				assert.Equal(t, "", vars["SECURE_TLS_BOOTSTRAPPING_USER_ASSIGNED_IDENTITY_ID"])
 				assert.Equal(t, "", vars["CUSTOM_SECURE_TLS_BOOTSTRAPPING_CLIENT_URL"])
+				ethtoolContent, err := getBase64DecodedValue([]byte(vars["ETHTOOL_CONTENT"]))
+				require.NoError(t, err)
+				// With empty config, no default should be set, so ethtool content should be empty.
+				assert.Equal(t, "", ethtoolContent)
 			},
 		},
 	}

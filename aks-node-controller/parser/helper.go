@@ -803,3 +803,18 @@ func getLocalDnsMemoryLimitInMb(aksnodeconfig *aksnodeconfigv1.Configuration) st
 }
 
 // ---------------------- End of localdns related helper code ----------------------//
+
+// ---------------------- Start of Ethtool Config related helper code ----------------------//
+
+func getEthtoolContents(ethtool_config *aksnodeconfigv1.EthtoolConfig) string {
+	if ethtool_config == nil || ethtool_config.GetRxBufferSize() <= 0 {
+		return ""
+	}
+
+	m := make(map[string]interface{})
+	m["rx"] = ethtool_config.GetRxBufferSize()
+
+	return base64.StdEncoding.EncodeToString([]byte(createSortedKeyValuePairs(m, "\n")))
+}
+
+// ---------------------- End of Ethtool Config related helper code ----------------------//

@@ -35,6 +35,7 @@ type Tags struct {
 	Scriptless             bool
 	VHDCaching             bool
 	MockAzureChinaCloud    bool
+	Ethtool                bool
 }
 
 // MatchesFilters checks if the Tags struct matches all given filters.
