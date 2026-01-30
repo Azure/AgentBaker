@@ -648,9 +648,9 @@ initialize_network_variables || exit $ERR_LOCALDNS_FAIL
 # ---------------------------------------------------------------------------------------------------------------------
 cleanup_iptables_and_dns || exit $ERR_LOCALDNS_FAIL
 
-# Wait for the DNS configuration to be reverted.
-# This ensures systemd-resolved has removed localdns from resolv.conf before we proceed.
-# This is called both at startup (to clean up leftover state) and during shutdown.
+# During startup, wait for the DNS configuration to be fully reverted.
+# This ensures systemd-resolved has removed localdns from resolv.conf before we read upstream DNS servers.
+# Note: the shutdown path does not invoke this wait; it only calls cleanup_iptables_and_dns.
 if ! wait_for_localdns_removed_from_resolv_conf 5; then
     echo "Error: DNS configuration was not reverted within timeout."
     exit $ERR_LOCALDNS_FAIL
