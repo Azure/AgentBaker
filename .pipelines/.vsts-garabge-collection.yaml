@@ -10,7 +10,7 @@ schedules:
   always: true
   branches:
     include:
-      - master
+      - main
 
 pool:
   name: $(POOL_NAME)

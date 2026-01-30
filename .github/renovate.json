@@ -37,6 +37,7 @@
         "azuremonitor/containerinsights/ciprod",
         "azuremonitor/containerinsights/ciprod/prometheus-collector/images",
         "oss/kubernetes/azure-cloud-node-manager",
+        "oss/v2/kubernetes/azure-cloud-node-manager",
         "aks/ip-masq-agent-v2",
         "oss/v2/azure/ip-masq-agent-v2",
         "oss/kubernetes-csi/azuredisk-csi",
@@ -53,7 +54,8 @@
         "oss/v2/kubernetes/kube-proxy",
         "oss/binaries/kubernetes/kubernetes-node",
         "oss/binaries/kubernetes/azure-acr-credential-provider",
-        "containernetworking/azure-npm"
+        "containernetworking/azure-npm",
+        "azure-acr-credential-provider"
       ],
       "matchUpdateTypes": [
         "minor"
@@ -585,7 +587,7 @@
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
-        "\"renovateTag\":\\s*\"name=(?<packageName>datacenter-gpu-manager-4-core|datacenter-gpu-manager-4-proprietary|datacenter-gpu-manager-exporter), repository=nvidia, os=ubuntu, release=22\\.04\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\"(?:[^}]*\"previousLatestVersion\":\\s*\"(?<depType>[^\"]+)\")?"
+        "\"renovateTag\":\\s*\"name=(?<packageName>datacenter-gpu-manager-4-core|datacenter-gpu-manager-4-proprietary), repository=nvidia, os=ubuntu, release=22\\.04\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\"(?:[^}]*\"previousLatestVersion\":\\s*\"(?<depType>[^\"]+)\")?"
       ],
       "datasourceTemplate": "custom.nvidia-deb2204",
       "versioningTemplate": "deb",
@@ -613,7 +615,7 @@
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
-        "\"renovateTag\":\\s*\"name=(?<packageName>datacenter-gpu-manager-4-core|datacenter-gpu-manager-4-proprietary|datacenter-gpu-manager-exporter), repository=nvidia, os=ubuntu, release=24\\.04\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\"(?:[^}]*\"previousLatestVersion\":\\s*\"(?<depType>[^\"]+)\")?"
+        "\"renovateTag\":\\s*\"name=(?<packageName>datacenter-gpu-manager-4-core|datacenter-gpu-manager-4-proprietary), repository=nvidia, os=ubuntu, release=24\\.04\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\"(?:[^}]*\"previousLatestVersion\":\\s*\"(?<depType>[^\"]+)\")?"
       ],
       "datasourceTemplate": "custom.nvidia-deb2404",
       "versioningTemplate": "deb",

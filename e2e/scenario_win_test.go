@@ -12,7 +12,7 @@ import (
 
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
 )
 
 func EmptyBootstrapConfigMutator(configuration *datamodel.NodeBootstrappingConfiguration) {}
@@ -489,6 +489,64 @@ func Test_Windows23H2Gen2_WindowsCiliumNetworking(t *testing.T) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateWindowsCiliumIsRunning(ctx, s)
+			},
+		},
+	})
+}
+
+func Test_Windows2022_McrChinaCloud_Windows(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Tags: Tags{
+			MockAzureChinaCloud: true,
+		},
+		Description: "Windows Server 2022 Azure Network Containerd - v1 to test Azure China Cloud MCR host",
+		Config: Config{
+			Cluster:                ClusterAzureNetwork,
+			VHD:                    config.VHDWindows2022Containerd,
+			VMConfigMutator:        EmptyVMConfigMutator,
+			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFileExists(ctx, s, `C:\ProgramData\containerd\certs.d\docker.io\hosts.toml`)
+				ValidateFileExists(ctx, s, `C:\ProgramData\containerd\certs.d\mcr.azk8s.cn\hosts.toml`)
+				ValidateFileHasContent(ctx, s,
+					`C:\ProgramData\containerd\certs.d\docker.io\hosts.toml`,
+					`https://docker.io`)
+				ValidateFileHasContent(ctx, s,
+					`C:\ProgramData\containerd\certs.d\mcr.azk8s.cn\hosts.toml`,
+					`https://mcr.azk8s.cn`)
+			},
+		},
+	})
+}
+
+func Test_Windows2025Gen2_McrChinaCloud_Windows(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Tags: Tags{
+			MockAzureChinaCloud: true,
+		},
+		Description: "Windows Server 2025 with Containerd - hyperv gen 2 to test Azure China Cloud MCR host",
+		Config: Config{
+			Cluster:         ClusterAzureNetwork,
+			VHD:             config.VHDWindows2025Gen2,
+			VMConfigMutator: EmptyVMConfigMutator,
+			BootstrapConfigMutator: func(configuration *datamodel.NodeBootstrappingConfiguration) {
+				Windows2025BootstrapConfigMutator(t, configuration)
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateWindowsVersionFromWindowsSettings(ctx, s, "2025-gen2")
+				ValidateWindowsProductName(ctx, s, "Windows Server 2025 Datacenter")
+				ValidateWindowsDisplayVersion(ctx, s, "24H2")
+				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
+				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
+				ValidateCiliumIsNotRunningWindows(ctx, s)
+				ValidateFileExists(ctx, s, `C:\ProgramData\containerd\certs.d\docker.io\hosts.toml`)
+				ValidateFileExists(ctx, s, `C:\ProgramData\containerd\certs.d\mcr.azk8s.cn\hosts.toml`)
+				ValidateFileHasContent(ctx, s,
+					`C:\ProgramData\containerd\certs.d\docker.io\hosts.toml`,
+					`https://docker.io`)
+				ValidateFileHasContent(ctx, s,
+					`C:\ProgramData\containerd\certs.d\mcr.azk8s.cn\hosts.toml`,
+					`https://mcr.azk8s.cn`)
 			},
 		},
 	})

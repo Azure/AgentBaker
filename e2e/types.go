@@ -16,8 +16,9 @@ import (
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/crypto/ssh"
 )
 
 type Tags struct {
@@ -33,6 +34,7 @@ type Tags struct {
 	KubeletCustomConfig    bool
 	Scriptless             bool
 	VHDCaching             bool
+	MockAzureChinaCloud    bool
 }
 
 // MatchesFilters checks if the Tags struct matches all given filters.
@@ -143,6 +145,7 @@ type ScenarioVM struct {
 	VMSS      *armcompute.VirtualMachineScaleSet
 	VM        *armcompute.VirtualMachineScaleSetVM
 	PrivateIP string
+	SSHClient *ssh.Client
 }
 
 // Config represents the configuration of an AgentBaker E2E scenario.
@@ -181,6 +184,9 @@ type Config struct {
 	// if VHDCaching is set then a VHD will be created first for the test scenario and then a VM will be created from that VHD.
 	// The main purpose is to validate VHD Caching logic and ensure a reboot step between basePrep and nodePrep doesn't break anything.
 	VHDCaching bool
+
+	// ReturnErrorOnVMSSCreation indicates whether to return error on VMSS creation failure or fail the test immediately.
+	ReturnErrorOnVMSSCreation bool
 }
 
 func (s *Scenario) PrepareAKSNodeConfig() {

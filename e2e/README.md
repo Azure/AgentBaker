@@ -31,7 +31,7 @@ To write an E2E scenario,
   as well as `nbc.agentPoolProfile`. It is because when RP invokes AgentBaker, it will set the properties in this way
   and in e2e we follow the pattern.
 - use `VMConfigMutator` to set VMSS properties such as SKU when needed.
-  Check [vmss](https://github.com/Azure/AgentBaker/blob/dev/e2e/vmss.go) for other configs.  
+  Check [vmss](https://github.com/Azure/AgentBaker/blob/dev/e2e/vmss.go) for other configs.
   it is necessary to set `nbc.agentPoolProfile.VMSize` to match the VMSS SKU if you choose to change.
 - use `Validator` to include your own verification of the VM's live state, such as file existsnce, sysctl settings, etc.
 
@@ -43,16 +43,15 @@ sequenceDiagram
     AgentBakerCode-->>-E2E: VM Configuration
     E2E->>+ARM: Create VM using fetched VM Config in cluster network
     ARM-->>-E2E: VM instance
-    E2E->>+KubeAPI: Create test Pod
-    KubeAPI->>+TestPod: Perform healthcheck
-    TestPod-->>-KubeAPI: Healthcheck OK
-    KubeAPI-->>-E2E: Test Pod ready
-    E2E->>+KubeAPI: Execute test validators
-    KubeAPI->>+DebugPod: Execute test validator
-    DebugPod->>+VM: Execute test validator
-    VM-->>-DebugPod: Test results
-    DebugPod-->>-KubeAPI: Test results
-    KubeAPI-->>-E2E: Final results
+    E2E->>+Bastion: Create SSH Tunnel
+    Bastion->>+VM: Forward SSH Connection
+    E2E->>VM: Healthcheck via SSH Tunnel
+    VM-->>E2E: Healthcheck OK
+    E2E->>+KubeAPI: Verify Node Ready
+    KubeAPI-->>-E2E: Node Ready
+    E2E->>VM: Execute test validators via SSH Tunnel
+    VM-->>-E2E: Test results
+    Bastion-->>-E2E: Close SSH Tunnel
 ```
 
 ## Running Locally
@@ -152,7 +151,7 @@ in [scenario_test.go](scenario_test.go).
 ## E2E VHDs.
 
 Node images are pushed to Shared Image Gallery (SIG). Each image is tagged with branch name and build id.
-By default E2E tests use latest version of images from SIG with `branch=refs/heads/master` tag.
+By default E2E tests use latest version of images from SIG with `branch=refs/heads/main` tag.
 
 ## Using VHD Images from Custom ADO Builds
 

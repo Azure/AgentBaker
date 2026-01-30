@@ -1,19 +1,25 @@
-* @juan-lee @cameronmeissner @ganeshkumarashok @Devinwong @lilypan26 @AbelHu @junjiezhang1997 @djsly @phealy @r2k1 @timmy-wright @zachary-bailey @awesomenix
+* @juan-lee @cameronmeissner @ganeshkumarashok @Devinwong @lilypan26 @AbelHu @junjiezhang1997 @djsly @phealy @r2k1 @timmy-wright @zachary-bailey @awesomenix @mxj220 @pdamianov-dev
 
 # Code owners for for cse_cmd.sh and nodecustomdata.yml. This is to ensure that the scriptless v-team is aware of the changes in order to sync with AKSNodeConfig.
 cse_cmd.sh @Devinwong @lilypan26 @r2k1 @timmy-wright @cameronmeissner
 nodecustomdata.yml @Devinwong @lilypan26 @r2k1 @timmy-wright @cameronmeissner
 
+# Code owners for testdata snapshots.
+# These include security patch owners since security patch script changes will cause the related custom data snapshots to change.
+pkg/agent/testdata/ @yewmsft @YaoC @juan-lee @cameronmeissner @ganeshkumarashok @Devinwong @lilypan26 @AbelHu @junjiezhang1997 @djsly @phealy @r2k1 @timmy-wright @zachary-bailey @awesomenix @mxj220 @pdamianov-dev
+
 # Code owners for the security patch release notes.
-vhdbuilder/release-notes/security-patch/ @yagmurbaydogan @yewmsft @juan-lee @cameronmeissner @ganeshkumarashok @Devinwong @lilypan26 @AbelHu @junjiezhang1997 @djsly @phealy @r2k1 @timmy-wright @zachary-bailey
+vhdbuilder/release-notes/security-patch/ @yagmurbaydogan @yewmsft @juan-lee @cameronmeissner @ganeshkumarashok @Devinwong @lilypan26 @AbelHu @junjiezhang1997 @djsly @phealy @r2k1 @timmy-wright @zachary-bailey @awesomenix @mxj220 @pdamianov-dev
 
 # Code owners for security patching.
-parts/linux/cloud-init/artifacts/mariner/package-update.service @yewmsft
-parts/linux/cloud-init/artifacts/mariner/package-update.timer @yewmsft
-parts/linux/cloud-init/artifacts/ubuntu/ubuntu-snapshot-update.sh @yewmsft
-parts/linux/cloud-init/artifacts/mariner/mariner-package-update.sh @yewmsft
-spec/parts/linux/cloud-init/artifacts/ubuntu-snapshot-update_spec.sh @yewmsft
-spec/parts/linux/cloud-init/artifacts/mariner-package-update_spec.sh @yewmsft
+parts/linux/cloud-init/artifacts/mariner/package-update.service @yewmsft @YaoC
+parts/linux/cloud-init/artifacts/mariner/package-update.timer @yewmsft @YaoC
+parts/linux/cloud-init/artifacts/mariner/mariner-package-update.sh @yewmsft @YaoC
+parts/linux/cloud-init/artifacts/ubuntu/snapshot-update.service @yewmsft @YaoC
+parts/linux/cloud-init/artifacts/ubuntu/snapshot-update.timer @yewmsft @YaoC
+parts/linux/cloud-init/artifacts/ubuntu/ubuntu-snapshot-update.sh @yewmsft @YaoC
+spec/parts/linux/cloud-init/artifacts/ubuntu-snapshot-update_spec.sh @yewmsft @YaoC
+spec/parts/linux/cloud-init/artifacts/mariner-package-update_spec.sh @yewmsft @YaoC
 
 # Code owners for localdns.
 parts/linux/cloud-init/artifacts/localdns.sh @SriHarsha001 @yewmsft
@@ -21,5 +27,6 @@ parts/linux/cloud-init/artifacts/localdns.service @SriHarsha001 @yewmsft
 parts/linux/cloud-init/artifacts/localdns-delegate.conf @SriHarsha001 @yewmsft
 spec/parts/linux/cloud-init/artifacts/localdns_spec.sh @SriHarsha001 @yewmsft
 
-# Set components.json to no code-owner so that it can be approved and merged by component owner.
+# Set components.json & windows_settings.json to no code-owner so that it can be approved and merged by component owner.
 parts/common/components.json
+vhdbuilder/packer/windows/windows_settings.json

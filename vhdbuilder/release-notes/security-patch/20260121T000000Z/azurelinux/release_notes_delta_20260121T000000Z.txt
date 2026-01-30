@@ -1,0 +1,12 @@
+Release notes for security patch 20260121T000000Z timestamp
+Package difference between 20260114T000000Z and 20260121T000000Z
+
+No reboot required
+
+
+=== Package Updates ===
+wget-libs  2.1.0-7.azl3  azurelinux-official-base
+wget  2.1.0-7.azl3  azurelinux-official-base
+python3-urllib3  2.0.7-4.azl3  azurelinux-official-base
+libxml2  2.11.5-8.azl3  azurelinux-official-base
+blobfuse2  2.5.2-1  azurelinux-official-ms-oss

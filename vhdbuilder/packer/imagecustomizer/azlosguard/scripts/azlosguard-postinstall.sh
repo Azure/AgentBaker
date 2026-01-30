@@ -75,11 +75,13 @@ rm /home/packer/list-images.sh
 rm /home/packer/cis.sh
 rm /home/packer
 
+chage -I -1 -M -1 root
+
 # Create release-notes.txt
 mkdir -p /_imageconfigs/out
 
 echo "kubelet/kubectl downloaded:" >> ${VHD_LOGS_FILEPATH}
-ls -ltr /usr/local/bin/* >> ${VHD_LOGS_FILEPATH}
+ls -ltr /opt/bin/kube* >> ${VHD_LOGS_FILEPATH}
 
 echo -e "=== Installed Packages Begin" >> ${VHD_LOGS_FILEPATH}
 echo -e "$(rpm -qa)" >> ${VHD_LOGS_FILEPATH}

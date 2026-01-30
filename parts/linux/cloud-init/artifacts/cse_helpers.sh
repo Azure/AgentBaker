@@ -69,6 +69,7 @@ ERR_CTR_OPERATION_ERROR=119 # Error executing a ctr containerd cli operation
 ERR_INVALID_CLI_TOOL=120 # Invalid CLI tool specified, should be one of ctr, crictl, docker
 ERR_KUBELET_INSTALL_FAIL=121 # Error installing kubelet
 ERR_KUBECTL_INSTALL_FAIL=122 # Error installing kubectl
+ERR_ENABLE_MANAGED_GPU_EXPERIENCE=123 # Error confguring managed GPU experience
 
 # 123 is free for use
 
@@ -120,6 +121,8 @@ ERR_ORAS_IMDS_TIMEOUT=210 # Error timeout waiting for IMDS response
 ERR_ORAS_PULL_NETWORK_TIMEOUT=211 # Error pulling oras tokens for login
 ERR_ORAS_PULL_UNAUTHORIZED=212 # Error pulling artifact with oras from registry with authorization issue
 
+ERR_IMDS_FETCH_FAILED=231 # Error fetching or caching IMDS instance metadata
+
 # Error checking nodepools tags for whether we need to disable kubelet serving certificate rotation
 ERR_LOOKUP_DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION_TAG=213
 
@@ -148,6 +151,13 @@ ERR_LOOKUP_ENABLE_MANAGED_GPU_EXPERIENCE_TAG=230 # Error checking nodepool tags 
 
 ERR_PULL_POD_INFRA_CONTAINER_IMAGE=225 # Error pulling pause image
 
+# ----------------------- AKS Node Controller----------------------------------
+ERR_AKS_NODE_CONTROLLER_ERROR=240 # Generic error in AKS Node Controller
+# -----------------------------------------------------------------------------
+
+# This probably wasn't launched via a login shell, so ensure the PATH is correct.
+[ -f /etc/profile.d/path.sh ] && . /etc/profile.d/path.sh
+
 # For both Ubuntu and Mariner, /etc/*-release should exist.
 # For unit tests, the OS and OS_VERSION will be set in the unit test script.
 # So whether it's if or else actually doesn't matter to our unit test.
@@ -167,7 +177,7 @@ AZURELINUX_KATA_OS_NAME="AZURELINUXKATA"
 AZURELINUX_OS_NAME="AZURELINUX"
 FLATCAR_OS_NAME="FLATCAR"
 AZURELINUX_OSGUARD_OS_VARIANT="OSGUARD"
-KUBECTL=/usr/local/bin/kubectl
+KUBECTL=/opt/bin/kubectl
 DOCKER=/usr/bin/docker
 # this will be empty during VHD build
 # but vhd build runs with `set -o nounset`
@@ -643,59 +653,128 @@ logs_to_events() {
     fi
 }
 
+# Cache file for IMDS instance metadata to avoid redundant network calls.
+# The IMDS endpoint provides VM metadata that doesn't change during provisioning,
+# so we can safely cache it for the duration of CSE execution.
+IMDS_INSTANCE_METADATA_CACHE_FILE="/opt/azure/containers/imds_instance_metadata_cache.json"
+
+# Fetches IMDS instance metadata and caches it to a file.
+# Exits with ERR_IMDS_FETCH_FAILED on failure.
+# The cache is stored in IMDS_INSTANCE_METADATA_CACHE_FILE.
+fetch_and_cache_imds_instance_metadata() {
+    set -x
+    # If cache file already exists and is valid, skip fetching
+    if [ -f "$IMDS_INSTANCE_METADATA_CACHE_FILE" ]; then
+        # Validate the cache file contains valid JSON
+        if jq -e . "$IMDS_INSTANCE_METADATA_CACHE_FILE" > /dev/null 2>&1; then
+            echo "IMDS instance metadata cache already exists and is valid"
+            return 0
+        else
+            echo "IMDS instance metadata cache exists but is invalid, refetching"
+            rm -f "$IMDS_INSTANCE_METADATA_CACHE_FILE"
+        fi
+    fi
+
+    local body
+    body=$(curl -fsSL -H "Metadata: true" --noproxy "*" --retry 20 --retry-delay 2 --retry-connrefused --connect-timeout 5 --max-time 60 "http://169.254.169.254/metadata/instance?api-version=2021-02-01")
+    if [ "$?" -ne 0 ]; then
+        echo "Failed to fetch IMDS instance metadata"
+        exit $ERR_IMDS_FETCH_FAILED
+    fi
+
+    # Validate response is valid JSON before caching
+    if ! echo "$body" | jq -e . > /dev/null 2>&1; then
+        echo "IMDS response is not valid JSON"
+        exit $ERR_IMDS_FETCH_FAILED
+    fi
+
+    echo "$body" > "$IMDS_INSTANCE_METADATA_CACHE_FILE"
+    echo "IMDS instance metadata cached successfully"
+}
+
+# Retrieves IMDS network interface metadata from the cached instance metadata.
+# The /metadata/instance endpoint contains both compute and network data,
+# so we extract .network.interface from the instance metadata cache.
+# Outputs:
+#   The JSON network interface array
+# Returns:
+#   0 on success, non-zero on failure
+get_imds_network_metadata() {
+    local network_metadata=""
+    network_metadata=$(jq -r '.network.interface' "$IMDS_INSTANCE_METADATA_CACHE_FILE")
+    echo "$network_metadata"
+}
+
+# Retrieves the primary NIC's private IPv4 address from IMDS instance metadata.
+# Outputs:
+#   The private IPv4 address or empty string if not found.
+# Returns:
+#   0 on success, non-zero on failure
+get_primary_nic_ip() {
+    local primary_ip=""
+    primary_ip=$(jq -r '.network.interface[0].ipv4.ipAddress[0].privateIpAddress // ""' "$IMDS_INSTANCE_METADATA_CACHE_FILE")
+    echo "$primary_ip"
+}
+
+# Retrieves a VM tag value from the cached IMDS instance metadata.
+# Arguments:
+#   $1 - tag_name: The name of the tag to look up (case-sensitive match)
+#   $2 - case_insensitive_name: Optional. If "true", performs case-insensitive name matching
+#   $3 - case_insensitive_value: Optional. If "true", performs case-insensitive value matching for "true"
+# Outputs:
+#   The tag value (lowercased) or empty string if not found.
+#   For case_insensitive_value="true", outputs "true" or "false" based on whether value matches "true" case-insensitively.
+# Returns:
+#   0 on success, 1 if cache file doesn't exist or tag not found
+get_imds_vm_tag_value() {
+    local tag_name="$1"
+    local tag_value
+    tag_value=$(jq -r --arg name "$tag_name" '.compute.tagsList | map(select(.name | test($name; "i")))[0].value // "false" | test("true"; "i")' "$IMDS_INSTANCE_METADATA_CACHE_FILE")
+    # Output lowercase value for consistency
+    echo "${tag_value,,}"
+}
+
 should_skip_nvidia_drivers() {
     set -x
-    body=$(curl -fsSL -H "Metadata: true" --noproxy "*" "http://169.254.169.254/metadata/instance?api-version=2021-02-01")
-    ret=$?
-    if [ "$ret" -ne 0 ]; then
-      return $ret
-    fi
-    should_skip=$(echo "$body" | jq -e '.compute.tagsList | map(select(.name | test("SkipGpuDriverInstall"; "i")))[0].value // "false" | test("true"; "i")')
+    # Case-insensitive match for both tag name and value
+    local should_skip
+    should_skip=$(get_imds_vm_tag_value "SkipGpuDriverInstall")
     echo "$should_skip"
 }
 
 should_disable_kubelet_serving_certificate_rotation() {
     set -x
-    body=$(curl -fsSL -H "Metadata: true" --noproxy "*" "http://169.254.169.254/metadata/instance?api-version=2021-02-01")
-    ret=$?
-    if [ "$ret" -ne 0 ]; then
-      return $ret
-    fi
-    should_disable=$(echo "$body" | jq -r '.compute.tagsList[] | select(.name == "aks-disable-kubelet-serving-certificate-rotation") | .value')
-    echo "${should_disable,,}"
+    local should_disable
+    should_disable=$(get_imds_vm_tag_value "aks-disable-kubelet-serving-certificate-rotation")
+    echo "$should_disable"
 }
 
 should_skip_binary_cleanup() {
     set -x
-    body=$(curl -fsSL -H "Metadata: true" --noproxy "*" "http://169.254.169.254/metadata/instance?api-version=2021-02-01")
-    ret=$?
-    if [ "$ret" -ne 0 ]; then
-      return $ret
-    fi
-    should_skip=$(echo "$body" | jq -r '.compute.tagsList[] | select(.name == "SkipBinaryCleanup") | .value')
-    echo "${should_skip,,}"
+    local should_skip
+    should_skip=$(get_imds_vm_tag_value "SkipBinaryCleanup")
+    echo "$should_skip"
 }
 
 should_enforce_kube_pmc_install() {
     set -x
-    body=$(curl -fsSL -H "Metadata: true" --noproxy "*" "http://169.254.169.254/metadata/instance?api-version=2021-02-01")
-    ret=$?
-    if [ "$ret" -ne 0 ]; then
-      return $ret
-    fi
-    should_enforce=$(echo "$body" | jq -r '.compute.tagsList[] | select(.name == "ShouldEnforceKubePMCInstall") | .value')
-    echo "${should_enforce,,}"
+    local should_enforce
+    should_enforce=$(get_imds_vm_tag_value "ShouldEnforceKubePMCInstall")
+    echo "$should_enforce"
 }
 
-enableManagedGPUExperience() {
+should_e2e_mock_azure_china_cloud() {
     set -x
-    body=$(curl -fsSL -H "Metadata: true" --noproxy "*" "http://169.254.169.254/metadata/instance?api-version=2021-02-01")
-    ret=$?
-    if [ "$ret" -ne 0 ]; then
-      return $ret
-    fi
-    should_enforce=$(echo "$body" | jq -r '.compute.tagsList[] | select(.name == "EnableManagedGPUExperience") | .value')
-    echo "${should_enforce,,}"
+    local should_enforce
+    should_enforce=$(get_imds_vm_tag_value "E2EMockAzureChinaCloud")
+    echo "$should_enforce"
+}
+
+should_enable_managed_gpu_experience() {
+    set -x
+    local should_enforce
+    should_enforce=$(get_imds_vm_tag_value "EnableManagedGPUExperience")
+    echo "$should_enforce"
 }
 
 isMarinerOrAzureLinux() {
@@ -919,10 +998,10 @@ fallbackToKubeBinaryInstall() {
         if [ "${SHOULD_ENFORCE_KUBE_PMC_INSTALL}" = "true" ]; then
             echo "Kube PMC install is enforced, skipping fallback to kube binary install for ${packageName}"
             return 1
-        elif [ -f "/usr/local/bin/${packageName}-${packageVersion}" ]; then
-            mv "/usr/local/bin/${packageName}-${packageVersion}" "/usr/local/bin/${packageName}"
-            chmod a+x /usr/local/bin/${packageName}
-            rm -rf /usr/local/bin/${packageName}-* &
+        elif [ -f "/opt/bin/${packageName}-${packageVersion}" ]; then
+            mv "/opt/bin/${packageName}-${packageVersion}" "/opt/bin/${packageName}"
+            chmod a+x /opt/bin/${packageName}
+            rm -rf /opt/bin/${packageName}-* &
             return 0
         else
             echo "No binary fallback found for ${packageName} version ${packageVersion}"
@@ -1219,6 +1298,7 @@ extract_tarball() {
     local tarball="$1"
     local dest="$2"
     shift 2
+    mkdir -p "$dest"
     # Use tar options if provided, otherwise default to -xzf
     case "$tarball" in
         *.tar.gz|*.tgz)
@@ -1238,7 +1318,7 @@ get_kubernetes_tools() {
 
 function get_sandbox_image(){
     sandbox_image=$(get_sandbox_image_from_containerd_config "/etc/containerd/config.toml")
-    if [ -z "$sandbox_image" ]; then
+    if [ -z "$sandbox_image" ] && ! semverCompare ${KUBERNETES_VERSION:-"0.0.0"} "1.35.0"; then
         sandbox_image=$(extract_value_from_kubelet_flags "$KUBELET_FLAGS" "pod-infra-container-image")
     fi
 
@@ -1265,15 +1345,24 @@ function get_sandbox_image_from_containerd_config() {
 
     # Extract sandbox_image value from the CRI plugin section
     # The sandbox_image is typically under [plugins."io.containerd.grpc.v1.cri"]
-    sandbox_image=$(awk '/sandbox_image/ && /=/ {
-        # Remove quotes and spaces
-        gsub(/[" ]/, "", $3)
-        print $3
-    }' FS='=' "$config_file")
+    sandbox_image=$(
+    awk -F '=' '
+    /^[[:space:]]*(sandbox_image|sandbox)[[:space:]]*=/ {
+        val=$2
+        sub(/#.*/, "", val)
+        gsub(/^[[:space:]]*"/, "", val)
+        gsub(/"[[:space:]]*$/, "", val)
+        gsub(/^[[:space:]]+|[[:space:]]+$/, "", val)
+        print val
+    }
+    ' "$config_file"
+    )
 
     # Alternative method if the above doesn't work
     if [ -z "$sandbox_image" ]; then
-        sandbox_image=$(grep -E '^\s*sandbox_image\s*=' "$config_file" | sed 's/.*sandbox_image\s*=\s*"\([^"]*\)".*/\1/')
+        sandbox_image=$(grep -E '^[[:space:]]*(sandbox_image|sandbox)[[:space:]]*=' "$config_file" | \
+            head -n1 | \
+            sed -e 's/^[^=]*=[[:space:]]*//' -e 's/[[:space:]]*#.*//' -e 's/^"//' -e 's/"$//' -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
     fi
 
     echo "$sandbox_image"
