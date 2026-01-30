@@ -100,7 +100,8 @@ installCNI() {
     fi
     packageVersion=${PACKAGE_VERSIONS[0]}
 
-    packageName="containernetworking-plugins=${packageVersion}"
+    # - between name and vesion unlike apt which uses =
+    packageName="containernetworking-plugins-${packageVersion}"
     echo "Installing ${packageName} with dnf"
     dnf_install 30 1 600 ${packageName} || exit $ERR_CNI_VERSION_INVALID
 
