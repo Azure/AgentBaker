@@ -70,6 +70,11 @@ installCriCtlPackage() {
     stub
 }
 
+installCNI() {
+    stub
+}
+
+
 installStandaloneContainerd() {
     stub
 }
