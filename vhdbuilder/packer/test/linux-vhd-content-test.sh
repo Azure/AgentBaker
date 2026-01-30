@@ -1698,22 +1698,32 @@ testInspektorGadgetAssets() {
   echo "$test:Start"
 
   local skip_file="/etc/ig.d/skip_vhd_ig"
-  local helper_script="/usr/share/inspektor-gadget/import_gadgets.sh"
+  local import_script="/usr/share/inspektor-gadget/import_gadgets.sh"
+  local remove_script="/usr/share/inspektor-gadget/remove_gadgets.sh"
   local service_name="ig-import-gadgets.service"
   local unit_file="/usr/lib/systemd/system/${service_name}"
   local tracking_file="/var/lib/ig/imported-gadgets.txt"
 
-  # Flatcar and OSGuard do not include IG files in VHD, only install-ig.sh for sourcing
-  if [ "$OS_SKU" = "Flatcar" ] || [ "$OS_SKU" = "AzureLinuxOSGuard" ]; then
-    echo "$test: Verifying $OS_SKU has no IG files in VHD"
+  # Flatcar, OSGuard, and Kata do not include IG files in VHD
+  local is_kata=false
+  if echo "$FEATURE_FLAGS" | grep -q "kata"; then
+    is_kata=true
+  fi
+
+  if [ "$OS_SKU" = "Flatcar" ] || [ "$OS_SKU" = "AzureLinuxOSGuard" ] || [ "$is_kata" = "true" ]; then
+    echo "$test: Verifying $OS_SKU (kata=$is_kata) has no IG files in VHD"
     
-    # Verify that IG files do NOT exist for Flatcar/OSGuard
+    # Verify that IG files do NOT exist for Flatcar/OSGuard/Kata
     if [ -f "$skip_file" ]; then
       err $test "Skip file should not exist for $OS_SKU but found at $skip_file"
     fi
     
-    if [ -f "$helper_script" ]; then
-      err $test "Helper script should not exist for $OS_SKU but found at $helper_script"
+    if [ -f "$import_script" ]; then
+      err $test "Import script should not exist for $OS_SKU but found at $import_script"
+    fi
+
+    if [ -f "$remove_script" ]; then
+      err $test "Remove script should not exist for $OS_SKU but found at $remove_script"
     fi
     
     if [ -f "$unit_file" ]; then
@@ -1728,8 +1738,12 @@ testInspektorGadgetAssets() {
     err $test "Skip sentinel missing at $skip_file"
   fi
 
-  if [ ! -x "$helper_script" ]; then
-    err $test "Helper script missing or not executable at $helper_script"
+  if [ ! -x "$import_script" ]; then
+    err $test "Import script missing or not executable at $import_script"
+  fi
+
+  if [ ! -x "$remove_script" ]; then
+    err $test "Remove script missing or not executable at $remove_script"
   fi
 
   if [ ! -f "$unit_file" ]; then
@@ -1744,7 +1758,6 @@ testInspektorGadgetAssets() {
 
   echo "$test:Finish"
 }
->>>>>>> 4de7849027 (feat: add inspektor gadget)
 
 # Check that no files have a numeric UID or GID, which would indicate a file ownership issue.
 testFileOwnership() {

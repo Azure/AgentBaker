@@ -33,105 +33,6 @@ ig_locate_root_dir() {
     return 0
 }
 
-ig_extract_deb_archive() {
-    local deb_path="$1"
-    local destination="$2"
-
-    if [[ ! -f "${deb_path}" ]]; then
-        echo "[ig] Debian archive ${deb_path} not found"
-        return 1
-    fi
-
-    mkdir -p "${destination}"
-
-    local tmp_dir
-    tmp_dir="$(mktemp -d)"
-
-    if [[ ! -d "${tmp_dir}" ]]; then
-        echo "[ig] Failed to create temporary directory for extracting ${deb_path}"
-        return 1
-    fi
-
-    pushd "${tmp_dir}" >/dev/null
-
-    local -a ar_cmd
-    if command -v ar >/dev/null 2>&1; then
-        ar_cmd=(ar)
-    elif command -v busybox >/dev/null 2>&1; then
-        local busybox_has_ar=false
-        local busybox_list
-        busybox_list="$(busybox --list 2>/dev/null || true)"
-        if [[ -n "${busybox_list}" ]] && grep -qw '^ar$' <<<"${busybox_list}"; then
-            busybox_has_ar=true
-        else
-            local busybox_help
-            busybox_help="$(busybox 2>&1 || true)"
-            local busybox_words
-            busybox_words="$(printf '%s' "${busybox_help//,/ }" | tr ' ' '\n')"
-            if [[ -n "${busybox_words}" ]] && grep -qw '^ar$' <<<"${busybox_words}"; then
-                busybox_has_ar=true
-            fi
-        fi
-
-        if [[ "${busybox_has_ar}" == true ]]; then
-            ar_cmd=(busybox ar)
-        fi
-    fi
-
-    if [[ ${#ar_cmd[@]} -eq 0 ]]; then
-        echo "[ig] Neither ar nor busybox ar is available to extract ${deb_path}"
-        popd >/dev/null
-        rm -rf "${tmp_dir}"
-        return 1
-    fi
-
-    local data_member
-    if ! data_member="$(${ar_cmd[@]} t "${deb_path}" 2>/dev/null | grep -E '^data\\.tar\\.(zst|xz|gz|bz2|lzma|lz4)$' | head -n1)"; then
-        echo "[ig] Unable to list members of ${deb_path}"
-        popd >/dev/null
-        rm -rf "${tmp_dir}"
-        return 1
-    fi
-
-    if [[ -z "${data_member}" ]]; then
-        echo "[ig] Debian archive ${deb_path} does not contain a supported data.tar member"
-        popd >/dev/null
-        rm -rf "${tmp_dir}"
-        return 1
-    fi
-
-    local data_path
-    data_path="${tmp_dir}/${data_member}"
-
-    if ! ${ar_cmd[@]} p "${deb_path}" "${data_member}" > "${data_path}"; then
-        echo "[ig] Failed to extract ${data_member} from ${deb_path}"
-        popd >/dev/null
-        rm -rf "${tmp_dir}"
-        return 1
-    fi
-
-    local tar_args=(--extract --file "${data_path}" --directory "${destination}")
-
-    case "${data_member}" in
-        *.tar.zst)
-            tar_args+=(--use-compress-program unzstd)
-            ;;
-        *.tar.lz4)
-            tar_args+=(--use-compress-program unlz4)
-            ;;
-    esac
-
-    if ! tar "${tar_args[@]}"; then
-        echo "[ig] Failed to unpack ${data_member} from ${deb_path}"
-        popd >/dev/null
-        rm -rf "${tmp_dir}"
-        return 1
-    fi
-
-    popd >/dev/null
-    rm -rf "${tmp_dir}"
-}
-
 ig_extract_package_metadata() {
     local package_json="$1"
     local version="$2"
@@ -304,9 +205,6 @@ ig_install_rpm_stack() {
     ig_download_file "${ig_url}" "${ig_rpm}" || return 1
 
     local ig_gadgets_repo_suffix="azl3"
-    if [[ "${OS}" == "${AZURELINUX_OS_NAME}" ]]; then
-        ig_gadgets_repo_suffix="azl3"
-    fi
     local ig_gadgets_version_tag="${IG_VERSION}-${IG_REVISION}.${ig_gadgets_repo_suffix}"
     local ig_gadgets_rpm="${download_dir}/ig-gadgets-${ig_gadgets_version_tag}.${IG_RPM_ARCH}.rpm"
     local ig_gadgets_url="${gadgets_repo}/${rpm_arch_dir}/Packages/i/ig-gadgets-${ig_gadgets_version_tag}.${IG_RPM_ARCH}.rpm"

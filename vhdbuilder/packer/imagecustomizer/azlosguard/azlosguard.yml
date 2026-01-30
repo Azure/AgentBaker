@@ -16,32 +16,6 @@ os:
     - source: /AgentBaker/vhdbuilder/packer/install-ig.sh
       destination: /opt/azure/containers/install-ig.sh
       permissions: 744
-    - source: /AgentBaker/vhdbuilder/packer/install-ig.sh
-      destination: /home/packer/install-ig.sh
-      permissions: 744
-    # Files needed by install-dependencies.sh (sources from /home/packer/)
-    - source: /AgentBaker/parts/linux/cloud-init/artifacts/cse_install.sh
-      destination: /home/packer/provision_installs.sh
-      permissions: 744
-    - source: /AgentBaker/parts/linux/cloud-init/artifacts/azlosguard/cse_install_osguard.sh
-      destination: /home/packer/provision_installs_distro.sh
-      permissions: 744
-    - source: /AgentBaker/parts/linux/cloud-init/artifacts/cse_helpers.sh
-      destination: /home/packer/provision_source.sh
-      permissions: 744
-    - source: /AgentBaker/parts/linux/cloud-init/artifacts/cse_benchmark_functions.sh
-      destination: /home/packer/provision_source_benchmarks.sh
-      permissions: 744
-    - source: /AgentBaker/parts/linux/cloud-init/artifacts/azlosguard/cse_helpers_osguard.sh
-      destination: /home/packer/provision_source_distro.sh
-      permissions: 744
-    - source: /AgentBaker/vhdbuilder/scripts/linux/tool_installs.sh
-      destination: /home/packer/tool_installs.sh
-      permissions: 744
-    - source: /AgentBaker/vhdbuilder/packer/imagecustomizer/azlosguard/scripts/tool_installs_osguard.sh
-      destination: /home/packer/tool_installs_distro.sh
-      permissions: 744
-    # Files also needed in /opt/azure/containers/ for provisioning
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/cse_benchmark_functions.sh
       destination: /opt/azure/containers/provision_source_benchmarks.sh
       permissions: 744
@@ -54,20 +28,11 @@ os:
     - source: /AgentBaker/vhdbuilder/lister/bin/lister
       destination: /opt/azure/containers/lister
       permissions: 744
-    - source: /AgentBaker/vhdbuilder/lister/bin/lister
-      destination: /home/packer/lister
-      permissions: 744
     - source: /AgentBaker/vhdbuilder/packer/list-images.sh
       destination: /opt/azure/containers/list-images.sh
       permissions: 744
-    - source: /AgentBaker/vhdbuilder/packer/list-images.sh
-      destination: /home/packer/list-images.sh
-      permissions: 744
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/cis.sh
       destination: /opt/azure/containers/cis.sh
-      permissions: 744
-    - source: /AgentBaker/parts/linux/cloud-init/artifacts/cis.sh
-      destination: /home/packer/cis.sh
       permissions: 744
     # Build metadata
     - source: /AgentBaker/parts/common/components.json
