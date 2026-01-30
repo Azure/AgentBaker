@@ -1309,6 +1309,8 @@ func Test_AzureLinuxV3_MA35D(t *testing.T) {
 				vmss.SKU.Name = to.Ptr("Standard_NM16ads_MA35D")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateNonEmptyDirectory(ctx, s, "/sys/devices/virtual/misc/ama_transcoder0")
+				ValidateNonEmptyDirectory(ctx, s, "/opt/amd/ama/ma35/")
 				ValidateSystemdUnitIsRunning(ctx, s, "amdama-device-plugin.service")
 			},
 		},
@@ -1331,6 +1333,8 @@ func Test_AzureLinuxV3_MA35D_Scriptless(t *testing.T) {
 				vmss.SKU.Name = to.Ptr("Standard_NM16ads_MA35D")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateNonEmptyDirectory(ctx, s, "/sys/devices/virtual/misc/ama_transcoder0")
+				ValidateNonEmptyDirectory(ctx, s, "/opt/amd/ama/ma35/")
 				ValidateSystemdUnitIsRunning(ctx, s, "amdama-device-plugin.service")
 			},
 		},
