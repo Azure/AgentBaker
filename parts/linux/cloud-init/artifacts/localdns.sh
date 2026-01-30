@@ -388,46 +388,31 @@ add_iptable_rules_to_skip_conntrack_from_pods(){
     done
 }
 
-# Wait for DNS configuration to be applied after networkctl reload.
-# This function polls the resolv.conf to verify the expected DNS server is present.
+# Wait for localdns IP to be removed from resolv.conf after networkctl reload.
 # Arguments:
-#   $1: expected_dns_ip - The DNS IP that should appear in resolv.conf.
-#   $2: should_contain - "true" if the IP should be present, "false" if it should be absent.
-#   $3: max_wait_seconds - Maximum time to wait for the change (default: 10).
-wait_for_dns_config_applied() {
-    local expected_dns_ip="$1"
-    local should_contain="$2"
-    local max_wait_seconds="${3:-10}"
+#   $1: max_wait_seconds - Maximum time to wait for the change (default: 5).
+wait_for_localdns_removed_from_resolv_conf() {
+    local max_wait_seconds="${1:-5}"
     local elapsed=0
 
-    echo "Waiting for DNS configuration to be applied (expecting ${expected_dns_ip} to be ${should_contain})..."
+    echo "Waiting for localdns (${LOCALDNS_NODE_LISTENER_IP}) to be removed from resolv.conf..."
 
     while [ "$elapsed" -lt "$max_wait_seconds" ]; do
-        # Get current DNS servers from resolv.conf.
         local current_dns
         current_dns=$(awk '/^nameserver/ {print $2}' "$RESOLV_CONF" 2>/dev/null | paste -sd' ')
 
-        if [ "$should_contain" = "true" ]; then
-            # Check if the expected DNS IP is present.
-            # Use word boundary matching (-w) with fixed string (-F) to avoid partial IP matches.
-            if echo "$current_dns" | grep -qwF "$expected_dns_ip"; then
-                echo "DNS configuration applied successfully. Current DNS: ${current_dns}"
-                return 0
-            fi
-        else
-            # Check if the expected DNS IP is absent.
-            if ! echo "$current_dns" | grep -qwF "$expected_dns_ip"; then
-                echo "DNS configuration reverted successfully. Current DNS: ${current_dns}"
-                return 0
-            fi
+        # Use word boundary matching (-w) with fixed string (-F) to avoid partial IP matches.
+        if ! echo "$current_dns" | grep -qwF "$LOCALDNS_NODE_LISTENER_IP"; then
+            echo "DNS configuration reverted successfully. Current DNS: ${current_dns}"
+            return 0
         fi
 
         sleep 1
         elapsed=$((elapsed + 1))
     done
 
-    echo "Timed out waiting for DNS configuration to be applied after ${max_wait_seconds} seconds."
-    echo "Expected ${expected_dns_ip} to be ${should_contain}, current DNS: $(awk '/^nameserver/ {print $2}' "$RESOLV_CONF" 2>/dev/null | paste -sd' ')"
+    echo "Timed out waiting for localdns to be removed from resolv.conf after ${max_wait_seconds} seconds."
+    echo "Current DNS: $(awk '/^nameserver/ {print $2}' "$RESOLV_CONF" 2>/dev/null | paste -sd' ')"
     return 1
 }
 
@@ -455,14 +440,6 @@ EOF
         echo "Failed to reload networkctl."
         return 1
     fi
-
-    # Wait for the DNS configuration to be applied.
-    # This ensures systemd-resolved has updated resolv.conf before we proceed.
-    if ! wait_for_dns_config_applied "${LOCALDNS_NODE_LISTENER_IP}" "true" 10; then
-        echo "Error: DNS configuration was not applied within timeout."
-        return 1
-    fi
-
     return 0
 }
 
@@ -522,15 +499,6 @@ cleanup_iptables_and_dns() {
         return 1
     fi
     echo "Reloading network configuration succeeded."
-
-    # Wait for the DNS configuration to be reverted.
-    # This ensures systemd-resolved has removed localdns from resolv.conf before we proceed.
-    # This is called both at startup (to clean up leftover state) and during shutdown.
-    if ! wait_for_dns_config_applied "${LOCALDNS_NODE_LISTENER_IP}" "false" 10; then
-        echo "Error: DNS configuration was not reverted within timeout."
-        return 1
-    fi
-
     return 0
 }
 
@@ -679,6 +647,14 @@ initialize_network_variables || exit $ERR_LOCALDNS_FAIL
 # Clean up any existing iptables rules and DNS configuration before starting.
 # ---------------------------------------------------------------------------------------------------------------------
 cleanup_iptables_and_dns || exit $ERR_LOCALDNS_FAIL
+
+# Wait for the DNS configuration to be reverted.
+# This ensures systemd-resolved has removed localdns from resolv.conf before we proceed.
+# This is called both at startup (to clean up leftover state) and during shutdown.
+if ! wait_for_localdns_removed_from_resolv_conf 5; then
+    echo "Error: DNS configuration was not reverted within timeout."
+    exit $ERR_LOCALDNS_FAIL
+fi
 
 # Replace AzureDNSIP in corefile with VNET DNS ServerIPs.
 # ---------------------------------------------------------------------------------------------------------------------
