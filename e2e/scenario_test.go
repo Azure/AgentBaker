@@ -400,9 +400,6 @@ func Test_Ubuntu2204FIPS(t *testing.T) {
 				vmss.Properties.AdditionalCapabilities = &armcompute.AdditionalCapabilities{
 					EnableFips1403Encryption: to.Ptr(true),
 				}
-				settings := vmss.Properties.VirtualMachineProfile.ExtensionProfile.Extensions[0].Properties.ProtectedSettings
-				vmss.Properties.VirtualMachineProfile.ExtensionProfile.Extensions[0].Properties.Settings = settings
-				vmss.Properties.VirtualMachineProfile.ExtensionProfile.Extensions[0].Properties.ProtectedSettings = nil
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", components.GetExpectedPackageVersions("containerd", "ubuntu", "r2204")[0])
@@ -425,9 +422,6 @@ func Test_Ubuntu2204Gen2FIPS(t *testing.T) {
 				vmss.Properties.AdditionalCapabilities = &armcompute.AdditionalCapabilities{
 					EnableFips1403Encryption: to.Ptr(true),
 				}
-				settings := vmss.Properties.VirtualMachineProfile.ExtensionProfile.Extensions[0].Properties.ProtectedSettings
-				vmss.Properties.VirtualMachineProfile.ExtensionProfile.Extensions[0].Properties.Settings = settings
-				vmss.Properties.VirtualMachineProfile.ExtensionProfile.Extensions[0].Properties.ProtectedSettings = nil
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", components.GetExpectedPackageVersions("containerd", "ubuntu", "r2204")[0])
