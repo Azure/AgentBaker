@@ -651,7 +651,12 @@ cleanup_iptables_and_dns || exit $ERR_LOCALDNS_FAIL
 
 # During startup, wait for the DNS configuration to be fully refreshed.
 # This ensures systemd-resolved has removed localdns from resolv.conf before we read upstream DNS servers.
-# Note: the shutdown path does not invoke this wait; it only calls cleanup_iptables_and_dns.
+# The wait is necessary because networkctl reload is async - there's a delay before systemd-resolved
+# updates /run/systemd/resolve/resolv.conf. The next step (replace_azurednsip_in_corefile) reads
+# resolv.conf to get upstream DNS servers. Without this wait, we might still see 169.254.10.10
+# (localdns IP) as a nameserver, which would create a circular dependency in the corefile.
+# Note: the shutdown path does not need this wait because it doesn't read from resolv.conf afterward -
+# it just cleans up and exits, so systemd-resolved can complete the update asynchronously.
 if ! wait_for_localdns_removed_from_resolv_conf 5; then
     echo "Error: DNS configuration was not refreshed within timeout."
     exit $ERR_LOCALDNS_FAIL
