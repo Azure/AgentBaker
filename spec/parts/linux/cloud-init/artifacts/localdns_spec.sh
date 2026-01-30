@@ -1136,7 +1136,7 @@ nameserver 10.0.0.2
 EOF
             When run wait_for_localdns_removed_from_resolv_conf 5
             The status should be success
-            The stdout should include "DNS configuration reverted successfully"
+            The stdout should include "DNS configuration refreshed successfully"
             The stdout should include "Current DNS: 10.0.0.1 10.0.0.2"
         End
 
@@ -1155,7 +1155,7 @@ EOF
             > "$RESOLV_CONF"
             When run wait_for_localdns_removed_from_resolv_conf 5
             The status should be success
-            The stdout should include "DNS configuration reverted successfully"
+            The stdout should include "DNS configuration refreshed successfully"
         End
 
         It 'should use default timeout of 5 seconds when not specified'
@@ -1164,14 +1164,14 @@ nameserver 10.0.0.1
 EOF
             When run wait_for_localdns_removed_from_resolv_conf
             The status should be success
-            The stdout should include "DNS configuration reverted successfully"
+            The stdout should include "DNS configuration refreshed successfully"
         End
 
         It 'should handle resolv.conf not existing gracefully'
             rm -f "$RESOLV_CONF"
             When run wait_for_localdns_removed_from_resolv_conf 2
             The status should be success
-            The stdout should include "DNS configuration reverted successfully"
+            The stdout should include "DNS configuration refreshed successfully"
         End
 
         It 'should not match partial IP addresses'
@@ -1181,7 +1181,7 @@ EOF
             # 169.254.10.100 should NOT match 169.254.10.10
             When run wait_for_localdns_removed_from_resolv_conf 2
             The status should be success
-            The stdout should include "DNS configuration reverted successfully"
+            The stdout should include "DNS configuration refreshed successfully"
         End
 
         It 'should detect localdns IP among multiple nameservers'
@@ -1205,7 +1205,7 @@ EOF
             (sleep 2 && echo "nameserver 10.0.0.1" > "$RESOLV_CONF") &
             When run wait_for_localdns_removed_from_resolv_conf 5
             The status should be success
-            The stdout should include "DNS configuration reverted successfully"
+            The stdout should include "DNS configuration refreshed successfully"
         End
 
         It 'should ignore commented lines in resolv.conf'
@@ -1217,7 +1217,7 @@ nameserver 10.0.0.2
 EOF
             When run wait_for_localdns_removed_from_resolv_conf 2
             The status should be success
-            The stdout should include "DNS configuration reverted successfully"
+            The stdout should include "DNS configuration refreshed successfully"
         End
 
         It 'should timeout when only localdns IP is present'
@@ -1237,7 +1237,7 @@ nameserver 10.0.0.2
 EOF
             When run wait_for_localdns_removed_from_resolv_conf 2
             The status should be success
-            The stdout should include "DNS configuration reverted successfully"
+            The stdout should include "DNS configuration refreshed successfully"
         End
 
         It 'should handle resolv.conf with search and options directives'
@@ -1249,7 +1249,7 @@ options timeout:2 attempts:3
 EOF
             When run wait_for_localdns_removed_from_resolv_conf 2
             The status should be success
-            The stdout should include "DNS configuration reverted successfully"
+            The stdout should include "DNS configuration refreshed successfully"
             The stdout should include "Current DNS: 10.0.0.1 10.0.0.2"
         End
 
@@ -1258,7 +1258,7 @@ EOF
             printf "nameserver\t10.0.0.1\nnameserver   10.0.0.2\n" > "$RESOLV_CONF"
             When run wait_for_localdns_removed_from_resolv_conf 2
             The status should be success
-            The stdout should include "DNS configuration reverted successfully"
+            The stdout should include "DNS configuration refreshed successfully"
         End
     End
 End
