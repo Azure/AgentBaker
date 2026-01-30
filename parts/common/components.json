@@ -340,8 +340,8 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/cilium/cilium",
-          "latestVersion": "v1.17.7-250927",
-          "previousLatestVersion": "v1.17.7-250821"
+          "latestVersion": "v1.17.7-250821",
+          "previousLatestVersion": "v1.17.4-250610"
         }
       ],
       "windowsVersions": []
