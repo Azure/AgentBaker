@@ -403,7 +403,7 @@ wait_for_localdns_removed_from_resolv_conf() {
 
         # Use word boundary matching (-w) with fixed string (-F) to avoid partial IP matches.
         if ! echo "$current_dns" | grep -qwF "$LOCALDNS_NODE_LISTENER_IP"; then
-            echo "DNS configuration reverted successfully. Current DNS: ${current_dns}"
+            echo "DNS configuration refreshed successfully. Current DNS: ${current_dns}"
             return 0
         fi
 
