@@ -72,21 +72,20 @@ installDeps() {
 # The version used to be deteremined by RP/toggle but are now just hadcoded in vhd as they rarely change and require a node image upgrade anyways
 # Latest VHD should have the untar, older should have the tgz. And who knows will have neither.
 installCNI() {
+    echo "installing mariner containernetworking-plugins"
     # Old versions of VHDs will not have components.json. If it does not exist, we will fall back to the hardcoded download for CNI.
     # Network Isolated Cluster / Bring Your Own ACR will not work with a vhd that requres a hardcoded CNI download.
     if [ ! -f "$COMPONENTS_FILEPATH" ] || ! jq '.Packages[] | select(.name == "containernetworking-plugins")' < $COMPONENTS_FILEPATH > /dev/null; then
-        echo "WARNING: no containernetworking-plugins components present falling back to hard coded download of 1.6.2. This should error eventually"
+        echo "WARNING: no containernetworking-plugins components found in components.json"
         exit $ERR_CNI_VERSION_INVALID
     fi
 
     #always just use what is listed in components.json so we don't have to sync.
     cniPackage=$(jq ".Packages" "$COMPONENTS_FILEPATH" | jq ".[] | select(.name == \"containernetworking-plugins\")") || exit $ERR_CNI_VERSION_INVALID
 
-    #CNI doesn't really care about this but wanted to reuse updatePackageVersions which requires it.
     os=${OS}
-    os_version="current"
+    os_version="${OS_VERSION}"
     PACKAGE_VERSIONS=()
-    #will this work with default?
     updatePackageVersions "${cniPackage}" "${os}" "${os_version}"
 
     if [[ ${#PACKAGE_VERSIONS[@]} -eq 0 ]]; then
@@ -101,8 +100,7 @@ installCNI() {
     fi
     packageVersion=${PACKAGE_VERSIONS[0]}
 
-    #TODO new exit codes
-    packageName="containernetworking-plugins=${version}"
+    packageName="containernetworking-plugins=${packageVersion}"
     echo "Installing ${packageName} with dnf"
     dnf_install 30 1 600 ${packageName} || exit $ERR_CNI_VERSION_INVALID
 
