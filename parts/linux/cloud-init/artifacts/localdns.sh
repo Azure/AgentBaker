@@ -499,6 +499,7 @@ cleanup_iptables_and_dns() {
         return 1
     fi
     echo "Reloading network configuration succeeded."
+
     return 0
 }
 
