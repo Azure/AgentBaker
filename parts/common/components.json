@@ -394,15 +394,15 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=azuremonitor/containerinsights/ciprod/prometheus-collector/images",
-          "latestVersion": "6.24.1-main-11-14-2025-15146744"
+          "latestVersion": "6.24.3-main-01-28-2026-e05105c7"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=azuremonitor/containerinsights/ciprod/prometheus-collector/images",
-          "latestVersion": "6.24.1-main-11-14-2025-15146744-targetallocator"
+          "latestVersion": "6.24.3-main-01-28-2026-e05105c7-targetallocator"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=azuremonitor/containerinsights/ciprod/prometheus-collector/images",
-          "latestVersion": "6.24.1-main-11-14-2025-15146744-cfg"
+          "latestVersion": "6.24.3-main-01-28-2026-e05105c7-cfg"
         }
       ],
       "windowsVersions": []
