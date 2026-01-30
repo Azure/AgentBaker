@@ -20,7 +20,7 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-var AllowedSSHPrefixes = []string{ssh.KeyAlgoED25519, ssh.KeyAlgoRSA}
+var AllowedSSHPrefixes = []string{ssh.KeyAlgoED25519, ssh.KeyAlgoRSA, ssh.KeyAlgoRSASHA256, ssh.KeyAlgoRSASHA512}
 
 type Bastion struct {
 	credential                                 *azidentity.AzureCLICredential

@@ -1,57 +1,20 @@
-**What type of PR is this?**
-
 <!--
-Add one of the following kinds:
-/kind bug
-/kind test
-/kind cleanup
-/kind documentation
-/kind feature
-/kind design
-
-Optionally add one or more of the following kinds if applicable:
-/kind api-change
-/kind deprecation
-/kind failing-test
-/kind flake
-/kind regression
+Pull Request Requirements - PLEASE READ BEFORE CREATING A PR AGAINST Azure/AgentBaker:
+1. Pull requests MUST NOT come from personal forks. PRs will only be accepted from branches created directly off Azure/AgentBaker.
+   You'll need to gain write access to Azure/AgentBaker by requesting membership to the GitHub team: https://github.com/orgs/Azure/teams/agentbakerwrite/.
+   Note that to gain access to this team, you must be a member of the Azure GitHub organization: https://github.com/Azure.
+2. All commits must be signed by a GPG key and marked as "Verified" by GitHub. Refer to https://github.com/Azure/AgentBaker/blob/main/CONTRIBUTING.md for more details regarding
+   setting up a GPG key for your own account.
+3. Pull request titles must adhere to our tailored version of the conventional commit messages policy: https://www.conventionalcommits.org/. For specifics on
+   how pull request titles will be validated, refer to our lint workflow definition: https://github.com/Azure/AgentBaker/blob/main/.github/workflows/pr-lint.yaml.
+4. Read up on the contributor guidance outlined within the repo root: https://github.com/Azure/AgentBaker/tree/main?tab=readme-ov-file#contributing.
 -->
 
 **What this PR does / why we need it**:
 
 **Which issue(s) this PR fixes**:
-<!-- 
+<!--
 *Automatically closes linked issue when PR is merged.
 Usage: `Fixes #<issue number>`, or `Fixes (paste link of issue)`.
-_If PR is about `failing-tests or flakes`, please post the related issues/tests in a comment and do not use `Fixes`_*
 -->
 Fixes #
-
-**Requirements**:
-
-- [ ] uses [conventional commit messages](https://www.conventionalcommits.org/)
-  <!-- Common commit types:
-        build: Build 🏭
-        chore: Maintenance 🔧
-        ci: Continuous Integration 💜
-        docs: Documentation 📘
-        feat: Features 🌈
-        fix: Bug Fixes 🐞
-        perf: Performance Improvements 🚀
-        refactor: Code Refactoring 💎
-        revert: Revert Change ◀️
-        style: Code Style 🎶
-        security: Security Fix 🛡️
-        test: Testing 💚 -->
-- [ ] includes documentation
-- [ ] adds unit tests
-- [ ] tested upgrade from previous version
-- [ ] commits are GPG signed and Github marks them as verified
-
-**Special notes for your reviewer**:
-
-**Release note**:
-
-```
-none
-```

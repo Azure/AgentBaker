@@ -74,13 +74,11 @@ func compileAKSNodeController(ctx context.Context, arch string) (*os.File, error
 	return f, nil
 }
 
-func ConfigureAndCreateVMSS(ctx context.Context, s *Scenario) *ScenarioVM {
+func ConfigureAndCreateVMSS(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 	vm, err := CreateVMSSWithRetry(ctx, s)
 	skipTestIfSKUNotAvailableErr(s.T, err)
-	// fail test, but continue to extract debug information
-	require.NoError(s.T, err, "create vmss %q, check %s for vm logs", s.Runtime.VMSSName, testDir(s.T))
 
-	return vm
+	return vm, err
 }
 
 // CustomDataWithHack is similar to nodeconfigutils.CustomData, but it uses a hack to run new aks-node-controller binary
@@ -293,6 +291,13 @@ func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*Sc
 	s.T.Log(result)
 
 	vmssResp, err := operation.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
+	if !s.Config.SkipSSHConnectivityValidation {
+		var bastErr error
+		vm.SSHClient, bastErr = DialSSHOverBastion(ctx, s.Runtime.Cluster.Bastion, vm.PrivateIP, config.VMSSHPrivateKey)
+		if bastErr != nil {
+			return vm, fmt.Errorf("failed to start bastion tunnel: %w", bastErr)
+		}
+	}
 	if err != nil {
 		return vm, err
 	}
@@ -301,13 +306,6 @@ func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*Sc
 	err = waitForVMRunningState(ctx, s, vm.VM)
 	if err != nil {
 		return vm, fmt.Errorf("failed to wait for VM to reach running state: %w", err)
-	}
-
-	if !s.Config.SkipSSHConnectivityValidation {
-		vm.SSHClient, err = DialSSHOverBastion(ctx, s.Runtime.Cluster.Bastion, vm.PrivateIP, config.VMSSHPrivateKey)
-		if err != nil {
-			return vm, fmt.Errorf("failed to start bastion tunnel: %w", err)
-		}
 	}
 
 	return &ScenarioVM{
@@ -550,8 +548,13 @@ func extractLogsFromVMLinux(ctx context.Context, s *Scenario, vm *ScenarioVM) er
 		"cluster-provision-cse-output.log": "sudo cat /var/log/azure/cluster-provision-cse-output.log",
 		"sysctl-out.log":                   "sudo sysctl -a",
 		"aks-node-controller.log":          "sudo cat /var/log/azure/aks-node-controller.log",
-		"syslog":                           "sudo cat /var/log/" + syslogHandle,
-		"journalctl":                       "sudo journalctl --boot=0 --no-pager",
+		"aks-node-controller-config.json":  "sudo cat /opt/azure/containers/aks-node-controller-config.json", // Only available in Scriptless.
+
+		// Only available in Scriptless. By default, e2e enables aks-node-controller-hack, so this is the actual config used. Only in e2e. Not used in production.
+		"aks-node-controller-config-hack.json": "sudo cat /opt/azure/containers/aks-node-controller-config-hack.json",
+		"syslog":                               "sudo cat /var/log/" + syslogHandle,
+		"journalctl":                           "sudo journalctl --boot=0 --no-pager",
+		"azure.json":                           "sudo cat /etc/kubernetes/azure.json",
 	}
 	if s.SecureTLSBootstrappingEnabled() {
 		commandList["secure-tls-bootstrap.log"] = "sudo cat /var/log/azure/aks/secure-tls-bootstrap.log"
@@ -892,7 +895,7 @@ func getBaseVMSSModel(s *Scenario, customData, cseCmd string) armcompute.Virtual
 					Properties: &armcompute.VirtualMachineScaleSetExtensionProperties{
 						Publisher:               to.Ptr("Microsoft.Azure.Extensions"),
 						Type:                    to.Ptr("CustomScript"),
-						TypeHandlerVersion:      to.Ptr("2.0"),
+						TypeHandlerVersion:      to.Ptr("2.1"),
 						AutoUpgradeMinorVersion: to.Ptr(true),
 						Settings:                map[string]interface{}{},
 						ProtectedSettings: map[string]interface{}{
