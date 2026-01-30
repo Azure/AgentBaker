@@ -1194,5 +1194,71 @@ EOF
             The status should be failure
             The stdout should include "Timed out waiting for localdns to be removed"
         End
+
+        It 'should succeed when localdns IP is removed during wait (async removal)'
+            # Start with localdns IP present
+            cat > "$RESOLV_CONF" <<EOF
+nameserver 169.254.10.10
+nameserver 10.0.0.1
+EOF
+            # Create background process that removes localdns IP after 2 seconds
+            (sleep 2 && echo "nameserver 10.0.0.1" > "$RESOLV_CONF") &
+            When run wait_for_localdns_removed_from_resolv_conf 5
+            The status should be success
+            The stdout should include "DNS configuration reverted successfully"
+        End
+
+        It 'should ignore commented lines in resolv.conf'
+            cat > "$RESOLV_CONF" <<EOF
+# nameserver 169.254.10.10
+nameserver 10.0.0.1
+# This is a comment
+nameserver 10.0.0.2
+EOF
+            When run wait_for_localdns_removed_from_resolv_conf 2
+            The status should be success
+            The stdout should include "DNS configuration reverted successfully"
+        End
+
+        It 'should timeout when only localdns IP is present'
+            cat > "$RESOLV_CONF" <<EOF
+nameserver 169.254.10.10
+EOF
+            When run wait_for_localdns_removed_from_resolv_conf 2
+            The status should be failure
+            The stdout should include "Timed out waiting for localdns to be removed"
+        End
+
+        It 'should handle IPv6 nameservers mixed with IPv4'
+            cat > "$RESOLV_CONF" <<EOF
+nameserver 10.0.0.1
+nameserver 2001:4860:4860::8888
+nameserver 10.0.0.2
+EOF
+            When run wait_for_localdns_removed_from_resolv_conf 2
+            The status should be success
+            The stdout should include "DNS configuration reverted successfully"
+        End
+
+        It 'should handle resolv.conf with search and options directives'
+            cat > "$RESOLV_CONF" <<EOF
+search example.com local
+nameserver 10.0.0.1
+nameserver 10.0.0.2
+options timeout:2 attempts:3
+EOF
+            When run wait_for_localdns_removed_from_resolv_conf 2
+            The status should be success
+            The stdout should include "DNS configuration reverted successfully"
+            The stdout should include "Current DNS: 10.0.0.1 10.0.0.2"
+        End
+
+        It 'should handle whitespace variations in resolv.conf'
+            # Use tabs and extra spaces
+            printf "nameserver\t10.0.0.1\nnameserver   10.0.0.2\n" > "$RESOLV_CONF"
+            When run wait_for_localdns_removed_from_resolv_conf 2
+            The status should be success
+            The stdout should include "DNS configuration reverted successfully"
+        End
     End
 End
