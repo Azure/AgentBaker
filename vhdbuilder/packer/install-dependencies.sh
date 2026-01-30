@@ -377,8 +377,8 @@ while IFS= read -r p; do
       done
       ;;
     "inspektor-gadget")
-      if isFlatcar "$OS" || isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
-        echo "Skipping inspektor-gadget installation for ${OS} ${OS_VARIANT:-default}"
+      if isFlatcar "$OS" || isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || [ "${IS_KATA}" = "true" ]; then
+        echo "Skipping inspektor-gadget installation for ${OS} ${OS_VARIANT:-default} (IS_KATA=${IS_KATA})"
       else
         ig_version="${PACKAGE_VERSIONS[0]}"
         # installIG is defined in install-ig.sh

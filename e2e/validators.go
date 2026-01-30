@@ -439,14 +439,13 @@ func ValidateInspektorGadget(ctx context.Context, s *Scenario) {
 	s.T.Logf("Validating ig image list shows imported gadgets")
 	result := execScriptOnVMForScenario(ctx, s, "sudo ig image list")
 	if result.exitCode != "0" {
-		s.T.Fatalf("ig image list failed with exit code %s, stderr: %s", result.exitCode, result.stderr.String())
+		s.T.Fatalf("ig image list failed with exit code %s, stderr: %s", result.exitCode, result.stderr)
 	}
 	// Check that output is not empty (should list at least one gadget)
-	stdout := result.stdout.String()
-	if len(stdout) == 0 {
+	if len(result.stdout) == 0 {
 		s.T.Fatal("ig image list returned empty output, expected at least one imported gadget")
 	}
-	s.T.Logf("ig image list output:\n%s", stdout)
+	s.T.Logf("ig image list output:\n%s", result.stdout)
 
 	// Run a simple gadget as a functional test
 	s.T.Logf("Running functional test with trace_exec gadget")
