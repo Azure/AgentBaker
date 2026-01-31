@@ -1181,6 +1181,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return profile.GetLocalDNSMemoryLimitInMB()
 		},
 		"GetPreProvisionOnly": func() bool { return config.PreProvisionOnly },
+		"GetCSETimeout":       func() string { return config.GetCSETimeout() },
 		"BlockIptables": func() bool {
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.BlockIptables
 		},

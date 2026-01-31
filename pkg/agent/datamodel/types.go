@@ -11,6 +11,7 @@ import (
 	"math/rand"
 	neturl "net/url"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -1771,10 +1772,24 @@ type NodeBootstrappingConfiguration struct {
 	// PreProvisionOnly creates a pre-provisioned image for later node spawning.
 	// Skips kubelet and some component configuration for image capture scenarios.
 	PreProvisionOnly bool
+
+	// CSETimeoutInMinutes specifies the timeout execution in minutes.
+	CSETimeoutInMinutes string
 }
 
 func (config *NodeBootstrappingConfiguration) IsFlatcar() bool {
 	return config.OSSKU == OSSKUFlatcar || config.AgentPoolProfile.IsFlatcar()
+}
+
+func (config *NodeBootstrappingConfiguration) GetCSETimeout() string {
+	if config.CSETimeoutInMinutes == "" {
+		return DefaultCSETimeoutInMinutes
+	}
+	cseTimeoutInMinutes, err := strconv.ParseInt(config.CSETimeoutInMinutes, 10, 32)
+	if err != nil || cseTimeoutInMinutes <= 0 || cseTimeoutInMinutes > MaxCSETimeoutInMinutes {
+		return DefaultCSETimeoutInMinutes
+	}
+	return config.CSETimeoutInMinutes + "m"
 }
 
 type SSHStatus int

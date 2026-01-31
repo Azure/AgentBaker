@@ -32,6 +32,7 @@ import (
 	"github.com/Azure/agentbaker/aks-node-controller/helpers"
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Azure/agentbaker/pkg/agent"
+	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
@@ -803,3 +804,24 @@ func getLocalDnsMemoryLimitInMb(aksnodeconfig *aksnodeconfigv1.Configuration) st
 }
 
 // ---------------------- End of localdns related helper code ----------------------//
+
+// ---------------------- Start of cse timeout helper code ----------------------//
+
+// getCSETimeout returns the CSE timeout value in minutes,
+// if empty or invalid value is provided, it returns the default timeout value of 15minutes.
+// Maximum allowed timeout is 360 minutes or 6 hours.
+func getCSETimeout(aksnodeconfig *aksnodeconfigv1.Configuration) string {
+	if aksnodeconfig == nil {
+		return datamodel.DefaultCSETimeoutInMinutes
+	}
+	if aksnodeconfig.GetCseTimeoutInMinutes() == "" {
+		return datamodel.DefaultCSETimeoutInMinutes
+	}
+	cseTimeoutInMinutes, err := strconv.ParseInt(aksnodeconfig.GetCseTimeoutInMinutes(), 10, 32)
+	if err != nil || cseTimeoutInMinutes <= 0 || cseTimeoutInMinutes > datamodel.MaxCSETimeoutInMinutes {
+		return datamodel.DefaultCSETimeoutInMinutes
+	}
+	return aksnodeconfig.GetCseTimeoutInMinutes() + "m"
+}
+
+// ---------------------- End of cse timeout helper code ----------------------//
