@@ -645,6 +645,16 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/configure-azure-network.sh",
+      "destination": "/home/packer/configure-azure-network.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/99-azure-network.rules",
+      "destination": "/home/packer/99-azure-network.rules"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/10_azure_nvidia",
       "destination": "/home/packer/10_azure_nvidia"
     },
