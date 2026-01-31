@@ -45,7 +45,7 @@ variables:
   - group: build_performance
   - group: aks-vuln-to-kusto-tme
   - name: TAGS_TO_SKIP
-    value: gpu=true,os=windows
+    value: ""
 
 stages:
   - stage: build
