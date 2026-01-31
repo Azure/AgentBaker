@@ -33,7 +33,7 @@ jobs:
             bash .pipelines/scripts/e2e_run.sh
         displayName: Run AgentBaker E2E
         env:
-          E2E_SUBSCRIPTION_ID: $(E2E_SUBSCRIPTION_ID)
+          E2E_SUBSCRIPTION_ID: "4f3dc0e4-0c77-40ff-bf9a-6ade1e3048ef"
           SYS_SSH_PUBLIC_KEY: $(SYS_SSH_PUBLIC_KEY)
           SYS_SSH_PRIVATE_KEY_B64: $(SYS_SSH_PRIVATE_KEY_B64)
           BUILD_SRC_DIR: $(System.DefaultWorkingDirectory)
