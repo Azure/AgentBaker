@@ -82,14 +82,17 @@ package components
 }
 
 #DownloadURIs: {
-	default?:          #DefaultOSDistro
-	ubuntu?:           #UbuntuOSDistro
-	mariner?:          #MarinerOSDistro
-	marinerkata?:      #MarinerOSDistro
-	azurelinux?:       #AzureLinuxOSDistro
-	azurelinuxkata?:   #AzureLinuxOSDistro
-	windows?:          #WindowsOsDistro
-	flatcar?:          #FlatcarOSDistro
+	default?:              #DefaultOSDistro
+	ubuntu?:               #UbuntuOSDistro
+	mariner?:              #MarinerOSDistro
+	marinerkata?:          #MarinerOSDistro
+	azurelinux?:           #AzureLinuxOSDistro
+	"azurelinux/DEFAULT"?: #AzureLinuxOSDistro
+	"azurelinux/OSGUARD"?: #AzureLinuxOSDistro
+	azurelinux?:           #AzureLinuxOSDistro
+	azurelinuxkata?:       #AzureLinuxOSDistro
+	windows?:              #WindowsOsDistro
+	flatcar?:              #FlatcarOSDistro
 }
 
 #Package: {

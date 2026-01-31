@@ -942,6 +942,16 @@
             ],
             "downloadURL": "https://github.com/oras-project/oras/releases/download/v${version}/oras_${version}_linux_${CPU_ARCH}.tar.gz"
           }
+        },
+        "azurelinux/OSGUARD": {
+          "v3.0": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "<SKIP>"
+              }
+            ]
+          }
         }
       }
     },
@@ -1068,6 +1078,16 @@
               {
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/base/x86_64/repodata, name=containerd2, os=azurelinux, release=3.0",
                 "latestVersion": "2.0.0-16.azl3"
+              }
+            ]
+          }
+        },
+        "azurelinux/OSGUARD": {
+          "v3.0": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "<SKIP>"
               }
             ]
           }
@@ -1681,7 +1701,7 @@
             ]
           }
         },
-        "azurelinux": {
+        "azurelinux/DEFAULT": {
           "v3.0": {
             "versionsV2": [
               {
@@ -1715,7 +1735,7 @@
             ]
           }
         },
-        "azurelinux": {
+        "azurelinux/DEFAULT": {
           "v3.0": {
             "versionsV2": [
               {
@@ -1749,7 +1769,7 @@
             ]
           }
         },
-        "azurelinux": {
+        "azurelinux/DEFAULT": {
           "v3.0": {
             "versionsV2": [
               {
