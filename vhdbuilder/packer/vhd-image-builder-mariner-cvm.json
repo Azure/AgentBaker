@@ -330,6 +330,16 @@
     },
     {
       "type": "file",
+      "source": "vhdbuilder/packer/install-ig.sh",
+      "destination": "/home/packer/install-ig.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/inspektor-gadget",
+      "destination": "/home/packer/inspektor-gadget"
+    },
+    {
+      "type": "file",
       "source": "vhdbuilder/packer/install-dependencies.sh",
       "destination": "/home/packer/install-dependencies.sh"
     },

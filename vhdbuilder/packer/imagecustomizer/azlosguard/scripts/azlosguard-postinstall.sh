@@ -73,6 +73,7 @@ rm /home/packer/tool_installs_distro.sh
 rm /home/packer/lister
 rm /home/packer/list-images.sh
 rm /home/packer/cis.sh
+rm /home/packer/install-ig.sh
 rm /home/packer
 
 chage -I -1 -M -1 root
