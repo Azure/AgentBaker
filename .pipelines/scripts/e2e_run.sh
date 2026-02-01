@@ -13,7 +13,7 @@ set -euo pipefail
 
 # In addition, the e2e test framework reads a whole lot of environment variables.
 # These are defined in: e2e/config/config.go
-E2E_SUBSCRIPTION_ID="4f3dc0e4-0c77-40ff-bf9a-6ade1e3048ef"
+
 az account set -s "${E2E_SUBSCRIPTION_ID}"
 echo "Using subscription ${E2E_SUBSCRIPTION_ID} for e2e tests"
 
