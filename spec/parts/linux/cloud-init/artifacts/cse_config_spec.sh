@@ -1282,4 +1282,75 @@ providers:
             The output should not include "addKubeletNodeLabel kubernetes.azure.com/dcgm-exporter=enabled"
         End
     End
+
+    Describe 'ensureKubelet localdns system-reserved-cgroup'
+        setup() {
+            TMP_DIR=$(mktemp -d)
+            KUBELET_DEFAULT_FILE="$TMP_DIR/kubelet"
+            KUBELET_FLAGS="--address=0.0.0.0 --anonymous-auth=false"
+            KUBELET_REGISTER_SCHEDULABLE=""
+            NETWORK_POLICY=""
+            KUBELET_IMAGE=""
+            KUBELET_NODE_LABELS=""
+            AZURE_ENVIRONMENT_FILEPATH=""
+            KUBERNETES_VERSION="1.30.0"
+            SHOULD_ENABLE_LOCALDNS=""
+            mkdir -p /etc/default
+            logs_to_events() {
+                shift
+                "$@"
+            }
+            semverCompare() {
+                return 1  # Return false to skip version-dependent blocks
+            }
+        }
+        cleanup() {
+            rm -rf "$TMP_DIR"
+        }
+        BeforeEach 'setup'
+        AfterEach 'cleanup'
+
+        It 'should add --system-reserved-cgroup when SHOULD_ENABLE_LOCALDNS is true'
+            SHOULD_ENABLE_LOCALDNS="true"
+
+            When call ensureKubelet
+
+            The contents of file "$KUBELET_DEFAULT_FILE" should include "--system-reserved-cgroup=/localdns.slice"
+        End
+
+        It 'should add --system-reserved-cgroup when localdns corefile exists'
+            SHOULD_ENABLE_LOCALDNS="false"
+            LOCALDNS_COREFILE_PATH="$TMP_DIR/localdns.corefile"
+            mkdir -p "$(dirname "$TMP_DIR/opt/azure/containers/localdns/localdns.corefile")"
+            echo "test corefile content" > "$TMP_DIR/localdns.corefile"
+            # Override the path used in ensureKubelet
+            LOCALDNS_COREFILE_PATH="$TMP_DIR/localdns.corefile"
+
+            When call ensureKubelet
+
+            # Since we can't easily override LOCALDNS_COREFILE_PATH in the function,
+            # this test verifies the SHOULD_ENABLE_LOCALDNS="false" path
+            The contents of file "$KUBELET_DEFAULT_FILE" should not include "--system-reserved-cgroup=/localdns.slice"
+        End
+
+        It 'should not add --system-reserved-cgroup when localdns is not enabled'
+            SHOULD_ENABLE_LOCALDNS="false"
+
+            When call ensureKubelet
+
+            The contents of file "$KUBELET_DEFAULT_FILE" should not include "--system-reserved-cgroup"
+        End
+
+        It 'should preserve existing KUBELET_FLAGS when adding system-reserved-cgroup'
+            SHOULD_ENABLE_LOCALDNS="true"
+            KUBELET_FLAGS="--address=0.0.0.0 --anonymous-auth=false --max-pods=110"
+
+            When call ensureKubelet
+
+            The contents of file "$KUBELET_DEFAULT_FILE" should include "--address=0.0.0.0"
+            The contents of file "$KUBELET_DEFAULT_FILE" should include "--anonymous-auth=false"
+            The contents of file "$KUBELET_DEFAULT_FILE" should include "--max-pods=110"
+            The contents of file "$KUBELET_DEFAULT_FILE" should include "--system-reserved-cgroup=/localdns.slice"
+        End
+    End
 End

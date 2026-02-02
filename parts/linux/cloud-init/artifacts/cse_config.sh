@@ -627,6 +627,14 @@ WatchdogSec=60s
 EOF
     fi
 
+    # When localdns is enabled, set --system-reserved-cgroup to localdns.slice to protect its CPU resource allocation.
+    # This ensures kubelet accounts for localdns resource usage as part of system reserved resources.
+    # Check both SHOULD_ENABLE_LOCALDNS (scriptless path) and corefile existence (non-scriptless path).
+    LOCALDNS_COREFILE_PATH="/opt/azure/containers/localdns/localdns.corefile"
+    if [ "${SHOULD_ENABLE_LOCALDNS}" = "true" ] || { [ -f "${LOCALDNS_COREFILE_PATH}" ] && [ -s "${LOCALDNS_COREFILE_PATH}" ]; }; then
+        KUBELET_FLAGS="${KUBELET_FLAGS} --system-reserved-cgroup=/localdns.slice"
+    fi
+
     echo "KUBELET_FLAGS=${KUBELET_FLAGS}" > "${KUBELET_DEFAULT_FILE}"
     echo "KUBELET_REGISTER_SCHEDULABLE=true" >> "${KUBELET_DEFAULT_FILE}"
     echo "NETWORK_POLICY=${NETWORK_POLICY}" >> "${KUBELET_DEFAULT_FILE}"
