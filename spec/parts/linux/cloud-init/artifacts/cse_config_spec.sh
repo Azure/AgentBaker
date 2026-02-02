@@ -830,7 +830,7 @@ providers:
         End
     End
 
-    Describe 'shouldEnableLocalDns'
+    Describe 'enableLocalDNSForScriptless'
         setup() {
             TMP_DIR=$(mktemp -d)
             LOCALDNS_COREFILE="$TMP_DIR/localdns.corefile"
