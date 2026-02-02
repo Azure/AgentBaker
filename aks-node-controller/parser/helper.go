@@ -596,6 +596,9 @@ func getDisableSSH(v *aksnodeconfigv1.Configuration) bool {
 	return !v.GetEnableSsh()
 }
 
+// getKubeletFlags returns the kubelet command-line flags as a string.
+// When kubelet_cmd_flags is present, it takes precedence and is returned as-is (raw string).
+// Otherwise, it falls back to constructing flags from the kubelet_flags map (sorted key-value pairs).
 func getKubeletFlags(kubeletConfig *aksnodeconfigv1.KubeletConfig) string {
 	if kubeletConfig.GetKubeletCmdFlags() != "" {
 		return kubeletConfig.GetKubeletCmdFlags()
