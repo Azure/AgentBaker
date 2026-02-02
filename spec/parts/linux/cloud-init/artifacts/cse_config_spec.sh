@@ -789,7 +789,7 @@ providers:
     Describe 'enableLocalDNS'
         setup() {
             TMP_DIR=$(mktemp -d)
-            LOCALDNS_CORE_FILE="$TMP_DIR/localdns.corefile"
+            LOCALDNS_COREFILE="$TMP_DIR/localdns.corefile"
 
             systemctlEnableAndStart() {
                 echo "systemctlEnableAndStart $@"
@@ -803,7 +803,7 @@ providers:
         AfterEach 'cleanup'
 
         It 'should enable localdns successfully'
-            echo 'localdns corefile' > "$LOCALDNS_CORE_FILE"
+            echo 'localdns corefile' > "$LOCALDNS_COREFILE"
             When call enableLocalDNS
             The status should be success
             The output should include "localdns should be enabled."
@@ -811,14 +811,14 @@ providers:
         End
 
         It 'should skip enabling localdns if corefile is not created'
-            rm -rf "$LOCALDNS_CORE_FILE"
+            rm -rf "$LOCALDNS_COREFILE"
             When call enableLocalDNS
             The status should be success
             The output should include "localdns should not be enabled."
         End
 
         It 'should return error when systemctl fails to start localdns'
-            echo 'localdns corefile' > "$LOCALDNS_CORE_FILE"
+            echo 'localdns corefile' > "$LOCALDNS_COREFILE"
             systemctlEnableAndStart() {
                 echo "systemctlEnableAndStart $@"
                 return 1
