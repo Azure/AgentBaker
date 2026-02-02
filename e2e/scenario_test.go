@@ -1496,6 +1496,8 @@ func Test_AzureLinuxV3_GPU(t *testing.T) {
 				nbc.ConfigGPUDriverIfNeeded = true
 				nbc.EnableGPUDevicePluginIfNeeded = false
 				nbc.EnableNvidia = true
+				nbc.GPUInstanceProfile = "MIG1g"
+				nbc.MigStrategy = "Single"
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_ND96isr_H100_v5")
