@@ -10,40 +10,49 @@ Describe 'aks-hosts-setup.sh'
             export HOSTS_FILE="${TEST_DIR}/hosts.testing"
 
             # Create a modified version of the script that uses our test HOSTS_FILE
-            # and sources our mocked dig function
+            # and sources our mocked nslookup function
             TEST_SCRIPT="${TEST_DIR}/aks-hosts-setup-test.sh"
 
-            # Create mock dig function file
-            cat > "${TEST_DIR}/mock_dig.sh" << 'MOCK_EOF'
-dig() {
-    local domain="${@: -1}"
+            # Create mock nslookup function file
+            cat > "${TEST_DIR}/mock_nslookup.sh" << 'MOCK_EOF'
+nslookup() {
     local record_type=""
+    local domain=""
     for arg in "$@"; do
-        if [[ "$arg" == "A" ]]; then
+        if [[ "$arg" == "-type=A" ]]; then
             record_type="A"
-        elif [[ "$arg" == "AAAA" ]]; then
+        elif [[ "$arg" == "-type=AAAA" ]]; then
             record_type="AAAA"
+        elif [[ "$arg" != -* ]]; then
+            domain="$arg"
         fi
     done
 
+    # Simulate nslookup output format
+    echo "Server:		127.0.0.53"
+    echo "Address:	127.0.0.53#53"
+    echo ""
+    echo "Non-authoritative answer:"
+    echo "Name:	${domain}"
+
     case "$record_type" in
         A)
-            echo "1.2.3.4"
-            echo "5.6.7.8"
+            echo "Address: 1.2.3.4"
+            echo "Address: 5.6.7.8"
             ;;
         AAAA)
-            echo "2001:db8::1"
-            echo "2001:db8::2"
+            echo "Address: 2001:db8::1"
+            echo "Address: 2001:db8::2"
             ;;
     esac
 }
-export -f dig
+export -f nslookup
 MOCK_EOF
 
             # Create test script that overrides HOSTS_FILE before running the main logic
             cat > "${TEST_SCRIPT}" << EOF
 #!/bin/bash
-source "${TEST_DIR}/mock_dig.sh"
+source "${TEST_DIR}/mock_nslookup.sh"
 HOSTS_FILE="${HOSTS_FILE}"
 EOF
             # Append the original script content, skipping the shebang and HOSTS_FILE declaration
@@ -117,18 +126,22 @@ EOF
             export HOSTS_FILE="${TEST_DIR}/hosts.testing"
             TEST_SCRIPT="${TEST_DIR}/aks-hosts-setup-test.sh"
 
-            # Create mock dig function that returns nothing (simulating DNS failure)
-            cat > "${TEST_DIR}/mock_dig.sh" << 'MOCK_EOF'
-dig() {
-    # Return nothing - simulating DNS failure
+            # Create mock nslookup function that returns nothing (simulating DNS failure)
+            cat > "${TEST_DIR}/mock_nslookup.sh" << 'MOCK_EOF'
+nslookup() {
+    # Return empty response - simulating DNS failure
+    echo "Server:		127.0.0.53"
+    echo "Address:	127.0.0.53#53"
+    echo ""
+    echo "** server can't find domain: NXDOMAIN"
     return 0
 }
-export -f dig
+export -f nslookup
 MOCK_EOF
 
             cat > "${TEST_SCRIPT}" << EOF
 #!/bin/bash
-source "${TEST_DIR}/mock_dig.sh"
+source "${TEST_DIR}/mock_nslookup.sh"
 HOSTS_FILE="${HOSTS_FILE}"
 EOF
             tail -n +8 "${SCRIPT_PATH}" >> "${TEST_SCRIPT}"

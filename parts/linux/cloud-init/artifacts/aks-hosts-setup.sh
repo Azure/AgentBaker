@@ -34,10 +34,10 @@ HOSTS_CONTENT="# AKS critical FQDN addresses resolved at $(date)
 for DOMAIN in "${CRITICAL_FQDNS[@]}"; do
     echo "Resolving addresses for ${DOMAIN}..."
 
-    # Get IPv4 addresses (A records)
-    IPV4_ADDRS=$(dig +short A "${DOMAIN}" 2>/dev/null | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' || true)
-    # Get IPv6 addresses (AAAA records)
-    IPV6_ADDRS=$(dig +short AAAA "${DOMAIN}" 2>/dev/null | grep -E '^[0-9a-fA-F:]+$' || true)
+    # Get IPv4 addresses using nslookup - parse "Address: x.x.x.x" lines (skip the server address)
+    IPV4_ADDRS=$(nslookup -type=A "${DOMAIN}" 2>/dev/null | awk '/^Address: / && !/^Address: .*#/ {print $2}' | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' || true)
+    # Get IPv6 addresses using nslookup - parse "Address: xxxx::" lines
+    IPV6_ADDRS=$(nslookup -type=AAAA "${DOMAIN}" 2>/dev/null | awk '/^Address: / && !/^Address: .*#/ {print $2}' | grep -E '^[0-9a-fA-F:]+$' || true)
 
     # Check if we got any results for this domain
     if [[ -z "${IPV4_ADDRS}" ]] && [[ -z "${IPV6_ADDRS}" ]]; then
