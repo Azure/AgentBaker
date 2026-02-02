@@ -597,6 +597,9 @@ func getDisableSSH(v *aksnodeconfigv1.Configuration) bool {
 }
 
 func getKubeletFlags(kubeletConfig *aksnodeconfigv1.KubeletConfig) string {
+	if kubeletConfig.GetKubeletCmdFlags() != "" {
+		return kubeletConfig.GetKubeletCmdFlags()
+	}
 	return createSortedKeyValuePairs(kubeletConfig.GetKubeletFlags(), " ")
 }
 
