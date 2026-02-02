@@ -2,6 +2,12 @@
 NODE_INDEX=$(hostname | tail -c 2)
 NODE_NAME=$(hostname)
 
+# localdns corefile is created only when localdns profile has state enabled.
+# This should match with 'path' defined in parts/linux/cloud-init/nodecustomdata.yml.
+LOCALDNS_COREFILE="/opt/azure/containers/localdns/localdns.corefile"
+# localdns slice file used by localdns systemd unit.
+LOCALDNS_SLICEFILE="/etc/systemd/system/localdns.slice"
+
 configureAdminUser(){
     chage -E -1 -I -1 -m 0 -M 99999 "${ADMINUSER}"
     chage -l "${ADMINUSER}"
@@ -630,8 +636,7 @@ EOF
     # When localdns is enabled, set --system-reserved-cgroup to localdns.slice to protect its CPU resource allocation.
     # This ensures kubelet accounts for localdns resource usage as part of system reserved resources.
     # Check both SHOULD_ENABLE_LOCALDNS (scriptless path) and corefile existence (non-scriptless path).
-    LOCALDNS_COREFILE_PATH="/opt/azure/containers/localdns/localdns.corefile"
-    if [ "${SHOULD_ENABLE_LOCALDNS}" = "true" ] || { [ -f "${LOCALDNS_COREFILE_PATH}" ] && [ -s "${LOCALDNS_COREFILE_PATH}" ]; }; then
+    if [ "${SHOULD_ENABLE_LOCALDNS}" = "true" ] || { [ -f "${LOCALDNS_COREFILE}" ] && [ -s "${LOCALDNS_COREFILE}" ]; }; then
         KUBELET_FLAGS="${KUBELET_FLAGS} --system-reserved-cgroup=/localdns.slice"
     fi
 
@@ -1153,9 +1158,6 @@ setKubeletNodeIPFlag() {
     fi
 }
 
-# localdns corefile is created only when localdns profile has state enabled.
-# This should match with 'path' defined in parts/linux/cloud-init/nodecustomdata.yml.
-LOCALDNS_CORE_FILE="/opt/azure/containers/localdns/localdns.corefile"
 # This function is called from cse_main.sh.
 # It first checks if localdns should be enabled by checking for existence of corefile.
 # It returns 0 if localdns is enabled successfully or if it should not be enabled.
@@ -1164,7 +1166,7 @@ enableLocalDNS() {
     # Check if the localdns corefile exists and is not empty.
     # If the corefile exists and is not empty, localdns should be enabled.
     # If the corefile does not exist or is empty, localdns should not be enabled.
-    if [ ! -f "${LOCALDNS_CORE_FILE}" ] || [ ! -s "${LOCALDNS_CORE_FILE}" ]; then
+    if [ ! -f "${LOCALDNS_COREFILE}" ] || [ ! -s "${LOCALDNS_COREFILE}" ]; then
         echo "localdns should not be enabled."
         return 0
     fi
@@ -1181,10 +1183,6 @@ enableLocalDNS() {
     echo "Enable localdns succeeded."
 }
 
-# localdns corefile used by localdns systemd unit.
-LOCALDNS_COREFILE="/opt/azure/containers/localdns/localdns.corefile"
-# localdns slice file used by localdns systemd unit.
-LOCALDNS_SLICEFILE="/etc/systemd/system/localdns.slice"
 # This function is called from cse_main.sh.
 # It creates the localdns corefile and slicefile, then enables and starts localdns.
 # In this function, generated base64 encoded localdns corefile is decoded and written to the corefile path.
