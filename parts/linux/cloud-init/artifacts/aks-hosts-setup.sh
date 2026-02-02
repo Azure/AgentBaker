@@ -59,7 +59,7 @@ for DOMAIN in "${CRITICAL_FQDNS[@]}"; do
     IPV6_ADDRS=$(resolve_ipv6 "${DOMAIN}")
 
     # Check if we got any results for this domain
-    if [[ -z "${IPV4_ADDRS}" ]] && [[ -z "${IPV6_ADDRS}" ]]; then
+    if [ -z "${IPV4_ADDRS}" ] && [ -z "${IPV6_ADDRS}" ]; then
         echo "  WARNING: No IP addresses resolved for ${DOMAIN}"
         continue
     fi
@@ -68,14 +68,14 @@ for DOMAIN in "${CRITICAL_FQDNS[@]}"; do
     HOSTS_CONTENT+="
 # ${DOMAIN}"
 
-    if [[ -n "${IPV4_ADDRS}" ]]; then
+    if [ -n "${IPV4_ADDRS}" ]; then
         for addr in ${IPV4_ADDRS}; do
             HOSTS_CONTENT+="
 ${addr} ${DOMAIN}"
         done
     fi
 
-    if [[ -n "${IPV6_ADDRS}" ]]; then
+    if [ -n "${IPV6_ADDRS}" ]; then
         for addr in ${IPV6_ADDRS}; do
             HOSTS_CONTENT+="
 ${addr} ${DOMAIN}"
@@ -84,7 +84,7 @@ ${addr} ${DOMAIN}"
 done
 
 # Check if we resolved at least one domain
-if [[ "${RESOLVED_ANY}" != "true" ]]; then
+if [ "${RESOLVED_ANY}" != "true" ]; then
     echo "WARNING: No IP addresses resolved for any domain at $(date)"
     echo "This is likely a temporary DNS issue. Timer will retry later."
     # Keep existing hosts file intact and exit successfully so systemd doesn't mark unit as failed
