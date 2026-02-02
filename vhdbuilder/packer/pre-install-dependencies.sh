@@ -225,6 +225,8 @@ if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]]; then
       dpkg -i /tmp/linux-headers-6.14.0-1003-azure-nvidia_6.14.0-1003.3_arm64.deb
       dpkg -i /tmp/linux-tools-6.14.0-1003-azure-nvidia_6.14.0-1003.3_arm64.deb
       dpkg -i /tmp/linux-image-unsigned-6.14.0-1003-azure-nvidia_6.14.0-1003.3_arm64.deb
+
+      rm /tmp/*.deb
     fi
     add-apt-repository --remove ppa:canonical-kernel-team/ppa
   fi
