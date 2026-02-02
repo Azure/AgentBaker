@@ -36,7 +36,6 @@ for DOMAIN in "${CRITICAL_FQDNS[@]}"; do
 
     # Get IPv4 addresses (A records)
     IPV4_ADDRS=$(dig +short A "${DOMAIN}" 2>/dev/null | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' || true)
-
     # Get IPv6 addresses (AAAA records)
     IPV6_ADDRS=$(dig +short AAAA "${DOMAIN}" 2>/dev/null | grep -E '^[0-9a-fA-F:]+$' || true)
 
