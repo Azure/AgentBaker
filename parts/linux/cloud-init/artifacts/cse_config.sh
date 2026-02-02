@@ -1218,13 +1218,13 @@ EOF
 
 # This function enables and starts the aks-hosts-setup timer.
 # The timer periodically resolves critical AKS FQDN DNS records and populates /etc/localdns/hosts.
-shouldEnableAKSHostsSetup() {
+enableAKSHostsSetup() {
     # Enable periodic resolution and caching of critical AKS FQDN DNS addresses
     # Writes resolved IPs to /etc/localdns/hosts which is read by LocalDNS corefile
     # This reduces external DNS queries and improves reliability for container image pulls
-    echo "aks-hosts-setup timer should be enabled."
+    echo "Enabling aks-hosts-setup timer..."
     systemctlEnableAndStart aks-hosts-setup.timer 30 || exit $ERR_SYSTEMCTL_START_FAIL
-    echo "Enable aks-hosts-setup timer succeeded."
+    echo "aks-hosts-setup timer enabled successfully."
 }
 
 configureManagedGPUExperience() {
