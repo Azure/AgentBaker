@@ -893,7 +893,7 @@ providers:
         End
     End
 
-    Describe 'shouldEnableAKSHostsSetup'
+    Describe 'enableAKSHostsSetup'
         setup() {
             systemctlEnableAndStart() {
                 echo "systemctlEnableAndStart $@"
@@ -904,15 +904,15 @@ providers:
         BeforeEach 'setup'
 
         It 'should enable aks-hosts-setup timer successfully'
-            When call shouldEnableAKSHostsSetup
+            When call enableAKSHostsSetup
             The status should be success
-            The output should include "aks-hosts-setup timer should be enabled."
+            The output should include "Enabling aks-hosts-setup timer..."
             The output should include "systemctlEnableAndStart aks-hosts-setup.timer 30"
-            The output should include "Enable aks-hosts-setup timer succeeded."
+            The output should include "aks-hosts-setup timer enabled successfully."
         End
 
         It 'should call systemctlEnableAndStart with correct parameters'
-            When call shouldEnableAKSHostsSetup
+            When call enableAKSHostsSetup
             The status should be success
             The output should include "systemctlEnableAndStart aks-hosts-setup.timer 30"
         End

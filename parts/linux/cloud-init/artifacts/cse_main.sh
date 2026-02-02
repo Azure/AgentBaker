@@ -303,7 +303,7 @@ EOF
 
         # Enable aks-hosts-setup timer to periodically resolve and cache critical AKS FQDN DNS addresses
         # This only runs when LocalDNS is enabled since LocalDNS reads from /etc/localdns/hosts
-        logs_to_events "AKS.CSE.shouldEnableAKSHostsSetup" shouldEnableAKSHostsSetup || exit $ERR_SYSTEMCTL_START_FAIL
+        logs_to_events "AKS.CSE.enableAKSHostsSetup" enableAKSHostsSetup || exit $ERR_SYSTEMCTL_START_FAIL
     fi
 
     if [ "${ID}" != "mariner" ] && [ "${ID}" != "azurelinux" ]; then
