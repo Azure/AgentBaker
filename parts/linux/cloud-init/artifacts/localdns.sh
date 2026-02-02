@@ -404,7 +404,7 @@ wait_for_localdns_removed_from_resolv_conf() {
         current_dns=$(awk '/^nameserver/ {print $2}' "$RESOLV_CONF" 2>/dev/null | paste -sd' ')
 
         # Use word boundary matching (-w) with fixed string (-F) to avoid partial IP matches.
-        if ! echo "$current_dns" | grep -qwF "$LOCALDNS_NODE_LISTENER_IP"; then
+        if ! grep -qwF "$LOCALDNS_NODE_LISTENER_IP" <<< "$current_dns"; then
             echo "DNS configuration refreshed successfully. Current DNS: ${current_dns}"
             return 0
         fi
