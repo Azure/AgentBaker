@@ -393,11 +393,13 @@ add_iptable_rules_to_skip_conntrack_from_pods(){
 #   $1: max_wait_seconds - Maximum time to wait for the change (default: 5).
 wait_for_localdns_removed_from_resolv_conf() {
     local max_wait_seconds="${1:-5}"
-    local elapsed=0
+    local sleep_interval=0.25
+    local max_iterations=$((max_wait_seconds * 4))  # 4 iterations per second with 0.25s sleep
+    local iteration=0
 
     echo "Waiting for localdns (${LOCALDNS_NODE_LISTENER_IP}) to be removed from resolv.conf..."
 
-    while [ "$elapsed" -lt "$max_wait_seconds" ]; do
+    while [ "$iteration" -lt "$max_iterations" ]; do
         local current_dns
         current_dns=$(awk '/^nameserver/ {print $2}' "$RESOLV_CONF" 2>/dev/null | paste -sd' ')
 
@@ -407,8 +409,8 @@ wait_for_localdns_removed_from_resolv_conf() {
             return 0
         fi
 
-        sleep 1
-        elapsed=$((elapsed + 1))
+        sleep $sleep_interval
+        iteration=$((iteration + 1))
     done
 
     echo "Timed out waiting for localdns to be removed from resolv.conf after ${max_wait_seconds} seconds."
