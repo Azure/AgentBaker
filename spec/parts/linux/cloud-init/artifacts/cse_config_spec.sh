@@ -893,7 +893,7 @@ providers:
         End
     End
 
-    Describe 'shouldEnableMCRHostsSetup'
+    Describe 'shouldEnableAKSHostsSetup'
         setup() {
             systemctlEnableAndStart() {
                 echo "systemctlEnableAndStart $@"
