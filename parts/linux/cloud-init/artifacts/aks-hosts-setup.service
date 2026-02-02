@@ -1,11 +1,11 @@
 [Unit]
-Description=Populate /etc/hosts.testing with mcr.microsoft.com addresses
+Description=Populate /etc/hosts.testing with critical AKS FQDN addresses
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=oneshot
-ExecStart=/opt/azure/containers/mcr-hosts-setup.sh
+ExecStart=/opt/azure/containers/aks-hosts-setup.sh
 
 [Install]
 WantedBy=multi-user.target

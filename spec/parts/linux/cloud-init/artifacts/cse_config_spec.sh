@@ -903,18 +903,18 @@ providers:
 
         BeforeEach 'setup'
 
-        It 'should enable mcr-hosts-setup timer successfully'
-            When call shouldEnableMCRHostsSetup
+        It 'should enable aks-hosts-setup timer successfully'
+            When call shouldEnableAKSHostsSetup
             The status should be success
-            The output should include "mcr-hosts-setup timer should be enabled."
-            The output should include "systemctlEnableAndStart mcr-hosts-setup.timer 30"
-            The output should include "Enable mcr-hosts-setup timer succeeded."
+            The output should include "aks-hosts-setup timer should be enabled."
+            The output should include "systemctlEnableAndStart aks-hosts-setup.timer 30"
+            The output should include "Enable aks-hosts-setup timer succeeded."
         End
 
         It 'should call systemctlEnableAndStart with correct parameters'
-            When call shouldEnableMCRHostsSetup
+            When call shouldEnableAKSHostsSetup
             The status should be success
-            The output should include "systemctlEnableAndStart mcr-hosts-setup.timer 30"
+            The output should include "systemctlEnableAndStart aks-hosts-setup.timer 30"
         End
     End
 

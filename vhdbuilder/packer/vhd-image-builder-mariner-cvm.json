@@ -620,18 +620,18 @@
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/mcr-hosts-setup.sh",
-      "destination": "/home/packer/mcr-hosts-setup.sh"
+      "source": "parts/linux/cloud-init/artifacts/aks-hosts-setup.sh",
+      "destination": "/home/packer/aks-hosts-setup.sh"
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/mcr-hosts-setup.service",
-      "destination": "/home/packer/mcr-hosts-setup.service"
+      "source": "parts/linux/cloud-init/artifacts/aks-hosts-setup.service",
+      "destination": "/home/packer/aks-hosts-setup.service"
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/mcr-hosts-setup.timer",
-      "destination": "/home/packer/mcr-hosts-setup.timer"
+      "source": "parts/linux/cloud-init/artifacts/aks-hosts-setup.timer",
+      "destination": "/home/packer/aks-hosts-setup.timer"
     },
     {
       "type": "file",
