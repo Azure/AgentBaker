@@ -51,12 +51,13 @@ MOCK_EOF
 
             # Create test script that overrides HOSTS_FILE before running the main logic
             cat > "${TEST_SCRIPT}" << EOF
-#!/bin/bash
+#!/usr/bin/env bash
+set -uo pipefail
 source "${TEST_DIR}/mock_nslookup.sh"
 HOSTS_FILE="${HOSTS_FILE}"
 EOF
-            # Append the original script content, skipping the shebang and HOSTS_FILE declaration
-            tail -n +8 "${SCRIPT_PATH}" >> "${TEST_SCRIPT}"
+            # Append the original script content, skipping the shebang, set options, and HOSTS_FILE declaration (first 8 lines)
+            tail -n +9 "${SCRIPT_PATH}" >> "${TEST_SCRIPT}"
             chmod +x "${TEST_SCRIPT}"
         }
 
@@ -68,7 +69,7 @@ EOF
         AfterEach 'cleanup'
 
         It 'creates hosts file with resolved addresses for all critical FQDNs'
-            When run script "${TEST_SCRIPT}"
+            When run command bash "${TEST_SCRIPT}"
             The status should be success
             The file "$HOSTS_FILE" should be exist
             The output should include "Starting AKS critical FQDN hosts resolution"
@@ -76,7 +77,7 @@ EOF
         End
 
         It 'includes all critical AKS FQDNs in hosts file'
-            When run script "${TEST_SCRIPT}"
+            When run command bash "${TEST_SCRIPT}"
             The status should be success
             The output should include "Resolving addresses"
             The contents of file "$HOSTS_FILE" should include "mcr.microsoft.com"
@@ -88,23 +89,23 @@ EOF
         End
 
         It 'includes IPv4 addresses in hosts file'
-            When run script "${TEST_SCRIPT}"
+            When run command bash "${TEST_SCRIPT}"
             The status should be success
-            The output should include "Resolved"
+            The output should include "Resolving addresses"
             The contents of file "$HOSTS_FILE" should include "1.2.3.4"
             The contents of file "$HOSTS_FILE" should include "5.6.7.8"
         End
 
         It 'includes IPv6 addresses in hosts file'
-            When run script "${TEST_SCRIPT}"
+            When run command bash "${TEST_SCRIPT}"
             The status should be success
-            The output should include "Resolved"
+            The output should include "Resolving addresses"
             The contents of file "$HOSTS_FILE" should include "2001:db8::1"
             The contents of file "$HOSTS_FILE" should include "2001:db8::2"
         End
 
         It 'formats hosts file entries correctly'
-            When run script "${TEST_SCRIPT}"
+            When run command bash "${TEST_SCRIPT}"
             The status should be success
             The output should include "Writing addresses"
             The contents of file "$HOSTS_FILE" should include "1.2.3.4 mcr.microsoft.com"
@@ -112,7 +113,7 @@ EOF
         End
 
         It 'includes header comments in hosts file'
-            When run script "${TEST_SCRIPT}"
+            When run command bash "${TEST_SCRIPT}"
             The status should be success
             The output should include "Starting AKS critical FQDN hosts resolution"
             The contents of file "$HOSTS_FILE" should include "# AKS critical FQDN addresses resolved at"
@@ -140,11 +141,12 @@ export -f nslookup
 MOCK_EOF
 
             cat > "${TEST_SCRIPT}" << EOF
-#!/bin/bash
+#!/usr/bin/env bash
+set -uo pipefail
 source "${TEST_DIR}/mock_nslookup.sh"
 HOSTS_FILE="${HOSTS_FILE}"
 EOF
-            tail -n +8 "${SCRIPT_PATH}" >> "${TEST_SCRIPT}"
+            tail -n +9 "${SCRIPT_PATH}" >> "${TEST_SCRIPT}"
             chmod +x "${TEST_SCRIPT}"
         }
 
@@ -156,17 +158,176 @@ EOF
         AfterEach 'cleanup'
 
         It 'exits gracefully when no DNS records are resolved'
-            When run script "${TEST_SCRIPT}"
+            When run command bash "${TEST_SCRIPT}"
             The status should be success
             The output should include "WARNING: No IP addresses resolved for any domain"
             The output should include "This is likely a temporary DNS issue"
         End
 
         It 'does not create hosts file when no DNS records are resolved'
-            When run script "${TEST_SCRIPT}"
+            When run command bash "${TEST_SCRIPT}"
             The status should be success
             The output should include "WARNING"
             The file "$HOSTS_FILE" should not be exist
+        End
+    End
+
+    Describe 'Invalid DNS response filtering'
+        setup() {
+            TEST_DIR=$(mktemp -d)
+            export HOSTS_FILE="${TEST_DIR}/hosts.testing"
+            TEST_SCRIPT="${TEST_DIR}/aks-hosts-setup-test.sh"
+        }
+
+        cleanup() {
+            rm -rf "$TEST_DIR"
+        }
+
+        BeforeEach 'setup'
+        AfterEach 'cleanup'
+
+        It 'filters out NXDOMAIN responses from hosts file'
+            # Create mock that returns NXDOMAIN in the output
+            cat > "${TEST_DIR}/mock_nslookup.sh" << 'MOCK_EOF'
+nslookup() {
+    echo "Server:		127.0.0.53"
+    echo "Address:	127.0.0.53#53"
+    echo ""
+    echo "** server can't find domain: NXDOMAIN"
+    return 0
+}
+export -f nslookup
+MOCK_EOF
+            cat > "${TEST_SCRIPT}" << EOF
+#!/usr/bin/env bash
+set -uo pipefail
+source "${TEST_DIR}/mock_nslookup.sh"
+HOSTS_FILE="${HOSTS_FILE}"
+EOF
+            tail -n +9 "${SCRIPT_PATH}" >> "${TEST_SCRIPT}"
+            chmod +x "${TEST_SCRIPT}"
+
+            When run command bash "${TEST_SCRIPT}"
+            The status should be success
+            The output should include "WARNING: No IP addresses resolved for any domain"
+            The file "$HOSTS_FILE" should not be exist
+        End
+
+        It 'filters out SERVFAIL responses from hosts file'
+            # Create mock that returns SERVFAIL
+            cat > "${TEST_DIR}/mock_nslookup.sh" << 'MOCK_EOF'
+nslookup() {
+    echo "Server:		127.0.0.53"
+    echo "Address:	127.0.0.53#53"
+    echo ""
+    echo "** server can't find domain: SERVFAIL"
+    return 0
+}
+export -f nslookup
+MOCK_EOF
+            cat > "${TEST_SCRIPT}" << EOF
+#!/usr/bin/env bash
+set -uo pipefail
+source "${TEST_DIR}/mock_nslookup.sh"
+HOSTS_FILE="${HOSTS_FILE}"
+EOF
+            tail -n +9 "${SCRIPT_PATH}" >> "${TEST_SCRIPT}"
+            chmod +x "${TEST_SCRIPT}"
+
+            When run command bash "${TEST_SCRIPT}"
+            The status should be success
+            The output should include "WARNING: No IP addresses resolved for any domain"
+            The file "$HOSTS_FILE" should not be exist
+        End
+
+        It 'does not write non-IP strings to hosts file'
+            # Create mock that returns mixed valid and invalid responses
+            cat > "${TEST_DIR}/mock_nslookup.sh" << 'MOCK_EOF'
+nslookup() {
+    local record_type=""
+    for arg in "$@"; do
+        if [[ "$arg" == "-type=A" ]]; then
+            record_type="A"
+        elif [[ "$arg" == "-type=AAAA" ]]; then
+            record_type="AAAA"
+        fi
+    done
+
+    echo "Server:		127.0.0.53"
+    echo "Address:	127.0.0.53#53"
+    echo ""
+    if [[ "$record_type" == "A" ]]; then
+        # Return one valid IP and some garbage
+        echo "Address: 1.2.3.4"
+        echo "Address: not-an-ip"
+        echo "Address: NXDOMAIN"
+    fi
+    return 0
+}
+export -f nslookup
+MOCK_EOF
+            cat > "${TEST_SCRIPT}" << EOF
+#!/usr/bin/env bash
+set -uo pipefail
+source "${TEST_DIR}/mock_nslookup.sh"
+HOSTS_FILE="${HOSTS_FILE}"
+EOF
+            tail -n +9 "${SCRIPT_PATH}" >> "${TEST_SCRIPT}"
+            chmod +x "${TEST_SCRIPT}"
+
+            When run command bash "${TEST_SCRIPT}"
+            The status should be success
+            The output should include "Writing addresses"
+            The file "$HOSTS_FILE" should be exist
+            The contents of file "$HOSTS_FILE" should include "1.2.3.4"
+            The contents of file "$HOSTS_FILE" should not include "not-an-ip"
+            The contents of file "$HOSTS_FILE" should not include "NXDOMAIN"
+        End
+
+        It 'does not write invalid IPv6 strings to hosts file'
+            # Create mock that returns mixed valid and invalid IPv6 responses
+            cat > "${TEST_DIR}/mock_nslookup.sh" << 'MOCK_EOF'
+nslookup() {
+    local record_type=""
+    for arg in "$@"; do
+        if [[ "$arg" == "-type=A" ]]; then
+            record_type="A"
+        elif [[ "$arg" == "-type=AAAA" ]]; then
+            record_type="AAAA"
+        fi
+    done
+
+    echo "Server:		127.0.0.53"
+    echo "Address:	127.0.0.53#53"
+    echo ""
+    if [[ "$record_type" == "AAAA" ]]; then
+        # Return one valid IPv6 and some garbage
+        echo "Address: 2001:db8::1"
+        echo "Address: not-an-ipv6"
+        echo "Address: SERVFAIL"
+        echo "Address: fe80::1"
+    fi
+    return 0
+}
+export -f nslookup
+MOCK_EOF
+            cat > "${TEST_SCRIPT}" << EOF
+#!/usr/bin/env bash
+set -uo pipefail
+source "${TEST_DIR}/mock_nslookup.sh"
+HOSTS_FILE="${HOSTS_FILE}"
+EOF
+            tail -n +9 "${SCRIPT_PATH}" >> "${TEST_SCRIPT}"
+            chmod +x "${TEST_SCRIPT}"
+
+            When run command bash "${TEST_SCRIPT}"
+            The status should be success
+            The output should include "Writing addresses"
+            The file "$HOSTS_FILE" should be exist
+            The contents of file "$HOSTS_FILE" should include "2001:db8::1"
+            The contents of file "$HOSTS_FILE" should include "fe80::1"
+            The contents of file "$HOSTS_FILE" should not include "not-an-ipv6"
+            The contents of file "$HOSTS_FILE" should not include "SERVFAIL"
         End
     End
 End

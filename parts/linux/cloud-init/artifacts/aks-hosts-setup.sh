@@ -1,5 +1,5 @@
 #!/bin/bash
-set -euo pipefail
+set -uo pipefail
 
 # aks-hosts-setup.sh
 # Resolves A and AAAA records for critical AKS FQDNs and populates /etc/localdns/hosts
@@ -20,6 +20,26 @@ CRITICAL_FQDNS=(
     "packages.microsoft.com"
 )
 
+# Function to resolve IPv4 addresses for a domain
+# Filters output to only include valid IPv4 addresses (rejects NXDOMAIN, SERVFAIL, hostnames, etc.)
+resolve_ipv4() {
+    local domain="$1"
+    local output
+    output=$(nslookup -type=A "${domain}" 2>/dev/null) || return 0
+    # Parse Address lines (skip server address with #), validate IPv4 format (4 octets of 1-3 digits)
+    echo "${output}" | awk '/^Address: / && !/^Address: .*#/ {print $2}' | grep -E '^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$' || return 0
+}
+
+# Function to resolve IPv6 addresses for a domain
+# Filters output to only include valid IPv6 addresses (rejects NXDOMAIN, SERVFAIL, hostnames, etc.)
+resolve_ipv6() {
+    local domain="$1"
+    local output
+    output=$(nslookup -type=AAAA "${domain}" 2>/dev/null) || return 0
+    # Parse Address lines (skip server address with #), validate IPv6 format (must contain : and only hex/colons, min 3 chars)
+    echo "${output}" | awk '/^Address: / && !/^Address: .*#/ {print $2}' | grep -E '^[0-9a-fA-F:]{3,}$' | grep ':' || return 0
+}
+
 echo "Starting AKS critical FQDN hosts resolution at $(date)"
 
 # Track if we resolved at least one address
@@ -34,10 +54,9 @@ HOSTS_CONTENT="# AKS critical FQDN addresses resolved at $(date)
 for DOMAIN in "${CRITICAL_FQDNS[@]}"; do
     echo "Resolving addresses for ${DOMAIN}..."
 
-    # Get IPv4 addresses using nslookup - parse "Address: x.x.x.x" lines (skip the server address)
-    IPV4_ADDRS=$(nslookup -type=A "${DOMAIN}" 2>/dev/null | awk '/^Address: / && !/^Address: .*#/ {print $2}' | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' || true)
-    # Get IPv6 addresses using nslookup - parse "Address: xxxx::" lines
-    IPV6_ADDRS=$(nslookup -type=AAAA "${DOMAIN}" 2>/dev/null | awk '/^Address: / && !/^Address: .*#/ {print $2}' | grep -E '^[0-9a-fA-F:]+$' || true)
+    # Get IPv4 and IPv6 addresses using helper functions
+    IPV4_ADDRS=$(resolve_ipv4 "${DOMAIN}")
+    IPV6_ADDRS=$(resolve_ipv6 "${DOMAIN}")
 
     # Check if we got any results for this domain
     if [[ -z "${IPV4_ADDRS}" ]] && [[ -z "${IPV6_ADDRS}" ]]; then
@@ -50,8 +69,6 @@ for DOMAIN in "${CRITICAL_FQDNS[@]}"; do
 # ${DOMAIN}"
 
     if [[ -n "${IPV4_ADDRS}" ]]; then
-        IPV4_COUNT=$(echo "${IPV4_ADDRS}" | wc -w)
-        echo "  Resolved ${IPV4_COUNT} IPv4 address(es)"
         for addr in ${IPV4_ADDRS}; do
             HOSTS_CONTENT+="
 ${addr} ${DOMAIN}"
@@ -59,8 +76,6 @@ ${addr} ${DOMAIN}"
     fi
 
     if [[ -n "${IPV6_ADDRS}" ]]; then
-        IPV6_COUNT=$(echo "${IPV6_ADDRS}" | wc -w)
-        echo "  Resolved ${IPV6_COUNT} IPv6 address(es)"
         for addr in ${IPV6_ADDRS}; do
             HOSTS_CONTENT+="
 ${addr} ${DOMAIN}"
