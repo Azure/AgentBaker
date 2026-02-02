@@ -340,6 +340,9 @@ function nodePrep {
         touch /opt/azure/outbound-check-skipped
     fi
 
+    # Configure Azure network settings (udev rules for NIC configuration)
+    logs_to_events "AKS.CSE.ensureAzureNetworkConfig" ensureAzureNetworkConfig
+
     # Determine if GPU driver installation should be skipped
     export -f should_skip_nvidia_drivers
     skip_nvidia_driver_install=$(should_skip_nvidia_drivers)

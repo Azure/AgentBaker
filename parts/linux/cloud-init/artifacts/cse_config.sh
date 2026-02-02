@@ -817,6 +817,18 @@ ensureSysctl() {
     retrycmd_if_failure 24 5 25 sysctl --system
 }
 
+ensureAzureNetworkConfig() {
+    # Reload udev rules to pick up the new azure-network rules
+    udevadm control --reload-rules
+
+    # Trigger udev to detect and populate network interfaces
+    echo "Triggering udev for network devices..."
+    udevadm trigger --subsystem-match=net --action=add
+
+    # Give udev time to process and trigger the systemd service
+    udevadm settle --timeout=10
+}
+
 ensureK8sControlPlane() {
     if $REBOOTREQUIRED || [ "$NO_OUTBOUND" = "true" ]; then
         return
