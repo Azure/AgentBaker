@@ -2990,6 +2990,65 @@ var _ = Describe("cloudInitToButane", func() {
 		Expect(found).To(BeTrue())
 	})
 
+	It("should decode gzip-encoded write_files and preserve permissions", func() {
+		// gzip content is stored as raw bytes via YAML !!binary, so use the raw gzip buffer.
+		plainText := "hello from gzip"
+		gzipped := getGzippedBufferFromBytes([]byte(plainText))
+		var config = cloudInit{WriteFiles: []cloudInitWriteFile{
+			{
+				Path:        "/etc/test-gzip",
+				Permissions: "0644",
+				Encoding:    "gzip",
+				Content:     string(gzipped),
+			},
+		}}
+		var butane = cloudInitToButane(config)
+		Expect(butane.Storage.Files).To(HaveLen(1))
+		var file = butane.Storage.Files[0]
+		tarball, err := decodeButaneResource(file.Contents)
+		Expect(err).To(BeNil())
+		files, err := decodeTarFiles(tarball)
+		Expect(err).To(BeNil())
+		var decoded *decodedValue
+		for _, f := range files {
+			if f.path == "/etc/test-gzip" {
+				decoded = f.decodedValue
+			}
+		}
+		Expect(decoded).NotTo(BeNil())
+		Expect(decoded.value).To(Equal(plainText))
+		Expect(decoded.mode).To(Equal(int64(0o644)))
+	})
+
+	It("should decode base64-encoded write_files and preserve permissions", func() {
+		plainText := "hello from base64"
+		encoded := base64.StdEncoding.EncodeToString([]byte(plainText))
+		var config = cloudInit{WriteFiles: []cloudInitWriteFile{
+			{
+				Path:        "/etc/test-base64",
+				Permissions: "0600",
+				Encoding:    "base64",
+				Content:     encoded,
+			},
+		}}
+		var butane = cloudInitToButane(config)
+		Expect(butane.Storage.Files).To(HaveLen(1))
+		var file = butane.Storage.Files[0]
+		tarball, err := decodeButaneResource(file.Contents)
+		Expect(err).To(BeNil())
+		files, err := decodeTarFiles(tarball)
+		Expect(err).To(BeNil())
+		var decoded *decodedValue
+		for _, f := range files {
+			if f.path == "/etc/test-base64" {
+				decoded = f.decodedValue
+			}
+		}
+		Expect(decoded).NotTo(BeNil())
+		Expect(decoded.value).To(Equal(plainText))
+		Expect(decoded.mode).To(Equal(int64(0o600)))
+	})
+
 	It("should create a system unit but not a shell script with no bootcmds", func() {
 		var config = cloudInit{BootCommands: []string{}}
 		var butane = cloudInitToButane(config)
