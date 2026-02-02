@@ -44,6 +44,7 @@ func IsSgxEnabledSKU(vmSize string) bool {
 	return false
 }
 
+// IsAmdAmaEnabledSKU determines if an VM SKU has AMD AMA driver support.
 func IsAmdAmaEnabledSKU(vmSize string) bool {
 	switch vmSize {
 	case "Standard_NM16ads_MA35D":

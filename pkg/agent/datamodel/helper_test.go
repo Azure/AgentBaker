@@ -164,6 +164,50 @@ func TestIsSGXEnabledSKU(t *testing.T) {
 	}
 }
 
+/*
+GetNMSeriesVMCasesForTesting returns a struct w/ VM SKUs and whether or not we expect them
+to be AmdAma-enabled.
+*/
+func GetNMSeriesVMCasesForTesting() []struct {
+	VMSKU    string
+	Expected bool
+} {
+	cases := []struct {
+		VMSKU    string
+		Expected bool
+	}{
+		{
+			"Standard_NM16ads_MA35D",
+			true,
+		},
+		{
+			"gobledygook",
+			false,
+		},
+		{
+			"",
+			false,
+		},
+	}
+
+	return cases
+}
+
+func TestIsAmdAmaEnabledSKU(t *testing.T) {
+	cases := getNMSeriesVMCasesForTesting()
+
+	for _, c := range cases {
+		c := c
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			ret := IsAmdAmaEnabledSKU(c.VMSKU)
+			if ret != c.Expected {
+				t.Fatalf("expected IsAmdAmaEnabledSKU(%s) to return %t, but instead got %t", c.VMSKU, c.Expected, ret)
+			}
+		})
+	}
+}
+
 func TestGetOrderedEscapedKeyValsString(t *testing.T) {
 	alphabetizedString := `"foo=bar", "yes=please"`
 	cases := []struct {

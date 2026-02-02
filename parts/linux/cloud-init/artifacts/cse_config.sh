@@ -986,10 +986,14 @@ setupAmdAma() {
     fi
 
     if isMarinerOrAzureLinux "$OS"; then
-        # Install driver
+        # Install driver - currently version 1.3.0 is supported
         dnf install -y azurelinux-repos-amd
         KERNEL_VERSION=$(uname -r | sed 's/-/./g')
-        AMD_AMA_DRIVER_PACKAGE=$(dnf repoquery -y --available "amd-ama-driver*" | grep -E "amd-ama-driver-[0-9]+.*_$KERNEL_VERSION" | sort -V | tail -n 1)
+        AMD_AMA_DRIVER_PACKAGE=$(dnf repoquery -y --available "amd-ama-driver-1.3.0*" | grep -E "amd-ama-driver-[0-9]+.*_$KERNEL_VERSION" | sort -V | tail -n 1)
+        if [ -z "$AMD_AMA_DRIVER_PACKAGE" ]; then
+            echo "Unable to find AMD AMA driver package for current kernel version, exiting..."
+            exit $ERR_AMDAMA_DRIVER_NOT_FOUND
+        fi
         dnf install -y $AMD_AMA_DRIVER_PACKAGE
         # Install core package
         dnf install -y libzip
@@ -1000,7 +1004,7 @@ setupAmdAma() {
         # Configure huge pages
         sh -c "echo 'vm.nr_hugepages=4096' >> /etc/sysctl.conf"
         sh -c "echo 4096 >> /proc/sys/vm/nr_hugepages"
-        if [ $(systemctl is-active kubelet) = "active" ]; then
+        if [ "$(systemctl is-active kubelet)" = "active" ]; then
             systemctl restart kubelet
         fi
     fi

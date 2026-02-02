@@ -1258,6 +1258,39 @@ func Test_getIsSgxEnabledSKU(t *testing.T) {
 	}
 }
 
+func Test_getIsAmdAmaEnabledSKU(t *testing.T) {
+	type args struct {
+		vmSize string
+	}
+	tests := []struct {
+		name string
+		args args
+		want bool
+	}{
+		{
+			name: "Empty vmSize",
+			args: args{
+				vmSize: "",
+			},
+			want: false,
+		},
+		{
+			name: helpers.VMSizeStandardNM16adsMA35D,
+			args: args{
+				vmSize: helpers.VMSizeStandardNM16adsMA35D,
+			},
+			want: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := getIsAmdAmaEnabledSKU(tt.args.vmSize); got != tt.want {
+				t.Errorf("getIsAmdAmaEnabledSKU() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func Test_getKubeletConfigFileContent(t *testing.T) {
 	type args struct {
 		kubeletConfig *aksnodeconfigv1.KubeletConfig
