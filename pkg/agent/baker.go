@@ -1848,8 +1848,8 @@ health-check.localdns.local:53 {
     {{- end }}
     bind {{$.NodeListenerIP}}
     {{- if $isRootDomain}}
-    # Check /etc/hosts.testing first for mcr.microsoft.com and other cached entries
-    hosts /etc/hosts.testing {
+    # Check /etc/localdns/hosts first for critical AKS FQDNs (mcr.microsoft.com, packages.aks.azure.com, etc.)
+    hosts /etc/localdns/hosts {
         fallthrough
     }
     {{- end}}

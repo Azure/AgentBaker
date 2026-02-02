@@ -462,8 +462,8 @@ health-check.localdns.local:53 {
 .:53 {
     log
     bind 169.254.10.10
-    # Check /etc/hosts.testing first for mcr.microsoft.com and other cached entries
-    hosts /etc/hosts.testing {
+    # Check /etc/localdns/hosts first for critical AKS FQDNs (mcr.microsoft.com, packages.aks.azure.com, etc.)
+    hosts /etc/localdns/hosts {
         fallthrough
     }
     forward . 168.63.129.16 {
@@ -654,8 +654,8 @@ health-check.localdns.local:53 {
 .:53 {
     log
     bind 169.254.10.10
-    # Check /etc/hosts.testing first for mcr.microsoft.com and other cached entries
-    hosts /etc/hosts.testing {
+    # Check /etc/localdns/hosts first for critical AKS FQDNs (mcr.microsoft.com, packages.aks.azure.com, etc.)
+    hosts /etc/localdns/hosts {
         fallthrough
     }
     forward . 168.63.129.16 {
