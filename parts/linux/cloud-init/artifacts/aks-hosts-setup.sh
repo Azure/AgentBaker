@@ -2,9 +2,12 @@
 set -euo pipefail
 
 # aks-hosts-setup.sh
-# Resolves A and AAAA records for critical AKS FQDNs and populates /etc/hosts.testing
+# Resolves A and AAAA records for critical AKS FQDNs and populates /etc/localdns/hosts
 
-HOSTS_FILE="/etc/hosts.testing"
+HOSTS_FILE="/etc/localdns/hosts"
+
+# Ensure the directory exists
+mkdir -p "$(dirname "$HOSTS_FILE")"
 
 # Critical AKS FQDNs that should be cached for DNS reliability
 CRITICAL_FQDNS=(
@@ -35,7 +38,7 @@ for DOMAIN in "${CRITICAL_FQDNS[@]}"; do
     IPV4_ADDRS=$(dig +short A "${DOMAIN}" 2>/dev/null | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' || true)
 
     # Get IPv6 addresses (AAAA records)
-    IPV6_ADDRS=$(dig +short AAAA "${DOMAIN}" 2>/dev/null | grep -E '^[0-9a-f:]+$' || true)
+    IPV6_ADDRS=$(dig +short AAAA "${DOMAIN}" 2>/dev/null | grep -E '^[0-9a-fA-F:]+$' || true)
 
     # Check if we got any results for this domain
     if [[ -z "${IPV4_ADDRS}" ]] && [[ -z "${IPV6_ADDRS}" ]]; then
