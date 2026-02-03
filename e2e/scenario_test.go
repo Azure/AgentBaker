@@ -443,7 +443,7 @@ func Test_Ubuntu2204Gen2FIPSTL(t *testing.T) {
 		Description: "Tests that a node using the Ubuntu 2204 FIPS TrustedLaunch Gen2 VHD can be properly bootstrapped",
 		Config: Config{
 			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2204Gen2FIPSContainerd,
+			VHD:     config.VHDUbuntu2204Gen2FIPSTLContainerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
