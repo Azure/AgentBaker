@@ -309,19 +309,26 @@ func ValidateNetworkInterfaceConfig(ctx context.Context, s *Scenario, nicConfig 
 
 		s.T.Logf("Validating network interface config for NIC: %s", nic)
 
-		for setting, expectedValue := range nicConfig {
-			// Get full ethtool output for debugging
-			debugCommand := []string{
-				"set -ex",
-				fmt.Sprintf("echo '=== Full ethtool output for %s ==='", nic),
-				fmt.Sprintf("sudo ethtool -g %s", nic),
-			}
-			debugResult := execScriptOnVMForScenario(ctx, s, strings.Join(debugCommand, "\n"))
-			s.T.Logf("Full ethtool output for %s:\n%s", nic, debugResult.stdout)
+		// Get full ethtool output for debugging
+		debugCommand := []string{
+			"set -ex",
+			fmt.Sprintf("echo '=== Full ethtool output for %s ==='", nic),
+			fmt.Sprintf("sudo ethtool -g %s", nic),
+		}
+		debugResult := execScriptOnVMForScenario(ctx, s, strings.Join(debugCommand, "\n"))
+		s.T.Logf("Full ethtool output for %s:\n%s", nic, debugResult.stdout)
+		oldEthtool := strings.Contains(debugResult.stdout, "Current hardware settings")
 
+		for setting, expectedValue := range nicConfig {
+			var cmd string
+			if oldEthtool {
+				cmd = fmt.Sprintf("sudo ethtool -g %s | grep -A 5 'Current hardware settings' | grep -i %s: | awk '{print $2}'", nic, setting)
+			} else {
+				cmd = fmt.Sprintf("sudo ethtool --json -g %s | jq -r .[0].\\\"%s\\\"", nic, setting)
+			}
 			command := []string{
 				"set -ex",
-				fmt.Sprintf("sudo ethtool -g %s | grep -A 5 'Current hardware settings' | grep -i %s: | awk '{print $2}'", nic, setting),
+				cmd,
 			}
 			execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "could not get ethtool config")
 			actualValue := strings.TrimSpace(execResult.stdout)
