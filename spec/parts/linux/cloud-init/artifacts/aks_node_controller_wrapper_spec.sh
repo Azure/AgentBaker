@@ -27,19 +27,22 @@ EOF
             echo "logger $*"
         }
 
-        date() {
-            echo "111"
-        }
-
         BeforeEach 'setup'
         AfterEach 'cleanup'
 
         It 'writes a Guest Agent event on non-zero exit'
             When run bash ./parts/linux/cloud-init/artifacts/aks-node-controller-wrapper.sh
             The status should be failure
-            The contents of file "${EVENTS_LOGGING_DIR}111.json" should include '"TaskName":"AKS.AKSNodeController.UnexpectedError"'
-            The contents of file "${EVENTS_LOGGING_DIR}111.json" should include '"EventLevel":"Error"'
-            The contents of file "${EVENTS_LOGGING_DIR}111.json" should include '"Message":"aks-node-controller exited with code 42"'
+            The output should include "Launching aks-node-controller with config ${CONFIG_PATH}"
+            The output should include "Spawned aks-node-controller (pid"
+            The output should include "aks-node-controller exited with code 42"
+            eventsFilePath=$(ls -t ${EVENTS_LOGGING_DIR}*.json | head -n 1)
+            taskName=$(jq -r '.TaskName' ${eventsFilePath})
+            eventLevel=$(jq -r '.EventLevel' ${eventsFilePath})
+            message=$(jq -r '.Message' ${eventsFilePath})
+            The variable taskName should equal "AKS.AKSNodeController.UnexpectedError"
+            The variable eventLevel should equal "Error"
+            The variable message should equal "aks-node-controller exited with code 42"
         End
     End
 End
