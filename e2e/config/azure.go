@@ -533,6 +533,7 @@ func (a *AzureClient) LatestSIGImageVersionByTag(ctx context.Context, image *Ima
 			image.azurePortalImageUrl())
 		return "", ErrNotFound
 	}
+	image.Version = *latestVersion.Name
 
 	if err := a.ensureReplication(ctx, image, latestVersion, location); err != nil {
 		return "", fmt.Errorf("failed ensuring image replication: %w", err)
