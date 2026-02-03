@@ -13,6 +13,7 @@ import (
 	"github.com/Azure/agentbaker/aks-node-controller/helpers"
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Azure/agentbaker/aks-node-controller/pkg/nodeconfigutils"
+	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/stretchr/testify/assert"
@@ -274,6 +275,16 @@ oom_score = -999
 			}
 
 			helpers.ValidateAndSetLinuxKubeletFlags(kubeletConfig, cs, agentPool)
+			config := &datamodel.NodeBootstrappingConfiguration{
+				KubeletConfig: kubeletConfig,
+				ContainerService: &datamodel.ContainerService{
+					Location:   "southcentralus",
+					Type:       "Microsoft.ContainerService/ManagedClusters",
+					Properties: &datamodel.Properties{},
+				},
+				EnableKubeletConfigFile: false,
+				AgentPoolProfile:        &datamodel.AgentPoolProfile{},
+			}
 			aksNodeConfig := &aksnodeconfigv1.Configuration{
 				LinuxAdminUsername: "azureuser",
 				VmSize:             "Standard_DS1_v2",
@@ -312,7 +323,7 @@ oom_score = -999
 				OutboundCommand: helpers.GetDefaultOutboundCommand(),
 				KubeletConfig: &aksnodeconfigv1.KubeletConfig{
 					EnableKubeletConfigFile: false,
-					KubeletFlags:            helpers.GetKubeletConfigFlag(kubeletConfig, cs, agentPool, false),
+					KubeletCmdFlags:         agent.GetOrderedKubeletConfigFlagString(config),
 					KubeletNodeLabels:       helpers.GetKubeletNodeLabels(agentPool),
 				},
 				CustomCloudConfig: &aksnodeconfigv1.CustomCloudConfig{},
