@@ -52,6 +52,47 @@ installDeps() {
     fi
 }
 
+# Reference CNI plugins is used by kubenet and the loopback plugin used by containerd 1.0 (dependency gone in 2.0)
+# The version used to be deteremined by RP/toggle but are now just hadcoded in vhd as they rarely change and require a node image upgrade anyways
+# Latest VHD should have the untar, older should have the tgz. And who knows will have neither.
+installCNI() {
+    echo "installing ubuntu containernetworking-plugins"
+    # Old versions of VHDs will not have components.json. If it does not exist, we will fall back to the hardcoded download for CNI.
+    # Network Isolated Cluster / Bring Your Own ACR will not work with a vhd that requires a hardcoded CNI download.
+    if [ ! -f "$COMPONENTS_FILEPATH" ] || ! jq '.Packages[] | select(.name == "containernetworking-plugins")' < $COMPONENTS_FILEPATH > /dev/null; then
+        echo "WARNING: no containernetworking-plugins components present falling back to hard coded download of 1.6.2. This should error eventually"
+        exit $ERR_CNI_VERSION_INVALID
+    fi
+
+    #always just use what is listed in components.json so we don't have to sync.
+    cniPackage=$(jq ".Packages" "$COMPONENTS_FILEPATH" | jq ".[] | select(.name == \"containernetworking-plugins\")") || exit $ERR_CNI_VERSION_INVALID
+
+    os=${OS}
+    os_version=${UBUNTU_RELEASE}
+    PACKAGE_VERSIONS=()
+    updatePackageVersions "${cniPackage}" "${os}" "${os_version}"
+    if [ ${#PACKAGE_VERSIONS[@]} -eq 0 ]; then
+        echo "no containernetworking-plugins versions for ${os} ${os_version}"
+        return
+    fi
+
+    #should change to ne
+    # shellcheck disable=SC3010
+    if [ ${#PACKAGE_VERSIONS[@]} -gt 1 ]; then
+        echo "WARNING: containerd package versions array has more than one element."
+        exit $ERR_CNI_VERSION_INVALID
+    fi
+    packageVersion=${PACKAGE_VERSIONS[0]}
+
+    packageName="containernetworking-plugins=${packageVersion}"
+    echo "Installing ${packageName} with apt-get"
+    apt_get_install 20 30 120 ${packageName} || exit $ERR_CNI_VERSION_INVALID
+
+    mv /usr/bin/containernetworking-plugins/* $CNI_BIN_DIR
+
+    chown -R root:root $CNI_BIN_DIR
+}
+
 updateAptWithMicrosoftPkg() {
     retrycmd_silent 120 5 25 curl https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/prod.list > /tmp/microsoft-prod.list || exit $ERR_MOBY_APT_LIST_TIMEOUT
     retrycmd_if_failure 10 5 10 cp /tmp/microsoft-prod.list /etc/apt/sources.list.d/ || exit $ERR_MOBY_APT_LIST_TIMEOUT
