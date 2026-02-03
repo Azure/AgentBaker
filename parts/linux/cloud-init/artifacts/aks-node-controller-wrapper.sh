@@ -32,7 +32,7 @@ createGuestAgentEvent() {
         '{Timestamp: $Timestamp, OperationId: $OperationId, Version: $Version, TaskName: $TaskName, EventLevel: $EventLevel, Message: $Message, EventPid: $EventPid, EventTid: $EventTid}'
     )
 
-    echo ${json_string} > "${EVENTS_LOGGING_DIR}${events_file_name}.json"
+    echo "${json_string}" > "${EVENTS_LOGGING_DIR}${events_file_name}.json"
 }
 
 # this is to ensure that shellspec won't interpret any further lines below
@@ -50,7 +50,6 @@ end_time=$(date +"%F %T.%3N")
 
 if [ "$exit_code" -eq 0 ]; then
     log "aks-node-controller completed successfully"
-    createGuestAgentEvent "AKS.AKSNodeController.Completed" "$start_time" "$end_time" "aks-node-controller completed successfully"
 else
     log "aks-node-controller exited with code ${exit_code}"
     createGuestAgentEvent "AKS.AKSNodeController.UnexpectedError" "$start_time" "$end_time" "aks-node-controller exited with code ${exit_code}"
