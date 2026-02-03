@@ -7,14 +7,26 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 func main() {
+	startTime := time.Now()
 	// defer calls are not executed on os.Exit
 	logCleanup := configureLogging()
 	app := App{cmdRunner: cmdRunner}
 	exitCode := app.Run(context.Background(), os.Args)
 	logCleanup()
+	
+	// Create guest agent event for both success and failure
+	endTime := time.Now()
+	if exitCode != 0 {
+		message := fmt.Sprintf("aks-node-controller exited with code %d", exitCode)
+		createGuestAgentEvent("AKS.AKSNodeController.UnexpectedError", message, "Error", startTime, endTime)
+	} else {
+		createGuestAgentEvent("AKS.AKSNodeController.Provision", "Completed", "Informational", startTime, endTime)
+	}
+	
 	os.Exit(exitCode)
 }
 

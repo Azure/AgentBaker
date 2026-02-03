@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/Azure/agentbaker/aks-node-controller/parser"
 	"github.com/Azure/agentbaker/aks-node-controller/pkg/nodeconfigutils"
@@ -295,4 +296,57 @@ func errToExitCode(err error) int {
 		return exitErr.ExitCode()
 	}
 	return 1
+}
+
+// GuestAgentEvent represents an event to be logged for the Azure VM guest agent.
+type GuestAgentEvent struct {
+	Timestamp   string `json:"Timestamp"`
+	OperationId string `json:"OperationId"`
+	Version     string `json:"Version"`
+	TaskName    string `json:"TaskName"`
+	EventLevel  string `json:"EventLevel"`
+	Message     string `json:"Message"`
+	EventPid    string `json:"EventPid"`
+	EventTid    string `json:"EventTid"`
+}
+
+// createGuestAgentEvent creates an event file for the Azure VM guest agent.
+// This mimics the format expected by the CustomScript extension event logging.
+// eventLevel should be "Informational" for success or "Error" for failures.
+func createGuestAgentEvent(taskName, message, eventLevel string, startTime, endTime time.Time) {
+	createGuestAgentEventWithDir(eventsLoggingDir, taskName, message, eventLevel, startTime, endTime)
+}
+
+// createGuestAgentEventWithDir creates an event file in the specified directory.
+// This function is separated for testability.
+func createGuestAgentEventWithDir(eventsDir, taskName, message, eventLevel string, startTime, endTime time.Time) {
+	if err := os.MkdirAll(eventsDir, 0755); err != nil {
+		slog.Error("failed to create events logging directory", "path", eventsDir, "error", err)
+		return
+	}
+
+	// Use millisecond timestamp as filename
+	eventsFileName := fmt.Sprintf("%d.json", time.Now().UnixNano()/int64(time.Millisecond))
+	eventFilePath := filepath.Join(eventsDir, eventsFileName)
+
+	event := GuestAgentEvent{
+		Timestamp:   startTime.Format("2006-01-02 15:04:05.000"),  // strange but this is go's reference time for formatting
+		OperationId: endTime.Format("2006-01-02 15:04:05.000"),
+		Version:     "1.23",
+		TaskName:    taskName,
+		EventLevel:  eventLevel,
+		Message:     message,
+		EventPid:    "0",
+		EventTid:    "0",
+	}
+
+	data, err := json.Marshal(event)
+	if err != nil {
+		slog.Error("failed to marshal guest agent event", "error", err)
+		return
+	}
+
+	if err := os.WriteFile(eventFilePath, data, 0644); err != nil {
+		slog.Error("failed to write guest agent event file", "path", eventFilePath, "error", err)
+	}
 }

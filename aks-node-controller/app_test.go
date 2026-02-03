@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"os"
 	"os/exec"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // MockCmdRunner is a simple mock for cmdRunner.
@@ -348,4 +350,103 @@ func Test_readAndEvaluateProvision(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestCreateGuestAgentEvent(t *testing.T) {
+	tests := []struct {
+		name       string
+		taskName   string
+		message    string
+		eventLevel string
+		startTime  time.Time
+		endTime    time.Time
+	}{
+		{
+			name:       "error event",
+			taskName:   "AKS.AKSNodeController.UnexpectedError",
+			message:    "aks-node-controller exited with code 1",
+			eventLevel: "Error",
+			startTime:  time.Date(2026, 2, 3, 10, 30, 45, 123000000, time.UTC),
+			endTime:    time.Date(2026, 2, 3, 10, 35, 50, 456000000, time.UTC),
+		},
+		{
+			name:       "informational event",
+			taskName:   "AKS.AKSNodeController.Provision",
+			message:    "Completed",
+			eventLevel: "Informational",
+			startTime:  time.Date(2026, 2, 3, 14, 20, 15, 789000000, time.UTC),
+			endTime:    time.Date(2026, 2, 3, 14, 25, 30, 987000000, time.UTC),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create a temporary directory for this test
+			tmpDir := t.TempDir()
+			eventsDir := filepath.Join(tmpDir, "events")
+
+			// Call the function with test directory
+			createGuestAgentEventWithDir(eventsDir, tt.taskName, tt.message, tt.eventLevel, tt.startTime, tt.endTime)
+			files, err := os.ReadDir(eventsDir)
+			require.NoError(t, err, "should be able to read events directory")
+			require.Len(t, files, 1, "should have created exactly one event file")
+
+			// Read and parse the event file
+			eventFilePath := filepath.Join(eventsDir, files[0].Name())
+			data, err := os.ReadFile(eventFilePath)
+			require.NoError(t, err, "should be able to read event file")
+
+			var event GuestAgentEvent
+			err = json.Unmarshal(data, &event)
+			require.NoError(t, err, "event file should contain valid JSON")
+
+			// Verify the event contents
+			assert.Equal(t, tt.taskName, event.TaskName, "TaskName should match")
+			assert.Equal(t, tt.message, event.Message, "Message should match")
+			assert.Equal(t, tt.eventLevel, event.EventLevel, "EventLevel should match")
+			assert.Equal(t, "1.23", event.Version, "Version should be 1.23")
+			assert.Equal(t, "0", event.EventPid, "EventPid should be 0")
+			assert.Equal(t, "0", event.EventTid, "EventTid should be 0")
+
+			// Verify timestamp formatting
+			expectedTimestamp := tt.startTime.Format("2006-01-02 15:04:05.000")
+			assert.Equal(t, expectedTimestamp, event.Timestamp, "Timestamp should be formatted correctly")
+
+			expectedOperationId := tt.endTime.Format("2006-01-02 15:04:05.000")
+			assert.Equal(t, expectedOperationId, event.OperationId, "OperationId should be formatted correctly")
+
+			// Verify file permissions
+			info, err := os.Stat(eventFilePath)
+			require.NoError(t, err, "should be able to stat event file")
+			assert.Equal(t, os.FileMode(0644), info.Mode().Perm(), "file should have 0644 permissions")
+
+			// Verify filename is a millisecond timestamp
+			filename := files[0].Name()
+			assert.True(t, len(filename) > 10, "filename should be a millisecond timestamp")
+			assert.Equal(t, ".json", filepath.Ext(filename), "file should have .json extension")
+		})
+	}
+}
+
+func TestCreateGuestAgentEvent_DirectoryCreationError(t *testing.T) {
+	// This test verifies that the function handles directory creation errors gracefully
+	// Create a file where we want the directory to be (to cause MkdirAll to fail)
+	tmpDir := t.TempDir()
+	blockingFile := filepath.Join(tmpDir, "blocking-file")
+	err := os.WriteFile(blockingFile, []byte("test"), 0644)
+	require.NoError(t, err)
+
+	// Try to create events directory under a file (which will fail)
+	eventsDir := filepath.Join(blockingFile, "events")
+	startTime := time.Now()
+	endTime := time.Now()
+
+	// Should not panic, just log error
+	createGuestAgentEventWithDir(eventsDir, "TestTask", "Test message", "Error", startTime, endTime)
+
+	// Verify no event file was created in the events directory (since directory creation failed)
+	// The directory creation will fail, so reading the directory should fail
+	files, err := os.ReadDir(eventsDir)
+	assert.Error(t, err, "should not be able to read events directory that failed to create")
+	assert.Empty(t, files, "no files should exist")
 }

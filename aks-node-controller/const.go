@@ -6,4 +6,5 @@ const (
 	logPath                   = "/var/log/azure/aks-node-controller.log"
 	provisionJSONFilePath     = "/var/log/azure/aks/provision.json"
 	provisionCompleteFilePath = "/opt/azure/containers/provision.complete"
+	eventsLoggingDir          = "/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/"
 )
