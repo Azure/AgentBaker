@@ -5,10 +5,10 @@ option go_package = "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aks
 
 message KubeletConfig {
   // A map of kubelet flags to their values. The map is sorted by key.
-  map<string, string> kubelet_flags = 1;
+  map<string, string> kubelet_flags = 1 [deprecated = true];
 
   // A map of node labels to their values.
-  map<string, string> kubelet_node_labels = 2;
+  map<string, string> kubelet_node_labels = 2 [deprecated = true];
 
   // The type of disk to use for the kubelet.
   KubeletDisk kubelet_disk_type = 3;
@@ -31,6 +31,10 @@ message KubeletConfig {
   // Kubelet cmd flags, provided as is, so we can deprecate kubelet flags
   // +optional.
   string kubelet_cmd_flags = 9;
+
+  // Kubelet cmd node labels, provided as is, so we can deprecate kubelet_node_labels
+  // +optional.
+  string kubelet_cmd_node_labels = 10;
 }
 
 enum KubeletDisk {

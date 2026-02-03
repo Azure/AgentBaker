@@ -3,6 +3,7 @@ package e2e
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -757,8 +758,8 @@ func Test_Ubuntu2204_ChronyRestarts_Taints_And_Tolerations_Scriptless(t *testing
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
-			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
-				config.KubeletConfig.KubeletFlags["--register-with-taints"] = "testkey1=value1:NoSchedule,testkey2=value2:NoSchedule"
+			AKSNodeConfigMutator: func(aksConfig *aksnodeconfigv1.Configuration) {
+				aksConfig.KubeletConfig.KubeletCmdFlags = strings.Join([]string{aksConfig.KubeletConfig.KubeletCmdFlags, "--register-with-taints=testkey1=value1:NoSchedule,testkey2=value2:NoSchedule"}, " ")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "Restart=always")
@@ -2178,15 +2179,10 @@ func Test_Ubuntu2204Gen2_ImagePullIdentityBinding_Enabled_Scriptless(t *testing.
 					DefaultTenantId:   "test-tenant-id-67890",
 					LocalAuthoritySni: "test.sni.local",
 				}
-				// Set kubelet flags to enable credential provider
 				if aksConfig.KubeletConfig == nil {
 					aksConfig.KubeletConfig = &aksnodeconfigv1.KubeletConfig{}
 				}
-				if aksConfig.KubeletConfig.KubeletFlags == nil {
-					aksConfig.KubeletConfig.KubeletFlags = make(map[string]string)
-				}
-				aksConfig.KubeletConfig.KubeletFlags["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
-				aksConfig.KubeletConfig.KubeletFlags["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
+				aksConfig.KubeletConfig.KubeletCmdFlags = strings.Join([]string{aksConfig.KubeletConfig.KubeletCmdFlags, "--image-credential-provider-config=/var/lib/kubelet/credential-provider-config.yaml", "--image-credential-provider-bin-dir=/var/lib/kubelet/credential-provider"}, " ")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				// Verify aks-node-controller completed successfully
@@ -2227,11 +2223,7 @@ func Test_Ubuntu2204Gen2_ImagePullIdentityBinding_Disabled_Scriptless(t *testing
 				if aksConfig.KubeletConfig == nil {
 					aksConfig.KubeletConfig = &aksnodeconfigv1.KubeletConfig{}
 				}
-				if aksConfig.KubeletConfig.KubeletFlags == nil {
-					aksConfig.KubeletConfig.KubeletFlags = make(map[string]string)
-				}
-				aksConfig.KubeletConfig.KubeletFlags["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
-				aksConfig.KubeletConfig.KubeletFlags["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
+				aksConfig.KubeletConfig.KubeletCmdFlags = strings.Join([]string{aksConfig.KubeletConfig.KubeletCmdFlags, "--image-credential-provider-config=/var/lib/kubelet/credential-provider-config.yaml", "--image-credential-provider-bin-dir=/var/lib/kubelet/credential-provider"}, " ")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				// Verify aks-node-controller completed successfully

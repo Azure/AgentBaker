@@ -324,7 +324,7 @@ oom_score = -999
 				KubeletConfig: &aksnodeconfigv1.KubeletConfig{
 					EnableKubeletConfigFile: false,
 					KubeletCmdFlags:         agent.GetOrderedKubeletConfigFlagString(config),
-					KubeletNodeLabels:       helpers.GetKubeletNodeLabels(agentPool),
+					KubeletCmdNodeLabels:    agentPool.GetKubernetesLabels(),
 				},
 				CustomCloudConfig: &aksnodeconfigv1.CustomCloudConfig{},
 			}

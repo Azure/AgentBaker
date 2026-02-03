@@ -603,7 +603,19 @@ func getKubeletFlags(kubeletConfig *aksnodeconfigv1.KubeletConfig) string {
 	if kubeletConfig.GetKubeletCmdFlags() != "" {
 		return kubeletConfig.GetKubeletCmdFlags()
 	}
+	//nolint:staticcheck // deprecated field required for compatibility
 	return createSortedKeyValuePairs(kubeletConfig.GetKubeletFlags(), " ")
+}
+
+// getKubeletNodeLabels returns the kubelet command-line node labels as a string.
+// When kubelet_cmd_node_labels is present, it takes precedence and is returned as-is (raw string).
+// Otherwise, it falls back to constructing flags from the kubelet_node_labels map (sorted key-value pairs).
+func getKubeletNodeLabels(kubeletConfig *aksnodeconfigv1.KubeletConfig) string {
+	if kubeletConfig.GetKubeletCmdNodeLabels() != "" {
+		return kubeletConfig.GetKubeletCmdNodeLabels()
+	}
+	//nolint:staticcheck // deprecated field required for compatibility
+	return createSortedKeyValuePairs(kubeletConfig.GetKubeletNodeLabels(), ",")
 }
 
 func marshalToJSON(v any) ([]byte, error) {
