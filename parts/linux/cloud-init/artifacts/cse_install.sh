@@ -140,7 +140,7 @@ installNetworkPlugin() {
     if [ "${NETWORK_PLUGIN}" = "azure" ]; then
         installAzureCNI
     fi
-    #unnecessary as this is completely installed at vhd build time in install dependeencies
+    #unnecessary as this is completely installed at vhd build time in install dependencies
     ##installCNI #reference plugins. Mostly for kubenet but loopback plugin is used by containerd until containerd 2
     ##rm -rf $CNI_DOWNLOADS_DIR &
 }
