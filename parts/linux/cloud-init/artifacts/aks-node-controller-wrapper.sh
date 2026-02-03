@@ -35,6 +35,9 @@ createGuestAgentEvent() {
     echo ${json_string} > "${EVENTS_LOGGING_DIR}${events_file_name}.json"
 }
 
+# this is to ensure that shellspec won't interpret any further lines below
+${__SOURCED__:+return}
+
 start_time=$(date +"%F %T.%3N")
 log "Launching aks-node-controller with config ${CONFIG_PATH}"
 "$BIN_PATH" provision --provision-config="$CONFIG_PATH" &
