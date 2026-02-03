@@ -35,7 +35,7 @@ EOF
         AfterEach 'cleanup'
 
         It 'writes a Guest Agent event on non-zero exit'
-            When run ./parts/linux/cloud-init/artifacts/aks-node-controller-wrapper.sh
+            When run bash ./parts/linux/cloud-init/artifacts/aks-node-controller-wrapper.sh
             The status should be failure
             The contents of file "${EVENTS_LOGGING_DIR}111.json" should include '"TaskName":"AKS.AKSNodeController.UnexpectedError"'
             The contents of file "${EVENTS_LOGGING_DIR}111.json" should include '"EventLevel":"Error"'
