@@ -69,7 +69,7 @@ installDeps() {
 }
 
 # Reference CNI plugins is used by kubenet and the loopback plugin used by containerd 1.0 (dependency gone in 2.0)
-# The version used to be deteremined by RP/toggle but are now just hadcoded in vhd as they rarely change and require a node image upgrade anyways
+# The version used to be determined by RP/toggle but is now just hardcoded in the VHD as it rarely changes and requires a node image upgrade anyway
 # Latest VHD should have the untar, older should have the tgz. And who knows will have neither.
 installCNI() {
     echo "installing mariner containernetworking-plugins"
