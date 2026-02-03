@@ -447,16 +447,15 @@ func ValidateInspektorGadget(ctx context.Context, s *Scenario) {
 	}
 	s.T.Logf("ig image list output:\n%s", result.stdout)
 
-	// Run a simple gadget as a functional test
+	// Run a simple gadget as a functional test.
+	// IG requires root privileges to run eBPF programs.
+	// We use timeout(1) to kill the gadget after 3s in case it hangs.
+	// The ig --timeout flag expects an integer (seconds), not a duration string.
+	// Exit codes: 0 = success, 124 = timeout killed it (also OK), anything else = failure.
 	s.T.Logf("Running functional test with trace_exec gadget")
 	funcTestScript := `
 set -e
-# Run trace_exec gadget for 2 seconds to verify IG is functional
-# IG requires root privileges to run eBPF programs
-timeout 3s sudo ig run trace_exec:latest --timeout 2s || EXIT_CODE=$?
-# Exit code 124 means timeout command killed it (expected if gadget runs successfully but produces no output)
-# Exit code 0 means gadget ran and exited normally
-# Any other exit code is a failure
+timeout 3s sudo ig run trace_exec:latest --timeout 2 || EXIT_CODE=$?
 if [ "${EXIT_CODE:-0}" != "0" ] && [ "${EXIT_CODE:-0}" != "124" ]; then
     echo "trace_exec gadget failed with exit code ${EXIT_CODE}"
     exit 1
