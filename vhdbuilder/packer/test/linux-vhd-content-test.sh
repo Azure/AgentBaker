@@ -205,7 +205,7 @@ testPackagesInstalled() {
         OS=${AZURELINUX_KATA_OS_NAME}
       fi
     else
-      OS=$UBUNTU_OS_NAME
+      OS=${OS_SKU^^}
     fi
     PACKAGE_VERSIONS=()
     updatePackageVersions "${p}" "${OS}" "${OS_VERSION}"
