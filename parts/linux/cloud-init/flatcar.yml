@@ -18,3 +18,23 @@ systemd:
 
         [Install]
         WantedBy=sysinit.target
+
+    - name: ignition-file-extract.service
+      enabled: true
+      contents: |
+        [Unit]
+        Description=Extract Ignition file payload
+        DefaultDependencies=no
+        After=local-fs.target
+        Before=sysinit.target ignition-bootcmds.service
+        ConditionPathExists=/var/lib/ignition/ignition-files.tar
+
+        [Service]
+        Type=oneshot
+        ExecStart=tar -xvf /var/lib/ignition/ignition-files.tar -C /
+        ExecStart=rm -f /var/lib/ignition/ignition-files.tar
+        ExecStart=systemctl daemon-reload
+        RemainAfterExit=yes
+
+        [Install]
+        WantedBy=sysinit.target
