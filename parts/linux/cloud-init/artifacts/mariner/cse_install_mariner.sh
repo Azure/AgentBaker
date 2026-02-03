@@ -74,7 +74,7 @@ installDeps() {
 installCNI() {
     echo "installing mariner containernetworking-plugins"
     # Old versions of VHDs will not have components.json. If it does not exist, we will fall back to the hardcoded download for CNI.
-    # Network Isolated Cluster / Bring Your Own ACR will not work with a vhd that requres a hardcoded CNI download.
+    # Network Isolated Cluster / Bring Your Own ACR will not work with a vhd that requires a hardcoded CNI download.
     if [ ! -f "$COMPONENTS_FILEPATH" ] || ! jq '.Packages[] | select(.name == "containernetworking-plugins")' < $COMPONENTS_FILEPATH > /dev/null; then
         echo "WARNING: no containernetworking-plugins components found in components.json"
         exit $ERR_CNI_VERSION_INVALID
