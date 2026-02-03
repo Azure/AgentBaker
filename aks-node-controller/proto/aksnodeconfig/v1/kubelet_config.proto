@@ -27,6 +27,10 @@ message KubeletConfig {
 
   // The path used to mount docker images, emptyDir volumes, and kubelet data.
   string container_data_dir = 8;
+
+  // Kubelet cmd flags, provided as is, so we can deprecate kubelet flags
+  // +optional.
+  string kubelet_cmd_flags = 9;
 }
 
 enum KubeletDisk {
