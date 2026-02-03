@@ -330,7 +330,7 @@ func createGuestAgentEventWithDir(eventsDir, taskName, message, eventLevel strin
 	eventFilePath := filepath.Join(eventsDir, eventsFileName)
 
 	event := GuestAgentEvent{
-		Timestamp:   startTime.Format("2006-01-02 15:04:05.000"),  // strange but this is go's reference time for formatting
+		Timestamp:   startTime.Format("2006-01-02 15:04:05.000"), // strange but this is go's reference time for formatting
 		OperationId: endTime.Format("2006-01-02 15:04:05.000"),
 		Version:     "1.23",
 		TaskName:    taskName,

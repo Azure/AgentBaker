@@ -17,7 +17,7 @@ func main() {
 	app := App{cmdRunner: cmdRunner}
 	exitCode := app.Run(context.Background(), os.Args)
 	logCleanup()
-	
+
 	// Create guest agent event for both success and failure
 	endTime := time.Now()
 	if exitCode != 0 {
@@ -26,7 +26,7 @@ func main() {
 	} else {
 		createGuestAgentEvent("AKS.AKSNodeController.Provision", "Completed", "Informational", startTime, endTime)
 	}
-	
+
 	os.Exit(exitCode)
 }
 
