@@ -14,15 +14,15 @@ log() {
 }
 
 createGuestAgentEvent() {
-    local task=$1; start_time=$2; end_time=$3; message=$4;
-    local events_file_name
-    events_file_name=$(date +%s%N)
+    local task=$1; startTime=$2; endTime=$3; message=$4;
+    local eventsFileName
+    eventsFileName=$(date +%s%3N)
     mkdir -p "${EVENTS_LOGGING_DIR}"
 
     local json_string
     json_string=$(jq -n \
-        --arg Timestamp   "${start_time}" \
-        --arg OperationId "${end_time}" \
+        --arg Timestamp   "${startTime}" \
+        --arg OperationId "${endTime}" \
         --arg Version     "1.23" \
         --arg TaskName    "${task}" \
         --arg EventLevel  "Error" \
@@ -32,13 +32,13 @@ createGuestAgentEvent() {
         '{Timestamp: $Timestamp, OperationId: $OperationId, Version: $Version, TaskName: $TaskName, EventLevel: $EventLevel, Message: $Message, EventPid: $EventPid, EventTid: $EventTid}'
     )
 
-    echo "${json_string}" > "${EVENTS_LOGGING_DIR}${events_file_name}.json"
+    echo "${json_string}" > "${EVENTS_LOGGING_DIR}${eventsFileName}.json"
 }
 
 # this is to ensure that shellspec won't interpret any further lines below
 ${__SOURCED__:+return}
 
-start_time=$(date +"%F %T.%3N")
+startTime=$(date +"%F %T.%3N")
 log "Launching aks-node-controller with config ${CONFIG_PATH}"
 "$BIN_PATH" provision --provision-config="$CONFIG_PATH" &
 child_pid=$!
@@ -46,13 +46,13 @@ log "Spawned aks-node-controller (pid ${child_pid})"
 
 wait "$child_pid"
 exit_code=$?
-end_time=$(date +"%F %T.%3N")
+endTime=$(date +"%F %T.%3N")
 
 if [ "$exit_code" -eq 0 ]; then
     log "aks-node-controller completed successfully"
 else
     log "aks-node-controller exited with code ${exit_code}"
-    createGuestAgentEvent "AKS.AKSNodeController.UnexpectedError" "$start_time" "$end_time" "aks-node-controller exited with code ${exit_code}"
+    createGuestAgentEvent "AKS.AKSNodeController.UnexpectedError" "$startTime" "$endTime" "aks-node-controller exited with code ${exit_code}"
 fi
 
 exit $exit_code
