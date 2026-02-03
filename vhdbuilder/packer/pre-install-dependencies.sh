@@ -197,7 +197,7 @@ if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]]; then
       fi
     fi
     apt-get update
-    if apt-cache show "${NVIDIA_KERNEL_PACKAGE}" &> /dev/null; then
+    if apt-get install -s "${NVIDIA_KERNEL_PACKAGE}" &> /dev/null; then
       echo "ARM64 image. Installing NVIDIA kernel and its packages alongside LTS kernel"
       wait_for_apt_locks
       sudo apt install --no-install-recommends -y "${NVIDIA_KERNEL_PACKAGE}"
