@@ -94,7 +94,7 @@ installCNI() {
     fi
     # shellcheck disable=SC3010
     if [ ${#PACKAGE_VERSIONS[@]} -gt 1 ]; then
-        echo "WARNING: containerd package versions array has more than one element."
+        echo "WARNING: containernetworking-plugins package versions array has more than one element."
         exit $ERR_CNI_VERSION_INVALID
     fi
     packageVersion=${PACKAGE_VERSIONS[0]}
