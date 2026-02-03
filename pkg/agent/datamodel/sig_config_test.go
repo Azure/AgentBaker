@@ -91,7 +91,7 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(sigConfig.SigTenantID).To(Equal("sometenantid"))
 		Expect(sigConfig.SubscriptionID).To(Equal("somesubid"))
 
-		Expect(len(sigConfig.SigUbuntuImageConfig)).To(Equal(18))
+		Expect(len(sigConfig.SigUbuntuImageConfig)).To(Equal(19))
 
 		Expect(len(sigConfig.SigCBLMarinerImageConfig)).To(Equal(9))
 
