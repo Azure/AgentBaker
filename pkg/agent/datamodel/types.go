@@ -2425,6 +2425,11 @@ type LocalDNSProfile struct {
 	MemoryLimitInMB      *int32                        `json:"memoryLimitInMB,omitempty"`
 	VnetDNSOverrides     map[string]*LocalDNSOverrides `json:"vnetDNSOverrides,omitempty"`
 	KubeDNSOverrides     map[string]*LocalDNSOverrides `json:"kubeDNSOverrides,omitempty"`
+	// CriticalHostsEntries contains FQDN to IP address mappings for critical Azure infrastructure.
+	// When provided by AKS-RP, CSE will write these to /etc/localdns/hosts, overwriting VHD defaults.
+	// Format: map[fqdn][]ipAddresses (supports both IPv4 and IPv6)
+	// Example: {"mcr.microsoft.com": ["20.61.99.68", "2603:1061:1002::2"]}
+	CriticalHostsEntries map[string][]string `json:"criticalHostsEntries,omitempty"`
 }
 
 type LocalDNSCoreFileData struct {
@@ -2510,6 +2515,37 @@ func (a *AgentPoolProfile) GetLocalDNSCoreFileData() LocalDNSCoreFileData {
 		return localDNSCoreFileData
 	}
 	return LocalDNSCoreFileData{}
+}
+
+// GetCriticalHostsEntriesContent returns the critical hosts entries formatted as a hosts file content.
+// Returns empty string if no entries are configured by AKS-RP.
+// Format: "IP FQDN\n" for each entry (multiple IPs per FQDN supported).
+func (a *AgentPoolProfile) GetCriticalHostsEntriesContent() string {
+	if a.LocalDNSProfile == nil || len(a.LocalDNSProfile.CriticalHostsEntries) == 0 {
+		return ""
+	}
+
+	var content strings.Builder
+	content.WriteString("# AKS critical FQDN addresses provided by AKS-RP\n")
+	content.WriteString("# This file is written by CSE during node provisioning\n\n")
+
+	// Sort FQDNs for deterministic output
+	fqdns := make([]string, 0, len(a.LocalDNSProfile.CriticalHostsEntries))
+	for fqdn := range a.LocalDNSProfile.CriticalHostsEntries {
+		fqdns = append(fqdns, fqdn)
+	}
+	sort.Strings(fqdns)
+
+	for _, fqdn := range fqdns {
+		ips := a.LocalDNSProfile.CriticalHostsEntries[fqdn]
+		content.WriteString(fmt.Sprintf("# %s\n", fqdn))
+		for _, ip := range ips {
+			content.WriteString(fmt.Sprintf("%s %s\n", ip, fqdn))
+		}
+		content.WriteString("\n")
+	}
+
+	return content.String()
 }
 
 // ----------------------- End of changes related to localdns ------------------------------------------.

@@ -19,6 +19,17 @@ message LocalDnsProfile {
 
   // KubeDns overrides apply to DNS traffic from pods with dnsPolicy:ClusterFirst (referred to as KubeDns traffic).
   map<string, LocalDnsOverrides> kube_dns_overrides = 5;
+
+  // CriticalHostsEntries contains FQDN to IP address mappings for critical Azure infrastructure.
+  // When provided by AKS-RP, CSE will write these to /etc/localdns/hosts, overwriting VHD defaults.
+  // Key is the FQDN (e.g., "mcr.microsoft.com"), value contains the IP addresses.
+  map<string, CriticalHostsEntry> critical_hosts_entries = 6;
+}
+
+// Represents IP addresses for a critical FQDN.
+message CriticalHostsEntry {
+  // IP addresses (both IPv4 and IPv6) for the FQDN.
+  repeated string ip_addresses = 1;
 }
 
 // Represents DNS override settings for both VnetDNS and KubeDNS traffic.
