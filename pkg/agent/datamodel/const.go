@@ -136,3 +136,9 @@ const (
 	EnableIPv6Only        = "EnableIPv6Only"
 	EnableWinDSR          = "EnableWinDSR"
 )
+
+// CSE Constants.
+const (
+	DefaultCSETimeout = 900   // 15 minutes
+	MaxCSETimeout     = 21600 // 6 hours
+)
