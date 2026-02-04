@@ -299,11 +299,12 @@ EOF
 
     # This is to enable localdns using scriptless.
     if [ "${SHOULD_ENABLE_LOCALDNS}" = "true" ]; then
-        logs_to_events "AKS.CSE.enableLocalDNSForScriptless" enableLocalDNSForScriptless || exit $ERR_LOCALDNS_FAIL
-
+        # Write hosts file BEFORE starting LocalDNS so it has entries to serve
         # Enable aks-hosts-setup timer to periodically resolve and cache critical AKS FQDN DNS addresses
-        # This only runs when LocalDNS is enabled since LocalDNS reads from /etc/localdns/hosts
         logs_to_events "AKS.CSE.enableAKSHostsSetup" enableAKSHostsSetup || exit $ERR_SYSTEMCTL_START_FAIL
+
+        # Start LocalDNS after hosts file is populated
+        logs_to_events "AKS.CSE.enableLocalDNSForScriptless" enableLocalDNSForScriptless || exit $ERR_LOCALDNS_FAIL
     fi
 
     if [ "${ID}" != "mariner" ] && [ "${ID}" != "azurelinux" ]; then
