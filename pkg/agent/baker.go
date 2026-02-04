@@ -1914,6 +1914,12 @@ health-check.localdns.local:53 {
     log
     {{- end }}
     bind {{$.ClusterListenerIP}}
+    {{- if $isRootDomain}}
+    # Check /etc/localdns/hosts first for critical AKS FQDNs (mcr.microsoft.com, packages.aks.azure.com, etc.)
+    hosts /etc/localdns/hosts {
+        fallthrough
+    }
+    {{- end}}
     {{- if $fwdToClusterCoreDNS}}
     forward . {{$.CoreDNSServiceIP}} {
     {{- else}}
