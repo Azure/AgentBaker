@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -402,7 +403,17 @@ func TestCreateGuestAgentEvent(t *testing.T) {
 
 			// Verify the event contents
 			assert.Equal(t, tt.taskName, event.TaskName, "TaskName should match")
-			assert.Equal(t, tt.message, event.Message, "Message should match")
+
+			// Verify message includes timing information
+			durationMs := tt.endTime.Sub(tt.startTime).Milliseconds()
+			expectedMessage := fmt.Sprintf("%s | startTime=%s endTime=%s durationMs=%d",
+				tt.message,
+				tt.startTime.Format("2006-01-02 15:04:05.000"),
+				tt.endTime.Format("2006-01-02 15:04:05.000"),
+				durationMs,
+			)
+			assert.Equal(t, expectedMessage, event.Message, "Message should include timing information")
+
 			assert.Equal(t, tt.eventLevel, event.EventLevel, "EventLevel should match")
 			assert.Equal(t, "1.23", event.Version, "Version should be 1.23")
 			assert.Equal(t, "0", event.EventPid, "EventPid should be 0")
@@ -412,7 +423,8 @@ func TestCreateGuestAgentEvent(t *testing.T) {
 			expectedTimestamp := tt.startTime.Format("2006-01-02 15:04:05.000")
 			assert.Equal(t, expectedTimestamp, event.Timestamp, "Timestamp should be formatted correctly")
 
-			expectedOperationId := tt.endTime.Format("2006-01-02 15:04:05.000")
+			// Verify OperationId format (taskName-unixNano)
+			expectedOperationId := fmt.Sprintf("%s-%d", tt.taskName, tt.startTime.UnixNano())
 			assert.Equal(t, expectedOperationId, event.OperationId, "OperationId should be formatted correctly")
 
 			// Verify file permissions
