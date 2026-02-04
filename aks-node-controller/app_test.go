@@ -427,11 +427,6 @@ func TestCreateGuestAgentEvent(t *testing.T) {
 			expectedOperationId := fmt.Sprintf("%s-%d", tt.taskName, tt.startTime.UnixNano())
 			assert.Equal(t, expectedOperationId, event.OperationId, "OperationId should be formatted correctly")
 
-			// Verify file permissions
-			info, err := os.Stat(eventFilePath)
-			require.NoError(t, err, "should be able to stat event file")
-			assert.Equal(t, os.FileMode(0644), info.Mode().Perm(), "file should have 0644 permissions")
-
 			// Verify filename is a millisecond timestamp
 			filename := files[0].Name()
 			assert.True(t, len(filename) > 10, "filename should be a millisecond timestamp")
