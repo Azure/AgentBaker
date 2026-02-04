@@ -45,8 +45,17 @@ if [ "$action" = "ca-refresh" ]; then
     exit
 fi
 
+# Determine an absolute, canonical path to this script for use in cron.
+if command -v readlink >/dev/null 2>&1; then
+    # Use readlink -f when available to resolve the canonical path; fall back to $0 on error.
+    SCRIPT_PATH="$(readlink -f "$0" 2>/dev/null || printf '%s' "$0")"
+fi
+script_path=$(readlink -f "$0" 2>/dev/null || printf '%s\n' "$0")
+
 if ! crontab -l 2>/dev/null | grep -q "ca-refresh"; then
-    (crontab -l 2>/dev/null ; echo "0 19 * * * $0 ca-refresh") | crontab -
+    if ! (crontab -l 2>/dev/null ; echo "0 19 * * * \"$script_path\" ca-refresh") | crontab -; then
+        echo "Failed to install ca-refresh cron job via crontab" >&2
+    fi
 fi
 
 cloud-init status --wait
