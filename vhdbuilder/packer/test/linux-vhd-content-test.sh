@@ -1756,6 +1756,13 @@ testInspektorGadgetAssets() {
     err $test "$service_name not enabled, state: ${service_state:-absent}"
   fi
 
+  # Verify gadgets were imported during VHD build (tracking file should exist and have content)
+  if [ ! -f "$tracking_file" ]; then
+    err $test "Tracking file missing at $tracking_file - gadget import may have failed"
+  elif [ ! -s "$tracking_file" ]; then
+    err $test "Tracking file is empty at $tracking_file - no gadgets were imported"
+  fi
+
   echo "$test:Finish"
 }
 

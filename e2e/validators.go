@@ -441,13 +441,14 @@ func ValidateInspektorGadget(ctx context.Context, s *Scenario) {
 	if result.exitCode != "0" {
 		s.T.Fatalf("ig image list failed with exit code %s, stderr: %s", result.exitCode, result.stderr)
 	}
-	// Check that output is not empty (should list at least one gadget)
 	if len(result.stdout) == 0 {
 		s.T.Fatal("ig image list returned empty output, expected at least one imported gadget")
 	}
 	s.T.Logf("ig image list output:\n%s", result.stdout)
 
 	// Run a simple gadget as a functional test.
+	// We dynamically get the trace_exec tag from ig image list since gadgets are imported
+	// with version tags (e.g., v0.45.0) matching components.json, not :latest.
 	// IG requires root privileges to run eBPF programs.
 	// We use timeout(1) to kill the gadget after 3s in case it hangs.
 	// The ig --timeout flag expects an integer (seconds), not a duration string.
@@ -455,7 +456,13 @@ func ValidateInspektorGadget(ctx context.Context, s *Scenario) {
 	s.T.Logf("Running functional test with trace_exec gadget")
 	funcTestScript := `
 set -e
-timeout 3s sudo ig run trace_exec:latest --timeout 2 || EXIT_CODE=$?
+TRACE_EXEC_TAG=$(sudo ig image list | grep trace_exec | awk '{print $2}')
+if [ -z "$TRACE_EXEC_TAG" ]; then
+    echo "trace_exec gadget not found in ig image list"
+    exit 1
+fi
+echo "Using trace_exec:$TRACE_EXEC_TAG"
+timeout 3s sudo ig run "trace_exec:$TRACE_EXEC_TAG" --timeout 2 || EXIT_CODE=$?
 if [ "${EXIT_CODE:-0}" != "0" ] && [ "${EXIT_CODE:-0}" != "124" ]; then
     echo "trace_exec gadget failed with exit code ${EXIT_CODE}"
     exit 1
