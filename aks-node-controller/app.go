@@ -329,13 +329,28 @@ func createGuestAgentEventWithDir(eventsDir, taskName, message, eventLevel strin
 	eventsFileName := fmt.Sprintf("%d.json", time.Now().UnixNano()/int64(time.Millisecond))
 	eventFilePath := filepath.Join(eventsDir, eventsFileName)
 
+	durationMs := endTime.Sub(startTime).Milliseconds()
+	timingInfo := fmt.Sprintf("startTime=%s endTime=%s durationMs=%d",
+		startTime.Format("2006-01-02 15:04:05.000"),
+		endTime.Format("2006-01-02 15:04:05.000"),
+		durationMs,
+	)
+	fullMessage := message
+	if fullMessage == "" {
+		fullMessage = timingInfo
+	} else {
+		fullMessage = fmt.Sprintf("%s | %s", message, timingInfo)
+	}
+
+	operationID := fmt.Sprintf("%s-%d", taskName, startTime.UnixNano())
+
 	event := GuestAgentEvent{
 		Timestamp:   startTime.Format("2006-01-02 15:04:05.000"), // strange but this is go's reference time for formatting
-		OperationId: endTime.Format("2006-01-02 15:04:05.000"),
+		OperationId: operationID,
 		Version:     "1.23",
 		TaskName:    taskName,
 		EventLevel:  eventLevel,
-		Message:     message,
+		Message:     fullMessage,
 		EventPid:    "0",
 		EventTid:    "0",
 	}
