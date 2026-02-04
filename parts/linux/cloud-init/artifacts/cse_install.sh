@@ -284,7 +284,7 @@ evalPackageDownloadURL() {
 }
 
 downloadAzureCNI() {
-    mkdir -p ${1-$:CNI_DOWNLOADS_DIR}
+    mkdir -p ${1:-$CNI_DOWNLOADS_DIR}
     # At VHD build time, the VNET_CNI_PLUGINS_URL is usually not set.
     # So, we will get the URL passed from install-depenencies.sh which is actually from components.json
     # At node provisioning time, if AKS-RP sets the VNET_CNI_PLUGINS_URL, then we will use that.
