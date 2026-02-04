@@ -1222,6 +1222,13 @@ enableAKSHostsSetup() {
     # Enable periodic resolution and caching of critical AKS FQDN DNS addresses
     # Writes resolved IPs to /etc/localdns/hosts which is read by LocalDNS corefile
     # This reduces external DNS queries and improves reliability for container image pulls
+
+    # Run the script once immediately to refresh hosts file with live DNS before kubelet starts
+    # The VHD has hardcoded IPs, but this ensures we have fresh IPs from the start
+    echo "Running initial aks-hosts-setup to refresh DNS cache..."
+    /opt/azure/containers/aks-hosts-setup.sh || echo "Warning: Initial hosts setup failed, using VHD hardcoded IPs"
+
+    # Enable the timer for periodic refresh (every 15 minutes)
     echo "Enabling aks-hosts-setup timer..."
     systemctlEnableAndStart aks-hosts-setup.timer 30 || exit $ERR_SYSTEMCTL_START_FAIL
     echo "aks-hosts-setup timer enabled successfully."

@@ -89,54 +89,63 @@ Implement a local DNS caching mechanism that:
 ### High-Level Architecture Diagram
 
 ```
-┌───────────────────────────────────────────────────────────────────────────┐
-│                               AKS Node                                     │
-│                                                                            │
-│  ┌────────────────┐         ┌───────────────────┐                         │
-│  │  aks-hosts-    │────────▶│  aks-hosts-       │                         │
-│  │  setup.timer   │ triggers│  setup.sh         │                         │
-│  └────────────────┘         └─────────┬─────────┘                         │
-│    (every 15 min)                     │                                   │
-│                                       │ 1. queries DNS                    │
-│                                       ▼                                   │
-│                             ┌─────────────────────┐                       │
-│                             │  System DNS Server  │                       │
-│                             │  (Azure DNS or      │                       │
-│                             │   Custom DNS)       │                       │
-│                             └─────────┬───────────┘                       │
-│                                       │ 2. returns IPs                    │
-│                                       ▼                                   │
-│                             ┌───────────────────┐                         │
-│                             │  /etc/localdns/   │                         │
-│                             │      hosts        │◀─── 3. script writes    │
-│                             └─────────┬─────────┘                         │
-│                                       │                                   │
-│                                       │ 4. LocalDNS reads hosts file      │
-│                                       ▼                                   │
-│                                                                            │
-│  ┌────────────────┐         ┌─────────────────────────────────────────┐   │
-│  │   Pods/        │────────▶│            LocalDNS (CoreDNS)           │   │
-│  │   Kubelet      │  query  │                                         │   │
-│  └────────────────┘         │  ┌─────────────┐    ┌────────────────┐  │   │
-│                             │  │ hosts plugin│───▶│ forward plugin │  │   │
-│                             │  │ (check file │    │ (query upstream│  │   │
-│                             │  │  first)     │    │  DNS server)   │  │   │
-│                             │  └─────────────┘    └────────────────┘  │   │
-│                             │        │                    │           │   │
-│                             │        ▼                    ▼           │   │
-│                             │   Found in file?      Upstream DNS      │   │
-│                             │   Return immediately  Server            │   │
-│                             └─────────────────────────────────────────┘   │
-│                                                                            │
-└───────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                                  AKS Node                                        │
+│                                                                                  │
+│  ┌────────────────┐         ┌───────────────────┐                               │
+│  │  aks-hosts-    │────────▶│  aks-hosts-       │                               │
+│  │  setup.timer   │ triggers│  setup.sh         │                               │
+│  └────────────────┘         └─────────┬─────────┘                               │
+│    (every 15 min)                     │                                         │
+│                                       │ 1. queries DNS                          │
+│                                       ▼                                         │
+│                             ┌─────────────────────┐                             │
+│                             │  System DNS Server  │                             │
+│                             │  (Azure DNS or      │                             │
+│                             │   Custom DNS)       │                             │
+│                             └─────────┬───────────┘                             │
+│                                       │ 2. returns IPs                          │
+│                                       ▼                                         │
+│                             ┌───────────────────┐                               │
+│                             │  /etc/localdns/   │                               │
+│                             │      hosts        │◀─── 3. script writes          │
+│                             └─────────┬─────────┘                               │
+│                                       │                                         │
+│                                       │ 4. LocalDNS reads hosts file            │
+│              ┌────────────────────────┴────────────────────────┐                │
+│              │                                                 │                │
+│              ▼                                                 ▼                │
+│  ┌───────────────────────────────────┐   ┌───────────────────────────────────┐  │
+│  │   VnetDNS Listener (169.254.10.10)│   │  KubeDNS Listener (169.254.10.11) │  │
+│  │                                   │   │                                   │  │
+│  │  ┌─────────────┐ ┌──────────────┐ │   │  ┌─────────────┐ ┌──────────────┐ │  │
+│  │  │hosts plugin │→│forward plugin│ │   │  │hosts plugin │→│forward plugin│ │  │
+│  │  │(check file) │ │(Azure DNS)   │ │   │  │(check file) │ │(CoreDNS/     │ │  │
+│  │  └─────────────┘ └──────────────┘ │   │  └─────────────┘ │Azure DNS)    │ │  │
+│  │                                   │   │                  └──────────────┘ │  │
+│  │  Serves: Kubelet, dnsPolicy:      │   │  Serves: Pods with dnsPolicy:     │  │
+│  │          Default pods             │   │          ClusterFirst (default)   │  │
+│  └───────────────────┬───────────────┘   └───────────────────┬───────────────┘  │
+│                      ▲                                       ▲                   │
+│                      │                                       │                   │
+│  ┌───────────────────┴──┐                    ┌───────────────┴──┐               │
+│  │   Kubelet            │                    │   Pods           │               │
+│  │   (host network)     │                    │ (ClusterFirst)   │               │
+│  └──────────────────────┘                    └──────────────────┘               │
+│                                                                                  │
+└─────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Query Flow in LocalDNS:**
-1. DNS query arrives at LocalDNS (CoreDNS) on 169.254.10.10:53
+**Query Flow in LocalDNS (both listeners):**
+1. DNS query arrives at LocalDNS (CoreDNS)
+   - Kubelet/system daemons → VnetDNS (169.254.10.10:53)
+   - Pods with `dnsPolicy: ClusterFirst` → KubeDNS (169.254.10.11:53)
 2. **hosts plugin** checks `/etc/localdns/hosts` for a matching entry
 3. If found → return IP immediately (no external query needed)
 4. If not found → **fallthrough** to the next plugin (forward plugin)
-5. **forward plugin** queries the upstream DNS server
+5. **forward plugin** queries:
+   - VnetDNS: Azure DNS (168.63.129.16)
+   - KubeDNS: CoreDNS service IP for cluster.local, Azure DNS for external
 
 ### Component Interaction
 
@@ -371,9 +380,9 @@ WantedBy=multi-user.target kubelet.service
 
 #### Change Description
 
-The LocalDNS Corefile template is modified to include a `hosts` plugin block that checks `/etc/localdns/hosts` before forwarding to the upstream DNS server.
+The LocalDNS Corefile template is modified to include a `hosts` plugin block that checks `/etc/localdns/hosts` before forwarding to the upstream DNS server. The hosts plugin is added to **both** VnetDNS and KubeDNS root domain (`.`) server blocks to ensure all DNS consumers benefit from the cache.
 
-#### Before
+#### VnetDNS (169.254.10.10) - Before
 
 ```
 .:53 {
@@ -386,7 +395,7 @@ The LocalDNS Corefile template is modified to include a `hosts` plugin block tha
 }
 ```
 
-#### After
+#### VnetDNS (169.254.10.10) - After
 
 ```
 .:53 {
@@ -402,6 +411,45 @@ The LocalDNS Corefile template is modified to include a `hosts` plugin block tha
     }
 }
 ```
+
+#### KubeDNS (169.254.10.11) - Before
+
+```
+.:53 {
+    errors
+    bind 169.254.10.11
+    forward . 10.0.0.10 {
+        policy sequential
+        max_concurrent 1000
+    }
+}
+```
+
+#### KubeDNS (169.254.10.11) - After
+
+```
+.:53 {
+    errors
+    bind 169.254.10.11
+    # Check /etc/localdns/hosts first for critical AKS FQDNs
+    hosts /etc/localdns/hosts {
+        fallthrough
+    }
+    forward . 10.0.0.10 {
+        policy sequential
+        max_concurrent 1000
+    }
+}
+```
+
+#### Why Both Listeners?
+
+| Listener | Serves | Benefits from hosts cache |
+|----------|--------|---------------------------|
+| VnetDNS (169.254.10.10) | Kubelet, `dnsPolicy: Default` pods | ✅ Image pulls, system DNS |
+| KubeDNS (169.254.10.11) | `dnsPolicy: ClusterFirst` pods (default) | ✅ Application pods querying Azure endpoints |
+
+Most pods use `dnsPolicy: ClusterFirst` by default. Without the hosts plugin on KubeDNS, these pods wouldn't benefit from the cache when querying external Azure FQDNs like `mcr.microsoft.com` or `login.microsoftonline.com`.
 
 #### Fallthrough Behavior
 
@@ -422,8 +470,14 @@ The `fallthrough` directive ensures that:
 
 ```bash
 enableAKSHostsSetup() {
-    echo "Enabling aks-hosts-setup timer..."
+    # Run the script once immediately to refresh hosts file with live DNS before kubelet starts
+    # The VHD has hardcoded IPs, but this ensures we have fresh IPs from the start
+    echo "Running initial aks-hosts-setup to refresh DNS cache..."
+    /opt/azure/containers/aks-hosts-setup.sh || echo "Warning: Initial hosts setup failed, using VHD hardcoded IPs"
+
+    # Enable the timer for periodic refresh (every 15 minutes)
     # 30 = timeout in seconds for systemctl enable/start operation
+    echo "Enabling aks-hosts-setup timer..."
     systemctlEnableAndStart aks-hosts-setup.timer 30 || exit $ERR_SYSTEMCTL_START_FAIL
     echo "aks-hosts-setup timer enabled successfully."
 }
@@ -451,11 +505,12 @@ fi
 | 1 | Node boots | System |
 | 2 | **Hardcoded hosts file already present** | /etc/localdns/hosts (from VHD) |
 | 3 | Network comes online | systemd |
-| 4 | LocalDNS starts (uses hardcoded IPs) | localdns.service |
-| 5 | Kubelet starts | kubelet.service |
-| 6 | Timer triggers (OnBootSec=0) | aks-hosts-setup.timer |
-| 7 | Script refreshes with live DNS | aks-hosts-setup.sh |
-| 8 | Hosts file updated with fresh IPs | /etc/localdns/hosts |
+| 4 | CSE runs `enableAKSHostsSetup()` | cse_main.sh |
+| 5 | **Script runs immediately to refresh with live DNS** | aks-hosts-setup.sh |
+| 6 | Hosts file updated with fresh IPs | /etc/localdns/hosts |
+| 7 | Timer enabled for periodic refresh | aks-hosts-setup.timer |
+| 8 | LocalDNS starts (uses fresh IPs) | localdns.service |
+| 9 | Kubelet starts | kubelet.service |
 
 ### Runtime Flow
 

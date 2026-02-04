@@ -529,6 +529,10 @@ testdomain456.com:53 {
 .:53 {
     errors
     bind 169.254.10.11
+    # Check /etc/localdns/hosts first for critical AKS FQDNs (mcr.microsoft.com, packages.aks.azure.com, etc.)
+    hosts /etc/localdns/hosts {
+        fallthrough
+    }
     forward . 10.0.0.10 {
         policy sequential
         max_concurrent 2000
@@ -721,6 +725,10 @@ testdomain456.com:53 {
 .:53 {
     errors
     bind 169.254.10.11
+    # Check /etc/localdns/hosts first for critical AKS FQDNs (mcr.microsoft.com, packages.aks.azure.com, etc.)
+    hosts /etc/localdns/hosts {
+        fallthrough
+    }
     forward . 10.0.0.10 {
         policy sequential
         max_concurrent 1000
