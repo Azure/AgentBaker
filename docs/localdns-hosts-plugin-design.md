@@ -9,7 +9,7 @@
 
 ## Executive Summary
 
-This feature enhances DNS reliability for Azure Kubernetes Service (AKS) nodes by caching critical Azure infrastructure FQDNs in a local hosts file. The VHD ships with **hardcoded IP addresses** for these FQDNs, providing immediate DNS availability at boot. A systemd timer periodically refreshes these entries by querying the upstream DNS server. The LocalDNS CoreDNS instance consults this file before forwarding queries, reducing external DNS dependencies and improving container image pull reliability.
+This feature enhances DNS reliability for Azure Kubernetes Service (AKS) nodes by caching critical Azure infrastructure FQDNs in a local hosts file. **AKS-RP provides IP addresses** for these FQDNs at node provisioning time, which CSE writes to `/etc/localdns/hosts`. A systemd timer periodically refreshes these entries by querying live DNS. The LocalDNS CoreDNS instance consults this file before forwarding queries, reducing external DNS dependencies and improving container image pull reliability.
 
 ---
 
@@ -84,9 +84,9 @@ Without this feature, every DNS query for these critical FQDNs goes directly to 
 
 Implement a local DNS caching mechanism that:
 
-1. **Ships hardcoded IPs** in the VHD for immediate availability at boot
-2. **Periodically refreshes** the hosts file by querying system DNS
-3. **Stores results** in a local hosts file (`/etc/localdns/hosts`)
+1. **Receives IP addresses from AKS-RP** at node provisioning time
+2. **Writes entries to hosts file** before LocalDNS starts
+3. **Periodically refreshes** the hosts file by querying live DNS
 4. **Configures LocalDNS** (CoreDNS) to check this file first
 5. **Falls through** to the upstream DNS server for queries not in the cache
 
@@ -172,46 +172,53 @@ Implement a local DNS caching mechanism that:
                          │
                          ▼
               ┌──────────────────┐
+              │   CSE runs       │
+              │   enableAKS-     │ ◀── (1) CSE writes AKS-RP provided entries
+              │   HostsSetup()   │
+              └────────┬─────────┘
+                       │
+                       ▼
+              ┌──────────────────┐
               │ /etc/localdns/   │
-              │     hosts        │ ◀── (1) Hardcoded IPs already present in VHD
+              │     hosts        │ ◀── (2) Hosts file populated with AKS-RP IPs
+              └────────┬─────────┘
+                       │
+                       ▼
+              ┌──────────────────┐
+              │  aks-hosts-      │
+              │  setup.timer     │ ◀── (3) Timer enabled and fires (OnBootSec=0)
+              └────────┬─────────┘
+                       │
+                       ▼
+              ┌──────────────────┐
+              │  aks-hosts-      │
+              │  setup.sh        │ ◀── (4) Script queries DNS and refreshes hosts file
+              └────────┬─────────┘
+                       │
+                       ▼
+              ┌──────────────────┐
+              │ /etc/localdns/   │
+              │     hosts        │ ◀── (5) Hosts file updated with fresh IPs
               └────────┬─────────┘
                        │
                        ▼
               ┌──────────────────┐
               │   localdns       │
-              │   .service       │ ◀── (2) LocalDNS starts with hardcoded entries
+              │   .service       │ ◀── (6) LocalDNS starts with fresh entries
               └────────┬─────────┘
                        │
                        ▼
               ┌──────────────────┐
               │   kubelet        │
-              │   .service       │ ◀── (3) Kubelet starts (can pull images immediately)
-              └────────┬─────────┘
-                       │
-                       ▼
-              ┌──────────────────┐
-              │  aks-hosts-      │
-              │  setup.timer     │ ◀── (4) Timer fires (OnBootSec=0)
-              └────────┬─────────┘
-                       │
-                       ▼
-              ┌──────────────────┐
-              │  aks-hosts-      │
-              │  setup.sh        │ ◀── (5) Script queries DNS and refreshes hosts file
-              └────────┬─────────┘
-                       │
-                       ▼
-              ┌──────────────────┐
-              │ /etc/localdns/   │
-              │     hosts        │ ◀── (6) Hosts file updated with fresh IPs
+              │   .service       │ ◀── (7) Kubelet starts (can pull images immediately)
               └──────────────────┘
 ```
 
 **Ordering Guarantees:**
-- **Hosts file exists from VHD build** - no runtime dependency on the timer for initial DNS
-- `localdns.service` starts **before** kubelet to ensure DNS is ready for container pulls
-- `aks-hosts-setup.timer` refreshes the hosts file in the background after boot
-- The `Before=` directives are ordering hints but not blocking dependencies
+- **CSE writes hosts file before LocalDNS starts** - ensures entries are available
+- **Timer refreshes hosts file with live DNS** - ensures fresh IPs before LocalDNS
+- `localdns.service` starts **after** hosts file is populated
+- `kubelet.service` starts **after** LocalDNS to ensure DNS is ready for container pulls
 
 ---
 
@@ -264,148 +271,24 @@ CRITICAL_FQDNS=(
 
 ---
 
-### 2. VHD Preloaded Hosts File
-
-**File:** `vhdbuilder/packer/packer_source.sh`
-**Location on node:** `/etc/localdns/hosts`
-
-#### Purpose
-
-The VHD ships with a **hardcoded hosts file** containing known-good IP addresses for critical Azure endpoints. This ensures DNS resolution works immediately at boot, before the timer has a chance to refresh from live DNS.
-
-#### Cloud-Specific Hosts Files
-
-Different Azure clouds have different endpoints and IP addresses. The VHD includes cloud-specific hosts files:
-
-| Cloud | File Path | Example FQDNs |
-|-------|-----------|---------------|
-| **Azure Public** | `/etc/localdns/hosts.public` | mcr.microsoft.com, management.azure.com |
-| **Azure China** | `/etc/localdns/hosts.china` | mcr.azk8s.cn, management.chinacloudapi.cn |
-| **Azure Government** | `/etc/localdns/hosts.government` | mcr.microsoft.us, management.usgovcloudapi.net |
-
-At provisioning time, CSE copies the appropriate hosts file based on the cloud environment:
-
-```bash
-# In cse_config.sh
-case "${TARGET_CLOUD}" in
-    "AzureChinaCloud")
-        cp /etc/localdns/hosts.china /etc/localdns/hosts
-        ;;
-    "AzureUSGovernmentCloud")
-        cp /etc/localdns/hosts.government /etc/localdns/hosts
-        ;;
-    *)
-        cp /etc/localdns/hosts.public /etc/localdns/hosts
-        ;;
-esac
-```
-
-#### Benefits
-
-| Benefit | Description |
-|---------|-------------|
-| Immediate availability | DNS works from the moment LocalDNS starts |
-| No boot-time DNS dependency | Node can start pulling images before network DNS is verified |
-| Fallback resilience | If DNS is slow/unavailable at boot, hardcoded IPs still work |
-| Cloud compliance | Each sovereign cloud uses its own endpoints |
-
-#### Hardcoded IPs by Cloud
-
-**Azure Public:**
-
-```
-# mcr.microsoft.com - Microsoft Container Registry
-20.61.99.68 mcr.microsoft.com
-2603:1061:1002::2 mcr.microsoft.com
-
-# packages.aks.azure.com - AKS packages
-20.7.0.233 packages.aks.azure.com
-
-# login.microsoftonline.com - Azure AD authentication
-20.190.151.68 login.microsoftonline.com
-20.190.151.70 login.microsoftonline.com
-20.190.151.67 login.microsoftonline.com
-20.190.151.69 login.microsoftonline.com
-2603:1037:1:c8::8 login.microsoftonline.com
-2603:1036:3000:d8::5 login.microsoftonline.com
-
-# management.azure.com - Azure Resource Manager
-20.37.158.0 management.azure.com
-2603:1030:408:6::3e8 management.azure.com
-
-# packages.microsoft.com - Microsoft packages
-52.184.220.97 packages.microsoft.com
-2600:1417:76:1a2::e59 packages.microsoft.com
-
-# acs-mirror.azureedge.net - AKS container images mirror
-152.199.39.108 acs-mirror.azureedge.net
-2606:2800:233:1cb7:261b:1f9c:2074:3c acs-mirror.azureedge.net
-
-# eastus.data.mcr.microsoft.com - MCR data endpoint (regional)
-204.79.197.219 eastus.data.mcr.microsoft.com
-2620:1ec:bdf::50 eastus.data.mcr.microsoft.com
-```
-
-**Azure China:**
-
-```
-# mcr.azk8s.cn - China MCR mirror
-# TODO: Add actual IPs after verification
-<IP_ADDRESS> mcr.azk8s.cn
-
-# login.chinacloudapi.cn - Azure AD authentication (China)
-# TODO: Add actual IPs after verification
-<IP_ADDRESS> login.chinacloudapi.cn
-
-# management.chinacloudapi.cn - Azure Resource Manager (China)
-# TODO: Add actual IPs after verification
-<IP_ADDRESS> management.chinacloudapi.cn
-```
-
-**Azure Government:**
-
-```
-# mcr.microsoft.us - US Government MCR
-# TODO: Add actual IPs after verification
-<IP_ADDRESS> mcr.microsoft.us
-
-# login.microsoftonline.us - Azure AD authentication (US Gov)
-# TODO: Add actual IPs after verification
-<IP_ADDRESS> login.microsoftonline.us
-
-# management.usgovcloudapi.net - Azure Resource Manager (US Gov)
-# TODO: Add actual IPs after verification
-<IP_ADDRESS> management.usgovcloudapi.net
-```
-
-#### IP Address Maintenance
-
-These hardcoded IPs should be updated periodically as part of VHD releases:
-- IPs are stable Azure anycast addresses
-- The runtime timer will update to fresh IPs shortly after boot
-- Even stale hardcoded IPs typically continue working (Azure maintains backward compatibility)
-- **Each cloud's IP addresses must be maintained separately**
-
----
-
-### 3. AKS-RP Provided Hosts Entries (Alternative)
+### 2. AKS-RP Provided Hosts Entries
 
 **API Field:** `LocalDNSProfile.CriticalHostsEntries`
-**When Used:** AKS-RP can optionally provide IP addresses for critical FQDNs
+**When Used:** AKS-RP provides IP addresses for critical FQDNs at node provisioning time
 
 #### Purpose
 
-AKS-RP can provide FQDN-to-IP mappings at node provisioning time via the `NodeBootstrappingConfiguration`. When provided, these entries **override** both the VHD hardcoded IPs and the initial DNS resolution.
+AKS-RP provides FQDN-to-IP mappings at node provisioning time via the `NodeBootstrappingConfiguration`. CSE writes these entries to `/etc/localdns/hosts` before starting LocalDNS, ensuring DNS resolution is available for container image pulls.
 
 #### Benefits
 
 | Benefit | Description |
 |---------|-------------|
-| Fresh IPs | AKS-RP can provide up-to-date IP addresses |
+| Fresh IPs | AKS-RP provides up-to-date IP addresses |
 | Cloud-specific | AKS-RP provides correct endpoints for each cloud (Public, China, Government) |
 | Regional support | AKS-RP can provide region-specific endpoints |
-| No VHD dependency | IPs can be updated without VHD rebuild |
 | Centralized management | IP updates are managed by AKS-RP |
+| No VHD coupling | IPs are decoupled from VHD release cycle |
 
 #### Provisioning Flow
 
@@ -544,26 +427,9 @@ When decoded, it produces a hosts-file format:
 20.7.0.233 packages.aks.azure.com
 ```
 
-#### Comparison: VHD vs AKS-RP Provided
-
-| Aspect | VHD Hardcoded | AKS-RP Provided |
-|--------|---------------|-----------------|
-| **When set** | VHD build time | Node provisioning |
-| **Update frequency** | Weekly (VHD release) | Every node creation |
-| **Cloud handling** | Separate files per cloud, CSE selects | AKS-RP sends correct entries for the cloud |
-| **Regional IPs** | Global only | Region-specific possible |
-| **Failure mode** | Always present | CSE must run first |
-| **Boot dependency** | None | Requires CSE |
-
-#### Precedence
-
-1. **AKS-RP provided** (if `criticalHostsEntries` is not empty)
-2. **VHD hardcoded** (cloud-specific file selected based on `TARGET_CLOUD`)
-3. **Timer refresh** (updates periodically regardless of initial source)
-
 ---
 
-### 4. Systemd Timer
+### 3. Systemd Timer
 
 **File:** `parts/linux/cloud-init/artifacts/aks-hosts-setup.timer`
 **Location on node:** `/etc/systemd/system/aks-hosts-setup.timer`
@@ -596,7 +462,7 @@ WantedBy=timers.target
 
 ---
 
-### 5. Systemd Service
+### 4. Systemd Service
 
 **File:** `parts/linux/cloud-init/artifacts/aks-hosts-setup.service`
 **Location on node:** `/etc/systemd/system/aks-hosts-setup.service`
@@ -604,10 +470,10 @@ WantedBy=timers.target
 #### Configuration
 
 | Setting | Value | Purpose |
-|---------|-------|---------|
+|---------|-------|----------|
 | Type | oneshot | Script runs once per trigger |
 | After | network-online.target | Ensures network is available for DNS queries |
-| Before | kubelet.service, localdns.service | Ordering hint (hosts file already exists from VHD) |
+| Before | kubelet.service, localdns.service | Ensures hosts file is refreshed before services start |
 
 #### Unit File
 
@@ -628,7 +494,7 @@ WantedBy=multi-user.target kubelet.service
 
 ---
 
-### 6. CoreDNS Configuration Update
+### 5. CoreDNS Configuration Update
 
 **File:** `pkg/agent/baker.go`
 
@@ -714,7 +580,7 @@ The `fallthrough` directive ensures that:
 
 ---
 
-### 5. CSE Integration
+### 6. CSE Integration
 
 **Files:**
 - `parts/linux/cloud-init/artifacts/cse_config.sh`
@@ -724,13 +590,17 @@ The `fallthrough` directive ensures that:
 
 ```bash
 enableAKSHostsSetup() {
-    # Run the script once immediately to refresh hosts file with live DNS before kubelet starts
-    # The VHD has hardcoded IPs, but this ensures we have fresh IPs from the start
-    echo "Running initial aks-hosts-setup to refresh DNS cache..."
-    /opt/azure/containers/aks-hosts-setup.sh || echo "Warning: Initial hosts setup failed, using VHD hardcoded IPs"
+    local hosts_file="/etc/localdns/hosts"
+
+    # Write AKS-RP provided critical hosts entries to the hosts file
+    echo "AKS-RP provided critical hosts entries, writing to ${hosts_file}..."
+    mkdir -p "$(dirname "${hosts_file}")"
+    echo "${LOCALDNS_CRITICAL_HOSTS_ENTRIES}" | base64 -d > "${hosts_file}"
+    chmod 644 "${hosts_file}"
+    echo "Critical hosts entries written from AKS-RP."
 
     # Enable the timer for periodic refresh (every 15 minutes)
-    # 30 = timeout in seconds for systemctl enable/start operation
+    # This will update the hosts file with live DNS resolution
     echo "Enabling aks-hosts-setup timer..."
     systemctlEnableAndStart aks-hosts-setup.timer 30 || exit $ERR_SYSTEMCTL_START_FAIL
     echo "aks-hosts-setup timer enabled successfully."
@@ -739,12 +609,15 @@ enableAKSHostsSetup() {
 
 #### Activation Logic
 
-The timer is only enabled when LocalDNS is enabled:
+The hosts setup and LocalDNS are enabled when LocalDNS is configured:
 
 ```bash
 if [ "${SHOULD_ENABLE_LOCALDNS}" = "true" ]; then
-    logs_to_events "AKS.CSE.enableLocalDNSForScriptless" enableLocalDNSForScriptless
+    # Write hosts file BEFORE starting LocalDNS so it has entries to serve
     logs_to_events "AKS.CSE.enableAKSHostsSetup" enableAKSHostsSetup
+
+    # Start LocalDNS after hosts file is populated
+    logs_to_events "AKS.CSE.enableLocalDNSForScriptless" enableLocalDNSForScriptless
 fi
 ```
 
@@ -757,14 +630,15 @@ fi
 | Step | Action | Component |
 |------|--------|-----------|
 | 1 | Node boots | System |
-| 2 | **Hardcoded hosts file already present** | /etc/localdns/hosts (from VHD) |
-| 3 | Network comes online | systemd |
-| 4 | CSE runs `enableAKSHostsSetup()` | cse_main.sh |
-| 5 | **Script runs immediately to refresh with live DNS** | aks-hosts-setup.sh |
-| 6 | Hosts file updated with fresh IPs | /etc/localdns/hosts |
-| 7 | Timer enabled for periodic refresh | aks-hosts-setup.timer |
-| 8 | LocalDNS starts (uses fresh IPs) | localdns.service |
-| 9 | Kubelet starts | kubelet.service |
+| 2 | Network comes online | systemd |
+| 3 | CSE runs `enableAKSHostsSetup()` | cse_main.sh |
+| 4 | **AKS-RP provided entries written to hosts file** | LOCALDNS_CRITICAL_HOSTS_ENTRIES |
+| 5 | Timer enabled for periodic refresh | aks-hosts-setup.timer |
+| 6 | Timer triggers (OnBootSec=0) | aks-hosts-setup.timer |
+| 7 | Script refreshes with live DNS | aks-hosts-setup.sh |
+| 8 | Hosts file updated with fresh IPs | /etc/localdns/hosts |
+| 9 | LocalDNS starts (uses fresh IPs) | localdns.service |
+| 10 | Kubelet starts | kubelet.service |
 
 ### Runtime Flow
 
@@ -812,7 +686,7 @@ New artifacts are installed during VHD build via Packer:
 
 | Benefit | Description |
 |---------|-------------|
-| **Immediate Availability** | Hardcoded IPs in VHD provide DNS from first boot - no network dependency |
+| **Immediate Availability** | AKS-RP provides IPs at provisioning time - DNS works before kubelet starts |
 | **Improved Reliability** | DNS failures for critical FQDNs don't immediately impact operations |
 | **Reduced Latency** | Local cache eliminates DNS round-trip for cached domains |
 | **Resilience** | Nodes can continue operating during DNS outages using cached IPs |
@@ -826,11 +700,11 @@ New artifacts are installed during VHD build via Packer:
 
 | Failure Scenario | Behavior | Impact |
 |------------------|----------|--------|
-| DNS resolution fails on boot | Script exits 0, timer retries in 15 min | Hardcoded IPs from VHD still available |
-| nslookup not available | Script fails gracefully | Hardcoded IPs from VHD still available |
-| Hosts file write fails | Existing file preserved, error logged | Hardcoded or previous IPs still used |
+| DNS resolution fails on refresh | Script exits 0, timer retries in 15 min | AKS-RP provided IPs still available |
+| nslookup not available | Script fails gracefully | AKS-RP provided IPs still available |
+| Hosts file write fails | Existing file preserved, error logged | Previous IPs still used |
 | Invalid DNS response | Filtered by regex, not written | Valid entries only |
-| All resolutions fail | Existing hosts file preserved | Hardcoded or previous IPs still used |
+| All resolutions fail | Existing hosts file preserved | Previous IPs still used |
 | LocalDNS not enabled | Timer not started | Feature inactive |
 
 ---
@@ -888,7 +762,7 @@ New artifacts are installed during VHD build via Packer:
 | Azure Linux (Mariner) | x64 | ✅ Supported | `bind-utils` provides nslookup |
 | Azure Linux (Mariner) | ARM64 | ✅ Supported | `bind-utils` provides nslookup |
 | Azure Linux (Mariner) CVM | x64 | ✅ Supported | `bind-utils` provides nslookup |
-| Flatcar Container Linux | x64/ARM64 | ⚠️ Limited | nslookup not available; uses hardcoded VHD IPs only (no refresh) |
+| Flatcar Container Linux | x64/ARM64 | ⚠️ Limited | nslookup not available; uses AKS-RP provided IPs only (no refresh) |
 
 ### Feature Requirements
 
@@ -902,8 +776,8 @@ New artifacts are installed during VHD build via Packer:
 
 If `nslookup` is not available on a distro (e.g., Flatcar):
 - The timer and service run without errors (exit 0)
-- **Hardcoded IPs from VHD remain in use** - DNS resolution still works
-- IPs will not be refreshed dynamically, but hardcoded IPs are typically stable
+- **AKS-RP provided IPs remain in use** - DNS resolution still works
+- IPs will not be refreshed dynamically, but AKS-RP IPs are typically current
 - System journal logs: `"WARNING: No IP addresses resolved for any domain"`
 
 ---
@@ -929,12 +803,14 @@ If `nslookup` is not available on a distro (e.g., Flatcar):
 | parts/linux/cloud-init/artifacts/aks-hosts-setup.sh | New | Script that resolves critical AKS FQDNs and writes IPs to hosts file |
 | parts/linux/cloud-init/artifacts/aks-hosts-setup.service | New | Systemd oneshot service that executes the script |
 | parts/linux/cloud-init/artifacts/aks-hosts-setup.timer | New | Systemd timer that triggers the service at boot and every 15 minutes |
-| parts/linux/cloud-init/artifacts/cse_config.sh | Modified | Adds `enableAKSHostsSetup()` function to enable and start the timer |
-| parts/linux/cloud-init/artifacts/cse_main.sh | Modified | Calls `enableAKSHostsSetup()` when LocalDNS is enabled |
+| parts/linux/cloud-init/artifacts/cse_config.sh | Modified | Adds `enableAKSHostsSetup()` function to write AKS-RP entries and enable timer |
+| parts/linux/cloud-init/artifacts/cse_main.sh | Modified | Calls `enableAKSHostsSetup()` before `enableLocalDNSForScriptless()` |
 | pkg/agent/baker.go | Modified | Adds `hosts /etc/localdns/hosts` plugin block to LocalDNS Corefile template |
 | pkg/agent/baker_test.go | Modified | Updates expected Corefile output to include hosts plugin |
+| pkg/agent/datamodel/types.go | Modified | Adds `CriticalHostsEntries` field to `LocalDNSProfile` |
+| aks-node-controller/proto/aksnodeconfig/v1/localdns_config.proto | Modified | Adds `CriticalHostsEntry` message and `critical_hosts_entries` field |
 | vhdbuilder/packer/*.json | Modified | Uploads new artifacts to `/home/packer/` during VHD build |
-| vhdbuilder/packer/packer_source.sh | Modified | Copies artifacts to final locations and writes hardcoded `/etc/localdns/hosts` |
+| vhdbuilder/packer/packer_source.sh | Modified | Copies artifacts to final locations |
 
 ### References
 
