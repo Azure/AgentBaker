@@ -181,9 +181,10 @@ Implement a local DNS caching mechanism that:
 ```
 
 **Ordering Guarantees:**
-- `aks-hosts-setup.service` runs **after** network is online (After=network-online.target)
-- `aks-hosts-setup.service` runs **before** LocalDNS and kubelet (Before=kubelet.service localdns.service)
+- **Hosts file exists from VHD build** - no runtime dependency on the timer for initial DNS
 - `localdns.service` starts **before** kubelet to ensure DNS is ready for container pulls
+- `aks-hosts-setup.timer` refreshes the hosts file in the background after boot
+- The `Before=` directives are ordering hints but not blocking dependencies
 
 ---
 
@@ -342,8 +343,8 @@ WantedBy=timers.target
 | Setting | Value | Purpose |
 |---------|-------|---------|
 | Type | oneshot | Script runs once per trigger |
-| After | network-online.target | Ensures network is available |
-| Before | kubelet.service, localdns.service | Runs before consumers |
+| After | network-online.target | Ensures network is available for DNS queries |
+| Before | kubelet.service, localdns.service | Ordering hint (hosts file already exists from VHD) |
 
 #### Unit File
 
@@ -470,7 +471,7 @@ fi
 | Step | Action | Result |
 |------|--------|--------|
 | 1 | Pod queries mcr.microsoft.com | DNS query sent to LocalDNS |
-| 2 | LocalDNS receives query on 169.254.10.10:53 | CoreDNS processes query |
+| 2 | LocalDNS receives query on 169.254.10.10:53 | LocalDNS processes the query |
 | 3 | **hosts plugin** checks /etc/localdns/hosts | File lookup |
 | 4a | **If found in hosts file:** Return IP immediately | No external query needed |
 | 4b | **If not found in hosts file:** fallthrough to forward plugin | Forward plugin queries upstream DNS |
@@ -502,9 +503,10 @@ New artifacts are installed during VHD build via Packer:
 
 | Benefit | Description |
 |---------|-------------|
+| **Immediate Availability** | Hardcoded IPs in VHD provide DNS from first boot - no network dependency |
 | **Improved Reliability** | DNS failures for critical FQDNs don't immediately impact operations |
 | **Reduced Latency** | Local cache eliminates DNS round-trip for cached domains |
-| **Resilience** | Nodes can continue operating briefly during DNS outages |
+| **Resilience** | Nodes can continue operating during DNS outages using cached IPs |
 | **Self-Healing** | Timer automatically refreshes cache every 15 minutes |
 | **Thundering Herd Prevention** | RandomizedDelaySec prevents cluster-wide simultaneous resolution |
 | **Zero Configuration** | Automatic when LocalDNS is enabled |
@@ -515,11 +517,11 @@ New artifacts are installed during VHD build via Packer:
 
 | Failure Scenario | Behavior | Impact |
 |------------------|----------|--------|
-| DNS resolution fails on boot | Script exits 0, timer retries in 15 min | Hosts file empty, all queries go to upstream DNS |
-| nslookup not available | Script fails gracefully | All queries go to upstream DNS |
-| Hosts file write fails | Existing file preserved, error logged | Stale cache used |
+| DNS resolution fails on boot | Script exits 0, timer retries in 15 min | Hardcoded IPs from VHD still available |
+| nslookup not available | Script fails gracefully | Hardcoded IPs from VHD still available |
+| Hosts file write fails | Existing file preserved, error logged | Hardcoded or previous IPs still used |
 | Invalid DNS response | Filtered by regex, not written | Valid entries only |
-| All resolutions fail | Existing hosts file preserved | Stale cache used |
+| All resolutions fail | Existing hosts file preserved | Hardcoded or previous IPs still used |
 | LocalDNS not enabled | Timer not started | Feature inactive |
 
 ---
@@ -549,14 +551,18 @@ New artifacts are installed during VHD build via Packer:
 
 | Test File | Coverage |
 |-----------|----------|
-| pkg/agent/baker_test.go | CoreDNS Corefile generation |
+| pkg/agent/baker_test.go | LocalDNS Corefile generation |
 
 ### Manual Verification
 
 1. Deploy node with LocalDNS enabled
 2. Verify timer is running: `systemctl status aks-hosts-setup.timer`
 3. Check hosts file: `cat /etc/localdns/hosts`
-4. Verify CoreDNS config: `kubectl exec -n kube-system localdns-xxx -- cat /etc/coredns/Corefile`
+4. Verify LocalDNS Corefile:
+   ```bash
+   kubectl node-shell <node>
+   cat /opt/azure/containers/localdns/updated.localdns.corefile
+   ```
 
 ---
 
@@ -573,7 +579,7 @@ New artifacts are installed during VHD build via Packer:
 | Azure Linux (Mariner) | x64 | ✅ Supported | `bind-utils` provides nslookup |
 | Azure Linux (Mariner) | ARM64 | ✅ Supported | `bind-utils` provides nslookup |
 | Azure Linux (Mariner) CVM | x64 | ✅ Supported | `bind-utils` provides nslookup |
-| Flatcar Container Linux | x64/ARM64 | ⚠️ Degrades gracefully | nslookup not available; script runs but no hosts cached |
+| Flatcar Container Linux | x64/ARM64 | ⚠️ Limited | nslookup not available; uses hardcoded VHD IPs only (no refresh) |
 
 ### Feature Requirements
 
@@ -587,8 +593,8 @@ New artifacts are installed during VHD build via Packer:
 
 If `nslookup` is not available on a distro (e.g., Flatcar):
 - The timer and service run without errors (exit 0)
-- No IP addresses are cached in `/etc/localdns/hosts`
-- All DNS queries fall through to the upstream DNS server
+- **Hardcoded IPs from VHD remain in use** - DNS resolution still works
+- IPs will not be refreshed dynamically, but hardcoded IPs are typically stable
 - System journal logs: `"WARNING: No IP addresses resolved for any domain"`
 
 ---
