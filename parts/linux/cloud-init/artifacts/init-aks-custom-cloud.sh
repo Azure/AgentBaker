@@ -196,7 +196,18 @@ function init_ubuntu_pmc_repo_depot {
 }
 
 if [ "$IS_UBUNTU" -eq 1 ]; then
-    (crontab -l ; echo "0 19 * * * $0 ca-refresh") | crontab -
+    # Determine an absolute, canonical path to this script for use in cron.
+    if command -v readlink >/dev/null 2>&1; then
+        # Use readlink -f when available to resolve the canonical path; fall back to $0 on error.
+        SCRIPT_PATH="$(readlink -f "$0" 2>/dev/null || printf '%s' "$0")"
+    fi
+
+    if ! crontab -l 2>/dev/null | grep -q "\"$SCRIPT_PATH\" ca-refresh"; then
+        # Quote the script path in the cron entry to avoid issues with spaces or special characters.
+        if ! (crontab -l 2>/dev/null ; printf '%s\n' "0 19 * * * \"$SCRIPT_PATH\" ca-refresh") | crontab -; then
+            echo "Failed to install ca-refresh cron job via crontab" >&2
+        fi
+    fi
 
     cloud-init status --wait
     rootRepoDepotEndpoint="$(echo "${REPO_DEPOT_ENDPOINT}" | sed 's/\/ubuntu//')"
