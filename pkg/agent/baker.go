@@ -1229,6 +1229,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return base64.StdEncoding.EncodeToString([]byte(content))
 		},
 		"GetPreProvisionOnly": func() bool { return config.PreProvisionOnly },
+		"GetCSETimeout":       func() string { return datamodel.GetCSETimeout(config.CSETimeout) },
 		"BlockIptables": func() bool {
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.BlockIptables
 		},
