@@ -33,7 +33,9 @@ This feature enhances DNS reliability for Azure Kubernetes Service (AKS) nodes b
 
 ### Background
 
-AKS nodes depend on several critical Azure FQDNs during operation:
+AKS nodes depend on several critical Azure FQDNs during operation. These FQDNs vary by Azure cloud:
+
+**Azure Public Cloud:**
 
 | FQDN | Purpose |
 |------|---------|
@@ -44,6 +46,22 @@ AKS nodes depend on several critical Azure FQDNs during operation:
 | packages.microsoft.com | Microsoft package repository |
 | acs-mirror.azureedge.net | ACS mirror for artifacts |
 | eastus.data.mcr.microsoft.com | Regional MCR data endpoint |
+
+**Azure China Cloud:**
+
+| FQDN | Purpose |
+|------|---------|
+| mcr.azk8s.cn | China MCR mirror |
+| login.chinacloudapi.cn | Azure AD authentication (China) |
+| management.chinacloudapi.cn | Azure Resource Manager (China) |
+
+**Azure Government Cloud:**
+
+| FQDN | Purpose |
+|------|---------|
+| mcr.microsoft.us | US Government MCR |
+| login.microsoftonline.us | Azure AD authentication (US Gov) |
+| management.usgovcloudapi.net | Azure Resource Manager (US Gov) |
 
 ### Impact of DNS Failures
 
@@ -255,6 +273,33 @@ CRITICAL_FQDNS=(
 
 The VHD ships with a **hardcoded hosts file** containing known-good IP addresses for critical Azure endpoints. This ensures DNS resolution works immediately at boot, before the timer has a chance to refresh from live DNS.
 
+#### Cloud-Specific Hosts Files
+
+Different Azure clouds have different endpoints and IP addresses. The VHD includes cloud-specific hosts files:
+
+| Cloud | File Path | Example FQDNs |
+|-------|-----------|---------------|
+| **Azure Public** | `/etc/localdns/hosts.public` | mcr.microsoft.com, management.azure.com |
+| **Azure China** | `/etc/localdns/hosts.china` | mcr.azk8s.cn, management.chinacloudapi.cn |
+| **Azure Government** | `/etc/localdns/hosts.government` | mcr.microsoft.us, management.usgovcloudapi.net |
+
+At provisioning time, CSE copies the appropriate hosts file based on the cloud environment:
+
+```bash
+# In cse_config.sh
+case "${TARGET_CLOUD}" in
+    "AzureChinaCloud")
+        cp /etc/localdns/hosts.china /etc/localdns/hosts
+        ;;
+    "AzureUSGovernmentCloud")
+        cp /etc/localdns/hosts.government /etc/localdns/hosts
+        ;;
+    *)
+        cp /etc/localdns/hosts.public /etc/localdns/hosts
+        ;;
+esac
+```
+
 #### Benefits
 
 | Benefit | Description |
@@ -262,8 +307,11 @@ The VHD ships with a **hardcoded hosts file** containing known-good IP addresses
 | Immediate availability | DNS works from the moment LocalDNS starts |
 | No boot-time DNS dependency | Node can start pulling images before network DNS is verified |
 | Fallback resilience | If DNS is slow/unavailable at boot, hardcoded IPs still work |
+| Cloud compliance | Each sovereign cloud uses its own endpoints |
 
-#### Hardcoded IPs
+#### Hardcoded IPs by Cloud
+
+**Azure Public:**
 
 ```
 # mcr.microsoft.com - Microsoft Container Registry
@@ -280,8 +328,6 @@ The VHD ships with a **hardcoded hosts file** containing known-good IP addresses
 20.190.151.69 login.microsoftonline.com
 2603:1037:1:c8::8 login.microsoftonline.com
 2603:1036:3000:d8::5 login.microsoftonline.com
-2603:1037:1:c8::9 login.microsoftonline.com
-2603:1037:1:c8::a login.microsoftonline.com
 
 # management.azure.com - Azure Resource Manager
 20.37.158.0 management.azure.com
@@ -300,12 +346,220 @@ The VHD ships with a **hardcoded hosts file** containing known-good IP addresses
 2620:1ec:bdf::50 eastus.data.mcr.microsoft.com
 ```
 
+**Azure China:**
+
+```
+# mcr.azk8s.cn - China MCR mirror
+# TODO: Add actual IPs after verification
+<IP_ADDRESS> mcr.azk8s.cn
+
+# login.chinacloudapi.cn - Azure AD authentication (China)
+# TODO: Add actual IPs after verification
+<IP_ADDRESS> login.chinacloudapi.cn
+
+# management.chinacloudapi.cn - Azure Resource Manager (China)
+# TODO: Add actual IPs after verification
+<IP_ADDRESS> management.chinacloudapi.cn
+```
+
+**Azure Government:**
+
+```
+# mcr.microsoft.us - US Government MCR
+# TODO: Add actual IPs after verification
+<IP_ADDRESS> mcr.microsoft.us
+
+# login.microsoftonline.us - Azure AD authentication (US Gov)
+# TODO: Add actual IPs after verification
+<IP_ADDRESS> login.microsoftonline.us
+
+# management.usgovcloudapi.net - Azure Resource Manager (US Gov)
+# TODO: Add actual IPs after verification
+<IP_ADDRESS> management.usgovcloudapi.net
+```
+
 #### IP Address Maintenance
 
 These hardcoded IPs should be updated periodically as part of VHD releases:
 - IPs are stable Azure anycast addresses
 - The runtime timer will update to fresh IPs shortly after boot
 - Even stale hardcoded IPs typically continue working (Azure maintains backward compatibility)
+- **Each cloud's IP addresses must be maintained separately**
+
+---
+
+### 3. AKS-RP Provided Hosts Entries (Alternative)
+
+**API Field:** `LocalDNSProfile.CriticalHostsEntries`
+**When Used:** AKS-RP can optionally provide IP addresses for critical FQDNs
+
+#### Purpose
+
+AKS-RP can provide FQDN-to-IP mappings at node provisioning time via the `NodeBootstrappingConfiguration`. When provided, these entries **override** both the VHD hardcoded IPs and the initial DNS resolution.
+
+#### Benefits
+
+| Benefit | Description |
+|---------|-------------|
+| Fresh IPs | AKS-RP can provide up-to-date IP addresses |
+| Cloud-specific | AKS-RP provides correct endpoints for each cloud (Public, China, Government) |
+| Regional support | AKS-RP can provide region-specific endpoints |
+| No VHD dependency | IPs can be updated without VHD rebuild |
+| Centralized management | IP updates are managed by AKS-RP |
+
+#### Provisioning Flow
+
+The hosts file is written **before** kubelet starts, ensuring DNS is available for the first container image pull:
+
+```
+┌──────────────────────────────────────────────────────────────────────────────────┐
+│                           Node Provisioning Timeline                              │
+└──────────────────────────────────────────────────────────────────────────────────┘
+
+AKS-RP                      AgentBaker                    Node (CSE Execution)
+───────                     ──────────                    ────────────────────
+   │                            │                                │
+   │  NodeBootstrappingConfig   │                                │
+   │  ┌──────────────────────┐  │                                │
+   │  │ LocalDNSProfile:     │  │                                │
+   │  │   CriticalHostsEntries: │                                │
+   │  │     mcr.microsoft.com   │                                │
+   │  │       -> [20.1.2.3]     │                                │
+   │  └──────────────────────┘  │                                │
+   │ ──────────────────────────►│                                │
+   │                            │                                │
+   │                            │  Generate CSE with             │
+   │                            │  LOCALDNS_CRITICAL_HOSTS_ENTRIES
+   │                            │  (base64 encoded)              │
+   │                            │ ──────────────────────────────►│
+   │                            │                                │
+   │                            │                     ┌──────────▼──────────┐
+   │                            │                     │ 1. CSE starts       │
+   │                            │                     │ 2. enableAKSHosts() │
+   │                            │                     │    - Decode base64  │
+   │                            │                     │    - Write hosts    │
+   │                            │                     │      file           │
+   │                            │                     │ 3. Start localdns   │
+   │                            │                     │    service          │
+   │                            │                     │ 4. Configure kubelet│
+   │                            │                     │    DNS              │
+   │                            │                     │ 5. Start kubelet    │
+   │                            │                     │    (uses LocalDNS)  │
+   │                            │                     └─────────────────────┘
+   │                            │                                │
+   │                            │                     ┌──────────▼──────────┐
+   │                            │                     │ kubelet pulls images│
+   │                            │                     │ DNS: 169.254.10.10  │
+   │                            │                     │  -> hosts file      │
+   │                            │                     │  -> mcr.microsoft.  │
+   │                            │                     │       com resolves! │
+   │                            │                     └─────────────────────┘
+```
+
+#### Data Contract
+
+**Go Struct (pkg/agent/datamodel/types.go):**
+
+```go
+type LocalDNSProfile struct {
+    // EnableLocalDNS specifies if LocalDNS should be enabled for the nodepool
+    EnableLocalDNS bool `json:"enableLocalDNS,omitempty"`
+
+    // CriticalHostsEntries contains FQDN to IP address mappings for critical Azure infrastructure.
+    // When provided by AKS-RP, CSE will write these to /etc/localdns/hosts.
+    // Key: FQDN (e.g., "mcr.microsoft.com")
+    // Value: List of IP addresses (IPv4 and/or IPv6)
+    CriticalHostsEntries map[string][]string `json:"criticalHostsEntries,omitempty"`
+}
+```
+
+**Proto Definition (aksnodeconfig/v1/localdns_config.proto):**
+
+```protobuf
+message LocalDnsProfile {
+  bool enable_local_dns = 1;
+  optional int32 cpu_limit_in_milli_cores = 2;
+  optional int32 memory_limit_in_mb = 3;
+  map<string, LocalDnsOverrides> vnet_dns_overrides = 4;
+  map<string, LocalDnsOverrides> kube_dns_overrides = 5;
+
+  // CriticalHostsEntries contains FQDN to IP address mappings for critical Azure infrastructure.
+  // When provided by AKS-RP, CSE will write these to /etc/localdns/hosts.
+  map<string, CriticalHostsEntry> critical_hosts_entries = 6;
+}
+
+message CriticalHostsEntry {
+  // IP addresses (both IPv4 and IPv6) for the FQDN.
+  repeated string ip_addresses = 1;
+}
+```
+
+#### API Contract
+
+AKS-RP sends the following in `NodeBootstrappingConfiguration`:
+
+```json
+{
+  "agentPoolProfile": {
+    "localDNSProfile": {
+      "enableLocalDNS": true,
+      "criticalHostsEntries": {
+        "mcr.microsoft.com": ["20.61.99.68", "2603:1061:1002::2"],
+        "login.microsoftonline.com": ["20.190.151.68", "20.190.151.70"],
+        "packages.aks.azure.com": ["20.7.0.233"],
+        "management.azure.com": ["20.37.158.0"],
+        "<region>.dp.kubernetesconfiguration.azure.com": ["10.1.2.3"]
+      }
+    }
+  }
+}
+```
+
+#### Environment Variable
+
+CSE receives the hosts entries as a base64-encoded string:
+
+```bash
+LOCALDNS_CRITICAL_HOSTS_ENTRIES="IyBBS1MgY3JpdGljYWwgRlFETiBhZGRyZXNzZXMgcHJvdmlkZWQgYnkgQUtTLVJQCi..."
+```
+
+When decoded, it produces a hosts-file format:
+
+```
+# AKS critical FQDN addresses provided by AKS-RP
+# This file is written by CSE during node provisioning
+
+# login.microsoftonline.com
+20.190.151.68 login.microsoftonline.com
+20.190.151.70 login.microsoftonline.com
+
+# management.azure.com
+20.37.158.0 management.azure.com
+
+# mcr.microsoft.com
+20.61.99.68 mcr.microsoft.com
+2603:1061:1002::2 mcr.microsoft.com
+
+# packages.aks.azure.com
+20.7.0.233 packages.aks.azure.com
+```
+
+#### Comparison: VHD vs AKS-RP Provided
+
+| Aspect | VHD Hardcoded | AKS-RP Provided |
+|--------|---------------|-----------------|
+| **When set** | VHD build time | Node provisioning |
+| **Update frequency** | Weekly (VHD release) | Every node creation |
+| **Cloud handling** | Separate files per cloud, CSE selects | AKS-RP sends correct entries for the cloud |
+| **Regional IPs** | Global only | Region-specific possible |
+| **Failure mode** | Always present | CSE must run first |
+| **Boot dependency** | None | Requires CSE |
+
+#### Precedence
+
+1. **AKS-RP provided** (if `criticalHostsEntries` is not empty)
+2. **VHD hardcoded** (cloud-specific file selected based on `TARGET_CLOUD`)
+3. **Timer refresh** (updates periodically regardless of initial source)
 
 ---
 

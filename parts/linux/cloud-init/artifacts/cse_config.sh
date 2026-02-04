@@ -1219,16 +1219,25 @@ EOF
 # This function enables and starts the aks-hosts-setup timer.
 # The timer periodically resolves critical AKS FQDN DNS records and populates /etc/localdns/hosts.
 enableAKSHostsSetup() {
-    # Enable periodic resolution and caching of critical AKS FQDN DNS addresses
-    # Writes resolved IPs to /etc/localdns/hosts which is read by LocalDNS corefile
-    # This reduces external DNS queries and improves reliability for container image pulls
+    local hosts_file="/etc/localdns/hosts"
 
-    # Run the script once immediately to refresh hosts file with live DNS before kubelet starts
-    # The VHD has hardcoded IPs, but this ensures we have fresh IPs from the start
-    echo "Running initial aks-hosts-setup to refresh DNS cache..."
-    /opt/azure/containers/aks-hosts-setup.sh || echo "Warning: Initial hosts setup failed, using VHD hardcoded IPs"
+    # Check if AKS-RP provided critical hosts entries
+    # If provided, use those instead of the VHD hardcoded IPs or live DNS resolution
+    if [ -n "${LOCALDNS_CRITICAL_HOSTS_ENTRIES}" ]; then
+        echo "AKS-RP provided critical hosts entries, writing to ${hosts_file}..."
+        mkdir -p "$(dirname "${hosts_file}")"
+        echo "${LOCALDNS_CRITICAL_HOSTS_ENTRIES}" | base64 -d > "${hosts_file}"
+        chmod 644 "${hosts_file}"
+        echo "Critical hosts entries written from AKS-RP."
+    else
+        # Run the script once immediately to refresh hosts file with live DNS before kubelet starts
+        # The VHD has hardcoded IPs, but this ensures we have fresh IPs from the start
+        echo "Running initial aks-hosts-setup to refresh DNS cache..."
+        /opt/azure/containers/aks-hosts-setup.sh || echo "Warning: Initial hosts setup failed, using VHD hardcoded IPs"
+    fi
 
     # Enable the timer for periodic refresh (every 15 minutes)
+    # This will update the hosts file even if AKS-RP initially provided entries
     echo "Enabling aks-hosts-setup timer..."
     systemctlEnableAndStart aks-hosts-setup.timer 30 || exit $ERR_SYSTEMCTL_START_FAIL
     echo "aks-hosts-setup timer enabled successfully."
