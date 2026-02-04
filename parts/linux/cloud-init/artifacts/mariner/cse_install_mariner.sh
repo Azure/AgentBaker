@@ -76,8 +76,10 @@ installCNI() {
     # Old versions of VHDs will not have components.json. If it does not exist, we will fall back to the hardcoded download for CNI.
     # Network Isolated Cluster / Bring Your Own ACR will not work with a vhd that requires a hardcoded CNI download.
     if [ ! -f "$COMPONENTS_FILEPATH" ] || ! jq '.Packages[] | select(.name == "containernetworking-plugins")' < $COMPONENTS_FILEPATH > /dev/null; then
-        echo "WARNING: no containernetworking-plugins components found in components.json"
-        exit $ERR_CNI_VERSION_INVALID
+        # For older VHDs which do not have containernetworking-plugins in components.json, it should have the older cni-plugins tgz extracted and installed at VHD build time.
+        # We will just use what is already installed on the VHD.
+        echo "components.json not found or containernetworking-plugins not found in components.json, assuming older VHD with cni-plugins already installed."
+        return
     fi
 
     #always just use what is listed in components.json so we don't have to sync.
@@ -192,7 +194,7 @@ downloadGPUDrivers() {
         echo "No CUDA package found for kernel ${KERNEL_VERSION} (vm_sku=${VM_SKU})"
         exit $ERR_MISSING_CUDA_PACKAGE
     fi
-    
+
     echo "Installing: ${CUDA_PACKAGE}"
     dnf_install 30 1 600 ${CUDA_PACKAGE} || exit $ERR_APT_INSTALL_TIMEOUT
 }
