@@ -147,43 +147,48 @@ Implement a local DNS caching mechanism that:
               │ network-online   │
               │    .target       │
               └────────┬─────────┘
-                       │
+                       │ (1) network is available
                        ▼
               ┌──────────────────┐
               │  aks-hosts-      │
               │  setup.timer     │
               └────────┬─────────┘
-                       │ triggers
+                       │ (2) timer fires immediately (OnBootSec=0)
                        ▼
               ┌──────────────────┐
               │  aks-hosts-      │
               │  setup.service   │
               └────────┬─────────┘
-                       │ executes
+                       │ (3) service runs the script
                        ▼
               ┌──────────────────┐
               │  aks-hosts-      │
               │  setup.sh        │
               └────────┬─────────┘
-                       │ writes
+                       │ (4) script resolves FQDNs and writes file
                        ▼
               ┌──────────────────┐
               │ /etc/localdns/   │
               │     hosts        │
               └────────┬─────────┘
-                       │ read by
+                       │ (5) hosts file is available for LocalDNS
                        ▼
               ┌──────────────────┐
               │   localdns       │
               │   .service       │
               └────────┬─────────┘
-                       │
+                       │ (6) LocalDNS starts before kubelet (Before= dependency)
                        ▼
               ┌──────────────────┐
               │   kubelet        │
               │   .service       │
               └──────────────────┘
 ```
+
+**Ordering Guarantees:**
+- `aks-hosts-setup.service` runs **after** network is online (After=network-online.target)
+- `aks-hosts-setup.service` runs **before** LocalDNS and kubelet (Before=kubelet.service localdns.service)
+- `localdns.service` starts **before** kubelet to ensure DNS is ready for container pulls
 
 ---
 
@@ -498,15 +503,34 @@ New artifacts are installed during VHD build via Packer:
 
 ## Compatibility Matrix
 
-| Component | Status | Notes |
-|-----------|--------|-------|
-| Ubuntu 20.04 | ✅ Supported | nslookup available |
-| Ubuntu 22.04 | ✅ Supported | nslookup available |
-| Ubuntu 24.04 | ✅ Supported | nslookup available |
-| Azure Linux (Mariner) | ✅ Supported | nslookup available |
-| LocalDNS enabled | ✅ Required | Feature dependency |
+### Operating System Support
+
+| OS | Architecture | Status | Notes |
+|----|-------------|--------|-------|
+| Ubuntu 20.04 | x64 | ✅ Supported | `bind9-dnsutils` provides nslookup |
+| Ubuntu 22.04 | x64 | ✅ Supported | `bind9-dnsutils` provides nslookup |
+| Ubuntu 24.04 | x64 | ✅ Supported | `bind9-dnsutils` provides nslookup |
+| Ubuntu 24.04 | ARM64 | ✅ Supported | `bind9-dnsutils` provides nslookup |
+| Azure Linux (Mariner) | x64 | ✅ Supported | `bind-utils` provides nslookup |
+| Azure Linux (Mariner) | ARM64 | ✅ Supported | `bind-utils` provides nslookup |
+| Azure Linux (Mariner) CVM | x64 | ✅ Supported | `bind-utils` provides nslookup |
+| Flatcar Container Linux | x64/ARM64 | ⚠️ Degrades gracefully | nslookup not available; script runs but no hosts cached |
+
+### Feature Requirements
+
+| Requirement | Status | Notes |
+|-------------|--------|-------|
+| LocalDNS enabled | ✅ Required | Feature dependency - timer only enabled when LocalDNS is active |
 | Scriptless provisioning | ✅ Supported | Timer enabled via CSE |
 | Legacy provisioning | ✅ Supported | Timer enabled via CSE |
+
+### Graceful Degradation
+
+If `nslookup` is not available on a distro (e.g., Flatcar):
+- The timer and service run without errors (exit 0)
+- No IP addresses are cached in `/etc/localdns/hosts`
+- All DNS queries fall through to the upstream DNS server
+- System journal logs: `"WARNING: No IP addresses resolved for any domain"`
 
 ---
 
@@ -526,17 +550,17 @@ New artifacts are installed during VHD build via Packer:
 
 ### Related Files Changed
 
-| File | Change Type |
-|------|-------------|
-| parts/linux/cloud-init/artifacts/aks-hosts-setup.sh | New |
-| parts/linux/cloud-init/artifacts/aks-hosts-setup.service | New |
-| parts/linux/cloud-init/artifacts/aks-hosts-setup.timer | New |
-| parts/linux/cloud-init/artifacts/cse_config.sh | Modified |
-| parts/linux/cloud-init/artifacts/cse_main.sh | Modified |
-| pkg/agent/baker.go | Modified |
-| pkg/agent/baker_test.go | Modified |
-| vhdbuilder/packer/*.json | Modified |
-| vhdbuilder/packer/packer_source.sh | Modified |
+| File | Change Type | Purpose |
+|------|-------------|---------|
+| parts/linux/cloud-init/artifacts/aks-hosts-setup.sh | New | Script that resolves critical AKS FQDNs and writes IPs to hosts file |
+| parts/linux/cloud-init/artifacts/aks-hosts-setup.service | New | Systemd oneshot service that executes the script |
+| parts/linux/cloud-init/artifacts/aks-hosts-setup.timer | New | Systemd timer that triggers the service at boot and every 15 minutes |
+| parts/linux/cloud-init/artifacts/cse_config.sh | Modified | Adds `enableAKSHostsSetup()` function to enable and start the timer |
+| parts/linux/cloud-init/artifacts/cse_main.sh | Modified | Calls `enableAKSHostsSetup()` when LocalDNS is enabled |
+| pkg/agent/baker.go | Modified | Adds `hosts /etc/localdns/hosts` plugin block to LocalDNS Corefile template |
+| pkg/agent/baker_test.go | Modified | Updates expected Corefile output to include hosts plugin |
+| vhdbuilder/packer/*.json | Modified | Uploads new artifacts to `/home/packer/` during VHD build |
+| vhdbuilder/packer/packer_source.sh | Modified | Copies artifacts from `/home/packer/` to final locations on VHD |
 
 ### References
 
