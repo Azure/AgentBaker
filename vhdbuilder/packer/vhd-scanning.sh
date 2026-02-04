@@ -92,9 +92,11 @@ if [ "${OS_TYPE}" = "Linux" ] && grep -q "cvm" <<< "$FEATURE_FLAGS"; then
     VM_OPTIONS="--size $VM_SIZE --security-type ConfidentialVM --enable-secure-boot true --enable-vtpm true --os-disk-security-encryption-type VMGuestStateOnly --specialized true"
 fi
 
+OS_DISK_SIZE_GB=30
 # GB200 specific VM options for scanning (uses standard ARM64 VM for now)
 if [ "${OS_TYPE}" = "Linux" ] && grep -q "GB200" <<< "$FEATURE_FLAGS"; then
     echo "GB200: Using standard ARM64 VM options for scanning"
+    OS_DISK_SIZE_GB=60
     # Additional GB200-specific VM options can be added here when GB200 SKUs are available
 fi
 
@@ -126,7 +128,7 @@ else
         --nics $SCANNING_NIC_ID \
         --admin-username $SCAN_VM_ADMIN_USERNAME \
         --admin-password $SCAN_VM_ADMIN_PASSWORD \
-        --os-disk-size-gb 50 \
+        --os-disk-size-gb $OS_DISK_SIZE_GB \
         ${VM_OPTIONS} \
         --assign-identity "${UMSI_RESOURCE_ID}"
 
