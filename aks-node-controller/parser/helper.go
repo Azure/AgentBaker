@@ -32,6 +32,7 @@ import (
 	"github.com/Azure/agentbaker/aks-node-controller/helpers"
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Azure/agentbaker/pkg/agent"
+	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
@@ -596,13 +597,7 @@ func getDisableSSH(v *aksnodeconfigv1.Configuration) bool {
 	return !v.GetEnableSsh()
 }
 
-// getKubeletFlags returns the kubelet command-line flags as a string.
-// When kubelet_cmd_flags is present, it takes precedence and is returned as-is (raw string).
-// Otherwise, it falls back to constructing flags from the kubelet_flags map (sorted key-value pairs).
 func getKubeletFlags(kubeletConfig *aksnodeconfigv1.KubeletConfig) string {
-	if kubeletConfig.GetKubeletCmdFlags() != "" {
-		return kubeletConfig.GetKubeletCmdFlags()
-	}
 	return createSortedKeyValuePairs(kubeletConfig.GetKubeletFlags(), " ")
 }
 
@@ -809,3 +804,16 @@ func getLocalDnsMemoryLimitInMb(aksnodeconfig *aksnodeconfigv1.Configuration) st
 }
 
 // ---------------------- End of localdns related helper code ----------------------//
+
+// ---------------------- Start of cse timeout helper code ----------------------//
+
+// getCSETimeout returns the CSE timeout value in minutes.
+func getCSETimeout(aksnodeconfig *aksnodeconfigv1.Configuration) string {
+	cseTimeout := 0
+	if aksnodeconfig != nil {
+		cseTimeout = int(aksnodeconfig.GetCseTimeout())
+	}
+	return datamodel.GetCSETimeout(cseTimeout)
+}
+
+// ---------------------- End of cse timeout helper code ----------------------//
