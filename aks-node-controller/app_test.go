@@ -423,8 +423,8 @@ func TestCreateGuestAgentEvent(t *testing.T) {
 			expectedTimestamp := tt.startTime.Format("2006-01-02 15:04:05.000")
 			assert.Equal(t, expectedTimestamp, event.Timestamp, "Timestamp should be formatted correctly")
 
-			// Verify OperationId format (taskName-unixNano)
-			expectedOperationId := fmt.Sprintf("%s-%d", tt.taskName, tt.startTime.UnixNano())
+			// Verify OperationId format (endTime formatted timestamp)
+			expectedOperationId := tt.endTime.Format("2006-01-02 15:04:05.000")
 			assert.Equal(t, expectedOperationId, event.OperationId, "OperationId should be formatted correctly")
 
 			// Verify filename is a millisecond timestamp

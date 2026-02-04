@@ -342,7 +342,7 @@ func createGuestAgentEventWithDir(eventsDir, taskName, message, eventLevel strin
 		fullMessage = fmt.Sprintf("%s | %s", message, timingInfo)
 	}
 
-	operationID := fmt.Sprintf("%s-%d", taskName, startTime.UnixNano())
+	operationID := endTime.Format("2006-01-02 15:04:05.000")
 
 	event := GuestAgentEvent{
 		Timestamp:   startTime.Format("2006-01-02 15:04:05.000"), // strange but this is Go's reference time for formatting
