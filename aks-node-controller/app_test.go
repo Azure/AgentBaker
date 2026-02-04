@@ -363,7 +363,7 @@ func TestCreateGuestAgentEvent(t *testing.T) {
 	}{
 		{
 			name:       "error event",
-			taskName:   "AKS.AKSNodeController.UnexpectedError",
+			taskName:   "AKS.AKSNodeController.Provision",
 			message:    "aks-node-controller exited with code 1",
 			eventLevel: "Error",
 			startTime:  time.Date(2026, 2, 3, 10, 30, 45, 123000000, time.UTC),

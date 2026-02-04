@@ -12,6 +12,8 @@ import (
 
 func main() {
 	startTime := time.Now()
+	createGuestAgentEvent("AKS.AKSNodeController.Provision", "Starting", "Informational", startTime, startTime)
+
 	// defer calls are not executed on os.Exit
 	logCleanup := configureLogging()
 	app := App{cmdRunner: cmdRunner}
@@ -22,7 +24,7 @@ func main() {
 	endTime := time.Now()
 	if exitCode != 0 {
 		message := fmt.Sprintf("aks-node-controller exited with code %d", exitCode)
-		createGuestAgentEvent("AKS.AKSNodeController.UnexpectedError", message, "Error", startTime, endTime)
+		createGuestAgentEvent("AKS.AKSNodeController.Provision", message, "Error", startTime, endTime)
 	} else {
 		createGuestAgentEvent("AKS.AKSNodeController.Provision", "Completed", "Informational", startTime, endTime)
 	}
