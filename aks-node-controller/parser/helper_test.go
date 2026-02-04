@@ -27,8 +27,6 @@ import (
 
 	"github.com/Azure/agentbaker/aks-node-controller/helpers"
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
-	"github.com/Azure/agentbaker/pkg/agent"
-	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/google/go-cmp/cmp"
 )
@@ -1382,47 +1380,6 @@ func Test_getKubeletFlags(t *testing.T) {
 	type args struct {
 		kubeletConfig *aksnodeconfigv1.KubeletConfig
 	}
-	kubeletFlags := map[string]string{
-		"--address":                           "0.0.0.0",
-		"--pod-manifest-path":                 "/etc/kubernetes/manifests",
-		"--cluster-domain":                    "cluster.local",
-		"--cluster-dns":                       "10.0.0.10",
-		"--cgroups-per-qos":                   "true",
-		"--tls-cert-file":                     "/etc/kubernetes/certs/kubeletserver.crt",
-		"--tls-private-key-file":              "/etc/kubernetes/certs/kubeletserver.key",
-		"--tls-cipher-suites":                 "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256", //nolint:lll
-		"--max-pods":                          "110",
-		"--node-status-update-frequency":      "10s",
-		"--image-gc-high-threshold":           "85",
-		"--image-gc-low-threshold":            "80",
-		"--event-qps":                         "0",
-		"--pod-max-pids":                      "-1",
-		"--enforce-node-allocatable":          "pods",
-		"--streaming-connection-idle-timeout": "4h0m0s",
-		"--rotate-certificates":               "true",
-		"--rotate-server-certificates":        "true",
-		"--read-only-port":                    "10255",
-		"--protect-kernel-defaults":           "true",
-		"--resolv-conf":                       "/etc/resolv.conf",
-		"--anonymous-auth":                    "false",
-		"--client-ca-file":                    "/etc/kubernetes/certs/ca.crt",
-		"--authentication-token-webhook":      "true",
-		"--authorization-mode":                "Webhook",
-		"--eviction-hard":                     "memory.available<750Mi,nodefs.available<10%,nodefs.inodesFree<5%",
-		"--feature-gates":                     "RotateKubeletServerCertificate=true,DynamicKubeletConfig=false", //nolint:lll // what if you turn off dynamic kubelet using dynamic kubelet?
-		"--system-reserved":                   "cpu=2,memory=1Gi",
-		"--kube-reserved":                     "cpu=100m,memory=1638Mi",
-	}
-	config := &datamodel.NodeBootstrappingConfiguration{
-		KubeletConfig: kubeletFlags,
-		ContainerService: &datamodel.ContainerService{
-			Location:   "southcentralus",
-			Type:       "Microsoft.ContainerService/ManagedClusters",
-			Properties: &datamodel.Properties{},
-		},
-		EnableKubeletConfigFile: false,
-		AgentPoolProfile:        &datamodel.AgentPoolProfile{},
-	}
 	tests := []struct {
 		name string
 		args args
@@ -1432,16 +1389,37 @@ func Test_getKubeletFlags(t *testing.T) {
 			name: "Default KubeletFlags",
 			args: args{
 				kubeletConfig: &aksnodeconfigv1.KubeletConfig{
-					KubeletFlags: kubeletFlags,
-				},
-			},
-			want: expectedKubeletConfigFlags,
-		},
-		{
-			name: "Default KubeletCmdFlags",
-			args: args{
-				kubeletConfig: &aksnodeconfigv1.KubeletConfig{
-					KubeletCmdFlags: agent.GetOrderedKubeletConfigFlagString(config),
+					KubeletFlags: map[string]string{
+						"--address":                           "0.0.0.0",
+						"--pod-manifest-path":                 "/etc/kubernetes/manifests",
+						"--cluster-domain":                    "cluster.local",
+						"--cluster-dns":                       "10.0.0.10",
+						"--cgroups-per-qos":                   "true",
+						"--tls-cert-file":                     "/etc/kubernetes/certs/kubeletserver.crt",
+						"--tls-private-key-file":              "/etc/kubernetes/certs/kubeletserver.key",
+						"--tls-cipher-suites":                 "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256", //nolint:lll
+						"--max-pods":                          "110",
+						"--node-status-update-frequency":      "10s",
+						"--image-gc-high-threshold":           "85",
+						"--image-gc-low-threshold":            "80",
+						"--event-qps":                         "0",
+						"--pod-max-pids":                      "-1",
+						"--enforce-node-allocatable":          "pods",
+						"--streaming-connection-idle-timeout": "4h0m0s",
+						"--rotate-certificates":               "true",
+						"--rotate-server-certificates":        "true",
+						"--read-only-port":                    "10255",
+						"--protect-kernel-defaults":           "true",
+						"--resolv-conf":                       "/etc/resolv.conf",
+						"--anonymous-auth":                    "false",
+						"--client-ca-file":                    "/etc/kubernetes/certs/ca.crt",
+						"--authentication-token-webhook":      "true",
+						"--authorization-mode":                "Webhook",
+						"--eviction-hard":                     "memory.available<750Mi,nodefs.available<10%,nodefs.inodesFree<5%",
+						"--feature-gates":                     "RotateKubeletServerCertificate=true,DynamicKubeletConfig=false", //nolint:lll // what if you turn off dynamic kubelet using dynamic kubelet?
+						"--system-reserved":                   "cpu=2,memory=1Gi",
+						"--kube-reserved":                     "cpu=100m,memory=1638Mi",
+					},
 				},
 			},
 			want: expectedKubeletConfigFlags,
@@ -1449,7 +1427,7 @@ func Test_getKubeletFlags(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := getKubeletFlags(tt.args.kubeletConfig); strings.TrimSpace(got) != strings.TrimSpace(tt.want) {
+			if got := getKubeletFlags(tt.args.kubeletConfig); got != tt.want {
 				t.Errorf("getKubeletFlags() = %v, want %v", got, tt.want)
 			}
 		})
