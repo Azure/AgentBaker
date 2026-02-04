@@ -346,7 +346,7 @@ func createGuestAgentEventWithDir(eventsDir, taskName, message, eventLevel strin
 		return
 	}
 
-	if err := os.WriteFile(eventFilePath, data, 0644); err != nil {
+	if err := os.WriteFile(eventFilePath, data, 0600); err != nil {
 		slog.Error("failed to write guest agent event file", "path", eventFilePath, "error", err)
 	}
 }
