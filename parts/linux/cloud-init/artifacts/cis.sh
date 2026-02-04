@@ -299,6 +299,7 @@ configureLimits() {
 EOF
 }
 
+# Configure waagent to not delete root password on first boot
 configureAzureAgent() {
     sed -i -e 's/\(Provisioning.DeleteRootPassword\).*/\1=n/' /etc/waagent.conf
 }
@@ -321,7 +322,8 @@ applyCIS() {
     configureSudo
     configureRootPath
     configureLimits
-    configureAzureAgent
+    # configureAzureAgent -- Disabling this for now, until we sync with waagent team on desired behavior.
+
     # Apply system configuration to running system
     sysctl --write --system
 }
