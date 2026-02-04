@@ -43,7 +43,10 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 	ValidateDiskQueueService(ctx, s)
 	ValidateLeakedSecrets(ctx, s)
 	ValidateIPTablesCompatibleWithCiliumEBPF(ctx, s)
-	ValidateRxBufferDefault(ctx, s)
+
+	if !s.Tags.GPU {
+		ValidateRxBufferDefault(ctx, s)
+	}
 
 	ValidateSysctlConfig(ctx, s, map[string]string{
 		"net.ipv4.tcp_retries2":             "8",
