@@ -94,6 +94,7 @@ installCriCtlPackage() {
 }
 
 installCNI() {
+    CNI_DOWNLOADS_DIR=${1:-$CNI_DOWNLOADS_DIR}
     mkdir -p "$CNI_DOWNLOADS_DIR"
     mkdir -p "$CNI_BIN_DIR"
     chown -R root:root "$CNI_BIN_DIR"

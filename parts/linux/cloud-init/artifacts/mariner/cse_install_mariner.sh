@@ -72,6 +72,7 @@ installDeps() {
 # The version used to be determined by RP/toggle but is now just hardcoded in the VHD as it rarely changes and requires a node image upgrade anyway
 # Latest VHD should have the untar, older should have the tgz. And who knows will have neither.
 installCNI() {
+    CNI_DOWNLOADS_DIR=${1:-$CNI_DOWNLOADS_DIR}
     echo "installing mariner containernetworking-plugins"
     # Old versions of VHDs will not have components.json. If it does not exist, we will fall back to the hardcoded download for CNI.
     # Network Isolated Cluster / Bring Your Own ACR will not work with a vhd that requires a hardcoded CNI download.

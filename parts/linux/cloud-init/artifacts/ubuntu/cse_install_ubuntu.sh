@@ -56,6 +56,7 @@ installDeps() {
 # The version used to be deteremined by RP/toggle but are now just hardcoded in vhd as they rarely change and require a node image upgrade anyways
 # Latest VHD should have the untar, older should have the tgz. And who knows will have neither.
 installCNI() {
+    CNI_DOWNLOADS_DIR=${1:-$CNI_DOWNLOADS_DIR}
     echo "installing ubuntu containernetworking-plugins"
     # Old versions of VHDs will not have components.json. If it does not exist, we will fall back to the hardcoded download for CNI.
     # Network Isolated Cluster / Bring Your Own ACR will not work with a vhd that requires a hardcoded CNI download.
