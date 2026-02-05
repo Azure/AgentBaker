@@ -8,11 +8,25 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/Azure/agentbaker/aks-node-controller/helpers"
 )
 
 func main() {
 	startTime := time.Now()
-	createGuestAgentEvent("AKS.AKSNodeController.Provision", "Starting", "Informational", startTime, startTime)
+
+	// Determine task name based on execution mode
+	taskName := "AKS.AKSNodeController"
+	if len(os.Args) >= 2 {
+		switch os.Args[1] {
+		case "provision":
+			taskName = "AKS.AKSNodeController.Provision"
+		case "provision-wait":
+			taskName = "AKS.AKSNodeController.ProvisionWait"
+		}
+	}
+
+	helpers.CreateGuestAgentEvent(taskName, "Starting", helpers.EventLevelInformational, startTime, startTime)
 
 	// defer calls are not executed on os.Exit
 	logCleanup := configureLogging()
@@ -23,9 +37,9 @@ func main() {
 	endTime := time.Now()
 	if exitCode != 0 {
 		message := fmt.Sprintf("aks-node-controller exited with code %d", exitCode)
-		createGuestAgentEvent("AKS.AKSNodeController.Provision", message, "Error", startTime, endTime)
+		helpers.CreateGuestAgentEvent(taskName, message, helpers.EventLevelError, startTime, endTime)
 	} else {
-		createGuestAgentEvent("AKS.AKSNodeController.Provision", "Completed", "Informational", startTime, endTime)
+		helpers.CreateGuestAgentEvent(taskName, "Completed", helpers.EventLevelInformational, startTime, endTime)
 	}
 	logCleanup()
 

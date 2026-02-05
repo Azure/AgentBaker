@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Azure/agentbaker/aks-node-controller/helpers"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -359,7 +360,7 @@ func TestCreateGuestAgentEvent(t *testing.T) {
 		name       string
 		taskName   string
 		message    string
-		eventLevel string
+		eventLevel helpers.EventLevel
 		startTime  time.Time
 		endTime    time.Time
 	}{
@@ -367,7 +368,7 @@ func TestCreateGuestAgentEvent(t *testing.T) {
 			name:       "error event",
 			taskName:   "AKS.AKSNodeController.Provision",
 			message:    "aks-node-controller exited with code 1",
-			eventLevel: "Error",
+			eventLevel: helpers.EventLevelError,
 			startTime:  time.Date(2026, 2, 3, 10, 30, 45, 123000000, time.UTC),
 			endTime:    time.Date(2026, 2, 3, 10, 35, 50, 456000000, time.UTC),
 		},
@@ -375,7 +376,7 @@ func TestCreateGuestAgentEvent(t *testing.T) {
 			name:       "informational event",
 			taskName:   "AKS.AKSNodeController.Provision",
 			message:    "Completed",
-			eventLevel: "Informational",
+			eventLevel: helpers.EventLevelInformational,
 			startTime:  time.Date(2026, 2, 3, 14, 20, 15, 789000000, time.UTC),
 			endTime:    time.Date(2026, 2, 3, 14, 25, 30, 987000000, time.UTC),
 		},
@@ -388,7 +389,7 @@ func TestCreateGuestAgentEvent(t *testing.T) {
 			eventsDir := filepath.Join(tmpDir, "events")
 
 			// Call the function with test directory
-			createGuestAgentEventWithDir(eventsDir, tt.taskName, tt.message, tt.eventLevel, tt.startTime, tt.endTime)
+			helpers.CreateGuestAgentEventWithDir(eventsDir, tt.taskName, tt.message, tt.eventLevel, tt.startTime, tt.endTime)
 			files, err := os.ReadDir(eventsDir)
 			require.NoError(t, err, "should be able to read events directory")
 			require.Len(t, files, 1, "should have created exactly one event file")
@@ -398,7 +399,7 @@ func TestCreateGuestAgentEvent(t *testing.T) {
 			data, err := os.ReadFile(eventFilePath)
 			require.NoError(t, err, "should be able to read event file")
 
-			var event GuestAgentEvent
+			var event helpers.GuestAgentEvent
 			err = json.Unmarshal(data, &event)
 			require.NoError(t, err, "event file should contain valid JSON")
 
@@ -415,7 +416,7 @@ func TestCreateGuestAgentEvent(t *testing.T) {
 			)
 			assert.Equal(t, expectedMessage, event.Message, "Message should include timing information")
 
-			assert.Equal(t, tt.eventLevel, event.EventLevel, "EventLevel should match")
+			assert.Equal(t, string(tt.eventLevel), event.EventLevel, "EventLevel should match")
 			assert.Equal(t, "1.23", event.Version, "Version should be 1.23")
 			assert.Equal(t, "0", event.EventPid, "EventPid should be 0")
 			assert.Equal(t, "0", event.EventTid, "EventTid should be 0")
@@ -450,7 +451,7 @@ func TestCreateGuestAgentEvent_DirectoryCreationError(t *testing.T) {
 	endTime := time.Now()
 
 	// Should not panic, just log error
-	createGuestAgentEventWithDir(eventsDir, "TestTask", "Test message", "Error", startTime, endTime)
+	helpers.CreateGuestAgentEventWithDir(eventsDir, "TestTask", "Test message", helpers.EventLevelError, startTime, endTime)
 
 	// Verify no event file was created in the events directory (since directory creation failed)
 	// The directory creation will fail, so reading the directory should fail
@@ -470,15 +471,14 @@ func TestCreateGuestAgentEvent_MainScenarioIntegration(t *testing.T) {
 	startTime := time.Date(2026, 2, 3, 10, 30, 45, 123000000, time.UTC)
 
 	// First event: "Starting" with startTime, startTime
-	createGuestAgentEventWithDir(eventsDir, "AKS.AKSNodeController.Provision", "Starting", "Informational", startTime, startTime)
+	helpers.CreateGuestAgentEventWithDir(eventsDir, "AKS.AKSNodeController.Provision", "Starting", helpers.EventLevelInformational, startTime, startTime)
 
 	// Simulate some execution time and ensure unique timestamp for filename
 	time.Sleep(2 * time.Millisecond)
 	endTime := time.Date(2026, 2, 3, 10, 35, 50, 456000000, time.UTC)
 
 	// Second event: "Completed" with startTime, endTime (success case)
-	createGuestAgentEventWithDir(eventsDir, "AKS.AKSNodeController.Provision", "Completed", "Informational", startTime, endTime)
-
+	helpers.CreateGuestAgentEventWithDir(eventsDir, "AKS.AKSNodeController.Provision", "Completed", helpers.EventLevelInformational, startTime, endTime)
 	// Verify all events are preserved in separate files
 	files, err := os.ReadDir(eventsDir)
 	require.NoError(t, err, "should be able to read events directory")
@@ -491,7 +491,7 @@ func TestCreateGuestAgentEvent_MainScenarioIntegration(t *testing.T) {
 		data, err := os.ReadFile(eventFilePath)
 		require.NoError(t, err, "should be able to read event file")
 
-		var event GuestAgentEvent
+		var event helpers.GuestAgentEvent
 		err = json.Unmarshal(data, &event)
 		require.NoError(t, err, "event file should contain valid JSON")
 
