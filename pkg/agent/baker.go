@@ -1213,7 +1213,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			if err != nil {
 				return "", fmt.Errorf("failed generate corefile for localdns using template: %w", err)
 			}
-			return output, nil
+			return base64.StdEncoding.EncodeToString([]byte(output)), nil
 		},
 		"GetLocalDNSCPULimitInPercentage": func() string {
 			return profile.GetLocalDNSCPULimitInPercentage()
@@ -1226,6 +1226,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"BlockIptables": func() bool {
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.BlockIptables
 		},
+		"EnableScriptlessCSECmd": func() bool { return config.EnableScriptlessCSECmd },
 	}
 }
 
@@ -1839,11 +1840,8 @@ func GenerateLocalDNSCoreFile(
 	variables := getCustomDataVariables(config)
 	bakerFuncMap := getBakerFuncMap(config, parameters, variables)
 
-	if profile.LocalDNSProfile == nil {
-		return "", fmt.Errorf("localdns profile is nil")
-	}
-	if !profile.ShouldEnableLocalDNS() {
-		return "", fmt.Errorf("EnableLocalDNS is set to false, corefile will not be generated")
+	if profile.LocalDNSProfile == nil || !profile.ShouldEnableLocalDNS() {
+		return "", nil
 	}
 
 	funcMapForHasSuffix := template.FuncMap{
@@ -1858,8 +1856,8 @@ func GenerateLocalDNSCoreFile(
 		return "", fmt.Errorf("failed to execute localdns corefile template: %w", err)
 	}
 
-	// Return gzipped base64 encoded Corefile. Used in nodecustomdata.
-	return getBase64EncodedGzippedCustomScriptFromStr(corefileBuffer.String()), nil
+	// Return the rendered Corefile as a plain string.
+	return corefileBuffer.String(), nil
 }
 
 // Template to create corefile that will be used by localdns service.

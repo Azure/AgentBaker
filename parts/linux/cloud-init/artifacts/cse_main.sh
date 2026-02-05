@@ -295,12 +295,9 @@ EOF
         logs_to_events "AKS.CSE.ensureContainerd.ensureArtifactStreaming" ensureArtifactStreaming || exit $ERR_ARTIFACT_STREAMING_INSTALL
     fi
 
-    # Call enableLocalDNS to enable localdns if localdns profile has EnableLocalDNS set to true.
-    logs_to_events "AKS.CSE.enableLocalDNS" enableLocalDNS || exit $?
-
     # This is to enable localdns using scriptless.
     if [ "${SHOULD_ENABLE_LOCALDNS}" = "true" ]; then
-        logs_to_events "AKS.CSE.enableLocalDNSForScriptless" enableLocalDNSForScriptless || exit $ERR_LOCALDNS_FAIL
+        logs_to_events "AKS.CSE.enableLocalDNS" enableLocalDNS || exit $ERR_LOCALDNS_FAIL
     fi
 
     if [ "${ID}" != "mariner" ] && [ "${ID}" != "azurelinux" ]; then

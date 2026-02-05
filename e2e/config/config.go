@@ -82,6 +82,7 @@ type Configuration struct {
 	WindowsAdminPassword                   string        `env:"WINDOWS_ADMIN_PASSWORD"`
 	SysSSHPublicKey                        string        `env:"SYS_SSH_PUBLIC_KEY"`
 	SysSSHPrivateKeyB64                    string        `env:"SYS_SSH_PRIVATE_KEY_B64"`
+	EnableScriptlessCSECmd                 bool          `env:"ENABLE_SCRIPTLESS_CSE_CMD" envDefault:"false"`
 }
 
 func (c *Configuration) BlobStorageAccount() string {
