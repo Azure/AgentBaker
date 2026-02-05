@@ -1020,8 +1020,8 @@
           "r2404": {
             "versionsV2": [
               {
-                "renovateTag": "name=moby-containerd, repository=test, os=ubuntu, release=24.04",
-                "latestVersion": "2.1.6-ubuntu24.04u1"
+                "renovateTag": "name=moby-containerd, repository=production, os=ubuntu, release=24.04",
+                "latestVersion": "2.2.1-ubuntu24.04u1"
               }
             ]
           },
