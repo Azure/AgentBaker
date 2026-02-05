@@ -866,17 +866,22 @@ installWALinuxAgent() {
         return 0
     fi
 
-    # Download from GitHub
+    # Check for cached tarball from VHD build first, otherwise download from GitHub
     local DOWNLOAD_URL="https://github.com/Azure/WALinuxAgent/archive/refs/tags/v${TARGET_VERSION}.tar.gz"
-    local TARBALL="${WAAGENT_DOWNLOADS_DIR}/walinuxagent-${TARGET_VERSION}.tar.gz"
+    # Filename matches basename of download URL (for VHD build compatibility)
+    local TARBALL="${WAAGENT_DOWNLOADS_DIR}/v${TARGET_VERSION}.tar.gz"
 
     mkdir -p "${WAAGENT_DOWNLOADS_DIR}"
 
-    echo "Downloading WALinuxAgent from ${DOWNLOAD_URL}"
-    retrycmd_curl_file 120 5 60 "${TARBALL}" "${DOWNLOAD_URL}" || {
-        echo "Failed to download WALinuxAgent ${TARGET_VERSION}"
-        return 1
-    }
+    if [ -f "${TARBALL}" ]; then
+        echo "Using cached WALinuxAgent tarball from VHD: ${TARBALL}"
+    else
+        echo "Downloading WALinuxAgent from ${DOWNLOAD_URL}"
+        retrycmd_curl_file 120 5 60 "${TARBALL}" "${DOWNLOAD_URL}" || {
+            echo "Failed to download WALinuxAgent ${TARGET_VERSION}"
+            return 1
+        }
+    fi
 
     # Extract and install
     local EXTRACT_DIR="${WAAGENT_DOWNLOADS_DIR}/WALinuxAgent-${TARGET_VERSION}"
