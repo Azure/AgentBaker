@@ -1,4 +1,4 @@
-Starting build on  Tue Jan 27 18:42:55 UTC 2026
+Starting build on  Tue Jan 13 17:56:54 UTC 2026
 Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):
   - oras version 1.2.2
   - aks-secure-tls-bootstrap-client version 1.0.1
@@ -43,13 +43,12 @@ Components downloaded in this VHD build (some of the below components might get 
 Components installed at node provisioning time (CSE) for supported GPU VM sizes (example A10 family):
   - nvidia-grid-driver=550.144.06-20260108183226
 images pre-pulled:
-  - mcr.microsoft.com/oss/v2/kubernetes/autoscaler/addon-resizer:v1.8.23-9
+  - mcr.microsoft.com/oss/v2/kubernetes/autoscaler/addon-resizer:v1.8.23-7
   - mcr.microsoft.com/oss/kubernetes/pause:3.6
   - mcr.microsoft.com/oss/v2/kubernetes/pause:3.6
-  - mcr.microsoft.com/oss/v2/kubernetes/coredns:v1.13.2-2
-  - mcr.microsoft.com/oss/v2/kubernetes/coredns:v1.13.1-4
-  - mcr.microsoft.com/oss/v2/kubernetes/coredns:v1.12.1-9
-  - mcr.microsoft.com/oss/v2/kubernetes/coredns:v1.11.3-17
+  - mcr.microsoft.com/oss/v2/kubernetes/coredns:v1.13.1-2
+  - mcr.microsoft.com/oss/v2/kubernetes/coredns:v1.12.1-7
+  - mcr.microsoft.com/oss/v2/kubernetes/coredns:v1.11.3-14
   - mcr.microsoft.com/containernetworking/azure-cni:v1.5.44
   - mcr.microsoft.com/containernetworking/azure-cni:v1.6.32
   - mcr.microsoft.com/containernetworking/azure-cni:v1.7.9-0
@@ -63,7 +62,7 @@ images pre-pulled:
   - mcr.microsoft.com/containernetworking/cilium/cilium:v1.17.7-250927
   - mcr.microsoft.com/containernetworking/cilium/cilium:v1.16.10-250610
   - mcr.microsoft.com/containernetworking/cilium/cilium:v1.17.7-250821
-  - mcr.microsoft.com/oss/v2/kubernetes/apiserver-network-proxy/agent:v0.32.1-1
+  - mcr.microsoft.com/oss/v2/kubernetes/apiserver-network-proxy/agent:v0.31.4-7
   - mcr.microsoft.com/oss/v2/kubernetes-csi/secrets-store/driver:v1.5.4
   - mcr.microsoft.com/oss/v2/azure/secrets-store/provider-azure:v1.7.2
   - mcr.microsoft.com/azuremonitor/containerinsights/ciprod:3.1.32
@@ -80,8 +79,8 @@ images pre-pulled:
   - mcr.microsoft.com/oss/v2/kubernetes/azure-cloud-node-manager:v1.32.11-1
   - mcr.microsoft.com/oss/v2/kubernetes/azure-cloud-node-manager:v1.33.6-1
   - mcr.microsoft.com/oss/v2/kubernetes/azure-cloud-node-manager:v1.34.3-1
-  - mcr.microsoft.com/oss/v2/kubernetes/autoscaler/cluster-proportional-autoscaler:v1.8.11-12
-  - mcr.microsoft.com/oss/v2/kubernetes/autoscaler/cluster-proportional-autoscaler:v1.9.0-7
+  - mcr.microsoft.com/oss/v2/kubernetes/autoscaler/cluster-proportional-autoscaler:v1.8.11-10
+  - mcr.microsoft.com/oss/v2/kubernetes/autoscaler/cluster-proportional-autoscaler:v1.9.0-5
   - mcr.microsoft.com/oss/v2/azure/ip-masq-agent-v2:v0.1.15-7
   - mcr.microsoft.com/oss/v2/azure/ip-masq-agent-v2:v0.1.15-6
   - mcr.microsoft.com/oss/v2/kubernetes-csi/azuredisk-csi:v1.32.11
@@ -96,8 +95,8 @@ images pre-pulled:
   - mcr.microsoft.com/oss/v2/kubernetes-csi/livenessprobe:v2.17.0
   - mcr.microsoft.com/oss/v2/kubernetes-csi/csi-node-driver-registrar:v2.14.0
   - mcr.microsoft.com/oss/v2/kubernetes-csi/csi-node-driver-registrar:v2.15.0
-  - mcr.microsoft.com/oss/v2/open-policy-agent/gatekeeper:v3.20.1-3
   - mcr.microsoft.com/oss/v2/open-policy-agent/gatekeeper:v3.20.1-2
+  - mcr.microsoft.com/oss/v2/open-policy-agent/gatekeeper:v3.20.1-1
   - mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:1.15.4
   - mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:1.15.2
   - mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:1.15.4
@@ -123,44 +122,49 @@ images pre-pulled:
   - mcr.microsoft.com/oss/v2/kubernetes/kube-proxy:v1.34.2-1
   - bcc-tools
   - libbcc-examples
-Successfully copied coredns binary of v1.13.2-2
+Successfully copied coredns binary of v1.13.1-2
 kubelet/kubectl downloaded:
--rwxr-xr-x 1 root root 112615684 Feb 25  2025 /opt/bin/kubelet-1.29.14
--rwxr-xr-x 1 root root  50229400 Feb 25  2025 /opt/bin/kubectl-1.29.14
--rwxr-xr-x 1 root root 113107204 Mar 12  2025 /opt/bin/kubelet-1.29.15
--rwxr-xr-x 1 root root  50765976 Mar 12  2025 /opt/bin/kubectl-1.29.15
--rwxr-xr-x 1 root root 100530648 Jun 30  2025 /opt/bin/kubelet-1.30.14
--rwxr-xr-x 1 root root  51994776 Jun 30  2025 /opt/bin/kubectl-1.30.14
--rwxr-xr-x 1 root root 100526552 Jul  1  2025 /opt/bin/kubelet-1.30.13
--rwxr-xr-x 1 root root  51994776 Jul  1  2025 /opt/bin/kubectl-1.30.13
--rwxr-xr-x 1 root root 100530648 Aug 25 21:51 /opt/bin/kubelet-1.30.100-akslts
--rwxr-xr-x 1 root root  51994776 Aug 25 21:51 /opt/bin/kubectl-1.30.100-akslts
--rwxr-xr-x 1 root root 110649604 Aug 25 22:07 /opt/bin/kubelet-1.28.102-akslts
--rwxr-xr-x 1 root root  49623192 Aug 25 22:07 /opt/bin/kubectl-1.28.102-akslts
--rwxr-xr-x 1 root root 113107204 Aug 26 19:42 /opt/bin/kubelet-1.29.100-akslts
--rwxr-xr-x 1 root root  50765976 Aug 26 19:42 /opt/bin/kubectl-1.29.100-akslts
--rwxr-xr-x 1 root root  59195684 Aug 27 19:33 /opt/bin/kubelet-1.34.0
--rwxr-xr-x 1 root root  60559544 Aug 27 19:33 /opt/bin/kubectl-1.34.0
--rwxr-xr-x 1 root root  59195684 Sep 12 15:08 /opt/bin/kubelet-1.34.1
--rwxr-xr-x 1 root root  60559544 Sep 12 15:08 /opt/bin/kubectl-1.34.1
--rwxr-xr-x 1 root root  77447428 Sep 26 00:46 /opt/bin/kubelet-1.32.9
--rwxr-xr-x 1 root root  57352344 Sep 26 00:46 /opt/bin/kubectl-1.32.9
--rwxr-xr-x 1 root root  81715492 Sep 26 20:23 /opt/bin/kubelet-1.33.5
--rwxr-xr-x 1 root root  60133560 Sep 26 20:23 /opt/bin/kubectl-1.33.5
--rwxr-xr-x 1 root root  77320472 Sep 26 20:54 /opt/bin/kubelet-1.31.13
--rwxr-xr-x 1 root root  56934552 Sep 26 20:54 /opt/bin/kubectl-1.31.13
--rwxr-xr-x 1 root root  81719588 Nov 17 19:19 /opt/bin/kubelet-1.33.6
--rwxr-xr-x 1 root root  60129464 Nov 17 19:19 /opt/bin/kubectl-1.33.6
--rwxr-xr-x 1 root root  78064552 Nov 17 19:48 /opt/bin/kubelet-1.31.14
--rwxr-xr-x 1 root root  57585848 Nov 17 19:48 /opt/bin/kubectl-1.31.14
--rwxr-xr-x 1 root root  78233892 Nov 17 21:46 /opt/bin/kubelet-1.32.10
--rwxr-xr-x 1 root root  57999544 Nov 17 21:46 /opt/bin/kubectl-1.32.10
--rwxr-xr-x 1 root root 110653700 Nov 25 18:04 /opt/bin/kubelet-1.28.103-akslts
--rwxr-xr-x 1 root root  49623192 Nov 25 18:04 /opt/bin/kubectl-1.28.103-akslts
--rwxr-xr-x 1 root root 113111300 Nov 25 18:07 /opt/bin/kubelet-1.29.101-akslts
--rwxr-xr-x 1 root root  50765976 Nov 25 18:07 /opt/bin/kubectl-1.29.101-akslts
--rwxr-xr-x 1 root root 100534744 Nov 25 20:44 /opt/bin/kubelet-1.30.101-akslts
--rwxr-xr-x 1 root root  51994776 Nov 25 20:44 /opt/bin/kubectl-1.30.101-akslts
+-rwxr-xr-x 1 root root  10334343 Dec 17  2024 /usr/local/bin/oras
+-rw-r--r-- 1 root root     11343 Dec 19  2024 /usr/local/bin/LICENSE
+-rwxr-xr-x 1 root root 112615684 Feb 25  2025 /usr/local/bin/kubelet-1.29.14
+-rwxr-xr-x 1 root root  50229400 Feb 25  2025 /usr/local/bin/kubectl-1.29.14
+-rwxr-xr-x 1 root root 113107204 Mar 12  2025 /usr/local/bin/kubelet-1.29.15
+-rwxr-xr-x 1 root root  50765976 Mar 12  2025 /usr/local/bin/kubectl-1.29.15
+-rwxr-xr-x 1 root root 100530648 Jun 30  2025 /usr/local/bin/kubelet-1.30.14
+-rwxr-xr-x 1 root root  51994776 Jun 30  2025 /usr/local/bin/kubectl-1.30.14
+-rwxr-xr-x 1 root root 100526552 Jul  1  2025 /usr/local/bin/kubelet-1.30.13
+-rwxr-xr-x 1 root root  51994776 Jul  1  2025 /usr/local/bin/kubectl-1.30.13
+-rwxr-xr-x 1 root root 100530648 Aug 25 21:51 /usr/local/bin/kubelet-1.30.100-akslts
+-rwxr-xr-x 1 root root  51994776 Aug 25 21:51 /usr/local/bin/kubectl-1.30.100-akslts
+-rwxr-xr-x 1 root root 110649604 Aug 25 22:07 /usr/local/bin/kubelet-1.28.102-akslts
+-rwxr-xr-x 1 root root  49623192 Aug 25 22:07 /usr/local/bin/kubectl-1.28.102-akslts
+-rwxr-xr-x 1 root root 113107204 Aug 26 19:42 /usr/local/bin/kubelet-1.29.100-akslts
+-rwxr-xr-x 1 root root  50765976 Aug 26 19:42 /usr/local/bin/kubectl-1.29.100-akslts
+-rwxr-xr-x 1 root root  59195684 Aug 27 19:33 /usr/local/bin/kubelet-1.34.0
+-rwxr-xr-x 1 root root  60559544 Aug 27 19:33 /usr/local/bin/kubectl-1.34.0
+-rwxr-xr-x 1 root root  59195684 Sep 12 15:08 /usr/local/bin/kubelet-1.34.1
+-rwxr-xr-x 1 root root  60559544 Sep 12 15:08 /usr/local/bin/kubectl-1.34.1
+-rwxr-xr-x 1 root root  77447428 Sep 26 00:46 /usr/local/bin/kubelet-1.32.9
+-rwxr-xr-x 1 root root  57352344 Sep 26 00:46 /usr/local/bin/kubectl-1.32.9
+-rwxr-xr-x 1 root root  81715492 Sep 26 20:23 /usr/local/bin/kubelet-1.33.5
+-rwxr-xr-x 1 root root  60133560 Sep 26 20:23 /usr/local/bin/kubectl-1.33.5
+-rwxr-xr-x 1 root root  77320472 Sep 26 20:54 /usr/local/bin/kubelet-1.31.13
+-rwxr-xr-x 1 root root  56934552 Sep 26 20:54 /usr/local/bin/kubectl-1.31.13
+-rwxr-xr-x 1 root root  57152250 Oct 28 20:26 /usr/local/bin/aks-secure-tls-bootstrap-client
+-rwxr-xr-x 1 root root  81719588 Nov 17 19:19 /usr/local/bin/kubelet-1.33.6
+-rwxr-xr-x 1 root root  60129464 Nov 17 19:19 /usr/local/bin/kubectl-1.33.6
+-rwxr-xr-x 1 root root  78064552 Nov 17 19:48 /usr/local/bin/kubelet-1.31.14
+-rwxr-xr-x 1 root root  57585848 Nov 17 19:48 /usr/local/bin/kubectl-1.31.14
+-rwxr-xr-x 1 root root  78233892 Nov 17 21:46 /usr/local/bin/kubelet-1.32.10
+-rwxr-xr-x 1 root root  57999544 Nov 17 21:46 /usr/local/bin/kubectl-1.32.10
+-rwxr-xr-x 1 root root 110653700 Nov 25 18:04 /usr/local/bin/kubelet-1.28.103-akslts
+-rwxr-xr-x 1 root root  49623192 Nov 25 18:04 /usr/local/bin/kubectl-1.28.103-akslts
+-rwxr-xr-x 1 root root 113111300 Nov 25 18:07 /usr/local/bin/kubelet-1.29.101-akslts
+-rwxr-xr-x 1 root root  50765976 Nov 25 18:07 /usr/local/bin/kubectl-1.29.101-akslts
+-rwxr-xr-x 1 root root 100534744 Nov 25 20:44 /usr/local/bin/kubelet-1.30.101-akslts
+-rwxr-xr-x 1 root root  51994776 Nov 25 20:44 /usr/local/bin/kubectl-1.30.101-akslts
+-rwxr-xr-x 1 root root       699 Jan 13 17:57 /usr/local/bin/ci-syslog-watcher.sh
+-rwxr-xr-x 1 root root  35384960 Jan 13 18:07 /usr/local/bin/bpftrace
 === Installed Packages Begin
 Listing...
 accountsservice/focal-updates,focal-security,now 0.6.55-0ubuntu12~20.04.7 amd64 [installed,automatic]
@@ -315,7 +319,7 @@ jq/now 1.6-1ubuntu0.20.04.1+esm1 amd64 [installed,local]
 kbd/focal,now 2.0.4-4ubuntu2 amd64 [installed,automatic]
 keyboard-configuration/focal,now 1.194ubuntu3 all [installed,automatic]
 keyutils/focal-updates,now 1.6-6ubuntu1.1 amd64 [installed]
-klibc-utils/now 2.0.7-1ubuntu5.2+esm1 amd64 [installed,local]
+klibc-utils/focal-updates,focal-security,now 2.0.7-1ubuntu5.2 amd64 [installed,automatic]
 kmod/focal-updates,now 27-1ubuntu2.1 amd64 [installed]
 krb5-locales/focal-updates,focal-security,now 1.17-6ubuntu4.11 all [installed,automatic]
 kubernetes-cri-tools/focal,now 1.32.0-ubuntu20.04u3 amd64 [installed,upgradable to: 1.34.0-ubuntu20.04u2]
@@ -461,7 +465,7 @@ libjson-glib-1.0-0/focal,now 1.4.4-2ubuntu2 amd64 [installed,automatic]
 libjson-glib-1.0-common/focal,now 1.4.4-2ubuntu2 all [installed,automatic]
 libk5crypto3/focal-updates,focal-security,now 1.17-6ubuntu4.11 amd64 [installed,automatic]
 libkeyutils1/focal-updates,now 1.6-6ubuntu1.1 amd64 [installed,automatic]
-libklibc/now 2.0.7-1ubuntu5.2+esm1 amd64 [installed,local]
+libklibc/focal-updates,focal-security,now 2.0.7-1ubuntu5.2 amd64 [installed,automatic]
 libkmod2/focal-updates,now 27-1ubuntu2.1 amd64 [installed,automatic]
 libkrb5-26-heimdal/focal-updates,focal-security,now 7.7.0+dfsg-1ubuntu1.4 amd64 [installed,automatic]
 libkrb5-3/focal-updates,focal-security,now 1.17-6ubuntu4.11 amd64 [installed,automatic]
@@ -621,7 +625,7 @@ libxau6/focal,now 1:1.0.9-0ubuntu1 amd64 [installed,automatic]
 libxcb1/focal,now 1.14-2 amd64 [installed,automatic]
 libxdmcp6/focal,now 1:1.1.3-0ubuntu1 amd64 [installed,automatic]
 libxext6/focal,now 2:1.3.4-0ubuntu1 amd64 [installed,automatic]
-libxml2/now 2.9.10+dfsg-5ubuntu0.20.04.10+esm4 amd64 [installed,local]
+libxml2/now 2.9.10+dfsg-5ubuntu0.20.04.10+esm3 amd64 [installed,local]
 libxmlb1/focal-updates,now 0.1.15-2ubuntu1~20.04.1 amd64 [installed]
 libxmlb2/focal-updates,now 0.3.6-2build1~20.04.1 amd64 [installed,automatic]
 libxmuu1/focal,now 2:1.1.3-0ubuntu1 amd64 [installed,automatic]
@@ -717,14 +721,14 @@ powermgmt-base/focal,now 1.36 all [installed,automatic]
 procps/focal-updates,focal-security,now 2:3.3.16-1ubuntu2.4 amd64 [installed,automatic]
 psmisc/focal,now 23.3-1 amd64 [installed]
 publicsuffix/focal,now 20200303.0012-1 all [installed,automatic]
-python-apt-common/now 2.0.1ubuntu0.20.04.2esm2 all [installed,local]
+python-apt-common/now 2.0.1ubuntu0.20.04.1+esm1 all [installed,local]
 python-is-python2/focal,now 2.7.17-4 all [installed]
 python2-minimal/focal,now 2.7.17-2ubuntu4 amd64 [installed,automatic]
 python2.7-minimal/now 2.7.18-1~20.04.7+esm8 amd64 [installed,local]
 python2.7/now 2.7.18-1~20.04.7+esm8 amd64 [installed,local]
 python2/focal,now 2.7.17-2ubuntu4 amd64 [installed,automatic]
 python3-apparmor/focal-updates,focal-security,now 2.13.3-7ubuntu5.4 amd64 [installed,automatic]
-python3-apt/now 2.0.1ubuntu0.20.04.2esm2 amd64 [installed,local]
+python3-apt/now 2.0.1ubuntu0.20.04.1+esm1 amd64 [installed,local]
 python3-attr/focal,now 19.3.0-2 all [installed,automatic]
 python3-automat/focal,now 0.8.0-1ubuntu1 all [installed,automatic]
 python3-blinker/focal,now 1.4+dfsg1-0.3ubuntu1 all [installed,automatic]
@@ -800,7 +804,7 @@ python3-software-properties/focal-updates,now 0.99.9.12 all [installed,automatic
 python3-twisted-bin/focal-updates,focal-security,now 18.9.0-11ubuntu0.20.04.5 amd64 [installed,automatic]
 python3-twisted/focal-updates,focal-security,now 18.9.0-11ubuntu0.20.04.5 all [installed,automatic]
 python3-update-manager/focal-updates,now 1:20.04.10.23 all [installed,automatic]
-python3-urllib3/now 1.25.8-2ubuntu0.4+esm4 all [installed,local]
+python3-urllib3/now 1.25.8-2ubuntu0.4+esm3 all [installed,local]
 python3-wadllib/focal,now 1.3.3-3build1 all [installed,automatic]
 python3-yaml/focal-updates,focal-security,now 5.3.1-1ubuntu0.1 amd64 [installed,automatic]
 python3-zipp/focal-updates,focal-security,now 1.0.0-1ubuntu0.1 all [installed]
@@ -881,7 +885,7 @@ tmpfs            31G     0   31G   0% /dev/shm
 tmpfs           6.2G  9.0M  6.2G   1% /run
 tmpfs           5.0M     0  5.0M   0% /run/lock
 tmpfs            31G     0   31G   0% /sys/fs/cgroup
-/dev/sda1        29G   26G  2.4G  92% /
+/dev/sda1        29G   26G  2.5G  92% /
 /dev/sda15     1022M   53M  970M   6% /boot/efi
 /dev/sdb1       590G   32K  560G   1% /mnt
 tmpfs           6.2G     0  6.2G   0% /run/user/1000
@@ -905,10 +909,10 @@ BootOrder: 0001
 Boot0001* Ubuntu with kernel 5.15.0-1102-azure	HD(15,GPT,172f4ca2-adb2-47ff-9bcf-a201999d528c,0x2800,0x200000)/File(FIuntu\shimx64.efi)\.k.e.r.n.e.l...e.f.i.-.5...1.5...0.-.1.1.0.2.-.a.z.u.r.e...
 Using kernel:
 Linux version 5.15.0-1102-azure (buildd@lcy02-amd64-089) (gcc (Ubuntu 9.4.0-1ubuntu1~20.04.2) 9.4.0, GNU ld (GNU Binutils for Ubuntu) 2.34) #111~20.04.1-Ubuntu SMP Thu Dec 4 15:07:56 UTC 2025
-Install completed successfully on  Tue Jan 27 18:59:16 UTC 2026
-VSTS Build NUMBER: 20260127.1_main_150827388
-VSTS Build ID: 150827388
-Commit: f9bf5e69dcf39b15ac54e80ff1bd56ae9bf1044a
+Install completed successfully on  Tue Jan 13 18:15:07 UTC 2026
+VSTS Build NUMBER: 20260113.1_main_149217813
+VSTS Build ID: 149217813
+Commit: 2362a5b9c5b2c5a4cfebbcb6d82eb31f493d0d49
 Ubuntu version: 20.04
 Hyperv generation: V2
 Feature flags: cvm

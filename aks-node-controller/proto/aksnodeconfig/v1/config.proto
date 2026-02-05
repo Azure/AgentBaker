@@ -167,7 +167,4 @@ message Configuration {
 
   // Service account based image pull profile configuration
   ServiceAccountImagePullProfile service_account_image_pull_profile = 43;
-
-  // CSE timeout override in seconds. If not specified, defaults to 15 minutes with a maximum of 360 minutes (6 hours).
-  optional int32 cse_timeout = 44;
 }

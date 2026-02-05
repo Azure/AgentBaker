@@ -9,7 +9,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io"
 	"math"
 	"regexp"
 	"sort"
@@ -263,22 +262,6 @@ func getGzippedBufferFromBytes(b []byte) []byte {
 	}
 	w.Close()
 	return gzipB.Bytes()
-}
-
-func getGzipDecodedValue(data []byte) ([]byte, error) {
-	reader := bytes.NewReader(data)
-	gzipReader, err := gzip.NewReader(reader)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create gzip reader: %w", err)
-	}
-	defer gzipReader.Close()
-
-	output, err := io.ReadAll(gzipReader)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read from gzip reader: %w", err)
-	}
-
-	return output, nil
 }
 
 // getBase64EncodedGzippedCustomScriptFromStr will return a base64-encoded string of the gzip'd source data.

@@ -86,11 +86,6 @@ SCRIPT_ARRAY+=("./vhdbuilder/packer/test/run-test.sh")
 echo -e "\nENVIRONMENT ${ENVIRONMENT}, OS_VERSION ${OS_VERSION}, SKIP_SCANNING: ${SKIP_SCANNING}"
 if [ "${SKIP_SCANNING,,}" != "true" ] && [ "${ENVIRONMENT,,}" != "prod" ]; then
   echo -e "Running scanning step"
-  # Cache a storage access token for vhd-scanning script. If the tests take longer than
-  # 10m the id token expires and we can't fetch the access token later. The access token
-  # should be valid for 60m.
-  expiry=$(az account get-access-token --scope https://storage.azure.com/.default | jq -r .expiresOn)
-  echo "Obtained storage token that expires at ${expiry}"
   SCRIPT_ARRAY+=("./vhdbuilder/packer/vhd-scanning.sh")
 else
   echo -e "Skipping scanning step"

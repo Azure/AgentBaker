@@ -270,7 +270,7 @@ func ValidateNetworkInterfaceConfig(ctx context.Context, s *Scenario, nicConfig 
 		"enp_ifaces=()",
 		"for dev in /sys/class/net/*; do",
 		"  iface=\"$(basename \"$dev\")\"",
-		"  slot=\"$(udevadm info -q property -p \"$dev\" 2>/dev/null | awk -F= '$1==\"ID_NET_NAME_SLOT\"{print $2; exit}' || true)\"",
+		"  slot=\"$(udevadm info -q property -p \"$dev\" 2>/dev/null | awk -F= '$1==\"ID_NET_NAME_SLOT\"{print $2; exit}')\"",
 		"  [[ \"$slot\" == enP* ]] && enp_ifaces+=(\"$iface\")",
 		"done",
 		"IFS=,; echo \"${enp_ifaces[*]}\"",
@@ -296,7 +296,7 @@ func ValidateNetworkInterfaceConfig(ctx context.Context, s *Scenario, nicConfig 
 	s.T.Logf("Parsed NICs list: %v (count: %d)", nics, len(nics))
 
 	if len(nics) == 0 || (len(nics) == 1 && strings.TrimSpace(nics[0]) == "") {
-		s.T.Logf("No PCI devices (NICs) with enP* slot pattern found - skipping network interface config validation")
+		s.T.Fatalf("no nics found to validate network interface config")
 		return
 	}
 
@@ -309,26 +309,19 @@ func ValidateNetworkInterfaceConfig(ctx context.Context, s *Scenario, nicConfig 
 
 		s.T.Logf("Validating network interface config for NIC: %s", nic)
 
-		// Get full ethtool output for debugging
-		debugCommand := []string{
-			"set -ex",
-			fmt.Sprintf("echo '=== Full ethtool output for %s ==='", nic),
-			fmt.Sprintf("sudo ethtool -g %s", nic),
-		}
-		debugResult := execScriptOnVMForScenario(ctx, s, strings.Join(debugCommand, "\n"))
-		s.T.Logf("Full ethtool output for %s:\n%s", nic, debugResult.stdout)
-		oldEthtool := strings.Contains(debugResult.stdout, "Current hardware settings")
-
 		for setting, expectedValue := range nicConfig {
-			var cmd string
-			if oldEthtool {
-				cmd = fmt.Sprintf("sudo ethtool -g %s | grep -A 5 'Current hardware settings' | grep -i %s: | awk '{print $2}'", nic, setting)
-			} else {
-				cmd = fmt.Sprintf("sudo ethtool --json -g %s | jq -r .[0].\\\"%s\\\"", nic, setting)
+			// Get full ethtool output for debugging
+			debugCommand := []string{
+				"set -ex",
+				fmt.Sprintf("echo '=== Full ethtool output for %s ==='", nic),
+				fmt.Sprintf("sudo ethtool -g %s", nic),
 			}
+			debugResult := execScriptOnVMForScenario(ctx, s, strings.Join(debugCommand, "\n"))
+			s.T.Logf("Full ethtool output for %s:\n%s", nic, debugResult.stdout)
+
 			command := []string{
 				"set -ex",
-				cmd,
+				fmt.Sprintf("sudo ethtool -g %s | grep -A 5 'Current hardware settings' | grep -i %s: | awk '{print $2}'", nic, setting),
 			}
 			execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "could not get ethtool config")
 			actualValue := strings.TrimSpace(execResult.stdout)
