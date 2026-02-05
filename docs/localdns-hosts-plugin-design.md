@@ -9,7 +9,7 @@
 
 ## Executive Summary
 
-This feature enhances DNS reliability for Azure Kubernetes Service (AKS) nodes by caching critical Azure infrastructure FQDNs in a local hosts file. **AKS-RP provides IP addresses** for these FQDNs at node provisioning time, which CSE writes to `/etc/localdns/hosts`. A systemd timer periodically refreshes these entries by querying live DNS. The LocalDNS CoreDNS instance consults this file before forwarding queries, reducing external DNS dependencies and improving container image pull reliability.
+This feature enhances DNS reliability for Azure Kubernetes Service (AKS) nodes by caching critical Azure infrastructure FQDNs in a local hosts file. **AKS-RP provides IP addresses** for these FQDNs at node provisioning time, and CSE writes these entries to `/etc/localdns/hosts` **before kubelet starts**—ensuring DNS resolution is immediately available for the first container image pull. After LocalDNS is running, a systemd timer **periodically refreshes** these entries (every 15 minutes) by querying live DNS to keep IPs up-to-date. The LocalDNS CoreDNS instance consults this file before forwarding queries, reducing external DNS dependencies and improving container image pull reliability.
 
 ---
 
@@ -84,11 +84,13 @@ Without this feature, every DNS query for these critical FQDNs goes directly to 
 
 Implement a local DNS caching mechanism that:
 
-1. **Receives IP addresses from AKS-RP** at node provisioning time
-2. **Writes entries to hosts file** before LocalDNS starts
-3. **Periodically refreshes** the hosts file by querying live DNS
-4. **Configures LocalDNS** (CoreDNS) to check this file first
-5. **Falls through** to the upstream DNS server for queries not in the cache
+1. **Receives IP addresses from AKS-RP** at node provisioning time via `NodeBootstrappingConfiguration`
+2. **Writes entries to hosts file before kubelet starts** — CSE populates `/etc/localdns/hosts` during `basePrep`, ensuring DNS is ready for the first container image pull
+3. **Starts LocalDNS** with the hosts file already populated
+4. **Starts kubelet** after LocalDNS, so container pulls immediately benefit from cached DNS
+5. **Periodically refreshes** (every 15 minutes) the hosts file by querying live DNS via a systemd timer after the node is running
+6. **Configures LocalDNS** (CoreDNS) to check this hosts file first
+7. **Falls through** to the upstream DNS server for queries not in the cache
 
 ### Key Design Decisions
 
@@ -585,6 +587,7 @@ The `fallthrough` directive ensures that:
 **Files:**
 - `parts/linux/cloud-init/artifacts/cse_config.sh`
 - `parts/linux/cloud-init/artifacts/cse_main.sh`
+- `parts/linux/cloud-init/artifacts/cse_cmd.sh`
 
 #### New Function: enableAKSHostsSetup()
 
@@ -592,15 +595,23 @@ The `fallthrough` directive ensures that:
 enableAKSHostsSetup() {
     local hosts_file="/etc/localdns/hosts"
 
-    # Write AKS-RP provided critical hosts entries to the hosts file
-    echo "AKS-RP provided critical hosts entries, writing to ${hosts_file}..."
-    mkdir -p "$(dirname "${hosts_file}")"
-    echo "${LOCALDNS_CRITICAL_HOSTS_ENTRIES}" | base64 -d > "${hosts_file}"
-    chmod 644 "${hosts_file}"
-    echo "Critical hosts entries written from AKS-RP."
+    # Check if AKS-RP provided critical hosts entries
+    # AKS-RP provides IP addresses for critical FQDNs at provisioning time
+    if [ -n "${LOCALDNS_CRITICAL_HOSTS_ENTRIES}" ]; then
+        echo "AKS-RP provided critical hosts entries, writing to ${hosts_file}..."
+        mkdir -p "$(dirname "${hosts_file}")"
+        echo "${LOCALDNS_CRITICAL_HOSTS_ENTRIES}" | base64 -d > "${hosts_file}"
+        chmod 644 "${hosts_file}"
+        echo "Critical hosts entries written from AKS-RP."
+    else
+        # Run the script once immediately to resolve live DNS before kubelet starts
+        echo "Running initial aks-hosts-setup to resolve DNS..."
+        mkdir -p "$(dirname "${hosts_file}")"
+        /opt/azure/containers/aks-hosts-setup.sh || echo "Warning: Initial hosts setup failed"
+    fi
 
     # Enable the timer for periodic refresh (every 15 minutes)
-    # This will update the hosts file with live DNS resolution
+    # This will update the hosts file with fresh IPs from live DNS
     echo "Enabling aks-hosts-setup timer..."
     systemctlEnableAndStart aks-hosts-setup.timer 30 || exit $ERR_SYSTEMCTL_START_FAIL
     echo "aks-hosts-setup timer enabled successfully."
@@ -609,9 +620,30 @@ enableAKSHostsSetup() {
 
 #### Activation Logic
 
-The hosts setup and LocalDNS are enabled when LocalDNS is configured:
+The `enableAKSHostsSetup()` function is called for **both** provisioning paths:
 
+**Non-scriptless path** (corefile exists from cloud-init):
 ```bash
+# In enableLocalDNS() - called when corefile exists
+enableLocalDNS() {
+    if [ ! -f "${LOCALDNS_CORE_FILE}" ] || [ ! -s "${LOCALDNS_CORE_FILE}" ]; then
+        echo "localdns should not be enabled."
+        return 0
+    fi
+
+    echo "localdns should be enabled."
+
+    # Write hosts file BEFORE starting LocalDNS
+    enableAKSHostsSetup || return $ERR_SYSTEMCTL_START_FAIL
+
+    systemctlEnableAndStart localdns 30 || return $ERR_LOCALDNS_FAIL
+    echo "Enable localdns succeeded."
+}
+```
+
+**Scriptless path** (corefile generated at runtime):
+```bash
+# In cse_main.sh
 if [ "${SHOULD_ENABLE_LOCALDNS}" = "true" ]; then
     # Write hosts file BEFORE starting LocalDNS so it has entries to serve
     logs_to_events "AKS.CSE.enableAKSHostsSetup" enableAKSHostsSetup
@@ -620,6 +652,17 @@ if [ "${SHOULD_ENABLE_LOCALDNS}" = "true" ]; then
     logs_to_events "AKS.CSE.enableLocalDNSForScriptless" enableLocalDNSForScriptless
 fi
 ```
+
+#### Environment Variable Source
+
+The `LOCALDNS_CRITICAL_HOSTS_ENTRIES` variable is populated differently for each path:
+
+| Path | Source | Code Location |
+|------|--------|---------------|
+| Scriptless | aks-node-controller | `aks-node-controller/parser/parser.go` |
+| Non-scriptless | Go template | `parts/linux/cloud-init/artifacts/cse_cmd.sh` via `GetCriticalHostsEntriesBase64` |
+
+Both paths produce the same base64-encoded hosts file content from `LocalDNSProfile.CriticalHostsEntries`.
 
 ---
 
@@ -769,8 +812,8 @@ New artifacts are installed during VHD build via Packer:
 | Requirement | Status | Notes |
 |-------------|--------|-------|
 | LocalDNS enabled | ✅ Required | Feature dependency - timer only enabled when LocalDNS is active |
-| Scriptless provisioning | ✅ Supported | Timer enabled via CSE |
-| Legacy provisioning | ✅ Supported | Timer enabled via CSE |
+| Scriptless provisioning | ✅ Supported | `LOCALDNS_CRITICAL_HOSTS_ENTRIES` populated via aks-node-controller |
+| Non-scriptless provisioning | ✅ Supported | `LOCALDNS_CRITICAL_HOSTS_ENTRIES` populated via Go template in cse_cmd.sh |
 
 ### Graceful Degradation
 
@@ -803,14 +846,16 @@ If `nslookup` is not available on a distro (e.g., Flatcar):
 | parts/linux/cloud-init/artifacts/aks-hosts-setup.sh | New | Script that resolves critical AKS FQDNs and writes IPs to hosts file |
 | parts/linux/cloud-init/artifacts/aks-hosts-setup.service | New | Systemd oneshot service that executes the script |
 | parts/linux/cloud-init/artifacts/aks-hosts-setup.timer | New | Systemd timer that triggers the service at boot and every 15 minutes |
-| parts/linux/cloud-init/artifacts/cse_config.sh | Modified | Adds `enableAKSHostsSetup()` function to write AKS-RP entries and enable timer |
-| parts/linux/cloud-init/artifacts/cse_main.sh | Modified | Calls `enableAKSHostsSetup()` before `enableLocalDNSForScriptless()` |
-| pkg/agent/baker.go | Modified | Adds `hosts /etc/localdns/hosts` plugin block to LocalDNS Corefile template |
+| parts/linux/cloud-init/artifacts/cse_config.sh | Modified | Adds `enableAKSHostsSetup()` function; called from both `enableLocalDNS()` (non-scriptless) and `enableLocalDNSForScriptless()` (scriptless) |
+| parts/linux/cloud-init/artifacts/cse_main.sh | Modified | Calls `enableAKSHostsSetup()` in scriptless path before `enableLocalDNSForScriptless()` |
+| parts/linux/cloud-init/artifacts/cse_cmd.sh | Modified | Adds `LOCALDNS_CRITICAL_HOSTS_ENTRIES` variable for non-scriptless path |
+| pkg/agent/baker.go | Modified | Adds `hosts /etc/localdns/hosts` plugin to Corefile template; adds `GetCriticalHostsEntriesBase64` template function |
 | pkg/agent/baker_test.go | Modified | Updates expected Corefile output to include hosts plugin |
-| pkg/agent/datamodel/types.go | Modified | Adds `CriticalHostsEntries` field to `LocalDNSProfile` |
+| pkg/agent/datamodel/types.go | Modified | Adds `CriticalHostsEntries` field and `GetCriticalHostsEntriesContent()` method to `LocalDNSProfile` |
 | aks-node-controller/proto/aksnodeconfig/v1/localdns_config.proto | Modified | Adds `CriticalHostsEntry` message and `critical_hosts_entries` field |
+| aks-node-controller/parser/parser.go | Modified | Populates `LOCALDNS_CRITICAL_HOSTS_ENTRIES` for scriptless path |
 | vhdbuilder/packer/*.json | Modified | Uploads new artifacts to `/home/packer/` during VHD build |
-| vhdbuilder/packer/packer_source.sh | Modified | Copies artifacts to final locations |
+| vhdbuilder/packer/packer_source.sh | Modified | Copies artifacts to final locations; creates `/etc/localdns/` directory |
 
 ### References
 

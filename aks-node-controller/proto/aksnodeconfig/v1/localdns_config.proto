@@ -21,7 +21,7 @@ message LocalDnsProfile {
   map<string, LocalDnsOverrides> kube_dns_overrides = 5;
 
   // CriticalHostsEntries contains FQDN to IP address mappings for critical Azure infrastructure.
-  // When provided by AKS-RP, CSE will write these to /etc/localdns/hosts, overwriting VHD defaults.
+  // AKS-RP provides these entries at provisioning time, and CSE writes them to /etc/localdns/hosts.
   // Key is the FQDN (e.g., "mcr.microsoft.com"), value contains the IP addresses.
   map<string, CriticalHostsEntry> critical_hosts_entries = 6;
 }

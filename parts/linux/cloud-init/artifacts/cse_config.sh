@@ -1164,6 +1164,10 @@ enableLocalDNS() {
     # If the corefile exists and is not empty, attempt to enable localdns.
     echo "localdns should be enabled."
 
+    # Write hosts file BEFORE starting LocalDNS so it has entries to serve
+    # Enable aks-hosts-setup timer to periodically resolve and cache critical AKS FQDN DNS addresses
+    enableAKSHostsSetup || return $ERR_SYSTEMCTL_START_FAIL
+
     if ! systemctlEnableAndStart localdns 30; then
       echo "Enable localdns failed."
       return $ERR_LOCALDNS_FAIL
@@ -1222,7 +1226,7 @@ enableAKSHostsSetup() {
     local hosts_file="/etc/localdns/hosts"
 
     # Check if AKS-RP provided critical hosts entries
-    # If provided, use those instead of the VHD hardcoded IPs or live DNS resolution
+    # AKS-RP provides IP addresses for critical FQDNs at provisioning time
     if [ -n "${LOCALDNS_CRITICAL_HOSTS_ENTRIES}" ]; then
         echo "AKS-RP provided critical hosts entries, writing to ${hosts_file}..."
         mkdir -p "$(dirname "${hosts_file}")"
@@ -1230,14 +1234,14 @@ enableAKSHostsSetup() {
         chmod 644 "${hosts_file}"
         echo "Critical hosts entries written from AKS-RP."
     else
-        # Run the script once immediately to refresh hosts file with live DNS before kubelet starts
-        # The VHD has hardcoded IPs, but this ensures we have fresh IPs from the start
-        echo "Running initial aks-hosts-setup to refresh DNS cache..."
-        /opt/azure/containers/aks-hosts-setup.sh || echo "Warning: Initial hosts setup failed, using VHD hardcoded IPs"
+        # Run the script once immediately to resolve live DNS before kubelet starts
+        echo "Running initial aks-hosts-setup to resolve DNS..."
+        mkdir -p "$(dirname "${hosts_file}")"
+        /opt/azure/containers/aks-hosts-setup.sh || echo "Warning: Initial hosts setup failed"
     fi
 
     # Enable the timer for periodic refresh (every 15 minutes)
-    # This will update the hosts file even if AKS-RP initially provided entries
+    # This will update the hosts file with fresh IPs from live DNS
     echo "Enabling aks-hosts-setup timer..."
     systemctlEnableAndStart aks-hosts-setup.timer 30 || exit $ERR_SYSTEMCTL_START_FAIL
     echo "aks-hosts-setup timer enabled successfully."
