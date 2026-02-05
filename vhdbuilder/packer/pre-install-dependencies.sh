@@ -54,7 +54,7 @@ systemctlEnableAndStart disk_queue 30 || exit 1
 capture_benchmark "${SCRIPT_NAME}_copy_packer_files_and_enable_logging"
 
 # This path is used by the Custom CA Trust feature only
-mkdir /opt/certs
+mkdir -p /opt/certs
 chmod 755 /opt/certs
 systemctlEnableAndStart update_certs.path 30 || exit 1
 capture_benchmark "${SCRIPT_NAME}_make_certs_directory_and_update_certs"
