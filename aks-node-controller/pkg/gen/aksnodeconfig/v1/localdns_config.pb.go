@@ -35,7 +35,7 @@ type LocalDnsProfile struct {
 	// KubeDns overrides apply to DNS traffic from pods with dnsPolicy:ClusterFirst (referred to as KubeDns traffic).
 	KubeDnsOverrides map[string]*LocalDnsOverrides `protobuf:"bytes,5,rep,name=kube_dns_overrides,json=kubeDnsOverrides,proto3" json:"kube_dns_overrides,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	// CriticalHostsEntries contains FQDN to IP address mappings for critical Azure infrastructure.
-	// When provided by AKS-RP, CSE will write these to /etc/localdns/hosts, overwriting VHD defaults.
+	// AKS-RP provides these entries at provisioning time, and CSE writes them to /etc/localdns/hosts.
 	// Key is the FQDN (e.g., "mcr.microsoft.com"), value contains the IP addresses.
 	CriticalHostsEntries map[string]*CriticalHostsEntry `protobuf:"bytes,6,rep,name=critical_hosts_entries,json=criticalHostsEntries,proto3" json:"critical_hosts_entries,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields        protoimpl.UnknownFields

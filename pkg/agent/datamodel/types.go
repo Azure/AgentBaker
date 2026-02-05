@@ -2426,7 +2426,7 @@ type LocalDNSProfile struct {
 	VnetDNSOverrides     map[string]*LocalDNSOverrides `json:"vnetDNSOverrides,omitempty"`
 	KubeDNSOverrides     map[string]*LocalDNSOverrides `json:"kubeDNSOverrides,omitempty"`
 	// CriticalHostsEntries contains FQDN to IP address mappings for critical Azure infrastructure.
-	// When provided by AKS-RP, CSE will write these to /etc/localdns/hosts, overwriting VHD defaults.
+	// AKS-RP provides these entries at provisioning time, and CSE writes them to /etc/localdns/hosts.
 	// Format: map[fqdn][]ipAddresses (supports both IPv4 and IPv6)
 	// Example: {"mcr.microsoft.com": ["20.61.99.68", "2603:1061:1002::2"]}
 	CriticalHostsEntries map[string][]string `json:"criticalHostsEntries,omitempty"`

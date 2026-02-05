@@ -322,49 +322,9 @@ copyPackerFiles() {
   AKS_HOSTS_SETUP_TIMER_DEST=/etc/systemd/system/aks-hosts-setup.timer
   cpAndMode $AKS_HOSTS_SETUP_TIMER_SRC $AKS_HOSTS_SETUP_TIMER_DEST 0644
 
-  # Preload the hosts file with hardcoded IPs during VHD build
-  # These are well-known Azure/Microsoft endpoint IPs that are stable
+  # Create empty hosts file directory - AKS-RP will provide IPs at provisioning time
   # The timer will refresh these dynamically at runtime
-  echo "Preloading /etc/localdns/hosts with hardcoded IPs during VHD build..."
   mkdir -p /etc/localdns
-  cat > /etc/localdns/hosts << 'EOF'
-# AKS critical FQDN addresses - preloaded during VHD build
-# This file will be refreshed dynamically by aks-hosts-setup.timer at runtime
-
-# mcr.microsoft.com - Microsoft Container Registry
-20.61.99.68 mcr.microsoft.com
-2603:1061:1002::2 mcr.microsoft.com
-
-# packages.aks.azure.com - AKS packages
-20.7.0.233 packages.aks.azure.com
-
-# login.microsoftonline.com - Azure AD authentication
-20.190.151.68 login.microsoftonline.com
-20.190.151.70 login.microsoftonline.com
-20.190.151.67 login.microsoftonline.com
-20.190.151.69 login.microsoftonline.com
-2603:1037:1:c8::8 login.microsoftonline.com
-2603:1036:3000:d8::5 login.microsoftonline.com
-2603:1037:1:c8::9 login.microsoftonline.com
-2603:1037:1:c8::a login.microsoftonline.com
-
-# management.azure.com - Azure Resource Manager
-20.37.158.0 management.azure.com
-2603:1030:408:6::3e8 management.azure.com
-
-# packages.microsoft.com - Microsoft packages
-52.184.220.97 packages.microsoft.com
-2600:1417:76:1a2::e59 packages.microsoft.com
-
-# acs-mirror.azureedge.net - AKS container images mirror
-152.199.39.108 acs-mirror.azureedge.net
-2606:2800:233:1cb7:261b:1f9c:2074:3c acs-mirror.azureedge.net
-
-# eastus.data.mcr.microsoft.com - MCR data endpoint (regional)
-204.79.197.219 eastus.data.mcr.microsoft.com
-2620:1ec:bdf::50 eastus.data.mcr.microsoft.com
-EOF
-  chmod 0644 /etc/localdns/hosts
 # ---------------------------------------------------------------------------------------
 
   # Install AKS diagnostic

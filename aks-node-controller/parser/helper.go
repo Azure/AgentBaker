@@ -804,7 +804,7 @@ func getLocalDnsMemoryLimitInMb(aksnodeconfig *aksnodeconfigv1.Configuration) st
 
 // getCriticalHostsEntriesContent returns the critical hosts entries formatted as a hosts file content.
 // Returns empty string if no entries are provided by AKS-RP.
-// When entries are provided, CSE will write these to /etc/localdns/hosts, overwriting VHD defaults.
+// AKS-RP provides these entries at provisioning time, and CSE writes them to /etc/localdns/hosts.
 func getCriticalHostsEntriesContent(aksnodeconfig *aksnodeconfigv1.Configuration) string {
 	if aksnodeconfig == nil || aksnodeconfig.GetLocalDnsProfile() == nil {
 		return ""
