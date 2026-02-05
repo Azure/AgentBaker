@@ -354,3 +354,42 @@ func Test_readAndEvaluateProvision(t *testing.T) {
 		})
 	}
 }
+func TestApp_GetTaskNameForCommand(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		command string
+		want    string
+	}{
+		{
+			name:    "provision command returns specific task",
+			command: "provision",
+			want:    "AKS.AKSNodeController.Provision",
+		},
+		{
+			name:    "provision-wait command returns specific task",
+			command: "provision-wait",
+			want:    "AKS.AKSNodeController.ProvisionWait",
+		},
+		{
+			name:    "unknown command falls back to default task",
+			command: "non-existent",
+			want:    "AKS.AKSNodeController",
+		},
+		{
+			name:    "empty command falls back to default task",
+			command: "",
+			want:    "AKS.AKSNodeController",
+		},
+	}
+
+	app := &App{}
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, app.GetTaskNameForCommand(tt.command))
+		})
+	}
+}
+
