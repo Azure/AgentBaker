@@ -57,9 +57,9 @@ func createGuestAgentEventWithDir(eventsDir, taskName, message string, eventLeve
 		return
 	}
 
-	// Use millisecond timestamp as filename, based on current time to ensure uniqueness
-	// This matches the bash implementation: eventsFileName=$(date +%s%3N)
-	eventsFileName := fmt.Sprintf("%d.json", time.Now().UnixNano()/int64(time.Millisecond))
+	// Use nanosecond timestamp as filename, based on current time to ensure uniqueness
+	// This provides better collision avoidance than milliseconds
+	eventsFileName := fmt.Sprintf("%d.json", time.Now().UnixNano())
 	eventFilePath := filepath.Join(eventsDir, eventsFileName)
 
 	durationMs := endTime.Sub(startTime).Milliseconds()
