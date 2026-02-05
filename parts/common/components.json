@@ -1760,6 +1760,23 @@
           }
         }
       }
+    },
+    {
+      "name": "walinuxagent",
+      "downloadLocation": "/opt/walinuxagent/downloads",
+      "downloadURIs": {
+        "default": {
+          "current": {
+            "versionsV2": [
+              {
+                "renovateTag": "github=Azure/WALinuxAgent",
+                "latestVersion": "2.15.0.1"
+              }
+            ],
+            "downloadURL": "https://github.com/Azure/WALinuxAgent/archive/refs/tags/v${version}.tar.gz"
+          }
+        }
+      }
     }
   ],
   "OCIArtifacts": [

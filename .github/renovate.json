@@ -522,6 +522,14 @@
         "rashmichandrashekar",
         "bragi92"
       ]
+    },
+    {
+      "matchPackageNames": [
+        "Azure/WALinuxAgent"
+      ],
+      "groupName": "walinuxagent",
+      "automerge": false,
+      "enabled": true
     }
   ],
   "customManagers": [
@@ -660,6 +668,20 @@
       ],
       "datasourceTemplate": "rpm",
       "autoReplaceStringTemplate": "\"renovateTag\": \"RPM_registry={{{registryUrl}}}, name={{{packageName}}}, os=azurelinux, release=3.0\",\n                \"latestVersion\": \"{{{newValue}}}\"{{#if depType}},\n                \"previousLatestVersion\": \"{{{currentValue}}}\"{{/if}}"
+    },
+    {
+      "customType": "regex",
+      "description": "auto update WALinuxAgent from GitHub releases",
+      "managerFilePatterns": [
+        "/parts/common/components.json/"
+      ],
+      "matchStringsStrategy": "any",
+      "matchStrings": [
+        "\"renovateTag\":\\s*\"github=(?<depName>[^\"]+)\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\""
+      ],
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^v(?<version>.*)$",
+      "autoReplaceStringTemplate": "\"renovateTag\": \"github={{{depName}}}\",\n              \"latestVersion\": \"{{{newValue}}}\""
     },
     {
       "customType": "regex",
