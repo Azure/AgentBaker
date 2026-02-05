@@ -54,7 +54,7 @@ echo "kubelet/kubectl downloaded:" >> ${VHD_LOGS_FILEPATH}
 ls -ltr /opt/bin/kube* >> ${VHD_LOGS_FILEPATH}
 
 # shellcheck disable=SC2010
-ls -ltr /dev/* | grep sgx >>  ${VHD_LOGS_FILEPATH}
+ls -ltr /dev/* | grep sgx >>  ${VHD_LOGS_FILEPATH} || true
 
 echo -e "=== Installed Packages Begin\n$(listInstalledPackages)\n=== Installed Packages End" >> ${VHD_LOGS_FILEPATH}
 
