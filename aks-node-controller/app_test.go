@@ -2,21 +2,16 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
-	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"reflect"
 	"strconv"
-	"strings"
 	"testing"
 	"time"
 
-	"github.com/Azure/agentbaker/aks-node-controller/helpers"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 // MockCmdRunner is a simple mock for cmdRunner.
@@ -353,165 +348,4 @@ func Test_readAndEvaluateProvision(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestCreateGuestAgentEvent(t *testing.T) {
-	tests := []struct {
-		name       string
-		taskName   string
-		message    string
-		eventLevel helpers.EventLevel
-		startTime  time.Time
-		endTime    time.Time
-	}{
-		{
-			name:       "error event",
-			taskName:   "AKS.AKSNodeController.Provision",
-			message:    "aks-node-controller exited with code 1",
-			eventLevel: helpers.EventLevelError,
-			startTime:  time.Date(2026, 2, 3, 10, 30, 45, 123000000, time.UTC),
-			endTime:    time.Date(2026, 2, 3, 10, 35, 50, 456000000, time.UTC),
-		},
-		{
-			name:       "informational event",
-			taskName:   "AKS.AKSNodeController.Provision",
-			message:    "Completed",
-			eventLevel: helpers.EventLevelInformational,
-			startTime:  time.Date(2026, 2, 3, 14, 20, 15, 789000000, time.UTC),
-			endTime:    time.Date(2026, 2, 3, 14, 25, 30, 987000000, time.UTC),
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Create a temporary directory for this test
-			tmpDir := t.TempDir()
-			eventsDir := filepath.Join(tmpDir, "events")
-
-			// Call the function with test directory
-			helpers.CreateGuestAgentEventWithDir(eventsDir, tt.taskName, tt.message, tt.eventLevel, tt.startTime, tt.endTime)
-			files, err := os.ReadDir(eventsDir)
-			require.NoError(t, err, "should be able to read events directory")
-			require.Len(t, files, 1, "should have created exactly one event file")
-
-			// Read and parse the event file
-			eventFilePath := filepath.Join(eventsDir, files[0].Name())
-			data, err := os.ReadFile(eventFilePath)
-			require.NoError(t, err, "should be able to read event file")
-
-			var event helpers.GuestAgentEvent
-			err = json.Unmarshal(data, &event)
-			require.NoError(t, err, "event file should contain valid JSON")
-
-			// Verify the event contents
-			assert.Equal(t, tt.taskName, event.TaskName, "TaskName should match")
-
-			// Verify message includes timing information
-			durationMs := tt.endTime.Sub(tt.startTime).Milliseconds()
-			expectedMessage := fmt.Sprintf("%s | startTime=%s endTime=%s durationMs=%d",
-				tt.message,
-				tt.startTime.Format("2006-01-02 15:04:05.000"),
-				tt.endTime.Format("2006-01-02 15:04:05.000"),
-				durationMs,
-			)
-			assert.Equal(t, expectedMessage, event.Message, "Message should include timing information")
-
-			assert.Equal(t, string(tt.eventLevel), event.EventLevel, "EventLevel should match")
-			assert.Equal(t, "1.23", event.Version, "Version should be 1.23")
-			assert.Equal(t, "0", event.EventPid, "EventPid should be 0")
-			assert.Equal(t, "0", event.EventTid, "EventTid should be 0")
-
-			// Verify timestamp formatting
-			expectedTimestamp := tt.startTime.Format("2006-01-02 15:04:05.000")
-			assert.Equal(t, expectedTimestamp, event.Timestamp, "Timestamp should be formatted correctly")
-
-			// Verify OperationId format (endTime formatted timestamp)
-			expectedOperationId := tt.endTime.Format("2006-01-02 15:04:05.000")
-			assert.Equal(t, expectedOperationId, event.OperationId, "OperationId should be formatted correctly")
-
-			// Verify filename is a millisecond timestamp (based on current time, not startTime)
-			filename := files[0].Name()
-			assert.True(t, len(filename) > 10, "filename should be a millisecond timestamp")
-			assert.Equal(t, ".json", filepath.Ext(filename), "file should have .json extension")
-		})
-	}
-}
-
-func TestCreateGuestAgentEvent_DirectoryCreationError(t *testing.T) {
-	// This test verifies that the function handles directory creation errors gracefully
-	// Create a file where we want the directory to be (to cause MkdirAll to fail)
-	tmpDir := t.TempDir()
-	blockingFile := filepath.Join(tmpDir, "blocking-file")
-	err := os.WriteFile(blockingFile, []byte("test"), 0644)
-	require.NoError(t, err)
-
-	// Try to create events directory under a file (which will fail)
-	eventsDir := filepath.Join(blockingFile, "events")
-	startTime := time.Now()
-	endTime := time.Now()
-
-	// Should not panic, just log error
-	helpers.CreateGuestAgentEventWithDir(eventsDir, "TestTask", "Test message", helpers.EventLevelError, startTime, endTime)
-
-	// Verify no event file was created in the events directory (since directory creation failed)
-	// The directory creation will fail, so reading the directory should fail
-	files, err := os.ReadDir(eventsDir)
-	assert.Error(t, err, "should not be able to read events directory that failed to create")
-	assert.Empty(t, files, "no files should exist")
-}
-
-func TestCreateGuestAgentEvent_MainScenarioIntegration(t *testing.T) {
-	// This test simulates the real scenario from main.go where multiple events
-	// share the same startTime. Each event should be written to a separate file
-	// with a unique filename (based on current time, not startTime).
-	tmpDir := t.TempDir()
-	eventsDir := filepath.Join(tmpDir, "events")
-
-	// Simulate the scenario in main.go
-	startTime := time.Date(2026, 2, 3, 10, 30, 45, 123000000, time.UTC)
-
-	// First event: "Starting" with startTime, startTime
-	helpers.CreateGuestAgentEventWithDir(eventsDir, "AKS.AKSNodeController.Provision", "Starting", helpers.EventLevelInformational, startTime, startTime)
-
-	// Simulate some execution time and ensure unique timestamp for filename
-	time.Sleep(2 * time.Millisecond)
-	endTime := time.Date(2026, 2, 3, 10, 35, 50, 456000000, time.UTC)
-
-	// Second event: "Completed" with startTime, endTime (success case)
-	helpers.CreateGuestAgentEventWithDir(eventsDir, "AKS.AKSNodeController.Provision", "Completed", helpers.EventLevelInformational, startTime, endTime)
-	// Verify all events are preserved in separate files
-	files, err := os.ReadDir(eventsDir)
-	require.NoError(t, err, "should be able to read events directory")
-	assert.Len(t, files, 2, "should have two separate event files, one for each event")
-
-	// Verify all files contain valid events and collect messages
-	messages := make(map[string]bool)
-	for _, file := range files {
-		eventFilePath := filepath.Join(eventsDir, file.Name())
-		data, err := os.ReadFile(eventFilePath)
-		require.NoError(t, err, "should be able to read event file")
-
-		var event helpers.GuestAgentEvent
-		err = json.Unmarshal(data, &event)
-		require.NoError(t, err, "event file should contain valid JSON")
-
-		assert.Equal(t, "AKS.AKSNodeController.Provision", event.TaskName, "TaskName should match")
-		messages[event.Message] = true
-	}
-
-	// Verify both events were preserved
-	assert.Len(t, messages, 2, "should have two distinct event messages")
-
-	// Verify the specific messages exist
-	var hasStarting, hasCompleted bool
-	for msg := range messages {
-		if strings.Contains(msg, "Starting") {
-			hasStarting = true
-		}
-		if strings.Contains(msg, "Completed") {
-			hasCompleted = true
-		}
-	}
-	assert.True(t, hasStarting, "should have the 'Starting' event")
-	assert.True(t, hasCompleted, "should have the 'Completed' event")
 }

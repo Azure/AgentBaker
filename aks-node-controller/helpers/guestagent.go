@@ -25,8 +25,8 @@ const (
 	EventLevelError EventLevel = "Error"
 )
 
-// GuestAgentEvent represents an event to be logged for the Azure VM guest agent.
-type GuestAgentEvent struct {
+// guestAgentEvent represents an event to be logged for the Azure VM guest agent.
+type guestAgentEvent struct {
 	Timestamp   string `json:"Timestamp"`
 	OperationId string `json:"OperationId"`
 	Version     string `json:"Version"`
@@ -40,10 +40,10 @@ type GuestAgentEvent struct {
 // CreateGuestAgentEvent creates an event file for the Azure VM guest agent in the default directory.
 // This mimics the format expected by the CustomScript extension event logging.
 func CreateGuestAgentEvent(taskName, message string, eventLevel EventLevel, startTime, endTime time.Time) {
-	CreateGuestAgentEventWithDir(DefaultEventsLoggingDir, taskName, message, eventLevel, startTime, endTime)
+	createGuestAgentEventWithDir(DefaultEventsLoggingDir, taskName, message, eventLevel, startTime, endTime)
 }
 
-// CreateGuestAgentEventWithDir creates an event file in the specified directory.
+// createGuestAgentEventWithDir creates an event file in the specified directory.
 // This function is separated to allow custom event directories for testing or special use cases.
 //
 // The implementation matches the bash pattern used across the codebase:
@@ -51,7 +51,7 @@ func CreateGuestAgentEvent(taskName, message string, eventLevel EventLevel, star
 //   - Timestamp: Event start time in format "2006-01-02 15:04:05.000"
 //   - OperationId: Event end time in format "2006-01-02 15:04:05.000"
 //   - Message: Includes timing information (startTime, endTime, durationMs)
-func CreateGuestAgentEventWithDir(eventsDir, taskName, message string, eventLevel EventLevel, startTime, endTime time.Time) {
+func createGuestAgentEventWithDir(eventsDir, taskName, message string, eventLevel EventLevel, startTime, endTime time.Time) {
 	if err := os.MkdirAll(eventsDir, 0755); err != nil {
 		slog.Error("failed to create events logging directory", "path", eventsDir, "error", err)
 		return
@@ -77,7 +77,7 @@ func CreateGuestAgentEventWithDir(eventsDir, taskName, message string, eventLeve
 
 	operationID := endTime.Format("2006-01-02 15:04:05.000")
 
-	event := GuestAgentEvent{
+	event := guestAgentEvent{
 		Timestamp:   startTime.Format("2006-01-02 15:04:05.000"), // strange but this is Go's reference time for formatting
 		OperationId: operationID,
 		Version:     "1.23",

@@ -47,7 +47,7 @@ func TestCreateGuestAgentEvent(t *testing.T) {
 			eventsDir := filepath.Join(tmpDir, "events")
 
 			// Call the function with test directory
-			CreateGuestAgentEventWithDir(eventsDir, tt.taskName, tt.message, tt.eventLevel, tt.startTime, tt.endTime)
+			createGuestAgentEventWithDir(eventsDir, tt.taskName, tt.message, tt.eventLevel, tt.startTime, tt.endTime)
 			files, err := os.ReadDir(eventsDir)
 			require.NoError(t, err, "should be able to read events directory")
 			require.Len(t, files, 1, "should have created exactly one event file")
@@ -57,7 +57,7 @@ func TestCreateGuestAgentEvent(t *testing.T) {
 			data, err := os.ReadFile(eventFilePath)
 			require.NoError(t, err, "should be able to read event file")
 
-			var event GuestAgentEvent
+			var event guestAgentEvent
 			err = json.Unmarshal(data, &event)
 			require.NoError(t, err, "event file should contain valid JSON")
 
@@ -109,7 +109,7 @@ func TestCreateGuestAgentEvent_DirectoryCreationError(t *testing.T) {
 	endTime := time.Now()
 
 	// Should not panic, just log error
-	CreateGuestAgentEventWithDir(eventsDir, "TestTask", "Test message", EventLevelError, startTime, endTime)
+	createGuestAgentEventWithDir(eventsDir, "TestTask", "Test message", EventLevelError, startTime, endTime)
 
 	// Verify no event file was created in the events directory (since directory creation failed)
 	// The directory creation will fail, so reading the directory should fail
@@ -129,11 +129,11 @@ func TestCreateGuestAgentEvent_MultipleEventsWithSameStartTime(t *testing.T) {
 	endTime2 := time.Date(2026, 2, 3, 10, 35, 50, 456000000, time.UTC)
 
 	// Create three events with the same startTime (similar to main.go)
-	CreateGuestAgentEventWithDir(eventsDir, "AKS.AKSNodeController.Provision", "Starting", EventLevelInformational, startTime, startTime)
+	createGuestAgentEventWithDir(eventsDir, "AKS.AKSNodeController.Provision", "Starting", EventLevelInformational, startTime, startTime)
 	time.Sleep(2 * time.Millisecond) // Ensure unique timestamp for filename
-	CreateGuestAgentEventWithDir(eventsDir, "AKS.AKSNodeController.Provision", "Completed", EventLevelInformational, startTime, endTime2)
+	createGuestAgentEventWithDir(eventsDir, "AKS.AKSNodeController.Provision", "Completed", EventLevelInformational, startTime, endTime2)
 	time.Sleep(2 * time.Millisecond) // Ensure unique timestamp for filename
-	CreateGuestAgentEventWithDir(eventsDir, "AKS.AKSNodeController.Provision", "aks-node-controller exited with code 1", EventLevelError, startTime, endTime1)
+	createGuestAgentEventWithDir(eventsDir, "AKS.AKSNodeController.Provision", "aks-node-controller exited with code 1", EventLevelError, startTime, endTime1)
 
 	// Verify all three events were created as separate files
 	files, err := os.ReadDir(eventsDir)
@@ -154,7 +154,7 @@ func TestCreateGuestAgentEvent_MultipleEventsWithSameStartTime(t *testing.T) {
 		data, err := os.ReadFile(eventFilePath)
 		require.NoError(t, err, "should be able to read event file")
 
-		var event GuestAgentEvent
+		var event guestAgentEvent
 		err = json.Unmarshal(data, &event)
 		require.NoError(t, err, "event file should contain valid JSON")
 
