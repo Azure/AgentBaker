@@ -403,8 +403,11 @@ compare_cis_with_baseline() {
 }
 
 CIS_SCRIPT_PATH="$CDIR/cis-report.sh"
-CIS_REPORT_TXT_NAME="cis-report-${BUILD_ID}-${TIMESTAMP}.txt"
+CIS_REPORT_L1_TXT_NAME="cis-report-l1-${BUILD_ID}-${TIMESTAMP}.txt"
+CIS_REPORT_L2_TXT_NAME="cis-report-l2-${BUILD_ID}-${TIMESTAMP}.txt"
 CIS_REPORT_HTML_NAME="cis-report-${BUILD_ID}-${TIMESTAMP}.html"
+CIS_REPORT_L1_LOCAL="cis-report-l1.txt"
+CIS_REPORT_L2_LOCAL="cis-report-l2.txt"
 
 # Upload cisassessor tarball to storage account
 if [ "${ARCHITECTURE,,}" = "arm64" ]; then
@@ -426,7 +429,8 @@ ret=$(az vm run-command invoke \
         "SIG_CONTAINER_NAME=${SIG_CONTAINER_NAME}" \
         "AZURE_MSI_RESOURCE_STRING=${AZURE_MSI_RESOURCE_STRING}" \
         "ENABLE_TRUSTED_LAUNCH=${ENABLE_TRUSTED_LAUNCH}" \
-        "CIS_REPORT_TXT_NAME=${CIS_REPORT_TXT_NAME}" \
+        "CIS_REPORT_L1_TXT_NAME=${CIS_REPORT_L1_TXT_NAME}" \
+        "CIS_REPORT_L2_TXT_NAME=${CIS_REPORT_L2_TXT_NAME}" \
         "CIS_REPORT_HTML_NAME=${CIS_REPORT_HTML_NAME}" \
         "TEST_VM_ADMIN_USERNAME=${SCAN_VM_ADMIN_USERNAME}" \
         "OS_SKU=${OS_SKU}"
@@ -436,11 +440,13 @@ msg=$(echo -E "$ret" | jq -r '.value[].message')
 echo "$msg"
 
 # Download CIS report files to working directory
-az storage blob download --container-name "${SIG_CONTAINER_NAME}" --name "${CIS_REPORT_TXT_NAME}" --file cis-report.txt --account-name "${STORAGE_ACCOUNT_NAME}" --auth-mode login
+az storage blob download --container-name "${SIG_CONTAINER_NAME}" --name "${CIS_REPORT_L1_TXT_NAME}" --file "${CIS_REPORT_L1_LOCAL}" --account-name "${STORAGE_ACCOUNT_NAME}" --auth-mode login
+az storage blob download --container-name "${SIG_CONTAINER_NAME}" --name "${CIS_REPORT_L2_TXT_NAME}" --file "${CIS_REPORT_L2_LOCAL}" --account-name "${STORAGE_ACCOUNT_NAME}" --auth-mode login
 az storage blob download --container-name "${SIG_CONTAINER_NAME}" --name "${CIS_REPORT_HTML_NAME}" --file cis-report.html --account-name "${STORAGE_ACCOUNT_NAME}" --auth-mode login
 
 # Remove CIS report blobs from storage
-az storage blob delete --account-name "${STORAGE_ACCOUNT_NAME}" --container-name "${SIG_CONTAINER_NAME}" --name "${CIS_REPORT_TXT_NAME}" --auth-mode login
+az storage blob delete --account-name "${STORAGE_ACCOUNT_NAME}" --container-name "${SIG_CONTAINER_NAME}" --name "${CIS_REPORT_L1_TXT_NAME}" --auth-mode login
+az storage blob delete --account-name "${STORAGE_ACCOUNT_NAME}" --container-name "${SIG_CONTAINER_NAME}" --name "${CIS_REPORT_L2_TXT_NAME}" --auth-mode login
 az storage blob delete --account-name "${STORAGE_ACCOUNT_NAME}" --container-name "${SIG_CONTAINER_NAME}" --name "${CIS_REPORT_HTML_NAME}" --auth-mode login
 # Remove CIS assessor tarball blob from storage
 az storage blob delete --account-name "${STORAGE_ACCOUNT_NAME}" --container-name "${SIG_CONTAINER_NAME}" --name "${CISASSESSOR_BLOB_NAME}" --auth-mode login
