@@ -27,16 +27,16 @@ func TestCreateGuestAgentEvent(t *testing.T) {
 			taskName:   "AKS.AKSNodeController.Provision",
 			message:    "aks-node-controller exited with code 1",
 			eventLevel: EventLevelError,
-			startTime:  time.Date(2026, 2, 3, 10, 30, 45, 123000000, time.UTC),
-			endTime:    time.Date(2026, 2, 3, 10, 35, 50, 456000000, time.UTC),
+			startTime:  time.Date(2099, 2, 3, 10, 30, 45, 123000000, time.UTC),
+			endTime:    time.Date(2099, 2, 3, 10, 35, 50, 456000000, time.UTC),
 		},
 		{
 			name:       "informational event",
 			taskName:   "AKS.AKSNodeController.Provision",
 			message:    "Completed",
 			eventLevel: EventLevelInformational,
-			startTime:  time.Date(2026, 2, 3, 14, 20, 15, 789000000, time.UTC),
-			endTime:    time.Date(2026, 2, 3, 14, 25, 30, 987000000, time.UTC),
+			startTime:  time.Date(2099, 2, 3, 14, 20, 15, 789000000, time.UTC),
+			endTime:    time.Date(2099, 2, 3, 14, 25, 30, 987000000, time.UTC),
 		},
 	}
 
