@@ -1,7 +1,5 @@
 package main
 
-import "github.com/Azure/agentbaker/aks-node-controller/helpers"
-
 // Some options are intentionally non-configurable to avoid customization by users
 // it will help us to avoid introducing any breaking changes in the future.
 const (
@@ -9,5 +7,3 @@ const (
 	provisionJSONFilePath     = "/var/log/azure/aks/provision.json"
 	provisionCompleteFilePath = "/opt/azure/containers/provision.complete"
 )
-
-var eventsLoggingDir = helpers.DefaultEventsLoggingDir
