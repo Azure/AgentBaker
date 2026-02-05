@@ -15,23 +15,21 @@ import (
 func main() {
 	startTime := time.Now()
 
-	// Determine task name based on execution mode
-	taskName := "AKS.AKSNodeController"
+	// Determine task name based on execution mode (check args once)
+	command := ""
 	if len(os.Args) >= 2 {
-		switch os.Args[1] {
-		case "provision":
-			taskName = "AKS.AKSNodeController.Provision"
-		case "provision-wait":
-			taskName = "AKS.AKSNodeController.ProvisionWait"
-		}
+		command = os.Args[1]
 	}
-
-	helpers.CreateGuestAgentEvent(taskName, "Starting", helpers.EventLevelInformational, startTime, startTime)
 
 	// defer calls are not executed on os.Exit
 	logCleanup := configureLogging()
 	app := App{cmdRunner: cmdRunner}
-	exitCode := app.Run(context.Background(), os.Args)
+
+	// Get task name from app to centralize command metadata
+	taskName := app.GetTaskNameForCommand(command)
+	helpers.CreateGuestAgentEvent(taskName, "Starting", helpers.EventLevelInformational, startTime, startTime)
+
+	exitCode := app.Run(context.Background(), command, os.Args)
 
 	// Create guest agent event for both success and failure
 	endTime := time.Now()

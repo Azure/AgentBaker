@@ -26,6 +26,45 @@ type App struct {
 	cmdRunner func(cmd *exec.Cmd) error
 }
 
+// commandMetadata holds all metadata for a command in one place
+type commandMetadata struct {
+	taskName string
+	handler  func(*App, context.Context, []string) error
+}
+
+// commandRegistry maps command names to their metadata
+// Adding a new command only requires adding one entry here
+var commandRegistry = map[string]commandMetadata{
+	"provision": {
+		taskName: "AKS.AKSNodeController.Provision",
+		handler: func(a *App, ctx context.Context, args []string) error {
+			provisionResult, err := a.runProvision(ctx, args[2:])
+			// Always notify after provisioning attempt (success is a no-op inside notifier)
+			a.writeCompleteFileOnError(provisionResult, err)
+			return err
+		},
+	},
+	"provision-wait": {
+		taskName: "AKS.AKSNodeController.ProvisionWait",
+		handler: func(a *App, ctx context.Context, args []string) error {
+			provisionStatusFiles := ProvisionStatusFiles{ProvisionJSONFile: provisionJSONFilePath, ProvisionCompleteFile: provisionCompleteFilePath}
+			provisionOutput, err := a.ProvisionWait(ctx, provisionStatusFiles)
+			//nolint:forbidigo // stdout is part of the interface
+			fmt.Println(provisionOutput)
+			slog.Info("provision-wait finished", "provisionOutput", provisionOutput)
+			return err
+		},
+	},
+}
+
+// GetTaskNameForCommand returns the Azure VM Guest Agent task name for the given command.
+func (a *App) GetTaskNameForCommand(command string) string {
+	if cmd, ok := commandRegistry[command]; ok {
+		return cmd.taskName
+	}
+	return "AKS.AKSNodeController"
+}
+
 // provision.json values are emitted as strings by the shell jq invocation.
 // We only care about ExitCode + Error + Output (snippet) for failure detection.
 type ProvisionResult struct {
@@ -51,9 +90,9 @@ type ProvisionStatusFiles struct {
 	ProvisionCompleteFile string
 }
 
-func (a *App) Run(ctx context.Context, args []string) int {
+func (a *App) Run(ctx context.Context, command string, args []string) int {
 	slog.Info("aks-node-controller started", "args", args)
-	err := a.run(ctx, args)
+	err := a.run(ctx, command, args)
 	exitCode := errToExitCode(err)
 	if exitCode == 0 {
 		slog.Info("aks-node-controller finished successfully.")
@@ -63,26 +102,17 @@ func (a *App) Run(ctx context.Context, args []string) int {
 	return exitCode
 }
 
-func (a *App) run(ctx context.Context, args []string) error {
-	if len(args) < 2 {
+func (a *App) run(ctx context.Context, command string, args []string) error {
+	if command == "" {
 		return errors.New("missing command argument")
 	}
-	switch args[1] {
-	case "provision":
-		provisionResult, err := a.runProvision(ctx, args[2:])
-		// Always notify after provisioning attempt (success is a no-op inside notifier)
-		a.writeCompleteFileOnError(provisionResult, err)
-		return err
-	case "provision-wait":
-		provisionStatusFiles := ProvisionStatusFiles{ProvisionJSONFile: provisionJSONFilePath, ProvisionCompleteFile: provisionCompleteFilePath}
-		provisionOutput, err := a.ProvisionWait(ctx, provisionStatusFiles)
-		//nolint:forbidigo // stdout is part of the interface
-		fmt.Println(provisionOutput)
-		slog.Info("provision-wait finished", "provisionOutput", provisionOutput)
-		return err
-	default:
-		return fmt.Errorf("unknown command: %s", args[1])
+	
+	cmd, ok := commandRegistry[command]
+	if !ok {
+		return fmt.Errorf("unknown command: %s", command)
 	}
+	
+	return cmd.handler(a, ctx, args)
 }
 
 func (a *App) Provision(ctx context.Context, flags ProvisionFlags) (*ProvisionResult, error) {
