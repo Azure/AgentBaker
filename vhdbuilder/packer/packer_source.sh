@@ -290,6 +290,10 @@ copyPackerFiles() {
   LOCALDNS_SCRIPT_DEST=/opt/azure/containers/localdns/localdns.sh
   cpAndMode $LOCALDNS_SCRIPT_SRC $LOCALDNS_SCRIPT_DEST 0755
 
+  LOCALDNS_EXPORTER_SRC=/home/packer/localdns_exporter.sh
+  LOCALDNS_EXPORTER_DEST=/opt/azure/containers/localdns/localdns_exporter.sh
+  cpAndMode $LOCALDNS_EXPORTER_SRC $LOCALDNS_EXPORTER_DEST 0755
+
   LOCALDNS_SERVICE_SRC=/home/packer/localdns.service
   LOCALDNS_SERVICE_DEST=/etc/systemd/system/localdns.service
   cpAndMode $LOCALDNS_SERVICE_SRC $LOCALDNS_SERVICE_DEST 0644
