@@ -445,7 +445,7 @@ var (
 	SIGUbuntuFipsTLContainerd2204Gen2ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
-		Definition:    "2204gen2fipstlcontainerd",
+		Definition:    "2204gen2fipsTLcontainerd",
 		Version:       LinuxSIGImageVersion,
 	}
 

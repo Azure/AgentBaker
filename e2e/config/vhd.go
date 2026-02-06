@@ -85,7 +85,7 @@ var (
 		UnsupportedSecureTLSBootstrapping: true,
 	}
 	VHDUbuntu2204Gen2FIPSTLContainerd = &Image{
-		Name:                "2204gen2fipstlcontainerd",
+		Name:                "2204gen2fipsTLcontainerd",
 		OS:                  OSUbuntu,
 		Arch:                "amd64",
 		Distro:              datamodel.AKSUbuntuFipsTLContainerd2204Gen2,
