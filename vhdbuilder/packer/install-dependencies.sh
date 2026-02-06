@@ -426,7 +426,8 @@ while IFS= read -r p; do
       done
       ;;
     "node-exporter")
-      if isFlatcar "$OS" || isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || [ "${IS_KATA}" = "true" ]; then
+      # Skip for Flatcar, OSGuard, Kata, and Mariner (we only build AzureLinuxV3 now, mariner entry removed from components.json)
+      if isFlatcar "$OS" || isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || [ "${IS_KATA}" = "true" ] || [ "$OS" = "$MARINER_OS_NAME" ]; then
         echo "Skipping node-exporter installation for ${OS} ${OS_VARIANT:-default} (IS_KATA=${IS_KATA})"
       else
         # installNodeExporter is defined in install-node-exporter.sh

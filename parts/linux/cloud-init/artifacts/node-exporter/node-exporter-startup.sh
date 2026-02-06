@@ -25,6 +25,10 @@ else
     IMDS_RESPONSE=$(curl -fsSL -H "Metadata: true" --noproxy "*" --retry 20 --retry-delay 2 --retry-connrefused --connect-timeout 5 --max-time 60 "http://169.254.169.254/metadata/instance?api-version=2021-02-01" 2>/dev/null)
 fi
 
+if [ -z "$IMDS_RESPONSE" ]; then
+    echo "WARNING: Failed to fetch IMDS metadata, assuming cert rotation is enabled"
+fi
+
 if [ -n "$IMDS_RESPONSE" ]; then
     ROTATION_DISABLED=$(echo "$IMDS_RESPONSE" | jq -r '.compute.tagsList | map(select(.name | test("aks-disable-kubelet-serving-certificate-rotation"; "i")))[0].value // "false" | test("true"; "i")' 2>/dev/null || echo "false")
 fi
@@ -86,14 +90,20 @@ EOF
     TLS_CONFIG_ARG="--web.config.file=${TLS_CONFIG_PATH}"
 fi
 
-exec /opt/bin/node-exporter \
-    --web.listen-address=${NODE_IP}:19100 \
-    ${TLS_CONFIG_ARG} \
-    --no-collector.wifi \
-    --no-collector.hwmon \
-    --collector.cpu.info \
-    --collector.filesystem.mount-points-exclude="^/(dev|proc|sys|run/containerd/.+|var/lib/docker/.+|var/lib/kubelet/.+)($|/)" \
-    --collector.netclass.ignored-devices="^(azv.*|veth.*|[a-f0-9]{15})$" \
-    --collector.netclass.netlink \
-    --collector.netdev.device-exclude="^(azv.*|veth.*|[a-f0-9]{15})$" \
+ARGS=(
+    --web.listen-address="${NODE_IP}:19100"
+    --no-collector.wifi
+    --no-collector.hwmon
+    --collector.cpu.info
+    --collector.filesystem.mount-points-exclude="^/(dev|proc|sys|run/containerd/.+|var/lib/docker/.+|var/lib/kubelet/.+)($|/)"
+    --collector.netclass.ignored-devices="^(azv.*|veth.*|[a-f0-9]{15})$"
+    --collector.netclass.netlink
+    --collector.netdev.device-exclude="^(azv.*|veth.*|[a-f0-9]{15})$"
     --no-collector.arp.netlink
+)
+
+if [ -n "$TLS_CONFIG_ARG" ]; then
+    ARGS+=("$TLS_CONFIG_ARG")
+fi
+
+exec /opt/bin/node-exporter "${ARGS[@]}"
