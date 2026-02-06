@@ -1,0 +1,15 @@
+Release notes for security patch 20260201T000000Z timestamp
+Package difference for Ubuntu 24.04 with 20260201T000000Z
+No reboot required
+Upgrade: python3.12:amd64 (3.12.3-1ubuntu0.9, 3.12.3-1ubuntu0.10), libpython3.12-minimal:amd64 (3.12.3-1ubuntu0.9, 3.12.3-1ubuntu0.10), libpython3.12t64:amd64 (3.12.3-1ubuntu0.9, 3.12.3-1ubuntu0.10), python3.12-minimal:amd64 (3.12.3-1ubuntu0.9, 3.12.3-1ubuntu0.10), libpython3.12-stdlib:amd64 (3.12.3-1ubuntu0.9, 3.12.3-1ubuntu0.10)
+Upgrade: libglib2.0-bin:amd64 (2.80.0-6ubuntu3.5, 2.80.0-6ubuntu3.7), gir1.2-glib-2.0:amd64 (2.80.0-6ubuntu3.5, 2.80.0-6ubuntu3.7), libglib2.0-data:amd64 (2.80.0-6ubuntu3.5, 2.80.0-6ubuntu3.7), libglib2.0-0t64:amd64 (2.80.0-6ubuntu3.5, 2.80.0-6ubuntu3.7)
+Upgrade: libssl3t64:amd64 (3.0.13-0ubuntu3.6, 3.0.13-0ubuntu3.7), openssl:amd64 (3.0.13-0ubuntu3.6, 3.0.13-0ubuntu3.7)
+Upgrade: gpg:amd64 (2.4.4-2ubuntu17.3, 2.4.4-2ubuntu17.4), keyboxd:amd64 (2.4.4-2ubuntu17.3, 2.4.4-2ubuntu17.4), gnupg:amd64 (2.4.4-2ubuntu17.3, 2.4.4-2ubuntu17.4), gpg-agent:amd64 (2.4.4-2ubuntu17.3, 2.4.4-2ubuntu17.4), gpgv:amd64 (2.4.4-2ubuntu17.3, 2.4.4-2ubuntu17.4), gpgsm:amd64 (2.4.4-2ubuntu17.3, 2.4.4-2ubuntu17.4), dirmngr:amd64 (2.4.4-2ubuntu17.3, 2.4.4-2ubuntu17.4), gnupg-utils:amd64 (2.4.4-2ubuntu17.3, 2.4.4-2ubuntu17.4), gnupg-l10n:amd64 (2.4.4-2ubuntu17.3, 2.4.4-2ubuntu17.4), gpg-wks-client:amd64 (2.4.4-2ubuntu17.3, 2.4.4-2ubuntu17.4), gpgconf:amd64 (2.4.4-2ubuntu17.3, 2.4.4-2ubuntu17.4)
+Upgrade: screen:amd64 (4.9.1-1build1, 4.9.1-1ubuntu1)
+Upgrade: libtasn1-6:amd64 (4.19.0-3ubuntu0.24.04.1, 4.19.0-3ubuntu0.24.04.2)
+Upgrade: python3-urllib3:amd64 (2.0.7-1ubuntu0.3, 2.0.7-1ubuntu0.6)
+Upgrade: libpng16-16t64:amd64 (1.6.43-5ubuntu0.1, 1.6.43-5ubuntu0.3)
+Upgrade: libxml2:amd64 (2.9.14+dfsg-1.3ubuntu3.6, 2.9.14+dfsg-1.3ubuntu3.7)
+Upgrade: python3-pyasn1:amd64 (0.4.8-4, 0.4.8-4ubuntu0.1)
+Upgrade: libsodium23:amd64 (1.0.18-1build3, 1.0.18-1ubuntu0.24.04.1)
+Upgrade: klibc-utils:amd64 (2.0.13-4ubuntu0.1, 2.0.13-4ubuntu0.2), libklibc:amd64 (2.0.13-4ubuntu0.1, 2.0.13-4ubuntu0.2)
