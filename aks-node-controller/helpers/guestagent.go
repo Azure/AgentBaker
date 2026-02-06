@@ -94,6 +94,8 @@ func createGuestAgentEventWithDir(eventsDir, taskName, message string, eventLeve
 		return
 	}
 
+	// Event log files need to be readable by Azure monitoring services.
+	// #nosec G306 -- Operational event data without sensitive information
 	if err := os.WriteFile(eventFilePath, data, 0644); err != nil {
 		slog.Error("failed to write guest agent event file", "path", eventFilePath, "error", err)
 	}
