@@ -74,15 +74,14 @@ systemctlEnableAndStart aks-log-collector.timer 30 || exit 1
 # Install WALinuxAgent from GitHub as specified in components.json
 # This ensures we run the version tracked in components.json rather than the OS package version
 if ! isFlatcar "$OS"; then
-  WAAGENT_DOWNLOADS_DIR="/opt/walinuxagent/downloads"
   walinuxagentPackage=$(jq '.Packages[] | select(.name == "walinuxagent")' "${COMPONENTS_FILEPATH}" 2>/dev/null || true)
+  WAAGENT_DOWNLOADS_DIR=$(echo "$walinuxagentPackage" | jq -r '.downloadLocation // empty')
   if [ -n "$walinuxagentPackage" ] && [ "$walinuxagentPackage" != "null" ]; then
     WAAGENT_VERSION=$(echo "$walinuxagentPackage" | jq -r '.downloadURIs.default.current.versionsV2[0].latestVersion // empty')
     if [ -n "$WAAGENT_VERSION" ] && [ "$WAAGENT_VERSION" != "null" ]; then
       echo "Installing WALinuxAgent version ${WAAGENT_VERSION} from GitHub..."
-      version="${WAAGENT_VERSION}"
       WAAGENT_DOWNLOAD_URL_TEMPLATE=$(echo "$walinuxagentPackage" | jq -r '.downloadURIs.default.current.downloadURL // empty')
-      eval "WAAGENT_DOWNLOAD_URL=${WAAGENT_DOWNLOAD_URL_TEMPLATE}"
+      WAAGENT_DOWNLOAD_URL="${WAAGENT_DOWNLOAD_URL_TEMPLATE//\$\{version\}/${WAAGENT_VERSION}}"
       mkdir -p "${WAAGENT_DOWNLOADS_DIR}"
       WAAGENT_TARBALL="${WAAGENT_DOWNLOADS_DIR}/v${WAAGENT_VERSION}.tar.gz"
       if ! retrycmd_curl_file 10 5 60 "${WAAGENT_TARBALL}" "${WAAGENT_DOWNLOAD_URL}"; then
@@ -103,8 +102,14 @@ if ! isFlatcar "$OS"; then
       rm -rf "${WAAGENT_DOWNLOADS_DIR}"
       # Restart waagent service
       systemctl daemon-reload
-      if ! systemctl restart waagent.service; then
-        exit 1
+      if isMarinerOrAzureLinux "$OS"; then
+        if ! systemctl restart walinuxagent.service; then
+          exit 1
+        fi
+      elif isUbuntu "$OS"; then
+        if ! systemctl restart waagent.service; then
+          exit 1
+        fi
       fi
       echo "Successfully installed WALinuxAgent ${WAAGENT_VERSION}"
     fi

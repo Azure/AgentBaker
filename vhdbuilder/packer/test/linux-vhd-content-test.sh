@@ -233,7 +233,8 @@ testPackagesInstalled() {
         continue
         ;;
       "walinuxagent")
-        testWaagentInstalled "${PACKAGE_VERSIONS[@]}"
+        # only pass the latest version
+        testWaagentInstalled "${PACKAGE_VERSIONS[0]}"
         continue
         ;;
     esac
@@ -915,21 +916,23 @@ testKubeBinariesPresent() {
 testWaagentInstalled() {
   local test="testWaagentInstalled"
   echo "$test:Start"
-  local expectedVersions=("$@")
+  # walinuxagent is not installed from source on Flatcar
+  if [ "$OS_SKU" = "Flatcar" ]; then
+    echo "$test: Skipping for Flatcar as waagent is not installed from source"
+    echo "$test:Finish"
+    return
+  fi
+  local expectedVersion="$1"
   # walinuxagent is installed from source during VHD build and the download artifacts are cleaned up,
   # so we verify installation by checking the installed version matches what components.json specifies
   local installedVersion
-  installedVersion=$(waagent --version 2>/dev/null | head -n1 | grep -oP 'WALinuxAgent-\K[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?' || true)
+  installedVersion=$(waagent --version 2>/dev/null | head -n1 | sed -n 's/.*WALinuxAgent-\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\(\.[0-9][0-9]*\)*\).*/\1/p' || true)
   if [ -z "$installedVersion" ]; then
     err $test "walinuxagent is not installed or waagent --version failed"
+  elif [ "$installedVersion" != "$expectedVersion" ]; then
+    err $test "walinuxagent version mismatch: installed ${installedVersion}, expected ${expectedVersion}"
   else
-    for version in "${expectedVersions[@]}"; do
-      if [ "$installedVersion" != "$version" ]; then
-        err $test "walinuxagent version mismatch: installed ${installedVersion}, expected ${version}"
-      else
-        echo "$test walinuxagent version ${installedVersion} is installed correctly"
-      fi
-    done
+    echo "$test walinuxagent version ${installedVersion} is installed correctly"
   fi
   echo "$test:Finish"
 }
