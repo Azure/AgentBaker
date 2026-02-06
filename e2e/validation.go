@@ -67,10 +67,15 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 		ValidateKubeletNodeIP(ctx, s)
 	}
 
-	// localdns is not supported on scriptless, privatekube and VHDUbuntu2204Gen2ContainerdAirgappedK8sNotCached.
+	// localdns is not supported on FIPS VHDs, older VHDs (privatekube, airgapped), and AzureLinux OSGuard.
 	if !s.VHD.UnsupportedLocalDns {
 		ValidateLocalDNSService(ctx, s, "enabled")
 		ValidateLocalDNSResolution(ctx, s, "169.254.10.10")
+		ValidateLocalDNSHostsFile(ctx, s, map[string][]string{
+			"mcr.microsoft.com":         {"20.61.99.68", "2603:1061:1002::2"},
+			"login.microsoftonline.com": {"20.190.160.1"},
+			"acs-mirror.azureedge.net":  {"152.199.19.161"},
+		})
 	}
 
 	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo cat /etc/default/kubelet", 0, "could not read kubelet config")
