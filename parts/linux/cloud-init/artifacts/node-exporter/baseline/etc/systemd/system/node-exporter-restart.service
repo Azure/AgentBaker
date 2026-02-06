@@ -1,3 +1,6 @@
+[Unit]
+Description=Restart node-exporter when certificates change
+
 [Service]
 Type=OneShot
 ExecStart=/bin/systemctl restart node-exporter.service

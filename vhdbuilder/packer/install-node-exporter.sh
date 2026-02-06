@@ -123,6 +123,12 @@ installNodeExporter() {
         node_exporter_install_deb_stack
     fi
 
+    # Reload systemd to pick up service files copied by packer_source.sh, then disable node-exporter.
+    # It will be enabled and started by CSE during provisioning via configureNodeExporter()
+    echo "[node-exporter] Disabling node-exporter services. Gets systemctlEnableAndStart in CSE"
+    systemctl daemon-reload
+    systemctl disable node-exporter.service node-exporter-restart.service node-exporter-restart.path || exit 1
+
     [ -n "${VHD_LOGS_FILEPATH:-}" ] && echo "  - node-exporter ${NODE_EXPORTER_VERSION}-${NODE_EXPORTER_REVISION}" >> "${VHD_LOGS_FILEPATH}"
 
     rm -rf "${NODE_EXPORTER_BUILD_ROOT}"
