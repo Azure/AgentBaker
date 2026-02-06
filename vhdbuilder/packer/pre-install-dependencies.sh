@@ -71,6 +71,39 @@ fi
 echo -e "\n# Disable WALA log collection because AKS Log Collector is installed.\nLogs.Collect=n" >> /etc/waagent.conf || exit 1
 systemctlEnableAndStart aks-log-collector.timer 30 || exit 1
 
+# Install WALinuxAgent from GitHub as specified in components.json
+# This ensures we run the version tracked in components.json rather than the OS package version
+if ! isFlatcar "$OS"; then
+  WAAGENT_DOWNLOADS_DIR="/opt/walinuxagent/downloads"
+  walinuxagentPackage=$(jq '.Packages[] | select(.name == "walinuxagent")' "${COMPONENTS_FILEPATH}" 2>/dev/null || true)
+  if [ -n "$walinuxagentPackage" ] && [ "$walinuxagentPackage" != "null" ]; then
+    WAAGENT_VERSION=$(echo "$walinuxagentPackage" | jq -r '.downloadURIs.default.current.versionsV2[0].latestVersion // empty')
+    if [ -n "$WAAGENT_VERSION" ] && [ "$WAAGENT_VERSION" != "null" ]; then
+      echo "Installing WALinuxAgent version ${WAAGENT_VERSION} from GitHub..."
+      WAAGENT_DOWNLOAD_URL="https://github.com/Azure/WALinuxAgent/archive/refs/tags/v${WAAGENT_VERSION}.tar.gz"
+      mkdir -p "${WAAGENT_DOWNLOADS_DIR}"
+      WAAGENT_TARBALL="${WAAGENT_DOWNLOADS_DIR}/v${WAAGENT_VERSION}.tar.gz"
+      retrycmd_curl_file 10 5 60 "${WAAGENT_TARBALL}" "${WAAGENT_DOWNLOAD_URL}" || exit $ERR_FILE_DOWNLOAD
+      tar -xzf "${WAAGENT_TARBALL}" -C "${WAAGENT_DOWNLOADS_DIR}" || exit 1
+      WAAGENT_EXTRACT_DIR="${WAAGENT_DOWNLOADS_DIR}/WALinuxAgent-${WAAGENT_VERSION}"
+      pushd "${WAAGENT_EXTRACT_DIR}" > /dev/null || exit 1
+      python3 setup.py install --register-service || exit 1
+      popd > /dev/null || exit 1
+      rm -rf "${WAAGENT_EXTRACT_DIR}"
+      # Restart waagent service - service name varies by OS
+      systemctl daemon-reload
+      if systemctl list-unit-files | grep -q walinuxagent.service; then
+        systemctl restart walinuxagent.service || exit 1
+      elif systemctl list-unit-files | grep -q waagent.service; then
+        systemctl restart waagent.service || exit 1
+      fi
+      echo "  - walinuxagent version ${WAAGENT_VERSION}" >> ${VHD_LOGS_FILEPATH}
+      echo "Successfully installed WALinuxAgent ${WAAGENT_VERSION}"
+    fi
+  fi
+fi
+capture_benchmark "${SCRIPT_NAME}_install_walinuxagent"
+
 # enable the modified logrotate service and remove the auto-generated default logrotate cron job if present
 systemctlEnableAndStart logrotate.timer 30 || exit 1
 rm -f /etc/cron.daily/logrotate

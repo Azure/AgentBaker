@@ -450,18 +450,7 @@ while IFS= read -r p; do
         echo "  - dcgm-exporter version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
-    "walinuxagent")
-      for version in ${PACKAGE_VERSIONS[@]}; do
-        evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-        mkdir -p "${downloadDir}"
-        # Filename must match basename of download URL for VHD content test
-        WAAGENT_TARBALL="${downloadDir}/v${version}.tar.gz"
-        echo "Downloading WALinuxAgent version ${version} from ${evaluatedURL}"
-        retrycmd_curl_file 10 5 60 "${WAAGENT_TARBALL}" "${evaluatedURL}" || exit $ERR_FILE_DOWNLOAD
-        echo "  - walinuxagent version ${version}" >> ${VHD_LOGS_FILEPATH}
-      done
-      ;;
-    *)
+*)
       echo "Package name: ${name} not supported for download. Please implement the download logic in the script."
       # We can add a common function to download a generic package here.
       # However, installation could be different for different packages.

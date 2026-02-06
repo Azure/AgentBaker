@@ -148,13 +148,6 @@ function basePrep {
         echo "Golden image; skipping dependencies installation"
     fi
 
-    # Install WALinuxAgent from GitHub if configured in components.json
-    # This runs early to ensure waagent is updated before other provisioning steps
-    # Skipped on Flatcar as it manages waagent differently
-    if [ "$OS" != "FLATCAR" ]; then
-        logs_to_events "AKS.CSE.installWALinuxAgent" installWALinuxAgent
-    fi
-
     # Container runtime already installed on Azure Linux OS Guard
     if ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
         logs_to_events "AKS.CSE.installContainerRuntime" installContainerRuntime
