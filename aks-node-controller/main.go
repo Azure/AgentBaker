@@ -7,38 +7,14 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
-	"time"
-
-	"github.com/Azure/agentbaker/aks-node-controller/helpers"
 )
 
 func main() {
-	startTime := time.Now()
-
-	// Determine task name based on execution mode (check args once)
-	command := ""
-	if len(os.Args) >= 2 {
-		command = os.Args[1]
-	}
-
 	// defer calls are not executed on os.Exit
 	logCleanup := configureLogging()
 	app := App{cmdRunner: cmdRunner}
 
-	// Get task name from app to centralize command metadata
-	taskName := app.GetTaskNameForCommand(command)
-	helpers.CreateGuestAgentEvent(taskName, "Starting", helpers.EventLevelInformational, startTime, startTime)
-
-	exitCode := app.Run(context.Background(), command, os.Args)
-
-	// Create guest agent event for both success and failure
-	endTime := time.Now()
-	if exitCode != 0 {
-		message := fmt.Sprintf("aks-node-controller exited with code %d", exitCode)
-		helpers.CreateGuestAgentEvent(taskName, message, helpers.EventLevelError, startTime, endTime)
-	} else {
-		helpers.CreateGuestAgentEvent(taskName, "Completed", helpers.EventLevelInformational, startTime, endTime)
-	}
+	exitCode := app.Run(context.Background(), os.Args)
 	logCleanup()
 
 	os.Exit(exitCode)

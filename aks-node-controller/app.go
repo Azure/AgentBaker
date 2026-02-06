@@ -14,7 +14,9 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
+	"github.com/Azure/agentbaker/aks-node-controller/helpers"
 	"github.com/Azure/agentbaker/aks-node-controller/parser"
 	"github.com/Azure/agentbaker/aks-node-controller/pkg/nodeconfigutils"
 	"github.com/fsnotify/fsnotify"
@@ -59,14 +61,6 @@ func getCommandRegistry() map[string]commandMetadata {
 	}
 }
 
-// GetTaskNameForCommand returns the Azure VM Guest Agent task name for the given command.
-func (a *App) GetTaskNameForCommand(command string) string {
-	if cmd, ok := getCommandRegistry()[command]; ok {
-		return cmd.taskName
-	}
-	return "AKS.AKSNodeController"
-}
-
 // provision.json values are emitted as strings by the shell jq invocation.
 // We only care about ExitCode + Error + Output (snippet) for failure detection.
 type ProvisionResult struct {
@@ -92,9 +86,9 @@ type ProvisionStatusFiles struct {
 	ProvisionCompleteFile string
 }
 
-func (a *App) Run(ctx context.Context, command string, args []string) int {
+func (a *App) Run(ctx context.Context, args []string) int {
 	slog.Info("aks-node-controller started", "args", args)
-	err := a.run(ctx, command, args)
+	err := a.run(ctx, args)
 	exitCode := errToExitCode(err)
 	if exitCode == 0 {
 		slog.Info("aks-node-controller finished successfully.")
@@ -104,7 +98,11 @@ func (a *App) Run(ctx context.Context, command string, args []string) int {
 	return exitCode
 }
 
-func (a *App) run(ctx context.Context, command string, args []string) error {
+func (a *App) run(ctx context.Context, args []string) error {
+	command := ""
+	if len(args) >= 2 {
+		command = args[1]
+	}
 	if command == "" {
 		return errors.New("missing command argument")
 	}
@@ -114,7 +112,18 @@ func (a *App) run(ctx context.Context, command string, args []string) error {
 		return fmt.Errorf("unknown command: %s", command)
 	}
 
-	return cmd.handler(a, ctx, args)
+	startTime := time.Now()
+	helpers.CreateGuestAgentEvent(cmd.taskName, "Starting", helpers.EventLevelInformational, startTime, startTime)
+
+	err := cmd.handler(a, ctx, args)
+	endTime := time.Now()
+	if err != nil {
+		message := fmt.Sprintf("aks-node-controller exited with error %s", err)
+		helpers.CreateGuestAgentEvent(cmd.taskName, message, helpers.EventLevelError, startTime, endTime)
+	} else {
+		helpers.CreateGuestAgentEvent(cmd.taskName, "Completed", helpers.EventLevelInformational, startTime, endTime)
+	}
+	return err
 }
 
 func (a *App) Provision(ctx context.Context, flags ProvisionFlags) (*ProvisionResult, error) {

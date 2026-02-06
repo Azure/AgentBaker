@@ -93,12 +93,7 @@ func TestApp_Run(t *testing.T) {
 				cmdRunner: mc.Run,
 			}
 
-			command := ""
-			if len(tt.args) >= 2 {
-				command = tt.args[1]
-			}
-
-			exitCode := app.Run(context.Background(), command, tt.args)
+			exitCode := app.Run(context.Background(), tt.args)
 			assert.Equal(t, tt.wantExit, exitCode)
 		})
 	}
@@ -150,7 +145,7 @@ func TestApp_Provision(t *testing.T) {
 
 func TestApp_Provision_DryRun(t *testing.T) {
 	app := &App{cmdRunner: cmdRunner}
-	result := app.Run(context.Background(), "provision", []string{"aks-node-controller", "provision", "--provision-config=parser/testdata/test_aksnodeconfig.json", "--dry-run"})
+	result := app.Run(context.Background(), []string{"aks-node-controller", "provision", "--provision-config=parser/testdata/test_aksnodeconfig.json", "--dry-run"})
 	assert.Equal(t, 0, result)
 	if reflect.ValueOf(app.cmdRunner).Pointer() != reflect.ValueOf(cmdRunnerDryRun).Pointer() {
 		t.Fatal("app.cmdRunner is expected to be cmdRunnerDryRun")
@@ -234,21 +229,21 @@ func TestApp_Run_Integration(t *testing.T) {
 		mc := &MockCmdRunner{}
 		app := &App{cmdRunner: mc.Run}
 		// Use a valid provision config file from testdata
-		exitCode := app.Run(context.Background(), "provision", []string{"aks-node-controller", "provision", "--provision-config=parser/testdata/test_aksnodeconfig.json"})
+		exitCode := app.Run(context.Background(), []string{"aks-node-controller", "provision", "--provision-config=parser/testdata/test_aksnodeconfig.json"})
 		assert.Equal(t, 0, exitCode)
 	})
 
 	t.Run("failure case - unknown command", func(t *testing.T) {
 		mc := &MockCmdRunner{}
 		app := &App{cmdRunner: mc.Run}
-		exitCode := app.Run(context.Background(), "unknown", []string{"aks-node-controller", "unknown"})
+		exitCode := app.Run(context.Background(), []string{"aks-node-controller", "unknown"})
 		assert.Equal(t, 1, exitCode)
 	})
 
 	t.Run("failure case - missing command argument", func(t *testing.T) {
 		mc := &MockCmdRunner{}
 		app := &App{cmdRunner: mc.Run}
-		exitCode := app.Run(context.Background(), "", []string{"aks-node-controller"})
+		exitCode := app.Run(context.Background(), []string{"aks-node-controller"})
 		assert.Equal(t, 1, exitCode)
 	})
 
@@ -259,7 +254,7 @@ func TestApp_Run_Integration(t *testing.T) {
 			},
 		}
 		app := &App{cmdRunner: mc.Run}
-		exitCode := app.Run(context.Background(), "provision", []string{"aks-node-controller", "provision", "--provision-config=parser/testdata/test_aksnodeconfig.json"})
+		exitCode := app.Run(context.Background(), []string{"aks-node-controller", "provision", "--provision-config=parser/testdata/test_aksnodeconfig.json"})
 		assert.Equal(t, 42, exitCode)
 	})
 
@@ -270,7 +265,7 @@ func TestApp_Run_Integration(t *testing.T) {
 			},
 		}
 		app := &App{cmdRunner: mc.Run}
-		exitCode := app.Run(context.Background(), "provision", []string{"aks-node-controller", "provision", "--provision-config=parser/testdata/test_aksnodeconfig.json"})
+		exitCode := app.Run(context.Background(), []string{"aks-node-controller", "provision", "--provision-config=parser/testdata/test_aksnodeconfig.json"})
 		assert.Equal(t, 1, exitCode)
 	})
 }
@@ -351,44 +346,6 @@ func Test_readAndEvaluateProvision(t *testing.T) {
 					assert.Contains(t, got, tc.expectContains, "content should contain substring")
 				}
 			}
-		})
-	}
-}
-func TestApp_GetTaskNameForCommand(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name    string
-		command string
-		want    string
-	}{
-		{
-			name:    "provision command returns specific task",
-			command: "provision",
-			want:    "AKS.AKSNodeController.Provision",
-		},
-		{
-			name:    "provision-wait command returns specific task",
-			command: "provision-wait",
-			want:    "AKS.AKSNodeController.ProvisionWait",
-		},
-		{
-			name:    "unknown command falls back to default task",
-			command: "non-existent",
-			want:    "AKS.AKSNodeController",
-		},
-		{
-			name:    "empty command falls back to default task",
-			command: "",
-			want:    "AKS.AKSNodeController",
-		},
-	}
-
-	app := &App{}
-	for _, tt := range tests {
-		tt := tt
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, app.GetTaskNameForCommand(tt.command))
 		})
 	}
 }
