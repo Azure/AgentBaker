@@ -414,7 +414,7 @@ func ValidateInspektorGadget(ctx context.Context, s *Scenario) {
 	servicePath := "/usr/lib/systemd/system/" + serviceName
 
 	// Check if IG is installed on this VHD by looking for the skip sentinel file.
-	// The skip file is only present on VHDs that have IG installed (Ubuntu, Mariner, Azure Linux).
+	// The skip file is only present on VHDs that have IG installed (Ubuntu and Azure Linux non-OSGuard).
 	// Flatcar, OSGuard, and older VHDs do not have IG installed and will not have the skip file.
 	if !fileExist(ctx, s, skipFile) {
 		s.T.Logf("Skipping Inspektor Gadget validation: sentinel file %s not found (VHD does not have IG installed)", skipFile)
