@@ -499,6 +499,31 @@ fi
 
 capture_benchmark "${SCRIPT_NAME}_install_artifact_streaming"
 
+# Workaround for containerd 2.2.x regression: ctr images mount fails with the new
+# mount-manager.v1.bolt plugin (https://github.com/containerd/containerd/issues/12549).
+# Disable the plugin during VHD build so ctr images mount falls back to direct system mounts.
+# This config is only used during VHD build; CSE overwrites it at provisioning time.
+if [ "$OS" = "$UBUNTU_OS_NAME" ] && [ "${UBUNTU_RELEASE}" = "24.04" ]; then
+  containerd_version=$(containerd --version 2>/dev/null | awk '{print $3}' | sed 's/^v//')
+  containerd_major=$(echo "$containerd_version" | cut -d. -f1)
+  containerd_minor=$(echo "$containerd_version" | cut -d. -f2)
+  if [ "${containerd_major:-0}" -ge 2 ] && [ "${containerd_minor:-0}" -ge 2 ]; then
+    echo "Applying containerd mount-manager workaround for containerd ${containerd_version}"
+    mkdir -p /etc/containerd
+    containerd config default > /etc/containerd/config.toml
+    sed -i '/^disabled_plugins/d' /etc/containerd/config.toml
+    sed -i '1 a\disabled_plugins = ["io.containerd.mount-manager.v1.bolt"]' /etc/containerd/config.toml
+    systemctl restart containerd
+    # wait for containerd to be ready
+    for i in $(seq 1 30); do
+      if ctr version >/dev/null 2>&1; then
+        break
+      fi
+      sleep 1
+    done
+  fi
+fi
+
 # k8s will use images in the k8s.io namespaces - create it
 ctr namespace create k8s.io
 cliTool="ctr"
@@ -963,6 +988,13 @@ extractAndCacheCoreDnsBinary() {
 }
 
 extractAndCacheCoreDnsBinary
+
+# Remove the temporary VHD-build-time containerd config so it doesn't persist in the VHD.
+# CSE generates the production config at provisioning time.
+if [ -f /etc/containerd/config.toml ]; then
+  rm -f /etc/containerd/config.toml
+  systemctl restart containerd || true
+fi
 
 rm -f ./azcopy # cleanup immediately after usage will return in two downloads
 echo "install-dependencies step completed successfully"
