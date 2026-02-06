@@ -232,6 +232,25 @@ testPackagesInstalled() {
         testPkgDownloaded "${name}" "${PACKAGE_VERSIONS[@]}"
         continue
         ;;
+      "walinuxagent")
+        # walinuxagent is downloaded from GitHub which uses redirects that break Content-Length header check
+        # Just verify the file exists and has non-zero size
+        for version in "${PACKAGE_VERSIONS[@]}"; do
+          local tarball="${downloadLocation}/v${version}.tar.gz"
+          if [ -f "${tarball}" ]; then
+            local fileSize
+            fileSize=$(wc -c < "${tarball}")
+            if [ "${fileSize}" -gt 0 ]; then
+              echo "$test [INFO] walinuxagent tarball ${tarball} exists with size ${fileSize} bytes"
+            else
+              err $test "walinuxagent tarball ${tarball} exists but is empty"
+            fi
+          else
+            err $test "walinuxagent tarball ${tarball} not found"
+          fi
+        done
+        continue
+        ;;
     esac
 
     resolve_packages_source_url
