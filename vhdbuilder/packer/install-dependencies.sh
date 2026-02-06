@@ -30,7 +30,7 @@ source /home/packer/provision_source_distro.sh
 source /home/packer/tool_installs.sh
 source /home/packer/tool_installs_distro.sh
 source /home/packer/install-ig.sh
-source "${THIS_DIR}/install-node-exporter.sh"
+source /home/packer/install-node-exporter.sh
 
 CPU_ARCH=$(getCPUArch)  #amd64 or arm64
 SYSTEMD_ARCH=$(getSystemdArch)  # x86-64 or arm64

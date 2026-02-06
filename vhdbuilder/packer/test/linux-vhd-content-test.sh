@@ -1493,9 +1493,14 @@ testNodeExporter () {
 
   echo "$test: checking if node-exporter was successfully installed"
 
-  # Skip check for OS variants that don't have node-exporter
+  # Skip check for OS variants that don't have node-exporter, but verify the skip file is NOT present
   if [ "$os_sku" = "AzureLinuxOSGuard" ] || [ "$os_sku" = "Flatcar" ] || echo "$FEATURE_FLAGS" | grep -q "kata"; then
-    echo "$test: Skipping check on $os_sku (FEATURE_FLAGS=$FEATURE_FLAGS) - node-exporter is not installed"
+    local skip_file_check="/etc/node-exporter.d/skip_vhd_node_exporter"
+    if [ -f "$skip_file_check" ]; then
+      err "$test" "Skip file $skip_file_check should NOT exist on $os_sku (FEATURE_FLAGS=$FEATURE_FLAGS)"
+      return 1
+    fi
+    echo "$test: Verified skip file does not exist on $os_sku (FEATURE_FLAGS=$FEATURE_FLAGS) - node-exporter correctly not installed"
     return 0
   fi
 
