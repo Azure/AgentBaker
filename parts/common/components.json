@@ -371,7 +371,7 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/apiserver-network-proxy/agent",
-          "latestVersion": "v0.32.1-1"
+          "latestVersion": "v0.32.1-2"
         }
       ],
       "windowsVersions": []
