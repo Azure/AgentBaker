@@ -47,7 +47,7 @@ func CreateGuestAgentEvent(taskName, message string, eventLevel EventLevel, star
 // This function is separated to allow custom event directories for testing or special use cases.
 //
 // The implementation matches the bash pattern used across the codebase:
-//   - Filename: Uses current time (milliseconds) to ensure uniqueness
+//   - Filename: Uses current time (nanoseconds) to ensure uniqueness
 //   - Timestamp: Event start time in format "2006-01-02 15:04:05.000"
 //   - OperationId: Event end time in format "2006-01-02 15:04:05.000"
 //   - Message: Includes timing information (startTime, endTime, durationMs)
