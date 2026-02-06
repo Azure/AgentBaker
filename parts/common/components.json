@@ -1321,6 +1321,11 @@
                 "renovateTag": "name=kubelet, repository=production, os=ubuntu, release=24.04",
                 "latestVersion": "1.34.3-ubuntu24.04u1",
                 "previousLatestVersion": "1.34.2-ubuntu24.04u1"
+              },
+              {
+                "k8sVersion": "1.35",
+                "renovateTag": "name=kubelet, repository=production, os=ubuntu, release=24.04",
+                "latestVersion": "1.35.0-ubuntu24.04u1"
               }
             ]
           },
@@ -1331,6 +1336,11 @@
                 "renovateTag": "name=kubelet, repository=production, os=ubuntu, release=22.04",
                 "latestVersion": "1.34.3-ubuntu22.04u1",
                 "previousLatestVersion": "1.34.2-ubuntu22.04u1"
+              },
+              {
+                "k8sVersion": "1.35",
+                "renovateTag": "name=kubelet, repository=production, os=ubuntu, release=22.04",
+                "latestVersion": "1.35.0-ubuntu22.04u1"
               }
             ]
           },
@@ -1353,6 +1363,11 @@
                 "renovateTag": "name=kubelet, os=azurelinux, release=3.0",
                 "latestVersion": "1.34.1-4.azl3",
                 "previousLatestVersion": "1.34.0-5.azl3"
+              },
+              {
+                "k8sVersion": "1.35",
+                "renovateTag": "name=kubelet, os=azurelinux, release=3.0",
+                "latestVersion": "1.35.0-1.azl3"
               }
             ]
           }
@@ -1372,6 +1387,11 @@
                 "renovateTag": "name=kubectl, repository=production, os=ubuntu, release=24.04",
                 "latestVersion": "1.34.3-ubuntu24.04u1",
                 "previousLatestVersion": "1.34.2-ubuntu24.04u1"
+              },
+              {
+                "k8sVersion": "1.35",
+                "renovateTag": "name=kubectl, repository=production, os=ubuntu, release=24.04",
+                "latestVersion": "1.35.0-ubuntu24.04u1"
               }
             ]
           },
@@ -1382,6 +1402,11 @@
                 "renovateTag": "name=kubectl, repository=production, os=ubuntu, release=22.04",
                 "latestVersion": "1.34.3-ubuntu22.04u1",
                 "previousLatestVersion": "1.34.2-ubuntu22.04u1"
+              },
+              {
+                "k8sVersion": "1.35",
+                "renovateTag": "name=kubectl, repository=production, os=ubuntu, release=22.04",
+                "latestVersion": "1.35.0-ubuntu22.04u1"
               }
             ]
           },
@@ -1404,6 +1429,11 @@
                 "renovateTag": "name=kubectl, os=azurelinux, release=3.0",
                 "latestVersion": "1.34.1-4.azl3",
                 "previousLatestVersion": "1.34.0-5.azl3"
+              },
+              {
+                "k8sVersion": "1.35",
+                "renovateTag": "name=kubectl, os=azurelinux, release=3.0",
+                "latestVersion": "1.35.0-1.azl3"
               }
             ]
           }
