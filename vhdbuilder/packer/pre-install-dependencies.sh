@@ -103,7 +103,7 @@ if ! isFlatcar "$OS"; then
       rm -rf "${WAAGENT_DOWNLOADS_DIR}"
       # Restart waagent service
       systemctl daemon-reload
-      if ! systemctl restart walinuxagent.service; then
+      if ! systemctl restart waagent.service; then
         exit 1
       fi
       echo "Successfully installed WALinuxAgent ${WAAGENT_VERSION}"
