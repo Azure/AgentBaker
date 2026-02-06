@@ -233,6 +233,11 @@ testPackagesInstalled() {
         testPkgDownloaded "${name}" "${PACKAGE_VERSIONS[@]}"
         continue
         ;;
+      "containernetworking-plugins")
+        # containernetworking-plugins, namely, cni-plugins are installed in a different way so we test them separately
+        testContainerNetworkingPluginsInstalled
+        continue
+        ;;
     esac
 
     resolve_packages_source_url
@@ -1799,4 +1804,3 @@ checkLocaldnsScriptsAndConfigs
 testPackageDownloadURLFallbackLogic
 testFileOwnership $OS_SKU
 testDiskQueueServiceIsActive
-testContainerNetworkingPluginsInstalled
