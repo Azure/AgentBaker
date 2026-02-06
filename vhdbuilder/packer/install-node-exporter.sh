@@ -2,34 +2,10 @@
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
-NODE_EXPORTER_ROOT_DIR=""
-NODE_EXPORTER_BASELINE_DIR=""
+# For packer builds, files are uploaded to flat /home/packer/ structure and
+# copied to final destinations via packer_source.sh. This script only handles
+# package installation.
 NODE_EXPORTER_DEFAULT_BUILD_ROOT="/opt/node-exporter"
-NODE_EXPORTER_SKIP_FILE="/etc/node-exporter.d/skip_vhd_node_exporter"
-NODE_EXPORTER_SERVICE_NAME="node-exporter.service"
-
-node_exporter_locate_root_dir() {
-    [ -n "${NODE_EXPORTER_ROOT_DIR}" ] && return 0
-
-    local candidate="${SCRIPT_DIR}/node-exporter"
-    if [ -d "${candidate}" ]; then
-        NODE_EXPORTER_ROOT_DIR="$(cd "${candidate}" && pwd)"
-    elif [ -d "${SCRIPT_DIR}/../../parts/linux/cloud-init/artifacts/node-exporter" ]; then
-        NODE_EXPORTER_ROOT_DIR="$(cd "${SCRIPT_DIR}/../../parts/linux/cloud-init/artifacts/node-exporter" && pwd)"
-    elif [ -d "/home/packer/node-exporter" ]; then
-        NODE_EXPORTER_ROOT_DIR="/home/packer/node-exporter"
-    elif [ -d "/opt/azure/containers/node-exporter" ]; then
-        # OSGuard/image customizer path
-        NODE_EXPORTER_ROOT_DIR="/opt/azure/containers/node-exporter"
-    else
-        echo "[node-exporter] Unable to locate asset directory"
-        return 1
-    fi
-
-    NODE_EXPORTER_BASELINE_DIR="${NODE_EXPORTER_ROOT_DIR}/baseline"
-}
 
 node_exporter_detect_arch() {
     CPU_ARCH=$(getCPUArch)
@@ -47,34 +23,6 @@ node_exporter_detect_arch() {
             return 1
             ;;
     esac
-}
-
-node_exporter_copy_baseline_assets() {
-    echo "[node-exporter] Copying baseline assets"
-
-    mkdir -p /opt/bin /etc/systemd/system /etc/node-exporter.d
-
-    cp -f "${NODE_EXPORTER_ROOT_DIR}/node-exporter-startup.sh" /opt/bin/
-    chmod +x /opt/bin/node-exporter-startup.sh
-    ln -sf /usr/bin/node-exporter /opt/bin/node-exporter
-
-    cp -f "${NODE_EXPORTER_BASELINE_DIR}/etc/systemd/system/${NODE_EXPORTER_SERVICE_NAME}" /etc/systemd/system/
-    cp -f "${NODE_EXPORTER_BASELINE_DIR}/etc/systemd/system/node-exporter-restart.service" /etc/systemd/system/
-    cp -f "${NODE_EXPORTER_BASELINE_DIR}/etc/systemd/system/node-exporter-restart.path" /etc/systemd/system/
-    cp -f "${NODE_EXPORTER_BASELINE_DIR}/etc/node-exporter.d/web-config.yml" /etc/node-exporter.d/
-    cp -f "${NODE_EXPORTER_ROOT_DIR}/skip_vhd_node_exporter" "${NODE_EXPORTER_SKIP_FILE}"
-
-    chmod 644 /etc/systemd/system/node-exporter.service \
-              /etc/systemd/system/node-exporter-restart.service \
-              /etc/systemd/system/node-exporter-restart.path \
-              /etc/node-exporter.d/web-config.yml \
-              "${NODE_EXPORTER_SKIP_FILE}"
-
-    systemctl daemon-reload
-    # Disable services during VHD build - CSE will enable and start them at provisioning time
-    # This ensures the startup script runs with correct node-specific info (e.g., NODE_IP)
-    systemctl disable "${NODE_EXPORTER_SERVICE_NAME}"
-    systemctl disable node-exporter-restart.path
 }
 
 node_exporter_install_deb_stack() {
@@ -155,8 +103,6 @@ installNodeExporter() {
         return 0
     fi
 
-    node_exporter_locate_root_dir
-
     local version_info
     if [ "${OS}" = "${MARINER_OS_NAME}" ]; then
         version_info=$(node_exporter_extract_package_version "${package_json}" "mariner" "current")
@@ -176,8 +122,6 @@ installNodeExporter() {
         echo "[node-exporter] Installing via DEB"
         node_exporter_install_deb_stack
     fi
-
-    node_exporter_copy_baseline_assets
 
     [ -n "${VHD_LOGS_FILEPATH:-}" ] && echo "  - node-exporter ${NODE_EXPORTER_VERSION}-${NODE_EXPORTER_REVISION}" >> "${VHD_LOGS_FILEPATH}"
 
