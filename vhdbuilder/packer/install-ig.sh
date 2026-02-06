@@ -194,15 +194,15 @@ installIG() {
 
     mkdir -p "${IG_BUILD_ROOT}"
 
-    # For OSGuard and Flatcar, skip IG installation entirely during VHD build
+    # For Mariner, OSGuard, and Flatcar, skip IG installation entirely during VHD build
     # install-ig.sh is only present for sourcing by install-dependencies.sh
-    if [[ ("${OS}" == "${AZURELINUX_OS_NAME}" && "${OS_VARIANT}" == "${AZURELINUX_OSGUARD_OS_VARIANT}") || "${OS}" == "FLATCAR" ]]; then
+    if [[ "${OS}" == "${MARINER_OS_NAME}" || ("${OS}" == "${AZURELINUX_OS_NAME}" && "${OS_VARIANT}" == "${AZURELINUX_OSGUARD_OS_VARIANT}") || "${OS}" == "FLATCAR" ]]; then
         echo "[ig] Skipping IG installation for ${OS} ${OS_VARIANT:-default} - no files will be staged in VHD"
         ig_cleanup_build_artifacts
         return 0
     fi
 
-    if [[ "${OS}" == "${MARINER_OS_NAME}" || "${OS}" == "${AZURELINUX_OS_NAME}" ]]; then
+    if [[ "${OS}" == "${AZURELINUX_OS_NAME}" ]]; then
         echo "[ig] Installing IG via RPM"
         if ! ig_install_rpm_stack; then
             ig_cleanup_build_artifacts
