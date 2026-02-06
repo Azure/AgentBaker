@@ -340,6 +340,8 @@ ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
 EOF
 
   mkdir -p /etc/containerd
+  # Remove in case this is an existing symlink
+  rm -f /etc/containerd/config.toml
   if [ "${GPU_NODE}" = "true" ]; then
     # Check VM tag directly to determine if GPU drivers should be skipped
     export -f should_skip_nvidia_drivers

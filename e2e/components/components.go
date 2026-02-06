@@ -43,16 +43,18 @@ func GetExpectedPackageVersions(packageName, distro, release string) []string {
 	release = strings.ReplaceAll(release, ".", "\\.")
 
 	for _, packageItem := range packages.Array() {
-		// check if versionsV2 exists
-		if packageItem.Get(fmt.Sprintf("%s.%s.versionsV2", distro, release)).Exists() {
-			versions := packageItem.Get(fmt.Sprintf("%s.%s.versionsV2", distro, release))
-			for _, version := range versions.Array() {
-				// get versions.latestVersion and append to expectedVersions
-				expectedVersions = append(expectedVersions, version.Get("latestVersion").String())
-				// get versions.previousLatestVersion (if exists) and append to expectedVersions
-				if version.Get("previousLatestVersion").Exists() {
-					expectedVersions = append(expectedVersions, version.Get("previousLatestVersion").String())
-				}
+		// Check if versionsV2 exists. Assume the DEFAULT OS variant.
+		versions := packageItem.Get(fmt.Sprintf("%s.DEFAULT/%s.versionsV2", distro, release)).Array()
+		if len(versions) == 0 {
+			versions = packageItem.Get(fmt.Sprintf("%s.%s.versionsV2", distro, release)).Array()
+		}
+
+		for _, version := range versions {
+			// get versions.latestVersion and append to expectedVersions
+			expectedVersions = append(expectedVersions, version.Get("latestVersion").String())
+			// get versions.previousLatestVersion (if exists) and append to expectedVersions
+			if version.Get("previousLatestVersion").Exists() {
+				expectedVersions = append(expectedVersions, version.Get("previousLatestVersion").String())
 			}
 		}
 	}

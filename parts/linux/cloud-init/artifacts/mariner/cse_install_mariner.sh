@@ -282,7 +282,7 @@ installCredentialProviderFromPMC() {
         os_version="${OS_VERSION}"
     fi
    	PACKAGE_VERSION=""
-    getLatestPkgVersionFromK8sVersion "$k8sVersion" "azure-acr-credential-provider-pmc" "$os" "$os_version"
+    getLatestPkgVersionFromK8sVersion "$k8sVersion" "azure-acr-credential-provider-pmc" "$os" "$os_version" "${OS_VARIANT}"
     packageVersion=$(echo $PACKAGE_VERSION | cut -d "-" -f 1)
 	echo "installing azure-acr-credential-provider package version: $packageVersion"
     mkdir -p "${CREDENTIAL_PROVIDER_BIN_DIR}"
@@ -381,7 +381,7 @@ installCredentialProviderPackageFromBootstrapProfileRegistry() {
         os_version="${OS_VERSION}"
     fi
     PACKAGE_VERSION=""
-    getLatestPkgVersionFromK8sVersion "$k8sVersion" "azure-acr-credential-provider-pmc" "$os" "$os_version"
+    getLatestPkgVersionFromK8sVersion "$k8sVersion" "azure-acr-credential-provider-pmc" "$os" "$os_version" "${OS_VARIANT}"
     packageVersion=$(echo $PACKAGE_VERSION | cut -d "-" -f 1)
     if [ -z "$packageVersion" ]; then
         packageVersion=$(echo "$CREDENTIAL_PROVIDER_DOWNLOAD_URL" | grep -oP 'v\d+(\.\d+)*' | sed 's/^v//' | head -n 1)
