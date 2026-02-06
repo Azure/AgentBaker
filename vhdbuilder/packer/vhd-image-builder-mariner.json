@@ -361,11 +361,6 @@
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/node-exporter/skip_vhd_node_exporter",
-      "destination": "/home/packer/skip_vhd_node_exporter"
-    },
-    {
-      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/node-exporter/baseline/etc/systemd/system/node-exporter.service",
       "destination": "/home/packer/node-exporter.service"
     },
