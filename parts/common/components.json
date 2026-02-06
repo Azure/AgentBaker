@@ -1218,6 +1218,15 @@
                 "latestVersion": "1.9.0-1.azl3"
               }
             ]
+          },
+          "OSGUARD/v3.0": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "1.6.2"
+              }
+            ],
+            "downloadURL": "https://packages.aks.azure.com/cni-plugins/v${version}/binaries/cni-plugins-linux-${CPU_ARCH}-v${version}.tgz"
           }
         },
         "azurelinuxkata": {
@@ -1228,6 +1237,17 @@
                 "latestVersion": "1.9.0-1.azl3"
               }
             ]
+          }
+        },
+        "flatcar": {
+          "current": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "1.6.2"
+              }
+            ],
+            "downloadURL": "https://packages.aks.azure.com/cni-plugins/v${version}/binaries/cni-plugins-linux-${CPU_ARCH}-v${version}.tgz"
           }
         }
       }

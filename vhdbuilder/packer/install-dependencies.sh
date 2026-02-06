@@ -233,6 +233,48 @@ unpackTgzToCNIDownloadsDIR() {
   echo "  - Ran tar -xzf on the CNI downloaded then rm -rf to clean up"
 }
 
+# Reference CNI plugins is used by kubenet and the loopback plugin used by containerd 1.0 (dependency gone in 2.0)
+# The version used to be determined by RP/toggle but is now just hardcoded in the VHD as it rarely changes and requires a node image upgrade anyway.
+installCNI() {
+    downloadDir=${1}
+    evaluatedURL=${2}
+    version=${3}
+
+    echo "installing containernetworking-plugins version ${version}"
+
+    # Create CNI_BIN_DIR for all installation methods
+    mkdir -p "$CNI_BIN_DIR"
+    chown -R root:root "$CNI_BIN_DIR"
+
+    # if downloadDir and evaluatedURL are not empty, download and extract tarball (for flatcar/osguard)
+    if [ -n "${downloadDir}" ] && [ -n "${evaluatedURL}" ]; then
+        mkdir -p "${downloadDir}"
+        chown -R root:root "${downloadDir}"
+        
+        echo "Downloading CNI plugins from ${evaluatedURL}"
+        retrycmd_get_tarball 120 5 "${downloadDir}/cni-plugins.tar.gz" "${evaluatedURL}" || exit $ERR_CNI_DOWNLOAD_TIMEOUT
+        extract_tarball "${downloadDir}/cni-plugins.tar.gz" "$CNI_BIN_DIR"
+        rm -f "${downloadDir}/cni-plugins.tar.gz"
+        return 0
+    fi
+
+    # Package manager installation (for Ubuntu/Mariner/AzureLinux)
+    if [ "${OS}" = "${UBUNTU_OS_NAME}" ]; then
+        packageName="containernetworking-plugins=${version}"
+        echo "Installing ${packageName} with apt-get"
+        apt_get_install 20 30 120 ${packageName} || exit $ERR_CNI_VERSION_INVALID
+        mv /usr/bin/containernetworking-plugins/* $CNI_BIN_DIR
+    elif isMarinerOrAzureLinux "$OS"; then
+        packageName="containernetworking-plugins-${version}"
+        echo "Installing ${packageName} with dnf"
+        dnf_install 30 1 600 ${packageName} || exit $ERR_CNI_VERSION_INVALID
+        mv /usr/bin/containernetworking-plugins/* $CNI_BIN_DIR
+    else
+        echo "ERROR: Unsupported OS for containernetworking-plugins installation: ${OS}"
+        exit $ERR_CNI_VERSION_INVALID
+    fi
+}
+
 downloadAndInstallCriTools() {
   downloadDir=${1}
   evaluatedURL=${2}
@@ -305,7 +347,11 @@ while IFS= read -r p; do
       done
       ;;
     "containernetworking-plugins")
-      installCNI "${downloadDir}"
+      for version in ${PACKAGE_VERSIONS[@]}; do
+        evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+        installCNI "${downloadDir}" "${evaluatedURL}" "${version}"
+        echo "  - containernetworking-plugins version ${version}" >> ${VHD_LOGS_FILEPATH}
+      done
       ;;
     "runc")
       for version in ${PACKAGE_VERSIONS[@]}; do

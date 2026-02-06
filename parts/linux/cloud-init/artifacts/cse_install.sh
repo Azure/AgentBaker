@@ -380,63 +380,6 @@ setupCNIDirs() {
     chmod 755 $CNI_CONFIG_DIR
 }
 
-
-# Reference CNI plugins is used by kubenet and the loopback plugin used by containerd 1.0 (dependency gone in 2.0)
-# The version used to be deteremined by RP/toggle but are now just hadcoded in vhd as they rarely change and require a node image upgrade anyways
-# Latest VHD should have the untar, older should have the tgz. And who knows will have neither.
-installCNI() {
-    # Old versions of VHDs will not have components.json. If it does not exist, we will fall back to the hardcoded download for CNI.
-    # Network Isolated Cluster / Bring Your Own ACR will not work with a vhd that requres a hardcoded CNI download.
-    if [ ! -f "$COMPONENTS_FILEPATH" ] || ! jq '.Packages[] | select(.name == "cni-plugins")' < $COMPONENTS_FILEPATH > /dev/null; then
-        echo "WARNING: no cni-plugins components present falling back to hard coded download of 1.4.1. This should error eventually"
-        # could we fail if not Ubuntu2204Gen2ContainerdPrivateKubePkg vhd? Are there others?
-        # definitely not handling arm here.
-        retrycmd_get_tarball 120 5 "${CNI_DOWNLOADS_DIR}/refcni.tar.gz" "https://${PACKAGE_DOWNLOAD_BASE_URL}/cni-plugins/v1.4.1/binaries/cni-plugins-linux-amd64-v1.4.1.tgz" || exit $ERR_CNI_DOWNLOAD_TIMEOUT
-        extract_tarball "${CNI_DOWNLOADS_DIR}/refcni.tar.gz" "$CNI_BIN_DIR"
-        return
-    fi
-
-    #always just use what is listed in components.json so we don't have to sync.
-    cniPackage=$(jq ".Packages" "$COMPONENTS_FILEPATH" | jq ".[] | select(.name == \"cni-plugins\")") || exit $ERR_CNI_VERSION_INVALID
-
-    #CNI doesn't really care about this but wanted to reuse updatePackageVersions which requires it.
-    os=${UBUNTU_OS_NAME}
-    if [ -z "$UBUNTU_RELEASE" ]; then
-        os=${OS}
-        os_version="current"
-    fi
-    os_version="${UBUNTU_RELEASE}"
-    if isMarinerOrAzureLinux "${OS}" && [ "${IS_KATA}" = "true" ]; then
-        os=${MARINER_KATA_OS_NAME}
-    fi
-    updatePackageVersions "${cniPackage}" "${os}" "${os_version}" "${OS_VARIANT}"
-
-    #should change to ne
-    # shellcheck disable=SC3010
-    if [[ ${#PACKAGE_VERSIONS[@]} -gt 1 ]]; then
-        echo "WARNING: containerd package versions array has more than one element. Installing the last element in the array."
-        exit $ERR_CONTAINERD_VERSION_INVALID
-    fi
-    packageVersion=${PACKAGE_VERSIONS[0]}
-
-    # Is there a ${arch} variable I can use instead of the iff
-    if [ "$(isARM64)" -eq 1 ]; then
-        CNI_DIR_TMP="cni-plugins-linux-arm64-v${packageVersion}"
-    else
-        CNI_DIR_TMP="cni-plugins-linux-amd64-v${packageVersion}"
-    fi
-
-    if [ -d "$CNI_DOWNLOADS_DIR/${CNI_DIR_TMP}" ]; then
-        #not clear to me when this would ever happen. assume its related to the line above Latest VHD should have the untar, older should have the tgz.
-        mv ${CNI_DOWNLOADS_DIR}/${CNI_DIR_TMP}/* $CNI_BIN_DIR
-    else
-        echo "CNI tarball should already be unzipped by components.json"
-        exit $ERR_CNI_VERSION_INVALID
-    fi
-
-    chown -R root:root $CNI_BIN_DIR
-}
-
 installAzureCNI() {
     CNI_TGZ_TMP=${VNET_CNI_PLUGINS_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
     CNI_DIR_TMP=${CNI_TGZ_TMP%.tgz}         # Use bash builtin % to remove the .tgz to look for a folder rather than tgz

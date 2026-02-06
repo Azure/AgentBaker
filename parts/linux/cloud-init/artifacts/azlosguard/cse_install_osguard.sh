@@ -93,16 +93,6 @@ installCriCtlPackage() {
     stub
 }
 
-installCNI() {
-    CNI_DOWNLOADS_DIR=${1:-$CNI_DOWNLOADS_DIR}
-    mkdir -p "$CNI_DOWNLOADS_DIR"
-    mkdir -p "$CNI_BIN_DIR"
-    chown -R root:root "$CNI_BIN_DIR"
-    chown -R root:root "$CNI_DOWNLOADS_DIR"
-    retrycmd_get_tarball 120 5 "${CNI_DOWNLOADS_DIR}/refcni.tar.gz" "https://${PACKAGE_DOWNLOAD_BASE_URL}/cni-plugins/v1.6.2/binaries/cni-plugins-linux-amd64-v1.6.2.tgz" || exit $ERR_CNI_DOWNLOAD_TIMEOUT
-    extract_tarball "${CNI_DOWNLOADS_DIR}/refcni.tar.gz" "$CNI_BIN_DIR"
-}
-
 
 installStandaloneContainerd() {
     stub
