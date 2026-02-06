@@ -46,11 +46,11 @@ installBcc() {
     mkdir bcc/build; cd bcc/build
 
     git checkout v0.29.0
-    
+
     cmake -DENABLE_EXAMPLES=off .. || exit 1
     make
     sudo make install || exit 1
-    cmake -DPYTHON_CMD=python3 .. || exit 1 # build python3 binding 
+    cmake -DPYTHON_CMD=python3 .. || exit 1 # build python3 binding
     pushd src/python/
     make
     sudo make install || exit 1
@@ -120,7 +120,7 @@ disableNtpAndTimesyncdInstallChrony() {
         systemctl_stop 20 30 120 systemd-timesyncd || exit $ERR_STOP_OR_DISABLE_SYSTEMD_TIMESYNCD_TIMEOUT
         systemctl disable systemd-timesyncd || exit $ERR_STOP_OR_DISABLE_SYSTEMD_TIMESYNCD_TIMEOUT
     fi
-    
+
     # Disable ntp if present
     status=$(systemctl show -p SubState --value ntp)
     if [ "$status" = 'dead' ]; then
@@ -222,12 +222,12 @@ attachUA() {
     retrycmd_silent 5 10 1000 ua attach $UA_TOKEN || exit $ERR_UA_ATTACH
 
     echo "disabling ua livepatch..."
-    retrycmd_if_failure 5 10 300 echo y | ua disable livepatch
+    yes | ua disable livepatch
 }
 
 detachAndCleanUpUA() {
     echo "detaching ua..."
-    retrycmd_if_failure 5 10 120 bash -c 'printf "y\nN\n" | ua detach' || exit $ERR_UA_DETACH
+    bash -c 'printf "y\nN\n" | ua detach' || exit $ERR_UA_DETACH
 
     # now that the ESM/FIPS packages are installed, clean up apt settings in the vhd,
     # the VMs created on customers' subscriptions don't have access to UA repo
