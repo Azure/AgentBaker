@@ -233,22 +233,7 @@ testPackagesInstalled() {
         continue
         ;;
       "walinuxagent")
-        # walinuxagent is downloaded from GitHub which uses redirects that break Content-Length header check
-        # Just verify the file exists and has non-zero size
-        for version in "${PACKAGE_VERSIONS[@]}"; do
-          local tarball="${downloadLocation}/v${version}.tar.gz"
-          if [ -f "${tarball}" ]; then
-            local fileSize
-            fileSize=$(wc -c < "${tarball}")
-            if [ "${fileSize}" -gt 0 ]; then
-              echo "$test [INFO] walinuxagent tarball ${tarball} exists with size ${fileSize} bytes"
-            else
-              err $test "walinuxagent tarball ${tarball} exists but is empty"
-            fi
-          else
-            err $test "walinuxagent tarball ${tarball} not found"
-          fi
-        done
+        testWaagentInstalled "${PACKAGE_VERSIONS[@]}"
         continue
         ;;
     esac
@@ -924,6 +909,28 @@ testKubeBinariesPresent() {
       err $test "The kubelet version is not correct: expected kubelet version $k8sVersion existing: $kubeletLongVersion"
     fi
   done
+  echo "$test:Finish"
+}
+
+testWaagentInstalled() {
+  local test="testWaagentInstalled"
+  echo "$test:Start"
+  local expectedVersions=("$@")
+  # walinuxagent is installed from source during VHD build and the download artifacts are cleaned up,
+  # so we verify installation by checking the installed version matches what components.json specifies
+  local installedVersion
+  installedVersion=$(waagent --version 2>/dev/null | head -n1 | grep -oP 'WALinuxAgent-\K[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?' || true)
+  if [ -z "$installedVersion" ]; then
+    err $test "walinuxagent is not installed or waagent --version failed"
+  else
+    for version in "${expectedVersions[@]}"; do
+      if [ "$installedVersion" != "$version" ]; then
+        err $test "walinuxagent version mismatch: installed ${installedVersion}, expected ${version}"
+      else
+        echo "$test walinuxagent version ${installedVersion} is installed correctly"
+      fi
+    done
+  fi
   echo "$test:Finish"
 }
 

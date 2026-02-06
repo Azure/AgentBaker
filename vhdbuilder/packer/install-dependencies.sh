@@ -450,6 +450,10 @@ while IFS= read -r p; do
         echo "  - dcgm-exporter version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
+    "walinuxagent")
+      # walinuxagent is installed from source in pre-install-dependencies.sh, nothing to do here
+      echo "  - walinuxagent already installed in pre-install-dependencies" >> ${VHD_LOGS_FILEPATH}
+      ;;
     *)
       echo "Package name: ${name} not supported for download. Please implement the download logic in the script."
       # We can add a common function to download a generic package here.

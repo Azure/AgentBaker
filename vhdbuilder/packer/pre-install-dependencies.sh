@@ -80,20 +80,31 @@ if ! isFlatcar "$OS"; then
     WAAGENT_VERSION=$(echo "$walinuxagentPackage" | jq -r '.downloadURIs.default.current.versionsV2[0].latestVersion // empty')
     if [ -n "$WAAGENT_VERSION" ] && [ "$WAAGENT_VERSION" != "null" ]; then
       echo "Installing WALinuxAgent version ${WAAGENT_VERSION} from GitHub..."
-      WAAGENT_DOWNLOAD_URL="https://github.com/Azure/WALinuxAgent/archive/refs/tags/v${WAAGENT_VERSION}.tar.gz"
+      version="${WAAGENT_VERSION}"
+      WAAGENT_DOWNLOAD_URL_TEMPLATE=$(echo "$walinuxagentPackage" | jq -r '.downloadURIs.default.current.downloadURL // empty')
+      eval "WAAGENT_DOWNLOAD_URL=${WAAGENT_DOWNLOAD_URL_TEMPLATE}"
       mkdir -p "${WAAGENT_DOWNLOADS_DIR}"
       WAAGENT_TARBALL="${WAAGENT_DOWNLOADS_DIR}/v${WAAGENT_VERSION}.tar.gz"
-      retrycmd_curl_file 10 5 60 "${WAAGENT_TARBALL}" "${WAAGENT_DOWNLOAD_URL}" || exit $ERR_FILE_DOWNLOAD
-      tar -xzf "${WAAGENT_TARBALL}" -C "${WAAGENT_DOWNLOADS_DIR}" || exit 1
+      if ! retrycmd_curl_file 10 5 60 "${WAAGENT_TARBALL}" "${WAAGENT_DOWNLOAD_URL}"; then
+        exit $ERR_FILE_DOWNLOAD
+      fi
+      if ! tar -xzf "${WAAGENT_TARBALL}" -C "${WAAGENT_DOWNLOADS_DIR}"; then
+        exit 1
+      fi
       WAAGENT_EXTRACT_DIR="${WAAGENT_DOWNLOADS_DIR}/WALinuxAgent-${WAAGENT_VERSION}"
-      pushd "${WAAGENT_EXTRACT_DIR}" > /dev/null || exit 1
-      python3 setup.py install --register-service || exit 1
+      if ! pushd "${WAAGENT_EXTRACT_DIR}" > /dev/null; then
+        exit 1
+      fi
+      if ! python3 setup.py install --register-service; then
+        popd > /dev/null || exit 1
+        exit 1
+      fi
       popd > /dev/null || exit 1
       rm -rf "${WAAGENT_DOWNLOADS_DIR}"
-      # Restart waagent service - service name varies by OS
+      # Restart waagent service
       systemctl daemon-reload
-      if systemctl list-unit-files | grep -q walinuxagent.service; then
-        systemctl restart walinuxagent.service || exit 1
+      if ! systemctl restart walinuxagent.service; then
+        exit 1
       fi
       echo "Successfully installed WALinuxAgent ${WAAGENT_VERSION}"
     fi
