@@ -336,17 +336,14 @@ copyPackerFiles() {
   NODE_EXPORTER_RESTART_PATH_DEST=/etc/systemd/system/node-exporter-restart.path
   NODE_EXPORTER_WEB_CONFIG_SRC=/home/packer/node-exporter-web-config.yml
   NODE_EXPORTER_WEB_CONFIG_DEST=/etc/node-exporter.d/web-config.yml
-  NODE_EXPORTER_SKIP_FILE_SRC=/home/packer/skip_vhd_node_exporter
-  NODE_EXPORTER_SKIP_FILE_DEST=/etc/node-exporter.d/skip_vhd_node_exporter
 
-  # Skip for OSGuard, Flatcar, and Kata
-  if ! { isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || isFlatcar "$OS" || grep -q "kata" <<< "$FEATURE_FLAGS"; }; then
+  # Skip for OSGuard, Flatcar, Kata, and Mariner (only AzureLinux 3.0 gets node-exporter)
+  if ! { isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || isFlatcar "$OS" || grep -q "kata" <<< "$FEATURE_FLAGS" || isMariner "$OS"; }; then
     cpAndMode $NODE_EXPORTER_STARTUP_SRC $NODE_EXPORTER_STARTUP_DEST 755
     cpAndMode $NODE_EXPORTER_SERVICE_SRC $NODE_EXPORTER_SERVICE_DEST 644
     cpAndMode $NODE_EXPORTER_RESTART_SERVICE_SRC $NODE_EXPORTER_RESTART_SERVICE_DEST 644
     cpAndMode $NODE_EXPORTER_RESTART_PATH_SRC $NODE_EXPORTER_RESTART_PATH_DEST 644
     cpAndMode $NODE_EXPORTER_WEB_CONFIG_SRC $NODE_EXPORTER_WEB_CONFIG_DEST 644
-    cpAndMode $NODE_EXPORTER_SKIP_FILE_SRC $NODE_EXPORTER_SKIP_FILE_DEST 644
     ln -sf /usr/bin/node-exporter /opt/bin/node-exporter
   fi
 # ---------------------------------------------------------------------------------------
