@@ -331,13 +331,13 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/cilium/cilium",
-          "latestVersion": "v1.16.13-250826",
-          "previousLatestVersion": "v1.16.10-250610"
+          "latestVersion": "v1.16.16-251110",
+          "previousLatestVersion": "v1.16.13-250826"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/cilium/cilium",
-          "latestVersion": "v1.17.7-250927",
-          "previousLatestVersion": "v1.17.7-250821"
+          "latestVersion": "v1.17.9-251110",
+          "previousLatestVersion": "v1.17.7-250927"
         }
       ],
       "windowsVersions": []
