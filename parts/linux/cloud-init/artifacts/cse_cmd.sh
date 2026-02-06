@@ -74,7 +74,6 @@ IDENTITY_BINDINGS_LOCAL_AUTHORITY_SNI={{GetVariable "identityBindingsLocalAuthor
 API_SERVER_NAME={{GetKubernetesEndpoint}}
 IS_VHD={{GetVariable "isVHD"}}
 GPU_NODE={{GetVariable "gpuNode"}}
-AMDAMA_NODE="{{AmdAmaEnabledSKU}}"
 SGX_NODE={{GetVariable "sgxNode"}}
 MIG_NODE={{GetVariable "migNode"}}
 CONFIG_GPU_DRIVER_IF_NEEDED={{GetVariable "configGPUDriverIfNeeded"}}

@@ -735,6 +735,24 @@ get_imds_vm_tag_value() {
     echo "${tag_value,,}"
 }
 
+# Retrieves the VM SKU (size) from the cached IMDS instance metadata.
+# Outputs:
+#   The VM size/SKU (e.g., "Standard_NM16ads_MA35D") or empty string if not found.
+# Returns:
+#   0 on success, non-zero on failure
+get_imds_vm_sku() {
+    local vm_sku=""
+    vm_sku=$(jq -r '.compute.vmSize // ""' "$IMDS_INSTANCE_METADATA_CACHE_FILE")
+    echo "$vm_sku"
+}
+
+isAmdAmaEnabledNode() {
+    if [ "$(get_imds_vm_sku)" = "Standard_NM16ads_MA35D" ]; then
+        return 0
+    fi
+    return 1
+}
+
 should_skip_nvidia_drivers() {
     set -x
     # Case-insensitive match for both tag name and value

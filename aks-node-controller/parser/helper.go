@@ -526,15 +526,6 @@ func getIsSgxEnabledSKU(vmSize string) bool {
 	return false
 }
 
-// getIsAmdAmaEnabledSKU determines if an VM SKU has AMD AMA GPU HW support.
-func getIsAmdAmaEnabledSKU(vmSize string) bool {
-	switch vmSize {
-	case helpers.VMSizeStandardNM16adsMA35D:
-		return true
-	}
-	return false
-}
-
 func getShouldConfigureHTTPProxy(httpProxyConfig *aksnodeconfigv1.HttpProxyConfig) bool {
 	return httpProxyConfig.GetHttpProxy() != "" || httpProxyConfig.GetHttpsProxy() != ""
 }
