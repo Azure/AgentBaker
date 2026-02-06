@@ -129,6 +129,11 @@ installNodeExporter() {
     systemctl daemon-reload
     systemctl disable node-exporter.service node-exporter-restart.service node-exporter-restart.path || exit 1
 
+    # Create skip sentinel file to indicate node-exporter was installed from VHD
+    mkdir -p /etc/node-exporter.d
+    touch /etc/node-exporter.d/skip_vhd_node_exporter
+    chmod 644 /etc/node-exporter.d/skip_vhd_node_exporter
+
     [ -n "${VHD_LOGS_FILEPATH:-}" ] && echo "  - node-exporter ${NODE_EXPORTER_VERSION}-${NODE_EXPORTER_REVISION}" >> "${VHD_LOGS_FILEPATH}"
 
     rm -rf "${NODE_EXPORTER_BUILD_ROOT}"

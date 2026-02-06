@@ -2,5 +2,5 @@
 Description=Restart node-exporter when certificates change
 
 [Service]
-Type=OneShot
+Type=oneshot
 ExecStart=/bin/systemctl restart node-exporter.service

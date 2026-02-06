@@ -19,24 +19,6 @@ os:
     - source: /AgentBaker/vhdbuilder/packer/install-node-exporter.sh
       destination: /opt/azure/containers/install-node-exporter.sh
       permissions: 744
-    - source: /AgentBaker/parts/linux/cloud-init/artifacts/node-exporter/node-exporter-startup.sh
-      destination: /opt/azure/containers/node-exporter/node-exporter-startup.sh
-      permissions: 755
-    - source: /AgentBaker/parts/linux/cloud-init/artifacts/node-exporter/skip_vhd_node_exporter
-      destination: /opt/azure/containers/node-exporter/skip_vhd_node_exporter
-      permissions: 644
-    - source: /AgentBaker/parts/linux/cloud-init/artifacts/node-exporter/baseline/etc/systemd/system/node-exporter.service
-      destination: /opt/azure/containers/node-exporter/baseline/etc/systemd/system/node-exporter.service
-      permissions: 644
-    - source: /AgentBaker/parts/linux/cloud-init/artifacts/node-exporter/baseline/etc/systemd/system/node-exporter-restart.service
-      destination: /opt/azure/containers/node-exporter/baseline/etc/systemd/system/node-exporter-restart.service
-      permissions: 644
-    - source: /AgentBaker/parts/linux/cloud-init/artifacts/node-exporter/baseline/etc/systemd/system/node-exporter-restart.path
-      destination: /opt/azure/containers/node-exporter/baseline/etc/systemd/system/node-exporter-restart.path
-      permissions: 644
-    - source: /AgentBaker/parts/linux/cloud-init/artifacts/node-exporter/baseline/etc/node-exporter.d/web-config.yml
-      destination: /opt/azure/containers/node-exporter/baseline/etc/node-exporter.d/web-config.yml
-      permissions: 644
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/cse_benchmark_functions.sh
       destination: /opt/azure/containers/provision_source_benchmarks.sh
       permissions: 744
