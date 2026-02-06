@@ -335,13 +335,32 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/cilium/cilium",
-          "latestVersion": "v1.16.13-250826",
-          "previousLatestVersion": "v1.16.10-250610"
-        },
-        {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/cilium/cilium",
           "latestVersion": "v1.17.7-250927",
           "previousLatestVersion": "v1.17.7-250821"
+        }
+      ],
+      "windowsVersions": []
+    },
+    {
+      "downloadURL": "mcr.microsoft.com/containernetworking/cilium/cilium-distroless:*",
+      "amd64OnlyVersions": [],
+      "multiArchVersionsV2": [
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/cilium/cilium-distroless",
+          "latestVersion": "v1.18.2-251028",
+          "previousLatestVersion": "v1.18.2-251028"
+        }
+      ],
+      "windowsVersions": []
+    },
+    {
+      "downloadURL": "mcr.microsoft.com/containernetworking/cilium/cilium-distroless-init:*",
+      "amd64OnlyVersions": [],
+      "multiArchVersionsV2": [
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/cilium/cilium-distroless-init",
+          "latestVersion": "v1.18.2-251028",
+          "previousLatestVersion": "v1.18.2-251028"
         }
       ],
       "windowsVersions": []
