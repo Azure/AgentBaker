@@ -310,6 +310,9 @@ installPkgWithAptGet() {
     mkdir -p /opt/bin
     ln -snf "/usr/bin/${packageName}" "/opt/bin/${packageName}"
     rm -rf ${downloadDir}
+
+    # Compatibility for applications that still expect old path.
+    install -m0755 -t /usr/local/bin "/usr/bin/${packageName}"
 }
 
 downloadPkgFromVersion() {

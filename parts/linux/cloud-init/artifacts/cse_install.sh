@@ -637,6 +637,9 @@ installKubeletKubectlFromURL() {
     install -m0755 "/opt/bin/kubectl-${KUBERNETES_VERSION}" /opt/bin/kubectl
 
     rm -rf /opt/bin/kubelet-* /opt/bin/kubectl-* /home/hyperkube-downloads &
+
+    # Compatibility where possible for applications that still expect old path.
+    [ -w /usr/local/bin ] && install -m0755 -t /usr/local/bin /opt/bin/{kubelet,kubectl}
 }
 
 pullContainerImage() {
