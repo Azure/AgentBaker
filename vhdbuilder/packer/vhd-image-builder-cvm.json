@@ -208,11 +208,6 @@
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/node-problem-detector/skip_vhd_npd",
-      "destination": "/home/packer/node-problem-detector/skip_vhd_npd"
-    },
-    {
-      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/reconcile-private-hosts.sh",
       "destination": "/home/packer/reconcile-private-hosts.sh"
     },

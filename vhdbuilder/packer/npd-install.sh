@@ -21,7 +21,7 @@ download_and_install_npd_package() {
         return 0
     fi
 
-    if [ "$OS" = "$MARINER_OS_NAME" ] || [ "$OS" = "$AZURELINUX_OS_NAME" ]; then
+    if [ "$OS" = "$AZURELINUX_OS_NAME" ]; then
         if ! dnf_install 30 1 600 "${download_dir}/${package_name}"; then
             echo "ERROR: dnf_install failed for ${package_name} with exit code $?"
             exit $ERR_NPD_INSTALL_TIMEOUT
@@ -86,47 +86,22 @@ copy_npd_config_directories() {
     done
 }
 
-# Guarantee the skip_vhd_npd sentinel is present so provisioning can short-circuit NPD setup.
-copy_npd_skip_sentinel() {
-    local artifacts_dir=$1
-    local build_source=$2
-    local config_dir=$3
-    local sentinel="skip_vhd_npd"
+# Guarantee the skip_vhd_npd file is present so provisioning can short-circuit NPD setup.
+# The skip file is created dynamically during VHD build, not checked into version control.
+create_npd_skip_file() {
+    local config_dir=$1
+    local NPD_SKIP_FILE="skip_vhd_npd"
+    local skip_file_path="${config_dir}/${NPD_SKIP_FILE}"
 
-    for search_dir in "${artifacts_dir}" "${build_source}"; do
-        if [ -f "${search_dir}/${sentinel}" ]; then
-            echo "Copying ${sentinel} sentinel file from ${search_dir}"
-            cp "${search_dir}/${sentinel}" "${config_dir}/"
-            chmod 644 "${config_dir}/${sentinel}"
-            if [ ! -f "${config_dir}/${sentinel}" ]; then
-                echo "ERROR: ${sentinel} file not found after copy"
-                exit 1
-            fi
-            echo "Successfully copied and verified ${sentinel} sentinel file"
-            return 0
-        fi
-    done
+    echo "Creating ${NPD_SKIP_FILE} at ${skip_file_path}"
+    touch "${skip_file_path}"
+    chmod 644 "${skip_file_path}"
 
-    echo "WARNING: ${sentinel} sentinel file not found in expected locations"
-}
-
-# Install the NPD systemd service and startup script while keeping copies in the cache.
-install_npd_systemd_assets() {
-    local artifacts_dir=$1
-    local startup_src=$2
-    local service_src=$3
-    local startup_dest="/opt/bin/node-problem-detector-startup.sh"
-    local service_dest="/etc/systemd/system/node-problem-detector.service"
-
-    cp "${startup_src}" "${startup_dest}"
-    chmod 755 "${startup_dest}"
-
-    cp "${service_src}" "${service_dest}"
-    cp "${startup_src}" "${artifacts_dir}/"
-    cp "${service_src}" "${artifacts_dir}/"
-
-    # Reload systemd daemon to register the newly installed service unit
-    systemctl daemon-reload
+    if [ ! -f "${skip_file_path}" ]; then
+        echo "ERROR: ${NPD_SKIP_FILE} not found after creation"
+        exit 1
+    fi
+    echo "Successfully created and verified ${NPD_SKIP_FILE}"
 }
 
 # Normalize permissions on scripts and JSON configs to avoid execution failures.
@@ -198,16 +173,17 @@ ensure_npd_counter_entrypoints() {
 # Verify NPD installation completed successfully with all required artifacts.
 verify_npd_installation() {
     local config_dir=$1
-    local sentinel_file="${config_dir}/skip_vhd_npd"
+    local NPD_SKIP_FILE="skip_vhd_npd"
+    local skip_file_path="${config_dir}/${NPD_SKIP_FILE}"
 
     echo "Verifying NPD installation..."
 
-    # Verify skip_vhd_npd sentinel file exists
-    if [ -f "${sentinel_file}" ]; then
-        echo "Verified: skip_vhd_npd sentinel file exists at ${sentinel_file}"
-        ls -la "${sentinel_file}"
+    # Verify skip_vhd_npd file exists
+    if [ -f "${skip_file_path}" ]; then
+        echo "Verified: ${NPD_SKIP_FILE} exists at ${skip_file_path}"
+        ls -la "${skip_file_path}"
     else
-        echo "ERROR: skip_vhd_npd sentinel file NOT found at ${sentinel_file}"
+        echo "ERROR: ${NPD_SKIP_FILE} NOT found at ${skip_file_path}"
         echo "Contents of ${config_dir}:"
         ls -la "${config_dir}" || echo "Directory does not exist"
         return 1
@@ -235,6 +211,9 @@ verify_npd_installation() {
 # Install Node Problem Detector during VHD build. This function is only used
 # during VHD generation (not at provisioning time). CSE will reload the service
 # later so runtime GPU hooks can reconfigure NPD as needed.
+# NOTE: packer_source.sh handles copying:
+#   - startup script to /opt/bin/node-problem-detector-startup.sh
+#   - service file to /etc/systemd/system/node-problem-detector.service
 installNodeProblemDetector() {
     local downloadDir=$1
     local evaluatedURL=$2
@@ -252,16 +231,15 @@ installNodeProblemDetector() {
 
     sync_npd_artifacts_if_present "${NPD_BUILD_SOURCE}" "${NPD_ARTIFACTS_DIR}"
     copy_npd_config_directories "${NPD_ARTIFACTS_DIR}" "${NPD_BUILD_SOURCE}" "${NPD_CONFIG_DIR}"
-    copy_npd_skip_sentinel "${NPD_ARTIFACTS_DIR}" "${NPD_BUILD_SOURCE}" "${NPD_CONFIG_DIR}"
 
-    local NPD_STARTUP_SCRIPT_SRC="/home/packer/node-problem-detector-startup.sh"
-    local NPD_SERVICE_SRC="/home/packer/node-problem-detector.service"
-
-    install_npd_systemd_assets "${NPD_ARTIFACTS_DIR}" "${NPD_STARTUP_SCRIPT_SRC}" "${NPD_SERVICE_SRC}"
+    # Create skip file to indicate NPD was installed from VHD
+    create_npd_skip_file "${NPD_CONFIG_DIR}"
 
     set_npd_permissions "${NPD_CONFIG_DIR}"
     ensure_npd_counter_entrypoints "$OS"
 
+    # Reload systemd to pick up the service file copied by packer_source.sh
+    systemctl daemon-reload
     systemctl disable node-problem-detector
 
     # Verify installation succeeded before returning
