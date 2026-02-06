@@ -202,7 +202,11 @@ if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]]; then
     fi
   fi
   wait_for_apt_locks
-  update-grub
+  if command -v update-grub &>/dev/null; then
+    update-grub
+  else
+    echo "update-grub not found (expected for CVM images using nullboot), skipping"
+  fi
 fi
 capture_benchmark "${SCRIPT_NAME}_purge_ubuntu_kernel_if_2204"
 echo "pre-install-dependencies step finished successfully"
