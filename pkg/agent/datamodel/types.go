@@ -1771,6 +1771,9 @@ type NodeBootstrappingConfiguration struct {
 	// PreProvisionOnly creates a pre-provisioned image for later node spawning.
 	// Skips kubelet and some component configuration for image capture scenarios.
 	PreProvisionOnly bool
+
+	// CSETimeout specifies the timeout execution in seconds.
+	CSETimeout int
 }
 
 func (config *NodeBootstrappingConfiguration) IsFlatcar() bool {
