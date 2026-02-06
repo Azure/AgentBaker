@@ -89,15 +89,12 @@ if ! isFlatcar "$OS"; then
       pushd "${WAAGENT_EXTRACT_DIR}" > /dev/null || exit 1
       python3 setup.py install --register-service || exit 1
       popd > /dev/null || exit 1
-      rm -rf "${WAAGENT_EXTRACT_DIR}"
+      rm -rf "${WAAGENT_DOWNLOADS_DIR}"
       # Restart waagent service - service name varies by OS
       systemctl daemon-reload
       if systemctl list-unit-files | grep -q walinuxagent.service; then
         systemctl restart walinuxagent.service || exit 1
-      elif systemctl list-unit-files | grep -q waagent.service; then
-        systemctl restart waagent.service || exit 1
       fi
-      echo "  - walinuxagent version ${WAAGENT_VERSION}" >> ${VHD_LOGS_FILEPATH}
       echo "Successfully installed WALinuxAgent ${WAAGENT_VERSION}"
     fi
   fi
