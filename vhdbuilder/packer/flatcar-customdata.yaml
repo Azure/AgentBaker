@@ -58,9 +58,6 @@ storage:
   - path: /etc/extensions/aks-sysext/usr/local/bin
     target: /opt/bin
     hard: false
-  - path: /etc/containerd/config.toml
-    target: /usr/share/containerd/config.toml
-    hard: false
 systemd:
   units:
   - name: update-ca-certificates.service

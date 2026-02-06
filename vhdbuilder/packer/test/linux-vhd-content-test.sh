@@ -199,19 +199,18 @@ testPackagesInstalled() {
       if (echo "$FEATURE_FLAGS" | grep -q "kata"); then
         OS=${MARINER_KATA_OS_NAME}
       fi
-    elif [ "$OS_SKU" = "AzureLinux" ]; then
+    elif [ "$OS_SKU" = "AzureLinux" ] && [ "$OS_VERSION" = "3.0" ]; then
       OS=$AZURELINUX_OS_NAME
       if (echo "$FEATURE_FLAGS" | grep -q "kata"); then
         OS=${AZURELINUX_KATA_OS_NAME}
       fi
-    elif [ "$OS_SKU" = "AzureLinuxOSGuard" ]; then
-      OS=$AZURELINUX_OS_NAME
-      OS_VARIANT=OSGUARD
     else
-      OS=${OS_SKU^^}
+      OS=$UBUNTU_OS_NAME
     fi
-    updatePackageVersions "${p}" "${OS}" "${OS_VERSION}" "${OS_VARIANT}"
-    updatePackageDownloadURL "${p}" "${OS}" "${OS_VERSION}" "${OS_VARIANT}"
+    PACKAGE_VERSIONS=()
+    updatePackageVersions "${p}" "${OS}" "${OS_VERSION}"
+    PACKAGE_DOWNLOAD_URL=""
+    updatePackageDownloadURL "${p}" "${OS}" "${OS_VERSION}"
     case "${name}" in
       "kubernetes-binaries")
         # kubernetes-binaries, namely, kubelet and kubectl are installed in a different way so we test them separately
@@ -387,6 +386,7 @@ testImagesPulled() {
     else
       amd64OnlyVersionsStr=$(echo "${imageToBePulled}" | jq -r '.amd64OnlyVersions // empty')
     fi
+    declare -a MULTI_ARCH_VERSIONS=()
     updateMultiArchVersions "${imageToBePulled}"
 
     amd64OnlyVersions=""

@@ -59,13 +59,14 @@ installContainerdWithComponentsJson() {
     fi
 
     containerdPackage=$(jq ".Packages" "$COMPONENTS_FILEPATH" | jq ".[] | select(.name == \"containerd\")") || exit $ERR_CONTAINERD_VERSION_INVALID
+    PACKAGE_VERSIONS=()
     if isMariner "${OS}" && [ "${IS_KATA}" = "true" ]; then
         os=${MARINER_KATA_OS_NAME}
     fi
     if isAzureLinux "${OS}" && [ "${IS_KATA}" = "true" ]; then
         os=${AZURELINUX_KATA_OS_NAME}
     fi
-    updatePackageVersions "${containerdPackage}" "${os}" "${os_version}" "${OS_VARIANT}"
+    updatePackageVersions "${containerdPackage}" "${os}" "${os_version}"
 
     #Containerd's versions array is expected to have only one element.
     #If it has more than one element, we will install the last element in the array.
@@ -411,7 +412,8 @@ installCNI() {
     if isMarinerOrAzureLinux "${OS}" && [ "${IS_KATA}" = "true" ]; then
         os=${MARINER_KATA_OS_NAME}
     fi
-    updatePackageVersions "${cniPackage}" "${os}" "${os_version}" "${OS_VARIANT}"
+    PACKAGE_VERSIONS=()
+    updatePackageVersions "${cniPackage}" "${os}" "${os_version}"
 
     #should change to ne
     # shellcheck disable=SC3010

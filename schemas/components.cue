@@ -65,10 +65,8 @@ package components
 }
 
 #AzureLinuxOSDistro: {
-	"v3.0"?:          #ReleaseDownloadURI
-	"DEFAULT/v3.0"?:  #ReleaseDownloadURI
-	"OSGUARD/v3.0"?:  #ReleaseDownloadURI
-	current?:         #ReleaseDownloadURI
+	"v3.0"?:  #ReleaseDownloadURI
+	current?: #ReleaseDownloadURI
 }
 
 #WindowsOsDistro: {
