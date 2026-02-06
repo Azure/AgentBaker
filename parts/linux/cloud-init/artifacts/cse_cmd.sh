@@ -80,6 +80,8 @@ MIG_NODE={{GetVariable "migNode"}}
 CONFIG_GPU_DRIVER_IF_NEEDED={{GetVariable "configGPUDriverIfNeeded"}}
 ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED={{GetVariable "enableGPUDevicePluginIfNeeded"}}
 MANAGED_GPU_EXPERIENCE_AFEC_ENABLED="{{IsManagedGPUExperienceAFECEnabled}}"
+ENABLE_MANAGED_GPU="{{IsEnableManagedGPU}}"
+NVIDIA_MIG_STRATEGY="{{GetMigStrategy}}"
 TELEPORTD_PLUGIN_DOWNLOAD_URL={{GetParameter "teleportdPluginURL"}}
 CREDENTIAL_PROVIDER_DOWNLOAD_URL={{GetParameter "linuxCredentialProviderURL"}}
 CONTAINERD_VERSION={{GetParameter "containerdVersion"}}
@@ -182,4 +184,5 @@ MCR_REPOSITORY_BASE="{{GetMCRRepositoryBase}}"
 ENABLE_IMDS_RESTRICTION="{{EnableIMDSRestriction}}"
 INSERT_IMDS_RESTRICTION_RULE_TO_MANGLE_TABLE="{{InsertIMDSRestrictionRuleToMangleTable}}"
 PRE_PROVISION_ONLY="{{GetPreProvisionOnly}}"
+CSE_TIMEOUT="{{GetCSETimeout}}"
 /usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"

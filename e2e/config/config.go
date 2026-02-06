@@ -1,7 +1,6 @@
 package config
 
 import (
-	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
@@ -130,7 +129,7 @@ func (c *Configuration) VMIdentityResourceID(location string) string {
 }
 
 func mustLoadConfig() *Configuration {
-	VMSSHPublicKey, VMSSHPrivateKeyFileName = mustGetNewED25519KeyPair()
+	VMSSHPrivateKey, VMSSHPublicKey, VMSSHPrivateKeyFileName = mustGetNewRSAKeyPair()
 	err := godotenv.Load(".env")
 	if err != nil {
 		fmt.Printf("Error loading .env file: %s\n", err)
@@ -164,43 +163,20 @@ func mustLoadConfig() *Configuration {
 	return cfg
 }
 
-func mustGetNewED25519KeyPair() ([]byte, string) {
-	public, privateKeyFileName, err := getNewED25519KeyPair()
+// Returns a newly generated RSA public/private key pair with the private key in PEM format.
+func mustGetNewRSAKeyPair() ([]byte, []byte, string) {
+	// Generate new key pair
+	privatePEMBytes, publicKeyBytes, err := getNewRSAKeyPair()
 	if err != nil {
-		panic(fmt.Sprintf("failed to generate ED25519 key pair: %v", err))
+		panic(fmt.Sprintf("failed to generate RSA key pair: %v", err))
 	}
 
-	return public, privateKeyFileName
-}
-
-// Returns a newly generated ED25519 public/private key pair with the private key in PEM format.
-func getNewED25519KeyPair() (publicKeyBytes []byte, privateKeyFileName string, e error) {
-	publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
+	privateKeyFileName, err := writePrivateKeyToTempFile(privatePEMBytes)
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to create rsa private key: %w", err)
+		panic(fmt.Sprintf("failed to write private key to temp file: %w", err))
 	}
 
-	sshPubKey, err := ssh.NewPublicKey(publicKey)
-	if err != nil {
-		return nil, "", fmt.Errorf("failed to create ssh public key: %w", err)
-	}
-
-	publicKeyBytes = ssh.MarshalAuthorizedKey(sshPubKey)
-
-	// ----- PRIVATE KEY (OpenSSH format) -----
-	pemBlock, err := ssh.MarshalPrivateKey(privateKey, "azureuser")
-	if err != nil {
-		return nil, "", err
-	}
-
-	VMSSHPrivateKey = pem.EncodeToMemory(pemBlock)
-
-	privateKeyFileName, err = writePrivateKeyToTempFile(VMSSHPrivateKey)
-	if err != nil {
-		return nil, "", fmt.Errorf("failed to write private key to temp file: %w", err)
-	}
-
-	return
+	return privatePEMBytes, publicKeyBytes, privateKeyFileName
 }
 
 // Returns a newly generated RSA public/private key pair with the private key in PEM format.

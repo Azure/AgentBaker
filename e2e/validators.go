@@ -11,6 +11,7 @@ import (
 	"net"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -199,7 +200,7 @@ func ValidateLeakedSecrets(ctx context.Context, s *Scenario) {
 	for _, logFile := range []string{"/var/log/azure/cluster-provision.log", "/var/log/azure/aks-node-controller.log"} {
 		for _, secretValue := range secrets {
 			if secretValue != "" {
-				ValidateFileExcludesContent(ctx, s, logFile, secretValue)
+				ValidateFileExcludesExactContent(ctx, s, logFile, secretValue)
 			}
 		}
 	}
@@ -252,6 +253,97 @@ func ValidateSysctlConfig(ctx context.Context, s *Scenario, customSysctls map[st
 	for name, value := range customSysctls {
 		require.Contains(s.T, execResult.stdout, fmt.Sprintf("%s = %v", name, value), "expected to find %s set to %v, but was not.\nStdout:\n%s", name, value, execResult.stdout)
 	}
+}
+
+// ValidateNetworkInterfaceConfig validates network interface configuration settings using ethtool.
+// It identifies network interfaces with slot names matching the enP* pattern (same logic as the udev rule),
+// then verifies that each interface has the expected configuration settings (e.g., rx buffer size).
+// The nicConfig map specifies the ethtool settings to validate (key: setting name, value: expected value).
+func ValidateNetworkInterfaceConfig(ctx context.Context, s *Scenario, nicConfig map[string]string) {
+	s.T.Helper()
+
+	// Get list of NICs using udevadm (same logic as udev rule)
+	getNicsCommand := []string{
+		"#!/usr/bin/env bash",
+		"set -euo pipefail",
+		"echo '=== NICs to Configure ==='",
+		"enp_ifaces=()",
+		"for dev in /sys/class/net/*; do",
+		"  iface=\"$(basename \"$dev\")\"",
+		"  slot=\"$(udevadm info -q property -p \"$dev\" 2>/dev/null | awk -F= '$1==\"ID_NET_NAME_SLOT\"{print $2; exit}' || true)\"",
+		"  [[ \"$slot\" == enP* ]] && enp_ifaces+=(\"$iface\")",
+		"done",
+		"IFS=,; echo \"${enp_ifaces[*]}\"",
+	}
+	nicsResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(getNicsCommand, "\n"), 0, "could not get nics to configure")
+	s.T.Logf("NICs to configure:\n%s", nicsResult.stdout)
+
+	// Parse NIC output - it may be multi-line with header
+	lines := strings.Split(strings.TrimSpace(nicsResult.stdout), "\n")
+	nicsOutput := ""
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		// Skip header lines
+		if strings.Contains(line, "===") || line == "" {
+			continue
+		}
+		nicsOutput = line
+		break
+	}
+
+	nics := strings.Split(nicsOutput, ",")
+
+	s.T.Logf("Parsed NICs list: %v (count: %d)", nics, len(nics))
+
+	if len(nics) == 0 || (len(nics) == 1 && strings.TrimSpace(nics[0]) == "") {
+		s.T.Logf("No PCI devices (NICs) with enP* slot pattern found - skipping network interface config validation")
+		return
+	}
+
+	for _, nic := range nics {
+		// Skip empty entries
+		nic = strings.TrimSpace(nic)
+		if nic == "" {
+			continue
+		}
+
+		s.T.Logf("Validating network interface config for NIC: %s", nic)
+
+		// Get full ethtool output for debugging
+		debugCommand := []string{
+			"set -ex",
+			fmt.Sprintf("echo '=== Full ethtool output for %s ==='", nic),
+			fmt.Sprintf("sudo ethtool -g %s", nic),
+		}
+		debugResult := execScriptOnVMForScenario(ctx, s, strings.Join(debugCommand, "\n"))
+		s.T.Logf("Full ethtool output for %s:\n%s", nic, debugResult.stdout)
+		oldEthtool := strings.Contains(debugResult.stdout, "Current hardware settings")
+
+		for setting, expectedValue := range nicConfig {
+			var cmd string
+			if oldEthtool {
+				cmd = fmt.Sprintf("sudo ethtool -g %s | grep -A 5 'Current hardware settings' | grep -i %s: | awk '{print $2}'", nic, setting)
+			} else {
+				cmd = fmt.Sprintf("sudo ethtool --json -g %s | jq -r .[0].\\\"%s\\\"", nic, setting)
+			}
+			command := []string{
+				"set -ex",
+				cmd,
+			}
+			execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "could not get ethtool config")
+			actualValue := strings.TrimSpace(execResult.stdout)
+			s.T.Logf("Ethtool setting %s for NIC %s: expected=%s, actual=%s", setting, nic, expectedValue, actualValue)
+			require.Equal(s.T, expectedValue, actualValue, "expected %s to be %s on nic %s, but got %s.\nFull ethtool output:\n%s", setting, expectedValue, nic, actualValue, debugResult.stdout)
+		}
+	}
+}
+
+// ValidateAzureNetworkFiles checks that udev rules files exist.
+func ValidateAzureNetworkFiles(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	ValidateFileExists(ctx, s, "/opt/azure-network/configure-azure-network.sh")
+	ValidateFileExists(ctx, s, "/etc/udev/rules.d/99-azure-network.rules")
 }
 
 func ValidateNvidiaSMINotInstalled(ctx context.Context, s *Scenario) {
@@ -384,6 +476,38 @@ func fileHasContent(ctx context.Context, s *Scenario, fileName string, contents 
 	}
 }
 
+func fileHasExactContent(ctx context.Context, s *Scenario, fileName string, contents string) bool {
+	s.T.Helper()
+	require.NotEmpty(s.T, contents, "Test setup failure: Can't validate that a file has contents with an empty string. Filename: %s", fileName)
+	encodedPattern := base64.StdEncoding.EncodeToString([]byte(contents))
+	if s.IsWindows() {
+		steps := []string{
+			"$ErrorActionPreference = \"Stop\"",
+			fmt.Sprintf("if ( -not ( Test-Path -Path %s ) ) { exit 2 }", fileName),
+			fmt.Sprintf("$pattern = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('%s'))", encodedPattern),
+			fmt.Sprintf("$content = Get-Content -Path %s -Raw", fileName),
+			"$escaped = [regex]::Escape($pattern)",
+			"if ([regex]::Match($content, \"(?<!\\w)\" + $escaped + \"(?!\\w)\").Success) { exit 0 } else { exit 1 }",
+		}
+		execResult := execScriptOnVMForScenario(ctx, s, strings.Join(steps, "\n"))
+		return execResult.exitCode == "0"
+	} else {
+		steps := []string{
+			"set -ex",
+			fmt.Sprintf("if [ ! -f %s ]; then exit 2; fi", fileName),
+			fmt.Sprintf("pattern=$(printf '%%s' '%s' | base64 -d)", encodedPattern),
+			"escaped=$(printf '%s\n' \"$pattern\" | sed -e 's/[.\\[\\()*?^$+{}|]/\\\\&/g')",
+			"regex='(^|[^[:alnum:]_])'\"$escaped\"'([^[:alnum:]_]|$)'",
+			fmt.Sprintf("if sudo grep -Eq \"$regex\" %s; then exit 0; else exit 1; fi", fileName),
+		}
+		execResult := execScriptOnVMForScenario(ctx, s, strings.Join(steps, "\n"))
+		return execResult.exitCode == "0"
+	}
+}
+
+// ValidateFileHasContent passes the test if the specified file contains the specified contents.
+// The contents doesn't need to be surrounded by non-word characters.
+// E.g.: searching "bcd" in "abcdef" is a match, thus the validation passes.
 func ValidateFileHasContent(ctx context.Context, s *Scenario, fileName string, contents string) {
 	s.T.Helper()
 	if !fileHasContent(ctx, s, fileName, contents) {
@@ -391,10 +515,23 @@ func ValidateFileHasContent(ctx context.Context, s *Scenario, fileName string, c
 	}
 }
 
+// ValidateFileExcludesContent fails the test if the specified file contains the specified contents.
+// The contents doesn't need to be surrounded by non-word characters.
+// E.g.: searching "bcd" in "abcdef" is a match, thus the validation fails.
 func ValidateFileExcludesContent(ctx context.Context, s *Scenario, fileName string, contents string) {
 	s.T.Helper()
 	if fileHasContent(ctx, s, fileName, contents) {
 		s.T.Fatalf("expected file %s to not have contents %q, but it does", fileName, contents)
+	}
+}
+
+// ValidateFileExcludesExactContent fails the test if the specified file contains the specified contents.
+// The contents needs to be surrounded by non-word characters.
+// E.g.: searching "bcd" in "abcdef" is not a match, thus the validation passes.
+func ValidateFileExcludesExactContent(ctx context.Context, s *Scenario, fileName string, contents string) {
+	s.T.Helper()
+	if fileHasExactContent(ctx, s, fileName, contents) {
+		s.T.Fatalf("expected file %s to not have exact contents %q, but it does", fileName, contents)
 	}
 }
 
@@ -1577,4 +1714,36 @@ func ValidateNodeHasLabel(ctx context.Context, s *Scenario, labelKey, expectedVa
 	actualValue, exists := node.Labels[labelKey]
 	require.True(s.T, exists, "expected node %q to have label %q, but it was not found", s.Runtime.VM.KubeName, labelKey)
 	require.Equal(s.T, expectedValue, actualValue, "expected node %q label %q to have value %q, but got %q", s.Runtime.VM.KubeName, labelKey, expectedValue, actualValue)
+}
+
+// ValidateRxBufferDefault validates rx buffer config using default values based on VM's CPU count
+func ValidateRxBufferDefault(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	// Query the VM's actual CPU count using nproc
+	cpuCountCmd := "nproc"
+	result := execScriptOnVMForScenarioValidateExitCode(ctx, s, cpuCountCmd, 0, "could not get CPU count from VM")
+	vmCPUCount := strings.TrimSpace(result.stdout)
+
+	// Parse CPU count
+	cpuCount, err := strconv.Atoi(vmCPUCount)
+	require.NoError(s.T, err, "failed to parse CPU count: %s", vmCPUCount)
+
+	// Determine expected rx based on VM's CPU count (matching configure-azure-network.sh logic)
+	expectedRx := "1024"
+	if cpuCount >= 4 {
+		expectedRx = "2048"
+	}
+
+	s.T.Logf("VM has %d CPUs, expecting rx buffer size: %s", cpuCount, expectedRx)
+
+	customNicConfig := map[string]string{
+		"rx": expectedRx,
+	}
+
+	// Validate files exist
+	ValidateAzureNetworkFiles(ctx, s)
+
+	// Validate network interface settings match expected default
+	ValidateNetworkInterfaceConfig(ctx, s, customNicConfig)
 }

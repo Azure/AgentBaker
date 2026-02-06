@@ -18,7 +18,7 @@ installDeps() {
     OSVERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
     BLOBFUSE_VERSION="1.4.5"
     # Blobfuse2 has been upgraded in upstream, using this version for parity between 22.04 and 24.04
-    BLOBFUSE2_VERSION="2.5.0"
+    BLOBFUSE2_VERSION="2.5.2"  # TODO (djsly) this should be centralized and moved to components.json!
 
     # blobfuse2 is installed for all ubuntu versions, it is included in pkg_list
     # for 22.04, fuse3 is installed. for all others, fuse is installed
@@ -196,7 +196,7 @@ installCredentialProviderFromPMC() {
         os_version="${UBUNTU_RELEASE}"
     fi
     PACKAGE_VERSION=""
-    getLatestPkgVersionFromK8sVersion "$k8sVersion" "azure-acr-credential-provider-pmc" "$os" "$os_version"
+    getLatestPkgVersionFromK8sVersion "$k8sVersion" "azure-acr-credential-provider-pmc" "$os" "$os_version" "${OS_VARIANT}"
     packageVersion=$(echo $PACKAGE_VERSION | cut -d "-" -f 1)
     echo "installing azure-acr-credential-provider package version: $packageVersion"
     mkdir -p "${CREDENTIAL_PROVIDER_BIN_DIR}"
@@ -249,7 +249,7 @@ installCredentialProviderPackageFromBootstrapProfileRegistry() {
         os_version="${UBUNTU_RELEASE}"
     fi
     PACKAGE_VERSION=""
-    getLatestPkgVersionFromK8sVersion "$k8sVersion" "azure-acr-credential-provider-pmc" "$os" "$os_version"
+    getLatestPkgVersionFromK8sVersion "$k8sVersion" "azure-acr-credential-provider-pmc" "$os" "$os_version" "${OS_VARIANT}"
     packageVersion=$(echo $PACKAGE_VERSION | cut -d "-" -f 1)
     if [ -z "$packageVersion" ]; then
         packageVersion=$(echo "$CREDENTIAL_PROVIDER_DOWNLOAD_URL" | grep -oP 'v\d+(\.\d+)*' | sed 's/^v//' | head -n 1)
