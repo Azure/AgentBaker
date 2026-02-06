@@ -392,4 +392,3 @@ func TestApp_GetTaskNameForCommand(t *testing.T) {
 		})
 	}
 }
-
