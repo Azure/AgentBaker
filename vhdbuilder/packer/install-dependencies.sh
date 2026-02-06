@@ -608,7 +608,7 @@ while IFS= read -r p; do
         elif [ "$IS_KATA" = "true" ]; then
           echo "Skipping NPD install for kata VHD"
         elif [ "${OS}" = "${UBUNTU_OS_NAME}" ] || [ "${OS}" = "${AZURELINUX_OS_NAME}" ]; then
-          # installNodeProblemDetector over in npd-install.sh
+          # installNodeProblemDetector over in install-npd.sh
           installNodeProblemDetector "${downloadDir}" "${evaluatedURL}" "${npdName}"
         fi
         echo "  - node-problem-detector version ${version}" >> ${VHD_LOGS_FILEPATH}

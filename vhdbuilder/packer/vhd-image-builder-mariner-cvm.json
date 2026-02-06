@@ -360,8 +360,8 @@
     },
     {
       "type": "file",
-      "source": "vhdbuilder/packer/npd-install.sh",
-      "destination": "/home/packer/npd-install.sh"
+      "source": "vhdbuilder/packer/install-npd.sh",
+      "destination": "/home/packer/install-npd.sh"
     },
     {
       "type": "file",
