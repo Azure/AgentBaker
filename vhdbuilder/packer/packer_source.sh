@@ -331,8 +331,8 @@ copyPackerFiles() {
   NPD_SERVICE_SRC=/home/packer/node-problem-detector.service
   NPD_SERVICE_DEST=/etc/systemd/system/node-problem-detector.service
 
-  # Skip for OSGuard and Flatcar - NPD is not installed on these variants
-  if ! { isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || isFlatcar "$OS"; }; then
+  # Skip for Mariner, OSGuard, and Flatcar - NPD is only installed on Ubuntu and Azure Linux 3
+  if ! { isMariner "$OS" || isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || isFlatcar "$OS"; }; then
     cpAndMode $NPD_STARTUP_SCRIPT_SRC $NPD_STARTUP_SCRIPT_DEST 755
     cpAndMode $NPD_SERVICE_SRC $NPD_SERVICE_DEST 644
   fi
