@@ -1286,6 +1286,14 @@
                 "latestVersion": "1.34.0-2.azl3"
               }
             ]
+          },
+          "OSGUARD/v3.0": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "<SKIP>"
+              }
+            ]
           }
         },
         "azurelinuxkata": {
