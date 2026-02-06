@@ -142,6 +142,22 @@ func getBaseNBC(t testing.TB, cluster *Cluster, vhd *config.Image) (*datamodel.N
 	return nbc, nil
 }
 
+// convertCriticalHostsEntriesToProto converts the NBC LocalDNSProfile CriticalHostsEntries
+// (map[string][]string) to the proto CriticalHostsEntries (map[string]*CriticalHostsEntry).
+// Returns nil if the profile or entries are nil/empty.
+func convertCriticalHostsEntriesToProto(profile *datamodel.AgentPoolProfile) map[string]*aksnodeconfigv1.CriticalHostsEntry {
+	if profile == nil || profile.LocalDNSProfile == nil || len(profile.LocalDNSProfile.CriticalHostsEntries) == 0 {
+		return nil
+	}
+	result := make(map[string]*aksnodeconfigv1.CriticalHostsEntry, len(profile.LocalDNSProfile.CriticalHostsEntries))
+	for fqdn, ips := range profile.LocalDNSProfile.CriticalHostsEntries {
+		result[fqdn] = &aksnodeconfigv1.CriticalHostsEntry{
+			IpAddresses: ips,
+		}
+	}
+	return result
+}
+
 // is a temporary workaround
 // eventually we want to phase out usage of nbc
 func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnodeconfigv1.Configuration {
@@ -216,6 +232,7 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnod
 			EnableLocalDns:       true,
 			CpuLimitInMilliCores: to.Ptr(int32(2008)),
 			MemoryLimitInMb:      to.Ptr(int32(256)),
+			CriticalHostsEntries: convertCriticalHostsEntriesToProto(nbc.AgentPoolProfile),
 			VnetDnsOverrides: map[string]*aksnodeconfigv1.LocalDnsOverrides{
 				".": {
 					QueryLogging:                "Log",
@@ -451,6 +468,11 @@ func baseTemplateLinux(t testing.TB, location string, k8sVersion string, arch st
 							EnableLocalDNS:       true,
 							CPULimitInMilliCores: to.Ptr(int32(2008)),
 							MemoryLimitInMB:      to.Ptr(int32(128)),
+							CriticalHostsEntries: map[string][]string{
+								"mcr.microsoft.com":         {"20.61.99.68", "2603:1061:1002::2"},
+								"login.microsoftonline.com": {"20.190.160.1"},
+								"acs-mirror.azureedge.net":  {"152.199.19.161"},
+							},
 							VnetDNSOverrides: map[string]*datamodel.LocalDNSOverrides{
 								".": {
 									QueryLogging:                "Log",
@@ -600,6 +622,11 @@ func baseTemplateLinux(t testing.TB, location string, k8sVersion string, arch st
 				EnableLocalDNS:       true,
 				CPULimitInMilliCores: to.Ptr(int32(2008)),
 				MemoryLimitInMB:      to.Ptr(int32(128)),
+				CriticalHostsEntries: map[string][]string{
+					"mcr.microsoft.com":         {"20.61.99.68", "2603:1061:1002::2"},
+					"login.microsoftonline.com": {"20.190.160.1"},
+					"acs-mirror.azureedge.net":  {"152.199.19.161"},
+				},
 				VnetDNSOverrides: map[string]*datamodel.LocalDNSOverrides{
 					".": {
 						QueryLogging:                "Log",

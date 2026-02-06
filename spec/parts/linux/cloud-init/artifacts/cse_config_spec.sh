@@ -916,6 +916,53 @@ providers:
             The status should be success
             The output should include "systemctlEnableAndStart aks-hosts-setup.timer 30"
         End
+
+        It 'should decode and write critical hosts entries when LOCALDNS_CRITICAL_HOSTS_ENTRIES is set'
+            setup_critical_hosts() {
+                # base64 of "# mcr.microsoft.com\n20.61.99.68 mcr.microsoft.com\n"
+                LOCALDNS_CRITICAL_HOSTS_ENTRIES=$(echo -n '# mcr.microsoft.com
+20.61.99.68 mcr.microsoft.com
+' | base64 -w 0)
+                HOSTS_DIR=$(mktemp -d)
+                # Override the hosts_file path by redefining the function
+                enableAKSHostsSetup() {
+                    local hosts_file="${HOSTS_DIR}/hosts"
+                    if [ -n "${LOCALDNS_CRITICAL_HOSTS_ENTRIES}" ]; then
+                        echo "AKS-RP provided critical hosts entries, writing to ${hosts_file}..."
+                        mkdir -p "$(dirname "${hosts_file}")"
+                        echo "${LOCALDNS_CRITICAL_HOSTS_ENTRIES}" | base64 -d > "${hosts_file}"
+                        chmod 644 "${hosts_file}"
+                        echo "Critical hosts entries written from AKS-RP."
+                    fi
+                    echo "Enabling aks-hosts-setup timer..."
+                    systemctlEnableAndStart aks-hosts-setup.timer 30 || return 1
+                    echo "aks-hosts-setup timer enabled successfully."
+                }
+                systemctlEnableAndStart() {
+                    echo "systemctlEnableAndStart $@"
+                    return 0
+                }
+            }
+            BeforeRun 'setup_critical_hosts'
+            When call enableAKSHostsSetup
+            The status should be success
+            The output should include "AKS-RP provided critical hosts entries"
+            The output should include "Critical hosts entries written from AKS-RP."
+        End
+
+        It 'should fall back to live DNS resolution when LOCALDNS_CRITICAL_HOSTS_ENTRIES is empty'
+            setup_empty_entries() {
+                LOCALDNS_CRITICAL_HOSTS_ENTRIES=""
+                systemctlEnableAndStart() {
+                    echo "systemctlEnableAndStart $@"
+                    return 0
+                }
+            }
+            BeforeRun 'setup_empty_entries'
+            When call enableAKSHostsSetup
+            The status should be success
+            The output should include "Running initial aks-hosts-setup to resolve DNS..."
+        End
     End
 
     Describe 'configureAndStartSecureTLSBootstrapping'

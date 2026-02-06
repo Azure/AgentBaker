@@ -348,6 +348,48 @@ func TestBuildCSECmd_SetsServicePrincipalFileContent(t *testing.T) {
 	assert.Equal(t, secret, vars["SERVICE_PRINCIPAL_FILE_CONTENT"])
 }
 
+func TestBuildCSECmd_SetsLocalDNSCriticalHostsEntries(t *testing.T) {
+	t.Run("empty when no LocalDnsProfile", func(t *testing.T) {
+		cmd, err := BuildCSECmd(context.TODO(), &aksnodeconfigv1.Configuration{})
+		require.NoError(t, err)
+		vars := environToMap(cmd.Env)
+		assert.Equal(t, "", vars["LOCALDNS_CRITICAL_HOSTS_ENTRIES"])
+	})
+
+	t.Run("empty when CriticalHostsEntries is nil", func(t *testing.T) {
+		cmd, err := BuildCSECmd(context.TODO(), &aksnodeconfigv1.Configuration{
+			LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
+				EnableLocalDns: true,
+			},
+		})
+		require.NoError(t, err)
+		vars := environToMap(cmd.Env)
+		assert.Equal(t, "", vars["LOCALDNS_CRITICAL_HOSTS_ENTRIES"])
+	})
+
+	t.Run("populated when CriticalHostsEntries has entries", func(t *testing.T) {
+		cmd, err := BuildCSECmd(context.TODO(), &aksnodeconfigv1.Configuration{
+			LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
+				EnableLocalDns: true,
+				CriticalHostsEntries: map[string]*aksnodeconfigv1.CriticalHostsEntry{
+					"mcr.microsoft.com": {IpAddresses: []string{"20.61.99.68"}},
+				},
+			},
+		})
+		require.NoError(t, err)
+		vars := environToMap(cmd.Env)
+
+		encoded := vars["LOCALDNS_CRITICAL_HOSTS_ENTRIES"]
+		assert.NotEmpty(t, encoded)
+
+		decoded, err := base64.StdEncoding.DecodeString(encoded)
+		require.NoError(t, err)
+		content := string(decoded)
+		assert.Contains(t, content, "20.61.99.68 mcr.microsoft.com")
+		assert.Contains(t, content, "# mcr.microsoft.com")
+	})
+}
+
 func TestAKSNodeConfigCompatibilityFromJsonToCSECommand(t *testing.T) {
 	tests := []struct {
 		name      string

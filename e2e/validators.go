@@ -1284,6 +1284,20 @@ func ValidateLocalDNSResolution(ctx context.Context, s *Scenario, server string)
 	assert.Contains(s.T, execResult.stdout, fmt.Sprintf("SERVER: %s", server))
 }
 
+// ValidateLocalDNSHostsFile checks that /etc/localdns/hosts contains the expected critical host entries.
+func ValidateLocalDNSHostsFile(ctx context.Context, s *Scenario, expectedEntries map[string][]string) {
+	s.T.Helper()
+	script := "sudo cat /etc/localdns/hosts"
+	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0, "failed to read /etc/localdns/hosts")
+	for fqdn, ips := range expectedEntries {
+		for _, ip := range ips {
+			expected := fmt.Sprintf("%s %s", ip, fqdn)
+			assert.Contains(s.T, execResult.stdout, expected,
+				"expected /etc/localdns/hosts to contain %q", expected)
+		}
+	}
+}
+
 // ValidateJournalctlOutput checks if specific content exists in the systemd service logs
 func ValidateJournalctlOutput(ctx context.Context, s *Scenario, serviceName string, expectedContent string) {
 	s.T.Helper()
