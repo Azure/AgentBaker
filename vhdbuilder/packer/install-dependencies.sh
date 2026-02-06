@@ -29,7 +29,7 @@ source /home/packer/provision_source_benchmarks.sh
 source /home/packer/provision_source_distro.sh
 source /home/packer/tool_installs.sh
 source /home/packer/tool_installs_distro.sh
-source "${THIS_DIR}/npd-install.sh"
+source "${THIS_DIR}/install-npd.sh"
 
 CPU_ARCH=$(getCPUArch)  #amd64 or arm64
 
@@ -455,7 +455,7 @@ while IFS= read -r p; do
         elif [ "$IS_KATA" = "true" ]; then
           echo "Skipping NPD install for kata VHD"
         elif [ "${OS}" = "${UBUNTU_OS_NAME}" ] || [ "${OS}" = "${AZURELINUX_OS_NAME}" ]; then
-          # installNodeProblemDetector over in npd-install.sh
+          # installNodeProblemDetector over in install-npd.sh
           installNodeProblemDetector "${downloadDir}" "${evaluatedURL}" "${npdName}"
         fi
         echo "  - node-problem-detector version ${version}" >> ${VHD_LOGS_FILEPATH}
