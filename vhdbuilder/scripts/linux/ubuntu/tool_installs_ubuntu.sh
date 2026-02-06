@@ -222,12 +222,13 @@ attachUA() {
     retrycmd_silent 5 10 1000 ua attach $UA_TOKEN || exit $ERR_UA_ATTACH
 
     echo "disabling ua livepatch..."
-    yes | ua disable livepatch
+    retrycmd_if_failure 5 10 300 ua disable livepatch || exit $ERR_UA_DISABLE_LIVEPATCH
 }
 
 detachAndCleanUpUA() {
-    echo "detaching ua..."
-    bash -c 'printf "y\nN\n" | ua detach' || exit $ERR_UA_DETACH
+    echo "disabling ua services individually to preserve FIPS kernel and grub config..."
+    retrycmd_if_failure 5 10 300 ua disable esm-apps || exit $ERR_UA_DETACH
+    retrycmd_if_failure 5 10 300 ua disable esm-infra || exit $ERR_UA_DETACH
 
     # now that the ESM/FIPS packages are installed, clean up apt settings in the vhd,
     # the VMs created on customers' subscriptions don't have access to UA repo
