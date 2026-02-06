@@ -238,6 +238,7 @@ detachAndCleanUpUA() {
     rm -f /etc/apt/sources.list.d/ubuntu-esm-apps.list
     rm -f /etc/apt/sources.list.d/ubuntu-esm-infra.list
     rm -f /etc/apt/sources.list.d/ubuntu-fips-updates.list
+    rm -f /etc/apt/sources.list.d/ubuntu-fips-preview.list
     rm -f /etc/apt/auth.conf.d/*ubuntu-advantage
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
 }
