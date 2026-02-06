@@ -329,13 +329,6 @@
       "destination": "/home/packer/install-dependencies.sh"
     },
     {
-      "type": "shell",
-      "inline": [
-        "mkdir -p /home/packer/node-exporter/baseline/etc/systemd/system",
-        "mkdir -p /home/packer/node-exporter/baseline/etc/node-exporter.d"
-      ]
-    },
-    {
       "type": "file",
       "source": "vhdbuilder/packer/install-node-exporter.sh",
       "destination": "/home/packer/install-node-exporter.sh"
@@ -343,32 +336,32 @@
     {
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/node-exporter/node-exporter-startup.sh",
-      "destination": "/home/packer/node-exporter/node-exporter-startup.sh"
+      "destination": "/home/packer/node-exporter-startup.sh"
     },
     {
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/node-exporter/skip_vhd_node_exporter",
-      "destination": "/home/packer/node-exporter/skip_vhd_node_exporter"
+      "destination": "/home/packer/skip_vhd_node_exporter"
     },
     {
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/node-exporter/baseline/etc/systemd/system/node-exporter.service",
-      "destination": "/home/packer/node-exporter/baseline/etc/systemd/system/node-exporter.service"
+      "destination": "/home/packer/node-exporter.service"
     },
     {
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/node-exporter/baseline/etc/systemd/system/node-exporter-restart.service",
-      "destination": "/home/packer/node-exporter/baseline/etc/systemd/system/node-exporter-restart.service"
+      "destination": "/home/packer/node-exporter-restart.service"
     },
     {
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/node-exporter/baseline/etc/systemd/system/node-exporter-restart.path",
-      "destination": "/home/packer/node-exporter/baseline/etc/systemd/system/node-exporter-restart.path"
+      "destination": "/home/packer/node-exporter-restart.path"
     },
     {
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/node-exporter/baseline/etc/node-exporter.d/web-config.yml",
-      "destination": "/home/packer/node-exporter/baseline/etc/node-exporter.d/web-config.yml"
+      "destination": "/home/packer/node-exporter-web-config.yml"
     },
     {
       "type": "file",

@@ -309,6 +309,32 @@ copyPackerFiles() {
   cpAndMode $AZURE_NETWORK_UDEV_RULE_SRC $AZURE_NETWORK_UDEV_RULE_DEST 0644
 # ---------------------------------------------------------------------------------------
 
+# ------------------------- Files related to node-exporter ------------------------------
+  NODE_EXPORTER_STARTUP_SRC=/home/packer/node-exporter-startup.sh
+  NODE_EXPORTER_STARTUP_DEST=/opt/bin/node-exporter-startup.sh
+  NODE_EXPORTER_SERVICE_SRC=/home/packer/node-exporter.service
+  NODE_EXPORTER_SERVICE_DEST=/etc/systemd/system/node-exporter.service
+  NODE_EXPORTER_RESTART_SERVICE_SRC=/home/packer/node-exporter-restart.service
+  NODE_EXPORTER_RESTART_SERVICE_DEST=/etc/systemd/system/node-exporter-restart.service
+  NODE_EXPORTER_RESTART_PATH_SRC=/home/packer/node-exporter-restart.path
+  NODE_EXPORTER_RESTART_PATH_DEST=/etc/systemd/system/node-exporter-restart.path
+  NODE_EXPORTER_WEB_CONFIG_SRC=/home/packer/node-exporter-web-config.yml
+  NODE_EXPORTER_WEB_CONFIG_DEST=/etc/node-exporter.d/web-config.yml
+  NODE_EXPORTER_SKIP_FILE_SRC=/home/packer/skip_vhd_node_exporter
+  NODE_EXPORTER_SKIP_FILE_DEST=/etc/node-exporter.d/skip_vhd_node_exporter
+
+  # Skip for OSGuard, Flatcar, and Kata
+  if ! { isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || isFlatcar "$OS" || grep -q "kata" <<< "$FEATURE_FLAGS"; }; then
+    cpAndMode $NODE_EXPORTER_STARTUP_SRC $NODE_EXPORTER_STARTUP_DEST 755
+    cpAndMode $NODE_EXPORTER_SERVICE_SRC $NODE_EXPORTER_SERVICE_DEST 644
+    cpAndMode $NODE_EXPORTER_RESTART_SERVICE_SRC $NODE_EXPORTER_RESTART_SERVICE_DEST 644
+    cpAndMode $NODE_EXPORTER_RESTART_PATH_SRC $NODE_EXPORTER_RESTART_PATH_DEST 644
+    cpAndMode $NODE_EXPORTER_WEB_CONFIG_SRC $NODE_EXPORTER_WEB_CONFIG_DEST 644
+    cpAndMode $NODE_EXPORTER_SKIP_FILE_SRC $NODE_EXPORTER_SKIP_FILE_DEST 644
+    ln -sf /usr/bin/node-exporter /opt/bin/node-exporter
+  fi
+# ---------------------------------------------------------------------------------------
+
   # Install AKS diagnostic
   cpAndMode $AKS_DIAGNOSTIC_SCRIPT_SRC $AKS_DIAGNOSTIC_SCRIPT_DEST 755
 
