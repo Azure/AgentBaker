@@ -1704,16 +1704,16 @@ testInspektorGadgetAssets() {
   local unit_file="/usr/lib/systemd/system/${service_name}"
   local tracking_file="/var/lib/ig/imported-gadgets.txt"
 
-  # Flatcar, OSGuard, and Kata do not include IG files in VHD
+  # Flatcar, OSGuard, Kata, and CBLMariner (Mariner 2.0) do not include IG files in VHD
   local is_kata=false
   if echo "$FEATURE_FLAGS" | grep -q "kata"; then
     is_kata=true
   fi
 
-  if [ "$OS_SKU" = "Flatcar" ] || [ "$OS_SKU" = "AzureLinuxOSGuard" ] || [ "$is_kata" = "true" ]; then
+  if [ "$OS_SKU" = "Flatcar" ] || [ "$OS_SKU" = "AzureLinuxOSGuard" ] || [ "$OS_SKU" = "CBLMariner" ] || [ "$is_kata" = "true" ]; then
     echo "$test: Verifying $OS_SKU (kata=$is_kata) has no IG files in VHD"
     
-    # Verify that IG files do NOT exist for Flatcar/OSGuard/Kata
+    # Verify that IG files do NOT exist for Flatcar/OSGuard/CBLMariner/Kata
     if [ -f "$skip_file" ]; then
       err $test "Skip file should not exist for $OS_SKU but found at $skip_file"
     fi

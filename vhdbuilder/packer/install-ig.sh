@@ -1,37 +1,12 @@
 #!/bin/bash
+# This script handles Inspektor Gadget package installation during VHD build.
+# Baseline files (helper scripts, systemd service) are copied by packer_source.sh.
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
-# Directory lookup will be done lazily in ig_locate_root_dir function
-# This allows the script to be sourced even when IG assets are not present (e.g., Flatcar, OSGuard)
-IG_ROOT_DIR=""
-IG_BASELINE_DIR=""
 IG_DEFAULT_BUILD_ROOT="/opt/azure/ig"
-IG_SKIP_FILE="/etc/ig.d/skip_vhd_ig"
 IG_SERVICE_NAME="ig-import-gadgets.service"
-
-ig_locate_root_dir() {
-    if [[ -n "${IG_ROOT_DIR}" ]]; then
-        return 0  # Already located
-    fi
-
-    local candidate="${SCRIPT_DIR}/inspektor-gadget"
-    if [[ -d "${candidate}" ]]; then
-        IG_ROOT_DIR="$(cd "${candidate}" && pwd)"
-    elif [[ -d "${SCRIPT_DIR}/../../parts/linux/cloud-init/artifacts/inspektor-gadget" ]]; then
-        IG_ROOT_DIR="$(cd "${SCRIPT_DIR}/../../parts/linux/cloud-init/artifacts/inspektor-gadget" && pwd)"
-    elif [[ -d "/home/packer/inspektor-gadget" ]]; then
-        IG_ROOT_DIR="/home/packer/inspektor-gadget"
-    else
-        echo "[ig] Unable to locate Inspektor Gadget asset directory"
-        return 1
-    fi
-
-    IG_BASELINE_DIR="${IG_ROOT_DIR}/baseline"
-    return 0
-}
+IG_SKIP_FILE="/etc/ig.d/skip_vhd_ig"
 
 ig_extract_package_metadata() {
     local package_json="$1"
@@ -92,27 +67,6 @@ ig_download_file() {
     fi
 }
 
-ig_copy_baseline_assets() {
-    echo "[ig] Copying baseline helper scripts"
-
-    mkdir -p /usr/share/inspektor-gadget
-    cp -f "${IG_BASELINE_DIR}/usr/share/inspektor-gadget/import_gadgets.sh" /usr/share/inspektor-gadget/
-    cp -f "${IG_BASELINE_DIR}/usr/share/inspektor-gadget/remove_gadgets.sh" /usr/share/inspektor-gadget/
-    chmod +x /usr/share/inspektor-gadget/import_gadgets.sh /usr/share/inspektor-gadget/remove_gadgets.sh
-
-    local unit_source="${IG_BASELINE_DIR}/usr/lib/systemd/system/${IG_SERVICE_NAME}"
-    local unit_destination="/usr/lib/systemd/system/${IG_SERVICE_NAME}"
-    if [[ -f "${unit_source}" ]]; then
-        mkdir -p /usr/lib/systemd/system
-        cp -f "${unit_source}" "${unit_destination}"
-        chmod 644 "${unit_destination}"
-    else
-        echo "[ig] Baseline service unit missing at ${unit_source}; skipping copy"
-    fi
-
-    ig_enable_service_unit || echo "[ig] Failed to enable ${IG_SERVICE_NAME}"
-}
-
 ig_enable_service_unit() {
     local unit_path="/usr/lib/systemd/system/${IG_SERVICE_NAME}"
 
@@ -145,21 +99,6 @@ ig_import_gadgets() {
         echo "[ig] Gadget import script failed"
         return 1
     fi
-}
-
-ig_create_skip_file() {
-    local skip_source="${IG_ROOT_DIR}/skip_vhd_ig"
-
-    mkdir -p /etc/ig.d
-
-    if [[ ! -f "${skip_source}" ]]; then
-        echo "[ig] Skip file source missing at ${skip_source}"
-        return 1
-    fi
-
-    cp -f "${skip_source}" "${IG_SKIP_FILE}"
-
-    chmod 644 "${IG_SKIP_FILE}"
 }
 
 ig_install_deb_stack() {
@@ -263,30 +202,29 @@ installIG() {
         return 0
     fi
 
-    # Locate IG assets - only needed for OSes that actually install IG
-    if ! ig_locate_root_dir; then
-        return 1
-    fi
-
     if [[ "${OS}" == "${MARINER_OS_NAME}" || "${OS}" == "${AZURELINUX_OS_NAME}" ]]; then
         echo "[ig] Installing IG via RPM"
         if ! ig_install_rpm_stack; then
             ig_cleanup_build_artifacts
             return 1
         fi
-        ig_copy_baseline_assets
-        ig_import_gadgets || echo "[ig] Gadget import failed during build"
     else
         echo "[ig] Installing IG via DEB"
         if ! ig_install_deb_stack; then
             ig_cleanup_build_artifacts
             return 1
         fi
-        ig_copy_baseline_assets
-        ig_import_gadgets || echo "[ig] Gadget import failed during build"
     fi
 
-    ig_create_skip_file
+    # Enable the systemd service (baseline files copied by packer_source.sh)
+    ig_enable_service_unit || echo "[ig] Failed to enable ${IG_SERVICE_NAME}"
+    ig_import_gadgets || echo "[ig] Gadget import failed during build"
+
+    # Create skip sentinel file to indicate IG was installed from VHD
+    mkdir -p /etc/ig.d
+    touch "${IG_SKIP_FILE}"
+    chmod 644 "${IG_SKIP_FILE}"
+
     ig_log_version
     ig_cleanup_build_artifacts
 }
