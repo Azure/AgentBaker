@@ -162,9 +162,9 @@ installNetworkPlugin() {
         fi
     done
     if [ "$all_plugins_exist" = "false" ]; then
-        echo "One or more required CNI plugins not found in $CNI_BIN_DIR"
-        rm -rf "${CNI_BIN_DIR:?}"/* # remove everything from cni directory first
+        echo "One or more required CNI plugins not found in $CNI_BIN_DIR; installing fixed CNI plugins without removing existing binaries"
         installFixedCNI
+        rm -rf "${CNI_DOWNLOADS_DIR:?}" &
     fi
 }
 
