@@ -33,7 +33,6 @@ type TestAppConfig struct {
 }
 
 type TestApp struct {
-	t           *testing.T
 	App         *App
 	eventLogger *helpers.EventLogger
 }
@@ -46,19 +45,12 @@ func NewTestApp(t *testing.T, cfg TestAppConfig) *TestApp {
 	}
 	eventLogger := helpers.NewEventLogger(eventsDir)
 	return &TestApp{
-		t:           t,
 		eventLogger: eventLogger,
 		App: &App{
 			cmdRunner:   runFunc,
 			eventLogger: eventLogger,
 		},
 	}
-}
-
-func (tt *TestApp) ReadEvents() []helpers.GuestAgentEvent {
-	events, err := tt.eventLogger.Events()
-	require.NoError(tt.t, err)
-	return events
 }
 
 func TestApp_Run(t *testing.T) {
@@ -85,7 +77,7 @@ func TestApp_Run(t *testing.T) {
 		exitCode := tt.App.Run(context.Background(), []string{"aks-node-controller", "provision", "--provision-config=parser/testdata/test_aksnodeconfig.json"})
 		assert.Equal(t, 0, exitCode)
 
-		events := tt.ReadEvents()
+		events := tt.eventLogger.Events()
 		assert.Len(t, events, 2)
 		assert.Contains(t, events[0].Message, "Starting")
 		assert.Contains(t, events[1].Message, "Completed")
@@ -98,7 +90,7 @@ func TestApp_Run(t *testing.T) {
 		exitCode := tt.App.Run(context.Background(), []string{"aks-node-controller", "provision", "--provision-config=parser/testdata/test_aksnodeconfig.json"})
 		assert.Equal(t, 666, exitCode)
 
-		events := tt.ReadEvents()
+		events := tt.eventLogger.Events()
 		assert.Len(t, events, 2)
 		assert.Equal(t, "Error", events[1].EventLevel)
 	})

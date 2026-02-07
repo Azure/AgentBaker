@@ -101,10 +101,11 @@ func (l *EventLogger) LogEvent(taskName, message string, eventLevel EventLevel, 
 // Events reads all guest agent event files from the directory.
 // Events are returned in filename order (which corresponds to creation time since
 // filenames are nanosecond timestamps). This method is primarily useful for testing.
-func (l *EventLogger) Events() ([]GuestAgentEvent, error) {
+func (l *EventLogger) Events() []GuestAgentEvent {
 	files, err := os.ReadDir(l.Dir)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read events directory: %w", err)
+		slog.Error("failed to read events directory", "path", l.Dir, "error", err)
+		return nil
 	}
 
 	var events []GuestAgentEvent
@@ -115,16 +116,18 @@ func (l *EventLogger) Events() ([]GuestAgentEvent, error) {
 
 		data, err := os.ReadFile(filepath.Join(l.Dir, file.Name()))
 		if err != nil {
-			return nil, fmt.Errorf("failed to read event file %s: %w", file.Name(), err)
+			slog.Error("failed to read event file", "file", file.Name(), "error", err)
+			return nil
 		}
 
 		var event GuestAgentEvent
 		if err := json.Unmarshal(data, &event); err != nil {
-			return nil, fmt.Errorf("failed to parse event file %s: %w", file.Name(), err)
+			slog.Error("failed to unmarshal event file", "file", file.Name(), "error", err)
+			return nil
 		}
 
 		events = append(events, event)
 	}
 
-	return events, nil
+	return events
 }
