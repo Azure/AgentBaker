@@ -20,6 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -148,49 +149,54 @@ func (k *Kubeclient) WaitUntilPodRunning(ctx context.Context, namespace string, 
 
 func (k *Kubeclient) WaitUntilNodeReady(ctx context.Context, t testing.TB, vmssName string) string {
 	defer toolkit.LogStepf(t, "waiting for node %s to be ready", vmssName)()
+
 	var lastNode *corev1.Node
-
-	err := wait.PollUntilContextTimeout(ctx, 10*time.Second, 10*time.Minute, true, func(ctx context.Context) (bool, error) {
-		nodes, err := k.Typed.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
-		if err != nil {
-			t.Logf("error listing nodes: %v", err)
-			return false, nil
-		}
-
-		for i := range nodes.Items {
-			node := &nodes.Items[i]
-			if !strings.HasPrefix(node.Name, vmssName) {
-				continue
+	for ctx.Err() == nil {
+		name := func() string {
+			watcher, err := k.Typed.CoreV1().Nodes().Watch(ctx, metav1.ListOptions{})
+			if err != nil {
+				t.Logf("failed to start node watch: %v, retrying in 5s", err)
+				select {
+				case <-ctx.Done():
+				case <-time.After(5 * time.Second):
+				}
+				return ""
 			}
+			defer watcher.Stop()
 
-			lastNode = node
-			nodeTaints, _ := json.Marshal(node.Spec.Taints)
-			nodeConditions, _ := json.Marshal(node.Status.Conditions)
-
-			for _, cond := range node.Status.Conditions {
-				if cond.Type == corev1.NodeReady && cond.Status == corev1.ConditionTrue {
-					t.Logf("node %s is ready. Taints: %s Conditions: %s", node.Name, string(nodeTaints), string(nodeConditions))
-					return true, nil
+			for event := range watcher.ResultChan() {
+				if event.Type == watch.Error {
+					t.Logf("node watch error: %v", event.Object)
+					return ""
+				}
+				node, ok := event.Object.(*corev1.Node)
+				if !ok || !strings.HasPrefix(node.Name, vmssName) {
+					continue
+				}
+				if event.Type == watch.Deleted {
+					t.Fatalf("node %s was deleted", node.Name)
+				}
+				lastNode = node
+				for _, cond := range node.Status.Conditions {
+					if cond.Type == corev1.NodeReady && cond.Status == corev1.ConditionTrue {
+						t.Logf("node %s is ready", node.Name)
+						return node.Name
+					}
 				}
 			}
-
-			t.Logf("node %s is not ready. Taints: %s Conditions: %s", node.Name, string(nodeTaints), string(nodeConditions))
-		}
-
-		return false, nil
-	})
-
-	if err != nil {
-		if lastNode == nil {
-			t.Fatalf("%q haven't appeared in k8s API server: %v", vmssName, err)
 			return ""
+		}()
+		if name != "" {
+			return name
 		}
-		nodeString, _ := json.Marshal(lastNode)
-		t.Fatalf("failed to wait for %q (%s) to be ready %+v. Detail: %s", vmssName, lastNode.Name, lastNode.Status, string(nodeString))
-		return ""
 	}
 
-	return lastNode.Name
+	if lastNode != nil {
+		nodeJSON, _ := json.Marshal(lastNode)
+		t.Fatalf("node %s (%s) not ready: %v\n%s", vmssName, lastNode.Name, ctx.Err(), nodeJSON)
+	}
+	t.Fatalf("node %q not found: %v", vmssName, ctx.Err())
+	return ""
 }
 
 // GetPodNetworkDebugPodForNode returns a pod that's a member of the 'debugnonhost' daemonset running in the cluster - this will return
