@@ -343,6 +343,16 @@ function nodePrep {
     # Configure Azure network settings (udev rules for NIC configuration)
     logs_to_events "AKS.CSE.ensureAzureNetworkConfig" ensureAzureNetworkConfig
 
+    # Disable kernel lockdown integrity mode on AzureLinux when secure boot is not enabled.
+    # This must run before GPU driver installation since lockdown=integrity blocks unsigned modules.
+    if isMarinerOrAzureLinux "$OS"; then
+        export -f is_secure_boot_enabled
+        secure_boot_enabled=$(is_secure_boot_enabled)
+        if [ "${secure_boot_enabled}" != "true" ]; then
+            logs_to_events "AKS.CSE.disableKernelLockdown" disableKernelLockdown
+        fi
+    fi
+
     # Determine if GPU driver installation should be skipped
     export -f should_skip_nvidia_drivers
     skip_nvidia_driver_install=$(should_skip_nvidia_drivers)

@@ -982,6 +982,42 @@ ensureGPUDrivers() {
     fi
 }
 
+# Disables kernel lockdown integrity mode on AzureLinux when secure boot is not enabled.
+# Lockdown integrity blocks loading unsigned kernel modules (e.g., NVIDIA GPU drivers).
+# Without secure boot, lockdown provides no real security benefit since an attacker with
+# root access can modify GRUB cmdline directly.
+#
+# Two-phase disable:
+#   1. Runtime: write "none" to /sys/kernel/security/lockdown (immediate, no reboot)
+#   2. Persistent: replace lockdown=integrity with lockdown=none in GRUB config
+disableKernelLockdown() {
+    local current_lockdown
+    current_lockdown=$(cat /sys/kernel/security/lockdown 2>/dev/null) || true
+
+    # Check if lockdown is currently in integrity mode (shown as "[integrity]" in sysfs)
+    if ! echo "$current_lockdown" | grep -q '\[integrity\]'; then
+        echo "Kernel lockdown is not in integrity mode (current: $current_lockdown), no action needed"
+        return 0
+    fi
+
+    echo "Kernel lockdown integrity mode detected, disabling (secure boot not enabled)"
+
+    # Phase 1: Runtime disable — takes effect immediately without reboot
+    if ! echo none > /sys/kernel/security/lockdown 2>/dev/null; then
+        echo "Warning: failed to disable kernel lockdown at runtime via sysfs"
+    fi
+
+    # Phase 2: Persist across reboots by updating GRUB configuration
+    if [ -f /etc/default/grub ]; then
+        sed -i 's/lockdown=integrity/lockdown=none/g' /etc/default/grub
+        # Also update any grub.d drop-in configs
+        find /etc/default/grub.d/ -name '*.cfg' -exec sed -i 's/lockdown=integrity/lockdown=none/g' {} + 2>/dev/null || true
+        grub2-mkconfig -o /boot/grub2/grub.cfg 2>/dev/null || \
+            grub-mkconfig -o /boot/grub/grub.cfg 2>/dev/null || \
+            echo "Warning: failed to regenerate GRUB config"
+    fi
+}
+
 disableSSH() {
     # On ubuntu, the ssh service is named "ssh.service"
     systemctlDisableAndStop ssh || exit $ERR_DISABLE_SSH

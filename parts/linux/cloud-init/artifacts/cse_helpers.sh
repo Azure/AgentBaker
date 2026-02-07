@@ -742,6 +742,20 @@ should_skip_nvidia_drivers() {
     echo "$should_skip"
 }
 
+# Checks whether UEFI Secure Boot is enabled on this VM via cached IMDS instance metadata.
+# Returns "true" if enabled, "false" otherwise.
+is_secure_boot_enabled() {
+    set -x
+    if [ ! -f "$IMDS_INSTANCE_METADATA_CACHE_FILE" ]; then
+        echo "false"
+        return
+    fi
+    local secure_boot
+    secure_boot=$(jq -r '.compute.securityProfile.secureBootEnabled // "false"' "$IMDS_INSTANCE_METADATA_CACHE_FILE" 2>/dev/null)
+    # Normalize to lowercase for consistent comparison
+    echo "${secure_boot,,}"
+}
+
 should_disable_kubelet_serving_certificate_rotation() {
     set -x
     local should_disable

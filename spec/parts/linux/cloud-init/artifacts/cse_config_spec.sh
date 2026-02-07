@@ -1282,4 +1282,67 @@ providers:
             The output should not include "addKubeletNodeLabel kubernetes.azure.com/dcgm-exporter=enabled"
         End
     End
+
+    Describe 'disableKernelLockdown'
+        # Mock system commands at the Describe level, matching existing patterns
+        # (see configureManagedGPUExperience, configureKubeletAndKubectl above)
+        logs_to_events() {
+            echo "logs_to_events $1 $2"
+            eval "$2"
+        }
+
+        sed() {
+            echo "sed $@"
+        }
+
+        find() {
+            echo "find $@"
+        }
+
+        grub2-mkconfig() {
+            echo "grub2-mkconfig $@"
+            return 0
+        }
+
+        grub-mkconfig() {
+            echo "grub-mkconfig $@"
+            return 0
+        }
+
+        It 'should skip when lockdown is not in integrity mode'
+            # /sys/kernel/security/lockdown shows "[none]" as active mode
+            cat() {
+                echo "none [none] integrity confidentiality"
+            }
+            When call disableKernelLockdown
+            The output should include "not in integrity mode"
+            The status should be success
+        End
+
+        It 'should skip when lockdown sysfs file is unreadable'
+            cat() {
+                return 1
+            }
+            When call disableKernelLockdown
+            The output should include "not in integrity mode"
+            The status should be success
+        End
+
+        It 'should attempt to disable when lockdown is in integrity mode'
+            cat() {
+                echo "none [integrity] confidentiality"
+            }
+            echo() {
+                if [ "$1" = "none" ]; then
+                    command echo "echo none > sysfs (mocked)"
+                    return 0
+                fi
+                command echo "$@"
+            }
+            When call disableKernelLockdown
+            The output should include "Kernel lockdown integrity mode detected"
+            The stderr should not eq '' # sysfs path doesn't exist in test environment
+            The status should be success
+        End
+    End
 End

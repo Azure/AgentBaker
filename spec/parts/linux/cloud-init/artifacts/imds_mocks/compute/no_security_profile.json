@@ -1,0 +1,1 @@
+{"compute":{"securityProfile":{},"vmSize":"Standard_D2s_v3","tagsList":[]},"network":{"interface":[{"ipv4":{"ipAddress":[{"privateIpAddress":"10.0.0.4","publicIpAddress":""}]},"macAddress":"000D3A123456"}]}}

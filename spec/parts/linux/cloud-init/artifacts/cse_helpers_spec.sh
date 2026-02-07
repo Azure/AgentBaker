@@ -677,4 +677,38 @@ EOF
 			rm -f existing_file
         End
     End
+
+    Describe 'is_secure_boot_enabled'
+        It 'returns true when secure boot is enabled in IMDS metadata'
+            IMDS_INSTANCE_METADATA_CACHE_FILE="spec/parts/linux/cloud-init/artifacts/imds_mocks/compute/secure_boot_enabled.json"
+            When run is_secure_boot_enabled
+            The output should eq "true"
+            The stderr should not eq ''
+            The status should be success
+        End
+
+        It 'returns false when secure boot is disabled in IMDS metadata'
+            IMDS_INSTANCE_METADATA_CACHE_FILE="spec/parts/linux/cloud-init/artifacts/imds_mocks/compute/secure_boot_disabled.json"
+            When run is_secure_boot_enabled
+            The output should eq "false"
+            The stderr should not eq ''
+            The status should be success
+        End
+
+        It 'returns false when securityProfile has no secureBootEnabled field'
+            IMDS_INSTANCE_METADATA_CACHE_FILE="spec/parts/linux/cloud-init/artifacts/imds_mocks/compute/no_security_profile.json"
+            When run is_secure_boot_enabled
+            The output should eq "false"
+            The stderr should not eq ''
+            The status should be success
+        End
+
+        It 'returns false when IMDS cache file does not exist'
+            IMDS_INSTANCE_METADATA_CACHE_FILE="/nonexistent/path/metadata.json"
+            When run is_secure_boot_enabled
+            The output should eq "false"
+            The stderr should not eq ''
+            The status should be success
+        End
+    End
 End
