@@ -136,9 +136,9 @@ installContainerRuntime() {
 }
 
 installFixedCNI() {
-    # Old versions of VHDs will not have components.json. If it does not exist, we will try our best to install the hardcoded download for CNI here during provisioning.
+    # Old versions of VHDs will not have components.json. If it does not exist, we will try our best to download the hardcoded version for CNI here during provisioning.
     # Network Isolated Cluster / Bring Your Own ACR will not work with a vhd that requires a hardcoded CNI download.
-    if [ ! -f "$COMPONENTS_FILEPATH" ] || ! jq '.Packages[] | select(.name == "containernetworking-plugins")' < $COMPONENTS_FILEPATH > /dev/null; then
+    if [ ! -f "$COMPONENTS_FILEPATH" ] || [ -z "$(jq -r '.Packages[] | select(.name == "containernetworking-plugins") | .name' < $COMPONENTS_FILEPATH)" ]; then
         echo "WARNING: no containernetworking-plugins components present falling back to hard coded download of 1.4.1"
         # could we fail if not Ubuntu2204Gen2ContainerdPrivateKubePkg vhd? Are there others?
         # definitely not handling arm here.
