@@ -31,39 +31,33 @@ type GuestAgentEvent struct {
 	EventTid    string `json:"EventTid"`
 }
 
-type CreateEventFunc func(taskName, message string, eventLevel EventLevel, startTime, endTime time.Time)
-
-func NewCreateEventFunc(dir string) CreateEventFunc {
-	return func(taskName, message string, eventLevel EventLevel, startTime, endTime time.Time) {
-		createGuestAgentEventWithDir(dir, taskName, message, eventLevel, startTime, endTime)
-	}
+// EventLogger writes guest agent events to a directory.
+type EventLogger struct {
+	Dir string
 }
 
-// createGuestAgentEventWithDir creates an event file in the specified directory.
-// This function is separated to allow custom event directories for testing or special use cases.
+// NewEventLogger creates an EventLogger that writes to the specified directory.
+func NewEventLogger(dir string) *EventLogger {
+	return &EventLogger{Dir: dir}
+}
+
+// LogEvent creates an event file for the Azure VM guest agent.
 //
 // The implementation matches the bash pattern used across the codebase:
 //   - Filename: Uses current time (nanoseconds) to ensure uniqueness
 //   - Timestamp: Event start time in format "2006-01-02 15:04:05.000"
 //   - OperationId: Event end time in format "2006-01-02 15:04:05.000"
 //   - Message: Includes timing information (startTime, endTime, durationMs)
-func createGuestAgentEventWithDir(
-	eventsDir,
-	taskName,
-	message string,
-	eventLevel EventLevel,
-	startTime,
-	endTime time.Time,
-) {
-	if err := os.MkdirAll(eventsDir, 0755); err != nil {
-		slog.Error("failed to create events logging directory", "path", eventsDir, "error", err)
+func (l *EventLogger) LogEvent(taskName, message string, eventLevel EventLevel, startTime, endTime time.Time) {
+	if err := os.MkdirAll(l.Dir, 0755); err != nil {
+		slog.Error("failed to create events logging directory", "path", l.Dir, "error", err)
 		return
 	}
 
 	// Use nanosecond timestamp as filename, based on current time to ensure uniqueness
 	// This provides better collision avoidance than milliseconds
 	eventsFileName := fmt.Sprintf("%d.json", time.Now().UnixNano())
-	eventFilePath := filepath.Join(eventsDir, eventsFileName)
+	eventFilePath := filepath.Join(l.Dir, eventsFileName)
 
 	durationMs := endTime.Sub(startTime).Milliseconds()
 	timingInfo := fmt.Sprintf("startTime=%s endTime=%s durationMs=%d",
@@ -81,7 +75,7 @@ func createGuestAgentEventWithDir(
 	operationID := endTime.Format("2006-01-02 15:04:05.000")
 
 	event := GuestAgentEvent{
-		Timestamp:   startTime.Format("2006-01-02 15:04:05.000"), // strange but this is Go's reference time for formatting
+		Timestamp:   startTime.Format("2006-01-02 15:04:05.000"),
 		OperationId: operationID,
 		Version:     "1.23",
 		TaskName:    "AKS.AKSNodeController." + taskName,
@@ -104,11 +98,11 @@ func createGuestAgentEventWithDir(
 	}
 }
 
-// ReadEvents reads all guest agent event files from the specified directory.
+// Events reads all guest agent event files from the directory.
 // Events are returned in filename order (which corresponds to creation time since
-// filenames are nanosecond timestamps). This function is primarily useful for testing.
-func ReadEvents(dir string) ([]GuestAgentEvent, error) {
-	files, err := os.ReadDir(dir)
+// filenames are nanosecond timestamps). This method is primarily useful for testing.
+func (l *EventLogger) Events() ([]GuestAgentEvent, error) {
+	files, err := os.ReadDir(l.Dir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read events directory: %w", err)
 	}
@@ -119,7 +113,7 @@ func ReadEvents(dir string) ([]GuestAgentEvent, error) {
 			continue
 		}
 
-		data, err := os.ReadFile(filepath.Join(dir, file.Name()))
+		data, err := os.ReadFile(filepath.Join(l.Dir, file.Name()))
 		if err != nil {
 			return nil, fmt.Errorf("failed to read event file %s: %w", file.Name(), err)
 		}

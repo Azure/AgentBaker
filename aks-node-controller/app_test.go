@@ -33,9 +33,9 @@ type TestAppConfig struct {
 }
 
 type TestApp struct {
-	t         *testing.T
-	App       *App
-	EventsDir string
+	t           *testing.T
+	App         *App
+	eventLogger *helpers.EventLogger
 }
 
 func NewTestApp(t *testing.T, cfg TestAppConfig) *TestApp {
@@ -44,18 +44,19 @@ func NewTestApp(t *testing.T, cfg TestAppConfig) *TestApp {
 	if runFunc == nil {
 		runFunc = func(*exec.Cmd) error { return nil }
 	}
+	eventLogger := helpers.NewEventLogger(eventsDir)
 	return &TestApp{
-		t:         t,
-		EventsDir: eventsDir,
+		t:           t,
+		eventLogger: eventLogger,
 		App: &App{
 			cmdRunner:   runFunc,
-			createEvent: helpers.NewCreateEventFunc(eventsDir),
+			eventLogger: eventLogger,
 		},
 	}
 }
 
 func (tt *TestApp) ReadEvents() []helpers.GuestAgentEvent {
-	events, err := helpers.ReadEvents(tt.EventsDir)
+	events, err := tt.eventLogger.Events()
 	require.NoError(tt.t, err)
 	return events
 }

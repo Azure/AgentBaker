@@ -16,7 +16,7 @@ func main() {
 	logCleanup := configureLogging()
 	app := App{
 		cmdRunner:   cmdRunner,
-		createEvent: helpers.NewCreateEventFunc("/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events"),
+		eventLogger: helpers.NewEventLogger("/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events"),
 	}
 
 	exitCode := app.Run(context.Background(), os.Args)

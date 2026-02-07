@@ -26,7 +26,7 @@ type App struct {
 	// cmdRunner is a function that runs the given command.
 	// the goal of this field is to make it easier to test the app by mocking the command runner.
 	cmdRunner   func(cmd *exec.Cmd) error
-	createEvent helpers.CreateEventFunc
+	eventLogger *helpers.EventLogger
 }
 
 // commandMetadata holds all metadata for a command in one place.
@@ -117,15 +117,15 @@ func (a *App) run(ctx context.Context, args []string) error {
 	}
 
 	startTime := time.Now()
-	a.createEvent(cmd.taskName, "Starting", helpers.EventLevelInformational, startTime, startTime)
+	a.eventLogger.LogEvent(cmd.taskName, "Starting", helpers.EventLevelInformational, startTime, startTime)
 
 	err := cmd.handler(a, ctx, args)
 	endTime := time.Now()
 	if err != nil {
-		message := fmt.Sprintf("aks-node-controller exited with error %s", err)
-		a.createEvent(cmd.taskName, message, helpers.EventLevelError, startTime, endTime)
+		message := fmt.Sprintf("aks-node-controller exited with error %s", err.Error())
+		a.eventLogger.LogEvent(cmd.taskName, message, helpers.EventLevelError, startTime, endTime)
 	} else {
-		a.createEvent(cmd.taskName, "Completed", helpers.EventLevelInformational, startTime, endTime)
+		a.eventLogger.LogEvent(cmd.taskName, "Completed", helpers.EventLevelInformational, startTime, endTime)
 	}
 	return err
 }
