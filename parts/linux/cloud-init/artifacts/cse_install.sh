@@ -135,9 +135,37 @@ installContainerRuntime() {
     installContainerdWithManifestJson
 }
 
+installFixedCNI() {
+    # Old versions of VHDs will not have components.json. If it does not exist, we will try our best to install the hardcoded download for CNI here during provisioning.
+    # Network Isolated Cluster / Bring Your Own ACR will not work with a vhd that requires a hardcoded CNI download.
+    if [ ! -f "$COMPONENTS_FILEPATH" ] || ! jq '.Packages[] | select(.name == "containernetworking-plugins")' < $COMPONENTS_FILEPATH > /dev/null; then
+        echo "WARNING: no containernetworking-plugins components present falling back to hard coded download of 1.4.1"
+        # could we fail if not Ubuntu2204Gen2ContainerdPrivateKubePkg vhd? Are there others?
+        # definitely not handling arm here.
+        retrycmd_get_tarball 120 5 "${CNI_DOWNLOADS_DIR}/refcni.tar.gz" "https://${PACKAGE_DOWNLOAD_BASE_URL}/cni-plugins/v1.4.1/binaries/cni-plugins-linux-amd64-v1.4.1.tgz" || exit $ERR_CNI_DOWNLOAD_TIMEOUT
+        extract_tarball "${CNI_DOWNLOADS_DIR}/refcni.tar.gz" "$CNI_BIN_DIR"
+        return
+    fi
+}
+
 installNetworkPlugin() {
     if [ "${NETWORK_PLUGIN}" = "azure" ]; then
         installAzureCNI
+    fi
+    # Check if required CNI plugins are already cached
+    local required_plugins=("bridge" "host-local" "loopback")
+       local all_plugins_exist=true
+    for plugin in "${required_plugins[@]}"; do
+        if [ ! -f "$CNI_BIN_DIR/$plugin" ]; then
+            all_plugins_exist=false
+            break
+        fi
+    done
+    if [ "$all_plugins_exist" = "false" ]; then
+        echo "One or more required CNI plugins not found in $CNI_BIN_DIR"
+        rm -rf $CNI_BIN_DIR/* # remove everything from cni directory first
+        installFixedCNI
+        rm -rf $CNI_DOWNLOADS_DIR &
     fi
 }
 
