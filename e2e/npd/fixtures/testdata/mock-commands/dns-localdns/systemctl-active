@@ -1,0 +1,12 @@
+#!/bin/bash
+# Mock systemctl for active service
+case "$*" in
+    *"is-active localdns.service"*)
+        echo "active"
+        exit 0
+        ;;
+    *)
+        echo "Mock systemctl: unknown command: $*" >&2
+        exit 1
+        ;;
+esac

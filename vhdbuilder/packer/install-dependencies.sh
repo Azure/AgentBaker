@@ -29,8 +29,25 @@ source /home/packer/provision_source_benchmarks.sh
 source /home/packer/provision_source_distro.sh
 source /home/packer/tool_installs.sh
 source /home/packer/tool_installs_distro.sh
+source "${THIS_DIR}/install-npd.sh"
 
 CPU_ARCH=$(getCPUArch)  #amd64 or arm64
+
+# packages.microsoft.com for NPD uses x86_64 instead of amd64 in some cases
+# as well as aarch64 instead of arm64.
+# I don't make the rules on their silly naming inconsistencies.
+# components.json handles when to use CPU_ARCH or CPU_ARCH_NPD.
+CPU_ARCH_NPD=$(
+  if [ "$CPU_ARCH" = "amd64" ]; then
+    echo "x86_64"
+  elif [ "$CPU_ARCH" = "arm64" ]; then
+    echo "aarch64"
+  else
+    echo "$CPU_ARCH"
+  fi
+)
+
+
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 COMPONENTS_FILEPATH=/opt/azure/components.json
 PERFORMANCE_DATA_FILE=/opt/azure/vhd-build-performance-data.json
@@ -336,6 +353,8 @@ while IFS= read -r p; do
           installContainerd "${downloadDir}" "${evaluatedURL}" "${version}"
         elif isMarinerOrAzureLinux "$OS"; then
           installStandaloneContainerd "${version}"
+        elif isFlatcar "$OS"; then
+          installStandaloneContainerd "${version}"
         fi
         echo "  - containerd version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
@@ -422,6 +441,24 @@ while IFS= read -r p; do
       for version in ${PACKAGE_VERSIONS[@]}; do
         downloadPkgFromVersion "dcgm-exporter" "${version}" "${downloadDir}"
         echo "  - dcgm-exporter version ${version}" >> ${VHD_LOGS_FILEPATH}
+      done
+      ;;
+    "node-problem-detector")
+      for version in ${PACKAGE_VERSIONS[@]}; do
+        evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+        # Extract the package filename from the URL
+        npdName=$(basename "${evaluatedURL}")
+        #packagePath="${downloadDir}/${packageFile}"
+
+        if isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
+          echo "Skipping $name install on OS Guard"
+        elif [ "$IS_KATA" = "true" ]; then
+          echo "Skipping NPD install for kata VHD"
+        elif [ "${OS}" = "${UBUNTU_OS_NAME}" ] || [ "${OS}" = "${AZURELINUX_OS_NAME}" ]; then
+          # installNodeProblemDetector over in install-npd.sh
+          installNodeProblemDetector "${downloadDir}" "${evaluatedURL}" "${npdName}"
+        fi
+        echo "  - node-problem-detector version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
     *)
@@ -971,7 +1008,6 @@ collect_grid_compatibility_data() {
 }
 
 collect_grid_compatibility_data
-
 # nvidia repos are non msft public endpoints and should not be present on VHDs.
 # The installation logic during provisioning time will use the cached rpm/deb files
 # to install extra packages required for the managed gpu experience.

@@ -12,6 +12,7 @@ bin/
 .coverprofile
 coverage.txt
 e2e/scenario-logs
+e2e/npd/fixtures/testdata/event-logs/
 **/vhd-publishing-info.json
 out/
 build/
@@ -41,7 +42,6 @@ hack/tools/bin
 # to make sure we don't accidently add this back after the recent
 # migration off of go-bindata
 pkg/templates/templates_generated.go
-e2e/scenario-logs/
 
 # vhdbuilder generated prefetch scripts
 vhdbuilder/packer/prefetch.sh

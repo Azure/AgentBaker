@@ -1,0 +1,3 @@
+KUBELET_FLAGS=--cluster-dns=10.0.0.10 --cluster-domain=cluster.local --kubeconfig=/var/lib/kubelet/kubeconfig
+KUBELET_REGISTER_SCHEDULABLE=true
+KUBELET_NODE_LABELS=kubernetes.azure.com/localdns-state=enabled,kubernetes.azure.com/role=agent

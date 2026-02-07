@@ -1,0 +1,16 @@
+#!/bin/bash
+cat <<'IG_EOF'
+ERRO[0000] Example of an error message from IG
+[
+  {
+    "comm": "test-process-1",
+    "pid": 1
+  }
+]
+[
+  {
+    "comm": "test-process-2",
+    "pid": 2
+  }
+]
+IG_EOF

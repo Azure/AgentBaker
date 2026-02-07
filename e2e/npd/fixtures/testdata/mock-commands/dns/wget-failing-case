@@ -1,0 +1,8 @@
+#!/bin/bash
+# Mock wget that should reproduce the actual production failure
+# Let's try some edge cases that might cause regex failure
+echo "  HTTP/1.1 200 OK"
+echo "  Date: Mon, 14 Jul 2025 18:48:48 GMT"
+echo "  Content-Length: 2"
+echo "  Content-Type: text/plain; charset=utf-8"
+exit 0

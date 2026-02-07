@@ -1,0 +1,28 @@
+{
+  "plugin": "custom",
+  "pluginConfig": {
+    "invoke_interval": "60s",
+    "timeout": "20s",
+    "max_output_length": 80,
+    "concurrency": 3,
+    "enable_message_change_based_condition_update": false
+  },
+  "source": "custom-plugin-nvidia-grid-status",
+  "metricsReporting": false,
+  "conditions": [
+    {
+      "type": "NVIDIAGRIDStatusInvalid",
+      "reason": "NVIDIAGRIDStatusValid",
+      "message": "NVIDIA Grid Status Valid"
+    }
+  ],
+  "rules": [
+    {
+      "type": "permanent",
+      "condition": "NVIDIAGRIDStatusInvalid",
+      "reason": "NVIDIAGRIDStatusInvalid",
+      "path": "/etc/node-problem-detector.d/plugin/check_nvidia_grid_status.sh",
+      "timeout": "20s"
+    }
+  ]
+}
