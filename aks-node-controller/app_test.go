@@ -47,7 +47,7 @@ func NewTestApp(t *testing.T, cfg TestAppConfig) *TestApp {
 	return &TestApp{
 		eventLogger: eventLogger,
 		App: &App{
-			cmdRunner:   runFunc,
+			cmdRun:      runFunc,
 			eventLogger: eventLogger,
 		},
 	}
@@ -120,10 +120,10 @@ func TestApp_Provision(t *testing.T) {
 
 func TestApp_Provision_DryRun(t *testing.T) {
 	tt := NewTestApp(t, TestAppConfig{})
-	tt.App.cmdRunner = cmdRunner // Use real cmdRunner to test dry-run override
+	tt.App.cmdRun = cmdRunner // Use real cmdRunner to test dry-run override
 	exitCode := tt.App.Run(context.Background(), []string{"aks-node-controller", "provision", "--provision-config=parser/testdata/test_aksnodeconfig.json", "--dry-run"})
 	assert.Equal(t, 0, exitCode)
-	if reflect.ValueOf(tt.App.cmdRunner).Pointer() != reflect.ValueOf(cmdRunnerDryRun).Pointer() {
+	if reflect.ValueOf(tt.App.cmdRun).Pointer() != reflect.ValueOf(cmdRunnerDryRun).Pointer() {
 		t.Fatal("app.cmdRunner is expected to be cmdRunnerDryRun")
 	}
 }

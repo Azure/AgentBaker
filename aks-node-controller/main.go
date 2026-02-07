@@ -15,7 +15,7 @@ func main() {
 	// defer calls are not executed on os.Exit
 	logCleanup := configureLogging()
 	app := App{
-		cmdRunner:   cmdRunner,
+		cmdRun:      cmdRunner,
 		eventLogger: helpers.NewEventLogger("/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events"),
 	}
 

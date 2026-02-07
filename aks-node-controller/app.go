@@ -23,9 +23,9 @@ import (
 )
 
 type App struct {
-	// cmdRunner is a function that runs the given command.
+	// cmdRun is a function that runs the given command.
 	// the goal of this field is to make it easier to test the app by mocking the command runner.
-	cmdRunner   func(cmd *exec.Cmd) error
+	cmdRun      func(cmd *exec.Cmd) error
 	eventLogger *helpers.EventLogger
 }
 
@@ -174,7 +174,7 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) (*ProvisionRe
 	var stdoutBuf, stderrBuf bytes.Buffer
 	cmd.Stdout = io.MultiWriter(os.Stdout, &stdoutBuf)
 	cmd.Stderr = io.MultiWriter(os.Stderr, &stderrBuf)
-	err = a.cmdRunner(cmd)
+	err = a.cmdRun(cmd)
 	exitCode := -1
 	if cmd.ProcessState != nil {
 		exitCode = cmd.ProcessState.ExitCode()
@@ -219,7 +219,7 @@ func (a *App) runProvision(ctx context.Context, args []string) (*ProvisionResult
 		return provisionResult, errors.New(provisionResult.Error)
 	}
 	if *dryRun {
-		a.cmdRunner = cmdRunnerDryRun
+		a.cmdRun = cmdRunnerDryRun
 	}
 	return a.Provision(ctx, ProvisionFlags{ProvisionConfig: *provisionConfig})
 }
