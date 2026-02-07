@@ -9,12 +9,6 @@ import (
 	"time"
 )
 
-const (
-	// DefaultEventsLoggingDir is the standard path for guest agent events.
-	// This matches the path used by Azure VM CustomScript extension.
-	DefaultEventsLoggingDir = "/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/"
-)
-
 // EventLevel represents the severity level of a guest agent event.
 type EventLevel string
 
@@ -25,8 +19,8 @@ const (
 	EventLevelError EventLevel = "Error"
 )
 
-// guestAgentEvent represents an event to be logged for the Azure VM guest agent.
-type guestAgentEvent struct {
+// GuestAgentEvent represents an event to be logged for the Azure VM guest agent.
+type GuestAgentEvent struct {
 	Timestamp   string `json:"Timestamp"`
 	OperationId string `json:"OperationId"`
 	Version     string `json:"Version"`
@@ -37,10 +31,12 @@ type guestAgentEvent struct {
 	EventTid    string `json:"EventTid"`
 }
 
-// CreateGuestAgentEvent creates an event file for the Azure VM guest agent in the default directory.
-// This mimics the format expected by the CustomScript extension event logging.
-func CreateGuestAgentEvent(taskName, message string, eventLevel EventLevel, startTime, endTime time.Time) {
-	createGuestAgentEventWithDir(DefaultEventsLoggingDir, taskName, message, eventLevel, startTime, endTime)
+type CreateEventFunc func(taskName, message string, eventLevel EventLevel, startTime, endTime time.Time)
+
+func NewCreateEventFunc(dir string) CreateEventFunc {
+	return func(taskName, message string, eventLevel EventLevel, startTime, endTime time.Time) {
+		createGuestAgentEventWithDir(dir, taskName, message, eventLevel, startTime, endTime)
+	}
 }
 
 // createGuestAgentEventWithDir creates an event file in the specified directory.
@@ -51,7 +47,14 @@ func CreateGuestAgentEvent(taskName, message string, eventLevel EventLevel, star
 //   - Timestamp: Event start time in format "2006-01-02 15:04:05.000"
 //   - OperationId: Event end time in format "2006-01-02 15:04:05.000"
 //   - Message: Includes timing information (startTime, endTime, durationMs)
-func createGuestAgentEventWithDir(eventsDir, taskName, message string, eventLevel EventLevel, startTime, endTime time.Time) {
+func createGuestAgentEventWithDir(
+	eventsDir,
+	taskName,
+	message string,
+	eventLevel EventLevel,
+	startTime,
+	endTime time.Time,
+) {
 	if err := os.MkdirAll(eventsDir, 0755); err != nil {
 		slog.Error("failed to create events logging directory", "path", eventsDir, "error", err)
 		return
@@ -77,11 +80,11 @@ func createGuestAgentEventWithDir(eventsDir, taskName, message string, eventLeve
 
 	operationID := endTime.Format("2006-01-02 15:04:05.000")
 
-	event := guestAgentEvent{
+	event := GuestAgentEvent{
 		Timestamp:   startTime.Format("2006-01-02 15:04:05.000"), // strange but this is Go's reference time for formatting
 		OperationId: operationID,
 		Version:     "1.23",
-		TaskName:    taskName,
+		TaskName:    "AKS.AKSNodeController." + taskName,
 		EventLevel:  string(eventLevel),
 		Message:     fullMessage,
 		EventPid:    "0",
@@ -99,4 +102,35 @@ func createGuestAgentEventWithDir(eventsDir, taskName, message string, eventLeve
 	if err := os.WriteFile(eventFilePath, data, 0644); err != nil {
 		slog.Error("failed to write guest agent event file", "path", eventFilePath, "error", err)
 	}
+}
+
+// ReadEvents reads all guest agent event files from the specified directory.
+// Events are returned in filename order (which corresponds to creation time since
+// filenames are nanosecond timestamps). This function is primarily useful for testing.
+func ReadEvents(dir string) ([]GuestAgentEvent, error) {
+	files, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read events directory: %w", err)
+	}
+
+	var events []GuestAgentEvent
+	for _, file := range files {
+		if file.IsDir() || filepath.Ext(file.Name()) != ".json" {
+			continue
+		}
+
+		data, err := os.ReadFile(filepath.Join(dir, file.Name()))
+		if err != nil {
+			return nil, fmt.Errorf("failed to read event file %s: %w", file.Name(), err)
+		}
+
+		var event GuestAgentEvent
+		if err := json.Unmarshal(data, &event); err != nil {
+			return nil, fmt.Errorf("failed to parse event file %s: %w", file.Name(), err)
+		}
+
+		events = append(events, event)
+	}
+
+	return events, nil
 }

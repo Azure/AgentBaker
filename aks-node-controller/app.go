@@ -25,7 +25,8 @@ import (
 type App struct {
 	// cmdRunner is a function that runs the given command.
 	// the goal of this field is to make it easier to test the app by mocking the command runner.
-	cmdRunner func(cmd *exec.Cmd) error
+	cmdRunner   func(cmd *exec.Cmd) error
+	createEvent helpers.CreateEventFunc
 }
 
 // commandMetadata holds all metadata for a command in one place.
@@ -39,7 +40,7 @@ type commandMetadata struct {
 func getCommandRegistry() map[string]commandMetadata {
 	return map[string]commandMetadata{
 		"provision": {
-			taskName: "AKS.AKSNodeController.Provision",
+			taskName: "Provision",
 			handler: func(a *App, ctx context.Context, args []string) error {
 				provisionResult, err := a.runProvision(ctx, args[2:])
 				// Always notify after provisioning attempt (success is a no-op inside notifier)
@@ -48,9 +49,12 @@ func getCommandRegistry() map[string]commandMetadata {
 			},
 		},
 		"provision-wait": {
-			taskName: "AKS.AKSNodeController.ProvisionWait",
+			taskName: "ProvisionWait",
 			handler: func(a *App, ctx context.Context, args []string) error {
-				provisionStatusFiles := ProvisionStatusFiles{ProvisionJSONFile: provisionJSONFilePath, ProvisionCompleteFile: provisionCompleteFilePath}
+				provisionStatusFiles := ProvisionStatusFiles{
+					ProvisionJSONFile:     provisionJSONFilePath,
+					ProvisionCompleteFile: provisionCompleteFilePath,
+				}
 				provisionOutput, err := a.ProvisionWait(ctx, provisionStatusFiles)
 				//nolint:forbidigo // stdout is part of the interface
 				fmt.Println(provisionOutput)
@@ -113,15 +117,15 @@ func (a *App) run(ctx context.Context, args []string) error {
 	}
 
 	startTime := time.Now()
-	helpers.CreateGuestAgentEvent(cmd.taskName, "Starting", helpers.EventLevelInformational, startTime, startTime)
+	a.createEvent(cmd.taskName, "Starting", helpers.EventLevelInformational, startTime, startTime)
 
 	err := cmd.handler(a, ctx, args)
 	endTime := time.Now()
 	if err != nil {
 		message := fmt.Sprintf("aks-node-controller exited with error %s", err)
-		helpers.CreateGuestAgentEvent(cmd.taskName, message, helpers.EventLevelError, startTime, endTime)
+		a.createEvent(cmd.taskName, message, helpers.EventLevelError, startTime, endTime)
 	} else {
-		helpers.CreateGuestAgentEvent(cmd.taskName, "Completed", helpers.EventLevelInformational, startTime, endTime)
+		a.createEvent(cmd.taskName, "Completed", helpers.EventLevelInformational, startTime, endTime)
 	}
 	return err
 }
