@@ -1353,6 +1353,7 @@ func Test_AzureLinuxV3_MA35D(t *testing.T) {
 			VHD:     config.VHDAzureLinuxV3Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_NM16ads_MA35D"
+				nbc.ContainerService.Location = "eastus"
 				nbc.AgentPoolProfile.VMSize = "Standard_NM16ads_MA35D"
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
@@ -1379,6 +1380,7 @@ func Test_AzureLinuxV3_MA35D_Scriptless(t *testing.T) {
 			VHD:     config.VHDAzureLinuxV3Gen2,
 			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
 				config.VmSize = "Standard_NM16ads_MA35D"
+				config.ClusterConfig.Location = "eastus"
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_NM16ads_MA35D")
