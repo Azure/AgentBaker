@@ -142,6 +142,9 @@ installFixedCNI() {
         echo "WARNING: no containernetworking-plugins components present falling back to hard coded download of 1.4.1"
         # could we fail if not Ubuntu2204Gen2ContainerdPrivateKubePkg vhd? Are there others?
         # definitely not handling arm here.
+        if [ -z "${CPU_ARCH:-}" ]; then
+            CPU_ARCH="$(getCPUArch)"
+        fi
         retrycmd_get_tarball 120 5 "${CNI_DOWNLOADS_DIR}/refcni.tar.gz" "https://${PACKAGE_DOWNLOAD_BASE_URL}/cni-plugins/v1.4.1/binaries/cni-plugins-linux-${CPU_ARCH}-v1.4.1.tgz" || exit $ERR_CNI_DOWNLOAD_TIMEOUT
         extract_tarball "${CNI_DOWNLOADS_DIR}/refcni.tar.gz" "$CNI_BIN_DIR"
         return
