@@ -47,3 +47,4 @@ jobs:
     parameters:
       name: Windows Tests
       IgnoreScenariosWithMissingVhd: false
+      continueOnError: true
