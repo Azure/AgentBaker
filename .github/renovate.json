@@ -684,6 +684,7 @@
         "\"renovateTag\":\\s*\"github=(?<depName>Azure/WALinuxAgent)\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\""
       ],
       "datasourceTemplate": "github-releases",
+      "versioningTemplate": "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)\\.(?<build>\\d+)$",
       "extractVersionTemplate": "^v(?<version>.*)$",
       "autoReplaceStringTemplate": "\"renovateTag\": \"github={{{depName}}}\",\n              \"latestVersion\": \"{{{newValue}}}\""
     },
