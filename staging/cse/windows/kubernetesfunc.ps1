@@ -206,7 +206,7 @@ function Check-APIServerConnectivity {
             $LastException = $_.Exception.ToString()
         } catch {
             Logs-To-Event -TaskName "AKS.WindowsCSE.CheckAPIServerConnectivity" -TaskMessage "Retry ${retryString}: Failed to connect to API server $MasterIP. Error: $_"
-            $LastException = $_.ToString()
+            $LastException = "$_"
       }
 
         $retryCount++
