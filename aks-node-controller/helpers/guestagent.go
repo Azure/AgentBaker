@@ -43,8 +43,11 @@ func NewEventLogger(dir string) *EventLogger {
 
 // LogEvent creates an event file for the Azure VM guest agent.
 //
-// The implementation matches the bash pattern used across the codebase:
-//   - Filename: Uses current time (nanoseconds) to ensure uniqueness
+// The implementation follows the established bash pattern used across the codebase
+// for event contents, with one intentional divergence in the filename scheme:
+//   - Filename: Uses current time in nanoseconds to ensure uniqueness. Most bash
+//     event emitters use millisecond-based filenames (e.g., `date +%s%3N`); this
+//     implementation uses nanoseconds for greater collision resistance.
 //   - Timestamp: Event start time in format "2006-01-02 15:04:05.000"
 //   - OperationId: Event end time in format "2006-01-02 15:04:05.000"
 //   - Message: Includes timing information (startTime, endTime, durationMs)
