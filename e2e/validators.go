@@ -1740,3 +1740,60 @@ func ValidateRxBufferDefault(ctx context.Context, s *Scenario) {
 	// Validate network interface settings match expected default
 	ValidateNetworkInterfaceConfig(ctx, s, customNicConfig)
 }
+
+// ValidateKernelLogs checks kernel logs for critical errors across multiple categories:
+// - Kernel panics/crashes (panic, oops, call trace, BUG, etc.)
+// - CPU lockups/stalls (soft/hard lockup, RCU stall, hung task, watchdog)
+// - Memory issues (OOM killer, page allocation failure, memory corruption)
+// - I/O and filesystem errors (I/O error, filesystem errors, nvme/ata/scsi errors)
+func ValidateKernelLogs(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	// Category patterns for different types of kernel issues
+	// Note: panic[: -] requires panic to be followed by colon, space, or hyphen
+	// to avoid matching boot parameters like "panic=-1"
+	// Note: watchdog pattern uses "detected|stuck" to avoid matching informational
+	// messages like "NMI watchdog: Perf NMI watchdog permanently disabled"
+	type categoryPattern struct {
+		pattern string
+		exclude string // optional pattern to exclude false positives
+	}
+	patterns := map[string]categoryPattern{
+		"PANIC/CRASH":  {pattern: `(kernel: )?(panic[: -]|oops|call trace|backtrace|general protection fault|BUG:|RIP:)`},
+		"LOCKUP/STALL": {pattern: `(soft|hard) lockup|rcu.*(stall|detected stalls)|hung task|watchdog.*(detected|stuck)`},
+		"MEMORY":       {pattern: `oom[- ]killer|Out of memory:|page allocation failure|memory corruption`},
+		// Exclude sr0 (virtual CD-ROM) I/O errors which are benign on Azure VMs
+		"IO/FS": {
+			pattern: `I/O error|read-only file system|EXT[2-4]-fs error|XFS (ERROR|corruption)|BTRFS (error|warning)|nvme .* (timeout|reset)|ata[0-9].*(failed|error|reset)|scsi.*(error|failed)`,
+			// sr0 is the virtual CD-ROM drive on Azure VMs. This error occurs when the VM tries to read from an empty virtual optical drive, which is normal and expected.
+			exclude: `sr[0-9]`,
+		},
+	}
+
+	foundIssues := false
+	for category, cp := range patterns {
+		var command []string
+		if cp.exclude != "" {
+			command = []string{
+				"set -e",
+				fmt.Sprintf("sudo dmesg | grep -iE '%s' | grep -ivE '%s' || true", cp.pattern, cp.exclude),
+			}
+		} else {
+			command = []string{
+				"set -e",
+				fmt.Sprintf("sudo dmesg | grep -iE '%s' || true", cp.pattern),
+			}
+		}
+		execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to retrieve kernel logs")
+
+		stdout := strings.TrimSpace(execResult.stdout)
+		if stdout != "" {
+			foundIssues = true
+			s.T.Fatalf("[%s] Kernel issues found:\n%s", category, stdout)
+		}
+	}
+
+	if !foundIssues {
+		s.T.Logf("No critical kernel issues found")
+	}
+}
