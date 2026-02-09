@@ -54,7 +54,7 @@ systemctlEnableAndStart disk_queue 30 || exit 1
 capture_benchmark "${SCRIPT_NAME}_copy_packer_files_and_enable_logging"
 
 # This path is used by the Custom CA Trust feature only
-mkdir /opt/certs
+mkdir -p /opt/certs
 chmod 755 /opt/certs
 systemctlEnableAndStart update_certs.path 30 || exit 1
 capture_benchmark "${SCRIPT_NAME}_make_certs_directory_and_update_certs"
@@ -152,7 +152,7 @@ if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]]; then
   fi
 
   echo "Logging the currently running kernel: $(uname -r)"
-  echo "Before purging kernel, here is a list of kernels/headers installed:"; dpkg -l 'linux-*azure*'
+  echo "Before purging kernel, here is a list of kernels/headers installed:"; dpkg -l 'linux-*azure*' || true
 
   if apt-cache show "$KERNEL_IMAGE" &>/dev/null; then
     echo "Kernel packages are available, proceeding with purging current kernel and installing new kernel..."
@@ -166,12 +166,12 @@ if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]]; then
     # Purge all current kernels and dependencies
     wait_for_apt_locks
     DEBIAN_FRONTEND=noninteractive apt-get remove --purge -y $(dpkg-query -W 'linux-*azure*' | awk '$2 != "" { print $1 }' | paste -s)
-    echo "After purging kernel, dpkg list should be empty"; dpkg -l 'linux-*azure*'
+    echo "After purging kernel, dpkg list should be empty"; dpkg -l 'linux-*azure*' || true
 
     # Install new kernel packages
     wait_for_apt_locks
     DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y "${KERNEL_PACKAGES[@]}"
-    echo "After installing new kernel, here is a list of kernels/headers installed:"; dpkg -l 'linux-*azure*'
+    echo "After installing new kernel, here is a list of kernels/headers installed:"; dpkg -l 'linux-*azure*' || true
 
     # Reinstall nullboot package only for cvm
     if grep -q "cvm" <<< "$FEATURE_FLAGS"; then
@@ -196,13 +196,17 @@ if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]]; then
       wait_for_apt_locks
       sudo apt install --no-install-recommends -y "${NVIDIA_KERNEL_PACKAGE}"
       echo "after installation:"
-      dpkg -l | grep "linux-.*-azure-nvidia"
+      dpkg -l | grep "linux-.*-azure-nvidia" || true
     else
       echo "ARM64 image. NVIDIA kernel not available, skipping installation."
     fi
   fi
   wait_for_apt_locks
-  update-grub
+  if grep -q "cvm" <<< "$FEATURE_FLAGS"; then
+    echo "update-grub not found (expected for CVM images using nullboot), skipping"
+  else
+    update-grub
+  fi
 fi
 capture_benchmark "${SCRIPT_NAME}_purge_ubuntu_kernel_if_2204"
 echo "pre-install-dependencies step finished successfully"
