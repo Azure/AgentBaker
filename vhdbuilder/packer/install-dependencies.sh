@@ -250,7 +250,7 @@ installCNI() {
     if [ -n "${downloadDir}" ] && [ -n "${evaluatedURL}" ]; then
         mkdir -p "${downloadDir}"
         chown -R root:root "${downloadDir}"
-        
+
         echo "Downloading CNI plugins from ${evaluatedURL}"
         retrycmd_get_tarball 120 5 "${downloadDir}/cni-plugins.tar.gz" "${evaluatedURL}" || exit $ERR_CNI_DOWNLOAD_TIMEOUT
         extract_tarball "${downloadDir}/cni-plugins.tar.gz" "$CNI_BIN_DIR"
@@ -456,8 +456,12 @@ while IFS= read -r p; do
       done
       ;;
     "walinuxagent")
-      # walinuxagent is installed from source in pre-install-dependencies.sh, nothing to do here
-      echo "  - walinuxagent already installed in pre-install-dependencies" >> ${VHD_LOGS_FILEPATH}
+      if isFlatcar "$OS"; then
+        echo "  - walinuxagent installation skipped on Flatcar; using image-provided version" >> ${VHD_LOGS_FILEPATH}
+      else
+        # walinuxagent is installed from source in pre-install-dependencies.sh, nothing to do here
+        echo "  - walinuxagent already installed in pre-install-dependencies" >> ${VHD_LOGS_FILEPATH}
+      fi
       ;;
     *)
       echo "Package name: ${name} not supported for download. Please implement the download logic in the script."
