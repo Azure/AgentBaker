@@ -62,15 +62,6 @@ capture_benchmark "${SCRIPT_NAME}_make_certs_directory_and_update_certs"
 systemctlEnableAndStart ci-syslog-watcher.path 30 || exit 1
 systemctlEnableAndStart ci-syslog-watcher.service 30 || exit 1
 
-if isFlatcar "$OS"; then
-    # "copy-on-write"; this starts out as a symlink to a R/O location
-    cp /etc/waagent.conf{,.new}
-    mv /etc/waagent.conf{.new,}
-fi
-# enable AKS log collector
-echo -e "\n# Disable WALA log collection because AKS Log Collector is installed.\nLogs.Collect=n" >> /etc/waagent.conf || exit 1
-systemctlEnableAndStart aks-log-collector.timer 30 || exit 1
-
 # Install WALinuxAgent from GitHub as specified in components.json
 # This ensures we run the version tracked in components.json rather than the OS package version
 if ! isFlatcar "$OS"; then
@@ -84,12 +75,18 @@ if ! isFlatcar "$OS"; then
     WAAGENT_VERSION=$(echo "$walinuxagentPackage" | jq -r '.downloadURIs.default.current.versionsV2[0].latestVersion // empty')
     if [ -n "$WAAGENT_VERSION" ] && [ "$WAAGENT_VERSION" != "null" ]; then
       echo "Installing WALinuxAgent version ${WAAGENT_VERSION} from GitHub..."
+      # Remove the OS-packaged walinuxagent to prevent dnf_update from overwriting the source install.
+      # --noautoremove keeps dependencies (e.g. python3) that other packages need.
+      if isMarinerOrAzureLinux "$OS"; then
+        echo "Removing OS-packaged WALinuxAgent RPM before source install..."
+        dnf remove -y WALinuxAgent --noautoremove || true
+      fi
       WAAGENT_DOWNLOAD_URL_TEMPLATE=$(echo "$walinuxagentPackage" | jq -r '.downloadURIs.default.current.downloadURL // empty')
       WAAGENT_DOWNLOAD_URL="${WAAGENT_DOWNLOAD_URL_TEMPLATE//\$\{version\}/${WAAGENT_VERSION}}"
       mkdir -p "${WAAGENT_DOWNLOADS_DIR}"
       WAAGENT_TARBALL="${WAAGENT_DOWNLOADS_DIR}/v${WAAGENT_VERSION}.tar.gz"
       if ! retrycmd_curl_file 10 5 60 "${WAAGENT_TARBALL}" "${WAAGENT_DOWNLOAD_URL}"; then
-        exit $ERR_FILE_DOWNLOAD
+        exit 1
       fi
       if ! tar -xzf "${WAAGENT_TARBALL}" -C "${WAAGENT_DOWNLOADS_DIR}"; then
         exit 1
@@ -120,6 +117,15 @@ if ! isFlatcar "$OS"; then
   fi
 fi
 capture_benchmark "${SCRIPT_NAME}_install_walinuxagent"
+
+if isFlatcar "$OS"; then
+    # "copy-on-write"; this starts out as a symlink to a R/O location
+    cp /etc/waagent.conf{,.new}
+    mv /etc/waagent.conf{.new,}
+fi
+# enable AKS log collector
+echo -e "\n# Disable WALA log collection because AKS Log Collector is installed.\nLogs.Collect=n" >> /etc/waagent.conf || exit 1
+systemctlEnableAndStart aks-log-collector.timer 30 || exit 1
 
 # enable the modified logrotate service and remove the auto-generated default logrotate cron job if present
 systemctlEnableAndStart logrotate.timer 30 || exit 1
