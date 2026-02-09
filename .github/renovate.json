@@ -677,7 +677,7 @@
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
-        "\"renovateTag\":\\s*\"github=(?<depName>[^\"]+)\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\""
+        "\"renovateTag\":\\s*\"github=(?<depName>Azure/WALinuxAgent)\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\""
       ],
       "datasourceTemplate": "github-releases",
       "extractVersionTemplate": "^v(?<version>.*)$",
