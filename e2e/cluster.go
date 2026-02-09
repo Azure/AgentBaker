@@ -223,8 +223,8 @@ func getBootstrapToken(ctx context.Context, kube *Kubeclient) (string, error) {
 	return fmt.Sprintf("%s.%s", id, token), nil
 }
 
-func hash(cluster *armcontainerservice.ManagedCluster) string {
-	jsonData, err := json.Marshal(cluster)
+func hash(resource any) string {
+	jsonData, err := json.Marshal(resource)
 	if err != nil {
 		panic(err)
 	}

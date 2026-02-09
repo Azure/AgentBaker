@@ -363,8 +363,8 @@ func addFirewallRules(
 	publicIPID := *pipResp.ID
 	logf(ctx, "Created public IP with ID: %s", publicIPID)
 
-	firewallName := "abe2e-fw"
 	firewall := getFirewall(ctx, location, firewallSubnetID, publicIPID)
+	firewallName := fmt.Sprintf("abe2e-fw-%s-%s", location, hash(firewall))
 	fwPoller, err := config.Azure.AzureFirewall.BeginCreateOrUpdate(ctx, *clusterModel.Properties.NodeResourceGroup, firewallName, *firewall, nil)
 	if err != nil {
 		return fmt.Errorf("failed to start Firewall creation: %w", err)
