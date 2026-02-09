@@ -100,13 +100,13 @@ if ! isFlatcar "$OS"; then
       fi
       popd > /dev/null || exit 1
       rm -rf "${WAAGENT_DOWNLOADS_DIR}"
-      # Restart waagent service
+      # Restart waagent service depending on the name of the service file, which varies
       systemctl daemon-reload
-      if isMarinerOrAzureLinux "$OS"; then
+      if systemctl list-unit-files walinuxagent.service | grep -q walinuxagent; then
         if ! systemctl restart walinuxagent.service; then
           exit 1
         fi
-      elif isUbuntu "$OS"; then
+      elif systemctl list-unit-files waagent.service | grep -q waagent; then
         if ! systemctl restart waagent.service; then
           exit 1
         fi
