@@ -74,7 +74,7 @@ else
   updateAptWithMicrosoftPkg
   # The following packages are required for an Ubuntu Minimal Image to build and successfully run CSE
   # blobfuse2 and fuse3 - ubuntu 22.04 supports blobfuse2 and is fuse3 compatible
-  BLOBFUSE2_VERSION="2.5.0"
+  BLOBFUSE2_VERSION="2.5.2" # TODO (djsly) this should be centralized and moved to components.json!
   required_pkg_list=("blobfuse2="${BLOBFUSE2_VERSION} fuse3)
   for apt_package in ${required_pkg_list[*]}; do
       if ! apt_get_install 30 1 600 $apt_package; then
@@ -227,20 +227,52 @@ unpackTgzToCNIDownloadsDIR() {
   local URL=$1
   CNI_TGZ_TMP=${URL##*/}
   CNI_DIR_TMP=${CNI_TGZ_TMP%.tgz}
-  mkdir "$CNI_DOWNLOADS_DIR/${CNI_DIR_TMP}"
+  mkdir -p "$CNI_DOWNLOADS_DIR/${CNI_DIR_TMP}"
   extract_tarball "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" "$CNI_DOWNLOADS_DIR/${CNI_DIR_TMP}"
   rm -rf ${CNI_DOWNLOADS_DIR:?}/${CNI_TGZ_TMP}
   echo "  - Ran tar -xzf on the CNI downloaded then rm -rf to clean up"
 }
 
-#this is the reference cni it is only ever downloaded in caching for build not at provisioning time
-#but conceptually it is very similiar to downloadAzureCNI in that it takes a url and puts in CNI_DOWNLOADS_DIR
-downloadCNI() {
+# Reference CNI plugins is used by kubenet and the loopback plugin used by containerd 1.0 (dependency gone in 2.0)
+# The version used to be determined by RP/toggle but is now just hardcoded in the VHD as it rarely changes and requires a node image upgrade anyway.
+installCNI() {
     downloadDir=${1}
-    mkdir -p $downloadDir
-    CNI_PLUGINS_URL=${2}
-    cniTgzTmp=${CNI_PLUGINS_URL##*/}
-    retrycmd_get_tarball 120 5 "$downloadDir/${cniTgzTmp}" ${CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
+    evaluatedURL=${2}
+    version=${3}
+
+    echo "installing containernetworking-plugins version ${version}"
+
+    # Create CNI_BIN_DIR for all installation methods
+    mkdir -p "$CNI_BIN_DIR"
+    chown -R root:root "$CNI_BIN_DIR"
+
+    # if downloadDir and evaluatedURL are not empty, download and extract tarball (for flatcar/osguard)
+    if [ -n "${downloadDir}" ] && [ -n "${evaluatedURL}" ]; then
+        mkdir -p "${downloadDir}"
+        chown -R root:root "${downloadDir}"
+        
+        echo "Downloading CNI plugins from ${evaluatedURL}"
+        retrycmd_get_tarball 120 5 "${downloadDir}/cni-plugins.tar.gz" "${evaluatedURL}" || exit $ERR_CNI_DOWNLOAD_TIMEOUT
+        extract_tarball "${downloadDir}/cni-plugins.tar.gz" "$CNI_BIN_DIR"
+        rm -f "${downloadDir}/cni-plugins.tar.gz"
+        return 0
+    fi
+
+    # Package manager installation (for Ubuntu/Mariner/AzureLinux)
+    if [ "${OS}" = "${UBUNTU_OS_NAME}" ]; then
+        packageName="containernetworking-plugins=${version}"
+        echo "Installing ${packageName} with apt-get"
+        apt_get_install 20 30 120 ${packageName} || exit $ERR_CNI_VERSION_INVALID
+        mv /usr/bin/containernetworking-plugins/* $CNI_BIN_DIR
+    elif isMarinerOrAzureLinux "$OS"; then
+        packageName="containernetworking-plugins-${version}"
+        echo "Installing ${packageName} with dnf"
+        dnf_install 30 1 600 ${packageName} || exit $ERR_CNI_VERSION_INVALID
+        mv /usr/bin/containernetworking-plugins/* $CNI_BIN_DIR
+    else
+        echo "ERROR: Unsupported OS for containernetworking-plugins installation: ${OS}"
+        exit $ERR_CNI_VERSION_INVALID
+    fi
 }
 
 downloadAndInstallCriTools() {
@@ -275,7 +307,6 @@ packages=$(jq ".Packages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --co
 while IFS= read -r p; do
   #getting metadata for each package
   name=$(echo "${p}" | jq .name -r)
-  PACKAGE_VERSIONS=()
   os=${OS}
   # TODO(mheberling): Remove this once kata uses standard containerd. This OS is referenced
   # in file `parts/common/component.json` with the same ${MARINER_KATA_OS_NAME}.
@@ -289,9 +320,8 @@ while IFS= read -r p; do
     # name is referenced in parts/common.json azurelinuxkata.
     os=${AZURELINUX_KATA_OS_NAME}
   fi
-  updatePackageVersions "${p}" "${os}" "${OS_VERSION}"
-  PACKAGE_DOWNLOAD_URL=""
-  updatePackageDownloadURL "${p}" "${os}" "${OS_VERSION}"
+  updatePackageVersions "${p}" "${os}" "${OS_VERSION}" "${OS_VARIANT}"
+  updatePackageDownloadURL "${p}" "${os}" "${OS_VERSION}" "${OS_VARIANT}"
   echo "In components.json, processing components.packages \"${name}\" \"${PACKAGE_VERSIONS[@]}\" \"${PACKAGE_DOWNLOAD_URL}\""
 
   # if ${PACKAGE_VERSIONS[@]} count is 0 or if the first element of the array is <SKIP>, then skip and move on to next package
@@ -316,12 +346,11 @@ while IFS= read -r p; do
         echo "  - Azure CNI version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
-    "cni-plugins")
+    "containernetworking-plugins")
       for version in ${PACKAGE_VERSIONS[@]}; do
         evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-        downloadCNI "${downloadDir}" "${evaluatedURL}"
-        unpackTgzToCNIDownloadsDIR "${evaluatedURL}"
-        echo "  - CNI plugin version ${version}" >> ${VHD_LOGS_FILEPATH}
+        installCNI "${downloadDir}" "${evaluatedURL}" "${version}"
+        echo "  - containernetworking-plugins version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
     "runc")
@@ -336,12 +365,7 @@ while IFS= read -r p; do
         evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
         if [ "${OS}" = "${UBUNTU_OS_NAME}" ]; then
           installContainerd "${downloadDir}" "${evaluatedURL}" "${version}"
-        elif isMarinerOrAzureLinux "$OS" && isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
-          echo "Skipping containerd install on Azure Linux OS Guard, package preinstalled on immutable /usr"
-          version=$(rpm -q containerd2)
         elif isMarinerOrAzureLinux "$OS"; then
-          installStandaloneContainerd "${version}"
-        elif isFlatcar "$OS"; then
           installStandaloneContainerd "${version}"
         fi
         echo "  - containerd version ${version}" >> ${VHD_LOGS_FILEPATH}
@@ -350,12 +374,7 @@ while IFS= read -r p; do
     "oras")
       for version in ${PACKAGE_VERSIONS[@]}; do
         evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-        if isMarinerOrAzureLinux "$OS" && isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
-          echo "Skipping Oras install on Azure Linux OS Guard, package preinstalled on immutable /usr"
-          version=$(oras version | head -n1 | awk '{print $2}')
-        else
-          installOras "${downloadDir}" "${evaluatedURL}" "${version}"
-        fi
+        installOras "${downloadDir}" "${evaluatedURL}" "${version}"
         echo "  - oras version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
@@ -414,39 +433,25 @@ while IFS= read -r p; do
       ;;
     "azure-acr-credential-provider-pmc")
       for version in ${PACKAGE_VERSIONS[@]}; do
-        if [ "${OS}" = "${UBUNTU_OS_NAME}" ] || isMarinerOrAzureLinux "$OS"; then
-          downloadPkgFromVersion "azure-acr-credential-provider" "${version}" "${downloadDir}"
-        fi
+        downloadPkgFromVersion "azure-acr-credential-provider" "${version}" "${downloadDir}"
         echo "  - azure-acr-credential-provider version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
     "datacenter-gpu-manager-4-core")
       for version in ${PACKAGE_VERSIONS[@]}; do
-        if isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
-          echo "Skipping $name install on OS Guard"
-        elif [ "${OS}" = "${UBUNTU_OS_NAME}" ] || isMarinerOrAzureLinux "$OS"; then
-          downloadPkgFromVersion "datacenter-gpu-manager-4-core" "${version}" "${downloadDir}"
-        fi
+        downloadPkgFromVersion "datacenter-gpu-manager-4-core" "${version}" "${downloadDir}"
         echo "  - datacenter-gpu-manager-4-core version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
     "datacenter-gpu-manager-4-proprietary")
       for version in ${PACKAGE_VERSIONS[@]}; do
-        if isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
-          echo "Skipping $name install on OS Guard"
-        elif [ "${OS}" = "${UBUNTU_OS_NAME}" ] || isMarinerOrAzureLinux "$OS"; then
-          downloadPkgFromVersion "datacenter-gpu-manager-4-proprietary" "${version}" "${downloadDir}"
-        fi
+        downloadPkgFromVersion "datacenter-gpu-manager-4-proprietary" "${version}" "${downloadDir}"
         echo "  - datacenter-gpu-manager-4-proprietary version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
     "dcgm-exporter")
       for version in ${PACKAGE_VERSIONS[@]}; do
-        if isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
-          echo "Skipping $name install on OS Guard"
-        elif [ "${OS}" = "${UBUNTU_OS_NAME}" ] || isMarinerOrAzureLinux "$OS"; then
-          downloadPkgFromVersion "dcgm-exporter" "${version}" "${downloadDir}"
-        fi
+        downloadPkgFromVersion "dcgm-exporter" "${version}" "${downloadDir}"
         echo "  - dcgm-exporter version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
@@ -607,7 +612,6 @@ ContainerImages=$(jq ".ContainerImages" $COMPONENTS_FILEPATH | jq .[] --monochro
 while IFS= read -r imageToBePulled; do
   downloadURL=$(echo "${imageToBePulled}" | jq .downloadURL -r)
   amd64OnlyVersionsStr=$(echo "${imageToBePulled}" | jq .amd64OnlyVersions -r)
-  MULTI_ARCH_VERSIONS=()
   updateMultiArchVersions "${imageToBePulled}"
   amd64OnlyVersions=""
   if [ "${amd64OnlyVersionsStr}" != "null" ]; then

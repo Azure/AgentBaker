@@ -129,3 +129,13 @@ func getComponentNameFromURL(downloadURL string) (string, error) {
 func IsMIGNode(gpuInstanceProfile string) bool {
 	return gpuInstanceProfile != ""
 }
+
+// returns the CSE timeout value in seconds.
+// if empty or invalid value is provided, it returns the default timeout value of 15minutes or 900 seconds.
+// Maximum allowed timeout is 360 minutes or 6 hours or 21600 seconds.
+func GetCSETimeout(cseTimeout int) string {
+	if cseTimeout <= 0 || cseTimeout > MaxCSETimeout {
+		cseTimeout = DefaultCSETimeout
+	}
+	return fmt.Sprintf("%d", cseTimeout)
+}
