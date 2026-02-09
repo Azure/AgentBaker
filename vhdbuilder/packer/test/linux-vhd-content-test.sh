@@ -233,6 +233,11 @@ testPackagesInstalled() {
         testPkgDownloaded "${name}" "${PACKAGE_VERSIONS[@]}"
         continue
         ;;
+      "containernetworking-plugins")
+        # containernetworking-plugins, namely, cni-plugins are installed in a different way so we test them separately
+        testContainerNetworkingPluginsInstalled
+        continue
+        ;;
     esac
 
     resolve_packages_source_url
@@ -1728,6 +1733,29 @@ testDiskQueueServiceIsActive() {
   fi
 
   echo "$test:Finish"
+}
+
+testContainerNetworkingPluginsInstalled() {
+  local test="testContainerNetworkingPluginsInstalled"
+  echo "$test: Start"
+
+  local cni_bin_dir="/opt/cni/bin"
+  #there are several other plugins but these are used by kubenet and containerd so focus on them.
+  local required_plugins=("bridge" "host-local" "loopback")
+
+  for plugin in "${required_plugins[@]}"; do
+    local plugin_path="$cni_bin_dir/$plugin"
+    echo "$test: Checking for existence of CNI plugin $plugin at $plugin_path"
+    if [ ! -f "$plugin_path" ]; then
+      err "$test: CNI plugin $plugin not found at $plugin_path"
+      return 1
+    fi
+    echo "$test: CNI plugin $plugin found at $plugin_path"
+  done
+
+  echo "$test: All required CNI plugins are installed."
+  echo "$test: Finish"
+  return 0
 }
 
 # As we call these tests, we need to bear in mind how the test results are processed by the
