@@ -280,12 +280,9 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 	require.NoError(s.T, err)
 
 	if !s.Config.SkipDefaultValidation {
-		vmssCreatedAt := time.Now()         // Record the start time
-		creationElapse := time.Since(start) // Calculate the elapsed time
 		scenarioVM.KubeName = s.Runtime.Cluster.Kube.WaitUntilNodeReady(ctx, s.T, s.Runtime.VMSSName)
-		readyElapse := time.Since(vmssCreatedAt) // Calculate the elapsed time
 		totalElapse := time.Since(start)
-		toolkit.LogDuration(ctx, totalElapse, 3*time.Minute, fmt.Sprintf("Node %s took %s to be created and %s to be ready", s.Runtime.VMSSName, creationElapse, readyElapse))
+		toolkit.LogDuration(ctx, totalElapse, 3*time.Minute, fmt.Sprintf("Node %s took %s to be created and joined the cluster", s.Runtime.VMSSName, totalElapse))
 	}
 
 	return scenarioVM, nil

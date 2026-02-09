@@ -487,6 +487,10 @@ func getOrCreateBastion(ctx context.Context, cluster *armcontainerservice.Manage
 }
 
 func createNewBastion(ctx context.Context, cluster *armcontainerservice.ManagedCluster) (*Bastion, error) {
+	now := time.Now()
+	defer func() {
+		logf(ctx, "bastion creation took %s", time.Since(now))
+	}()
 	nodeRG := *cluster.Properties.NodeResourceGroup
 	location := *cluster.Location
 	bastionName := fmt.Sprintf("%s-bastion", *cluster.Name)

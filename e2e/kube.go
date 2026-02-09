@@ -11,7 +11,6 @@ import (
 
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
@@ -145,58 +144,58 @@ func (k *Kubeclient) WaitUntilPodRunning(ctx context.Context, namespace string, 
 
 func (k *Kubeclient) WaitUntilNodeReady(ctx context.Context, t testing.TB, vmssName string) string {
 	startTime := time.Now()
-	t.Logf("waiting for node %s to be ready in k8s API", vmssName)
+	t.Logf("waiting for node %s to be ready", vmssName)
 	defer func() {
-		t.Logf("waited for node %s to be ready in k8s API for %s", vmssName, time.Since(startTime))
+		t.Logf("waited for node %s to be ready for %s", vmssName, time.Since(startTime))
 	}()
 
-	var node *corev1.Node = nil
-	watcher, err := k.Typed.CoreV1().Nodes().Watch(ctx, metav1.ListOptions{})
-	require.NoError(t, err, "failed to start watching nodes")
-	defer watcher.Stop()
-
-	for event := range watcher.ResultChan() {
-		if event.Type != watch.Added && event.Type != watch.Modified {
-			continue
-		}
-
-		var nodeFromEvent *corev1.Node
-		switch v := event.Object.(type) {
-		case *corev1.Node:
-			nodeFromEvent = v
-
-		default:
-			t.Logf("skipping object type %T", event.Object)
-			continue
-		}
-
-		if !strings.HasPrefix(nodeFromEvent.Name, vmssName) {
-			continue
-		}
-
-		// found the right node. Use it!
-		node = nodeFromEvent
-		nodeTaints, _ := json.Marshal(node.Spec.Taints)
-		nodeConditions, _ := json.Marshal(node.Status.Conditions)
-
-		for _, cond := range node.Status.Conditions {
-			if cond.Type == corev1.NodeReady && cond.Status == corev1.ConditionTrue {
-				t.Logf("node %s is ready. Taints: %s Conditions: %s", node.Name, string(nodeTaints), string(nodeConditions))
-				return node.Name
+	var lastNode *corev1.Node
+	for ctx.Err() == nil {
+		name := func() string {
+			watcher, err := k.Typed.CoreV1().Nodes().Watch(ctx, metav1.ListOptions{})
+			if err != nil {
+				t.Logf("failed to start node watch: %v, retrying in 5s", err)
+				select {
+				case <-ctx.Done():
+				case <-time.After(5 * time.Second):
+				}
+				return ""
 			}
+			defer watcher.Stop()
+
+			for event := range watcher.ResultChan() {
+				if event.Type == watch.Error {
+					t.Logf("node watch error: %v", event.Object)
+					return ""
+				}
+				node, ok := event.Object.(*corev1.Node)
+				if !ok || !strings.HasPrefix(node.Name, vmssName) {
+					continue
+				}
+				if event.Type == watch.Deleted {
+					t.Fatalf("node %s was deleted", node.Name)
+				}
+				lastNode = node
+				for _, cond := range node.Status.Conditions {
+					if cond.Type == corev1.NodeReady && cond.Status == corev1.ConditionTrue {
+						t.Logf("node %s is ready", node.Name)
+						return node.Name
+					}
+				}
+			}
+			return ""
+		}()
+		if name != "" {
+			return name
 		}
-
-		t.Logf("node %s is not ready. Taints: %s Conditions: %s", node.Name, string(nodeTaints), string(nodeConditions))
 	}
 
-	if node == nil {
-		t.Fatalf("%q haven't appeared in k8s API server", vmssName)
-		return ""
+	if lastNode != nil {
+		nodeJSON, _ := json.Marshal(lastNode)
+		t.Fatalf("node %s (%s) not ready: %v\n%s", vmssName, lastNode.Name, ctx.Err(), nodeJSON)
 	}
-
-	nodeString, _ := json.Marshal(node)
-	t.Fatalf("failed to wait for %q (%s) to be ready %+v. Detail: %s", vmssName, node.Name, node.Status, string(nodeString))
-	return node.Name
+	t.Fatalf("node %q not found: %v", vmssName, ctx.Err())
+	return ""
 }
 
 // GetPodNetworkDebugPodForNode returns a pod that's a member of the 'debugnonhost' daemonset running in the cluster - this will return
