@@ -6,14 +6,9 @@ parameters:
   - name: IgnoreScenariosWithMissingVhd
     type: boolean
     displayName: Ignore tests where the VHD can't be loaded
-  - name: continueOnError
-    type: boolean
-    displayName: Continue pipeline even if E2E tests fail
-    default: false
 
 jobs:
   - job: e2e
-    continueOnError: ${{parameters.continueOnError}}
     condition: and(succeeded(), ne(variables.SKIP_E2E_TESTS, 'true'))
     variables:
       - group: ab-e2e # all variables prefixed with E2E_* come from this variable group
