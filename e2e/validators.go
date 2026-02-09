@@ -1770,7 +1770,8 @@ func ValidateKernelLogs(ctx context.Context, s *Scenario) {
 		},
 	}
 
-	foundIssues := false
+	// Collect all issues first before potentially failing
+	issuesFound := make(map[string]string)
 	for category, cp := range patterns {
 		var command []string
 		if cp.exclude != "" {
@@ -1788,12 +1789,24 @@ func ValidateKernelLogs(ctx context.Context, s *Scenario) {
 
 		stdout := strings.TrimSpace(execResult.stdout)
 		if stdout != "" {
-			foundIssues = true
-			s.T.Fatalf("[%s] Kernel issues found:\n%s", category, stdout)
+			issuesFound[category] = stdout
 		}
 	}
 
-	if !foundIssues {
-		s.T.Logf("No critical kernel issues found")
+	// If issues found, log the full kernel dump for debugging
+	if len(issuesFound) > 0 {
+		// Get full kernel log dump
+		fullDmesgResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo dmesg", 0, "failed to retrieve full kernel logs")
+		s.T.Logf("=== FULL KERNEL LOG DUMP (dmesg) ===\n%s\n=== END KERNEL LOG DUMP ===", fullDmesgResult.stdout)
+
+		// Log each category of issues found
+		var summary strings.Builder
+		summary.WriteString("Critical kernel issues detected:\n")
+		for category, issues := range issuesFound {
+			summary.WriteString(fmt.Sprintf("\n[%s]:\n%s\n", category, issues))
+		}
+		s.T.Fatalf("%s", summary.String())
 	}
+
+	s.T.Logf("No critical kernel issues found")
 }
