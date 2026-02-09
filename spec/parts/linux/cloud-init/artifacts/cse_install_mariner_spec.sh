@@ -48,6 +48,10 @@ Describe 'cse_install_mariner.sh'
             echo "ln $@"
         }
 
+        install() {
+            echo "install $@"
+        }
+
         BeforeEach 'setup_rpm_cache'
         AfterEach 'cleanup_rpm_cache'
 
@@ -67,6 +71,7 @@ Describe 'cse_install_mariner.sh'
             The output should include "$kubeletRpm"
             The output should include "dnf install 30 1 600"
             The output should include "ln -snf /usr/bin/kubelet /opt/bin/kubelet"
+            The output should include "install -m0755 -t /usr/local/bin /usr/bin/kubelet"
         End
 
         It 'installs only the requested RPM when no cached dependencies exist'
@@ -77,6 +82,7 @@ Describe 'cse_install_mariner.sh'
             When call installRPMPackageFromFile kubelet "$desiredVersion"
             The output should include "dnf install 30 1 600 $kubeletRpm"
             The output should include "ln -snf /usr/bin/kubelet /opt/bin/kubelet"
+            The output should include "install -m0755 -t /usr/local/bin /usr/bin/kubelet"
         End
     End
 
