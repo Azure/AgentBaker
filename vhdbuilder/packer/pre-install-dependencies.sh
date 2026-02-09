@@ -74,6 +74,10 @@ systemctlEnableAndStart aks-log-collector.timer 30 || exit 1
 # Install WALinuxAgent from GitHub as specified in components.json
 # This ensures we run the version tracked in components.json rather than the OS package version
 if ! isFlatcar "$OS"; then
+  if ! command -v jq >/dev/null 2>&1; then
+    echo "Error: jq is required to parse ${COMPONENTS_FILEPATH} for WALinuxAgent installation."
+    exit 1
+  fi
   walinuxagentPackage=$(jq '.Packages[] | select(.name == "walinuxagent")' "${COMPONENTS_FILEPATH}" 2>/dev/null || true)
   WAAGENT_DOWNLOADS_DIR=$(echo "$walinuxagentPackage" | jq -r '.downloadLocation // empty')
   if [ -n "$walinuxagentPackage" ] && [ "$walinuxagentPackage" != "null" ]; then
