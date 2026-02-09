@@ -140,8 +140,7 @@ installFixedCNI() {
     # Network Isolated Cluster / Bring Your Own ACR will not work with a vhd that requires a hardcoded CNI download.
     if [ ! -f "$COMPONENTS_FILEPATH" ] || [ -z "$(jq -r '.Packages[] | select(.name == "containernetworking-plugins") | .name' < $COMPONENTS_FILEPATH)" ]; then
         echo "WARNING: no containernetworking-plugins components present falling back to hard coded download of 1.4.1"
-        # could we fail if not Ubuntu2204Gen2ContainerdPrivateKubePkg vhd? Are there others?
-        # definitely not handling arm here.
+        # handles amd64 and arm64 via CPU_ARCH
         if [ -z "${CPU_ARCH:-}" ]; then
             CPU_ARCH="$(getCPUArch)"
         fi
