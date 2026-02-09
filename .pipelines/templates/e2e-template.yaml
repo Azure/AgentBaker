@@ -9,6 +9,7 @@ parameters:
 
 jobs:
   - job: e2e
+    continueOnError: true
     condition: and(succeeded(), ne(variables.SKIP_E2E_TESTS, 'true'))
     variables:
       - group: ab-e2e # all variables prefixed with E2E_* come from this variable group

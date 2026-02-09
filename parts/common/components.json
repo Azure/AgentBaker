@@ -769,8 +769,8 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/kube-proxy",
-          "latestVersion": "v1.33.5-hotfix.20250926",
-          "previousLatestVersion": "v1.33.5"
+          "latestVersion": "v1.33.6",
+          "previousLatestVersion": "v1.33.5-hotfix.20250926"
         }
       ],
       "windowsVersions": []
