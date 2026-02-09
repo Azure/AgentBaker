@@ -439,13 +439,22 @@ func getPrivateIPFromVMSSVM(ctx context.Context, resourceGroup, vmssName, instan
 }
 
 func skipTestIfSKUNotAvailableErr(t testing.TB, err error) {
-	// sometimes the SKU is not available and we can't do anything. Skip the test in this case.
+	if !config.Config.SkipTestsWithSKUCapacityIssue {
+		return
+	}
 	var respErr *azcore.ResponseError
-	if config.Config.SkipTestsWithSKUCapacityIssue &&
-		errors.As(err, &respErr) &&
-		respErr.StatusCode == 409 &&
-		respErr.ErrorCode == "SkuNotAvailable" {
+	if !errors.As(err, &respErr) || respErr.StatusCode != 409 {
+		return
+	}
+	// sometimes the SKU is not available and we can't do anything. Skip the test in this case.
+	if respErr.ErrorCode == "SkuNotAvailable" {
 		t.Skip("skipping scenario SKU not available", t.Name(), err)
+	}
+	// sometimes the SKU quota is exceeded and we can't do anything. Skip the test in this case.
+	if respErr.ErrorCode == "OperationNotAllowed" &&
+		strings.Contains(respErr.Error(), "exceeding approved") &&
+		strings.Contains(respErr.Error(), "quota") {
+		t.Skip("skipping scenario SKU quota exceeded", t.Name(), err)
 	}
 }
 

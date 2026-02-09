@@ -37,6 +37,7 @@ LOGGING_DIR="${LOGGING_DIR:-}"
 E2E_SUBSCRIPTION_ID="${E2E_SUBSCRIPTION_ID:-}"
 TAGS_TO_SKIP="${TAGS_TO_SKIP:-}"
 TAGS_TO_RUN="${TAGS_TO_RUN:-}"
+E2E_GO_TEST_TIMEOUT="${E2E_GO_TEST_TIMEOUT:-90m}"
 GALLERY_NAME="${GALLERY_NAME:-}"
 SIG_GALLERY_NAME="${SIG_GALLERY_NAME:-}"
 
@@ -49,6 +50,7 @@ echo "TAGS_TO_SKIP: ${TAGS_TO_SKIP}"
 echo "TAGS_TO_RUN: ${TAGS_TO_RUN}"
 echo "GALLERY_NAME: ${GALLERY_NAME}"
 echo "SIG_GALLERY_NAME: ${SIG_GALLERY_NAME}"
+echo "E2E_GO_TEST_TIMEOUT: ${E2E_GO_TEST_TIMEOUT}"
 
 # set variables that the go program expects if we are running a specific build
 if [ -n "${VHD_BUILD_ID}" ]; then
@@ -94,7 +96,7 @@ rm -f "$temp_file"
 # gotestsum configure to only show logs for failed tests, json file for detailed logs
 # Run the tests! Yey!
 test_exit_code=0
-./bin/gotestsum --format testdox --junitfile "${BUILD_SRC_DIR}/e2e/report.xml" --jsonfile "${BUILD_SRC_DIR}/e2e/test-log.json" -- -parallel 150 -timeout 90m || test_exit_code=$?
+./bin/gotestsum --format testdox --junitfile "${BUILD_SRC_DIR}/e2e/report.xml" --jsonfile "${BUILD_SRC_DIR}/e2e/test-log.json" -- -parallel 150 -timeout "${E2E_GO_TEST_TIMEOUT}" || test_exit_code=$?
 
 # Upload test results as Azure DevOps artifacts
 echo "##vso[artifact.upload containerfolder=test-results;artifactname=e2e-test-log]${BUILD_SRC_DIR}/e2e/test-log.json"
