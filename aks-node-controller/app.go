@@ -14,16 +14,55 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
+	"github.com/Azure/agentbaker/aks-node-controller/helpers"
 	"github.com/Azure/agentbaker/aks-node-controller/parser"
 	"github.com/Azure/agentbaker/aks-node-controller/pkg/nodeconfigutils"
 	"github.com/fsnotify/fsnotify"
 )
 
 type App struct {
-	// cmdRunner is a function that runs the given command.
+	// cmdRun is a function that runs the given command.
 	// the goal of this field is to make it easier to test the app by mocking the command runner.
-	cmdRunner func(cmd *exec.Cmd) error
+	cmdRun      func(cmd *exec.Cmd) error
+	eventLogger *helpers.EventLogger
+}
+
+// commandMetadata holds all metadata for a command in one place.
+type commandMetadata struct {
+	taskName string
+	handler  func(*App, context.Context, []string) error
+}
+
+// getCommandRegistry returns the command registry mapping command names to their metadata.
+// Adding a new command only requires adding one entry here.
+func getCommandRegistry() map[string]commandMetadata {
+	return map[string]commandMetadata{
+		"provision": {
+			taskName: "Provision",
+			handler: func(a *App, ctx context.Context, args []string) error {
+				provisionResult, err := a.runProvision(ctx, args[2:])
+				// Always notify after provisioning attempt (success is a no-op inside notifier)
+				a.writeCompleteFileOnError(provisionResult, err)
+				return err
+			},
+		},
+		"provision-wait": {
+			taskName: "ProvisionWait",
+			handler: func(a *App, ctx context.Context, args []string) error {
+				provisionStatusFiles := ProvisionStatusFiles{
+					ProvisionJSONFile:     provisionJSONFilePath,
+					ProvisionCompleteFile: provisionCompleteFilePath,
+				}
+				provisionOutput, err := a.ProvisionWait(ctx, provisionStatusFiles)
+				//nolint:forbidigo // stdout is part of the interface
+				fmt.Println(provisionOutput)
+				slog.Info("provision-wait finished", "provisionOutput", provisionOutput)
+				return err
+			},
+		},
+	}
 }
 
 // provision.json values are emitted as strings by the shell jq invocation.
@@ -64,25 +103,31 @@ func (a *App) Run(ctx context.Context, args []string) int {
 }
 
 func (a *App) run(ctx context.Context, args []string) error {
-	if len(args) < 2 {
+	command := ""
+	if len(args) >= 2 {
+		command = args[1]
+	}
+	if command == "" {
 		return errors.New("missing command argument")
 	}
-	switch args[1] {
-	case "provision":
-		provisionResult, err := a.runProvision(ctx, args[2:])
-		// Always notify after provisioning attempt (success is a no-op inside notifier)
-		a.writeCompleteFileOnError(provisionResult, err)
-		return err
-	case "provision-wait":
-		provisionStatusFiles := ProvisionStatusFiles{ProvisionJSONFile: provisionJSONFilePath, ProvisionCompleteFile: provisionCompleteFilePath}
-		provisionOutput, err := a.ProvisionWait(ctx, provisionStatusFiles)
-		//nolint:forbidigo // stdout is part of the interface
-		fmt.Println(provisionOutput)
-		slog.Info("provision-wait finished", "provisionOutput", provisionOutput)
-		return err
-	default:
-		return fmt.Errorf("unknown command: %s", args[1])
+
+	cmd, ok := getCommandRegistry()[command]
+	if !ok {
+		return fmt.Errorf("unknown command: %s", command)
 	}
+
+	startTime := time.Now()
+	a.eventLogger.LogEvent(cmd.taskName, "Starting", helpers.EventLevelInformational, startTime, startTime)
+
+	err := cmd.handler(a, ctx, args)
+	endTime := time.Now()
+	if err != nil {
+		message := fmt.Sprintf("aks-node-controller exited with error %s", err.Error())
+		a.eventLogger.LogEvent(cmd.taskName, message, helpers.EventLevelError, startTime, endTime)
+	} else {
+		a.eventLogger.LogEvent(cmd.taskName, "Completed", helpers.EventLevelInformational, startTime, endTime)
+	}
+	return err
 }
 
 func (a *App) Provision(ctx context.Context, flags ProvisionFlags) (*ProvisionResult, error) {
@@ -129,7 +174,7 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) (*ProvisionRe
 	var stdoutBuf, stderrBuf bytes.Buffer
 	cmd.Stdout = io.MultiWriter(os.Stdout, &stdoutBuf)
 	cmd.Stderr = io.MultiWriter(os.Stderr, &stderrBuf)
-	err = a.cmdRunner(cmd)
+	err = a.cmdRun(cmd)
 	exitCode := -1
 	if cmd.ProcessState != nil {
 		exitCode = cmd.ProcessState.ExitCode()
@@ -174,7 +219,7 @@ func (a *App) runProvision(ctx context.Context, args []string) (*ProvisionResult
 		return provisionResult, errors.New(provisionResult.Error)
 	}
 	if *dryRun {
-		a.cmdRunner = cmdRunnerDryRun
+		a.cmdRun = cmdRunnerDryRun
 	}
 	return a.Provision(ctx, ProvisionFlags{ProvisionConfig: *provisionConfig})
 }
