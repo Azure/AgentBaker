@@ -335,13 +335,32 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/cilium/cilium",
-          "latestVersion": "v1.16.13-250826",
-          "previousLatestVersion": "v1.16.10-250610"
-        },
-        {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/cilium/cilium",
           "latestVersion": "v1.17.7-250927",
           "previousLatestVersion": "v1.17.7-250821"
+        }
+      ],
+      "windowsVersions": []
+    },
+    {
+      "downloadURL": "mcr.microsoft.com/containernetworking/cilium/cilium-distroless:*",
+      "amd64OnlyVersions": [],
+      "multiArchVersionsV2": [
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/cilium/cilium-distroless",
+          "latestVersion": "v1.18.2-251028",
+          "previousLatestVersion": "v1.18.2-251028"
+        }
+      ],
+      "windowsVersions": []
+    },
+    {
+      "downloadURL": "mcr.microsoft.com/containernetworking/cilium/cilium-distroless-init:*",
+      "amd64OnlyVersions": [],
+      "multiArchVersionsV2": [
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/cilium/cilium-distroless-init",
+          "latestVersion": "v1.18.2-251028",
+          "previousLatestVersion": "v1.18.2-251028"
         }
       ],
       "windowsVersions": []
@@ -352,7 +371,7 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/apiserver-network-proxy/agent",
-          "latestVersion": "v0.32.1-1"
+          "latestVersion": "v0.32.1-2"
         }
       ],
       "windowsVersions": []
@@ -942,6 +961,16 @@
             ],
             "downloadURL": "https://github.com/oras-project/oras/releases/download/v${version}/oras_${version}_linux_${CPU_ARCH}.tar.gz"
           }
+        },
+        "azurelinux": {
+          "OSGUARD/v3.0": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "<SKIP>"
+              }
+            ]
+          }
         }
       }
     },
@@ -1029,7 +1058,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-containerd, repository=production, os=ubuntu, release=22.04",
-                "latestVersion": "1.7.30-ubuntu22.04u1"
+                "latestVersion": "1.7.30-ubuntu22.04u2"
               }
             ]
           },
@@ -1037,7 +1066,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-containerd, repository=production, os=ubuntu, release=20.04",
-                "latestVersion": "1.7.30-ubuntu20.04u1"
+                "latestVersion": "1.7.30-ubuntu20.04u2"
               }
             ]
           }
@@ -1070,10 +1099,28 @@
                 "latestVersion": "2.0.0-16.azl3"
               }
             ]
+          },
+          "OSGUARD/v3.0": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "<SKIP>"
+              }
+            ]
           }
         },
         "azurelinuxkata": {
           "v3.0": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "<SKIP>"
+              }
+            ]
+          }
+        },
+        "flatcar": {
+          "current": {
             "versionsV2": [
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
@@ -1148,7 +1195,7 @@
       }
     },
     {
-      "name": "cni-plugins",
+      "name": "containernetworking-plugins",
       "downloadLocation": "/opt/cni/downloads",
       "downloadURIs": {
         "windows": {
@@ -1156,7 +1203,62 @@
             "versionsV2": []
           }
         },
-        "default": {
+        "ubuntu": {
+          "r2004": {
+            "versionsV2": [
+              {
+                "renovateTag": "name=containernetworking-plugins, repository=production, os=ubuntu, release=20.04",
+                "latestVersion": "1.9.0-ubuntu20.04u1"
+              }
+            ]
+          },
+          "r2204": {
+            "versionsV2": [
+              {
+                "renovateTag": "name=containernetworking-plugins, repository=production, os=ubuntu, release=22.04",
+                "latestVersion": "1.9.0-ubuntu22.04u1"
+              }
+            ]
+          },
+          "r2404": {
+            "versionsV2": [
+              {
+                "renovateTag": "name=containernetworking-plugins, repository=production, os=ubuntu, release=24.04",
+                "latestVersion": "1.9.0-ubuntu24.04u1"
+              }
+            ]
+          }
+        },
+        "azurelinux": {
+          "v3.0": {
+            "versionsV2": [
+              {
+                "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=containernetworking-plugins, os=azurelinux, release=3.0",
+                "latestVersion": "1.9.0-1.azl3"
+              }
+            ]
+          },
+          "OSGUARD/v3.0": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "1.6.2"
+              }
+            ],
+            "downloadURL": "https://packages.aks.azure.com/cni-plugins/v${version}/binaries/cni-plugins-linux-${CPU_ARCH}-v${version}.tgz"
+          }
+        },
+        "azurelinuxkata": {
+          "v3.0": {
+            "versionsV2": [
+              {
+                "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=containernetworking-plugins, os=azurelinux, release=3.0",
+                "latestVersion": "1.9.0-1.azl3"
+              }
+            ]
+          }
+        },
+        "flatcar": {
           "current": {
             "versionsV2": [
               {
@@ -1209,7 +1311,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=kubernetes-cri-tools, repository=production, os=ubuntu, release=20.04",
-                "latestVersion": "1.32.0-ubuntu20.04u3"
+                "latestVersion": "1.34.0-ubuntu20.04u2"
               }
             ]
           },
@@ -1217,7 +1319,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=kubernetes-cri-tools, repository=production, os=ubuntu, release=22.04",
-                "latestVersion": "1.32.0-ubuntu22.04u3"
+                "latestVersion": "1.34.0-ubuntu22.04u2"
               }
             ]
           },
@@ -1225,7 +1327,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=kubernetes-cri-tools, repository=production, os=ubuntu, release=24.04",
-                "latestVersion": "1.32.0-ubuntu24.04u3"
+                "latestVersion": "1.34.0-ubuntu24.04u2"
               }
             ]
           }
@@ -1255,7 +1357,15 @@
             "versionsV2": [
               {
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=kubernetes-cri-tools, os=azurelinux, release=3.0",
-                "latestVersion": "1.32.0-3.azl3"
+                "latestVersion": "1.34.0-2.azl3"
+              }
+            ]
+          },
+          "OSGUARD/v3.0": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "<SKIP>"
               }
             ]
           }
@@ -1265,7 +1375,7 @@
             "versionsV2": [
               {
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=kubernetes-cri-tools, os=azurelinux, release=3.0",
-                "latestVersion": "1.32.0-3.azl3"
+                "latestVersion": "1.34.0-2.azl3"
               }
             ]
           }
@@ -1285,6 +1395,11 @@
                 "renovateTag": "name=kubelet, repository=production, os=ubuntu, release=24.04",
                 "latestVersion": "1.34.3-ubuntu24.04u1",
                 "previousLatestVersion": "1.34.2-ubuntu24.04u1"
+              },
+              {
+                "k8sVersion": "1.35",
+                "renovateTag": "name=kubelet, repository=production, os=ubuntu, release=24.04",
+                "latestVersion": "1.35.0-ubuntu24.04u1"
               }
             ]
           },
@@ -1295,6 +1410,11 @@
                 "renovateTag": "name=kubelet, repository=production, os=ubuntu, release=22.04",
                 "latestVersion": "1.34.3-ubuntu22.04u1",
                 "previousLatestVersion": "1.34.2-ubuntu22.04u1"
+              },
+              {
+                "k8sVersion": "1.35",
+                "renovateTag": "name=kubelet, repository=production, os=ubuntu, release=22.04",
+                "latestVersion": "1.35.0-ubuntu22.04u1"
               }
             ]
           },
@@ -1317,6 +1437,11 @@
                 "renovateTag": "name=kubelet, os=azurelinux, release=3.0",
                 "latestVersion": "1.34.1-4.azl3",
                 "previousLatestVersion": "1.34.0-5.azl3"
+              },
+              {
+                "k8sVersion": "1.35",
+                "renovateTag": "name=kubelet, os=azurelinux, release=3.0",
+                "latestVersion": "1.35.0-1.azl3"
               }
             ]
           }
@@ -1336,6 +1461,11 @@
                 "renovateTag": "name=kubectl, repository=production, os=ubuntu, release=24.04",
                 "latestVersion": "1.34.3-ubuntu24.04u1",
                 "previousLatestVersion": "1.34.2-ubuntu24.04u1"
+              },
+              {
+                "k8sVersion": "1.35",
+                "renovateTag": "name=kubectl, repository=production, os=ubuntu, release=24.04",
+                "latestVersion": "1.35.0-ubuntu24.04u1"
               }
             ]
           },
@@ -1346,6 +1476,11 @@
                 "renovateTag": "name=kubectl, repository=production, os=ubuntu, release=22.04",
                 "latestVersion": "1.34.3-ubuntu22.04u1",
                 "previousLatestVersion": "1.34.2-ubuntu22.04u1"
+              },
+              {
+                "k8sVersion": "1.35",
+                "renovateTag": "name=kubectl, repository=production, os=ubuntu, release=22.04",
+                "latestVersion": "1.35.0-ubuntu22.04u1"
               }
             ]
           },
@@ -1368,6 +1503,11 @@
                 "renovateTag": "name=kubectl, os=azurelinux, release=3.0",
                 "latestVersion": "1.34.1-4.azl3",
                 "previousLatestVersion": "1.34.0-5.azl3"
+              },
+              {
+                "k8sVersion": "1.35",
+                "renovateTag": "name=kubectl, os=azurelinux, release=3.0",
+                "latestVersion": "1.35.0-1.azl3"
               }
             ]
           }
@@ -1682,7 +1822,7 @@
           }
         },
         "azurelinux": {
-          "v3.0": {
+          "DEFAULT/v3.0": {
             "versionsV2": [
               {
                 "renovateTag": "RPM_registry=https://developer.download.nvidia.com/compute/cuda/repos/azl3/x86_64/repodata, name=datacenter-gpu-manager-4-core, repository=nvidia, os=azurelinux, release=3.0",
@@ -1716,7 +1856,7 @@
           }
         },
         "azurelinux": {
-          "v3.0": {
+          "DEFAULT/v3.0": {
             "versionsV2": [
               {
                 "renovateTag": "RPM_registry=https://developer.download.nvidia.com/compute/cuda/repos/azl3/x86_64/repodata, name=datacenter-gpu-manager-4-proprietary, repository=nvidia, os=azurelinux, release=3.0",
@@ -1750,7 +1890,7 @@
           }
         },
         "azurelinux": {
-          "v3.0": {
+          "DEFAULT/v3.0": {
             "versionsV2": [
               {
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=dcgm-exporter, os=azurelinux, release=3.0",

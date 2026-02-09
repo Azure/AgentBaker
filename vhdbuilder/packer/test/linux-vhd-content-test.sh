@@ -199,18 +199,19 @@ testPackagesInstalled() {
       if (echo "$FEATURE_FLAGS" | grep -q "kata"); then
         OS=${MARINER_KATA_OS_NAME}
       fi
-    elif [ "$OS_SKU" = "AzureLinux" ] && [ "$OS_VERSION" = "3.0" ]; then
+    elif [ "$OS_SKU" = "AzureLinux" ]; then
       OS=$AZURELINUX_OS_NAME
       if (echo "$FEATURE_FLAGS" | grep -q "kata"); then
         OS=${AZURELINUX_KATA_OS_NAME}
       fi
+    elif [ "$OS_SKU" = "AzureLinuxOSGuard" ]; then
+      OS=$AZURELINUX_OS_NAME
+      OS_VARIANT=OSGUARD
     else
-      OS=$UBUNTU_OS_NAME
+      OS=${OS_SKU^^}
     fi
-    PACKAGE_VERSIONS=()
-    updatePackageVersions "${p}" "${OS}" "${OS_VERSION}"
-    PACKAGE_DOWNLOAD_URL=""
-    updatePackageDownloadURL "${p}" "${OS}" "${OS_VERSION}"
+    updatePackageVersions "${p}" "${OS}" "${OS_VERSION}" "${OS_VARIANT}"
+    updatePackageDownloadURL "${p}" "${OS}" "${OS_VERSION}" "${OS_VARIANT}"
     case "${name}" in
       "kubernetes-binaries")
         # kubernetes-binaries, namely, kubelet and kubectl are installed in a different way so we test them separately
@@ -230,6 +231,11 @@ testPackagesInstalled() {
       "datacenter-gpu-manager-4-proprietary"|\
       "dcgm-exporter")
         testPkgDownloaded "${name}" "${PACKAGE_VERSIONS[@]}"
+        continue
+        ;;
+      "containernetworking-plugins")
+        # containernetworking-plugins, namely, cni-plugins are installed in a different way so we test them separately
+        testContainerNetworkingPluginsInstalled
         continue
         ;;
       "walinuxagent")
@@ -391,7 +397,6 @@ testImagesPulled() {
     else
       amd64OnlyVersionsStr=$(echo "${imageToBePulled}" | jq -r '.amd64OnlyVersions // empty')
     fi
-    declare -a MULTI_ARCH_VERSIONS=()
     updateMultiArchVersions "${imageToBePulled}"
 
     amd64OnlyVersions=""
@@ -1537,6 +1542,12 @@ testCriCtl() {
   expectedVersion="${1}"
   local test="testCriCtl"
   echo "$test: Start"
+  # If the version defined in components.json is <SKIP>, that means it will use whatever version is installed on the system.
+  # Therefore, we will just skip the test.
+  if [ "$expectedVersion" = "<SKIP>" ]; then
+    echo "$test: Skipping test for containerd version, as expected version is <SKIP>"
+    return 0
+  fi
   # the expectedVersion looks like this, "1.32.0-ubuntu24.04u3", need to extract the version number.
   expectedVersion=$(echo $expectedVersion | cut -d'-' -f1)
   # use command `crictl --version` to get the version
@@ -1751,6 +1762,29 @@ testDiskQueueServiceIsActive() {
   fi
 
   echo "$test:Finish"
+}
+
+testContainerNetworkingPluginsInstalled() {
+  local test="testContainerNetworkingPluginsInstalled"
+  echo "$test: Start"
+
+  local cni_bin_dir="/opt/cni/bin"
+  #there are several other plugins but these are used by kubenet and containerd so focus on them.
+  local required_plugins=("bridge" "host-local" "loopback")
+
+  for plugin in "${required_plugins[@]}"; do
+    local plugin_path="$cni_bin_dir/$plugin"
+    echo "$test: Checking for existence of CNI plugin $plugin at $plugin_path"
+    if [ ! -f "$plugin_path" ]; then
+      err "$test: CNI plugin $plugin not found at $plugin_path"
+      return 1
+    fi
+    echo "$test: CNI plugin $plugin found at $plugin_path"
+  done
+
+  echo "$test: All required CNI plugins are installed."
+  echo "$test: Finish"
+  return 0
 }
 
 # As we call these tests, we need to bear in mind how the test results are processed by the
