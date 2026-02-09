@@ -152,7 +152,7 @@ downloadGPUDrivers() {
         echo "No CUDA package found for kernel ${KERNEL_VERSION} (vm_sku=${VM_SKU})"
         exit $ERR_MISSING_CUDA_PACKAGE
     fi
-    
+
     echo "Installing: ${CUDA_PACKAGE}"
     dnf_install 30 1 600 ${CUDA_PACKAGE} || exit $ERR_APT_INSTALL_TIMEOUT
 }
