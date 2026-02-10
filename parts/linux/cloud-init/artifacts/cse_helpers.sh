@@ -819,6 +819,14 @@ isFlatcar() {
     return 1
 }
 
+isACL() {
+    local os=${1-$OS}
+    if [ "$os" = "$ACL_OS_NAME" ]; then
+        return 0
+    fi
+    return 1
+}
+
 isUbuntu() {
     local os=${1-$OS}
     if [ "$os" = "$UBUNTU_OS_NAME" ]; then
