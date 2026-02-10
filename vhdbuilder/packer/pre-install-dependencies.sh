@@ -91,7 +91,7 @@ if ! isFlatcar "$OS"; then
       if ! pushd "${WAAGENT_EXTRACT_DIR}" > /dev/null; then
         exit 1
       fi
-      if ! python3 setup.py install --register-service; then
+      if ! python3 setup.py install --register-service --install-lib=/usr/lib/python3/dist-packages --install-scripts=/usr/sbin; then
         popd > /dev/null || exit 1
         exit 1
       fi
