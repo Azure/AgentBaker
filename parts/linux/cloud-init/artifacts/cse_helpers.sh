@@ -176,6 +176,7 @@ MARINER_KATA_OS_NAME="MARINERKATA"
 AZURELINUX_KATA_OS_NAME="AZURELINUXKATA"
 AZURELINUX_OS_NAME="AZURELINUX"
 FLATCAR_OS_NAME="FLATCAR"
+ACL_OS_NAME="ACL"
 AZURELINUX_OSGUARD_OS_VARIANT="OSGUARD"
 KUBECTL=/opt/bin/kubectl
 DOCKER=/usr/bin/docker
@@ -811,8 +812,8 @@ isAzureLinux() {
 }
 
 isFlatcar() {
-    local os=$1
-    if [ "$os" = "$FLATCAR_OS_NAME" ]; then
+    local os=${1-$OS}
+    if [ "$os" = "$FLATCAR_OS_NAME" ] || [ "$os" = "$ACL_OS_NAME" ]; then
         return 0
     fi
     return 1

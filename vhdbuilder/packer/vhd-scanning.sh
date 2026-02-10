@@ -253,7 +253,7 @@ isCISUnsupportedUbuntu() {
 isFlatcar() {
     local os="$1"
 
-    if [ "$os" = "Flatcar" ]; then
+    if [ "$os" = "Flatcar" ] || [ "$os" = "ACL" ]; then
         return 0
     fi
     return 1
