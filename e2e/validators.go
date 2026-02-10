@@ -1769,7 +1769,7 @@ func ValidateKernelLogs(ctx context.Context, s *Scenario) {
 		"LOCKUP/STALL": {pattern: `(soft|hard) lockup|rcu.*(stall|detected stalls)|hung task|watchdog.*(detected|stuck)`},
 		"MEMORY":       {pattern: `oom[- ]killer|Out of memory:|page allocation failure|memory corruption`},
 		"IO/FS": {
-			pattern: `I/O error|read-only file system|EXT[2-4]-fs error|XFS (ERROR|corruption)|BTRFS (error|warning)|nvme .* (timeout|reset)|ata[0-9].*(failed|error|reset)|scsi.*(error|failed)`,
+			pattern: `I/O error|read-only file system|EXT[2-4]-fs error|XFS.*(ERROR|error|corruption)|BTRFS.*(error|warning)|nvme .* (timeout|reset)|ata[0-9].*(failed|error|reset)|scsi.*(error|failed)`,
 			// sr[0-9] is the virtual CD-ROM drive on Azure VMs. This error occurs when the VM tries to read from an empty virtual optical drive, which is normal and expected.
 			exclude: `sr[0-9]`,
 		},
