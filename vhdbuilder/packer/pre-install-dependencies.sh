@@ -85,7 +85,7 @@ if ! isFlatcar "$OS"; then
       if ! tar -xzf "${WAAGENT_TARBALL}" -C "${WAAGENT_DOWNLOADS_DIR}"; then
         exit 1
       fi
-      WAAGENT_EXTRACT_DIR="${WAAGENT_DOWNLOADS_DIR}/WALinuxAgent-v${WAAGENT_VERSION}"
+      WAAGENT_EXTRACT_DIR="${WAAGENT_DOWNLOADS_DIR}/WALinuxAgent-${WAAGENT_VERSION}"
       # Preserve the OS image's waagent.conf to avoid overwriting it with the GitHub default
       cp /etc/waagent.conf /etc/waagent.conf.bak
       if ! pushd "${WAAGENT_EXTRACT_DIR}" > /dev/null; then
