@@ -214,7 +214,18 @@ function Check-APIServerConnectivity {
         Sleep $RetryInterval
     } while ($retryCount -lt $MaxRetryCount)
 
-    Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_CHECK_API_SERVER_CONNECTIVITY -ErrorMessage "Failed to connect to API server $MasterIP after $retryCount retries. Last exception: $LastException"
+    $lastExceptionMessage = ""
+    if ($LastException -ne $null) {
+        if ($LastException.Exception -ne $null -and -not [string]::IsNullOrEmpty($LastException.Exception.Message)) {
+            $lastExceptionMessage = $LastException.Exception.Message
+        } else {
+            $lastExceptionMessage = $LastException.ToString()
+        }
+        # Normalize any CR/LF in the exception message to spaces to keep ErrorMessage single-line.
+        $lastExceptionMessage = $lastExceptionMessage -replace "(`r|`n)+", " "
+    }
+
+    Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_CHECK_API_SERVER_CONNECTIVITY -ErrorMessage "Failed to connect to API server $MasterIP after $retryCount retries. Last exception: $lastExceptionMessage"
 }
 
 function Get-CACertificates {
