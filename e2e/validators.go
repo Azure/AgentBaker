@@ -1763,15 +1763,15 @@ func ValidateKernelLogs(ctx context.Context, s *Scenario) {
 	patterns := map[string]categoryPattern{
 		"PANIC/CRASH": {
 			pattern: `(kernel: )?(panic|oops|call trace|backtrace|general protection fault|BUG:|RIP:)`,
-			exclude: `panic=`, // exclude boot parameter logs like "Kernel command line: ... panic=-1 ...", which are normal and not indicative of a kernel panic
+			// exclude boot parameter logs like "Kernel command line: ... panic=-1 ...", which are normal and not indicative of a kernel panic
+			exclude: `panic=`,
 		},
 		"LOCKUP/STALL": {pattern: `(soft|hard) lockup|rcu.*(stall|detected stalls)|hung task|watchdog.*(detected|stuck)`},
 		"MEMORY":       {pattern: `oom[- ]killer|Out of memory:|page allocation failure|memory corruption`},
-		// Exclude sr0 (virtual CD-ROM) I/O errors which are benign on Azure VMs
 		"IO/FS": {
 			pattern: `I/O error|read-only file system|EXT[2-4]-fs error|XFS (ERROR|corruption)|BTRFS (error|warning)|nvme .* (timeout|reset)|ata[0-9].*(failed|error|reset)|scsi.*(error|failed)`,
-			// sr0 is the virtual CD-ROM drive on Azure VMs. This error occurs when the VM tries to read from an empty virtual optical drive, which is normal and expected.
-			exclude: `sr0`,
+			// sr[0-9] is the virtual CD-ROM drive on Azure VMs. This error occurs when the VM tries to read from an empty virtual optical drive, which is normal and expected.
+			exclude: `sr[0-9]`,
 		},
 	}
 
@@ -1804,7 +1804,7 @@ func ValidateKernelLogs(ctx context.Context, s *Scenario) {
 	if len(issuesFound) > 0 {
 		// Get full kernel log dump and write to file
 		fullDmesgResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo dmesg", 0, "failed to retrieve full kernel logs")
-		logFileName := fmt.Sprintf("kernel-log.txt", s.Runtime.VM.KubeName)
+		logFileName := "kernel-log.txt"
 		if err := writeToFile(s.T, logFileName, fullDmesgResult.stdout); err != nil {
 			s.T.Logf("Warning: failed to write kernel log to file: %v", err)
 		} else {
