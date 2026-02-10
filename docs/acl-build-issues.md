@@ -54,10 +54,31 @@ This creates a gap unique to ACL: WALinuxAgent won't install the rules, and `azu
 
 ---
 
-## Issue 3: (placeholder — next build attempt)
+## Issue 3: Packer deprovision fails — `/usr/sbin/waagent` not found
 
-**Status**: Not yet encountered
-**Date**: —
-**Symptom**: —
-**Root cause**: —
-**Fix**: —
+**Status**: Fixed
+**Date**: 2026-02-10
+**Symptom**: Build completes all install phases successfully, then fails at the final Packer deprovision step with exit code 125:
+```
+sudo: /usr/sbin/waagent: command not found
+Script exited with non-zero exit status: 125
+```
+
+**Root cause**: The Packer template `vhd-image-builder-flatcar.json` (line 774) hardcodes:
+```
+sudo /usr/sbin/waagent -force -deprovision+user && export HISTSIZE=0 && sync || exit 125
+```
+
+On **Flatcar**, `/usr/sbin` is a symlink to `/usr/bin` (usr-merge), so `/usr/sbin/waagent` resolves to `/usr/bin/waagent` transparently. On **ACL**, `/usr/sbin` is a real directory with ~400+ binaries, and the Azure Linux `waagent` RPM only installs to `/usr/bin/waagent`. There is no `/usr/sbin/waagent`.
+
+**Why Flatcar works**: `ls -ld /usr/sbin` → `lrwxrwxrwx. 1 root root 3 /usr/sbin -> bin`. Same inode for both paths.
+
+**Why ACL fails**: `/usr/sbin` is a separate directory. `waagent` exists only at `/usr/bin/waagent`.
+
+**Affected files**:
+- `vhdbuilder/packer/vhd-image-builder-flatcar.json` — line 774 (hardcoded `/usr/sbin/waagent`)
+- All other packer templates also hardcode the same path (`vhd-image-builder-base.json`, `vhd-image-builder-arm64-gen2.json`, `vhd-image-builder-cvm.json`, `vhd-image-builder-flatcar-arm64.json`)
+
+**Fix (v2 — current)**: Changed the Flatcar packer templates (`vhd-image-builder-flatcar.json`, `vhd-image-builder-flatcar-arm64.json`) to use bare `waagent` instead of `/usr/sbin/waagent` in the deprovision command. This lets the shell resolve `waagent` via PATH, finding it at `/usr/bin/waagent` regardless of whether `/usr/sbin` is a symlink (Flatcar) or a separate read-only directory (ACL). This matches the pattern already used by the Mariner packer templates.
+
+**Log reference**: `failed.log` lines 51535 (`command not found`), 51536 (`cleanup provisioner`), 51706 (`exit status: 125`)
