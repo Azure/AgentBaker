@@ -322,11 +322,10 @@ func (k *Kubeclient) CreateDaemonset(ctx context.Context, ds *appsv1.DaemonSet) 
 }
 
 func (k *Kubeclient) createKubernetesSecret(ctx context.Context, namespace, secretName, registryName, username, password string) error {
-	toolkit.Logf(ctx, "Creating Kubernetes secret %s in namespace %s", secretName, namespace)
+	toolkit.LogStepCtxf(ctx, "creating kubernetes secret %s in namespace %s for registry %s", secretName, namespace, registryName)()
 	clientset, err := kubernetes.NewForConfig(k.RESTConfig)
 	if err != nil {
-		toolkit.Logf(ctx, "failed to create Kubernetes client: %v", err)
-		return err
+		return fmt.Errorf("create Kubernetes client: %w", err)
 	}
 
 	auth := base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", username, password)))
@@ -353,11 +352,9 @@ func (k *Kubeclient) createKubernetesSecret(ctx context.Context, namespace, secr
 	_, err = clientset.CoreV1().Secrets(namespace).Create(ctx, secret, metav1.CreateOptions{})
 	if err != nil {
 		if !errorsk8s.IsAlreadyExists(err) {
-			toolkit.Logf(ctx, "failed to create Kubernetes secret: %v", err)
-			return err
+			return fmt.Errorf("create Kubernetes secret: %w", err)
 		}
 	}
-	toolkit.Logf(ctx, "Kubernetes secret %s created", secretName)
 	return nil
 }
 

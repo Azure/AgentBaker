@@ -2,12 +2,9 @@ package e2e
 
 import (
 	"context"
-
 	crand "crypto/rand"
-
 	"encoding/base64"
 	"encoding/json"
-
 	"errors"
 	"fmt"
 	"io"
@@ -41,7 +38,7 @@ func compileAndUploadAKSNodeController(ctx context.Context, arch string) (string
 	}
 	uniqueSuffix := randomLowercaseString(6)
 	blobPath := fmt.Sprintf("%s/aks-node-controller-%s", time.Now().UTC().Format("2006-01-02-15-04-05"), uniqueSuffix)
-toolkit.Logf(ctx, "uploading aks-node-controller binary to blob path %s", blobPath)
+	toolkit.Logf(ctx, "uploading aks-node-controller binary to blob path %s", blobPath)
 	url, err := config.Azure.UploadAndGetSignedLink(ctx, blobPath, binary)
 	if err != nil {
 		return "", fmt.Errorf("failed to upload aks-node-controller binary: %w", err)
@@ -63,7 +60,7 @@ func compileAKSNodeController(ctx context.Context, arch string) (*os.File, error
 		"GOOS=linux",
 		"GOARCH="+arch,
 	)
-toolkit.Logf(ctx, "compiling aks-node-controller: %q", cmd.String())
+	toolkit.Logf(ctx, "compiling aks-node-controller: %q", cmd.String())
 	log, err := cmd.CombinedOutput()
 	if err != nil {
 		return nil, fmt.Errorf("failed to compile aks-node-controller: %s", string(log))
@@ -240,7 +237,7 @@ func CreateVMSSWithRetry(ctx context.Context, s *Scenario) (*ScenarioVM, error) 
 			return vm, fmt.Errorf("failed to create VMSS after %d retries: %w", maxAttempts, err)
 		}
 
-toolkit.Logf(ctx, "failed to create VMSS: %v, attempt: %v, retrying in %v", err, attempt, delay)
+		toolkit.Logf(ctx, "failed to create VMSS: %v, attempt: %v, retrying in %v", err, attempt, delay)
 		select {
 		case <-ctx.Done():
 			return vm, err
@@ -337,11 +334,11 @@ func waitForVMRunningState(ctx context.Context, s *Scenario, vmssVM *armcompute.
 					if status.Code != nil && strings.HasPrefix(*status.Code, "PowerState/") {
 						powerState := strings.TrimPrefix(*status.Code, "PowerState/")
 						if powerState == "running" {
-toolkit.Logf(ctxTimeout, "VM reached running state")
+							toolkit.Logf(ctxTimeout, "VM reached running state")
 							*vmssVM = vm.VirtualMachineScaleSetVM
 							return nil
 						}
-toolkit.Logf(ctxTimeout, "VM is in power state: %s, waiting for running state...", powerState)
+						toolkit.Logf(ctxTimeout, "VM is in power state: %s, waiting for running state...", powerState)
 					}
 				}
 			}
