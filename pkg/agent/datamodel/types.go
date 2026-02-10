@@ -176,6 +176,7 @@ const (
 	AKSUbuntuArm64Containerd2204Gen2      Distro = "aks-ubuntu-arm64-containerd-22.04-gen2"
 	AKSUbuntuArm64Containerd2404Gen2      Distro = "aks-ubuntu-arm64-containerd-24.04-gen2"
 	AKSUbuntuArm64GB200Containerd2404Gen2 Distro = "aks-ubuntu-arm64-gb200-containerd-24.04-gen2"
+	AKSUbuntuArm64GB300Containerd2404Gen2 Distro = "aks-ubuntu-arm64-gb300-containerd-24.04-gen2"
 	AKSUbuntuContainerd2404CVMGen2        Distro = "aks-ubuntu-containerd-24.04-cvm-gen2"
 	AKSCBLMarinerV2Arm64Gen2              Distro = "aks-cblmariner-v2-arm64-gen2"
 	AKSAzureLinuxV2Arm64Gen2              Distro = "aks-azurelinux-v2-arm64-gen2"
@@ -257,6 +258,7 @@ var AKSDistrosAvailableOnVHD = []Distro{
 	AKSUbuntuArm64Containerd2204Gen2,
 	AKSUbuntuArm64Containerd2404Gen2,
 	AKSUbuntuArm64GB200Containerd2404Gen2,
+	AKSUbuntuArm64GB300Containerd2404Gen2,
 	AKSUbuntuContainerd2404CVMGen2,
 	AKSCBLMarinerV2Arm64Gen2,
 	AKSAzureLinuxV2Arm64Gen2,
