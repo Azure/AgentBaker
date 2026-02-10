@@ -943,6 +943,10 @@ configGPUDrivers() {
         downloadGPUDrivers
         installNvidiaContainerToolkit
         enableNvidiaPersistenceMode
+    elif isACL "$OS" "$OS_VARIANT"; then
+        installNvidiaContainerToolkitSysext
+        installGPUDriverSysext
+        enableNvidiaPersistenceMode
     else
         echo "os $OS $OS_VARIANT not supported at this time. skipping configGPUDrivers"
         exit 1
@@ -952,14 +956,14 @@ configGPUDrivers() {
     retrycmd_if_failure 120 5 300 nvidia-smi || exit $ERR_GPU_DRIVERS_START_FAIL
     retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
 
+    # Fix the NVIDIA /dev/char link issue (Mariner/AzureLinux only)
     if isMarinerOrAzureLinux "$OS"; then
-        # GRID vGPU licensing: restart nvidia-gridd after device nodes exist
-        if [ "$NVIDIA_GPU_DRIVER_TYPE" = "grid" ]; then
-            systemctlEnableAndStart nvidia-gridd 30
-        fi
-
-        # Fix the NVIDIA /dev/char link issue
         createNvidiaSymlinkToAllDeviceNodes
+    fi
+
+    # GRID vGPU licensing: start nvidia-gridd service to ensure license configuration
+    if (isMarinerOrAzureLinux "$OS" || isACL "$OS" "$OS_VARIANT") && [ "$NVIDIA_GPU_DRIVER_TYPE" = "grid" ]; then
+        systemctlEnableAndStart nvidia-gridd 300 || exit $ERR_SYSTEMCTL_START_FAIL
     fi
 
     retrycmd_if_failure 120 5 25 pkill -SIGHUP containerd || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
