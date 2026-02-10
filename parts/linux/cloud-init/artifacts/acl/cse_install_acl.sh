@@ -100,6 +100,80 @@ installCredentialProviderPackageFromBootstrapProfileRegistry() {
     installCredentialProviderFromPkg "$2" "$1"
 }
 
+# Reads VERSION_ID from /etc/os-release for use as the sysext version tag.
+# GPU sysexts are tagged by the OS image version, not the driver version.
+getACLVersionID() {
+    # shellcheck disable=SC1091
+    source /etc/os-release
+    if [ -z "${VERSION_ID}" ]; then
+        echo "ERROR: VERSION_ID not found in /etc/os-release" >&2
+        return "${ERR_SYSEXT_VERSION_ID_NOT_FOUND}"
+    fi
+    echo "${VERSION_ID}"
+}
+
+# Pulls a GPU-related sysext by name using the ACL MCR registry.
+# Registry path uses major.minor (e.g. 3.0), tag uses full VERSION_ID (e.g. 3.0.20260304).
+# Example: mcr.microsoft.com/azurelinux/3.0/azure-container-linux/nvidia-driver-cuda:v3.0.20260304...
+installACLGPUSysext() {
+    local sysext_name=$1
+    local version_id=$(getACLVersionID) || exit $ERR_SYSEXT_VERSION_ID_NOT_FOUND
+    local registry_base="mcr.microsoft.com/azurelinux/${version_id%.*}/azure-container-linux"
+    mergeSysexts "${sysext_name}" "${registry_base}/${sysext_name}" "${version_id}" \
+        || exit $ERR_ORAS_PULL_SYSEXT_FAIL
+}
+
+installGPUDriverSysext() {
+    # ACL NVIDIA GPU driver sysext registry paths:
+    # Registry path uses major.minor (e.g. 3.0), tag uses full VERSION_ID (e.g. 3.0.20260304).
+    #
+    # 1. NVIDIA proprietary driver:
+    # mcr.microsoft.com/azurelinux/3.0/azure-container-linux/nvidia-driver-cuda:v${VERSION_ID}...
+    #
+    # 2. NVIDIA OpenRM driver:
+    # mcr.microsoft.com/azurelinux/3.0/azure-container-linux/nvidia-driver-cuda-open:v${VERSION_ID}...
+    #
+    # 3. NVIDIA GRID (vGPU guest) driver for converged GPU sizes:
+    # mcr.microsoft.com/azurelinux/3.0/azure-container-linux/nvidia-driver-vgpu:v${VERSION_ID}...
+    #
+    # NVIDIA_GPU_DRIVER_TYPE is set by AgentBaker based on ConvergedGPUDriverSizes map
+    # in gpu_components.go. Converged sizes get "grid"; all others get "cuda".
+    # Legacy GPUs (T4, V100) require proprietary CUDA drivers; A100+ use NVIDIA open drivers.
+    local vm_sku
+    vm_sku=$(get_compute_sku)
+    local sysext_name
+
+    # Converged GPU sizes (NVads_A10_v5, NCads_A10_v4) use GRID drivers
+    if [ "$NVIDIA_GPU_DRIVER_TYPE" = "grid" ]; then
+        echo "VM SKU ${vm_sku} uses NVIDIA GRID driver (converged)"
+        sysext_name="nvidia-driver-vgpu"
+    else
+        local driver_ret
+        should_use_nvidia_open_drivers
+        driver_ret=$?
+        if [ "$driver_ret" -eq 2 ]; then
+            echo "Failed to determine GPU driver type"
+            exit $ERR_MISSING_CUDA_PACKAGE
+        elif [ "$driver_ret" -eq 0 ]; then
+            echo "VM SKU ${vm_sku} uses NVIDIA OpenRM driver (cuda-open)"
+            sysext_name="nvidia-driver-cuda-open"
+        else
+            echo "VM SKU ${vm_sku} uses NVIDIA proprietary driver (cuda)"
+            sysext_name="nvidia-driver-cuda"
+        fi
+    fi
+
+    installACLGPUSysext "${sysext_name}"
+}
+
+installNvidiaContainerToolkitSysext() {
+    installACLGPUSysext nvidia-container-toolkit
+}
+
+installNvidiaFabricManagerSysext() {
+    installACLGPUSysext nvidia-fabric-manager
+}
+
 ensureRunc() {
     stub
 }
