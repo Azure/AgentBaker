@@ -43,7 +43,11 @@
       "os_type": "Linux",
       "os_disk_size_gb": 60,
       "shared_image_gallery": {
-        "direct_shared_gallery_image_id": "/SharedGalleries/{{user `sig_source_gallery_unique_name`}}/Images/{{user `sig_source_image_name`}}/Versions/{{user `sig_source_image_version`}}"
+        "subscription": "035db282-f1c8-4ce7-b78f-2a7265d5398c",
+        "resource_group": "acl-test-gallery-rg",
+        "gallery_name": "acltestacg",
+        "image_name": "henry-acl-test-vm-img",
+        "image_version": "1.0.17"
       },
       "azure_tags": {
         "buildDefinitionName": "{{user `build_definition_name`}}",

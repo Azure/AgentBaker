@@ -245,6 +245,20 @@ func getFirewall(ctx context.Context, location, firewallSubnetID, publicIPID str
 		TargetFqdns: []*string{to.Ptr(mooncakeMAR), to.Ptr(mooncakeMARData)},
 	}
 
+	// needed for ACL sysext GPU driver pulls from ACR
+	// ACR redirects blob downloads to *.blob.core.windows.net, so both domains must be allowed
+	acrAppRule := armnetwork.AzureFirewallApplicationRule{
+		Name:            to.Ptr("acr-fqdn"),
+		SourceAddresses: []*string{to.Ptr("*")},
+		Protocols: []*armnetwork.AzureFirewallApplicationRuleProtocol{
+			{
+				ProtocolType: to.Ptr(armnetwork.AzureFirewallApplicationRuleProtocolTypeHTTPS),
+				Port:         to.Ptr[int32](443),
+			},
+		},
+		TargetFqdns: []*string{to.Ptr("*.azurecr.io"), to.Ptr("*.blob.core.windows.net")},
+	}
+
 	// Needed for access to download.microsoft.com
 	// This is currently only needed by the Supernova (MA35D) SKU GPU tests
 	// Driver install code in setupAmdAma() depends on this
@@ -267,7 +281,7 @@ func getFirewall(ctx context.Context, location, firewallSubnetID, publicIPID str
 			Action: &armnetwork.AzureFirewallRCAction{
 				Type: to.Ptr(armnetwork.AzureFirewallRCActionTypeAllow),
 			},
-			Rules: []*armnetwork.AzureFirewallApplicationRule{&aksAppRule, &blobStorageAppRule, &mooncakeMARRule, &dmcRule},
+			Rules: []*armnetwork.AzureFirewallApplicationRule{&aksAppRule, &blobStorageAppRule, &mooncakeMARRule, &acrAppRule, &dmcRule},
 		},
 	}
 
