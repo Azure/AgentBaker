@@ -28,8 +28,7 @@ import (
 )
 
 var (
-	logf = toolkit.Logf
-	log  = toolkit.Log
+// removed logf and log aliases - use toolkit.Logf and toolkit.Log directly
 )
 
 // it's important to share context between tests to allow graceful shutdown
@@ -180,6 +179,7 @@ func copyScenario(s *Scenario) *Scenario {
 }
 
 func runScenario(t testing.TB, s *Scenario) error {
+	defer toolkit.LogStep(t, "running scenario")()
 	t = toolkit.WithTestLogger(t)
 	if s.Location == "" {
 		s.Location = config.Config.DefaultLocation
@@ -231,6 +231,7 @@ func runScenario(t testing.TB, s *Scenario) error {
 }
 
 func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
+	defer toolkit.LogStep(s.T, "preparing AKS node")()
 	if (s.BootstrapConfigMutator == nil) == (s.AKSNodeConfigMutator == nil) {
 		s.T.Fatalf("exactly one of BootstrapConfigMutator or AKSNodeConfigMutator must be set")
 	}
@@ -352,6 +353,7 @@ func ValidateNodeCanRunAPod(ctx context.Context, s *Scenario) {
 }
 
 func validateVM(ctx context.Context, s *Scenario) {
+	defer toolkit.LogStep(s.T, "validating VM")()
 	if !s.Config.SkipSSHConnectivityValidation {
 		err := validateSSHConnectivity(ctx, s)
 		require.NoError(s.T, err)
@@ -530,7 +532,7 @@ func RunCommand(ctx context.Context, s *Scenario, command string) (armcompute.Ru
 	start := time.Now()
 	defer func() {
 		elapsed := time.Since(start)
-		logf(ctx, "Command %q took %s", command, elapsed)
+		toolkit.Logf(ctx, "Command %q took %s", command, elapsed)
 	}()
 
 	runPoller, err := config.Azure.VMSSVM.BeginRunCommand(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, *s.Runtime.VM.VM.InstanceID, armcompute.RunCommandInput{
