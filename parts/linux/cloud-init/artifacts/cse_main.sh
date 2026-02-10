@@ -56,7 +56,8 @@ get_ubuntu_release() {
 # After completion, this VHD can be used as a base image for creating new node pools.
 # Users may add custom configurations or pull additional container images after this stage.
 function basePrep {
-    aptmarkWALinuxAgent hold &
+    # Run synchronously to avoid apt lock contention with later apt operations (eg kubelet install)
+    logs_to_events "AKS.CSE.aptmarkWALinuxAgent" aptmarkWALinuxAgent hold
 
     logs_to_events "AKS.CSE.configureAdminUser" configureAdminUser
 
