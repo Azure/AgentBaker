@@ -179,7 +179,6 @@ func copyScenario(s *Scenario) *Scenario {
 }
 
 func runScenario(t testing.TB, s *Scenario) error {
-	defer toolkit.LogStep(t, "running scenario")()
 	t = toolkit.WithTestLogger(t)
 	if s.Location == "" {
 		s.Location = config.Config.DefaultLocation
@@ -192,6 +191,8 @@ func runScenario(t testing.TB, s *Scenario) error {
 	}
 
 	ctx := newTestCtx(t)
+	maybeSkipScenario(ctx, t, s)
+
 	_, err := CachedEnsureResourceGroup(ctx, s.Location)
 	require.NoError(t, err)
 	_, err = CachedCreateVMManagedIdentity(ctx, s.Location)
@@ -199,7 +200,7 @@ func runScenario(t testing.TB, s *Scenario) error {
 	s.T = t
 	ctrruntimelog.SetLogger(zap.New())
 
-	maybeSkipScenario(ctx, t, s)
+	defer toolkit.LogStep(t, "running scenario")()
 
 	cluster, err := s.Config.Cluster(ctx, ClusterRequest{
 		Location:         s.Location,
