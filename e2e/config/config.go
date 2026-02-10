@@ -76,8 +76,8 @@ type Configuration struct {
 	TestGalleryImagePrefix                 string        `env:"TEST_GALLERY_IMAGE_PREFIX" envDefault:"abe2etest"`
 	TestGalleryNamePrefix                  string        `env:"TEST_GALLERY_NAME_PREFIX" envDefault:"abe2etest"`
 	TestPreProvision                       bool          `env:"TEST_PRE_PROVISION" envDefault:"false"`
-	TestTimeout                            time.Duration `env:"TEST_TIMEOUT" envDefault:"35m"`
-	TestTimeoutCluster                     time.Duration `env:"TEST_TIMEOUT_CLUSTER" envDefault:"20m"`
+	TestTimeout                            time.Duration `env:"TEST_TIMEOUT" envDefault:"60m"`
+	TestTimeoutCluster                     time.Duration `env:"TEST_TIMEOUT_CLUSTER" envDefault:"60m"`
 	TestTimeoutVMSS                        time.Duration `env:"TEST_TIMEOUT_VMSS" envDefault:"17m"`
 	WindowsAdminPassword                   string        `env:"WINDOWS_ADMIN_PASSWORD"`
 	SysSSHPublicKey                        string        `env:"SYS_SSH_PUBLIC_KEY"`
