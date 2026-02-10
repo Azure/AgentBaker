@@ -1366,7 +1366,7 @@ func Test_AzureLinuxV3_MA35D(t *testing.T) {
 		},
 		// No MA35D GPU capacity in West US, so using East US
 		Location: "eastus",
-		K8sSystemPoolSKU: "Standard_NM16ads_MA35D",
+		K8sSystemPoolSKU: "Standard_D2s_v3",
 	})
 }
 
@@ -1393,7 +1393,7 @@ func Test_AzureLinuxV3_MA35D_Scriptless(t *testing.T) {
 		},
 		// No MA35D GPU capacity in West US, so using East US
 		Location: "eastus",
-		K8sSystemPoolSKU: "Standard_NM16ads_MA35D",
+		K8sSystemPoolSKU: "Standard_D2s_v3",
 	})
 }
 
