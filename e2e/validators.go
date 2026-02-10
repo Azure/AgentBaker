@@ -1756,17 +1756,15 @@ func ValidateRxBufferDefault(ctx context.Context, s *Scenario) {
 func ValidateKernelLogs(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 
-	// Category patterns for different types of kernel issues
-	// Note: panic[: -] requires panic to be followed by colon, space, or hyphen
-	// to avoid matching boot parameters like "panic=-1"
-	// Note: watchdog pattern uses "detected|stuck" to avoid matching informational
-	// messages like "NMI watchdog: Perf NMI watchdog permanently disabled"
 	type categoryPattern struct {
 		pattern string
 		exclude string // optional pattern to exclude false positives
 	}
 	patterns := map[string]categoryPattern{
-		"PANIC/CRASH":  {pattern: `(kernel: )?(panic[: -]|oops|call trace|backtrace|general protection fault|BUG:|RIP:)`},
+		"PANIC/CRASH": {
+			pattern: `(kernel: )?(panic|oops|call trace|backtrace|general protection fault|BUG:|RIP:)`,
+			exclude: `panic=`, // exclude boot parameter logs like "Kernel command line: ... panic=-1 ...", which are normal and not indicative of a kernel panic
+		},
 		"LOCKUP/STALL": {pattern: `(soft|hard) lockup|rcu.*(stall|detected stalls)|hung task|watchdog.*(detected|stuck)`},
 		"MEMORY":       {pattern: `oom[- ]killer|Out of memory:|page allocation failure|memory corruption`},
 		// Exclude sr0 (virtual CD-ROM) I/O errors which are benign on Azure VMs
@@ -1784,12 +1782,14 @@ func ValidateKernelLogs(ctx context.Context, s *Scenario) {
 		if cp.exclude != "" {
 			command = []string{
 				"set -e",
-				fmt.Sprintf("sudo dmesg | grep -iE '%s' | grep -ivE '%s' || true", cp.pattern, cp.exclude),
+				"output=$(sudo dmesg)",
+				fmt.Sprintf("echo \"$output\" | grep -iE '%s' | grep -ivE '%s' || true", cp.pattern, cp.exclude),
 			}
 		} else {
 			command = []string{
 				"set -e",
-				fmt.Sprintf("sudo dmesg | grep -iE '%s' || true", cp.pattern),
+				"output=$(sudo dmesg)",
+				fmt.Sprintf("echo \"$output\" | grep -iE '%s' || true", cp.pattern),
 			}
 		}
 		execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to retrieve kernel logs")
@@ -1800,11 +1800,16 @@ func ValidateKernelLogs(ctx context.Context, s *Scenario) {
 		}
 	}
 
-	// If issues found, log the full kernel dump for debugging
+	// If issues found, write the full kernel dump to a file for debugging
 	if len(issuesFound) > 0 {
-		// Get full kernel log dump
+		// Get full kernel log dump and write to file
 		fullDmesgResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo dmesg", 0, "failed to retrieve full kernel logs")
-		s.T.Logf("=== FULL KERNEL LOG DUMP (dmesg) ===\n%s\n=== END KERNEL LOG DUMP ===", fullDmesgResult.stdout)
+		logFileName := fmt.Sprintf("kernel-log.txt", s.Runtime.VM.KubeName)
+		if err := writeToFile(s.T, logFileName, fullDmesgResult.stdout); err != nil {
+			s.T.Logf("Warning: failed to write kernel log to file: %v", err)
+		} else {
+			s.T.Logf("Full kernel log written to: %s/%s", testDir(s.T), logFileName)
+		}
 
 		// Log each category of issues found
 		var summary strings.Builder
