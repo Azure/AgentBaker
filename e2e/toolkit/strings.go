@@ -3,6 +3,7 @@ package toolkit
 import (
 	"context"
 	"strconv"
+	"testing"
 	"time"
 )
 
@@ -15,8 +16,13 @@ func StrToInt32(s string) int32 {
 }
 
 func LogDuration(ctx context.Context, duration time.Duration, warningDuration time.Duration, message string) {
-	Log(ctx, message)
+	if t, ok := ctx.Value(testLoggerKey{}).(testing.TB); ok {
+		// exclude this function from log stack trace
+		t.Helper()
+	}
 	if duration > warningDuration {
-		Logf(ctx, "##vso[task.logissue type=warning;]%s", message)
+		Logf(ctx, "⚠️ ##vso[task.logissue type=warning;] %s", message)
+	} else {
+		Log(ctx, message)
 	}
 }

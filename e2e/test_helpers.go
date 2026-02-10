@@ -27,10 +27,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
-var (
-// removed logf and log aliases - use toolkit.Logf and toolkit.Log directly
-)
-
 // it's important to share context between tests to allow graceful shutdown
 // cancellation signal can be sent before a test starts, without shared context such test will miss the signal
 var testCtx = setupSignalHandler()
