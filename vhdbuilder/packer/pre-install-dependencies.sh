@@ -91,7 +91,9 @@ if ! isFlatcar "$OS"; then
       if ! pushd "${WAAGENT_EXTRACT_DIR}" > /dev/null; then
         exit 1
       fi
-      if ! python3 setup.py install --register-service --install-lib=/usr/lib/python3/dist-packages --install-scripts=/usr/sbin; then
+      # Use --executable to ensure the installed waagent script uses python3
+      # since some distros (e.g. Azure Linux V3) don't have a "python" binary, only "python3".
+      if ! python3 setup.py install --register-service --install-lib=/usr/lib/python3/dist-packages --install-scripts=/usr/sbin --executable=/usr/bin/python3; then
         popd > /dev/null || exit 1
         exit 1
       fi
