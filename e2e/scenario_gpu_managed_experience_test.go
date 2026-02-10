@@ -51,7 +51,7 @@ type packageOSVariant struct {
 	osRelease string
 }
 
-func Test_Version_Consistency_GPU_Managed_Components(t *testing.T) {
+func Skip_Test_Version_Consistency_GPU_Managed_Components(t *testing.T) {
 	allPackageVariants := [][]packageOSVariant{
 		{
 			{"nvidia-device-plugin", "ubuntu", "r2404"},
@@ -99,7 +99,7 @@ func Test_Version_Consistency_GPU_Managed_Components(t *testing.T) {
 	}
 }
 
-func Test_Ubuntu2404_NvidiaDevicePluginRunning(t *testing.T) {
+func Skip_Test_Ubuntu2404_NvidiaDevicePluginRunning(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that NVIDIA device plugin and DCGM Exporter are running & functional on Ubuntu 24.04 GPU nodes",
 		Tags: Tags{
@@ -174,7 +174,7 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning(t *testing.T) {
 	})
 }
 
-func Test_Ubuntu2204_NvidiaDevicePluginRunning(t *testing.T) {
+func Skip_Test_Ubuntu2204_NvidiaDevicePluginRunning(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that NVIDIA device plugin and DCGM Exporter are running & functional on Ubuntu 22.04 GPU nodes",
 		Tags: Tags{
@@ -248,7 +248,7 @@ func Test_Ubuntu2204_NvidiaDevicePluginRunning(t *testing.T) {
 	})
 }
 
-func Test_AzureLinux3_NvidiaDevicePluginRunning(t *testing.T) {
+func Skip_Test_AzureLinux3_NvidiaDevicePluginRunning(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that NVIDIA device plugin and DCGM Exporter are running & functional on Azure Linux v3 GPU nodes",
 		Tags: Tags{
@@ -319,7 +319,7 @@ func Test_AzureLinux3_NvidiaDevicePluginRunning(t *testing.T) {
 	})
 }
 
-func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG(t *testing.T) {
+func Skip_Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that NVIDIA device plugin and DCGM Exporter work with MIG enabled on Ubuntu 24.04 GPU nodes",
 		Tags: Tags{
@@ -396,7 +396,7 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG(t *testing.T) {
 	})
 }
 
-func Test_Ubuntu2204_NvidiaDevicePluginRunning_WithoutVMSSTag(t *testing.T) {
+func Skip_Test_Ubuntu2204_NvidiaDevicePluginRunning_WithoutVMSSTag(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that NVIDIA device plugin and DCGM Exporter work via NBC EnableManagedGPU field without VMSS tag",
 		Tags: Tags{

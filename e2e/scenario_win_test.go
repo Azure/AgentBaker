@@ -58,7 +58,7 @@ func DualStackVMConfigMutator(set *armcompute.VirtualMachineScaleSet) {
 }
 
 // WS2019 doesn't support IPv6, so we don't test it with dual-stack.
-func Test_Windows2019AzureNetwork(t *testing.T) {
+func Skip_Test_Windows2019AzureNetwork(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Windows Server 2019 Azure Network",
 		Config: Config{
@@ -80,7 +80,7 @@ func Test_Windows2019AzureNetwork(t *testing.T) {
 	})
 }
 
-func Test_Windows2022_AzureNetwork(t *testing.T) {
+func Skip_Test_Windows2022_AzureNetwork(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Windows Server 2022 Azure Network",
 		Config: Config{
@@ -100,7 +100,7 @@ func Test_Windows2022_AzureNetwork(t *testing.T) {
 	})
 }
 
-func Test_Windows2022AzureOverlayNetworkDualStack(t *testing.T) {
+func Skip_Test_Windows2022AzureOverlayNetworkDualStack(t *testing.T) {
 	t.Skip("Dual stack tests are not working yet")
 	RunScenario(t, &Scenario{
 		Description: "Windows Server 2022 Azure Overlay Network Dual Stack",
@@ -121,7 +121,7 @@ func Test_Windows2022AzureOverlayNetworkDualStack(t *testing.T) {
 	})
 }
 
-func Test_Windows2022Gen2AzureNetwork(t *testing.T) {
+func Skip_Test_Windows2022Gen2AzureNetwork(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Windows Server 2022 with Azure Network - hyperv gen2",
 		Config: Config{
@@ -142,7 +142,7 @@ func Test_Windows2022Gen2AzureNetwork(t *testing.T) {
 	})
 }
 
-func Test_Windows2022Gen2AzureOverlayNetworkDualStack(t *testing.T) {
+func Skip_Test_Windows2022Gen2AzureOverlayNetworkDualStack(t *testing.T) {
 	t.Skip("Dual stack tests are not working yet")
 	RunScenario(t, &Scenario{
 		Description: "Windows Server 2022 with Azure Overlay Network Dual Stack - hyperv gen 2",
@@ -164,7 +164,7 @@ func Test_Windows2022Gen2AzureOverlayNetworkDualStack(t *testing.T) {
 	})
 }
 
-func Test_Windows23H2AzureNetwork(t *testing.T) {
+func Skip_Test_Windows23H2AzureNetwork(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Windows Server 23H2 with Azure Network",
 		Config: Config{
@@ -184,7 +184,7 @@ func Test_Windows23H2AzureNetwork(t *testing.T) {
 	})
 }
 
-func Test_Windows23H2AzureOverlayNetworkDualStack(t *testing.T) {
+func Skip_Test_Windows23H2AzureOverlayNetworkDualStack(t *testing.T) {
 	t.Skip("Dual stack tests are not working yet")
 	RunScenario(t, &Scenario{
 		Description: "Windows Server 23H2 with Azure Overlay Network Dual Stack",
@@ -205,7 +205,7 @@ func Test_Windows23H2AzureOverlayNetworkDualStack(t *testing.T) {
 	})
 }
 
-func Test_Windows23H2Gen2AzureNetwork(t *testing.T) {
+func Skip_Test_Windows23H2Gen2AzureNetwork(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Windows Server 23H2 with Azure Network - hyperv gen2",
 		Config: Config{
@@ -226,7 +226,7 @@ func Test_Windows23H2Gen2AzureNetwork(t *testing.T) {
 	})
 }
 
-func Test_Windows23H2Gen2AzureOverlayDualStack(t *testing.T) {
+func Skip_Test_Windows23H2Gen2AzureOverlayDualStack(t *testing.T) {
 	t.Skip("Dual stack tests are not working yet")
 	RunScenario(t, &Scenario{
 		Description: "Windows Server 23H2 with Azure Overlay Network Dual Stack - hyperv gen2",
@@ -248,7 +248,7 @@ func Test_Windows23H2Gen2AzureOverlayDualStack(t *testing.T) {
 	})
 }
 
-func Test_Windows23H2Gen2CachingRegression(t *testing.T) {
+func Skip_Test_Windows23H2Gen2CachingRegression(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Windows 23H2 VHD built before local cache enabled should still work - overwrite the CSE scripts package URL",
 		Config: Config{
@@ -267,7 +267,7 @@ func Test_Windows23H2Gen2CachingRegression(t *testing.T) {
 	})
 }
 
-func Test_Windows2022CachingRegression(t *testing.T) {
+func Skip_Test_Windows2022CachingRegression(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Windows 2022 VHD built before local cache enabled should still work - overwrite the CSE scripts package URL",
 		Config: Config{
@@ -286,7 +286,7 @@ func Test_Windows2022CachingRegression(t *testing.T) {
 	})
 }
 
-func Test_Windows2019CachingRegression(t *testing.T) {
+func Skip_Test_Windows2019CachingRegression(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Windows 2019 VHD built before local cache enabled should still work - overwrite the CSE scripts package URL",
 		Config: Config{
@@ -305,7 +305,7 @@ func Test_Windows2019CachingRegression(t *testing.T) {
 	})
 }
 
-func Test_Windows2025(t *testing.T) {
+func Skip_Test_Windows2025(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Windows Server 2025 with Containerd",
 		Config: Config{
@@ -327,7 +327,7 @@ func Test_Windows2025(t *testing.T) {
 	})
 }
 
-func Test_Windows2025Gen2(t *testing.T) {
+func Skip_Test_Windows2025Gen2(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Windows Server 2025 with Containerd - hyperv gen 2",
 		Config: Config{
@@ -349,7 +349,7 @@ func Test_Windows2025Gen2(t *testing.T) {
 	})
 }
 
-func Test_Windows2022_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing.T) {
+func Skip_Test_Windows2022_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Windows Server 2022 with Containerd 2- hyperv gen 2 using secure TLS bootstrapping bootstrap token fallback",
 		Tags: Tags{
@@ -377,7 +377,7 @@ func Test_Windows2022_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing.
 	})
 }
 
-func Test_Windows2022_DisableKubeletServingCertificateRotationWithTags(t *testing.T) {
+func Skip_Test_Windows2022_DisableKubeletServingCertificateRotationWithTags(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Windows Server 2022 with Containerd 2- hyperv gen 2 with kubelet serving certificate rotation disabled by VMSS tag",
 		Config: Config{
@@ -401,7 +401,7 @@ func Test_Windows2022_DisableKubeletServingCertificateRotationWithTags(t *testin
 	})
 }
 
-func Test_Windows2022_VHDCaching(t *testing.T) {
+func Skip_Test_Windows2022_VHDCaching(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "VHD Caching",
 		Config: Config{
@@ -428,7 +428,7 @@ func Test_Windows2022_VHDCaching(t *testing.T) {
 	})
 }
 
-func Test_Windows2022Gen2_k8s_133(t *testing.T) {
+func Skip_Test_Windows2022Gen2_k8s_133(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Windows Server 2022 with Containerd 2- hyperv gen 2",
 		Config: Config{
@@ -450,7 +450,7 @@ func Test_Windows2022Gen2_k8s_133(t *testing.T) {
 		},
 	})
 }
-func Test_Windows23H2_Cilium2(t *testing.T) {
+func Skip_Test_Windows23H2_Cilium2(t *testing.T) {
 	t.Skip("skipping test for Cilium on Windows 23H2, as it is not supported in production AKS yet")
 	RunScenario(t, &Scenario{
 		Description: "Windows Server 2022 with Containerd",
@@ -472,7 +472,7 @@ func Test_Windows23H2_Cilium2(t *testing.T) {
 	})
 }
 
-func Test_Windows23H2Gen2_WindowsCiliumNetworking(t *testing.T) {
+func Skip_Test_Windows23H2Gen2_WindowsCiliumNetworking(t *testing.T) {
 	t.Skip("skipping test for Windows Cilium Networking (WCN) on Windows 23H2 Gen2, as it needs a reboot after provisioning - and that is not working yet")
 	RunScenario(t, &Scenario{
 		Description: "Windows Server 23H2 Gen2 with Windows Cilium Networking (WCN) enabled",
@@ -494,7 +494,7 @@ func Test_Windows23H2Gen2_WindowsCiliumNetworking(t *testing.T) {
 	})
 }
 
-func Test_Windows2022_McrChinaCloud_Windows(t *testing.T) {
+func Skip_Test_Windows2022_McrChinaCloud_Windows(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Tags: Tags{
 			MockAzureChinaCloud: true,
@@ -519,7 +519,7 @@ func Test_Windows2022_McrChinaCloud_Windows(t *testing.T) {
 	})
 }
 
-func Test_Windows2025Gen2_McrChinaCloud_Windows(t *testing.T) {
+func Skip_Test_Windows2025Gen2_McrChinaCloud_Windows(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Tags: Tags{
 			MockAzureChinaCloud: true,

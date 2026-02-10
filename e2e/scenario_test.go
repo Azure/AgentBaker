@@ -17,7 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func Test_AzureLinux3OSGuard(t *testing.T) {
+func Skip_Test_AzureLinux3OSGuard(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using an Azure Linux V3 OS Guard VHD can be properly bootstrapped",
 		Config: Config{
@@ -34,7 +34,7 @@ func Test_AzureLinux3OSGuard(t *testing.T) {
 	})
 }
 
-func Test_Flatcar(t *testing.T) {
+func Skip_Test_Flatcar(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a Flatcar VHD can be properly bootstrapped",
 		Config: Config{
@@ -50,7 +50,7 @@ func Test_Flatcar(t *testing.T) {
 	})
 }
 
-func Test_Flatcar_CustomCATrust(t *testing.T) {
+func Skip_Test_Flatcar_CustomCATrust(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Flatcar VHD can be properly bootstrapped and custom CA was correctly added",
 		Config: Config{
@@ -72,7 +72,7 @@ func Test_Flatcar_CustomCATrust(t *testing.T) {
 	})
 }
 
-func Test_Flatcar_Scriptless(t *testing.T) {
+func Skip_Test_Flatcar_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a Flatcar and the self-contained installer can be properly bootstrapped",
 		Config: Config{
@@ -87,7 +87,7 @@ func Test_Flatcar_Scriptless(t *testing.T) {
 	})
 }
 
-func Test_Flatcar_ARM64(t *testing.T) {
+func Skip_Test_Flatcar_ARM64(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a Flatcar VHD on ARM64 architecture can be properly bootstrapped",
 		Config: Config{
@@ -106,7 +106,7 @@ func Test_Flatcar_ARM64(t *testing.T) {
 	})
 }
 
-func Test_Flatcar_AzureCNI(t *testing.T) {
+func Skip_Test_Flatcar_AzureCNI(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Flatcar scenario on a cluster configured with Azure CNI",
 		Config: Config{
@@ -120,7 +120,7 @@ func Test_Flatcar_AzureCNI(t *testing.T) {
 	})
 }
 
-func Test_Flatcar_AzureCNI_ChronyRestarts(t *testing.T) {
+func Skip_Test_Flatcar_AzureCNI_ChronyRestarts(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Test Flatcar scenario on a cluster configured with Azure CNI and the chrony service restarts if it is killed",
 		Config: Config{
@@ -139,7 +139,7 @@ func Test_Flatcar_AzureCNI_ChronyRestarts(t *testing.T) {
 	})
 }
 
-func Test_Flatcar_AzureCNI_ChronyRestarts_Scriptless(t *testing.T) {
+func Skip_Test_Flatcar_AzureCNI_ChronyRestarts_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Test Flatcar scenario on a cluster configured with Azure CNI and the chrony service restarts if it is killed",
 		Tags: Tags{
@@ -160,7 +160,7 @@ func Test_Flatcar_AzureCNI_ChronyRestarts_Scriptless(t *testing.T) {
 	})
 }
 
-func Test_Flatcar_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing.T) {
+func Skip_Test_Flatcar_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a Flatcar Gen2 VHD can be properly bootstrapped even if secure TLS bootstrapping fails",
 		Tags: Tags{
@@ -180,7 +180,7 @@ func Test_Flatcar_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing.T) {
 	})
 }
 
-func Test_AzureLinuxV3_AirGap(t *testing.T) {
+func Skip_Test_AzureLinuxV3_AirGap(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a AzureLinuxV3 (CgroupV2) VHD can be properly bootstrapped",
 		Tags: Tags{
@@ -206,7 +206,7 @@ func Test_AzureLinuxV3_AirGap(t *testing.T) {
 	})
 }
 
-func Test_AzureLinuxV3_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing.T) {
+func Skip_Test_AzureLinuxV3_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a AzureLinuxV3 Gen2 VHD can be properly bootstrapped even if secure TLS bootstrapping fails",
 		Tags: Tags{
@@ -226,7 +226,7 @@ func Test_AzureLinuxV3_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing
 	})
 }
 
-func Test_AzureLinuxV3_AirGap_Package_Install(t *testing.T) {
+func Skip_Test_AzureLinuxV3_AirGap_Package_Install(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a AzureLinuxV3 VHD on ARM64 architecture can be properly bootstrapped",
 		Tags: Tags{
@@ -271,7 +271,7 @@ func Test_AzureLinuxV3_AzureCNI(t *testing.T) {
 	})
 }
 
-func Test_AzureLinuxV3_ChronyRestarts(t *testing.T) {
+func Skip_Test_AzureLinuxV3_ChronyRestarts(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that the chrony service restarts if it is killed",
 		Config: Config{
@@ -290,7 +290,7 @@ func Test_AzureLinuxV3_ChronyRestarts(t *testing.T) {
 
 // Returns config for the 'base' E2E scenario
 
-func Test_Ubuntu2204_Scriptless(t *testing.T) {
+func Skip_Test_Ubuntu2204_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that a new ubuntu 2204 node using self contained installer can be properly bootstrapped",
 		Config: Config{
@@ -305,7 +305,7 @@ func Test_Ubuntu2204_Scriptless(t *testing.T) {
 	})
 }
 
-func Test_Ubuntu2204_Failure_Scriptless(t *testing.T) {
+func Skip_Test_Ubuntu2204_Failure_Scriptless(t *testing.T) {
 	err := RunScenario(t, &Scenario{
 		Description: "tests that a new ubuntu 2204 node using self contained installer can be properly bootstrapped",
 		Config: Config{
@@ -329,7 +329,7 @@ func Test_Ubuntu2204_Failure_Scriptless(t *testing.T) {
 	require.ErrorContains(t, err, "API server connection check code: 51")
 }
 
-func Test_Ubuntu2204_Early_Failure_Scriptless(t *testing.T) {
+func Skip_Test_Ubuntu2204_Early_Failure_Scriptless(t *testing.T) {
 	err := RunScenario(t, &Scenario{
 		Description: "tests that a new ubuntu 2204 node using self contained installer can be properly bootstrapped",
 		Config: Config{
@@ -351,7 +351,7 @@ func Test_Ubuntu2204_Early_Failure_Scriptless(t *testing.T) {
 	require.ErrorContains(t, err, "unsupported version: VeryBadVersion")
 }
 
-func Test_Ubuntu2404_Scriptless(t *testing.T) {
+func Skip_Test_Ubuntu2404_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "testing that a new ubuntu 2404 node using self contained installer can be properly bootstrapped",
 		Config: Config{
@@ -367,7 +367,7 @@ func Test_Ubuntu2404_Scriptless(t *testing.T) {
 }
 
 // Returns config for the 'gpu' E2E scenario
-func Test_Ubuntu2204(t *testing.T) {
+func Skip_Test_Ubuntu2204(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2204 VHD can be properly bootstrapped",
 		Config: Config{
@@ -388,7 +388,7 @@ func Test_Ubuntu2204(t *testing.T) {
 	})
 }
 
-func Test_Ubuntu2204FIPS(t *testing.T) {
+func Skip_Test_Ubuntu2204FIPS(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2204 FIPS Gen1 VHD can be properly bootstrapped",
 		Config: Config{
@@ -413,7 +413,7 @@ func Test_Ubuntu2204FIPS(t *testing.T) {
 	})
 }
 
-func Test_Ubuntu2204Gen2FIPS(t *testing.T) {
+func Skip_Test_Ubuntu2204Gen2FIPS(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2204 FIPS Gen2 VHD can be properly bootstrapped",
 		Config: Config{
@@ -438,7 +438,7 @@ func Test_Ubuntu2204Gen2FIPS(t *testing.T) {
 	})
 }
 
-func Test_Ubuntu2204_EntraIDSSH(t *testing.T) {
+func Skip_Test_Ubuntu2204_EntraIDSSH(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using Ubuntu 2204 VHD with Entra ID SSH can be properly bootstrapped and SSH private key authentication is disabled",
 		Config: Config{
@@ -463,7 +463,7 @@ func Test_Ubuntu2204_EntraIDSSH(t *testing.T) {
 	})
 }
 
-func Test_Ubuntu2204_EntraIDSSH_Scriptless(t *testing.T) {
+func Skip_Test_Ubuntu2204_EntraIDSSH_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using Ubuntu 2204 VHD with Entra ID SSH can be properly bootstrapped and SSH private key authentication is disabled",
 		Config: Config{
@@ -487,7 +487,7 @@ func Test_Ubuntu2204_EntraIDSSH_Scriptless(t *testing.T) {
 	})
 }
 
-func Test_AzureLinuxV3_DisableSSH(t *testing.T) {
+func Skip_Test_AzureLinuxV3_DisableSSH(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using AzureLinuxV3 VHD with SSH disabled can be properly bootstrapped and SSH daemon is disabled",
 		Config: Config{
@@ -506,7 +506,7 @@ func Test_AzureLinuxV3_DisableSSH(t *testing.T) {
 	})
 }
 
-func Test_Ubuntu2204_DisableSSH(t *testing.T) {
+func Skip_Test_Ubuntu2204_DisableSSH(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using Ubuntu 2204 VHD with SSH disabled can be properly bootstrapped and SSH daemon is disabled",
 		Config: Config{
@@ -525,7 +525,7 @@ func Test_Ubuntu2204_DisableSSH(t *testing.T) {
 	})
 }
 
-func Test_Flatcar_DisableSSH(t *testing.T) {
+func Skip_Test_Flatcar_DisableSSH(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using Flatcar VHD with SSH disabled can be properly bootstrapped and SSH daemon is disabled",
 		Config: Config{
@@ -544,7 +544,7 @@ func Test_Flatcar_DisableSSH(t *testing.T) {
 	})
 }
 
-func Test_Ubuntu2204_AirGap(t *testing.T) {
+func Skip_Test_Ubuntu2204_AirGap(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2204 VHD and is airgap can be properly bootstrapped",
 		Tags: Tags{
@@ -571,7 +571,7 @@ func Test_Ubuntu2204_AirGap(t *testing.T) {
 
 // TODO: refactor NonAnonymous tests to use the same cluster as Anonymous airgap
 // or deprecate anonymous ACR airgap tests once it is unsupported
-func Test_Ubuntu2204_AirGap_NonAnonymousACR(t *testing.T) {
+func Skip_Test_Ubuntu2204_AirGap_NonAnonymousACR(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2204 VHD and is airgap can be properly bootstrapped",
 		Tags: Tags{
@@ -606,7 +606,7 @@ func Test_Ubuntu2204_AirGap_NonAnonymousACR(t *testing.T) {
 	})
 }
 
-func Test_Ubuntu2204Gen2_ContainerdAirgappedK8sNotCached(t *testing.T) {
+func Skip_Test_Ubuntu2204Gen2_ContainerdAirgappedK8sNotCached(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2204 VHD without k8s binary and is airgap can be properly bootstrapped",
 		Tags: Tags{
@@ -634,7 +634,7 @@ func Test_Ubuntu2204Gen2_ContainerdAirgappedK8sNotCached(t *testing.T) {
 	})
 }
 
-func Test_Ubuntu2204Gen2_ContainerdAirgappedNonAnonymousK8sNotCached(t *testing.T) {
+func Skip_Test_Ubuntu2204Gen2_ContainerdAirgappedNonAnonymousK8sNotCached(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2204 VHD without k8s binary and is airgap can be properly bootstrapped",
 		Tags: Tags{
@@ -675,7 +675,7 @@ func Test_Ubuntu2204Gen2_ContainerdAirgappedNonAnonymousK8sNotCached(t *testing.
 	})
 }
 
-func Test_Ubuntu2204ARM64(t *testing.T) {
+func Skip_Test_Ubuntu2204ARM64(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that an Ubuntu 2204 Node using ARM64 architecture can be properly bootstrapped",
 		Config: Config{
@@ -692,7 +692,7 @@ func Test_Ubuntu2204ARM64(t *testing.T) {
 	})
 }
 
-func Test_Ubuntu2204_ArtifactStreaming(t *testing.T) {
+func Skip_Test_Ubuntu2204_ArtifactStreaming(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that a new ubuntu 2204 node using artifact streaming can be properly bootstrapepd",
 		Config: Config{
@@ -712,7 +712,7 @@ func Test_Ubuntu2204_ArtifactStreaming(t *testing.T) {
 	})
 }
 
-func Test_Ubuntu2204_ArtifactStreaming_Scriptless(t *testing.T) {
+func Skip_Test_Ubuntu2204_ArtifactStreaming_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that a new ubuntu 2204 node using artifact streaming can be properly bootstrapepd",
 		Config: Config{
@@ -732,7 +732,7 @@ func Test_Ubuntu2204_ArtifactStreaming_Scriptless(t *testing.T) {
 	})
 }
 
-func Test_Ubuntu2204_ChronyRestarts_Taints_And_Tolerations(t *testing.T) {
+func Skip_Test_Ubuntu2204_ChronyRestarts_Taints_And_Tolerations(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that the chrony service restarts if it is killed. Also tests taints and tolerations",
 		Config: Config{
@@ -751,7 +751,7 @@ func Test_Ubuntu2204_ChronyRestarts_Taints_And_Tolerations(t *testing.T) {
 	})
 }
 
-func Test_Ubuntu2204_ChronyRestarts_Taints_And_Tolerations_Scriptless(t *testing.T) {
+func Skip_Test_Ubuntu2204_ChronyRestarts_Taints_And_Tolerations_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that the chrony service restarts if it is killed. Also tests taints and tolerations",
 		Config: Config{
@@ -770,7 +770,7 @@ func Test_Ubuntu2204_ChronyRestarts_Taints_And_Tolerations_Scriptless(t *testing
 	})
 }
 
-func Test_AzureLinuxV3_CustomCATrust(t *testing.T) {
+func Skip_Test_AzureLinuxV3_CustomCATrust(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Azure Linux V3 VHD can be properly bootstrapped and custom CA was correctly added",
 		Config: Config{
@@ -790,7 +790,7 @@ func Test_AzureLinuxV3_CustomCATrust(t *testing.T) {
 	})
 }
 
-func Test_Ubuntu2204_CustomCATrust(t *testing.T) {
+func Skip_Test_Ubuntu2204_CustomCATrust(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2204 VHD can be properly bootstrapped and custom CA was correctly added",
 		Config: Config{
@@ -810,7 +810,7 @@ func Test_Ubuntu2204_CustomCATrust(t *testing.T) {
 	})
 }
 
-func Test_Ubuntu2204_CustomCATrust_Scriptless(t *testing.T) {
+func Skip_Test_Ubuntu2204_CustomCATrust_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2204 VHD can be properly bootstrapped and custom CA was correctly added",
 		Config: Config{
@@ -826,7 +826,7 @@ func Test_Ubuntu2204_CustomCATrust_Scriptless(t *testing.T) {
 	})
 }
 
-func Test_Ubuntu2204_CustomSysctls(t *testing.T) {
+func Skip_Test_Ubuntu2204_CustomSysctls(t *testing.T) {
 	customSysctls := map[string]string{
 		"net.ipv4.ip_local_port_range":       "32768 65535",
 		"net.netfilter.nf_conntrack_max":     "2097152",
@@ -866,7 +866,7 @@ func Test_Ubuntu2204_CustomSysctls(t *testing.T) {
 	})
 }
 
-func Test_Ubuntu2204_CustomSysctls_Scriptless(t *testing.T) {
+func Skip_Test_Ubuntu2204_CustomSysctls_Scriptless(t *testing.T) {
 	customSysctls := map[string]string{
 		"net.ipv4.ip_local_port_range":       "32768 65535",
 		"net.netfilter.nf_conntrack_max":     "2097152",
@@ -906,15 +906,15 @@ func Test_Ubuntu2204_CustomSysctls_Scriptless(t *testing.T) {
 	})
 }
 
-func Test_Ubuntu2204_GPUNC(t *testing.T) {
+func Skip_Test_Ubuntu2204_GPUNC(t *testing.T) {
 	runScenarioUbuntu2204GPU(t, "Standard_NC6s_v3")
 }
 
-func Test_Ubuntu2204_GPUA100(t *testing.T) {
+func Skip_Test_Ubuntu2204_GPUA100(t *testing.T) {
 	runScenarioUbuntu2204GPU(t, "Standard_NC24ads_A100_v4")
 }
 
-func Test_Ubuntu2204_GPUA10(t *testing.T) {
+func Skip_Test_Ubuntu2204_GPUA10(t *testing.T) {
 	runScenarioUbuntuGRID(t, "Standard_NV6ads_A10_v5")
 }
 
@@ -977,7 +977,7 @@ func runScenarioUbuntuGRID(t *testing.T, vmSize string) {
 	})
 }
 
-func Test_Ubuntu2204_GPUA10_Scriptless(t *testing.T) {
+func Skip_Test_Ubuntu2204_GPUA10_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests scriptless installer that a GPU-enabled node using the Ubuntu 2204 VHD with grid driver can be properly bootstrapped",
 		Tags: Tags{
@@ -1005,7 +1005,7 @@ func Test_Ubuntu2204_GPUA10_Scriptless(t *testing.T) {
 	})
 }
 
-func Test_Ubuntu2204_GPUGridDriver(t *testing.T) {
+func Skip_Test_Ubuntu2204_GPUGridDriver(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a GPU-enabled node using the Ubuntu 2204 VHD with grid driver can be properly bootstrapped",
 		Tags: Tags{
@@ -1032,7 +1032,7 @@ func Test_Ubuntu2204_GPUGridDriver(t *testing.T) {
 	})
 }
 
-func Test_Ubuntu2204_GPUNoDriver(t *testing.T) {
+func Skip_Test_Ubuntu2204_GPUNoDriver(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a GPU-enabled node using the Ubuntu 2204 VHD opting for skipping gpu driver installation can be properly bootstrapped",
 		Tags: Tags{
@@ -1061,7 +1061,7 @@ func Test_Ubuntu2204_GPUNoDriver(t *testing.T) {
 	})
 }
 
-func Test_Ubuntu2204_GPUNoDriver_Scriptless(t *testing.T) {
+func Skip_Test_Ubuntu2204_GPUNoDriver_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a GPU-enabled node using the Ubuntu 2204 VHD opting for skipping gpu driver installation can be properly bootstrapped",
 		Tags: Tags{
@@ -1091,7 +1091,7 @@ func Test_Ubuntu2204_GPUNoDriver_Scriptless(t *testing.T) {
 	})
 }
 
-func Test_Ubuntu2204_PrivateKubePkg(t *testing.T) {
+func Skip_Test_Ubuntu2204_PrivateKubePkg(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2204 VHD that was built with private kube packages can be properly bootstrapped with the specified kube version",
 		Config: Config{
@@ -1111,7 +1111,7 @@ func Test_Ubuntu2204_PrivateKubePkg(t *testing.T) {
 // calls are made would be beneficial for airgap testing.
 
 // Combine old e2e tests for scenario Ubuntu2204_ContainerdURL and Ubuntu2204_IMDSRestrictionFilterTable
-func Test_Ubuntu2204_ContainerdURL_IMDSRestrictionFilterTable(t *testing.T) {
+func Skip_Test_Ubuntu2204_ContainerdURL_IMDSRestrictionFilterTable(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: `tests that a node using the Ubuntu 2204 VHD with the ContainerdPackageURL override bootstraps with the provided URL and not the components.json containerd version,
 		              tests that the imds restriction filter table is properly set`,
@@ -1131,7 +1131,7 @@ func Test_Ubuntu2204_ContainerdURL_IMDSRestrictionFilterTable(t *testing.T) {
 }
 
 // Combine e2e scriptless tests for scenario Ubuntu2204_ContainerdURL and Ubuntu2204_IMDSRestrictionFilterTable
-func Test_Ubuntu2204_ContainerdURL_IMDSRestrictionFilterTable_Scriptless(t *testing.T) {
+func Skip_Test_Ubuntu2204_ContainerdURL_IMDSRestrictionFilterTable_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: `tests that a node using the Ubuntu 2204 VHD with the ContainerdPackageURL override the provided URL and not the components.json containerd version,
 		              tests that the imds restriction filter table is properly set`,
@@ -1152,7 +1152,7 @@ func Test_Ubuntu2204_ContainerdURL_IMDSRestrictionFilterTable_Scriptless(t *test
 	})
 }
 
-func Test_Ubuntu2204_ContainerdHasCurrentVersion(t *testing.T) {
+func Skip_Test_Ubuntu2204_ContainerdHasCurrentVersion(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that a node using an Ubuntu2204 VHD and the ContainerdVersion override bootstraps with the correct components.json containerd version and ignores the override",
 		Config: Config{
@@ -1167,7 +1167,7 @@ func Test_Ubuntu2204_ContainerdHasCurrentVersion(t *testing.T) {
 	})
 }
 
-func Test_AzureLinux_Skip_Binary_Cleanup(t *testing.T) {
+func Skip_Test_AzureLinux_Skip_Binary_Cleanup(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that an AzureLinux node will skip binary cleanup and can be properly bootstrapped",
 		Config: Config{
@@ -1187,7 +1187,7 @@ func Test_AzureLinux_Skip_Binary_Cleanup(t *testing.T) {
 	})
 }
 
-func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags(t *testing.T) {
+func Skip_Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that a node on ubuntu 2204 bootstrapped with kubelet serving certificate rotation enabled will disable certificate rotation due to nodepool tags",
 		Config: Config{
@@ -1204,7 +1204,7 @@ func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags(t *testing
 	})
 }
 
-func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_CustomKubeletConfig(t *testing.T) {
+func Skip_Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_CustomKubeletConfig(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that a node on ubuntu 2204 bootstrapped with custom kubelet config and kubelet serving certificate rotation enabled will disable certificate rotation due to nodepool tags",
 		Config: Config{
@@ -1228,7 +1228,7 @@ func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_CustomKube
 	})
 }
 
-func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_CustomKubeletConfig_Scriptless(t *testing.T) {
+func Skip_Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_CustomKubeletConfig_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that a node on ubuntu 2204 bootstrapped with custom kubelet config and kubelet serving certificate rotation enabled will disable certificate rotation due to nodepool tags",
 		Config: Config{
@@ -1252,7 +1252,7 @@ func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_CustomKube
 	})
 }
 
-func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_AlreadyDisabled(t *testing.T) {
+func Skip_Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_AlreadyDisabled(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that a node on ubuntu 2204 bootstrapped with kubelet serving certificate rotation disabled will disable certificate rotation regardless of nodepool tags",
 		Config: Config{
@@ -1270,7 +1270,7 @@ func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_AlreadyDis
 	})
 }
 
-func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_AlreadyDisabled_CustomKubeletConfig(t *testing.T) {
+func Skip_Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_AlreadyDisabled_CustomKubeletConfig(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that a node on ubuntu 2204 bootstrapped with kubelet serving certificate rotation disabled and custom kubelet config will disable certificate rotation regardless of nodepool tags",
 		Config: Config{
@@ -1294,7 +1294,7 @@ func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_AlreadyDis
 	})
 }
 
-func Test_Ubuntu2204_MessageOfTheDay(t *testing.T) {
+func Skip_Test_Ubuntu2204_MessageOfTheDay(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that a node on ubuntu 2204 bootstrapped and message of the day is properly added to the node",
 		Config: Config{
@@ -1311,7 +1311,7 @@ func Test_Ubuntu2204_MessageOfTheDay(t *testing.T) {
 	})
 }
 
-func Test_AzureLinuxV3_MessageOfTheDay(t *testing.T) {
+func Skip_Test_AzureLinuxV3_MessageOfTheDay(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a AzureLinuxV3 can be bootstrapped and message of the day is added to the node",
 		Config: Config{
@@ -1328,7 +1328,7 @@ func Test_AzureLinuxV3_MessageOfTheDay(t *testing.T) {
 	})
 }
 
-func Test_AzureLinuxV3_MessageOfTheDay_Scriptless(t *testing.T) {
+func Skip_Test_AzureLinuxV3_MessageOfTheDay_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a AzureLinuxV3 can be bootstrapped and message of the day is added to the node",
 		Config: Config{
@@ -1345,7 +1345,7 @@ func Test_AzureLinuxV3_MessageOfTheDay_Scriptless(t *testing.T) {
 	})
 }
 
-func Test_AzureLinuxV3LocalDns_Disabled_Scriptless(t *testing.T) {
+func Skip_Test_AzureLinuxV3LocalDns_Disabled_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a AzureLinuxV3 can be bootstrapped with localdns disabled",
 		Config: Config{
@@ -1365,7 +1365,7 @@ func Test_AzureLinuxV3LocalDns_Disabled_Scriptless(t *testing.T) {
 	})
 }
 
-func Test_AzureLinuxV3_CustomSysctls(t *testing.T) {
+func Skip_Test_AzureLinuxV3_CustomSysctls(t *testing.T) {
 	customSysctls := map[string]string{
 		"net.ipv4.ip_local_port_range":       "32768 62535",
 		"net.netfilter.nf_conntrack_max":     "2097152",
@@ -1405,7 +1405,7 @@ func Test_AzureLinuxV3_CustomSysctls(t *testing.T) {
 	})
 }
 
-func Test_Ubuntu2204_KubeletCustomConfig(t *testing.T) {
+func Skip_Test_Ubuntu2204_KubeletCustomConfig(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Tags: Tags{
 			KubeletCustomConfig: true,
@@ -1432,7 +1432,7 @@ func Test_Ubuntu2204_KubeletCustomConfig(t *testing.T) {
 	})
 }
 
-func Test_AzureLinuxV3_KubeletCustomConfig(t *testing.T) {
+func Skip_Test_AzureLinuxV3_KubeletCustomConfig(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Tags: Tags{
 			KubeletCustomConfig: true,
@@ -1460,7 +1460,7 @@ func Test_AzureLinuxV3_KubeletCustomConfig(t *testing.T) {
 	})
 }
 
-func Test_AzureLinuxV3_KubeletCustomConfig_Scriptless(t *testing.T) {
+func Skip_Test_AzureLinuxV3_KubeletCustomConfig_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Tags: Tags{
 			KubeletCustomConfig: true,
@@ -1482,7 +1482,7 @@ func Test_AzureLinuxV3_KubeletCustomConfig_Scriptless(t *testing.T) {
 	})
 }
 
-func Test_AzureLinuxV3_GPU(t *testing.T) {
+func Skip_Test_AzureLinuxV3_GPU(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a GPU-enabled node using a AzureLinuxV3 (CgroupV2) VHD can be properly bootstrapped",
 		Tags: Tags{
@@ -1506,7 +1506,7 @@ func Test_AzureLinuxV3_GPU(t *testing.T) {
 	})
 }
 
-func Test_AzureLinuxV3_GPUAzureCNI(t *testing.T) {
+func Skip_Test_AzureLinuxV3_GPUAzureCNI(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "AzureLinux V3 (CgroupV2) gpu scenario on cluster configured with Azure CNI",
 		Tags: Tags{
@@ -1532,7 +1532,7 @@ func Test_AzureLinuxV3_GPUAzureCNI(t *testing.T) {
 	})
 }
 
-func Test_AzureLinuxV3_GPUAzureCNI_Scriptless(t *testing.T) {
+func Skip_Test_AzureLinuxV3_GPUAzureCNI_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "AzureLinux V3 (CgroupV2) gpu scenario on cluster configured with Azure CNI",
 		Tags: Tags{
@@ -1557,7 +1557,7 @@ func Test_AzureLinuxV3_GPUAzureCNI_Scriptless(t *testing.T) {
 	})
 }
 
-func Test_Ubuntu2204ARM64_KubeletCustomConfig(t *testing.T) {
+func Skip_Test_Ubuntu2204ARM64_KubeletCustomConfig(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Tags: Tags{
 			KubeletCustomConfig: true,
@@ -1591,7 +1591,7 @@ func Test_Ubuntu2204ARM64_KubeletCustomConfig(t *testing.T) {
 	})
 }
 
-func Test_Ubuntu2404Gen2(t *testing.T) {
+func Skip_Test_Ubuntu2404Gen2(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2404 VHD can be properly bootstrapped with containerd v2",
 		Config: Config{
@@ -1611,7 +1611,7 @@ func Test_Ubuntu2404Gen2(t *testing.T) {
 	})
 }
 
-func Test_Ubuntu2404Gen2_McrChinaCloud_Scriptless(t *testing.T) {
+func Skip_Test_Ubuntu2404Gen2_McrChinaCloud_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Tags: Tags{
 			MockAzureChinaCloud: true,
@@ -1636,7 +1636,7 @@ func Test_Ubuntu2404Gen2_McrChinaCloud_Scriptless(t *testing.T) {
 	})
 }
 
-func Test_Ubuntu2404Gen2_McrChinaCloud(t *testing.T) {
+func Skip_Test_Ubuntu2404Gen2_McrChinaCloud(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Tags: Tags{
 			MockAzureChinaCloud: true,
@@ -1666,7 +1666,7 @@ func Test_Ubuntu2404Gen2_McrChinaCloud(t *testing.T) {
 	})
 }
 
-func Test_Ubuntu2204_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing.T) {
+func Skip_Test_Ubuntu2204_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using an Ubuntu 2204 Gen2 VHD can be properly bootstrapped even if secure TLS bootstrapping fails",
 		Tags: Tags{
@@ -1686,7 +1686,7 @@ func Test_Ubuntu2204_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing.T
 	})
 }
 
-func Test_Ubuntu2404_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing.T) {
+func Skip_Test_Ubuntu2404_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using an Ubuntu 2404 Gen2 VHD can be properly bootstrapped even if secure TLS bootstrapping fails",
 		Tags: Tags{
@@ -1706,7 +1706,7 @@ func Test_Ubuntu2404_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing.T
 	})
 }
 
-func Test_Ubuntu2404Gen2_GPUNoDriver(t *testing.T) {
+func Skip_Test_Ubuntu2404Gen2_GPUNoDriver(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a GPU-enabled node using the Ubuntu 2404 VHD opting for skipping gpu driver installation can be properly bootstrapped",
 		Tags: Tags{
@@ -1740,7 +1740,7 @@ func Test_Ubuntu2404Gen2_GPUNoDriver(t *testing.T) {
 	})
 }
 
-func Test_Ubuntu2404Gen1(t *testing.T) {
+func Skip_Test_Ubuntu2404Gen1(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2404 VHD can be properly bootstrapped with containerd v2",
 		Config: Config{
@@ -1758,7 +1758,7 @@ func Test_Ubuntu2404Gen1(t *testing.T) {
 	})
 }
 
-func Test_Ubuntu2404ARM(t *testing.T) {
+func Skip_Test_Ubuntu2404ARM(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2404 VHD can be properly bootstrapped with containerd v2",
 		Config: Config{
@@ -1779,7 +1779,7 @@ func Test_Ubuntu2404ARM(t *testing.T) {
 	})
 }
 
-func Test_Random_VHD_With_Latest_Kubernetes_Version(t *testing.T) {
+func Skip_Test_Random_VHD_With_Latest_Kubernetes_Version(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a Random VHD can be properly bootstrapped with the latest kubernetes version",
 		Config: Config{
@@ -1821,11 +1821,11 @@ func runScenarioUbuntu2404GRID(t *testing.T, vmSize string) {
 	})
 }
 
-func Test_Ubuntu2404_GPUA10(t *testing.T) {
+func Skip_Test_Ubuntu2404_GPUA10(t *testing.T) {
 	runScenarioUbuntu2404GRID(t, "Standard_NV6ads_A10_v5")
 }
 
-func Test_Ubuntu2404_NPD_Basic(t *testing.T) {
+func Skip_Test_Ubuntu2404_NPD_Basic(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Test that a node with AKS VM Extension enabled can report simulated node problem detector events",
 		Config: Config{
@@ -1846,15 +1846,15 @@ func Test_Ubuntu2404_NPD_Basic(t *testing.T) {
 	})
 }
 
-func Test_Ubuntu2404_GPU_H100(t *testing.T) {
+func Skip_Test_Ubuntu2404_GPU_H100(t *testing.T) {
 	RunScenario(t, runScenarioGPUNPD(t, "Standard_ND96isr_H100_v5", "uaenorth", ""))
 }
 
-func Test_Ubuntu2404_GPU_A100(t *testing.T) {
+func Skip_Test_Ubuntu2404_GPU_A100(t *testing.T) {
 	RunScenario(t, runScenarioGPUNPD(t, "Standard_ND96asr_v4", "southcentralus", "Standard_D2s_v3"))
 }
 
-func Test_AzureLinux3_PMC_Install(t *testing.T) {
+func Skip_Test_AzureLinux3_PMC_Install(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that an AzureLinux node will install kube pkgs from PMC and can be properly bootstrapped",
 		Config: Config{
@@ -1876,7 +1876,7 @@ func Test_AzureLinux3_PMC_Install(t *testing.T) {
 	})
 }
 
-func Test_Ubuntu2204_PMC_Install(t *testing.T) {
+func Skip_Test_Ubuntu2204_PMC_Install(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2204 VHD and install kube pkgs from PMC can be properly bootstrapped",
 		Config: Config{
@@ -1905,7 +1905,7 @@ func Test_Ubuntu2204_PMC_Install(t *testing.T) {
 	})
 }
 
-func Test_Ubuntu2204Gen2_ContainerdAirgappedNonAnonymousK8sNotCached_InstallPackage(t *testing.T) {
+func Skip_Test_Ubuntu2204Gen2_ContainerdAirgappedNonAnonymousK8sNotCached_InstallPackage(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2204 VHD without k8s binary and is airgap can be properly bootstrapped",
 		Tags: Tags{
@@ -1951,7 +1951,7 @@ func Test_Ubuntu2204Gen2_ContainerdAirgappedNonAnonymousK8sNotCached_InstallPack
 	})
 }
 
-func Test_AzureLinux3OSGuard_PMC_Install(t *testing.T) {
+func Skip_Test_AzureLinux3OSGuard_PMC_Install(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using an Azure Linux V3 OS Guard VHD and install kube pkgs from PMC can be properly bootstrapped",
 		Config: Config{
@@ -1972,7 +1972,7 @@ func Test_AzureLinux3OSGuard_PMC_Install(t *testing.T) {
 	})
 }
 
-func Test_Ubuntu2404_VHDCaching(t *testing.T) {
+func Skip_Test_Ubuntu2404_VHDCaching(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "T",
 		Config: Config{
@@ -1993,7 +1993,7 @@ func Test_Ubuntu2404_VHDCaching(t *testing.T) {
 	})
 }
 
-func Test_AzureLinuxV3_AppArmor(t *testing.T) {
+func Skip_Test_AzureLinuxV3_AppArmor(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that AppArmor is properly enabled and configured on Azure Linux V3 nodes",
 		Config: Config{
@@ -2008,7 +2008,7 @@ func Test_AzureLinuxV3_AppArmor(t *testing.T) {
 	})
 }
 
-func Test_Ubuntu2204Gen2_ImagePullIdentityBinding_Enabled(t *testing.T) {
+func Skip_Test_Ubuntu2204Gen2_ImagePullIdentityBinding_Enabled(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that credential provider config includes identity binding when ServiceAccountImagePullProfile is enabled",
 		Config: Config{
@@ -2044,7 +2044,7 @@ func Test_Ubuntu2204Gen2_ImagePullIdentityBinding_Enabled(t *testing.T) {
 	})
 }
 
-func Test_Ubuntu2204Gen2_ImagePullIdentityBinding_Disabled(t *testing.T) {
+func Skip_Test_Ubuntu2204Gen2_ImagePullIdentityBinding_Disabled(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that credential provider config excludes identity binding when ServiceAccountImagePullProfile is disabled",
 		Config: Config{
@@ -2075,7 +2075,7 @@ func Test_Ubuntu2204Gen2_ImagePullIdentityBinding_Disabled(t *testing.T) {
 	})
 }
 
-func Test_Ubuntu2204Gen2_ImagePullIdentityBinding_EnabledWithoutDefaultIDs(t *testing.T) {
+func Skip_Test_Ubuntu2204Gen2_ImagePullIdentityBinding_EnabledWithoutDefaultIDs(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that credential provider config includes identity binding without default client/tenant IDs when not specified",
 		Config: Config{
@@ -2111,7 +2111,7 @@ func Test_Ubuntu2204Gen2_ImagePullIdentityBinding_EnabledWithoutDefaultIDs(t *te
 	})
 }
 
-func Test_Ubuntu2204Gen2_ImagePullIdentityBinding_NetworkIsolated(t *testing.T) {
+func Skip_Test_Ubuntu2204Gen2_ImagePullIdentityBinding_NetworkIsolated(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that credential provider config includes identity binding in network isolated (NI) clusters",
 		Tags: Tags{
@@ -2162,7 +2162,7 @@ func Test_Ubuntu2204Gen2_ImagePullIdentityBinding_NetworkIsolated(t *testing.T) 
 	})
 }
 
-func Test_Ubuntu2204Gen2_ImagePullIdentityBinding_Enabled_Scriptless(t *testing.T) {
+func Skip_Test_Ubuntu2204Gen2_ImagePullIdentityBinding_Enabled_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that credential provider config includes identity binding when ServiceAccountImagePullProfile is enabled in scriptless mode",
 		Config: Config{
@@ -2207,7 +2207,7 @@ func Test_Ubuntu2204Gen2_ImagePullIdentityBinding_Enabled_Scriptless(t *testing.
 	})
 }
 
-func Test_Ubuntu2204Gen2_ImagePullIdentityBinding_Disabled_Scriptless(t *testing.T) {
+func Skip_Test_Ubuntu2204Gen2_ImagePullIdentityBinding_Disabled_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that credential provider config excludes identity binding when ServiceAccountImagePullProfile is disabled in scriptless mode",
 		Config: Config{

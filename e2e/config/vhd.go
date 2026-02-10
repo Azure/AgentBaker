@@ -104,6 +104,7 @@ var (
 		Arch:    "amd64",
 		Distro:  datamodel.AKSAzureLinuxV3Gen2,
 		Gallery: imageGalleryLinux,
+		Version: "1.1770682714.31505",
 	}
 	VHDAzureLinux3OSGuard = &Image{
 		Name:                "AzureLinuxOSGuardOSGuardV3gen2fipsTL",
