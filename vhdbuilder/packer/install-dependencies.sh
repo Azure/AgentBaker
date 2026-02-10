@@ -456,8 +456,8 @@ while IFS= read -r p; do
       done
       ;;
     "walinuxagent")
-      if isFlatcar "$OS"; then
-        echo "  - walinuxagent installation skipped on Flatcar; using image-provided version" >> ${VHD_LOGS_FILEPATH}
+      if isFlatcar "$OS" || isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
+        echo "  - walinuxagent installation skipped on ${OS}; using image-provided version" >> ${VHD_LOGS_FILEPATH}
       else
         # walinuxagent is installed from source in pre-install-dependencies.sh, nothing to do here
         echo "  - walinuxagent already installed in pre-install-dependencies" >> ${VHD_LOGS_FILEPATH}

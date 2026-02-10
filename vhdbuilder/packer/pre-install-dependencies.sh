@@ -75,12 +75,6 @@ if ! isFlatcar "$OS"; then
     WAAGENT_VERSION=$(echo "$walinuxagentPackage" | jq -r '.downloadURIs.default.current.versionsV2[0].latestVersion // empty')
     if [ -n "$WAAGENT_VERSION" ] && [ "$WAAGENT_VERSION" != "null" ]; then
       echo "Installing WALinuxAgent version ${WAAGENT_VERSION} from GitHub..."
-      # Remove the OS-packaged walinuxagent to prevent dnf_update from overwriting the source install.
-      # --noautoremove keeps dependencies (e.g. python3) that other packages need.
-      if isMarinerOrAzureLinux "$OS"; then
-        echo "Removing OS-packaged WALinuxAgent RPM before source install..."
-        dnf remove -y WALinuxAgent --noautoremove || true
-      fi
       WAAGENT_DOWNLOAD_URL_TEMPLATE=$(echo "$walinuxagentPackage" | jq -r '.downloadURIs.default.current.downloadURL // empty')
       WAAGENT_DOWNLOAD_URL="${WAAGENT_DOWNLOAD_URL_TEMPLATE//\$\{version\}/${WAAGENT_VERSION}}"
       mkdir -p "${WAAGENT_DOWNLOADS_DIR}"
@@ -91,7 +85,9 @@ if ! isFlatcar "$OS"; then
       if ! tar -xzf "${WAAGENT_TARBALL}" -C "${WAAGENT_DOWNLOADS_DIR}"; then
         exit 1
       fi
-      WAAGENT_EXTRACT_DIR="${WAAGENT_DOWNLOADS_DIR}/WALinuxAgent-${WAAGENT_VERSION}"
+      WAAGENT_EXTRACT_DIR="${WAAGENT_DOWNLOADS_DIR}/WALinuxAgent-v${WAAGENT_VERSION}"
+      # Preserve the OS image's waagent.conf to avoid overwriting it with the GitHub default
+      cp /etc/waagent.conf /etc/waagent.conf.bak
       if ! pushd "${WAAGENT_EXTRACT_DIR}" > /dev/null; then
         exit 1
       fi
@@ -100,6 +96,8 @@ if ! isFlatcar "$OS"; then
         exit 1
       fi
       popd > /dev/null || exit 1
+      # Restore the original waagent.conf from the OS image
+      mv /etc/waagent.conf.bak /etc/waagent.conf
       rm -rf "${WAAGENT_DOWNLOADS_DIR}"
       # Restart waagent service depending on the name of the service file, which varies
       systemctl daemon-reload

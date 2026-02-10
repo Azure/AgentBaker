@@ -921,9 +921,9 @@ testKubeBinariesPresent() {
 testWaagentInstalled() {
   local test="testWaagentInstalled"
   echo "$test:Start"
-  # walinuxagent is not installed from source on Flatcar
-  if [ "$OS_SKU" = "Flatcar" ]; then
-    echo "$test: Skipping for Flatcar as waagent is not installed from source"
+  # walinuxagent is not installed from source on Flatcar or OS Guard
+  if [ "$OS_SKU" = "Flatcar" ] || [ "$OS_SKU" = "AzureLinuxOSGuard" ]; then
+    echo "$test: Skipping for ${OS_SKU} as waagent is not installed from source"
     echo "$test:Finish"
     return
   fi
