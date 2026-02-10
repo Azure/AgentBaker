@@ -8,8 +8,8 @@
         {
           "comment": "Windows 2019 servercore. Should have latest version and latest version -1",
           "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore",
-          "latestVersion": "10.0.17763.8276",
-          "previousLatestVersion": "10.0.17763.8146",
+          "latestVersion": "10.0.17763.8389",
+          "previousLatestVersion": "10.0.17763.8276",
           "windowsSkuMatch": "2019-containerd"
         },
         {
@@ -21,8 +21,8 @@
         {
           "comment": "Windows 2022 servercore. Should have latest version and latest version -1",
           "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore",
-          "latestVersion": "10.0.20348.4648",
-          "previousLatestVersion": "10.0.20348.4529",
+          "latestVersion": "10.0.20348.4773",
+          "previousLatestVersion": "10.0.20348.4648",
           "windowsSkuMatch": "2022-containerd*"
         },
         {
@@ -34,8 +34,8 @@
         {
           "comment": "Windows 2022 servercore. Should have latest version and latest version -1",
           "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore",
-          "latestVersion": "10.0.20348.4648",
-          "previousLatestVersion": "10.0.20348.4529",
+          "latestVersion": "10.0.20348.4773",
+          "previousLatestVersion": "10.0.20348.4648",
           "windowsSkuMatch": "23H2*"
         },
         {
@@ -47,8 +47,8 @@
         {
           "comment": "Windows 2022 servercore for Windows 2025. Should have latest version and latest version -1",
           "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore",
-          "latestVersion": "10.0.20348.4648",
-          "previousLatestVersion": "10.0.20348.4529",
+          "latestVersion": "10.0.20348.4773",
+          "previousLatestVersion": "10.0.20348.4648",
           "windowsSkuMatch": "2025*"
         },
         {
@@ -60,8 +60,8 @@
         {
           "comment": "Windows 2025 servercore for windows 2025. Should have latest version and latest version -1",
           "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore",
-          "latestVersion": "10.0.26100.32230",
-          "previousLatestVersion": "10.0.26100.7462",
+          "latestVersion": "10.0.26100.32370",
+          "previousLatestVersion": "10.0.26100.32230",
           "windowsSkuMatch": "2025*"
         },
         {
