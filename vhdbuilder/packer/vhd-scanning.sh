@@ -258,6 +258,14 @@ isFlatcar() {
     fi
     return 1
 }
+isACL() {
+    local os="$1"
+
+    if [ "$os" = "ACL" ]; then
+        return 0
+    fi
+    return 1
+}
 isAzureLinuxOSGuard() {
     local os="$1"
 

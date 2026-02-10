@@ -819,6 +819,14 @@ isFlatcar() {
     return 1
 }
 
+isACL() {
+    local os=${1-$OS}
+    if [ "$os" = "$ACL_OS_NAME" ]; then
+        return 0
+    fi
+    return 1
+}
+
 evalPackageDownloadURL() {
     local url=${1:-}
     if [ -n "$url" ]; then
