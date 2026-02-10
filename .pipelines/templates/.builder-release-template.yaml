@@ -97,7 +97,7 @@ steps:
         make -f packer.mk run-packer
     condition: ne(variables['BUILDER'], 'imagecustomizer')
     displayName: Build VHD
-    retryCountOnTaskFailure: 3
+    retryCountOnTaskFailure: 1
     env:
       OS_TYPE: Linux
       GIT_VERSION: $(Build.SourceVersion)
