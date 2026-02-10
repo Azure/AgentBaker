@@ -1771,7 +1771,7 @@ func ValidateKernelLogs(ctx context.Context, s *Scenario) {
 		"IO/FS": {
 			pattern: `I/O error|read-only file system|EXT[2-4]-fs error|XFS (ERROR|corruption)|BTRFS (error|warning)|nvme .* (timeout|reset)|ata[0-9].*(failed|error|reset)|scsi.*(error|failed)`,
 			// sr0 is the virtual CD-ROM drive on Azure VMs. This error occurs when the VM tries to read from an empty virtual optical drive, which is normal and expected.
-			exclude: `sr[0-9]`,
+			exclude: `sr0`,
 		},
 	}
 
