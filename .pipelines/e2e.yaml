@@ -2,6 +2,8 @@ name: $(Date:yyyyMMdd)$(Rev:.r)
 variables:
   TAGS_TO_SKIP: "os=windows,gpu=true"
   SKIP_E2E_TESTS: false
+  VM_SIZE: $(VM_SIZE)
+  E2E_LOCATION: $(E2E_LOCATION)
 trigger:
   branches:
     include:

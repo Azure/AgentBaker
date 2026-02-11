@@ -40,6 +40,8 @@ TAGS_TO_RUN="${TAGS_TO_RUN:-}"
 E2E_GO_TEST_TIMEOUT="${E2E_GO_TEST_TIMEOUT:-90m}"
 GALLERY_NAME="${GALLERY_NAME:-}"
 SIG_GALLERY_NAME="${SIG_GALLERY_NAME:-}"
+DEFAULT_VM_SKU="${VM_SIZE:-}"
+
 
 # echo some variables so that we have a chance of debugging if things fail due to a pipeline issue
 echo "VHD_BUILD_ID: ${VHD_BUILD_ID}"
@@ -50,6 +52,7 @@ echo "TAGS_TO_SKIP: ${TAGS_TO_SKIP}"
 echo "TAGS_TO_RUN: ${TAGS_TO_RUN}"
 echo "GALLERY_NAME: ${GALLERY_NAME}"
 echo "SIG_GALLERY_NAME: ${SIG_GALLERY_NAME}"
+echo "DEFAULT_VM_SKU: ${DEFAULT_VM_SKU}"
 echo "E2E_GO_TEST_TIMEOUT: ${E2E_GO_TEST_TIMEOUT}"
 
 # set variables that the go program expects if we are running a specific build
