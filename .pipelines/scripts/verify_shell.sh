@@ -27,6 +27,12 @@ fi
 
 filesToCheck=$(find . -type f -name "*.sh" -not -path './pkg/agent/testdata/*' -not -path './vendor/*' -not -path './hack/tools/vendor/*' -not -path './.git/*' -not -path './hack/tools/bin/shellspecsrc/*' -not -path './spec/parts/linux/cloud-init/artifacts/*')
 
+# Known bash-only scripts that intentionally use bash specific syntax.
+BASH_ONLY_LIST=$(cat <<'EOF'
+./vhdbuilder/packer/install-ig.sh
+EOF
+)
+
 # also shell-check generated test data
 generatedTestData=$(find ./pkg/agent/testdata -type f -name "*.sh" )
 for file in $generatedTestData; do
@@ -42,6 +48,7 @@ echo
 echo
 echo "Will run shellcheck on:"
 echo "$filesToCheck"
+
 
 echo "Running shellcheck..."
 
@@ -87,7 +94,7 @@ SC2317
 "
 
 # Checking generic shell scripts regardless of the shell variant
-shellcheck $(printf -- "-e %s " $IGNORED) $filesToCheck
+shellcheck $(printf -- "-e %s " $IGNORED) $(printf '%s\n' $filesToCheck)
 
 # POSIX-Compliant checks
 # Checking SC3010 using [ ] instead of [[ ]] for POSIX compliance.
@@ -97,4 +104,11 @@ POSIX_CHECKS="
 SC3010
 SC3014
 "
-shellcheck "--shell=sh" $(printf -- "-i %s " $POSIX_CHECKS) $filesToCheck
+
+filesToCheckPosix=$(printf '%s\n' $filesToCheck | grep -v -F -f <(printf '%s\n' "${BASH_ONLY_LIST}") || true)
+
+if [ -n "${filesToCheckPosix}" ]; then
+    printf '%s\n' "${filesToCheckPosix}" | xargs shellcheck "--shell=sh" $(printf -- "-i %s " $POSIX_CHECKS)
+else
+    echo "No POSIX-only shell scripts to lint"
+fi

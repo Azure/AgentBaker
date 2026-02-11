@@ -29,6 +29,7 @@ source /home/packer/provision_source_benchmarks.sh
 source /home/packer/provision_source_distro.sh
 source /home/packer/tool_installs.sh
 source /home/packer/tool_installs_distro.sh
+source /home/packer/install-ig.sh
 
 CPU_ARCH=$(getCPUArch)  #amd64 or arm64
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
@@ -393,6 +394,15 @@ while IFS= read -r p; do
         echo "  - azure-acr-credential-provider version ${version}" >> ${VHD_LOGS_FILEPATH}
         # ORAS will be used to install other packages for network isolated clusters, it must go first.
       done
+      ;;
+    "inspektor-gadget")
+      if isMariner "$OS" || isFlatcar "$OS" || isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || [ "${IS_KATA}" = "true" ]; then
+        echo "Skipping inspektor-gadget installation for ${OS} ${OS_VARIANT:-default} (IS_KATA=${IS_KATA})"
+      else
+        ig_version="${PACKAGE_VERSIONS[0]}"
+        # installIG is defined in install-ig.sh
+        installIG "${p}" "${ig_version}" "${downloadDir}"
+      fi
       ;;
     "kubernetes-binaries")
       # kubelet and kubectl
